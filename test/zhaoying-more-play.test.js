@@ -5,9 +5,9 @@ const rd = f => fs.readFileSync(path.join(__dirname, "../js", f), "utf8");
 const core = rd("zhaoying-core.js"), ui = rd("zhaoying.js"), app = rd("app.js"), ts = rd("theme-studio.js");
 // 处境：一路带到提示词和记录
 assert.match(core, /function askInstruction\(test, meName, prev, scene, author\)/);
-assert.match(app, /const zhaoyingAsk = \(charId, testId, scene\) =>/);
+assert.match(app, /const zhaoyingAsk = \(charId, testId, scene, guess\) =>/);
 assert.match(app, /Z\.askInstruction\(test, userName\(profileFor\(charId\)\), Z\.recordsOf\(charId, testId\), scene, zyAuthor\(test, charId\)\)/);
-assert.match(app, /\.\.\.\(scene \? \{ scene \} : \{\}\) \}\);\n      patch\(\{ status: "done"/);
+assert.match(app, /\.\.\.\(scene \? \{ scene \} : \{\}\)[^\n]*\}\);\n      patch\(\{ status: "done"/);
 // 他出题：用他的线路和上下文，存成带 by 的题；by 不被 cleanTest 丢掉
 assert.match(core, /\.\.\.\(t\.by \? \{ by: String\(t\.by\) \} : \{\}\)/);
 assert.match(app, /const zhaoyingCharGen = async charId =>[\s\S]{0,300}runProbe\(apiFor\(charId\), ctxFor\(c\)/);
@@ -229,4 +229,30 @@ console.log("ok");
   assert.match(app, /onTalk: c \? async st =>[\s\S]{0,400}Z\.talkInstruction\(/);
   assert.match(app, /onTalkSave: patch => \{ window\.Zhaoying\.patchRecord\(/);
   assert.match(fs.readFileSync(path.join(__dirname, "../js/zhaoying-core.js"), "utf8"), /noKnock: !p\.onTalk, knockText: "敲一敲"/);
+}
+
+// 换个答法（她 2026-10-23）：排序不重排、拍卖凑满 100、回头改最多三题、钓鱼题留着谜底、押中了算徽章
+{
+  const assert = require("node:assert/strict");
+  global.window = global; delete require.cache[require.resolve("../js/zhaoying-core.js")];
+  const store = {}; global.loadJSON = (k, d) => k in store ? store[k] : d; global.saveJSON = (k, v) => { store[k] = v; };
+  require("../js/zhaoying-core.js");
+  const Z = global.Zhaoying;
+  const rk = Z.byId("rankhurt"), a1 = Z.readAnswers(rk, { answers: [{ i: 1, steps: [{ at: 2 }] }, { i: 2, steps: [{ at: 2 }] }] });
+  assert.equal(new Set(a1.picks).size, a1.picks.length, "同一个不排两次");
+  assert.equal(Z.resultOf("rankhurt", a1.picks).title, "排第一：背叛");
+  const bd = Z.byId("bidlife"), a2 = Z.readAnswers(bd, { answers: bd.qs.map((q, i) => ({ i: i + 1, amt: i < 3 ? 70 : 0, steps: [{ at: 0 }] })) });
+  assert.equal(a2.bids.reduce((x, y) => x + y, 0), 100); assert.equal(a2.picks[0], 3, "档照真出的数");
+  assert.match(Z.askSchema(bd), /"amt"/); assert.doesNotMatch(Z.askSchema(bd), /revise/);
+  const mb = Z.byId("mbti"), a3 = Z.readAnswers(mb, { answers: mb.qs.map((q, i) => ({ i: i + 1, steps: [{ at: 0 }] })), revise: [1, 2, 3, 4].map(i => ({ i, to: 1, why: "嗯" })) });
+  assert.equal(a3.revs.length, 3); assert.equal(a3.picks[0], 1); assert.equal(a3.revs[0].from, 0);
+  assert.match(Z.askSchema(mb), /revise/);
+  assert.match(Z.charTestInstruction("她"), /bait/); assert.match(Z.CHAR_TEST_SCHEMA, /"bait"/);
+  const ct = Z.saveCustom({ name: "x", by: "c1", bait: "想不想住一起", qs: [{ q: "a", opts: [{ t: "1" }, { t: "2" }] }] });
+  assert.equal(ct.bait, "想不想住一起");
+  Z.addRecord("c1", { id: "g1", testId: "rankhurt", ts: 1, picks: a1.picks, guess: 2, title: "t" });
+  const bs = Z.badgesOf("c1"); assert.ok(bs.find(b => b.k === "bet").on); assert.ok(!bs.find(b => b.k === "bait").on);
+  Z.addRecord("me", { testId: ct.id, ts: 2, picks: [0], title: "" });
+  assert.ok(Z.badgesOf("c1").find(b => b.k === "bait").on);
+  assert.match(Z.guessLine(rk, { picks: a1.picks, guess: 2 }), /押中了/);
 }

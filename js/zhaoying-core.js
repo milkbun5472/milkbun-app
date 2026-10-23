@@ -629,6 +629,39 @@
   T.push({ id: "cant", cat: "xl", list: ["忍不了", "看情况", "无所谓"], name: "你的不能忍清单", sub: "哪些事一碰你就炸", qs: mkList(["忍不了", "看情况", "无所谓"], [
     "约好了迟到", "撒谎", "说话不算数", "背后说人", "消息不回", "说话很脏", "没分寸，乱开玩笑", "小气", "在公共场合大声嚷嚷", "吃饭吧唧嘴", "插队", "不讲卫生"]) });
 
+  // ── 换个答法（她 2026-10-23「靠近这种」）──
+  // 排序：每一轮从剩下的里挑一个放到这一位；qs 比条目少一题，最后剩的那个自动落在末位
+  const mkRank = (items, head) => items.slice(0, -1).map((x, k) => ({ q: k ? "第 " + (k + 1) + " 位" : head, opts: items.map(t => ({ t, s: {} })) }));
+  T.push({ id: "rankhurt", cat: "gx", rank: ["冷暴力", "撒谎", "背叛", "控制", "忽视", "翻旧账"], name: "最不能接受排序", sub: "把这六样从最不能接受排到还能忍", qs: mkRank(["冷暴力", "撒谎", "背叛", "控制", "忽视", "翻旧账"], "第 1 位：最不能接受的") });
+  T.push({ id: "rankfirst", cat: "xg", rank: ["爱人", "家人", "朋友", "事业", "自己", "钱"], name: "人生先顾哪个", sub: "六样东西排个先后", qs: mkRank(["爱人", "家人", "朋友", "事业", "自己", "钱"], "第 1 位：最先顾的") });
+  // 拍卖会：100 枚金币分给这些东西；每样一题，选项是出价的档，真出了多少记在 bids
+  const BID_TIERS = ["不出", "一点点（1–9）", "认真出（10–24）", "下重注（25–49）", "全压（50+）"];
+  const tierOf = n => n <= 0 ? 0 : n < 10 ? 1 : n < 25 ? 2 : n < 50 ? 3 : 4;
+  const mkBid = items => items.map(t => ({ q: t, opts: BID_TIERS.map(x => ({ t: x, s: {} })) }));
+  T.push({ id: "bidlife", cat: "xl", bid: 100, name: "人生拍卖会", sub: "100 枚金币，你把钱砸在哪", qs: mkBid(["爱情", "财富", "自由", "家庭", "事业", "健康", "名声", "友情", "才华", "平静"]) });
+  T.push({ id: "bidlove", cat: "gx", bid: 100, name: "恋人拍卖会", sub: "100 枚金币，买下另一半身上的什么", qs: mkBid(["颜值", "有钱", "体贴", "有趣", "忠诚", "默契", "上进", "黏你", "懂你", "情绪稳定"]) });
+  // 排序／拍卖的「第一」：她押的就是这个
+  function topOf2(test, rec) {
+    if (test.rank) return (rec.picks || [])[0];
+    if (test.bid) { const b = rec.bids || []; let k = -1; b.forEach((v, i) => { if (v > (k < 0 ? 0 : b[k])) k = i; }); return k; }
+    return -1;
+  }
+  function rankOrder(test, picks) {
+    const used = []; (picks || []).forEach(p => { if (p >= 0 && p < test.rank.length && used.indexOf(p) < 0) used.push(p); });
+    test.rank.forEach((x, i) => { if (used.indexOf(i) < 0) used.push(i); });
+    return used;
+  }
+  // 拍卖：真出的数凑成 100（他写多写少都照比例摊），没写数的照档估一个
+  function normBids(test, amts, picks) {
+    const mid = [0, 5, 17, 35, 60];
+    let a = test.qs.map((q, i) => { const n = Number((amts || [])[i]); return (amts || [])[i] != null && n >= 0 && isFinite(n) ? n : mid[(picks || [])[i] | 0] || 0; });
+    const sum = a.reduce((x, y) => x + y, 0); if (!sum) return a.map(() => 0);
+    a = a.map(x => Math.floor(x * test.bid / sum));
+    let left = test.bid - a.reduce((x, y) => x + y, 0);
+    a.map((x, i) => i).sort((i, j) => a[j] - a[i]).forEach(i => { if (left > 0 && a[i] > 0) { a[i]++; left--; } });
+    return a;
+  }
+
   // ── 分类（她 2026-10-22「搞个分类，不用上下疯狂划」）：内置的写在每套的 cat 上；她出的、他出的落进「自己出的」，也能自己挑一类
   const CATS = [["all", "全部", "✧"], ["xg", "性格", "?"], ["gx", "关系", "♡"], ["xl", "心里", "◷"], ["wan", "好玩", "✦"], ["mine", "自己出的", "✎"]];
   function catOf(t) { const c = t && t.cat; return ["xg", "gx", "xl", "wan"].indexOf(c) >= 0 ? c : (t && t.custom ? "mine" : "wan"); }
@@ -681,7 +714,7 @@
   }
   // 平分时取前一个（题数是偶数的那几套才可能平）
   const pickAxis = (sc, a, b) => ((sc[a] || 0) >= (sc[b] || 0) ? a : b);
-  function resultOf(testId, picks) {
+  function resultOf(testId, picks, bids) {
     const test = byId(testId); if (!test) return null;
     if (test.custom) return customResult(test, picks);
     const sc = tally(test, picks);
@@ -725,6 +758,15 @@
     if (testId === "fight") { const k = topOf(FIGHT, sc); return { code: k, title: FIGHT[k][0], line: FIGHT[k][1] }; }
     if (testId === "child") { const k = topOf(CHILD, sc); return { code: k, title: "小时候是个" + CHILD[k][0], line: CHILD[k][1] }; }
     if (testId === "jianghu") { const k = topOf(JIANGHU, sc); return { code: k, title: "江湖里你是：" + JIANGHU[k][0], line: JIANGHU[k][1] }; }
+    if (test.rank) {
+      const o = rankOrder(test, picks);
+      return { code: o.join(""), title: "排第一：" + test.rank[o[0]], line: o.map(i => test.rank[i]).join(" ＞ ") };
+    }
+    if (test.bid) {
+      const b = bids || normBids(test, null, picks), top = topOf2(test, { bids: b });
+      const l = b.map((v, i) => [v, i]).filter(x => x[0] > 0).sort((x, y) => y[0] - x[0]);
+      return { code: String(top), title: top >= 0 ? "砸得最多：" + test.qs[top].q : "一枚都没出", line: l.map(x => test.qs[x[1]].q + " " + x[0]).join(" · ") };
+    }
     if (test.list) {
       // 清单：第一档（不行／忍不了）全列出来，第二档跟在后面
       const by = lv => test.qs.map((q, i) => (picks || [])[i] === lv ? q.q : null).filter(Boolean);
@@ -759,7 +801,7 @@
       opts: ((q && q.opts) || []).map(o => ({ t: String((o && o.t) || "").trim().slice(0, 60), r: scored ? Math.max(0, Math.min(results.length - 1, Number(o && o.r) || 0)) : undefined })).filter(o => o.t).slice(0, 4) }))
       .filter(q => q.q && q.opts.length >= 2).slice(0, 30);
     return { id: t.id || "zc_" + Date.now().toString(36), custom: true, name: String(t.name || "").trim().slice(0, 20) || "我出的题", sub: String(t.sub || "").trim().slice(0, 60), scored, results: scored ? results : [], qs,
-      ...(t.by ? { by: String(t.by) } : {}), ...(["xg", "gx", "xl", "wan"].indexOf(t.cat) >= 0 ? { cat: t.cat } : {}) };
+      ...(t.by ? { by: String(t.by) } : {}), ...(t.bait && String(t.bait).trim() ? { bait: String(t.bait).trim().slice(0, 80) } : {}), ...(["xg", "gx", "xl", "wan"].indexOf(t.cat) >= 0 ? { cat: t.cat } : {}) };
   }
   function saveCustom(t) { const c = cleanTest(t); if (!c.qs.length) return null; const l = customs().filter(x => x.id !== c.id); saveJSON(CKEY, [...l, c]); return c; }
   function delCustom(id) { saveJSON(CKEY, customs().filter(x => x.id !== id)); }
@@ -817,7 +859,9 @@
       const t = byId(r.testId); if (!t) return;
       if (seen[r.testId]) { seen[r.testId].push(dateZh(r.ts) + "「" + r.title + "」"); return; }
       seen[r.testId] = [];
-      const picks = (r.picks || []).map((p, i) => (i + 1) + "." + optText(t, i, p).slice(0, 14)).join("；");
+      const picks = t.bid && r.bids ? r.bids.map((v, i) => v ? t.qs[i].q + v + "枚" : "").filter(Boolean).join("、")
+        : t.rank ? rankOrder(t, r.picks).map(i => t.rank[i]).join("＞")
+        : (r.picks || []).map((p, i) => (i + 1) + "." + optText(t, i, p).slice(0, 14)).join("；");
       lines.push({ t, r, picks });
     });
     // 最近做的那一次多带三样（她 2026-10-23「最后的评语和他对此看法他也记得说啥的吧」）：
@@ -830,12 +874,31 @@
   function recallDetail(t, r) {
     const whys = (r.whys || []).map((w, i) => w ? "Q" + (i + 1) + "「" + String(w).slice(0, 40) + "」" : "").filter(Boolean).join(" ");
     const talk = talkLines(t, r.talks, 6);
-    return (whys ? "\n  当时每题心里那句：" + whys : "") + (talk ? "\n  做的时候她敲屏幕跟你说过：\n" + talk : "");
+    const revs = (r.revs || []).map(x => "Q" + (x.i + 1) + "从「" + optText(t, x.i, x.from).slice(0, 12) + "」改成「" + optText(t, x.i, x.to).slice(0, 12) + "」").join("、");
+    return (whys ? "\n  当时每题心里那句：" + whys : "") + (revs ? "\n  做完你回头改了：" + revs : "") + (talk ? "\n  做的时候她敲屏幕跟你说过：\n" + talk : "");
   }
   // 题下那几段话，排成「Q3 她：… / 你：…」；n＝最多几题
   function talkLines(t, talks, n) {
     return Object.keys(talks || {}).map(Number).sort((a, b) => a - b).slice(-(n || 99)).map(i =>
       "  Q" + (i + 1) + "「" + String((t.qs[i] || {}).q || "").slice(0, 24) + "」" + (talks[i] || []).map(x => (x.who === "me" ? " 她：" : " 你：") + x.t + (x.pick != null ? "（你改选了「" + optText(t, i, x.pick).slice(0, 14) + "」）" : "")).join("")).join("\n");
+  }
+
+  // ── 徽章（她 2026-10-23）：全从已有的记录里算，不调模型 ──
+  const BADGES = [
+    ["know", "知根知底", "做满 10 套不同的题"], ["torn", "纠结大王", "有一题来回按了 4 下以上"], ["back", "回头看了一眼", "做完回头改过 3 题"],
+    ["moved", "被你说动了", "敲一敲时被你说得改了选项"], ["bet", "押中了", "拍卖或排序时押中他的第一"], ["scene", "换个处境", "在 3 种不同的前提下做过题"],
+    ["twin", "双生", "跟另一个人同一套题选得一模一样"], ["bait", "上钩了", "你做完了他出的钓鱼题"]];
+  function badgesOf(charId) {
+    const all = loadAll(), l = all[charId] || [], got = {};
+    if (new Set(l.map(r => r.testId)).size >= 10) got.know = 1;
+    if (l.some(r => (r.paths || []).some(p => p && p.length >= 4))) got.torn = 1;
+    if (l.reduce((n, r) => n + ((r.revs || []).length), 0) >= 3) got.back = 1;
+    if (l.some(r => Object.keys(r.talks || {}).some(k => (r.talks[k] || []).some(x => x.pick != null)))) got.moved = 1;
+    if (l.some(r => r.guess != null && byId(r.testId) && r.guess === topOf2(byId(r.testId), r))) got.bet = 1;
+    if (new Set(l.filter(r => r.scene).map(r => r.scene)).size >= 3) got.scene = 1;
+    if (l.some(r => Object.keys(all).some(o => o !== charId && (all[o] || []).some(x => x.testId === r.testId && (r.picks || []).length && (x.picks || []).join() === (r.picks || []).join())))) got.twin = 1;
+    if (customs().some(t => t.by === charId && t.bait && (all.me || []).some(r => r.testId === t.id))) got.bait = 1;
+    return BADGES.map(([k, zh, how]) => ({ k, zh, how, on: !!got[k] }));
   }
 
   // 敲一敲（她 2026-10-23）：他做题时她敲屏幕说一句，画面停住，他想好回她；说的是哪题由他认，被说动了可以改那题
@@ -878,11 +941,18 @@
       + (prev && prev.length ? "\n你以前做过这套：" + prev.slice(0, 3).map(r => dateZh(r.ts) + "测出「" + r.title + "」").join("；") + "。这次照你现在的样子答，变了就变了，没变也不用硬改。" : "")
       + (test.custom && !test.scored ? "\n这套不算分。全部做完后，feel 写你做完这一套的感觉，一两句，照你自己说话的样子。" : "")
       // 结果下面那段评语（她 2026-10-22「写一小段评语，每个角色就算答案一样评语也不一样」）：同一次调用里一起写，不多花一枪
+      + (test.rank ? "\n这一套是排序：第 1 题挑排第一的，往后每题从还没排的里挑下一位，同一个只能排一次。" : "")
+      + (test.bid ? "\n这一套是拍卖会：你手里一共 " + test.bid + " 枚金币，每样东西一题，amt 写你愿意为它出多少枚，所有 amt 加起来正好 " + test.bid + "；at 是出价落在哪一档。钱有限，砸在哪儿就是你心里最放不下的。" : "")
+      + (test.rank || test.bid ? "" : "\n全部做完后，你可以回头看一遍，最多改三题：回头看时真觉得哪题选得不对才改，写进 revise（题号、改成第几个选项、为什么改，why 照心声那样写）；看完觉得都对就给空数组。")
       + "\nreview 是另一件事：测试页面在结果下面给做题这个人写的一小段解读，三四句，用「他」称呼你、口气是测试页面的口气，不是你自己说话。只照你这一次每题怎么选、哪几题来回改过、心声里露出来的东西写，点到具体的题；别写这一类人谁都对得上的话。"
       + "\n题目：\n" + test.qs.map((q, i) => (i + 1) + ". " + q.q + "\n" + q.opts.map((o, j) => "   " + j + ") " + o.t).join("\n")).join("\n");
   }
   const ASK_SCHEMA = "{\"answers\":[{\"i\":1,\"steps\":[{\"at\":0,\"think\":\"按下这一项时心里的话\"}]}],\"review\":\"结果下面的评语\"}";
-  function askSchema(test) { return test && test.custom && !test.scored ? ASK_SCHEMA.replace(/\}$/, ",\"feel\":\"做完的感觉\"}") : ASK_SCHEMA; }
+  function askSchema(test) {
+    let s = test && test.bid ? ASK_SCHEMA.replace('{\"i\":1,', '{\"i\":1,\"amt\":0,') : ASK_SCHEMA;
+    if (test && !test.rank && !test.bid) s = s.replace(/\}$/, ",\"revise\":[{\"i\":1,\"to\":0,\"why\":\"回头改的时候心里的话\"}]}");
+    return test && test.custom && !test.scored ? s.replace(/\}$/, ",\"feel\":\"做完的感觉\"}") : s;
+  }
   function readAnswers(test, d) {
     const arr = Array.isArray(d && d.answers) ? d.answers : Array.isArray(d) ? d : [];
     const picks = [], whys = [], paths = [];
@@ -895,7 +965,27 @@
       picks.push(st[st.length - 1].at); paths.push(st);
       whys.push(st.map(x => x.think).filter(Boolean).join(" "));
     });
-    return { picks, whys, paths, feel: String((d && d.feel) || "").trim().slice(0, 120), review: String((d && d.review) || "").trim().slice(0, 400) };
+    const out = { picks, whys, paths, feel: String((d && d.feel) || "").trim().slice(0, 120), review: String((d && d.review) || "").trim().slice(0, 400) };
+    // 排序：同一个排了两次的，往后那次换成还没排的第一个
+    if (test.rank) {
+      const used = [];
+      picks.forEach((p, i) => { if (used.indexOf(p) >= 0) { const f = test.rank.findIndex((x, k) => used.indexOf(k) < 0); picks[i] = f; paths[i] = [{ at: f, think: paths[i].slice(-1)[0].think }]; } used.push(picks[i]); });
+    }
+    // 拍卖：数凑成总数，档照真出的数落
+    if (test.bid) {
+      const amts = test.qs.map((q, i) => { const a = arr.find(x => x && Number(x.i) === i + 1) || arr[i] || {}; return a.amt; });
+      out.bids = normBids(test, amts, picks);
+      out.bids.forEach((v, i) => { const t = tierOf(v); picks[i] = t; paths[i] = [{ at: t, think: paths[i].slice(-1)[0].think }]; });
+    }
+    // 回头改（她 2026-10-23）：最多三题，每题只算一次；picks 是改完的，from 记着原来那个
+    if (!test.rank && !test.bid && d && Array.isArray(d.revise)) {
+      const seen = {};
+      out.revs = d.revise.map(r => ({ i: Number(r && r.i) - 1, to: Number(r && r.to), why: String((r && r.why) || "").trim().slice(0, 160) }))
+        .filter(r => test.qs[r.i] && r.to >= 0 && r.to < test.qs[r.i].opts.length && Math.floor(r.to) === r.to && r.to !== picks[r.i] && !seen[r.i] && (seen[r.i] = 1)).slice(0, 3)
+        .map(r => { const from = picks[r.i]; picks[r.i] = r.to; return { i: r.i, from, to: r.to, why: r.why }; });
+      if (!out.revs.length) delete out.revs;
+    }
+    return out;
   }
 
   // ── 聊天里那张卡（她 2026-10-22：「点进去再按头像选人发卡到聊天让他做」）──────────
@@ -925,6 +1015,8 @@
     lovefriend: { a: "#f3e6da", b: "#ddb595", deep: "#8c5a32", g: "⇄" }, moral: { a: "#e1e6ea", b: "#a3b2bf", deep: "#4a5f72", g: "✣" },
     emotion: { a: "#fbe6d8", b: "#f0b493", deep: "#a95c33", g: "◍" }, defense: { a: "#e6e3dc", b: "#b3ab9a", deep: "#5e5643", g: "◇" },
     bound: { a: "#f2e1e6", b: "#d8a7b6", deep: "#94506a", g: "▢" }, cant: { a: "#f1e0d8", b: "#d7a690", deep: "#93533a", g: "✕" },
+    rankhurt: { a: "#f0dcdc", b: "#d39c9c", deep: "#8e4444", g: "≥" }, rankfirst: { a: "#e2e8dc", b: "#a9bb98", deep: "#55693f", g: "№" },
+    bidlife: { a: "#f4e6c8", b: "#dcbd7a", deep: "#8a6a20", g: "¥" }, bidlove: { a: "#f6dfe2", b: "#e2a4ae", deep: "#9c4a59", g: "¤" },
     cat: { a: "#f6e3d0", b: "#e6b98c", deep: "#9a5d2c", g: "ω" }, dog: { a: "#f4e9c9", b: "#dcc078", deep: "#8a6a1e", g: "∪" },
     weather: { a: "#dfeaf3", b: "#a5c3dc", deep: "#3f6a8c", g: "⌒" }, villain: { a: "#e3d9e3", b: "#a68fa8", deep: "#5a3c5d", g: "♛" },
     doom: { a: "#e2e2d8", b: "#a9a991", deep: "#55553c", g: "⚑" }, fairy: { a: "#efe1f1", b: "#c9a8d6", deep: "#704b84", g: "✧" },
@@ -966,11 +1058,29 @@
     return h("div", { "data-wk": "zywhy", style: { marginTop: 8, padding: "6px 10px", borderLeft: "2px solid " + ACC, background: "rgba(176,118,74,.06)", borderRadius: "0 6px 6px 0", fontStyle: "italic", fontSize: 12.5, color: "#6f5f4d", lineHeight: 1.65 } },
       lines.map((x, k) => h("div", { key: k, style: { marginTop: k ? 4 : 0 } }, multi ? h("span", { style: { fontStyle: "normal", fontSize: 11, color: ACC, marginRight: 4 } }, "按在「" + String((q.opts[x.at] || {}).t || "").slice(0, 10) + "」") : null, x.think)));
   }
+  // 拍卖的「钱都花在哪」：一样一条，长短照出了多少；照影页的记录和看他做的那页共用
+  function bidBars(test, bids, col) {
+    const h = g.React.createElement, l = (bids || []).map((v, i) => [v, i]).filter(x => x[0] > 0).sort((a, b) => b[0] - a[0]);
+    if (!l.length) return null;
+    return h("div", { "data-wk": "zybidbars", style: { marginTop: 10, display: "flex", flexDirection: "column", gap: 5 } }, l.map(([v, i]) =>
+      h("div", { key: i, style: { display: "flex", alignItems: "center", gap: 8, fontSize: 12.5, color: col.INK } },
+        h("span", { style: { width: 56, flexShrink: 0, textAlign: "right" } }, test.qs[i].q),
+        h("span", { style: { flex: 1, height: 10, borderRadius: 999, background: col.LINE, overflow: "hidden" } }, h("span", { style: { display: "block", height: "100%", width: v + "%", background: col.ACC, borderRadius: 999 } })),
+        h("span", { style: { width: 30, flexShrink: 0, color: col.FOG } }, v))));
+  }
+  // 她押的那一样：押中没
+  function guessLine(test, rec) {
+    if (rec.guess == null || !(test.rank || test.bid)) return "";
+    const nm = k => test.rank ? test.rank[k] : (test.qs[k] || {}).q, top = topOf2(test, rec);
+    return "你押的是「" + nm(rec.guess) + "」" + (top === rec.guess ? "，押中了" : "，他的第一是「" + nm(top) + "」");
+  }
   function ZhaoyingWatch(p) {
     const R = g.React, h = R.createElement, W = g.PhoneWatch || {};
     const { PAPER, INK, FOG, LINE, ACC } = colors();
     const test = byId(p.testId), rec = p.rec;
-    const [pos, setPos] = R.useState({ q: p.replay === false ? test.qs.length : -1, s: 0 });   // 第几题、这题的第几下；q＝题数就是放完了
+    // 做完回头改的那几题（她 2026-10-23）：排在最后一题后面接着放，手指回到那题改过去
+    const N = test.qs.length, revs = rec.revs || [], END = N + revs.length;
+    const [pos, setPos] = R.useState({ q: p.replay === false ? END : -1, s: 0 });   // 第几题、这题的第几下；q＝题数就是放完了
     const step = pos.q, sub = pos.s, setStep = q => setPos({ q, s: 0 });
     // 每题的过程：手指落了哪几下（犹豫的会先按一个再改）；老记录只有一下
     const pathOf = i => (rec.paths && rec.paths[i] && rec.paths[i].length) ? rec.paths[i] : [{ at: rec.picks[i], think: (rec.whys && rec.whys[i]) || "" }];
@@ -982,28 +1092,31 @@
     const [picks, setPicks] = R.useState(() => (rec.picks || []).slice());
     const [talks, setTalks] = R.useState(() => Object.assign({}, rec.talks || {}));
     const [talk, setTalk] = R.useState({ open: false, line: "", busy: false });
-    const done = step >= test.qs.length;
+    const done = step >= END;
+    // 眼下这一下：第几题、按哪个、心里那句、这题一共几下
+    const cur = () => { if (step < N) { const path = pathOf(step), x = path[Math.min(sub, path.length - 1)]; return { qi: step, at: x.at, th: x.think || "", n: path.length }; }
+      const r = revs[step - N]; return { qi: r.i, at: r.to, th: r.why || "", n: 1 }; };
     const wait = (ms, fn) => { clearTimeout(timer.current); timer.current = setTimeout(fn, ms / speed); };
     R.useEffect(() => () => clearTimeout(timer.current), []);
     R.useEffect(() => { if (step === -1 && !paused) wait(700, () => setStep(0)); }, [step, paused]);
     R.useEffect(() => {
       if (done) { setDot({ x: null, y: null }); if (!doneRef.current) { doneRef.current = true; p.onDone && p.onDone(); } return; }
       if (step < 0 || paused) return;
-      const path = pathOf(step), at = path[Math.min(sub, path.length - 1)].at, th = path[Math.min(sub, path.length - 1)].think || "";
-      const el = optRefs.current[step + ":" + at], box = boxRef.current;
+      const c0 = cur(), at = c0.at, th = c0.th, qi = c0.qi;
+      const el = optRefs.current[qi + ":" + at], box = boxRef.current;
       if (sub === 0 && el && box) {
         const top = el.offsetTop - box.clientHeight / 2 + 40;
         try { box.scrollTo({ top: Math.max(0, top), behavior: "smooth" }); } catch (e) { box.scrollTop = Math.max(0, top); }
       }
       setPhase("move");
       wait(sub ? 380 : 520, () => {
-        const el2 = optRefs.current[step + ":" + at], box2 = boxRef.current;
+        const el2 = optRefs.current[qi + ":" + at], box2 = boxRef.current;
         if (el2 && box2) setDot({ x: el2.offsetLeft + Math.min(el2.offsetWidth - 30, 70), y: el2.offsetTop - box2.scrollTop + el2.offsetHeight / 2, press: false });
         wait(520, () => {
           setDot(d => Object.assign({}, d, { press: true })); setPhase("press");
           wait(220, () => {
             setDot(d => Object.assign({}, d, { press: false })); setPhase("think");
-            wait(1500 + Math.min(3200, th.length * 70), () => setPos(sub + 1 < path.length ? { q: step, s: sub + 1 } : { q: step + 1, s: 0 }));
+            wait(1500 + Math.min(3200, th.length * 70), () => setPos(sub + 1 < c0.n ? { q: step, s: sub + 1 } : { q: step + 1, s: 0 }));
           });
         });
       });
@@ -1011,6 +1124,7 @@
     // 敲一敲里改过选项：结果照改完的重算；不算分的自定义题还是他做完说的那句
     const changed = picks.some((x, i) => x !== (rec.picks || [])[i]);
     const res = changed && !rec.free ? resultOf(p.testId, picks) : { title: rec.title, line: rec.line, free: rec.free };
+    const bids = test.bid ? (changed ? null : rec.bids) : null;
     const knock = () => { setPaused(true); setTalk(t => Object.assign({}, t, { open: true })); };
     const goOn = () => { setTalk(t => Object.assign({}, t, { open: false })); setPaused(false); };
     const send = async () => {
@@ -1025,36 +1139,45 @@
       const np = picks.slice(); if (mv != null) np[qi] = mv;
       setTalks(nt); setPicks(np); setTalk({ open: true, line: "", busy: false });
       // 眼下这题被她说定了：这题就算做完，接着做下一题
-      if (mv != null && qi === step && !done) setPos({ q: step + 1, s: 0 });
+      if (mv != null && qi === step && step < N) setPos({ q: step + 1, s: 0 });
       const r2 = !rec.free && np.some((x, i) => x !== (rec.picks || [])[i]) ? resultOf(p.testId, np) : null;
       p.onTalkSave && p.onTalkSave(Object.assign({ picks: np, talks: nt }, r2 ? { code: r2.code, title: r2.title, line: r2.line } : {}));
       // 他翻到那题：滚过去
       setTimeout(() => { const el = qRefs.current[qi], box = boxRef.current; if (el && box) { try { box.scrollTo({ top: Math.max(0, el.offsetTop - 60), behavior: "smooth" }); } catch (e) { box.scrollTop = el.offsetTop - 60; } } }, 60);
     };
     // 这一题此刻亮着哪一项：做完的亮最后那项；正在做的，按下去才换，改选前先亮着上一下
-    const lit = i => { if (done || i < step) return picks[i]; if (i !== step) return -1;
+    const lit = i => { if (done) return picks[i];
+      const r = revs.findIndex(x => x.i === i);
+      if (step >= N) return r < 0 ? picks[i] : r < step - N || (r === step - N && (phase === "press" || phase === "think")) ? revs[r].to : revs[r].from;
+      if (i < step) return r < 0 ? picks[i] : revs[r].from; if (i !== step) return -1;
       const path = pathOf(i); return (phase === "press" || phase === "think") ? path[Math.min(sub, path.length - 1)].at : sub > 0 ? path[sub - 1].at : -1; };
-    const nowThink = step >= 0 && !done ? (pathOf(step)[Math.min(sub, pathOf(step).length - 1)] || {}).think || "" : "";
+    const nowThink = step >= 0 && !done ? cur().th : "";
+    // 排序：前几位已经排走的，这一位里灰掉
+    const usedBefore = i => test.rank ? test.qs.slice(0, i).map((q, k) => lit(k)).filter(x => x >= 0) : [];
     return h("div", { "data-wk": "zywatch", style: { position: "fixed", inset: 0, zIndex: 120, background: PAPER, display: "flex", flexDirection: "column" } },
       h("div", { "data-wk": "head", style: { flexShrink: 0, padding: "12px 16px 10px", paddingTop: typeof g.safeTop === "function" ? g.safeTop(12) : 12, borderBottom: "1px solid " + LINE } },
         h("div", { style: { fontSize: 11, letterSpacing: ".2em", color: FOG } }, "照影 · " + test.name),
-        h("div", { style: { fontSize: 17, color: INK, marginTop: 3 } }, (p.name || "他") + (done ? " 做完了" : " 在做"))),
+        h("div", { style: { fontSize: 17, color: INK, marginTop: 3 } }, (p.name || "他") + (done ? " 做完了" : step >= N ? " 回头又看了一眼" : " 在做"))),
       h("div", { style: { position: "relative", flex: 1, minHeight: 0 } },
         h("div", { ref: boxRef, style: { position: "absolute", inset: 0, overflowY: "auto", padding: "8px 18px 160px" } },
 
           test.qs.map((q, i) => h("div", { key: i, ref: el => { qRefs.current[i] = el; }, "data-wk": "zyq", style: { padding: "12px 0", borderBottom: "1px dashed " + LINE, opacity: !done && i > step ? 0.55 : 1 } },
             h("div", { style: { display: "flex", gap: 8, alignItems: "baseline" } },
               h("span", { style: { fontSize: 12, color: ACC, flexShrink: 0 } }, "Q" + (i + 1)),
-              h("span", { style: { fontSize: 14, color: INK, lineHeight: 1.65 } }, q.q)),
+              h("span", { style: { fontSize: 14, color: INK, lineHeight: 1.65 } }, q.q),
+              test.bid && rec.bids && !changed && (done || i < step) ? h("span", { style: { marginLeft: "auto", fontSize: 12, color: ACC, flexShrink: 0 } }, rec.bids[i] + " 枚") : null),
             h("div", { style: { marginTop: 8, display: "flex", flexDirection: "column", gap: 6 } }, q.opts.map((o, j) => {
-              const on = lit(i) === j;
+              const on = lit(i) === j, gone = !on && usedBefore(i).indexOf(j) >= 0;
               return h("div", { key: j, ref: el => { optRefs.current[i + ":" + j] = el; }, "data-wk": "zyopt", "data-on": on ? "1" : "0",
-                style: { display: "flex", alignItems: "center", gap: 9, fontSize: 13, padding: "8px 10px", borderRadius: 8, border: "1px solid " + (on ? ACC : LINE), background: on ? "rgba(176,118,74,.12)" : "#fffaf3", color: on ? INK : "#7d6f60", transition: "all .25s" } },
+                style: { display: "flex", alignItems: "center", gap: 9, fontSize: 13, padding: "8px 10px", borderRadius: 8, border: "1px solid " + (on ? ACC : LINE), background: on ? "rgba(176,118,74,.12)" : "#fffaf3", color: on ? INK : "#7d6f60", transition: "all .25s", opacity: gone ? .35 : 1, textDecoration: gone ? "line-through" : "none" } },
                 h("span", { style: { flexShrink: 0, width: 14, height: 14, borderRadius: 999, border: "1.5px solid " + (on ? ACC : "#cbbca9"), background: on ? ACC : "transparent", boxShadow: on ? "inset 0 0 0 2px #fffaf3" : "none", transition: "all .25s" } }),
                 h("span", null, o.t));
             })),
             // 放完了才留档：心声落在这一题底下
             done ? whyBox(test, q, pathOf(i)) : null,
+            done && revs.some(x => x.i === i) ? (function () { const r = revs.find(x => x.i === i);
+              return h("div", { "data-wk": "zyrev", style: { marginTop: 6, fontSize: 12, color: "#6f5f4d", lineHeight: 1.65 } },
+                h("span", { style: { color: ACC, marginRight: 6 } }, "回头改了"), "原本选「" + optText(test, i, r.from).slice(0, 12) + "」" + (r.why ? "——" + r.why : "")); })() : null,
             // 敲一敲时在这题下说的话：留着，回看也在
             talks[i] && talks[i].length ? h("div", { "data-wk": "zytalk", style: { marginTop: 8, display: "flex", flexDirection: "column", gap: 4 } }, talks[i].map((x, k) =>
               h("div", { key: k, style: { fontSize: 12.5, lineHeight: 1.65, color: x.who === "me" ? "#7d6f60" : INK } },
@@ -1064,7 +1187,8 @@
           done ? h("div", { "data-wk": "zyresult", ref: el => { if (el && !resRef.current) { resRef.current = 1; try { el.scrollIntoView({ behavior: "smooth", block: "center" }); } catch (e) {} } }, style: { margin: "18px 0 8px", padding: "16px 14px 14px", borderRadius: 12, background: "#fffaf3", border: "1px solid " + LINE, boxShadow: "inset 0 0 0 4px #fffaf3, inset 0 0 0 5px " + LINE, animation: "wkpop .35s ease-out both" } },
             h("div", { style: { fontSize: 11, letterSpacing: ".2em", color: FOG } }, (p.name || "他") + (res.free ? " 做完说" : " 测出来是")),
             h("div", { style: { fontSize: 21, color: INK, marginTop: 4 } }, res.title),
-            res.line && res.line !== res.title ? h("div", { style: { fontSize: 13, color: "#6d6255", marginTop: 4, lineHeight: 1.6 } }, res.line) : null,
+            test.bid && bids ? bidBars(test, bids, { INK, FOG, LINE, ACC }) : res.line && res.line !== res.title ? h("div", { style: { fontSize: 13, color: "#6d6255", marginTop: 4, lineHeight: 1.6 } }, res.line) : null,
+            guessLine(test, rec) ? h("div", { "data-wk": "zyguess", style: { fontSize: 12.5, color: ACC, marginTop: 8 } }, guessLine(test, rec)) : null,
             rec.review ? h("div", { "data-wk": "zyreview", style: { fontSize: 13, color: "#5d5246", marginTop: 10, paddingTop: 10, borderTop: "1px dashed " + LINE, lineHeight: 1.75 } }, rec.review) : null,
             // 存成图／收进时刻：看完就在这儿点（她 2026-10-22）
             (p.onSaveImage || p.onPin) ? h("div", { "data-wk": "zyrecacts", style: { display: "flex", gap: 8, flexWrap: "wrap", marginTop: 12 } },
@@ -1081,7 +1205,7 @@
             h("button", { onClick: send, disabled: talk.busy || !talk.line.trim(), style: { minHeight: 40, padding: "0 14px", borderRadius: 999, background: ACC, color: "#fff", fontSize: 13, border: "none", opacity: talk.busy || !talk.line.trim() ? .5 : 1 } }, "说"),
             h("button", { onClick: goOn, disabled: talk.busy, style: { minHeight: 40, padding: "0 12px", borderRadius: 999, background: "transparent", color: INK, fontSize: 13, border: "1px solid " + LINE } }, "接着做"))) : null,
         W.WatchBar ? h(W.WatchBar, { noKnock: !p.onTalk, knockText: "敲一敲", knocks: 0, knocking: talk.busy, onKnock: knock, done, paused, speed, i: Math.max(0, Math.min(step + 1, test.qs.length)), total: test.qs.length,
-          onPause: () => setPaused(v => !v), onSpeed: () => setSpeed(v => v >= 3 ? 1 : v + 1), onSkip: () => { clearTimeout(timer.current); setStep(test.qs.length); },
+          onPause: () => setPaused(v => !v), onSpeed: () => setSpeed(v => v >= 3 ? 1 : v + 1), onSkip: () => { clearTimeout(timer.current); setStep(END); },
           onClose: () => { clearTimeout(timer.current); p.onClose && p.onClose(); } }) : null));
   }
 
@@ -1089,9 +1213,11 @@
   function charTestInstruction(meName) {
     return "你想更了解「" + meName + "」，给她出一套小测，让她在手机上做。出什么由你：照你这个人会好奇她什么、你们之间聊过什么、你一直没问出口的，挑你真想知道的。"
       + "6 到 10 道题，每题 2 到 4 个选项。题面是具体的日常场景或问题，用你自己说话的口气；选项是人在那个场景里真会有的不同反应，彼此拉得开。"
-      + "这套不算分，她做完你会看到她每题选了什么。name 是这套题的名字，sub 是你写在最前面给她的一句话。";
+      + "这套不算分，她做完你会看到她每题选了什么。name 是这套题的名字，sub 是你写在最前面给她的一句话。"
+      // 钓鱼题（她 2026-10-23）：题面看着普通，其实借这套题想弄清一件事；她做完才揭开
+      + "如果你出这套题其实是想借着它弄清一件你不好直接问的事，把那件事写在 bait（一句话，她做完才看得到）；就是单纯想了解她，bait 留空。";
   }
-  const CHAR_TEST_SCHEMA = "{\"name\":\"\",\"sub\":\"\",\"qs\":[{\"q\":\"\",\"opts\":[{\"t\":\"\"}]}]}";
+  const CHAR_TEST_SCHEMA = "{\"name\":\"\",\"sub\":\"\",\"bait\":\"\",\"qs\":[{\"q\":\"\",\"opts\":[{\"t\":\"\"}]}]}";
 
   // ── 结果存成一张图（她 2026-10-22）：纸色底、结果、每题选了什么和心声 ──
   function resultImage(test, rec, name) {
@@ -1123,7 +1249,7 @@
     return new Promise(res => c.toBlob(b => res(b), "image/png"));
   }
 
-  g.Zhaoying = { TESTS: T, allTests, customs, saveCustom, delCustom, genTest, askSchema, byId, resultOf, recordsOf, addRecord, patchRecord, delRecord, chatNote, talkInstruction, TALK_SCHEMA, readTalk, askInstruction, ASK_SCHEMA, readAnswers, dateZh, optText, cleanTest, charTestInstruction, CHAR_TEST_SCHEMA, resultImage, pal, CATS, catOf, colors };
+  g.Zhaoying = { TESTS: T, allTests, customs, saveCustom, delCustom, genTest, askSchema, byId, resultOf, recordsOf, addRecord, patchRecord, badgesOf, topOf2, rankOrder, BID_TIERS, delRecord, chatNote, talkInstruction, TALK_SCHEMA, readTalk, askInstruction, ASK_SCHEMA, readAnswers, dateZh, optText, cleanTest, charTestInstruction, CHAR_TEST_SCHEMA, resultImage, bidBars, guessLine, pal, CATS, catOf, colors };
   g.ZhaoyingCard = function (p) { return card(p && p.m); };
   g.ZhaoyingWatch = ZhaoyingWatch;
   // 主屏图标：一面小圆镜
