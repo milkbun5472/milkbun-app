@@ -205,3 +205,28 @@ console.log("ok");
     assert.match(Z.resultOf(id, t.qs.map(() => 2)).title, /^没有一条是/);
   }
 }
+
+// 敲一敲（她 2026-10-23）：她说一句，他认是哪题、可以改选；说的话留在记录里，聊天时他记得评语和这些话
+{
+  const assert = require("node:assert/strict");
+  const fs = require("node:fs"), path = require("node:path");
+  global.window = global; delete require.cache[require.resolve("../js/zhaoying-core.js")]; require("../js/zhaoying-core.js");
+  const Z = global.Zhaoying, t = Z.byId("mindage");
+  // 题号只认做过的和眼下这题，改选只认那题有的选项
+  assert.deepEqual(Z.readTalk(t, { q: 1, say: "嗯", pick: 2 }, 3), { qi: 0, say: "嗯", pick: 1 });
+  assert.equal(Z.readTalk(t, { q: 9, say: "嗯", pick: null }, 3).qi, 3);
+  assert.equal(Z.readTalk(t, { q: 2, say: "嗯", pick: 99 }, 3).pick, null);
+  const ins = Z.talkInstruction(t, "她", { upTo: 2, picks: [0, 1], whys: ["想到小时候", ""], talks: {}, line: "第一题为啥", scene: "喝多了" });
+  assert.match(ins, /她刚说：「第一题为啥」/); assert.match(ins, /当时心里：想到小时候/); assert.match(ins, /喝多了/);
+  // 聊天时：最近那次带评语、心里那句、题下说的话
+  const store = {}; global.loadJSON = (k, d) => k in store ? store[k] : d; global.saveJSON = (k, v) => { store[k] = v; };
+  Z.addRecord("c9", { id: "r1", testId: "mindage", ts: Date.now(), picks: t.qs.map(() => 0), whys: t.qs.map(() => "嗯"), title: "T", line: "", review: "评语在这" });
+  Z.patchRecord("c9", "r1", { talks: { 0: [{ who: "me", t: "为啥" }, { who: "him", t: "就这样", pick: 1 }] } });
+  const note = Z.chatNote("c9");
+  assert.match(note, /评语在这/); assert.match(note, /她：为啥 你：就这样（你改选了/); assert.match(note, /Q1「嗯」/);
+  // 接线：看他做题那页有敲一敲、存回记录
+  const app = fs.readFileSync(path.join(__dirname, "../js/app.js"), "utf8");
+  assert.match(app, /onTalk: c \? async st =>[\s\S]{0,400}Z\.talkInstruction\(/);
+  assert.match(app, /onTalkSave: patch => \{ window\.Zhaoying\.patchRecord\(/);
+  assert.match(fs.readFileSync(path.join(__dirname, "../js/zhaoying-core.js"), "utf8"), /noKnock: !p\.onTalk, knockText: "敲一敲"/);
+}

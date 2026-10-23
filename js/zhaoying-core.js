@@ -798,6 +798,10 @@
     all[who] = [Object.assign({ id: "zy_" + Date.now().toString(36) }, rec), ...(all[who] || [])].slice(0, 60);
     saveAll(all);
   }
+  // 改一次记录（敲一敲时他改了选项、你们在题下说的话）：只动给的那几栏
+  function patchRecord(who, id, patch) {
+    const all = loadAll(); all[who] = (all[who] || []).map(r => r.id === id ? Object.assign({}, r, patch) : r); saveAll(all);
+  }
   function delRecord(who, id) { const all = loadAll(); all[who] = (all[who] || []).filter(r => r.id !== id); saveAll(all); }
 
   const dateZh = ts => { const d = new Date(ts); return (d.getMonth() + 1) + "月" + d.getDate() + "日"; };
@@ -816,8 +820,46 @@
       const picks = (r.picks || []).map((p, i) => (i + 1) + "." + optText(t, i, p).slice(0, 14)).join("；");
       lines.push({ t, r, picks });
     });
-    return "你做过照影里的小测（这是你自己做过的事，结果只是那次测出来的，不用照着它演）：\n" + lines.map(x =>
-      "·「" + x.t.name + "」" + dateZh(x.r.ts) + " 测出「" + x.r.title + "」" + (x.r.scene ? "（那次的前提是：" + x.r.scene + "）" : "") + (seen[x.t.id].length ? "（更早几次：" + seen[x.t.id].slice(0, 3).join("、") + "）" : "") + "。那次你选的：" + x.picks).join("\n");
+    // 最近做的那一次多带三样（她 2026-10-23「最后的评语和他对此看法他也记得说啥的吧」）：
+    //   每题当时心里那句、做完写的评语、做的时候她敲屏幕跟你在题下说的话。更早的只带评语，免得越攒越长。
+    return "你做过照影里的小测（这是你自己做过的事，结果只是那次测出来的，不用照着它演）：\n" + lines.map((x, k) =>
+      "·「" + x.t.name + "」" + dateZh(x.r.ts) + " 测出「" + x.r.title + "」" + (x.r.scene ? "（那次的前提是：" + x.r.scene + "）" : "") + (seen[x.t.id].length ? "（更早几次：" + seen[x.t.id].slice(0, 3).join("、") + "）" : "") + "。那次你选的：" + x.picks
+      + (x.r.review ? "\n  做完你写的评语：" + String(x.r.review).slice(0, k ? 80 : 300) : "")
+      + (k ? "" : recallDetail(x.t, x.r))).join("\n");
+  }
+  function recallDetail(t, r) {
+    const whys = (r.whys || []).map((w, i) => w ? "Q" + (i + 1) + "「" + String(w).slice(0, 40) + "」" : "").filter(Boolean).join(" ");
+    const talk = talkLines(t, r.talks, 6);
+    return (whys ? "\n  当时每题心里那句：" + whys : "") + (talk ? "\n  做的时候她敲屏幕跟你说过：\n" + talk : "");
+  }
+  // 题下那几段话，排成「Q3 她：… / 你：…」；n＝最多几题
+  function talkLines(t, talks, n) {
+    return Object.keys(talks || {}).map(Number).sort((a, b) => a - b).slice(-(n || 99)).map(i =>
+      "  Q" + (i + 1) + "「" + String((t.qs[i] || {}).q || "").slice(0, 24) + "」" + (talks[i] || []).map(x => (x.who === "me" ? " 她：" : " 你：") + x.t + (x.pick != null ? "（你改选了「" + optText(t, i, x.pick).slice(0, 14) + "」）" : "")).join("")).join("\n");
+  }
+
+  // 敲一敲（她 2026-10-23）：他做题时她敲屏幕说一句，画面停住，他想好回她；说的是哪题由他认，被说动了可以改那题
+  function talkInstruction(test, meName, st) {
+    const nm = meName || "她";
+    const done = test.qs.map((q, i) => i < st.upTo ? "Q" + (i + 1) + " " + q.q + "｜选项：" + q.opts.map((o, j) => (j + 1) + "." + o.t).join(" ") + "｜你选了 " + ((st.picks[i] | 0) + 1) + (st.whys[i] ? "｜当时心里：" + String(st.whys[i]).slice(0, 50) : "") : "").filter(Boolean).join("\n");
+    const now = test.qs[st.upTo] ? "Q" + (st.upTo + 1) + " " + test.qs[st.upTo].q + "｜选项：" + test.qs[st.upTo].opts.map((o, j) => (j + 1) + "." + o.t).join(" ") + "（你正看着这题，还没定）" : "";
+    const talk = talkLines(test, st.talks);
+    return "你在手机上做小测「" + test.name + "」，" + nm + " 在旁边看着，刚伸手敲了敲你的屏幕，跟你说话。你停下来听她说。"
+      + (st.scene ? "\n这一次做题有个前提：" + String(st.scene).slice(0, 60) + "，你还是那个前提下的你。" : "")
+      + (done ? "\n\n已经做过的题：\n" + done : "") + (now ? "\n" + now : "")
+      + (talk ? "\n\n这次做题时你们已经在题下说过：\n" + talk : "")
+      + "\n\n她刚说：「" + String(st.line || "").slice(0, 200) + "」"
+      + "\n\n她说的是哪一题你来认：点了题号、说到哪题的内容就是那题；看不出来就是你眼下这题。往前翻到那题，照你这个人、照你们平时说话的样子回她，说完接着做。"
+      + "被她这么一说，你觉得那题其实该选另一个，就改成那个；还是原来那个就不改。改不改照你自己。";
+  }
+  const TALK_SCHEMA = "{\"q\":\"她说的是第几题（数字）\",\"say\":\"你回她的话\",\"pick\":\"改成第几个选项（数字），不改填 null\"}";
+  // 读回来：题号只认已经做过的和眼下这题；改选只认那题真有的选项
+  function readTalk(test, d, upTo) {
+    d = d || {};
+    let qi = parseInt(d.q, 10) - 1; if (!(qi >= 0 && qi <= Math.min(upTo, test.qs.length - 1))) qi = Math.min(upTo, test.qs.length - 1);
+    let pick = d.pick == null || d.pick === "null" ? null : parseInt(d.pick, 10) - 1;
+    if (!(pick >= 0 && pick < test.qs[qi].opts.length)) pick = null;
+    return { qi, say: String(d.say || "").trim().slice(0, 400), pick };
   }
 
   // 让他做一套题的那一段（照影页里调 runProbe）
@@ -935,7 +977,11 @@
     const [phase, setPhase] = R.useState("");          // move / press / think
     const [dot, setDot] = R.useState({ x: null, y: null, press: false });
     const [speed, setSpeed] = R.useState(1), [paused, setPaused] = R.useState(false);
-    const boxRef = R.useRef(null), resRef = R.useRef(0), optRefs = R.useRef({}), timer = R.useRef(null), doneRef = R.useRef(false);
+    const boxRef = R.useRef(null), resRef = R.useRef(0), optRefs = R.useRef({}), qRefs = R.useRef({}), timer = R.useRef(null), doneRef = R.useRef(false);
+    // 敲一敲（她 2026-10-23）：选项可能被她说动改掉，题下留着你们说的话；都存回这次记录
+    const [picks, setPicks] = R.useState(() => (rec.picks || []).slice());
+    const [talks, setTalks] = R.useState(() => Object.assign({}, rec.talks || {}));
+    const [talk, setTalk] = R.useState({ open: false, line: "", busy: false });
     const done = step >= test.qs.length;
     const wait = (ms, fn) => { clearTimeout(timer.current); timer.current = setTimeout(fn, ms / speed); };
     R.useEffect(() => () => clearTimeout(timer.current), []);
@@ -962,9 +1008,31 @@
         });
       });
     }, [step, sub, paused, speed]);
-    const res = { title: rec.title, line: rec.line, free: rec.free };
+    // 敲一敲里改过选项：结果照改完的重算；不算分的自定义题还是他做完说的那句
+    const changed = picks.some((x, i) => x !== (rec.picks || [])[i]);
+    const res = changed && !rec.free ? resultOf(p.testId, picks) : { title: rec.title, line: rec.line, free: rec.free };
+    const knock = () => { setPaused(true); setTalk(t => Object.assign({}, t, { open: true })); };
+    const goOn = () => { setTalk(t => Object.assign({}, t, { open: false })); setPaused(false); };
+    const send = async () => {
+      const line = talk.line.trim(); if (!line || talk.busy || !p.onTalk) return;
+      setTalk(t => Object.assign({}, t, { busy: true }));
+      const upTo = Math.max(0, Math.min(step, test.qs.length - 1));
+      let got = null;
+      try { got = await p.onTalk({ line, upTo, picks, whys: test.qs.map((q, i) => i < upTo ? (pathOf(i).slice(-1)[0] || {}).think || "" : ""), talks }); } catch (e) { got = null; }
+      if (!got || !got.say) { setTalk(t => Object.assign({}, t, { busy: false })); return; }
+      const qi = got.qi, mv = got.pick != null && got.pick !== picks[qi] ? got.pick : null;
+      const nt = Object.assign({}, talks, { [qi]: [...(talks[qi] || []), { who: "me", t: line }, Object.assign({ who: "him", t: got.say }, mv != null ? { pick: mv } : {})] });
+      const np = picks.slice(); if (mv != null) np[qi] = mv;
+      setTalks(nt); setPicks(np); setTalk({ open: true, line: "", busy: false });
+      // 眼下这题被她说定了：这题就算做完，接着做下一题
+      if (mv != null && qi === step && !done) setPos({ q: step + 1, s: 0 });
+      const r2 = !rec.free && np.some((x, i) => x !== (rec.picks || [])[i]) ? resultOf(p.testId, np) : null;
+      p.onTalkSave && p.onTalkSave(Object.assign({ picks: np, talks: nt }, r2 ? { code: r2.code, title: r2.title, line: r2.line } : {}));
+      // 他翻到那题：滚过去
+      setTimeout(() => { const el = qRefs.current[qi], box = boxRef.current; if (el && box) { try { box.scrollTo({ top: Math.max(0, el.offsetTop - 60), behavior: "smooth" }); } catch (e) { box.scrollTop = el.offsetTop - 60; } } }, 60);
+    };
     // 这一题此刻亮着哪一项：做完的亮最后那项；正在做的，按下去才换，改选前先亮着上一下
-    const lit = i => { if (done || i < step) return rec.picks[i]; if (i !== step) return -1;
+    const lit = i => { if (done || i < step) return picks[i]; if (i !== step) return -1;
       const path = pathOf(i); return (phase === "press" || phase === "think") ? path[Math.min(sub, path.length - 1)].at : sub > 0 ? path[sub - 1].at : -1; };
     const nowThink = step >= 0 && !done ? (pathOf(step)[Math.min(sub, pathOf(step).length - 1)] || {}).think || "" : "";
     return h("div", { "data-wk": "zywatch", style: { position: "fixed", inset: 0, zIndex: 120, background: PAPER, display: "flex", flexDirection: "column" } },
@@ -974,7 +1042,7 @@
       h("div", { style: { position: "relative", flex: 1, minHeight: 0 } },
         h("div", { ref: boxRef, style: { position: "absolute", inset: 0, overflowY: "auto", padding: "8px 18px 160px" } },
 
-          test.qs.map((q, i) => h("div", { key: i, "data-wk": "zyq", style: { padding: "12px 0", borderBottom: "1px dashed " + LINE, opacity: !done && i > step ? 0.55 : 1 } },
+          test.qs.map((q, i) => h("div", { key: i, ref: el => { qRefs.current[i] = el; }, "data-wk": "zyq", style: { padding: "12px 0", borderBottom: "1px dashed " + LINE, opacity: !done && i > step ? 0.55 : 1 } },
             h("div", { style: { display: "flex", gap: 8, alignItems: "baseline" } },
               h("span", { style: { fontSize: 12, color: ACC, flexShrink: 0 } }, "Q" + (i + 1)),
               h("span", { style: { fontSize: 14, color: INK, lineHeight: 1.65 } }, q.q)),
@@ -986,7 +1054,12 @@
                 h("span", null, o.t));
             })),
             // 放完了才留档：心声落在这一题底下
-            done ? whyBox(test, q, pathOf(i)) : null)),
+            done ? whyBox(test, q, pathOf(i)) : null,
+            // 敲一敲时在这题下说的话：留着，回看也在
+            talks[i] && talks[i].length ? h("div", { "data-wk": "zytalk", style: { marginTop: 8, display: "flex", flexDirection: "column", gap: 4 } }, talks[i].map((x, k) =>
+              h("div", { key: k, style: { fontSize: 12.5, lineHeight: 1.65, color: x.who === "me" ? "#7d6f60" : INK } },
+                h("span", { style: { fontSize: 11, color: x.who === "me" ? FOG : ACC, marginRight: 6 } }, x.who === "me" ? "你" : (p.name || "他")), x.t,
+                x.pick != null ? h("span", { style: { fontSize: 11, color: ACC, marginLeft: 6 } }, "（改选了「" + optText(test, i, x.pick).slice(0, 12) + "」）") : null))) : null)),
           // 放完了：结果和评语摆在题目最下面（她 2026-10-22），放完自己滚过去
           done ? h("div", { "data-wk": "zyresult", ref: el => { if (el && !resRef.current) { resRef.current = 1; try { el.scrollIntoView({ behavior: "smooth", block: "center" }); } catch (e) {} } }, style: { margin: "18px 0 8px", padding: "16px 14px 14px", borderRadius: 12, background: "#fffaf3", border: "1px solid " + LINE, boxShadow: "inset 0 0 0 4px #fffaf3, inset 0 0 0 5px " + LINE, animation: "wkpop .35s ease-out both" } },
             h("div", { style: { fontSize: 11, letterSpacing: ".2em", color: FOG } }, (p.name || "他") + (res.free ? " 做完说" : " 测出来是")),
@@ -999,7 +1072,15 @@
               p.onPin ? h("button", { onClick: p.onPin, style: { fontSize: 12.5, color: ACC, border: "1px solid " + ACC, borderRadius: 999, padding: "6px 14px", minHeight: 40, background: "transparent" } }, "收进时刻") : null) : null) : null),
         W.WatchDot ? h(W.WatchDot, dot) : null,
         W.WatchThought && !done && phase === "think" ? h(W.WatchThought, { text: nowThink }) : null,
-        W.WatchBar ? h(W.WatchBar, { noKnock: true, done, paused, speed, i: Math.max(0, Math.min(step + 1, test.qs.length)), total: test.qs.length,
+        // 敲一敲的那一条：画面停着，说一句、他回；按「接着做」才往下放
+        talk.open && !done ? h("div", { "data-wk": "zyknock", style: { position: "absolute", left: 0, right: 0, bottom: 52, zIndex: 65, padding: "10px 12px", background: PAPER, borderTop: "1px solid " + LINE, boxShadow: "0 -8px 20px -14px rgba(0,0,0,.3)" } },
+          h("div", { style: { fontSize: 11.5, color: FOG, marginBottom: 6 } }, talk.busy ? (p.name || "他") + " 停下来在想…" : "跟他说说这题，或者说前面哪一题；他想好了回你"),
+          h("div", { style: { display: "flex", gap: 8, alignItems: "center" } },
+            h("input", { value: talk.line, onChange: e => { const v = e.target.value; setTalk(t => Object.assign({}, t, { line: v })); }, onKeyDown: e => { if (e.key === "Enter") send(); }, disabled: talk.busy, placeholder: "说一句…",
+              style: { flex: 1, minWidth: 0, minHeight: 40, padding: "8px 12px", borderRadius: 999, border: "1px solid " + LINE, background: "#fffaf3", color: INK, fontSize: 14, outline: "none" } }),
+            h("button", { onClick: send, disabled: talk.busy || !talk.line.trim(), style: { minHeight: 40, padding: "0 14px", borderRadius: 999, background: ACC, color: "#fff", fontSize: 13, border: "none", opacity: talk.busy || !talk.line.trim() ? .5 : 1 } }, "说"),
+            h("button", { onClick: goOn, disabled: talk.busy, style: { minHeight: 40, padding: "0 12px", borderRadius: 999, background: "transparent", color: INK, fontSize: 13, border: "1px solid " + LINE } }, "接着做"))) : null,
+        W.WatchBar ? h(W.WatchBar, { noKnock: !p.onTalk, knockText: "敲一敲", knocks: 0, knocking: talk.busy, onKnock: knock, done, paused, speed, i: Math.max(0, Math.min(step + 1, test.qs.length)), total: test.qs.length,
           onPause: () => setPaused(v => !v), onSpeed: () => setSpeed(v => v >= 3 ? 1 : v + 1), onSkip: () => { clearTimeout(timer.current); setStep(test.qs.length); },
           onClose: () => { clearTimeout(timer.current); p.onClose && p.onClose(); } }) : null));
   }
@@ -1042,7 +1123,7 @@
     return new Promise(res => c.toBlob(b => res(b), "image/png"));
   }
 
-  g.Zhaoying = { TESTS: T, allTests, customs, saveCustom, delCustom, genTest, askSchema, byId, resultOf, recordsOf, addRecord, delRecord, chatNote, askInstruction, ASK_SCHEMA, readAnswers, dateZh, optText, cleanTest, charTestInstruction, CHAR_TEST_SCHEMA, resultImage, pal, CATS, catOf, colors };
+  g.Zhaoying = { TESTS: T, allTests, customs, saveCustom, delCustom, genTest, askSchema, byId, resultOf, recordsOf, addRecord, patchRecord, delRecord, chatNote, talkInstruction, TALK_SCHEMA, readTalk, askInstruction, ASK_SCHEMA, readAnswers, dateZh, optText, cleanTest, charTestInstruction, CHAR_TEST_SCHEMA, resultImage, pal, CATS, catOf, colors };
   g.ZhaoyingCard = function (p) { return card(p && p.m); };
   g.ZhaoyingWatch = ZhaoyingWatch;
   // 主屏图标：一面小圆镜
