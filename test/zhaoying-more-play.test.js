@@ -4,9 +4,9 @@ const fs = require("fs"), path = require("path");
 const rd = f => fs.readFileSync(path.join(__dirname, "../js", f), "utf8");
 const core = rd("zhaoying-core.js"), ui = rd("zhaoying.js"), app = rd("app.js"), ts = rd("theme-studio.js");
 // 处境：一路带到提示词和记录
-assert.match(core, /function askInstruction\(test, meName, prev, scene, author\)/);
-assert.match(app, /const zhaoyingAsk = \(charId, testId, scene, guess\) =>/);
-assert.match(app, /Z\.askInstruction\(test, userName\(profileFor\(charId\)\), Z\.recordsOf\(charId, testId\), scene, zyAuthor\(test, charId\)\)/);
+assert.match(core, /function askInstruction\(test, meName, prev, scene, author, lie\)/);
+assert.match(app, /const zhaoyingAsk = \(charId, testId, scene, guess, lie\) =>/);
+assert.match(app, /Z\.askInstruction\(test, userName\(profileFor\(charId\)\), Z\.recordsOf\(charId, testId\), scene, zyAuthor\(test, charId\), !!\(row\.zy \|\| \{\}\)\.lie\)/);
 assert.match(app, /\.\.\.\(scene \? \{ scene \} : \{\}\)[^\n]*\}\);\n      patch\(\{ status: "done"/);
 // 他出题：用他的线路和上下文，存成带 by 的题；by 不被 cleanTest 丢掉
 assert.match(core, /\.\.\.\(t\.by \? \{ by: String\(t\.by\) \} : \{\}\)/);
@@ -162,7 +162,7 @@ console.log("ok");
   const Z = global.Zhaoying, t = Z.byId("mbti");
   assert.match(Z.askInstruction(t, "她", [], "", { mine: true }), /这套题是你自己当初出给「她」的/);
   assert.match(Z.askInstruction(t, "她", [], "", { name: "顾朝" }), /这套题是「顾朝」出的/);
-  assert.match(rd("app.js"), /zyAuthor\(test, charId\)\)/);
+  assert.match(rd("app.js"), /zyAuthor\(test, charId\), !!/);
   assert.match(rd("app.js"), /zyAuthor\(test, c\.id\)\)/);
   // 美化：照影是一页、挂点在照影那一组；颜色走公共的 pagePalette
   assert.match(rd("core.js"), /zhaoying: "照影"/);
@@ -255,4 +255,74 @@ console.log("ok");
   Z.addRecord("me", { testId: ct.id, ts: 2, picks: [0], title: "" });
   assert.ok(Z.badgesOf("c1").find(b => b.k === "bait").on);
   assert.match(Z.guessLine(rk, { picks: a1.picks, guess: 2 }), /押中了/);
+}
+
+// 上下文封顶（她 2026-10-23）：全做完也只有最近 5 套带细节；徽章收成一行，点开才摊开
+{
+  const assert = require("node:assert/strict");
+  global.window = global; delete require.cache[require.resolve("../js/zhaoying-core.js")];
+  const store = {}; global.loadJSON = (k, d) => k in store ? store[k] : d; global.saveJSON = (k, v) => { store[k] = v; };
+  require("../js/zhaoying-core.js");
+  const Z = global.Zhaoying;
+  Z.allTests().forEach((t, k) => Z.addRecord("c", { testId: t.id, ts: k, picks: t.qs.map(() => 0), whys: t.qs.map(() => "想到那天下午"), title: "结果", review: "评语".repeat(60) }));
+  const n = Z.chatNote("c"); assert.ok(n.length < 2000, "全做完也不超过两千字：" + n.length);
+  assert.match(n, /更早做过的：/);
+  const zy = require("node:fs").readFileSync(require("node:path").join(__dirname, "../js/zhaoying.js"), "utf8");
+  assert.match(zy, /"data-wk": "zybadgeline"/); assert.match(zy, /char && badgeOpen \? h\("div", \{ "data-wk": "zybadges"/);
+}
+
+// 拍卖不给档（她 2026-10-23「给范围咋算100」「会不会超」）：他没超就原样、可以剩；超了才摊回 100；看他做的那页只画一条和「还剩」
+{
+  const assert = require("node:assert/strict");
+  global.window = global; delete require.cache[require.resolve("../js/zhaoying-core.js")]; require("../js/zhaoying-core.js");
+  const Z = global.Zhaoying, t = Z.byId("bidlove");
+  const a = Z.readAnswers(t, { answers: t.qs.map((q, i) => ({ i: i + 1, amt: i < 3 ? 20 : 0, steps: [{ at: 0 }] })) });
+  assert.deepEqual(a.bids.slice(0, 4), [20, 20, 20, 0], "没超就原样，剩 40 不花");
+  assert.match(Z.askInstruction(t, "她"), /边出边算手里还剩多少/);
+  const core = require("node:fs").readFileSync(require("node:path").join(__dirname, "../js/zhaoying-core.js"), "utf8");
+  assert.match(core, /"data-wk": "zybidleft"/);
+  const zy = require("node:fs").readFileSync(require("node:path").join(__dirname, "../js/zhaoying.js"), "utf8");
+  assert.match(zy, /"data-wk": "zybidme"/); assert.match(zy, /stepBtn\("＋", \(\) => set\(i, 5\), !left\)/);
+}
+
+// 又一批答法（她 2026-10-23「1-6都可以」）＋ 做完附一句发回去、做到一半存档
+{
+  const assert = require("node:assert/strict");
+  global.window = global; delete require.cache[require.resolve("../js/zhaoying-core.js")];
+  const store = {}; global.loadJSON = (k, d) => k in store ? store[k] : d; global.saveJSON = (k, v) => { store[k] = v; };
+  require("../js/zhaoying-core.js");
+  const Z = global.Zhaoying;
+  // 淘汰赛：后面几场的两边是前面赢下来的
+  const br = Z.byId("brtype"), pk = br.qs.map((q, i) => i % 2);
+  assert.equal(br.qs.length, 15);
+  assert.deepEqual(Z.live(br, pk).qs[8].opts.map(o => o.t), ["温柔", "安静"]);
+  assert.match(Z.resultOf("brtype", pk).title, /^冠军：/);
+  assert.equal(Z.live(br, []).qs[8].opts[0].t, "待定");
+  // 滑杆：分数和两头
+  assert.equal(Z.resultOf("scbrave", Array(10).fill(4)).title, "胆量 10 / 10");
+  // 填空：存他写的，记录里、聊天时都是他写的那句
+  const fl = Z.byId("fillme"), a = Z.readAnswers(fl, { answers: fl.qs.map((q, i) => ({ i: i + 1, fill: "句" + i, steps: [{ at: 0 }] })) });
+  assert.equal(a.fills[2], "句2"); assert.match(Z.askSchema(fl), /"fill"/); assert.doesNotMatch(Z.askSchema(fl), /revise/);
+  assert.equal(Z.answerText(fl, a, 2), "句2");
+  // 看图选：每题四块颜色，每种结果各 8 块
+  const pc = Z.byId("piccolor"); assert.ok(pc.qs.every(q => q.opts.length === 4 && q.opts.every(o => o.v)));
+  assert.match(Z.resultOf("piccolor", Array(8).fill(3)).title, /深夜/);
+  // 快问快答：二十题，不回头改
+  const qk = Z.byId("quick20"); assert.equal(qk.qs.length, 20); assert.doesNotMatch(Z.askSchema(qk), /revise/);
+  // 说谎：题号和真心那个对得上才算；她猜中了算徽章
+  const mb = Z.byId("mbti"), b = Z.readAnswers(mb, { answers: mb.qs.map((q, i) => ({ i: i + 1, steps: [{ at: 0 }] })), lie: { i: 2, truth: 1, why: "嗯" } });
+  assert.deepEqual(b.lie, { i: 1, truth: 1, why: "嗯" });
+  assert.equal(Z.readAnswers(mb, { answers: [], lie: { i: 2, truth: 9 } }).lie, undefined);
+  assert.match(Z.askInstruction(mb, "她", [], "", null, true), /故意在其中一题撒谎/); assert.match(Z.askSchema(mb, true), /"lie"/);
+  Z.addRecord("c2", { testId: "mbti", ts: 1, picks: b.picks, title: "x", lie: b.lie, lieGuess: 1 });
+  assert.ok(Z.badgesOf("c2").find(x => x.k === "liar").on);
+  assert.match(Z.chatNote("c2"), /偷偷撒了一题谎[\s\S]*猜中了/);
+  // 接线
+  const fs = require("node:fs"), path = require("node:path");
+  const app = fs.readFileSync(path.join(__dirname, "../js/app.js"), "utf8"), zy = fs.readFileSync(path.join(__dirname, "../js/zhaoying.js"), "utf8");
+  assert.match(app, /const zhaoyingSendMine = \(charId, testId, rec, note\) =>/);
+  assert.match(app, /onLieGuess: i => window\.Zhaoying\.patchRecord\(/);
+  assert.match(zy, /props\.onSendMine\(tt\.by, tt\.id, r0, note\)/);
+  assert.match(zy, /const DRAFT = "x_zyDraft"/); assert.match(zy, /else saveDraft\(r\.testId, next\)/);
+  assert.match(zy, /Z\.optsView\(tt, q, i,/);
 }
