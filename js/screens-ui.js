@@ -7649,11 +7649,18 @@ function CloudSync({ toast, onExport }) {
           !mediaFill ? "把本机所有图片补传到云上"
           : !mediaFill.end ? "补传中… " + mediaFill.done + " / " + (mediaFill.total || "…")
           : mediaFill.stopped === "login" ? "要先登录才能传"
-          : mediaFill.stopped === "nobucket" ? "云上还没建放图片的地方（media 桶）：照上面「怎么弄」里建表那一步再跑一次就有了"
+          : mediaFill.stopped === "nobucket" ? "云上还没建放图片的地方（media 桶）：展开下面「建表内容」，复制到 Supabase 的 SQL Editor 跑一次就有了"
           : mediaFill.stopped === "net" ? "传到一半断了（已传 " + mediaFill.sent + " 张），再点一次接着传"
           : mediaFill.total ? "补好了：传了 " + mediaFill.sent + " 张" + (mediaFill.failed ? "，" + mediaFill.failed + " 张本机已经找不到" : "")
           : "云上已经都有了，不用补"),
         note("自动备份只带文字；图片是另外一张张往云上送的，早些的图可能没送上去过。换设备前点一下，云上已有的不会重复传；图多的话要一阵子，传的时候别关 app。"),
+        // 建表内容登录后也看得到（她 2026-10-23「家里建表看不到」）：原来只在没连云那页露面，
+        //   早建表的人缺 media 桶时找不到它。内容只住 cloud.js 的 CLOUD_SETUP_SQL 一份，能重复跑
+        typeof window.copyCloudSetupSQL === "function" ? h("details", { key: "cloudsetup", "data-wk": "cloudsetup", className: "mt-1 mb-3", style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.sub } },
+          h("summary", { style: { cursor: "pointer", color: t.fog } }, "建表内容（图传不上去、或者换了新的云端项目时用）"),
+          h("div", { style: { marginTop: 8, lineHeight: 1.7 } }, "复制下来，到 Supabase 后台的 SQL Editor 粘贴并运行：存文字的表和放图片的地方一起建好。已经建过的再跑一次也没事，不会动到已经存在云上的东西。"),
+          h("button", { "data-wk": "cloudsetupcopy", onClick: async () => { const ok = await window.copyCloudSetupSQL(); toast && toast(ok ? "建表内容已复制" : "没复制上：长按下面那段全选复制"); }, className: "mt-2 w-full py-3", style: btnLine }, "复制建表内容"),
+          h("pre", { style: { marginTop: 8, padding: "8px 10px", borderRadius: 8, background: t.bg2, color: t.sub, fontSize: "calc(10.5px * var(--app-fs, 1))", whiteSpace: "pre-wrap", wordBreak: "break-all", userSelect: "text", WebkitUserSelect: "text", maxHeight: 220, overflowY: "auto" } }, window.CLOUD_SETUP_SQL)) : null,
         !confirmPull
           ? h("button", { key: "pull", onClick: () => { setConfirmPull(true); setSaved(""); }, disabled: !!busy, className: "mt-3 w-full py-3", style: btnLine },
               "从云端恢复")
