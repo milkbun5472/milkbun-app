@@ -103,6 +103,45 @@
     console.error("supabase init failed", e);
   }
 
+  // 建表内容（她 2026-10-23「家里建表看不到」）：原来只写在公共版的补丁里、只在「还没连云」那一页露面——
+  //   登录以后就再也找不到；而 2026-10-21 之前建表的人缺的正是后加的 media 桶，「补传图片」那颗还叫她们
+  //   「照上面建表那一步再跑一次」，上面却什么都没有。现在只住这一份：没连云那页（公共版补丁）和登录后那页都读它。
+  // ⚠️必须能【重复跑】：Supabase 的 SQL Editor 一句报错整份就停。原来 create policy 没先 drop，
+  //   旧用户再跑一次卡在「policy already exists」，后面建桶那一段永远轮不到。所以每条策略先 drop if exists。
+  window.CLOUD_SETUP_SQL = [
+    "create table if not exists public.saves (",
+    "  user_id uuid primary key references auth.users(id) on delete cascade,",
+    "  data jsonb not null default '{}'::jsonb,",
+    "  updated_at timestamptz not null default now()",
+    ");",
+    "alter table public.saves enable row level security;",
+    "grant select, insert, update on public.saves to authenticated;",
+    "drop policy if exists saves_read_own on public.saves;",
+    "create policy saves_read_own on public.saves for select to authenticated using ((select auth.uid()) = user_id);",
+    "drop policy if exists saves_insert_own on public.saves;",
+    "create policy saves_insert_own on public.saves for insert to authenticated with check ((select auth.uid()) = user_id);",
+    "drop policy if exists saves_update_own on public.saves;",
+    "create policy saves_update_own on public.saves for update to authenticated using ((select auth.uid()) = user_id) with check ((select auth.uid()) = user_id);",
+    "",
+    "-- 放图片的地方（头像、自拍、壁纸这些）。没有这一段的话，图一张也传不上云",
+    "insert into storage.buckets (id, name, public) values ('media', 'media', false) on conflict (id) do nothing;",
+    "drop policy if exists media_rw_own on storage.objects;",
+    "create policy media_rw_own on storage.objects for all to authenticated",
+    "  using (bucket_id = 'media' and (select auth.uid())::text = (storage.foldername(name))[1])",
+    "  with check (bucket_id = 'media' and (select auth.uid())::text = (storage.foldername(name))[1]);"
+  ].join("\n");
+  // 复制建表内容：剪贴板不让写（iOS 壳、没给权限）时退回一个能长按全选的框
+  window.copyCloudSetupSQL = async function () {
+    const sql = window.CLOUD_SETUP_SQL;
+    try { await navigator.clipboard.writeText(sql); return true; }
+    catch (e) {
+      try {
+        const box = document.createElement("textarea");
+        box.value = sql; box.style.position = "fixed"; box.style.opacity = "0"; document.body.appendChild(box);
+        box.select(); const ok = document.execCommand && document.execCommand("copy"); box.remove(); return !!ok;
+      } catch (e2) { return false; }
+    }
+  };
   window.Cloud = {
     ready: () => !!client,
 

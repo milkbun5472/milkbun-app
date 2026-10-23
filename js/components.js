@@ -10846,6 +10846,7 @@ function ChatThread({
   useLocateAt(locateAt, onLocated, messages, revealMsg, ref, archCount, winStartRef, true);
   const nb = useNewBelow(ref, (character && character.id) + "|" + (room && room.id || ""));
   const lastHRef = useRef(0), turnTopRef = useRef(null);   // 上一拍的内容高度、这一轮TA第一条从哪儿开始
+  const shrank = useShrank((character && character.id) + "|" + (room && room.id || ""));
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
@@ -10856,6 +10857,9 @@ function ChatThread({
     }
     // ⚠️正在往上补那一下【不许】滚到底：那是她在翻旧的，把她甩回最新的等于白翻
     if (growing()) return;
+    // 条数变少＝她删了东西（✕ 掉一条系统提示、多选删除）：原地不动。
+    //   原来照样走下面「跟到这一轮第一条」那一支，一 ✕ 就被甩回TA这一轮开头（群里 2026-10-23「会给我跳到很前面」）
+    if (shrank(messages.length)) { nb.follow(messages); lastHRef.current = el.scrollHeight; return; }
     // 她停在上面看TA刚发的第一条：后面几条不把她拽下去，底下挂「↓ N 条新消息」（跟群聊同一份）
     const _prevH = lastHRef.current; lastHRef.current = el.scrollHeight;
     if (!nb.follow(messages)) return;
@@ -13424,6 +13428,12 @@ function NewBelowPill({ n, onGo, group }) {
     h("button", { "data-wk": group ? "gnewbelow" : "newbelow", onClick: onGo,   // 挂点只许写死的名字（不从外面传进来） className: "active:opacity-70",
       style: { position: "absolute", right: 14, bottom: 8, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.accent, background: t.bg2, border: "1px solid " + t.line, borderRadius: 999, padding: "6px 12px", minHeight: 40, boxShadow: "0 2px 8px rgba(0,0,0,.08)" } },
       "↓ " + n + " 条新消息")) : null;
+}
+// 这一拍条数是不是比上一拍少了（删了东西）。单聊、群聊各自一份 ref，判法一份
+//   换了个人／换了个群，记数从头来（不然换到一个条数少的聊天，会被当成删了东西、不往底下钉）
+function useShrank(key) {
+  const lenRef = useRef(-1), keyRef = useRef(key);
+  return n => { if (keyRef.current !== key) { keyRef.current = key; lenRef.current = -1; } const prev = lenRef.current; lenRef.current = n; return prev >= 0 && n < prev; };
 }
 function pinToBottom(el, ms) {
   if (!el) return () => {};
@@ -18849,6 +18859,7 @@ function GroupThread({
   useLocateAt(locateAt, onLocated, messages, revealMsg, ref, archCount, winStartRef, false);
   // 新消息跟不跟到底：跟单聊同一份 useNewBelow
   const nb = useNewBelow(ref, group && group.id);
+  const shrank = useShrank(group && group.id);
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
@@ -18858,6 +18869,7 @@ function GroupThread({
       return pinToBottom(el); // 首次进入群聊：同上
     }
     if (growing()) return;   // 她正在往上翻，别把她甩回最新的
+    if (shrank(messages.length)) { nb.follow(messages); return; }   // 删了东西（✕ 掉系统提示等）：原地不动，跟单聊同一条
     if (!nb.follow(messages)) return;   // 她停在上面看：不拽她，底下挂「↓ N 条新消息」
     return pinToBottom(el, 900);   // 跟单聊同一招：钉住一小会儿，等输入框缩回去、已读那行长出来
   }, [messages.length, sending]);
