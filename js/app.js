@@ -18426,20 +18426,22 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
           const _msgs = (chatsRef.current[c.id] || []).filter(m => !m.recalled && !isOocMsg(m) && contextAllowsMessage(m));
           const _lastTs = _msgs.length ? (_msgs[_msgs.length - 1].ts || 0) : 0;
           if (_lastTs && Date.now() - _lastTs < 7 * 86400000) {
-            let _observerCompleted = false;
+            // 旁人纸条 + 人格四卡 shadow 合成一次调用（她 2026-10-24「分开调用没办法合成一个吗」）：
+            //   两份都是旁观、同一条后台线路、读同一份材料，原来连着叫两次。现在一次交两格，各拿各的。
+            //   shadow 照旧只把逐字证据核验通过的候选放进本机 IDB；不改 box/persona，不进聊天 prompt。
             try {
-              const od = await bgJob("desire", c, () => runProbe(bgActive, leanWriteCtx(ctxFor(c)), HeartKit.observerSpec(c, box)));
+              const os = HeartKit.observerSpec(c, box), ss = window.PersonalityShadow ? window.PersonalityShadow.spec(c, box, _msgs) : null;
+              const spec = !ss ? os : {
+                instruction: "这一次要交两份互不相干的旁观记录，各写各的，放进同一个 JSON 的两格。\n\n【第一份 · observer】\n" + os.instruction
+                  + "\n\n【第二份 · shadow】\n" + ss.instruction,
+                schemaHint: "{\"observer\":" + os.schemaHint + ",\"shadow\":" + ss.schemaHint + "}",
+                maxTokens: Math.max(os.maxTokens || 0, ss.maxTokens || 0, 20000)
+              };
+              const d = await bgJob("desire", c, () => runProbe(bgActive, leanWriteCtx(ctxFor(c)), spec));
+              const od = ss ? ((d && d.observer) || (d && d.briefs ? d : {})) : d;
               HeartKit.applyObserver(box, od, today);
               saveDesires(n => { n[c.id] = box; });
-              _observerCompleted = true;
-            } catch (e) {}
-            // P3-1 人格四卡 shadow：旧观测成功记下本周节拍后才旁路跑，避免旧调用失败时反复烧 API。
-            // 只把逐字证据核验通过的候选放进本机 IDB；不改 box/persona，不进聊天 prompt。
-            try {
-              if (_observerCompleted && window.PersonalityShadow) {
-                const pd = await bgJob("desire", c, () => runProbe(bgActive, leanWriteCtx(ctxFor(c)), window.PersonalityShadow.spec(c, box, _msgs)));
-                await window.PersonalityShadow.observe({ charId: c.id, result: pd, messages: _msgs });
-              }
+              if (ss && d && d.shadow) { try { await window.PersonalityShadow.observe({ charId: c.id, result: d.shadow, messages: _msgs }); } catch (e) {} }
             } catch (e) {}
           }
         }
