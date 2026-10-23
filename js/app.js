@@ -22098,7 +22098,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         zy: { testId, testName: test.name, status: "done", recId, title: res.title, charId, srcId: msgId, ...(scene ? { scene } : {}) } }]);
     } catch (e) { patch({ status: "failed" }); toast("他这回没做成：" + String((e && e.message) || e).slice(0, 50)); }
   };
-  window.__zyOpen = m => { const z = (m && m.zy) || {}; if (z.recId) setZyWatch({ charId: z.charId, testId: z.testId, recId: z.recId, msgId: z.srcId || m.id }); };
+  window.__zyOpen = m => { const z = (m && m.zy) || {}; if (z.recId) setZyWatch({ charId: z.charId, testId: z.testId, recId: z.recId, msgId: z.srcId || m.id, ...(z.she ? { replay: true } : {}) }); };
   const zyWatchDone = w => {
     if (!w || w.replay || !w.msgId) return;
     const row = (chatsRef.current[w.charId] || []).find(x => x && x.id === w.msgId);
@@ -22119,7 +22119,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     } catch (e) { toast("他这回没出成题：" + String((e && e.message) || e).slice(0, 50)); return null; }
   };
   // 一个群一起做（她 2026-10-22）：群里每个主角色各做一遍（一人一次调用），做完把大家的选法发进群，让他们自己聊
-  const zhaoyingGroupRun = async (groupId, testId, onStep) => {
+  const zhaoyingGroupRun = async (groupId, testId, onStep, lie) => {
     const Z = window.Zhaoying, g = groups.find(x => x && x.id === groupId), test = Z && Z.byId(testId);
     if (!g || !test) return 0;
     const mem = (g.memberIds || []).map(id => characters.find(c => c.id === id)).filter(c => c && !c.npc);
@@ -22127,20 +22127,20 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     for (const c of mem) {
       if (onStep) onStep(c);
       try {
-        const d = await runProbe(apiFor(c.id), ctxFor(c), { voice: true, tag: "zhaoying", instruction: Z.askInstruction(test, userName(profileFor(c.id)), Z.recordsOf(c.id, testId), "", zyAuthor(test, c.id)), schemaHint: Z.askSchema(test), maxTokens: 20000 });
+        const d = await runProbe(apiFor(c.id), ctxFor(c), { voice: true, tag: "zhaoying", instruction: Z.askInstruction(test, userName(profileFor(c.id)), Z.recordsOf(c.id, testId), "", zyAuthor(test, c.id), !!lie), schemaHint: Z.askSchema(test, !!lie), maxTokens: 20000 });
         const a = Z.readAnswers(test, d), res = Z.resultOf(testId, a.picks, a.bids);
         if (res.free) { res.title = a.feel || "做完了"; res.line = ""; }
-        Z.addRecord(c.id, { testId, ts: Date.now(), picks: a.picks, whys: a.whys, paths: a.paths, code: res.code, title: res.title, line: res.line, free: !!res.free, ...(a.review ? { review: a.review } : {}), ...(a.react ? { react: a.react } : {}), ...(a.bids ? { bids: a.bids } : {}), ...(a.revs ? { revs: a.revs } : {}), ...(a.fills ? { fills: a.fills } : {}), group: groupId });
+        Z.addRecord(c.id, { testId, ts: Date.now(), picks: a.picks, whys: a.whys, paths: a.paths, code: res.code, title: res.title, line: res.line, free: !!res.free, ...(a.review ? { review: a.review } : {}), ...(a.react ? { react: a.react } : {}), ...(a.bids ? { bids: a.bids } : {}), ...(a.revs ? { revs: a.revs } : {}), ...(a.fills ? { fills: a.fills } : {}), ...(a.lie ? { lie: a.lie } : {}), group: groupId });
         n++;
       } catch (e) { toast((c.remark || c.name) + " 这回没做成"); }
     }
     if (n >= 2) {
       const done = mem.filter(c => (Z.recordsOf(c.id, testId)[0] || {}).group === groupId);
-      const lines = done.map(c => { const r = Z.recordsOf(c.id, testId)[0]; return "「" + (c.remark || c.name) + "」测出「" + r.title + "」"; });
-      // 大家选得最不一样的那几题，摆出来让他们有得聊
-      const split = test.qs.map((q, i) => ({ i, k: new Set(done.map(c => Z.recordsOf(c.id, testId)[0].picks[i])).size })).filter(x => x.k > 1).sort((a, b) => b.k - a.k).slice(0, 2);
-      const qLines = split.map(x => "第 " + (x.i + 1) + " 题「" + test.qs[x.i].q + "」：" + done.map(c => (c.remark || c.name) + "选「" + Z.optText(test, x.i, Z.recordsOf(c.id, testId)[0].picks[x.i]) + "」").join("，"));
-      pGChat(groupId, p => [...p, { role: "user", content: "〔照影〕我让大家都做了「" + test.name + "」：" + lines.join("、") + "。" + (qLines.length ? "\n" + qLines.join("\n") : "") + "\n你们自己说说？", ts: Date.now() }]);
+      // 照答法摆：选择／滑杆挑分歧最大的两题，填空摆前两题各人写的，拍卖挑钱差最多的两样，淘汰赛比冠军（她 2026-10-23）
+      const sp = Z.spreadOf(test, done.map(c => ({ name: c.remark || c.name, rec: Z.recordsOf(c.id, testId)[0] })));
+      const pick = sp.rows.map((r, i) => Object.assign({ i }, r)).filter(r => test.fill || r.spread > (test.bid ? 0 : 1)).sort((a, b) => test.fill ? a.i - b.i : b.spread - a.spread).slice(0, 2);
+      const qLines = pick.map(r => "第 " + (r.i + 1) + " 题「" + r.q + "」：" + r.lines.join("，"));
+      pGChat(groupId, p => [...p, { role: "user", content: "〔照影〕我让大家都做了「" + test.name + "」：" + sp.head.join("、") + "。" + (qLines.length ? "\n" + qLines.join("\n") : "") + (lie ? "\n（每个人都偷偷撒了一题谎，我还在猜）" : "") + "\n你们自己说说？", ts: Date.now() }]);
       try { replyGroup(groupId, {}); } catch (e) {}
     }
     return n;
@@ -22169,7 +22169,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     const say = String(note || "").trim().slice(0, 500);
     const head = mine ? "〔照影〕你给我出的「" + test.name + "」我做完了" : "〔照影〕我做了「" + test.name + "」" + (rec.title && !rec.free ? "，测出「" + rec.title + "」" : "");
     pChat(charId, p => [...p, { role: "user", kind: "zyshare", content: head + (his ? "。你上次测出「" + his.title + "」，咱俩每题对一对：\n" : "，每题选的：\n") + body + (mine && test.bait ? "\n（做完我才看到，你出这套其实是想知道：" + test.bait + "）" : "") + (say ? "\n\n" + say : ""), ts: Date.now(),
-      zy: { testName: test.name, title: mine ? "做完了你出的这套" : (rec.title || "做完了"), who: userName(profileFor(charId)) } }]);
+      zy: { testId, testName: test.name, title: mine ? "做完了你出的这套" : (rec.title || "做完了"), who: userName(profileFor(charId)), she: true, charId: "me", recId: rec.id || "",
+        ...(his ? { his: his.title, same: test.qs.filter((q, i) => Z.answerText(test, rec, i) === Z.answerText(test, his, i)).length } : {}) } }]);
     if (rec.id) Z.patchRecord("me", rec.id, { sentTo: Array.from(new Set([...(rec.sentTo || []), charId])) });
     openChatById(charId);
   };
@@ -34027,7 +34028,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   }) : null, zyWatch && window.ZhaoyingWatch ? (function () {
     const rec = (window.Zhaoying.recordsOf(zyWatch.charId, zyWatch.testId) || []).find(r => r.id === zyWatch.recId);
     const c = characters.find(x => x.id === zyWatch.charId);
-    return rec ? h(window.ZhaoyingWatch, { key: zyWatch.recId, testId: zyWatch.testId, rec, name: c ? (c.remark || c.name) : "他",
+    return rec ? h(window.ZhaoyingWatch, { key: zyWatch.recId, testId: zyWatch.testId, rec, name: c ? (c.remark || c.name) : zyWatch.charId === "me" ? "我" : "他",
       onDone: () => zyWatchDone(zyWatch), onClose: () => setZyWatch(null),
       // 敲一敲（她 2026-10-23）：她在旁边说一句，他停下来回；是她点出来的，当场答
       onTalk: c ? async st => { const Z = window.Zhaoying, test = Z.byId(zyWatch.testId);

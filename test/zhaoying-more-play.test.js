@@ -12,7 +12,7 @@ assert.match(app, /\.\.\.\(scene \? \{ scene \} : \{\}\)[^\n]*\}\);\n      patch
 assert.match(core, /\.\.\.\(t\.by \? \{ by: String\(t\.by\) \} : \{\}\)/);
 assert.match(app, /const zhaoyingCharGen = async \(charId, mode\) =>[\s\S]{0,300}runProbe\(apiFor\(charId\), ctxFor\(c\)/);
 // 群一起做：一人一次，做完发进群让他们聊
-assert.match(app, /const zhaoyingGroupRun = async \(groupId, testId, onStep\) =>/);
+assert.match(app, /const zhaoyingGroupRun = async \(groupId, testId, onStep, lie\) =>/);
 assert.match(app, /try \{ replyGroup\(groupId, \{\}\); \} catch/);
 // 存图、收进时刻走公共的那一处
 assert.match(app, /const zhaoyingPin = [\s\S]{0,900}pinToShike\(charId, rows/);
@@ -163,7 +163,7 @@ console.log("ok");
   assert.match(Z.askInstruction(t, "她", [], "", { mine: true }), /这套题是你自己当初出给「她」的/);
   assert.match(Z.askInstruction(t, "她", [], "", { name: "顾朝" }), /这套题是「顾朝」出的/);
   assert.match(rd("app.js"), /zyAuthor\(test, charId\), !!/);
-  assert.match(rd("app.js"), /zyAuthor\(test, c\.id\)\)/);
+  assert.match(rd("app.js"), /zyAuthor\(test, c\.id\), !!lie\)/);
   // 美化：照影是一页、挂点在照影那一组；颜色走公共的 pagePalette
   assert.match(rd("core.js"), /zhaoying: "照影"/);
   const ts = rd("theme-studio.js"), gi = ts.indexOf('zh: "照影", pages: Object.freeze(["zhaoying"])');
@@ -323,7 +323,7 @@ console.log("ok");
   assert.match(app, /const zhaoyingSendMine = \(charId, testId, rec, note\) =>/);
   assert.match(app, /onLieGuess: i => window\.Zhaoying\.patchRecord\(/);
   assert.match(zy, /props\.onSendMine\(to, tt\.id, r0, note\)/);
-  assert.match(zy, /const DRAFT = "x_zyDraft"/); assert.match(zy, /else saveDraft\(r\.testId, next\)/);
+  assert.match(fs.readFileSync(path.join(__dirname, "../js/zhaoying-core.js"), "utf8"), /const DRAFT = "x_zyDraft"/); assert.match(zy, /const drafts = Z\.drafts, saveDraft = Z\.saveDraft;/); assert.match(zy, /else saveDraft\(r\.testId, next\)/);
   assert.match(zy, /Z\.optsView\(tt, q, i,/);
 }
 
@@ -409,4 +409,28 @@ console.log("ok");
   assert.match(ins, /用大白话跟她讲讲你这个人/); assert.doesNotMatch(ins, /口气是测试页面的口气/);
   const core = require("node:fs").readFileSync(require("node:path").join(__dirname, "../js/zhaoying-core.js"), "utf8");
   assert.match(core, /"data-wk": "zyliewhy"/); assert.match(core, /lieRef\.current\.scrollIntoView/);
+}
+
+// 补漏（她 2026-10-23「1-6做了吧」）：大家怎么选照答法排、删题清存档、她发的卡点开是回放、群里能撒谎
+{
+  const assert = require("node:assert/strict");
+  global.window = global; delete require.cache[require.resolve("../js/zhaoying-core.js")];
+  const store = {}; global.loadJSON = (k, d) => k in store ? store[k] : d; global.saveJSON = (k, v) => { store[k] = v; };
+  require("../js/zhaoying-core.js");
+  const Z = global.Zhaoying;
+  const fl = Z.byId("fillme"), bd = Z.byId("bidlife"), br = Z.byId("brtype"), mb = Z.byId("mbti");
+  assert.deepEqual(Z.spreadOf(fl, [{ name: "甲", rec: { fills: ["怕黑"] } }, { name: "乙", rec: { fills: [] } }]).rows[0].lines, ["甲：怕黑", "乙：（空着）"]);
+  const sb = Z.spreadOf(bd, [{ name: "甲", rec: { bids: [60] } }, { name: "乙", rec: { bids: [10] } }]); assert.equal(sb.rows[0].spread, 50); assert.equal(sb.rows[0].lines[0], "甲 60 枚");
+  assert.match(Z.spreadOf(br, [{ name: "甲", rec: { picks: br.qs.map(() => 0) } }]).head[0], /甲 的冠军：温柔/);
+  assert.equal(Z.spreadOf(mb, [{ name: "甲", rec: { picks: [0] } }, { name: "乙", rec: { picks: [1] } }]).rows[0].spread, 2);
+  const t = Z.saveCustom({ name: "x", qs: [{ q: "a", opts: [{ t: "1" }, { t: "2" }] }] });
+  Z.saveDraft(t.id, { picks: [0], whys: [], step: 1 }); assert.ok(Z.drafts()[t.id]);
+  Z.delCustom(t.id); assert.equal(Z.drafts()[t.id], undefined, "删题时存档一起清");
+  const fs = require("node:fs"), path = require("node:path");
+  const app = fs.readFileSync(path.join(__dirname, "../js/app.js"), "utf8"), core = fs.readFileSync(path.join(__dirname, "../js/zhaoying-core.js"), "utf8"), zy = fs.readFileSync(path.join(__dirname, "../js/zhaoying.js"), "utf8");
+  assert.match(app, /she: true, charId: "me", recId: rec\.id/); assert.match(app, /z\.she \? \{ replay: true \}/);
+  assert.match(app, /const sp = Z\.spreadOf\(test, done\.map/); assert.match(app, /每个人都偷偷撒了一题谎/);
+  assert.match(core, /const she = !ask && z\.she;/);
+  assert.match(core, /if \(rec\.react\) add\(/); assert.match(core, /if \(test\.bid && rec\.bids\) rec\.bids\.map/); assert.match(core, /if \(rec\.lie && rec\.lieGuess != null\)/);
+  assert.match(zy, /"data-wk": "zygrouplie"/); assert.match(zy, /"data-wk": "zycomparebar"/); assert.match(zy, /const sp = Z\.spreadOf\(test, ids\.map/);
 }
