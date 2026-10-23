@@ -4003,6 +4003,7 @@ function buildBundle(ctx, opts) {
   // 快到的日子（时刻 · 往前看）：三天内有纪念日/生日才有这一句，没有就一个字不发
   if (!ctx.notRoleplay && ctx.shikeNote) parts.push("【快到的日子】" + ctx.shikeNote);
   if (!ctx.notRoleplay && ctx.zyNote) parts.push("【照影】" + ctx.zyNote);
+  if (!ctx.notRoleplay && ctx.forumFollowNote) parts.push("【论坛】" + ctx.forumFollowNote);
   // 隔久了的旧心情不该当成「此刻」注进来：moodNote 会说清它是多久以前的读数、
   // 该不该接着演。彻底平复之后 moodLabel 为空、只留 note，别再报一个假的当下心情。
   // 心情只管「你现在是什么情绪」，不管「你怎么处理情绪」——后者是人设的事（群友 2026-10-08：人设写着

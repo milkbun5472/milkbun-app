@@ -6601,6 +6601,11 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     // 时刻 · 往前看（她 2026-10-03）：三天内有认识/在一起的整数天、周年或生日，就让TA知道；怎么表示全看TA
     // 照影（2026-10-22）：他做过的小测、那次每题选了什么——他自己的事，只给他本人
     zyNote: (!char.npc && window.Zhaoying) ? window.Zhaoying.chatNote(char.id) : "",
+    // 论坛上关没关注她：他自己点的，得自己知道（群友 2026-10-23「本人好像不知道」）
+    forumFollowNote: (() => { const b = (forumBackRef.current || {})[char.id] || {}, uN = userName(profileFor(char.id)) || "她";
+      if (b.on) return "你在论坛上关注着" + uN + "的号，你们是互相关注。";
+      if (b.offWhy === "sulk") return "你前阵子跟" + uN + "闹别扭，在论坛上取关了她的号，现在还没关回去。";
+      return ""; })(),
     shikeNote: (!char.npc && window.ShikeKit && window.ShikeKit.chatNote)
       ? window.ShikeKit.chatNote(char, { chats: chatsRef.current, lib: memLibRef.current, couples, profile, uName: userName(profile) }) : "",
     // 心情会自己平复：注入前按放了多久重新表述（存储不动，历史照留）。
@@ -24078,7 +24083,10 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     const remember = (cid, text) => { try { addMemEntry({ text, tags: ["论坛"], charIds: [cid], knownBy: [cid], source: "auto" }); } catch (e) {} };
     for (const c of (charactersRef.current || characters || [])) {
       const cid = c.id, b = all[cid] || {}, iFollow = flwNow.includes(cid);
-      const sulky = typeof makeupSignalFor === "function" && (makeupSignalFor(cid) || {}).on;
+      // 只认「他此刻心情真的不对」那一档（群友 2026-10-23「没生气也会随机取关」）：
+      //   和好间那个信号故意放得松——三天没说话、旧的坏心情也亮——拿来取关就成了随机取关
+      const _ms = typeof makeupSignalFor === "function" ? (makeupSignalFor(cid) || {}) : {};
+      const sulky = !!_ms.on && _ms.kind === "mood";
       if (b.on && sulky && !b.offWhy) {
         all[cid] = { ...b, on: false, offWhy: "sulk", offAt: now }; changed = true;
         toast(c.name + " 取消关注了你", 5000);
