@@ -32,6 +32,10 @@ const ALLOW = {
     // ⑤ 约会卡上的印刷字（她 2026-10-02：「界面不太要英文，装饰性的可以」）——卡面上的字，不是标题
     "FOR YOU", "SEE YOU", "A SMALL", "INVITATION", "REPLY", "DATE WITH YOU", "IT'S TIME", "THAT DAY", "BY CHANCE"],
   "js/vps-codex.js": ["CODEX · ALWAYS ON"], // 那台机器自己的名字
+  // 照影里那两套测试的本名：MBTI、DISC 在中文里就是这么叫的（跟 OOC 同一种），翻成中文反而没人认得；
+  //   攻略里也得照这个写，不然她搜「MBTI」翻不到
+  "js/zhaoying-core.js": ["MBTI", "DISC"],
+  "js/assistant-manual.js": ["MBTI", "DISC"],
   // ③ 发给模型的枚举值 / 模型返回的枚举值——不是给人看的字，各自都有中文映射
   "js/app.js": ["HIGH LOAD", "LOW LOAD", "NORMAL", "LIGHT"],
   "js/engine.js": ["CLEAR", "CLOUDY", "DRIZZLE", "KEEP", "OVERCAST", "PARTLY CLOUDY",
