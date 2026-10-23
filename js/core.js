@@ -974,3 +974,31 @@ if (typeof module !== "undefined" && module.exports) {
   window.addEventListener("orientationchange", () => { full = 0; setTimeout(put, 300); });
   if (window.visualViewport) window.visualViewport.addEventListener("resize", put);
 })();
+// 键盘升起那几帧漏出最底层的米黄底子（她 2026-10-23「修的键盘跳出黄色一截还是没好」——上次只修在聊天窗，
+//   购物页这类别的页一点输入框照样闪黄）。全 App 一处兜：点进输入框那一下，量出这一页最底下那块的底色，
+//   临时刷到 html / body / #root 上，焦点一走就还原。只换颜色，不碰根节点的布局、高度、安全区（home-screen-layout）。
+//   聊天窗自己已经染过（useBrowserKbPad 挂着时 html 上有内联底色）就不插手。
+(function lisaKbUnderTint() {
+  if (typeof window === "undefined" || typeof document === "undefined" || !document.addEventListener) return;
+  let was = null, under = [];
+  const clear = c => !c || /transparent|rgba\(\s*0,\s*0,\s*0,\s*0\s*\)/.test(c);
+  const restore = () => { if (!was) return; under.forEach((x, i) => { x.style.backgroundColor = was[i]; }); was = null; };
+  document.addEventListener("focusin", e => {
+    const t = e.target, tag = t && (t.tagName || "").toLowerCase();
+    if (!(tag === "input" || tag === "textarea" || (t && t.isContentEditable))) return;
+    if (was || !window.getComputedStyle || !document.elementFromPoint) return;
+    const root = document.documentElement;
+    if (root.style.backgroundColor) return;
+    let n = document.elementFromPoint(Math.round(window.innerWidth / 2), Math.max(0, window.innerHeight - 2)), c = "";
+    for (let k = 0; n && k < 40 && !c; k++, n = n.parentElement) { const bg = getComputedStyle(n).backgroundColor; if (!clear(bg)) c = bg; }
+    if (!c) return;
+    under = [root, document.body, document.getElementById("root")].filter(Boolean);
+    was = under.map(x => x.style.backgroundColor);
+    under.forEach(x => { x.style.backgroundColor = c; });
+  });
+  document.addEventListener("focusout", () => setTimeout(() => {
+    const a = document.activeElement, tag = a && (a.tagName || "").toLowerCase();
+    if (tag === "input" || tag === "textarea" || (a && a.isContentEditable)) return;
+    restore();
+  }, 400));
+})();

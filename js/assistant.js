@@ -128,6 +128,7 @@
         ? (LEGACY_PROMPTS.indexOf(String(d.prompt)) >= 0 ? DEFAULT_PROMPT : String(d.prompt))
         : DEFAULT_PROMPT,
       ballOn: d.ballOn !== false,
+      ballShape: d.ballShape || "auto",
       // 走哪条线路：空＝跟随全局（线上主模型），否则是某条线路的 id。
       // 形状照线下和后台那两处来（screens.js 的 routeBox）——这是第三处，
       // 不许自己另发明一套（一层写在三处，第三处没跟上，就是这个库最常犯的病）。
@@ -1833,7 +1834,8 @@
                     put({ avatarImage: ref }); props.toast && props.toast("头像换好了");
                   } catch (err) { props.toast && props.toast("这张存不下：" + (err.message || err)); }
                 } })),
-              cfg.avatarImage ? h("button", { "data-wk": "qqavatardel", onClick: () => put({ avatarImage: "" }), style: { background: "none", border: "none", padding: 0, fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog } }, "换回那只鸟") : null))),
+              cfg.avatarImage ? h("button", { "data-wk": "qqavatardel", onClick: () => put({ avatarImage: "" }), style: { background: "none", border: "none", padding: 0, fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog } }, "换回那只鸟") : null),
+            cfg.avatarImage && window.ImgShapePick ? h(window.ImgShapePick, { value: cfg.ballShape, onChange: v => put({ ballShape: v }) }) : null)),
         // 小球开关
         h("div", { style: row },
           h("div", { style: { flex: 1 } },
@@ -2086,7 +2088,7 @@
     useEffect(() => { if (scroller.current) scroller.current.scrollTo({ top: scroller.current.scrollHeight, behavior: "smooth" }); }, [C.msgs.length, C.busy, open]);
     // 设置页里把小球关了/开了，这边要跟上（同一个存档，两处都在看）
     useEffect(() => {
-      const tick = setInterval(() => { const n = A.loadCfg(); setCfg(c => (c.ballOn === n.ballOn && c.name === n.name && c.avatarImage === n.avatarImage) ? c : n); }, 2000);
+      const tick = setInterval(() => { const n = A.loadCfg(); setCfg(c => (c.ballOn === n.ballOn && c.name === n.name && c.avatarImage === n.avatarImage && c.ballShape === n.ballShape) ? c : n); }, 2000);
       return () => clearInterval(tick);
     }, []);
 
@@ -2130,7 +2132,7 @@
     const dragProps = { onPointerDown: onDown, onPointerMove: onMove, onPointerUp: endDrag, onPointerCancel: endDrag };
 
     const ballSrc = cfg.avatarImage ? (typeof resolveImg === "function" ? resolveImg(cfg.avatarImage) : cfg.avatarImage) : "";
-    const ballCut = typeof window.useImgCutout === "function" ? window.useImgCutout(ballSrc) : false;
+    const ballCut = typeof window.useImgCutout === "function" ? window.useImgCutout(ballSrc, cfg.ballShape) : false;
     if (!cfg.ballOn) return null;
     const base = { position: "fixed", zIndex: 940, touchAction: "none" };
 

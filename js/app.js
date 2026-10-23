@@ -20,7 +20,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v76.380";
+const APP_VERSION = "v76.383";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -229,8 +229,9 @@ function ModelQuickSwitch({ profiles, activeId, offlineApiId, bgApiId, onSetOnli
   // 自己的图（群友 2026-10-17）：设置里换了就当场跟着变
   const [floatImg, setFloatImg] = useState(() => loadJSON("x_modelFloatImg", "") || "");
   const floatSrc = floatImg ? (typeof resolveImg === "function" ? resolveImg(floatImg) : floatImg) : "";
-  const floatCut = typeof window.useImgCutout === "function" ? window.useImgCutout(floatSrc) : false;
-  useEffect(() => { const f = () => setFloatImg(loadJSON("x_modelFloatImg", "") || ""); window.addEventListener("lisa-modelfloatimg", f); return () => window.removeEventListener("lisa-modelfloatimg", f); }, []);
+  const [floatShape, setFloatShape] = useState(() => loadJSON("x_modelFloatShape", "auto") || "auto");
+  const floatCut = typeof window.useImgCutout === "function" ? window.useImgCutout(floatSrc, floatShape) : false;
+  useEffect(() => { const f = () => { setFloatImg(loadJSON("x_modelFloatImg", "") || ""); setFloatShape(loadJSON("x_modelFloatShape", "auto") || "auto"); }; window.addEventListener("lisa-modelfloatimg", f); return () => window.removeEventListener("lisa-modelfloatimg", f); }, []);
   const [pos, setPos] = useState(() => { try { const p = JSON.parse(localStorage.getItem("x_modelFloatPos") || "null"); return p && (p.side === "left" || p.side === "right") && Number.isFinite(p.top) ? p : null; } catch (e) { return null; } });
   const [drag, setDrag] = useState(null); // 拖动中的指尖坐标（按钮中心跟随）
   const dragStart = useRef(null);
@@ -3227,7 +3228,7 @@ function App() {
         const who = (_cc.participants[0] || {}).name || "TA", sid = _cc.sessionId;
         n = n.map(m => _ccAdd.includes(m) ? { ...m, inCall: sid } : m);
         const lines = _ccAdd.map(m => ({ role: "user", act: true, ev: m.kind === "transfer" ? "transfer" : "chat", ...(m.tid ? { tid: m.tid } : {}), ts: m.ts || Date.now(),
-          content: m.kind === "transfer" ? "给" + who + "转了 " + moneyText(m.amount, id) + (m.note ? "（" + m.note + "）" : "") : "在聊天里发了：" + String(m.content).slice(0, 160) }));
+          content: m.kind === "transfer" ? (m.packet ? "给" + who + "发了个红包（里面多少拆开才知道）" + (m.note ? "，上面写着「" + m.note + "」" : "") : "给" + who + "转了 " + moneyText(m.amount, id) + (m.note ? "（" + m.note + "）" : "")) : "在聊天里发了：" + String(m.content).slice(0, 160) }));
         callRef.current = { ..._cc, msgs: [..._cc.msgs, ...lines] };
         setTimeout(() => setCall(c => c && c.sessionId === sid ? { ...c, msgs: [...c.msgs, ...lines] } : c), 0);
       }
@@ -3658,6 +3659,14 @@ function App() {
   //   （见 replyNow 里 history 那道过滤，亲属卡 kinbill 的注释里写着同一个坑）。
   //   所以状态写进卡本身这一句——卡是原地改 status 的，它在历史里，system 那条不在。
   const transferLineForModel = (m, fromName, toName, charId) => {
+    // 红包（她 2026-10-23）：钱跟转账走同一套，只是她发过来、还没拆的那一个，他不知道里面多少
+    if (m.packet) {
+      const w = m.note ? "，上面写着「" + String(m.note).slice(0, 60) + "」" : "";
+      const sealed = m.status !== "accepted" && m.status !== "returned" && m.dir === "toChar";
+      return "【红包：" + fromName + " 给 " + toName + " 发了一个红包" + w + "。"
+        + (m.status === "accepted" ? "已经拆了，里面是 " + moneyText(m.amount, charId) : m.status === "returned" ? "没收，退回去了（里面是 " + moneyText(m.amount, charId) + "）" : sealed ? "还没拆，里面多少钱拆开才知道" : "还没被拆（里面是 " + moneyText(m.amount, charId) + "）")
+        + "。这是做过的一件事，不是谁说的一句话】";
+    }
     const note = m.note ? "，附言「" + String(m.note).slice(0, 60) + "」" : "";
     const st = m.status === "accepted" ? "这笔已经收下了"
       : m.status === "returned" ? "这笔被退回了"
@@ -12031,7 +12040,12 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         }
         return null;
       })();
-      const tfHint = _pendingTf
+      const tfHint = _pendingTf && _pendingTf.packet
+        ? "\n【她给你发了个红包·还没拆】" + uName + " 发来一个红包" + (_pendingTf.note ? "，上面写着「" + _pendingTf.note + "」" : "") + "。你还不知道里面多少。"
+          + "\n· 拆就填 transferAccept:true（拆开里面是 " + moneyText(_pendingTf.amount, charId) + "，钱会真进你钱包）；不想收、嫌见外、正闹脾气，就填 transferAccept:false 退回去。"
+          + "\n· 第一条是还没拆时说的（那时你不知道多少，话里没有数字），拆开以后看到多少的反应从第二条起。收也好退也好，word 里都要有你自己的话。"
+          + "\n· 这一轮顾不上就【省略 transferAccept】，红包继续放着。"
+        : _pendingTf
         ? "\n【她给你转了钱·这笔还挂着没处理】" + uName + " 转了一笔过来" + (_pendingTf.note ? "（附言：" + _pendingTf.note + "）" : "") + "，卡还在那儿等你点。"
           + "收不收【由你这个人和此刻的情形定，不是默认收】：你缺不缺这笔、你俩什么关系、她为什么转、你要不要面子、你是不是正跟她别扭着——都算数。"
           + "\n· 决定收下就填 transferAccept:true，卡才会真入账（金额 " + moneyText(_pendingTf.amount, charId) + "）；不想要、嫌见外、心疼她的钱、正闹脾气就填 transferAccept:false 退回去。"
@@ -12409,7 +12423,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       const seenField = _seenMsg ? photoSeenField(_seenAvatarOk)
         : (_seenAvatarOk ? ",\"photoSeen\":{\"avatar\":false}" : "");
       // Protocol v2：能力格式在稳定 system 里只定义一次；每轮只报开放项与必要动态参数。
-      const openCaps = ["silent", "quote", "语音（写进 word 原位）", "transfer", "location", "gift", "takeout", "recall", "momentComment", "call", "laterPromise"];
+      const openCaps = ["silent", "quote", "语音（写进 word 原位）", "transfer", "redPacket", "location", "gift", "takeout", "recall", "momentComment", "call", "laterPromise"];
       const capState = [];
       // ⚠️这一段【必须排在 capState 声明之后】：v69.30 我把它写在上面那个
       //   photoSeen 块里，而 capState 是 const，于是每次走到这儿都是
@@ -12693,7 +12707,9 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       capState.push("transfer：她提到要花钱、手头紧、要打车、生病要买药、加班没吃饭、"
         + "或者你就是想让她手头宽松点——想转就转，**不必等她开口要**，也不必非得是什么大事。"
         + "note 写你转这笔的那句话（「打车回去」「别省」），数字之外还有一句话。"
-        + "**这笔钱会真的从你钱包里扣掉**，所以数目按你自己的处境来；她可能退回来，那也正常。");
+        + "**这笔钱会真的从你钱包里扣掉**，所以数目按你自己的处境来；她可能退回来，那也正常。"
+        // 红包（她 2026-10-23）：跟转账同一个钱包，只是她拆开前看不到多少——更像一份心意，不像给钱用
+        + "\nredPacket：跟转账同一个钱包，但它是红包——她拆开之前只看得到你写在上面那一句，看不到多少。转账像「这钱给你用」，红包更像「一份心意」：节日、哄她、闹着玩、想给她个惊喜的时候用。填 redPacket:{\"amount\":数字,\"note\":\"写在红包上的一句\"}。");
       // 存钱罐（她 2026-10-10）：只给正式在一起的、只在主聊天；钱是真钱，进出都过各自的钱包
       if (isCouple && !sideRoom) {
         openCaps.push("jar");
@@ -12895,7 +12911,7 @@ ${SCHED_NOW_SPEC}
 ${window.Gaze && !char.npc ? window.Gaze.spec("对方", charId, { tail: true }) : ""}
 【能力使用总则】这些功能都可以日常使用，gift、photo、call、voice、moment、recall 等按当前对话与你自己的真实意愿选择，不必等待特殊时刻。没有使用频率或轮数要求，不用为了证明记得能力而找机会触发。recall 可用于日常纠错或调整已发消息，不限于后悔、说漏嘴；需要补发时写入 word。能力字段是否使用不限制表达的热情、篇幅或性格。
 【能力字段字典】
-silent:true=明确不发消息；quote:string=引用某条消息；语音＝直接写进 word 数组里、你想让它出现的那个位置，那一项写成 {"voice":"内容","emo":"happy|sad|angry|fearful|disgusted|surprised|neutral"}（${VOICE_PAUSE_MARK}${voiceSoundHint()}）——先说一句、再发条语音、再补一句，就按这个顺序排在 word 里；transfer:{"amount":数字,"note":"附言"}=转账；location:{"name":"地点"}=位置；gift:{"name":"物品","price":数字,"note":"寄语，一两句，不填就没有"}=寄一份会留下来的礼物；takeout:{"shop":"店名","items":["点的每一样"],"price":数字,"note":"写在单子上给对方的一句话，不填就没有"}=给对方点外卖；kinshipcard:{"limit":数字,"note":"附言"}=亲属卡；askPhone:"开口那句话"=想看她的手机；pinPlace:{"name":"地名","note":"一句话"}=在你们的城市地图上钉一个想带她去的地方；dateReply:{"go":"yes"|"no","say":"写在回执上的一句"}=回她的约会邀请；loveLetter:"信的全文"=写给她的情侣申请信；block:true 与 blockreason:string=拉黑；recall:{"text":"要撤掉的那句原话","reason":"你为什么撤"}=撤回（会先正常显示一秒再变成「已撤回」，所以 text 写你真发出去过的那句）；momentComment:string=评论最新朋友圈；toGroup:string=把这句公开发到共同群里（只写要发的话）；moment:string=发朋友圈；whisper:string=情侣便签；carve:{"song":"歌名，可带歌手","note":"刻在B面的一句话"}=把一首歌刻进你俩的唱片（会进情侣空间，两个人都看得到）；keepMoment:{"title":"给这一刻起的名字","why":"你为什么想记住它，一两句"}=把刚才这一刻存进你们的相册「时刻」（她看得到；只在你真觉得这一刻值得记住时填，不是每轮都有）；emote:string=表情包关键词（想让表情夹在两句话中间，就别用这一栏，直接在 word 数组里那个位置写一项 {"emote":"关键词"}）；call:"voice"|"video"=发起通话；songSwitch:string=切歌；listenInvite:{"song":"歌名","say":"邀请语"}=邀请一起听；photo:{"kind":"self|other|duo","scene":"画面"}=发照片；toy:{"pattern":"teasing|steady|wave|pulse|edge|ramp|hold|throb|flutter|tide|knock|surge","intensity":1到20,"duration":1到90,"reason":"原因"}=配件。
+silent:true=明确不发消息；quote:string=引用某条消息；语音＝直接写进 word 数组里、你想让它出现的那个位置，那一项写成 {"voice":"内容","emo":"happy|sad|angry|fearful|disgusted|surprised|neutral"}（${VOICE_PAUSE_MARK}${voiceSoundHint()}）——先说一句、再发条语音、再补一句，就按这个顺序排在 word 里；transfer:{"amount":数字,"note":"附言"}=转账；redPacket:{"amount":数字,"note":"写在红包上的一句"}=发红包（她拆开前看不到多少）；location:{"name":"地点"}=位置；gift:{"name":"物品","price":数字,"note":"寄语，一两句，不填就没有"}=寄一份会留下来的礼物；takeout:{"shop":"店名","items":["点的每一样"],"price":数字,"note":"写在单子上给对方的一句话，不填就没有"}=给对方点外卖；kinshipcard:{"limit":数字,"note":"附言"}=亲属卡；askPhone:"开口那句话"=想看她的手机；pinPlace:{"name":"地名","note":"一句话"}=在你们的城市地图上钉一个想带她去的地方；dateReply:{"go":"yes"|"no","say":"写在回执上的一句"}=回她的约会邀请；loveLetter:"信的全文"=写给她的情侣申请信；block:true 与 blockreason:string=拉黑；recall:{"text":"要撤掉的那句原话","reason":"你为什么撤"}=撤回（会先正常显示一秒再变成「已撤回」，所以 text 写你真发出去过的那句）；momentComment:string=评论最新朋友圈；toGroup:string=把这句公开发到共同群里（只写要发的话）；moment:string=发朋友圈；whisper:string=情侣便签；carve:{"song":"歌名，可带歌手","note":"刻在B面的一句话"}=把一首歌刻进你俩的唱片（会进情侣空间，两个人都看得到）；keepMoment:{"title":"给这一刻起的名字","why":"你为什么想记住它，一两句"}=把刚才这一刻存进你们的相册「时刻」（她看得到；只在你真觉得这一刻值得记住时填，不是每轮都有）；emote:string=表情包关键词（想让表情夹在两句话中间，就别用这一栏，直接在 word 数组里那个位置写一项 {"emote":"关键词"}）；call:"voice"|"video"=发起通话；songSwitch:string=切歌；listenInvite:{"song":"歌名","say":"邀请语"}=邀请一起听；photo:{"kind":"self|other|duo","scene":"画面"}=发照片；toy:{"pattern":"teasing|steady|wave|pulse|edge|ramp|hold|throb|flutter|tide|knock|surge","intensity":1到20,"duration":1到90,"reason":"原因"}=配件。
 能力字段只在本轮开放且角色实际决定触发时填写，未触发直接省略。历史中的〔今天14:32〕等标记只表示时间，不得写进 word。
 ${_askedRecord ? "memo:{\"title\":\"这件事\",\"date\":\"YYYY-MM-DD\",\"time\":\"HH:MM或省略\",\"repeat\":\"none等\",\"note\":\"补充或省略\"}=替她记进备忘录；ledger:{\"type\":\"expense或income\",\"amount\":数字,\"currency\":\"上面列出的币种\",\"category\":\"上面列出的分类\",\"date\":\"YYYY-MM-DD或省略\",\"note\":\"缘由\"}=替她记一笔账；health:[{\"kind\":\"meal\",\"meal\":\"breakfast|lunch|dinner|snack\",\"name\":\"吃了什么\",\"kcal\":估的整数} 或 {\"kind\":\"water\",\"cups\":杯数} 或 {\"kind\":\"sport\",\"sport\":\"跑步等\",\"min\":分钟} 或 {\"kind\":\"weight\",\"kg\":数字} 或 {\"kind\":\"sleep\",\"bed\":\"HH:MM\",\"wake\":\"HH:MM\"} 或 {\"kind\":\"steps\",\"steps\":数字} 或 {\"kind\":\"mood\",\"v\":0到4}，每条都可带 \"date\":\"YYYY-MM-DD\"]=替她记进健康。这几个都只在她这一轮真的开口让你记时才填，记完在话里自然说一声记好了，一句话就够。\n" : ""}transferAccept:true|false=对【她转过来还挂着的那一笔】表态：true 收下、false 退回；这一轮不处理就省略。只在本轮开放能力里列出它时才有得填。
 laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不填 minutes）","about":"回来要说/要做的事","how":"chat|voice|video","after":"takeout|gift（等一件事时才填）"}=【约回】——只有你这一轮【真的说了】「等我开完会再找你」「忙完这阵找你」「到家给你打电话」这类话时才填；**说了「我现在过去，二十分钟到」这种正往她那儿赶的话也算**；**约好了几点（「五点半门口逮你」「七点来接你」）也算，那就填 at，不填 minutes**（about 写「到了跟她说一声」，minutes 就是你说的路上要多久），minutes 是从现在起大约多久（开个会 60、忙一下午 240、下班后 480…）。**她说几分钟就是几分钟**：她说「两分钟后打给我」而你答应了，就填 2——最短 1 分钟、最长一天，短的那几档照样会真的到点，about 一句话写清回来是为了什么。**how 照你自己刚说出口的那句来**：说的是回来发消息就 chat，说的是打给她/给她来个电话就 voice，说的是视频就 video——你说了打电话，到点她那边【真的会响】，所以别把随口一句「回头聊」写成打电话，也别把明明说好的电话缩水成一条消息。看不出是哪种就填 chat。**你说的回来是等一件事发生、不是等一段时间**（「外卖到了跟你说」「礼物拿到了告诉你」）时，加 after："takeout"＝她给你点的外卖送到、"gift"＝她送你的礼物送到——到的那一刻你会被叫回来，这时 minutes 可以省略。两头一样要紧：**嘴上答应了就填**（答应了不填，到点什么都不会发生，她会一直等）；没答应就省略，不为了制造互动硬填。${_biRuleLine}`;
@@ -13720,7 +13736,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         pChat(chatKey, p => [...p, { role: "assistant", kind: "silence", content: "（看到了消息，没有回）", ts: Date.now(), turnId }]);
         delivered = true;
         words = []; emoteWordKws.length = 0; _inlineVoice = [];
-        parsed.emote = null; parsed.voice = []; parsed.selfie = null; parsed.photo = null; parsed.toy = null; parsed.transfer = null; parsed.jar = null; parsed.gift = null; parsed.takeout = null;
+        parsed.emote = null; parsed.voice = []; parsed.selfie = null; parsed.photo = null; parsed.toy = null; parsed.transfer = null; parsed.redPacket = null; parsed.jar = null; parsed.gift = null; parsed.takeout = null;
         parsed.call = null; parsed.recall = null; parsed.moment = null; parsed.momentComment = null; parsed.whisper = null;
         // 决定不回她的时候，也别同一口气跑去群里发言——那会读成刻意冷落，而模型多半不是那个意思
         parsed.toGroup = null;
@@ -14045,6 +14061,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       }
       // TA 主动转账 / 发位置 / 给亲属卡
       if (parsed.transfer && Number(parsed.transfer.amount) > 0) { postCharTransfer(charId, Number(parsed.transfer.amount), parsed.transfer.note || ""); delivered = true; }
+      if (parsed.redPacket && Number(parsed.redPacket.amount) > 0) { postCharTransfer(charId, Number(parsed.redPacket.amount), parsed.redPacket.note || "", { packet: true }); delivered = true; }
       // 存钱罐：TA 的手。只认主聊天（上面 capState 也只在主聊天开）
       if (parsed.jar && typeof parsed.jar === "object" && !sideRoom && jarOpen(charId)) {
         const _j = parsed.jar, _op = String(_j.op || "").trim();
@@ -19959,7 +19976,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       amount: a,
       note: note || "",
       status: "pending",
-      content: "[转账] 你向 " + char.name + " 转了 " + moneyText(a, charId) + (note ? "（" + note + "）" : ""),
+      content: extra && extra.packet ? "[红包] 你给 " + char.name + " 发了个红包" + (note ? "（" + note + "）" : "") : "[转账] 你向 " + char.name + " 转了 " + moneyText(a, charId) + (note ? "（" + note + "）" : ""),
       ts: Date.now(),
       read: false,
       ...(extra || {})
@@ -19968,7 +19985,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     // 顺手再触发一轮主动回复——所以「一转完TA就自己回话了」。现在两件事都不做：
     // 收不收由 TA 在【下一次真的开口】那一轮里自己决定（见 replyNow 的 transferAccept），
     // 她按回复键、或者她再说句话，都算那一轮。
-    toast("转账已发出，等 TA 点开");
+    toast(extra && extra.packet ? "红包发出去了，等 TA 拆开" : "转账已发出，等 TA 点开");
   };
   // TA 转给我（AI 在回复里决定）：入队待处理卡，我接受才入账
   const postCharTransfer = (charId, amount, note, extra) => {
@@ -19993,7 +20010,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       amount: a,
       note: note || "",
       status: "pending",
-      content: "[转账] " + char.name + " 向你转了 " + moneyText(a, charId) + (note ? "（" + note + "）" : ""),
+      content: extra && extra.packet ? "[红包] " + char.name + " 给你发了个红包" + (note ? "（" + note + "）" : "") : "[转账] " + char.name + " 向你转了 " + moneyText(a, charId) + (note ? "（" + note + "）" : ""),
       ts: Date.now(),
       read: false,
       ...(extra || {})
@@ -20006,12 +20023,13 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     const card = (chatsRef.current[charId] || []).find(m => m.kind === "transfer" && m.tid === tid);
     if (!card || card.status !== "pending") return;
     if (accept) {
+      const W = card.packet ? "红包" : "转账";
       if (card.dir === "toChar") {
-        changeWallet(-card.amount, "转账给 " + (char ? char.name : "对方"), "transfer", { where: "单聊", charId: charId, ts: card.ts });
-        adjustCharBalance(charId, card.amount, "收到你的转账" + (card.note ? "（" + card.note + "）" : ""), "transfer");
+        changeWallet(-card.amount, (card.packet ? "发红包给 " : "转账给 ") + (char ? char.name : "对方"), "transfer", { where: "单聊", charId: charId, ts: card.ts });
+        adjustCharBalance(charId, card.amount, "收到你的" + W + (card.note ? "（" + card.note + "）" : ""), "transfer");
       } else {
-        changeWallet(card.amount, (char ? char.name : "对方") + " 转账给你", "transfer", { where: "单聊", charId: charId, ts: card.ts });
-        adjustCharBalance(charId, -card.amount, "转账给你" + (card.note ? "（" + card.note + "）" : ""), "transfer");
+        changeWallet(card.amount, (char ? char.name : "对方") + (card.packet ? " 发的红包" : " 转账给你"), "transfer", { where: "单聊", charId: charId, ts: card.ts });
+        adjustCharBalance(charId, -card.amount, (card.packet ? "发红包给你" : "转账给你") + (card.note ? "（" + card.note + "）" : ""), "transfer");
       }
     }
     pChat(charId, p => p.map(m => m.kind === "transfer" && m.tid === tid ? {
@@ -20019,13 +20037,14 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       status: accept ? "accepted" : "returned"
     } : m));
     const nm = char ? char.name : "对方";
+    const W2 = card.packet ? "红包" : "转账";
     const line = accept
-      ? (card.dir === "toChar" ? nm + " 领取了你的转账 " + moneyText(card.amount, charId) : "你领取了 " + nm + " 的转账 " + moneyText(card.amount, charId))
-      : (card.dir === "toChar" ? nm + " 退回了你的转账 " + moneyText(card.amount, charId) : "你退回了 " + nm + " 的转账 " + moneyText(card.amount, charId));
+      ? (card.dir === "toChar" ? nm + " 领取了你的" + W2 + " " + moneyText(card.amount, charId) : "你领取了 " + nm + " 的" + W2 + " " + moneyText(card.amount, charId))
+      : (card.dir === "toChar" ? nm + " 退回了你的" + W2 + " " + moneyText(card.amount, charId) : "你退回了 " + nm + " 的" + W2 + " " + moneyText(card.amount, charId));
     // 回执卡（她 2026-10-01「转账接受和拒绝也做成转账卡」）：还是那条 system 行（模型那边读的字一个没变），
     //   只是多挂一个 receipt——界面认得它就画成收款方那一侧的一张单子，不再是一行灰字。
     pChat(charId, p => [...p, { role: "system", kind: "system", content: line, ts: Date.now(),
-      receipt: { side: card.dir === "toChar" ? "char" : "me", amount: card.amount, note: card.note || "", status: accept ? "accepted" : "returned" } }]);
+      receipt: { side: card.dir === "toChar" ? "char" : "me", amount: card.amount, note: card.note || "", status: accept ? "accepted" : "returned", ...(card.packet ? { packet: true } : {}) } }]);
   };
   // ---- 群聊转账（我转给群里某个指定成员）----
   const sendGroupTransfer = (groupId, memberId, amount, note) => {
@@ -31164,7 +31183,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     archCount: activeRoomId === "main" ? (chatArch[activeChar.id] || 0) : 0,
     onLoadOlder: activeRoomId === "main" ? loadChatArchive : null,
     myBalance: wallet,
-    onSendTransfer: (amount, note) => runRoomAction(activeChar.id, "transfer", () => sendTransfer(activeChar.id, amount, note)),
+    onSendTransfer: (amount, note, packet) => runRoomAction(activeChar.id, "transfer", () => sendTransfer(activeChar.id, amount, note, packet ? { packet: true } : undefined)),
     onRespondTransfer: (tid, accept) => runRoomAction(activeChar.id, "transferAccept", () => respondTransfer(activeChar.id, tid, accept)),
     // 拆开TA寄来的那个盒子（她 2026-09-19）。盖子掀开这件事只发生一次，记在那条消息上——
     // ⚠️认的是 turnId 不是数组下标：聊天会删消息、会翻旧的，下标一变就拆错了那一盒。
