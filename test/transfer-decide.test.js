@@ -19,7 +19,7 @@ test("转出去只是挂着，不自己触发一轮回复", () => {
   const i = app.indexOf("const sendTransfer = (charId, amount, note, extra)");
   const seg = app.slice(i, app.indexOf("\n  };", i));
   assert.doesNotMatch(seg, /setTimeout/, "转完不该再安排任何自动动作");
-  assert.match(seg, /toast\("转账已发出，等 TA 点开"\)/);
+  assert.match(seg, /"转账已发出，等 TA 点开"\);/);  // 红包（2026-10-23）走同一条，只换了那句提示
   const j = app.indexOf("const sendGroupTransfer = (groupId, memberId");
   assert.doesNotMatch(app.slice(j, app.indexOf("\n  };", j)), /setTimeout/, "群里也一样");
 });
