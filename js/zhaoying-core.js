@@ -866,10 +866,12 @@
     });
     // 最近做的那一次多带三样（她 2026-10-23「最后的评语和他对此看法他也记得说啥的吧」）：
     //   每题当时心里那句、做完写的评语、做的时候她敲屏幕跟你在题下说的话。更早的只带评语，免得越攒越长。
-    return "你做过照影里的小测（这是你自己做过的事，结果只是那次测出来的，不用照着它演）：\n" + lines.map((x, k) =>
+    // 上下文封顶（她 2026-10-23「不会太占上下文吗」）：最近 5 套带每题选了什么，再往前只留名字和结果，一行带过
+    const more = lines.slice(5, 25).map(x => "「" + x.t.name + "」" + x.r.title).join("、");
+    return "你做过照影里的小测（这是你自己做过的事，结果只是那次测出来的，不用照着它演）：\n" + lines.slice(0, 5).map((x, k) =>
       "·「" + x.t.name + "」" + dateZh(x.r.ts) + " 测出「" + x.r.title + "」" + (x.r.scene ? "（那次的前提是：" + x.r.scene + "）" : "") + (seen[x.t.id].length ? "（更早几次：" + seen[x.t.id].slice(0, 3).join("、") + "）" : "") + "。那次你选的：" + x.picks
       + (x.r.review ? "\n  做完你写的评语：" + String(x.r.review).slice(0, k ? 80 : 300) : "")
-      + (k ? "" : recallDetail(x.t, x.r))).join("\n");
+      + (k ? "" : recallDetail(x.t, x.r))).join("\n") + (more ? "\n·更早做过的：" + more : "");
   }
   function recallDetail(t, r) {
     const whys = (r.whys || []).map((w, i) => w ? "Q" + (i + 1) + "「" + String(w).slice(0, 40) + "」" : "").filter(Boolean).join(" ");

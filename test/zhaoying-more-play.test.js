@@ -256,3 +256,17 @@ console.log("ok");
   assert.ok(Z.badgesOf("c1").find(b => b.k === "bait").on);
   assert.match(Z.guessLine(rk, { picks: a1.picks, guess: 2 }), /押中了/);
 }
+
+// 上下文封顶（她 2026-10-23）：全做完也只有最近 5 套带细节；徽章收成一行，点开才摊开
+{
+  const assert = require("node:assert/strict");
+  global.window = global; delete require.cache[require.resolve("../js/zhaoying-core.js")];
+  const store = {}; global.loadJSON = (k, d) => k in store ? store[k] : d; global.saveJSON = (k, v) => { store[k] = v; };
+  require("../js/zhaoying-core.js");
+  const Z = global.Zhaoying;
+  Z.allTests().forEach((t, k) => Z.addRecord("c", { testId: t.id, ts: k, picks: t.qs.map(() => 0), whys: t.qs.map(() => "想到那天下午"), title: "结果", review: "评语".repeat(60) }));
+  const n = Z.chatNote("c"); assert.ok(n.length < 2000, "全做完也不超过两千字：" + n.length);
+  assert.match(n, /更早做过的：/);
+  const zy = require("node:fs").readFileSync(require("node:path").join(__dirname, "../js/zhaoying.js"), "utf8");
+  assert.match(zy, /"data-wk": "zybadgeline"/); assert.match(zy, /char && badgeOpen \? h\("div", \{ "data-wk": "zybadges"/);
+}

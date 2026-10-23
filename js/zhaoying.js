@@ -22,7 +22,8 @@
     const [edit, setEdit] = useState(null);     // 正在出／改的那套题（草稿，存了才算）
     const [gen, setGen] = useState({ theme: "", count: 10, busy: false });
     const [scene, setScene] = useState("");
-    const [guess, setGuess] = useState(-1);        // 排序／拍卖：发出去之前押他的第一（她 2026-10-23）        // 换个处境再做：这一次的前提，空＝平时
+    const [guess, setGuess] = useState(-1);
+    const [badgeOpen, setBadgeOpen] = useState(false);        // 排序／拍卖：发出去之前押他的第一（她 2026-10-23）        // 换个处境再做：这一次的前提，空＝平时
     const [busyWho, setBusyWho] = useState("");    // 他在出题 / 群里谁在做
     // 分类：记得上次停在哪一类（她 2026-10-22「搞个分类」）
     const [cat, setCatS] = useState(() => { try { return (typeof loadJSON === "function" && loadJSON("x_zyCat", "all")) || "all"; } catch (e) { return "all"; } });
@@ -216,7 +217,14 @@
           h("div", { "data-wk": "zyaskrow", className: "flex gap-3 overflow-x-auto", style: { padding: "4px 2px 6px" } },
             chars.map(c => face(who === c.id, c, c.remark || c.name, () => setWho(c.id))), face(who === "me", null, "我自己", () => setWho("me"))),
           // 徽章（她 2026-10-23）：从他做过的记录里算出来，亮的是拿到了的
-          who !== "me" && char ? h("div", { "data-wk": "zybadges", className: "flex gap-2 flex-wrap", style: { marginTop: 8 } },
+          // 一行：拿到了几个＋拿到的那几枚；点开才摊开全部（她 2026-10-23「改成一行吧，点开再看全部」）
+          who !== "me" && char ? (function () { const bs = Z.badgesOf(char.id), got = bs.filter(b => b.on);
+            return h("button", { "data-wk": "zybadgeline", onClick: () => setBadgeOpen(v => !v), className: "w-full text-left active:opacity-70",
+              style: { marginTop: 8, minHeight: 40, display: "flex", alignItems: "center", gap: 6, fontFamily: F_BODY, fontSize: 12, color: FOG, overflow: "hidden", whiteSpace: "nowrap" } },
+              h("span", { style: { color: ACC, flexShrink: 0 } }, "徽章 " + got.length + "/" + bs.length),
+              h("span", { style: { flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis" } }, got.length ? got.map(b => "★" + b.zh).join(" ") : "还没拿到"),
+              h("span", { style: { flexShrink: 0 } }, badgeOpen ? "收起 ▴" : "全部 ▾")); })() : null,
+          who !== "me" && char && badgeOpen ? h("div", { "data-wk": "zybadges", className: "flex gap-2 flex-wrap", style: { marginTop: 4 } },
             Z.badgesOf(char.id).map(b => h("button", { key: b.k, "data-on": b.on ? "1" : "0", onClick: () => props.toast && props.toast((b.on ? "已拿到 · " : "还没拿到 · ") + b.zh + "：" + b.how), className: "active:opacity-70",
               style: { minHeight: 40, padding: "4px 10px", borderRadius: 10, fontFamily: F_BODY, fontSize: 11.5, border: "1px " + (b.on ? "solid " + ACC : "dashed " + LINE), color: b.on ? ACC : FOG, background: b.on ? "rgba(176,118,74,.08)" : "transparent" } }, (b.on ? "★ " : "☆ ") + b.zh))) : null,
           // 换个处境再做（她 2026-10-22）：挑一个前提，这一次照那个前提下的他来答；平时就是不挑
