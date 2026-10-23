@@ -33014,7 +33014,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     reportGroups: (groups || []).filter(g => g && imInGroup(g) && !(g.roomKind === "spectate" || (gsFor(g.id) || {}).spectate)).map(g => ({ id: g.id, name: g.name || "群聊" })),
     sendGameReportGroup: (gid, rep) => {
       if (!gid || !rep) return;
-      const body = "〔小游戏战报〕「" + rep.zh + "」" + (rep.meWin === true ? "她赢了" : rep.meWin === false ? "她输了" : "") + "\n" + String(rep.text || "").slice(0, 300)
+      const body = "〔小游戏战报〕「" + rep.zh + "」" + (rep.meWin === true ? "她赢了" : rep.meWin === false ? "她输了" : "") + "\n" + String(rep.text || "").slice(0, 800)
         + (rep.stake ? "\n开局说好的彩头：" + String(rep.stake).slice(0, 40) : "");
       pushGroupRich(gid, { role: "user", kind: "gameshare", content: body, read: true,
         game: { key: rep.key, zh: rep.zh, text: String(rep.text || "").slice(0, 300), meWin: rep.meWin == null ? null : !!rep.meWin, taWin: false,
@@ -33025,7 +33025,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       const taWin = (rep.wins || []).indexOf(charId) >= 0;
       // 彩头：从 TA 这边看谁该兑现——TA 输了就是 TA 欠的；她输了、TA 赢了就是她欠 TA 的
       const owes = !rep.stake ? "" : !taWin && rep.meWin !== false ? "ta" : taWin && rep.meWin === false ? "me" : "";
-      const body = "〔小游戏战报〕「" + rep.zh + "」" + (rep.meWin === true ? "她赢了" : rep.meWin === false ? "她输了" : "") + "\n" + String(rep.text || "").slice(0, 300)
+      const body = "〔小游戏战报〕「" + rep.zh + "」" + (rep.meWin === true ? "她赢了" : rep.meWin === false ? "她输了" : "") + "\n" + String(rep.text || "").slice(0, 800)
         + (rep.stake ? "\n开局说好的彩头：" + String(rep.stake).slice(0, 40) + (owes === "ta" ? "（你输了，该你兑现）" : owes === "me" ? "（她输了，该她兑现给你）" : "") : "");
       pChat(charId, p => [...p, { role: "user", kind: "gameshare", content: body, ts: Date.now(),
         game: { key: rep.key, zh: rep.zh, text: String(rep.text || "").slice(0, 300), meWin: rep.meWin == null ? null : !!rep.meWin, taWin: taWin,
@@ -33035,7 +33035,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     },
     keepGameMemory: (charIds, text, room) => {
       const ids = (charIds || []).filter(id => characters.some(c => c.id === id));
-      const t0 = String(text || "").trim().slice(0, 300);
+      const t0 = String(text || "").trim().slice(0, 800);   // 勾了「连过程一起」会长一些
       if (!t0 || !ids.length) return false;
       const where = keepWhereItHappened({ text: t0, charIds: ids, room: room, entry: { tags: ["小游戏"], source: "manual" } });
       if (where === "room") toast("收进这间房了——只在这儿算数");
