@@ -489,8 +489,14 @@
       // 这一局是在哪间房里打的，一并递下去：终局那一下要按它决定收到哪儿。
       // 原来这盒永不进回忆；她 2026-10-23 松口：可以收，但写清这是在手机上操控小人玩的游戏，不是真去约会了。
       //   所以收的时候战报那一段由 date-game.js 自己写开头那句框定，这里只把回调递下去。
+      // 收进记忆那扇门：带上这一局是在哪间房里打的（终局按它决定收到哪儿）。约会那盒和其余几桌走同一个——
+      //   原来约会那盒直接把上头那扇门原样递下去，房间那一截丢了，隔离房里打的约会会收进主线
+      const keepMem = function (ids, text) {
+        const room = (session.config && session.config.room) || session.room || null;
+        return props.keepGameMemory ? props.keepGameMemory(ids, text, room) : false;
+      };
       if (session.game.key === "date") return h(window.DateGame, {
-        keepGameMemory: props.keepGameMemory, sendGameReport: props.sendGameReport, sendGameReportGroup: props.sendGameReportGroup, reportGroups: props.reportGroups, toast: props.toast,
+        keepGameMemory: keepMem, sendGameReport: props.sendGameReport, sendGameReportGroup: props.sendGameReportGroup, reportGroups: props.reportGroups, toast: props.toast,
         config: session.config, savedState: session.saved, active: props.active, characters: routedCharacters,
         profile: props.profile, recentChatFor: props.recentChatFor, t: t, table: gameTable, VsBar: GameVsBar,
         call: callRetry, rules: gameVoiceRules(), isEngineer: props.isEngineer,
@@ -500,10 +506,7 @@
       const engineProps = { config: session.config, game: session.game, active: props.active, bgActive: props.bgActive, characters: routedCharacters, profile: props.profile, recentChatFor: props.recentChatFor, isEngineer: props.isEngineer, t: t, toast: props.toast, savedState: session.saved,
         sendGameReport: props.sendGameReport,
         sendGameReportGroup: props.sendGameReportGroup, reportGroups: props.reportGroups,
-        keepGameMemory: function (ids, text) {
-          const room = (session.config && session.config.room) || session.room || null;
-          return props.keepGameMemory ? props.keepGameMemory(ids, text, room) : false;
-        },
+        keepGameMemory: keepMem,
         onBack: function () { setSession(null); setSaveTick(function (x) { return x + 1; }); } };
       if (session.game.key === "spy") return h(SpyGame, engineProps);
       if (session.game.key === "werewolf") return h(WolfGame, Object.assign({}, engineProps, { resume: !!session.resume, savedState: session.saved }));
