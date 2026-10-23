@@ -798,7 +798,12 @@
       try { migrateHist(); const a = JSON.parse(prev), b = JSON.parse(next); delete a.updatedAt; delete b.updatedAt;
         if (JSON.stringify(a) !== JSON.stringify(b)) LH().note(HIST_SCOPE, prev, next); } catch (_) {}
     }
-    localStorage.setItem(KEY, next); return n;
+    try { localStorage.setItem(KEY, next); }
+    catch (e) { throw new Error(/quota|exceed/i.test(String((e && (e.name + e.message)) || "")) ? "手机上的小仓库满了，这一版没存进去（主题 " + Math.round(next.length / 1024) + "K）" : "没存进去：" + ((e && e.message) || e)); }
+    // 存完立刻读回来对一遍（群友 2026-10-23：点了正式应用、退出再进来，新加的字没了）：
+    //   对不上就当场说，不报「已应用」
+    if (localStorage.getItem(KEY) !== next) throw new Error("存进去再读出来对不上，这一版没存住");
+    return n;
   };
   // 还能退几步、能换回来几步（新的在前）。undoStep("back") 退一步、undoStep("fwd") 把退掉的换回来；
   //   一直点「退一步」就一直往更早退，最多 10 版。
@@ -1142,7 +1147,7 @@
   //   挂点表是从 WK_COMMON/WK_SCOPED 现拼的，代码里新挂的 data-wk 没进名单，测试 ai-brief-hooks 会红；
   //   可规矩、尺寸、现成写法是手写的——所以跟攻略一样立个戳：v 必须等于 APP_VERSION，
   //   这一版改了哪条写进 changed；这一版的改动碰不到样式，就在 none 写一句为什么。
-                                                                                                                                                                                                                                                                    const BRIEF_STAMP = {v: "v76.346",changed: "新挂点 zyscale / zyfill / zypic / zylie / zylieq / zylietoggle / zynote / zydraft 已登记在照影组",none: ""};
+                                                                                                                                                                                                                                                                    const BRIEF_STAMP = {v: "v76.347",changed: "主题应用读回核对",none: ""};
   function aiBrief(page, css) {
     const grp = WK_SCOPED.filter(function (x) { return (x.pages || []).indexOf(page) >= 0; })[0];
     const line = function (r) { return '[data-wk="' + r[0] + '"]  ' + r[1]; };
