@@ -474,7 +474,9 @@
                 test.bid && r.bids ? Z.bidBars(test, r.bids, { INK, FOG, LINE, ACC }) : r.line && r.line !== r.title ? h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: "#6d6255", marginTop: 4, lineHeight: 1.6 } }, r.line) : null,
                 Z.guessLine(test, r) ? h("div", { "data-wk": "zyguess", style: { fontFamily: F_BODY, fontSize: 12.5, color: ACC, marginTop: 8 } }, Z.guessLine(test, r)) : null,
                 (r.revs || []).length ? h("div", { "data-wk": "zyrev", style: { fontFamily: F_BODY, fontSize: 12, color: "#6f5f4d", marginTop: 8, lineHeight: 1.7 } }, r.revs.map((x, k) => h("div", { key: k }, "回头改了第 " + (x.i + 1) + " 题：「" + Z.optText(test, x.i, x.from).slice(0, 12) + "」→「" + Z.optText(test, x.i, x.to).slice(0, 12) + "」" + (x.why ? "——" + x.why : "")))) : null,
-                r.review ? h("div", { "data-wk": "zyreview", style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: "#5d5246", marginTop: 10, paddingTop: 10, borderTop: "1px dashed " + LINE, lineHeight: 1.75 } }, r.review) : null),
+                r.review ? h("div", { "data-wk": "zyreview", style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: "#5d5246", marginTop: 10, paddingTop: 10, borderTop: "1px dashed " + LINE, lineHeight: 1.75 } }, r.review) : null,
+                r.react ? h("div", { "data-wk": "zyreact", style: { marginTop: 10, padding: "8px 12px", borderLeft: "2px solid " + ACC, background: "rgba(176,118,74,.06)", borderRadius: "0 8px 8px 0", fontFamily: F_BODY } },
+                  h("div", { style: { fontSize: 11, color: ACC, letterSpacing: ".1em" } }, nameOf(who) + " 看完说"), h("div", { style: { fontSize: 14, color: INK, lineHeight: 1.7, marginTop: 2 } }, "「" + r.react + "」")) : null),
               h("button", { onClick: () => requestAppConfirm("删掉这一次？", "这次的结果和每题选了什么一起删掉，他也就不记得做过这一次了。", () => { Z.delRecord(who, r.id); setOpenRec(null); bump(x => x + 1); }, "删掉"),
                 className: "active:opacity-60", style: { marginTop: 8, fontFamily: F_BODY, fontSize: 12, color: "#b85c5c" } }, "删掉这一次")) : null))));
     }

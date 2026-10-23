@@ -975,7 +975,7 @@
     const more = lines.slice(5, 25).map(x => "「" + x.t.name + "」" + x.r.title).join("、");
     return "你做过照影里的小测（这是你自己做过的事，结果只是那次测出来的，不用照着它演）：\n" + lines.slice(0, 5).map((x, k) =>
       "·「" + x.t.name + "」" + dateZh(x.r.ts) + " 测出「" + x.r.title + "」" + (x.r.scene ? "（那次的前提是：" + x.r.scene + "）" : "") + (seen[x.t.id].length ? "（更早几次：" + seen[x.t.id].slice(0, 3).join("、") + "）" : "") + "。那次你选的：" + x.picks
-      + (x.r.review ? "\n  做完你写的评语：" + String(x.r.review).slice(0, k ? 80 : 300) : "")
+      + (x.r.review ? "\n  做完你写的评语：" + String(x.r.review).slice(0, k ? 80 : 300) : "") + (x.r.react ? "\n  你看完评语说：" + String(x.r.react).slice(0, 80) : "")
       + (k ? "" : recallDetail(x.t, x.r))).join("\n") + (more ? "\n·更早做过的：" + more : "") + herNote(charId);
   }
   function recallDetail(t, r) {
@@ -1062,9 +1062,11 @@
       + (test.rank || test.bid || test.bracket || test.fill || test.quick ? "" : "\n全部做完后，你可以回头看一遍，最多改三题：回头看时真觉得哪题选得不对才改，写进 revise（题号、改成第几个选项、为什么改，why 照心声那样写）；看完觉得都对就给空数组。")
       // 评语要说人话（她 2026-10-23「这也太不说人话了吧」：写成了心理报告，满篇受试者、程序正义）
       + "\nreview 是另一件事：结果下面的一小段评语，三四句，用「他」称呼你，不是你自己说话。口气像一个看完你整张答卷的熟人，用大白话跟" + (meName || "她") + "讲讲你这个人：日常说话用的词，短句，读起来像人在聊天；心理学报告、论文里那种词（受试者、防御机制、程序正义这一类）不是这里的口气。只照你这一次每题怎么选、哪几题来回改过、心声里露出来的东西写，点到具体哪一题、你当时那句心声；写的是只有这一次答卷才看得出来的东西。"
+      // 他看完评语怎么想（她 2026-10-23「角色对系统评估的想法」）：同一次调用里写，结果页上评语下面亮出来
+      + "\nreact 是你自己看完这段评语说的一句话，第一人称，照你平时说话的口气：认不认、哪句戳到你、哪句你觉得扯，照你这个人真会有的反应，一两句。" + (lie ? "这次你在撒谎，react 也接着演，不露馅。" : "")
       + "\n题目：\n" + (test.bracket ? "（见上面的对阵规则）" : test.qs.map((q, i) => (i + 1) + ". " + q.q + (test.fill ? "" : "\n" + q.opts.map((o, j) => "   " + j + ") " + o.t).join("\n"))).join("\n"));
   }
-  const ASK_SCHEMA = "{\"answers\":[{\"i\":1,\"steps\":[{\"at\":0,\"think\":\"按下这一项时心里的话\"}]}],\"review\":\"结果下面的评语\"}";
+  const ASK_SCHEMA = "{\"answers\":[{\"i\":1,\"steps\":[{\"at\":0,\"think\":\"按下这一项时心里的话\"}]}],\"review\":\"结果下面的评语\",\"react\":\"你看完评语说的一句\"}";
   function askSchema(test, lie) {
     let s = test && test.fill ? ASK_SCHEMA.replace('{\"i\":1,', '{\"i\":1,\"fill\":\"填进空里的话\",') : test && test.bid ? ASK_SCHEMA.replace('{\"i\":1,', '{\"i\":1,\"amt\":0,') : ASK_SCHEMA;
     if (lie) s = s.replace(/\}$/, ",\"lie\":{\"i\":1,\"truth\":0,\"why\":\"为什么偏挑这题撒谎\"}}");
@@ -1083,7 +1085,8 @@
       picks.push(st[st.length - 1].at); paths.push(st);
       whys.push(st.map(x => x.think).filter(Boolean).join(" "));
     });
-    const out = { picks, whys, paths, feel: String((d && d.feel) || "").trim().slice(0, 120), review: String((d && d.review) || "").trim().slice(0, 400) };
+    const out = { picks, whys, paths, feel: String((d && d.feel) || "").trim().slice(0, 120), review: String((d && d.review) || "").trim().slice(0, 400), react: String((d && d.react) || "").trim().slice(0, 200) };
+    if (!out.react) delete out.react;
     if (test.fill) out.fills = test.qs.map((q, i) => { const a = arr.find(x => x && Number(x.i) === i + 1) || arr[i] || {}; return String(a.fill || a.text || "").trim().slice(0, 200); });
     // 说谎：题号和真心那个都要对得上，真心的跟演出来的得不一样
     if (d && d.lie && typeof d.lie === "object") { const li = Number(d.lie.i) - 1, tr = Number(d.lie.truth);
@@ -1365,6 +1368,8 @@
             guessLine(test, rec) ? h("div", { "data-wk": "zyguess", style: { fontSize: 12.5, color: ACC, marginTop: 8 } }, guessLine(test, rec)) : null,
             guessing ? h("div", { style: { marginTop: 10, fontSize: 12.5, color: ACC } }, "他这次有一题撒了谎——往上翻，点题号前的「Q?」猜一猜") : null,
             rec.review ? h("div", { "data-wk": "zyreview", style: { fontSize: 13, color: "#5d5246", marginTop: 10, paddingTop: 10, borderTop: "1px dashed " + LINE, lineHeight: 1.75 } }, rec.review) : null,
+            rec.react ? h("div", { "data-wk": "zyreact", style: { marginTop: 10, padding: "8px 12px", borderLeft: "2px solid " + ACC, background: "rgba(176,118,74,.06)", borderRadius: "0 8px 8px 0" } },
+              h("div", { style: { fontSize: 11, color: ACC, letterSpacing: ".1em" } }, (p.name || "他") + " 看完说"), h("div", { style: { fontSize: 14, color: INK, lineHeight: 1.7, marginTop: 2 } }, "「" + rec.react + "」")) : null,
             // 存成图／收进时刻：看完就在这儿点（她 2026-10-22）
             (p.onSaveImage || p.onPin) ? h("div", { "data-wk": "zyrecacts", style: { display: "flex", gap: 8, flexWrap: "wrap", marginTop: 12 } },
               p.onSaveImage ? h("button", { onClick: p.onSaveImage, style: { fontSize: 12.5, color: ACC, border: "1px solid " + ACC, borderRadius: 999, padding: "6px 14px", minHeight: 40, background: "transparent" } }, "存成图") : null,
