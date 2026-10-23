@@ -30,7 +30,8 @@ test("按钮是唯一入口：九桌各一颗，点一次只写一条，全 NPC 
   assert.ok((games.match(/ids:\s*realCharIds\(/g) || []).length >= 11, "有的桌没走 realCharIds——NPC 或言秋会被写进去");
   const btn = cut(games, "function KeepMemBtn(props)", "\n  }");
   assert.match(btn, /if \(kept\) return;/, "能连点连写");
-  assert.match(btn, /host\.keepGameMemory\(ids, rep\.text\)/, "按钮没走那扇门");
+  // v76.387 起勾了「连过程一起」会把战果包一层（out），所以不钉变量名，钉「走那扇门、交的是那份战果的 text」
+  assert.match(btn, /host\.keepGameMemory\(ids, \w+\.text\)/, "按钮没走那扇门");
   assert.match(btn, /这局上场的都是 NPC/, "全 NPC 局没有说法");
   const rc = cut(games, "function realCharIds(players)", "\n  }");
   assert.match(rc, /!p\.isNpc && !p\.isUser && !p\.engineer/, "realCharIds 的过滤不对（言秋的记忆走 CC，不走 app 记忆库）");
@@ -48,7 +49,10 @@ test("默认不写：games.js 里没有任何自动调用 keepGameMemory 的地�
 //   上面那几条全是绿的——因为它们只各自钉了两头，没有一条问过「它到底通不通」。
 test("中间那一截：七个游戏引擎真的拿得到 keepGameMemory", () => {
   const ep = cut(games, "const engineProps = {", "\n      if (session.game.key ===");
-  assert.match(ep, /\n\s*keepGameMemory: function \(ids, text\)/, "engineProps 里没有它＝七桌那颗键全是空按");
+  assert.match(ep, /\n\s*keepGameMemory: keepMem,/, "engineProps 里没有它＝七桌那颗键全是空按");
+  // 那一份是带房间的（约会那盒和其余几桌共用它；约会原来直接递 props.keepGameMemory，房间那截丢了）
+  assert.match(games, /const keepMem = function \(ids, text\) \{\n\s*const room = [^\n]*\n\s*return props\.keepGameMemory \? props\.keepGameMemory\(ids, text, room\) : false;/);
+  assert.match(games, /h\(window\.DateGame, \{\n\s*keepGameMemory: keepMem,/, "约会那盒没走带房间的那一份");
   // 每个引擎拿到的都是这一份（要么直接给 engineProps，要么在它上面 Object.assign）
   ["SpyGame", "WolfGame", "GuessGame", "TruthDareGame", "AvalonGame", "MonopolyGame", "UnoGame"].forEach(g => {
     const line = games.split("\n").find(l => l.indexOf("h(" + g + ",") >= 0);
