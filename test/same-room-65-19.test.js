@@ -187,7 +187,8 @@ test("群聊也接上了：谁变了谁那几泡前面出一行，没变的不�
   // v73.06：闭群的 thought 放给了人人（先想后说，只挂群里气泡、不回流主线）；
   //   配角那四样里往状态卡写的 mood／wearing 照旧只给配角 —— 这条要守的是它们还在。
   assert.match(app, /\? ",\\"mood\\":\\"（只有配角填）/, "闭群里的配角没被要求填那四样");
-  assert.match(app, /: ",\\"thought\\":\\"（可选）没说出口的心声\\""/, "闭群里的心声栏没了");
+  // 2026-10-23 起写法换成「挂在这个人这一轮最后一条上、长短随念头」；要守的是这一格还在
+  assert.match(app, /: ",\\"thought\\":\\"（这个人这一轮最后一条消息上挂一条）没说出口的心声/, "闭群里的心声栏没了");
   // 显示不看记忆互通：那是写不写状态卡的事
   // v74.977 改成 let：动描里写的是台词时会被清空、挪回气泡（BubbleActGuard.spokenAction）
   assert.match(app, /(?:const|let) gActionNow = TVG\.normalizeAction\(_rawGAction, spk && spk\.name\) \|\| ""/);

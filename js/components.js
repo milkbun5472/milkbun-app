@@ -11560,7 +11560,7 @@ function ChatThread({
       onMouseUp: endPress,
       onMouseLeave: endPress,
       onClick: selMode ? () => toggleSel(i) : undefined,
-      "data-wk": "bubble", "data-me": isU ? "1" : "0", "data-kind": cardLayout(m.content) ? "htmlcard" : (m.kind || "text"),
+      "data-wk": "bubble", "data-me": isU ? "1" : "0", "data-kind": cardLayout(m.content) ? "htmlcard" : (m.kind || "text"), "data-sel": selMode ? "1" : undefined,
       style: Object.assign({
         position: "relative", // 贴纸的锚点：贴纸对着气泡自己定位
         padding: m.kind === "photo" ? "8px 10px" : "9px 13px",
@@ -19366,7 +19366,7 @@ function GroupThread({
       onMouseUp: endPress,
       onMouseLeave: endPress,
       onClick: selMode ? () => toggleSel(i) : undefined,
-      "data-wk": "bubble", "data-me": isU ? "1" : "0", "data-kind": cardLayout(m.content) ? "htmlcard" : (m.kind || "text"),
+      "data-wk": "bubble", "data-me": isU ? "1" : "0", "data-kind": cardLayout(m.content) ? "htmlcard" : (m.kind || "text"), "data-sel": selMode ? "1" : undefined,
       style: Object.assign({
         position: "relative", // 贴纸锚点
         padding: "9px 13px",

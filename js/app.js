@@ -20,7 +20,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v76.404";
+const APP_VERSION = "v76.412";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -11704,16 +11704,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     // 替她付购物车（群里 2026-10-22「反查手机他能看到我的购物车，能不能帮我清空购物车」）：跟她替TA付是反过来的同一件事——
     //   从TA钱包扣，那几件从她购物车里拿掉，变成「TA替你付的」订单
     if (step.do === "paycart") {
-      const cartNow = loadJSON("x_shopCart", []) || [];
-      const want = (step.items || []).map(x => String(x || "").trim()).filter(Boolean);
-      const pick = want.length ? cartNow.filter(x => x && x.name && want.some(w => x.name === w || x.name.includes(w) || w.includes(x.name))) : cartNow.slice();
-      if (!pick.length) return;
-      const total = Math.round(pick.reduce((n, x) => n + (Number(x.price) || 0), 0) * 100) / 100;
-      walletSpend(viewerId, total, "翻 " + userName(profile) + " 手机时替她付了购物车", "gift");
-      removeCartUids(pick.map(x => x.uid));
-      pick.forEach(x => addOrder({ name: x.name, price: x.price, cat: x.cat, fromCharId: viewerId, payLabel: vn + " 替你付的" }));
-      const names = pick.map(x => x.name).join("、");
-      note("「" + vn + "」翻你手机时替你把购物车里的 " + names + " 付了（¥" + total + "）", "翻她手机时看到她购物车里那几样，替她付了：" + names);
+      const paid = payHerCart(viewerId, step.items, "翻 " + userName(profile) + " 手机时替她付了购物车", vn + " 替你付的");
+      if (paid) note("「" + vn + "」翻你手机时替你把购物车里的 " + paid.names + " 付了（¥" + paid.total + "）", "翻她手机时看到她购物车里那几样，替她付了：" + paid.names);
       return;
     }
     if (step.do === "unblockme") {
@@ -12998,6 +12990,9 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       // 上一轮最后一条是不是撂狠话（她 2026-10-22）：是就在这一轮末尾提一句
       const _prevTail = (() => { const h = history || []; let i = h.length - 1; while (i >= 0 && (!h[i] || h[i].role !== "assistant")) i--; while (i >= 0 && h[i] && h[i].role === "assistant" && !String(h[i].content || "").trim()) i--; const m = h[i]; return m && m.role === "assistant" ? String(m.content || "") : ""; })();
       const _threatTailHint = !_body && typeof endsOnThreat === "function" && endsOnThreat(_prevTail) ? THREAT_TAIL_HINT : "";
+      // 上一轮整轮（不只最后一条）有没有翻旧账、看穿她（她 2026-10-23）
+      const _prevTurnText = (() => { const h = history || []; let i = h.length - 1; while (i >= 0 && (!h[i] || h[i].role !== "assistant")) i--; const out = []; while (i >= 0 && h[i] && h[i].role === "assistant") { out.unshift(String(h[i].content || "")); i--; } return out.join("\n"); })();
+      const _seeThroughHint = !_body && typeof seeThroughLast === "function" && _prevTurnText.split("\n").some(seeThroughLast) ? SEE_THROUGH_TAIL_HINT : "";
       const _turnClosing = "\n【收尾·聊天与记录】先形成真实回复，再按本轮协议记录状态与复看结果；记录不写进聊天气泡。"
         + "任务只有一件：以「" + char.name + "」的身份，对 TA 刚说的那句做出此刻真实的反应，然后"
         // 同处一室：话是当面说出口的——收尾这句离生成最近，这里说成「发微信」会把上面那段盖掉（她 2026-09-23）
@@ -13049,7 +13044,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       // 半窗：她一边开着别的页一边跟你聊（她 2026-10-06）。屏幕上的字是【她手机上此刻显示的】，都可以看。
       // 锁屏那句跟着半窗这句一起挂（只在她刚发图／他刚发照片那一轮非空）
       const _halfHint = _lockHint + (_halfSeen ? "\n\n【她此刻在看的屏幕】她把聊天缩成了半窗，上半屏开着「" + _halfSeen.zh + "」，你看得到她屏幕上这会儿显示的东西：\n" + _halfSeen.text + "\n——她说的「这个」「这篇」「这里」多半指的是这一页上的东西；想聊就顺着聊，没提到就不扯。" : "");
-      const _normalTaskV2 = ("\n\n【本轮】你就是「" + char.name + "」。先想一下 TA 此刻怎么看她刚说的这句话，再从那个判断回过去；聊天先发生，状态随后记录。" + _halfHint + _stateBootstrapHint + _wearRefreshHint + paceHint + callHint + busyHint + proactiveHintAll + dongnianHint + gapHint + crossChannelHint + _saidElsewhereHint + eAfterglowHint + desireHint + _recallHint + _clockStampHint + capabilityHint + _normalThoughtTurnHint + "\n" + MOOD_TURN_RULE + _biTurnLine + _rerollHint + _threatTailHint + _turnClosing + _gazeNudgeHint).replace(/用户/g, uName);
+      const _normalTaskV2 = ("\n\n【本轮】你就是「" + char.name + "」。先想一下 TA 此刻怎么看她刚说的这句话，再从那个判断回过去；聊天先发生，状态随后记录。" + _halfHint + _stateBootstrapHint + _wearRefreshHint + paceHint + callHint + busyHint + proactiveHintAll + dongnianHint + gapHint + crossChannelHint + _saidElsewhereHint + eAfterglowHint + desireHint + _recallHint + _clockStampHint + capabilityHint + _normalThoughtTurnHint + "\n" + MOOD_TURN_RULE + _biTurnLine + _rerollHint + _threatTailHint + _seeThroughHint + _turnClosing + _gazeNudgeHint).replace(/用户/g, uName);
       const _roomHint = roomPromptFor(charId, room, true);
       // 线上导演便签：只给模型看，不算她说的话；放在本轮任务末尾，离生成最近
       const _dirLive = chatDirNotesLive(chatKey);
@@ -13283,6 +13278,9 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       // raw 看起来是（可能坏掉的）JSON——含这些内部字段、或整体就是 JSON 结构，就别当纯文本直接展示，免得把心声等内部字段泄漏进聊天框
       // 字段名放宽到「可无引号、字段名后可有空格」，再加一条「以 { 或 [ 开头且含 : 」的结构判定，兜住被模型写坏引号的情况
       const protocolFieldRe = /(?:^|[\s{[,]\s*)["'“”‘’]?(word|thought|mood|wearing|action|affinityDelta|whisper|moment|silent|voice|quote)["'“”‘’]?\s*[:：=]/i;
+      // 任何字段名（"photo"、"kind"、"scene"……）带引号跟冒号的样子：上面那张单子列不全，碎块落进气泡就靠这一条认
+      const jsonKeyRe = /["'“”‘’][A-Za-z_][A-Za-z0-9_]*["'“”‘’]\s*[:：]/;
+      const jsonBitRe = /^\s*[,{\[]*\s*["'“”‘’][A-Za-z_][A-Za-z0-9_]*["'“”‘’]\s*[:：]/;
       const looksLikeJSON = protocolFieldRe.test(String(raw)) || (/^\s*[\[{]/.test(String(raw)) && /[:：]/.test(String(raw)));
       // 一整块 HTML 甩在 JSON 外面（照着「别包进 JSON」那种模板做的）：先抠出来，剩下的照常读，卡片最后接回 word
       const _bareCard = typeof pullBareHtmlCard === "function" ? pullBareHtmlCard(raw) : null;
@@ -13300,7 +13298,13 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       if (parsed && typeof parsed === "object" && !(Array.isArray(parsed.word) ? parsed.word.some(w => String(w || "").trim()) : String(parsed.word || "").trim())) {
         const _rs = String(raw || ""), _a = _rs.indexOf("{"), _b = _rs.lastIndexOf("}");
         const _outside = (_a >= 0 && _b > _a ? (_rs.slice(0, _a) + "\n" + _rs.slice(_b + 1)) : "").replace(/```(?:json)?/gi, "").trim();
-        if (_outside && !protocolFieldRe.test(_outside)) {
+        // 外面那截本身就是 JSON 的碎块（群里 2026-10-23 截图：JSON 提前收了口，photo 那几格 ,"photo":{"face":true / "kind":"self" / "scene":… 落在大括号外面，
+        //   被当成话一行一个气泡发了出来）：先试着把它接回大括号里重读；接不回去就整截当格式坏了，不拿来当话
+        const _jsonBits = jsonKeyRe.test(_outside);
+        if (_jsonBits && typeof repairJSON === "function") {
+          try { const _re = JSON.parse(repairJSON(_rs.slice(0, _b) + _rs.slice(_b + 1))); if (_re && typeof _re === "object" && !Array.isArray(_re)) parsed = Object.assign({}, _re, parsed.word && (Array.isArray(parsed.word) ? parsed.word.length : String(parsed.word).trim()) ? { word: parsed.word } : {}); } catch (e) {}
+        }
+        if (_outside && !_jsonBits && !protocolFieldRe.test(_outside)) {
           const _lines = _outside.split(/\n+/).map(x => x.trim()).filter(Boolean)
             .flatMap(x => x.match(/[^。！？!?]+[。！？!?…]*[」』"”）)]*|[。！？!?…]+/g) || [x]).map(x => x.trim()).filter(Boolean);
           if (_lines.length) parsed.word = _lines.slice(0, 12);
@@ -13580,7 +13584,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       // 最后一层展示闸：如果上游把整份协议误塞进 word 的某个元素，也不能让
       // `word: ... / mood: ...` 这类内部格式从气泡冒出来。普通聊天里单独提到
       // “word” 或 “mood” 不受影响，只有字段赋值形态才拦。
-      words = words.filter(w => !protocolFieldRe.test(String(w)));
+      words = words.filter(w => !protocolFieldRe.test(String(w)) && !jsonBitRe.test(String(w)));
       // 拿字假装发了一张申请（群里 2026-10-02：「char 会发来一个虚假字面的情侣申请」）：
       //   这一轮本来能写信、他却没填 loveLetter，而是在气泡里写了「[情侣申请] ……」——
       //   那就是他想写信，只是没用对地方。把那几泡收成真的信封卡；本来就不能写信的那几轮不动。
@@ -22757,7 +22761,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         characters.forEach(c => { const shown = c.remark || c.name; if (names.has(shown) || names.has(c.name)) rows.push("「" + shown + "」＝角色「" + c.name + "」" + (shown !== c.name ? "（这是她给TA存的备注，不是TA的名字，也不是她）" : "")); });
         return rows.length ? "\n【评论区里谁是谁】" + rows.join("；") + "；「" + meName + "」＝用户本人，评论区里只有这一个是她。角色之间照各自的关系说话，别把另一个角色当成她。" : "";
       })();
-      const system = bundle + (isMine ? MOMENT_TAKEOUT_ASK + momStrangerPairs([...new Set(roster.map(momCharByName).filter(Boolean))]) : "") + "\n\n【场景】" + scene + (thread ? "\n【评论区已有的往来（按时间先后，你都看得到、要接着聊，别重复也别跳戏）】\n" + thread + "\n" : "") + whoLines + (more ? "\n" + moreAsk + "\n只输出 JSON：{\"replies\":[{\"author\":\"说话的人\",\"replyTo\":\"回复谁（回这条朋友圈本身就填 null）\",\"text\":\"内容\",\"who\":\"（只有人设里提到的人才填）身份词\"}]}" : "\n用户「" + meName + "」" + lastLine + "可能回复的人：" + roster.concat(_threadPeople).join("、") + "。请生成他们对【用户这条最新评论「" + text + "」】的回复——**必须直接回应用户说的这句话的具体内容、并接住上面评论区已经聊到的脉络（像微信朋友圈里回复评论那样，有来有往、能接着上一轮往下聊），别答非所问、别自说自话、别把前面聊过的又重说一遍。绝对不许用「看到啦」「收到」这种敷衍空话搪塞**；至少一条（保底），谁最合适谁回，1-3 条，各自符合人设与关系，短句、有具体内容。这是大家在评论区一起聊：除了回用户，也可以接评论区里别人刚说的（包括这一轮前面那条），回谁就把那人的名字填进 replyTo。\n只输出 JSON：{\"replies\":[{\"author\":\"回复者名\",\"replyTo\":\"回复谁（回用户就填用户的名字）\",\"text\":\"回复内容\"}]}");
+      const system = bundle + (isMine ? MOMENT_TAKEOUT_ASK + momentCartAsk() + momStrangerPairs([...new Set(roster.map(momCharByName).filter(Boolean))]) : "") + "\n\n【场景】" + scene + (thread ? "\n【评论区已有的往来（按时间先后，你都看得到、要接着聊，别重复也别跳戏）】\n" + thread + "\n" : "") + whoLines + (more ? "\n" + moreAsk + "\n只输出 JSON：{\"replies\":[{\"author\":\"说话的人\",\"replyTo\":\"回复谁（回这条朋友圈本身就填 null）\",\"text\":\"内容\",\"who\":\"（只有人设里提到的人才填）身份词\"}]}" : "\n用户「" + meName + "」" + lastLine + "可能回复的人：" + roster.concat(_threadPeople).join("、") + "。请生成他们对【用户这条最新评论「" + text + "」】的回复——**必须直接回应用户说的这句话的具体内容、并接住上面评论区已经聊到的脉络（像微信朋友圈里回复评论那样，有来有往、能接着上一轮往下聊），别答非所问、别自说自话、别把前面聊过的又重说一遍。绝对不许用「看到啦」「收到」这种敷衍空话搪塞**；至少一条（保底），谁最合适谁回，1-3 条，各自符合人设与关系，短句、有具体内容。这是大家在评论区一起聊：除了回用户，也可以接评论区里别人刚说的（包括这一轮前面那条），回谁就把那人的名字填进 replyTo。\n只输出 JSON：{\"replies\":[{\"author\":\"回复者名\",\"replyTo\":\"回复谁（回用户就填用户的名字）\",\"text\":\"回复内容\"}]}");
       const raw = await callAI(apiFor(primary.id), system, [{ role: "user", content: more ? "生成这一轮新评论 JSON" : "针对用户评论「" + text + "」生成回复 JSON" }], { maxTokens: 10000 });
       const d = extractJSON(raw) || {};
       // 容错解析：{replies:[...]} / 裸数组 / {reply} / {text}
@@ -22770,7 +22774,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         && !(r.replyTo && momReplyToStranger(r.author, r.replyTo)) && !(author && momStrangerTo(author, r.author)));
       // 不编人只靠提示词管，代码不丢（她 2026-10-22：「不要丢，就怕模型写了认不出来的名字格式，丢掉就没了」）
       if (!reps.length) { if (!more) toast("这次没人接话，点「更多评论」再来一轮"); return; }
-      if (isMine) momentTakeouts(reps, "author");
+      if (isMine) { momentTakeouts(reps, "author"); momentCarts(reps, "author"); }
       // 前缀：原档（我刚评论过）一律「回复 我：」；刷更多那一档按模型填的 replyTo 来——
       // 而且只认【评论区里真出现过的名字】，模型凭空造一个人就当它没填（回动态本身）。
       const inThreadNames = [...new Set((mom.comments || []).map(c => momentWho(c && c.author)).filter(Boolean))];
@@ -22885,6 +22889,36 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   // 在她朋友圈底下说「点给你了」就真点（群里 2026-10-22：评论里说给她点了奶茶，私聊和外卖订单里都没有，回私聊还不认）：
   //   跟私聊同一个下单口 postCharTakeout——卡落进私聊，那张卡本身就在聊天记录里，他回私聊自然知道，不另往上下文里塞朋友圈
   const MOMENT_TAKEOUT_ASK = "\n【真给她点吃的喝的】只有正式角色能点，配角不行。看到她说想吃想喝、累了饿了，谁真打算给她点一份外卖，就在TA那一项里加 \"takeout\":{\"shop\":\"店名\",\"items\":[\"点的东西\"],\"note\":\"一句备注\"}，会从TA钱包扣钱、真送到她那儿；嘴上说点了就要填，没打算点就别说已经点了。";
+  // 替她付购物车（翻她手机、朋友圈两处共用这一份）：items 是要付的那几件的名字，空着＝全付。
+  //   从TA钱包扣；钱包没开通或者钱不够就一件都不动（原来翻手机那处不看扣没扣成，钱没扣东西照样从购物车里没了）
+  const payHerCart = (charId, items, ledgerWhy, payLabel) => {
+    const cartNow = loadJSON("x_shopCart", []) || [];
+    const want = (Array.isArray(items) ? items : []).map(x => String(x || "").trim()).filter(Boolean);
+    const pick = want.length ? cartNow.filter(x => x && x.name && want.some(w => x.name === w || x.name.includes(w) || w.includes(x.name))) : cartNow.slice();
+    if (!pick.length) return null;
+    const total = Math.round(pick.reduce((n, x) => n + (Number(x.price) || 0), 0) * 100) / 100;
+    if (!walletSpend(charId, total, ledgerWhy, "gift")) return null;
+    removeCartUids(pick.map(x => x.uid));
+    pick.forEach(x => addOrder({ name: x.name, price: x.price, cat: x.cat, fromCharId: charId, payLabel: payLabel }));
+    return { names: pick.map(x => x.name).join("、"), total: total };
+  };
+  // 朋友圈里替她付购物车（她 2026-10-23）：她的朋友圈、她购物车里真有东西时才问；跟点外卖同一个形状
+  const momentCartAsk = () => {
+    const cart = (loadJSON("x_shopCart", []) || []).filter(x => x && x.name);
+    if (!cart.length) return "";
+    return "\n【替她付购物车】她购物车里现在有：" + cart.slice(0, 12).map(x => x.name + "（¥" + (Number(x.price) || 0) + "）").join("、") + (cart.length > 12 ? " 等 " + cart.length + " 件" : "")
+      + "。只有正式角色能付，配角不行。看到她在说想清购物车、看中了什么、舍不得买，谁真打算替她付，就在TA那一项里加 \"paycart\":[\"要付的那几件，照上面原样抄名字；全付就留空数组\"]，会从TA钱包扣钱、东西变成她的订单；付不付、付哪几件照这个人的性子和手头来，嘴上说付了就要填，没打算付就别说已经付了。";
+  };
+  const momentCarts = (rows, nameKey) => (rows || []).forEach(r => {
+    if (!r || !Array.isArray(r.paycart)) return;
+    const nm = momentWho(r[nameKey || "name"]);
+    const c = liveChars.find(x => x && (x.name === nm || x.remark === nm));
+    if (!c || c.npc) return;
+    try {
+      const paid = payHerCart(c.id, r.paycart, "看到 " + userName(profile) + " 的朋友圈，替她付了购物车", (c.remark || c.name) + " 替你付的");
+      if (paid) toast("「" + (c.remark || c.name) + "」看到你的朋友圈，替你付了 " + paid.names + "（¥" + paid.total + "）");
+    } catch (e) {}
+  });
   const momentTakeouts = (rows, nameKey) => (rows || []).forEach(r => {
     if (!r || !r.takeout || typeof r.takeout !== "object") return;
     const nm = momentWho(r[nameKey || "name"]);
@@ -22945,7 +22979,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       const pollAsk = mom.poll ? "\n\n【这条朋友圈带了投票】她拿不定主意，让大家选：" + mom.poll.options.map((o, i) => (i + 1) + ". " + o).join("　")
         + "\n每个人想投就在 vote 里填选项编号（只能一个），不想投就填 null。投哪个要从 TA 自己出发：TA 的喜好、TA 对她的了解、TA 心里希望她怎么选；不必大家都投同一个，也不必故意分散。"
         + "投了的人可以在评论里顺口说一句为什么，也可以一声不吭只投票。" : "";
-      const system = "你在模拟朋友圈互动。「" + meName + "」发了一条朋友圈：「" + mom.content + "」" + (mom.image ? (typeof isImgRef === "function" && isImgRef(mom.image) ? (Array.isArray(mom.images) && mom.images.length > 1 ? "（配了 " + mom.images.length + " 张图片）" : "（配了一张图片）") : "（配图：" + mom.image + "）") : "") + "\n\n能看到的好友及其状态：\n" + lines + (socialLore ? "\n\n【世界书 · 公开世界】" + socialLore.slice(0, 1400) : "") + remindAsk + "\n\n请根据每个人的性格、心情、好感度和这条内容，真实地决定 Ta 的反应：可能只点赞、只评论、又赞又评、或已读不理——不要所有人都反应，也不要千篇一律。**保底：至少要有一位好友留下评论互动（通常是好感度较高的那位），不要出现全部已读不理、无人评论的情况。**评论要符合各自人设与关系。有的人还会顺手回复别的好友的评论（replyTo 填被回复者名）。" + pollAsk + "\n" + MOMENT_TAKEOUT_ASK + "\n只输出 JSON：{\"reactions\":[{\"name\":\"名字\",\"liked\":true或false,\"comment\":\"评论或null\"" + (mom.poll ? ",\"vote\":选项编号或null" : "") + ",\"takeout\":\"可省略\"}],\"replies\":[{\"name\":\"名字\",\"replyTo\":\"被回复的评论者\",\"text\":\"回复\"}]}" + momStrangerPairs(canSee);
+      const system = "你在模拟朋友圈互动。「" + meName + "」发了一条朋友圈：「" + mom.content + "」" + (mom.image ? (typeof isImgRef === "function" && isImgRef(mom.image) ? (Array.isArray(mom.images) && mom.images.length > 1 ? "（配了 " + mom.images.length + " 张图片）" : "（配了一张图片）") : "（配图：" + mom.image + "）") : "") + "\n\n能看到的好友及其状态：\n" + lines + (socialLore ? "\n\n【世界书 · 公开世界】" + socialLore.slice(0, 1400) : "") + remindAsk + "\n\n请根据每个人的性格、心情、好感度和这条内容，真实地决定 Ta 的反应：可能只点赞、只评论、又赞又评、或已读不理——不要所有人都反应，也不要千篇一律。**保底：至少要有一位好友留下评论互动（通常是好感度较高的那位），不要出现全部已读不理、无人评论的情况。**评论要符合各自人设与关系。有的人还会顺手回复别的好友的评论（replyTo 填被回复者名）。" + pollAsk + "\n" + MOMENT_TAKEOUT_ASK + momentCartAsk() + "\n只输出 JSON：{\"reactions\":[{\"name\":\"名字\",\"liked\":true或false,\"comment\":\"评论或null\"" + (mom.poll ? ",\"vote\":选项编号或null" : "") + ",\"takeout\":\"可省略\"}],\"replies\":[{\"name\":\"名字\",\"replyTo\":\"被回复的评论者\",\"text\":\"回复\"}]}" + momStrangerPairs(canSee);
       const raw = await callAI(active, system, [{
         role: "user",
         content: "开始"
@@ -22970,6 +23004,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
           if (top) likers.push(momentWho(top.name));
         }
         momentTakeouts(d.reactions, "name"); momentTakeouts(d.replies, "name");
+        momentCarts(d.reactions, "name"); momentCarts(d.replies, "name");
         const votes = {};
         if (mom.poll) (d.reactions || []).forEach(r => { const v = Number(r && r.vote); if (r && r.name && v >= 1 && v <= mom.poll.options.length) votes[momentWho(r.name)] = v - 1; });
         (d.replies || []).forEach(r => {
@@ -23909,7 +23944,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       const replied = poolChars.filter(c => repliedIds.has(c.id));
       const floors = opts.existingFloors || [];
       const floorLines = forumFloorTranscript(floors);   // 整段原文，见 screens.js forumFloorTranscript
-      const who2 = "这是同一个帖子的【继续刷楼、盖楼】，续着往下刷、别重开话题。下面是已经有的楼层：\n" + (floorLines || "（暂无）") + "\n\n"
+      const who2 = "这是同一个帖子的【继续刷楼、盖楼】，续着往下刷、别重开话题。" + (typeof forumTimeLine === "function" ? forumTimeLine(post) : "") + "下面是已经有的楼层：\n" + (floorLines || "（暂无）") + "\n\n"
         + "**大多数新楼是网友**七嘴八舌盖楼：常驻熟面孔与一次性路人混合，别一个腔调。\n"
         + (isSearch ? "**全程只有路人**，不要出现任何你认识的角色。\n"
           : (notReplied.length ? "【这轮还没冒泡、可以新开一楼发表自己观点的角色】（真关心这话题才出现，严格贴人设与此刻心情，写不出贴人设的就别塞、宁可全路人）：" + notReplied.map(persona1).join("；") + "。\n" : "")
@@ -25178,9 +25213,9 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         + (isSearch ? "" : forumActiveChars().filter(c => !groundedR.has(c.id) && forumInWorld(c, post))
             .map(c => forumCharGrounding(c, post, "这层楼里可能开口的", myText)).join(""));
       const d = await runProbeRetry(active, forumWorldCtx((post.title || "") + "\n" + (post.body || "") + "\n" + myText, forumThreadWorld(post)), {
-        instruction: forumBoardVoice(post.board) + forumNpcRule(post.board) + " 帖子：标题「" + post.title + "」正文「" + forumWithPhoto(post.body, post) + "」。" + opDesc + "。\n" + relBlockR + opGroundR
+        instruction: forumBoardVoice(post.board) + forumNpcRule(post.board) + " 帖子：标题「" + post.title + "」正文「" + forumWithPhoto(post.body, post) + "」。" + opDesc + "。\n" + (typeof forumTimeLine === "function" ? forumTimeLine(post) : "") + relBlockR + opGroundR
           + forumPmKnow(post, [resp.name, floor.authorName, post.authorName].concat((floor.replies || []).map(r => r && r.authorName))) + "【这层楼的现场】\n" + priorLines.join("\n") +
-          "\n现在有人（网名「" + meNow + "」" + (usingAlt(post) ? "，一个没什么人见过的号，在场谁都不认识、也没人知道背后是谁" : "") + "）刚"
+          "\n现在〔" + (typeof fmtStampAI === "function" ? fmtStampAI(Date.now()) : "刚刚") + "〕有人（网名「" + meNow + "」" + (usingAlt(post) ? "，一个没什么人见过的号，在场谁都不认识、也没人知道背后是谁" : "") + "）刚"
           + (resp.inFloor ? ("在这层楼里回复了「" + resp.name + "」上面那句：") : "回复了层主这条：")
           + "「" + myText + "」。" + (!usingAlt(post) && !(post.board === "匿名吧" || post.anon) ? forumMaskNote(myMaskTag(post), forumActiveChars()) : "") + FORUM_ID_VOICE + "生成 2-5 条接在后面的楼中楼回复（items）：\n" +
           (respIsMe
