@@ -47,7 +47,10 @@ test("清单上的每个钩子，源码里都真的挂着", () => {
   const hung = n => new RegExp('"data-wk":[^\n]*"' + n + '"').test(src) || new RegExp("'data-wk':\\s*'" + n + "'").test(src)
     || src.indexOf('wk: "' + n + '"') >= 0 || src.indexOf('wk="' + n + '"') >= 0
     // 第四种：当参数传给本页自己的小帮手，帮手里写着 "data-wk": wk（screens.js 的 actBtn("listensqreply", …)、row(…, "quietpro")）
-    || new RegExp('(actBtn\\("|row\\([^\n]*, ")' + n + '"').test(src);
+    || new RegExp('(actBtn\\("|row\\([^\n]*, ")' + n + '"').test(src)
+    // 第五种：照影的 pill(on, label, fn, "zyscenechip")——最后一个参数就是挂点，帮手里写着 "data-wk": wk || "zychip"。
+    //   fn 可能是一整段多行回调（zygroupbtn 那颗），所以不按行找：按「pill( 开头、隔不远收在 , "x")」找
+    || new RegExp('pill\\([\\s\\S]{0,1500}?, "' + n + '"\\)').test(src);
   const missing = names.filter(n => !hung(n));
   assert.deepEqual(missing, [], "清单上有、源码里没挂：" + missing.join("、"));
 });
