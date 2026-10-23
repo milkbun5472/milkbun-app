@@ -604,10 +604,20 @@ function forumWithPhoto(text, x) {
 //   病根不在「编」：继续刷楼时每层楼只给前 60 个字、只给最后 14 层、楼中楼一条不给，
 //   模型照着半句话接，只能猜。「只针对楼里已有的话回应」那条一直在，它只是看不全那句话。
 // ⚠️凡是把已有楼层递给模型的地方都走这一处（施工规则/one-public-mechanism.md）。
+// 每条前面挂一个〔今天14:32〕／〔10/16 21:05〕（她 2026-10-23「论坛是不是没有时间戳，我回复上个星期的帖子他还会当成最近」）
+const forumStamp = ts => (Number(ts) > 0 && typeof fmtStampAI === "function") ? "〔" + fmtStampAI(Number(ts)) + "〕" : "";
+// 这帖是什么时候的、现在几点：回旧帖、刷旧楼时照真实隔了多久说，别当成刚发生的
+function forumTimeLine(post) {
+  const ts = Number(post && post.ts) || 0;
+  if (!ts || typeof fmtStampAI !== "function") return "";
+  const days = Math.floor((Date.now() - ts) / 86400000);
+  const ago = days >= 1 ? "，已经是 " + days + " 天前的帖了" : "";
+  return "【时间】这帖发于〔" + fmtStampAI(ts) + "〕" + ago + "；现在是〔" + fmtStampAI(Date.now()) + "〕。楼里每条前面〔〕里是它发出来的时间——隔了多久就照多久来，旧帖里的事是那时候的事，别当成刚发生的。\n";
+}
 function forumFloorTranscript(floors) {
   return (floors || []).filter(Boolean).map(f => {
-    const head = (f.floor != null ? f.floor + "楼 " : "") + (f.isOp ? "【楼主】" : "") + (f.authorName || "某人") + "：" + forumWithPhoto(f.content, f).replace(/\s+/g, " ");
-    const subs = (f.replies || []).filter(r => r && r.content).map(r => "  └ " + (r.isOp ? "【楼主】" : "") + (r.authorName || "某人") + (r.toName ? " 回 " + r.toName : "") + "：" + forumWithPhoto(r.content, r).replace(/\s+/g, " "));
+    const head = forumStamp(f.ts || f.visibleAt) + (f.floor != null ? f.floor + "楼 " : "") + (f.isOp ? "【楼主】" : "") + (f.authorName || "某人") + "：" + forumWithPhoto(f.content, f).replace(/\s+/g, " ");
+    const subs = (f.replies || []).filter(r => r && r.content).map(r => "  └ " + forumStamp(r.ts) + (r.isOp ? "【楼主】" : "") + (r.authorName || "某人") + (r.toName ? " 回 " + r.toName : "") + "：" + forumWithPhoto(r.content, r).replace(/\s+/g, " "));
     return [head].concat(subs).join("\n");
   }).join("\n");
 }
