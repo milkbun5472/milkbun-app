@@ -10,7 +10,7 @@ assert.match(app, /Z\.askInstruction\(test, userName\(profileFor\(charId\)\), Z\
 assert.match(app, /\.\.\.\(scene \? \{ scene \} : \{\}\)[^\n]*\}\);\n      patch\(\{ status: "done"/);
 // 他出题：用他的线路和上下文，存成带 by 的题；by 不被 cleanTest 丢掉
 assert.match(core, /\.\.\.\(t\.by \? \{ by: String\(t\.by\) \} : \{\}\)/);
-assert.match(app, /const zhaoyingCharGen = async charId =>[\s\S]{0,300}runProbe\(apiFor\(charId\), ctxFor\(c\)/);
+assert.match(app, /const zhaoyingCharGen = async \(charId, mode\) =>[\s\S]{0,300}runProbe\(apiFor\(charId\), ctxFor\(c\)/);
 // 群一起做：一人一次，做完发进群让他们聊
 assert.match(app, /const zhaoyingGroupRun = async \(groupId, testId, onStep\) =>/);
 assert.match(app, /try \{ replyGroup\(groupId, \{\}\); \} catch/);
@@ -322,7 +322,91 @@ console.log("ok");
   const app = fs.readFileSync(path.join(__dirname, "../js/app.js"), "utf8"), zy = fs.readFileSync(path.join(__dirname, "../js/zhaoying.js"), "utf8");
   assert.match(app, /const zhaoyingSendMine = \(charId, testId, rec, note\) =>/);
   assert.match(app, /onLieGuess: i => window\.Zhaoying\.patchRecord\(/);
-  assert.match(zy, /props\.onSendMine\(tt\.by, tt\.id, r0, note\)/);
+  assert.match(zy, /props\.onSendMine\(to, tt\.id, r0, note\)/);
   assert.match(zy, /const DRAFT = "x_zyDraft"/); assert.match(zy, /else saveDraft\(r\.testId, next\)/);
   assert.match(zy, /Z\.optsView\(tt, q, i,/);
+}
+
+// 自己出／AI 出／他出的题也能换答法（她 2026-10-23）
+{
+  const assert = require("node:assert/strict");
+  global.window = global; delete require.cache[require.resolve("../js/zhaoying-core.js")];
+  const store = {}; global.loadJSON = (k, d) => k in store ? store[k] : d; global.saveJSON = (k, v) => { store[k] = v; };
+  require("../js/zhaoying-core.js");
+  const Z = global.Zhaoying;
+  assert.ok(!Z.KINDS.some(k => k[0] === "pic"), "看图选不开放");
+  const r = Z.saveCustom({ kind: "rank", name: "r", items: ["a", "b", "c", "d"] }); assert.equal(r.qs.length, 3); assert.equal(Z.resultOf(r.id, [2]).title, "排第一：c");
+  assert.equal(Z.saveCustom({ kind: "bracket", items: ["a", "b"] }), null, "淘汰赛不满 16 样存不了");
+  assert.equal(Z.saveCustom({ kind: "bracket", items: "abcdefghijklmnop".split("") }).qs.length, 15);
+  assert.equal(Z.saveCustom({ kind: "bid", items: ["a", "b", "c"] }).bid, 100);
+  const sc = Z.saveCustom({ kind: "scale", scale: "心软", qs: [{ q: "x" }] }); assert.equal(Z.resultOf(sc.id, [4]).title, "心软 10 / 10");
+  assert.ok(Z.saveCustom({ kind: "fill", qs: [{ q: "我 ____" }] }).fill);
+  assert.equal(Z.saveCustom({ kind: "quick", qs: [{ q: "a", opts: [{ t: "1" }, { t: "2" }, { t: "3" }] }] }).qs[0].opts.length, 2);
+  // 改题：条目回到草稿里
+  assert.deepEqual(Z.draftOf(r).items, ["a", "b", "c", "d"]); assert.equal(Z.draftOf(r).kind, "rank");
+  // 普通算分题不受影响
+  const p = Z.saveCustom({ scored: true, results: [{ title: "A" }, { title: "B" }], qs: [{ q: "q", opts: [{ t: "x", r: 1 }, { t: "y", r: 0 }] }] });
+  assert.equal(Z.resultOf(p.id, [0]).title, "B");
+  // 他出题时自己挑答法
+  assert.match(Z.charTestInstruction("她"), /答法由你挑，写在 kind/); assert.match(Z.CHAR_TEST_SCHEMA, /"kind"/);
+  const fs = require("node:fs"), path = require("node:path");
+  assert.match(fs.readFileSync(path.join(__dirname, "../js/app.js"), "utf8"), /genTest\(p, theme, count, scored, kind\)/);
+  assert.match(fs.readFileSync(path.join(__dirname, "../js/zhaoying.js"), "utf8"), /"data-wk": "zykind"/);
+}
+
+// 出题页是一张卷子（她 2026-10-23「这个页面 ui 也还是简陋啊」）：题型卡不是一排药丸；卷面、收卷都在
+{
+  const assert = require("node:assert/strict");
+  const zy = require("node:fs").readFileSync(require("node:path").join(__dirname, "../js/zhaoying.js"), "utf8");
+  const a = zy.indexOf("// ── 出题／改题 ──"), b = zy.indexOf("// ── 正在做 ──"), ed = zy.slice(a, b);
+  assert.match(ed, /"data-wk": "zykind", role: "tablist"/); assert.doesNotMatch(ed, /pill\(K === k/);
+  assert.match(ed, /"data-wk": "zypaper"/); assert.match(ed, /const mini = k =>/); assert.match(ed, /"收 卷"/);
+}
+
+// 他出通用题＋去重（她 2026-10-23）：通用题不写你们俩、没有钓鱼；出题前都看得到已有的题，他自己出过的单列
+{
+  const assert = require("node:assert/strict");
+  global.window = global; delete require.cache[require.resolve("../js/zhaoying-core.js")];
+  const store = {}; global.loadJSON = (k, d) => k in store ? store[k] : d; global.saveJSON = (k, v) => { store[k] = v; };
+  require("../js/zhaoying-core.js");
+  const Z = global.Zhaoying;
+  Z.saveCustom({ name: "他的旧题", sub: "想知道你怕不怕黑", by: "c1", qs: [{ q: "a", opts: [{ t: "1" }, { t: "2" }] }] });
+  const o = Z.charTestInstruction("她", "open", "c1"), me = Z.charTestInstruction("她", "", "c1");
+  assert.match(o, /谁拿到都能做/); assert.match(o, /题里不写你和她之间的事/); assert.match(o, /bait 留空/);
+  assert.match(o, /你以前出过：「他的旧题」（想知道你怕不怕黑）/); assert.match(me, /你以前出过：「他的旧题」/); assert.match(me, /最不能接受排序/);
+  const t = Z.saveCustom({ name: "x", by: "c1", open: true, bait: "秘密", qs: [{ q: "a", opts: [{ t: "1" }, { t: "2" }] }] });
+  assert.equal(t.open, true); assert.equal(t.bait, undefined);
+  const fs = require("node:fs"), path = require("node:path");
+  assert.match(fs.readFileSync(path.join(__dirname, "../js/app.js"), "utf8"), /Z\.charTestInstruction\(userName\(profileFor\(charId\)\), mode, charId\)/);
+  const zy = fs.readFileSync(path.join(__dirname, "../js/zhaoying.js"), "utf8");
+  assert.match(zy, /props\.onCharGen\(c\.id, genMode\)/); assert.match(zy, /"data-wk": "zygenmode"/);
+  assert.match(fs.readFileSync(path.join(__dirname, "../js/zhaoying-core.js"), "utf8"), /async function genTest[\s\S]{0,900}avoidNote\(""\)/);
+}
+
+// 互相发结果（她 2026-10-23）：任何一套都能发给任何人；他也做过就是并排对照；发过的他聊天时记得
+{
+  const assert = require("node:assert/strict");
+  global.window = global; delete require.cache[require.resolve("../js/zhaoying-core.js")];
+  const store = {}; global.loadJSON = (k, d) => k in store ? store[k] : d; global.saveJSON = (k, v) => { store[k] = v; };
+  require("../js/zhaoying-core.js");
+  const Z = global.Zhaoying;
+  Z.addRecord("me", { id: "m1", testId: "mbti", ts: 1, picks: [0], title: "INFP · 心里有片海的理想派" });
+  assert.equal(Z.chatNote("c7"), "");
+  Z.patchRecord("me", "m1", { sentTo: ["c7"] });
+  assert.match(Z.chatNote("c7"), /她做完发给你看过的：「MBTI[^」]*」.*测出「INFP/);
+  const fs = require("node:fs"), path = require("node:path");
+  const app = fs.readFileSync(path.join(__dirname, "../js/app.js"), "utf8");
+  assert.match(app, /咱俩每题对一对/); assert.match(app, /Z\.patchRecord\("me", rec\.id, \{ sentTo:/);
+  const zy = fs.readFileSync(path.join(__dirname, "../js/zhaoying.js"), "utf8");
+  assert.match(zy, /"data-wk": "zysendbox"/); assert.doesNotMatch(zy, /run\.done && run\.mode === "me" && tt\.by && props\.onSendMine/);
+}
+
+// 评语说人话；猜完谎，他自己那句亮出来并滚过去（她 2026-10-23）
+{
+  const assert = require("node:assert/strict");
+  global.window = global; delete require.cache[require.resolve("../js/zhaoying-core.js")]; require("../js/zhaoying-core.js");
+  const Z = global.Zhaoying, ins = Z.askInstruction(Z.byId("moral"), "她");
+  assert.match(ins, /用大白话跟她讲讲你这个人/); assert.doesNotMatch(ins, /口气是测试页面的口气/);
+  const core = require("node:fs").readFileSync(require("node:path").join(__dirname, "../js/zhaoying-core.js"), "utf8");
+  assert.match(core, /"data-wk": "zyliewhy"/); assert.match(core, /lieRef\.current\.scrollIntoView/);
 }

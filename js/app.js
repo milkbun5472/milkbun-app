@@ -20,7 +20,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v76.347";
+const APP_VERSION = "v76.357";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -12879,7 +12879,7 @@ mood、action、wearing 与能力字段只记录已经形成的反应、状态�
 word: string[]，角色实际发送的消息。【一个元素＝一句话】：说了几句就给几个元素，别把几句话用逗号缝进同一个元素。**这一格不能空着**——她那头看到的就是这几条；只填了 action 而 word 是空的，她收到的是一行动作、一个字都没有。这一轮你确实不想开口，就用 silent 那一格（那是专门给「已读不回」的），别交一个空 word。${_biWordSpec}
 mood: {"label":"中文短词"}，本轮回应完成后的当前主导心情；重新判断不等于必须变化。
 【每轮必填字段】
-thought: string，【每轮必须写，禁止 null、空串或省略】。${THOUGHT_MEANING}${typeof THOUGHT_VOICE === "string" ? THOUGHT_VOICE : ""}${typeof stateExtraSpec === "function" && typeof stateTplFor === "function" && !sideRoom ? (x => x ? "\n" + x : "")(stateExtraSpec(stateTplFor(settingsFor(charId)))) : ""}
+thought: string，【每轮必须写，禁止 null、空串或省略】。${THOUGHT_MEANING_CHAR}${typeof THOUGHT_VOICE === "string" ? THOUGHT_VOICE : ""}${typeof stateExtraSpec === "function" && typeof stateTplFor === "function" && !sideRoom ? (x => x ? "\n" + x : "")(stateExtraSpec(stateTplFor(settingsFor(charId)))) : ""}
 【实时动作字段·普通角色每轮必填】
 action: string，每轮回复完成后${ACT_MEANING}。${typeof ACT_VOICE === "string" && !(sameRoomFor(charId) && !offlineTogetherNow(charId)) ? ACT_VOICE : ""}这一格是它唯一的去处：写在这儿就够了，别在 word 里再说一遍——说完话再补一句交代自己此刻在做什么，不是人说话的样子。这件事真要紧到她该知道，就让它自然落在你要说的那句里，别在末尾挂一条通报。
 【按需状态字段】
@@ -15207,7 +15207,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       //   单聊 10-04 已经收成那一句，群这边还留着旧的一长串：「本轮有情绪波动的」「别写成这女人那家伙」「别重复、别原地打转、别套话」——
       //   禁令把路堵成一个形状，「有情绪波动」又把它推成每轮汇报心里落没落地。只留它是什么，和「我」是谁（那条是事实，不是文风）。
       //   「先想后说」那句是 v73.06 她定的闭群规矩，两支共用：心声是开口之前那一下，不是说完的批注。
-      const _gThoughtIs = "\"thought\"：" + THOUGHT_MEANING + (typeof THOUGHT_VOICE === "string" ? THOUGHT_VOICE : "") + "每条 thought 的第一人称『我』必须就是该对象 name 指定的成员本人。" + (typeof THOUGHT_EACH_OWN === "string" ? THOUGHT_EACH_OWN : "")
+      const _gThoughtIs = "\"thought\"：" + THOUGHT_MEANING_CHAR + (typeof THOUGHT_VOICE === "string" ? THOUGHT_VOICE : "") + "每条 thought 的第一人称『我』必须就是该对象 name 指定的成员本人。" + (typeof THOUGHT_EACH_OWN === "string" ? THOUGHT_EACH_OWN : "")
         + "**先把这一句想清楚，再写 TA 说出口的那句**——话从这句心声里长出来，不从「这种人设一般怎么说话」里长出来。";
       const thoughtHint = gs.memoryInterop ? "\n【心声与心情】开启了记忆互通：给本轮开口的成员各加一条 " + _gThoughtIs + "另可加 \"mood\"（必须填写中文心情词，如「愉快」「烦躁」，不要英文内部标签）、\"affinityDelta\"（" + AFFINITY_DELTA_SPEC + "）。【后台状态】每个真正发言的成员都要给 wearing 和 action：wearing 沿用上面的当前穿着，除非时间/地点/剧情明确导致换装；action 就是" + G_ACTION_SPEC + "两项只更新共享状态，绝不写进 text 气泡。\n" + MOOD_TURN_RULE
         // 闭群：只要心声那一栏，不要心情／好感／穿着——那些是写回主线的，闭群只进不出
@@ -16818,7 +16818,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   const BLOCK_STATE_SPEC = "\n另外三栏跟平时聊天一样每轮都填：thought＝" + (typeof THOUGHT_MEANING === "string" ? THOUGHT_MEANING : "")
     + "\nmood＝{\"label\":\"此刻中文心情词\"}；action＝此刻正在做什么，第一人称一句。"
     + "\n" + (typeof SCHED_NOW_SPEC === "string" ? SCHED_NOW_SPEC : "") + "（被拉黑以后，原来跟她在一块儿的那些安排多半已经不成立了）";
-  const BLOCK_STATE_SHAPE = ",\"thought\":\"没说出口的心声\",\"mood\":{\"label\":\"心情词\"},\"action\":\"此刻在做什么\",\"schedNow\":null";
+  const BLOCK_STATE_SHAPE = ",\"thought\":\"没说出口的一句心声\",\"mood\":{\"label\":\"心情词\"},\"action\":\"此刻在做什么\",\"schedNow\":null";
   const applyBlockTurnState = (charId, chatKey, d) => {
     try {
       if (!d) return;
@@ -19150,6 +19150,15 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       return n;
     });
   };
+  // 撤销他钱包里的一笔（她 2026-10-23：旅行扣了两次、小票删不了）：这一行拿掉，钱按原数退回余额
+  const undoCharWalletEntry = (charId, entryId) => {
+    setCharWallet(p => {
+      const cur = p[charId]; if (!cur) return p;
+      const e = (cur.ledger || []).find(x => x && String(x.id) === String(entryId)); if (!e) return p;
+      const n = { ...p, [charId]: { ...cur, balance: r2((Number(cur.balance) || 0) - (Number(e.delta) || 0)), ledger: (cur.ledger || []).filter(x => x !== e) } };
+      saveJSON("x_charWallet", n); charWalletRef.current = n; return n;
+    });
+  };
   // 手动把角色余额改成指定值（记一条调整流水）
   const setCharWalletTo = (charId, target) => {
     const tv = r2(target);
@@ -20515,7 +20524,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
           // 那为什么不能每轮都写状态卡呢」）。字段名跟线上那份协议一模一样，
           // 写入也走同一个出口（setStateFor / pushStateHist / setMoodFor）——
           // 「如果没有这个功能就不要自己再开一个，挂到公共的里面跟着线上走」。
-          + "\n【状态卡】跟平时聊天一样，每轮都要更新：mood 此刻中文心情词；thought " + (!isBody(char.id) && typeof THOUGHT_VOICE === "string" ? "＝" + THOUGHT_MEANING + THOUGHT_VOICE : "你心里那一句（第一人称，你自己的话）") + "；"
+          + "\n【状态卡】跟平时聊天一样，每轮都要更新：mood 此刻中文心情词；thought " + (!isBody(char.id) && typeof THOUGHT_VOICE === "string" ? "＝" + THOUGHT_MEANING_CHAR + THOUGHT_VOICE : "你心里那一句（第一人称，你自己的话）") + "；"
           + "place 人在哪一句短的；action 此刻正在做什么（每轮都更新，别照抄上一轮）；wearing 此刻穿着（跟场合时间对得上；没换就照旧）；condition 身体状态（只在确实不同于平常时才填，否则 null）。"
           + (callTfOk ? "\n【通话里也能转账】跟平时聊天是同一个钱包、同一张转账单：你真想在电话里给 " + uName + " 转钱（不是嘴上说说），填 transfer:{\"amount\":数字,\"note\":\"附言\"}，否则 null。" + (callTfPending ? "上面通话里 " + uName + " 刚给你转了一笔还没收：这一轮决定收不收，transferAccept 填 true（收下）或 false（退回）；还没想好就 null。" : "transferAccept 填 null。") : "")
           + "\n【输出】只输出 JSON：{\"say\":[\"气泡1\",\"气泡2\"],\"action\":\"此刻动作神态一句\",\"mood\":\"心情词\",\"thought\":\"心里那句\",\"place\":\"在哪\",\"wearing\":\"穿着\",\"condition\":null,\"hangup\":null" + (callTfOk ? ",\"transfer\":null,\"transferAccept\":null" : "") + "}。**say 的每一条都必须是你【能原样念出口的话】**——写你在做什么、什么表情、脸红没红、手在干嘛的字，一个都不许出现在 say 里，那些只属于 action。判据：这一条念出来对方在电话里听得见吗？听不见就不是台词。也别加名字前缀。";
@@ -20662,7 +20671,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
           + (gcOnMe ? "\n\n" + onMeLine(gcOnMe, uName) : "")
           + gcGrowth
           + wishLine(wishFor(), uName, { group: true, gift: false })
-          + "\n\n这是一个多人" + modeZh + "，用户" + uName + "和以下角色都在通话里。角色们用口语化短句自然对话，会顺着彼此和用户的话接梗、插话、跑题，像真的多人语音那样。每个角色想多说几句就多给几条，把话说完。" + (typeof THOUGHT_EACH_OWN === "string" ? "thought 的写法：" + THOUGHT_MEANING + THOUGHT_VOICE + THOUGHT_EACH_OWN : "") + (callerIsChar && callerName ? "\n【谁发起的这通电话】是【" + callerName + "】主动拨给 " + uName + " 的、Ta 接了——" + callerName + " 清楚是自己打过去的，别搞反成 " + uName + " 打来的、别问『不是你打给我的吗』。" : "") + "\n\n【在场角色】\n" + memberDesc + sameNameNote(people) + (profile && (profile.name || profile.persona) ? "\n\n【和大家通话的人 · 「" + userName(profile) + "」的设定】\n" + (profile.persona || "（未填写）") : "") + "\n\n【角色间关系】\n" + relLines + (cDirs.length ? "\n\n【用户立下的群规矩（高优先·务必遵守）】\n" + cDirs.map((x, ii) => (ii + 1) + ". " + x.trim()).join("\n") : "") + (cMem && cMem.trim() ? "\n\n【记忆库·相关条目（自然记得，别生硬复述）】\n" + cMem.trim() : "") + (cWorld ? "\n\n【世界书】\n" + cWorld : "") + gcHistBlock + gcTime + gcPrivBlock + "\n\n【挂断】谁真的要结束这通电话，就在自己那一条上加 \"hangup\":\"心里为什么挂\"——填了这通电话就到此为止，绝大多数回合谁都不该填。\n\n【状态卡】跟群里平时聊天一样：谁开口就在TA自己那一条上带上 mood（此刻中文心情词）和 thought（TA心里那一句，第一人称、TA自己的话）。\n\n【输出】只输出 JSON 数组，按发言先后：[{\"name\":\"角色名\",\"text\":\"这句话\",\"action\":\"此刻动作神态\",\"mood\":\"心情词\",\"thought\":\"心里那句\"}]，text 不要带名字前缀，一次 3~" + Math.min(30, Math.max(7, people.length * 3)) + " 条，name 必须是在场角色之一。";
+          + "\n\n这是一个多人" + modeZh + "，用户" + uName + "和以下角色都在通话里。角色们用口语化短句自然对话，会顺着彼此和用户的话接梗、插话、跑题，像真的多人语音那样。每个角色想多说几句就多给几条，把话说完。" + (typeof THOUGHT_EACH_OWN === "string" ? "thought 的写法：" + THOUGHT_MEANING_CHAR + THOUGHT_VOICE + THOUGHT_EACH_OWN : "") + (callerIsChar && callerName ? "\n【谁发起的这通电话】是【" + callerName + "】主动拨给 " + uName + " 的、Ta 接了——" + callerName + " 清楚是自己打过去的，别搞反成 " + uName + " 打来的、别问『不是你打给我的吗』。" : "") + "\n\n【在场角色】\n" + memberDesc + sameNameNote(people) + (profile && (profile.name || profile.persona) ? "\n\n【和大家通话的人 · 「" + userName(profile) + "」的设定】\n" + (profile.persona || "（未填写）") : "") + "\n\n【角色间关系】\n" + relLines + (cDirs.length ? "\n\n【用户立下的群规矩（高优先·务必遵守）】\n" + cDirs.map((x, ii) => (ii + 1) + ". " + x.trim()).join("\n") : "") + (cMem && cMem.trim() ? "\n\n【记忆库·相关条目（自然记得，别生硬复述）】\n" + cMem.trim() : "") + (cWorld ? "\n\n【世界书】\n" + cWorld : "") + gcHistBlock + gcTime + gcPrivBlock + "\n\n【挂断】谁真的要结束这通电话，就在自己那一条上加 \"hangup\":\"心里为什么挂\"——填了这通电话就到此为止，绝大多数回合谁都不该填。\n\n【状态卡】跟群里平时聊天一样：谁开口就在TA自己那一条上带上 mood（此刻中文心情词）和 thought（TA心里那一句，第一人称、TA自己的话）。\n\n【输出】只输出 JSON 数组，按发言先后：[{\"name\":\"角色名\",\"text\":\"这句话\",\"action\":\"此刻动作神态\",\"mood\":\"心情词\",\"thought\":\"心里那句\"}]，text 不要带名字前缀，一次 3~" + Math.min(30, Math.max(7, people.length * 3)) + " 条，name 必须是在场角色之一。";
         const raw = await callAI(active, sys + callBiHint + callVoiceHint + cameraHint, window.CallCamera.withFrame(hist, cameraFrame), { use: "call", logLabel: "群通话", maxTokens: 65000 });
         const arr = extractJSON(raw);
         if (Array.isArray(arr)) {
@@ -22081,7 +22090,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       // 不算分的自定义题：结果就是他做完自己说的那句
       if (res.free) { res.title = a.feel || "做完了"; res.line = ""; }
       const recId = "zy_" + Date.now().toString(36);
-      Z.addRecord(charId, { id: recId, testId, ts: Date.now(), picks: a.picks, whys: a.whys, paths: a.paths, code: res.code, title: res.title, line: res.line, free: !!res.free, ...(a.review ? { review: a.review } : {}), ...(scene ? { scene } : {}), ...(a.bids ? { bids: a.bids } : {}), ...(a.revs ? { revs: a.revs } : {}), ...((row.zy || {}).guess != null ? { guess: row.zy.guess } : {}), ...(a.fills ? { fills: a.fills } : {}), ...(a.lie ? { lie: a.lie } : {}) });
+      Z.addRecord(charId, { id: recId, testId, ts: Date.now(), picks: a.picks, whys: a.whys, paths: a.paths, code: res.code, title: res.title, line: res.line, free: !!res.free, ...(a.review ? { review: a.review } : {}), ...(a.react ? { react: a.react } : {}), ...(scene ? { scene } : {}), ...(a.bids ? { bids: a.bids } : {}), ...(a.revs ? { revs: a.revs } : {}), ...((row.zy || {}).guess != null ? { guess: row.zy.guess } : {}), ...(a.fills ? { fills: a.fills } : {}), ...(a.lie ? { lie: a.lie } : {}) });
       patch({ status: "done", recId, title: res.title });
       // 做完在他那边落一张卡（她 2026-10-22「不然还得往上翻」）：点开就是看他做，跟最早那张指向同一次
       pChat(charId, p => [...p, { id: "zyd_" + Date.now(), role: "assistant", kind: "zyask", ts: Date.now(),
@@ -22099,12 +22108,12 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     setTimeout(() => replyNow(w.charId, "", null, { zyDone: { testName: test ? test.name : "", title: (row.zy || {}).title || "" } }), 300);
   };
   // 他给她出一套（她 2026-10-22）：用他自己的线路和他的上下文出，存成一套带 by 的题，她来做
-  const zhaoyingCharGen = async charId => {
+  const zhaoyingCharGen = async (charId, mode) => {
     const Z = window.Zhaoying, c = characters.find(x => x.id === charId);
     if (!Z || !c) return null;
     try {
-      const d = await runProbe(apiFor(charId), ctxFor(c), { voice: true, tag: "zhaoying", instruction: Z.charTestInstruction(userName(profileFor(charId))), schemaHint: Z.CHAR_TEST_SCHEMA, maxTokens: 12000 });
-      const t = Z.saveCustom({ ...(d || {}), id: "", scored: false, by: charId });
+      const d = await runProbe(apiFor(charId), ctxFor(c), { voice: true, tag: "zhaoying", instruction: Z.charTestInstruction(userName(profileFor(charId)), mode, charId), schemaHint: Z.CHAR_TEST_SCHEMA, maxTokens: 12000 });
+      const t = Z.saveCustom({ ...(d || {}), id: "", scored: false, by: charId, ...(mode === "open" ? { open: true } : {}) });
       if (!t) { toast("他这回没出成题，再试一次"); return null; }
       return t;
     } catch (e) { toast("他这回没出成题：" + String((e && e.message) || e).slice(0, 50)); return null; }
@@ -22121,7 +22130,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         const d = await runProbe(apiFor(c.id), ctxFor(c), { voice: true, tag: "zhaoying", instruction: Z.askInstruction(test, userName(profileFor(c.id)), Z.recordsOf(c.id, testId), "", zyAuthor(test, c.id)), schemaHint: Z.askSchema(test), maxTokens: 20000 });
         const a = Z.readAnswers(test, d), res = Z.resultOf(testId, a.picks, a.bids);
         if (res.free) { res.title = a.feel || "做完了"; res.line = ""; }
-        Z.addRecord(c.id, { testId, ts: Date.now(), picks: a.picks, whys: a.whys, paths: a.paths, code: res.code, title: res.title, line: res.line, free: !!res.free, ...(a.review ? { review: a.review } : {}), ...(a.bids ? { bids: a.bids } : {}), ...(a.revs ? { revs: a.revs } : {}), ...(a.fills ? { fills: a.fills } : {}), group: groupId });
+        Z.addRecord(c.id, { testId, ts: Date.now(), picks: a.picks, whys: a.whys, paths: a.paths, code: res.code, title: res.title, line: res.line, free: !!res.free, ...(a.review ? { review: a.review } : {}), ...(a.react ? { react: a.react } : {}), ...(a.bids ? { bids: a.bids } : {}), ...(a.revs ? { revs: a.revs } : {}), ...(a.fills ? { fills: a.fills } : {}), group: groupId });
         n++;
       } catch (e) { toast((c.remark || c.name) + " 这回没做成"); }
     }
@@ -22148,13 +22157,20 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   // 一次结果存成图：照影页的记录和看他做的回放页共用这一处
   const zhaoyingSaveImage = async (testId, rec, name) => { const Z = window.Zhaoying, test = Z && Z.byId(testId); if (!test) return; const b = await Z.resultImage(test, rec, name); if (b) saveFile(new File([b], "照影-" + test.name + ".png", { type: "image/png" })); };
   // 她做完他出的那套：把她每题选了什么发给他（她按回复他才接，不当场替他开口）
+  // 把我做的那份发给他（她 2026-10-23「两个人互相发结果」）：任何一套都行；他也做过就是并排的对照，记下发给过谁，他聊天时就知道
   const zhaoyingSendMine = (charId, testId, rec, note) => {
     const Z = window.Zhaoying, test = Z && Z.byId(testId);
     if (!test || !rec) return;
-    const body = test.qs.map((q, i) => (i + 1) + ". " + q.q + " → " + Z.answerText(test, rec, i)).join("\n");
+    const mine = String(test.by || "") === String(charId), his = Z.recordsOf(charId, testId)[0];
+    const body = his
+      ? test.qs.map((q, i) => { const a = Z.answerText(test, rec, i), b = Z.answerText(test, his, i); return (i + 1) + ". " + q.q + "\n   我：" + a + (a === b ? "（一样）" : "\n   你：" + b); }).join("\n")
+      : test.qs.map((q, i) => (i + 1) + ". " + q.q + " → " + Z.answerText(test, rec, i)).join("\n");
     // 做完想跟他说的那句（她 2026-10-23「能不能编辑一下跟答案一起发回聊天」）：放在答案后面一起发
     const say = String(note || "").trim().slice(0, 500);
-    pChat(charId, p => [...p, { role: "user", kind: "zyshare", content: "〔照影〕你给我出的「" + test.name + "」我做完了，每题选的：\n" + body + (test.bait ? "\n（做完我才看到，你出这套其实是想知道：" + test.bait + "）" : "") + (say ? "\n\n" + say : ""), ts: Date.now(), zy: { testName: test.name, title: "做完了你出的这套", who: userName(profileFor(charId)) } }]);
+    const head = mine ? "〔照影〕你给我出的「" + test.name + "」我做完了" : "〔照影〕我做了「" + test.name + "」" + (rec.title && !rec.free ? "，测出「" + rec.title + "」" : "");
+    pChat(charId, p => [...p, { role: "user", kind: "zyshare", content: head + (his ? "。你上次测出「" + his.title + "」，咱俩每题对一对：\n" : "，每题选的：\n") + body + (mine && test.bait ? "\n（做完我才看到，你出这套其实是想知道：" + test.bait + "）" : "") + (say ? "\n\n" + say : ""), ts: Date.now(),
+      zy: { testName: test.name, title: mine ? "做完了你出的这套" : (rec.title || "做完了"), who: userName(profileFor(charId)) } }]);
+    if (rec.id) Z.patchRecord("me", rec.id, { sentTo: Array.from(new Set([...(rec.sentTo || []), charId])) });
     openChatById(charId);
   };
   const phoneSendAsFake = (char, session, body) => {
@@ -26034,6 +26050,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   // 存档形状（写入方在这，测试桩照这儿写）：
   // x_coupleTrips: [{ id, charId, wishId, dest, plan: {title, legs:[{when,where,note}]} | null,
   //                   planTs, ts, status: "planning"|"done", doneTs }]
+  // 付款这一下加把锁（她 2026-10-23：民宿机票扣了两次）：paid 是存档里的，连点两下时第二下还读不到
+  const tripPayingRef = useRef({});
   const saveTrips = updater => setCoupleTrips(p => {
     const n = typeof updater === "function" ? updater(p) : updater;
     coupleTripsRef.current = n; saveJSON("x_coupleTrips", n); return n;
@@ -26140,7 +26158,9 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   const tripBookPay = (char, who) => {
     const trip = (coupleTripsRef.current || []).find(t => t && t.charId === char.id && t.status !== "done");
     const b = trip && trip.booking;
-    if (!b || b.paid) return;
+    if (!b || b.paid || tripPayingRef.current[trip.id]) return;
+    tripPayingRef.current[trip.id] = true;
+    setTimeout(() => { delete tripPayingRef.current[trip.id]; }, 3000);   // 没付成（余额不够等）过一会儿还能再点
     const pick = b.pick || { flight: b.taPick.flight, back: b.taPick.back, hotel: b.taPick.hotel };
     const fl = b.flights[pick.flight], ho = b.hotels[pick.hotel], bk = (b.back || [])[pick.back];
     const total = tripBookTotal({ ...b, pick });
@@ -31934,6 +31954,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     onInit: initCharWallet,
     onCatchUp: catchUpWallet,
     onSetBalance: setCharWalletTo,
+    onUndoEntry: undoCharWalletEntry,
     onSettleDebt: settleDebt,
     debtPeerOf: who => { const c = walletDebtPeer(who); if (!c) return null; const r = (charWalletRef.current || {})[c.id]; return { id: c.id, name: c.name, ready: !!(r && r.init) }; },
     onRefresh: refreshCharAssets,
@@ -32771,7 +32792,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     onSendMine: zhaoyingSendMine,
     onSaveImage: zhaoyingSaveImage,
     // 给主题出一套题：走她自己那条线路（出完进编辑页，存了才算）
-    onGenTest: (theme, count, scored) => { const p = bgActiveRef.current || active; if (!p) { toast("先去 设置·API 配一条线路"); return Promise.resolve(null); } return window.Zhaoying.genTest(p, theme, count, scored); },
+    onGenTest: (theme, count, scored, kind) => { const p = bgActiveRef.current || active; if (!p) { toast("先去 设置·API 配一条线路"); return Promise.resolve(null); } return window.Zhaoying.genTest(p, theme, count, scored, kind); },
     onReplay: (charId, rec) => setZyWatch({ charId, testId: rec.testId, recId: rec.id, replay: true }),
     characters: liveChars, apiFor: apiFor, ctxFor: ctxFor, toast: toast, meName: userName(profile),
     // 两个角色意见不一样的那题丢进他俩都在的群（跟星测「发到群里」同一个口）：她发一条，群里的人照常接话
