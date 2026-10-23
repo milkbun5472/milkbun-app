@@ -52,3 +52,10 @@ console.log("ok");
 // 十七路（她 2026-10-23）
 assert.equal(G.newGame(17).size, 17);
 console.log("17 ok");
+// 她 2026-10-23 选 C：正常、高手走树搜索（九路对旧的平坦模拟 6 局全胜那一版）
+{
+  const src = require("node:fs").readFileSync(require("node:path").join(__dirname, "..", "js", "go-core.js"), "utf8");
+  assert.match(src, /function treeSearch\(s, cands, pri, budget\)/);
+  assert.match(src, /if \(level !== "easy" && !\(arguments\[3\] && arguments\[3\]\.flat\)\)/);
+}
+console.log("tree ok");
