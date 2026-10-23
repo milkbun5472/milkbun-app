@@ -244,11 +244,20 @@
       const edge = early && !took && !save ? (line === 1 ? -0.15 : line === 2 && n > 9 ? -0.05 : 0) : 0;
       return Math.min(0.5, took * 0.3 + save * 0.2) + edge;
     };
+    // 能提子、提完自己这子还有两口气以上（不是送回去让人倒扑）：直接提，提多的先
+    if (level !== "easy") {
+      let bestCap = -1, bestTook = 0;
+      cands.forEach(function (p) {
+        const s1 = move(s, { p: p }), took = s1.caps[me] - s.caps[me];
+        if (took > bestTook && group(s1.board, n, p).libs.size >= 2) { bestTook = took; bestCap = p; }
+      });
+      if (bestCap >= 0) return { p: bestCap, rate: 0 };
+    }
     const M = cands.length, wins = new Float64Array(M), tries = new Float64Array(M);
     const pri = new Float64Array(M); if (level !== "easy") for (let i = 0; i < M; i++) pri[i] = prior(cands[i]);
     const t0 = Date.now(), budget = THINK[level] || THINK.normal;
     let total = 0;
-    while (Date.now() - t0 < budget || total < M) {
+    while (Date.now() - t0 < budget || total < M * 4) {
       // UCB：赢面高的多试，没怎么试过的也给机会
       let bi = 0, bv = -1;
       for (let i = 0; i < M; i++) {
@@ -269,7 +278,7 @@
     const floor = Math.max(3, most * 0.15);
     let best = 0, bestV = -1;
     for (let i = 0; i < M; i++) {
-      if (tries[i] < floor) continue;
+      if (tries[i] < floor && pri[i] <= 0) continue;   // 吃子、救子这种手试得少也不扔
       const v = (wins[i] + 2) / (tries[i] + 4) + pri[i] + styleBonus(s, cands[i], style) + (level === "easy" ? (Math.random() - 0.5) * 0.25 : 0);
       if (v > bestV) { bestV = v; best = i; }
     }
