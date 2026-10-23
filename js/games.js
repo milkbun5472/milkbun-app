@@ -69,6 +69,10 @@
   const VOICE_RULE = "【是这个人在说话 · 说人话】下面每一句台词都是那个人自己张嘴说的：用TA人设里那种说话的样子——TA的词、TA的脾气、TA跟在场的人的关系；遮住名字要认得出是谁说的，别全桌一个腔调。"
     + "这是几个认识的人围桌玩，不是写复盘：一句里堆了两个以上的抽象名词、或者像在念攻略写分析，就是飘了，换成TA自己会说的大白话。判据：念给桌边一个没玩过这游戏的人听，TA听得懂、接得上话。水平高低只管TA玩得多好，不改TA说话的样子。\n\n";
   // 每个开口的人后面挂一句「说话的样子」：真人角色读完整人设的开头，NPC 读生成的那一句
+  // 小游戏里陪聊那几句（她 2026-10-23：「一次一个气泡是不是太少了」）：跟聊天一样想说几句说几句，一句一个气泡。
+  //   不封顶（她：「有些人就是话多」），提示词里也不写数（写了它就照着凑）。
+  const GAME_SAY_FREE = "照你平时说话的样子，想说几句就几句，一句一条；没什么想说的可以不说。";
+  function sayList(v) { return (Array.isArray(v) ? v : [v]).map(function (x) { return String(x == null ? "" : x).trim(); }).filter(Boolean); }
   function gameVoiceRules() {
     return AC + VOICE_RULE + SKILL_RULE + [
       typeof REGISTER_FOLLOWS_SCENE !== "undefined" ? REGISTER_FOLLOWS_SCENE : "",
@@ -4058,7 +4062,7 @@
       expect: '{"lines":["最多两句，可空"]}'
     });
     const cast = cc.rest.map(function(p){return "■ "+p.name+gNote(p)+"｜人设："+(p.isNpc?p.persona:((p.char&&p.char.persona)||p.persona||""))+"｜玩法："+(p.skill||"普通");}).join("\n");
-    const sys = AC + "\n你在主持一桌有熟人感的大富翁。刚发生：【"+event+"】。账面（这是唯一事实，严禁改钱、改产权、送地或声称规则外交易）："+standings+"。\n从在场角色中挑 2~4 个此刻最有反应的人，各说一句 28 字内的面对面口语。可以讨价还价、嘴硬、幸灾乐祸、安慰、翻旧账、威胁下回合收租、短暂站队；要点名并针对刚发生的事，不要轮流播报，不要都温柔，也不要替真人玩家说话。交易/结盟只能是嘴上态度，不能改变规则数据。避免重复最近说过的话。\n"+cast+"\n【最近】"+(recent||"无")+"\n只输出 JSON：{\"talks\":[{\"name\":\"\",\"say\":\"\"}]}";
+    const sys = AC + "\n你在主持一桌有熟人感的大富翁。刚发生：【"+event+"】。账面（这是唯一事实，严禁改钱、改产权、送地或声称规则外交易）："+standings+"。\n此刻有反应的人开口，面对面口语；每个人" + GAME_SAY_FREE + "同一个人连着说几句，就在 talks 里连着放几条。可以讨价还价、嘴硬、幸灾乐祸、安慰、翻旧账、威胁下回合收租、短暂站队；要点名并针对刚发生的事，不要轮流播报，不要都温柔，也不要替真人玩家说话。交易/结盟只能是嘴上态度，不能改变规则数据。避免重复最近说过的话。\n"+cast+"\n【最近】"+(recent||"无")+"\n只输出 JSON：{\"talks\":[{\"name\":\"\",\"say\":\"\"}]}";
     let talks=[];
     if(cc.rest.length){const raw=await callRetry(api,sys+ccPreface(cc,"说过自己那句了（也可能选择沉默）"),[{role:"user",content:"让牌桌对这件事起反应。"}],{maxTokens:9800}); const p=extractJSON(raw); talks=p&&Array.isArray(p.talks)?p.talks:[];}
     if(cc.seat&&cc.done&&Array.isArray(cc.done.lines))cc.done.lines.slice(0,2).forEach(function(line){const say=String(line||"").trim();if(say)talks.push({name:cc.seat.name,say:say.slice(0,80)});});
@@ -4113,7 +4117,7 @@
     },[phase,winner]);
     function standings(ps,os){return ps.map(function(p){return p.name+" $"+p.cash+"/地"+Object.keys(os).filter(function(k){return os[k]===p.key;}).length+(p.bankrupt?"(破产)":"");}).join("；");}
     function addLogs(xs){setLogs(function(old){return old.concat(xs).slice(-80);});}
-    async function react(ps,os,event,force){if(event)interactionQueue.current.push(event);if(!force&&!monoShouldFlush(interactionQueue.current.length,event,false))return;const batch=interactionQueue.current.splice(0,4);if(!batch.length)return;try{const recent=logs.slice(-8).map(function(x){return (x.name?x.name+"：":"")+x.say;}).join("｜"),bundle=batch.map(function(x,i){return (i+1)+". "+x;}).join("\n"); const ts=await Promise.race([monoTalk(api,ps,"以下是连续发生的 "+batch.length+" 次行动，请让发言分别接住其中值得回应的节点：\n"+bundle,standings(ps,os),recent),new Promise(function(_,no){setTimeout(function(){no(new Error("接话超时"));},50000);})]); const valid={};ps.forEach(function(p){valid[p.name]=p;}); addLogs(ts.filter(function(x){return x&&valid[x.name]&&!valid[x.name].isUser;}).slice(0,6).map(function(x){return {type:"talk",name:x.name,say:String(x.say||"").slice(0,80)};}));setTalkMiss(null);}catch(e){setTalkMiss({batch:batch});}
+    async function react(ps,os,event,force){if(event)interactionQueue.current.push(event);if(!force&&!monoShouldFlush(interactionQueue.current.length,event,false))return;const batch=interactionQueue.current.splice(0,4);if(!batch.length)return;try{const recent=logs.slice(-8).map(function(x){return (x.name?x.name+"：":"")+x.say;}).join("｜"),bundle=batch.map(function(x,i){return (i+1)+". "+x;}).join("\n"); const ts=await Promise.race([monoTalk(api,ps,"以下是连续发生的 "+batch.length+" 次行动，请让发言分别接住其中值得回应的节点：\n"+bundle,standings(ps,os),recent),new Promise(function(_,no){setTimeout(function(){no(new Error("接话超时"));},50000);})]); const valid={};ps.forEach(function(p){valid[p.name]=p;}); addLogs(ts.filter(function(x){return x&&valid[x.name]&&!valid[x.name].isUser;}).map(function(x){return {type:"talk",name:x.name,say:String(x.say||"").slice(0,200)};}));setTalkMiss(null);}catch(e){setTalkMiss({batch:batch});}
     }
     function finishIfNeeded(ps,os,ls,nextMoves){const alive=ps.filter(function(p){return !p.bankrupt;}); if(alive.length<=1||nextMoves>=monoMaxMoves(ps.length)){const ranked=ps.slice().sort(function(a,b){return monoNetWorth(b,os,ls)-monoNetWorth(a,os,ls);}); setWinner(ranked[0]);setPhase("result");clearGameSave("monopoly");return true;} return false;}
     async function finalize(ps,os,ls,event,eventLogs,extra){setPlayers(ps);setOwners(os);setLevels(ls);const nm=moves+1;setMoves(nm);addLogs(eventLogs);if(finishIfNeeded(ps,os,ls,nm)){interactionQueue.current=[];setBusy(false);return;}const next=extra&&!ps[turn].bankrupt?turn:monoAdvance(ps,turn);setTurn(next);if(event){const beforeUser=ps[next]&&ps[next].isUser;await react(ps,os,event,monoShouldFlush(interactionQueue.current.length+1,event,beforeUser));}setBusy(false);}
@@ -5358,10 +5362,10 @@
         + "\n【你是】" + cName + "\n【人设】" + String(char.persona || "（没写）").slice(0, 1400) + (recent ? "\n【你们最近聊的】" + recent : "")
         + "\n\n【现在】" + sit + (delta ? "\n【你上次开口到现在】" + delta : "") + "\n" + why + (said ? "\n【刚才说过的】\n" + said + "\n说过的意思别换个说法再说一遍。" : "")
         + (must ? "" : "\n这会儿没什么想说的就不说，say 留空。")
-        + "\n\n只输出 JSON：{\"say\":\"一句话\"}";
+        + "\n\n" + GAME_SAY_FREE + "\n只输出 JSON：{\"say\":[\"一句\"]}";
       callRetry(api, sys, [{ role: "user", content: userLine ? "她说：" + userLine : "说话。" }], { maxTokens: 8000, tag: "俄罗斯方块" }).then(function (raw) {
-        const p = extractJSON(raw) || {}; const v = String(p.say || "").trim();
-        lastLen.current = v.length; if (v) push({ id: char.id, name: cName, text: v.slice(0, 160) });
+        const p = extractJSON(raw) || {}; const vs = sayList(p.say);
+        lastLen.current = vs.join("").length; vs.forEach(function (v) { push({ id: char.id, name: cName, text: v.slice(0, 160) }); });
       }).catch(function () {}).finally(function () { setTalking(false); });
     };
     const afterLock = function (who, res) {
@@ -5565,7 +5569,7 @@
         + "\n\n" + who
         + "\n\n【现在】第 " + ms.length + " 手。" + boardWhy(ms) + (lastFew ? "\n最近几手：" + lastFew : "") + "\n" + why
         + (said.length ? "\n【你们刚才已经说过的】\n" + said.map(function (l) { return "· " + l.name + "：" + l.text; }).join("\n") + "\n这些话说过了：同一个意思别换个说法再说一遍，接着往下聊。" : "")
-        + "\n\n" + (talkers.length > 1 ? "两个人里真会开口的说一句，可以一个人说、也可以一来一回，最多三句。" : "说一句。")
+        + "\n\n" + GAME_SAY_FREE + (talkers.length > 1 ? "两个人可以一个人说，也可以一来一回；同一个人连着说几句就在 talks 里连着放几条。" : "")
         + "\n下法跟着你们自己的心思走：被激了、想赢了、心软了、想让 TA 高兴了，都可以换。真要换就在那个人那一条里加 play，填「认真」「随手」「让着」之一，从下一手起照这个下；不换就不写。"
         + "\n只输出 JSON：{\"talks\":[{\"name\":\"说话的人\",\"text\":\"一句话\",\"play\":\"可选\"}]}";
       callRetry(api, sys, [{ role: "user", content: "说话。" }], { maxTokens: 8000, tag: "五子棋" }).then(function (raw) {
@@ -5575,7 +5579,7 @@
             const c = talkers.find(function (q) { return x && (x.name === q.name || x.name === nmOf(q)); }) || (talkers.length === 1 ? talkers[0] : null);
             const pl = c && x ? PLAY_ZH.indexOf(String(x.play || "").trim()) : -1;
             return c && String((x && x.text) || "").trim() ? { id: c.id, name: nmOf(c), text: String(x.text).trim().slice(0, 200), at: Date.now(), play: pl } : null;
-          }).filter(Boolean).slice(0, 3);
+          }).filter(Boolean);
         const ch = {};
         list.forEach(function (l) { if (l.play >= 0) ch[l.id] = l.play; });
         const notes = Object.keys(ch).map(function (id) { return nmOf(findC(id)) + "开始" + PLAY_ZH[ch[id]] + "下了"; });
@@ -5638,8 +5642,8 @@
         + (moves.length ? "\n上一手：" + nameOfSide(moves[moves.length - 1].who) + gmkCoord(moves[moves.length - 1].x, moves[moves.length - 1].y) : "\n棋盘还空着，你先手。")
         + (lines.slice(-8).length ? "\n【刚才说过的】\n" + lines.slice(-8).map(function (l) { return "· " + l.name + "：" + l.text; }).join("\n") + "\n说过的别换个说法再说一遍。" : "")
         + (sinceMine.some(function (l) { return l.me; }) ? "\n" + uName + " 在你上次说话之后说了上面那几句，可以接着聊。" : "")
-        + "\n\n落一子（move，填空着的格子，比如 H8），再说一句（say，照你的性子，下棋是一起玩不是对峙；没什么想说可以留空）。下法要换就加 play（认真 / 随手 / 让着）。"
-        + "\n只输出 JSON：{\"move\":\"H8\",\"say\":\"一句\",\"play\":\"可选\"}";
+        + "\n\n落一子（move，填空着的格子，比如 H8），再说话（say，照你的性子，下棋是一起玩不是对峙；" + GAME_SAY_FREE + "）。下法要换就加 play（认真 / 随手 / 让着）。"
+        + "\n只输出 JSON：{\"move\":\"H8\",\"say\":[\"一句\"],\"play\":\"可选\"}";
       const raw = await callRetry(api, sys, [{ role: "user", content: "该你下了。" }], { maxTokens: 8000, tag: "五子棋·落子" });
       return { r: extractJSON(raw) || {}, who: who };
     };
@@ -5659,10 +5663,10 @@
             if (fb) setPlayNote(nmOf(res && res.who) + "那一步落不下去，替 TA 下在 " + gmkCoord(fb.x, fb.y));
             m = fb;
           }
-          const say = res ? String(res.r.say || "").trim() : "";
+          const says = res ? sayList(res.r.say) : [];
           const pl = res ? PLAY_ZH.indexOf(String(res.r.play || "").trim()) : -1;
           if (pl >= 0 && res.who) { setPlayOv(function (o) { const n = Object.assign({}, o); n[res.who.id] = pl; return n; }); setPlayNote(nmOf(res.who) + "开始" + PLAY_ZH[pl] + "下了"); }
-          if (say && res.who) setLines(function (L) { return L.concat([{ id: res.who.id, name: nmOf(res.who), text: say.slice(0, 200), at: Date.now() }]); });
+          if (says.length && res.who) setLines(function (L) { return L.concat(says.map(function (v) { return { id: res.who.id, name: nmOf(res.who), text: v.slice(0, 200), at: Date.now() }; })); });
           if (m) place(m.x, m.y, side);
         }).catch(function () {
           const fb = gmkBestMove(board, side, level(side));
@@ -5789,14 +5793,14 @@
       const sys = gameVoiceRules() + "【场面】" + o.scene() + "。棋不归你们走，你们只说话：像真坐在棋盘边那样随口说，照你们平时的关系和你自己的性子——下棋是一起玩，不是对峙。"
         + "\n\n" + who + "\n\n【现在】" + o.where() + "\n" + why
         + (said.length ? "\n【你们刚才已经说过的】\n" + said.map(function (l) { return "· " + l.name + "：" + l.text; }).join("\n") + "\n这些话说过了：同一个意思别换个说法再说一遍，接着往下聊。" : "")
-        + "\n\n" + (talkers.length > 1 ? "两个人里真会开口的说一句，可以一来一回，最多三句。" : "说一句。")
+        + "\n\n" + GAME_SAY_FREE + (talkers.length > 1 ? "两个人可以一个人说，也可以一来一回；同一个人连着说几句就在 talks 里连着放几条。" : "")
         + "\n只输出 JSON：{\"talks\":[{\"name\":\"说话的人\",\"text\":\"一句话\"}]}";
       callRetry(api, sys, [{ role: "user", content: "说话。" }], { maxTokens: 8000, tag: o.zh }).then(function (raw) {
         const p = extractJSON(raw) || {};
         const list = (Array.isArray(p.talks) ? p.talks : []).map(function (x) {
           const c = talkers.find(function (q) { return x && (x.name === q.name || x.name === (q.remark || q.name)); }) || (talkers.length === 1 ? talkers[0] : null);
           return c && String((x && x.text) || "").trim() ? { id: c.id, name: c.remark || c.name, text: String(x.text).trim().slice(0, 200), at: Date.now() } : null;
-        }).filter(Boolean).slice(0, 3);
+        }).filter(Boolean);
         if (list.length) setLines(function (L) { return L.concat(list); });
       }).catch(function () {}).then(function () { busy.current = false; setTalking(false); });
     };
@@ -6443,11 +6447,12 @@
           + "\n\n你在跟 " + drawer.name + " 玩你画我猜，" + uName + " 在边上看。这一张 " + drawer.name + " 画、你猜，你不知道答案。"
           + "画布 100×100，左上角是 0,0。到现在画出来的是：\n" + describeSegs(segs, shown)
           + said() + (herLine ? "\n" + uName + " 刚在边上说：「" + herLine.slice(0, 120) + "」。" : "")
-          + "\n照你自己的眼力和性子猜一个词（guess），再说一句（say）。看不出来也得猜。\n只输出 JSON：{\"guess\":\"一个词\",\"say\":\"一句\"}";
+          + "\n照你自己的眼力和性子猜一个词（guess），再说话（say，" + GAME_SAY_FREE + "）。看不出来也得猜。\n只输出 JSON：{\"guess\":\"一个词\",\"say\":[\"一句\"]}";
         const raw = await callRetry(api, sys, [{ role: "user", content: "猜。" }], { maxTokens: 8000, tag: "你画我猜·猜" });
         const r = extractJSON(raw) || {};
-        const g = String(r.guess || "").trim().slice(0, 20), s2 = String(r.say || "").trim().slice(0, 200);
-        push({ id: guesser.id, name: nmOf(guesser), text: (g ? "是「" + g + "」吗？" : "") + (s2 ? " " + s2 : "") });
+        const g = String(r.guess || "").trim().slice(0, 20), s2 = sayList(r.say);
+        if (g) push({ id: guesser.id, name: nmOf(guesser), text: "是「" + g + "」吗？" });
+        s2.forEach(function (v) { push({ id: guesser.id, name: nmOf(guesser), text: v.slice(0, 200) }); });
         if (g && drawHit(g, word)) { hit = true; finishTurn(true, guesser === char ? "ta" : "ta2"); }
       } catch (e) {}
       setBusy(false);
