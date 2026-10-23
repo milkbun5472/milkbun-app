@@ -7,5 +7,6 @@ assert.match(ui, /Z\.recentRecords\(8, w => w === "me" \|\| chars\.some/);
 assert.match(ui, /setWho\(r\.who\); setTestId\(r\.testId\); setOpenRec\(r\.id\)/);
 assert.match(ui, /curCat !== "mine" \|\| !byWho \|\| \(tt\.by \|\| "me"\) === byWho/);
 assert.ok(!/saveJSON\("x_zyBy/.test(ui), "出题人筛不另存");
-for (const k of ["zyrecent", "zyrecentcard", "zyauthors"]) { assert.match(ui, new RegExp('"data-wk": "' + k + '"')); assert.match(ts, new RegExp('\\["' + k + '", "')); }
+assert.match(ui, /saveJSON\("x_zyRecentFold", v\)/);
+for (const k of ["zyrecentfold", "zyrecent", "zyrecentcard", "zyauthors"]) { assert.match(ui, new RegExp('"data-wk": "' + k + '"')); assert.match(ts, new RegExp('\\["' + k + '", "')); }
 console.log("ok");

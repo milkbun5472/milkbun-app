@@ -34,6 +34,9 @@
     const curCat = cat !== "all" && !Z.allTests().some(tt => Z.catOf(tt) === cat) ? "all" : cat;
     // 「自己出的」里按出题人筛：""＝都看，"me"＝我出的，角色 id＝他出的；只在这一页里记着，不存
     const [byWho, setByWho] = useState("");
+    // 「最近做过」收起来（她 2026-10-23）：记着，下次进来还是收着
+    const [recFold, setRecFoldS] = useState(() => { try { return !!(typeof loadJSON === "function" && loadJSON("x_zyRecentFold", false)); } catch (e) { return false; } });
+    const setRecFold = v => { setRecFoldS(v); try { typeof saveJSON === "function" && saveJSON("x_zyRecentFold", v); } catch (e) {} };
     const setCat = c => { setCatS(c); setByWho(""); try { typeof saveJSON === "function" && saveJSON("x_zyCat", c); } catch (e) {} };
 
     // 从「最近做过」点进来：滚到翻开的那一次
@@ -516,8 +519,10 @@
           const rr = Z.recentRecords(8, w => w === "me" || chars.some(c => c.id === w));
           if (!rr.length) return null;
           return h("div", { "data-wk": "zyrecent", style: { marginBottom: 10 } },
-            h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: INK, margin: "2px 2px 8px" } }, "最近做过"),
-            h("div", { className: "flex overflow-x-auto", style: { gap: 10, padding: "2px 2px 8px" } }, rr.map(r => {
+            h("button", { "data-wk": "zyrecentfold", "aria-expanded": !recFold, onClick: () => setRecFold(!recFold), className: "w-full flex items-center active:opacity-70", style: { minHeight: 36, padding: "2px 2px", marginBottom: recFold ? 0 : 6 } },
+              h("span", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: INK, flex: 1, textAlign: "left" } }, "最近做过"),
+              h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: FOG } }, recFold ? "展开 ▾" : "收起 ▴")),
+            recFold ? null : h("div", { className: "flex overflow-x-auto", style: { gap: 10, padding: "2px 2px 8px" } }, rr.map(r => {
               const tt = Z.byId(r.testId), c = chars.find(x => x.id === r.who);
               return h("button", { key: r.who + r.id, "data-wk": "zyrecentcard", onClick: () => { jumpRec.current = r.id; setWho(r.who); setTestId(r.testId); setOpenRec(r.id); }, className: "shrink-0 text-left active:scale-[.97]",
                 style: { width: 150, padding: "10px 12px", borderRadius: 14, background: "#fffdf8", border: "1px solid " + LINE, borderTop: "3px solid " + Z.pal(tt).deep } },
