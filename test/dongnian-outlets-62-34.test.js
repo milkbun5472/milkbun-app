@@ -62,7 +62,7 @@ test("愿望是【出口层】的一档，不是塞进「留东西」那个多�
 test("档由【代码】挑，模型不再做选择；但留了不硬凑的出口", () => {
   const i = app.indexOf("const _pick = (outletHungry(char.id)[0]");
   assert.ok(i > 0, "档不是代码挑的");
-  const seg = app.slice(i, i + 1600);
+  const seg = app.slice(i, i + 4000);   // 中间多了几段「已经有的」清单（2026-10-26 去重），窗口放宽
   assert.match(seg, /这一档你已经很久没留过了，所以这次就留它——不用挑，也别改成别的。/, "还在让模型自己挑");
   assert.ok(!/【留在哪儿】三选一/.test(app), "那两层三选一还在");
   // ⚠️出口：写不出来就什么都不留，空一次也不许编一件
