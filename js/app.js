@@ -20,7 +20,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v76.457";
+const APP_VERSION = "v76.458";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -30491,6 +30491,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         if (parts[0] !== "real" && parts[0] !== "story") return false;
         setMapMode(parts[0]); saveJSON("x_mapMode", parts[0]); setScreen("map"); return true;
       }
+      // 「信息」里那四栏（聊天／通讯录／朋友圈／我）
+      if (app === "chat" && parts.length === 1 && ["chats", "contacts", "moments", "me"].indexOf(parts[0]) >= 0) { setMsgTab(parts[0]); setScreen("messages"); return true; }
       if ((entryId === "chat" || entryId === "group") && parts.length) {
         const key = parts.join("/");
         const list = entryId === "group" ? (groupsRef.current || []) : (charactersRef.current || []);

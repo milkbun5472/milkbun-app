@@ -1561,6 +1561,10 @@
 (function () {
   const useState = React.useState, useRef = React.useRef, useEffect = React.useEffect;
   const A = window.Assistant;
+  // 秋秋回话里的 **粗体**：模型顺手写了 Markdown，原样摆出来就是一串星号（她 2026-10-24 截图）。
+  //   成对的就加粗，落单的星号原样留着；复制出去的还是原文
+  const qqBold = txt => { const s0 = String(txt || ""); if (s0.indexOf("**") < 0) return s0;
+    const parts = s0.split(/\*\*([^*\n]+?)\*\*/g); return parts.map((x, k) => k % 2 ? h("b", { key: k, style: { fontWeight: 700 } }, x) : x); };
 
   // ---- 秋秋的默认头像（v61.43，她 2026-09-03 给了图：「左边是头像右边是图标」）----
   // 原来是程序画的那只线稿肥鸟；现在换成她那张画。
@@ -1786,7 +1790,7 @@
       : h("div", { "data-wk": "qqmsg", "data-me": "0", key: i, style: { display: "flex", alignItems: "flex-start", gap: 7, marginBottom: sm ? 11 : 14 } },
           h(QiuFace, { cfg: props.cfg, size: av, radius: 9 }),
           h("div", { style: { flex: 1, minWidth: 0 } },
-            h("div", { "data-wk": "qqbubble", "data-me": "0", style: { fontFamily: F_BODY, fontSize: sm ? 12 : 13, color: t.ink, lineHeight: 1.75, whiteSpace: "pre-wrap", wordBreak: "break-word", userSelect: "text", WebkitUserSelect: "text" } }, m.text),
+            h("div", { "data-wk": "qqbubble", "data-me": "0", style: { fontFamily: F_BODY, fontSize: sm ? 12 : 13, color: t.ink, lineHeight: 1.75, whiteSpace: "pre-wrap", wordBreak: "break-word", userSelect: "text", WebkitUserSelect: "text" } }, qqBold(m.text)),
             // 她 2026-10-05：「复制不了」——手机上在气泡里滑选太难，每条都给一颗复制
             m.text ? h("button", { "data-wk": "qqcopy", "data-me": "0", onClick: async () => { const ok = typeof copyText === "function" && await copyText(m.text); props.toast && props.toast(ok ? "复制好了" : "没复制上，长按文字试试"); },
               style: { marginTop: 3, background: "none", border: "none", padding: "4px 0", fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog } }, "复制") : null,
