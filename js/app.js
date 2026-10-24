@@ -7280,7 +7280,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       // 却照样被摘掉了描写，而滚动摘要要攒够 50 条才跑、这时候一个字都没有（她 2026-08-28 问到）。
       // 所以先算一遍：这几拍原样带进去要是装得下，就全给原文，一个字不摘。
       const offNeedsDigest = offSlice.reduce((n, m) => n + String(m.content || "").length + 20, 0) > offCap;
-      let used = 0, usedOff = 0, offSeen = 0;
+      let used = 0, usedOff = 0, offSeen = 0, offFull = false;
       for (let i = all.length - 1; i >= wantStart && i >= 0; i--) {
         const m = all[i];
         const isOff = m._surface === "offline";
@@ -7313,7 +7313,11 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
             + (m.byUser ? bySomeoneElseMark(uName, m.senderName || char.name) : "");
         const cost = line.length + 1;
         const inFloor = !isOff && floorTs && (m.ts || 0) >= floorTs; // 这几天的聊天记录一定带进去
-        if (isOff && usedOff && usedOff + cost > offCap) continue; // 线下超了自己那份就跳过，但继续往回找线上的
+        // 线下那份装满了，就【整段停】，两边都不再收（群里 2026-10-25：「再往前的拍好像只有我说的话，没有 char 的话」）：
+        //   原来是一条一条地看装不装得下——TA一拍几百字装不下被跳过，她那句十几个字装得下照收，
+        //   于是更早的线下只剩她一个人在说话，TA 那边整段消失。线上的照样继续往回找。
+        if (isOff && offFull) continue;
+        if (isOff && usedOff && usedOff + cost > offCap) { offFull = true; continue; }
         if (!inFloor && used + cost > budget && lines.length) break; // 总预算仍以召回设置那根拉条为准
         used += cost;
         if (isOff) usedOff += cost;
