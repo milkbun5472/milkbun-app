@@ -15296,8 +15296,11 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       // 而不是放空炮。内容在【同一轮】里写好，不额外发起一次调用——零成本。
       // 封闭群（没开记忆互通）是密封空间：记忆不进也不出，也就不许从群里牵一条线到私聊。
       // 和周刊、月度印象、knownBy 那几处守的是同一条规矩（她 2026-08-21 指出这里漏了）。
+      // 她不在这个群里（旁观群）时，从群里私聊她就等于主动找她：那个人关了「主动发消息」就不开这扇门
+      //   （她 2026-10-24：关了主动的角色一个月没找她，旁观群里聊着聊着突然私聊来了）
+      const gDmToHerOk = c => imInGroup(group) || autoRefreshOn("proactive", c.id);
       const gDmMembers = gs.memoryInterop
-        ? members.filter(c => c && !(blocks[c.id] && (blocks[c.id].iBlocked || blocks[c.id].theyBlocked)))
+        ? members.filter(c => c && !(blocks[c.id] && (blocks[c.id].iBlocked || blocks[c.id].theyBlocked)) && gDmToHerOk(c))
         : [];
       const GDM_ODDS = 1 / 3;
       const gDmPick = gDmMembers.length && Math.random() < GDM_ODDS ? gDmMembers[Math.floor(Math.random() * gDmMembers.length)] : null;
@@ -16014,6 +16017,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
             }
           }
           if (gDmList.length && gDmCooling) gDmList = [];
+          if (gDmList.length && spk && !gDmToHerOk(spk)) gDmList = [];   // 模型自己填了也不投
           if (gDmList.length && spk && !(blocksRef.current[spk.id] && (blocksRef.current[spk.id].iBlocked || blocksRef.current[spk.id].theyBlocked))) {
             const dmTurn = "gdm_" + Date.now();
             for (let di = 0; di < gDmList.length; di++) {
@@ -16023,7 +16027,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
             }
           }
           // 成员主动发起通话邀请
-          const gcm = item.call && ["voice", "video"].includes(String(item.call).toLowerCase()) ? String(item.call).toLowerCase() : null;
+          const gcm = item.call && spk && gDmToHerOk(spk) && ["voice", "video"].includes(String(item.call).toLowerCase()) ? String(item.call).toLowerCase() : null;
           if (gcm) {
             await new Promise(r => setTimeout(r, 300));
             checkAutoCall();
