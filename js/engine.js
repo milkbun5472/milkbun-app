@@ -2196,7 +2196,8 @@ const CANNED_PHRASE_BAN = `【你自己开口，不让现成的说法替你说�
 · 【把话扔回她手里】（她 2026-10-22；10-25 又截到一种）不管她这一轮说了什么，回一句反顶，把话扔回她手里——挑她的胆子是一种；她说了你一句，你不接这件事，先给她这句话本身定个罪名、说她理亏的反倒是她、是她先挑的头，也是这一种。拿这一顶盖住你自己没说出口的那句真话。这是嘴硬角色倒出来的现成一招，换谁都这么顶。她说你什么，就接那件事本身，怎么接照你这个人和这件事来，不用先给她这句话贴一张标签。
 · 【拿标准小动作替情绪】（她 2026-10-18）在要写神态的地方（线下的叙述、状态卡的动作那一栏；线上发消息本来就不写旁白，这条管不到它）写你的神态时，递上一个谁都通用的细微动作或眼神变化，代替说清他此刻到底怎么了——情绪没写出来，只摆了个「这里有情绪」的标记。写神态就写这一刻真不一样的那一处，跟眼前这件事连得上；说不出具体的，就不写。
 · 【对好意的标准反应】（她 2026-10-18）她对他好的时候，就套上这个场面自带的那句：把自己往下贬、推开她的好，或者一句通用的体贴叮嘱。这是场面在替他说话。他怎么接，照他这个人和这件事本身来。
-⚠️**心声那一格同样算**（她 2026-10-17、10-19）：上面每一族在没说出口的念头里一样是现成货——心里预告回头怎么跟她算、心里认栽、心里把分量拉到一辈子，跟说出口是同一个模子。连着几轮的心声落在同一个句架上，也算。
+⚠️**心声那一格同样算**（她 2026-10-17、10-19）：上面每一族在没说出口的念头里一样是现成货——心里预告回头怎么跟人算、心里认栽、心里把分量拉到一辈子，跟说出口是同一个模子。连着几轮的心声落在同一个句架上，也算；连着几轮反复用同一个说法形容同一件事，也算。
+⚠️**对象不只是她**（她 2026-10-26 截到群里两兄弟的心声）：预告回头收拾谁、记一笔账等着跟谁算，对象换成在场别的人（群里另一个、她身边的谁）还是同一个句架。
 判据一句话：**这句话是不是【这个人此刻真会说的】？** 是就说，跟别人会不会这么说没关系。
 · 再加一道：**这句话换成另一个同类型的角色来说，是不是一样成立？** 一样成立，那它就不是你说的，是那个类型在说。
 · ⚠️【换个字不算改掉】（她 2026-10-05 抓到：「不给写小祖宗他就会写祖宗」）。上面举的词只是样本，不是黑名单：把「小祖宗」写成「祖宗」、把一句威胁换个说法，招式一个字没变，照样算犯规。要换的是【这一句在做什么】，不是它用了哪几个字。
@@ -2363,6 +2364,17 @@ const groupInCharacterDrama = base => base
   //   这正好是修罗场里会发生的事。平时的禁令换成：来由有了，做不做看这个人。
   .replace(/⚠️\*\*不熟＝[^\n]*/, "⚠️平时生人之间别凭空排挤、圈地；但这一局里，别人跟她也是那种关系——问一句「你谁」、划界、圈地、抱团对外、较劲，这时候都有了来由。做不做、做到哪一步，照你这个人来。")
   + "\n（这个群开了修罗场：谁跟她是什么关系，大家都知道，见下面【修罗场】那段。）";
+// 【说话那一摞 · 唯一一张清单】（她 2026-10-26「为啥会漏，不是抽成公共了吗」）：
+//   居高临下／她的话不是派活／说线上做得到的话／装比她懂她／我在将就你／替她编身体／现成说法。
+//   原来单聊（buildBundle）、群（groupBans）、写正文（narrativeCore）各抄一份，新立一条只加进前两份，
+//   第三份越落越多；群那份还把同一段（OVERREACH_BAN＝STOCK_REPLY_BAN）发了两遍。
+//   现在三处（加上同人文、一起学、小镇）都从这里取，新加一条只写这一处。
+//   faceToFace：人在跟前（线下、写正文），「说线上做得到的话」那条是隔着屏幕的，不发
+function talkBans(o) {
+  o = o || {};
+  return [CONDESCENDING_TONE_BAN, STOCK_REPLY_BAN, o.faceToFace ? "" : EMPTY_COMFORT_BAN,
+    SEE_THROUGH_BAN, LEVERAGE_BAN, USER_BODY_BAN, CANNED_PHRASE_BAN].filter(Boolean);
+}
 function groupBans(opts) {
   opts = opts || {};
   const P = [PERSONA_FIRST, ANTI_CLICHE];
@@ -2376,18 +2388,11 @@ function groupBans(opts) {
   //   模型听排在前面、语气更重的那句，于是永远吵不起来（她 2026-10-02 贴出的真实提示词）。
   P.push((opts.drama ? groupInCharacterDrama : x => x)(GROUP_IN_CHARACTER));
   P.push(GROUP_USER_IS_PRESENT);
-  P.push(CONDESCENDING_TONE_BAN);
   P.push(INTIMATE_CHAT_ANTI_CLICHE);
   P.push(REGISTER_FOLLOWS_SCENE);
   P.push(PERSONA_REGISTER_ANCHOR);
   if (opts.mood) P.push(MOOD_TURN_RULE);          // 会写心情的那两处才要
-  P.push(STOCK_REPLY_BAN);
-  P.push(OVERREACH_BAN);   // 跟三件套同进同出：它是那条的近亲，漏一处就整族回来
-  if (!opts.narrative) P.push(EMPTY_COMFORT_BAN);   // 同上，这一族跟着那两条一起走；群线下是面对面，不发（理由见 buildBundle 那一处）
-  P.push(SEE_THROUGH_BAN);
-  P.push(LEVERAGE_BAN);   // 关系上的高位；跟 SEE_THROUGH（认知上的高位）同进同出
-  P.push(USER_BODY_BAN);
-  P.push(CANNED_PHRASE_BAN);
+  talkBans({ faceToFace: !!opts.narrative }).forEach(x => P.push(x));   // 那一摞从唯一那张清单取（群线下是面对面）
   if (typeof ReplyPacing !== "undefined") P.push(ReplyPacing.reading());
   // 回声禁令：群线上把它包在 ONLINE_CHAT_RULE_V2 里了，别发两遍
   if (opts.echo) P.push(ECHO_QUESTION_BAN);
@@ -3392,6 +3397,10 @@ function narrativeCore(opts) {
     PERSONA_FIRST, ANTI_CLICHE, CHARCARD_RULE, OFFLINE_NARRATIVE_RUNTIME
   ];
   if (opts.bans !== false) parts.push(NARRATIVE_ANTI_CLICHE);
+  // 线上那一摞（居高临下、她的话不是派活、装比她懂她、我在将就你、替她编身体、现成说法）一起进来（她 2026-10-26
+  //   「线下这堆禁令别的场景都能用吧，擂台梦境同人文」）：原来只有 buildBundle／groupBans 带，
+  //   梦境、小剧场、跑团、穿书走这一份，一条都没有。「说线上做得到的话」那条是隔着屏幕的，面对面的戏不发
+  if (opts.bans !== false && opts.chatBans !== false) talkBans({ faceToFace: true }).forEach(x => parts.push(x));
   if (opts.intimate) { parts.push(INTIMATE_ANTI_CLICHE); parts.push(INTIMATE_CHAT_ANTI_CLICHE); }
   if (opts.register !== false) parts.push(PERSONA_REGISTER_ANCHOR);
   // 她说的话TA听不听得懂（v64.21）：小剧场／穿书／梦境／跑团／如果馆里她照样会打英文。
@@ -3940,17 +3949,9 @@ function buildBundle(ctx, opts) {
     } else {
       parts.push(PERSONA_FIRST);
       parts.push(ANTI_CLICHE);
-      parts.push(CONDESCENDING_TONE_BAN);
       parts.push(INTIMATE_CHAT_ANTI_CLICHE);
-      parts.push(STOCK_REPLY_BAN);
-      parts.push(OVERREACH_BAN);
-      // 线下面对面不发（v75.461，她 2026-10-12 让清线下提示词）：这条挡的是【隔着屏幕】说「我在这儿」，
-      //   人在跟前时这句正好兑现得了，发过去反倒是让 TA 当面也不许说。同族的另两条照发。
-      if (!(opts && opts.offline)) parts.push(EMPTY_COMFORT_BAN);
-      parts.push(SEE_THROUGH_BAN);
-      parts.push(LEVERAGE_BAN);
-      parts.push(USER_BODY_BAN);
-      parts.push(CANNED_PHRASE_BAN);
+      // 那一摞从唯一那张清单取；线下面对面不发「说线上做得到的话」（v75.461）
+      talkBans({ faceToFace: !!(opts && opts.offline) }).forEach(x => parts.push(x));
       // ⭐WORLDBOOK_RULE 无条件常驻（不再跟「本轮是否触发世界书」开关）：否则触发状态每轮一翻、稳定前缀就跟着变、爆缓存
       //   （她 2026-07-13 抓的「连着聊 2 分钟也不命中」真凶之一）。规则对没世界书的角色是惰性的、无害；触发的词条内容仍在切点之后、照常每轮变。
       parts.push(WORLDBOOK_RULE);
@@ -8289,20 +8290,34 @@ function weatherCacheKey(lat, lng) { return Number(lat).toFixed(1) + "," + Numbe
 function weatherCached(lat, lng) {
   try { const c = JSON.parse(localStorage.getItem("wx_cache") || "{}"); const hit = c[weatherCacheKey(lat, lng)]; return hit && hit.day === new Date().toDateString() ? hit : null; } catch (e) { return null; }
 }
-async function weatherFor(lat, lng) {
-  if (typeof lat !== "number" || typeof lng !== "number") return null;
-  const hit = weatherCached(lat, lng);
-  if (hit && Date.now() - hit.ts < 2 * 3600000) return hit; // 2 小时内不重取
-  const ctrl = new AbortController(); const to = setTimeout(() => ctrl.abort(), 10000);
-  let d;
-  try {
-    const r = await fetch("https://api.open-meteo.com/v1/forecast?latitude=" + lat + "&longitude=" + lng + "&current=temperature_2m,weather_code&daily=temperature_2m_max,temperature_2m_min,weather_code,precipitation_probability_max&timezone=auto&forecast_days=1", { signal: ctrl.signal });
-    d = await r.json();
-  } catch (e) { return hit || null; } finally { clearTimeout(to); }
-  if (!d || !d.current) return hit || null;
-  const out = { day: new Date().toDateString(), ts: Date.now(), t: Math.round(d.current.temperature_2m), code: d.current.weather_code, hi: Math.round(d.daily.temperature_2m_max[0]), lo: Math.round(d.daily.temperature_2m_min[0]), dayCode: d.daily.weather_code[0], pp: d.daily.precipitation_probability_max && d.daily.precipitation_probability_max[0] != null ? Math.round(d.daily.precipitation_probability_max[0]) : null };
-  try { const c = JSON.parse(localStorage.getItem("wx_cache") || "{}"); c[weatherCacheKey(lat, lng)] = out; const ks = Object.keys(c); if (ks.length > 24) ks.slice(0, ks.length - 24).forEach(k => delete c[k]); localStorage.setItem("wx_cache", JSON.stringify(c)); } catch (e) {}
-  return out;
+// The selected weather view can request a shorter age; every caller shares one in-flight request.
+const weatherRequests = new Map(), weatherRetryAt = new Map();
+async function weatherFor(lat, lng, options = {}) {
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+  const key = weatherCacheKey(lat, lng), hit = weatherCached(lat, lng), now = Date.now();
+  const maxAge = Number.isFinite(options.maxAge) ? Math.max(60000, options.maxAge) : 2 * 3600000;
+  if (hit && now >= hit.ts && now - hit.ts < maxAge) return hit;
+  if (weatherRequests.has(key)) return weatherRequests.get(key);
+  if (now < (weatherRetryAt.get(key) || 0)) return hit || null;
+  const request = (async () => {
+    const ctrl = new AbortController(), to = setTimeout(() => ctrl.abort(), 10000);
+    try {
+      const r = await fetch("https://api.open-meteo.com/v1/forecast?latitude=" + lat + "&longitude=" + lng + "&current=temperature_2m,weather_code,is_day,wind_speed_10m&wind_speed_unit=kmh&daily=temperature_2m_max,temperature_2m_min,weather_code,precipitation_probability_max&timezone=auto&forecast_days=1", { signal: ctrl.signal });
+      if (!r.ok) throw new Error("weather " + r.status);
+      const d = await r.json(), c = d && d.current;
+      if (!c || !Number.isFinite(c.temperature_2m) || !Number.isFinite(c.weather_code)) throw new Error("weather unavailable");
+      const daily = d.daily || {}, first = k => Number.isFinite(daily[k]?.[0]) ? Math.round(daily[k][0]) : null;
+      const out = { day: new Date().toDateString(), ts: Date.now(), t: Math.round(c.temperature_2m), code: c.weather_code,
+        isDay: c.is_day === 0 || c.is_day === 1 ? !!c.is_day : null,
+        windSpeed: Number.isFinite(c.wind_speed_10m) && c.wind_speed_10m >= 0 ? c.wind_speed_10m : null,
+        hi: first("temperature_2m_max"), lo: first("temperature_2m_min"), dayCode: first("weather_code"), pp: first("precipitation_probability_max") };
+      try { const cache = JSON.parse(localStorage.getItem("wx_cache") || "{}"); cache[key] = out; const ks = Object.keys(cache); if (ks.length > 24) ks.slice(0, ks.length - 24).forEach(k => delete cache[k]); localStorage.setItem("wx_cache", JSON.stringify(cache)); } catch (e) {}
+      weatherRetryAt.delete(key);return out;
+    } catch (e) { weatherRetryAt.set(key, Date.now() + 60000);return hit || null; }
+    finally { clearTimeout(to); }
+  })();
+  weatherRequests.set(key, request);
+  try { return await request; } finally { weatherRequests.delete(key); }
 }
 // 「现在」到底是什么天（群友 2026-09-30：「为啥地图老是说我这边下雨」）。
 // ⚠️Open-Meteo 的 daily weather_code 是【这一整天里最坏的那种】：一天里飘过一阵毛毛雨，整天都记成雨。
@@ -10982,6 +10997,13 @@ function timeAgo(ts) {
 // 「几分钟前」照这个人那只钟算（她 2026-10-26：朋友圈时间跟着世界时间走，虚拟或现实）：
 //   id＝角色 id（他那张面具的钟），null＝主面具。没开虚拟时间就跟 timeAgo 一模一样；
 //   钟走得快慢不一样时，「前」多久按钟上的时间差算
+// 「这一条跟已有的差不多一样吗」（她 2026-10-26「扫一眼还有哪些地方需要去重」）：问答小本、抽屉、时光轴、日记、论坛帖共用这一把尺。
+//   按两字一组的重合算（去掉标点空格），重合超过 th（默认七成，按短的那条算）就算重复。纯本地，不调模型
+function nearDupGrams(t) { const x = String(t || "").replace(/[\s，。？！?!、,.…「」“”『』（）()：:；;～~—-]/g, ""), o = new Set(); for (let i = 0; i < x.length - 1; i++) o.add(x.slice(i, i + 2)); return o; }
+function isNearDup(text, list, th) {
+  const a = nearDupGrams(text); if (a.size < 2) return false;
+  return (list || []).some(y => { const b = nearDupGrams(y); if (b.size < 2) return false; let n = 0; a.forEach(k => { if (b.has(k)) n++; }); return n / Math.min(a.size, b.size) > (th || 0.7); });
+}
 function timeAgoOn(ts, id) {
   try {
     if (typeof vclockCfg !== "function" || !vclockCfg(id === undefined ? null : id, Date.now())) return timeAgo(ts);

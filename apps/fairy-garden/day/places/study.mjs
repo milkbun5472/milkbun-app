@@ -1,5 +1,5 @@
-import {createRoomKit,roomObstacles,finishRoom} from './room-kit.mjs?v=fg-32f56e8e0d66a403';
-import {furnishRoom,seatedSpot} from './occupation-room-kit.mjs?v=fg-32f56e8e0d66a403';
+import {createRoomKit,roomObstacles,finishRoom} from './room-kit.mjs?v=fg-c5bb692c59f6dc53';
+import {furnishRoom,seatedSpot} from './occupation-room-kit.mjs?v=fg-c5bb692c59f6dc53';
 const SIZE={w:14,d:12};
 const furniture=[
  {id:'ink-desk',kind:'table',x:-4.35,z:-3.9,w:3.0,d:1.18,top:.85,color:'#a58768',work:{write:{x:-.12,y:.90,z:.38}}},

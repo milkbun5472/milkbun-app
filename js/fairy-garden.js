@@ -9,7 +9,7 @@
 // 接口密钥留在父页 callAI，不传进游戏画面。
 (function (root) {
   const { h, useState, useRef, useEffect, selectDialogs, localDialogs, replaceDialogs, worldCognition, WORLDS } = root.FairyCore;
-  const KEY = "x_fairyGarden", BUILD = "fg-32f56e8e0d66a403", hosts = new WeakMap();
+  const KEY = "x_fairyGarden", BUILD = "fg-c5bb692c59f6dc53", hosts = new WeakMap();
   root.FairyGardenHostFor = child => hosts.get(child) || null;
   // ⚠️「读回来是空」不等于「这儿本来就没有一档」。存档搬进 IDB 之后，文字仓没灌起来
   //   那一刻读到的也是空；这时候要是照着「没有」开一档新的，第一次保存就把她真正的
@@ -787,7 +787,7 @@
     else action = { kind, target: undefined };
     return { parts, reply: parts.join("\n"), action };
   }
-  function sharedStyle() { return [narrativeCore({ intimate: true }), CONDESCENDING_TONE_BAN, REGISTER_FOLLOWS_SCENE, STOCK_REPLY_BAN, ECHO_QUESTION_BAN, typeof ReplyPacing !== "undefined" ? ReplyPacing.reading() : ""].filter(Boolean).join("\n\n"); }
+  function sharedStyle() { return [narrativeCore({ intimate: true }), REGISTER_FOLLOWS_SCENE, ECHO_QUESTION_BAN,   /* 居高临下、派活那一摞 narrativeCore 已经带了 */ typeof ReplyPacing !== "undefined" ? ReplyPacing.reading() : ""].filter(Boolean).join("\n\n"); }
   // mainline＝父页按【这间房的认知闸】拼好的主线底子（buildBundle 那一份）。
   // ⚠️给了就用它替掉这儿这份手写的自我介绍：那一份是全库公用的「你是谁＋怎么说话」，
   //   庭院自己再写一遍就是同一层活在两处（施工规则/one-public-mechanism.md）。

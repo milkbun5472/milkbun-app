@@ -2853,7 +2853,7 @@ function CalWidget({ now, calendar, onOpen, period }) {
       })));
 }
 // 一起听·主屏音乐组件（展示型，不真放声音）：左唱片 + 正在听的歌 + 装饰进度条
-// 天气小组件（Open-Meteo 免费无 key）：你所在地实时天气，2 小时缓存；点开=天气详情页（逐小时+7天），不再借地图的门（她 8/20 抓的）
+// 天气小组件（Open-Meteo 免费无 key）：当前选中地点的天气，前台15分钟刷新；点开=天气详情页（逐小时+7天），不再借地图的门（她 8/20 抓的）
 // v62.28 她 2026-09-04 问的两件事一起做了：
 //   ①「能查别的地方的天气吗」→ 能。谁设了家乡（map.js 的 onSetHome 写的 {city,lat,lng}），
 //     TA那边就能看；选中的那处会一直留着（x_weatherPlace），下次开 app 还是TA那边。
@@ -2996,6 +2996,7 @@ function WorldWxFollowBox({ userGeo, characters, worlds }) {
     const n = Object.assign({}, map);
     if (p) n[wid] = { label: p.name, lat: p.lat, lng: p.lng }; else delete n[wid];
     setMap(n); if (typeof saveJSON === "function") saveJSON("x_worldWxFollow", n);
+    window.dispatchEvent(new CustomEvent("weather-place"));
     if (p && typeof weatherFor === "function") weatherFor(p.lat, p.lng).catch(function () {});
   };
   const chip = function (key, label, on, fn) { return h("button", { key: key, "data-on": on ? "1" : "0", onClick: fn, className: "active:opacity-70",
@@ -3013,12 +3014,53 @@ function WorldWxFollowBox({ userGeo, characters, worlds }) {
           reals.map(function (p) { return chip(p.key, p.label, !!cur && cur.lat === p.lat && cur.lng === p.lng, function () { setFor(w.id, p); }); })));
     }));
 }
+// One live weather source shared by the widget and both companion surfaces. No new saved state.
+const weatherCurrentWatchers = new Map();
+function weatherSourcePlace(place) {
+  if (!place || place.real) return place;
+  const map = typeof loadJSON === "function" ? loadJSON("x_worldWxFollow", {}) || {} : {};
+  const follow = map[String(place.seed || "").split("|")[0]];
+  return follow && Number.isFinite(follow.lat) && Number.isFinite(follow.lng) ? { ...place, real: true, lat: follow.lat, lng: follow.lng } : place;
+}
+function weatherCurrentSnapshot(place, w, now = Date.now()) {
+  const real = !!place?.real, stamp = real ? w?.ts : now;
+  const known = Number.isFinite(w?.code) && Number.isFinite(w?.t) && Number.isFinite(stamp) && stamp <= now && now - stamp < 30 * 60000;
+  const id = JSON.stringify([place?.key, real ? [place.lat, place.lng] : [place?.seed, place?.terrain]]);
+  return { key: place?.key || "", placeId: id, known, at: now, expiresAt: known ? stamp + 30 * 60000 : 0, failed: false, weather: w || null };
+}
+function watchWeatherCurrent(place, receive) {
+  if (!place) { receive(weatherCurrentSnapshot(null, null)); return () => {}; }
+  const key = JSON.stringify([place.key, place.real, place.lat, place.lng, place.seed, place.terrain]);
+  let entry = weatherCurrentWatchers.get(key);
+  if (!entry) {
+    entry = { listeners: new Set(), snapshot: null, serial: 0, active: true };
+    const publish = snapshot => { entry.snapshot = snapshot; entry.listeners.forEach(fn => fn(snapshot)); };
+    const tick = async () => {
+      if (!entry.active || document.hidden) return;
+      const serial = ++entry.serial, source = weatherSourcePlace(place);
+      const cached = source.real ? (typeof weatherCached === "function" ? weatherCached(source.lat, source.lng) : null)
+        : (typeof WorldWeather !== "undefined" ? WorldWeather.dayOf(source.seed, source.terrain, new Date()) : null);
+      publish(weatherCurrentSnapshot(source, cached));
+      if (!source.real || typeof weatherFor !== "function") return;
+      const w = await weatherFor(source.lat, source.lng, { maxAge: 15 * 60000 });
+      if (entry.active && serial === entry.serial && !document.hidden) { const snapshot = weatherCurrentSnapshot(source, w);snapshot.failed = Number.isFinite(source.lat) && Number.isFinite(source.lng) && !snapshot.known;publish(snapshot); }
+    };
+    entry.tick = tick;entry.stop = () => { entry.active = false; clearInterval(entry.timer); document.removeEventListener("visibilitychange", tick); window.removeEventListener("weather-place", tick); };
+    entry.timer = setInterval(tick, 60000);
+    document.addEventListener("visibilitychange", tick);window.addEventListener("weather-place", tick);
+    weatherCurrentWatchers.set(key, entry);
+  }
+  entry.listeners.add(receive);
+  if (entry.snapshot) receive(entry.snapshot);
+  entry.tick();
+  return () => { entry.listeners.delete(receive);if (!entry.listeners.size) { entry.stop();weatherCurrentWatchers.delete(key); } };
+}
 function WeatherWidget({ userGeo, characters, worlds, onOpen }) {
   const t = useTheme();
   const places = weatherPlaceList(userGeo, characters, worlds);
   const [pick, setPick] = useState(function () { try { return localStorage.getItem("x_weatherPlace") || "me"; } catch (e) { return "me"; } });
   const place = places.find(function (p) { return p.key === pick; }) || places[0];
-  const choose = function (k) { setPick(k); setFx(null); try { localStorage.setItem("x_weatherPlace", k); } catch (e) {} };
+  const choose = function (k) { setPick(k); setFx(null); try { localStorage.setItem("x_weatherPlace", k); } catch (e) {} window.dispatchEvent(new CustomEvent("weather-place")); };
   const levels = weatherRailLevels(places, pick);
   // 点上面那一排：点世界＝进这个世界的第一处（底下那串签跟着出来），点别的照旧
   const chooseTop = function (k) {
@@ -3026,24 +3068,15 @@ function WeatherWidget({ userGeo, characters, worlds, onOpen }) {
     const g = levels.top.find(function (x) { return x.key === k; });
     if (g && g.first) choose(g.first);
   };
-  const [real, setReal] = useState(function () { return userGeo && typeof weatherCached === "function" ? weatherCached(userGeo.lat, userGeo.lng) : null; });
+  const [current, setCurrent] = useState(null);
   const [open, setOpen] = useState(false);
   const [fx, setFx] = useState(null); // {hourly:[{h,t,p,code}], daily:[{d,code,hi,lo}]}
-  // 架空的那几处不用等网络：当场算
   const madeUp = place && !place.real && typeof WorldWeather !== "undefined";
-  const w = madeUp ? WorldWeather.dayOf(place.seed, place.terrain, new Date()) : real;
-  // 拉不到就说拉不到（群里 2026-10-12：「搜索到了城市但天气不能显示」——原来拉失败了一声不吭，格子里一直写着「获取中…」）。
-  //   换了一处就先清掉上一处的天气，不拿别处的数顶着。点一下重拉。
-  const [wxFail, setWxFail] = useState(false);
+  const w = current && current.placeId === weatherCurrentSnapshot(weatherSourcePlace(place), null).placeId ? current.weather : null;
+  const wxFail = !!current && current.failed;
   const [wxTry, setWxTry] = useState(0);
-  useEffect(() => {
-    let alive = true;
-    if (!place || !place.real || typeof place.lat !== "number" || typeof weatherFor !== "function") return;
-    var c = typeof weatherCached === "function" ? weatherCached(place.lat, place.lng) : null;
-    setReal(c || null); setWxFail(false);
-    weatherFor(place.lat, place.lng).then(x => { if (!alive) return; if (x) setReal(x); else setWxFail(true); }).catch(() => { if (alive) setWxFail(true); });
-    return () => { alive = false; };
-  }, [place && place.key, place && place.lat, place && place.lng, wxTry]);
+  useEffect(() => watchWeatherCurrent(place, setCurrent), [place && place.key, place && place.lat, place && place.lng, place && place.seed, place && place.terrain, wxTry]);
+  useEffect(() => { const sync = () => { try { setPick(localStorage.getItem("x_weatherPlace") || "me"); } catch (_) {} };window.addEventListener("weather-place", sync);return () => window.removeEventListener("weather-place", sync); }, []);
   const loadFx = function (p) {
     if (!p) return;
     if (!p.real) {

@@ -7,7 +7,7 @@
 // 设置存 x_companion：{ charId, float, pos, scale, autoFace, looks: { [charId]: look } }
 // ============================================================
 (function () {
-  const KEY = "x_companion", BUILD = "fg-32f56e8e0d66a403";
+  const KEY = "x_companion", BUILD = "fg-c5bb692c59f6dc53";
   const load = () => Object.assign({ charId: "", float: false, pos: null, scale: 1, autoFace: true, looks: {} }, loadJSON(KEY, {}) || {});
   const save = v => saveJSON(KEY, v);
   // 心情 → 表情。心情是模型写的自由中文（x_moods[charId].label），按字认；认不出就是「平常」。
@@ -52,12 +52,64 @@
   // 你在干嘛（她 2026-09-26「点他有反应／跟着时间／看你在哪个页面」）：哪一页、有没有放歌、多久没碰手机。
   // 只送这三样事实，怎么反应由小人自己定（apps/companion/pet.mjs）。
   const IDLE_MS = 3 * 60 * 1000;
-  let lastTouch = Date.now();
-  ["pointerdown", "keydown", "wheel"].forEach(k => window.addEventListener(k, () => { lastTouch = Date.now(); }, { passive: true, capture: true }));
+  let lastTouch = Date.now(), returnSeq = 0, awayAt = 0;
+  const presenceListeners = new Set();
+  const presence = () => ({ idle: Date.now() - lastTouch >= IDLE_MS, returnSeq });
+  function markActive() { const returning = Date.now() - lastTouch >= IDLE_MS; lastTouch = Date.now(); if (returning) { returnSeq++; presenceListeners.forEach(f => f()); } }
+  ["pointerdown", "keydown", "wheel"].forEach(k => window.addEventListener(k, markActive, { passive: true, capture: true }));
+  if (typeof document !== "undefined") document.addEventListener("visibilitychange", () => {
+    if (document.hidden) awayAt = Date.now();
+    else { if (awayAt && Date.now() - awayAt >= IDLE_MS) lastTouch = Math.min(lastTouch, awayAt); awayAt = 0; markActive(); }
+  });
   function useIdle() {
-    const [idle, setIdle] = useState(false);
-    useEffect(() => { const id = setInterval(() => setIdle(Date.now() - lastTouch > IDLE_MS), 15000); return () => clearInterval(id); }, []);
-    return idle;
+    const [state, setState] = useState(presence);
+    useEffect(() => { const update = () => setState(p => { const n = presence(); return p.idle === n.idle && p.returnSeq === n.returnSeq ? p : n; });
+      presenceListeners.add(update); update(); const id = setInterval(update, 15000);
+      return () => { clearInterval(id); presenceListeners.delete(update); }; }, []);
+    return state;
+  }
+  function usePetContext(props, screen) {
+    const p = useIdle(), typing = useTyping(), [weather, setWeather] = useState(null), geo = props.geo;
+    useEffect(() => {
+      let stop = () => {}, selected = "";
+      const select = () => {
+        const places = typeof weatherPlaceList === "function" ? weatherPlaceList(geo, props.characters, props.worlds) : [];
+        let pick = "me";try { pick = localStorage.getItem("x_weatherPlace") || "me"; } catch (_) {}
+        const place = places.find(p => p.key === pick) || places[0], id = JSON.stringify(place);
+        if (selected === id) return;selected = id;stop();setWeather(null);
+        if (typeof watchWeatherCurrent === "function") stop = watchWeatherCurrent(place, setWeather);
+      };
+      select();window.addEventListener("weather-place", select);
+      return () => { stop();window.removeEventListener("weather-place", select); };
+    }, [geo && geo.lat, geo && geo.lng, props.characters, props.worlds]);
+    return { screen, music: !!props.music, idle: p.idle, returnSeq: p.returnSeq, typing, weather };
+  }
+  // Observe the real message arrays after delivery. Historical imports and edits are not arrivals.
+  function makeMessageWatch() {
+    let who = null; const sources = new Map(), seen = new Set();
+    return (charId, chats, groups, now = Date.now()) => {
+      const freshCharacter = who !== charId; if (freshCharacter) { who = charId; sources.clear(); seen.clear(); }
+      let arrived = false;
+      const rows = [["chat", (chats || {})[charId] || []], ...Object.entries(groups || {}).map(([id, messages]) => ["group:" + id, messages])];
+      for (const [key, messages] of rows) {
+        if (sources.get(key) === messages) continue; sources.set(key, messages);
+        for (const m of messages.slice(-32)) {
+          if (!m || !["assistant", "char"].includes(m.role) || (key !== "chat" && m.senderId !== charId)) continue;
+          const id = key + ":" + (m.id || m.mid || [m.turnId, m.ts, m.kind, m.role, m.senderId].join("|"));
+          if (!freshCharacter && !seen.has(id) && Number(m.ts) >= now - 10000 && Number(m.ts) <= now + 60000) arrived = true;
+          seen.add(id);
+        }
+      }
+      while (seen.size > 256) seen.delete(seen.values().next().value);
+      return arrived;
+    };
+  }
+  function useMessageNotice(charId, props, frame) {
+    const watch = useRef(null); if (!watch.current) watch.current = makeMessageWatch();
+    useEffect(() => { const arrived = watch.current(charId, props.chats, props.groupChats);
+      const w = frame.current && frame.current.contentWindow;
+      if (arrived && w && !props.hidden && !document.hidden) w.postMessage({ type: "pet-notice" }, "*");
+    }, [charId, props.chats, props.groupChats, props.hidden]);
   }
   // 戳一戳时让他顺手说一句（她 2026-09-27）：开关默认关——每一句都是一次 API 调用。
   // ⚠️走 runProbe({voice:true})：人设全文／心情／好感／印象卡／记忆／反八股是 buildBundle 白给的一整份
@@ -184,6 +236,7 @@
         if (e.data.type === "pet-failed" && onStatus) onStatus({ state: "failed", why: String(e.data.why || "") });
         if (e.data.type === "pet-act" && onAct) onAct(String(e.data.kind || ""));
         if (e.data.type === "pet-open" && onOpen) onOpen();
+        if (e.data.type === "pet-poke") markActive();
         if (e.data.type === "pet-poke" && pokeRef.current) pokeRef.current({ kind: String(e.data.kind || "tap"), count: Number(e.data.count) || 1 });
       };
       window.addEventListener("message", on);
@@ -193,7 +246,7 @@
       allowTransparency: "true", style: Object.assign({ border: 0, background: "transparent", display: "block" }, style) });
   }
   // 他这会儿在做什么：十种心情各一套动作，界面上不说一句，用户只当是随机待机。
-  const ACT_ZH = { 'emotion-heart':'双手围成心形给你看', 'emotion-thumb':'朝你竖起大拇指', 'emotion-wink':'朝你眨了一下眼', 'emotion-tongue':'调皮地吐吐舌头', 'emotion-cry':'抬手抹眼泪再慢慢缓过来', 'emotion-tilt':'歪着脑袋看你', 'emotion-poke':'伸出食指朝你脸边轻戳', 'emotion-pinch':'伸手轻轻捏捏你的脸', 'emotion-lie':'侧躺下来歇一会儿再起身', 'emotion-prone':'趴下来托着脸看你', 'emotion-phone':'低头拿着手机点点打字', 'emotion-eat':'拿起小饼干咬一口嚼嚼', 'emotion-hips':'叉着腰得意地看你', 'emotion-selfhug':'抱住自己轻轻晃', 'emotion-peekaboo':'捂住眼睛又张开手看你', 'emotion-sneeze':'掩住鼻口打了个喷嚏', 'emotion-gift':'双手把小礼盒递给你', 'emotion-sign':'举起写着想你的小纸牌', 'emotion-cheeks':'双手捧着脸歪头看你', 'emotion-plead':'双手合十拜托你', 'emotion-crossarms':'抱着双臂等你回答', 'emotion-scratch':'挠了挠后脑勺', 'emotion-rubeyes':'低头揉揉眼睛又看向你', 'emotion-flower':'把一朵小花递到你面前', 'emotion-kiss':'把手停在嘴前送你一个飞吻', 'emotion-giggle':'捂着嘴偷偷笑', 'emotion-listen':'拢着手侧耳听你说', 'emotion-promise':'拍拍胸口向你保证', 'emotion-cheer':'举起双手给你加油', 'emotion-refuse':'摇摇头又摆摆手', 'emotion-chin':'托着下巴安静陪你', 'emotion-headpat':'低头靠近你的手又抬眼看你', 'emotion-show':'转身展示新衣服', 'emotion-five-left':'抬起手等你击掌', 'emotion-five-right':'抬起手等你击掌', 'emotion-clap-left':'和你击了个掌', 'emotion-clap-right':'和你击了个掌', 'emotion-dodge-left':'躲开你的手又看回来', 'emotion-dodge-right':'躲开你的手又看回来', 'emotion-beckon':'招手示意你靠近', 'emotion-dance':'左右摆身跳小舞', 'emotion-bow':'欠身向你致意', 'emotion-shrug':'摊开手耸耸肩', 'emotion-peek':'看看两边又望向你', 'emotion-default':'抬手问候你', 'emotion-happy':'笑着向你招手', 'emotion-amazed':'举起双手欢呼', 'emotion-cozy':'张开手想抱抱你', 'emotion-relax':'舒展开双臂', 'emotion-surprise':'缩了一下又凑过来看', 'emotion-proud':'挺起胸等你夸', 'emotion-gloomy':'叹口气又望向你', 'emotion-sad':'低头后朝你伸出手', 'emotion-irritated':'别过身又偷偷看你',  wave: "在跟你招手", stretch: "在伸懒腰", tea: "在喝茶", read: "在看书", sit: "坐下了",
+  const ACT_ZH = { "emotion-catchrain":"撑着伞伸手接雨", "emotion-catchsnow":"捧着雪花看它慢慢化掉", "emotion-warmhands":"搓搓手哈一口暖气", "emotion-wipesweat":"抬手擦擦额头的汗", "emotion-shade":"抬手遮住阳光", "emotion-wind":"护住头发缩缩肩", "emotion-thunder":"雷雨天捂住耳朵", "emotion-rainclose":"雨停了，收起小伞", "emotion-raindry":"轻轻拍拍身上的水珠", "emotion-peace":"举起圆手套比耶", "emotion-applause":"拍拍手为你鼓掌", "emotion-sing":"晃着脑袋轻轻哼歌", "emotion-selfie":"举起手机和你自拍", "emotion-ears":"捂住耳朵晃晃脑袋", "emotion-cold":"搓着双手冷得轻轻发抖", "emotion-fan":"抬手给自己扇扇风", "emotion-daydream":"望向一边安静出神", "emotion-umbrella":"撑起小伞陪你看雨", 'emotion-heart':'双手围成心形给你看', 'emotion-thumb':'朝你竖起大拇指', 'emotion-wink':'朝你眨了一下眼', 'emotion-tongue':'调皮地吐吐舌头', 'emotion-cry':'抬手抹眼泪再慢慢缓过来', 'emotion-tilt':'歪着脑袋看你', 'emotion-poke':'伸出圆手套朝你脸边轻戳', 'emotion-pinch':'伸手轻轻捏捏你的脸', 'emotion-lie':'躺下来歇一会儿再起身', 'emotion-prone':'趴下来托着脸看你', 'emotion-phone':'低头拿着手机点点打字', 'emotion-eat':'拿起小饼干咬一口嚼嚼', 'emotion-hips':'叉着腰得意地看你', 'emotion-selfhug':'抱住自己轻轻晃', 'emotion-peekaboo':'捂住眼睛又张开手看你', 'emotion-sneeze':'掩住鼻口打了个喷嚏', 'emotion-gift':'双手把小礼盒递给你', 'emotion-sign':'举起写着想你的小纸牌', 'emotion-cheeks':'双手捧着脸歪头看你', 'emotion-plead':'双手合十拜托你', 'emotion-crossarms':'抱着双臂等你回答', 'emotion-scratch':'挠了挠后脑勺', 'emotion-rubeyes':'低头揉揉眼睛又看向你', 'emotion-flower':'把一朵小花递到你面前', 'emotion-kiss':'把手停在嘴前送你一个飞吻', 'emotion-giggle':'捂着嘴偷偷笑', 'emotion-listen':'拢着手侧耳听你说', 'emotion-promise':'拍拍胸口向你保证', 'emotion-cheer':'举起双手给你加油', 'emotion-refuse':'摇摇头又摆摆手', 'emotion-chin':'托着下巴安静陪你', 'emotion-headpat':'低头靠近你的手又抬眼看你', 'emotion-show':'转身展示新衣服', 'emotion-five-left':'抬起手等你击掌', 'emotion-five-right':'抬起手等你击掌', 'emotion-clap-left':'和你击了个掌', 'emotion-clap-right':'和你击了个掌', 'emotion-dodge-left':'躲开你的手又看回来', 'emotion-dodge-right':'躲开你的手又看回来', 'emotion-beckon':'招手示意你靠近', 'emotion-dance':'左右摆身跳小舞', 'emotion-bow':'欠身向你致意', 'emotion-shrug':'摊开手耸耸肩', 'emotion-peek':'看看两边又望向你', 'emotion-default':'抬手问候你', 'emotion-happy':'笑着向你招手', 'emotion-amazed':'举起双手欢呼', 'emotion-cozy':'张开手想抱抱你', 'emotion-relax':'舒展开双臂', 'emotion-surprise':'缩了一下又凑过来看', 'emotion-proud':'挺起胸等你夸', 'emotion-gloomy':'叹口气又望向你', 'emotion-sad':'低头后朝你伸出手', 'emotion-irritated':'别过身又偷偷看你',  wave: "在跟你招手", stretch: "在伸懒腰", tea: "在喝茶", read: "在看书", sit: "坐下了",
     hop: "高兴得蹦了一下", jolt: "被你吓了一跳", nod: "在点头", sigh: "叹了口气", stomp: "在跺脚",
     turn: "扭过头去不理你", shy: "有点害羞", look: "回头看你", yawn: "在打哈欠", wake: "刚被你叫醒",
     land: "被你放下来了", held: "被你拎在手上晃", sleep: "睡着了" };
@@ -213,7 +266,7 @@
     const auto = cfg.autoFace !== false;
     const own = char ? ((cfg.looks || {})[char.id] || {}) : {};
     const face = auto ? faceForMood(mood) : (own.face || "default");
-    const idle = useIdle();
+    const ctx = usePetContext(props, "companion");
     const [say, onPoke, holdSay] = usePokeTalk(char, props, !!cfg.pokeTalk);
     // 小人下到哪儿了 / 下不来了 / 这会儿在做什么
     const [petState, setPetState] = useState({ state: "loading", pct: 0 });
@@ -239,7 +292,7 @@
       h(React.Fragment, null,
         h("div", { "data-wk": "compstage", style: { height: "42vh", flexShrink: 0, position: "relative" } },
           h(Bubble, { text: say, onHold: holdSay, style: { top: 8 } }),
-          h(PetFrame, { mode: "full", frameRef: frame, onPoke, msg: petMessage(char, props.moods, cfg), ctx: { screen: "companion", music: !!props.music, idle },
+          h(PetFrame, { mode: "full", frameRef: frame, onPoke, msg: petMessage(char, props.moods, cfg), ctx,
             onStatus: setPetState, onAct: setActNow, reloadKey: retry, style: { width: "100%", height: "100%" } }),
           // 他还没画出来的时候屏幕是空的：第一次要下 5MB 的小人，网差就更久。
           // 原来这里什么都不说，卡住和正在下一个样（2026-09-26 发公共版前补的）。
@@ -271,7 +324,7 @@
             chip(!voiceOn(), "只冒字", () => { try { localStorage.setItem("x_fairyGardenVoice", "0"); } catch (e) {} bump(n => n + 1); }, "va"),
             chip(voiceOn(), "念出来", () => { try { localStorage.setItem("x_fairyGardenVoice", "1"); } catch (e) {} bump(n => n + 1); }, "vb")) : null,
           h("div", { style: { fontSize: "calc(11px * var(--app-fs, 1))", color: "#9a8a70", lineHeight: 1.7, marginBottom: 14 } }, "开了以后，戳他、拎他时他会按自己的性子和此刻的心情回一句。每一句都会调用一次 API；连着戳只算一次，两句之间至少隔 15 秒。" + (char.voiceId ? "「念出来」和庭院、列车是同一个开关。" : "给他在角色资料里选一个声音，就能念出来。")),
-          h("div", { style: { fontSize: "calc(11px * var(--app-fs, 1))", color: "#9a8a70", lineHeight: 1.7, marginBottom: 12 } }, "陪伴与「TA的一天」共用这一身，和庭院那一身分开。悬浮的小人拖右下角的小圆点能调大小；点他会有反应，按住能拎起来；点他底下那条把手打开这一页。"),
+          h("div", { style: { fontSize: "calc(11px * var(--app-fs, 1))", color: "#9a8a70", lineHeight: 1.7, marginBottom: 12 } }, "回来时会招手，新消息会轻跳，打字时探头，深夜哈欠揉眼；跟着天气观测牌所选地点，雨雪、冷热、晴天和大风时偶尔做小动作；前台约每15分钟更新天气。这些只做动作，不花调用。陪伴与「TA的一天」共用这一身，和庭院那一身分开。悬浮的小人拖右下角的小圆点能调大小；点他会有反应，按住能拎起来；点他底下那条把手打开这一页。"),
           Dress && pet() ? h(Dress, { who: "me", look: { me: Object.assign({}, own, auto ? {} : {}) }, styles, game: pet, pushLook }) :
             h("div", { style: { fontSize: "calc(12px * var(--app-fs, 1))", color: "#9a8a70" } }, "小人还在来的路上…"))));
   }
@@ -283,7 +336,8 @@
     const [typing, setTyping] = useState(false);
     useEffect(() => {
       const isField = el => !!el && (/^(input|textarea)$/.test(String(el.tagName || "").toLowerCase()) || el.isContentEditable);
-      const on = () => setTyping(isField(document.activeElement));
+      const on = () => queueMicrotask(() => setTyping(isField(document.activeElement)));
+      on();
       document.addEventListener("focusin", on);
       document.addEventListener("focusout", on);
       return () => { document.removeEventListener("focusin", on); document.removeEventListener("focusout", on); };
@@ -317,6 +371,15 @@
   function actionRule(kind, cues, ...spans) { return { kind, cues, spans }; }
   const ACTION_HEAD = /(?<!拳|指|石|木)头(?!发|像|绪|衔|条|号|皮|疼|痛|脑)|脑袋/;
   const ACT_RULES = [
+    actionRule("sleep", /(?:^|[\s，,。！!])我(?:先|这就|现在)?(?:去|要)?睡(?:了|啦)|困死了[\s，,]*睡了|我睡觉去了|^(?:先)?睡[了啦](?:睡[了啦])?[哈喽～~]?$/,
+      actionSpan(/睡着|睡熟|熟睡|睡过去|睡下了/), actionSpan(/入/, /梦乡/)),
+    actionRule("emotion-selfie", null, actionSpan(/自拍/), actionSpan(/举|拿|抬/, /手机/, /拍自己|对着自己|拍张照|拍照/)),
+    actionRule("emotion-peace", null, actionSpan(/比|摆|举|做/, /耶|剪刀手|胜利手势|[Vv]字手势/), actionSpan(/✌/)),
+    actionRule("emotion-sing", null, actionSpan(/哼|唱/, /歌|曲|调|旋律/), actionSpan(/歌声|哼唱|吟唱|轻唱/)),
+    actionRule("emotion-ears", null, actionSpan(/捂|堵|蒙|盖|掩/, /耳/), actionSpan(/不听不听/)),
+    actionRule("emotion-fan", null, actionSpan(/扇|煽/, /风/), actionSpan(/手|掌/, /扇|煽/)),
+    actionRule("emotion-daydream", null, actionSpan(/发呆|走神|出神|神游|放空|呆望/), actionSpan(/发/, /呆/)),
+    actionRule("emotion-umbrella", null, actionSpan(/撑|打|举|打开/, /伞/)),
     actionRule("emotion-heart", null, actionSpan(/比|摆|做/, /心(?!情|理|事|思)/), actionSpan(/爱心手势|手指心|🫰|🫶/)),
     actionRule("emotion-thumb", null, actionSpan(/竖|举|伸/, /拇指|大指/), actionSpan(/👍/)),
     actionRule("emotion-wink", null, actionSpan(/眨|挤/, /眼/), actionSpan(/wink|😉/i)),
@@ -342,14 +405,15 @@
       actionSpan(/举|抬|扬|晃/, /牌子|纸牌|小牌|字牌|手牌|牌/)),
     actionRule("emotion-cheeks", /捧脸|捧腮/,
       actionSpan(/捧/, /脸|面颊|腮/), actionSpan(/双手|两手/, /托|撑/, /脸|面颊|腮/)),
-    actionRule("emotion-plead", /合十|拜托|求求/,
-      actionSpan(/合|并|贴|拢/, /双掌|掌心|双手|两手/)),
     actionRule("emotion-crossarms", /抱胸|环胸/,
       actionSpan(/抱胸|环胸/), actionSpan(/双臂|两臂|手臂|胳膊|双手/, /交叉|交叠|抱|环/, /胸/)),
     actionRule("emotion-scratch", /挠头|搔头/,
       actionSpan(/挠|搔/, ACTION_HEAD), actionSpan(/抓|挠|搔/, /后脑|脑后|后颈/)),
     actionRule("emotion-rubeyes", /揉眼/,
       actionSpan(/揉|擦|搓|抹/, /眼睛|眼角|眼眶|眼皮|双眼|眼/)),
+    actionRule("emotion-cold", null, actionSpan(/搓/, /手|掌/), actionSpan(/冷|冻/, /抖|颤|哆嗦|哆哆嗦嗦/), actionSpan(/打/, /寒颤|冷颤|哆嗦/)),
+    actionRule("emotion-plead", /合十|拜托|求求/,
+      actionSpan(/合|并|贴|拢/, /双掌|掌心|双手|两手/)),
     actionRule("emotion-flower", /送你一朵花/,
       actionSpan(/递|送|献|捧/, /小花|花朵|鲜花|花束|玫瑰|雏菊|花(?!生|钱|费|销|样|纹|絮)/),
       actionSpan(/给/, /你|您|我|她|他/, /一朵花|小花|鲜花|花束/)),
@@ -361,9 +425,10 @@
       actionSpan(/侧|竖|拢|偏/, /耳/), actionSequence(/凑|认真/, /听/),
       actionSequence(/听/, /你|您|我|她|他/, /说|讲/), actionSequence(/你|您/, /说|讲/, /听/)),
     actionRule("emotion-promise", /保证(?!金|书)|包在我身上|说到做到|一言为定/,
-      actionSpan(/拍|捶|叩|敲/, /胸/), actionSpan(/发/, /誓/)),
+      actionSpan(/拍/, /胸(?!前)/), actionSpan(/捶|叩|敲/, /胸/), actionSpan(/发/, /誓/)),
+    actionRule("emotion-applause", null, actionSpan(/拍|鼓/, /手|掌/), actionSpan(/掌声/)),
     actionRule("emotion-cheer", /加油|鼓劲|你(?:一定|肯定)?可以的|你能行/,
-      actionSpan(/握|攥/, /拳/), actionSpan(/打/, /气/), actionSpan(/鼓/, /掌/)),
+      actionSpan(/握|攥/, /拳/), actionSpan(/打/, /气/)),
     actionRule("emotion-refuse", /不干了|才不要|才不呢|拒绝/,
       actionSpan(/摇|晃/, ACTION_HEAD), actionSpan(/摆/, /手/)),
     actionRule("emotion-cozy", /抱抱|拥抱|🫂|\bhug(?:s)?\b|(?:^|[（(【\s])抱(?=$|[）)】\s~～!！])/i,
@@ -398,7 +463,7 @@
       actionSpan(/看|翻|读|阅|批|写|浏览/, /书(?!店|架|包|柜)|文件|资料|课本|作业|卷宗|页/)),
     actionRule("shy", /害羞|羞(?:涩|红|怯|得)|不好意思/,
       actionSpan(/脸|面颊|耳/, /红|烫/), actionSpan(/捂|遮/, /脸|面颊/)),
-    actionRule("hop", /蹦|欢呼|雀跃|手舞足蹈|耶(?:[!！~～]|$)|好耶|太棒了|太好了/,
+    actionRule("hop", /蹦|欢呼|雀跃|手舞足蹈|(?<!比|个)耶(?:[!！~～]|$)|好耶|太棒了|太好了/,
       actionSpan(/跳|跃/, /起来|起身|起|半空/)),
     actionRule("stomp", /气死|气炸|哼(?:[!！~～]|$)|炸毛|气鼓鼓/,
       actionSpan(/跺|踏/, /脚/)),
@@ -419,7 +484,7 @@
     actionRule("emotion-amazed", /哇(?:塞|哦|喔|[!！~～]|$)|好厉害/,
       actionSpan(/惊喜|惊叹|惊艳|惊呼|哇(?:塞|哦|喔|[!！~～]|$)|好厉害/), actionSpan(/喜/, /望外/)),
     actionRule("emotion-surprise", null,
-      actionSpan(/愣|怔|呆/, /住|下|滞|在|着/), actionSpan(/发/, /愣|怔|呆/), actionSpan(/愣神/)),
+      actionSpan(/愣|怔|呆/, /住|下|滞|在|着|会/), actionSpan(/发/, /愣|怔|呆/), actionSpan(/愣神/)),
     actionRule("emotion-proud", null,
       actionSpan(/得意|求夸|自豪|骄傲/), actionSpan(/挺|抬|扬/, /胸/)),
     actionRule("emotion-sad", null,
@@ -481,12 +546,13 @@
     const sc = Math.max(.6, Math.min(2.2, Number(cfg.scale) || 1)), W = Math.round(96 * sc), H = Math.round(132 * sc);
     const [pos, setPos] = useState(() => cfg.pos || { x: window.innerWidth - W - 8, y: window.innerHeight - H - 150 });
     const drag = useRef(null), rs = useRef(null);
-    const idle = useIdle();
-    const typing = useTyping();
+    const ctx = usePetContext(props, props.screen || "");
+    const typing = ctx.typing;
     const [failed, setFailed] = useState(false);
     const [say, onPoke, holdSay] = usePokeTalk(char, props, !!cfg.pokeTalk);
     const petFrame = useRef(null);
     useChatAct(cfg.charId, petFrame);
+    useMessageNotice(cfg.charId, props, petFrame);
     // 下不来就别在屏幕上留一个空框占地方（悬浮这只不打扰她，一句话都不弹）
     if (!cfg.float || !char || props.hidden || failed) return null;
     const clamp = p => ({ x: Math.max(0, Math.min(window.innerWidth - W, p.x)), y: Math.max(44, Math.min(window.innerHeight - H - 8, p.y)) });
@@ -499,7 +565,7 @@
     return h("div", { "data-wk": "compfloatpet", onContextMenu: e => e.preventDefault(), style: { position: "fixed", left: pos.x, top: pos.y, width: W, height: H, zIndex: 60, touchAction: "none", WebkitUserSelect: "none", userSelect: "none", WebkitTouchCallout: "none", WebkitTapHighlightColor: "transparent",
       opacity: typing ? .2 : 1, pointerEvents: typing ? "none" : "auto", transition: "opacity .18s" } },
       h(Bubble, { text: say, onHold: holdSay, style: { bottom: "100%", marginBottom: 4 } }),
-      h(PetFrame, { mode: "float", frameRef: petFrame, onPoke, msg: petMessage(char, props.moods, cfg), ctx: { screen: props.screen || "", music: !!props.music, idle },
+      h(PetFrame, { mode: "float", frameRef: petFrame, onPoke, msg: petMessage(char, props.moods, cfg), ctx,
         onStatus: st => { if (st && st.state === "failed") setFailed(true); }, style: { width: W, height: H - 18, pointerEvents: "auto" } }),
       // 这一条是把手：拖动挪位置，轻点打开陪伴页（iframe 里的点击留给小人自己的反应）
       h("div", { "data-wk": "compdrag", onPointerDown: onDown, onPointerMove: onMove, onPointerUp: onUp, "aria-label": "拖动陪伴小人",
@@ -517,5 +583,5 @@
   window.Companion = Companion;
   window.CompanionPreview = PetFrame;
   window.CompanionFloat = CompanionFloat;
-  window.CompanionFace = { faceForMood, FACE_ZH, lookFor, actForText, actForChat };
+  window.CompanionFace = { faceForMood, FACE_ZH, lookFor, actForText, actForChat, makeMessageWatch };
 })();

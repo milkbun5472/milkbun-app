@@ -45,3 +45,8 @@ test('余下六种动作有各自的接触位置与节奏，遮眼后会揭开�
  for(const name of ['gift','sign']){assert.equal(emotionPose(name,0)[name],0);assert.equal(emotionPose(name,1)[name],0);assert.equal(emotionPose(name,.5)[name],1);}
  assert.ok(emotionPose('gift',.6).headPoint[2]>emotionPose('gift',.18).headPoint[2]+1);
 });
+
+test('躺趴分别向前后放低并屈髋屈膝，起止完整归零',()=>{
+ for(const name of ['lie','prone']){const q=emotionPose(name,.5);assert.equal(q.roll,0);assert.ok(Math.abs(q.tilt)>1.3);assert.ok(Math.abs(q.knees)>.4);assert.ok(q.leftLeg[0]!==q.rightLeg[0]);assert.ok(q.ground>.99);}
+ assert.ok(emotionPose('lie',.5).tilt<0);assert.ok(emotionPose('prone',.5).tilt>0);
+});

@@ -17,7 +17,9 @@ const engine = rd("js/engine.js"), theater = rd("js/theater.js"), fanfic = (rd("
 // 把 narrativeCore 抠出来真跑一遍，别只验源码里有这几个字
 const core = (() => {
   const i = engine.indexOf("function narrativeCore(opts) {");
-  const body = engine.slice(i, engine.indexOf("\n}", i) + 2);
+  // 2026-10-26 talkBans 合并：narrativeCore 调 talkBans()，把它的源码一起放进沙箱
+  const t = engine.indexOf("function talkBans(o) {");
+  const body = engine.slice(t, engine.indexOf("\n}", t) + 2) + "\n" + engine.slice(i, engine.indexOf("\n}", i) + 2);
   // v60.45：常量名从函数体里认出来，别再手写一张表——engine 里给 narrativeCore
   // 新加一层，这份脚手架就会 ReferenceError（同一层写在两处、第二处没跟上，
   // 这个病连测试自己都得过一次）。
@@ -56,7 +58,7 @@ test("小剧场两处正文都接上了底座", () => {
 
 test("同人文两个构建器都接上了，纯写故事时不带语气锚", () => {
   assert.match(fanfic, /parts\.push\(narrativeCore\(\{ intimate: true, register: false \}\)\);/, "纯生成");
-  assert.match(fanfic, /const parts = \[narrativeCore\(\{ intimate: true \}\), FANFIC_ANTI_CLICHE\];/, "穿越RP");
+  assert.match(fanfic, /const parts = \[narrativeCore\(\{ intimate: true(, chatBans: false)? \}\), FANFIC_ANTI_CLICHE\];/, "穿越RP");
   assert.equal((fanfic.match(/narrativeCore\(/g) || []).length, 2);
   // 同人文自己那两套仍然要在——底座是补充，不是替换
   ["FANFIC_ANTI_CLICHE", "FANFIC_ORGANIC_FORM"].forEach(n =>
