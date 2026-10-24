@@ -41,3 +41,8 @@ assert.equal((app.match(/forumFmtField\(\)/g) || []).length, 4);
 assert.match(ui, /xhs \? xhsPhotos\(p\) : forumPhotoCard\(p, 280\)/);
 for (const k of ["foxhsphotos", "foxhspageno"]) { assert.match(ui, new RegExp('"data-wk": "' + k + '"')); assert.match(ts, new RegExp('\\["' + k + '", "')); }
 console.log("ok4");
+// 配色跟着排版换：双列用小红书那份，单列用原来那份；论坛里的底色都从 FORUM_SKIN 取
+assert.match(ui, /const FORUM_SKIN_XHS = \{[^}]*accent: "#ff2442"/);
+assert.match(ui, /forumSkinUse\(cardLayout\);/);
+{ const a = ui.indexOf("function Forum({"), b = ui.indexOf("\nfunction ", a + 20); assert.ok(!/rgba\(244,247,240|rgba\(248,250,245/.test(ui.slice(a, b)), "顶栏底栏的底色走 FORUM_SKIN.bar"); }
+console.log("ok5");
