@@ -12,6 +12,9 @@ export const MOODS={
  irritated:{tilt:.008,yaw:.16,sway:.012,every:9,acts:['emotion-irritated']}
 };
 export const DUR={wave:3.4,stretch:4.8,tea:5,read:7,sit:8,hop:1.8,jolt:1.8,nod:2.6,sigh:4,stomp:2.2,turn:3.6,look:3,shy:3.2,yawn:4.8,wake:2.8,land:1};
+// 这些动作只在聊天提到时演，不加入随机待机。
+export const CHAT_ACTIONS={kiss:5.2,giggle:5.4,listen:6,promise:5,cheer:5.2,refuse:4.6};
+for(const [name,duration] of Object.entries(CHAT_ACTIONS))DUR['emotion-'+name]=duration;
 for(const face of Object.keys(MOODS))DUR['emotion-'+face]=['sad','gloomy','relax'].includes(face)?5.6:4.6;
 export const EXTRA_ACTIONS={
  chin:{duration:7.2,moods:['default','cozy','relax']},

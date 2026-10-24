@@ -1,10 +1,10 @@
-import {splitRoomCutaway} from '../camera-view.mjs?v=fg-eaf386cec406e2ee';
-import {tagRoomTones} from './room-tones.mjs?v=fg-eaf386cec406e2ee';
-import {prepareEnvironmentSurfaces} from '../environment-view.mjs?v=fg-eaf386cec406e2ee';
+import {splitRoomCutaway} from '../camera-view.mjs?v=fg-4d6b01bbf7eb9fcf';
+import {tagRoomTones} from './room-tones.mjs?v=fg-4d6b01bbf7eb9fcf';
+import {prepareEnvironmentSurfaces} from '../environment-view.mjs?v=fg-4d6b01bbf7eb9fcf';
 import * as T from 'three';
-import {CHAIR_CONTACT,furniturePoint,furnitureSeat} from '../home-catalog.mjs?v=fg-eaf386cec406e2ee';
-import {WORK_CHAIR} from '../work-contacts.mjs?v=fg-eaf386cec406e2ee';
-import {mergeGeometries} from '../../vendor/BufferGeometryUtils.js?v=fg-eaf386cec406e2ee';
+import {CHAIR_CONTACT,furniturePoint,furnitureSeat} from '../home-catalog.mjs?v=fg-4d6b01bbf7eb9fcf';
+import {WORK_CHAIR} from '../work-contacts.mjs?v=fg-4d6b01bbf7eb9fcf';
+import {mergeGeometries} from '../../vendor/BufferGeometryUtils.js?v=fg-4d6b01bbf7eb9fcf';
 
 // Furniture uses the existing traveler's .45 chair rise and .08 floor.
 export const ROOM_SCALE={floor:.08,seat:.45,desk:.85,bench:1,chairDepth:CHAIR_CONTACT.depth};

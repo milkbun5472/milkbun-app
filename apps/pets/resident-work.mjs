@@ -1,8 +1,8 @@
-import {professionalStation,residentWorkPose} from './resident-work-motion.mjs?v=fg-eaf386cec406e2ee';
-import {turnPet} from './movement.mjs?v=fg-eaf386cec406e2ee';
-import {YOU_SPOT} from './initiative.mjs?v=fg-eaf386cec406e2ee';
-import {restoreWorkLife,workKey,workDate,beginWorkProject,workEvent,settleWorkDay,workLifeRequest,rememberWorkMeeting,workLifeView} from './resident-work-life.mjs?v=fg-eaf386cec406e2ee';
-import {roomPoint,roomDoor} from './room-layout.mjs?v=fg-eaf386cec406e2ee';
+import {professionalStation,residentWorkPose} from './resident-work-motion.mjs?v=fg-4d6b01bbf7eb9fcf';
+import {turnPet} from './movement.mjs?v=fg-4d6b01bbf7eb9fcf';
+import {YOU_SPOT} from './initiative.mjs?v=fg-4d6b01bbf7eb9fcf';
+import {restoreWorkLife,workKey,workDate,beginWorkProject,workEvent,settleWorkDay,workLifeRequest,rememberWorkMeeting,workLifeView} from './resident-work-life.mjs?v=fg-4d6b01bbf7eb9fcf';
+import {roomPoint,roomDoor} from './room-layout.mjs?v=fg-4d6b01bbf7eb9fcf';
 const clamp=(v,a,b,d=0)=>Number.isFinite(v)?Math.max(a,Math.min(b,v)):d;
 const text=(s,n=80)=>typeof s==='string'?s.slice(0,n):'';
 const clone=v=>structuredClone(v),point=p=>p&&Number.isFinite(p.x)&&Number.isFinite(p.z)?{x:p.x,z:p.z}:null;

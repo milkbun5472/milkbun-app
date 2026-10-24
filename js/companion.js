@@ -7,7 +7,7 @@
 // 设置存 x_companion：{ charId, float, pos, scale, autoFace, looks: { [charId]: look } }
 // ============================================================
 (function () {
-  const KEY = "x_companion", BUILD = "fg-eaf386cec406e2ee";
+  const KEY = "x_companion", BUILD = "fg-4d6b01bbf7eb9fcf";
   const load = () => Object.assign({ charId: "", float: false, pos: null, scale: 1, autoFace: true, looks: {} }, loadJSON(KEY, {}) || {});
   const save = v => saveJSON(KEY, v);
   // 心情 → 表情。心情是模型写的自由中文（x_moods[charId].label），按字认；认不出就是「平常」。
@@ -193,7 +193,7 @@
       allowTransparency: "true", style: Object.assign({ border: 0, background: "transparent", display: "block" }, style) });
   }
   // 他这会儿在做什么：十种心情各一套动作，界面上不说一句，用户只当是随机待机。
-  const ACT_ZH = { 'emotion-chin':'托着下巴安静陪你', 'emotion-headpat':'低头靠近你的手又抬眼看你', 'emotion-show':'转身展示新衣服', 'emotion-five-left':'抬起手等你击掌', 'emotion-five-right':'抬起手等你击掌', 'emotion-clap-left':'和你击了个掌', 'emotion-clap-right':'和你击了个掌', 'emotion-dodge-left':'躲开你的手又看回来', 'emotion-dodge-right':'躲开你的手又看回来', 'emotion-beckon':'招手示意你靠近', 'emotion-dance':'左右摆身跳小舞', 'emotion-bow':'欠身向你致意', 'emotion-shrug':'摊开手耸耸肩', 'emotion-peek':'看看两边又望向你', 'emotion-default':'抬手问候你', 'emotion-happy':'笑着向你招手', 'emotion-amazed':'举起双手欢呼', 'emotion-cozy':'张开手想抱抱你', 'emotion-relax':'舒展开双臂', 'emotion-surprise':'缩了一下又凑过来看', 'emotion-proud':'挺起胸等你夸', 'emotion-gloomy':'叹口气又望向你', 'emotion-sad':'低头后朝你伸出手', 'emotion-irritated':'别过身又偷偷看你',  wave: "在跟你招手", stretch: "在伸懒腰", tea: "在喝茶", read: "在看书", sit: "坐下了",
+  const ACT_ZH = { 'emotion-kiss':'把手停在嘴前送你一个飞吻', 'emotion-giggle':'捂着嘴偷偷笑', 'emotion-listen':'拢着手侧耳听你说', 'emotion-promise':'拍拍胸口向你保证', 'emotion-cheer':'举起双手给你加油', 'emotion-refuse':'摇摇头又摆摆手', 'emotion-chin':'托着下巴安静陪你', 'emotion-headpat':'低头靠近你的手又抬眼看你', 'emotion-show':'转身展示新衣服', 'emotion-five-left':'抬起手等你击掌', 'emotion-five-right':'抬起手等你击掌', 'emotion-clap-left':'和你击了个掌', 'emotion-clap-right':'和你击了个掌', 'emotion-dodge-left':'躲开你的手又看回来', 'emotion-dodge-right':'躲开你的手又看回来', 'emotion-beckon':'招手示意你靠近', 'emotion-dance':'左右摆身跳小舞', 'emotion-bow':'欠身向你致意', 'emotion-shrug':'摊开手耸耸肩', 'emotion-peek':'看看两边又望向你', 'emotion-default':'抬手问候你', 'emotion-happy':'笑着向你招手', 'emotion-amazed':'举起双手欢呼', 'emotion-cozy':'张开手想抱抱你', 'emotion-relax':'舒展开双臂', 'emotion-surprise':'缩了一下又凑过来看', 'emotion-proud':'挺起胸等你夸', 'emotion-gloomy':'叹口气又望向你', 'emotion-sad':'低头后朝你伸出手', 'emotion-irritated':'别过身又偷偷看你',  wave: "在跟你招手", stretch: "在伸懒腰", tea: "在喝茶", read: "在看书", sit: "坐下了",
     hop: "高兴得蹦了一下", jolt: "被你吓了一跳", nod: "在点头", sigh: "叹了口气", stomp: "在跺脚",
     turn: "扭过头去不理你", shy: "有点害羞", look: "回头看你", yawn: "在打哈欠", wake: "刚被你叫醒",
     land: "被你放下来了", held: "被你拎在手上晃", sleep: "睡着了" };
@@ -293,21 +293,36 @@
   // 聊天里认动作（她 2026-10-25 群友许愿「角色聊天可以触发动作」）：TA这一轮的话和动作描写里认词，
   //   认到就让小人做一下；只认小人本来会的那几样，认不到就照旧。不调模型。
   const ACT_RULES = [
-    ["wave", /挥手|招手|摆手|拜拜|再见|回头见|嗨[~～!！]|哈喽|早安|早上好/],
-    ["yawn", /哈欠|好困|困了|困死|犯困|睡意/],
-    ["stretch", /伸懒腰|伸了个懒腰|舒展|活动筋骨|活动一下/],
-    ["tea", /喝(?:了|一)?口?(?:茶|水|咖啡|奶茶|汤|酒)|抿了一口|端起杯/],
-    ["read", /看书|翻书|读书|翻了一页|写作业|学习|看文件|批文件/],
-    ["shy", /害羞|脸红|红了脸|耳朵红|不好意思|捂脸/],
-    ["hop", /蹦|跳起来|欢呼|雀跃|手舞足蹈|耶[!！~～]/],
-    ["stomp", /跺脚|气死|气炸|哼[!！]|炸毛/],
-    ["sigh", /叹气|叹了口气|唉/],
-    ["jolt", /吓一跳|吓了一跳|一激灵|吓死|心头一跳/],
-    ["nod", /点头|点了点头|嗯嗯|好好好|知道了|明白了/],
-    ["turn", /转身|扭头|别过脸|背过身/],
-    ["sit", /坐下|坐了下来|坐好|窝在|瘫在/]
+    ["emotion-kiss", /飞吻|啵|么么|mua|mwah|\bkiss(?:es)?\b|😘|(?:^|[（(【\s])[亲吻](?=$|[）)】\s~～!！])|啾(?:咪|一下|一口|你)?|亲(?:了)?(?:亲|一(?:小)?口|一下|一亲|亲|你|您|我|她|他|额头|脸|嘴|上来|上去)|吻(?:了)?(?:吻|一下|一口|你|我|她|他|额头|脸|上来|上去)/i],
+    ["emotion-giggle", /偷(?:偷地?|着)?笑|偷偷一笑|捂(?:着|住|了捂)?嘴|掩(?:着|住)?嘴|抿(?:着)?嘴笑|忍(?:不住)?笑|憋笑|窃笑/],
+    ["emotion-listen", /侧(?:了侧|着)?耳|凑(?:近|过来)听|竖(?:起|着)?耳朵|洗耳恭听|认真(?:地|的)?听|听(?:你|您|我)(?:慢慢|接着|继续)?(?:说|讲)|听着呢|在听呢/],
+    ["emotion-promise", /拍(?:了拍|拍|着|了两下|两下)?胸|保证(?!金|书)|发(?:个|了个|了)?誓|包在我身上|说到做到|一言为定/],
+    ["emotion-cheer", /加油|打(?:打|着|了打)?气|握(?:紧|了握|着)?拳|攥(?:紧|着)?拳|鼓劲|你(?:一定|肯定)?可以的|你能行|给你鼓掌|为你鼓掌/],
+    ["emotion-refuse", /摇(?:了摇|一摇|摇|着|了)?头|摆(?:了摆|摆|着)?手|不干了|才不要|才不呢|拒绝/],
+    ["emotion-cozy", /抱抱|拥抱|🫂|\bhug(?:s)?\b|(?:^|[（(【\s])抱(?=$|[）)】\s~～!！])|抱(?:了抱|住|紧|一下|一抱|你|我|她|他|过来|过你)|搂(?:住|紧|你|我)|张开(?:了)?(?:双臂|手臂|胳膊)|伸(?:出|开)(?:了)?(?:双臂|胳膊)|伸手(?:想|要)?抱/i],
+    ["emotion-chin", /托(?:着|住|了托)?(?:下巴|腮)|撑(?:着|住)?(?:下巴|脸颊)|支(?:着|起)?下巴/],
+    ["emotion-dance", /跳(?:了|起|支|个|一支)?舞|跳(?:起|了)?小舞|扭(?:了扭|扭|着)?腰|跟(?:着|随)?节拍|随(?:着)?音乐(?:摇|晃|摆)/],
+    ["emotion-bow", /鞠(?:了个|了|个)?躬|欠(?:了欠|了|欠)?身|躬身|弯腰致意/],
+    ["emotion-shrug", /耸(?:了耸|耸|着)?肩|摊(?:了摊|摊|开|着)?手|两手一摊/],
+    ["emotion-beckon", /招(?:了招|招|着)?手(?:叫|让|示意|喊)|勾(?:了勾|勾)?手|过来(?:一点|点|呀|嘛|抱)|靠近(?:一点|些|我)/],
+    ["emotion-peek", /探(?:了探|探|出|着)?头|左顾右盼|东张西望|四下(?:看看|张望)|左右(?:看看|张望)/],
+    ["emotion-show", /展示(?:一下|了)?(?:新衣|衣服|穿搭)|转(?:了个|个|一)?圈(?:给你看|展示)|好看吗/],
+    ["emotion-five-right", /击(?:个|一下|一)?掌|击个掌|give\s+me\s+five|high[ -]?five/i],
+    ["wave", /挥(?:了挥|一挥|挥|着|了)?手|招(?:了招|招|着)?手|摆手|拜拜|拜了个拜|再见|回头见|嗨(?:[~～!！]|呀|喽|咯|$)|哈[喽啰罗]|hello|hi[!！~～]|早安|早上好|晚上好|晚安/i],
+    ["yawn", /[哈呵]欠|好困|困(?:了|死|得|意)|犯困|睡意|想睡|想打盹|睁不开眼|眼皮打架/],
+    ["stretch", /伸(?:了|着)?(?:一?个|一下|下)?(?:大|长长的)?懒腰|伸伸(?:腰|胳膊)|舒展|活动(?:一下)?(?:筋骨|身体|胳膊)|活动一下/],
+    ["tea", /喝(?:了|着)?(?:一|两|几|小|大)?(?:小|大)?口?(?:茶|水|咖啡|奶茶|汤|酒)|喝了(?:点|一点)(?:茶|水|咖啡|奶茶|汤|酒)|抿(?:了|着)?(?:一小|一|小)?口|端(?:起|着|了起来)(?:茶杯|水杯|杯)|举(?:起|着)杯|干杯|饮(?:了|一口|茶|水)/],
+    ["read", /(?:看|翻|读)(?:了|着)?(?:一?本|一?会儿|一?会|一?下)?(?:书|文件|资料|课本)|翻(?:了|过|着)?(?:一|几|两)?页|写(?:着|完|了)?作业|学习|温习|复习|批(?:着|了)?(?:文件|作业)|埋头读/],
+    ["shy", /害羞|羞(?:涩|红|怯|得)|脸(?:颊)?(?:有点|微微|一|泛)?红|红了脸|耳(?:朵|尖|根)(?:都|微微|泛|一)?红|不好意思|捂(?:着|住|了捂)?脸|遮(?:着|住)脸/],
+    ["hop", /蹦|跳(?:了|起|起来)|欢呼|雀跃|手舞足蹈|耶(?:[!！~～]|$)|好耶|太棒了|太好了/],
+    ["stomp", /跺(?:了跺|跺|着|了)?脚|气死|气炸|哼(?:[!！~～]|$)|炸毛|气鼓鼓/],
+    ["sigh", /叹(?:了|着)?(?:一|了口|一口|口)?气|叹息|长叹|唉|哎呀呀/],
+    ["jolt", /吓(?:了|得)?一跳|一激灵|打(?:了个|个)?激灵|吓死|心头一跳|惊(?:了|得)?一跳|吓到(?:了)?我/],
+    ["nod", /点(?:了点|一点|点|了下|一下|下|着|了)?头|颔首|嗯嗯|好好好|知道(?:了|啦|喽)|明白(?:了|啦)|收到|没问题|好嘞|好哒/],
+    ["turn", /转(?:了转|过|了|个)?身|扭(?:了扭|过|了)?头|别(?:过|开)(?:了)?脸|背(?:过|转过)(?:了)?身|转过头/],
+    ["sit", /坐(?:了|下来|下|好|着)|落座|坐到|窝(?:进|在|到)|瘫(?:进|在|到)|盘(?:着)?腿/]
   ];
-  function actForText(text) { const s = String(text || ""); for (const [k, re] of ACT_RULES) if (re.test(s)) return k; return ""; }
+  function actForText(text) { const s = String(text || "").normalize("NFKC"); for (const [k, re] of ACT_RULES) if (re.test(s)) return k; return ""; }
   function useChatAct(charId, frame) {
     useEffect(() => {
       const on = e => { const d = e && e.detail; if (!d || d.charId !== charId) return; const k = actForText(d.text);
