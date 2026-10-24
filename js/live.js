@@ -211,9 +211,9 @@
       + "\n\n【刚才直播间里发生的】\n" + (transcript(ses) || "（刚开播）")
       + "\n\n【这一次要写什么】" + (first ? "她刚开播。" : "她刚在镜头前说了、做了上面最后那几句。")
       + "这几个人各自照自己的性子看她播：可以发弹幕（公开，所有人都看得见）、可以送礼物、可以私下给她发一条消息（只有她看得见，会落进你俩的聊天）、也可以什么都不做。谁跟她什么关系、此刻什么心情，决定他在别人面前怎么说、私下又怎么说。"
-      + "\n写：这几个人公开发的弹幕 chat（name 只能是：" + names.join("、") + "）、送的礼物 gifts（name、gift 礼物名、amount 金额数字；没人送就空）、私下发的消息 private（name、text；没有就空）、路人弹幕 noise（6~10 条，很短，只是氛围）、在线人数 viewers（数字）。";
+      + "\n写：这几个人公开发的弹幕 chat（name 只能是：" + names.join("、") + "）、送的礼物 gifts（name、gift 礼物名、amount 金额数字；没人送就空）、私下发的消息 private（name、text；没有就空）、接她话的路人 crowd（1~4 条，name 是路人自己的网名，text 是冲着她刚才那几句来的弹幕：捧场、起哄、提问、点歌、抬杠都行，各是各的人；路人也可以在 gifts 里送点小礼物）、路人弹幕 noise（6~10 条，很短，只是氛围）、在线人数 viewers（数字）。";
   }
-  const HOST_SHAPE = '{"chat":[{"name":"","text":""}],"gifts":[{"name":"","gift":"","amount":0}],"private":[{"name":"","text":""}],"noise":["",""],"viewers":0}';
+  const HOST_SHAPE = '{"chat":[{"name":"","text":""}],"crowd":[{"name":"","text":""}],"gifts":[{"name":"","gift":"","amount":0}],"private":[{"name":"","text":""}],"noise":["",""],"viewers":0}';
 
   // ── 路人主播（她 2026-10-08）────────────────────────────────
   //   随便逛逛一次刷一批不认识的主播；喜欢的关注（最多 20 个），他也按日子自己开播；
@@ -393,7 +393,7 @@
       const isHost = l.kind === "host";
       const mine = l.kind === "me";
       return h("div", { "data-wk": "livemsg", "data-kind": l.kind || "", "data-me": mine ? "1" : "0", key: i, style: { padding: "4px 0", fontFamily: F_BODY, fontSize: isHost ? 14 : 13, lineHeight: 1.55, color: LIVE_INK } },
-        h("span", { "data-wk": "livemsgname", style: { color: isHost ? LIVE_RED : l.kind === "rival" ? "#7fd6c2" : mine ? "#9fd2ff" : "#d6c7ff", marginRight: 6 } }, (isHost ? "主播 " : l.kind === "rival" ? "对面 " : mine && l.linked ? "连麦 " : "") + l.name),
+        h("span", { "data-wk": "livemsgname", style: { color: isHost ? LIVE_RED : l.kind === "rival" ? "#7fd6c2" : mine ? "#9fd2ff" : l.kind === "crowd" ? "#b8b0c8" : "#d6c7ff", marginRight: 6 } }, (isHost ? "主播 " : l.kind === "rival" ? "对面 " : mine && l.linked ? "连麦 " : "") + l.name),
         mine && watching && ses.fanLv ? tag(ses.club ? (clubLv(ses.club, ses.fanLv) || ses.club.name) + " " + ses.fanLv : "粉丝团 " + ses.fanLv, "#f6c76b") : null,
         l.kind === "reg" && ses.mod && live && onBan && arr(ses.banned).indexOf(l.name) < 0 ? h("button", { "data-wk": "liveban", onClick: () => onBan(l.name), className: "active:opacity-60", style: { float: "right", fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: LIVE_DIM, minHeight: 24, padding: "0 4px" } }, "禁言") : null,
         l.act ? h("span", { style: { color: LIVE_DIM, marginRight: 4 } }, "（" + l.act + "）") : null,
@@ -763,10 +763,15 @@
         const famNames = fam.map(r => r.name);
         const names = chars.map(c => c.name).concat(famNames);
         const chat = normChat(d.chat, names);
+        // 路人接话（她 2026-10-24「不然直播没人捧场好无聊」）：不认识她的网友，冲着她刚说的来，进下面那串
+        const crowd = arr(d.crowd).map(x => x && { name: S(x.name).slice(0, 16), text: S(x.text).slice(0, 80) })
+          .filter(x => x && x.name && x.text && names.indexOf(x.name) < 0 && x.name !== uName).slice(0, 4);
+        const giftNames = names.concat(crowd.map(x => x.name));
         const gifts = arr(d.gifts).map(g => g && { name: S(g.name), gift: S(g.gift).slice(0, 20) || "礼物", amount: Math.max(0, Math.min(100000, Math.round(Number(g.amount) || 0))) })
-          .filter(g => g && names.indexOf(g.name) >= 0 && g.amount > 0).slice(0, 5);
+          .filter(g => g && giftNames.indexOf(g.name) >= 0 && g.amount > 0).slice(0, 5);
         const priv = normChat(d.private, names).filter(x => famNames.indexOf(x.name) < 0).slice(0, 5);
         const add = chat.map(x => ({ kind: famNames.indexOf(x.name) >= 0 ? "reg" : "char", name: x.name, text: x.text, ts: Date.now() }))
+          .concat(crowd.map(x => ({ kind: "crowd", name: x.name, text: x.text, ts: Date.now() })))
           .concat(gifts.map(g => ({ kind: "gift", name: g.name, gift: g.gift, amount: g.amount, ts: Date.now() })))
           .concat(priv.map(x => ({ kind: "private", name: x.name, text: x.text, ts: Date.now() })));
         gifts.forEach(g => {
