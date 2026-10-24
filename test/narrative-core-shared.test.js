@@ -56,7 +56,7 @@ test("小剧场两处正文都接上了底座", () => {
 
 test("同人文两个构建器都接上了，纯写故事时不带语气锚", () => {
   assert.match(fanfic, /parts\.push\(narrativeCore\(\{ intimate: true, register: false \}\)\);/, "纯生成");
-  assert.match(fanfic, /const parts = \[narrativeCore\(\{ intimate: true \}\), FANFIC_ANTI_CLICHE\];/, "穿越RP");
+  assert.match(fanfic, /const parts = \[narrativeCore\(\{ intimate: true(, chatBans: false)? \}\), FANFIC_ANTI_CLICHE\];/, "穿越RP");
   assert.equal((fanfic.match(/narrativeCore\(/g) || []).length, 2);
   // 同人文自己那两套仍然要在——底座是补充，不是替换
   ["FANFIC_ANTI_CLICHE", "FANFIC_ORGANIC_FORM"].forEach(n =>
