@@ -514,6 +514,7 @@
         ["sysnotecopy", "出戏回话小卡片右上角的「复制」"],
         ["shuaregtag", "片刻评论里熟面孔名字后面那个小标"],
         ["roomlisten", "一起听房里那条横幅上的「进去一起听」"],
+        ["altavatar", "小号房间设置里给小号挑头像那一行"],
         ["messagesource", "游戏对话上方的世界来源（data-world区分世界；旧记录显示来源未记录）"],
         ["name", "气泡上面那行名字（单聊默认藏着，排版里能打开）"],
         ["meta", "气泡边上的时间/已读那一小行"], ["time", "中间那条日期分隔"],
@@ -1147,7 +1148,7 @@
   //   挂点表是从 WK_COMMON/WK_SCOPED 现拼的，代码里新挂的 data-wk 没进名单，测试 ai-brief-hooks 会红；
   //   可规矩、尺寸、现成写法是手写的——所以跟攻略一样立个戳：v 必须等于 APP_VERSION，
   //   这一版改了哪条写进 changed；这一版的改动碰不到样式，就在 none 写一句为什么。
-                                                                                                                                                                                                                                                                    const BRIEF_STAMP = {v: "v76.494",changed: "",none: "这一版没动美化挂点。"};
+                                                                                                                                                                                                                                                                    const BRIEF_STAMP = {v: "v76.497",changed: "",none: "这一版没动美化挂点。"};
   function aiBrief(page, css) {
     const grp = WK_SCOPED.filter(function (x) { return (x.pages || []).indexOf(page) >= 0; })[0];
     const line = function (r) { return '[data-wk="' + r[0] + '"]  ' + r[1]; };
