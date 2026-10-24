@@ -2690,7 +2690,20 @@ function splitLongBubble(s, allowComma) {
     while (chunks.length > 1 && chunks[chunks.length - 1].replace(/[，,]\s*$/, "").length < TAIL_MIN) chunks[chunks.length - 2] += chunks.pop();
     return acc.concat(chunks.map(x => x.replace(/[，,]\s*$/, "").trim()).filter(Boolean));
   }, []);
-  return bubbleGlueOrphans(out2).map(bubbleRestore);
+  // 不用标点、拿空格断句的那种（她 2026-10-24 截图：「我可提前跟你说好 今晚我过来纯属是为了… 顺便借你家WiFi…」整段一个泡）：
+  //   上面两刀都认标点，碰不到它。长了、又一个标点都没有，就在【中文后面的空格】处断——英文单词之间的空格不动
+  const out3 = out2.reduce((acc, part) => {
+    if (part.length <= LONG || /[，,。！？!?；;]/.test(part) || !/[\u4e00-\u9fff]\s+\S/.test(part)) return acc.concat([part]);
+    const segs = part.split(/(?<=[\u4e00-\u9fff…~～])\s+(?=\S)/).filter(x => x.trim());
+    const chunks = [];
+    segs.forEach(seg => {
+      if (chunks.length && (chunks[chunks.length - 1].length < MIN || chunks.length >= MAX_CHUNKS)) chunks[chunks.length - 1] += " " + seg;
+      else chunks.push(seg);
+    });
+    while (chunks.length > 1 && chunks[chunks.length - 1].length < TAIL_MIN) { const t2 = chunks.pop(); chunks[chunks.length - 1] += " " + t2; }
+    return acc.concat(chunks.map(x => x.trim()).filter(Boolean));
+  }, []);
+  return bubbleGlueOrphans(out3).map(bubbleRestore);
 }
 // ── 手动日程事件 x_calEvents（v56.31，她 2026-08-26 要的那张「新增日程」表单）──
 // 为什么另起一个仓、不塞进 x_schedules 的 seqs：

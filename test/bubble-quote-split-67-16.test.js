@@ -170,3 +170,11 @@ test("链接里的问号、感叹号、逗号不是句子边界", () => {
   assert.ok(out.some(x => x.includes(url)), "链接被切断了：" + JSON.stringify(out));
   assert.deepEqual(splitLongBubble(url, true), [url]);
 });
+
+// 拿空格断句、一个标点都没有的长句（她 2026-10-24 截图）：在中文后面的空格处断；英文单词之间不断
+test("没标点、用空格断句的长句按空格拆", () => {
+  const out = splitLongBubble("我可提前跟你说好 今晚我过来纯属是为了监督你老实待着 顺便借你家WiFi清两把手游日常", true);
+  assert.ok(out.length >= 2, JSON.stringify(out));
+  assert.equal(out.join(" "), "我可提前跟你说好 今晚我过来纯属是为了监督你老实待着 顺便借你家WiFi清两把手游日常");
+  assert.deepEqual(splitLongBubble("I really want to see you tonight after work okay", true), ["I really want to see you tonight after work okay"]);
+});
