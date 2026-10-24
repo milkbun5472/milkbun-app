@@ -563,7 +563,6 @@
           done++; setProg(done + "/" + pick.length);
           if (!d || !S(d.scene)) { failed.push(c.name); return; }
           // 跟TA发过的字面差不多：这条就当没发
-          if (typeof isNearDup === "function" && isNearDup(S(d.scene) + S(d.caption), dbRef.current.videos.filter(x => x.by === "char" && x.charId === c.id).map(x => S(x.scene) + S(x.caption)))) return;
           const accounts = Object.assign({}, dbRef.current.accounts);
           const handle = S((accounts[c.id] || {}).handle) || S(d.handle).slice(0, 20) || c.name;
           const prevAcc = accounts[c.id] || {};

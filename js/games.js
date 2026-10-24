@@ -975,11 +975,7 @@
   // 出过的词对（她 2026-10-26 去重）：记最近 30 对，出词时给裁判看，撞上了重掷一次
   const SPY_PAIRS_KEY = "x_spyPairs";
   function loadSpyPairs() { try { const v = typeof loadJSON === "function" ? loadJSON(SPY_PAIRS_KEY, []) : []; return Array.isArray(v) ? v : []; } catch (e) { return []; } }
-  function spyPairDup(pair, used) {
-    if (!pair || !pair.civ) return false;
-    const k = String(pair.civ) + "/" + String(pair.spy || ""), k2 = String(pair.spy || "") + "/" + String(pair.civ);
-    return used.some(function (u) { return u === k || u === k2; }) || (typeof isNearDup === "function" && (isNearDup(k, used) || isNearDup(k2, used)));
-  }
+
   async function setupSpy(api, realPlayers, npcCount) {
     const used = loadSpyPairs();
     const lines = realPlayers.map(function (p, i) { return (i + 1) + ". " + p.name + "：" + (p.persona || "（没写人设）"); }).join("\n");
@@ -991,10 +987,7 @@
       "【真实玩家】\n" + (lines || "（无）") +
       "\n\n【输出】只输出 JSON：{\"pair\":{\"civ\":\"\",\"spy\":\"\"},\"npcs\":[{\"name\":\"\",\"persona\":\"\",\"skill\":\"\"}],\"skills\":[{\"name\":\"真实玩家名\",\"skill\":\"能力小传\"}]}";
     let out = extractJSON(await callRetry(api, sys, [{ role: "user", content: "发牌：给词、" + npcCount + " 个 NPC、每个人的能力小传。" }], { maxTokens: 12500 })) || {};
-    if (spyPairDup(out.pair, used)) {
-      const again = extractJSON(await callRetry(api, sys, [{ role: "user", content: "发牌：给词、" + npcCount + " 个 NPC、每个人的能力小传。词对别跟已经出过的那些一样。" }], { maxTokens: 12500 }));
-      if (again && again.pair && again.pair.civ) out = again;
-    }
+    // 不再重抽一次（她 2026-10-26：花了钱的不扔）：用过的那些已经在提示里列给它了
     if (out.pair && out.pair.civ && out.pair.spy) {
       try { if (typeof saveJSON === "function") saveJSON(SPY_PAIRS_KEY, [String(out.pair.civ) + "/" + String(out.pair.spy)].concat(used).slice(0, 30)); } catch (e) {}
     }

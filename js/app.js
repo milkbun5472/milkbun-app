@@ -18337,7 +18337,6 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       const mine = myBoardsForPost.find(b => b.name.replace(/吧$/, "") === rawBoard);
       const board = fixedBoard || (forceAnon ? "匿名吧" : (bmap[rawBoard] || (mine && mine.name) || "日常吧"));
       if (!(d && d.title)) { if (manual) throw new Error(char.name + " 没写出来"); return null; }
-      if (typeof isNearDup === "function" && isNearDup(String(d.title) + String(d.body || "").slice(0, 80), myRecent.map(p0 => String(p0.title || "") + String(p0.body || "").slice(0, 80)))) { if (manual) throw new Error(char.name + " 想发的跟最近发过的差不多，再点一次换一个"); return null; }
       // 身份以掷出来的为准（模型交别的也不认）；匿名吧照旧一律匿名（postCharToForum 里管）
       const rec = postCharToForum(char, board, { title: String(d.title), body: String(d.body || ""), identity: rolledId, photo: d.photo, photoWho: d.photoWho }, manual ? "手动发帖" : "auto");
       if (!manual) { notifyApp("forum"); toast("论坛有了新帖子"); if (window.Notify) window.Notify.push({ title: "论坛有了新帖子", body: String(d.title), tag: "forum-" + char.id, charId: char.id }); }
@@ -23766,7 +23765,6 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       // 跟吧里已有的、跟这一批前面几条字面差不多的，丢掉
       if (typeof isNearDup === "function") {
         const seenTx = boardPrev.slice(0, 200).map(x => String(x.title || "") + String(x.body || "").slice(0, 60));
-        items = items.filter(x => { const t = String(x.title || "") + String(x.body || "").slice(0, 60); if (isNearDup(t, seenTx)) return false; seenTx.push(t); return true; });
         if (!items.length) throw new Error("这一批跟吧里已有的帖差不多，再刷一次");
       }
       const base = Date.now();
@@ -26040,7 +26038,6 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       if (!txt) return false;
       // 落哪儿【不再看模型填了什么】：这一档是上面代码挑的，它只负责写内容。
       if (_pick === "timeline") {
-        if (isNearDup(String((d && d.title) || "") + txt, (loadJSON("x_coupleTimeline", []) || []).filter(x => x && x.characterId === char.id).map(x => String(x.title || "") + (x.content || "")))) return false;   // 记过的事不再补一遍
         outletNote(char.id, "timeline", !!manual);
         setCoupleTimeline(p => {
           // ⚠️日期必须走 ymd()（补零）：时光轴是按 date 字符串排序的，
@@ -26054,7 +26051,6 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         // ⚠️没出题就等于这一档没写成：别硬塞进抽屉凑数，直接算这次没留（闸还回去）。
         if (!String((d && d.question) || "").trim()) return false;
         // 兜底：字面跟小本里哪一题差不多一样，就当这次没写成（闸还回去，下次再来）
-        if (isNearDup(d.question, (loadJSON("x_coupleQA", []) || []).filter(x => x && x.characterId === char.id).map(x => x.question))) return false;
         outletNote(char.id, "qa", !!manual);
         setCoupleQA(p => {
           const n = [{ id: "qa_" + Date.now(), characterId: char.id, qid: "his_" + Date.now(),
@@ -26066,7 +26062,6 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         // 抽屉那三档（thing / word / draw）。⚠️v61.35 那条教训仍然成立：
         //   认不出来的一律当抽屉落，绝不许再变成第四个悄悄话。
         const kind = ["thing", "word", "draw"].indexOf(_pick) >= 0 ? _pick : "thing";
-        if (isNearDup(txt, (loadJSON("x_coupleDrawer", []) || []).filter(x => x && x.characterId === char.id && x.kind === kind).map(x => x.text))) return false;   // 抽屉里已经有差不多的一样，这次算没留
         outletNote(char.id, kind, !!manual);
         drawerPush({ id: "dw_" + Date.now(), characterId: char.id, kind: kind,
           title: "", text: txt, ts: Date.now(), openedTs: null,
@@ -27617,7 +27612,6 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     const now = Date.now();
     if ((coupleDrawerRef.current || []).some(x => x && x.characterId === charId && x.kind === "whisper" && now - Number(x.ts || 0) < 20 * 60000)) return false;
     // 抽屉里已经有差不多的一句，就当这次没放（她 2026-10-26 去重；放悄悄话的几条路都过这儿）
-    if (typeof isNearDup === "function" && isNearDup(t, (coupleDrawerRef.current || []).filter(x => x && x.characterId === charId && x.kind === "whisper").map(x => x.text))) return false;
     // ⚠️title 留空（v61.33）：这一路原来切的是正文头 16 个字，而抽屉封面上印的就是 title
     //   ——等于她还没拆就已经读到TA要说的话了（她 2026-09-03 报的就是这个）。
     //   界面那边已经改成【封着的时候一个字都不露】；这儿一并断掉源头，
@@ -27984,7 +27978,6 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
           + "一个短标题（≤10 字）+ 一两句话（≤40 字），贴人设与当下心情，别喊口号。",
         schemaHint: "{\"title\":\"短标题\",\"content\":\"一两句话\"}"
       });
-      if (typeof isNearDup === "function" && isNearDup(String((d && d.title) || "") + String((d && d.content) || ""), tlPrev.map(x => String(x.title || "") + (x.content || "")))) { toast(char.name + " 想写的这件时光轴上已经有了，再点一次换一件"); return false; }
       setCoupleTimeline(p => {
         const n = [{ id: "tl_" + Date.now(), characterId: char.id, date: ymd(new Date()), type: "感慨", title: (d.title || "").trim(), content: (d.content || "").trim(), byCharacter: true, createdAt: Date.now() }, ...p];
         saveJSON("x_coupleTimeline", n);
@@ -28096,8 +28089,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         maxTokens: 20000   // 放宽字数之后 12000 会截在半句（max-tokens-floor：新 = min(24000, 旧+8000)）
 
       });
-      if (!(typeof isNearDup === "function" && isNearDup(String((d && d.title) || "") + String((d && d.body) || "").slice(0, 80), prevLt))) break;
-      if (tries === 1) { toast(char.name + " 写出来的跟前几封差不多，这次先不寄了"); return false; }
+      break;   // （她 2026-10-26：「不要悄悄不发或者收起来，花了钱的」——写出来的照样收，去重只靠提前给TA看已有的）
       }
       const st = letterStyleFor(char);
       setCoupleLetters(p => {

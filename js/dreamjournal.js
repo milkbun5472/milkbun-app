@@ -167,7 +167,6 @@
           const gen = parseDreamJSON(raw);
           if (!gen) throw new Error("梦没成形，再试一次");
           // 开头跟前几场差不多：这场先不存，梦还在原处等下一次
-          if (typeof isNearDup === "function" && isNearDup(String(gen.narrative).slice(0, 80), prevDreams.map(d => String(d.narrative).slice(0, 80)))) throw new Error("这场梦跟TA前几场差不多，再点一次");
           await window.DreamLoop.saveGenerated(row.key, gen);
           return gen;
         };
