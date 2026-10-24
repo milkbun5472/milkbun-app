@@ -10531,11 +10531,7 @@ async function summarizeChatBlock(p, ctx, newMsgs) {
 //   聊天列表、聊天页、群聊、状态卡、顶上那条消息通知、通话都走这一个。档案、编辑页、锁脸还读 avatarImage。
 // 聊天头像那张图找不到（换手机导数据时图没跟过来，iv_ 键在新机的图库里是空的）就用回档案那张，
 //   不然档案换了新头像、聊天页还是一片空（群里 2026-10-25）
-function chatFace(c) {
-  if (!c || !c.chatAvatar) return c;
-  const ok = typeof resolveImg !== "function" || !/^iv_/.test(String(c.chatAvatar)) || !!resolveImg(c.chatAvatar);
-  return ok || !c.avatarImage ? Object.assign({}, c, { avatarImage: c.chatAvatar }) : c;
-}
+function chatFace(c) { if (!c || !c.chatAvatar) return c; const ok = typeof resolveImg !== "function" || !/^iv_/.test(String(c.chatAvatar)) || !!resolveImg(c.chatAvatar); return ok || !c.avatarImage ? Object.assign({}, c, { avatarImage: c.chatAvatar }) : c; }
 // ============================================================
 // 美化的「上一版／换回来」：一处写、处处调（她 2026-10-05：「美化回退做到每个聊天窗口里，
 //   自己做错的自己退，也可以让秋秋退；秋秋也可以自己退它做错的」）。
