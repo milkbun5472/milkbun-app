@@ -7,7 +7,7 @@
 // 设置存 x_companion：{ charId, float, pos, scale, autoFace, looks: { [charId]: look } }
 // ============================================================
 (function () {
-  const KEY = "x_companion", BUILD = "fg-25e09c1eb7b214c0";
+  const KEY = "x_companion", BUILD = "fg-32f56e8e0d66a403";
   const load = () => Object.assign({ charId: "", float: false, pos: null, scale: 1, autoFace: true, looks: {} }, loadJSON(KEY, {}) || {});
   const save = v => saveJSON(KEY, v);
   // 心情 → 表情。心情是模型写的自由中文（x_moods[charId].label），按字认；认不出就是「平常」。
@@ -193,7 +193,7 @@
       allowTransparency: "true", style: Object.assign({ border: 0, background: "transparent", display: "block" }, style) });
   }
   // 他这会儿在做什么：十种心情各一套动作，界面上不说一句，用户只当是随机待机。
-  const ACT_ZH = { 'emotion-hips':'叉着腰得意地看你', 'emotion-selfhug':'抱住自己轻轻晃', 'emotion-peekaboo':'捂住眼睛又张开手看你', 'emotion-sneeze':'掩住鼻口打了个喷嚏', 'emotion-gift':'双手把小礼盒递给你', 'emotion-sign':'举起写着想你的小纸牌', 'emotion-cheeks':'双手捧着脸歪头看你', 'emotion-plead':'双手合十拜托你', 'emotion-crossarms':'抱着双臂等你回答', 'emotion-scratch':'挠了挠后脑勺', 'emotion-rubeyes':'低头揉揉眼睛又看向你', 'emotion-flower':'把一朵小花递到你面前', 'emotion-kiss':'把手停在嘴前送你一个飞吻', 'emotion-giggle':'捂着嘴偷偷笑', 'emotion-listen':'拢着手侧耳听你说', 'emotion-promise':'拍拍胸口向你保证', 'emotion-cheer':'举起双手给你加油', 'emotion-refuse':'摇摇头又摆摆手', 'emotion-chin':'托着下巴安静陪你', 'emotion-headpat':'低头靠近你的手又抬眼看你', 'emotion-show':'转身展示新衣服', 'emotion-five-left':'抬起手等你击掌', 'emotion-five-right':'抬起手等你击掌', 'emotion-clap-left':'和你击了个掌', 'emotion-clap-right':'和你击了个掌', 'emotion-dodge-left':'躲开你的手又看回来', 'emotion-dodge-right':'躲开你的手又看回来', 'emotion-beckon':'招手示意你靠近', 'emotion-dance':'左右摆身跳小舞', 'emotion-bow':'欠身向你致意', 'emotion-shrug':'摊开手耸耸肩', 'emotion-peek':'看看两边又望向你', 'emotion-default':'抬手问候你', 'emotion-happy':'笑着向你招手', 'emotion-amazed':'举起双手欢呼', 'emotion-cozy':'张开手想抱抱你', 'emotion-relax':'舒展开双臂', 'emotion-surprise':'缩了一下又凑过来看', 'emotion-proud':'挺起胸等你夸', 'emotion-gloomy':'叹口气又望向你', 'emotion-sad':'低头后朝你伸出手', 'emotion-irritated':'别过身又偷偷看你',  wave: "在跟你招手", stretch: "在伸懒腰", tea: "在喝茶", read: "在看书", sit: "坐下了",
+  const ACT_ZH = { 'emotion-heart':'双手围成心形给你看', 'emotion-thumb':'朝你竖起大拇指', 'emotion-wink':'朝你眨了一下眼', 'emotion-tongue':'调皮地吐吐舌头', 'emotion-cry':'抬手抹眼泪再慢慢缓过来', 'emotion-tilt':'歪着脑袋看你', 'emotion-poke':'伸出食指朝你脸边轻戳', 'emotion-pinch':'伸手轻轻捏捏你的脸', 'emotion-lie':'侧躺下来歇一会儿再起身', 'emotion-prone':'趴下来托着脸看你', 'emotion-phone':'低头拿着手机点点打字', 'emotion-eat':'拿起小饼干咬一口嚼嚼', 'emotion-hips':'叉着腰得意地看你', 'emotion-selfhug':'抱住自己轻轻晃', 'emotion-peekaboo':'捂住眼睛又张开手看你', 'emotion-sneeze':'掩住鼻口打了个喷嚏', 'emotion-gift':'双手把小礼盒递给你', 'emotion-sign':'举起写着想你的小纸牌', 'emotion-cheeks':'双手捧着脸歪头看你', 'emotion-plead':'双手合十拜托你', 'emotion-crossarms':'抱着双臂等你回答', 'emotion-scratch':'挠了挠后脑勺', 'emotion-rubeyes':'低头揉揉眼睛又看向你', 'emotion-flower':'把一朵小花递到你面前', 'emotion-kiss':'把手停在嘴前送你一个飞吻', 'emotion-giggle':'捂着嘴偷偷笑', 'emotion-listen':'拢着手侧耳听你说', 'emotion-promise':'拍拍胸口向你保证', 'emotion-cheer':'举起双手给你加油', 'emotion-refuse':'摇摇头又摆摆手', 'emotion-chin':'托着下巴安静陪你', 'emotion-headpat':'低头靠近你的手又抬眼看你', 'emotion-show':'转身展示新衣服', 'emotion-five-left':'抬起手等你击掌', 'emotion-five-right':'抬起手等你击掌', 'emotion-clap-left':'和你击了个掌', 'emotion-clap-right':'和你击了个掌', 'emotion-dodge-left':'躲开你的手又看回来', 'emotion-dodge-right':'躲开你的手又看回来', 'emotion-beckon':'招手示意你靠近', 'emotion-dance':'左右摆身跳小舞', 'emotion-bow':'欠身向你致意', 'emotion-shrug':'摊开手耸耸肩', 'emotion-peek':'看看两边又望向你', 'emotion-default':'抬手问候你', 'emotion-happy':'笑着向你招手', 'emotion-amazed':'举起双手欢呼', 'emotion-cozy':'张开手想抱抱你', 'emotion-relax':'舒展开双臂', 'emotion-surprise':'缩了一下又凑过来看', 'emotion-proud':'挺起胸等你夸', 'emotion-gloomy':'叹口气又望向你', 'emotion-sad':'低头后朝你伸出手', 'emotion-irritated':'别过身又偷偷看你',  wave: "在跟你招手", stretch: "在伸懒腰", tea: "在喝茶", read: "在看书", sit: "坐下了",
     hop: "高兴得蹦了一下", jolt: "被你吓了一跳", nod: "在点头", sigh: "叹了口气", stomp: "在跺脚",
     turn: "扭过头去不理你", shy: "有点害羞", look: "回头看你", yawn: "在打哈欠", wake: "刚被你叫醒",
     land: "被你放下来了", held: "被你拎在手上晃", sleep: "睡着了" };
@@ -315,8 +315,19 @@
     };
   }
   function actionRule(kind, cues, ...spans) { return { kind, cues, spans }; }
-  const ACTION_HEAD = /头(?!发|像|绪|衔|条|号|皮|疼|痛|脑)|脑袋/;
+  const ACTION_HEAD = /(?<!拳|指|石|木)头(?!发|像|绪|衔|条|号|皮|疼|痛|脑)|脑袋/;
   const ACT_RULES = [
+    actionRule("emotion-heart", null, actionSpan(/比|摆|做/, /心(?!情|理|事|思)/), actionSpan(/爱心手势|手指心|🫰|🫶/)),
+    actionRule("emotion-thumb", null, actionSpan(/竖|举|伸/, /拇指|大指/), actionSpan(/👍/)),
+    actionRule("emotion-wink", null, actionSpan(/眨|挤/, /眼/), actionSpan(/wink|😉/i)),
+    actionRule("emotion-tongue", null, actionSpan(/吐|伸/, /舌/)),
+    actionRule("emotion-cry", null, actionSpan(/抹|擦|拭/, /泪/), actionSpan(/哭(?!笑不得)|抽泣|啜泣|落泪|流泪/), actionSpan(/眼泪|泪水/, /落|掉|流|涌/)),
+    actionRule("emotion-poke", null, actionSpan(/戳/, /脸|面颊|腮/), actionSpan(/点|碰/, /指/, /脸|面颊|腮/)),
+    actionRule("emotion-pinch", null, actionSpan(/捏|掐|拧|揉/, /脸|面颊|腮/)),
+    actionRule("emotion-phone", null, actionSpan(/拿|掏|举|握|看|盯|刷|划|滑|敲|捧/, /手机|电话/), actionSpan(/敲|输入|戳|划|滑/, /屏幕|键盘/), actionSpan(/打字|敲字/)),
+    actionRule("emotion-eat", null, actionSpan(/吃|咬|啃|嚼|吞|尝/, /口|饼|食物|东西|面包|点心|蛋糕|零食|饭|糖|餐/)),
+    actionRule("emotion-prone", null, actionSpan(/趴|俯卧/, /下|好|着|在|床|地|桌/)),
+    actionRule("emotion-lie", null, actionSpan(/躺|卧(?!槽|底)/, /下|倒|平|好|着|在|床|地|边|侧/)),
     actionRule("emotion-hips", /叉腰/,
       actionSpan(/叉腰/), actionSpan(/手|掌/, /腰/, /叉|插|搭|撑/)),
     actionRule("emotion-selfhug", /抱抱自己|自我拥抱/,
@@ -396,11 +407,12 @@
     actionRule("jolt", /一激灵|吓死|心头一跳|吓到(?:了)?我/,
       actionSpan(/吓|惊/, /一跳/), actionSpan(/打/, /激灵/), actionSpan(/身子|身体/, /一颤|一抖/)),
     actionRule("nod", /颔首|嗯嗯|好好好|知道(?:了|啦|喽)|明白(?:了|啦)|收到|没问题|好嘞|好哒/,
-      actionSpan(/点(?!心|菜|餐|单|评|击|名|播|赞|火|灯|烟|缀|开|亮)/, ACTION_HEAD), actionSpan(/颔/, /首/)),
+      actionSpan(/(?<!一|两|几|有|丁)点(?!心|菜|餐|单|评|击|名|播|赞|火|灯|烟|缀|开|亮)/, ACTION_HEAD), actionSpan(/颔/, /首/)),
     actionRule("turn", /转身|扭头|别过脸|背过身/,
       actionSpan(/转(?!账|帐|发|运|学|型)|扭|别|背/, new RegExp("后背|身|脸|" + ACTION_HEAD.source, "u")),
       // 回过头看一眼也是转头；「回头见」「回头再说」是在说以后，不算
       actionSequence(/回(?=过?(?:头|脑袋)(?!见|再|说|聊|找|补|给))/, ACTION_HEAD)),
+    actionRule("emotion-tilt", null, actionSpan(/歪|偏|斜|侧(?=[了过着动一])/, ACTION_HEAD)),
     // 复用已有情绪动画。口头提示只留笑声和惊叹；身体／神态词只放动作锚点。
     actionRule("emotion-happy", /哈哈+|笑死|笑不活/,
       actionSpan(/大笑|朗笑|哈哈+|笑死|笑不活/), actionSpan(/笑/, /出声|前仰后合|停不下来|肚子疼/), actionSpan(/笑/, /直不起|直不起来/, /腰/)),

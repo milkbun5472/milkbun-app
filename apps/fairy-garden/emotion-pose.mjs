@@ -4,6 +4,44 @@ const beat=(p,a,b,c,d)=>ease((p-a)/(b-a))*(1-ease((p-c)/(d-c)));
 export function emotionPose(face,p){
  const e=beat(p,0,.18,.76,1),late=beat(p,.42,.6,.78,1),q={left:[0,0,0],right:[0,0,0],tilt:0,roll:0,yaw:0,lift:0};
  switch(face){
+ case 'heart': // 双手在胸前围成心形，停留后轻轻收回
+  q.left=[-.32*e,0,-.35*e];q.right=[-.32*e,0,.35*e];q.leftElbow=q.rightElbow=-1.65*e;q.leftHeadHold=q.headHold=e;
+  if(e){q.leftHeadPoint=[-.34,-1.48,1.65];q.headPoint=[.34,-1.48,1.65];}
+  q.heart=e;q.headRoll=-.045*e;break;
+ case 'thumb': // 屈肘把大拇指举到肩前，朝你点一下
+  q.right=[-.32*e,0,.35*e];q.rightElbow=-1.65*e;q.headHold=e;
+  if(e)q.headPoint=[1.1,-1.5+.08*late,1.45];q.thumb=e;q.tilt=-.025*e;q.headNod=.025*late;break;
+ case 'wink':
+  q.wink=beat(p,.16,.24,.52,.68);q.headRoll=-.075*e;q.right=[-.5*e,0,.2*e];q.left=[-.12*e,0,-.12*e];break;
+ case 'tongue':
+  q.tongue=beat(p,.16,.27,.57,.76);q.headRoll=.055*e;q.headNod=-.025*e;q.right=[-.15*e,0,.12*e];break;
+ case 'cry': { // 眼泪滑落，抬手抹一边眼角，缓一缓再收手
+  const wipe=beat(p,.2,.36,.64,.86),hiccup=Math.sin(p*Math.PI*10)*beat(p,.18,.3,.65,.84);
+  q.right=[-.32*wipe,0,.35*wipe];q.rightElbow=-1.65*wipe;q.headHold=wipe;
+  if(wipe)q.headPoint=[.62+.08*Math.sin(p*Math.PI*8),-.48,1.55];
+  q.cry=e;q.tearPhase=(p*2%1)*e;q.headNod=.055*e+.018*hiccup;q.roll=.012*hiccup;break;}
+ case 'tilt':
+  q.headRoll=-.23*e+.12*late;q.headNod=.025*e;q.left=[-.12*e,0,-.1*e];q.right=[-.12*e,0,.1*e];break;
+ case 'poke':case 'pinch': { // 朝屏幕前伸出食指，或把拇指与食指轻轻捏合
+  const reach=beat(p,.16,.4,.66,.9),tap=Math.sin(p*Math.PI*8)*beat(p,.36,.44,.64,.78);
+  q.right=[-.32*e,0,.35*e];q.rightElbow=-1.65*e;q.headHold=e;
+  if(e)q.headPoint=[.68-.4*reach,-1.45,1.15+1.55*reach+.08*tap];
+  q[face]=e;q.pinchTap=face==='pinch'?tap:0;q.headRoll=-.045*e;break;}
+ case 'lie':case 'prone': {
+  const down=beat(p,.04,.32,.68,.98),prone=face==='prone';
+  q.roll=-1.42*down;q.tilt=(prone?.92:-.14)*down;q.ground=down;
+  q.left=[-.32*e,0,-.35*e];q.right=[-.32*e,0,.35*e];q.leftElbow=q.rightElbow=-1.65*e;q.leftHeadHold=q.headHold=e;
+  if(e){q.leftHeadPoint=prone?[-.6,-1.15,1.25]:[-1.5,-1.25,.4];q.headPoint=prone?[.6,-1.15,1.25]:[.7,-1.75,1.1];}
+  q.headNod=prone?-.24*down:0;break;}
+ case 'phone':
+  q.left=[-.32*e,0,-.35*e];q.right=[-.32*e,0,.35*e];q.leftElbow=q.rightElbow=-1.65*e;q.leftHeadHold=q.headHold=e;
+  if(e){q.leftHeadPoint=[-.25,-1.85,1.1];q.headPoint=[.35,-1.4,1.7];}
+  q.phone=e;q.phoneTap=(.5-.5*Math.cos(p*Math.PI*18))*beat(p,.2,.32,.66,.82);q.headNod=.12*e;break;
+ case 'eat': {
+  const bite=beat(p,.18,.38,.53,.73),chew=Math.sin(p*Math.PI*14)*beat(p,.43,.52,.72,.86);
+  q.right=[-.32*e,0,.35*e];q.rightElbow=-1.65*e;q.headHold=e;
+  if(e)q.headPoint=[.9-.7*bite,-1.95+.85*bite,1.3+.25*bite];
+  q.cookie=e;q.bite=e*ease((p-.43)/.12);q.headNod=.018*chew;q.headRoll=-.03*e;break;}
  case 'hips': // 两手搭在腰侧，手肘向外，挺直身子得意地看过来
   q.left=[-.32*e,0,-.35*e];q.right=[-.32*e,0,.35*e];q.leftElbow=q.rightElbow=-1.65*e;
   q.leftHeadHold=q.headHold=e;
