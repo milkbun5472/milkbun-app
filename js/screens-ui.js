@@ -1060,7 +1060,7 @@ function Ties({
   onSaveNpcKnows,
   onDraftRel,
   relBusy,
-  rels,
+  rels: relsRaw,
   tiePos,
   onSaveTiePos,
   onSaveNpcBrief,
@@ -1085,6 +1085,12 @@ function Ties({
   //   那两条「他↔主人」，再没有入口连第二个人——她 2026-09-15 说的「只能绑定一个人」，
   //   实际来源就是这一句，不是 ownerId。ownerId 是户口，关系住在 x_rels 那张任意多边的图里。
   const npcList = (all || []).filter(c => c && c.npc);
+  // 点了「也认识我」的配角，图上也连到我（群里 2026-10-25：「C 能认识我的朋友，我不能认识 C 的朋友，点了也认识我也不显示」）：
+  //   认识是记在配角身上的（knowsUser），关系图只画 x_rels 那张表——两边对不上。这里补一条只用来画的线，
+  //   已经有我跟 TA 的那条就不补；点开这条去写清是什么关系，存下来就成了真的那条。
+  const rels = (() => { const r = Object.assign({}, relsRaw || {});
+    npcList.forEach(c => { if (c.knowsUser && !r["me->" + c.id] && !r[c.id + "->me"]) r["me->" + c.id] = { label: String(c.knowsUserNote || "").trim() || "认识", auto: true }; });
+    return r; })();
   const nameOf = id => id === "me" ? me : (all.find(c => c.id === id) || {}).name || "?";
   const charOf = id => id === "me" ? null : all.find(c => c.id === id);
   const npcOf = id => { const c = all.find(x => x.id === id); return c && c.npc ? c : null; };
