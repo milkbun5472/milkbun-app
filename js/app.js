@@ -30420,6 +30420,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         if (parts[0] !== "real" && parts[0] !== "story") return false;
         setMapMode(parts[0]); saveJSON("x_mapMode", parts[0]); setScreen("map"); return true;
       }
+      // 「信息」里那四栏（聊天／通讯录／朋友圈／我）
+      if (app === "chat" && parts.length === 1 && ["chats", "contacts", "moments", "me"].indexOf(parts[0]) >= 0) { setMsgTab(parts[0]); setScreen("messages"); return true; }
       if ((entryId === "chat" || entryId === "group") && parts.length) {
         const key = parts.join("/");
         const list = entryId === "group" ? (groupsRef.current || []) : (charactersRef.current || []);
