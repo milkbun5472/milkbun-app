@@ -52,7 +52,7 @@ assert.match(app, /forumFloorTranscript\(\[\{ \.\.\.floor, floor: null \}\]\)/);
 // 5. 界面：一张公共的挂图件，发帖和回楼共用；显示走聊天那张 PhotoCard / PhotoSheet
 assert.match(cmp, /function PhotoAttach\(\{ value, onChange, toast \}\)/);
 assert.match(cmp, /function photoAttachValue\(v\)/);
-assert.ok((scr.match(/h\(PhotoAttach,/g) || []).length === 2, "发帖、回楼各一处");
+assert.ok((scr.match(/h\(PhotoAttach,/g) || []).length === 3, "发帖（笔记放顶上、帖子放底下，同一个状态）、回楼");
 assert.match(scr, /onPostMine\(cbBoard, cbTitle\.trim\(\), cbBody\.trim\(\), photoAttachValue\(cbPhoto\), cbAs\)/);
 assert.match(scr, /onReplyFloor\(open, rTxt\.trim\(\), ph\)/);
 assert.match(scr, /h\(PhotoCard, \{ m: ph/);

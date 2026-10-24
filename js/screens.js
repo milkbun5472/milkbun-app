@@ -591,11 +591,20 @@ function forumPhotoOf(x) {
   if (who) out.who = who;
   return out;
 }
+// 小红书笔记的第二张起（她 2026-10-24「多图左右滑」）：只有字，挂在 morePhotos 上；第一张照旧是 photo（封面）
+//   模型刚吐出来的是一串字，落盘后是 [{ desc }]，两种都认
+function forumMorePhotos(x) {
+  const a = x && x.morePhotos;
+  return Array.isArray(a) ? a.map(v => String((typeof v === "string" ? v : v && v.desc) || "").trim().slice(0, 300)).filter(Boolean).slice(0, 8).map(desc => ({ desc })) : [];
+}
 function forumWithPhoto(text, x) {
   const p = forumPhotoOf(x);
   const s = String(text || "");
   if (!p) return s;
-  const line = "〔配图：" + (p.desc || "一张照片，没写说明") + "〕";
+  const more = forumMorePhotos(x);
+  const line = more.length
+    ? [p].concat(more).map((q, i) => "〔第" + (i + 1) + "张图：" + (q.desc || "一张照片，没写说明") + "〕").join(" ")
+    : "〔配图：" + (p.desc || "一张照片，没写说明") + "〕";
   return s ? s + " " + line : line;
 }
 // 已有楼层喂给模型时【整段原文】：每层楼全文＋它下面每条楼中楼（谁、回谁、说了什么），不截字、不截条。
