@@ -7,7 +7,7 @@
 // 设置存 x_companion：{ charId, float, pos, scale, autoFace, looks: { [charId]: look } }
 // ============================================================
 (function () {
-  const KEY = "x_companion", BUILD = "fg-0fb8c32a13bcfc41";
+  const KEY = "x_companion", BUILD = "fg-4311e66fca37852a";
   const load = () => Object.assign({ charId: "", float: false, pos: null, scale: 1, autoFace: true, looks: {} }, loadJSON(KEY, {}) || {});
   const save = v => saveJSON(KEY, v);
   // 心情 → 表情。心情是模型写的自由中文（x_moods[charId].label），按字认；认不出就是「平常」。
@@ -193,7 +193,7 @@
       allowTransparency: "true", style: Object.assign({ border: 0, background: "transparent", display: "block" }, style) });
   }
   // 他这会儿在做什么：十种心情各一套动作，界面上不说一句，用户只当是随机待机。
-  const ACT_ZH = { 'emotion-kiss':'把手停在嘴前送你一个飞吻', 'emotion-giggle':'捂着嘴偷偷笑', 'emotion-listen':'拢着手侧耳听你说', 'emotion-promise':'拍拍胸口向你保证', 'emotion-cheer':'举起双手给你加油', 'emotion-refuse':'摇摇头又摆摆手', 'emotion-chin':'托着下巴安静陪你', 'emotion-headpat':'低头靠近你的手又抬眼看你', 'emotion-show':'转身展示新衣服', 'emotion-five-left':'抬起手等你击掌', 'emotion-five-right':'抬起手等你击掌', 'emotion-clap-left':'和你击了个掌', 'emotion-clap-right':'和你击了个掌', 'emotion-dodge-left':'躲开你的手又看回来', 'emotion-dodge-right':'躲开你的手又看回来', 'emotion-beckon':'招手示意你靠近', 'emotion-dance':'左右摆身跳小舞', 'emotion-bow':'欠身向你致意', 'emotion-shrug':'摊开手耸耸肩', 'emotion-peek':'看看两边又望向你', 'emotion-default':'抬手问候你', 'emotion-happy':'笑着向你招手', 'emotion-amazed':'举起双手欢呼', 'emotion-cozy':'张开手想抱抱你', 'emotion-relax':'舒展开双臂', 'emotion-surprise':'缩了一下又凑过来看', 'emotion-proud':'挺起胸等你夸', 'emotion-gloomy':'叹口气又望向你', 'emotion-sad':'低头后朝你伸出手', 'emotion-irritated':'别过身又偷偷看你',  wave: "在跟你招手", stretch: "在伸懒腰", tea: "在喝茶", read: "在看书", sit: "坐下了",
+  const ACT_ZH = { 'emotion-cheeks':'双手捧着脸歪头看你', 'emotion-plead':'双手合十拜托你', 'emotion-crossarms':'抱着双臂等你回答', 'emotion-scratch':'挠了挠后脑勺', 'emotion-rubeyes':'低头揉揉眼睛又看向你', 'emotion-flower':'把一朵小花递到你面前', 'emotion-kiss':'把手停在嘴前送你一个飞吻', 'emotion-giggle':'捂着嘴偷偷笑', 'emotion-listen':'拢着手侧耳听你说', 'emotion-promise':'拍拍胸口向你保证', 'emotion-cheer':'举起双手给你加油', 'emotion-refuse':'摇摇头又摆摆手', 'emotion-chin':'托着下巴安静陪你', 'emotion-headpat':'低头靠近你的手又抬眼看你', 'emotion-show':'转身展示新衣服', 'emotion-five-left':'抬起手等你击掌', 'emotion-five-right':'抬起手等你击掌', 'emotion-clap-left':'和你击了个掌', 'emotion-clap-right':'和你击了个掌', 'emotion-dodge-left':'躲开你的手又看回来', 'emotion-dodge-right':'躲开你的手又看回来', 'emotion-beckon':'招手示意你靠近', 'emotion-dance':'左右摆身跳小舞', 'emotion-bow':'欠身向你致意', 'emotion-shrug':'摊开手耸耸肩', 'emotion-peek':'看看两边又望向你', 'emotion-default':'抬手问候你', 'emotion-happy':'笑着向你招手', 'emotion-amazed':'举起双手欢呼', 'emotion-cozy':'张开手想抱抱你', 'emotion-relax':'舒展开双臂', 'emotion-surprise':'缩了一下又凑过来看', 'emotion-proud':'挺起胸等你夸', 'emotion-gloomy':'叹口气又望向你', 'emotion-sad':'低头后朝你伸出手', 'emotion-irritated':'别过身又偷偷看你',  wave: "在跟你招手", stretch: "在伸懒腰", tea: "在喝茶", read: "在看书", sit: "坐下了",
     hop: "高兴得蹦了一下", jolt: "被你吓了一跳", nod: "在点头", sigh: "叹了口气", stomp: "在跺脚",
     turn: "扭过头去不理你", shy: "有点害羞", look: "回头看你", yawn: "在打哈欠", wake: "刚被你叫醒",
     land: "被你放下来了", held: "被你拎在手上晃", sleep: "睡着了" };
@@ -314,6 +314,19 @@
   function actionRule(kind, cues, ...spans) { return { kind, cues, spans }; }
   const ACTION_HEAD = /头(?!发|像|绪|衔|条|号|皮|疼|痛|脑)|脑袋/;
   const ACT_RULES = [
+    actionRule("emotion-cheeks", /捧脸|捧腮/,
+      actionSpan(/捧/, /脸|面颊|腮/), actionSpan(/双手|两手/, /托|撑/, /脸|面颊|腮/)),
+    actionRule("emotion-plead", /合十|拜托|求求/,
+      actionSpan(/合|并|贴|拢/, /双掌|掌心|双手|两手/)),
+    actionRule("emotion-crossarms", /抱胸|环胸/,
+      actionSpan(/抱胸|环胸/), actionSpan(/双臂|两臂|手臂|胳膊|双手/, /交叉|交叠|抱|环/, /胸/)),
+    actionRule("emotion-scratch", /挠头|搔头/,
+      actionSpan(/挠|搔/, ACTION_HEAD), actionSpan(/抓|挠|搔/, /后脑|脑后|后颈/)),
+    actionRule("emotion-rubeyes", /揉眼/,
+      actionSpan(/揉|擦|搓|抹/, /眼睛|眼角|眼眶|眼皮|双眼|眼/)),
+    actionRule("emotion-flower", /送你一朵花/,
+      actionSpan(/递|送|献|捧/, /小花|花朵|鲜花|花束|玫瑰|雏菊|花(?!生|钱|费|销|样|纹|絮)/),
+      actionSpan(/给/, /你|您|我|她|他/, /一朵花|小花|鲜花|花束/)),
     actionRule("emotion-kiss", /飞吻|啵|么么|mua|mwah|\bkiss(?:es)?\b|😘|(?:^|[（(【\s])[亲吻](?=$|[）)】\s~～!！])|啾/i,
       actionSpan(/亲(?!爱|属|自|切|近|情|缘|戚|眼|手|笔|口|身|生|友|民|密)|吻/, /亲|吻|口|下|你|您|我|她|他|额头|脸|嘴/), actionSpan(/飞/, /吻/)),
     actionRule("emotion-giggle", /偷笑|憋笑|窃笑|忍笑/,

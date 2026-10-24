@@ -9,7 +9,7 @@ const prose=require('./fixtures/companion-action-prose.cjs');
 test('整张聊天动作表逐项都有语言样本，新增动作不能漏掉验证',()=>{
  const actual=[...src.matchAll(/actionRule\("([^"]+)"/g)].map(m=>m[1]).sort();
  assert.deepEqual(Object.keys(prose.cases).sort(),actual);
- assert.equal(actual.length,28);
+ assert.equal(actual.length,34);
 });
 const allVariants=prose.variants();
 for(const kind of Object.keys(prose.cases))test('全部动作的长句、倒装、修饰与招呼混用 → '+kind,()=>{

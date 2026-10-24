@@ -4,6 +4,37 @@ const beat=(p,a,b,c,d)=>ease((p-a)/(b-a))*(1-ease((p-c)/(d-c)));
 export function emotionPose(face,p){
  const e=beat(p,0,.18,.76,1),late=beat(p,.42,.6,.78,1),q={left:[0,0,0],right:[0,0,0],tilt:0,roll:0,yaw:0,lift:0};
  switch(face){
+ case 'cheeks': // 双手贴在脸颊两侧，歪过头停一会儿，再慢慢收手
+  q.left=[-.32*e,0,-.35*e];q.right=[-.32*e,0,.35*e];q.leftElbow=q.rightElbow=-1.65*e;
+  q.leftHeadHold=q.headHold=e;
+  if(e){q.leftHeadPoint=[-.75,-.78,1.10];q.headPoint=[.75,-.78,1.10];}
+  q.roll=-.065*e+.035*late;q.yaw=.035*e;break;
+ case 'plead': { // 双手合在胸前，身体轻轻欠下，再抬眼等回应
+  const bow=beat(p,.24,.42,.56,.78);
+  q.left=[-.32*e,0,-.35*e];q.right=[-.32*e,0,.35*e];q.leftElbow=q.rightElbow=-1.65*e;
+  q.leftHeadHold=q.headHold=e;
+  if(e){q.leftHeadPoint=[-.14,-.95,1.25];q.headPoint=[.14,-.95,1.25];}
+  q.tilt=.075*bow;q.roll=.025*late;break;}
+ case 'crossarms': // 两手搭向相对的手臂，一前一后交叉，偏身等一会儿再看回来
+  q.left=[-.32*e,0,-.35*e];q.right=[-.32*e,0,.35*e];q.leftElbow=q.rightElbow=-1.65*e;
+  q.leftHeadHold=q.headHold=e;
+  if(e){q.leftHeadPoint=[.64,-1.47,1.38];q.headPoint=[-.64,-1.65,1.12];}
+  q.yaw=.22*e-.16*late;q.tilt=-.025*e;break;
+ case 'scratch': { // 手绕到后脑勺，小幅挠两下，再落回身侧
+  const rub=Math.sin(p*Math.PI*10)*beat(p,.24,.34,.64,.78);
+  q.right=[-.32*e,0,.35*e];q.rightElbow=-1.65*e;q.headHold=e;
+  if(e)q.headPoint=[1.05,.06+.06*rub,-.90+.045*rub];
+  q.left=[-.15*e,0,-.10*e];q.roll=-.045*e;q.yaw=-.17*e;q.tilt=.03*e;break;}
+ case 'rubeyes': { // 低头把手停在眼前，揉两下后慢慢放下来
+  const rub=beat(p,.24,.34,.62,.78),phase=p*Math.PI*12;
+  q.right=[-.32*e,0,.35*e];q.rightElbow=-1.65*e;q.headHold=e;
+  if(e)q.headPoint=[.50+.055*Math.sin(phase)*rub,.04+.045*Math.cos(phase)*rub,1.38];
+  q.left=[-.15*e,0,-.08*e];q.tilt=.065*e-.025*late;q.roll=-.025*e;break;}
+ case 'flower': { // 先拿在身侧，再伸到面前等你收，最后把手收回来
+  const offer=beat(p,.18,.42,.72,.92);
+  q.right=[-.32*e,0,.35*e];q.rightElbow=-1.65*e;q.headHold=e;
+  if(e)q.headPoint=[.9-.22*offer,-1.95+.1*offer,1.0+1.35*offer];
+  q.left=[-.14*e,0,-.14*e];q.flower=beat(p,.08,.18,.84,.98);q.tilt=.035*offer;q.roll=-.025*e;break;}
  case 'kiss': { // 手先停在嘴前，再把飞吻送出去，最后收手
   const send=ease((p-.34)/.3);
   q.right=[-.32*e,0,.35*e];q.rightElbow=-1.65*e;q.headHold=e;

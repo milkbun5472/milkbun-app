@@ -1,6 +1,6 @@
 import * as T from 'three';
-import {makeIngredient} from './ingredient-visual.mjs?v=fg-0fb8c32a13bcfc41';
-import {disposeFood} from './recipe-food.mjs?v=fg-0fb8c32a13bcfc41';
+import {makeIngredient} from './ingredient-visual.mjs?v=fg-4311e66fca37852a';
+import {disposeFood} from './recipe-food.mjs?v=fg-4311e66fca37852a';
 // One close operation view for the same kitchen meshes and saved food coordinates.
 export function createKitchenStation(){
  const scene=new T.Scene();scene.background=new T.Color('#bf976c');
