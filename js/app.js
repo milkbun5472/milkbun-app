@@ -20520,7 +20520,10 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         };
         while ((mm = re.exec(s))) { pushSpeech(s.slice(last, mm.index)); const a = mm[1].trim(); if (a) out.push({ act: a }); last = re.lastIndex; }
         pushSpeech(s.slice(last));
-        return kao.length ? out.map(o => o.act != null ? { act: unKao(o.act) } : { speech: unKao(o.speech) }) : out;
+        const out1 = kao.length ? out.map(o => o.act != null ? { act: unKao(o.act) } : { speech: unKao(o.speech) }) : out;
+        // 一句话太长（打久了模型常一口气倒一大段、一个标点不换行）：跟聊天气泡同一把刀拆开（群里 2026-10-25「通话过长会出现不分句」）。
+        //   双语那种「原文｜译文」不拆，拆了两半对不上
+        return out1.flatMap(o => o.speech != null && typeof splitLongBubble === "function" && !/[|｜]/.test(o.speech) ? splitLongBubble(o.speech).map(x => ({ speech: x })) : [o]);
       };
       const callTurnId = cur.sessionId + ":" + withUser.length;
       const pushMsg = line => setCall(c => c && c.sessionId === cur.sessionId ? { ...c, msgs: [...c.msgs, { ts: Date.now(), turnId: callTurnId, ...line }] } : c);
