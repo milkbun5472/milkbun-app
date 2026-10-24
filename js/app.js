@@ -10360,6 +10360,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   const styleLabRef = useRef(null);
   const goStyleLab = () => {
     styleLabRef.current = { screen: screen, charId: offlineChar && offlineChar.id, groupId: offlineGroup && offlineGroup.id };
+    // 从聊天设置里跳过来的（线上预设那一节）：设置是盖在上面的一层，不收掉就挡着文风台；回来时再打开
+    styleLabRef.current.settings = !!chatSettingsOpen; if (chatSettingsOpen) setChatSettingsOpen(false);
     setOfflineChar(null); setOfflineGroup(null); setScreen("stylelab");
   };
   const backFromStyleLab = () => {
@@ -10369,6 +10371,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     setScreen(back);
     if (r.charId) { const c = characters.find(x => x.id === r.charId); if (c) setOfflineChar(c); }
     else if (r.groupId) { const g = groups.find(x => x.id === r.groupId); if (g) setOfflineGroup(g); }
+    if (r.settings) setChatSettingsOpen(true);
   };
   // 一起听：记住从哪儿进来的 → 退出/悬浮球点回时回到原处（如聊天时打开悬浮切歌，切完回聊天）
   // 从哪间一起听房进来的（{charId, roomId}）。bind 不给＝维持原样（悬浮小唱片点回来还在那间房里）；
