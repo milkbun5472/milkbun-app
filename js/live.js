@@ -201,7 +201,8 @@
 
   // ── 我来播 ──────────────────────────────────────────────
   function hostInstruction(ses, uName, chars, briefs, first) {
-    const names = chars.map(c => c.name);
+    // 熟面孔（ses.fam）也能发弹幕、送礼：名单里原来只有角色，跟后面那段「他们也可以在 chat 里出现」打架，模型照前面那句，熟面孔就一直不开口
+    const names = chars.map(c => c.name).concat(arr(ses.fam).map(r => r && r.name).filter(Boolean));
     return AC() + CB()
       + "【场景】" + uName + "开了一场直播。" + (ses.kind ? "她播的是：" + kindZh(ses.kind) + "。" : "") + (S(ses.title) ? "直播间标题：" + S(ses.title) + "。" : "")
       + (S(ses.topic) ? "她自己说这一场：" + S(ses.topic) + "。" : "")
@@ -758,7 +759,7 @@
       try {
         const famText = fam.length ? famBlock(fam, ses.famPairs || (props.regularPairs ? props.regularPairs() : []), uName, true)
           + "\n这几位不认识她本人，只认得「" + uName + "」这个号" + fam.filter(r => r.tie && r.tie.encounters).map(r => "（「" + r.name + "」在平台上跟她碰过 " + Math.min(9, r.tie.encounters) + " 次）").join("") + "。他们也可以在 chat、gifts 里出现（name 照抄网名），私下消息 private 只有她认识的那几个人会发。" : "";
-        const d = await props.probeMany(chars, hostInstruction(ses, uName, chars, chars.map(props.briefFor), first) + famText + (props.maskNote ? props.maskNote(chars) : ""), HOST_SHAPE) || {};
+        const d = await props.probeMany(chars, hostInstruction(Object.assign({}, ses, { fam }), uName, chars, chars.map(props.briefFor), first) + famText + (props.maskNote ? props.maskNote(chars) : ""), HOST_SHAPE) || {};
         const famNames = fam.map(r => r.name);
         const names = chars.map(c => c.name).concat(famNames);
         const chat = normChat(d.chat, names);
