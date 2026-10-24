@@ -7,7 +7,7 @@
 // 设置存 x_companion：{ charId, float, pos, scale, autoFace, looks: { [charId]: look } }
 // ============================================================
 (function () {
-  const KEY = "x_companion", BUILD = "fg-4311e66fca37852a";
+  const KEY = "x_companion", BUILD = "fg-6f2fd4e26924293d";
   const load = () => Object.assign({ charId: "", float: false, pos: null, scale: 1, autoFace: true, looks: {} }, loadJSON(KEY, {}) || {});
   const save = v => saveJSON(KEY, v);
   // 心情 → 表情。心情是模型写的自由中文（x_moods[charId].label），按字认；认不出就是「平常」。
@@ -193,7 +193,7 @@
       allowTransparency: "true", style: Object.assign({ border: 0, background: "transparent", display: "block" }, style) });
   }
   // 他这会儿在做什么：十种心情各一套动作，界面上不说一句，用户只当是随机待机。
-  const ACT_ZH = { 'emotion-cheeks':'双手捧着脸歪头看你', 'emotion-plead':'双手合十拜托你', 'emotion-crossarms':'抱着双臂等你回答', 'emotion-scratch':'挠了挠后脑勺', 'emotion-rubeyes':'低头揉揉眼睛又看向你', 'emotion-flower':'把一朵小花递到你面前', 'emotion-kiss':'把手停在嘴前送你一个飞吻', 'emotion-giggle':'捂着嘴偷偷笑', 'emotion-listen':'拢着手侧耳听你说', 'emotion-promise':'拍拍胸口向你保证', 'emotion-cheer':'举起双手给你加油', 'emotion-refuse':'摇摇头又摆摆手', 'emotion-chin':'托着下巴安静陪你', 'emotion-headpat':'低头靠近你的手又抬眼看你', 'emotion-show':'转身展示新衣服', 'emotion-five-left':'抬起手等你击掌', 'emotion-five-right':'抬起手等你击掌', 'emotion-clap-left':'和你击了个掌', 'emotion-clap-right':'和你击了个掌', 'emotion-dodge-left':'躲开你的手又看回来', 'emotion-dodge-right':'躲开你的手又看回来', 'emotion-beckon':'招手示意你靠近', 'emotion-dance':'左右摆身跳小舞', 'emotion-bow':'欠身向你致意', 'emotion-shrug':'摊开手耸耸肩', 'emotion-peek':'看看两边又望向你', 'emotion-default':'抬手问候你', 'emotion-happy':'笑着向你招手', 'emotion-amazed':'举起双手欢呼', 'emotion-cozy':'张开手想抱抱你', 'emotion-relax':'舒展开双臂', 'emotion-surprise':'缩了一下又凑过来看', 'emotion-proud':'挺起胸等你夸', 'emotion-gloomy':'叹口气又望向你', 'emotion-sad':'低头后朝你伸出手', 'emotion-irritated':'别过身又偷偷看你',  wave: "在跟你招手", stretch: "在伸懒腰", tea: "在喝茶", read: "在看书", sit: "坐下了",
+  const ACT_ZH = { 'emotion-hips':'叉着腰得意地看你', 'emotion-selfhug':'抱住自己轻轻晃', 'emotion-peekaboo':'捂住眼睛又张开手看你', 'emotion-sneeze':'掩住鼻口打了个喷嚏', 'emotion-gift':'双手把小礼盒递给你', 'emotion-sign':'举起写着想你的小纸牌', 'emotion-cheeks':'双手捧着脸歪头看你', 'emotion-plead':'双手合十拜托你', 'emotion-crossarms':'抱着双臂等你回答', 'emotion-scratch':'挠了挠后脑勺', 'emotion-rubeyes':'低头揉揉眼睛又看向你', 'emotion-flower':'把一朵小花递到你面前', 'emotion-kiss':'把手停在嘴前送你一个飞吻', 'emotion-giggle':'捂着嘴偷偷笑', 'emotion-listen':'拢着手侧耳听你说', 'emotion-promise':'拍拍胸口向你保证', 'emotion-cheer':'举起双手给你加油', 'emotion-refuse':'摇摇头又摆摆手', 'emotion-chin':'托着下巴安静陪你', 'emotion-headpat':'低头靠近你的手又抬眼看你', 'emotion-show':'转身展示新衣服', 'emotion-five-left':'抬起手等你击掌', 'emotion-five-right':'抬起手等你击掌', 'emotion-clap-left':'和你击了个掌', 'emotion-clap-right':'和你击了个掌', 'emotion-dodge-left':'躲开你的手又看回来', 'emotion-dodge-right':'躲开你的手又看回来', 'emotion-beckon':'招手示意你靠近', 'emotion-dance':'左右摆身跳小舞', 'emotion-bow':'欠身向你致意', 'emotion-shrug':'摊开手耸耸肩', 'emotion-peek':'看看两边又望向你', 'emotion-default':'抬手问候你', 'emotion-happy':'笑着向你招手', 'emotion-amazed':'举起双手欢呼', 'emotion-cozy':'张开手想抱抱你', 'emotion-relax':'舒展开双臂', 'emotion-surprise':'缩了一下又凑过来看', 'emotion-proud':'挺起胸等你夸', 'emotion-gloomy':'叹口气又望向你', 'emotion-sad':'低头后朝你伸出手', 'emotion-irritated':'别过身又偷偷看你',  wave: "在跟你招手", stretch: "在伸懒腰", tea: "在喝茶", read: "在看书", sit: "坐下了",
     hop: "高兴得蹦了一下", jolt: "被你吓了一跳", nod: "在点头", sigh: "叹了口气", stomp: "在跺脚",
     turn: "扭过头去不理你", shy: "有点害羞", look: "回头看你", yawn: "在打哈欠", wake: "刚被你叫醒",
     land: "被你放下来了", held: "被你拎在手上晃", sleep: "睡着了" };
@@ -298,15 +298,18 @@
     const anchors = parts.map(p => new RegExp(p.source, "iu"));
     // 同一句中的锚点可换序，字符不能重复占用两个锚点；最多三个锚点。
     // 这样“手挥了挥”“书被翻开”“把下巴托住”都走同一层，不逐项另写倒装。
+    // 认到了返回第一个锚点在这一小句里的位置（拿去看它前面有没有「别／没」），认不到返回 -1
     return clause => {
       const find = (at, remaining) => {
-        if (!remaining.length) return true;
+        if (!remaining.length) return Infinity;
         const rest = clause.slice(at);
-        return remaining.some((index, i) => {
-          if (ordered && i) return false;
+        let best = -1;
+        remaining.forEach((index, i) => {
+          if (best >= 0 || (ordered && i)) return;
           const match = anchors[index].exec(rest);
-          return !!match && find(at + match.index + match[0].length, remaining.filter((_, j) => j !== i));
+          if (match && find(at + match.index + match[0].length, remaining.filter((_, j) => j !== i)) >= 0) best = at + match.index;
         });
+        return best;
       };
       return find(0, anchors.map((_, i) => i));
     };
@@ -314,6 +317,18 @@
   function actionRule(kind, cues, ...spans) { return { kind, cues, spans }; }
   const ACTION_HEAD = /头(?!发|像|绪|衔|条|号|皮|疼|痛|脑)|脑袋/;
   const ACT_RULES = [
+    actionRule("emotion-hips", /叉腰/,
+      actionSpan(/叉腰/), actionSpan(/手|掌/, /腰/, /叉|插|搭|撑/)),
+    actionRule("emotion-selfhug", /抱抱自己|自我拥抱/,
+      actionSpan(/抱|搂|环/, /自己(?!的)|自己的(?:身体|身子)|自身|自我/)),
+    actionRule("emotion-peekaboo", /躲猫猫/,
+      actionSpan(/捂|蒙|遮|盖|掩|挡/, /眼睛|双眼|眼皮|眼/)),
+    actionRule("emotion-sneeze", /喷嚏|[阿啊]嚏/,
+      actionSpan(/喷嚏|[阿啊]嚏/)),
+    actionRule("emotion-gift", /送礼|递礼物/,
+      actionSpan(/递|送|捧|献|给/, /礼物|礼盒|礼品|小礼/)),
+    actionRule("emotion-sign", /举牌/,
+      actionSpan(/举|抬|扬|晃/, /牌子|纸牌|小牌|字牌|手牌|牌/)),
     actionRule("emotion-cheeks", /捧脸|捧腮/,
       actionSpan(/捧/, /脸|面颊|腮/), actionSpan(/双手|两手/, /托|撑/, /脸|面颊|腮/)),
     actionRule("emotion-plead", /合十|拜托|求求/,
@@ -383,22 +398,49 @@
     actionRule("nod", /颔首|嗯嗯|好好好|知道(?:了|啦|喽)|明白(?:了|啦)|收到|没问题|好嘞|好哒/,
       actionSpan(/点(?!心|菜|餐|单|评|击|名|播|赞|火|灯|烟|缀|开|亮)/, ACTION_HEAD), actionSpan(/颔/, /首/)),
     actionRule("turn", /转身|扭头|别过脸|背过身/,
-      actionSpan(/转(?!账|帐|发|运|学|型)|扭|别|背/, new RegExp("后背|身|脸|" + ACTION_HEAD.source, "u"))),
+      actionSpan(/转(?!账|帐|发|运|学|型)|扭|别|背/, new RegExp("后背|身|脸|" + ACTION_HEAD.source, "u")),
+      // 回过头看一眼也是转头；「回头见」「回头再说」是在说以后，不算
+      actionSequence(/回(?=过?(?:头|脑袋)(?!见|再|说|聊|找|补|给))/, ACTION_HEAD)),
     actionRule("sit", /坐着|落座|盘腿/,
       actionSpan(/坐|窝|瘫/, /下|好|回|在|进|到|沙发|椅|床|地上/), actionSpan(/盘/, /腿/), actionSpan(/落/, /座/))
   ];
-  function actForText(text) {
-    const s = String(text || "").normalize("NFKC");
-    const clauses = s.split(/[。.！？!?；;，,：:\n\r]/u).filter(Boolean).reverse();
+  // 这一小句没真做（她 2026-10-24 审：「别叹气了」「我没有拒绝你啊」「你要是敢跑，我就抱你回来」都被当成动作）：
+  //   动作前面有「别／不／没……」就跳过（「别开了脸」「没问题」那个字就是动作本身，不算）；
+  //   只看动作前面、最后一个「的」之后那一截：「还没睡醒的脑袋点了点」里的「没」管的是睡醒，不是点头；
+  //   一句话里出现「要是／如果」，从那一小句起到这句话完都跳过。
+  const NOT_DONE = /别|不要|不准|不许|不用|不想|没有?|才不|要是|如果|假如|万一|是不是|会不会|想不想/;
+  const IF_SENT = /要是|如果|假如|万一/;
+  // 问句（「脸红什么」「今天学习了吗」）是在问人，不是自己在做
+  const ASKING = /什么|吗|呢|么|[?？]/;
+  // 有好几个动作时，从最后写到的那一小句选，前面的招呼不抢走后面的反应
+  function clausesOf(s) {
+    const out = [];
+    s.split(/[。.！？!?；;\n\r]/u).forEach(sent => {
+      let ifs = false;
+      sent.split(/[，,：:]/u).forEach(c => { if (IF_SENT.test(c)) ifs = true; if (c.trim()) out.push({ c, ifs, ask: ASKING.test(c) }); });
+    });
+    return out.reverse();
+  }
+  const done = (x, at) => at >= 0 && !x.ifs && !NOT_DONE.test(x.c.slice(0, at).split("的").pop());
+  const cueAt = (rule, x) => { const m = rule.cues.exec(x.c); return m ? m.index : -1; };
+  // act：动作描写（action 那一栏、话里括号或星号包着的那段）；said：说出口的话。
+  //   动作只从 act 里认；said 里只认本身就是在打招呼、应声的那几句（晚安、加油、好好好……），而且不认问句。
+  //   只给一个字符串（旧的叫法、测试）＝当成动作描写。
+  function actForChat(act, said) {
+    const norm = x => String(x || "").normalize("NFKC").replace(/摇头晃脑/g, "跟着节拍晃");
+    const inSaid = [];
+    const sd = norm(said).replace(/[（(【*]([^）)】*\n]{1,60})[）)】*]/gu, (m, x) => { inSaid.push(x); return " "; });
+    const a = clausesOf([norm(act)].concat(inSaid).join("\n")), b = clausesOf(sd);
     // 明确动作优先于“早安／知道了”等口头提示；仍只在原动作表选一套。
-    // 有好几个动作时，从最后写到的动作分句选，前面的招呼不抢走后面的反应。
-    for (const clause of clauses) for (const rule of ACT_RULES) if (rule.spans.some(match => match(clause))) return rule.kind;
-    for (const clause of clauses) for (const rule of ACT_RULES) if (rule.cues.test(clause)) return rule.kind;
+    for (const x of a) for (const rule of ACT_RULES) if (rule.spans.some(match => done(x, match(x.c)))) return rule.kind;
+    for (const x of a) for (const rule of ACT_RULES) if (done(x, cueAt(rule, x))) return rule.kind;
+    for (const x of b) if (!x.ask) for (const rule of ACT_RULES) if (done(x, cueAt(rule, x))) return rule.kind;
     return "";
   }
+  function actForText(text) { return actForChat(text, ""); }
   function useChatAct(charId, frame) {
     useEffect(() => {
-      const on = e => { const d = e && e.detail; if (!d || d.charId !== charId) return; const k = actForText(d.text);
+      const on = e => { const d = e && e.detail; if (!d || d.charId !== charId) return; const k = d.act != null || d.said != null ? actForChat(d.act, d.said) : actForText(d.text);
         const w = frame.current && frame.current.contentWindow; if (k && w) w.postMessage({ type: "pet-act", kind: k }, "*"); };
       window.addEventListener("companion-chat", on);
       return () => window.removeEventListener("companion-chat", on);
@@ -448,5 +490,5 @@
   window.Companion = Companion;
   window.CompanionPreview = PetFrame;
   window.CompanionFloat = CompanionFloat;
-  window.CompanionFace = { faceForMood, FACE_ZH, lookFor, actForText };
+  window.CompanionFace = { faceForMood, FACE_ZH, lookFor, actForText, actForChat };
 })();

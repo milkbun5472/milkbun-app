@@ -3,7 +3,7 @@ import * as T from 'three';
 // The elbow has one hinge, rather than the three free axes of a CCD joint.
 // Choose its bend plane from the doll's body, so a close contact cannot flip
 // the elbow up/back or twist a long sleeve through itself.
-export function reachHand(root,upper,lower,hand,target,iterations=16,{work=false}={}){
+export function reachHand(root,upper,lower,hand,target,iterations=16,{work=false,elbowsOut=false}={}){
   if(!upper||!hand||!target)return;
   if(lower?.userData.reachRest){
     root.updateWorldMatrix(true,true);
@@ -16,7 +16,7 @@ export function reachHand(root,upper,lower,hand,target,iterations=16,{work=false
     const along=(a*a-b*b+reach*reach)/(2*reach),away=Math.sqrt(Math.max(0,a*a-along*along));
     const visual=root.getObjectByName('TravelerVisual')||root,body=visual.getWorldQuaternion(new T.Quaternion());
     const side=upper.name.startsWith('left')?-1:1;
-    const pole=new T.Vector3(side*.55,-1,-.12).applyQuaternion(body);
+    const pole=new T.Vector3(side*(elbowsOut?1:.55),elbowsOut?-.15:-1,-.12).applyQuaternion(body);
     pole.addScaledVector(direction,-pole.dot(direction));
     if(pole.lengthSq()<1e-8){pole.set(0,0,1).applyQuaternion(body);pole.addScaledVector(direction,-pole.dot(direction));}
     pole.normalize();

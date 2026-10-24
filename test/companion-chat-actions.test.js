@@ -9,7 +9,7 @@ const prose=require('./fixtures/companion-action-prose.cjs');
 test('整张聊天动作表逐项都有语言样本，新增动作不能漏掉验证',()=>{
  const actual=[...src.matchAll(/actionRule\("([^"]+)"/g)].map(m=>m[1]).sort();
  assert.deepEqual(Object.keys(prose.cases).sort(),actual);
- assert.equal(actual.length,34);
+ assert.equal(actual.length,40);
 });
 const allVariants=prose.variants();
 for(const kind of Object.keys(prose.cases))test('全部动作的长句、倒装、修饰与招呼混用 → '+kind,()=>{
@@ -137,12 +137,29 @@ test('真正的聊天事件只驱动当前角色，清理时解绑',()=>{
  const a=src.indexOf('function useChatAct('),b=src.indexOf('function CompanionFloat(',a);assert.ok(a>0&&b>a);
  let on,cleanup;const messages=[];
  const root={addEventListener(type,fn){assert.equal(type,'companion-chat');on=fn;},removeEventListener(type,fn){assert.equal(type,'companion-chat');assert.equal(fn,on);on=null;}};
- const context=vm.createContext({window:root,actForText:act,useEffect(fn){cleanup=fn();}});
+ const context=vm.createContext({window:root,actForText:act,actForChat:window.CompanionFace.actForChat,useEffect(fn){cleanup=fn();}});
  vm.runInContext(src.slice(a,b)+';globalThis.bind=useChatAct;',context);
  context.bind('c1',{current:{contentWindow:{postMessage(message){messages.push(message);}}}});
- // 事件字段照 app.js 的真实发送处核对，保持 charId/text 这份协议。
- const app=fs.readFileSync('js/app.js','utf8');assert.match(app,/new CustomEvent\("companion-chat", \{ detail: \{ charId, text:/);
+ // 事件字段照 app.js 的真实发送处核对：charId + said（说出口的话）+ act（动作描写）；旧的 text 也还认。
+ const app=fs.readFileSync('js/app.js','utf8');assert.match(app,/new CustomEvent\("companion-chat", \{ detail: \{ charId, said: _said, act: _act \} \}\)/);
+ on({detail:{charId:'c1',said:'你写的作业呢',act:''}});assert.equal(messages.length,0,'话里提到的动作不算');
+ on({detail:{charId:'c1',said:'嗯',act:'他点了点头。'}});assert.equal(messages.length,1);assert.equal(messages[0].kind,'nod');messages.length=0;
  on({detail:{charId:'c2',text:'亲一口'}});on({detail:{charId:'c1',text:'天气很晴朗'}});assert.equal(messages.length,0);
  on({detail:{charId:'c1',text:'他亲了一下额头。'}});assert.equal(messages.length,1);assert.equal(messages[0].kind,'emotion-kiss');
  cleanup();assert.equal(on,null);
+});
+
+// 她 2026-10-24 审：说出口的话和动作描写分开认；否定、假设、问句不算
+test('话里提到的动作、否定、假设、问句都不让小人动',()=>{
+ const chat=window.CompanionFace.actForChat;
+ const said={'你写的作业呢':'','今天学习了吗':'','你知道吗，我昨天看了本书':'','脸红什么':'','你哼什么哼':'','别跟我说再见':'','别叹气了':'','我没有拒绝你啊':'',
+  '你要是敢跑，我就抱你回来':'','我们坐下来好好谈谈':'','你不准再熬夜了，晚安':'wave','早上好呀':'wave','好好好，听你的':'nod','抱抱你':'emotion-cozy','（抱住你）想你了':'emotion-cozy','*点点头*知道了':'nod'};
+ for(const [t,k] of Object.entries(said))assert.equal(chat('',t),k,'说的：'+t);
+ const act={'他点了杯奶茶给你':'','他转账给你520':'','他点点头':'nod','他捂着脸笑':'shy','他喝了口水，说没事':'tea','他坐在你对面没说话':'sit',
+  '他回头看了你一眼':'turn','回头见':'wave','他摇头晃脑地唱歌':'emotion-dance','他别过脸':'turn','他没有点头':'','要是你再跑，他就抱住你':''};
+ for(const [t,k] of Object.entries(act))assert.equal(chat(t,''),k,'动作：'+t);
+});
+test('新增道具的普通提及不算递出或举起，自己的书不算自抱',()=>{
+ for(const text of ['礼物放在桌上。','纸牌已经收好了。','我自己的书还在这里。','自己一个人坐在那边。'])assert.equal(act(text),text.includes('坐')?'sit':'',text);
+ assert.notEqual(act('他抱着自己的书。'),'emotion-selfhug');
 });
