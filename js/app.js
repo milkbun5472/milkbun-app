@@ -20429,6 +20429,24 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     if (field === "memoryCandidate") return !session.room || !!(session.room.writeback && session.room.writeback.memoryCandidate);
     return !session.room || window.ChatRooms.canWrite(session.room, field);
   };
+  // 通话里重说最后一轮／改一句（她 2026-10-25）：
+  //   重说＝把她最后那句之后TA说的全拿掉，再请TA接一次（跟空着按发送那条 flush 同一条路）；TA先开口的那一通就当重新接通。
+  const callReroll = () => {
+    const cur = callRef.current; if (!cur || laneBusy("call")) return;
+    let k = cur.msgs.length - 1; while (k >= 0 && cur.msgs[k].role !== "user") k--;
+    const kept = cur.msgs.slice(0, k + 1);
+    if (kept.length === cur.msgs.length) return;
+    callRef.current = { ...cur, msgs: kept };
+    setCall(c => c && c.sessionId === cur.sessionId ? { ...c, msgs: kept } : c);
+    setTimeout(() => callSend("", k >= 0 ? { flush: true } : { opening: true }), 0);
+    return kept.length;
+  };
+  const callEditLine = (i, text) => {
+    const cur = callRef.current; if (!cur || !cur.msgs[i]) return;
+    const msgs = cur.msgs.map((m, j) => j === i ? { ...m, content: text, zh: undefined, edited: true } : m);
+    callRef.current = { ...cur, msgs };
+    setCall(c => c && c.sessionId === cur.sessionId ? { ...c, msgs } : c);
+  };
   const callSend = async (text, opts) => {
     const cur = callRef.current;
     // opening=TA打来的那一通刚接通，这一轮没有她的话，由TA先说
@@ -34542,6 +34560,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     onMinimize: () => setCall(c => c ? { ...c, min: true } : c),
     onRestore: () => setCall(c => c ? { ...c, min: false } : c),
     onSend: (txt, opts) => callSend(txt, opts),
+    onReroll: callReroll,
+    onEditLine: callEditLine,
     // 通话里的转账：卡在聊天里，通话这边按 tid 去取它的状态
     tfCard: tid => { const k = call.chatKey || (call.participants[0] || {}).id; return (chats[k] || []).find(m => m.kind === "transfer" && m.tid === tid) || null; },
     onRespondTransfer: (tid, ok) => {

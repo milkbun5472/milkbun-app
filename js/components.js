@@ -12126,6 +12126,8 @@ function CallScreen({
   bgBusy,
   onShot,
   onSend: sendCall,
+  onReroll,
+  onEditLine,
   onHangup,
   tfCard,
   onRespondTransfer,
@@ -12819,6 +12821,8 @@ function CallScreen({
       style: Object.assign({ fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", color: onPhoto ? "rgba(255,255,255,0.85)" : "rgba(255,255,255,0.5)", marginBottom: 1, marginLeft: 2 }, litText)
     }, m.senderName), h("div", { className: "flex items-center gap-1.5", style: { maxWidth: "88%" } }, h("div", {
       "data-wk": "callbubble", "data-me": isU ? "1" : "0",
+      // 点一下能改这句（她 2026-10-25「编辑也可以弄」）：只改记录里这句，下一轮TA读到的就是改过的
+      onClick: onEditLine && !sending ? () => requestAppPrompt("改这句", isU ? "改你说的这句。" : "改 TA 说的这句，下一轮 TA 读到的就是改过的。", String(m.content || ""), v => { const t2 = String(v || "").trim(); if (t2 && t2 !== m.content) onEditLine(messageKey, t2); }, "改好了", { multiline: true }) : undefined,
       style: {
         maxWidth: canT ? "100%" : "78vw",
         padding: "7px 12px",
@@ -12850,6 +12854,10 @@ function CallScreen({
     // 说完了在等TA开口:跟主聊天一样给一个【气泡】,长在TA下一句会出现的地方(她 2026-09-02)。
     // 原来这儿只有一行贴着输入栏的灰字「X 正在说…」——离TA的话隔着大半屏，
     // 而且它取的 sending 是【聊天那条 lane】的，通话跑的是 "call" lane，那行灰字其实从来没亮过。
+    // 重说这一轮（她 2026-10-25「做吧」）：TA刚说完、还没接着聊时，最后那一轮不满意就让TA重说；前面的不动
+    !bye && !sending && onReroll && list.length && list[list.length - 1].role !== "user" && !list[list.length - 1].tid ? h("div", { key: "reroll", className: "flex justify-start" },
+      h("button", { "data-wk": "callreroll", onClick: () => { stopCallAudio(); const cut = onReroll(); if (typeof cut === "number") lv.current.played = cut; },
+        className: "active:opacity-60", style: { minHeight: 32, padding: "4px 12px", borderRadius: 999, border: "1px solid rgba(255,255,255,0.35)", background: "transparent", color: "rgba(255,255,255,0.75)", fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))" } }, "↻ 重说这一轮")) : null,
     bye && h("div", { key: "bye", className: "flex justify-center py-1" },
       h("div", { style: Object.assign({ fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: onPhoto ? "rgba(255,255,255,0.88)" : "rgba(255,255,255,0.55)" }, litText) },
         (bye.name || "对方") + "挂断了")),
