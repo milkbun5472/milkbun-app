@@ -82,5 +82,5 @@ test("这一档要花几次调用，必须自己冒出来", () => {
 });
 
 test("带工具时不走流式——tool_calls 在 SSE 里是碎的，拼错就是调错工具", () => {
-  assert.match(eng, /const wantStream = !!\(opts && opts\.stream\) && !\(_mcpTools && _mcpTools\.length\);/, "带工具还走流式");
+  assert.match(eng, /const wantStream = !noStream && !!\(opts && opts\.stream\) && !\(_mcpTools && _mcpTools\.length\)/, "带工具还走流式");
 });

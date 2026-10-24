@@ -7097,6 +7097,20 @@ function ApiConfig({
       temperature: v
     })
   })),
+  // 流式（她 2026-10-24）：默认自动——长的走流式、短的一次给完，流式被这条线路拒了会自己退回并记住；
+  //   真碰上某个中转站流式有毛病，在这儿手动关掉
+  h(LineField, { zh: "流式", en: "Stream" },
+    h("div", { "data-wk": "apistream", className: "flex gap-2" }, [["", "自动"], ["off", "关掉"]].map(([v, zh]) => {
+      const on = (cur.streamMode || "") === v;
+      return h("button", { key: zh, "data-on": on ? "1" : "0", onClick: () => upd({ streamMode: v || undefined }), className: "active:opacity-70",
+        style: { minHeight: 36, padding: "0 16px", borderRadius: 999, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: on ? t.bg2 : t.ink, background: on ? t.ink : "transparent", border: "1px solid " + (on ? t.ink : t.line) } }, zh);
+    })),
+    h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.6, marginTop: 6 } },
+      cur.streamMode === "off" ? "这条线路一律一次给完。线下这种一写好几分钟的，中转站等太久可能会掐断。"
+        : "自动：一写一大段的走流式，短的一次给完。流式被这条线路拒了会自己改成一次给完、再发一遍，并记住以后不再试。"),
+    cur.streamMode !== "off" && typeof streamLearned === "function" && streamLearned(cur) ? h("div", { "data-wk": "apistreamlearned", className: "flex items-center gap-2", style: { marginTop: 6 } },
+      h("span", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.accent, flex: 1 } }, "这个模型上次流式被拒了，现在一次给完"),
+      h("button", { onClick: () => { streamForget(cur); upd({}); toast && toast("下次会再试一次流式"); }, className: "shrink-0 active:opacity-60", style: { minHeight: 32, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.ink, textDecoration: "underline" } }, "再试流式")) : null),
   /*#__PURE__*/React.createElement("div", {
     className: "flex gap-3 mt-8"
   }, /*#__PURE__*/React.createElement("button", {

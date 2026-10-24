@@ -4,8 +4,16 @@
 // 这条线路发不发得出流式（v55.45，只读判断，不碰任何方言分支的实现）。
 // 只有 OpenAI 方言的分支实现了 SSE；Anthropic 那条是言秋的路，不动。
 // 云端密钥代理（proxyRef）走 llmProxyFetch，会把响应整个缓冲下来，流式没意义。
+// 流式关没关（她 2026-10-24「为啥不改可以选」→ 自动退回＋每条线路能手动关）：
+//   线路上 streamMode:"off" 是她手动关的；x_noStream 记着自动试出来「这条线路＋这个模型流式不行」的那几条
+function streamKey(p) { return String((p && p.baseUrl) || "").trim().replace(/\/+$/, "") + "|" + String((p && p.model) || "").trim(); }
+function streamLearned(p) { try { const a = typeof loadJSON === "function" ? loadJSON("x_noStream", []) : []; return Array.isArray(a) && a.indexOf(streamKey(p)) >= 0; } catch (e) { return false; } }
+function streamOffFor(p) { return !!(p && (p.streamMode === "off" || streamLearned(p))); }
+function streamLearnOff(p) { try { const a = (typeof loadJSON === "function" && loadJSON("x_noStream", [])) || []; const k = streamKey(p); if (Array.isArray(a) && a.indexOf(k) < 0 && typeof saveJSON === "function") saveJSON("x_noStream", a.concat([k]).slice(-50)); } catch (e) {} }
+function streamForget(p) { try { const a = (typeof loadJSON === "function" && loadJSON("x_noStream", [])) || []; if (typeof saveJSON === "function") saveJSON("x_noStream", (Array.isArray(a) ? a : []).filter(k => k !== streamKey(p))); } catch (e) {} }
 function routeCanStream(p) {
   if (!p || typeof p !== "object") return false;
+  if (typeof streamOffFor === "function" && streamOffFor(p)) return false;
   // 云端密钥保险柜（llm-proxy）v55.64 起流式透传，不再整个缓冲，所以它也能流了。
   // ⚠️这要求 supabase/functions/llm-proxy 已经重新部署过；没部署的话最坏情况是
   // 跟以前一样攒到最后一起发，不会更糟。
@@ -1245,7 +1253,8 @@ async function callAIOnce(p, system, messages, opts) {
   }
   const root = /\/v\d+$/i.test(base) ? base : base + "/v1";   // 智谱 /api/paas/v4、豆包 /api/v3 这种自带版本号的不再补 /v1
   // openai 兼容：同样兜底——推理类模型（o系/部分中转）不吃 temperature，报错就去掉重试一次
-  const postOpenAI = async withTemp => {
+  let _streamTried = false, _streamGot = false;
+  const postOpenAI = async (withTemp, noStream) => {
     // 言秋订阅桥用标准 OpenAI SSE。即使 CLI 还在思考，桥也会先发 heartbeat，
     // 避免 Cloudflare/网关把“100 秒没有首字节”误杀成 Load failed。
     // 保险柜（viaProxy）v55.64 起流式透传，不再一刀切禁流式。
@@ -1253,7 +1262,8 @@ async function callAIOnce(p, system, messages, opts) {
     // 带工具时【强制不走流式】：tool_calls 在 SSE 里是一片片的 delta，要自己按 index
     // 拼函数名和参数，拼错就是调错工具。这条路上只有工程师那条线和通话在用流式，
     // 而那两处本来就不发工具——不值当为它去啃一套增量拼装。
-    const wantStream = !!(opts && opts.stream) && !(_mcpTools && _mcpTools.length);
+    const wantStream = !noStream && !!(opts && opts.stream) && !(_mcpTools && _mcpTools.length) && !(typeof streamOffFor === "function" && streamOffFor(p));
+    if (wantStream) _streamTried = true;
     const body = { model, max_tokens: maxTokens, messages: [{ role: "system", content: system }, ...wireMessages], ...(wantStream ? { stream: true, stream_options: { include_usage: true } } : {}) };
     if (withTemp) body.temperature = temp;
     if (_mcpTools && _mcpTools.length) body.tools = _mcpTools.map(t => ({ type: "function", function: { name: t.name, description: t.description, parameters: t.input_schema } }));
@@ -1277,7 +1287,7 @@ async function callAIOnce(p, system, messages, opts) {
         const choice = event.choices && event.choices[0];
         if (choice && choice.finish_reason) { finishReason = choice.finish_reason; if (!finishAt) finishAt = Date.now(); }
         if (choice && choice.delta && choice.delta.content) {
-          text += choice.delta.content;
+          text += choice.delta.content; _streamGot = true;
           // v56.26 GPT-Live：调用方给了 onDelta 就边收边喂（通话逐句 TTS 抢跑用）；回调炸了不拦流
           try { if (opts && typeof opts.onDelta === "function") opts.onDelta(choice.delta.content, text); } catch (e) {}
         }
@@ -1322,10 +1332,25 @@ async function callAIOnce(p, system, messages, opts) {
   };
   const _ntKey2 = base + "|" + model;
   let _skipT2 = false; try { _skipT2 = (JSON.parse(localStorage.getItem("x_noTemp") || "[]") || []).indexOf(_ntKey2) >= 0; } catch (e) {}
-  let d = await postOpenAI(!_skipT2);
+  // 流式一发就被线路拒了（还没开始吐字）：退回一次给完再发一遍；这一遍成了，就记住这条线路＋模型以后不走流式。
+  //   密钥、额度、限流、模型名这些跟流式无关的错不重发；半路断掉的（静默、超时）也不重发——那种可能已经扣了钱。
+  const NOT_STREAM_ERR = /\b(401|402|403|404|429)\b|unauthori|invalid.{0,12}(key|token)|api.?key|quota|insufficient|余额|额度|rate.?limit|too many|model.{0,24}(not.{0,6}(found|exist|support)|不存在)|不存在的模型|无权/i;
+  const streamRefused = msg => _streamTried && !_streamGot && (/stream|流式|sse|event.?stream/i.test(msg) || !NOT_STREAM_ERR.test(msg));
+  let d, _useT = !_skipT2;
+  try { d = await postOpenAI(_useT); }
+  catch (e) {
+    const m = String((e && e.message) || "");
+    if (!_streamTried || !/^线路回(了个空回复|的不是正常回复)/.test(m)) throw e;
+    d = { error: { message: m } };
+  }
   if (!_skipT2 && d.error && /temperature/i.test(d.error.message || "")) {
     try { const a = JSON.parse(localStorage.getItem("x_noTemp") || "[]") || []; if (a.indexOf(_ntKey2) < 0) { a.push(_ntKey2); localStorage.setItem("x_noTemp", JSON.stringify(a)); } } catch (e) {}
+    _useT = false;
     d = await postOpenAI(false);
+  }
+  if (d.error && streamRefused(String(d.error.message || d.error.msg || d.error || ""))) {
+    const d2 = await postOpenAI(_useT, true);
+    if (!d2.error) { streamLearnOff(p); d = d2; }
   }
   if (d.error) throw new Error(d.error.message || d.error.msg || (typeof d.error === "string" ? d.error : "站子报错：" + JSON.stringify(d.error).slice(0, 300)));
   // 工具回合（openai 方言）：结构跟 anthropic 那边一样，只是字段名换一套——
