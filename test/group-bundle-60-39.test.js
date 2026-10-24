@@ -38,8 +38,11 @@ const groupBans = GB.layers;
 // 古代那位照样不该懂。这一红正是这份把手要的信号（加层就得有人回来认一次）。
 // v2026-10-11 最前面多一层【总纲·人设第一】：量下来禁令压过人设，总纲改成人设优先。
 const CORE = ["<PERSONA_FIRST>", "<ANTI_CLICHE>", "<CB>", "<FOREIGN_TONGUE_RULE>", "<WORLDBOOK_RULE>", "<CHARCARD_RULE>", "<GROUP_IN_CHARACTER>",
-  "<GROUP_USER_IS_PRESENT>", "<CONDESCENDING_TONE_BAN>", "<INTIMATE_CHAT_ANTI_CLICHE>", "<REGISTER_FOLLOWS_SCENE>",
-  "<PERSONA_REGISTER_ANCHOR>", "<STOCK_REPLY_BAN>", "<OVERREACH_BAN>", "<EMPTY_COMFORT_BAN>",
+  "<GROUP_USER_IS_PRESENT>", "<INTIMATE_CHAT_ANTI_CLICHE>", "<REGISTER_FOLLOWS_SCENE>",
+  "<PERSONA_REGISTER_ANCHOR>",
+  // 2026-10-26 talkBans 合并：说话那一摞整块从 talkBans() 取，顺序就是那张清单的顺序；
+  //   OVERREACH_BAN（＝STOCK_REPLY_BAN 同一个字符串）不再另 push，所以这儿也不再单列。
+  "<CONDESCENDING_TONE_BAN>", "<STOCK_REPLY_BAN>", "<EMPTY_COMFORT_BAN>",
   // v71.17 关系上的高位那一条：跟 SEE_THROUGH（认知上的高位）同进同出
   "<SEE_THROUGH_BAN>", "<LEVERAGE_BAN>", "<USER_BODY_BAN>", "<CANNED_PHRASE_BAN>", "<RP>"];
 

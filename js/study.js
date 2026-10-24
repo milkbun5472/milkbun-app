@@ -4374,7 +4374,7 @@
       const cx = ctxFor(c);
       parts.push("【" + c.name + "】" + (typeof groupPersonaText === "function" ? groupPersonaText(c.persona, budget) : String(c.persona || "（暂无设定）"))
         + (typeof grownSelfBlock === "function" && cx.grown ? "\n" + grownSelfBlock(cx.grown, cx.grownEvolve) : ""));
-      voiceGuards([cx.directives], [{ sr: cx.studyRules, name: chars.length > 1 ? c.name : "" }]).forEach(function (x) { parts.push(x); });
+      voiceGuards([cx.directives], [{ sr: cx.studyRules, name: chars.length > 1 ? c.name : "" }], chars.length > 1).forEach(function (x) { parts.push(x); });
     });
     if (chars.length > 1) {
       if (typeof sameNameNote === "function") { const sn = sameNameNote(chars); if (sn) parts.push(sn); }
@@ -4625,9 +4625,10 @@
   // 跟单聊同一份的两块（群里 2026-10-18：「一起学里开始油腻了」）：
   //   「别拿现成的说法替你开口」——一起学原来没有，一对一辅导＋恋人就掉进「男友家教」那套现成腔；
   //   她在聊天里出戏立的长期准则——原来也没带，所以在聊天里说了「别油腻」到这儿不管用。
-  function voiceGuards(dirLists, studyList) {
+  function voiceGuards(dirLists, studyList, have) {
     const out = [];
-    if (typeof CANNED_PHRASE_BAN !== "undefined") out.push(CANNED_PHRASE_BAN);
+    // 那一摞从 engine 那张唯一的清单取（原来只带了「现成说法」一条）；群辅导那条路 groupBans 已经带了，调用处传 have 跳过
+    if (typeof talkBans === "function" && !have) talkBans().forEach(function (x) { out.push(x); });
     const dirs = [].concat.apply([], (dirLists || []).map(function (l) { return Array.isArray(l) ? l : []; }))
       .map(function (d) { return (typeof d === "string" ? d : d && d.text) || ""; }).filter(function (x) { return x.trim(); });
     if (dirs.length && typeof directivesBlock === "function") out.push(directivesBlock(dirs));

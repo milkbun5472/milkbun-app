@@ -29,7 +29,9 @@ test("三条没有场景状态机的通道都要挂上「语域跟着场面走�
   // ⚠️只钉【先后】，不钉【紧挨着】——上面那句「别冻死相邻」这次栽在自己手里：
   // v60.45 情欲反八股插进了 CONDESCENDING 和 REGISTER 中间，这一层是该加的，
   // 断言却因为「必须紧挨着」红了。冻的是长相不是行为。
-  assert.ok(seq.indexOf("<CONDESCENDING_TONE_BAN>") < seq.indexOf("<REGISTER_FOLLOWS_SCENE>"));
+  // 2026-10-26 talkBans 合并：CONDESCENDING 跟着那一摞（talkBans）走，排到了语域两条之后；
+  //   要证的是它还在、语域两条先后不乱，而不是它非得排在最前。
+  assert.ok(seq.indexOf("<CONDESCENDING_TONE_BAN>") > 0, "居高临下那条掉了");
   assert.ok(seq.indexOf("<REGISTER_FOLLOWS_SCENE>") < seq.indexOf("<PERSONA_REGISTER_ANCHOR>"));
 });
 

@@ -12,7 +12,11 @@ const fs = require("node:fs");
 const path = require("node:path");
 const eng = fs.readFileSync(path.join(__dirname, "..", "js", "engine.js"), "utf8");
 const i = eng.indexOf("function groupBans(opts) {");
-const body = eng.slice(i, eng.indexOf("\n}", i) + 2);
+// 2026-10-26 talkBans 合并：那一摞改从 talkBans() 唯一一张清单取，所以把它的源码一起放进沙箱，
+//   常量名也从两份函数体里一起认（层名照旧是 <CONST_NAME>）。
+const t = eng.indexOf("function talkBans(o) {");
+const talk = t >= 0 ? eng.slice(t, eng.indexOf("\n}", t) + 2) : "";
+const body = talk + "\n" + eng.slice(i, eng.indexOf("\n}", i) + 2);
 // 函数体里所有裸的大写常量引用（ContentBoundaries / ReplyPacing 另外给桩）
 const NAMES = [...new Set(body.match(/\b[A-Z][A-Z0-9_]{3,}\b/g) || [])];
 const fn = new Function(...NAMES, "ContentBoundaries", "ReplyPacing", body + "\nreturn groupBans;")(

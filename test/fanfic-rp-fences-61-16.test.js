@@ -47,13 +47,18 @@ test("穿书补上了别处一条条 push 进去的那几条", () => {
   const nc = eng.slice(eng.indexOf("function narrativeCore(opts) {"), eng.indexOf("\n// 她 2026-08-28 发来一段单人线下的心声历史"));
   assert.match(nc, /parts\.push\(ContentBoundaries\.prompt\)/, "内容边界从 narrativeCore 里掉了，穿书就跟着没有");
   // 这几条以前一条都没有
-  [["CONDESCENDING_TONE_BAN", "居高临下的训话腔"],
-   ["REGISTER_FOLLOWS_SCENE", "语域跟场面走"], ["STOCK_REPLY_BAN", "标准男友三件套"],
+  // 2026-10-26 talkBans 合并：居高临下／三件套那一摞改从 talkBans() 取（不带 faceToFace：穿进去是隔着屏幕聊天）
+  const tb = eng.slice(eng.indexOf("function talkBans(o)"), eng.indexOf("function groupBans(opts)"));
+  [["CONDESCENDING_TONE_BAN", "居高临下的训话腔"], ["STOCK_REPLY_BAN", "标准男友三件套"]].forEach(([k, zh]) =>
+    assert.ok(tb.indexOf(k) > 0, "talkBans 清单里没有「" + zh + "」（" + k + "）"));
+  assert.match(seg, /talkBans\(\)\.forEach\(x => parts\.push\(x\)\)/, "穿书没接上 talkBans");
+  [["REGISTER_FOLLOWS_SCENE", "语域跟场面走"],
    ["ECHO_QUESTION_BAN", "回声式反问"], ["ReplyPacing.reading()", "读懂这句话在做什么"]].forEach(([k, zh]) =>
     assert.ok(seg.indexOf(k) > 0, "穿书还是没吃到「" + zh + "」（" + k + "）"));
   // 全都要挡一道 typeof：这几个常量住在 engine.js，加载顺序变了不许整页白屏
-  ["CONDESCENDING_TONE_BAN", "REGISTER_FOLLOWS_SCENE", "STOCK_REPLY_BAN", "ECHO_QUESTION_BAN", "ReplyPacing"].forEach(k =>
+  ["REGISTER_FOLLOWS_SCENE", "ECHO_QUESTION_BAN", "ReplyPacing"].forEach(k =>
     assert.ok(seg.indexOf('typeof ' + k + ' !== "undefined"') > 0, k + " 没挡 typeof"));
+  assert.ok(seg.indexOf('typeof talkBans === "function"') > 0, "talkBans 没挡 typeof");
 });
 
 test("那张名单上补了穿书，不然下一个人照样漏", () => {

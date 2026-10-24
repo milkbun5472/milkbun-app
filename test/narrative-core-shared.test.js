@@ -17,7 +17,9 @@ const engine = rd("js/engine.js"), theater = rd("js/theater.js"), fanfic = (rd("
 // 把 narrativeCore 抠出来真跑一遍，别只验源码里有这几个字
 const core = (() => {
   const i = engine.indexOf("function narrativeCore(opts) {");
-  const body = engine.slice(i, engine.indexOf("\n}", i) + 2);
+  // 2026-10-26 talkBans 合并：narrativeCore 调 talkBans()，把它的源码一起放进沙箱
+  const t = engine.indexOf("function talkBans(o) {");
+  const body = engine.slice(t, engine.indexOf("\n}", t) + 2) + "\n" + engine.slice(i, engine.indexOf("\n}", i) + 2);
   // v60.45：常量名从函数体里认出来，别再手写一张表——engine 里给 narrativeCore
   // 新加一层，这份脚手架就会 ReferenceError（同一层写在两处、第二处没跟上，
   // 这个病连测试自己都得过一次）。
