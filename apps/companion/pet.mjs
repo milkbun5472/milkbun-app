@@ -3,14 +3,14 @@
 // ?mode=float 是悬浮小窗：点一下就请外壳打开陪伴。
 // 小人本身、换装、表情、体型全部走庭院那一份 traveler.mjs，不另写一套（one-public-mechanism）。
 import * as T from 'three';
-import {makeReactions} from './reactions.mjs?v=fg-16d3787c96bbee5e';
-import {emotionCameraFrame} from '../fairy-garden/emotion-ground.mjs?v=fg-16d3787c96bbee5e';
-import {targetAt,highFiveHit} from './touch-targets.mjs?v=fg-16d3787c96bbee5e';
-import {MOODS,DUR,moodBase,pulse,accent,chooseAction} from './motion.mjs?v=fg-16d3787c96bbee5e';
-import {GLTFLoader} from '../fairy-garden/vendor/GLTFLoader.js?v=fg-16d3787c96bbee5e';
-import {DRACOLoader} from '../fairy-garden/vendor/DRACOLoader.js?v=fg-16d3787c96bbee5e';
-import {createTraveler,setFaceBase} from '../fairy-garden/traveler.mjs?v=fg-16d3787c96bbee5e';
-import {lookForTa,mergeLook,dyesOf,outfitId,outfitColors,hairId,HAIR_MODES} from '../fairy-garden/wardrobe.mjs?v=fg-16d3787c96bbee5e';
+import {makeReactions} from './reactions.mjs?v=fg-5282116726ee3448';
+import {emotionCameraFrame} from '../fairy-garden/emotion-ground.mjs?v=fg-5282116726ee3448';
+import {targetAt,highFiveHit} from './touch-targets.mjs?v=fg-5282116726ee3448';
+import {MOODS,DUR,WEATHER_ACTIONS,moodBase,pulse,accent,chooseAction} from './motion.mjs?v=fg-5282116726ee3448';
+import {GLTFLoader} from '../fairy-garden/vendor/GLTFLoader.js?v=fg-5282116726ee3448';
+import {DRACOLoader} from '../fairy-garden/vendor/DRACOLoader.js?v=fg-5282116726ee3448';
+import {createTraveler,setFaceBase} from '../fairy-garden/traveler.mjs?v=fg-5282116726ee3448';
+import {lookForTa,mergeLook,dyesOf,outfitId,outfitColors,hairId,HAIR_MODES} from '../fairy-garden/wardrobe.mjs?v=fg-5282116726ee3448';
 const mode=new URLSearchParams(location.search).get('mode')||'full',reactions=makeReactions();
 // 悬浮小窗用庭院那份 1K 的小人和脸：屏幕上只有指甲盖大，高清版白占内存（整页时手机会被挤得重载）
 if(mode!=='float')setFaceBase(new URL('./faces/',import.meta.url).href);
@@ -55,8 +55,8 @@ addEventListener('message',e=>{if(e.data&&e.data.type==='pet-look')apply(e.data)
 // 聊天里TA做了什么（她 2026-10-25「做吧」）：那边认出动作，这边照着做一下
 function playAct(k){if(!k||!Number.isFinite(DUR[k])||held)return;if(k==='sleep'){sleeping=true;act=null;return;}if(sleeping)sleeping=false;act={kind:k,start:clock.getElapsedTime(),source:'chat'};}
 // 外壳告诉他你在哪一页、有没有在放歌、多久没碰手机（她 2026-09-26：点他有反应／跟着时间／看你在干嘛）。
-let ctx={screen:'',music:false,idle:false,typing:false,rain:false,returnSeq:0},sleeping=false;
-function setCtx(m){ctx={screen:String(m.screen||''),music:!!m.music,idle:!!m.idle,typing:!!m.typing,rain:!!m.rain,returnSeq:Number(m.returnSeq)||0};reactions.observe(ctx,pet?clock.getElapsedTime():0);}
+let ctx={screen:'',music:false,idle:false,typing:false,weather:null,returnSeq:0},sleeping=false;
+function setCtx(m){ctx={screen:String(m.screen||''),music:!!m.music,idle:!!m.idle,typing:!!m.typing,weather:m.weather||null,returnSeq:Number(m.returnSeq)||0};reactions.observe(ctx,pet?clock.getElapsedTime():0);}
 // 两种都用庭院那一份小人：高清整包（8MB、上百 MB 解码）在她手机上一点进来就把 app 挤到重启（2026-09-26）。
 // 清晰靠整页的 2K 脸和按屏幕像素比渲染。
 // 小人 doll.glb 约 1.4MB（只有身体和头发），身上那套衣服另下 0.6–1.1MB（outfits/，按需加载，她 2026-09-26 定）。第一次进来要真下一遍：
@@ -64,7 +64,7 @@ function setCtx(m){ctx={screen:String(m.screen||''),music:!!m.music,idle:!!m.idl
 // ⚠️这行原来是模块顶层的裸 await：网抖一下就整个 iframe 卡住、pet-ready 永不发，
 //   外壳那句「小人还在来的路上…」会永远挂着（2026-09-26 发公共版前查出来的）。
 try{
- const gltf=await loader.loadAsync('../fairy-garden/doll.glb?v=fg-16d3787c96bbee5e',
+ const gltf=await loader.loadAsync('../fairy-garden/doll.glb?v=fg-5282116726ee3448',
    e=>{if(e&&e.total)parent.postMessage({type:'pet-progress',pct:Math.min(99,Math.round(e.loaded/e.total*100))},'*');});
  pet=createTraveler(gltf.scene,true,pending?full():{});sc.add(pet.root);if(pending)apply(pending);   // 样貌先到了就直接照它建：头发按需下载，别先白下一款默认的
  parent.postMessage({type:'pet-ready'},'*');
@@ -127,14 +127,15 @@ function frame(){const t=clock.getElapsedTime();
  draw(t);}
 function draw(t){
  const face=(cur.look&&cur.look.face)||'default',M=MOODS[face]||MOODS.default;
- const reaction=reactions.take(t,{busy:!!act||['lie','prone'].includes(pet.root.userData.emotion),ground:['lie','prone'].includes(pet.root.userData.emotion),held:!!held,sleeping,hidden:document.hidden,hour:new Date().getHours()});
+ const reaction=reactions.take(t,{busy:!!act||['lie','prone'].includes(pet.root.userData.emotion),ground:['lie','prone'].includes(pet.root.userData.emotion),held:!!held,sleeping,hidden:document.hidden,hour:new Date().getHours(),weatherUmbrella:act?.source==='weather'&&['emotion-catchrain','emotion-umbrella'].includes(act.kind)&&(t-act.start)/DUR[act.kind]>=.18&&(t-act.start)/DUR[act.kind]<=.76});
  if(reaction==='notice'){noticeAt=t;if(sleeping)wake();}
  else if(reaction==='welcome'){if(sleeping)wake();else act={kind:'wave',start:t,source:'screen'};}
+ else if(reaction&&(Object.hasOwn(WEATHER_ACTIONS,reaction)||reaction==='fan'))act={kind:'emotion-'+reaction,start:t,source:'weather'};
  else if(reaction)act={kind:({peek:'emotion-peek',rubeyes:'emotion-rubeyes',umbrella:'emotion-umbrella'})[reaction]||reaction,start:t,source:'screen'};
  // 很久没碰手机就趴下睡；深夜隔一阵打个哈欠；早上第一次见面伸个懒腰
  if(ctx.idle&&!sleeping&&!held&&act?.source!=='chat'){sleeping=true;act=null;}
  if(!greeted&&t>1.5){greeted=true;const h=new Date().getHours();if(h>=6&&h<10&&!act)act={kind:'stretch',start:t};}
- if(face!==curMood){curMood=face;if(act&&!['chat','screen'].includes(act.source))act=null;nextAt=t+1.2;}
+ if(face!==curMood){curMood=face;if(act&&!['chat','screen','weather'].includes(act.source))act=null;nextAt=t+1.2;}
  if(!act&&!sleeping&&!held&&t>nextAt){const pool=QUIET.includes(ctx.screen)?['read','sit','tea','emotion-chin']:M.acts;const k=pickForMood(face,pool);act={kind:k,start:t};}
  let emotion=null,gesture='rest',progress=0,moving=false,seated=false,dy=0,dtilt=0,dyaw=0;
  if(act){progress=(t-act.start)/DUR[act.kind];if(progress>=1){act=null;nextAt=t+M.every*(.7+Math.random()*.6);progress=0;}

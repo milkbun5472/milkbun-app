@@ -8296,20 +8296,34 @@ function weatherCacheKey(lat, lng) { return Number(lat).toFixed(1) + "," + Numbe
 function weatherCached(lat, lng) {
   try { const c = JSON.parse(localStorage.getItem("wx_cache") || "{}"); const hit = c[weatherCacheKey(lat, lng)]; return hit && hit.day === new Date().toDateString() ? hit : null; } catch (e) { return null; }
 }
-async function weatherFor(lat, lng) {
-  if (typeof lat !== "number" || typeof lng !== "number") return null;
-  const hit = weatherCached(lat, lng);
-  if (hit && Date.now() - hit.ts < 2 * 3600000) return hit; // 2 小时内不重取
-  const ctrl = new AbortController(); const to = setTimeout(() => ctrl.abort(), 10000);
-  let d;
-  try {
-    const r = await fetch("https://api.open-meteo.com/v1/forecast?latitude=" + lat + "&longitude=" + lng + "&current=temperature_2m,weather_code&daily=temperature_2m_max,temperature_2m_min,weather_code,precipitation_probability_max&timezone=auto&forecast_days=1", { signal: ctrl.signal });
-    d = await r.json();
-  } catch (e) { return hit || null; } finally { clearTimeout(to); }
-  if (!d || !d.current) return hit || null;
-  const out = { day: new Date().toDateString(), ts: Date.now(), t: Math.round(d.current.temperature_2m), code: d.current.weather_code, hi: Math.round(d.daily.temperature_2m_max[0]), lo: Math.round(d.daily.temperature_2m_min[0]), dayCode: d.daily.weather_code[0], pp: d.daily.precipitation_probability_max && d.daily.precipitation_probability_max[0] != null ? Math.round(d.daily.precipitation_probability_max[0]) : null };
-  try { const c = JSON.parse(localStorage.getItem("wx_cache") || "{}"); c[weatherCacheKey(lat, lng)] = out; const ks = Object.keys(c); if (ks.length > 24) ks.slice(0, ks.length - 24).forEach(k => delete c[k]); localStorage.setItem("wx_cache", JSON.stringify(c)); } catch (e) {}
-  return out;
+// The selected weather view can request a shorter age; every caller shares one in-flight request.
+const weatherRequests = new Map(), weatherRetryAt = new Map();
+async function weatherFor(lat, lng, options = {}) {
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+  const key = weatherCacheKey(lat, lng), hit = weatherCached(lat, lng), now = Date.now();
+  const maxAge = Number.isFinite(options.maxAge) ? Math.max(60000, options.maxAge) : 2 * 3600000;
+  if (hit && now >= hit.ts && now - hit.ts < maxAge) return hit;
+  if (weatherRequests.has(key)) return weatherRequests.get(key);
+  if (now < (weatherRetryAt.get(key) || 0)) return hit || null;
+  const request = (async () => {
+    const ctrl = new AbortController(), to = setTimeout(() => ctrl.abort(), 10000);
+    try {
+      const r = await fetch("https://api.open-meteo.com/v1/forecast?latitude=" + lat + "&longitude=" + lng + "&current=temperature_2m,weather_code,is_day,wind_speed_10m&wind_speed_unit=kmh&daily=temperature_2m_max,temperature_2m_min,weather_code,precipitation_probability_max&timezone=auto&forecast_days=1", { signal: ctrl.signal });
+      if (!r.ok) throw new Error("weather " + r.status);
+      const d = await r.json(), c = d && d.current;
+      if (!c || !Number.isFinite(c.temperature_2m) || !Number.isFinite(c.weather_code)) throw new Error("weather unavailable");
+      const daily = d.daily || {}, first = k => Number.isFinite(daily[k]?.[0]) ? Math.round(daily[k][0]) : null;
+      const out = { day: new Date().toDateString(), ts: Date.now(), t: Math.round(c.temperature_2m), code: c.weather_code,
+        isDay: c.is_day === 0 || c.is_day === 1 ? !!c.is_day : null,
+        windSpeed: Number.isFinite(c.wind_speed_10m) && c.wind_speed_10m >= 0 ? c.wind_speed_10m : null,
+        hi: first("temperature_2m_max"), lo: first("temperature_2m_min"), dayCode: first("weather_code"), pp: first("precipitation_probability_max") };
+      try { const cache = JSON.parse(localStorage.getItem("wx_cache") || "{}"); cache[key] = out; const ks = Object.keys(cache); if (ks.length > 24) ks.slice(0, ks.length - 24).forEach(k => delete cache[k]); localStorage.setItem("wx_cache", JSON.stringify(cache)); } catch (e) {}
+      weatherRetryAt.delete(key);return out;
+    } catch (e) { weatherRetryAt.set(key, Date.now() + 60000);return hit || null; }
+    finally { clearTimeout(to); }
+  })();
+  weatherRequests.set(key, request);
+  try { return await request; } finally { weatherRequests.delete(key); }
 }
 // 「现在」到底是什么天（群友 2026-09-30：「为啥地图老是说我这边下雨」）。
 // ⚠️Open-Meteo 的 daily weather_code 是【这一整天里最坏的那种】：一天里飘过一阵毛毛雨，整天都记成雨。

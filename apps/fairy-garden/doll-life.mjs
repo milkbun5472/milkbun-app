@@ -1,8 +1,8 @@
-import {makeRecipeFood,disposeFood} from './day/recipe-food.mjs?v=fg-16d3787c96bbee5e';
+import {makeRecipeFood,disposeFood} from './day/recipe-food.mjs?v=fg-5282116726ee3448';
 import * as T from 'three';
-import {handSurfaceBounds} from './hand-surface.mjs?v=fg-16d3787c96bbee5e';
-import {makeDreamFlower} from './keepsake-view.mjs?v=fg-16d3787c96bbee5e';
-import {pointToolAt} from './reach-hand.mjs?v=fg-16d3787c96bbee5e';
+import {handSurfaceBounds} from './hand-surface.mjs?v=fg-5282116726ee3448';
+import {makeDreamFlower} from './keepsake-view.mjs?v=fg-5282116726ee3448';
+import {pointToolAt} from './reach-hand.mjs?v=fg-5282116726ee3448';
 export const actionDuration=job=>job?.kind==='eat'?3.4:job?.kind==='well'?2.8:job?.kind==='lamp'?3.2:job?.kind==='wave'?3.4:job?.kind==='stretch'?3.8:['plant','dreamSow'].includes(job?.kind)?4.2:job?.kind==='gift'?3.2:job?.kind==='garden'||job?.kind==='dreamHarvest'?3.6:job?.kind==='brew'?2.5:job?.kind==='rest'?2:job?.kind==='travel'?.5:1.5;
 export function actionGesture(job){if(!job)return 'rest';if(job.kind==='garden')return job.intent==='harvest'?'harvest':'water';if(job.kind==='dreamHarvest')return 'harvest';if(['plant','dreamSow'].includes(job.kind))return 'plant';if(['wave','stretch'].includes(job.kind))return job.kind;if(job.kind==='gather')return 'gather';if(job.kind==='well')return 'draw';if(job.kind==='lamp')return 'lamp';if(job.kind==='seed')return 'hold';if(job.kind==='eat')return 'eat';return 'rest';}
 export function makeHeldFlower(){const o=makeDreamFlower();o.scale.setScalar(.36);o.name='HeldMoonFlower';return o;}
