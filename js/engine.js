@@ -3393,6 +3393,12 @@ function narrativeCore(opts) {
     PERSONA_FIRST, ANTI_CLICHE, CHARCARD_RULE, OFFLINE_NARRATIVE_RUNTIME
   ];
   if (opts.bans !== false) parts.push(NARRATIVE_ANTI_CLICHE);
+  // 线上那一摞（居高临下、她的话不是派活、装比她懂她、我在将就你、替她编身体、现成说法）一起进来（她 2026-10-26
+  //   「线下这堆禁令别的场景都能用吧，擂台梦境同人文」）：原来只有 buildBundle／groupBans 带，
+  //   梦境、小剧场、跑团、穿书走这一份，一条都没有。「说线上做得到的话」那条是隔着屏幕的，面对面的戏不发
+  if (opts.bans !== false) [typeof CONDESCENDING_TONE_BAN !== "undefined" && CONDESCENDING_TONE_BAN, typeof STOCK_REPLY_BAN !== "undefined" && STOCK_REPLY_BAN,
+    typeof SEE_THROUGH_BAN !== "undefined" && SEE_THROUGH_BAN, typeof LEVERAGE_BAN !== "undefined" && LEVERAGE_BAN,
+    typeof USER_BODY_BAN !== "undefined" && USER_BODY_BAN, typeof CANNED_PHRASE_BAN !== "undefined" && CANNED_PHRASE_BAN].filter(Boolean).forEach(x => parts.push(x));
   if (opts.intimate) { parts.push(INTIMATE_ANTI_CLICHE); parts.push(INTIMATE_CHAT_ANTI_CLICHE); }
   if (opts.register !== false) parts.push(PERSONA_REGISTER_ANCHOR);
   // 她说的话TA听不听得懂（v64.21）：小剧场／穿书／梦境／跑团／如果馆里她照样会打英文。
