@@ -26000,6 +26000,9 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
           + "你走到你俩共同的那个小空间里，留下了一样东西，等她自己发现。\n"
           + (styleHint ? styleHint + "\n" : "")
           + "【这一次留的是这一样】" + OUTLET_PICK[_pick] + "\n"
+          // 问答小本去重（她 2026-10-26「他出题是不是没有去重」）：原来TA看不见以前出过、答过哪些题，同一个问题换个说法又出一遍
+          + (_pick === "qa" ? (() => { const qs = (loadJSON("x_coupleQA", []) || []).filter(x => x && x.characterId === char.id && x.question).slice(0, 40).map(x => "· " + String(x.question).slice(0, 50));
+              return qs.length ? "【小本里已经有的题】下面这些问过、答过了，别再问同一件事，换个说法也算问过：\n" + qs.join("\n") + "\n" : ""; })() : "")
           + "这一档你已经很久没留过了，所以这次就留它——不用挑，也别改成别的。\n"
           + "⚠️但**绝不许为了填这个格子硬造一件**：此刻你要是真没有这样一样东西可留（今天没经手过什么、"
           + "脑子里没有半句话、没画过、想不起该补的那一天、心里没有一个真想问她的问题），"
@@ -26026,6 +26029,11 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         // TA出的题（v62.10）：TA那半（text）封在 charAnswer 里，她写完她那半才一起打开。
         // ⚠️没出题就等于这一档没写成：别硬塞进抽屉凑数，直接算这次没留（闸还回去）。
         if (!String((d && d.question) || "").trim()) return false;
+        // 兜底：字面跟小本里哪一题差不多一样，就当这次没写成（闸还回去，下次再来）
+        { const grams = t => { const x = String(t || "").replace(/[\s，。？！?!、,.…「」“”]/g, ""), o = new Set(); for (let i = 0; i < x.length - 1; i++) o.add(x.slice(i, i + 2)); return o; };
+          const q0 = grams(d.question);
+          const dup = q0.size >= 2 && (loadJSON("x_coupleQA", []) || []).some(x => { if (!x || x.characterId !== char.id || !x.question) return false; const g = grams(x.question); let n = 0; q0.forEach(k => { if (g.has(k)) n++; }); return n / Math.min(q0.size, g.size || 1) > 0.7; });
+          if (dup) return false; }
         outletNote(char.id, "qa", !!manual);
         setCoupleQA(p => {
           const n = [{ id: "qa_" + Date.now(), characterId: char.id, qid: "his_" + Date.now(),
