@@ -30,3 +30,14 @@ assert.ok(!/columnCount: 2/.test(ui), "双列都走 xhsGrid");
 assert.match(ui, /onGenBoard\(tab === "发现" \? xhsRandBoard\(\) : tab\)/);
 for (const k of ["foxhstop", "foxhstoptab", "foxhstopicrow", "foxhstopic", "foxhsnotice", "foxhsnoticetab", "foxhslikerow", "foxhsfanrow", "foxhssearchsort"]) { assert.match(ui, new RegExp('"data-wk": "' + k + '"')); assert.match(ts, new RegExp('\\["' + k + '", "')); }
 console.log("ok3");
+// 第三轮：多图笔记。第一张照旧 photo，第二张起 morePhotos；模型读帖子时也读得到每一张
+const scr0 = fs.readFileSync("js/screens.js", "utf8");
+const more = new Function(scr0.slice(scr0.indexOf("function forumPhotoOf"), scr0.indexOf("\n}\n", scr0.indexOf("function forumWithPhoto")) + 3) + ";return {forumMorePhotos, forumWithPhoto};")();
+assert.deepEqual(more.forumMorePhotos({ morePhotos: ["a", { desc: "b" }, ""] }), [{ desc: "a" }, { desc: "b" }]);
+assert.equal(more.forumWithPhoto("正文", { photo: { desc: "一" }, morePhotos: [{ desc: "二" }] }), "正文 〔第1张图：一〕 〔第2张图：二〕");
+assert.equal(more.forumWithPhoto("正文", { photo: { desc: "一" } }), "正文 〔配图：一〕");
+assert.equal((app.match(/\.\.\.forumMoreTag\((x|content)\)/g) || []).length, 3, "网友帖、角色帖、搜索帖三处都挂上");
+assert.equal((app.match(/forumFmtField\(\)/g) || []).length, 4);
+assert.match(ui, /xhs \? xhsPhotos\(p\) : forumPhotoCard\(p, 280\)/);
+for (const k of ["foxhsphotos", "foxhspageno"]) { assert.match(ui, new RegExp('"data-wk": "' + k + '"')); assert.match(ts, new RegExp('\\["' + k + '", "')); }
+console.log("ok4");

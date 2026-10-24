@@ -2116,7 +2116,8 @@ function Forum({
   const [xhsOpen, setXhsOpen] = useState({});
   const [profTab, setProfTab] = useState("notes");
   const [noticeTab, setNoticeTab] = useState("cmt");   // 小红书消息页：评论和@ / 赞和收藏 / 新增关注
-  const [searchSort, setSearchSort] = useState("hot"); // 小红书搜索结果：最热 / 最新   // 小红书主页那三栏：笔记 / 收藏 / 赞过  // 置顶吧规那块牌子，默认只露第一条
+  const [searchSort, setSearchSort] = useState("hot");
+  const [xhsPage, setXhsPage] = useState(0);            // 多图笔记现在翻到第几张 // 小红书搜索结果：最热 / 最新   // 小红书主页那三栏：笔记 / 收藏 / 赞过  // 置顶吧规那块牌子，默认只露第一条
   const [refreshMenu, setRefreshMenu] = useState(false);  // 右上角刷新键点开的那张小单子
   // 开个吧（她自己的吧，存 x_forumBoards）。boardsRev 只是让那排 tab 重画一次——吧表本身每次现读存档
   const [newBoard, setNewBoard] = useState(null);     // null＝没在开；{name, about}＝正在填
@@ -2317,7 +2318,7 @@ function Forum({
   //   所以不冻的话，新回复在你眼皮底下当场变成旧的——列表上明明写着「+3 新回复」，
   //   点进去一条标记都没有。
   const openCursorRef = useRef(0);
-  const openPost = p => {
+  const openPost = p => { setXhsPage(0);
     if (feedScrollRef.current) feedScrollTopRef.current = feedScrollRef.current.scrollTop;
     openCursorRef.current = Number(forumReadCursors[p.id] || 0);
     setOpen(p); onLoadComments(p); markNoticesRead(forumNotices.filter(n => n.post.id === p.id).map(n => n.id));
@@ -2644,6 +2645,19 @@ function Forum({
       list.length ? xhsGrid(list)
         : h(Empty, { text: tab === "fav" ? "还没收藏过笔记" : tab === "liked" ? "还没赞过笔记" : (isMe ? "你还没发过笔记" : "还没有笔记") }));
   }
+  // 小红书笔记的图：一张就照旧一张；好几张就左右滑，右上角写着第几张、底下一排小点
+  function xhsPhotos(p) {
+    const first = forumPhotoOf(p), more = forumMorePhotos(p);
+    if (!first || !more.length) return forumPhotoCard(p, 280);
+    const pages = [first].concat(more), cur = Math.min(xhsPage, pages.length - 1);
+    return h("div", { "data-wk": "foxhsphotos", style: { position: "relative", marginTop: 10 } },
+      h("div", { onScroll: e => { const el = e.currentTarget; const i = Math.round(el.scrollLeft / Math.max(1, el.clientWidth)); if (i !== xhsPage) setXhsPage(i); },
+        className: "flex overflow-x-auto", style: { scrollSnapType: "x mandatory", scrollbarWidth: "none", WebkitOverflowScrolling: "touch" } },
+        pages.map((m, i) => h("div", { key: i, style: { flex: "0 0 100%", scrollSnapAlign: "start", padding: "2px 2px 4px" } },
+          h(PhotoCard, { m, max: 9999, onOpen: () => setPhotoView(i === 0 ? { ...m, itemId: p.id } : m) })))),
+      h("span", { "data-wk": "foxhspageno", style: { position: "absolute", top: 12, right: 12, padding: "1px 8px", borderRadius: 999, background: "rgba(0,0,0,.45)", color: "#fff", fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))" } }, (cur + 1) + "/" + pages.length),
+      h("div", { className: "flex justify-center", style: { gap: 5, marginTop: 6 } }, pages.map((m, i) => h("span", { key: i, style: { width: 5, height: 5, borderRadius: 999, background: i === cur ? FORUM_SKIN.accent : FORUM_SKIN.line } }))));
+  }
   // 小红书笔记的正文：#话题 标成链接色
   function xhsBody(p) {
     const txt = String(p.body || "");
@@ -2686,7 +2700,7 @@ function Forum({
             delBtn(p)),
           h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(20px * var(--app-fs, 1))", lineHeight: 1.35, color: FORUM_SKIN.ink, marginTop: 11 } }, STX(p.title)),
           xhs ? xhsBody(p) : h("div", { style: { fontFamily: F_BODY, fontSize: "calc(14.5px * var(--app-fs, 1))", lineHeight: 1.78, color: FORUM_SKIN.sub, marginTop: 8, whiteSpace: "pre-wrap" } }, STW(p, STX(p.body))),
-          forumPhotoCard(p, 280),
+          xhs ? xhsPhotos(p) : forumPhotoCard(p, 280),
           xhs ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, marginTop: 10 } }, "#" + p.board + " · " + timeAgo(p.ts)) : h("div", { className: "mt-3" }, tag(p.board)),
           xhs ? xhsBar(p) : actBar(p),
           c && h("button", { onClick: () => onToggleFollow(c.id), className: "mt-3 px-3.5 py-1.5 active:opacity-70", style: { borderRadius: 999, border: `1px solid ${t.line}`, background: flw.includes(c.id) ? t.ink : "transparent", fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: flw.includes(c.id) ? t.bg2 : t.ink } }, flw.includes(c.id) ? "已关注" : "关注 TA"),
