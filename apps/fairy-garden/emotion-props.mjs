@@ -1,6 +1,6 @@
-import {POINT_FINGER_TIP} from './emotion-hands.mjs?v=fg-32f56e8e0d66a403';
+import {MITTEN_TAP_POINT} from './emotion-hands.mjs?v=fg-1214b1001808a622';
 import * as T from 'three';
-import {pointToolAt} from './reach-hand.mjs?v=fg-32f56e8e0d66a403';
+import {pointToolAt} from './reach-hand.mjs?v=fg-1214b1001808a622';
 
 const marker=(group,name,x=0)=>{const o=new T.Object3D();o.name=name;o.position.x=x;group.add(o);};
 function makeFlower(){
@@ -43,7 +43,7 @@ const PHONE_TILT=-Math.PI/3;
 // 手机摆放与右手按屏幕共用同一个局部变换。
 export function phoneTapTarget(model,leftWorld,tap=0,amount=1,handScale=1){
  const point=new T.Vector3(.035,.055,.019).multiplyScalar(amount).applyAxisAngle(new T.Vector3(1,0,0),PHONE_TILT).add(model.worldToLocal(leftWorld.clone()));
- point.sub(new T.Vector3(...POINT_FINGER_TIP).applyAxisAngle(new T.Vector3(1,0,0),Math.PI/2).multiplyScalar(amount*handScale));point.y+=.018*(1-tap);return model.localToWorld(point);
+ point.sub(new T.Vector3(...MITTEN_TAP_POINT).applyAxisAngle(new T.Vector3(1,0,0),Math.PI).multiplyScalar(handScale));point.y+=.018*(1-tap);return model.localToWorld(point);
 }
 function makePhone(makeCanvas){
  const g=new T.Group();g.name='CompanionPhone';

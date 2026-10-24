@@ -1,5 +1,5 @@
 import * as T from 'three';
-import {createBrewSequence} from './brewing.mjs?v=fg-32f56e8e0d66a403';
+import {createBrewSequence} from './brewing.mjs?v=fg-1214b1001808a622';
 // One close-up for both cauldron entrances. The existing world and dolls stay on screen.
 // 小灶（v70.74）：同一套近景搬到自家灶台上——site.y 是台面高度（锅坐在台面上），pot 画一口小锅（庭院那口大锅是地图自带的）
 export function makeBrewingView({scene,camera,site,onClose,id='brewing-dialog',pot=false}){const base=site.y||0;
