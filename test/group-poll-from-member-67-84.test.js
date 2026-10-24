@@ -69,5 +69,6 @@ test("接线：协议里有这一格，群回复里真的接住了", () => {
   assert.match(app, /if \(item\.pollNew && spk\) \{\n            postPoll\(groupId, spk, item\.pollNew\.title, item\.pollNew\.options, item\.pollNew\.anon === true\);/);
   // 她本来就没问题的那两样，顺手钉住，别哪天被改没了
   assert.match(app, /if \(item\.redpacket && Number\(item\.redpacket\.total\) > 0\) \{/);
-  assert.match(app, /item\.call && \[/);
+  // v76.479 起关了主动发消息的人不再从群里给她打电话：中间多了 gDmToHerOk 那道闸
+  assert.match(app, /item\.call && spk && gDmToHerOk\(spk\) && \[/);
 });

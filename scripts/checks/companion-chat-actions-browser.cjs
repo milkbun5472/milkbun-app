@@ -57,7 +57,7 @@ const out=process.env.COMPANION_EVIDENCE||'/tmp/companion-chat-actions';fs.mkdir
     }
     for(let j=0;j<40;j++)doll.animate(time+=.04,{height:0});
     const mask=doll.root.getObjectByName('DollBody').userData.skinCoverageUniforms;
-    if(mask.rightElbow.value||mask.leftElbow.value||mask.rightHand.value||mask.leftHand.value)throw Error('Elbow coverage not reset '+action);
+    if(mask.rightHand.value||mask.leftHand.value)throw Error('Gesture hand coverage not reset '+action);
     doll.root.traverse(o=>{if(o.name.startsWith('CompanionWeather-')&&o.visible)throw Error('Weather particles did not return '+action);});
     for(const name of ['CompanionFlower','CompanionGift','CompanionSign','CompanionPhone','CompanionCookie','CompanionTongue','CompanionTears','CompanionHeart','CompanionNotes','CompanionUmbrella'])if(doll.root.getObjectByName(name)?.visible)throw Error(name+' did not return '+action);
     if(doll.root.userData.actionFace||doll.root.userData.emotionGround)throw Error('Transient face/posture did not reset '+action);

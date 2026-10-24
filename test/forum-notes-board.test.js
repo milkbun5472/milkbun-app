@@ -9,7 +9,7 @@ test("没有笔记吧（她 2026-10-07 叫删）；双列开关管排版也管�
   assert.match(scr, /cardLayout \? xhsGrid\(shown, "fonotes"\)/);
   assert.match(scr, /localStorage\.setItem\("x_forumLayout", v \? "cards" : "list"\)/);
   assert.match(app, /const forumFmtLine = \(\) => \{ let on = false; try \{ on = localStorage\.getItem\("x_forumLayout"\) === "cards"/);
-  assert.match(app, /castLine \+ forumFmtLine\(\) \+ " 生成 3-5 条/);
+  assert.match(app, /castLine( \+ \w+)* \+ forumFmtLine\(\) \+ " 生成 3-5 条/);   // 中间多了 seenLine（v76.495 去重：先给他看已有的）
   assert.match(app, /instruction: forumFmtLine\(\) \+ "以「" \+ char\.name/);
   assert.match(app, /instruction: forumFmtLine\(\) \+ "用户在贴吧搜索框"/);
 });
