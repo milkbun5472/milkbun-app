@@ -9,7 +9,7 @@ const prose=require('./fixtures/companion-action-prose.cjs');
 test('整张聊天动作表逐项都有语言样本，新增动作不能漏掉验证',()=>{
  const actual=[...src.matchAll(/actionRule\("([^"]+)"/g)].map(m=>m[1]).sort();
  assert.deepEqual(Object.keys(prose.cases).sort(),actual);
- assert.equal(actual.length,47);
+ assert.equal(actual.length,59);
 });
 const allVariants=prose.variants();
 for(const kind of Object.keys(prose.cases))test('全部动作的长句、倒装、修饰与招呼混用 → '+kind,()=>{
@@ -171,4 +171,15 @@ test('新增七类遵循动作／说话分流和否定假设边界，具体动�
   assert.equal(chat(line,''),kind,line);
   if(line.length<=60){assert.equal(chat('','（'+line+'）'),kind,line);assert.equal(chat('','*'+line+'*'),kind,line);}
  }
+});
+
+test('第二批身体动作仍只在描写触发，否定与假设不算，近似名词不抢动作',()=>{
+ const chat=window.CompanionFace.actForChat;
+ for(const name of ['heart','thumb','wink','tongue','cry','tilt','poke','pinch','lie','prone','phone','eat']){
+  const text=prose.cases['emotion-'+name][0];assert.equal(chat(text,''),'emotion-'+name,text);assert.equal(chat('',text),'',text);
+  assert.equal(chat('他没有'+text,''),'',text);assert.equal(chat('如果你回来，他就'+text,''),'',text);
+ }
+ for(const text of ['他把拳头偏向一侧。','他把指头偏了偏。','他吃醋了。']){assert.equal(chat('',text),'',text);assert.equal(chat(text,''),'',text);}
+ assert.equal(chat('将脑袋往左侧了一点。',''),'emotion-tilt');
+ assert.equal(chat('他把头向一侧扭了扭。',''),'turn');
 });

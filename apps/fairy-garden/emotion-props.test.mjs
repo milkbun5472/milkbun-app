@@ -36,3 +36,12 @@ test('礼盒双侧握点同时跟手，纸牌实际绘制中文，换动作就�
   props.update(null);assert.equal(sign.visible,false);assert.equal(model.getObjectByName('CompanionGift').visible,false);
  }
 });
+test('手机握在左手，饼干握在右手且咬后缺一角，道具互相收起',()=>{
+ const root=new T.Group(),model=new T.Group();root.add(model);root.rotation.y=.8;root.scale.setScalar(1.2);
+ const hands={left:new T.Object3D(),right:new T.Object3D()};for(const [side,hand]of Object.entries(hands)){model.add(hand);hand.position.set(side==='left'?-.12:.12,.6,.2);}
+ const ctx={fillRect(){}},props=makeEmotionProps(model,side=>hands[side].getWorldPosition(new T.Vector3()),{makeCanvas:()=>({getContext:()=>ctx})});
+ props.update({phone:1});const phone=model.getObjectByName('CompanionPhone');assert.ok(phone.visible);assert.ok(phone.getObjectByName('PhoneGrip').getWorldPosition(new T.Vector3()).distanceTo(hands.left.getWorldPosition(new T.Vector3()))<1e-8);assert.ok(phone.getObjectByName('PhoneScreen').material.map?.isCanvasTexture);
+ props.update({cookie:1,bite:0});const cookie=model.getObjectByName('CompanionCookie');assert.equal(phone.visible,false);assert.equal(cookie.getObjectByName('WholeCookie').visible,true);assert.equal(cookie.getObjectByName('BittenCookie').visible,false);
+ props.update({cookie:1,bite:1});assert.equal(cookie.getObjectByName('WholeCookie').visible,false);assert.equal(cookie.getObjectByName('BittenCookie').visible,true);assert.ok(cookie.getObjectByName('CookieGrip').getWorldPosition(new T.Vector3()).distanceTo(hands.right.getWorldPosition(new T.Vector3()))<1e-8);
+ props.update(null);assert.equal(cookie.visible,false);assert.equal(phone.visible,false);
+});
