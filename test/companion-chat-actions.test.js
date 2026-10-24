@@ -9,7 +9,7 @@ const prose=require('./fixtures/companion-action-prose.cjs');
 test('整张聊天动作表逐项都有语言样本，新增动作不能漏掉验证',()=>{
  const actual=[...src.matchAll(/actionRule\("([^"]+)"/g)].map(m=>m[1]).sort();
  assert.deepEqual(Object.keys(prose.cases).sort(),actual);
- assert.equal(actual.length,34);
+ assert.equal(actual.length,40);
 });
 const allVariants=prose.variants();
 for(const kind of Object.keys(prose.cases))test('全部动作的长句、倒装、修饰与招呼混用 → '+kind,()=>{
@@ -145,4 +145,9 @@ test('真正的聊天事件只驱动当前角色，清理时解绑',()=>{
  on({detail:{charId:'c2',text:'亲一口'}});on({detail:{charId:'c1',text:'天气很晴朗'}});assert.equal(messages.length,0);
  on({detail:{charId:'c1',text:'他亲了一下额头。'}});assert.equal(messages.length,1);assert.equal(messages[0].kind,'emotion-kiss');
  cleanup();assert.equal(on,null);
+});
+
+test('新增道具的普通提及不算递出或举起，自己的书不算自抱',()=>{
+ for(const text of ['礼物放在桌上。','纸牌已经收好了。','我自己的书还在这里。','自己一个人坐在那边。'])assert.equal(act(text),text.includes('坐')?'sit':'',text);
+ assert.notEqual(act('他抱着自己的书。'),'emotion-selfhug');
 });

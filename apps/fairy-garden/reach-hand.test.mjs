@@ -45,3 +45,12 @@ test('桌面操作的肘部向下展开，双手持续接触时不抬肘到脸�
   assert.ok(shoulder.clone().sub(elbow).angleTo(wrist.clone().sub(elbow))>=Math.PI/3-1e-5);
  }
 });
+
+test('叉腰双肘向外打开，手仍对准腰侧且不改变两段臂长',()=>{
+ for(const side of ['left','right'])for(const yaw of [0,1.7,-2.8])for(const scale of [.85,1,1.25]){
+  const a=arm(side),sign=side==='right'?1:-1;a.root.rotation.y=yaw;a.root.scale.setScalar(scale);
+  const target=a.root.localToWorld(new T.Vector3(sign*.17,.48,.12));reachHand(a.root,a.upper,a.lower,a.hand,target,16,{elbowsOut:true});
+  const wrist=a.hand.getWorldPosition(new T.Vector3()),elbow=a.root.worldToLocal(a.lower.getWorldPosition(new T.Vector3()));assert.ok(wrist.distanceTo(target)<1e-6);
+  assert.ok(sign*elbow.x>.24);assert.ok(elbow.y>.5&&elbow.y<.655);assert.ok(Math.abs(a.lower.quaternion.y)<1e-8&&Math.abs(a.lower.quaternion.z)<1e-8);
+ }
+});

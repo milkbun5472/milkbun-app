@@ -4,6 +4,39 @@ const beat=(p,a,b,c,d)=>ease((p-a)/(b-a))*(1-ease((p-c)/(d-c)));
 export function emotionPose(face,p){
  const e=beat(p,0,.18,.76,1),late=beat(p,.42,.6,.78,1),q={left:[0,0,0],right:[0,0,0],tilt:0,roll:0,yaw:0,lift:0};
  switch(face){
+ case 'hips': // 两手搭在腰侧，手肘向外，挺直身子得意地看过来
+  q.left=[-.32*e,0,-.35*e];q.right=[-.32*e,0,.35*e];q.leftElbow=q.rightElbow=-1.65*e;
+  q.leftHeadHold=q.headHold=e;
+  if(e){q.leftHeadPoint=[-.85,-2.35,.6];q.headPoint=[.85,-2.35,.6];}
+  q.elbowsOut=e;q.tilt=-.055*e;q.yaw=-.18*e+.1*late;break;
+ case 'selfhug': { // 双手环向自己的两侧，慢慢晃一晃，再松开
+  const sway=Math.sin((p-.18)*Math.PI*4)*beat(p,.18,.3,.67,.84);
+  q.left=[-.32*e,0,-.35*e];q.right=[-.32*e,0,.35*e];q.leftElbow=q.rightElbow=-1.65*e;
+  q.leftHeadHold=q.headHold=e;
+  if(e){q.leftHeadPoint=[.78,-1.28,1.25];q.headPoint=[-.78,-1.43,1.12];}
+  q.roll=.065*sway;q.tilt=.035*e;q.yaw=.06*sway;break;}
+ case 'peekaboo': { // 先捂住双眼，再向两旁打开手，露出脸停一拍
+  const reveal=ease((p-.43)/.22);
+  q.left=[-.32*e,0,-.35*e];q.right=[-.32*e,0,.35*e];q.leftElbow=q.rightElbow=-1.65*e;
+  q.leftHeadHold=q.headHold=e;
+  if(e){q.leftHeadPoint=[-.55-1.05*reveal,-.06-.6*reveal,1.6-.3*reveal];q.headPoint=[.55+1.05*reveal,-.06-.6*reveal,1.6-.3*reveal];}
+  q.roll=-.04*e+.085*reveal*e;q.tilt=.025*e;break;}
+ case 'sneeze': { // 手先掩住鼻口，蓄一口气，短促地向前打一次喷嚏
+  const inhale=beat(p,.12,.24,.3,.4),achoo=beat(p,.32,.39,.41,.56);
+  q.right=[-.32*e,0,.35*e];q.rightElbow=-1.65*e;q.headHold=e;
+  if(e)q.headPoint=[.18,-.45,1.50];
+  q.left=[-.22*e,0,-.16*e];q.tilt=-.045*inhale+.16*achoo;q.roll=-.025*e;q.yaw=-.04*achoo;break;}
+ case 'gift': { // 双手托着礼盒从胸前送出来，留一会儿再收回
+  const offer=beat(p,.19,.43,.72,.94);
+  q.left=[-.32*e,0,-.35*e];q.right=[-.32*e,0,.35*e];q.leftElbow=q.rightElbow=-1.65*e;
+  q.leftHeadHold=q.headHold=e;
+  if(e){q.leftHeadPoint=[-.53,-1.85,1.15+1.15*offer];q.headPoint=[.53,-1.85,1.15+1.15*offer];}
+  q.gift=beat(p,.08,.18,.84,.98);q.tilt=.035*offer;break;}
+ case 'sign': { // 从身侧举起写着「想你」的小纸牌，轻轻晃给你看
+  const raise=beat(p,.12,.36,.74,.94),sway=Math.sin(p*Math.PI*6)*beat(p,.35,.46,.69,.82);
+  q.right=[-.32*e,0,.35*e];q.rightElbow=-1.65*e;q.headHold=e;
+  if(e)q.headPoint=[1.32+.10*sway,-2.12+.48*raise,1.3+.3*raise];
+  q.left=[-.14*e,0,-.14*e];q.sign=beat(p,.08,.18,.84,.98);q.signSway=.08*sway;q.roll=-.03*e;break;}
  case 'cheeks': // 双手贴在脸颊两侧，歪过头停一会儿，再慢慢收手
   q.left=[-.32*e,0,-.35*e];q.right=[-.32*e,0,.35*e];q.leftElbow=q.rightElbow=-1.65*e;
   q.leftHeadHold=q.headHold=e;

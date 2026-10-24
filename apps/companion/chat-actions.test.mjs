@@ -32,3 +32,16 @@ test('飞吻先停在嘴前再送出，偷笑与侧耳各有稳定的头部相�
  }
  assert.notDeepEqual(emotionPose('giggle',.4).headPoint,emotionPose('listen',.4).headPoint);
 });
+
+test('余下六种动作有各自的接触位置与节奏，遮眼后会揭开，道具会收回',()=>{
+ for(const name of ['hips','selfhug','peekaboo','gift']){
+  const q=emotionPose(name,.3);assert.equal(q.headHold,1);assert.equal(q.leftHeadHold,1);
+ }
+ const hips=emotionPose('hips',.4);assert.ok(hips.headPoint[1]<-2&&hips.leftHeadPoint[0]<0&&hips.headPoint[0]>0);
+ const hug=emotionPose('selfhug',.4);assert.ok(hug.leftHeadPoint[0]>0&&hug.headPoint[0]<0);
+ assert.ok(emotionPose('selfhug',.35).roll*emotionPose('selfhug',.6).roll<0);
+ const hide=emotionPose('peekaboo',.3),reveal=emotionPose('peekaboo',.7);assert.ok(reveal.headPoint[0]-hide.headPoint[0]>1);assert.ok(hide.headPoint[2]>1.3);
+ assert.ok(emotionPose('sneeze',.26).tilt<0);assert.ok(emotionPose('sneeze',.4).tilt>.14);assert.equal(emotionPose('sneeze',.65).tilt,0);
+ for(const name of ['gift','sign']){assert.equal(emotionPose(name,0)[name],0);assert.equal(emotionPose(name,1)[name],0);assert.equal(emotionPose(name,.5)[name],1);}
+ assert.ok(emotionPose('gift',.6).headPoint[2]>emotionPose('gift',.18).headPoint[2]+1);
+});
