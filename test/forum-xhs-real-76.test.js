@@ -17,7 +17,7 @@ assert.match(ui, /cardLayout \? xhsProfile\(mine, isMe\) : null/);
 assert.match(ui, /cardLayout\?xhsProfile\(authored,false\)/);
 assert.match(ui, /cardLayout \? xhsProfile\(authored, false\)/);
 assert.match(ui, /const xhsLikes = \(post, cm\) =>/);
-assert.match(ui, /sort\(\(a, b\) => xhsLikes\(p, b\) - xhsLikes\(p, a\)\)/);
+assert.match(ui, /xhsLikes\(p, b\) - xhsLikes\(p, a\)\)/);   // 作者回过的先排（v76.47x），同一档里再按热度
 assert.match(ui, /cardLayout \? "发笔记" : "发帖"/);
 for (const k of ["foxhsprofile", "foxhsproftab", "foauthorliked", "foxhsphoto", "foxhstopics"]) { assert.match(ui, new RegExp('"data-wk": "' + k + '"')); assert.match(ts, new RegExp('\\["' + k + '", "')); }
 console.log("ok2");
