@@ -972,16 +972,33 @@
   const AC = ((typeof ANTI_CLICHE !== "undefined") ? ANTI_CLICHE + "\n\n" : "") + CB;
 
   // 开局：出词 + 生成 NPC + 给每个玩家写「牌桌能力小传」（能力≠性格）
+  // 出过的词对（她 2026-10-26 去重）：记最近 30 对，出词时给裁判看，撞上了重掷一次
+  const SPY_PAIRS_KEY = "x_spyPairs";
+  function loadSpyPairs() { try { const v = typeof loadJSON === "function" ? loadJSON(SPY_PAIRS_KEY, []) : []; return Array.isArray(v) ? v : []; } catch (e) { return []; } }
+  function spyPairDup(pair, used) {
+    if (!pair || !pair.civ) return false;
+    const k = String(pair.civ) + "/" + String(pair.spy || ""), k2 = String(pair.spy || "") + "/" + String(pair.civ);
+    return used.some(function (u) { return u === k || u === k2; }) || (typeof isNearDup === "function" && (isNearDup(k, used) || isNearDup(k2, used)));
+  }
   async function setupSpy(api, realPlayers, npcCount) {
+    const used = loadSpyPairs();
     const lines = realPlayers.map(function (p, i) { return (i + 1) + ". " + p.name + "：" + (p.persona || "（没写人设）"); }).join("\n");
     const sys = AC + SKILL_RULE + SKILL_TALK + "\n\n你是「谁是卧底」的裁判 + 能力评估器。\n" +
-      "1. 出一对词 pair：civ 平民词、spy 卧底词——两词【相关但不同】、都能描述、难度适中、别太生僻，别用明显包含关系的（如「苹果 / 苹果手机」不行；「咖啡 / 奶茶」「钢琴 / 吉他」这种才好）。\n" +
+      "1. 出一对词 pair：civ 平民词、spy 卧底词——两词【相关但不同】、都能描述、难度适中、别太生僻，别用一个词包含另一个词的那种（一个是另一个的一部分、或者只多了个修饰）；好的一对是同一类里两样各自独立、描述起来能互相混淆的东西。\n" +
+      (used.length ? "【已经出过的词对】下面这些出过了，别再出同一对，换个说法也算出过：" + used.join("、") + "\n" : "") +
       "2. 生成 " + npcCount + " 个 NPC 玩家：name 中文名 + persona 一句人设（含【职业】与性格，尽量多样、别都是学生、别一个味）。\n" +
       "3. 给【每一个真实玩家】各写一句 skill「牌桌能力小传」：按上面的能力与性格分开原则，点出 TA 玩这种推理游戏时——藏词、听别人描述抓破绽、被怀疑时嘴硬博弈——的【真实强弱】（由职业背景推，别被性格带偏）。NPC 的 skill 也一并给。\n\n" +
       "【真实玩家】\n" + (lines || "（无）") +
       "\n\n【输出】只输出 JSON：{\"pair\":{\"civ\":\"\",\"spy\":\"\"},\"npcs\":[{\"name\":\"\",\"persona\":\"\",\"skill\":\"\"}],\"skills\":[{\"name\":\"真实玩家名\",\"skill\":\"能力小传\"}]}";
-    const raw = await callRetry(api, sys, [{ role: "user", content: "发牌：给词、" + npcCount + " 个 NPC、每个人的能力小传。" }], { maxTokens: 12500 });
-    return extractJSON(raw) || {};
+    let out = extractJSON(await callRetry(api, sys, [{ role: "user", content: "发牌：给词、" + npcCount + " 个 NPC、每个人的能力小传。" }], { maxTokens: 12500 })) || {};
+    if (spyPairDup(out.pair, used)) {
+      const again = extractJSON(await callRetry(api, sys, [{ role: "user", content: "发牌：给词、" + npcCount + " 个 NPC、每个人的能力小传。词对别跟已经出过的那些一样。" }], { maxTokens: 12500 }));
+      if (again && again.pair && again.pair.civ) out = again;
+    }
+    if (out.pair && out.pair.civ && out.pair.spy) {
+      try { if (typeof saveJSON === "function") saveJSON(SPY_PAIRS_KEY, [String(out.pair.civ) + "/" + String(out.pair.spy)].concat(used).slice(0, 30)); } catch (e) {}
+    }
+    return out;
   }
 
   // 一轮描述：按真实座次切成「言秋前 → 言秋本人 → 言秋后」。

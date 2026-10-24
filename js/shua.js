@@ -547,6 +547,9 @@
         const realFr = !!(dbRef.current.me && dbRef.current.me.realFriends);
         // 横着看那套：TA号上已有的系列，和最近几条底下有人发过的弹幕（她发的也在里面，TA不知道是谁）
         let extra = "";
+        // 自己最近发过的几条（她 2026-10-26 去重）：同一个画面、同一句文案别再发一遍
+        const mineAll = dbRef.current.videos.filter(x => x.by === "char" && x.charId === c.id).slice(0, 8);
+        if (mineAll.length) extra += "\n【你最近已经发过的】下面这些已经发过了，别再拍同一个画面、配同一句文案，换个说法也算发过：\n" + mineAll.map(x => "· " + S(x.scene).slice(0, 40) + (S(x.caption) ? "｜" + S(x.caption).slice(0, 30) : "")).join("\n");
         if (sk === "b") {
           const mineB = dbRef.current.videos.filter(x => x.by === "char" && x.charId === c.id && vidSkin(x) === "b");
           const ser = {}; mineB.forEach(x => { if (x.series && !ser[x.series]) ser[x.series] = x; });
@@ -559,6 +562,8 @@
         return props.probeAs(c, charInstruction(acc.handle, sk, realFr ? [] : friends, acc, hotToday(), extra) + (toCp[c.id] ? cpPostLine(c, toCp[c.id], candid[c.id], opts.anniv) : ""), toCp[c.id] ? shapeChar(sk, !realFr && friends.length > 0, newAcc).replace(/\}$/, ',"cpEdit":{"handle":"","bio":""}}') : shapeChar(sk, !realFr && friends.length > 0, newAcc), { timeout: 180000 }).catch(() => null).then(d => {   // 等 3 分钟、到点真掐断（原来在外面赛跑，赛输了请求还在跑）
           done++; setProg(done + "/" + pick.length);
           if (!d || !S(d.scene)) { failed.push(c.name); return; }
+          // 跟TA发过的字面差不多：这条就当没发
+          if (typeof isNearDup === "function" && isNearDup(S(d.scene) + S(d.caption), dbRef.current.videos.filter(x => x.by === "char" && x.charId === c.id).map(x => S(x.scene) + S(x.caption)))) return;
           const accounts = Object.assign({}, dbRef.current.accounts);
           const handle = S((accounts[c.id] || {}).handle) || S(d.handle).slice(0, 20) || c.name;
           const prevAcc = accounts[c.id] || {};

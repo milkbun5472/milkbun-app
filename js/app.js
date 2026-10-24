@@ -23753,13 +23753,22 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
           + "\n那一条填 cast:true，authorName／handle 写TA在网上用的网名（跟TA这个人对得上，不必是本名）；"
           + "写的是TA自己日子里的事、TA这个人才会发的帖，可以顺嘴带到 " + cast.host.name + "，但别把别人的私事往网上发。其余几条照旧是各路网友。"
         : "";
+      // 吧里已经发过的帖（她 2026-10-26 去重）：给标题看，别再发同一个话题；出来以后再按字面筛一遍
+      const boardPrev = (forumPostsRef.current || []).filter(x => x && x.board === board && x.title).sort((a, b) => Number(b.ts || 0) - Number(a.ts || 0));
+      const seenLine = boardPrev.length ? "\n【这个吧里已经发过的帖】下面这些已经有人发过了，别再发同一个话题，换个说法也算发过：\n" + boardPrev.slice(0, 20).map(x => "· " + String(x.title || "").slice(0, 40)).join("\n") + "\n" : "";
       const d = await runProbeRetry(active, forumWorldCtx(board, genW), {
-        instruction: forumBoardVoice(board) + forumNpcRule(board) + castLine + forumFmtLine() + " 生成 3-5 条不同网友刚发的新主帖（items 数组务必 3-5 条，别只给 1-2 条）。每条都填 authorName 和 handle；是常驻熟面孔的再额外写一个 npcId。写 title（标题）、body（楼主正文 2-4 句）、replyCount（编一个几十到几千的回复数字，不必真实）。同一批至少有 1 个一次性路人，别所有帖一个腔调。" + FORUM_PHOTO_LINE + lately,
+        instruction: forumBoardVoice(board) + forumNpcRule(board) + castLine + seenLine + forumFmtLine() + " 生成 3-5 条不同网友刚发的新主帖（items 数组务必 3-5 条，别只给 1-2 条）。每条都填 authorName 和 handle；是常驻熟面孔的再额外写一个 npcId。写 title（标题）、body（楼主正文 2-4 句）、replyCount（编一个几十到几千的回复数字，不必真实）。同一批至少有 1 个一次性路人，别所有帖一个腔调。" + FORUM_PHOTO_LINE + lately,
         schemaHint: "{\"items\":[{\"npcId\":\"npc_regular_xxx（熟面孔才填）\"," + FORUM_GUEST_FIELDS + ",\"title\":\"标题\",\"body\":\"正文\",\"replyCount\":128,\"refTitle\":\"接着哪个帖才填，原样照抄那个标题\"" + FORUM_PHOTO_FIELD + forumFmtField() + (cast ? ",\"cast\":\"只有配角那一条填 true\"" : "") + "}]}",
         maxTokens: FTOK.board
       });
       let items = (d && Array.isArray(d.items) ? d.items : (Array.isArray(d) ? d : (d && d.title ? [d] : []))).filter(x => x && x.title);
       if (!items.length) throw new Error("没有生成内容");
+      // 跟吧里已有的、跟这一批前面几条字面差不多的，丢掉
+      if (typeof isNearDup === "function") {
+        const seenTx = boardPrev.slice(0, 200).map(x => String(x.title || "") + String(x.body || "").slice(0, 60));
+        items = items.filter(x => { const t = String(x.title || "") + String(x.body || "").slice(0, 60); if (isNearDup(t, seenTx)) return false; seenTx.push(t); return true; });
+        if (!items.length) throw new Error("这一批跟吧里已有的帖差不多，再刷一次");
+      }
       const base = Date.now();
       // 配角那一条：模型标了 cast 的第一条；没标就不硬认（宁可这次没掉落，也不把路人帖安到TA头上）
       const castIdx = cast ? items.findIndex(x => x && (x.cast === true || x.cast === "true")) : -1;
@@ -25828,9 +25837,12 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     }));
     try {
       const livedMaterial = ambientMaterialFor(char, { limit: 20 });
+      // 抽屉里已经留过的悄悄话给TA看（她 2026-10-26 去重）
+      const wPrev = (coupleDrawerRef.current || []).filter(x => x && x.characterId === char.id && x.kind === "whisper" && x.text).slice(0, 30).map(x => "· " + String(x.text).slice(0, 50));
+      const wSeen = wPrev.length ? "\n【抽屉里你已经留过的悄悄话】别再留同一句话，换个说法也算留过：\n" + wPrev.join("\n") + "\n" : "";
       const d = await runProbe(apiFor(char.id), ctxFor(char), {
         voice: true,
-        instruction: "你们已是恋人。以「" + char.name + "」身份，往你俩私密的那个抽屉里放一张给用户的小纸条（她哪天想起来才会打开）——写一句恋爱向、藏着心意、想对 Ta 说却又没在聊天里直接说出口的悄悄话（不是脑内碎碎念的心声，是想让 Ta 悄悄收到的情话/在乎），真挚贴人设，1-2句、别太长。可以从你真正参与的近期相处里生长出来，但别照抄原话。" + (livedMaterial ? "\n\n【你最近亲历的共同相处（含私聊、群聊与线上/线下）】\n" + livedMaterial : ""),
+        instruction: wSeen + "你们已是恋人。以「" + char.name + "」身份，往你俩私密的那个抽屉里放一张给用户的小纸条（她哪天想起来才会打开）——写一句恋爱向、藏着心意、想对 Ta 说却又没在聊天里直接说出口的悄悄话（不是脑内碎碎念的心声，是想让 Ta 悄悄收到的情话/在乎），真挚贴人设，1-2句、别太长。可以从你真正参与的近期相处里生长出来，但别照抄原话。" + (livedMaterial ? "\n\n【你最近亲历的共同相处（含私聊、群聊与线上/线下）】\n" + livedMaterial : ""),
         schemaHint: "{\"whisper\":\"给 Ta 的悄悄情话\"}"
       });
       return drawerWhisper(char.id, String(d && d.whisper || "").trim());
@@ -27604,6 +27616,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     //   放悄悄话的路不止一条——聊天回话里顺手留、定时那一档、进情侣空间补一档——前后脚撞上就成了两句。
     const now = Date.now();
     if ((coupleDrawerRef.current || []).some(x => x && x.characterId === charId && x.kind === "whisper" && now - Number(x.ts || 0) < 20 * 60000)) return false;
+    // 抽屉里已经有差不多的一句，就当这次没放（她 2026-10-26 去重；放悄悄话的几条路都过这儿）
+    if (typeof isNearDup === "function" && isNearDup(t, (coupleDrawerRef.current || []).filter(x => x && x.characterId === charId && x.kind === "whisper").map(x => x.text))) return false;
     // ⚠️title 留空（v61.33）：这一路原来切的是正文头 16 个字，而抽屉封面上印的就是 title
     //   ——等于她还没拆就已经读到TA要说的话了（她 2026-09-03 报的就是这个）。
     //   界面那边已经改成【封着的时候一个字都不露】；这儿一并断掉源头，
@@ -27902,9 +27916,12 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       const page = coupleExDiaryRef.current.find(x => x.id === pageId);
       if (!char || !page) return;
       const uN = profile.name || "对方";
+      // 自己前几页怎么起头的（她 2026-10-26 去重）：回页总用同一句开场
+      const exOwn = (coupleExDiaryRef.current || []).filter(x => x && x.characterId === cid && x.author === cid && x.content).sort((a, b) => Number(b.ts || 0) - Number(a.ts || 0)).slice(0, 3).map(x => "· " + String(x.content).replace(/\s+/g, " ").slice(0, 30));
+      const exSeen = exOwn.length ? "\n【你前几页的开头】你前几页写过的，别再用同一个说法起头：\n" + exOwn.join("\n") + "\n" : "";
       const d = await runProbe(apiFor(char.id), leanWriteCtx(ctxFor(char)), { // 交换日记回页=TA 亲笔，跟随专线（v48.37）；瘦身省贵线（v48.92）
         voice: true,
-        instruction: relSay(char) + "，共用一本【交换日记】——一人一页轮流写、只给彼此看，比聊天更松弛、更没防备。\n【" + uN + " 在 " + page.date + " 写给你的那页】" + (page.mood ? "（Ta 当时心情：" + page.mood + "）" : "") + "\n" + page.content + "\n\n现在轮到你写你这一页（今天是 " + ymd(new Date()) + (page.date !== ymd(new Date()) ? "，你隔了几天才提笔，可以自然提到为什么现在才回" : "") + "）。要求：\n· 以「" + char.name + "」第一人称手写日记的口吻，文风完全按你的人设来——可以写脆弱、别扭、矫情、只给 Ta 看的真心话。\n· 必须回应 Ta 那页写的东西（呼应、回答、心疼、反驳都行），再写你【今天】的真实处境（结合上面你今天的行程与心情），以及你们最近相处里【没说出口的潜台词】（比如「那天其实我…」）。\n· 不许写成聊天记录摘要或汇报体；不用括号动作；像手写的字，100~300 字。\n· mood 填你写这页时的心情短词；weather 按你那边今天的天气写个短语（上面行程里有真实天气就用它）。",
+        instruction: exSeen + relSay(char) + "，共用一本【交换日记】——一人一页轮流写、只给彼此看，比聊天更松弛、更没防备。\n【" + uN + " 在 " + page.date + " 写给你的那页】" + (page.mood ? "（Ta 当时心情：" + page.mood + "）" : "") + "\n" + page.content + "\n\n现在轮到你写你这一页（今天是 " + ymd(new Date()) + (page.date !== ymd(new Date()) ? "，你隔了几天才提笔，可以自然提到为什么现在才回" : "") + "）。要求：\n· 以「" + char.name + "」第一人称手写日记的口吻，文风完全按你的人设来——可以写脆弱、别扭、矫情、只给 Ta 看的真心话。\n· 必须回应 Ta 那页写的东西（呼应、回答、心疼、反驳都行），再写你【今天】的真实处境（结合上面你今天的行程与心情），以及你们最近相处里【没说出口的潜台词】（比如「那天其实我…」）。\n· 不许写成聊天记录摘要或汇报体；不用括号动作；像手写的字，100~300 字。\n· mood 填你写这页时的心情短词；weather 按你那边今天的天气写个短语（上面行程里有真实天气就用它）。",
         schemaHint: "{\"content\":\"日记正文\",\"mood\":\"心情短词\",\"weather\":\"天气短语\"}",
         maxTokens: 14000
       });
@@ -27956,14 +27973,18 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     if (!active) { toast("请先到设置配置 API"); return false; }
     setGen(g => ({ ...g, coupleTL: true }));
     try {
+      // 跟自动那条（leaveInCoupleSpace）同一份名单、同一道筛（她 2026-10-26 去重）
+      const tlPrev = (loadJSON("x_coupleTimeline", []) || []).filter(x => x && x.characterId === char.id);
+      const tlSeen = tlPrev.length ? "【时光轴上已经有的】下面这些已经记过了，别再补同一件事，换个说法也算记过：\n" + tlPrev.slice(0, 40).map(x => "· " + String((x.title ? x.title + "：" : "") + (x.content || "")).slice(0, 50)).join("\n") + "\n" : "";
       const d = await runProbe(apiFor(char.id), ctxFor(char), {
         voice: true,
-        instruction: relSay(char) + "。" + (occasion ? "今天是你们的「" + String(occasion).slice(0, 20) + "」。" : "")
+        instruction: tlSeen + relSay(char) + "。" + (occasion ? "今天是你们的「" + String(occasion).slice(0, 20) + "」。" : "")
           + "以「" + char.name + "」身份，为你俩的恋爱时间轴写一条此刻的「感慨」——"
           + (occasion ? "写走到今天这个日子的真实感受，要落在你们之间某件具体的事上，不许写贺词；" : "")
           + "一个短标题（≤10 字）+ 一两句话（≤40 字），贴人设与当下心情，别喊口号。",
         schemaHint: "{\"title\":\"短标题\",\"content\":\"一两句话\"}"
       });
+      if (typeof isNearDup === "function" && isNearDup(String((d && d.title) || "") + String((d && d.content) || ""), tlPrev.map(x => String(x.title || "") + (x.content || "")))) { toast(char.name + " 想写的这件时光轴上已经有了，再点一次换一件"); return false; }
       setCoupleTimeline(p => {
         const n = [{ id: "tl_" + Date.now(), characterId: char.id, date: ymd(new Date()), type: "感慨", title: (d.title || "").trim(), content: (d.content || "").trim(), byCharacter: true, createdAt: Date.now() }, ...p];
         saveJSON("x_coupleTimeline", n);
@@ -28060,7 +28081,11 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       .map(l => "·《" + (l.title || "无题") + "》" + String(l.body || "").replace(/\s+/g, " ").slice(0, 80));
     const PAST_LETTERS = pastLetters.length ? "\n你之前写给她的几封（标题＋开头）：\n" + pastLetters.join("\n") + "\n这封换一条线：挑一件那几封没写过的事、一个没说过的角度（最近的一件小事、一个你一直没说的习惯、一个以后的打算……）。" : "";
     try {
-      const d = await runProbe(apiFor(char.id), ctxFor(char), {
+      // 写出来跟前几封字面差不多：重写一次，还是差不多就这次不寄（她 2026-10-26 去重）
+      const prevLt = coupleLetters.filter(l => l.characterId === char.id && l.authorId !== "user").map(l => String(l.title || "") + String(l.body || "").slice(0, 80));
+      let d = null;
+      for (let tries = 0; tries < 2; tries++) {
+      d = await runProbe(apiFor(char.id), ctxFor(char), {
         voice: true,
         // 字数（她 2026-09-05：「情书是不是也有点短」）：150-300 写不开——
         // 那是张卡片的长度，不是一封信。下限比上限重要：说清至少要写到这个份上。
@@ -28071,6 +28096,9 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         maxTokens: 20000   // 放宽字数之后 12000 会截在半句（max-tokens-floor：新 = min(24000, 旧+8000)）
 
       });
+      if (!(typeof isNearDup === "function" && isNearDup(String((d && d.title) || "") + String((d && d.body) || "").slice(0, 80), prevLt))) break;
+      if (tries === 1) { toast(char.name + " 写出来的跟前几封差不多，这次先不寄了"); return false; }
+      }
       const st = letterStyleFor(char);
       setCoupleLetters(p => {
         const n = [{ id: "lt_" + Date.now(), characterId: char.id, authorId: char.id, title: (d.title || "").trim(), body: (d.body || "").trim(), isRead: false, createdAt: Date.now(), font: st.font, paper: st.paper, replies: [] }, ...p];
