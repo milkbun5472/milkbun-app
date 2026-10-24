@@ -2679,30 +2679,19 @@ function splitLongBubble(s, allowComma) {
     out = s.split(/([。！？!?]+)/).reduce(glue, []).map(x => x.trim()).filter(Boolean);
   }
   if (allowComma === false) return bubbleGlueOrphans(out).map(bubbleRestore);
-  const out2 = out.reduce((acc, part) => {
-    if (part.length <= LONG || !/[，,]/.test(part.slice(0, -1))) return acc.concat([part]);
-    const segs = part.split(/([，,])/).reduce(glue, []).filter(x => x.trim());
+  // 逗号和【中文后面的空格】是同一刀（她 2026-10-24：「要不要提到公共的跟标点符号一起，不要新开形状」）：
+  //   有的人不打标点、拿空格断句，那个空格就是它的逗号；门槛、最多几段、尾巴太短往回粘，全跟逗号共用。英文单词之间的空格不算
+  const SEP = /([，,]|(?<=[\u4e00-\u9fff…~～])\s+(?=\S))/;
+  const out3 = out.reduce((acc, part) => {
+    if (part.length <= LONG || !SEP.test(part.slice(0, -1))) return acc.concat([part]);
+    const segs = part.split(SEP).reduce(glue, []).filter(x => x.trim());
     const chunks = [];
     segs.forEach(seg => {
-      if (chunks.length && (chunks[chunks.length - 1].length < MIN || chunks.length >= MAX_CHUNKS)) chunks[chunks.length - 1] += seg;
+      if (chunks.length && (chunks[chunks.length - 1].trim().length < MIN || chunks.length >= MAX_CHUNKS)) chunks[chunks.length - 1] += seg;
       else chunks.push(seg);
     });
-    while (chunks.length > 1 && chunks[chunks.length - 1].replace(/[，,]\s*$/, "").length < TAIL_MIN) chunks[chunks.length - 2] += chunks.pop();
-    return acc.concat(chunks.map(x => x.replace(/[，,]\s*$/, "").trim()).filter(Boolean));
-  }, []);
-  // 不用标点、拿空格断句的那种（她 2026-10-24 截图：「我可提前跟你说好 今晚我过来纯属是为了… 顺便借你家WiFi…」整段一个泡）：
-  //   上面两刀都认标点，碰不到它。长了、又一个标点都没有，就在【中文后面的空格】处断——英文单词之间的空格不动
-  const out3 = out2.reduce((acc, part) => {
-    if (part.length <= LONG || /[，,。！？!?；;]/.test(part) || !/[\u4e00-\u9fff]\s+\S/.test(part)) return acc.concat([part]);
-    const segs = part.split(/(?<=[\u4e00-\u9fff…~～])\s+(?=\S)/).filter(x => x.trim());
-    const chunks = [];
-    segs.forEach(seg => {
-      // 空格断的那一截本身就是一句（「腿都快蹬断了」六个字），门槛原是 5，她 2026-10-24 嫌碎（五六个字一个泡），改回跟逗号那刀共用 8
-      if (chunks.length && (chunks[chunks.length - 1].length < MIN || chunks.length >= MAX_CHUNKS)) chunks[chunks.length - 1] += " " + seg;
-      else chunks.push(seg);
-    });
-    while (chunks.length > 1 && chunks[chunks.length - 1].length < TAIL_MIN) { const t2 = chunks.pop(); chunks[chunks.length - 1] += " " + t2; }
-    return acc.concat(chunks.map(x => x.trim()).filter(Boolean));
+    while (chunks.length > 1 && chunks[chunks.length - 1].replace(/[，,]?\s*$/, "").length < TAIL_MIN) chunks[chunks.length - 2] += chunks.pop();
+    return acc.concat(chunks.map(x => x.replace(/[，,]?\s*$/, "").trim()).filter(Boolean));
   }, []);
   return bubbleGlueOrphans(out3).map(bubbleRestore);
 }
