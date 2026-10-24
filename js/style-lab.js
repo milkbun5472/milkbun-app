@@ -81,7 +81,7 @@
         props.toast && props.toast("认出是分条的预设：拆成 " + tv.modules.length + " 个模块，开着的 " + tv.presets[0].mods.length + " 条已经勾进新预设「" + tv.presets[0].name + "」");
         return "bundle";
       }
-      if (d) throw new Error("这是个 json，但里面既不是模块包，也认不出是分条的预设（没有 modules／presets／prompts）");
+      if (d) throw new Error("这是个 json，但里面找不到一条条带正文的块（认 modules／presets／prompts／entries 这些，每块要有 content 或 text）。把文件发给秋秋，或者发到群里让人看看");
       addPreset({ name: String(fallbackName || "").trim() || "导入的预设", free: txt.trim() });
       props.toast && props.toast("导入了 " + cnt(txt) + " 字，进「手写／导入」那一格了");
       return "free";
