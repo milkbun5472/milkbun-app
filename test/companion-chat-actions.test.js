@@ -43,6 +43,68 @@ test('全角英文、长段动作与问候混用仍可命中具体动作',()=>{
  assert.equal(act('他看完文件，走过来张开胳膊。'),'emotion-cozy');
  assert.equal(act('嗯嗯，他侧了侧耳，认真地听。'),'emotion-listen');
 });
+test('点头按动作结构识别，上千种修饰和前后顺序不必逐句列词',()=>{
+ const people=['他','她','TA','屏幕里的小人'];
+ const modifiers=['轻轻地','慢慢地','略微迟疑地','很认真地','幅度很小地','带着几分肯定地','带着笑意地','很干脆地'];
+ const verbs=['点了点','点了一下','向下点了两次','小幅度点动了一下','点低了','点了几下'];
+ const heads=['头','脑袋','自己那颗毛茸茸的脑袋','略微低垂着的头','那颗还没完全睡醒的脑袋'];
+ let count=0;
+ for(const who of people)for(const how of modifiers)for(const verb of verbs)for(const head of heads){
+  const text=who+'听完你那段很长的解释后'+how+verb+head+'，表示这件事情已经记在心里。';
+  assert.equal(act(text),'nod',text);count++;
+ }
+ for(const who of people)for(const how of modifiers)for(const head of heads){
+  const text=who+'把'+head+how+'向下点了两次。';assert.equal(act(text),'nod',text);count++;
+ }
+ assert.equal(count,1120);
+});
+test('其余动作同样接受分开的动词与部位，修饰不局限固定语气词',()=>{
+ const cases={
+  'emotion-kiss':'他亲了足足一大口你的脸颊。',
+  'emotion-giggle':'他用手捂住自己快要绷不住的嘴。',
+  'emotion-listen':'他侧了侧被碎发遮住的耳朵。',
+  'emotion-promise':'他拍了两下自己挺起来的胸膛。',
+  'emotion-cheer':'他握紧了垂在身体两侧的拳头。',
+  'emotion-refuse':'他摇了摇那颗乱蓬蓬的脑袋。',
+  'emotion-cozy':'他把两条胳膊朝你的方向慢慢张了开来。',
+  'emotion-chin':'他撑住了自己微微偏向一侧的下巴。',
+  'emotion-dance':'他跳了一支笨拙而欢快的小舞。',
+  'emotion-bow':'他鞠了一个郑重其事的深躬。',
+  'emotion-shrug':'他耸动了一下僵硬了一整天的肩膀。',
+  'emotion-beckon':'他招了招高高举起的手示意你过来。',
+  'emotion-peek':'他探出了藏在门后许久的脑袋。',
+  'emotion-show':'他转了一个慢吞吞的圈给你看。',
+  'emotion-five-right':'他等着和你击一个响亮的掌。',
+  wave:'他挥了挥藏在宽大袖子里的手。',
+  yawn:'他打了一个拖得长长的哈欠。',
+  stretch:'他伸了一个迟到了很久的长懒腰。',
+  tea:'他喝了一大口已经温了许久的红茶。',
+  read:'他翻了几下摊开在膝盖上的书。',
+  shy:'他的耳尖一点一点慢慢地泛起了红。',
+  hop:'他从椅子旁边跳了一下站起来。',
+  stomp:'他跺了两下穿着软绵绵拖鞋的脚。',
+  sigh:'他叹了一口长得快要散进风里的气。',
+  jolt:'他被突然的声音吓得猛地一跳。',
+  turn:'他转过那颗原本望着窗外的脑袋。',
+  sit:'他坐回那张铺了软垫的椅子。'
+ };
+ for(const [kind,text] of Object.entries(cases))assert.equal(act(text),kind,text);
+});
+test('长回复先识别具体动作，招呼与口头应答不抢走它',()=>{
+ const filler='窗外的光落在桌角，远处车辆的声音渐渐远去。'.repeat(150);
+ assert.equal(act('早安，知道啦。'+filler+'他点了点自己那颗毛茸茸的脑袋。'+filler),'nod');
+ assert.equal(act('嗯嗯，没问题。他捂住自己快要笑出声的嘴。'),'emotion-giggle');
+ assert.equal(act('我保证会认真考虑。他轻轻点了两下脑袋。'),'nod');
+});
+test('动词和部位隔着很长的同句修饰也能认，修饰没有固定字数上限',()=>{
+ const description='自己那颗因为刚刚睡醒而略显蓬松又因为认真琢磨对方说过的事情而不自觉往下低垂着还带着一点懵懂神情的';
+ assert.equal(act('他听完后轻轻点了点'+description+'脑袋。'),'nod');
+ assert.equal(act('他把'+description+'脑袋缓缓向下点了两次。'),'nod');
+ assert.equal(act('他挥了挥那只刚从宽大的外套袖口里面慢慢伸出来还被暖烘烘的布料遮住了半截指尖的手。'),'wave');
+});
+test('两端不跨分句硬拼，名字与普通名词不算动作部位',()=>{
+ for(const text of ['他点了一杯茶，看着你的头发。','他点了一份餐。镜头切到了窗外。','他拍了张照片，胸口的挂件很漂亮。','他挥霍了很多钱，手边空空的。','他端详了片刻，杯子放在窗台。','他亲眼看到了你熟悉的脸庞。','他的头发上沾了一点糖。'])assert.equal(act(text),'',text);
+});
 test('普通称呼、名字和相似名词不误触发',()=>{
  for(const line of ['',null,'亲爱的，今天怎么样？','亲属关系','亲自处理','保证金已经交了','保证书放在桌上','阅读器很方便','听说今天下雨','他挥霍了很多钱'])assert.equal(act(line),'',String(line));
 });

@@ -48,13 +48,19 @@ const out=process.env.COMPANION_EVIDENCE||'/tmp/companion-chat-actions';fs.mkdir
  });
  for(const progress of [.3,.6,.8]){await page.evaluate(p=>actionGallery(p),progress);await page.screenshot({path:out+'/actions-'+progress+'.png'});}
  await page.close();
- const text=fs.readFileSync('js/companion.js','utf8');const words=['亲了一下额头','捂着嘴笑','认真地听你讲','拍了拍胸口','握了握拳给你加油','摇了摇头'];
+ const text=fs.readFileSync('js/companion.js','utf8');const words=['亲了足足一大口你的脸颊','用手捂住自己快要绷不住的嘴','侧了侧被碎发遮住的耳朵','拍了两下自己挺起来的胸膛','握紧了垂在身体两侧的拳头','摇了摇那颗乱蓬蓬的脑袋'];
  for(const mode of ['full','float']){
   const view=await browser.newPage({viewport:{width:390,height:700}});view.on('pageerror',e=>errors.push(e.message));await view.goto(base+'/apps/companion/?mode='+mode);await view.waitForFunction(()=>window.petDebug);await view.evaluate(()=>petDebug.ready());
   await view.addScriptTag({content:'window.useEffect=()=>{};'+text});
   for(let i=0;i<words.length;i++){
    const name=report.actions[i];await view.evaluate(line=>{const k=CompanionFace.actForText(line);postMessage({type:'pet-act',kind:k},'*');},words[i]);
    await view.waitForTimeout(180);assert.equal(await view.evaluate(()=>petDebug.snapshot().emotion),name,mode+' '+words[i]);
+  }
+  const filler='窗外的光落在桌角，远处车辆的声音渐渐远去。'.repeat(120);
+  const prose=[['早安，知道啦。'+filler+'他点了点自己那颗毛茸茸的脑袋。'+filler,'nod'],['他把那颗乱蓬蓬的脑袋缓缓地往下点了两次。','nod'],['他喝了一大口已经温了许久的红茶。','tea'],['他挥了挥藏在宽大袖子里的手。','wave']];
+  for(const [line,kind] of prose){
+   await view.evaluate(line=>postMessage({type:'pet-act',kind:CompanionFace.actForText(line)},'*'),line);await view.waitForTimeout(180);
+   assert.equal(await view.evaluate(()=>petDebug.snapshot().action),kind,mode+' long prose');
   }
   // 同轮心情换脸不能把刚触发的聊天动作清掉。
   await view.evaluate(()=>{postMessage({type:'pet-act',kind:'emotion-kiss'},'*');postMessage({type:'pet-look',characterId:'test',look:{face:'happy'},ta:'Test'},'*');});await view.waitForTimeout(180);
