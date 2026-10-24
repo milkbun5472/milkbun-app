@@ -2861,7 +2861,8 @@ function Forum({
     return h("div",{className:"flex-1 overflow-y-auto"},
       h("div",{className:"px-4 pt-5 pb-4",style:{borderBottom:`1px solid ${t.line}`}},
         h("div",{className:"flex items-start gap-3"},
-          h(AltAvatar,{seed:meta.altAvatarSeed||displayHandle,size:62}),
+          // 跟帖子、楼里那张同一个种子（按 @id 画）：原来主页用的是另一个种子，同一个小号两张脸；换网名时头像跟着换
+          h(AltAvatar,{seed:displayHandle||meta.altAvatarSeed,size:62}),
           h("div",{className:"flex-1 min-w-0"},
             h("div",{className:"flex items-center gap-2",style:{fontFamily:F_DISPLAY,fontSize:20,color:t.ink}},h("span",null,displayName),accountBadge(identity)),
             h("div",{style:{fontFamily:F_BODY,fontSize:12.5,color:t.fog}},"@"+displayHandle)),
