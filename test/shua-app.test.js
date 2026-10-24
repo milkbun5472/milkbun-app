@@ -197,7 +197,7 @@ test("聊天里的视频卡画面铺满卡宽", () => {
 
 test("同城那排限宽能横滑；在同城打开刷新页，刷路人刷的是这座城", () => {
   const src = (require("fs").readFileSync(require("path").join(__dirname, "../js/shua-core.js"), "utf8") + "\n" + require("fs").readFileSync(require("path").join(__dirname, "../js/shua.js"), "utf8"));
-  assert.match(src, /maxWidth: "calc\(100% - 200px\)", minWidth: 0/);
+  assert.match(src, /maxWidth: "calc\(100% - 120px\)", minWidth: 0/);
   assert.match(src, /overflowX: "auto", maxWidth: "100%", padding: "4px 12px 6px", whiteSpace: "nowrap", touchAction: "pan-x"/);
   assert.match(src, /onNpc: \(\) => genNpc\(feed === "city" && cities\.length \? cityNow : ""\)/);
 });
