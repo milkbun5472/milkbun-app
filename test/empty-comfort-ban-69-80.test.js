@@ -52,11 +52,27 @@ test("禁的是模子不是尺度——结尾那句不许删", () => {
 // ── 四处一样喂 · 八处都得接上 ────────────────────────────────
 // ⚠️判据（施工规则/four-surfaces-same-context.md）：这一处是靠【打包函数白送的】，
 //   还是靠【调用点一条条 push 的】？后者换个入口就一条都没有，而且 grep 不出痕迹。
+// 2026-10-26 talkBans 合并：这一族不再各处一条条 push，而是全在 talkBans() 那张唯一清单里，
+//   面对面不发这一条＝talkBans({ faceToFace: true }) 把它滤掉。所以真跑一遍 talkBans，再认各分发点的调用参数。
+const talkBans = (() => {
+  const t = eng.indexOf("function talkBans(o) {");
+  const src = eng.slice(t, eng.indexOf("\n}", t) + 2);
+  const names = [...new Set(src.match(/\b[A-Z][A-Z0-9_]{3,}\b/g) || [])];
+  return new Function(...names, src + "\nreturn talkBans;")(...names.map(n => "<" + n + ">"));
+})();
+test("talkBans：隔着屏幕发、面对面不发，跟 STOCK_REPLY（原 OVERREACH）一族同进同出", () => {
+  assert.ok(talkBans().includes("<EMPTY_COMFORT_BAN>"));
+  assert.ok(talkBans({ faceToFace: false }).includes("<EMPTY_COMFORT_BAN>"));
+  assert.ok(!talkBans({ faceToFace: true }).includes("<EMPTY_COMFORT_BAN>"), "面对面还在发");
+  assert.ok(talkBans({ faceToFace: true }).includes("<STOCK_REPLY_BAN>"), "面对面把同族另几条也滤掉了");
+  const l = talkBans();
+  assert.ok(l.indexOf("<STOCK_REPLY_BAN>") < l.indexOf("<EMPTY_COMFORT_BAN>"), "跟那一族走散了");
+});
+
 test("群那几处：走 groupBans（群线上 / 群线下 / 群通话 / 群投票）", () => {
   const gb = eng.slice(eng.indexOf("function groupBans(opts)"), eng.indexOf("const GROUP_USER_IS_PRESENT"));
-  assert.match(gb, /if \(!opts\.narrative\) P\.push\(EMPTY_COMFORT_BAN\);/);   // 群线下面对面不发
-  // 跟 OVERREACH_BAN 同进同出——它俩是一族，漏一处就整族回来
-  assert.ok(gb.indexOf("P.push(OVERREACH_BAN)") < gb.indexOf("P.push(EMPTY_COMFORT_BAN)"));
+  // 群线下面对面不发（2026-10-26 起由 faceToFace 传进 talkBans）
+  assert.match(gb, /talkBans\(\{ faceToFace: !!opts\.narrative \}\)\.forEach\(x => P\.push\(x\)\);/);
   // groupBans 真的是那几处在用
   assert.ok((app.match(/groupBans\(/g) || []).length >= 3, "群那几处不再走 groupBans 了");
   assert.match(eng, /groupBans\(\{ narrative: true, mood: true, echo: true/, "群线下那一处没了");
@@ -64,26 +80,29 @@ test("群那几处：走 groupBans（群线上 / 群线下 / 群通话 / 群投�
 
 test("单聊线上/线下 · 单人通话 · 匿名信箱 · 解梦馆：走 buildBundle 白送", () => {
   const bb = eng.slice(eng.indexOf("parts.push(ANTI_CLICHE);"), eng.indexOf("parts.push(CHARCARD_RULE);"));
-  assert.match(bb, /if \(!\(opts && opts\.offline\)\) parts\.push\(EMPTY_COMFORT_BAN\);/);   // 单人线下面对面不发
-  assert.ok(bb.indexOf("parts.push(OVERREACH_BAN)") < bb.indexOf("parts.push(EMPTY_COMFORT_BAN)"));
+  // 单人线下面对面不发（2026-10-26 起由 faceToFace 传进 talkBans）
+  assert.match(bb, /talkBans\(\{ faceToFace: !!\(opts && opts\.offline\) \}\)\.forEach\(x => parts\.push\(x\)\);/);
   // ⚠️它在 notRoleplay 的 else 分支里：言秋不吃扮演类规则，那是写着理由的合法差异
   const nr = eng.slice(eng.indexOf("if (ctx.notRoleplay) {"), eng.indexOf("parts.push(CHARCARD_RULE);"));
-  assert.ok(nr.indexOf("EMPTY_COMFORT_BAN") > nr.indexOf("} else {"), "跑到言秋那一支里去了");
+  assert.ok(nr.indexOf("talkBans(") > nr.indexOf("} else {"), "跑到言秋那一支里去了");
 });
 
-test("穿书（加笔）：第六处，靠自己一条条 push——最容易漏的那种", () => {
-  assert.match(fic, /if \(typeof EMPTY_COMFORT_BAN !== "undefined"\) parts\.push\(EMPTY_COMFORT_BAN\);/);
-  assert.ok(fic.indexOf("OVERREACH_BAN") < fic.indexOf("EMPTY_COMFORT_BAN"), "跟那一族走散了");
+test("穿书（加笔）：第六处，靠自己调 talkBans()——最容易漏的那种", () => {
+  // 穿进去是隔着屏幕聊天：不传 faceToFace，这一条照发（2026-10-26 talkBans 合并）
+  assert.match(fic, /if \(typeof talkBans === "function"\) talkBans\(\)\.forEach\(x => parts\.push\(x\)\);/);
+  // 它的 narrativeCore 关掉了那一摞（chatBans:false），不然面对面版会再发一遍
+  assert.match(fic, /narrativeCore\(\{ intimate: true, chatBans: false \}\)/);
 });
 
 test("八处一个都不少（按分发点点名，不是按文件）", () => {
   const hubs = [
-    ["群线上 / 群线下 / 群通话 / 群投票", /P\.push\(EMPTY_COMFORT_BAN\);/.test(eng)],
-    ["单聊线上 / 单聊线下 / 单人通话 / 匿名信箱 / 解梦馆", /parts\.push\(EMPTY_COMFORT_BAN\);/.test(eng)],
-    ["穿书（加笔）", /parts\.push\(EMPTY_COMFORT_BAN\)/.test(fic)]
+    ["群线上 / 群线下 / 群通话 / 群投票", /talkBans\(\{ faceToFace: !!opts\.narrative \}\)\.forEach\(x => P\.push\(x\)\)/.test(eng)],
+    ["单聊线上 / 单聊线下 / 单人通话 / 匿名信箱 / 解梦馆", /talkBans\(\{ faceToFace: !!\(opts && opts\.offline\) \}\)\.forEach\(x => parts\.push\(x\)\)/.test(eng)],
+    ["穿书（加笔）", /talkBans\(\)\.forEach\(x => parts\.push\(x\)\)/.test(fic)]
   ];
   const miss = hubs.filter(h => !h[1]).map(h => h[0]);
   assert.deepEqual(miss, [], "这些还没接上：" + miss.join(" / "));
+  assert.ok(talkBans().includes("<EMPTY_COMFORT_BAN>"));
 });
 
 test("线下面对面不发「说线上做得到的话」：人在跟前，这句兑现得了", () => {

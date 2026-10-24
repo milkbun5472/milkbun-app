@@ -11,8 +11,10 @@ test('公共反模板规则不指定从自己的活动开场', () => {
   assert.match(rule, /不预设回应顺序/);
   assert.match(rule, /自己的活动与心情提供背景，不指定开场或话题/);
   assert.match(rule, /不需要为每句话制造独特性/);
-  assert.match(engine, /parts\.push\(STOCK_REPLY_BAN\)/);
-  assert.match(engine, /P\.push\(STOCK_REPLY_BAN\)/);
+  // 2026-10-26 talkBans 合并：清单里有它，单聊（buildBundle）与群（groupBans）都调 talkBans
+  assert.match(engine, /function talkBans\(o\) \{[\s\S]{0,200}?STOCK_REPLY_BAN/);
+  assert.match(engine, /talkBans\(\{ faceToFace: !!\(opts && opts\.offline\) \}\)\.forEach\(x => parts\.push\(x\)\)/);
+  assert.match(engine, /talkBans\(\{ faceToFace: !!opts\.narrative \}\)\.forEach\(x => P\.push\(x\)\)/);
 });
 test('状态过期不等于没有存档：保留原TTL与相同值不续命机制', () => {
   const ttl = app.match(/const LIVE_STATE_TTL = (\{[^;]+\});/)[1];
