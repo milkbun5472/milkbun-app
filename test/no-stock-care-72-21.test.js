@@ -50,6 +50,8 @@ test("没把「该多热情」一起禁掉", () => {
 
 test("这条真的发得出去（八处都吃得到）", () => {
   // v56.09 那个形状：声明了但没人引用，比压根没写更坏
-  assert.match(eng, /parts\.push\(STOCK_REPLY_BAN\);/, "buildBundle 那一路没 push");
-  assert.match(eng, /P\.push\(STOCK_REPLY_BAN\);/, "线下那一路没 push");
+  // 2026-10-26 talkBans 合并：它在 talkBans 那张唯一清单里，buildBundle / groupBans 各调用一次
+  assert.match(eng, /function talkBans\(o\) \{[\s\S]{0,200}?STOCK_REPLY_BAN/, "talkBans 清单里没有它");
+  assert.match(eng, /talkBans\(\{ faceToFace: !!\(opts && opts\.offline\) \}\)\.forEach\(x => parts\.push\(x\)\)/, "buildBundle 那一路没接 talkBans");
+  assert.match(eng, /talkBans\(\{ faceToFace: !!opts\.narrative \}\)\.forEach\(x => P\.push\(x\)\)/, "群那一路没接 talkBans");
 });

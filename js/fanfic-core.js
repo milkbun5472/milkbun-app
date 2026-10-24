@@ -2298,15 +2298,9 @@
     //   narrativeCore 白得了去人机味／角色卡准则／叙事反陈词滥调／亲密反模板／语气年龄锚，
     //   剩下这几条是【别处一条条 push 进去的】，谁都没想着给这儿：
     // 内容边界（含禁烟）现在由 narrativeCore 白送，这儿不再重复 push。
-    if (typeof CONDESCENDING_TONE_BAN !== "undefined") parts.push(CONDESCENDING_TONE_BAN);
     if (typeof REGISTER_FOLLOWS_SCENE !== "undefined") parts.push(REGISTER_FOLLOWS_SCENE);
-    if (typeof STOCK_REPLY_BAN !== "undefined") parts.push(STOCK_REPLY_BAN);
-    // OVERREACH_BAN v70.28 已合并进 STOCK_REPLY_BAN（同一个字符串），这儿不再重复 push
-    if (typeof EMPTY_COMFORT_BAN !== "undefined") parts.push(EMPTY_COMFORT_BAN);   // 同上，这一族一起走
-    if (typeof SEE_THROUGH_BAN !== "undefined") parts.push(SEE_THROUGH_BAN);
-    if (typeof LEVERAGE_BAN !== "undefined") parts.push(LEVERAGE_BAN);
-    if (typeof USER_BODY_BAN !== "undefined") parts.push(USER_BODY_BAN);
-    if (typeof CANNED_PHRASE_BAN !== "undefined") parts.push(CANNED_PHRASE_BAN);
+    // 那一摞从 engine 那张唯一的清单取（穿进去是隔着屏幕聊天，「说线上做得到的话」照发）
+    if (typeof talkBans === "function") talkBans().forEach(x => parts.push(x));
     if (typeof ECHO_QUESTION_BAN !== "undefined") parts.push("【别拿对方刚说的词开口反问】" + ECHO_QUESTION_BAN);
     if (typeof ReplyPacing !== "undefined" && ReplyPacing.reading) parts.push(ReplyPacing.reading());
     // ⚠️开宗明义这一句就是整份 system 的定调：说「穿进去」，模型就按穿书写；

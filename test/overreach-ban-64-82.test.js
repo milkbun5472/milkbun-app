@@ -53,8 +53,9 @@ test("第一道闸问的是【你真的会吗】", () => {
 test("跟三件套同进同出——漏一处整族就回来", () => {
   const GB = require("./_group-bans.js");
   assert.ok(GB.allGroupsHave("STOCK_REPLY_BAN"), "群那三处没跟上");
-  assert.match(eng, /parts\.push\(STOCK_REPLY_BAN\);/, "buildBundle 那一处没跟上");
-  // 同人文吃的是叙事底座那一路；别名还在，老 push 删了也不该漏
-  assert.ok(/STOCK_REPLY_BAN|OVERREACH_BAN/.test(fic) ||
-            /parts\.push\(STOCK_REPLY_BAN\)/.test(eng), "同人文那一路断了");
+  // 2026-10-26 talkBans 合并：落点是 talkBans 那张清单 + 各处调用它
+  assert.match(eng, /function talkBans\(o\) \{[\s\S]{0,200}?STOCK_REPLY_BAN/, "talkBans 清单里没有它");
+  assert.match(eng, /talkBans\(\{ faceToFace: !!\(opts && opts\.offline\) \}\)\.forEach\(x => parts\.push\(x\)\)/, "buildBundle 那一处没跟上");
+  // 同人文：RP 那一路自己调 talkBans()
+  assert.match(fic, /talkBans\(\)\.forEach\(x => parts\.push\(x\)\)/, "同人文那一路断了");
 });

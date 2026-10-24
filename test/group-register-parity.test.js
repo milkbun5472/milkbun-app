@@ -29,17 +29,22 @@ test("霸总【语气】禁令要单独站着，不许再埋在行程块里当�
 test("四处都吃得到这条刀（言秋那支不发扮演类规则）", () => {
   // 单聊线上／一切走 buildBundle 的通道：跟扮演三件套同一支
   const bb = engine.slice(engine.indexOf("function buildBundle"), engine.indexOf("function buildBundle") + 3000);
-  assert.match(bb, /parts\.push\(ANTI_CLICHE\);\n\s*parts\.push\(CONDESCENDING_TONE_BAN\);/);
+  // 2026-10-26 talkBans 合并：这条不再单独 push，而是在 talkBans() 那张唯一清单里，
+  //   buildBundle 的扮演支在 ANTI_CLICHE 之后调用 talkBans(...)。
+  const tb = engine.slice(engine.indexOf("function talkBans(o)"), engine.indexOf("function groupBans(opts)"));
+  assert.match(tb, /return \[CONDESCENDING_TONE_BAN,/, "talkBans 清单里得有这一条");
+  assert.match(bb, /parts\.push\(ANTI_CLICHE\);[\s\S]{0,400}?talkBans\(\{ faceToFace: !!\(opts && opts\.offline\) \}\)\.forEach\(x => parts\.push\(x\)\)/);
   // 必须落在 notRoleplay 的 else 里——言秋不是被扮演的角色，扮演类规则一律不发
   const nr = bb.indexOf("if (ctx.notRoleplay)");
-  assert.ok(nr > 0 && bb.indexOf("CONDESCENDING_TONE_BAN") > nr, "要在 notRoleplay 分支之后的 else 里");
+  assert.ok(nr > 0 && bb.indexOf("talkBans(") > nr, "要在 notRoleplay 分支之后的 else 里");
   // 单聊线下：走 buildBundle(ctx) + OFFLINE_NARRATIVE_RUNTIME，已经从上面那支吃到了，
   // 不许再插一份（重复注入＝白烧 token，她按次计费）
   // ⚠️只数代码行：注释里提到这个常量名不算一处（v60.45 的情欲反八股在注释里
   // 引用了它当教训，这一句就误报成 4 了）。
   const codeOnly = src => src.split("\n").filter(l => !/^\s*(\/\/|\*)/.test(l)).join("\n");
-  assert.equal((codeOnly(engine).match(/CONDESCENDING_TONE_BAN/g) || []).length, 3,
-    "1 处定义 + buildBundle + 群线下；数字变了就核对是新通道接上了还是插重了");
+  // 2026-10-26 talkBans 合并：只剩 1 处定义 + talkBans 清单那一处；各通道都经 talkBans 取
+  assert.equal((codeOnly(engine).match(/CONDESCENDING_TONE_BAN/g) || []).length, 2,
+    "1 处定义 + talkBans 清单；数字变了就核对是新通道接上了还是插重了");
   // v60.39 起三处群共用 groupBans：别再 grep「这个常量拼在那一行的哪个位置」，
   // 对着【它到底吐出哪几层】问（改拼法不该红，掉一层才该红）。
   assert.ok(GB.allGroupsHave("CONDESCENDING_TONE_BAN"), "三处群都要有");

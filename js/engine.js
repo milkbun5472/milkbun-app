@@ -2364,6 +2364,17 @@ const groupInCharacterDrama = base => base
   //   这正好是修罗场里会发生的事。平时的禁令换成：来由有了，做不做看这个人。
   .replace(/⚠️\*\*不熟＝[^\n]*/, "⚠️平时生人之间别凭空排挤、圈地；但这一局里，别人跟她也是那种关系——问一句「你谁」、划界、圈地、抱团对外、较劲，这时候都有了来由。做不做、做到哪一步，照你这个人来。")
   + "\n（这个群开了修罗场：谁跟她是什么关系，大家都知道，见下面【修罗场】那段。）";
+// 【说话那一摞 · 唯一一张清单】（她 2026-10-26「为啥会漏，不是抽成公共了吗」）：
+//   居高临下／她的话不是派活／说线上做得到的话／装比她懂她／我在将就你／替她编身体／现成说法。
+//   原来单聊（buildBundle）、群（groupBans）、写正文（narrativeCore）各抄一份，新立一条只加进前两份，
+//   第三份越落越多；群那份还把同一段（OVERREACH_BAN＝STOCK_REPLY_BAN）发了两遍。
+//   现在三处（加上同人文、一起学、小镇）都从这里取，新加一条只写这一处。
+//   faceToFace：人在跟前（线下、写正文），「说线上做得到的话」那条是隔着屏幕的，不发
+function talkBans(o) {
+  o = o || {};
+  return [CONDESCENDING_TONE_BAN, STOCK_REPLY_BAN, o.faceToFace ? "" : EMPTY_COMFORT_BAN,
+    SEE_THROUGH_BAN, LEVERAGE_BAN, USER_BODY_BAN, CANNED_PHRASE_BAN].filter(Boolean);
+}
 function groupBans(opts) {
   opts = opts || {};
   const P = [PERSONA_FIRST, ANTI_CLICHE];
@@ -2377,18 +2388,11 @@ function groupBans(opts) {
   //   模型听排在前面、语气更重的那句，于是永远吵不起来（她 2026-10-02 贴出的真实提示词）。
   P.push((opts.drama ? groupInCharacterDrama : x => x)(GROUP_IN_CHARACTER));
   P.push(GROUP_USER_IS_PRESENT);
-  P.push(CONDESCENDING_TONE_BAN);
   P.push(INTIMATE_CHAT_ANTI_CLICHE);
   P.push(REGISTER_FOLLOWS_SCENE);
   P.push(PERSONA_REGISTER_ANCHOR);
   if (opts.mood) P.push(MOOD_TURN_RULE);          // 会写心情的那两处才要
-  P.push(STOCK_REPLY_BAN);
-  P.push(OVERREACH_BAN);   // 跟三件套同进同出：它是那条的近亲，漏一处就整族回来
-  if (!opts.narrative) P.push(EMPTY_COMFORT_BAN);   // 同上，这一族跟着那两条一起走；群线下是面对面，不发（理由见 buildBundle 那一处）
-  P.push(SEE_THROUGH_BAN);
-  P.push(LEVERAGE_BAN);   // 关系上的高位；跟 SEE_THROUGH（认知上的高位）同进同出
-  P.push(USER_BODY_BAN);
-  P.push(CANNED_PHRASE_BAN);
+  talkBans({ faceToFace: !!opts.narrative }).forEach(x => P.push(x));   // 那一摞从唯一那张清单取（群线下是面对面）
   if (typeof ReplyPacing !== "undefined") P.push(ReplyPacing.reading());
   // 回声禁令：群线上把它包在 ONLINE_CHAT_RULE_V2 里了，别发两遍
   if (opts.echo) P.push(ECHO_QUESTION_BAN);
@@ -3396,9 +3400,7 @@ function narrativeCore(opts) {
   // 线上那一摞（居高临下、她的话不是派活、装比她懂她、我在将就你、替她编身体、现成说法）一起进来（她 2026-10-26
   //   「线下这堆禁令别的场景都能用吧，擂台梦境同人文」）：原来只有 buildBundle／groupBans 带，
   //   梦境、小剧场、跑团、穿书走这一份，一条都没有。「说线上做得到的话」那条是隔着屏幕的，面对面的戏不发
-  if (opts.bans !== false && opts.chatBans !== false) [typeof CONDESCENDING_TONE_BAN !== "undefined" && CONDESCENDING_TONE_BAN, typeof STOCK_REPLY_BAN !== "undefined" && STOCK_REPLY_BAN,
-    typeof SEE_THROUGH_BAN !== "undefined" && SEE_THROUGH_BAN, typeof LEVERAGE_BAN !== "undefined" && LEVERAGE_BAN,
-    typeof USER_BODY_BAN !== "undefined" && USER_BODY_BAN, typeof CANNED_PHRASE_BAN !== "undefined" && CANNED_PHRASE_BAN].filter(Boolean).forEach(x => parts.push(x));
+  if (opts.bans !== false && opts.chatBans !== false) talkBans({ faceToFace: true }).forEach(x => parts.push(x));
   if (opts.intimate) { parts.push(INTIMATE_ANTI_CLICHE); parts.push(INTIMATE_CHAT_ANTI_CLICHE); }
   if (opts.register !== false) parts.push(PERSONA_REGISTER_ANCHOR);
   // 她说的话TA听不听得懂（v64.21）：小剧场／穿书／梦境／跑团／如果馆里她照样会打英文。
@@ -3947,17 +3949,9 @@ function buildBundle(ctx, opts) {
     } else {
       parts.push(PERSONA_FIRST);
       parts.push(ANTI_CLICHE);
-      parts.push(CONDESCENDING_TONE_BAN);
       parts.push(INTIMATE_CHAT_ANTI_CLICHE);
-      parts.push(STOCK_REPLY_BAN);
-      parts.push(OVERREACH_BAN);
-      // 线下面对面不发（v75.461，她 2026-10-12 让清线下提示词）：这条挡的是【隔着屏幕】说「我在这儿」，
-      //   人在跟前时这句正好兑现得了，发过去反倒是让 TA 当面也不许说。同族的另两条照发。
-      if (!(opts && opts.offline)) parts.push(EMPTY_COMFORT_BAN);
-      parts.push(SEE_THROUGH_BAN);
-      parts.push(LEVERAGE_BAN);
-      parts.push(USER_BODY_BAN);
-      parts.push(CANNED_PHRASE_BAN);
+      // 那一摞从唯一那张清单取；线下面对面不发「说线上做得到的话」（v75.461）
+      talkBans({ faceToFace: !!(opts && opts.offline) }).forEach(x => parts.push(x));
       // ⭐WORLDBOOK_RULE 无条件常驻（不再跟「本轮是否触发世界书」开关）：否则触发状态每轮一翻、稳定前缀就跟着变、爆缓存
       //   （她 2026-07-13 抓的「连着聊 2 分钟也不命中」真凶之一）。规则对没世界书的角色是惰性的、无害；触发的词条内容仍在切点之后、照常每轮变。
       parts.push(WORLDBOOK_RULE);
