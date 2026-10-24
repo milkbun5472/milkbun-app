@@ -775,6 +775,8 @@ function decodeTextBytes(bytes) {
   } catch (_) { return dec("utf-8"); }
 }
 async function readTextFileSmart(file) {
+  // Word（.docx）也认：抽出里面的字（她 2026-10-25 群友问「导入的能不能加 txt、json、docx」）——凡是走这一处读文件的导入都一起会读
+  if (/\.docx$/i.test(String(file && file.name || "")) && typeof docxToText === "function") return await docxToText(await file.arrayBuffer());
   return decodeTextBytes(await file.arrayBuffer());
 }
 // ---- 读 zip 里的文件（epub 用；docx 走 mammoth 那一份）----

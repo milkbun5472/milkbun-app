@@ -11397,7 +11397,7 @@ function EmoteMatrix({ packs, characters, onBack, onAddPack, onUpdatePack, onDel
           h("div", { className: "flex items-center gap-3", style: { marginBottom: 12 } },
             h(FilePick, { accept: ANY_FILE, onChange: readFile, label: "从文件里读表情包清单" },
               h("span", { "data-wk": "emofilebtn", "data-part": "list", className: "flex items-center gap-2 active:opacity-60", style: { display: "inline-flex", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.ink, border: "1px solid " + t.line, borderRadius: 10, padding: "9px 14px" } }, "从文件里读")),
-            h("span", { "data-wk": "emofilehint", style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog } }, "支持 .txt；打不开就把清单直接贴在下面那个框里")),
+            h("span", { "data-wk": "emofilehint", style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog } }, "支持 .txt、.json、.docx；打不开就把清单直接贴在下面那个框里")),
           h("div", { className: "flex items-center gap-3", style: { marginBottom: 12 } },
             h(FilePick, { accept: "image/*", multiple: true, onChange: pickImages, disabled: picking, label: "从相册选表情" },
               h("span", { "data-wk": "emofilebtn", "data-part": "images", className: "flex items-center gap-2 active:opacity-60", style: { display: "inline-flex", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.ink, border: "1px solid " + t.line, borderRadius: 10, padding: "9px 14px" } }, picking ? "存着呢…" : "从相册选图")),
