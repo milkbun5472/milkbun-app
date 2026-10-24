@@ -191,6 +191,35 @@
         : h("div", null,
             h("input", { "data-wk": "slname", value: cur.name, onChange: e => patchCur({ name: e.target.value }), placeholder: "预设名字", style: Object.assign({}, S.input, { marginBottom: 14 }) }),
 
+            // ── 导入的预设：原样一列开关（她 2026-10-25「做吧」）────────────
+            //   别处那种预设是「一份里好多块、每块一个开关」。导入时每块拆成一个模块放在同一格里；
+            //   选中这份时把那一格按原顺序整列摆出来，开就是勾进槽里、关就是取出来，开的关的都在眼前。
+            (function () {
+              const tag = /^sp_pl_/.test(cur.id || "") ? cur.id.slice(6) : "";
+              const cat = tag ? SP.allCats().find(c => c.id === "pl_" + tag) : null;
+              if (!cat || !cat.mods.length) return null;
+              const order = cat.mods.map(m => m.id);
+              const flip = id => {
+                const mods = (cur.mods || []).slice(), on = mods.indexOf(id) >= 0;
+                if (on) { patchCur({ mods: mods.filter(x => x !== id) }); return; }
+                // 开：插回它在原预设里的位置（排在原顺序里它前面那几块之后）
+                const before = order.slice(0, order.indexOf(id)).filter(x => mods.indexOf(x) >= 0);
+                const firstOfCat = mods.findIndex(x => order.indexOf(x) >= 0);
+                const at = before.length ? mods.indexOf(before[before.length - 1]) + 1 : firstOfCat >= 0 ? firstOfCat : mods.length;
+                mods.splice(at, 0, id);
+                patchCur({ mods: mods });
+              };
+              return h("div", { "data-wk": "slswitches", style: { marginBottom: 16 } },
+                h("div", { style: S.h2 }, "这份预设里的每一块"),
+                h("div", { style: Object.assign({}, S.hint, { marginBottom: 8 }) }, "按原来的顺序排着，开着的才会用上。"),
+                h("div", { style: { border: "1px solid " + t.line, borderRadius: 6, overflow: "hidden", background: t.bg } },
+                  cat.mods.map((m, i) => {
+                    const on = (cur.mods || []).indexOf(m.id) >= 0;
+                    return h("div", { "data-wk": "slswitch", "data-on": on ? "1" : "0", key: m.id, style: { display: "flex", alignItems: "center", gap: 10, minHeight: 48, padding: "6px 12px", borderTop: i ? "1px solid " + t.line : "none" } },
+                      h("span", { style: { flex: 1, minWidth: 0, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: on ? t.ink : t.fog, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, m.name),
+                      h(Toggle, { on: on, onChange: () => flip(m.id) }));
+                  })));
+            })(),
             // ── 已选＝排字槽（v65.10）────────────────────────────────
             // 顺序就是喂进去的顺序，所以它现实里是【一条排字槽】：几根字条挨着卡在槽里，
             // 左边那道墨色轨从头连到尾，号码印在轨上；槽底那一行写着「往下越重」，
