@@ -1,1 +1,1 @@
-export {renderPhoto,visibleBounds} from '../fairy-garden/photo-render.mjs?v=fg-e08d72edb16841f9';
+export {renderPhoto,visibleBounds} from '../fairy-garden/photo-render.mjs?v=fg-3f575044413bc14d';

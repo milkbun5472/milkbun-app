@@ -6,6 +6,18 @@ const window={addEventListener(){}};
 vm.runInNewContext(src,{window,Date});
 const act=window.CompanionFace.actForText;
 const prose=require('./fixtures/companion-action-prose.cjs');
+test('验收：动作的对象与执行者分清，同时保留正例与否定边界',()=>{
+ const chat=window.CompanionFace.actForChat;
+ for(const row of prose.targetCases){
+  const {act:action='',said='',kind}=row;
+  assert.equal(chat(action,said),kind,JSON.stringify(row));
+  if(action){
+   assert.equal(chat('', '（'+action+'）'),kind,'括号 '+action);
+   assert.equal(chat('', '*'+action+'*'),kind,'星号 '+action);
+   if(kind!=='emotion-cozy')assert.equal(chat('',action),'','只说出口 '+action);
+  }
+ }
+});
 test('整张聊天动作表逐项都有语言样本，新增动作不能漏掉验证',()=>{
  const actual=[...src.matchAll(/actionRule\("([^"]+)"/g)].map(m=>m[1]).sort();
  assert.deepEqual(Object.keys(prose.cases).sort(),actual);

@@ -1,6 +1,7 @@
 const {chromium}=require(process.env.PLAYWRIGHT_MODULE||'playwright');
 const fs=require('node:fs'),path=require('node:path'),assert=require('node:assert/strict');
-const {cases,variants,channelCases}=require('../../test/fixtures/companion-action-prose.cjs');
+const {cases,variants,channelCases,targetCases}=require('../../test/fixtures/companion-action-prose.cjs');
+const eventCases=channelCases.concat(targetCases);
 const base=process.env.COMPANION_TEST_URL||'http://127.0.0.1:18946';
 const out=process.env.COMPANION_EVIDENCE||'/tmp/companion-all-actions';fs.mkdirSync(out,{recursive:true});
 (async()=>{const browser=await chromium.launch({channel:'chrome',headless:true});try{
@@ -21,9 +22,9 @@ const out=process.env.COMPANION_EVIDENCE||'/tmp/companion-all-actions';fs.mkdirS
   }
   const channels=await page.evaluate(rows=>{
    for(const {act='',said='',kind} of rows){const actual=CompanionFace.actForChat(act,said);if(actual!==kind)throw Error('Channel '+kind+' → '+actual+' '+JSON.stringify({act,said}));}return rows.length;
-  },channelCases);
+  },eventCases);
   // 穿过真实角色隔离事件入口；否定句／普通台词不会向小人发送动作。
-  for(const row of channelCases){
+  for(const row of eventCases){
    const messages=await page.evaluate(({act='',said='',kind})=>{chatMessages.length=0;dispatchEvent(new CustomEvent('companion-chat',{detail:{charId:'check-c1',act,said}}));return chatMessages.map(m=>m.kind);},row);
    assert.deepEqual(messages,row.kind?[row.kind]:[],mode+' channel event '+JSON.stringify(row));
    if(row.kind){await page.waitForTimeout(130);assert.equal(await page.evaluate(()=>petDebug.snapshot().action),row.kind);}
