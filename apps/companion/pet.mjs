@@ -3,22 +3,25 @@
 // ?mode=float 是悬浮小窗：点一下就请外壳打开陪伴。
 // 小人本身、换装、表情、体型全部走庭院那一份 traveler.mjs，不另写一套（one-public-mechanism）。
 import * as T from 'three';
-import {targetAt,highFiveHit} from './touch-targets.mjs?v=fg-32f56e8e0d66a403';
-import {MOODS,DUR,moodBase,pulse,accent,chooseAction} from './motion.mjs?v=fg-32f56e8e0d66a403';
-import {GLTFLoader} from '../fairy-garden/vendor/GLTFLoader.js?v=fg-32f56e8e0d66a403';
-import {DRACOLoader} from '../fairy-garden/vendor/DRACOLoader.js?v=fg-32f56e8e0d66a403';
-import {createTraveler,setFaceBase} from '../fairy-garden/traveler.mjs?v=fg-32f56e8e0d66a403';
-import {lookForTa,mergeLook,dyesOf,outfitId,outfitColors,hairId,HAIR_MODES} from '../fairy-garden/wardrobe.mjs?v=fg-32f56e8e0d66a403';
+import {emotionCameraFrame} from '../fairy-garden/emotion-ground.mjs?v=fg-1214b1001808a622';
+import {targetAt,highFiveHit} from './touch-targets.mjs?v=fg-1214b1001808a622';
+import {MOODS,DUR,moodBase,pulse,accent,chooseAction} from './motion.mjs?v=fg-1214b1001808a622';
+import {GLTFLoader} from '../fairy-garden/vendor/GLTFLoader.js?v=fg-1214b1001808a622';
+import {DRACOLoader} from '../fairy-garden/vendor/DRACOLoader.js?v=fg-1214b1001808a622';
+import {createTraveler,setFaceBase} from '../fairy-garden/traveler.mjs?v=fg-1214b1001808a622';
+import {lookForTa,mergeLook,dyesOf,outfitId,outfitColors,hairId,HAIR_MODES} from '../fairy-garden/wardrobe.mjs?v=fg-1214b1001808a622';
 const mode=new URLSearchParams(location.search).get('mode')||'full';
 // 悬浮小窗用庭院那份 1K 的小人和脸：屏幕上只有指甲盖大，高清版白占内存（整页时手机会被挤得重载）
 if(mode!=='float')setFaceBase(new URL('./faces/',import.meta.url).href);
 const r=new T.WebGLRenderer({antialias:true,alpha:true});r.setClearColor(0,0);r.setPixelRatio(Math.min(2,devicePixelRatio||1));r.outputColorSpace=T.SRGBColorSpace;document.body.append(r.domElement);
 const sc=new T.Scene();sc.add(new T.HemisphereLight('#fff8ee','#b8a38c',2.3));const sun=new T.DirectionalLight('#ffffff',1.5);sun.position.set(1.2,3,2.6);sc.add(sun);
 const cam=new T.PerspectiveCamera(mode==='float'?24:26,1,.05,20);
+let cameraMid=.615,cameraDist=3.3;
+function frameGround(amount=0){const f=emotionCameraFrame(cameraMid,cameraDist,amount);cam.position.set(...f.position);cam.lookAt(...f.target);}
 function size(){const w=innerWidth,h=innerHeight;r.setSize(w,h);cam.aspect=w/h;
  // 整个人放进画面：头顶约 1.2，脚 0
  const top=1.25,bottom=-.02,mid=(top+bottom)/2,half=(top-bottom)/2*1.08;const dist=Math.max(half/Math.tan(cam.fov*Math.PI/360),half/cam.aspect/Math.tan(cam.fov*Math.PI/360));
- cam.position.set(0,mid+.05,dist+.3);cam.lookAt(0,mid,0);cam.updateProjectionMatrix();}
+ cameraMid=mid;cameraDist=dist+.3;frameGround();cam.updateProjectionMatrix();}
 addEventListener('resize',size);size();
 const loader=new GLTFLoader();const draco=new DRACOLoader();draco.setDecoderPath('../fairy-garden/vendor/draco/');loader.setDRACOLoader(draco);
 let pet=null,pending=null,lastLook='',cur={look:{},ta:'TA',characterId:''},outfitShowToken=0;
@@ -59,7 +62,7 @@ function setCtx(m){const was=ctx.idle;ctx={screen:String(m.screen||''),music:!!m
 // ⚠️这行原来是模块顶层的裸 await：网抖一下就整个 iframe 卡住、pet-ready 永不发，
 //   外壳那句「小人还在来的路上…」会永远挂着（2026-09-26 发公共版前查出来的）。
 try{
- const gltf=await loader.loadAsync('../fairy-garden/doll.glb?v=fg-32f56e8e0d66a403',
+ const gltf=await loader.loadAsync('../fairy-garden/doll.glb?v=fg-1214b1001808a622',
    e=>{if(e&&e.total)parent.postMessage({type:'pet-progress',pct:Math.min(99,Math.round(e.loaded/e.total*100))},'*');});
  pet=createTraveler(gltf.scene,true,pending?full():{});sc.add(pet.root);if(pending)apply(pending);   // 样貌先到了就直接照它建：头发按需下载，别先白下一款默认的
  parent.postMessage({type:'pet-ready'},'*');
@@ -149,7 +152,7 @@ function draw(t){
  for(const [key,target] of Object.entries({y:b.y+dy,tilt:b.tilt+dtilt,yaw:b.yaw+dyaw}))soft[key]+=(target-soft[key])*blend;
  pet.animate(t,{gesture,progress,height:soft.y+sitB*.3,moving,seated,emotion});
  pet.root.rotation.y=yaw+soft.yaw;pet.root.rotation.x=soft.tilt;
- r.render(sc,cam);window.petDebug.frames++;
+ frameGround(pet.root.userData.emotionGround?.amount||0);r.render(sc,cam);window.petDebug.frames++;
  // 他这会儿在干什么，报给外壳写成一行字——十种心情各一套动作，不说没人看得出来
  const now=sleeping?'sleep':held?'held':act?act.kind:'';
  if(now!==lastTold){lastTold=now;parent.postMessage({type:'pet-act',kind:now},'*');}}
