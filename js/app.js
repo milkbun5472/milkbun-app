@@ -20339,7 +20339,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       await idbImgPut(key, out.blob);
       // ⚠️换一张【不删旧的】：她 2026-09-02「结束了要留在聊天不能没了」——
       //   这一通里拍过的每一张挂断后都要落进聊天，删了就真没了。封顶 4 张。
-      setCall(c => c ? { ...c, bg: key, shots: [...(c.shots || []), key].slice(-4), bgBusy: false } : c);
+      setCall(c => c ? { ...c, bg: key, shots: [...(c.shots || []), key].slice(-12), bgBusy: false } : c);
     } catch (e) {
       setCall(c => c ? { ...c, bgBusy: false } : c);
       toast("画面没生成出来：" + ((e && e.message) || "重试"));
