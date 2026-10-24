@@ -21025,6 +21025,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     if (!w) return false;
     const nm = String((patch && patch.name) || "").trim().slice(0, 16);
     if (!nm) { toast("这块地方得有个名字"); return false; }
+    if (!(w.regions || []).some(r => r.name === oldName)) { toast("没找到「" + oldName + "」这一块，退出地图再进来试一次"); return false; }
     if (nm !== oldName && (w.regions || []).some(r => r.name === nm)) { toast("这个世界里已经有叫「" + nm + "」的一块了"); return false; }
     // 挨着谁（她 2026-10-03：「版块之间的衔接也能编辑吗」）：传了 adj 就照它改，两头一起改——A 挨着 B，B 也挨着 A
     const want = Array.isArray(patch.adj) ? patch.adj.filter(a => a && a !== oldName && a !== nm) : null;
