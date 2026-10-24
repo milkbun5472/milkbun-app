@@ -20,7 +20,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v76.440";
+const APP_VERSION = "v76.441";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -7854,6 +7854,35 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
             () => replyNow(cid, "", null, { busyBack: { title: h0.title, sleep: !!h0.sleep } }),
             () => busyRelease(cid));
           return;                                                // 一次一个，错峰
+        }
+      } catch (e) {}
+      // —— 留灯（她 2026-10-25「都做吧」）：灯亮着的这一晚，TA 忙完那一段来说一声；要睡了先来道一句再睡。
+      //   只在灯亮之后、TA 真忙过一段才算「忙完」（一直闲着的人用不着报到）；两样一晚各一次，回成了才记（pOnce）。
+      try {
+        const homes = spaceHomeRef.current || {};
+        for (const cid of Object.keys(homes)) {
+          const L = (homes[cid] || {}).light || {};
+          const lit = lightLit(L.me) ? L.me : lightLit(L.ta) ? L.ta : null;
+          if (!lit) continue;
+          const c = characters.find(x => x.id === cid);
+          if (!c || laneBusy("c:" + cid)) continue;
+          const mine = lit === L.me, uN = profile.name || "她";
+          const phase = sleepPhaseOf(c), busyNow = phase === "awake" ? busyNowFor(c) : null;
+          const tag = mine ? "me" : "ta";
+          if (busyNow && !lit.sawBusy) { spaceHomePut(cid, h0 => ({ ...h0, light: { ...(h0.light || {}), [tag]: { ...((h0.light || {})[tag] || {}), sawBusy: true } } })); continue; }
+          const why = mine ? uN + "今晚给你留了灯" + (lit.note ? "（她说：" + lit.note + "）" : "") : "你今晚答应给" + uN + "留灯" + (lit.say ? "（你说过：" + lit.say + "）" : "");
+          let kind = null;
+          if ((phase === "drowsy" || phase === "asleep") && !lit.nightDone) kind = "night";
+          else if (phase === "awake" && !busyNow && lit.sawBusy && !lit.backDone) kind = "back";
+          if (!kind) continue;
+          const key = "lamp:" + kind + ":" + cid;
+          if (pSkip(key)) continue;
+          const line = kind === "back" ? why + "。你手上那一段刚忙完，那盏灯还亮着。" : why + "。你" + (phase === "asleep" ? "到点该睡了" : "快睡了") + "，灯还亮着。";
+          const tail = kind === "back" ? "你【主动】找 Ta 说一声你这边忙完了——照你这个人和你们现在的关系来，" : "你【主动】在睡前跟 Ta 说一句再睡——照你这个人和你们现在的关系来，";
+          pOnce(key, key + ":" + lit.ts,
+            () => replyNow(cid, "", null, { proactive: true, health: { meal: "留灯", line, tail } }),
+            () => spaceHomePut(cid, h0 => ({ ...h0, light: { ...(h0.light || {}), [tag]: { ...((h0.light || {})[tag] || {}), [kind === "back" ? "backDone" : "nightDone"]: true, ...(kind === "night" ? { backDone: true } : {}) } } })));
+          return;
         }
       } catch (e) {}
       // —— 健康·小习惯到点（她 2026-10-05）：她自己加的那几样（吃维生素、护肤……）到点还没勾，弹一下。不找角色、不调模型。
