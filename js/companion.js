@@ -7,7 +7,7 @@
 // 设置存 x_companion：{ charId, float, pos, scale, autoFace, looks: { [charId]: look } }
 // ============================================================
 (function () {
-  const KEY = "x_companion", BUILD = "fg-380e6638a202a0a7";
+  const KEY = "x_companion", BUILD = "fg-0fb8c32a13bcfc41";
   const load = () => Object.assign({ charId: "", float: false, pos: null, scale: 1, autoFace: true, looks: {} }, loadJSON(KEY, {}) || {});
   const save = v => saveJSON(KEY, v);
   // 心情 → 表情。心情是模型写的自由中文（x_moods[charId].label），按字认；认不出就是「平常」。
@@ -290,19 +290,25 @@
     }, []);
     return typing;
   }
-  // 同一分句内认动作的两端，中间允许修饰、数量和称呼；不逐句枚举写法。
+  // 全部聊天动作共用：同一分句内认动作词与部位，允许修饰、数量和倒装。
   // 不跨标点牵线，免得把“点了杯茶，看着你的头发”拼成点头。
-  function actionSpan(...parts) {
+  function actionSpan(...parts) { return actionAnchors(parts, false); }
+  function actionSequence(...parts) { return actionAnchors(parts, true); }
+  function actionAnchors(parts, ordered) {
     const anchors = parts.map(p => new RegExp(p.source, "iu"));
-    // 依次找锚点，修饰没有字数上限，也不用多层 .* 在长句里反复回溯。
+    // 同一句中的锚点可换序，字符不能重复占用两个锚点；最多三个锚点。
+    // 这样“手挥了挥”“书被翻开”“把下巴托住”都走同一层，不逐项另写倒装。
     return clause => {
-      let at = 0;
-      for (const re of anchors) {
-        const match = re.exec(clause.slice(at));
-        if (!match) return false;
-        at += match.index + match[0].length;
-      }
-      return true;
+      const find = (at, remaining) => {
+        if (!remaining.length) return true;
+        const rest = clause.slice(at);
+        return remaining.some((index, i) => {
+          if (ordered && i) return false;
+          const match = anchors[index].exec(rest);
+          return !!match && find(at + match.index + match[0].length, remaining.filter((_, j) => j !== i));
+        });
+      };
+      return find(0, anchors.map((_, i) => i));
     };
   }
   function actionRule(kind, cues, ...spans) { return { kind, cues, spans }; }
@@ -311,69 +317,70 @@
     actionRule("emotion-kiss", /飞吻|啵|么么|mua|mwah|\bkiss(?:es)?\b|😘|(?:^|[（(【\s])[亲吻](?=$|[）)】\s~～!！])|啾/i,
       actionSpan(/亲(?!爱|属|自|切|近|情|缘|戚|眼|手|笔|口|身|生|友|民|密)|吻/, /亲|吻|口|下|你|您|我|她|他|额头|脸|嘴/), actionSpan(/飞/, /吻/)),
     actionRule("emotion-giggle", /偷笑|憋笑|窃笑|忍笑/,
-      actionSpan(/偷|忍|憋/, /笑/), actionSpan(/捂|掩|抿/, /嘴/)),
+      actionSpan(/偷|忍|憋/, /笑/), actionSpan(/捂|掩|遮/, /嘴/), actionSpan(/抿/, /嘴/, /笑/)),
     actionRule("emotion-listen", /洗耳恭听|听着呢|在听呢/,
-      actionSpan(/侧|竖|拢/, /耳/), actionSpan(/凑|认真/, /听/), actionSpan(/听/, /你|您|我|她|他/, /说|讲/)),
+      actionSpan(/侧|竖|拢|偏/, /耳/), actionSequence(/凑|认真/, /听/),
+      actionSequence(/听/, /你|您|我|她|他/, /说|讲/), actionSequence(/你|您/, /说|讲/, /听/)),
     actionRule("emotion-promise", /保证(?!金|书)|包在我身上|说到做到|一言为定/,
-      actionSpan(/拍/, /胸/), actionSpan(/发/, /誓/)),
+      actionSpan(/拍|捶|叩|敲/, /胸/), actionSpan(/发/, /誓/)),
     actionRule("emotion-cheer", /加油|鼓劲|你(?:一定|肯定)?可以的|你能行/,
       actionSpan(/握|攥/, /拳/), actionSpan(/打/, /气/), actionSpan(/鼓/, /掌/)),
     actionRule("emotion-refuse", /不干了|才不要|才不呢|拒绝/,
-      actionSpan(/摇/, ACTION_HEAD), actionSpan(/摆/, /手/)),
+      actionSpan(/摇|晃/, ACTION_HEAD), actionSpan(/摆/, /手/)),
     actionRule("emotion-cozy", /抱抱|拥抱|🫂|\bhug(?:s)?\b|(?:^|[（(【\s])抱(?=$|[）)】\s~～!！])/i,
       actionSpan(/抱|搂/, /抱|住|紧|下|你|我|她|他|过来|怀里|怀中/), actionSpan(/拥/, /抱/),
       actionSpan(/张|敞/, /双臂|手臂|胳膊/), actionSpan(/伸/, /出|开/, /双臂|手臂|胳膊/),
       actionSpan(/双臂|手臂|胳膊/, /张|伸/, /开/), actionSpan(/伸手/, /抱/)),
     actionRule("emotion-chin", /托腮/,
-      actionSpan(/托|撑|支/, /下巴|腮|脸颊/)),
-    actionRule("emotion-dance", /跳舞|手舞足蹈|跟着节拍/,
+      actionSpan(/托|撑|支/, /下巴|下颌|腮|脸颊/)),
+    actionRule("emotion-dance", /跳舞|手舞足蹈|跟着节拍|起舞|舞步|舞动/,
       actionSpan(/跳/, /舞/), actionSpan(/扭/, /腰/), actionSpan(/音乐|节拍/, /摇|晃|摆/)),
     actionRule("emotion-bow", /弯腰致意/,
-      actionSpan(/鞠/, /躬/), actionSpan(/欠|躬/, /身/)),
+      actionSpan(/鞠/, /躬/), actionSpan(/欠|躬/, /身/), actionSpan(/弯/, /腰/, /致意|行礼|道谢|道歉/)),
     actionRule("emotion-shrug", /两手一摊/,
-      actionSpan(/耸/, /肩/), actionSpan(/摊/, /手/)),
+      actionSpan(/耸/, /肩/), actionSpan(/摊/, /手/), actionSpan(/抬|提/, /双肩|肩膀/)),
     actionRule("emotion-beckon", /过来(?:一点|点|呀|嘛|抱)|靠近(?:一点|些|我)/,
-      actionSpan(/招/, /手/, /叫|让|示意|喊|过来|靠近/), actionSpan(/勾/, /手/)),
+      actionSpan(/招/, /手/, /叫|让|示意|喊|过来|靠近/), actionSpan(/勾|弯/, /手指|食指|手/)),
     actionRule("emotion-peek", /左顾右盼|东张西望/,
-      actionSpan(/探/, ACTION_HEAD), actionSpan(/四下|左右/, /看|张望/)),
+      actionSpan(/探|伸|露/, ACTION_HEAD), actionSpan(/四下|左右/, /看|张望/)),
     actionRule("emotion-show", /好看吗/,
-      actionSpan(/展示|显摆/, /衣|穿搭/), actionSpan(/转/, /圈/, /给你看|展示/)),
+      actionSpan(/展示|显摆/, /衣|穿搭/), actionSpan(/转/, /圈/, /给你看|展示|新衣|穿搭/)),
     actionRule("emotion-five-right", /give\s+me\s+five|high[ -]?five/i,
-      actionSpan(/击/, /掌/)),
+      actionSpan(/击|碰/, /掌/)),
     actionRule("wave", /拜拜|拜了个拜|再见|回头见|嗨(?:[~～!！]|呀|喽|咯|$)|哈[喽啰罗]|hello|hi[!！~～]|早安|早上好|晚上好|晚安/i,
-      actionSpan(/挥|招/, /手/)),
+      actionSpan(/挥(?!霍)|招(?!聘|生|商)|摇|晃/, /手/)),
     actionRule("yawn", /[哈呵]欠|好困|困(?:了|死|得|意)|犯困|睡意|想睡|想打盹|睁不开眼|眼皮打架/,
       actionSpan(/打/, /[哈呵]欠/)),
     actionRule("stretch", /舒展|活动一下/,
-      actionSpan(/伸/, /懒腰/), actionSpan(/伸伸|活动/, /筋骨|身体|胳膊|腰/)),
+      actionSpan(/伸|舒|活动/, /懒腰|筋骨|身体|胳膊|手臂|双臂|腰/)),
     actionRule("tea", /干杯/,
       actionSpan(/喝|饮|抿|啜/, /茶|水|咖啡|奶茶|汤|酒|口/), actionSpan(/端|举|捧/, /杯|茶盏/)),
     actionRule("read", /学习|温习|复习|埋头读/,
-      actionSpan(/看|翻|读|阅|批|写/, /书(?!店|架|包|柜)|文件|资料|课本|作业|卷宗|页/)),
+      actionSpan(/看|翻|读|阅|批|写|浏览/, /书(?!店|架|包|柜)|文件|资料|课本|作业|卷宗|页/)),
     actionRule("shy", /害羞|羞(?:涩|红|怯|得)|不好意思/,
-      actionSpan(/脸|耳/, /红/), actionSpan(/红/, /脸|耳/), actionSpan(/捂|遮/, /脸/)),
+      actionSpan(/脸|面颊|耳/, /红|烫/), actionSpan(/捂|遮/, /脸|面颊/)),
     actionRule("hop", /蹦|欢呼|雀跃|手舞足蹈|耶(?:[!！~～]|$)|好耶|太棒了|太好了/,
-      actionSpan(/跳/, /起来|起身/)),
+      actionSpan(/跳|跃/, /起来|起身|起|半空/)),
     actionRule("stomp", /气死|气炸|哼(?:[!！~～]|$)|炸毛|气鼓鼓/,
-      actionSpan(/跺/, /脚/)),
+      actionSpan(/跺|踏/, /脚/)),
     actionRule("sigh", /叹息|长叹|唉|哎呀呀/,
       actionSpan(/叹/, /气/)),
     actionRule("jolt", /一激灵|吓死|心头一跳|吓到(?:了)?我/,
-      actionSpan(/吓|惊/, /一跳/), actionSpan(/打/, /激灵/)),
+      actionSpan(/吓|惊/, /一跳/), actionSpan(/打/, /激灵/), actionSpan(/身子|身体/, /一颤|一抖/)),
     actionRule("nod", /颔首|嗯嗯|好好好|知道(?:了|啦|喽)|明白(?:了|啦)|收到|没问题|好嘞|好哒/,
-      actionSpan(/点(?!心|菜|餐|单|评|击|名|播|赞|火|灯|烟|缀|开|亮)/, ACTION_HEAD), actionSpan(/颔/, /首/),
-      actionSpan(ACTION_HEAD, /点(?=了|着|过|下|几|一|两|三|点|得|个|$)/)),
+      actionSpan(/点(?!心|菜|餐|单|评|击|名|播|赞|火|灯|烟|缀|开|亮)/, ACTION_HEAD), actionSpan(/颔/, /首/)),
     actionRule("turn", /转身|扭头|别过脸|背过身/,
-      actionSpan(/转(?!账|帐|发|运|学|型)|扭|别|背/, new RegExp("身|脸|" + ACTION_HEAD.source, "u"))),
+      actionSpan(/转(?!账|帐|发|运|学|型)|扭|别|背/, new RegExp("后背|身|脸|" + ACTION_HEAD.source, "u"))),
     actionRule("sit", /坐着|落座|盘腿/,
-      actionSpan(/坐|窝|瘫/, /下|好|回|在|进|到|沙发|椅|床|地上/), actionSpan(/盘/, /腿/))
+      actionSpan(/坐|窝|瘫/, /下|好|回|在|进|到|沙发|椅|床|地上/), actionSpan(/盘/, /腿/), actionSpan(/落/, /座/))
   ];
   function actForText(text) {
     const s = String(text || "").normalize("NFKC");
-    const clauses = s.split(/[。！？!?；;，,：:\n\r]/u);
+    const clauses = s.split(/[。.！？!?；;，,：:\n\r]/u).filter(Boolean).reverse();
     // 明确动作优先于“早安／知道了”等口头提示；仍只在原动作表选一套。
-    for (const rule of ACT_RULES) if (clauses.some(clause => rule.spans.some(match => match(clause)))) return rule.kind;
-    for (const rule of ACT_RULES) if (rule.cues.test(s)) return rule.kind;
+    // 有好几个动作时，从最后写到的动作分句选，前面的招呼不抢走后面的反应。
+    for (const clause of clauses) for (const rule of ACT_RULES) if (rule.spans.some(match => match(clause))) return rule.kind;
+    for (const clause of clauses) for (const rule of ACT_RULES) if (rule.cues.test(clause)) return rule.kind;
     return "";
   }
   function useChatAct(charId, frame) {

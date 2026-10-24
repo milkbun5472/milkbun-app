@@ -5,6 +5,17 @@ const src=fs.readFileSync('js/companion.js','utf8');
 const window={addEventListener(){}};
 vm.runInNewContext(src,{window,Date});
 const act=window.CompanionFace.actForText;
+const prose=require('./fixtures/companion-action-prose.cjs');
+test('整张聊天动作表逐项都有语言样本，新增动作不能漏掉验证',()=>{
+ const actual=[...src.matchAll(/actionRule\("([^"]+)"/g)].map(m=>m[1]).sort();
+ assert.deepEqual(Object.keys(prose.cases).sort(),actual);
+ assert.equal(actual.length,28);
+});
+const allVariants=prose.variants();
+for(const kind of Object.keys(prose.cases))test('全部动作的长句、倒装、修饰与招呼混用 → '+kind,()=>{
+ const rows=allVariants.filter(row=>row.kind===kind);assert.equal(rows.length,256);
+ for(const row of rows)assert.equal(act(row.text),kind,row.text);
+});
 const examples={
  'emotion-kiss':['飞吻','给你一个啵','么么哒','MUA！','啾一下','亲一口','亲了一下额头','亲亲你','吻了吻你','（亲）','亲～','KISS','😘'],
  'emotion-giggle':['偷偷笑','偷偷地笑','偷笑','捂着嘴笑','捂住嘴','掩嘴','抿着嘴笑','憋笑','忍不住笑'],
@@ -106,7 +117,12 @@ test('两端不跨分句硬拼，名字与普通名词不算动作部位',()=>{
  for(const text of ['他点了一杯茶，看着你的头发。','他点了一份餐。镜头切到了窗外。','他拍了张照片，胸口的挂件很漂亮。','他挥霍了很多钱，手边空空的。','他端详了片刻，杯子放在窗台。','他亲眼看到了你熟悉的脸庞。','他的头发上沾了一点糖。'])assert.equal(act(text),'',text);
 });
 test('普通称呼、名字和相似名词不误触发',()=>{
- for(const line of ['',null,'亲爱的，今天怎么样？','亲属关系','亲自处理','保证金已经交了','保证书放在桌上','阅读器很方便','听说今天下雨','他挥霍了很多钱'])assert.equal(act(line),'',String(line));
+ for(const line of ['',null,'亲爱的，今天怎么样？','亲属关系','亲自处理','抱歉刚才没看见','保证金已经交了','保证书放在桌上','阅读器很方便','听说今天下雨','他挥霍了很多钱'])assert.equal(act(line),'',String(line));
+});
+test('一轮多动作按最后的动作分句选择，饮水时抿嘴不会误当偷笑',()=>{
+ assert.equal(act('他先给你飞吻。随后坐回那张椅子上。'),'sit');
+ assert.equal(act('早安。他把水含在嘴里抿了抿。'),'tea');
+ assert.equal(act('他用手托着下巴。随后把书翻到下一页。'),'read');
 });
 test('整段聊天仍走原角色隔离与事件入口，没有新增模型调用',()=>{
  const a=src.indexOf('function useChatAct('),b=src.indexOf('function CompanionFloat(',a);

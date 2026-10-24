@@ -1,8 +1,8 @@
-import './kitchen.js?v=fg-380e6638a202a0a7';
-import './home-hobbies.js?v=fg-380e6638a202a0a7';
-import {normalizePartColors} from './home-parts.mjs?v=fg-380e6638a202a0a7';
-import {HOME_SIZES,wallFurniturePosition} from './home-architecture.mjs?v=fg-380e6638a202a0a7';
-import {bathroomDefault,BASIN_USE} from './bathroom-layout.mjs?v=fg-380e6638a202a0a7';
+import './kitchen.js?v=fg-0fb8c32a13bcfc41';
+import './home-hobbies.js?v=fg-0fb8c32a13bcfc41';
+import {normalizePartColors} from './home-parts.mjs?v=fg-0fb8c32a13bcfc41';
+import {HOME_SIZES,wallFurniturePosition} from './home-architecture.mjs?v=fg-0fb8c32a13bcfc41';
+import {bathroomDefault,BASIN_USE} from './bathroom-layout.mjs?v=fg-0fb8c32a13bcfc41';
 // One catalogue supplies the editor, saved instances, geometry and activity anchors.
 const item=(id,label,category,kind,w,d,extra={})=>({id,label,category,kind,w,d,...extra});
 export const HOME_CATEGORIES={bed:'床',sofa:'沙发',dining:'桌椅',storage:'收纳',light:'灯具',plant:'绿植',kitchen:'厨房',bathroom:'浴室',hobby:'兴趣角',rug:'地毯',screen:'屏风',decor:'装饰摆件',wallDecor:'墙上装饰'};
