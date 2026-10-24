@@ -159,8 +159,8 @@ test("回复我的只认明确直达证据，并可逐条跳到原楼层", () =>
 test("回复通知有独立已读账本、红点和通知页，不会污染私信", () => {
   assert.match(screens, /x_forumNoticeEpoch/);
   assert.match(screens, /x_forumNoticeRead/);
-  assert.match(screens, /\["notice", IPulse, "回复"\]/);
-  assert.match(screens, /title = "回复我的"/);
+  assert.match(screens, /\["notice", IPulse, (cardLayout \? "消息" : )?"回复"\]/);   // 小红书双列时这一格叫「消息」
+  assert.match(screens, /title = (cardLayout \? "消息" : )?"回复我的"/);
   assert.match(screens, /unreadNoticeCount > 99 \? "99\+" : unreadNoticeCount/);
 });
 
@@ -230,5 +230,6 @@ test("论坛点赞与收藏跨刷新保留，收藏有独立时间线", () => {
   assert.match(screens, /\[\.\.\.forumBoardsAll\(\), "关注", "收藏"\]/);   // v73.2x 她开的吧也在这一排
   // v73.312 右上角那把钥匙点开是一张小单子：收藏上没有这把钥匙；关注上只有「请TA们发帖」（网友刷新没有「关注」这个版）
   assert.match(screens, /rightEl = tab === "收藏" \? null : h\("button", \{ onClick: \(\) => setRefreshMenu/);
-  assert.match(screens, /\[tab !== "关注" && \["刷新", "网友来发帖", \(\) => onGenBoard\(tab\)\]/);
+  // 「发现」页（小红书）随机挑个话题让网友来发；其余照旧在这一栏发
+  assert.match(screens, /\[tab !== "关注" && \["刷新", [^\n]*"网友来发帖", \(\) => onGenBoard\(tab === "发现" \? xhsRandBoard\(\) : tab\)\]/);
 });

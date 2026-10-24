@@ -36,7 +36,8 @@ test("画面从各人此刻的状态卡长出来，不是凭空编一个场景",
 });
 
 test("换一张不许删旧的——挂断后每一张都要留在聊天里", () => {
-  assert.match(shot, /shots: \[\.\.\.\(c\.shots \|\| \[\]\), key\]\.slice\(-4\)/, "删了就真没了；封顶 4 张");
+  // v76.435 起不设上限（她要的：一通电话拍了几张就留几张）——钉的是「往后加、不删旧的」
+  assert.match(shot, /shots: \[\.\.\.\(c\.shots \|\| \[\]\), key\](\.slice\(-\d+\))?/, "删了就真没了");
   assert.ok(!/idbImgDel/.test(shot), "这一路不许删图");
   assert.match(endCall, /const shots = \(cur\.shots \|\| \[\]\)\.filter\(Boolean\);/);
   assert.match(endCall, /shots: shots\.length \? shots : undefined/, "没拍过就别在气泡上留个空字段");
