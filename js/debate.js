@@ -407,7 +407,9 @@
     // 台上有人整条没拿到（她 2026-10-24 截图：齐周那一格只剩「……」）——多半是回包截断、JSON 没解开，
     //   或者那一条换了个字段名。先认几个常见字段名，还缺人就整轮再要一次；第二次也缺的，才留「……」。
     const sayOf = x => x ? String(x.say || x.text || x.content || x.speech || x["发言"] || "").trim() : "";
-    const missing = pp => { const rt = Array.isArray(pp.turns) ? pp.turns : []; return chars.some((c, i) => !sayOf(rt.find(x => x && x.name && String(x.name).trim() === c.name) || rt[i])); };
+    const callOf = pp => String(pp.call || pp.judge || pp["判语"] || "").trim();
+    // 裁判那段判语也算（她 2026-10-24：「裁判的也掉了」）
+    const missing = pp => { const rt = Array.isArray(pp.turns) ? pp.turns : []; return chars.some((c, i) => !sayOf(rt.find(x => x && x.name && String(x.name).trim() === c.name) || rt[i])) || (J && !callOf(pp)); };
     const ask = () => callAI(active, sys, [{ role: "user", content: "开始：按序让各角色接话，最后只摘一张未决争点卡。" }], { maxTokens: budget });
     let p = extractJSON(await ask()) || {};
     if (missing(p)) { try { const p2 = extractJSON(await ask()) || {}; if (!missing(p2) || (Array.isArray(p2.turns) ? p2.turns.length : 0) > (Array.isArray(p.turns) ? p.turns.length : 0)) p = p2; } catch (e) {} }
@@ -439,7 +441,7 @@
     if (onStage > 1 && side.length === 2 && side[0].at && side[0].at === side[1].at) side.length = 1;
     const strangers = (o.bench || []).filter(function (c) { return c.kind === "passer"; }).map(function (c) { return c.name; });
     const votes = benchBlock ? settleVotes(p.votes, (o.bench || []).map(function (c) { return c.name; }), targets, hist, strangers) : [];
-    const call = J ? String(p.call || "").trim() : "";
+    const call = J ? callOf(p) : "";
     // 这一声是冲着自己这一轮投的那个人去的＝帮腔。界面上写「帮腔」不写「→」，别让人读成在呛TA。
     side.forEach(function (x) {
       const v = votes.find(function (vv) { return vv && vv.name === x.name; });

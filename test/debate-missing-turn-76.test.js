@@ -5,3 +5,4 @@ assert.match(d, /const sayOf = x => x \? String\(x\.say \|\| x\.text \|\| x\.con
 assert.match(d, /if \(missing\(p\)\) \{ try \{ const p2 = extractJSON\(await ask\(\)\)/);
 assert.match(d, /const text = sayOf\(hit\) \|\| "……";/);
 console.log("ok");
+assert.match(d, /\|\| \(J && !callOf\(pp\)\); \};/); assert.match(d, /const call = J \? callOf\(p\) : "";/);
