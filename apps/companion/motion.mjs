@@ -17,6 +17,8 @@ export const CHAT_ACTIONS={kiss:5.2,giggle:5.4,listen:6,promise:5,cheer:5.2,refu
  cheeks:6.4,plead:5.8,crossarms:6.4,scratch:5.4,rubeyes:5.8,flower:6.4,
  hips:5.8,selfhug:7,peekaboo:6,sneeze:4.6,gift:6.8,sign:6.8,
  heart:6,thumb:5.4,wink:4.2,tongue:4.6,cry:7,tilt:5.8,poke:5,pinch:5.6,lie:8,prone:8,phone:7.6,eat:7,peace:5.8,applause:6.4,sing:7,selfie:7,ears:5.8,cold:6.2,fan:6.4,daydream:7,umbrella:8};
+export const WEATHER_ACTIONS={catchrain:8,catchsnow:8,warmhands:7,wipesweat:6.4,shade:6,wind:6.8,thunder:5.8,rainclose:4,raindry:5.6};
+for(const [name,duration] of Object.entries(WEATHER_ACTIONS))DUR['emotion-'+name]=duration;
 for(const [name,duration] of Object.entries(CHAT_ACTIONS))DUR['emotion-'+name]=duration;
 for(const face of Object.keys(MOODS))DUR['emotion-'+face]=['sad','gloomy','relax'].includes(face)?5.6:4.6;
 export const EXTRA_ACTIONS={

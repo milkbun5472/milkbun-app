@@ -1,6 +1,6 @@
-import {MITTEN_TAP_POINT} from './emotion-hands.mjs?v=fg-16d3787c96bbee5e';
+import {MITTEN_TAP_POINT} from './emotion-hands.mjs?v=fg-c5bb692c59f6dc53';
 import * as T from 'three';
-import {pointToolAt} from './reach-hand.mjs?v=fg-16d3787c96bbee5e';
+import {pointToolAt} from './reach-hand.mjs?v=fg-c5bb692c59f6dc53';
 
 const marker=(group,name,x=0)=>{const o=new T.Object3D();o.name=name;o.position.x=x;group.add(o);};
 function makeFlower(){
@@ -62,7 +62,7 @@ function makeUmbrella(){
   for(let r=0;r<=rings;r++)for(let j=0;j<=segments;j++){const theta=(panel+j/segments)*Math.PI/4,rad=.42*r/rings,y=.67-.16*(r/rings)**1.7-(r===rings?.015*Math.sin(j/segments*Math.PI):0);vertices.push(Math.cos(theta)*rad,y,Math.sin(theta)*rad);}
   for(let r=0;r<rings;r++)for(let j=0;j<segments;j++){const a=r*(segments+1)+j,b=a+segments+1;indices.push(a,b,a+1,b,b+1,a+1);}
   const geo=new T.BufferGeometry();geo.setAttribute('position',new T.Float32BufferAttribute(vertices,3));geo.setIndex(indices);geo.computeVertexNormals();const cloth=new T.Mesh(geo,new T.MeshStandardMaterial({color:colors[panel%2],roughness:1,side:T.DoubleSide}));cloth.name='UmbrellaCanopy';g.add(cloth);
-  const theta=panel*Math.PI/4,curve=new T.CatmullRomCurve3([new T.Vector3(0,.645,0),new T.Vector3(Math.cos(theta)*.24,.612,Math.sin(theta)*.24),new T.Vector3(Math.cos(theta)*.42,.503,Math.sin(theta)*.42)]);g.add(new T.Mesh(new T.TubeGeometry(curve,10,.0025,5,false),metal));
+  const theta=panel*Math.PI/4,curve=new T.CatmullRomCurve3([new T.Vector3(0,.645,0),new T.Vector3(Math.cos(theta)*.24,.612,Math.sin(theta)*.24),new T.Vector3(Math.cos(theta)*.42,.503,Math.sin(theta)*.42)]);const rib=new T.Mesh(new T.TubeGeometry(curve,10,.0025,5,false),metal);rib.name='UmbrellaRib';g.add(rib);
  }
  marker(g,'UmbrellaGrip');return g;
 }
@@ -91,7 +91,7 @@ export function makeEmotionProps(model,handPoint,{makeCanvas=()=>globalThis.docu
     pointToolAt(prop,model,handPoint(kind==='phone'&&!pose?.selfie?'left':'right'),null,.2);prop.scale.setScalar(amount);
     prop.rotation.z=kind==='flower'?-.12:(pose.signSway||0);
     if(kind==='phone'){prop.rotation.x=pose.selfie?-.2:PHONE_TILT;prop.rotation.y=pose.selfie?Math.PI:0;prop.getObjectByName('SelfieFlash').visible=(pose.selfieFlash||0)>.1;}
-    if(kind==='umbrella')prop.rotation.z=.15;
+    if(kind==='umbrella'){prop.rotation.z=.15;const open=Number.isFinite(pose.umbrellaOpen)?pose.umbrellaOpen:1;for(const part of prop.children)if(['UmbrellaCanopy','UmbrellaRib'].includes(part.name)){const stretch=1+2.2*(1-open);part.scale.set(.09+.91*open,stretch,.09+.91*open);part.position.y=.67*(1-stretch);}}
     if(kind==='cookie'){prop.getObjectByName('WholeCookie').visible=(pose.bite||0)<.5;prop.getObjectByName('BittenCookie').visible=(pose.bite||0)>=.5;}
    }
   }

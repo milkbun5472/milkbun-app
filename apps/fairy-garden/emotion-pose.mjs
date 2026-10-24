@@ -4,6 +4,49 @@ const beat=(p,a,b,c,d)=>ease((p-a)/(b-a))*(1-ease((p-c)/(d-c)));
 export function emotionPose(face,p){
  const e=beat(p,0,.18,.76,1),late=beat(p,.42,.6,.78,1),q={left:[0,0,0],right:[0,0,0],tilt:0,roll:0,yaw:0,lift:0};
  switch(face){
+ case 'catchrain': {
+  Object.assign(q,emotionPose('umbrella',p));
+  q.left=[-.32*e,0,-.35*e];q.leftElbow=-1.65*e;q.leftHeadHold=e;
+  if(e)q.leftHeadPoint=[-1.65,-1.2,1.65];q.headTurn=-.12*e;q.headNod=.07*e;
+  q.weatherEffect='rain';q.weatherAmount=e;q.weatherPhase=p;break;}
+ case 'catchsnow': {
+  q.left=[-.32*e,0,-.35*e];q.right=[-.32*e,0,.35*e];q.leftElbow=q.rightElbow=-1.65*e;q.leftHeadHold=q.headHold=e;
+  if(e){q.leftHeadPoint=[-.42,-1.45,1.8];q.headPoint=[.42,-1.45,1.8];}
+  q.headNod=.1*e;q.headRoll=-.04*e;q.weatherEffect='snow';q.weatherAmount=e;q.weatherPhase=p;break;}
+ case 'warmhands': {
+  Object.assign(q,emotionPose('cold',p));const breathe=beat(p,.25,.38,.57,.75);
+  if(e){q.leftHeadPoint=[-.24,-1.5+.28*breathe,1.65];q.headPoint=[.24,-1.5+.28*breathe,1.65];}
+  q.weatherEffect='breath';q.weatherAmount=breathe;q.weatherPhase=p;break;}
+ case 'wipesweat': {
+  const wipe=Math.sin(p*Math.PI*4)*beat(p,.2,.3,.6,.75);
+  q.right=[-.32*e,0,.35*e];q.rightElbow=-1.65*e;q.headHold=e;
+  if(e)q.headPoint=[1.55-.7*beat(p,.22,.4,.7,.88)+.18*wipe,.6,1.85];q.headRoll=-.035*e;q.left=[-.1*e,0,-.12*e];
+  q.weatherEffect='sweat';q.weatherAmount=e;q.weatherPhase=p;break;}
+ case 'shade':
+  q.right=[-.32*e,0,.35*e];q.rightElbow=-1.65*e;q.headHold=e;
+  if(e)q.headPoint=[1.65-.3*beat(p,.22,.4,.7,.88),.5,2.6];q.headTurn=-.12*e+.15*late;q.headNod=.1*e;q.left=[-.12*e,0,-.1*e];break;
+ case 'wind': {
+  const gust=Math.sin(p*Math.PI*6)*beat(p,.16,.28,.66,.84);
+  q.right=[-.32*e,0,.35*e];q.rightElbow=-1.65*e;q.headHold=e;
+  if(e)q.headPoint=[1.35,.52,1.05];q.left=[-.32*e,0,-.35*e];q.leftElbow=-1.65*e;q.leftHeadHold=e;
+  if(e)q.leftHeadPoint=[.3,-1.55,1.2];q.tilt=.055*e;q.roll=-.045*e+.012*gust;q.headNod=.05*e;
+  q.weatherEffect='wind';q.weatherAmount=e;q.weatherPhase=p;break;}
+ case 'thunder':
+  Object.assign(q,emotionPose('ears',p));break;
+ case 'rainclose': {
+  // Continue from a visible weather umbrella; the scheduler only chooses this while it is in hand.
+  const hold=1-ease((p-.65)/.35);
+  Object.assign(q,emotionPose('umbrella',.5));q.umbrella=hold;q.umbrellaOpen=1-ease((p-.12)/.5);
+  q.headHold=hold;q.right=q.right.map(v=>v*hold);q.rightElbow*=hold;q.headRoll*=hold;
+  q.left=[-.32*hold,0,-.35*hold];q.leftElbow=-1.65*hold;q.leftHeadHold=hold;
+  if(hold)q.leftHeadPoint=[-1.65+2.25*ease(p/.35),-1.2+.05*ease(p/.35),1.65-.2*ease(p/.35)];
+  q.headTurn=-.12*hold;q.headNod=.07*hold;
+  q.weatherEffect='dry';q.weatherAmount=beat(p,.2,.35,.6,.78);q.weatherPhase=p;break;}
+ case 'raindry': {
+  const brush=Math.sin(p*Math.PI*6)*beat(p,.18,.3,.65,.8);
+  q.right=[-.32*e,0,.35*e];q.rightElbow=-1.65*e;q.headHold=e;
+  if(e)q.headPoint=[-.7,-1.55+.15*brush,1.3];q.left=[-.45*e,0,-.25*e];q.headNod=.06*e;
+  q.weatherEffect='dry';q.weatherAmount=e;q.weatherPhase=p;break;}
  case 'peace':
   q.right=[-.32*e,0,.35*e];q.rightElbow=-1.65*e;q.headHold=e;
   if(e)q.headPoint=[1.18,-.88,1.45];q.peace=e;q.headRoll=-.06*e;break;
