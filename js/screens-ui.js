@@ -1972,6 +1972,16 @@ function forumRulesFromText(txt) { return String(txt || "").split(/\n+/).map(r =
 // 吧名统一成「某某吧」：她打「足球」「足球吧」「 足球吧 」都是同一个吧
 // 小红书那种双列里话题不带「吧」（她 2026-10-26）：#足球 而不是 #足球吧；吧名本身不动，只是显示时去掉
 function forumTag(board) { return "#" + (String(board || "").replace(/吧$/, "") || String(board || "")); }
+// 小红书的「IP 属地」（她 2026-10-26「都来」）：你的人照他在好友地图上的家（城市名取前两三个字，像「上海」「广州」），
+//   别人按名字固定挑一个省份——同一个人每次都是同一处，不会一楼一个地方
+const FORUM_IP_POOL = ["北京", "上海", "广东", "浙江", "江苏", "四川", "湖北", "湖南", "山东", "福建", "河南", "重庆", "天津", "陕西", "辽宁", "安徽", "江西", "云南", "广西", "河北", "黑龙江", "吉林", "山西", "贵州", "海南", "内蒙古", "新疆", "甘肃", "香港", "台湾"];
+function forumIpOf(x, ch) {
+  const city = ch && ch.home && ch.home.city ? String(ch.home.city).trim() : "";
+  if (city) return city.replace(/[,，\s].*$/, "").replace(/(市|省|特别行政区|自治区)$/, "").slice(0, 6);
+  const key = String((x && (x.authorName || x.authorId)) || "?");
+  let hsh = 0; for (const ch2 of key) hsh = (hsh * 31 + ch2.charCodeAt(0)) >>> 0;
+  return FORUM_IP_POOL[hsh % FORUM_IP_POOL.length];
+}
 function forumBoardName(raw) {
   const n = String(raw || "").replace(/\s+/g, "").replace(/吧+$/, "").slice(0, 12);
   return n ? n + "吧" : "";
@@ -2581,7 +2591,7 @@ function Forum({
                 isAuthor && h("span", { "data-wk": "foauthor", style: { flexShrink: 0, fontFamily: F_BODY, fontSize: "calc(9.5px * var(--app-fs, 1))", color: "#fff", background: FORUM_SKIN.accent, borderRadius: 4, padding: "0 4px" } }, "作者")),
               !cm.anon && h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", marginTop: 1 } }, "@" + (cm.authorHandle || cm.authorName))),
             h("div", { className: "flex items-center gap-1.5", style: { flexShrink: 0, whiteSpace: "nowrap" } },
-              h("span", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog } }, xhs ? timeAgo(cm.ts || cm.visibleAt) : (cm.floor || i + 2) + " 楼"),
+              h("span", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog } }, xhs ? timeAgo(cm.ts || cm.visibleAt) + " " + forumIpOf(cm, c) : (cm.floor || i + 2) + " 楼"),
               fresh && newTag(),
               // 转发这一楼（群友 2026-10-18）：跟转帖同一个面板，私聊、群聊、论坛私信都能去
               cm.content && h("button", { onClick: e => { e.stopPropagation(); setFwd({ board: post.board, title: "「" + String(post.title || "").slice(0, 20) + "」里的一楼", body: cm.content, authorName: cm.authorName, anon: !!(cm.anon || post.anon) }); },
@@ -2721,7 +2731,7 @@ function Forum({
           h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(20px * var(--app-fs, 1))", lineHeight: 1.35, color: FORUM_SKIN.ink, marginTop: 11 } }, STX(p.title)),
           xhs ? xhsBody(p) : h("div", { style: { fontFamily: F_BODY, fontSize: "calc(14.5px * var(--app-fs, 1))", lineHeight: 1.78, color: FORUM_SKIN.sub, marginTop: 8, whiteSpace: "pre-wrap" } }, STW(p, STX(p.body))),
           xhs ? xhsPhotos(p) : forumPhotoCard(p, 280),
-          xhs ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, marginTop: 10 } }, forumTag(p.board) + " · " + timeAgo(p.ts)) : h("div", { className: "mt-3" }, tag(p.board)),
+          xhs ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, marginTop: 10 } }, forumTag(p.board) + "　编辑于 " + timeAgo(p.ts) + " " + forumIpOf(p, c)) : h("div", { className: "mt-3" }, tag(p.board)),
           xhs ? xhsBar(p) : actBar(p),
           c && h("button", { onClick: () => onToggleFollow(c.id), className: "mt-3 px-3.5 py-1.5 active:opacity-70", style: { borderRadius: 999, border: `1px solid ${t.line}`, background: flw.includes(c.id) ? t.ink : "transparent", fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: flw.includes(c.id) ? t.bg2 : t.ink } }, flw.includes(c.id) ? "已关注" : "关注 TA"),
           alt && h("button", { onClick: () => toggleNpcFollow(altFollowKey(p)), className: "mt-3 px-3.5 py-1.5 active:opacity-70", style: { borderRadius: 999, border: `1px solid ${t.line}`, background: npcFollowSet.has(altFollowKey(p)) ? t.ink : "transparent", fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: npcFollowSet.has(altFollowKey(p)) ? t.bg2 : t.ink } }, npcFollowSet.has(altFollowKey(p)) ? "已关注小号" : "关注小号")),
