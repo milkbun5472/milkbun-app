@@ -234,6 +234,7 @@
     const rows = (p.mods || [])
       .map(moduleById)
       .filter(m => m && !(surface && m.builtinIn && m.builtinIn.indexOf(surface) >= 0))
+      .filter(m => !(surface === "online" && typeof m.text === "function"))   // 按场景现算的（字数、镜头这类）是写叙述用的，线上不带
       .map(m => typeof m.text === "function" ? m.text(ctx || {}) : m.text)
       .filter(x => String(x || "").trim());
     const free = String(p.free || "").trim();

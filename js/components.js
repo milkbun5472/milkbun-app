@@ -16949,17 +16949,17 @@ function OfflineStylePromptPreview({ style, t }) {
 // 「吃入文风预设」小节。线下单人和群线下共用一份——两边这块以前各写各的，
 // 一改就得改两遍还容易只改一边（自定义文风那块就吃过这个亏）。
 // 开关默认关：不开＝下面那套原本的文风预选照旧生效，一个字都不变。
-function OfflineStylePresetSection({ t, presetOn, setPresetOn, presetId, setPresetId, onOpenStyleLab }) {
+function OfflineStylePresetSection({ t, presetOn, setPresetOn, presetId, setPresetId, onOpenStyleLab, online }) {
   const SP = window.StylePresets;
   const presets = SP ? SP.list() : [];
   const cur = presetId && SP ? SP.byId(presetId) : null;
-  const body = SP && cur ? SP.textFor(cur, "offline", {}) : "";
+  const body = SP && cur ? SP.textFor(cur, online ? "online" : "offline", {}) : "";
   return h("div", { className: "pt-5", style: { borderTop: "1px solid " + t.line, marginTop: 18 } },
     h("div", { className: "flex items-center justify-between" },
       h("div", { className: "pr-3" },
-        h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(14.5px * var(--app-fs, 1))", color: t.sub } }, "吃入文风预设"),
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(14.5px * var(--app-fs, 1))", color: t.sub } }, online ? "线上也用文风预设" : "吃入文风预设"),
         h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, marginTop: 2, lineHeight: 1.5 } },
-          "开：这一局改用预设台里搭好的那份写法。关：还是用下面的文风预选，和以前完全一样。")),
+          online ? "开：线上聊天也带上挑的那份预设里勾着的模块，说话方式照它来；写旁白、写长段的那些照线上发消息的格式，按场景现算的字数、镜头那几条线上不带。关：跟以前一样。" : "开：这一局改用预设台里搭好的那份写法。关：还是用下面的文风预选，和以前完全一样。")),
       h(Toggle, { on: !!presetOn, onChange: () => setPresetOn(v => !v) })),
     presetOn
       ? h("div", { className: "mt-3" },
@@ -21055,6 +21055,7 @@ function ResetChooser({ character, preset, onClose, onRun }) {
             on.size ? (all ? "完全重置 " + nm : "清掉选中的 " + on.size + " 样") : "至少打开一样")));
 }
 function ChatSettings({
+  onOpenStyleLab,
   onExportChat,
   character,
   meProfile,
@@ -21184,6 +21185,8 @@ function ChatSettings({
   const [busyReroll, setBusyReroll] = useState(settings.busyReroll === true); // 子开关：每轮都按忙碌度重新掷
   const [autoReplySec, setAutoReplySec] = useState(Math.max(0, Number(settings.autoReplySec) || 0)); // 停手几秒自己回，0＝关
   const [stateTpl, setStateTpl] = useState(() => cleanStateTpl(settings.stateTpl) || { html: "", fields: [] });
+  const [onlinePresetOn, setOnlinePresetOn] = useState(settings.onlinePresetOn === true);
+  const [onlinePresetId, setOnlinePresetId] = useState(settings.onlinePresetId || "");
   const [busyHold, setBusyHold] = useState(settings.busyHold === true); // 忙的时候晚点回（默认关：不是每个人设都有「忙」）
   const [webSearch, setWebSearch] = useState(!!settings.webSearch);
   // 这个角色不要哪几台 MCP（存关掉的，不存开着的：新接一台默认人人都有）
@@ -21462,6 +21465,8 @@ function ChatSettings({
     onClick: () => onSave({
       remark,
       chatAvatar,
+      onlinePresetOn,
+      onlinePresetId,
       myChatAvatar,
       patSig,
       ctxN,
@@ -21675,6 +21680,8 @@ function ChatSettings({
           h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", color: t.ink, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", paddingRight: 12 } }, srv.name || srv.url),
           h("div", { className: "shrink-0" }, h(Toggle, { on: on, onChange: () => setMcpOff(arr => on ? arr.concat([id]) : arr.filter(x => x !== id)) })));
       })) : null)),
+  show("temper", { title: "线上也用文风预设" + (onlinePresetOn ? " · 开" : ""), ...sec("online-preset") },
+    h(OfflineStylePresetSection, { t, presetOn: onlinePresetOn, setPresetOn: setOnlinePresetOn, presetId: onlinePresetId, setPresetId: setOnlinePresetId, onOpenStyleLab, online: true })),
   show("temper", { title: cNm + " 的底色 · 几个词", ...sec("temperament") },
     h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.6, paddingTop: 8 } },
       // ⚠️v62.37 起这一层就是常开的，这里写的词真的会发出去。原来那句「不会进

@@ -6692,6 +6692,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       } catch (e) { return ""; }
     })(),
     directives: directives[char.id] || [],
+    // 线上也用文风台的预设（她 2026-10-25「做吧」）：聊天设置里开了、挑了哪份，就把那份里勾着的模块带进线上
+    onlinePreset: (() => { try { const s0 = settingsFor(char.id); return s0.onlinePresetOn && s0.onlinePresetId && window.StylePresets ? window.StylePresets.textFor(s0.onlinePresetId, "online", {}) : ""; } catch (e) { return ""; } })(),
     memory: memories[char.id],
     // 外置记忆库这一轮搜到的（js/ext-mem.js；回复前已经搜好，这儿只读）
     extMem: ctxOpts && ctxOpts.noMemory ? "" : (window.ExtMem ? window.ExtMem.textFor(char.id) : ""),
@@ -34257,6 +34259,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       compact: true
     }),
     onSaveMemory: text => { setMemFor(activeChar.id, text); toast("长期记忆已保存"); },
+    onOpenStyleLab: goStyleLab,
     onSave: s => {
       // 换了「TA 认识的是我哪一张」：今天起往后已经排好的日程是照旧面具写的（群里读者 2026-10-01：
       //   「绑了面具2，char 行程里提到的地方还是我主面具的」）——日程会提前排几天，换面具不重排。
@@ -34285,6 +34288,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
           [activeChar.id]: {
             ...settingsFor(activeChar.id),
             ctxN: s.ctxN,
+            onlinePresetOn: !!s.onlinePresetOn,
+            onlinePresetId: s.onlinePresetId || "",
             sumThresh: s.sumThresh,
             sumBuffer: s.sumBuffer,
             autoMoment: s.autoMoment,

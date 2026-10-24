@@ -3947,6 +3947,8 @@ function buildBundle(ctx, opts) {
   // 用户通过 OOC 立下的长期行为准则：高优先，凌驾于日常演绎习惯，但不得违背核心人设
   const dirs = (ctx.directives || []).map(d => (typeof d === "string" ? d : d && d.text) || "").filter(s => s.trim());
   if (dirs.length) parts.push(directivesBlock(dirs));
+  // 文风台的预设带进线上（线下那边自己有一份，这里不重复）：说话方式照它，发消息的格式照线上
+  if (!(opts && opts.offline) && !ctx.notRoleplay && String(ctx.onlinePreset || "").trim()) parts.push("【说话方式 · 用户挑的预设】下面这份是用户在文风台里自己挑的。怎么说话、哪些说法不用、语气和分寸，照它来；它要你写旁白、场景、动作描写或写成长段的地方，你现在是在线上一条条发消息，照线上发消息的格式来。\n\n" + String(ctx.onlinePreset).trim());
   if (!ctx.notRoleplay && typeof ContentBoundaries !== "undefined") parts.push(ContentBoundaries.prompt);
   // 语言这一层跟内容边界并排：都是「这个世界里有没有这样东西」。
   // ⚠️言秋（notRoleplay）不发：TA不是被扮演的角色，本来就跟她同一个世界。
