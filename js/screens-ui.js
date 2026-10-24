@@ -2416,6 +2416,11 @@ function Forum({
   const chip = (b, sel, on) => { const toneKey = FORUM_BOARDS.find(x => String(b).indexOf(x) === 0) || b, bs = forumBoardSkin(toneKey); return h("button", { "data-wk": "block", key: b, "data-wk": "fochip", "data-on": sel ? "1" : "0", onClick: on, className: "active:opacity-70 whitespace-nowrap flex items-center", style: { minHeight: 40, padding: "6px 17px 6px 10px", clipPath: "polygon(0 0,calc(100% - 8px) 0,100% 50%,calc(100% - 8px) 100%,0 100%)", borderRadius: 4, background: sel ? bs[0] : "rgba(255,255,255,.58)", color: sel ? FORUM_SKIN.paper : FORUM_SKIN.sub, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", boxShadow: sel ? "0 4px 12px " + bs[0] + "2e" : "inset 0 0 0 1px " + FORUM_SKIN.line } }, h("span", { style: { width: 5, height: 5, borderRadius: 99, marginRight: 7, background: sel ? FORUM_SKIN.paper : bs[0], boxShadow: sel ? "0 0 0 2px " + bs[0] : "none" } }), b); };
   const toggleLike = id => setLiked(s => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); try { localStorage.setItem("x_forumLikes", JSON.stringify([...n])); } catch (e) {} return n; });
   const toggleBookmark = id => setBookmarked(s => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); try { localStorage.setItem("x_forumBookmarks", JSON.stringify([...n])); } catch (e) {} return n; });
+  // 收藏分专辑（她 2026-10-26）：{ names:[专辑名…], of:{ 笔记id: 专辑名 } }。没放进专辑的就在「全部」里
+  const [albums, setAlbumsRaw] = useState(() => { const a = loadJSON("x_forumAlbums", null); return a && Array.isArray(a.names) ? a : { names: [], of: {} }; });
+  const setAlbums = a => { setAlbumsRaw(a); saveJSON("x_forumAlbums", a); };
+  const [albumPick, setAlbumPick] = useState(null);   // 刚收藏的那篇，问放进哪个专辑
+  const [albumTab, setAlbumTab] = useState("");
   const isAlt = a => !!(a && a.authorType === "character_alt" && !a.anon);
   const altFollowKey = a => "alt:" + String(a && a.authorId || "");
   const avatarFor = (a, size, anon) => anon ? h(NpcAvatar, { seed: a.authorName, size: size }) : ((isAlt(a) || (a && a.authorType === "me" && a.alt)) ? h(AltAvatar, { seed: a.authorHandle || a.authorName, size: size }) : (a.authorType === "character" ? h(Avatar, { character: charOf(a.authorId) || { name: a.authorName, color: "#8a8a8a" }, size: size, radius: size / 2 }) : (a.authorType === "me" ? h(Avatar, { character: meChar, size: size, radius: size / 2 }) : h(NpcAvatar, { seed: a.authorHandle || a.authorName, size: size }))));
@@ -2666,12 +2671,16 @@ function Forum({
     const got = notes.reduce((n, p) => { const lc = forumLiveCounts(p, forumNow) || {}; return n + Number(lc.likeCount || 0) + Number(lc.rtCount || 0); }, 0);
     const all = (posts || []).filter(p => forumVisible(p) && p.fmt === "xhs");
     const tab = isMe ? profTab : "notes";
-    const list = tab === "fav" ? all.filter(p => bookmarked.has(p.id)) : tab === "liked" ? all.filter(p => liked.has(p.id)) : notes;
+    const list = tab === "fav" ? all.filter(p => bookmarked.has(p.id) && (!albumTab || albums.of[p.id] === albumTab)) : tab === "liked" ? all.filter(p => liked.has(p.id)) : notes;
     const tabs = isMe ? [["notes", "笔记"], ["fav", "收藏"], ["liked", "赞过"]] : [["notes", "笔记"]];
     return h("div", { "data-wk": "foxhsprofile" },
       h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.fog, padding: "10px 16px 0" } }, h("b", { style: { color: t.ink } }, fmtNum(got)), " 获赞与收藏"),
       h("div", { role: "tablist", className: "flex justify-center", style: { gap: 28, borderBottom: "1px solid " + t.line, marginTop: 8 } }, tabs.map(([k, zh]) => h("button", { key: k, role: "tab", "aria-selected": tab === k, "data-wk": "foxhsproftab", "data-on": tab === k ? "1" : "0", onClick: () => setProfTab(k), className: "active:opacity-60",
         style: { minHeight: 40, padding: "0 4px", fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: tab === k ? t.ink : t.fog, fontWeight: tab === k ? 700 : 400, borderBottom: "2px solid " + (tab === k ? FORUM_SKIN.accent : "transparent") } }, zh))),
+      tab === "fav" && albums.names.length ? h("div", { "data-wk": "foxhsalbums", className: "flex gap-2 px-4 pt-3 overflow-x-auto", style: { scrollbarWidth: "none" } },
+        [""].concat(albums.names).map(nm => h("button", { key: nm || "_all", "data-on": albumTab === nm ? "1" : "0", onClick: () => setAlbumTab(nm), className: "shrink-0 whitespace-nowrap active:opacity-60",
+          style: { minHeight: 30, padding: "0 12px", borderRadius: 999, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", border: "1px solid " + (albumTab === nm ? FORUM_SKIN.accent : FORUM_SKIN.line), background: albumTab === nm ? FORUM_SKIN.soft : "transparent", color: albumTab === nm ? FORUM_SKIN.accent : FORUM_SKIN.fog } },
+          nm ? nm + " " + Object.values(albums.of).filter(x => x === nm).length : "全部"))) : null,
       list.length ? xhsGrid(list)
         : h(Empty, { text: tab === "fav" ? "还没收藏过笔记" : tab === "liked" ? "还没赞过笔记" : (isMe ? "你还没发过笔记" : "还没有笔记") }));
   }
@@ -2693,7 +2702,8 @@ function Forum({
     const txt = String(p.body || "");
     const parts = txt.split(/(#[^\s#，。,.!！?？]+)/);
     return h("div", { "data-wk": "foxhsbody", style: { fontFamily: F_BODY, fontSize: "calc(14.5px * var(--app-fs, 1))", lineHeight: 1.78, color: FORUM_SKIN.sub, marginTop: 8, whiteSpace: "pre-wrap" } },
-      parts.map((x, k) => /^#/.test(x) ? h("span", { key: k, style: { color: FORUM_SKIN.link } }, x) : h(Fragment, { key: k }, STW(p, STX(x)))));
+      // 话题点一下去搜（她 2026-10-26）：只填好搜索框、不自动去搜——搜一次要花一次调用，按不按她定
+      parts.map((x, k) => /^#/.test(x) ? h("span", { key: k, "data-wk": "foxhstag", onClick: e => { e.stopPropagation(); setSearchQ(x.slice(1)); closePost(); setNav("search"); }, style: { color: FORUM_SKIN.link, cursor: "pointer" } }, x) : h(Fragment, { key: k }, STW(p, STX(x)))));
   }
   // 小红书笔记底下那一排：赞 / 收藏 / 评论，再加转发
   function xhsBar(p) {
@@ -2701,8 +2711,8 @@ function Forum({
     const bs = { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", whiteSpace: "nowrap", minHeight: 36 };
     const n = (cmts[p.id] || []).filter(forumVisible).length;
     return h("div", { "data-wk": "foxhsbar", className: "flex items-center mt-3", style: { color: FORUM_SKIN.fog, borderTop: "1px solid " + FORUM_SKIN.line, paddingTop: 8, gap: 18 } },
-      h("button", { onClick: e => { e.stopPropagation(); toggleLike(p.id); }, className: "flex items-center gap-1.5 active:opacity-60", style: { ...bs, color: isL ? "#e0245e" : FORUM_SKIN.fog } }, h(IHeart, { size: 17, color: isL ? "#e0245e" : FORUM_SKIN.fog, filled: isL }), h("span", null, fmtNum((lc.likeCount || 0) + (isL ? 1 : 0)))),
-      h("button", { onClick: e => { e.stopPropagation(); toggleBookmark(p.id); }, className: "flex items-center gap-1.5 active:opacity-60", style: { ...bs, color: isB ? "#e8a400" : FORUM_SKIN.fog } }, h("span", { style: { fontSize: "calc(17px * var(--app-fs, 1))", lineHeight: 1 } }, isB ? "★" : "☆"), h("span", null, fmtNum((lc.rtCount || 0) + (isB ? 1 : 0)))),
+      h("button", { onClick: e => { e.stopPropagation(); toggleLike(p.id); }, className: "flex items-center gap-1.5 active:opacity-60", style: { ...bs, color: isL ? FORUM_SKIN.accent : FORUM_SKIN.fog } }, h(IHeart, { size: 17, color: isL ? "#e0245e" : FORUM_SKIN.fog, filled: isL }), h("span", null, fmtNum((lc.likeCount || 0) + (isL ? 1 : 0)))),
+      h("button", { onClick: e => { e.stopPropagation(); const adding = !bookmarked.has(p.id); toggleBookmark(p.id); if (adding) setAlbumPick(p.id); else if (albums.of[p.id]) { const of = { ...albums.of }; delete of[p.id]; setAlbums({ ...albums, of }); } }, className: "flex items-center gap-1.5 active:opacity-60", style: { ...bs, color: isB ? "#e8a400" : FORUM_SKIN.fog } }, h("span", { style: { fontSize: "calc(17px * var(--app-fs, 1))", lineHeight: 1 } }, isB ? "★" : "☆"), h("span", null, fmtNum((lc.rtCount || 0) + (isB ? 1 : 0)))),
       h("div", { className: "flex items-center gap-1.5", style: bs }, h(GMsg, { size: 16, color: FORUM_SKIN.fog }), h("span", null, fmtNum(n))),
       h("button", { onClick: e => { e.stopPropagation(); setFwd(p); }, "aria-label": "转发", className: "flex items-center active:opacity-60 ml-auto", style: bs }, h(ISend, { size: 16, color: FORUM_SKIN.fog })));
   }
@@ -2712,7 +2722,7 @@ function Forum({
     const allFloors = forumFloorOrder(cmts[p.id] || []);
     const xhs = p.fmt === "xhs";
     // 小红书评论区默认按热度：赞多的在上面
-    const list = xhs ? allFloors.filter(forumVisible).sort((a, b) => xhsLikes(p, b) - xhsLikes(p, a)) : allFloors.filter(forumVisible);
+    const list = xhs ? allFloors.filter(forumVisible).sort((a, b) => (xhsAuthorReplied(p, b) ? 1 : 0) - (xhsAuthorReplied(p, a) ? 1 : 0) || xhsLikes(p, b) - xhsLikes(p, a)) : allFloors.filter(forumVisible);   // 作者回过的评论排最前（她 2026-10-26）
     const waitingFloors = Math.max(0, allFloors.length - list.length);
     const loadingC = gen && gen.forumC === p.id;
     const moreC = gen && gen.forumMore === p.id;
@@ -2733,7 +2743,8 @@ function Forum({
           xhs ? xhsPhotos(p) : forumPhotoCard(p, 280),
           xhs ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, marginTop: 10 } }, forumTag(p.board) + "　编辑于 " + timeAgo(p.ts) + " " + forumIpOf(p, c)) : h("div", { className: "mt-3" }, tag(p.board)),
           xhs ? xhsBar(p) : actBar(p),
-          c && h("button", { onClick: () => onToggleFollow(c.id), className: "mt-3 px-3.5 py-1.5 active:opacity-70", style: { borderRadius: 999, border: `1px solid ${t.line}`, background: flw.includes(c.id) ? t.ink : "transparent", fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: flw.includes(c.id) ? t.bg2 : t.ink } }, flw.includes(c.id) ? "已关注" : "关注 TA"),
+          c && h("button", { onClick: () => onToggleFollow(c.id), className: "mt-3 px-3.5 py-1.5 active:opacity-70", style: xhs ? { borderRadius: 999, border: "1px solid " + (flw.includes(c.id) ? FORUM_SKIN.line : FORUM_SKIN.accent), background: flw.includes(c.id) ? "transparent" : FORUM_SKIN.accent, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: flw.includes(c.id) ? FORUM_SKIN.fog : "#fff" }   // 小红书的关注是实心红（她 2026-10-26「红色不够多」）
+            : { borderRadius: 999, border: `1px solid ${t.line}`, background: flw.includes(c.id) ? t.ink : "transparent", fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: flw.includes(c.id) ? t.bg2 : t.ink } }, flw.includes(c.id) ? "已关注" : (xhs ? "关注" : "关注 TA")),
           alt && h("button", { onClick: () => toggleNpcFollow(altFollowKey(p)), className: "mt-3 px-3.5 py-1.5 active:opacity-70", style: { borderRadius: 999, border: `1px solid ${t.line}`, background: npcFollowSet.has(altFollowKey(p)) ? t.ink : "transparent", fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: npcFollowSet.has(altFollowKey(p)) ? t.bg2 : t.ink } }, npcFollowSet.has(altFollowKey(p)) ? "已关注小号" : "关注小号")),
         h("div", { className: "px-4 pt-3 pb-1 flex items-center justify-between" },
           h(Eyebrow, null, xhs ? "共 " + list.length + " 条评论" : "全部回复 · " + (p.replyCount || 0)),
@@ -2743,7 +2754,10 @@ function Forum({
         loadingC && h(Spinner, { label: xhs ? "评论正在赶来…" : "楼里的人正在赶来…" }),
         !loadingC && waitingFloors > 0 && h("div", { "data-wk": "block", className: "mx-4 my-2 px-3 py-2", style: { borderRadius: 10, background: t.bg2, border: `1px dashed ${t.line}`, fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog } }, "还有 " + waitingFloors + (xhs ? " 条评论" : " 条回帖") + "会随着时间陆续出现"),
         !loadingC && list.length === 0 && h(Empty, { text: xhs ? "还没有评论" : "还没有楼层", sub: "点上面「更多回复」让大家来" }),
-        list.map((cm, i) => floorRow(p, cm, i))),
+        list.map((cm, i) => floorRow(p, cm, i)),
+        // 评论看完底下接「相关推荐」（她 2026-10-26）：同话题的其他笔记排成双列，点了就换到那一篇；不另花调用
+        xhs ? (() => { const rel = (posts || []).filter(x => x && x.id !== p.id && x.fmt === "xhs" && forumVisible(x)).sort((a, b) => (b.board === p.board) - (a.board === p.board) || b.ts - a.ts).slice(0, 6);
+          return rel.length ? h("div", { "data-wk": "foxhsrelated", style: { paddingBottom: 12 } }, h("div", { className: "px-4 pt-5" }, h(Eyebrow, null, "相关推荐")), xhsGrid(rel, "foxhsrelgrid")) : null; })() : null),
       // ⚠️「发送」被挤出屏幕右边（她 2026-09-19 截图：两个字断成两行、还切掉一半）。
       //   病根是那颗按钮【没写 shrink-0】：输入框是 flex-1，按钮跟着被压到比内容还窄，
       //   于是「发送」换行、又被圆角裁掉。min-w-0 也得给输入框，不然它撑着不肯让。
@@ -3228,6 +3242,16 @@ function Forum({
         h("span", { style: { fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", color: t.ink } }, th.npcName + (th.alt ? "（小号聊的）" : ""))))),
       h("div", { className: "space-y-1 max-h-40 overflow-y-auto" }, (groups || []).map(g => h("button", { key: g.id, onClick: () => { onForwardToGroup(fwd, g.id); setFwd(null); }, className: "w-full flex items-center gap-3 py-2 active:opacity-60" }, h("div", { "data-wk": "block", style: { width: 32, height: 32, borderRadius: 8, background: t.bg2, border: `1px solid ${t.line}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: "calc(15px * var(--app-fs, 1))" } }, "👥"), h("span", { style: { fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))", color: t.ink } }, g.name))))),
     // 我发帖 composer
+    // 刚收藏的那篇：放进哪个专辑（不选就只在「全部」里）
+    albumPick && h(Sheet, { onClose: () => setAlbumPick(null) },
+      h("div", { "data-wk": "foxhsalbumpick" },
+        h(Eyebrow, null, "收藏到专辑"),
+        h("div", { className: "flex flex-wrap gap-2", style: { marginTop: 10 } },
+          albums.names.map(nm => h("button", { key: nm, onClick: () => { setAlbums({ ...albums, of: { ...albums.of, [albumPick]: nm } }); setAlbumPick(null); toast && toast("收进「" + nm + "」了"); }, className: "active:opacity-60",
+            style: { minHeight: 36, padding: "0 14px", borderRadius: 999, border: "1px solid " + FORUM_SKIN.line, background: "transparent", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: FORUM_SKIN.ink } }, nm)),
+          h("button", { onClick: () => requestAppPrompt("新专辑", "起个名字，比如「穿搭」「想去的店」。", "", v => { const nm = String(v || "").trim().slice(0, 12); if (!nm) return; const names = albums.names.includes(nm) ? albums.names : albums.names.concat([nm]); setAlbums({ names, of: { ...albums.of, [albumPick]: nm } }); setAlbumPick(null); toast && toast("收进「" + nm + "」了"); }, "建好"), className: "active:opacity-60",
+            style: { minHeight: 36, padding: "0 14px", borderRadius: 999, border: "1px dashed " + FORUM_SKIN.accent, background: "transparent", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: FORUM_SKIN.accent } }, "＋ 新专辑")),
+        h("button", { onClick: () => setAlbumPick(null), className: "w-full active:opacity-60", style: { marginTop: 14, minHeight: 40, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: FORUM_SKIN.fog, background: "transparent" } }, "先不分，放在全部里"))),
     photoView && h(PhotoSheet, { m: photoView, onClose: () => setPhotoView(null), toast: toast, onGen: photoView.pmAt && typeof window.forumPMGenImage === "function" ? (!photoView.imageRef ? () => window.forumPMGenImage(photoView.pmAt.tid, photoView.pmAt.i) : null)
         : !photoView.imageRef && photoView.itemId && typeof window.forumGenImage === "function" ? () => window.forumGenImage(photoView.itemId) : null,
       onRegen: photoView.pmAt && typeof window.forumPMGenImage === "function" ? d => window.forumPMGenImage(photoView.pmAt.tid, photoView.pmAt.i, false, true, d)
