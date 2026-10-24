@@ -7,7 +7,7 @@
 // 设置存 x_companion：{ charId, float, pos, scale, autoFace, looks: { [charId]: look } }
 // ============================================================
 (function () {
-  const KEY = "x_companion", BUILD = "fg-88cac7af3e4d62b4";
+  const KEY = "x_companion", BUILD = "fg-eaf386cec406e2ee";
   const load = () => Object.assign({ charId: "", float: false, pos: null, scale: 1, autoFace: true, looks: {} }, loadJSON(KEY, {}) || {});
   const save = v => saveJSON(KEY, v);
   // 心情 → 表情。心情是模型写的自由中文（x_moods[charId].label），按字认；认不出就是「平常」。
@@ -290,6 +290,32 @@
     }, []);
     return typing;
   }
+  // 聊天里认动作（她 2026-10-25 群友许愿「角色聊天可以触发动作」）：TA这一轮的话和动作描写里认词，
+  //   认到就让小人做一下；只认小人本来会的那几样，认不到就照旧。不调模型。
+  const ACT_RULES = [
+    ["wave", /挥手|招手|摆手|拜拜|再见|回头见|嗨[~～!！]|哈喽|早安|早上好/],
+    ["yawn", /哈欠|好困|困了|困死|犯困|睡意/],
+    ["stretch", /伸懒腰|伸了个懒腰|舒展|活动筋骨|活动一下/],
+    ["tea", /喝(?:了|一)?口?(?:茶|水|咖啡|奶茶|汤|酒)|抿了一口|端起杯/],
+    ["read", /看书|翻书|读书|翻了一页|写作业|学习|看文件|批文件/],
+    ["shy", /害羞|脸红|红了脸|耳朵红|不好意思|捂脸/],
+    ["hop", /蹦|跳起来|欢呼|雀跃|手舞足蹈|耶[!！~～]/],
+    ["stomp", /跺脚|气死|气炸|哼[!！]|炸毛/],
+    ["sigh", /叹气|叹了口气|唉/],
+    ["jolt", /吓一跳|吓了一跳|一激灵|吓死|心头一跳/],
+    ["nod", /点头|点了点头|嗯嗯|好好好|知道了|明白了/],
+    ["turn", /转身|扭头|别过脸|背过身/],
+    ["sit", /坐下|坐了下来|坐好|窝在|瘫在/]
+  ];
+  function actForText(text) { const s = String(text || ""); for (const [k, re] of ACT_RULES) if (re.test(s)) return k; return ""; }
+  function useChatAct(charId, frame) {
+    useEffect(() => {
+      const on = e => { const d = e && e.detail; if (!d || d.charId !== charId) return; const k = actForText(d.text);
+        const w = frame.current && frame.current.contentWindow; if (k && w) w.postMessage({ type: "pet-act", kind: k }, "*"); };
+      window.addEventListener("companion-chat", on);
+      return () => window.removeEventListener("companion-chat", on);
+    }, [charId]);
+  }
   function CompanionFloat(props) {
     const [cfg, setCfg] = useState(load);
     useEffect(() => { window.__companionChanged = n => setCfg(n); return () => { window.__companionChanged = null; }; }, []);
@@ -302,6 +328,8 @@
     const typing = useTyping();
     const [failed, setFailed] = useState(false);
     const [say, onPoke, holdSay] = usePokeTalk(char, props, !!cfg.pokeTalk);
+    const petFrame = useRef(null);
+    useChatAct(cfg.charId, petFrame);
     // 下不来就别在屏幕上留一个空框占地方（悬浮这只不打扰她，一句话都不弹）
     if (!cfg.float || !char || props.hidden || failed) return null;
     const clamp = p => ({ x: Math.max(0, Math.min(window.innerWidth - W, p.x)), y: Math.max(44, Math.min(window.innerHeight - H - 8, p.y)) });
@@ -314,7 +342,7 @@
     return h("div", { "data-wk": "compfloatpet", onContextMenu: e => e.preventDefault(), style: { position: "fixed", left: pos.x, top: pos.y, width: W, height: H, zIndex: 60, touchAction: "none", WebkitUserSelect: "none", userSelect: "none", WebkitTouchCallout: "none", WebkitTapHighlightColor: "transparent",
       opacity: typing ? .2 : 1, pointerEvents: typing ? "none" : "auto", transition: "opacity .18s" } },
       h(Bubble, { text: say, onHold: holdSay, style: { bottom: "100%", marginBottom: 4 } }),
-      h(PetFrame, { mode: "float", onPoke, msg: petMessage(char, props.moods, cfg), ctx: { screen: props.screen || "", music: !!props.music, idle },
+      h(PetFrame, { mode: "float", frameRef: petFrame, onPoke, msg: petMessage(char, props.moods, cfg), ctx: { screen: props.screen || "", music: !!props.music, idle },
         onStatus: st => { if (st && st.state === "failed") setFailed(true); }, style: { width: W, height: H - 18, pointerEvents: "auto" } }),
       // 这一条是把手：拖动挪位置，轻点打开陪伴页（iframe 里的点击留给小人自己的反应）
       h("div", { "data-wk": "compdrag", onPointerDown: onDown, onPointerMove: onMove, onPointerUp: onUp, "aria-label": "拖动陪伴小人",
@@ -332,5 +360,5 @@
   window.Companion = Companion;
   window.CompanionPreview = PetFrame;
   window.CompanionFloat = CompanionFloat;
-  window.CompanionFace = { faceForMood, FACE_ZH, lookFor };
+  window.CompanionFace = { faceForMood, FACE_ZH, lookFor, actForText };
 })();

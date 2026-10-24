@@ -3,12 +3,12 @@
 // ?mode=float 是悬浮小窗：点一下就请外壳打开陪伴。
 // 小人本身、换装、表情、体型全部走庭院那一份 traveler.mjs，不另写一套（one-public-mechanism）。
 import * as T from 'three';
-import {targetAt,highFiveHit} from './touch-targets.mjs?v=fg-88cac7af3e4d62b4';
-import {MOODS,DUR,moodBase,pulse,accent,chooseAction} from './motion.mjs?v=fg-88cac7af3e4d62b4';
-import {GLTFLoader} from '../fairy-garden/vendor/GLTFLoader.js?v=fg-88cac7af3e4d62b4';
-import {DRACOLoader} from '../fairy-garden/vendor/DRACOLoader.js?v=fg-88cac7af3e4d62b4';
-import {createTraveler,setFaceBase} from '../fairy-garden/traveler.mjs?v=fg-88cac7af3e4d62b4';
-import {lookForTa,mergeLook,dyesOf,outfitId,outfitColors,hairId,HAIR_MODES} from '../fairy-garden/wardrobe.mjs?v=fg-88cac7af3e4d62b4';
+import {targetAt,highFiveHit} from './touch-targets.mjs?v=fg-eaf386cec406e2ee';
+import {MOODS,DUR,moodBase,pulse,accent,chooseAction} from './motion.mjs?v=fg-eaf386cec406e2ee';
+import {GLTFLoader} from '../fairy-garden/vendor/GLTFLoader.js?v=fg-eaf386cec406e2ee';
+import {DRACOLoader} from '../fairy-garden/vendor/DRACOLoader.js?v=fg-eaf386cec406e2ee';
+import {createTraveler,setFaceBase} from '../fairy-garden/traveler.mjs?v=fg-eaf386cec406e2ee';
+import {lookForTa,mergeLook,dyesOf,outfitId,outfitColors,hairId,HAIR_MODES} from '../fairy-garden/wardrobe.mjs?v=fg-eaf386cec406e2ee';
 const mode=new URLSearchParams(location.search).get('mode')||'full';
 // 悬浮小窗用庭院那份 1K 的小人和脸：屏幕上只有指甲盖大，高清版白占内存（整页时手机会被挤得重载）
 if(mode!=='float')setFaceBase(new URL('./faces/',import.meta.url).href);
@@ -46,7 +46,9 @@ const apply=m=>{
   },400);
  }
 };
-addEventListener('message',e=>{if(e.data&&e.data.type==='pet-look')apply(e.data);if(e.data&&e.data.type==='pet-ctx')setCtx(e.data);});
+addEventListener('message',e=>{if(e.data&&e.data.type==='pet-look')apply(e.data);if(e.data&&e.data.type==='pet-ctx')setCtx(e.data);if(e.data&&e.data.type==='pet-act')playAct(e.data.kind);});
+// 聊天里TA做了什么（她 2026-10-25「做吧」）：那边认出动作，这边照着做一下
+function playAct(k){if(!k||!DUR[k]||held)return;if(sleeping)sleeping=false;act={kind:k,start:clock.getElapsedTime()};}
 // 外壳告诉他你在哪一页、有没有在放歌、多久没碰手机（她 2026-09-26：点他有反应／跟着时间／看你在干嘛）。
 let ctx={screen:'',music:false,idle:false},sleeping=false;
 function setCtx(m){const was=ctx.idle;ctx={screen:String(m.screen||''),music:!!m.music,idle:!!m.idle};if(was&&!ctx.idle)wake();}
@@ -57,7 +59,7 @@ function setCtx(m){const was=ctx.idle;ctx={screen:String(m.screen||''),music:!!m
 // ⚠️这行原来是模块顶层的裸 await：网抖一下就整个 iframe 卡住、pet-ready 永不发，
 //   外壳那句「小人还在来的路上…」会永远挂着（2026-09-26 发公共版前查出来的）。
 try{
- const gltf=await loader.loadAsync('../fairy-garden/doll.glb?v=fg-88cac7af3e4d62b4',
+ const gltf=await loader.loadAsync('../fairy-garden/doll.glb?v=fg-eaf386cec406e2ee',
    e=>{if(e&&e.total)parent.postMessage({type:'pet-progress',pct:Math.min(99,Math.round(e.loaded/e.total*100))},'*');});
  pet=createTraveler(gltf.scene,true,pending?full():{});sc.add(pet.root);if(pending)apply(pending);   // 样貌先到了就直接照它建：头发按需下载，别先白下一款默认的
  parent.postMessage({type:'pet-ready'},'*');

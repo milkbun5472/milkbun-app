@@ -1,8 +1,8 @@
 import * as T from 'three';
-import {furniturePoint,furnitureSeat} from './home-catalog.mjs?v=fg-88cac7af3e4d62b4';
-import {headPoint,bonePoint,nearHand,pairContact,torsoPoint,shoulderPose,pairSize} from './pair-pose.mjs?v=fg-88cac7af3e4d62b4';
+import {furniturePoint,furnitureSeat} from './home-catalog.mjs?v=fg-eaf386cec406e2ee';
+import {headPoint,bonePoint,nearHand,pairContact,torsoPoint,shoulderPose,pairSize} from './pair-pose.mjs?v=fg-eaf386cec406e2ee';
 
-import './social.js?v=fg-88cac7af3e4d62b4';
+import './social.js?v=fg-eaf386cec406e2ee';
 export const REST_PAIRS=globalThis.CharDaySocial.rest;
 const compatible=new Set(['look','cup','hand','pat','hug','shoulder','closer','cuddle']);
 const gap=(a,b)=>Math.hypot(a.x-b.x,a.z-b.z);
