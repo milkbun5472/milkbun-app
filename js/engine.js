@@ -2697,8 +2697,8 @@ function splitLongBubble(s, allowComma) {
     const segs = part.split(/(?<=[\u4e00-\u9fff…~～])\s+(?=\S)/).filter(x => x.trim());
     const chunks = [];
     segs.forEach(seg => {
-      // 空格断的那一截本身就是一句（「腿都快蹬断了」六个字），门槛放低些，不跟逗号那刀共用 8
-      if (chunks.length && (chunks[chunks.length - 1].length < 5 || chunks.length >= MAX_CHUNKS)) chunks[chunks.length - 1] += " " + seg;
+      // 空格断的那一截本身就是一句（「腿都快蹬断了」六个字），门槛原是 5，她 2026-10-24 嫌碎（五六个字一个泡），改回跟逗号那刀共用 8
+      if (chunks.length && (chunks[chunks.length - 1].length < MIN || chunks.length >= MAX_CHUNKS)) chunks[chunks.length - 1] += " " + seg;
       else chunks.push(seg);
     });
     while (chunks.length > 1 && chunks[chunks.length - 1].length < TAIL_MIN) { const t2 = chunks.pop(); chunks[chunks.length - 1] += " " + t2; }

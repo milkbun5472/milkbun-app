@@ -14112,7 +14112,7 @@ function VoiceMsg({ m, isU, speaker }) {
                 ? h("path", { d: "M8.5 5.5h2.6v13H8.5zM12.9 5.5h2.6v13h-2.6z", fill: "currentColor" })
                 : h("path", { d: "M8.5 5.2l9.5 6.8-9.5 6.8z", fill: "currentColor" })))) : null,
       // 这一条自己的波形：长短起伏都是这句话算出来的，不是七根一成不变的贴纸
-      h("div", { className: "flex items-center", style: { gap: 2, height: 16, minWidth: 0, overflow: "hidden", flexShrink: 1 } },
+      h("div", { "data-wk": "voicewave", className: "flex items-center", style: { gap: 2, height: 16, minWidth: 0, overflow: "hidden", flexShrink: 1 } },
         bars.map((hh, j) => h("span", {
           key: j,
           style: { width: 2, height: hh, borderRadius: 2, background: fg, flexShrink: 0,
@@ -14120,7 +14120,7 @@ function VoiceMsg({ m, isU, speaker }) {
             animation: pSt === "playing" ? "vm-bar .9s ease-in-out infinite" : "none",
             animationDelay: pSt === "playing" ? (j * 0.055) + "s" : undefined }
         }))),
-      h("span", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: fg, opacity: 0.7, flexShrink: 0 } }, mmss)),
+      h("span", { "data-wk": "voicetime", style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: fg, opacity: 0.7, flexShrink: 0 } }, mmss)),
     // ⚠️这条分隔线不能用 border + currentColor：currentColor 没法带透明度，
     //   画出来就是一条实线。改成一个 1px 高、压到 .18 的自己的 div——
     //   什么底色上都是「淡淡一道」，而且照样跟着文字色走。
