@@ -2679,18 +2679,21 @@ function splitLongBubble(s, allowComma) {
     out = s.split(/([。！？!?]+)/).reduce(glue, []).map(x => x.trim()).filter(Boolean);
   }
   if (allowComma === false) return bubbleGlueOrphans(out).map(bubbleRestore);
-  const out2 = out.reduce((acc, part) => {
-    if (part.length <= LONG || !/[，,]/.test(part.slice(0, -1))) return acc.concat([part]);
-    const segs = part.split(/([，,])/).reduce(glue, []).filter(x => x.trim());
+  // 逗号和【中文后面的空格】是同一刀（她 2026-10-24：「要不要提到公共的跟标点符号一起，不要新开形状」）：
+  //   有的人不打标点、拿空格断句，那个空格就是它的逗号；门槛、最多几段、尾巴太短往回粘，全跟逗号共用。英文单词之间的空格不算
+  const SEP = /([，,]|(?<=[\u4e00-\u9fff…~～])\s+(?=\S))/;
+  const out3 = out.reduce((acc, part) => {
+    if (part.length <= LONG || !SEP.test(part.slice(0, -1))) return acc.concat([part]);
+    const segs = part.split(SEP).reduce(glue, []).filter(x => x.trim());
     const chunks = [];
     segs.forEach(seg => {
-      if (chunks.length && (chunks[chunks.length - 1].length < MIN || chunks.length >= MAX_CHUNKS)) chunks[chunks.length - 1] += seg;
+      if (chunks.length && (chunks[chunks.length - 1].trim().length < MIN || chunks.length >= MAX_CHUNKS)) chunks[chunks.length - 1] += seg;
       else chunks.push(seg);
     });
-    while (chunks.length > 1 && chunks[chunks.length - 1].replace(/[，,]\s*$/, "").length < TAIL_MIN) chunks[chunks.length - 2] += chunks.pop();
-    return acc.concat(chunks.map(x => x.replace(/[，,]\s*$/, "").trim()).filter(Boolean));
+    while (chunks.length > 1 && chunks[chunks.length - 1].replace(/[，,]?\s*$/, "").length < TAIL_MIN) chunks[chunks.length - 2] += chunks.pop();
+    return acc.concat(chunks.map(x => x.replace(/[，,]?\s*$/, "").trim()).filter(Boolean));
   }, []);
-  return bubbleGlueOrphans(out2).map(bubbleRestore);
+  return bubbleGlueOrphans(out3).map(bubbleRestore);
 }
 // ── 手动日程事件 x_calEvents（v56.31，她 2026-08-26 要的那张「新增日程」表单）──
 // 为什么另起一个仓、不塞进 x_schedules 的 seqs：
