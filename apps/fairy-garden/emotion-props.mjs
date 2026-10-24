@@ -1,6 +1,6 @@
-import {MITTEN_TAP_POINT} from './emotion-hands.mjs?v=fg-1214b1001808a622';
+import {MITTEN_TAP_POINT} from './emotion-hands.mjs?v=fg-16d3787c96bbee5e';
 import * as T from 'three';
-import {pointToolAt} from './reach-hand.mjs?v=fg-1214b1001808a622';
+import {pointToolAt} from './reach-hand.mjs?v=fg-16d3787c96bbee5e';
 
 const marker=(group,name,x=0)=>{const o=new T.Object3D();o.name=name;o.position.x=x;group.add(o);};
 function makeFlower(){
@@ -50,7 +50,21 @@ function makePhone(makeCanvas){
  const frame=new T.Mesh(new T.BoxGeometry(.098,.168,.017),new T.MeshStandardMaterial({color:'#798b80',roughness:.7}));frame.position.set(.035,.035,0);g.add(frame);
  const canvas=makeCanvas(),ctx=canvas?.getContext('2d');let map=null;
  if(ctx){canvas.width=256;canvas.height=448;ctx.fillStyle='#f9f4e7';ctx.fillRect(0,0,256,448);ctx.fillStyle='#d8e4d5';ctx.fillRect(22,58,157,45);ctx.fillRect(65,132,168,57);ctx.fillStyle='#c8d5df';ctx.fillRect(22,220,160,42);ctx.fillStyle='#c5c4b5';for(let y=335;y<420;y+=29)for(let x=17;x<240;x+=25)ctx.fillRect(x,y,18,20);map=new T.CanvasTexture(canvas);map.colorSpace=T.SRGBColorSpace;}
- const screen=new T.Mesh(new T.PlaneGeometry(.083,.146),new T.MeshBasicMaterial({color:map?'#fff':'#f9f4e7',map}));screen.name='PhoneScreen';screen.position.set(.035,.035,.009);g.add(screen);marker(g,'PhoneGrip');return g;
+ const screen=new T.Mesh(new T.PlaneGeometry(.083,.146),new T.MeshBasicMaterial({color:map?'#fff':'#f9f4e7',map}));screen.name='PhoneScreen';screen.position.set(.035,.035,.009);g.add(screen);
+ const lens=new T.Mesh(new T.CylinderGeometry(.009,.009,.005,12),new T.MeshStandardMaterial({color:'#364b42',roughness:.3}));lens.rotation.x=Math.PI/2;lens.position.set(.01,.095,-.012);g.add(lens);
+ const flash=new T.Mesh(new T.SphereGeometry(.027,12,8),new T.MeshBasicMaterial({color:'#fff8dc',transparent:true,opacity:.85}));flash.name='SelfieFlash';flash.position.set(.01,.095,-.022);flash.visible=false;g.add(flash);marker(g,'PhoneGrip');return g;
+}
+function makeUmbrella(){
+ const g=new T.Group();g.name='CompanionUmbrella';const metal=new T.MeshStandardMaterial({color:'#a99d89',roughness:.8}),colors=['#a6bcb2','#dfc8bb'];
+ const pole=new T.Mesh(new T.CylinderGeometry(.005,.005,.65,8),metal);pole.position.y=.31;g.add(pole);
+ for(let panel=0;panel<8;panel++){
+  const vertices=[],indices=[],segments=4,rings=5;
+  for(let r=0;r<=rings;r++)for(let j=0;j<=segments;j++){const theta=(panel+j/segments)*Math.PI/4,rad=.42*r/rings,y=.67-.16*(r/rings)**1.7-(r===rings?.015*Math.sin(j/segments*Math.PI):0);vertices.push(Math.cos(theta)*rad,y,Math.sin(theta)*rad);}
+  for(let r=0;r<rings;r++)for(let j=0;j<segments;j++){const a=r*(segments+1)+j,b=a+segments+1;indices.push(a,b,a+1,b,b+1,a+1);}
+  const geo=new T.BufferGeometry();geo.setAttribute('position',new T.Float32BufferAttribute(vertices,3));geo.setIndex(indices);geo.computeVertexNormals();const cloth=new T.Mesh(geo,new T.MeshStandardMaterial({color:colors[panel%2],roughness:1,side:T.DoubleSide}));cloth.name='UmbrellaCanopy';g.add(cloth);
+  const theta=panel*Math.PI/4,curve=new T.CatmullRomCurve3([new T.Vector3(0,.645,0),new T.Vector3(Math.cos(theta)*.24,.612,Math.sin(theta)*.24),new T.Vector3(Math.cos(theta)*.42,.503,Math.sin(theta)*.42)]);g.add(new T.Mesh(new T.TubeGeometry(curve,10,.0025,5,false),metal));
+ }
+ marker(g,'UmbrellaGrip');return g;
 }
 function makeCookie(){
  const g=new T.Group();g.name='CompanionCookie';const mat=new T.MeshStandardMaterial({color:'#d6ab70',roughness:.95}),chipMat=new T.MeshStandardMaterial({color:'#795343',roughness:1});
@@ -62,10 +76,10 @@ function makeCookie(){
 }
 // 共用手部定位；每件道具等对应动作第一次出现才建，不占普通待机的几何与纹理。
 export function makeEmotionProps(model,handPoint,{makeCanvas=()=>globalThis.document?.createElement('canvas')}={}){
- const props=new Map(),factories={flower:makeFlower,gift:makeGift,sign:()=>makeSign(makeCanvas),phone:()=>makePhone(makeCanvas),cookie:makeCookie};
+ const props=new Map(),factories={flower:makeFlower,gift:makeGift,sign:()=>makeSign(makeCanvas),phone:()=>makePhone(makeCanvas),cookie:makeCookie,umbrella:makeUmbrella};
  return {update(pose){
   for(const [kind,create] of Object.entries(factories)){
-   const amount=pose?.[kind]||0;let prop=props.get(kind);
+   const amount=kind==='phone'?Math.max(pose?.phone||0,pose?.selfie||0):pose?.[kind]||0;let prop=props.get(kind);
    if(!prop&&amount>.001){prop=create();model.add(prop);props.set(kind,prop);}
    if(!prop)continue;prop.visible=amount>.001;if(!prop.visible)continue;
    if(kind==='gift'){
@@ -74,9 +88,10 @@ export function makeEmotionProps(model,handPoint,{makeCanvas=()=>globalThis.docu
     if(axis.lengthSq()>1e-12)prop.quaternion.setFromUnitVectors(new T.Vector3(1,0,0),axis.clone().normalize());
     prop.scale.set(axis.length()/.19,amount,amount);
    }else{
-    pointToolAt(prop,model,handPoint(kind==='phone'?'left':'right'),null,.2);prop.scale.setScalar(amount);
+    pointToolAt(prop,model,handPoint(kind==='phone'&&!pose?.selfie?'left':'right'),null,.2);prop.scale.setScalar(amount);
     prop.rotation.z=kind==='flower'?-.12:(pose.signSway||0);
-    if(kind==='phone')prop.rotation.x=PHONE_TILT;
+    if(kind==='phone'){prop.rotation.x=pose.selfie?-.2:PHONE_TILT;prop.rotation.y=pose.selfie?Math.PI:0;prop.getObjectByName('SelfieFlash').visible=(pose.selfieFlash||0)>.1;}
+    if(kind==='umbrella')prop.rotation.z=.15;
     if(kind==='cookie'){prop.getObjectByName('WholeCookie').visible=(pose.bite||0)<.5;prop.getObjectByName('BittenCookie').visible=(pose.bite||0)>=.5;}
    }
   }

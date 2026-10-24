@@ -45,3 +45,11 @@ test('手机握在左手，饼干握在右手且咬后缺一角，道具互相�
  props.update({cookie:1,bite:1});assert.equal(cookie.getObjectByName('WholeCookie').visible,false);assert.equal(cookie.getObjectByName('BittenCookie').visible,true);assert.ok(cookie.getObjectByName('CookieGrip').getWorldPosition(new T.Vector3()).distanceTo(hands.right.getWorldPosition(new T.Vector3()))<1e-8);
  props.update(null);assert.equal(cookie.visible,false);assert.equal(phone.visible,false);
 });
+
+test('自拍切到右手朝向自己，伞按真实握点撑开，结束收起道具',()=>{
+ const model=new T.Group(),left=new T.Vector3(-.1,.7,.2),right=new T.Vector3(.2,.75,.25),props=makeEmotionProps(model,side=>(side==='left'?left:right).clone());
+ props.update({selfie:1,selfieFlash:1});model.updateMatrixWorld(true);const phone=model.getObjectByName('CompanionPhone');assert.ok(phone.visible);assert.ok(phone.getObjectByName('PhoneGrip').getWorldPosition(new T.Vector3()).distanceTo(right)<1e-8);assert.ok(phone.getObjectByName('SelfieFlash').visible);
+ props.update({phone:1});model.updateMatrixWorld(true);assert.ok(phone.getObjectByName('PhoneGrip').getWorldPosition(new T.Vector3()).distanceTo(left)<1e-8);assert.equal(phone.getObjectByName('SelfieFlash').visible,false);
+ props.update({umbrella:1});model.updateMatrixWorld(true);const umbrella=model.getObjectByName('CompanionUmbrella');assert.equal(phone.visible,false);assert.ok(umbrella.getObjectByName('UmbrellaGrip').getWorldPosition(new T.Vector3()).distanceTo(right)<1e-8);assert.equal(umbrella.children.filter(x=>x.name==='UmbrellaCanopy').length,8);assert.ok(new T.Box3().setFromObject(umbrella).max.y>1.3);
+ props.update(null);assert.equal(umbrella.visible,false);
+});

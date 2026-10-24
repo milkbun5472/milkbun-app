@@ -8,7 +8,7 @@ test('手势使用连续圆手套，随握点和肤色变化，比心保留原�
   const root=new T.Group(),model=new T.Group();root.add(model);root.rotation.y=yaw;root.scale.setScalar(scale);
   const hands={left:new T.Object3D(),right:new T.Object3D()};for(const [side,hand]of Object.entries(hands)){model.add(hand);hand.position.set(side==='left'?-.08:.08,.65,.2);}
   const props=makeEmotionHands(model,side=>hands[side].getWorldPosition(new T.Vector3()));
-  for(const kind of ['thumb','poke','pinch','phone']){
+  for(const kind of ['thumb','poke','pinch','phone','peace']){
    props.update({[kind]:1,pinchTap:.5},{skin:'#c09a7d'});const groups=[];model.traverseVisible(o=>{if(o.name.startsWith('CompanionHand-'))groups.push(o);});assert.equal(groups.length,1);
    const group=groups[0],palm=group.getObjectByName('GesturePalm');assert.ok(group.getWorldPosition(new T.Vector3()).distanceTo(hands.right.getWorldPosition(new T.Vector3()))<1e-8);
    assert.equal(palm.material.color.getHexString(),'c09a7d');palm.geometry.computeBoundingBox();const size=palm.geometry.boundingBox.getSize(new T.Vector3());assert.ok(size.z>.06,'rounded depth');assert.ok(size.x>.075,'mitten palm');assert.ok(size.y<.15,'short silhouette');
@@ -24,7 +24,8 @@ test('眨眼只临时借用单眼表情，舌头与眼泪跟头部表面，结�
  const model=new T.Group(),head=new T.Group(),body=new T.Mesh(new T.SphereGeometry(1,24,16));head.name='HeadAnchor';body.name='DollBody';model.add(head,body);model.updateMatrixWorld(true);
  const features=makeEmotionFeatures(model);features.update({tongue:1});const tongue=head.getObjectByName('CompanionTongue');assert.ok(tongue.visible);assert.ok(tongue.position.z>.4);
  features.update({cry:1,tearPhase:.3});assert.equal(tongue.visible,false);const tears=head.getObjectByName('CompanionTears');assert.equal(tears.children.length,4);assert.ok(tears.children.every(o=>o.position.toArray().every(Number.isFinite)));
- features.update(null);assert.equal(tears.visible,false);assert.equal(tongue.visible,false);
+ features.update({sing:1,notePhase:.3});const notes=head.getObjectByName('CompanionNotes');assert.equal(notes.children.length,3);assert.ok(notes.visible);
+ features.update(null);assert.equal(tears.visible,false);assert.equal(tongue.visible,false);assert.equal(notes.visible,false);
 });
 test('前后躺按可见外轮廓落地并在两个水平轴居中，转身缩放也不会沉入地面',()=>{
  for(const yaw of [0,1.2,-2])for(const scale of [.8,1,1.25]){

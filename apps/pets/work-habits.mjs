@@ -1,4 +1,4 @@
-import {skillTask} from './skills.mjs?v=fg-1214b1001808a622';
+import {skillTask} from './skills.mjs?v=fg-16d3787c96bbee5e';
 // Local habits are earned by actual work/choices and share the pet's career save.
 export const WORK_HABITS = {
  model:{label:'在窗边坐好等人',done:'在窗边安稳坐了一会儿，像拍摄时等熟悉的人。',pose:'sit',target:'florist'},

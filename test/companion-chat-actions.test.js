@@ -9,7 +9,7 @@ const prose=require('./fixtures/companion-action-prose.cjs');
 test('整张聊天动作表逐项都有语言样本，新增动作不能漏掉验证',()=>{
  const actual=[...src.matchAll(/actionRule\("([^"]+)"/g)].map(m=>m[1]).sort();
  assert.deepEqual(Object.keys(prose.cases).sort(),actual);
- assert.equal(actual.length,59);
+ assert.equal(actual.length,69);
 });
 const allVariants=prose.variants();
 for(const kind of Object.keys(prose.cases))test('全部动作的长句、倒装、修饰与招呼混用 → '+kind,()=>{
@@ -21,7 +21,7 @@ const examples={
  'emotion-giggle':['偷偷笑','偷偷地笑','偷笑','捂着嘴笑','捂住嘴','掩嘴','抿着嘴笑','憋笑','忍不住笑'],
  'emotion-listen':['侧耳听','侧了侧耳','认真地听','听你说','听你慢慢讲','凑过来听','竖起耳朵','我在听呢'],
  'emotion-promise':['拍拍胸口','拍了拍胸脯','拍着胸膛','我向你保证','我发个誓','包在我身上','说到做到','一言为定'],
- 'emotion-cheer':['加油呀','给你打打气','握了握拳','攥紧拳头','给你鼓劲','你一定可以的','你能行','为你鼓掌'],
+ 'emotion-cheer':['加油呀','给你打打气','握了握拳','攥紧拳头','给你鼓劲','你一定可以的','你能行'],
  'emotion-refuse':['摇头','摇了摇头','摇摇头','轻轻摇着头','摆了摆手','摆摆手','才不要','拒绝'],
  'emotion-cozy':['抱抱','抱住你','抱一下','搂紧你','张开胳膊','张开了双臂','伸手想抱你','（抱）','HUG','🫂'],
  'emotion-chin':['托着下巴','托腮','撑住下巴','支起下巴'],
@@ -156,7 +156,7 @@ test('话里提到的动作、否定、假设、问句都不让小人动',()=>{
   '你要是敢跑，我就抱你回来':'','我们坐下来好好谈谈':'','你不准再熬夜了，晚安':'wave','早上好呀':'wave','好好好，听你的':'nod','抱抱你':'emotion-cozy','（抱住你）想你了':'emotion-cozy','*点点头*知道了':'nod'};
  for(const [t,k] of Object.entries(said))assert.equal(chat('',t),k,'说的：'+t);
  const act={'他点了杯奶茶给你':'','他转账给你520':'','他点点头':'nod','他捂着脸笑':'shy','他喝了口水，说没事':'tea','他坐在你对面没说话':'sit',
-  '他回头看了你一眼':'turn','回头见':'wave','他摇头晃脑地唱歌':'emotion-dance','他别过脸':'turn','他没有点头':'','要是你再跑，他就抱住你':''};
+  '他回头看了你一眼':'turn','回头见':'wave','他摇头晃脑地唱歌':'emotion-sing','他别过脸':'turn','他没有点头':'','要是你再跑，他就抱住你':''};
  for(const [t,k] of Object.entries(act))assert.equal(chat(t,''),k,'动作：'+t);
 });
 test('新增道具的普通提及不算递出或举起，自己的书不算自抱',()=>{
@@ -182,4 +182,11 @@ test('第二批身体动作仍只在描写触发，否定与假设不算，近�
  for(const text of ['他把拳头偏向一侧。','他把指头偏了偏。','他吃醋了。']){assert.equal(chat('',text),'',text);assert.equal(chat(text,''),'',text);}
  assert.equal(chat('将脑袋往左侧了一点。',''),'emotion-tilt');
  assert.equal(chat('他把头向一侧扭了扭。',''),'turn');
+});
+
+test('新增动作只从描写识别，自己明确说去睡才直接睡，鼓掌与发呆各有独立动作',()=>{
+ for(const [act,kind]of [['鼓掌叫好','emotion-applause'],['发呆看着窗外','emotion-daydream'],['把手拍在胸口','emotion-promise'],['用手揉眼睛','emotion-rubeyes']])assert.equal(window.CompanionFace.actForChat(act,''),kind,act);
+ for(const said of ['我先睡了','困死了睡了','我睡觉去了'])assert.equal(window.CompanionFace.actForChat('',said),'sleep',said);
+ for(const said of ['我还没睡着','我不睡了','你先睡吧','我先睡了吗？','如果我先睡了怎么办'])assert.notEqual(window.CompanionFace.actForChat('',said),'sleep',said);
+ for(const act of ['比耶','捂耳朵','拍手','哼歌','自拍','搓手','扇风','走神','撑伞']){assert.equal(window.CompanionFace.actForChat('',act),'',act);assert.equal(window.CompanionFace.actForChat('他没有'+act,''),'',act);}
 });
