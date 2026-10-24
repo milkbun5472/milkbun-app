@@ -86,6 +86,8 @@
     (groups || []).forEach(g => {
       if (!g || !(g.memberIds || []).includes(charId)) return;
       if (!(gset[g.id] && gset[g.id].memoryInterop)) return;
+      // 旁观群她不在场：TA在那儿说的话是对群里别人说的，不是「TA眼里的她」（她 2026-10-24：周刊把旁观群里另一个角色当成她）
+      if (g.roomKind === "spectate" || (gset[g.id] || {}).spectate) return;
       const gSeen = new Set();
       (A["g:" + g.id] || []).concat(grab("x_gchat:" + g.id)).forEach(m => {
         if (m && m.id) { if (gSeen.has(m.id)) return; gSeen.add(m.id); }
