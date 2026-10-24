@@ -2706,7 +2706,9 @@ function splitLongBubble(s, allowComma) {
   if (allowComma === false) return bubbleGlueOrphans(out).map(bubbleRestore);
   // 逗号和【中文后面的空格】是同一刀（她 2026-10-24：「要不要提到公共的跟标点符号一起，不要新开形状」）：
   //   有的人不打标点、拿空格断句，那个空格就是它的逗号；门槛、最多几段、尾巴太短往回粘，全跟逗号共用。英文单词之间的空格不算
-  const SEP = /([，,]|(?<=[\u4e00-\u9fff…~～])\s+(?=\S))/;
+  // ⚠️空格后面得还是中文才算断句：中文和数字、英文之间习惯空一格（「乘以 0.312」「是 46,800」「跟 Ta 说」），
+  //   那个空格是排版不是停顿——原来后面跟什么都切，一段算账的话被切成「乘以」「0.312，也就是46,800」
+  const SEP = /([，,]|(?<=[\u4e00-\u9fff…~～])\s+(?=[\u4e00-\u9fff]))/;
   const out3 = out.reduce((acc, part) => {
     if (part.length <= LONG || !SEP.test(part.slice(0, -1))) return acc.concat([part]);
     const segs = part.split(SEP).reduce(glue, []).filter(x => x.trim());

@@ -12980,6 +12980,12 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       // 模型读到的【最后两千字全是记账】，于是它的思考也跟着变成清点和复述。
       // 群聊末尾是「输出一个数组，谁说什么」——任务本身就是演，思考自然也在演。
       // 这里把【要演的那件事】放回最后一句，让它临落笔前想的是这个人此刻的反应，不是流水账。
+      // 上一轮最后一条是不是撂狠话（她 2026-10-22）：是就在这一轮末尾提一句
+      const _prevTail = (() => { const h = history || []; let i = h.length - 1; while (i >= 0 && (!h[i] || h[i].role !== "assistant")) i--; while (i >= 0 && h[i] && h[i].role === "assistant" && !String(h[i].content || "").trim()) i--; const m = h[i]; return m && m.role === "assistant" ? String(m.content || "") : ""; })();
+      const _threatTailHint = !_body && typeof endsOnThreat === "function" && endsOnThreat(_prevTail) ? THREAT_TAIL_HINT : "";
+      // 上一轮整轮（不只最后一条）有没有翻旧账、看穿她（她 2026-10-23）
+      const _prevTurnText = (() => { const h = history || []; let i = h.length - 1; while (i >= 0 && (!h[i] || h[i].role !== "assistant")) i--; const out = []; while (i >= 0 && h[i] && h[i].role === "assistant") { out.unshift(String(h[i].content || "")); i--; } return out.join("\n"); })();
+      const _seeThroughHint = !_body && typeof seeThroughLast === "function" && _prevTurnText.split("\n").some(seeThroughLast) ? SEE_THROUGH_TAIL_HINT : "";
       // ⚠️这是提示词层的引导，不是保证——思考链是模型自己的，我们只能改它最后读到什么。
       // ⚠️v56.86 我在这儿加过一句「不许比较措辞、列备选说法」，当天就撤了：
       //   她那条「『又学了一天』なら、さらっと言うなら…とか…」不是模型漏话，是那个角色的人设
@@ -12987,12 +12993,6 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       //   看着像「模型在想事情」的输出，先问一句这是不是这个人本来就会做的，别急着禁。
       // 只加在单聊线上：群聊本来就没这毛病；线下那一轮的任务是写一整段场景，不是「一条条发微信」，
       // 这句话套上去反而不对（要给线下也来一句，得另写一版）。
-      // 上一轮最后一条是不是撂狠话（她 2026-10-22）：是就在这一轮末尾提一句
-      const _prevTail = (() => { const h = history || []; let i = h.length - 1; while (i >= 0 && (!h[i] || h[i].role !== "assistant")) i--; while (i >= 0 && h[i] && h[i].role === "assistant" && !String(h[i].content || "").trim()) i--; const m = h[i]; return m && m.role === "assistant" ? String(m.content || "") : ""; })();
-      const _threatTailHint = !_body && typeof endsOnThreat === "function" && endsOnThreat(_prevTail) ? THREAT_TAIL_HINT : "";
-      // 上一轮整轮（不只最后一条）有没有翻旧账、看穿她（她 2026-10-23）
-      const _prevTurnText = (() => { const h = history || []; let i = h.length - 1; while (i >= 0 && (!h[i] || h[i].role !== "assistant")) i--; const out = []; while (i >= 0 && h[i] && h[i].role === "assistant") { out.unshift(String(h[i].content || "")); i--; } return out.join("\n"); })();
-      const _seeThroughHint = !_body && typeof seeThroughLast === "function" && _prevTurnText.split("\n").some(seeThroughLast) ? SEE_THROUGH_TAIL_HINT : "";
       const _turnClosing = "\n【收尾·聊天与记录】先形成真实回复，再按本轮协议记录状态与复看结果；记录不写进聊天气泡。"
         + "任务只有一件：以「" + char.name + "」的身份，对 TA 刚说的那句做出此刻真实的反应，然后"
         // 同处一室：话是当面说出口的——收尾这句离生成最近，这里说成「发微信」会把上面那段盖掉（她 2026-09-23）

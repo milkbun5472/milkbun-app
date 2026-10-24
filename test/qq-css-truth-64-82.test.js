@@ -50,7 +50,9 @@ test("清单上的每个钩子，源码里都真的挂着", () => {
     || new RegExp('(actBtn\\("|row\\([^\n]*, ")' + n + '"').test(src)
     // 第五种：照影的 pill(on, label, fn, "zyscenechip")——最后一个参数就是挂点，帮手里写着 "data-wk": wk || "zychip"。
     //   fn 可能是一整段多行回调（zygroupbtn 那颗），所以不按行找：按「pill( 开头、隔不远收在 , "x")」找
-    || new RegExp('pill\\([\\s\\S]{0,1500}?, "' + n + '"\\)').test(src);
+    || new RegExp('pill\\([\\s\\S]{0,1500}?, "' + n + '"\\)').test(src)
+    // 第六种：论坛小红书的 xhsGrid(list, "fonotes")——第二个参数就是挂点，帮手里写着 "data-wk": wk || "foxhsgrid"
+    || new RegExp('xhsGrid\\([^\n)]*, "' + n + '"\\)').test(src);
   const missing = names.filter(n => !hung(n));
   assert.deepEqual(missing, [], "清单上有、源码里没挂：" + missing.join("、"));
 });
