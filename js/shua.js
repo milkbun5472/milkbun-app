@@ -620,6 +620,9 @@
     // city：同城那一格刷的（她 2026-10-07 选的第 3 条）——这批博主都在这座城里
     // q：搜一个词（她 2026-10-24「抖音 b 站能不能加个搜索，指定刷出啥」）——搜出来的都是路人博主的视频，
     //   刷完首页只看沾这个词的（跟点热门话题同一个筛法，上面挂一颗「搜：词 ✕」可以放开）
+    // 首页顶上那颗「搜」（她 2026-10-24「我的片刻在哪搜索啊」：原来只藏在刷新页里）
+    const askSearch = () => { if (typeof requestAppPrompt !== "function" || !props.ask) return;
+      requestAppPrompt("搜点什么", "写一个词，刷一页跟它有关的路人视频；首页只看沾这个词的，顶上点一下放开。", "", q => { q = S(q).trim(); if (q) genNpc(null, q); }, "搜", { maxLength: 30 }); };
     const genNpc = async (city, q) => {
       const sk = skin;
       q = S(q).slice(0, 30);
@@ -1070,16 +1073,18 @@
       h("div", { "data-wk": "head", className: "flex items-center justify-center", style: { position: "absolute", top: 0, left: 0, right: 0, zIndex: 3, paddingTop: safeTop(8), paddingBottom: 6, gap: 26 } },
         props.onBack ? h("button", { onClick: props.onBack, "aria-label": "返回", className: "active:opacity-50", style: { position: "absolute", left: 10, bottom: 2, width: 40, height: 40, color: INK } }, h(IArrow, { size: 20, color: INK })) : null,
         // ⚠️这一列要限宽：不限的话城市那一排撑得比屏幕还宽，横着根本滑不动（她 2026-10-08：「同城横向滑动不了卡死了」）
-        h("div", { className: "flex flex-col items-center", style: { maxWidth: "calc(100% - 120px)", minWidth: 0 } }, h("div", { className: "flex items-center", style: { gap: 26 } }, feedTabs(INK, DIM, INK)), feed === "city" ? h("div", { className: "flex items-center", style: { gap: 10, overflowX: "auto", maxWidth: "100%", padding: "4px 12px 6px", whiteSpace: "nowrap", touchAction: "pan-x", overscrollBehaviorX: "contain", WebkitOverflowScrolling: "touch" } },
+        h("div", { className: "flex flex-col items-center", style: { maxWidth: "calc(100% - 200px)", minWidth: 0 } }, h("div", { className: "flex items-center", style: { gap: 26 } }, feedTabs(INK, DIM, INK)), feed === "city" ? h("div", { className: "flex items-center", style: { gap: 10, overflowX: "auto", maxWidth: "100%", padding: "4px 12px 6px", whiteSpace: "nowrap", touchAction: "pan-x", overscrollBehaviorX: "contain", WebkitOverflowScrolling: "touch" } },
           cities.map(c => h("button", { "data-wk": "shuacity", "data-on": c === cityNow ? "1" : "0", key: c, onClick: () => setCityPick(c), className: "active:opacity-60 shrink-0", style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: c === cityNow ? RED : INK, fontWeight: c === cityNow ? 700 : 400, minHeight: 28, textShadow: "0 1px 3px rgba(0,0,0,.6)" } }, c))) : hotStrip(INK, DIM, "transparent")),
         // 同城那一格，右上角「刷新」就是刷这座城（她 2026-10-07：「刷新一下这座城的跟刷新是不是重复了」）
+        h("button", { "data-wk": "shuasearchbtn", "aria-label": "搜索", onClick: askSearch, disabled: busy === "npc", className: "active:opacity-60", style: { position: "absolute", right: 62, bottom: 6, minHeight: 32, minWidth: 32, padding: "0 8px", borderRadius: 999, background: "rgba(0,0,0,.28)", color: INK, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))" } }, busy === "npc" ? "…" : "🔍"),
         h("button", { "data-wk": "shuarefreshbtn", onClick: () => feed === "city" && cities.length ? genNpc(cityNow) : setPage({ kind: "refresh" }), disabled: busy === "npc", className: "active:opacity-60", style: { position: "absolute", right: 12, bottom: 6, minHeight: 32, padding: "0 10px", borderRadius: 999, background: "rgba(0,0,0,.28)", color: INK, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))" } }, busy === "npc" && feed === "city" ? "刷着…" : "刷新")),
       feedView(list, emptyFeed));
     else if (tab === "home") body = h("div", { className: "flex-1 min-h-0 flex flex-col", style: { background: B.bg } },
       // 横屏那套的顶栏：白底，左边返回、中间关注推荐、右边刷新——不浮在画面上
       h("div", { "data-wk": "head", className: "shrink-0 flex items-center justify-center", style: { position: "relative", background: B.card, paddingTop: safeTop(6), paddingBottom: 4, gap: 26, borderBottom: "1px solid " + B.line } },
         props.onBack ? h("button", { onClick: props.onBack, "aria-label": "返回", className: "active:opacity-50", style: { position: "absolute", left: 8, bottom: 0, width: 40, height: 40 } }, h(IArrow, { size: 20, color: B.ink })) : null,
-        h("div", { className: "flex flex-col items-center", style: { maxWidth: "70%" } }, h("div", { className: "flex items-center", style: { gap: 26 } }, feedTabs(B.ink, B.dim, B.accent)), hotStrip(B.ink, B.dim, "transparent")),
+        h("div", { className: "flex flex-col items-center", style: { maxWidth: "calc(100% - 200px)" } }, h("div", { className: "flex items-center", style: { gap: 26 } }, feedTabs(B.ink, B.dim, B.accent)), hotStrip(B.ink, B.dim, "transparent")),
+        h("button", { "data-wk": "shuasearchbtn", "aria-label": "搜索", onClick: askSearch, disabled: busy === "npc", className: "active:opacity-60", style: { position: "absolute", right: 62, bottom: 4, minHeight: 32, minWidth: 32, padding: "0 8px", borderRadius: 999, background: B.bg, color: B.accent, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))" } }, busy === "npc" ? "…" : "🔍"),
         h("button", { "data-wk": "shuarefreshbtn", onClick: () => setPage({ kind: "refresh" }), className: "active:opacity-60", style: { position: "absolute", right: 10, bottom: 4, minHeight: 32, padding: "0 12px", borderRadius: 999, background: B.bg, color: B.accent, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))" } }, "刷新")),
       gridView(list, emptyFeed));
     // ⚠️直播间里面是 h-full：外面这一格只给 flex-1 的话，Safari 里 h-full 量不出高度，直播间按内容往下长，
