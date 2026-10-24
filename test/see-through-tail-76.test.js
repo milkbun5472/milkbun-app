@@ -9,6 +9,7 @@ const re = new Function(eng.match(/const SEE_THROUGH_TAIL_RE = (\/.*\/);/)[0] + 
   .forEach(t => assert.ok(!re.test(t), "不该认：" + t));
 const hint = eng.match(/const SEE_THROUGH_TAIL_HINT = "(.*)";/)[1];
 assert.ok(!re.test(hint), "提醒里别念原句");
-assert.match(app, /\+ _threatTailHint \+ _seeThroughHint \+ _turnClosing/);
+// 中间还会插别的收尾提示（v76.476 叮嘱收尾 _bossTailHint），钉的是看穿那一句接进了收尾串
+assert.match(app, /\+ _threatTailHint( \+ \w+)* \+ _seeThroughHint \+ _turnClosing/);
 assert.match(app, /const _seeThroughHint = !_body && /);
 console.log("ok");
