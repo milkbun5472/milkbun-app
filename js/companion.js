@@ -7,7 +7,7 @@
 // 设置存 x_companion：{ charId, float, pos, scale, autoFace, looks: { [charId]: look } }
 // ============================================================
 (function () {
-  const KEY = "x_companion", BUILD = "fg-6f2fd4e26924293d";
+  const KEY = "x_companion", BUILD = "fg-25e09c1eb7b214c0";
   const load = () => Object.assign({ charId: "", float: false, pos: null, scale: 1, autoFace: true, looks: {} }, loadJSON(KEY, {}) || {});
   const save = v => saveJSON(KEY, v);
   // 心情 → 表情。心情是模型写的自由中文（x_moods[charId].label），按字认；认不出就是「平常」。
@@ -401,6 +401,21 @@
       actionSpan(/转(?!账|帐|发|运|学|型)|扭|别|背/, new RegExp("后背|身|脸|" + ACTION_HEAD.source, "u")),
       // 回过头看一眼也是转头；「回头见」「回头再说」是在说以后，不算
       actionSequence(/回(?=过?(?:头|脑袋)(?!见|再|说|聊|找|补|给))/, ACTION_HEAD)),
+    // 复用已有情绪动画。口头提示只留笑声和惊叹；身体／神态词只放动作锚点。
+    actionRule("emotion-happy", /哈哈+|笑死|笑不活/,
+      actionSpan(/大笑|朗笑|哈哈+|笑死|笑不活/), actionSpan(/笑/, /出声|前仰后合|停不下来|肚子疼/), actionSpan(/笑/, /直不起|直不起来/, /腰/)),
+    actionRule("emotion-amazed", /哇(?:塞|哦|喔|[!！~～]|$)|好厉害/,
+      actionSpan(/惊喜|惊叹|惊艳|惊呼|哇(?:塞|哦|喔|[!！~～]|$)|好厉害/), actionSpan(/喜/, /望外/)),
+    actionRule("emotion-surprise", null,
+      actionSpan(/愣|怔|呆/, /住|下|滞|在|着/), actionSpan(/发/, /愣|怔|呆/), actionSpan(/愣神/)),
+    actionRule("emotion-proud", null,
+      actionSpan(/得意|求夸|自豪|骄傲/), actionSpan(/挺|抬|扬/, /胸/)),
+    actionRule("emotion-sad", null,
+      actionSpan(/难过|委屈|伤心/), actionSpan(/低|垂|耷拉|埋/, ACTION_HEAD), actionSpan(/眼眶|眼圈/, /红|润|泪/)),
+    actionRule("emotion-irritated", null,
+      actionSpan(/闷闷不乐|生闷气|不高兴/), actionSpan(/撇|噘|嘟/, /嘴/), actionSpan(/鼓/, /腮|脸颊|面颊/)),
+    actionRule("emotion-headpat", null,
+      actionSpan(/蹭过来|蹭蹭/), actionSpan(/蹭|贴/, /手|掌心|手心|你/), actionSpan(ACTION_HEAD, /凑|靠|贴/, /过来|过|向|近|你|手/)),
     actionRule("sit", /坐着|落座|盘腿/,
       actionSpan(/坐|窝|瘫/, /下|好|回|在|进|到|沙发|椅|床|地上/), actionSpan(/盘/, /腿/), actionSpan(/落/, /座/))
   ];
@@ -422,7 +437,7 @@
     return out.reverse();
   }
   const done = (x, at) => at >= 0 && !x.ifs && !NOT_DONE.test(x.c.slice(0, at).split("的").pop());
-  const cueAt = (rule, x) => { const m = rule.cues.exec(x.c); return m ? m.index : -1; };
+  const cueAt = (rule, x) => { const m = rule.cues && rule.cues.exec(x.c); return m ? m.index : -1; };
   // act：动作描写（action 那一栏、话里括号或星号包着的那段）；said：说出口的话。
   //   动作只从 act 里认；said 里只认本身就是在打招呼、应声的那几句（晚安、加油、好好好……），而且不认问句。
   //   只给一个字符串（旧的叫法、测试）＝当成动作描写。
