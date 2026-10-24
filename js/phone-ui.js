@@ -1576,7 +1576,18 @@ function WeChatViewFull({ d, char, t, profile, onBack, onRefresh, refreshing, dr
       h("div", { "data-wk": "pbtn", "data-part": "send", "data-watch": "send", style: { flexShrink: 0, borderRadius: 5, padding: "8px 14px", fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", color: driveTyping ? "#fff" : "#9a9a9a", background: driveTyping ? "#07c160" : "#e6e6e6" } }, "发送")) : null);
   const accounts = arr(d.me && d.me.accounts);
   if (publicPage) return h("div", { "data-wk": "block", className: "h-full min-h-0 flex flex-col", "data-wk": "papp", "data-app": "wechat", style: { background: "#f5f5f5" } }, innerHead(article ? "文章" : "公众号", null, () => article ? setArticle(null) : setPublicPage(false)), h("div", { "data-wk": "pdetail", className: "flex-1 min-h-0 overflow-y-auto" }, article ? h("article", { style: { background: "#fff", minHeight: "100%", padding: "24px 22px 48px" } }, h("h1", { style: { fontFamily: F_DISPLAY, fontSize: "calc(24px * var(--app-fs, 1))", lineHeight: 1.35, color: "#191919" } }, PTX(article.title)), h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: "#8a8a8a", marginTop: 10 } }, [article.source, article.time].filter(Boolean).join(" · ")), h("div", { style: { fontFamily: F_BODY, fontSize: "calc(15px * var(--app-fs, 1))", lineHeight: 2, color: "#333", marginTop: 25, whiteSpace: "pre-wrap" } }, PTX(article.summary)), h("div", { style: { marginTop: 32, padding: 18, borderRadius: 8, background: "#f7f7f7" } }, h("div", { "data-wk": "block", style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: "#8a8a8a", marginBottom: 8 } }, char.name + " 读到这里时"), h("div", { style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", lineHeight: 1.8, color: "#444" } }, PTX(article.thought)))) : h("div", null, h("div", { style: { height: 118, background: "linear-gradient(135deg,#234635,#79a185)", padding: "34px 22px", color: "#fff" } }, h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(25px * var(--app-fs, 1))" } }, "订阅号消息"), h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", opacity: .8, marginTop: 5 } }, char.name + " 最近打开过的文章")), h("div", { style: { padding: "10px 14px" } }, accounts.map((a, i) => h("button", { key: i, onClick: () => setArticle(a), className: "w-full text-left active:opacity-60", style: { padding: "17px 0", borderBottom: "1px solid #ddd" } }, h("div", { className: "flex gap-13" }, h("div", { className: "flex-1" }, h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(17px * var(--app-fs, 1))", lineHeight: 1.45, color: "#222" } }, PTX(a.title)), h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: "#999", marginTop: 8 } }, [a.source, a.time].filter(Boolean).join(" · "))), h("div", { style: { width: 72, height: 58, borderRadius: 5, background: `linear-gradient(135deg,${strColor(a.source)},#ddd)` } }))))))));
-  const chatRow = (c, i) => h("button", { key: c.id || i, "data-wk": "pitem", "data-watch": "item:" + (c.name || ""), onClick: () => setThread(c), className: "w-full text-left flex items-center gap-3 active:opacity-60", style: { minHeight: 67, borderBottom: "1px solid #e5e5e5", background: "#fff", padding: "8px 14px" } }, h(Avatar, { character: person(c.name, c.avatarImage), size: 47, radius: c.type === "group" ? 8 : 7 }), h("div", { className: "flex-1 min-w-0" }, h("div", { className: "flex justify-between gap-2" }, h("span", { "data-wk": "ptitle", style: { fontFamily: F_DISPLAY, fontSize: "calc(16px * var(--app-fs, 1))", color: "#191919" } }, PTX(c.name)), h("span", { "data-wk": "ptime", style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: "#aaa", flexShrink: 0 } }, phoneChatWhen(c))), h("div", { "data-wk": "ptext", style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: c._empty ? "#bbb" : "#999", marginTop: 4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, c.last || (c._empty ? "还没说过话" : ""))));
+  // 会话列表照通讯录的备注显示（她 2026-10-25「他给我的备注没应用上来」）：真微信里列表上写的就是备注，
+  //   通讯录里她是「最爱的老婆」，聊天列表却还写着她的名字。跟她那一栏用 userContact，别人按名字去 contacts 里找
+  const chatRemarkOf = c => {
+    if (!c || c.type === "group") return (c && c.name) || "";
+    const cn = v => String(v == null ? "" : v).replace(/[\s（）()「」【】·]/g, "");
+    const uc = d.userContact;
+    const isMe = [userName(profile), profile && profile.name].some(n => n && (typeof phoneSamePerson === "function" ? phoneSamePerson(c.name, n) : cn(c.name) === cn(n)));
+    if (isMe) return (uc && String(uc.remark || "").trim()) || c.name;
+    const ct = arr(d.contacts).find(x => x && cn(x.name) === cn(c.name));
+    return (ct && String(ct.remark || "").trim()) || c.name;
+  };
+  const chatRow = (c, i) => h("button", { key: c.id || i, "data-wk": "pitem", "data-watch": "item:" + (c.name || ""), onClick: () => setThread(chatRemarkOf(c) !== c.name ? { ...c, remark: chatRemarkOf(c) } : c), className: "w-full text-left flex items-center gap-3 active:opacity-60", style: { minHeight: 67, borderBottom: "1px solid #e5e5e5", background: "#fff", padding: "8px 14px" } }, h(Avatar, { character: person(c.name, c.avatarImage), size: 47, radius: c.type === "group" ? 8 : 7 }), h("div", { className: "flex-1 min-w-0" }, h("div", { className: "flex justify-between gap-2" }, h("span", { "data-wk": "ptitle", style: { fontFamily: F_DISPLAY, fontSize: "calc(16px * var(--app-fs, 1))", color: "#191919" } }, PTX(chatRemarkOf(c))), h("span", { "data-wk": "ptime", style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: "#aaa", flexShrink: 0 } }, phoneChatWhen(c))), h("div", { "data-wk": "ptext", style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: c._empty ? "#bbb" : "#999", marginTop: 4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, c.last || (c._empty ? "还没说过话" : ""))));
   const userContact = d.userContact || { name: meName, remark: meName, intro: "TA 把你放在最重要的位置，但这次刷新还没写下具体的话。" };
   // 通讯录不会比聊天列表还空（群友 2026-10-21：刷了两遍，通讯录里只有她自己）：模型那一份 contacts 漏写了也照样有人——
   //   跟TA有私聊的那几位（真聊天、推演出来的都算）都是联系人，名字没在 contacts 里的补在后面
@@ -1637,7 +1648,12 @@ function WeChatViewFull({ d, char, t, profile, onBack, onRefresh, refreshing, dr
   // 本尊的联系人页是【分组 cell】：几块白，块与块之间空一段灰，行与行之间一道浅线。
   // 往本尊靠，不是往通用卡靠。
   if (thread && thread.type === "contact") {
-    const sess = chats.find(c2 => c2 && c2.name === thread.name);
+    // 通讯录点「发消息」进对应的会话（她 2026-10-25）：原来只认名字一字不差，她那一栏、按备注起名的会话都对不上，按钮就不出来。
+    //   现在跟会话列表认人用同一把尺：名字或备注对得上就是同一个人；她自己那一栏认她的会话
+    const _sn = v => String(v == null ? "" : v).replace(/[\s（）()「」【】·]/g, "");
+    const sess = chats.find(c2 => c2 && c2.type !== "group" && (thread._me
+      ? [userName(profile), profile && profile.name].some(n => n && (typeof phoneSamePerson === "function" ? phoneSamePerson(c2.name, n) : _sn(c2.name) === _sn(n)))
+      : [thread.name, thread.remark].some(n => n && _sn(n) === _sn(c2.name))));
     const cell = (label, value, last) => h("div", { className: "flex items-baseline", style: { gap: 12, padding: "13px 16px", borderTop: last === "first" ? "none" : "1px solid #ededed" } },
       h("div", { style: { fontFamily: F_BODY, fontSize: "calc(15px * var(--app-fs, 1))", color: "#191919", flexShrink: 0 } }, label),
       h("div", { style: { flex: 1, minWidth: 0, textAlign: "right", fontFamily: F_BODY, fontSize: "calc(15px * var(--app-fs, 1))", color: "#8a8a8a", wordBreak: "break-word" } }, value));
@@ -1685,7 +1701,7 @@ function WeChatViewFull({ d, char, t, profile, onBack, onRefresh, refreshing, dr
           h("button", { onClick: () => { onDelFriend(char, thread.name, true); bumpDel(x => x + 1); }, className: "active:opacity-70", style: { padding: "9px 22px", borderRadius: 6, background: "#07c160", color: "#fff", fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))" } }, "加回好友"))) : null,
         // 发消息只在真有这个人的会话时才给——按了没反应的按钮比没有按钮更糟
         sess && !isDel(thread.name) ? h("button", {
-          onClick: () => setThread(sess),
+          onClick: () => setThread(chatRemarkOf(sess) !== sess.name ? { ...sess, remark: chatRemarkOf(sess) } : sess),
           className: "w-full active:opacity-70",
           style: { marginTop: 10, background: "#fff", padding: "14px 0", fontFamily: F_BODY, fontSize: "calc(15px * var(--app-fs, 1))", color: "#07c160" }
         }, "发消息") : null,

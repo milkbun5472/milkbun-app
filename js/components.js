@@ -9890,7 +9890,7 @@ function MomentsFeed({
         color: t.fog
       }
       , "data-wk": "motime"
-    }, timeAgo(m.ts)), /*#__PURE__*/React.createElement("button", {
+    }, typeof timeAgoOn === "function" ? timeAgoOn(m.ts, isMine ? null : m.characterId) : timeAgo(m.ts)), /*#__PURE__*/React.createElement("button", {
       onClick: () => onLike(m.id),
       "data-wk": "molike", "data-on": m.liked ? "1" : undefined,
       className: "active:opacity-60 flex items-center gap-1"
@@ -10140,7 +10140,7 @@ function MomentsProfile({ isMe, character: rawCharacter, profile, characters: ra
       ? h("button", { onClick: () => { setImgView(m.image); setImgMid(m.characterId ? m.id : null); }, className: "mt-2.5 block active:opacity-80" }, h("img", { src: resolveImg(m.image), style: { maxWidth: 160, maxHeight: 160, borderRadius: 10, display: "block" } }))
       : h("button", { onClick: () => { setImgView(m.image); setImgMid(m.characterId ? m.id : null); }, className: "mt-2 flex items-center gap-2 px-3 py-2 active:opacity-70", style: { background: t.bg, borderRadius: 10, border: "1px solid " + t.line } }, h(PGlyph, { k: "album", size: 16, color: t.fog }), h("span", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog } }, "[图片] 点开看描述"))) : null,
     h("div", { className: "flex items-center gap-4 mt-2" },
-      h("span", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog } }, timeAgo(m.ts)),
+      h("span", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog } }, typeof timeAgoOn === "function" ? timeAgoOn(m.ts, m.mine ? null : m.characterId) : timeAgo(m.ts)),
       h("button", { onClick: () => onLikeMoment(m.id), className: "active:opacity-60 flex items-center gap-1" }, h(IHeart, { size: 13, color: m.liked ? t.accent : t.fog, filled: m.liked }), (m.likeCount || 0) > 0 && h("span", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog } }, m.likeCount)),
       h("button", { onClick: () => { setCommenting(m.id); setCReply(null); setCText(""); }, style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog } }, "评论"),
       onDelMoment && h("button", { onClick: () => setDelId(m.id), style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog } }, "删除")),
@@ -12129,6 +12129,7 @@ function CallScreen({
   onReroll,
   onEditLine,
   onDeleteLine,
+  onOpenState,
   onHangup,
   tfCard,
   onRespondTransfer,
@@ -12730,6 +12731,8 @@ function CallScreen({
     style: Object.assign(pip ? { paddingLeft: 24, paddingRight: 24 } : {}, litPlate(".62", "0"))
   }, h("div", {
     "data-wk": "calltitle",
+    // 点名字／头像看TA的状态卡（她 2026-10-25）：不用缩小、退出去再找
+    onClick: onOpenState ? () => onOpenState(primary.id) : undefined,
     className: pip ? "text-left" : "px-6 text-center",
     style: Object.assign({
       fontFamily: F_DISPLAY,
@@ -12749,6 +12752,7 @@ function CallScreen({
     className: "shrink-0 flex justify-center py-3 gap-2 flex-wrap px-6"
   }, (bgUrl || pip) ? [] : (isGroup ? people.slice(0, 4) : [primary]).map((c, ci) => h("div", {
     key: ci, "data-wk": "callavatar",
+    onClick: onOpenState ? () => onOpenState(c.id) : undefined,
     style: {
       width: isGroup ? 64 : (isVideo ? 148 : 104),
       height: isGroup ? 64 : (isVideo ? 196 : 104),
