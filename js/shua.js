@@ -631,7 +631,7 @@
         const d = await props.ask(npcSystem(uName, String((profile && profile.persona) || "").slice(0, 600), NPC_BATCH, sk, hotToday(), regsText())
           + (city ? "\n这一批是「同城」：这几个博主都住在「" + city + "」，拍的东西跟这座城有关或者就发生在这座城里；城里是什么样子从你知道的这个地方长出来。"
             + (props.cityNote ? props.cityNote(city) : "") : "")
-          + (q ? "\n这一批是「搜索结果」：有人在搜「" + q + "」，这几条都是跟「" + q + "」有关的视频——拍法、角度、口气各不一样，就像真在平台上搜出来的一页。" : ""), shapeNpc(sk));
+          + (q ? "\n这一批是「搜索结果」：有人在搜「" + q + "」，这几条都是跟「" + q + "」有关的视频——拍法、角度、口气各不一样，就像真在平台上搜出来的一页。每一条都得正面就是这个词说的那件事，点进来的人一眼认得出「对，我搜的就是这个」；不许借字面绕去别的行当（康复、健身、画画、考据那种），也不许用谐音、双关、误会来交差。词碰到平台不让露骨拍的东西，就照平台上真实存在的那种来：科普、情侣博主、经验分享、测评、段子，讲的仍是这件事本身，只是不露骨。" : ""), shapeNpc(sk));
         const vids = arr(d && d.videos).filter(x => x && S(x.scene) && S(x.author)).map(x => mkVideo(x, Object.assign({ by: "npc", author: S(x.author).slice(0, 20), skin: sk }, city ? { city } : {}, regOf(x.author) ? { reg: regOf(x.author) } : {})))
           .map(v => q ? Object.assign({}, v, { tags: arr(v.tags).concat([q]), q }) : v);
         if (!vids.length) { toast("这一批没刷出来，再点一次"); return; }
