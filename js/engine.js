@@ -10966,6 +10966,16 @@ function timeAgo(ts) {
   if (h < 24) return h + "小时前";
   return Math.floor(h / 24) + "天前";
 }
+// 「几分钟前」照这个人那只钟算（她 2026-10-26：朋友圈时间跟着世界时间走，虚拟或现实）：
+//   id＝角色 id（他那张面具的钟），null＝主面具。没开虚拟时间就跟 timeAgo 一模一样；
+//   钟走得快慢不一样时，「前」多久按钟上的时间差算
+function timeAgoOn(ts, id) {
+  try {
+    if (typeof vclockCfg !== "function" || !vclockCfg(id === undefined ? null : id, Date.now())) return timeAgo(ts);
+    const diff = vclockMap(Date.now(), id === undefined ? null : id) - vclockMap(Number(ts) || Date.now(), id === undefined ? null : id);
+    return timeAgo(Date.now() - Math.max(0, diff));
+  } catch (e) { return timeAgo(ts); }
+}
 function fmtClock(d) {
   return d.getHours().toString().padStart(2, "0") + ":" + d.getMinutes().toString().padStart(2, "0");
 }

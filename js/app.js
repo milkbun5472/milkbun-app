@@ -3201,6 +3201,11 @@ function App() {
   }, [moments]);
   const pMom = u => setMoments(p => {
     let n = flagMomentNews(p, typeof u === "function" ? u(p) : u);
+    // 新冒出来的评论记下时刻（她 2026-10-26：内部带时间戳、不显示）：一处兜住所有写评论的入口；
+    //   只给这一下新多出来的那几条盖，旧评论没记过就让它空着，不拿现在的时间冒充
+    if (Array.isArray(n)) { const was = new Map((p || []).map(x => [x && x.id, ((x && x.comments) || []).length])); const now = Date.now();
+      n = n.map(m => { const cs = m && m.comments; if (!Array.isArray(cs) || !cs.length) return m; const k0 = was.has(m.id) ? was.get(m.id) : 0;
+        return cs.some((c, i) => i >= k0 && c && !c.ts) ? { ...m, comments: cs.map((c, i) => i >= k0 && c && !c.ts ? { ...c, ts: now } : c) } : m; }); }
     if (Array.isArray(n) && n.length > MOMENTS_CAP) n = [...n].sort((a, b) => (b.ts || 0) - (a.ts || 0)).slice(0, MOMENTS_CAP);
     saveJSON("x_moments", n);
     return n;
