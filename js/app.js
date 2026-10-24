@@ -34329,7 +34329,9 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         const jw = live[k];
         const st = (jw && jw.state) || saved[k];
         if (!st) return null;
-        return { gid: g.id, name: g.name || "一个群", connection: Number(st.connection) || 0 };
+        // 这个群自己聊不起来（没开互通、关了「群里自己聊起来」、或者「动」里群聊总开关关着）：满了也没有出口（她 2026-10-24 转群友）
+        const gs0 = gsFor(g.id);
+        return { gid: g.id, name: g.name || "一个群", connection: Number(st.connection) || 0, shut: !gs0.memoryInterop || gs0.autoChat === false || !autoRefreshOn("groupChat") };
       }).filter(Boolean).sort((a, b) => b.connection - a.connection);
     })(),
     // 这个角色那根「想我」上一次是被什么清的（她 2026-09-14：莫名其妙就归零了）

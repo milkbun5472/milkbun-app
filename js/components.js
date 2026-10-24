@@ -21369,7 +21369,7 @@ function ChatSettings({
     if (!rows.length) return null;
     return h("div", { style: { marginTop: 12, paddingTop: 10, borderTop: "1px dashed " + t.line } },
       h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.7 } },
-        "TA 想的不只是你。下面这几份满了，TA 会去那边开口，不是来找你。"),
+        "TA 想的不只是你。下面这几份满了，TA 会去那边开口，不是来找你。" + (rows.some(r => r && r.shut) ? "写着「没开自己聊」的那几个群，满了也不会去：那个群的「群里自己聊起来」（或者记忆互通）没开。" : "")),
       rows.slice(0, 5).map(r => {
         const c = Math.max(0, Math.min(1, Number(r.connection) || 0));
         return h("div", { key: r.gid, className: "flex items-center gap-2", style: { marginTop: 8 } },
@@ -21377,7 +21377,7 @@ function ChatSettings({
           h("div", { style: { position: "relative", flex: 1, height: 6, borderRadius: 999, background: t.bg } },
             h("div", { style: { position: "absolute", left: 0, top: 0, bottom: 0, width: Math.min(100, Math.round(c / 0.5 * 100)) + "%", borderRadius: 999, background: c >= 0.5 ? "#c25a4a" : c >= 0.35 ? t.tint : t.fog } })),
           h("span", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, flex: "0 0 auto" } },
-            c > 0.02 ? c.toFixed(2) : "刚归零"));
+            r.shut ? "没开自己聊" : c > 0.02 ? c.toFixed(2) : "刚归零"));
       }));
   };
   // 端不端着看【A 那份傲娇】：动念自己那份永远到不了闸口，见下面那段注释。
