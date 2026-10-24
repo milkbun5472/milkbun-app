@@ -7109,11 +7109,12 @@ async function expandMessageImages(msgs, budget, meta) {
 function speechSpans(text) {
   const s = String(text || "");
   // 英文直引号 "…" 也认（她 2026-10-26 截图：外语台词模型常用直引号，原来不算台词，「译」挂不上、TTS 也不念）：只认同一行里成对的
-  const re = /「([^」]*)」|『([^』]*)』|“([^”]*)”|"([^"\n]*)"/g;
+  //   法文那种书名号样的 «…»、全角直引号 ＂…＂、竖排的 ﹁…﹂ 也一起认（欧风人设、繁体文常见）
+  const re = /「([^」]*)」|『([^』]*)』|“([^”]*)”|"([^"\n]*)"|«([^»\n]*)»|＂([^＂\n]*)＂|﹁([^﹂]*)﹂/g;
   const out = [];
   let m;
   while ((m = re.exec(s))) {
-    const inner = (m[1] || m[2] || m[3] || m[4] || "").replace(/[「」『』“”"]/g, "").trim();
+    const inner = (m[1] || m[2] || m[3] || m[4] || m[5] || m[6] || m[7] || "").replace(/[「」『』“”"«»＂﹁﹂]/g, "").trim();
     if (inner) out.push({ start: m.index, end: m.index + m[0].length, inner: inner });
   }
   return out;
