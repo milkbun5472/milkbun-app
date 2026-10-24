@@ -1843,7 +1843,7 @@ function GridCells({ photo, rows, cols, onSharpen, sharpBusy }) {
       if (alive) setCells(out);
     })();
     return () => { alive = false; if (obj) URL.revokeObjectURL(obj); };
-  }, [photo && (photo.imgKey || photo.imgUrl), rows, cols]);
+  }, [photo && (photo.imgKey || photo.imgUrl), photo && photo.ts, rows, cols]);   // ts：同一把键重拍了也要重切
   if (!cells.length) return null;
   return h("div", { "data-wk": "gridcells", style: { marginTop: 12 } },
     h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginBottom: 6 } }, "点一格单独放大"),
@@ -1871,7 +1871,9 @@ function AlbumPhoto({ photo, full, cover }) {
       idbImgGet(photo.imgKey).then(b => { if (!alive) return; if (b && b.size) { obj = URL.createObjectURL(b); setUrl(obj); } }).catch(() => {});
     }
     return () => { alive = false; if (obj) URL.revokeObjectURL(obj); };
-  }, [photo && photo.imgKey]);
+    // ts 也算（她 2026-10-24「日记照片刷新后要退出重进才能刷出新照片」）：重拍时图库里那把键不变、只是换了图，
+    //   只看键就不会重读，一直摆着旧的那张
+  }, [photo && photo.imgKey, photo && photo.ts]);
   const src = url || (photo && photo.imgUrl) || null;
   const desc = photo && String(photo.scene || photo.desc || "").slice(0, 300) || null;
   // 拍立得还在显影（她 2026-10-13）：一律先是一张灰白相纸，到点才显出来；长按甩一甩马上显影。
