@@ -10997,6 +10997,13 @@ function timeAgo(ts) {
 // 「几分钟前」照这个人那只钟算（她 2026-10-26：朋友圈时间跟着世界时间走，虚拟或现实）：
 //   id＝角色 id（他那张面具的钟），null＝主面具。没开虚拟时间就跟 timeAgo 一模一样；
 //   钟走得快慢不一样时，「前」多久按钟上的时间差算
+// 「这一条跟已有的差不多一样吗」（她 2026-10-26「扫一眼还有哪些地方需要去重」）：问答小本、抽屉、时光轴、日记、论坛帖共用这一把尺。
+//   按两字一组的重合算（去掉标点空格），重合超过 th（默认七成，按短的那条算）就算重复。纯本地，不调模型
+function nearDupGrams(t) { const x = String(t || "").replace(/[\s，。？！?!、,.…「」“”『』（）()：:；;～~—-]/g, ""), o = new Set(); for (let i = 0; i < x.length - 1; i++) o.add(x.slice(i, i + 2)); return o; }
+function isNearDup(text, list, th) {
+  const a = nearDupGrams(text); if (a.size < 2) return false;
+  return (list || []).some(y => { const b = nearDupGrams(y); if (b.size < 2) return false; let n = 0; a.forEach(k => { if (b.has(k)) n++; }); return n / Math.min(a.size, b.size) > (th || 0.7); });
+}
 function timeAgoOn(ts, id) {
   try {
     if (typeof vclockCfg !== "function" || !vclockCfg(id === undefined ? null : id, Date.now())) return timeAgo(ts);

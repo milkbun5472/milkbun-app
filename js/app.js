@@ -17953,8 +17953,11 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       // 只取本人、不混用户和群友；封顶 12 条避免贵线 prompt 膨胀。
       const diaryVoiceSamples = dayRows.filter(r => String(r.speaker || "") === String(char.name || "") && String(r.text || "").trim()).slice(-12).map(r => String(r.text).trim());
       // 上一篇日记（目标日之前最近的一篇）——喂给模型当「别重复」参照
-      const prevD = (diariesRef.current[charId] || []).filter(e => (e.ts || 0) < targetTs).sort((a, b) => (b.ts || 0) - (a.ts || 0))[0];
-      const prevDiary = prevD ? ((prevD.titleZh || prevD.titleEn || "") + "｜" + (prevD.paras || []).map(p => p.text).join(" ").slice(0, 220)) : "";
+      const prevDs = (diariesRef.current[charId] || []).filter(e => (e.ts || 0) < targetTs).sort((a, b) => (b.ts || 0) - (a.ts || 0)).slice(0, 5);
+      const prevD = prevDs[0];
+      // 不止上一篇（她 2026-10-26 去重那一轮）：上一篇照旧多给点字，前面四篇各给一行标题和开头，同样的感慨隔几天不再冒回来
+      const prevDiary = prevD ? ((prevD.titleZh || prevD.titleEn || "") + "｜" + (prevD.paras || []).map(p => p.text).join(" ").slice(0, 220))
+        + (prevDs.length > 1 ? "\n更早几篇：" + prevDs.slice(1).map(e => (e.titleZh || e.titleEn || "") + "｜" + (e.paras || []).map(p => p.text).join(" ").slice(0, 50)).join("；") : "") : "";
       const ctx = { ...ctxFor(char), moodLabel: mood && (mood.label || mood) || null, worldbook: loreFor(char, "diary"), recentChat: dayChatText, memory: "", groupEcho: "", groupOfflineEcho: "", offlineNow: "", schedNow: "" };
       // 虚拟时间开着时，日记照现实一天一篇写，日子按 TA 那只钟叫（她 2026-10-11）
       const dateStr = typeof vclockCfg === "function" && vclockCfg(charId) ? vclockLabel(targetTs, charId, false)
@@ -18312,7 +18315,9 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       const idRoll = Math.random(), altBias = forumHabit.identityBias === "alt";
       const rolledId = idRoll < (altBias ? 0.42 : 0.55) ? "main" : idRoll < 0.82 ? "alt" : "anonymous";
       const forceAnon = rolledId === "anonymous" && Math.random() < 0.5;   // 匿名的一半去匿名吧，一半在别的吧匿名发
-      const avoidRepeat = myLast ? "\n\n【绝不要重复你上一个帖】你上次发的是《" + String(myLast.title || "").slice(0, 40) + "》「" + String(myLast.body || "").replace(/\s+/g, " ").slice(0, 70) + "」——这次必须【换一件不一样的、更新的事】，绝不许再写同一个话题/同一件事/同一种心情，哪怕只是换个说法也不行。" : "";
+      // 不止上一贴（她 2026-10-26 去重那一轮）：只看一贴，隔一贴又绕回同一个话题。最近八贴都摆出来
+      const myRecent = (forumPostsRef.current || []).filter(p => p.authorId === char.id).sort((a, b) => (b.ts || 0) - (a.ts || 0)).slice(0, 8);
+      const avoidRepeat = myLast ? "\n\n【绝不要重复你最近发过的帖】你最近发的是：\n" + myRecent.map(p0 => "· 《" + String(p0.title || "").slice(0, 40) + "》「" + String(p0.body || "").replace(/\s+/g, " ").slice(0, 50) + "」").join("\n") + "\n这次必须【换一件不一样的、更新的事】，绝不许再写同一个话题/同一件事/同一种心情，哪怕只是换个说法也不行。" : "";
       const d = await runProbe(apiFor(char.id), ctxFor(char), {
         voice: true,
         instruction: forumFmtLine() + "以「" + char.name + characterText(char, "」的身份去论坛随手发一个帖（吐槽/日常/求助/兴趣/脑洞/匿名 六选一；用哪个身份发下面已经定好了）。\n【这一帖用「" + ({ main: "大号", alt: "固定小号", anonymous: "匿名" })[rolledId] + "」发，identity 填 " + rolledId + "】"
@@ -18332,6 +18337,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       const mine = myBoardsForPost.find(b => b.name.replace(/吧$/, "") === rawBoard);
       const board = fixedBoard || (forceAnon ? "匿名吧" : (bmap[rawBoard] || (mine && mine.name) || "日常吧"));
       if (!(d && d.title)) { if (manual) throw new Error(char.name + " 没写出来"); return null; }
+      if (typeof isNearDup === "function" && isNearDup(String(d.title) + String(d.body || "").slice(0, 80), myRecent.map(p0 => String(p0.title || "") + String(p0.body || "").slice(0, 80)))) { if (manual) throw new Error(char.name + " 想发的跟最近发过的差不多，再点一次换一个"); return null; }
       // 身份以掷出来的为准（模型交别的也不认）；匿名吧照旧一律匿名（postCharToForum 里管）
       const rec = postCharToForum(char, board, { title: String(d.title), body: String(d.body || ""), identity: rolledId, photo: d.photo, photoWho: d.photoWho }, manual ? "手动发帖" : "auto");
       if (!manual) { notifyApp("forum"); toast("论坛有了新帖子"); if (window.Notify) window.Notify.push({ title: "论坛有了新帖子", body: String(d.title), tag: "forum-" + char.id, charId: char.id }); }
@@ -26003,6 +26009,11 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
           // 问答小本去重（她 2026-10-26「他出题是不是没有去重」）：原来TA看不见以前出过、答过哪些题，同一个问题换个说法又出一遍
           + (_pick === "qa" ? (() => { const qs = (loadJSON("x_coupleQA", []) || []).filter(x => x && x.characterId === char.id && x.question).slice(0, 40).map(x => "· " + String(x.question).slice(0, 50));
               return qs.length ? "【小本里已经有的题】下面这些问过、答过了，别再问同一件事，换个说法也算问过：\n" + qs.join("\n") + "\n" : ""; })() : "")
+          // 抽屉、时光轴同一个道理：TA看得见自己已经留过什么，才不会同几样东西反复留
+          + (_pick === "timeline" ? (() => { const ts0 = (loadJSON("x_coupleTimeline", []) || []).filter(x => x && x.characterId === char.id).slice(0, 40).map(x => "· " + String((x.title ? x.title + "：" : "") + (x.content || "")).slice(0, 50));
+              return ts0.length ? "【时光轴上已经有的】下面这些已经记过了，别再补同一件事，换个说法也算记过：\n" + ts0.join("\n") + "\n" : ""; })() : "")
+          + (["thing", "word", "draw"].includes(_pick) ? (() => { const dw = (loadJSON("x_coupleDrawer", []) || []).filter(x => x && x.characterId === char.id && x.kind === _pick).slice(0, 30).map(x => "· " + String(x.text || "").slice(0, 50));
+              return dw.length ? "【抽屉里你已经留过的这一类】别再留同一样东西、同一句话，换个说法也算留过：\n" + dw.join("\n") + "\n" : ""; })() : "")
           + "这一档你已经很久没留过了，所以这次就留它——不用挑，也别改成别的。\n"
           + "⚠️但**绝不许为了填这个格子硬造一件**：此刻你要是真没有这样一样东西可留（今天没经手过什么、"
           + "脑子里没有半句话、没画过、想不起该补的那一天、心里没有一个真想问她的问题），"
@@ -26017,6 +26028,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       if (!txt) return false;
       // 落哪儿【不再看模型填了什么】：这一档是上面代码挑的，它只负责写内容。
       if (_pick === "timeline") {
+        if (isNearDup(String((d && d.title) || "") + txt, (loadJSON("x_coupleTimeline", []) || []).filter(x => x && x.characterId === char.id).map(x => String(x.title || "") + (x.content || "")))) return false;   // 记过的事不再补一遍
         outletNote(char.id, "timeline", !!manual);
         setCoupleTimeline(p => {
           // ⚠️日期必须走 ymd()（补零）：时光轴是按 date 字符串排序的，
@@ -26030,10 +26042,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         // ⚠️没出题就等于这一档没写成：别硬塞进抽屉凑数，直接算这次没留（闸还回去）。
         if (!String((d && d.question) || "").trim()) return false;
         // 兜底：字面跟小本里哪一题差不多一样，就当这次没写成（闸还回去，下次再来）
-        { const grams = t => { const x = String(t || "").replace(/[\s，。？！?!、,.…「」“”]/g, ""), o = new Set(); for (let i = 0; i < x.length - 1; i++) o.add(x.slice(i, i + 2)); return o; };
-          const q0 = grams(d.question);
-          const dup = q0.size >= 2 && (loadJSON("x_coupleQA", []) || []).some(x => { if (!x || x.characterId !== char.id || !x.question) return false; const g = grams(x.question); let n = 0; q0.forEach(k => { if (g.has(k)) n++; }); return n / Math.min(q0.size, g.size || 1) > 0.7; });
-          if (dup) return false; }
+        if (isNearDup(d.question, (loadJSON("x_coupleQA", []) || []).filter(x => x && x.characterId === char.id).map(x => x.question))) return false;
         outletNote(char.id, "qa", !!manual);
         setCoupleQA(p => {
           const n = [{ id: "qa_" + Date.now(), characterId: char.id, qid: "his_" + Date.now(),
@@ -26045,6 +26054,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         // 抽屉那三档（thing / word / draw）。⚠️v61.35 那条教训仍然成立：
         //   认不出来的一律当抽屉落，绝不许再变成第四个悄悄话。
         const kind = ["thing", "word", "draw"].indexOf(_pick) >= 0 ? _pick : "thing";
+        if (isNearDup(txt, (loadJSON("x_coupleDrawer", []) || []).filter(x => x && x.characterId === char.id && x.kind === kind).map(x => x.text))) return false;   // 抽屉里已经有差不多的一样，这次算没留
         outletNote(char.id, kind, !!manual);
         drawerPush({ id: "dw_" + Date.now(), characterId: char.id, kind: kind,
           title: "", text: txt, ts: Date.now(), openedTs: null,
