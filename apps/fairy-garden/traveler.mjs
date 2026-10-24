@@ -1,20 +1,23 @@
-import {attachRegionDye,dyeRegions} from './outfit-dye.mjs?v=fg-25e09c1eb7b214c0';
-import {reachHand,headSafeTarget} from './reach-hand.mjs?v=fg-25e09c1eb7b214c0';
-import {taskPose,makeTaskProps,workHandTargets,GUITAR_HOLD,GUITAR_STRUM} from './task-motion.mjs?v=fg-25e09c1eb7b214c0';
-import {dailyHandTargets} from './daily-motion.mjs?v=fg-25e09c1eb7b214c0';
-import {motionClock,motionPosture} from './day/motion-profile.mjs?v=fg-25e09c1eb7b214c0';
-import {emotionPose} from './emotion-pose.mjs?v=fg-25e09c1eb7b214c0';
-import {makeEmotionProps} from './emotion-props.mjs?v=fg-25e09c1eb7b214c0';
-import {makeDollLife} from './doll-life.mjs?v=fg-25e09c1eb7b214c0';
-import {makeSeatedLegs,WORK_SEATED_HIP} from './seated-legs.mjs?v=fg-25e09c1eb7b214c0';
-import {makeUpperBody} from './upper-body.mjs?v=fg-25e09c1eb7b214c0';
-import {makeBentArms} from './bent-arms.mjs?v=fg-25e09c1eb7b214c0';
-import {makeHangingHair} from './hanging-hair.mjs?v=fg-25e09c1eb7b214c0';
-import {OUTFITS,mergeLook,outfitId,outfitColors,hairId,hairModeOf,DEFAULT_LOOK,COMPANION_LOOK,DEFAULT_EYE} from './wardrobe.mjs?v=fg-25e09c1eb7b214c0';
-import {makeSeatContact} from './seat-contact.mjs?v=fg-25e09c1eb7b214c0';
+import {makeEmotionHands,handStyle,handScaleOf} from './emotion-hands.mjs?v=fg-32f56e8e0d66a403';
+import {makeEmotionFeatures,transientEmotionFace} from './emotion-features.mjs?v=fg-32f56e8e0d66a403';
+import {settleEmotionGround} from './emotion-ground.mjs?v=fg-32f56e8e0d66a403';
+import {attachRegionDye,dyeRegions} from './outfit-dye.mjs?v=fg-32f56e8e0d66a403';
+import {reachHand,headSafeTarget} from './reach-hand.mjs?v=fg-32f56e8e0d66a403';
+import {taskPose,makeTaskProps,workHandTargets,GUITAR_HOLD,GUITAR_STRUM} from './task-motion.mjs?v=fg-32f56e8e0d66a403';
+import {dailyHandTargets} from './daily-motion.mjs?v=fg-32f56e8e0d66a403';
+import {motionClock,motionPosture} from './day/motion-profile.mjs?v=fg-32f56e8e0d66a403';
+import {emotionPose} from './emotion-pose.mjs?v=fg-32f56e8e0d66a403';
+import {makeEmotionProps,phoneTapTarget} from './emotion-props.mjs?v=fg-32f56e8e0d66a403';
+import {makeDollLife} from './doll-life.mjs?v=fg-32f56e8e0d66a403';
+import {makeSeatedLegs,WORK_SEATED_HIP} from './seated-legs.mjs?v=fg-32f56e8e0d66a403';
+import {makeUpperBody} from './upper-body.mjs?v=fg-32f56e8e0d66a403';
+import {makeBentArms} from './bent-arms.mjs?v=fg-32f56e8e0d66a403';
+import {makeHangingHair} from './hanging-hair.mjs?v=fg-32f56e8e0d66a403';
+import {OUTFITS,mergeLook,outfitId,outfitColors,hairId,hairModeOf,DEFAULT_LOOK,COMPANION_LOOK,DEFAULT_EYE} from './wardrobe.mjs?v=fg-32f56e8e0d66a403';
+import {makeSeatContact} from './seat-contact.mjs?v=fg-32f56e8e0d66a403';
 import * as T from 'three';
-import {GLTFLoader} from './vendor/GLTFLoader.js?v=fg-25e09c1eb7b214c0';
-import {DRACOLoader} from './vendor/DRACOLoader.js?v=fg-25e09c1eb7b214c0';
+import {GLTFLoader} from './vendor/GLTFLoader.js?v=fg-32f56e8e0d66a403';
+import {DRACOLoader} from './vendor/DRACOLoader.js?v=fg-32f56e8e0d66a403';
 // 衣服按需加载（她 2026-09-26）：doll.glb 只有身体、骨架和头发，每套衣服是 outfits/<id>.glb，
 // 穿到哪套才下哪套。同一套全页只下一次（下面这张表），每个小人再各克隆一份、按骨头名字接到自己的骨架上。
 // 文件由 art/fairy-garden/doll/split_outfits.py 从完整娃娃拆出来；版本指纹跟着本模块自己的 ?v=。
@@ -104,7 +107,7 @@ const _a=new T.Color(),_b=new T.Color();
 // Coverage is authored on the outfit in rest coordinates. The same mask is used
 // for colour and shadow passes, and each avatar owns its uniform values.
 function coveredSkinShader(o){
- const coverage={feet:{value:-1},torso:{value:-1},torsoAbove:{value:-1},sleeve:{value:new T.Vector4(-1,0,0,0)},axis:{value:new T.Vector4(.165,.655,.11,-.255)},rightElbow:{value:0},leftElbow:{value:0},eye:{value:new T.Color()},eyeOn:{value:0}};
+ const coverage={feet:{value:-1},torso:{value:-1},torsoAbove:{value:-1},sleeve:{value:new T.Vector4(-1,0,0,0)},axis:{value:new T.Vector4(.165,.655,.11,-.255)},rightElbow:{value:0},leftElbow:{value:0},rightHand:{value:0},leftHand:{value:0},eye:{value:new T.Color()},eyeOn:{value:0}};
  if(!o.geometry.getAttribute('skinArmInfluence')||!o.geometry.getAttribute('skinRightForearmInfluence')||!o.geometry.getAttribute('skinLeftForearmInfluence')){
   const weights=o.geometry.getAttribute('skinWeight'),indices=o.geometry.getAttribute('skinIndex'),values=new Float32Array(o.geometry.getAttribute('position').count),right=new Float32Array(values.length),left=new Float32Array(values.length);
   if(weights&&indices)for(let i=0;i<values.length;i++)for(let k=0;k<4;k++){const name=o.skeleton.bones[indices.getComponent(i,k)]?.name||'';if(/(?:Arm|Forearm)$/.test(name))values[i]+=weights.getComponent(i,k);if(name==='rightForearm')right[i]+=weights.getComponent(i,k);if(name==='leftForearm')left[i]+=weights.getComponent(i,k);}
@@ -117,11 +120,11 @@ function coveredSkinShader(o){
   //   直接把这一块换成选的颜色——不乘肤色，不然选的蓝眼睛会跟着肤色变深浅。
   if(m.isMeshStandardMaterial||m.isMeshPhysicalMaterial){sh.uniforms.uEye=coverage.eye;sh.uniforms.uEyeOn=coverage.eyeOn;
    sh.fragmentShader=sh.fragmentShader.replace('#include <common>','#include <common>\nuniform vec3 uEye;uniform float uEyeOn;').replace('#include <map_fragment>','#include <map_fragment>\n#ifdef USE_MAP\ndiffuseColor.rgb=mix(diffuseColor.rgb,uEye,clamp((1.-sampledDiffuseColor.a)*2.,0.,1.)*uEyeOn);diffuseColor.a=1.;\n#endif');}
-  sh.uniforms.uCoveredFeet=coverage.feet;sh.uniforms.uCoveredTorso=coverage.torso;sh.uniforms.uCoveredTorsoAbove=coverage.torsoAbove;sh.uniforms.uSleeve=coverage.sleeve;sh.uniforms.uArmAxis=coverage.axis;sh.uniforms.uRightElbow=coverage.rightElbow;sh.uniforms.uLeftElbow=coverage.leftElbow;
+  sh.uniforms.uCoveredFeet=coverage.feet;sh.uniforms.uCoveredTorso=coverage.torso;sh.uniforms.uCoveredTorsoAbove=coverage.torsoAbove;sh.uniforms.uSleeve=coverage.sleeve;sh.uniforms.uArmAxis=coverage.axis;sh.uniforms.uRightElbow=coverage.rightElbow;sh.uniforms.uLeftElbow=coverage.leftElbow;sh.uniforms.uRightHand=coverage.rightHand;sh.uniforms.uLeftHand=coverage.leftHand;
   sh.vertexShader=sh.vertexShader.replace('#include <common>','#include <common>\nvarying vec3 vSkinRest;attribute float skinArmInfluence;attribute float skinRightForearmInfluence;attribute float skinLeftForearmInfluence;varying float vSkinArm,vSkinRightForearm,vSkinLeftForearm;').replace('#include <begin_vertex>','#include <begin_vertex>\nvSkinRest=position;vSkinArm=skinArmInfluence;vSkinRightForearm=skinRightForearmInfluence;vSkinLeftForearm=skinLeftForearmInfluence;');
-  sh.fragmentShader=sh.fragmentShader.replace('#include <common>','#include <common>\nvarying vec3 vSkinRest;varying float vSkinArm,vSkinRightForearm,vSkinLeftForearm;uniform float uCoveredFeet;uniform float uCoveredTorso;uniform float uCoveredTorsoAbove;uniform vec4 uSleeve;uniform vec4 uArmAxis;uniform float uRightElbow;uniform float uLeftElbow;')
-   .replace('#include <clipping_planes_fragment>','#include <clipping_planes_fragment>\nfloat sleeveAlong=dot(vec2(abs(vSkinRest.x),vSkinRest.y)-uArmAxis.xy,normalize(uArmAxis.zw));\nif((vSkinRest.y<uCoveredFeet && vSkinArm<.5) || (vSkinRest.y<uCoveredTorso && vSkinRest.y>uCoveredTorsoAbove && vSkinArm<.5) || (uSleeve.x>0. && abs(vSkinRest.x)>uSleeve.w && sleeveAlong<uSleeve.x && vSkinRest.y>uSleeve.y && vSkinRest.y<uSleeve.z && !((uRightElbow>.5 && vSkinRightForearm>.5)||(uLeftElbow>.5 && vSkinLeftForearm>.5)))) discard;');
- };m.customProgramCacheKey=()=>'coveredSkin-v5';};
+  sh.fragmentShader=sh.fragmentShader.replace('#include <common>','#include <common>\nvarying vec3 vSkinRest;varying float vSkinArm,vSkinRightForearm,vSkinLeftForearm;uniform float uCoveredFeet;uniform float uCoveredTorso;uniform float uCoveredTorsoAbove;uniform vec4 uSleeve;uniform vec4 uArmAxis;uniform float uRightElbow;uniform float uLeftElbow;uniform float uRightHand;uniform float uLeftHand;')
+   .replace('#include <clipping_planes_fragment>','#include <clipping_planes_fragment>\nif(vSkinRest.y<.435 && ((uRightHand>.5 && vSkinRightForearm>.9)||(uLeftHand>.5 && vSkinLeftForearm>.9))) discard;float sleeveAlong=dot(vec2(abs(vSkinRest.x),vSkinRest.y)-uArmAxis.xy,normalize(uArmAxis.zw));\nif((vSkinRest.y<uCoveredFeet && vSkinArm<.5) || (vSkinRest.y<uCoveredTorso && vSkinRest.y>uCoveredTorsoAbove && vSkinArm<.5) || (uSleeve.x>0. && abs(vSkinRest.x)>uSleeve.w && sleeveAlong<uSleeve.x && vSkinRest.y>uSleeve.y && vSkinRest.y<uSleeve.z && !((uRightElbow>.5 && vSkinRightForearm>.5)||(uLeftElbow>.5 && vSkinLeftForearm>.5)))) discard;');
+ };m.customProgramCacheKey=()=>'coveredSkin-v6-hands';};
  patch(o.material);
  o.customDepthMaterial=new T.MeshDepthMaterial({depthPacking:T.RGBADepthPacking});patch(o.customDepthMaterial);
  o.customDistanceMaterial=new T.MeshDistanceMaterial();patch(o.customDistanceMaterial);
@@ -132,11 +135,11 @@ function dyeOutfit(o,colors){dyeRegions(o,colors);const d=o.userData.slotDye;if(
 const FACE_TEX=new Map(),faceLoader=new T.TextureLoader();let FACE_BASE=new URL('./faces/',import.meta.url).href;
 // 陪伴（桌宠）用 2K 的脸：换一个目录，缓存跟着清掉
 export function setFaceBase(url){FACE_BASE=url;FACE_TEX.clear();}
-function faceTexture(id){if(!FACE_TEX.has(id)){const t=faceLoader.load(FACE_BASE+id+'.webp');t.flipY=false;t.colorSpace=T.SRGBColorSpace;FACE_TEX.set(id,t);}return FACE_TEX.get(id);}
+function faceTexture(id){if(!FACE_TEX.has(id)){let finish;const ready=new Promise(resolve=>{finish=resolve;});const t=faceLoader.load(FACE_BASE+id+'.webp',()=>finish(),undefined,()=>finish());t.userData.ready=ready;t.flipY=false;t.colorSpace=T.SRGBColorSpace;FACE_TEX.set(id,t);}return FACE_TEX.get(id);}
 const FACE_ID=/^[a-z]{2,16}$/;
 export function createTraveler(source,companion=false,look={}){
  const want=Object.assign({},companion?COMPANION:DEFAULT,look||{});
- let sleepFace=false;
+ let sleepFace=false,actionFace=null;
  const style=HAIR_STYLES.includes(hairId(want.hair))?hairId(want.hair):(companion?COMPANION.hair:DEFAULT.hair);
  const root=new T.Group(),model=source.clone(true),rig=[];model.name='TravelerVisual';root.add(model);
  // v2 娃娃是蒙皮网格：clone(true) 复制出来的 SkinnedMesh 还绑着【源模型】的骨头，
@@ -217,7 +220,7 @@ export function createTraveler(source,companion=false,look={}){
    if(cov){cov.eyeOn.value=eye?1:0;if(eye)cov.eye.value.set(eye);}
    // 换了眼睛颜色时默认脸也走 faces/default.webp：模型自带那张贴图没有眼珠遮罩
    // 睡眠只临时显示现有闭眼脸；want 保留陪伴/衣柜当前表情，醒来按最新 look 恢复。
-   const faceId=sleepFace?'cozy':look.face;
+   const faceId=sleepFace?'cozy':actionFace||look.face;
    const face=FACE_ID.test(faceId||'')&&(faceId!=='default'||eye)?faceTexture(faceId||'default'):eye?faceTexture('default'):o.userData.bodyMap;if(o.material.map!==face){o.material.map=face;o.material.needsUpdate=true;}}
   if(o.userData.slotDye&&o.userData.outfit===id)dyeOutfit(o,colors);if(o.userData.outfit)o.visible=o.userData.outfit===on;if(o.userData.colorSlot&&o.userData.outfit===id)o.material.color.set(colors[o.userData.colorSlot]);});};
  dress(want);comb(want);
@@ -284,7 +287,7 @@ export function createTraveler(source,companion=false,look={}){
  const chinHand=model.getObjectByName('Right_hand'),chinHead=model.getObjectByName('HeadAnchor');
  const contactArms={right:{part:chinPart,upper:chinUpper,lower:chinLower,hand:chinHand}};
  {const part=rig.find(r=>r.label==='leftArm')?.p;contactArms.left={part,upper:part?.userData.bone,lower:part?.userData.forearm,hand:model.getObjectByName('Left_hand')};}
- let emotionProps=null;
+ let emotionProps=null,emotionHands=null,emotionFeatures=null;
  let poseBlend=1,armPose=null;const poseFrom=new Map();
  const smoothBone=b=>{const from=poseFrom.get(b);if(from){_q.copy(b.quaternion);b.quaternion.copy(from).slerp(_q,poseBlend);}};
  const syncBones=()=>{for(const {p,label}of rig){const b=p.userData.bone;if(!b)continue;
@@ -300,7 +303,7 @@ export function createTraveler(source,companion=false,look={}){
  }
  seatedLegs.update(kneeBlend+deepBlend);
  // 单手与双手共用随头身比定位的稳定屈肘接触；工位另传真实世界坐标。
- for(const side of ['right','left']){
+ for(const side of ['left','right']){
   const hold=side==='right'?(armPose?.chinHold||armPose?.headHold):armPose?.leftHeadHold;
   if(!hold)continue;
   const {part,upper,lower,hand}=contactArms[side],head=chinHead;
@@ -312,7 +315,7 @@ export function createTraveler(source,companion=false,look={}){
    lower.quaternion.copy(part.userData.forearmRest).premultiply(new T.Quaternion().setFromAxisAngle(new T.Vector3(1,0,0),armPose[side+'Elbow']/hold));
    root.updateWorldMatrix(true,true);
    const point=side==='right'?(armPose.headPoint||[.55,-1.05,.90]):armPose.leftHeadPoint;
-   const target=head.localToWorld(new T.Vector3(...point));
+   const target=side==='right'&&armPose.phone?phoneTapTarget(model,contactArms.left.hand.getWorldPosition(new T.Vector3()),armPose.phoneTap,armPose.phone,handScaleOf(want)):head.localToWorld(new T.Vector3(...point));
    reachHand(root,upper,lower,hand,target,16,{elbowsOut:!!armPose.elbowsOut});
    const toUpper=upper.quaternion.clone(),toLower=lower.quaternion.clone();
    upper.quaternion.copy(fromUpper).slerp(toUpper,hold);
@@ -349,7 +352,7 @@ export function createTraveler(source,companion=false,look={}){
    }root.updateMatrixWorld(true);root.userData.contacts={left:left?model.getObjectByName('Left_hand').getWorldPosition(new T.Vector3()).distanceTo(left):null,right:right?model.getObjectByName('Right_hand').getWorldPosition(new T.Vector3()).distanceTo(right):null};
   },
   // 身上这套衣服到了没有（按需加载）：验图脚本等它再截图
-  ready:()=>Promise.all([dressed,combed]),
+  ready:()=>Promise.all([dressed,combed,...[...FACE_TEX.values()].map(t=>t.userData.ready)]),
   // reset=true：整份换掉而不是叠在上一身上（陪伴换角色时用——她 2026-09-27「改了 a 换成 b 还是一样的外貌」：
   //   b 没设过的发色／肤色／衣服／眼睛原来会一直留着 a 的）。庭院、列车仍是叠改动。
   setLook(next,reset=false){const n=mergeLook(reset?Object.assign({},companion?COMPANION:DEFAULT):want,next||{});
@@ -375,13 +378,19 @@ export function createTraveler(source,companion=false,look={}){
    root.userData.emotion=emotion;const pose=emotionPose(emotion,progress);armPose=pose;
    for(const {p,label} of rig){const a=label==='leftArm'?pose.left:label==='rightArm'?pose.right:null;if(a)p.rotation.set(...a);}
    model.rotation.x=pose.tilt;model.rotation.z=pose.roll;model.rotation.y=pose.yaw;root.position.y+=pose.lift;
+   if(pose.headRoll||pose.headNod)upperBody.apply({neckLean:pose.headRoll||0,nod:pose.headNod||0,headPivot:1});
   }
   if(motion&&!task&&!moving&&!lying){model.rotation.x+=actingPosture.tilt;model.rotation.z+=actingPosture.roll;model.rotation.y+=actingPosture.yaw;}
   if(!armPose)settleSeat();
   // A bent forearm can emerge from the cuff. The rest-pose sleeve mask must not erase it.
-  for(const u of coveredBodies){u.rightElbow.value=armPose?.chinHold>0||Math.abs(armPose?.rightElbow||0)>.1?1:0;u.leftElbow.value=Math.abs(armPose?.leftElbow||0)>.1?1:0;}
+  for(const u of coveredBodies){u.rightHand.value=handStyle(armPose,'right')?1:0;u.leftHand.value=handStyle(armPose,'left')?1:0;u.rightElbow.value=armPose?.chinHold>0||Math.abs(armPose?.rightElbow||0)>.1?1:0;u.leftElbow.value=Math.abs(armPose?.leftElbow||0)>.1?1:0;}
   syncBones();
-  if((armPose?.flower||armPose?.gift||armPose?.sign)&&!emotionProps)emotionProps=makeEmotionProps(model,life.handPoint);
+  settleEmotionGround(root,model,armPose?.ground||0);
+  const wantedFace=transientEmotionFace(armPose),nextFace=wantedFace&&faceTexture(wantedFace).image?wantedFace:null;if(actionFace!==nextFace){actionFace=nextFace;dress(want);}root.userData.actionFace=actionFace;
+  if((armPose?.heart||armPose?.thumb||armPose?.poke||armPose?.pinch||armPose?.phone)&&!emotionHands)emotionHands=makeEmotionHands(model,life.handPoint);
+  emotionHands?.update(armPose,want);
+  if((armPose?.tongue||armPose?.cry)&&!emotionFeatures)emotionFeatures=makeEmotionFeatures(model);emotionFeatures?.update(armPose);
+  if((armPose?.flower||armPose?.gift||armPose?.sign||armPose?.phone||armPose?.cookie)&&!emotionProps)emotionProps=makeEmotionProps(model,life.handPoint);
   emotionProps?.update(armPose);
   if(task&&!taskProps)taskProps=makeTaskProps(root,model,life.handPoint);
   taskProps?.update(lying?null:task||taskRiseBlend>.001?{...task,rise:taskRiseBlend,floor:height-(seated?.05:0),seated}:null,moving);
@@ -391,6 +400,6 @@ export function createTraveler(source,companion=false,look={}){
 // Scene callers share the compressed doll and decoder lifecycle.
 let travelerSource;
 export function loadTravelerSource(){
- if(!travelerSource)travelerSource=(async()=>{const draco=new DRACOLoader();draco.setDecoderPath(new URL('./vendor/draco/',import.meta.url).href);const loader=new GLTFLoader();loader.setDRACOLoader(draco);try{return(await loader.loadAsync(new URL('./doll.glb?v=fg-25e09c1eb7b214c0'+new URL(import.meta.url).search,import.meta.url).href)).scene;}finally{draco.dispose();}})().catch(e=>{travelerSource=null;throw e;});
+ if(!travelerSource)travelerSource=(async()=>{const draco=new DRACOLoader();draco.setDecoderPath(new URL('./vendor/draco/',import.meta.url).href);const loader=new GLTFLoader();loader.setDRACOLoader(draco);try{return(await loader.loadAsync(new URL('./doll.glb?v=fg-32f56e8e0d66a403'+new URL(import.meta.url).search,import.meta.url).href)).scene;}finally{draco.dispose();}})().catch(e=>{travelerSource=null;throw e;});
  return travelerSource;
 }
