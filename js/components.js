@@ -3013,6 +3013,12 @@ function WorldWxFollowBox({ userGeo, characters, worlds }) {
           reals.map(function (p) { return chip(p.key, p.label, !!cur && cur.lat === p.lat && cur.lng === p.lng, function () { setFor(w.id, p); }); })));
     }));
 }
+function publishWeatherCurrent(place, w, madeUp) {
+    const cached = place && place.real && typeof weatherCached === "function" ? weatherCached(place.lat, place.lng) : null;
+    const valid = madeUp || (cached && w && cached.ts === w.ts && cached.code === w.code);
+    window.__weatherCurrent = { key: place && place.key, weather: valid ? w : null, at: Date.now() };
+    window.dispatchEvent(new CustomEvent("weather-current"));
+}
 function WeatherWidget({ userGeo, characters, worlds, onOpen }) {
   const t = useTheme();
   const places = weatherPlaceList(userGeo, characters, worlds);
@@ -3032,6 +3038,7 @@ function WeatherWidget({ userGeo, characters, worlds, onOpen }) {
   // 架空的那几处不用等网络：当场算
   const madeUp = place && !place.real && typeof WorldWeather !== "undefined";
   const w = madeUp ? WorldWeather.dayOf(place.seed, place.terrain, new Date()) : real;
+  useEffect(() => { publishWeatherCurrent(place, w, madeUp); }, [place && place.key, w && w.code, w && w.ts]);
   // 拉不到就说拉不到（群里 2026-10-12：「搜索到了城市但天气不能显示」——原来拉失败了一声不吭，格子里一直写着「获取中…」）。
   //   换了一处就先清掉上一处的天气，不拿别处的数顶着。点一下重拉。
   const [wxFail, setWxFail] = useState(false);

@@ -4,6 +4,35 @@ const beat=(p,a,b,c,d)=>ease((p-a)/(b-a))*(1-ease((p-c)/(d-c)));
 export function emotionPose(face,p){
  const e=beat(p,0,.18,.76,1),late=beat(p,.42,.6,.78,1),q={left:[0,0,0],right:[0,0,0],tilt:0,roll:0,yaw:0,lift:0};
  switch(face){
+ case 'peace':
+  q.right=[-.32*e,0,.35*e];q.rightElbow=-1.65*e;q.headHold=e;
+  if(e)q.headPoint=[1.18,-.88,1.45];q.peace=e;q.headRoll=-.06*e;break;
+ case 'applause':case 'cold': {
+  const playing=beat(p,.18,.3,.65,.8),gap=(.5+.5*Math.cos(p*Math.PI*12))*playing,rub=Math.sin(p*Math.PI*16)*playing,cold=face==='cold';
+  q.left=[-.32*e,0,-.35*e];q.right=[-.32*e,0,.35*e];q.leftElbow=q.rightElbow=-1.65*e;q.leftHeadHold=q.headHold=e;
+  if(e){q.leftHeadPoint=[-.24-(cold?0:.45*gap),-1.5+(cold?.08*rub:0),1.5];q.headPoint=[.24+(cold?0:.45*gap),-1.5-(cold?.08*rub:0),1.5];}
+  q.roll=cold?.018*rub:0;q.headNod=cold?.04*e:0;break;}
+ case 'sing': {
+  const sway=Math.sin(p*Math.PI*6)*beat(p,.18,.3,.7,.85);
+  q.right=[-.32*e,0,.35*e];q.rightElbow=-1.65*e;q.headHold=e;
+  if(e)q.headPoint=[.68,-1.65,1.3];q.left=[-.3*e,0,-.2*e];q.headRoll=.06*sway;q.headNod=.02*sway;q.sing=e;q.notePhase=(p*3%1)*e;break;}
+ case 'selfie':
+  q.left=[-.32*e,0,-.35*e];q.right=[-.32*e,0,.35*e];q.leftElbow=q.rightElbow=-1.65*e;q.leftHeadHold=q.headHold=e;
+  if(e){q.leftHeadPoint=[-1.18,-.88,1.45];q.headPoint=[1.3,-.6,2.5];}
+  q.selfie=e;q.selfieFlash=beat(p,.42,.46,.49,.57);q.headRoll=.06*e;break;
+ case 'ears':
+  q.left=[-.32*e,0,-.35*e];q.right=[-.32*e,0,.35*e];q.leftElbow=q.rightElbow=-1.65*e;q.leftHeadHold=q.headHold=e;
+  if(e){q.leftHeadPoint=[-1.2,-.25,.25];q.headPoint=[1.2,-.25,.25];}
+  q.headRoll=.035*Math.sin(p*Math.PI*6)*e;break;
+ case 'fan': {
+  const wave=Math.sin(p*Math.PI*14)*beat(p,.18,.3,.7,.85);
+  q.right=[-.32*e,0,.35*e];q.rightElbow=-1.65*e;q.headHold=e;
+  if(e)q.headPoint=[1.18+.16*wave,-1.1+.14*wave,1.45];q.left=[-.12*e,0,-.13*e];q.headRoll=-.04*e;break;}
+ case 'daydream':
+  q.headTurn=.27*e+.05*Math.sin(p*Math.PI*4)*e;q.headRoll=.08*e;q.headNod=-.04*e;q.daydream=e;break;
+ case 'umbrella':
+  q.right=[-.32*e,0,.35*e];q.rightElbow=-1.65*e;q.headHold=e;
+  if(e)q.headPoint=[.95,-1.3,1.1];q.left=[-.1*e,0,-.1*e];q.umbrella=e;q.headRoll=-.035*e;break;
  case 'heart': // 双手在胸前围成心形，停留后轻轻收回
   q.left=[-.32*e,0,-.35*e];q.right=[-.32*e,0,.35*e];q.leftElbow=q.rightElbow=-1.65*e;q.leftHeadHold=q.headHold=e;
   if(e){q.leftHeadPoint=[-.34,-1.48,1.65];q.headPoint=[.34,-1.48,1.65];}

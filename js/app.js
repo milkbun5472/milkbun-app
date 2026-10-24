@@ -33125,6 +33125,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     ctxFor: ctxFor,
     profile: profile,
     music: !!player.playing,
+    geo: geo,
+    worlds: worlds,
     toast: toast,
     onBack: () => {
       const back = companionReturnRef.current; companionReturnRef.current = null;
@@ -34157,7 +34159,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     onPause: e => { const el = e.target; if (el.ended) return; if (!userPauseRef.current) interruptedRef.current = true; userPauseRef.current = false; setPlayer(p => p.playing ? { ...p, playing: false } : p); }
   }), /*#__PURE__*/React.createElement("div", {
     className: "flex-1 min-h-0 relative"
-  }, h(ScreenBoundaryClass(), { screen: screen, onBack: () => setScreen("home") }, body)), window.CompanionFloat ? h(window.CompanionFloat, { characters: liveChars, moods: moods, apiFor: apiFor, bgActive: bgActive, toast: toast, ctxFor: ctxFor, profile: profile, screen: screen, music: !!player.playing, hidden: COMPANION_HIDE_SCREENS.has(screen), onOpen: () => setScreen("companion") }) : null, (player.songId && screen !== "listen") ? h(MiniPlayer, {
+  }, h(ScreenBoundaryClass(), { screen: screen, onBack: () => setScreen("home") }, body)), window.CompanionFloat ? h(window.CompanionFloat, { characters: liveChars, moods: moods, apiFor: apiFor, bgActive: bgActive, toast: toast, ctxFor: ctxFor, profile: profile, chats: chats, groupChats: groupChats, geo: geo, worlds: worlds, screen: screen, music: !!player.playing, hidden: COMPANION_HIDE_SCREENS.has(screen), onOpen: () => setScreen("companion") }) : null, (player.songId && screen !== "listen") ? h(MiniPlayer, {
     song: resolveSong(player.songId),
     playing: player.playing,
     loading: player.loading,

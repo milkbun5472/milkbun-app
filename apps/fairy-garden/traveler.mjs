@@ -1,23 +1,23 @@
-import {makeEmotionHands,handStyle,handScaleOf} from './emotion-hands.mjs?v=fg-1214b1001808a622';
-import {makeEmotionFeatures,transientEmotionFace} from './emotion-features.mjs?v=fg-1214b1001808a622';
-import {settleEmotionGround} from './emotion-ground.mjs?v=fg-1214b1001808a622';
-import {attachRegionDye,dyeRegions} from './outfit-dye.mjs?v=fg-1214b1001808a622';
-import {reachHand,headSafeTarget} from './reach-hand.mjs?v=fg-1214b1001808a622';
-import {taskPose,makeTaskProps,workHandTargets,GUITAR_HOLD,GUITAR_STRUM} from './task-motion.mjs?v=fg-1214b1001808a622';
-import {dailyHandTargets} from './daily-motion.mjs?v=fg-1214b1001808a622';
-import {motionClock,motionPosture} from './day/motion-profile.mjs?v=fg-1214b1001808a622';
-import {emotionPose} from './emotion-pose.mjs?v=fg-1214b1001808a622';
-import {makeEmotionProps,phoneTapTarget} from './emotion-props.mjs?v=fg-1214b1001808a622';
-import {makeDollLife} from './doll-life.mjs?v=fg-1214b1001808a622';
-import {makeSeatedLegs,WORK_SEATED_HIP} from './seated-legs.mjs?v=fg-1214b1001808a622';
-import {makeUpperBody} from './upper-body.mjs?v=fg-1214b1001808a622';
-import {makeBentArms} from './bent-arms.mjs?v=fg-1214b1001808a622';
-import {makeHangingHair} from './hanging-hair.mjs?v=fg-1214b1001808a622';
-import {OUTFITS,mergeLook,outfitId,outfitColors,hairId,hairModeOf,DEFAULT_LOOK,COMPANION_LOOK,DEFAULT_EYE} from './wardrobe.mjs?v=fg-1214b1001808a622';
-import {makeSeatContact} from './seat-contact.mjs?v=fg-1214b1001808a622';
+import {makeEmotionHands,handStyle,handScaleOf} from './emotion-hands.mjs?v=fg-16d3787c96bbee5e';
+import {makeEmotionFeatures,transientEmotionFace} from './emotion-features.mjs?v=fg-16d3787c96bbee5e';
+import {settleEmotionGround} from './emotion-ground.mjs?v=fg-16d3787c96bbee5e';
+import {attachRegionDye,dyeRegions} from './outfit-dye.mjs?v=fg-16d3787c96bbee5e';
+import {reachHand,headSafeTarget} from './reach-hand.mjs?v=fg-16d3787c96bbee5e';
+import {taskPose,makeTaskProps,workHandTargets,GUITAR_HOLD,GUITAR_STRUM} from './task-motion.mjs?v=fg-16d3787c96bbee5e';
+import {dailyHandTargets} from './daily-motion.mjs?v=fg-16d3787c96bbee5e';
+import {motionClock,motionPosture} from './day/motion-profile.mjs?v=fg-16d3787c96bbee5e';
+import {emotionPose} from './emotion-pose.mjs?v=fg-16d3787c96bbee5e';
+import {makeEmotionProps,phoneTapTarget} from './emotion-props.mjs?v=fg-16d3787c96bbee5e';
+import {makeDollLife} from './doll-life.mjs?v=fg-16d3787c96bbee5e';
+import {makeSeatedLegs,WORK_SEATED_HIP} from './seated-legs.mjs?v=fg-16d3787c96bbee5e';
+import {makeUpperBody} from './upper-body.mjs?v=fg-16d3787c96bbee5e';
+import {makeBentArms} from './bent-arms.mjs?v=fg-16d3787c96bbee5e';
+import {makeHangingHair} from './hanging-hair.mjs?v=fg-16d3787c96bbee5e';
+import {OUTFITS,mergeLook,outfitId,outfitColors,hairId,hairModeOf,DEFAULT_LOOK,COMPANION_LOOK,DEFAULT_EYE} from './wardrobe.mjs?v=fg-16d3787c96bbee5e';
+import {makeSeatContact} from './seat-contact.mjs?v=fg-16d3787c96bbee5e';
 import * as T from 'three';
-import {GLTFLoader} from './vendor/GLTFLoader.js?v=fg-1214b1001808a622';
-import {DRACOLoader} from './vendor/DRACOLoader.js?v=fg-1214b1001808a622';
+import {GLTFLoader} from './vendor/GLTFLoader.js?v=fg-16d3787c96bbee5e';
+import {DRACOLoader} from './vendor/DRACOLoader.js?v=fg-16d3787c96bbee5e';
 // 衣服按需加载（她 2026-09-26）：doll.glb 只有身体、骨架和头发，每套衣服是 outfits/<id>.glb，
 // 穿到哪套才下哪套。同一套全页只下一次（下面这张表），每个小人再各克隆一份、按骨头名字接到自己的骨架上。
 // 文件由 art/fairy-garden/doll/split_outfits.py 从完整娃娃拆出来；版本指纹跟着本模块自己的 ?v=。
@@ -383,19 +383,19 @@ export function createTraveler(source,companion=false,look={}){
    root.userData.emotion=emotion;const pose=emotionPose(emotion,progress);armPose=pose;
    for(const {p,label} of rig){const a=label==='leftArm'?pose.left:label==='rightArm'?pose.right:label==='leftLeg'?pose.leftLeg:label==='rightLeg'?pose.rightLeg:null;if(a)p.rotation.set(...a);}
    if(pose.ground)model.quaternion.setFromEuler(new T.Euler(pose.tilt,pose.yaw,pose.roll,'YXZ'));else model.rotation.set(pose.tilt,pose.yaw,pose.roll);root.position.y+=pose.lift;
-   if(pose.headRoll||pose.headNod)upperBody.apply({neckLean:pose.headRoll||0,nod:pose.headNod||0,headPivot:1});
+   if(pose.headRoll||pose.headNod||pose.headTurn)upperBody.apply({neckLean:pose.headRoll||0,nod:pose.headNod||0,neckTurn:pose.headTurn||0,headPivot:1});
   }
   if(motion&&!task&&!moving&&!lying){model.rotation.x+=actingPosture.tilt;model.rotation.z+=actingPosture.roll;model.rotation.y+=actingPosture.yaw;}
   if(!armPose)settleSeat();
   // A bent forearm can emerge from the cuff. The rest-pose sleeve mask must not erase it.
   for(const u of coveredBodies){u.rightHand.value=handStyle(armPose,'right')?1:0;u.leftHand.value=handStyle(armPose,'left')?1:0;u.rightElbow.value=armPose?.chinHold>0||Math.abs(armPose?.rightElbow||0)>.1?1:0;u.leftElbow.value=Math.abs(armPose?.leftElbow||0)>.1?1:0;}
   syncBones();
-  settleEmotionGround(root,model,armPose?.ground||0);
+  settleEmotionGround(root,model,armPose?.ground||0);root.userData.emotionCanopy=armPose?.umbrella||0;
   const wantedFace=transientEmotionFace(armPose),nextFace=wantedFace&&faceTexture(wantedFace).image?wantedFace:null;if(actionFace!==nextFace){actionFace=nextFace;dress(want);}root.userData.actionFace=actionFace;
-  if((armPose?.heart||armPose?.thumb||armPose?.poke||armPose?.pinch||armPose?.phone)&&!emotionHands)emotionHands=makeEmotionHands(model,life.handPoint);
+  if((armPose?.heart||armPose?.thumb||armPose?.poke||armPose?.pinch||armPose?.phone||armPose?.peace||armPose?.selfie)&&!emotionHands)emotionHands=makeEmotionHands(model,life.handPoint);
   emotionHands?.update(armPose,want);
-  if((armPose?.tongue||armPose?.cry)&&!emotionFeatures)emotionFeatures=makeEmotionFeatures(model);emotionFeatures?.update(armPose);
-  if((armPose?.flower||armPose?.gift||armPose?.sign||armPose?.phone||armPose?.cookie)&&!emotionProps)emotionProps=makeEmotionProps(model,life.handPoint);
+  if((armPose?.tongue||armPose?.cry||armPose?.sing)&&!emotionFeatures)emotionFeatures=makeEmotionFeatures(model);emotionFeatures?.update(armPose);
+  if((armPose?.flower||armPose?.gift||armPose?.sign||armPose?.phone||armPose?.cookie||armPose?.selfie||armPose?.umbrella)&&!emotionProps)emotionProps=makeEmotionProps(model,life.handPoint);
   emotionProps?.update(armPose);
   if(task&&!taskProps)taskProps=makeTaskProps(root,model,life.handPoint);
   taskProps?.update(lying?null:task||taskRiseBlend>.001?{...task,rise:taskRiseBlend,floor:height-(seated?.05:0),seated}:null,moving);
@@ -405,6 +405,6 @@ export function createTraveler(source,companion=false,look={}){
 // Scene callers share the compressed doll and decoder lifecycle.
 let travelerSource;
 export function loadTravelerSource(){
- if(!travelerSource)travelerSource=(async()=>{const draco=new DRACOLoader();draco.setDecoderPath(new URL('./vendor/draco/',import.meta.url).href);const loader=new GLTFLoader();loader.setDRACOLoader(draco);try{return(await loader.loadAsync(new URL('./doll.glb?v=fg-1214b1001808a622'+new URL(import.meta.url).search,import.meta.url).href)).scene;}finally{draco.dispose();}})().catch(e=>{travelerSource=null;throw e;});
+ if(!travelerSource)travelerSource=(async()=>{const draco=new DRACOLoader();draco.setDecoderPath(new URL('./vendor/draco/',import.meta.url).href);const loader=new GLTFLoader();loader.setDRACOLoader(draco);try{return(await loader.loadAsync(new URL('./doll.glb?v=fg-16d3787c96bbee5e'+new URL(import.meta.url).search,import.meta.url).href)).scene;}finally{draco.dispose();}})().catch(e=>{travelerSource=null;throw e;});
  return travelerSource;
 }

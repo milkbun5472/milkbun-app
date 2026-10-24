@@ -11,12 +11,12 @@ export const MOODS={
  sad:{tilt:.045,yaw:.07,sway:.008,every:9,acts:['emotion-sad']},
  irritated:{tilt:.008,yaw:.16,sway:.012,every:9,acts:['emotion-irritated']}
 };
-export const DUR={wave:3.4,stretch:4.8,tea:5,read:7,sit:8,hop:1.8,jolt:1.8,nod:2.6,sigh:4,stomp:2.2,turn:3.6,look:3,shy:3.2,yawn:4.8,wake:2.8,land:1};
+export const DUR={wave:3.4,stretch:4.8,tea:5,read:7,sit:8,hop:1.8,jolt:1.8,nod:2.6,sigh:4,stomp:2.2,turn:3.6,look:3,shy:3.2,yawn:4.8,wake:2.8,land:1,sleep:8};
 // 这些动作只在聊天提到时演，不加入随机待机。
 export const CHAT_ACTIONS={kiss:5.2,giggle:5.4,listen:6,promise:5,cheer:5.2,refuse:4.6,
  cheeks:6.4,plead:5.8,crossarms:6.4,scratch:5.4,rubeyes:5.8,flower:6.4,
  hips:5.8,selfhug:7,peekaboo:6,sneeze:4.6,gift:6.8,sign:6.8,
- heart:6,thumb:5.4,wink:4.2,tongue:4.6,cry:7,tilt:5.8,poke:5,pinch:5.6,lie:8,prone:8,phone:7.6,eat:7};
+ heart:6,thumb:5.4,wink:4.2,tongue:4.6,cry:7,tilt:5.8,poke:5,pinch:5.6,lie:8,prone:8,phone:7.6,eat:7,peace:5.8,applause:6.4,sing:7,selfie:7,ears:5.8,cold:6.2,fan:6.4,daydream:7,umbrella:8};
 for(const [name,duration] of Object.entries(CHAT_ACTIONS))DUR['emotion-'+name]=duration;
 for(const face of Object.keys(MOODS))DUR['emotion-'+face]=['sad','gloomy','relax'].includes(face)?5.6:4.6;
 export const EXTRA_ACTIONS={

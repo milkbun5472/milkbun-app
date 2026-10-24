@@ -13,6 +13,6 @@ export function settleEmotionGround(root,model,amount){
 }
 
 // Keep a low resting pose and its face visible in both companion view sizes.
-export function emotionCameraFrame(mid,dist,amount=0){
- const a=T.MathUtils.clamp(amount,0,1);return {position:[0,mid+.05+.95*a,dist],target:[0,mid-.3*a,0]};
+export function emotionCameraFrame(mid,dist,amount=0,canopy=0){
+ const a=T.MathUtils.clamp(amount,0,1),u=T.MathUtils.clamp(canopy,0,1);return {position:[0,mid+.05+.95*a+.08*u,dist+.45*u],target:[0,mid-.3*a+.08*u,0]};
 }

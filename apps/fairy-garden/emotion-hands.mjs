@@ -1,16 +1,18 @@
 import * as T from 'three';
-import {pointToolAt} from './reach-hand.mjs?v=fg-1214b1001808a622';
+import {pointToolAt} from './reach-hand.mjs?v=fg-16d3787c96bbee5e';
 // Rounded mitten silhouettes share their actual pad with the screen-contact solver.
 export const MITTEN_TAP_POINT=[-.018,.077,0];
 export const handScaleOf=look=>.9+.1*Number(look?.dims?.build||1);
 export function handStyle(pose,side){
- if(side==='left')return null;
+ if(side==='left')return pose?.selfie?'peace':null;
+ if(pose?.peace)return 'peace';
  if(pose?.thumb)return 'thumb';if(pose?.pinch)return 'pinch';if(pose?.poke||pose?.phone)return 'point';return null;
 }
 // A single smooth clay surface, rather than separate knuckles and finger tubes.
 // Blend rounded volumes, then contour them once when this gesture is first used.
 function makeMittenGeometry(kind){
  const forms=kind==='pinch'?[[0,-.014,0,.043,.034,.035]]:[[0,-.005,0,.043,.046,.035]];
+ if(kind==='peace')forms.push([-.024,.053,0,.016,.038,.026],[.021,.053,0,.016,.038,.026]);
  if(kind==='thumb')forms.push([-.034,.047,0,.021,.043,.026]);
  if(kind==='point')forms.push([-.018,.042,0,.022,.035,.027]);
  if(kind==='pinch')forms.push([-.028,.026,.016,.021,.029,.026],[.027,.006,.023,.021,.019,.026]);

@@ -13,7 +13,7 @@ test("看不见就真的停：它是全 app 唯一常驻的 WebGL", () => {
   assert.match(pet, /document\.addEventListener\('visibilitychange'/);
   assert.match(pet, /if\(document\.hidden\)\{r\.setAnimationLoop\(null\);return;\}/, "切后台要真停，不是只跳过一帧");
   // 回到前台不许从半个动作里接着演
-  assert.match(pet, /act=null;lastT=clock\.getElapsedTime\(\);nextAt=lastT\+1;lastDraw=-1;r\.setAnimationLoop\(frame\)/);
+  assert.match(pet, /act=null;[^\n]*lastT=clock\.getElapsedTime\(\);nextAt=lastT\+1;lastDraw=-1;r\.setAnimationLoop\(frame\)/);
 });
 
 test("悬浮那只按 24 帧画（指甲盖大小，60 帧换不到一分钱好看）", () => {
