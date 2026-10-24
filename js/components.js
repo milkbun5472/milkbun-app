@@ -12128,6 +12128,7 @@ function CallScreen({
   onSend: sendCall,
   onReroll,
   onEditLine,
+  onDeleteLine,
   onHangup,
   tfCard,
   onRespondTransfer,
@@ -12564,6 +12565,11 @@ function CallScreen({
     return () => clearInterval(i);
   }, []);
   const list = msgs || [];
+  // 长按一句出菜单（她 2026-10-25「为啥不做跟聊天一样的公共形状」）：跟聊天同一个 MsgMenu／编辑弹层／长按手势
+  const [callMenu, setCallMenu] = useState(null);   // 被长按的那条在 list 里的下标
+  const [callEdit, setCallEdit] = useState(null);
+  const { startPress: callPress, endPress: callPressEnd } = useLongPressMenu(i => { if (!sending) setCallMenu(i); });
+  const lastUserAt = (() => { for (let k = list.length - 1; k >= 0; k--) if (list[k] && list[k].role === "user") return k; return -1; })();
   const followCallTail = useRef(true);
   const callScrollTop = useRef(0);
   useEffect(() => {
@@ -12656,7 +12662,7 @@ function CallScreen({
   const bigKey = (label, icon, onClick, bg, extra) => h("button", Object.assign({ onClick: onClick, className: "flex flex-col items-center active:opacity-70", style: { gap: 7, minWidth: 72 } }, extra || {}),
     h("span", { style: { width: 62, height: 62, borderRadius: 999, background: bg, display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 6px 18px rgba(0,0,0,.25)" } }, icon),
     h("span", { style: Object.assign({ fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: "rgba(255,255,255,.85)" }, litText) }, label));
-  return h("div", {
+  return h(React.Fragment, null, h("div", {
     // 通话页的挂点（她 2026-09-30：「整体美化都要」）：只是名字、不带样式——data-video="1" 是视频通话
     "data-wk": "call", "data-video": isVideo ? "1" : "0", "data-group": isGroup ? "1" : "0",
     ref: kbPadRef,
@@ -12821,9 +12827,10 @@ function CallScreen({
       style: Object.assign({ fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", color: onPhoto ? "rgba(255,255,255,0.85)" : "rgba(255,255,255,0.5)", marginBottom: 1, marginLeft: 2 }, litText)
     }, m.senderName), h("div", { className: "flex items-center gap-1.5", style: { maxWidth: "88%" } }, h("div", {
       "data-wk": "callbubble", "data-me": isU ? "1" : "0",
-      // 点一下能改这句（她 2026-10-25「编辑也可以弄」）：只改记录里这句，下一轮TA读到的就是改过的
-      onClick: onEditLine && !sending ? () => requestAppPrompt("改这句", isU ? "改你说的这句。" : "改 TA 说的这句，下一轮 TA 读到的就是改过的。", String(m.content || ""), v => { const t2 = String(v || "").trim(); if (t2 && t2 !== m.content) onEditLine(messageKey, t2); }, "改好了", { multiline: true }) : undefined,
+      onTouchStart: () => callPress(messageKey), onTouchEnd: callPressEnd, onMouseDown: () => callPress(messageKey), onMouseUp: callPressEnd, onMouseLeave: callPressEnd,
+      onContextMenu: e => e.preventDefault(),
       style: {
+        WebkitUserSelect: "none", userSelect: "none", WebkitTouchCallout: "none",
         maxWidth: canT ? "100%" : "78vw",
         padding: "7px 12px",
         borderRadius: 14,
@@ -12854,10 +12861,6 @@ function CallScreen({
     // 说完了在等TA开口:跟主聊天一样给一个【气泡】,长在TA下一句会出现的地方(她 2026-09-02)。
     // 原来这儿只有一行贴着输入栏的灰字「X 正在说…」——离TA的话隔着大半屏，
     // 而且它取的 sending 是【聊天那条 lane】的，通话跑的是 "call" lane，那行灰字其实从来没亮过。
-    // 重说这一轮（她 2026-10-25「做吧」）：TA刚说完、还没接着聊时，最后那一轮不满意就让TA重说；前面的不动
-    !bye && !sending && onReroll && list.length && list[list.length - 1].role !== "user" && !list[list.length - 1].tid ? h("div", { key: "reroll", className: "flex justify-start" },
-      h("button", { "data-wk": "callreroll", onClick: () => { stopCallAudio(); const cut = onReroll(); if (typeof cut === "number") lv.current.played = cut; },
-        className: "active:opacity-60", style: { minHeight: 32, padding: "4px 12px", borderRadius: 999, border: "1px solid rgba(255,255,255,0.35)", background: "transparent", color: "rgba(255,255,255,0.75)", fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))" } }, "↻ 重说这一轮")) : null,
     bye && h("div", { key: "bye", className: "flex justify-center py-1" },
       h("div", { style: Object.assign({ fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: onPhoto ? "rgba(255,255,255,0.88)" : "rgba(255,255,255,0.55)" }, litText) },
         (bye.name || "对方") + "挂断了")),
@@ -12919,7 +12922,22 @@ function CallScreen({
         () => { cameraRef.current.close(); if (bye) { leaveAfterBye(); return; } audioRef.current.enabled = false; lvStop(); onHangup(secRef.current, "me"); }, "#e0524a", { "data-wk": "hangup", "aria-label": bye ? "退出通话" : "挂断" }),
       bye ? null : bigKey(typeOpen ? "收起键盘" : "打字",
         h(Svg, { size: 24, color: "#fff", sw: 1.8 }, h("rect", { x: 3, y: 6, width: 18, height: 12, rx: 2 }), h("path", { d: "M7 10h.01M11 10h.01M15 10h.01M7 14h10" })),
-        () => setTypeOpen(!typeOpen), typeOpen ? "rgba(255,255,255,0.34)" : "rgba(255,255,255,0.2)", { "aria-label": typeOpen ? "收起打字框" : "打字", "data-wk": "calltypekey" }))));
+        () => setTypeOpen(!typeOpen), typeOpen ? "rgba(255,255,255,0.34)" : "rgba(255,255,255,0.2)", { "aria-label": typeOpen ? "收起打字框" : "打字", "data-wk": "calltypekey" })))),
+    // 长按菜单和编辑弹层：通话页是 z-70 那一层，菜单要压在它上面
+    callMenu != null && list[callMenu] ? h("div", { style: { position: "relative", zIndex: 90 } }, h(MsgMenu, {
+      message: list[callMenu], idx: callMenu, isMine: list[callMenu].role === "user",
+      items: [["copy"], ["edit"].concat(onReroll && list[callMenu].role !== "user" && callMenu > lastUserAt && !bye ? ["reroll"] : []), ["del"]],
+      onClose: () => setCallMenu(null),
+      onAction: k => {
+        const i = callMenu, m = list[i]; setCallMenu(null); if (!m) return;
+        if (k === "copy") { copyText(String(m.content || "")); return; }
+        if (k === "edit") { setCallEdit(i); return; }
+        if (k === "reroll") { stopCallAudio(); const cut = onReroll && onReroll(); if (typeof cut === "number") lv.current.played = cut; return; }
+        if (k === "del") { stopCallAudio(); onDeleteLine && onDeleteLine(i); lv.current.played = Math.max(0, list.length - 1); }
+      } })) : null,
+    callEdit != null && list[callEdit] ? h("div", { style: { position: "relative", zIndex: 90 } }, h(MsgEditSheet, {
+      init: String(list[callEdit].content || ""), onCancel: () => setCallEdit(null),
+      onSave: v => { const t2 = String(v || "").trim(), i = callEdit; setCallEdit(null); if (t2 && list[i] && t2 !== list[i].content) onEditLine && onEditLine(i, t2); } })) : null);
 }
 // 匿名问答的夜色（她 2026-08-30:「UI 和背景也弄符合主题一点」）。
 // 匿名是【夜里投进去的一张纸条】：整块地方比 app 别处暗一档，像半夜亮着的一个页面。

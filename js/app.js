@@ -20441,6 +20441,12 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     setTimeout(() => callSend("", k >= 0 ? { flush: true } : { opening: true }), 0);
     return kept.length;
   };
+  const callDeleteLine = i => {
+    const cur = callRef.current; if (!cur || !cur.msgs[i]) return;
+    const msgs = cur.msgs.filter((_, j) => j !== i);
+    callRef.current = { ...cur, msgs };
+    setCall(c => c && c.sessionId === cur.sessionId ? { ...c, msgs } : c);
+  };
   const callEditLine = (i, text) => {
     const cur = callRef.current; if (!cur || !cur.msgs[i]) return;
     const msgs = cur.msgs.map((m, j) => j === i ? { ...m, content: text, zh: undefined, edited: true } : m);
@@ -34562,6 +34568,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     onSend: (txt, opts) => callSend(txt, opts),
     onReroll: callReroll,
     onEditLine: callEditLine,
+    onDeleteLine: callDeleteLine,
     // 通话里的转账：卡在聊天里，通话这边按 tid 去取它的状态
     tfCard: tid => { const k = call.chatKey || (call.participants[0] || {}).id; return (chats[k] || []).find(m => m.kind === "transfer" && m.tid === tid) || null; },
     onRespondTransfer: (tid, ok) => {
