@@ -11827,7 +11827,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     const me = !!c._me, from = c.remark && c.remark !== c.name ? String(c.remark).trim() : "";
     if (to === from) return;
     const nd = me ? { ...cur, userContact: { ...(cur.userContact || { name }), remark: to } }
-      : { ...cur, contacts: (cur.contacts || []).map(x => x && x.name === name ? { ...x, remark: to } : x) };
+      // 通讯录里那一行是从会话补出来的（模型那份 contacts 里没写这个人）：原来 map 找不到就什么都没存下，改了等于白改；现在补一行
+      : { ...cur, contacts: (cur.contacts || []).some(x => x && x.name === name) ? (cur.contacts || []).map(x => x && x.name === name ? { ...x, remark: to } : x) : [...(cur.contacts || []), { name, remark: to, intro: "" }] };
     savePhoneApp(char.id, "wechat", nd, { noArchive: true, patched: true });
     const edit = { name, me, from, to };
     pChat(char.id, p => [...p, { role: "system", kind: "system", content: "你偷偷改了 " + (char.remark || char.name) + " 的微信备注：" + phoneRemarkLine(edit).replace(/^你/, "TA").replace("给她", "给你"), ts: Date.now() }]);

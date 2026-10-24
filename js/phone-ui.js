@@ -1648,7 +1648,12 @@ function WeChatViewFull({ d, char, t, profile, onBack, onRefresh, refreshing, dr
   // 本尊的联系人页是【分组 cell】：几块白，块与块之间空一段灰，行与行之间一道浅线。
   // 往本尊靠，不是往通用卡靠。
   if (thread && thread.type === "contact") {
-    const sess = chats.find(c2 => c2 && c2.name === thread.name);
+    // 通讯录点「发消息」进对应的会话（她 2026-10-25）：原来只认名字一字不差，她那一栏、按备注起名的会话都对不上，按钮就不出来。
+    //   现在跟会话列表认人用同一把尺：名字或备注对得上就是同一个人；她自己那一栏认她的会话
+    const _sn = v => String(v == null ? "" : v).replace(/[\s（）()「」【】·]/g, "");
+    const sess = chats.find(c2 => c2 && c2.type !== "group" && (thread._me
+      ? [userName(profile), profile && profile.name].some(n => n && (typeof phoneSamePerson === "function" ? phoneSamePerson(c2.name, n) : _sn(c2.name) === _sn(n)))
+      : [thread.name, thread.remark].some(n => n && _sn(n) === _sn(c2.name))));
     const cell = (label, value, last) => h("div", { className: "flex items-baseline", style: { gap: 12, padding: "13px 16px", borderTop: last === "first" ? "none" : "1px solid #ededed" } },
       h("div", { style: { fontFamily: F_BODY, fontSize: "calc(15px * var(--app-fs, 1))", color: "#191919", flexShrink: 0 } }, label),
       h("div", { style: { flex: 1, minWidth: 0, textAlign: "right", fontFamily: F_BODY, fontSize: "calc(15px * var(--app-fs, 1))", color: "#8a8a8a", wordBreak: "break-word" } }, value));
@@ -1696,7 +1701,7 @@ function WeChatViewFull({ d, char, t, profile, onBack, onRefresh, refreshing, dr
           h("button", { onClick: () => { onDelFriend(char, thread.name, true); bumpDel(x => x + 1); }, className: "active:opacity-70", style: { padding: "9px 22px", borderRadius: 6, background: "#07c160", color: "#fff", fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))" } }, "加回好友"))) : null,
         // 发消息只在真有这个人的会话时才给——按了没反应的按钮比没有按钮更糟
         sess && !isDel(thread.name) ? h("button", {
-          onClick: () => setThread(sess),
+          onClick: () => setThread(chatRemarkOf(sess) !== sess.name ? { ...sess, remark: chatRemarkOf(sess) } : sess),
           className: "w-full active:opacity-70",
           style: { marginTop: 10, background: "#fff", padding: "14px 0", fontFamily: F_BODY, fontSize: "calc(15px * var(--app-fs, 1))", color: "#07c160" }
         }, "发消息") : null,
