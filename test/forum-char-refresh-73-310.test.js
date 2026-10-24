@@ -27,7 +27,8 @@ test("请角色来发帖：挑逛论坛的角色、言秋不算；在某个吧�
   // 界面（她 2026-09-23 第二句：「太占位置了，改成放到刷新键，点开有一个刷新键一个『请TA们发帖』键」）：
   //   帖子流顶上那整条虚线按钮撤了；右上角刷新键点开一张小单子，两颗。在跑的时候那把钥匙按不动。
   assert.ok(scr.indexOf('tab !== "收藏" && onGenCharPosts && h("button"') < 0, "帖子流顶上那一整条又回来了");
-  assert.match(scr, /onGenCharPosts && \["请TA们发帖",[^\n]*\(\) => onGenCharPosts\(tab\)\]/);
+  // 小红书「发现」页没有对应的吧，按「关注」处理（让 TA 们自己挑）；其余照旧传这一栏
+  assert.match(scr, /onGenCharPosts && \["请TA们发帖",[^\n]*\(\) => onGenCharPosts\(tab === "发现" \? "关注" : tab\)\]/);
   assert.match(scr, /disabled: !!\(gen && \(gen\.forum === tab \|\| gen\.forum === "chars"\)\)/);
   assert.match(scr, /onClick: \(\) => setRefreshMenu\(false\), style: \{ position: "absolute", inset: 0/, "点单子外面收不起来");
   assert.doesNotMatch(scr.slice(scr.indexOf("refreshMenu && !inSub"), scr.indexOf("// 悬浮发帖按钮（主页/搜索）")), /h\(Sheet/, "做成半窗了");

@@ -111,6 +111,6 @@ test("换个字不算改掉：词只是样本，不是黑名单", () => {
 {
   const eng = require("node:fs").readFileSync(require("node:path").join(__dirname, "..", "js", "engine.js"), "utf8");
   const ban = eng.slice(eng.indexOf("const CANNED_PHRASE_BAN"), eng.indexOf("`;", eng.indexOf("const CANNED_PHRASE_BAN")));
-  require("node:assert/strict").match(ban, /【激将】.*不管她这一轮说了什么/);
+  require("node:assert/strict").match(ban, /【把话扔回她手里】.*不管她这一轮说了什么/);
   require("node:assert/strict").ok(!/有本事/.test(ban), "别把原句摆进去");
 }

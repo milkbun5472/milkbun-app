@@ -5852,6 +5852,7 @@ function PhotoStudio({ partner, myCloset, charCloset, shots, busy, fitBusy, canS
   const [theirs, setTheirs] = useState([]);
   const [big, setBig] = useState(null);
   const [grid, setGrid] = useState(false);   // 这一张拍成四宫格大头贴
+  const [shotSize, setShotSize] = useState(() => loadJSON("x_studioSize", ""));   // 这一张画多大（她 2026-10-25 群友问）：空＝跟设置里生图那个尺寸
   const [polaroid, setPolaroid] = useState(false);   // 拍立得：白边相框＋他写一行，两小时后才显影（她 2026-10-13）
   const [expand, setExpand] = useState(() => !!loadJSON("x_studioExpand", false));   // 场景加成开关：记住上次怎么选的
   const [theme, setTheme] = useState("");    // 平行时空题材／封面／海报（她 2026-10-12）
@@ -6055,6 +6056,10 @@ function PhotoStudio({ partner, myCloset, charCloset, shots, busy, fitBusy, canS
                 style: { borderRadius: 10, padding: "8px 0", whiteSpace: "nowrap", background: grid ? "#6d4d8f" : "transparent", color: grid ? "#fff" : t.sub, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))" } }, "四宫格"),
               h("button", { "data-wk": "studiopolaroid", "data-on": polaroid ? "1" : "0", onClick: () => { setPolaroid(true); setGrid(false); }, className: "flex-1 active:opacity-70",
                 style: { borderRadius: 10, padding: "8px 0", whiteSpace: "nowrap", background: polaroid ? "#6d4d8f" : "transparent", color: polaroid ? "#fff" : t.sub, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))" } }, "拍立得")),
+            !grid ? h("div", { "data-wk": "studiosize", className: "flex items-center", style: { gap: 6, marginTop: 10 } },
+              h("span", { className: "shrink-0", style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: "#8a76a0" } }, "尺寸"),
+              [["", "跟设置"], ["1024x1536", "竖"], ["1024x1024", "方"], ["1536x1024", "横"]].map(([v, zh]) => h("button", { key: v || "_def", "data-on": shotSize === v ? "1" : "0", onClick: () => { setShotSize(v); saveJSON("x_studioSize", v); }, className: "flex-1 active:opacity-70",
+                style: { padding: "5px 0", borderRadius: 999, whiteSpace: "nowrap", border: "1px solid " + (shotSize === v ? "#6d4d8f" : "#e2d9ea"), background: shotSize === v ? "#6d4d8f" : "#fff", color: shotSize === v ? "#fff" : "#8a76a0", fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))" } }, zh))) : null,
             h("button", { "data-wk": "studioexpand", "data-on": expand ? "1" : "0", onClick: () => { const v = !expand; setExpand(v); saveJSON("x_studioExpand", v); }, className: "w-full flex items-center gap-2 active:opacity-70",
                 style: { marginTop: 10, padding: "8px 2px", textAlign: "left", background: "transparent" } },
               h("span", { style: { width: 16, height: 16, borderRadius: 5, flexShrink: 0, border: "1.5px solid " + (expand ? "#6d4d8f" : "#cbbfd8"), background: expand ? "#6d4d8f" : "transparent", color: "#fff", fontSize: "calc(11px * var(--app-fs, 1))", lineHeight: "13px", textAlign: "center" } }, expand ? "✓" : ""),
@@ -6063,7 +6068,7 @@ function PhotoStudio({ partner, myCloset, charCloset, shots, busy, fitBusy, canS
             h("div", { className: "flex gap-2", style: { marginTop: 10 } },
               h("button", { onClick: () => onGenFit(scene), disabled: !!fitBusy, className: "active:opacity-70 shrink-0", style: { borderRadius: 13, padding: "11px 14px", whiteSpace: "nowrap", border: "1px solid " + t.line, background: "transparent", color: t.sub, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))" } },
                 fitBusy ? "配着…" : characterText(partner, "让他配一对")),
-              h("button", { onClick: () => onShoot({ scene, mine: mine.join("、"), theirs: theirs.join("、"), grid, theme, polaroid, paint, expand }), disabled: !!busy || !(scene.trim() || theme || polaroid || grid), className: "flex-1 active:opacity-70", style: { borderRadius: 13, padding: "11px 0", whiteSpace: "nowrap", background: (busy || !(scene.trim() || theme || polaroid || grid)) ? "#e0d6e8" : "#6d4d8f", color: (busy || !(scene.trim() || theme || polaroid || grid)) ? "#a897b4" : "#fff", fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))" } },
+              h("button", { onClick: () => onShoot({ scene, mine: mine.join("、"), theirs: theirs.join("、"), grid, theme, polaroid, paint, expand, ...(shotSize && !grid ? { size: shotSize } : {}) }), disabled: !!busy || !(scene.trim() || theme || polaroid || grid), className: "flex-1 active:opacity-70", style: { borderRadius: 13, padding: "11px 0", whiteSpace: "nowrap", background: (busy || !(scene.trim() || theme || polaroid || grid)) ? "#e0d6e8" : "#6d4d8f", color: (busy || !(scene.trim() || theme || polaroid || grid)) ? "#a897b4" : "#fff", fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))" } },
                 busy ? "在拍了…" : grid ? "拍一张四宫格" : polaroid ? "咔嚓" : "拍一张")),
             !canShoot ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: "#a0708a", marginTop: 9, lineHeight: 1.6 } },
               "合照要你俩都设了参考照才锁得住脸——去人格档案馆和「我」那边各传一张；图像 API 也要在设置里配好。") : null),

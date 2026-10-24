@@ -104,7 +104,8 @@ test("线下超了自己那份要继续往回找线上的，不是整个循环�
   const fat = Array.from({ length: 40 }, (_, k) => mk("assistant", 2000, "offline"));
   const r = recent(ONLINE, fat, 16000);
   assert.ok(r.used - r.usedOff > 0, "线下吃爆之后线上一条都没进来");
-  assert.match(app, /if \(isOff && usedOff && usedOff \+ cost > offCap\) continue;/);
+  assert.match(app, /if \(isOff && usedOff && usedOff \+ cost > offCap\) \{ offFull = true; continue; \}/);
+  assert.match(app, /if \(isOff && offFull\) continue;/);   // 装满就两边一起停，不再只剩她的短句
 });
 
 // B2（她 2026-08-28 定的取法）：老拍子**只留对话符里的东西和它前后各一句**，

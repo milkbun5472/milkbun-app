@@ -20,7 +20,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v76.437";
+const APP_VERSION = "v76.457";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -6692,6 +6692,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       } catch (e) { return ""; }
     })(),
     directives: directives[char.id] || [],
+    // 线上也用文风台的预设（她 2026-10-25「做吧」）：聊天设置里开了、挑了哪份，就把那份里勾着的模块带进线上
+    onlinePreset: (() => { try { const s0 = settingsFor(char.id); return s0.onlinePresetOn && s0.onlinePresetId && window.StylePresets ? window.StylePresets.textFor(s0.onlinePresetId, "online", {}) : ""; } catch (e) { return ""; } })(),
     memory: memories[char.id],
     // 外置记忆库这一轮搜到的（js/ext-mem.js；回复前已经搜好，这儿只读）
     extMem: ctxOpts && ctxOpts.noMemory ? "" : (window.ExtMem ? window.ExtMem.textFor(char.id) : ""),
@@ -7278,7 +7280,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       // 却照样被摘掉了描写，而滚动摘要要攒够 50 条才跑、这时候一个字都没有（她 2026-08-28 问到）。
       // 所以先算一遍：这几拍原样带进去要是装得下，就全给原文，一个字不摘。
       const offNeedsDigest = offSlice.reduce((n, m) => n + String(m.content || "").length + 20, 0) > offCap;
-      let used = 0, usedOff = 0, offSeen = 0;
+      let used = 0, usedOff = 0, offSeen = 0, offFull = false;
       for (let i = all.length - 1; i >= wantStart && i >= 0; i--) {
         const m = all[i];
         const isOff = m._surface === "offline";
@@ -7311,7 +7313,11 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
             + (m.byUser ? bySomeoneElseMark(uName, m.senderName || char.name) : "");
         const cost = line.length + 1;
         const inFloor = !isOff && floorTs && (m.ts || 0) >= floorTs; // 这几天的聊天记录一定带进去
-        if (isOff && usedOff && usedOff + cost > offCap) continue; // 线下超了自己那份就跳过，但继续往回找线上的
+        // 线下那份装满了，就【整段停】，两边都不再收（群里 2026-10-25：「再往前的拍好像只有我说的话，没有 char 的话」）：
+        //   原来是一条一条地看装不装得下——TA一拍几百字装不下被跳过，她那句十几个字装得下照收，
+        //   于是更早的线下只剩她一个人在说话，TA 那边整段消失。线上的照样继续往回找。
+        if (isOff && offFull) continue;
+        if (isOff && usedOff && usedOff + cost > offCap) { offFull = true; continue; }
         if (!inFloor && used + cost > budget && lines.length) break; // 总预算仍以召回设置那根拉条为准
         used += cost;
         if (isOff) usedOff += cost;
@@ -7854,6 +7860,35 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
             () => replyNow(cid, "", null, { busyBack: { title: h0.title, sleep: !!h0.sleep } }),
             () => busyRelease(cid));
           return;                                                // 一次一个，错峰
+        }
+      } catch (e) {}
+      // —— 留灯（她 2026-10-25「都做吧」）：灯亮着的这一晚，TA 忙完那一段来说一声；要睡了先来道一句再睡。
+      //   只在灯亮之后、TA 真忙过一段才算「忙完」（一直闲着的人用不着报到）；两样一晚各一次，回成了才记（pOnce）。
+      try {
+        const homes = spaceHomeRef.current || {};
+        for (const cid of Object.keys(homes)) {
+          const L = (homes[cid] || {}).light || {};
+          const lit = lightLit(L.me) ? L.me : lightLit(L.ta) ? L.ta : null;
+          if (!lit) continue;
+          const c = characters.find(x => x.id === cid);
+          if (!c || laneBusy("c:" + cid)) continue;
+          const mine = lit === L.me, uN = profile.name || "她";
+          const phase = sleepPhaseOf(c), busyNow = phase === "awake" ? busyNowFor(c) : null;
+          const tag = mine ? "me" : "ta";
+          if (busyNow && !lit.sawBusy) { spaceHomePut(cid, h0 => ({ ...h0, light: { ...(h0.light || {}), [tag]: { ...((h0.light || {})[tag] || {}), sawBusy: true } } })); continue; }
+          const why = mine ? uN + "今晚给你留了灯" + (lit.note ? "（她说：" + lit.note + "）" : "") : "你今晚答应给" + uN + "留灯" + (lit.say ? "（你说过：" + lit.say + "）" : "");
+          let kind = null;
+          if ((phase === "drowsy" || phase === "asleep") && !lit.nightDone) kind = "night";
+          else if (phase === "awake" && !busyNow && lit.sawBusy && !lit.backDone) kind = "back";
+          if (!kind) continue;
+          const key = "lamp:" + kind + ":" + cid;
+          if (pSkip(key)) continue;
+          const line = kind === "back" ? why + "。你手上那一段刚忙完，那盏灯还亮着。" : why + "。你" + (phase === "asleep" ? "到点该睡了" : "快睡了") + "，灯还亮着。";
+          const tail = kind === "back" ? "你【主动】找 Ta 说一声你这边忙完了——照你这个人和你们现在的关系来，" : "你【主动】在睡前跟 Ta 说一句再睡——照你这个人和你们现在的关系来，";
+          pOnce(key, key + ":" + lit.ts,
+            () => replyNow(cid, "", null, { proactive: true, health: { meal: "留灯", line, tail } }),
+            () => spaceHomePut(cid, h0 => ({ ...h0, light: { ...(h0.light || {}), [tag]: { ...((h0.light || {})[tag] || {}), [kind === "back" ? "backDone" : "nightDone"]: true, ...(kind === "night" ? { backDone: true } : {}) } } })));
+          return;
         }
       } catch (e) {}
       // —— 健康·小习惯到点（她 2026-10-05）：她自己加的那几样（吃维生素、护肤……）到点还没勾，弹一下。不找角色、不调模型。
@@ -10329,6 +10364,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   const styleLabRef = useRef(null);
   const goStyleLab = () => {
     styleLabRef.current = { screen: screen, charId: offlineChar && offlineChar.id, groupId: offlineGroup && offlineGroup.id };
+    // 从聊天设置里跳过来的（线上预设那一节）：设置是盖在上面的一层，不收掉就挡着文风台；回来时再打开
+    styleLabRef.current.settings = !!chatSettingsOpen; if (chatSettingsOpen) setChatSettingsOpen(false);
     setOfflineChar(null); setOfflineGroup(null); setScreen("stylelab");
   };
   const backFromStyleLab = () => {
@@ -10338,6 +10375,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     setScreen(back);
     if (r.charId) { const c = characters.find(x => x.id === r.charId); if (c) setOfflineChar(c); }
     else if (r.groupId) { const g = groups.find(x => x.id === r.groupId); if (g) setOfflineGroup(g); }
+    if (r.settings) setChatSettingsOpen(true);
   };
   // 一起听：记住从哪儿进来的 → 退出/悬浮球点回时回到原处（如聊天时打开悬浮切歌，切完回聊天）
   // 从哪间一起听房进来的（{charId, roomId}）。bind 不给＝维持原样（悬浮小唱片点回来还在那间房里）；
@@ -12980,6 +13018,12 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       // 模型读到的【最后两千字全是记账】，于是它的思考也跟着变成清点和复述。
       // 群聊末尾是「输出一个数组，谁说什么」——任务本身就是演，思考自然也在演。
       // 这里把【要演的那件事】放回最后一句，让它临落笔前想的是这个人此刻的反应，不是流水账。
+      // 上一轮最后一条是不是撂狠话（她 2026-10-22）：是就在这一轮末尾提一句
+      const _prevTail = (() => { const h = history || []; let i = h.length - 1; while (i >= 0 && (!h[i] || h[i].role !== "assistant")) i--; while (i >= 0 && h[i] && h[i].role === "assistant" && !String(h[i].content || "").trim()) i--; const m = h[i]; return m && m.role === "assistant" ? String(m.content || "") : ""; })();
+      const _threatTailHint = !_body && typeof endsOnThreat === "function" && endsOnThreat(_prevTail) ? THREAT_TAIL_HINT : "";
+      // 上一轮整轮（不只最后一条）有没有翻旧账、看穿她（她 2026-10-23）
+      const _prevTurnText = (() => { const h = history || []; let i = h.length - 1; while (i >= 0 && (!h[i] || h[i].role !== "assistant")) i--; const out = []; while (i >= 0 && h[i] && h[i].role === "assistant") { out.unshift(String(h[i].content || "")); i--; } return out.join("\n"); })();
+      const _seeThroughHint = !_body && typeof seeThroughLast === "function" && _prevTurnText.split("\n").some(seeThroughLast) ? SEE_THROUGH_TAIL_HINT : "";
       // ⚠️这是提示词层的引导，不是保证——思考链是模型自己的，我们只能改它最后读到什么。
       // ⚠️v56.86 我在这儿加过一句「不许比较措辞、列备选说法」，当天就撤了：
       //   她那条「『又学了一天』なら、さらっと言うなら…とか…」不是模型漏话，是那个角色的人设
@@ -12987,12 +13031,6 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       //   看着像「模型在想事情」的输出，先问一句这是不是这个人本来就会做的，别急着禁。
       // 只加在单聊线上：群聊本来就没这毛病；线下那一轮的任务是写一整段场景，不是「一条条发微信」，
       // 这句话套上去反而不对（要给线下也来一句，得另写一版）。
-      // 上一轮最后一条是不是撂狠话（她 2026-10-22）：是就在这一轮末尾提一句
-      const _prevTail = (() => { const h = history || []; let i = h.length - 1; while (i >= 0 && (!h[i] || h[i].role !== "assistant")) i--; while (i >= 0 && h[i] && h[i].role === "assistant" && !String(h[i].content || "").trim()) i--; const m = h[i]; return m && m.role === "assistant" ? String(m.content || "") : ""; })();
-      const _threatTailHint = !_body && typeof endsOnThreat === "function" && endsOnThreat(_prevTail) ? THREAT_TAIL_HINT : "";
-      // 上一轮整轮（不只最后一条）有没有翻旧账、看穿她（她 2026-10-23）
-      const _prevTurnText = (() => { const h = history || []; let i = h.length - 1; while (i >= 0 && (!h[i] || h[i].role !== "assistant")) i--; const out = []; while (i >= 0 && h[i] && h[i].role === "assistant") { out.unshift(String(h[i].content || "")); i--; } return out.join("\n"); })();
-      const _seeThroughHint = !_body && typeof seeThroughLast === "function" && _prevTurnText.split("\n").some(seeThroughLast) ? SEE_THROUGH_TAIL_HINT : "";
       const _turnClosing = "\n【收尾·聊天与记录】先形成真实回复，再按本轮协议记录状态与复看结果；记录不写进聊天气泡。"
         + "任务只有一件：以「" + char.name + "」的身份，对 TA 刚说的那句做出此刻真实的反应，然后"
         // 同处一室：话是当面说出口的——收尾这句离生成最近，这里说成「发微信」会把上面那段盖掉（她 2026-09-23）
@@ -14265,6 +14303,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         if (_dn) { saveChatDirNotes({ ...(chatDirNotesRef.current || {}), [chatKey]: _dn.next.filter(n => n && (n.long || Number(n.remaining) > 0)) }); directorNoteToast(_dn.left); } }
       // dongnian 阶段二（v48.80）：把这轮互动的好感增量反喂进动念——聊得好 valence 涨、聊崩了 valence 掉，情绪真的被聊天推动（不只自然回归）。封顶 ±0.25 防单轮暴冲。
       try { if (!sideRoom && _affD) { const eng = getDongnian(char); if (eng) eng.applyDelta({ valence: Math.max(-0.25, Math.min(0.25, _affD * 0.05)) }); } } catch (e) {}
+      // 陪伴小人：这一轮说的话和动作描写交给它认动作（只有悬浮着的那只是这个人才会动）
+      try { window.dispatchEvent(new CustomEvent("companion-chat", { detail: { charId, text: [].concat(parsed.word || []).map(x => typeof x === "string" ? x : (x && (x.text || x.content)) || "").join("\n") + "\n" + (typeof parsed.action === "string" ? parsed.action : JSON.stringify(parsed.action || "")) } })); } catch (e) {}
       if (parsed.mood && parsed.mood.label) {
         setMoodFor(charId, { ...parsed.mood, ts: Date.now() });
         _moodSkip(charId, true);
@@ -20389,6 +20429,30 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     if (field === "memoryCandidate") return !session.room || !!(session.room.writeback && session.room.writeback.memoryCandidate);
     return !session.room || window.ChatRooms.canWrite(session.room, field);
   };
+  // 通话里重说最后一轮／改一句（她 2026-10-25）：
+  //   重说＝把她最后那句之后TA说的全拿掉，再请TA接一次（跟空着按发送那条 flush 同一条路）；TA先开口的那一通就当重新接通。
+  const callReroll = () => {
+    const cur = callRef.current; if (!cur || laneBusy("call")) return;
+    let k = cur.msgs.length - 1; while (k >= 0 && cur.msgs[k].role !== "user") k--;
+    const kept = cur.msgs.slice(0, k + 1);
+    if (kept.length === cur.msgs.length) return;
+    callRef.current = { ...cur, msgs: kept };
+    setCall(c => c && c.sessionId === cur.sessionId ? { ...c, msgs: kept } : c);
+    setTimeout(() => callSend("", k >= 0 ? { flush: true } : { opening: true }), 0);
+    return kept.length;
+  };
+  const callDeleteLine = i => {
+    const cur = callRef.current; if (!cur || !cur.msgs[i]) return;
+    const msgs = cur.msgs.filter((_, j) => j !== i);
+    callRef.current = { ...cur, msgs };
+    setCall(c => c && c.sessionId === cur.sessionId ? { ...c, msgs } : c);
+  };
+  const callEditLine = (i, text) => {
+    const cur = callRef.current; if (!cur || !cur.msgs[i]) return;
+    const msgs = cur.msgs.map((m, j) => j === i ? { ...m, content: text, zh: undefined, edited: true } : m);
+    callRef.current = { ...cur, msgs };
+    setCall(c => c && c.sessionId === cur.sessionId ? { ...c, msgs } : c);
+  };
   const callSend = async (text, opts) => {
     const cur = callRef.current;
     // opening=TA打来的那一通刚接通，这一轮没有她的话，由TA先说
@@ -20480,7 +20544,10 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         };
         while ((mm = re.exec(s))) { pushSpeech(s.slice(last, mm.index)); const a = mm[1].trim(); if (a) out.push({ act: a }); last = re.lastIndex; }
         pushSpeech(s.slice(last));
-        return kao.length ? out.map(o => o.act != null ? { act: unKao(o.act) } : { speech: unKao(o.speech) }) : out;
+        const out1 = kao.length ? out.map(o => o.act != null ? { act: unKao(o.act) } : { speech: unKao(o.speech) }) : out;
+        // 一句话太长（打久了模型常一口气倒一大段、一个标点不换行）：跟聊天气泡同一把刀拆开（群里 2026-10-25「通话过长会出现不分句」）。
+        //   双语那种「原文｜译文」不拆，拆了两半对不上
+        return out1.flatMap(o => o.speech != null && typeof splitLongBubble === "function" && !/[|｜]/.test(o.speech) ? splitLongBubble(o.speech).map(x => ({ speech: x })) : [o]);
       };
       const callTurnId = cur.sessionId + ":" + withUser.length;
       const pushMsg = line => setCall(c => c && c.sessionId === cur.sessionId ? { ...c, msgs: [...c.msgs, { ts: Date.now(), turnId: callTurnId, ...line }] } : c);
@@ -21025,6 +21092,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     if (!w) return false;
     const nm = String((patch && patch.name) || "").trim().slice(0, 16);
     if (!nm) { toast("这块地方得有个名字"); return false; }
+    if (!(w.regions || []).some(r => r.name === oldName)) { toast("没找到「" + oldName + "」这一块，退出地图再进来试一次"); return false; }
     if (nm !== oldName && (w.regions || []).some(r => r.name === nm)) { toast("这个世界里已经有叫「" + nm + "」的一块了"); return false; }
     // 挨着谁（她 2026-10-03：「版块之间的衔接也能编辑吗」）：传了 adj 就照它改，两头一起改——A 挨着 B，B 也挨着 A
     const want = Array.isArray(patch.adj) ? patch.adj.filter(a => a && a !== oldName && a !== nm) : null;
@@ -27409,7 +27477,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       const firstRef = (opt && opt.cellRef) || (opt && opt.restyle && opt.restyle.ref) || null;
       const refs = firstRef ? [firstRef, char.refPhoto, profile.refPhoto] : [char.refPhoto, profile.refPhoto];
       if (wRefS && !firstRef) refs.push(wRefS.img);   // 地图上那个地点的场景图跟在两张脸后面
-      const out = await generateSelfieImage(prompt, refs, { minimalPrompt: RESTYLE_ONLY || (PAINT_LINE ? PAINT_LINE + "\n" : "") + buildMinimalPhotoPrompt(picked && fits ? Object.assign({}, char, { photoOutfit: fits }) : char, { kind: "duo", paint: PAINT || "" }), ...(opt && (opt.grid || opt.comic || (opt.restyle && opt.restyle.comic)) ? { size: "1024x1024" } : {}) });
+      const out = await generateSelfieImage(prompt, refs, { minimalPrompt: RESTYLE_ONLY || (PAINT_LINE ? PAINT_LINE + "\n" : "") + buildMinimalPhotoPrompt(picked && fits ? Object.assign({}, char, { photoOutfit: fits }) : char, { kind: "duo", paint: PAINT || "" }), ...(opt && (opt.grid || opt.comic || (opt.restyle && opt.restyle.comic)) ? { size: "1024x1024" } : opt && /^\d+x\d+$/.test(String(opt.size || "")) ? { size: opt.size } : {}) });
       if (out && out.degraded && out.degraded !== "site-no-ref") toast("这张有点将就：" + out.degraded, 7000);
       let imgKey = null, imgUrl = null, pol = null, ovl = null;
       if (out && out.blob) {
@@ -34229,6 +34297,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       compact: true
     }),
     onSaveMemory: text => { setMemFor(activeChar.id, text); toast("长期记忆已保存"); },
+    onOpenStyleLab: goStyleLab,
     onSave: s => {
       // 换了「TA 认识的是我哪一张」：今天起往后已经排好的日程是照旧面具写的（群里读者 2026-10-01：
       //   「绑了面具2，char 行程里提到的地方还是我主面具的」）——日程会提前排几天，换面具不重排。
@@ -34257,6 +34326,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
           [activeChar.id]: {
             ...settingsFor(activeChar.id),
             ctxN: s.ctxN,
+            onlinePresetOn: !!s.onlinePresetOn,
+            onlinePresetId: s.onlinePresetId || "",
             sumThresh: s.sumThresh,
             sumBuffer: s.sumBuffer,
             autoMoment: s.autoMoment,
@@ -34497,6 +34568,9 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     onMinimize: () => setCall(c => c ? { ...c, min: true } : c),
     onRestore: () => setCall(c => c ? { ...c, min: false } : c),
     onSend: (txt, opts) => callSend(txt, opts),
+    onReroll: callReroll,
+    onEditLine: callEditLine,
+    onDeleteLine: callDeleteLine,
     // 通话里的转账：卡在聊天里，通话这边按 tid 去取它的状态
     tfCard: tid => { const k = call.chatKey || (call.participants[0] || {}).id; return (chats[k] || []).find(m => m.kind === "transfer" && m.tid === tid) || null; },
     onRespondTransfer: (tid, ok) => {

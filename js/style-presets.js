@@ -196,8 +196,23 @@
   //   { prompts:[{identifier,name,content,enabled,marker}], prompt_order:[{order:[{identifier,enabled}]}] } → 一条 prompt 一个模块、整份一条预设。
   //   marker（聊天记录、人设这些占位）和空内容的跳过；开关照原样：关着的进模块库，但不勾进这份预设。
   function fromPromptList(d, fallbackName) {
-    const ps = d && Array.isArray(d.prompts) ? d.prompts : Array.isArray(d) ? d : null;
+    // 认得的形状不止 prompts 一种（她 2026-10-25 截到导入失败）：世界书那种 entries（对象或数组）、别的叫法的一串块也认——
+    //   判据只看「是不是一串带正文的块」：每块有 content／text／prompt／value 其一是字符串
+    const bodyOf = x => x && typeof x === "object" ? [x.content, x.text, x.prompt, x.value].find(v => typeof v === "string") : undefined;
+    const looksList = a => Array.isArray(a) && a.some(x => typeof bodyOf(x) === "string");
+    const asArr = v => Array.isArray(v) ? v : v && typeof v === "object" ? Object.keys(v).map(k => v[k]) : null;
+    let ps = d && Array.isArray(d.prompts) ? d.prompts : looksList(d) ? d : null;
+    if (!ps && d && typeof d === "object") {
+      for (const k of ["entries", "items", "blocks", "modules_list", "data", "list"]) { const a = asArr(d[k]); if (looksList(a)) { ps = a; break; } }
+      if (!ps) for (const k of Object.keys(d)) { const a = asArr(d[k]); if (looksList(a)) { ps = a; break; } }
+    }
     if (!ps) return null;
+    ps = ps.map(x => x && typeof x === "object" ? Object.assign({}, x, {
+      content: bodyOf(x),
+      name: x.name || x.comment || x.title || x.identifier,
+      enabled: x.enabled === false || x.disable === true || x.disabled === true ? false : x.enabled
+    }) : x);
+    if (Array.isArray(ps) && ps.some(x => x && typeof x.order === "number")) ps = ps.slice().sort((a, b) => ((a && a.order) || 0) - ((b && b.order) || 0));
     const byIdt = {}; ps.forEach(x => { if (x && x.identifier) byIdt[x.identifier] = x; });
     const po = Array.isArray(d.prompt_order) ? d.prompt_order : [];
     const ord = (po.find(x => x && String(x.character_id) === "100001") || po[po.length - 1] || {}).order;
@@ -234,6 +249,7 @@
     const rows = (p.mods || [])
       .map(moduleById)
       .filter(m => m && !(surface && m.builtinIn && m.builtinIn.indexOf(surface) >= 0))
+      .filter(m => !(surface === "online" && typeof m.text === "function"))   // 按场景现算的（字数、镜头这类）是写叙述用的，线上不带
       .map(m => typeof m.text === "function" ? m.text(ctx || {}) : m.text)
       .filter(x => String(x || "").trim());
     const free = String(p.free || "").trim();

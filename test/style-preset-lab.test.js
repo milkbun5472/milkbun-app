@@ -125,7 +125,7 @@ test("【文风要求】那段外壳只剩一份", () => {
 
 test("线下两处设置页共用同一个预设小节，不再各写一份", () => {
   assert.equal(comp.split("function OfflineStylePresetSection(").length - 1, 1);
-  assert.equal(comp.split("h(OfflineStylePresetSection, {").length - 1, 4); // v74.165：设置页两处 + 进门那一页两处（单人、群）
+  assert.equal(comp.split("h(OfflineStylePresetSection, {").length - 1, 5); // v74.165：设置页两处 + 进门那一页两处（单人、群）；v76：聊天设置里线上那一处
   assert.equal(comp.split("onChangeStyle({ styleKey, presetOn, presetId, stylePrompt:").length - 1, 2);
   assert.equal(comp.split(/onSaveSettings\(\{ (?:noAutoShot: sNoShot, )?presetOn, presetId,/).length - 1, 2);   // v75.967 前面多一项 noAutoShot
   assert.equal(comp.split("onStart({ opening: opening.trim(), styleKey, presetOn, presetId,").length - 1, 2);
@@ -144,7 +144,7 @@ test("跳过去还能跳回来（线下是浮层，得先收再挂回去）", ()
   assert.ok(back.indexOf("setOfflineGroup(g)") > 0, "回来时没把群线下浮层挂回去");
   assert.ok(back.indexOf("styleLabRef.current = null") > 0, "回来之后没清掉来路，会串");
   assert.match(app, /screen === "stylelab"\) body = h\(StyleLabApp/);
-  assert.equal(app.split("onOpenStyleLab: goStyleLab").length - 1, 3); // 线下 + 群线下 + 小剧场
+  assert.equal(app.split("onOpenStyleLab: goStyleLab").length - 1, 4); // 线下 + 群线下 + 小剧场 + 聊天设置（线上预设）
 });
 
 test("测试台的剧本是固定的，否则两份预设没法比", () => {
@@ -294,7 +294,7 @@ test("选不出文件时还有两条路：粘贴、和把已经变成一坨的�
 });
 
 test("是 json 但不是模块包，要报错，不许再倒进手写框", () => {
-  assert.ok(lab.indexOf("认不出是分条的预设（没有 modules／presets／prompts）") > 0);   // 2026-10-16：分条的预设先认出来拆成模块，其余 json 照旧报错
+  assert.ok(lab.indexOf("找不到一条条带正文的块（认 modules／presets／prompts／entries") > 0);   // 2026-10-16：分条的预设先认出来拆成模块，其余 json 照旧报错
   // takeText 的分支：认出包 → bundle；是 json 但没有那两个键 → 抛；其余 → free
   const fn = lab.slice(lab.indexOf("const takeText"), lab.indexOf("const peek"));
   assert.ok(fn.indexOf('return "bundle"') > 0 && fn.indexOf('return "free"') > 0);
