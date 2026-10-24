@@ -19756,17 +19756,18 @@ function RedPacketCard({ rp, onClick, foot, dim: dimIn }) {
   const RED = dim ? "#9c5a52" : "#c3372c", RED_D = dim ? "#7e4740" : "#9d251c";
   const GOLD = dim ? "#d8c39c" : "#f2d79a";
   return h("button", {
+    "data-wk": "rpcard", "data-status": done ? "done" : locked ? "locked" : "open",
     onClick: onClick, className: "my-1 active:opacity-90",
     style: { width: 232, borderRadius: 13, overflow: "hidden", position: "relative", textAlign: "left",
       background: "linear-gradient(160deg," + RED + "," + RED_D + ")",
       boxShadow: "0 2px 7px rgba(90,25,18,.22)" }
   },
     // 封口：压在上半截的一道，比封身暗一档——红包最认得出的那个记号
-    h("div", { "aria-hidden": "true", style: { position: "absolute", left: 0, right: 0, top: 0, height: 46,
+    h("div", { "data-wk": "rpflap", "aria-hidden": "true", style: { position: "absolute", left: 0, right: 0, top: 0, height: 46,
       background: "linear-gradient(180deg,rgba(255,255,255,.10),rgba(0,0,0,.10))",
       borderBottom: "1px solid rgba(0,0,0,.16)" } }),
     // 封口正中那枚金印：双环 + 中心一点。不写字——写「福」就又变成借来的符号了
-    h("div", { "aria-hidden": "true", style: { position: "absolute", left: 17, top: 12, width: 24, height: 24, borderRadius: 999,
+    h("div", { "data-wk": "rpseal", "aria-hidden": "true", style: { position: "absolute", left: 17, top: 12, width: 24, height: 24, borderRadius: 999,
       border: "1.5px solid " + GOLD, display: "flex", alignItems: "center", justifyContent: "center" } },
       h("div", { style: { width: 12, height: 12, borderRadius: 999, border: "1px solid " + GOLD, display: "flex", alignItems: "center", justifyContent: "center" } },
         h("div", { style: { width: 4, height: 4, borderRadius: 999, background: GOLD } }))),
@@ -19777,10 +19778,10 @@ function RedPacketCard({ rp, onClick, foot, dim: dimIn }) {
       // 「只给 XXX」单做一枚小标签，不跟祝福语抢宽度
       only ? h("div", { style: { display: "inline-block", fontFamily: F_BODY, fontSize: "calc(9.5px * var(--app-fs, 1))", letterSpacing: ".04em",
         color: RED_D, background: GOLD, borderRadius: 999, padding: "1.5px 8px", marginBottom: 5 } }, "只给 " + only) : null,
-      h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", lineHeight: 1.45, color: "#fff",
+      h("div", { "data-wk": "rpmsg", style: { fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", lineHeight: 1.45, color: "#fff",
         display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden", wordBreak: "break-word" } },
         rp.message || "恭喜发财，大吉大利"),
-      h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: "rgba(255,255,255,.82)", marginTop: 5 } },
+      h("div", { "data-wk": "rpfoot", style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: "rgba(255,255,255,.82)", marginTop: 5 } },
         foot != null ? foot : done ? "已被领完" : locked ? "不是给你的" : "领取红包")));
 }
 // 发起投票（群聊 +面板 → 投票）——原来被引用却从没实现，导致点投票直接崩
@@ -19852,7 +19853,7 @@ function RedPacketOpenSheet({ rp, meName, onClose }) {
   const claims = rp.claims || [];
   const done = claims.length >= rp.count;
   return h(Sheet, { onClose: onClose },
-    h("div", { className: "flex flex-col items-center", style: { padding: "6px 0 14px" } },
+    h("div", { "data-wk": "rpopen", className: "flex flex-col items-center", style: { padding: "6px 0 14px" } },
       // ⚠️不用 emoji（她 2026-09-19：「不要emoji宝宝」）：跟卡面上那枚金印同一个画法，
       //   大一号摆在这儿。这个 app 里的东西都是画出来的，借一个 emoji 会当场露怯。
       h("div", { "aria-hidden": "true", style: { width: 46, height: 46, borderRadius: 999,
