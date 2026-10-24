@@ -2,7 +2,7 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {CHAT_ACTIONS,DUR,MOODS} from './motion.mjs';
 import {emotionPose} from '../fairy-garden/emotion-pose.mjs';
-test('六套聊天动作起止归零，动作不同且不会随机进入待机',()=>{
+test('全部聊天专属动作起止归零，动作不同且不会随机进入待机',()=>{
  const signatures=[];
  for(const [name,duration] of Object.entries(CHAT_ACTIONS)){
   assert.equal(DUR['emotion-'+name],duration);
@@ -11,7 +11,17 @@ test('六套聊天动作起止归零，动作不同且不会随机进入待机',
   for(let j=0;j<=100;j++)assert.ok(Object.values(emotionPose(name,j/100)).flat().every(v=>Number.isFinite(v)&&Math.abs(v)<3),name);
   signatures.push(JSON.stringify([.2,.4,.6,.8].map(p=>emotionPose(name,p))));
  }
- assert.equal(new Set(signatures).size,6);
+ assert.equal(new Set(signatures).size,Object.keys(CHAT_ACTIONS).length);
+});
+test('新双手动作各自定位，后脑与眼前揉动分开，小花只在递出期间出现',()=>{
+ for(const name of ['cheeks','plead','crossarms']){
+  const q=emotionPose(name,.4);assert.equal(q.headHold,1);assert.equal(q.leftHeadHold,1);
+  assert.ok(q.rightElbow<-1&&q.leftElbow<-1);assert.ok(q.headPoint&&q.leftHeadPoint);
+ }
+ const face=emotionPose('cheeks',.4);assert.ok(face.leftHeadPoint[0]<0&&face.headPoint[0]>0);
+ const cross=emotionPose('crossarms',.4);assert.ok(cross.leftHeadPoint[0]>0&&cross.headPoint[0]<0);
+ assert.ok(emotionPose('scratch',.4).headPoint[2]<0);assert.ok(emotionPose('rubeyes',.4).headPoint[2]>1);
+ assert.equal(emotionPose('flower',0).flower,0);assert.equal(emotionPose('flower',1).flower,0);assert.ok(emotionPose('flower',.5).flower>.99);
 });
 test('飞吻先停在嘴前再送出，偷笑与侧耳各有稳定的头部相对目标',()=>{
  const early=emotionPose('kiss',.3),late=emotionPose('kiss',.7);
