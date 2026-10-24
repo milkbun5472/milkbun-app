@@ -95,7 +95,7 @@
   }
 
   // ---- D 步骤 2：TA们的梦 · 懒生成 prompt（拍板：后台池模型；梦≠记忆；剧情主权）----
-  function dreamGenSys(char, row, excerpts, reality) {
+  function dreamGenSys(char, row, excerpts, reality, prev) {
     const r = reality || {};
     // ⚠️人设别再截到 300 字（v61.47）：只剩一个标签的话，空白由训练先验补上，
     //   梦就长成「谁都能做的那种梦」。反八股这两条也一起给上。
@@ -108,6 +108,8 @@
       "【情绪残渣】" + (row.peaks || []).map(p => p.axis + "=" + p.value).join("、") + (row.relationActiveAxes && row.relationActiveAxes.length ? "｜关系张力：" + row.relationActiveAxes.join("、") : "") + "\n\n" +
       "【现实关系边界】" + (r.relationship || "现实中没有已确认的恋人关系") + "\n" +
       "【人名铁律】梦里允许具名的人只有：" + (r.allowedNames || "无") + "。其他人物一律写成『一个人』『看不清的人』，不得创造名字。\n\n" +
+      // 前几场做过的梦（她 2026-10-26 去重）：同一个梦别再做一遍
+      ((prev || []).length ? "【已经做过的梦】下面这些你已经做过了，别再做同一个，换个说法也算做过：\n" + prev.map(d => "· " + ((d.motifs || []).length ? (d.motifs || []).join("、") + "｜" : "") + String(d.narrative || "").slice(0, 40) + (d.wakeLine ? "｜醒来说：" + String(d.wakeLine).slice(0, 30) : "")).join("\n") + "\n\n" : "") +
       "【梦的规则】\n" +
       "· 梦逻辑：允许扭曲、拼贴、时空错乱，白天的细节可以变形出现（雨伞变成船、对话发生在不存在的房间）；不要写成白天的复述。\n" +
       "· 第一人称，你在梦里。120~220 字。\n" +
@@ -160,9 +162,11 @@
           const cp = props.couples && props.couples[char.id];
           const relationship = (window.spaceLover ? window.spaceLover(cp) : cp && cp.status === "together") ? "你和她现实中已正式在一起，可以使用现实已有的恋人称谓" : cp && cp.status === "pending" && (!window.spaceRelKey || window.spaceRelKey(cp) === "lover") ? "你向她表达过关系意愿，但现实中尚未确认成为恋人" : "你和她现实中没有已确认的恋人关系";
           const allowedNames = [char.name, char.remark, props.profile && props.profile.name].filter(Boolean).map(String).filter((x, i, a) => a.indexOf(x) === i).join("、") || "无";
-          const raw = await callAI(p, dreamGenSys(char, row, excerpts, { relationship, allowedNames }), [{ role: "user", content: "开始做梦。" }], { maxTokens: 14400 });
+          const prevDreams = (theirs || []).filter(d => d && d.charId === char.id && d.key !== row.key && d.narrative);
+          const raw = await callAI(p, dreamGenSys(char, row, excerpts, { relationship, allowedNames }, prevDreams.slice(0, 6)), [{ role: "user", content: "开始做梦。" }], { maxTokens: 14400 });
           const gen = parseDreamJSON(raw);
           if (!gen) throw new Error("梦没成形，再试一次");
+          // 开头跟前几场差不多：这场先不存，梦还在原处等下一次
           await window.DreamLoop.saveGenerated(row.key, gen);
           return gen;
         };

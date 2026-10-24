@@ -655,6 +655,9 @@
     const save = next => { const n = next.slice(0, CAP); listRef.current = n; setList(n); saveJSON(KEY, n); };
     const patch = (id, fn) => save(listRef.current.map(s => s.id === id ? fn(s) : s));
     const get = id => listRef.current.find(s => s.id === id);
+    // TA最近几场的标题（她 2026-10-26 去重）：真主播同一种题材天天播很正常，所以题材不拦，只叫标题别原样再用；只写进提示词，不硬筛
+    const titleSeen = (cid, skipId) => { const ts0 = listRef.current.filter(s => s && s.charId === cid && s.mode === "watch" && s.id !== skipId && S(s.title)).slice(0, 8).map(s => "· " + S(s.title));
+      return ts0.length ? "\n\n【你最近几场的直播间标题】题材照常可以一样，标题别原样再用同一句：\n" + ts0.join("\n") : ""; };
     const charsOf = ses => (ses.charIds || [ses.charId]).map(id => characters.find(c => c.id === id)).filter(Boolean);
     const cur = curId ? list.find(s => s.id === curId) : null;
     // 路人主播
@@ -686,8 +689,8 @@
       setBusy(true);
       try {
         const d = await (st
-          ? props.probeStranger(st, tieBlock(st, tieKeyOf(ses.as, ses.maskName), ses.fanLv || 0, ses.fanTotal || 0) + "\n\n" + watchInstruction(ses, ses.meName || uName, first), watchShape(ses, first))
-          : props.probeAs(char, watchInstruction(ses, ses.meName || uName, first, true), watchShape(ses, first))) || {};
+          ? props.probeStranger(st, tieBlock(st, tieKeyOf(ses.as, ses.maskName), ses.fanLv || 0, ses.fanTotal || 0) + "\n\n" + watchInstruction(ses, ses.meName || uName, first) + (first ? titleSeen(ses.charId, ses.id) : ""), watchShape(ses, first))
+          : props.probeAs(char, watchInstruction(ses, ses.meName || uName, first, true) + (first ? titleSeen(ses.charId, ses.id) : ""), watchShape(ses, first))) || {};
         // 她 2026-10-11：「它还会编我说的话」——模型开播时编了个跟她同名的常客，之后每拍都以「常客」的名义替她发弹幕。
         //   她（或她这次的马甲）只能是她自己：同名的常客剔掉，署她名字的那几句也不收
         const meNames = [uName, ses.meName, ses.maskName].map(x => S(x).trim()).filter(Boolean);
@@ -944,7 +947,7 @@
       if (!c && !st) return;
       setRecapBusy(x.id);
       try {
-        const ins = recapInstruction(x, uName);
+        const ins = recapInstruction(x, uName) + titleSeen(x.charId);
         const d = await (st ? props.probeStranger(st, tieBlock(st, "me", stFan(st, "me").lv, stFan(st, "me").total) + "\n\n" + ins, RECAP_SHAPE) : props.probeAs(c, ins, RECAP_SHAPE)) || {};
         const host = st ? st.name : (S(d.host).slice(0, 20) || c.name);
         const lines = arr(d.flow).map(y => y && { who: S(y.who).slice(0, 20), text: S(y.text).slice(0, 400) }).filter(y => y && y.text && y.who).slice(0, 16)
