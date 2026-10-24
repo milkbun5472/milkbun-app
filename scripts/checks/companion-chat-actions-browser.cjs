@@ -11,7 +11,7 @@ const out=process.env.COMPANION_EVIDENCE||'/tmp/companion-chat-actions';fs.mkdir
   const draco=new DRACOLoader();draco.setDecoderPath('../fairy-garden/vendor/draco/');const loader=new GLTFLoader();loader.setDRACOLoader(draco);
   const source=(await loader.loadAsync('../fairy-garden/doll.glb')).scene;await preloadOutfits();
   const catalog=await(await fetch('../fairy-garden/doll.json')).json(),doll=createTraveler(source,true);await doll.ready();
-  const actions=requested.length?requested:Object.keys(CHAT_ACTIONS),report={frames:0,outfits:Object.keys(catalog.outfits),actions,maxJointStep:0,maxHandIntrusions:0,maxFlowerGripError:0};let time=0;
+  const actions=requested.length?requested:Object.keys(CHAT_ACTIONS),report={frames:0,outfits:Object.keys(catalog.outfits),actions,maxJointStep:0,maxHandIntrusions:0,maxFlowerGripError:0,maxGiftGripError:0,maxSignGripError:0};let time=0;
   for(const outfit of report.outfits)for(const dims of [{},Object.fromEntries(catalog.dims.map(d=>[d.key,d.min])),Object.fromEntries(catalog.dims.map(d=>[d.key,d.max]))]){
    doll.setLook({outfit,dims,hair:'bob',face:'cozy'});await doll.ready();
    for(const action of actions){let previous=null;
@@ -21,12 +21,18 @@ const out=process.env.COMPANION_EVIDENCE||'/tmp/companion-chat-actions';fs.mkdir
      const joints=['rightArm','rightForearm','leftArm','leftForearm'].map(name=>doll.root.getObjectByName(name));
      if(previous){const step=Math.max(...joints.map((b,i)=>b.quaternion.angleTo(previous[i])));report.maxJointStep=Math.max(report.maxJointStep,step);if(step>.55)throw Error('Joint snap '+outfit+' '+action+' '+j+' '+step);}
      previous=joints.map(b=>b.quaternion.clone());
-     const flower=doll.root.getObjectByName('CompanionFlower');
-     if(flower?.visible){
-      const grip=doll.root.getObjectByName('FlowerGrip').getWorldPosition(new T.Vector3()),hand=doll.root.getObjectByName('Right_hand').getWorldPosition(new T.Vector3());
-      const error=grip.distanceTo(hand);report.maxFlowerGripError=Math.max(report.maxFlowerGripError,error);if(error>1e-6)throw Error('Flower leaves hand '+outfit+' '+action+' '+j+' '+error);
+     for(const [propName,grips,metric] of [
+      ['CompanionFlower',[['FlowerGrip','Right_hand']],'maxFlowerGripError'],
+      ['CompanionGift',[['GiftGripLeft','Left_hand'],['GiftGripRight','Right_hand']],'maxGiftGripError'],
+      ['CompanionSign',[['SignGrip','Right_hand']],'maxSignGripError']]){
+      if(!doll.root.getObjectByName(propName)?.visible)continue;
+      for(const [gripName,handName] of grips){
+       const grip=doll.root.getObjectByName(gripName).getWorldPosition(new T.Vector3()),hand=doll.root.getObjectByName(handName).getWorldPosition(new T.Vector3()),error=grip.distanceTo(hand);
+       report[metric]=Math.max(report[metric],error);if(error>1e-6)throw Error(propName+' leaves hand '+outfit+' '+action+' '+j+' '+error);
+      }
+      if(propName==='CompanionSign'&&!doll.root.getObjectByName('SignPaper').material.map?.isCanvasTexture)throw Error('Sign text missing');
      }
-     if(['kiss','giggle','listen','cheeks','scratch','rubeyes'].includes(action)){
+     if(['kiss','giggle','listen','cheeks','scratch','rubeyes','peekaboo','sneeze'].includes(action)){
       const head=doll.root.getObjectByName('HeadAnchor'),body=doll.root.getObjectByName('DollBody'),pos=body.geometry.attributes.position,idx=body.geometry.attributes.skinIndex,w=body.geometry.attributes.skinWeight;let inside=0;
       for(let k=0;k<pos.count;k++){
        if(pos.getY(k)>.44)continue;let arm=0;for(let b=0;b<4;b++)if(/^(right|left)Forearm$/.test(body.skeleton.bones[idx.getComponent(k,b)]?.name||''))arm+=w.getComponent(k,b);if(arm<.9)continue;
@@ -39,7 +45,7 @@ const out=process.env.COMPANION_EVIDENCE||'/tmp/companion-chat-actions';fs.mkdir
     for(let j=0;j<40;j++)doll.animate(time+=.04,{height:0});
     const mask=doll.root.getObjectByName('DollBody').userData.skinCoverageUniforms;
     if(mask.rightElbow.value||mask.leftElbow.value)throw Error('Elbow coverage not reset '+action);
-    if(doll.root.getObjectByName('CompanionFlower')?.visible)throw Error('Flower did not return '+action);
+    for(const name of ['CompanionFlower','CompanionGift','CompanionSign'])if(doll.root.getObjectByName(name)?.visible)throw Error(name+' did not return '+action);
    }
   }
   const galleryRows=Math.ceil(actions.length/3),renderer=new T.WebGLRenderer({antialias:true,preserveDrawingBuffer:true});renderer.setSize(1200,galleryRows*450);document.body.append(renderer.domElement);renderer.setScissorTest(true);
@@ -49,7 +55,7 @@ const out=process.env.COMPANION_EVIDENCE||'/tmp/companion-chat-actions';fs.mkdir
   window.actionGallery=async progress=>{document.querySelectorAll('.label').forEach(e=>e.remove());let i=0;
    for(const name of actions){for(let k=0;k<30;k++)doll.animate(time+=.04,{emotion:name,progress,height:0});
     const x=i%3*400,y=(galleryRows-1-Math.floor(i/3))*450;renderer.setViewport(x,y,400,450);renderer.setScissor(x,y,400,450);renderer.render(scene,cam);
-    const label=document.createElement('div');label.className='label';label.textContent=({cheeks:'双手捧脸',plead:'合十拜托',crossarms:'抱胸等你',scratch:'挠后脑勺',rubeyes:'揉揉眼睛',flower:'递小花',kiss:'飞吻',giggle:'捂嘴偷笑',listen:'侧耳听',promise:'拍胸保证',cheer:'举手加油',refuse:'摇头摆手'})[name];label.style=`position:absolute;left:${x+16}px;top:${Math.floor(i/3)*450+12}px;color:#45382d;font:18px sans-serif`;document.body.append(label);i++;
+    const label=document.createElement('div');label.className='label';label.textContent=({hips:'叉腰得意',selfhug:'抱住自己轻晃',peekaboo:'捂眼再放开',sneeze:'掩鼻打喷嚏',gift:'递小礼物',sign:'举小纸牌',cheeks:'双手捧脸',plead:'合十拜托',crossarms:'抱胸等你',scratch:'挠后脑勺',rubeyes:'揉揉眼睛',flower:'递小花',kiss:'飞吻',giggle:'捂嘴偷笑',listen:'侧耳听',promise:'拍胸保证',cheer:'举手加油',refuse:'摇头摆手'})[name];label.style=`position:absolute;left:${x+16}px;top:${Math.floor(i/3)*450+12}px;color:#45382d;font:18px sans-serif`;document.body.append(label);i++;
    }
   };return report;
  },poseActions);

@@ -1970,6 +1970,8 @@ function forumBoardSkin(board) {
 }
 function forumRulesFromText(txt) { return String(txt || "").split(/\n+/).map(r => r.replace(/^\s*\d+[.、．)]\s*/, "").trim().slice(0, 60)).filter(Boolean).slice(0, 8); }
 // 吧名统一成「某某吧」：她打「足球」「足球吧」「 足球吧 」都是同一个吧
+// 小红书那种双列里话题不带「吧」（她 2026-10-26）：#足球 而不是 #足球吧；吧名本身不动，只是显示时去掉
+function forumTag(board) { return "#" + (String(board || "").replace(/吧$/, "") || String(board || "")); }
 function forumBoardName(raw) {
   const n = String(raw || "").replace(/\s+/g, "").replace(/吧+$/, "").slice(0, 12);
   return n ? n + "吧" : "";
@@ -2719,7 +2721,7 @@ function Forum({
           h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(20px * var(--app-fs, 1))", lineHeight: 1.35, color: FORUM_SKIN.ink, marginTop: 11 } }, STX(p.title)),
           xhs ? xhsBody(p) : h("div", { style: { fontFamily: F_BODY, fontSize: "calc(14.5px * var(--app-fs, 1))", lineHeight: 1.78, color: FORUM_SKIN.sub, marginTop: 8, whiteSpace: "pre-wrap" } }, STW(p, STX(p.body))),
           xhs ? xhsPhotos(p) : forumPhotoCard(p, 280),
-          xhs ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, marginTop: 10 } }, "#" + p.board + " · " + timeAgo(p.ts)) : h("div", { className: "mt-3" }, tag(p.board)),
+          xhs ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, marginTop: 10 } }, forumTag(p.board) + " · " + timeAgo(p.ts)) : h("div", { className: "mt-3" }, tag(p.board)),
           xhs ? xhsBar(p) : actBar(p),
           c && h("button", { onClick: () => onToggleFollow(c.id), className: "mt-3 px-3.5 py-1.5 active:opacity-70", style: { borderRadius: 999, border: `1px solid ${t.line}`, background: flw.includes(c.id) ? t.ink : "transparent", fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: flw.includes(c.id) ? t.bg2 : t.ink } }, flw.includes(c.id) ? "已关注" : "关注 TA"),
           alt && h("button", { onClick: () => toggleNpcFollow(altFollowKey(p)), className: "mt-3 px-3.5 py-1.5 active:opacity-70", style: { borderRadius: 999, border: `1px solid ${t.line}`, background: npcFollowSet.has(altFollowKey(p)) ? t.ink : "transparent", fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: npcFollowSet.has(altFollowKey(p)) ? t.bg2 : t.ink } }, npcFollowSet.has(altFollowKey(p)) ? "已关注小号" : "关注小号")),
@@ -3145,7 +3147,7 @@ function Forum({
           style: { minHeight: 40, padding: "0 2px", fontFamily: F_BODY, fontSize: "calc(15px * var(--app-fs, 1))", fontWeight: on ? 700 : 400, color: on ? FORUM_SKIN.ink : FORUM_SKIN.fog, borderBottom: "2px solid " + (on ? FORUM_SKIN.accent : "transparent") } }, zh);
       })),
       tab !== "关注" && tab !== "收藏" && h("div", { "data-wk": "foxhstopicrow", className: "flex gap-2 px-4 pb-2 pt-1 overflow-x-auto", style: { scrollbarWidth: "none" } },
-        [["发现", "推荐"]].concat(forumBoardsAll().map(b => [b, "#" + b])).map(([k, zh]) => h("button", { key: k, "data-wk": "foxhstopic", "data-on": tab === k ? "1" : "0", onClick: () => { setTab(k); setPage(1); }, className: "shrink-0 whitespace-nowrap active:opacity-60",
+        [["发现", "推荐"]].concat(forumBoardsAll().map(b => [b, forumTag(b)])).map(([k, zh]) => h("button", { key: k, "data-wk": "foxhstopic", "data-on": tab === k ? "1" : "0", onClick: () => { setTab(k); setPage(1); }, className: "shrink-0 whitespace-nowrap active:opacity-60",
           style: { minHeight: 32, padding: "0 12px", borderRadius: 999, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", background: tab === k ? FORUM_SKIN.paper : "transparent", color: tab === k ? FORUM_SKIN.ink : FORUM_SKIN.fog, fontWeight: tab === k ? 700 : 400, border: "1px solid " + (tab === k ? FORUM_SKIN.line : "transparent") } }, zh))
           .concat([h("button", { key: "__newboard", onClick: () => setNewBoard({ name: "", about: "" }), className: "shrink-0 whitespace-nowrap active:opacity-60", style: { minHeight: 32, padding: "0 12px", borderRadius: 999, border: "1px dashed " + FORUM_SKIN.line, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: FORUM_SKIN.sub } }, "＋ 新话题")]))),
     (!inSub && nav === "home" && !cardLayout) && h("div", { "data-wk": "foboards", className: "shrink-0 flex gap-1.5 px-4 pb-2 overflow-x-auto", style: { borderBottom: "1px solid " + FORUM_SKIN.line, background: FORUM_SKIN.bar, scrollbarWidth: "none" } }, [...forumBoardsAll(), "关注", "收藏"].map(b => {
@@ -3232,7 +3234,7 @@ function Forum({
         chip("小号 · " + (((forumMe && forumMe.altName) || "").trim() || "一只不说话的鱼"), cbAs === "alt", () => setCbAs("alt"))) : null,
       h("input", { "data-wk": "input", value: cbTitle, onChange: e => setCbTitle(e.target.value), placeholder: cardLayout ? "填写标题会有更多赞哦" : "标题", className: "w-full outline-none px-3.5 py-2.5 rounded-lg mb-2", style: { fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))", background: t.bg2, color: t.ink, border: `1px solid ${t.line}` } }),
       h("textarea", { "data-wk": "textarea", value: cbBody, onChange: e => setCbBody(e.target.value), placeholder: cardLayout ? "添加正文" : "正文…", className: "w-full outline-none px-3.5 py-2.5 rounded-lg", style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", minHeight: 120, background: t.bg2, color: t.ink, border: `1px solid ${t.line}`, resize: "none" } }),
-      cardLayout ? h("div", { "data-wk": "foxhstopics", className: "flex gap-1.5 mt-2 flex-wrap" }, forumBoardsAll().map(b => chip("#" + b, cbBoard === b, () => setCbBoard(b))))
+      cardLayout ? h("div", { "data-wk": "foxhstopics", className: "flex gap-1.5 mt-2 flex-wrap" }, forumBoardsAll().map(b => chip(forumTag(b), cbBoard === b, () => setCbBoard(b))))
         : h("div", { className: "mt-2" }, h(PhotoAttach, { value: cbPhoto, onChange: setCbPhoto, toast: toast })),
       h("button", { onClick: () => { if (cbTitle.trim()) { onPostMine(cbBoard, cbTitle.trim(), cbBody.trim(), photoAttachValue(cbPhoto), cbAs); setCbTitle(""); setCbBody(""); setCbPhoto(null); setComposer(false); setNav("home"); setTab(cbBoard); } }, className: "w-full mt-3 py-2.5 active:opacity-70", style: { borderRadius: 8, background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))" } }, cardLayout ? "发布笔记" : "发布")),
     // 编辑我的资料

@@ -9,7 +9,7 @@ const prose=require('./fixtures/companion-action-prose.cjs');
 test('整张聊天动作表逐项都有语言样本，新增动作不能漏掉验证',()=>{
  const actual=[...src.matchAll(/actionRule\("([^"]+)"/g)].map(m=>m[1]).sort();
  assert.deepEqual(Object.keys(prose.cases).sort(),actual);
- assert.equal(actual.length,34);
+ assert.equal(actual.length,40);
 });
 const allVariants=prose.variants();
 for(const kind of Object.keys(prose.cases))test('全部动作的长句、倒装、修饰与招呼混用 → '+kind,()=>{
@@ -158,4 +158,8 @@ test('话里提到的动作、否定、假设、问句都不让小人动',()=>{
  const act={'他点了杯奶茶给你':'','他转账给你520':'','他点点头':'nod','他捂着脸笑':'shy','他喝了口水，说没事':'tea','他坐在你对面没说话':'sit',
   '他回头看了你一眼':'turn','回头见':'wave','他摇头晃脑地唱歌':'emotion-dance','他别过脸':'turn','他没有点头':'','要是你再跑，他就抱住你':''};
  for(const [t,k] of Object.entries(act))assert.equal(chat(t,''),k,'动作：'+t);
+});
+test('新增道具的普通提及不算递出或举起，自己的书不算自抱',()=>{
+ for(const text of ['礼物放在桌上。','纸牌已经收好了。','我自己的书还在这里。','自己一个人坐在那边。'])assert.equal(act(text),text.includes('坐')?'sit':'',text);
+ assert.notEqual(act('他抱着自己的书。'),'emotion-selfhug');
 });
