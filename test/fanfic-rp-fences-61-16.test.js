@@ -39,7 +39,7 @@ test("穿书补上了别处一条条 push 进去的那几条", () => {
   const seg = fic.slice(fic.indexOf("function buildRPSystem("), fic.indexOf("  // 生成可选降落节点"));
   assert.ok(seg.length > 500, "抠不出 buildRPSystem");
   // narrativeCore 白送的那几层照旧
-  assert.match(seg, /narrativeCore\(\{ intimate: true \}\)/);
+  assert.match(seg, /narrativeCore\(\{ intimate: true(, chatBans: false)? \}\)/);
   assert.match(seg, /FANFIC_ANTI_CLICHE/);
   // 内容边界（含禁烟）v63.100 起挪进了 narrativeCore：写连续正文的地方一起白得，
   // 不用一处处 push——所以这儿不再单列它，改成认那一份（上面那条 narrativeCore 断言）。
