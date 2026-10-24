@@ -7,7 +7,7 @@
 // 设置存 x_companion：{ charId, float, pos, scale, autoFace, looks: { [charId]: look } }
 // ============================================================
 (function () {
-  const KEY = "x_companion", BUILD = "fg-eaf386cec406e2ee";
+  const KEY = "x_companion", BUILD = "fg-380e6638a202a0a7";
   const load = () => Object.assign({ charId: "", float: false, pos: null, scale: 1, autoFace: true, looks: {} }, loadJSON(KEY, {}) || {});
   const save = v => saveJSON(KEY, v);
   // 心情 → 表情。心情是模型写的自由中文（x_moods[charId].label），按字认；认不出就是「平常」。
@@ -193,7 +193,7 @@
       allowTransparency: "true", style: Object.assign({ border: 0, background: "transparent", display: "block" }, style) });
   }
   // 他这会儿在做什么：十种心情各一套动作，界面上不说一句，用户只当是随机待机。
-  const ACT_ZH = { 'emotion-chin':'托着下巴安静陪你', 'emotion-headpat':'低头靠近你的手又抬眼看你', 'emotion-show':'转身展示新衣服', 'emotion-five-left':'抬起手等你击掌', 'emotion-five-right':'抬起手等你击掌', 'emotion-clap-left':'和你击了个掌', 'emotion-clap-right':'和你击了个掌', 'emotion-dodge-left':'躲开你的手又看回来', 'emotion-dodge-right':'躲开你的手又看回来', 'emotion-beckon':'招手示意你靠近', 'emotion-dance':'左右摆身跳小舞', 'emotion-bow':'欠身向你致意', 'emotion-shrug':'摊开手耸耸肩', 'emotion-peek':'看看两边又望向你', 'emotion-default':'抬手问候你', 'emotion-happy':'笑着向你招手', 'emotion-amazed':'举起双手欢呼', 'emotion-cozy':'张开手想抱抱你', 'emotion-relax':'舒展开双臂', 'emotion-surprise':'缩了一下又凑过来看', 'emotion-proud':'挺起胸等你夸', 'emotion-gloomy':'叹口气又望向你', 'emotion-sad':'低头后朝你伸出手', 'emotion-irritated':'别过身又偷偷看你',  wave: "在跟你招手", stretch: "在伸懒腰", tea: "在喝茶", read: "在看书", sit: "坐下了",
+  const ACT_ZH = { 'emotion-kiss':'把手停在嘴前送你一个飞吻', 'emotion-giggle':'捂着嘴偷偷笑', 'emotion-listen':'拢着手侧耳听你说', 'emotion-promise':'拍拍胸口向你保证', 'emotion-cheer':'举起双手给你加油', 'emotion-refuse':'摇摇头又摆摆手', 'emotion-chin':'托着下巴安静陪你', 'emotion-headpat':'低头靠近你的手又抬眼看你', 'emotion-show':'转身展示新衣服', 'emotion-five-left':'抬起手等你击掌', 'emotion-five-right':'抬起手等你击掌', 'emotion-clap-left':'和你击了个掌', 'emotion-clap-right':'和你击了个掌', 'emotion-dodge-left':'躲开你的手又看回来', 'emotion-dodge-right':'躲开你的手又看回来', 'emotion-beckon':'招手示意你靠近', 'emotion-dance':'左右摆身跳小舞', 'emotion-bow':'欠身向你致意', 'emotion-shrug':'摊开手耸耸肩', 'emotion-peek':'看看两边又望向你', 'emotion-default':'抬手问候你', 'emotion-happy':'笑着向你招手', 'emotion-amazed':'举起双手欢呼', 'emotion-cozy':'张开手想抱抱你', 'emotion-relax':'舒展开双臂', 'emotion-surprise':'缩了一下又凑过来看', 'emotion-proud':'挺起胸等你夸', 'emotion-gloomy':'叹口气又望向你', 'emotion-sad':'低头后朝你伸出手', 'emotion-irritated':'别过身又偷偷看你',  wave: "在跟你招手", stretch: "在伸懒腰", tea: "在喝茶", read: "在看书", sit: "坐下了",
     hop: "高兴得蹦了一下", jolt: "被你吓了一跳", nod: "在点头", sigh: "叹了口气", stomp: "在跺脚",
     turn: "扭过头去不理你", shy: "有点害羞", look: "回头看你", yawn: "在打哈欠", wake: "刚被你叫醒",
     land: "被你放下来了", held: "被你拎在手上晃", sleep: "睡着了" };
@@ -290,24 +290,92 @@
     }, []);
     return typing;
   }
-  // 聊天里认动作（她 2026-10-25 群友许愿「角色聊天可以触发动作」）：TA这一轮的话和动作描写里认词，
-  //   认到就让小人做一下；只认小人本来会的那几样，认不到就照旧。不调模型。
+  // 同一分句内认动作的两端，中间允许修饰、数量和称呼；不逐句枚举写法。
+  // 不跨标点牵线，免得把“点了杯茶，看着你的头发”拼成点头。
+  function actionSpan(...parts) {
+    const anchors = parts.map(p => new RegExp(p.source, "iu"));
+    // 依次找锚点，修饰没有字数上限，也不用多层 .* 在长句里反复回溯。
+    return clause => {
+      let at = 0;
+      for (const re of anchors) {
+        const match = re.exec(clause.slice(at));
+        if (!match) return false;
+        at += match.index + match[0].length;
+      }
+      return true;
+    };
+  }
+  function actionRule(kind, cues, ...spans) { return { kind, cues, spans }; }
+  const ACTION_HEAD = /头(?!发|像|绪|衔|条|号|皮|疼|痛|脑)|脑袋/;
   const ACT_RULES = [
-    ["wave", /挥手|招手|摆手|拜拜|再见|回头见|嗨[~～!！]|哈喽|早安|早上好/],
-    ["yawn", /哈欠|好困|困了|困死|犯困|睡意/],
-    ["stretch", /伸懒腰|伸了个懒腰|舒展|活动筋骨|活动一下/],
-    ["tea", /喝(?:了|一)?口?(?:茶|水|咖啡|奶茶|汤|酒)|抿了一口|端起杯/],
-    ["read", /看书|翻书|读书|翻了一页|写作业|学习|看文件|批文件/],
-    ["shy", /害羞|脸红|红了脸|耳朵红|不好意思|捂脸/],
-    ["hop", /蹦|跳起来|欢呼|雀跃|手舞足蹈|耶[!！~～]/],
-    ["stomp", /跺脚|气死|气炸|哼[!！]|炸毛/],
-    ["sigh", /叹气|叹了口气|唉/],
-    ["jolt", /吓一跳|吓了一跳|一激灵|吓死|心头一跳/],
-    ["nod", /点头|点了点头|嗯嗯|好好好|知道了|明白了/],
-    ["turn", /转身|扭头|别过脸|背过身/],
-    ["sit", /坐下|坐了下来|坐好|窝在|瘫在/]
+    actionRule("emotion-kiss", /飞吻|啵|么么|mua|mwah|\bkiss(?:es)?\b|😘|(?:^|[（(【\s])[亲吻](?=$|[）)】\s~～!！])|啾/i,
+      actionSpan(/亲(?!爱|属|自|切|近|情|缘|戚|眼|手|笔|口|身|生|友|民|密)|吻/, /亲|吻|口|下|你|您|我|她|他|额头|脸|嘴/), actionSpan(/飞/, /吻/)),
+    actionRule("emotion-giggle", /偷笑|憋笑|窃笑|忍笑/,
+      actionSpan(/偷|忍|憋/, /笑/), actionSpan(/捂|掩|抿/, /嘴/)),
+    actionRule("emotion-listen", /洗耳恭听|听着呢|在听呢/,
+      actionSpan(/侧|竖|拢/, /耳/), actionSpan(/凑|认真/, /听/), actionSpan(/听/, /你|您|我|她|他/, /说|讲/)),
+    actionRule("emotion-promise", /保证(?!金|书)|包在我身上|说到做到|一言为定/,
+      actionSpan(/拍/, /胸/), actionSpan(/发/, /誓/)),
+    actionRule("emotion-cheer", /加油|鼓劲|你(?:一定|肯定)?可以的|你能行/,
+      actionSpan(/握|攥/, /拳/), actionSpan(/打/, /气/), actionSpan(/鼓/, /掌/)),
+    actionRule("emotion-refuse", /不干了|才不要|才不呢|拒绝/,
+      actionSpan(/摇/, ACTION_HEAD), actionSpan(/摆/, /手/)),
+    actionRule("emotion-cozy", /抱抱|拥抱|🫂|\bhug(?:s)?\b|(?:^|[（(【\s])抱(?=$|[）)】\s~～!！])/i,
+      actionSpan(/抱|搂/, /抱|住|紧|下|你|我|她|他|过来|怀里|怀中/), actionSpan(/拥/, /抱/),
+      actionSpan(/张|敞/, /双臂|手臂|胳膊/), actionSpan(/伸/, /出|开/, /双臂|手臂|胳膊/),
+      actionSpan(/双臂|手臂|胳膊/, /张|伸/, /开/), actionSpan(/伸手/, /抱/)),
+    actionRule("emotion-chin", /托腮/,
+      actionSpan(/托|撑|支/, /下巴|腮|脸颊/)),
+    actionRule("emotion-dance", /跳舞|手舞足蹈|跟着节拍/,
+      actionSpan(/跳/, /舞/), actionSpan(/扭/, /腰/), actionSpan(/音乐|节拍/, /摇|晃|摆/)),
+    actionRule("emotion-bow", /弯腰致意/,
+      actionSpan(/鞠/, /躬/), actionSpan(/欠|躬/, /身/)),
+    actionRule("emotion-shrug", /两手一摊/,
+      actionSpan(/耸/, /肩/), actionSpan(/摊/, /手/)),
+    actionRule("emotion-beckon", /过来(?:一点|点|呀|嘛|抱)|靠近(?:一点|些|我)/,
+      actionSpan(/招/, /手/, /叫|让|示意|喊|过来|靠近/), actionSpan(/勾/, /手/)),
+    actionRule("emotion-peek", /左顾右盼|东张西望/,
+      actionSpan(/探/, ACTION_HEAD), actionSpan(/四下|左右/, /看|张望/)),
+    actionRule("emotion-show", /好看吗/,
+      actionSpan(/展示|显摆/, /衣|穿搭/), actionSpan(/转/, /圈/, /给你看|展示/)),
+    actionRule("emotion-five-right", /give\s+me\s+five|high[ -]?five/i,
+      actionSpan(/击/, /掌/)),
+    actionRule("wave", /拜拜|拜了个拜|再见|回头见|嗨(?:[~～!！]|呀|喽|咯|$)|哈[喽啰罗]|hello|hi[!！~～]|早安|早上好|晚上好|晚安/i,
+      actionSpan(/挥|招/, /手/)),
+    actionRule("yawn", /[哈呵]欠|好困|困(?:了|死|得|意)|犯困|睡意|想睡|想打盹|睁不开眼|眼皮打架/,
+      actionSpan(/打/, /[哈呵]欠/)),
+    actionRule("stretch", /舒展|活动一下/,
+      actionSpan(/伸/, /懒腰/), actionSpan(/伸伸|活动/, /筋骨|身体|胳膊|腰/)),
+    actionRule("tea", /干杯/,
+      actionSpan(/喝|饮|抿|啜/, /茶|水|咖啡|奶茶|汤|酒|口/), actionSpan(/端|举|捧/, /杯|茶盏/)),
+    actionRule("read", /学习|温习|复习|埋头读/,
+      actionSpan(/看|翻|读|阅|批|写/, /书(?!店|架|包|柜)|文件|资料|课本|作业|卷宗|页/)),
+    actionRule("shy", /害羞|羞(?:涩|红|怯|得)|不好意思/,
+      actionSpan(/脸|耳/, /红/), actionSpan(/红/, /脸|耳/), actionSpan(/捂|遮/, /脸/)),
+    actionRule("hop", /蹦|欢呼|雀跃|手舞足蹈|耶(?:[!！~～]|$)|好耶|太棒了|太好了/,
+      actionSpan(/跳/, /起来|起身/)),
+    actionRule("stomp", /气死|气炸|哼(?:[!！~～]|$)|炸毛|气鼓鼓/,
+      actionSpan(/跺/, /脚/)),
+    actionRule("sigh", /叹息|长叹|唉|哎呀呀/,
+      actionSpan(/叹/, /气/)),
+    actionRule("jolt", /一激灵|吓死|心头一跳|吓到(?:了)?我/,
+      actionSpan(/吓|惊/, /一跳/), actionSpan(/打/, /激灵/)),
+    actionRule("nod", /颔首|嗯嗯|好好好|知道(?:了|啦|喽)|明白(?:了|啦)|收到|没问题|好嘞|好哒/,
+      actionSpan(/点(?!心|菜|餐|单|评|击|名|播|赞|火|灯|烟|缀|开|亮)/, ACTION_HEAD), actionSpan(/颔/, /首/),
+      actionSpan(ACTION_HEAD, /点(?=了|着|过|下|几|一|两|三|点|得|个|$)/)),
+    actionRule("turn", /转身|扭头|别过脸|背过身/,
+      actionSpan(/转(?!账|帐|发|运|学|型)|扭|别|背/, new RegExp("身|脸|" + ACTION_HEAD.source, "u"))),
+    actionRule("sit", /坐着|落座|盘腿/,
+      actionSpan(/坐|窝|瘫/, /下|好|回|在|进|到|沙发|椅|床|地上/), actionSpan(/盘/, /腿/))
   ];
-  function actForText(text) { const s = String(text || ""); for (const [k, re] of ACT_RULES) if (re.test(s)) return k; return ""; }
+  function actForText(text) {
+    const s = String(text || "").normalize("NFKC");
+    const clauses = s.split(/[。！？!?；;，,：:\n\r]/u);
+    // 明确动作优先于“早安／知道了”等口头提示；仍只在原动作表选一套。
+    for (const rule of ACT_RULES) if (clauses.some(clause => rule.spans.some(match => match(clause)))) return rule.kind;
+    for (const rule of ACT_RULES) if (rule.cues.test(s)) return rule.kind;
+    return "";
+  }
   function useChatAct(charId, frame) {
     useEffect(() => {
       const on = e => { const d = e && e.detail; if (!d || d.charId !== charId) return; const k = actForText(d.text);

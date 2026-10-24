@@ -4,6 +4,33 @@ const beat=(p,a,b,c,d)=>ease((p-a)/(b-a))*(1-ease((p-c)/(d-c)));
 export function emotionPose(face,p){
  const e=beat(p,0,.18,.76,1),late=beat(p,.42,.6,.78,1),q={left:[0,0,0],right:[0,0,0],tilt:0,roll:0,yaw:0,lift:0};
  switch(face){
+ case 'kiss': { // 手先停在嘴前，再把飞吻送出去，最后收手
+  const send=ease((p-.34)/.3);
+  q.right=[-.32*e,0,.35*e];q.rightElbow=-1.65*e;q.headHold=e;
+  if(e)q.headPoint=[.18,-.45-.6*send,1.36+.92*send];
+  q.left=[-.18*e,0,-.16*e];q.tilt=.035*e;q.roll=-.035*e;break;}
+ case 'giggle': { // 捂住嘴边，肩膀轻轻笑两下
+  const laugh=Math.sin(p*Math.PI*10)*beat(p,.22,.32,.62,.78);
+  q.right=[-.32*e,0,.35*e];q.rightElbow=-1.65*e;q.headHold=e;
+  if(e)q.headPoint=[.48,-.35,1.36];
+  q.left=[-.16*e,0,-.1*e];q.tilt=.045*e+.012*laugh;q.roll=-.045*e+.012*laugh;break;}
+ case 'listen': // 把手拢到耳边，侧过头听，停一拍再点头
+  q.right=[-.32*e,0,.35*e];q.rightElbow=-1.65*e;q.headHold=e;
+  if(e)q.headPoint=[1.38,-.12,.6];
+  q.left=[-.12*e,0,-.12*e];q.roll=-.065*e;q.yaw=-.12*e;q.tilt=.04*late;break;
+ case 'promise': { // 屈肘收手到胸前，拍两下，再挺直身子
+  const tap=beat(p,.2,.28,.32,.4)+beat(p,.44,.52,.56,.64);
+  q.right=[-.32*e,0,.35*e];q.rightElbow=-1.65*e;q.headHold=e;
+  if(e)q.headPoint=[.38,-1.27,1.04-.12*tap];
+  q.left=[-.1*e,0,-.22*e];q.tilt=-.045*e;q.yaw=-.08*e;break;}
+ case 'cheer': { // 两只手屈肘举起来，交替向上打气
+  const pump=Math.sin(p*Math.PI*6)*beat(p,.16,.28,.64,.8);
+  q.left=[(-1.8-.25*pump)*e,0,-.5*e];q.right=[(-1.8+.25*pump)*e,0,.5*e];
+  q.leftElbow=-1.15*e;q.rightElbow=-1.15*e;q.roll=.04*pump;q.tilt=-.025*e;break;}
+ case 'refuse': { // 手在身前左右摆，身体跟着摇头的方向轻转
+  const shake=Math.sin((p-.14)*Math.PI*8)*beat(p,.12,.24,.64,.84);
+  q.right=[-1.65*e,0,(.34+.26*shake)*e];q.left=[-.12*e,0,-.14*e];
+  q.yaw=.17*shake;q.roll=.025*shake;break;}
  case 'chin': { // 收手托住下巴，歪头听一会儿，再轻轻点头收势
   const hold=beat(p,0,.24,.72,1),nod=beat(p,.58,.64,.68,.76);
   q.right=[-.32*hold,0,.35*hold];q.left=[-.12*hold,0,-.08*hold];q.rightElbow=-1.65*hold;q.chinHold=hold;
