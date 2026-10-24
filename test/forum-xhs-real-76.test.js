@@ -21,3 +21,12 @@ assert.match(ui, /sort\(\(a, b\) => xhsLikes\(p, b\) - xhsLikes\(p, a\)\)/);
 assert.match(ui, /cardLayout \? "发笔记" : "发帖"/);
 for (const k of ["foxhsprofile", "foxhsproftab", "foauthorliked", "foxhsphoto", "foxhstopics"]) { assert.match(ui, new RegExp('"data-wk": "' + k + '"')); assert.match(ts, new RegExp('\\["' + k + '", "')); }
 console.log("ok2");
+// 第二轮：顶上关注/发现/收藏＋话题、消息三栏、搜索双列最热最新、一左一右的双列
+assert.match(ui, /else if \(tab !== "发现"\) arr = arr\.filter\(p => p\.board === tab\)/);
+assert.match(ui, /function xhsNoticeTabs\(\)/);
+assert.match(ui, /if \(cardLayout && noticeTab !== "cmt"\) return/);
+assert.match(ui, /const xhsGrid = \(list, wk\) =>/);
+assert.ok(!/columnCount: 2/.test(ui), "双列都走 xhsGrid");
+assert.match(ui, /onGenBoard\(tab === "发现" \? xhsRandBoard\(\) : tab\)/);
+for (const k of ["foxhstop", "foxhstoptab", "foxhstopicrow", "foxhstopic", "foxhsnotice", "foxhsnoticetab", "foxhslikerow", "foxhsfanrow", "foxhssearchsort"]) { assert.match(ui, new RegExp('"data-wk": "' + k + '"')); assert.match(ts, new RegExp('\\["' + k + '", "')); }
+console.log("ok3");

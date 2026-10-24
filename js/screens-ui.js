@@ -2114,7 +2114,9 @@ function Forum({
   const [rulesOpen, setRulesOpen] = useState(false);
   // 小红书笔记的评论区：回复多了只露一条，点「展开」才全看（记的是哪几条评论展开着）
   const [xhsOpen, setXhsOpen] = useState({});
-  const [profTab, setProfTab] = useState("notes");   // 小红书主页那三栏：笔记 / 收藏 / 赞过  // 置顶吧规那块牌子，默认只露第一条
+  const [profTab, setProfTab] = useState("notes");
+  const [noticeTab, setNoticeTab] = useState("cmt");   // 小红书消息页：评论和@ / 赞和收藏 / 新增关注
+  const [searchSort, setSearchSort] = useState("hot"); // 小红书搜索结果：最热 / 最新   // 小红书主页那三栏：笔记 / 收藏 / 赞过  // 置顶吧规那块牌子，默认只露第一条
   const [refreshMenu, setRefreshMenu] = useState(false);  // 右上角刷新键点开的那张小单子
   // 开个吧（她自己的吧，存 x_forumBoards）。boardsRev 只是让那排 tab 重画一次——吧表本身每次现读存档
   const [newBoard, setNewBoard] = useState(null);     // null＝没在开；{name, about}＝正在填
@@ -2621,6 +2623,10 @@ function Forum({
     return String(txt || "").replace(/@([^\s@，。,.!！?？:：、）)」]+)\s*/g, (all, name) => known.has(name) ? all : "");
   };
   // 小红书评论的热度：作者回过、被很多人接话的评论更容易被顶上去（只在显示时算，存档不动）
+  // 双列：一左一右轮着放（CSS 分栏是先把左边一列填满，两三篇时全挤在左边）
+  const xhsGrid = (list, wk) => h("div", { "data-wk": wk || "foxhsgrid", className: "flex items-start", style: { gap: 8, padding: "10px 10px 0" } },
+    [0, 1].map(col => h("div", { key: col, className: "flex-1 min-w-0" }, list.filter((x, i) => i % 2 === col).map(noteCard))));
+  const xhsRandBoard = () => { const bs = forumBoardsAll().filter(b => b !== "匿名吧"); return bs[Math.floor(Math.random() * bs.length)] || "日常吧"; };
   const xhsAuthorReplied = (post, cm) => (cm.replies || []).some(r => r && (r.isOp || (!post.anon && r.authorName === post.authorName)));
   const xhsLikes = (post, cm) => Number(cm.likeCount || 0) + (cm.replies || []).length * 6 + (xhsAuthorReplied(post, cm) ? 24 : 0);
   // 小红书的主页：获赞与收藏一行，下面笔记排成双列；自己的主页多「收藏」「赞过」两栏
@@ -2635,7 +2641,7 @@ function Forum({
       h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.fog, padding: "10px 16px 0" } }, h("b", { style: { color: t.ink } }, fmtNum(got)), " 获赞与收藏"),
       h("div", { role: "tablist", className: "flex justify-center", style: { gap: 28, borderBottom: "1px solid " + t.line, marginTop: 8 } }, tabs.map(([k, zh]) => h("button", { key: k, role: "tab", "aria-selected": tab === k, "data-wk": "foxhsproftab", "data-on": tab === k ? "1" : "0", onClick: () => setProfTab(k), className: "active:opacity-60",
         style: { minHeight: 40, padding: "0 4px", fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: tab === k ? t.ink : t.fog, fontWeight: tab === k ? 700 : 400, borderBottom: "2px solid " + (tab === k ? FORUM_SKIN.accent : "transparent") } }, zh))),
-      list.length ? h("div", { style: { columnCount: 2, columnGap: 8, padding: "10px 10px 0" } }, list.map(noteCard))
+      list.length ? xhsGrid(list)
         : h(Empty, { text: tab === "fav" ? "还没收藏过笔记" : tab === "liked" ? "还没赞过笔记" : (isMe ? "你还没发过笔记" : "还没有笔记") }));
   }
   // 小红书笔记的正文：#话题 标成链接色
@@ -2919,8 +2925,38 @@ function Forum({
   }
 
   // ---- 回复我的：只列有明确本地证据的直达通知，不让模型猜谁在 @ 我 ----
+  // 小红书的消息页：三栏。赞和收藏照你笔记上那两个数，新增关注是回关了你的角色
+  function xhsNoticeTabs() {
+    const tabs = [["cmt", "评论和@"], ["like", "赞和收藏"], ["fan", "新增关注"]];
+    return h("div", { role: "tablist", "data-wk": "foxhsnotice", className: "flex", style: { borderBottom: "1px solid " + t.line } }, tabs.map(([k, zh]) => h("button", { key: k, role: "tab", "aria-selected": noticeTab === k, "data-wk": "foxhsnoticetab", "data-on": noticeTab === k ? "1" : "0", onClick: () => setNoticeTab(k), className: "flex-1 active:opacity-60",
+      style: { minHeight: 44, fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", color: noticeTab === k ? t.ink : t.fog, fontWeight: noticeTab === k ? 700 : 400, borderBottom: "2px solid " + (noticeTab === k ? FORUM_SKIN.accent : "transparent") } },
+      zh, k === "cmt" && unreadNoticeCount > 0 ? " " + unreadNoticeCount : "")));
+  }
+  function xhsLikeList() {
+    const mineN = (posts || []).filter(p => forumVisible(p) && p.fmt === "xhs" && p.authorType === "me").sort((a, b) => Number(b.ts || 0) - Number(a.ts || 0));
+    if (!mineN.length) return h(Empty, { text: "还没有赞和收藏", sub: "发了笔记，赞和收藏会记在这里" });
+    return mineN.map(p => { const lc = forumLiveCounts(p, forumNow) || {};
+      return h("button", { key: p.id, "data-wk": "foxhslikerow", onClick: () => openPost(p), className: "w-full text-left px-4 py-3 flex items-center gap-3 active:opacity-70", style: { borderBottom: "1px solid " + t.line } },
+        h("div", { className: "flex-1 min-w-0" },
+          h("div", { className: "truncate", style: { fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", color: t.ink } }, "《" + (p.title || "笔记") + "》"),
+          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog, marginTop: 3 } }, fmtNum(lc.likeCount || 0) + " 人赞了 · " + fmtNum(lc.rtCount || 0) + " 人收藏了 · " + timeAgo(p.ts))),
+        h(IHeart, { size: 16, color: "#e0245e", filled: true }));
+    });
+  }
+  function xhsFanList() {
+    const fans = fanChars.slice().sort((a, b) => Number(((followBack || {})[b.id] || {}).at || 0) - Number(((followBack || {})[a.id] || {}).at || 0));
+    if (!fans.length) return h(Empty, { text: "还没有新增关注", sub: "你关注的角色回关你时会出现在这里" });
+    return fans.map(c => h("div", { key: c.id, "data-wk": "foxhsfanrow", role: "button", onClick: () => goProfile(c.id), className: "w-full text-left px-4 py-3 flex items-center gap-3 active:opacity-70 cursor-pointer", style: { borderBottom: "1px solid " + t.line } },
+      h(Avatar, { character: c, size: 40, radius: 20 }),
+      h("div", { className: "flex-1 min-w-0" },
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(14.5px * var(--app-fs, 1))", color: t.ink } }, c.name),
+        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog, marginTop: 2 } }, "开始关注你了 · " + timeAgo(((followBack || {})[c.id] || {}).at))),
+      h("button", { onClick: e => { e.stopPropagation(); if (!flw.includes(c.id)) onToggleFollow(c.id); }, className: "shrink-0 active:opacity-60", style: { minHeight: 32, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: flw.includes(c.id) ? t.fog : FORUM_SKIN.accent, border: "1px solid " + (flw.includes(c.id) ? t.line : FORUM_SKIN.accent), borderRadius: 999, padding: "4px 11px" } }, flw.includes(c.id) ? "互相关注" : "回关")));
+  }
   function noticeList() {
+    if (cardLayout && noticeTab !== "cmt") return h("div", { className: "flex-1 overflow-y-auto" }, xhsNoticeTabs(), noticeTab === "like" ? xhsLikeList() : xhsFanList());
     return h("div", { className: "flex-1 overflow-y-auto" },
+      cardLayout && xhsNoticeTabs(),
       forumNotices.length === 0 && h(Empty, { text: "还没有人回复你", sub: "你发帖或在楼里说话后，新的直接回复会出现在这里" }),
       // 一键已读（群友 2026-10-11：「一边刷一边回已经都看过了，回复那边还显示都没看过」）
       unreadNoticeCount > 0 && h("div", { className: "px-4 py-2 flex items-center", style: { borderBottom: `1px solid ${t.line}` } },
@@ -2975,7 +3011,7 @@ function Forum({
     let arr = (posts || []).filter(p => forumVisible(p) && (tab === "收藏" || forumBoardsAll().includes(p.board)) && (p.fmt === "xhs") === cardLayout);
     if (tab === "收藏") arr = arr.filter(p => bookmarked.has(p.id));
     else if (tab === "关注") arr = arr.filter(followedPost);
-    else arr = arr.filter(p => p.board === tab);
+    else if (tab !== "发现") arr = arr.filter(p => p.board === tab);
     arr = arr.slice().sort((a, b) => {
       if (feedSort === "latest") return Number(b.ts || 0) - Number(a.ts || 0);
       if (feedSort === "hot") return postHotScore(b) - postHotScore(a) || postLastActivity(b) - postLastActivity(a);
@@ -3012,9 +3048,9 @@ function Forum({
       tab === "关注" && flw.length === 0 && npcFollows.length === 0 && h(Empty, { text: "还没有关注任何人", sub: "点进角色或网友主页关注" }),
       tab === "关注" && (flw.length > 0 || npcFollows.length > 0) && shown.length === 0 && h(Empty, { text: "关注的人还没发过公开帖", sub: "" }),
       tab === "收藏" && shown.length === 0 && h(Empty, { text: "还没有收藏帖子", sub: "看到想留着的，点帖子下面的 ☆" }),
-      tab !== "关注" && tab !== "收藏" && shown.length === 0 && !(gen && gen.forum === tab) && h(Empty, { text: "「" + tab + "」还没有帖子", sub: "点右上角刷新键让网友发帖" }),
+      tab !== "关注" && tab !== "收藏" && shown.length === 0 && !(gen && gen.forum === tab) && h(Empty, { text: tab === "发现" ? "还没有笔记" : "「" + tab + "」还没有帖子", sub: "点右上角刷新键让网友发帖" }),
       gen && gen.forum === tab && shown.length === 0 && h(Spinner, { label: "网友正在冒泡…" }),
-      cardLayout ? h("div", { "data-wk": "fonotes", style: { columnCount: 2, columnGap: 8, padding: "10px 10px 0" } }, shown.map(noteCard)) : shown.map(p => postRow(p, false)),
+      cardLayout ? xhsGrid(shown, "fonotes") : shown.map(p => postRow(p, false)),
       arr.length > shown.length && h("button", { onClick: () => setPage(page + 1), className: "w-full py-3 active:opacity-60", style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.tint } }, "加载更多 (" + (arr.length - shown.length) + ")"),
       h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: FORUM_SKIN.fog, textAlign: "center", padding: "2px 16px 10px", lineHeight: 1.6 } },
         "每一帖右上角那个 ✕ 单独删它；整版清空在吧规那条横杠右边"));
@@ -3022,16 +3058,20 @@ function Forum({
 
   // ---- 搜索：四版块之外的吧 ----
   function searchView() {
-    const arr = (posts || []).filter(p => forumVisible(p) && !forumBoardsAll().includes(p.board)).sort((a, b) => b.ts - a.ts);
+    // 双列时只列小红书那套，可以按最热／最新排
+    const arr = (posts || []).filter(p => forumVisible(p) && !forumBoardsAll().includes(p.board) && (!cardLayout || p.fmt === "xhs"))
+      .sort((a, b) => cardLayout && searchSort === "hot" ? postHotScore(b) - postHotScore(a) : b.ts - a.ts);
     const busy = gen && gen.forumSearch;
     const go = () => onGenSearch(searchQ.trim());
     return h("div", { className: "flex-1 overflow-y-auto" },
       h("div", { className: "px-4 py-3 flex gap-2", style: { borderBottom: `1px solid ${t.line}` } },
-        h("input", { "data-wk": "input", value: searchQ, onChange: e => setSearchQ(e.target.value), onKeyDown: e => e.key === "Enter" && go(), placeholder: "搜个吧 / 话题（留空随机刷）", className: "flex-1 outline-none px-3.5 py-2 rounded-full", style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", background: t.bg2, color: t.ink, border: `1px solid ${t.line}` } }),
+        h("input", { "data-wk": "input", value: searchQ, onChange: e => setSearchQ(e.target.value), onKeyDown: e => e.key === "Enter" && go(), placeholder: cardLayout ? "搜笔记 / 话题（留空随机刷）" : "搜个吧 / 话题（留空随机刷）", className: "flex-1 outline-none px-3.5 py-2 rounded-full", style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", background: t.bg2, color: t.ink, border: `1px solid ${t.line}` } }),
         h("button", { onClick: go, disabled: busy, className: "px-4 rounded-full active:opacity-70 disabled:opacity-40", style: { background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))" } }, busy ? "…" : "刷")),
       busy && arr.length === 0 && h(Spinner, { label: "正在逛别的吧…" }),
       !busy && arr.length === 0 && h(Empty, { text: "还没逛到别的吧", sub: "搜个话题，或留空直接点「刷」随机逛" }),
-      arr.map(p => postRow(p, true)));
+      cardLayout && arr.length > 0 && h("div", { "data-wk": "foxhssearchsort", className: "flex px-4 pt-2", style: { gap: 18 } }, [["hot", "最热"], ["latest", "最新"]].map(([k, zh]) => h("button", { key: k, "data-on": searchSort === k ? "1" : "0", onClick: () => setSearchSort(k), className: "active:opacity-60",
+        style: { minHeight: 32, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: searchSort === k ? t.ink : t.fog, fontWeight: searchSort === k ? 700 : 400 } }, zh))),
+      cardLayout ? xhsGrid(arr) : arr.map(p => postRow(p, true)));
   }
 
   // ---- 主体分派 ----
@@ -3043,7 +3083,7 @@ function Forum({
   else if (profileId && profileId !== "me") { title = "主页"; bodyEl = profileView(false); backFn = () => leaveSub(() => setProfileId(null)); }
   else if (pmId) { title = ((pms || []).find(x => x.id === pmId) || {}).npcName || "私信"; bodyEl = pmThread(); backFn = () => setPmId(null); }
   else if (nav === "search") { title = "搜索"; bodyEl = searchView(); rightEl = h("button", { onClick: () => onGenSearch(searchQ.trim()), className: "active:opacity-50" }, h(IRefresh, { size: 19, color: t.ink })); }
-  else if (nav === "notice") { title = "回复我的"; bodyEl = noticeList(); }
+  else if (nav === "notice") { title = cardLayout ? "消息" : "回复我的"; bodyEl = noticeList(); }
   else if (nav === "pm") { title = "私信"; bodyEl = pmList(); }
   else if (nav === "me") { title = "我"; bodyEl = profileView(true); }
   // ⚠️刷新键点开是一张小单子（她 2026-09-23：「太占位置了，改成放到刷新键，点开有一个刷新键一个『请TA们发帖』键」）：
@@ -3065,7 +3105,18 @@ function Forum({
       right: h("div", { className: "flex items-center", style: { gap: 4 } },
         (!inSub) && h("button", { onClick: () => setSettingsOpen(true), "aria-label": "论坛设置", className: "active:opacity-50 flex items-center justify-center", style: { width: 32, height: 40 } }, h(GConfig, { size: 17, color: FORUM_SKIN.ink })),
         rightEl ? h("span", { className: "flex items-center justify-center", style: { width: 32, height: 40 } }, rightEl) : null) }),
-    (!inSub && nav === "home") && h("div", { "data-wk": "foboards", className: "shrink-0 flex gap-1.5 px-4 pb-2 overflow-x-auto", style: { borderBottom: "1px solid " + FORUM_SKIN.line, background: "rgba(244,247,240,.88)", scrollbarWidth: "none" } }, [...forumBoardsAll(), "关注", "收藏"].map(b => {
+    // 小红书那样：顶上三个大栏，「发现」底下一排 #话题（「推荐」是全部话题混在一起）
+    (!inSub && nav === "home" && cardLayout) && h("div", { "data-wk": "foxhstop", className: "shrink-0", style: { borderBottom: "1px solid " + FORUM_SKIN.line, background: "rgba(244,247,240,.88)" } },
+      h("div", { role: "tablist", className: "flex justify-center", style: { gap: 30 } }, [["关注", "关注"], ["发现", "发现"], ["收藏", "收藏"]].map(([k, zh]) => {
+        const on = k === "发现" ? (tab !== "关注" && tab !== "收藏") : tab === k;
+        return h("button", { key: k, role: "tab", "aria-selected": on, "data-wk": "foxhstoptab", "data-on": on ? "1" : "0", onClick: () => { setTab(k); setPage(1); }, className: "active:opacity-60",
+          style: { minHeight: 40, padding: "0 2px", fontFamily: F_BODY, fontSize: "calc(15px * var(--app-fs, 1))", fontWeight: on ? 700 : 400, color: on ? FORUM_SKIN.ink : FORUM_SKIN.fog, borderBottom: "2px solid " + (on ? FORUM_SKIN.accent : "transparent") } }, zh);
+      })),
+      tab !== "关注" && tab !== "收藏" && h("div", { "data-wk": "foxhstopicrow", className: "flex gap-2 px-4 pb-2 pt-1 overflow-x-auto", style: { scrollbarWidth: "none" } },
+        [["发现", "推荐"]].concat(forumBoardsAll().map(b => [b, "#" + b])).map(([k, zh]) => h("button", { key: k, "data-wk": "foxhstopic", "data-on": tab === k ? "1" : "0", onClick: () => { setTab(k); setPage(1); }, className: "shrink-0 whitespace-nowrap active:opacity-60",
+          style: { minHeight: 32, padding: "0 12px", borderRadius: 999, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", background: tab === k ? FORUM_SKIN.paper : "transparent", color: tab === k ? FORUM_SKIN.ink : FORUM_SKIN.fog, fontWeight: tab === k ? 700 : 400, border: "1px solid " + (tab === k ? FORUM_SKIN.line : "transparent") } }, zh))
+          .concat([h("button", { key: "__newboard", onClick: () => setNewBoard({ name: "", about: "" }), className: "shrink-0 whitespace-nowrap active:opacity-60", style: { minHeight: 32, padding: "0 12px", borderRadius: 999, border: "1px dashed " + FORUM_SKIN.line, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: FORUM_SKIN.sub } }, "＋ 新话题")]))),
+    (!inSub && nav === "home" && !cardLayout) && h("div", { "data-wk": "foboards", className: "shrink-0 flex gap-1.5 px-4 pb-2 overflow-x-auto", style: { borderBottom: "1px solid " + FORUM_SKIN.line, background: "rgba(244,247,240,.88)", scrollbarWidth: "none" } }, [...forumBoardsAll(), "关注", "收藏"].map(b => {
       const count = (posts || []).filter(p => forumVisible(p) && (b === "收藏" ? bookmarked.has(p.id) : b === "关注" ? followedPost(p) : p.board === b)).reduce((n, p) => n + unreadFloors(p.id), 0);
       return chip((cardLayout && b !== "关注" && b !== "收藏" ? "#" : "") + b + (count > 0 ? " · " + count : ""), tab === b, () => { setTab(b); setPage(1); });
     }).concat([
@@ -3099,11 +3150,11 @@ function Forum({
         boardRules.map((r, k) => h("div", { key: k, className: "flex", style: { gap: 6, fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", lineHeight: 1.7, color: FORUM_SKIN.sub } },
           h("span", { style: { flexShrink: 0, color: forumBoardSkin(tab)[0] } }, (k + 1) + "."), h("span", null, r))))),
     // 时间线像公告栏上三张钉着的排序便笺：选中那张抬起、钉子落墨，不是换个色的胶囊。
-    (!inSub && nav === "home") && h("div", { "data-wk": "fosort", className: "shrink-0 grid grid-cols-3 gap-2 px-4 py-2", style: { borderBottom: "1px solid " + FORUM_SKIN.line, background: "rgba(255,255,255,.34)" } },
+    (!inSub && nav === "home" && !cardLayout) && h("div", { "data-wk": "fosort", className: "shrink-0 grid grid-cols-3 gap-2 px-4 py-2", style: { borderBottom: "1px solid " + FORUM_SKIN.line, background: "rgba(255,255,255,.34)" } },
       [["active", "正在聊"], ["latest", "最新发帖"], ["hot", "热榜"]].map((x, xi) => { const active = feedSort === x[0]; return h("button", { key: x[0], title: x[0] === "active" ? "新回复会把旧帖顶回来" : (x[0] === "hot" ? "热度会随时间降温" : "只按发帖时间"), onClick: () => { setFeedSort(x[0]); setPage(1); }, className: "active:opacity-70 flex flex-col items-center justify-center", style: { minHeight: 44, position: "relative", borderRadius: 4, transform: active ? "translateY(-2px) rotate(" + (xi - 1) * .35 + "deg)" : "translateY(2px)", fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: active ? FORUM_SKIN.ink : FORUM_SKIN.fog, background: active ? FORUM_SKIN.paper : "rgba(255,255,255,.26)", border: "1px solid " + (active ? FORUM_SKIN.line : "transparent"), borderTop: "3px solid " + (active ? FORUM_SKIN.accent : "rgba(74,94,65,.18)"), boxShadow: active ? "0 5px 12px rgba(74,94,65,.13)" : "none" } }, h("span", { style: { position: "absolute", top: 4, width: 5, height: 5, borderRadius: 99, background: active ? FORUM_SKIN.accent : FORUM_SKIN.line } }), h("span", { style: { marginTop: 5 } }, x[1])); })),
     bodyEl,
     (!inSub) && h("div", { "data-wk": "fonav", className: "shrink-0 flex", style: { borderTop: "1px solid " + FORUM_SKIN.line, background: "rgba(248,250,245,.94)", backdropFilter: "blur(14px)", WebkitBackdropFilter: "blur(14px)", paddingBottom: COMPOSER_PAD_BOTTOM } },
-      [["home", IHome, "主页"], ["search", ISearch, "搜索"], ["notice", IPulse, "回复"], ["pm", IMail, "私信"], ["me", GUser, "我"]].map(nx => { const Ic = nx[1]; const active = nav === nx[0]; return h("button", { key: nx[0], "data-wk": "fonavtab", "data-part": nx[0], "data-on": active ? "1" : "0", onClick: () => { setNav(nx[0]); setFromPost(null); }, className: "flex-1 pt-1.5 pb-1 flex flex-col items-center gap-0.5 active:opacity-60 relative", style: { color: active ? FORUM_SKIN.ink : FORUM_SKIN.fog } },
+      [["home", IHome, "主页"], ["search", ISearch, "搜索"], ["notice", IPulse, cardLayout ? "消息" : "回复"], ["pm", IMail, "私信"], ["me", GUser, "我"]].map(nx => { const Ic = nx[1]; const active = nav === nx[0]; return h("button", { key: nx[0], "data-wk": "fonavtab", "data-part": nx[0], "data-on": active ? "1" : "0", onClick: () => { setNav(nx[0]); setFromPost(null); }, className: "flex-1 pt-1.5 pb-1 flex flex-col items-center gap-0.5 active:opacity-60 relative", style: { color: active ? FORUM_SKIN.ink : FORUM_SKIN.fog } },
         h("span", { className: "flex items-center justify-center", style: { width: 38, height: 27, borderRadius: 999, background: active ? FORUM_SKIN.soft : "transparent" } }, h(Ic, { size: 19, color: active ? FORUM_SKIN.accent : FORUM_SKIN.fog })),
         h("span", { style: { fontFamily: F_BODY, fontSize: "calc(9.5px * var(--app-fs, 1))" } }, nx[2]),
         nx[0] === "pm" && unreadPM > 0 && h("span", { style: { position: "absolute", top: 2, right: "50%", marginRight: -22, minWidth: 14, height: 14, padding: "0 3px", borderRadius: 999, background: t.accent, color: "#fff", fontSize: "calc(8.5px * var(--app-fs, 1))", fontFamily: F_BODY, display: "flex", alignItems: "center", justifyContent: "center" } }, unreadPM),
@@ -3111,8 +3162,8 @@ function Forum({
     refreshMenu && !inSub && nav === "home" && tab !== "收藏" && h(React.Fragment, null,
       h("div", { onClick: () => setRefreshMenu(false), style: { position: "absolute", inset: 0, zIndex: 40 } }),
       h("div", { "data-wk": "block", style: { position: "absolute", top: safeTop(46), right: 12, zIndex: 41, minWidth: 168, padding: 5, borderRadius: 10, background: FORUM_SKIN.paper, border: "1px solid " + FORUM_SKIN.line, boxShadow: "0 12px 28px rgba(39,49,38,.18)", animation: "qqIn .16s ease both" } },
-        [tab !== "关注" && ["刷新", "网友来发帖", () => onGenBoard(tab)],
-         onGenCharPosts && ["请TA们发帖", tab === "关注" ? "你的 char，自己挑吧" : "你的 char，发到「" + tab + "」", () => onGenCharPosts(tab)]]
+        [tab !== "关注" && ["刷新", tab === "发现" ? "网友来发笔记，话题随机" : "网友来发帖", () => onGenBoard(tab === "发现" ? xhsRandBoard() : tab)],
+         onGenCharPosts && ["请TA们发帖", tab === "关注" || tab === "发现" ? "你的 char，自己挑吧" : "你的 char，发到「" + tab + "」", () => onGenCharPosts(tab === "发现" ? "关注" : tab)]]
           .filter(Boolean).map((x, k) => h("button", { key: k, onClick: () => { setRefreshMenu(false); x[2](); }, className: "w-full text-left active:opacity-60",
             style: { display: "block", minHeight: 44, padding: "7px 11px", borderRadius: 7, borderTop: k ? "1px solid " + FORUM_SKIN.line : "none" } },
             h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", color: FORUM_SKIN.ink } }, x[0]),

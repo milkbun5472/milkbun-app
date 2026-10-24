@@ -6,7 +6,7 @@ const app = fs.readFileSync(__dirname + "/../js/app.js", "utf8");
 test("没有笔记吧（她 2026-10-07 叫删）；双列开关管排版也管格式", () => {
   assert.doesNotMatch(scr, /"笔记吧"/);
   assert.doesNotMatch(app, /"笔记吧"/);
-  assert.match(scr, /cardLayout \? h\("div", \{ "data-wk": "fonotes", style: \{ columnCount: 2/);
+  assert.match(scr, /cardLayout \? xhsGrid\(shown, "fonotes"\)/);
   assert.match(scr, /localStorage\.setItem\("x_forumLayout", v \? "cards" : "list"\)/);
   assert.match(app, /const forumFmtLine = \(\) => \{ let on = false; try \{ on = localStorage\.getItem\("x_forumLayout"\) === "cards"/);
   assert.match(app, /castLine \+ forumFmtLine\(\) \+ " 生成 3-5 条/);
@@ -15,7 +15,7 @@ test("没有笔记吧（她 2026-10-07 叫删）；双列开关管排版也管�
 });
 test("排版开关在论坛「我」页，不在排序那排", () => {
   assert.match(scr, /isMe && h\("div", \{ className: "flex items-center gap-2 mt-3" \},\s*h\("span", [^\n]*?\}, "首页排版"\)/);
-  assert.match(scr, /\(!inSub && nav === "home"\) && h\("div", \{ "data-wk": "fosort", className: "shrink-0 grid grid-cols-3 gap-2 px-4 py-2"/);
+  assert.match(scr, /\(!inSub && nav === "home" && !cardLayout\) && h\("div", \{ "data-wk": "fosort", className: "shrink-0 grid grid-cols-3 gap-2 px-4 py-2"/);
 });
 test("卡片点开还是同一个帖子页", () => {
   assert.match(scr, /"data-wk": "fonote", role: "button", onClick: \(\) => openPost\(p\)/);
