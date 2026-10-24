@@ -20436,6 +20436,9 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     let k = cur.msgs.length - 1; while (k >= 0 && cur.msgs[k].role !== "user") k--;
     const kept = cur.msgs.slice(0, k + 1);
     if (kept.length === cur.msgs.length) return;
+    // 心情、心声、动作、穿着、好感退回这一轮之前（跟聊天重 Roll 同一个 rollbackCharTurns）：通话记状态时带着这一轮的 turnId
+    const turns = [...new Set(cur.msgs.slice(k + 1).map(m => m && m.turnId).filter(Boolean))];
+    if (turns.length && !cur.room) (cur.participants || []).forEach(p => { if (p && p.id) try { rollbackCharTurns(p.id, turns, false); } catch (e) {} });
     callRef.current = { ...cur, msgs: kept };
     setCall(c => c && c.sessionId === cur.sessionId ? { ...c, msgs: kept } : c);
     setTimeout(() => callSend("", k >= 0 ? { flush: true } : { opening: true }), 0);
@@ -20698,7 +20701,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         // TA自己要挂(v60.24 她点名)：这里只【立个牌子】，真正挂断由 CallScreen 做——
         // 通话时长只有它数着(secRef)，而且最后那句得留一会儿让她看完/听完。
         // 状态卡：跟线上聊天同一个出口，不另开一条写状态的路
-        callPutState(char.id, d, "call_" + Date.now());
+        callPutState(char.id, d, callTurnId);   // 跟这一轮的话同一个 turnId，重 Roll 才退得回去
         if (callTfOk) {
           const pend = callTfCard();
           if (pend && (d.transferAccept === true || d.transferAccept === false)) {
@@ -20785,7 +20788,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
             const gl = callLines(arr[i].text, spk);
             for (const ln of gl) pushMsg(ln.act ? { role: "char", act: true, senderId: spk.id, senderName: spk.name, content: ln.act } : { role: "char", senderId: spk.id, senderName: spk.name, content: ln.speech, zh: ln.zh });
             // 状态卡：跟群线上同一个出口（那边也是一人一条各写各的）
-            if (spk) callPutState(spk.id, arr[i], "gcall_" + Date.now() + "_" + i, spk.npc);
+            if (spk) callPutState(spk.id, arr[i], callTurnId, spk.npc);
             if (arr[i].hangup && String(arr[i].hangup).toLowerCase() !== "null") { markCallBye(spk.id, spk.name, String(arr[i].hangup), cur.sessionId); break; }
           }
         }
@@ -34149,7 +34152,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     const scc = stateCardChar || activeChar;
     const roomCard = !!(stateCardRoomKey && window.ChatRooms && window.ChatRooms.isSideKey(stateCardRoomKey));
     const roomMeta = roomCard ? offlineRoomFor(stateCardRoomKey) : null;
-    return stateCardOpen && scc && /*#__PURE__*/React.createElement(StateCard, {
+    // 通话里点头像打开的（她 2026-10-25「不然还得小屏退出看好烦」）：通话是盖满屏的 z-70 那层，卡片得抬到它上面
+    const _card = stateCardOpen && scc && /*#__PURE__*/React.createElement(StateCard, {
       character: chatFace(scc),   // 状态卡也跟着聊天头像走（她 2026-10-02）
       isNpc: !!scc.npc,
       affinity: roomCard ? undefined : Math.round(affOf(scc.id)),
@@ -34178,6 +34182,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       gazeReviewBusy: gazeReviewBusy,
       onClose: () => { setStateCardOpen(false); setStateCardChar(null); setStateCardGroup(false); setStateCardRoomKey(null); }
     });
+    return _card && call && !call.min ? h("div", { style: { position: "fixed", top: 0, left: 0, right: 0, bottom: 0, zIndex: 85 } }, _card) : _card;
   })(), resetAsk ? h(ResetChooser, { character: (characters || []).find(x => x && x.id === resetAsk.id), preset: resetAsk.preset,
     onClose: () => setResetAsk(null), onRun: cats => { const id = resetAsk.id; setResetAsk(null); resetCharData(id, cats); } }) : null,
   cardImportOpen ? h(CardImportSheet, { onImport: importCharCard, onClose: () => setCardImportOpen(false), userName: (profile && profile.name) || "你" }) : null, // ⚠️不能只认 activeChar：从人格档案馆点进来的那个人未必是当前正在聊的人。
@@ -34569,6 +34574,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     onReroll: callReroll,
     onEditLine: callEditLine,
     onDeleteLine: callDeleteLine,
+    onOpenState: id => { const c = characters.find(x => x.id === id); if (!c) return; setStateCardRoomKey(null); setStateCardChar(c); setStateCardGroup(false); setStateCardOpen(true); },
     // 通话里的转账：卡在聊天里，通话这边按 tid 去取它的状态
     tfCard: tid => { const k = call.chatKey || (call.participants[0] || {}).id; return (chats[k] || []).find(m => m.kind === "transfer" && m.tid === tid) || null; },
     onRespondTransfer: (tid, ok) => {

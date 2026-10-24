@@ -12129,6 +12129,7 @@ function CallScreen({
   onReroll,
   onEditLine,
   onDeleteLine,
+  onOpenState,
   onHangup,
   tfCard,
   onRespondTransfer,
@@ -12730,6 +12731,8 @@ function CallScreen({
     style: Object.assign(pip ? { paddingLeft: 24, paddingRight: 24 } : {}, litPlate(".62", "0"))
   }, h("div", {
     "data-wk": "calltitle",
+    // 点名字／头像看TA的状态卡（她 2026-10-25）：不用缩小、退出去再找
+    onClick: onOpenState ? () => onOpenState(primary.id) : undefined,
     className: pip ? "text-left" : "px-6 text-center",
     style: Object.assign({
       fontFamily: F_DISPLAY,
@@ -12749,6 +12752,7 @@ function CallScreen({
     className: "shrink-0 flex justify-center py-3 gap-2 flex-wrap px-6"
   }, (bgUrl || pip) ? [] : (isGroup ? people.slice(0, 4) : [primary]).map((c, ci) => h("div", {
     key: ci, "data-wk": "callavatar",
+    onClick: onOpenState ? () => onOpenState(c.id) : undefined,
     style: {
       width: isGroup ? 64 : (isVideo ? 148 : 104),
       height: isGroup ? 64 : (isVideo ? 196 : 104),
