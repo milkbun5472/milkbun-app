@@ -14304,7 +14304,10 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       // dongnian 阶段二（v48.80）：把这轮互动的好感增量反喂进动念——聊得好 valence 涨、聊崩了 valence 掉，情绪真的被聊天推动（不只自然回归）。封顶 ±0.25 防单轮暴冲。
       try { if (!sideRoom && _affD) { const eng = getDongnian(char); if (eng) eng.applyDelta({ valence: Math.max(-0.25, Math.min(0.25, _affD * 0.05)) }); } } catch (e) {}
       // 陪伴小人：这一轮说的话和动作描写交给它认动作（只有悬浮着的那只是这个人才会动）
-      try { window.dispatchEvent(new CustomEvent("companion-chat", { detail: { charId, text: [].concat(parsed.word || []).map(x => typeof x === "string" ? x : (x && (x.text || x.content)) || "").join("\n") + "\n" + (typeof parsed.action === "string" ? parsed.action : JSON.stringify(parsed.action || "")) } })); } catch (e) {}
+      //   说出口的话（said）和动作描写（act）分开交：动作只从动作描写里认，话里只认打招呼、应声那几句
+      try { const _said = [].concat(parsed.word || []).map(x => typeof x === "string" ? x : (x && (x.text || x.content)) || "").join("\n");
+        const _act = typeof parsed.action === "string" ? parsed.action : parsed.action && typeof parsed.action === "object" ? Object.values(parsed.action).filter(v => typeof v === "string").join("\n") : "";
+        window.dispatchEvent(new CustomEvent("companion-chat", { detail: { charId, said: _said, act: _act } })); } catch (e) {}
       if (parsed.mood && parsed.mood.label) {
         setMoodFor(charId, { ...parsed.mood, ts: Date.now() });
         _moodSkip(charId, true);

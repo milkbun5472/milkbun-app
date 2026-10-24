@@ -295,14 +295,16 @@
   function actionSpan(...parts) {
     const anchors = parts.map(p => new RegExp(p.source, "iu"));
     // 依次找锚点，修饰没有字数上限，也不用多层 .* 在长句里反复回溯。
+    // 认到了返回第一个锚点在这一小句里的位置（看它前面有没有「别／没」用），认不到返回 -1
     return clause => {
-      let at = 0;
+      let at = 0, first = -1;
       for (const re of anchors) {
         const match = re.exec(clause.slice(at));
-        if (!match) return false;
+        if (!match) return -1;
+        if (first < 0) first = at + match.index;
         at += match.index + match[0].length;
       }
-      return true;
+      return first;
     };
   }
   function actionRule(kind, cues, ...spans) { return { kind, cues, spans }; }
@@ -364,21 +366,50 @@
       actionSpan(/点(?!心|菜|餐|单|评|击|名|播|赞|火|灯|烟|缀|开|亮)/, ACTION_HEAD), actionSpan(/颔/, /首/),
       actionSpan(ACTION_HEAD, /点(?=了|着|过|下|几|一|两|三|点|得|个|$)/)),
     actionRule("turn", /转身|扭头|别过脸|背过身/,
-      actionSpan(/转(?!账|帐|发|运|学|型)|扭|别|背/, new RegExp("身|脸|" + ACTION_HEAD.source, "u"))),
+      actionSpan(/转(?!账|帐|发|运|学|型)|扭|别|背/, new RegExp("身|脸|" + ACTION_HEAD.source, "u")),
+      // 回过头看一眼也是转头；「回头见」「回头再说」是在说以后，不算
+      actionSpan(/回(?=过?(?:头|脑袋)(?!见|再|说|聊|找|补|给))/, ACTION_HEAD)),
     actionRule("sit", /坐着|落座|盘腿/,
       actionSpan(/坐|窝|瘫/, /下|好|回|在|进|到|沙发|椅|床|地上/), actionSpan(/盘/, /腿/))
   ];
-  function actForText(text) {
-    const s = String(text || "").normalize("NFKC");
-    const clauses = s.split(/[。！？!?；;，,：:\n\r]/u);
+  // 这一小句没真做（她 2026-10-24 审：「别叹气了」「我没有拒绝你啊」「你要是敢跑，我就抱你回来」都被当成动作）：
+  //   动作前面有「别／不／没……」就跳过（「别开了脸」「没问题」那个字就是动作本身，不算）；
+  //   一句话里出现「要是／如果」，从那一小句起到这句话完都跳过。
+  const NOT_DONE = /别|不要|不准|不许|不用|不想|没有?|才不|要是|如果|假如|万一|是不是|会不会|想不想/;
+  const IF_SENT = /要是|如果|假如|万一/;
+  // 问句（「脸红什么」「今天学习了吗」）是在问人，不是自己在做
+  const ASKING = /什么|吗|呢|么|[?？]/;
+  function clausesOf(s) {
+    const out = [];
+    s.split(/[。！？!?；;\n\r]/u).forEach(sent => {
+      let ifs = false;
+      sent.split(/[，,：:]/u).forEach(c => { if (IF_SENT.test(c)) ifs = true; if (c.trim()) out.push({ c, ifs, ask: ASKING.test(c) }); });
+    });
+    return out;
+  }
+  // at：动作在这一小句里从哪个字开始
+  //   只看动作前面、最后一个「的」之后那一截：「还没睡醒的脑袋点了点」里的「没」管的是睡醒，不是点头
+  const done = (rule, x, at) => at >= 0 && !x.ifs && !NOT_DONE.test(x.c.slice(0, at).split("的").pop());
+  const cueAt = (rule, x) => { const m = rule.cues.exec(x.c); return m ? m.index : -1; };
+  // act：动作描写（线下叙述、action 那一栏、括号里的动作）；said：说出口的话。
+  //   动作只从 act 里认；said 里只认本身就是在打招呼、应声的那几句（晚安、加油、好好好……），而且不认问句。
+  //   只给一个字符串（旧的叫法、测试）＝当成动作描写。
+  function actForChat(act, said) {
+    const norm = x => String(x || "").normalize("NFKC").replace(/摇头晃脑/g, "跟着节拍晃");
+    // 话里括号、星号包着的那一段是动作，挪到动作那边
+    const inSaid = [];
+    const sd = norm(said).replace(/[（(【*]([^）)】*\n]{1,60})[）)】*]/gu, (m, x) => { inSaid.push(x); return " "; });
+    const a = clausesOf([norm(act)].concat(inSaid).join("\n")), b = clausesOf(sd);
     // 明确动作优先于“早安／知道了”等口头提示；仍只在原动作表选一套。
-    for (const rule of ACT_RULES) if (clauses.some(clause => rule.spans.some(match => match(clause)))) return rule.kind;
-    for (const rule of ACT_RULES) if (rule.cues.test(s)) return rule.kind;
+    for (const rule of ACT_RULES) if (a.some(x => rule.spans.some(match => done(rule, x, match(x.c))))) return rule.kind;
+    for (const rule of ACT_RULES) if (a.some(x => done(rule, x, cueAt(rule, x)))) return rule.kind;
+    for (const rule of ACT_RULES) if (b.some(x => !x.ask && done(rule, x, cueAt(rule, x)))) return rule.kind;
     return "";
   }
+  function actForText(text) { return actForChat(text, ""); }
   function useChatAct(charId, frame) {
     useEffect(() => {
-      const on = e => { const d = e && e.detail; if (!d || d.charId !== charId) return; const k = actForText(d.text);
+      const on = e => { const d = e && e.detail; if (!d || d.charId !== charId) return; const k = d.act != null || d.said != null ? actForChat(d.act, d.said) : actForText(d.text);
         const w = frame.current && frame.current.contentWindow; if (k && w) w.postMessage({ type: "pet-act", kind: k }, "*"); };
       window.addEventListener("companion-chat", on);
       return () => window.removeEventListener("companion-chat", on);
@@ -428,5 +459,5 @@
   window.Companion = Companion;
   window.CompanionPreview = PetFrame;
   window.CompanionFloat = CompanionFloat;
-  window.CompanionFace = { faceForMood, FACE_ZH, lookFor, actForText };
+  window.CompanionFace = { faceForMood, FACE_ZH, lookFor, actForText, actForChat };
 })();
