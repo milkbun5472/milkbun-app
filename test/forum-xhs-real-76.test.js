@@ -2,7 +2,7 @@
 const assert = require("node:assert/strict"), fs = require("fs");
 const ui = fs.readFileSync("js/screens-ui.js", "utf8"), app = fs.readFileSync("js/app.js", "utf8"), ts = fs.readFileSync("js/theme-studio.js", "utf8");
 // 评论的三处提示词都走同一个口子，xhs 笔记带上评论区那一句
-assert.match(app, /const forumPostVoice = post => forumBoardVoice\(post && post\.board\) \+ \(post && post\.fmt === "xhs" \? FORUM_XHS_CMT : ""\)/);
+assert.match(app, /const forumPostVoice = post => [^\n]*?forumBoardVoice\(post && post\.board\) \+ \(post && post\.fmt === "xhs" \? FORUM_XHS_CMT : ""\)/);
 assert.equal((app.match(/forumPostVoice\(post\)/g) || []).length, 3);
 assert.ok(!/forumBoardVoice\(post\.board\)/.test(app));
 // 页面：笔记页、按赞排、作者签、回复折叠

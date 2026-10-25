@@ -23488,12 +23488,14 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   };
   // 小红书那套（双列开着时发出来的 fmt:"xhs" 笔记，她 2026-10-23「真的变成更像小红书」）：底下是评论区，不是楼层
   const FORUM_XHS_CMT = " 【这是一篇小红书笔记，底下是它的评论区】说话是小红书评论区的样子，不是贴吧盖楼：一条条短评论、各说各的；提到发笔记的人就叫作者或博主，不说几楼、沙发、楼主这些贴吧的叫法；作者回评论时就是作者本人在回。"
-  const forumPostVoice = post => forumBoardVoice(post && post.board) + (post && post.fmt === "xhs" ? FORUM_XHS_CMT : "");
+  // 世界观排在最前、离吧的说明最近（群友 2026-10-26「不走剧情，还是想发啥发啥」）：原来只压在「论坛网友」那个人设里，
+  //   离输出远，吧的说明一说「游戏、设备」，古代、武侠世界的楼里照样聊手机
+  const forumPostVoice = post => forumLoreLine(forumThreadWorld(post)) + "\n" + forumBoardVoice(post && post.board) + (post && post.fmt === "xhs" ? FORUM_XHS_CMT : "");
   const forumBoardVoice = b => ({
     "吐槽吧": "「吐槽吧」：网友在这儿发牢骚、阴阳怪气、吐槽不爽。语气刻薄、损、带情绪、标题党，别正能量别说教。",
     "日常吧": "「日常吧」：网友分享兴趣、日常、和谁都无关的琐碎生活。语气松弛随意、有生活气，像随手一发。",
     "求助吧": "「求助吧」：网友来提问 / 求助，也有人认真回答。就事论事、具体、别空谈，标题多是疑问句。",
-    "兴趣吧": "「兴趣吧」：聊作品、游戏、吃喝、设备、收藏、学习进度和具体爱好。要有细节、有偏好，像同好交流，不要写成泛泛日记。",
+    "兴趣吧": "「兴趣吧」：聊各自的爱好——看的、玩的、吃的、收的、在学的。要有细节、有偏好，像同好交流，不要写成泛泛日记。",
     "脑洞吧": "「脑洞吧」：发假设题、投票、接龙、挑战和离谱但能参与的问题。重点是让楼下接得上，别写成普通生活流水账。",
     "匿名吧": "「匿名吧」：不署名才敢说的话。真实、赤裸、卸下人设的一面，可以是秘密、软肋、见不得人的念头。别端着。"
   }[b] || forumCustomVoice(b));
@@ -23504,7 +23506,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     const about = typeof forumBoardAbout === "function" ? forumBoardAbout(b) : "";
     return "「" + b + "」：" + (about ? "这个吧聊的是——" + about + "。" : "")
       + "来这儿的都是真泡在这个圈子里的人：有自己的行话、老梗、老面孔和吵不完的老话题，说话默认对方也懂；"
-      + "不是路过的人在给外行介绍这个话题。";
+      + "不是路过的人在给外行介绍这个话题。"
+      + (about ? "这个吧里每一帖都在这个话题里，跟它对不上的不往这儿发。" : "");
   };
   // 随机互动数（赞/浏览/转发），据种子稳定生成，纯展示
   const forumCounts = (seed, replyCount) => { const hh = forumHash(seed); const rc = replyCount || (12 + hh % 480); return { replyCount: rc, likeCount: Math.floor(rc * (0.6 + (hh % 40) / 25)) + (hh % 40), viewCount: rc * (8 + hh % 90) + (hh % 600), rtCount: Math.floor(rc / (5 + hh % 14)) }; };
@@ -23556,7 +23559,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     const lore = charWorldLore(w);
     const name = w ? String(((charWorldsLoad().worlds.find(x => x.id === w) || {}).name) || "").trim() : "";
     if (!lore && !name) return "";
-    return "\n【这个论坛开在这样一个世界里】" + (name ? "「" + name + "」" : "") + (lore ? "\n" + lore : "（没写更多设定，照这个名字本来的样子想：它是哪个年代、什么样的世道、人们怎么过日子）")
+    return "\n【这个论坛开在这样一个世界里，下面每一帖、每一楼都照这个来】" + (name ? "「" + name + "」" : "") + (lore ? "\n" + lore : "（没写更多设定，照这个名字本来的样子想：它是哪个年代、什么样的世道、人们怎么过日子）")
       + "\n网友是这个世界的人：网名、口吻、聊的事、用的东西都是这个世界里有的，这个世界没有的东西（年代不对的物件、说法）一样都别出现。";
   };
   // 「全部」（大杂烩）里不分世界：谁都能去谁的帖下面说话（她 2026-10-01：「在全部的时候古代角色也可以评论现代的，
@@ -24080,7 +24083,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       const boardPrev = (forumPostsRef.current || []).filter(x => x && x.board === board && x.title).sort((a, b) => Number(b.ts || 0) - Number(a.ts || 0));
       const seenLine = boardPrev.length ? "\n【这个吧里已经发过的帖】下面这些已经有人发过了，别再发同一个话题，换个说法也算发过：\n" + boardPrev.slice(0, 20).map(x => "· " + String(x.title || "").slice(0, 40)).join("\n") + "\n" : "";
       const d = await runProbeRetry(active, forumWorldCtx(board, genW), {
-        instruction: forumBoardVoice(board) + forumNpcRule(board) + castLine + seenLine + forumFmtLine() + " 生成 3-5 条不同网友刚发的新主帖（items 数组务必 3-5 条，别只给 1-2 条）。每条都填 authorName 和 handle；是常驻熟面孔的再额外写一个 npcId。写 title（标题）、body（楼主正文 2-4 句）、replyCount（编一个几十到几千的回复数字，不必真实）。同一批至少有 1 个一次性路人，别所有帖一个腔调。" + FORUM_PHOTO_LINE + lately,
+        instruction: forumLoreLine(genW) + "\n" + forumBoardVoice(board) + forumNpcRule(board) + castLine + seenLine + forumFmtLine() + " 生成 3-5 条不同网友刚发的新主帖（items 数组务必 3-5 条，别只给 1-2 条）。每条都填 authorName 和 handle；是常驻熟面孔的再额外写一个 npcId。写 title（标题）、body（楼主正文 2-4 句）、replyCount（编一个几十到几千的回复数字，不必真实）。同一批至少有 1 个一次性路人，别所有帖一个腔调。" + FORUM_PHOTO_LINE + lately,
         schemaHint: "{\"items\":[{\"npcId\":\"npc_regular_xxx（熟面孔才填）\"," + FORUM_GUEST_FIELDS + ",\"title\":\"标题\",\"body\":\"正文\",\"replyCount\":128,\"refTitle\":\"接着哪个帖才填，原样照抄那个标题\"" + FORUM_PHOTO_FIELD + forumFmtField() + (cast ? ",\"cast\":\"只有配角那一条填 true\"" : "") + "}]}",
         maxTokens: FTOK.board
       });
