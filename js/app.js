@@ -2086,7 +2086,7 @@ function App() {
     }
     setCoupleLetters(loadJSON("x_coupleLetters", []));
     setCoupleLetterCfg(loadJSON("x_coupleLetterCfg", {}));
-    { const L = loadJSON("x_listen", { disc: null, songs: [] }); const restoredId = L.nowId || (L.songs && L.songs[0] && L.songs[0].id) || null; listenRef.current = L; playerSongIdRef.current = restoredId; setListen(L); setPlayer(p => ({ ...p, songId: restoredId })); }
+    { const L = loadJSON("x_listen", { disc: null, songs: [] }); const restoredId = L.barClosed ? null : ((L.nowId && L.nowId !== KEEPALIVE_ID ? L.nowId : null) || (L.songs && L.songs[0] && L.songs[0].id) || null); listenRef.current = L;   /* 点过 × 的不再自己挂回来；静音保活不从上次接着挂（群里 2026-10-26） */ playerSongIdRef.current = restoredId; setListen(L); setPlayer(p => ({ ...p, songId: restoredId })); }
     setNeteaseApi(loadJSON("x_neteaseApi", ""));
     setCoupleDisc(loadJSON("x_coupleDisc", {}));
     setNeteaseCookie(loadJSON("x_neteaseCookie", ""));
@@ -28498,6 +28498,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     const L = listenRef.current || {};
     let song = (songOrId && typeof songOrId === "object") ? songOrId : resolveSong(songOrId);
     if (!song) return;
+    if ((listenRef.current || {}).barClosed) saveListen(p => ({ ...p, barClosed: false }));   // 又放歌了，下次开 app 照常挂回来
     // 静音保活：像歌一样播，但循环放静音、不写历史、不进队列（下一首/上一首会跳去真歌）
     if (song.source === "keepalive") {
       if (playUrlRef.current) { URL.revokeObjectURL(playUrlRef.current); playUrlRef.current = null; }
@@ -28682,6 +28683,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     playerSongIdRef.current = null;
     nextUpRef.current = { id: null, url: null, song: null };
     setPlayer(p => ({ ...p, songId: null, playing: false, t: 0, dur: 0, loading: false, err: null }));
+    // 点了 × 就记下「关了」（群里 2026-10-26：「点了×下次进来又有」）：原来下次开 app 照上一首把小播放条挂回去，静音保活也一样
+    saveListen(p => ({ ...p, barClosed: true }));
   };
   // ---- Media Session：锁屏/后台控制 + 让 iOS 把这当正经播放器 ----
   // 关键：不接 Media Session 时，锁屏/切到后台后 iOS 会挂起页面 JS，一首放完 onEnded 不跑、
