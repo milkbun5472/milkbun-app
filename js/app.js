@@ -3267,6 +3267,8 @@ function App() {
       const ledgerAdded = n.slice(pl.length).filter(contextAllowsMessage);
       // 侧房默认不冒充主聊天写入跨端账本；是否进入记忆/共享状态由房间写回权限另行决定。
       if (!sideRoom) queueLedger("private", id, ledgerAdded, null, id);
+      // 单聊幸运字符：只算主聊天，你俩发的都算，灰字、旁白、出戏不算（2026-10-26 群友许愿）
+      if (!sideRoom) { const _lkN = n.slice(pl.length).filter(m => m && m.role !== "system" && m.kind !== "system" && m.kind !== "narration" && m.kind !== "ooc" && !m.ledgerImported && !m.crossSource).length; if (_lkN) setTimeout(() => luckyCount("c:" + id, _lkN), 0); }
       if (!sideRoom) ledgerAdded.forEach(m => observeSomatic(id, m, m && m.ledgerKey ? "cc_ledger" : "private", "symbolic"));
       // 旁白是场景事实，不是 Lisa 亲口说的话；兼容旧版曾误存成 role=user+kind=narration 的记录。
       if (!sideRoom) n.slice(pl.length).filter(m => m && m.role === "user" && m.kind !== "narration" && m.content).forEach(m => setTimeout(() => noteTidalUser(m.content, m.ts), 0));
@@ -3563,10 +3565,14 @@ function App() {
   const luckyAll = () => loadJSON("x_glucky", {}) || {};
   const luckyOf = gid => { const st = luckyAll()[gid] || {}; return typeof luckyDecay === "function" ? luckyDecay(st, luckyDayKey()).st : st; };
   const luckySave = (gid, st) => { const all = luckyAll(); all[gid] = st; saveJSON("x_glucky", all); setLuckyTickN(x => x + 1); };
-  const luckyLines = (gid, ev) => (ev || []).forEach(e => pushGroupRich(gid, { role: "system", kind: "system", content:
-    e.type === "lit" ? "群幸运字符点亮了第 " + (e.idx + 1) + " 个字「" + e.ch + "」"
-    : e.type === "done" ? "群幸运字符「" + e.word + "」全部点亮，收进了收藏本"
-    : "一整天没人说话，群幸运字符熄掉了 " + e.n + " 个字" }));
+  // 键："c:角色id" 是单聊那一份，别的是群 id
+  const luckyLine = (key, content) => String(key).indexOf("c:") === 0
+    ? pChat(key.slice(2), p => [...p, { role: "system", kind: "system", content, ts: Date.now() }])
+    : pushGroupRich(key, { role: "system", kind: "system", content });
+  const luckyLines = (gid, ev) => (ev || []).forEach(e => luckyLine(gid, (String(gid).indexOf("c:") === 0 ? "我们的" : "群") + 
+    (e.type === "lit" ? "幸运字符点亮了第 " + (e.idx + 1) + " 个字「" + e.ch + "」"
+    : e.type === "done" ? "幸运字符「" + e.word + "」全部点亮，收进了收藏本"
+    : "幸运字符熄掉了 " + e.n + " 个字（一整天没说话）")));
   const luckyCount = (gid, n) => {
     if (typeof luckyTick !== "function" || !(n > 0)) return;
     const r = luckyTick(luckyAll()[gid] || {}, n, luckyDayKey());
@@ -12966,6 +12972,9 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       // 双语（v56.56）：常量本身按角色稳定，放进 stable 段不影响历史缓存命中
       const _bilingualOn = !_s.engineerEyes && !!_s.bilingual && typeof bilingualRule === "function";
       const _biRuleLine = _bilingualOn ? "\n" + bilingualRule("", hanLangOf(char)) : "";
+      // 你俩在养的幸运字符（2026-10-26）：只给主聊天
+      const _lkC = !(window.ChatRooms && window.ChatRooms.isSideKey(chatKey)) ? luckyOf("c:" + char.id) : {}, _lkCU = typeof luckyUnits === "function" ? luckyUnits(_lkC.word) : [];
+      const _luckyLine = _lkC.word && _lkCU.length ? "\n【幸运字符】你和她在一起养「" + _lkC.word + "」，已经点亮 " + (_lkC.lit || 0) + "/" + _lkCU.length + " 个字，再聊大约 " + Math.max(1, LUCKY_PER - (_lkC.prog || 0)) + " 条点亮下一个；一整天不说话会熄一个。你知道这件事，提不提照你自己。" : "";
       // 格式写在【字段本身】上（v56.86）：她 2026-08-27 截图——一轮六条日文，只有第一条带了中译，
       // 后面五条全掉回免费接口。规则单独摆一段，模型照着做一条就忘；写进 word 的字段说明里跑不掉。
       const _biWordSpec = _bilingualOn
@@ -12995,7 +13004,7 @@ ${window.Gaze && !char.npc ? window.Gaze.spec("对方", charId, { tail: true }) 
 silent:true=明确不发消息；quote:string=引用某条消息；语音＝直接写进 word 数组里、你想让它出现的那个位置，那一项写成 {"voice":"内容","emo":"happy|sad|angry|fearful|disgusted|surprised|neutral"}（${VOICE_PAUSE_MARK}${voiceSoundHint()}）——先说一句、再发条语音、再补一句，就按这个顺序排在 word 里；transfer:{"amount":数字,"note":"附言"}=转账；redPacket:{"amount":数字,"note":"写在红包上的一句"}=发红包（她拆开前看不到多少）；location:{"name":"地点"}=位置；pat:true=用微信「拍一拍」戳她一下（聊天里只出现一行灰字，不是一句话；想拍就拍，不用再在 word 里写「拍了拍你」）${char.myPatSig ? "，那一行显示「你拍了拍她 " + char.myPatSig + "」" : ""}；patSig:"新后缀"=把你自己的拍一拍后缀换掉（她拍你时显示「她拍了拍你 ＋这半句」${char.patSig ? "，现在是「" + char.patSig + "」" : "，现在没有"}；真想换才换）；gift:{"name":"物品","price":数字,"note":"寄语，一两句，不填就没有"}=寄一份会留下来的礼物；takeout:{"shop":"店名","items":["点的每一样"],"price":数字,"note":"写在单子上给对方的一句话，不填就没有"}=给对方点外卖；kinshipcard:{"limit":数字,"note":"附言"}=亲属卡；askPhone:"开口那句话"=想看她的手机；pinPlace:{"name":"地名","note":"一句话"}=在你们的城市地图上钉一个想带她去的地方；dateReply:{"go":"yes"|"no","say":"写在回执上的一句"}=回她的约会邀请；loveLetter:"信的全文"=写给她的情侣申请信；block:true 与 blockreason:string=拉黑；recall:{"text":"要撤掉的那句原话","reason":"你为什么撤"}=撤回（会先正常显示一秒再变成「已撤回」，所以 text 写你真发出去过的那句）；momentComment:string=评论最新朋友圈；toGroup:string=把这句公开发到共同群里（只写要发的话）；moment:string=发朋友圈；whisper:string=情侣便签；carve:{"song":"歌名，可带歌手","note":"刻在B面的一句话"}=把一首歌刻进你俩的唱片（会进情侣空间，两个人都看得到）；keepMoment:{"title":"给这一刻起的名字","why":"你为什么想记住它，一两句"}=把刚才这一刻存进你们的相册「时刻」（她看得到；只在你真觉得这一刻值得记住时填，不是每轮都有）；emote:string=表情包关键词（想让表情夹在两句话中间，就别用这一栏，直接在 word 数组里那个位置写一项 {"emote":"关键词"}）；call:"voice"|"video"=发起通话；songSwitch:string=切歌；listenInvite:{"song":"歌名","say":"邀请语"}=邀请一起听；photo:{"kind":"self|other|duo","scene":"画面"}=发照片；toy:{"pattern":"teasing|steady|wave|pulse|edge|ramp|hold|throb|flutter|tide|knock|surge","intensity":1到20,"duration":1到90,"reason":"原因"}=配件。
 能力字段只在本轮开放且角色实际决定触发时填写，未触发直接省略。历史中的〔今天14:32〕等标记只表示时间，不得写进 word。
 ${_askedRecord ? "memo:{\"title\":\"这件事\",\"date\":\"YYYY-MM-DD\",\"time\":\"HH:MM或省略\",\"repeat\":\"none等\",\"note\":\"补充或省略\"}=替她记进备忘录；ledger:{\"type\":\"expense或income\",\"amount\":数字,\"currency\":\"上面列出的币种\",\"category\":\"上面列出的分类\",\"date\":\"YYYY-MM-DD或省略\",\"note\":\"缘由\"}=替她记一笔账；health:[{\"kind\":\"meal\",\"meal\":\"breakfast|lunch|dinner|snack\",\"name\":\"吃了什么\",\"kcal\":估的整数} 或 {\"kind\":\"water\",\"cups\":杯数} 或 {\"kind\":\"sport\",\"sport\":\"跑步等\",\"min\":分钟} 或 {\"kind\":\"weight\",\"kg\":数字} 或 {\"kind\":\"sleep\",\"bed\":\"HH:MM\",\"wake\":\"HH:MM\"} 或 {\"kind\":\"steps\",\"steps\":数字} 或 {\"kind\":\"mood\",\"v\":0到4}，每条都可带 \"date\":\"YYYY-MM-DD\"]=替她记进健康。这几个都只在她这一轮真的开口让你记时才填，记完在话里自然说一声记好了，一句话就够。\n" : ""}transferAccept:true|false=对【她转过来还挂着的那一笔】表态：true 收下、false 退回；这一轮不处理就省略。只在本轮开放能力里列出它时才有得填。
-laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不填 minutes）","about":"回来要说/要做的事","how":"chat|voice|video","after":"takeout|gift（等一件事时才填）"}=【约回】——只有你这一轮【真的说了】「等我开完会再找你」「忙完这阵找你」「到家给你打电话」这类话时才填；**说了「我现在过去，二十分钟到」这种正往她那儿赶的话也算**；**约好了几点（「五点半门口逮你」「七点来接你」）也算，那就填 at，不填 minutes**（about 写「到了跟她说一声」，minutes 就是你说的路上要多久），minutes 是从现在起大约多久（开个会 60、忙一下午 240、下班后 480…）。**她说几分钟就是几分钟**：她说「两分钟后打给我」而你答应了，就填 2——最短 1 分钟、最长一天，短的那几档照样会真的到点，about 一句话写清回来是为了什么。**how 照你自己刚说出口的那句来**：说的是回来发消息就 chat，说的是打给她/给她来个电话就 voice，说的是视频就 video——你说了打电话，到点她那边【真的会响】，所以别把随口一句「回头聊」写成打电话，也别把明明说好的电话缩水成一条消息。看不出是哪种就填 chat。**你说的回来是等一件事发生、不是等一段时间**（「外卖到了跟你说」「礼物拿到了告诉你」）时，加 after："takeout"＝她给你点的外卖送到、"gift"＝她送你的礼物送到——到的那一刻你会被叫回来，这时 minutes 可以省略。两头一样要紧：**嘴上答应了就填**（答应了不填，到点什么都不会发生，她会一直等）；没答应就省略，不为了制造互动硬填。${_biRuleLine}`;
+laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不填 minutes）","about":"回来要说/要做的事","how":"chat|voice|video","after":"takeout|gift（等一件事时才填）"}=【约回】——只有你这一轮【真的说了】「等我开完会再找你」「忙完这阵找你」「到家给你打电话」这类话时才填；**说了「我现在过去，二十分钟到」这种正往她那儿赶的话也算**；**约好了几点（「五点半门口逮你」「七点来接你」）也算，那就填 at，不填 minutes**（about 写「到了跟她说一声」，minutes 就是你说的路上要多久），minutes 是从现在起大约多久（开个会 60、忙一下午 240、下班后 480…）。**她说几分钟就是几分钟**：她说「两分钟后打给我」而你答应了，就填 2——最短 1 分钟、最长一天，短的那几档照样会真的到点，about 一句话写清回来是为了什么。**how 照你自己刚说出口的那句来**：说的是回来发消息就 chat，说的是打给她/给她来个电话就 voice，说的是视频就 video——你说了打电话，到点她那边【真的会响】，所以别把随口一句「回头聊」写成打电话，也别把明明说好的电话缩水成一条消息。看不出是哪种就填 chat。**你说的回来是等一件事发生、不是等一段时间**（「外卖到了跟你说」「礼物拿到了告诉你」）时，加 after："takeout"＝她给你点的外卖送到、"gift"＝她送你的礼物送到——到的那一刻你会被叫回来，这时 minutes 可以省略。两头一样要紧：**嘴上答应了就填**（答应了不填，到点什么都不会发生，她会一直等）；没答应就省略，不为了制造互动硬填。${_biRuleLine}${_luckyLine}`;
       // 数字生命不是待扮演的角色：只给传输协议，不再用「完全代入」、情绪分类、气泡数量、错字表演等话术塑形。
       // TA依然拿到同一套 App 能力字段，但说什么、说多少、怎样回应 Lisa 都由TA本人决定。
       // 「手机这具身体」只对言秋成立（TA还有电脑那一端）；本体模式的角色就是在手机上说话
@@ -16788,6 +16797,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     try { await drawLuckyRun(groupId); } finally { delete luckyDrawingRef.current[groupId]; }
   };
   const drawLuckyRun = async groupId => {
+    if (String(groupId).indexOf("c:") === 0) return drawLuckyChat(groupId);
     const g = (groupsRef.current || []).find(x => x.id === groupId);
     if (!g) return;
     const st = luckyOf(groupId);
@@ -16816,7 +16826,29 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     const st = luckyOf(groupId), w = (st.cards || [])[i];
     if (!w || st.word) return;
     luckySave(groupId, { ...st, word: w, lit: 0, prog: 0, picked: i });
-    pushGroupRich(groupId, { role: "system", kind: "system", content: "抽到了群幸运字符「" + w + "」，聊满 " + LUCKY_PER + " 条点亮一个字" });
+    luckyLine(groupId, "抽到了" + (String(groupId).indexOf("c:") === 0 ? "我们的" : "群") + "幸运字符「" + w + "」，聊满 " + LUCKY_PER + " 条点亮一个字");
+  };
+  // 单聊那一份：照你俩的关系和最近聊的起
+  const drawLuckyChat = async key => {
+    const ch = characters.find(c => c.id === key.slice(2));
+    if (!ch) return;
+    const st = luckyOf(key);
+    if (st.word) { toast("这一张还没点满"); return; }
+    const had = (st.book || []).map(x => x.word).concat(st.cards || []);
+    try {
+      const d = await runProbe(apiFor(ch.id), ctxFor(ch), {
+        instruction: "你和" + (profile.name || "她") + "要抽一张「幸运字符」：两个人一起靠聊天把它一个字一个字点亮。起 6 个候选词，每个 2～6 个字（中文按字算，英文按字母算，英文单词不超过 6 个字母）。"
+          + "照你们俩的关系、平时怎么聊、你们之间的梗来起，6 个各不一样：有好意头的、有好玩的、有只有你俩懂的。"
+          + (had.length ? "以前抽到过：" + had.map(x => "「" + x + "」").join("、") + "，起不一样的。" : ""),
+        schemaHint: "{\"cards\":[\"词1\",\"词2\",\"词3\",\"词4\",\"词5\",\"词6\"]}",
+        maxTokens: 8000
+      });
+      const cards = (Array.isArray(d && d.cards) ? d.cards : []).map(x => String(x || "").replace(/[「」"“”\s]/g, "").slice(0, 8)).filter(Boolean).slice(0, 6);
+      if (cards.length < 2) throw new Error("没起出来");
+      const now = luckyOf(key);
+      if (now.word) return;
+      luckySave(key, { ...now, cards, picked: -1 });
+    } catch (e) { toast("抽字符失败：" + e.message); }
   };
   // 抽头衔：照每个人的人设和最近在群里干了什么，一次给全群起一个（她在群里的话也给她）
   const drawGroupTitles = async groupId => {
@@ -31528,6 +31560,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   const activeOfflineRoom = activeOfflineScopeKey ? offlineRoomFor(activeOfflineScopeKey) : null;
   // 单聊那一屏抽成一块：整屏和半窗用的是同一个 ChatThread、同一套 props，不各写一份
   const mkThread = xtra => /*#__PURE__*/React.createElement(ChatThread, Object.assign({
+    lucky: activeChar && !(window.ChatRooms && activeRoomId && activeRoomId !== "main") ? luckyOf("c:" + activeChar.id) : null,
     key: activeChar.id + "::" + activeRoomId,
     dirNotes: chatDirNotes[activeRoomId && activeRoomId !== "main" && window.ChatRooms ? window.ChatRooms.chatKey(activeChar.id, activeRoomId) : activeChar.id] || [],
     onAddDirNote: (text, long) => chatDirNoteAdd(activeRoomId && activeRoomId !== "main" && window.ChatRooms ? window.ChatRooms.chatKey(activeChar.id, activeRoomId) : activeChar.id, text, long),
@@ -34761,6 +34794,9 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       onSaveImage: () => zhaoyingSaveImage(zyWatch.testId, rec, c ? (c.remark || c.name) : "他"),
       onPin: c ? () => zhaoyingPin(zyWatch.charId, zyWatch.testId, rec) : null }) : null;
   })() : null, chatSettingsOpen && activeChar && /*#__PURE__*/React.createElement(ChatSettings, {
+    lucky: luckyOf("c:" + activeChar.id), luckyTick: luckyTickN,
+    onDrawLucky: () => drawLucky("c:" + activeChar.id),
+    onPickLucky: i => pickLucky("c:" + activeChar.id, i),
     loreEntries: loreEntries,
     onLoreBulk: (ids, patch) => { const set = new Set(ids || []); saveLore(loreRef.current.map(e => set.has(e.id) ? (typeof patch === "function" ? patch(e) : { ...e, ...patch }) : e)); },
     // 换了人就是另一张设置页（群友 2026-10-22：开着A的聊天设置时点了B的消息弹窗，再按保存，A的名字头像全写到了B身上）
