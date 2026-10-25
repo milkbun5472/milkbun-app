@@ -7336,6 +7336,21 @@ function emoteSlotWords(words, emotes, emoteNorm) {
     if (hit) return EMOTE_SLOT(hit);
     return w;
   }).filter(w => w != null);
+  // 表情旁边紧跟一条「几乎就是这张表情的描述」的字（群友 2026-10-26 截图：发了小狗表情，下一泡是「黄色小狗叉腰冒星星」）：
+  //   模型把表情的说明当话写了出来，跟关键词差一两个字所以上面那道没认出来。字里九成以上都是那张表情描述里的字、
+  //   又不比描述长出一截的，算漏出来的描述，拿掉；「黄色小狗好可爱」这种夹了自己话的照旧留着
+  const _descEcho = (w, kw) => {
+    const a = emoteNorm(w), k = emoteNorm(kw);
+    if (!a || !k || a.length < 4 || a.length > k.length + 3) return false;
+    const pool = Array.from(k); let hitN = 0;
+    Array.from(a).forEach(ch => { const j = pool.indexOf(ch); if (j >= 0) { hitN++; pool.splice(j, 1); } });
+    return hitN / Array.from(a).length >= 0.85;
+  };
+  words = words.filter((w, i) => {
+    if (typeof w !== "string" || emoteSlotOf(w) != null) return true;
+    const near = [words[i - 1], words[i + 1]].map(x => emoteSlotOf(x)).filter(x => x != null);
+    return !near.some(si => kws[si] && _descEcho(w, kws[si].kw));
+  });
   return { words, kws };
 }
 //   （她 2026-09-30 截图），语音照旧掉到最后。改成纯字母的 voiceslot0，认的时候前后多了标点空白也认。
