@@ -10841,7 +10841,7 @@ function ChatThread({
     });
     return out.slice(0, 5);
   }, [messages]);
-  const PANEL = [["location", "位置", "pin"], ["sticker", "表情包", "sticker"], ["photo", "照片", "picture"], ["voicemsg", "发语音", "wave"], ["voice", "语音通话", "handset"], ["video", "视频通话", "camcorder"], ["calllog", "通话记录", "clock"], ["chatsearch", "查找记录", "magnifier"], ["moments", "朋友圈", "grid"], ["transfer", "转账", "bill"], ["packet", "红包", "packet"], ["mykin", "亲属卡", "card"], ["pat", "拍一拍", "hand"], ["namecard", "名片", "contact"], ["peekphone", "给TA看手机", "mobile"], ["dateinvite", "邀约", "invite"], ["file", "文件", "file"], ["halfwin", "半窗", "halfwin"]].filter(([key]) => key !== "halfwin" || !!onHalfWin).filter(([key]) => room && !room.main ? !["moments", "transfer", "packet", "mykin", "peekphone", "dateinvite"].includes(key) : true).filter(([key]) => key !== "mykin" || !!onMyKin).filter(([key]) => key !== "dateinvite" || !!onDateInvite).filter(([key]) => key !== "peekphone" || !!onHandPhone);
+  const PANEL = [["location", "位置", "pin"], ["sticker", "表情包", "sticker"], ["photo", "照片", "picture"], ["voicemsg", "发语音", "wave"], ["voice", "语音通话", "handset"], ["video", "视频通话", "camcorder"], ["calllog", "通话记录", "clock"], ["chatsearch", "查找记录", "magnifier"], ["moments", "朋友圈", "grid"], ["transfer", "转账", "bill"], ["packet", "红包", "packet"], ["mykin", "亲属卡", "card"], ["pat", "拍一拍", "hand"], ["namecard", "名片", "contact"], ["peekphone", "给TA看手机", "mobile"], ["dateinvite", "邀约", "invite"], ["file", "文件", "file"], ["halfwin", "半窗", "halfwin"], ["state", "状态卡", "mood"]].filter(([key]) => key !== "halfwin" || !!onHalfWin).filter(([key]) => key !== "state" || !!onOpenState).filter(([key]) => room && !room.main ? !["moments", "transfer", "packet", "mykin", "peekphone", "dateinvite"].includes(key) : true).filter(([key]) => key !== "mykin" || !!onMyKin).filter(([key]) => key !== "dateinvite" || !!onDateInvite).filter(([key]) => key !== "peekphone" || !!onHandPhone);
   const sendRich = msg => {
     onSendRich({
       ts: Date.now(),
@@ -10851,6 +10851,8 @@ function ChatThread({
     setPanelOpen(false);
   };
   const onPanelTap = k => {
+    // 状态卡原来只能点他的头像打开，排版里把头像藏了就没地方点（群友 2026-10-26）
+    if (k === "state") { setPanelOpen(false); onOpenState && onOpenState(); return; }
     if (k === "namecard") {
       setPanelOpen(false);
       setCardPick(true);
@@ -16443,6 +16445,7 @@ function CGlyph({ k, size = 24, color = "#1b1a17" }) {
     camcorder: [R(3, 7, 12.5, 10, 2.4), P("M15.5 11.6l5.5-3.1v7l-5.5-3.1z")],
     mobile: [R(7, 2.5, 10, 19, 2.4), P("M11 18.5h2")],
     halfwin: [R(4, 3, 16, 18, 2.4), P("M4 12.5h16"), P("M10 16.5h4")],
+    mood: [P("M12 20s-7-4.5-7-9.2A3.8 3.8 0 0 1 12 8a3.8 3.8 0 0 1 7 2.8C19 15.5 12 20 12 20z")],
     clock: [C(12, 12, 8.6), P("M12 7.3V12l3.2 1.9")],
     magnifier: [C(10.8, 10.8, 6.4), P("M15.4 15.4L20.5 20.5")],
     grid: [R(4, 4, 7, 7, 1.6), R(13, 4, 7, 7, 1.6), R(4, 13, 7, 7, 1.6), R(13, 13, 7, 7, 1.6)],
@@ -19097,6 +19100,7 @@ function GroupThread({
   const [callSel, setCallSel] = useState([]); // 多选成员 id
   const [voiceMsgOpen, setVoiceMsgOpen] = useState(false);
   const [callLogOpen, setCallLogOpen] = useState(false);
+  const [statePick, setStatePick] = useState(false);   // 「＋」→ 状态卡：挑看谁
   const [searchOpen, setSearchOpen] = useState(false);
   const [xferPick, setXferPick] = useState(false); // 选转给谁
   const [xferMember, setXferMember] = useState(null); // 选定后进入金额编辑
@@ -19197,13 +19201,15 @@ function GroupThread({
     else if (r === "notyours") toast && toast("这是专属红包，只有 " + (rp.toName || "被点名的那位") + " 能领");
   };
   // 群聊 + 面板：跟私聊对齐（匿名箱→投票、拍一拍→红包）
-  const PANEL = [["location", "位置", "pin"], ["sticker", "表情包", "sticker"], ["photo", "照片", "picture"], ["voicemsg", "发语音", "wave"], ["voice", "语音通话", "handset"], ["video", "视频通话", "camcorder"], ["calllog", "通话记录", "clock"], ["chatsearch", "查找记录", "magnifier"], ["poll", "投票", "bars"], ["transfer", "转账", "bill"], ["rp", "红包", "packet"], ...(onGroupDateInvite ? [["dateinvite", "邀约", "invite"]] : []), ["file", "文件", "file"]];
+  const PANEL = [["location", "位置", "pin"], ["sticker", "表情包", "sticker"], ["photo", "照片", "picture"], ["voicemsg", "发语音", "wave"], ["voice", "语音通话", "handset"], ["video", "视频通话", "camcorder"], ["calllog", "通话记录", "clock"], ["chatsearch", "查找记录", "magnifier"], ["poll", "投票", "bars"], ["transfer", "转账", "bill"], ["rp", "红包", "packet"], ...(onGroupDateInvite ? [["dateinvite", "邀约", "invite"]] : []), ["file", "文件", "file"], ...(canPeek ? [["state", "状态卡", "mood"]] : [])];
   const sendRich = msg => {
     onSendRich && onSendRich({ ts: Date.now(), ...msg });
     setPanel(false);
   };
   const onPanelTap = k => {
     setPanel(false);
+    // 状态卡：头像藏了也能看（群友 2026-10-26）。挑一个能看的成员——能不能看跟点头像同一道 canPeek
+    if (k === "state") { setStatePick(true); return; }
     if (k === "dateinvite") { setGInviteOpen(true); return; }
     if (k === "file") { pickTextFile(msg => sendRich(Object.assign({ role: "user" }, msg))); return; }
     if (k === "location") setGeoOpen(true);
@@ -19856,6 +19862,14 @@ function GroupThread({
     groupPhotoMode === "real" && h(ChatPhotoPick, { imgs: groupPhotoImgs, setImgs: setGroupPhotoImgs, toast, t }),
     h("input", { "data-wk": "input", value: photoText, onChange: e => setPhotoText(e.target.value), placeholder: groupPhotoMode === "real" ? "可以顺手说一句（选填）" : "描述照片里有什么（必填，不会上传图片）", className: "w-full outline-none px-4 py-3 rounded-xl", style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.ink, background: "#fff", border: "1px solid " + t.line } }),
     groupPhotoMode === "describe" && h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.5, marginTop: 7 } }, "群成员只会收到文字描述；不会读取或上传真实照片。")
+  ), statePick && h(PageSheet, { onClose: () => setStatePick(false) },
+    h("div", { "data-wk": "gstatepick" },
+      h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(18px * var(--app-fs, 1))", color: t.ink, marginBottom: 10 } }, "看谁的状态卡"),
+      (characters || []).filter(c => c && canPeek(c)).map(c => h("button", { key: c.id, "data-wk": "gstatepickrow", onClick: () => { setStatePick(false); onOpenMemberState(c.id); },
+        className: "w-full flex items-center gap-3 active:opacity-60", style: { minHeight: 52, padding: "6px 0", borderBottom: "1px solid " + t.line, background: "transparent", textAlign: "left" } },
+        h(Avatar, { character: c, size: 36, radius: 9 }),
+        h("span", { style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.ink } }, c.remark || c.name))),
+      (characters || []).some(c => c && canPeek(c)) ? null : h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog } }, "这个群里没有能看的人（封闭群只能看配角）。"))
   ), callLogOpen && h(CallLogSheet, { calls: (messages || []).filter(x => x.kind === "callend"), chars: characters, onClose: () => setCallLogOpen(false) }), searchOpen && h(ChatSearchSheet, { messages, chars: characters, archCount: archCount, loadArch: onLoadOlder ? () => onLoadOlder("g_" + group.id) : null, onClose: () => setSearchOpen(false), onLocate: i => { setSearchOpen(false); revealMsg(i); setTimeout(() => locateMsgIn(ref.current, i, messages, archCount > 0, { start: winStartRef.current }), 160); } }), voiceMsgOpen && h(Sheet, { onClose: () => setVoiceMsgOpen(false) },
     h(VoiceEarComposer, { onSend: sendRich, onClose: () => setVoiceMsgOpen(false), senderName: meName, ownerKey: profile && (profile.id || profile.name), toast })
   ), callPick && h(Sheet, {

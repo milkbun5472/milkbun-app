@@ -2071,7 +2071,8 @@
   }
 
   // ---- 书评：一次生成 N 条（NPC 泛读者 + 作者至少下场一次）------------
-  async function genReviews(active, fic, tab, worldbook, characters, userName) {
+  // regs＝论坛那几位熟面孔在书评区的读书 id（{ list, pairs, me }，app 那头拼好），说明跟片刻、一起听共用 ShuaKit.regularsBlock
+  async function genReviews(active, fic, tab, worldbook, characters, userName, regs) {
     const excerpt = ((fic.chapters || [])[0] || {}).content || fic.body || "";
     const authorName = fic.author || ficPenName(fic.id);
     // ⚠️她 2026-09-11：「上一轮书评他们也都觉得皇帝和王爷不是 cp，写的是王爷和精怪」
@@ -2088,10 +2089,14 @@
         + "⚠️他们看的是【正文】：正文写的跟挂的这一对对不上时，读者会直说——"
         + "就像在站子上看到一篇挂错 tag 的文（「说好的谁和谁呢」）。对得上就一个字都别提这件事。\n"
       : "";
+    const regBlock = (regs && regs.list && regs.list.length && window.ShuaKit && window.ShuaKit.regularsBlock)
+      ? window.ShuaKit.regularsBlock(regs.list, regs.pairs || [], regs.me || "她", "看同人文、写书评",
+          "\n这一批书评里混进一两位就够（也可以一位都不来，别回回都是他们）：author 照抄上面的读书 id，照各自看文的习惯写；其余照旧是现编的读者。")
+      : "";
     const sys = ANTI_CLICHE + "\n\n" + READER_VOICE + "\n\n" +
       "他们刚读完一篇发在【" + tab.name + "】同人版、作者笔名「" + authorName + "」的同人文《" + fic.title + "》（标签：" + (fic.tags || []).join("、") + "）。" + cpLine +
       "下面是正文节选，据此写具体的书评/短评（可夸可挑刺可玩梗可催更），别泛泛，别剧透式复述剧情。\n" +
-      "【正文节选】\n" + String(excerpt).slice(0, 1200) + criticBlock(critics, fic) + "\n\n" +
+      "【正文节选】\n" + String(excerpt).slice(0, 1200) + criticBlock(critics, fic) + regBlock + "\n\n" +
       "【输出】只输出合法 JSON 数组，5-8 条书评：\n" +
       "[{\"author\":\"读者马甲（同人圈网名，别用真名，别带@）\",\"content\":\"书评正文\",\"replies\":[{\"author\":\"另一读者马甲\",\"content\":\"楼中楼回复\",\"isAuthor\":false}]}]\n" +
       "**其中必须至少有一条**（某条书评本身、或某条楼中楼回复）是作者「" + authorName + "」本人下场回复读者的——署名就写「" + authorName + "」、把那条的 isAuthor 设为 true，像作者回评那样（道谢/回应读者的梗/害羞解释/回怼黑评，符合太太本人语气）。其余 replies 大多留空，只 1-2 条带楼中楼。语气各异别雷同。";
@@ -2116,8 +2121,10 @@
       if (fromRoster && x.barbed && own) {
         circlePush({ a: pen, b: own, kind: "snark", title: fic.title, say: String(x.content).trim().slice(0, 60) });
       }
+      const reg = regs && regs.list ? regs.list.find(function (r) { return r.name === nm; }) : null;
       return {
         id: uid("rv"),
+        ...(reg ? { reg: reg.id } : {}),
         author: String(x.author || "路人读者").slice(0, 20),
         pen: who,
         isAuthor: !!x.isAuthor || String(x.author || "") === authorName,
@@ -2125,7 +2132,8 @@
         replies: Array.isArray(x.replies) ? x.replies.filter(function (r) { return r && r.content; }).slice(0, 4).map(function (r) {
           // 回复里那一层同样要点得进去——一层写在两处，少写一处就是「楼主点得进、楼中楼点不进」
           const rn = String(r.author || "路人读者").slice(0, 20);
-          return { id: uid("rp"), author: rn, pen: (roster[rn] || findAuthor(rn)) ? rn : "", isAuthor: !!r.isAuthor || String(r.author || "") === authorName, content: String(r.content).trim() };
+          const rreg = regs && regs.list ? regs.list.find(function (q) { return q.name === rn; }) : null;
+          return { id: uid("rp"), ...(rreg ? { reg: rreg.id } : {}), author: rn, pen: (roster[rn] || findAuthor(rn)) ? rn : "", isAuthor: !!r.isAuthor || String(r.author || "") === authorName, content: String(r.content).trim() };
         }) : []
       };
     });

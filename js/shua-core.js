@@ -91,7 +91,8 @@
   //   就是论坛那批常驻网友，换了片刻上的网名和刷视频的习惯。跟她的碰面账两边共用。
   //   regs：[{id,name,voice,tie}]；pairs：他们之间的交情；me：她这次用的号名
   // doing：这个平台上大家在干什么。片刻是「刷视频、发评论」，一起听广场是「听歌、写歌评」——同一批人、同一份交情，一段话两处用
-  function regularsBlock(regs, pairs, me, doing) {
+  // tail：最后那句「怎么混进去」——各处字段名不一样（同人文书评是 author、一批只来一两位），给了就用给的
+  function regularsBlock(regs, pairs, me, doing, tail) {
     if (!regs || !regs.length) return "";
     const pick = regs.filter(r => r.tie && r.tie.encounters).concat(regs.filter(r => !(r.tie && r.tie.encounters)).sort(() => Math.random() - 0.5)).slice(0, 6);
     const ids = new Set(pick.map(r => r.id));
@@ -101,7 +102,7 @@
     const ps = (pairs || []).filter(p => ids.has(p.a) && ids.has(p.b)).map(p => "· " + p.line);
     return "\n\n【这个平台上的熟面孔】下面几位是常在这儿" + (doing || "刷视频、发评论") + "的老网友：\n" + pick.map(r => "· 「" + r.name + "」：" + r.voice + tieOf(r)).join("\n")
       + (ps.length ? "\n他们彼此之间：\n" + ps.join("\n") + "\n同一条底下碰见了可以接旧梗、互损，别每次重新认识。" : "")
-      + "\n写评论时大约三分之一可以是他们（name 照抄上面的网名，同一串里一个人最多两条，tone 填 warm＝聊得来 / spar＝抬杠），其余是路人（tone 留空）。";
+      + (tail != null ? tail : "\n写评论时大约三分之一可以是他们（name 照抄上面的网名，同一串里一个人最多两条，tone 填 warm＝聊得来 / spar＝抬杠），其余是路人（tone 留空）。");
   }
   // 她评论之后那一串——一枪写完（她 2026-10-15：「论坛都不用两次调用」）。
   //   第一版 ooc 的病根不在一枪，在【没告诉模型谁是谁】：情侣号是他俩共用的、评论的「Lisa」就是他女朋友本人，
