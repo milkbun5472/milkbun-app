@@ -14178,7 +14178,11 @@ function VoiceMsg({ m, isU, speaker }) {
   // 转录、波形、时长都按剥干净的那一份算（标记会跟着显示，还会把秒数算长）。
   // 合成仍走 m.content 原文：停顿要留给 MiniMax，剥不剥由 ttsKeyFor 一处说了算。
   // 存下来的那条要是一整串 {"voice":"…","emo":"…"}（旧版本落下的）：字幕和念的都只取里面那句话
-  const vText = (() => { const raw = String(m.content || ""), u = typeof unwrapVoiceJson === "function" ? unwrapVoiceJson(raw) : raw; return u && typeof u === "object" && typeof u.voice === "string" ? u.voice : raw; })();
+  const vText0 = (() => { const raw = String(m.content || ""), u = typeof unwrapVoiceJson === "function" ? unwrapVoiceJson(raw) : raw; return u && typeof u === "object" && typeof u.voice === "string" ? u.voice : raw; })();
+  // 语音里写成「原文 | 中文」「原文【中文】」的（群友 2026-10-26：「带翻译的语音条会把翻译也读一遍」）：
+  //   念的只念原文，中文挂成译文；她自己发的不动
+  const vBi = !isU && !m.zh && typeof splitBilingual === "function" ? splitBilingual(vText0, false) : null;
+  const vText = vBi ? vBi.text : vText0, vZh = m.zh || (vBi && vBi.zh) || "";
   const say = typeof ttsMarkStrip === "function" ? ttsMarkStrip(vText) : String(vText || "");
   const dur = m.dur || Math.max(1, Math.round(say.replace(/\s/g, "").length / 3));
   const mmss = Math.floor(dur / 60) + ":" + String(dur % 60).padStart(2, "0");
@@ -14266,7 +14270,7 @@ function VoiceMsg({ m, isU, speaker }) {
       pErr ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: "#c25a4a", margin: "8px 0 2px" } }, "没出声：" + pErr) : null,
       h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", color: fg, opacity: 0.45, margin: "8px 0 5px" } },
         (isU ? "我" : (window.PhonePronoun && speaker ? window.PhonePronoun.ta(speaker) : "TA")) + (emoZh || "说的是")),
-      h("div", { style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", lineHeight: 1.55, color: fg } }, h(TransText, { text: say, isU, zhReady: m.zh, ink: fg }))));
+      h("div", { style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", lineHeight: 1.55, color: fg } }, h(TransText, { text: say, isU, zhReady: vZh, ink: fg }))));
 }
 // 气泡上的播放键(v60.29 她 2026-09-02 要的)
 // 「能不能给TA气泡上面显示一个播放键跟比如塔罗差不多，这样我才知道哪些是缓存过的，

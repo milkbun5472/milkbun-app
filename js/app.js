@@ -13931,7 +13931,10 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         if (!vt) return;
         const _emo0 = (raw && raw.emo) || _ujEmo;
         const vEmo = _emo0 && ["happy","sad","angry","fearful","disgusted","surprised","neutral"].includes(String(_emo0)) ? String(_emo0) : undefined;
-        pChat(chatKey, p => [...p, { role: "assistant", kind: "voice", content: vt, emo: vEmo, dur: Math.max(1, Math.min(60, Math.round(vt.replace(/\s/g, "").length / 3))), ts: Date.now(), turnId, read: false }]);
+        // 「原文 | 中文」写进语音的：念原文，中文另存成译文（群友 2026-10-26）
+        const _vbi = typeof splitBilingual === "function" ? splitBilingual(vt, hanLangOf(char)) : null;
+        if (_vbi) vt = _vbi.text;
+        pChat(chatKey, p => [...p, { role: "assistant", kind: "voice", content: vt, ...(_vbi ? { zh: _vbi.zh } : {}), emo: vEmo, dur: Math.max(1, Math.min(60, Math.round(vt.replace(/\s/g, "").length / 3))), ts: Date.now(), turnId, read: false }]);
       };
       // 粤语这类角色开着双语，模型漏了竖线的那几泡自己补上中译（她 2026-10-11：「档案里用粤语的角色强制出翻译」）——
       //   先把这几泡一起丢给免费翻译，发到那一泡时最多等 2.5 秒；没翻成就照旧留一颗「译」，不去叫模型多花一次。
@@ -15874,10 +15877,12 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
             autoTook();
             setTimeout(() => pGChat(groupId, p => p.map(m => m.mid === mid ? { ...m, recalled: true, origText: item.text, reason: item.recallReason || "" } : m)), 1100);
           } else if (item.voice === true && item.text) {
-            const vt = stripEchoedMeta(stripAiStamp(item.text));
+            let vt = stripEchoedMeta(stripAiStamp(item.text));
+            const _gvbi = typeof splitBilingual === "function" ? splitBilingual(vt, hanLangOf(spk)) : null;   // 念原文，中文另存成译文
+            if (_gvbi) vt = _gvbi.text;
             const gEmo = item.voiceEmo && ["happy","sad","angry","fearful","disgusted","surprised","neutral"].includes(String(item.voiceEmo)) ? String(item.voiceEmo) : undefined;
             const q = gQuoteIn(item, i);
-            pGChat(groupId, p => [...p, { role: "assistant", senderId: spk.id, senderName: spk.name, kind: "voice", content: vt, emo: gEmo, dur: Math.max(1, Math.min(60, Math.round(vt.replace(/\s/g, "").length / 3))), ...q, mid: "gvm_" + Date.now() + "_" + i, ts: Date.now(), turnId: gTurnId }]);
+            pGChat(groupId, p => [...p, { role: "assistant", senderId: spk.id, senderName: spk.name, kind: "voice", content: vt, ...(_gvbi ? { zh: _gvbi.zh } : {}), emo: gEmo, dur: Math.max(1, Math.min(60, Math.round(vt.replace(/\s/g, "").length / 3))), ...q, mid: "gvm_" + Date.now() + "_" + i, ts: Date.now(), turnId: gTurnId }]);
             autoTook();
           } else {
             // 按换行把一坨拆成多条气泡（首条带引用），避免整段挤在一个气泡里
