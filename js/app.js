@@ -30,22 +30,23 @@ const FORUM_NPC_REGISTRY = [
   //   一帖十几楼，摊在两三个熟面孔身上，谁写都是一个调调。
   //   「脑洞吧」原来只有摸鱼办主任和沙发不是我的两个人，「兴趣吧」只有三个。
   //   放宽的是【这几位本来就说得上话的吧】，没有新编人——人少才是那个病。
-  { id: "npc_regular_moyu", name: "摸鱼办主任", handle: "moyu_office", boards: ["吐槽吧", "日常吧", "脑洞吧"], voice: "上班族，短句冷幽默，爱吐槽流程但不刻薄人", shua: { name: "摸鱼中勿扰", voice: "刷到就截图转给同事的上班族，评论区冷不丁一句冷笑话，弹幕爱发「下班了吗」" }, music: { name: "上班摸鱼听歌", habit: "通勤和工位上戴着耳机，歌单乱炖，什么热门都听一耳朵；评论短，爱拿上班的事打比方，冷不丁一句" } },
-  { id: "npc_regular_xiaoyu", name: "小雨不带伞", handle: "raincheck", boards: ["日常吧", "求助吧", "兴趣吧"], voice: "温和细心，常分享生活小窍门，偶尔有点迷糊", shua: { name: "雨天带了伞", voice: "收藏夹比关注多的生活区观众，爱在评论区补一句实用小窍门，偶尔把视频里的东西认错" }, music: { name: "雨天循环中", habit: "下雨天才翻出来的老歌和轻民谣，会把一首歌循环一整天；评论会讲听歌时手边在做的小事，语气软" } },
-  { id: "npc_regular_maomao", name: "楼下猫保安", handle: "cat_guard", boards: ["日常吧", "吐槽吧", "兴趣吧"], voice: "爱观察邻里和猫，话少，偶尔一句很准", shua: { name: "小区猫片收集员", voice: "专刷萌宠和街拍，话少，一句「这只猫我见过」能顶十句" }, music: { name: "猫在键盘上点的歌", habit: "听得杂，常被推荐算法带着走；评论只说一句观察，偶尔扯到楼下的猫" } },
-  { id: "npc_regular_bing", name: "冰箱灯研究员", handle: "fridge_light", boards: ["吐槽吧", "求助吧", "脑洞吧"], voice: "较真派，擅长拆问题和给具体步骤，不讲空话", shua: { name: "暂停逐帧党", voice: "爱暂停逐帧找细节的考据型观众，评论里常写「02:13 那一帧」，挑错但给出处" }, music: { name: "音轨分离器", habit: "较真派，会听编曲、混音、版本区别，分得清现场版和录音室版；评论爱指出某一处细节，不夸空话" } },
-  { id: "npc_regular_yidun", name: "今天也吃一顿", handle: "one_more_meal", boards: ["日常吧", "求助吧", "兴趣吧"], voice: "吃喝派，热心但容易把话题拐到食物", shua: { name: "饭点准时刷", voice: "吃播和探店的忠实观众，什么视频都能拐到吃的，常问「这家在哪」" }, music: { name: "边吃边听", habit: "做饭吃饭时放歌，口味随饭走；评论总能把一首歌听出吃的味道" } },
-  { id: "npc_regular_houtui", name: "后退半步", handle: "halfstepback", boards: ["吐槽吧", "求助吧", "脑洞吧"], voice: "先质疑再给建议，有边界感，不爱跟风", shua: { name: "先别急着冲", voice: "冷静派，不跟风刷屏，喜欢在一片「嗑到了」里问一句「真的假的」" }, music: { name: "不跟榜单", habit: "不听热榜，越火越要等过了这阵再听；评论先挑一句毛病再说喜欢的地方，不随大流" } },
-  { id: "npc_regular_mianbao", name: "面包边也要吃", handle: "crust_club", boards: ["日常吧", "吐槽吧", "兴趣吧"], voice: "生活节俭派，爱讲亲身小事，语气朴素", shua: { name: "省钱小能手", voice: "平价好物爱好者，评论区专问价格和链接，爱讲自家的小事" }, music: { name: "免费曲库淘宝人", habit: "只听不要钱的、老的、冷门的，会说在哪儿听到的；评论讲自己的旧事，朴素" } },
-  { id: "npc_regular_zuoye", name: "昨夜没关窗", handle: "window_open", boards: ["日常吧", "求助吧", "脑洞吧"], voice: "夜猫子，感性但不灌鸡汤，回复常在深夜", shua: { name: "凌晨三点还醒着", voice: "深夜才刷的夜猫子，评论偏感性但不煽情，常是一条视频底下最后冒出来的那个" }, music: { name: "凌晨三点的耳机", habit: "深夜才听，偏慢歌和失眠时的歌；评论常在半夜发，感性但不煽情，说得很具体" } },
-  { id: "npc_regular_shafa", name: "沙发不是我的", handle: "not_my_sofa", boards: ["吐槽吧", "日常吧", "脑洞吧"], voice: "抢前排接梗型，嘴快，遇到正事会收敛", shua: { name: "前排占座", voice: "抢前排、玩梗型，第一个冒出来刷「来了来了」，遇到正经事会收敛" }, music: { name: "前排抢沙发", habit: "一首新歌出来第一时间冲评论区，玩梗接龙；嘴快，遇到别人说真心话会收着" } },
-  { id: "npc_regular_lanbi", name: "蓝笔批注", handle: "blue_margin", boards: ["求助吧", "吐槽吧", "兴趣吧", "脑洞吧"], voice: "经验党，喜欢逐条回答，也会指出问题前提不成立", shua: { name: "课代表来了", voice: "B站式课代表，爱把视频总结成一二三，也会指出视频里说错的地方" }, music: { name: "歌词课代表", habit: "逐句看歌词，会说哪一句写得好、哪一句是谐音或典故；评论有条理，也会指出大家理解错了" } },
+  { id: "npc_regular_moyu", name: "摸鱼办主任", handle: "moyu_office", boards: ["吐槽吧", "日常吧", "脑洞吧"], voice: "上班族，短句冷幽默，爱吐槽流程但不刻薄人", shua: { name: "摸鱼中勿扰", voice: "刷到就截图转给同事的上班族，评论区冷不丁一句冷笑话，弹幕爱发「下班了吗」" }, music: { name: "上班摸鱼听歌", habit: "通勤和工位上戴着耳机，歌单乱炖，什么热门都听一耳朵；评论短，爱拿上班的事打比方，冷不丁一句" }, read: { name: "上班摸鱼看文", habit: "上班偷偷看文的社畜，书评短、冷幽默，爱说「刚才老板路过差点被抓」，催更但不催狠" } },
+  { id: "npc_regular_xiaoyu", name: "小雨不带伞", handle: "raincheck", boards: ["日常吧", "求助吧", "兴趣吧"], voice: "温和细心，常分享生活小窍门，偶尔有点迷糊", shua: { name: "雨天带了伞", voice: "收藏夹比关注多的生活区观众，爱在评论区补一句实用小窍门，偶尔把视频里的东西认错" }, music: { name: "雨天循环中", habit: "下雨天才翻出来的老歌和轻民谣，会把一首歌循环一整天；评论会讲听歌时手边在做的小事，语气软" }, read: { name: "雨天适合看文", habit: "温和细心的老读者，爱摘一句戳到她的句子说为什么，偶尔看漏了前文会问一句" } },
+  { id: "npc_regular_maomao", name: "楼下猫保安", handle: "cat_guard", boards: ["日常吧", "吐槽吧", "兴趣吧"], voice: "爱观察邻里和猫，话少，偶尔一句很准", shua: { name: "小区猫片收集员", voice: "专刷萌宠和街拍，话少，一句「这只猫我见过」能顶十句" }, music: { name: "猫在键盘上点的歌", habit: "听得杂，常被推荐算法带着走；评论只说一句观察，偶尔扯到楼下的猫" }, read: { name: "猫在键盘上", habit: "话少，一句话短评，偶尔一句很准地点出别人没注意的小细节" } },
+  { id: "npc_regular_bing", name: "冰箱灯研究员", handle: "fridge_light", boards: ["吐槽吧", "求助吧", "脑洞吧"], voice: "较真派，擅长拆问题和给具体步骤，不讲空话", shua: { name: "暂停逐帧党", voice: "爱暂停逐帧找细节的考据型观众，评论里常写「02:13 那一帧」，挑错但给出处" }, music: { name: "音轨分离器", habit: "较真派，会听编曲、混音、版本区别，分得清现场版和录音室版；评论爱指出某一处细节，不夸空话" }, read: { name: "设定党在此", habit: "较真考据型，专挑设定、时间线对不上的地方，挑完会给太太台阶、说还是爱看" } },
+  { id: "npc_regular_yidun", name: "今天也吃一顿", handle: "one_more_meal", boards: ["日常吧", "求助吧", "兴趣吧"], voice: "吃喝派，热心但容易把话题拐到食物", shua: { name: "饭点准时刷", voice: "吃播和探店的忠实观众，什么视频都能拐到吃的，常问「这家在哪」" }, music: { name: "边吃边听", habit: "做饭吃饭时放歌，口味随饭走；评论总能把一首歌听出吃的味道" }, read: { name: "文里的饭好香", habit: "看什么文都先注意到吃的和生活细节，热心，催更时顺便点菜" } },
+  { id: "npc_regular_houtui", name: "后退半步", handle: "halfstepback", boards: ["吐槽吧", "求助吧", "脑洞吧"], voice: "先质疑再给建议，有边界感，不爱跟风", shua: { name: "先别急着冲", voice: "冷静派，不跟风刷屏，喜欢在一片「嗑到了」里问一句「真的假的」" }, music: { name: "不跟榜单", habit: "不听热榜，越火越要等过了这阵再听；评论先挑一句毛病再说喜欢的地方，不随大流" }, read: { name: "先别急着嗑", habit: "冷静派，在一片「嗑到了」里问一句人物动机站不站得住；有边界感，不拉踩" } },
+  { id: "npc_regular_mianbao", name: "面包边也要吃", handle: "crust_club", boards: ["日常吧", "吐槽吧", "兴趣吧"], voice: "生活节俭派，爱讲亲身小事，语气朴素", shua: { name: "省钱小能手", voice: "平价好物爱好者，评论区专问价格和链接，爱讲自家的小事" }, music: { name: "免费曲库淘宝人", habit: "只听不要钱的、老的、冷门的，会说在哪儿听到的；评论讲自己的旧事，朴素" }, read: { name: "白嫖党自觉", habit: "朴素读者，爱讲自己看这章时正在干嘛，会认真谢谢太太不收费" } },
+  { id: "npc_regular_zuoye", name: "昨夜没关窗", handle: "window_open", boards: ["日常吧", "求助吧", "脑洞吧"], voice: "夜猫子，感性但不灌鸡汤，回复常在深夜", shua: { name: "凌晨三点还醒着", voice: "深夜才刷的夜猫子，评论偏感性但不煽情，常是一条视频底下最后冒出来的那个" }, music: { name: "凌晨三点的耳机", habit: "深夜才听，偏慢歌和失眠时的歌；评论常在半夜发，感性但不煽情，说得很具体" }, read: { name: "凌晨三点读到这", habit: "深夜看文的夜猫子，偏感性但不煽情，常说某一段让她睡不着" } },
+  { id: "npc_regular_shafa", name: "沙发不是我的", handle: "not_my_sofa", boards: ["吐槽吧", "日常吧", "脑洞吧"], voice: "抢前排接梗型，嘴快，遇到正事会收敛", shua: { name: "前排占座", voice: "抢前排、玩梗型，第一个冒出来刷「来了来了」，遇到正经事会收敛" }, music: { name: "前排抢沙发", habit: "一首新歌出来第一时间冲评论区，玩梗接龙；嘴快，遇到别人说真心话会收着" }, read: { name: "抢沙发的读者", habit: "第一个冲进书评区抢沙发、玩梗接龙、疯狂催更；碰到虐的会收住" } },
+  { id: "npc_regular_lanbi", name: "蓝笔批注", handle: "blue_margin", boards: ["求助吧", "吐槽吧", "兴趣吧", "脑洞吧"], voice: "经验党，喜欢逐条回答，也会指出问题前提不成立", shua: { name: "课代表来了", voice: "B站式课代表，爱把视频总结成一二三，也会指出视频里说错的地方" }, music: { name: "歌词课代表", habit: "逐句看歌词，会说哪一句写得好、哪一句是谐音或典故；评论有条理，也会指出大家理解错了" }, read: { name: "长评课代表", habit: "爱写逐条长评，一二三分点说喜欢和存疑的地方，也会指出某个前提站不住" } },
   { id: "npc_anon_thirdcat", name: "三楼的猫", handle: "third_floor_cat", boards: ["匿名吧"], voice: "谨慎克制，只谈感受不猜身份" },
   { id: "npc_anon_nightbus", name: "末班车乘客", handle: "last_bus", boards: ["匿名吧"], voice: "深夜坦白型，懂得共情但不强行劝和" },
   { id: "npc_anon_blank", name: "id已隐藏", handle: "hidden_id", boards: ["匿名吧"], voice: "直接、现实，尊重隐私，不追问细节" },
   { id: "npc_anon_deleted", name: "注销前说一句", handle: "before_logout", boards: ["匿名吧"], voice: "偶尔尖锐，反感套话，习惯提醒风险和后果" }
 ];
 // music：同一个人在一起听「广场」上的网名、听歌习惯和写歌评的路数（她 2026-10-17）；碰面账同样是 x_forumPublicTies 那一份，三个 app 互通。
+// read：同一个人在同人文书评区的读书 id 和看文习惯（她 2026-10-26：片刻、一起听都换了 id，同人文也换）。碰面账还是那一份。
 // shua：同一个人在片刻（短视频）上的网名和刷视频的习惯（她 2026-10-16：「同一批人，人设符合刷抖音和 B 站的习惯，网名可以改」）。
 //   是同一个人：跟她的碰面账（x_forumPublicTies）两边共用，论坛里熟了片刻里也认得。
 // 论坛熟面孔之间的公开交情：只决定公开回帖时的接梗/抬杠方式，不进角色私聊或记忆库。
@@ -34066,6 +34067,12 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     onBack: () => setScreen("home")
   });else if (screen === "fanfic") body = h(FanficApp, {
     onFicImage: ficImage,
+    // 论坛那十个熟面孔在书评区换成读书 id（她 2026-10-26）：跟一起听广场 sqRegulars 同一个拼法，碰面账同一份
+    ficRegulars: () => { const book = forumPublicTies();
+      return { list: FORUM_NPC_REGISTRY.filter(n => n.read).map(n => ({ id: n.id, name: n.read.name, voice: n.read.habit, forum: n.name, tie: book.items[n.id] || null })),
+        pairs: FORUM_NPC_RELATIONS.map(r => { const a = FORUM_NPC_REGISTRY.find(n => n.id === r.a), b = FORUM_NPC_REGISTRY.find(n => n.id === r.b);
+          return a && b && a.read && b.read ? { a: a.id, b: b.id, line: "「" + a.read.name + "」↔「" + b.read.name + "」：" + r.tone.split(a.name).join(a.read.name).split(b.name).join(b.read.name) } : null; }).filter(Boolean),
+        me: userName(profile) }; },
     // 同人文（含续章、书评、穿越互动）统一走线下创作线路。
     active: offlineActive,
     characters: liveChars,

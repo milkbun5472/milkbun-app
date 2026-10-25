@@ -209,7 +209,7 @@ test("CP 文默认就是爱情向：这件事以前一个字都没说过", () =>
 test("书评那一枪现在知道这篇挂的是谁", () => {
   const g = fic.slice(fic.indexOf("async function genReviews("), fic.indexOf("  // ---- 加载/保存"));
   assert.ok(g.length > 400, "没切到 genReviews");
-  assert.match(g, /async function genReviews\(active, fic, tab, worldbook, characters, userName\)/);
+  assert.match(g, /async function genReviews\(active, fic, tab, worldbook, characters, userName, regs\)/);
   assert.match(g, /const cpTxt = \(fic\.cp && fic\.cp\.length\) \? cpLabel\(fic\.cp, characters \|\| \[\], userName\) : "";/);
   assert.match(g, /"这一篇挂的是【" \+ cpTxt \+ "】"/);
   assert.match(g, /\+ cpLine \+/, "算出来了却没拼进去＝没写");
@@ -219,5 +219,5 @@ test("书评那一枪现在知道这篇挂的是谁", () => {
   // 群像那一向也一起告诉他们
   assert.match(g, /wayTxt \? "（" \+ wayTxt \+ "）" : ""/);
   // 调用点真的把人递过去了
-  assert.match(code, /window\.Fanfic\.genReviews\(props\.active, f, props\.tab, storyLore\("书评"\), props\.characters, props\.userName\)/);
+  assert.match(code, /window\.Fanfic\.genReviews\(props\.active, f, props\.tab, storyLore\("书评"\), props\.characters, props\.userName, props\.ficRegulars \? props\.ficRegulars\(\) : null\)/);
 });
