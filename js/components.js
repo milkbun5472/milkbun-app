@@ -6514,13 +6514,13 @@ const DEFAULT_FOLDERS = {
   f_def_check: { name: "查一查", keys: ["phone", "carry", "dwell", "zhaoying"] },
   f_def_daily: { name: "每日看", keys: ["cwallet", "tarot", "shop", "takeout", "astro", "health"] },
   f_def_ties:  { name: "角色关系", keys: ["ties", "cast", "lore"] },
-  f_def_play:  { name: "一起玩", keys: ["games", "theater", "trpg", "shua", "stamps"] },
+  f_def_play:  { name: "一起玩", keys: ["games", "theater", "trpg", "shua"] },
   f_def_do:    { name: "一起做", keys: ["study", "read", "watch", "pomodoro"] },
   // ⚠️id 里带上「脑洞」的拼音不是随手起的：文件夹的颜色是【按 key 哈希】出来的，
   //   f_def_mind 那个名字算出来的色相和它左边的匿名问答只差 24，
   //   撞色那道闸（home-tone-58-45）当场就红。换个 id ＝换个色。
   f_def_naodong:  { name: "脑洞", keys: ["dream", "fanfic", "debate"] },
-  f_def_back:  { name: "回头看", keys: ["weekly", "impression", "shike"] },
+  f_def_back:  { name: "回头看", keys: ["weekly", "impression", "shike", "stamps"] },
   f_def_ops:   { name: "后台", keys: ["rescue", "vpscodex", "loungeapp"] }
 };
 // 新 app 进老用户的文件夹（v74.590 星测）：她画的位置就在「每日看」塔罗旁边。
@@ -6556,6 +6556,21 @@ function placeNewAppOnce(st, key, beside, flag) {
     if (seenA || onPage || !home) return st;
     var n = Object.assign({}, st); n[home] = Object.assign({}, st[home], { keys: (st[home].keys || []).concat([key]) });
     saveJSON("x_homeFolders", n); saveJSON(flag, true);
+    return n;
+  } catch (e) { return st; }
+}
+// 一个 app 还在当初自动放的那个文件夹里（跟 from 同组）就挪到 to 那一组，只挪一次
+function moveAppOnce(st, key, from, to, flag) {
+  try {
+    if (loadJSON(flag, false)) return st;
+    var src = Object.keys(st).filter(function (fid) { var k = st[fid].keys || []; return k.indexOf(key) >= 0 && k.indexOf(from) >= 0; })[0];
+    var dst = Object.keys(st).filter(function (fid) { return (st[fid].keys || []).indexOf(to) >= 0; })[0];
+    saveJSON(flag, true);
+    if (!src || !dst || src === dst) return st;
+    var n = Object.assign({}, st);
+    n[src] = Object.assign({}, st[src], { keys: st[src].keys.filter(function (k) { return k !== key; }) });
+    n[dst] = Object.assign({}, st[dst], { keys: (st[dst].keys || []).concat([key]) });
+    saveJSON("x_homeFolders", n);
     return n;
   } catch (e) { return st; }
 }
@@ -6709,8 +6724,9 @@ function Home({
     // 直播（v74.990）挪进了刷刷当一格：已经放过「直播」的，原位换成刷刷；没放过的，放到小剧场旁边
     if (st && Object.keys(st).length) st = swapAppOnce(st, "live", "shua", "x_shuaSwapped");
     if (st && Object.keys(st).length) st = placeNewAppOnce(st, "shua", "theater", "x_shuaPlaced");
-    // 邮票册（2026-10-26）：放进「一起玩」，挨着小游戏
-    if (st && Object.keys(st).length) st = placeNewAppOnce(st, "stamps", "games", "x_stampsPlaced");
+    // 邮票册（2026-10-26）：她要放「回头看」，挨着时刻。已经被放进「一起玩」的挪过去一次；她自己挪过的不动
+    if (st && Object.keys(st).length) st = moveAppOnce(st, "stamps", "games", "shike", "x_stampsMoved");
+    if (st && Object.keys(st).length) st = placeNewAppOnce(st, "stamps", "shike", "x_stampsPlaced");
     if (st && Object.keys(st).length) return st;
     // 第一次装：连布局也没有时才铺默认文件夹。老用户（布局已存过）保持空，
     // 免得凭空冒出九个文件夹压在她自己摆的图标上。
