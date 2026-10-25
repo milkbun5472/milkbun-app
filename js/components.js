@@ -21176,6 +21176,7 @@ function ChatSettings({
   // 我在这个聊天窗里的头像：跟上面那张对称，一个管TA、一个管我
   const [myChatAvatar, setMyChatAvatar] = useState(character.myChatAvatar || null);
   const [patSig, setPatSig] = useState(character.patSig || "");
+  const [myPatSig, setMyPatSig] = useState(character.myPatSig || "");   // 他拍你时，你那半句后缀（她 2026-10-25）
   const [ctxN, setCtxN] = useState(settings.ctxN || 50);
   const [sumThresh, setSumThresh] = useState(settings.sumThresh || 150);
   const [sumBuffer, setSumBuffer] = useState(settings.sumBuffer || 20);
@@ -21542,6 +21543,7 @@ function ChatSettings({
       onlinePresetId,
       myChatAvatar,
       patSig,
+      myPatSig,
       ctxN,
       sumThresh,
       sumBuffer,
@@ -21825,7 +21827,10 @@ function ChatSettings({
     value: patSig,
     onChange: e => setPatSig(e.target.value),
     placeholder: "如：的脑袋、的猫耳朵"
-  })))),
+  })),
+  // 他拍你的时候显示「他 拍了拍我 + 这半句」（她 2026-10-25：char 的拍一拍原来只能写成一句话）
+  h(LineField, { zh: "他拍我时的后缀", en: "My Nudge" },
+    h(LineInput, { value: myPatSig, onChange: e => setMyPatSig(e.target.value.slice(0, 20)), placeholder: "他拍你时跟在「拍了拍我」后面，可以不填" })))),
   show("look", { title: "气泡里显示什么", ...sec("look") }, h("div", { className: "pt-2" },
     h(Eyebrow, { style: { marginBottom: 2 } }, "气泡显示"),
     dispRow("显示我的头像", showMyAvatar, setShowMyAvatar),
