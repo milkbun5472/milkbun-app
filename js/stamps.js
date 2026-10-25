@@ -170,7 +170,7 @@
       sayT.current = setTimeout(() => setSay(null), 3200);
     };
     const up = steps => { const r = C().levelUp(card.id, steps); if (r.n) { setPop(Date.now()); toast("盖好了，到 " + r.lv + " 级"); } else if (r.msg) toast(r.msg); };
-    const no = (S.cards || []).findIndex(c => c.id === card.id) + 1;
+    const no = (S.cards || []).filter(c => c.charId === card.charId && !c.dupe).findIndex(c => c.id === card.id) + 1;   // 编号按人数：这是他的第几枚
     const got = new Date(card.ts || Date.now());
     const fs = n => "calc(" + n + "px * var(--app-fs, 1))";
     // 收进时刻：SR、SSR 才收（R 是他一个人的一刻，不是你们的）。只收已经解锁的那几段；IF 卡标明是哪个「如果」
