@@ -119,6 +119,24 @@
     const no = (S.cards || []).findIndex(c => c.id === card.id) + 1;
     const got = new Date(card.ts || Date.now());
     const fs = n => "calc(" + n + "px * var(--app-fs, 1))";
+    // 收进时刻：SR、SSR 才收（R 是他一个人的一刻，不是你们的）。只收已经解锁的那几段；IF 卡标明是哪个「如果」
+    const keep = () => {
+      if (!tx || card.shikeId) return;
+      const parts = card.rarity === "SR" ? [tx.line ? "「" + tx.line + "」" : "", tx.open, lv >= U.SR.rest ? tx.rest : "", lv >= U.SR.sequel ? tx.sequel : ""]
+        : [tx.line ? "「" + tx.line + "」" : "", ...((tx.sections || []).filter(x => (Number(x.lv) || 1) <= lv).map(x => (x.title ? x.title + "：" : "") + (x.beats || []).map(b => b.text || "").join("").slice(0, 300)))];
+      const lines = parts.filter(Boolean).map(t => ({ role: "manual", text: String(t).slice(0, 600) }));
+      const id = "pin_stamp_" + card.id;
+      const all = loadJSON("x_shikePins", {}) || {};
+      const row = { id, ts: card.ts || Date.now(), manual: true, stamp: card.id,
+        title: (card.kind === "if" ? "IF「" + (card.theme || "") + "」· " : "") + (tx.name || "一枚邮票"),
+        text: (lines[0] || {}).text || "", lines,
+        summary: card.canon ? "这张当真了：那段算你们真的一起经历过。" : "",
+        ...(card.face ? { imgKey: card.face } : {}) };
+      all[card.charId] = [row].concat((all[card.charId] || []).filter(x => x.id !== id)).slice(0, 300);
+      saveJSON("x_shikePins", all);
+      const st = C().load(); st.cards = st.cards.map(c => c.id === card.id ? { ...c, shikeId: id } : c); C().save(st);
+      toast("收进时刻了");
+    };
     const para = s => h("div", { style: { fontFamily: F_BODY, fontSize: fs(14), lineHeight: 1.85, color: P, whiteSpace: "pre-wrap" } }, s);
     const quote = s => h("div", { style: { marginTop: 8, fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: fs(14.5), color: P7 } }, "「" + s + "」");
     // 回廊的格子：按时间排，从前一刻到他心里那句
@@ -164,9 +182,10 @@
             h("div", { style: { flex: 1, height: 1, background: "linear-gradient(90deg, transparent, " + LINE + ")" } }),
             h("div", { "data-wk": "stampstars", style: { letterSpacing: ".35em", fontSize: fs(16), color: GOLD, textShadow: stars ? "0 0 8px rgba(227,182,92,.6)" : "none" } }, Array.from({ length: starsAll }, (_, i) => i < stars ? "★" : "☆").join("")),
             h("div", { style: { flex: 1, height: 1, background: "linear-gradient(270deg, transparent, " + LINE + ")" } })),
-          tx ? h("div", { className: "flex", style: { gap: 8, marginTop: 10 } },
+          tx ? h("div", { className: "flex flex-wrap justify-center", style: { gap: 8, marginTop: 10 } },
             h("button", { "data-wk": "stampsend", onClick: () => onSend(card), className: "active:opacity-70", style: { padding: "6px 14px", borderRadius: 999, border: "1px solid " + LINE, color: P, fontFamily: F_BODY, fontSize: fs(12) } }, card.sentTs ? "✉ 再发给他看" : "✉ 发给他看"),
             card.rarity === "SSR" && card.kind === "if" && card.sentTs && !card.canon && lv >= cap ? h("button", { "data-wk": "stampcanon", onClick: () => onCanon(card), className: "active:opacity-70", style: { padding: "6px 14px", borderRadius: 999, background: RC.SSR, color: "#fff", fontFamily: F_BODY, fontSize: fs(12) } }, "当真") : null,
+            card.rarity !== "R" ? h("button", { "data-wk": "stampkeep", disabled: !!card.shikeId, onClick: keep, className: "active:opacity-70", style: { padding: "6px 14px", borderRadius: 999, border: "1px solid " + LINE, color: card.shikeId ? P5 : P, fontFamily: F_BODY, fontSize: fs(12) } }, card.shikeId ? "已收进时刻" : "☆ 收进时刻") : null,
             card.canon ? h("span", { style: { alignSelf: "center", fontFamily: F_BODY, fontSize: fs(11.5), color: GOLD } }, "已当真") : null) : null,
           !card.face ? h("button", { "data-wk": "stampdraw", disabled: !tx || card.drawing, onClick: () => onDraw(card.id), className: "active:opacity-70 disabled:opacity-40",
             style: { marginTop: 8, padding: "6px 14px", borderRadius: 999, border: "1px solid " + LINE, color: P7, fontFamily: F_BODY, fontSize: fs(12) } }, card.drawing ? "画着…" : "画卡面 · 花一次生图") : null),
