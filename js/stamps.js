@@ -356,6 +356,14 @@
       .forEach(c => { const k = dayOf(c.ts); (by[k] = by[k] || []).push(c); });
     return Object.keys(by).map(k => ({ day: k, ts: by[k][0].ts, card: by[k].find(c => c.id === pick[k]) || by[k][0], n: by[k].length })).sort((a, b) => a.ts - b.ts);
   }
+  // 「他的一周」里那枚小邮票：画了卡面就是卡面缩略图；没画就印卡名第一个字，底下一层淡淡的斜纹
+  function WeekThumb({ card, size }) {
+    const url = useIdbImgUrl(card && card.face);
+    const w = size || 44, hh = Math.round(w * 1.3), col = card.kind === "bday" ? "#8a3a4a" : card.kind === "if" ? "#B58C55" : "#577767";
+    return h("div", { style: { flexShrink: 0, width: w, height: hh, padding: 3, background: "radial-gradient(circle at 3px 3px, transparent 2.2px, #fbf6ea 2.6px) -3px -3px / 6px 6px", filter: "drop-shadow(0 1px 2px rgba(57,56,47,.2))" } },
+      h("div", { style: { width: "100%", height: "100%", border: "1px solid " + col, background: url ? "#222 center/cover no-repeat url(" + url + ")" : "repeating-linear-gradient(135deg, " + col + "14 0 2px, transparent 2px 7px), #F6EEDC",
+        display: "flex", alignItems: "center", justifyContent: "center", fontFamily: F_DISPLAY, fontSize: Math.round(w * 0.42), color: col } }, url ? null : String((card.text && card.text.name) || "·").slice(0, 1)));
+  }
   function StampBookApp(props) {
     const t = useTheme();
     const { characters, onBack, onWrite, onDraw, toast, meName } = props;
@@ -577,7 +585,7 @@
           chip(albumChar === "all", "全部 " + (st.cards || []).length, () => setAlbumChar("all"), "all"),
           characters.filter(c => (st.cards || []).some(x => x.charId === c.id)).map(c => chip(albumChar === c.id, (c.remark || c.name) + " " + st.cards.filter(x => x.charId === c.id).length, () => setAlbumChar(c.id), c.id))),
         (() => { const ds = albumChar === "all" ? [] : weekDays(st, albumChar), wks = Math.floor(ds.length / 7);
-          return albumChar !== "all" && ds.length ? h("button", { "data-wk": "stampweekbtn", "data-full": wks ? "1" : "0", onClick: () => wks ? setWeek(wks) : toast("还差 " + (7 - ds.length) + " 天：每天抽到的他的 R 只算一天，攒够七个不同的日子就能翻"), className: "w-full active:opacity-70", style: { marginTop: 10, minHeight: 40, borderRadius: 10, background: "#FFF8E9", border: "1px solid #577767", color: "#285C4B", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))" } }, wks ? "翻他的一周 · 已经攒了 " + wks + " 周" + (ds.length % 7 ? "，这一周还差 " + (7 - ds.length % 7) + " 天" : "") : "他的一周 · 攒了 " + ds.length + " 天，还差 " + (7 - ds.length) + " 天") : null; })(),
+          return albumChar !== "all" && ds.length ? h("button", { "data-wk": "stampweekbtn", "data-full": wks ? "1" : "0", onClick: () => setWeek(Math.ceil(ds.length / 7)), className: "w-full active:opacity-70", style: { marginTop: 10, minHeight: 40, borderRadius: 10, background: "#FFF8E9", border: "1px solid #577767", color: "#285C4B", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))" } }, "翻他的一周 · " + (wks ? "攒满 " + wks + " 周" : "") + (ds.length % 7 ? (wks ? "，" : "") + "这一周 " + (ds.length % 7) + " / 7 天" : "")) : null; })(),
         h("div", { "data-wk": "stamprarpick", className: "flex overflow-x-auto", style: { gap: 6, paddingTop: 8 } },
           [["all", "全部"], ["SSR", "SSR"], ["SR", "SR"], ["R", "R"], ["bad", "没写好"]].map(x => { const n = x[0] === "all" ? byChar.length : x[0] === "bad" ? byChar.filter(isBad).length : byChar.filter(c => c.rarity === x[0]).length;
             return x[0] === "bad" && !n ? null : chip(albumRar === x[0], x[1] + " " + n, () => setAlbumRar(x[0]), x[0]); })),
@@ -589,32 +597,43 @@
           album.map(c => h(StampFace, { key: c.id, t, card: c, size: 88, onClick: () => setOpen(c.id) })))
           : h("div", { style: { padding: "48px 0", textAlign: "center", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: "rgba(47,42,34,.5)" } }, "还没有邮票，去寄一封")),
       week ? (() => { const ch = charOf(albumChar); const all = byChar.filter(c => c.rarity === "R" && c.text).sort((x, y) => (x.ts || 0) - (y.ts || 0));
-        const ds = weekDays(st, albumChar), weeks = Math.floor(ds.length / 7), wk = Math.min(weeks, Math.max(1, Number(week) || 1)), rs = ds.slice((wk - 1) * 7, wk * 7).map(d => Object.assign({}, d.card, { _day: d.day }));
+        const ds = weekDays(st, albumChar), weeks = Math.ceil(ds.length / 7), wk = Math.min(weeks, Math.max(1, Number(week) || 1));
+        const rs = ds.slice((wk - 1) * 7, wk * 7).map(d => Object.assign({}, d.card, { _day: d.day })), full = rs.length === 7;
         const WD = ["周日", "周一", "周二", "周三", "周四", "周五", "周六"], md = ts => { const d = new Date(ts); return (d.getMonth() + 1) + "." + d.getDate(); };
         const fz = n => "calc(" + n + "px * var(--app-fs, 1))", INK = "#39382F", SUB = "#827C6F", CU = "#B58C55", GR = "#285C4B";
-        // 一页手账：顶上周数和日期范围，左边一条虚线串起七枚日期邮戳，右边是那天那一刻（小邮票＋卡名＋那一刻＋他心里那句）
+        const tag = c => c.kind === "bday" ? "生日" : c.kind === "if" ? "IF「" + (c.theme || "") + "」" : "日常";
+        const edge = c => c.kind === "bday" ? "#8a3a4a" : c.kind === "if" ? CU : GR;   // 有含义的颜色：日常墨绿、IF 铜金、生日酒红
+        // 一页手账：顶上周数和日期范围；左边一条虚线串起日期邮戳，右边是那天那一刻；底下这一周的集邮页（没攒到的日子留空位）
         return h("div", { "data-wk": "stampweek", className: "fixed inset-0 flex flex-col", style: { zIndex: 250, background: "radial-gradient(rgba(130,124,111,.07) 1px, transparent 1.2px) 0 0 / 5px 5px, linear-gradient(#F6F0E2, #EFE7D5)" } },
           h(Head, { zh: (ch ? (ch.remark || ch.name) : "他") + "的一周", bg: "transparent", ink: INK, onBack: () => setWeek(false) }),
           h("div", { className: "flex-1 min-h-0 overflow-y-auto overflow-x-hidden", style: { paddingBottom: "calc(env(safe-area-inset-bottom) * 0.4 + 28px)" } },
             h("div", { style: { textAlign: "center", padding: "6px 20px 4px" } },
-              h("div", { style: { fontFamily: F_BODY, fontSize: fz(10), letterSpacing: ".4em", color: CU } }, "第 " + wk + " 周"),
+              h("div", { style: { fontFamily: F_BODY, fontSize: fz(10), letterSpacing: ".4em", color: CU } }, "第 " + wk + " 周" + (full ? "" : " · 还在攒")),
               h("div", { style: { marginTop: 4, fontFamily: F_DISPLAY, fontSize: fz(24), color: INK, letterSpacing: ".06em" } }, rs.length ? md(rs[0].ts) + " — " + md(rs[rs.length - 1].ts) : ""),
               h("div", { style: { width: 40, height: 1, background: CU, margin: "10px auto 0", opacity: .6 } })),
             weeks > 1 ? h("div", { "data-wk": "stampweekpick", className: "flex justify-center flex-wrap", style: { gap: 6, padding: "10px 20px 0" } }, Array.from({ length: weeks }, (_, k) => chip(wk === k + 1, "第 " + (k + 1) + " 周", () => setWeek(k + 1), "w" + k))) : null,
-            h("div", { style: { position: "relative", padding: "14px 18px 0 18px" } },
-              h("div", { style: { position: "absolute", left: 44, top: 30, bottom: 30, borderLeft: "1.5px dashed rgba(181,140,85,.45)" } }),
-              rs.map((c, k) => { const d = new Date(c.ts);
-                return h("button", { key: c.id, "data-wk": "stampweekday", onClick: () => { setWeek(false); setOpen(c.id); }, className: "w-full text-left active:opacity-80", style: { position: "relative", display: "flex", alignItems: "flex-start", gap: 12, marginTop: k ? 14 : 0 } },
-                  h("div", { style: { flexShrink: 0, width: 54, height: 54, borderRadius: 999, border: "1.5px solid " + CU, background: "#FFF8E9", color: CU, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", transform: "rotate(" + (k % 2 ? 8 : -8) + "deg)", boxShadow: "0 0 0 3px #F3ECDD", zIndex: 1 } },
-                    h("div", { style: { fontFamily: F_DISPLAY, fontSize: fz(14), lineHeight: 1.1 } }, md(c.ts)), h("div", { style: { fontFamily: F_BODY, fontSize: fz(9) } }, WD[d.getDay()])),
-                  h("div", { style: { flex: 1, minWidth: 0, display: "flex", gap: 10, padding: "10px 12px", borderRadius: 4, background: "#FFF8E9", boxShadow: "0 1px 0 rgba(57,56,47,.06), 0 6px 16px rgba(57,56,47,.08)", borderTop: "3px solid " + (k % 3 === 0 ? GR : k % 3 === 1 ? CU : "#b23a2e") } },
-                    h("div", { style: { flexShrink: 0 } }, h(StampFace, { t, card: c, size: 46 })),
-                    h("div", { style: { minWidth: 0 } },
-                      h("div", { style: { fontFamily: F_BODY, fontSize: fz(9.5), letterSpacing: ".2em", color: SUB } }, "第 " + (k + 1) + " 天"),
-                      h("div", { style: { marginTop: 1, fontFamily: F_DISPLAY, fontSize: fz(15), color: INK } }, c.text.name || ""),
-                      h("div", { style: { marginTop: 4, fontFamily: F_BODY, fontSize: fz(12.5), lineHeight: 1.7, color: INK, display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical", overflow: "hidden" } }, c.text.narration || ""),
-                      c.text.thought ? h("div", { style: { marginTop: 4, fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: fz(12.5), color: SUB } }, "「" + c.text.thought + "」") : null))); })),
-            h("div", { style: { textAlign: "center", marginTop: 22, fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: fz(12), color: SUB } }, "—— 这一周，就是这七个瞬间 ——")));
+            h("div", { style: { position: "relative", padding: "14px 16px 0 12px" } },
+              h("div", { style: { position: "absolute", left: 32, top: 30, bottom: 30, borderLeft: "1px dashed rgba(181,140,85,.35)" } }),
+              rs.map((c, k) => { const d = new Date(c.ts), col = edge(c);
+                return h("button", { key: c.id, "data-wk": "stampweekday", "data-kind": c.kind || "", onClick: () => { setWeek(false); setOpen(c.id); }, className: "w-full text-left active:opacity-80", style: { position: "relative", display: "flex", alignItems: "flex-start", gap: 10, marginTop: k ? 12 : 0 } },
+                  h("div", { style: { flexShrink: 0, width: 40, height: 40, marginTop: 6, borderRadius: 999, border: "1px solid rgba(181,140,85,.6)", background: "#FFF8E9", color: CU, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", transform: "rotate(" + (k % 2 ? 8 : -8) + "deg)", boxShadow: "0 0 0 3px #F3ECDD", zIndex: 1 } },
+                    h("div", { style: { fontFamily: F_DISPLAY, fontSize: fz(11.5), lineHeight: 1.1 } }, md(c.ts)), h("div", { style: { fontFamily: F_BODY, fontSize: fz(8) } }, WD[d.getDay()])),
+                  h("div", { style: { flex: 1, minWidth: 0, display: "flex", gap: 12, padding: "12px 12px 12px 10px", borderRadius: 4, background: "#FFF8E9", boxShadow: "0 1px 0 rgba(57,56,47,.06), 0 6px 16px rgba(57,56,47,.08)", borderTop: "2px solid " + col } },
+                    h(WeekThumb, { card: c, size: 46 }),
+                    h("div", { style: { minWidth: 0, flex: 1 } },
+                      h("div", { style: { fontFamily: F_BODY, fontSize: fz(9.5), letterSpacing: ".15em", color: col } }, "R · " + tag(c)),
+                      h("div", { style: { marginTop: 2, fontFamily: F_DISPLAY, fontSize: fz(16), color: INK } }, c.text.name || ""),
+                      h("div", { style: { marginTop: 4, fontFamily: F_BODY, fontSize: fz(12.5), lineHeight: 1.7, color: SUB, display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical", overflow: "hidden" } }, c.text.narration || ""),
+                      c.text.thought ? h("div", { style: { marginTop: 6, padding: "4px 0 0 10px", borderLeft: "2px solid rgba(40,92,75,.35)", fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: fz(13.5), lineHeight: 1.6, color: "#2f5d4a" } }, "「" + c.text.thought + "」") : null))); })),
+            // 这一周的集邮页：七个格子，攒到的贴上邮票，没攒到的留空位
+            h("div", { "data-wk": "stampweeksheet", style: { margin: "26px 16px 0", padding: "16px 14px 14px", borderRadius: 6, background: "#FFF8E9", border: "1px solid rgba(87,119,103,.3)", boxShadow: "0 6px 18px rgba(57,56,47,.08)" } },
+              h("div", { className: "flex items-baseline justify-between" },
+                h("div", { style: { fontFamily: F_DISPLAY, fontSize: fz(14), color: GR } }, "✦ 这一周的集邮页"),
+                h("div", { style: { fontFamily: F_BODY, fontSize: fz(11.5), color: SUB } }, "已收集 " + rs.length + " / 7 个瞬间")),
+              h("div", { className: "grid", style: { gridTemplateColumns: "repeat(7, minmax(0, 1fr))", gap: 4, marginTop: 12, justifyItems: "center" } },
+                Array.from({ length: 7 }, (_, k) => rs[k] ? h("div", { key: k, style: { transform: "rotate(" + ((k % 3) - 1) * 2 + "deg)" } }, h(WeekThumb, { card: rs[k], size: 34 }))
+                  : h("div", { key: k, style: { width: 34, height: 44, border: "1px dashed rgba(130,124,111,.45)", borderRadius: 2, display: "flex", alignItems: "center", justifyContent: "center", fontSize: fz(9), color: "rgba(130,124,111,.6)" } }, "空"))),
+              h("div", { style: { marginTop: 12, textAlign: "center", fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: fz(12), color: SUB } }, full ? "这一周，就是这七个瞬间。" : "还差 " + (7 - rs.length) + " 天，这一页就贴满了。"))));
       })() : null,
       show ? h(PullShow, { t, cards: show.map(c => c.dupe ? c : (st.cards || []).find(x => x.id === c.id) || c), onDone: () => setShow(null), onOpen: c => { setShow(null); setOpen(c.id); }, charOf }) : null);
 
