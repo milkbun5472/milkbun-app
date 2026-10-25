@@ -31612,11 +31612,14 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       }
       toast("已删除 " + indices.length + " 条");
     },
-    onForward: (msgs, destination, mode) => {
+    onForward: async (msgs, destination, mode) => {
       if (mode === "each") { forwardEachTo(msgs, destination); return; }
-      const items = msgs.map(m => ({
+      // 合并转发里的照片带着图（她 2026-10-26「要」）：点开那张聊天记录看得见画面，跟逐条转发同一个取图法
+      const imgs = await Promise.all(msgs.map(m => (m && (m.kind === "photo" || m.kind === "selfie")) ? fwdImageRef(m) : Promise.resolve("")));
+      const items = msgs.map((m, k) => ({
         name: m.role === "user" ? profile.name || "我" : activeChar.name,
         text: gameChatText(m),
+        ...(imgs[k] ? { img: imgs[k] } : {}),
         ts: m.ts || null            // 微信的转发记录每条都带时刻，展开时显示
       }));
       const content = "【转发的聊天记录】\n" + items.map(it => it.name + "：" + it.text).join("\n");
@@ -32017,10 +32020,12 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       const msgs = (groupChatsRef.current[activeGroup.id] || []);
       pinGroupToShike(activeGroup, indices.slice().sort((a, b) => a - b).map(i => msgs[i]));
     },
-    onForward: (msgs, destination, mode) => {
+    onForward: async (msgs, destination, mode) => {
       if (mode === "each") { forwardEachTo(msgs, destination); return; }
       const sourceGroup = groups.find(g => g.id === activeGroup.id) || activeGroup;
-      const items = msgs.map(m => ({
+      const imgs = await Promise.all(msgs.map(m => (m && (m.kind === "photo" || m.kind === "selfie")) ? fwdImageRef(m) : Promise.resolve("")));
+      const items = msgs.map((m, k) => ({
+        ...(imgs[k] ? { img: imgs[k] } : {}),
         name: m.role === "user" ? (groupProfileFor(activeGroup.id).name || profile.name || "我") : (m.senderName || "群成员"),
         text: m.content || (m.kind === "poll" ? "[投票] " + (m.title || "") : m.kind === "redpacket" ? "[红包] " + (m.message || "") : ""),
         ts: m.ts || null

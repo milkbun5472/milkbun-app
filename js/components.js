@@ -14789,7 +14789,8 @@ function ChatForwardSheet({ m, onClose }) {
         (it.name || it.ts) ? h("div", { className: "flex items-baseline gap-2", style: { marginBottom: 3 } },
           it.name ? h("span", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog } }, it.name) : null,
           it.ts ? h("span", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.line } }, chatForwardTime(it.ts)) : null) : null,
-        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", lineHeight: 1.65, color: t.ink, whiteSpace: "pre-wrap" } }, it.text)))));
+        it.img ? h("img", { "data-wk": "fwdimg", src: typeof resolveImg === "function" ? resolveImg(it.img) : it.img, alt: "", style: { display: "block", maxWidth: "70%", maxHeight: 260, borderRadius: 10, objectFit: "cover", marginTop: 2 } })
+          : h("div", { style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", lineHeight: 1.65, color: t.ink, whiteSpace: "pre-wrap" } }, it.text)))));
 }
 // 聊天里能画成小卡的那几种分享（单聊、群聊都问这一张表）。时刻和番茄钟的卡住在各自的 app 文件里，
 //   那两个文件不一定比这里先加载，所以取的时候再去 window 上找。
