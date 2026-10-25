@@ -21833,7 +21833,8 @@ function ChatSettings({
     value: patSig,
     onChange: e => setPatSig(e.target.value),
     placeholder: "如：的脑袋、的猫耳朵"
-  })),
+  }), h("div", { "data-wk": "pathint", style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.6, marginTop: 4 } },
+    "在聊天里双击他的头像就能拍他，群里双击成员头像也一样。")),
   // 他拍你的时候显示「他 拍了拍我 + 这半句」（她 2026-10-25：char 的拍一拍原来只能写成一句话）
   h(LineField, { zh: "他拍我时的后缀", en: "My Nudge" },
     h(LineInput, { value: myPatSig, onChange: e => setMyPatSig(e.target.value.slice(0, 20)), placeholder: "他拍你时跟在「拍了拍我」后面，可以不填" })))),

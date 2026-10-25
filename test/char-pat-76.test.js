@@ -22,3 +22,4 @@ assert.match(app, /onGenPatSig: async \(\) => \{/);
 assert.match(cp, /"data-wk": "patsiggen"/);
 assert.match(cp, /if \(m\.kind === "pat" \|\| m\.kind === "patsig"\) return h\("div", \{/);
 console.log("ok2");
+assert.match(cp, /"在聊天里双击他的头像就能拍他，群里双击成员头像也一样。"/); console.log("ok3");
