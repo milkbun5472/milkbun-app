@@ -1,6 +1,6 @@
-import {homeBathroom,bathroomStructure,BASIN_USE} from './bathroom-layout.mjs?v=fg-e08d72edb16841f9';
-import {rounded,rimShape,shift} from './home-shapes.mjs?v=fg-e08d72edb16841f9';
-import {homeSurface} from './home-surfaces.mjs?v=fg-e08d72edb16841f9';
+import {homeBathroom,bathroomStructure,BASIN_USE} from './bathroom-layout.mjs?v=fg-3f575044413bc14d';
+import {rounded,rimShape,shift} from './home-shapes.mjs?v=fg-3f575044413bc14d';
+import {homeSurface} from './home-surfaces.mjs?v=fg-3f575044413bc14d';
 
 export function createBathroomShell(k,map,p){
  const a=homeBathroom(map.room),g=k.group('HomeBathroom',{x:a.x,z:0});g.userData.architecture='bathroom-wing';
