@@ -97,13 +97,46 @@ function manualSkin(t) {
         "说明书没加载出来。\n退出去再进一次。"));
 
     const qq = q.trim().toLowerCase();
+    // 空格隔开的几个词都得沾上（跟「更新了什么」那页同一个说法）
+    const words = qq.split(/\s+/).filter(Boolean);
+    const allIn = str => words.every(w => str.indexOf(w) >= 0);
     const hitApp = a => {
-      if (!qq) return true;
-      if (a.zh.toLowerCase().indexOf(qq) >= 0) return true;
+      if (!words.length) return true;
+      if (allIn(a.zh.toLowerCase())) return true;
       return M.appEntries(a.id).some(e =>
-        (e.zh + e.what + (e.doc || "") + (e.kw || []).join(" ")).toLowerCase().indexOf(qq) >= 0);
+        allIn((e.zh + e.what + (e.doc || "") + (e.kw || []).join(" ")).toLowerCase()));
     };
     const apps = M.APPS.filter(hitApp);
+    // 搜到的那几句（她 2026-10-25：「攻略搜索能不能也做关键词匹配」）：
+    //   原来搜完只列出是哪几个 app，点进去还得在一整页里自己找。现在直接摆出提到这个词的那几句，
+    //   带上是哪个 app、哪一节；一句太长就只截那一小句。点一下跳到那一节。
+    const plain = str => String(str).replace(/「([^」]*)」【跳转】/g, "「$1」").replace(/\*\*/g, "").replace(/^\s*(#{1,4}|[-•·]|\d+\.)\s*/, "").trim();
+    const hits = [];
+    if (words.length) M.APPS.forEach(a => M.appEntries(a.id).forEach(e => {
+      const whole = (a.zh + e.zh + e.what + (e.doc || "") + (e.kw || []).join(" ")).toLowerCase();
+      if (!allIn(whole)) return;
+      // 哪几个词算「沾上」：一句里几个词都有的优先；一句都凑不齐，就只认最具体的那个词（最长的）——
+      //   搜「情头 换」时，不该把每一句带「换」字的都摆出来
+      const key = words.slice().sort((x, y) => y.length - x.length)[0];
+      const all = String(e.doc || e.what || "").split("\n").map(plain).filter(Boolean);
+      const full = l => words.every(w => l.toLowerCase().indexOf(w) >= 0);
+      const need = all.some(full) ? full : (l => l.toLowerCase().indexOf(key) >= 0);
+      const lines = [];
+      all.forEach(line => {
+        if (!need(line)) return;
+        if (line.length <= 90) { lines.push(line); return; }
+        // 长的一段只留沾上的那一小句，前后用「…」标出省掉了
+        const sents = line.match(/[^。！？；]+[。！？；]?/g) || [line];
+        const parts = sents.filter(full).length ? sents.filter(full) : sents.filter(x => x.toLowerCase().indexOf(key) >= 0);
+        lines.push((parts.length ? parts.slice(0, 2).join("") : line.slice(0, 90)).trim() + " …");
+      });
+      hits.push({ app: a, e, lines: lines.length ? lines.slice(0, 3) : [plain(e.what || "")], more: Math.max(0, lines.length - 3) });
+    }));
+    const markWords = str => {
+      if (!words.length) return str;
+      const re = new RegExp("(" + words.map(w => w.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|") + ")", "gi");
+      return String(str).split(re).map((part, k) => k % 2 ? h("mark", { key: k, "data-wk": "cxmark", style: { background: hexA(t.accent, .22), color: "inherit", borderRadius: 2, padding: "0 1px" } }, part) : part);
+    };
     const cats = M.APP_CATS.filter(c => apps.some(a => a.cat === c));
     const onJump = to => { setOpen(to.app); setJumpTo(to.id); };
 
@@ -184,7 +217,17 @@ function manualSkin(t) {
             background: t.bg2, border: "1px solid " + t.line, color: t.ink, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))" }
         }),
 
-        apps.length === 0
+        words.length && hits.length ? h("div", { "data-wk": "cxhits", style: { marginTop: 10 } },
+          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, marginBottom: 8 } },
+            "找到 " + hits.length + " 节，点一下跳过去看全文。"),
+          hits.slice(0, 60).map(x => h("button", { "data-wk": "cxhit", key: x.e.id, onClick: () => onJump({ app: x.app.id, id: x.e.id }),
+            className: "w-full text-left active:opacity-70",
+            style: { display: "block", width: "100%", padding: "11px 2px 12px 0", borderBottom: "1px solid " + t.line } },
+            h("span", { "data-wk": "cxhitwhere", style: { display: "block", fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginBottom: 4 } },
+              x.app.zh + (x.e.zh && x.e.zh !== x.app.zh ? " › " + x.e.zh : "")),
+            x.lines.map((ln, k) => h("span", { key: k, "data-wk": "cxhitline", style: { display: "block", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.ink, lineHeight: 1.65, marginTop: k ? 4 : 0 } }, markWords(ln))),
+            x.more ? h("span", { style: { display: "block", fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginTop: 4 } }, "这一节还有 " + x.more + " 处提到，点进去看") : null)))
+        : apps.length === 0
           ? h("div", { "data-wk": "cxempty", style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.fog, textAlign: "center", marginTop: 40, lineHeight: 1.9, whiteSpace: "pre-wrap" } },
               "没搜到这个词。\n换个说法，或者上去问秋秋。")
           : cats.map((cat, ci) => {
