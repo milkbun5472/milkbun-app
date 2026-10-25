@@ -43,9 +43,9 @@ test("普通群线下照旧：她本来就在场（别修出一个新毛病）",
 test("群线上那三句一字未改（搬去公共那一份时不许顺手改行为）", () => {
   const PAIR = "【重要】这是他俩之间的相处——聊他们自己的生活、眼前的事、【彼此之间】的关系";
   const priv = groupStageLine({ spectate: true, pairNames: ["甲", "乙"], userName: "小鹿", offline: false });
-  assert.ok(priv.startsWith("这是「甲」和「乙」之间【他俩自己】的私下对话（不是群聊，就他们两个人）。用户以【旁白】推动场景。让两人自然地你来我往、多轮对话。\n" + PAIR));
+  assert.ok(priv.startsWith("这是「甲」和「乙」之间【他俩自己】的私下对话（不是群聊）。用户以【旁白】推动场景。让两人自然地你来我往、多轮对话。\n" + PAIR));
   assert.equal(groupStageLine({ spectate: true, pairNames: [], userName: "小鹿", offline: false }),
-    "这是一个群聊，群里就是【成员】里列出的这几个人，没有别人。用户以【旁白】推动剧情。让成员们围绕旁白与彼此的关系自然互动。");
+    "这是【成员】里这几个人的群聊。用户以【旁白】推动剧情。让成员们围绕旁白与彼此的关系自然互动。");
   assert.equal(groupStageLine({ spectate: false, pairNames: [], userName: "小鹿", offline: false }),
     "这是一个群聊，用户「小鹿」也是群里的一员，正在和大家一起说话。");
 });
