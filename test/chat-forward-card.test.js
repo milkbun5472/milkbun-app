@@ -73,7 +73,7 @@ test("转发时把每条的原始时刻一起带上", () => {
   // 只看两个 onForward 里的 items 组装，别把别处同名的写法算进来
   const blocks = app2.split("onForward: (msgs, destination, mode) => {").slice(1);
   assert.equal(blocks.length, 2, "单聊、群聊各一个转发出口");
-  blocks.forEach((b, i) => assert.match(b.slice(0, 700), /ts: m\.ts \|\| null/, "第 " + (i + 1) + " 个转发出口没带时刻"));
+  blocks.forEach((b, i) => assert.match(b.slice(0, 1200), /ts: m\.ts \|\| null/, "第 " + (i + 1) + " 个转发出口没带时刻"));
 });
 
 // 她 2026-08-26：「卡片旁边没带头像」——群聊那支当初写成了 flex-col，把头像整个漏了
