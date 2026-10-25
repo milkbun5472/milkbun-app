@@ -20330,7 +20330,7 @@ function GroupSettingsSheet({ onSuggestName, onDrawTitles, lucky, onDrawLucky, o
       const muteFor = (c, min) => setGMutes(m => ({ ...m, [c.id]: Date.now() + min * 60000 }));
       const unmute = c => setGMutes(m => { const n = { ...m }; delete n[c.id]; return n; });
       return gCard({ title: "群主 · 管理员", char: "主", tint: "#b0794a", state: (gOwner ? "群主 " + nm(gOwner) : "没设群主") + (gAdmins.length ? " · 管理员 " + gAdmins.length + " 个" : "") + (muted.length ? " · " + muted.length + " 人禁言中" : "") },
-        "群里人人知道谁是群主、谁是管理员。群主能改群名；群主能禁言任何角色，管理员只能禁言普通成员。你和群主不会被禁言。踢人不归他们管。",
+        "群里人人知道谁是群主、谁是管理员。群主能改群名；群主能禁言任何角色，管理员只能禁言普通成员。你和群主不会被禁言。群主能把角色移出群聊，管理员只能移普通成员；谁都能把认识的人拉进来。被踢的在上面「＋ 加人」能拉回来。",
         h("div", { className: "pt-3" }, h(GroupRolesPicker, { people: members, allowMe: !spec, meName: "我", owner: gOwner, admins: gAdmins, setOwner: setGOwner, setAdmins: setGAdmins })),
         (muted.length || iCan) ? h("div", { className: "pt-4" },
           h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog, marginBottom: 4 } }, iCan ? "禁言（你是" + (gOwner === "me" ? "群主" : "管理员") + "）" : "正在禁言的"),

@@ -15347,6 +15347,13 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       const _gLk = luckyOf(groupId), _gLkU = typeof luckyUnits === "function" ? luckyUnits(_gLk.word) : [];
       const gLuckyHint = _gLk.word && _gLkU.length ? "\n【群幸运字符】这个群在一起养「" + _gLk.word + "」，已经点亮 " + (_gLk.lit || 0) + "/" + _gLkU.length + " 个字"
         + ((_gLk.lit || 0) ? "（" + _gLkU.slice(0, _gLk.lit).join("") + "）" : "") + "，再聊大约 " + Math.max(1, LUCKY_PER - (_gLk.prog || 0)) + " 条点亮下一个；一整天没人说话会熄一个。大家都看得见，提不提照各人的性子。" : "";
+      // 拉人、踢人（她 2026-10-26「群聊可以踢人拉人」）：群外、跟群里谁有关系线的人才拉得进来
+      const _gOutside = liveChars.filter(c => !(group.memberIds || []).includes(c.id) && members.some(m => (rels || {})[m.id + "->" + c.id] || (rels || {})[c.id + "->" + m.id])).slice(0, 12);
+      const gKickInviteHint = "\n【拉人和踢人】"
+        + (_gOutside.length ? "群外认识的人：" + _gOutside.map(c => "「" + c.name + "」（" + members.filter(m => (rels || {})[m.id + "->" + c.id] || (rels || {})[c.id + "->" + m.id]).map(m => m.name).join("、") + " 认识）").join("、")
+          + "。群里谁想把认识的人拉进来，在自己那条发言对象里加 \"invite\":\"那人的名字\"，只能拉自己认识的。" : "")
+        + (_gRoles.owner || _gRoles.admins.length ? "群主能把任何一个角色成员移出群聊，管理员只能移普通成员" + (_gImIn ? "，" + userName(profile) + "谁也移不了" : "") + "；真要踢，在自己那条发言对象里加 \"kick\":\"成员名\"。" : "")
+        + "拉人、踢人都是这个人照自己的性子、跟对方的关系、群里刚发生的事真会做的事，不是动不动就用；一轮里最多拉一个、踢一个。";
       const gRoleHint = (_gRoles.owner || _gRoles.admins.length) ? "\n【群主和管理员】"
         + (_gRoles.owner && (_gImIn || _gRoles.owner !== "me") && _gRoleName(_gRoles.owner) ? "群主是「" + _gRoleName(_gRoles.owner) + "」。" : "")
         + (_gRoles.admins.length ? "管理员：" + _gRoles.admins.filter(id => _gImIn || id !== "me").map(_gRoleName).filter(Boolean).map(n => "「" + n + "」").join("、") + "。" : "")
@@ -15583,7 +15590,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
 
       // 群里拍一拍（她 2026-10-25）：她在群里时能拍她或别的成员；旁观群里只能拍群里的人
       const gPatField = ",\"pat\":\"（可选）想用「拍一拍」戳谁一下就填那个人的名字（" + (imInGroup(group) ? gUName + " 或" : "") + "群里某位成员）；是一个动作，不是一句话，不用再在 text 里写「拍了拍」\"";
-      const system = groupBans({ echo: false, drama: !!gsFor(groupId).drama }) + "\n\n" + groupOnlineRuntime + "\n\n" + dir + commonTurn + gSameRoomHint + gBdayHint + gWhereHint + gTimeHint + gTopicHint + onlineRerollHint(rgOpts && rgOpts.rerollAvoid) + gDirHint + gEmoteHint + gSelfieHint + gDmHint + thoughtHint + npcStateHint + gBusyHint + gOfflineHint + gBiHint + gTfHint + gInviteHint + gPollHint + gRoleHint + gTitleHint + gLuckyHint + (_gSchedNames.length ? "\n【改安排】" + _gSchedNames.map(n => "「" + n + "」").join("、") + "有今天的安排（写在各自那段里）。这一轮谁真的定下了从现在起要做的事跟自己的安排不一样，就在他自己那条发言对象里加 " + SCHED_NOW_SPEC + "只改他本人的；各人填各人的，没写安排的人不填。" : "") + gIdRule + "\n\n【成员】\n" + memberDesc + sameNameNote(members) + gGrowthHint + gMeBlock + gWishHint + gOnMeHint + gRelRule + (relLines ? "\n" + relLines : "") + (gWorld ? "\n\n【世界书】\n" + gWorld : "") + interop + preJoin + "\n\n【近期群聊】\n" + hist + rotateSpeakersNote(members, groupChatsRef.current[groupId]) + gQuoteCatalogText + gDramaTail + "\n\n【输出】只输出 JSON 数组，按发言先后顺序。普通发言 {\"name\":\"成员名\",\"text\":\"内容" + gBiTextSpec + "\",\"quoteId\":\"（可选）正式引用旧消息时填写上面目录里的 Q 编号；要引用的是这一轮里前面某人刚说的那条（目录里还没有），填 R 加它在本数组里的序号（R1 是第一条）；不引用就省略，禁止只抄原文猜作者\",\"emote\":\"（可选）想发的表情关键词\",\"voice\":\"（可选）填 true 表示这条作为语音消息发（会显示成语音气泡+转文字）——手上腾不出手打字、这段话打字太长、或者情绪上来了想让人听见声音时就这么发，不必等人问；发多发少按这个人自己的习惯来" + VOICE_PAUSE_MARK + voiceSoundHint() + "\",\"voiceEmo\":\"（可选，voice=true 时）这条语音的真实语气：happy/sad/angry/fearful/disgusted/surprised/neutral 之一，按说话人此刻真实情绪选，不看字面\"" + gCallField + gPatField + "" + gDmField + thoughtField + impressionField + "}；某成员想撤掉刚说的那句，那条加 \"recall\":true 和 \"recallReason\":\"为什么撤\"（会先正常显示一秒再变成已撤回）——真人在群里撤回多半是小事：打错字、发漏了半句、手滑发重了、群里说重了想换个说法、话本来是要私发的发错了地方；「后悔、说漏嘴」只是其中一种。撤完通常紧跟一条改好的。几十条里偶尔一次；发红包 {\"name\":\"成员名\",\"redpacket\":{\"total\":金额数字,\"count\":份数,\"message\":\"祝福语\",\"to\":\"（可选）只给某一个人时填 Ta 的名字——专属红包，别人领不了，金额不拆；谁都能抢就省略这一栏\"}}——有好事想请客、群里谁生日或有喜事、哄人、认输赔罪、节日、或者纯粹想热闹一下的时候就发，**不必等人开口要**；钱是真的从这个人钱包里扣的，所以数目要跟 Ta 的处境对得上，手头紧的人发小的、或者干脆不发。群里要拿主意、要挑一个、要看看大家怎么想时，谁都可以自己发起一张投票：那条加 \"pollNew\":{\"title\":\"投票题目\",\"options\":[\"选项1\",\"选项2\"],\"anon\":true或false}（至少两个选项；anon 为匿名投票）。发起的人照自己的性子决定发不发、发什么，同一条里的 text 照常说话。name 必须逐字等于成员名单中的一个名字；用户名字绝不能出现在 name。";
+      const system = groupBans({ echo: false, drama: !!gsFor(groupId).drama }) + "\n\n" + groupOnlineRuntime + "\n\n" + dir + commonTurn + gSameRoomHint + gBdayHint + gWhereHint + gTimeHint + gTopicHint + onlineRerollHint(rgOpts && rgOpts.rerollAvoid) + gDirHint + gEmoteHint + gSelfieHint + gDmHint + thoughtHint + npcStateHint + gBusyHint + gOfflineHint + gBiHint + gTfHint + gInviteHint + gPollHint + gRoleHint + gTitleHint + gLuckyHint + gKickInviteHint + (_gSchedNames.length ? "\n【改安排】" + _gSchedNames.map(n => "「" + n + "」").join("、") + "有今天的安排（写在各自那段里）。这一轮谁真的定下了从现在起要做的事跟自己的安排不一样，就在他自己那条发言对象里加 " + SCHED_NOW_SPEC + "只改他本人的；各人填各人的，没写安排的人不填。" : "") + gIdRule + "\n\n【成员】\n" + memberDesc + sameNameNote(members) + gGrowthHint + gMeBlock + gWishHint + gOnMeHint + gRelRule + (relLines ? "\n" + relLines : "") + (gWorld ? "\n\n【世界书】\n" + gWorld : "") + interop + preJoin + "\n\n【近期群聊】\n" + hist + rotateSpeakersNote(members, groupChatsRef.current[groupId]) + gQuoteCatalogText + gDramaTail + "\n\n【输出】只输出 JSON 数组，按发言先后顺序。普通发言 {\"name\":\"成员名\",\"text\":\"内容" + gBiTextSpec + "\",\"quoteId\":\"（可选）正式引用旧消息时填写上面目录里的 Q 编号；要引用的是这一轮里前面某人刚说的那条（目录里还没有），填 R 加它在本数组里的序号（R1 是第一条）；不引用就省略，禁止只抄原文猜作者\",\"emote\":\"（可选）想发的表情关键词\",\"voice\":\"（可选）填 true 表示这条作为语音消息发（会显示成语音气泡+转文字）——手上腾不出手打字、这段话打字太长、或者情绪上来了想让人听见声音时就这么发，不必等人问；发多发少按这个人自己的习惯来" + VOICE_PAUSE_MARK + voiceSoundHint() + "\",\"voiceEmo\":\"（可选，voice=true 时）这条语音的真实语气：happy/sad/angry/fearful/disgusted/surprised/neutral 之一，按说话人此刻真实情绪选，不看字面\"" + gCallField + gPatField + "" + gDmField + thoughtField + impressionField + "}；某成员想撤掉刚说的那句，那条加 \"recall\":true 和 \"recallReason\":\"为什么撤\"（会先正常显示一秒再变成已撤回）——真人在群里撤回多半是小事：打错字、发漏了半句、手滑发重了、群里说重了想换个说法、话本来是要私发的发错了地方；「后悔、说漏嘴」只是其中一种。撤完通常紧跟一条改好的。几十条里偶尔一次；发红包 {\"name\":\"成员名\",\"redpacket\":{\"total\":金额数字,\"count\":份数,\"message\":\"祝福语\",\"to\":\"（可选）只给某一个人时填 Ta 的名字——专属红包，别人领不了，金额不拆；谁都能抢就省略这一栏\"}}——有好事想请客、群里谁生日或有喜事、哄人、认输赔罪、节日、或者纯粹想热闹一下的时候就发，**不必等人开口要**；钱是真的从这个人钱包里扣的，所以数目要跟 Ta 的处境对得上，手头紧的人发小的、或者干脆不发。群里要拿主意、要挑一个、要看看大家怎么想时，谁都可以自己发起一张投票：那条加 \"pollNew\":{\"title\":\"投票题目\",\"options\":[\"选项1\",\"选项2\"],\"anon\":true或false}（至少两个选项；anon 为匿名投票）。发起的人照自己的性子决定发不发、发什么，同一条里的 text 照常说话。name 必须逐字等于成员名单中的一个名字；用户名字绝不能出现在 name。";
       // 触发用户内容：自上一条角色发言以来我说的话/旁白
       let tail = [];
       for (let i = gchat.length - 1; i >= 0; i--) {
@@ -15803,6 +15810,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         let _gSaidRun = typeof lastUserTurnText === "function" ? lastUserTurnText(groupChatsRef.current[groupId] || []) : "";
         // 一轮里各人各自一个 turnId，但共用同一个轮次戳：重 Roll 要整轮撤掉，不能留下前面几个人的旧发言
         const gRoundTs = Date.now();
+        gKickedRef.current[groupId] = []; gInvitedRef.current[groupId] = [];   // 每轮重新算「最多踢一个、拉一个」
         // 引用这一轮里前面某人刚说的那条（群里 2026-10-20：顾暮回顾朝刚说的「连椅子都搬过来了」，可目录是这一轮之前编的、里面没有这句，
         //   模型只好猜一个相邻的 Q 编号，引用气泡上就成了别人的另一句话）。quoteId 写 R+序号，指本轮数组里的第几条。
         const gQuoteIn = (item, idx) => {
@@ -15841,6 +15849,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
           if (!spk) continue;
           // 被禁言着的人发不出去（这一轮前面刚被禁言的也算）
           if (groupMutedLeft(gsLive(groupId), spk.id) > 0) continue;
+          if ((gKickedRef.current[groupId] || []).includes(spk.id)) continue;   // 这一轮刚被踢出去的人发不出来
           if (autoRoomLeft() <= 0) break;   // 额度到顶：当场停手，剩下的一条都不落地
           // 打字体标点兜底（v54.81）：在这儿削一次，后面 text／语音／撤回几路共用同一份
           if (item.text && typeof stripTypingPeriod === "function" && !isBody(spk.id)) item.text = stripTypingPeriod(item.text);
@@ -15886,7 +15895,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
             const choice = groupPollChoice(item.pollVote.choice, poll);
             if (choice !== null) castVote(groupId, poll.pollId, choice, spk.name);
           }
-          if (spk && (item.mute || item.unmute || item.rename || item.title)) applyGroupRoleAct(groupId, spk, item, members);
+          if (spk && (item.mute || item.unmute || item.rename || item.title || item.kick || item.invite)) applyGroupRoleAct(groupId, spk, item, members);
           if (item.pollNew && spk) {
             postPoll(groupId, spk, item.pollNew.title, item.pollNew.options, item.pollNew.anon === true);
             autoTook();
@@ -16517,6 +16526,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   // 群里角色的管理动作：禁言、解禁、群主改群名。身份对不上的一律不认，绝不猜。
   // 同一轮里前面刚禁言的人，后面就该发不出——groupSettings 是 state，这一轮里还读不到新值，另记一份
   const gMuteLiveRef = useRef({});
+  const gKickedRef = useRef({});   // 每一轮里已经被踢、被拉的人，一轮最多各一个
+  const gInvitedRef = useRef({});
   const gsLive = groupId => { const m = gMuteLiveRef.current[groupId]; return m ? { ...gsFor(groupId), mutes: m } : gsFor(groupId); };
   const saveGroupMutes = (groupId, mutes) => { gMuteLiveRef.current[groupId] = mutes; saveGroupSettings(groupId, { mutes }); };
   const applyGroupRoleAct = (groupId, spk, item, members) => {
@@ -16526,6 +16537,28 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       const nm = String(item.rename).replace(/[「」"“”]/g, "").trim().slice(0, 24);
       const g = (groupsRef.current || []).find(x => x.id === groupId);
       if (nm && g && nm !== g.name) { renameGroup(groupId, nm); line(spk.name + " 把群名改成了「" + nm + "」"); }
+    }
+    // 踢人：群主、管理员才行，规矩跟禁言同一把尺（她和群主谁也踢不了）；一轮最多踢一个
+    if (item.kick && !(gKickedRef.current[groupId] || []).length) {
+      const tg = pickMember(members, String(item.kick));
+      const g = (groupsRef.current || []).find(x => x.id === groupId);
+      if (tg && g && (g.memberIds || []).includes(tg.id) && groupCanMute(gs0, spk.id, tg.id)) {
+        gKickedRef.current[groupId] = [tg.id];
+        updateGroup(groupId, { memberIds: (g.memberIds || []).filter(id => id !== tg.id) });
+        line(spk.name + " 把 " + tg.name + " 移出了群聊");
+      }
+    }
+    // 拉人：谁都能拉，只能拉跟自己有关系线、还不在群里的角色；一轮最多拉一个
+    if (item.invite && !(gInvitedRef.current[groupId] || []).length) {
+      const nm = String(item.invite).replace(/[「」"“”]/g, "").trim();
+      const g = (groupsRef.current || []).find(x => x.id === groupId);
+      const tg = liveChars.find(c => c.name === nm || c.remark === nm);
+      const knows = tg && ((rels || {})[spk.id + "->" + tg.id] || (rels || {})[tg.id + "->" + spk.id]);
+      if (tg && g && knows && !(g.memberIds || []).includes(tg.id)) {
+        gInvitedRef.current[groupId] = [tg.id];
+        updateGroup(groupId, { memberIds: [...(g.memberIds || []), tg.id] });
+        line(spk.name + " 把 " + tg.name + " 拉进了群聊");
+      }
     }
     // 群主封头衔／撤头衔
     if (item.title && typeof item.title === "object" && groupRoleOf(gs0, spk.id) === "owner") {
