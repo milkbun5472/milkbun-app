@@ -7585,7 +7585,12 @@ function _transStrip(text) {
 }
 // 颜文字（她 2026-10-02：「(っ˘з(˘⌣˘ )」里的「っ」被认成日文挂了译键）：
 //   括号里一个汉字都没有、又不长的那一段当成表情扔掉；嵌套的一层层剥，没合上的尾巴也扔
+// 括号外面挂着的手（她 2026-10-26：「(っ˘︶˘)っ」括号剥了，后面那只「っ」还在，照样认成日文）：
+//   单独一个假名、两边都不挨着字的，是颜文字的胳膊，不是日文。真日文的假名总挨着别的字（今夜も残業）
 function _transStripKaomoji(t) {
+  return String(_transStripKaoParens(t)).replace(/(^|[^぀-ヿ一-鿿])[぀-ヿ](?=$|[^぀-ヿ一-鿿])/g, "$1 ");
+}
+function _transStripKaoParens(t) {
   let s = String(t || ""), prev;
   do { prev = s; s = s.replace(/[(（][^()（）\u4e00-\u9fff]{0,24}[)）]/g, " "); } while (s !== prev);
   return s.replace(/[(（][^()（）\u4e00-\u9fff]{0,24}$/g, " ");

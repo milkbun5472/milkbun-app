@@ -416,7 +416,7 @@
       zh: "聊天窗气泡",
       read: ctx => {
         const st = loadJ("x_chatSettings", {}) || {};
-        return (ctx.characters || []).map(c => {
+        return everyone(ctx).map(c => {
           const b = (st[c.id] || {}).bubble;
           return { id: c.id, name: c.name, text: b && typeof b === "object" ? bubbleText(b) : "（跟随全局，还没单独调过）" };
         });
@@ -439,7 +439,7 @@
       zh: "这个人聊天窗的 CSS",
       read: ctx => {
         const st = loadJ("x_chatSettings", {}) || {};
-        return (ctx.characters || []).map(c => ({ id: c.id, name: c.name, text: (st[c.id] || {}).customCSS || "" }));
+        return everyone(ctx).map(c => ({ id: c.id, name: c.name, text: (st[c.id] || {}).customCSS || "" }));
       },
       write: (id, patch, ctx) => {
         const ts = TS(); if (!ts) throw new Error("主题工作台没加载出来");
@@ -456,7 +456,7 @@
       zh: "这个人聊天窗的排版",
       read: ctx => {
         const st = loadJ("x_chatSettings", {}) || {};
-        return (ctx.characters || []).map(c => ({ id: c.id, name: c.name, text: JSON.stringify((st[c.id] || {}).layout || {}) }));
+        return everyone(ctx).map(c => ({ id: c.id, name: c.name, text: JSON.stringify((st[c.id] || {}).layout || {}) }));
       },
       write: (id, patch, ctx) => {
         if (!ctx.onPatchChatSetting) throw new Error("这个页面没接聊天窗写入口");
@@ -480,7 +480,7 @@
       zh: "这个人线下的 CSS",
       read: ctx => {
         const st = loadJ("x_offlineSettings", {}) || {};
-        return (ctx.characters || []).map(c => ({ id: c.id, name: c.name, text: (st[c.id] || {}).customCSS || "" }));
+        return everyone(ctx).map(c => ({ id: c.id, name: c.name, text: (st[c.id] || {}).customCSS || "" }));
       },
       write: (id, patch, ctx) => {
         const ts = TS(); if (!ts) throw new Error("主题工作台没加载出来");
