@@ -40,7 +40,7 @@ test('real room handoff source formatting respects its cursor/recalled gate and 
 test('chat, search, archive, copy and forwarding retain the same source formatter with a scoped theme hook',()=>{
  assert.ok(between(components,'function ChatThread(','function ChatSearchSheet(').includes('h(GameChatSource, { m })'));
  assert.ok(between(components,'function ChatSearchSheet(','function callInviteState(').includes('gameChatText({ ...m'));
- assert.match(components,/const body = .*gameChatText\(m\)/);assert.match(app,/copyText\(gameChatText\(m\)\)/);assert.match(app,/text: who \+ "：" \+ gameChatText\(m\)/);assert.match(app,/text: gameChatText\(m\),\n        ts:/);
+ assert.match(components,/const body = .*gameChatText\(m\)/);assert.match(app,/copyText\(gameChatText\(m\)\)/);assert.match(app,/text: who \+ "：" \+ gameChatText\(m\)/);assert.match(app,/text: gameChatText\(m\),\n(        \.\.\.\(imgs\[k\][^\n]*\n)?        ts:/);
  const studio=fs.readFileSync('js/theme-studio.js','utf8');assert.match(studio,/\["messagesource", "游戏对话上方的世界来源/);
 });
 
