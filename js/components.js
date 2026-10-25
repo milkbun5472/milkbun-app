@@ -19944,29 +19944,29 @@ function RedPacketEnvelope({ who, whoChar, message, canOpen, onOpen, amountText,
     let r = null; try { r = await onOpen(); } catch (_) {}
     setTimeout(() => { setSpin(false); if (r) setGot(r); setStage("open"); }, 650);
   };
-  const avatar = sz => whoChar ? h(Avatar, { character: whoChar, size: sz, radius: sz / 2 }) : h("div", { style: { width: sz, height: sz, borderRadius: 999, background: "rgba(255,255,255,.3)" } });
+  const avatar = sz => h("div", { "data-wk": "rpavatar", style: { borderRadius: 999, lineHeight: 0 } }, whoChar ? h(Avatar, { character: whoChar, size: sz, radius: sz / 2 }) : h("div", { style: { width: sz, height: sz, borderRadius: 999, background: "rgba(255,255,255,.3)" } }));
   const closed = h("div", { "data-wk": "rpenvelope", "data-stage": "closed", onClick: e => e.stopPropagation(),
     style: { position: "relative", width: "min(300px, 82vw)", height: "min(470px, 70vh)", borderRadius: 14, overflow: "hidden", background: RED, boxShadow: "0 18px 40px rgba(60,10,6,.35)", animation: "qqIn .22s ease both" } },
-    h("div", { style: { position: "absolute", left: "-20%", right: "-20%", bottom: 0, height: "38%", background: RED_D, borderTopLeftRadius: "50% 40%", borderTopRightRadius: "50% 40%" } }),
+    h("div", { "data-wk": "rparc", "data-part": "bottom", style: { position: "absolute", left: "-20%", right: "-20%", bottom: 0, height: "38%", background: RED_D, borderTopLeftRadius: "50% 40%", borderTopRightRadius: "50% 40%" } }),
     h("div", { style: { position: "relative", display: "flex", flexDirection: "column", alignItems: "center", paddingTop: "18%" } },
       avatar(46),
-      h("div", { style: { marginTop: 10, fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: "#fbe6c3" } }, (who || "某人") + " 发出的红包"),
-      h("div", { style: { marginTop: 16, padding: "0 26px", textAlign: "center", fontFamily: F_DISPLAY, fontSize: "calc(19px * var(--app-fs, 1))", lineHeight: 1.45, color: "#fff3dc" } }, message || "恭喜发财，大吉大利")),
+      h("div", { "data-wk": "rpfrom", style: { marginTop: 10, fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: "#fbe6c3" } }, (who || "某人") + " 发出的红包"),
+      h("div", { "data-wk": "rpwish", style: { marginTop: 16, padding: "0 26px", textAlign: "center", fontFamily: F_DISPLAY, fontSize: "calc(19px * var(--app-fs, 1))", lineHeight: 1.45, color: "#fff3dc" } }, message || "恭喜发财，大吉大利")),
     h("button", { "data-wk": "rpopenbtn", onClick: press, "aria-label": "開", className: "active:opacity-90",
       style: { position: "absolute", left: "50%", top: "62%", width: 84, height: 84, marginLeft: -42, marginTop: -42, borderRadius: 999, background: GOLD, color: "#4a2b12",
         fontFamily: F_DISPLAY, fontSize: 30, boxShadow: "0 4px 12px rgba(60,10,6,.35)", border: "none", animation: spin ? "rpflip .65s linear infinite" : "none" } }, "開"));
   const opened = h("div", { "data-wk": "rpenvelope", "data-stage": "open", onClick: e => e.stopPropagation(),
     style: { width: "min(320px, 86vw)", maxHeight: "78vh", overflowY: "auto", borderRadius: 14, background: t.bg2 || "#fff", boxShadow: "0 18px 40px rgba(0,0,0,.25)", animation: "qqIn .22s ease both" } },
-    h("div", { style: { height: 64, background: RED, borderBottomLeftRadius: "50% 30px", borderBottomRightRadius: "50% 30px" } }),
+    h("div", { "data-wk": "rparc", "data-part": "top", style: { height: 64, background: RED, borderBottomLeftRadius: "50% 30px", borderBottomRightRadius: "50% 30px" } }),
     h("div", { style: { display: "flex", flexDirection: "column", alignItems: "center", marginTop: -26, padding: "0 18px 18px" } },
       h("div", { style: { border: "3px solid " + (t.bg2 || "#fff"), borderRadius: 999 } }, avatar(48)),
-      h("div", { style: { marginTop: 8, fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))", color: t.ink } }, (who || "某人") + " 的红包"),
-      h("div", { style: { marginTop: 4, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog, textAlign: "center" } }, message || "恭喜发财，大吉大利"),
+      h("div", { "data-wk": "rpfrom", style: { marginTop: 8, fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))", color: t.ink } }, (who || "某人") + " 的红包"),
+      h("div", { "data-wk": "rpwish", style: { marginTop: 4, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog, textAlign: "center" } }, message || "恭喜发财，大吉大利"),
       got ? h("div", { "data-wk": "rpamount", style: { marginTop: 16, fontFamily: F_DISPLAY, fontSize: "calc(38px * var(--app-fs, 1))", color: "#c49a4a", lineHeight: 1 } }, got) : null,
-      status ? h("div", { style: { marginTop: got ? 8 : 16, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog, textAlign: "center" } }, status) : null,
-      Array.isArray(claims) ? h("div", { style: { alignSelf: "stretch", marginTop: 16, borderTop: "1px solid " + t.line, paddingTop: 10 } },
+      status ? h("div", { "data-wk": "rpstatus", style: { marginTop: got ? 8 : 16, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog, textAlign: "center" } }, status) : null,
+      Array.isArray(claims) ? h("div", { "data-wk": "rpclaims", style: { alignSelf: "stretch", marginTop: 16, borderTop: "1px solid " + t.line, paddingTop: 10 } },
         h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginBottom: 6 } }, (claims.length >= count ? "已被领完" : "已领 " + claims.length + "/" + count + " 个") + (total != null ? " · 共 ¥" + total : "")),
-        claims.length ? claims.map((cl, i) => h("div", { key: i, className: "flex items-center justify-between", style: { padding: "5px 0" } },
+        claims.length ? claims.map((cl, i) => h("div", { key: i, "data-wk": "rpclaim", "data-me": cl.me ? "1" : "0", className: "flex items-center justify-between", style: { padding: "5px 0" } },
           h("span", { style: { fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", color: cl.me ? t.accent : t.ink } }, (cl.me ? (meName || "我") : (cl.name || "某人"))),
           h("span", { style: { fontFamily: F_DISPLAY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.ink } }, "¥" + cl.amount)))
           : h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.fog, textAlign: "center", padding: "8px 0" } }, "还没人领")) : null));

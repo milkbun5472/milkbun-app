@@ -8,3 +8,6 @@ assert.match(cp, /onOpen: async \(\) => \{ const r = onClaim\(rpView\); return t
 assert.match(html, /@keyframes rpflip/);
 for (const k of ["rpenvelope", "rpopenbtn", "rpamount", "rpclose"]) assert.match(cp, new RegExp('"data-wk": "' + k + '"'));
 console.log("ok");
+const ts = fs.readFileSync("js/theme-studio.js", "utf8");
+for (const k of ["rpenvelope", "rpopenbtn", "rpamount", "rpclose", "rparc", "rpavatar", "rpfrom", "rpwish", "rpstatus", "rpclaims", "rpclaim"]) { assert.match(cp, new RegExp('"data-wk": "' + k + '"')); assert.match(ts, new RegExp('\\["' + k + '", "')); }
+console.log("ok2");
