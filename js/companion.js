@@ -7,7 +7,7 @@
 // 设置存 x_companion：{ charId, float, pos, scale, autoFace, looks: { [charId]: look } }
 // ============================================================
 (function () {
-  const KEY = "x_companion", BUILD = "fg-7bba6b589f5e4373";
+  const KEY = "x_companion", BUILD = "fg-319bc2ead3914abd";
   const load = () => Object.assign({ charId: "", float: false, pos: null, scale: 1, autoFace: true, looks: {} }, loadJSON(KEY, {}) || {});
   const save = v => saveJSON(KEY, v);
   // 心情 → 表情。心情是模型写的自由中文（x_moods[charId].label），按字认；认不出就是「平常」。
@@ -51,11 +51,12 @@
   // 只记小人的睡醒状态；角色作息仍由 App 的 sleepPhaseOf 唯一判断。
   const LIFE_KEY = "x_companionLife";
   function lifeStep(previous, event, now = Date.now()) {
-    const p = previous || {}, n = Object.assign({ sleeping: false, phase: "", morning: "", wakeAt: 0, sleepAt: 0, until: 0, rev: 0 }, p);
+    const p = previous || {}, n = Object.assign({ sleeping: false, phase: "", morning: "", wakeAt: 0, wakeSeen: 0, sleepAt: 0, until: 0, rev: 0 }, p);
     const sleep = () => { if (!n.sleeping) { n.sleeping = true; n.sleepAt = now; } };
     const wake = () => { if (n.sleeping) { n.sleeping = false; n.wakeAt = now; } };
     if (event.kind === "sleep") sleep();
     else if (event.kind === "wake") wake();
+    else if (event.kind === "seen" && event.wakeAt === n.wakeAt) n.wakeSeen = event.wakeAt;
     else if (event.kind === "clock") {
       const r = event.routine || {};
       if (r.phase === "asleep" && (n.phase !== "asleep" || now >= n.until)) { sleep(); n.until = Number(r.sleepUntil) > now ? Number(r.sleepUntil) : now + 12 * 3600000; }
@@ -67,7 +68,7 @@
         if (n.phase !== "asleep" && (!n.sleepAt || now - n.sleepAt > 3600000)) { n.sleeping = false; n.wakeAt = now; }
       }
     }
-    if (JSON.stringify(n) !== JSON.stringify(Object.assign({ sleeping: false, phase: "", morning: "", wakeAt: 0, sleepAt: 0, until: 0, rev: 0 }, p))) n.rev++;
+    if (JSON.stringify(n) !== JSON.stringify(Object.assign({ sleeping: false, phase: "", morning: "", wakeAt: 0, wakeSeen: 0, sleepAt: 0, until: 0, rev: 0 }, p))) n.rev++;
     return n;
   }
   const lifeRead = id => (loadJSON(LIFE_KEY, {}) || {})[id] || null;
@@ -288,6 +289,7 @@
         if (e.data.type === "pet-act" && onAct) onAct(String(e.data.kind || ""));
         if (e.data.type === "pet-open" && onOpen) onOpen();
         if (e.data.type === "pet-wake" && msg && String(e.data.characterId) === msg.characterId) { markActive(); lifeUpdate(msg.characterId, { kind: "wake" }); }
+        if (e.data.type === "pet-woke" && msg && String(e.data.characterId) === msg.characterId) lifeUpdate(msg.characterId, { kind: "seen", wakeAt: Number(e.data.wakeAt) });
         if (e.data.type === "pet-poke") markActive();
         if (e.data.type === "pet-poke" && pokeRef.current) pokeRef.current({ kind: String(e.data.kind || "tap"), count: Number(e.data.count) || 1 });
       };

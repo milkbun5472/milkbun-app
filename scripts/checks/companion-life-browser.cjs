@@ -26,11 +26,13 @@ const base=process.env.COMPANION_TEST_URL||'http://127.0.0.1:18946',out=process.
  await change({mood:'开心'});assert.equal((await snap()).idleEvery,6);assert.equal(await tap('head'),'emotion-headpat');
  const lift=async mood=>{await change({mood});const box=await frame.locator('canvas').boundingBox();await page.mouse.move(box.x+box.width*.5,box.y+box.height*.6);await page.mouse.down();await page.waitForTimeout(520);assert.equal((await snap()).action,undefined);await page.mouse.up();await page.waitForTimeout(1300);return (await snap()).action;};
  assert.equal(await lift('生气'),'emotion-irritated');assert.equal(await lift('开心'),'emotion-happy');
+ await chat('晚安');await chat('抱抱');assert.equal((await snap()).action,'emotion-cozy','new chat gesture has priority over waking');
  await chat('晚安');assert.equal((await snap()).sleeping,true);assert.equal(await page.evaluate(()=>store.x_companionLife.c1.sleeping),true);
  await change({key:1});await ready();assert.equal((await snap()).sleeping,true,'recreated iframe retains bedtime');
  // Another character must not inherit the sleeper, even for the first frame.
  await change({id:'c2'});assert.equal((await snap()).sleeping,false);await change({id:'c1'});assert.equal((await snap()).sleeping,true);
  await page.clock.setFixedTime(new Date('2026-10-25T08:00:00'));await change({day:'2026-10-25',minute:480});assert.equal((await snap()).sleeping,false);assert.equal((await snap()).action,'emotion-rubeyes');
+ await change({key:2});await ready();assert.notEqual((await snap()).action,'emotion-rubeyes','same morning does not replay on remount');
  await change({phase:'asleep'});assert.equal((await snap()).sleeping,true);const box=await frame.locator('canvas').boundingBox();await page.mouse.click(box.x+box.width*.5,box.y+box.height*.5);await page.waitForTimeout(200);assert.equal((await snap()).sleeping,false);assert.equal(await page.evaluate(()=>store.x_companionLife.c1.sleeping),false);await change({minute:481});assert.equal((await snap()).sleeping,false,'poke override survives routine refresh');
  await change({phase:'awake'});await change({phase:'asleep'});assert.equal((await snap()).sleeping,true);await change({phase:'waking'});assert.equal((await snap()).action,'emotion-rubeyes');
  await page.screenshot({path:out+'/'+mode+'.png'});assert.deepEqual(errors,[]);report.push({mode,touch:'head/hand/face follow real mood',lift:'irritated/happy after landing',life:'bedtime/reload/character isolation/morning/schedule/poke override',errors});await page.close();
