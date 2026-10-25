@@ -13130,6 +13130,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
           const qpfx = m.replyTo ? "（我在回应你说的「" + String(m.replyTo).slice(0, 40) + "」）" : "";
           // 语音消息标出来：让 TA 知道这条是对方「说」的不是打的字（能回应语气、可以说「听到你声音了」）
           const uc = stp + (m.kind === "voice" ? qpfx + "【这条是语音消息，对方亲口说的】" + m.content + voiceToneForPrompt(m)
+            // 她自己生成的自拍（群友 2026-10-25）：照片是她发的、画的是她
+            : m.kind === "selfie" ? qpfx + (m.failed ? "【" + uName + "想发一张自拍给你，但没发成】" : "【" + uName + "发来一张她自己的自拍】照片里：" + (m.desc || ""))
             : m.kind === "photo" && m.imageRef ? qpfx + _pairNo(m) + "【对方发来的真实照片已作为视觉输入附在本条消息上，请直接看图回应；不要假装看不到，也不要只复述配文】" + (m.desc ? "\n对方配文：" + m.desc : "") + (m.seenNote ? "\n（你当时记下的画面：" + m.seenNote + "）" : "")
             // 还有多久到也要说（她 2026-09-03：「礼物TA好像不知道还有多久到」）——
             // 只写「还在路上」，TA就只能干等着，问TA还要多久也答不上来
@@ -14471,14 +14473,24 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   // TA 发的一张照片：真的去画（聊天那一轮落一张「拍照中」之后调它；长按「只重拍这张图」也走它）。
   //   她 2026-10-01：「角色发照片那轮，长按图片只重 roll 图片、消息留着」——所以拆成单独一口，
   //   一轮里的话一个字不动，只换这一张的像素。keySuffix：重拍时换一个图库键，别读到缓存里的旧图。
+  // 她自己发一张生成的自拍（群友 2026-10-25 许愿）：画的是「我」那页的外貌／参考照，跟「他帮我拍」同一条出图路，只是自拍那一档
+  const shootMeOnline = (charId, chatKey, scene) => {
+    if (!(typeof imgApiReady === "function" && imgApiReady())) { toast("先去 设置·图像API 接一个图像模型"); return; }
+    if (!canShootMe(charId)) { toast("这张画的是你：先去「我」的资料（他认的那张面具）里填外貌或传一张参考照"); return; }
+    const sid = "sf_" + Date.now(), desc = String(scene || "").trim().slice(0, 300);
+    pChat(chatKey, p => [...p, { role: "user", kind: "selfie", sid, imgKey: null, pending: true, desc, photoKind: "myself", content: "[自拍] " + desc, ts: Date.now() }]);
+    drawChatSelfie({ chatKey, charId, sid, photoKind: "myself", photoScene: desc });
+  };
   const drawChatSelfie = async ({ chatKey, charId, sid, photoKind, photoScene, keySuffix }) => {
     const realChar = characters.find(c => c.id === charId);
     if (!realChar) return;
     const uName = userName(profileFor(charId));
     // TA 帮我拍：被拍的是她，照「别人拍的」那一档画（见 meSubject）
-    const meShot = photoKind === "me";
+    // myself：她自己拍的自拍（群友 2026-10-25）——画的也是她，但是自拍那一档，没有他的视角
+    const mySelf = photoKind === "myself";
+    const meShot = photoKind === "me" || mySelf;
     const char = meShot ? meSubject(realChar, uName, charId) : realChar;
-    if (meShot) photoKind = "other";
+    if (meShot) photoKind = mySelf ? "self" : "other";
     const profile = profileFor(charId);
     try {
       const st = (statesRef.current || {})[charId] || {};
@@ -14488,7 +14500,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       // 连贯参考图:把这个角色最近一张已生成的自拍一并喂进去,治「十分钟前灰卫衣、
       // 现在突然黑衬衫」。只取 6 小时内的——更早的场景早换了,拿它当锚反而错。
       const prevShot = (chatsRef.current[chatKey] || []).slice().reverse()
-        .find(m => m && m.kind === "selfie" && m.imgKey && (Date.now() - (Number(m.ts) || 0)) < 6 * 3600000);
+        // 拍她的（他帮她拍／她自拍）和拍他的各认各的上一张，不然没参考照时会把对方那张脸当锚
+        .find(m => m && m.kind === "selfie" && m.imgKey && (Date.now() - (Number(m.ts) || 0)) < 6 * 3600000 && ((m.photoKind === "me" || m.photoKind === "myself") === meShot));
       // 人物原始参考照永远比上一张生成图可信。上一张一旦画错脸，重 roll 若继续
       // 把它塞回 edits，就会把错误当成新的身份锚并一代代繁殖。只有完全没有原始
       // 人物参考照时，才允许生成图临时承担服装/场景连贯参考。
@@ -14504,7 +14517,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       const wRef = isPart ? null : worldRefFor(realChar, photoScene + " " + (freshPlace || ""));
       if (wRef) refs.push(wRef.img);
       const sceneForPhoto = (freshPlace ? "（此刻人在：" + freshPlace + "）" : "") + (freshCond ? "（身体状态：" + freshCond + "，要在画面上看得出来）" : "") + photoScene;
-      const photoOpts = { pov: meShot ? povFor(realChar) : null, kind: photoKind, me, closet: meShot ? char._closet : closetTextFor(charId), contRef: !!contBlobKey, contRefIndex: contBlobKey ? refs.length - (wRef ? 1 : 0) : 0, worldRefIndex: wRef ? refs.length : 0, worldRefLabel: wRef ? wRef.label : "" };
+      const photoOpts = { pov: meShot && !mySelf ? povFor(realChar) : null, kind: photoKind, me, closet: meShot ? char._closet : closetTextFor(charId), contRef: !!contBlobKey, contRefIndex: contBlobKey ? refs.length - (wRef ? 1 : 0) : 0, worldRefIndex: wRef ? refs.length : 0, worldRefLabel: wRef ? wRef.label : "" };
       // 定版(v55.09):经典描述式 prompt 是被实测验证能锁脸的一版;身份强锁式已退役
       const prompt = isView ? buildScenePrompt(char, photoScene, { forText: false, worldRefIndex: wRef ? refs.length : 0, worldRefLabel: wRef ? wRef.label : "" }) : isPart ? buildScenePrompt(char, photoScene, { body: true }) : buildPhotoPrompt(char, sceneForPhoto, st, photoOpts);
       // 保脸级的备用稿。⚠️别再交给 buildPhotoPrompt 拼——那是个把画风、身份锁、
@@ -31182,6 +31195,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     archCount: activeRoomId === "main" ? (chatArch[activeChar.id] || 0) : 0,
     onLoadOlder: activeRoomId === "main" ? loadChatArchive : null,
     myBalance: wallet,
+    onShootMe: scene => shootMeOnline(activeChar.id, window.ChatRooms ? window.ChatRooms.chatKey(activeChar.id, activeRoomId) : activeChar.id, scene),
     onSendTransfer: (amount, note, packet) => runRoomAction(activeChar.id, "transfer", () => sendTransfer(activeChar.id, amount, note, packet ? { packet: true } : undefined)),
     onRespondTransfer: (tid, accept) => runRoomAction(activeChar.id, "transferAccept", () => respondTransfer(activeChar.id, tid, accept)),
     // 拆开TA寄来的那个盒子（她 2026-09-19）。盖子掀开这件事只发生一次，记在那条消息上——

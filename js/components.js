@@ -10531,6 +10531,7 @@ function ChatThread({
   onReply,
   onForward,
   onDeleteMessages,
+  onShootMe,
   onPinShike,
   onComic,
   onLongShot,
@@ -10798,6 +10799,13 @@ function ChatThread({
     }
     if (specialKind === "photo" && photoSendMode === "describe" && !v) {
       toast && toast("写一句照片里有什么，角色才看得见");
+      return;
+    }
+    // 生成我的自拍（群友 2026-10-25 许愿「线上可以生成 user 的自拍过去」）：照你写的这一句和「我」的外貌／参考照画一张，以你的名义发
+    if (specialKind === "photo" && photoSendMode === "selfme") {
+      if (!v) { toast && toast("写一句：你在哪、在干嘛、想拍成什么样"); return; }
+      onShootMe && onShootMe(v);
+      setSpecialText(""); setSpecialKind(null);
       return;
     }
     if (specialKind !== "photo" && !v) {
@@ -11386,14 +11394,15 @@ function ChatThread({
       m.role === "user" && dsp.myAvatar && h(Avatar, { character: meAv, size: 40, radius: 10 }));
     if (m.kind === "callinvite") return h(CallReceipt, { key: i, m: m, isU: m.role === "user", who: cName,
       avatar: h(Avatar, { character: character, size: 40, radius: 10 }), onCallBack: onCallBack });
-    if (m.kind === "selfie") return h("div", { key: i, className: "py-1 flex items-start gap-2 justify-start" },
-      h(Avatar, { character: character, size: 40, radius: 10 }),
+    // 她自己的自拍（role user）靠右、配她的头像
+    if (m.kind === "selfie") return h("div", { key: i, className: "py-1 flex items-start gap-2 " + (m.role === "user" ? "justify-end" : "justify-start") },
+      m.role === "user" ? null : h(Avatar, { character: character, size: 40, radius: 10 }),
       h("div", {
         onTouchStart: selMode ? undefined : () => startPress(i), onTouchEnd: endPress,
         onMouseDown: selMode ? undefined : () => startPress(i), onMouseUp: endPress, onMouseLeave: endPress,
         onClick: selMode ? () => toggleSel(i) : undefined,
         style: { maxWidth: "72%", outline: selMode && selIds.includes(i) ? `2px solid ${t.tint}` : "none", outlineOffset: 2, borderRadius: 14 }
-      }, h(SelfieBubble, { m: m })));
+      }, h(SelfieBubble, { m: m })), m.role === "user" && dsp.myAvatar ? h(Avatar, { character: meAv, size: 40, radius: 10 }) : null);
     // 照片：有图没图都走公共那一张卡（PhotoCard）。
     // ⚠️原来这儿只接「有图」那一支，没图的会掉进下面的通用气泡里，
     //   变成一个 40px 灰方块 + 「[图片]」——描述看不见、也点不开。
@@ -11847,7 +11856,7 @@ function ChatThread({
     color: t.ink
   }))), specialKind === "photo" ? h("div", null,
     h("div", { "data-wk": "block", className: "flex gap-2 mb-3", style: { background: t.bg, borderRadius: 11, padding: 4 } },
-      [["real", "发送真照片"], ["describe", "只发文字描述"]].map(([id, label]) => h("button", {
+      [["real", "发送真照片"], ["describe", "只发文字描述"], ...(onShootMe ? [["selfme", "生成我的自拍"]] : [])].map(([id, label]) => h("button", {
         key: id, onClick: () => setPhotoSendMode(id), className: "flex-1 active:opacity-75",
         style: { padding: "8px 5px", borderRadius: 8, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: photoSendMode === id ? t.bg2 : t.fog, background: photoSendMode === id ? t.ink : "transparent" }
       }, label))),
@@ -11858,7 +11867,8 @@ function ChatThread({
     } }),
     photoSendMode === "real" && h("button", { "data-wk": "block", onClick: () => photoFileRef.current && photoFileRef.current.click(), className: "w-full active:opacity-75", style: { minHeight: 150, borderRadius: 12, overflow: "hidden", background: t.bg, border: `1px dashed ${t.line}`, display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 10 } },
       specialImg ? h("img", { src: specialImg, style: { display: "block", width: "100%", maxHeight: 280, objectFit: "contain" } }) : h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.8 } }, "点这里选择照片\n相机或相册都可以")),
-    h("input", { "data-wk": "input", value: specialText, onChange: e => setSpecialText(e.target.value), placeholder: photoSendMode === "real" ? "可以顺手说一句（选填）" : "描述照片里有什么（必填，不会上传图片）", className: "w-full outline-none px-3 py-2.5 rounded-lg", style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", background: t.bg, color: t.ink, border: `1px solid ${t.line}` } }),
+    h("input", { "data-wk": "input", value: specialText, onChange: e => setSpecialText(e.target.value), placeholder: photoSendMode === "real" ? "可以顺手说一句（选填）" : photoSendMode === "selfme" ? "你在哪、在干嘛、想拍成什么样（必填）" : "描述照片里有什么（必填，不会上传图片）", className: "w-full outline-none px-3 py-2.5 rounded-lg", style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", background: t.bg, color: t.ink, border: `1px solid ${t.line}` } }),
+    photoSendMode === "selfme" && h("div", { "data-wk": "selfmehint", style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.5, marginTop: 7 } }, "照「我」那页（他认的那张面具）的外貌或参考照画你自己，花一次出图；画好了以你的名义发出去，他看得到。"),
     photoSendMode === "describe" && h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.5, marginTop: 7 } }, "角色只会收到你的文字描述；不会读取相册，也不会上传真实照片。")
   ) : h("input", {
     value: specialText,
