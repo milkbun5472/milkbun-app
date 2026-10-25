@@ -188,7 +188,9 @@
             card.rarity !== "R" ? h("button", { "data-wk": "stampkeep", disabled: !!card.shikeId, onClick: keep, className: "active:opacity-70", style: { padding: "6px 14px", borderRadius: 999, border: "1px solid " + LINE, color: card.shikeId ? P5 : P, fontFamily: F_BODY, fontSize: fs(12) } }, card.shikeId ? "已收进时刻" : "☆ 收进时刻") : null,
             card.canon ? h("span", { style: { alignSelf: "center", fontFamily: F_BODY, fontSize: fs(11.5), color: GOLD } }, "已当真") : null) : null,
           !card.face ? h("button", { "data-wk": "stampdraw", disabled: !tx || card.drawing, onClick: () => onDraw(card.id), className: "active:opacity-70 disabled:opacity-40",
-            style: { marginTop: 8, padding: "6px 14px", borderRadius: 999, border: "1px solid " + LINE, color: P7, fontFamily: F_BODY, fontSize: fs(12) } }, card.drawing ? "画着…" : "画卡面 · 花一次生图") : null),
+            style: { marginTop: 8, padding: "6px 14px", borderRadius: 999, border: "1px solid " + LINE, color: P7, fontFamily: F_BODY, fontSize: fs(12) } }, card.drawing ? "画着…" : "画卡面 · 花一次生图")
+            : h("button", { "data-wk": "stampredraw", disabled: card.drawing, onClick: () => onDraw(card.id), className: "active:opacity-70 disabled:opacity-40",
+              style: { marginTop: 8, padding: "6px 14px", borderRadius: 8, border: "1px solid " + LINE, color: P7, fontFamily: F_BODY, fontSize: fs(12) } }, card.drawing ? "重画着…" : "↻ 照原来的描述重画 · 花一次生图")),
         // 养成
         tx ? h("div", { "data-wk": "stampgrow", style: { marginTop: 16, padding: "14px 16px", borderRadius: 16, border: "1px solid " + LINE, background: "rgba(244,236,218,.05)" } },
           h("div", { className: "flex items-center justify-between" },
@@ -254,6 +256,7 @@
     const [giftOpen, setGiftOpen] = useState(false);
     const testTap = useRef({ n: 0, t: 0 });
     const [begging, setBegging] = useState(false), [begLine, setBegLine] = useState("");
+    const [paintDraft, setPaintDraft] = useState(null);
     useEffect(() => { const f = () => setSt(C().load()); window.addEventListener("stamps-change", f); return () => window.removeEventListener("stamps-change", f); }, []);
     useEffect(() => { const got = C().grantOnOpen(Date.now(), characters.map(c => { const w = c.birthday ? C().bdayWindow(c.birthday, Date.now()) : null; return w ? { id: c.id, name: c.remark || c.name, year: w.year } : null; }).filter(Boolean)); if (got.length) { setGotNote(got); setSt(C().load()); } }, []);
     const lims = C().activeLimited(Date.now());
@@ -423,6 +426,13 @@
           style: { width: "100%", marginTop: 6, padding: "9px 12px", borderRadius: 10, border: "1px solid " + "rgba(244,236,218,.22)", background: "rgba(244,236,218,.07)", color: PAPER, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", resize: "none" } }),
         h(Eyebrow, { style: { color: "rgba(244,236,218,.55)", marginTop: 18 } }, "IF 卡里，他是别的世界、别的年代的人时"),
         h("div", { className: "flex flex-wrap", style: { gap: 6, marginTop: 6 } }, [["adapt", "照他的世界改写"], ["into", "把他丢进主题里"], ["random", "两种随机"]].map(x => chip(ifMode === x[0], x[1], () => setOpt({ ifMode: x[0] }), x[0]))),
+        h(Eyebrow, { style: { color: "rgba(244,236,218,.55)", marginTop: 18 } }, "卡面画风"),
+        h("div", { className: "flex flex-wrap", style: { gap: 6, marginTop: 6 } }, [["", "跟着他的设定"], ["real", "写实照片"], ["乙游卡面厚涂", "乙游厚涂"], ["精致二次元赛璐璐", "二次元"], ["水彩插画", "水彩"], ["韩漫风", "韩漫"]]
+          .map(x => chip((opt.paint || "") === x[0], x[1], () => { setPaintDraft(null); setOpt({ paint: x[0] }); }, x[0] || "auto"))),
+        h("input", { "data-wk": "input", value: paintDraft != null ? paintDraft : (["", "real", "乙游卡面厚涂", "精致二次元赛璐璐", "水彩插画", "韩漫风"].includes(opt.paint || "") ? "" : opt.paint), maxLength: 40, placeholder: "或者自己写一个画风（比如：赛博朋克插画）",
+          onChange: e => setPaintDraft(e.target.value), onBlur: () => { if (paintDraft != null) { const v = paintDraft.trim(); setOpt({ paint: v }); setPaintDraft(null); } },
+          style: { width: "100%", marginTop: 8, padding: "9px 12px", borderRadius: 10, border: "1px solid rgba(244,236,218,.22)", background: "rgba(244,236,218,.07)", color: PAPER, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))" } }),
+        h("div", { style: { marginTop: 6, fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: "rgba(244,236,218,.5)" } }, "只管以后画的和重画的卡面，画好的不会变。"),
         h("div", { className: "flex items-center justify-between", style: { marginTop: 18 } },
           h("div", null, h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(14.5px * var(--app-fs, 1))", color: PAPER } }, "抽到就画卡面"),
             h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: "rgba(244,236,218,.5)" } }, opt.autoDraw ? "开着：每张都画，十连就是十次生图" : "关着：点开哪张、想看再画哪张，省钱")),

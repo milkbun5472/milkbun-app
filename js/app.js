@@ -17029,9 +17029,12 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         : card.rarity === "SSR" ? (tx.highlight || tx.line || "") : (tx.open || tx.line || "");
       const scene = "一张乙游卡面：「" + (tx.name || "") + "」。这一刻：" + String(what).slice(0, 300) + "\n【分镜】" + String(tx.shot || "").slice(0, 600)
         + "\n画面里不要任何文字。";
-      const prompt = buildPhotoPrompt(card.kind === "if" ? Object.assign({}, char, { photoOutfit: "" }) : char, scene,
+      // 画风：卡池设置里挑的（空＝跟着这个人自己的设定；real＝写实照片；别的就是画风名）
+      const paint = String(((StampsCoreSafe().opt || {}).paint) || "").trim();
+      const base = card.kind === "if" ? Object.assign({}, char, { photoOutfit: "" }) : char;
+      const prompt = buildPhotoPrompt(paint === "real" ? Object.assign({}, base, { photoStyle: "realistic" }) : base, scene,
         card.kind === "if" ? Object.assign({}, st, { wearing: "", wearingUpdatedAt: 0 }) : st,
-        { kind: "other", closet: card.kind === "if" ? "" : closetTextFor(char.id, 240) });
+        Object.assign({ kind: "other", closet: card.kind === "if" ? "" : closetTextFor(char.id, 240) }, paint && paint !== "real" ? { paint } : {}));
       const out = await generateSelfieImage(prompt, char.refPhoto ? [char.refPhoto] : null, { size: "1024x1536" });
       if (!(out && out.blob)) throw new Error("没拿到图");
       const key = "img_stamp_" + cardId + (alt ? "_alt" : "") + "_" + Date.now().toString(36);
