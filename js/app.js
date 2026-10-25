@@ -32152,6 +32152,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     tab: msgTab,
     onTab: setMsgTab,
     peekDaily: peekDailyShown(),
+    // 搜到的聊天记录点一条：打开那段聊天，带着那一刻过去定位（跟钱包「去聊天里看」同一条路）
+    onLocateMsg: (type, id, ts) => { openChatById(id, type === "group" ? "group" : undefined); setWalletTrace({ type: type, id: id, ts: ts, key: Date.now() }); },
     onOpenDaily: p => setPeekDailyView(p),
     onOpenSettings: () => setScreen("config"),   // 备份告警那条横幅点一下直接去设置
     onBack: goHome,

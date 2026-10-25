@@ -8726,6 +8726,7 @@ function Messages({
   onBack,
   onOpenThread,
   onOpenGroup,
+  onLocateMsg,     // 搜到的一条聊天记录：打开那段聊天、滚到那一条
   onNewGroup,
   onOpenContact,
   onGenMoment,
@@ -8824,6 +8825,25 @@ function Messages({
   };
   // 递手机时她单独藏起来的那几个聊天：录像播着的时候列表里不出现（window.__peekHide，播完就清）
   const shownItems = chatItems.filter(hitItem).filter(it => !(window.__peekHide && window.__peekHide.has(String(it.id))));
+  // 搜所有人的聊天记录（群友 2026-10-26「像微信那样，一搜所有人的聊天记录都出来」）：名字底下再列一段「聊天记录」，
+  //   哪段聊天里说过这个词，点一条就打开那段聊天、滚到那一条（跟钱包「去聊天里看」同一条路）。只搜还在本机的那部分，
+  //   归档里的旧记录进了聊天点「查找记录」照旧搜得到
+  const msgHits = (() => {
+    if (!kw || !onLocateMsg) return [];
+    const out = [];
+    chatItems.forEach(it => {
+      if (window.__peekHide && window.__peekHide.has(String(it.id))) return;
+      const list = (it.type === "group" ? groupChats[it.id] : chats[it.id]) || [];
+      for (let i = list.length - 1, n = 0; i >= 0 && n < 4000; i--, n++) {
+        const m = list[i];
+        if (!m || m.recalled || m.kind === "recalled" || m.kind === "ooc" || typeof m.content !== "string") continue;
+        const txt = m.content, at = txt.toLowerCase().indexOf(kw);
+        if (at < 0) continue;
+        out.push({ it, m, at });
+      }
+    });
+    return out.sort((a, b) => (b.m.ts || 0) - (a.m.ts || 0)).slice(0, 60);
+  })();
   // 长按置顶：按住 ~0.5s 触发 onTogglePin，并拦掉随后的点击（避免误进聊天）
   // ── 通讯录那条 A-Z（v60.73，她 2026-09-03 报「不是固定在侧边的，要下滑才有」）──
   // 病因：那条索引原来 position:absolute 挂在【列表内容】上，而列表内容自己在滚——
@@ -8935,8 +8955,25 @@ function Messages({
           className: "flex-1 outline-none", style: { background: "transparent", padding: "8px 0", fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.ink } }),
         q ? h("button", { onClick: () => setQ(""), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: "calc(15px * var(--app-fs, 1))", color: t.fog, padding: "0 2px" } }, "×") : null)),
     characters.length === 0 && groups.length === 0 && h(Empty, { text: "还没有对话", sub: "先去通讯录或人格档案馆录入角色" }),
-    kw && shownItems.length === 0 ? h(Empty, { text: "没搜到「" + q.trim() + "」", sub: "换个名字或关键词试试" }) : null,
+    kw && shownItems.length === 0 && msgHits.length === 0 ? h(Empty, { text: "没搜到「" + q.trim() + "」", sub: "换个名字或关键词试试" }) : null,
     shownItems.map(it => it.type === "group" ? renderGroupRow(it) : renderCharRow(it)),
+    msgHits.length ? h("div", { "data-wk": "mlhits" },
+      h("div", { "data-wk": "mlhitshead", style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, padding: "10px 20px 4px" } }, "聊天记录 · " + msgHits.length + (msgHits.length >= 60 ? "+" : "") + " 条"),
+      msgHits.map((x, k) => {
+        const it = x.it, m = x.m, txt = m.content, st = Math.max(0, x.at - 14);
+        const who = m.role === "user" ? (meName || "我") : it.type === "group" ? (m.senderName || "") : ((it.c && (it.c.remark || it.c.name)) || "");
+        return h("button", { key: "hit" + k, "data-wk": "mlhit", onClick: () => onLocateMsg(it.type === "group" ? "group" : "char", it.id, m.ts || 0),
+          className: "w-full flex items-center gap-3 px-5 py-3 active:bg-black/5", style: { borderBottom: "1px solid " + t.line, minHeight: 56 } },
+          h(Avatar, { character: it.type === "group" ? { name: it.g.name, avatarImage: it.g.avatarImage } : it.c, size: 40, radius: 9 }),
+          h("div", { className: "flex-1 text-left min-w-0" },
+            h("div", { className: "flex items-center justify-between gap-2" },
+              h("span", { className: "truncate", style: { fontFamily: F_DISPLAY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.ink } }, it.type === "group" ? (it.g.name || "群聊") : ((it.c && (it.c.remark || it.c.name)) || "")),
+              h("span", { style: { flexShrink: 0, fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog } }, m.ts ? fmtStamp(m.ts, it.type === "group" ? "g:" + it.id : it.id) : "")),
+            h("div", { className: "truncate", style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.fog, marginTop: 2 } },
+              (who ? who + "：" : "") + (st ? "…" : "") + txt.slice(st, x.at),
+              h("span", { style: { color: t.accent } }, txt.slice(x.at, x.at + kw.length)),
+              txt.slice(x.at + kw.length, x.at + kw.length + 40))));
+      })) : null,
     !kw && Array.isArray(peekDaily) ? peekDaily.map((p, i) => {
       const ls = Array.isArray(p.lines) ? p.lines : [], last = ls[ls.length - 1];
       return h("button", { key: "daily" + i, "data-wk": "mlrow", "data-kind": "daily", onClick: () => onOpenDaily && onOpenDaily(p),
