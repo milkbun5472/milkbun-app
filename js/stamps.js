@@ -31,7 +31,10 @@
   function StampFace({ t, card, onClick, size, back }) { const url = useIdbImgUrl(card && card.face); return h(Stamp, { t, card, face: url, onClick, size, back }); }
 
   // 抽卡动画：信封落下 → 邮戳颜色预告 → 撕开一版
-  function PullShow({ t, cards, onDone, onOpen }) {
+  function PullShow({ t, cards, onDone, onOpen, charOf }) {
+    const nameOf = c => { const ch = charOf && charOf(c.charId); return ch ? (ch.name || "") : ""; };
+    const senders = []; cards.forEach(c => { const n = nameOf(c); if (n && senders.indexOf(n) < 0) senders.push(n); });
+    const fromLine = senders.length ? "来自 " + senders.slice(0, 2).join("、") + (senders.length > 2 ? " 等 " + senders.length + " 人" : "") : "";
     const best = cards.some(c => c.rarity === "SSR") ? "SSR" : cards.some(c => c.rarity === "SR") ? "SR" : "R";
     const [stage, setStage] = useState("drop");   // drop → mail → sheet
     const [torn, setTorn] = useState({});
@@ -50,12 +53,15 @@
         h("div", { style: { position: "absolute", right: 16, top: 14, width: 52, height: 52, borderRadius: 999, border: "3px double " + RC[best], color: RC[best],
           display: "flex", alignItems: "center", justifyContent: "center", fontFamily: F_DISPLAY, fontSize: "calc(11px * var(--app-fs, 1))", transform: "rotate(-14deg)" } }, best === "SSR" ? "急件" : best === "SR" ? "挂号" : "平信"),
         best === "SSR" ? h("div", { style: { position: "absolute", left: "50%", top: 60, width: 34, height: 34, marginLeft: -17, borderRadius: 999, background: "radial-gradient(circle at 40% 35%, #e9b35a, #9c6a1c)" } }) : null,
+        fromLine ? h("div", { "data-wk": "stampenvfrom", style: { position: "absolute", left: 18, top: 82, fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: "calc(13px * var(--app-fs, 1))", color: "#5a4a32" } }, fromLine) : null,
         h("div", { style: { position: "absolute", left: 0, right: 0, bottom: 14, textAlign: "center", fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: "#7a6a52" } }, stage === "mail" ? "点开信封" : "")) : null,
       stage === "sheet" ? h(React.Fragment, null,
         h("div", { className: "flex flex-wrap justify-center", style: { gap: 8, maxWidth: 420 } },
           cards.map(c => torn[c.id]
             ? h("div", { key: c.id, style: { animation: "stFlip .35s ease-out" } }, h(StampFace, { t, card: c, size: cards.length > 1 ? 64 : 150, onClick: () => onOpen(c) }))
-            : h(Stamp, { key: c.id, t, card: c, back: true, size: cards.length > 1 ? 64 : 150, onClick: () => setTorn(p => ({ ...p, [c.id]: 1 })) }))),
+            : h("div", { key: c.id, className: "flex flex-col items-center", style: { gap: 3 } },
+                h(Stamp, { t, card: c, back: true, size: cards.length > 1 ? 64 : 150, onClick: () => setTorn(p => ({ ...p, [c.id]: 1 })) }),
+                nameOf(c) ? h("div", { "data-wk": "stampsender", style: { maxWidth: cards.length > 1 ? 70 : 160, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", color: "rgba(244,236,218,.75)" } }, nameOf(c) + " 来信") : null))),
         h("div", { className: "flex", style: { gap: 10, marginTop: 18 } },
           cards.length > 1 && Object.keys(torn).length < cards.length ? h("button", { onClick: all, className: "active:opacity-70", style: { padding: "10px 18px", borderRadius: 999, background: "#f4ecda", color: "#5a4a32", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))" } }, "整版撕开") : null,
           h("button", { onClick: onDone, className: "active:opacity-70", style: { padding: "10px 18px", borderRadius: 999, border: "1px solid #f4ecda", color: "#f4ecda", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))" } }, "收进邮票册"))) : null);
@@ -140,6 +146,7 @@
     const [albumChar, setAlbumChar] = useState("all");
     const [gotNote, setGotNote] = useState([]);
     const [cfg, setCfg] = useState(false);
+    const [giftOpen, setGiftOpen] = useState(false);
     const testTap = useRef({ n: 0, t: 0 });
     useEffect(() => { const f = () => setSt(C().load()); window.addEventListener("stamps-change", f); return () => window.removeEventListener("stamps-change", f); }, []);
     useEffect(() => { const got = C().grantOnOpen(Date.now(), []); if (got.length) { setGotNote(got); setSt(C().load()); } }, []);
@@ -199,33 +206,52 @@
     const tone = pool === "mix" ? ["#2f4a46", "#7fa79a"] : pool === "char" ? [((charNow && charNow.color) || "#4a3d6b"), "#b9a7e0"] : ["#3a1f3d", "#e08a3a"];
     const testInf = !!opt.testInf;
     const perf = c => "radial-gradient(circle at 6px 6px, transparent 4.6px, " + c + " 5px) -6px -6px / 12px 12px";
-    const banner = h("div", { "data-wk": "stampbanner", "data-pool": pool, style: { padding: 9, background: perf(PAPER), filter: "drop-shadow(0 10px 24px rgba(0,0,0,.45))" } },
+    // 限时池的节日装饰：只加在边角，不动整张模板（现在只有万圣夜：蝙蝠、南瓜、星星、蛛网）
+    const deco = cur.lim && cur.lim.deco === "halloween";
+    const bat = (x, y, sc, k) => h("svg", { key: k, viewBox: "0 0 24 12", style: { position: "absolute", left: x, top: y, width: 26 * sc, opacity: .55 } }, h("path", { d: "M12 4c1-2 2-3 3-3-.5 1.5 0 2.5 1 3 1.5-1.5 4-2 8-1-2 1-3 3-3 5-1.5-1-3-1-4 1-1-1-2-1.5-3-1.5S10 7 9 8C8 6 6.5 6 5 7c0-2-1-4-3-5 4-1 6.5-.5 8 1 1-.5 1.5-1.5 1-3 1 0 2 1 1 4z", fill: "#e08a3a" }));
+    const pumpkin = (x, y, sz, k) => h("svg", { key: k, viewBox: "0 0 24 24", style: { position: "absolute", left: x, top: y, width: sz, height: sz } },
+      h("ellipse", { cx: 12, cy: 14, rx: 10, ry: 8, fill: "#e8892f" }), h("path", { d: "M12 6c0-2 1-3 2-3", stroke: "#4b6b2a", strokeWidth: 2, fill: "none" }),
+      h("path", { d: "M7 12l2 2 2-2M13 12l2 2 2-2M8 17q4 3 8 0", stroke: "#3a1f12", strokeWidth: 1.4, fill: "none" }));
+    const web = h("svg", { key: "web", viewBox: "0 0 40 40", style: { position: "absolute", right: 0, top: 0, width: 70, height: 70, opacity: .22 } },
+      h("path", { d: "M40 0L0 40M40 0L14 40M40 0L0 14M40 0L28 40M40 0L0 28M30 0q2 8 10 10M20 0q3 17 20 20M10 0q4 26 30 30", stroke: "#f4ecda", strokeWidth: .6, fill: "none" }));
+    const stars = [[18, 62], [70, 40], [52, 120], [230, 88], [205, 150], [32, 210]].map((q, i) => h("span", { key: "s" + i, style: { position: "absolute", left: q[0], top: q[1], width: 3, height: 3, borderRadius: 9, background: "#f6e3b5", opacity: .55, boxShadow: "0 0 6px #f6e3b5" } }));
+    // 海报上那一句：说的是「抽了会得到什么」，不是玩法说明
+    const hook = pool === "mix" ? "今天的他，在做一件你还没见过的事。" : pool === "char" ? (charThemeLine.trim() || (charNow ? "如果 " + (charNow.remark || charNow.name) + " 活在「" + (charTheme.trim() || "另一个世界") + "」里——" : "")) : (cur.lim.hook || cur.lim.line.split("。")[0] + "。");
+    // 人：一个就放大；几个错落排，中间那个大一点、高一点（不排成整齐一行）
+    const faceRow = faces.length === 1
+      ? h("div", { style: { borderRadius: 26, padding: 4, background: deco ? "linear-gradient(135deg,#e08a3a,#6b2f6e)" : "rgba(255,255,255,.18)", boxShadow: "0 0 40px " + tone[1] + "88" } }, h(Avatar, { character: faces[0], size: 156, radius: 22 }))
+      : (() => { const show = faces.slice(0, 5), mid = Math.floor(show.length / 2);
+          return show.map((c, i) => { const d = Math.abs(i - mid), big = d === 0, sz = big ? 96 : d === 1 ? 70 : 54;
+            return h("div", { key: c.id, style: { marginLeft: i ? -16 : 0, zIndex: 10 - d, borderRadius: 999, padding: big ? 4 : 3, background: deco ? "linear-gradient(135deg,#e08a3a,#6b2f6e)" : PAPER,
+              transform: "translateY(" + (d * 22) + "px)", boxShadow: big ? "0 6px 24px rgba(0,0,0,.45)" : "0 3px 10px rgba(0,0,0,.35)" } }, h(Avatar, { character: c, size: sz, radius: 999 })); }); })();
+    const banner = h("div", { "data-wk": "stampbanner", "data-pool": pool, "data-deco": deco ? "halloween" : "", style: { padding: 9, background: perf(PAPER), filter: "drop-shadow(0 10px 24px rgba(0,0,0,.45))", position: "relative" } },
+      deco ? [bat(-6, 30, 1, "b1"), bat("78%", -8, .8, "b2"), pumpkin(-10, "86%", 28, "p1"), pumpkin("90%", "40%", 22, "p2")] : null,
       h("div", { style: { position: "relative", height: "min(62vh, 470px)", borderRadius: 3, overflow: "hidden", background: "linear-gradient(160deg, " + tone[0] + ", " + NIGHT + " 78%)", border: "1px solid rgba(255,255,255,.12)" } },
-        // 底纹：一圈圈的邮戳波浪线
-        h("div", { style: { position: "absolute", inset: 0, opacity: .14, background: "repeating-radial-gradient(circle at 85% 18%, transparent 0 14px, " + tone[1] + " 14px 15px)" } }),
+        // 底纹：一圈圈的邮戳线，淡到像防伪纹，不抢人
+        h("div", { style: { position: "absolute", inset: 0, opacity: .05, background: "repeating-radial-gradient(circle at 85% 18%, transparent 0 14px, " + tone[1] + " 14px 15px)" } }),
+        deco ? [web].concat(stars) : null,
         h("div", { style: { position: "absolute", left: 16, top: 14, fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", letterSpacing: ".2em", color: tone[1] } }, cur.tag),
-        h("div", { "data-wk": "stampbannertitle", style: { position: "absolute", left: 16, right: 16, top: 34, fontFamily: F_DISPLAY, fontSize: "calc(34px * var(--app-fs, 1))", lineHeight: 1.15, color: PAPER, textShadow: "0 2px 12px rgba(0,0,0,.5)" } },
-          pool === "char" ? (charTheme.trim() ? "「" + charTheme.trim() + "」" : "还没写主题") : cur.zh,
-          pool === "char" && charNow ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: tone[1], marginTop: 4 } }, "如果的 " + (charNow.remark || charNow.name)) : null),
-        // 人：一个人就放大，几个人叠成一排
-        h("div", { style: { position: "absolute", left: 0, right: 0, top: "34%", display: "flex", justifyContent: "center", alignItems: "flex-end" } },
-          faces.length === 1 ? h("div", { style: { borderRadius: 24, padding: 4, background: "rgba(255,255,255,.18)", boxShadow: "0 0 40px " + tone[1] + "88" } }, h(Avatar, { character: faces[0], size: 150, radius: 20 }))
-            : faces.slice(0, 6).map((c, i) => h("div", { key: c.id, style: { marginLeft: i ? -18 : 0, borderRadius: 999, padding: 3, background: PAPER, transform: "translateY(" + (i % 2 ? 0 : -14) + "px)" } }, h(Avatar, { character: c, size: 72, radius: 999 })))),
-        // 邮戳：常驻写「常驻」，限时写截止日和还剩多久
-        h("div", { "data-wk": "stampcountdown", style: { position: "absolute", right: 12, bottom: 12, width: 80, height: 80, borderRadius: 999, border: "2px solid " + GOLD, color: GOLD, transform: "rotate(-12deg)",
+        h("div", { "data-wk": "stampbannertitle", style: { position: "absolute", left: 16, right: 16, top: 32, fontFamily: F_DISPLAY, fontSize: "calc(32px * var(--app-fs, 1))", lineHeight: 1.15, color: PAPER, textShadow: "0 2px 12px rgba(0,0,0,.5)" } },
+          pool === "char" ? (charTheme.trim() ? "「" + charTheme.trim() + "」" : "还没写主题") : cur.zh),
+        h("div", { "data-wk": "stampbannerhook", style: { position: "absolute", left: 16, right: 16, top: 80, fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: "calc(14px * var(--app-fs, 1))", lineHeight: 1.5, color: "rgba(244,236,218,.88)" } }, hook),
+        h("div", { style: { position: "absolute", left: 0, right: 0, top: faces.length === 1 ? "30%" : "28%", display: "flex", justifyContent: "center", alignItems: "flex-start" } }, faceRow),
+        // 邮戳：常驻写「常驻」；限时写截止日和还剩多久，万圣夜那枚是南瓜色的限定戳
+        h("div", { "data-wk": "stampcountdown", style: { position: "absolute", right: 12, bottom: 12, width: 84, height: 84, borderRadius: 999, border: (deco ? "2px dashed #e08a3a" : "2px solid " + GOLD), outline: deco ? "1px solid #e08a3a66" : "none", outlineOffset: 3, color: deco ? "#f0a24f" : GOLD, transform: "rotate(-12deg)",
           display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", fontFamily: F_BODY, textAlign: "center", lineHeight: 1.25 } },
-          cur.lim ? h(React.Fragment, null, h("div", { style: { fontSize: "calc(10px * var(--app-fs, 1))" } }, "截止"), h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))" } }, new Date(Date.parse(cur.lim.to) - 1).toLocaleDateString("zh-CN", { month: "numeric", day: "numeric" })), h("div", { style: { fontSize: "calc(9.5px * var(--app-fs, 1))" } }, "还剩 " + leftText(Date.parse(cur.lim.to) - Date.now())))
+          cur.lim ? h(React.Fragment, null, h("div", { style: { fontSize: "calc(9.5px * var(--app-fs, 1))" } }, deco ? "万圣夜限定" : "限定"), h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))" } }, new Date(Date.parse(cur.lim.to) - 1).toLocaleDateString("zh-CN", { month: "numeric", day: "numeric" }) + " 止"), h("div", { style: { fontSize: "calc(9px * var(--app-fs, 1))" } }, "还剩 " + leftText(Date.parse(cur.lim.to) - Date.now())))
             : h(React.Fragment, null, h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(16px * var(--app-fs, 1))" } }, "常驻"), h("div", { style: { fontSize: "calc(9.5px * var(--app-fs, 1))" } }, "邮票册"))),
-        h("div", { style: { position: "absolute", left: 16, bottom: 16, right: 116, fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", lineHeight: 1.6, color: "rgba(244,236,218,.82)" } },
-          pool === "mix" ? "他在自己的世界里、跟你现在这层关系下可能会有的一刻新鲜事。" : pool === "char" ? (charThemeLine.trim() || "你给他写的那个「如果」里的他，衣服照主题来。") : cur.lim.line.split("。")[0] + "。"),
+        h("div", { style: { position: "absolute", left: 16, bottom: 18, right: 116, fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", lineHeight: 1.6, color: "rgba(244,236,218,.6)" } },
+          pool === "mix" ? "日常卡 · 他自己的世界、你们现在的关系" : pool === "char" ? "IF 卡 · 衣服照主题来" : "IF 卡 · 下架后抽到的照样留着"),
         pool === "char" ? h("button", { onClick: () => setCfg(true), className: "active:opacity-70", style: { position: "absolute", right: 14, top: 12, padding: "4px 10px", borderRadius: 999, border: "1px solid " + tone[1], color: tone[1], fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))" } }, "改主题") : null));
-    // 左边一列小邮票：换池
-    const rail = h("div", { "data-wk": "stamprail", className: "flex flex-col shrink-0", style: { gap: 10, width: 62, paddingTop: 4 } },
-      pools.map(p => { const on = p.key === pool;
+    // 左边一列小邮票：换池。选中的那枚像从邮册里抽出来一截：放大、往右探出去
+    const rail = h("div", { "data-wk": "stamprail", className: "flex flex-col shrink-0", style: { gap: 12, width: 70, paddingTop: 6 } },
+      pools.map(p => { const on = p.key === pool, hal = p.lim && p.lim.deco === "halloween";
         return h("button", { key: p.key, "data-wk": "stamprailitem", "data-on": on ? "1" : "0", onClick: () => setPool(p.key), className: "active:opacity-80",
-          style: { width: 62, height: 76, padding: 4, background: perf(on ? GOLD : "rgba(244,236,218,.55)"), transform: on ? "translateX(4px)" : "none", transition: "transform .2s" } },
-          h("div", { style: { width: "100%", height: "100%", borderRadius: 2, background: on ? NIGHT : "#2a2536", color: on ? GOLD : "rgba(244,236,218,.7)", display: "flex", alignItems: "center", justifyContent: "center", textAlign: "center",
-            fontFamily: F_DISPLAY, fontSize: "calc(12px * var(--app-fs, 1))", lineHeight: 1.25, padding: 3 } }, p.zh)); }));
+          style: { width: 70, height: 86, padding: 4, background: perf(on ? GOLD : "rgba(244,236,218,.8)"), transform: on ? "translateX(10px) scale(1.08) rotate(-2deg)" : "none", transition: "transform .25s", zIndex: on ? 2 : 1,
+            filter: on ? "drop-shadow(0 6px 12px rgba(0,0,0,.5))" : "none" } },
+          h("div", { style: { width: "100%", height: "100%", borderRadius: 2, background: on ? (hal ? "#3a1f3d" : NIGHT) : "#3a3448", color: on ? GOLD : PAPER, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", textAlign: "center",
+            fontFamily: F_DISPLAY, fontSize: "calc(13.5px * var(--app-fs, 1))", lineHeight: 1.25, padding: 3, gap: 3 } },
+            p.zh, h("span", { style: { fontFamily: F_BODY, fontSize: "calc(9px * var(--app-fs, 1))", opacity: .7 } }, p.lim ? "限时" : "常驻"))); }));
     const capsule = (k, v) => h("span", { key: k, "data-wk": "stampwallet", style: { padding: "3px 9px", borderRadius: 999, background: "rgba(244,236,218,.12)", color: PAPER, fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))" } }, k + " " + v);
     // ⋯ 设置页（整页，不做半窗）：谁会出、角色池主题、IF 写法、抽到就画、规则；连点七下「规则」开测试用的无限券
     if (cfg) return h("div", { "data-wk": "stampcfg", "data-page": "1", className: "h-full flex flex-col", style: { background: t.bg } },
@@ -266,7 +292,7 @@
         album.length ? h("div", { "data-wk": "stampalbum", className: "grid", style: { gridTemplateColumns: "repeat(3, 1fr)", gap: 12, marginTop: 14, justifyItems: "center" } },
           album.map(c => h(StampFace, { key: c.id, t, card: c, size: 96, onClick: () => setOpen(c.id) })))
           : h("div", { style: { padding: "48px 0", textAlign: "center", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.fog } }, "还没有邮票，去寄一封")),
-      show ? h(PullShow, { t, cards: show.map(c => (st.cards || []).find(x => x.id === c.id) || c), onDone: () => setShow(null), onOpen: c => { setShow(null); setOpen(c.id); } }) : null);
+      show ? h(PullShow, { t, cards: show.map(c => (st.cards || []).find(x => x.id === c.id) || c), onDone: () => setShow(null), onOpen: c => { setShow(null); setOpen(c.id); }, charOf }) : null);
 
     return h("div", { "data-wk": "stamppage", className: "h-full flex flex-col", style: { background: "radial-gradient(120% 70% at 50% 0%, #2b2440, " + NIGHT + " 70%)" } },
       h(Head, { zh: "邮票册", bg: "transparent", ink: PAPER, onBack,
@@ -276,8 +302,10 @@
       h("div", { className: "flex justify-end flex-wrap px-4 shrink-0", style: { gap: 6 } },
         capsule("邮资", st.postage), capsule("印泥", st.ink), capsule("十连券", testInf ? "∞" : st.tickets)),
       h("div", { className: "flex-1 min-h-0 overflow-y-auto px-3", style: { paddingTop: 10 } },
-        gotNote.length ? h("div", { "data-wk": "stampgift", style: { margin: "0 4px 12px", padding: "10px 14px", borderRadius: 12, background: PAPER, color: "#6a4d1e", fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", lineHeight: 1.7 } },
-          "收到了：", gotNote.map((x, i) => h("div", { key: i }, "· " + x))) : null,
+        // 收到礼：一条薄薄的信笺，点开看是什么，✕ 收起
+        gotNote.length ? h("div", { "data-wk": "stampgift", className: "flex items-start", style: { margin: "0 4px 10px", padding: "6px 10px", borderRadius: 8, borderLeft: "3px solid " + GOLD, background: "rgba(244,236,218,.08)", color: PAPER, fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", lineHeight: 1.6, gap: 8 } },
+          h("button", { onClick: () => setGiftOpen(v => !v), className: "flex-1 text-left", style: { color: PAPER } }, "✉ 有 " + gotNote.length + " 封来信" + (giftOpen ? "：" : " ▸"), giftOpen ? gotNote.map((x, i) => h("div", { key: i, style: { opacity: .85 } }, "· " + x)) : null),
+          h("button", { onClick: () => setGotNote([]), style: { color: PAPER, opacity: .6 } }, "✕")) : null,
         h("div", { className: "flex", style: { gap: 10 } }, rail, h("div", { className: "flex-1 min-w-0" }, banner)),
         // 角色池：在这儿就能换人，不用进设置
         pool === "char" ? h("div", { "data-wk": "stampcharpick", className: "flex overflow-x-auto", style: { gap: 8, padding: "12px 4px 0 72px" } },
@@ -292,7 +320,7 @@
         h("button", { "data-wk": "stamppullbtn", "data-part": "ten", onClick: () => doPull(10, st.tickets > 0), className: "flex-1 active:opacity-80",
           style: { minHeight: 56, borderRadius: 16, background: "linear-gradient(160deg, " + GOLD + ", #b8862f)", color: NIGHT, fontFamily: F_DISPLAY, fontSize: "calc(16px * var(--app-fs, 1))", boxShadow: "0 4px 18px rgba(227,182,92,.35)" } },
           "寄一版", h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", opacity: .8 } }, testInf ? "测试券" : st.tickets > 0 ? "十连券 ×1（还有 " + st.tickets + "）" : C().PRICE_TEN + " 邮资"))),
-      show ? h(PullShow, { t, cards: show.map(c => (st.cards || []).find(x => x.id === c.id) || c), onDone: () => setShow(null), onOpen: c => { setShow(null); setOpen(c.id); } }) : null);
+      show ? h(PullShow, { t, cards: show.map(c => (st.cards || []).find(x => x.id === c.id) || c), onDone: () => setShow(null), onOpen: c => { setShow(null); setOpen(c.id); }, charOf }) : null);
   }
   window.StampBookApp = StampBookApp;
 })();
