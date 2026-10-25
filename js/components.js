@@ -19048,10 +19048,20 @@ function GroupThread({
     r.t = now; r.id = cid; clearTimeout(r.timer);
     if (single) r.timer = setTimeout(single, 260);
   };
+  // 头像角上也挂一枚（她 2026-10-25：「我这边名字不显示所以也看不到头衔」）——名字被排版或美化藏起来时，身份还看得见
+  const gAvBadge = character => {
+    const id = character && character.id;
+    if (!id || typeof groupRoleOf !== "function") return null;
+    const r = groupRoleOf(settings, id), mu = groupMutedLeft(settings, id) > 0;
+    if (!r && !mu) return null;
+    return h("span", { "data-wk": "grole", "data-part": "avatar", "data-role": mu ? "muted" : r, style: { position: "absolute", right: -4, bottom: -3, padding: "0 3px", borderRadius: 4, lineHeight: "13px",
+      fontSize: "calc(9px * var(--app-fs, 1))", fontFamily: F_BODY, pointerEvents: "none", border: "1px solid " + t.bg2,
+      background: mu ? "#8a8a8a" : r === "owner" ? "#d99a2b" : "#4a86c0", color: "#fff" } }, mu ? "禁" : r === "owner" ? "主" : "管");
+  };
   const mAvatar = (character, size) => (canPeek && canPeek(character) && character && character.id)
-    ? h("button", { "data-wk": "avatar", onClick: gAvTap(character.id, () => onOpenMemberState(character.id)), className: "active:opacity-60", style: { flexShrink: 0, lineHeight: 0, padding: 0, border: "none", background: "none" }, title: "看 " + (character.name || "") + " 的心声" }, h(Avatar, { character: character, size: size || 34, radius: 8 }))
+    ? h("button", { "data-wk": "avatar", onClick: gAvTap(character.id, () => onOpenMemberState(character.id)), className: "active:opacity-60", style: { position: "relative", flexShrink: 0, lineHeight: 0, padding: 0, border: "none", background: "none" }, title: "看 " + (character.name || "") + " 的心声" }, h(Avatar, { character: character, size: size || 34, radius: 8 }), gAvBadge(character))
     // 包一层挂点壳：头像框/挂件叠在壳上（头像自己裁圆角，叠在里面会被裁掉）——跟单聊那颗同一个做法
-    : h("span", { "data-wk": "avatar", onClick: gAvTap(character && character.id, null), className: "shrink-0", style: { display: "inline-flex" } }, h(Avatar, { character: character, size: size || 34, radius: 8 }));
+    : h("span", { "data-wk": "avatar", onClick: gAvTap(character && character.id, null), className: "shrink-0", style: { position: "relative", display: "inline-flex" } }, h(Avatar, { character: character, size: size || 34, radius: 8 }), gAvBadge(character));
   const openRp = i => {
     const rp = messages[i];
     if (rp.byMe || rp.claims.some(c => c.me) || rp.claims.length >= rp.count) {
