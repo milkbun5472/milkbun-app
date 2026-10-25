@@ -13093,7 +13093,13 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       const _halfSeen = halfWinRef.current && halfWinRef.current.charId === charId && screenRef.current !== "thread" ? halfWinScreenText() : null;
       // 半窗：她一边开着别的页一边跟你聊（她 2026-10-06）。屏幕上的字是【她手机上此刻显示的】，都可以看。
       // 锁屏那句跟着半窗这句一起挂（只在她刚发图／他刚发照片那一轮非空）
-      const _halfHint = _lockHint + (_halfSeen ? "\n\n【她此刻在看的屏幕】她把聊天缩成了半窗，上半屏开着「" + _halfSeen.zh + "」，你看得到她屏幕上这会儿显示的东西：\n" + _halfSeen.text + "\n——她说的「这个」「这篇」「这里」多半指的是这一页上的东西；想聊就顺着聊，没提到就不扯。" : "");
+      // 她点名要一张照片（她 2026-10-26 群友许愿：照片那一格「叫 TA 拍」）：她最后那句带着 askPhoto，这一轮一定要出那一种照片
+      const _askPh = (() => { const lu = (history || []).slice().reverse().find(m => m && m.role === "user"); return lu && lu.askPhoto && lu.askPhoto.kind ? lu.askPhoto : null; })();
+      const _askPhotoHint = _askPh ? "\n\n【她这一句是在要一张照片·只这一轮】她点了「叫你拍一张」，要的是"
+        + ({ self: "你的自拍", other: "别人帮你拍的你", duo: "你们俩的合照" }[_askPh.kind] || "你的照片")
+        + "。这一轮 photo 一定要填，kind 填 " + (["self", "other", "duo"].includes(_askPh.kind) ? _askPh.kind : "self")
+        + "；画面照你此刻真实在哪、在做什么、穿什么来，她这句里要看什么就拍什么。嘴上怎么接照你这个人，愿不愿意都可以说，但照片要发。" : "";
+      const _halfHint = _askPhotoHint + _lockHint + (_halfSeen ? "\n\n【她此刻在看的屏幕】她把聊天缩成了半窗，上半屏开着「" + _halfSeen.zh + "」，你看得到她屏幕上这会儿显示的东西：\n" + _halfSeen.text + "\n——她说的「这个」「这篇」「这里」多半指的是这一页上的东西；想聊就顺着聊，没提到就不扯。" : "");
       const _normalTaskV2 = ("\n\n【本轮】你就是「" + char.name + "」。先想一下 TA 此刻怎么看她刚说的这句话，再从那个判断回过去；聊天先发生，状态随后记录。" + _halfHint + _stateBootstrapHint + _wearRefreshHint + paceHint + callHint + busyHint + proactiveHintAll + dongnianHint + gapHint + crossChannelHint + _saidElsewhereHint + eAfterglowHint + desireHint + _recallHint + _clockStampHint + capabilityHint + _normalThoughtTurnHint + "\n" + MOOD_TURN_RULE + _biTurnLine + _rerollHint + _threatTailHint + _bossTailHint + _seeThroughHint + _turnClosing + _gazeNudgeHint).replace(/用户/g, uName);
       const _roomHint = roomPromptFor(charId, room, true);
       // 线上导演便签：只给模型看，不算她说的话；放在本轮任务末尾，离生成最近
