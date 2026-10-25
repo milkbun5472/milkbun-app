@@ -30500,6 +30500,15 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     return items.length;
   };
   const renameEmote = (packId, emId, keyword) => commitEmotePacks((emotePacksRef.current || []).map(x => x.id === packId ? { ...x, emotes: (x.emotes || []).map(e => e.id === emId ? { ...e, keyword: keyword } : e) } : x));
+  // 挑几张挪到另一版（群友 2026-10-25「表情包可以移动分组」）：原样搬过去，id 不变，角色那边认的还是这几张
+  const moveEmotes = (fromId, ids, toId) => {
+    if (!toId || toId === fromId) return false;
+    const set = new Set(ids), all = emotePacksRef.current || [];
+    const moving = ((all.find(x => x.id === fromId) || {}).emotes || []).filter(e => set.has(e.id));
+    if (!moving.length) return false;
+    return commitEmotePacks(all.map(x => x.id === fromId ? { ...x, emotes: (x.emotes || []).filter(e => !set.has(e.id)) }
+      : x.id === toId ? { ...x, emotes: [...(x.emotes || []), ...moving] } : x));
+  };
   const deleteEmotes = (packId, ids) => {
     const set = new Set(ids);
     return commitEmotePacks((emotePacksRef.current || []).map(x => x.id === packId ? { ...x, emotes: (x.emotes || []).filter(e => !set.has(e.id)) } : x));
@@ -32493,7 +32502,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     onAddImages: addEmoteImages,
     onMakeSet: makeEmoteSet, setBusy: emoteSetBusy, onCaptionPack: captionEmotePack, onUncaptionPack: uncaptionEmotePack,
     onRenameEmote: renameEmote,
-    onDeleteEmotes: deleteEmotes
+    onDeleteEmotes: deleteEmotes,
+    onMoveEmotes: moveEmotes
   });else if (screen === "favorites") body = h(Favorites, {
     favorites: favorites,
     characters: liveChars,
