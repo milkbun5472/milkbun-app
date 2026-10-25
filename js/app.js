@@ -16916,7 +16916,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     return "这是一张【日常卡】：写你自己日子里真发生的一件事——不是你们已经发生过的事，也不是回忆。"
       + "这件事从你自己的生活里来：你的活儿、你在意的东西、你身边的人、你的选择，或者一点意外；它可以跟她一点关系都没有，你不必时时惦记着她。"
       + "写到她的时候，你俩的关系走到哪一步就写到哪一步，还没在一起就不写恋人之间的事，最近在别扭就别写得甜。衣服从你自己的衣柜里挑。"
-      + (card.kind === "bday" ? "这一张是你生日前后的一刻。衣服这次不从你衣柜里挑：生日卡穿一身新的、只属于这一天的打扮，照你的样子和那天要做的事来配。" : "");
+      + (card.kind === "bday" ? "这一张是你生日前后的一刻。衣服这次不从你衣柜里挑：生日卡是专门为这一天设计的限定造型——一眼看得出是特意的，比你平时隆重、细节多，面料、配饰、搭配都有讲究，同时还是你会穿、配你这个人的样子。" : "");
   };
   const STAMP_RARITY_SPEC = {
     R: "R 卡＝抓拍：她不在场时你的一个瞬间，重在你那会儿是什么状态，不必是一件完整的事。narration 一行交代是什么时候、你在干嘛；thought 是你心里的一句，你不知道会被她看到。"
@@ -17092,7 +17092,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       const paint = String(((StampsCoreSafe().opt || {}).paint) || "").trim();
       // IF 照主题穿；生日卡穿一身只属于这天的新打扮（她 2026-10-25：「乙游生日卡都出新衣服」）——这两种都不走衣柜
       const freeFit = card.kind === "if" || card.kind === "bday";
-      if (card.kind === "bday") scene += "\n这是他的生日卡：他穿一身新的、特别的打扮，不照平时衣柜里那几身，配这一天和这一刻。";
+      if (card.kind === "bday") scene += "\n这是他的生日限定卡面：他穿一身专门为这一天设计的造型，不照平时衣柜里那几身——一眼看得出是特意的，比平时隆重、细节多，面料、配饰、搭配都有讲究，同时还是他会穿、配他这个人的样子。";
       const base = freeFit ? Object.assign({}, char, { photoOutfit: "" }) : char;
       const prompt = buildPhotoPrompt(paint === "real" ? Object.assign({}, base, { photoStyle: "realistic" }) : base, scene,
         freeFit ? Object.assign({}, st, { wearing: "", wearingUpdatedAt: 0 }) : st,
