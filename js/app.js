@@ -9112,6 +9112,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       if (typeof vclockUse === "function") vclockUse(charId);
       const _oocSoon = oocSoonLive(sideRoom ? scopeKey : charId);
       const res = await generateOffline(offlineApiFor(charId), oCtx, { ...workSess, sayZhOn: !!(settingsFor(charId) || {}).bilingual && !(settingsFor(charId) || {}).engineerEyes, customNotes: [...(workSess.customNotes || []), ..._oocSoon], signal: _abort.signal, msgs: _timelineMsgs, hasOnlineInterlude: _onlineInterlude.length > 0, imageDataUrls: offImageDataUrls, photoOn: _offPhotoOn, photoDuo: _offPhotoOn && offlinePhotoCanDuo(char), photoMe: _offPhotoOn && canShootMe(char.id) ? ((povFor(char) || {}).tier || true) : false, replyOpts: !!osFor(charId).replyOpts, listenOn: _offListenOn, listenSongs: _offListenSongs, priorSummary: workSess.summary || "", narr: osNarr(charId), taste: workSess.taste || osTaste(charId), lengthMode: osFor(charId).lengthMode || "natural", maxTokens: osFor(charId).maxTokens, minWords: osFor(charId).minWords, toyOn: offToyOn, rerollAvoid: workSess.rerollAvoid || "" });
+      // 邮票册：线下写了一拍（重写那一拍不算）
+      if (res && !(workSess && workSess.rerollAvoid) && typeof stampGain === "function") stampGain("beat");
       if (_abort.signal.aborted) return;             // 她点叉断掉了：回来的这一拍不落地
       // 没写够时正文一律保留，但要如实说一声，别让她以为最低字数的设置没生效（v55.47）
       if (res && res.minimumLengthShortBecause) {
@@ -9969,6 +9971,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       const _gGroupOk = _gShooters.filter(c => c.refPhoto).length + (_gMe.refPhoto ? 1 : 0) >= 2;
       const beats = await generateOfflineGroup(offlineActive, gCtx, { ...effectiveSess, sayZhNames: (gCtx.members || []).filter(c => c && !c.npc && (settingsFor(c.id) || {}).bilingual).map(c => (typeof memberLabel === "function" ? memberLabel(gCtx.members, c) : c.name)), signal: _abort.signal, msgs: _gWindow, imageDataUrls: gOffImageDataUrls,
         photoMembers: _gShooters.map(c => c.name), photoDuoMembers: _gDuo.map(c => c.name), photoMe: _gShooters.length > 0 && canShootMe("g:" + group.id), photoGroupOk: _gGroupOk, priorSummary: effectiveSess.summary || "", narr: osNarr("g_" + group.id), taste: effectiveSess.taste || osTaste("g_" + group.id), lengthMode: osFor("g_" + group.id).lengthMode || "natural", writeMode: osFor("g_" + group.id).writeMode === "novel" ? "novel" : "beats", maxTokens: osFor("g_" + group.id).maxTokens || 3200, minWords: osFor("g_" + group.id).minWords, rerollAvoid: effectiveSess.rerollAvoid || "" });
+      if (beats && !(effectiveSess && effectiveSess.rerollAvoid) && typeof stampGain === "function") stampGain("beat");   // 邮票册：群线下一拍
       if (_abort.signal.aborted) return;             // 她点叉断掉了：回来的这几拍不落地
       const _offThoughtOnce = new Set();
       const _spoke = new Set(); // 群线下也给开口的成员计动态保底（她 2026-07-13 点名）
@@ -13393,6 +13396,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         }
         raw = await callAI(_route, system + mcpToolHint(_mcpT), retryMessages, { use: "chat", logRetry: true, logWho: (char && char.name) || "", signal: _abort.signal, maxTokens: 14000, cacheHistory: _shape.histCache, stream: _engineerChat, timeout: 180000, webSearch: _wantWeb, tools: _mcpT, runTool: (n, ar) => window.MCP.callTool(n, ar), tag: "聊天" });
       }
+      // 邮票册：她按一次回复、他回上来一轮，记一轮邮资印泥（他主动来的、重 roll 不算）
+      if (raw && !(opts && (opts.proactive || opts.rerollAvoid)) && typeof stampGain === "function") stampGain("round");
       // 从坏掉的 JSON 里【只】抠出 word 气泡，绝不把整段原始 JSON（含 thought 心声等内部字段）当消息发出去
       const salvageWords = () => {
         const s = String(raw || "");
@@ -15754,6 +15759,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       // 这一轮翻出来的〔照做〕条目，排在这一轮最末尾再说一遍（跟单聊同一支 loreDoNow）
       const _gDoTail = typeof loreDoNow === "function" ? loreDoNow(loreRef.current, { charIds: members.map(m => m.id), scope: "chat", text: hist }) : "";
       let raw = await _gShoot(userContent + _gDoTail);
+      // 邮票册：群里一轮（自己聊、重 roll 不算）
+      if (raw && !(rgOpts && (rgOpts.auto || rgOpts.rerollAvoid)) && typeof stampGain === "function") stampGain("round");
       if (_abort.signal.aborted) return;             // 她点叉断掉了
       checkAutoCall();
       phase = "解析回复";
@@ -16891,6 +16898,119 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       if (imIn && d[me]) out.me = String(d[me]).trim().slice(0, 12);
       return out;
     } catch (e) { toast("抽头衔失败：" + e.message); return null; }
+  };
+  // ── 邮票册（2026-10-26 方案）：写卡、画卡面。抽、存、界面在 js/stamps-core.js / js/stamps.js ──
+  //   ⚠️写失败不丢卡：卡已经落进 x_stamps，只是没写完（text:null），界面上点一下重写。
+  const STAMP_SHOT_SPEC = "shot 是给画卡面的人看的分镜（中文，几句话）：pose＝身体朝向、重心在哪、两只手各在干嘛、视线落在哪；camera＝景别、机位高低、镜头远近；"
+    + "light＝主光从哪边来、是什么光、冷暖、有没有轮廓光、阴影落在哪；place＝在哪、身边两三样带着这一刻的东西；outfit＝穿什么；mood＝一两个词。"
+    + "卡面是竖版的：脸在画面上三分之一，人偏左或偏右、另一边留给场景，前景可以有一点虚化的东西做层次。卡面上只画你一个人。";
+  const stampKindLine = (card, char) => {
+    if (card.kind === "if") {
+      const mode = card.ifMode === "into" ? "把你自己丢进这个主题里：你还是原来那个世界的人，忽然到了这里，看什么都新鲜，这本身就是故事。"
+        : card.ifMode === "adapt" ? "照你自己的世界改写这个主题：换成你那个世界、那个年代里本来就有的样子。"
+        : "照你自己的世界改写这个主题，或者把你丢进主题里，两种挑一种更好看的。";
+      return "这是一张【IF 卡】，主题是「" + card.theme + "」" + (card.themeLine ? "：" + card.themeLine : "。")
+        + "写的是「如果」的你，不是真发生的事。先想清楚你是哪个世界、哪个年代的人，" + mode + "衣服照这个主题来配，不用你衣柜里的。";
+    }
+    return "这是一张【日常卡】：写你这个人在你自己的世界里、跟她现在这层关系下，可能会有的一刻新鲜事——不是你们已经发生过的事，也不是回忆。"
+      + "照你的性子、你的日子、你住的地方和常去的地方来；你俩的关系走到哪一步就写到哪一步，还没在一起就不写恋人之间的事，最近在别扭就别写得甜。衣服从你自己的衣柜里挑。"
+      + (card.kind === "bday" ? "这一张是你生日前后的一刻。" : "");
+  };
+  const STAMP_RARITY_SPEC = {
+    R: "R 卡＝她不在场的时候，你一个人的一刻。narration 一行交代是什么时候、你在干嘛；thought 是你心里的一句，你不知道会被她看到。"
+      + "before、after 是这一刻的前一刻和后一刻，各自也有 narration 和 thought；real 是你心里真正想说的那一句。",
+    SR: "SR 卡＝你们俩的一小段，五六百字。open 是开头一小段；rest 接着写完；sequel 是过了一阵以后的一小段后续；hidden 是你藏着没说出口的一句；line 是印在卡面上的一句你的台词。"
+  };
+  const stampPrev = charId => (StampsCoreSafe().cards || []).filter(c => c.charId === charId && c.text).slice(-40).map(c => "「" + c.text.name + "」");
+  const StampsCoreSafe = () => (window.StampsCore ? window.StampsCore.load() : { cards: [] });
+  const stampSaveCard = (id, patch) => {
+    if (!window.StampsCore) return;
+    const st = window.StampsCore.load();
+    st.cards = st.cards.map(c => c.id === id ? (typeof patch === "function" ? patch(c) : { ...c, ...patch }) : c);
+    window.StampsCore.save(st);
+  };
+  // 一批卡：同一个人的 R、SR 一次写完；每张 SSR 单独一次
+  const stampWrite = async cards => {
+    const byChar = {};
+    (cards || []).forEach(c => { (byChar[c.charId] = byChar[c.charId] || []).push(c); });
+    const jobs = [];
+    Object.keys(byChar).forEach(cid => {
+      const char = characters.find(x => x.id === cid);
+      if (!char) return;
+      const small = byChar[cid].filter(c => c.rarity !== "SSR"), big = byChar[cid].filter(c => c.rarity === "SSR");
+      if (small.length) jobs.push(stampWriteSmall(char, small));
+      big.forEach(c => jobs.push(stampWriteSSR(char, c)));
+    });
+    await Promise.all(jobs.map(j => j.catch(() => {})));
+  };
+  const stampWriteSmall = async (char, list) => {
+    list.forEach(c => stampSaveCard(c.id, { writing: true, writingTs: Date.now(), err: "" }));
+    try {
+      const prev = stampPrev(char.id);
+      const d = await runProbe(apiFor(char.id), ctxFor(char), {
+        instruction: "她在「邮票册」里抽到了几张印着你的邮票，每张是你的一个样子。下面按顺序写这几张。\n"
+          + list.map((c, i) => "第 " + (i + 1) + " 张：" + c.rarity + "。" + stampKindLine(c, char)).join("\n")
+          + "\n" + (list.some(c => c.rarity === "R") ? STAMP_RARITY_SPEC.R + "\n" : "") + (list.some(c => c.rarity === "SR") ? STAMP_RARITY_SPEC.SR + "\n" : "")
+          + "每张都有 name（卡名，八个字以内）和 shot。" + STAMP_SHOT_SPEC
+          + (prev.length ? "\n你已经有的卡：" + prev.join("、") + "。这几张写别的时刻、别的地方，别跟它们撞。" : "")
+          + "\n几张之间也各不一样。",
+        schemaHint: "{\"cards\":[{\"name\":\"\",\"narration\":\"(R)\",\"thought\":\"(R)\",\"before\":{\"narration\":\"\",\"thought\":\"\"},\"after\":{\"narration\":\"\",\"thought\":\"\"},\"real\":\"(R)\",\"line\":\"(SR)\",\"open\":\"(SR)\",\"rest\":\"(SR)\",\"sequel\":\"(SR)\",\"hidden\":\"(SR)\",\"shot\":\"\"}]}",
+        maxTokens: 65000
+      });
+      const arr = Array.isArray(d && d.cards) ? d.cards : [];
+      list.forEach((c, i) => {
+        const x = arr[i];
+        if (x && x.name) stampSaveCard(c.id, { writing: false, err: "", text: x });
+        else stampSaveCard(c.id, { writing: false, err: "这一张没写出来，点一下重写" });
+      });
+    } catch (e) { list.forEach(c => stampSaveCard(c.id, { writing: false, err: "没写出来：" + String(e && e.message || e).slice(0, 60) })); }
+  };
+  const stampWriteSSR = async (char, c) => {
+    stampSaveCard(c.id, { writing: true, writingTs: Date.now(), err: "" });
+    try {
+      const prev = stampPrev(char.id), me = userName(meOf(char.id));
+      const d = await runProbe(apiFor(char.id), ctxFor(char), {
+        instruction: "她在「邮票册」里抽到了一张印着你的 SSR 邮票。" + stampKindLine(c, char)
+          + "\nSSR 是一段完整的剧情，像乙游的卡面剧情：分几节，她在中间做选择，选的不同走的路不同。"
+          + "sections 里每一节：id、lv（第几道锁）、title、beats（一句一句往下走：who 是 he＝你说的话、me＝" + me + "说的话、narr＝旁白动作；text 是这一句）、"
+          + "choices（这一节结尾她要选的两三个选项：text 是她说的话或做的事，go 是去哪一节的 id；没有选项就空着）、end（是不是一个结局）。"
+          + "照这个骨架写：lv1 的开头一节，结尾有选项；lv10 的两条岔路；lv20 合回来的一节，结尾再有选项；lv30 的两条岔路；lv40 的两三个结局（end:true）；"
+          + "再加一节 lv50 的隐藏的路（hidden:true），从 lv30 某一节的一个选项走进去，它也是一个结局。每节十几到二十几句，整段要有起伏：前面铺、中间有一下真正动人的地方、结局落得住。"
+          + "她那句（me）照她平时的样子写，少一点，主要是你。"
+          + "\nname 是卡名（八个字以内），line 是印在卡面上的一句你的台词。highlight 是整段剧情里最高光的那一刻，一两句画面。" + STAMP_SHOT_SPEC
+          + (prev.length ? "\n你已经有的卡：" + prev.join("、") + "。写别的时刻、别的地方。" : ""),
+        schemaHint: "{\"name\":\"\",\"line\":\"\",\"highlight\":\"\",\"shot\":\"\",\"sections\":[{\"id\":\"s1\",\"lv\":1,\"title\":\"\",\"beats\":[{\"who\":\"narr|he|me\",\"text\":\"\"}],\"choices\":[{\"text\":\"\",\"go\":\"s2a\"}],\"end\":false,\"hidden\":false}]}",
+        maxTokens: 65000
+      });
+      const secs = Array.isArray(d && d.sections) ? d.sections.filter(s => s && s.id && Array.isArray(s.beats) && s.beats.length) : [];
+      if (!d || !d.name || !secs.length) throw new Error("剧情没写全");
+      stampSaveCard(c.id, { writing: false, err: "", text: { name: d.name, line: d.line || "", highlight: d.highlight || "", shot: d.shot || "", sections: secs } });
+    } catch (e) { stampSaveCard(c.id, { writing: false, err: "没写出来：" + String(e && e.message || e).slice(0, 60) }); }
+  };
+  // 画卡面：竖版，只画他一个人；分镜照写卡时那份。alt＝SSR 满级的第二张（第二批再接双人）
+  const stampDraw = async (cardId, alt) => {
+    const card = (StampsCoreSafe().cards || []).find(c => c.id === cardId);
+    if (!card || !card.text) return;
+    const char = characters.find(x => x.id === card.charId);
+    if (!char) return;
+    if (!(typeof imgApiReady === "function" && imgApiReady())) { toast("先去 设置·图像API 配一下"); return; }
+    stampSaveCard(cardId, { drawing: true });
+    try {
+      const st = statesRef.current[char.id] || {};
+      const tx = card.text;
+      const what = card.rarity === "R" ? [tx.narration, tx.thought ? "（他心里：" + tx.thought + "）" : ""].join("")
+        : card.rarity === "SSR" ? (tx.highlight || tx.line || "") : (tx.open || tx.line || "");
+      const scene = "一张乙游卡面：「" + (tx.name || "") + "」。这一刻：" + String(what).slice(0, 300) + "\n【分镜】" + String(tx.shot || "").slice(0, 600)
+        + "\n画面里不要任何文字。";
+      const prompt = buildPhotoPrompt(card.kind === "if" ? Object.assign({}, char, { photoOutfit: "" }) : char, scene,
+        card.kind === "if" ? Object.assign({}, st, { wearing: "", wearingUpdatedAt: 0 }) : st,
+        { kind: "other", closet: card.kind === "if" ? "" : closetTextFor(char.id, 240) });
+      const out = await generateSelfieImage(prompt, char.refPhoto ? [char.refPhoto] : null, { size: "1024x1536" });
+      if (!(out && out.blob)) throw new Error("没拿到图");
+      const key = "img_stamp_" + cardId + (alt ? "_alt" : "") + "_" + Date.now().toString(36);
+      await idbImgPut(key, out.blob);
+      stampSaveCard(cardId, alt ? { drawing: false, faceAlt: key } : { drawing: false, face: key });
+    } catch (e) { stampSaveCard(cardId, { drawing: false }); toast("卡面没画成：" + String(e && e.message || e).slice(0, 60)); }
   };
   const createGroup = (name, memberIds, spectate, roles) => {
     const g = {
@@ -31052,7 +31172,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       // 有自己整页的那几条，直接去那一页，不停在信息首页
       const BY_ENTRY = { emotes: "emotes", favorites: "favorites", closet: "mycloset" };
       const sc = BY_ENTRY[entryId] || ALIAS[app] || app;
-      const OK = ["anon", "astro", "zhaoying", "calendar", "carry", "cast", "companion", "config", "debate", "diary", "dream", "dreamjournal", "dwell", "fairyGarden", "fanfic", "forum", "games", "health", "home", "impression", "ledger", "listen", "lore", "loungeapp", "map", "memlib", "memo", "messages", "nest", "phone", "pomodoro", "read", "rescue", "shike", "shop", "shua", "study", "stylelab", "takeout", "tarot", "theater", "ties", "trpg", "us", "vpscodex", "wallet", "watch", "weekly", "yanqiu", "emotes", "favorites", "mycloset"];
+      const OK = ["anon", "astro", "zhaoying", "stamps", "calendar", "carry", "cast", "companion", "config", "debate", "diary", "dream", "dreamjournal", "dwell", "fairyGarden", "fanfic", "forum", "games", "health", "home", "impression", "ledger", "listen", "lore", "loungeapp", "map", "memlib", "memo", "messages", "nest", "phone", "pomodoro", "read", "rescue", "shike", "shop", "shua", "study", "stylelab", "takeout", "tarot", "theater", "ties", "trpg", "us", "vpscodex", "wallet", "watch", "weekly", "yanqiu", "emotes", "favorites", "mycloset"];
       if (OK.indexOf(sc) < 0) return false;
       setScreen(sc);
       return true;
@@ -33559,6 +33679,13 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     // 解牌走 runProbe（v74.732）：人设全文/心情/好感/反八股整份白得，线路跟着角色自己那条
     ctxFor: ctxFor,
     apiFor: apiFor,
+    onBack: () => setScreen("home")
+  });else if (screen === "stamps") body = h(window.StampBookApp, {
+    characters: liveChars,
+    meName: userName(profile),
+    toast: toast,
+    onWrite: cards => stampWrite(cards),
+    onDraw: (id, alt) => stampDraw(id, alt),
     onBack: () => setScreen("home")
   });else if (screen === "zhaoying") body = h(window.ZhaoyingApp, {
     // 按头像发卡：卡落进跟他的聊天，他在后台做题，做完了点卡看他做（她 2026-10-22）

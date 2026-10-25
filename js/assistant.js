@@ -1395,7 +1395,7 @@
     listen: "listen", musiccard: "listen",
     diary: "diary", lore: "lore", memlib: "memlib", anon: "anon", anonme: "anon",
     study: "study", fanfic: "fanfic", read: "read", watch: "watch", weekly: "weekly", debate: "debate", live: "shua", shua: "shua",
-    dream: "dream", dreamjournal: "dreamjournal", tarot: "tarot", astro: "astro", zhaoying: "zhaoying", health: "health", pomodoro: "pomodoro", companion: "companion",
+    dream: "dream", dreamjournal: "dreamjournal", tarot: "tarot", astro: "astro", zhaoying: "zhaoying", stamps: "stamps", health: "health", pomodoro: "pomodoro", companion: "companion",
     games: "games", fairyGarden: "fairyGarden", trpg: "trpg", theater: "theater", impression: "impression", shike: "shike",
     yanqiu: "yanqiu", loungeapp: "lounge", rescue: "rescue", vpscodex: "vpscodex",
     forum: "forum", momprofile: "moments", us: "couple",
