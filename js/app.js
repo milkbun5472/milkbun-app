@@ -16916,7 +16916,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     return "这是一张【日常卡】：写你自己日子里真发生的一件事——不是你们已经发生过的事，也不是回忆。"
       + "这件事从你自己的生活里来：你的活儿、你在意的东西、你身边的人、你的选择，或者一点意外；它可以跟她一点关系都没有，你不必时时惦记着她。"
       + "写到她的时候，你俩的关系走到哪一步就写到哪一步，还没在一起就不写恋人之间的事，最近在别扭就别写得甜。衣服从你自己的衣柜里挑。"
-      + (card.kind === "bday" ? "这一张是你生日前后的一刻。" : "");
+      + (card.kind === "bday" ? "这一张是你生日前后的一刻。衣服这次不从你衣柜里挑：生日卡穿一身新的、只属于这一天的打扮，照你的样子和那天要做的事来配。" : "");
   };
   const STAMP_RARITY_SPEC = {
     R: "R 卡＝抓拍：她不在场时你的一个瞬间，重在你那会儿是什么状态，不必是一件完整的事。narration 一行交代是什么时候、你在干嘛；thought 是你心里的一句，你不知道会被她看到。"
@@ -17086,14 +17086,17 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       const keepLook = card.kind === "if" ? "\n这张是 IF「" + (card.theme || "") + "」" + (card.themeLine ? "：" + String(card.themeLine).slice(0, 160) : "") + "。衣服、场景、道具和光都照这个主题来，一眼看得出是这个主题" + (duo ? "，画里两个人的打扮都是" : "") + "。"
         + "他的长相照他本人：发色、发型、瞳色、五官和身材都不变，主题只换衣服、场景和道具。" : "";
       scene += keepLook;
-      const meP = duo ? Object.assign({}, photoMe("她", char.id), card.kind === "if" ? { outfit: "", closet: "" } : {}) : null;   // IF 双人：她也照主题穿，不从她衣柜里挑
+      const meP = duo ? Object.assign({}, photoMe("她", char.id), freeFit ? { outfit: "", closet: "" } : {}) : null;   // IF 双人：她也照主题穿，不从她衣柜里挑
       if (duo && !(meP && meP.refPhoto)) toast("你还没传自己的参考照（在你自己的资料里传一张），这张只能照文字画你", 6000);
       // 画风：卡池设置里挑的（空＝跟着这个人自己的设定；real＝写实照片；别的就是画风名）
       const paint = String(((StampsCoreSafe().opt || {}).paint) || "").trim();
-      const base = card.kind === "if" ? Object.assign({}, char, { photoOutfit: "" }) : char;
+      // IF 照主题穿；生日卡穿一身只属于这天的新打扮（她 2026-10-25：「乙游生日卡都出新衣服」）——这两种都不走衣柜
+      const freeFit = card.kind === "if" || card.kind === "bday";
+      if (card.kind === "bday") scene += "\n这是他的生日卡：他穿一身新的、特别的打扮，不照平时衣柜里那几身，配这一天和这一刻。";
+      const base = freeFit ? Object.assign({}, char, { photoOutfit: "" }) : char;
       const prompt = buildPhotoPrompt(paint === "real" ? Object.assign({}, base, { photoStyle: "realistic" }) : base, scene,
-        card.kind === "if" ? Object.assign({}, st, { wearing: "", wearingUpdatedAt: 0 }) : st,
-        Object.assign(duo ? { kind: "duo", me: meP, notLover: !lover } : { kind: "other" }, { closet: card.kind === "if" ? "" : closetTextFor(char.id, 240) }, paint && paint !== "real" ? { paint } : {}));
+        freeFit ? Object.assign({}, st, { wearing: "", wearingUpdatedAt: 0 }) : st,
+        Object.assign(duo ? { kind: "duo", me: meP, notLover: !lover } : { kind: "other" }, { closet: freeFit ? "" : closetTextFor(char.id, 240) }, paint && paint !== "real" ? { paint } : {}));
       const refs = [char.refPhoto, duo && meP && meP.refPhoto].filter(Boolean);
       const out = await generateSelfieImage(prompt, refs.length ? refs : null, { size: "1024x1536" });
       if (!(out && out.blob)) throw new Error("没拿到图");
