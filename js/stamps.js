@@ -80,14 +80,16 @@
     const atEnd = i >= sec.beats.length - 1;
     const locked = s => (Number(s.lv) || 1) > lv;
     // 下一幕：模型有时没写选项、或者选项的 go 对不上 id——那就按等级往下找下一节（不走隐藏的路），不让她卡在这儿
+    const isFinal = () => atEnd && !(sec.choices || []).length && (sec.end || !nextOf(sec));
+    const tap = () => { if (!atEnd) setI(i + 1); else if (isFinal()) onClose(); };   // 走到头了，点哪儿都是退出
     const nextOf = cur => { const L = Number(cur.lv) || 1; return secs.filter(x => !x.hidden && (Number(x.lv) || 1) > L).sort((a, b) => (Number(a.lv) || 1) - (Number(b.lv) || 1))[0] || null; };
     const who = beat.who === "he" ? char.name : beat.who === "me" ? meName : "";
     return h("div", { "data-wk": "stampstory", className: "fixed inset-0 flex flex-col", style: { zIndex: 255, background: url ? "#111 center/cover no-repeat url(" + url + ")" : "linear-gradient(#2b2436,#14111b)" } },
       h("div", { className: "flex items-center", style: { padding: "calc(env(safe-area-inset-top) + 10px) 14px 8px", background: "linear-gradient(rgba(0,0,0,.55), transparent)" } },
         h("button", { onClick: onClose, className: "active:opacity-60", style: { color: "#fff", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))" } }, "‹ 收起"),
         h("div", { className: "flex-1 text-center", style: { color: "#fff", fontFamily: F_DISPLAY, fontSize: "calc(14px * var(--app-fs, 1))" } }, sec.title || card.text.name)),
-      h("div", { className: "flex-1", onClick: () => !atEnd && setI(i + 1) }),
-      h("div", { "data-wk": "stampstorybox", onClick: () => !atEnd && setI(i + 1),
+      h("div", { className: "flex-1", onClick: tap }),
+      h("div", { "data-wk": "stampstorybox", onClick: tap,
         style: { margin: "0 12px calc(env(safe-area-inset-bottom) * 0.4 + 14px)", borderRadius: 14, background: "rgba(16,14,22,.82)", border: "1px solid rgba(255,255,255,.18)", padding: "14px 16px 30px", minHeight: 150, position: "relative", color: "#f4efe6" } },
         who ? h("div", { "data-wk": "stampstorywho", style: { display: "inline-block", marginBottom: 6, padding: "2px 10px", borderRadius: 999, background: beat.who === "he" ? RC.SSR : "#6b6480", fontFamily: F_DISPLAY, fontSize: "calc(13px * var(--app-fs, 1))" } }, who) : null,
         h("div", { style: { fontFamily: F_BODY, fontSize: "calc(15px * var(--app-fs, 1))", lineHeight: 1.75, fontStyle: who ? "normal" : "italic", opacity: who ? 1 : .85, whiteSpace: "pre-wrap" } }, beat.text || ""),
@@ -100,7 +102,7 @@
           return nx ? h("button", { "data-wk": "stampstorychoice", "data-locked": locked(nx) ? "1" : "0", onClick: e => { e.stopPropagation(); if (locked(nx)) return; setSid(nx.id); setI(0); },
               style: { marginTop: 12, width: "100%", textAlign: "left", padding: "10px 12px", borderRadius: 10, border: "1px solid rgba(255,255,255,.3)", background: locked(nx) ? "transparent" : "rgba(255,255,255,.1)", color: locked(nx) ? "rgba(255,255,255,.45)" : "#fff", fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))" } },
               "下一幕：" + (nx.title || ""), locked(nx) ? h("span", { style: { marginLeft: 6, fontSize: "calc(11px * var(--app-fs, 1))" } }, "· 升到 " + nx.lv + " 级才看得到") : null)
-            : h("div", { style: { marginTop: 12, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", opacity: .7 } }, "—— 这条路走到头了 ——"); })() : null,
+            : h("div", { style: { marginTop: 12, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", opacity: .7 } }, "—— 这条路走到头了 · 点一下退出 ——"); })() : null,
         !atEnd ? h("div", { "data-wk": "stampstorynext", style: { position: "absolute", right: 14, bottom: 10, fontSize: "calc(11px * var(--app-fs, 1))", opacity: .5 } }, "点一下继续 ▾") : null));
   }
 
@@ -284,6 +286,7 @@
     const [show, setShow] = useState(null);
     const [open, setOpen] = useState(null);
     const [albumChar, setAlbumChar] = useState("all");
+    const [albumRar, setAlbumRar] = useState("all");   // 全部 / SSR / SR / R / bad（没写好）
     const [gotNote, setGotNote] = useState([]);
     const [cfg, setCfg] = useState(false);
     const [giftOpen, setGiftOpen] = useState(false);
@@ -365,7 +368,9 @@
     if (open) { const card = (st.cards || []).find(c => c.id === open) || null; if (card) return h(CardPage, { t, card, char: charOf(card.charId), meName, onBack: () => setOpen(null), onDraw, onRewrite: c => onWrite([c]), toast, onPoke: c => props.onPoke ? props.onPoke(c) : null,
       onSend: c => { props.onSend && props.onSend(c); }, onCanon: c => { props.onCanon && props.onCanon(c); } }); }
 
-    const album = (st.cards || []).filter(c => albumChar === "all" || c.charId === albumChar).slice().reverse();
+    const isBad = c => !c.text && (!c.writing || Date.now() - Number(c.writingTs || 0) > 180000);
+    const byChar = (st.cards || []).filter(c => albumChar === "all" || c.charId === albumChar);
+    const album = byChar.filter(c => albumRar === "all" || (albumRar === "bad" ? isBad(c) : c.rarity === albumRar)).slice().reverse();
     // ── 卡池页像乙游那样：一整张大海报（一枚放大的邮票），左边一列小邮票换池，底下两颗大键；其余设置收进「⋯」 ──
     const NIGHT = "#15121f", PAPER = "#f4ecda", GOLD = "#e3b65c";
     const pools = [{ key: "mix", zh: "大混池", tag: "常驻 · 日常卡" }, { key: "char", zh: "角色池", tag: "常驻 · IF 卡" }]
@@ -489,6 +494,9 @@
         h("div", { className: "flex overflow-x-auto", style: { gap: 8, paddingTop: 10 } },
           chip(albumChar === "all", "全部 " + (st.cards || []).length, () => setAlbumChar("all"), "all"),
           characters.filter(c => (st.cards || []).some(x => x.charId === c.id)).map(c => chip(albumChar === c.id, (c.remark || c.name) + " " + st.cards.filter(x => x.charId === c.id).length, () => setAlbumChar(c.id), c.id))),
+        h("div", { "data-wk": "stamprarpick", className: "flex overflow-x-auto", style: { gap: 6, paddingTop: 8 } },
+          [["all", "全部"], ["SSR", "SSR"], ["SR", "SR"], ["R", "R"], ["bad", "没写好"]].map(x => { const n = x[0] === "all" ? byChar.length : x[0] === "bad" ? byChar.filter(isBad).length : byChar.filter(c => c.rarity === x[0]).length;
+            return x[0] === "bad" && !n ? null : chip(albumRar === x[0], x[1] + " " + n, () => setAlbumRar(x[0]), x[0]); })),
         // 写失败的（或者写了三分钟还没回来的）一起重写：同一个人的 R、SR 还是并成一次调用，SSR 各一次
         (() => { const bad = (st.cards || []).filter(c => !c.text && (!c.writing || Date.now() - Number(c.writingTs || 0) > 180000));
           return bad.length ? h("button", { "data-wk": "stamprewriteall", onClick: () => { onWrite(bad); toast("在重写 " + bad.length + " 张"); }, className: "w-full active:opacity-70",
