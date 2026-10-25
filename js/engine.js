@@ -7249,6 +7249,22 @@ function ttsHasPause(text) {
 //   在【原位置】换成一个 emoteslotN 占位，发气泡那一圈走到它就地发表情。
 //   单聊和群聊共用这一个（她 2026-10-16「不是跟群聊做公共的吗」）。kws[n] = { kw, sent }。
 const EMOTE_SLOT_RE = /^[\s\p{P}\p{S}]*emoteslot(\d+)[\s\p{P}\p{S}]*$/u;
+// 撤回前面几轮的那一条（她 2026-10-26）：在 TA 自己最近 8 条还没撤的话里找 text 对得上的那条，返回它在整串里的下标；
+//   对得上＝去掉空白标点后一样，或者有一边至少 6 个字、整句落在另一边里。找不到返回 -1。单聊、群聊共用
+function earlierRecallIdx(list, mine, text) {
+  const n = s => String(s == null ? "" : s).replace(/[\s\p{P}\p{S}]/gu, "");
+  const want = n(text); if (!want) return -1;
+  let seen = 0;
+  for (let i = (list || []).length - 1; i >= 0 && seen < 8; i--) {
+    const m = list[i];
+    if (!m || !mine(m) || m.recalled || m.kind === "recalled" || typeof m.content !== "string") continue;
+    seen++;
+    const have = n(m.content);
+    if (!have) continue;
+    if (have === want || (Math.min(have.length, want.length) >= 6 && (have.includes(want) || want.includes(have)))) return i;
+  }
+  return -1;
+}
 function emoteSlotOf(w) { const m = EMOTE_SLOT_RE.exec(String(w == null ? "" : w)); return m ? Number(m[1]) : null; }
 function emoteSlotWords(words, emotes, emoteNorm) {
   // {"emote":"关键词"} 那一项：对象照认；模型把它写成了一串字（她 2026-10-17 截图：气泡里冒出 {"emote":"拿枪打你"}）也认
