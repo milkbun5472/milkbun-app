@@ -20,7 +20,7 @@ test("我发的红包要认得出是我发的", () => {
   const j = app.indexOf("  const postClaimLine", i);
   assert.ok(i > 0 && j > i, "抠不出 sendRedPacket");
   assert.match(app.slice(i, j), /role: "user",\n\s*kind: "redpacket"/, "我发的红包没写 role——会靠左排、还套别人的头像");
-  const k = app.indexOf("  const postRedPacket = (groupId, char, total, count, message, toId) => {");
+  const k = app.indexOf("  const postRedPacket = (groupId, char, total, count, message, toId, extra) => {");
   const l = app.indexOf("  // 我领红包", k);
   assert.ok(k > 0 && l > k, "抠不出 postRedPacket");
   const seg = app.slice(k, l);

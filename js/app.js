@@ -20,7 +20,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v76.525";
+const APP_VERSION = "v76.526";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -16456,7 +16456,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     content: claimer + " 领取了 " + owner + " 的红包"
   });
   // 角色发红包（AI 触发）：钱在被领取时才结算
-  const postRedPacket = (groupId, char, total, count, message, toId) => {
+  const postRedPacket = (groupId, char, total, count, message, toId, extra) => {
     const a = Math.round(Number(total) * 100) / 100;
     if (a <= 0) return;
     if (!groupClosed(groupId)) adjustCharBalance(char.id, -a, "发红包", "redpacket");
@@ -16489,6 +16489,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       message: message || (to ? "给你的" : "恭喜发财，大吉大利"),
       splits: splits,
       claims: [],
+      ...(extra || {}),
       content: "[红包] " + (to ? "（只给 " + to.name + "）" : "") + (message || "恭喜发财，大吉大利")
     });
     // 专属红包不走随机抢那条路；普通的先给她留一段先手窗口
@@ -18977,7 +18978,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     // ⚠️只写在这一处：私聊和群聊两条路都从这儿取（施工规则/one-public-mechanism）。
     const richOf = m => (m && m.kind === "emote" && m.url) ? { kind: "emote", url: m.url, keyword: m.keyword || "" }
       // 转账也要渲染成卡（她 2026-10-13：在TA手机上看见的是一行「[转账] 你向…」，想替TA点收下）
-      : (m && m.kind === "transfer" && m.tid) ? { kind: "transfer", tid: m.tid, dir: m.dir, amount: m.amount, note: m.note || "", status: m.status || "pending" }
+      : (m && m.kind === "transfer" && m.tid) ? { kind: "transfer", tid: m.tid, dir: m.dir, amount: m.amount, note: m.note || "", status: m.status || "pending", ...(m.packet ? { packet: true } : {}) }
       : richCardOf(m);
     // 别的小卡（照片、语音、红包、礼物、位置、外卖、各种分享和邀请……）也别是一行「[红包] …」（她 2026-10-13）。
     //   不一样一样抄主聊天那几十种卡：认 content 开头那个【…】当卡名，后面当卡面上的字，统一画成一张小卡；
@@ -22546,7 +22547,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   //   ① 跟她的私聊：落一张「他转给你」的待领卡（跟他自己转账同一个 postCharTransfer），标 byUser——钱等她点收下才动；
   //   ② 群里：转给另一个成员，钱当场从他钱包挪到那个人钱包，群里落一行转账。
   //   都掏不出比他余额多的钱。他下次说话时看得到这是她用他手机转的（byUser 那一行旁注）。
-  const phoneTransferAs = (char, session, amount, note, toId) => {
+  const phoneTransferAs = (char, session, amount, note, toId, opt) => {
+    const pk = !!(opt && opt.packet);
     const id = String((session && session.id) || "");
     const a0 = Math.round(Number(amount) * 100) / 100;
     if (!char || !(a0 > 0) || id.indexOf("actual:") !== 0) return false;
@@ -22556,14 +22558,24 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     const a = Math.min(a0, Math.round(bal * 100) / 100);
     const nt = String(note || "").trim().slice(0, 40);
     if (id === "actual:private:" + char.id) {
-      const r = postCharTransfer(char.id, a, nt, { byUser: true });
+      // 红包跟转账同一条（packet 标记）：她回自己聊天里点「拆红包」
+      const r = postCharTransfer(char.id, a, nt, pk ? { byUser: true, packet: true } : { byUser: true });
       if (!r) return false;
-      toast(a < a0 ? "他只剩这么多，转了 " + moneyText(a, char.id) : "转出去了，回他聊天里点收下");
+      toast(a < a0 ? "他只剩这么多，" + (pk ? "塞了 " : "转了 ") + moneyText(a, char.id) : pk ? "红包发出去了，回他聊天里拆" : "转出去了，回他聊天里点收下");
       return true;
     }
     const gid = id.indexOf("actual:group:") === 0 ? id.slice("actual:group:".length) : "";
     const group = gid ? groups.find(g => g.id === gid) : null;
     const to = toId ? characters.find(c => c.id === toId) : null;
+    // 群红包：走他自己发群红包那一条（postRedPacket），点了谁就是只给谁的专属红包
+    if (pk) {
+      if (!group || !(group.memberIds || []).includes(char.id)) return false;
+      if (to && (!(group.memberIds || []).includes(to.id) || to.id === char.id)) return false;
+      const n = Math.max(1, Math.min(20, Math.round(Number(opt.count) || (group.memberIds || []).length)));
+      postRedPacket(gid, char, a, to ? 1 : n, nt, to ? (to.remark || to.name) : "", { byUser: true });
+      toast(to ? "专属红包给 " + (to.remark || to.name) + " 了" : "红包发进群里了");
+      return true;
+    }
     if (!group || !(group.memberIds || []).includes(char.id) || !to || !(group.memberIds || []).includes(to.id) || to.id === char.id) return false;
     adjustCharBalance(char.id, -a, "转账给 " + to.name + (nt ? "（" + nt + "）" : ""), "transfer");
     adjustCharBalance(to.id, a, "收到 " + char.name + " 的转账" + (nt ? "（" + nt + "）" : ""), "transfer");
