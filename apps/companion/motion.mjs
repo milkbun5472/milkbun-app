@@ -1,15 +1,15 @@
 // 陪伴整页和悬浮窗共用；脚下不持续弹跳，情绪动作之间留出休息。
 export const MOODS={
  default:{tilt:0,yaw:0,sway:.025,every:9,acts:['emotion-default']},
- happy:{tilt:-.008,yaw:0,sway:.04,every:9,acts:['emotion-happy']},
- amazed:{tilt:-.018,yaw:0,sway:.035,every:9,acts:['emotion-amazed']},
+ happy:{tilt:-.008,yaw:0,sway:.04,every:6,acts:['emotion-happy','hop']},
+ amazed:{tilt:-.018,yaw:0,sway:.035,every:7,acts:['emotion-amazed','hop']},
  cozy:{tilt:.012,yaw:.035,sway:.035,every:9,acts:['emotion-cozy']},
  relax:{tilt:.015,yaw:-.025,sway:.02,every:9,acts:['emotion-relax']},
  surprise:{tilt:-.018,yaw:0,sway:.012,every:9,acts:['emotion-surprise']},
  proud:{tilt:-.025,yaw:.09,sway:.025,every:9,acts:['emotion-proud']},
- gloomy:{tilt:.03,yaw:-.04,sway:.012,every:9,acts:['emotion-gloomy']},
- sad:{tilt:.045,yaw:.07,sway:.008,every:9,acts:['emotion-sad']},
- irritated:{tilt:.008,yaw:.16,sway:.012,every:9,acts:['emotion-irritated']}
+ gloomy:{tilt:.03,yaw:-.04,sway:.012,every:17,tempo:.72,acts:['emotion-gloomy']},
+ sad:{tilt:.045,yaw:.07,sway:.008,every:19,tempo:.68,acts:['emotion-sad']},
+ irritated:{tilt:.008,yaw:.16,sway:.012,every:14,tempo:.85,acts:['emotion-irritated']}
 };
 export const DUR={wave:3.4,stretch:4.8,tea:5,read:7,sit:8,hop:1.8,jolt:1.8,nod:2.6,sigh:4,stomp:2.2,turn:3.6,look:3,shy:3.2,yawn:4.8,wake:2.8,land:1,sleep:8};
 // 这些动作只在聊天提到时演，不加入随机待机。
@@ -56,4 +56,13 @@ export function accent(kind,p){
  case 'land':a.dtilt=.025*e;break;
  }
  return a;
+}
+
+// 身体/脸/头/手与放下后的反应共用心情策略，外观选择不参与判断。
+export function touchForMood(mood, kind, side = 'left', count = 1) {
+ if (mood === 'irritated') return kind === 'face' ? 'emotion-dodge-'+side : 'emotion-irritated';
+ if (mood === 'sad' || mood === 'gloomy') return 'emotion-'+mood;
+ if (kind === 'lift') return ['happy','amazed','proud'].includes(mood) ? 'emotion-happy' : 'emotion-relax';
+ if (kind === 'body' && count >= 2) return count >= 3 ? 'shy' : 'emotion-amazed';
+ return '';
 }

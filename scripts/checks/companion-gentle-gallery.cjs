@@ -12,6 +12,7 @@ await page.evaluate(async()=>{
  document.querySelectorAll('.label').forEach(e=>e.remove());let i=0;
  for(const dims of [{},Object.fromEntries(catalog.dims.map(d=>[d.key,d.min])),Object.fromEntries(catalog.dims.map(d=>[d.key,d.max]))])for(const outfit of outfits){
   doll.setLook({outfit,dims,hair:'bob',face:'cozy'});await doll.ready();
+  const sleeve=doll.root.getObjectByName('DollBody').userData.skinCoverageUniforms.sleeve.value.clone(),neutralSleeve=neutral.root.getObjectByName('DollBody').userData.skinCoverageUniforms.sleeve.value.clone();
   let previous=null;
   for(let j=0;j<=40;j++){
    doll.animate(time+=.04,{emotion:name,progress:j/40,height:0});doll.root.updateWorldMatrix(true,true);window.gallery.report.frames++;
@@ -20,8 +21,8 @@ await page.evaluate(async()=>{
    if(previous){const step=Math.max(arm.quaternion.angleTo(previous[0]),lower.quaternion.angleTo(previous[1]));window.gallery.report.maxJointStep=Math.max(window.gallery.report.maxJointStep,step);if(step>.5)throw Error('Arm snaps '+outfit+' '+name+' '+j+' '+step);}
    previous=[arm.quaternion.clone(),lower.quaternion.clone()];
    const coverage=doll.root.getObjectByName('DollBody').userData.skinCoverageUniforms;
-   if(coverage.rightElbow.value!==Number(name==='chin'&&j>0&&j<40))throw Error('Cuff mask does not follow elbow '+outfit+' '+name+' '+j);
-   if(neutral.root.getObjectByName('DollBody').userData.skinCoverageUniforms.rightElbow.value!==0)throw Error('Another avatar changed its cuff mask');
+   if(!coverage.sleeve.value.equals(sleeve))throw Error('Sleeve coverage changed during pose '+outfit+' '+name+' '+j);
+   if(!neutral.root.getObjectByName('DollBody').userData.skinCoverageUniforms.sleeve.value.equals(neutralSleeve))throw Error('Another avatar changed its cuff mask');
    if(name==='chin'){
     const head=doll.root.getObjectByName('HeadAnchor'),body=doll.root.getObjectByName('DollBody'),pos=body.geometry.attributes.position,indices=body.geometry.attributes.skinIndex,weights=body.geometry.attributes.skinWeight;
     let inside=0;
@@ -43,7 +44,7 @@ await page.evaluate(async()=>{
   const label=document.createElement('div');label.className='label';label.textContent=(name==='chin'?'托腮陪你':'摸头回应')+' · '+outfit+' · '+['默认','最小体型','最大体型'][Math.floor(i/outfits.length)];label.style=`position:absolute;left:${x+6}px;top:${Math.floor(i/outfits.length)*350+5}px;color:#45382d;font:12px sans-serif`;document.body.append(label);i++;
   for(let j=0;j<50;j++)doll.animate(time+=.04,{height:0});neutral.setLook({outfit,dims,hair:'bob',face:'cozy'});await neutral.ready();neutral.animate(time,{height:0});
   const lower=doll.root.getObjectByName('rightForearm'),rest=neutral.root.getObjectByName('rightForearm');
-  if(doll.root.getObjectByName('DollBody').userData.skinCoverageUniforms.rightElbow.value!==0)throw Error('Cuff mask did not reset '+outfit);
+  if(!doll.root.getObjectByName('DollBody').userData.skinCoverageUniforms.sleeve.value.equals(sleeve))throw Error('Sleeve coverage changed after pose '+outfit);
   if(lower.quaternion.angleTo(rest.quaternion)>1e-6)throw Error('Elbow did not return to rest '+outfit);
  }
 }};

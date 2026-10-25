@@ -6288,6 +6288,47 @@ function EmbedApiConfig({ toast }) {
       rebuild && !rebuild.busy && rebuild.msg ? h("div", { "data-wk": "block", style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", lineHeight: 1.6, whiteSpace: "pre-wrap", padding: "10px 12px", borderRadius: 10, marginTop: 8, background: rebuild.msg.startsWith("✅") ? "rgba(90,150,90,0.1)" : "rgba(194,90,74,0.09)", border: "1px solid " + (rebuild.msg.startsWith("✅") ? "#8ab88a55" : "#c25a4a55"), color: rebuild.msg.startsWith("✅") ? "#4a7a4a" : "#b0503f" } }, rebuild.msg) : null) : null);
 }
 
+// ── 更新日志（她 2026-10-24：「公共版要不要搞个更新日志放设置里面，这样大家可以翻看更新过啥」）──
+// 一次「更新」＝一天一条，新的在最上面。只有最新那条默认摊开，其余只露标题那一行，点开才看——
+//   攒到一百条也一屏扫得过去几十条。先只画最近 20 天，滑到底点「再往前看」再多 20 天（她问「翻页还是 scroll」，
+//   手机上滚比翻页顺手，翻页还得记着自己在第几页）。
+const CHANGELOG_SEEN = "qq_changelogSeen";   // 本机看到哪一天了：游标，不进存档、不上云、不跟着导出
+const changelogDay = d => { const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(d || "")); return m ? (+m[2]) + "月" + (+m[3]) + "日" : String(d || ""); };
+function changelogUnseen(list) {
+  const top = list && list[0] && list[0].d;
+  if (!top) return false;
+  let seen = ""; try { seen = localStorage.getItem(CHANGELOG_SEEN) || ""; } catch (e) {}
+  return seen < top;
+}
+function ChangelogView({ list }) {
+  const t = useTheme();
+  const all = Array.isArray(list) ? list : [];
+  const [open, setOpen] = useState(() => (all[0] ? { [all[0].d]: true } : {}));
+  const [shown, setShown] = useState(20);
+  // 点进来就算看过最新那天
+  useEffect(() => { if (all[0]) { try { localStorage.setItem(CHANGELOG_SEEN, all[0].d); } catch (e) {} } }, []);
+  const toggle = d => setOpen(o => Object.assign({}, o, { [d]: !o[d] }));
+  return h("div", { "data-wk": "cldays", style: { paddingTop: 12, paddingBottom: 30 } },
+    h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.7, marginBottom: 12 } },
+      "每次更新多了什么、修好了什么，一天一条，新的在最上面。点日期展开。"),
+    all.slice(0, shown).map((day, i) => {
+      const on = !!open[day.d];
+      const items = Array.isArray(day.items) ? day.items : [];
+      return h("div", { key: day.d, "data-wk": "clday", "data-on": on ? "1" : "0",
+        style: { background: t.bg2, border: "1px solid " + CFG_LINE(t), borderTop: i === 0 ? "1px solid " + CFG_LINE(t) : "none", borderRadius: 3 } },
+        h("button", { "data-wk": "cldayhead", onClick: () => toggle(day.d), className: "w-full flex items-center active:opacity-70",
+          style: { gap: 10, minHeight: 44, padding: "11px 12px", textAlign: "left" } },
+          h("span", { style: { fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))", color: t.ink } }, changelogDay(day.d)),
+          h("span", { className: "flex-1", style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog } }, items.length + " 条"),
+          h("span", { "aria-hidden": "true", style: { color: t.fog, fontSize: "calc(12px * var(--app-fs, 1))", transform: on ? "rotate(90deg)" : "none", transition: "transform .15s" } }, "›")),
+        on ? h("ul", { "data-wk": "clitems", style: { margin: 0, padding: "0 14px 12px 28px", listStyle: "disc", color: t.sub } },
+          items.map((it, k) => h("li", { key: k, "data-wk": "clitem",
+            style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.ink, lineHeight: 1.65, padding: "3px 0" } }, it))) : null);
+    }),
+    all.length > shown ? h("button", { "data-wk": "clmore", onClick: () => setShown(n => n + 20), className: "w-full active:opacity-70",
+      style: { marginTop: 12, minHeight: 44, borderRadius: 3, border: "1px solid " + CFG_LINE(t), background: t.bg2, color: t.sub, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))" } },
+      "再往前看（还有 " + (all.length - shown) + " 天）") : null);
+}
 // ── 设置这一整块：一张登记表（v62.48，审美审计还债③）────────────────
 // 审计判词：设置首页和它底下二十二个子页共用一个【没有 style 的外壳】，
 // 上面摆的是「圆角行卡＋一个字＋右箭头」和「大圆角卡＋一个几何符号＋箭头」——
@@ -6477,7 +6518,7 @@ function Config(props) {
     theme: "外观与壁纸", themeStudio: "主题工作台", chatCss: "各聊天窗的 CSS",
     bubble: "聊天气泡", write: "他们写出来的东西",
     auto: "谁会自己动、多久动一次", data: "我的东西存在哪",
-    debug: "上一轮到底发了什么", toy: "本地配件"
+    debug: "上一轮到底发了什么", toy: "本地配件", log: "更新了什么"
   };
   const m = meta[page] || meta.home;
   // 回哪一层：api* 归 api，长相三兄弟归 look，小稿/问答归 write，其余回首页
@@ -6525,6 +6566,11 @@ function Config(props) {
     { key: "debug", char: "查", title: "上一轮到底发了什么", tint: "#8a8378",
       state: () => "只读：模型这一轮实际收到的全文" }
   ];
+  // 更新日志（她 2026-10-24）：数据在 js/changelog-data.js，一天一条、新的在最上面。
+  //   最新那天比这台手机上次点开时新，就亮一个红点；点进去就算看过（qq_ 键：本机标记，不进存档不上云）。
+  const clList = Array.isArray(window.QQ_CHANGELOG) ? window.QQ_CHANGELOG : [];
+  if (clList.length) homeRows.push({ key: "log", char: "新", title: "更新了什么", tint: "#b0705a",
+    dot: changelogUnseen(clList), state: () => "最近一次：" + changelogDay(clList[0].d) + " · 记了 " + clList.length + " 天" });
   if (toyUnlocked && typeof ToyConfig === "function")
     homeRows.push({ key: "toy", char: "件", title: "本地配件", tint: "#a8564a", state: () => "只在这台机器上" });
   const section = child => h("div", { style: { paddingTop: 4, paddingBottom: 30 } }, h(ConfigPanel, null, child));
@@ -6559,7 +6605,8 @@ function Config(props) {
           h(ConfigMark, { char: row.char, tint: row.tint }),
           h("span", { className: "flex-1 min-w-0" },
             h("span", { "data-wk": "cfrowtitle", style: { display: "block", fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))", color: t.ink } }, row.title),
-            h("span", { "data-wk": "cfrowstate", style: { display: "block", fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.5, marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, row.state())))),
+            h("span", { "data-wk": "cfrowstate", style: { display: "block", fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.5, marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, row.state())),
+          row.dot ? h("span", { "data-wk": "cfrowdot", "aria-label": "有新的", style: { width: 8, height: 8, borderRadius: 999, background: "#e5484d", flexShrink: 0 } }) : null)),
         h("div", { "data-wk": "cfnote", style: { marginTop: 14, padding: "13px 15px", borderRadius: 3, background: t.bg2, border: "1px solid " + CFG_LINE(t), fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.6 } },
           "这一页管的是【整个 app】。某一个角色怎么跟你相处——记忆、主动、外观、房间——在TA自己的聊天里点右上角 ⋯。")),
       // 长相那三样原来是首页三张平级的卡：想改个颜色得先猜是哪一张
@@ -6618,6 +6665,7 @@ function Config(props) {
       page === "bubble" && section(h(BubbleSkinConfig, { toast: props.toast })),
       page === "auto" && h(AutoRefreshConfig, { characters: props.autoCharacters || props.characters, policy: props.autoRefreshPolicy, onSetGlobal: props.onSetAutoRefreshGlobal, onSetRate: props.onSetAutoRefreshRate, onSetChar: props.onSetAutoRefreshChar, toast: props.toast }),
       page === "data" && section(h(DataConfig, { characters: props.characters, onExport: props.onExport, mediaParts: props.mediaParts, onExportMedia: props.onExportMedia, onCopyExport: props.onCopyExport, copyParts: props.copyParts, onImportText: props.onImportText, inAppBrowser: props.inAppBrowser, onImport: props.onImport, onOffloadChats: props.onOffloadChats, onPruneOld: props.onPruneOld, onClearAll: props.onClearAll, onRescueChar: props.onRescueChar, toast: props.toast })),
+      page === "log" && h(ChangelogView, { list: clList }),
       page === "debug" && section(h(CtxDebug, { characters: props.characters, getBundle: props.debugBundleFor })),
       page === "toy" && toyUnlocked && typeof ToyConfig === "function" && section(h(ToyConfig, { toast: props.toast }))));
 }

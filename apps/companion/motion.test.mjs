@@ -4,7 +4,7 @@ import {MOODS,DUR,moodBase,accent,EXTRA_ACTIONS,chooseAction} from './motion.mjs
 test('all ten moods rest on the ground and use valid occasional actions',()=>{
  assert.equal(Object.keys(MOODS).length,10);
  for(const [face,m] of Object.entries(MOODS)){
-  assert.ok(m.every>=8);
+  assert.ok(m.every>=6);
   for(const k of m.acts)assert.ok(DUR[k]>0);
   for(let t=0;t<120;t+=.1){const b=moodBase(face,t);assert.equal(b.y,0);assert.ok(Math.abs(b.tilt)<=.05);assert.ok(Math.abs(b.yaw)<.2);}
  }

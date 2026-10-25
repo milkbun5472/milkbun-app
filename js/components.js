@@ -11243,7 +11243,7 @@ function ChatThread({
         isU && dsp.myAvatar && h(Avatar, { character: meAv, size: 40, radius: 10 }));
     };
     if (m.kind === "namecard") return cardRow(i, m, h(NameCardMsg, { m: m, characters: characters, onOpen: onOpenNameCard ? () => onOpenNameCard(m.cardId) : null }));
-    if (m.kind === "pat") return h("div", {
+    if (m.kind === "pat" || m.kind === "patsig") return h("div", {
       key: i,
       // 长按出菜单（她 2026-10-02：拍一拍也要能撤回，跟别的消息撤回一样）
       onTouchStart: selMode ? undefined : () => startPress(i), onTouchEnd: endPress,
@@ -20711,6 +20711,11 @@ function ChatRoomSheet({ character, activeRoomId, sourceMessages, onCreateRoom, 
         h("div", { className: "flex items-center justify-between" },
           h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))", color: "#4f6b78" } }, characterText(character, "他的小号")),
           onGenAlt ? h("button", { onClick: genTa, disabled: altGenBusy, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.tint || t.ink, opacity: altGenBusy ? .5 : 1 } }, altGenBusy ? "在想……" : characterText(character, "让他自己起")) : null),
+        // 小号头像（她 2026-10-24）：点一下挑图；不挑就按网名自动画一张，跟大号不是同一张脸
+        h("div", { "data-wk": "altavatar", className: "flex items-center", style: { gap: 10, marginTop: 8 } },
+          h(AvatarPicker, { character: { id: "altroom:" + (ta.name || "陌生人"), name: ta.name || "小号", avatarImage: ta.avatar || (typeof autoAvatarSrc === "function" ? autoAvatarSrc("altroom:" + (ta.name || "陌生人")) : "") }, size: 52, radius: 26,
+            onPick: img => setAlt({ ta: { ...ta, avatar: img } }), onClear: ta.avatar ? () => { const n = { ...ta }; delete n.avatar; setAlt({ ta: n }); } : undefined }),
+          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.5 } }, "小号头像：点一下挑一张图；不挑就按网名自动配一张，跟大号不是同一张。")),
         h("input", { "data-wk": "input", value: ta.name || "", onChange: e => setAlt({ ta: { ...ta, name: e.target.value.slice(0, 24) } }), placeholder: "小号网名", style: { ...field, marginTop: 7 } }),
         h("textarea", { "data-wk": "textarea", value: ta.persona || "", onChange: e => setAlt({ ta: { ...ta, persona: e.target.value.slice(0, 1500) } }), rows: 3, placeholder: characterText(character, "这个号上的他看起来是什么样、打字什么习惯"), style: { ...field, marginTop: 7, resize: "vertical", fontSize: "calc(12.5px * var(--app-fs, 1))", lineHeight: 1.6 } }),
         h("div", { className: "flex items-center justify-between", style: { marginTop: 9 } },
@@ -20729,6 +20734,11 @@ function ChatRoomSheet({ character, activeRoomId, sourceMessages, onCreateRoom, 
         masks.map(m => chip(a.maskId === m.id, (m.label || m.name || "未命名") + (m.label && m.name && String(m.label).trim() !== String(m.name).trim() ? "（TA 看到：" + m.name + "）" : ""), () => setAlt({ maskId: m.id, mask: { ...m } }), m.id)),
         chip(a.maskId === "__own", "＋ 自己写一个", () => setAlt({ maskId: "__own", mask: a.maskId === "__own" ? a.mask : { name: "", persona: "" } }), "__own")),
       a.maskId === "__own" ? h("div", { style: { marginTop: 8 } },
+        // 自己写的小号也能挑头像（她 2026-10-24）；挑了的跟面具一样存在 avatarImage 上
+        h("div", { "data-wk": "altavatar", className: "flex items-center", style: { gap: 10, marginBottom: 8 } },
+          h(AvatarPicker, { character: { id: "altme:" + ((a.mask && a.mask.name) || "小号"), name: (a.mask && a.mask.name) || "小号", avatarImage: (a.mask && a.mask.avatarImage) || "" }, size: 52, radius: 26,
+            onPick: img => setAlt({ mask: { ...(a.mask || {}), avatarImage: img } }), onClear: a.mask && a.mask.avatarImage ? () => { const n = { ...(a.mask || {}) }; delete n.avatarImage; setAlt({ mask: n }); } : undefined }),
+          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.5 } }, "你这个小号的头像：点一下挑一张图。")),
         h("input", { "data-wk": "input", value: (a.mask && a.mask.name) || "", onChange: e => setAlt({ mask: { ...(a.mask || {}), name: e.target.value.slice(0, 24) } }), placeholder: "小号的网名",
           style: { width: "100%", padding: "9px 10px", borderRadius: 10, border: "1px solid " + t.line, background: t.bg, color: t.ink, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))" } }),
         h("textarea", { "data-wk": "textarea", value: (a.mask && a.mask.persona) || "", onChange: e => setAlt({ mask: { ...(a.mask || {}), persona: e.target.value.slice(0, 3000) } }), rows: 4, placeholder: "这个小号是个什么样的人：年纪、性格、说话习惯……只用在这一间房里",
@@ -21128,6 +21138,7 @@ function ChatSettings({
   onSave,
   onClose,
   onClearMemory,
+  onGenPatSig,
   onSaveMemory,
   onClearChat,
   iBlocked,
@@ -21166,6 +21177,8 @@ function ChatSettings({
   // 我在这个聊天窗里的头像：跟上面那张对称，一个管TA、一个管我
   const [myChatAvatar, setMyChatAvatar] = useState(character.myChatAvatar || null);
   const [patSig, setPatSig] = useState(character.patSig || "");
+  const [myPatSig, setMyPatSig] = useState(character.myPatSig || "");
+  const [patGenBusy, setPatGenBusy] = useState(false);   // 他拍你时，你那半句后缀（她 2026-10-25）
   const [ctxN, setCtxN] = useState(settings.ctxN || 50);
   const [sumThresh, setSumThresh] = useState(settings.sumThresh || 150);
   const [sumBuffer, setSumBuffer] = useState(settings.sumBuffer || 20);
@@ -21359,7 +21372,7 @@ function ChatSettings({
     if (!rows.length) return null;
     return h("div", { style: { marginTop: 12, paddingTop: 10, borderTop: "1px dashed " + t.line } },
       h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.7 } },
-        "TA 想的不只是你。下面这几份满了，TA 会去那边开口，不是来找你。"),
+        "TA 想的不只是你。下面这几份满了，TA 会去那边开口，不是来找你。" + (rows.some(r => r && r.shut) ? "写着「没开自己聊」的那几个群，满了也不会去：那个群的「群里自己聊起来」（或者记忆互通）没开。" : "")),
       rows.slice(0, 5).map(r => {
         const c = Math.max(0, Math.min(1, Number(r.connection) || 0));
         return h("div", { key: r.gid, className: "flex items-center gap-2", style: { marginTop: 8 } },
@@ -21367,7 +21380,7 @@ function ChatSettings({
           h("div", { style: { position: "relative", flex: 1, height: 6, borderRadius: 999, background: t.bg } },
             h("div", { style: { position: "absolute", left: 0, top: 0, bottom: 0, width: Math.min(100, Math.round(c / 0.5 * 100)) + "%", borderRadius: 999, background: c >= 0.5 ? "#c25a4a" : c >= 0.35 ? t.tint : t.fog } })),
           h("span", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, flex: "0 0 auto" } },
-            c > 0.02 ? c.toFixed(2) : "刚归零"));
+            r.shut ? "没开自己聊" : c > 0.02 ? c.toFixed(2) : "刚归零"));
       }));
   };
   // 端不端着看【A 那份傲娇】：动念自己那份永远到不了闸口，见下面那段注释。
@@ -21532,6 +21545,7 @@ function ChatSettings({
       onlinePresetId,
       myChatAvatar,
       patSig,
+      myPatSig,
       ctxN,
       sumThresh,
       sumBuffer,
@@ -21810,12 +21824,20 @@ function ChatSettings({
         myChatAvatar ? "只在跟 " + cNm + " 的这个聊天窗里用这张，你自己资料那张不动。点「移除照片」就用回原来那张。" : "没单独设就用你资料里那张。设了只在这个聊天窗里换，别处不变。"))),
   /*#__PURE__*/React.createElement(LineField, {
     zh: "拍一拍签名",
-    en: "Nudge"
+    en: "Nudge",
+    // 让他自己起（她 2026-10-25）：起好填进框里，不满意直接改
+    right: onGenPatSig ? h("button", { "data-wk": "patsiggen", disabled: patGenBusy, onClick: async () => { if (patGenBusy) return; setPatGenBusy(true);
+      try { const v = await onGenPatSig(); if (v) setPatSig(v); else window.__toast && window.__toast("他没想好，再点一次试试"); } catch (e) { window.__toast && window.__toast("没起好：" + (e.message || e)); } finally { setPatGenBusy(false); } },
+      className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.tint || t.ink, opacity: patGenBusy ? .5 : 1 } }, patGenBusy ? "在想…" : "让他自己起") : null
   }, /*#__PURE__*/React.createElement(LineInput, {
     value: patSig,
     onChange: e => setPatSig(e.target.value),
     placeholder: "如：的脑袋、的猫耳朵"
-  })))),
+  }), h("div", { "data-wk": "pathint", style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.6, marginTop: 4 } },
+    "在聊天里双击他的头像就能拍他，群里双击成员头像也一样。")),
+  // 他拍你的时候显示「他 拍了拍我 + 这半句」（她 2026-10-25：char 的拍一拍原来只能写成一句话）
+  h(LineField, { zh: "他拍我时的后缀", en: "My Nudge" },
+    h(LineInput, { value: myPatSig, onChange: e => setMyPatSig(e.target.value.slice(0, 20)), placeholder: "他拍你时跟在「拍了拍我」后面，可以不填" })))),
   show("look", { title: "气泡里显示什么", ...sec("look") }, h("div", { className: "pt-2" },
     h(Eyebrow, { style: { marginBottom: 2 } }, "气泡显示"),
     dispRow("显示我的头像", showMyAvatar, setShowMyAvatar),

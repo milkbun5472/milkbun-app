@@ -7,7 +7,7 @@
 // 设置存 x_companion：{ charId, float, pos, scale, autoFace, looks: { [charId]: look } }
 // ============================================================
 (function () {
-  const KEY = "x_companion", BUILD = "fg-c5bb692c59f6dc53";
+  const KEY = "x_companion", BUILD = "fg-319bc2ead3914abd";
   const load = () => Object.assign({ charId: "", float: false, pos: null, scale: 1, autoFace: true, looks: {} }, loadJSON(KEY, {}) || {});
   const save = v => saveJSON(KEY, v);
   // 心情 → 表情。心情是模型写的自由中文（x_moods[charId].label），按字认；认不出就是「平常」。
@@ -46,7 +46,58 @@
     return Object.assign({}, own, { face });
   }
   function petMessage(char, moods, cfg) {
-    return char ? { type: "pet-look", characterId: String(char.id), ta: taOf(char), look: lookFor(char, moods, cfg) } : null;
+    return char ? { type: "pet-look", characterId: String(char.id), ta: taOf(char), mood: faceForMood(moodLabel(moods, char.id)), look: lookFor(char, moods, cfg) } : null;
+  }
+  // 只记小人的睡醒状态；角色作息仍由 App 的 sleepPhaseOf 唯一判断。
+  const LIFE_KEY = "x_companionLife";
+  function lifeStep(previous, event, now = Date.now()) {
+    const p = previous || {}, n = Object.assign({ sleeping: false, phase: "", morning: "", wakeAt: 0, wakeSeen: 0, sleepAt: 0, until: 0, rev: 0 }, p);
+    const sleep = () => { if (!n.sleeping) { n.sleeping = true; n.sleepAt = now; } };
+    const wake = () => { if (n.sleeping) { n.sleeping = false; n.wakeAt = now; } };
+    if (event.kind === "sleep") sleep();
+    else if (event.kind === "wake") wake();
+    else if (event.kind === "seen" && event.wakeAt === n.wakeAt) n.wakeSeen = event.wakeAt;
+    else if (event.kind === "clock") {
+      const r = event.routine || {};
+      if (r.phase === "asleep" && (n.phase !== "asleep" || now >= n.until)) { sleep(); n.until = Number(r.sleepUntil) > now ? Number(r.sleepUntil) : now + 12 * 3600000; }
+      if (r.phase !== "asleep" && n.phase === "asleep") wake();
+      n.phase = r.phase || "awake";
+      if (r.clock && r.minute >= 360 && r.minute < 720 && r.day && n.morning !== r.day) {
+        n.morning = r.day;
+        // 刚说完要睡的早晨小憩照常睡；隔夜回来才揉眼醒来。
+        if (n.phase !== "asleep" && (!n.sleepAt || now - n.sleepAt > 3600000)) { n.sleeping = false; n.wakeAt = now; }
+      }
+    }
+    if (JSON.stringify(n) !== JSON.stringify(Object.assign({ sleeping: false, phase: "", morning: "", wakeAt: 0, wakeSeen: 0, sleepAt: 0, until: 0, rev: 0 }, p))) n.rev++;
+    return n;
+  }
+  const lifeRead = id => (loadJSON(LIFE_KEY, {}) || {})[id] || null;
+  function lifeUpdate(id, event) {
+    if (!id) return null;
+    const all = loadJSON(LIFE_KEY, {}) || {}, previous = all[id], next = lifeStep(previous, event);
+    if (JSON.stringify(previous) !== JSON.stringify(next)) {
+      saveJSON(LIFE_KEY, Object.assign({}, all, { [id]: next }));
+      window.dispatchEvent(new CustomEvent("companion-life", { detail: { charId: id } }));
+    }
+    return next;
+  }
+  function usePetLife(char, props) {
+    const id = char && char.id, latest = useRef(null); latest.current = { char, props };
+    const [state, setState] = useState(() => ({ id, value: id ? lifeRead(id) : null }));
+    useEffect(() => {
+      if (!id) { setState({ id, value: null }); return; }
+      const read = () => setState({ id, value: lifeRead(id) });
+      const tick = () => { if (document.hidden || latest.current.props.hidden) return;
+        const { char, props } = latest.current;
+        if (typeof props.companionRoutineFor === "function") lifeUpdate(id, { kind: "clock", routine: props.companionRoutineFor(char) });
+        read();
+      };
+      const changed = e => { if (e.detail?.charId === id) read(); };
+      tick(); const timer = setInterval(tick, 30000);
+      window.addEventListener("companion-life", changed); document.addEventListener("visibilitychange", tick);
+      return () => { clearInterval(timer); window.removeEventListener("companion-life", changed); document.removeEventListener("visibilitychange", tick); };
+    }, [id, props.hidden]);
+    return state.id === id && state.value ? Object.assign({ characterId: String(id) }, state.value) : null;
   }
   // 一只 iframe 画面：加载完成（pet-ready）或样貌变了，就把消息再送一次
   // 你在干嘛（她 2026-09-26「点他有反应／跟着时间／看你在哪个页面」）：哪一页、有没有放歌、多久没碰手机。
@@ -68,7 +119,8 @@
       return () => { clearInterval(id); presenceListeners.delete(update); }; }, []);
     return state;
   }
-  function usePetContext(props, screen) {
+  function usePetContext(props, screen, char) {
+    const life = usePetLife(char, props);
     const p = useIdle(), typing = useTyping(), [weather, setWeather] = useState(null), geo = props.geo;
     useEffect(() => {
       let stop = () => {}, selected = "";
@@ -82,7 +134,7 @@
       select();window.addEventListener("weather-place", select);
       return () => { stop();window.removeEventListener("weather-place", select); };
     }, [geo && geo.lat, geo && geo.lng, props.characters, props.worlds]);
-    return { screen, music: !!props.music, idle: p.idle, returnSeq: p.returnSeq, typing, weather };
+    return { screen, music: !!props.music, idle: p.idle, returnSeq: p.returnSeq, typing, weather, life };
   }
   // Observe the real message arrays after delivery. Historical imports and edits are not arrivals.
   function makeMessageWatch() {
@@ -236,6 +288,8 @@
         if (e.data.type === "pet-failed" && onStatus) onStatus({ state: "failed", why: String(e.data.why || "") });
         if (e.data.type === "pet-act" && onAct) onAct(String(e.data.kind || ""));
         if (e.data.type === "pet-open" && onOpen) onOpen();
+        if (e.data.type === "pet-wake" && msg && String(e.data.characterId) === msg.characterId) { markActive(); lifeUpdate(msg.characterId, { kind: "wake" }); }
+        if (e.data.type === "pet-woke" && msg && String(e.data.characterId) === msg.characterId) lifeUpdate(msg.characterId, { kind: "seen", wakeAt: Number(e.data.wakeAt) });
         if (e.data.type === "pet-poke") markActive();
         if (e.data.type === "pet-poke" && pokeRef.current) pokeRef.current({ kind: String(e.data.kind || "tap"), count: Number(e.data.count) || 1 });
       };
@@ -257,6 +311,8 @@
     const [styles, setStyles] = useState(null);
     const [, bump] = useState(0);
     const frame = useRef(null);
+    useChatAct(cfg.charId, frame);
+    useMessageNotice(cfg.charId, props, frame);
     frame.onReady = () => bump(n => n + 1);   // 小人加载好，换装面板才有现值可读
     useEffect(() => { fetch("apps/fairy-garden/doll.json?v=" + BUILD).then(r => r.json()).then(setStyles).catch(() => {}); }, []);
     const set = patch => setCfg(c => { const n = Object.assign({}, c, patch); save(n); if (window.__companionChanged) window.__companionChanged(n); return n; });
@@ -266,7 +322,7 @@
     const auto = cfg.autoFace !== false;
     const own = char ? ((cfg.looks || {})[char.id] || {}) : {};
     const face = auto ? faceForMood(mood) : (own.face || "default");
-    const ctx = usePetContext(props, "companion");
+    const ctx = usePetContext(props, "companion", char);
     const [say, onPoke, holdSay] = usePokeTalk(char, props, !!cfg.pokeTalk);
     // 小人下到哪儿了 / 下不来了 / 这会儿在做什么
     const [petState, setPetState] = useState({ state: "loading", pct: 0 });
@@ -324,7 +380,7 @@
             chip(!voiceOn(), "只冒字", () => { try { localStorage.setItem("x_fairyGardenVoice", "0"); } catch (e) {} bump(n => n + 1); }, "va"),
             chip(voiceOn(), "念出来", () => { try { localStorage.setItem("x_fairyGardenVoice", "1"); } catch (e) {} bump(n => n + 1); }, "vb")) : null,
           h("div", { style: { fontSize: "calc(11px * var(--app-fs, 1))", color: "#9a8a70", lineHeight: 1.7, marginBottom: 14 } }, "开了以后，戳他、拎他时他会按自己的性子和此刻的心情回一句。每一句都会调用一次 API；连着戳只算一次，两句之间至少隔 15 秒。" + (char.voiceId ? "「念出来」和庭院、列车是同一个开关。" : "给他在角色资料里选一个声音，就能念出来。")),
-          h("div", { style: { fontSize: "calc(11px * var(--app-fs, 1))", color: "#9a8a70", lineHeight: 1.7, marginBottom: 12 } }, "回来时会招手，新消息会轻跳，打字时探头，深夜哈欠揉眼；跟着天气观测牌所选地点，雨雪、冷热、晴天和大风时偶尔做小动作；前台约每15分钟更新天气。这些只做动作，不花调用。陪伴与「TA的一天」共用这一身，和庭院那一身分开。悬浮的小人拖右下角的小圆点能调大小；点他会有反应，按住能拎起来；点他底下那条把手打开这一页。"),
+          h("div", { style: { fontSize: "calc(11px * var(--app-fs, 1))", color: "#9a8a70", lineHeight: 1.7, marginBottom: 12 } }, "待机和戳拎反应跟着真实心情；开心更活跃，低落更安静，手选表情也照样联动。晚安后会睡，按角色作息醒来揉眼，点他能叫醒。回来招手、新消息轻跳、打字探头、深夜揉眼；跟着天气观测牌所选地点，雨雪、冷热、晴天和大风时偶尔做小动作；前台约每15分钟更新天气。这些只做动作，不花调用。陪伴与「TA的一天」共用这一身，和庭院那一身分开。悬浮的小人拖右下角的小圆点能调大小；点他会有反应，按住能拎起来；点他底下那条把手打开这一页。"),
           Dress && pet() ? h(Dress, { who: "me", look: { me: Object.assign({}, own, auto ? {} : {}) }, styles, game: pet, pushLook }) :
             h("div", { style: { fontSize: "calc(12px * var(--app-fs, 1))", color: "#9a8a70" } }, "小人还在来的路上…"))));
   }
@@ -348,6 +404,10 @@
   // 不跨标点牵线，免得把“点了杯茶，看着你的头发”拼成点头。
   function actionSpan(...parts) { return actionAnchors(parts, false); }
   function actionSequence(...parts) { return actionAnchors(parts, true); }
+  function actionWithout(excluded, ...parts) {
+    const match = actionSpan(...parts);
+    return clause => excluded.test(clause) ? -1 : match(clause);
+  }
   function actionAnchors(parts, ordered) {
     const anchors = parts.map(p => new RegExp(p.source, "iu"));
     // 同一句中的锚点可换序，字符不能重复占用两个锚点；最多三个锚点。
@@ -370,14 +430,20 @@
   }
   function actionRule(kind, cues, ...spans) { return { kind, cues, spans }; }
   const ACTION_HEAD = /(?<!拳|指|石|木)头(?!发|像|绪|衔|条|号|皮|疼|痛|脑)|脑袋/;
+  // Hugging needs a person as the object, or an explicit invitation with no object.
+  // Matching a distant “你” in “抱着手机等你回” used to turn the phone into a hug.
+  const HUG_CUE = /(?:抱抱|拥抱)(?=$|[～~!！呀啊吧嘛呢哦啦]|[你您我他她](?!的))|🫂|\bhug(?:s)?\b|(?:^|[（(【\s])抱(?=$|[）)】\s~～!！])|抱(?:了?一下)(?=$|[～~!！呀啊吧嘛呢哦啦])/i;
+  const SLAP = /巴掌|耳光|掌掴/;
+  const PAT_OBJECT = /(?:你|您|对方)的[^，。]*?(?:手|掌)|(?:拍|把|将)[^，。]*?[他她]的[^，。]*?(?:手|掌)|(?:手|掌)(?:上|里|背|心)[^，。]*(?:灰|尘|脏)/;
+  const HUG_PERSON = /(?:抱|搂|拥)(?:了|着|过|住|紧|抱|搂|拥|一把|一下)*[你您我他她](?!的)|(?:把|将)[你您我他她](?!的)[^，。]*?(?:抱|搂|拥)/;
   const ACT_RULES = [
-    actionRule("sleep", /(?:^|[\s，,。！!])我(?:先|这就|现在)?(?:去|要)?睡(?:了|啦)|困死了[\s，,]*睡了|我睡觉去了|^(?:先)?睡[了啦](?:睡[了啦])?[哈喽～~]?$/,
+    actionRule("sleep", /^(?:宝宝|宝贝|亲爱的)?[\s，,]*(?:晚安|晚安安)[呀啦哦喽～~!！。\s]*$|(?:^|[\s，,。！!])我(?:先|这就|现在)?(?:去|要)?睡(?:了|啦)|困死了[\s，,]*睡了|我睡觉去了|^(?:先)?睡[了啦](?:睡[了啦])?[哈喽～~]?$/,
       actionSpan(/睡着|睡熟|熟睡|睡过去|睡下了/), actionSpan(/入/, /梦乡/)),
     actionRule("emotion-selfie", null, actionSpan(/自拍/), actionSpan(/举|拿|抬/, /手机/, /拍自己|对着自己|拍张照|拍照/)),
     actionRule("emotion-peace", null, actionSpan(/比|摆|举|做/, /耶|剪刀手|胜利手势|[Vv]字手势/), actionSpan(/✌/)),
     actionRule("emotion-sing", null, actionSpan(/哼|唱/, /歌|曲|调|旋律/), actionSpan(/歌声|哼唱|吟唱|轻唱/)),
     actionRule("emotion-ears", null, actionSpan(/捂|堵|蒙|盖|掩/, /耳/), actionSpan(/不听不听/)),
-    actionRule("emotion-fan", null, actionSpan(/扇|煽/, /风/), actionSpan(/手|掌/, /扇|煽/)),
+    actionRule("emotion-fan", null, actionWithout(SLAP, /扇|煽/, /风(?!衣|景)/), actionWithout(SLAP, /手|掌/, /扇|煽/, /给自己|脸边|扇子|凉|热/)),
     actionRule("emotion-daydream", null, actionSpan(/发呆|走神|出神|神游|放空|呆望/), actionSpan(/发/, /呆/)),
     actionRule("emotion-umbrella", null, actionSpan(/撑|打|举|打开/, /伞/)),
     actionRule("emotion-heart", null, actionSpan(/比|摆|做/, /心(?!情|理|事|思)/), actionSpan(/爱心手势|手指心|🫰|🫶/)),
@@ -386,8 +452,8 @@
     actionRule("emotion-tongue", null, actionSpan(/吐|伸/, /舌/)),
     actionRule("emotion-cry", null, actionSpan(/抹|擦|拭/, /泪/), actionSpan(/哭(?!笑不得)|抽泣|啜泣|落泪|流泪/), actionSpan(/眼泪|泪水/, /落|掉|流|涌/)),
     actionRule("emotion-poke", null, actionSpan(/戳/, /脸|面颊|腮/), actionSpan(/点|碰/, /指/, /脸|面颊|腮/)),
-    actionRule("emotion-pinch", null, actionSpan(/捏|掐|拧|揉/, /脸|面颊|腮/)),
-    actionRule("emotion-phone", null, actionSpan(/拿|掏|举|握|看|盯|刷|划|滑|敲|捧/, /手机|电话/), actionSpan(/敲|输入|戳|划|滑/, /屏幕|键盘/), actionSpan(/打字|敲字/)),
+    actionRule("emotion-pinch", null, actionSpan(/捏|掐|拧/, /脸|面颊|腮/), actionSpan(/揉/, /(?:你|您|对方)的[^，。]*?(?:脸|面颊|腮)/)),
+    actionRule("emotion-phone", null, actionSpan(/拿|掏|举|握|看|盯|刷|划|滑|敲|捧|抱/, /手机|电话/), actionSpan(/打(?!断|翻|碎|坏|破|掉|落|击)|拨|接听|接起|接了|接过/, /电话/), actionSpan(/拨号/), actionSpan(/敲|输入|戳|划|滑/, /屏幕|键盘/), actionSpan(/打字|敲字/)),
     actionRule("emotion-eat", null, actionSpan(/吃|咬|啃|嚼|吞|尝/, /口|饼|食物|东西|面包|点心|蛋糕|零食|饭|糖|餐/)),
     actionRule("emotion-prone", null, actionSpan(/趴|俯卧/, /下|好|着|在|床|地|桌/)),
     actionRule("emotion-lie", null, actionSpan(/躺|卧(?!槽|底)/, /下|倒|平|好|着|在|床|地|边|侧/)),
@@ -426,15 +492,19 @@
       actionSequence(/听/, /你|您|我|她|他/, /说|讲/), actionSequence(/你|您/, /说|讲/, /听/)),
     actionRule("emotion-promise", /保证(?!金|书)|包在我身上|说到做到|一言为定/,
       actionSpan(/拍/, /胸(?!前)/), actionSpan(/捶|叩|敲/, /胸/), actionSpan(/发/, /誓/)),
-    actionRule("emotion-applause", null, actionSpan(/拍|鼓/, /手|掌/), actionSpan(/掌声/)),
+    actionRule("emotion-applause", null,
+      actionWithout(PAT_OBJECT, /鼓/, /掌(?!心|背)/),
+      actionWithout(PAT_OBJECT, /拍(?:了|着|过|起|一|两|几|下|次|拍)*[手掌](?!上|里|背|心|指|腕|臂|套)/),
+      actionWithout(PAT_OBJECT, /拍/, /手|掌/, /一起|相互|互相|响|叫好/),
+      actionWithout(PAT_OBJECT, /双手|双掌|两只手|两手/, /拍(?:了|着|过|起|一|两|几|下|次|拍)*$/)),
     actionRule("emotion-cheer", /加油|鼓劲|你(?:一定|肯定)?可以的|你能行/,
       actionSpan(/握|攥/, /拳/), actionSpan(/打/, /气/)),
     actionRule("emotion-refuse", /不干了|才不要|才不呢|拒绝/,
       actionSpan(/摇|晃/, ACTION_HEAD), actionSpan(/摆/, /手/)),
-    actionRule("emotion-cozy", /抱抱|拥抱|🫂|\bhug(?:s)?\b|(?:^|[（(【\s])抱(?=$|[）)】\s~～!！])/i,
-      actionSpan(/抱|搂/, /抱|住|紧|下|你|我|她|他|过来|怀里|怀中/), actionSpan(/拥/, /抱/),
+    actionRule("emotion-cozy", HUG_CUE,
+      actionSpan(HUG_CUE), actionSpan(HUG_PERSON),
       actionSpan(/张|敞/, /双臂|手臂|胳膊/), actionSpan(/伸/, /出|开/, /双臂|手臂|胳膊/),
-      actionSpan(/双臂|手臂|胳膊/, /张|伸/, /开/), actionSpan(/伸手/, /抱/)),
+      actionSpan(/双臂|手臂|胳膊/, /张|伸/, /开/)),
     actionRule("emotion-chin", /托腮/,
       actionSpan(/托|撑|支/, /下巴|下颌|腮|脸颊/)),
     actionRule("emotion-dance", /跳舞|手舞足蹈|跟着节拍|起舞|舞步|舞动/,
@@ -451,7 +521,7 @@
       actionSpan(/展示|显摆/, /衣|穿搭/), actionSpan(/转/, /圈/, /给你看|展示|新衣|穿搭/)),
     actionRule("emotion-five-right", /give\s+me\s+five|high[ -]?five/i,
       actionSpan(/击|碰/, /掌/)),
-    actionRule("wave", /拜拜|拜了个拜|再见|回头见|嗨(?:[~～!！]|呀|喽|咯|$)|哈[喽啰罗]|hello|hi[!！~～]|早安|早上好|晚上好|晚安/i,
+    actionRule("wave", /拜拜|拜了个拜|再见|回头见|嗨(?:[~～!！]|呀|喽|咯|$)|哈[喽啰罗]|hello|hi[!！~～]|早安|早上好|晚上好/i,
       actionSpan(/挥(?!霍)|招(?!聘|生|商)|摇|晃/, /手/)),
     actionRule("yawn", /[哈呵]欠|好困|困(?:了|死|得|意)|犯困|睡意|想睡|想打盹|睁不开眼|眼皮打架/,
       actionSpan(/打/, /[哈呵]欠/)),
@@ -507,13 +577,34 @@
   // 有好几个动作时，从最后写到的那一小句选，前面的招呼不抢走后面的反应
   function clausesOf(s) {
     const out = [];
-    s.split(/[。.！？!?；;\n\r]/u).forEach(sent => {
-      let ifs = false;
-      sent.split(/[，,：:]/u).forEach(c => { if (IF_SENT.test(c)) ifs = true; if (c.trim()) out.push({ c, ifs, ask: ASKING.test(c) }); });
-    });
+    for (const match of s.matchAll(/([^。.！？!?；;\n\r]+)([。.！？!?；;\n\r]*)/gu)) {
+      const sent = match[1], question = /[?？]/u.test(match[2]); let ifs = false;
+      sent.split(/[，,：:]/u).forEach(c => { if (IF_SENT.test(c)) ifs = true; if (c.trim()) out.push({ c, ifs, question, ask: question || ASKING.test(c) }); });
+    }
     return out.reverse();
   }
-  const done = (x, at) => at >= 0 && !x.ifs && !NOT_DONE.test(x.c.slice(0, at).split("的").pop());
+  // Observation/request complements belong to the other person. Keep the
+  // actor's surrounding actions, and resume when the actor is named again.
+  // All action families use this text, so “看你吃饭/点头/哭/举手机” share one boundary.
+  function actorActionText(c) {
+    const who = /^(?:\s*)(他|她|我|TA)/iu.exec(c)?.[1];
+    const other = /(?:看(?:了看|了一眼|着|到|见)?|望着|盯着|听(?:了听|着|到|见)?|等(?:着|待)?|让|叫|催|劝)[你您我他她](?!的)/gu;
+    let out = "", from = 0, match;
+    while ((match = other.exec(c))) {
+      const start = match.index, tail = start + match[0].length;
+      if (/^(?:让|叫|催|劝)/u.test(match[0]) && /^(?:靠近|过来)/u.test(c.slice(tail))) continue;
+      const resume = new RegExp("(?:" + (who ? who + "(?!的)|" : "") + "(?:后|时|又|却|而)自己(?!的)|一边|以后|之后|随后|然后|接着)", "iu").exec(c.slice(tail));
+      const end = resume ? tail + resume.index : c.length;
+      // Listening is itself an action; preserve its “听你说/讲” cue, not the
+      // actions described inside what the other person says.
+      const listen = /^听/u.test(match[0]) && /说|讲/u.exec(c.slice(tail, end));
+      const own = listen ? match[0] + listen[0] : /^(?:让|叫|催|劝)/u.test(match[0]) ? match[0] : "";
+      out += c.slice(from, start) + own + " ".repeat(Math.max(0, end - start - own.length));
+      from = end; other.lastIndex = end;
+    }
+    return out + c.slice(from);
+  }
+  const done = (x, at) => at >= 0 && !x.ifs && !x.question && !NOT_DONE.test(x.c.slice(0, at).split("的").pop());
   const cueAt = (rule, x) => { const m = rule.cues && rule.cues.exec(x.c); return m ? m.index : -1; };
   // act：动作描写（action 那一栏、话里括号或星号包着的那段）；said：说出口的话。
   //   动作只从 act 里认；said 里只认本身就是在打招呼、应声的那几句（晚安、加油、好好好……），而且不认问句。
@@ -522,7 +613,8 @@
     const norm = x => String(x || "").normalize("NFKC").replace(/摇头晃脑/g, "跟着节拍晃");
     const inSaid = [];
     const sd = norm(said).replace(/[（(【*]([^）)】*\n]{1,60})[）)】*]/gu, (m, x) => { inSaid.push(x); return " "; });
-    const a = clausesOf([norm(act)].concat(inSaid).join("\n")), b = clausesOf(sd);
+    const owned = text => clausesOf(text).map(x => Object.assign(x, { c: actorActionText(x.c) }));
+    const a = owned([norm(act)].concat(inSaid).join("\n")), b = owned(sd);
     // 明确动作优先于“早安／知道了”等口头提示；仍只在原动作表选一套。
     for (const x of a) for (const rule of ACT_RULES) if (rule.spans.some(match => done(x, match(x.c)))) return rule.kind;
     for (const x of a) for (const rule of ACT_RULES) if (done(x, cueAt(rule, x))) return rule.kind;
@@ -530,6 +622,11 @@
     return "";
   }
   function actForText(text) { return actForChat(text, ""); }
+  window.addEventListener("companion-chat", e => {
+    const d = e && e.detail; if (!d || !d.charId) return;
+    const k = d.act != null || d.said != null ? actForChat(d.act, d.said) : actForText(d.text);
+    if (k || d.said) lifeUpdate(d.charId, { kind: k === "sleep" ? "sleep" : "wake" });
+  });
   function useChatAct(charId, frame) {
     useEffect(() => {
       const on = e => { const d = e && e.detail; if (!d || d.charId !== charId) return; const k = d.act != null || d.said != null ? actForChat(d.act, d.said) : actForText(d.text);
@@ -546,7 +643,7 @@
     const sc = Math.max(.6, Math.min(2.2, Number(cfg.scale) || 1)), W = Math.round(96 * sc), H = Math.round(132 * sc);
     const [pos, setPos] = useState(() => cfg.pos || { x: window.innerWidth - W - 8, y: window.innerHeight - H - 150 });
     const drag = useRef(null), rs = useRef(null);
-    const ctx = usePetContext(props, props.screen || "");
+    const ctx = usePetContext(props, props.screen || "", char);
     const typing = ctx.typing;
     const [failed, setFailed] = useState(false);
     const [say, onPoke, holdSay] = usePokeTalk(char, props, !!cfg.pokeTalk);
@@ -583,5 +680,5 @@
   window.Companion = Companion;
   window.CompanionPreview = PetFrame;
   window.CompanionFloat = CompanionFloat;
-  window.CompanionFace = { faceForMood, FACE_ZH, lookFor, actForText, actForChat, makeMessageWatch };
+  window.CompanionFace = { faceForMood, FACE_ZH, lookFor, petMessage, lifeStep, lifeRead, lifeUpdate, actForText, actForChat, makeMessageWatch };
 })();
