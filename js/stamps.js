@@ -106,7 +106,8 @@
     const [node, setNode] = useState(null);
     const [pop, setPop] = useState(0);
     const tx = card.text, lv = card.lv || 1;
-    const P = "#2f2a22", P7 = "rgba(47,42,34,.72)", P5 = "rgba(47,42,34,.5)", GOLD = "#2f5d4a", LINE = "rgba(47,93,74,.35)";
+    // 升级页：一本打开的集邮册。奶油纸底、象牙白的卡、鼠尾草绿的盖印面板、旧铜金的邮戳；稀有度只让邮票本身变特别，整页不跟着变
+    const P = "#39382F", P7 = "rgba(57,56,47,.78)", P5 = "#827C6F", GOLD = "#285C4B", LINE = "rgba(87,119,103,.38)", COPPER = "#B58C55", FRAME = "#577767";
     const rcL = card.rarity === "R" ? P : RC[card.rarity];
     const stale = card.writing && Date.now() - Number(card.writingTs || 0) > 180000;
     const S = C().load(), U = C().UNLOCK, ink = S.ink, cap = C().CAP[card.rarity] || 30;
@@ -154,8 +155,9 @@
       : ((tx.sections || []).map((s, i) => ({ k: s.id || "s" + i, zh: s.title || "第 " + (i + 1) + " 节", lv: Number(s.lv) || 1, ssr: true,
           peek: ((s.beats || [])[0] || {}).text || "" })));
     const openNode = nodes.find(n => n.k === node) || nodes.find(n => n.lv <= lv && n.k === "now") || nodes.find(n => n.lv <= lv);
-    const ring = stars >= 3 ? "0 0 0 2px " + GOLD + ", 0 0 0 6px rgba(47,93,74,.25), 0 0 34px rgba(47,93,74,.45)" : stars === 2 ? "0 0 0 2px " + GOLD + ", 0 0 0 5px rgba(47,93,74,.2)" : stars === 1 ? "0 0 0 1.5px " + GOLD : "none";
-    return h("div", { "data-wk": "stampcard", "data-page": "1", className: "h-full flex flex-col", style: { background: "repeating-linear-gradient(180deg, transparent 0 116px, rgba(47,42,34,.07) 116px 117px, transparent 117px 120px), linear-gradient(#f1e9d8, #e9dfca)" } },
+    const frame = card.rarity === "SSR" ? "0 0 0 2px " + COPPER + ", 0 0 0 5px #FFF8E9, 0 0 0 6.5px " + COPPER : card.rarity === "SR" ? "0 0 0 1.5px " + COPPER : "0 0 0 1px " + FRAME;
+    const ring = frame + ", 0 10px 26px rgba(57,56,47," + (0.16 + stars * 0.05) + ")" + (stars >= starsAll && stars ? ", 0 0 30px rgba(181,140,85,.45)" : "");
+    return h("div", { "data-wk": "stampcard", "data-page": "1", className: "h-full flex flex-col", style: { background: "radial-gradient(rgba(130,124,111,.07) 1px, transparent 1.2px) 0 0 / 5px 5px, radial-gradient(120% 60% at 50% 0%, #F6F0E2, #F1EAD9 60%, #EAE1CD)" } },
       h("style", null, "@keyframes stHalo{0%,100%{opacity:.55;transform:scale(1)}50%{opacity:.9;transform:scale(1.06)}}@keyframes stFloat{0%{transform:translateY(0)}35%{transform:translateY(-10px)}100%{transform:translateY(0)}}@keyframes stStampDown{0%{transform:rotate(-14deg) scale(1.9);opacity:0}100%{transform:rotate(-14deg) scale(1);opacity:1}}@keyframes stShine{0%{background-position:-200% 0}100%{background-position:200% 0}}"),
       h(Head, { zh: tx ? tx.name : "一枚邮票", sub: card.rarity + " · " + (char ? char.name : "") + (card.kind === "if" ? " · IF「" + (card.theme || "") + "」" : " · 日常"), bg: "transparent", ink: P, onBack }),
       h("div", { className: "flex-1 min-h-0 overflow-y-auto px-5", style: { paddingBottom: "calc(env(safe-area-inset-bottom) * 0.4 + 28px)" } },
@@ -165,7 +167,7 @@
           h("div", { key: pop, style: { position: "relative", boxShadow: ring, animation: pop ? "stFloat .9s ease-out" : "none" } },
             h(Stamp, { t, card, face: url, size: 236 }),
             pop ? h("div", { style: { position: "absolute", inset: 0, pointerEvents: "none", background: "linear-gradient(110deg, transparent 35%, rgba(255,240,200,.55) 50%, transparent 65%) 0 0 / 200% 100%", animation: "stShine .9s ease-out 1 forwards" } }) : null,
-            h("div", { "data-wk": "stampbadge", style: { position: "absolute", left: "50%", top: -13, transform: "translateX(-50%)", whiteSpace: "nowrap", padding: "3px 12px", borderRadius: 999, background: card.rarity === "SSR" ? "linear-gradient(135deg,#f3d58a,#b8862e)" : card.rarity === "SR" ? "linear-gradient(135deg,#9db8ef,#4a68b8)" : "linear-gradient(135deg,#2f2a22,#bfb196)", color: card.rarity === "R" ? "#3a3020" : "#fff", fontFamily: F_DISPLAY, fontSize: fs(12), letterSpacing: ".08em", boxShadow: "0 2px 8px rgba(0,0,0,.4)" } }, card.rarity + " · " + (card.rarity === "SSR" ? "急件" : card.rarity === "SR" ? "挂号" : "平信")),
+            h("div", { "data-wk": "stampbadge", style: { position: "absolute", left: "50%", top: -13, transform: "translateX(-50%)", whiteSpace: "nowrap", padding: "3px 12px", borderRadius: 999, background: card.rarity === "SSR" ? "linear-gradient(135deg,#d9b57c,#B58C55)" : card.rarity === "SR" ? "#B58C55" : FRAME, color: "#FFF8E9", fontFamily: F_DISPLAY, fontSize: fs(12), letterSpacing: ".08em", boxShadow: "0 2px 6px rgba(57,56,47,.25)" } }, card.rarity + " · " + (card.rarity === "SSR" ? "急件" : card.rarity === "SR" ? "挂号" : "平信")),
             !url ? h("div", { "data-wk": "stampblank", style: { position: "absolute", inset: 6, borderRadius: 2, overflow: "hidden", pointerEvents: "none",
                 background: "repeating-linear-gradient(135deg, rgba(122,106,82,.05) 0 2px, transparent 2px 9px), radial-gradient(circle at 50% 42%, #fbf5e6, #ece1c8 75%)",
                 display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", textAlign: "center", color: "#5a4a32" } },
@@ -176,7 +178,7 @@
               h("div", { style: { fontFamily: F_BODY, fontSize: fs(11.5), opacity: .7 } }, char ? (char.remark || char.name) : ""),
               h("div", { style: { marginTop: 18, fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: fs(12), opacity: .45 } }, card.drawing ? "正在显影……" : "这一刻还没显影"),
               h("div", { style: { position: "absolute", left: 16, bottom: 14, fontFamily: F_BODY, fontSize: fs(9.5), opacity: .55 } }, "第 " + String(no).padStart(3, "0") + " 枚")) : null,
-            h("div", { key: "pm" + pop, "data-wk": "stamppostmark", style: { position: "absolute", right: 14, bottom: 14, width: 54, height: 54, borderRadius: 999, border: "1.5px solid " + (url ? "rgba(47,42,34,.85)" : "rgba(184,134,46,.75)"), color: url ? "rgba(47,42,34,.9)" : "#a8772a", transform: "rotate(-14deg)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", fontFamily: F_BODY, fontSize: fs(8.5), lineHeight: 1.25, pointerEvents: "none", animation: pop ? "stStampDown .45s cubic-bezier(.3,1.6,.5,1)" : "none" } },
+            h("div", { key: "pm" + pop, "data-wk": "stamppostmark", style: { position: "absolute", right: 14, bottom: 14, width: 54, height: 54, borderRadius: 999, border: "1.5px solid " + (url ? "rgba(255,248,233,.9)" : COPPER), color: url ? "rgba(255,248,233,.95)" : COPPER, transform: "rotate(-14deg)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", fontFamily: F_BODY, fontSize: fs(8.5), lineHeight: 1.25, pointerEvents: "none", animation: pop ? "stStampDown .45s cubic-bezier(.3,1.6,.5,1)" : "none" } },
               card.bdDay ? h(React.Fragment, null, h("div", null, "生日纪念"), h("div", { style: { fontFamily: F_DISPLAY, fontSize: fs(10) } }, (d => d.getFullYear() + "." + (d.getMonth() + 1) + "." + d.getDate())(new Date(card.bdDay))))
                 : h(React.Fragment, null, h("div", null, got.getFullYear() + "." + (got.getMonth() + 1) + "." + got.getDate()), h("div", { style: { fontFamily: F_DISPLAY, fontSize: fs(11) } }, "Lv." + lv)))),
           h("div", { className: "flex items-center", style: { marginTop: 16, gap: 10, width: "100%" } },
@@ -193,19 +195,19 @@
             : h("button", { "data-wk": "stampredraw", disabled: card.drawing, onClick: () => onDraw(card.id), className: "active:opacity-70 disabled:opacity-40",
               style: { marginTop: 8, padding: "6px 14px", borderRadius: 8, border: "1px solid " + LINE, color: P7, fontFamily: F_BODY, fontSize: fs(12) } }, card.drawing ? "重画着…" : "↻ 照原来的描述重画 · 花一次生图")),
         // 养成
-        tx ? h("div", { "data-wk": "stampgrow", style: { marginTop: 16, padding: "14px 16px", borderRadius: 16, border: "1px solid " + LINE, background: "rgba(47,42,34,.05)" } },
+        tx ? h("div", { "data-wk": "stampgrow", style: { marginTop: 16, padding: "14px 16px", borderRadius: 16, border: "1px solid rgba(87,119,103,.22)", background: "#E2E7DA", boxShadow: "0 2px 10px rgba(57,56,47,.06)" } },
           h("div", { className: "flex items-center justify-between" },
             h("div", { style: { fontFamily: F_DISPLAY, fontSize: fs(14), color: GOLD } }, "✦ 盖印"),
             h("div", { style: { fontFamily: F_BODY, fontSize: fs(11.5), color: P7 } }, "手上印泥 " + ink)),
           h("div", { style: { marginTop: 8, textAlign: "center", fontFamily: F_DISPLAY, fontSize: fs(22), color: P, letterSpacing: ".04em" } }, lv >= cap ? "Lv." + cap + " · 满了" : h(React.Fragment, null, "Lv." + lv, h("span", { style: { color: GOLD, margin: "0 12px", fontSize: fs(16) } }, "→"), h("span", { style: { color: GOLD } }, "Lv." + (lv + 1)))),
           h("div", { className: "flex justify-between", style: { marginTop: 10, fontFamily: F_BODY, fontSize: fs(10.5), color: P5 } }, h("span", null, "Lv." + tierFrom), h("span", null, lv >= cap ? "满级" : "Lv." + nextGate + (nextGate % 10 === 0 ? " 过坎" : ""))),
-          h("div", { style: { position: "relative", marginTop: 4, height: 14, borderRadius: 999, background: "rgba(47,42,34,.1)", overflow: "hidden", border: "1px solid rgba(47,93,74,.25)" } },
-            h("div", { style: { width: Math.max(4, pct) + "%", height: "100%", borderRadius: 999, background: "linear-gradient(90deg,#2a5242,#3c7a60,#7fae8e)", boxShadow: "0 0 10px rgba(47,93,74,.6)", transition: "width .5s" } }),
-            h("div", { style: { position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: F_BODY, fontSize: fs(9.5), color: P, textShadow: "0 1px 2px rgba(0,0,0,.6)" } }, lv + " / " + nextGate)),
+          h("div", { style: { position: "relative", marginTop: 4, height: 14, borderRadius: 999, background: "rgba(57,131,107,.14)", overflow: "hidden", border: "1px solid rgba(57,131,107,.25)" } },
+            h("div", { style: { width: Math.max(4, pct) + "%", height: "100%", borderRadius: 999, background: "#39836B", boxShadow: "none", transition: "width .5s" } }),
+            h("div", { style: { position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: F_BODY, fontSize: fs(9.5), color: P, textShadow: "none" } }, lv + " / " + nextGate)),
           lv < cap ? h(React.Fragment, null,
             blockNow ? h("div", { style: { marginTop: 8, fontFamily: F_BODY, fontSize: fs(12), color: "#9db8ef" } }, blockNow) : null,
             h("div", { "data-wk": "stamplevel", className: "flex", style: { gap: 8, marginTop: 12 } },
-              h("button", { onClick: () => up(1), disabled: !!blockNow, className: "flex-1 flex flex-col items-center justify-center active:opacity-70 disabled:opacity-40", style: { minHeight: 50, borderRadius: 16, background: "linear-gradient(135deg,#3c7a60,#2a5242)", color: "#f6efe0", boxShadow: "0 4px 16px rgba(47,93,74,.35)" } },
+              h("button", { onClick: () => up(1), disabled: !!blockNow, className: "flex-1 flex flex-col items-center justify-center active:opacity-70 disabled:opacity-40", style: { minHeight: 50, borderRadius: 16, background: "#285C4B", color: "#f6efe0", boxShadow: "0 4px 16px rgba(47,93,74,.35)" } },
                 h("span", { style: { fontFamily: F_DISPLAY, fontSize: fs(15) } }, "盖一枚印"), h("span", { style: { fontFamily: F_BODY, fontSize: fs(10.5), opacity: .7 } }, "消耗印泥 " + cost1)),
               nextGate - lv > 1 ? h("button", { onClick: () => up(nextGate - lv), disabled: !!blockNow, className: "flex-1 flex flex-col items-center justify-center active:opacity-70 disabled:opacity-40", style: { minHeight: 50, borderRadius: 16, border: "1px solid " + GOLD, color: GOLD } },
                 h("span", { style: { fontFamily: F_DISPLAY, fontSize: fs(14) } }, "一键盖到 " + nextGate + " 级"), h("span", { style: { fontFamily: F_BODY, fontSize: fs(10.5), opacity: .75 } }, "共消耗 " + toGate)) : null)) : null) : null,
@@ -224,19 +226,19 @@
               const left = lock ? (() => { let c = 0; for (let l = lv; l < n.lv; l++) c += C().levelCost(card.rarity, l); return c; })() : 0;
               return h("button", { key: n.k, "data-wk": "stampnode", "data-locked": lock ? "1" : "0", "data-on": on ? "1" : "0", onClick: () => lock ? toast("升到 " + n.lv + " 级才看得到") : n.ssr ? setStory(true) : setNode(n.k), className: "shrink-0 text-left active:opacity-80",
                 style: { position: "relative", width: 136, minHeight: 150, padding: "11px 12px", borderRadius: 12, overflow: "hidden",
-                  border: on ? "1.5px solid " + GOLD : "1px " + (lock ? "dashed " : "solid ") + LINE,
-                  background: on ? "linear-gradient(160deg, rgba(47,93,74,.22), rgba(120,70,40,.18))" : lock ? "rgba(47,42,34,.025)" : "rgba(47,42,34,.06)",
-                  boxShadow: on ? "0 0 18px rgba(47,93,74,.25)" : "none", display: "flex", flexDirection: "column", gap: 5 } },
+                  border: on ? "1.5px solid " + COPPER : lock ? "1px dashed rgba(130,124,111,.55)" : "1px solid " + FRAME,
+                  background: on ? "#E8D8B8" : lock ? "#E7E0CF" : "#FFF8E9",
+                  boxShadow: on ? "0 4px 14px rgba(181,140,85,.25)" : "none", display: "flex", flexDirection: "column", gap: 5 } },
                 h("div", { className: "flex items-center justify-between" },
                   h("span", { style: { fontFamily: F_DISPLAY, fontSize: fs(18), color: lock ? P5 : GOLD, opacity: lock ? .6 : 1 } }, String(i + 1).padStart(2, "0")),
-                  h("span", { style: { fontFamily: F_BODY, fontSize: fs(9.5), padding: "1px 7px", borderRadius: 999, background: on ? GOLD : "transparent", border: on ? "none" : "1px solid " + LINE, color: on ? "#2a2010" : P5 } }, on ? "正在看" : lock ? "🔒 未解锁" : "已解锁")),
-                h("div", { style: { fontFamily: F_DISPLAY, fontSize: fs(14), color: on ? "#2f2a22" : lock ? P5 : P } }, n.zh),
+                  h("span", { style: { fontFamily: F_BODY, fontSize: fs(9.5), padding: "1px 7px", borderRadius: 999, background: on ? GOLD : "transparent", border: on ? "none" : "1px solid " + LINE, color: on ? "#FFF8E9" : P5 } }, on ? "正在看" : lock ? "🔒 未解锁" : "已解锁")),
+                h("div", { style: { fontFamily: F_DISPLAY, fontSize: fs(14), color: on ? GOLD : lock ? P5 : P } }, n.zh),
                 h("div", { style: { fontFamily: F_BODY, fontSize: fs(11), lineHeight: 1.55, color: lock ? "rgba(47,42,34,.38)" : P7, overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical" } },
                   lock ? "Lv." + n.lv + " 解锁「" + n.zh + "」" : (n.peek || "")),
                 lock ? h("div", { style: { marginTop: "auto", fontFamily: F_BODY, fontSize: fs(10), color: GOLD, opacity: .8 } }, n.lv > 30 && !card.sentTs ? "过 30 级要先发给他看" : "再盖 " + (n.lv - lv) + " 枚 · 印泥 " + left) : null); })),
 
           card.rarity === "SSR" ? h("button", { "data-wk": "stampstoryopen", onClick: () => setStory(true), className: "w-full active:opacity-70", style: { marginTop: 14, minHeight: 44, borderRadius: 12, background: RC.SSR, color: "#fff", fontFamily: F_BODY, fontSize: fs(14) } }, "进入剧情")
-            : openNode && openNode.body ? h("div", { "data-wk": "stampbox", style: { marginTop: 12, padding: "14px 16px", borderRadius: 14, border: "1px solid " + LINE, background: "rgba(47,42,34,.05)" } },
+            : openNode && openNode.body ? h("div", { "data-wk": "stampbox", style: { marginTop: 12, padding: "14px 16px", borderRadius: 14, border: "1px solid " + FRAME, background: "#FFF8E9" } },
               h("div", { style: { fontFamily: F_DISPLAY, fontSize: fs(13), color: GOLD, marginBottom: 8 } }, openNode.zh), openNode.body) : null) : null),
       story && tx ? h(StoryReader, { t, card, char, meName, lv, onClose: () => setStory(false) }) : null);
   }
