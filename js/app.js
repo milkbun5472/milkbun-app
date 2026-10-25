@@ -20,7 +20,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v76.513";
+const APP_VERSION = "v76.514";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -17766,6 +17766,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         // 两个人的日程要对得上：这条链本来就是 for 循环一个一个排，后排的看得见先排好的。
         // 一层只写一处——跟单天那边共用同一个 schedPeerBlock。
         + schedPeerBlock(char, want)
+        // 她给的方向（群友 2026-10-25）：跟重 Roll 带方向一个意思——给方向，不替他排
+        + (opts && opts.wish ? "\n【她希望这几天的方向】" + String(opts.wish).slice(0, 200) + "\n照这个方向排；具体哪天几点做什么，还是照你自己这个人和你的日子来。跟你的人设、你们之间说好的事对不上的地方，以人设和说好的为准。" : "")
         + "\n" + SCHED_WORLD_RULE + "\n" + SCHED_END_RULE + "\n" + SCHED_TENSE_RULE + window.CharDayLink.instruction(isDigital);
       // ⚠️同上：占位值只写说明，别给样例内容（一层写在两处，这是第二处）
       const schema = "{\"days\":[{\"day\":\"" + want[0] + characterText(char, "\",\"load\":\"HIGH LOAD\",\"estTime\":22,\"seqs\":[{\"time\":\"几点开始\",\"end\":\"几点结束\",\"title\":\"这一段他在做什么（这个身份的人真会做的具体事）\",\"location\":\"在哪儿（细到具体处所，贴着他那个世界）\",\"place\":\"这会儿他在哪个【大地方】：城／坊市／宅院这一级，要跟地图上认得出的地名对得上\",\"type\":\"从给定那几个词里挑最接近的\",\"deviation\":null}]}]}")
@@ -33840,9 +33842,9 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     onCopyMaskSched: copyMaskSched, onParseTimetable: parseTimetable, onSaveClasses: saveClassRows,
     onDelTimed: delCalTimedEvent,
     // 手动重排：只重排【今天到本周日】。手动这一下也记账，免得随后自动那档又跑一遍。
-    onGenWeek: async c => {
+    onGenWeek: async (c, wish) => {
       const today = schedLocalDayKey(c), dowMon = (schedParseKey(today).getDay() + 6) % 7;
-      const ok = await genScheduleWeek(c, { force: true, from: today, count: 7 - dowMon });
+      const ok = await genScheduleWeek(c, { force: true, from: today, count: 7 - dowMon, wish: wish || "" });
       window.AutoGate.mark("schedule|" + c.id, schedMondayOf(today), ok);
     },
     // 删：单天一处、整周一处，都落到同一个 delSchedDays 上
