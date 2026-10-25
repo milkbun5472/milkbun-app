@@ -18493,7 +18493,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   const forumMoreTag = x => { const m = forumMorePhotos(x); return m.length && forumPhotoOf(x) ? { morePhotos: m } : {}; };
   const forumFmtTag = () => { try { return localStorage.getItem("x_forumLayout") === "cards" ? { fmt: "xhs" } : {}; } catch (e) { return {}; } };
   const autoForumForChar = async (char, opts) => {
-    const manual = !!(opts && opts.manual), fixedBoard = opts && opts.board ? String(opts.board) : "";
+    const manual = !!(opts && opts.manual);
+    let fixedBoard = opts && opts.board ? String(opts.board) : "";
     if (!active || (!manual && !autoRefreshOn("forum", char.id)) || (forumOffRef.current || []).includes(char.id) || isBody(char.id)) return null;
     try {
       // 调出「距上次发帖之后」和用户的往来当素材；没有就让 TA 按人设编一件贴合的小事
@@ -18514,6 +18515,9 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       const idRoll = Math.random(), altBias = forumHabit.identityBias === "alt";
       const rolledId = idRoll < (altBias ? 0.42 : 0.55) ? "main" : idRoll < 0.82 ? "alt" : "anonymous";
       const forceAnon = rolledId === "anonymous" && Math.random() < 0.5;   // 匿名的一半去匿名吧，一半在别的吧匿名发
+      // 她开的吧（她 2026-10-25「角色不会主动去那边发」）：原来只在六选一后面补一句「对得上才去」，几乎轮不到。
+      //   改成代码先掷：有她开的吧时，三成多直接定在其中一个，照那个吧的「聊什么」写；没掷中才回到六选一
+      if (!fixedBoard && !forceAnon && myBoardsForPost.length && Math.random() < 0.35) fixedBoard = myBoardsForPost[Math.floor(Math.random() * myBoardsForPost.length)].name;
       // 不止上一贴（她 2026-10-26 去重那一轮）：只看一贴，隔一贴又绕回同一个话题。最近八贴都摆出来
       const myRecent = (forumPostsRef.current || []).filter(p => p.authorId === char.id).sort((a, b) => (b.ts || 0) - (a.ts || 0)).slice(0, 8);
       const avoidRepeat = myLast ? "\n\n【绝不要重复你最近发过的帖】你最近发的是：\n" + myRecent.map(p0 => "· 《" + String(p0.title || "").slice(0, 40) + "》「" + String(p0.body || "").replace(/\s+/g, " ").slice(0, 50) + "」").join("\n") + "\n这次必须【换一件不一样的、更新的事】，绝不许再写同一个话题/同一件事/同一种心情，哪怕只是换个说法也不行。" : "";
