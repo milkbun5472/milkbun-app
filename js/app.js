@@ -16930,6 +16930,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   const STAMP_CORE = () => (typeof narrativeCore === "function" ? narrativeCore({ intimate: true }) + "\n\n" : "")
     + "写卡的先后：先是你这个人对不对，再是跟你的世界、你们现在的关系对不对，再是写的是不是一件具体的事，再是跟别的卡是不是不一样，最后才是好不好看。戏剧效果跟你会怎么做对不上时，照你会怎么做；没有冲突、没有告白、没有高潮也可以。\n\n";
   const StampsCoreSafe = () => (window.StampsCore ? window.StampsCore.load() : { cards: [] });
+  // 聊天里那张小卡要的东西（不带整段正文，正文在 content 里给他读）
+  const stampShareOf = card => { const tx = card.text || {}; return { id: card.id, name: tx.name || "", rarity: card.rarity, kind: card.kind, theme: card.theme || "", line: tx.line || tx.thought || "", face: card.faceAlt || card.face || "" }; };
   // 把一枚邮票发进聊天给他看：IF 卡跟他讲清是另一个世界的他，不是你们真的发生过
   const stampSend = card => {
     const ch = characters.find(c => c.id === card.charId); const tx = card.text;
@@ -16937,7 +16939,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     const gist = card.rarity === "R" ? [tx.narration, tx.thought ? "「" + tx.thought + "」" : ""].filter(Boolean).join("\n")
       : [tx.line ? "「" + tx.line + "」" : "", card.rarity === "SR" ? tx.open || "" : ""].filter(Boolean).join("\n");
     const head = "（寄给你一枚邮票：「" + (tx.name || "") + "」" + (card.kind === "if" ? "。这是 IF 线「" + (card.theme || "") + "」里的你——另一个世界的你，不是你们真的发生过的事" : "") + "）";
-    pChat(ch.id, p => [...p, { role: "user", content: (head + "\n" + gist).trim().slice(0, 900), ts: Date.now() }]);
+    pChat(ch.id, p => [...p, { role: "user", kind: "stampshare", stamp: stampShareOf(card), content: (head + "\n" + gist).trim().slice(0, 900), ts: Date.now() }]);
     stampSaveCard(card.id, { sentTs: Date.now() });
     toast("发给 " + (ch.remark || ch.name) + " 了，回聊天里看他怎么说");
   };
@@ -16953,7 +16955,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   const stampCanon = card => {
     const ch = characters.find(c => c.id === card.charId); const tx = card.text;
     if (!ch || !tx) return;
-    pChat(ch.id, p => [...p, { role: "user", content: "（那张「" + (tx.name || "") + "」，我想把它当真——从现在起，那段算我们真的一起经历过。）", ts: Date.now() }]);
+    pChat(ch.id, p => [...p, { role: "user", kind: "stampshare", stamp: Object.assign(stampShareOf(card), { canon: true }), content: "（那张「" + (tx.name || "") + "」，我想把它当真——从现在起，那段算我们真的一起经历过。）", ts: Date.now() }]);
     stampSaveCard(card.id, { canon: true, canonTs: Date.now() });
     toast("当真了");
   };
@@ -17011,12 +17013,14 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
           + "sections 里每一节：id、lv（第几道锁）、title、beats（一句一句往下走：who 是 he＝你说的话、me＝" + me + "说的话、narr＝旁白动作；text 是这一句）、"
           + "choices（这一节结尾她要选的两三个选项：text 是她说的话或做的事，go 是去哪一节的 id；没有选项就空着）、end（是不是一个结局）。"
           + "照这个骨架写：lv1 的开头一节，结尾有选项；lv10 的两条岔路；lv20 合回来的一节，结尾再有选项；lv30 的两条岔路；lv40 的两三个结局（end:true）；"
-          + "再加一节 lv50 的隐藏的路（hidden:true），从 lv30 某一节的一个选项走进去，它也是一个结局，让她看到前面那几条路都没看到的东西。每节十几到二十几句。"
+          + "再加一节 lv50 的隐藏的路（hidden:true），从 lv30 某一节的一个选项走进去，它也是一个结局，让她看到前面那几条路都没看到的东西。"
+          + "每节写得丰满：二三十句到四十句，有场景、有动作、有来回的对话，事情在这一节里真的往前走。"
+          + "一节中间也可以停下来让她选一两次（beats 里放一个 who:\"pick\"，options 两三个：text 是她说的话或做的事，beats 是你接着的那几句）——选的不同你的反应就不同，几句之后回到这一节的主线；节尾的 choices 两三个。"
           + "往前走靠的是发生的事、你的做法和你们之间自然的对话；你说多少话照你平时的样子，心里的东西让她从你做的事里看出来。每节都有点什么变了，不必每节都有大事。"
           + "两条岔路走下去，后面发生的事、你的处理、她知道的东西、你们之间的样子，至少有一样真的不一样。她那句（me）照她平时的样子写，少一点。"
           + "\nname 是卡名（八个字以内），line 是印在卡面上的一句你的台词。highlight 是剧情里你最想留住的那一刻，一两句画面。gist 一句话记下这张写的是什么事、在哪、怎么收的尾。" + STAMP_SHOT_SPEC
           + stampPrevLine(prev),
-        schemaHint: "{\"name\":\"\",\"line\":\"\",\"highlight\":\"\",\"gist\":\"\",\"shot\":\"\",\"sections\":[{\"id\":\"s1\",\"lv\":1,\"title\":\"\",\"beats\":[{\"who\":\"narr|he|me\",\"text\":\"\"}],\"choices\":[{\"text\":\"\",\"go\":\"s2a\"}],\"end\":false,\"hidden\":false}]}",
+        schemaHint: "{\"name\":\"\",\"line\":\"\",\"highlight\":\"\",\"gist\":\"\",\"shot\":\"\",\"sections\":[{\"id\":\"s1\",\"lv\":1,\"title\":\"\",\"beats\":[{\"who\":\"narr|he|me\",\"text\":\"\"},{\"who\":\"pick\",\"options\":[{\"text\":\"\",\"beats\":[{\"who\":\"he\",\"text\":\"\"}]}]}],\"choices\":[{\"text\":\"\",\"go\":\"s2a\"}],\"end\":false,\"hidden\":false}]}",
         maxTokens: 65000
       });
       const secs = Array.isArray(d && d.sections) ? d.sections.filter(s => s && s.id && Array.isArray(s.beats) && s.beats.length) : [];

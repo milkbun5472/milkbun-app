@@ -149,6 +149,23 @@
     const s = d.label + " " + d.tag;
     for (const [re, k] of SORT) if (re.test(s)) { if (k) gain(k); return; }
   });
+  // 聊天里那枚邮票小卡：齿孔边、卡面（画了的话）、稀有度、卡名、一句台词。开机就要（聊天里会出现），所以放这份
+  g.StampShareCard = function ({ m }) {
+    const R = g.React, h2 = R && R.createElement; if (!h2) return null;
+    const x = (m && m.stamp) || {}, col = x.rarity === "SSR" ? "#B58C55" : x.rarity === "SR" ? "#4a68b8" : "#577767";
+    const url = typeof g.useIdbImgUrl === "function" ? g.useIdbImgUrl(x.face || null) : null;
+    const fs = n => "calc(" + n + "px * var(--app-fs, 1))";
+    return h2("div", { "data-wk": "stampshare", "data-rarity": x.rarity || "", style: { width: 196, alignSelf: "flex-start", height: "fit-content", padding: 6, background: "radial-gradient(circle at 5px 5px, transparent 3.6px, #fbf6ea 4px) -5px -5px / 10px 10px", filter: "drop-shadow(0 4px 10px rgba(40,30,20,.18))" } },
+      h2("div", { style: { border: "1px solid " + col, borderRadius: 2, background: "#FFF8E9", overflow: "hidden" } },
+        h2("div", { style: { position: "relative", height: 150, background: url ? "#222 center/cover no-repeat url(" + url + ")" : "repeating-linear-gradient(135deg, rgba(122,106,82,.06) 0 2px, transparent 2px 9px), #f3ead6", display: "flex", alignItems: "center", justifyContent: "center" } },
+          !url ? h2("div", { style: { fontFamily: "var(--f-display,'Fraunces',serif)", fontSize: fs(18), color: "#5a4a32", letterSpacing: ".1em", padding: "0 10px", textAlign: "center" } }, x.name || "一枚邮票") : null,
+          h2("span", { style: { position: "absolute", left: 6, top: 6, padding: "1px 7px", borderRadius: 3, background: col, color: "#FFF8E9", fontSize: fs(10), fontWeight: 700 } }, x.rarity || ""),
+          x.canon ? h2("span", { style: { position: "absolute", right: 6, bottom: 6, padding: "2px 8px", border: "1.5px solid #b23a2e", color: "#b23a2e", borderRadius: 3, transform: "rotate(-8deg)", fontSize: fs(11), background: "rgba(255,248,233,.85)" } }, "当真") : null),
+        h2("div", { style: { padding: "8px 10px 9px" } },
+          h2("div", { style: { fontSize: fs(9.5), letterSpacing: ".2em", color: "#827C6F" } }, "邮票册" + (x.kind === "if" ? " · IF「" + (x.theme || "") + "」" : x.kind === "bday" ? " · 生日" : "")),
+          h2("div", { style: { marginTop: 2, fontFamily: "var(--f-display,'Fraunces',serif)", fontSize: fs(15), color: "#39382F" } }, "「" + (x.name || "") + "」"),
+          x.line ? h2("div", { style: { marginTop: 4, fontSize: fs(11.5), lineHeight: 1.6, color: "#827C6F", overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" } }, x.line) : null)));
+  };
   // 主屏图标：一枚齿孔边的邮票
   g.GStamps = function (p) {
     const h = g.React && g.React.createElement; if (!h) return null;

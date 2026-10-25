@@ -14935,6 +14935,7 @@ function shareCardOf(kind) {
   if (kind === "tarotshare") return TarotShareCard;
   if (kind === "shikeshare") return window.ShikeShareCard || null;
   if (kind === "gameshare") return GameShareCard;
+  if (kind === "stampshare") return window.StampShareCard || null;   // 邮票册发来的一枚邮票（js/stamps-core.js）
   if (kind === "pomoshare") return window.PomoShareCard || null;
   if (kind === "astroshare") return window.AstroSignCard || null;
   if (kind === "zyshare" || kind === "zyask" || kind === "zygroup") return window.ZhaoyingCard || null;

@@ -74,14 +74,28 @@
     const url = useIdbImgUrl(card.face);
     const [sid, setSid] = useState((start && secs.some(x => x.id === start) ? start : null) || (secs[0] && secs[0].id));   // 从回廊点哪一幕就从哪一幕开始
     const [i, setI] = useState(0);
+    const [picks, setPicks] = useState({});   // 一节中间的小选项：选了哪个（同一节里换个回应，走完又回到主线）
+    useEffect(() => { setPicks({}); }, [sid]);
     const sec = secs.find(s => s.id === sid) || secs[0];
     if (!sec) return null;
-    const beat = sec.beats[Math.min(i, sec.beats.length - 1)] || {};
-    const atEnd = i >= sec.beats.length - 1;
+    // 把这一节摊开：中间的 pick 没选时停在那儿；选了就换成「她说的那句＋他那几句」
+    const flat = [];
+    for (let k = 0; k < sec.beats.length; k++) {
+      const b = sec.beats[k] || {};
+      if (b.who === "pick" && Array.isArray(b.options) && b.options.length) {
+        const c = picks[k];
+        if (c == null) { flat.push(Object.assign({}, b, { _pick: k })); break; }
+        const o = b.options[c] || {};
+        flat.push({ who: "me", text: o.text || "" });
+        (o.beats || []).forEach(x => x && x.who !== "pick" && flat.push(x));
+      } else flat.push(b);
+    }
+    const beat = flat[Math.min(i, flat.length - 1)] || {};
+    const atEnd = i >= flat.length - 1 && beat._pick == null;
     const locked = s => (Number(s.lv) || 1) > lv;
     // 下一幕：模型有时没写选项、或者选项的 go 对不上 id——那就按等级往下找下一节（不走隐藏的路），不让她卡在这儿
     const isFinal = () => atEnd && !(sec.choices || []).length && (sec.end || !nextOf(sec));
-    const tap = () => { if (!atEnd) setI(i + 1); else if (isFinal()) onClose(); };   // 走到头了，点哪儿都是退出
+    const tap = () => { if (beat._pick != null) return; if (!atEnd) setI(i + 1); else if (isFinal()) onClose(); };   // 走到头了，点哪儿都是退出
     const nextOf = cur => { const L = Number(cur.lv) || 1; return secs.filter(x => !x.hidden && (Number(x.lv) || 1) > L).sort((a, b) => (Number(a.lv) || 1) - (Number(b.lv) || 1))[0] || null; };
     const who = beat.who === "he" ? char.name : beat.who === "me" ? meName : "";
     return h("div", { "data-wk": "stampstory", className: "fixed inset-0 flex flex-col", style: { zIndex: 255, background: url ? "#111 center/cover no-repeat url(" + url + ")" : "linear-gradient(#2b2436,#14111b)" } },
@@ -93,6 +107,9 @@
         style: { margin: "0 12px calc(env(safe-area-inset-bottom) * 0.4 + 14px)", borderRadius: 14, background: "rgba(16,14,22,.82)", border: "1px solid rgba(255,255,255,.18)", padding: "14px 16px 30px", minHeight: 150, position: "relative", color: "#f4efe6" } },
         who ? h("div", { "data-wk": "stampstorywho", style: { display: "inline-block", marginBottom: 6, padding: "2px 10px", borderRadius: 999, background: beat.who === "he" ? RC.SSR : "#6b6480", fontFamily: F_DISPLAY, fontSize: "calc(13px * var(--app-fs, 1))" } }, who) : null,
         h("div", { style: { fontFamily: F_BODY, fontSize: "calc(15px * var(--app-fs, 1))", lineHeight: 1.75, fontStyle: who ? "normal" : "italic", opacity: who ? 1 : .85, whiteSpace: "pre-wrap" } }, beat.text || ""),
+        beat._pick != null ? h("div", { className: "flex flex-col", style: { gap: 8, marginTop: 4 } },
+          (beat.options || []).map((o, k) => h("button", { key: k, "data-wk": "stampstorychoice", "data-inline": "1", onClick: e => { e.stopPropagation(); setPicks(p => Object.assign({}, p, { [beat._pick]: k })); },
+            style: { textAlign: "left", padding: "10px 12px", borderRadius: 10, border: "1px solid rgba(255,255,255,.3)", background: "rgba(255,255,255,.1)", color: "#fff", fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))" } }, o.text))) : null,
         atEnd && (sec.choices || []).length ? h("div", { className: "flex flex-col", style: { gap: 8, marginTop: 12 } },
           sec.choices.map((c, k) => { const to = secs.find(s => s.id === c.go) || nextOf(sec); const lk = to && locked(to);
             return h("button", { key: k, "data-wk": "stampstorychoice", "data-locked": lk ? "1" : "0", onClick: e => { e.stopPropagation(); if (!to || lk) return; setSid(to.id); setI(0); },
@@ -104,7 +121,7 @@
               style: { marginTop: 12, width: "100%", textAlign: "left", padding: "10px 12px", borderRadius: 10, border: "1px solid rgba(255,255,255,.3)", background: locked(nx) ? "transparent" : "rgba(255,255,255,.1)", color: locked(nx) ? "rgba(255,255,255,.45)" : "#fff", fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))" } },
               "下一幕：" + (nx.title || ""), locked(nx) ? h("span", { style: { marginLeft: 6, fontSize: "calc(11px * var(--app-fs, 1))" } }, "· 升到 " + nx.lv + " 级才看得到") : null)
             : h("div", { style: { marginTop: 12, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", opacity: .7 } }, "—— 这条路走到头了 · 点一下退出 ——"); })() : null,
-        !atEnd ? h("div", { "data-wk": "stampstorynext", style: { position: "absolute", right: 14, bottom: 10, fontSize: "calc(11px * var(--app-fs, 1))", opacity: .5 } }, "点一下继续 ▾") : null));
+        !atEnd && beat._pick == null ? h("div", { "data-wk": "stampstorynext", style: { position: "absolute", right: 14, bottom: 10, fontSize: "calc(11px * var(--app-fs, 1))", opacity: .5 } }, "点一下继续 ▾") : null));
   }
 
   // 一张卡打开：卡面、名字、内容
