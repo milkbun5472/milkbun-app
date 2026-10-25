@@ -384,7 +384,7 @@
     ["avatar", "头像（全 App 每一颗）"],
     ["field", "一栏设置（标题＋内容＋底下那道细线）"], ["fieldlabel", "那一栏的标题"], ["fieldline", "那一栏底下的细线"],
     ["toggle", "开关（data-on=\"1\" 是开着的）"], ["toggleknob", "开关里那颗圆钮"], ["askqiu", "「问秋秋 ›」那一行（人格档案馆和角色编辑页上）"],
-    ["input", "单行输入框"], ["textarea", "多行输入框"], ["chatcsslen", "自己写 CSS 底下那行字数提醒"], ["quiethours", "API 页「我的作息 · 免打扰」那一块"], ["quiettoggle", "免打扰总开关那一行"], ["quietpro", "免打扰里「不发主动消息」那一行"], ["quietbg", "免打扰里「后台不跑」那一行"], ["listensquare", "一起听「广场」整页"], ["listensqgen", "广场「刷一刷」按钮"], ["listensqpost", "广场上的一帖"], ["listensqplay", "帖子里那首歌（点了就放）"], ["listensqcompose", "广场上自己发帖那一块"], ["listencomment", "广场／歌评里的一条评论（点了就是回他）"], ["listensqtalk", "帖子里「歌评」按钮"], ["listensqreply", "帖子底下「评论」"], ["listensqshare", "帖子底下「转给TA」"], ["listentalk", "一首歌的歌评整页"], ["listentalkgen", "歌评页「刷歌评」按钮"], ["listentalkopen", "播放页「评」那颗键"], ["listensqmore", "帖子底下「再刷点评论」"], ["listendel", "广场／歌评里的「删除」"], ["listentalkbar", "歌评页钉在最底下的输入栏"], ["listensetbtn", "一起听顶栏右上的设置齿轮"], ["slider", "滑杆"]
+    ["input", "单行输入框"], ["textarea", "多行输入框"], ["chatcsslen", "自己写 CSS 底下那行字数提醒"], ["quiethours", "API 页「我的作息 · 免打扰」那一块"], ["quiettoggle", "免打扰总开关那一行"], ["quietpro", "免打扰里「不发主动消息」那一行"], ["quietbg", "免打扰里「后台不跑」那一行"], ["listensquare", "一起听「广场」整页"], ["listensqgen", "广场「刷一刷」按钮"], ["listensqpost", "广场上的一帖"], ["listensqplay", "帖子里那首歌（点了就放）"], ["listensqcompose", "广场上自己发帖那一块"], ["listencomment", "广场／歌评里的一条评论（点了就是回他）"], ["listensqtalk", "帖子里「歌评」按钮"], ["listensqreply", "帖子底下「评论」"], ["listensqshare", "帖子底下「转给TA」"], ["listentalk", "一首歌的歌评整页"], ["listentalkgen", "歌评页「刷歌评」按钮"], ["listentalkopen", "播放页「评」那颗键"], ["listensqmore", "帖子底下「再刷点评论」"], ["listendel", "广场／歌评里的「删除」"], ["listentalkbar", "歌评页钉在最底下的输入栏"], ["listensetbtn", "一起听顶栏右上的设置齿轮"], ["slider", "滑杆"], ["laygap", "TA的聊天长相里连发间距的数字条；data-part gapIn|gapOut"]
   ]);
   // 底下这几组是【某几页专有】的（气泡、输入栏、主屏那些格子，别处没有）。
   // ⚠️一张表，一行一组【叫什么 · 哪几页 · 有哪些挂点】。第二组进来的时候
@@ -1162,7 +1162,7 @@
   //   挂点表是从 WK_COMMON/WK_SCOPED 现拼的，代码里新挂的 data-wk 没进名单，测试 ai-brief-hooks 会红；
   //   可规矩、尺寸、现成写法是手写的——所以跟攻略一样立个戳：v 必须等于 APP_VERSION，
   //   这一版改了哪条写进 changed；这一版的改动碰不到样式，就在 none 写一句为什么。
-                                                                                                                                                                                                                                                                    const BRIEF_STAMP = {v: "v76.551",changed: "自习室顶上每人一条进度条（主题钩子 selfdesks、selfdesk）",none: ""};
+                                                                                                                                                                                                                                                                    const BRIEF_STAMP = {v: "v76.552",changed: "聊天长相连发间距加数字滑杆（主题钩子 laygap）",none: ""};
   function aiBrief(page, css) {
     const grp = WK_SCOPED.filter(function (x) { return (x.pages || []).indexOf(page) >= 0; })[0];
     const line = function (r) { return '[data-wk="' + r[0] + '"]  ' + r[1]; };
