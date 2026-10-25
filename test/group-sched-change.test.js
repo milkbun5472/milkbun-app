@@ -14,5 +14,5 @@ assert.match(eng, /schedNow: spk && b\.schedNow && typeof b\.schedNow === "objec
 assert.match(eng, /schedNow: x\.schedNow && typeof x\.schedNow === "object" \? x\.schedNow : null/);
 assert.match(app, /if \(!gOffSealed && !_bNpc && a\.senderId && a\.schedNow && timeAwareFor\(a\.senderId\)\) applySchedChange\(a\.senderId, a\.schedNow\)/);
 // 群语音也摘时间标记
-assert.match(app, /const vt = stripEchoedMeta\(stripAiStamp\(item\.text\)\)/);
+assert.match(app, /(?:const|let) vt = stripEchoedMeta\(stripAiStamp\(item\.text\)\)/);
 console.log("ok");

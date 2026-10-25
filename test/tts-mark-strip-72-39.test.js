@@ -115,7 +115,7 @@ test("语音条的波形/时长/转录都用剥过的那一份", () => {
   const j = comp.indexOf("function ", i + 10);
   const vm = comp.slice(i, j);
   // v75.919 先拆掉旧版本落下的 {"voice":…} 外壳（vText），再剥标记；起点还是 m.content
-  assert.match(vm, /const vText = [^\n]*String\(m\.content \|\| ""\)/);
+  assert.match(vm, /const vText0 = [^\n]*String\(m\.content \|\| ""\)[\s\S]*?const vText = vBi \? vBi\.text : vText0/);
   assert.match(vm, /const say = typeof ttsMarkStrip === "function" \? ttsMarkStrip\(vText\)/);
   assert.match(vm, /voiceBars\(say, dur\)/);
   assert.match(vm, /Math\.round\(say\.replace/);
