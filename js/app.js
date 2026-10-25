@@ -16761,7 +16761,10 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       const arr = parseJSONLoose(raw);
       const cards = (Array.isArray(arr) ? arr : []).map(x => String(x || "").replace(/[「」"“”\s]/g, "").slice(0, 8)).filter(Boolean).slice(0, 6);
       if (cards.length < 2) throw new Error("没起出来");
-      luckySave(groupId, { ...st, cards, picked: -1 });
+      // 存之前再读一次：等模型这十几秒里要是已经翻开了一张，别拿这套盖掉
+      const now = luckyOf(groupId);
+      if (now.word) return;
+      luckySave(groupId, { ...now, cards, picked: -1 });
     } catch (e) { toast("抽字符失败：" + e.message); }
   };
   const pickLucky = (groupId, i) => {
