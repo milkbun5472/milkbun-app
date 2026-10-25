@@ -13362,6 +13362,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       // 任何字段名（"photo"、"kind"、"scene"……）带引号跟冒号的样子：上面那张单子列不全，碎块落进气泡就靠这一条认
       const jsonKeyRe = /["'“”‘’][A-Za-z_][A-Za-z0-9_]*["'“”‘’]\s*[:：]/;
       const jsonBitRe = /^\s*[,{\[]*\s*["'“”‘’][A-Za-z_][A-Za-z0-9_]*["'“”‘’]\s*[:：]/;
+      // 一整个气泡只剩一个字段名（她 2026-10-25 截图：气泡里就一个「emote」，后面才是那张表情）：模型把 {"emote":…} 拆成了两截
+      const bareKeyRe = /^\s*["'“”‘’]?(emote|emoji|sticker|voice|word|photo|selfie|quote|silent|transfer|redPacket|gift|takeout|location|toy|call|moment|whisper|recall|thought|mood)["'“”‘’]?\s*[:：=]?\s*$/i;
       const looksLikeJSON = protocolFieldRe.test(String(raw)) || (/^\s*[\[{]/.test(String(raw)) && /[:：]/.test(String(raw)));
       // 一整块 HTML 甩在 JSON 外面（照着「别包进 JSON」那种模板做的）：先抠出来，剩下的照常读，卡片最后接回 word
       const _bareCard = typeof pullBareHtmlCard === "function" ? pullBareHtmlCard(raw) : null;
@@ -13665,7 +13667,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       // 最后一层展示闸：如果上游把整份协议误塞进 word 的某个元素，也不能让
       // `word: ... / mood: ...` 这类内部格式从气泡冒出来。普通聊天里单独提到
       // “word” 或 “mood” 不受影响，只有字段赋值形态才拦。
-      words = words.filter(w => !protocolFieldRe.test(String(w)) && !jsonBitRe.test(String(w)));
+      words = words.filter(w => !protocolFieldRe.test(String(w)) && !jsonBitRe.test(String(w)) && !(typeof w === "string" && bareKeyRe.test(w)));
       // 拿字假装发了一张申请（群里 2026-10-02：「char 会发来一个虚假字面的情侣申请」）：
       //   这一轮本来能写信、他却没填 loveLetter，而是在气泡里写了「[情侣申请] ……」——
       //   那就是他想写信，只是没用对地方。把那几泡收成真的信封卡；本来就不能写信的那几轮不动。
