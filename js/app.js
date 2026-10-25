@@ -16661,7 +16661,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         instruction: "要建一个群，群里有你、" + (rel.join("、") || "几个人") + (spectate ? "" : "，还有" + (profile.name || "她")) + "。群名由你来起。"
           + "照你这个人会怎么起名来：起名的习惯、这几个人凑在一起是因为什么、你们之间的事。最多 16 个字。say 是你起完顺口说的一句，可空。",
         schemaHint: "{\"name\":\"群名\",\"say\":\"一句\"}",
-        maxTokens: 2000
+        maxTokens: 8000
       });
       const nm = String((d && d.name) || "").replace(/[「」"“”]/g, "").trim().slice(0, 24);
       if (!nm) toast("没起出来，再试一次");
