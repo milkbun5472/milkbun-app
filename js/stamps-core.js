@@ -115,8 +115,9 @@
     while (n < steps && card.lv < cap) {
       const block = gateBlocked(card, card.lv); if (block) { msg = block; break; }
       const cost = levelCost(card.rarity, card.lv);
-      if (st.ink < cost) { msg = "印泥不够：下一级要 " + cost; break; }
-      st.ink -= cost; card.lv++; n++;
+      const free = !!(st.opt && st.opt.testInf);   // 测试券开着时印泥也不扣，方便她试剧情和卡面
+      if (!free && st.ink < cost) { msg = "印泥不够：下一级要 " + cost; break; }
+      if (!free) st.ink -= cost; card.lv++; n++;
     }
     if (n) save(st);
     return { n, msg, lv: card.lv };

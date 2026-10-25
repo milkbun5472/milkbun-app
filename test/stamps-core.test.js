@@ -102,3 +102,10 @@ test("生日池求情：20 抽没出才能求，求了下一张一定是 SSR，�
   assert.equal(C.rollRarity(s2, { bday: "c1_2026" }, () => 0.99), "SSR");
   assert.equal(C.canBeg(s2, "c1_2026"), false);
 });
+
+test("测试券开着时盖印不扣印泥", () => {
+  const C = fresh(), st = C.load();
+  st.ink = 0; st.opt = { testInf: true }; st.cards = [{ id: "a", rarity: "R", lv: 1, sentTs: 1 }]; C.save(st);
+  assert.equal(C.levelUp("a", 100).lv, C.CAP.R);
+  assert.equal(C.load().ink, 0);
+});
