@@ -142,6 +142,10 @@ function chatLayoutCSS(L) {
   if (L.time === "hide") out.push('[data-wk="time"]{display:none !important;}');
   if (L.gap === "tight") out.push('[data-wk="msg"][data-first="0"]{padding-top:0 !important;margin-top:-2px !important;}');
   if (L.gap === "loose") out.push('[data-wk="msg"][data-first="1"]{padding-top:14px !important;}');
+  // 间距数字（群友 2026-10-25「像气泡行距一样有数字条」）：拉过就盖住上面那三档；没拉过（null）照档位走
+  const gIn = L.gapIn == null || L.gapIn === "" ? null : Number(L.gapIn), gOut = L.gapOut == null || L.gapOut === "" ? null : Number(L.gapOut);
+  if (gIn != null && isFinite(gIn)) out.push('[data-wk="msg"][data-first="0"]{padding-top:' + Math.max(0, Math.min(40, gIn)) + 'px !important;margin-top:0 !important;}');
+  if (gOut != null && isFinite(gOut)) out.push('[data-wk="msg"][data-first="1"]{padding-top:' + Math.max(0, Math.min(60, gOut)) + 'px !important;}');
   const top = Math.max(0, Math.min(400, Number(L.top) || 0));
   if (top) out.push('[data-wk="body"]{padding-top:' + top + 'px !important;}');
   // 字号 / 行距（0＝原样）：只动气泡里的字，线下、通话那几处各有各的字号，不跟着变
@@ -202,6 +206,16 @@ function ChatLayoutFields({ layout, setLayout, taName, meNote, onPeek, group }) 
     group ? null : pick("name", "名字", [[false, "不写"], [true, "写在连发第一条上面"]]),
     pick("time", "中间那行时间", [["show", "显示"], ["hide", "藏起来"]]),
     pick("gap", "连发间距", [["normal", "原样"], ["tight", "贴紧"], ["loose", "每串之间多空一点"]]),
+    // 想要具体数字的：两条滑杆，拉过就以数字为准，「回原样」回到上面那一档
+    [["gapIn", "同一串里每条之间", 0, 40, 4], ["gapOut", "每串之间", 0, 60, 12]].map(([k, zh, lo, hi, dflt]) => {
+      const set = layout[k] != null && layout[k] !== "";
+      return h("div", { key: k, "data-wk": "laygap", "data-part": k, style: { marginTop: 8 } },
+        h("div", { className: "flex items-center justify-between", style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.sub, marginBottom: 4 } },
+          h("span", null, zh),
+          h("span", { className: "flex items-center", style: { gap: 8, color: t.fog } }, set ? layout[k] + " px" : "照上面那档",
+            set ? h("button", { onClick: () => setLay(k, null), className: "active:opacity-60", style: { minHeight: 32, fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.accent } }, "回原样") : null)),
+        h("input", { type: "range", min: lo, max: hi, step: 1, value: set ? Number(layout[k]) : dflt, onChange: e => setLay(k, Number(e.target.value)), style: { width: "100%" } }));
+    }),
     pick("enter", "新消息进来的样子", [["none", "直接出现"], ["fade", "淡入"], ["rise", "从下往上浮"], ["pop", "轻轻弹一下"]]),
     pick("head", "顶栏", [["normal", "原样"], ["clear", "透明"], ["glass", "毛玻璃"]]),
     pick("composer", "输入栏", [["normal", "原样"], ["float", "悬浮圆角"], ["glass", "毛玻璃"]]),

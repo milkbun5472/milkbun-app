@@ -10164,6 +10164,7 @@ function sanitizeChatLayoutPatch(obj, knownRefs) {
   pick("enter", ["none", "fade", "rise", "pop"]); pick("head", ["normal", "clear", "glass"]); pick("composer", ["normal", "float", "glass"]);
   if (obj.fontSize != null && Number.isFinite(Number(obj.fontSize))) out.fontSize = Number(obj.fontSize) ? Math.max(12, Math.min(20, Number(obj.fontSize))) : 0;
   if (obj.lineHeight != null && Number.isFinite(Number(obj.lineHeight))) out.lineHeight = Number(obj.lineHeight) ? Math.max(1.2, Math.min(2.2, Number(obj.lineHeight))) : 0;
+  ["gapIn", "gapOut"].forEach(k => { if (obj[k] === null || obj[k] === "") out[k] = null; else if (obj[k] != null && Number.isFinite(Number(obj[k]))) out[k] = Math.max(0, Math.min(k === "gapIn" ? 40 : 60, Math.round(Number(obj[k])))); });
   if (obj.name != null) out.name = !!obj.name;
   if (obj.top != null && Number.isFinite(Number(obj.top))) out.top = Math.max(0, Math.min(240, Math.round(Number(obj.top))));
   const okImg = v => v === "" || /^https?:\/\/[^\s"'()<>]+$/i.test(String(v)) || (/^iv_[A-Za-z0-9_-]+$/.test(String(v)) && (knownRefs || []).indexOf(String(v)) >= 0);
