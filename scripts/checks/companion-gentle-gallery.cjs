@@ -13,6 +13,8 @@ await page.evaluate(async()=>{
  for(const dims of [{},Object.fromEntries(catalog.dims.map(d=>[d.key,d.min])),Object.fromEntries(catalog.dims.map(d=>[d.key,d.max]))])for(const outfit of outfits){
   doll.setLook({outfit,dims,hair:'bob',face:'cozy'});await doll.ready();
   const sleeve=doll.root.getObjectByName('DollBody').userData.skinCoverageUniforms.sleeve.value.clone(),neutralSleeve=neutral.root.getObjectByName('DollBody').userData.skinCoverageUniforms.sleeve.value.clone();
+  // 接掌承接已经举起的同侧手，不能从待机硬跳到接掌起始姿势。
+  if(name.startsWith('clap-'))for(let j=0;j<30;j++)doll.animate(time+=.04,{emotion:name.replace('clap-','five-'),progress:.5,height:0});
   let previous=null;
   for(let j=0;j<=40;j++){
    doll.animate(time+=.04,{emotion:name,progress:j/40,height:0});doll.root.updateWorldMatrix(true,true);window.gallery.report.frames++;
@@ -41,7 +43,7 @@ await page.evaluate(async()=>{
    if(v.y>-.68||v.z<.72||v.x<.03)throw Error('Hand hidden inside face/collar '+outfit+' '+JSON.stringify(v.toArray()));
   }
   const x=i%outfits.length*200,y=(2-Math.floor(i/outfits.length))*350;renderer.setViewport(x,y,200,350);renderer.setScissor(x,y,200,350);renderer.render(scene,camera);
-  const label=document.createElement('div');label.className='label';label.textContent=(name==='chin'?'托腮陪你':'摸头回应')+' · '+outfit+' · '+['默认','最小体型','最大体型'][Math.floor(i/outfits.length)];label.style=`position:absolute;left:${x+6}px;top:${Math.floor(i/outfits.length)*350+5}px;color:#45382d;font:12px sans-serif`;document.body.append(label);i++;
+  const label=document.createElement('div');label.className='label';label.textContent=name+' · '+outfit+' · '+['默认','最小体型','最大体型'][Math.floor(i/outfits.length)];label.style=`position:absolute;left:${x+6}px;top:${Math.floor(i/outfits.length)*350+5}px;color:#45382d;font:12px sans-serif`;document.body.append(label);i++;
   for(let j=0;j<50;j++)doll.animate(time+=.04,{height:0});neutral.setLook({outfit,dims,hair:'bob',face:'cozy'});await neutral.ready();neutral.animate(time,{height:0});
   const lower=doll.root.getObjectByName('rightForearm'),rest=neutral.root.getObjectByName('rightForearm');
   if(!doll.root.getObjectByName('DollBody').userData.skinCoverageUniforms.sleeve.value.equals(sleeve))throw Error('Sleeve coverage changed after pose '+outfit);
@@ -49,5 +51,5 @@ await page.evaluate(async()=>{
  }
 }};
 });
-for(const name of ['chin','headpat']){await page.evaluate(name=>gallery.render(name),name);await page.screenshot({path:out+'/'+name+'-outfits.png'});}const report=await page.evaluate(()=>gallery.report);assert.deepEqual(errors,[]);fs.writeFileSync(out+'/gallery.json',JSON.stringify(report,null,2));console.log(report);
+for(const name of (process.env.COMPANION_GALLERY_ACTIONS||'chin,headpat').split(',')){await page.evaluate(name=>gallery.render(name),name);await page.screenshot({path:out+'/'+name+'-outfits.png'});}const report=await page.evaluate(()=>gallery.report);assert.deepEqual(errors,[]);fs.writeFileSync(out+'/gallery.json',JSON.stringify(report,null,2));console.log(report);
 }finally{await browser.close();}})().catch(e=>{console.error(e);process.exit(1);});

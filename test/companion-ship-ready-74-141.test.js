@@ -11,7 +11,7 @@ const pet = R("apps/companion/pet.mjs"), shell = R("js/companion.js"), app = R("
 
 test("看不见就真的停：它是全 app 唯一常驻的 WebGL", () => {
   assert.match(pet, /document\.addEventListener\('visibilitychange'/);
-  assert.match(pet, /if\(document\.hidden\)\{r\.setAnimationLoop\(null\);return;\}/, "切后台要真停，不是只跳过一帧");
+  assert.match(pet, /if\(document\.hidden\)\{(?:cancelTouch\(\);interactions\.reset\(\);)?r\.setAnimationLoop\(null\);return;\}/, "切后台要真停，不是只跳过一帧");
   // 回到前台不许从半个动作里接着演
   assert.match(pet, /act=null;[^\n]*lastT=clock\.getElapsedTime\(\);nextAt=lastT\+1;lastDraw=-1;r\.setAnimationLoop\(frame\)/);
 });
