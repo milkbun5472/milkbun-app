@@ -15352,7 +15352,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       const gKickInviteHint = "\n【拉人和踢人】"
         + (_gOutside.length ? "群外认识的人：" + _gOutside.map(c => "「" + c.name + "」（" + members.filter(m => (rels || {})[m.id + "->" + c.id] || (rels || {})[c.id + "->" + m.id]).map(m => m.name).join("、") + " 认识）").join("、")
           + "。群里谁想把认识的人拉进来，在自己那条发言对象里加 \"invite\":\"那人的名字\"，只能拉自己认识的。" : "")
-        + (_gRoles.owner || _gRoles.admins.length ? "群主能把任何一个角色成员移出群聊，管理员只能移普通成员" + (_gImIn ? "，" + userName(profile) + "谁也移不了" : "") + "；真要踢，在自己那条发言对象里加 \"kick\":\"成员名\"。" : "")
+        + (_gRoles.owner || _gRoles.admins.length ? "群主能把群里任何一个人移出群聊" + (_gImIn ? "（" + userName(profile) + "也算，除非她自己是群主）" : "") + "，管理员只能移普通成员；群主谁也移不了。真要踢，在自己那条发言对象里加 \"kick\":\"成员名\"。" : "")
         + "拉人、踢人都是这个人照自己的性子、跟对方的关系、群里刚发生的事真会做的事，不是动不动就用；一轮里最多拉一个、踢一个。";
       const gRoleHint = (_gRoles.owner || _gRoles.admins.length) ? "\n【群主和管理员】"
         + (_gRoles.owner && (_gImIn || _gRoles.owner !== "me") && _gRoleName(_gRoles.owner) ? "群主是「" + _gRoleName(_gRoles.owner) + "」。" : "")
@@ -16539,6 +16539,18 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       if (nm && g && nm !== g.name) { renameGroup(groupId, nm); line(spk.name + " 把群名改成了「" + nm + "」"); }
     }
     // 踢人：群主、管理员才行，规矩跟禁言同一把尺（她和群主谁也踢不了）；一轮最多踢一个
+    // 她也能被踢（她 2026-10-26）：踢了就变成旁观，她自己在群设置里点「回到群里」就回来了
+    const _gKickG = (groupsRef.current || []).find(x => x.id === groupId);
+    if (item.kick && !(gKickedRef.current[groupId] || []).length && _gKickG && imInGroup(_gKickG) && String(item.kick).replace(/[「」"“”]/g, "").trim() === userName(profile)) {
+      const by = groupRoleOf(gs0, spk.id), me = groupRoleOf(gs0, "me");
+      if (me !== "owner" && (by === "owner" || (by === "admin" && !me))) {
+        gKickedRef.current[groupId] = ["me"];
+        updateGroup(groupId, { roomKind: "spectate" });
+        saveGroupSettings(groupId, { spectate: true });
+        line(spk.name + " 把 " + userName(profile) + " 移出了群聊");
+        toast("你被 " + spk.name + " 移出了群聊 · 群设置里点「回到群里」就能回去");
+      }
+    }
     if (item.kick && !(gKickedRef.current[groupId] || []).length) {
       const tg = pickMember(members, String(item.kick));
       const g = (groupsRef.current || []).find(x => x.id === groupId);
