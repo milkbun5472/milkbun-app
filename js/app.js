@@ -16916,6 +16916,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     return "这是一张【日常卡】：写你自己日子里真发生的一件事——不是你们已经发生过的事，也不是回忆。"
       + "这件事从你自己的生活里来：你的活儿、你在意的东西、你身边的人、你的选择，或者一点意外；它可以跟她一点关系都没有，你不必时时惦记着她。"
       + "写到她的时候，你俩的关系走到哪一步就写到哪一步，还没在一起就不写恋人之间的事，最近在别扭就别写得甜。衣服从你自己的衣柜里挑。"
+      + (card.kind === "mybday" ? "这一张是【她的生日】前后，你们俩之间的一刻：她在场，R 也写你们俩在一起的那一瞬间。照你们现在的关系来，还没在一起就不写恋人之间的事。为她的生日，你们俩的打扮都是特意的，不从衣柜里挑。shot 画的是你们两个人。" : "")
       + (card.kind === "bday" ? "这一张是你生日前后的一刻。衣服这次不从你衣柜里挑：生日卡是专门为这一天设计的限定造型——一眼看得出是特意的，比你平时隆重、细节多，面料、配饰、搭配都有讲究，同时还是你会穿、配你这个人的样子。" : "");
   };
   const STAMP_RARITY_SPEC = {
@@ -17074,7 +17075,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       // 满级的第二张（alt）：画剧情结局那一刻，不是第一张那一刻；mode=duo 是你们俩
       const endSec = (tx.sections || []).find(x => x && x.end && !x.hidden);
       const endWhat = endSec ? (endSec.beats || []).map(b => b.text || "").join("").slice(-300) : "";
-      const duo = alt && mode === "duo";
+      const duo = (alt && mode === "duo") || (card.kind === "mybday" && mode !== "solo");   // 她的生日卡：第一面就是你们俩
       const lover = spaceLover((couplesRef.current || {})[char.id]);
       let scene = alt
         ? "一张乙游满级纪念卡面：「" + (tx.name || "") + "」。画的是这段剧情走到结局时的那一刻：" + (endWhat || String(what).slice(0, 300)) + "\n跟第一张卡面不是同一刻，构图和光也换一套。"
@@ -17091,7 +17092,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       // 画风：卡池设置里挑的（空＝跟着这个人自己的设定；real＝写实照片；别的就是画风名）
       const paint = String(((StampsCoreSafe().opt || {}).paint) || "").trim();
       // IF 照主题穿；生日卡穿一身只属于这天的新打扮（她 2026-10-25：「乙游生日卡都出新衣服」）——这两种都不走衣柜
-      const freeFit = card.kind === "if" || card.kind === "bday";
+      const freeFit = card.kind === "if" || card.kind === "bday" || card.kind === "mybday";
+      if (card.kind === "mybday" && duo) scene += "\n这是她的生日卡：画面里是你们两个人，两个人都是为她生日特意的打扮，比平时隆重、细节讲究，又各是自己会穿的样子。";
       if (card.kind === "bday") scene += "\n这是他的生日限定卡面：他穿一身专门为这一天设计的造型，不照平时衣柜里那几身——一眼看得出是特意的，比平时隆重、细节多，面料、配饰、搭配都有讲究，同时还是他会穿、配他这个人的样子。";
       const base = freeFit ? Object.assign({}, char, { photoOutfit: "" }) : char;
       const prompt = buildPhotoPrompt(paint === "real" ? Object.assign({}, base, { photoStyle: "realistic" }) : base, scene,
@@ -33785,6 +33787,9 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     onDraw: (id, alt, mode) => stampDraw(id, alt, mode),
     onPoke: stampPoke,
     onInner: stampInner,
+    // 她的生日池：主面具一份，每张副面具一份；各自只抽认这张面具的那几个人
+    myBdays: [{ id: "main", name: profile.name || "你", birthday: profile.birthday, avatar: profile.avatarImage, charIds: liveChars.filter(c => !maskKeyOf(c.id)).map(c => c.id) }]
+      .concat((masks || []).filter(m => m && m.id && m.id !== maskPrimary).map(m => ({ id: m.id, name: String(m.name || "").trim() || "你", birthday: m.birthday, avatar: m.avatarImage, charIds: liveChars.filter(c => maskKeyOf(c.id) === m.id).map(c => c.id) }))),
     onBack: () => setScreen("home")
   });else if (screen === "zhaoying") body = h(window.ZhaoyingApp, {
     // 按头像发卡：卡落进跟他的聊天，他在后台做题，做完了点卡看他做（她 2026-10-22）

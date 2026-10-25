@@ -390,10 +390,14 @@
     const [begging, setBegging] = useState(false), [begLine, setBegLine] = useState("");
     const [paintDraft, setPaintDraft] = useState(null);
     useEffect(() => { const f = () => setSt(C().load()); window.addEventListener("stamps-change", f); return () => window.removeEventListener("stamps-change", f); }, []);
-    useEffect(() => { const got = C().grantOnOpen(Date.now(), characters.map(c => { const w = c.birthday ? C().bdayWindow(c.birthday, Date.now()) : null; return w ? { id: c.id, name: c.remark || c.name, year: w.year } : null; }).filter(Boolean)); if (got.length) { setGotNote(got); setSt(C().load()); } }, []);
+    useEffect(() => { const got = C().grantOnOpen(Date.now(), characters.map(c => { const w = c.birthday ? C().bdayWindow(c.birthday, Date.now()) : null; return w ? { id: c.id, name: c.remark || c.name, year: w.year } : null; }).filter(Boolean)
+      .concat((props.myBdays || []).map(m => { const w = m.birthday ? C().bdayWindow(m.birthday, Date.now()) : null; return w ? { id: "me_" + m.id, name: "你（" + (m.name || "你") + "）", year: w.year } : null; }).filter(Boolean))); if (got.length) { setGotNote(got); setSt(C().load()); } }, []);
     const lims = C().activeLimited(Date.now());
     // 生日池：他生日前 14 天出现，生日后留 7 天；保底和求情按「这个人这一年」单独记
-    const bds = characters.map(c => { const w = c.birthday ? C().bdayWindow(c.birthday, Date.now()) : null; return w ? { char: c, win: w, key: c.id + "_" + w.year } : null; }).filter(Boolean);
+    const bds = characters.map(c => { const w = c.birthday ? C().bdayWindow(c.birthday, Date.now()) : null; return w ? { char: c, win: w, key: c.id + "_" + w.year } : null; }).filter(Boolean)
+      // 她自己的生日池：每张面具一个，抽的是认这张面具的那几个人；卡都是你们俩的
+      .concat((props.myBdays || []).map(m => { const w = m.birthday ? C().bdayWindow(m.birthday, Date.now()) : null; const ids = (m.charIds || []).filter(id => characters.some(c => c.id === id));
+        return w && ids.length ? { char: { id: "me_" + m.id, name: m.name || "你", remark: m.name || "你", avatar: m.avatar }, win: w, key: "me_" + m.id + "_" + w.year, mine: true, maskId: m.id, charIds: ids } : null; }).filter(Boolean));
     const bd = pool.indexOf("bd:") === 0 ? bds.find(b => "bd:" + b.char.id === pool) : null;
     const lim = pool.indexOf("lim:") === 0 ? lims.find(L => "lim:" + L.id === pool) : null;
     const opt = st.opt || {};
@@ -407,6 +411,7 @@
     const ifMode = opt.ifMode || "random";
     // 限时池：跟角色池一样能单挑一个人抽；不挑就是勾了的人（不勾＝所有人）里随机
     const limIds = (opt.limPick && opt.limPick.length ? opt.limPick : characters.map(c => c.id)).filter(id => characters.some(c => c.id === id));
+    const mbOne = bd && bd.mine && bd.charIds.includes((opt.limOne || {})["me:" + bd.maskId]) ? opt.limOne["me:" + bd.maskId] : "";   // 她的生日池：可以只抽一个人
     const limOne = lim && (opt.limOne || {})[lim.id] && limIds.includes(opt.limOne[lim.id]) ? opt.limOne[lim.id] : "";
 
     // 求情：他回一句话（花一次调用），回到了就记下，下一张一定出
@@ -420,7 +425,7 @@
       const s = C().load();
       if (pool === "char" && !charTheme.trim()) { toast("先给 TA 写一个主题"); return; }
       if (pool === "char" && (thDraft != null || thLineDraft != null)) s.opt = Object.assign({}, s.opt, { charTheme: Object.assign({}, s.opt.charTheme, { [charId]: charTheme }), charThemeLine: Object.assign({}, s.opt.charThemeLine, { [charId]: charThemeLine }) });
-      const pool0 = bd ? [bd.char.id] : pool === "mix" ? mixIds : pool === "char" ? [charId] : (lim ? (limOne ? [limOne] : limIds) : []);
+      const pool0 = bd ? (bd.mine ? (mbOne ? [mbOne] : bd.charIds) : [bd.char.id]) : pool === "mix" ? mixIds : pool === "char" ? [charId] : (lim ? (limOne ? [limOne] : limIds) : []);
       if (!pool0.length) { toast("先挑几个角色"); return; }
       const how = opt.testInf ? "test" : C().pay(s, n, ticket);   // 测试券：她自己试味道用，藏在设置里连点七下「规则」
       if (!how) { toast("邮资不够：单抽 " + C().PRICE_ONE + "，十连 " + C().PRICE_TEN + "。多聊聊天就攒起来了"); return; }
@@ -428,13 +433,13 @@
       for (let i = 0; i < n; i++) {
         const rar = bd ? C().rollRarity(s, { bday: bd.key, isDay: bd.win.isDay }) : C().rollRarity(s);
         const cid = pool0[Math.floor(Math.random() * pool0.length)];
-        const card = { id: uid(), ts: now + i, rarity: rar, charId: cid, lv: 1, pool: bd ? "bday" : pool === "char" ? "char" : lim ? "limited" : "mix",
-          kind: bd ? "bday" : pool === "mix" ? "daily" : "if", writing: true, writingTs: now };
+        const card = { id: uid(), ts: now + i, rarity: rar, charId: cid, lv: 1, pool: bd ? (bd.mine ? "mybday" : "bday") : pool === "char" ? "char" : lim ? "limited" : "mix",
+          kind: bd ? (bd.mine ? "mybday" : "bday") : pool === "mix" ? "daily" : "if", writing: true, writingTs: now };
         if (pool === "char") Object.assign(card, { theme: charTheme.trim().slice(0, 40), themeLine: charThemeLine.slice(0, 200), ifMode });
-        if (bd) Object.assign(card, { bdDay: bd.win.day });
+        if (bd) Object.assign(card, { bdDay: bd.win.day }, bd.mine ? { maskId: bd.maskId } : {});
         if (lim) Object.assign(card, { theme: lim.name, themeLine: lim.line, limited: lim.id, ifMode });
         // 限定（限时池一期、生日池一年）每人只有一张 SSR：再抽到就是重复，不写新卡，折成印泥
-        const same = rar === "SSR" && (lim || bd) ? s.cards.concat(cards).find(x => x.rarity === "SSR" && !x.dupe && x.charId === cid && (lim ? x.limited === lim.id : x.pool === "bday" && x.bdDay === bd.win.day)) : null;
+        const same = rar === "SSR" && (lim || bd) ? s.cards.concat(cards).find(x => x.rarity === "SSR" && !x.dupe && x.charId === cid && (lim ? x.limited === lim.id : x.pool === (bd.mine ? "mybday" : "bday") && x.bdDay === bd.win.day && (!bd.mine || x.maskId === bd.maskId))) : null;
         if (same) { s.ink += C().DUPE_INK; cards.push(Object.assign({}, same, { id: uid(), ts: now + i, dupe: true, dupeOf: same.id })); continue; }
         cards.push(card);
       }
@@ -474,17 +479,21 @@
       .concat(lims.map(L => ({ key: "lim:" + L.id, zh: L.name, tag: "限时 · IF 卡", lim: L })));
     const cur = pools.find(p => p.key === pool) || pools[0];
     const charNow = charOf(charId);
-    const faces = bd ? [bd.char] : pool === "mix" ? mixIds.map(charOf).filter(Boolean) : pool === "char" ? (charNow ? [charNow] : []) : (limOne ? [charOf(limOne)] : limIds.map(charOf)).filter(Boolean);
+    const faces = bd ? (bd.mine ? (mbOne ? [mbOne] : bd.charIds).map(charOf).filter(Boolean) : [bd.char]) : pool === "mix" ? mixIds.map(charOf).filter(Boolean) : pool === "char" ? (charNow ? [charNow] : []) : (limOne ? [charOf(limOne)] : limIds.map(charOf)).filter(Boolean);
     // 生日池每人一点自己的颜色：有人设色用人设色，没有就按 id 算一个色相；只动海报里的辅助色，齿孔和版式不变
     const hx = (hh, ss, ll) => { ll /= 100; const a2 = ss * Math.min(ll, 1 - ll) / 100, f = n => { const k = (n + hh / 30) % 12; return Math.round(255 * (ll - a2 * Math.max(-1, Math.min(k - 3, 9 - k, 1)))).toString(16).padStart(2, "0"); }; return "#" + f(0) + f(8) + f(4); };
     const hueOf = c => { const m = /^#([0-9a-f]{6})$/i.exec(c.color || ""); if (m) { const r = parseInt(m[1].slice(0, 2), 16) / 255, g2 = parseInt(m[1].slice(2, 4), 16) / 255, b2 = parseInt(m[1].slice(4), 16) / 255, mx = Math.max(r, g2, b2), mn = Math.min(r, g2, b2); if (mx === mn) return 330; const d = mx - mn; const hh = mx === r ? ((g2 - b2) / d) % 6 : mx === g2 ? (b2 - r) / d + 2 : (r - g2) / d + 4; return Math.round(hh * 60 + 360) % 360; } let x = 0; for (const ch of String(c.id)) x = (x * 31 + ch.charCodeAt(0)) >>> 0; return x % 360; };
     const bdHue = bd ? hueOf(bd.char) : 0;
     const acc = bd ? hx(bdHue, 48, 80) : "#e6b8a2";
-    const tone = bd ? [hx((bd ? hueOf(bd.char) : 0), 28, 22), hx((bd ? hueOf(bd.char) : 0), 50, 80)] : pool === "mix" ? ["#2f4a46", "#7fa79a"] : pool === "char" ? [((charNow && charNow.color) || "#4a3d6b"), "#b9a7e0"] : ["#3a1f3d", "#e08a3a"];
+    const tone = bd ? [hx((bd ? hueOf(bd.char) : 0), 28, 22), hx((bd ? hueOf(bd.char) : 0), 50, 80)] : pool === "mix" ? ["#2f4a46", "#7fa79a"] : pool === "char" ? [((charNow && charNow.color) || "#4a3d6b"), "#b9a7e0"] : (cur.lim && cur.lim.deco === "autumn" ? ["#4a2e1c", "#d9a25a"] : ["#3a1f3d", "#e08a3a"]);
     const testInf = !!opt.testInf;
     const perf = c => "radial-gradient(circle at 6px 6px, transparent 4.6px, " + c + " 5px) -6px -6px / 12px 12px";
     // 限时池的节日装饰：只加在边角，不动整张模板（现在只有万圣夜：蝙蝠、南瓜、星星、蛛网）
     const deco = cur.lim && cur.lim.deco === "halloween";
+    const fall = cur.lim && cur.lim.deco === "autumn";   // 深秋：几片银杏和枫叶从海报上沿飘下来
+    const leaf = (x, y, sz, rot, col, k, maple) => h("svg", { key: k, viewBox: "0 0 24 24", style: { position: "absolute", left: x, top: y, width: sz, height: sz, transform: "rotate(" + rot + "deg)", opacity: .75, pointerEvents: "none" } },
+      maple ? h("path", { d: "M12 2l1.6 4 3-1.6-.8 3.6 3.6-.4-2 3 3 1.6-3.6 1 1 3.2-3.4-1.4L12 22l-1.4-7-3.4 1.4 1-3.2-3.6-1 3-1.6-2-3 3.6.4-.8-3.6 3 1.6z", fill: col })
+        : h("path", { d: "M12 21V13M12 13C7 13 3 9 4 4c3 3 5 2 8 0 3 2 5 3 8 0 1 5-3 9-8 9z", fill: col, stroke: col, strokeWidth: .6 }));
     const bat = (x, y, sc, k) => h("svg", { key: k, viewBox: "0 0 24 12", style: { position: "absolute", left: x, top: y, width: 26 * sc, opacity: .55 } }, h("path", { d: "M12 4c1-2 2-3 3-3-.5 1.5 0 2.5 1 3 1.5-1.5 4-2 8-1-2 1-3 3-3 5-1.5-1-3-1-4 1-1-1-2-1.5-3-1.5S10 7 9 8C8 6 6.5 6 5 7c0-2-1-4-3-5 4-1 6.5-.5 8 1 1-.5 1.5-1.5 1-3 1 0 2 1 1 4z", fill: "#e08a3a" }));
     const pumpkin = (x, y, sz, k) => h("svg", { key: k, viewBox: "0 0 24 24", style: { position: "absolute", left: x, top: y, width: sz, height: sz } },
       h("ellipse", { cx: 12, cy: 14, rx: 10, ry: 8, fill: "#e8892f" }), h("path", { d: "M12 6c0-2 1-3 2-3", stroke: "#4b6b2a", strokeWidth: 2, fill: "none" }),
@@ -495,7 +504,7 @@
     // 海报上那一句：说的是「抽了会得到什么」，不是玩法说明
     const regular = !cur.bd && !cur.lim;
     const titleLen = bd ? (bd.char.remark || bd.char.name).length + 2 : pool === "char" ? charTheme.trim().length + 2 : cur.zh.length;
-    const hook = bd ? (bd.win.isDay ? "就是今天。一年只有这一天，今年的他会留下什么样的瞬间？" : "一年只有一次的日子快到了。今年的他，又会留下什么不一样的瞬间？") : pool === "mix" ? "不同的人，不同的故事。下一封会是谁寄来的？" : pool === "char" ? (charThemeLine.trim() || (charNow ? "如果 " + (charNow.remark || charNow.name) + " 活在「" + (charTheme.trim() || "另一个世界") + "」里——" : "")) : (cur.lim.hook || cur.lim.line.split("。")[0] + "。");
+    const hook = bd && bd.mine ? (bd.win.isDay ? "生日快乐。今天这一池，每一张都是他们陪你过的。" : "你的生日快到了。这一池里的每一张，都是他们陪你过的那几天。") : bd ? (bd.win.isDay ? "就是今天。一年只有这一天，今年的他会留下什么样的瞬间？" : "一年只有一次的日子快到了。今年的他，又会留下什么不一样的瞬间？") : pool === "mix" ? "不同的人，不同的故事。下一封会是谁寄来的？" : pool === "char" ? (charThemeLine.trim() || (charNow ? "如果 " + (charNow.remark || charNow.name) + " 活在「" + (charTheme.trim() || "另一个世界") + "」里——" : "")) : (cur.lim.hook || cur.lim.line.split("。")[0] + "。");
     // 人：一个就放大；几个错落排，中间那个大一点、高一点（不排成整齐一行）
     const faceRow = faces.length === 1
       ? h("div", { style: { borderRadius: 12, padding: bd ? 1.5 : 3, background: deco ? "linear-gradient(135deg,#e08a3a,#6b2f6e)" : bd ? acc + "aa" : "rgba(255,255,255,.18)", boxShadow: "0 0 40px " + tone[1] + "88" } }, h(Avatar, { character: faces[0], size: 168, radius: 10 }))
@@ -515,6 +524,7 @@
         // 底纹：一圈圈的邮戳线，淡到像防伪纹，不抢人
         h("div", { style: { position: "absolute", inset: 0, opacity: .05, background: "repeating-radial-gradient(circle at 85% 18%, transparent 0 14px, " + tone[1] + " 14px 15px)" } }),
         deco ? [web].concat(stars) : null,
+        fall ? [leaf("72%", 10, 26, -20, "#d9a25a", "l1"), leaf("86%", 52, 18, 30, "#c06a3a", "l2", 1), leaf("60%", 86, 14, 60, "#e3c06a", "l3"), leaf(8, "70%", 22, -40, "#c06a3a", "l4", 1), leaf("80%", "78%", 20, 15, "#d9a25a", "l5")] : null,
         // 生日：边上一层淡金光，底下藏两道很淡的丝带
         bd ? h("svg", { key: "rib", viewBox: "0 0 100 160", preserveAspectRatio: "none", style: { position: "absolute", inset: 0, width: "100%", height: "100%", opacity: .16, pointerEvents: "none" } },
           h("path", { d: "M-5 120 C 25 95, 45 140, 70 112 S 105 90, 110 100", stroke: acc, strokeWidth: 1.2, fill: "none" }),
@@ -531,10 +541,10 @@
           h("div", { className: "flex items-end justify-between", style: { gap: 8 } },
           // 邮戳：常驻写「常驻」；限时写截止日和还剩多久，万圣夜那枚是南瓜色的限定戳
           h("div", { "data-wk": "stampcountdown", style: { order: 2, flexShrink: 0, marginLeft: "auto", width: bd ? 62 : regular ? 88 : 72, height: bd ? 62 : regular ? 48 : 72, marginBottom: bd ? 18 : 0, borderRadius: regular ? 4 : 999,
-            backgroundImage: regular ? "repeating-linear-gradient(0deg, transparent 0 5px, rgba(227,182,92,.13) 5px 6px)" : "none", border: (deco ? "2px dashed #e08a3a" : regular ? "1.5px double " + GOLD : bd ? "2px double " + acc + "" : "2px solid " + GOLD), outline: deco ? "1px solid #e08a3a66" : bd ? "1px dashed " + acc + "88" : "none", outlineOffset: 3, color: deco ? "#f0a24f" : bd ? acc : GOLD, transform: regular ? "rotate(-5deg)" : "rotate(-12deg)",
+            backgroundImage: regular ? "repeating-linear-gradient(0deg, transparent 0 5px, rgba(227,182,92,.13) 5px 6px)" : "none", border: (deco ? "2px dashed #e08a3a" : fall ? "2px dashed #d9a25a" : regular ? "1.5px double " + GOLD : bd ? "2px double " + acc + "" : "2px solid " + GOLD), outline: deco ? "1px solid #e08a3a66" : bd ? "1px dashed " + acc + "88" : "none", outlineOffset: 3, color: deco ? "#f0a24f" : bd ? acc : GOLD, transform: regular ? "rotate(-5deg)" : "rotate(-12deg)",
             display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", fontFamily: F_BODY, textAlign: "center", lineHeight: 1.25 } },
             cur.bd ? h(React.Fragment, null, h("div", { style: { fontSize: "calc(9.5px * var(--app-fs, 1))" } }, "生日邮戳"), h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))" } }, (d => (d.getMonth() + 1) + "." + d.getDate())(new Date(cur.bd.win.day))), h("div", { style: { fontSize: "calc(9px * var(--app-fs, 1))" } }, String(cur.bd.win.year)))
-            : cur.lim ? h(React.Fragment, null, h("div", { style: { fontSize: "calc(9.5px * var(--app-fs, 1))" } }, deco ? "万圣夜限定" : "限定"), h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))" } }, new Date(Date.parse(cur.lim.to) - 1).toLocaleDateString("zh-CN", { month: "numeric", day: "numeric" }) + " 止"), h("div", { style: { fontSize: "calc(9px * var(--app-fs, 1))" } }, "还剩 " + leftText(Date.parse(cur.lim.to) - Date.now())))
+            : cur.lim ? h(React.Fragment, null, h("div", { style: { fontSize: "calc(9.5px * var(--app-fs, 1))" } }, deco ? "万圣夜限定" : fall ? "深秋限定" : "限定"), h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))" } }, new Date(Date.parse(cur.lim.to) - 1).toLocaleDateString("zh-CN", { month: "numeric", day: "numeric" }) + " 止"), h("div", { style: { fontSize: "calc(9px * var(--app-fs, 1))" } }, "还剩 " + leftText(Date.parse(cur.lim.to) - Date.now())))
               : h(React.Fragment, null, h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(13px * var(--app-fs, 1))", letterSpacing: ".15em" } }, "常驻发行"), h("div", { style: { fontSize: "calc(9px * var(--app-fs, 1))", opacity: .85 } }, "已收录 " + (st.cards || []).length + " 枚"))),
           h("div", { style: { order: 1, minWidth: 0, paddingBottom: 4, fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", lineHeight: 1.6, color: "rgba(244,236,218,.6)" } },
             bd ? h("span", { style: { whiteSpace: "nowrap", color: acc } }, "生日限定 · 距结束 " + leftText(bd.win.close - Date.now())) : pool === "mix" ? "" : pool === "char" ? "IF 卡 · 衣服照主题来" : "IF 卡 · 下架后抽到的照样留着"))),
@@ -663,19 +673,23 @@
         // 角色池：在这儿就能换人，不用进设置
         pool === "char" ? h("div", { "data-wk": "stampcharpick", className: "flex overflow-x-auto", style: { gap: 8, padding: "12px 4px 0 72px" } },
           characters.map(c => h("button", { key: c.id, onClick: () => setCharId(c.id), className: "shrink-0 active:opacity-70", style: { borderRadius: 999, padding: 2, border: "2px solid " + (charId === c.id ? "#2f5d4a" : "transparent") } }, h(Avatar, { character: c, size: 38, radius: 999 })))) : null,
+        bd && bd.mine ? h("div", { "data-wk": "stampcharpick", "data-part": "mybday", className: "flex overflow-x-auto items-center", style: { gap: 8, padding: "12px 4px 0 72px" } },
+          h("button", { key: "rnd", onClick: () => setOpt({ limOne: Object.assign({}, opt.limOne, { ["me:" + bd.maskId]: "" }) }), className: "shrink-0 active:opacity-70",
+            style: { width: 42, height: 42, borderRadius: 999, border: "2px solid " + (!mbOne ? "#2f5d4a" : "rgba(47,42,34,.3)"), color: !mbOne ? "#2f5d4a" : "#2f2a22", fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))" } }, "随机"),
+          bd.charIds.map(charOf).filter(Boolean).map(c => h("button", { key: c.id, onClick: () => setOpt({ limOne: Object.assign({}, opt.limOne, { ["me:" + bd.maskId]: c.id }) }), className: "shrink-0 active:opacity-70", style: { borderRadius: 999, padding: 2, border: "2px solid " + (mbOne === c.id ? "#2f5d4a" : "transparent") } }, h(Avatar, { character: c, size: 38, radius: 999 })))) : null,
         lim ? h("div", { "data-wk": "stampcharpick", "data-part": "limited", className: "flex overflow-x-auto items-center", style: { gap: 8, padding: "12px 4px 0 72px" } },
           h("button", { key: "rnd", onClick: () => setOpt({ limOne: Object.assign({}, opt.limOne, { [lim.id]: "" }) }), className: "shrink-0 active:opacity-70",
             style: { width: 42, height: 42, borderRadius: 999, border: "2px solid " + (!limOne ? "#2f5d4a" : "rgba(47,42,34,.3)"), color: !limOne ? "#2f5d4a" : PAPER, fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))" } }, "随机"),
           limIds.map(charOf).filter(Boolean).map(c => h("button", { key: c.id, onClick: () => setOpt({ limOne: Object.assign({}, opt.limOne, { [lim.id]: c.id }) }), className: "shrink-0 active:opacity-70", style: { borderRadius: 999, padding: 2, border: "2px solid " + (limOne === c.id ? "#2f5d4a" : "transparent") } }, h(Avatar, { character: c, size: 38, radius: 999 })))) : null,
         h("div", { style: { margin: "12px 0 6px", textAlign: "center", fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: "rgba(47,42,34,.6)" } },
           bd ? (() => { const b = st.bday[bd.key] || {}, n = b.since || 0, H = C().BDAY.hard;
-              if (b.got) return "今年他的生日 SSR 已经到手了";
+              if (b.got) return bd.mine ? "今年你的生日 SSR 已经到手了" : "今年他的生日 SSR 已经到手了";
               return h("div", { "data-wk": "stamppity", style: { maxWidth: 300, margin: "0 auto" } },
                 h("div", { className: "flex justify-between", style: { color: "#a0614a" } }, h("span", null, "生日 SSR 保底"), h("span", null, n + " / " + H)),
                 h("div", { style: { marginTop: 4, height: 3, borderRadius: 9, background: "rgba(47,42,34,.12)" } }, h("div", { style: { width: Math.min(100, n / H * 100) + "%", height: "100%", borderRadius: 9, background: "linear-gradient(90deg,#c98f74,#f6dcc8)" } })),
-                h("div", { style: { marginTop: 4 } }, b.force ? "求过情了，下一封就是他的生日 SSR" : "再寄出 " + Math.max(1, H - n) + " 封，必得他的生日 SSR")); })()
+                h("div", { style: { marginTop: 4 } }, b.force ? "求过情了，下一封就是他的生日 SSR" : "再寄出 " + Math.max(1, H - n) + " 封，必得" + (bd.mine ? "一张你的生日 SSR" : "他的生日 SSR"))); })()
             : "再抽 " + Math.max(1, ssrLeft) + " 次一定出 SSR · 每十抽至少一张 SR"),
-        bd && C().canBeg(st, bd.key) ? h("div", { className: "flex justify-center" }, h("button", { "data-wk": "stampbeg", disabled: begging, onClick: () => doBeg(), className: "active:opacity-70 disabled:opacity-50",
+        bd && !bd.mine && C().canBeg(st, bd.key) ? h("div", { className: "flex justify-center" }, h("button", { "data-wk": "stampbeg", disabled: begging, onClick: () => doBeg(), className: "active:opacity-70 disabled:opacity-50",
           style: { marginTop: 2, padding: "6px 16px", borderRadius: 999, border: "1px solid #b0566e", color: "#b0566e", fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))" } }, begging ? "他在想…" : "去跟他求个情")) : null,
         begLine ? h("div", { "data-wk": "stampbegline", onClick: () => setBegLine(""), style: { margin: "8px 20px 0", padding: "10px 14px", borderRadius: 12, background: "rgba(176,86,110,.12)", border: "1px solid rgba(176,86,110,.4)", color: "#2f2a22", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", lineHeight: 1.7 } }, begLine) : null),
       // 底下两颗大键
