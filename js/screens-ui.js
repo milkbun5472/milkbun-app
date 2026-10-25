@@ -6387,6 +6387,39 @@ function changelogUnseen(list) {
   let seen = ""; try { seen = localStorage.getItem(CHANGELOG_SEEN) || ""; } catch (e) {}
   return seen < top;
 }
+// 往期公告（她 2026-10-25：「要不要把往期公告折叠了，因为以后来新人看不到」）：
+//   公告只在公共版（qiuqiu-release 的 notice.js，挂 window.QQ_NOTICES，新的在最前）；弹窗只弹最新那一则，
+//   旧的都收在这儿。默认折成一行，点开是标题，再点一则看全文。家里没有公告，这一块就不出现。
+function noticeLine(t, line, k) {
+  if (line && line.head) return h("div", { key: k, style: { fontFamily: F_DISPLAY, fontSize: "calc(14.5px * var(--app-fs, 1))", color: t.ink, margin: "12px 0 4px" } }, line.head);
+  // **这样** 包起来的是重点；旧写法 { strong, text } 也认
+  const str = typeof line === "string" ? line : String((line && line.text) || "");
+  const parts = typeof line === "string" ? str.split(/\*\*(.+?)\*\*/) : (() => { const i = str.indexOf(line.strong); return i < 0 ? [str] : [str.slice(0, i), line.strong, str.slice(i + line.strong.length)]; })();
+  return h("p", { key: k, style: { margin: "0 0 8px", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.sub, lineHeight: 1.75, whiteSpace: "pre-line" } },
+    parts.map((x, j) => j % 2 ? h("b", { key: j, style: { color: t.accent || t.ink, fontWeight: 600 } }, x) : x));
+}
+function NoticeArchive() {
+  const t = useTheme();
+  const list = Array.isArray(window.QQ_NOTICES) ? window.QQ_NOTICES : [];
+  const [open, setOpen] = useState(false);
+  const [one, setOne] = useState("");
+  if (!list.length) return null;
+  return h("div", { "data-wk": "clnotices", "data-on": open ? "1" : "0", style: { background: t.bg2, border: "1px solid " + CFG_LINE(t), borderRadius: 3, marginBottom: 12 } },
+    h("button", { "data-wk": "clnoticeshead", onClick: () => setOpen(o => !o), className: "w-full flex items-center active:opacity-70", style: { gap: 10, minHeight: 44, padding: "11px 12px", textAlign: "left" } },
+      h("span", { style: { fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))", color: t.ink } }, "秋秋的公告"),
+      h("span", { className: "flex-1", style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog } }, list.length + " 则 · 错过的都在这儿"),
+      h("span", { "aria-hidden": "true", style: { color: t.fog, fontSize: "calc(12px * var(--app-fs, 1))", transform: open ? "rotate(90deg)" : "none", transition: "transform .15s" } }, "›")),
+    open ? h("div", { style: { padding: "0 12px 8px" } }, list.map(n => {
+      const on = one === n.id;
+      return h("div", { key: n.id, "data-wk": "clnotice", "data-on": on ? "1" : "0", style: { borderTop: "1px solid " + CFG_LINE(t) } },
+        h("button", { "data-wk": "clnoticetitle", onClick: () => setOne(on ? "" : n.id), className: "w-full flex items-center active:opacity-70", style: { gap: 8, minHeight: 42, padding: "9px 0", textAlign: "left" } },
+          h("span", { className: "flex-1 min-w-0", style: { fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", color: t.ink } }, n.title),
+          n.d ? h("span", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, flexShrink: 0 } }, changelogDay(n.d)) : null),
+        on ? h("div", { "data-wk": "clnoticebody", style: { padding: "2px 0 10px" } },
+          (n.lines || []).map((ln, k) => noticeLine(t, ln, k)),
+          n.sign ? h("div", { style: { textAlign: "right", fontFamily: F_DISPLAY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.fog } }, n.sign) : null) : null);
+    })) : null);
+}
 function ChangelogView({ list }) {
   const t = useTheme();
   const all = Array.isArray(list) ? list : [];
@@ -6432,6 +6465,7 @@ function ChangelogView({ list }) {
   useEffect(() => { if (all[0]) { try { localStorage.setItem(CHANGELOG_SEEN, all[0].d); } catch (e) {} } }, []);
   const toggle = d => setOpen(o => Object.assign({}, o, { [d]: !o[d] }));
   return h("div", { "data-wk": "cldays", style: { paddingTop: 12, paddingBottom: 30 } },
+    words.length ? null : h(NoticeArchive, null),
     h("input", { "data-wk": "clsearch", type: "search", value: q, onChange: e => setQ(e.target.value), placeholder: "搜一样东西，比如 片刻、亲属卡、照相馆",
       style: { width: "100%", background: t.bg2, color: t.ink, border: "1px solid " + t.line, borderRadius: 999, padding: "10px 14px", outline: "none", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", marginBottom: 10 } }),
     h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.7, marginBottom: 12 } },
