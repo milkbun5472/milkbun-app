@@ -11023,6 +11023,48 @@ function groupRoles(gs) {
   const admins = (Array.isArray(s.admins) ? s.admins : []).map(String).filter(x => x && x !== owner);
   return { owner, admins, mutes: s.mutes && typeof s.mutes === "object" ? s.mutes : {} };
 }
+// ── 群幸运字符（2026-10-26 群友许愿，照 QQ 群那个玩法）──
+//   全群一起养一个词：每 LUCKY_PER 条消息点亮一个字（文字、语音、表情包、照片都算，灰字系统行不算），
+//   一天最多算 LUCKY_DAY_CAP 条；一整天没人说话，熄掉一个。点满收进收藏本，再抽下一张。
+//   状态：{ word, lit, prog, day, dayN, lastDay, cards, book:[{word, ts}] }，存在 x_glucky[groupId]。
+const LUCKY_PER = 100, LUCKY_DAY_CAP = 200;
+function luckyUnits(word) { return Array.from(String(word || "")).filter(ch => /\S/.test(ch)); }
+function luckyDayKey(ts) { const d = new Date(ts || Date.now()); return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); }
+function luckyDayGap(a, b) { if (!a || !b) return 0; return Math.round((new Date(b + "T12:00:00") - new Date(a + "T12:00:00")) / 86400000); }
+// 先算熄灭：上次有人说话到今天之间整整空着的天数，每天熄一个
+function luckyDecay(st, today) {
+  const s = { ...(st || {}) }, ev = [];
+  const silent = s.lastDay ? luckyDayGap(s.lastDay, today) - 1 : 0;
+  if (s.word && silent > 0 && (s.lit > 0 || s.prog > 0)) {
+    const n = Math.min(s.lit || 0, silent);
+    s.lit = (s.lit || 0) - n; s.prog = 0;
+    if (n > 0) ev.push({ type: "fade", n });
+  }
+  return { st: s, ev };
+}
+// n 条新消息进来
+function luckyTick(st, n, today) {
+  const d = luckyDecay(st, today), s = d.st, ev = d.ev;
+  if (s.day !== today) { s.day = today; s.dayN = 0; }
+  s.lastDay = today;
+  const units = luckyUnits(s.word);
+  if (!s.word || !units.length) return { st: s, ev };
+  let room = Math.max(0, LUCKY_DAY_CAP - (s.dayN || 0)), k = Math.min(n, room);
+  s.dayN = (s.dayN || 0) + k;
+  s.prog = (s.prog || 0) + k;
+  s.lit = s.lit || 0;
+  while (s.prog >= LUCKY_PER && s.lit < units.length) {
+    s.prog -= LUCKY_PER;
+    ev.push({ type: "lit", idx: s.lit, ch: units[s.lit] });
+    s.lit++;
+  }
+  if (s.lit >= units.length) {
+    ev.push({ type: "done", word: s.word });
+    s.book = (s.book || []).concat([{ word: s.word, ts: Date.now() }]);
+    s.word = ""; s.lit = 0; s.prog = 0;
+  }
+  return { st: s, ev };
+}
 // 专属头衔（2026-10-26 群友许愿）：{id: "首席摸鱼官"}，id 是成员 id 或 "me"
 function groupTitleOf(gs, id) {
   const t = gs && gs.titles && id != null ? gs.titles[String(id)] : "";

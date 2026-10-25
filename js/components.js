@@ -18848,6 +18848,9 @@ function GroupOfflineMode({
 function GroupThread({
   onSuggestName,
   onDrawTitles,
+  lucky,
+  onDrawLucky,
+  onPickLucky,
   rerollNav,      // 重 Roll 留版（她 2026-10-10）：{pos, n}，跟单聊同一个形状
   onRerollFlip,
   locateAt,
@@ -19203,7 +19206,11 @@ function GroupThread({
     }
   }, h("span", {
     style: { overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }
-  }, group.name, gs.spectate ? " · 旁观中" : "", chatMode === "ooc" ? " · OOC" : chatMode === "narr" ? " · 旁白" : ""), h(IChevD, { size: 14, color: t.fog, wk: "headdim" })), h("div", {
+  }, group.name, gs.spectate ? " · 旁观中" : "", chatMode === "ooc" ? " · OOC" : chatMode === "narr" ? " · 旁白" : ""),
+    // 群幸运字符：点亮的字是实的，没点亮的是虚的
+    lucky && lucky.word && typeof luckyUnits === "function" ? h("span", { "data-wk": "gluckybadge", title: "群幸运字符", style: { flexShrink: 0, marginLeft: 4, padding: "0 6px", borderRadius: 999, border: "1px solid " + t.line, fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", letterSpacing: "0.05em" } },
+      luckyUnits(lucky.word).map((ch, i) => h("span", { key: i, "data-on": i < (lucky.lit || 0) ? "1" : "0", style: { color: i < (lucky.lit || 0) ? "#d9902b" : t.fog, opacity: i < (lucky.lit || 0) ? 1 : 0.45, fontWeight: i < (lucky.lit || 0) ? 700 : 400 } }, ch))) : null,
+    h(IChevD, { size: 14, color: t.fog, wk: "headdim" })), h("div", {
     // 出戏那一档是状态色，不交给皮肤（同单聊那处的理由）
     "data-wk": chatMode === "ooc" ? undefined : "headdim",
     style: {
@@ -19674,6 +19681,7 @@ function GroupThread({
   fwdView && h(ChatForwardSheet, { m: fwdView, onClose: () => setFwdView(null) }), sheet === "settings" && h(GroupSettingsSheet, {
     onSuggestName: onSuggestName,
     onDrawTitles: onDrawTitles,
+    lucky: lucky, onDrawLucky: onDrawLucky, onPickLucky: onPickLucky,
     gs: gs,
     group: group,
     characters: characters,
@@ -20099,7 +20107,7 @@ function RedPacketOpenSheet({ rp, meName, onClose }) {
 // 「译」键开关：全 App 一份（存本机），单聊设置和群设置里各放一颗，拨了立刻生效（她 2026-10-02）
 const transKeyOn = () => { try { return localStorage.getItem("x_noTranslate") !== "1"; } catch (e) { return true; } };
 const setTransKeyOn = on => { try { localStorage.setItem("x_noTranslate", on ? "" : "1"); } catch (e) {} };
-function GroupSettingsSheet({ onSuggestName, onDrawTitles, gs, group, characters, allChars, rels, msgCount, directives, onRemoveDirective, onSetDirectiveTurns, onSave, onSummarize, onAddMember, onKickMember, onSetPresence, onDelete, onClearChat, onClose }) {
+function GroupSettingsSheet({ onSuggestName, onDrawTitles, lucky, onDrawLucky, onPickLucky, gs, group, characters, allChars, rels, msgCount, directives, onRemoveDirective, onSetDirectiveTurns, onSave, onSummarize, onAddMember, onKickMember, onSetPresence, onDelete, onClearChat, onClose }) {
   const t = useTheme();
   const [interop, setInterop] = useState(!!gs.memoryInterop);
   const [privN, setPrivN] = useState(gs.privateCtxN || 0);
@@ -20339,6 +20347,37 @@ function GroupSettingsSheet({ onSuggestName, onDrawTitles, gs, group, characters
               className: "flex-1 outline-none", style: { minWidth: 0, background: "transparent", borderBottom: "1px solid " + t.line, padding: "5px 2px", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.ink } }))),
           h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginTop: 4 } }, "「抽个头衔」花一次调用，照各人的人设和最近在群里干的事起，抽完还能改；点右上角的勾才生效。")));
     })(),
+    onDrawLucky ? (() => {
+      const lk = lucky || {}, units = typeof luckyUnits === "function" ? luckyUnits(lk.word) : [];
+      const per = typeof LUCKY_PER === "number" ? LUCKY_PER : 100, cap = typeof LUCKY_DAY_CAP === "number" ? LUCKY_DAY_CAP : 200;
+      const today = typeof luckyDayKey === "function" ? luckyDayKey() : "";
+      const dayN = lk.day === today ? (lk.dayN || 0) : 0;
+      const picking = !lk.word && Array.isArray(lk.cards) && lk.cards.length && !(lk.picked >= 0);
+      const book = lk.book || [];
+      return gCard({ title: "群幸运字符", char: "符", tint: "#d9902b", state: lk.word ? "「" + lk.word + "」点亮 " + (lk.lit || 0) + "/" + units.length : picking ? "6 张卡等你翻" : "还没抽" + (book.length ? " · 收了 " + book.length + " 个" : "") },
+        "全群一起养一个词：每聊满 " + per + " 条点亮一个字，文字、语音、表情包、照片都算，你和他们说的都算；一天最多算 " + cap + " 条。一整天没人说话，会熄掉一个字。点满收进收藏本，再抽下一张。",
+        h("div", { "data-wk": "glucky", className: "pt-3" },
+          lk.word ? h("div", null,
+            h("div", { className: "flex flex-wrap", style: { gap: 6, justifyContent: "center", padding: "6px 0 10px" } },
+              units.map((ch, i) => { const on = i < (lk.lit || 0); return h("span", { key: i, "data-wk": "gluckychar", "data-on": on ? "1" : "0",
+                style: { width: 42, height: 50, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: F_DISPLAY, fontSize: "calc(22px * var(--app-fs, 1))",
+                  border: "1.5px solid " + (on ? "#d9902b" : t.line), background: on ? "#f6d38a55" : "transparent", color: on ? "#a8641a" : t.fog, boxShadow: on ? "0 0 12px #f2c46a88" : "none" } }, ch); })),
+            h("div", { style: { height: 6, borderRadius: 999, background: t.line, overflow: "hidden" } }, h("div", { style: { width: Math.min(100, ((lk.prog || 0) / per) * 100) + "%", height: "100%", background: "#d9902b" } })),
+            h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.sub, marginTop: 6 } },
+              "再聊 " + Math.max(0, per - (lk.prog || 0)) + " 条点亮下一个 · 今天算了 " + dayN + "/" + cap + " 条"))
+          : picking ? h("div", null,
+            h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.sub, marginBottom: 8 } }, "挑一张翻开："),
+            h("div", { style: { display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8 } },
+              lk.cards.map((w, i) => h("button", { key: i, "data-wk": "gluckycard", onClick: () => onPickLucky && onPickLucky(i), className: "active:opacity-70",
+                style: { height: 74, borderRadius: 12, border: "1.5px solid #d9902b", background: "repeating-linear-gradient(45deg, #f6d38a33, #f6d38a33 6px, transparent 6px, transparent 12px)", color: "#a8641a", fontFamily: F_DISPLAY, fontSize: "calc(24px * var(--app-fs, 1))" } }, "?"))))
+          : h("button", { "data-wk": "gluckydraw", onClick: () => onDrawLucky(), className: "w-full active:opacity-70", style: { minHeight: 44, borderRadius: 12, border: "1.5px solid #d9902b", color: "#a8641a", background: "transparent", fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))" } },
+              (book.length ? "抽下一张" : "抽一张") + " · 花一次调用"),
+          lk.word && lk.cards && lk.picked >= 0 ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginTop: 8 } }, "没翻的那几张：" + lk.cards.filter((_, i) => i !== lk.picked).join("、")) : null,
+          book.length ? h("div", { "data-wk": "gluckybook", className: "pt-4" },
+            h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog, marginBottom: 6 } }, "收藏本 · " + book.length + " 个"),
+            h("div", { className: "flex flex-wrap", style: { gap: 6 } }, book.slice().reverse().map((b, i) => h("span", { key: i, title: new Date(b.ts).toLocaleDateString(),
+              style: { padding: "4px 10px", borderRadius: 999, background: "#f6d38a44", color: "#a8641a", fontFamily: F_DISPLAY, fontSize: "calc(13px * var(--app-fs, 1))" } }, b.word)))) : null));
+    })() : null,
     _gMaskOpts.length > 1 ? gCard({ title: "我在这个群用哪张面具", char: "面", tint: "#4f6b78", state: ((_gMaskOpts.find(o => o.id === gMask) || _gMaskOpts[0]).name || "主面具") }, null,
       h("div", { "data-wk": "gmaskpick", className: "pt-3" },
         h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.7, marginBottom: 10 } },
