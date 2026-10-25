@@ -11243,7 +11243,7 @@ function ChatThread({
         isU && dsp.myAvatar && h(Avatar, { character: meAv, size: 40, radius: 10 }));
     };
     if (m.kind === "namecard") return cardRow(i, m, h(NameCardMsg, { m: m, characters: characters, onOpen: onOpenNameCard ? () => onOpenNameCard(m.cardId) : null }));
-    if (m.kind === "pat") return h("div", {
+    if (m.kind === "pat" || m.kind === "patsig") return h("div", {
       key: i,
       // 长按出菜单（她 2026-10-02：拍一拍也要能撤回，跟别的消息撤回一样）
       onTouchStart: selMode ? undefined : () => startPress(i), onTouchEnd: endPress,
@@ -21138,6 +21138,7 @@ function ChatSettings({
   onSave,
   onClose,
   onClearMemory,
+  onGenPatSig,
   onSaveMemory,
   onClearChat,
   iBlocked,
@@ -21176,7 +21177,8 @@ function ChatSettings({
   // 我在这个聊天窗里的头像：跟上面那张对称，一个管TA、一个管我
   const [myChatAvatar, setMyChatAvatar] = useState(character.myChatAvatar || null);
   const [patSig, setPatSig] = useState(character.patSig || "");
-  const [myPatSig, setMyPatSig] = useState(character.myPatSig || "");   // 他拍你时，你那半句后缀（她 2026-10-25）
+  const [myPatSig, setMyPatSig] = useState(character.myPatSig || "");
+  const [patGenBusy, setPatGenBusy] = useState(false);   // 他拍你时，你那半句后缀（她 2026-10-25）
   const [ctxN, setCtxN] = useState(settings.ctxN || 50);
   const [sumThresh, setSumThresh] = useState(settings.sumThresh || 150);
   const [sumBuffer, setSumBuffer] = useState(settings.sumBuffer || 20);
@@ -21822,7 +21824,11 @@ function ChatSettings({
         myChatAvatar ? "只在跟 " + cNm + " 的这个聊天窗里用这张，你自己资料那张不动。点「移除照片」就用回原来那张。" : "没单独设就用你资料里那张。设了只在这个聊天窗里换，别处不变。"))),
   /*#__PURE__*/React.createElement(LineField, {
     zh: "拍一拍签名",
-    en: "Nudge"
+    en: "Nudge",
+    // 让他自己起（她 2026-10-25）：起好填进框里，不满意直接改
+    right: onGenPatSig ? h("button", { "data-wk": "patsiggen", disabled: patGenBusy, onClick: async () => { if (patGenBusy) return; setPatGenBusy(true);
+      try { const v = await onGenPatSig(); if (v) setPatSig(v); else window.__toast && window.__toast("他没想好，再点一次试试"); } catch (e) { window.__toast && window.__toast("没起好：" + (e.message || e)); } finally { setPatGenBusy(false); } },
+      className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.tint || t.ink, opacity: patGenBusy ? .5 : 1 } }, patGenBusy ? "在想…" : "让他自己起") : null
   }, /*#__PURE__*/React.createElement(LineInput, {
     value: patSig,
     onChange: e => setPatSig(e.target.value),
