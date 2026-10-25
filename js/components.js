@@ -20161,6 +20161,7 @@ function GroupSettingsSheet({ onSuggestName, onDrawTitles, lucky, onDrawLucky, o
   const [gMutes, setGMutes] = useState(_gR0.mutes);
   const [gTitles, setGTitles] = useState(() => ({ ...((gs && gs.titles) || {}) }));
   const [gDrawing, setGDrawing] = useState(false);
+  const [gLuckyBusy, setGLuckyBusy] = useState(false);   // 抽字符要等模型回话，等的时候键上写着在抽，别让人以为卡了再点一次
   // 我在这个群用哪张面具（她 2026-10-12）：一个群只戴一张脸。没挑过、又刚好全员都认同一张副面具，就默认那一张
   const _gMaskOpts = typeof window.__momentMasks === "function" ? window.__momentMasks() : [];
   const _gMk = id => typeof window.__maskKeyOf === "function" ? String(window.__maskKeyOf(id) || "") : "";
@@ -20378,8 +20379,8 @@ function GroupSettingsSheet({ onSuggestName, onDrawTitles, lucky, onDrawLucky, o
             h("div", { style: { display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8 } },
               lk.cards.map((w, i) => h("button", { key: i, "data-wk": "gluckycard", onClick: () => onPickLucky && onPickLucky(i), className: "active:opacity-70",
                 style: { height: 74, borderRadius: 12, border: "1.5px solid #d9902b", background: "repeating-linear-gradient(45deg, #f6d38a33, #f6d38a33 6px, transparent 6px, transparent 12px)", color: "#a8641a", fontFamily: F_DISPLAY, fontSize: "calc(24px * var(--app-fs, 1))" } }, "?"))))
-          : h("button", { "data-wk": "gluckydraw", onClick: () => onDrawLucky(), className: "w-full active:opacity-70", style: { minHeight: 44, borderRadius: 12, border: "1.5px solid #d9902b", color: "#a8641a", background: "transparent", fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))" } },
-              (book.length ? "抽下一张" : "抽一张") + " · 花一次调用"),
+          : h("button", { "data-wk": "gluckydraw", disabled: gLuckyBusy, onClick: async () => { if (gLuckyBusy) return; setGLuckyBusy(true); try { await onDrawLucky(); } finally { setGLuckyBusy(false); } }, className: "w-full active:opacity-70 disabled:opacity-60", style: { minHeight: 44, borderRadius: 12, border: "1.5px solid #d9902b", color: "#a8641a", background: "transparent", fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))" } },
+              gLuckyBusy ? "洗牌中…要等十几秒" : (book.length ? "抽下一张" : "抽一张") + " · 花一次调用"),
           lk.word && lk.cards && lk.picked >= 0 ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginTop: 8 } }, "没翻的那几张：" + lk.cards.filter((_, i) => i !== lk.picked).join("、")) : null,
           book.length ? h("div", { "data-wk": "gluckybook", className: "pt-4" },
             h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog, marginBottom: 6 } }, "收藏本 · " + book.length + " 个"),

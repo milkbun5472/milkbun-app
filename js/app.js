@@ -16732,8 +16732,17 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     } catch (e) { toast("起名失败：" + e.message); return ""; }
   };
   // 抽群幸运字符：一次起 6 个词，翻开一张定下来，另外五张跟着亮出来看看
+  const luckyDrawingRef = useRef({});
   const drawLucky = async groupId => {
     if (!active) { toast("请先到设置配置 API"); return; }
+    // 正在抽的那一次还没回来，别再起一次（她 2026-10-26：第一次点了像卡住，重开再点，抽出来的是另一套）
+    if (luckyDrawingRef.current[groupId]) { toast("还在洗牌，等一下"); return; }
+    const _stNow = luckyOf(groupId);
+    if (!_stNow.word && Array.isArray(_stNow.cards) && _stNow.cards.length && !(_stNow.picked >= 0)) return;   // 上一套还摆着没翻，接着翻那套
+    luckyDrawingRef.current[groupId] = true;
+    try { await drawLuckyRun(groupId); } finally { delete luckyDrawingRef.current[groupId]; }
+  };
+  const drawLuckyRun = async groupId => {
     const g = (groupsRef.current || []).find(x => x.id === groupId);
     if (!g) return;
     const st = luckyOf(groupId);
