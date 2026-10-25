@@ -55,3 +55,21 @@ test("红点：这台手机看过最新那天就不亮；本机游标用 qq_ 键
   assert.equal(unseen([{ d: "2026-10-25", items: ["z"] }].concat(list)), true, "又有新的一天再亮");
   assert.equal(unseen([]), false);
 });
+
+// 她 2026-10-24「你这个也加上吧」：秋秋答得上「最近更新了啥」「某样什么时候有的」
+test("秋秋：问更新时带上日志（最近五天＋沾边的旧条），不问就一个字不带", () => {
+  const a = R("js/assistant.js");
+  const seg = a.slice(a.indexOf("const CHANGELOG_ASK"), a.indexOf("  // ── 秋秋记着的"));
+  const memGramsSrc = a.slice(a.indexOf("const memGrams = "), a.indexOf("\n", a.indexOf("const memGrams = ")));
+  const w = { QQ_CHANGELOG: loadList() };
+  const block = new Function("window", memGramsSrc + "\n" + seg + "\nreturn changelogBlock;")(w);
+  assert.equal(block("帮我把气泡改成粉色"), "", "不问更新时不该带");
+  const recent = block("最近更新了啥");
+  assert.match(recent, /【更新日志/);
+  assert.match(recent, /10月24日/, "最近那天没带上");
+  const old = block("片刻是什么时候有的");
+  assert.match(old, /10月7日 · 新 app「片刻」/, "问某样东西什么时候有的，得翻到头一回那天");
+  // 接线：拼进秋秋的系统提示；日志没下好时先拉那一组
+  assert.match(a, /\+ \(\(\) => \{ const cl = changelogBlock\(question\); return cl \? cl \+ "\\n\\n" : ""; \}\)\(\)/);
+  assert.match(a, /if \(window\.LazyMods && !window\.QQ_CHANGELOG && CHANGELOG_ASK\.test\(String\(text \|\| ""\)\)\) await window\.LazyMods\.load\("screens"\)/);
+});
