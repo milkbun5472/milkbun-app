@@ -26637,7 +26637,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     const tail = (Array.isArray(rows) ? rows : []).filter(m => m && !m.recalled).slice(-(lookback || FRESH_PHOTO_LOOKBACK));
     for (let i = tail.length - 1; i >= 0; i--) {
       const m = tail[i];
-      if (m && m.role === "user" && m.kind === "photo" && m.imageRef) return m;
+      // 她生成的自拍画好后也带 imageRef（2026-10-25）：跟真照片一样能被他换成锁屏、头像
+      if (m && m.role === "user" && (m.kind === "photo" || m.kind === "selfie") && m.imageRef) return m;
     }
     return null;
   };
@@ -26649,7 +26650,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     const got = [];
     for (let i = tail.length - 1; i >= 0 && got.length < 2; i--) {
       const m = tail[i];
-      if (m && m.role === "user" && m.kind === "photo" && m.imageRef) got.unshift(m);
+      if (m && m.role === "user" && (m.kind === "photo" || m.kind === "selfie") && m.imageRef) got.unshift(m);
     }
     return got.length === 2 ? got : null;
   };

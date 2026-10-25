@@ -31,3 +31,9 @@ test("也能选「别人拍的」第三人角度（2026-10-25「比如我在做�
   assert.match(app, /if \(meShot\) photoKind = photoKind === "myself" \? "self" : "other";/);
   assert.match(app, /pov: meShot && !mySelf \? povFor\(realChar\) : null/);
 });
+test("她的生成自拍跟真照片一样能被他换成锁屏、头像、情头（2026-10-25）", () => {
+  const a = app.slice(app.indexOf("const freshPhotoIn"), app.indexOf("const freshUserPhoto"));
+  assert.match(a, /\(m\.kind === "photo" \|\| m\.kind === "selfie"\) && m\.imageRef\) return m;/);
+  const b = app.slice(app.indexOf("const freshPhotoPairIn"), app.indexOf("const freshPhotoPairIn") + 600);
+  assert.match(b, /\(m\.kind === "photo" \|\| m\.kind === "selfie"\) && m\.imageRef\) got\.unshift\(m\)/);
+});

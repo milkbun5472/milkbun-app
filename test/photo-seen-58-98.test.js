@@ -35,7 +35,7 @@ test("她这一轮没发照片就一个字都不发", () => {
 
 // 「真觉得好才换」——提示词只能降概率，代码这一道给的是硬闸
 test("三道硬闸：只认刚发的真照片 / 冷却 / 主动轮不发", () => {
-  assert.match(helpers, /if \(m && m\.role === "user" && m\.kind === "photo" && m\.imageRef\) return m;/,
+  assert.match(helpers, /if \(m && m\.role === "user" && \(m\.kind === "photo" \|\| m\.kind === "selfie"\) && m\.imageRef\) return m;/,  // 她生成的自拍画好也带 imageRef（2026-10-25），一样要有真像素才算
     "描述式照片（没有 imageRef）也算数了");
   // ⚠️别冻实现形状（v58.100 抽成 freshPhotoIn 给线上线下共用）：要证的是【只翻最近几条】
   assert.match(helpers, /\.slice\(-\(lookback \|\| FRESH_PHOTO_LOOKBACK\)\)/, "翻了整本聊天记录——几个月前那张也会被当成「刚发的」");
