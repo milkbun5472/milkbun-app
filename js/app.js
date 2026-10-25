@@ -15304,16 +15304,19 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         + "没被约到的人不填，各人只答自己的。" : "";
       // 群主和管理员（群友 2026-10-25）：谁是群主、谁是管理员、谁正被禁言着——成员都知道，说话照这个来
       const _gRoles = groupRoles(gs);
+      const _gImIn = imInGroup(group) && !gs.spectate;
       const _gRoleName = id => id === "me" ? userName(profile) : ((members.find(c => c.id === id) || {}).name || "");
       const _gMutedNow = members.filter(c => groupMutedLeft(gs, c.id) > 0);
       const gRoleHint = (_gRoles.owner || _gRoles.admins.length) ? "\n【群主和管理员】"
-        + (_gRoles.owner && _gRoleName(_gRoles.owner) ? "群主是「" + _gRoleName(_gRoles.owner) + "」。" : "")
-        + (_gRoles.admins.length ? "管理员：" + _gRoles.admins.map(_gRoleName).filter(Boolean).map(n => "「" + n + "」").join("、") + "。" : "")
+        + (_gRoles.owner && (_gImIn || _gRoles.owner !== "me") && _gRoleName(_gRoles.owner) ? "群主是「" + _gRoleName(_gRoles.owner) + "」。" : "")
+        + (_gRoles.admins.length ? "管理员：" + _gRoles.admins.filter(id => _gImIn || id !== "me").map(_gRoleName).filter(Boolean).map(n => "「" + n + "」").join("、") + "。" : "")
         + "这是群里人人看得见的身份，各人照自己的性子对待它：当回事、拿来开玩笑、根本不在乎都行。"
         + (_gRoles.owner && _gRoles.owner !== "me" ? "群主想改群名时，在自己那条发言对象里加 \"rename\":\"新群名\"（会落一行「改了群名」）。"
           + (() => { const g0 = (groupsRef.current || []).find(x => x.id === groupId) || {}; const used = [...(g0.oldNames || []), g0.name].filter(Boolean);
               return used.length ? "现在叫「" + g0.name + "」" + ((g0.oldNames || []).length ? "，以前叫过" + g0.oldNames.map(x => "「" + x + "」").join("、") : "") + "；真要改就改成一个不一样的，别在这几个上换个字。" : ""; })() : "")
-        + "群主可以禁言任何一个角色成员，管理员只能禁言普通成员；" + userName(profile) + "和群主谁也禁不了。真要禁言某人，在自己那条发言对象里加 \"mute\":{\"name\":\"成员名\",\"minutes\":分钟数}，解禁加 \"unmute\":\"成员名\"。"
+        + "群主可以禁言任何一个成员，管理员只能禁言普通成员；群主谁也禁不了"
+        // ⚠️旁观群里她不在场：这一句提到她的名字，成员就当群里多了个一直不说话的「新来的」（群友 2026-10-25 截图）
+        + (_gImIn ? "，" + userName(profile) + "也禁不了" : "") + "。真要禁言某人，在自己那条发言对象里加 \"mute\":{\"name\":\"成员名\",\"minutes\":分钟数}，解禁加 \"unmute\":\"成员名\"。"
         + "这是这个人照自己的性子和此刻的处境会不会真动手的事，不是每次有分歧都要用。"
         + (_gMutedNow.length ? "现在被禁言的：" + _gMutedNow.map(c => "「" + c.name + "」还剩约 " + Math.ceil(groupMutedLeft(gs, c.id) / 60000) + " 分钟").join("、") + "——禁言期间这个人发不出消息，不要给他写发言。" : "")
         : "";
