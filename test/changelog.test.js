@@ -105,3 +105,19 @@ test("搜到的长条只显示关键词那一段", () => {
   assert.match(v, /"data-wk": "clfull"/);
   assert.match(R("js/theme-studio.js"), /\["clfull", "/);
 });
+
+// 她 2026-10-25「要不要把往期公告折叠了，因为以后来新人看不到」
+test("往期公告：日志页顶上折一行，只读公共版那份 QQ_NOTICES；搜的时候不出现", () => {
+  const scr = R("js/screens-ui.js");
+  const v = scr.slice(scr.indexOf("function NoticeArchive("), scr.indexOf("function ChangelogView("));
+  assert.match(v, /const list = Array\.isArray\(window\.QQ_NOTICES\) \? window\.QQ_NOTICES : \[\];/);
+  assert.match(v, /if \(!list\.length\) return null;/, "家里没有公告时这一块不该出现");
+  assert.match(v, /const \[open, setOpen\] = useState\(false\);/, "默认得折着");
+  assert.match(scr, /words\.length \? null : h\(NoticeArchive, null\),/);
+  // 一行里的 **重点** 和旧写法 { strong, text } 都认
+  const nl = scr.slice(scr.indexOf("function noticeLine("), scr.indexOf("function NoticeArchive("));
+  assert.match(nl, /str\.split\(\/\\\*\\\*\(\.\+\?\)\\\*\\\*\/\)/);
+  assert.match(nl, /line\.strong/);
+  const ts = R("js/theme-studio.js");
+  ["clnotices", "clnoticeshead", "clnotice", "clnoticetitle", "clnoticebody"].forEach(k => assert.match(ts, new RegExp('\\["' + k + '", "')));
+});
