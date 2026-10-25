@@ -11402,7 +11402,7 @@ const STICKER_PAPER = "#fbf8f0", STICKER_INK = "#2f2a22";
 //   ——按首位取的话整页贴纸会歪成同一个角度，等于没歪，而且不报任何错。
 const tiltById = id => { const k = qhash(String(id || "")); return ((k.charCodeAt(k.length - 1) % 5) - 2) * 1.1; };
 
-function EmoteMatrix({ packs, characters, onBack, onAddPack, onUpdatePack, onDeletePack, onToggleChar, onImport, onAddImages, onMakeSet, onUncaptionPack, setBusy, onCaptionPack, onRenameEmote, onDeleteEmotes }) {
+function EmoteMatrix({ packs, characters, onBack, onAddPack, onUpdatePack, onDeletePack, onToggleChar, onImport, onAddImages, onMakeSet, onUncaptionPack, setBusy, onCaptionPack, onRenameEmote, onDeleteEmotes, onMoveEmotes }) {
   const [setPick, setSetPick] = useState(false);
   const [setCaption, setSetCaption] = useState(true);   // 画出来的每张底下印上名字
   const t = useTheme();
@@ -11544,6 +11544,12 @@ function EmoteMatrix({ packs, characters, onBack, onAddPack, onUpdatePack, onDel
                     on && h("span", { "data-wk": "emotilecheck", style: { position: "absolute", top: 5, right: 5, width: 20, height: 20, borderRadius: 999, background: t.accent, color: "#fff", fontSize: "calc(12px * var(--app-fs, 1))", display: "flex", alignItems: "center", justifyContent: "center" } }, "✓")),
                   h("div", { "data-wk": "emotilename", className: "truncate", style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: STICKER_INK, padding: "5px 7px" } }, em.keyword)));
             })),
+          // 挪到别的版：挑中几张后，底下一排别的版名字，点哪个挪去哪个
+          selMode && selEmotes.length > 0 && onMoveEmotes && list.length > 1 && h("div", { "data-wk": "emomove", style: { marginTop: 14 } },
+            h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.sub, marginBottom: 6 } }, "把这 " + selEmotes.length + " 张挪到："),
+            h("div", { style: { display: "flex", flexWrap: "wrap", gap: 8 } }, list.filter(p => p.id !== pack.id).map(p => h("button", { "data-wk": "emomoveto", key: p.id,
+              onClick: () => { if (onMoveEmotes(pack.id, selEmotes, p.id)) { setSelEmotes([]); setSelMode(false); } },
+              className: "active:opacity-70", style: { minHeight: 40, padding: "0 14px", borderRadius: 10, border: "1px solid " + t.line, background: t.bg2, color: t.ink, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))" } }, p.name || "未命名")))),
           selMode && selEmotes.length > 0 && h("button", { "data-wk": "emodelsel", onClick: () => { onDeleteEmotes(pack.id, selEmotes); setSelEmotes([]); setSelMode(false); }, className: "w-full active:opacity-70", style: { marginTop: 14, fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: "#fff", background: t.accent, borderRadius: 12, padding: "12px 0" } }, "撕掉选中的 " + selEmotes.length + " 张"),
           // ── 往这版上贴新的 ──
           note("往这版上贴新的"),
