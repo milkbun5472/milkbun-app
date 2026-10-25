@@ -10549,6 +10549,7 @@ function ChatThread({
   sending,
   onBack,
   onSend,
+  onGenMySelfie,
   onOpenState,
   schedNow,
   onOpenSched,
@@ -10650,7 +10651,9 @@ function ChatThread({
   const [specialKind, setSpecialKind] = useState(null); // photo
   const [specialText, setSpecialText] = useState("");
   const [specialImg, setSpecialImg] = useState("");
-  const [photoSendMode, setPhotoSendMode] = useState("real"); // real | describe
+  const [photoSendMode, setPhotoSendMode] = useState("real"); // real | describe | mine（生成我的自拍）| ask（叫 TA 拍）
+  const [askKind, setAskKind] = useState("self");
+  const [mySelfieBusy, setMySelfieBusy] = useState(false);
   const doodleImgRef = useRef("");   // 这张要发的是不是在他照片上画过的（发出去带 doodle，他能接一笔）
   // 照片上抠表情时要知道是谁的脸：单聊里那张就是这个人的
   useEffect(() => { window.__activeCharId = character && character.id; return () => { if (window.__activeCharId === (character && character.id)) window.__activeCharId = ""; }; }, [character && character.id]);
@@ -10777,6 +10780,7 @@ function ChatThread({
       setSpecialText("");
       setSpecialImg("");
       setPhotoSendMode("real");
+      setAskKind("self");
       setPanelOpen(false);
     } else if (k === "pat") {
       // 拍一拍：交给 app 侧 onPat（追加消息 + 触发角色真反应）；没接就退回只显示一行
@@ -10835,6 +10839,14 @@ function ChatThread({
       toast && toast("先从相册选一张，或直接拍一张");
       return;
     }
+    // 叫 TA 拍一张（她 2026-10-26）：发出去是她的一句话，带着 askPhoto，TA 回这一轮一定出那一种照片
+    if (specialKind === "photo" && photoSendMode === "ask") {
+      const dflt = { self: "拍张自拍给我看看", other: "想看你，找人帮你拍一张发我", duo: "发张我们俩的合照给我" }[askKind] || "拍张照片给我看看";
+      sendRich({ role: "user", content: v || dflt, askPhoto: { kind: askKind } });
+      setSpecialImg(""); setSpecialText(""); setSpecialKind(null);
+      return;
+    }
+    if (specialKind === "photo" && photoSendMode === "mine") { toast && toast("先点「生成」，画好了再发"); return; }
     if (specialKind === "photo" && photoSendMode === "describe" && !v) {
       toast && toast("写一句照片里有什么，角色才看得见");
       return;
@@ -11890,10 +11902,20 @@ function ChatThread({
     color: t.ink
   }))), specialKind === "photo" ? h("div", null,
     h("div", { "data-wk": "block", className: "flex gap-2 mb-3", style: { background: t.bg, borderRadius: 11, padding: 4 } },
-      [["real", "发送真照片"], ["describe", "只发文字描述"]].map(([id, label]) => h("button", {
+      [["real", "真照片"], ["describe", "文字描述"], ["mine", "生成我的自拍"], ["ask", "叫 TA 拍"]].filter(([id]) => id !== "mine" || !!onGenMySelfie).map(([id, label]) => h("button", {
         key: id, onClick: () => setPhotoSendMode(id), className: "flex-1 active:opacity-75",
         style: { padding: "8px 5px", borderRadius: 8, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: photoSendMode === id ? t.bg2 : t.fog, background: photoSendMode === id ? t.ink : "transparent" }
       }, label))),
+    photoSendMode === "ask" && h("div", { "data-wk": "askphotokind", className: "flex gap-2 mb-3" },
+      [["self", "自拍"], ["other", "拍他"], ["duo", "合照"]].map(([id, label]) => h("button", { key: id, "data-on": askKind === id ? "1" : "0", onClick: () => setAskKind(id), className: "flex-1 active:opacity-75",
+        style: { minHeight: 36, borderRadius: 999, border: "1px solid " + (askKind === id ? t.ink : t.line), background: askKind === id ? t.ink : "transparent", color: askKind === id ? t.bg2 : t.sub, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))" } }, label))),
+    photoSendMode === "mine" && h("button", { "data-wk": "genmyselfie", disabled: mySelfieBusy, onClick: async () => {
+        setMySelfieBusy(true);
+        try { const u = await onGenMySelfie(specialText.trim()); setSpecialImg(u); setPhotoSendMode("real"); toast && toast("画好了，看看满不满意再发"); }
+        catch (e) { toast && toast("没画出来：" + ((e && e.message) || "再试一次")); }
+        finally { setMySelfieBusy(false); } },
+      className: "w-full active:opacity-75 mb-3", style: { minHeight: 44, borderRadius: 12, border: "1px dashed " + t.line, background: "transparent", color: t.tint, fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", opacity: mySelfieBusy ? .6 : 1 } },
+      mySelfieBusy ? "画着…" : "生成（照下面写的样子，不写就随手一张）"),
     h("input", { ref: photoFileRef, type: "file", accept: "image/*", style: { display: "none" }, onChange: e => {
       const f = e.target.files && e.target.files[0];
       if (f) resizeImageFile(f, 1600, 0.86).then(setSpecialImg).catch(() => toast && toast("这张照片没能读出来，换一张试试"));
@@ -11901,7 +11923,7 @@ function ChatThread({
     } }),
     photoSendMode === "real" && h("button", { "data-wk": "block", onClick: () => photoFileRef.current && photoFileRef.current.click(), className: "w-full active:opacity-75", style: { minHeight: 150, borderRadius: 12, overflow: "hidden", background: t.bg, border: `1px dashed ${t.line}`, display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 10 } },
       specialImg ? h("img", { src: specialImg, style: { display: "block", width: "100%", maxHeight: 280, objectFit: "contain" } }) : h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.8 } }, "点这里选择照片\n相机或相册都可以")),
-    h("input", { "data-wk": "input", value: specialText, onChange: e => setSpecialText(e.target.value), placeholder: photoSendMode === "real" ? "可以顺手说一句（选填）" : "描述照片里有什么（必填，不会上传图片）", className: "w-full outline-none px-3 py-2.5 rounded-lg", style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", background: t.bg, color: t.ink, border: `1px solid ${t.line}` } }),
+    h("input", { "data-wk": "input", value: specialText, onChange: e => setSpecialText(e.target.value), placeholder: photoSendMode === "ask" ? "想看什么（选填），比如此刻在干嘛" : photoSendMode === "mine" ? "想要什么样的自拍（选填）" : photoSendMode === "real" ? "可以顺手说一句（选填）" : "描述照片里有什么（必填，不会上传图片）", className: "w-full outline-none px-3 py-2.5 rounded-lg", style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", background: t.bg, color: t.ink, border: `1px solid ${t.line}` } }),
     photoSendMode === "describe" && h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.5, marginTop: 7 } }, "角色只会收到你的文字描述；不会读取相册，也不会上传真实照片。")
   ) : h("input", {
     value: specialText,

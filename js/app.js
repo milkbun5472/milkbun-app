@@ -13093,7 +13093,13 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       const _halfSeen = halfWinRef.current && halfWinRef.current.charId === charId && screenRef.current !== "thread" ? halfWinScreenText() : null;
       // 半窗：她一边开着别的页一边跟你聊（她 2026-10-06）。屏幕上的字是【她手机上此刻显示的】，都可以看。
       // 锁屏那句跟着半窗这句一起挂（只在她刚发图／他刚发照片那一轮非空）
-      const _halfHint = _lockHint + (_halfSeen ? "\n\n【她此刻在看的屏幕】她把聊天缩成了半窗，上半屏开着「" + _halfSeen.zh + "」，你看得到她屏幕上这会儿显示的东西：\n" + _halfSeen.text + "\n——她说的「这个」「这篇」「这里」多半指的是这一页上的东西；想聊就顺着聊，没提到就不扯。" : "");
+      // 她点名要一张照片（她 2026-10-26 群友许愿：照片那一格「叫 TA 拍一张」）：她最后那句带着 askPhoto，这一轮一定要出那一种照片
+      const _askPh = (() => { const lu = (history || []).slice().reverse().find(m => m && m.role === "user"); return lu && lu.askPhoto && lu.askPhoto.kind ? lu.askPhoto : null; })();
+      const _askPhotoHint = _askPh ? "\n\n【她这一句是在要一张照片·只这一轮】她点了「叫你拍一张」，要的是"
+        + ({ self: "你的自拍", other: "别人帮你拍的你", duo: "你们俩的合照" }[_askPh.kind] || "你的照片")
+        + "。这一轮 photo 一定要填，kind 填 " + (["self", "other", "duo"].includes(_askPh.kind) ? _askPh.kind : "self")
+        + "；画面照你此刻真实在哪、在做什么、穿什么来，她这句里要看什么就拍什么。嘴上怎么接照你这个人，愿不愿意都可以说，但照片要发。" : "";
+      const _halfHint = _askPhotoHint + _lockHint + (_halfSeen ? "\n\n【她此刻在看的屏幕】她把聊天缩成了半窗，上半屏开着「" + _halfSeen.zh + "」，你看得到她屏幕上这会儿显示的东西：\n" + _halfSeen.text + "\n——她说的「这个」「这篇」「这里」多半指的是这一页上的东西；想聊就顺着聊，没提到就不扯。" : "");
       const _normalTaskV2 = ("\n\n【本轮】你就是「" + char.name + "」。先想一下 TA 此刻怎么看她刚说的这句话，再从那个判断回过去；聊天先发生，状态随后记录。" + _halfHint + _stateBootstrapHint + _wearRefreshHint + paceHint + callHint + busyHint + proactiveHintAll + dongnianHint + gapHint + crossChannelHint + _saidElsewhereHint + eAfterglowHint + desireHint + _recallHint + _clockStampHint + capabilityHint + _normalThoughtTurnHint + "\n" + MOOD_TURN_RULE + _biTurnLine + _rerollHint + _threatTailHint + _bossTailHint + _seeThroughHint + _turnClosing + _gazeNudgeHint).replace(/用户/g, uName);
       const _roomHint = roomPromptFor(charId, room, true);
       // 线上导演便签：只给模型看，不算她说的话；放在本轮任务末尾，离生成最近
@@ -14556,6 +14562,22 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   // TA 发的一张照片：真的去画（聊天那一轮落一张「拍照中」之后调它；长按「只重拍这张图」也走它）。
   //   她 2026-10-01：「角色发照片那轮，长按图片只重 roll 图片、消息留着」——所以拆成单独一口，
   //   一轮里的话一个字不动，只换这一张的像素。keySuffix：重拍时换一个图库键，别读到缓存里的旧图。
+  // 生成一张「我的自拍」给她发出去（她 2026-10-26）：用她「我」资料里的外貌和参考照画她自己，画好交回聊天框当一张真照片发
+  const genMySelfie = async (charId, desc) => {
+    const realChar = characters.find(c => c.id === charId);
+    if (!realChar) throw new Error("找不到这个人");
+    if (!(typeof imgApiReady === "function" && imgApiReady())) throw new Error("先去设置里配好图像 API");
+    if (!canShootMe(charId)) throw new Error("先在「我」的资料里填外貌或传一张参考照，不然画不出你");
+    const uName = userName(profileFor(charId)), P = profileFor(charId);
+    const subj = meSubject(realChar, uName, charId);
+    const scene = String(desc || "").trim() || "随手拍的一张自拍";
+    const prompt = buildPhotoPrompt(subj, scene, {}, { kind: "self", closet: subj._closet });
+    const refs = [P && P.refPhoto].filter(Boolean);
+    const out = await generateSelfieImage(prompt, refs.length ? refs : null, { minimalPrompt: buildMinimalPhotoPrompt(subj, { kind: "self" }) });
+    if (out && out.blob) return await new Promise((ok, no) => { const r = new FileReader(); r.onload = () => ok(r.result); r.onerror = no; r.readAsDataURL(out.blob); });
+    if (out && out.url) return out.url;
+    throw new Error("没拿到图");
+  };
   const drawChatSelfie = async ({ chatKey, charId, sid, photoKind, photoScene, keySuffix }) => {
     const realChar = characters.find(c => c.id === charId);
     if (!realChar) return;
@@ -31243,6 +31265,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     meProfile: (() => { const rm = window.ChatRooms && window.ChatRooms.altOf ? window.ChatRooms.get(activeChar.id, activeRoomId) : null;
       return rm && window.ChatRooms.altShowsMe(rm) ? { ...profileFor(activeChar.id), avatarImage: undefined, ...window.ChatRooms.altProfile(rm) } : profileFor(activeChar.id); })(),
     disp: { reason: !!settingsFor(activeChar.id).showReasoning, myAvatar: !!settingsFor(activeChar.id).showMyAvatar, time: !!settingsFor(activeChar.id).showTime, timeSec: !!settingsFor(activeChar.id).timeSec, autoTts: !!settingsFor(activeChar.id).autoTts, read: settingsFor(activeChar.id).showRead !== false, chatBg: settingsFor(activeChar.id).chatBg || "", chatBgFx: settingsFor(activeChar.id).chatBgFx || null },
+    onGenMySelfie: desc => genMySelfie(activeChar.id, desc),
     onOpenState: () => { const k = window.ChatRooms ? window.ChatRooms.chatKey(activeChar.id, activeRoomId) : activeChar.id; setStateCardRoomKey(window.ChatRooms && window.ChatRooms.isSideKey(k) ? k : null); setStateCardChar(null); setStateCardGroup(false); setStateCardOpen(true); },
     schedNow: roomTimeAwareFor(window.ChatRooms ? window.ChatRooms.get(activeChar.id, activeRoomId) : null, activeChar.id) ? schedNowBriefFor(activeChar) : null,
     onOpenSched: roomTimeAwareFor(window.ChatRooms ? window.ChatRooms.get(activeChar.id, activeRoomId) : null, activeChar.id) ? (() => { calReturnRef.current = { screen: screen }; setSelSched(activeChar.id); setScreen("calendar"); }) : null,
