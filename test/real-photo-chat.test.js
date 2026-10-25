@@ -17,8 +17,8 @@ test("本机照片库有独立索引且不删除聊天像素", () => {
   assert.match(engine, /删除目录项不删像素/);
   assert.match(screens, /function LocalPhotoLibrary/);
   assert.match(screens, /仅移出本机照片库/);
-  assert.match(components, /rememberRealPhoto\(imageRef, v, "private-chat"\)/);
-  assert.match(components, /rememberRealPhoto\(imageRef, v, "group-chat"\)/);
+  assert.match(components, /rememberRealPhoto\(imageRef, cap, "private-chat"\)/);
+  assert.match(components, /rememberRealPhoto\(imageRef, cap, "group-chat"\)/);
 });
 
 test("照片桥必须显式写说明，私有上传失败会回滚，且支持撤回", () => {
@@ -33,7 +33,7 @@ test("照片桥必须显式写说明，私有上传失败会回滚，且支持�
 
 test("真照片只把 iv_ 引用写进聊天，像素住 IndexedDB", () => {
   assert.match(components, /resizeImageFile\(f, 1600, 0\.86\)/);
-  assert.match(components, /imageRef = await imgToVault\(specialImg\)/);
+  assert.match(components, /imageRef = await imgToVault\(src\)/);
   assert.match(components, /kind: "photo", imageRef/);
   assert.match(components, /src: resolveImg\(m\.imageRef\)/);
   assert.doesNotMatch(components, /saveJSON\([^\n]*specialImg/);
@@ -60,8 +60,8 @@ test("Anthropic、Gemini、OpenAI 三种视觉协议都有明确翻译", () => {
 });
 
 test("线上群聊也发送真图，并让本轮所有成员看到同一份视觉输入", () => {
-  assert.match(components, /const \[groupPhotoImg, setGroupPhotoImg\]/);
-  assert.match(components, /imageRef = await imgToVault\(groupPhotoImg\)/);
+  assert.match(components, /const \[groupPhotoImgs, setGroupPhotoImgs\]/);
+  assert.match(components, /imageRef = await imgToVault\(_gAll\[k\]\)/);
   assert.match(components, /src: resolveImg\(m\.imageRef\)/);
   assert.match(app, /const groupImageRefs = _gPick\.refs;/);
   assert.match(app, /groupImageDataUrls\.length \? \{ imageDataUrls: groupImageDataUrls \}/);
