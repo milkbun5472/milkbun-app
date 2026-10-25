@@ -10,7 +10,8 @@ test("私聊照片入口同时保留真图与纯文字描述", () => {
   assert.match(source, /const \[photoSendMode, setPhotoSendMode\] = useState\("real"\)/);
   assert.match(source, /photoSendMode === "describe"/);
   assert.match(source, /photoMode: "describe", content: "\[照片\] " \+ v/);
-  assert.match(source, /photoMode: "real", content: v \? "\[照片\] " \+ v : "\[照片\]"/);
+  // v76.574 起一次能发好几张：那句话只挂在第一张（cap），中间可能多一个涂鸦标记
+  assert.match(source, /photoMode: "real",[^\n]*content: (\w+) \? "\[照片\] " \+ \1 : "\[照片\]"/);
 });
 
 test("线上群聊照片入口也支持两种模式", () => {
