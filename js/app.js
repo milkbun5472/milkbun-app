@@ -17049,7 +17049,9 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     const d = await runProbe(apiFor(char.id), ctxFor(char), { voice: true,
       instruction: "她在「邮票册」里有一张你的 SSR 卡「" + (card.text.name || "") + "」，已经陪你升满了。现在她拿手指戳卡面上的你。"
         + (side === "duo" ? "这一面是满级的双人卡面，画里是你们俩。" : side === "solo" ? "这一面是满级的卡面，画的是这段剧情结局那一刻的你。" : "")
-        + "写她戳你头、戳你胸口、戳你手的时候，卡面上的你会说的话，每处三句，各不一样，短，照你的性子、你此刻和她的关系。" + (card.kind === "if" ? "卡面上是 IF「" + (card.theme || "") + "」里的你，说话也是那个你。" : ""),
+        + "写她戳你头、戳你胸口、戳你手的时候，卡面上的你会说的话，每处四句，各不一样，短，照你的性子、你此刻和她的关系。"
+        + (() => { const had = ["pokes", "pokesSolo", "pokesDuo"].filter(k => k !== (side === "duo" ? "pokesDuo" : side === "solo" ? "pokesSolo" : "pokes")).map(k => card[k]).filter(Boolean)
+            .flatMap(pk => [].concat(pk.head || [], pk.heart || [], pk.hand || [])); return had.length ? "\n这张卡别的那几面你已经说过这些，这一面换成跟这一面画里那一刻有关的话，别再说一样的意思：\n" + had.slice(0, 40).join("\n") : ""; })() + (card.kind === "if" ? "卡面上是 IF「" + (card.theme || "") + "」里的你，说话也是那个你。" : ""),
       schemaHint: "{\"head\":[\"\"],\"heart\":[\"\"],\"hand\":[\"\"]}", maxTokens: 8000 });
     const clean = a => (Array.isArray(a) ? a : []).map(x => String(x || "").trim().slice(0, 80)).filter(Boolean).slice(0, 5);
     const pokes = { head: clean(d && d.head), heart: clean(d && d.heart), hand: clean(d && d.hand) };

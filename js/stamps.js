@@ -162,7 +162,9 @@
       if (!pk) { if (poking) return; setPoking(true); try { pk = await onPoke(card, side); } catch (er) { pk = null; } setPoking(false); if (!pk) { toast("他没回上来，再戳一下试试"); return; } }
       const list = pk[part] && pk[part].length ? pk[part] : [].concat(pk.head || [], pk.heart || [], pk.hand || []);
       if (!list.length) return;
-      clearTimeout(sayT.current); setSay({ text: list[Math.floor(Math.random() * list.length)], part });
+      // 同一处连着戳不重复上一句
+      const pool = list.length > 1 && say ? list.filter(x => x !== say.text) : list;
+      clearTimeout(sayT.current); setSay({ text: pool[Math.floor(Math.random() * pool.length)], part });
       sayT.current = setTimeout(() => setSay(null), 3200);
     };
     const up = steps => { const r = C().levelUp(card.id, steps); if (r.n) { setPop(Date.now()); toast("盖好了，到 " + r.lv + " 级"); } else if (r.msg) toast(r.msg); };
