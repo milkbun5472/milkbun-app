@@ -1945,7 +1945,9 @@ function AlbumView({ d, char, t, onBack, onRefresh, refreshing, onPeek, onDrawPh
     h("div", { className: "flex-1 overflow-y-auto" },
       // 满幅、不切角、不投影——本尊就是把照片摊在黑底上
       h("div", { style: { position: "relative", width: "100%", aspectRatio: "1 / 1.12", overflow: "hidden" } }, art(photo, 0, true)),
-      h("div", { style: { padding: "20px 20px 30px" } },
+      // 字底下自己垫一层黑（群里 2026-10-26：有人查手机相册是白底白字——美化把整页底色换浅了，这几行字还是写死的白）。
+      //   底色和字色挂在同一个钩子上，想换浅色就在 palbuminfo 上两样一起改
+      h("div", { "data-wk": "palbuminfo", style: { padding: "20px 20px 30px", background: "#000", color: "#fff" } },
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(22px * var(--app-fs, 1))", color: "#fff" } }, PTX(photo.caption || "照片")),
         h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", lineHeight: 1.8, color: "rgba(255,255,255,.6)", marginTop: 8, whiteSpace: "pre-wrap" } }, PTX(photo.desc || "没有留下介绍。")),
         // TA的想法：黑底上用一道细线分栏，不再套一块浅灰圆角卡
