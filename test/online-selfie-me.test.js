@@ -19,3 +19,8 @@ test("他那边看得到是她发来的自拍；气泡靠右", () => {
   assert.match(app, /m\.kind === "selfie" \? qpfx \+ \(m\.failed \? /);
   assert.match(comp, /if \(m\.kind === "selfie"\) return h\("div", \{ key: i, className: "py-1 flex items-start gap-2 " \+ \(m\.role === "user" \? "justify-end" : "justify-start"\) \}/);
 });
+test("她的自拍画好后存进图片仓库挂 imageRef，他回话时真的看得到（2026-10-25）", () => {
+  assert.match(app, /if \(mySelf\) \{ try \{ const ref = await imgToVault\(await blobToDataUrl\(out\.blob\)\)/);
+  assert.match(app, /if \(\(m\.kind === "photo" \|\| m\.kind === "selfie"\) && m\.imageRef\) \(lu\._imageRefs/);
+  assert.match(app, /_imageRefs: \(m\.kind === "photo" \|\| m\.kind === "selfie"\) && m\.imageRef \? \[m\.imageRef\] : \[\]/);
+});

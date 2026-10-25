@@ -13190,7 +13190,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
           // 语音消息标出来：让 TA 知道这条是对方「说」的不是打的字（能回应语气、可以说「听到你声音了」）
           const uc = stp + (m.kind === "voice" ? qpfx + "【这条是语音消息，对方亲口说的】" + m.content + voiceToneForPrompt(m)
             // 她自己生成的自拍（群友 2026-10-25）：照片是她发的、画的是她
-            : m.kind === "selfie" ? qpfx + (m.failed ? "【" + uName + "想发一张自拍给你，但没发成】" : "【" + uName + "发来一张她自己的自拍】照片里：" + (m.desc || ""))
+            : m.kind === "selfie" ? qpfx + (m.failed ? "【" + uName + "想发一张自拍给你，但没发成】" : "【" + uName + "发来一张她自己的自拍】" + (m.imageRef ? "（照片已作为视觉输入附在本条消息上，直接看图回应）" : "") + "照片里：" + (m.desc || ""))
             : m.kind === "photo" && m.imageRef ? qpfx + _pairNo(m) + "【对方发来的真实照片已作为视觉输入附在本条消息上，请直接看图回应；不要假装看不到，也不要只复述配文】" + (m.desc ? "\n对方配文：" + m.desc : "") + (m.seenNote ? "\n（你当时记下的画面：" + m.seenNote + "）" : "")
             // 还有多久到也要说（她 2026-09-03：「礼物TA好像不知道还有多久到」）——
             // 只写「还在路上」，TA就只能干等着，问TA还要多久也答不上来
@@ -13230,12 +13230,12 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
           // 合并连发的多条用户消息，兼容 Anthropic 等不允许连续同角色的接口
           if (lu && lu.role === "user") {
             lu.content += "\n" + uc;
-            if (m.kind === "photo" && m.imageRef) (lu._imageRefs || (lu._imageRefs = [])).push(m.imageRef);
+            if ((m.kind === "photo" || m.kind === "selfie") && m.imageRef) (lu._imageRefs || (lu._imageRefs = [])).push(m.imageRef);
           } else g.push({
             role: "user",
             content: uc,
             _t: null,
-            _imageRefs: m.kind === "photo" && m.imageRef ? [m.imageRef] : []
+            _imageRefs: (m.kind === "photo" || m.kind === "selfie") && m.imageRef ? [m.imageRef] : []
           });
         } else {
           const l = g[g.length - 1];
@@ -14617,6 +14617,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       if (out.blob) {
         const key = "img_" + charId + "_" + sid + (keySuffix || "");
         await idbImgPut(key, out.blob);
+        // 她自己的自拍：再存一份进图片仓库挂成 imageRef，他回话时跟她发的真照片一样真的看得到（她 2026-10-25「能不能让他看到真的画面」）
+        if (mySelf) { try { const ref = await imgToVault(await blobToDataUrl(out.blob)); if (String(ref || "").indexOf("iv_") === 0) pChat(chatKey, p => p.map(m => m.sid === sid ? { ...m, imageRef: ref } : m)); } catch (e) {} }
         // 回读验证：iOS 的 IndexedDB 偶发写成功读不出 → 别装成功，大声报出来
         const back = await idbImgGet(key).catch(() => null);
         if (!back || !back.size) throw new Error("图生成好了，但没能存进本机图库（iOS 存储偶发抽风，让 TA 重拍一张多半就好）");
