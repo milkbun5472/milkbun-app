@@ -11300,6 +11300,12 @@ function ChatThread({
     if (m.kind === "recorded") return h("div", { key: i, className: "py-1 flex items-start gap-2 justify-start" },
       h(Avatar, { character: character, size: 40, radius: 10 }),
       h(RecordedCard, { m: m }));
+    // 红包的回执是一张领过的红包，不是转账单（群友 2026-10-25：「红包对方收了以后是转账的卡片」，改转账样式连红包一起变）
+    if (m.receipt && m.receipt.amount != null && m.receipt.packet) { const mineR = m.receipt.side === "me", amtR = typeof Money !== "undefined" && Money ? Money.fmt(m.receipt.amount, character && character.id) : "¥" + m.receipt.amount;
+      return h("div", { key: i, "data-wk": "rpreceipt", "data-status": m.receipt.status || "accepted", className: "py-1 flex items-start gap-2 " + (mineR ? "justify-end" : "justify-start") },
+        !mineR && h(Avatar, { character: character, size: 40, radius: 10 }),
+        h(RedPacketCard, { rp: { message: m.receipt.note }, dim: true, foot: m.receipt.status === "returned" ? (mineR ? "你退回了这个红包" : "红包退回了") : (mineR ? "你领了 " : cName + " 领了 ") + amtR }),
+        mineR && dsp.myAvatar && h(Avatar, { character: meAv, size: 40, radius: 10 })); }
     // 转账回执：收款方那一侧的一张单子（她 2026-10-01），不是一行灰字
     if (m.receipt && m.receipt.amount != null) return h(TransferCard, { key: i, m: Object.assign({ tid: "rcpt_" + i }, m.receipt, { receiptCard: true }),
       isU: m.receipt.side === "me", charId: character && character.id,
@@ -14458,9 +14464,12 @@ function ChatSearchSheet({ messages, chars, meName, onClose, onLocate, archCount
   const nameOf = m => m.role === "user" ? (meName || "我") : (m.senderName || (chars && chars[0] && (chars[0].remark || chars[0].name)) || "TA");
   const dayOf = ts => { const d = new Date(ts || 0); return d.getFullYear() + "年" + (d.getMonth() + 1) + "月" + d.getDate() + "日"; };
   const hm = ts => { const d = new Date(ts || 0); return String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0"); };
-  const kindTag = m => m.kind === "chatforward" ? "💬聊天记录" : m.kind === "voice" ? "🎤语音" : m.kind === "selfie" ? "📷自拍" : m.kind === "photo" ? "📷照片" : m.kind === "transfer" ? "💸转账" : m.kind === "callend" ? "📞通话" : m.kind === "geo" ? "📍位置" : m.kind === "redpacket" ? "🧧红包" : m.kind === "gift" ? "🎁礼物" : m.kind === "takeout" ? "🛵外卖" : m.kind === "emote" ? "表情" : null;
+  const kindTag = m => m.kind === "chatforward" ? "💬聊天记录" : m.kind === "voice" ? "🎤语音" : m.kind === "selfie" ? "📷自拍" : m.kind === "photo" ? "📷照片" : m.kind === "transfer" && m.packet ? "🧧红包" : m.kind === "transfer" ? "💸转账" : m.kind === "callend" ? "📞通话" : m.kind === "geo" ? "📍位置" : m.kind === "redpacket" ? "🧧红包" : m.kind === "gift" ? "🎁礼物" : m.kind === "takeout" ? "🛵外卖" : m.kind === "emote" ? "表情" : null;
   const textOf = m => m.kind === "transfer" && m.packet ? "红包" + (m.status === "accepted" ? " " + mTight(m.amount, m.toId || m.senderId || (chars && chars[0] && chars[0].id)) : "") + (m.note ? " · " + m.note : "") : m.kind === "transfer" ? ("转账" + (m.amount != null ? " " + mTight(m.amount, m.toId || m.senderId || (chars && chars[0] && chars[0].id)) : "") + (m.note ? " · " + m.note : "")) : m.kind === "redpacket" ? ("红包" + (m.message ? " · " + m.message : "")) : m.kind === "geo" ? (m.name || "") : m.kind === "poll" ? (m.title || "") : gameChatText({ ...m, content: m.content || m.desc || "" });
-  const matchType = m => !typeF ? true : typeF === "image" ? (m.kind === "selfie" || m.kind === "photo") : m.kind === typeF;
+  // 私聊红包存的是 transfer + packet：算红包，不算转账（群友 2026-10-25 截图）
+  const matchType = m => !typeF ? true : typeF === "image" ? (m.kind === "selfie" || m.kind === "photo")
+    : typeF === "redpacket" ? (m.kind === "redpacket" || (m.kind === "transfer" && !!m.packet))
+    : typeF === "transfer" ? (m.kind === "transfer" && !m.packet) : m.kind === typeF;
   const kw = q.trim();
   const hits = (kw || typeF) ? msgs.filter(x => matchType(x.m) && (!kw || String(textOf(x.m)).indexOf(kw) >= 0)) : [];
   const dayGroups = [];
@@ -16044,7 +16053,7 @@ function TransferCard({
   //   而想换样式的人第一眼要改的正是这三样。名单归 ThemeStudio 那一份。
   }, !isU && avatar, h("div", { "data-wk": "transfercard",
     // 状态写在卡上，美化才分得出「待收／已收款／已退回」、是不是回执、谁转给谁（群友 2026-10-21）
-    "data-status": m.status || "pending", "data-receipt": m.receiptCard ? "1" : "0", "data-me": isU ? "1" : "0",
+    "data-status": m.status || "pending", "data-receipt": m.receiptCard ? "1" : "0", "data-me": isU ? "1" : "0", "data-packet": m.packet ? "1" : "0",
     style: {
       width: 250,
       background: PAPER,
