@@ -11023,6 +11023,11 @@ function groupRoles(gs) {
   const admins = (Array.isArray(s.admins) ? s.admins : []).map(String).filter(x => x && x !== owner);
   return { owner, admins, mutes: s.mutes && typeof s.mutes === "object" ? s.mutes : {} };
 }
+// 专属头衔（2026-10-26 群友许愿）：{id: "首席摸鱼官"}，id 是成员 id 或 "me"
+function groupTitleOf(gs, id) {
+  const t = gs && gs.titles && id != null ? gs.titles[String(id)] : "";
+  return t ? String(t).trim().slice(0, 12) : "";
+}
 function groupRoleOf(gs, id) {
   if (id == null) return "";
   const r = groupRoles(gs), k = String(id);

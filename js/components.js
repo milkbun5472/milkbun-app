@@ -18847,6 +18847,7 @@ function GroupOfflineMode({
 //   点下去什么都不会变。又是「一层写在两处，第二处没跟上」。
 function GroupThread({
   onSuggestName,
+  onDrawTitles,
   rerollNav,      // 重 Roll 留版（她 2026-10-10）：{pos, n}，跟单聊同一个形状
   onRerollFlip,
   locateAt,
@@ -19137,10 +19138,12 @@ function GroupThread({
     const id = m && (m.role === "user" ? "me" : m.senderId);
     if (!id || typeof groupRoleOf !== "function") return null;
     const r = groupRoleOf(settings, id), mu = id !== "me" && groupMutedLeft(settings, id) > 0;
-    if (!r && !mu) return null;
-    return h("span", { "data-wk": "grole", "data-role": r || "muted", style: { marginLeft: 4, padding: "0 5px", borderRadius: 4, fontSize: "calc(9.5px * var(--app-fs, 1))",
+    const tt = typeof groupTitleOf === "function" ? groupTitleOf(settings, id) : "";
+    const ttTag = tt ? h("span", { "data-wk": "gtitle", style: { marginLeft: 4, padding: "0 5px", borderRadius: 4, fontSize: "calc(9.5px * var(--app-fs, 1))", background: "#c77dba26", color: "#9a4f8c" } }, tt) : null;
+    if (!r && !mu) return ttTag;
+    return h(React.Fragment, null, ttTag, h("span", { "data-wk": "grole", "data-role": r || "muted", style: { marginLeft: 4, padding: "0 5px", borderRadius: 4, fontSize: "calc(9.5px * var(--app-fs, 1))",
       background: r === "owner" ? "#e8b04b33" : r === "admin" ? "#5b9bd533" : t.line, color: r === "owner" ? "#a8741a" : r === "admin" ? "#3f78ad" : t.fog } },
-      r === "owner" ? "群主" : r === "admin" ? "管理员" : "禁言中");
+      r === "owner" ? "群主" : r === "admin" ? "管理员" : "禁言中"));
   };
   const gChatBg = settings && settings.chatBg;
   // 气泡皮肤刷的那层聊天底色（跟单聊那处同一条判据）：它也会把居中那行动描吞掉
@@ -19670,6 +19673,7 @@ function GroupThread({
     h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", lineHeight: 1.7, color: t.sub, fontStyle: "italic" } }, gRecallView.reason || "（没说）")),
   fwdView && h(ChatForwardSheet, { m: fwdView, onClose: () => setFwdView(null) }), sheet === "settings" && h(GroupSettingsSheet, {
     onSuggestName: onSuggestName,
+    onDrawTitles: onDrawTitles,
     gs: gs,
     group: group,
     characters: characters,
@@ -20095,7 +20099,7 @@ function RedPacketOpenSheet({ rp, meName, onClose }) {
 // 「译」键开关：全 App 一份（存本机），单聊设置和群设置里各放一颗，拨了立刻生效（她 2026-10-02）
 const transKeyOn = () => { try { return localStorage.getItem("x_noTranslate") !== "1"; } catch (e) { return true; } };
 const setTransKeyOn = on => { try { localStorage.setItem("x_noTranslate", on ? "" : "1"); } catch (e) {} };
-function GroupSettingsSheet({ onSuggestName, gs, group, characters, allChars, rels, msgCount, directives, onRemoveDirective, onSetDirectiveTurns, onSave, onSummarize, onAddMember, onKickMember, onSetPresence, onDelete, onClearChat, onClose }) {
+function GroupSettingsSheet({ onSuggestName, onDrawTitles, gs, group, characters, allChars, rels, msgCount, directives, onRemoveDirective, onSetDirectiveTurns, onSave, onSummarize, onAddMember, onKickMember, onSetPresence, onDelete, onClearChat, onClose }) {
   const t = useTheme();
   const [interop, setInterop] = useState(!!gs.memoryInterop);
   const [privN, setPrivN] = useState(gs.privateCtxN || 0);
@@ -20139,6 +20143,8 @@ function GroupSettingsSheet({ onSuggestName, gs, group, characters, allChars, re
   const [gOwner, setGOwner] = useState(_gR0.owner);
   const [gAdmins, setGAdmins] = useState(_gR0.admins);
   const [gMutes, setGMutes] = useState(_gR0.mutes);
+  const [gTitles, setGTitles] = useState(() => ({ ...((gs && gs.titles) || {}) }));
+  const [gDrawing, setGDrawing] = useState(false);
   // 我在这个群用哪张面具（她 2026-10-12）：一个群只戴一张脸。没挑过、又刚好全员都认同一张副面具，就默认那一张
   const _gMaskOpts = typeof window.__momentMasks === "function" ? window.__momentMasks() : [];
   const _gMk = id => typeof window.__maskKeyOf === "function" ? String(window.__maskKeyOf(id) || "") : "";
@@ -20228,7 +20234,7 @@ function GroupSettingsSheet({ onSuggestName, gs, group, characters, allChars, re
   //   跟单聊设置同一个形状：portal 出去铺满、紧凑顶栏、正文自己滚。
   return ReactDOM.createPortal(h("div", { "data-wk": "gsetpage", "data-page": "1", ref: pageShellPin, className: "h-full flex flex-col", style: pageShellStyle(240, { background: t.bg }) },
     h(Head, { bg: "transparent", zh: "群聊设置", sub: group && group.name ? group.name : undefined, onBack: onClose,
-      right: h("button", { onClick: () => { onSave({ actLong: gActLong, keepRerolls: gKeepRerolls, memoryInterop: interop, privateCtxN: privN, preJoinN: preJoinN, ctxN: ctxN, sumThresh: sumThresh, sumBuffer: sumBuffer, selfP: selfP, userP: userP, describeMe: describeMe, showMyAvatar: showMyAvatar, showTime: showTime, timeSec: timeSec, showRead: showRead, chatBg: chatBg, chatBgFx: chatBgFx, autoChat: autoChat, autoChatMin: autoChatMin, autoChatRounds: autoChatRounds, autoChatMaxMsg: autoChatMaxMsg, autoChatResetHours: autoChatResetHours, drama: gDrama, defaultOffline: gDefaultOffline, actDesc: gActDesc, actPerson: gActPerson, userPerson: gUserPerson, name: gName, owner: gOwner, admins: gAdmins.filter(x => x !== gOwner), mutes: gMutes, avatarImage: gAvatar, myAvatar: gMyAv || "", maskId: gMask, layout: gLayout, customCSS: gCss }); onClose(); } }, h(ICheck, { size: 19, color: t.ink })) }),
+      right: h("button", { onClick: () => { onSave({ actLong: gActLong, keepRerolls: gKeepRerolls, memoryInterop: interop, privateCtxN: privN, preJoinN: preJoinN, ctxN: ctxN, sumThresh: sumThresh, sumBuffer: sumBuffer, selfP: selfP, userP: userP, describeMe: describeMe, showMyAvatar: showMyAvatar, showTime: showTime, timeSec: timeSec, showRead: showRead, chatBg: chatBg, chatBgFx: chatBgFx, autoChat: autoChat, autoChatMin: autoChatMin, autoChatRounds: autoChatRounds, autoChatMaxMsg: autoChatMaxMsg, autoChatResetHours: autoChatResetHours, drama: gDrama, defaultOffline: gDefaultOffline, actDesc: gActDesc, actPerson: gActPerson, userPerson: gUserPerson, name: gName, titles: Object.fromEntries(Object.entries(gTitles).map(([k, v]) => [k, String(v || "").trim().slice(0, 12)]).filter(x => x[1])), owner: gOwner, admins: gAdmins.filter(x => x !== gOwner), mutes: gMutes, avatarImage: gAvatar, myAvatar: gMyAv || "", maskId: gMask, layout: gLayout, customCSS: gCss }); onClose(); } }, h(ICheck, { size: 19, color: t.ink })) }),
     h("div", { className: "flex-1 min-h-0 overflow-y-auto px-5 pt-3", style: { paddingBottom: "calc(env(safe-area-inset-bottom) + 28px)" } },
 
     // ⚠️原来一整条从上滚到底，什么都挨着（她 2026-09-30：「看起来有点乱，分成一个个框」）——
@@ -20320,7 +20326,18 @@ function GroupSettingsSheet({ onSuggestName, gs, group, characters, allChars, re
                 left ? h("button", { onClick: () => unmute(c), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.tint } }, "解除")
                   : [[10, "10 分钟"], [60, "1 小时"]].map(([mn, zh]) => h("button", { key: mn, onClick: () => muteFor(c, mn), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.tint } }, "禁言 " + zh))));
           }),
-          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginTop: 4 } }, "点右上角的勾才生效，群里会落一行灰字。")) : null);
+          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginTop: 4 } }, "点右上角的勾才生效，群里会落一行灰字。")) : null,
+        // 专属头衔：挂在名字旁边，人人看得见；群主是角色的话自己也会封
+        h("div", { "data-wk": "gtitles", className: "pt-4" },
+          h("div", { className: "flex items-center justify-between", style: { marginBottom: 4 } },
+            h("span", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog } }, "专属头衔（12 字以内，空着就没有）"),
+            onDrawTitles ? h("button", { disabled: gDrawing, onClick: async () => { setGDrawing(true); try { const r = await onDrawTitles(); if (r) setGTitles(p => ({ ...p, ...r })); } finally { setGDrawing(false); } },
+              className: "active:opacity-60 disabled:opacity-40", style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.tint } }, gDrawing ? "抽着…" : "抽个头衔") : null),
+          (spec ? [] : [{ id: "me", name: "我" }]).concat(members).map(c => h("div", { key: c.id, "data-wk": "gtitlerow", className: "flex items-center", style: { gap: 10, padding: "4px 0" } },
+            h("span", { style: { width: 76, flexShrink: 0, fontFamily: F_DISPLAY, fontSize: "calc(13.5px * var(--app-fs, 1))", color: t.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, c.name),
+            h("input", { value: gTitles[c.id] || "", maxLength: 12, onChange: e => { const v = e.target.value; setGTitles(p => ({ ...p, [c.id]: v })); }, placeholder: "没有头衔",
+              className: "flex-1 outline-none", style: { minWidth: 0, background: "transparent", borderBottom: "1px solid " + t.line, padding: "5px 2px", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.ink } }))),
+          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginTop: 4 } }, "「抽个头衔」花一次调用，照各人的人设和最近在群里干的事起，抽完还能改；点右上角的勾才生效。")));
     })(),
     _gMaskOpts.length > 1 ? gCard({ title: "我在这个群用哪张面具", char: "面", tint: "#4f6b78", state: ((_gMaskOpts.find(o => o.id === gMask) || _gMaskOpts[0]).name || "主面具") }, null,
       h("div", { "data-wk": "gmaskpick", className: "pt-3" },
