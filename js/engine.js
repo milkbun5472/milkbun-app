@@ -3648,6 +3648,12 @@ function selectLore(entries, opts) {
     if (scope !== "img" && !loreScopeOn(e, scope)) return false;
     const bind = e.charIds || []; // 全局(无绑定)对所有人可见；否则要与在场角色有交集
     if (bind.length && !bind.some(id => charIds.indexOf(id) >= 0)) return false;
+    // 某个人的聊天设置里把这条关了（offFor，2026-10-26 群友许愿）：在场的人全都关了它才不进；群里还有人开着就照常进
+    const offFor = e.offFor || [];
+    if (offFor.length && charIds.length) {
+      const seen = bind.length ? charIds.filter(id => bind.indexOf(id) >= 0) : charIds;
+      if (seen.length && seen.every(id => offFor.indexOf(id) >= 0)) return false;
+    }
     if (e.alwaysOn) return true; // 常驻：无视关键词强注
     const ok = loreKeywordHit(e, text); // 有关键词=命中才进；无关键词=常进
     if (!ok && (e.keyword || "").trim() && !e.regex) missed.push(e);

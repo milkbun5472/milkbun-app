@@ -32931,18 +32931,33 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     onBack: goHome,
     onSave: e => saveLore([e].concat(loreRef.current.filter(x => x.id !== e.id))),
     // 世界书 json 一次导进好几条（2026-10-22）：新开的那一页是从哪个角色进来的，就先绑那几个人
-    onImportMany: (list, charIds) => {
+    // 一份 json 是一本世界书：导进来整本收进一个文件夹，夹名就是文件名（2026-10-26 群友许愿）
+    onImportMany: (list, charIds, bookName) => {
       const now = Date.now();
-      const add = (list || []).map((e, i) => Object.assign({ category: "世界观", regex: false, ensemble: false, scope: { chat: true } }, e, { id: "le_json_" + now + "_" + i, charIds: (charIds || []).slice(), ts: now + i }));
+      const folder = String(bookName || "").replace(/\.json$/i, "").trim().slice(0, 30);
+      const add = (list || []).map((e, i) => Object.assign({ category: "世界观", regex: false, ensemble: false, scope: { chat: true } }, e, { id: "le_json_" + now + "_" + i, charIds: (charIds || []).slice(), ts: now + i }, folder ? { folder } : {}));
       saveLore(add.concat(loreRef.current || []));
-      toast("导进了 " + add.length + " 条" + ((charIds || []).length ? "" : "（没绑角色，去每条里按需要绑）"));
+      toast("导进了 " + add.length + " 条" + (folder ? "，收在「" + folder + "」里" : "") + ((charIds || []).length ? "" : "（没绑角色，去每条里按需要绑）"));
+    },
+    // 多选那几条一起改（挪文件夹、整批开关），一次写回
+    onBulk: (ids, patch) => {
+      const set = new Set(ids || []);
+      saveLore(loreRef.current.map(e => set.has(e.id) ? (typeof patch === "function" ? patch(e) : { ...e, ...patch }) : e));
+    },
+    onBulkDelete: ids => {
+      const set = new Set(ids || []), now = Date.now();
+      const gone = loreRef.current.filter(x => set.has(x.id));
+      if (!gone.length) return;
+      saveJSON("x_loreTrash", gone.map(entry => ({ entry, deletedTs: now })).concat(loreTrashLive().filter(x => !set.has(x.entry.id))).slice(0, 500));
+      saveLore(loreRef.current.filter(x => !set.has(x.id)));
+      toast("删了 " + gone.length + " 条，在「最近删除」里能放回去");
     },
     // 最近删除（她 2026-10-03 群友：「修改世界书的时候一不小心给删掉了，这个有回收站吗」）：
-    //   删的那条先进 x_loreTrash，留 30 天、最多 60 条，能原样放回去
+    //   删的那条先进 x_loreTrash，留 30 天、最多 500 条（整本删也装得下），能原样放回去
     trash: loreTrashLive(),
     onDelete: id => {
       const gone = loreRef.current.find(x => x.id === id);
-      if (gone) saveJSON("x_loreTrash", [{ entry: gone, deletedTs: Date.now() }].concat(loreTrashLive().filter(x => x.entry.id !== id)).slice(0, 60));
+      if (gone) saveJSON("x_loreTrash", [{ entry: gone, deletedTs: Date.now() }].concat(loreTrashLive().filter(x => x.entry.id !== id)).slice(0, 500));
       saveLore(loreRef.current.filter(x => x.id !== id));
     },
     onRestore: id => {
@@ -34579,6 +34594,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       onSaveImage: () => zhaoyingSaveImage(zyWatch.testId, rec, c ? (c.remark || c.name) : "他"),
       onPin: c ? () => zhaoyingPin(zyWatch.charId, zyWatch.testId, rec) : null }) : null;
   })() : null, chatSettingsOpen && activeChar && /*#__PURE__*/React.createElement(ChatSettings, {
+    loreEntries: loreEntries,
+    onLoreBulk: (ids, patch) => { const set = new Set(ids || []); saveLore(loreRef.current.map(e => set.has(e.id) ? (typeof patch === "function" ? patch(e) : { ...e, ...patch }) : e)); },
     // 换了人就是另一张设置页（群友 2026-10-22：开着A的聊天设置时点了B的消息弹窗，再按保存，A的名字头像全写到了B身上）
     key: "cs:" + activeChar.id,
     character: activeChar,

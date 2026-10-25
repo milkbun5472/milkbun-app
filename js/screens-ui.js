@@ -1685,7 +1685,7 @@ const LORE_STAMP_ZH = { chat: "聊天线下", subjects: "查手机", lifestyle: 
 const LORE_CATEGORIES = ["世界观", "地点", "组织", "人物", "规则", "共同经历", "用语", "照做", "生图", "其他"];
 const loreScopeEnabled = (e, key) => key === "chat" ? (!e.scope || e.scope.chat !== false) : (key === "creative" && e.ensemble ? true : !!(e.scope && e.scope[key]));
 const loreScopeNames = e => LORE_SCOPE_UI.filter(x => loreScopeEnabled(e, x[0])).map(x => x[1]);
-function WorldBook({ entries, characters, onBack, onSave, onDelete, trash, onRestore, onImportMany }) {
+function WorldBook({ entries, characters, onBack, onSave, onDelete, trash, onRestore, onImportMany, onBulk, onBulkDelete }) {
   const t = useTheme();
   const [trashOpen, setTrashOpen] = useState(false);
   const [editing, setEditing] = useState(null); // null | {__new, charIds} | entry
@@ -1698,7 +1698,20 @@ function WorldBook({ entries, characters, onBack, onSave, onDelete, trash, onRes
   const [catFilter, setCatFilter] = useState("all");
   const [pubOpen, setPubOpen] = useState(false);
   const [statusFilter, setStatusFilter] = useState("all");
+  // 文件夹和多选（2026-10-26 群友许愿：保留原来几种翻法，再加文件夹；哪种翻法下都能长按多选、挪、删）
+  const [sel, setSel] = useState(null);          // null＝没在多选；Set＝勾着的那几条
+  const [moveOpen, setMoveOpen] = useState(false);
+  const [folderShut, setFolderShut] = useState({});
+  const pressT = useRef(null), pressed = useRef(false);
   const list = entries || [];
+  const folderOf = e => String(e.folder || "").trim();
+  const folders = [...new Set(list.map(folderOf).filter(Boolean))].sort((a, b) => a.localeCompare(b, "zh"));
+  const pressStart = e => { pressed.current = false; clearTimeout(pressT.current); pressT.current = setTimeout(() => { pressed.current = true; setSel(new Set([e.id])); try { navigator.vibrate && navigator.vibrate(12); } catch (x) {} }, 480); };
+  const pressEnd = () => clearTimeout(pressT.current);
+  const toggleSel = id => setSel(p => { const n = new Set(p || []); n.has(id) ? n.delete(id) : n.add(id); return n.size ? n : null; });
+  const selIds = () => [...(sel || [])];
+  const bulk = patch => { if (onBulk) onBulk(selIds(), patch); setSel(null); };
+  const askNewFolder = ids => requestAppPrompt("新文件夹", "给这个文件夹起个名字", "", v => { const nm = String(v || "").trim().slice(0, 30); if (nm && onBulk) { onBulk(ids, { folder: nm }); setSel(null); setMoveOpen(false); } }, "放进去");
   const enabledN = list.filter(e => e.enabled !== false && String(e.payload || "").trim()).length;
   const constantN = list.filter(e => e.enabled !== false && (e.alwaysOn || !String(e.keyword || "").trim())).length;
   const openNew = charIds => setEditing({ __new: true, charIds: charIds || [] });
@@ -1745,7 +1758,10 @@ function WorldBook({ entries, characters, onBack, onSave, onDelete, trash, onRes
     const always = e.alwaysOn || !kw;
     return h("article", { key: e.id, "data-wk": "lorecard", "data-off": off ? "1" : "0", style: { borderTop: "1px solid " + t.line, opacity: off ? .5 : 1 } },
       h("div", { style: { display: "grid", gridTemplateColumns: "minmax(0,1fr) 42px", gap: 10, alignItems: "start", padding: "15px 0 16px" } },
-        h("button", { "data-wk": "block", onClick: () => setEditing(e), className: "text-left active:opacity-65", style: { minWidth: 0, background: "transparent", border: "none" } },
+        h("button", { "data-wk": "block", onClick: () => { if (pressed.current) { pressed.current = false; return; } if (sel) toggleSel(e.id); else setEditing(e); },
+          onTouchStart: () => pressStart(e), onTouchEnd: pressEnd, onTouchMove: pressEnd, onMouseDown: () => pressStart(e), onMouseUp: pressEnd, onMouseLeave: pressEnd,
+          onContextMenu: ev => ev.preventDefault(),
+          className: "text-left active:opacity-65", style: { minWidth: 0, background: "transparent", border: "none", WebkitUserSelect: "none", userSelect: "none", WebkitTouchCallout: "none" } },
           // 这一条什么时候会翻出来：常驻是一枚夹在书里的签，关键词就把那个词本身写出来
           h("div", { style: { display: "flex", alignItems: "center", gap: 6, marginBottom: 5 } },
             always
@@ -1764,7 +1780,10 @@ function WorldBook({ entries, characters, onBack, onSave, onDelete, trash, onRes
                   people.length > 4 ? h("span", { style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", color: t.fog, marginLeft: 4 } }, "+" + (people.length - 4)) : null)
               : h("span", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog } }, "所有角色"),
             h("span", { style: { marginLeft: "auto" } }, stampRow(e)))),
-        h(Toggle, { on: !off, onChange: () => onSave({ ...e, enabled: off }), size: "s", wk: "loreswitch", label: off ? "启用词条" : "停用词条" })));
+        sel ? h("button", { "data-wk": "loresel", "data-on": sel.has(e.id) ? "1" : "0", onClick: () => toggleSel(e.id), className: "active:opacity-60", "aria-label": "选这一条",
+            style: { width: 24, height: 24, borderRadius: 999, marginTop: 4, justifySelf: "end", border: "1.5px solid " + (sel.has(e.id) ? t.ink : t.line), background: sel.has(e.id) ? t.ink : "transparent", color: t.bg, fontSize: "calc(13px * var(--app-fs, 1))", lineHeight: "21px" } }, sel.has(e.id) ? "✓" : "")
+          : h(Toggle, { on: !off, onChange: () => onSave({ ...e, enabled: off }), size: "s", wk: "loreswitch", label: off ? "启用词条" : "停用词条" })),
+      folderOf(e) && view !== "folder" ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", color: t.fog, marginTop: -10, paddingBottom: 12 } }, "▤ " + folderOf(e)) : null);
   };
   // 一枚筛选章：三种翻法共用这一个形状（角色那排章面换成脸）
   const stampChip = (key, on, glyph, zh, onClick, face) => h("button", { key: key, "data-wk": "lorestamp", "data-on": on ? "1" : "0", onClick: onClick, className: "active:opacity-65 shrink-0",
@@ -1774,9 +1793,25 @@ function WorldBook({ entries, characters, onBack, onSave, onDelete, trash, onRes
         fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: on ? t.bg : t.sub,
         background: on ? t.ink : "transparent", border: "1px solid " + (on ? t.ink : t.line) } }, glyph),
     h("span", { style: { fontFamily: F_BODY, fontSize: "calc(9.5px * var(--app-fs, 1))", lineHeight: 1.2, textAlign: "center", whiteSpace: "nowrap", maxWidth: 64, overflow: "hidden", textOverflow: "ellipsis", color: on ? t.ink : t.fog } }, zh));
+  // 按文件夹：每夹一个抬头（折叠、整夹开关、改名、拆夹），没归档的排在最后
+  const folderGroups = () => folders.concat([""]).map(fd => {
+    const items = shown.filter(e => folderOf(e) === fd);
+    if (!items.length) return null;
+    const shut = !!folderShut[fd || "_"];
+    const allOn = items.every(e => e.enabled !== false);
+    const ids = items.map(e => e.id);
+    return h("section", { key: "fd_" + fd, "data-wk": "lorefolder", "data-part": fd ? "named" : "loose" },
+      h("div", { style: { display: "flex", alignItems: "center", gap: 8, padding: "13px 0 9px", borderTop: "1.5px solid " + t.ink } },
+        h("button", { onClick: () => setFolderShut(p => ({ ...p, [fd || "_"]: !shut })), className: "active:opacity-60", style: { flex: 1, minWidth: 0, textAlign: "left", background: "transparent", border: "none", fontFamily: F_DISPLAY, fontSize: "calc(16px * var(--app-fs, 1))", color: t.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } },
+          (shut ? "▸ " : "▾ ") + (fd || "没放进文件夹的"), h("span", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, marginLeft: 6 } }, items.length + " 条")),
+        fd ? h("button", { onClick: () => requestAppPrompt("改文件夹名", "", fd, v => { const nm = String(v || "").trim().slice(0, 30); if (nm && nm !== fd && onBulk) onBulk(list.filter(e => folderOf(e) === fd).map(e => e.id), { folder: nm }); }, "改好了"), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.sub, background: "transparent", border: "none" } }, "改名") : null,
+        fd ? h("button", { onClick: () => requestAppConfirm("拆掉「" + fd + "」？", "只拆文件夹，里面 " + list.filter(e => folderOf(e) === fd).length + " 条都留着，回到「没放进文件夹的」。", () => onBulk && onBulk(list.filter(e => folderOf(e) === fd).map(e => e.id), x => { const n = { ...x }; delete n.folder; return n; }), "拆掉"), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.sub, background: "transparent", border: "none" } }, "拆夹") : null,
+        h(Toggle, { on: allOn, onChange: () => onBulk && onBulk(ids, { enabled: !allOn }), size: "s", wk: "lorefolderswitch", label: allOn ? "整夹停用" : "整夹启用" })),
+      shut ? null : items.map(card));
+  });
   // 翻法＝活页夹的分隔页标签：一排从纸边伸出来的小舌头，翻到的那张满高、跟底下那页连成一张纸
   const loreViewTabs = () => h("div", { style: { display: "flex", gap: 4, marginTop: 12, borderBottom: "1px solid " + t.ink, alignItems: "flex-end" } },
-    [["scope", "按去向"], ["char", "按角色"], ["cat", "按分类"]].map(x => {
+    [["scope", "按去向"], ["char", "按角色"], ["cat", "按分类"], ["folder", "按文件夹"]].map(x => {
       const on = view === x[0];
       return h("button", { key: x[0], "data-wk": "loreview", "data-on": on ? "1" : "0", onClick: () => setView(x[0]), className: "active:opacity-65",
         style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: on ? t.ink : t.fog, background: on ? t.bg2 : "transparent",
@@ -1802,13 +1837,14 @@ function WorldBook({ entries, characters, onBack, onSave, onDelete, trash, onRes
             stampChip(x[0], scopeFilter === x[0], x[0] === "all" ? "全" : (LORE_STAMP[x[0]] || "?"), x[0] === "all" ? "全部" : (LORE_STAMP_ZH[x[0]] || x[1]), () => setScopeFilter(x[0])))
           : view === "cat" ? ["all"].concat(LORE_CATEGORIES).map(c =>
             stampChip(c, catFilter === c, c === "all" ? "全" : c.slice(0, 1), c === "all" ? "全部" : c + " " + list.filter(e => catOf(e) === c).length, () => setCatFilter(c)))
+          : view === "folder" ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.6 } }, folders.length ? "一份 json 导进来就是一夹。长按一条能多选，挪进文件夹。" : "还没有文件夹：长按一条多选，点「放进文件夹」就能建；导入一份 json 世界书也会自己成一夹。")
           : [["all", "全部", "全"], ["pub", "共用", "众"]].map(x => stampChip(x[0], charFilter === x[0], x[2], x[1], () => setCharFilter(x[0])))
             .concat((characters || []).filter(c => list.some(e => (e.charIds || []).includes(c.id))).map(c =>
               stampChip(c.id, charFilter === c.id, h(Avatar, { character: c, size: 26, radius: 5 }), c.remark || c.name, () => setCharFilter(c.id), true)))),
         h("div", { style: { display: "flex", gap: 14, marginTop: 12 } }, [["all", "全部状态"], ["on", "只看启用"], ["off", "只看停用"]].map(x => h("button", { key: x[0], onClick: () => setStatusFilter(x[0]), className: "active:opacity-60", style: { border: "none", background: "transparent", fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: statusFilter === x[0] ? t.ink : t.fog, borderBottom: statusFilter === x[0] ? "1px solid " + t.ink : "1px solid transparent", padding: "2px 0 4px" } }, x[1])))),
       h("div", { style: { paddingBottom: 12 } },
         pickedChar && !shown.length ? h("div", { style: { padding: "22px 0", fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog } }, "还没有只绑给 TA 的词条") : null,
-        (shown.length || pickedChar) ? shown.map(card) : h("div", { style: { padding: "46px 0", textAlign: "center" } },
+        view === "folder" && shown.length ? folderGroups() : (shown.length || pickedChar) ? shown.map(card) : h("div", { style: { padding: "46px 0", textAlign: "center" } },
           h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(18px * var(--app-fs, 1))", color: t.ink } }, list.length ? "没有符合筛选的词条" : "这里还没有设定"),
           h("button", { "data-wk": "block", onClick: () => openNew([]), className: "active:opacity-60", style: { marginTop: 12, background: "transparent", border: "none", borderBottom: "1px solid " + t.ink, padding: "4px 0", fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.ink } }, "写第一条"))),
         pickedChar && pubShown.length ? h("section", { key: "pub" },
@@ -1823,14 +1859,30 @@ function WorldBook({ entries, characters, onBack, onSave, onDelete, trash, onRes
             h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, x.entry.title || "未命名设定"),
             h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, marginTop: 2 } }, "删于 " + new Date(x.deletedTs).toLocaleString())),
           h("button", { "data-wk": "block", onClick: () => onRestore && onRestore(x.entry.id), className: "active:opacity-65 shrink-0", style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.ink, background: "transparent", border: "1px solid " + t.ink, borderRadius: 999, padding: "4px 12px" } }, "放回去"))) : null) : null),
+    sel ? h("div", { "data-wk": "loreselbar", style: { borderTop: "1px solid " + t.ink, background: t.bg2, padding: "10px 14px calc(env(safe-area-inset-bottom) + 10px)" } },
+      h("div", { style: { display: "flex", alignItems: "center", gap: 10, marginBottom: 9, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.sub } },
+        "选了 " + sel.size + " 条",
+        h("button", { onClick: () => setSel(new Set((view === "folder" || !pickedChar ? shown : shown.concat(pubShown)).map(e => e.id))), className: "active:opacity-60", style: { background: "transparent", border: "none", color: t.ink, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))" } }, "全选这一页"),
+        h("button", { onClick: () => setSel(null), className: "active:opacity-60", style: { marginLeft: "auto", background: "transparent", border: "none", color: t.sub, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))" } }, "取消")),
+      h("div", { style: { display: "flex", gap: 8 } },
+        [["放进文件夹", () => setMoveOpen(true)], ["启用", () => bulk({ enabled: true })], ["停用", () => bulk({ enabled: false })],
+          ["删除", () => requestAppConfirm("删掉这 " + sel.size + " 条？", "删了先进「最近删除」，30 天里能放回去。", () => { onBulkDelete && onBulkDelete(selIds()); setSel(null); }, "删掉")]].map(x =>
+          h("button", { key: x[0], "data-wk": "loreselbtn", onClick: x[1], className: "flex-1 active:opacity-70", style: { minHeight: 40, borderRadius: 10, border: "1px solid " + (x[0] === "删除" ? t.accent : t.ink), color: x[0] === "删除" ? t.accent : t.ink, background: "transparent", fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))" } }, x[0])))) : null,
+    sel && moveOpen ? h(PageSheet, { onClose: () => setMoveOpen(false) },
+      h("div", { "data-wk": "loremove" },
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(18px * var(--app-fs, 1))", color: t.ink, marginBottom: 10 } }, "放进哪个文件夹"),
+        h("button", { onClick: () => askNewFolder(selIds()), className: "w-full text-left active:opacity-60", style: { padding: "12px 0", borderBottom: "1px solid " + t.line, background: "transparent", fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.tint } }, "＋ 新文件夹"),
+        folders.map(fd => h("button", { key: fd, onClick: () => { bulk({ folder: fd }); setMoveOpen(false); }, className: "w-full text-left active:opacity-60", style: { padding: "12px 0", borderBottom: "1px solid " + t.line, background: "transparent", fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.ink } },
+          "▤ " + fd, h("span", { style: { color: t.fog, fontSize: "calc(11px * var(--app-fs, 1))", marginLeft: 6 } }, list.filter(e => folderOf(e) === fd).length + " 条"))),
+        h("button", { onClick: () => { bulk(x => { const n = { ...x }; delete n.folder; return n; }); setMoveOpen(false); }, className: "w-full text-left active:opacity-60", style: { padding: "12px 0", background: "transparent", fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.sub } }, "移出文件夹"))) : null,
     editing && h(WorldBookEntryPage, {
-      entry: editing.__new ? { charIds: editing.charIds } : editing, characters: characters, onClose: () => setEditing(null),
+      entry: editing.__new ? { charIds: editing.charIds } : editing, characters: characters, folders: folders, onClose: () => setEditing(null),
       onSave: data => { onSave(data); setEditing(null); },
-      onImportMany: onImportMany ? list => { onImportMany(list, editing.charIds || []); setEditing(null); } : null,
+      onImportMany: onImportMany ? (list, bookName) => { onImportMany(list, editing.charIds || [], bookName); setEditing(null); } : null,
       onDelete: editing.__new ? null : () => { onDelete(editing.id); setEditing(null); }
     }));
 }
-function WorldBookEntryPage({ entry, characters, onClose, onSave, onDelete, onImportMany }) {
+function WorldBookEntryPage({ entry, characters, folders, onClose, onSave, onDelete, onImportMany }) {
   const t = useTheme();
   const isNew = !(entry && entry.id);
   const [f, setF] = useState(() => {
@@ -1857,7 +1909,7 @@ function WorldBookEntryPage({ entry, characters, onClose, onSave, onDelete, onIm
         const list = typeof loreEntriesFromJson === "function" ? loreEntriesFromJson(d) : [];
         if (!list.length) throw new Error("这份 json 里没认出世界书词条");
         if (list.length === 1) { const one = list[0]; setF(current => ({ ...current, title: one.title, payload: one.payload, keyword: one.keyword || "", alwaysOn: !!one.alwaysOn })); return; }
-        if (onImportMany) { onImportMany(list); return; }
+        if (onImportMany) { onImportMany(list, file.name); return; }
         throw new Error("这份里有 " + list.length + " 条，这一页只收得下一条");
       }
       const payload = await readOfflineStyleDocument(file);
@@ -1898,6 +1950,10 @@ function WorldBookEntryPage({ entry, characters, onClose, onSave, onDelete, onIm
     importError && h("div", { role: "alert", style: { color: t.accent, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", marginTop: 8 } }, importError),
     lbl("这条是什么", "标题是给你看的索引；分类帮助以后检索。只有「照做」「生图」会改变它怎么被用"),
     h("input", { "data-wk": "input", value: f.title, onChange: e => { set({ title: e.target.value }); setError(""); }, placeholder: "例如：港口城的宵禁", style: field }),
+    h("div", { "data-wk": "lorefolderfield", style: { display: "flex", alignItems: "center", gap: 8, marginTop: 9 } },
+      h("span", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.sub, flexShrink: 0 } }, "文件夹"),
+      h("input", { "data-wk": "input", list: "lore-folder-names", value: f.folder || "", onChange: e => set({ folder: e.target.value.slice(0, 30) }), placeholder: "不放就空着", style: Object.assign({}, field, { flex: 1, marginTop: 0 }) }),
+      h("datalist", { id: "lore-folder-names" }, (folders || []).map(x => h("option", { key: x, value: x })))),
     h("div", { style: { display: "flex", gap: 6, overflowX: "auto", marginTop: 9 } }, LORE_CATEGORIES.map(x => h("button", { key: x, "data-wk": "lorecat", "data-on": (f.category || "") === x ? "1" : "0", onClick: () => set({ category: x }), className: "active:opacity-65 shrink-0", style: { border: "1px solid " + ((f.category || "世界观") === x ? t.ink : t.line), background: (f.category || "世界观") === x ? t.ink : "transparent", color: (f.category || "世界观") === x ? t.bg : t.sub, padding: "6px 9px", fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))" } }, x))),
     f.category === "照做" ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.sub, lineHeight: 1.65, marginTop: 8 } },
       "「照做」不是设定，是给 TA 的输出指令：这条被翻出来的那一轮，TA 会照着正文去做。适合「提到冰箱就发一张冰箱小卡」这种——把 HTML 模板和怎么填写进正文，配上关键词触发。") : null,

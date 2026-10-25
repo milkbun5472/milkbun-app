@@ -21356,7 +21356,47 @@ function ResetChooser({ character, preset, onClose, onRun }) {
         : h("button", { disabled: !on.size, onClick: () => setSure(true), className: "w-full rounded-xl py-3 active:opacity-80", style: { minHeight: 46, background: on.size ? t.accent : t.line, color: "#fff", fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))" } },
             on.size ? (all ? "完全重置 " + nm : "清掉选中的 " + on.size + " 样") : "至少打开一样")));
 }
+// 聊天设置里挑这个人用世界书哪几条：按文件夹排，整夹一勾、单条一勾。
+//   「所有角色」的那几条：取消＝只对 TA 关（记在 offFor）；绑给别人的那几条：勾上＝把 TA 也绑进去。
+//   不改条目本身的开关和去向——那是整本书的事，这里只管 TA 用不用。
+function ChatLorePicker({ character, entries, onBulk }) {
+  const t = useTheme();
+  const id = character && character.id;
+  const [shut, setShut] = useState({});
+  const live = (entries || []).filter(e => e && e.enabled !== false && String(e.payload || "").trim() && e.category !== "生图");
+  const uses = e => { const b = e.charIds || []; return (!b.length || b.includes(id)) && !(e.offFor || []).includes(id); };
+  const turn = (list, on) => onBulk(list.map(e => e.id), e => {
+    const offFor = (e.offFor || []).filter(x => x !== id), b = e.charIds || [];
+    if (on) return { ...e, offFor, charIds: b.length && !b.includes(id) ? b.concat(id) : b };
+    return { ...e, offFor: offFor.concat(id) };
+  });
+  const fOf = e => String(e.folder || "").trim();
+  const names = [...new Set(live.map(fOf).filter(Boolean))].sort((a, b) => a.localeCompare(b, "zh")).concat([""]);
+  if (!live.length) return h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog, paddingTop: 12 } }, "世界书里还没有在用的词条。");
+  const box = (on, part) => h("span", { style: { width: 20, height: 20, borderRadius: 5, flexShrink: 0, display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: "calc(12px * var(--app-fs, 1))",
+    border: "1.5px solid " + (on ? t.ink : t.line), background: on === true ? t.ink : "transparent", color: t.bg } }, on === true ? "✓" : part ? "–" : "");
+  return h("div", { "data-wk": "chatlore", style: { paddingTop: 8 } },
+    h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.6, marginBottom: 6 } }, "勾着的是 TA 用的。点了当场生效，不影响别的人；关键词、去哪几处照世界书里那条来。"),
+    names.map(fd => {
+      const items = live.filter(e => fOf(e) === fd);
+      if (!items.length) return null;
+      const n = items.filter(uses).length, all = n === items.length;
+      const closed = !!shut[fd || "_"];
+      return h("div", { key: "f_" + fd, "data-wk": "chatlorefolder", style: { borderTop: "1px solid " + t.line } },
+        h("div", { style: { display: "flex", alignItems: "center", gap: 10, padding: "10px 0" } },
+          h("button", { onClick: () => turn(items, !all), className: "active:opacity-60", style: { background: "transparent", border: "none", padding: 0, display: "flex" }, "aria-label": all ? "整夹不用" : "整夹都用" }, box(all || (n ? null : false), n > 0 && !all)),
+          h("button", { onClick: () => setShut(p => ({ ...p, [fd || "_"]: !closed })), className: "flex-1 text-left active:opacity-60", style: { background: "transparent", border: "none", fontFamily: F_DISPLAY, fontSize: "calc(14.5px * var(--app-fs, 1))", color: t.ink, minWidth: 0 } },
+            (closed ? "▸ " : "▾ ") + (fd || "没放进文件夹的"), h("span", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, marginLeft: 6 } }, n + "/" + items.length))),
+        closed ? null : items.map(e => h("button", { key: e.id, "data-wk": "chatloreitem", "data-on": uses(e) ? "1" : "0", onClick: () => turn([e], !uses(e)), className: "w-full flex items-center active:opacity-60",
+          style: { gap: 10, padding: "7px 0 7px 22px", background: "transparent", border: "none", textAlign: "left" } },
+          box(uses(e)),
+          h("span", { style: { flex: 1, minWidth: 0, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: uses(e) ? t.ink : t.fog, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, e.title || "未命名设定"),
+          h("span", { style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", color: t.fog, flexShrink: 0 } }, (e.charIds || []).length ? "绑人" : "所有人"))));
+    }));
+}
 function ChatSettings({
+  loreEntries,     // 世界书：这个人用哪几条（2026-10-26 群友许愿），点了当场生效
+  onLoreBulk,
   onOpenStyleLab,
   onExportChat,
   character,
@@ -21853,6 +21893,7 @@ function ChatSettings({
   }),
   // 上下文诊断并进【TA 知道什么】（v61.79）：她去查它，问的正是「TA到底记得什么、
   // 这一轮发进去的是什么」——那就是这一类。原来它自己占一格，还跟「线路」共用图标。
+  settingsTab === "know" && loreEntries && onLoreBulk ? h(SettingSection, { title: "世界书 · TA 用哪几条", ...sec("lorepick") }, h(ChatLorePicker, { character, entries: loreEntries, onBulk: onLoreBulk })) : null,
   settingsTab === "know" && renderContextDebug
     ? h(SettingSection, { title: "查上一轮真的发了什么", ...sec("ctxdebug") }, renderContextDebug())
     : null,
