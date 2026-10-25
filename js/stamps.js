@@ -69,10 +69,10 @@
   }
 
   // 剧情：乙游对话框。背景是卡面，一句一句点着走；锁着的那节写着要盖到第几枚
-  function StoryReader({ t, card, char, meName, lv, onClose }) {
+  function StoryReader({ t, card, char, meName, lv, start, onClose }) {
     const secs = (card.text && card.text.sections) || [];
     const url = useIdbImgUrl(card.face);
-    const [sid, setSid] = useState(secs[0] && secs[0].id);
+    const [sid, setSid] = useState((start && secs.some(x => x.id === start) ? start : null) || (secs[0] && secs[0].id));   // 从回廊点哪一幕就从哪一幕开始
     const [i, setI] = useState(0);
     const sec = secs.find(s => s.id === sid) || secs[0];
     if (!sec) return null;
@@ -254,7 +254,7 @@
           h("div", { "data-wk": "stampcorridor", className: "flex overflow-x-auto", style: { gap: 10, marginTop: 12, paddingBottom: 4, marginRight: -20, paddingRight: 20 } },
             nodes.map((n, i) => { const lock = n.lv > lv, on = openNode && openNode.k === n.k;
               const left = lock ? (() => { let c = 0; for (let l = lv; l < n.lv; l++) c += C().levelCost(card.rarity, l); return c; })() : 0;
-              return h("button", { key: n.k, "data-wk": "stampnode", "data-locked": lock ? "1" : "0", "data-on": on ? "1" : "0", onClick: () => lock ? toast("升到 " + n.lv + " 级才看得到") : n.ssr ? setStory(true) : setNode(n.k), className: "shrink-0 text-left active:opacity-80",
+              return h("button", { key: n.k, "data-wk": "stampnode", "data-locked": lock ? "1" : "0", "data-on": on ? "1" : "0", onClick: () => lock ? toast("升到 " + n.lv + " 级才看得到") : n.ssr ? setStory(n.k) : setNode(n.k), className: "shrink-0 text-left active:opacity-80",
                 style: { position: "relative", width: 136, minHeight: 150, padding: "11px 12px", borderRadius: 12, overflow: "hidden",
                   border: on ? "1.5px solid " + COPPER : lock ? "1px dashed rgba(130,124,111,.55)" : "1px solid " + FRAME,
                   background: on ? "#E8D8B8" : lock ? "#E7E0CF" : "#FFF8E9",
@@ -270,7 +270,7 @@
           card.rarity === "SSR" ? h("button", { "data-wk": "stampstoryopen", onClick: () => setStory(true), className: "w-full active:opacity-70", style: { marginTop: 14, minHeight: 44, borderRadius: 12, background: RC.SSR, color: "#fff", fontFamily: F_BODY, fontSize: fs(14) } }, "进入剧情")
             : openNode && openNode.body ? h("div", { "data-wk": "stampbox", style: { marginTop: 12, padding: "14px 16px", borderRadius: 14, border: "1px solid " + FRAME, background: "#FFF8E9" } },
               h("div", { style: { fontFamily: F_DISPLAY, fontSize: fs(13), color: GOLD, marginBottom: 8 } }, openNode.zh), openNode.body) : null) : null),
-      story && tx ? h(StoryReader, { t, card, char, meName, lv, onClose: () => setStory(false) }) : null);
+      story && tx ? h(StoryReader, { t, card, char, meName, lv, start: typeof story === "string" ? story : null, onClose: () => setStory(false) }) : null);
   }
 
   function StampBookApp(props) {
