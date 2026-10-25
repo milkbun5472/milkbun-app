@@ -16935,6 +16935,13 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     stampSaveCard(card.id, { sentTs: Date.now() });
     toast("发给 " + (ch.remark || ch.name) + " 了，回聊天里看他怎么说");
   };
+  // 生日池求情：她跟他讨一张生日 SSR，他回一句（用他的口气，答应或者逗她都行），回到了下一张就一定出
+  const stampBeg = async char => {
+    const d = await runProbe(apiFor(char.id), ctxFor(char), {
+      instruction: "你生日快到了，她在「邮票册」的生日池里抽了二十多次，还没抽到你那张最珍贵的。现在她来跟你求情，要你把那一张给她。照你的性子、你们现在的关系回她一句，像你平时说话那样。",
+      schemaHint: "{\"reply\":\"你回她的话\"}", maxTokens: 8000 });
+    return String((d && d.reply) || "").trim().slice(0, 200);
+  };
   // SSR 的 IF 线满级、发给他看过之后可以当真：跟他说一声，这件事从此算你们真的有过
   const stampCanon = card => {
     const ch = characters.find(c => c.id === card.charId); const tx = card.text;
@@ -33704,6 +33711,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     characters: liveChars,
     onSend: stampSend,
     onCanon: stampCanon,
+    onBeg: stampBeg,
     meName: userName(profile),
     toast: toast,
     onWrite: cards => stampWrite(cards),

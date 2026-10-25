@@ -69,6 +69,7 @@
     if (opts && opts.bday) {
       const b = st.bday[opts.bday] || (st.bday[opts.bday] = { since: 0, pulls: 0, got: false, begged: false });
       b.pulls++; b.since++;
+      if (b.force) { b.force = false; b.since = 0; b.got = true; return "SSR"; }   // 求过情了：下一张一定是他
       const p = opts.isDay ? BDAY.dayRate : BDAY.rate;
       const hit = b.since >= BDAY.hard || r() < p;
       if (hit) { b.since = 0; b.got = true; return "SSR"; }
@@ -81,6 +82,9 @@
     if (st.sinceSR >= SR_EVERY || r() < RATE.SR / (1 - RATE.SSR)) { st.sinceSR = 0; return "SR"; }
     return "R";
   }
+  // 求情：生日池抽到第 20 次还没出他的 SSR，可以去跟他求一次；求了下一张一定出。每个生日一次
+  function canBeg(st, key) { const b = st.bday[key]; return !!b && !b.got && !b.begged && b.since >= BDAY.beg; }
+  function markBeg(key) { const st = load(), b = st.bday[key]; if (!b) return; b.begged = true; b.force = true; save(st); }
   // 付钱：用券或者邮资。n = 1 或 10
   function pay(st, n, useTicket) {
     if (n === 10 && useTicket && st.tickets > 0) { st.tickets--; return "ticket"; }
@@ -124,7 +128,7 @@
   function ssrUnlocked(lv) { return { sections: Math.min(4, 1 + Math.floor(lv / 10)), ending: lv >= 40, hidden: lv >= 50 }; }
 
   g.StampsCore = { PRICE_ONE, PRICE_TEN, RATE, SOFT_FROM, HARD_AT, SR_EVERY, BDAY, CAP, FULL_COST, GIFT, GAIN, LIMITED,
-    UNLOCK, levelUp, load, save, gain, grantOnOpen, activeLimited, bdayWindow, rollRarity, pay, levelCost, isGate, gateBlocked, ssrUnlocked };
+    UNLOCK, levelUp, canBeg, markBeg, load, save, gain, grantOnOpen, activeLimited, bdayWindow, rollRarity, pay, levelCost, isGate, gateBlocked, ssrUnlocked };
   // 各处喊一声就记上
   g.stampGain = gain;
   // 别的玩法不一处处去挂：callAI 成功一枪（她按下去的、不是后台）会广播 ai-ok，这儿按它是干嘛的分进几档。

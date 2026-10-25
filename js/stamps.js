@@ -208,9 +208,13 @@
     const [cfg, setCfg] = useState(false);
     const [giftOpen, setGiftOpen] = useState(false);
     const testTap = useRef({ n: 0, t: 0 });
+    const [begging, setBegging] = useState(false), [begLine, setBegLine] = useState("");
     useEffect(() => { const f = () => setSt(C().load()); window.addEventListener("stamps-change", f); return () => window.removeEventListener("stamps-change", f); }, []);
-    useEffect(() => { const got = C().grantOnOpen(Date.now(), []); if (got.length) { setGotNote(got); setSt(C().load()); } }, []);
+    useEffect(() => { const got = C().grantOnOpen(Date.now(), characters.map(c => { const w = c.birthday ? C().bdayWindow(c.birthday, Date.now()) : null; return w ? { id: c.id, name: c.remark || c.name, year: w.year } : null; }).filter(Boolean)); if (got.length) { setGotNote(got); setSt(C().load()); } }, []);
     const lims = C().activeLimited(Date.now());
+    // 生日池：他生日前 14 天出现，生日后留 7 天；保底和求情按「这个人这一年」单独记
+    const bds = characters.map(c => { const w = c.birthday ? C().bdayWindow(c.birthday, Date.now()) : null; return w ? { char: c, win: w, key: c.id + "_" + w.year } : null; }).filter(Boolean);
+    const bd = pool.indexOf("bd:") === 0 ? bds.find(b => "bd:" + b.char.id === pool) : null;
     const lim = pool.indexOf("lim:") === 0 ? lims.find(L => "lim:" + L.id === pool) : null;
     const opt = st.opt || {};
     const setOpt = p => { const s = C().load(); s.opt = Object.assign({}, s.opt, p); C().save(s); };
@@ -225,20 +229,27 @@
     const limIds = (opt.limPick && opt.limPick.length ? opt.limPick : characters.map(c => c.id)).filter(id => characters.some(c => c.id === id));
     const limOne = lim && (opt.limOne || {})[lim.id] && limIds.includes(opt.limOne[lim.id]) ? opt.limOne[lim.id] : "";
 
+    // 求情：他回一句话（花一次调用），回到了就记下，下一张一定出
+    const doBeg = async () => {
+      if (!bd || begging) return; setBegging(true);
+      try { const line = props.onBeg ? await props.onBeg(bd.char) : ""; if (line) { C().markBeg(bd.key); setBegLine((bd.char.remark || bd.char.name) + "：" + line); } else toast("他没回上来，再试一次"); }
+      catch (e) { toast("他没回上来：" + String(e && e.message || e).slice(0, 40)); }
+      setBegging(false);
+    };
     const doPull = async (n, ticket) => {
       const s = C().load();
       if (pool === "char" && !charTheme.trim()) { toast("先给 TA 写一个主题"); return; }
       if (pool === "char" && (thDraft != null || thLineDraft != null)) s.opt = Object.assign({}, s.opt, { charTheme: Object.assign({}, s.opt.charTheme, { [charId]: charTheme }), charThemeLine: Object.assign({}, s.opt.charThemeLine, { [charId]: charThemeLine }) });
-      const pool0 = pool === "mix" ? mixIds : pool === "char" ? [charId] : (lim ? (limOne ? [limOne] : limIds) : []);
+      const pool0 = bd ? [bd.char.id] : pool === "mix" ? mixIds : pool === "char" ? [charId] : (lim ? (limOne ? [limOne] : limIds) : []);
       if (!pool0.length) { toast("先挑几个角色"); return; }
       const how = opt.testInf ? "test" : C().pay(s, n, ticket);   // 测试券：她自己试味道用，藏在设置里连点七下「规则」
       if (!how) { toast("邮资不够：单抽 " + C().PRICE_ONE + "，十连 " + C().PRICE_TEN + "。多聊聊天就攒起来了"); return; }
       const now = Date.now(), cards = [];
       for (let i = 0; i < n; i++) {
-        const rar = C().rollRarity(s);
+        const rar = bd ? C().rollRarity(s, { bday: bd.key, isDay: bd.win.isDay }) : C().rollRarity(s);
         const cid = pool0[Math.floor(Math.random() * pool0.length)];
-        const card = { id: uid(), ts: now + i, rarity: rar, charId: cid, lv: 1, pool: pool === "char" ? "char" : lim ? "limited" : "mix",
-          kind: pool === "mix" ? "daily" : "if", writing: true, writingTs: now };
+        const card = { id: uid(), ts: now + i, rarity: rar, charId: cid, lv: 1, pool: bd ? "bday" : pool === "char" ? "char" : lim ? "limited" : "mix",
+          kind: bd ? "bday" : pool === "mix" ? "daily" : "if", writing: true, writingTs: now };
         if (pool === "char") Object.assign(card, { theme: charTheme.trim().slice(0, 40), themeLine: charThemeLine.slice(0, 200), ifMode });
         if (lim) Object.assign(card, { theme: lim.name, themeLine: lim.line, limited: lim.id, ifMode });
         cards.push(card);
@@ -263,11 +274,12 @@
     // ── 卡池页像乙游那样：一整张大海报（一枚放大的邮票），左边一列小邮票换池，底下两颗大键；其余设置收进「⋯」 ──
     const NIGHT = "#15121f", PAPER = "#f4ecda", GOLD = "#e3b65c";
     const pools = [{ key: "mix", zh: "大混池", tag: "常驻 · 日常卡" }, { key: "char", zh: "角色池", tag: "常驻 · IF 卡" }]
+      .concat(bds.map(b => ({ key: "bd:" + b.char.id, zh: (b.char.remark || b.char.name) + "的生日", tag: "生日 · 日常卡", bd: b })))
       .concat(lims.map(L => ({ key: "lim:" + L.id, zh: L.name, tag: "限时 · IF 卡", lim: L })));
     const cur = pools.find(p => p.key === pool) || pools[0];
     const charNow = charOf(charId);
-    const faces = pool === "mix" ? mixIds.map(charOf).filter(Boolean) : pool === "char" ? (charNow ? [charNow] : []) : (limOne ? [charOf(limOne)] : limIds.map(charOf)).filter(Boolean);
-    const tone = pool === "mix" ? ["#2f4a46", "#7fa79a"] : pool === "char" ? [((charNow && charNow.color) || "#4a3d6b"), "#b9a7e0"] : ["#3a1f3d", "#e08a3a"];
+    const faces = bd ? [bd.char] : pool === "mix" ? mixIds.map(charOf).filter(Boolean) : pool === "char" ? (charNow ? [charNow] : []) : (limOne ? [charOf(limOne)] : limIds.map(charOf)).filter(Boolean);
+    const tone = bd ? ["#4a2a3a", "#f0a6b8"] : pool === "mix" ? ["#2f4a46", "#7fa79a"] : pool === "char" ? [((charNow && charNow.color) || "#4a3d6b"), "#b9a7e0"] : ["#3a1f3d", "#e08a3a"];
     const testInf = !!opt.testInf;
     const perf = c => "radial-gradient(circle at 6px 6px, transparent 4.6px, " + c + " 5px) -6px -6px / 12px 12px";
     // 限时池的节日装饰：只加在边角，不动整张模板（现在只有万圣夜：蝙蝠、南瓜、星星、蛛网）
@@ -280,7 +292,7 @@
       h("path", { d: "M40 0L0 40M40 0L14 40M40 0L0 14M40 0L28 40M40 0L0 28M30 0q2 8 10 10M20 0q3 17 20 20M10 0q4 26 30 30", stroke: "#f4ecda", strokeWidth: .6, fill: "none" }));
     const stars = [[18, 62], [70, 40], [52, 120], [230, 88], [205, 150], [32, 210]].map((q, i) => h("span", { key: "s" + i, style: { position: "absolute", left: q[0], top: q[1], width: 3, height: 3, borderRadius: 9, background: "#f6e3b5", opacity: .55, boxShadow: "0 0 6px #f6e3b5" } }));
     // 海报上那一句：说的是「抽了会得到什么」，不是玩法说明
-    const hook = pool === "mix" ? "今天的他，在做一件你还没见过的事。" : pool === "char" ? (charThemeLine.trim() || (charNow ? "如果 " + (charNow.remark || charNow.name) + " 活在「" + (charTheme.trim() || "另一个世界") + "」里——" : "")) : (cur.lim.hook || cur.lim.line.split("。")[0] + "。");
+    const hook = bd ? (bd.win.isDay ? "今天是他的生日。这一天抽到他的 SSR，概率翻了一倍多。" : "他的生日快到了。这几天，他会有一些只在生日前后才有的样子。") : pool === "mix" ? "今天的他，在做一件你还没见过的事。" : pool === "char" ? (charThemeLine.trim() || (charNow ? "如果 " + (charNow.remark || charNow.name) + " 活在「" + (charTheme.trim() || "另一个世界") + "」里——" : "")) : (cur.lim.hook || cur.lim.line.split("。")[0] + "。");
     // 人：一个就放大；几个错落排，中间那个大一点、高一点（不排成整齐一行）
     const faceRow = faces.length === 1
       ? h("div", { style: { borderRadius: 26, padding: 4, background: deco ? "linear-gradient(135deg,#e08a3a,#6b2f6e)" : "rgba(255,255,255,.18)", boxShadow: "0 0 40px " + tone[1] + "88" } }, h(Avatar, { character: faces[0], size: 156, radius: 22 }))
@@ -302,10 +314,11 @@
         // 邮戳：常驻写「常驻」；限时写截止日和还剩多久，万圣夜那枚是南瓜色的限定戳
         h("div", { "data-wk": "stampcountdown", style: { position: "absolute", right: 12, bottom: 12, width: 84, height: 84, borderRadius: 999, border: (deco ? "2px dashed #e08a3a" : "2px solid " + GOLD), outline: deco ? "1px solid #e08a3a66" : "none", outlineOffset: 3, color: deco ? "#f0a24f" : GOLD, transform: "rotate(-12deg)",
           display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", fontFamily: F_BODY, textAlign: "center", lineHeight: 1.25 } },
-          cur.lim ? h(React.Fragment, null, h("div", { style: { fontSize: "calc(9.5px * var(--app-fs, 1))" } }, deco ? "万圣夜限定" : "限定"), h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))" } }, new Date(Date.parse(cur.lim.to) - 1).toLocaleDateString("zh-CN", { month: "numeric", day: "numeric" }) + " 止"), h("div", { style: { fontSize: "calc(9px * var(--app-fs, 1))" } }, "还剩 " + leftText(Date.parse(cur.lim.to) - Date.now())))
+          cur.bd ? h(React.Fragment, null, h("div", { style: { fontSize: "calc(9.5px * var(--app-fs, 1))" } }, cur.bd.win.isDay ? "今天" : "生日"), h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))" } }, new Date(cur.bd.win.day).toLocaleDateString("zh-CN", { month: "numeric", day: "numeric" })), h("div", { style: { fontSize: "calc(9px * var(--app-fs, 1))" } }, "还剩 " + leftText(cur.bd.win.close - Date.now())))
+          : cur.lim ? h(React.Fragment, null, h("div", { style: { fontSize: "calc(9.5px * var(--app-fs, 1))" } }, deco ? "万圣夜限定" : "限定"), h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))" } }, new Date(Date.parse(cur.lim.to) - 1).toLocaleDateString("zh-CN", { month: "numeric", day: "numeric" }) + " 止"), h("div", { style: { fontSize: "calc(9px * var(--app-fs, 1))" } }, "还剩 " + leftText(Date.parse(cur.lim.to) - Date.now())))
             : h(React.Fragment, null, h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(16px * var(--app-fs, 1))" } }, "常驻"), h("div", { style: { fontSize: "calc(9.5px * var(--app-fs, 1))" } }, "邮票册"))),
         h("div", { style: { position: "absolute", left: 16, bottom: 18, right: 116, fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", lineHeight: 1.6, color: "rgba(244,236,218,.6)" } },
-          pool === "mix" ? "日常卡 · 他自己的世界、你们现在的关系" : pool === "char" ? "IF 卡 · 衣服照主题来" : "IF 卡 · 下架后抽到的照样留着"),
+          bd ? "生日卡 · 只在这几天抽得到" : pool === "mix" ? "日常卡 · 他自己的世界、你们现在的关系" : pool === "char" ? "IF 卡 · 衣服照主题来" : "IF 卡 · 下架后抽到的照样留着"),
         pool === "char" ? h("button", { onClick: () => setCfg(true), className: "active:opacity-70", style: { position: "absolute", right: 14, top: 12, padding: "4px 10px", borderRadius: 999, border: "1px solid " + tone[1], color: tone[1], fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))" } }, "改主题") : null));
     // 左边一列小邮票：换池。选中的那枚像从邮册里抽出来一截：放大、往右探出去
     const rail = h("div", { "data-wk": "stamprail", className: "flex flex-col shrink-0", style: { gap: 12, width: 70, paddingTop: 6 } },
@@ -315,7 +328,7 @@
             filter: on ? "drop-shadow(0 6px 12px rgba(0,0,0,.5))" : "none" } },
           h("div", { style: { width: "100%", height: "100%", borderRadius: 2, background: on ? (hal ? "#3a1f3d" : NIGHT) : "#3a3448", color: on ? GOLD : PAPER, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", textAlign: "center",
             fontFamily: F_DISPLAY, fontSize: "calc(13.5px * var(--app-fs, 1))", lineHeight: 1.25, padding: 3, gap: 3 } },
-            p.zh, h("span", { style: { fontFamily: F_BODY, fontSize: "calc(9px * var(--app-fs, 1))", opacity: .7 } }, p.lim ? "限时" : "常驻"))); }));
+            p.bd ? (p.bd.char.remark || p.bd.char.name).slice(0, 4) : p.zh, h("span", { style: { fontFamily: F_BODY, fontSize: "calc(9px * var(--app-fs, 1))", opacity: .7 } }, p.lim ? "限时" : p.bd ? "生日" : "常驻"))); }));
     const capsule = (k, v) => h("span", { key: k, "data-wk": "stampwallet", style: { padding: "3px 9px", borderRadius: 999, background: "rgba(244,236,218,.12)", color: PAPER, fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))" } }, k + " " + v);
     // ⋯ 设置页（整页，不做半窗）：谁会出、角色池主题、IF 写法、抽到就画、规则；连点七下「规则」开测试用的无限券
     if (cfg) return h("div", { "data-wk": "stampcfg", "data-page": "1", className: "h-full flex flex-col", style: { background: "radial-gradient(120% 70% at 50% 0%, #2b2440, #15121f 70%)" } },
@@ -379,7 +392,11 @@
             style: { width: 42, height: 42, borderRadius: 999, border: "2px solid " + (!limOne ? GOLD : "rgba(244,236,218,.3)"), color: !limOne ? GOLD : PAPER, fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))" } }, "随机"),
           limIds.map(charOf).filter(Boolean).map(c => h("button", { key: c.id, onClick: () => setOpt({ limOne: Object.assign({}, opt.limOne, { [lim.id]: c.id }) }), className: "shrink-0 active:opacity-70", style: { borderRadius: 999, padding: 2, border: "2px solid " + (limOne === c.id ? GOLD : "transparent") } }, h(Avatar, { character: c, size: 38, radius: 999 })))) : null,
         h("div", { style: { margin: "12px 0 6px", textAlign: "center", fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: "rgba(244,236,218,.6)" } },
-          "再抽 " + Math.max(1, ssrLeft) + " 次一定出 SSR · 每十抽至少一张 SR")),
+          bd ? ((st.bday[bd.key] || {}).got ? "今年他的生日 SSR 已经到手了" : "再抽 " + Math.max(1, C().BDAY.hard - ((st.bday[bd.key] || {}).since || 0)) + " 次一定出他的 SSR" + ((st.bday[bd.key] || {}).force ? " · 求过情了，下一张就是" : ""))
+            : "再抽 " + Math.max(1, ssrLeft) + " 次一定出 SSR · 每十抽至少一张 SR"),
+        bd && C().canBeg(st, bd.key) ? h("div", { className: "flex justify-center" }, h("button", { "data-wk": "stampbeg", disabled: begging, onClick: () => doBeg(), className: "active:opacity-70 disabled:opacity-50",
+          style: { marginTop: 2, padding: "6px 16px", borderRadius: 999, border: "1px solid #f0a6b8", color: "#f0a6b8", fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))" } }, begging ? "他在想…" : "去跟他求个情")) : null,
+        begLine ? h("div", { "data-wk": "stampbegline", onClick: () => setBegLine(""), style: { margin: "8px 20px 0", padding: "10px 14px", borderRadius: 12, background: "rgba(240,166,184,.12)", border: "1px solid rgba(240,166,184,.4)", color: PAPER, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", lineHeight: 1.7 } }, begLine) : null),
       // 底下两颗大键
       h("div", { "data-wk": "stamppullbar", className: "flex shrink-0 px-4", style: { gap: 10, padding: "10px 16px calc(env(safe-area-inset-bottom) * 0.4 + 12px)" } },
         h("button", { "data-wk": "stamppullbtn", "data-part": "one", onClick: () => doPull(1), className: "flex-1 active:opacity-80",

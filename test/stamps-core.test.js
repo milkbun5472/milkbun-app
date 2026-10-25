@@ -90,3 +90,15 @@ test("盖印升级：扣印泥，30 级那一坎没发给他看过就停住", ()
   const s3 = C.load(); s3.ink = 0; s3.cards = [{ id: "b", rarity: "R", lv: 1 }]; C.save(s3);
   assert.equal(C.levelUp("b", 1).n, 0);
 });
+
+test("生日池求情：20 抽没出才能求，求了下一张一定是 SSR，一个生日只能求一次", () => {
+  const C = fresh(), st = C.load();
+  for (let i = 0; i < 19; i++) C.rollRarity(st, { bday: "c1_2026" }, () => 0.99);
+  assert.equal(C.canBeg(st, "c1_2026"), false);
+  C.rollRarity(st, { bday: "c1_2026" }, () => 0.99);
+  assert.equal(C.canBeg(st, "c1_2026"), true);
+  C.save(st); C.markBeg("c1_2026");
+  const s2 = C.load();
+  assert.equal(C.rollRarity(s2, { bday: "c1_2026" }, () => 0.99), "SSR");
+  assert.equal(C.canBeg(s2, "c1_2026"), false);
+});
