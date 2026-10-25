@@ -68,7 +68,7 @@ test("顶上那块大标语也撤了（子页面用紧凑标题栏）", () => {
 
 // 她 2026-10-10：「想看按角色分」「世界观、共同经历这种也要 filter」——三种翻法，共用一个章的形状
 test("世界书三种翻法：去向／角色／分类，搜索和启停三种下都管用", () => {
-  assert.match(wb, /\[\["scope", "按去向"\], \["char", "按角色"\], \["cat", "按分类"\]\]/);
+  assert.match(wb, /\[\["scope", "按去向"\], \["char", "按角色"\], \["cat", "按分类"\], \["folder", "按文件夹"\]\]/);
   assert.match(wb, /"data-wk": "loreview"/);
   // 三排都走同一个 stampChip，没有第二份章的样子
   assert.equal((wb.match(/"data-wk": "lorestamp"/g) || []).length, 1, "章只许有一份");
