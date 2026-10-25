@@ -48,8 +48,8 @@ test("「先认准他属于哪个世界」独立成一条，而且两处都发",
 
 test("她自己重排的那个入口还在（不满意就再排一次）", () => {
   const comp = R("components.js");
-  assert.match(comp, /onGenWeek && onGenWeek\(curChar\)/);
+  assert.match(comp, /onGenWeek\(curChar, String\(v \|\| ""\)\.trim\(\)\)/);
   assert.match(comp, /genWeekBusy \? "　　正在排…" : "✨　AI 排剩下这几天"/);
   // 重排要真的盖掉旧的：force + 从今天到本周日
-  assert.match(app, /genScheduleWeek\(c, \{ force: true, from: today, count: 7 - dowMon \}\)/);
+  assert.match(app, /genScheduleWeek\(c, \{ force: true, from: today, count: 7 - dowMon, wish: wish \|\| "" \}\)/);
 });
