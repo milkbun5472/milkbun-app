@@ -56,7 +56,9 @@ test("上线礼只给一次；限时主题上新送一张十连券", () => {
   assert.equal(st.tickets, C.GIFT.tickets + 1);
   assert.equal(st.ink, C.GIFT.ink);
   assert.equal(C.grantOnOpen(t, []).length, 0);
-  assert.equal(C.activeLimited(Date.parse("2026-11-15T00:00:01+08:00")).length, 0, "万圣夜 11-15 0 点下架");
+  const after = C.activeLimited(Date.parse("2026-11-15T00:00:01+08:00")).map(L => L.id);
+  assert.ok(!after.includes("halloween26"), "万圣夜 11-15 0 点下架");
+  assert.ok(after.includes("lateautumn26"), "深秋接着上");
 });
 
 test("互动记账：一轮 5、线下 10；callAI 广播的按用途分档，聊天不重记", () => {
