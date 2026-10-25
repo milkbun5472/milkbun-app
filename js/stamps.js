@@ -268,6 +268,11 @@
           tx ? h("div", { className: "flex flex-wrap justify-center", style: { gap: 8, marginTop: 10 } },
             h("button", { "data-wk": "stampsend", onClick: () => onSend(card), className: "active:opacity-70", style: { padding: "6px 14px", borderRadius: 999, border: "1px solid " + LINE, color: P, fontFamily: F_BODY, fontSize: fs(12) } }, card.sentTs ? "✉ 再发给他看" : "✉ 发给他看"),
             card.rarity === "SSR" && card.kind === "if" && card.sentTs && !card.canon && lv >= cap ? h("button", { "data-wk": "stampcanon", onClick: () => onCanon(card), className: "active:opacity-70", style: { padding: "6px 14px", borderRadius: 999, background: RC.SSR, color: "#fff", fontFamily: F_BODY, fontSize: fs(12) } }, "当真") : null,
+            card.rarity === "R" && tx ? (() => { const S0 = C().load(), d = dayOf(card.ts), cur = weekDays(S0, card.charId).find(x => x.day === d);
+              if (!cur || cur.n < 2) return null;
+              const on = cur.card.id === card.id;
+              return h("button", { "data-wk": "stampdaypick", disabled: on, onClick: () => { const s2 = C().load(); const wp = Object.assign({}, (s2.opt || {}).weekPick); wp[card.charId] = Object.assign({}, wp[card.charId], { [d]: card.id }); s2.opt = Object.assign({}, s2.opt, { weekPick: wp }); C().save(s2); toast("换好了：这张就是那天的一刻"); },
+                className: "active:opacity-70", style: { padding: "6px 14px", borderRadius: 999, border: "1px solid " + LINE, color: on ? P5 : P, fontFamily: F_BODY, fontSize: fs(12) } }, on ? "这天的一刻就是它" : "就它当那天的一刻"); })() : null,
             card.rarity !== "R" ? h("button", { "data-wk": "stampkeep", disabled: !!card.shikeId, onClick: keep, className: "active:opacity-70", style: { padding: "6px 14px", borderRadius: 999, border: "1px solid " + LINE, color: card.shikeId ? P5 : P, fontFamily: F_BODY, fontSize: fs(12) } }, card.shikeId ? "已收进时刻" : "☆ 收进时刻") : null,
             card.canon ? h("span", { style: { alignSelf: "center", fontFamily: F_BODY, fontSize: fs(11.5), color: GOLD } }, "已当真") : null) : null,
           !card.face ? h("button", { "data-wk": "stampdraw", disabled: !tx || card.drawing, onClick: () => onDraw(card.id), className: "active:opacity-70 disabled:opacity-40",
@@ -343,6 +348,14 @@
       story && tx ? h(StoryReader, { t, card, char, meName, lv, start: typeof story === "string" && story !== "his" ? story : null, inner: story === "his" ? tx.inner : null, onSeen: markSeen, onClose: () => setStory(false) }) : null);
   }
 
+  // 他的一周：按天算。每天抽到的 R 只取一张当「那天的一刻」——默认那天第一张写好的，她可以换；攒够七个不同的日子算一周
+  const dayOf = ts => { const d = new Date(ts || 0); return d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate(); };
+  function weekDays(st, charId) {
+    const pick = ((st.opt || {}).weekPick || {})[charId] || {}, by = {};
+    (st.cards || []).filter(c => c.charId === charId && c.rarity === "R" && c.text && !c.dupe).sort((x, y) => (x.ts || 0) - (y.ts || 0))
+      .forEach(c => { const k = dayOf(c.ts); (by[k] = by[k] || []).push(c); });
+    return Object.keys(by).map(k => ({ day: k, ts: by[k][0].ts, card: by[k].find(c => c.id === pick[k]) || by[k][0], n: by[k].length })).sort((a, b) => a.ts - b.ts);
+  }
   function StampBookApp(props) {
     const t = useTheme();
     const { characters, onBack, onWrite, onDraw, toast, meName } = props;
@@ -563,8 +576,8 @@
         h("div", { className: "flex overflow-x-auto", style: { gap: 8, paddingTop: 10 } },
           chip(albumChar === "all", "全部 " + (st.cards || []).length, () => setAlbumChar("all"), "all"),
           characters.filter(c => (st.cards || []).some(x => x.charId === c.id)).map(c => chip(albumChar === c.id, (c.remark || c.name) + " " + st.cards.filter(x => x.charId === c.id).length, () => setAlbumChar(c.id), c.id))),
-        (() => { const rs = albumChar === "all" ? [] : byChar.filter(c => c.rarity === "R" && c.text);
-          return rs.length >= 7 ? h("button", { "data-wk": "stampweekbtn", onClick: () => setWeek(Math.floor(rs.length / 7)), className: "w-full active:opacity-70", style: { marginTop: 10, minHeight: 40, borderRadius: 10, background: "#FFF8E9", border: "1px solid #577767", color: "#285C4B", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))" } }, "翻他的一周 · 已经攒了 " + Math.floor(rs.length / 7) + " 周") : null; })(),
+        (() => { const ds = albumChar === "all" ? [] : weekDays(st, albumChar), wks = Math.floor(ds.length / 7);
+          return albumChar !== "all" && ds.length ? h("button", { "data-wk": "stampweekbtn", disabled: !wks, onClick: () => setWeek(wks), className: "w-full active:opacity-70", style: { marginTop: 10, minHeight: 40, borderRadius: 10, background: "#FFF8E9", border: "1px solid #577767", color: "#285C4B", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))" } }, wks ? "翻他的一周 · 已经攒了 " + wks + " 周" + (ds.length % 7 ? "，这一周还差 " + (7 - ds.length % 7) + " 天" : "") : "他的一周 · 攒了 " + ds.length + " 天，还差 " + (7 - ds.length) + " 天") : null; })(),
         h("div", { "data-wk": "stamprarpick", className: "flex overflow-x-auto", style: { gap: 6, paddingTop: 8 } },
           [["all", "全部"], ["SSR", "SSR"], ["SR", "SR"], ["R", "R"], ["bad", "没写好"]].map(x => { const n = x[0] === "all" ? byChar.length : x[0] === "bad" ? byChar.filter(isBad).length : byChar.filter(c => c.rarity === x[0]).length;
             return x[0] === "bad" && !n ? null : chip(albumRar === x[0], x[1] + " " + n, () => setAlbumRar(x[0]), x[0]); })),
@@ -576,13 +589,13 @@
           album.map(c => h(StampFace, { key: c.id, t, card: c, size: 88, onClick: () => setOpen(c.id) })))
           : h("div", { style: { padding: "48px 0", textAlign: "center", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: "rgba(47,42,34,.5)" } }, "还没有邮票，去寄一封")),
       week ? (() => { const ch = charOf(albumChar); const all = byChar.filter(c => c.rarity === "R" && c.text).sort((x, y) => (x.ts || 0) - (y.ts || 0));
-        const weeks = Math.floor(all.length / 7), wk = Math.min(weeks, Math.max(1, Number(week) || 1)), rs = all.slice((wk - 1) * 7, wk * 7);
+        const ds = weekDays(st, albumChar), weeks = Math.floor(ds.length / 7), wk = Math.min(weeks, Math.max(1, Number(week) || 1)), rs = ds.slice((wk - 1) * 7, wk * 7).map(d => Object.assign({}, d.card, { _day: d.day }));
         return h("div", { "data-wk": "stampweek", className: "fixed inset-0 flex flex-col", style: { zIndex: 250, background: "radial-gradient(rgba(130,124,111,.07) 1px, transparent 1.2px) 0 0 / 5px 5px, #F1EAD9" } },
-          h(Head, { zh: (ch ? (ch.remark || ch.name) : "他") + "的第 " + wk + " 周", sub: "七个瞬间 · 一共攒了 " + weeks + " 周", bg: "transparent", ink: "#39382F", onBack: () => setWeek(false) }),
+          h(Head, { zh: (ch ? (ch.remark || ch.name) : "他") + "的第 " + wk + " 周", sub: "七天各一刻 · 一共攒了 " + weeks + " 周", bg: "transparent", ink: "#39382F", onBack: () => setWeek(false) }),
           weeks > 1 ? h("div", { "data-wk": "stampweekpick", className: "flex overflow-x-auto px-5 shrink-0", style: { gap: 6, paddingTop: 4 } }, Array.from({ length: weeks }, (_, k) => chip(wk === k + 1, "第 " + (k + 1) + " 周", () => setWeek(k + 1), "w" + k))) : null,
           h("div", { className: "flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-5", style: { paddingBottom: "calc(env(safe-area-inset-bottom) * 0.4 + 28px)" } },
             rs.map((c, k) => h("button", { key: c.id, onClick: () => { setWeek(false); setOpen(c.id); }, className: "w-full text-left active:opacity-80", style: { display: "flex", gap: 12, marginTop: 14, padding: "12px 14px", borderRadius: 12, background: "#FFF8E9", border: "1px solid rgba(87,119,103,.3)", transform: "rotate(" + (k % 2 ? .6 : -.6) + "deg)" } },
-              h("div", { style: { flexShrink: 0, width: 40, textAlign: "center", fontFamily: F_DISPLAY, color: "#B58C55" } }, h("div", { style: { fontSize: "calc(10px * var(--app-fs, 1))" } }, "第"), h("div", { style: { fontSize: "calc(20px * var(--app-fs, 1))" } }, k + 1), h("div", { style: { fontSize: "calc(10px * var(--app-fs, 1))" } }, "刻")),
+              h("div", { style: { flexShrink: 0, width: 40, textAlign: "center", fontFamily: F_DISPLAY, color: "#B58C55" } }, h("div", { style: { fontSize: "calc(10px * var(--app-fs, 1))" } }, "第"), h("div", { style: { fontSize: "calc(20px * var(--app-fs, 1))" } }, k + 1), h("div", { style: { fontSize: "calc(10px * var(--app-fs, 1))" } }, "天"), h("div", { style: { fontSize: "calc(9px * var(--app-fs, 1))", color: "#827C6F", marginTop: 2 } }, c._day.split("-").slice(1).join("."))),
               h("div", { style: { minWidth: 0 } },
                 h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(14.5px * var(--app-fs, 1))", color: "#39382F" } }, c.text.name || ""),
                 h("div", { style: { marginTop: 4, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", lineHeight: 1.7, color: "#39382F" } }, c.text.narration || ""),
