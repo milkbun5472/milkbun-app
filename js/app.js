@@ -893,6 +893,18 @@ function App() {
   const charWalletRef = useRef({});
   charWalletRef.current = charWallet;
   const [selCWallet, setSelCWallet] = useState(null); // 钱包 app 选中的角色
+  // 每张表情的 id 全局唯一（群友 2026-10-25：同一张图好几份删不掉——导进来的几份共用一个 id、或者没有 id，
+  //   挑一张就全亮、界面认不清谁是谁）。重的、空的就地换一个新 id；第一份保留原 id，别处引用照旧对得上
+  const uniqEmoteIds = packs => {
+    const seen = new Set();
+    (packs || []).forEach(pk => { if (pk && Array.isArray(pk.emotes)) pk.emotes = pk.emotes.map((e, i) => {
+      if (!e) return e;
+      if (e.id && !seen.has(e.id)) { seen.add(e.id); return e; }
+      let id; do id = "em_" + Date.now() + "_" + i + "_" + Math.floor(Math.random() * 1e6); while (seen.has(id));
+      seen.add(id); return { ...e, id: id };
+    }); });
+    return packs;
+  };
   // 表情包字典 x_emotePacks：[{id,name,global,charIds:[],emotes:[{id,keyword,url}]}]
   const [emotePacks, setEmotePacks] = useState([]);
   const emotePacksRef = useRef([]);
@@ -2126,6 +2138,7 @@ function App() {
     const _defUrl = {}; buildDefaultEmotes().forEach(e => { _defUrl[e.id] = e.url; });
     const _packs = loadJSON("x_emotePacks", [{ id: "ep_default", name: "默认表情包", global: true, mine: true, charIds: [], emotes: buildDefaultEmotes() }])
       .map(pk => ({ ...pk, emotes: (pk.emotes || []).map(e => (_defUrl[e.id] && e.url !== _defUrl[e.id]) ? { ...e, url: _defUrl[e.id] } : e) }));
+    uniqEmoteIds(_packs);
     setEmotePacks(_packs);
     saveJSON("x_emotePacks", _packs);
     setFavorites(loadJSON("x_favorites", []));
@@ -30306,6 +30319,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   // 先确认落盘成功、再更新页面。旧逻辑反过来：localStorage 写满时页面会假装导入成功，
   // 一刷新整套消失。表情包属于用户资产，绝不能用「看起来成功」掩盖持久化失败。
   const commitEmotePacks = next => {
+    uniqEmoteIds(next);
     if (!saveJSON("x_emotePacks", next)) {
       toast("表情包没有保存成功：本地空间可能已满。先去 设置·数据 归档/导出，再重试");
       return false;
