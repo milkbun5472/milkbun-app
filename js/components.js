@@ -4767,7 +4767,11 @@ function Calendar({ characters, calendar, calEvents, schedules, profile, period,
       fab && h("div", { "data-wk": "calfabmenu", style: { position: "absolute", right: 0, bottom: 62, width: 190, background: t.bg2, borderRadius: 16, boxShadow: "0 10px 30px rgba(0,0,0,0.16)", overflow: "hidden" } },
         h("button", { "data-wk": "calfabitem", "data-part": "new", onClick: () => { setFab(false); setForm({ owner: evOwner, startDate: daySel, endDate: daySel, startTime: "09:00", endTime: "10:00" }); }, className: "w-full text-left active:opacity-60", style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.ink, padding: "13px 16px" } }, "＋　新增日程"),
         view === "mine" && onParseTimetable && onSaveClasses && h("button", { "data-wk": "calfabitem", "data-part": "classes", onClick: () => { setFab(false); setClassOpen(true); }, className: "w-full text-left active:opacity-60", style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.ink, padding: "13px 16px" } }, "📚　导入课表"),
-        isCharView && h("button", { "data-wk": "calfabitem", "data-part": "genweek", onClick: () => { setFab(false); onGenWeek && onGenWeek(curChar); }, disabled: genWeekBusy, className: "w-full text-left active:opacity-60 disabled:opacity-40", style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.ink, padding: "13px 16px", borderTop: "1px solid " + t.line } }, genWeekBusy ? "　　正在排…" : "✨　AI 排剩下这几天"),
+        isCharView && h("button", { "data-wk": "calfabitem", "data-part": "genweek", onClick: () => { setFab(false); if (!onGenWeek) return;
+          // 排之前问一句方向（群友 2026-10-25：「许愿一个可以给 AI 排日程提供方向」）；不填就照旧让他自己排
+          const asked = requestAppPrompt("AI 排剩下这几天", "这几天想让 " + ((curChar && (curChar.remark || curChar.name)) || "他") + " 怎么过？可以不填，不填就他自己排。只给方向，具体怎么排还是他自己定。", "",
+            v => onGenWeek(curChar, String(v || "").trim()), "排", { multiline: true, maxLength: 200, placeholder: "比如：这周在赶稿，少出门；周三晚上约了我吃饭" });
+          if (!asked) onGenWeek(curChar); }, disabled: genWeekBusy, className: "w-full text-left active:opacity-60 disabled:opacity-40", style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.ink, padding: "13px 16px", borderTop: "1px solid " + t.line } }, genWeekBusy ? "　　正在排…" : "✨　AI 排剩下这几天"),
         // 删掉这几天 AI 排的（她 2026-09-18）。算一下真有几天，按钮上写清删几天——
         // 「删除」两个字底下藏着多少东西，得让她在按之前就看见。
         isCharView && (() => {
