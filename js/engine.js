@@ -9442,13 +9442,15 @@ function groupStageLine(opts) {
   const offline = !!o.offline;
   if (o.spectate && pair.length === 2) {
     return offline
-      ? "这是「" + pair[0] + "」和「" + pair[1] + "」之间【他俩自己】的相处，此刻两人身处同一个地方、面对面（他们也不知道有任何外人在旁观）。" + SPECTATE_USER_ABSENT + "让两人自然地你来我往、多轮相处。\n" + SPECTATE_PAIR_NOTE
-      : "这是「" + pair[0] + "」和「" + pair[1] + "」之间【他俩自己】的私下对话（不是群聊，他们也不知道有任何外人在旁观）。用户以【旁白】推动场景。让两人自然地你来我往、多轮对话。\n" + SPECTATE_PAIR_NOTE;
+      ? "这是「" + pair[0] + "」和「" + pair[1] + "」之间【他俩自己】的相处，此刻两人身处同一个地方、面对面。" + SPECTATE_USER_ABSENT + "让两人自然地你来我往、多轮相处。\n" + SPECTATE_PAIR_NOTE
+      : "这是「" + pair[0] + "」和「" + pair[1] + "」之间【他俩自己】的私下对话（不是群聊）。用户以【旁白】推动场景。让两人自然地你来我往、多轮对话。\n" + SPECTATE_PAIR_NOTE;
   }
   if (o.spectate) {
     return offline
-      ? "上述角色此刻身处同一个地方，面对面相处（不是隔着手机的群聊），他们并不知道有任何外人在旁观。" + SPECTATE_USER_ABSENT + "让他们围绕旁白与彼此的关系自然相处。"
-      : "这是一个群聊，成员们并不知道有任何外人在旁观。用户以【旁白】推动剧情。让成员们围绕旁白与彼此的关系自然互动。";
+      ? "上述角色此刻身处同一个地方，面对面相处（不是隔着手机的群聊）。" + SPECTATE_USER_ABSENT + "让他们围绕旁白与彼此的关系自然相处。"
+      : "这是【成员】里这几个人的群聊。用户以【旁白】推动剧情。让成员们围绕旁白与彼此的关系自然互动。";
+  // ⚠️原来写「成员们并不知道有任何外人在旁观」（群友 2026-10-25 截图：成员聊起「群里那位新来的一直没说话，在潜水」）——
+  //   跟模型说「有人在看但你们不知道」，它就替这个看不见的人编出一个潜水的新人。只说群里就这几个人，不提旁观的人
   }
   return offline
     ? "用户和上述角色此刻身处同一个地方，面对面相处（不是隔着手机的群聊）。"
@@ -11000,6 +11002,32 @@ function timeAgo(ts) {
 // 「这一条跟已有的差不多一样吗」（她 2026-10-26「扫一眼还有哪些地方需要去重」）：问答小本、抽屉、时光轴、日记、论坛帖共用这一把尺。
 //   按两字一组的重合算（去掉标点空格），重合超过 th（默认七成，按短的那条算）就算重复。纯本地，不调模型
 function nearDupGrams(t) { const x = String(t || "").replace(/[\s，。？！?!、,.…「」“”『』（）()：:；;～~—-]/g, ""), o = new Set(); for (let i = 0; i < x.length - 1; i++) o.add(x.slice(i, i + 2)); return o; }
+// ── 群主和管理员（群友 2026-10-25 许愿，她「做吧」）──
+//   住在 x_groupSettings 那一格：owner 是成员 id 或 "me"，admins 是 id 列表，mutes 是 {id: 到几点}。
+//   禁言只在角色之间：她永远不会被禁言，群主也不会被禁言。
+function groupRoles(gs) {
+  const s = gs || {};
+  const owner = s.owner ? String(s.owner) : "";
+  const admins = (Array.isArray(s.admins) ? s.admins : []).map(String).filter(x => x && x !== owner);
+  return { owner, admins, mutes: s.mutes && typeof s.mutes === "object" ? s.mutes : {} };
+}
+function groupRoleOf(gs, id) {
+  if (id == null) return "";
+  const r = groupRoles(gs), k = String(id);
+  return r.owner === k ? "owner" : r.admins.indexOf(k) >= 0 ? "admin" : "";
+}
+function groupMutedLeft(gs, id, now) {
+  const until = Number(groupRoles(gs).mutes[String(id)]) || 0;
+  const left = until - (now || Date.now());
+  return left > 0 ? left : 0;
+}
+// 谁能禁言谁：群主管所有角色；管理员只管普通成员。她和群主不在被管的范围里。
+function groupCanMute(gs, byId, targetId) {
+  if (targetId == null || String(targetId) === "me" || String(byId) === String(targetId)) return false;
+  const a = groupRoleOf(gs, byId), b = groupRoleOf(gs, targetId);
+  if (b === "owner") return false;
+  return a === "owner" || (a === "admin" && b === "");
+}
 function isNearDup(text, list, th) {
   const a = nearDupGrams(text); if (a.size < 2) return false;
   return (list || []).some(y => { const b = nearDupGrams(y); if (b.size < 2) return false; let n = 0; a.forEach(k => { if (b.has(k)) n++; }); return n / Math.min(a.size, b.size) > (th || 0.7); });
