@@ -17060,21 +17060,20 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     stampSaveCard(card.id, { [side === "duo" ? "pokesDuo" : side === "solo" ? "pokesSolo" : "pokes"]: pokes });
     return pokes;
   };
-  // 邮票册卡面的机位：乙游卡面那一套镜头语言，每张现掷一格（只管镜头，不管画什么）；连着两张不掷同一格
-  const STAMP_CAMS = [
-    "你的视角：镜头就是她的眼睛，他离得很近，半身入画，这一刻的动作朝着镜头这边来",
-    "低机位往上仰拍，半身到全身，身后的空间拉出纵深",
-    "高一点往下俯拍，他在画面下半，抬眼或者没抬眼",
-    "前景有东西虚着挡住画面一角，他在中景，景深很浅",
-    "侧逆光，三分之二侧身，轮廓边缘被光勾亮",
-    "拉远的全身，人只占画面三分之一，这一刻的场景铺满氛围",
-    "斜构图，画面带一点倾斜，动作的方向顺着斜线走",
-    "越过他的肩膀从身后拍，看得见他正看着、正对着的东西",
-    "中景，人在画面一侧，另一侧留给场景里的光和东西"
+  // 邮票册卡面的镜头：拆成三条轴分开掷（景别 × 机位高低 × 构图和光），一百多种组合；每条轴连着两张不掷同一格，
+  //   再留一格「交给画的人」——代码只关一部分门（施工规则/bans-make-it-dumber.md）。只管镜头，不管画什么
+  const STAMP_CAM_AXES = [
+    ["很近的近景，像她就站在他面前、镜头是她的眼睛", "半身", "七分身，到膝盖上下", "全身", "拉远的大场景，人只占画面一小块", ""],
+    ["平视", "从低处往上仰拍", "从高处往下俯拍", "贴近地面的低角度", ""],
+    ["前景有东西虚着挡住一角，景深很浅", "侧逆光，轮廓边缘被光勾亮", "斜构图，画面带一点倾斜，动作顺着斜线走", "越过他的肩膀从身后拍，看得见他正看着的东西", "人在画面一侧，另一侧留给场景里的光和东西", "对称居中，四周的场景把人框住", ""]
   ];
-  const stampCam = () => { let i = Math.floor(Math.random() * STAMP_CAMS.length); if (i === stampCam.last) i = (i + 1) % STAMP_CAMS.length; stampCam.last = i;
-    return "【这一张卡面的镜头】" + STAMP_CAMS[i] + "。分镜里已经写了机位的，照分镜；参考图只决定这是谁，不决定角度。"
-      + "姿势是这一刻正在发生的动作：身体有方向、有重心变化，手在做事，不是站着或坐着对镜头摆好的样子。"; };
+  const stampCam = () => {
+    stampCam.last = stampCam.last || [];
+    const pick = STAMP_CAM_AXES.map((ax, k) => { let i = Math.floor(Math.random() * ax.length); if (i === stampCam.last[k]) i = (i + 1) % ax.length; stampCam.last[k] = i; return ax[i]; }).filter(Boolean);
+    return "【这一张卡面的镜头】" + (pick.length ? pick.join("；") + "。没说到的那几样由你按这一刻定。" : "这一张的镜头交给你按这一刻来定，别回到最常见的半身近照。")
+      + "分镜里已经写了机位的，照分镜；参考图只决定这是谁，不决定角度。"
+      + "姿势是这一刻正在发生的动作：身体有方向、有重心变化，手在做事，不是站着或坐着对镜头摆好的样子。";
+  };
   const stampDraw = async (cardId, alt, mode) => {
     const card = (StampsCoreSafe().cards || []).find(c => c.id === cardId);
     if (!card || !card.text) return;
