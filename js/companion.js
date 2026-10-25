@@ -7,7 +7,7 @@
 // 设置存 x_companion：{ charId, float, pos, scale, autoFace, looks: { [charId]: look } }
 // ============================================================
 (function () {
-  const KEY = "x_companion", BUILD = "fg-e08d72edb16841f9";
+  const KEY = "x_companion", BUILD = "fg-3f575044413bc14d";
   const load = () => Object.assign({ charId: "", float: false, pos: null, scale: 1, autoFace: true, looks: {} }, loadJSON(KEY, {}) || {});
   const save = v => saveJSON(KEY, v);
   // 心情 → 表情。心情是模型写的自由中文（x_moods[charId].label），按字认；认不出就是「平常」。
@@ -348,6 +348,10 @@
   // 不跨标点牵线，免得把“点了杯茶，看着你的头发”拼成点头。
   function actionSpan(...parts) { return actionAnchors(parts, false); }
   function actionSequence(...parts) { return actionAnchors(parts, true); }
+  function actionWithout(excluded, ...parts) {
+    const match = actionSpan(...parts);
+    return clause => excluded.test(clause) ? -1 : match(clause);
+  }
   function actionAnchors(parts, ordered) {
     const anchors = parts.map(p => new RegExp(p.source, "iu"));
     // 同一句中的锚点可换序，字符不能重复占用两个锚点；最多三个锚点。
@@ -370,6 +374,12 @@
   }
   function actionRule(kind, cues, ...spans) { return { kind, cues, spans }; }
   const ACTION_HEAD = /(?<!拳|指|石|木)头(?!发|像|绪|衔|条|号|皮|疼|痛|脑)|脑袋/;
+  // Hugging needs a person as the object, or an explicit invitation with no object.
+  // Matching a distant “你” in “抱着手机等你回” used to turn the phone into a hug.
+  const HUG_CUE = /(?:抱抱|拥抱)(?=$|[～~!！呀啊吧嘛呢哦啦]|[你您我他她](?!的))|🫂|\bhug(?:s)?\b|(?:^|[（(【\s])抱(?=$|[）)】\s~～!！])|抱(?:了?一下)(?=$|[～~!！呀啊吧嘛呢哦啦])/i;
+  const SLAP = /巴掌|耳光|掌掴/;
+  const PAT_OBJECT = /(?:你|您|对方)的[^，。]*?(?:手|掌)|(?:拍|把|将)[^，。]*?[他她]的[^，。]*?(?:手|掌)|(?:手|掌)(?:上|里|背|心)[^，。]*(?:灰|尘|脏)/;
+  const HUG_PERSON = /(?:抱|搂|拥)(?:了|着|过|住|紧|抱|搂|拥|一把|一下)*[你您我他她](?!的)|(?:把|将)[你您我他她](?!的)[^，。]*?(?:抱|搂|拥)/;
   const ACT_RULES = [
     actionRule("sleep", /(?:^|[\s，,。！!])我(?:先|这就|现在)?(?:去|要)?睡(?:了|啦)|困死了[\s，,]*睡了|我睡觉去了|^(?:先)?睡[了啦](?:睡[了啦])?[哈喽～~]?$/,
       actionSpan(/睡着|睡熟|熟睡|睡过去|睡下了/), actionSpan(/入/, /梦乡/)),
@@ -377,7 +387,7 @@
     actionRule("emotion-peace", null, actionSpan(/比|摆|举|做/, /耶|剪刀手|胜利手势|[Vv]字手势/), actionSpan(/✌/)),
     actionRule("emotion-sing", null, actionSpan(/哼|唱/, /歌|曲|调|旋律/), actionSpan(/歌声|哼唱|吟唱|轻唱/)),
     actionRule("emotion-ears", null, actionSpan(/捂|堵|蒙|盖|掩/, /耳/), actionSpan(/不听不听/)),
-    actionRule("emotion-fan", null, actionSpan(/扇|煽/, /风/), actionSpan(/手|掌/, /扇|煽/)),
+    actionRule("emotion-fan", null, actionWithout(SLAP, /扇|煽/, /风(?!衣|景)/), actionWithout(SLAP, /手|掌/, /扇|煽/, /给自己|脸边|扇子|凉|热/)),
     actionRule("emotion-daydream", null, actionSpan(/发呆|走神|出神|神游|放空|呆望/), actionSpan(/发/, /呆/)),
     actionRule("emotion-umbrella", null, actionSpan(/撑|打|举|打开/, /伞/)),
     actionRule("emotion-heart", null, actionSpan(/比|摆|做/, /心(?!情|理|事|思)/), actionSpan(/爱心手势|手指心|🫰|🫶/)),
@@ -386,8 +396,8 @@
     actionRule("emotion-tongue", null, actionSpan(/吐|伸/, /舌/)),
     actionRule("emotion-cry", null, actionSpan(/抹|擦|拭/, /泪/), actionSpan(/哭(?!笑不得)|抽泣|啜泣|落泪|流泪/), actionSpan(/眼泪|泪水/, /落|掉|流|涌/)),
     actionRule("emotion-poke", null, actionSpan(/戳/, /脸|面颊|腮/), actionSpan(/点|碰/, /指/, /脸|面颊|腮/)),
-    actionRule("emotion-pinch", null, actionSpan(/捏|掐|拧|揉/, /脸|面颊|腮/)),
-    actionRule("emotion-phone", null, actionSpan(/拿|掏|举|握|看|盯|刷|划|滑|敲|捧/, /手机|电话/), actionSpan(/敲|输入|戳|划|滑/, /屏幕|键盘/), actionSpan(/打字|敲字/)),
+    actionRule("emotion-pinch", null, actionSpan(/捏|掐|拧/, /脸|面颊|腮/), actionSpan(/揉/, /(?:你|您|对方)的[^，。]*?(?:脸|面颊|腮)/)),
+    actionRule("emotion-phone", null, actionSpan(/拿|掏|举|握|看|盯|刷|划|滑|敲|捧|抱/, /手机|电话/), actionSpan(/打(?!断|翻|碎|坏|破|掉|落|击)|拨|接听|接起|接了|接过/, /电话/), actionSpan(/拨号/), actionSpan(/敲|输入|戳|划|滑/, /屏幕|键盘/), actionSpan(/打字|敲字/)),
     actionRule("emotion-eat", null, actionSpan(/吃|咬|啃|嚼|吞|尝/, /口|饼|食物|东西|面包|点心|蛋糕|零食|饭|糖|餐/)),
     actionRule("emotion-prone", null, actionSpan(/趴|俯卧/, /下|好|着|在|床|地|桌/)),
     actionRule("emotion-lie", null, actionSpan(/躺|卧(?!槽|底)/, /下|倒|平|好|着|在|床|地|边|侧/)),
@@ -426,15 +436,19 @@
       actionSequence(/听/, /你|您|我|她|他/, /说|讲/), actionSequence(/你|您/, /说|讲/, /听/)),
     actionRule("emotion-promise", /保证(?!金|书)|包在我身上|说到做到|一言为定/,
       actionSpan(/拍/, /胸(?!前)/), actionSpan(/捶|叩|敲/, /胸/), actionSpan(/发/, /誓/)),
-    actionRule("emotion-applause", null, actionSpan(/拍|鼓/, /手|掌/), actionSpan(/掌声/)),
+    actionRule("emotion-applause", null,
+      actionWithout(PAT_OBJECT, /鼓/, /掌(?!心|背)/),
+      actionWithout(PAT_OBJECT, /拍(?:了|着|过|起|一|两|几|下|次|拍)*[手掌](?!上|里|背|心|指|腕|臂|套)/),
+      actionWithout(PAT_OBJECT, /拍/, /手|掌/, /一起|相互|互相|响|叫好/),
+      actionWithout(PAT_OBJECT, /双手|双掌|两只手|两手/, /拍(?:了|着|过|起|一|两|几|下|次|拍)*$/)),
     actionRule("emotion-cheer", /加油|鼓劲|你(?:一定|肯定)?可以的|你能行/,
       actionSpan(/握|攥/, /拳/), actionSpan(/打/, /气/)),
     actionRule("emotion-refuse", /不干了|才不要|才不呢|拒绝/,
       actionSpan(/摇|晃/, ACTION_HEAD), actionSpan(/摆/, /手/)),
-    actionRule("emotion-cozy", /抱抱|拥抱|🫂|\bhug(?:s)?\b|(?:^|[（(【\s])抱(?=$|[）)】\s~～!！])/i,
-      actionSpan(/抱|搂/, /抱|住|紧|下|你|我|她|他|过来|怀里|怀中/), actionSpan(/拥/, /抱/),
+    actionRule("emotion-cozy", HUG_CUE,
+      actionSpan(HUG_CUE), actionSpan(HUG_PERSON),
       actionSpan(/张|敞/, /双臂|手臂|胳膊/), actionSpan(/伸/, /出|开/, /双臂|手臂|胳膊/),
-      actionSpan(/双臂|手臂|胳膊/, /张|伸/, /开/), actionSpan(/伸手/, /抱/)),
+      actionSpan(/双臂|手臂|胳膊/, /张|伸/, /开/)),
     actionRule("emotion-chin", /托腮/,
       actionSpan(/托|撑|支/, /下巴|下颌|腮|脸颊/)),
     actionRule("emotion-dance", /跳舞|手舞足蹈|跟着节拍|起舞|舞步|舞动/,
@@ -513,6 +527,27 @@
     });
     return out.reverse();
   }
+  // Observation/request complements belong to the other person. Keep the
+  // actor's surrounding actions, and resume when the actor is named again.
+  // All action families use this text, so “看你吃饭/点头/哭/举手机” share one boundary.
+  function actorActionText(c) {
+    const who = /^(?:\s*)(他|她|我|TA)/iu.exec(c)?.[1];
+    const other = /(?:看(?:了看|了一眼|着|到|见)?|望着|盯着|听(?:了听|着|到|见)?|等(?:着|待)?|让|叫|催|劝)[你您我他她](?!的)/gu;
+    let out = "", from = 0, match;
+    while ((match = other.exec(c))) {
+      const start = match.index, tail = start + match[0].length;
+      if (/^(?:让|叫|催|劝)/u.test(match[0]) && /^(?:靠近|过来)/u.test(c.slice(tail))) continue;
+      const resume = new RegExp("(?:" + (who ? who + "(?!的)|" : "") + "(?:后|时|又|却|而)自己(?!的)|一边|以后|之后|随后|然后|接着)", "iu").exec(c.slice(tail));
+      const end = resume ? tail + resume.index : c.length;
+      // Listening is itself an action; preserve its “听你说/讲” cue, not the
+      // actions described inside what the other person says.
+      const listen = /^听/u.test(match[0]) && /说|讲/u.exec(c.slice(tail, end));
+      const own = listen ? match[0] + listen[0] : /^(?:让|叫|催|劝)/u.test(match[0]) ? match[0] : "";
+      out += c.slice(from, start) + own + " ".repeat(Math.max(0, end - start - own.length));
+      from = end; other.lastIndex = end;
+    }
+    return out + c.slice(from);
+  }
   const done = (x, at) => at >= 0 && !x.ifs && !NOT_DONE.test(x.c.slice(0, at).split("的").pop());
   const cueAt = (rule, x) => { const m = rule.cues && rule.cues.exec(x.c); return m ? m.index : -1; };
   // act：动作描写（action 那一栏、话里括号或星号包着的那段）；said：说出口的话。
@@ -522,7 +557,8 @@
     const norm = x => String(x || "").normalize("NFKC").replace(/摇头晃脑/g, "跟着节拍晃");
     const inSaid = [];
     const sd = norm(said).replace(/[（(【*]([^）)】*\n]{1,60})[）)】*]/gu, (m, x) => { inSaid.push(x); return " "; });
-    const a = clausesOf([norm(act)].concat(inSaid).join("\n")), b = clausesOf(sd);
+    const owned = text => clausesOf(text).map(x => Object.assign(x, { c: actorActionText(x.c) }));
+    const a = owned([norm(act)].concat(inSaid).join("\n")), b = owned(sd);
     // 明确动作优先于“早安／知道了”等口头提示；仍只在原动作表选一套。
     for (const x of a) for (const rule of ACT_RULES) if (rule.spans.some(match => done(x, match(x.c)))) return rule.kind;
     for (const x of a) for (const rule of ACT_RULES) if (done(x, cueAt(rule, x))) return rule.kind;
