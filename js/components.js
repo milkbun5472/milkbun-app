@@ -18828,6 +18828,7 @@ function GroupOfflineMode({
 //   可 v61.15 只在单聊里挂了点——群聊这边一个都没有，那五套在群里是死的：
 //   点下去什么都不会变。又是「一层写在两处，第二处没跟上」。
 function GroupThread({
+  onSuggestName,
   rerollNav,      // 重 Roll 留版（她 2026-10-10）：{pos, n}，跟单聊同一个形状
   onRerollFlip,
   locateAt,
@@ -19640,6 +19641,7 @@ function GroupThread({
     h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", letterSpacing: "0.12em", color: t.fog, marginTop: 14, marginBottom: 4 } }, "TA 为什么撤回"),
     h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", lineHeight: 1.7, color: t.sub, fontStyle: "italic" } }, gRecallView.reason || "（没说）")),
   fwdView && h(ChatForwardSheet, { m: fwdView, onClose: () => setFwdView(null) }), sheet === "settings" && h(GroupSettingsSheet, {
+    onSuggestName: onSuggestName,
     gs: gs,
     group: group,
     characters: characters,
@@ -20063,7 +20065,7 @@ function RedPacketOpenSheet({ rp, meName, onClose }) {
 // 「译」键开关：全 App 一份（存本机），单聊设置和群设置里各放一颗，拨了立刻生效（她 2026-10-02）
 const transKeyOn = () => { try { return localStorage.getItem("x_noTranslate") !== "1"; } catch (e) { return true; } };
 const setTransKeyOn = on => { try { localStorage.setItem("x_noTranslate", on ? "" : "1"); } catch (e) {} };
-function GroupSettingsSheet({ gs, group, characters, allChars, rels, msgCount, directives, onRemoveDirective, onSetDirectiveTurns, onSave, onSummarize, onAddMember, onKickMember, onSetPresence, onDelete, onClearChat, onClose }) {
+function GroupSettingsSheet({ onSuggestName, gs, group, characters, allChars, rels, msgCount, directives, onRemoveDirective, onSetDirectiveTurns, onSave, onSummarize, onAddMember, onKickMember, onSetPresence, onDelete, onClearChat, onClose }) {
   const t = useTheme();
   const [interop, setInterop] = useState(!!gs.memoryInterop);
   const [privN, setPrivN] = useState(gs.privateCtxN || 0);
@@ -20100,6 +20102,8 @@ function GroupSettingsSheet({ gs, group, characters, allChars, rels, msgCount, d
   // 建完群就再也改不了名（她 2026-08-28 找了一圈没找到）——「群名称」那个输入框
   // 一直只在 NewGroupSheet 里，设置页从来没有过。
   const [gName, setGName] = useState((group && group.name) || "");
+  const [gNamer, setGNamer] = useState("");
+  const [gNaming, setGNaming] = useState(false);
   // 群主和管理员、谁被禁言着（群友 2026-10-25）
   const _gR0 = typeof groupRoles === "function" ? groupRoles(gs) : { owner: "", admins: [], mutes: {} };
   const [gOwner, setGOwner] = useState(_gR0.owner);
@@ -20218,7 +20222,18 @@ function GroupSettingsSheet({ gs, group, characters, allChars, rels, msgCount, d
         style: { fontFamily: F_DISPLAY, fontSize: "calc(19px * var(--app-fs, 1))", color: t.ink, borderBottom: "1px solid " + t.line, background: "transparent" }
       }),
       h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginTop: 6, lineHeight: 1.55 } },
-        "改名后，这个群产生的记忆会跟着换标签，不会变成找不回来的孤儿。")),
+        "改名后，这个群产生的记忆会跟着换标签，不会变成找不回来的孤儿。"),
+      onSuggestName && members.length ? h("div", { "data-wk": "gnamer", style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog, marginTop: 8, lineHeight: 1.7 } },
+        "让 ",
+        h("select", { value: gNamer || members[0].id, onChange: e => setGNamer(e.target.value),
+          style: { background: "transparent", color: t.ink, border: "none", borderBottom: "1px solid " + t.line, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))" } },
+          members.map(c => h("option", { key: c.id, value: c.id }, c.name))),
+        " ",
+        h("button", { disabled: gNaming, className: "active:opacity-60 disabled:opacity-40", style: { color: t.tint, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))" },
+          onClick: async () => { setGNaming(true);
+            try { const nm = await onSuggestName(gNamer || members[0].id, [...((group && group.oldNames) || []), group && group.name, gName].filter(Boolean)); if (nm) setGName(nm); }
+            finally { setGNaming(false); } } }, gNaming ? "起着…" : "起个新群名"),
+        " · 花一次调用，填进上面那格，点勾才改") : null),
 
     // 成员管理
     h("div", { className: "pt-5" },
@@ -20455,7 +20470,7 @@ function NewGroupSheet({
     const who = namer && sel.includes(namer) ? namer : sel[0];
     if (!who || !onSuggestName || naming) return;
     setNaming(true);
-    try { const nm = await onSuggestName(who, sel, spectate); if (nm) { setName(nm); setNamedBy(who); } } finally { setNaming(false); }
+    try { const nm = await onSuggestName(who, sel, spectate, name.trim()); if (nm) { setName(nm); setNamedBy(who); } } finally { setNaming(false); }
   };
   const create = () => {
     if (!name.trim() || sel.length < 1) return;

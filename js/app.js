@@ -15310,7 +15310,9 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         + (_gRoles.owner && _gRoleName(_gRoles.owner) ? "群主是「" + _gRoleName(_gRoles.owner) + "」。" : "")
         + (_gRoles.admins.length ? "管理员：" + _gRoles.admins.map(_gRoleName).filter(Boolean).map(n => "「" + n + "」").join("、") + "。" : "")
         + "这是群里人人看得见的身份，各人照自己的性子对待它：当回事、拿来开玩笑、根本不在乎都行。"
-        + (_gRoles.owner && _gRoles.owner !== "me" ? "群主想改群名时，在自己那条发言对象里加 \"rename\":\"新群名\"（会落一行「改了群名」）。" : "")
+        + (_gRoles.owner && _gRoles.owner !== "me" ? "群主想改群名时，在自己那条发言对象里加 \"rename\":\"新群名\"（会落一行「改了群名」）。"
+          + (() => { const g0 = (groupsRef.current || []).find(x => x.id === groupId) || {}; const used = [...(g0.oldNames || []), g0.name].filter(Boolean);
+              return used.length ? "现在叫「" + g0.name + "」" + ((g0.oldNames || []).length ? "，以前叫过" + g0.oldNames.map(x => "「" + x + "」").join("、") : "") + "；真要改就改成一个不一样的，别在这几个上换个字。" : ""; })() : "")
         + "群主可以禁言任何一个角色成员，管理员只能禁言普通成员；" + userName(profile) + "和群主谁也禁不了。真要禁言某人，在自己那条发言对象里加 \"mute\":{\"name\":\"成员名\",\"minutes\":分钟数}，解禁加 \"unmute\":\"成员名\"。"
         + "这是这个人照自己的性子和此刻的处境会不会真动手的事，不是每次有分歧都要用。"
         + (_gMutedNow.length ? "现在被禁言的：" + _gMutedNow.map(c => "「" + c.name + "」还剩约 " + Math.ceil(groupMutedLeft(gs, c.id) / 60000) + " 分钟").join("、") + "——禁言期间这个人发不出消息，不要给他写发言。" : "")
@@ -16649,7 +16651,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     }
   };
   // 建群时让群里某一个角色起群名（群友 2026-10-25）：照TA的人设、跟这几个人的关系起，起出来她还能改
-  const suggestGroupName = async (namerId, memberIds, spectate) => {
+  const suggestGroupName = async (namerId, memberIds, spectate, avoid) => {
     if (!active) { toast("请先到设置配置 API"); return ""; }
     const ch = characters.find(c => c.id === namerId);
     if (!ch) return "";
@@ -16659,7 +16661,9 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       const d = await runProbe(apiFor(ch.id), ctxFor(ch), {
         voice: true,
         instruction: "要建一个群，群里有你、" + (rel.join("、") || "几个人") + (spectate ? "" : "，还有" + (profile.name || "她")) + "。群名由你来起。"
-          + "照你这个人会怎么起名来：起名的习惯、这几个人凑在一起是因为什么、你们之间的事。最多 16 个字。say 是你起完顺口说的一句，可空。",
+          + "照你这个人会怎么起名来：起名的习惯、这几个人凑在一起是因为什么、你们之间的事。最多 16 个字。say 是你起完顺口说的一句，可空。"
+          + (() => { const av = [...new Set((avoid || []).map(x => String(x || "").trim()).filter(Boolean))].slice(-12);
+              return av.length ? "这个群以前叫过：" + av.map(x => "「" + x + "」").join("、") + "。起一个不一样的，别在这几个上换个字、换个词、换个后缀。" : ""; })(),
         schemaHint: "{\"name\":\"群名\",\"say\":\"一句\"}",
         maxTokens: 8000
       });
@@ -16713,7 +16717,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     const g = (groups || []).find(x => x.id === groupId);
     if (!g || !name || name === g.name) return;
     const old = g.name;
-    updateGroup(groupId, { name });
+    // 用过的名字记下来，以后起新名字时摆给TA看，免得每次都差不多
+    updateGroup(groupId, { name, oldNames: [...(g.oldNames || []).filter(x => x !== name && x !== old), old].filter(Boolean).slice(-12) });
     if (old) {
       let moved = 0;
       const next = memLibRef.current.map(e => {
@@ -32135,6 +32140,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         toast("已转发给 " + (toChar.remark || toChar.name));
       }
     },
+    onSuggestName: (namerId, avoid) => suggestGroupName(namerId, activeGroup.memberIds || [], !imInGroup(activeGroup), avoid),
     onSaveSettings: patch => {
       // 群名住在 group 上、别的住在 groupSettings 上，进来时是一份 patch，这里拆开
       const { name: _gname, ...rest0 } = patch || {};
@@ -34802,7 +34808,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     characters: liveChars,
     allChars: characters,   // 建群时配角也能直接选（她 2026-10-03：要简单点）
     onCreate: createGroup,
-    onSuggestName: suggestGroupName,
+    onSuggestName: (who, sel, spec, cur) => suggestGroupName(who, sel, spec, [...(groups || []).map(g => g.name), cur].filter(Boolean)),
     onClose: () => setNewGroupOpen(false)
   }), profileOpen && /*#__PURE__*/React.createElement(ProfileSheet, {
     profile: profile,
