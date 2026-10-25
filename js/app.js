@@ -18496,8 +18496,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   const forumMoreTag = x => { const m = forumMorePhotos(x); return m.length && forumPhotoOf(x) ? { morePhotos: m } : {}; };
   const forumFmtTag = () => { try { return localStorage.getItem("x_forumLayout") === "cards" ? { fmt: "xhs" } : {}; } catch (e) { return {}; } };
   const autoForumForChar = async (char, opts) => {
-    const manual = !!(opts && opts.manual);
-    let fixedBoard = opts && opts.board ? String(opts.board) : "";
+    const manual = !!(opts && opts.manual), fixedBoard = opts && opts.board ? String(opts.board) : "";
     if (!active || (!manual && !autoRefreshOn("forum", char.id)) || (forumOffRef.current || []).includes(char.id) || isBody(char.id)) return null;
     try {
       // 调出「距上次发帖之后」和用户的往来当素材；没有就让 TA 按人设编一件贴合的小事
@@ -18518,21 +18517,18 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       const idRoll = Math.random(), altBias = forumHabit.identityBias === "alt";
       const rolledId = idRoll < (altBias ? 0.42 : 0.55) ? "main" : idRoll < 0.82 ? "alt" : "anonymous";
       const forceAnon = rolledId === "anonymous" && Math.random() < 0.5;   // 匿名的一半去匿名吧，一半在别的吧匿名发
-      // 她开的吧（她 2026-10-25「角色不会主动去那边发」）：原来只在六选一后面补一句「对得上才去」，几乎轮不到。
-      //   改成代码先掷：有她开的吧时，三成多直接定在其中一个，照那个吧的「聊什么」写；没掷中才回到六选一
-      if (!fixedBoard && !forceAnon && myBoardsForPost.length && Math.random() < 0.35) fixedBoard = myBoardsForPost[Math.floor(Math.random() * myBoardsForPost.length)].name;
       // 不止上一贴（她 2026-10-26 去重那一轮）：只看一贴，隔一贴又绕回同一个话题。最近八贴都摆出来
       const myRecent = (forumPostsRef.current || []).filter(p => p.authorId === char.id).sort((a, b) => (b.ts || 0) - (a.ts || 0)).slice(0, 8);
       const avoidRepeat = myLast ? "\n\n【绝不要重复你最近发过的帖】你最近发的是：\n" + myRecent.map(p0 => "· 《" + String(p0.title || "").slice(0, 40) + "》「" + String(p0.body || "").replace(/\s+/g, " ").slice(0, 50) + "」").join("\n") + "\n这次必须【换一件不一样的、更新的事】，绝不许再写同一个话题/同一件事/同一种心情，哪怕只是换个说法也不行。" : "";
       const d = await runProbe(apiFor(char.id), ctxFor(char), {
         voice: true,
-        instruction: forumFmtLine() + "以「" + char.name + characterText(char, "」的身份去论坛随手发一个帖（吐槽/日常/求助/兴趣/脑洞/匿名 六选一；用哪个身份发下面已经定好了）。\n【这一帖用「" + ({ main: "大号", alt: "固定小号", anonymous: "匿名" })[rolledId] + "」发，identity 填 " + rolledId + "】"
+        instruction: forumFmtLine() + "以「" + char.name + characterText(char, "」的身份去论坛随手发一个帖（发在哪个吧：吐槽/日常/求助/兴趣/脑洞/匿名" + myBoardsForPost.map(b => "/" + b.name).join("") + "，你这条写的是什么就去哪儿；用哪个身份发下面已经定好了）。\n【这一帖用「" + ({ main: "大号", alt: "固定小号", anonymous: "匿名" })[rolledId] + "」发，identity 填 " + rolledId + "】"
           + ({ main: "顶着自己的名字说话：认识他的人都看得见，说的是他愿意公开的那一面。",
               alt: "用固定小号：认识他的人认不出来——写他不想让熟人看见、但也算不上见不得人的那一面（太幼稚、太丧、太较真、和公开形象不符的爱好或牢骚）。正文不许自曝身份。",
               anonymous: "匿名：这件事和他这个人扯不上任何关系——写他平时绝不会顶着名字说的真心话、心事或怨气。正文不许自曝身份。" })[rolledId] + FORUM_ID_VOICE + "\n【Ta 长期稳定的论坛习惯】常逛：") + forumHabit.boardPrefs.join("、") + "；参与方式：" + forumHabit.participation + "；发言习惯：" + forumHabit.replyStyle + characterText(char, "；真需要遮一下的时候，他习惯用") + (forumHabit.identityBias === "alt" ? "固定小号" : "匿名") + "。" + (forceAnon ? "【这次明确去匿名吧，用 anonymous，说一件 Ta 不会用大号或固定小号留下痕迹的事。】" : "") + "**优先写你最近真实新发生的事**；兴趣吧要有具体爱好细节，脑洞吧要让别人能参与，匿名吧可以写不会用大号说的话。小号或匿名绝不在正文自曝真实身份。像真人发帖，别客服腔、别报流水账。" + FORUM_PHOTO_LINE + (sinceChat ? "\n\n【你最近亲历的共同相处（含私聊、群聊与线上/线下；可作灵感，别照抄原话）】\n" + sinceChat : "") + avoidRepeat
-          // 她自己开的吧（x_forumBoards）也在可去的里头：内容真对得上才去，不为去而去
-          + (myBoardsForPost.length ? "\n\n【论坛上还有她开的几个吧，也可以发去那儿】" + myBoardsForPost.map(b => b.name + (b.about ? "（" + b.about + "）" : "")).join("、")
-            + "——只有你这条内容本来就属于那个吧才去，board 就填那个吧的全名。" : "")
+          // 她自己开的吧（x_forumBoards）跟那六个平起平坐（她 2026-10-25：原来写成「对得上才去」，等于劝退；
+          //   也不许为了让他去而硬掷——「不应该为了让他写在我的吧而强迫改原本要写的吧」）：写什么去哪儿，他自己挑
+          + (myBoardsForPost.length ? "\n\n【这几个吧各聊什么】" + myBoardsForPost.map(b => b.name + (b.about ? "：" + b.about : "")).join("；") + "。发在这里头的，board 填吧的全名。" : "")
           + (fixedBoard ? "\n\n【这一帖发在「" + fixedBoard + "」】" + forumBoardVoice(fixedBoard) + "上面让你挑吧的那几句不算数了，board 就填「" + fixedBoard + "」。" : ""),
         schemaHint: "{\"board\":\"吐槽/日常/求助/兴趣/脑洞/匿名 之一" + (myBoardsForPost.length ? "，或者 " + myBoardsForPost.map(b => b.name).join("/") : "") + "\",\"identity\":\"" + rolledId + "\",\"title\":\"标题\",\"body\":\"正文2-4句\"" + FORUM_PHOTO_FIELD + forumFmtField() + "}",
         maxTokens: FTOK.post

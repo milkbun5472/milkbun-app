@@ -1,9 +1,9 @@
-// 她开的吧，角色平时自己发帖也会去（她 2026-10-25「角色不会主动去那边发」）：代码先掷，三成多直接定在她开的某个吧
+// 她开的吧跟自带的六个吧平起平坐（她 2026-10-25）：不劝退（「对得上才去」），也不硬掷（「不应该为了让他写在我的吧而强迫改原本要写的吧」）
 const test = require("node:test"), assert = require("node:assert/strict");
 const app = require("node:fs").readFileSync(require("node:path").join(__dirname, "../js/app.js"), "utf8");
-test("有她开的吧时先掷一次，掷中就定在那个吧（匿名去匿名吧那一半不动）", () => {
-  assert.match(app, /let fixedBoard = opts && opts\.board \? String\(opts\.board\) : "";/);
-  assert.match(app, /if \(!fixedBoard && !forceAnon && myBoardsForPost\.length && Math\.random\(\) < 0\.35\) fixedBoard = myBoardsForPost\[Math\.floor\(Math\.random\(\) \* myBoardsForPost\.length\)\]\.name;/);
-  // 定在那个吧时，照她写的「聊什么」那句写
-  assert.match(app, /fixedBoard \? "\\n\\n【这一帖发在「" \+ fixedBoard \+ "」】" \+ forumBoardVoice\(fixedBoard\)/);
+test("她开的吧列在同一排里，写什么去哪儿由他挑", () => {
+  assert.match(app, /发在哪个吧：吐槽\/日常\/求助\/兴趣\/脑洞\/匿名" \+ myBoardsForPost\.map\(b => "\/" \+ b\.name\)\.join\(""\) \+ "，你这条写的是什么就去哪儿/);
+  assert.match(app, /【这几个吧各聊什么】/);
+  assert.doesNotMatch(app, /只有你这条内容本来就属于那个吧才去/);
+  assert.doesNotMatch(app, /fixedBoard = myBoardsForPost\[Math\.floor/);
 });
