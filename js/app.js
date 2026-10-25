@@ -7637,6 +7637,10 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     //   一样晚才看上次停在哪。那一场得还没散。
     const backToScene = hasActive && placeByLatest(list, chatsRef.current[cid], lastPlaceOf(cid));
     if (!settingsFor(cid).defaultOffline && !backToScene) return;
+    // 他翻她手机时点开的（群友 2026-10-26 查一遍）：正在进行的那场照旧摊开给他看，但不替她新开一场见面；
+    //   打开的这一层记给录像，翻去别处时一起收掉
+    if (peekPlay && !hasActive) return;
+    if (peekPlay) peekOffRef.current = true;
     openOffline(activeChar);
     if (!hasActive) startOffline(cid, {});
   }, [screen, activeRoomId, activeChar]);
@@ -7652,6 +7656,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     const hasActive = (list || []).some(s => s && !s.endTs);
     const backToScene = hasActive && placeByLatest(list, groupChatsRef.current[gid], lastPlaceOf("g:" + gid));
     if (!gsFor(gid).defaultOffline && !backToScene) return;
+    if (peekPlay && !hasActive) return;   // 同上：他翻手机时不替她开一场群见面
+    if (peekPlay) peekOffRef.current = true;
     openGroupOffline(activeGroup);
     if (!hasActive) startGroupOffline(gid, {});
   }, [screen, activeGroup]);
@@ -11312,7 +11318,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   const peekLastOf = id => { const all = loadJSON("x_peekLast", {}) || {}; return all[id] || {}; };
   // 录像里进过某人的线下：再翻别处（或翻完）就把它收起，线下是盖在最上面的一层，不收会一直挡着
   const peekOffRef = useRef(false);
-  const peekOffClose = () => { if (peekOffRef.current) { peekOffRef.current = false; setOfflineChar(null); } };
+  // 录像打开过的线下（单人、群）一起收；没被线下那页接走的「直接摊开往期」也清掉，免得她自己下次进线下时冒出来
+  const peekOffClose = () => { try { window.__peekOffPast = false; } catch (e) {} if (peekOffRef.current) { peekOffRef.current = false; setOfflineChar(null); setOfflineGroup(null); } };
   // 这一趟录像里摆不摆日常联系人：勾了才摆；回放看当时TA读到的材料里有没有
   const peekDailyShown = () => {
     const p = peekPlay; if (!p) return null;
