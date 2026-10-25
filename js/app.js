@@ -17077,7 +17077,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       if (!(out && out.blob)) throw new Error("没拿到图");
       const key = "img_stamp_" + cardId + (alt ? "_alt" : "") + "_" + Date.now().toString(36);
       await idbImgPut(key, out.blob);
-      stampSaveCard(cardId, alt ? { drawing: false, faceAlt: key, faceAltMode: duo ? "duo" : "solo" } : { drawing: false, face: key });
+      stampSaveCard(cardId, alt ? c0 => ({ ...c0, drawing: false, faceAlt: key, faceAltMode: duo ? "duo" : "solo",
+        faces: Object.assign({}, c0.faceAlt ? { [c0.faceAltMode || "solo"]: c0.faceAlt } : {}, c0.faces || {}, { [duo ? "duo" : "solo"]: key }) }) : { drawing: false, face: key });
     } catch (e) { stampSaveCard(cardId, { drawing: false }); toast("卡面没画成：" + String(e && e.message || e).slice(0, 60)); }
   };
   const createGroup = (name, memberIds, spectate, roles) => {

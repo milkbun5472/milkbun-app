@@ -127,9 +127,12 @@
   // 一张卡打开：卡面、名字、内容
   // 卡页＝养成页：上面是卡（光晕、稀有度章、星、邮戳编号），中间养成面板，底下「时刻回廊」一格一格往外还原那个瞬间
   function CardPage({ t, card, char, meName, onBack, onDraw, onRewrite, onSend, onCanon, onPoke, toast }) {
-    const url1 = useIdbImgUrl(card.face), url2 = useIdbImgUrl(card.faceAlt);
-    const [side, setSide] = useState(0);              // 0 第一张卡面，1 满级的第二张
-    const url = side && url2 ? url2 : url1;
+    // 满级两面都能画：他一个人（solo）、你们俩（duo）。旧卡只有 faceAlt＋faceAltMode，照它认
+    const faces2 = Object.assign({}, card.faceAlt ? { [card.faceAltMode || "solo"]: card.faceAlt } : {}, card.faces || {});
+    const url1 = useIdbImgUrl(card.face), urlSolo = useIdbImgUrl(faces2.solo || null), urlDuo = useIdbImgUrl(faces2.duo || null);
+    const [side, setSide] = useState("main");         // main 第一面 / solo / duo
+    const url = side === "solo" && urlSolo ? urlSolo : side === "duo" && urlDuo ? urlDuo : url1;
+    const [full, setFull] = useState(false);           // 卡面全屏看，满级的在这里戳
     const [say, setSay] = useState(null), [poking, setPoking] = useState(false);
     const sayT = useRef(0);
     const [story, setStory] = useState(false);
@@ -155,8 +158,8 @@
       if (!pk) { if (poking) return; setPoking(true); try { pk = await onPoke(card); } catch (er) { pk = null; } setPoking(false); if (!pk) { toast("他没回上来，再戳一下试试"); return; } }
       const list = pk[part] && pk[part].length ? pk[part] : [].concat(pk.head || [], pk.heart || [], pk.hand || []);
       if (!list.length) return;
-      clearTimeout(sayT.current); setSay({ text: list[Math.floor(Math.random() * list.length)], y: Math.max(0.12, y) });
-      sayT.current = setTimeout(() => setSay(null), 2800);
+      clearTimeout(sayT.current); setSay({ text: list[Math.floor(Math.random() * list.length)], part });
+      sayT.current = setTimeout(() => setSay(null), 3200);
     };
     const up = steps => { const r = C().levelUp(card.id, steps); if (r.n) { setPop(Date.now()); toast("盖好了，到 " + r.lv + " 级"); } else if (r.msg) toast(r.msg); };
     const no = (S.cards || []).findIndex(c => c.id === card.id) + 1;
@@ -208,8 +211,7 @@
           h("div", { key: pop, style: { position: "relative", boxShadow: ring, animation: pop ? "stFloat .9s ease-out" : "none" } },
             h(Stamp, { t, card, face: url, size: 236 }),
             // 满级 SSR 能戳：上面三分之一是头，中间是胸口，下面是手
-            canPoke ? h("div", { "data-wk": "stamppoke", onClick: e => poke(e), style: { position: "absolute", inset: 0, cursor: "pointer" } }) : null,
-            say ? h("div", { "data-wk": "stamppokesay", style: { position: "absolute", left: "50%", top: (say.y * 100) + "%", transform: "translate(-50%, -110%)", maxWidth: 200, padding: "7px 11px", borderRadius: 12, background: "#FFF8E9", border: "1px solid " + COPPER, color: P, fontFamily: F_BODY, fontSize: fs(12.5), lineHeight: 1.5, boxShadow: "0 4px 14px rgba(57,56,47,.2)", pointerEvents: "none", animation: "stFloat .5s ease-out" } }, say.text) : null,
+            url ? h("div", { onClick: () => setFull(true), style: { position: "absolute", inset: 0, cursor: "zoom-in" } }) : null,
             pop ? h("div", { style: { position: "absolute", inset: 0, pointerEvents: "none", background: "linear-gradient(110deg, transparent 35%, rgba(255,240,200,.55) 50%, transparent 65%) 0 0 / 200% 100%", animation: "stShine .9s ease-out 1 forwards" } }) : null,
             h("div", { "data-wk": "stampbadge", style: { position: "absolute", left: "50%", top: -13, transform: "translateX(-50%)", whiteSpace: "nowrap", padding: "3px 12px", borderRadius: 999, background: card.rarity === "SSR" ? "linear-gradient(135deg,#d9b57c,#B58C55)" : card.rarity === "SR" ? "#B58C55" : FRAME, color: "#FFF8E9", fontFamily: F_DISPLAY, fontSize: fs(12), letterSpacing: ".08em", boxShadow: "0 2px 6px rgba(57,56,47,.25)" } }, card.rarity + " · " + (card.rarity === "SSR" ? "急件" : card.rarity === "SR" ? "挂号" : "平信")),
             !url ? h("div", { "data-wk": "stampblank", style: { position: "absolute", inset: 6, borderRadius: 2, overflow: "hidden", pointerEvents: "none",
@@ -236,14 +238,16 @@
             card.canon ? h("span", { style: { alignSelf: "center", fontFamily: F_BODY, fontSize: fs(11.5), color: GOLD } }, "已当真") : null) : null,
           !card.face ? h("button", { "data-wk": "stampdraw", disabled: !tx || card.drawing, onClick: () => onDraw(card.id), className: "active:opacity-70 disabled:opacity-40",
             style: { marginTop: 8, padding: "6px 14px", borderRadius: 999, border: "1px solid " + LINE, color: P7, fontFamily: F_BODY, fontSize: fs(12) } }, card.drawing ? "画着…" : "画卡面 · 花一次生图")
-            : h("button", { "data-wk": "stampredraw", disabled: card.drawing, onClick: () => onDraw(card.id, !!(side && card.faceAlt), card.faceAltMode), className: "active:opacity-70 disabled:opacity-40",
+            : h("button", { "data-wk": "stampredraw", disabled: card.drawing, onClick: () => onDraw(card.id, side !== "main", side !== "main" ? side : undefined), className: "active:opacity-70 disabled:opacity-40",
               style: { marginTop: 8, padding: "6px 14px", borderRadius: 8, border: "1px solid " + LINE, color: P7, fontFamily: F_BODY, fontSize: fs(12) } }, card.drawing ? "重画着…" : "↻ 照原来的描述重画这一面 · 花一次生图"),
           // SSR 满级：第二张卡面（一个人，或者你们俩），画好以后能翻面
           card.rarity === "SSR" && lv >= cap && tx ? h("div", { "data-wk": "stampalt", className: "flex flex-wrap justify-center", style: { gap: 8, marginTop: 8 } },
-            card.faceAlt ? h("button", { onClick: () => setSide(side ? 0 : 1), className: "active:opacity-70", style: { padding: "6px 14px", borderRadius: 8, background: COPPER, color: "#FFF8E9", fontFamily: F_BODY, fontSize: fs(12) } }, side ? "翻回第一面" : "翻到满级那一面")
-              : [["solo", "画满级卡面 · 他一个人"], ["duo", "画满级卡面 · 你们俩"]].map(x => h("button", { key: x[0], disabled: card.drawing, onClick: () => { setSide(1); onDraw(card.id, true, x[0]); }, className: "active:opacity-70 disabled:opacity-40",
-                style: { padding: "6px 12px", borderRadius: 8, border: "1px solid " + COPPER, color: COPPER, fontFamily: F_BODY, fontSize: fs(12) } }, x[1]))) : null,
-          canPoke ? h("div", { style: { marginTop: 6, fontFamily: F_BODY, fontSize: fs(11), color: P5 } }, poking ? "他在想怎么回你…" : "满级了：戳戳卡面上的他（头、胸口、手）") : null),
+            side !== "main" ? h("button", { onClick: () => setSide("main"), className: "active:opacity-70", style: { padding: "6px 12px", borderRadius: 8, border: "1px solid " + COPPER, color: COPPER, fontFamily: F_BODY, fontSize: fs(12) } }, "看第一面") : null,
+            [["solo", "他一个人"], ["duo", "你们俩"]].map(x => faces2[x[0]]
+              ? (side === x[0] ? null : h("button", { key: x[0], onClick: () => setSide(x[0]), className: "active:opacity-70", style: { padding: "6px 12px", borderRadius: 8, background: COPPER, color: "#FFF8E9", fontFamily: F_BODY, fontSize: fs(12) } }, "看满级 · " + x[1]))
+              : h("button", { key: x[0], disabled: card.drawing, onClick: () => { setSide(x[0]); onDraw(card.id, true, x[0]); }, className: "active:opacity-70 disabled:opacity-40",
+                style: { padding: "6px 12px", borderRadius: 8, border: "1px dashed " + COPPER, color: COPPER, fontFamily: F_BODY, fontSize: fs(12) } }, "画满级卡面 · " + x[1]))) : null,
+          url ? h("div", { style: { marginTop: 6, fontFamily: F_BODY, fontSize: fs(11), color: P5 } }, canPoke ? "点卡面全屏看，满级了能戳他（头、胸口、手）" : "点卡面全屏看") : null),
         // 养成
         tx ? h("div", { "data-wk": "stampgrow", style: { marginTop: 16, padding: "14px 16px", borderRadius: 16, border: "1px solid rgba(87,119,103,.22)", background: "#E2E7DA", boxShadow: "0 2px 10px rgba(57,56,47,.06)" } },
           h("div", { className: "flex items-center justify-between" },
@@ -290,6 +294,15 @@
           card.rarity === "SSR" ? h("button", { "data-wk": "stampstoryopen", onClick: () => setStory(true), className: "w-full active:opacity-70", style: { marginTop: 14, minHeight: 44, borderRadius: 12, background: RC.SSR, color: "#fff", fontFamily: F_BODY, fontSize: fs(14) } }, "进入剧情")
             : openNode && openNode.body ? h("div", { "data-wk": "stampbox", style: { marginTop: 12, padding: "14px 16px", borderRadius: 14, border: "1px solid " + FRAME, background: "#FFF8E9" } },
               h("div", { style: { fontFamily: F_DISPLAY, fontSize: fs(13), color: GOLD, marginBottom: 8 } }, openNode.zh), openNode.body) : null) : null),
+      // 全屏看卡面：点空白处收起；满级 SSR 在这里戳——他的话固定在底下那个框里，不跟着手指跳
+      full && url ? h("div", { "data-wk": "stampfull", className: "fixed inset-0 flex flex-col", onClick: () => setFull(false), style: { zIndex: 256, background: "rgba(20,18,14,.92)" } },
+        h("div", { className: "flex-1 min-h-0 flex items-center justify-center", style: { padding: "calc(env(safe-area-inset-top) + 16px) 16px 8px" } },
+          h("div", { style: { position: "relative", display: "inline-block", lineHeight: 0 } },
+            h("img", { src: url, alt: "", style: { display: "block", maxWidth: "calc(100vw - 32px)", maxHeight: "calc(100dvh - 190px)", width: "auto", height: "auto", borderRadius: 4, boxShadow: "0 0 0 3px #FFF8E9, 0 0 0 5px " + COPPER } }),
+            canPoke ? h("div", { "data-wk": "stamppoke", onClick: e => { e.stopPropagation(); poke(e); }, style: { position: "absolute", inset: 0, cursor: "pointer" } }) : null)),
+        h("div", { "data-wk": "stamppokesay", onClick: e => e.stopPropagation(), style: { margin: "0 16px calc(env(safe-area-inset-bottom) * 0.4 + 16px)", minHeight: 72, padding: "12px 16px", borderRadius: 14, background: "#FFF8E9", border: "1px solid " + COPPER, color: P, fontFamily: F_BODY, fontSize: fs(14), lineHeight: 1.7 } },
+          canPoke ? (poking ? h("span", { style: { color: P5 } }, "他在想怎么回你…") : say ? h(React.Fragment, null, h("div", { style: { fontSize: fs(10.5), color: COPPER, marginBottom: 2 } }, (char ? char.name : "") + (say.part === "head" ? " · 被戳了头" : say.part === "heart" ? " · 被戳了胸口" : " · 被戳了手")), say.text)
+            : h("span", { style: { color: P5 } }, "戳戳他：上面是头，中间是胸口，下面是手。点外面收起。")) : h("span", { style: { color: P5 } }, "点外面收起。"))) : null,
       story && tx ? h(StoryReader, { t, card, char, meName, lv, start: typeof story === "string" ? story : null, onClose: () => setStory(false) }) : null);
   }
 
