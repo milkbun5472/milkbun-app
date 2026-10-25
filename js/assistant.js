@@ -1381,6 +1381,17 @@
     return { zh: zh, man: SCREEN_MAN[pg.screen] || "", who: pg.charName || "", whoId: pg.charId || "" };
   }
   function pageLine(pg) {
+    // 线下是盖在聊天页上面的一层，screen 还是 thread（群友 2026-10-26：线下改了十轮字色都是黑的——
+    //   秋秋以为她在聊天页，一直写进聊天窗 CSS、改的是气泡里的 strong）。线下开着就照实说她在线下
+    let off = "";
+    try { off = (typeof document !== "undefined" && document.documentElement.getAttribute("data-lisa-offchar")) || ""; } catch (e) {}
+    if (off) {
+      const p0 = pageOf(pg) || {};
+      return "【她此刻在哪儿】她正开着「" + (p0.who || "这个人") + "」的【线下见面】那一层（id＝" + off + "），不是线上聊天窗。"
+        + "她说「这里」「字」「颜色」「加粗的」的时候，指的是线下这一层：改样子写 offlinecss（id 填这个），不是 chatcss、不是 bubble。"
+        + "线下正文是 offtext；引号里那几句台词（加粗、带底色的那种）是 offsay，不是 strong／b；心声是 offthought。"
+        + "台词自带内联字色，要改台词颜色就直接写 [data-wk=\"offsay\"]，带 !important。";
+    }
     const p = pageOf(pg); if (!p) return "";
     return "【她此刻在哪儿】她正开着「" + p.zh + "」"
       + (p.who ? "，这一页上是「" + p.who + "」" : "")
