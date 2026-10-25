@@ -97,6 +97,7 @@
           sec.choices.map((c, k) => { const to = secs.find(s => s.id === c.go) || nextOf(sec); const lk = to && locked(to);
             return h("button", { key: k, "data-wk": "stampstorychoice", "data-locked": lk ? "1" : "0", onClick: e => { e.stopPropagation(); if (!to || lk) return; setSid(to.id); setI(0); },
               style: { textAlign: "left", padding: "10px 12px", borderRadius: 10, border: "1px solid rgba(255,255,255,.3)", background: lk ? "transparent" : "rgba(255,255,255,.1)", color: lk ? "rgba(255,255,255,.45)" : "#fff", fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))" } },
+              to && to.hidden ? h("span", { "data-wk": "stampstorysecret", style: { marginRight: 6, color: "#e3b65c" } }, "✦") : null,
               c.text, lk ? h("span", { style: { marginLeft: 6, fontSize: "calc(11px * var(--app-fs, 1))" } }, "· 升到 " + to.lv + " 级才看得到") : null); })) : null,
         atEnd && !(sec.choices || []).length ? (() => { const nx = !sec.end && nextOf(sec);
           return nx ? h("button", { "data-wk": "stampstorychoice", "data-locked": locked(nx) ? "1" : "0", onClick: e => { e.stopPropagation(); if (locked(nx)) return; setSid(nx.id); setI(0); },
