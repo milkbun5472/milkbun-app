@@ -8782,6 +8782,22 @@ function reasoningFromBody(text) {
 function directorNoteTail(notes) {
   return (notes && notes.length) ? "本轮短期导演提示必须实际落实：" + notes.join("；") + "。" : "";
 }
+// 线下外语台词的中文（她 2026-10-26 选 B）：线下是一整段叙事，没有线上那一格译键，原来全靠免费翻译现翻——
+//   几家都连不上就一句也翻不出。开着「外语消息自带中译」时，叫模型在 JSON 里顺手交一份对照，
+//   画面照旧点「译」展开；对照里漏掉的那几句才去走免费翻译。who 是群线下里开着的那几个人名（单人线下传空）
+function offlineSayZhSpec(who) {
+  return "\n【sayZh·上面输出形状的追加项】" + (who ? who + " 开着「外语消息自带中译」" : "你开着「外语消息自带中译」")
+    + "：正文引号里" + (who ? "他们" : "你") + "说出口的【不是中文】的台词，另交一份 \"sayZh\":{\"外语原句\":\"中文\"}——"
+    + "按句交（一句外语一条，在句末标点处断开），键照正文里那一句原样抄，值按说话的人的口气译成简体中文；中文台词和旁白不交，没有外语台词就交 {}。它只是给对方看的字幕，不改正文写什么。";
+}
+// 对照里的键跟正文切出来的句子比对时，引号、空白和句末标点都不算
+function offlineSayKey(s) { return String(s || "").replace(/[\s「」『』"“”‘’'。．.！!？?…,，、~～]/g, ""); }
+function offlineSayZhParse(v) {
+  if (!v || typeof v !== "object" || Array.isArray(v)) return null;
+  const out = {}; let n = 0;
+  Object.keys(v).forEach(k => { const zh = String(v[k] == null ? "" : v[k]).trim(), key = offlineSayKey(k); if (key && zh && n < 60) { out[key] = zh.slice(0, 400); n++; } });
+  return n ? out : null;
+}
 async function generateOffline(p, ctx, session) {
   const char = ctx.char;
   const userName = (ctx.profile && ctx.profile.name) || "用户";
@@ -8874,7 +8890,7 @@ async function generateOffline(p, ctx, session) {
     (session.priorSummary ? "\n【这场线下的前情提要（早先发生的、已浓缩进记忆，接着往下演，别倒回去逐句重复复述）】\n" + session.priorSummary : "") +
     toyHint +
     offPhotoHint +
-    "") + outputSpec + stateBootstrapHint + gazeSpecBlock;
+    "") + outputSpec + ((!isDigital && session.sayZhOn) ? offlineSayZhSpec("") : "") + stateBootstrapHint + gazeSpecBlock;
   // v52.77：恢复正常首遍生成；首次跨越后的 scene 再交给同模型做删除优先的受约束编辑。
   // 最终只有编辑稿进入 session history，首遍草稿仅用于本轮内存诊断。
   const hist = offlineHistory(session.msgs, userName, char.name, ctx.timeAware !== false);
@@ -9106,6 +9122,7 @@ async function generateOffline(p, ctx, session) {
     rewriteOpCounts,
     rewriteDraft: rewriteApplied ? draftScene : null,
     thought: cln(parsed.thought),
+    sayZh: session.sayZhOn ? offlineSayZhParse(parsed.sayZh) : null,
     impression: (parsed.impression && typeof parsed.impression === "object") ? parsed.impression : null,
     // ⚠️这一头是【白名单】：不写在这儿的字段，模型填了也会被原样丢掉。
     // v58.100 线下补 photoSeen 时就栽在这——提示词发出去了、回来的答案没人接。
@@ -9619,7 +9636,8 @@ async function generateOfflineGroup(p, ctx, session) {
         + "整轮最多一个 beat 带 photo，别每个人都拍。"
       : "") +
     cotSystemBlock(cotT) +
-    (novel ? novelOut : "\n【输出】只输出一个 JSON，不要代码块：\n{\"beats\":[{\"name\":\"这一段里行动或说话的角色名；纯环境旁白填『旁白』\",\"scene\":\"这一段叙事正文（第三人称，含动作/神态/对话）\",\"thought\":\"（仅角色 beat，可选）该角色此刻没说出口的真实心声\",\"mood\":{\"label\":\"此刻中文心情词（禁止英文内部标签）\"},\"affinityDelta\":\"（仅角色 beat）" + AFFINITY_DELTA_SPEC + "\",\"impression\":\"（仅角色 beat，可选）{'side':'me|us','block':'me侧:person/soft/like/recent/unread；us侧:what/how/marks/elephant/want','text':'整块重写≤80字'}——" + (window.Gaze ? window.Gaze.updateRule(userName) : "没有新认识可省略") + "\"" + gSchedField + ((session.photoMembers || []).length ? ",\"photo\":\"（仅角色 beat，可选）这一拍真拍了照片才填 {'kind':'self|other" + ((session.photoDuoMembers || []).length ? "|duo" : "") + (session.photoGroupOk ? "|group" : "") + "','scene':'这一格拍到了什么'}，没拍就整个省略\"" : "") + "}]}\n一次产出 2~" + gBeatMax + " 个 beat（在场 " + members.length + " 个人），让在场角色轮流有戏、互相有来有往；name 必须逐字填写以下名字之一：" + members.map(c => "『" + memberLabel(members, c) + "』").join("、") + "；只有不属于任何人的纯环境段才填『旁白』，不许把整篇都塞进一个旁白 beat。") + sameNameNote(members) + "\nthought 的写法：" + THOUGHT_MEANING_CHAR + THOUGHT_VOICE + (typeof THOUGHT_EACH_OWN === "string" ? THOUGHT_EACH_OWN : "");
+    (novel ? novelOut : "\n【输出】只输出一个 JSON，不要代码块：\n{\"beats\":[{\"name\":\"这一段里行动或说话的角色名；纯环境旁白填『旁白』\",\"scene\":\"这一段叙事正文（第三人称，含动作/神态/对话）\",\"thought\":\"（仅角色 beat，可选）该角色此刻没说出口的真实心声\",\"mood\":{\"label\":\"此刻中文心情词（禁止英文内部标签）\"},\"affinityDelta\":\"（仅角色 beat）" + AFFINITY_DELTA_SPEC + "\",\"impression\":\"（仅角色 beat，可选）{'side':'me|us','block':'me侧:person/soft/like/recent/unread；us侧:what/how/marks/elephant/want','text':'整块重写≤80字'}——" + (window.Gaze ? window.Gaze.updateRule(userName) : "没有新认识可省略") + "\"" + gSchedField + ((session.photoMembers || []).length ? ",\"photo\":\"（仅角色 beat，可选）这一拍真拍了照片才填 {'kind':'self|other" + ((session.photoDuoMembers || []).length ? "|duo" : "") + (session.photoGroupOk ? "|group" : "") + "','scene':'这一格拍到了什么'}，没拍就整个省略\"" : "") + "}]}\n一次产出 2~" + gBeatMax + " 个 beat（在场 " + members.length + " 个人），让在场角色轮流有戏、互相有来有往；name 必须逐字填写以下名字之一：" + members.map(c => "『" + memberLabel(members, c) + "』").join("、") + "；只有不属于任何人的纯环境段才填『旁白』，不许把整篇都塞进一个旁白 beat。") + sameNameNote(members) + "\nthought 的写法：" + THOUGHT_MEANING_CHAR + THOUGHT_VOICE + (typeof THOUGHT_EACH_OWN === "string" ? THOUGHT_EACH_OWN : "")
+    + ((session.sayZhNames || []).length ? offlineSayZhSpec(session.sayZhNames.map(x => "『" + x + "』").join("、")) : "");
   const hist = offlineGroupHistory(session.msgs, userName, ctx.timeAware !== false);
   // 尾部重申（同单人线下）：治长对话后段八股回潮 + cot 丢失
   const gWantLong = session.minWords && session.minWords >= 150;
@@ -9667,6 +9685,7 @@ async function generateOfflineGroup(p, ctx, session) {
   }
   const sp = splitCot(raw, usedCot);
   let parsed = parseJSONLoose(sp.clean);
+  const gSayZh = (session.sayZhNames || []).length ? offlineSayZhParse(parsed && parsed.sayZh) : null;
   if (novel) {
     const nScene = String((parsed && (parsed.scene || parsed.text || parsed.content)) || (parsed ? "" : (sp.clean || raw || "").replace(/```(?:json)?/gi, ""))).trim();
     const seen = new Set();
@@ -9687,6 +9706,7 @@ async function generateOfflineGroup(p, ctx, session) {
     if (nOut.length && cotT) nOut[0].cotRequested = true;
     if (_wantReason && !_reasonMeta.reasoning) { const _fb = reasoningFromBody(raw); if (_fb) { _reasonMeta.reasoning = _fb; _reasonMeta.from = "正文 <thinking>"; } }
     if (nOut.length && _reasonMeta.reasoning) Object.assign(nOut[0], { reasoning: _reasonMeta.reasoning, reasonMs: _reasonMeta.ms || 0, reasonModel: _reasonMeta.model || "", reasonFrom: _reasonMeta.from || "" });
+    if (gSayZh) nOut.forEach(b => { b.sayZh = gSayZh; });
     return nOut;
   }
   let beats = offlineGroupBeatList(parsed);
@@ -9739,6 +9759,7 @@ async function generateOfflineGroup(p, ctx, session) {
     out[0].reasonModel = _reasonMeta.model || "";
     out[0].reasonFrom = _reasonMeta.from || "";
   }
+  if (gSayZh) out.forEach(b => { b.sayZh = gSayZh; });
   return out;
 }
 async function summarizeOfflineGroup(p, ctx, session, already) {

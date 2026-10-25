@@ -18275,7 +18275,13 @@ function offSaySentences(str) {
   const parts = String(str || "").match(/[^。！？!?…\n]+[。！？!?…]*[」』"”’）)]*\s*|\n+/g);
   return parts && parts.length > 1 ? parts : [String(str || "")];
 }
-function offBody(t, text, accent, whoId) {
+// 模型顺手交的那份「外语台词 → 中文」（线下 JSON 的 sayZh，键已去掉引号、空白、句末标点）：这一句对得上就直接用，对不上照旧走免费翻译
+function offSayZhOf(map, sen) {
+  if (!map || typeof map !== "object") return undefined;
+  const k = typeof offlineSayKey === "function" ? offlineSayKey(sen) : "";   // 比对规则只在 engine.js 那一份
+  return (k && map[k]) || undefined;
+}
+function offBody(t, text, accent, whoId, sayZh) {
   // <#0.5#> 停顿记号只给语音用，线下正文里不摆（群里 2026-10-10：「线下听说也会漏」）
   const segs = offSplit(typeof stripPauseMarks === "function" ? stripPauseMarks(text) : text);
   const hasSay = segs.some(x => x.k === "say");
@@ -18287,7 +18293,7 @@ function offBody(t, text, accent, whoId) {
       color: sayInk, fontWeight: 600,
       background: "linear-gradient(180deg, transparent 12%, " + offA(accent || t.tint, d ? 0.16 : 0.13) + " 12%, " + offA(accent || t.tint, d ? 0.16 : 0.13) + " 92%, transparent 92%)",
       borderRadius: 2, padding: "0 1px", boxDecorationBreak: "clone", WebkitBoxDecorationBreak: "clone"
-    } }, typeof TransText === "function" ? offSaySentences(x.s).map((sen, k) => h(TransText, { key: k, text: sen, ink: sayInk, inline: true, size: 13 })) : x.s)));
+    } }, typeof TransText === "function" ? offSaySentences(x.s).map((sen, k) => h(TransText, { key: k, text: sen, ink: sayInk, inline: true, size: 13, zhReady: offSayZhOf(sayZh, sen) })) : x.s)));
   return whoId && typeof TransWho === "function" ? h(TransWho, { id: whoId }, out) : out;
   // ↑ 引号里那句话是外语时挂「译」（群友 2026-10-20：「线下外语不翻译」）：整段正文是中文叙述、只有台词是外语，
   //   按整段探语种永远探成中文，所以按一句句台词挂。中文台词原样返回、零开销；翻译走免费那条，跟线上气泡同一套。
@@ -18438,7 +18444,7 @@ function OffCard({ m, msgIndex, t, char, clockId, meProfile, members, canOpenSta
       //   看着跟说话没区别，也点不开。
       editing ? editBox : (m.kind === "photo"
         ? h("div", { style: { maxWidth: 300 } }, h(PhotoCard, { m: m, mine: isUser, max: 300, onOpen: () => setPhotoView(m) }))
-        : offBody(t, m.content, isUser ? (t.accent || meChar.color) : ((spk && spk.color) || t.tint), isUser ? null : (spk && spk.id))),
+        : offBody(t, m.content, isUser ? (t.accent || meChar.color) : ((spk && spk.color) || t.tint), isUser ? null : (spk && spk.id), isUser ? null : m.sayZh)),
       photoView ? h(PhotoSheet, { m: photoView, toast: window.__toast, onClose: () => setPhotoView(null) }) : null,
       // 整段小说：头像框点开是一排在场的人，点谁就在下面露出谁的心声
       (isNovel && castOpen && cast.length) ? h("div", { "data-wk": "offcastpick", className: "flex flex-wrap gap-2 mt-3" },
