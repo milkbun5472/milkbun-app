@@ -6314,6 +6314,28 @@ function ChangelogView({ list }) {
     : all.slice(0, shown);
   const nHit = words.length ? days.reduce((n, day) => n + day.items.length, 0) : 0;
   // 搜到的词描一下，一眼看得出是哪儿沾上的
+  // 只看关键词那一段（她 2026-10-25：「搜出来只看关键词那部分」）：一条日志常常一口气说七八样，
+  //   搜「徽章」不该把照影那一整段都铺出来。先按「；」切，还长就按「、」切（括号、书名号里的不切），
+  //   只留沾上的那几小段；前面带上这条说的是哪样（冒号前那几个字），省掉的地方用「…」标出来。点一下看整条。
+  const [full, setFull] = useState({});
+  const cut = (str, sep) => { const out = []; let depth = 0, cur = "";
+    for (const ch of String(str)) { if ("（(「【《".indexOf(ch) >= 0) depth++; if ("）)」】》".indexOf(ch) >= 0 && depth) depth--;
+      if (!depth && sep.indexOf(ch) >= 0) { out.push(cur); cur = ""; } else cur += ch; }
+    out.push(cur); return out.map(x => x.trim()).filter(Boolean); };
+  const snippet = it => {
+    const str = String(it);
+    if (!words.length || str.length <= 40) return str;
+    const ci = str.indexOf("："), head = ci > 0 && ci <= 14 ? str.slice(0, ci) : "";
+    const body = head ? str.slice(ci + 1) : str;
+    const pick = (parts, sep) => { const keep = parts.filter(x => words.some(w => x.toLowerCase().indexOf(w) >= 0)); return keep.length && keep.length < parts.length ? keep : null; };
+    let parts = cut(body, "；;"), keep = pick(parts);
+    if (!keep) keep = parts;
+    // 那一段还是很长：再按「、」切一层
+    keep = keep.flatMap(seg => { if (seg.length <= 50) return [seg]; const sub = cut(seg, "、，,"); const k2 = pick(sub); return k2 || [seg]; });
+    const shown = keep.join(" … ");
+    if (shown.length >= body.length - 2) return str;   // 没省掉什么就照整条给
+    return (head ? head + "：" : "") + (body.indexOf(keep[0]) > 0 ? "… " : "") + shown + " …";
+  };
   const mark = it => {
     if (!words.length) return it;
     const re = new RegExp("(" + words.map(w => w.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|") + ")", "gi");
@@ -6339,8 +6361,11 @@ function ChangelogView({ list }) {
           h("span", { className: "flex-1", style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog } }, items.length + " 条"),
           h("span", { "aria-hidden": "true", style: { color: t.fog, fontSize: "calc(12px * var(--app-fs, 1))", transform: on ? "rotate(90deg)" : "none", transition: "transform .15s" } }, "›")),
         on ? h("ul", { "data-wk": "clitems", style: { margin: 0, padding: "0 14px 12px 28px", listStyle: "disc", color: t.sub } },
-          items.map((it, k) => h("li", { key: k, "data-wk": "clitem",
-            style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.ink, lineHeight: 1.65, padding: "3px 0" } }, mark(it)))) : null);
+          items.map((it, k) => { const key = day.d + "#" + k, sn = words.length && !full[key] ? snippet(it) : String(it), cut0 = sn !== String(it);
+            return h("li", { key: k, "data-wk": "clitem", "data-cut": cut0 ? "1" : "0",
+              onClick: words.length ? () => setFull(f => Object.assign({}, f, { [key]: !f[key] })) : undefined,
+              style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.ink, lineHeight: 1.65, padding: "3px 0", cursor: words.length ? "pointer" : "auto" } },
+              mark(sn), cut0 ? h("span", { "data-wk": "clfull", style: { marginLeft: 6, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, whiteSpace: "nowrap" } }, "看整条") : null); })) : null);
     }),
     !words.length && all.length > shown ? h("button", { "data-wk": "clmore", onClick: () => setShown(n => n + 20), className: "w-full active:opacity-70",
       style: { marginTop: 12, minHeight: 44, borderRadius: 3, border: "1px solid " + CFG_LINE(t), background: t.bg2, color: t.sub, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))" } },

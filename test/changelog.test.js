@@ -86,3 +86,22 @@ test("能搜：空格隔开的词都要沾上；搜的时候那几天全摊开�
   const ts = R("js/theme-studio.js");
   assert.match(ts, /\["clsearch", "/); assert.match(ts, /\["clmark", "/);
 });
+
+// 她 2026-10-25「搜出来只看关键词那部分」：长的一条只摆沾上的那一小段，前面带着说的是哪样，点一下看整条
+test("搜到的长条只显示关键词那一段", () => {
+  const scr = R("js/screens-ui.js");
+  const v = scr.slice(scr.indexOf("function ChangelogView("), scr.indexOf("// ── 设置这一整块"));
+  const a = v.indexOf("const cut = (str, sep)"), b = v.indexOf("const mark = it =>");
+  const mk = q => new Function("useState", "words", v.slice(a, b) + "\nreturn snippet;")(() => [{}, () => {}], q.split(" "));
+  const long = "照影：答法多了排序、拍卖会、淘汰赛；做题时能敲敲 TA 说话，TA 可能改选；做完能回头改；徽章收成一行；自己做到一半能存档；做完的能发给任何人看";
+  const sn = mk("徽章")(long);
+  assert.equal(sn, "照影：… 徽章收成一行 …");
+  assert.equal(mk("亲属卡")("亲属卡能退，TA 会对此有反应"), "亲属卡能退，TA 会对此有反应", "短的不切");
+  // 括号里的「、」不切开
+  const paren = "论坛小红书样式：博主主页（获赞与收藏、笔记、收藏、赞过）、发笔记先放图挑话题、首页关注发现收藏、消息三栏、评论带 IP 属地";
+  assert.match(mk("赞过")(paren), /博主主页（获赞与收藏、笔记、收藏、赞过）/);
+  // 接线：搜的时候用片段，点一下切整条，后面挂「看整条」
+  assert.match(v, /sn = words\.length && !full\[key\] \? snippet\(it\) : String\(it\)/);
+  assert.match(v, /"data-wk": "clfull"/);
+  assert.match(R("js/theme-studio.js"), /\["clfull", "/);
+});
