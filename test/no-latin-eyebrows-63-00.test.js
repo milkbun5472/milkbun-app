@@ -35,6 +35,8 @@ const ALLOW = {
   // 照影里那两套测试的本名：MBTI、DISC 在中文里就是这么叫的（跟 OOC 同一种），翻成中文反而没人认得；
   //   攻略里也得照这个写，不然她搜「MBTI」翻不到
   "js/zhaoying-core.js": ["MBTI", "DISC"],
+  // 邮票册卡上的稀有度：R / SR / SSR 就是这几档的本名（跟照影的 MBTI 一样），不是英文标题
+  "js/stamps.js": ["R · "],
   "js/assistant-manual.js": ["MBTI", "DISC"],
   // ③ 发给模型的枚举值 / 模型返回的枚举值——不是给人看的字，各自都有中文映射
   "js/app.js": ["HIGH LOAD", "LOW LOAD", "NORMAL", "LIGHT"],

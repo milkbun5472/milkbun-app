@@ -7,7 +7,7 @@ const app = fs.readFileSync(path.join(__dirname, "..", "js", "app.js"), "utf8");
 // 她 2026-10-16：同人文生图——头图、画手产粮、出本，都是点了才画
 test("三样都只在她点的那颗键里画，app 那头接得上", () => {
   assert.match(app, /onFicImage: ficImage,/);
-  assert.match(fic, /onFicImage: props\.onFicImage\n/);
+  assert.match(fic, /onFicImage: props\.onFicImage(, \w+: props\.\w+)*\n/);   // 同一行后面可能跟着别的递传（ficRegulars）
   ["head", "book", "fanart"].forEach(k => assert.match(fic, new RegExp('drawArt\\("' + k + '"\\)')));
   assert.equal((fic.match(/drawArt\(/g) || []).length, 4, "多出来的调用八成是自动画");
 });
