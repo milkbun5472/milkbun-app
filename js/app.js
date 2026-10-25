@@ -17745,11 +17745,25 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   const schedWeekRunRef = useRef(false);
   // 逐条转发（她 2026-10-25 转群友：「像微信一样可以选逐条转发」）：选中的每一条在对方那边各成一条，像她自己发出去的，不是一张聊天记录卡。
   //   文字照原样；真照片、表情包带着图；别的（语音、红包、卡片……）落成那一条的文字
-  const forwardEachTo = (msgs, destination, senderName) => {
+  // TA 发的照片（她 2026-10-26「图能不能也做实际转给别的聊天」）：存的是图库键 imgKey 或网址 imgUrl，不是 imageRef，
+  //   原来走到最后一格只剩一行字。先把图读出来放进图片保险箱，换成 imageRef，对面收到的就是一张真图
+  const fwdImageRef = async m => {
+    if (m.imageRef) return m.imageRef;
+    if (m.imgUrl) return m.imgUrl;
+    if (!m.imgKey) return "";
+    try {
+      const blob = await idbImgGet(m.imgKey); if (!blob) return "";
+      const data = await new Promise((ok, no) => { const r = new FileReader(); r.onload = () => ok(r.result); r.onerror = no; r.readAsDataURL(blob); });
+      return typeof imgToVault === "function" ? await imgToVault(data) : data;
+    } catch (e) { return ""; }
+  };
+  const forwardEachTo = async (msgs, destination, senderName) => {
     const base = Date.now();
+    const refs = await Promise.all((msgs || []).map(m => (m && (m.kind === "photo" || m.kind === "selfie")) ? fwdImageRef(m) : Promise.resolve("")));
     const rows = (msgs || []).map((m, k) => {
       const row = { role: "user", ts: base + k, read: false, fwd: true };
-      if ((m.kind === "photo" || m.kind === "selfie") && m.imageRef) return { ...row, kind: "photo", imageRef: m.imageRef, content: m.content || m.desc || "[照片]" };
+      if ((m.kind === "photo" || m.kind === "selfie") && refs[k]) return { ...row, kind: "photo", imageRef: refs[k], photoMode: "real", desc: m.desc || "", content: m.desc ? "[照片] " + m.desc : (m.content && !/^\[照片\]$/.test(m.content) ? m.content : "[照片]") };
+      if ((m.kind === "photo" || m.kind === "selfie") && m.desc) return { ...row, kind: "photo", photoMode: "describe", desc: m.desc, content: "[照片] " + m.desc };
       if (m.kind === "emote" && m.url) return { ...row, kind: "emote", url: m.url, keyword: m.keyword || "", content: m.content || ("[表情] " + (m.keyword || "")) };
       const txt = String((m.kind ? gameChatText(m) : m.content) || m.content || "").trim();
       return txt ? { ...row, content: txt } : null;
