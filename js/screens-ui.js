@@ -6305,27 +6305,44 @@ function ChangelogView({ list }) {
   const all = Array.isArray(list) ? list : [];
   const [open, setOpen] = useState(() => (all[0] ? { [all[0].d]: true } : {}));
   const [shown, setShown] = useState(20);
+  // 搜（她 2026-10-25：「搞个更新日志搜索吧」）：空格隔开的几个词都得沾上才算；搜的时候只留沾上的那几条、那几天全摊开
+  const [q, setQ] = useState("");
+  const words = q.trim().toLowerCase().split(/\s+/).filter(Boolean);
+  const hit = it => words.every(w => String(it).toLowerCase().indexOf(w) >= 0);
+  const days = words.length
+    ? all.map(day => ({ d: day.d, items: (day.items || []).filter(hit) })).filter(day => day.items.length)
+    : all.slice(0, shown);
+  const nHit = words.length ? days.reduce((n, day) => n + day.items.length, 0) : 0;
+  // 搜到的词描一下，一眼看得出是哪儿沾上的
+  const mark = it => {
+    if (!words.length) return it;
+    const re = new RegExp("(" + words.map(w => w.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|") + ")", "gi");
+    return String(it).split(re).map((part, k) => k % 2 ? h("mark", { key: k, "data-wk": "clmark", style: { background: /^#[0-9a-f]{6}$/i.test(String(t.tint || "")) ? t.tint + "33" : "rgba(200,160,60,.28)", color: "inherit", borderRadius: 2, padding: "0 1px" } }, part) : part);
+  };
   // 点进来就算看过最新那天
   useEffect(() => { if (all[0]) { try { localStorage.setItem(CHANGELOG_SEEN, all[0].d); } catch (e) {} } }, []);
   const toggle = d => setOpen(o => Object.assign({}, o, { [d]: !o[d] }));
   return h("div", { "data-wk": "cldays", style: { paddingTop: 12, paddingBottom: 30 } },
+    h("input", { "data-wk": "clsearch", type: "search", value: q, onChange: e => setQ(e.target.value), placeholder: "搜一样东西，比如 片刻、亲属卡、照相馆",
+      style: { width: "100%", background: t.bg2, color: t.ink, border: "1px solid " + t.line, borderRadius: 999, padding: "10px 14px", outline: "none", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", marginBottom: 10 } }),
     h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.7, marginBottom: 12 } },
-      "每次更新多了什么、修好了什么，一天一条，新的在最上面。点日期展开。"),
-    all.slice(0, shown).map((day, i) => {
-      const on = !!open[day.d];
+      words.length ? (nHit ? "找到 " + nHit + " 条，在 " + days.length + " 天里。" : "没找到。换个说法试试，比如只写一个词。")
+        : "每次更新多了什么、修好了什么，一天一条，新的在最上面。点日期展开。"),
+    days.map((day, i) => {
+      const on = words.length ? true : !!open[day.d];
       const items = Array.isArray(day.items) ? day.items : [];
       return h("div", { key: day.d, "data-wk": "clday", "data-on": on ? "1" : "0",
         style: { background: t.bg2, border: "1px solid " + CFG_LINE(t), borderTop: i === 0 ? "1px solid " + CFG_LINE(t) : "none", borderRadius: 3 } },
-        h("button", { "data-wk": "cldayhead", onClick: () => toggle(day.d), className: "w-full flex items-center active:opacity-70",
+        h("button", { "data-wk": "cldayhead", onClick: () => { if (!words.length) toggle(day.d); }, className: "w-full flex items-center active:opacity-70",
           style: { gap: 10, minHeight: 44, padding: "11px 12px", textAlign: "left" } },
           h("span", { style: { fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))", color: t.ink } }, changelogDay(day.d)),
           h("span", { className: "flex-1", style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog } }, items.length + " 条"),
           h("span", { "aria-hidden": "true", style: { color: t.fog, fontSize: "calc(12px * var(--app-fs, 1))", transform: on ? "rotate(90deg)" : "none", transition: "transform .15s" } }, "›")),
         on ? h("ul", { "data-wk": "clitems", style: { margin: 0, padding: "0 14px 12px 28px", listStyle: "disc", color: t.sub } },
           items.map((it, k) => h("li", { key: k, "data-wk": "clitem",
-            style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.ink, lineHeight: 1.65, padding: "3px 0" } }, it))) : null);
+            style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.ink, lineHeight: 1.65, padding: "3px 0" } }, mark(it)))) : null);
     }),
-    all.length > shown ? h("button", { "data-wk": "clmore", onClick: () => setShown(n => n + 20), className: "w-full active:opacity-70",
+    !words.length && all.length > shown ? h("button", { "data-wk": "clmore", onClick: () => setShown(n => n + 20), className: "w-full active:opacity-70",
       style: { marginTop: 12, minHeight: 44, borderRadius: 3, border: "1px solid " + CFG_LINE(t), background: t.bg2, color: t.sub, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))" } },
       "再往前看（还有 " + (all.length - shown) + " 天）") : null);
 }

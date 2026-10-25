@@ -73,3 +73,16 @@ test("秋秋：问更新时带上日志（最近五天＋沾边的旧条），�
   assert.match(a, /\+ \(\(\) => \{ const cl = changelogBlock\(question\); return cl \? cl \+ "\\n\\n" : ""; \}\)\(\)/);
   assert.match(a, /if \(window\.LazyMods && !window\.QQ_CHANGELOG && CHANGELOG_ASK\.test\(String\(text \|\| ""\)\)\) await window\.LazyMods\.load\("screens"\)/);
 });
+
+// 她 2026-10-25「搞个更新日志搜索吧」
+test("能搜：空格隔开的词都要沾上；搜的时候那几天全摊开、只留沾上的那几条、不出「再往前看」", () => {
+  const scr = R("js/screens-ui.js");
+  const v = scr.slice(scr.indexOf("function ChangelogView("), scr.indexOf("// ── 设置这一整块"));
+  assert.match(v, /"data-wk": "clsearch"/);
+  assert.match(v, /const words = q\.trim\(\)\.toLowerCase\(\)\.split\(\/\\s\+\/\)\.filter\(Boolean\);/);
+  assert.match(v, /const hit = it => words\.every\(/);
+  assert.match(v, /const on = words\.length \? true : !!open\[day\.d\];/);
+  assert.match(v, /!words\.length && all\.length > shown \?/);
+  const ts = R("js/theme-studio.js");
+  assert.match(ts, /\["clsearch", "/); assert.match(ts, /\["clmark", "/);
+});
