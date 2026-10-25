@@ -16904,7 +16904,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   //   ⚠️写失败不丢卡：卡已经落进 x_stamps，只是没写完（text:null），界面上点一下重写。
   const STAMP_SHOT_SPEC = "shot 是给画卡面的人看的分镜（中文，几句话）：pose＝身体朝向、重心在哪、两只手各在干嘛、视线落在哪；camera＝景别、机位高低、镜头远近；"
     + "light＝主光从哪边来、是什么光、冷暖、有没有轮廓光、阴影落在哪；place＝在哪、身边两三样带着这一刻的东西；outfit＝穿什么；mood＝一两个词。"
-    + "卡面是竖版的：脸在画面上三分之一，人偏左或偏右、另一边留给场景，前景可以有一点虚化的东西做层次。卡面上只画你一个人。";
+    + "画的是这张卡里真的发生的那一刻，不另编动作：你那时在干什么就画什么，构图跟着这个动作来，全身、半身、背影、俯拍仰拍都行；你那时没在看谁，就不看镜头。卡面是竖版的，上面只画你一个人。";
   const stampKindLine = (card, char) => {
     if (card.kind === "if") {
       const mode = card.ifMode === "into" ? "把你自己丢进这个主题里：你还是原来那个世界的人，忽然到了这里，看什么都新鲜，这本身就是故事。"
@@ -16913,16 +16913,22 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       return "这是一张【IF 卡】，主题是「" + card.theme + "」" + (card.themeLine ? "：" + card.themeLine : "。")
         + "写的是「如果」的你，不是真发生的事。先想清楚你是哪个世界、哪个年代的人，" + mode + "衣服照这个主题来配，不用你衣柜里的。";
     }
-    return "这是一张【日常卡】：写你这个人在你自己的世界里、跟她现在这层关系下，可能会有的一刻新鲜事——不是你们已经发生过的事，也不是回忆。"
-      + "照你的性子、你的日子、你住的地方和常去的地方来；你俩的关系走到哪一步就写到哪一步，还没在一起就不写恋人之间的事，最近在别扭就别写得甜。衣服从你自己的衣柜里挑。"
+    return "这是一张【日常卡】：写你自己日子里真发生的一件事——不是你们已经发生过的事，也不是回忆。"
+      + "这件事从你自己的生活里来：你的活儿、你在意的东西、你身边的人、你的选择，或者一点意外；它可以跟她一点关系都没有，你不必时时惦记着她。"
+      + "写到她的时候，你俩的关系走到哪一步就写到哪一步，还没在一起就不写恋人之间的事，最近在别扭就别写得甜。衣服从你自己的衣柜里挑。"
       + (card.kind === "bday" ? "这一张是你生日前后的一刻。" : "");
   };
   const STAMP_RARITY_SPEC = {
-    R: "R 卡＝她不在场的时候，你一个人的一刻。narration 一行交代是什么时候、你在干嘛；thought 是你心里的一句，你不知道会被她看到。"
-      + "before、after 是这一刻的前一刻和后一刻，各自也有 narration 和 thought；real 是你心里真正想说的那一句。",
-    SR: "SR 卡＝你们俩的一小段，五六百字。open 是开头一小段；rest 接着写完；sequel 是过了一阵以后的一小段后续；hidden 是你藏着没说出口的一句；line 是印在卡面上的一句你的台词。"
+    R: "R 卡＝抓拍：她不在场时你的一个瞬间，重在你那会儿是什么状态，不必是一件完整的事。narration 一行交代是什么时候、你在干嘛；thought 是你心里的一句，你不知道会被她看到。"
+      + "before、after 是这一刻的前一刻和后一刻，各自也有 narration 和 thought；real 是这一刻你心里真正的那一句。",
+    SR: "SR 卡＝短篇：一件有前因后果的小事，五六百字，重在你怎么应对它——事情有变化、有个结果；她在不在场看这件事本身。open 是开头一小段；rest 接着写完；sequel 是过了一阵以后的一小段后续；hidden 是你藏着没说出口的一句；line 是印在卡面上的一句你的台词。"
   };
-  const stampPrev = charId => (StampsCoreSafe().cards || []).filter(c => c.charId === charId && c.text).slice(-40).map(c => "「" + c.text.name + "」");
+  // 去重按「写的是什么事」，不只按卡名：带上最近几十张的 gist
+  const stampPrev = charId => (StampsCoreSafe().cards || []).filter(c => c.charId === charId && c.text).slice(-30).map(c => "「" + c.text.name + "」" + (c.text.gist ? "：" + String(c.text.gist).slice(0, 60) : ""));
+  const stampPrevLine = prev => prev.length ? "\n你已经有的卡（卡名和写的是什么）：\n" + prev.join("\n") + "\n新写的别再是同一件事、同一种走向。" : "";
+  // 写卡的公共底子：跟线下、同人文同一套叙事规矩；排序也写明——人对了比戏好看要紧
+  const STAMP_CORE = () => (typeof narrativeCore === "function" ? narrativeCore({ intimate: true }) + "\n\n" : "")
+    + "写卡的先后：先是你这个人对不对，再是跟你的世界、你们现在的关系对不对，再是写的是不是一件具体的事，再是跟别的卡是不是不一样，最后才是好不好看。戏剧效果跟你会怎么做对不上时，照你会怎么做；没有冲突、没有告白、没有高潮也可以。\n\n";
   const StampsCoreSafe = () => (window.StampsCore ? window.StampsCore.load() : { cards: [] });
   // 把一枚邮票发进聊天给他看：IF 卡跟他讲清是另一个世界的他，不是你们真的发生过
   const stampSend = card => {
@@ -16938,7 +16944,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   // 生日池求情：她跟他讨一张生日 SSR，他回一句（用他的口气，答应或者逗她都行），回到了下一张就一定出
   const stampBeg = async char => {
     const d = await runProbe(apiFor(char.id), ctxFor(char), {
-      instruction: "你生日快到了，她在「邮票册」的生日池里抽了二十多次，还没抽到你那张最珍贵的。现在她来跟你求情，要你把那一张给她。照你的性子、你们现在的关系回她一句，像你平时说话那样。",
+      voice: true,
+      instruction: "你生日快到了，她在「邮票册」的生日池里抽了二十多次，还没抽到你那张最珍贵的。现在她来跟你求情，要你把那一张给她。答不答应、怎么回，照你的性子、你此刻的状态和你们现在的关系，像你平时说话那样回她一句。",
       schemaHint: "{\"reply\":\"你回她的话\"}", maxTokens: 8000 });
     return String((d && d.reply) || "").trim().slice(0, 200);
   };
@@ -16975,13 +16982,13 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     try {
       const prev = stampPrev(char.id);
       const d = await runProbe(apiFor(char.id), ctxFor(char), {
-        instruction: "她在「邮票册」里抽到了几张印着你的邮票，每张是你的一个样子。下面按顺序写这几张。\n"
+        voice: true,
+        instruction: STAMP_CORE() + "她在「邮票册」里抽到了几张印着你的邮票，每张是你的一个样子。下面按顺序写这几张。\n"
           + list.map((c, i) => "第 " + (i + 1) + " 张：" + c.rarity + "。" + stampKindLine(c, char)).join("\n")
           + "\n" + (list.some(c => c.rarity === "R") ? STAMP_RARITY_SPEC.R + "\n" : "") + (list.some(c => c.rarity === "SR") ? STAMP_RARITY_SPEC.SR + "\n" : "")
-          + "每张都有 name（卡名，八个字以内）和 shot。" + STAMP_SHOT_SPEC
-          + (prev.length ? "\n你已经有的卡：" + prev.join("、") + "。这几张写别的时刻、别的地方，别跟它们撞。" : "")
-          + "\n几张之间也各不一样。",
-        schemaHint: "{\"cards\":[{\"name\":\"\",\"narration\":\"(R)\",\"thought\":\"(R)\",\"before\":{\"narration\":\"\",\"thought\":\"\"},\"after\":{\"narration\":\"\",\"thought\":\"\"},\"real\":\"(R)\",\"line\":\"(SR)\",\"open\":\"(SR)\",\"rest\":\"(SR)\",\"sequel\":\"(SR)\",\"hidden\":\"(SR)\",\"shot\":\"\"}]}",
+          + "每张都有 name（卡名，八个字以内）、gist（一句话记下这张写的是什么事、在哪、怎么收的尾，给以后去重用）和 shot。" + STAMP_SHOT_SPEC
+          + stampPrevLine(prev) + "\n这几张之间也是不同的事。",
+        schemaHint: "{\"cards\":[{\"name\":\"\",\"narration\":\"(R)\",\"thought\":\"(R)\",\"before\":{\"narration\":\"\",\"thought\":\"\"},\"after\":{\"narration\":\"\",\"thought\":\"\"},\"real\":\"(R)\",\"line\":\"(SR)\",\"open\":\"(SR)\",\"rest\":\"(SR)\",\"sequel\":\"(SR)\",\"hidden\":\"(SR)\",\"gist\":\"\",\"shot\":\"\"}]}",
         maxTokens: 65000
       });
       const arr = Array.isArray(d && d.cards) ? d.cards : [];
@@ -16997,21 +17004,23 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     try {
       const prev = stampPrev(char.id), me = userName(meOf(char.id));
       const d = await runProbe(apiFor(char.id), ctxFor(char), {
-        instruction: "她在「邮票册」里抽到了一张印着你的 SSR 邮票。" + stampKindLine(c, char)
-          + "\nSSR 是一段完整的剧情，像乙游的卡面剧情：分几节，她在中间做选择，选的不同走的路不同。"
+        voice: true,
+        instruction: STAMP_CORE() + "她在「邮票册」里抽到了一张印着你的 SSR 邮票。" + stampKindLine(c, char)
+          + "\nSSR 是一段完整的剧情，像乙游的卡面剧情：分几节，她在中间做选择，选的不同走的路不同。是什么样的故事，跟着你这个人、你的世界和你们现在的关系来，不一定是恋爱的事。"
           + "sections 里每一节：id、lv（第几道锁）、title、beats（一句一句往下走：who 是 he＝你说的话、me＝" + me + "说的话、narr＝旁白动作；text 是这一句）、"
           + "choices（这一节结尾她要选的两三个选项：text 是她说的话或做的事，go 是去哪一节的 id；没有选项就空着）、end（是不是一个结局）。"
           + "照这个骨架写：lv1 的开头一节，结尾有选项；lv10 的两条岔路；lv20 合回来的一节，结尾再有选项；lv30 的两条岔路；lv40 的两三个结局（end:true）；"
-          + "再加一节 lv50 的隐藏的路（hidden:true），从 lv30 某一节的一个选项走进去，它也是一个结局。每节十几到二十几句，整段要有起伏：前面铺、中间有一下真正动人的地方、结局落得住。"
-          + "她那句（me）照她平时的样子写，少一点，主要是你。"
-          + "\nname 是卡名（八个字以内），line 是印在卡面上的一句你的台词。highlight 是整段剧情里最高光的那一刻，一两句画面。" + STAMP_SHOT_SPEC
-          + (prev.length ? "\n你已经有的卡：" + prev.join("、") + "。写别的时刻、别的地方。" : ""),
-        schemaHint: "{\"name\":\"\",\"line\":\"\",\"highlight\":\"\",\"shot\":\"\",\"sections\":[{\"id\":\"s1\",\"lv\":1,\"title\":\"\",\"beats\":[{\"who\":\"narr|he|me\",\"text\":\"\"}],\"choices\":[{\"text\":\"\",\"go\":\"s2a\"}],\"end\":false,\"hidden\":false}]}",
+          + "再加一节 lv50 的隐藏的路（hidden:true），从 lv30 某一节的一个选项走进去，它也是一个结局，让她看到前面那几条路都没看到的东西。每节十几到二十几句。"
+          + "往前走靠的是发生的事、你的做法和你们之间自然的对话；你说多少话照你平时的样子，心里的东西让她从你做的事里看出来。每节都有点什么变了，不必每节都有大事。"
+          + "两条岔路走下去，后面发生的事、你的处理、她知道的东西、你们之间的样子，至少有一样真的不一样。她那句（me）照她平时的样子写，少一点。"
+          + "\nname 是卡名（八个字以内），line 是印在卡面上的一句你的台词。highlight 是剧情里你最想留住的那一刻，一两句画面。gist 一句话记下这张写的是什么事、在哪、怎么收的尾。" + STAMP_SHOT_SPEC
+          + stampPrevLine(prev),
+        schemaHint: "{\"name\":\"\",\"line\":\"\",\"highlight\":\"\",\"gist\":\"\",\"shot\":\"\",\"sections\":[{\"id\":\"s1\",\"lv\":1,\"title\":\"\",\"beats\":[{\"who\":\"narr|he|me\",\"text\":\"\"}],\"choices\":[{\"text\":\"\",\"go\":\"s2a\"}],\"end\":false,\"hidden\":false}]}",
         maxTokens: 65000
       });
       const secs = Array.isArray(d && d.sections) ? d.sections.filter(s => s && s.id && Array.isArray(s.beats) && s.beats.length) : [];
       if (!d || !d.name || !secs.length) throw new Error("剧情没写全");
-      stampSaveCard(c.id, { writing: false, err: "", text: { name: d.name, line: d.line || "", highlight: d.highlight || "", shot: d.shot || "", sections: secs } });
+      stampSaveCard(c.id, { writing: false, err: "", text: { name: d.name, line: d.line || "", highlight: d.highlight || "", gist: d.gist || "", shot: d.shot || "", sections: secs } });
     } catch (e) { stampSaveCard(c.id, { writing: false, err: "没写出来：" + String(e && e.message || e).slice(0, 60) }); }
   };
   // 画卡面：竖版，只画他一个人；分镜照写卡时那份。alt＝SSR 满级的第二张（第二批再接双人）
