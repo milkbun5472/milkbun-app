@@ -10686,6 +10686,7 @@ function ChatThread({
   const ref = useRef(null);
   const inited = useRef(false); // 首次进入聊天：瞬间落底，不用 smooth（否则从顶部慢慢滚像跳到很上面）
   const cName = character.remark || character.name;
+  const [rpEnv, setRpEnv] = useState(null);   // 点开的那个私聊红包（第几条）
   // 「念出来」(v60.25 她要的「气泡转语音」)：不是语音条也能听。
   // 门槛跟语音条那一条完全一样——配了 TTS + 这个角色选了音色，而且只有TA说的话才有嗓子；
   // 她自己那句没有音色，菜单里就不该出现这一项。
@@ -11335,8 +11336,12 @@ function ChatThread({
         !mine && h(Avatar, { character: character, size: 40, radius: 10 }),
         h(RedPacketCard, { rp: { message: m.note }, dim: st !== "pending",
           foot: st === "accepted" ? (mine ? cName + " 领了 " : "你领了 ") + amt : st === "returned" ? (mine ? cName + " 没收，退回来了" : "你退回了") : mine ? "等 " + cName + " 拆开" : "拆红包",
-          onClick: selMode ? () => toggleSel(i) : canOpen ? () => onRespondTransfer(m.tid, true) : undefined }),
-        mine && dsp.myAvatar && h(Avatar, { character: meAv, size: 40, radius: 10 }));
+          onClick: selMode ? () => toggleSel(i) : () => setRpEnv(i) }),
+        mine && dsp.myAvatar && h(Avatar, { character: meAv, size: 40, radius: 10 }),
+        rpEnv === i ? h(RedPacketEnvelope, { who: mine ? (meAv && meAv.name) || "我" : cName, whoChar: mine ? meAv : character, message: m.note,
+          canOpen, amountText: st === "accepted" ? amt : "",
+          status: st === "returned" ? (mine ? cName + " 没收，退回来了" : "你退回了这个红包") : st === "accepted" ? (mine ? cName + " 领了" : "已存进你的钱包") : mine ? "等 " + cName + " 拆开" : "",
+          onOpen: async () => { onRespondTransfer(m.tid, true); return amt; }, onClose: () => setRpEnv(null) }) : null);
     }
     if (m.kind === "transfer") return h("div", {
       key: i,
@@ -19001,6 +19006,8 @@ function GroupThread({
       setRpView(i);
       return;
     }
+    // 能领的先给一张大红封，按「開」才领（她 2026-10-25）
+    if (!(rp.toId && rp.toId !== "me")) { setRpView(i); return; }
     const r = onClaim(i);
     setRpView(i);
     if (typeof r === "number") toast && toast("领到 ¥" + r);
@@ -19609,11 +19616,13 @@ function GroupThread({
       caption: !!emoteCaption, onCaption: onEmoteCaption,
       onPick: em => { sendRich({ role: "user", kind: "emote", url: em.url, keyword: em.keyword, content: "[表情] " + em.keyword }); setSheet(null); }
     })
-  ), rpView != null && messages[rpView] && messages[rpView].kind === "redpacket" && h(RedPacketOpenSheet, {
-    rp: messages[rpView],
-    meName: meName,
-    onClose: () => setRpView(null)
-  }), gInviteOpen && h(DateComposeDialog, { places: invitePlaces || [], members: members, who: "大家",
+  ), rpView != null && messages[rpView] && messages[rpView].kind === "redpacket" && (() => { const rp = messages[rpView], mine = (rp.claims || []).find(c => c.me);
+    const canOpen = !rp.byMe && !mine && (rp.claims || []).length < rp.count && !(rp.toId && rp.toId !== "me");
+    return h(RedPacketEnvelope, { key: "rp" + rpView, who: rp.by || rp.senderName, whoChar: rp.byMe ? meAv : (memberById(rp.senderId) || null), message: rp.message,
+      canOpen, amountText: mine ? "¥" + mine.amount : "", claims: rp.claims || [], total: rp.total, count: rp.count, meName,
+      status: rp.byMe ? "你发的红包" : (!mine && rp.toId && rp.toId !== "me") ? "这是给 " + (rp.toName || "别人") + " 的专属红包" : (!mine && (rp.claims || []).length >= rp.count) ? "手慢了，红包派完了" : "",
+      onOpen: async () => { const r = onClaim(rpView); return typeof r === "number" ? "¥" + r : null; },
+      onClose: () => setRpView(null) }); })(), gInviteOpen && h(DateComposeDialog, { places: invitePlaces || [], members: members, who: "大家",
     onCancel: () => setGInviteOpen(false),
     onSend: v => { setGInviteOpen(false); onGroupDateInvite(v.place, v); } }), geoOpen && h(GeoStampSheet, {
     recent: geoRecent,
@@ -19920,6 +19929,51 @@ function RedPacketComposeSheet({ memberCount, members, myBalance, onSubmit, onCl
     h("button", { onClick: () => { if (canSend) onSubmit(a, toId ? 1 : c, message.trim(), toId); }, disabled: !canSend, className: "w-full active:opacity-80", style: { fontFamily: F_BODY, fontSize: "calc(15px * var(--app-fs, 1))", background: "linear-gradient(160deg,#c3372c,#9d251c)", color: "#fff", borderRadius: 12, padding: "11px 0", marginTop: 20, opacity: canSend ? 1 : 0.5 } }, "塞进红包 " + (a > 0 ? "¥" + a : "")));
 }
 // 打开红包 / 看领取详情
+// 点开红包（她 2026-10-25：「点开有一个这样的红包可以点开」，照微信那张大红封）：
+//   还没拆＝一张竖着的大红封，上面谁发的、祝福语，正中一颗金色「開」；按下去转一圈，翻到领完那一页。
+//   领完那一页：顶上一道红弧，谁的红包、祝福语、领到多少；群红包底下再列谁领了多少。
+//   canOpen 为假（自己发的、领过了、领完了、不是给你的）就直接停在那一页。
+function RedPacketEnvelope({ who, whoChar, message, canOpen, onOpen, amountText, status, claims, total, count, meName, onClose }) {
+  const t = useTheme();
+  const [stage, setStage] = useState(canOpen ? "closed" : "open");
+  const [got, setGot] = useState(amountText || "");
+  const [spin, setSpin] = useState(false);
+  const RED = "#d8483a", RED_D = "#c33b2e", GOLD = "#e9c27a";
+  const press = async e => {
+    e.stopPropagation(); if (spin) return; setSpin(true);
+    let r = null; try { r = await onOpen(); } catch (_) {}
+    setTimeout(() => { setSpin(false); if (r) setGot(r); setStage("open"); }, 650);
+  };
+  const avatar = sz => whoChar ? h(Avatar, { character: whoChar, size: sz, radius: sz / 2 }) : h("div", { style: { width: sz, height: sz, borderRadius: 999, background: "rgba(255,255,255,.3)" } });
+  const closed = h("div", { "data-wk": "rpenvelope", "data-stage": "closed", onClick: e => e.stopPropagation(),
+    style: { position: "relative", width: "min(300px, 82vw)", height: "min(470px, 70vh)", borderRadius: 14, overflow: "hidden", background: RED, boxShadow: "0 18px 40px rgba(60,10,6,.35)", animation: "qqIn .22s ease both" } },
+    h("div", { style: { position: "absolute", left: "-20%", right: "-20%", bottom: 0, height: "38%", background: RED_D, borderTopLeftRadius: "50% 40%", borderTopRightRadius: "50% 40%" } }),
+    h("div", { style: { position: "relative", display: "flex", flexDirection: "column", alignItems: "center", paddingTop: "18%" } },
+      avatar(46),
+      h("div", { style: { marginTop: 10, fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: "#fbe6c3" } }, (who || "某人") + " 发出的红包"),
+      h("div", { style: { marginTop: 16, padding: "0 26px", textAlign: "center", fontFamily: F_DISPLAY, fontSize: "calc(19px * var(--app-fs, 1))", lineHeight: 1.45, color: "#fff3dc" } }, message || "恭喜发财，大吉大利")),
+    h("button", { "data-wk": "rpopenbtn", onClick: press, "aria-label": "開", className: "active:opacity-90",
+      style: { position: "absolute", left: "50%", top: "62%", width: 84, height: 84, marginLeft: -42, marginTop: -42, borderRadius: 999, background: GOLD, color: "#4a2b12",
+        fontFamily: F_DISPLAY, fontSize: 30, boxShadow: "0 4px 12px rgba(60,10,6,.35)", border: "none", animation: spin ? "rpflip .65s linear infinite" : "none" } }, "開"));
+  const opened = h("div", { "data-wk": "rpenvelope", "data-stage": "open", onClick: e => e.stopPropagation(),
+    style: { width: "min(320px, 86vw)", maxHeight: "78vh", overflowY: "auto", borderRadius: 14, background: t.bg2 || "#fff", boxShadow: "0 18px 40px rgba(0,0,0,.25)", animation: "qqIn .22s ease both" } },
+    h("div", { style: { height: 64, background: RED, borderBottomLeftRadius: "50% 30px", borderBottomRightRadius: "50% 30px" } }),
+    h("div", { style: { display: "flex", flexDirection: "column", alignItems: "center", marginTop: -26, padding: "0 18px 18px" } },
+      h("div", { style: { border: "3px solid " + (t.bg2 || "#fff"), borderRadius: 999 } }, avatar(48)),
+      h("div", { style: { marginTop: 8, fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))", color: t.ink } }, (who || "某人") + " 的红包"),
+      h("div", { style: { marginTop: 4, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog, textAlign: "center" } }, message || "恭喜发财，大吉大利"),
+      got ? h("div", { "data-wk": "rpamount", style: { marginTop: 16, fontFamily: F_DISPLAY, fontSize: "calc(38px * var(--app-fs, 1))", color: "#c49a4a", lineHeight: 1 } }, got) : null,
+      status ? h("div", { style: { marginTop: got ? 8 : 16, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog, textAlign: "center" } }, status) : null,
+      Array.isArray(claims) ? h("div", { style: { alignSelf: "stretch", marginTop: 16, borderTop: "1px solid " + t.line, paddingTop: 10 } },
+        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginBottom: 6 } }, (claims.length >= count ? "已被领完" : "已领 " + claims.length + "/" + count + " 个") + (total != null ? " · 共 ¥" + total : "")),
+        claims.length ? claims.map((cl, i) => h("div", { key: i, className: "flex items-center justify-between", style: { padding: "5px 0" } },
+          h("span", { style: { fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", color: cl.me ? t.accent : t.ink } }, (cl.me ? (meName || "我") : (cl.name || "某人"))),
+          h("span", { style: { fontFamily: F_DISPLAY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.ink } }, "¥" + cl.amount)))
+          : h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.fog, textAlign: "center", padding: "8px 0" } }, "还没人领")) : null));
+  return appDialogPortal(h("div", { className: "flex flex-col items-center", style: { gap: 18 } },
+    stage === "closed" ? closed : opened,
+    h("button", { "data-wk": "rpclose", onClick: onClose, "aria-label": "关掉", style: { width: 40, height: 40, borderRadius: 999, border: "1.5px solid rgba(255,255,255,.75)", color: "#fff", background: "transparent", fontSize: 18 } }, "✕")), onClose);
+}
 function RedPacketOpenSheet({ rp, meName, onClose }) {
   const t = useTheme();
   const claims = rp.claims || [];
