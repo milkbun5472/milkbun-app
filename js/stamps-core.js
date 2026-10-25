@@ -124,7 +124,7 @@
     return { n, msg, lv: card.lv };
   }
   // 卡里哪几段几级开（SSR 的节在剧情里按节标的 lv 开）
-  const UNLOCK = { R: { before: 10, after: 20, real: 30 }, SR: { rest: 10, sequel: 20, hidden: 40 } };
+  const UNLOCK = { R: { before: 10, after: 20, real: 30, sound: 30 }, SR: { rest: 10, sequel: 20, hidden: 40, his: 40 } };
 
   // 剧情按等级解锁：SSR 每十级一节（1 级第一节，40 级结局，50 级隐藏的路）
   function ssrUnlocked(lv) { return { sections: Math.min(4, 1 + Math.floor(lv / 10)), ending: lv >= 40, hidden: lv >= 50 }; }

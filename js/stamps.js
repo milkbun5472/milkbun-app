@@ -69,13 +69,13 @@
   }
 
   // 剧情：乙游对话框。背景是卡面，一句一句点着走；锁着的那节写着要盖到第几枚
-  function StoryReader({ t, card, char, meName, lv, start, onClose }) {
+  function StoryReader({ t, card, char, meName, lv, start, onClose, onSeen, inner }) {
     const secs = (card.text && card.text.sections) || [];
     const url = useIdbImgUrl(card.face);
     const [sid, setSid] = useState((start && secs.some(x => x.id === start) ? start : null) || (secs[0] && secs[0].id));   // 从回廊点哪一幕就从哪一幕开始
     const [i, setI] = useState(0);
     const [picks, setPicks] = useState({});   // 一节中间的小选项：选了哪个（同一节里换个回应，走完又回到主线）
-    useEffect(() => { setPicks({}); }, [sid]);
+    useEffect(() => { setPicks({}); if (onSeen && sid) onSeen(sid); }, [sid]);
     const sec = secs.find(s => s.id === sid) || secs[0];
     if (!sec) return null;
     // 把这一节摊开：中间的 pick 没选时停在那儿；选了就换成「她说的那句＋他那几句」
@@ -89,6 +89,8 @@
         flat.push({ who: "me", text: o.text || "" });
         (o.beats || []).forEach(x => x && x.who !== "pick" && flat.push(x));
       } else flat.push(b);
+      // 他的视角重读：在这一句后面插他心里的话
+      if (inner && b.who !== "pick") (inner[sid] || []).filter(x => Number(x.at) === k && x.text).forEach(x => flat.push({ who: "inner", text: x.text }));
     }
     const beat = flat[Math.min(i, flat.length - 1)] || {};
     const atEnd = i >= flat.length - 1 && beat._pick == null;
@@ -97,7 +99,7 @@
     const isFinal = () => atEnd && !(sec.choices || []).length && (sec.end || !nextOf(sec));
     const tap = () => { if (beat._pick != null) return; if (!atEnd) setI(i + 1); else if (isFinal()) onClose(); };   // 走到头了，点哪儿都是退出
     const nextOf = cur => { const L = Number(cur.lv) || 1; return secs.filter(x => !x.hidden && (Number(x.lv) || 1) > L).sort((a, b) => (Number(a.lv) || 1) - (Number(b.lv) || 1))[0] || null; };
-    const who = beat.who === "he" ? char.name : beat.who === "me" ? meName : "";
+    const who = beat.who === "he" ? char.name : beat.who === "me" ? meName : beat.who === "inner" ? char.name + " 心里" : "";
     return h("div", { "data-wk": "stampstory", className: "fixed inset-0 flex flex-col", style: { zIndex: 255, background: url ? "#111 center/cover no-repeat url(" + url + ")" : "linear-gradient(#2b2436,#14111b)" } },
       h("div", { className: "flex items-center", style: { padding: "calc(env(safe-area-inset-top) + 10px) 14px 8px", background: "linear-gradient(rgba(0,0,0,.55), transparent)" } },
         h("button", { onClick: onClose, className: "active:opacity-60", style: { color: "#fff", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))" } }, "‹ 收起"),
@@ -105,8 +107,8 @@
       h("div", { className: "flex-1", onClick: tap }),
       h("div", { "data-wk": "stampstorybox", onClick: tap,
         style: { margin: "0 12px calc(env(safe-area-inset-bottom) * 0.4 + 14px)", borderRadius: 14, background: "rgba(16,14,22,.82)", border: "1px solid rgba(255,255,255,.18)", padding: "14px 16px 30px", minHeight: 150, position: "relative", color: "#f4efe6" } },
-        who ? h("div", { "data-wk": "stampstorywho", style: { display: "inline-block", marginBottom: 6, padding: "2px 10px", borderRadius: 999, background: beat.who === "he" ? RC.SSR : "#6b6480", fontFamily: F_DISPLAY, fontSize: "calc(13px * var(--app-fs, 1))" } }, who) : null,
-        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(15px * var(--app-fs, 1))", lineHeight: 1.75, fontStyle: who ? "normal" : "italic", opacity: who ? 1 : .85, whiteSpace: "pre-wrap" } }, beat.text || ""),
+        who ? h("div", { "data-wk": "stampstorywho", style: { display: "inline-block", marginBottom: 6, padding: "2px 10px", borderRadius: 999, background: beat.who === "he" ? RC.SSR : beat.who === "inner" ? "#577767" : "#6b6480", fontFamily: F_DISPLAY, fontSize: "calc(13px * var(--app-fs, 1))" } }, who) : null,
+        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(15px * var(--app-fs, 1))", lineHeight: 1.75, fontStyle: who && beat.who !== "inner" ? "normal" : "italic", opacity: who ? 1 : .85, whiteSpace: "pre-wrap" } }, beat.text || ""),
         beat._pick != null ? h("div", { className: "flex flex-col", style: { gap: 8, marginTop: 4 } },
           (beat.options || []).map((o, k) => h("button", { key: k, "data-wk": "stampstorychoice", "data-inline": "1", onClick: e => { e.stopPropagation(); setPicks(p => Object.assign({}, p, { [beat._pick]: k })); },
             style: { textAlign: "left", padding: "10px 12px", borderRadius: 10, border: "1px solid rgba(255,255,255,.3)", background: "rgba(255,255,255,.1)", color: "#fff", fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))" } }, o.text))) : null,
@@ -126,7 +128,7 @@
 
   // 一张卡打开：卡面、名字、内容
   // 卡页＝养成页：上面是卡（光晕、稀有度章、星、邮戳编号），中间养成面板，底下「时刻回廊」一格一格往外还原那个瞬间
-  function CardPage({ t, card, char, meName, onBack, onDraw, onRewrite, onSend, onCanon, onPoke, toast }) {
+  function CardPage({ t, card, char, meName, onBack, onDraw, onRewrite, onSend, onCanon, onPoke, onInner, toast }) {
     // 满级两面都能画：他一个人（solo）、你们俩（duo）。旧卡只有 faceAlt＋faceAltMode，照它认
     const faces2 = Object.assign({}, card.faceAlt ? { [card.faceAltMode || "solo"]: card.faceAlt } : {}, card.faces || {});
     const url1 = useIdbImgUrl(card.face), urlSolo = useIdbImgUrl(faces2.solo || null), urlDuo = useIdbImgUrl(faces2.duo || null);
@@ -188,19 +190,49 @@
     const para = s => h("div", { style: { fontFamily: F_BODY, fontSize: fs(14), lineHeight: 1.85, color: P, whiteSpace: "pre-wrap" } }, s);
     const quote = s => h("div", { style: { marginTop: 8, fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: fs(14.5), color: P7 } }, "「" + s + "」");
     // 回廊的格子：按时间排，从前一刻到他心里那句
+    // SSR：走过哪几节、哪几个结局（路线图和结局章用）
+    const markSeen = sid => { const st0 = C().load(); st0.cards = st0.cards.map(c => c.id === card.id ? { ...c, seen: Object.assign({}, c.seen, { [sid]: 1 }) } : c); C().save(st0); };
+    const [innerBusy, setInnerBusy] = useState(false);
+    const readHis = async () => {
+      if (tx.inner) { setStory("his"); return; }
+      setInnerBusy(true);
+      try { const r = await onInner(card); if (r) setStory("his"); else toast("没回想出来，再点一次试试"); } catch (e) { toast("没回想出来：" + String(e && e.message || e).slice(0, 40)); }
+      setInnerBusy(false);
+    };
+    const routeMap = () => {
+      const secs = tx.sections || [], seen = card.seen || {};
+      const ends = secs.filter(x => x.end || x.hidden), endSeen = ends.filter(x => seen[x.id]).length;
+      const lvs = Array.from(new Set(secs.map(x => Number(x.lv) || 1))).sort((a, b) => a - b);
+      return h("div", { "data-wk": "stamproute", style: { marginTop: 14, padding: "12px 14px", borderRadius: 14, background: "#FFF8E9", border: "1px solid " + LINE } },
+        h("div", { className: "flex items-center justify-between" },
+          h("div", { style: { fontFamily: F_DISPLAY, fontSize: fs(13), color: GOLD } }, "✦ 路线"),
+          h("div", { "data-wk": "stampends", style: { fontFamily: F_BODY, fontSize: fs(11.5), color: P7 } }, "结局 " + endSeen + " / " + ends.length + "  ", ends.map((x, k) => h("span", { key: k, style: { marginLeft: 3, color: seen[x.id] ? "#b23a2e" : "rgba(130,124,111,.4)" } }, seen[x.id] ? "◉" : "○")))),
+        lvs.map(L => h("div", { key: L, className: "flex items-center", style: { gap: 6, marginTop: 8 } },
+          h("span", { style: { width: 34, flexShrink: 0, fontFamily: F_BODY, fontSize: fs(10), color: P5 } }, "Lv." + L),
+          h("div", { className: "flex flex-wrap", style: { gap: 6 } }, secs.filter(x => (Number(x.lv) || 1) === L).map(x => { const s1 = !!seen[x.id], lk = L > lv;
+            return h("button", { key: x.id, "data-wk": "stamproutenode", "data-seen": s1 ? "1" : "0", onClick: () => lk ? toast("升到 " + L + " 级才看得到") : setStory(x.id), className: "active:opacity-70",
+              style: { padding: "3px 9px", borderRadius: 999, fontFamily: F_BODY, fontSize: fs(11), border: "1px " + (s1 ? "solid " + GOLD : "dashed rgba(130,124,111,.5)"), background: s1 ? GOLD : "transparent", color: s1 ? "#FFF8E9" : P5 } },
+              x.hidden && !s1 ? "？" : (x.title || x.id) + (x.end && !x.hidden ? " ◇" : "")); })))),
+        ends.length && endSeen >= ends.length && tx.allEndsLine ? h("div", { style: { marginTop: 10, paddingTop: 8, borderTop: "1px dashed " + LINE } }, quote(tx.allEndsLine)) : null);
+    };
     const nodes = !tx ? [] : card.rarity === "R" ? [
         { k: "before", zh: "前一刻", lv: U.R.before, body: tx.before && h("div", null, para(tx.before.narration || ""), tx.before.thought ? quote(tx.before.thought) : null), peek: tx.before && tx.before.narration },
         { k: "now", zh: "那一刻", lv: 1, body: h("div", null, para(tx.narration || ""), tx.thought ? quote(tx.thought) : null), peek: tx.narration },
         { k: "after", zh: "后一刻", lv: U.R.after, body: tx.after && h("div", null, para(tx.after.narration || ""), tx.after.thought ? quote(tx.after.thought) : null), peek: tx.after && tx.after.narration },
-        { k: "real", zh: "他真正想说的", lv: U.R.real, body: tx.real && quote(tx.real), peek: tx.real }]
+        { k: "real", zh: "他真正想说的", lv: U.R.real, body: tx.real && quote(tx.real), peek: tx.real },
+        { k: "sound", zh: "那时的声音", lv: U.R.sound, opt: 1, body: tx.sound && para(tx.sound), peek: tx.sound },
+        { k: "back", zh: "邮票背面", lv: 1, opt: 1, body: tx.back && quote(tx.back), peek: tx.back }]
       : card.rarity === "SR" ? [
         { k: "open", zh: "开头", lv: 1, body: para(tx.open || ""), peek: tx.open },
         { k: "rest", zh: "接着", lv: U.SR.rest, body: tx.rest && para(tx.rest), peek: tx.rest },
         { k: "sequel", zh: "后来", lv: U.SR.sequel, body: tx.sequel && para(tx.sequel), peek: tx.sequel },
-        { k: "hidden", zh: "没说出口的", lv: U.SR.hidden, body: tx.hidden && quote(tx.hidden), peek: tx.hidden }]
+        { k: "hidden", zh: "没说出口的", lv: U.SR.hidden, body: tx.hidden && quote(tx.hidden), peek: tx.hidden },
+        { k: "his", zh: "他记得的", lv: U.SR.his, opt: 1, body: tx.his && para(tx.his), peek: tx.his },
+        { k: "keep", zh: "留下的东西", lv: 1, opt: 1, body: tx.keepsake && tx.keepsake.name && h("div", null, h("div", { style: { fontFamily: F_DISPLAY, fontSize: fs(15), color: P } }, "「" + tx.keepsake.name + "」"), para(tx.keepsake.desc || "")), peek: tx.keepsake && tx.keepsake.name }]
       : ((tx.sections || []).map((s, i) => ({ k: s.id || "s" + i, zh: s.title || "第 " + (i + 1) + " 节", lv: Number(s.lv) || 1, ssr: true,
           peek: ((s.beats || [])[0] || {}).text || "" })));
-    const openNode = nodes.find(n => n.k === node) || nodes.find(n => n.lv <= lv && n.k === "now") || nodes.find(n => n.lv <= lv);
+    const nodesShown = nodes.filter(n => !n.opt || n.peek);   // 早先写的卡没有这几样，就不摆空格子
+    const openNode = nodesShown.find(n => n.k === node) || nodesShown.find(n => n.lv <= lv && n.k === "now") || nodesShown.find(n => n.lv <= lv);
     const frame = card.rarity === "SSR" ? "0 0 0 2px " + COPPER + ", 0 0 0 5px #FFF8E9, 0 0 0 6.5px " + COPPER : card.rarity === "SR" ? "0 0 0 1.5px " + COPPER : "0 0 0 1px " + FRAME;
     const ring = frame + ", 0 10px 26px rgba(57,56,47," + (0.16 + stars * 0.05) + ")" + (stars >= starsAll && stars ? ", 0 0 30px rgba(181,140,85,.45)" : "");
     return h("div", { "data-wk": "stampcard", "data-page": "1", className: "h-full flex flex-col overflow-hidden", style: { background: "radial-gradient(rgba(130,124,111,.07) 1px, transparent 1.2px) 0 0 / 5px 5px, radial-gradient(120% 60% at 50% 0%, #F6F0E2, #F1EAD9 60%, #EAE1CD)" } },
@@ -278,7 +310,7 @@
             h("div", { style: { flex: 1, height: 1, background: LINE } })),
           tx.line ? h("div", { style: { marginTop: 10, textAlign: "center", fontFamily: F_DISPLAY, fontSize: fs(15), color: P } }, "「" + tx.line + "」") : null,
           h("div", { "data-wk": "stampcorridor", className: "flex overflow-x-auto", style: { gap: 10, marginTop: 12, paddingBottom: 4, marginRight: -20, paddingRight: 20 } },
-            nodes.map((n, i) => { const lock = n.lv > lv, on = openNode && openNode.k === n.k;
+            nodesShown.map((n, i) => { const lock = n.lv > lv, on = openNode && openNode.k === n.k;
               const left = lock ? (() => { let c = 0; for (let l = lv; l < n.lv; l++) c += C().levelCost(card.rarity, l); return c; })() : 0;
               return h("button", { key: n.k, "data-wk": "stampnode", "data-locked": lock ? "1" : "0", "data-on": on ? "1" : "0", onClick: () => lock ? toast("升到 " + n.lv + " 级才看得到") : n.ssr ? setStory(n.k) : setNode(n.k), className: "shrink-0 text-left active:opacity-80",
                 style: { position: "relative", width: 136, minHeight: 150, padding: "11px 12px", borderRadius: 12, overflow: "hidden",
@@ -293,6 +325,9 @@
                   lock ? "Lv." + n.lv + " 解锁「" + n.zh + "」" : (n.peek || "")),
                 lock ? h("div", { style: { marginTop: "auto", fontFamily: F_BODY, fontSize: fs(10), color: GOLD, opacity: .8 } }, n.lv > 30 && !card.sentTs ? "过 30 级要先发给他看" : "再盖 " + (n.lv - lv) + " 枚 · 印泥 " + left) : null); })),
 
+          card.rarity === "SSR" ? routeMap() : null,
+          card.rarity === "SSR" && lv >= cap ? h("button", { "data-wk": "stamphisview", disabled: innerBusy, onClick: () => readHis(), className: "w-full active:opacity-70 disabled:opacity-50", style: { marginTop: 10, minHeight: 40, borderRadius: 12, border: "1px solid " + FRAME, color: FRAME, fontFamily: F_BODY, fontSize: fs(13) } },
+            innerBusy ? "他在回想那时候在想什么…" : tx.inner ? "换他的视角重读" : "换他的视角重读 · 花一次调用") : null,
           card.rarity === "SSR" ? h("button", { "data-wk": "stampstoryopen", onClick: () => setStory(true), className: "w-full active:opacity-70", style: { marginTop: 14, minHeight: 44, borderRadius: 12, background: RC.SSR, color: "#fff", fontFamily: F_BODY, fontSize: fs(14) } }, "进入剧情")
             : openNode && openNode.body ? h("div", { "data-wk": "stampbox", style: { marginTop: 12, padding: "14px 16px", borderRadius: 14, border: "1px solid " + FRAME, background: "#FFF8E9" } },
               h("div", { style: { fontFamily: F_DISPLAY, fontSize: fs(13), color: GOLD, marginBottom: 8 } }, openNode.zh), openNode.body) : null) : null),
@@ -305,7 +340,7 @@
         h("div", { "data-wk": "stamppokesay", onClick: e => e.stopPropagation(), style: { margin: "0 16px calc(env(safe-area-inset-bottom) * 0.4 + 16px)", minHeight: 72, padding: "12px 16px", borderRadius: 14, background: "#FFF8E9", border: "1px solid " + COPPER, color: P, fontFamily: F_BODY, fontSize: fs(14), lineHeight: 1.7 } },
           canPoke ? (poking ? h("span", { style: { color: P5 } }, "他在想怎么回你…") : say ? h(React.Fragment, null, h("div", { style: { fontSize: fs(10.5), color: COPPER, marginBottom: 2 } }, (char ? char.name : "") + (say.part === "head" ? " · 被戳了头" : say.part === "heart" ? " · 被戳了胸口" : " · 被戳了手")), say.text)
             : h("span", { style: { color: P5 } }, "戳戳他：上面是头，中间是胸口，下面是手。点外面收起。")) : h("span", { style: { color: P5 } }, "点外面收起。"))) : null,
-      story && tx ? h(StoryReader, { t, card, char, meName, lv, start: typeof story === "string" ? story : null, onClose: () => setStory(false) }) : null);
+      story && tx ? h(StoryReader, { t, card, char, meName, lv, start: typeof story === "string" && story !== "his" ? story : null, inner: story === "his" ? tx.inner : null, onSeen: markSeen, onClose: () => setStory(false) }) : null);
   }
 
   function StampBookApp(props) {
@@ -319,7 +354,8 @@
     const [show, setShow] = useState(null);
     const [open, setOpen] = useState(null);
     const [albumChar, setAlbumChar] = useState("all");
-    const [albumRar, setAlbumRar] = useState("all");   // 全部 / SSR / SR / R / bad（没写好）
+    const [albumRar, setAlbumRar] = useState("all");
+    const [week, setWeek] = useState(false);   // 他的一周：同一个人写好的 R 攒够五张，按时间排成一页   // 全部 / SSR / SR / R / bad（没写好）
     const [gotNote, setGotNote] = useState([]);
     const [cfg, setCfg] = useState(false);
     const [giftOpen, setGiftOpen] = useState(false);
@@ -398,7 +434,7 @@
             h(Avatar, { character: c, size: 46, radius: 10 }),
             on ? h("span", { style: { position: "absolute", right: -5, bottom: -5, width: 18, height: 18, borderRadius: 999, background: "#2f5d4a", color: "#15121f", fontSize: 11, lineHeight: "18px", textAlign: "center", fontWeight: 700 } }, "✓") : null),
           h("div", { style: { maxWidth: "100%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: on ? "#2f5d4a" : "rgba(47,42,34,.75)" } }, c.remark || c.name)); }));
-    if (open) { const card = (st.cards || []).find(c => c.id === open) || null; if (card) return h(CardPage, { t, card, char: charOf(card.charId), meName, onBack: () => setOpen(null), onDraw, onRewrite: c => onWrite([c]), toast, onPoke: (c, sd) => props.onPoke ? props.onPoke(c, sd) : null,
+    if (open) { const card = (st.cards || []).find(c => c.id === open) || null; if (card) return h(CardPage, { t, card, char: charOf(card.charId), meName, onBack: () => setOpen(null), onDraw, onRewrite: c => onWrite([c]), toast, onPoke: (c, sd) => props.onPoke ? props.onPoke(c, sd) : null, onInner: c => props.onInner ? props.onInner(c) : null,
       onSend: c => { props.onSend && props.onSend(c); }, onCanon: c => { props.onCanon && props.onCanon(c); } }); }
 
     const isBad = c => !c.text && (!c.writing || Date.now() - Number(c.writingTs || 0) > 180000);
@@ -527,6 +563,8 @@
         h("div", { className: "flex overflow-x-auto", style: { gap: 8, paddingTop: 10 } },
           chip(albumChar === "all", "全部 " + (st.cards || []).length, () => setAlbumChar("all"), "all"),
           characters.filter(c => (st.cards || []).some(x => x.charId === c.id)).map(c => chip(albumChar === c.id, (c.remark || c.name) + " " + st.cards.filter(x => x.charId === c.id).length, () => setAlbumChar(c.id), c.id))),
+        (() => { const rs = albumChar === "all" ? [] : byChar.filter(c => c.rarity === "R" && c.text);
+          return rs.length >= 5 ? h("button", { "data-wk": "stampweekbtn", onClick: () => setWeek(true), className: "w-full active:opacity-70", style: { marginTop: 10, minHeight: 40, borderRadius: 10, background: "#FFF8E9", border: "1px solid #577767", color: "#285C4B", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))" } }, "翻他的一周 · " + Math.min(7, rs.length) + " 个瞬间") : null; })(),
         h("div", { "data-wk": "stamprarpick", className: "flex overflow-x-auto", style: { gap: 6, paddingTop: 8 } },
           [["all", "全部"], ["SSR", "SSR"], ["SR", "SR"], ["R", "R"], ["bad", "没写好"]].map(x => { const n = x[0] === "all" ? byChar.length : x[0] === "bad" ? byChar.filter(isBad).length : byChar.filter(c => c.rarity === x[0]).length;
             return x[0] === "bad" && !n ? null : chip(albumRar === x[0], x[1] + " " + n, () => setAlbumRar(x[0]), x[0]); })),
@@ -537,6 +575,17 @@
         album.length ? h("div", { "data-wk": "stampalbum", className: "grid", style: { gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 10, marginTop: 14, justifyItems: "center" } },
           album.map(c => h(StampFace, { key: c.id, t, card: c, size: 88, onClick: () => setOpen(c.id) })))
           : h("div", { style: { padding: "48px 0", textAlign: "center", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: "rgba(47,42,34,.5)" } }, "还没有邮票，去寄一封")),
+      week ? (() => { const ch = charOf(albumChar); const rs = byChar.filter(c => c.rarity === "R" && c.text).slice(-7).sort((x, y) => (x.ts || 0) - (y.ts || 0));
+        return h("div", { "data-wk": "stampweek", className: "fixed inset-0 flex flex-col", style: { zIndex: 250, background: "radial-gradient(rgba(130,124,111,.07) 1px, transparent 1.2px) 0 0 / 5px 5px, #F1EAD9" } },
+          h(Head, { zh: (ch ? (ch.remark || ch.name) : "他") + "的一周", sub: rs.length + " 个瞬间", bg: "transparent", ink: "#39382F", onBack: () => setWeek(false) }),
+          h("div", { className: "flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-5", style: { paddingBottom: "calc(env(safe-area-inset-bottom) * 0.4 + 28px)" } },
+            rs.map((c, k) => h("button", { key: c.id, onClick: () => { setWeek(false); setOpen(c.id); }, className: "w-full text-left active:opacity-80", style: { display: "flex", gap: 12, marginTop: 14, padding: "12px 14px", borderRadius: 12, background: "#FFF8E9", border: "1px solid rgba(87,119,103,.3)", transform: "rotate(" + (k % 2 ? .6 : -.6) + "deg)" } },
+              h("div", { style: { flexShrink: 0, width: 40, textAlign: "center", fontFamily: F_DISPLAY, color: "#B58C55" } }, h("div", { style: { fontSize: "calc(10px * var(--app-fs, 1))" } }, "第"), h("div", { style: { fontSize: "calc(20px * var(--app-fs, 1))" } }, k + 1), h("div", { style: { fontSize: "calc(10px * var(--app-fs, 1))" } }, "刻")),
+              h("div", { style: { minWidth: 0 } },
+                h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(14.5px * var(--app-fs, 1))", color: "#39382F" } }, c.text.name || ""),
+                h("div", { style: { marginTop: 4, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", lineHeight: 1.7, color: "#39382F" } }, c.text.narration || ""),
+                c.text.thought ? h("div", { style: { marginTop: 4, fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: "calc(13px * var(--app-fs, 1))", color: "#827C6F" } }, "「" + c.text.thought + "」") : null)))));
+      })() : null,
       show ? h(PullShow, { t, cards: show.map(c => c.dupe ? c : (st.cards || []).find(x => x.id === c.id) || c), onDone: () => setShow(null), onOpen: c => { setShow(null); setOpen(c.id); }, charOf }) : null);
 
     return h("div", { "data-wk": "stamppage", className: "h-full flex flex-col", style: { background: "repeating-linear-gradient(180deg, transparent 0 116px, rgba(47,42,34,.07) 116px 117px, transparent 117px 120px), linear-gradient(#f1e9d8, #e9dfca)" } },

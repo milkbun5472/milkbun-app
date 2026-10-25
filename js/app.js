@@ -16920,8 +16920,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   };
   const STAMP_RARITY_SPEC = {
     R: "R 卡＝抓拍：她不在场时你的一个瞬间，重在你那会儿是什么状态，不必是一件完整的事。narration 一行交代是什么时候、你在干嘛；thought 是你心里的一句，你不知道会被她看到。"
-      + "before、after 是这一刻的前一刻和后一刻，各自也有 narration 和 thought；real 是这一刻你心里真正的那一句。",
-    SR: "SR 卡＝短篇：一件有前因后果的小事，五六百字，重在你怎么应对它——事情有变化、有个结果；她在不在场看这件事本身。open 是开头一小段；rest 接着写完；sequel 是过了一阵以后的一小段后续；hidden 是你藏着没说出口的一句；line 是印在卡面上的一句你的台词。"
+      + "before、after 是这一刻的前一刻和后一刻，各自也有 narration 和 thought；real 是这一刻你心里真正的那一句；sound 是那一刻耳边的声音，一两句；back 是这枚邮票背面你随手写的一句，像寄明信片时背面那句。",
+    SR: "SR 卡＝短篇：一件有前因后果的小事，五六百字，重在你怎么应对它——事情有变化、有个结果；她在不在场看这件事本身。open 是开头一小段；rest 接着写完；sequel 是过了一阵以后的一小段后续；hidden 是你藏着没说出口的一句；line 是印在卡面上的一句你的台词；his 是同一件事你自己记得的版本——你那时注意到、记住的东西，一小段；keepsake 是这件事留下的一样小东西（name 叫什么、desc 一两句它的样子和来历）。"
   };
   // 去重按「写的是什么事」，不只按卡名：带上最近几十张的 gist
   const stampPrev = charId => (StampsCoreSafe().cards || []).filter(c => c.charId === charId && c.text).slice(-30).map(c => "「" + c.text.name + "」" + (c.text.gist ? "：" + String(c.text.gist).slice(0, 60) : ""));
@@ -16991,7 +16991,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
           + "\n" + (list.some(c => c.rarity === "R") ? STAMP_RARITY_SPEC.R + "\n" : "") + (list.some(c => c.rarity === "SR") ? STAMP_RARITY_SPEC.SR + "\n" : "")
           + "每张都有 name（卡名，八个字以内）、gist（一句话记下这张写的是什么事、在哪、怎么收的尾，给以后去重用）和 shot。" + STAMP_SHOT_SPEC
           + stampPrevLine(prev) + "\n这几张之间也是不同的事。",
-        schemaHint: "{\"cards\":[{\"name\":\"\",\"narration\":\"(R)\",\"thought\":\"(R)\",\"before\":{\"narration\":\"\",\"thought\":\"\"},\"after\":{\"narration\":\"\",\"thought\":\"\"},\"real\":\"(R)\",\"line\":\"(SR)\",\"open\":\"(SR)\",\"rest\":\"(SR)\",\"sequel\":\"(SR)\",\"hidden\":\"(SR)\",\"gist\":\"\",\"shot\":\"\"}]}",
+        schemaHint: "{\"cards\":[{\"name\":\"\",\"narration\":\"(R)\",\"thought\":\"(R)\",\"before\":{\"narration\":\"\",\"thought\":\"\"},\"after\":{\"narration\":\"\",\"thought\":\"\"},\"real\":\"(R)\",\"line\":\"(SR)\",\"open\":\"(SR)\",\"rest\":\"(SR)\",\"sequel\":\"(SR)\",\"hidden\":\"(SR)\",\"his\":\"(SR)\",\"keepsake\":{\"name\":\"(SR)\",\"desc\":\"\"},\"sound\":\"(R)\",\"back\":\"(R)\",\"gist\":\"\",\"shot\":\"\"}]}",
         maxTokens: 65000
       });
       const arr = Array.isArray(d && d.cards) ? d.cards : [];
@@ -17018,18 +17018,32 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
           + "一节中间也可以停下来让她选一两次（beats 里放一个 who:\"pick\"，options 两三个：text 是她说的话或做的事，beats 是你接着的那几句）——选的不同你的反应就不同，几句之后回到这一节的主线；节尾的 choices 两三个。"
           + "往前走靠的是发生的事、你的做法和你们之间自然的对话；你说多少话照你平时的样子，心里的东西让她从你做的事里看出来。每节都有点什么变了，不必每节都有大事。"
           + "两条岔路走下去，后面发生的事、你的处理、她知道的东西、你们之间的样子，至少有一样真的不一样。她那句（me）照她平时的样子写，少一点。"
-          + "\nname 是卡名（八个字以内），line 是印在卡面上的一句你的台词。highlight 是剧情里你最想留住的那一刻，一两句画面。gist 一句话记下这张写的是什么事、在哪、怎么收的尾。" + STAMP_SHOT_SPEC
+          + "\nname 是卡名（八个字以内），line 是印在卡面上的一句你的台词。highlight 是剧情里你最想留住的那一刻，一两句画面。gist 一句话记下这张写的是什么事、在哪、怎么收的尾。allEndsLine 是她把每个结局都走过一遍以后，你想对她说的一句。" + STAMP_SHOT_SPEC
           + stampPrevLine(prev),
-        schemaHint: "{\"name\":\"\",\"line\":\"\",\"highlight\":\"\",\"gist\":\"\",\"shot\":\"\",\"sections\":[{\"id\":\"s1\",\"lv\":1,\"title\":\"\",\"beats\":[{\"who\":\"narr|he|me\",\"text\":\"\"},{\"who\":\"pick\",\"options\":[{\"text\":\"\",\"beats\":[{\"who\":\"he\",\"text\":\"\"}]}]}],\"choices\":[{\"text\":\"\",\"go\":\"s2a\"}],\"end\":false,\"hidden\":false}]}",
+        schemaHint: "{\"name\":\"\",\"line\":\"\",\"highlight\":\"\",\"gist\":\"\",\"allEndsLine\":\"\",\"shot\":\"\",\"sections\":[{\"id\":\"s1\",\"lv\":1,\"title\":\"\",\"beats\":[{\"who\":\"narr|he|me\",\"text\":\"\"},{\"who\":\"pick\",\"options\":[{\"text\":\"\",\"beats\":[{\"who\":\"he\",\"text\":\"\"}]}]}],\"choices\":[{\"text\":\"\",\"go\":\"s2a\"}],\"end\":false,\"hidden\":false}]}",
         maxTokens: 65000
       });
       const secs = Array.isArray(d && d.sections) ? d.sections.filter(s => s && s.id && Array.isArray(s.beats) && s.beats.length) : [];
       if (!d || !d.name || !secs.length) throw new Error("剧情没写全");
-      stampSaveCard(c.id, { writing: false, err: "", text: { name: d.name, line: d.line || "", highlight: d.highlight || "", gist: d.gist || "", shot: d.shot || "", sections: secs } });
+      stampSaveCard(c.id, { writing: false, err: "", text: { name: d.name, line: d.line || "", highlight: d.highlight || "", gist: d.gist || "", allEndsLine: d.allEndsLine || "", shot: d.shot || "", sections: secs } });
     } catch (e) { stampSaveCard(c.id, { writing: false, err: "没写出来：" + String(e && e.message || e).slice(0, 60) }); }
   };
   // 画卡面：竖版，只画他一个人；分镜照写卡时那份。alt＝SSR 满级的第二张（第二批再接双人）
   // 戳卡面（SSR 满级）：头、胸口、手各几句，第一次戳时写一次存着，之后戳不花钱
+  // SSR 满级：换他的视角重读——在原来那些句子后面插他那时心里在想的，选项和台词都不动
+  const stampInner = async card => {
+    const char = characters.find(x => x.id === card.charId); const tx = card.text; if (!char || !tx) return null;
+    const me = userName(meOf(char.id));
+    const dump = (tx.sections || []).map(sc => "【" + sc.id + "】" + (sc.title || "") + "\n" + (sc.beats || []).map((b, k) => k + ". " + (b.who === "pick" ? "（她在这儿做了个小选择）" : (b.who === "he" ? "你：" : b.who === "me" ? me + "：" : "") + String(b.text || "").slice(0, 160))).join("\n")).join("\n\n");
+    const d = await runProbe(offlineApiFor(char.id), ctxFor(char), { voice: true,
+      instruction: STAMP_CORE() + "她在「邮票册」里把你这张 SSR「" + (tx.name || "") + "」升满了，想换你的视角重读一遍。下面是这段剧情，每节每句前面有编号。"
+        + "在你想说的地方插进你那时心里的话：那会儿你在想什么、注意到了什么、没说出口的是什么。照你这个人，有的地方多想、有的地方根本没想，不必每句都插；每节几处。at 是插在哪一句后面的编号。\n\n" + dump.slice(0, 24000),
+      schemaHint: "{\"inner\":{\"节的id\":[{\"at\":0,\"text\":\"\"}]}}", maxTokens: 30000 });
+    const inner = d && d.inner && typeof d.inner === "object" ? d.inner : null;
+    if (!inner || !Object.keys(inner).length) return null;
+    stampSaveCard(card.id, c0 => ({ ...c0, text: { ...c0.text, inner } }));
+    return inner;
+  };
   const stampPoke = async (card, side) => {
     const char = characters.find(x => x.id === card.charId); if (!char || !card.text) return null;
     const d = await runProbe(apiFor(char.id), ctxFor(char), { voice: true,
@@ -33760,6 +33774,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     onWrite: cards => stampWrite(cards),
     onDraw: (id, alt, mode) => stampDraw(id, alt, mode),
     onPoke: stampPoke,
+    onInner: stampInner,
     onBack: () => setScreen("home")
   });else if (screen === "zhaoying") body = h(window.ZhaoyingApp, {
     // 按头像发卡：卡落进跟他的聊天，他在后台做题，做完了点卡看他做（她 2026-10-22）
