@@ -2187,6 +2187,7 @@
     return _sbCache;
   };
 
+  const DOCK_BRIEF_AWAY = 3 * 60 * 1000;
   function AssistantDock(props) {
     const t = useTheme();
     const [open, setOpen] = useState(false);
@@ -2200,6 +2201,7 @@
     const scroller = useRef(null);
     const dragRef = useRef(null);
     const movedRef = useRef(false);
+    const hiddenAtRef = useRef(0);
     useEffect(() => {
       const resetDock = () => {
         dragRef.current = null;
@@ -2207,7 +2209,16 @@
         setPos({ x: -1, y: -1 });
         setOpen(false);
       };
-      const onVisible = () => { if (document.visibilityState === "visible") resetDock(); };
+      // 只是出去一下（挑图、去别处复制链接）就回来：窗照旧开着、原地不动（群友 2026-10-25：悬浮球传不了图和链接——
+      //   挑图那一下也算「离开」，一回来窗被收了，挑好的图跟着没了）。离开久了才归位收起
+      const onVisible = () => {
+        if (document.visibilityState === "hidden") { hiddenAtRef.current = Date.now(); return; }
+        if (document.visibilityState !== "visible") return;
+        const away = hiddenAtRef.current ? Date.now() - hiddenAtRef.current : Infinity;
+        hiddenAtRef.current = 0;
+        if (away < DOCK_BRIEF_AWAY) { dragRef.current = null; movedRef.current = false; return; }
+        resetDock();
+      };
       const onPageShow = e => { if (e.persisted) resetDock(); };
       document.addEventListener("visibilitychange", onVisible);
       window.addEventListener("pageshow", onPageShow);
