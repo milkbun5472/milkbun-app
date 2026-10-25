@@ -79,6 +79,8 @@
     const beat = sec.beats[Math.min(i, sec.beats.length - 1)] || {};
     const atEnd = i >= sec.beats.length - 1;
     const locked = s => (Number(s.lv) || 1) > lv;
+    // 下一幕：模型有时没写选项、或者选项的 go 对不上 id——那就按等级往下找下一节（不走隐藏的路），不让她卡在这儿
+    const nextOf = cur => { const L = Number(cur.lv) || 1; return secs.filter(x => !x.hidden && (Number(x.lv) || 1) > L).sort((a, b) => (Number(a.lv) || 1) - (Number(b.lv) || 1))[0] || null; };
     const who = beat.who === "he" ? char.name : beat.who === "me" ? meName : "";
     return h("div", { "data-wk": "stampstory", className: "fixed inset-0 flex flex-col", style: { zIndex: 255, background: url ? "#111 center/cover no-repeat url(" + url + ")" : "linear-gradient(#2b2436,#14111b)" } },
       h("div", { className: "flex items-center", style: { padding: "calc(env(safe-area-inset-top) + 10px) 14px 8px", background: "linear-gradient(rgba(0,0,0,.55), transparent)" } },
@@ -90,11 +92,15 @@
         who ? h("div", { "data-wk": "stampstorywho", style: { display: "inline-block", marginBottom: 6, padding: "2px 10px", borderRadius: 999, background: beat.who === "he" ? RC.SSR : "#6b6480", fontFamily: F_DISPLAY, fontSize: "calc(13px * var(--app-fs, 1))" } }, who) : null,
         h("div", { style: { fontFamily: F_BODY, fontSize: "calc(15px * var(--app-fs, 1))", lineHeight: 1.75, fontStyle: who ? "normal" : "italic", opacity: who ? 1 : .85, whiteSpace: "pre-wrap" } }, beat.text || ""),
         atEnd && (sec.choices || []).length ? h("div", { className: "flex flex-col", style: { gap: 8, marginTop: 12 } },
-          sec.choices.map((c, k) => { const to = secs.find(s => s.id === c.go); const lk = to && locked(to);
+          sec.choices.map((c, k) => { const to = secs.find(s => s.id === c.go) || nextOf(sec); const lk = to && locked(to);
             return h("button", { key: k, "data-wk": "stampstorychoice", "data-locked": lk ? "1" : "0", onClick: e => { e.stopPropagation(); if (!to || lk) return; setSid(to.id); setI(0); },
               style: { textAlign: "left", padding: "10px 12px", borderRadius: 10, border: "1px solid rgba(255,255,255,.3)", background: lk ? "transparent" : "rgba(255,255,255,.1)", color: lk ? "rgba(255,255,255,.45)" : "#fff", fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))" } },
               c.text, lk ? h("span", { style: { marginLeft: 6, fontSize: "calc(11px * var(--app-fs, 1))" } }, "· 升到 " + to.lv + " 级才看得到") : null); })) : null,
-        atEnd && !(sec.choices || []).length ? h("div", { style: { marginTop: 12, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", opacity: .7 } }, sec.end ? "—— 这条路走到头了 ——" : "") : null,
+        atEnd && !(sec.choices || []).length ? (() => { const nx = !sec.end && nextOf(sec);
+          return nx ? h("button", { "data-wk": "stampstorychoice", "data-locked": locked(nx) ? "1" : "0", onClick: e => { e.stopPropagation(); if (locked(nx)) return; setSid(nx.id); setI(0); },
+              style: { marginTop: 12, width: "100%", textAlign: "left", padding: "10px 12px", borderRadius: 10, border: "1px solid rgba(255,255,255,.3)", background: locked(nx) ? "transparent" : "rgba(255,255,255,.1)", color: locked(nx) ? "rgba(255,255,255,.45)" : "#fff", fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))" } },
+              "下一幕：" + (nx.title || ""), locked(nx) ? h("span", { style: { marginLeft: 6, fontSize: "calc(11px * var(--app-fs, 1))" } }, "· 升到 " + nx.lv + " 级才看得到") : null)
+            : h("div", { style: { marginTop: 12, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", opacity: .7 } }, "—— 这条路走到头了 ——"); })() : null,
         !atEnd ? h("div", { "data-wk": "stampstorynext", style: { position: "absolute", right: 14, bottom: 10, fontSize: "calc(11px * var(--app-fs, 1))", opacity: .5 } }, "点一下继续 ▾") : null));
   }
 
