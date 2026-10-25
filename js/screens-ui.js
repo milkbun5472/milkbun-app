@@ -1701,6 +1701,8 @@ function WorldBook({ entries, characters, onBack, onSave, onDelete, trash, onRes
   // 文件夹和多选（2026-10-26 群友许愿：保留原来几种翻法，再加文件夹；哪种翻法下都能长按多选、挪、删）
   const [sel, setSel] = useState(null);          // null＝没在多选；Set＝勾着的那几条
   const [moveOpen, setMoveOpen] = useState(false);
+  const [onOpen, setOnOpen] = useState(false);   // 多选「启用」：问给谁
+  const [onPick, setOnPick] = useState([]);
   const [folderShut, setFolderShut] = useState({});
   const pressT = useRef(null), pressed = useRef(false);
   const list = entries || [];
@@ -1865,9 +1867,28 @@ function WorldBook({ entries, characters, onBack, onSave, onDelete, trash, onRes
         h("button", { onClick: () => setSel(new Set((view === "folder" || !pickedChar ? shown : shown.concat(pubShown)).map(e => e.id))), className: "active:opacity-60", style: { background: "transparent", border: "none", color: t.ink, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))" } }, "全选这一页"),
         h("button", { onClick: () => setSel(null), className: "active:opacity-60", style: { marginLeft: "auto", background: "transparent", border: "none", color: t.sub, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))" } }, "取消")),
       h("div", { style: { display: "flex", gap: 8 } },
-        [["放进文件夹", () => setMoveOpen(true)], ["启用", () => bulk({ enabled: true })], ["停用", () => bulk({ enabled: false })],
+        [["放进文件夹", () => setMoveOpen(true)], ["启用", () => { setOnPick([]); setOnOpen(true); }], ["停用", () => bulk({ enabled: false })],
           ["删除", () => requestAppConfirm("删掉这 " + sel.size + " 条？", "删了先进「最近删除」，30 天里能放回去。", () => { onBulkDelete && onBulkDelete(selIds()); setSel(null); }, "删掉")]].map(x =>
           h("button", { key: x[0], "data-wk": "loreselbtn", onClick: x[1], className: "flex-1 active:opacity-70", style: { minHeight: 40, borderRadius: 10, border: "1px solid " + (x[0] === "删除" ? t.accent : t.ink), color: x[0] === "删除" ? t.accent : t.ink, background: "transparent", fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))" } }, x[0])))) : null,
+    // 多选「启用」先问给谁（群友 2026-10-26）：照原来的范围 / 所有角色 / 只给这几个人
+    sel && onOpen ? h(PageSheet, { onClose: () => setOnOpen(false) },
+      h("div", { "data-wk": "loreenable" },
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(18px * var(--app-fs, 1))", color: t.ink, marginBottom: 4 } }, "启用这 " + sel.size + " 条，给谁用"),
+        [["keep", "照原来的范围", "每条原来给谁就还给谁，只是打开"], ["all", "所有角色", "每个人都用（谁单独关掉过的也重新打开）"]].map(([k, zh, sub]) =>
+          h("button", { key: k, "data-wk": "loreenableopt", "data-part": k, onClick: () => { bulk(k === "all" ? (x => ({ ...x, enabled: true, charIds: [], offFor: [] })) : { enabled: true }); setOnOpen(false); },
+            className: "w-full text-left active:opacity-60", style: { minHeight: 52, padding: "10px 0", borderBottom: "1px solid " + t.line, background: "transparent" } },
+            h("div", { style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.ink } }, zh),
+            h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginTop: 2 } }, sub))),
+        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.ink, margin: "14px 0 6px" } }, "只给这几个人"),
+        h("div", { style: { display: "flex", flexWrap: "wrap", gap: 8 } }, (characters || []).filter(c => c && !c.npc).map(c => {
+          const on = onPick.includes(c.id);
+          return h("button", { key: c.id, "data-wk": "loreenablechar", "data-on": on ? "1" : "0", onClick: () => setOnPick(p => on ? p.filter(x => x !== c.id) : p.concat(c.id)),
+            className: "active:opacity-70", style: { minHeight: 40, padding: "0 12px", borderRadius: 10, border: "1.5px solid " + (on ? t.ink : t.line), background: on ? t.ink : "transparent", color: on ? t.bg2 : t.ink, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))" } },
+            on ? "✓ " + (c.remark || c.name) : (c.remark || c.name));
+        })),
+        h("button", { "data-wk": "loreenablego", disabled: !onPick.length, onClick: () => { const ids = onPick.slice(); bulk(x => ({ ...x, enabled: true, charIds: ids, offFor: (x.offFor || []).filter(id => !ids.includes(id)) })); setOnOpen(false); },
+          className: "w-full active:opacity-80 disabled:opacity-40", style: { marginTop: 14, minHeight: 44, borderRadius: 12, border: "none", background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))" } },
+          onPick.length ? "只给这 " + onPick.length + " 个人用" : "先点上面要给的人"))) : null,
     sel && moveOpen ? h(PageSheet, { onClose: () => setMoveOpen(false) },
       h("div", { "data-wk": "loremove" },
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(18px * var(--app-fs, 1))", color: t.ink, marginBottom: 10 } }, "放进哪个文件夹"),
