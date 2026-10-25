@@ -29170,6 +29170,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   // 「现在放的是不是唱片」,认错人就会顺走她自己的歌)
   const saveCoupleDisc = fn => setCoupleDisc(prev => { const n = fn(coupleDiscRef.current || prev); coupleDiscRef.current = n; saveJSON("x_coupleDisc", n); return n; });
   const discSongsOf = cid => (((coupleDiscRef.current || {})[cid] || {}).songs || []);
+  const discAutoOf = cid => !((coupleDiscRef.current || {})[cid] || {}).noAuto;   // 进空间要不要自己落针（她 2026-10-26 加的开关，默认要）
   const discAdd = async (cid, query, note) => {
     if (!musicReady) { toast("先在一起听里选择音乐源"); return false; }
     try {
@@ -29279,7 +29280,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   const discEnter = cid => {
     // 唱片是空的也要进这道门：不落针，但把她原来那首记下来（见 roomMusicEnter 上面那段）。
     // 她在空间里刻一首、放起来，出门时那首才还得回去。
-    const has = discSongsOf(cid).length;
+    // 进空间不自动放（她 2026-10-26）：关了就只记下她原来那首，不落针；想听去唱片那页点「落针」
+    const has = discSongsOf(cid).length && discAutoOf(cid);
     roomMusicEnter(discSpinning, has ? () => discPlay(cid, discNextId(cid)) : null);  // 接着上次那首往下放
   };
   const discLeave = () => roomMusicLeave(discSpinning);
@@ -32865,6 +32867,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     onDiscAdd: discAdd,
     onDiscRemove: discRemove,
     onDiscNote: discSetNote,
+    onDiscAuto: (cid, on) => saveCoupleDisc(p => ({ ...p, [cid]: { ...((p || {})[cid] || {}), noAuto: !on } })),
     onDiscPlay: discPlay,
     onDiscGen: genCoupleDisc,
     discNextIdOf: discNextId,
