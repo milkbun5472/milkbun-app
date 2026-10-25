@@ -16748,7 +16748,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         + "\n群名：" + (g.name || "") + "\n成员：" + mem.map(c => c.name).join("、")
         + (had.length ? "\n这个群以前抽到过：" + had.map(x => "「" + x + "」").join("、") + "，起不一样的。" : "")
         + "\n【最近群聊】\n" + (hist || "（还没聊过）") + "\n【输出】只输出 JSON 数组，6 个字符串。", [{ role: "user", content: "起吧。" }],
-        { use: "chat", logLabel: "抽群幸运字符", logWho: g.name || "", maxTokens: 8000 });
+        { use: "chat", logLabel: "抽群幸运字符", logWho: g.name || "", maxTokens: 65000 });
       const arr = parseJSONLoose(raw);
       const cards = (Array.isArray(arr) ? arr : []).map(x => String(x || "").replace(/[「」"“”\s]/g, "").slice(0, 8)).filter(Boolean).slice(0, 6);
       if (cards.length < 2) throw new Error("没起出来");
@@ -16772,9 +16772,9 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       .map(m => (m.role === "user" ? me : (m.senderName || "")) + "：" + String(m.content).slice(0, 80)).join("\n");
     try {
       const raw = await callAI(active, "给一个群的成员各起一个专属头衔，像 QQ 群里群主给人挂在名字前面的那种小牌子：好玩、贴人、一看就知道是在说谁。12 个字以内。照每个人的人设和最近在群里真干过的事起，别起成空泛的夸奖。\n【成员】\n"
-        + mem.map(c => "- " + c.name + "：" + groupPersonaText(c.persona, 200).replace(/\s+/g, " ")).join("\n") + (imIn ? "\n- " + me + "：" + String(profile.persona || "").slice(0, 200).replace(/\s+/g, " ") : "")
+        + mem.map(c => "- " + c.name + "：" + groupPersonaText(c.persona, 200).replace(/\s+/g, " ") + charLangLine(c)).join("\n") + (imIn ? "\n- " + me + "：" + String(profile.persona || "").slice(0, 200).replace(/\s+/g, " ") : "")
         + "\n【最近群聊】\n" + (hist || "（还没聊过）") + "\n【输出】只输出 JSON：{\"成员名\":\"头衔\"}，每个成员一个。", [{ role: "user", content: "起吧。" }],
-        { use: "chat", logLabel: "抽群头衔", logWho: g.name || "", maxTokens: 8000 });
+        { use: "chat", logLabel: "抽群头衔", logWho: g.name || "", maxTokens: 65000 });
       const d = parseJSONLoose(raw);
       if (!d || typeof d !== "object") throw new Error("没认出结果");
       const out = {};

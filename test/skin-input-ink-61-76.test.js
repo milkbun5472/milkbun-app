@@ -179,7 +179,8 @@ test("顶上那一片每一格都单独挂了点（行内色压不过去）", ()
   // ⚠️这个窗口要罩住【整条顶栏】：返回键、名字、副标题、右上角那颗都在里头。
   //   顶栏上多一颗键（v65.19 加了「同处一室」）它就得跟着长——原来卡在 2600，
   //   那颗键一加，右上角那颗齿轮被挤到窗口外，测试红的是窗口不是代码。
-  const heads = [...comp.matchAll(/"data-wk": "chathead"/g)].map(m => comp.slice(m.index, m.index + 3600))
+  //   v76.557 群聊顶栏又长了一截（群专属头衔），齿轮挪到 3617，窗口放到 4200
+  const heads = [...comp.matchAll(/"data-wk": "chathead"/g)].map(m => comp.slice(m.index, m.index + 4200))
     .filter(x => x.indexOf("safeTop(20)") >= 0);   // 单聊/群聊那两条是 safeTop(20)，线下那两条是 (12)
   assert.equal(heads.length, 2, "顶栏应该正好两处（单聊、群聊），现在是 " + heads.length + " 处");
   heads.forEach((hd, n) => {
