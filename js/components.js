@@ -10656,7 +10656,8 @@ function ChatThread({
   const [specialKind, setSpecialKind] = useState(null); // photo
   const [specialText, setSpecialText] = useState("");
   const [specialImg, setSpecialImg] = useState("");
-  const [photoSendMode, setPhotoSendMode] = useState("real"); // real | describe | selfme | ask（叫 TA 拍）
+  const [photoSendMode, setPhotoSendMode] = useState("real"); // real | describe | selfme
+  const [selfThird, setSelfThird] = useState(false);           // 生成我的照片：false＝自拍，true＝别人拍的（第三人角度） | selfme | ask（叫 TA 拍）
   const [askKind, setAskKind] = useState("self");
   const doodleImgRef = useRef("");   // 这张要发的是不是在他照片上画过的（发出去带 doodle，他能接一笔）
   // 照片上抠表情时要知道是谁的脸：单聊里那张就是这个人的
@@ -10858,7 +10859,7 @@ function ChatThread({
     // 生成我的自拍（群友 2026-10-25 许愿「线上可以生成 user 的自拍过去」）：照你写的这一句和「我」的外貌／参考照画一张，以你的名义发
     if (specialKind === "photo" && photoSendMode === "selfme") {
       if (!v) { toast && toast("写一句：你在哪、在干嘛、想拍成什么样"); return; }
-      onShootMe && onShootMe(v);
+      onShootMe && onShootMe(v, selfThird);
       setSpecialText(""); setSpecialKind(null);
       return;
     }
@@ -11939,6 +11940,11 @@ function ChatThread({
     photoSendMode === "real" && h("button", { "data-wk": "block", onClick: () => photoFileRef.current && photoFileRef.current.click(), className: "w-full active:opacity-75", style: { minHeight: 150, borderRadius: 12, overflow: "hidden", background: t.bg, border: `1px dashed ${t.line}`, display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 10 } },
       specialImg ? h("img", { src: specialImg, style: { display: "block", width: "100%", maxHeight: 280, objectFit: "contain" } }) : h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.8 } }, "点这里选择照片\n相机或相册都可以")),
     h("input", { "data-wk": "input", value: specialText, onChange: e => setSpecialText(e.target.value), placeholder: photoSendMode === "ask" ? "想看什么（选填），比如此刻在干嘛" : photoSendMode === "real" ? "可以顺手说一句（选填）" : photoSendMode === "selfme" ? "你在哪、在干嘛、想拍成什么样（必填）" : "描述照片里有什么（必填，不会上传图片）", className: "w-full outline-none px-3 py-2.5 rounded-lg", style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", background: t.bg, color: t.ink, border: `1px solid ${t.line}` } }),
+    photoSendMode === "selfme" && h("div", { "data-wk": "selfmeangle", className: "flex gap-2", style: { marginTop: 8 } }, [[false, "自拍", "手机举在面前"], [true, "别人拍的", "第三人角度，拍你在做的事"]].map(([v, l, d]) =>
+      h("button", { key: l, onClick: () => setSelfThird(v), "aria-pressed": selfThird === v, className: "flex-1 text-left active:opacity-70",
+        style: { minHeight: 44, padding: "7px 10px", borderRadius: 10, border: "1.5px solid " + (selfThird === v ? t.ink : t.line), background: selfThird === v ? t.bg : "transparent" } },
+        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.ink } }, l),
+        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, marginTop: 1 } }, d)))),
     photoSendMode === "selfme" && h("div", { "data-wk": "selfmehint", style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.5, marginTop: 7 } }, "照「我」那页（他认的那张面具）的外貌或参考照画你自己，花一次出图；画好了以你的名义发出去，他看得到。"),
     photoSendMode === "describe" && h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.5, marginTop: 7 } }, "角色只会收到你的文字描述；不会读取相册，也不会上传真实照片。")
   ) : h("input", {

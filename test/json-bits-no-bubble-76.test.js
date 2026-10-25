@@ -10,5 +10,9 @@ assert.ok(jsonKeyRe.test(',"photo":{"face":true,\n"kind":"self"'));
 assert.match(app, /const _jsonBits = jsonKeyRe\.test\(_outside\);/);
 assert.match(app, /JSON\.parse\(repairJSON\(_rs\.slice\(0, _b\) \+ _rs\.slice\(_b \+ 1\)\)\)/);
 assert.match(app, /if \(_outside && !_jsonBits && !protocolFieldRe\.test\(_outside\)\) \{/);
-assert.match(app, /words = words\.filter\(w => !protocolFieldRe\.test\(String\(w\)\) && !jsonBitRe\.test\(String\(w\)\)\);/);
+assert.match(app, /words = words\.filter\(w => !protocolFieldRe\.test\(String\(w\)\) && !jsonBitRe\.test\(String\(w\)\) && !\(typeof w === "string" && bareKeyRe\.test\(w\)\)\);/);
+// 一个气泡只剩一个字段名（她 2026-10-25「emote」那一泡）
+const bareKeyRe = (m => new RegExp(m[1], m[2]))(app.match(/const bareKeyRe = \/(.*)\/([a-z]*);/));
+["emote", " emote ", "\"emote\"", "Emote:", "voice"].forEach(w => assert.ok(bareKeyRe.test(w), "该拦：" + w));
+["emote 一下", "我想你了", "OK", "photo 发我看看"].forEach(w => assert.ok(!bareKeyRe.test(w), "不该拦：" + w));
 console.log("ok");

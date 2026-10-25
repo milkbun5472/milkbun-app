@@ -545,7 +545,7 @@
         ["gnewbelow", "群聊里你在上面看时，底下那颗「↓ N 条新消息」"], ["newbelow", "单聊里你在上面看时，底下那颗「↓ N 条新消息」"], ["chatcsslist", "设置·外观里「各聊天窗的 CSS」那一页"], ["chatcssclear", "那一页每一行的「清空」"], ["gachawho", "抽卡页「谁来扳拉杆」那一排"],
         ["quote", "消息引用块（带 data-me；输入框上面那条待发送的引用也是它，多带 data-draft=\"1\"）"], ["quotedraft", "输入框上面那一整条待发送的引用"], ["quoteclear", "待发送引用右边那个 ×"], ["quoteicon", "引用块前面那个 ❝"], ["quotetext", "引用的那句原话"], ["voice", "语音消息整块"], ["voicebar", "语音条"],
         ["translation", "外语正文和翻译区"], ["translatebutton", "翻译/收起键"], ["translatebody", "展开后的译文"],
-        ["selfmehint", "照片里「生成我的自拍」底下那句说明"], ["rpsingle", "私聊红包那一张（钱走转账那套，脸是红包）；data-status＝pending 没拆／accepted 已领／returned 退回"], ["transfercard", "转账卡整张（那张纸的底、边、圆角）；data-status＝pending 待收／accepted 已收款／returned 已退回，data-receipt＝1 是收款回执那张，data-me＝1 是她转出去的"], ["transferamount", "转账卡上的金额"], ["transfercur", "转账卡金额旁的货币符号"], ["transferrule", "转账卡中间那道虚线"], ["transfernotch", "虚线两头的半圆缺口（换了卡底色要跟着改；data-part=l/r）"], ["transferfoot", "转账卡底下那一条（data-part=status 是状态行，没写是退回／收下按钮条）"], ["transferbtn", "退回／收下按钮；data-part=back/take"], ["transferlabel", "转账卡左上角「转账／收款／退还」那几个字（想换成别的字：font-size:0 再用 ::after 写 content）"],
+        ["selfmeangle", "生成我的照片「自拍／别人拍的」那两格"], ["selfmehint", "照片里「生成我的自拍」底下那句说明"], ["rpsingle", "私聊红包那一张（钱走转账那套，脸是红包）；data-status＝pending 没拆／accepted 已领／returned 退回"], ["transfercard", "转账卡整张（那张纸的底、边、圆角）；data-status＝pending 待收／accepted 已收款／returned 已退回，data-receipt＝1 是收款回执那张，data-me＝1 是她转出去的"], ["transferamount", "转账卡上的金额"], ["transfercur", "转账卡金额旁的货币符号"], ["transferrule", "转账卡中间那道虚线"], ["transfernotch", "虚线两头的半圆缺口（换了卡底色要跟着改；data-part=l/r）"], ["transferfoot", "转账卡底下那一条（data-part=status 是状态行，没写是退回／收下按钮条）"], ["transferbtn", "退回／收下按钮；data-part=back/take"], ["transferlabel", "转账卡左上角「转账／收款／退还」那几个字（想换成别的字：font-size:0 再用 ::after 写 content）"],
         ["transfernote", "转账卡上的附言那一行"], ["transferseal", "转账卡上那枚印章"],
         ["photocard", "照片卡整张（相纸的底、边、影）"], ["photocap", "照片底下那行配文"],
         ["photoface", "没真图的照片卡里那块相面（米色渐变那块，改色写 background）"], ["phototext", "相面上那句描述的字"], ["photohint", "照片卡右下「点开看这张」"],
@@ -1162,7 +1162,7 @@
   //   挂点表是从 WK_COMMON/WK_SCOPED 现拼的，代码里新挂的 data-wk 没进名单，测试 ai-brief-hooks 会红；
   //   可规矩、尺寸、现成写法是手写的——所以跟攻略一样立个戳：v 必须等于 APP_VERSION，
   //   这一版改了哪条写进 changed；这一版的改动碰不到样式，就在 none 写一句为什么。
-                                                                                                                                                                                                                                                                    const BRIEF_STAMP = {v: "v76.519",changed: "",none: "这一版没动美化挂点。"};
+                                                                                                                                                                                                                                                                    const BRIEF_STAMP = {v: "v76.524",changed: "",none: "这一版没动美化挂点。"};
   function aiBrief(page, css) {
     const grp = WK_SCOPED.filter(function (x) { return (x.pages || []).indexOf(page) >= 0; })[0];
     const line = function (r) { return '[data-wk="' + r[0] + '"]  ' + r[1]; };
