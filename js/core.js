@@ -487,6 +487,8 @@ const APP_TONE_HUE = {
   // 底部 dock 那四个也点名（它每一页都在，不能交给哈希）
   // 照影（一面小镜子）借塔罗那一档：在「查一查」里挨着去处(108)，差得够远；同样不往池子里加新值
   zhaoying: 296,
+  // 邮票册借小剧场那一档（同上：不往池子里加新值）
+  stamps: 186,
   messages: 196, forum: 112, config: 352
 };
 // 没点名的（文件夹、以后新加的 app）才走哈希，落进上面这张表已有的色相里
@@ -598,7 +600,7 @@ const SCREEN_ZH = {
   listen: "一起听", musiccard: "一起听那张卡的背面",
   diary: "日记", lore: "世界书", memlib: "记忆库", anon: "匿名问答", anonme: "我的匿名主页",
   study: "一起学", fanfic: "同人文", read: "一起读", watch: "一起看", weekly: "周刊", debate: "擂台", live: "直播", shua: "片刻",
-  dream: "梦境", dreamjournal: "解梦馆", tarot: "塔罗", astro: "星测", zhaoying: "照影", health: "健康", companion: "陪伴", pomodoro: "番茄钟",
+  dream: "梦境", dreamjournal: "解梦馆", tarot: "塔罗", astro: "星测", zhaoying: "照影", stamps: "邮票册", health: "健康", companion: "陪伴", pomodoro: "番茄钟",
   games: "小游戏", fairyGarden: "小世界", trpg: "跑团", theater: "小剧场", impression: "月度印象", shike: "时刻",
   yanqiu: "秋声", loungeapp: "三席会客", rescue: "互救台", vpscodex: "值班室",
   forum: "论坛", momprofile: "朋友圈个人页", us: "情侣空间",

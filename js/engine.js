@@ -826,6 +826,11 @@ async function callAI(p, system, messages, opts) {
   // 调用记录：干嘛＝调用点自己写的 logLabel → 三种她按下去的（use）→ 后台活的名字 → tag → 其他。
   //   回合＝她按一下换来的那一枪（use 是 chat/offline/call，且不是兜底重发 logRetry）。⚠️这张表也写在函数里面，理由同上。
   const LOG_USE = { chat: "聊天回复", offline: "线下", call: "通话" };
+  // 她按下去的那一枪成了（不是后台自己跑的、不是兜底重发）：广播一声，邮票册照这个记邮资印泥（js/stamps-core.js）
+  const aiOkSay = () => {
+    if (bgShow || (opts && opts.logRetry)) return;
+    try { if (typeof window !== "undefined" && window.dispatchEvent) window.dispatchEvent(new CustomEvent("ai-ok", { detail: { use: String((opts && opts.use) || ""), label: String((opts && opts.logLabel) || logFrom || ""), tag: String((opts && opts.tag) || "") } })); } catch (e) {}
+  };
   const logIt = (ok, msg) => {
     if (typeof CallLog === "undefined") return;
     const o0 = opts || {}, use = String(o0.use || "");
@@ -855,7 +860,7 @@ async function callAI(p, system, messages, opts) {
   try {
     const first = await once();
     if (hasDoc) document.removeEventListener("visibilitychange", onVis);
-    bgSay(true); logIt(true);
+    bgSay(true); logIt(true); aiOkSay();
     return first;
   } catch (e) {
     const msg = String((e && e.message) || e || "");
@@ -868,7 +873,7 @@ async function callAI(p, system, messages, opts) {
       for (const wait of waits) {
         await new Promise(r => setTimeout(r, wait));
         if (o.signal && o.signal.aborted) break;    // 等的这几秒里她按了停止，就别再发
-        try { const again = await once(); bgSay(true); logIt(true); return again; }
+        try { const again = await once(); bgSay(true); logIt(true); aiOkSay(); return again; }
         catch (e2) { e = e2; if (!CAPACITY_ERR.test(String((e2 && e2.message) || e2 || ""))) break; }
       }
     }

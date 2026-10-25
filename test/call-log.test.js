@@ -7,7 +7,7 @@ const eng = R("engine.js"), app = R("app.js"), scr = (R("screens.js") + "\n" + R
 test("调用记录只在 callAI 这一个出口记：成功、重试成功、失败、她自己断的都记", () => {
   const i = eng.indexOf("async function callAI("), fn = eng.slice(i, eng.indexOf("async function callAIOnce(", i));
   assert.match(fn, /bgSay\(true\); logIt\(true\);/);
-  assert.match(fn, /const again = await once\(\); bgSay\(true\); logIt\(true\); return again;/);
+  assert.match(fn, /const again = await once\(\); bgSay\(true\); logIt\(true\);(?: aiOkSay\(\);)? return again;/);
   assert.match(fn, /logIt\("cut", "她自己断掉了"\)/);
   assert.match(fn, /bgSay\(false, m2\); logIt\(/);
   assert.match(fn, /if \(typeof CallLog === "undefined"\) return;/, "单独抠出 callAI 跑的测试里没有 CallLog，不许炸");
