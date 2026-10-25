@@ -50,7 +50,8 @@ test("单聊里那几行居中的字：设了壁纸就垫一层磨砂", () => {
     assert.ok(nx > k, "找不到下一支的开头：" + anchor);
     return comp.slice(k, nx);
   };
-  [['if (m.kind === "pat")', "拍一拍"],
+  // v76.505 起单聊这一支也收「他拍她」的签名行（patsig），条件写成 pat || patsig
+  [['if (m.kind === "pat" || m.kind === "patsig")', "拍一拍"],
    ['if (m.kind === "recalled")', "撤回"],
    ['if (m.kind === "silence")', "沉默"],
    ['if (m.kind === "busynote")', "在忙"],
