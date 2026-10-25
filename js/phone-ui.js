@@ -1310,6 +1310,10 @@ function PeekPhotoMsg({ m }) {
   return h("img", { "data-wk": "pphoto", src: src, alt: m.body || "照片", style: { display: "block", maxWidth: 160, maxHeight: 220, borderRadius: 6, objectFit: "cover", background: "#ddd" } });
 }
 function WeChatViewFull({ d, char, t, profile, onBack, onRefresh, refreshing, drive, onSendAs, onTransferAs, onTfReplyAs, onShopAs, transferPeers, sendAsWaiting, onRemark, onDelFriend, onDissolve, onBlockFriend }) {
+  // 情头跟着进他手机（群友 2026-10-26）：他在聊天里换的头像（chatAvatar）就是他微信头像，
+  //   给你换的那张（myChatAvatar）就是他微信里你的头像；没换过就照旧档案那张、你资料那张
+  const selfFace = typeof chatFace === "function" ? chatFace(char) : char;
+  const herAv = (char && char.myChatAvatar) || (profile && profile.avatarImage);
   const [tab, setTab] = useState("chats");
   const [thread, setThread] = useState(null);
   // 她改TA通讯录里的备注（她 2026-10-07）：null＝没在改，字符串＝正在改的草稿
@@ -1369,7 +1373,7 @@ function WeChatViewFull({ d, char, t, profile, onBack, onRefresh, refreshing, dr
   //   （watchSend 那条路一个字没动），真聊天当场长出来，下一帧 actual 自己顶上来。
   const actual0 = arr(d.actualChats);
   const meRow = { id: "actual:private:" + char.id, type: "private", name: userName(profile),
-    avatarImage: profile && profile.avatarImage, time: "", last: "", ts: 0, messages: [], _empty: 1 };
+    avatarImage: herAv, time: "", last: "", ts: 0, messages: [], _empty: 1 };
   const hasMe = actual0.some(c => c && c.type !== "group"
     && (typeof phoneSamePerson === "function" ? phoneSamePerson(c.name, meRow.name) : String(c.name || "").trim() === meRow.name));
   const actual = (hasMe || !meRow.name) ? actual0 : actual0.concat([meRow]);
@@ -1414,7 +1418,7 @@ function WeChatViewFull({ d, char, t, profile, onBack, onRefresh, refreshing, dr
   const [, bumpFace] = useState(0);
   const faceOf = name => (typeof window !== "undefined" && typeof window.__phoneFaceOf === "function") ? window.__phoneFaceOf(char && char.id, name) : null;
   const person = (name, avatarImage) => ({ name: name || "?", avatarImage: faceOf(name) || avatarImage, color: strColor(name) });
-  const avatarForMessage = (m, c) => m.avatarImage || (selfNames.has(m.from) ? char.avatarImage : m.from === meName ? profile && profile.avatarImage : c.avatarImage);
+  const avatarForMessage = (m, c) => m.avatarImage || (selfNames.has(m.from) ? selfFace.avatarImage : m.from === meName ? herAv : c.avatarImage);
   // ⚠️查手机里这些内层 app【不换成公共 Head】：它们扮的是真手机上的微信、便签、相册……
   //   换成这个 app 自己的标题栏，扮演就散了（界面装修工单：「判据在这一处是反过来的」）。
   //   挂点还是要有——只加属性，长相一个像素没动。
@@ -1603,7 +1607,7 @@ function WeChatViewFull({ d, char, t, profile, onBack, onRefresh, refreshing, dr
     .map(c => { _listed.add(_cn(c.name)); return { name: c.name, remark: c.remark || "", intro: "" }; });
   // 关系网上连着的人（角色、配角）本来就是TA认识的人：模型没写进 contacts、也还没开私聊的，照样列进通讯录
   const _fromRel = arr(d.relContacts).filter(n => n && !_listed.has(_cn(n))).map(n => { _listed.add(_cn(n)); return { name: n, remark: "", intro: "" }; });
-  const contacts = [{ ...userContact, name: meName, avatarImage: profile && profile.avatarImage, _me: true }, ...arr(d.contacts), ..._fromChats, ..._fromRel];
+  const contacts = [{ ...userContact, name: meName, avatarImage: herAv, _me: true }, ...arr(d.contacts), ..._fromChats, ..._fromRel];
   const contactRow = (c, i) => h("button", { key: i, "data-wk": "pitem", "data-kind": "contact", onClick: () => { setRemarkDraft(null); setThread({ ...c, type: "contact" }); }, className: "w-full flex items-center gap-3 text-left active:opacity-60", style: { minHeight: 64, padding: "8px 14px", background: "#fff", borderBottom: "1px solid #e7e7e7" } }, h(Avatar, { character: person(c.name, c.avatarImage), size: 43, radius: 7 }), h("div", null, h("div", { "data-wk": "ptitle", style: { fontFamily: F_DISPLAY, fontSize: "calc(15.5px * var(--app-fs, 1))", color: "#1c1c1c" } }, c.remark || c.name), h("div", { "data-wk": "ptext", style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: "#999", marginTop: 3 } }, PTX(c.intro))));
   const searchBox = h("div", { "data-wk": "block", className: "flex-1 flex items-center justify-center gap-2", style: { height: 39, borderRadius: 8, background: "#fff", border: "1px solid #e5e5e5", color: "#9a9a9a", boxShadow: "0 1px 1px rgba(0,0,0,.025)" } },
     h("svg", { width: 17, height: 17, viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 1.8, strokeLinecap: "round" }, h("circle", { cx: 10.5, cy: 10.5, r: 6.5 }), h("path", { d: "m16 16 4 4" })),
@@ -1636,7 +1640,7 @@ function WeChatViewFull({ d, char, t, profile, onBack, onRefresh, refreshing, dr
           arr(m.likes).length ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: "#526786", paddingBottom: arr(m.comments).length ? 5 : 0, borderBottom: arr(m.comments).length ? "1px solid #ddd" : "none" } }, "♡ " + arr(m.likes).join("、")) : null,
           arr(m.comments).map((x, j) => h("div", { key: j, style: { fontFamily: F_BODY, fontSize: "calc(11.8px * var(--app-fs, 1))", lineHeight: 1.55, color: "#333", marginTop: 4 } }, h("b", { style: { color: "#526786" } }, x.from + "："), PTX(x.text))))));
     body = h("div", { style: { background: "#fff" } },
-      h("div", { style: { height: 140, background: "linear-gradient(135deg,#4d6655,#c6c2ad)", position: "relative", marginBottom: 34 } }, h("div", { style: { position: "absolute", right: 18, bottom: -28, display: "flex", alignItems: "center", gap: 10 } }, h("span", { style: { color: "#fff", fontFamily: F_DISPLAY, fontSize: "calc(16px * var(--app-fs, 1))", textShadow: "0 1px 3px #000" } }, d.me && d.me.wechatName || char.name), h(Avatar, { character: char, size: 60, radius: 7 }))),
+      h("div", { style: { height: 140, background: "linear-gradient(135deg,#4d6655,#c6c2ad)", position: "relative", marginBottom: 34 } }, h("div", { style: { position: "absolute", right: 18, bottom: -28, display: "flex", alignItems: "center", gap: 10 } }, h("span", { style: { color: "#fff", fontFamily: F_DISPLAY, fontSize: "calc(16px * var(--app-fs, 1))", textShadow: "0 1px 3px #000" } }, d.me && d.me.wechatName || char.name), h(Avatar, { character: selfFace, size: 60, radius: 7 }))),
       // 真发过的那几条（TA自己和关系网上的人）跟推演出来的混在一起，按时间新的在上（她 2026-10-21：「按实际顺序，推演的按推演时间穿插」）；
       //   同一句话不摆两遍；拿不到时间的（老数据）沉到最后，彼此保持原来的先后
       (() => {
@@ -1647,7 +1651,7 @@ function WeChatViewFull({ d, char, t, profile, onBack, onRefresh, refreshing, dr
         return all.map((m, i) => ({ m, i, t: tsOf(m) })).sort((a, b) => (b.t - a.t) || (a.i - b.i)).map(x => x.m);
       })().map(momentCard));
   }
-  else body = h("div", { "data-wk": "block", style: { background: "#f5f5f5", minHeight: "100%", paddingTop: 14 } }, h("div", { className: "flex items-center gap-4", style: { background: "#fff", padding: "22px 18px" } }, h(Avatar, { character: char, size: 67, radius: 8 }), h("div", { className: "flex-1 min-w-0" }, h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(21px * var(--app-fs, 1))", color: "#1b1b1b" } }, d.me && d.me.wechatName || char.name), h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: "#888", marginTop: 6 } }, "微信号：" + (d.me && d.me.wechatId || "wx_" + String(char.id || "user").slice(0, 8))), h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: "#777", marginTop: 5 } }, d.me && d.me.signature || "还没有写个性签名"))), h("button", { onClick: () => setPublicPage(true), className: "w-full flex items-center gap-3 text-left active:opacity-60", style: { marginTop: 10, background: "#fff", padding: "16px 18px" } }, h("div", { style: { width: 34, height: 34, borderRadius: 7, background: "#07c160", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: F_DISPLAY, fontSize: "calc(18px * var(--app-fs, 1))" } }, "文"), h("div", { className: "flex-1" }, h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(15.5px * var(--app-fs, 1))", color: "#222" } }, "公众号"), h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: "#999", marginTop: 3 } }, "最近读过 " + accounts.length + " 篇文章")), h("span", { style: { color: "#aaa", fontSize: "calc(22px * var(--app-fs, 1))" } }, "›")));
+  else body = h("div", { "data-wk": "block", style: { background: "#f5f5f5", minHeight: "100%", paddingTop: 14 } }, h("div", { className: "flex items-center gap-4", style: { background: "#fff", padding: "22px 18px" } }, h(Avatar, { character: selfFace, size: 67, radius: 8 }), h("div", { className: "flex-1 min-w-0" }, h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(21px * var(--app-fs, 1))", color: "#1b1b1b" } }, d.me && d.me.wechatName || char.name), h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: "#888", marginTop: 6 } }, "微信号：" + (d.me && d.me.wechatId || "wx_" + String(char.id || "user").slice(0, 8))), h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: "#777", marginTop: 5 } }, d.me && d.me.signature || "还没有写个性签名"))), h("button", { onClick: () => setPublicPage(true), className: "w-full flex items-center gap-3 text-left active:opacity-60", style: { marginTop: 10, background: "#fff", padding: "16px 18px" } }, h("div", { style: { width: 34, height: 34, borderRadius: 7, background: "#07c160", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: F_DISPLAY, fontSize: "calc(18px * var(--app-fs, 1))" } }, "文"), h("div", { className: "flex-1" }, h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(15.5px * var(--app-fs, 1))", color: "#222" } }, "公众号"), h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: "#999", marginTop: 3 } }, "最近读过 " + accounts.length + " 篇文章")), h("span", { style: { color: "#aaa", fontSize: "calc(22px * var(--app-fs, 1))" } }, "›")));
   // ── 联系人详情（v62.60 重做）────────────────────────────────────────
   // 审美审计 2026-09-04 把这一页判成【基础款】：灰底 + 头像 + 一张白色圆角卡。
   // 换成任何一个 app 的「某某的资料」都成立——而这个 app 仿的是本尊，

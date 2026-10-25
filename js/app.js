@@ -19315,7 +19315,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     if (direct.length) {
       const messages = direct.map(m => ({ from: m.role === "user" ? meName : char.name, avatarImage: m.role === "user" ? profile.avatarImage : char.avatarImage, text: String(m.content || "[照片] " + (m.desc || "")), ts: m.ts || 0, ...(richOf(m) || {}) }));
       const last = messages[messages.length - 1];
-      sessions.push({ id: "actual:private:" + char.id, type: "private", name: meName, avatarImage: profile.avatarImage, time: stamp(last.ts), last: last.text, ts: last.ts, messages });
+      sessions.push({ id: "actual:private:" + char.id, type: "private", name: meName, avatarImage: char.myChatAvatar || profile.avatarImage, time: stamp(last.ts), last: last.text, ts: last.ts, messages });   // 情头给你的那张跟着进他手机
     }
     for (const group of groups) {
       const memberIds = group.memberIds || [];
