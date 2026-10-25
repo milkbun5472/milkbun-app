@@ -10,7 +10,8 @@
   const BDAY = { rate: 0.10, dayRate: 0.25, hard: 40, beg: 20 };   // 生日池：平时 10%、当天 25%、40 抽保底、20 抽起能求情
   const CAP = { R: 30, SR: 40, SSR: 50 };
   const FULL_COST = { R: 400, SR: 1000, SSR: 2000 };   // 一张卡升满要的印泥（含过坎）
-  const GIFT = { tickets: 15, ink: 2000 };      // 上线礼：15 张十连券 + 2000 印泥
+  const GIFT = { tickets: 15, ink: 2000 };
+  const DUPE_INK = 500;                         // 限定 SSR 重复一张折多少印泥      // 上线礼：15 张十连券 + 2000 印泥
   // 互动给多少（邮资、印泥）。一次调用算一轮；文档那张表。
   const GAIN = {
     round: [5, 5],      // 单聊、群聊、通话、出戏：一轮
@@ -129,7 +130,7 @@
   function ssrUnlocked(lv) { return { sections: Math.min(4, 1 + Math.floor(lv / 10)), ending: lv >= 40, hidden: lv >= 50 }; }
 
   g.StampsCore = { PRICE_ONE, PRICE_TEN, RATE, SOFT_FROM, HARD_AT, SR_EVERY, BDAY, CAP, FULL_COST, GIFT, GAIN, LIMITED,
-    UNLOCK, levelUp, canBeg, markBeg, load, save, gain, grantOnOpen, activeLimited, bdayWindow, rollRarity, pay, levelCost, isGate, gateBlocked, ssrUnlocked };
+    DUPE_INK, UNLOCK, levelUp, canBeg, markBeg, load, save, gain, grantOnOpen, activeLimited, bdayWindow, rollRarity, pay, levelCost, isGate, gateBlocked, ssrUnlocked };
   // 各处喊一声就记上
   g.stampGain = gain;
   // 别的玩法不一处处去挂：callAI 成功一枪（她按下去的、不是后台）会广播 ai-ok，这儿按它是干嘛的分进几档。

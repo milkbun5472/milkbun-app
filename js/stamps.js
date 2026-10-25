@@ -58,7 +58,8 @@
       stage === "sheet" ? h(React.Fragment, null,
         h("div", { className: "flex flex-wrap justify-center", style: { gap: 8, maxWidth: 420 } },
           cards.map(c => torn[c.id]
-            ? h("div", { key: c.id, style: { animation: "stFlip .35s ease-out" } }, h(StampFace, { t, card: c, size: cards.length > 1 ? 64 : 150, onClick: () => onOpen(c) }))
+            ? h("div", { key: c.id, className: "flex flex-col items-center", style: { gap: 3, animation: "stFlip .35s ease-out" } }, h(StampFace, { t, card: c, size: cards.length > 1 ? 64 : 150, onClick: () => onOpen(c.dupe ? Object.assign({}, c, { id: c.dupeOf }) : c) }),
+                c.dupe ? h("div", { "data-wk": "stampdupe", style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", color: "#e3b65c", whiteSpace: "nowrap" } }, "重复 · 印泥 +" + C().DUPE_INK) : null)
             : h("div", { key: c.id, className: "flex flex-col items-center", style: { gap: 3 } },
                 h(Stamp, { t, card: c, back: true, size: cards.length > 1 ? 64 : 150, onClick: () => setTorn(p => ({ ...p, [c.id]: 1 })) }),
                 nameOf(c) ? h("div", { "data-wk": "stampsender", style: { maxWidth: cards.length > 1 ? 70 : 160, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", color: "rgba(244,236,218,.75)" } }, nameOf(c) + " 来信") : null))),
@@ -301,15 +302,20 @@
         if (pool === "char") Object.assign(card, { theme: charTheme.trim().slice(0, 40), themeLine: charThemeLine.slice(0, 200), ifMode });
         if (bd) Object.assign(card, { bdDay: bd.win.day });
         if (lim) Object.assign(card, { theme: lim.name, themeLine: lim.line, limited: lim.id, ifMode });
+        // 限定（限时池一期、生日池一年）每人只有一张 SSR：再抽到就是重复，不写新卡，折成印泥
+        const same = rar === "SSR" && (lim || bd) ? s.cards.concat(cards).find(x => x.rarity === "SSR" && !x.dupe && x.charId === cid && (lim ? x.limited === lim.id : x.pool === "bday" && x.bdDay === bd.win.day)) : null;
+        if (same) { s.ink += C().DUPE_INK; cards.push(Object.assign({}, same, { id: uid(), ts: now + i, dupe: true, dupeOf: same.id })); continue; }
         cards.push(card);
       }
-      s.cards = s.cards.concat(cards);
+      const fresh = cards.filter(c => !c.dupe);
+      s.cards = s.cards.concat(fresh);
       C().save(s); setSt(s);
       setShow(cards);
+      if (cards.length > fresh.length) toast("有 " + (cards.length - fresh.length) + " 枚重复的限定 SSR，折成了 " + (cards.length - fresh.length) * C().DUPE_INK + " 印泥");
       // 动画放着的时候就开始写；挑了「抽到就画」的，写完接着画
-      Promise.resolve(onWrite(cards)).then(() => {
+      if (fresh.length) Promise.resolve(onWrite(fresh)).then(() => {
         if (!opt.autoDraw) return;
-        cards.reduce((p, c) => p.then(() => onDraw(c.id)), Promise.resolve());
+        fresh.reduce((p, c) => p.then(() => onDraw(c.id)), Promise.resolve());
       });
     };
     const ssrLeft = C().HARD_AT - (st.sinceSSR || 0);
@@ -454,7 +460,7 @@
         album.length ? h("div", { "data-wk": "stampalbum", className: "grid", style: { gridTemplateColumns: "repeat(3, 1fr)", gap: 12, marginTop: 14, justifyItems: "center" } },
           album.map(c => h(StampFace, { key: c.id, t, card: c, size: 96, onClick: () => setOpen(c.id) })))
           : h("div", { style: { padding: "48px 0", textAlign: "center", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: "rgba(244,236,218,.5)" } }, "还没有邮票，去寄一封")),
-      show ? h(PullShow, { t, cards: show.map(c => (st.cards || []).find(x => x.id === c.id) || c), onDone: () => setShow(null), onOpen: c => { setShow(null); setOpen(c.id); }, charOf }) : null);
+      show ? h(PullShow, { t, cards: show.map(c => c.dupe ? c : (st.cards || []).find(x => x.id === c.id) || c), onDone: () => setShow(null), onOpen: c => { setShow(null); setOpen(c.id); }, charOf }) : null);
 
     return h("div", { "data-wk": "stamppage", className: "h-full flex flex-col", style: { background: "radial-gradient(120% 70% at 50% 0%, #2b2440, " + NIGHT + " 70%)" } },
       h(Head, { zh: "邮票册", bg: "transparent", ink: PAPER, onBack,
@@ -495,7 +501,7 @@
         h("button", { "data-wk": "stamppullbtn", "data-part": "ten", onClick: () => doPull(10, st.tickets > 0), className: "flex-1 active:opacity-80",
           style: { minHeight: 56, borderRadius: 16, background: "linear-gradient(160deg, " + GOLD + ", #b8862f)", color: NIGHT, fontFamily: F_DISPLAY, fontSize: "calc(16px * var(--app-fs, 1))", boxShadow: "0 4px 18px rgba(227,182,92,.35)" } },
           "寄一版", h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", opacity: .8 } }, testInf ? "测试券" : st.tickets > 0 ? "用十连券 · 持有 " + st.tickets + " 张" : C().PRICE_TEN + " 邮资"))),
-      show ? h(PullShow, { t, cards: show.map(c => (st.cards || []).find(x => x.id === c.id) || c), onDone: () => setShow(null), onOpen: c => { setShow(null); setOpen(c.id); }, charOf }) : null);
+      show ? h(PullShow, { t, cards: show.map(c => c.dupe ? c : (st.cards || []).find(x => x.id === c.id) || c), onDone: () => setShow(null), onOpen: c => { setShow(null); setOpen(c.id); }, charOf }) : null);
   }
   window.StampBookApp = StampBookApp;
 })();

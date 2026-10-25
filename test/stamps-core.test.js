@@ -109,3 +109,5 @@ test("测试券开着时盖印不扣印泥", () => {
   assert.equal(C.levelUp("a", 100).lv, C.CAP.R);
   assert.equal(C.load().ink, 0);
 });
+
+test("限定 SSR 重复折的印泥是定好的数", () => { const C = fresh(); assert.equal(C.DUPE_INK, 500); });
