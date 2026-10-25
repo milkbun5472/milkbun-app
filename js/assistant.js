@@ -1007,11 +1007,40 @@
     // 详细限一个总量（她 2026-10-17 查秋秋还塞不塞太多：问「聊天气泡」会顺带进三万多字的小世界那一条）：
     //   排在前面的照放；后面沾边的放不下就只留名字，真要再用 lookup 翻。点名要翻的那几条（extraIds）不受限。
     const BUDGET = 16000; let used = 0; const keep = [], skip = [];
-    hits.forEach((x, i) => { const tx = M.textOf(x); const must = i === 0 || (extraIds || []).indexOf(x.id) >= 0;
+    hits.forEach((x, i) => { const asked = (extraIds || []).indexOf(x.id) >= 0;
+      // 特别长的那几条（小世界三万多字、说话一万多）不再一沾边就整条塞：只给跟她这句沾边的那几小节，
+      //   其余小节只报名字，要用再 lookup（点名翻的那条照旧给全文）。按「###」小标题或「**某某：**」开头的那一段切，
+      //   不切成一句一句——一节里「先开 A、再去 B、不然会怎样」是连着的，切碎了她会把步骤说漏（她 2026-10-25 定）。
+      const tx = asked ? M.textOf(x) : sectionText(M, x, question);
+      const must = i === 0 || asked;
       if (must || used + tx.length <= BUDGET) { keep.push(tx); used += tx.length; } else skip.push(x); });
     return "【这个 App 有哪些东西 · 目录】\n" + M.index()
       + (keep.length ? "\n\n【她这次多半在问这几样 · 详细】\n" + keep.join("\n\n") : "")
       + (skip.length ? "\n\n（也沾边、这回没放全文的：" + skip.map(x => "[" + x.id + "] " + (x.zh || "")).join("、") + "——要用就 lookup）" : "");
+  }
+
+  const SECTION_FROM = 5000;   // 一条超过这么长才按小节挑
+  function sectionText(M, x, question) {
+    const full = M.textOf(x);
+    if (full.length <= SECTION_FROM) return full;
+    const raw = String(x.doc || x.what || "");
+    // 一节＝「### 小标题」底下那一块，或者空行后以「**某某：**」开头的那一段
+    //   （也认顶格的「- **某某：**」：出毛病了怎么办、小游戏那几条整条就是这样一条条列的）
+    //   有小标题的条目只按小标题切（底下那几段「**某某：**」跟着小标题走，不拆开）
+    const units = raw.split(/\n(?=#{2,4} )/.test(raw) ? /\n(?=#{2,4} )/ : /\n\n(?=\*\*)|\n(?=- \*\*)/).map(u => u.trim()).filter(Boolean);
+    if (units.length < 3) return full;
+    // 问句里的虚词先拿掉：「怎么」「什么」到处都有，留着就哪一节都像沾边（「绒绒小镇的猫怎么喂」挑出了念头那节）
+    const Q = memGrams(String(question || "").replace(/为什么|怎么办|怎么|什么|如何|能不能|可不可以|可以|是不是|有没有|一下|这个|那个|我的|你的|他的|她的|的|了|吗|呢|啊|吧|呀|嘛/g, " "));
+    const title = u => { const m = /^#{2,4} (.+)|^(?:- )?\*\*([^*]+?)[：:]?\*\*/.exec(u); return m ? (m[1] || m[2]).trim() : ""; };
+    // 小标题沾上算三倍：标题就是这一节在讲什么
+    const scored = units.map((u, k) => { let n = 0; memGrams(title(u)).forEach(g => { if (Q.has(g)) n += 3; }); memGrams(u.slice(0, 600)).forEach(g => { if (Q.has(g)) n++; }); return { u, k, n }; });
+    const intro = title(units[0]) ? null : scored[0];        // 第一个小标题前面那段总说明，照留
+    const top = scored.filter(s0 => s0 !== intro && s0.n >= 2).sort((a, b) => b.n - a.n).slice(0, 3);
+    if (!top.length) top.push.apply(top, scored.filter(s0 => s0 !== intro).slice(0, 1));
+    const picked = (intro ? [intro] : []).concat(top).sort((a, b) => a.k - b.k);
+    const rest = scored.filter(s0 => picked.indexOf(s0) < 0).map(s0 => title(s0.u)).filter(Boolean);
+    return "【" + x.zh + "】\n在哪儿：" + x.where + "\n" + M.plain(picked.map(s0 => s0.u).join("\n\n"))
+      + (rest.length ? "\n（这条很长，只放了跟她这句沾边的几节；其余小节：" + rest.join("、") + "——要用就 lookup「" + x.id + "」）" : "");
   }
 
   // ── 更新日志（她 2026-10-24「你这个也加上吧」）────────────────────────
@@ -1381,6 +1410,17 @@
     return { zh: zh, man: SCREEN_MAN[pg.screen] || "", who: pg.charName || "", whoId: pg.charId || "" };
   }
   function pageLine(pg) {
+    // 线下是盖在聊天页上面的一层，screen 还是 thread（群友 2026-10-26：线下改了十轮字色都是黑的——
+    //   秋秋以为她在聊天页，一直写进聊天窗 CSS、改的是气泡里的 strong）。线下开着就照实说她在线下
+    let off = "";
+    try { off = (typeof document !== "undefined" && document.documentElement.getAttribute("data-lisa-offchar")) || ""; } catch (e) {}
+    if (off) {
+      const p0 = pageOf(pg) || {};
+      return "【她此刻在哪儿】她正开着「" + (p0.who || "这个人") + "」的【线下见面】那一层（id＝" + off + "），不是线上聊天窗。"
+        + "她说「这里」「字」「颜色」「加粗的」的时候，指的是线下这一层：改样子写 offlinecss（id 填这个），不是 chatcss、不是 bubble。"
+        + "线下正文是 offtext；引号里那几句台词（加粗、带底色的那种）是 offsay，不是 strong／b；心声是 offthought。"
+        + "台词自带内联字色，要改台词颜色就直接写 [data-wk=\"offsay\"]，带 !important。";
+    }
     const p = pageOf(pg); if (!p) return "";
     return "【她此刻在哪儿】她正开着「" + p.zh + "」"
       + (p.who ? "，这一页上是「" + p.who + "」" : "")

@@ -5610,7 +5610,7 @@ function TtsApiConfig({ toast, characters, onAssignVoice }) {
       testUrlRef.current = url;
       aud.src = url; aud.onended = () => { URL.revokeObjectURL(url); if (testUrlRef.current === url) testUrlRef.current = null; };
       // 播放这一步也可能一声不吭地卡住（拿到的不是能放的声音、或者手机静音键开着）：8 秒没开始放就说出来，别让她干等
-      await Promise.race([aud.play(), new Promise((_, no) => setTimeout(() => no(new Error("接口回了一段音频（" + Math.round(blob.size / 1024) + " KB，" + (blob.type || "没写类型") + "），但手机放不出来。先看看静音键和音量；还不响的话，多半是这家回的不是 mp3，把这一句截图发我。")), 8000))]);
+      await Promise.race([aud.play(), new Promise((_, no) => setTimeout(() => no(new Error("接口回了一段音频（" + Math.round(blob.size / 1024) + " KB，" + (blob.type || "没写类型") + "），但手机放不出来。先看看静音键和音量；还不响的话，多半是这家回的不是 mp3。")), 8000))]);
       toast && toast("✅ 接口通了，正在播放试听");
     } catch (e) {
       if (epoch === testEpoch.current) {
@@ -5789,7 +5789,7 @@ function TtsApiConfig({ toast, characters, onAssignVoice }) {
                 style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", padding: "6px 13px", borderRadius: 999, background: ch.voiceId === v.id ? t.tint : "transparent", color: ch.voiceId === v.id ? "#fff" : t.ink, border: "1px solid " + (ch.voiceId === v.id ? t.tint : t.line) } }, ch.remark || ch.name))) : null);
         }))),
       testErr ? h("div", { "data-wk": "block", style: { marginTop: 12, padding: "12px 13px", background: "rgba(194,90,74,0.08)", border: "1px solid rgba(194,90,74,0.3)", borderRadius: 10 } },
-        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", fontWeight: 700, color: "#c25a4a", marginBottom: 6 } }, "❌ 没出声。报错原文（可截图发我）："),
+        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", fontWeight: 700, color: "#c25a4a", marginBottom: 6 } }, "❌ 没出声。报错原文："),
         h("div", { style: { fontFamily: "monospace", fontSize: "calc(11px * var(--app-fs, 1))", lineHeight: 1.6, color: t.ink, wordBreak: "break-all", userSelect: "text", WebkitUserSelect: "text", maxHeight: 160, overflowY: "auto" } }, testErr)) : null) : null);
 }
 // ⚠️别挪到真声耳朵／电台嗓子那几格中间：公共版打包会把那一段整个拿掉。
@@ -5931,7 +5931,7 @@ function CacheStatCard() {
                     : "上游未回传 cache usage；这里如实显示“已请求 + 前缀可复用”，不把 0 冒充未命中。"))
             : h("div", { style: { marginTop: 4, color: s.hit > 0 ? "#3c7a4a" : t.fog, fontSize: "calc(11.5px * var(--app-fs, 1))" } }, s.hit > 0 ? "✓ 缓存正在替你省钱（读的部分只按一折收）" : (s.cw > 0 ? "已在写缓存——再对 TA 连发一条(1小时内)就会出现「读取」" : "还没写进缓存，检查这个角色是不是走 fable 线路")),
           phList.length ? h("div", { style: { marginTop: 4, color: pfxDrift ? "#b4593b" : t.fog, fontSize: "calc(11px * var(--app-fs, 1))" } },
-            "前缀指纹：" + phList.length + " 次里 " + phKinds + " 种、变动 " + pfxChanges + " 次" + (pfxDrift ? "　⚠️前缀几乎每轮在变→这才是不命中的真因，截图发我" : "（变动 0~1 次=一次性/没事；一直涨=每轮churn发我）")) : null));
+            "前缀指纹：" + phList.length + " 次里 " + phKinds + " 种、变动 " + pfxChanges + " 次" + (pfxDrift ? "　⚠️前缀几乎每轮在变→这才是不命中的真因" : "（变动 0~1 次=一次性/没事；一直涨=每轮churn发我）")) : null));
 }
 // 头像池（她 2026-08-25 定的 B 档）：她从相册一次挑几十张（猫、风景、动漫截图…），
 // 存进本地图库当池子。论坛路人、常驻、小号都按种子哈希（角色不拿，v74.383）
@@ -6207,7 +6207,7 @@ function ImageApiConfig({ toast }) {
               h("div", { style: { flex: 1 } }, h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, marginBottom: 3 } }, "线路生成"), h("img", { src: testRes.src, style: { width: "100%", borderRadius: 12, display: "block" } })))
             : h("img", { src: testRes.src, style: { width: "100%", maxWidth: 220, borderRadius: 12, display: "block" } }))
         : h("div", { "data-wk": "block", style: { marginTop: 12, padding: "12px 13px", background: "rgba(194,90,74,0.08)", border: "1px solid rgba(194,90,74,0.3)", borderRadius: 10 } },
-            h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", fontWeight: 700, color: "#c25a4a", marginBottom: 6 } }, "❌ 没出图。接口/报错原文（可长按复制、截图发我）："),
+            h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", fontWeight: 700, color: "#c25a4a", marginBottom: 6 } }, "❌ 没出图。接口/报错原文（可长按复制）："),
             h("div", { style: { fontFamily: "monospace", fontSize: "calc(11px * var(--app-fs, 1))", lineHeight: 1.6, color: t.ink, wordBreak: "break-all", userSelect: "text", WebkitUserSelect: "text", maxHeight: 200, overflowY: "auto" } }, testRes.err),
             testRes.missingRef ? h("div", { style: { marginTop: 10, paddingTop: 9, borderTop: "1px dashed rgba(194,90,74,0.3)" } },
               h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", lineHeight: 1.55, color: "#a05f35", marginBottom: 8 } }, "这不是锁脸差：接口根本没接住参考图。已为当前站切到「" + (testRes.switchedField === "bracket" ? "image[]" : "image") + "」并保存；请只再测一次。"),
