@@ -311,8 +311,16 @@
     };
     const ssrLeft = C().HARD_AT - (st.sinceSSR || 0);
     const chip = (on, label, onClick, key) => h("button", { key, onClick, "data-on": on ? "1" : "0", className: "active:opacity-70 shrink-0",
-      style: { padding: "6px 12px", borderRadius: 999, border: "1px solid " + (on ? "#e3b65c" : "rgba(244,236,218,.22)"), background: on ? "#e3b65c" : "rgba(244,236,218,.06)", color: on ? "#15121f" : "rgba(244,236,218,.8)", fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))" } }, label);
+      style: { padding: "7px 12px", borderRadius: 6, border: "1px solid " + (on ? "#e3b65c" : "rgba(244,236,218,.22)"), background: on ? "#e3b65c" : "rgba(244,236,218,.06)", color: on ? "#15121f" : "rgba(244,236,218,.8)", fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))" } }, label);
     const charOf = id => characters.find(c => c.id === id);
+    // 挑人：头像一格一格，勾上的金框加一个小勾；一个都不勾＝所有人
+    const peoplePick = (sel, onToggle) => h("div", { "data-wk": "stamppeople", className: "grid", style: { gridTemplateColumns: "repeat(auto-fill, minmax(62px, 1fr))", gap: "12px 8px", marginTop: 10 } },
+      characters.map(c => { const on = sel.includes(c.id);
+        return h("button", { key: c.id, "data-on": on ? "1" : "0", onClick: () => onToggle(c.id, on), className: "flex flex-col items-center active:opacity-70", style: { gap: 5, minWidth: 0 } },
+          h("div", { style: { position: "relative", borderRadius: 14, padding: 2, border: "2px solid " + (on ? "#e3b65c" : "transparent"), opacity: on || !sel.length ? 1 : .45 } },
+            h(Avatar, { character: c, size: 46, radius: 10 }),
+            on ? h("span", { style: { position: "absolute", right: -5, bottom: -5, width: 18, height: 18, borderRadius: 999, background: "#e3b65c", color: "#15121f", fontSize: 11, lineHeight: "18px", textAlign: "center", fontWeight: 700 } }, "✓") : null),
+          h("div", { style: { maxWidth: "100%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: on ? "#e3b65c" : "rgba(244,236,218,.75)" } }, c.remark || c.name)); }));
     if (open) { const card = (st.cards || []).find(c => c.id === open) || null; if (card) return h(CardPage, { t, card, char: charOf(card.charId), meName, onBack: () => setOpen(null), onDraw, onRewrite: c => onWrite([c]), toast,
       onSend: c => { props.onSend && props.onSend(c); }, onCanon: c => { props.onCanon && props.onCanon(c); } }); }
 
@@ -390,12 +398,10 @@
     if (cfg) return h("div", { "data-wk": "stampcfg", "data-page": "1", className: "h-full flex flex-col", style: { background: "radial-gradient(120% 70% at 50% 0%, #2b2440, #15121f 70%)" } },
       h(Head, { zh: "卡池设置", bg: "transparent", ink: PAPER, onBack: () => setCfg(false) }),
       h("div", { className: "flex-1 min-h-0 overflow-y-auto px-5", style: { paddingBottom: "calc(env(safe-area-inset-bottom) * 0.4 + 28px)" } },
-        h(Eyebrow, { style: { color: "rgba(244,236,218,.55)", marginTop: 14 } }, "大混池出哪些人"),
-        h("div", { className: "flex flex-wrap", style: { gap: 6, marginTop: 6 } }, characters.map(c => { const on = mixIds.includes(c.id);
-          return chip(on, c.remark || c.name, () => { const nx = on ? mixIds.filter(x => x !== c.id) : mixIds.concat(c.id); setPick(nx); setOpt({ mixPick: nx }); }, c.id); })),
+        h(Eyebrow, { style: { color: "rgba(244,236,218,.55)", marginTop: 14 } }, "大混池出哪些人（不勾就是所有人）"),
+        peoplePick((pick || []).filter(id => characters.some(c => c.id === id)), (id, on) => { const cu = pick || []; const nx = on ? cu.filter(x => x !== id) : cu.concat(id); setPick(nx); setOpt({ mixPick: nx }); }),
         lims.length ? h(React.Fragment, null, h(Eyebrow, { style: { color: "rgba(244,236,218,.55)", marginTop: 18 } }, "限时池出哪些人（不勾就是所有人）"),
-          h("div", { className: "flex flex-wrap", style: { gap: 6, marginTop: 6 } }, characters.map(c => { const cu = opt.limPick || []; const on = cu.includes(c.id);
-            return chip(on, c.remark || c.name, () => setOpt({ limPick: on ? cu.filter(x => x !== c.id) : cu.concat(c.id) }), c.id); }))) : null,
+          peoplePick((opt.limPick || []).filter(id => characters.some(c => c.id === id)), (id, on) => { const cu = opt.limPick || []; setOpt({ limPick: on ? cu.filter(x => x !== id) : cu.concat(id) }); })) : null,
         h(Eyebrow, { style: { color: "rgba(244,236,218,.55)", marginTop: 18 } }, "角色池 · 给每个人写一个主题"),
         h("div", { className: "flex overflow-x-auto", style: { gap: 8, margin: "8px 0" } }, characters.map(c => h("button", { key: c.id, onClick: () => setCharId(c.id), className: "shrink-0", style: { borderRadius: 10, padding: 2, border: "2px solid " + (charId === c.id ? PAPER : "transparent") } }, h(Avatar, { character: c, size: 40, radius: 8 })))),
         h("input", { "data-wk": "input", value: charTheme, maxLength: 40, placeholder: "主题名（校园、古风、末日、偶像……）", onChange: e => setThDraft(e.target.value), onBlur: () => { if (thDraft != null) setOpt({ charTheme: Object.assign({}, opt.charTheme, { [charId]: thDraft }) }); },
