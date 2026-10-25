@@ -599,7 +599,7 @@
     // 邮票册（2026-10-26）：抽卡、图鉴、一张卡、剧情对话框
     Object.freeze({
       zh: "邮票册", pages: Object.freeze(["stamps"]),
-      hooks: Object.freeze([["stamppage", "整页"], ["stamptab", "寄一封／邮票册两张分隔页"], ["stampgift", "收到上线礼那一块"], ["stamppool", "卡池那一格"], ["stampcountdown", "限时池的倒计时"], ["stamppullbtn", "寄一封、寄一版两颗键（data-part=one/ten）"], ["stampalbum", "邮票册图鉴那一格"], ["stampitem", "一枚邮票（data-rarity=R/SR/SSR，data-back=1 是背面）"], ["stamppull", "抽卡那一层"], ["stampenvelope", "掉下来的那个信封"], ["stampcard", "一张卡打开的那页"], ["stampbox", "卡页里一块一块的框"], ["stampdraw", "画卡面那颗键"], ["stampstoryopen", "进入剧情那颗键"], ["stampstory", "剧情那一层"], ["stampstorybox", "剧情对话框"], ["stampstorywho", "对话框上说话人的名字"], ["stampstorychoice", "剧情选项（data-locked=1 是还没解锁）"]])
+      hooks: Object.freeze([["stamppage", "整页"], ["stamptab", "寄一封／邮票册两张分隔页"], ["stampgift", "收到上线礼那一块"], ["stamppool", "卡池那一格"], ["stampcountdown", "限时池的倒计时"], ["stamppullbtn", "寄一封、寄一版两颗键（data-part=one/ten）"], ["stampalbum", "邮票册图鉴那一格"], ["stampitem", "一枚邮票（data-rarity=R/SR/SSR，data-back=1 是背面）"], ["stamppull", "抽卡那一层"], ["stampenvelope", "掉下来的那个信封"], ["stampcard", "一张卡打开的那页"], ["stampbox", "卡页里一块一块的框"], ["stampdraw", "画卡面那颗键"], ["stampstoryopen", "进入剧情那颗键"], ["stampstory", "剧情那一层"], ["stampstorybox", "剧情对话框"], ["stampstorywho", "对话框上说话人的名字"], ["stampstorychoice", "剧情选项（data-locked=1 是还没解锁）"], ["stampbanner", "卡池那张大海报（data-pool）"], ["stampbannertitle", "海报上的大标题"], ["stamprail", "左边一列换池的小邮票"], ["stamprailitem", "其中一枚（data-on=1 是选中的）"], ["stampwallet", "右上角邮资、印泥、十连券那几颗"], ["stamppullbar", "底下两颗大键那一条"], ["stampcharpick", "角色池换人那一排头像"], ["stampgoalbum", "右上角「册子」"], ["stampgocfg", "右上角「⋯」"], ["stampcfg", "卡池设置那一页"], ["stampalbumpage", "邮票册图鉴那一页"]])
     }),
     // 照影（她 2026-10-22「这页的美化顺便做了」）：整页、分类圆镜、每套封面、答题卡、结果和评语
     Object.freeze({
