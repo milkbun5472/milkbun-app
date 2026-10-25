@@ -15,17 +15,17 @@ const base=process.env.COMPANION_TEST_URL||'http://127.0.0.1:18946',out=process.
  const msg=CompanionFace.petMessage(char,{[char.id]:{label:state.mood,ts:Date.now()}},{autoFace:false,looks:{[char.id]:{face:'happy',outfit:'cardigan',hair:'bob'}}});
  return h(CompanionHooks.PetFrame,{mode,frameRef:frame,msg,ctx,reloadKey:state.key,style:{width:mode==='full'?370:180,height:mode==='full'?620:260}});}
  ReactDOM.createRoot(document.getElementById('host')).render(h(Host));},mode);
- let frame;const ready=async()=>{frame=await(await page.waitForSelector('iframe')).contentFrame();await frame.waitForFunction(()=>window.petDebug,{},{timeout:60000});await frame.evaluate(()=>petDebug.ready());await page.waitForTimeout(150);};await ready();
+ let frame;const ready=async()=>{frame=await(await page.waitForSelector('iframe')).contentFrame();await frame.waitForFunction(()=>window.petDebug,{},{timeout:60000,polling:100});await frame.evaluate(()=>petDebug.ready());await page.waitForTimeout(150);};await ready();
  const snap=()=>frame.evaluate(()=>petDebug.snapshot()),change=async p=>{await page.evaluate(p=>setHarness(p),p);await page.waitForTimeout(70);await page.evaluate(()=>document.dispatchEvent(new Event('visibilitychange')));await page.waitForTimeout(150);};
  const chat=async said=>{await page.evaluate(said=>dispatchEvent(new CustomEvent('companion-chat',{detail:{charId:harness.id,act:'',said}})),said);await page.waitForTimeout(180);};
  const tap=async kind=>{await frame.evaluate(()=>petDebug.play('emotion-default',0));await page.waitForTimeout(80);const targets=(await snap()).targets;const target=targets.find(t=>t.kind===kind&&t.visible);assert.ok(target,kind+' visible');await frame.locator('canvas').click({position:{x:target.x,y:target.y}});await page.waitForTimeout(100);return (await snap()).action;};
  assert.equal((await snap()).look.face,'happy');assert.equal((await snap()).mood,'irritated');
- for(const kind of ['head','hand','face']){const action=await tap(kind);assert.ok(kind==='face'?action.startsWith('emotion-dodge-'):action==='emotion-irritated',mode+' '+kind+': '+action);}
+ for(const kind of ['head','hand','face']){const action=await tap(kind);assert.ok(['face','head'].includes(kind)?action.startsWith('emotion-dodge-'):action==='emotion-irritated',mode+' '+kind+': '+action);}
  await change({mood:'难过'});for(const kind of ['head','hand','face'])assert.equal(await tap(kind),'emotion-sad',mode+' sad '+kind);
  const sad=await snap();assert.ok(sad.idleEvery>9&&sad.tempo<1);
- await change({mood:'开心'});assert.equal((await snap()).idleEvery,6);assert.equal(await tap('head'),'emotion-headpat');
- const lift=async mood=>{await change({mood});const box=await frame.locator('canvas').boundingBox();await page.mouse.move(box.x+box.width*.5,box.y+box.height*.6);await page.mouse.down();await page.waitForTimeout(520);assert.equal((await snap()).action,undefined);await page.mouse.up();await page.waitForTimeout(1300);return (await snap()).action;};
- assert.equal(await lift('生气'),'emotion-irritated');assert.equal(await lift('开心'),'emotion-happy');
+ await change({mood:'开心'});assert.equal((await snap()).idleEvery,6);assert.equal(await tap('head'),'emotion-headlook');
+ const lift=async mood=>{await change({mood});const box=await frame.locator('canvas').boundingBox();await page.mouse.move(box.x+box.width*.5,box.y+box.height*.6);await page.mouse.down();await page.waitForTimeout(520);assert.equal((await snap()).action,undefined);await page.mouse.up();await page.waitForTimeout(4900);return (await snap()).action;};
+ assert.equal(await lift('生气'),'emotion-irritated');assert.equal(await lift('开心'),'emotion-crossarms');
  await chat('晚安');await chat('抱抱');assert.equal((await snap()).action,'emotion-cozy','new chat gesture has priority over waking');
  await chat('晚安');assert.equal((await snap()).sleeping,true);assert.equal(await page.evaluate(()=>store.x_companionLife.c1.sleeping),true);
  await change({key:1});await ready();assert.equal((await snap()).sleeping,true,'recreated iframe retains bedtime');

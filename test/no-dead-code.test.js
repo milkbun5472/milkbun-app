@@ -13,6 +13,9 @@ const root = path.join(__dirname, "..");
 // 白名单 = 【故意停在这儿】的东西，每一条都要写清为什么。想加新条目，
 // 先问自己：这是有意停放，还是只是懒得删？后者就删掉，别往这儿加。
 const PARKED = {
+  RedPacketOpenSheet:
+    "待定：另一个窗口 2026-10-24 做红包大红封时新写的拆封弹层，还没接到红包卡上。" +
+    "不擅自删别人正在长的东西；接上了就从这里拿掉。",
   OFFLINE_INTIMATE_RUNTIME:
     "有意停放：test/offline-protocol-v2.test.js 明确断言「存在但刻意不注入」，" +
     "并锁住它的措辞保持领域中立。删掉会推翻那个设计决定。",

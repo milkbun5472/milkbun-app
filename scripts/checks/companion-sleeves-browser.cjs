@@ -11,7 +11,7 @@ const out=process.env.COMPANION_EVIDENCE||'/tmp/companion-sleeves';fs.mkdirSync(
   await page.route('**/pet.mjs*',r=>r.fulfill({body:'',contentType:'text/javascript'}));
   if(baseline)await page.route('**/traveler.mjs*',r=>r.fulfill({body:fs.readFileSync(process.env.SLEEVE_BASELINE,'utf8'),contentType:'text/javascript'}));
   await page.goto(base+'/apps/companion/');
-  reports[baseline?'before':'after']=await page.evaluate(async baseline=>{
+  reports[baseline?'before':'after']=await page.evaluate(async ({baseline,selected})=>{
    const T=await import('three'),{loadTravelerSource,createTraveler}=await import('../fairy-garden/traveler.mjs');
    const source=await loadTravelerSource(),catalog=await(await fetch('../fairy-garden/doll.json')).json();
    const d=createTraveler(source,true,{outfit:'cardigan',hair:'bob',face:'cozy'});await d.ready();
@@ -26,7 +26,7 @@ const out=process.env.COMPANION_EVIDENCE||'/tmp/companion-sleeves';fs.mkdirSync(
    const scene=new T.Scene();scene.background=new T.Color('#eee8e1');scene.add(d.root,new T.HemisphereLight('#fff8ee','#b8a38c',2.3));const light=new T.DirectionalLight('#fff',1.5);light.position.set(1,3,3);scene.add(light);
    const renderer=new T.WebGLRenderer({antialias:false,preserveDrawingBuffer:true});renderer.setSize(256,256);document.body.append(renderer.domElement);
    const camera=new T.OrthographicCamera(-.55,.55,.55,-.55,.01,20),pixels=new Uint8Array(256*256*4),gl=renderer.getContext();let time=0;
-   const actions=['wipesweat','shade','wind','thunder','ears','cheeks','scratch','chin','rubeyes','peekaboo','cry','selfie','catchrain','catchsnow','warmhands','rainclose','raindry','fan'];
+   const actions=selected?selected.split(','):['wipesweat','shade','wind','thunder','ears','cheeks','scratch','chin','rubeyes','peekaboo','cry','selfie','catchrain','catchsnow','warmhands','rainclose','raindry','fan'];
    const report={views:0,leakingViews:0,maxLeakPixels:0,minHandPixels:Infinity,examples:[]},handPixels=[];
    function pose(action,p){for(let j=0;j<10;j++)d.animate(time+=.04,{height:0,emotion:action,progress:p});d.root.updateMatrixWorld(true);}
    function view(angle){const h=d.root.getObjectByName('HeadAnchor').getWorldPosition(new T.Vector3()).y-.12;camera.position.set(Math.sin(angle)*3,h+.15,Math.cos(angle)*3);camera.lookAt(0,h,0);}
@@ -51,7 +51,7 @@ const out=process.env.COMPANION_EVIDENCE||'/tmp/companion-sleeves';fs.mkdirSync(
     }
    };
    return {...report,handPixels,outfits:Object.keys(catalog.outfits)};
-  },baseline);
+  },{baseline,selected:process.env.COMPANION_GALLERY_ACTIONS||''});
   for(const outfit of baseline?['cardigan']:reports.after.outfits){await page.evaluate(o=>sleeveGallery(o),outfit);await page.screenshot({path:out+'/'+(baseline?'before-':'after-')+outfit+'.png'});}
   await page.close();
  }

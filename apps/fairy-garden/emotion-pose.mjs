@@ -211,6 +211,18 @@ export function emotionPose(face,p){
   const hold=beat(p,0,.24,.72,1),nod=beat(p,.58,.64,.68,.76);
   q.right=[-.32*hold,0,.35*hold];q.left=[-.12*hold,0,-.08*hold];q.rightElbow=-1.65*hold;q.chinHold=hold;
   q.roll=-.055*hold;q.tilt=.025*hold+.025*nod;q.yaw=-.045*hold;break;}
+ case 'headlook': { // 被摸到时先抬眼，身体只轻轻转向你的手
+  q.headNod=-.10*e;q.headRoll=-.025*e;q.yaw=.045*e;
+  q.left=[-.10*e,0,-.05*e];q.right=[-.12*e,0,.05*e];break;}
+ case 'headnest': { // 接着摸时慢慢靠近，留在手边，最后轻轻抬眼
+  const lean=beat(p,0,.24,.72,1),look=beat(p,.5,.66,.8,1);
+  q.tilt=.13*lean;q.headNod=-.08*look;q.headRoll=-.055*lean;q.yaw=.025*lean;
+  q.left=[-.18*lean,0,-.07*lean];q.right=[-.24*lean,0,.07*lean];break;}
+ case 'tidy': { // 站稳后用圆手理顺胸前衣料，再轻拍一下袖口
+  const stroke=beat(p,.16,.3,.48,.65),cuff=beat(p,.52,.67,.8,.94);
+  q.right=[-.32*e,0,.35*e];q.rightElbow=-1.65*e;q.headHold=e;
+  if(e)q.headPoint=[.6-1.25*cuff,-1.24-.48*stroke,1.45];
+  q.left=[-.24*e,0,-.18*e];q.headNod=.065*e;q.yaw=-.025*cuff;break;}
  case 'headpat': { // 先低头靠近手心，停留后抬起来
   const lean=beat(p,0,.24,.5,.88),look=beat(p,.62,.76,.84,1);
   q.tilt=.1*lean-.035*look;q.roll=-.035*lean;q.yaw=.07*look;
