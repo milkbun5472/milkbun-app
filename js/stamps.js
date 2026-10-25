@@ -134,7 +134,8 @@
     const url1 = useIdbImgUrl(card.face), urlSolo = useIdbImgUrl(faces2.solo || null), urlDuo = useIdbImgUrl(faces2.duo || null);
     const [side, setSide] = useState("main");         // main 第一面 / solo / duo
     const url = side === "solo" && urlSolo ? urlSolo : side === "duo" && urlDuo ? urlDuo : url1;
-    const [full, setFull] = useState(false);           // 卡面全屏看，满级的在这里戳
+    const [full, setFull] = useState(false);
+    const [reArm, setReArm] = useState(false);   // 重写整张卡要点两下：第一下变成「再点一次」，三秒内不点就回去           // 卡面全屏看，满级的在这里戳
     const [say, setSay] = useState(null), [poking, setPoking] = useState(false);
     const sayT = useRef(0);
     const [story, setStory] = useState(false);
@@ -290,6 +291,13 @@
               ? (side === x[0] ? null : h("button", { key: x[0], onClick: () => setSide(x[0]), className: "active:opacity-70", style: { padding: "6px 12px", borderRadius: 8, background: COPPER, color: "#FFF8E9", fontFamily: F_BODY, fontSize: fs(12) } }, "看满级 · " + x[1]))
               : h("button", { key: x[0], disabled: card.drawing, onClick: () => { setSide(x[0]); onDraw(card.id, true, x[0]); }, className: "active:opacity-70 disabled:opacity-40",
                 style: { padding: "6px 12px", borderRadius: 8, border: "1px dashed " + COPPER, color: COPPER, fontFamily: F_BODY, fontSize: fs(12) } }, "画满级卡面 · " + x[1]))) : null,
+          tx && !card.writing ? h("button", { "data-wk": "stamprewrite", onClick: () => {
+              if (!reArm) { setReArm(true); setTimeout(() => setReArm(false), 3000); return; }
+              setReArm(false);
+              const st0 = C().load(); st0.cards = st0.cards.map(c => c.id === card.id ? Object.assign({}, c, { seen: {}, pokes: null, pokesSolo: null, pokesDuo: null }) : c); C().save(st0);
+              onRewrite(card); toast("在重写这张：文字、分镜都换新的，写好以后点「重画」让卡面也跟上");
+            }, className: "active:opacity-70", style: { marginTop: 8, padding: "6px 14px", borderRadius: 8, border: "1px " + (reArm ? "solid #b23a2e" : "dashed " + LINE), color: reArm ? "#b23a2e" : P5, fontFamily: F_BODY, fontSize: fs(12) } },
+            reArm ? "再点一次：原来的文字会被换掉" : "✎ 重写这张卡（文字和分镜）· 花一次调用") : null,
           url ? h("div", { style: { marginTop: 6, fontFamily: F_BODY, fontSize: fs(11), color: P5 } }, canPoke ? "点卡面全屏看，满级了能戳他（头、胸口、手）" : "点卡面全屏看") : null),
         // 养成
         tx ? h("div", { "data-wk": "stampgrow", style: { marginTop: 16, padding: "14px 16px", borderRadius: 16, border: "1px solid rgba(87,119,103,.22)", background: "#E2E7DA", boxShadow: "0 2px 10px rgba(57,56,47,.06)" } },

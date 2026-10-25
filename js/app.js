@@ -16902,7 +16902,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   };
   // ── 邮票册（2026-10-26 方案）：写卡、画卡面。抽、存、界面在 js/stamps-core.js / js/stamps.js ──
   //   ⚠️写失败不丢卡：卡已经落进 x_stamps，只是没写完（text:null），界面上点一下重写。
-  const STAMP_SHOT_SPEC = "shot 是给画卡面的人看的分镜（中文，几句话）：pose＝身体朝向、重心在哪、两只手各在干嘛、视线落在哪；camera＝景别、机位高低、镜头远近；"
+  const STAMP_SHOT_SPEC = "shot 是给画卡面的人看的分镜（中文，几句话）：pose＝这一刻身体正在做的动作——朝向、重心往哪边、两只手各在干嘛、视线落在哪，要有动势，不是对着镜头站着坐着摆好；camera＝景别、机位高低、镜头远近，像乙游卡面那样人和场景一起讲这一刻，有前景、有纵深，景别别总是半身近照；"
     + "light＝主光从哪边来、是什么光、冷暖、有没有轮廓光、阴影落在哪；place＝在哪、身边两三样带着这一刻的东西；outfit＝穿什么；mood＝一两个词。"
     + "画的是这张卡里真的发生的那一刻，不另编动作：你那时在干什么就画什么，构图跟着这个动作来，全身、半身、背影、俯拍仰拍都行；你那时没在看谁，就不看镜头。卡面是竖版的，上面只画你一个人。";
   const stampKindLine = (card, char) => {
@@ -17060,6 +17060,21 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     stampSaveCard(card.id, { [side === "duo" ? "pokesDuo" : side === "solo" ? "pokesSolo" : "pokes"]: pokes });
     return pokes;
   };
+  // 邮票册卡面的机位：乙游卡面那一套镜头语言，每张现掷一格（只管镜头，不管画什么）；连着两张不掷同一格
+  const STAMP_CAMS = [
+    "你的视角：镜头就是她的眼睛，他离得很近，半身入画，这一刻的动作朝着镜头这边来",
+    "低机位往上仰拍，半身到全身，身后的空间拉出纵深",
+    "高一点往下俯拍，他在画面下半，抬眼或者没抬眼",
+    "前景有东西虚着挡住画面一角，他在中景，景深很浅",
+    "侧逆光，三分之二侧身，轮廓边缘被光勾亮",
+    "拉远的全身，人只占画面三分之一，这一刻的场景铺满氛围",
+    "斜构图，画面带一点倾斜，动作的方向顺着斜线走",
+    "越过他的肩膀从身后拍，看得见他正看着、正对着的东西",
+    "中景，人在画面一侧，另一侧留给场景里的光和东西"
+  ];
+  const stampCam = () => { let i = Math.floor(Math.random() * STAMP_CAMS.length); if (i === stampCam.last) i = (i + 1) % STAMP_CAMS.length; stampCam.last = i;
+    return "【这一张卡面的镜头】" + STAMP_CAMS[i] + "。分镜里已经写了机位的，照分镜；参考图只决定这是谁，不决定角度。"
+      + "姿势是这一刻正在发生的动作：身体有方向、有重心变化，手在做事，不是站着或坐着对镜头摆好的样子。"; };
   const stampDraw = async (cardId, alt, mode) => {
     const card = (StampsCoreSafe().cards || []).find(c => c.id === cardId);
     if (!card || !card.text) return;
@@ -17099,7 +17114,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       const base = freeFit ? Object.assign({}, char, { photoOutfit: "" }) : char;
       const prompt = buildPhotoPrompt(paint === "real" ? Object.assign({}, base, { photoStyle: "realistic" }) : base, scene,
         freeFit ? Object.assign({}, st, { wearing: "", wearingUpdatedAt: 0 }) : st,
-        Object.assign(duo ? { kind: "duo", me: meP, notLover: !lover } : { kind: "other" }, { closet: freeFit ? "" : closetTextFor(char.id, 240) }, paint && paint !== "real" ? { paint } : {}));
+        Object.assign(duo ? { kind: "duo", me: meP, notLover: !lover, poseLine: "【两个人的姿势】两个人在一起做着这一刻的事，有互动、有动势，身体之间的距离照你们的关系，不是并排对着镜头站好。" } : { kind: "other" }, { shotLine: stampCam() }, { closet: freeFit ? "" : closetTextFor(char.id, 240) }, paint && paint !== "real" ? { paint } : {}));
       const refs = [char.refPhoto, duo && meP && meP.refPhoto].filter(Boolean);
       const out = await generateSelfieImage(prompt, refs.length ? refs : null, { size: "1024x1536" });
       if (!(out && out.blob)) throw new Error("没拿到图");

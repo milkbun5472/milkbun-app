@@ -5677,12 +5677,12 @@ function buildPhotoPrompt(char, sceneDesc, st, opts) {
     // 机位那一句紧跟在「场景/正在做什么」后面（她 2026-10-12：「我给正脸也都是这种角度」）：
     //   原来压在一长串外貌、画质、参考图说明的最后，出图模型读不到，照样回到它最熟的那个角度。
     //   不放最前面：身份锁得在最前，「上面那一句」也得先有场景那句。
-    const _shot = photoShotLine(kind, opts.shotSeed);
+    const _shot = opts.shotLine || photoShotLine(kind, opts.shotSeed);   // 调用方自己掷好的机位（邮票册卡面用乙游卡面那一套）
     const _si = parts.findIndex(x => typeof x === "string" && x.indexOf("场景/正在做什么：") === 0);
     if (_si >= 0) parts.splice(_si + 1, 0, _shot); else parts.push(_shot);
   }
   // 小剧场（cinematic）那张的动作由剧情那一格写死了，不再另掷。
-  if (kind === "duo" && !multi && !opts.cinematic && !opts.editorial) parts.push(photoDuoPoseLine(opts.shotSeed));
+  if (kind === "duo" && !multi && !opts.cinematic && !opts.editorial) parts.push(opts.poseLine || photoDuoPoseLine(opts.shotSeed));
   parts.push("画面干净真实，不要任何文字/水印/logo/相框/贴纸边框。");
   // opts.lead：管【整张图长什么样】的那一句（胶片条三格、四宫格）放在最前面——
   //   原来夹在「场景/正在做什么」里、排在三十几条规矩后面，gpt 出图常常没读到，三格只回一张（她 2026-10-16）。
