@@ -7754,17 +7754,15 @@ function ThemeConfig({
       color: t.ink
     }
   }, l), /*#__PURE__*/React.createElement("div", {
-    className: "flex items-center gap-3"
-  }, /*#__PURE__*/React.createElement("span", {
-    style: {
-      fontFamily: F_BODY,
-      fontSize: "calc(11px * var(--app-fs, 1))",
-      color: t.fog
-    }
-  }, th[k]), h(ColorDot, {
+    "data-wk": "themehex", style: { width: 190, flexShrink: 0 }
+  }, // 色号那一格能直接打、能粘贴（群友 2026-10-26）：跟聊天美化同一颗 ColorDot 的 hexField，不另写
+  h(ColorDot, {
     value: th[k],
     label: l,
-    onChange: v => setTh({ ...th, [k]: v })
+    hexField: true,
+    hexOnly: true,
+    placeholder: "#ffffff",
+    onChange: v => { if (v) setTh({ ...th, [k]: v }); }
   })))), /*#__PURE__*/React.createElement("div", {
     className: "flex gap-3 mt-8"
   }, /*#__PURE__*/React.createElement("button", {

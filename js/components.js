@@ -82,7 +82,14 @@ function ColorDot({ value, onChange, label, palette, size, tone, hexField, place
   // hexOnly＝只认六位色号（庭院染色）；默认连渐变一起原样送出去（气泡底色）。
   const [draft, setDraft] = useState(String(value == null ? "" : value));
   useEffect(() => { setDraft(String(value == null ? "" : value)); }, [value]);
-  const typeText = v => { setDraft(v); const t2 = v.trim(); if (!hexOnly || !t2 || /^#[0-9a-fA-F]{6}$/.test(t2)) onChange(t2); };
+  // 从别处复制来的色号常常没带 #、或者是三位简写（#abc）：补齐成六位再送（群友 2026-10-26「有的代码想直接复制过来用」）
+  const typeText = v => {
+    setDraft(v);
+    let t2 = v.trim();
+    if (/^[0-9a-fA-F]{6}$/.test(t2) || /^[0-9a-fA-F]{3}$/.test(t2)) t2 = "#" + t2;
+    if (/^#[0-9a-fA-F]{3}$/.test(t2)) t2 = "#" + t2.slice(1).split("").map(x => x + x).join("");
+    if (!hexOnly || !t2 || /^#[0-9a-fA-F]{6}$/.test(t2)) onChange(t2);
+  };
   const d = Number(size) || 30;
   const cur = String(value == null ? "" : value);
   const list = (palette || []).map(colorDotItem);
