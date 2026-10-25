@@ -21466,7 +21466,8 @@ function ResetChooser({ character, preset, onClose, onRun }) {
 // 聊天设置里挑这个人用世界书哪几条：按文件夹排，整夹一勾、单条一勾。
 //   「所有角色」的那几条：取消＝只对 TA 关（记在 offFor）；绑给别人的那几条：勾上＝把 TA 也绑进去。
 //   不改条目本身的开关和去向——那是整本书的事，这里只管 TA 用不用。
-function ChatLorePicker({ character, entries, onBulk }) {
+// only:"off"＝只列 TA 没用的那几条（群友 2026-10-26：一长串里一条条找没勾的太累），点一条就给 TA 用上、从这一栏里消失
+function ChatLorePicker({ character, entries, onBulk, only }) {
   const t = useTheme();
   const id = character && character.id;
   const [shut, setShut] = useState({});
@@ -21478,14 +21479,17 @@ function ChatLorePicker({ character, entries, onBulk }) {
     return { ...e, offFor: offFor.concat(id) };
   });
   const fOf = e => String(e.folder || "").trim();
-  const names = [...new Set(live.map(fOf).filter(Boolean))].sort((a, b) => a.localeCompare(b, "zh")).concat([""]);
+  const offOnly = only === "off";
+  const shown = offOnly ? live.filter(e => !uses(e)) : live;
+  const names = [...new Set(shown.map(fOf).filter(Boolean))].sort((a, b) => a.localeCompare(b, "zh")).concat([""]);
   if (!live.length) return h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog, paddingTop: 12 } }, "世界书里还没有在用的词条。");
+  if (offOnly && !shown.length) return h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog, paddingTop: 12 } }, "在用的词条 TA 全都用着。");
   const box = (on, part) => h("span", { style: { width: 20, height: 20, borderRadius: 5, flexShrink: 0, display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: "calc(12px * var(--app-fs, 1))",
     border: "1.5px solid " + (on ? t.ink : t.line), background: on === true ? t.ink : "transparent", color: t.bg } }, on === true ? "✓" : part ? "–" : "");
-  return h("div", { "data-wk": "chatlore", style: { paddingTop: 8 } },
-    h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.6, marginBottom: 6 } }, "勾着的是 TA 用的。点了当场生效，不影响别的人；关键词、去哪几处照世界书里那条来。"),
+  return h("div", { "data-wk": "chatlore", "data-only": offOnly ? "off" : "all", style: { paddingTop: 8 } },
+    h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.6, marginBottom: 6 } }, offOnly ? "这几条 TA 现在没在用。点一条就给 TA 用上，当场生效，不影响别的人。" : "勾着的是 TA 用的。点了当场生效，不影响别的人；关键词、去哪几处照世界书里那条来。"),
     names.map(fd => {
-      const items = live.filter(e => fOf(e) === fd);
+      const items = shown.filter(e => fOf(e) === fd);
       if (!items.length) return null;
       const n = items.filter(uses).length, all = n === items.length;
       const closed = !!shut[fd || "_"];
@@ -21493,7 +21497,7 @@ function ChatLorePicker({ character, entries, onBulk }) {
         h("div", { style: { display: "flex", alignItems: "center", gap: 10, padding: "10px 0" } },
           h("button", { onClick: () => turn(items, !all), className: "active:opacity-60", style: { background: "transparent", border: "none", padding: 0, display: "flex" }, "aria-label": all ? "整夹不用" : "整夹都用" }, box(all || (n ? null : false), n > 0 && !all)),
           h("button", { onClick: () => setShut(p => ({ ...p, [fd || "_"]: !closed })), className: "flex-1 text-left active:opacity-60", style: { background: "transparent", border: "none", fontFamily: F_DISPLAY, fontSize: "calc(14.5px * var(--app-fs, 1))", color: t.ink, minWidth: 0 } },
-            (closed ? "▸ " : "▾ ") + (fd || "没放进文件夹的"), h("span", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, marginLeft: 6 } }, n + "/" + items.length))),
+            (closed ? "▸ " : "▾ ") + (fd || "没放进文件夹的"), h("span", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, marginLeft: 6 } }, offOnly ? items.length + " 条" : n + "/" + items.length))),
         closed ? null : items.map(e => h("button", { key: e.id, "data-wk": "chatloreitem", "data-on": uses(e) ? "1" : "0", onClick: () => turn([e], !uses(e)), className: "w-full flex items-center active:opacity-60",
           style: { gap: 10, padding: "7px 0 7px 22px", background: "transparent", border: "none", textAlign: "left" } },
           box(uses(e)),
@@ -22005,6 +22009,7 @@ function ChatSettings({
     h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.6, paddingTop: 8 } }, luckyCardMeta(lucky, "你俩").note + "只算主聊天，小房间和见面不算。"),
     h(LuckyCharsPanelBox, { lucky, onDrawLucky, onPickLucky })) : null,
   settingsTab === "know" && loreEntries && onLoreBulk ? h(SettingSection, { title: "世界书 · TA 用哪几条", ...sec("lorepick") }, h(ChatLorePicker, { character, entries: loreEntries, onBulk: onLoreBulk })) : null,
+  settingsTab === "know" && loreEntries && onLoreBulk ? h(SettingSection, { title: "世界书 · TA 没用的", ...sec("loreoff") }, h(ChatLorePicker, { character, entries: loreEntries, onBulk: onLoreBulk, only: "off" })) : null,
   settingsTab === "know" && renderContextDebug
     ? h(SettingSection, { title: "查上一轮真的发了什么", ...sec("ctxdebug") }, renderContextDebug())
     : null,
