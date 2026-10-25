@@ -19103,6 +19103,16 @@ function GroupThread({
     setGroupPhotoImg("");
     setPhotoOpen(false);
   };
+  // 名字旁边挂个小牌子：群主、管理员；被禁言着的写「禁言中」
+  const gRoleTag = m => {
+    const id = m && (m.role === "user" ? "me" : m.senderId);
+    if (!id || typeof groupRoleOf !== "function") return null;
+    const r = groupRoleOf(settings, id), mu = id !== "me" && groupMutedLeft(settings, id) > 0;
+    if (!r && !mu) return null;
+    return h("span", { "data-wk": "grole", "data-role": r || "muted", style: { marginLeft: 4, padding: "0 5px", borderRadius: 4, fontSize: "calc(9.5px * var(--app-fs, 1))",
+      background: r === "owner" ? "#e8b04b33" : r === "admin" ? "#5b9bd533" : t.line, color: r === "owner" ? "#a8741a" : r === "admin" ? "#3f78ad" : t.fog } },
+      r === "owner" ? "群主" : r === "admin" ? "管理员" : "禁言中");
+  };
   const gChatBg = settings && settings.chatBg;
   // 气泡皮肤刷的那层聊天底色（跟单聊那处同一条判据）：它也会把居中那行动描吞掉
   const _gWkBg = (typeof BUBBLE_SKIN !== "undefined" && BUBBLE_SKIN.chatBg) || "";
@@ -19296,7 +19306,7 @@ function GroupThread({
         onMouseDown: selMode ? undefined : () => startPress(i), onMouseUp: endPress, onMouseLeave: endPress,
         style: { outline: selMode && selIds.includes(i) ? "2px solid " + t.tint : "none", outlineOffset: 2, borderRadius: 12 }
       },
-        m.senderName && h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, margin: "0 4px 2px" } }, m.senderName),
+        m.senderName && h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, margin: "0 4px 2px" } }, m.senderName, gRoleTag(m)),
         h(RedPacketCard, { rp: m, onClick: selMode ? () => toggleSel(i) : () => openRp(i) })),
       m.role === "user" && gsp.showMyAvatar && h(Avatar, { character: meAv, size: 34, radius: 8 }));
     if (m.kind === "geo") return h(GeoCard, {
@@ -19316,25 +19326,25 @@ function GroupThread({
         onClick: selMode ? () => toggleSel(i) : undefined,
         style: { outline: selMode && selIds.includes(i) ? "2px solid " + t.tint : "none", outlineOffset: 2, borderRadius: 12 }
       },
-        m.role !== "user" && m.senderName && h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, margin: "0 4px 2px" } }, m.senderName),
+        m.role !== "user" && m.senderName && h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, margin: "0 4px 2px" } }, m.senderName, gRoleTag(m)),
         h(EmoteBubble, { url: m.url, keyword: m.keyword, max: 112 })),
       m.role === "user" && gsp.showMyAvatar && h(Avatar, { character: meAv, size: 34, radius: 8 }));
     if (m.kind === "chatforward") return h("div", { key: i, className: "py-1 flex items-start gap-2 " + (m.role === "user" ? "justify-end" : "justify-start") },
       m.role !== "user" && mAvatar(memberById(m.senderId) || { name: m.senderName, color: t.tint }),
       h("div", { className: "flex flex-col " + (m.role === "user" ? "items-end" : "items-start") },
-        m.senderName && h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, margin: "0 4px 2px" } }, m.senderName),
+        m.senderName && h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, margin: "0 4px 2px" } }, m.senderName, gRoleTag(m)),
         h(ChatForwardCard, { m: m, isU: m.role === "user", onOpen: setFwdView }),
         subLine(m) ? h("span", { style: { fontFamily: F_BODY, fontSize: "calc(9.5px * var(--app-fs, 1))", color: t.fog, margin: "1px 4px 0" } }, subLine(m)) : null),
       m.role === "user" && gsp.showMyAvatar && h(Avatar, { character: meAv, size: 34, radius: 8 }));
     if (m.kind === "forumshare") return h("div", { key: i, className: "flex flex-col py-1 " + (m.role === "user" ? "items-end" : "items-start") },
-      m.role === "user" && m.senderName && h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, margin: "0 4px 2px" } }, m.senderName),
+      m.role === "user" && m.senderName && h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, margin: "0 4px 2px" } }, m.senderName, gRoleTag(m)),
       h(ForumShareCard, { m: m, isU: m.role === "user" }));
     // 群里的分享卡同一张表（论坛帖在群里另有排法，上面单写）
     const _GShare = m.kind !== "forumshare" && shareCardOf(m.kind);
     if (_GShare) return h("div", { key: i, className: "py-1 flex items-start gap-2 " + (m.role === "user" ? "justify-end" : "justify-start") },
       m.role !== "user" && mAvatar(memberById(m.senderId) || { name: m.senderName, color: t.tint }),
       h("div", { className: "flex flex-col " + (m.role === "user" ? "items-end" : "items-start") },
-        m.senderName && h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, margin: "0 4px 2px" } }, m.senderName),
+        m.senderName && h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, margin: "0 4px 2px" } }, m.senderName, gRoleTag(m)),
         h(_GShare, { m: m, isU: m.role === "user", charId: m.role !== "user" ? m.senderId : null })),
       m.role === "user" && gsp.showMyAvatar && h(Avatar, { character: meAv, size: 34, radius: 8 }));
     if (m.kind === "voice") return h("div", { key: i, className: "py-1 flex items-start gap-2 " + (m.role === "user" ? "justify-end" : "justify-start") },
@@ -19346,7 +19356,7 @@ function GroupThread({
         onClick: selMode ? () => toggleSel(i) : undefined,
         style: { maxWidth: "72%", outline: selMode && selIds.includes(i) ? "2px solid " + t.tint : "none", outlineOffset: 2, borderRadius: BUBBLE_SKIN.radius }
       },
-        m.role !== "user" && m.senderName && h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, margin: "0 4px 2px" } }, m.senderName),
+        m.role !== "user" && m.senderName && h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, margin: "0 4px 2px" } }, m.senderName, gRoleTag(m)),
         h(VoiceMsg, { m: m, isU: m.role === "user", speaker: m.role === "user" ? null : memberById(m.senderId) })),
       m.role === "user" && gsp.showMyAvatar && h(Avatar, { character: meAv, size: 34, radius: 8 }));
     if (m.kind === "callinvite") return h(CallReceipt, { key: i, m: m, isU: m.role === "user",
@@ -19400,7 +19410,7 @@ function GroupThread({
         onClick: selMode ? () => toggleSel(i) : undefined,
         style: { maxWidth: "72%", outline: selMode && selIds.includes(i) ? "2px solid " + t.tint : "none", outlineOffset: 2, borderRadius: 14 }
       },
-        m.senderName && h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, margin: "0 4px 2px" } }, m.senderName),
+        m.senderName && h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, margin: "0 4px 2px" } }, m.senderName, gRoleTag(m)),
         h(SelfieBubble, { m: m })));
     // 照片走公共那一张卡（PhotoCard）。原来这儿有图一种画法、没图一个灰方块＋
     // 描述整段摊在气泡里，而且【压根点不开】——「点开看描述」四处只有一处有。
@@ -19429,7 +19439,7 @@ function GroupThread({
           }
         },
           // 群里得看得出是谁发的——名字跟别的气泡一个位置
-          !pMine && m.senderName ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, margin: "0 4px 2px" } }, m.senderName) : null,
+          !pMine && m.senderName ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, margin: "0 4px 2px" } }, m.senderName, gRoleTag(m)) : null,
           h(PhotoCard, { m: m, mine: pMine, onOpen: selMode ? () => toggleSel(i) : () => setGPhotoView(m) })));
     }
     const isU = m.role === "user";
@@ -19471,7 +19481,7 @@ function GroupThread({
         marginBottom: 2,
         marginLeft: 2
       }
-    }, m.senderName), m.replyTo && h("div", {
+    }, m.senderName, gRoleTag(m)), m.replyTo && h("div", {
       "data-wk": "quote", "data-me": isU ? "1" : "0",
       style: {
         fontFamily: F_BODY,
@@ -20090,6 +20100,11 @@ function GroupSettingsSheet({ gs, group, characters, allChars, rels, msgCount, d
   // 建完群就再也改不了名（她 2026-08-28 找了一圈没找到）——「群名称」那个输入框
   // 一直只在 NewGroupSheet 里，设置页从来没有过。
   const [gName, setGName] = useState((group && group.name) || "");
+  // 群主和管理员、谁被禁言着（群友 2026-10-25）
+  const _gR0 = typeof groupRoles === "function" ? groupRoles(gs) : { owner: "", admins: [], mutes: {} };
+  const [gOwner, setGOwner] = useState(_gR0.owner);
+  const [gAdmins, setGAdmins] = useState(_gR0.admins);
+  const [gMutes, setGMutes] = useState(_gR0.mutes);
   // 我在这个群用哪张面具（她 2026-10-12）：一个群只戴一张脸。没挑过、又刚好全员都认同一张副面具，就默认那一张
   const _gMaskOpts = typeof window.__momentMasks === "function" ? window.__momentMasks() : [];
   const _gMk = id => typeof window.__maskKeyOf === "function" ? String(window.__maskKeyOf(id) || "") : "";
@@ -20179,7 +20194,7 @@ function GroupSettingsSheet({ gs, group, characters, allChars, rels, msgCount, d
   //   跟单聊设置同一个形状：portal 出去铺满、紧凑顶栏、正文自己滚。
   return ReactDOM.createPortal(h("div", { "data-wk": "gsetpage", "data-page": "1", ref: pageShellPin, className: "h-full flex flex-col", style: pageShellStyle(240, { background: t.bg }) },
     h(Head, { bg: "transparent", zh: "群聊设置", sub: group && group.name ? group.name : undefined, onBack: onClose,
-      right: h("button", { onClick: () => { onSave({ actLong: gActLong, keepRerolls: gKeepRerolls, memoryInterop: interop, privateCtxN: privN, preJoinN: preJoinN, ctxN: ctxN, sumThresh: sumThresh, sumBuffer: sumBuffer, selfP: selfP, userP: userP, describeMe: describeMe, showMyAvatar: showMyAvatar, showTime: showTime, timeSec: timeSec, showRead: showRead, chatBg: chatBg, chatBgFx: chatBgFx, autoChat: autoChat, autoChatMin: autoChatMin, autoChatRounds: autoChatRounds, autoChatMaxMsg: autoChatMaxMsg, autoChatResetHours: autoChatResetHours, drama: gDrama, defaultOffline: gDefaultOffline, actDesc: gActDesc, actPerson: gActPerson, userPerson: gUserPerson, name: gName, avatarImage: gAvatar, myAvatar: gMyAv || "", maskId: gMask, layout: gLayout, customCSS: gCss }); onClose(); } }, h(ICheck, { size: 19, color: t.ink })) }),
+      right: h("button", { onClick: () => { onSave({ actLong: gActLong, keepRerolls: gKeepRerolls, memoryInterop: interop, privateCtxN: privN, preJoinN: preJoinN, ctxN: ctxN, sumThresh: sumThresh, sumBuffer: sumBuffer, selfP: selfP, userP: userP, describeMe: describeMe, showMyAvatar: showMyAvatar, showTime: showTime, timeSec: timeSec, showRead: showRead, chatBg: chatBg, chatBgFx: chatBgFx, autoChat: autoChat, autoChatMin: autoChatMin, autoChatRounds: autoChatRounds, autoChatMaxMsg: autoChatMaxMsg, autoChatResetHours: autoChatResetHours, drama: gDrama, defaultOffline: gDefaultOffline, actDesc: gActDesc, actPerson: gActPerson, userPerson: gUserPerson, name: gName, owner: gOwner, admins: gAdmins.filter(x => x !== gOwner), mutes: gMutes, avatarImage: gAvatar, myAvatar: gMyAv || "", maskId: gMask, layout: gLayout, customCSS: gCss }); onClose(); } }, h(ICheck, { size: 19, color: t.ink })) }),
     h("div", { className: "flex-1 min-h-0 overflow-y-auto px-5 pt-3", style: { paddingBottom: "calc(env(safe-area-inset-bottom) + 28px)" } },
 
     // ⚠️原来一整条从上滚到底，什么都挨着（她 2026-09-30：「看起来有点乱，分成一个个框」）——
@@ -20239,6 +20254,29 @@ function GroupSettingsSheet({ gs, group, characters, allChars, rels, msgCount, d
         className: "active:opacity-60",
         style: { flexShrink: 0, minHeight: 40, padding: "0 14px", borderRadius: 999, border: "1px solid " + t.line, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: spec ? t.tint : t.sub }
       }, spec ? "回到群里" : "退出群聊"))),
+    (() => {
+      const nm = id => id === "me" ? "我" : ((members.find(c => c.id === id) || {}).name || "");
+      const muted = members.filter(c => (Number(gMutes[c.id]) || 0) > Date.now());
+      const iCan = !spec && (gOwner === "me" || gAdmins.includes("me"));
+      const canMute = c => iCan && c.id !== gOwner && (gOwner === "me" || !gAdmins.includes(c.id));
+      const muteFor = (c, min) => setGMutes(m => ({ ...m, [c.id]: Date.now() + min * 60000 }));
+      const unmute = c => setGMutes(m => { const n = { ...m }; delete n[c.id]; return n; });
+      return gCard({ title: "群主 · 管理员", char: "主", tint: "#b0794a", state: (gOwner ? "群主 " + nm(gOwner) : "没设群主") + (gAdmins.length ? " · 管理员 " + gAdmins.length + " 个" : "") + (muted.length ? " · " + muted.length + " 人禁言中" : "") },
+        "群里人人知道谁是群主、谁是管理员。群主能改群名；群主能禁言任何角色，管理员只能禁言普通成员。你和群主不会被禁言。踢人不归他们管。",
+        h("div", { className: "pt-3" }, h(GroupRolesPicker, { people: members, allowMe: !spec, meName: "我", owner: gOwner, admins: gAdmins, setOwner: setGOwner, setAdmins: setGAdmins })),
+        (muted.length || iCan) ? h("div", { className: "pt-4" },
+          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog, marginBottom: 4 } }, iCan ? "禁言（你是" + (gOwner === "me" ? "群主" : "管理员") + "）" : "正在禁言的"),
+          members.filter(c => iCan ? canMute(c) || muted.includes(c) : muted.includes(c)).map(c => {
+            const left = Math.max(0, (Number(gMutes[c.id]) || 0) - Date.now());
+            return h("div", { key: c.id, "data-wk": "gmuterow", className: "flex items-center justify-between", style: { padding: "6px 0", gap: 8 } },
+              h("span", { style: { fontFamily: F_DISPLAY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.ink } }, c.name,
+                left ? h("span", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginLeft: 6 } }, "还剩 " + Math.ceil(left / 60000) + " 分钟") : null),
+              h("span", { className: "flex", style: { gap: 10 } },
+                left ? h("button", { onClick: () => unmute(c), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.tint } }, "解除")
+                  : [[10, "10 分钟"], [60, "1 小时"]].map(([mn, zh]) => h("button", { key: mn, onClick: () => muteFor(c, mn), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.tint } }, "禁言 " + zh))));
+          }),
+          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginTop: 4 } }, "点右上角的勾才生效，群里会落一行灰字。")) : null);
+    })(),
     _gMaskOpts.length > 1 ? gCard({ title: "我在这个群用哪张面具", char: "面", tint: "#4f6b78", state: ((_gMaskOpts.find(o => o.id === gMask) || _gMaskOpts[0]).name || "主面具") }, null,
       h("div", { "data-wk": "gmaskpick", className: "pt-3" },
         h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.7, marginBottom: 10 } },
@@ -20377,17 +20415,53 @@ function GroupSettingsSheet({ gs, group, characters, allChars, rels, msgCount, d
     // 删除群聊
     h("button", { onClick: () => requestAppConfirm("删掉这个群聊？", "聊天记录会一并清除，不可恢复。删之前想留底的话，先去 设置 → 数据 → 导入与导出 → 导出全部数据。", () => { onDelete(); }, "删除"), className: "w-full rounded-xl py-3 mt-3 active:opacity-70", style: { border: "1px solid " + t.line, color: t.accent, fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))" } }, "删除群聊")))), document.body);
 }
+// 群主和管理员挑选（建群页和群设置共用这一块）：一排名字点选。群主单选，管理员多选；她不在群里（旁观）就没有「我」这一格
+function GroupRolesPicker({ people, allowMe, meName, owner, admins, setOwner, setAdmins }) {
+  const t = useTheme();
+  const opts = (allowMe ? [{ id: "me", name: (meName || "我") + "（我）" }] : []).concat(people || []);
+  const chip = (on, label, onClick, key) => h("button", { key, onClick, "data-on": on ? "1" : "0", className: "active:opacity-70",
+    style: { padding: "5px 11px", borderRadius: 999, border: "1px solid " + (on ? t.ink : t.line), background: on ? t.ink : "transparent", color: on ? t.bg2 : t.sub,
+      fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))" } }, label);
+  const ad = admins || [];
+  return h("div", { "data-wk": "grouproles" },
+    h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog, margin: "2px 0 6px" } }, "群主"),
+    h("div", { className: "flex flex-wrap", style: { gap: 6 } },
+      chip(!owner, "不设", () => setOwner(""), "_none"),
+      opts.map(o => chip(owner === o.id, o.name, () => { setOwner(o.id); setAdmins(ad.filter(x => x !== o.id)); }, o.id))),
+    h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog, margin: "12px 0 6px" } }, "管理员（可以挑几个）"),
+    h("div", { className: "flex flex-wrap", style: { gap: 6 } },
+      opts.filter(o => o.id !== owner).map(o => chip(ad.includes(o.id), o.name, () => setAdmins(ad.includes(o.id) ? ad.filter(x => x !== o.id) : ad.concat(o.id)), o.id))));
+}
 function NewGroupSheet({
   characters,
   allChars,
   onCreate,
+  onSuggestName,
   onClose
 }) {
   const t = useTheme();
   const [name, setName] = useState("");
   const [sel, setSel] = useState([]);
   const [spectate, setSpectate] = useState(false);
+  const [owner, setOwner] = useState("");
+  const [admins, setAdmins] = useState([]);
+  const [namer, setNamer] = useState("");      // 让谁起名
+  const [namedBy, setNamedBy] = useState("");  // 现在这个名字是谁起的
+  const [naming, setNaming] = useState(false);
   const toggle = id => setSel(s => s.includes(id) ? s.filter(x => x !== id) : [...s, id]);
+  const pool = characters.concat((allChars || []).filter(c => c && c.npc));
+  const selPeople = sel.map(id => pool.find(c => c.id === id)).filter(Boolean);
+  const askName = async () => {
+    const who = namer && sel.includes(namer) ? namer : sel[0];
+    if (!who || !onSuggestName || naming) return;
+    setNaming(true);
+    try { const nm = await onSuggestName(who, sel, spectate); if (nm) { setName(nm); setNamedBy(who); } } finally { setNaming(false); }
+  };
+  const create = () => {
+    if (!name.trim() || sel.length < 1) return;
+    const ok = id => id === "me" ? !spectate : sel.includes(id);
+    onCreate(name.trim(), sel, spectate, { owner: owner && ok(owner) ? owner : "", admins: admins.filter(ok), namedBy: namedBy && sel.includes(namedBy) ? namedBy : "" });
+  };
   return /*#__PURE__*/React.createElement(PageSheet, {
     onClose: onClose,
     tall: true
@@ -20400,9 +20474,7 @@ function NewGroupSheet({
       color: t.ink
     }
   }, "新建群聊"), /*#__PURE__*/React.createElement("button", {
-    onClick: () => {
-      if (name.trim() && sel.length >= 1) onCreate(name.trim(), sel, spectate);
-    },
+    onClick: create,
     disabled: !name.trim() || sel.length < 1
   }, /*#__PURE__*/React.createElement(ICheck, {
     size: 19,
@@ -20431,7 +20503,7 @@ function NewGroupSheet({
     value: name,
     onChange: e => setName(e.target.value),
     placeholder: "群名称",
-    className: "w-full outline-none pb-2 mb-4",
+    className: "w-full outline-none pb-2 mb-2",
     style: {
       fontFamily: F_DISPLAY,
       fontSize: "calc(18px * var(--app-fs, 1))",
@@ -20439,7 +20511,21 @@ function NewGroupSheet({
       borderBottom: `1px solid ${t.line}`,
       background: "transparent"
     }
-  }), /*#__PURE__*/React.createElement(Eyebrow, {
+  }), h("div", { "data-wk": "gnamer", className: "mb-4", style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.7 } },
+    sel.length ? h(React.Fragment, null,
+      "让 ",
+      h("select", { value: namer && sel.includes(namer) ? namer : sel[0], onChange: e => setNamer(e.target.value),
+        style: { background: "transparent", color: t.ink, border: "none", borderBottom: "1px solid " + t.line, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))" } },
+        selPeople.map(c => h("option", { key: c.id, value: c.id }, c.name))),
+      " ",
+      h("button", { onClick: askName, disabled: naming, className: "active:opacity-60 disabled:opacity-40", style: { color: t.tint, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))" } }, naming ? "起着…" : "起个群名"),
+      " · 花一次调用，起完还能改")
+    : "先在下面选人，就能让群里的谁来起群名"),
+  sel.length ? h("div", { className: "mb-4" },
+    h(Eyebrow, { style: { marginBottom: 4 } }, "群主和管理员"),
+    spectate && !owner ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginBottom: 4 } }, "旁观群没挑的话，谁起的名谁当群主；没人起名就是第一个选进来的") : null,
+    h(GroupRolesPicker, { people: selPeople, allowMe: !spectate, meName: "我", owner: owner === "me" && spectate ? "" : owner, admins: admins, setOwner, setAdmins })) : null,
+  /*#__PURE__*/React.createElement(Eyebrow, {
     style: {
       marginBottom: 10
     }
