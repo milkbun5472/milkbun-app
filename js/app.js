@@ -16977,11 +16977,12 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     });
     await Promise.all(jobs.map(j => j.catch(() => {})));
   };
+  // 写卡是叙事正文，跟线下一样走线下线路（她 2026-10-25）；戳一戳、求情是他开口说话，照旧走聊天线路
   const stampWriteSmall = async (char, list) => {
     list.forEach(c => stampSaveCard(c.id, { writing: true, writingTs: Date.now(), err: "" }));
     try {
       const prev = stampPrev(char.id);
-      const d = await runProbe(apiFor(char.id), ctxFor(char), {
+      const d = await runProbe(offlineApiFor(char.id), ctxFor(char), {
         voice: true,
         instruction: STAMP_CORE() + "她在「邮票册」里抽到了几张印着你的邮票，每张是你的一个样子。下面按顺序写这几张。\n"
           + list.map((c, i) => "第 " + (i + 1) + " 张：" + c.rarity + "。" + stampKindLine(c, char)).join("\n")
@@ -17003,7 +17004,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     stampSaveCard(c.id, { writing: true, writingTs: Date.now(), err: "" });
     try {
       const prev = stampPrev(char.id), me = userName(meOf(char.id));
-      const d = await runProbe(apiFor(char.id), ctxFor(char), {
+      const d = await runProbe(offlineApiFor(char.id), ctxFor(char), {
         voice: true,
         instruction: STAMP_CORE() + "她在「邮票册」里抽到了一张印着你的 SSR 邮票。" + stampKindLine(c, char)
           + "\nSSR 是一段完整的剧情，像乙游的卡面剧情：分几节，她在中间做选择，选的不同走的路不同。是什么样的故事，跟着你这个人、你的世界和你们现在的关系来，不一定是恋爱的事。"
