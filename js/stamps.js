@@ -98,57 +98,98 @@
   }
 
   // 一张卡打开：卡面、名字、内容
+  // 卡页＝养成页：上面是卡（光晕、稀有度章、星、邮戳编号），中间养成面板，底下「时刻回廊」一格一格往外还原那个瞬间
   function CardPage({ t, card, char, meName, onBack, onDraw, onRewrite, onSend, onCanon, toast }) {
     const url = useIdbImgUrl(card.face);
     const [story, setStory] = useState(false);
+    const [node, setNode] = useState(null);
+    const [pop, setPop] = useState(0);
     const tx = card.text, lv = card.lv || 1;
-    const rcL = card.rarity === "R" ? "#f4ecda" : RC[card.rarity];
+    const P = "#f4ecda", P7 = "rgba(244,236,218,.72)", P5 = "rgba(244,236,218,.5)", GOLD = "#e3b65c", LINE = "rgba(227,182,92,.35)";
+    const rcL = card.rarity === "R" ? P : RC[card.rarity];
     const stale = card.writing && Date.now() - Number(card.writingTs || 0) > 180000;
-    const box = (title, body, locked) => h("div", { "data-wk": "stampbox", style: { marginTop: 12, padding: "12px 14px", borderRadius: 12, background: "rgba(244,236,218,.07)", border: "1px solid " + "rgba(244,236,218,.18)" } },
-      h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(13.5px * var(--app-fs, 1))", color: "rgba(244,236,218,.72)", marginBottom: 6 } }, title),
-      locked ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: "rgba(244,236,218,.5)" } }, locked) : body);
-    const U = C().UNLOCK, ink = C().load().ink, cap = C().CAP[card.rarity] || 30;
-    const need = l => "升到 " + l + " 级解锁";
-    const nextGate = Math.min(cap, (Math.floor(lv / 10) + 1) * 10);
+    const S = C().load(), U = C().UNLOCK, ink = S.ink, cap = C().CAP[card.rarity] || 30;
+    const starsAll = Math.round(cap / 10), stars = Math.min(starsAll, Math.floor(lv / 10));
+    const tierFrom = Math.floor(lv / 10) * 10 || 1, nextGate = Math.min(cap, (Math.floor(lv / 10) + 1) * 10);
+    const pct = lv >= cap ? 100 : Math.round((lv - tierFrom) / Math.max(1, nextGate - tierFrom) * 100);
     let toGate = 0; for (let l = lv; l < nextGate; l++) toGate += C().levelCost(card.rarity, l);
-    const up = steps => { const r = C().levelUp(card.id, steps); if (r.n) toast("升到 " + r.lv + " 级"); else if (r.msg) toast(r.msg); };
+    const cost1 = C().levelCost(card.rarity, lv);
     const blockNow = C().gateBlocked(card, lv);
-    const para = s => h("div", { style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", lineHeight: 1.8, color: "#f4ecda", whiteSpace: "pre-wrap" } }, s);
+    const up = steps => { const r = C().levelUp(card.id, steps); if (r.n) { setPop(Date.now()); toast("盖好了，到 " + r.lv + " 级"); } else if (r.msg) toast(r.msg); };
+    const no = (S.cards || []).findIndex(c => c.id === card.id) + 1;
+    const got = new Date(card.ts || Date.now());
+    const fs = n => "calc(" + n + "px * var(--app-fs, 1))";
+    const para = s => h("div", { style: { fontFamily: F_BODY, fontSize: fs(14), lineHeight: 1.85, color: P, whiteSpace: "pre-wrap" } }, s);
+    const quote = s => h("div", { style: { marginTop: 8, fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: fs(14.5), color: P7 } }, "「" + s + "」");
+    // 回廊的格子：按时间排，从前一刻到他心里那句
+    const nodes = !tx ? [] : card.rarity === "R" ? [
+        { k: "before", zh: "前一刻", lv: U.R.before, body: tx.before && h("div", null, para(tx.before.narration || ""), tx.before.thought ? quote(tx.before.thought) : null), peek: tx.before && tx.before.narration },
+        { k: "now", zh: "那一刻", lv: 1, body: h("div", null, para(tx.narration || ""), tx.thought ? quote(tx.thought) : null), peek: tx.narration },
+        { k: "after", zh: "后一刻", lv: U.R.after, body: tx.after && h("div", null, para(tx.after.narration || ""), tx.after.thought ? quote(tx.after.thought) : null), peek: tx.after && tx.after.narration },
+        { k: "real", zh: "他真正想说的", lv: U.R.real, body: tx.real && quote(tx.real), peek: tx.real }]
+      : card.rarity === "SR" ? [
+        { k: "open", zh: "开头", lv: 1, body: para(tx.open || ""), peek: tx.open },
+        { k: "rest", zh: "接着", lv: U.SR.rest, body: tx.rest && para(tx.rest), peek: tx.rest },
+        { k: "sequel", zh: "后来", lv: U.SR.sequel, body: tx.sequel && para(tx.sequel), peek: tx.sequel },
+        { k: "hidden", zh: "没说出口的", lv: U.SR.hidden, body: tx.hidden && quote(tx.hidden), peek: tx.hidden }]
+      : ((tx.sections || []).map((s, i) => ({ k: s.id || "s" + i, zh: s.title || "第 " + (i + 1) + " 节", lv: Number(s.lv) || 1, ssr: true,
+          peek: ((s.beats || [])[0] || {}).text || "" })));
+    const openNode = nodes.find(n => n.k === node) || nodes.find(n => n.lv <= lv && n.k === "now") || nodes.find(n => n.lv <= lv);
+    const ring = stars >= 3 ? "0 0 0 2px " + GOLD + ", 0 0 0 6px rgba(227,182,92,.25), 0 0 34px rgba(227,182,92,.45)" : stars === 2 ? "0 0 0 2px " + GOLD + ", 0 0 0 5px rgba(227,182,92,.2)" : stars === 1 ? "0 0 0 1.5px " + GOLD : "none";
     return h("div", { "data-wk": "stampcard", "data-page": "1", className: "h-full flex flex-col", style: { background: "radial-gradient(120% 70% at 50% 0%, #2b2440, #15121f 70%)" } },
-      h(Head, { zh: tx ? tx.name : "一枚邮票", sub: (char ? char.name : "") + " · " + card.rarity + (card.kind === "if" ? " · IF「" + (card.theme || "") + "」" : " · 日常"), bg: "transparent", ink: "#f4ecda", onBack }),
+      h("style", null, "@keyframes stHalo{0%,100%{opacity:.55;transform:scale(1)}50%{opacity:.9;transform:scale(1.06)}}@keyframes stFloat{0%{transform:translateY(0)}35%{transform:translateY(-10px)}100%{transform:translateY(0)}}@keyframes stShine{0%{background-position:-200% 0}100%{background-position:200% 0}}"),
+      h(Head, { zh: tx ? tx.name : "一枚邮票", sub: card.rarity + " · " + (char ? char.name : "") + (card.kind === "if" ? " · IF「" + (card.theme || "") + "」" : " · 日常"), bg: "transparent", ink: P, onBack }),
       h("div", { className: "flex-1 min-h-0 overflow-y-auto px-5", style: { paddingBottom: "calc(env(safe-area-inset-bottom) * 0.4 + 28px)" } },
-        h("div", { className: "flex flex-col items-center", style: { paddingTop: 8 } },
-          h(Stamp, { t, card, face: url, size: 210 }),
+        // 卡
+        h("div", { "data-wk": "stampshow", className: "flex flex-col items-center", style: { position: "relative", paddingTop: 14 } },
+          h("div", { style: { position: "absolute", top: 0, left: "50%", width: 320, height: 380, marginLeft: -160, borderRadius: 999, background: "radial-gradient(closest-side, " + (card.rarity === "R" ? "rgba(244,236,218,.16)" : RC[card.rarity] + "44") + ", transparent)", animation: "stHalo 4s ease-in-out infinite", pointerEvents: "none" } }),
+          h("div", { key: pop, style: { position: "relative", boxShadow: ring, animation: pop ? "stFloat .9s ease-out" : "none" } },
+            h(Stamp, { t, card, face: url, size: 236 }),
+            pop ? h("div", { style: { position: "absolute", inset: 0, pointerEvents: "none", background: "linear-gradient(110deg, transparent 35%, rgba(255,240,200,.55) 50%, transparent 65%) 0 0 / 200% 100%", animation: "stShine .9s ease-out 1 forwards" } }) : null,
+            h("div", { "data-wk": "stampbadge", style: { position: "absolute", left: "50%", top: -13, transform: "translateX(-50%)", whiteSpace: "nowrap", padding: "3px 12px", borderRadius: 999, background: card.rarity === "SSR" ? "linear-gradient(135deg,#f3d58a,#b8862e)" : card.rarity === "SR" ? "linear-gradient(135deg,#9db8ef,#4a68b8)" : "linear-gradient(135deg,#f4ecda,#bfb196)", color: card.rarity === "R" ? "#3a3020" : "#fff", fontFamily: F_DISPLAY, fontSize: fs(12), letterSpacing: ".08em", boxShadow: "0 2px 8px rgba(0,0,0,.4)" } }, card.rarity + " · " + (card.rarity === "SSR" ? "急件" : card.rarity === "SR" ? "挂号" : "平信")),
+            h("div", { "data-wk": "stamppostmark", style: { position: "absolute", right: -26, bottom: -14, width: 64, height: 64, borderRadius: 999, border: "1.5px solid " + GOLD, color: GOLD, transform: "rotate(-14deg)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", fontFamily: F_BODY, fontSize: fs(9.5), lineHeight: 1.3, background: "rgba(21,18,31,.55)" } },
+              h("div", null, got.getFullYear() + "." + (got.getMonth() + 1) + "." + got.getDate()), h("div", { style: { fontFamily: F_DISPLAY, fontSize: fs(11) } }, "第 " + String(no).padStart(3, "0") + " 枚"))),
+          h("div", { "data-wk": "stampstars", style: { marginTop: 14, letterSpacing: ".35em", fontSize: fs(16), color: GOLD } }, Array.from({ length: starsAll }, (_, i) => i < stars ? "★" : "☆").join("")),
           !card.face ? h("button", { "data-wk": "stampdraw", disabled: !tx || card.drawing, onClick: () => onDraw(card.id), className: "active:opacity-70 disabled:opacity-40",
-            style: { marginTop: 12, padding: "9px 18px", borderRadius: 999, border: "1px solid " + rcL, color: rcL, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))" } },
-            card.drawing ? "画着…" : "画卡面 · 花一次生图") : null,
-          h("div", { style: { marginTop: 8, fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: "rgba(244,236,218,.5)" } }, "Lv." + lv + " / " + cap + " · 印泥 " + ink),
-          tx && lv < cap ? h("div", { "data-wk": "stamplevel", className: "flex", style: { gap: 8, marginTop: 10 } },
-            h("button", { onClick: () => up(1), disabled: !!blockNow, className: "active:opacity-70 disabled:opacity-40", style: { padding: "8px 14px", borderRadius: 999, border: "1px solid " + "#f4ecda", color: "#f4ecda", fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))" } }, "盖一枚印 · " + C().levelCost(card.rarity, lv)),
-            nextGate - lv > 1 ? h("button", { onClick: () => up(nextGate - lv), disabled: !!blockNow, className: "active:opacity-70 disabled:opacity-40", style: { padding: "8px 14px", borderRadius: 999, background: "#e3b65c", color: "#15121f", fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))" } }, "盖到 " + nextGate + " 级 · " + toGate) : null) : null,
-          blockNow ? h("div", { style: { marginTop: 6, fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: RC.SR } }, blockNow) : null,
-          tx ? h("div", { className: "flex", style: { gap: 8, marginTop: 10 } },
-            h("button", { "data-wk": "stampsend", onClick: () => onSend(card), className: "active:opacity-70", style: { padding: "8px 14px", borderRadius: 999, border: "1px solid " + rcL, color: rcL, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))" } }, card.sentTs ? "再发给他看" : "发给他看"),
-            card.rarity === "SSR" && card.kind === "if" && card.sentTs && !card.canon && lv >= cap ? h("button", { "data-wk": "stampcanon", onClick: () => onCanon(card), className: "active:opacity-70", style: { padding: "8px 14px", borderRadius: 999, background: RC.SSR, color: "#fff", fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))" } }, "当真") : null,
-            card.canon ? h("span", { style: { alignSelf: "center", fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: RC.SSR } }, "已当真") : null) : null),
-        !tx ? box("这一张还没写好", h("div", null,
-            h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: "rgba(244,236,218,.5)" } }, card.writing && !stale ? "他还在写，等一会儿。" : (card.err || "这一张没写出来。")),
-            (!card.writing || stale) ? h("button", { onClick: () => onRewrite(card), className: "active:opacity-70", style: { marginTop: 8, padding: "7px 16px", borderRadius: 999, border: "1px solid " + "#f4ecda", color: "#f4ecda", fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))" } }, "重写这一张") : null))
-        : card.rarity === "R" ? h(React.Fragment, null,
-            box("那一刻", h("div", null, para(tx.narration || ""), tx.thought ? h("div", { style: { marginTop: 8, fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: "calc(14px * var(--app-fs, 1))", color: "rgba(244,236,218,.72)" } }, "「" + tx.thought + "」") : null)),
-            lv >= U.R.before && tx.before ? box("前一刻", h("div", null, para(tx.before.narration || ""), tx.before.thought ? para("「" + tx.before.thought + "」") : null)) : box("前一刻", null, need(U.R.before)),
-            lv >= U.R.after && tx.after ? box("后一刻", h("div", null, para(tx.after.narration || ""), tx.after.thought ? para("「" + tx.after.thought + "」") : null)) : box("后一刻", null, need(U.R.after)),
-            lv >= U.R.real && tx.real ? box("他真正想说的", para("「" + tx.real + "」")) : box("他真正想说的", null, need(U.R.real)))
-        : card.rarity === "SR" ? h(React.Fragment, null,
-            tx.line ? h("div", { style: { marginTop: 14, textAlign: "center", fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))", color: "#f4ecda" } }, "「" + tx.line + "」") : null,
-            box("剧情", h("div", null, para(tx.open || ""), lv >= U.SR.rest ? para(tx.rest || "") : h("div", { style: { marginTop: 8, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: "rgba(244,236,218,.5)" } }, "后面的" + need(U.SR.rest)))),
-            lv >= U.SR.sequel && tx.sequel ? box("后来", para(tx.sequel)) : box("后来", null, need(U.SR.sequel)),
-            lv >= U.SR.hidden && tx.hidden ? box("没说出口的", para("「" + tx.hidden + "」")) : box("没说出口的", null, need(U.SR.hidden) + (lv >= 30 && !card.sentTs ? "（过 30 级那一坎要先发给他看）" : "")))
-        : h(React.Fragment, null,
-            tx.line ? h("div", { style: { marginTop: 14, textAlign: "center", fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))", color: "#f4ecda" } }, "「" + tx.line + "」") : null,
-            box("剧情", h("div", null,
-              h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: "rgba(244,236,218,.72)", lineHeight: 1.7 } }, "分几节，中间要你做选择。现在能看第一节，后面的跟着等级一节一节开。"),
-              h("button", { "data-wk": "stampstoryopen", onClick: () => setStory(true), className: "w-full active:opacity-70", style: { marginTop: 10, minHeight: 44, borderRadius: 12, background: RC.SSR, color: "#fff", fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))" } }, "进入剧情"))))),
+            style: { marginTop: 8, padding: "6px 14px", borderRadius: 999, border: "1px solid " + LINE, color: P7, fontFamily: F_BODY, fontSize: fs(12) } }, card.drawing ? "画着…" : "画卡面 · 花一次生图") : null),
+        // 养成
+        tx ? h("div", { "data-wk": "stampgrow", style: { marginTop: 16, padding: "14px 16px", borderRadius: 16, border: "1px solid " + LINE, background: "rgba(244,236,218,.05)" } },
+          h("div", { className: "flex items-center justify-between" },
+            h("div", { style: { fontFamily: F_DISPLAY, fontSize: fs(14), color: GOLD } }, "✦ 盖印"),
+            h("div", { style: { fontFamily: F_DISPLAY, fontSize: fs(15), color: P } }, lv >= cap ? "Lv." + cap + " 满了" : "Lv." + lv + "  →  Lv." + (lv + 1))),
+          h("div", { className: "flex justify-between", style: { marginTop: 10, fontFamily: F_BODY, fontSize: fs(10.5), color: P5 } }, h("span", null, "Lv." + tierFrom), h("span", null, lv >= cap ? "满级" : "Lv." + nextGate + (nextGate % 10 === 0 ? " 过坎" : ""))),
+          h("div", { style: { marginTop: 4, height: 6, borderRadius: 999, background: "rgba(244,236,218,.1)", overflow: "hidden" } },
+            h("div", { style: { width: pct + "%", height: "100%", borderRadius: 999, background: "linear-gradient(90deg,#b8862e," + GOLD + ")", transition: "width .5s" } })),
+          lv < cap ? h(React.Fragment, null,
+            h("div", { className: "flex justify-between", style: { marginTop: 10, fontFamily: F_BODY, fontSize: fs(12), color: P7 } }, h("span", null, "这一枚 印泥 " + cost1), h("span", null, "手上 " + ink)),
+            blockNow ? h("div", { style: { marginTop: 8, fontFamily: F_BODY, fontSize: fs(12), color: "#9db8ef" } }, blockNow) : null,
+            h("div", { "data-wk": "stamplevel", className: "flex", style: { gap: 8, marginTop: 12 } },
+              h("button", { onClick: () => up(1), disabled: !!blockNow, className: "flex-1 active:opacity-70 disabled:opacity-40", style: { minHeight: 42, borderRadius: 999, background: "linear-gradient(135deg,#f3d58a,#c79a42)", color: "#2a2010", fontFamily: F_DISPLAY, fontSize: fs(14) } }, "盖一枚印"),
+              nextGate - lv > 1 ? h("button", { onClick: () => up(nextGate - lv), disabled: !!blockNow, className: "active:opacity-70 disabled:opacity-40", style: { minHeight: 42, padding: "0 14px", borderRadius: 999, border: "1px solid " + GOLD, color: GOLD, fontFamily: F_BODY, fontSize: fs(12.5) } }, "盖到 " + nextGate + " 级 · " + toGate) : null)) : null,
+          h("div", { className: "flex", style: { gap: 8, marginTop: 10 } },
+            h("button", { "data-wk": "stampsend", onClick: () => onSend(card), className: "flex-1 active:opacity-70", style: { minHeight: 38, borderRadius: 999, border: "1px solid " + LINE, color: P, fontFamily: F_BODY, fontSize: fs(12.5) } }, card.sentTs ? "再发给他看" : "发给他看"),
+            card.rarity === "SSR" && card.kind === "if" && card.sentTs && !card.canon && lv >= cap ? h("button", { "data-wk": "stampcanon", onClick: () => onCanon(card), className: "flex-1 active:opacity-70", style: { minHeight: 38, borderRadius: 999, background: RC.SSR, color: "#fff", fontFamily: F_BODY, fontSize: fs(12.5) } }, "当真") : null,
+            card.canon ? h("span", { style: { alignSelf: "center", fontFamily: F_BODY, fontSize: fs(11.5), color: GOLD } }, "已当真") : null)) : null,
+        // 还没写好
+        !tx ? h("div", { "data-wk": "stampbox", style: { marginTop: 16, padding: "12px 14px", borderRadius: 12, border: "1px solid " + LINE } },
+            h("div", { style: { fontFamily: F_BODY, fontSize: fs(12.5), color: P5 } }, card.writing && !stale ? "他还在写，等一会儿。" : (card.err || "这一张没写出来。")),
+            (!card.writing || stale) ? h("button", { onClick: () => onRewrite(card), className: "active:opacity-70", style: { marginTop: 8, padding: "7px 16px", borderRadius: 999, border: "1px solid " + P, color: P, fontFamily: F_BODY, fontSize: fs(12.5) } }, "重写这一张") : null) : null,
+        // 时刻回廊
+        tx ? h(React.Fragment, null,
+          h("div", { className: "flex items-center", style: { marginTop: 22, gap: 10 } },
+            h("div", { style: { fontFamily: F_DISPLAY, fontSize: fs(14), color: GOLD } }, "✦ 时刻回廊"),
+            h("div", { style: { flex: 1, height: 1, background: LINE } })),
+          tx.line ? h("div", { style: { marginTop: 10, textAlign: "center", fontFamily: F_DISPLAY, fontSize: fs(15), color: P } }, "「" + tx.line + "」") : null,
+          h("div", { "data-wk": "stampcorridor", className: "flex overflow-x-auto", style: { gap: 10, marginTop: 12, paddingBottom: 4, marginRight: -20, paddingRight: 20 } },
+            nodes.map((n, i) => { const lock = n.lv > lv, on = openNode && openNode.k === n.k;
+              return h("button", { key: n.k, "data-wk": "stampnode", "data-locked": lock ? "1" : "0", "data-on": on ? "1" : "0", onClick: () => lock ? toast("升到 " + n.lv + " 级才看得到") : n.ssr ? setStory(true) : setNode(n.k), className: "shrink-0 text-left active:opacity-80",
+                style: { width: 128, minHeight: 116, padding: "10px 11px", borderRadius: 12, border: "1px solid " + (on ? GOLD : LINE), background: on ? "rgba(227,182,92,.1)" : lock ? "rgba(244,236,218,.03)" : "rgba(244,236,218,.06)", display: "flex", flexDirection: "column", gap: 4 } },
+                h("div", { style: { fontFamily: F_DISPLAY, fontSize: fs(11), color: lock ? P5 : GOLD } }, String(i + 1).padStart(2, "0") + (lock ? "  🔒" : "")),
+                h("div", { style: { fontFamily: F_DISPLAY, fontSize: fs(13.5), color: lock ? P5 : P } }, n.zh),
+                h("div", { style: { fontFamily: F_BODY, fontSize: fs(11), lineHeight: 1.5, color: P5, overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical" } }, lock ? "Lv." + n.lv + " 解锁" + (n.lv > 30 && !card.sentTs ? "，过 30 级要先发给他看" : "") : (n.peek || ""))); })),
+          card.rarity === "SSR" ? h("button", { "data-wk": "stampstoryopen", onClick: () => setStory(true), className: "w-full active:opacity-70", style: { marginTop: 14, minHeight: 44, borderRadius: 12, background: RC.SSR, color: "#fff", fontFamily: F_BODY, fontSize: fs(14) } }, "进入剧情")
+            : openNode && openNode.body ? h("div", { "data-wk": "stampbox", style: { marginTop: 12, padding: "14px 16px", borderRadius: 14, border: "1px solid " + LINE, background: "rgba(244,236,218,.05)" } },
+              h("div", { style: { fontFamily: F_DISPLAY, fontSize: fs(13), color: GOLD, marginBottom: 8 } }, openNode.zh), openNode.body) : null) : null),
       story && tx ? h(StoryReader, { t, card, char, meName, lv, onClose: () => setStory(false) }) : null);
   }
 
