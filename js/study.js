@@ -1471,6 +1471,12 @@
       });
       if (a != null) spans.push([a, b]);
     });
+    // 自习室挂在这门课上的那几轮（2026-10-23）：从坐下到收桌整段都算，中间安静没说话也是在学
+    (Array.isArray(sessions) ? sessions : []).forEach(function (x) {
+      if (!x || !cur || x.mode !== "selfstudy" || x.link_cur !== cur.id || !x.startTs) return;
+      const end = x.endTs || Math.min(t, x.durationMin ? x.startTs + x.durationMin * 60000 : x.updated_at || t);
+      if (end > x.startTs) spans.push([x.startTs, end]);
+    });
     const subj = String(cur && cur.subject || "").trim();
     if (cur) (Array.isArray(pomoSaves) ? pomoSaves : []).forEach(function (r) {
       const mins = Number(r && r.focusedMinutes);
@@ -1806,7 +1812,7 @@
   //   主题台只有一支点缀色，所以从它【算】出三支——认真教就是它本身，一起研究、一教一学
   //   在色环上往两边各转 70°，明暗和浓淡跟它一样，看着是同一套又分得开（soft 是各自的淡底）。
   //   没给点缀色照旧各是各的绿／紫／蓝；给的不是 #hex／rgb() 这种算不动的写法，就三种共用它。
-  const STUDY_MODE_TURN = { teach: 0, costudy: 70, nv1: -70, tb: 150 };
+  const STUDY_MODE_TURN = { teach: 0, costudy: 70, nv1: -70, tb: 150, self: -140 };
   function studyTurnHue(color, deg) {
     const c = String(color || "").trim();
     let r, g, b;
@@ -1830,7 +1836,8 @@
     teach: { accent: "#657c60", soft: "#e5ebdf", label: "老师批注", code: "01" },
     costudy: { accent: "#78698e", soft: "#ebe5f0", label: "共同研究", code: "02" },
     nv1: { accent: "#5d7685", soft: "#e2eaed", label: "三人课堂", code: "03" },
-    tb: { accent: "#a0694a", soft: "#f2e6dc", label: "我来教", code: "04" }
+    tb: { accent: "#a0694a", soft: "#f2e6dc", label: "我来教", code: "04" },
+    self: { accent: "#8a7a4c", soft: "#efe9da", label: "一起自习", code: "05" }
   };
   const STUDY_MODE_SKIN = {};
   Object.keys(STUDY_MODE_BASE).forEach(function (mode) {
@@ -3144,7 +3151,9 @@
         })),
       h(StudyFooter, null,
         h("button", { onClick: function () { return props.onNewSession(cur); }, className: "w-full py-3 active:opacity-70",
-          style: { minHeight: 46, fontFamily: F_BODY, fontSize: "calc(15px * var(--app-fs, 1))", background: accent, color: STUDY_SKIN.paper, borderRadius: "5px 14px 5px 5px" } }, "开一张新课页 · 自动接上次进度")));
+          style: { minHeight: 46, fontFamily: F_BODY, fontSize: "calc(15px * var(--app-fs, 1))", background: accent, color: STUDY_SKIN.paper, borderRadius: "5px 14px 5px 5px" } }, "开一张新课页 · 自动接上次进度"),
+        props.onSelfStudy ? h("button", { "data-wk": "curselfstudy", onClick: function () { props.onSelfStudy(cur); }, className: "w-full active:opacity-70",
+          style: { minHeight: 40, marginTop: 8, fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", background: "transparent", color: accent, border: "1px solid " + accent, borderRadius: "5px 14px 5px 5px" } }, "去自习室 · 时长和进度记到这门课") : null));
   }
 
   // ---- 新建课程 = 定个大目标容器（teach / nv1）：不预生成大纲，进控制台再开小节 ----
@@ -4129,12 +4138,13 @@
   //  home(tab: teach/costudy/nv1) → console(课程) / newCourse / newCostudy → thread
   function StudyApp(props) {
     const [view, setView] = useState("home");
-    const [tab, setTab] = useState(() => (typeof takeOpenSub === "function" && takeOpenSub("study", ["teach", "costudy", "nv1", "tb"])) || "teach");
+    const [tab, setTab] = useState(() => (typeof takeOpenSub === "function" && takeOpenSub("study", ["teach", "costudy", "nv1", "tb", "self"])) || "teach");
     const [tick, setTick] = useState(0); // 强制从库重读
     const [openId, setOpenId] = useState(null);   // session id（thread）
     const [curId, setCurId] = useState(null);      // curriculum id（console）
     const entryHandledRef = useRef("");
     const [roomPickOpen, setRoomPickOpen] = useState(false);
+    const [selfLink, setSelfLink] = useState("");   // 从课程里点「去自习室」时带上的那门课
     const homeScrollRef = useRef(null), homeScrollTopRef = useRef(0);
     const consoleScrollRef = useRef(null), consoleScrollTopRef = useRef(0);
     function refresh() { setTick(function (x) { return x + 1; }); }
@@ -4200,6 +4210,17 @@
       onBack: function () { setView("home"); restoreHome(); }, onCreated: function (id) { setOpenId(id); setView("tbThread"); } });
     if (view === "tbThread") return h(TbThread, { id: openId, characters: props.characters, active: props.active, bgActive: props.bgActive, toast: props.toast, ctx: tbCtx,
       onBack: function () { refresh(); setView("home"); restoreHome(); } });
+    // 自习室（群友 2026-10-23）
+    if (view === "newSelf") return h(NewSelfStudy, { characters: props.characters, toast: props.toast, initialLink: selfLink, roomId: (props.entry && props.entry.roomId) || null,
+      onBack: function () { if (selfLink.indexOf("cur:") === 0) { setView("console"); restoreConsole(); } else { setView("home"); restoreHome(); } },
+      onCreated: function (sess) { setOpenId(sess.id); setView("selfRoom"); } });
+    if (view === "selfRoom") {
+      const sess = loadSessions().find(function (s) { return s.id === openId; });
+      if (!sess) { setView("home"); return null; }
+      return h(SelfStudyRoom, { session: sess, active: props.active, characters: props.characters, relFor: props.relFor, profile: props.profile, profileFor: props.profileFor, selfFor: props.selfFor, besideFor: props.besideFor,
+        directivesFor: props.directivesFor, studyRulesFor: props.studyRulesFor, worldbook: props.worldbook, worldbookFor: props.worldbookFor, toast: props.toast,
+        onBack: function () { refresh(); setTab("self"); setView("home"); restoreHome(); } });
+    }
     if (view === "newCostudy") {
       return h(NewCostudy, {
         characters: props.characters, toast: props.toast,
@@ -4231,6 +4252,7 @@
         onBack: function () { refresh(); if (fromRoomAt(cur.id)) return props.onBack(); setView("home"); restoreHome(); },
         onOpenSession: function (id) { rememberConsole(); setOpenId(id); setView("thread"); },
         onNewSession: function (c) { rememberConsole(); setCurId(c.id); setView("newSession"); },
+        onSelfStudy: function (c) { rememberConsole(); setCurId(c.id); setSelfLink("cur:" + c.id); setView("newSelf"); },
         onDelSession: function (id) {
           requestAppConfirm("移除这张课页？", "这张课页里的对话、题卡与学习证据会一起删除，无法恢复。", function () {
             saveSessions(loadSessions().filter(function (s) { return s.id !== id; }));
@@ -4250,15 +4272,21 @@
     }
 
     // home：顶部三板 tab
-    const tabs = [["teach", "认真教"], ["costudy", "一起研究"], ["nv1", "一教一学"], ["tb", "我来教"]];
+    const tabs = [["teach", "认真教"], ["costudy", "一起研究"], ["nv1", "一教一学"], ["tb", "我来教"], ["self", "自习室"]];
     let panel;
     if (tab === "tb") {
       panel = h(TbList, { characters: props.characters, scrollRef: homeScrollRef,
         onNew: function () { rememberHome(); setView("tbNew"); },
         onOpen: function (id) { rememberHome(); setOpenId(id); setView("tbThread"); },
         onDel: function (id) { requestAppConfirm("移除这节课？", "这节课的对话、笔记和小测都会一起删除，无法恢复。", function () { saveTb(loadTb().filter(function (x) { return x.id !== id; })); refresh(); }, "移除"); } });
+    } else if (tab === "self") {
+      panel = h(SelfStudyList, { sessions: sessions.filter(function (s) { return s.mode === "selfstudy"; }).sort(function (a, b) { return (b.updated_at || 0) - (a.updated_at || 0); }),
+        characters: props.characters, scrollRef: homeScrollRef,
+        onNew: function () { rememberHome(); setSelfLink(""); setView("newSelf"); },
+        onOpen: function (id) { rememberHome(); setOpenId(id); setView("selfRoom"); },
+        onDel: function (id) { requestAppConfirm("移除这条自习记录？", "这间自习室里的对话会删掉；已经挂到课上的自习小结和学习时长不受影响。", function () { saveSessions(loadSessions().filter(function (s) { return s.id !== id; })); refresh(); }, "移除"); } });
     } else if (tab === "costudy") {
-      const cs = sessions.filter(function (s) { return !s.curriculum_id; })
+      const cs = sessions.filter(function (s) { return !s.curriculum_id && s.mode !== "selfstudy"; })
         .sort(function (a, b) { return (b.updated_at || 0) - (a.updated_at || 0); });
       panel = h(CostudyList, {
         sessions: cs, characters: props.characters, scrollRef: homeScrollRef,
@@ -4314,6 +4342,267 @@
   }
 
   // ================================================================
+  // 自习室（群友 2026-10-23「好想在群聊里面自习，会有学习小组的氛围」；她：「放进一起学里」「能联动其他模式，这样可以保存进度」）
+  //   几个人各学各的：开场各报一句在干嘛；自习中安静为主，她发进度、发图有人回；走到一半各冒一句进度；到点各说一句收尾。
+  //   可以挂一门已有的课（认真教／一教一学）或一张研究纸：时长记到那门课上，收尾写一条自习小结——
+  //     课程挂进它的往期总结（下一节排大纲会读到），研究纸挂进它自己的对话（下回一起研究接得上）。
+  //   存在一起学会话那一份里（mode: "selfstudy"），不另开存储；列表、研究纸、房间的「在学」都把它挑出去。
+  // ================================================================
+  const SELF_DURS = [[25, "25 分钟"], [45, "45 分钟"], [60, "1 小时"], [90, "1.5 小时"], [0, "不设时长"]];
+  function selfLinkOf(sess) {
+    if (sess && sess.link_cur) { const c = findCurriculum(sess.link_cur); return c ? { kind: "cur", id: c.id, name: c.subject, cur: c } : null; }
+    if (sess && sess.link_paper) { const p = loadSessions().find(function (x) { return x.id === sess.link_paper; }); return p ? { kind: "paper", id: p.id, name: p.subject, paper: p } : null; }
+    return null;
+  }
+  // 这一轮已经学了多久（暂停不另算；结束了就按结束那一刻）
+  function selfElapsedMin(sess, now) { if (!sess || !sess.startTs) return 0; return Math.max(0, Math.round(((sess.endTs || now || Date.now()) - sess.startTs) / 60000)); }
+
+  // 一起开口：开场、半程、她说话、收尾都走这一处。各人按各自的人设和她给的学习准则，想说几句说几句
+  async function selfStudyTalk(active, sess, chars, ctxFor, why, opts) {
+    const o = opts || {};
+    const link = selfLinkOf(sess);
+    const uName = (ctxFor(chars[0]).profile && ctxFor(chars[0]).profile.name) || "我";
+    // 跟群聊同一摞规矩（她 2026-10-23「接上群聊那种保存全部人人设防止 ooc」）：
+    //   groupBans 里有人设优先、各说各的不串人、她也在场、那几族反八股；人设按在场人数分额度，跟群聊同一把尺子。
+    //   一个人的时候就是一对一，照旧用一起学单人那套开头。
+    const parts = chars.length > 1 && typeof groupBans === "function" ? [groupBans({ worldbook: true })] : [ANTI_CLICHE];
+    if (chars.length < 2 && typeof ContentBoundaries !== "undefined" && ContentBoundaries.prompt) parts.push(ContentBoundaries.prompt);
+    parts.push(chars.length > 1 ? USER_SLOT_PROTECT : CHARCARD_RULE + "\n\n" + USER_SLOT_PROTECT);
+    if (chars.length < 2 && typeof PERSONA_REGISTER_ANCHOR !== "undefined") parts.push(PERSONA_REGISTER_ANCHOR);
+    const budget = typeof groupPersonaBudget === "function" ? groupPersonaBudget(chars.length) : 3000;
+    chars.forEach(function (c) {
+      const cx = ctxFor(c);
+      parts.push("【" + c.name + "】" + (typeof groupPersonaText === "function" ? groupPersonaText(c.persona, budget) : String(c.persona || "（暂无设定）"))
+        + (typeof grownSelfBlock === "function" && cx.grown ? "\n" + grownSelfBlock(cx.grown, cx.grownEvolve) : ""));
+      voiceGuards([cx.directives], [{ sr: cx.studyRules, name: chars.length > 1 ? c.name : "" }], chars.length > 1).forEach(function (x) { parts.push(x); });
+    });
+    if (chars.length > 1) {
+      if (typeof sameNameNote === "function") { const sn = sameNameNote(chars); if (sn) parts.push(sn); }
+      // 彼此是什么关系（群聊有，自习室原来没有）：没设定过的就照不熟的人来
+      const rf = ctxFor(chars[0]).relFor, rels = [];
+      if (rf) chars.forEach(function (a, i) { chars.slice(i + 1).forEach(function (b) { const r = rf(a.id, b.id); if (r && (r.mine || r.theirs)) rels.push("· " + a.name + " 眼里 " + b.name + "：" + (r.mine || "（没说）") + "；" + b.name + " 眼里 " + a.name + "：" + (r.theirs || "（没说）")); }); });
+      parts.push("【在场的人彼此之间】" + (rels.length ? "\n" + rels.join("\n") : "没设定过关系的，就照不熟的人相处：客气、各学各的，别凭空熟络。"));
+    }
+    if (VOICE()) parts.push(VOICE());
+    const cx0 = ctxFor(chars[0]);
+    if (cx0.beside) parts.push(cx0.beside + BESIDE_TAIL);
+    else if (cx0.profile && (cx0.profile.name || cx0.profile.persona)) parts.push("【一起自习的人 · " + uName + "】\n" + (cx0.profile.persona || "（未填写）"));
+    if (cx0.worldbook && String(cx0.worldbook).trim()) parts.push((chars.length > 1 ? "" : WORLDBOOK_RULE + "\n") + "【世界书】\n" + String(cx0.worldbook).trim());
+    const names = chars.map(function (c) { return c.name; }).join("、");
+    parts.push("【场面】" + uName + " 和 " + names + " 在一间自习室里" + (chars.length > 1 ? "各学各的" : "一人一张桌子各学各的") + "。这是自习，不是上课：不讲课、不出题、不考 " + uName + "，各自忙自己的事，安静为主。"
+      + "每个人这会儿在学什么、做什么，照各自的人设和身份来，不用硬跟 " + uName + " 学一样的。");
+    if (sess.task) parts.push("【" + uName + " 这轮要做的】" + sess.task);
+    if (link && link.kind === "cur") { const mem = curriculumMemoryText(link.cur); parts.push("【" + uName + " 这轮学的是课程『" + link.name + "』】" + (mem ? "\n" + mem : "")); }
+    if (link && link.kind === "paper") parts.push("【" + uName + " 这轮接着研究『" + link.name + "』】" + ((link.paper.progress && link.paper.progress.running_summary) ? "\n之前研究到：" + link.paper.progress.running_summary : ""));
+    const mins = selfElapsedMin(sess), dur = Number(sess.durationMin) || 0;
+    parts.push("【时间】已经学了 " + mins + " 分钟" + (dur ? "，这轮定的是 " + dur + " 分钟" : "，没定时长") + "。");
+    const said = (sess.transcript || []).slice(-14).map(function (m) { return (m.role === "user" ? uName : m.name || "") + "：" + (m.imageRef ? "［发了一张图］" : "") + String(m.content || ""); });
+    if (said.length) parts.push("【自习室里刚才说过的】\n" + said.join("\n") + "\n说过的意思别换个说法再说一遍。");
+    parts.push("【这一下】" + why);
+    parts.push("照各自平时说话的样子，想说几句就几句，一句一条；没什么想说的人可以不说。" + (o.summary ? "\n另外写一段 summary：第三人称、几句话，记下 " + uName + " 这轮实际做了什么、发过的进度、卡在哪里，给下次接着学的时候看；没什么可记就留空。" : "")
+      + (chars.length > 1 ? "\nname 必须逐字等于上面在场的人名之一（" + chars.map(function (c) { return c.name; }).join("、") + "），每个人只说自己的话，不替别人开口，也不替 " + uName + " 说话。" : "")
+      + "\n只输出 JSON：{\"says\":[{\"name\":\"说话的人\",\"text\":\"一句\"}]" + (o.summary ? ",\"summary\":\"……\"" : "") + "}");
+    const lastImg = (sess.transcript || []).slice().reverse().find(function (m) { return m.role === "user" && m.imageRef; });
+    const msgs = [Object.assign({ role: "user", content: o.userLine || "开口吧。" }, o.withImage && lastImg ? { _imageRefs: [lastImg.imageRef] } : {})];
+    const raw = await callAI(active, parts.join("\n\n"), await withImages(msgs), { maxTokens: TOK.small, tag: "一起学·自习室" });
+    const d = extractJSON(raw) || {};
+    const says = (Array.isArray(d.says) ? d.says : []).map(function (x) {
+      const c = chars.find(function (q) { return x && (x.name === q.name || x.name === (q.remark || q.name)); }) || (chars.length === 1 ? chars[0] : null);
+      const t = String((x && x.text) || "").trim();
+      return c && t ? { id: "s_" + Date.now() + "_" + Math.random().toString(36).slice(2, 6), role: "char", speakerId: c.id, name: c.name, content: t, ts: Date.now() } : null;
+    }).filter(Boolean);
+    return { says: says, summary: String(d.summary || "").trim() };
+  }
+
+  function SelfStudyList(props) {
+    const skin = studyModeSkin("self");
+    const list = props.sessions;
+    return h("div", { ref: props.scrollRef, className: "flex-1 min-h-0 overflow-y-auto px-4 pb-8" },
+      h("button", { "data-wk": "selfnew", onClick: props.onNew, className: "w-full active:opacity-70 flex items-center justify-between",
+        style: { minHeight: 50, margin: "4px 0 13px", padding: "0 15px 0 17px", fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", background: skin.accent, color: STUDY_SKIN.paper, borderRadius: "16px 5px 16px 5px" } },
+        h("span", null, "开一间自习室"), h("span", { style: { fontFamily: F_DISPLAY, fontSize: "calc(22px * var(--app-fs, 1))" } }, "+")),
+      list.length === 0
+        ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: STUDY_SKIN.fog, textAlign: "center", marginTop: 54, lineHeight: 1.9, whiteSpace: "pre-line" } },
+            "还没有自习记录。\n挑几个人进来各学各的，可以挂上一门课，时长和进度记到那门课上。")
+        : list.map(function (s) {
+            const chars = avatarsFor(s.character_ids, props.characters), link = selfLinkOf(s);
+            return h("button", { key: s.id, "data-wk": "selfrow", onClick: function () { props.onOpen(s.id); }, className: "w-full flex items-center gap-3 active:opacity-70",
+              style: { minHeight: 72, marginBottom: 11, padding: "12px 13px 12px 16px", background: STUDY_SKIN.paper, border: "1px solid " + skin.accent + "55", borderRadius: "16px 5px 16px 5px", textAlign: "left" } },
+              h("div", { className: "flex -space-x-2 shrink-0" }, chars.slice(0, 4).map(function (ch) { return h(Avatar, { key: ch.id, character: ch, size: 34, radius: 999 }); })),
+              h("div", { className: "flex-1 min-w-0" },
+                h("div", { className: "truncate", style: { fontFamily: F_DISPLAY, fontSize: "calc(15.5px * var(--app-fs, 1))", color: STUDY_SKIN.ink } }, s.task || (link ? link.name : "自习")),
+                h("div", { className: "truncate", style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: STUDY_SKIN.fog, marginTop: 3 } },
+                  (s.endTs ? "学了 " + minutesText(selfElapsedMin(s)) : "还在自习") + (link ? " · 记到「" + link.name + "」" : "") + " · " + timeShort(s.updated_at))),
+              props.onDel && h("span", { onClick: function (e) { e.stopPropagation(); props.onDel(s.id); }, style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: STUDY_SKIN.fog, padding: "12px 6px" } }, "移除"));
+          }));
+  }
+
+  function NewSelfStudy(props) {
+    const skin = studyModeSkin("self");
+    const chars = props.characters || [];
+    const [picked, setPicked] = useState([]);
+    const [task, setTask] = useState("");
+    const [dur, setDur] = useState(45);
+    const [link, setLink] = useState(props.initialLink || "");   // "cur:<id>" / "paper:<id>" / ""
+    const curs = loadCurricula().slice().sort(function (a, b) { return (b.updated_at || 0) - (a.updated_at || 0); });
+    const papers = loadSessions().filter(function (s) { return s && !s.curriculum_id && s.mode === "costudy"; }).sort(function (a, b) { return (b.updated_at || 0) - (a.updated_at || 0); });
+    const toggle = function (id) { setPicked(function (p) { return p.indexOf(id) >= 0 ? p.filter(function (x) { return x !== id; }) : p.concat([id]); }); };
+    const label = function (txt) { return h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", letterSpacing: ".04em", color: skin.accent, margin: "20px 0 8px" } }, txt); };
+    const chip = function (key, txt, on, onClick) { return h("button", { key: key, "data-wk": "selfchip", "data-on": on ? "1" : "0", onClick: onClick, className: "active:opacity-70",
+      style: { padding: "8px 12px", borderRadius: 999, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: on ? STUDY_SKIN.paper : STUDY_SKIN.ink, background: on ? skin.accent : STUDY_SKIN.paper, border: "1px solid " + (on ? skin.accent : STUDY_SKIN.line), margin: "0 7px 7px 0" } }, txt); };
+    const ok = picked.length > 0;
+    const create = function () {
+      if (!ok) return;
+      const sess = { id: "st_" + Date.now(), mode: "selfstudy", curriculum_id: null, character_ids: picked.slice(), teacher_id: null,
+        link_cur: link.indexOf("cur:") === 0 ? link.slice(4) : null, link_paper: link.indexOf("paper:") === 0 ? link.slice(6) : null,
+        subject: task.trim() || (function () { const c = link.indexOf("cur:") === 0 ? findCurriculum(link.slice(4)) : null; return c ? c.subject : "自习"; })(),
+        task: task.trim(), durationMin: dur, startTs: Date.now(), endTs: 0, halfSaid: false, opened: false,
+        roomId: props.roomId || null, created_at: Date.now(), updated_at: Date.now(), progress: {}, transcript: [] };
+      saveSessions(loadSessions().concat([sess]));
+      props.onCreated(sess);
+    };
+    return h("div", { "data-wk": "studypage", "data-part": "selfnew", className: "h-full flex flex-col", style: { background: STUDY_SKIN.desk } },
+      h(StudyHead, { zh: "开一间自习室", mode: "self", onBack: props.onBack }),
+      h("div", { className: "flex-1 min-h-0 overflow-y-auto px-5 pb-28" },
+        label("谁一起（几个都行）"),
+        h("div", { style: { display: "flex", flexWrap: "wrap" } }, chars.map(function (c) { return chip(c.id, c.remark || c.name, picked.indexOf(c.id) >= 0, function () { toggle(c.id); }); })),
+        label("这轮做什么（可以不写）"),
+        h("input", { "data-wk": "selftask", value: task, maxLength: 60, onChange: function (e) { setTask(e.target.value); }, placeholder: "比如：背 50 个单词、刷完第三章的题",
+          style: { width: "100%", minHeight: 44, padding: "0 13px", borderRadius: 12, border: "1px solid " + STUDY_SKIN.line, background: STUDY_SKIN.paper, fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: STUDY_SKIN.ink, outline: "none" } }),
+        label("学多久"),
+        h("div", { style: { display: "flex", flexWrap: "wrap" } }, SELF_DURS.map(function (d) { return chip("d" + d[0], d[1], dur === d[0], function () { setDur(d[0]); }); })),
+        label("记到哪门课上（可以不选）"),
+        h("div", { style: { display: "flex", flexWrap: "wrap" } },
+          chip("none", "不挂", !link, function () { setLink(""); }),
+          curs.map(function (c) { return chip("c" + c.id, c.subject, link === "cur:" + c.id, function () { setLink("cur:" + c.id); }); }),
+          papers.map(function (p) { return chip("p" + p.id, "研究纸 · " + p.subject, link === "paper:" + p.id, function () { setLink("paper:" + p.id); }); })),
+        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: STUDY_SKIN.fog, lineHeight: 1.7, marginTop: 4 } }, "挂了课：这轮的时长算进那门课，收尾写一条自习小结挂在那门课里，下一节课老师看得到你自习时做到哪。")),
+      h(StudyFooter, null,
+        h("button", { "data-wk": "selfstart", onClick: create, disabled: !ok, className: "w-full active:opacity-80", style: { fontFamily: F_BODY, fontSize: "calc(15px * var(--app-fs, 1))", fontWeight: 700, color: STUDY_SKIN.paper, background: ok ? skin.accent : STUDY_SKIN.line, borderRadius: 13, padding: "13px" } }, ok ? "开始自习" : "先挑至少一个人")));
+  }
+
+  function SelfStudyRoom(props) {
+    const skin = studyModeSkin("self");
+    const [sess, setSess] = useState(props.session);
+    const sessRef = useRef(props.session);
+    const [input, setInput] = useState("");
+    const [busy, setBusy] = useState(false);
+    const [now, setNow] = useState(Date.now());
+    const scrollRef = useRef(null), photoRef = useRef(null), replyTimer = useRef(null), busyRef = useRef(false);
+    const chars = (sess.character_ids || []).map(function (id) { return (props.characters || []).find(function (c) { return c.id === id; }); }).filter(Boolean);
+    const myFace = (props.profileFor && chars[0] ? props.profileFor(chars[0].id) : null) || props.profile;
+    const uName = (myFace && myFace.name) || "我";
+    const link = selfLinkOf(sess);
+    const ctxFor = function (char) {
+      const me = props.selfFor && char ? props.selfFor(char) : null;
+      return { profile: (props.profileFor && char ? props.profileFor(char.id) : null) || props.profile, beside: props.besideFor && char ? props.besideFor(char) : "",
+        grown: me && me.grown || "", grownEvolve: !!(me && me.evolve), directives: props.directivesFor && char ? props.directivesFor(char) : [],
+        studyRules: props.studyRulesFor && char ? props.studyRulesFor(char) : null, relFor: props.relFor,
+        worldbook: props.worldbookFor && char ? props.worldbookFor(char.id, [sessRef.current.subject, sessRef.current.task].filter(Boolean).join("\n")) : props.worldbook };
+    };
+    const commit = function (next) {
+      next = Object.assign({}, next, { updated_at: Date.now() });
+      sessRef.current = next; setSess(next);
+      saveSessions(loadSessions().map(function (s) { return s.id === next.id ? next : s; }));
+    };
+    const push = function (entries) { commit(Object.assign({}, sessRef.current, { transcript: (sessRef.current.transcript || []).concat(entries) })); };
+    const talk = async function (why, opts) {
+      if (busyRef.current || !props.active || !chars.length) return null;
+      busyRef.current = true; setBusy(true);
+      try {
+        const r = await selfStudyTalk(props.active, sessRef.current, chars, ctxFor, why, opts);
+        if (r.says.length) push(r.says);
+        return r;
+      } catch (e) { props.toast && props.toast("没接上：" + String((e && e.message) || e).slice(0, 60)); return null; }
+      finally { busyRef.current = false; setBusy(false); }
+    };
+    const dur = Number(sess.durationMin) || 0;
+    const endAt = dur ? sess.startTs + dur * 60000 : 0;
+    const over = !!sess.endTs;
+    // 收桌：各说一句收尾，写自习小结挂到那门课（或研究纸）上
+    const finish = async function () {
+      if (sessRef.current.endTs) return;
+      commit(Object.assign({}, sessRef.current, { endTs: Date.now() }));
+      const r = await talk("这轮自习到点了（" + uName + " 一共学了 " + selfElapsedMin(sessRef.current) + " 分钟）。各说一句收尾，照各自的性子。", { summary: !!(sessRef.current.link_cur || sessRef.current.link_paper) });
+      const sum = r && r.summary;
+      if (sum) {
+        const s = sessRef.current, text = "〔自习 " + selfElapsedMin(s) + " 分钟" + (s.task ? "：" + s.task : "") + "〕" + sum;
+        commit(Object.assign({}, s, { summary: text }));
+        if (s.link_cur && typeof pushCurriculumSummary === "function") pushCurriculumSummary(s.link_cur, s.id, text);
+        if (s.link_paper) saveSessions(loadSessions().map(function (x) { return x.id === s.link_paper ? Object.assign({}, x, { updated_at: Date.now(), transcript: (x.transcript || []).concat([{ id: "n_" + Date.now(), role: "note", name: "自习记录", content: text, ts: Date.now() }]) }) : x; }));
+      }
+    };
+    // 开场：各报一句这轮在干嘛（只在头一回进来时）
+    useEffect(function () { if (!sessRef.current.opened && !over) { commit(Object.assign({}, sessRef.current, { opened: true })); talk("刚坐下，开始自习。每个人报一句自己这轮在干嘛；" + uName + " 要做什么上面写着，有话可以顺口接。"); } }, []);
+    // 计时：每秒走一下；到半程各冒一句进度（整轮唯一一次主动开口）；到点自动收桌
+    useEffect(function () {
+      if (over) return;
+      const tm = setInterval(function () {
+        const t = Date.now(); setNow(t);
+        const s = sessRef.current;
+        if (s.endTs) return;
+        if (endAt && !s.halfSaid && t >= s.startTs + dur * 30000 && !busyRef.current) { commit(Object.assign({}, s, { halfSaid: true })); talk("走到一半了。每个人随口冒一句自己学到哪了，" + uName + " 发过进度的可以顺口接一下。"); }
+        if (endAt && t >= endAt && !busyRef.current) finish();
+      }, 1000);
+      return function () { clearInterval(tm); };
+    }, [over]);
+    useEffect(function () { if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight; }, [sess.transcript.length, busy]);
+    // 她说话、发图：攒一下再一起回（她可能先发图再补一句）
+    const queueReply = function (withImage) {
+      clearTimeout(replyTimer.current);
+      replyTimer.current = setTimeout(function () {
+        const recent = (sessRef.current.transcript || []).slice(-3).filter(function (m) { return m.role === "user"; }).map(function (m) { return (m.imageRef ? "［一张图］" : "") + (m.content || ""); }).join(" ");
+        talk(uName + " 在自习室里说了：「" + recent.slice(0, 200) + "」。谁有话就回，照各自的性子；发的是进度或者图，就当真看了一眼再说。", { withImage: withImage, userLine: recent || "（发了一张图）" });
+      }, 1500);
+    };
+    const send = function () { const t = input.trim(); if (!t || over) return; setInput(""); push([{ id: "u_" + Date.now(), role: "user", content: t, ts: Date.now() }]); queueReply(false); };
+    const sendPhoto = async function (file) {
+      if (!file || over) return;
+      try {
+        const data = await resizeImageFile(file, 1600, 0.86);
+        const ref = typeof imgToVault === "function" ? await imgToVault(data) : data;
+        if (!ref) throw new Error("empty");
+        const t = input.trim(); setInput("");
+        push([{ id: "u_" + Date.now(), role: "user", content: t, imageRef: ref, ts: Date.now() }]);
+        queueReply(true);
+      } catch (e) { props.toast && props.toast("这张图没能放上去，换一张试试"); }
+    };
+    const leftSec = endAt ? Math.max(0, Math.round((endAt - now) / 1000)) : 0;
+    const clock = over ? "这轮学了 " + minutesText(selfElapsedMin(sess)) : endAt ? "还剩 " + Math.floor(leftSec / 60) + ":" + String(leftSec % 60).padStart(2, "0") : "已经学了 " + selfElapsedMin(sess, now) + " 分钟";
+    const pct = endAt ? Math.min(1, (now - sess.startTs) / (dur * 60000)) : 0;
+    return h("div", { "data-wk": "studypage", "data-part": "selfroom", className: "h-full flex flex-col", style: { background: STUDY_SKIN.desk } },
+      h(StudyHead, { zh: "自习室", mode: "self", onBack: props.onBack }),
+      h("div", { "data-wk": "selfbar", className: "shrink-0 px-4", style: { padding: "9px 16px 10px", background: STUDY_SKIN.paper, borderBottom: "1px solid " + STUDY_SKIN.line } },
+        h("div", { className: "flex items-center", style: { gap: 10 } },
+          h("div", { className: "flex -space-x-2 shrink-0" }, chars.slice(0, 4).map(function (c) { return h(Avatar, { key: c.id, character: c, size: 28, radius: 999 }); })),
+          h("div", { className: "flex-1 min-w-0" },
+            h("div", { "data-wk": "selfclock", style: { fontFamily: F_DISPLAY, fontSize: "calc(16px * var(--app-fs, 1))", color: STUDY_SKIN.ink } }, clock),
+            h("div", { className: "truncate", style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: STUDY_SKIN.fog, marginTop: 1 } }, (sess.task || "自习") + (link ? " · 记到「" + link.name + "」" : ""))),
+          !over ? h("button", { "data-wk": "selfend", onClick: function () { requestAppConfirm("现在收桌？", "这轮就学到这儿，大家各说一句收尾" + (link ? "，自习小结挂到「" + link.name + "」上" : "") + "。", finish, "收桌"); }, disabled: busy, className: "active:opacity-70",
+            style: { flexShrink: 0, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: skin.accent, border: "1px solid " + skin.accent, borderRadius: 999, padding: "6px 12px", background: "transparent" } }, "收桌") : null),
+        endAt && !over ? h("div", { style: { height: 3, borderRadius: 3, background: STUDY_SKIN.line, marginTop: 8, overflow: "hidden" } }, h("div", { style: { width: Math.round(pct * 100) + "%", height: "100%", background: skin.accent } })) : null),
+      h("div", { ref: scrollRef, "data-wk": "selflog", className: "flex-1 min-h-0 overflow-y-auto", style: { padding: "12px 14px 16px" } },
+        (sess.transcript || []).map(function (m) {
+          const mine = m.role === "user", c = !mine ? chars.find(function (x) { return x.id === m.speakerId; }) : null;
+          return h("div", { key: m.id, "data-wk": "selfmsg", "data-me": mine ? "1" : "0", style: { display: "flex", gap: 8, justifyContent: mine ? "flex-end" : "flex-start", marginBottom: 10 } },
+            !mine ? h(Avatar, { character: c || { name: m.name }, size: 30, radius: 999 }) : null,
+            h("div", { style: { maxWidth: "76%", display: "flex", flexDirection: "column", alignItems: mine ? "flex-end" : "flex-start" } },
+              !mine && chars.length > 1 ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: STUDY_SKIN.fog, margin: "0 0 2px 3px" } }, m.name) : null,
+              m.imageRef ? h("img", { src: typeof resolveImg === "function" ? resolveImg(m.imageRef) : m.imageRef, alt: mine ? "你发的图" : "", style: { display: "block", maxWidth: 200, maxHeight: 240, borderRadius: 10, marginBottom: m.content ? 4 : 0, objectFit: "cover" } }) : null,
+              m.content ? h("div", { style: { padding: "8px 12px", borderRadius: mine ? "14px 4px 14px 14px" : "4px 14px 14px 14px", background: mine ? skin.accent : STUDY_SKIN.paper, color: mine ? STUDY_SKIN.paper : STUDY_SKIN.ink,
+                border: mine ? "none" : "1px solid " + STUDY_SKIN.line, fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", lineHeight: 1.55, whiteSpace: "pre-wrap", wordBreak: "break-word" } }, m.content) : null));
+        }),
+        busy ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: STUDY_SKIN.fog, paddingLeft: 40 } }, "…") : null,
+        over && sess.summary ? h("div", { "data-wk": "selfsummary", style: { marginTop: 8, padding: "10px 12px", borderRadius: 10, background: skin.soft, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: STUDY_SKIN.ink, lineHeight: 1.6 } }, "自习小结：" + sess.summary) : null),
+      !over ? h("div", { className: "shrink-0 flex items-end", style: { gap: 8, padding: "9px 12px 0", paddingBottom: COMPOSER_PAD_BOTTOM, borderTop: "1px solid " + STUDY_SKIN.line, background: STUDY_SKIN.paper } },
+        h("input", { ref: photoRef, type: "file", accept: "image/*", style: { display: "none" }, onChange: function (e) { const f = e.target.files && e.target.files[0]; e.target.value = ""; sendPhoto(f); } }),
+        h("button", { "data-wk": "selfphoto", onClick: function () { photoRef.current && photoRef.current.click(); }, className: "active:opacity-70", style: { flexShrink: 0, width: 40, height: 40, borderRadius: 999, border: "1px solid " + STUDY_SKIN.line, background: STUDY_SKIN.paper, color: STUDY_SKIN.sub, fontSize: 18 } }, "＋"),
+        h("textarea", { "data-wk": "selfinput", value: input, rows: 1, onChange: function (e) { setInput(e.target.value); if (typeof fitTextarea === "function") fitTextarea(e.target, 120); },
+          placeholder: "发进度、说一句…（安静也行）", style: { flex: 1, minWidth: 0, resize: "none", padding: "9px 12px", borderRadius: 12, border: "1px solid " + STUDY_SKIN.line, background: STUDY_SKIN.desk, fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: STUDY_SKIN.ink, outline: "none" } }),
+        h("button", { "data-wk": "selfsend", onMouseDown: function (e) { e.preventDefault(); }, onClick: send, className: "active:opacity-80", style: { flexShrink: 0, height: 40, padding: "0 15px", borderRadius: 12, background: skin.accent, color: STUDY_SKIN.paper, fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", fontWeight: 700 } }, "发")) : null);
+  }
+
+  // ================================================================
   // 我来教（她 2026-10-03：「一起学里开第四种，让角色做学生，我当老师」；当天又要「继续一对二」）
   // 费曼那一套：讲得给别人听懂才算自己懂。玩法四件：
   //   ① 开课时给每个学生偷偷安排几个这门课上常见的误解——她挖出一个就当场亮一个（她定：边挖边亮）；
@@ -4336,9 +4625,10 @@
   // 跟单聊同一份的两块（群里 2026-10-18：「一起学里开始油腻了」）：
   //   「别拿现成的说法替你开口」——一起学原来没有，一对一辅导＋恋人就掉进「男友家教」那套现成腔；
   //   她在聊天里出戏立的长期准则——原来也没带，所以在聊天里说了「别油腻」到这儿不管用。
-  function voiceGuards(dirLists, studyList) {
+  function voiceGuards(dirLists, studyList, have) {
     const out = [];
-    if (typeof CANNED_PHRASE_BAN !== "undefined") out.push(CANNED_PHRASE_BAN);
+    // 那一摞从 engine 那张唯一的清单取（原来只带了「现成说法」一条）；群辅导那条路 groupBans 已经带了，调用处传 have 跳过
+    if (typeof talkBans === "function" && !have) talkBans().forEach(function (x) { out.push(x); });
     const dirs = [].concat.apply([], (dirLists || []).map(function (l) { return Array.isArray(l) ? l : []; }))
       .map(function (d) { return (typeof d === "string" ? d : d && d.text) || ""; }).filter(function (x) { return x.trim(); });
     if (dirs.length && typeof directivesBlock === "function") out.push(directivesBlock(dirs));

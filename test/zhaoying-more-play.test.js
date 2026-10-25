@@ -11,9 +11,10 @@ assert.match(app, /\.\.\.\(scene \? \{ scene \} : \{\}\)[^\n]*\}\);\n      patch
 // 他出题：用他的线路和上下文，存成带 by 的题；by 不被 cleanTest 丢掉
 assert.match(core, /\.\.\.\(t\.by \? \{ by: String\(t\.by\) \} : \{\}\)/);
 assert.match(app, /const zhaoyingCharGen = async \(charId, mode\) =>[\s\S]{0,300}runProbe\(apiFor\(charId\), ctxFor\(c\)/);
-// 群一起做：一人一次，做完发进群让他们聊
+// 群一起做：卡先落进群，等她按叶子才做（zhaoyingGroupKick 挂在 replyGroup 开头）；每个人的回放都看过他们才接着聊（她 2026-10-24）
 assert.match(app, /const zhaoyingGroupRun = async \(groupId, testId, onStep, lie\) =>/);
-assert.match(app, /try \{ replyGroup\(groupId, \{\}\); \} catch/);
+assert.match(app, /if \(!rgOpts\.auto\) zhaoyingGroupKick\(groupId\);/);
+assert.match(app, /if \(all\) setTimeout\(\(\) => \{ try \{ replyGroup\(w\.groupId, \{\}\); \} catch/);
 // 存图、收进时刻走公共的那一处
 assert.match(app, /const zhaoyingPin = [\s\S]{0,900}pinToShike\(charId, rows/);
 assert.match(core, /function resultImage\(test, rec, name\)/);

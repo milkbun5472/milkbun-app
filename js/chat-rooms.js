@@ -63,6 +63,7 @@
   const CTX_GATE = {
     // 永远给：这几栏说的是【TA是谁】和【怎么说话】，不是你们之间发生过什么
     always: [
+      "onlinePreset", // 线上用的文风台预设：管的是怎么说话
       "char",         // 当前说话的人本身；生成引擎直接读 ctx.char.name，绝不能被认知闸清掉
       "chars",        // 在场都有谁（指代解析要用）
       "profile",      // 对方是谁；房间可以隔离经历，不能把正在和谁说话也抹掉
@@ -231,7 +232,7 @@
       // 谁开小号：me 她开 / ta TA开 / both 两个都是（第三批起）
       who: ["me", "ta", "both"].includes(a.who) ? a.who : "me",
       // TA的小号：网名＋小号上的样子。TA自己起（onGenAlt）或她写
-      ta: { name: String(ta.name || "").slice(0, 24), persona: String(ta.persona || "").slice(0, 1500) },
+      ta: { name: String(ta.name || "").slice(0, 24), persona: String(ta.persona || "").slice(0, 1500), ...(typeof ta.avatar === "string" && ta.avatar ? { avatar: ta.avatar.slice(0, 600000) } : {}) },
       // 她知不知道那个号是TA：不知道＝界面上也不露TA的真名和头像
       youKnow: !!a.youKnow,
       // TA自己承认那个号是TA的时刻（第四批）；承认了 youKnow 跟着翻开
@@ -254,7 +255,9 @@
   // 她这一边【我】要不要显示成小号
   function altShowsMe(room) { return altMe(altOf(room)); }
   // TA开了小号、她又不知道是TA：界面上TA那一边显示成小号（返回 {name, persona}，否则 null）
-  function altTaFace(room) { const a = altOf(room); return altTa(a) && !a.youKnow ? { name: a.ta.name || "陌生人", persona: a.ta.persona } : null; }
+  // 头像（她 2026-10-24）：她给小号挑了图就用那张；没挑就按小号网名画一张——原来按角色 id 画，没传头像的角色小号和大号是同一张脸
+  function altTaFace(room) { const a = altOf(room); if (!(altTa(a) && !a.youKnow)) return null; const name = a.ta.name || "陌生人";
+    return { name, persona: a.ta.persona, avatar: a.ta.avatar || (typeof autoAvatarSrc === "function" ? autoAvatarSrc("altroom:" + name) : "") }; }
   function altProfile(room) { const a = altOf(room); return a && a.mask && String(a.mask.name || a.mask.label || "").trim() ? a.mask : { name: "陌生网友", persona: a && a.mask && a.mask.persona || "" }; }
   function altName(room) { const p = altProfile(room); return String(p.name || p.label || "陌生网友"); }
   // TA没认出来时，叫她用的名字（认出来了或不是小号房：空串，调用点回落到她本来的名字）
@@ -595,7 +598,7 @@
       if (!window.Study || typeof window.Study.loadSessions !== "function") return [];
       const want = String(roomId || MAIN_ID);
       return window.Study.loadSessions()
-        .filter(s => s && (String(s.teacher_id || "") === String(personId) || (s.character_ids || []).map(String).includes(String(personId))))
+        .filter(s => s && s.mode !== "selfstudy" && (String(s.teacher_id || "") === String(personId) || (s.character_ids || []).map(String).includes(String(personId))))
         .filter(s => roomIdOf(s) === want)
         .sort((a, b) => Number(b.updated_at || 0) - Number(a.updated_at || 0));
     } catch (_) { return []; }

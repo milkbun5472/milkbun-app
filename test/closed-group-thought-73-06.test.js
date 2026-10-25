@@ -19,8 +19,9 @@ const field = app.slice(fieldAt, app.indexOf("\n      const ", fieldAt + 20));
 test("闭群也要心声：先想后说", () => {
   assert.ok(hintAt > 0 && hint.length > 200, "抠不出 thoughtHint");
   assert.doesNotMatch(hint, /MOOD_TURN_RULE : "";/, "闭群那一支还是空串");
-  assert.match(hint, /先把这一句想清楚，再写 TA 说出口的那句/);
-  assert.match(hint, /不从「这种人设一般怎么说话」里长出来/, "没说清心声是拿来干嘛的");
+  // 她 2026-10-24 删了「先想后说」：跟单聊同一份；一个人一轮挂一条，不再一条气泡一句
+  assert.doesNotMatch(bare(hint), /先把这一句想清楚/);
+  assert.match(hint, /一个人这一轮只挂一条心声/);
   assert.match(hint, /第一人称『我』必须就是该对象 name 指定的成员本人/, "视角那道闸没跟过来");
   assert.match(hint, /心声只留在这个群里，不会带回别处/);
 });
@@ -28,7 +29,7 @@ test("闭群也要心声：先想后说", () => {
 test("输出栏：闭群人人可写 thought；mood／wearing 仍只给配角", () => {
   assert.ok(fieldAt > 0, "抠不出 thoughtField");
   const closed = bare(field.slice(field.indexOf(": \",\\\"thought\\\"")));
-  assert.match(closed, /\\"thought\\":\\"（可选）没说出口的心声\\"/, "闭群的 thought 还写着「只有配角填」");
+  assert.match(closed, /\\"thought\\":\\"（这个人这一轮最后一条消息上挂一条）没说出口的心声/, "闭群的 thought 还写着「只有配角填」");
   assert.match(closed, /\\"mood\\":\\"（只有配角填）/, "mood 也放给主角色了 —— 那是往主线状态卡写的");
   assert.match(closed, /\\"wearing\\":\\"（只有配角填）/);
 });

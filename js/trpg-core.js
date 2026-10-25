@@ -49,7 +49,7 @@
     const seen = {};
     const regions = (Array.isArray(raw) ? raw : []).map(r => {
       if (!r || typeof r !== "object") return null;
-      const name = String(r.name || "").trim().slice(0, 8);
+      const name = String(r.name || "").trim().slice(0, 16); // 跟改名那一处同长（原来 8：改名能存 16 个字，这里一截，图上的名字就跟存的对不上，再改就找不到它了）
       if (!name || seen[name]) return null;
       seen[name] = 1;
       const nseen = {};

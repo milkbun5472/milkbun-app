@@ -12,5 +12,5 @@ test("聊天协议识别兼容大小写、弯引号与中文冒号", () => {
 
 test("双重编码与误塞进 word 的协议不会显示成气泡", () => {
   assert.match(app, /typeof parsed === "string"[\s\S]{0,100}extractJSON\(parsed\)/);
-  assert.match(app, /words = words\.filter\(w => !protocolFieldRe\.test\(String\(w\)\)\)/);
+  assert.match(app, /words = words\.filter\(w => !protocolFieldRe\.test\(String\(w\)\) && !jsonBitRe\.test\(String\(w\)\)\)/);
 });

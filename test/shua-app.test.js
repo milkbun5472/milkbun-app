@@ -121,7 +121,7 @@ test("23：横着看的系列/投币/充电/弹幕/楼中楼，竖着刷的同�
   assert.match(S, /function crowdSystem\(v, o\)/);
   assert.match(S, /const reply = \(v, cid, text, toName, emo\) =>/);   // 2026-10-15 回复也能带表情
   assert.match(S, /onSame: v\.by !== "me" \? \(\) => setPage\(\{ kind: "post", same: v \}\) : null/);
-  assert.match(S, /const genNpc = async city =>/);
+  assert.match(S, /const genNpc = async \(city, q\) =>/);
   // 刷新页的「刷几条路人的」在同城那一格刷的是这座城（v75.043），别处还是推荐
   assert.match(S, /onNpc: \(\) => genNpc\(feed === "city" && cities\.length \? cityNow : ""\)/);
 });

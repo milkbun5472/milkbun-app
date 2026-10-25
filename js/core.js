@@ -775,6 +775,8 @@ function decodeTextBytes(bytes) {
   } catch (_) { return dec("utf-8"); }
 }
 async function readTextFileSmart(file) {
+  // Word（.docx）也认：抽出里面的字（她 2026-10-25 群友问「导入的能不能加 txt、json、docx」）——凡是走这一处读文件的导入都一起会读
+  if (/\.docx$/i.test(String(file && file.name || "")) && typeof docxToText === "function") return await docxToText(await file.arrayBuffer());
   return decodeTextBytes(await file.arrayBuffer());
 }
 // ---- 读 zip 里的文件（epub 用；docx 走 mammoth 那一份）----
@@ -984,21 +986,26 @@ if (typeof module !== "undefined" && module.exports) {
   const clear = c => !c || /transparent|rgba\(\s*0,\s*0,\s*0,\s*0\s*\)/.test(c);
   const restore = () => { if (!was) return; under.forEach((x, i) => { x.style.backgroundColor = was[i]; }); was = null; };
   document.addEventListener("focusin", e => {
+    // iframe 也算：HTML 小卡、心声卡这些框里的输入框，焦点在外面看到的就是那个 iframe
     const t = e.target, tag = t && (t.tagName || "").toLowerCase();
-    if (!(tag === "input" || tag === "textarea" || (t && t.isContentEditable))) return;
+    if (!(tag === "input" || tag === "textarea" || tag === "iframe" || (t && t.isContentEditable))) return;
     if (was || !window.getComputedStyle || !document.elementFromPoint) return;
     const root = document.documentElement;
     if (root.style.backgroundColor) return;
-    let n = document.elementFromPoint(Math.round(window.innerWidth / 2), Math.max(0, window.innerHeight - 2)), c = "";
+    // 量的是这一页自己的底：浮在上面的东西（秋秋小球、唱片、悬浮旋钮、弹出的提示）拖到底边中间时别量到它们身上
+    const inFixed = el => { for (let x = el; x && x !== document.body; x = x.parentElement) { if (getComputedStyle(x).position === "fixed") return true; } return false; };
+    const stack = document.elementsFromPoint ? document.elementsFromPoint(Math.round(window.innerWidth / 2), Math.max(0, window.innerHeight - 2)) : [document.elementFromPoint(Math.round(window.innerWidth / 2), Math.max(0, window.innerHeight - 2))];
+    let n = stack.find(el => el && !inFixed(el)) || stack[0], c = "";
     for (let k = 0; n && k < 40 && !c; k++, n = n.parentElement) { const bg = getComputedStyle(n).backgroundColor; if (!clear(bg)) c = bg; }
     if (!c) return;
-    under = [root, document.body, document.getElementById("root")].filter(Boolean);
+    // 漏出来的那条往往不是 html，是 App 外壳 [data-wk="app"] 自己的主题底色（群友 2026-10-23「哪个界面都是这样」）——一起刷
+    under = [root, document.body, document.getElementById("root"), document.querySelector('[data-wk="app"]')].filter(Boolean);
     was = under.map(x => x.style.backgroundColor);
     under.forEach(x => { x.style.backgroundColor = c; });
   });
   document.addEventListener("focusout", () => setTimeout(() => {
     const a = document.activeElement, tag = a && (a.tagName || "").toLowerCase();
-    if (tag === "input" || tag === "textarea" || (a && a.isContentEditable)) return;
+    if (tag === "input" || tag === "textarea" || tag === "iframe" || (a && a.isContentEditable)) return;
     restore();
   }, 400));
 })();

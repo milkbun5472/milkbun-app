@@ -591,11 +591,20 @@ function forumPhotoOf(x) {
   if (who) out.who = who;
   return out;
 }
+// 小红书笔记的第二张起（她 2026-10-24「多图左右滑」）：只有字，挂在 morePhotos 上；第一张照旧是 photo（封面）
+//   模型刚吐出来的是一串字，落盘后是 [{ desc }]，两种都认
+function forumMorePhotos(x) {
+  const a = x && x.morePhotos;
+  return Array.isArray(a) ? a.map(v => String((typeof v === "string" ? v : v && v.desc) || "").trim().slice(0, 300)).filter(Boolean).slice(0, 8).map(desc => ({ desc })) : [];
+}
 function forumWithPhoto(text, x) {
   const p = forumPhotoOf(x);
   const s = String(text || "");
   if (!p) return s;
-  const line = "〔配图：" + (p.desc || "一张照片，没写说明") + "〕";
+  const more = forumMorePhotos(x);
+  const line = more.length
+    ? [p].concat(more).map((q, i) => "〔第" + (i + 1) + "张图：" + (q.desc || "一张照片，没写说明") + "〕").join(" ")
+    : "〔配图：" + (p.desc || "一张照片，没写说明") + "〕";
   return s ? s + " " + line : line;
 }
 // 已有楼层喂给模型时【整段原文】：每层楼全文＋它下面每条楼中楼（谁、回谁、说了什么），不截字、不截条。
@@ -604,10 +613,20 @@ function forumWithPhoto(text, x) {
 //   病根不在「编」：继续刷楼时每层楼只给前 60 个字、只给最后 14 层、楼中楼一条不给，
 //   模型照着半句话接，只能猜。「只针对楼里已有的话回应」那条一直在，它只是看不全那句话。
 // ⚠️凡是把已有楼层递给模型的地方都走这一处（施工规则/one-public-mechanism.md）。
+// 每条前面挂一个〔今天14:32〕／〔10/16 21:05〕（她 2026-10-23「论坛是不是没有时间戳，我回复上个星期的帖子他还会当成最近」）
+const forumStamp = ts => (Number(ts) > 0 && typeof fmtStampAI === "function") ? "〔" + fmtStampAI(Number(ts)) + "〕" : "";
+// 这帖是什么时候的、现在几点：回旧帖、刷旧楼时照真实隔了多久说，别当成刚发生的
+function forumTimeLine(post) {
+  const ts = Number(post && post.ts) || 0;
+  if (!ts || typeof fmtStampAI !== "function") return "";
+  const days = Math.floor((Date.now() - ts) / 86400000);
+  const ago = days >= 1 ? "，已经是 " + days + " 天前的帖了" : "";
+  return "【时间】这帖发于〔" + fmtStampAI(ts) + "〕" + ago + "；现在是〔" + fmtStampAI(Date.now()) + "〕。楼里每条前面〔〕里是它发出来的时间——隔了多久就照多久来，旧帖里的事是那时候的事，别当成刚发生的。\n";
+}
 function forumFloorTranscript(floors) {
   return (floors || []).filter(Boolean).map(f => {
-    const head = (f.floor != null ? f.floor + "楼 " : "") + (f.isOp ? "【楼主】" : "") + (f.authorName || "某人") + "：" + forumWithPhoto(f.content, f).replace(/\s+/g, " ");
-    const subs = (f.replies || []).filter(r => r && r.content).map(r => "  └ " + (r.isOp ? "【楼主】" : "") + (r.authorName || "某人") + (r.toName ? " 回 " + r.toName : "") + "：" + forumWithPhoto(r.content, r).replace(/\s+/g, " "));
+    const head = forumStamp(f.ts || f.visibleAt) + (f.floor != null ? f.floor + "楼 " : "") + (f.isOp ? "【楼主】" : "") + (f.authorName || "某人") + "：" + forumWithPhoto(f.content, f).replace(/\s+/g, " ");
+    const subs = (f.replies || []).filter(r => r && r.content).map(r => "  └ " + forumStamp(r.ts) + (r.isOp ? "【楼主】" : "") + (r.authorName || "某人") + (r.toName ? " 回 " + r.toName : "") + "：" + forumWithPhoto(r.content, r).replace(/\s+/g, " "));
     return [head].concat(subs).join("\n");
   }).join("\n");
 }
@@ -1833,7 +1852,7 @@ function GridCells({ photo, rows, cols, onSharpen, sharpBusy }) {
       if (alive) setCells(out);
     })();
     return () => { alive = false; if (obj) URL.revokeObjectURL(obj); };
-  }, [photo && (photo.imgKey || photo.imgUrl), rows, cols]);
+  }, [photo && (photo.imgKey || photo.imgUrl), photo && photo.ts, rows, cols]);   // ts：同一把键重拍了也要重切
   if (!cells.length) return null;
   return h("div", { "data-wk": "gridcells", style: { marginTop: 12 } },
     h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginBottom: 6 } }, "点一格单独放大"),
@@ -1861,7 +1880,9 @@ function AlbumPhoto({ photo, full, cover }) {
       idbImgGet(photo.imgKey).then(b => { if (!alive) return; if (b && b.size) { obj = URL.createObjectURL(b); setUrl(obj); } }).catch(() => {});
     }
     return () => { alive = false; if (obj) URL.revokeObjectURL(obj); };
-  }, [photo && photo.imgKey]);
+    // ts 也算（她 2026-10-24「日记照片刷新后要退出重进才能刷出新照片」）：重拍时图库里那把键不变、只是换了图，
+    //   只看键就不会重读，一直摆着旧的那张
+  }, [photo && photo.imgKey, photo && photo.ts]);
   const src = url || (photo && photo.imgUrl) || null;
   const desc = photo && String(photo.scene || photo.desc || "").slice(0, 300) || null;
   // 拍立得还在显影（她 2026-10-13）：一律先是一张灰白相纸，到点才显出来；长按甩一甩马上显影。
@@ -5831,6 +5852,7 @@ function PhotoStudio({ partner, myCloset, charCloset, shots, busy, fitBusy, canS
   const [theirs, setTheirs] = useState([]);
   const [big, setBig] = useState(null);
   const [grid, setGrid] = useState(false);   // 这一张拍成四宫格大头贴
+  const [shotSize, setShotSize] = useState(() => loadJSON("x_studioSize", ""));   // 这一张画多大（她 2026-10-25 群友问）：空＝跟设置里生图那个尺寸
   const [polaroid, setPolaroid] = useState(false);   // 拍立得：白边相框＋他写一行，两小时后才显影（她 2026-10-13）
   const [expand, setExpand] = useState(() => !!loadJSON("x_studioExpand", false));   // 场景加成开关：记住上次怎么选的
   const [theme, setTheme] = useState("");    // 平行时空题材／封面／海报（她 2026-10-12）
@@ -6034,6 +6056,10 @@ function PhotoStudio({ partner, myCloset, charCloset, shots, busy, fitBusy, canS
                 style: { borderRadius: 10, padding: "8px 0", whiteSpace: "nowrap", background: grid ? "#6d4d8f" : "transparent", color: grid ? "#fff" : t.sub, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))" } }, "四宫格"),
               h("button", { "data-wk": "studiopolaroid", "data-on": polaroid ? "1" : "0", onClick: () => { setPolaroid(true); setGrid(false); }, className: "flex-1 active:opacity-70",
                 style: { borderRadius: 10, padding: "8px 0", whiteSpace: "nowrap", background: polaroid ? "#6d4d8f" : "transparent", color: polaroid ? "#fff" : t.sub, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))" } }, "拍立得")),
+            !grid ? h("div", { "data-wk": "studiosize", className: "flex items-center", style: { gap: 6, marginTop: 10 } },
+              h("span", { className: "shrink-0", style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: "#8a76a0" } }, "尺寸"),
+              [["", "跟设置"], ["1024x1536", "竖"], ["1024x1024", "方"], ["1536x1024", "横"]].map(([v, zh]) => h("button", { key: v || "_def", "data-on": shotSize === v ? "1" : "0", onClick: () => { setShotSize(v); saveJSON("x_studioSize", v); }, className: "flex-1 active:opacity-70",
+                style: { padding: "5px 0", borderRadius: 999, whiteSpace: "nowrap", border: "1px solid " + (shotSize === v ? "#6d4d8f" : "#e2d9ea"), background: shotSize === v ? "#6d4d8f" : "#fff", color: shotSize === v ? "#fff" : "#8a76a0", fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))" } }, zh))) : null,
             h("button", { "data-wk": "studioexpand", "data-on": expand ? "1" : "0", onClick: () => { const v = !expand; setExpand(v); saveJSON("x_studioExpand", v); }, className: "w-full flex items-center gap-2 active:opacity-70",
                 style: { marginTop: 10, padding: "8px 2px", textAlign: "left", background: "transparent" } },
               h("span", { style: { width: 16, height: 16, borderRadius: 5, flexShrink: 0, border: "1.5px solid " + (expand ? "#6d4d8f" : "#cbbfd8"), background: expand ? "#6d4d8f" : "transparent", color: "#fff", fontSize: "calc(11px * var(--app-fs, 1))", lineHeight: "13px", textAlign: "center" } }, expand ? "✓" : ""),
@@ -6042,7 +6068,7 @@ function PhotoStudio({ partner, myCloset, charCloset, shots, busy, fitBusy, canS
             h("div", { className: "flex gap-2", style: { marginTop: 10 } },
               h("button", { onClick: () => onGenFit(scene), disabled: !!fitBusy, className: "active:opacity-70 shrink-0", style: { borderRadius: 13, padding: "11px 14px", whiteSpace: "nowrap", border: "1px solid " + t.line, background: "transparent", color: t.sub, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))" } },
                 fitBusy ? "配着…" : characterText(partner, "让他配一对")),
-              h("button", { onClick: () => onShoot({ scene, mine: mine.join("、"), theirs: theirs.join("、"), grid, theme, polaroid, paint, expand }), disabled: !!busy || !(scene.trim() || theme || polaroid || grid), className: "flex-1 active:opacity-70", style: { borderRadius: 13, padding: "11px 0", whiteSpace: "nowrap", background: (busy || !(scene.trim() || theme || polaroid || grid)) ? "#e0d6e8" : "#6d4d8f", color: (busy || !(scene.trim() || theme || polaroid || grid)) ? "#a897b4" : "#fff", fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))" } },
+              h("button", { onClick: () => onShoot({ scene, mine: mine.join("、"), theirs: theirs.join("、"), grid, theme, polaroid, paint, expand, ...(shotSize && !grid ? { size: shotSize } : {}) }), disabled: !!busy || !(scene.trim() || theme || polaroid || grid), className: "flex-1 active:opacity-70", style: { borderRadius: 13, padding: "11px 0", whiteSpace: "nowrap", background: (busy || !(scene.trim() || theme || polaroid || grid)) ? "#e0d6e8" : "#6d4d8f", color: (busy || !(scene.trim() || theme || polaroid || grid)) ? "#a897b4" : "#fff", fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))" } },
                 busy ? "在拍了…" : grid ? "拍一张四宫格" : polaroid ? "咔嚓" : "拍一张")),
             !canShoot ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: "#a0708a", marginTop: 9, lineHeight: 1.6 } },
               "合照要你俩都设了参考照才锁得住脸——去人格档案馆和「我」那边各传一张；图像 API 也要在设置里配好。") : null),

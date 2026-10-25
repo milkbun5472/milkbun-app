@@ -97,8 +97,11 @@ test("哑弹修好了：七个游戏引擎真的拿得到 keepGameMemory", () =>
   const ep = games.slice(i, games.indexOf("\n      if (session.game.key ===", i));
   // ⚠️行首锚死：不锚的话把它改名成 _keepGameMemory 也照样匹配得上
   //   （变异测试里它活下来过——而「名字对得上、其实没接上」正是这一版要修的那个病）。
-  assert.match(ep, /\n\s*keepGameMemory: function \(ids, text\)/, "engineProps 里还是没有它＝七桌那颗键全是空按");
-  assert.match(ep, /\(session\.config && session\.config\.room\) \|\| session\.room \|\| null/, "没把这一局是在哪间房打的递下去");
+  // 现在那扇门抽成了 keepMem（带房间），约会那盒和七桌共用
+  assert.match(ep, /\n\s*keepGameMemory: keepMem,/, "engineProps 里还是没有它＝七桌那颗键全是空按");
+  // 房间那一截在 keepMem 里（engineProps 上面那几行），不在 engineProps 这一段里
+  const km = games.slice(games.indexOf("const keepMem = function (ids, text) {"), i);
+  assert.match(km, /\(session\.config && session\.config\.room\) \|\| session\.room \|\| null/, "没把这一局是在哪间房打的递下去");
 });
 
 test("这一局是从哪间房邀出来的：自己从架上挑的一律算主线", () => {

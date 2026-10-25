@@ -79,8 +79,11 @@ test("没抄的那两样：自检清单和正面例句", () => {
 
 // 「加了没用」和「压根没发」看起来一模一样（bans-make-it-dumber ②）
 test("三处都发到了，跟 SEE_THROUGH 同进同出", () => {
-  const push = (src, n) => (src.match(new RegExp("push\\(" + n + "\\)", "g")) || []).length;
-  assert.equal(push(eng, "SEE_THROUGH_BAN"), push(eng, "LEVERAGE_BAN"), "engine 里两条的发送处数量对不上");
-  assert.ok(fic.includes("parts.push(LEVERAGE_BAN)"), "同人文那一处没发");
-  assert.ok(push(eng, "LEVERAGE_BAN") >= 2, "engine 里少发了一处");
+  // 2026-10-26 talkBans 合并：「同进同出」＝两条都在 talkBans 那张唯一清单里、都不带条件；
+  //   发送处＝调用 talkBans 的地方（groupBans / narrativeCore / buildBundle + 同人文）。
+  const tb = eng.slice(eng.indexOf("function talkBans(o)"), eng.indexOf("function groupBans(opts)"));
+  assert.match(tb, /SEE_THROUGH_BAN, LEVERAGE_BAN,/, "talkBans 里两条没挨着");
+  assert.ok(!/push\((SEE_THROUGH|LEVERAGE)_BAN\)/.test(eng), "又有一处绕过 talkBans 单独 push");
+  assert.ok(fic.includes("talkBans().forEach(x => parts.push(x))"), "同人文那一处没发");
+  assert.ok((eng.match(/talkBans\(\{[^}]*\}\)\.forEach/g) || []).length >= 3, "engine 里少发了一处");
 });

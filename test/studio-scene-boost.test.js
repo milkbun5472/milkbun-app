@@ -12,6 +12,6 @@ test("照相馆场景加成：开关开着才写画面、带地点和场景图�
   assert.match(f, /RESTYLE_LINE \+ sceneShot \+/);
   assert.match(f, /if \(wRefS && !firstRef\) refs\.push\(wRefS\.img\);/);
   assert.match(f, /maxTokens: 65000/);
-  assert.match(scr, /paint, expand \}\)/);
+  assert.match(scr, /paint, expand(, \.\.\.\(shotSize[^}]*\}[^}]*\}\))? \}\)/);
   assert.match(scr, /saveJSON\("x_studioExpand", v\)/);
 });

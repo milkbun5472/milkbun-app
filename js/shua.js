@@ -221,7 +221,8 @@
   }
 
   // ── 刷新那一页：两颗，跟论坛一样 ────────────────────────
-  function RefreshPage({ characters, busy, prog, onNpc, npcCity, onChars, onHot, hotDay, realFriends, onRealFriends, onBack, t, P }) {
+  function RefreshPage({ characters, busy, prog, onNpc, onSearch, npcCity, onChars, onHot, hotDay, realFriends, onRealFriends, onBack, t, P }) {
+    const [q, setQ] = useState("");
     const [pick, setPick] = useState(characters.slice(0, 3).map(c => c.id));
     const toggle = id => setPick(p => p.indexOf(id) >= 0 ? p.filter(x => x !== id) : p.concat([id]).slice(0, PICK_MAX));
     // ⚠️按不了的时候字色跟着皮走（2026-10-07 群友截图：横着看那套底是白的，白字压白底，「正在刷…」整个看不见，像卡死了）
@@ -230,6 +231,9 @@
     return h("div", { "data-wk": "shuarefresh", className: "h-full flex flex-col", style: { background: "radial-gradient(120% 60% at 50% -10%," + P.glow + ",rgba(0,0,0,0) 60%)," + P.bg } },
       h(Head, { zh: "刷新", bg: "transparent", ink: P.ink, onBack: onBack }),
       h("div", { className: "flex-1 min-h-0 overflow-y-auto px-5", style: { paddingBottom: 30 } },
+        onSearch ? h("form", { "data-wk": "shuasearch", onSubmit: e => { e.preventDefault(); if (q.trim() && busy !== "npc") onSearch(q.trim()); }, className: "flex items-center", style: { gap: 8, marginTop: 8 } },
+          h("input", { value: q, onChange: e => setQ(e.target.value), placeholder: "搜点什么：想刷到哪类视频", maxLength: 30, style: { flex: 1, minWidth: 0, minHeight: 44, padding: "0 14px", borderRadius: 999, border: "1px solid " + P.line, background: "rgba(255,255,255,.08)", color: P.ink, fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", outline: "none" } }),
+          h("button", { type: "submit", disabled: !q.trim() || busy === "npc", className: "active:opacity-70", style: { minHeight: 44, padding: "0 18px", borderRadius: 999, background: P.accent, color: "#fff", fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", opacity: !q.trim() || busy === "npc" ? .5 : 1 } }, busy === "npc" ? "搜着…" : "搜")) : null,
         h("div", { style: { marginTop: 8 } }, big(busy === "npc" ? "正在刷…" : npcCity ? "刷几条「" + npcCity + "」的路人" : "刷几条路人的", (npcCity ? "住在「" + npcCity + "」的博主，刷完进同城" : "推荐流里互不认识的博主") + "，一次 " + NPC_BATCH + " 条（花一次调用）", onNpc, busy === "npc" || busy === "chars")),
         h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: P.dim, margin: "22px 0 10px" } }, "请谁发（每人一条，最多 " + PICK_MAX + " 个）"),
         h("div", { className: "flex flex-wrap", style: { gap: 12 } }, characters.map(c => {
@@ -543,6 +547,9 @@
         const realFr = !!(dbRef.current.me && dbRef.current.me.realFriends);
         // 横着看那套：TA号上已有的系列，和最近几条底下有人发过的弹幕（她发的也在里面，TA不知道是谁）
         let extra = "";
+        // 自己最近发过的几条（她 2026-10-26 去重）：同一个画面、同一句文案别再发一遍
+        const mineAll = dbRef.current.videos.filter(x => x.by === "char" && x.charId === c.id).slice(0, 8);
+        if (mineAll.length) extra += "\n【你最近已经发过的】下面这些已经发过了，别再拍同一个画面、配同一句文案，换个说法也算发过：\n" + mineAll.map(x => "· " + S(x.scene).slice(0, 40) + (S(x.caption) ? "｜" + S(x.caption).slice(0, 30) : "")).join("\n");
         if (sk === "b") {
           const mineB = dbRef.current.videos.filter(x => x.by === "char" && x.charId === c.id && vidSkin(x) === "b");
           const ser = {}; mineB.forEach(x => { if (x.series && !ser[x.series]) ser[x.series] = x; });
@@ -555,6 +562,7 @@
         return props.probeAs(c, charInstruction(acc.handle, sk, realFr ? [] : friends, acc, hotToday(), extra) + (toCp[c.id] ? cpPostLine(c, toCp[c.id], candid[c.id], opts.anniv) : ""), toCp[c.id] ? shapeChar(sk, !realFr && friends.length > 0, newAcc).replace(/\}$/, ',"cpEdit":{"handle":"","bio":""}}') : shapeChar(sk, !realFr && friends.length > 0, newAcc), { timeout: 180000 }).catch(() => null).then(d => {   // 等 3 分钟、到点真掐断（原来在外面赛跑，赛输了请求还在跑）
           done++; setProg(done + "/" + pick.length);
           if (!d || !S(d.scene)) { failed.push(c.name); return; }
+          // 跟TA发过的字面差不多：这条就当没发
           const accounts = Object.assign({}, dbRef.current.accounts);
           const handle = S((accounts[c.id] || {}).handle) || S(d.handle).slice(0, 20) || c.name;
           const prevAcc = accounts[c.id] || {};
@@ -614,18 +622,27 @@
     };
     // 刷几条路人的：一枪写完
     // city：同城那一格刷的（她 2026-10-07 选的第 3 条）——这批博主都在这座城里
-    const genNpc = async city => {
+    // q：搜一个词（她 2026-10-24「抖音 b 站能不能加个搜索，指定刷出啥」）——搜出来的都是路人博主的视频，
+    //   刷完首页只看沾这个词的（跟点热门话题同一个筛法，上面挂一颗「搜：词 ✕」可以放开）
+    // 首页顶上那颗「搜」（她 2026-10-24「我的片刻在哪搜索啊」：原来只藏在刷新页里）
+    const askSearch = () => { if (typeof requestAppPrompt !== "function" || !props.ask) return;
+      requestAppPrompt("搜点什么", "写一个词，刷一页跟它有关的路人视频；首页只看沾这个词的，顶上点一下放开。", "", q => { q = S(q).trim(); if (q) genNpc(null, q); }, "搜", { maxLength: 30 }); };
+    const genNpc = async (city, q) => {
       const sk = skin;
+      q = S(q).slice(0, 30);
       setBusy("npc");
       try {
         const d = await props.ask(npcSystem(uName, String((profile && profile.persona) || "").slice(0, 600), NPC_BATCH, sk, hotToday(), regsText())
           + (city ? "\n这一批是「同城」：这几个博主都住在「" + city + "」，拍的东西跟这座城有关或者就发生在这座城里；城里是什么样子从你知道的这个地方长出来。"
-            + (props.cityNote ? props.cityNote(city) : "") : ""), shapeNpc(sk));
-        const vids = arr(d && d.videos).filter(x => x && S(x.scene) && S(x.author)).map(x => mkVideo(x, Object.assign({ by: "npc", author: S(x.author).slice(0, 20), skin: sk }, city ? { city } : {}, regOf(x.author) ? { reg: regOf(x.author) } : {})));
-        if (!vids.length) { toast("这一批没刷出来，再点一次"); return; }
+            + (props.cityNote ? props.cityNote(city) : "") : "")
+          + (q ? "\n这一批是「搜索结果」：有人在搜「" + q + "」，这几条都是跟「" + q + "」有关的视频——拍法、角度、口气各不一样，就像真在平台上搜出来的一页。每一条都得正面就是这个词说的那件事，点进来的人一眼认得出「对，我搜的就是这个」；不许借字面绕去别的行当（康复、健身、画画、考据那种），也不许用谐音、双关、误会来交差。尺度跟着这个词走，该多大就多大，不要含糊其辞。" : ""), shapeNpc(sk));
+        const vids = arr(d && d.videos).filter(x => x && S(x.scene) && S(x.author)).map(x => mkVideo(x, Object.assign({ by: "npc", author: S(x.author).slice(0, 20), skin: sk }, city ? { city } : {}, regOf(x.author) ? { reg: regOf(x.author) } : {})))
+          .map(v => q ? Object.assign({}, v, { tags: arr(v.tags).concat([q]), q }) : v);
+        if (!vids.length) { toast(q ? "这一批没刷出来：模型可能不肯写这个词，换个说法或者换个宽松的后台模型" : "这一批没刷出来，再点一次"); return; }
         addVideos(vids); setPage(null); setTab("home"); setFeed(city ? "city" : "rec");
+        if (q) setTopic(q);
         posRef.current = {}; if (feedRef.current) feedRef.current.scrollTop = 0;
-      } catch (e) { toast("没刷出来：" + ((e && e.message) || "再试一次")); }
+      } catch (e) { toast(q ? "没刷出来：模型可能不肯写这个词，换个说法，或者换个宽松的后台模型" : "没刷出来：" + ((e && e.message) || "再试一次")); }
       finally { setBusy(null); }
     };
     // 她评论 / 回楼：都走 crowd（上面那一串）。回复一条一条冒出来，隔一两秒一条，像真有人陆续在回（节奏同论坛）
@@ -866,7 +883,9 @@
     // ⚠️关注只放你的人发的，推荐只放路人（她 2026-10-07：「关注和推荐看到的都是一样的」——原来推荐是全部，只刷过你的人时两边一模一样）
     const hot = db.hot && db.hot.day === todayKey() ? arr(db.hot.topics) : [];
     // 热门那一条：横着一排，点一个只看沾这个话题的，再点一下放开
-    const hotStrip = (ink, dim, bg) => hot.length ? h("div", { "data-wk": "shuahot", className: "flex items-center", style: { gap: 8, overflowX: "auto", maxWidth: "100%", padding: "4px 12px 6px", whiteSpace: "nowrap", background: bg, touchAction: "pan-x", overscrollBehaviorX: "contain" } },
+    const hotStrip = (ink, dim, bg) => topic && !hot.some(x => x.title === topic) ? h("div", { "data-wk": "shuasearchchip", className: "flex items-center", style: { gap: 8, padding: "4px 12px 6px", background: bg } },
+        h("button", { onClick: () => setTopic(""), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: P.accent, fontWeight: 700, minHeight: 28, textShadow: skin === "v" ? "0 1px 3px rgba(0,0,0,.6)" : "none" } }, "搜：" + topic + "  ✕"))
+      : hot.length ? h("div", { "data-wk": "shuahot", className: "flex items-center", style: { gap: 8, overflowX: "auto", maxWidth: "100%", padding: "4px 12px 6px", whiteSpace: "nowrap", background: bg, touchAction: "pan-x", overscrollBehaviorX: "contain" } },
       h("span", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: P.accent, flexShrink: 0 } }, "热门"),
       hot.map(x => h("button", { "data-wk": "shuahotchip", "data-on": topic === x.title ? "1" : "0", key: x.title, onClick: () => setTopic(t2 => t2 === x.title ? "" : x.title), className: "active:opacity-60 shrink-0",
         style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: topic === x.title ? P.accent : ink, fontWeight: topic === x.title ? 700 : 400, minHeight: 28, textShadow: skin === "v" ? "0 1px 3px rgba(0,0,0,.6)" : "none" } }, "#" + x.title))) : null;
@@ -949,7 +968,7 @@
             h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: P.ink, marginTop: 4, maxWidth: "100%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, c.remark || c.name))))));
     }
     if (page && page.kind === "refresh") return h(RefreshPage, { characters, t, P, busy, prog,
-      realFriends: !!(db.me && db.me.realFriends), onRealFriends: () => save(Object.assign({}, dbRef.current, { me: Object.assign({}, dbRef.current.me, { realFriends: !(dbRef.current.me && dbRef.current.me.realFriends) }) })), onHot: props.ask ? genHot : null, hotDay: hot.length > 0, onNpc: () => genNpc(feed === "city" && cities.length ? cityNow : ""), npcCity: feed === "city" && cities.length ? cityNow : "", onChars: genChars, onBack: () => setPage(null) });
+      realFriends: !!(db.me && db.me.realFriends), onRealFriends: () => save(Object.assign({}, dbRef.current, { me: Object.assign({}, dbRef.current.me, { realFriends: !(dbRef.current.me && dbRef.current.me.realFriends) }) })), onHot: props.ask ? genHot : null, hotDay: hot.length > 0, onSearch: props.ask ? (q => genNpc(null, q)) : null, onNpc: () => genNpc(feed === "city" && cities.length ? cityNow : ""), npcCity: feed === "city" && cities.length ? cityNow : "", onChars: genChars, onBack: () => setPage(null) });
     if (page && page.kind === "cpchal") return h(CpChallengePage, { P, cName: (charOf(cpId) || {}).name || "TA", busy: busy === "chal" || busy === "post", onGo: playChallenge, onBack: () => setPage(null) });
     if (page && page.kind === "post") return h(PostPage, { P, skin, characters, onAlt: onAlt || onCp, same: page.same || null, busy: busy === "post", onPost: postMine, onLive: () => { setPage(null); setLiveStart("setup:host"); setTab("live"); }, onBack: () => setPage(null) });
 
@@ -999,7 +1018,7 @@
       h(Head, { zh: "我的作品", bg: "transparent", ink: P.ink, onBack: () => setPage(null) }),
       skin === "b" ? gridView(mine, null) : feedView(mine, null)));
 
-    const feedTabs = (ink, dim, bar) => [["follow", "关注"], ["rec", "推荐"]].concat(cities.length ? [["city", "同城"]] : []).map(f => h("button", { "data-wk": "shuafeedtab", "data-on": feed === f[0] ? "1" : "0", key: f[0], onClick: () => setFeed(f[0]), className: "active:opacity-60 flex flex-col items-center", style: { minHeight: 36 } },
+    const feedTabs = (ink, dim, bar) => [["follow", "关注"], ["rec", "推荐"]].concat(cities.length ? [["city", "同城"]] : []).map(f => h("button", { "data-wk": "shuafeedtab", "data-on": feed === f[0] ? "1" : "0", key: f[0], onClick: () => setFeed(f[0]), className: "active:opacity-60 flex flex-col items-center", style: { minHeight: 36, whiteSpace: "nowrap", flexShrink: 0 } },
       h("span", { style: { fontFamily: F_BODY, fontSize: "calc(16px * var(--app-fs, 1))", color: feed === f[0] ? ink : dim, fontWeight: feed === f[0] ? 700 : 400, textShadow: skin === "v" ? "0 1px 3px rgba(0,0,0,.5)" : "none" } }, f[1]),
       h("span", { style: { width: 18, height: 2.5, borderRadius: 2, marginTop: 4, background: feed === f[0] ? bar : "transparent" } })));
     // 让 TA 给情侣号起名、写简介：走TA自己那份完整上下文（人设、记忆、你俩的梗），一次调用
@@ -1061,14 +1080,16 @@
         h("div", { className: "flex flex-col items-center", style: { maxWidth: "calc(100% - 120px)", minWidth: 0 } }, h("div", { className: "flex items-center", style: { gap: 26 } }, feedTabs(INK, DIM, INK)), feed === "city" ? h("div", { className: "flex items-center", style: { gap: 10, overflowX: "auto", maxWidth: "100%", padding: "4px 12px 6px", whiteSpace: "nowrap", touchAction: "pan-x", overscrollBehaviorX: "contain", WebkitOverflowScrolling: "touch" } },
           cities.map(c => h("button", { "data-wk": "shuacity", "data-on": c === cityNow ? "1" : "0", key: c, onClick: () => setCityPick(c), className: "active:opacity-60 shrink-0", style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: c === cityNow ? RED : INK, fontWeight: c === cityNow ? 700 : 400, minHeight: 28, textShadow: "0 1px 3px rgba(0,0,0,.6)" } }, c))) : hotStrip(INK, DIM, "transparent")),
         // 同城那一格，右上角「刷新」就是刷这座城（她 2026-10-07：「刷新一下这座城的跟刷新是不是重复了」）
-        h("button", { "data-wk": "shuarefreshbtn", onClick: () => feed === "city" && cities.length ? genNpc(cityNow) : setPage({ kind: "refresh" }), disabled: busy === "npc", className: "active:opacity-60", style: { position: "absolute", right: 12, bottom: 6, minHeight: 32, padding: "0 10px", borderRadius: 999, background: "rgba(0,0,0,.28)", color: INK, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))" } }, busy === "npc" && feed === "city" ? "刷着…" : "刷新")),
+        h("button", { "data-wk": "shuasearchbtn", "aria-label": "搜索", onClick: askSearch, disabled: busy === "npc", className: "active:opacity-60", style: { position: "absolute", right: 62, top: safeTop(10), minHeight: 32, minWidth: 32, padding: "0 8px", borderRadius: 999, background: "rgba(0,0,0,.28)", color: INK, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))" } }, busy === "npc" ? "…" : "🔍"),
+        h("button", { "data-wk": "shuarefreshbtn", onClick: () => feed === "city" && cities.length ? genNpc(cityNow) : setPage({ kind: "refresh" }), disabled: busy === "npc", className: "active:opacity-60", style: { position: "absolute", right: 12, top: safeTop(10), minHeight: 32, padding: "0 10px", borderRadius: 999, background: "rgba(0,0,0,.28)", color: INK, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))" } }, busy === "npc" && feed === "city" ? "刷着…" : "刷新")),
       feedView(list, emptyFeed));
     else if (tab === "home") body = h("div", { className: "flex-1 min-h-0 flex flex-col", style: { background: B.bg } },
       // 横屏那套的顶栏：白底，左边返回、中间关注推荐、右边刷新——不浮在画面上
       h("div", { "data-wk": "head", className: "shrink-0 flex items-center justify-center", style: { position: "relative", background: B.card, paddingTop: safeTop(6), paddingBottom: 4, gap: 26, borderBottom: "1px solid " + B.line } },
         props.onBack ? h("button", { onClick: props.onBack, "aria-label": "返回", className: "active:opacity-50", style: { position: "absolute", left: 8, bottom: 0, width: 40, height: 40 } }, h(IArrow, { size: 20, color: B.ink })) : null,
         h("div", { className: "flex flex-col items-center", style: { maxWidth: "70%" } }, h("div", { className: "flex items-center", style: { gap: 26 } }, feedTabs(B.ink, B.dim, B.accent)), hotStrip(B.ink, B.dim, "transparent")),
-        h("button", { "data-wk": "shuarefreshbtn", onClick: () => setPage({ kind: "refresh" }), className: "active:opacity-60", style: { position: "absolute", right: 10, bottom: 4, minHeight: 32, padding: "0 12px", borderRadius: 999, background: B.bg, color: B.accent, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))" } }, "刷新")),
+        h("button", { "data-wk": "shuasearchbtn", "aria-label": "搜索", onClick: askSearch, disabled: busy === "npc", className: "active:opacity-60", style: { position: "absolute", right: 62, top: safeTop(8), minHeight: 32, minWidth: 32, padding: "0 8px", borderRadius: 999, background: B.bg, color: B.accent, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))" } }, busy === "npc" ? "…" : "🔍"),
+        h("button", { "data-wk": "shuarefreshbtn", onClick: () => setPage({ kind: "refresh" }), className: "active:opacity-60", style: { position: "absolute", right: 10, top: safeTop(8), minHeight: 32, padding: "0 12px", borderRadius: 999, background: B.bg, color: B.accent, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))" } }, "刷新")),
       gridView(list, emptyFeed));
     // ⚠️直播间里面是 h-full：外面这一格只给 flex-1 的话，Safari 里 h-full 量不出高度，直播间按内容往下长，
     //   底下的礼物面板和输入栏就被压到底栏「首页／直播／收藏」下面去了（她 2026-10-11：「点礼物然后点不了了因为被推下去了」）。

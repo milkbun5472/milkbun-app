@@ -128,6 +128,7 @@
         ? (LEGACY_PROMPTS.indexOf(String(d.prompt)) >= 0 ? DEFAULT_PROMPT : String(d.prompt))
         : DEFAULT_PROMPT,
       ballOn: d.ballOn !== false,
+      ballShape: d.ballShape || "auto",
       // 走哪条线路：空＝跟随全局（线上主模型），否则是某条线路的 id。
       // 形状照线下和后台那两处来（screens.js 的 routeBox）——这是第三处，
       // 不许自己另发明一套（一层写在三处，第三处没跟上，就是这个库最常犯的病）。
@@ -985,7 +986,7 @@
       + "  给那几页写 pagecolor 会【当场被拒并告诉你是哪一页】。被拒了就照实跟她说改不动，别换个法子硬试。\n"
       + "  真做不到的只有一样：精确改某一张卡片的形状、间距、圆角——**这种时候先说实话**，别硬出一份改不动的 CSS 糊弄过去。\n";
   }
-  const SHAPE = '{"reply":"给她看的话（中文）","patches":[{"target":"style|persona|appearance|profile|theme|pagecolor|bubble|memory|lore|rules|chatcss|chatlayout|offlinecss|groupcss|grouplayout|lookundo|undo|newchar|rel|npc","id":"要改的那一条的 id；style 留空=新建；lore 新建填 new；theme 填 global 或某一页的 key","field":"（只有 profile 用）要改哪一栏","title":"这条改动一句话叫什么","name":"（style 新建时是预设名；lore 是词条标题）","keyword":"（只有 lore 用，可选）触发关键词，逗号分开","always":"（只有 lore 用，可选）true＝常驻","bind":"（只有 lore 用，可选）绑给哪几个角色，名字或 id","find":"（改一小段时用）逐字抄下原文里要动的那一段","append":"（可选，true＝接在这一栏最后，用于 persona／appearance／profile 和美化 CSS 加新规则）","whole":"（可选，true＝美化 CSS 整份重做，只在她说整体重做时填）","text":"改一小段时＝换成这一段；不给 find 时＝改完的完整内容","why":"为什么这么改，一两句"}],"file":{"name":"（可选）文件名","text":"完整内容"},"code":"（可选）health / fish / mcp"}';
+  const SHAPE = '{"reply":"给她看的话（中文）","patches":[{"target":"style|persona|appearance|profile|theme|pagecolor|bubble|memory|lore|rules|chatcss|chatlayout|offlinecss|groupcss|grouplayout|lookundo|undo|newchar|rel|npc","id":"要改的那一条的 id；style 留空=新建；lore 新建填 new；theme 填 global 或某一页的 key","field":"（只有 profile 用）要改哪一栏","title":"这条改动一句话叫什么","name":"（style 新建时是预设名；lore 是词条标题）","keyword":"（只有 lore 用，可选）触发关键词，逗号分开","always":"（只有 lore 用，可选）true＝常驻","bind":"（只有 lore 用，可选）绑给哪几个角色，名字或 id","find":"（改一小段时用）逐字抄下原文里要动的那一段","append":"（可选，true＝接在这一栏最后，用于 persona／appearance／profile 和美化 CSS 加新规则）","whole":"（可选，true＝美化 CSS 整份重做，只在她说整体重做时填）","text":"改一小段时＝换成这一段；不给 find 时＝改完的完整内容","why":"为什么这么改，一两句"}],"file":{"name":"（可选）文件名","text":"完整内容"},"code":"（可选）health / fish / mcp","remember":["（可选）以后用得上的一句"],"forget":["（可选）上面那几条里要删的那一句原文"]}';
 
   // ---- 现状快照 + 手册：一份是「此刻长什么样」，一份是「这个世界有什么」----
   // extraIds：秋秋看了目录自己要翻的那几条（「翻一下」那一枪），连同字面挑中的一起给全文
@@ -1013,6 +1014,58 @@
       + (skip.length ? "\n\n（也沾边、这回没放全文的：" + skip.map(x => "[" + x.id + "] " + (x.zh || "")).join("、") + "——要用就 lookup）" : "");
   }
 
+  // ── 更新日志（她 2026-10-24「你这个也加上吧」）────────────────────────
+  //   设置里「新 · 更新了什么」那一份（js/changelog-data.js）。不是每问一句都带——四万多字——
+  //   只在她这句像在问「更新了啥 / 某样东西什么时候有的」时才带：最近五天全文，再加跟她这句最沾边的十几条（带日子）。
+  const CHANGELOG_ASK = /更新|新功能|新加|加了(什么|啥)|改了(什么|啥)|修了|修好|最近.{0,4}(加|改|修|多|出)|什么时候(有|加|上|出|开始)|哪天(有|加|上|出)|新版|版本/;
+  function changelogBlock(question) {
+    const list = Array.isArray(window.QQ_CHANGELOG) ? window.QQ_CHANGELOG : [];
+    if (!list.length || !CHANGELOG_ASK.test(String(question || ""))) return "";
+    const day = d => { const m = /^\d{4}-(\d{2})-(\d{2})$/.exec(d || ""); return m ? (+m[1]) + "月" + (+m[2]) + "日" : d; };
+    const recent = list.slice(0, 5).map(x => day(x.d) + "\n" + x.items.map(it => "· " + it).join("\n"));
+    // 跟她这句沾边的：按两个字一组的重合数挑（「照影」「片刻」「亲属卡」这种名字就靠它认），最近五天里已经有的不重复
+    const Q = memGrams(String(question || "").replace(/更新|什么时候|哪天|有的|加的|上的|了吗|没有/g, ""));
+    const hits = [];
+    //   她这句短（「片刻是什么时候有的」剩不下几组字）时沾一组就算；同样沾边的早的排前面——问「什么时候有的」要的是头一回
+    const need = Q.size <= 3 ? 1 : 2;
+    list.slice(5).forEach(x => x.items.forEach(it => { let n = 0; memGrams(it).forEach(g => { if (Q.has(g)) n++; }); if (n >= need) hits.push({ n, d: x.d, line: day(x.d) + " · " + it }); }));
+    hits.sort((a, b) => b.n - a.n || (a.d < b.d ? -1 : a.d > b.d ? 1 : 0));
+    return "【更新日志 · 设置 → 新 · 更新了什么】一天一条，日子是那天上线到公共版的；最早一条是 2026 年 9 月 8 日公开版上线，再早的没有记录。"
+      + "她问「最近更新了啥」「某样东西什么时候有的」就照这个答，说日子；这里没写的别编，说日志里没找到、可以去设置里那一页翻。\n"
+      + "最近五天：\n" + recent.join("\n\n")
+      + (hits.length ? "\n\n更早、跟她这句沾边的：\n" + hits.slice(0, 15).map(x => "· " + x.line).join("\n") : "");
+  }
+
+  // ── 秋秋记着的（她 2026-10-26「做吧」）──────────────────────────────
+  //   记的是她怎么用这个 App、喜欢什么：手机浏览器、美化口味、不要什么。聊天记录清了它还在。
+  //   不另花调用：秋秋每次回话顺手带 remember／forget 两栏；这里只管存、按这一句召回相关的几条。
+  //   条数不封顶（跟记忆库一样随时召回，不会因为满了把旧的抹掉）；每轮只递相关的几条和最近几条。
+  const MEM_KEY = "x_assistMem";
+  function loadMem() { try { const a = typeof loadJSON === "function" ? loadJSON(MEM_KEY, []) : []; return Array.isArray(a) ? a.filter(x => x && x.text) : []; } catch (e) { return []; } }
+  const memSubs = new Set();
+  function onMem(fn) { memSubs.add(fn); return () => memSubs.delete(fn); }
+  function saveMem(list) { try { if (typeof saveJSON === "function") saveJSON(MEM_KEY, list); } catch (e) {} memSubs.forEach(fn => { try { fn(list); } catch (e) {} }); return list; }
+  const memGrams = t => { const s = String(t || "").replace(/\s+/g, ""), out = new Set(); for (let i = 0; i < s.length - 1; i++) out.add(s.slice(i, i + 2)); return out; };
+  function memSame(a, b) { const A = memGrams(a), B = memGrams(b); if (!A.size || !B.size) return a === b; let n = 0; A.forEach(g => { if (B.has(g)) n++; }); return n / Math.min(A.size, B.size) > 0.8; }
+  function recallMem(focus) {
+    const all = loadMem(); if (!all.length) return [];
+    const F = memGrams(focus);
+    const scored = all.map((m, i) => { let n = 0; memGrams(m.text).forEach(g => { if (F.has(g)) n++; }); return { m, i, n }; });
+    const hit = scored.filter(x => x.n >= 2).sort((a, b) => b.n - a.n).slice(0, 8);
+    const recent = scored.slice(-4);
+    const seen = new Set(); return hit.concat(recent).filter(x => !seen.has(x.i) && seen.add(x.i)).sort((a, b) => a.i - b.i).map(x => x.m);
+  }
+  function applyMem(remember, forget) {
+    let list = loadMem(), changed = false;
+    (Array.isArray(forget) ? forget : []).map(x => String(x || "").trim()).filter(Boolean).forEach(f => { const k = list.findIndex(m => m.text === f || memSame(m.text, f)); if (k >= 0) { list.splice(k, 1); changed = true; } });
+    (Array.isArray(remember) ? remember : []).map(x => String(x || "").trim().slice(0, 80)).filter(Boolean).slice(0, 3).forEach(r => {
+      const k = list.findIndex(m => memSame(m.text, r));
+      if (k >= 0) list.splice(k, 1);   // 同一件事说了新的：旧的那句拿掉，新的排到最后
+      list.push({ id: "qm" + Date.now().toString(36) + Math.random().toString(36).slice(2, 5), text: r, ts: Date.now() }); changed = true;
+    });
+    if (changed) saveMem(list);
+    return changed;
+  }
   function buildSystem(ctx, question, history, extraIds) {
     // ⚠️「这会儿在说谁」拿【要发给模型的那整段窗口】来找，不是只看当前这一句：
     //   她上一句常常是「宝宝你再看看呢」，名字是在前面提的。
@@ -1119,6 +1172,9 @@
       + "改已有的规则用 find（逐字抄那一条规则）；加新规则用 \"append\":true，text 只写新加的那几条，会接在最后。"
       + "选择器要窄到只命中她说的那一处：共用的挂点（note、card…）看挂点说明里的 data-part／data-kind，连它一起写。"
       + "只有她说「整体重做」「全部换掉」时才整份重写，并且要填 \"whole\":true——不填的话整份重写会被拦下。\n"
+      // 一张卡太长被线路截断（群里 2026-10-24「说写好了让我点应用，底下没有应用键」——长美化最常这样）：分几轮出
+      + "· **很长的一份（整套美化、几千字的人设）别一张卡写完**：线路一次能吐的字有限，卡写到一半被截断就整张丢了，她只看到你说「点应用」。"
+      + "这一轮先出前一部分（CSS 用 whole 起头、人设照常），回话里告诉她还剩几段；下一轮她说「接着」你再用 \"append\":true 出下一段，直到写完。\n"
       + "她要把某个人／某个群／某个人线下的 CSS 清空、恢复默认：出一张那一格的卡，填 \"whole\":true，text 留空字符串——就是整份换成空。\n"
       + "· **整段替换**：不填 find，text＝改完的完整内容。只在「整份重写」时用；"
       + "如果那张卡的【这张卡是否完整】是 false，你【绝对不许】整段替换——那会把她后面的设定冲掉，代码也会拦住你。\n\n"
@@ -1131,9 +1187,13 @@
       + "· 拿不准她想要什么就先问，别擅自动手。改人设尤其要谨慎——那是她攒了很久的东西。\n\n"
       + (pageLine(ctx.page) ? pageLine(ctx.page) + "\n\n" : "")
       + manualBlock(question, here && here.man, extraIds) + "\n\n"
+      + (() => { const cl = changelogBlock(question); return cl ? cl + "\n\n" : ""; })()
       + (extraIds && extraIds.length ? "【你刚要翻的那几条已经放进上面的详细里了，照着答；这次别再要 lookup】\n\n"
         : "【翻一下攻略】她问的是 App 怎么用，可上面「详细」里没有答案，而目录里看得出答案多半在某一条（看「里面讲」那一行）："
           + "这一轮先别答，只输出 {\"lookup\":[\"那一条方括号里的 id\"]}（最多 3 条），那几条正文会递给你，你再答。详细里已经有答案、或者不是问功能，就别用 lookup。\n\n")
+      + (() => { const mem = recallMem(focus); return "【你记着的关于" + uName + "的事】" + (mem.length ? "（只是跟这一句有关的几条和最近记下的几条，不是全部）\n" + mem.map(m => "· " + m.text).join("\n") : "（还没记过什么）")
+        + "\n她说了一件以后用得上的事——她用什么手机和浏览器、喜欢什么样的美化、不想要什么、配的是哪家接口、她习惯怎么叫你——就在 remember 里记一句（一句一件事，写成你以后一看就懂的大白话；最多三句）。"
+        + "她跟角色之间的私事、聊天内容不记，你改过什么也不用记（卡片那边有账）。上面哪一句已经不对了（她换了手机、改了主意），把那一句原样抄进 forget，再在 remember 里记新的。没有就两栏都省略。\n\n"; })()
       + "【App 现状快照】\n" + JSON.stringify(snap) + "\n\n"
       + "【输出】只输出 JSON，不要代码块：\n" + SHAPE;
   }
@@ -1143,6 +1203,8 @@
     if (codeQuestion(text)) return { reply: CODE_REPLY, patches: [], refused: true };
     // 攻略手册改成用到才加载（她 2026-10-18 瘦身）：问之前等它到位，不然这一问就没攻略可翻
     if (window.LazyMods) await window.LazyMods.load("manual").catch(() => {});
+    // 问更新的时候把日志也拉进来（它跟设置同一组，点进设置之前可能还没下）
+    if (window.LazyMods && !window.QQ_CHANGELOG && CHANGELOG_ASK.test(String(text || ""))) await window.LazyMods.load("screens").catch(() => {});
     // 她发的图（她 2026-09-30）：只跟着【这一句】发给模型；历史里只留一张小缩略图给她看，不再回传——一张图每轮重发太贵
     // 附件两种：图（只跟这一句走）、文件（她发来的 CSS/文本，内容接在这一句后面）
     const isFile = pic && typeof pic === "object" && pic.kind === "file";
@@ -1281,6 +1343,7 @@
     // reply 空着只剩卡（她 2026-10-17「秋秋坏了都不说话了只会发卡」）：不拿一句「改动稿在下面」糊过去——
     //   那句会进对话记录，下一轮它照着自己学，越来越只会发卡。照卡上写的说清这几张改了什么、为什么。
     if (!reply && patches.length) reply = patches.map(x => "· " + (String(x.title || "").trim() || "一处改动") + (String(x.why || "").trim() ? "：" + String(x.why).trim() : "")).join("\n");
+    try { applyMem(d.remember, d.forget); } catch (e) {}
     return { reply: reply || (outFile ? "文件在下面。" : "改动稿在下面。"), patches, file: outFile };
   }
 
@@ -1543,7 +1606,7 @@
     return (T ? T.zh : "?") + (hit ? " · " + hit.name : (patch.target === "style" ? " · 新建" : patch.target === "newchar" ? " · " + ((newCharObj(patch.text) || {}).name || "未命名") : "")) + fld;
   }
 
-  window.Assistant = { ask, apply, before, labelOf, snapshot, TARGETS, CARD_FIELDS, codeQuestion, scrubCode, CODE_REPLY,
+  window.Assistant = { loadMem, saveMem, onMem, ask, apply, before, labelOf, snapshot, TARGETS, CARD_FIELDS, codeQuestion, scrubCode, CODE_REPLY,
     previewText, cancelAsk, setAbort: ac => { curAbort = ac; }, setLastPic: p => { lastPic = p; }, lastPic: () => lastPic, loadCfg, saveCfg, DEFAULT_PROMPT, LEGACY_PROMPTS, DEFAULT_NAME, loadChat, saveChat, onChat, chatWindow, onBusy, isBusy, bumpBusy, markPatch, undo, undoable, loadUndo, onUndo, UNDO_KEEP, markAsking, clearAsking, staleAsking, ASK_KEY, CHAT_KEEP, CTX_CHARS, CTX_MIN, activeFor, focusIds, buildSystem, pageOf, pageLine, SCREEN_MAN, snippetEdit, shownLen };
 })();
 
@@ -1557,6 +1620,10 @@
 (function () {
   const useState = React.useState, useRef = React.useRef, useEffect = React.useEffect;
   const A = window.Assistant;
+  // 秋秋回话里的 **粗体**：模型顺手写了 Markdown，原样摆出来就是一串星号（她 2026-10-24 截图）。
+  //   成对的就加粗，落单的星号原样留着；复制出去的还是原文
+  const qqBold = txt => { const s0 = String(txt || ""); if (s0.indexOf("**") < 0) return s0;
+    const parts = s0.split(/\*\*([^*\n]+?)\*\*/g); return parts.map((x, k) => k % 2 ? h("b", { key: k, style: { fontWeight: 700 } }, x) : x); };
 
   // ---- 秋秋的默认头像（v61.43，她 2026-09-03 给了图：「左边是头像右边是图标」）----
   // 原来是程序画的那只线稿肥鸟；现在换成她那张画。
@@ -1564,6 +1631,30 @@
   //   （同一张画 png 要 80KB，webp 只要 15KB——这是要跟着 PWA 一起装的东西）。
   // ⚠️头像那张【原图带透明底】，所以这里自己垫一层奶油底：不垫的话深色主题下
   //   小鸡的浅黄会糊进深背景里，只剩两只眼睛浮着。
+  // 秋秋记着的（她 2026-10-26）：一行一件事，能改、能删、能自己加、能全清。清聊天记录不碰它
+  function QiuMemList(props) {
+    const t = props.t, A = window.Assistant;
+    const [list, setList] = useState(() => (A && A.loadMem ? A.loadMem() : []));
+    const [open, setOpen] = useState(false);
+    useEffect(() => A && A.onMem ? A.onMem(l => setList(l.slice())) : undefined, []);
+    const save = l => { A.saveMem(l); setList(l.slice()); };
+    const small = { background: "none", border: "none", padding: "4px 6px", fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))" };
+    return h("div", { "data-wk": "qqmem", style: { padding: "12px 14px", borderBottom: "1px solid " + t.line } },
+      h("button", { onClick: () => setOpen(v => !v), style: { width: "100%", display: "flex", alignItems: "center", background: "none", border: "none", padding: 0, textAlign: "left" } },
+        h("div", { style: { flex: 1 } },
+          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", color: t.ink } }, props.name + "记着的 · " + list.length + " 条"),
+          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginTop: 2, lineHeight: 1.5 } }, "你怎么用这个 App、喜欢什么。聊天里顺手记下，每次只带跟这句有关的几条，不多花调用；清空聊天记录不会清掉这里。")),
+        h("span", { style: { color: t.fog, fontSize: "calc(13px * var(--app-fs, 1))" } }, open ? "收起" : "看看 ›")),
+      open ? h("div", { style: { marginTop: 10 } },
+        list.length ? list.map((m, i) => h("div", { "data-wk": "qqmemrow", key: m.id || i, style: { display: "flex", alignItems: "flex-start", gap: 6, padding: "7px 0", borderTop: i ? "1px solid " + t.line : "none" } },
+          h("div", { style: { flex: 1, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.ink, lineHeight: 1.6 } }, m.text),
+          h("button", { onClick: () => requestAppPrompt("改这一条", "", m.text, v => { const x = String(v || "").trim(); if (!x) return; save(list.map(y => y === m ? Object.assign({}, y, { text: x.slice(0, 80) }) : y)); }, "存"), style: Object.assign({ color: t.tint }, small) }, "改"),
+          h("button", { onClick: () => save(list.filter(y => y !== m)), style: Object.assign({ color: t.accent }, small) }, "删"))) :
+          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog, padding: "4px 0" } }, "还没记过什么。跟" + props.name + "说说你用什么手机、喜欢什么样的，她会记下来。"),
+        h("div", { style: { display: "flex", gap: 14, marginTop: 8 } },
+          h("button", { onClick: () => requestAppPrompt("自己记一条", "写一件想让" + props.name + "一直记着的事。", "", v => { const x = String(v || "").trim(); if (x) save(list.concat([{ id: "qm" + Date.now().toString(36), text: x.slice(0, 80), ts: Date.now() }])); }, "记下"), style: Object.assign({ color: t.tint }, small, { paddingLeft: 0 }) }, "＋ 自己记一条"),
+          list.length ? h("button", { onClick: () => requestAppConfirm("全部清掉？", props.name + "记着的这 " + list.length + " 条会一起清掉，清了找不回来。", () => save([]), "清掉"), style: Object.assign({ color: t.accent }, small) }, "全部清掉") : null)) : null);
+  }
   function QiuBird(props) {
     const z = props.size || 34, r = props.radius != null ? props.radius : z / 2;
     return h("div", { "data-wk": "qqavatar", style: { width: z, height: z, borderRadius: r, flexShrink: 0, overflow: "hidden",
@@ -1782,7 +1873,7 @@
       : h("div", { "data-wk": "qqmsg", "data-me": "0", key: i, style: { display: "flex", alignItems: "flex-start", gap: 7, marginBottom: sm ? 11 : 14 } },
           h(QiuFace, { cfg: props.cfg, size: av, radius: 9 }),
           h("div", { style: { flex: 1, minWidth: 0 } },
-            h("div", { "data-wk": "qqbubble", "data-me": "0", style: { fontFamily: F_BODY, fontSize: sm ? 12 : 13, color: t.ink, lineHeight: 1.75, whiteSpace: "pre-wrap", wordBreak: "break-word", userSelect: "text", WebkitUserSelect: "text" } }, m.text),
+            h("div", { "data-wk": "qqbubble", "data-me": "0", style: { fontFamily: F_BODY, fontSize: sm ? 12 : 13, color: t.ink, lineHeight: 1.75, whiteSpace: "pre-wrap", wordBreak: "break-word", userSelect: "text", WebkitUserSelect: "text" } }, qqBold(m.text)),
             // 她 2026-10-05：「复制不了」——手机上在气泡里滑选太难，每条都给一颗复制
             m.text ? h("button", { "data-wk": "qqcopy", "data-me": "0", onClick: async () => { const ok = typeof copyText === "function" && await copyText(m.text); props.toast && props.toast(ok ? "复制好了" : "没复制上，长按文字试试"); },
               style: { marginTop: 3, background: "none", border: "none", padding: "4px 0", fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog } }, "复制") : null,
@@ -1833,13 +1924,15 @@
                     put({ avatarImage: ref }); props.toast && props.toast("头像换好了");
                   } catch (err) { props.toast && props.toast("这张存不下：" + (err.message || err)); }
                 } })),
-              cfg.avatarImage ? h("button", { "data-wk": "qqavatardel", onClick: () => put({ avatarImage: "" }), style: { background: "none", border: "none", padding: 0, fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog } }, "换回那只鸟") : null))),
+              cfg.avatarImage ? h("button", { "data-wk": "qqavatardel", onClick: () => put({ avatarImage: "" }), style: { background: "none", border: "none", padding: 0, fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog } }, "换回那只鸟") : null),
+            cfg.avatarImage && window.ImgShapePick ? h(window.ImgShapePick, { value: cfg.ballShape, onChange: v => put({ ballShape: v }) }) : null)),
         // 小球开关
         h("div", { style: row },
           h("div", { style: { flex: 1 } },
             h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", color: t.ink } }, "桌面小球"),
             h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginTop: 2, lineHeight: 1.5 } }, "每一页角落里都跟着，能拖到任何地方；点一下开合")),
           h(Toggle, { on: !!cfg.ballOn, onChange: () => put({ ballOn: !cfg.ballOn }), color: t.accent, wk: "qqballswitch" })),
+        h(QiuMemList, { t: t, toast: props.toast, name: cfg.name || A.DEFAULT_NAME }),
         // 走哪条线路（她 2026-09-03：「还可以跟随全局 api 或者单独设定一个」）
         // 摆法照设置里【线下与创作模型】那一栏：第一行是「跟随全局」，底下一行一条线路。
         (function () {
@@ -2086,7 +2179,7 @@
     useEffect(() => { if (scroller.current) scroller.current.scrollTo({ top: scroller.current.scrollHeight, behavior: "smooth" }); }, [C.msgs.length, C.busy, open]);
     // 设置页里把小球关了/开了，这边要跟上（同一个存档，两处都在看）
     useEffect(() => {
-      const tick = setInterval(() => { const n = A.loadCfg(); setCfg(c => (c.ballOn === n.ballOn && c.name === n.name && c.avatarImage === n.avatarImage) ? c : n); }, 2000);
+      const tick = setInterval(() => { const n = A.loadCfg(); setCfg(c => (c.ballOn === n.ballOn && c.name === n.name && c.avatarImage === n.avatarImage && c.ballShape === n.ballShape) ? c : n); }, 2000);
       return () => clearInterval(tick);
     }, []);
 
@@ -2130,7 +2223,7 @@
     const dragProps = { onPointerDown: onDown, onPointerMove: onMove, onPointerUp: endDrag, onPointerCancel: endDrag };
 
     const ballSrc = cfg.avatarImage ? (typeof resolveImg === "function" ? resolveImg(cfg.avatarImage) : cfg.avatarImage) : "";
-    const ballCut = typeof window.useImgCutout === "function" ? window.useImgCutout(ballSrc) : false;
+    const ballCut = typeof window.useImgCutout === "function" ? window.useImgCutout(ballSrc, cfg.ballShape) : false;
     if (!cfg.ballOn) return null;
     const base = { position: "fixed", zIndex: 940, touchAction: "none" };
 

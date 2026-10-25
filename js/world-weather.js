@@ -70,7 +70,7 @@
     if (!w || !isFinite(w.t) || !isFinite(w.hi) || !isFinite(w.lo)) return null;
     const code = w.code != null ? w.code : w.dayCode;
     const isNow = x.getHours() === new Date().getHours();
-    return { code: code, hi: w.hi, lo: w.lo, t: isNow ? w.t : Math.round(w.lo + (w.hi - w.lo) * curve(x.getHours())) };
+    return { code: code, hi: w.hi, lo: w.lo, t: isNow ? w.t : Math.round(w.lo + (w.hi - w.lo) * curve(x.getHours())), isDay: isNow && typeof w.isDay === "boolean" ? w.isDay : null, windSpeed: Number.isFinite(w.windSpeed) ? w.windSpeed : null };
   }
   function dayOf(seed, terrain, date) {
     const fw = followed(seed, date);
@@ -93,7 +93,9 @@
       code = cl < .42 ? 0 : (cl < .76 ? 2 : 3);
     }
     // 「现在几度」要和逐小时那条曲线用同一条，否则卡片上写 10° 而横条上写 14°
-    return { code: code, hi: hi, lo: lo, t: Math.round(lo + (hi - lo) * curve((date instanceof Date ? date : new Date()).getHours())) };
+    const hour = (date instanceof Date ? date : new Date()).getHours();
+    const wind = rngOf(seed + "|" + dayKey(date) + "|wind")();
+    return { code: code, hi: hi, lo: lo, t: Math.round(lo + (hi - lo) * curve(hour)), isDay: hour >= 6 && hour < 18, windSpeed: Math.round(3 + wind * (terrain === "山地" || terrain === "荒漠" ? 42 : 29)) };
   }
   function forecast(seed, terrain, date, days) {
     const n = Math.max(1, Math.min(14, days || 7));

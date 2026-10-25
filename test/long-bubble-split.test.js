@@ -69,7 +69,9 @@ test("单聊和群聊走的是同一个函数", () => {
   assert.match(app, /splitLongBubble\(bi \? bi\.text : w, !_body\)/, "单聊线上");
   assert.match(app, /splitLongBubble\(bi \? bi\.text : x, gAllowComma\)/, "群聊线上");
   assert.match(app, /const gAllowComma = !isBody\(spk\.id\)/, "群里也按发言人豁免言秋");
-  assert.equal((app.match(/splitLongBubble\(/g) || []).length, 2, "只该有这两处调用");
+  // v76.455 通话里一大段也按句拆，用的还是这一个函数（第三处调用）——同一把刀，没另写一份
+  assert.match(app, /o\.speech != null && typeof splitLongBubble === "function"[^\n]*splitLongBubble\(o\.speech\)/, "通话那一处");
+  assert.equal((app.match(/splitLongBubble\(/g) || []).length, 3, "只该有单聊、群聊、通话这三处调用");
 });
 
 // 她 2026-08-29 截图：一段算账的话被切成「现在现值是 150」「000 乘以 0.312」
@@ -82,6 +84,9 @@ test("千分位不是句子边界：数字不许被切成两个气泡", () => {
     splitLongBubble("油罐的初始入账价值应该是 846,800", true),
     ["油罐的初始入账价值应该是 846,800"]);
   assert.deepEqual(splitLongBubble("1,234,567 这个数字很大", true), ["1,234,567 这个数字很大"]);
+  // 中文和数字/英文之间那一格是排版不是停顿（空格断句那一刀上线后，这一句被切成了「乘以」「0.312…」）
+  assert.deepEqual(splitLongBubble("我刚才一直在想到底要不要跟 Ta 说这件事情真的有点难开口", true),
+    ["我刚才一直在想到底要不要跟 Ta 说这件事情真的有点难开口"]);
   // 全角逗号夹在数字中间也一样（模型偶尔会用全角）
   assert.deepEqual(splitLongBubble("总共是 12，345 元这么多钱", true), ["总共是 12,345 元这么多钱"]);
   // 不许影响真正该拆的地方（这句 26 字，过了 22 的门槛）

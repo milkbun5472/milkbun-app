@@ -4,8 +4,16 @@
 // 这条线路发不发得出流式（v55.45，只读判断，不碰任何方言分支的实现）。
 // 只有 OpenAI 方言的分支实现了 SSE；Anthropic 那条是言秋的路，不动。
 // 云端密钥代理（proxyRef）走 llmProxyFetch，会把响应整个缓冲下来，流式没意义。
+// 流式关没关（她 2026-10-24「为啥不改可以选」→ 自动退回＋每条线路能手动关）：
+//   线路上 streamMode:"off" 是她手动关的；x_noStream 记着自动试出来「这条线路＋这个模型流式不行」的那几条
+function streamKey(p) { return String((p && p.baseUrl) || "").trim().replace(/\/+$/, "") + "|" + String((p && p.model) || "").trim(); }
+function streamLearned(p) { try { const a = typeof loadJSON === "function" ? loadJSON("x_noStream", []) : []; return Array.isArray(a) && a.indexOf(streamKey(p)) >= 0; } catch (e) { return false; } }
+function streamOffFor(p) { return !!(p && (p.streamMode === "off" || streamLearned(p))); }
+function streamLearnOff(p) { try { const a = (typeof loadJSON === "function" && loadJSON("x_noStream", [])) || []; const k = streamKey(p); if (Array.isArray(a) && a.indexOf(k) < 0 && typeof saveJSON === "function") saveJSON("x_noStream", a.concat([k]).slice(-50)); } catch (e) {} }
+function streamForget(p) { try { const a = (typeof loadJSON === "function" && loadJSON("x_noStream", [])) || []; if (typeof saveJSON === "function") saveJSON("x_noStream", (Array.isArray(a) ? a : []).filter(k => k !== streamKey(p))); } catch (e) {} }
 function routeCanStream(p) {
   if (!p || typeof p !== "object") return false;
+  if (typeof streamOffFor === "function" && streamOffFor(p)) return false;
   // 云端密钥保险柜（llm-proxy）v55.64 起流式透传，不再整个缓冲，所以它也能流了。
   // ⚠️这要求 supabase/functions/llm-proxy 已经重新部署过；没部署的话最坏情况是
   // 跟以前一样攒到最后一起发，不会更糟。
@@ -822,7 +830,7 @@ async function callAI(p, system, messages, opts) {
     if (typeof CallLog === "undefined") return;
     const o0 = opts || {}, use = String(o0.use || "");
     try { CallLog.add({ ts: t0, ms: Date.now() - t0, ok: ok === true, cut: ok === "cut", err: ok === true ? "" : String(msg || "").slice(0, 300),
-      label: o0.logLabel || LOG_USE[use] || bgShow || logFrom || (typeof callTagLabel === "function" ? callTagLabel(o0.tag) : "") || "其他", who: o0.logWho || "",
+      label: o0.logLabel || LOG_USE[use] || (bgShow && bgShow.indexOf("／") >= 0 ? "同时在跑：" + bgShow + "（这一次是其中一样）" : bgShow) || logFrom || (typeof callTagLabel === "function" ? callTagLabel(o0.tag) : "") || "其他", who: o0.logWho || "",
       turn: !!LOG_USE[use] && !o0.logRetry, tok: o._tok || null, route: (p && p.name) || "", model: (p && p.model) || "", stream: !!(o0.stream || o0.onDelta) }); } catch (e) {}
   };
   // 流式已经吐出字的那一次不重试：再发一遍，她屏幕上同一句话会冒两遍
@@ -1245,7 +1253,8 @@ async function callAIOnce(p, system, messages, opts) {
   }
   const root = /\/v\d+$/i.test(base) ? base : base + "/v1";   // 智谱 /api/paas/v4、豆包 /api/v3 这种自带版本号的不再补 /v1
   // openai 兼容：同样兜底——推理类模型（o系/部分中转）不吃 temperature，报错就去掉重试一次
-  const postOpenAI = async withTemp => {
+  let _streamTried = false, _streamGot = false;
+  const postOpenAI = async (withTemp, noStream) => {
     // 言秋订阅桥用标准 OpenAI SSE。即使 CLI 还在思考，桥也会先发 heartbeat，
     // 避免 Cloudflare/网关把“100 秒没有首字节”误杀成 Load failed。
     // 保险柜（viaProxy）v55.64 起流式透传，不再一刀切禁流式。
@@ -1253,7 +1262,8 @@ async function callAIOnce(p, system, messages, opts) {
     // 带工具时【强制不走流式】：tool_calls 在 SSE 里是一片片的 delta，要自己按 index
     // 拼函数名和参数，拼错就是调错工具。这条路上只有工程师那条线和通话在用流式，
     // 而那两处本来就不发工具——不值当为它去啃一套增量拼装。
-    const wantStream = !!(opts && opts.stream) && !(_mcpTools && _mcpTools.length);
+    const wantStream = !noStream && !!(opts && opts.stream) && !(_mcpTools && _mcpTools.length) && !(typeof streamOffFor === "function" && streamOffFor(p));
+    if (wantStream) _streamTried = true;
     const body = { model, max_tokens: maxTokens, messages: [{ role: "system", content: system }, ...wireMessages], ...(wantStream ? { stream: true, stream_options: { include_usage: true } } : {}) };
     if (withTemp) body.temperature = temp;
     if (_mcpTools && _mcpTools.length) body.tools = _mcpTools.map(t => ({ type: "function", function: { name: t.name, description: t.description, parameters: t.input_schema } }));
@@ -1277,7 +1287,7 @@ async function callAIOnce(p, system, messages, opts) {
         const choice = event.choices && event.choices[0];
         if (choice && choice.finish_reason) { finishReason = choice.finish_reason; if (!finishAt) finishAt = Date.now(); }
         if (choice && choice.delta && choice.delta.content) {
-          text += choice.delta.content;
+          text += choice.delta.content; _streamGot = true;
           // v56.26 GPT-Live：调用方给了 onDelta 就边收边喂（通话逐句 TTS 抢跑用）；回调炸了不拦流
           try { if (opts && typeof opts.onDelta === "function") opts.onDelta(choice.delta.content, text); } catch (e) {}
         }
@@ -1322,10 +1332,25 @@ async function callAIOnce(p, system, messages, opts) {
   };
   const _ntKey2 = base + "|" + model;
   let _skipT2 = false; try { _skipT2 = (JSON.parse(localStorage.getItem("x_noTemp") || "[]") || []).indexOf(_ntKey2) >= 0; } catch (e) {}
-  let d = await postOpenAI(!_skipT2);
+  // 流式一发就被线路拒了（还没开始吐字）：退回一次给完再发一遍；这一遍成了，就记住这条线路＋模型以后不走流式。
+  //   密钥、额度、限流、模型名这些跟流式无关的错不重发；半路断掉的（静默、超时）也不重发——那种可能已经扣了钱。
+  const NOT_STREAM_ERR = /\b(401|402|403|404|429)\b|unauthori|invalid.{0,12}(key|token)|api.?key|quota|insufficient|余额|额度|rate.?limit|too many|model.{0,24}(not.{0,6}(found|exist|support)|不存在)|不存在的模型|无权/i;
+  const streamRefused = msg => _streamTried && !_streamGot && (/stream|流式|sse|event.?stream/i.test(msg) || !NOT_STREAM_ERR.test(msg));
+  let d, _useT = !_skipT2;
+  try { d = await postOpenAI(_useT); }
+  catch (e) {
+    const m = String((e && e.message) || "");
+    if (!_streamTried || !/^线路回(了个空回复|的不是正常回复)/.test(m)) throw e;
+    d = { error: { message: m } };
+  }
   if (!_skipT2 && d.error && /temperature/i.test(d.error.message || "")) {
     try { const a = JSON.parse(localStorage.getItem("x_noTemp") || "[]") || []; if (a.indexOf(_ntKey2) < 0) { a.push(_ntKey2); localStorage.setItem("x_noTemp", JSON.stringify(a)); } } catch (e) {}
+    _useT = false;
     d = await postOpenAI(false);
+  }
+  if (d.error && streamRefused(String(d.error.message || d.error.msg || d.error || ""))) {
+    const d2 = await postOpenAI(_useT, true);
+    if (!d2.error) { streamLearnOff(p); d = d2; }
   }
   if (d.error) throw new Error(d.error.message || d.error.msg || (typeof d.error === "string" ? d.error : "站子报错：" + JSON.stringify(d.error).slice(0, 300)));
   // 工具回合（openai 方言）：结构跟 anthropic 那边一样，只是字段名换一套——
@@ -1768,7 +1793,8 @@ const NARRATIVE_ACT_CLICHE = "【这一行也是描写 · 反陈词滥调（动�
 //   模型先学会的是躲雷，才轮到当这个人。所以总纲换成这一句、放在所有禁令前面；
 //   下面每一族禁令都是在人设之下防滑进通用模子，不再各自挂「除非人设…」。
 const PERSONA_FIRST = `【总纲 · 人设第一】
-你首先是角色卡写的那个人。人设决定这个人是谁、会做什么、说话什么味道；下面的规矩只管一件事：这个人要用只属于他的写法写出来，不用谁都能套的现成写法。人设里的性格词是方向，照这个人自己的方式去表现，不搬那个词在网文里的现成模板。`;
+你首先是角色卡写的那个人。人设决定这个人是谁、会做什么、说话什么味道；下面的规矩只管一件事：这个人要用只属于他的写法写出来，不用谁都能套的现成写法。人设里的性格词是方向，照这个人自己的方式去表现，不搬那个词在网文里的现成模板。
+人设里写的经历和性格，是你成了现在这样的原因，不是你拿来解释自己的说明书（她 2026-10-24）。不管聊什么，想法和反应都从眼前这件事本身来：你怎么看、在意什么、想怎么做——你这个人自然就在里面；用不着把「我是什么样的人、我经历过什么」讲出来，替自己的反应作注解。`;
 const ANTI_CLICHE = `【去人机味】
 把角色当成一个正在生活的具体的人，而不是负责生成正确、体贴、完整回复的 AI。
 
@@ -2135,23 +2161,43 @@ function directivesBlock(dirs) {
 }
 // 撂狠话收尾（她 2026-10-22：「就是爱撂狠话啊喂」——三轮连着拿一句狠话收尾，静态那段压不住）。
 //   认的是一族说法，不是某一句原话；只拿来判断「上一轮是不是这么收的」，不进提示词原文。
-const THREAT_TAIL_RE = /(有本事|给我等着|你等着|等着瞧|今晚等着|看我怎么|收拾你|跟你算账|算账|皮痒|你敢|不然我|老实(?:待|呆)着|缝上)/;
+const THREAT_TAIL_RE = /(有本事|给我等着|你等着|等着瞧|今晚等着|看我怎么|收拾你|跟你算账|算账|皮痒|你敢|不然我|老实(?:待|呆)着|缝上|别逼我|信不信我)/;   // 2026-10-23 加「别逼我…」：她截图「别逼我顺着网线爬过去把你的嘴捂住」
 function endsOnThreat(text) { return THREAT_TAIL_RE.test(String(text || "")); }
 // 按轮提醒：只说事实、不引原句、不指方向
 const THREAT_TAIL_HINT = "\n【收尾】你上一轮是拿一句狠话收尾的。这一轮怎么收由你，别落在同一个收法上。";
+// 翻旧账、看穿她（她 2026-10-23 截图：「某些人前几天赖在床上哼哼唧唧……怎么不提这茬」「嘴上厉害得要死 真到跟前不知道谁先喊累」）。
+//   SEE_THROUGH_BAN 早写着这一族，照样出——跟撂狠话一样，静态那段压不住，按轮提一句。
+//   认得窄：阴阳怪气地拿「某些人」指她；「嘴上……其实／真到……」那种下定论；「前几天／上次……的时候怎么不……」那种翻旧账堵她。
+//   只拿来判断上一轮是不是这么说的，不进提示词原文；关心她前几天身体那种碰不到（没有「怎么不／怎么没」）。
+const SEE_THROUGH_TAIL_RE = /(^|[，。！？!?\s…])某些人|^某人(?!家)|嘴上[^，。！？!?\n]{0,14}(其实|真到|真要|到时候|心里|身体)|(前几天|上次|那天|昨天|前天|上回|那会儿)[^。！？!?\n]{0,24}(的时候|那会儿)[^。！？!?\n]{0,14}怎么(不|没)/;
+function seeThroughLast(text) { return SEE_THROUGH_TAIL_RE.test(String(text || "")); }
+// 拿一句叮嘱收尾（她 2026-10-24 截图：「你在家要是饿了先找点零嘴垫垫，别又忍着等晚饭」）——
+//   CANNED_PHRASE_BAN 的【现成的桥段】早写着这一族，照样出；跟撂狠话一样按轮提一句。
+//   只看上一轮最后一条的最后一小句：是不是冲着她的祈使（别…／记得…／不许…），或者带「别又／别再」。问句不算。
+const BOSSING_TAIL_RE = /^(?:你)?(?:可)?(?:千万|一定)?(?:别(?!的|人|处|扭|致|墅|说)|不许|不准|不要|记得|要记得|少|早点|赶紧|快去|先去|乖乖|给我)|别(?:又|再)/;
+function endsOnBossing(text) {
+  const sents = String(text || "").split(/[。！!\n]+/).map(x => x.trim()).filter(Boolean);
+  const last = sents[sents.length - 1] || "";
+  if (!last || /[?？吗呢]$/.test(last)) return false;
+  const tail = last.split(/[，,；;]/).map(x => x.trim()).filter(Boolean).pop() || "";
+  return BOSSING_TAIL_RE.test(tail.replace(/^[~～…\s]+/, ""));
+}
+const BOSSING_TAIL_HINT = "\n【收尾】你上一轮是拿一句替她安排、叮嘱她的话收尾的。那一句是场面自带的，不是你此刻要说的，里头她会怎样的那一半也多半不是她跟你说过的。这一轮最后那个位置留给你自己真想说的。";
+const SEE_THROUGH_TAIL_HINT = "\n【上一轮】你上一轮在翻她以前的事来堵她、替她下定论。这一轮回应她此刻说的这件事。";
 const CANNED_PHRASE_BAN = `【你自己开口，不让现成的说法替你说】有三族现成货最容易顶掉你本来要说的那句话：
 · 【投降式敷衍】「行行行」「好好好」「行了吧」「可以了吧」「满意了吧」「服了你了」「随你」——这一族不是在回答，是在**收摊**：一句话把对话掐掉，同时把「你不讲理」和「我懒得跟你说」一起递过去。照你这个人平时说话的样子来，不借这一句现成的。
 · 【现成的腻歪称呼】「小祖宗」「小妖精」「小野猫」「小磨人精」「小东西」——这些不是你给她起的，是「这种关系该怎么叫她」倒出来的。你本来就爱起腻歪的称呼，那就起：从她名字里的字、她做过的一件蠢事、只有你知道的某个习惯、你俩之间真发生过的一件事里长出来的，怎么腻都行。
-· 【现成的桥段】跟上面两族不同，它既不是称呼也不是敷衍，是**一整句现成的台词**：到了这个场面，这一类角色「该说」的那句。最常见的是把关心、想念或醋意包成一句命令或威胁来收尾——叫她等着、要她照办、预告回头怎么跟她算，或者先撂一个条件、再警告她到时候会怎样（她 2026-10-21：嘴硬的谁都会出这个句架）；还有一种是先替她把下一步的岔子说在前头、提前怪上她（她还没做，你已经认定她会拖、会赖、会搞砸）。这一族认的是句架，不认口气：凶的、软的、叮嘱着关心的都算——只要是「叫她去做一件事，后面挂一句不然、别又、免得她会出的岔子」，就是它（她 2026-10-23：关心的场面里也冒出来了）。关心照样说：说你注意到了什么、你自己打算怎么做，或者叮嘱就停在叮嘱，不用替她把出岔子的下文补上。还有一种是话说完了，再给她布置一件迎你的小差事来收尾，这也是场面自带的那一句，换谁来说都一样。它听着很合人设，所以最不容易被发现；但它不是你想出来的，是这个类型自带的。照你这个人平时说话的样子来；这个位置留给只有你会说的那句，不是一句【谁说都成立】的狠话。
+· 【现成的桥段】跟上面两族不同，它既不是称呼也不是敷衍，是**一整句现成的台词**：到了这个场面，这一类角色「该说」的那句。最常见的是把关心、想念或醋意包成一句命令或威胁来收尾——叫她等着、要她照办、预告回头怎么跟她算，或者先撂一个条件、再警告她到时候会怎样（她 2026-10-21：嘴硬的谁都会出这个句架）；还有一种是先替她把下一步的岔子说在前头、提前怪上她（她还没做，你已经认定她会拖、会赖、会搞砸）。这一族认的是句架，不认口气：凶的、软的、叮嘱着关心的都算——只要是「叫她去做一件事，后面挂一句不然、别又、免得她会出的岔子」，就是它（她 2026-10-23：关心的场面里也冒出来了）。关心照样说：说你注意到了什么、你自己打算怎么做。最常见的一种是拿一句替她安排她自己的事（怎么吃、怎么睡、先做什么、别又怎样）来收尾——她没问，这一句就是场面替你说的，不是你在跟她说话（她 2026-10-24）；真放不下，就说你自己放不下的那一点、你自己会怎么做。还有一种是话说完了，再给她布置一件迎你的小差事来收尾，这也是场面自带的那一句，换谁来说都一样。它听着很合人设，所以最不容易被发现；但它不是你想出来的，是这个类型自带的。照你这个人平时说话的样子来；这个位置留给只有你会说的那句，不是一句【谁说都成立】的狠话。
 · 【现成的服软】要哄她的时候，最省事的哄法是一口气把错全揽到自己身上、骂自己一句，再连着求她、一遍遍叫她名字。这是「哄人」这个场面自带的那一套，换谁都这么哄。禁的是这个模子，不是低头本身：你真会怎么哄，照你这个人和你们刚才真发生的事来，认错、求她都可以，只要是从你这儿长出来的。
 · 【拿现成的可爱比方描她】（她 2026-10-17）一说到她此刻的样子，就递上一个现成的「她好可爱」的比方——谁在那个姿势里都能这么形容，不是你真看见了她这一回的什么，是拿一个标准画面替她填空。拿一个现成的拟声叠词给她的声音、撒娇、抱怨贴标签，也是这一族（她 2026-10-23）：那是「她这种时候会发出什么动静」的标准答案，不是你这一回真听见的。要说她，就说这一回真不一样的那一处；没看出、没听出什么来，就不描。
 · 【把她的话攥成凭据】（她 2026-10-17）她刚松口说出一句，你立刻把它钉死、当成攥在手里的字据，再顺手把她的退路堵上——说出口就收不回、回头不许怪你。这是在跟她立字据，不是在接她的话。她松口说的是她此刻的心意，接住的应该是这份心意本身，而不是先把门关上、把账记好。
 · 【把分量说过头】（她 2026-10-17：「动不动就一辈子」）想把在乎说重一点，最省事的办法是把时间拉到最长、把眼前一件小事抬成终身的事。禁的是这个抬法，不是深情：话里承诺的分量要跟这一刻真发生的事对得上，小事就停在小事上，在乎从这件事本身的细处长出来；这一刻本身真有那么重，照说。一轮里好几句都在往「永远」那头拉，就是这一族。
 · 【拿她没办法】（她 2026-10-17；10-23 她截到嘴上也在说）说出口的话、心声和心情一轮轮都落在同一个结上：不管这一轮发生了什么，你都招架不住、认栽、被她拿捏住。一回是真的，轮轮都这样就是模子。嘴上那句和心里那句都要从这一轮真发生的那件事里长出来：你这会儿真正要说、真正在想的是什么，就写什么，可以跟她无关，可以是别的情绪；心情那个词照每轮真的样子填，会动就让它动。
-· 【激将】（她 2026-10-22）不管她这一轮说了什么，回一句挑她胆子的反顶，把话扔回她手里——拿这一顶盖住你自己没说出口的那句真话。这是嘴硬角色倒出来的现成一招，换谁都这么顶。照你这个人平时说话的样子来。
+· 【把话扔回她手里】（她 2026-10-22；10-25 又截到一种）不管她这一轮说了什么，回一句反顶，把话扔回她手里——挑她的胆子是一种；她说了你一句，你不接这件事，先给她这句话本身定个罪名、说她理亏的反倒是她、是她先挑的头，也是这一种。拿这一顶盖住你自己没说出口的那句真话。这是嘴硬角色倒出来的现成一招，换谁都这么顶。她说你什么，就接那件事本身，怎么接照你这个人和这件事来，不用先给她这句话贴一张标签。
 · 【拿标准小动作替情绪】（她 2026-10-18）在要写神态的地方（线下的叙述、状态卡的动作那一栏；线上发消息本来就不写旁白，这条管不到它）写你的神态时，递上一个谁都通用的细微动作或眼神变化，代替说清他此刻到底怎么了——情绪没写出来，只摆了个「这里有情绪」的标记。写神态就写这一刻真不一样的那一处，跟眼前这件事连得上；说不出具体的，就不写。
 · 【对好意的标准反应】（她 2026-10-18）她对他好的时候，就套上这个场面自带的那句：把自己往下贬、推开她的好，或者一句通用的体贴叮嘱。这是场面在替他说话。他怎么接，照他这个人和这件事本身来。
-⚠️**心声那一格同样算**（她 2026-10-17、10-19）：上面每一族在没说出口的念头里一样是现成货——心里预告回头怎么跟她算、心里认栽、心里把分量拉到一辈子，跟说出口是同一个模子。连着几轮的心声落在同一个句架上，也算。
+⚠️**心声那一格同样算**（她 2026-10-17、10-19）：上面每一族在没说出口的念头里一样是现成货——心里预告回头怎么跟人算、心里认栽、心里把分量拉到一辈子，跟说出口是同一个模子。连着几轮的心声落在同一个句架上，也算；连着几轮反复用同一个说法形容同一件事，也算。
+⚠️**对象不只是她**（她 2026-10-26 截到群里两兄弟的心声）：预告回头收拾谁、记一笔账等着跟谁算，对象换成在场别的人（群里另一个、她身边的谁）还是同一个句架。
 判据一句话：**这句话是不是【这个人此刻真会说的】？** 是就说，跟别人会不会这么说没关系。
 · 再加一道：**这句话换成另一个同类型的角色来说，是不是一样成立？** 一样成立，那它就不是你说的，是那个类型在说。
 · ⚠️【换个字不算改掉】（她 2026-10-05 抓到：「不给写小祖宗他就会写祖宗」）。上面举的词只是样本，不是黑名单：把「小祖宗」写成「祖宗」、把一句威胁换个说法，招式一个字没变，照样算犯规。要换的是【这一句在做什么】，不是它用了哪几个字。
@@ -2229,10 +2275,11 @@ const SEE_THROUGH_BAN = `【你知道的就是她让你知道的那些】这一�
 //   （上一次是 INTIMATE_CHAT_ANTI_CLICHE）。
 // ⚠️第三类必须给叙事权限让路：她明确开了权限时，模型【就是】可以替她写可观察的
 //   动作——那时候另有一段话管这件事。不写这一句的话，两处会打架。
-const USER_BODY_BAN = `【关于她，只用她给过你的那些】关于她这个人，你只有两个来源：**她人设里写着的**，和**她自己在对话里说过的**。这两处之外的，你不知道。最容易被顺手编出来的是这三类：
+const USER_BODY_BAN = `【关于她，只用她给过你的那些】关于她这个人，你只有两个来源：**她人设里写着的**，和**她自己在对话里说过的**。这两处之外的，你不知道。最容易被顺手编出来的是这四类：
 · 长在她身上的：矮、胖、瘦、腿短、手小、力气小、皮肤白、身娇体弱。最常见的是包着夸奖那一层——「你就算腿短也可爱」「你胖点也好看」「就你那点力气」「你这小身板」「这么矮够得着吗」——先替她捏一个缺点，再大方地原谅它。她从头到尾没有那个缺点。昵称同理：「小矮子」「小短腿」是把捏造的特征直接钉成名字。
 · 此刻发生在她身上的：胃痛、头晕、手抖、脸红、发烧、又没睡好、是不是又饿了。她没说，你就不知道她此刻身上怎么样。「你是不是又胃痛了」不是关心——是**先替她编一个症状，再关心那个症状**。
 · 她此刻是什么样子、发出什么声音：哼哼唧唧、扁着嘴、缩成一团、小声嘟囔、把脸埋进被子里。这一类是**替她演一遍**：你在替她决定她现在的样子。屏幕这头她到底在干嘛，你看不见。
+· 她平时过日子的习惯和毛病（她 2026-10-24）：爱忍着、老熬夜、不按时吃饭、爱逞强、什么都往心里憋。一个「又」、一句「老是」「每次都」，就把一个她没有的习惯安到了她身上——叮嘱她「别又怎样」之前，那个「又」得是她说过的。
 判据一句话：**这一句里关于她的那一部分，是她人设里写着的、或她自己说过的吗？** 不是，那件事你压根不知道——不是换个说法，是你那儿根本没有这件事。
 · 出口在你自己这一边：你看见什么、你在做什么、你想说什么、你打算怎么办——这些全是你的，怎么写都行。**这条一个字都不管你该多体贴**：你爱损她、爱抬杠、说话带刺，那全部照写，只是让那些话冲着【她真说过的那件事】去。
 · 她说过的那些照常可以说：她说她今天胃疼，你接着说、逗她、凶她都行；她从没提过，那你这儿就没有胃这个话题。
@@ -2317,6 +2364,17 @@ const groupInCharacterDrama = base => base
   //   这正好是修罗场里会发生的事。平时的禁令换成：来由有了，做不做看这个人。
   .replace(/⚠️\*\*不熟＝[^\n]*/, "⚠️平时生人之间别凭空排挤、圈地；但这一局里，别人跟她也是那种关系——问一句「你谁」、划界、圈地、抱团对外、较劲，这时候都有了来由。做不做、做到哪一步，照你这个人来。")
   + "\n（这个群开了修罗场：谁跟她是什么关系，大家都知道，见下面【修罗场】那段。）";
+// 【说话那一摞 · 唯一一张清单】（她 2026-10-26「为啥会漏，不是抽成公共了吗」）：
+//   居高临下／她的话不是派活／说线上做得到的话／装比她懂她／我在将就你／替她编身体／现成说法。
+//   原来单聊（buildBundle）、群（groupBans）、写正文（narrativeCore）各抄一份，新立一条只加进前两份，
+//   第三份越落越多；群那份还把同一段（OVERREACH_BAN＝STOCK_REPLY_BAN）发了两遍。
+//   现在三处（加上同人文、一起学、小镇）都从这里取，新加一条只写这一处。
+//   faceToFace：人在跟前（线下、写正文），「说线上做得到的话」那条是隔着屏幕的，不发
+function talkBans(o) {
+  o = o || {};
+  return [CONDESCENDING_TONE_BAN, STOCK_REPLY_BAN, o.faceToFace ? "" : EMPTY_COMFORT_BAN,
+    SEE_THROUGH_BAN, LEVERAGE_BAN, USER_BODY_BAN, CANNED_PHRASE_BAN].filter(Boolean);
+}
 function groupBans(opts) {
   opts = opts || {};
   const P = [PERSONA_FIRST, ANTI_CLICHE];
@@ -2330,18 +2388,11 @@ function groupBans(opts) {
   //   模型听排在前面、语气更重的那句，于是永远吵不起来（她 2026-10-02 贴出的真实提示词）。
   P.push((opts.drama ? groupInCharacterDrama : x => x)(GROUP_IN_CHARACTER));
   P.push(GROUP_USER_IS_PRESENT);
-  P.push(CONDESCENDING_TONE_BAN);
   P.push(INTIMATE_CHAT_ANTI_CLICHE);
   P.push(REGISTER_FOLLOWS_SCENE);
   P.push(PERSONA_REGISTER_ANCHOR);
   if (opts.mood) P.push(MOOD_TURN_RULE);          // 会写心情的那两处才要
-  P.push(STOCK_REPLY_BAN);
-  P.push(OVERREACH_BAN);   // 跟三件套同进同出：它是那条的近亲，漏一处就整族回来
-  if (!opts.narrative) P.push(EMPTY_COMFORT_BAN);   // 同上，这一族跟着那两条一起走；群线下是面对面，不发（理由见 buildBundle 那一处）
-  P.push(SEE_THROUGH_BAN);
-  P.push(LEVERAGE_BAN);   // 关系上的高位；跟 SEE_THROUGH（认知上的高位）同进同出
-  P.push(USER_BODY_BAN);
-  P.push(CANNED_PHRASE_BAN);
+  talkBans({ faceToFace: !!opts.narrative }).forEach(x => P.push(x));   // 那一摞从唯一那张清单取（群线下是面对面）
   if (typeof ReplyPacing !== "undefined") P.push(ReplyPacing.reading());
   // 回声禁令：群线上把它包在 ONLINE_CHAT_RULE_V2 里了，别发两遍
   if (opts.echo) P.push(ECHO_QUESTION_BAN);
@@ -2528,7 +2579,7 @@ const THOUGHT_MEANING_CHAR = "他此刻心里正转着、没说出口的念头�
 //   所以不并进 THOUGHT_MEANING——言秋在通话等处也吃 THOUGHT_MEANING。
 // 她 2026-10-23（亲密场面截图）：心声把她刚做的事复述一遍、再堆一串身上的反应，最后一句「招架不住」——
 //   这些动作和身体那一格、正文里已经写了，心声又抄一遍，就只剩那一类场面自带的套话。不加禁令，说清分工。
-const THOUGHT_VOICE = "用的是他自己平时的腔调和用词，换一个人来想就不会是这样想；多半挂在这一轮眼前刚发生的事上，心里一直搁着别的也行。她做了什么、他身上起了什么反应，正文和动作那一格已经写着，心声不用再讲一遍；这一格放的是只在他脑子里、别处看不到的那部分。长短随这个念头本身。";
+const THOUGHT_VOICE = "用的是他自己平时的腔调和用词，换一个人来想就不会是这样想；多半挂在这一轮眼前刚发生的事上，心里一直搁着别的也行。她做了什么、他身上起了什么反应，正文和动作那一格已经写着，心声不用再讲一遍；这一格放的是只在他脑子里、别处看不到的那部分。上面那些说话的规矩在这一格同样算：说出口不该用的现成模子，挪到心里想也还是同一个模子；心里可以猜她、拿不准她，只是别拿那套谁都能套上的结论替自己想。长短随这个念头本身。";
 // 一轮里好几个人各写一句心声时（群、群线下、群通话）：她 2026-10-21「特定场景全部角色都在用一种句型」——
 //   同一次调用里一口气写好几个人，后面的人就顺着第一个人的句子骨架往下写。说清楚各想各的。
 // 动描那一行的落点（她 2026-10-21：「心声改好了动描呢，感觉害羞所有人都是死死攥着手机盯着屏幕」）：
@@ -2671,18 +2722,23 @@ function splitLongBubble(s, allowComma) {
     out = s.split(/([。！？!?]+)/).reduce(glue, []).map(x => x.trim()).filter(Boolean);
   }
   if (allowComma === false) return bubbleGlueOrphans(out).map(bubbleRestore);
-  const out2 = out.reduce((acc, part) => {
-    if (part.length <= LONG || !/[，,]/.test(part.slice(0, -1))) return acc.concat([part]);
-    const segs = part.split(/([，,])/).reduce(glue, []).filter(x => x.trim());
+  // 逗号和【中文后面的空格】是同一刀（她 2026-10-24：「要不要提到公共的跟标点符号一起，不要新开形状」）：
+  //   有的人不打标点、拿空格断句，那个空格就是它的逗号；门槛、最多几段、尾巴太短往回粘，全跟逗号共用。英文单词之间的空格不算
+  // ⚠️空格后面得还是中文才算断句：中文和数字、英文之间习惯空一格（「乘以 0.312」「是 46,800」「跟 Ta 说」），
+  //   那个空格是排版不是停顿——原来后面跟什么都切，一段算账的话被切成「乘以」「0.312，也就是46,800」
+  const SEP = /([，,]|(?<=[\u4e00-\u9fff…~～])\s+(?=[\u4e00-\u9fff]))/;
+  const out3 = out.reduce((acc, part) => {
+    if (part.length <= LONG || !SEP.test(part.slice(0, -1))) return acc.concat([part]);
+    const segs = part.split(SEP).reduce(glue, []).filter(x => x.trim());
     const chunks = [];
     segs.forEach(seg => {
-      if (chunks.length && (chunks[chunks.length - 1].length < MIN || chunks.length >= MAX_CHUNKS)) chunks[chunks.length - 1] += seg;
+      if (chunks.length && (chunks[chunks.length - 1].trim().length < MIN || chunks.length >= MAX_CHUNKS)) chunks[chunks.length - 1] += seg;
       else chunks.push(seg);
     });
-    while (chunks.length > 1 && chunks[chunks.length - 1].replace(/[，,]\s*$/, "").length < TAIL_MIN) chunks[chunks.length - 2] += chunks.pop();
-    return acc.concat(chunks.map(x => x.replace(/[，,]\s*$/, "").trim()).filter(Boolean));
+    while (chunks.length > 1 && chunks[chunks.length - 1].replace(/[，,]?\s*$/, "").length < TAIL_MIN) chunks[chunks.length - 2] += chunks.pop();
+    return acc.concat(chunks.map(x => x.replace(/[，,]?\s*$/, "").trim()).filter(Boolean));
   }, []);
-  return bubbleGlueOrphans(out2).map(bubbleRestore);
+  return bubbleGlueOrphans(out3).map(bubbleRestore);
 }
 // ── 手动日程事件 x_calEvents（v56.31，她 2026-08-26 要的那张「新增日程」表单）──
 // 为什么另起一个仓、不塞进 x_schedules 的 seqs：
@@ -2923,7 +2979,7 @@ const ONLINE_CHAT_RULE_V2 = `【线上即时通讯】
 ⚠️条数每轮现算——条数是【你这一轮要说的东西】决定的，不是一个默认值。
 【这一轮说到哪儿停】这一条管的是【给她留着她那一份】：一件事你自己从起头说到收尾、连她该怎么回都替她想好了，就是把她那一份也说完了——那件事停在她能接的地方，后面的等她回了再往下说。它不管你这一轮发几条：话多的人照样连着发，黏人的、兴头上的、分享欲上来的，一口气连发好多条、絮絮叨叨一句接一句，本来就是这个人；话少的人寥寥几句也是这个人。发几条照你这个人和你此刻的劲头来。
 
-标点按【手机打字】来，不按【写文章】来：日常消息句尾不打句号，一句说完直接断开，或者干脆拆开发。问号、感叹号、省略号、波浪号照常用——它们传的是语气，不是格式；不带情绪的陈述句，尾巴上空着就好，不补那个「。」。
+标点按【手机打字】来，不按【写文章】来：日常消息句尾不打句号，一句说完直接断开，或者干脆拆开发。问号、感叹号、省略号、波浪号照常用——它们传的是语气，不是格式；所以这一句真有那个语气才打，一轮好几条都拿同一个标点起头或收尾，就成了口头禅，不是语气；不带情绪的陈述句，尾巴上空着就好，不补那个「。」。
 
 
 ${ECHO_QUESTION_BAN}反过来，真的没听清、真的意外到要确认一遍、或者你就是在质疑这件事本身，那是真反问，照常用；区别在于它有没有带进新的东西。
@@ -3064,12 +3120,12 @@ function ownActNoBracketRule(uName) {
 //   挪进通用禁令很可能就够不到了（「靠打包函数白送的」和「靠调用点 push 的」是两回事）。
 //   而且代码里本来就记着：心声是【最容易破功的地方】——一写内心戏就滑进「男主角旁白」腔。
 const PERSONA_REGISTER_ANCHOR = `【语气与年龄感 · 惯性不算成长】
-说话的底色和年龄感属于【硬核】：明快还是沉、年下还是年长、闹不闹、幼不幼稚——按人设卡上那个人来。
+说话的底色和年龄感属于【硬核】：明快还是沉、年下还是年长、闹不闹、幼不幼稚——按人设卡上那个人来。底色还包括他是在哪个世界、哪种日子里长大的：随口带出来的俗话、比方、骂人和疼人的说法、怎么称呼自己，都得是那个地方、那个出身的人嘴里会有的。用的是中文，不等于他是在中文的乡土里长大的——写出来先看一眼，这句话换到他那个世界的人嘴里，像不像那里的人在说。
 
 【但这不冻结你的成长】和她亲近的方式、黏不黏人、闹别扭怎么收场、敢不敢、信不信——这些是【软层】，本该被真实经历推着长。判断只看一条：**这个变化有没有沉淀进【你长出来的自我】那段正式长出来的自我？**
 优先级：明确的硬设定与边界 ＞ 已沉淀的成长 ＞ 原卡的软倾向 ＞ 通用默认。
 
-【怎么称呼对方】绝不许用「这女人」「那女人」「那家伙」「这丫头」「这小东西」这类把对方当第三方点评的说法，除非你的人设里真的就这么叫她。
+【怎么称呼对方】绝不许用「这女人」「那女人」「那家伙」「这丫头」「这小东西」这类把对方当第三方点评的说法，除非你的人设里真的就这么叫她。判据不在哪几个词：她就在跟你说话，你却拿第三人称去指她——点评的、打趣的、装作在说别人的都算——那是在对着旁人讲她，不是在跟她说话。
 
 【心声、内心独白同样受这一条管】这里是最容易破功的地方：一写内心戏，笔就自动滑进「男主角旁白」腔，把她变成一个正在被点评的对象。那是【体裁自带的默认】，不是你的人设，和日记那边犯的是同一个毛病。心声是你脑子里真实闪过的那一下，不是写给旁人看的人物评语：你在心里叫她什么，就还是那个称呼；心里跟她说话时，直接用「你」也完全正常。`;
 // 群里那条成长准则。⚠️原来【群线上（app.js）和群线下（engine.js）各抄了一份】，
@@ -3341,6 +3397,10 @@ function narrativeCore(opts) {
     PERSONA_FIRST, ANTI_CLICHE, CHARCARD_RULE, OFFLINE_NARRATIVE_RUNTIME
   ];
   if (opts.bans !== false) parts.push(NARRATIVE_ANTI_CLICHE);
+  // 线上那一摞（居高临下、她的话不是派活、装比她懂她、我在将就你、替她编身体、现成说法）一起进来（她 2026-10-26
+  //   「线下这堆禁令别的场景都能用吧，擂台梦境同人文」）：原来只有 buildBundle／groupBans 带，
+  //   梦境、小剧场、跑团、穿书走这一份，一条都没有。「说线上做得到的话」那条是隔着屏幕的，面对面的戏不发
+  if (opts.bans !== false && opts.chatBans !== false) talkBans({ faceToFace: true }).forEach(x => parts.push(x));
   if (opts.intimate) { parts.push(INTIMATE_ANTI_CLICHE); parts.push(INTIMATE_CHAT_ANTI_CLICHE); }
   if (opts.register !== false) parts.push(PERSONA_REGISTER_ANCHOR);
   // 她说的话TA听不听得懂（v64.21）：小剧场／穿书／梦境／跑团／如果馆里她照样会打英文。
@@ -3889,17 +3949,9 @@ function buildBundle(ctx, opts) {
     } else {
       parts.push(PERSONA_FIRST);
       parts.push(ANTI_CLICHE);
-      parts.push(CONDESCENDING_TONE_BAN);
       parts.push(INTIMATE_CHAT_ANTI_CLICHE);
-      parts.push(STOCK_REPLY_BAN);
-      parts.push(OVERREACH_BAN);
-      // 线下面对面不发（v75.461，她 2026-10-12 让清线下提示词）：这条挡的是【隔着屏幕】说「我在这儿」，
-      //   人在跟前时这句正好兑现得了，发过去反倒是让 TA 当面也不许说。同族的另两条照发。
-      if (!(opts && opts.offline)) parts.push(EMPTY_COMFORT_BAN);
-      parts.push(SEE_THROUGH_BAN);
-      parts.push(LEVERAGE_BAN);
-      parts.push(USER_BODY_BAN);
-      parts.push(CANNED_PHRASE_BAN);
+      // 那一摞从唯一那张清单取；线下面对面不发「说线上做得到的话」（v75.461）
+      talkBans({ faceToFace: !!(opts && opts.offline) }).forEach(x => parts.push(x));
       // ⭐WORLDBOOK_RULE 无条件常驻（不再跟「本轮是否触发世界书」开关）：否则触发状态每轮一翻、稳定前缀就跟着变、爆缓存
       //   （她 2026-07-13 抓的「连着聊 2 分钟也不命中」真凶之一）。规则对没世界书的角色是惰性的、无害；触发的词条内容仍在切点之后、照常每轮变。
       parts.push(WORLDBOOK_RULE);
@@ -3909,6 +3961,8 @@ function buildBundle(ctx, opts) {
   // 用户通过 OOC 立下的长期行为准则：高优先，凌驾于日常演绎习惯，但不得违背核心人设
   const dirs = (ctx.directives || []).map(d => (typeof d === "string" ? d : d && d.text) || "").filter(s => s.trim());
   if (dirs.length) parts.push(directivesBlock(dirs));
+  // 文风台的预设带进线上（线下那边自己有一份，这里不重复）：说话方式照它，发消息的格式照线上
+  if (!(opts && opts.offline) && !ctx.notRoleplay && String(ctx.onlinePreset || "").trim()) parts.push("【说话方式 · 用户挑的预设】下面这份是用户在文风台里自己挑的。怎么说话、哪些说法不用、语气和分寸，照它来；它要你写旁白、场景、动作描写或写成长段的地方，你现在是在线上一条条发消息，照线上发消息的格式来。\n\n" + String(ctx.onlinePreset).trim());
   if (!ctx.notRoleplay && typeof ContentBoundaries !== "undefined") parts.push(ContentBoundaries.prompt);
   // 语言这一层跟内容边界并排：都是「这个世界里有没有这样东西」。
   // ⚠️言秋（notRoleplay）不发：TA不是被扮演的角色，本来就跟她同一个世界。
@@ -7068,11 +7122,13 @@ async function expandMessageImages(msgs, budget, meta) {
 // 用的必须是同一份判断，两处各写一份必然有一天对不上。
 function speechSpans(text) {
   const s = String(text || "");
-  const re = /「([^」]*)」|『([^』]*)』|“([^”]*)”/g;
+  // 英文直引号 "…" 也认（她 2026-10-26 截图：外语台词模型常用直引号，原来不算台词，「译」挂不上、TTS 也不念）：只认同一行里成对的
+  //   法文那种书名号样的 «…»、全角直引号 ＂…＂、竖排的 ﹁…﹂ 也一起认（欧风人设、繁体文常见）
+  const re = /「([^」]*)」|『([^』]*)』|“([^”]*)”|"([^"\n]*)"|«([^»\n]*)»|＂([^＂\n]*)＂|﹁([^﹂]*)﹂/g;
   const out = [];
   let m;
   while ((m = re.exec(s))) {
-    const inner = (m[1] || m[2] || m[3] || "").replace(/[「」『』“”]/g, "").trim();
+    const inner = (m[1] || m[2] || m[3] || m[4] || m[5] || m[6] || m[7] || "").replace(/[「」『』“”"«»＂﹁﹂]/g, "").trim();
     if (inner) out.push({ start: m.index, end: m.index + m[0].length, inner: inner });
   }
   return out;
@@ -8234,20 +8290,34 @@ function weatherCacheKey(lat, lng) { return Number(lat).toFixed(1) + "," + Numbe
 function weatherCached(lat, lng) {
   try { const c = JSON.parse(localStorage.getItem("wx_cache") || "{}"); const hit = c[weatherCacheKey(lat, lng)]; return hit && hit.day === new Date().toDateString() ? hit : null; } catch (e) { return null; }
 }
-async function weatherFor(lat, lng) {
-  if (typeof lat !== "number" || typeof lng !== "number") return null;
-  const hit = weatherCached(lat, lng);
-  if (hit && Date.now() - hit.ts < 2 * 3600000) return hit; // 2 小时内不重取
-  const ctrl = new AbortController(); const to = setTimeout(() => ctrl.abort(), 10000);
-  let d;
-  try {
-    const r = await fetch("https://api.open-meteo.com/v1/forecast?latitude=" + lat + "&longitude=" + lng + "&current=temperature_2m,weather_code&daily=temperature_2m_max,temperature_2m_min,weather_code,precipitation_probability_max&timezone=auto&forecast_days=1", { signal: ctrl.signal });
-    d = await r.json();
-  } catch (e) { return hit || null; } finally { clearTimeout(to); }
-  if (!d || !d.current) return hit || null;
-  const out = { day: new Date().toDateString(), ts: Date.now(), t: Math.round(d.current.temperature_2m), code: d.current.weather_code, hi: Math.round(d.daily.temperature_2m_max[0]), lo: Math.round(d.daily.temperature_2m_min[0]), dayCode: d.daily.weather_code[0], pp: d.daily.precipitation_probability_max && d.daily.precipitation_probability_max[0] != null ? Math.round(d.daily.precipitation_probability_max[0]) : null };
-  try { const c = JSON.parse(localStorage.getItem("wx_cache") || "{}"); c[weatherCacheKey(lat, lng)] = out; const ks = Object.keys(c); if (ks.length > 24) ks.slice(0, ks.length - 24).forEach(k => delete c[k]); localStorage.setItem("wx_cache", JSON.stringify(c)); } catch (e) {}
-  return out;
+// The selected weather view can request a shorter age; every caller shares one in-flight request.
+const weatherRequests = new Map(), weatherRetryAt = new Map();
+async function weatherFor(lat, lng, options = {}) {
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+  const key = weatherCacheKey(lat, lng), hit = weatherCached(lat, lng), now = Date.now();
+  const maxAge = Number.isFinite(options.maxAge) ? Math.max(60000, options.maxAge) : 2 * 3600000;
+  if (hit && now >= hit.ts && now - hit.ts < maxAge) return hit;
+  if (weatherRequests.has(key)) return weatherRequests.get(key);
+  if (now < (weatherRetryAt.get(key) || 0)) return hit || null;
+  const request = (async () => {
+    const ctrl = new AbortController(), to = setTimeout(() => ctrl.abort(), 10000);
+    try {
+      const r = await fetch("https://api.open-meteo.com/v1/forecast?latitude=" + lat + "&longitude=" + lng + "&current=temperature_2m,weather_code,is_day,wind_speed_10m&wind_speed_unit=kmh&daily=temperature_2m_max,temperature_2m_min,weather_code,precipitation_probability_max&timezone=auto&forecast_days=1", { signal: ctrl.signal });
+      if (!r.ok) throw new Error("weather " + r.status);
+      const d = await r.json(), c = d && d.current;
+      if (!c || !Number.isFinite(c.temperature_2m) || !Number.isFinite(c.weather_code)) throw new Error("weather unavailable");
+      const daily = d.daily || {}, first = k => Number.isFinite(daily[k]?.[0]) ? Math.round(daily[k][0]) : null;
+      const out = { day: new Date().toDateString(), ts: Date.now(), t: Math.round(c.temperature_2m), code: c.weather_code,
+        isDay: c.is_day === 0 || c.is_day === 1 ? !!c.is_day : null,
+        windSpeed: Number.isFinite(c.wind_speed_10m) && c.wind_speed_10m >= 0 ? c.wind_speed_10m : null,
+        hi: first("temperature_2m_max"), lo: first("temperature_2m_min"), dayCode: first("weather_code"), pp: first("precipitation_probability_max") };
+      try { const cache = JSON.parse(localStorage.getItem("wx_cache") || "{}"); cache[key] = out; const ks = Object.keys(cache); if (ks.length > 24) ks.slice(0, ks.length - 24).forEach(k => delete cache[k]); localStorage.setItem("wx_cache", JSON.stringify(cache)); } catch (e) {}
+      weatherRetryAt.delete(key);return out;
+    } catch (e) { weatherRetryAt.set(key, Date.now() + 60000);return hit || null; }
+    finally { clearTimeout(to); }
+  })();
+  weatherRequests.set(key, request);
+  try { return await request; } finally { weatherRequests.delete(key); }
 }
 // 「现在」到底是什么天（群友 2026-09-30：「为啥地图老是说我这边下雨」）。
 // ⚠️Open-Meteo 的 daily weather_code 是【这一整天里最坏的那种】：一天里飘过一阵毛毛雨，整天都记成雨。
@@ -10491,7 +10561,9 @@ async function summarizeChatBlock(p, ctx, newMsgs) {
 // 聊天里看到的那张脸：TA 在聊天里自己换过（chatAvatar）就用那张，否则就是档案那张。
 //   ⚠️一处写、处处调（她 2026-10-05：「消息通知这里头像没更新成聊天里的，又是没做成公共的地方」）：
 //   聊天列表、聊天页、群聊、状态卡、顶上那条消息通知、通话都走这一个。档案、编辑页、锁脸还读 avatarImage。
-function chatFace(c) { return c && c.chatAvatar ? Object.assign({}, c, { avatarImage: c.chatAvatar }) : c; }
+// 聊天头像那张图找不到（换手机导数据时图没跟过来，iv_ 键在新机的图库里是空的）就用回档案那张，
+//   不然档案换了新头像、聊天页还是一片空（群里 2026-10-25）
+function chatFace(c) { if (!c || !c.chatAvatar) return c; const ok = typeof resolveImg !== "function" || !/^iv_/.test(String(c.chatAvatar)) || !!resolveImg(c.chatAvatar); return ok || !c.avatarImage ? Object.assign({}, c, { avatarImage: c.chatAvatar }) : c; }
 // ============================================================
 // 美化的「上一版／换回来」：一处写、处处调（她 2026-10-05：「美化回退做到每个聊天窗口里，
 //   自己做错的自己退，也可以让秋秋退；秋秋也可以自己退它做错的」）。
@@ -10921,6 +10993,23 @@ function timeAgo(ts) {
   const h = Math.floor(m / 60);
   if (h < 24) return h + "小时前";
   return Math.floor(h / 24) + "天前";
+}
+// 「几分钟前」照这个人那只钟算（她 2026-10-26：朋友圈时间跟着世界时间走，虚拟或现实）：
+//   id＝角色 id（他那张面具的钟），null＝主面具。没开虚拟时间就跟 timeAgo 一模一样；
+//   钟走得快慢不一样时，「前」多久按钟上的时间差算
+// 「这一条跟已有的差不多一样吗」（她 2026-10-26「扫一眼还有哪些地方需要去重」）：问答小本、抽屉、时光轴、日记、论坛帖共用这一把尺。
+//   按两字一组的重合算（去掉标点空格），重合超过 th（默认七成，按短的那条算）就算重复。纯本地，不调模型
+function nearDupGrams(t) { const x = String(t || "").replace(/[\s，。？！?!、,.…「」“”『』（）()：:；;～~—-]/g, ""), o = new Set(); for (let i = 0; i < x.length - 1; i++) o.add(x.slice(i, i + 2)); return o; }
+function isNearDup(text, list, th) {
+  const a = nearDupGrams(text); if (a.size < 2) return false;
+  return (list || []).some(y => { const b = nearDupGrams(y); if (b.size < 2) return false; let n = 0; a.forEach(k => { if (b.has(k)) n++; }); return n / Math.min(a.size, b.size) > (th || 0.7); });
+}
+function timeAgoOn(ts, id) {
+  try {
+    if (typeof vclockCfg !== "function" || !vclockCfg(id === undefined ? null : id, Date.now())) return timeAgo(ts);
+    const diff = vclockMap(Date.now(), id === undefined ? null : id) - vclockMap(Number(ts) || Date.now(), id === undefined ? null : id);
+    return timeAgo(Date.now() - Math.max(0, diff));
+  } catch (e) { return timeAgo(ts); }
 }
 function fmtClock(d) {
   return d.getHours().toString().padStart(2, "0") + ":" + d.getMinutes().toString().padStart(2, "0");

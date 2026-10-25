@@ -87,14 +87,18 @@ test("跟 USER_BODY_BAN 划清界限：同名不同病", () => {
 });
 
 test("三个分发点都接上，跟那一族贴着；言秋不发", () => {
+  // 2026-10-26 talkBans 合并：「跟那一族贴着」＝在 talkBans 那张唯一清单里、排在 USER_BODY 后面；
+  //   三个分发点各自调用 talkBans。
+  const tb = eng.slice(eng.indexOf("function talkBans(o)"), eng.indexOf("function groupBans(opts)"));
+  assert.ok(tb.indexOf("CANNED_PHRASE_BAN") > 0, "talkBans 清单里没有它");
+  assert.ok(tb.indexOf("USER_BODY_BAN") < tb.indexOf("CANNED_PHRASE_BAN"));
   const gb = eng.slice(eng.indexOf("function groupBans(opts)"), eng.indexOf("const GROUP_USER_IS_PRESENT"));
-  assert.match(gb, /P\.push\(CANNED_PHRASE_BAN\);/);
-  assert.ok(gb.indexOf("P.push(USER_BODY_BAN)") < gb.indexOf("P.push(CANNED_PHRASE_BAN)"));
+  assert.match(gb, /talkBans\(\{ faceToFace: !!opts\.narrative \}\)\.forEach\(x => P\.push\(x\)\)/);
   const bb = eng.slice(eng.indexOf("parts.push(ANTI_CLICHE);"), eng.indexOf("parts.push(CHARCARD_RULE);"));
-  assert.match(bb, /parts\.push\(CANNED_PHRASE_BAN\);/);
-  assert.match(fic, /if \(typeof CANNED_PHRASE_BAN !== "undefined"\) parts\.push\(CANNED_PHRASE_BAN\);/);
+  assert.match(bb, /talkBans\(\{[^}]*\}\)\.forEach\(x => parts\.push\(x\)\)/);
+  assert.match(fic, /if \(typeof talkBans === "function"\) talkBans\(\)\.forEach\(x => parts\.push\(x\)\);/);
   const seg = eng.slice(eng.indexOf("    if (ctx.notRoleplay) {"), eng.indexOf("parts.push(CHARCARD_RULE);"));
-  assert.ok(!seg.slice(0, seg.indexOf("} else {")).includes("CANNED_PHRASE_BAN"), "混进言秋那支了");
+  assert.ok(!/CANNED_PHRASE_BAN|talkBans/.test(seg.slice(0, seg.indexOf("} else {"))), "混进言秋那支了");
 });
 
 // 她 2026-10-05：「不给写小祖宗他就会写祖宗。。。」
@@ -111,6 +115,6 @@ test("换个字不算改掉：词只是样本，不是黑名单", () => {
 {
   const eng = require("node:fs").readFileSync(require("node:path").join(__dirname, "..", "js", "engine.js"), "utf8");
   const ban = eng.slice(eng.indexOf("const CANNED_PHRASE_BAN"), eng.indexOf("`;", eng.indexOf("const CANNED_PHRASE_BAN")));
-  require("node:assert/strict").match(ban, /【激将】.*不管她这一轮说了什么/);
+  require("node:assert/strict").match(ban, /【把话扔回她手里】.*不管她这一轮说了什么/);
   require("node:assert/strict").ok(!/有本事/.test(ban), "别把原句摆进去");
 }

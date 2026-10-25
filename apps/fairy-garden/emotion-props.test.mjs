@@ -1,0 +1,55 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {registerHooks} from 'node:module';
+registerHooks({resolve(s,c,next){return s==='three'?{url:new URL('./vendor/three.module.js',import.meta.url).href,shortCircuit:true}:next(s,c);}});
+const T=await import('three'),{makeEmotionProps}=await import('./emotion-props.mjs');
+test('小花握点跟随真实手部世界坐标，旋转、缩放与收回均一致',()=>{
+ for(const scale of [.8,1,1.25])for(const yaw of [0,.8,-1.4]){
+  const root=new T.Group(),model=new T.Group(),hand=new T.Object3D();root.add(model);model.add(hand);root.rotation.y=yaw;root.scale.setScalar(scale);model.rotation.set(.08,.15,-.04);
+  const props=makeEmotionProps(model,()=>hand.getWorldPosition(new T.Vector3()));
+  assert.equal(model.getObjectByName('CompanionFlower'),undefined);props.update({flower:1});const flower=model.getObjectByName('CompanionFlower');props.update(null);
+  assert.equal(flower.visible,false);
+  for(let i=0;i<20;i++){
+   hand.position.set(.15+.03*Math.sin(i/3),.6+i*.005,.18+i*.012);props.update({flower:.5+i/40});root.updateWorldMatrix(true,true);
+   assert.ok(flower.visible);const grip=model.getObjectByName('FlowerGrip');assert.ok(grip.getWorldPosition(new T.Vector3()).distanceTo(hand.getWorldPosition(new T.Vector3()))<1e-8);
+  }
+  props.update(null);assert.equal(flower.visible,false);props.update({flower:0});assert.equal(flower.visible,false);
+  const petals=[];flower.traverse(o=>{if(o.name==='FlowerPetal')petals.push(o);});assert.equal(petals.length,5);assert.ok(flower.getObjectByName('FlowerStem'));
+ }
+});
+
+test('礼盒双侧握点同时跟手，纸牌实际绘制中文，换动作就收回',()=>{
+ for(const scale of [.8,1,1.25])for(const yaw of [0,.8,-1.4]){
+  const root=new T.Group(),model=new T.Group();root.add(model);root.rotation.y=yaw;root.scale.setScalar(scale);model.rotation.set(.08,.15,-.04);
+  const hands={left:new T.Object3D(),right:new T.Object3D()};Object.values(hands).forEach(h=>model.add(h));
+  const text=[],ctx={fillRect(){},strokeRect(){},fillText(t){text.push(t);}},canvas={getContext:()=>ctx};
+  const props=makeEmotionProps(model,side=>hands[side].getWorldPosition(new T.Vector3()),{makeCanvas:()=>canvas});
+  assert.equal(model.getObjectByName('CompanionGift'),undefined);assert.equal(model.getObjectByName('CompanionSign'),undefined);
+  for(let i=0;i<20;i++){
+   hands.left.position.set(-.11,.6+i*.005,.2+i*.01);hands.right.position.set(.1+.01*Math.sin(i),.62+i*.005,.21+i*.01);
+   props.update({gift:.3+i/30});root.updateWorldMatrix(true,true);
+   for(const [side,name] of [['left','GiftGripLeft'],['right','GiftGripRight']])assert.ok(model.getObjectByName(name).getWorldPosition(new T.Vector3()).distanceTo(hands[side].getWorldPosition(new T.Vector3()))<1e-8);
+  }
+  props.update({sign:1,signSway:.08});assert.equal(model.getObjectByName('CompanionGift').visible,false);
+  const sign=model.getObjectByName('CompanionSign');assert.equal(sign.visible,true);assert.deepEqual(text,['想你']);assert.ok(sign.getObjectByName('SignPaper').material.map?.isCanvasTexture);
+  assert.ok(sign.getObjectByName('SignGrip').getWorldPosition(new T.Vector3()).distanceTo(hands.right.getWorldPosition(new T.Vector3()))<1e-8);
+  props.update(null);assert.equal(sign.visible,false);assert.equal(model.getObjectByName('CompanionGift').visible,false);
+ }
+});
+test('手机握在左手，饼干握在右手且咬后缺一角，道具互相收起',()=>{
+ const root=new T.Group(),model=new T.Group();root.add(model);root.rotation.y=.8;root.scale.setScalar(1.2);
+ const hands={left:new T.Object3D(),right:new T.Object3D()};for(const [side,hand]of Object.entries(hands)){model.add(hand);hand.position.set(side==='left'?-.12:.12,.6,.2);}
+ const ctx={fillRect(){}},props=makeEmotionProps(model,side=>hands[side].getWorldPosition(new T.Vector3()),{makeCanvas:()=>({getContext:()=>ctx})});
+ props.update({phone:1});const phone=model.getObjectByName('CompanionPhone');assert.ok(phone.visible);assert.ok(phone.getObjectByName('PhoneGrip').getWorldPosition(new T.Vector3()).distanceTo(hands.left.getWorldPosition(new T.Vector3()))<1e-8);assert.ok(phone.getObjectByName('PhoneScreen').material.map?.isCanvasTexture);
+ props.update({cookie:1,bite:0});const cookie=model.getObjectByName('CompanionCookie');assert.equal(phone.visible,false);assert.equal(cookie.getObjectByName('WholeCookie').visible,true);assert.equal(cookie.getObjectByName('BittenCookie').visible,false);
+ props.update({cookie:1,bite:1});assert.equal(cookie.getObjectByName('WholeCookie').visible,false);assert.equal(cookie.getObjectByName('BittenCookie').visible,true);assert.ok(cookie.getObjectByName('CookieGrip').getWorldPosition(new T.Vector3()).distanceTo(hands.right.getWorldPosition(new T.Vector3()))<1e-8);
+ props.update(null);assert.equal(cookie.visible,false);assert.equal(phone.visible,false);
+});
+
+test('自拍切到右手朝向自己，伞按真实握点撑开，结束收起道具',()=>{
+ const model=new T.Group(),left=new T.Vector3(-.1,.7,.2),right=new T.Vector3(.2,.75,.25),props=makeEmotionProps(model,side=>(side==='left'?left:right).clone());
+ props.update({selfie:1,selfieFlash:1});model.updateMatrixWorld(true);const phone=model.getObjectByName('CompanionPhone');assert.ok(phone.visible);assert.ok(phone.getObjectByName('PhoneGrip').getWorldPosition(new T.Vector3()).distanceTo(right)<1e-8);assert.ok(phone.getObjectByName('SelfieFlash').visible);
+ props.update({phone:1});model.updateMatrixWorld(true);assert.ok(phone.getObjectByName('PhoneGrip').getWorldPosition(new T.Vector3()).distanceTo(left)<1e-8);assert.equal(phone.getObjectByName('SelfieFlash').visible,false);
+ props.update({umbrella:1});model.updateMatrixWorld(true);const umbrella=model.getObjectByName('CompanionUmbrella');assert.equal(phone.visible,false);assert.ok(umbrella.getObjectByName('UmbrellaGrip').getWorldPosition(new T.Vector3()).distanceTo(right)<1e-8);assert.equal(umbrella.children.filter(x=>x.name==='UmbrellaCanopy').length,8);assert.ok(new T.Box3().setFromObject(umbrella).max.y>1.3);
+ props.update(null);assert.equal(umbrella.visible,false);
+});

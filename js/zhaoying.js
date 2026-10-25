@@ -32,8 +32,16 @@
     const [cat, setCatS] = useState(() => { try { return (typeof loadJSON === "function" && loadJSON("x_zyCat", "all")) || "all"; } catch (e) { return "all"; } });
     // 记着的那一类空了（比如自己出的题都删了）就回到全部
     const curCat = cat !== "all" && !Z.allTests().some(tt => Z.catOf(tt) === cat) ? "all" : cat;
-    const setCat = c => { setCatS(c); try { typeof saveJSON === "function" && saveJSON("x_zyCat", c); } catch (e) {} };
+    // 「自己出的」里按出题人筛：""＝都看，"me"＝我出的，角色 id＝他出的；只在这一页里记着，不存
+    const [byWho, setByWho] = useState("");
+    // 「最近做过」收起来（她 2026-10-23）：记着，下次进来还是收着
+    const [recFold, setRecFoldS] = useState(() => { try { return !!(typeof loadJSON === "function" && loadJSON("x_zyRecentFold", false)); } catch (e) { return false; } });
+    const setRecFold = v => { setRecFoldS(v); try { typeof saveJSON === "function" && saveJSON("x_zyRecentFold", v); } catch (e) {} };
+    const setCat = c => { setCatS(c); setByWho(""); try { typeof saveJSON === "function" && saveJSON("x_zyCat", c); } catch (e) {} };
 
+    // 从「最近做过」点进来：滚到翻开的那一次
+    const jumpRec = useRef("");
+    useEffect(() => { if (!jumpRec.current || !testId) return; const id = jumpRec.current; jumpRec.current = ""; setTimeout(() => { try { const el = document.querySelector('[data-rec="' + id + '"]'); el && el.scrollIntoView({ block: "start", behavior: "smooth" }); } catch (e) {} }, 80); }, [testId]);
     const timer = useRef(null);
     useEffect(() => () => clearTimeout(timer.current), []);
     const char = chars.find(c => c.id === who) || null;
@@ -425,10 +433,11 @@
               h("div", { className: "flex gap-2 flex-wrap" }, gs.map(gr => pill(false, gr.name || "群", () => {
                 if (busyWho) return;
                 const n0 = (gr.memberIds || []).filter(id => chars.some(c => c.id === id)).length;
-                requestAppConfirm("让「" + (gr.name || "群") + "」一起做？", "群里 " + n0 + " 个人各做一遍，一人一次调用。做完会把大家的选法发进群里。", async () => {
+                requestAppConfirm("让「" + (gr.name || "群") + "」一起做？", "群里 " + n0 + " 个人各做一遍，一人一次调用。卡会先落进群里、带你跳过去；你说完话按叶子他们才开始做，谁做完那一行就亮起来，点开看他怎么选的；每个人都看完，他们就接着聊。", async () => {
                   setBusyWho("在做…");
                   const n = await props.onGroupRun(gr.id, test.id, c => setBusyWho((c.remark || c.name) + " 在做…"), groupLie && !(test.rank || test.bid || test.bracket || test.fill));
                   setBusyWho(""); bump(x => x + 1);
+                  if (n === -1) return;   // 卡已经落进群、人也跳过去了：等她按叶子才开始做
                   props.toast && props.toast(n >= 2 ? "做完了，发进群里了" : "做成的人太少，没发进群");
                 }, "开始");
               }, "zygroupbtn"))));
@@ -460,7 +469,7 @@
                   "那时：" + Z.answerText(test, old, i) + ((old.whys || [])[i] ? "（" + old.whys[i] + "）" : "") + "\n现在：" + Z.answerText(test, now, i) + ((now.whys || [])[i] ? "（" + now.whys[i] + "）" : "")))));
           })() : null,
           h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: FOG, margin: "18px 0 6px" } }, recs.length ? nameOf(who) + " 做过 " + recs.length + " 次" : "还没做过"),
-          recs.map(r => h("div", { key: r.id, "data-wk": "zyrec", style: { borderTop: "1px solid " + LINE, padding: "10px 0" } },
+          recs.map(r => h("div", { key: r.id, "data-wk": "zyrec", "data-rec": r.id, style: { borderTop: "1px solid " + LINE, padding: "10px 0" } },
             h("button", { onClick: () => setOpenRec(openRec === r.id ? null : r.id), className: "w-full text-left active:opacity-70", style: { display: "flex", alignItems: "center", gap: 8 } },
               h("span", { style: { fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))", color: INK, flex: 1 } }, r.title,
                 r.scene ? h("span", { "data-wk": "zyscenetag", style: { marginLeft: 6, fontFamily: F_BODY, fontSize: 11, color: ACC, border: "1px solid " + ACC, borderRadius: 999, padding: "1px 7px" } }, r.scene) : null,
@@ -505,6 +514,25 @@
       h(Head, { zh: "照影", sub: "看看他会怎么选", onBack: props.onBack, bg: "transparent" }),
       h("div", { className: "flex-1 overflow-y-auto", style: { padding: "4px 18px 40px" } },
         h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: FOG, padding: "8px 2px 10px", lineHeight: 1.6 } }, "挑一套，点进去发给他做，或者自己做一份。"),
+        // 最近做过：谁做的哪一套、测出什么，点了直接翻开那一次（她 2026-10-23「题多了不好找记录」）
+        (() => {
+          const rr = Z.recentRecords(8, w => w === "me" || chars.some(c => c.id === w));
+          if (!rr.length) return null;
+          return h("div", { "data-wk": "zyrecent", style: { marginBottom: 10 } },
+            h("button", { "data-wk": "zyrecentfold", "aria-expanded": !recFold, onClick: () => setRecFold(!recFold), className: "w-full flex items-center active:opacity-70", style: { minHeight: 36, padding: "2px 2px", marginBottom: recFold ? 0 : 6 } },
+              h("span", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: INK, flex: 1, textAlign: "left" } }, "最近做过"),
+              h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: FOG } }, recFold ? "展开 ▾" : "收起 ▴")),
+            recFold ? null : h("div", { className: "flex overflow-x-auto", style: { gap: 10, padding: "2px 2px 8px" } }, rr.map(r => {
+              const tt = Z.byId(r.testId), c = chars.find(x => x.id === r.who);
+              return h("button", { key: r.who + r.id, "data-wk": "zyrecentcard", onClick: () => { jumpRec.current = r.id; setWho(r.who); setTestId(r.testId); setOpenRec(r.id); }, className: "shrink-0 text-left active:scale-[.97]",
+                style: { width: 150, padding: "10px 12px", borderRadius: 14, background: "#fffdf8", border: "1px solid " + LINE, borderTop: "3px solid " + Z.pal(tt).deep } },
+                h("div", { className: "flex items-center", style: { gap: 6 } },
+                  c ? h(Avatar, { character: c, size: 22, radius: 999 }) : h("span", { style: { display: "flex", width: 22, height: 22, borderRadius: 999, alignItems: "center", justifyContent: "center", background: INK, color: PAPER, fontFamily: F_DISPLAY, fontSize: 11 } }, "我"),
+                  h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: FOG, flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, nameOf(r.who) + " · " + Z.dateZh(r.ts))),
+                h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: FOG, marginTop: 6, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, tt.name),
+                h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: INK, marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, r.title || ""));
+            })));
+        })(),
         // 分类是一排小圆镜（照影本来就是一面镜子）：照着的那面大一圈、镜面亮着、描一道边，名字在底下；没照的那几面小一号、蒙着
         h("div", { "data-wk": "zycats", role: "tablist", className: "flex overflow-x-auto", style: { gap: 6, padding: "4px 2px 14px", alignItems: "flex-end" } },
           Z.CATS.map(([k, zh, gl]) => {
@@ -520,7 +548,20 @@
                 h("span", { style: { position: "relative", fontFamily: F_DISPLAY, fontSize: on ? 19 : 15, color: on ? ACC : FOG } }, gl)),
               h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: on ? INK : FOG, fontWeight: on ? 700 : 400, whiteSpace: "nowrap" } }, zh + " " + n));
           })),
-        Z.allTests().filter(tt => curCat === "all" || Z.catOf(tt) === curCat).map(tt => h("button", { key: tt.id, "data-wk": "zytest", onClick: () => setTestId(tt.id), className: "w-full text-left active:scale-[.98]", style: { display: "block", marginBottom: 14, transition: "transform .15s" } }, cover(tt, false))),
+        // 「自己出的」下面一排出题人：谁出过题才排出来
+        (() => {
+          if (curCat !== "mine") return null;
+          const ms = Z.allTests().filter(tt => Z.catOf(tt) === "mine");
+          const ids = []; ms.forEach(tt => { const k = tt.by || "me"; if (ids.indexOf(k) < 0) ids.push(k); });
+          if (ids.length < 2) return null;
+          const known = ids.filter(k => k === "me" || chars.some(c => c.id === k));
+          return h("div", { "data-wk": "zyauthors", className: "flex gap-3 overflow-x-auto", style: { padding: "0 2px 12px" } },
+            h("button", { key: "all", "data-wk": "zychip", "data-on": byWho ? "0" : "1", onClick: () => setByWho(""), className: "shrink-0 flex flex-col items-center active:opacity-70", style: { gap: 5, width: 56, opacity: byWho ? .62 : 1 } },
+              h("span", { style: { display: "flex", width: 44, height: 44, borderRadius: 999, alignItems: "center", justifyContent: "center", border: "1.5px solid " + (byWho ? LINE : ACC), fontFamily: F_DISPLAY, fontSize: 13, color: byWho ? FOG : ACC } }, "全部"),
+              h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: byWho ? FOG : INK } }, ms.length + " 套")),
+            known.map(k => face(byWho === k, k === "me" ? null : chars.find(c => c.id === k), (k === "me" ? "我" : nameOf(k)) + " " + ms.filter(tt => (tt.by || "me") === k).length, () => setByWho(byWho === k ? "" : k))));
+        })(),
+        Z.allTests().filter(tt => curCat === "all" || Z.catOf(tt) === curCat).filter(tt => curCat !== "mine" || !byWho || (tt.by || "me") === byWho).map(tt => h("button", { key: tt.id, "data-wk": "zytest", onClick: () => setTestId(tt.id), className: "w-full text-left active:scale-[.98]", style: { display: "block", marginBottom: 14, transition: "transform .15s" } }, cover(tt, false))),
         h("button", { "data-wk": "zynew", onClick: () => { setGen({ theme: "", count: 10, busy: false }); setEdit({ id: "", name: "", sub: "", scored: false, results: [], qs: [{ q: "", opts: [{ t: "", r: 0 }, { t: "", r: 0 }] }] }); }, className: "w-full active:scale-[.98]",
           style: { display: "block", padding: "22px 0", borderRadius: 18, border: "1.5px dashed #cbbca9", fontFamily: F_DISPLAY, fontSize: 15, color: INK } },
           "＋ 出一套题", h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: FOG, marginTop: 4 } }, "自己写，或者给个主题让 AI 出，出完能改")),

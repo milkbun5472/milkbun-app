@@ -14,7 +14,7 @@ const genMe = cut(ap, "const genRepliesToMe = async (", "\n  const genForumPost"
 // 她 2026-09-01：「我回复了帖子然后有楼中楼我就没办法回复了，别人的楼中楼也不行」
 test("楼中楼里每一条都能回，不只是楼层那一行", () => {
   // 原来只有楼层有「回复」，楼里的人回了我之后就再也接不上话
-  const inReplies = cut(floorRow, "(cm.replies || []).map((r, j)", "(gen && gen.forumReplyMe === cm.id)");
+  const inReplies = cut(floorRow, ".map((r, j) => h(\"div\", { key: j, style: { padding: \"3px 0\" } }", "(gen && gen.forumReplyMe === cm.id)");
   assert.match(inReplies, /setReplyTo\(\{ floorId: cm\.id, name: \(r\.authorType === "me" \? \(r\.alt \|\| r\.anon \? r\.authorName : meChar\.name\) : r\.authorName\), toName:/,
     "楼中楼那一条没有自己的「回复」");
   // 回的是谁要看得出来

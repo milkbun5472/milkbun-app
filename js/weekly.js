@@ -540,10 +540,13 @@
         });
       }
     });
+    // 旁观群（她退了群、只在旁边看）：里头说话的全是群里的角色，没有她。
+    //   不标出来，只跟另一个角色在旁观群里聊的那个人，专访会把对面那个人当成她（她 2026-10-24 截图）
+    const groupTag = function (g) { const st = gset[g.id] || {}; return (g.roomKind === "spectate" || st.spectate) ? "·" + uName + "不在场" : ""; };
     (groups || []).forEach(function (g) {
       if (!(gset[g.id] && gset[g.id].memoryInterop)) return;
       const ids = (g.memberIds || []).map(String).filter(function (id) { return (characters || []).some(function (c) { return String(c.id) === id; }); });
-      offLines("x_goffline:" + g.id, "【" + g.name + "·线下】", offWho(""), function (ts, line) {
+      offLines("x_goffline:" + g.id, "【" + g.name + "·线下" + groupTag(g) + "】", offWho(""), function (ts, line) {
         global.push({ ts: ts, line: line });
         ids.forEach(function (id) { pushPC(id, ts, line); });
       });
@@ -562,7 +565,7 @@
         if (m.role === "user") who = uName;
         else if (m.role === "narration") who = "旁白";
         else who = m.senderName || "某人";
-        const line = "【" + g.name + "】" + who + "：" + txt;
+        const line = "【" + g.name + groupTag(g) + "】" + who + "：" + txt;
         global.push({ ts: ts, line: line });
         // 专访需要的是「这个人在场的完整一段对话」，不是只摘 TA 自己的台词。
         // 否则 Lisa 在群里明明和 TA 说过话，perChar 仍只剩零碎回答，模型就会误判没聊。

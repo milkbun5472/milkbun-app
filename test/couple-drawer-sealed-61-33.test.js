@@ -31,7 +31,7 @@ test("封着的时候，一个字的内容都不露", () => {
 
 test("源头也断掉：悄悄话不再拿正文当标题", () => {
   const i = app.indexOf("const drawerWhisper =");
-  const fn = app.slice(i, i + 900);
+  const fn = app.slice(i, i + 1500);   // 她 2026-10-26：前面加了去重那两行，窗口放宽
   assert.ok(fn.indexOf('title: t.replace(/\\s+/g, " ").slice(0, 16)') < 0, "还在切正文当标题");
   assert.match(fn, /kind: "whisper",[\s\S]{0,400}?title: "",/);
 });

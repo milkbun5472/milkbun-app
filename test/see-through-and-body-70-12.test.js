@@ -109,18 +109,19 @@ test("没抄那份的三样：自检清单 / 销毁重写 / 正面例句", () =>
 
 // ── 八处（按分发点，不是按文件）─────────────────────────────
 test("三个分发点都接上了，而且跟那一族贴着", () => {
+  // 2026-10-26 talkBans 合并：两条都在 talkBans 那张唯一清单里（不带条件），三个分发点各调用它
+  const tb = eng.slice(eng.indexOf("function talkBans(o)"), eng.indexOf("function groupBans(opts)"));
+  assert.match(tb, /\bSEE_THROUGH_BAN\b/);
+  assert.match(tb, /\bUSER_BODY_BAN\b/);
   const gb = eng.slice(eng.indexOf("function groupBans(opts)"), eng.indexOf("const GROUP_USER_IS_PRESENT"));
-  assert.match(gb, /P\.push\(SEE_THROUGH_BAN\);/);
-  assert.match(gb, /P\.push\(USER_BODY_BAN\);/);
+  assert.match(gb, /talkBans\(\{[^}]*\}\)\.forEach\(x => P\.push\(x\)\)/);
   const bb = eng.slice(eng.indexOf("parts.push(ANTI_CLICHE);"), eng.indexOf("parts.push(CHARCARD_RULE);"));
-  assert.match(bb, /parts\.push\(SEE_THROUGH_BAN\);/);
-  assert.match(bb, /parts\.push\(USER_BODY_BAN\);/);
-  assert.match(fic, /if \(typeof SEE_THROUGH_BAN !== "undefined"\) parts\.push\(SEE_THROUGH_BAN\);/);
-  assert.match(fic, /if \(typeof USER_BODY_BAN !== "undefined"\) parts\.push\(USER_BODY_BAN\);/);
+  assert.match(bb, /talkBans\(\{[^}]*\}\)\.forEach\(x => parts\.push\(x\)\)/);
+  assert.match(fic, /if \(typeof talkBans === "function"\) talkBans\(\)\.forEach\(x => parts\.push\(x\)\);/);
 });
 
 test("言秋（notRoleplay）那一支不发——写着理由的合法差异", () => {
   const seg = eng.slice(eng.indexOf("    if (ctx.notRoleplay) {"), eng.indexOf("parts.push(CHARCARD_RULE);"));
   const e = seg.indexOf("} else {");
-  assert.ok(!/SEE_THROUGH_BAN|USER_BODY_BAN/.test(seg.slice(0, e)), "混进言秋那一支了");
+  assert.ok(!/SEE_THROUGH_BAN|USER_BODY_BAN|talkBans/.test(seg.slice(0, e)), "混进言秋那一支了");
 });

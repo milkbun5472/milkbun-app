@@ -1004,6 +1004,12 @@
   function patchRecord(who, id, patch) {
     const all = loadAll(); all[who] = (all[who] || []).map(r => r.id === id ? Object.assign({}, r, patch) : r); saveAll(all);
   }
+  // 首页「最近做过」：所有人的记录摊平按时间排，只留还认得的人和还在的题（她 2026-10-23「题多了不好找记录」）
+  function recentRecords(n, alive) {
+    const all = loadAll(), out = [];
+    Object.keys(all).forEach(w => { if (alive && !alive(w)) return; (all[w] || []).forEach(r => { if (r && r.testId && byId(r.testId)) out.push(Object.assign({ who: w }, r)); }); });
+    return out.sort((a, b) => (b.ts || 0) - (a.ts || 0)).slice(0, n || 8);
+  }
   function delRecord(who, id) { const all = loadAll(); all[who] = (all[who] || []).filter(r => r.id !== id); saveAll(all); }
 
   const dateZh = ts => { const d = new Date(ts); return (d.getMonth() + 1) + "月" + d.getDate() + "日"; };
@@ -1127,9 +1133,9 @@
       + (test.bid ? "\n这一套是拍卖会：你手里一共 " + test.bid + " 枚金币，十样东西按顺序一样一样拍，amt 写你为这一样出多少枚。边出边算手里还剩多少，剩下的不够就只能少出或者不出，前面砸多了后面就没钱了；全部 amt 加起来不超过 " + test.bid + "，可以留着不花完。at 是这次出价落在哪一档（照选项那几档）。钱有限，砸在哪儿就是你心里最放不下的。" : "")
       + (test.rank || test.bid || test.bracket || test.fill || test.quick ? "" : "\n全部做完后，你可以回头看一遍，最多改三题：回头看时真觉得哪题选得不对才改，写进 revise（题号、改成第几个选项、为什么改，why 照心声那样写）；看完觉得都对就给空数组。")
       // 评语要说人话（她 2026-10-23「这也太不说人话了吧」：写成了心理报告，满篇受试者、程序正义）
-      + "\nreview 是另一件事：结果下面的一小段评语，三四句，用「他」称呼你，不是你自己说话。口气像一个看完你整张答卷的熟人，用大白话跟" + (meName || "她") + "讲讲你这个人：日常说话用的词，短句，读起来像人在聊天；心理学报告、论文里那种词（受试者、防御机制、程序正义这一类）不是这里的口气。只照你这一次每题怎么选、哪几题来回改过、心声里露出来的东西写，点到具体哪一题、你当时那句心声；写的是只有这一次答卷才看得出来的东西。"
+      + "\nreview 是另一件事：结果下面的一小段评语，三四句，是照影这个小测自己写在结果下面的（不是" + (meName || "她") + "写的，也不是在场哪个人写的），用「他」称呼你，不是你自己说话。口气像一个看完你整张答卷的熟人，用大白话跟" + (meName || "她") + "讲讲你这个人：日常说话用的词，短句，读起来像人在聊天；心理学报告、论文里那种词（受试者、防御机制、程序正义这一类）不是这里的口气。只照你这一次每题怎么选、哪几题来回改过、心声里露出来的东西写，点到具体哪一题、你当时那句心声；写的是只有这一次答卷才看得出来的东西。"
       // 他看完评语怎么想（她 2026-10-23「角色对系统评估的想法」）：同一次调用里写，结果页上评语下面亮出来
-      + "\nreact 是你自己看完这段评语说的一句话，第一人称，照你平时说话的口气：认不认、哪句戳到你、哪句你觉得扯，照你这个人真会有的反应，一两句。" + (lie ? "这次你在撒谎，react 也接着演，不露馅。" : "")
+      + "\nreact 是你自己看完小测给的这段评语说的一句话（评语是小测写的，不是谁对你下的判断），第一人称，照你平时说话的口气：认不认、哪句戳到你、哪句你觉得扯，照你这个人真会有的反应，一两句。" + (lie ? "这次你在撒谎，react 也接着演，不露馅。" : "")
       + "\n题目：\n" + (test.bracket ? "（见上面的对阵规则）" : test.qs.map((q, i) => (i + 1) + ". " + q.q + (test.fill ? "" : "\n" + q.opts.map((o, j) => "   " + j + ") " + o.t).join("\n"))).join("\n"));
   }
   const ASK_SCHEMA = "{\"answers\":[{\"i\":1,\"steps\":[{\"at\":0,\"think\":\"按下这一项时心里的话\"}]}],\"review\":\"结果下面的评语\",\"react\":\"你看完评语说的一句\"}";
@@ -1225,6 +1231,23 @@
   function card(m) {
     const h = g.React && g.React.createElement; if (!h) return null;
     const z = (m && m.zy) || {};
+    // 群里一起做的那张（她 2026-10-24「群聊的照影是文字，而且看不到他们做的过程」）：一人一行，点谁就看谁做的回放
+    if (m && m.kind === "zygroup") {
+      const tt = byId(z.testId) || { id: z.testId || z.testName, name: z.testName }, c = pal(tt);
+      const open = r => e => { if (e && e.stopPropagation) e.stopPropagation(); if (typeof g.__zyOpen === "function") g.__zyOpen({ id: m.id, zy: z.groupId ? { charId: r.charId, testId: z.testId, recId: r.recId, groupId: z.groupId } : { charId: r.charId, testId: z.testId, recId: r.recId, she: true } }); };
+      return h("div", { "data-wk": "zyshare", "data-kind": "group",
+        style: { position: "relative", width: 248, maxWidth: "100%", borderRadius: 16, overflow: "hidden", padding: "12px 14px", background: "linear-gradient(135deg, " + c.a + " 0%, " + c.b + " 100%)", boxShadow: "0 6px 16px -10px " + c.deep, boxSizing: "border-box" } },
+        h("span", { "aria-hidden": true, style: { position: "absolute", right: -4, top: -12, fontSize: 78, lineHeight: 1, color: "rgba(255,255,255,.45)", pointerEvents: "none" } }, c.g),
+        h("div", { style: { position: "relative", fontSize: 10.5, letterSpacing: ".22em", color: c.deep } }, z.status === "wait" ? "照影 · 想让大家一起做" : "照影 · 大家都做了"),
+        h("div", { style: { position: "relative", fontSize: 17, color: "#2e261e", marginTop: 4, lineHeight: 1.35, maxWidth: "82%" } }, z.testName || tt.name || ""),
+        z.lie ? h("div", { style: { position: "relative", fontSize: 11.5, color: c.deep, marginTop: 3 } }, "每个人都偷偷撒了一题谎") : null,
+        h("div", { style: { position: "relative", marginTop: 9, display: "flex", flexDirection: "column", gap: 6 } }, (z.members || []).map(r => h("button", { key: r.charId, "data-wk": "zygrouprow", "data-state": r.state || "done", onClick: r.recId ? open(r) : undefined, disabled: !r.recId,
+          style: { display: "flex", alignItems: "center", gap: 8, textAlign: "left", padding: "6px 10px", borderRadius: 10, background: "rgba(255,255,255,.72)", border: "none", color: "#2e261e", fontSize: 13, cursor: "pointer" } },
+          h("span", { style: { flexShrink: 0, color: c.deep } }, r.name),
+          h("span", { style: { flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", opacity: r.recId ? 1 : .6 } }, r.recId ? (r.title || "做完了") : r.state === "doing" ? "在做…" : r.state === "failed" ? "这回没做成" : "等着"),
+          r.recId ? h("span", { style: { flexShrink: 0, fontSize: 11, color: c.deep } }, "看 ›") : null))),
+        h("div", { style: { position: "relative", fontSize: 11.5, color: "rgba(46,38,30,.62)", marginTop: 8 } }, z.status === "wait" ? "等你按叶子，他们就开始做" : z.status === "doing" ? "一个个做完就亮起来，点开看他怎么选的" : z.status === "failed" ? "做成的人太少，没让他们接着聊" : "点谁就看谁一题题怎么选的"));
+    }
     const ask = m && m.kind === "zyask";
     const st = z.status;
     // 她发给他的那份（she:true）：跟他那张一个样子，点开是她的回放
@@ -1588,7 +1611,7 @@
     return new Promise(res => c.toBlob(b => res(b), "image/png"));
   }
 
-  g.Zhaoying = { TESTS: T, allTests, customs, saveCustom, delCustom, genTest, askSchema, byId, resultOf, KINDS, kindOf, draftOf, scoreBalance, STARS, prefOf, setPref, noteKind, drawKind, recordsOf, addRecord, patchRecord, spreadOf, drafts, saveDraft, badgesOf, live, answerText, bracketPair, SCALE, topOf2, rankOrder, BID_TIERS, delRecord, chatNote, talkInstruction, TALK_SCHEMA, readTalk, askInstruction, ASK_SCHEMA, readAnswers, dateZh, optText, cleanTest, charTestInstruction, CHAR_TEST_SCHEMA, resultImage, optsView, bidBars, guessLine, pal, CATS, catOf, colors };
+  g.Zhaoying = { TESTS: T, allTests, customs, saveCustom, delCustom, genTest, askSchema, byId, resultOf, KINDS, kindOf, draftOf, scoreBalance, STARS, prefOf, setPref, noteKind, drawKind, recordsOf, recentRecords, addRecord, patchRecord, spreadOf, drafts, saveDraft, badgesOf, live, answerText, bracketPair, SCALE, topOf2, rankOrder, BID_TIERS, delRecord, chatNote, talkInstruction, TALK_SCHEMA, readTalk, askInstruction, ASK_SCHEMA, readAnswers, dateZh, optText, cleanTest, charTestInstruction, CHAR_TEST_SCHEMA, resultImage, optsView, bidBars, guessLine, pal, CATS, catOf, colors };
   g.ZhaoyingCard = function (p) { return card(p && p.m); };
   g.ZhaoyingWatch = ZhaoyingWatch;
   // 主屏图标：一面小圆镜

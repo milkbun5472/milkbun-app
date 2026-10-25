@@ -6,8 +6,13 @@ test("长期准则只有一份说法：单聊和一起学都走 directivesBlock"
   assert.equal((eng.match(/【⚠️用户立下的长期准则·最高优先级/g) || []).length, 1);
 });
 test("一起学带上「别拿现成的说法」和她立的准则（课堂和我来教两条路）", () => {
-  assert.match(st, /function voiceGuards\(dirLists, studyList\)/);
-  assert.match(st, /CANNED_PHRASE_BAN/);
+  // 2026-10-26 talkBans 合并：「别拿现成的说法」改从 talkBans() 整摞取（它在那张清单里）；
+  //   群辅导那条路 groupBans 已经带了，调用处传第三参 have 跳过，别发两遍
+  assert.match(st, /function voiceGuards\(dirLists, studyList, have\)/);
+  assert.match(st, /if \(typeof talkBans === "function" && !have\) talkBans\(\)\.forEach/);
+  assert.match(eng, /function talkBans\(o\) \{[\s\S]{0,300}?CANNED_PHRASE_BAN/);
+  assert.match(st, /voiceGuards\(\[cx\.directives\], \[\{ sr: cx\.studyRules, name: chars\.length > 1 \? c\.name : "" \}\], chars\.length > 1\)/);
+  assert.match(st, /chars\.length > 1 && typeof groupBans === "function" \? \[groupBans\(/, "群辅导不走 groupBans 了，have 就不该跳过");
   assert.match(st, /voiceGuards\(\[ctx\.directives\]/);
   assert.match(st, /voiceGuards\(stus\.map\(function \(c\) \{ return ctx\.directivesFor/);
   assert.match(st, /directives: props\.directivesFor && char \? props\.directivesFor\(char\) : \[\]/);

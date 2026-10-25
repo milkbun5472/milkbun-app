@@ -55,8 +55,10 @@ test("这条刀四处都挂上了", () => {
   // 冻先后、不冻紧挨着：v60.45 情欲反八股插进了这两条中间（该加的一层）。
   const rp = engine.slice(engine.indexOf("} else {", engine.indexOf("if (ctx.notRoleplay)")),
                           engine.indexOf("// 用户通过 OOC 立下的长期行为准则"));
-  assert.ok(rp.indexOf("parts.push(CONDESCENDING_TONE_BAN);") > 0);
-  assert.ok(rp.indexOf("parts.push(STOCK_REPLY_BAN);") > rp.indexOf("parts.push(CONDESCENDING_TONE_BAN);"));
+  // 2026-10-26 talkBans 合并：扮演支调 talkBans()，清单里 CONDESCENDING 在前、STOCK_REPLY 紧随其后
+  assert.ok(rp.indexOf("talkBans(") > 0, "单聊扮演支没接上 talkBans");
+  const tb = engine.slice(engine.indexOf("function talkBans(o)"), engine.indexOf("function groupBans(opts)"));
+  assert.ok(tb.indexOf("STOCK_REPLY_BAN") > tb.indexOf("CONDESCENDING_TONE_BAN") && tb.indexOf("CONDESCENDING_TONE_BAN") > 0);
   // v60.39 起三处群共用 groupBans：别再 grep「这个常量拼在那一行的哪个位置」，
   // 对着【它到底吐出哪几层】问（改拼法不该红，掉一层才该红）。
   assert.ok(GB.allGroupsHave("STOCK_REPLY_BAN"), "三处群都要有");
@@ -65,6 +67,6 @@ test("这条刀四处都挂上了", () => {
   // v60.27 起【通话】是第五处（她 2026-09-02：「语音视频没喂八股禁令进去」）——
   // 那之前这一层在通话里一处都没有，见 施工规则/four-surfaces-same-context.md。
   assert.equal((codeOnly(engine).match(/STOCK_REPLY_BAN/g) || []).length +
-               (codeOnly(app).match(/STOCK_REPLY_BAN/g) || []).length, 4,
-    "1 处定义 + buildBundle + groupBans（三处群共用）+ OVERREACH_BAN 别名；注释不算");
+               (codeOnly(app).match(/STOCK_REPLY_BAN/g) || []).length, 3,
+    "1 处定义 + talkBans 清单（2026-10-26 起各处都经它取）+ OVERREACH_BAN 别名；注释不算");
 });

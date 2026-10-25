@@ -37,10 +37,10 @@ test("② 通话就是线上：摊平进同一条时间线，不另设时限和�
 test("③ 每轮都写状态卡，字段跟线上那份协议一样", () => {
   assert.match(app, /【状态卡】跟平时聊天一样，每轮都要更新/, "1:1 通话没要状态卡");
   assert.match(app, /\\"mood\\":\\"心情词\\",\\"thought\\":\\"心里那句\\",\\"place\\":\\"在哪\\",\\"wearing\\":\\"穿着\\",\\"condition\\":null/, "输出契约里没这几栏");
-  assert.match(app, /callPutState\(char\.id, d, "call_" \+ Date\.now\(\)\);/, "1:1 那轮没落状态");
+  assert.match(app, /callPutState\(char\.id, d, callTurnId\);/, "1:1 那轮没落状态（turnId 跟这一轮的话同一个，重 Roll 才退得回去）");
   // 群通话跟群线上一样，一人一条各写各的
   assert.match(app, /【状态卡】跟群里平时聊天一样/, "群通话没要");
-  assert.match(app, /callPutState\(spk\.id, arr\[i\], "gcall_"/, "群通话没落状态");
+  assert.match(app, /callPutState\(spk\.id, arr\[i\], callTurnId/, "群通话没落状态");
 });
 
 test("④ 没有另开一条写状态的路——用的是公共那个出口", () => {

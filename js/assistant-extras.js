@@ -715,20 +715,31 @@
     astro: { today: "今日", pair: "配对", chart: "星盘", group: "群榜" },
     debate: { setup: "开一场新的" }, dream: { setup: "开一场新的" }, theater: { create: "新建一出" }, trpg: { create: "开一个新团" }
   };
+  // 「信息」里面那四栏：chat/me 就是「我」那一栏（面具、自己的资料都在那儿）
+  OPEN_APP_SUBS.chat = { chats: "聊天", contacts: "通讯录", moments: "朋友圈", me: "我（面具、自己的资料）" };
   const COUPLE_SUBS = { studio: "照相馆", gacha: "抽卡", letters: "情书", exdiary: "交换日记", album: "合照墙", timeline: "我们的日子", anniv: "纪念日",
     qa: "问答", wishes: "心愿", pacts: "约定", trip: "旅行", garden: "花园", jar: "存钱罐", drawer: "抽屉", firsts: "第一次", capsule: "时间胶囊",
     disc: "唱片架", recall: "回忆", ifroom: "另一种我们", makeup: "和好", archive: "档案" };
   Object.keys(OPEN_APP_SUBS).forEach(a => Object.keys(OPEN_APP_SUBS[a]).forEach(k => { if (!OPEN_SUB_ZH[k]) OPEN_SUB_ZH[k] = OPEN_APP_SUBS[a][k]; }));
   Object.keys(COUPLE_SUBS).forEach(k => { if (!OPEN_SUB_ZH[k]) OPEN_SUB_ZH[k] = COUPLE_SUBS[k]; });
+  // 卡上的 id 认不准时（她 2026-10-24 截图：秋秋写了「messages」，攻略里那条叫 chat）：
+  //   先认攻略 id，再认 app 名、中文名，最后认几个顺手会写的英文叫法
+  const OPEN_ID_ALIAS = { messages: "chat", message: "chat", msg: "chat", msgs: "chat", wechat: "chat", im: "chat", "信息": "chat",
+    settings: "config", setting: "config", "设置": "config", characters: "cast", character: "cast", persona: "cast", memory: "memlib", memories: "memlib" };
+  function openEntry(M, eid) {
+    if (!M || !M.byId) return null;
+    const k = S(eid).trim(), lo = k.toLowerCase();
+    return M.byId(k) || M.byId(lo) || (OPEN_ID_ALIAS[lo] && M.byId(OPEN_ID_ALIAS[lo])) || (M.entries || []).find(x => x.app === lo) || (M.entries || []).find(x => x.zh === k) || null;
+  }
   TARGETS.open = {
     zh: "带你去那一页",
     read: ctx => [],
     // id＝「攻略那条的 id」或「攻略那条的 id/往里那一格」（她 2026-10-16「搞能进那一格吧」）
-    before: (p, ctx) => { const M = typeof window !== "undefined" && window.AssistantManual; const raw = S(p.id), i = raw.indexOf("/"); const e = M && M.byId ? M.byId(i < 0 ? raw : raw.slice(0, i)) : null; return e ? "去「" + e.zh + "」" + (i >= 0 ? " → " + (OPEN_SUB_ZH[raw.slice(i + 1)] || raw.slice(i + 1)) : (e.where ? "（" + e.where + "）" : "")) : ""; },
+    before: (p, ctx) => { const M = typeof window !== "undefined" && window.AssistantManual; const raw = S(p.id), i = raw.indexOf("/"); const e = openEntry(M, i < 0 ? raw : raw.slice(0, i)); return e ? "去「" + e.zh + "」" + (i >= 0 ? " → " + (OPEN_SUB_ZH[raw.slice(i + 1)] || raw.slice(i + 1)) : (e.where ? "（" + e.where + "）" : "")) : ""; },
     write: (id, patch, ctx) => {
       const M = typeof window !== "undefined" && window.AssistantManual;
       const raw = S(id), i = raw.indexOf("/"), eid = i < 0 ? raw : raw.slice(0, i), sub = i < 0 ? "" : raw.slice(i + 1);
-      const e = M && M.byId ? M.byId(eid) : null;
+      const e = openEntry(M, eid);
       if (!e) throw new Error("攻略里没有「" + eid + "」这一条");
       if (!ctx.onOpenPage) throw new Error("这个页面没接跳转的入口");
       if (!ctx.onOpenPage(e.app, e.id, sub)) throw new Error("「" + e.zh + (sub ? " → " + sub : "") + "」没法直接跳过去，照「" + (e.where || e.zh) + "」走");
