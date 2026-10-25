@@ -1683,10 +1683,25 @@ function ChatJumpArrows({ scroller, onTop, t }) {
     style: { width: 36, height: 36, borderRadius: 18, background: t.bg2, border: "1px solid " + t.line, boxShadow: "0 2px 8px rgba(0,0,0,.12)", display: "flex", alignItems: "center", justifyContent: "center" } },
     h(Svg, { size: 18, color: t.sub, sw: 2 }, h("path", { d })));
   const go = top => { const el = scroller.current; if (el) el.scrollTo({ top, behavior: "smooth" }); };
+  // 一下到底（群友 2026-10-26：线下点一下只滑一轮）：平滑滚动途中下面还在长（图、卡片撑开），停在半路。
+  //   直接跳到底，再补两帧，长出来的那截也跟上
+  const toBottom = () => { const el = scroller.current; if (!el) return; const f = () => { el.scrollTop = el.scrollHeight; }; f(); requestAnimationFrame(() => { f(); requestAnimationFrame(f); }); };
+  // 上一条／下一条（群友 2026-10-26 许愿）：按一条消息（线下是一张卡）跳，把它的头顶对到屏幕上沿
+  const step = dir => {
+    const el = scroller.current; if (!el) return;
+    const top0 = el.getBoundingClientRect().top;
+    const all = [...el.querySelectorAll('[data-wk="msg"],[data-wk="offcard"],[data-wk="row"]')].filter(x => !x.parentElement || !x.parentElement.closest('[data-wk="msg"],[data-wk="offcard"],[data-wk="row"]'));
+    const tops = all.map(x => x.getBoundingClientRect().top - top0);
+    const target = dir < 0 ? tops.filter(y => y < -4).pop() : tops.find(y => y > 4);
+    if (target == null) { if (dir > 0) toBottom(); else go(0); return; }
+    el.scrollTo({ top: el.scrollTop + target, behavior: "smooth" });
+  };
   return h("div", { "data-wk": "chatjump", "data-on": awake ? "1" : "0", onPointerDown: hold, onPointerUp: wake, onPointerCancel: wake,
-    style: { opacity: awake ? 1 : 0, pointerEvents: awake ? "auto" : "none", transition: "opacity .35s ease", position: "fixed", right: Math.max(10, window.innerWidth - st.r.right + 12), top: st.r.bottom - (st.up ? 92 : 48), zIndex: 30, display: "flex", flexDirection: "column", gap: 8 } },
-    st.up ? btn({ wk: "chatjumptop", label: "跳到最早", d: "M6 15l6-6 6 6", onClick: () => { onTop && onTop(); requestAnimationFrame(() => requestAnimationFrame(() => go(0))); } }) : null,
-    btn({ wk: "chatjumpbottom", label: "回到最新", d: "M6 9l6 6 6-6", onClick: () => go((scroller.current || {}).scrollHeight || 0) }));
+    style: { opacity: awake ? 1 : 0, pointerEvents: awake ? "auto" : "none", transition: "opacity .35s ease", position: "fixed", right: Math.max(10, window.innerWidth - st.r.right + 12), top: st.r.bottom - (st.up ? 180 : 136), zIndex: 30, display: "flex", flexDirection: "column", gap: 8 } },
+    st.up ? btn({ wk: "chatjumptop", label: "跳到最早", d: "M6 13l6-6 6 6M6 18l6-6 6 6", onClick: () => { onTop && onTop(); requestAnimationFrame(() => requestAnimationFrame(() => go(0))); } }) : null,
+    btn({ wk: "chatjumpprev", label: "上一条", d: "M6 15l6-6 6 6", onClick: () => step(-1) }),
+    btn({ wk: "chatjumpnext", label: "下一条", d: "M6 9l6 6 6-6", onClick: () => step(1) }),
+    btn({ wk: "chatjumpbottom", label: "回到最新", d: "M6 6l6 6 6-6M6 11l6 6 6-6", onClick: toBottom }));
 }
 function useChatWindow(ref, total, resetKey, recentLimit = 0) {
   const limit = Math.max(0, Math.floor(Number(recentLimit) || 0));
