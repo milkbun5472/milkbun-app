@@ -1,4 +1,4 @@
-import {createRoomKit,roomObstacles,roomSeat} from './room-kit.mjs?v=fg-179ddfb1ab0a89bb';
+import {createRoomKit,roomObstacles,roomSeat} from './room-kit.mjs?v=fg-c485d06c678e8f5c';
 
 const FLOOR=.08;
 // The new room, furniture construction and collision share these footprints.
