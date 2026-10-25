@@ -3569,7 +3569,7 @@ function App() {
   const luckyLine = (key, content) => String(key).indexOf("c:") === 0
     ? pChat(key.slice(2), p => [...p, { role: "system", kind: "system", content, ts: Date.now() }])
     : pushGroupRich(key, { role: "system", kind: "system", content });
-  const luckyLines = (gid, ev) => (ev || []).forEach(e => luckyLine(gid, (String(gid).indexOf("c:") === 0 ? "我们的" : "群") + 
+  const luckyLines = (gid, ev) => (ev || []).forEach(e => luckyLine(gid, (String(gid).indexOf("c:") === 0 ? "我们的" : "群") +
     (e.type === "lit" ? "幸运字符点亮了第 " + (e.idx + 1) + " 个字「" + e.ch + "」"
     : e.type === "done" ? "幸运字符「" + e.word + "」全部点亮，收进了收藏本"
     : "幸运字符熄掉了 " + e.n + " 个字（一整天没说话）")));
