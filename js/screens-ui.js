@@ -4605,7 +4605,10 @@ function ListenTogether({ profile, active, ctxFor, toast, onToChat, onListenStat
         h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.ink } }, "单聊里留一张小条"),
         h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.5, marginTop: 2 } },
           data.talkNote === false ? "关着：单聊里什么都不留，回到单聊TA不知道你们刚一起听过" : "开着：单聊里一张「一起听」小条，写听了哪几首和最后几句，TA回到单聊接得上")),
-      h(Toggle, { on: data.talkNote !== false, onChange: () => onSetTalkNote(data.talkNote === false) })) : null);
+      h(Toggle, { on: data.talkNote !== false, onChange: () => onSetTalkNote(data.talkNote === false) })) : null,
+    // 群里 2026-10-25：不知道可以直接去单聊找他——一起听着的时候，单聊那边本来就看得到正在放哪首（nowPlaying，不花钱）
+    partner && !listenRoomName ? h("div", { "data-wk": "listenchathint", style: { margin: "0 14px", padding: "0 0 12px", fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.6 } },
+      "也可以边听边回单聊直接找" + (partner.remark || partner.name || "TA") + "：TA 知道你们正在听哪首、是放着还是暂停，抓到歌词的话也听得懂，聊起来接得上。") : null);
   const playTab = now ? h("div", { className: "flex flex-col items-center px-6 pb-6" },
     // 头像那一条粘在顶上：她往下滑到输入框说话时，两只头像和气泡还看得见（她 2026-09-29）
     talk ? h("div", { className: "w-full", style: { position: "sticky", top: 0, zIndex: 5 } }, talk.stage) : null,
