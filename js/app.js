@@ -20,7 +20,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v76.549";
+const APP_VERSION = "v76.551";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -30501,13 +30501,14 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   };
   const renameEmote = (packId, emId, keyword) => commitEmotePacks((emotePacksRef.current || []).map(x => x.id === packId ? { ...x, emotes: (x.emotes || []).map(e => e.id === emId ? { ...e, keyword: keyword } : e) } : x));
   // 挑几张挪到另一版（群友 2026-10-25「表情包可以移动分组」）：原样搬过去，id 不变，角色那边认的还是这几张
-  const moveEmotes = (fromId, ids, toId) => {
+  //   copy＝复制一份：原版留着（id 不动），那边多一份新 id 的
+  const moveEmotes = (fromId, ids, toId, copy) => {
     if (!toId || toId === fromId) return false;
     const set = new Set(ids), all = emotePacksRef.current || [];
     const moving = ((all.find(x => x.id === fromId) || {}).emotes || []).filter(e => set.has(e.id));
     if (!moving.length) return false;
-    return commitEmotePacks(all.map(x => x.id === fromId ? { ...x, emotes: (x.emotes || []).filter(e => !set.has(e.id)) }
-      : x.id === toId ? { ...x, emotes: [...(x.emotes || []), ...moving] } : x));
+    return commitEmotePacks(all.map(x => x.id === fromId && !copy ? { ...x, emotes: (x.emotes || []).filter(e => !set.has(e.id)) }
+      : x.id === toId ? { ...x, emotes: [...(x.emotes || []), ...(copy ? moving.map((e, k) => ({ ...e, id: "em_" + Date.now() + "_" + k + "_" + Math.floor(Math.random() * 1e6) })) : moving)] } : x));
   };
   const deleteEmotes = (packId, ids) => {
     const set = new Set(ids);

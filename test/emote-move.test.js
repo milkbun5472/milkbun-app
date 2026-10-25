@@ -6,6 +6,9 @@ test("挑几张能挪到别的版，原样搬、id 不变（群友 2026-10-25）
   assert.equal(fn("a", [2], "b"), true);
   assert.deepEqual(saved[0].emotes.map(e => e.id), [1]); assert.deepEqual(saved[1].emotes.map(e => e.id), [3, 2]);
   assert.equal(fn("a", [2], "a"), false);
+  assert.equal(fn("a", [1], "b", true), true);
+  assert.deepEqual(saved[0].emotes.map(e => e.id), [1, 2]); assert.equal(saved[1].emotes.length, 2); assert.notEqual(saved[1].emotes[1].id, 1);
+  assert.match(ui, /"data-wk": "emomovemode"/); assert.match(ui, /onMoveEmotes\(pack\.id, selEmotes, p\.id, moveCopy\)/);
   assert.match(app, /onMoveEmotes: moveEmotes/); assert.match(ui, /"data-wk": "emomoveto"/);
   assert.match(fs.readFileSync(__dirname + "/../js/theme-studio.js", "utf8"), /"emomove"/);
 });

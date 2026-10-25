@@ -4398,10 +4398,16 @@
     parts.push("【时间】已经学了 " + mins + " 分钟" + (dur ? "，这轮定的是 " + dur + " 分钟" : "，没定时长") + "。");
     const said = (sess.transcript || []).slice(-14).map(function (m) { return (m.role === "user" ? uName : m.name || "") + "：" + (m.imageRef ? "［发了一张图］" : "") + String(m.content || ""); });
     if (said.length) parts.push("【自习室里刚才说过的】\n" + said.join("\n") + "\n说过的意思别换个说法再说一遍。");
+    // 各人桌上的进度条（群友 2026-10-25「有个进度条更真实，有种他们真的在干活的感觉」）：跟着这一次开口一起报，不另花调用
+    const desks = sess.desks || {};
+    const deskLines = chars.map(function (c) { const d = desks[c.id]; return d && d.doing ? "· " + c.name + "：" + d.doing + "，做到 " + (Number(d.pct) || 0) + "%" : null; }).filter(Boolean);
+    if (sess.myPct != null) deskLines.push("· " + uName + "：" + (sess.task || "自习") + "，她自己标的是 " + sess.myPct + "%");
+    if (deskLines.length) parts.push("【各自桌上的进度】\n" + deskLines.join("\n"));
     parts.push("【这一下】" + why);
     parts.push("照各自平时说话的样子，想说几句就几句，一句一条；没什么想说的人可以不说。" + (o.summary ? "\n另外写一段 summary：第三人称、几句话，记下 " + uName + " 这轮实际做了什么、发过的进度、卡在哪里，给下次接着学的时候看；没什么可记就留空。" : "")
       + (chars.length > 1 ? "\nname 必须逐字等于上面在场的人名之一（" + chars.map(function (c) { return c.name; }).join("、") + "），每个人只说自己的话，不替别人开口，也不替 " + uName + " 说话。" : "")
-      + "\n只输出 JSON：{\"says\":[{\"name\":\"说话的人\",\"text\":\"一句\"}]" + (o.summary ? ",\"summary\":\"……\"" : "") + "}");
+      + "\n每个在场的人再交一格 desks：doing 是这一轮自己手上那件具体的事（头一回定下，之后照抄，不换）；pct 是此刻做到几成（0–100），照已经过去的时间、这件事的分量和这个人的效率、状态来估——有人快有人慢，会卡住，到点没做完也正常，没说话的人也照样往前走。"
+      + "\n只输出 JSON：{\"says\":[{\"name\":\"说话的人\",\"text\":\"一句\"}],\"desks\":[{\"name\":\"在场的人\",\"doing\":\"在做的事\",\"pct\":0}]" + (o.summary ? ",\"summary\":\"……\"" : "") + "}");
     const lastImg = (sess.transcript || []).slice().reverse().find(function (m) { return m.role === "user" && m.imageRef; });
     const msgs = [Object.assign({ role: "user", content: o.userLine || "开口吧。" }, o.withImage && lastImg ? { _imageRefs: [lastImg.imageRef] } : {})];
     const raw = await callAI(active, parts.join("\n\n"), await withImages(msgs), { maxTokens: TOK.small, tag: "一起学·自习室" });
@@ -4411,7 +4417,16 @@
       const t = String((x && x.text) || "").trim();
       return c && t ? { id: "s_" + Date.now() + "_" + Math.random().toString(36).slice(2, 6), role: "char", speakerId: c.id, name: c.name, content: t, ts: Date.now() } : null;
     }).filter(Boolean);
-    return { says: says, summary: String(d.summary || "").trim() };
+    const nextDesks = Object.assign({}, desks);
+    (Array.isArray(d.desks) ? d.desks : []).forEach(function (x) {
+      const c = chars.find(function (q) { return x && (x.name === q.name || x.name === (q.remark || q.name)); }) || (chars.length === 1 ? chars[0] : null);
+      if (!c) return;
+      const old = desks[c.id] || {}, doing = String(old.doing || (x && x.doing) || "").trim().slice(0, 40);
+      let pct = Math.round(Number(x && x.pct)); if (!isFinite(pct)) pct = Number(old.pct) || 0;
+      pct = Math.max(Number(old.pct) || 0, Math.min(100, Math.max(0, pct)));   // 只往前走，不倒退
+      if (doing) nextDesks[c.id] = { doing: doing, pct: pct };
+    });
+    return { says: says, summary: String(d.summary || "").trim(), desks: nextDesks };
   }
 
   function SelfStudyList(props) {
@@ -4512,6 +4527,7 @@
       try {
         const r = await selfStudyTalk(props.active, sessRef.current, chars, ctxFor, why, opts);
         if (r.says.length) push(r.says);
+        if (r.desks && Object.keys(r.desks).length) commit(Object.assign({}, sessRef.current, { desks: r.desks }));
         return r;
       } catch (e) { props.toast && props.toast("没接上：" + String((e && e.message) || e).slice(0, 60)); return null; }
       finally { busyRef.current = false; setBusy(false); }
@@ -4580,7 +4596,23 @@
             h("div", { className: "truncate", style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: STUDY_SKIN.fog, marginTop: 1 } }, (sess.task || "自习") + (link ? " · 记到「" + link.name + "」" : ""))),
           !over ? h("button", { "data-wk": "selfend", onClick: function () { requestAppConfirm("现在收桌？", "这轮就学到这儿，大家各说一句收尾" + (link ? "，自习小结挂到「" + link.name + "」上" : "") + "。", finish, "收桌"); }, disabled: busy, className: "active:opacity-70",
             style: { flexShrink: 0, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: skin.accent, border: "1px solid " + skin.accent, borderRadius: 999, padding: "6px 12px", background: "transparent" } }, "收桌") : null),
-        endAt && !over ? h("div", { style: { height: 3, borderRadius: 3, background: STUDY_SKIN.line, marginTop: 8, overflow: "hidden" } }, h("div", { style: { width: Math.round(pct * 100) + "%", height: "100%", background: skin.accent } })) : null),
+        endAt && !over ? h("div", { style: { height: 3, borderRadius: 3, background: STUDY_SKIN.line, marginTop: 8, overflow: "hidden" } }, h("div", { style: { width: Math.round(pct * 100) + "%", height: "100%", background: skin.accent } })) : null,
+        // 每人一条进度：TA 们的跟着开口一起报；她自己那条点一下往前推一格（25%）
+        h("div", { "data-wk": "selfdesks", style: { marginTop: 8, display: "flex", flexDirection: "column", gap: 2 } },
+          [{ me: true }].concat(chars.map(function (c) { return { c: c, d: (sess.desks || {})[c.id] }; })).map(function (row) {
+            const me = !!row.me, p = me ? Number(sess.myPct) || 0 : Number(row.d && row.d.pct) || 0;
+            const label = me ? (sess.task || "我的这一轮") : (row.d && row.d.doing) || "还没说在干嘛";
+            return h(me && !over ? "button" : "div", { key: me ? "me" : row.c.id, "data-wk": "selfdesk", "data-me": me ? "1" : "0", "data-done": p >= 100 ? "1" : "0",
+              onClick: me && !over ? function () { commit(Object.assign({}, sessRef.current, { myPct: ((Number(sessRef.current.myPct) || 0) + 25) % 125 })); } : undefined,
+              "aria-label": me ? "我的进度 " + p + "%，点一下往前推" : undefined,
+              style: { display: "flex", alignItems: "center", gap: 8, minHeight: me ? 40 : 30, width: "100%", padding: 0, border: "none", background: "transparent", textAlign: "left" } },
+              h("span", { style: { width: 44, flexShrink: 0, fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: me ? skin.accent : STUDY_SKIN.sub, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, me ? "我" : (row.c.remark || row.c.name)),
+              h("span", { style: { flex: 1, minWidth: 0 } },
+                h("span", { style: { display: "block", fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: STUDY_SKIN.fog, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, label),
+                h("span", { style: { display: "block", height: 4, borderRadius: 4, background: STUDY_SKIN.line, marginTop: 2, overflow: "hidden" } },
+                  h("span", { style: { display: "block", width: p + "%", height: "100%", background: p >= 100 ? skin.accent : STUDY_SKIN.sub, transition: "width .6s" } }))),
+              h("span", { style: { width: 34, flexShrink: 0, textAlign: "right", fontFamily: "monospace", fontSize: "calc(10.5px * var(--app-fs, 1))", color: p >= 100 ? skin.accent : STUDY_SKIN.fog } }, p >= 100 ? "✓" : p + "%"));
+          }))),
       h("div", { ref: scrollRef, "data-wk": "selflog", className: "flex-1 min-h-0 overflow-y-auto", style: { padding: "12px 14px 16px" } },
         (sess.transcript || []).map(function (m) {
           const mine = m.role === "user", c = !mine ? chars.find(function (x) { return x.id === m.speakerId; }) : null;
