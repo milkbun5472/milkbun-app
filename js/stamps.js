@@ -351,15 +351,22 @@
       h("path", { d: "M40 0L0 40M40 0L14 40M40 0L0 14M40 0L28 40M40 0L0 28M30 0q2 8 10 10M20 0q3 17 20 20M10 0q4 26 30 30", stroke: "#f4ecda", strokeWidth: .6, fill: "none" }));
     const stars = [[18, 62], [70, 40], [52, 120], [230, 88], [205, 150], [32, 210]].map((q, i) => h("span", { key: "s" + i, style: { position: "absolute", left: q[0], top: q[1], width: 3, height: 3, borderRadius: 9, background: "#f6e3b5", opacity: .55, boxShadow: "0 0 6px #f6e3b5" } }));
     // 海报上那一句：说的是「抽了会得到什么」，不是玩法说明
+    const regular = !cur.bd && !cur.lim;
     const titleLen = bd ? (bd.char.remark || bd.char.name).length + 2 : pool === "char" ? charTheme.trim().length + 2 : cur.zh.length;
-    const hook = bd ? (bd.win.isDay ? "就是今天。一年只有这一天，今年的他会留下什么样的瞬间？" : "一年只有一次的日子快到了。今年的他，又会留下什么不一样的瞬间？") : pool === "mix" ? "今天的他，在做一件你还没见过的事。" : pool === "char" ? (charThemeLine.trim() || (charNow ? "如果 " + (charNow.remark || charNow.name) + " 活在「" + (charTheme.trim() || "另一个世界") + "」里——" : "")) : (cur.lim.hook || cur.lim.line.split("。")[0] + "。");
+    const hook = bd ? (bd.win.isDay ? "就是今天。一年只有这一天，今年的他会留下什么样的瞬间？" : "一年只有一次的日子快到了。今年的他，又会留下什么不一样的瞬间？") : pool === "mix" ? "不同的人，不同的故事。下一封会是谁寄来的？" : pool === "char" ? (charThemeLine.trim() || (charNow ? "如果 " + (charNow.remark || charNow.name) + " 活在「" + (charTheme.trim() || "另一个世界") + "」里——" : "")) : (cur.lim.hook || cur.lim.line.split("。")[0] + "。");
     // 人：一个就放大；几个错落排，中间那个大一点、高一点（不排成整齐一行）
     const faceRow = faces.length === 1
       ? h("div", { style: { borderRadius: 12, padding: bd ? 1.5 : 3, background: deco ? "linear-gradient(135deg,#e08a3a,#6b2f6e)" : bd ? acc + "aa" : "rgba(255,255,255,.18)", boxShadow: "0 0 40px " + tone[1] + "88" } }, h(Avatar, { character: faces[0], size: 168, radius: 10 }))
-      : (() => { const show = faces.slice(0, 5), mid = Math.floor(show.length / 2);
-          return show.map((c, i) => { const d = Math.abs(i - mid), big = d === 0, sz = big ? 96 : d === 1 ? 70 : 54;
-            return h("div", { key: c.id, style: { marginLeft: i ? -16 : 0, zIndex: 10 - d, borderRadius: 999, padding: big ? 4 : 3, background: deco ? "linear-gradient(135deg,#e08a3a,#6b2f6e)" : PAPER,
-              transform: "translateY(" + (d * 22) + "px)", boxShadow: big ? "0 6px 24px rgba(0,0,0,.45)" : "0 3px 10px rgba(0,0,0,.35)" } }, h(Avatar, { character: c, size: sz, radius: 999 })); }); })();
+      : (() => {
+          // 好几个人：错落但不分主次。每天换一个顺序，谁站中间轮着来；超过五个，最后一格写「还有几位」
+          const seed = Math.floor(Date.now() / 86400000), order = faces.slice().sort((x, y) => ((hueOf(x) * 7 + seed * 13) % 97) - ((hueOf(y) * 7 + seed * 13) % 97));
+          const show = order.slice(0, 5), more = order.length - show.length, n = show.length, mid = Math.floor(n / 2);
+          const SZ = [42, 50, 58, 50, 42], DY = [12, -16, 6, -10, 18];
+          const pos = i => n === 5 ? i : n === 4 ? i + (i >= 2 ? 1 : 0) : n === 3 ? i + 1 : n === 2 ? [1, 3][i] : 2;
+          return h("div", { style: { display: "flex", alignItems: "center", justifyContent: "center" } }, show.map((c, i) => { const k = pos(i), sz = SZ[k];
+            return h("div", { key: c.id, style: { position: "relative", flexShrink: 0, marginLeft: i ? -10 : 0, zIndex: 10 - Math.abs(i - mid), borderRadius: 999, padding: 2.5, background: deco ? "linear-gradient(135deg,#e08a3a,#6b2f6e)" : PAPER,
+              transform: "translateY(" + DY[k] + "px)", boxShadow: "0 4px 14px rgba(0,0,0,.4)" } }, h(Avatar, { character: c, size: sz, radius: 999 }),
+              more > 0 && i === n - 1 ? h("div", { style: { position: "absolute", right: -6, bottom: -6, minWidth: 26, height: 22, padding: "0 6px", borderRadius: 999, background: NIGHT, border: "1px solid " + PAPER, color: PAPER, fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", lineHeight: "20px", textAlign: "center" } }, "+" + more) : null); })); })();
     const banner = h("div", { "data-wk": "stampbanner", "data-pool": pool, "data-deco": deco ? "halloween" : "", style: { padding: 9, background: bd ? perf("#f1d9c6") : perf(PAPER), filter: "drop-shadow(0 10px 24px rgba(0,0,0,.45))", position: "relative" } },
       deco ? [bat(-6, 30, 1, "b1"), bat("78%", -8, .8, "b2"), pumpkin(-10, "86%", 28, "p1"), pumpkin("90%", "40%", 22, "p2")] : null,
       h("div", { style: { position: "relative", height: "min(56vh, 440px)", borderRadius: 3, overflow: "hidden", background: "linear-gradient(160deg, " + tone[0] + ", " + NIGHT + " 78%)", border: "1px solid rgba(255,255,255,.12)" } },
@@ -378,16 +385,17 @@
             bd ? h("span", { style: { marginLeft: 6, fontSize: "calc(16px * var(--app-fs, 1))", color: acc, verticalAlign: "super", textShadow: "0 0 10px " + acc + "" } }, "✦") : null),
           bd ? h("div", { style: { marginTop: 3, fontFamily: F_BODY, fontSize: "calc(9.5px * var(--app-fs, 1))", letterSpacing: ".3em", color: acc, opacity: .6 } }, "生日限定 · 一年一次") : null,
           h("div", { "data-wk": "stampbannerhook", style: { marginTop: 12, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden", fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: "calc(12.5px * var(--app-fs, 1))", lineHeight: 1.5, color: "rgba(244,236,218,.88)" } }, hook),
-          h("div", { style: { flex: 1, minHeight: 0, display: "flex", justifyContent: "center", alignItems: "center", paddingBottom: faces.length > 1 ? 30 : 0 } }, faceRow),
+          h("div", { style: { flex: 1, minHeight: 0, display: "flex", justifyContent: "center", alignItems: "center", paddingBottom: 0 } }, faceRow),
           h("div", { className: "flex items-end justify-between", style: { gap: 8 } },
           // 邮戳：常驻写「常驻」；限时写截止日和还剩多久，万圣夜那枚是南瓜色的限定戳
-          h("div", { "data-wk": "stampcountdown", style: { order: 2, flexShrink: 0, width: bd ? 62 : 72, height: bd ? 62 : 72, marginBottom: bd ? 18 : 0, borderRadius: 999, border: (deco ? "2px dashed #e08a3a" : bd ? "2px double " + acc + "" : "2px solid " + GOLD), outline: deco ? "1px solid #e08a3a66" : bd ? "1px dashed " + acc + "88" : "none", outlineOffset: 3, color: deco ? "#f0a24f" : bd ? acc : GOLD, transform: "rotate(-12deg)",
+          h("div", { "data-wk": "stampcountdown", style: { order: 2, flexShrink: 0, marginLeft: "auto", width: bd ? 62 : regular ? 88 : 72, height: bd ? 62 : regular ? 48 : 72, marginBottom: bd ? 18 : 0, borderRadius: regular ? 4 : 999,
+            backgroundImage: regular ? "repeating-linear-gradient(0deg, transparent 0 5px, rgba(227,182,92,.13) 5px 6px)" : "none", border: (deco ? "2px dashed #e08a3a" : regular ? "1.5px double " + GOLD : bd ? "2px double " + acc + "" : "2px solid " + GOLD), outline: deco ? "1px solid #e08a3a66" : bd ? "1px dashed " + acc + "88" : "none", outlineOffset: 3, color: deco ? "#f0a24f" : bd ? acc : GOLD, transform: regular ? "rotate(-5deg)" : "rotate(-12deg)",
             display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", fontFamily: F_BODY, textAlign: "center", lineHeight: 1.25 } },
             cur.bd ? h(React.Fragment, null, h("div", { style: { fontSize: "calc(9.5px * var(--app-fs, 1))" } }, "生日邮戳"), h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))" } }, (d => (d.getMonth() + 1) + "." + d.getDate())(new Date(cur.bd.win.day))), h("div", { style: { fontSize: "calc(9px * var(--app-fs, 1))" } }, String(cur.bd.win.year)))
             : cur.lim ? h(React.Fragment, null, h("div", { style: { fontSize: "calc(9.5px * var(--app-fs, 1))" } }, deco ? "万圣夜限定" : "限定"), h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))" } }, new Date(Date.parse(cur.lim.to) - 1).toLocaleDateString("zh-CN", { month: "numeric", day: "numeric" }) + " 止"), h("div", { style: { fontSize: "calc(9px * var(--app-fs, 1))" } }, "还剩 " + leftText(Date.parse(cur.lim.to) - Date.now())))
-              : h(React.Fragment, null, h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(16px * var(--app-fs, 1))" } }, "常驻"), h("div", { style: { fontSize: "calc(9.5px * var(--app-fs, 1))" } }, "邮票册"))),
+              : h(React.Fragment, null, h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(13px * var(--app-fs, 1))", letterSpacing: ".15em" } }, "常驻发行"), h("div", { style: { fontSize: "calc(9px * var(--app-fs, 1))", opacity: .85 } }, "已收录 " + (st.cards || []).length + " 枚"))),
           h("div", { style: { order: 1, minWidth: 0, paddingBottom: 4, fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", lineHeight: 1.6, color: "rgba(244,236,218,.6)" } },
-            bd ? h("span", { style: { whiteSpace: "nowrap", color: acc } }, "生日限定 · 距结束 " + leftText(bd.win.close - Date.now())) : pool === "mix" ? "日常卡 · 他自己的世界、你们现在的关系" : pool === "char" ? "IF 卡 · 衣服照主题来" : "IF 卡 · 下架后抽到的照样留着"))),
+            bd ? h("span", { style: { whiteSpace: "nowrap", color: acc } }, "生日限定 · 距结束 " + leftText(bd.win.close - Date.now())) : pool === "mix" ? "" : pool === "char" ? "IF 卡 · 衣服照主题来" : "IF 卡 · 下架后抽到的照样留着"))),
         pool === "char" ? h("button", { onClick: () => setCfg(true), className: "active:opacity-70", style: { position: "absolute", right: 14, top: 12, padding: "4px 10px", borderRadius: 999, border: "1px solid " + tone[1], color: tone[1], fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))" } }, "改主题") : null));
     // 左边一列小邮票：换池。选中的那枚像从邮册里抽出来一截：放大、往右探出去
     const rail = h("div", { "data-wk": "stamprail", className: "flex flex-col shrink-0 overflow-y-auto", style: { gap: 8, width: 72, padding: "6px 12px 10px 0", maxHeight: "calc(min(56vh, 440px) + 18px)", scrollbarWidth: "none" } },
