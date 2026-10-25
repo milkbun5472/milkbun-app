@@ -20,7 +20,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v76.501";
+const APP_VERSION = "v76.504";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -5268,6 +5268,10 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     left = Math.max(15, Math.min(720, left));
     return { level: 3, odds: SLEEP_ODDS, sleep: true, title: "睡着", endTs: Date.now() + left * 60000, segKey: schedLocalDayKey(char) + "#sleep" };
   };
+  // 陪伴沿用聊天的作息与当地钟点，不另算一份睡觉时间。
+  const companionRoutineFor = char => ({ phase: sleepPhaseOf(char), sleepUntil: sleepHoldFor(char)?.endTs || 0,
+    clock: !!char && !isBody(char.id) && timeAwareFor(char.id),
+    day: char ? schedLocalDayKey(char) : "", minute: char ? charLocalMin(char) : 0 });
   const busyNowFor = char => {
     const zz = sleepHoldFor(char);
     if (zz) return zz;
@@ -33180,6 +33184,9 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     toast: toast,
     onBack: () => setScreen("home")
   });else if (screen === "companion") body = h(Companion, {
+    companionRoutineFor: companionRoutineFor,
+    chats: chats,
+    groupChats: groupChats,
     characters: liveFaces,
     moods: moods,
     apiFor: apiFor,
@@ -34221,7 +34228,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     onPause: e => { const el = e.target; if (el.ended) return; if (!userPauseRef.current) interruptedRef.current = true; userPauseRef.current = false; setPlayer(p => p.playing ? { ...p, playing: false } : p); }
   }), /*#__PURE__*/React.createElement("div", {
     className: "flex-1 min-h-0 relative"
-  }, h(ScreenBoundaryClass(), { screen: screen, onBack: () => setScreen("home") }, body)), window.CompanionFloat ? h(window.CompanionFloat, { characters: liveChars, moods: moods, apiFor: apiFor, bgActive: bgActive, toast: toast, ctxFor: ctxFor, profile: profile, chats: chats, groupChats: groupChats, geo: geo, worlds: worlds, screen: screen, music: !!player.playing, hidden: COMPANION_HIDE_SCREENS.has(screen), onOpen: () => setScreen("companion") }) : null, (player.songId && screen !== "listen") ? h(MiniPlayer, {
+  }, h(ScreenBoundaryClass(), { screen: screen, onBack: () => setScreen("home") }, body)), window.CompanionFloat ? h(window.CompanionFloat, { characters: liveChars, moods: moods, apiFor: apiFor, bgActive: bgActive, toast: toast, ctxFor: ctxFor, profile: profile, chats: chats, groupChats: groupChats, companionRoutineFor: companionRoutineFor, geo: geo, worlds: worlds, screen: screen, music: !!player.playing, hidden: COMPANION_HIDE_SCREENS.has(screen), onOpen: () => setScreen("companion") }) : null, (player.songId && screen !== "listen") ? h(MiniPlayer, {
     song: resolveSong(player.songId),
     playing: player.playing,
     loading: player.loading,

@@ -1014,6 +1014,28 @@
       + (skip.length ? "\n\n（也沾边、这回没放全文的：" + skip.map(x => "[" + x.id + "] " + (x.zh || "")).join("、") + "——要用就 lookup）" : "");
   }
 
+  // ── 更新日志（她 2026-10-24「你这个也加上吧」）────────────────────────
+  //   设置里「新 · 更新了什么」那一份（js/changelog-data.js）。不是每问一句都带——四万多字——
+  //   只在她这句像在问「更新了啥 / 某样东西什么时候有的」时才带：最近五天全文，再加跟她这句最沾边的十几条（带日子）。
+  const CHANGELOG_ASK = /更新|新功能|新加|加了(什么|啥)|改了(什么|啥)|修了|修好|最近.{0,4}(加|改|修|多|出)|什么时候(有|加|上|出|开始)|哪天(有|加|上|出)|新版|版本/;
+  function changelogBlock(question) {
+    const list = Array.isArray(window.QQ_CHANGELOG) ? window.QQ_CHANGELOG : [];
+    if (!list.length || !CHANGELOG_ASK.test(String(question || ""))) return "";
+    const day = d => { const m = /^\d{4}-(\d{2})-(\d{2})$/.exec(d || ""); return m ? (+m[1]) + "月" + (+m[2]) + "日" : d; };
+    const recent = list.slice(0, 5).map(x => day(x.d) + "\n" + x.items.map(it => "· " + it).join("\n"));
+    // 跟她这句沾边的：按两个字一组的重合数挑（「照影」「片刻」「亲属卡」这种名字就靠它认），最近五天里已经有的不重复
+    const Q = memGrams(String(question || "").replace(/更新|什么时候|哪天|有的|加的|上的|了吗|没有/g, ""));
+    const hits = [];
+    //   她这句短（「片刻是什么时候有的」剩不下几组字）时沾一组就算；同样沾边的早的排前面——问「什么时候有的」要的是头一回
+    const need = Q.size <= 3 ? 1 : 2;
+    list.slice(5).forEach(x => x.items.forEach(it => { let n = 0; memGrams(it).forEach(g => { if (Q.has(g)) n++; }); if (n >= need) hits.push({ n, d: x.d, line: day(x.d) + " · " + it }); }));
+    hits.sort((a, b) => b.n - a.n || (a.d < b.d ? -1 : a.d > b.d ? 1 : 0));
+    return "【更新日志 · 设置 → 新 · 更新了什么】一天一条，日子是那天上线到公共版的；最早一条是 2026 年 9 月 8 日公开版上线，再早的没有记录。"
+      + "她问「最近更新了啥」「某样东西什么时候有的」就照这个答，说日子；这里没写的别编，说日志里没找到、可以去设置里那一页翻。\n"
+      + "最近五天：\n" + recent.join("\n\n")
+      + (hits.length ? "\n\n更早、跟她这句沾边的：\n" + hits.slice(0, 15).map(x => "· " + x.line).join("\n") : "");
+  }
+
   // ── 秋秋记着的（她 2026-10-26「做吧」）──────────────────────────────
   //   记的是她怎么用这个 App、喜欢什么：手机浏览器、美化口味、不要什么。聊天记录清了它还在。
   //   不另花调用：秋秋每次回话顺手带 remember／forget 两栏；这里只管存、按这一句召回相关的几条。
@@ -1165,6 +1187,7 @@
       + "· 拿不准她想要什么就先问，别擅自动手。改人设尤其要谨慎——那是她攒了很久的东西。\n\n"
       + (pageLine(ctx.page) ? pageLine(ctx.page) + "\n\n" : "")
       + manualBlock(question, here && here.man, extraIds) + "\n\n"
+      + (() => { const cl = changelogBlock(question); return cl ? cl + "\n\n" : ""; })()
       + (extraIds && extraIds.length ? "【你刚要翻的那几条已经放进上面的详细里了，照着答；这次别再要 lookup】\n\n"
         : "【翻一下攻略】她问的是 App 怎么用，可上面「详细」里没有答案，而目录里看得出答案多半在某一条（看「里面讲」那一行）："
           + "这一轮先别答，只输出 {\"lookup\":[\"那一条方括号里的 id\"]}（最多 3 条），那几条正文会递给你，你再答。详细里已经有答案、或者不是问功能，就别用 lookup。\n\n")
@@ -1180,6 +1203,8 @@
     if (codeQuestion(text)) return { reply: CODE_REPLY, patches: [], refused: true };
     // 攻略手册改成用到才加载（她 2026-10-18 瘦身）：问之前等它到位，不然这一问就没攻略可翻
     if (window.LazyMods) await window.LazyMods.load("manual").catch(() => {});
+    // 问更新的时候把日志也拉进来（它跟设置同一组，点进设置之前可能还没下）
+    if (window.LazyMods && !window.QQ_CHANGELOG && CHANGELOG_ASK.test(String(text || ""))) await window.LazyMods.load("screens").catch(() => {});
     // 她发的图（她 2026-09-30）：只跟着【这一句】发给模型；历史里只留一张小缩略图给她看，不再回传——一张图每轮重发太贵
     // 附件两种：图（只跟这一句走）、文件（她发来的 CSS/文本，内容接在这一句后面）
     const isFile = pic && typeof pic === "object" && pic.kind === "file";

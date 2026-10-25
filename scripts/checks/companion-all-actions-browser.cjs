@@ -9,7 +9,7 @@ const out=process.env.COMPANION_EVIDENCE||'/tmp/companion-all-actions';fs.mkdirS
  for(const mode of ['full','float']){
   const page=await browser.newPage({viewport:{width:390,height:700}});page.on('pageerror',e=>errors.push(e.message));
   await page.goto(base+'/apps/companion/?mode='+mode);await page.waitForFunction(()=>window.petDebug);await page.evaluate(()=>petDebug.ready());
-  await page.addScriptTag({content:'window.useEffect=fn=>fn();'+source.replace('window.CompanionFace =','window.bindCompanionChat = useChatAct; window.CompanionFace =')});
+  await page.addScriptTag({content:'window.useEffect=fn=>fn();window.testStore={};window.loadJSON=(k,d)=>testStore[k]??d;window.saveJSON=(k,v)=>{testStore[k]=v;};'+source.replace('window.CompanionFace =','window.bindCompanionChat = useChatAct; window.CompanionFace =')});
   await page.evaluate(()=>{window.chatMessages=[];window.bindCompanionChat('check-c1',{current:{contentWindow:{postMessage(message){chatMessages.push(message);window.postMessage(message,'*');}}}});});
   const coverage=await page.evaluate(rows=>{
    const counts={};for(const {kind,text} of rows){const actual=CompanionFace.actForText(text);if(actual!==kind)throw Error(kind+' → '+actual+' '+text);counts[kind]=(counts[kind]||0)+1;}return counts;

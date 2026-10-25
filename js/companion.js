@@ -7,7 +7,7 @@
 // 设置存 x_companion：{ charId, float, pos, scale, autoFace, looks: { [charId]: look } }
 // ============================================================
 (function () {
-  const KEY = "x_companion", BUILD = "fg-3f575044413bc14d";
+  const KEY = "x_companion", BUILD = "fg-319bc2ead3914abd";
   const load = () => Object.assign({ charId: "", float: false, pos: null, scale: 1, autoFace: true, looks: {} }, loadJSON(KEY, {}) || {});
   const save = v => saveJSON(KEY, v);
   // 心情 → 表情。心情是模型写的自由中文（x_moods[charId].label），按字认；认不出就是「平常」。
@@ -46,7 +46,58 @@
     return Object.assign({}, own, { face });
   }
   function petMessage(char, moods, cfg) {
-    return char ? { type: "pet-look", characterId: String(char.id), ta: taOf(char), look: lookFor(char, moods, cfg) } : null;
+    return char ? { type: "pet-look", characterId: String(char.id), ta: taOf(char), mood: faceForMood(moodLabel(moods, char.id)), look: lookFor(char, moods, cfg) } : null;
+  }
+  // 只记小人的睡醒状态；角色作息仍由 App 的 sleepPhaseOf 唯一判断。
+  const LIFE_KEY = "x_companionLife";
+  function lifeStep(previous, event, now = Date.now()) {
+    const p = previous || {}, n = Object.assign({ sleeping: false, phase: "", morning: "", wakeAt: 0, wakeSeen: 0, sleepAt: 0, until: 0, rev: 0 }, p);
+    const sleep = () => { if (!n.sleeping) { n.sleeping = true; n.sleepAt = now; } };
+    const wake = () => { if (n.sleeping) { n.sleeping = false; n.wakeAt = now; } };
+    if (event.kind === "sleep") sleep();
+    else if (event.kind === "wake") wake();
+    else if (event.kind === "seen" && event.wakeAt === n.wakeAt) n.wakeSeen = event.wakeAt;
+    else if (event.kind === "clock") {
+      const r = event.routine || {};
+      if (r.phase === "asleep" && (n.phase !== "asleep" || now >= n.until)) { sleep(); n.until = Number(r.sleepUntil) > now ? Number(r.sleepUntil) : now + 12 * 3600000; }
+      if (r.phase !== "asleep" && n.phase === "asleep") wake();
+      n.phase = r.phase || "awake";
+      if (r.clock && r.minute >= 360 && r.minute < 720 && r.day && n.morning !== r.day) {
+        n.morning = r.day;
+        // 刚说完要睡的早晨小憩照常睡；隔夜回来才揉眼醒来。
+        if (n.phase !== "asleep" && (!n.sleepAt || now - n.sleepAt > 3600000)) { n.sleeping = false; n.wakeAt = now; }
+      }
+    }
+    if (JSON.stringify(n) !== JSON.stringify(Object.assign({ sleeping: false, phase: "", morning: "", wakeAt: 0, wakeSeen: 0, sleepAt: 0, until: 0, rev: 0 }, p))) n.rev++;
+    return n;
+  }
+  const lifeRead = id => (loadJSON(LIFE_KEY, {}) || {})[id] || null;
+  function lifeUpdate(id, event) {
+    if (!id) return null;
+    const all = loadJSON(LIFE_KEY, {}) || {}, previous = all[id], next = lifeStep(previous, event);
+    if (JSON.stringify(previous) !== JSON.stringify(next)) {
+      saveJSON(LIFE_KEY, Object.assign({}, all, { [id]: next }));
+      window.dispatchEvent(new CustomEvent("companion-life", { detail: { charId: id } }));
+    }
+    return next;
+  }
+  function usePetLife(char, props) {
+    const id = char && char.id, latest = useRef(null); latest.current = { char, props };
+    const [state, setState] = useState(() => ({ id, value: id ? lifeRead(id) : null }));
+    useEffect(() => {
+      if (!id) { setState({ id, value: null }); return; }
+      const read = () => setState({ id, value: lifeRead(id) });
+      const tick = () => { if (document.hidden || latest.current.props.hidden) return;
+        const { char, props } = latest.current;
+        if (typeof props.companionRoutineFor === "function") lifeUpdate(id, { kind: "clock", routine: props.companionRoutineFor(char) });
+        read();
+      };
+      const changed = e => { if (e.detail?.charId === id) read(); };
+      tick(); const timer = setInterval(tick, 30000);
+      window.addEventListener("companion-life", changed); document.addEventListener("visibilitychange", tick);
+      return () => { clearInterval(timer); window.removeEventListener("companion-life", changed); document.removeEventListener("visibilitychange", tick); };
+    }, [id, props.hidden]);
+    return state.id === id && state.value ? Object.assign({ characterId: String(id) }, state.value) : null;
   }
   // 一只 iframe 画面：加载完成（pet-ready）或样貌变了，就把消息再送一次
   // 你在干嘛（她 2026-09-26「点他有反应／跟着时间／看你在哪个页面」）：哪一页、有没有放歌、多久没碰手机。
@@ -68,7 +119,8 @@
       return () => { clearInterval(id); presenceListeners.delete(update); }; }, []);
     return state;
   }
-  function usePetContext(props, screen) {
+  function usePetContext(props, screen, char) {
+    const life = usePetLife(char, props);
     const p = useIdle(), typing = useTyping(), [weather, setWeather] = useState(null), geo = props.geo;
     useEffect(() => {
       let stop = () => {}, selected = "";
@@ -82,7 +134,7 @@
       select();window.addEventListener("weather-place", select);
       return () => { stop();window.removeEventListener("weather-place", select); };
     }, [geo && geo.lat, geo && geo.lng, props.characters, props.worlds]);
-    return { screen, music: !!props.music, idle: p.idle, returnSeq: p.returnSeq, typing, weather };
+    return { screen, music: !!props.music, idle: p.idle, returnSeq: p.returnSeq, typing, weather, life };
   }
   // Observe the real message arrays after delivery. Historical imports and edits are not arrivals.
   function makeMessageWatch() {
@@ -236,6 +288,8 @@
         if (e.data.type === "pet-failed" && onStatus) onStatus({ state: "failed", why: String(e.data.why || "") });
         if (e.data.type === "pet-act" && onAct) onAct(String(e.data.kind || ""));
         if (e.data.type === "pet-open" && onOpen) onOpen();
+        if (e.data.type === "pet-wake" && msg && String(e.data.characterId) === msg.characterId) { markActive(); lifeUpdate(msg.characterId, { kind: "wake" }); }
+        if (e.data.type === "pet-woke" && msg && String(e.data.characterId) === msg.characterId) lifeUpdate(msg.characterId, { kind: "seen", wakeAt: Number(e.data.wakeAt) });
         if (e.data.type === "pet-poke") markActive();
         if (e.data.type === "pet-poke" && pokeRef.current) pokeRef.current({ kind: String(e.data.kind || "tap"), count: Number(e.data.count) || 1 });
       };
@@ -257,6 +311,8 @@
     const [styles, setStyles] = useState(null);
     const [, bump] = useState(0);
     const frame = useRef(null);
+    useChatAct(cfg.charId, frame);
+    useMessageNotice(cfg.charId, props, frame);
     frame.onReady = () => bump(n => n + 1);   // 小人加载好，换装面板才有现值可读
     useEffect(() => { fetch("apps/fairy-garden/doll.json?v=" + BUILD).then(r => r.json()).then(setStyles).catch(() => {}); }, []);
     const set = patch => setCfg(c => { const n = Object.assign({}, c, patch); save(n); if (window.__companionChanged) window.__companionChanged(n); return n; });
@@ -266,7 +322,7 @@
     const auto = cfg.autoFace !== false;
     const own = char ? ((cfg.looks || {})[char.id] || {}) : {};
     const face = auto ? faceForMood(mood) : (own.face || "default");
-    const ctx = usePetContext(props, "companion");
+    const ctx = usePetContext(props, "companion", char);
     const [say, onPoke, holdSay] = usePokeTalk(char, props, !!cfg.pokeTalk);
     // 小人下到哪儿了 / 下不来了 / 这会儿在做什么
     const [petState, setPetState] = useState({ state: "loading", pct: 0 });
@@ -324,7 +380,7 @@
             chip(!voiceOn(), "只冒字", () => { try { localStorage.setItem("x_fairyGardenVoice", "0"); } catch (e) {} bump(n => n + 1); }, "va"),
             chip(voiceOn(), "念出来", () => { try { localStorage.setItem("x_fairyGardenVoice", "1"); } catch (e) {} bump(n => n + 1); }, "vb")) : null,
           h("div", { style: { fontSize: "calc(11px * var(--app-fs, 1))", color: "#9a8a70", lineHeight: 1.7, marginBottom: 14 } }, "开了以后，戳他、拎他时他会按自己的性子和此刻的心情回一句。每一句都会调用一次 API；连着戳只算一次，两句之间至少隔 15 秒。" + (char.voiceId ? "「念出来」和庭院、列车是同一个开关。" : "给他在角色资料里选一个声音，就能念出来。")),
-          h("div", { style: { fontSize: "calc(11px * var(--app-fs, 1))", color: "#9a8a70", lineHeight: 1.7, marginBottom: 12 } }, "回来时会招手，新消息会轻跳，打字时探头，深夜哈欠揉眼；跟着天气观测牌所选地点，雨雪、冷热、晴天和大风时偶尔做小动作；前台约每15分钟更新天气。这些只做动作，不花调用。陪伴与「TA的一天」共用这一身，和庭院那一身分开。悬浮的小人拖右下角的小圆点能调大小；点他会有反应，按住能拎起来；点他底下那条把手打开这一页。"),
+          h("div", { style: { fontSize: "calc(11px * var(--app-fs, 1))", color: "#9a8a70", lineHeight: 1.7, marginBottom: 12 } }, "待机和戳拎反应跟着真实心情；开心更活跃，低落更安静，手选表情也照样联动。晚安后会睡，按角色作息醒来揉眼，点他能叫醒。回来招手、新消息轻跳、打字探头、深夜揉眼；跟着天气观测牌所选地点，雨雪、冷热、晴天和大风时偶尔做小动作；前台约每15分钟更新天气。这些只做动作，不花调用。陪伴与「TA的一天」共用这一身，和庭院那一身分开。悬浮的小人拖右下角的小圆点能调大小；点他会有反应，按住能拎起来；点他底下那条把手打开这一页。"),
           Dress && pet() ? h(Dress, { who: "me", look: { me: Object.assign({}, own, auto ? {} : {}) }, styles, game: pet, pushLook }) :
             h("div", { style: { fontSize: "calc(12px * var(--app-fs, 1))", color: "#9a8a70" } }, "小人还在来的路上…"))));
   }
@@ -381,7 +437,7 @@
   const PAT_OBJECT = /(?:你|您|对方)的[^，。]*?(?:手|掌)|(?:拍|把|将)[^，。]*?[他她]的[^，。]*?(?:手|掌)|(?:手|掌)(?:上|里|背|心)[^，。]*(?:灰|尘|脏)/;
   const HUG_PERSON = /(?:抱|搂|拥)(?:了|着|过|住|紧|抱|搂|拥|一把|一下)*[你您我他她](?!的)|(?:把|将)[你您我他她](?!的)[^，。]*?(?:抱|搂|拥)/;
   const ACT_RULES = [
-    actionRule("sleep", /(?:^|[\s，,。！!])我(?:先|这就|现在)?(?:去|要)?睡(?:了|啦)|困死了[\s，,]*睡了|我睡觉去了|^(?:先)?睡[了啦](?:睡[了啦])?[哈喽～~]?$/,
+    actionRule("sleep", /^(?:宝宝|宝贝|亲爱的)?[\s，,]*(?:晚安|晚安安)[呀啦哦喽～~!！。\s]*$|(?:^|[\s，,。！!])我(?:先|这就|现在)?(?:去|要)?睡(?:了|啦)|困死了[\s，,]*睡了|我睡觉去了|^(?:先)?睡[了啦](?:睡[了啦])?[哈喽～~]?$/,
       actionSpan(/睡着|睡熟|熟睡|睡过去|睡下了/), actionSpan(/入/, /梦乡/)),
     actionRule("emotion-selfie", null, actionSpan(/自拍/), actionSpan(/举|拿|抬/, /手机/, /拍自己|对着自己|拍张照|拍照/)),
     actionRule("emotion-peace", null, actionSpan(/比|摆|举|做/, /耶|剪刀手|胜利手势|[Vv]字手势/), actionSpan(/✌/)),
@@ -465,7 +521,7 @@
       actionSpan(/展示|显摆/, /衣|穿搭/), actionSpan(/转/, /圈/, /给你看|展示|新衣|穿搭/)),
     actionRule("emotion-five-right", /give\s+me\s+five|high[ -]?five/i,
       actionSpan(/击|碰/, /掌/)),
-    actionRule("wave", /拜拜|拜了个拜|再见|回头见|嗨(?:[~～!！]|呀|喽|咯|$)|哈[喽啰罗]|hello|hi[!！~～]|早安|早上好|晚上好|晚安/i,
+    actionRule("wave", /拜拜|拜了个拜|再见|回头见|嗨(?:[~～!！]|呀|喽|咯|$)|哈[喽啰罗]|hello|hi[!！~～]|早安|早上好|晚上好/i,
       actionSpan(/挥(?!霍)|招(?!聘|生|商)|摇|晃/, /手/)),
     actionRule("yawn", /[哈呵]欠|好困|困(?:了|死|得|意)|犯困|睡意|想睡|想打盹|睁不开眼|眼皮打架/,
       actionSpan(/打/, /[哈呵]欠/)),
@@ -521,10 +577,10 @@
   // 有好几个动作时，从最后写到的那一小句选，前面的招呼不抢走后面的反应
   function clausesOf(s) {
     const out = [];
-    s.split(/[。.！？!?；;\n\r]/u).forEach(sent => {
-      let ifs = false;
-      sent.split(/[，,：:]/u).forEach(c => { if (IF_SENT.test(c)) ifs = true; if (c.trim()) out.push({ c, ifs, ask: ASKING.test(c) }); });
-    });
+    for (const match of s.matchAll(/([^。.！？!?；;\n\r]+)([。.！？!?；;\n\r]*)/gu)) {
+      const sent = match[1], question = /[?？]/u.test(match[2]); let ifs = false;
+      sent.split(/[，,：:]/u).forEach(c => { if (IF_SENT.test(c)) ifs = true; if (c.trim()) out.push({ c, ifs, question, ask: question || ASKING.test(c) }); });
+    }
     return out.reverse();
   }
   // Observation/request complements belong to the other person. Keep the
@@ -548,7 +604,7 @@
     }
     return out + c.slice(from);
   }
-  const done = (x, at) => at >= 0 && !x.ifs && !NOT_DONE.test(x.c.slice(0, at).split("的").pop());
+  const done = (x, at) => at >= 0 && !x.ifs && !x.question && !NOT_DONE.test(x.c.slice(0, at).split("的").pop());
   const cueAt = (rule, x) => { const m = rule.cues && rule.cues.exec(x.c); return m ? m.index : -1; };
   // act：动作描写（action 那一栏、话里括号或星号包着的那段）；said：说出口的话。
   //   动作只从 act 里认；said 里只认本身就是在打招呼、应声的那几句（晚安、加油、好好好……），而且不认问句。
@@ -566,6 +622,11 @@
     return "";
   }
   function actForText(text) { return actForChat(text, ""); }
+  window.addEventListener("companion-chat", e => {
+    const d = e && e.detail; if (!d || !d.charId) return;
+    const k = d.act != null || d.said != null ? actForChat(d.act, d.said) : actForText(d.text);
+    if (k || d.said) lifeUpdate(d.charId, { kind: k === "sleep" ? "sleep" : "wake" });
+  });
   function useChatAct(charId, frame) {
     useEffect(() => {
       const on = e => { const d = e && e.detail; if (!d || d.charId !== charId) return; const k = d.act != null || d.said != null ? actForChat(d.act, d.said) : actForText(d.text);
@@ -582,7 +643,7 @@
     const sc = Math.max(.6, Math.min(2.2, Number(cfg.scale) || 1)), W = Math.round(96 * sc), H = Math.round(132 * sc);
     const [pos, setPos] = useState(() => cfg.pos || { x: window.innerWidth - W - 8, y: window.innerHeight - H - 150 });
     const drag = useRef(null), rs = useRef(null);
-    const ctx = usePetContext(props, props.screen || "");
+    const ctx = usePetContext(props, props.screen || "", char);
     const typing = ctx.typing;
     const [failed, setFailed] = useState(false);
     const [say, onPoke, holdSay] = usePokeTalk(char, props, !!cfg.pokeTalk);
@@ -619,5 +680,5 @@
   window.Companion = Companion;
   window.CompanionPreview = PetFrame;
   window.CompanionFloat = CompanionFloat;
-  window.CompanionFace = { faceForMood, FACE_ZH, lookFor, actForText, actForChat, makeMessageWatch };
+  window.CompanionFace = { faceForMood, FACE_ZH, lookFor, petMessage, lifeStep, lifeRead, lifeUpdate, actForText, actForChat, makeMessageWatch };
 })();
