@@ -154,12 +154,14 @@
     const blockNow = C().gateBlocked(card, lv);
     const canPoke = card.rarity === "SSR" && lv >= cap && !!tx && !!url;
     const poke = async e => {
-      const r = e.currentTarget.getBoundingClientRect(), y = (e.clientY - r.top) / r.height;
+      const redo = e === "redo";
+      const r = redo ? null : e.currentTarget.getBoundingClientRect(), y = redo ? 0.5 : (e.clientY - r.top) / r.height;
       const part = y < 0.34 ? "head" : y < 0.67 ? "heart" : "hand";
       // 每一面各有一套话：第一面、他一个人那面、你们俩那面（你们俩那面画里有她，他说的话也不一样）
       const pkKey = side === "duo" ? "pokesDuo" : side === "solo" ? "pokesSolo" : "pokes";
       let pk = card[pkKey];
-      if (!pk) { if (poking) return; setPoking(true); try { pk = await onPoke(card, side); } catch (er) { pk = null; } setPoking(false); if (!pk) { toast("他没回上来，再戳一下试试"); return; } }
+      if (!pk || e === "redo") { if (poking) return; setPoking(true); try { pk = await onPoke(card, side); } catch (er) { pk = null; } setPoking(false); if (!pk) { toast("他没回上来，再戳一下试试"); return; } }
+      if (redo) { setSay(null); toast("换好了，再戳戳看"); return; }
       const list = pk[part] && pk[part].length ? pk[part] : [].concat(pk.head || [], pk.heart || [], pk.hand || []);
       if (!list.length) return;
       // 同一处连着戳不重复上一句
@@ -346,7 +348,9 @@
             canPoke ? h("div", { "data-wk": "stamppoke", onClick: e => { e.stopPropagation(); poke(e); }, style: { position: "absolute", inset: 0, cursor: "pointer" } }) : null)),
         h("div", { "data-wk": "stamppokesay", onClick: e => e.stopPropagation(), style: { margin: "0 16px calc(env(safe-area-inset-bottom) * 0.4 + 16px)", minHeight: 72, padding: "12px 16px", borderRadius: 14, background: "#FFF8E9", border: "1px solid " + COPPER, color: P, fontFamily: F_BODY, fontSize: fs(14), lineHeight: 1.7 } },
           canPoke ? (poking ? h("span", { style: { color: P5 } }, "他在想怎么回你…") : say ? h(React.Fragment, null, h("div", { style: { fontSize: fs(10.5), color: COPPER, marginBottom: 2 } }, (char ? char.name : "") + (say.part === "head" ? " · 被戳了头" : say.part === "heart" ? " · 被戳了胸口" : " · 被戳了手")), say.text)
-            : h("span", { style: { color: P5 } }, "戳戳他：上面是头，中间是胸口，下面是手。点外面收起。")) : h("span", { style: { color: P5 } }, "点外面收起。"))) : null,
+            : h("span", { style: { color: P5 } }, "戳戳他：上面是头，中间是胸口，下面是手。点外面收起。")) : h("span", { style: { color: P5 } }, "点外面收起。"),
+          canPoke && card[side === "duo" ? "pokesDuo" : side === "solo" ? "pokesSolo" : "pokes"] && !poking ? h("div", { style: { textAlign: "right", marginTop: 6 } },
+            h("button", { "data-wk": "stamppokeredo", onClick: e => { e.stopPropagation(); poke("redo"); }, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: fs(11.5), color: COPPER, border: "1px solid " + COPPER, borderRadius: 999, padding: "3px 10px" } }, "↻ 这一面换一批话 · 花一次调用")) : null)) : null,
       story && tx ? h(StoryReader, { t, card, char, meName, lv, start: typeof story === "string" && story !== "his" ? story : null, inner: story === "his" ? tx.inner : null, onSeen: markSeen, onClose: () => setStory(false) }) : null);
   }
 
