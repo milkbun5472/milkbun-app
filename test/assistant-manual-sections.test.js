@@ -14,14 +14,15 @@ function load() {
   return { M: g.AssistantManual, sectionText: new Function(memG + "\n" + seg + "\nreturn sectionText;")() };
 }
 
-test("长条目挑对小节：问绒绒小镇的猫，给的是小镇照料那节；问转账卡美化，给的是美化挂点那节", () => {
+test("长条目挑对小节：问绒绒小镇的猫，给的是小镇照料那节；问转账卡美化，给的是主题工作台的挂点那节", () => {
   const { M, sectionText } = load();
   const fg = sectionText(M, M.byId("fairyGarden"), "绒绒小镇的猫怎么喂");
   assert.ok(fg.length < M.textOf(M.byId("fairyGarden")).length / 4, "没瘦下来");
   assert.match(fg, /添粮/, "该给的照料那节没给");
   assert.match(fg, /其余小节：[\s\S]*要用就 lookup「fairyGarden」/, "剩下的小节名字和翻法没报");
-  const ch = sectionText(M, M.byId("chat"), "转账卡怎么美化");
-  assert.match(ch, /美化挂点/);
+  // 美化挂点都收进了主题工作台那一条（她 2026-10-26）
+  const ch = sectionText(M, M.byId("theme"), "转账卡怎么美化");
+  assert.match(ch, /挂点/);
   assert.match(ch, /transfercard/);
 });
 
