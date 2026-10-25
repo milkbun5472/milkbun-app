@@ -355,7 +355,7 @@
     const [open, setOpen] = useState(null);
     const [albumChar, setAlbumChar] = useState("all");
     const [albumRar, setAlbumRar] = useState("all");
-    const [week, setWeek] = useState(false);   // 他的一周：同一个人写好的 R 攒够五张，按时间排成一页   // 全部 / SSR / SR / R / bad（没写好）
+    const [week, setWeek] = useState(false);   // 他的一周：同一个人写好的 R 每攒够七张，按时间排成一页（第几周）   // 全部 / SSR / SR / R / bad（没写好）
     const [gotNote, setGotNote] = useState([]);
     const [cfg, setCfg] = useState(false);
     const [giftOpen, setGiftOpen] = useState(false);
@@ -564,7 +564,7 @@
           chip(albumChar === "all", "全部 " + (st.cards || []).length, () => setAlbumChar("all"), "all"),
           characters.filter(c => (st.cards || []).some(x => x.charId === c.id)).map(c => chip(albumChar === c.id, (c.remark || c.name) + " " + st.cards.filter(x => x.charId === c.id).length, () => setAlbumChar(c.id), c.id))),
         (() => { const rs = albumChar === "all" ? [] : byChar.filter(c => c.rarity === "R" && c.text);
-          return rs.length >= 5 ? h("button", { "data-wk": "stampweekbtn", onClick: () => setWeek(true), className: "w-full active:opacity-70", style: { marginTop: 10, minHeight: 40, borderRadius: 10, background: "#FFF8E9", border: "1px solid #577767", color: "#285C4B", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))" } }, "翻他的一周 · " + Math.min(7, rs.length) + " 个瞬间") : null; })(),
+          return rs.length >= 7 ? h("button", { "data-wk": "stampweekbtn", onClick: () => setWeek(Math.floor(rs.length / 7)), className: "w-full active:opacity-70", style: { marginTop: 10, minHeight: 40, borderRadius: 10, background: "#FFF8E9", border: "1px solid #577767", color: "#285C4B", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))" } }, "翻他的一周 · 已经攒了 " + Math.floor(rs.length / 7) + " 周") : null; })(),
         h("div", { "data-wk": "stamprarpick", className: "flex overflow-x-auto", style: { gap: 6, paddingTop: 8 } },
           [["all", "全部"], ["SSR", "SSR"], ["SR", "SR"], ["R", "R"], ["bad", "没写好"]].map(x => { const n = x[0] === "all" ? byChar.length : x[0] === "bad" ? byChar.filter(isBad).length : byChar.filter(c => c.rarity === x[0]).length;
             return x[0] === "bad" && !n ? null : chip(albumRar === x[0], x[1] + " " + n, () => setAlbumRar(x[0]), x[0]); })),
@@ -575,9 +575,11 @@
         album.length ? h("div", { "data-wk": "stampalbum", className: "grid", style: { gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 10, marginTop: 14, justifyItems: "center" } },
           album.map(c => h(StampFace, { key: c.id, t, card: c, size: 88, onClick: () => setOpen(c.id) })))
           : h("div", { style: { padding: "48px 0", textAlign: "center", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: "rgba(47,42,34,.5)" } }, "还没有邮票，去寄一封")),
-      week ? (() => { const ch = charOf(albumChar); const rs = byChar.filter(c => c.rarity === "R" && c.text).slice(-7).sort((x, y) => (x.ts || 0) - (y.ts || 0));
+      week ? (() => { const ch = charOf(albumChar); const all = byChar.filter(c => c.rarity === "R" && c.text).sort((x, y) => (x.ts || 0) - (y.ts || 0));
+        const weeks = Math.floor(all.length / 7), wk = Math.min(weeks, Math.max(1, Number(week) || 1)), rs = all.slice((wk - 1) * 7, wk * 7);
         return h("div", { "data-wk": "stampweek", className: "fixed inset-0 flex flex-col", style: { zIndex: 250, background: "radial-gradient(rgba(130,124,111,.07) 1px, transparent 1.2px) 0 0 / 5px 5px, #F1EAD9" } },
-          h(Head, { zh: (ch ? (ch.remark || ch.name) : "他") + "的一周", sub: rs.length + " 个瞬间", bg: "transparent", ink: "#39382F", onBack: () => setWeek(false) }),
+          h(Head, { zh: (ch ? (ch.remark || ch.name) : "他") + "的第 " + wk + " 周", sub: "七个瞬间 · 一共攒了 " + weeks + " 周", bg: "transparent", ink: "#39382F", onBack: () => setWeek(false) }),
+          weeks > 1 ? h("div", { "data-wk": "stampweekpick", className: "flex overflow-x-auto px-5 shrink-0", style: { gap: 6, paddingTop: 4 } }, Array.from({ length: weeks }, (_, k) => chip(wk === k + 1, "第 " + (k + 1) + " 周", () => setWeek(k + 1), "w" + k))) : null,
           h("div", { className: "flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-5", style: { paddingBottom: "calc(env(safe-area-inset-bottom) * 0.4 + 28px)" } },
             rs.map((c, k) => h("button", { key: c.id, onClick: () => { setWeek(false); setOpen(c.id); }, className: "w-full text-left active:opacity-80", style: { display: "flex", gap: 12, marginTop: 14, padding: "12px 14px", borderRadius: 12, background: "#FFF8E9", border: "1px solid rgba(87,119,103,.3)", transform: "rotate(" + (k % 2 ? .6 : -.6) + "deg)" } },
               h("div", { style: { flexShrink: 0, width: 40, textAlign: "center", fontFamily: F_DISPLAY, color: "#B58C55" } }, h("div", { style: { fontSize: "calc(10px * var(--app-fs, 1))" } }, "第"), h("div", { style: { fontSize: "calc(20px * var(--app-fs, 1))" } }, k + 1), h("div", { style: { fontSize: "calc(10px * var(--app-fs, 1))" } }, "刻")),
