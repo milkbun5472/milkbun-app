@@ -154,8 +154,10 @@
     const poke = async e => {
       const r = e.currentTarget.getBoundingClientRect(), y = (e.clientY - r.top) / r.height;
       const part = y < 0.34 ? "head" : y < 0.67 ? "heart" : "hand";
-      let pk = card.pokes;
-      if (!pk) { if (poking) return; setPoking(true); try { pk = await onPoke(card); } catch (er) { pk = null; } setPoking(false); if (!pk) { toast("他没回上来，再戳一下试试"); return; } }
+      // 每一面各有一套话：第一面、他一个人那面、你们俩那面（你们俩那面画里有她，他说的话也不一样）
+      const pkKey = side === "duo" ? "pokesDuo" : side === "solo" ? "pokesSolo" : "pokes";
+      let pk = card[pkKey];
+      if (!pk) { if (poking) return; setPoking(true); try { pk = await onPoke(card, side); } catch (er) { pk = null; } setPoking(false); if (!pk) { toast("他没回上来，再戳一下试试"); return; } }
       const list = pk[part] && pk[part].length ? pk[part] : [].concat(pk.head || [], pk.heart || [], pk.hand || []);
       if (!list.length) return;
       clearTimeout(sayT.current); setSay({ text: list[Math.floor(Math.random() * list.length)], part });
@@ -396,7 +398,7 @@
             h(Avatar, { character: c, size: 46, radius: 10 }),
             on ? h("span", { style: { position: "absolute", right: -5, bottom: -5, width: 18, height: 18, borderRadius: 999, background: "#2f5d4a", color: "#15121f", fontSize: 11, lineHeight: "18px", textAlign: "center", fontWeight: 700 } }, "✓") : null),
           h("div", { style: { maxWidth: "100%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: on ? "#2f5d4a" : "rgba(47,42,34,.75)" } }, c.remark || c.name)); }));
-    if (open) { const card = (st.cards || []).find(c => c.id === open) || null; if (card) return h(CardPage, { t, card, char: charOf(card.charId), meName, onBack: () => setOpen(null), onDraw, onRewrite: c => onWrite([c]), toast, onPoke: c => props.onPoke ? props.onPoke(c) : null,
+    if (open) { const card = (st.cards || []).find(c => c.id === open) || null; if (card) return h(CardPage, { t, card, char: charOf(card.charId), meName, onBack: () => setOpen(null), onDraw, onRewrite: c => onWrite([c]), toast, onPoke: (c, sd) => props.onPoke ? props.onPoke(c, sd) : null,
       onSend: c => { props.onSend && props.onSend(c); }, onCanon: c => { props.onCanon && props.onCanon(c); } }); }
 
     const isBad = c => !c.text && (!c.writing || Date.now() - Number(c.writingTs || 0) > 180000);
