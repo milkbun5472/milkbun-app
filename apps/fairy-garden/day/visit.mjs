@@ -1,10 +1,10 @@
 // A visit is a visible, disposable scene session. It has no save or chat writer.
-import {MAPS,findPath,walkable,segmentClear,floorHeight} from '../world.mjs?v=fg-3f575044413bc14d';
-import {PERSONAL_SPACE} from '../companion.mjs?v=fg-3f575044413bc14d';
-import {stepRoute} from '../locomotion.mjs?v=fg-3f575044413bc14d';
-import {furniturePoint,furnitureSeat,usesFor} from './home-catalog.mjs?v=fg-3f575044413bc14d';
-import {dailyTaskAt} from './daily-workflow.mjs?v=fg-3f575044413bc14d';
-import {CHORES,chorePlans,chorePose} from './chores.mjs?v=fg-3f575044413bc14d';
+import {MAPS,findPath,walkable,segmentClear,floorHeight} from '../world.mjs?v=fg-7bba6b589f5e4373';
+import {PERSONAL_SPACE} from '../companion.mjs?v=fg-7bba6b589f5e4373';
+import {stepRoute} from '../locomotion.mjs?v=fg-7bba6b589f5e4373';
+import {furniturePoint,furnitureSeat,usesFor} from './home-catalog.mjs?v=fg-7bba6b589f5e4373';
+import {dailyTaskAt} from './daily-workflow.mjs?v=fg-7bba6b589f5e4373';
+import {CHORES,chorePlans,chorePose} from './chores.mjs?v=fg-7bba6b589f5e4373';
 const HOBBIES=globalThis.CharDayHomeHobbies.activities;
 const activities={read:{action:'read',label:'看书'},drink:{action:'tea',label:'喝水'},eat:{action:'meal',label:'用餐'},rest:{action:'rest',label:'休息'},...Object.fromEntries(Object.entries(HOBBIES).map(([kind,p])=>[kind,{action:kind,label:p.label}])),...CHORES};
 const gap=(a,b)=>Math.hypot(a.x-b.x,a.z-b.z);
