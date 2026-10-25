@@ -78,3 +78,15 @@ test("生日池窗口：生日前 14 天到生日后 7 天", () => {
   assert.ok(C.bdayWindow("06-20", day + 7 * 86400000));
   assert.ok(C.bdayWindow("06-20", day + 3600000).isDay);
 });
+
+test("盖印升级：扣印泥，30 级那一坎没发给他看过就停住", () => {
+  const C = fresh(), st = C.load();
+  st.ink = 100000; st.cards = [{ id: "a", rarity: "SR", lv: 1 }]; C.save(st);
+  let r = C.levelUp("a", 100);
+  assert.equal(r.lv, 30); assert.ok(r.msg);
+  const s2 = C.load(); s2.cards[0].sentTs = 1; C.save(s2);
+  r = C.levelUp("a", 100);
+  assert.equal(r.lv, C.CAP.SR);
+  const s3 = C.load(); s3.ink = 0; s3.cards = [{ id: "b", rarity: "R", lv: 1 }]; C.save(s3);
+  assert.equal(C.levelUp("b", 1).n, 0);
+});

@@ -102,11 +102,29 @@
   // 过坎的额外条件：30 级以后的坎要这张卡发给他看过
   function gateBlocked(card, lv) { return isGate(lv) && lv >= 30 && !card.sentTs ? "这一坎要先把这张卡发给他看一次" : ""; }
 
+  // 盖印升级：一级一级扣印泥，steps 是最多升几级；碰到要先发给他的坎、或者印泥不够就停
+  function levelUp(cardId, steps) {
+    const st = load(), card = st.cards.find(c => c.id === cardId);
+    if (!card) return { n: 0, msg: "找不到这张" };
+    const cap = CAP[card.rarity] || 30; let n = 0, msg = "";
+    card.lv = card.lv || 1;
+    while (n < steps && card.lv < cap) {
+      const block = gateBlocked(card, card.lv); if (block) { msg = block; break; }
+      const cost = levelCost(card.rarity, card.lv);
+      if (st.ink < cost) { msg = "印泥不够：下一级要 " + cost; break; }
+      st.ink -= cost; card.lv++; n++;
+    }
+    if (n) save(st);
+    return { n, msg, lv: card.lv };
+  }
+  // 卡里哪几段几级开（SSR 的节在剧情里按节标的 lv 开）
+  const UNLOCK = { R: { before: 10, after: 20, real: 30 }, SR: { rest: 10, sequel: 20, hidden: 40 } };
+
   // 剧情按等级解锁：SSR 每十级一节（1 级第一节，40 级结局，50 级隐藏的路）
   function ssrUnlocked(lv) { return { sections: Math.min(4, 1 + Math.floor(lv / 10)), ending: lv >= 40, hidden: lv >= 50 }; }
 
   g.StampsCore = { PRICE_ONE, PRICE_TEN, RATE, SOFT_FROM, HARD_AT, SR_EVERY, BDAY, CAP, FULL_COST, GIFT, GAIN, LIMITED,
-    load, save, gain, grantOnOpen, activeLimited, bdayWindow, rollRarity, pay, levelCost, isGate, gateBlocked, ssrUnlocked };
+    UNLOCK, levelUp, load, save, gain, grantOnOpen, activeLimited, bdayWindow, rollRarity, pay, levelCost, isGate, gateBlocked, ssrUnlocked };
   // 各处喊一声就记上
   g.stampGain = gain;
   // 别的玩法不一处处去挂：callAI 成功一枪（她按下去的、不是后台）会广播 ai-ok，这儿按它是干嘛的分进几档。

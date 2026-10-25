@@ -16924,6 +16924,25 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   };
   const stampPrev = charId => (StampsCoreSafe().cards || []).filter(c => c.charId === charId && c.text).slice(-40).map(c => "「" + c.text.name + "」");
   const StampsCoreSafe = () => (window.StampsCore ? window.StampsCore.load() : { cards: [] });
+  // 把一枚邮票发进聊天给他看：IF 卡跟他讲清是另一个世界的他，不是你们真的发生过
+  const stampSend = card => {
+    const ch = characters.find(c => c.id === card.charId); const tx = card.text;
+    if (!ch || !tx) return;
+    const gist = card.rarity === "R" ? [tx.narration, tx.thought ? "「" + tx.thought + "」" : ""].filter(Boolean).join("\n")
+      : [tx.line ? "「" + tx.line + "」" : "", card.rarity === "SR" ? tx.open || "" : ""].filter(Boolean).join("\n");
+    const head = "（寄给你一枚邮票：「" + (tx.name || "") + "」" + (card.kind === "if" ? "。这是 IF 线「" + (card.theme || "") + "」里的你——另一个世界的你，不是你们真的发生过的事" : "") + "）";
+    pChat(ch.id, p => [...p, { role: "user", content: (head + "\n" + gist).trim().slice(0, 900), ts: Date.now() }]);
+    stampSaveCard(card.id, { sentTs: Date.now() });
+    toast("发给 " + (ch.remark || ch.name) + " 了，回聊天里看他怎么说");
+  };
+  // SSR 的 IF 线满级、发给他看过之后可以当真：跟他说一声，这件事从此算你们真的有过
+  const stampCanon = card => {
+    const ch = characters.find(c => c.id === card.charId); const tx = card.text;
+    if (!ch || !tx) return;
+    pChat(ch.id, p => [...p, { role: "user", content: "（那张「" + (tx.name || "") + "」，我想把它当真——从现在起，那段算我们真的一起经历过。）", ts: Date.now() }]);
+    stampSaveCard(card.id, { canon: true, canonTs: Date.now() });
+    toast("当真了");
+  };
   const stampSaveCard = (id, patch) => {
     if (!window.StampsCore) return;
     const st = window.StampsCore.load();
@@ -33683,6 +33702,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     onBack: () => setScreen("home")
   });else if (screen === "stamps") body = h(window.StampBookApp, {
     characters: liveChars,
+    onSend: stampSend,
+    onCanon: stampCanon,
     meName: userName(profile),
     toast: toast,
     onWrite: cards => stampWrite(cards),
