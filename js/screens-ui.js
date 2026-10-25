@@ -11407,6 +11407,7 @@ function EmoteMatrix({ packs, characters, onBack, onAddPack, onUpdatePack, onDel
   const [setCaption, setSetCaption] = useState(true);   // 画出来的每张底下印上名字
   const t = useTheme();
   const list = packs || [];
+  const [moveCopy, setMoveCopy] = useState(false);
   const [selId, setSelId] = useState(list[0] && list[0].id);
   const [selMode, setSelMode] = useState(false);
   const [selEmotes, setSelEmotes] = useState([]);
@@ -11546,9 +11547,15 @@ function EmoteMatrix({ packs, characters, onBack, onAddPack, onUpdatePack, onDel
             })),
           // 挪到别的版：挑中几张后，底下一排别的版名字，点哪个挪去哪个
           selMode && selEmotes.length > 0 && onMoveEmotes && list.length > 1 && h("div", { "data-wk": "emomove", style: { marginTop: 14 } },
-            h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.sub, marginBottom: 6 } }, "把这 " + selEmotes.length + " 张挪到："),
+            h("div", { style: { display: "flex", alignItems: "center", gap: 8, marginBottom: 6 } },
+              h("span", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.sub } }, "把这 " + selEmotes.length + " 张"),
+              // 挪过去／复制一份：两格的切换，当前那格上墨
+              h("div", { "data-wk": "emomovemode", style: { display: "flex", border: "1px solid " + t.line, borderRadius: 10, overflow: "hidden" } },
+                [["move", "挪过去"], ["copy", "复制一份"]].map(([k, zh]) => h("button", { key: k, "data-part": k, "data-on": (moveCopy ? "copy" : "move") === k ? "1" : "0", onClick: () => setMoveCopy(k === "copy"),
+                  style: { minHeight: 40, padding: "0 12px", border: "none", background: (moveCopy ? "copy" : "move") === k ? t.ink : "transparent", color: (moveCopy ? "copy" : "move") === k ? t.bg2 : t.sub, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))" } }, zh))),
+              h("span", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.sub } }, "到：")),
             h("div", { style: { display: "flex", flexWrap: "wrap", gap: 8 } }, list.filter(p => p.id !== pack.id).map(p => h("button", { "data-wk": "emomoveto", key: p.id,
-              onClick: () => { if (onMoveEmotes(pack.id, selEmotes, p.id)) { setSelEmotes([]); setSelMode(false); } },
+              onClick: () => { if (onMoveEmotes(pack.id, selEmotes, p.id, moveCopy)) { setSelEmotes([]); setSelMode(false); } },
               className: "active:opacity-70", style: { minHeight: 40, padding: "0 14px", borderRadius: 10, border: "1px solid " + t.line, background: t.bg2, color: t.ink, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))" } }, p.name || "未命名")))),
           selMode && selEmotes.length > 0 && h("button", { "data-wk": "emodelsel", onClick: () => { onDeleteEmotes(pack.id, selEmotes); setSelEmotes([]); setSelMode(false); }, className: "w-full active:opacity-70", style: { marginTop: 14, fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: "#fff", background: t.accent, borderRadius: 12, padding: "12px 0" } }, "撕掉选中的 " + selEmotes.length + " 张"),
           // ── 往这版上贴新的 ──
