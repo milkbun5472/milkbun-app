@@ -60,7 +60,7 @@ test("先回主屏一页页滑过去找 app、文件夹里的先点开文件夹�
   assert.match(p, /if \(document\.querySelector\("#root \[data-appkey\]"\)\) return false;/);
   assert.match(p, /if \(!ok\) \{ props\.onOpen && props\.onOpen\(s\.app, s\.who\);/);
   assert.match(c, /window\.__homeNav = \{ go: goPage, page: function \(\) \{ return page; \} \};/);
-  assert.match(a, /goHome: \(\) => setScreen\("home"\),/);
+  assert.match(a, /goHome: \(\) => \{ peekOffClose\(\); setPeekDailyView\(null\); setScreen\("home"\); \},/);
 });
 
 test("钱包从信息 →「我」→「我的钱包」点进去；找人前先点回「聊天」；聊天素材写清是她和别人", () => {
@@ -89,7 +89,7 @@ test("点开就读：聊天往上翻、帖子日记往下滑（脚本没写就�
   assert.strictEqual(sc[sc.length - 1].dir, "down", "点开的帖子要往下滑");
   assert.match(p, /elementsFromPoint/, "滚动找容器要绕开遮罩");
   assert.match(p, /if \(IN_MSG\.indexOf\(app\) >= 0 && props\.toMessages\) \{/);
-  assert.match(a, /toMessages: tab => \{ setMsgTab\(tab \|\| "chats"\); setScreen\("messages"\); \},/);
+  assert.match(a, /toMessages: tab => \{ peekOffClose\(\); setPeekDailyView\(null\); setMsgTab\(tab \|\| "chats"\); setScreen\("messages"\); \},/);
   assert.match(a, /你就是「" \+ c\.name \+ "」本人，此刻在你自己的日子里/);
 });
 
@@ -182,7 +182,7 @@ test("翻手机：只查聊天；钱包外卖购物要聊天里有线索才去�
   assert.ok(!out.some(s => s.app === "takeout" || s.text === "不该出现"), "没线索的外卖连同心声一起不演");
   assert.ok(out.some(s => s.app === "wallet"));
   assert.match(a, /const CLUE = \{ transfer: "wallet", redpacket: "wallet", takeout: "takeout", gift: "shop" \}/);
-  assert.match(a, /toMessages: tab => \{ setMsgTab\(tab \|\| "chats"\)/);
+  assert.match(a, /toMessages: tab => \{ peekOffClose\(\); setPeekDailyView\(null\); setMsgTab\(tab \|\| "chats"\)/);
 });
 
 test("翻手机：没心声的那段不删；open 自带心声；心声上限放宽；列表里找人只按一下、交给外面按 id 打开单聊", () => {

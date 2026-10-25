@@ -35045,8 +35045,10 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     avatarChar: (characters || []).find(x => x.id === peekPlay.charId),
     script: peekPlay.script,
     labelOf: (app, who) => app === "chat" && who ? "和" + who + "的聊天" : app === "offline" && who ? "和" + who + "线下见面的往期" : (PEEK_APP_ZH[app] || app),
-    goHome: () => setScreen("home"),
-    toMessages: tab => { setMsgTab(tab || "chats"); setScreen("messages"); },
+    // 回主屏、去信息都要先把线下那层收掉（群友 2026-10-26：翻完线下去朋友圈，朋友圈开了却被线下那一层盖着）——
+    //   线下盖在所有页面上面，只换底下那一页，屏幕上还是线下
+    goHome: () => { peekOffClose(); setPeekDailyView(null); setScreen("home"); },
+    toMessages: tab => { peekOffClose(); setPeekDailyView(null); setMsgTab(tab || "chats"); setScreen("messages"); },
     onOpen: peekOpen, onBack: peekBack, onDone: peekDone,
     // 改她给TA的备注：进自己那一栏、真的改（她 2026-10-02）
     openSelf: () => openChatById(peekPlay.charId),
