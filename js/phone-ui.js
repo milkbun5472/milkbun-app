@@ -1456,14 +1456,17 @@ function WeChatViewFull({ d, char, t, profile, onBack, onRefresh, refreshing, dr
   // 拿他手机转账那一小块（群友 2026-10-13）：点「转账」展开金额、留言，群里再挑转给谁
   // 「＋」展开（她 2026-10-13「跟聊天一样搞个加号」）：null 收着 / "menu" 一排功能 / "tf" 转账；购物、外卖直接开那两页（花他的钱）
   const [plus, setPlus] = useState(null);
-  const tfOpen = plus === "tf";
+  // 红包（她 2026-10-25「查手机加号里也加个红包」）：跟转账同一块输入，多一个「几个」，群里点名就是专属红包
+  const rpOpen = plus === "rp";
+  const tfOpen = plus === "tf" || rpOpen;
+  const [rpCount, setRpCount] = useState("");
   const [tfAmt, setTfAmt] = useState(""), [tfNote, setTfNote] = useState(""), [tfTo, setTfTo] = useState("");
   const tfPeers = tfOpen && th && th.type === "group" && transferPeers ? transferPeers(th) : [];
   const tfSend = () => {
     if (!onTransferAs || !th) return;
-    if (th.type === "group" && !tfTo) return;
-    if (onTransferAs(th, tfAmt, tfNote, tfTo) === false) return;
-    setPlus(null); setTfAmt(""); setTfNote(""); setTfTo("");
+    if (th.type === "group" && !tfTo && !rpOpen) return;
+    if (onTransferAs(th, tfAmt, tfNote, tfTo, rpOpen ? { packet: true, count: Number(rpCount) || 0 } : null) === false) return;
+    setPlus(null); setTfAmt(""); setTfNote(""); setTfTo(""); setRpCount("");
   };
   const canBuy = !!(onShopAs && th && th.type !== "group");
   const asSend = () => {
@@ -1498,15 +1501,15 @@ function WeChatViewFull({ d, char, t, profile, onBack, onRefresh, refreshing, dr
       : m.kind === "card" ? h("div", { "data-wk": "pcard", "data-label": m.label, style: { width: 210, borderRadius: 6, overflow: "hidden", background: "#fff", boxShadow: "0 1px 1px rgba(0,0,0,.05)", fontFamily: F_BODY } },
           h("div", { style: { padding: "10px 12px", fontSize: "calc(13.5px * var(--app-fs, 1))", lineHeight: 1.5, color: "#171717", minHeight: 22 } }, m.body ? PTX(m.body) : m.label),
           h("div", { style: { padding: "4px 12px 6px", fontSize: "calc(10.5px * var(--app-fs, 1))", color: "#9a9a9a", borderTop: "1px solid #eee" } }, PTX(m.label)))
-      : m.kind === "transfer" ? h("div", { "data-wk": "ptfcard", "data-status": m.status, style: { width: 210, borderRadius: 6, overflow: "hidden", background: m.status === "pending" ? "#fa9d3b" : "#fbd3a7", color: "#fff", fontFamily: F_BODY } },
+      : m.kind === "transfer" ? h("div", { "data-wk": "ptfcard", "data-status": m.status, "data-packet": m.packet ? "1" : "0", style: { width: 210, borderRadius: 6, overflow: "hidden", background: m.packet ? (m.status === "pending" ? "#f35543" : "#f5a99f") : m.status === "pending" ? "#fa9d3b" : "#fbd3a7", color: "#fff", fontFamily: F_BODY } },
           h("div", { className: "flex items-center", style: { gap: 10, padding: "11px 12px" } },
             h(Svg, { size: 30, color: "#fff", sw: 1.6 }, h("path", { d: "M7 4h10l3 4H4z" }), h("rect", { x: 4, y: 8, width: 16, height: 12, rx: 1.5 }), h("path", { d: "M9 12l3 3 3-3M12 15v-3" })),
             h("div", { className: "min-w-0" },
-              h("div", { style: { fontSize: "calc(15.5px * var(--app-fs, 1))", fontWeight: 600 } }, "¥" + (Number(m.amount) || 0).toFixed(2)),
+              h("div", { style: { fontSize: "calc(15.5px * var(--app-fs, 1))", fontWeight: 600 } }, m.packet ? (m.note || "恭喜发财，大吉大利") : "¥" + (Number(m.amount) || 0).toFixed(2)),
               h("div", { style: { fontSize: "calc(11.5px * var(--app-fs, 1))", opacity: 0.9, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } },
-                m.status === "accepted" ? "已收款" : m.status === "returned" || m.status === "rejected" ? "已退还" : (m.note || (self ? "等对方收款" : "请收款"))))),
+                m.packet ? (m.status === "accepted" ? "已被领取 ¥" + (Number(m.amount) || 0).toFixed(2) : m.status === "returned" ? "已退回" : self ? "等对方拆开" : "领取红包") : m.status === "accepted" ? "已收款" : m.status === "returned" || m.status === "rejected" ? "已退还" : (m.note || (self ? "等对方收款" : "请收款"))))),
           tfWait ? h("div", { className: "flex", style: { borderTop: "1px solid rgba(255,255,255,.35)" } },
-            [["no", "退回"], ["ok", "替" + char.name + "收下"]].map(([k, zh]) => h("button", { key: k, "data-wk": "ptfbtn", "data-part": k, onClick: () => onTfReplyAs(m.tid, k === "ok"), className: "flex-1 active:opacity-60", style: { padding: "8px 0", fontSize: "calc(12.5px * var(--app-fs, 1))", color: "#fff", fontWeight: k === "ok" ? 600 : 400 } }, zh)))
+            [["no", "退回"], ["ok", m.packet ? "替" + char.name + "拆开" : "替" + char.name + "收下"]].map(([k, zh]) => h("button", { key: k, "data-wk": "ptfbtn", "data-part": k, onClick: () => onTfReplyAs(m.tid, k === "ok"), className: "flex-1 active:opacity-60", style: { padding: "8px 0", fontSize: "calc(12.5px * var(--app-fs, 1))", color: "#fff", fontWeight: k === "ok" ? 600 : 400 } }, zh)))
             : h("div", { style: { padding: "4px 12px 6px", fontSize: "calc(10.5px * var(--app-fs, 1))", opacity: 0.85, borderTop: "1px solid rgba(255,255,255,.3)" } }, "转账"))
       : h("div", { "data-wk": "pbubble", "data-me": self ? "1" : "0", style: { position: "relative", padding: "9px 11px", borderRadius: 5, fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", lineHeight: 1.55, color: "#171717", background: self ? "#95ec69" : "#fff", boxShadow: "0 1px 1px rgba(0,0,0,.05)", animation: m._new ? "wkpop .26s cubic-bezier(.2,1.5,.4,1) both" : undefined } }, PTX(m.text));
     // 一批新话的开头画一条时间线（真微信隔一阵就有一行灰字时间）。没打过 _at 的老消息不画。
@@ -1539,22 +1542,25 @@ function WeChatViewFull({ d, char, t, profile, onBack, onRefresh, refreshing, dr
     // ⚠️「按了没反应的按钮比没有按钮更糟」：给了就得真有人回。
     !drive && asCanSend && plus === "menu" ? h("div", { "data-wk": "pplus", className: "shrink-0 flex", style: { gap: 18, padding: "14px 18px 8px", background: "#f7f7f7", borderTop: "1px solid #dcdcdc" } },
       [onTransferAs ? ["tf", "转账", [h("rect", { key: 1, x: 3, y: 6, width: 18, height: 13, rx: 2 }), h("path", { key: 2, d: "M9 9.5l3 3.5 3-3.5M12 13v4M9.5 14h5" })]] : null,
+       onTransferAs ? ["rp", "红包", [h("rect", { key: 1, x: 5, y: 3, width: 14, height: 18, rx: 2 }), h("path", { key: 2, d: "M5 8.5c4 2.5 10 2.5 14 0" }), h("circle", { key: 3, cx: 12, cy: 11, r: 1.8 })]] : null,
        canBuy ? ["shop", "购物", [h("path", { key: 1, d: "M5 8h14l-1.2 12H6.2z" }), h("path", { key: 2, d: "M9 10V6.5a3 3 0 016 0V10" })]] : null,
        canBuy ? ["takeout", "外卖", [h("path", { key: 1, d: "M4 11h16a8 8 0 01-16 0z" }), h("path", { key: 2, d: "M3 11h18M9 7c0-1 1-1.5 1-2.5M13 7c0-1 1-1.5 1-2.5" })]] : null].filter(Boolean).map(([k, zh, ic]) => h("button", { key: k, "data-wk": "pplusitem", "data-part": k,
-        onClick: () => { if (k === "tf") setPlus("tf"); else { setPlus(null); onShopAs(k); } }, className: "flex flex-col items-center active:opacity-60", style: { gap: 5, minWidth: 56 } },
+        onClick: () => { if (k === "tf" || k === "rp") setPlus(k); else { setPlus(null); onShopAs(k); } }, className: "flex flex-col items-center active:opacity-60", style: { gap: 5, minWidth: 56 } },
         h("div", { style: { width: 52, height: 52, borderRadius: 12, background: "#fff", display: "flex", alignItems: "center", justifyContent: "center" } }, h(Svg, { size: 24, color: "#555", sw: 1.6 }, ic)),
         h("span", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: "#666" } }, zh)))) : null,
     !drive && asCanSend && tfOpen ? h("div", { "data-wk": "ptransfer", className: "shrink-0", style: { padding: "10px 12px 4px", background: "#f7f7f7", borderTop: "1px solid #dcdcdc" } },
-      h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: "#888", marginBottom: 6 } }, th.type === "group" ? "从" + char.name + "的钱包转给群里的谁" : "从" + char.name + "的钱包转给你，回到聊天里点收下才到账"),
-      tfPeers.length ? h("div", { className: "flex flex-wrap", style: { gap: 6, marginBottom: 8 } }, tfPeers.map(p => h("button", { key: p.id, onClick: () => setTfTo(p.id),
+      h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: "#888", marginBottom: 6 } }, rpOpen ? (th.type === "group" ? "以" + char.name + "的名义在群里发红包（点一个人就是只给他的专属红包，不点就大家抢）" : "以" + char.name + "的名义给你发个红包，拆开前看不到多少") : th.type === "group" ? "从" + char.name + "的钱包转给群里的谁" : "从" + char.name + "的钱包转给你，回到聊天里点收下才到账"),
+      tfPeers.length ? h("div", { className: "flex flex-wrap", style: { gap: 6, marginBottom: 8 } }, tfPeers.map(p => h("button", { key: p.id, onClick: () => setTfTo(rpOpen && tfTo === p.id ? "" : p.id),
         style: { minHeight: 34, padding: "0 12px", borderRadius: 999, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", border: "1px solid " + (tfTo === p.id ? "#07c160" : "#dcdcdc"), background: tfTo === p.id ? "#07c160" : "#fff", color: tfTo === p.id ? "#fff" : "#333" } }, PTX(p.name)))) : null,
       h("div", { className: "flex items-center gap-2" },
+        rpOpen && th.type === "group" && !tfTo ? h("input", { "data-wk": "input", value: rpCount, onChange: e => setRpCount(e.target.value.replace(/[^\d]/g, "").slice(0, 2)), inputMode: "numeric", placeholder: "几个",
+          style: { width: 56, minHeight: 40, borderRadius: 5, border: "1px solid #e0e0e0", background: "#fff", padding: "0 8px", fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", outline: "none" } }) : null,
         h("input", { "data-wk": "input", value: tfAmt, onChange: e => setTfAmt(e.target.value.replace(/[^\d.]/g, "")), inputMode: "decimal", placeholder: "金额",
           style: { width: 96, minHeight: 40, borderRadius: 5, border: "1px solid #e0e0e0", background: "#fff", padding: "0 10px", fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", outline: "none" } }),
-        h("input", { "data-wk": "input", value: tfNote, onChange: e => setTfNote(e.target.value), maxLength: 40, placeholder: "留言（可不填）",
+        h("input", { "data-wk": "input", value: tfNote, onChange: e => setTfNote(e.target.value), maxLength: 40, placeholder: rpOpen ? "写在红包上的一句（可不填）" : "留言（可不填）",
           style: { flex: 1, minWidth: 0, minHeight: 40, borderRadius: 5, border: "1px solid #e0e0e0", background: "#fff", padding: "0 10px", fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", outline: "none" } }),
-        h("button", { onClick: tfSend, disabled: !(Number(tfAmt) > 0) || (th.type === "group" && !tfTo),
-          style: { flexShrink: 0, minHeight: 40, borderRadius: 5, padding: "0 14px", fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", color: "#fff", background: (Number(tfAmt) > 0 && (th.type !== "group" || tfTo)) ? "#f0a020" : "#ddd" } }, "转账"))) : null,
+        h("button", { onClick: tfSend, disabled: !(Number(tfAmt) > 0) || (th.type === "group" && !tfTo && !rpOpen),
+          style: { flexShrink: 0, minHeight: 40, borderRadius: 5, padding: "0 14px", fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", color: "#fff", background: (Number(tfAmt) > 0 && (th.type !== "group" || tfTo || rpOpen)) ? (rpOpen ? "#d9443a" : "#f0a020") : "#ddd" } }, rpOpen ? "塞钱进红包" : "转账"))) : null,
     !drive && th && ((th.type === "private" && isDel(th.name)) || (th.type === "group" && isGone(th.name) && String(th.id || "").indexOf("actual:") !== 0)) ? h("div", { "data-wk": "pdelnote", className: "shrink-0", style: { padding: "12px 14px", paddingBottom: "calc(env(safe-area-inset-bottom) * 0.4 + 12px)", background: "#f7f7f7", borderTop: "1px solid #dcdcdc", fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: "#999", textAlign: "center" } }, th.type === "group" ? "群已经解散了，点上面「恢复」才能发" : "已经不是好友了，去通讯录点开 TA 加回来才能发") : null,
     !drive && asCanType ? h("div", { className: "shrink-0 flex items-end gap-2", style: { padding: "8px 10px", paddingBottom: "calc(env(safe-area-inset-bottom) * 0.4 + 8px)", background: "#f7f7f7", borderTop: "1px solid #dcdcdc" } },
       asCanSend && (onTransferAs || canBuy) ? h("button", { "data-wk": "pbtn", "data-part": "plus", onClick: () => setPlus(v => v ? null : "menu"), "aria-label": "更多",
@@ -5692,7 +5698,7 @@ function PhoneCarry({
     onDelAnonRecord: ts => onDelAnonRecord && onDelAnonRecord(char.id, ts),
     // 她在TA手机上以TA的名义真的发一条（只有真实会话给这条口子，见 app.js phoneSendAs）
     onSendAs: (sess, text) => onSendAs ? onSendAs(char, sess, text) : false,
-    onTransferAs: onTransferAs ? (sess, amt, note, toId) => onTransferAs(char, sess, amt, note, toId) : null,
+    onTransferAs: onTransferAs ? (sess, amt, note, toId, opt) => onTransferAs(char, sess, amt, note, toId, opt) : null,
     onTfReplyAs: onTfReplyAs ? (tid, ok) => onTfReplyAs(char, tid, ok) : null,
     transferPeers: sess => transferPeers ? transferPeers(char, sess) : [],
     onShopAs: onShopAs ? where => onShopAs(char, where) : null,
