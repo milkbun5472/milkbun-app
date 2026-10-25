@@ -3,7 +3,7 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const vm = require("node:vm");
 const src = fs.readFileSync("js/assistant.js", "utf8");
-const component = src.slice(src.indexOf("  function AssistantDock(props)"), src.indexOf("  window.AssistantDock"));
+const component = src.slice(src.indexOf("  const DOCK_BRIEF_AWAY"), src.indexOf("  window.AssistantDock"));
 
 function boot() {
   const state = [], refs = [], effects = [], events = {}, winEvents = {};
@@ -30,7 +30,7 @@ function boot() {
   vm.createContext(context);vm.runInContext(component,context);
   const render=()=>{si=0;ri=0;const tree=context.AssistantDock({});first=false;return tree;};
   const tree=render(), cleanups=effects.map(fn=>fn()).filter(Boolean);
-  return {tree,render,state,events,winEvents,context,cleanups};
+  return {tree,render,state,refs,events,winEvents,context,cleanups};
 }
 function drag(b) {
   b.tree.props.onPointerDown({clientX:340,clientY:700,pointerId:1,currentTarget:{setPointerCapture(){}}});
@@ -53,6 +53,7 @@ test("return from background restores default point and closes panel, retaining 
   b.state[0]=true;b.state[2]="unsent fixture";
   b.context.document.visibilityState="hidden";b.events.visibilitychange();
   assert.equal(b.state[0],true);
+  b.refs[3].current=Date.now()-10*60*1000;   // 离开很久
   b.context.document.visibilityState="visible";b.events.visibilitychange();
   const restored=b.render();
   assert.equal(restored.props.style.top,700);assert.equal(restored.props.style.left,332);
@@ -66,4 +67,14 @@ test("back-forward cache restore resets position; listeners are removed on unmou
   assert.equal(b.render().props.style.top,700);
   b.cleanups.forEach(fn=>fn());
   assert.deepEqual(Object.keys(b.events),[]);assert.deepEqual(Object.keys(b.winEvents),[]);
+});
+
+test("brief trip out (photo picker, copying a link) keeps the panel open where it was",()=>{
+  const b=boot();drag(b);const at=JSON.stringify(b.state[4]);
+  b.state[0]=true;b.state[3]={full:"x",thumb:"x"};
+  b.context.document.visibilityState="hidden";b.events.visibilitychange();
+  b.context.document.visibilityState="visible";b.events.visibilitychange();
+  assert.equal(b.state[0],true);
+  assert.equal(JSON.stringify(b.state[4]),at);
+  assert.deepEqual(b.state[3],{full:"x",thumb:"x"});
 });

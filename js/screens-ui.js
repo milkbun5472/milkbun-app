@@ -4698,6 +4698,13 @@ function ListenTogether({ profile, active, ctxFor, toast, onToChat, onListenStat
           ? h("div", null,
               h("textarea", { "data-wk": "textarea", value: ckInput, onChange: e => setCkInput(e.target.value), rows: 3, placeholder: "粘贴网易云 Cookie（一般是 MUSIC_U=…；只想放免费歌可留空）", style: Object.assign({ marginBottom: 8, resize: "vertical", lineHeight: 1.4 }, field) }),
               h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.5, marginBottom: 8 } }, "只存这台设备。填了后点歌会带上它 → 后端转发给网易云 → 能放你账号的 VIP 歌。Cookie 会过期，失效了重登换一份。"),
+              // 手动去哪儿拿（她 2026-10-25「cookie 那块要不要写个攻略在那个页面」）：扫码登录最省事，扫不了才手贴
+              h("details", { "data-wk": "neteasecookiehelp", style: { marginBottom: 8 } },
+                h("summary", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.tint || t.ink, minHeight: 40, display: "flex", alignItems: "center", cursor: "pointer" } }, "Cookie 去哪儿拿？"),
+                h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.sub, lineHeight: 1.75, padding: "4px 2px" } },
+                  h("div", null, "最省事：取消这一栏，点旁边的「扫码登录」，用手机网易云 App 扫一扫、在手机上点确认，Cookie 自己就存好了。"),
+                  h("div", { style: { marginTop: 6 } }, "扫不了再手贴：用电脑浏览器打开 music.163.com 登录你的账号 → 按 F12 打开开发者工具 → 「应用」（Application）→ 左边「Cookie」→ music.163.com → 找到名字叫 MUSIC_U 的那一行，把它的值整段复制，粘到上面框里。只粘那一串值也行，前面会自动补上 MUSIC_U=。"),
+                  h("div", { style: { marginTop: 6, color: t.fog } }, "这一串等于你账号的钥匙：只粘进自己的接口，别发给别人。填完点「测登录」看连没连上。"))),
               h("div", { className: "flex gap-2" },
                 h("button", { onClick: () => { onSetCookie(ckInput); setCkEdit(false); }, className: "flex-1 py-2 active:opacity-70", style: { background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", borderRadius: 8 } }, "保存"),
                 h("button", { onClick: () => setCkEdit(false), className: "flex-1 py-2 active:opacity-70", style: { border: "1px solid " + t.line, color: t.fog, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", borderRadius: 8 } }, "取消")))

@@ -19912,7 +19912,9 @@ function RedPacketCard({ rp, onClick, foot, dim: dimIn }) {
   const RED = dim ? "#9c5a52" : "#c3372c", RED_D = dim ? "#7e4740" : "#9d251c";
   const GOLD = dim ? "#d8c39c" : "#f2d79a";
   return h("button", {
-    "data-wk": "rpcard", "data-status": done ? "done" : locked ? "locked" : "open",
+    // 私聊红包也是这张（她 2026-10-25 转群友「红包是不是不能改」）：原来只按群红包的「领完没」算，私聊那张领了还写着 open，
+    //   美化按 data-status＝done 写的样式落不上去。dim 是外面给的（私聊领了／退了）就照它报
+    "data-wk": "rpcard", "data-status": dimIn != null ? (dimIn ? "done" : "open") : done ? "done" : locked ? "locked" : "open", "data-scope": rp.count != null ? "group" : "single",
     onClick: onClick, className: "my-1 active:opacity-90",
     style: { width: 232, borderRadius: 13, overflow: "hidden", position: "relative", textAlign: "left",
       background: "linear-gradient(160deg," + RED + "," + RED_D + ")",
@@ -19928,11 +19930,11 @@ function RedPacketCard({ rp, onClick, foot, dim: dimIn }) {
       h("div", { style: { width: 12, height: 12, borderRadius: 999, border: "1px solid " + GOLD, display: "flex", alignItems: "center", justifyContent: "center" } },
         h("div", { style: { width: 4, height: 4, borderRadius: 999, background: GOLD } }))),
     // 右下角那个折角
-    h("div", { "aria-hidden": "true", style: { position: "absolute", right: 0, bottom: 0, width: 0, height: 0,
+    h("div", { "data-wk": "rpcorner", "aria-hidden": "true", style: { position: "absolute", right: 0, bottom: 0, width: 0, height: 0,
       borderLeft: "14px solid transparent", borderBottom: "14px solid rgba(0,0,0,.13)" } }),
     h("div", { style: { position: "relative", padding: "12px 13px 11px 49px" } },
       // 「只给 XXX」单做一枚小标签，不跟祝福语抢宽度
-      only ? h("div", { style: { display: "inline-block", fontFamily: F_BODY, fontSize: "calc(9.5px * var(--app-fs, 1))", letterSpacing: ".04em",
+      only ? h("div", { "data-wk": "rponly", style: { display: "inline-block", fontFamily: F_BODY, fontSize: "calc(9.5px * var(--app-fs, 1))", letterSpacing: ".04em",
         color: RED_D, background: GOLD, borderRadius: 999, padding: "1.5px 8px", marginBottom: 5 } }, "只给 " + only) : null,
       h("div", { "data-wk": "rpmsg", style: { fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", lineHeight: 1.45, color: "#fff",
         display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden", wordBreak: "break-word" } },

@@ -22,3 +22,8 @@ test("界面：＋里多一颗红包，卡用的是群红包那张脸，挂点�
   assert.match(comp, /h\(RedPacketCard, \{ rp: \{ message: m\.note \}/);
   assert.match(ts, /\["rpsingle", /);
 });
+test("私聊红包领了以后，那张卡报 done，美化按 done 写的样式落得上（群友 2026-10-25「红包改不了」）", () => {
+  assert.match(comp, /"data-wk": "rpcard", "data-status": dimIn != null \? \(dimIn \? "done" : "open"\) : done \? "done" : locked \? "locked" : "open", "data-scope": rp\.count != null \? "group" : "single"/);
+  assert.match(comp, /"data-wk": "rpcorner"/); assert.match(comp, /"data-wk": "rponly"/);
+  assert.match(ts, /\["rpcorner", /); assert.match(ts, /\["rponly", /); assert.match(ts, /群红包和私聊红包都是这一张/);
+});
