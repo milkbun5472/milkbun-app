@@ -73,7 +73,7 @@ test("删除口子只有一个：界面那头不许自己写第二份 setSchedul
 
 test("整周那段跟「AI 排剩下这几天」写的是同一段日子", () => {
   // 生成那头：from=today、count=7-dowMon
-  assert.match(app, /const ok = await genScheduleWeek\(c, \{ force: true, from: today, count: 7 - dowMon \}\);/);
+  assert.match(app, /const ok = await genScheduleWeek\(c, \{ force: true, from: today, count: 7 - dowMon, wish: wish \|\| "" \}\);/);
   // 删那头：同一个算法，抠成 schedWeekKeysFrom 一处
   assert.match(app, /const schedWeekKeysFrom = char => \{[\s\S]*?length: 7 - dowMon[\s\S]*?\};/);
   assert.match(app, /schedWeekKeys: schedWeekKeysFrom,/, "没传给日历那一页");
