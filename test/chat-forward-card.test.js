@@ -71,7 +71,7 @@ test("展开面板每条带时刻，老消息没 ts 就不编一个", () => {
 test("转发时把每条的原始时刻一起带上", () => {
   const app2 = fs.readFileSync(R("app.js"), "utf8");
   // 只看两个 onForward 里的 items 组装，别把别处同名的写法算进来
-  const blocks = app2.split("onForward: (msgs, destination) => {").slice(1);
+  const blocks = app2.split("onForward: (msgs, destination, mode) => {").slice(1);
   assert.equal(blocks.length, 2, "单聊、群聊各一个转发出口");
   blocks.forEach((b, i) => assert.match(b.slice(0, 700), /ts: m\.ts \|\| null/, "第 " + (i + 1) + " 个转发出口没带时刻"));
 });

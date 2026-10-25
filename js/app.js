@@ -17724,6 +17724,28 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   //   · 过去的日子仍由 genScheduleDay 懒生成（回溯 + 碎碎念），这里一个字都不碰。
   const SCHED_PLAN_DAYS = 7;
   const schedWeekRunRef = useRef(false);
+  // 逐条转发（她 2026-10-25 转群友：「像微信一样可以选逐条转发」）：选中的每一条在对方那边各成一条，像她自己发出去的，不是一张聊天记录卡。
+  //   文字照原样；真照片、表情包带着图；别的（语音、红包、卡片……）落成那一条的文字
+  const forwardEachTo = (msgs, destination, senderName) => {
+    const base = Date.now();
+    const rows = (msgs || []).map((m, k) => {
+      const row = { role: "user", ts: base + k, read: false, fwd: true };
+      if ((m.kind === "photo" || m.kind === "selfie") && m.imageRef) return { ...row, kind: "photo", imageRef: m.imageRef, content: m.content || m.desc || "[照片]" };
+      if (m.kind === "emote" && m.url) return { ...row, kind: "emote", url: m.url, keyword: m.keyword || "", content: m.content || ("[表情] " + (m.keyword || "")) };
+      const txt = String((m.kind ? gameChatText(m) : m.content) || m.content || "").trim();
+      return txt ? { ...row, content: txt } : null;
+    }).filter(Boolean);
+    if (!rows.length) return false;
+    if (destination && destination.type === "group") {
+      const g = groups.find(x => x.id === destination.id); if (!g) return false;
+      const nm = groupProfileFor(g.id).name || profile.name || "我";
+      pGChat(g.id, p => [...p, ...rows.map(r => ({ ...r, senderName: nm }))]);
+      toast("已逐条转发到 " + g.name); return true;
+    }
+    const toChar = characters.find(c => c.id === (destination && destination.id)); if (!toChar) return false;
+    pChat(toChar.id, p => [...p, ...rows]);
+    toast("已逐条转发给 " + (toChar.remark || toChar.name)); return true;
+  };
   const genScheduleWeek = async (char, opts) => {
     if (noSchedFor(char)) return false;
     const force = !!(opts && opts.force);
@@ -31514,7 +31536,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       }
       toast("已删除 " + indices.length + " 条");
     },
-    onForward: (msgs, destination) => {
+    onForward: (msgs, destination, mode) => {
+      if (mode === "each") { forwardEachTo(msgs, destination); return; }
       const items = msgs.map(m => ({
         name: m.role === "user" ? profile.name || "我" : activeChar.name,
         text: gameChatText(m),
@@ -31918,7 +31941,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       const msgs = (groupChatsRef.current[activeGroup.id] || []);
       pinGroupToShike(activeGroup, indices.slice().sort((a, b) => a - b).map(i => msgs[i]));
     },
-    onForward: (msgs, destination) => {
+    onForward: (msgs, destination, mode) => {
+      if (mode === "each") { forwardEachTo(msgs, destination); return; }
       const sourceGroup = groups.find(g => g.id === activeGroup.id) || activeGroup;
       const items = msgs.map(m => ({
         name: m.role === "user" ? (groupProfileFor(activeGroup.id).name || profile.name || "我") : (m.senderName || "群成员"),

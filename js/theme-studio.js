@@ -515,6 +515,7 @@
         ["shuaregtag", "片刻评论里熟面孔名字后面那个小标"],
         ["roomlisten", "一起听房里那条横幅上的「进去一起听」"],
         ["altavatar", "小号房间设置里给小号挑头像那一行"],
+        ["fwdmode", "转发面板顶上「合并转发／逐条转发」那两颗；data-on＝1 是选中的"],
         ["rpenvelope", "点开红包那张大红封／领完那一页（data-stage＝closed 还没拆，open 拆开了）"],
         ["rpopenbtn", "大红封正中那颗「開」"],
         ["rpamount", "拆开后那一页的金额"],

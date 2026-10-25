@@ -10650,6 +10650,7 @@ function ChatThread({
   const [selIds, setSelIds] = useState([]);
   const [comicAsk, setComicAsk] = useState(false);   // 「画成漫画」点了以后先挑真漫画／照片漫画
   const [fwdPick, setFwdPick] = useState(false);
+  const [fwdMode, setFwdMode] = useState("merge");   // merge 合并成一张聊天记录｜each 逐条（她 2026-10-25 转群友：像微信那样能逐条转发）
   const [panelOpen, setPanelOpen] = useState(false);
   const [specialKind, setSpecialKind] = useState(null); // photo
   const [specialText, setSpecialText] = useState("");
@@ -10877,7 +10878,7 @@ function ChatThread({
   };
   const doForward = destination => {
     const picked = selIds.slice().sort((a, b) => a - b).map(i => messages[i]).filter(Boolean);
-    if (picked.length) onForward(picked, destination);
+    if (picked.length) onForward(picked, destination, fwdMode);
     exitSel();
   };
   const { winStart, growMore, growing, reveal: revealMsg, startRef: winStartRef } = useChatWindow(ref, messages.length, (character && character.id) + "|" + (room && room.id || ""), recentLimit);
@@ -12058,7 +12059,8 @@ function ChatThread({
     style: {
       marginBottom: 12
     }
-  }, "转发给谁"), h("div", {
+  }, "转发给谁"), h("div", { "data-wk": "fwdmode", className: "flex", style: { gap: 8, marginBottom: 10 } }, [["merge", "合并转发"], ["each", "逐条转发"]].map(([k, zh]) => h("button", { key: k, "data-on": fwdMode === k ? "1" : "0", onClick: () => setFwdMode(k), className: "active:opacity-70",
+      style: { minHeight: 34, padding: "0 14px", borderRadius: 999, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: fwdMode === k ? t.bg2 : t.ink, background: fwdMode === k ? t.ink : "transparent", border: "1px solid " + (fwdMode === k ? t.ink : t.line) } }, zh))), h("div", {
     className: "space-y-1 max-h-72 overflow-y-auto"
   }, (characters || []).filter(c => c.id !== character.id).map(c => h("button", {
     key: c.id,
@@ -18911,6 +18913,7 @@ function GroupThread({
   const [selMode, setSelMode] = useState(false);
   const [selIds, setSelIds] = useState([]);
   const [fwdPick, setFwdPick] = useState(false);
+  const [fwdMode, setFwdMode] = useState("merge");   // merge 合并成一张聊天记录｜each 逐条（她 2026-10-25 转群友：像微信那样能逐条转发）
   const [gRecallView, setGRecallView] = useState(null);
   const [fwdView, setFwdView] = useState(null);   // 点开的转发聊天记录卡
   const [sheet, setSheet] = useState(null); // "settings"|"poll"|"rp"
@@ -18979,7 +18982,7 @@ function GroupThread({
   const doDelete = () => { if (selIds.length) onDeleteMessages && onDeleteMessages(selIds); exitSel(); };
   const doForward = destination => {
     const picked = selIds.slice().sort((a, b) => a - b).map(i => messages[i]).filter(Boolean);
-    if (picked.length && onForward) onForward(picked, destination);
+    if (picked.length && onForward) onForward(picked, destination, fwdMode);
     exitSel();
   };
   // 群里也用TA单聊里那张头像（她 2026-10-02）：聊天头像 chatAvatar 只换脸，档案那张不动
@@ -19502,6 +19505,8 @@ function GroupThread({
   gPhotoView && h(PhotoSheet, { m: gPhotoView, toast: toast, onClose: () => setGPhotoView(null) }),
   fwdPick && h(Sheet, { onClose: () => setFwdPick(false) },
     h(Eyebrow, { style: { marginBottom: 12 } }, "转发给谁"),
+    h("div", { "data-wk": "fwdmode", className: "flex", style: { gap: 8, marginBottom: 10 } }, [["merge", "合并转发"], ["each", "逐条转发"]].map(([k, zh]) => h("button", { key: k, "data-on": fwdMode === k ? "1" : "0", onClick: () => setFwdMode(k), className: "active:opacity-70",
+      style: { minHeight: 34, padding: "0 14px", borderRadius: 999, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: fwdMode === k ? t.bg2 : t.ink, background: fwdMode === k ? t.ink : "transparent", border: "1px solid " + (fwdMode === k ? t.ink : t.line) } }, zh))),
     h("div", { className: "space-y-1 max-h-72 overflow-y-auto" },
       (characters || []).map(c => h("button", { key: c.id, onClick: () => doForward({ type: "chat", id: c.id }), className: "w-full flex items-center gap-3 py-2.5 active:opacity-60" }, h(Avatar, { character: c, size: 34, radius: 7 }), h("span", { style: { fontFamily: F_DISPLAY, fontSize: "calc(16px * var(--app-fs, 1))", color: t.ink } }, c.remark || c.name))),
       (groups || []).filter(g => g.id !== group.id).map(g => h("button", { key: "g_" + g.id, onClick: () => doForward({ type: "group", id: g.id }), className: "w-full flex items-center gap-3 py-2.5 active:opacity-60" }, h("div", { "data-wk": "block", style: { width: 34, height: 34, borderRadius: 7, background: t.bg2, border: "1px solid " + t.line, display: "flex", alignItems: "center", justifyContent: "center" } }, "👥"), h("span", { style: { fontFamily: F_DISPLAY, fontSize: "calc(16px * var(--app-fs, 1))", color: t.ink } }, g.name))))),
