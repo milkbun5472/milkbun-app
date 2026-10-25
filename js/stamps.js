@@ -100,8 +100,12 @@
 
   // 一张卡打开：卡面、名字、内容
   // 卡页＝养成页：上面是卡（光晕、稀有度章、星、邮戳编号），中间养成面板，底下「时刻回廊」一格一格往外还原那个瞬间
-  function CardPage({ t, card, char, meName, onBack, onDraw, onRewrite, onSend, onCanon, toast }) {
-    const url = useIdbImgUrl(card.face);
+  function CardPage({ t, card, char, meName, onBack, onDraw, onRewrite, onSend, onCanon, onPoke, toast }) {
+    const url1 = useIdbImgUrl(card.face), url2 = useIdbImgUrl(card.faceAlt);
+    const [side, setSide] = useState(0);              // 0 第一张卡面，1 满级的第二张
+    const url = side && url2 ? url2 : url1;
+    const [say, setSay] = useState(null), [poking, setPoking] = useState(false);
+    const sayT = useRef(0);
     const [story, setStory] = useState(false);
     const [node, setNode] = useState(null);
     const [pop, setPop] = useState(0);
@@ -117,6 +121,17 @@
     let toGate = 0; for (let l = lv; l < nextGate; l++) toGate += C().levelCost(card.rarity, l);
     const cost1 = C().levelCost(card.rarity, lv);
     const blockNow = C().gateBlocked(card, lv);
+    const canPoke = card.rarity === "SSR" && lv >= cap && !!tx && !!url;
+    const poke = async e => {
+      const r = e.currentTarget.getBoundingClientRect(), y = (e.clientY - r.top) / r.height;
+      const part = y < 0.34 ? "head" : y < 0.67 ? "heart" : "hand";
+      let pk = card.pokes;
+      if (!pk) { if (poking) return; setPoking(true); try { pk = await onPoke(card); } catch (er) { pk = null; } setPoking(false); if (!pk) { toast("他没回上来，再戳一下试试"); return; } }
+      const list = pk[part] && pk[part].length ? pk[part] : [].concat(pk.head || [], pk.heart || [], pk.hand || []);
+      if (!list.length) return;
+      clearTimeout(sayT.current); setSay({ text: list[Math.floor(Math.random() * list.length)], y: Math.max(0.12, y) });
+      sayT.current = setTimeout(() => setSay(null), 2800);
+    };
     const up = steps => { const r = C().levelUp(card.id, steps); if (r.n) { setPop(Date.now()); toast("盖好了，到 " + r.lv + " 级"); } else if (r.msg) toast(r.msg); };
     const no = (S.cards || []).findIndex(c => c.id === card.id) + 1;
     const got = new Date(card.ts || Date.now());
@@ -166,6 +181,9 @@
           h("div", { style: { position: "absolute", top: 0, left: "50%", width: 320, height: 380, marginLeft: -160, borderRadius: 999, background: "radial-gradient(closest-side, " + (card.rarity === "R" ? "rgba(47,42,34,.16)" : RC[card.rarity] + "44") + ", transparent)", animation: "stHalo 4s ease-in-out infinite", pointerEvents: "none" } }),
           h("div", { key: pop, style: { position: "relative", boxShadow: ring, animation: pop ? "stFloat .9s ease-out" : "none" } },
             h(Stamp, { t, card, face: url, size: 236 }),
+            // 满级 SSR 能戳：上面三分之一是头，中间是胸口，下面是手
+            canPoke ? h("div", { "data-wk": "stamppoke", onClick: e => poke(e), style: { position: "absolute", inset: 0, cursor: "pointer" } }) : null,
+            say ? h("div", { "data-wk": "stamppokesay", style: { position: "absolute", left: "50%", top: (say.y * 100) + "%", transform: "translate(-50%, -110%)", maxWidth: 200, padding: "7px 11px", borderRadius: 12, background: "#FFF8E9", border: "1px solid " + COPPER, color: P, fontFamily: F_BODY, fontSize: fs(12.5), lineHeight: 1.5, boxShadow: "0 4px 14px rgba(57,56,47,.2)", pointerEvents: "none", animation: "stFloat .5s ease-out" } }, say.text) : null,
             pop ? h("div", { style: { position: "absolute", inset: 0, pointerEvents: "none", background: "linear-gradient(110deg, transparent 35%, rgba(255,240,200,.55) 50%, transparent 65%) 0 0 / 200% 100%", animation: "stShine .9s ease-out 1 forwards" } }) : null,
             h("div", { "data-wk": "stampbadge", style: { position: "absolute", left: "50%", top: -13, transform: "translateX(-50%)", whiteSpace: "nowrap", padding: "3px 12px", borderRadius: 999, background: card.rarity === "SSR" ? "linear-gradient(135deg,#d9b57c,#B58C55)" : card.rarity === "SR" ? "#B58C55" : FRAME, color: "#FFF8E9", fontFamily: F_DISPLAY, fontSize: fs(12), letterSpacing: ".08em", boxShadow: "0 2px 6px rgba(57,56,47,.25)" } }, card.rarity + " · " + (card.rarity === "SSR" ? "急件" : card.rarity === "SR" ? "挂号" : "平信")),
             !url ? h("div", { "data-wk": "stampblank", style: { position: "absolute", inset: 6, borderRadius: 2, overflow: "hidden", pointerEvents: "none",
@@ -192,8 +210,14 @@
             card.canon ? h("span", { style: { alignSelf: "center", fontFamily: F_BODY, fontSize: fs(11.5), color: GOLD } }, "已当真") : null) : null,
           !card.face ? h("button", { "data-wk": "stampdraw", disabled: !tx || card.drawing, onClick: () => onDraw(card.id), className: "active:opacity-70 disabled:opacity-40",
             style: { marginTop: 8, padding: "6px 14px", borderRadius: 999, border: "1px solid " + LINE, color: P7, fontFamily: F_BODY, fontSize: fs(12) } }, card.drawing ? "画着…" : "画卡面 · 花一次生图")
-            : h("button", { "data-wk": "stampredraw", disabled: card.drawing, onClick: () => onDraw(card.id), className: "active:opacity-70 disabled:opacity-40",
-              style: { marginTop: 8, padding: "6px 14px", borderRadius: 8, border: "1px solid " + LINE, color: P7, fontFamily: F_BODY, fontSize: fs(12) } }, card.drawing ? "重画着…" : "↻ 照原来的描述重画 · 花一次生图")),
+            : h("button", { "data-wk": "stampredraw", disabled: card.drawing, onClick: () => onDraw(card.id, !!(side && card.faceAlt), card.faceAltMode), className: "active:opacity-70 disabled:opacity-40",
+              style: { marginTop: 8, padding: "6px 14px", borderRadius: 8, border: "1px solid " + LINE, color: P7, fontFamily: F_BODY, fontSize: fs(12) } }, card.drawing ? "重画着…" : "↻ 照原来的描述重画这一面 · 花一次生图"),
+          // SSR 满级：第二张卡面（一个人，或者你们俩），画好以后能翻面
+          card.rarity === "SSR" && lv >= cap && tx ? h("div", { "data-wk": "stampalt", className: "flex flex-wrap justify-center", style: { gap: 8, marginTop: 8 } },
+            card.faceAlt ? h("button", { onClick: () => setSide(side ? 0 : 1), className: "active:opacity-70", style: { padding: "6px 14px", borderRadius: 8, background: COPPER, color: "#FFF8E9", fontFamily: F_BODY, fontSize: fs(12) } }, side ? "翻回第一面" : "翻到满级那一面")
+              : [["solo", "画满级卡面 · 他一个人"], ["duo", "画满级卡面 · 你们俩"]].map(x => h("button", { key: x[0], disabled: card.drawing, onClick: () => { setSide(1); onDraw(card.id, true, x[0]); }, className: "active:opacity-70 disabled:opacity-40",
+                style: { padding: "6px 12px", borderRadius: 8, border: "1px solid " + COPPER, color: COPPER, fontFamily: F_BODY, fontSize: fs(12) } }, x[1]))) : null,
+          canPoke ? h("div", { style: { marginTop: 6, fontFamily: F_BODY, fontSize: fs(11), color: P5 } }, poking ? "他在想怎么回你…" : "满级了：戳戳卡面上的他（头、胸口、手）") : null),
         // 养成
         tx ? h("div", { "data-wk": "stampgrow", style: { marginTop: 16, padding: "14px 16px", borderRadius: 16, border: "1px solid rgba(87,119,103,.22)", background: "#E2E7DA", boxShadow: "0 2px 10px rgba(57,56,47,.06)" } },
           h("div", { className: "flex items-center justify-between" },
@@ -332,7 +356,7 @@
             h(Avatar, { character: c, size: 46, radius: 10 }),
             on ? h("span", { style: { position: "absolute", right: -5, bottom: -5, width: 18, height: 18, borderRadius: 999, background: "#2f5d4a", color: "#15121f", fontSize: 11, lineHeight: "18px", textAlign: "center", fontWeight: 700 } }, "✓") : null),
           h("div", { style: { maxWidth: "100%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: on ? "#2f5d4a" : "rgba(47,42,34,.75)" } }, c.remark || c.name)); }));
-    if (open) { const card = (st.cards || []).find(c => c.id === open) || null; if (card) return h(CardPage, { t, card, char: charOf(card.charId), meName, onBack: () => setOpen(null), onDraw, onRewrite: c => onWrite([c]), toast,
+    if (open) { const card = (st.cards || []).find(c => c.id === open) || null; if (card) return h(CardPage, { t, card, char: charOf(card.charId), meName, onBack: () => setOpen(null), onDraw, onRewrite: c => onWrite([c]), toast, onPoke: c => props.onPoke ? props.onPoke(c) : null,
       onSend: c => { props.onSend && props.onSend(c); }, onCanon: c => { props.onCanon && props.onCanon(c); } }); }
 
     const album = (st.cards || []).filter(c => albumChar === "all" || c.charId === albumChar).slice().reverse();

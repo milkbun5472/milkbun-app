@@ -17024,7 +17024,20 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     } catch (e) { stampSaveCard(c.id, { writing: false, err: "没写出来：" + String(e && e.message || e).slice(0, 60) }); }
   };
   // 画卡面：竖版，只画他一个人；分镜照写卡时那份。alt＝SSR 满级的第二张（第二批再接双人）
-  const stampDraw = async (cardId, alt) => {
+  // 戳卡面（SSR 满级）：头、胸口、手各几句，第一次戳时写一次存着，之后戳不花钱
+  const stampPoke = async card => {
+    const char = characters.find(x => x.id === card.charId); if (!char || !card.text) return null;
+    const d = await runProbe(apiFor(char.id), ctxFor(char), { voice: true,
+      instruction: "她在「邮票册」里有一张你的 SSR 卡「" + (card.text.name || "") + "」，已经陪你升满了。现在她拿手指戳卡面上的你。"
+        + "写她戳你头、戳你胸口、戳你手的时候，卡面上的你会说的话，每处三句，各不一样，短，照你的性子、你此刻和她的关系。" + (card.kind === "if" ? "卡面上是 IF「" + (card.theme || "") + "」里的你，说话也是那个你。" : ""),
+      schemaHint: "{\"head\":[\"\"],\"heart\":[\"\"],\"hand\":[\"\"]}", maxTokens: 8000 });
+    const clean = a => (Array.isArray(a) ? a : []).map(x => String(x || "").trim().slice(0, 80)).filter(Boolean).slice(0, 5);
+    const pokes = { head: clean(d && d.head), heart: clean(d && d.heart), hand: clean(d && d.hand) };
+    if (!pokes.head.length && !pokes.heart.length && !pokes.hand.length) return null;
+    stampSaveCard(card.id, { pokes });
+    return pokes;
+  };
+  const stampDraw = async (cardId, alt, mode) => {
     const card = (StampsCoreSafe().cards || []).find(c => c.id === cardId);
     if (!card || !card.text) return;
     const char = characters.find(x => x.id === card.charId);
@@ -17036,19 +17049,30 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       const tx = card.text;
       const what = card.rarity === "R" ? [tx.narration, tx.thought ? "（他心里：" + tx.thought + "）" : ""].join("")
         : card.rarity === "SSR" ? (tx.highlight || tx.line || "") : (tx.open || tx.line || "");
-      const scene = "一张乙游卡面：「" + (tx.name || "") + "」。这一刻：" + String(what).slice(0, 300) + "\n【分镜】" + String(tx.shot || "").slice(0, 600)
+      // 满级的第二张（alt）：画剧情结局那一刻，不是第一张那一刻；mode=duo 是你们俩
+      const endSec = (tx.sections || []).find(x => x && x.end && !x.hidden);
+      const endWhat = endSec ? (endSec.beats || []).map(b => b.text || "").join("").slice(-300) : "";
+      const duo = alt && mode === "duo";
+      const lover = spaceLover((couplesRef.current || {})[char.id]);
+      const scene = alt
+        ? "一张乙游满级纪念卡面：「" + (tx.name || "") + "」。画的是这段剧情走到结局时的那一刻：" + (endWhat || String(what).slice(0, 300)) + "\n跟第一张卡面不是同一刻，构图和光也换一套。"
+          + (duo ? "画面里是你们两个人。" + (lover ? "你们是恋人，两个人之间的距离、眼神和手就是恋人的样子。" : "你们之间是什么关系就是什么距离，不画成恋人。") : "卡面上只画你一个人。") + "\n画面里不要任何文字。"
+        : "一张乙游卡面：「" + (tx.name || "") + "」。这一刻：" + String(what).slice(0, 300) + "\n【分镜】" + String(tx.shot || "").slice(0, 600)
         + "\n画面里不要任何文字。";
+      const meP = duo ? photoMe("她", char.id) : null;
+      if (duo && !(meP && meP.refPhoto)) toast("你还没传自己的参考照（在你自己的资料里传一张），这张只能照文字画你", 6000);
       // 画风：卡池设置里挑的（空＝跟着这个人自己的设定；real＝写实照片；别的就是画风名）
       const paint = String(((StampsCoreSafe().opt || {}).paint) || "").trim();
       const base = card.kind === "if" ? Object.assign({}, char, { photoOutfit: "" }) : char;
       const prompt = buildPhotoPrompt(paint === "real" ? Object.assign({}, base, { photoStyle: "realistic" }) : base, scene,
         card.kind === "if" ? Object.assign({}, st, { wearing: "", wearingUpdatedAt: 0 }) : st,
-        Object.assign({ kind: "other", closet: card.kind === "if" ? "" : closetTextFor(char.id, 240) }, paint && paint !== "real" ? { paint } : {}));
-      const out = await generateSelfieImage(prompt, char.refPhoto ? [char.refPhoto] : null, { size: "1024x1536" });
+        Object.assign(duo ? { kind: "duo", me: meP, notLover: !lover } : { kind: "other" }, { closet: card.kind === "if" ? "" : closetTextFor(char.id, 240) }, paint && paint !== "real" ? { paint } : {}));
+      const refs = [char.refPhoto, duo && meP && meP.refPhoto].filter(Boolean);
+      const out = await generateSelfieImage(prompt, refs.length ? refs : null, { size: "1024x1536" });
       if (!(out && out.blob)) throw new Error("没拿到图");
       const key = "img_stamp_" + cardId + (alt ? "_alt" : "") + "_" + Date.now().toString(36);
       await idbImgPut(key, out.blob);
-      stampSaveCard(cardId, alt ? { drawing: false, faceAlt: key } : { drawing: false, face: key });
+      stampSaveCard(cardId, alt ? { drawing: false, faceAlt: key, faceAltMode: duo ? "duo" : "solo" } : { drawing: false, face: key });
     } catch (e) { stampSaveCard(cardId, { drawing: false }); toast("卡面没画成：" + String(e && e.message || e).slice(0, 60)); }
   };
   const createGroup = (name, memberIds, spectate, roles) => {
@@ -33727,7 +33751,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     meName: userName(profile),
     toast: toast,
     onWrite: cards => stampWrite(cards),
-    onDraw: (id, alt) => stampDraw(id, alt),
+    onDraw: (id, alt, mode) => stampDraw(id, alt, mode),
+    onPoke: stampPoke,
     onBack: () => setScreen("home")
   });else if (screen === "zhaoying") body = h(window.ZhaoyingApp, {
     // 按头像发卡：卡落进跟他的聊天，他在后台做题，做完了点卡看他做（她 2026-10-22）
