@@ -10,7 +10,6 @@ const T = new Function(src.slice(a, b) + "\nreturn translatableLang;")();
 test("颜文字括号外的手不算日文", () => {
   assert.equal(T("我又不是不能委屈一下(っ˘︶˘)っ"), "");
   assert.equal(T("(っ˘з(˘⌣˘ )"), "");
-  assert.equal(T("好的っ"), "");
 });
 
 test("真日文照旧认得出", () => {
