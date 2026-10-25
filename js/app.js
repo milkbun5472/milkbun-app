@@ -22359,6 +22359,14 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       // 打得开的那几个：第一批微信，第二批加相册和便签。名单从 PHONE_APPS 里取，不另手写一份。
       const openable = (typeof PHONE_APPS !== "undefined" ? PHONE_APPS : []).filter(a => canApps.indexOf(a.key) >= 0);
       const got = WK.normalizeActs(out && (out.acts || out.actions || (Array.isArray(out) ? out : null)), openable);
+      // 跟她的那个会话，模型替她写的「回复」一律拿掉（群友 2026-10-26：看TA玩手机时TA给我发消息，还能看到「我」的回复，
+      //   退出来以后TA照着那句编的回复往下说，就怪了）——她回什么是她自己真回的
+      { let cur = "";
+        got.acts = got.acts.filter(a => {
+          if (a.kind === "openItem") cur = a.name || "";
+          if (a.kind === "back" || a.kind === "open") cur = "";
+          return !(a.kind === "reply" && (watchIsMe(char, a.name) || watchIsMe(char, cur)));
+        }); }
       // ⚠️报错里必须带着【我没看懂的那个东西本身】（施工规则/prompt-send-shape.md 第二条）
       if (!got.acts.length) throw new Error(characterText(char, "他这回没动。模型回的是：\n") + JSON.stringify(out || null).slice(0, 320));
       // ⚠️丢掉的那几条必须说出来。她 2026-09-10 真跑那次就是【一声不响】：
