@@ -334,7 +334,13 @@
                                 requestAppConfirm("删掉这条模块？", "「" + (m.name || "") + "」删了找不回来。删之前想留底的话，先去 设置 → 数据 → 导入与导出 → 导出全部数据。", () => { SP.removeUserModule(m.id); setPresets(SP.list().slice()); }, "删掉"); },
                               style: Object.assign({}, S.tapIcon(t.fog), { fontSize: "calc(11.5px * var(--app-fs, 1))", borderRadius: 3, border: "1px solid " + t.line }) },
                               "删") : null);
-                        }))
+                        }),
+                        c.user ? h("button", { "data-wk": "slcatdel", onClick: () => {
+                            const n = c.mods.length, inUse = c.mods.filter(m => (cur.mods || []).indexOf(m.id) >= 0).length;
+                            requestAppConfirm("删掉「" + c.zh + "」这一整组？", "这一组 " + n + " 条一起删" + (inUse ? "，正在用的这份预设里勾着的 " + inUse + " 条也会拿掉" : "") + "，删了找不回来。想留底的话，先去 设置 → 数据 → 导入与导出 → 导出全部数据。",
+                              () => { SP.removeUserCat(c.id); setPresets(SP.list().slice()); }, "整组删掉"); },
+                          style: { marginTop: 4, minHeight: 44, borderRadius: 3, border: "1px dashed " + t.line, background: "transparent", color: t.sub, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))" } },
+                          "删掉这一整组") : null)
                     : null);
               })),
 
