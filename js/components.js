@@ -13961,6 +13961,8 @@ function TransText({ text, isU, zhReady, ink, inline, long, size, noModel }) {
   }
   // 翻译状态属于原文和自带译文这一对内容。编辑、窗口复用、译文晚到时
   // 重建内部状态；旧异步请求只会结束在旧实例，不能把结果写进新气泡。
+  // 译文前头挂一串省略号、原文没有（群友 2026-10-26：模型卡顿时译文开头冒出「…」）：画的时候剥掉
+  if (typeof zhReady === "string" && /^\s*(\.{2,}|…+|。{2,})\s*/.test(zhReady) && !/^\s*(\.{2,}|…)/.test(String(text || ""))) zhReady = zhReady.replace(/^\s*(\.{2,}|…+|。{2,})\s*/, "");
   return h(TransTextState, { key: JSON.stringify([text, !!isU, zhReady || ""]), text, isU, zhReady, ink, autoShow, long, size, noModel, inline });
 }
 // ── 长按出菜单：一份公共的（她 2026-09-17 立）─────────────────────────
@@ -16672,9 +16674,11 @@ function menuItemsForKind(m, canSpeak) {
   return [[  "fav"], listen, ["multi", "recall", "del"]];
 }
 // 编辑消息弹层：替掉难看又不能放大的原生 prompt。大号可拉伸文本框，长内容自动撑高+可滚，风格随 app。
-function MsgEditSheet({ init, onCancel, onSave }) {
+// zh：这条有译文时（他说外语、自带中译）下面多一格「译文」能改（群友 2026-10-26：模型卡了译文前头挂一串省略号，想自己去掉）
+function MsgEditSheet({ init, zh, onCancel, onSave }) {
   const t = useTheme();
   const [txt, setTxt] = useState(init || "");
+  const [zt, setZt] = useState(zh || "");
   const ref = useRef(null);
   const lift = useKbLift();
   const grow = () => fitTextarea(ref.current, Math.round(window.innerHeight * 0.5));
@@ -16693,9 +16697,13 @@ function MsgEditSheet({ init, onCancel, onSave }) {
       h("span", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog } }, "写多长都行，框会自己长")),
     h("textarea", { "data-wk": "textarea", ref: ref, value: txt, onChange: e => { setTxt(e.target.value); grow(); },
       style: { width: "100%", minHeight: 150, maxHeight: "50vh", resize: "none", boxSizing: "border-box", fontFamily: F_BODY, fontSize: "calc(15px * var(--app-fs, 1))", lineHeight: 1.7, color: t.ink, background: t.bg2, border: "1px solid " + t.line, borderRadius: 14, padding: "13px 15px", outline: "none", overflowY: "auto" } }),
+    zh != null ? h("div", { "data-wk": "msgeditzh", style: { marginTop: 12 } },
+        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.sub, marginBottom: 4 } }, "译文（清空就不显示译文，要看时再点「译」现翻）"),
+        h("textarea", { "data-wk": "textarea", value: zt, onChange: e => { setZt(e.target.value); fitTextarea(e.target, 200); }, rows: 2,
+          style: { width: "100%", resize: "none", boxSizing: "border-box", fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", lineHeight: 1.6, color: t.ink, background: t.bg2, border: "1px solid " + t.line, borderRadius: 12, padding: "10px 12px", outline: "none" } })) : null,
     h("div", { className: "flex items-center gap-3", style: { marginTop: 16 } },
       h("button", { onClick: onCancel, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.sub, padding: "11px 22px", borderRadius: 12, border: "1px solid " + t.line } }, "取消"),
-      h("button", { "data-wk": "block", onClick: () => onSave(txt), className: "flex-1 active:opacity-80", style: { fontFamily: F_BODY, fontSize: "calc(14.5px * var(--app-fs, 1))", fontWeight: 700, color: t.bg2, background: t.ink, padding: "12px", borderRadius: 12 } }, "保存")));
+      h("button", { "data-wk": "block", onClick: () => onSave(txt, zh != null ? zt : undefined), className: "flex-1 active:opacity-80", style: { fontFamily: F_BODY, fontSize: "calc(14.5px * var(--app-fs, 1))", fontWeight: 700, color: t.bg2, background: t.ink, padding: "12px", borderRadius: 12 } }, "保存")));
 }
 function MsgMenu({ message, idx, onClose, onAction, items, isMine }) {
   const t = useTheme();

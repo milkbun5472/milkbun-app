@@ -14824,8 +14824,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       } });
     } else if (act === "edit") {
       const cid = activeChar.id;
-      setEditMsg({ content: m.content || "", onSave: nv => pChat(threadKey, p => {
-        const next = p.map((x, i) => i === idx ? { ...x, content: nv } : x);
+      setEditMsg({ content: m.content || "", zh: m.zh != null ? String(m.zh) : undefined, onSave: (nv, nz) => pChat(threadKey, p => {
+        const next = p.map((x, i) => i === idx ? (nz === undefined ? { ...x, content: nv } : String(nz).trim() ? { ...x, content: nv, zh: String(nz).trim() } : (({ zh, ...r }) => ({ ...r, content: nv }))(x)) : x);
         try { window.MessageBranchShadow && window.MessageBranchShadow.observeMutation({ kind: "edit", charId: cid, before: p, after: next, targetIndex: idx }); } catch (e) {}
         return next;
       }) });
@@ -16272,7 +16272,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         drawGroupSelfie({ groupId, spk, gsid: m.sid, gPhotoKind: m.photoKind, gPhotoScene: nv, gCast: m.cast || null, keySuffix: "_r" + Date.now() });
       } });
     } else if (act === "edit") {
-      setEditMsg({ content: m.content || "", onSave: nv => pGChat(groupId, p => p.map((x, i) => i === idx ? { ...x, content: nv } : x)) });
+      setEditMsg({ content: m.content || "", zh: m.zh != null ? String(m.zh) : undefined, onSave: (nv, nz) => pGChat(groupId, p => p.map((x, i) => i === idx ? (nz === undefined ? { ...x, content: nv } : String(nz).trim() ? { ...x, content: nv, zh: String(nz).trim() } : (({ zh, ...r }) => ({ ...r, content: nv }))(x)) : x)) });
     } else if (act === "reroll") {
       if (m.role !== "assistant" && m.who !== "char") { toast("只能重Roll成员的消息"); return; }
       // 新版同一成员拆泡共享 turnId：从这一组的首泡起删，避免半条旧回答残留。
@@ -34661,8 +34661,9 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     onClose: () => { setDesireBoxOpen(false); setHeartChar(null); }
   }) : null; })(), editMsg && /*#__PURE__*/React.createElement(MsgEditSheet, {
     init: editMsg.content,
+    zh: editMsg.zh,
     onCancel: () => setEditMsg(null),
-    onSave: nv => { editMsg.onSave(nv); setEditMsg(null); }
+    onSave: (nv, nz) => { editMsg.onSave(nv, nz); setEditMsg(null); }
   }), chatRoomsOpen && activeChar && window.ChatRoomSheet ? h(window.ChatRoomSheet, {
     character: activeChar,
     activeRoomId,
