@@ -20,7 +20,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v76.679";
+const APP_VERSION = "v76.680";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -17164,9 +17164,9 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       if (!(out && out.blob)) throw new Error("没拿到图");
       const key = "img_stamp_" + cardId + (alt ? "_alt" : "") + "_" + Date.now().toString(36);
       await idbImgPut(key, out.blob);
-      stampSaveCard(cardId, alt ? c0 => ({ ...c0, drawing: false, faceAlt: key, faceAltMode: duo ? "duo" : "solo",
-        faces: Object.assign({}, c0.faceAlt ? { [c0.faceAltMode || "solo"]: c0.faceAlt } : {}, c0.faces || {}, { [duo ? "duo" : "solo"]: key }) }) : { drawing: false, face: key });
-    } catch (e) { stampSaveCard(cardId, { drawing: false }); toast("卡面没画成：" + String(e && e.message || e).slice(0, 60)); }
+      stampSaveCard(cardId, alt ? c0 => ({ ...c0, drawing: false, drawErr: "", faceAlt: key, faceAltMode: duo ? "duo" : "solo",
+        faces: Object.assign({}, c0.faceAlt ? { [c0.faceAltMode || "solo"]: c0.faceAlt } : {}, c0.faces || {}, { [duo ? "duo" : "solo"]: key }) }) : { drawing: false, face: key, drawErr: "" });
+    } catch (e) { stampSaveCard(cardId, { drawing: false, drawErr: String(e && e.message || e).slice(0, 120), drawErrTs: Date.now() }); toast("卡面没画成：" + String(e && e.message || e).slice(0, 60)); }
   };
   const createGroup = (name, memberIds, spectate, roles) => {
     const g = {
