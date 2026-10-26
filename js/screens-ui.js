@@ -4763,8 +4763,7 @@ function ListenTogether({ profile, active, ctxFor, toast, onToChat, onListenStat
       (now.source === "netease" && now.neteaseId && cookie) ? cbtn(ic("cloudplus", t.tint, 20), () => openCvAdd({ id: now.neteaseId, name: now.title, artist: now.artist, cover: now.cover }), { fit: 1, bg: t.bg2 }) : null,
       // 歌词页开关
       cbtn(h("span", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: showLyric ? (t.accent || "#8a6d3b") : t.fog } }, "词"), () => setShowLyric(v => !v), { fit: 1, bg: showLyric ? (t.accent || "#8a6d3b") + "22" : t.bg2 }),
-      // 浮窗歌词（群友 2026-10-26）：点开一块小设置，开关、颜色、大小、位置
-      cbtn(h("span", { "data-wk": "floatlyricbtn", style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: flPrefs.on ? (t.accent || "#8a6d3b") : t.fog } }, "浮"), () => setFlOpen(v => !v), { fit: 1, bg: flPrefs.on ? (t.accent || "#8a6d3b") + "22" : t.bg2 }),
+      // 「浮」挪到顶栏齿轮旁边了（她 2026-10-26：这一排太挤）
       // 这首歌的歌评（她 2026-10-17）：一首一页，刷过的留着
       cbtn(h("span", { "data-wk": "listentalkopen", style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.fog } }, "评"), () => { setTalkSong(now); setTalkBack("play"); setNav("songtalk"); }, { fit: 1, bg: t.bg2 })),
     flOpen ? h("div", { "data-wk": "floatlyricset", style: { width: "100%", marginTop: 12, padding: "12px 14px", borderRadius: 12, border: "1px solid " + t.line, background: t.bg2, display: "flex", flexDirection: "column", gap: 10 } },
@@ -5471,10 +5470,13 @@ function ListenTogether({ profile, active, ctxFor, toast, onToChat, onListenStat
     h("div", { style: { position: "relative", zIndex: 1 } }, h(Head, { zh: "一起听", bg: "transparent", noLine: nav === "play" && !!now,
       sub: nav === "play" && now ? (idx >= 0 ? idx + 1 : 1) + " / " + (nowQueue.length || songs.length) + " 首" : null,
       onBack: () => { if (nav === "home" && setFrom) { setNav(setFrom); setSetFrom(""); } else if (openPl) setOpenPl(null); else onBack(); },
-      right: nav === "home" ? null : h("button", { "data-wk": "listensetbtn", "aria-label": "设置", onClick: () => { setSetFrom(nav); setNav("home"); }, className: "active:opacity-60 flex items-center justify-center", style: { minWidth: 40, minHeight: 40 } },
+      right: nav === "home" ? null : h("div", { className: "flex items-center" },
+        nav === "play" && now ? h("button", { "data-wk": "floatlyricbtn", "aria-label": "浮窗歌词", onClick: () => { setFlOpen(v => !v); setTimeout(() => { const el = document.querySelector('[data-wk="floatlyricset"]'); el && el.scrollIntoView({ block: "nearest", behavior: "smooth" }); }, 60); }, className: "active:opacity-60 flex items-center justify-center",
+          style: { minWidth: 40, minHeight: 40, fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: flPrefs.on ? (t.accent || "#8a6d3b") : t.sub } }, "浮") : null,
+        h("button", { "data-wk": "listensetbtn", "aria-label": "设置", onClick: () => { setSetFrom(nav); setNav("home"); }, className: "active:opacity-60 flex items-center justify-center", style: { minWidth: 40, minHeight: 40 } },
         h("svg", { width: 22, height: 22, viewBox: "0 0 24 24", fill: "none", stroke: t.sub, strokeWidth: 1.7 },
           h("circle", { cx: 12, cy: 12, r: 3.2 }),
-          h("path", { d: "M12 4v2M12 18v2M4 12h2M18 12h2M6.3 6.3l1.4 1.4M16.3 16.3l1.4 1.4M17.7 6.3l-1.4 1.4M7.7 16.3l-1.4 1.4" }))) })),
+          h("path", { d: "M12 4v2M12 18v2M4 12h2M18 12h2M6.3 6.3l1.4 1.4M16.3 16.3l1.4 1.4M17.7 6.3l-1.4 1.4M7.7 16.3l-1.4 1.4" })))) })),
     h("div", { className: "flex-1 overflow-y-auto", style: { position: "relative", zIndex: 1 } }, nav === "play" ? playTab : nav === "home" ? homeTab : nav === "cloud" ? cloudTab : nav === "square" ? squareTab : nav === "songtalk" ? (songTalkTab || squareTab) : mineTab),
     cvAddSheet,
     pickerOverlay,
