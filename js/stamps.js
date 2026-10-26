@@ -418,6 +418,8 @@
     const [open, setOpen] = useState(null);
     const [albumChar, setAlbumChar] = useState("all");
     const [albumRar, setAlbumRar] = useState("all");
+    const [albumTheme, setAlbumTheme] = useState("all");   // 主题：日常 / 生日 / 你的生日 / IF 各主题
+    const [albumPick, setAlbumPick] = useState("");        // 正弹着哪一个下拉：who / rar / theme
     const [week, setWeek] = useState(false);
     const [wkOpen, setWkOpen] = useState("");   // 「他的一周」里展开了哪一天的其他几张   // 他的一周：同一个人写好的 R 每攒够七张，按时间排成一页（第几周）   // 全部 / SSR / SR / R / bad（没写好）
     const [gotNote, setGotNote] = useState([]);
@@ -523,7 +525,8 @@
 
     const isBad = c => !c.text && (!c.writing || Date.now() - Number(c.writingTs || 0) > (c.queued ? 1800000 : 180000));
     const byChar = (st.cards || []).filter(c => albumChar === "all" || c.charId === albumChar);
-    const album = byChar.filter(c => albumRar === "all" || (albumRar === "bad" ? isBad(c) : c.rarity === albumRar)).slice().reverse();
+    const themeOf = c => c.kind === "if" ? (c.theme || "IF") : c.kind === "bday" ? "生日" : c.kind === "mybday" ? "你的生日" : "日常";
+    const album = byChar.filter(c => (albumRar === "all" || (albumRar === "bad" ? isBad(c) : c.rarity === albumRar)) && (albumTheme === "all" || themeOf(c) === albumTheme)).slice().reverse();
     // ── 卡池页像乙游那样：一整张大海报（一枚放大的邮票），左边一列小邮票换池，底下两颗大键；其余设置收进「⋯」 ──
     const NIGHT = "#15121f", PAPER = "#f4ecda", GOLD = "#e3b65c";
     const pools = [{ key: "mix", zh: "大混池", tag: "常驻 · 日常卡" }, { key: "char", zh: "角色池", tag: "常驻 · IF 卡" }]
@@ -659,14 +662,23 @@
     if (tab === "album") return h("div", { "data-wk": "stampalbumpage", "data-page": "1", className: "h-full flex flex-col overflow-hidden", style: { background: "repeating-linear-gradient(180deg, transparent 0 116px, rgba(47,42,34,.07) 116px 117px, transparent 117px 120px), linear-gradient(#f1e9d8, #e9dfca)" } },
       h(Head, { zh: "邮票册", sub: (st.cards || []).length + " 枚", bg: "transparent", ink: "#2f2a22", onBack: () => setTab("pull") }),
       h("div", { className: "flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-5", style: { paddingBottom: "calc(env(safe-area-inset-bottom) * 0.4 + 28px)" } },
-        h("div", { className: "flex overflow-x-auto", style: { gap: 8, paddingTop: 10 } },
-          chip(albumChar === "all", "全部 " + (st.cards || []).length, () => setAlbumChar("all"), "all"),
-          characters.filter(c => (st.cards || []).some(x => x.charId === c.id)).map(c => chip(albumChar === c.id, (c.remark || c.name) + " " + st.cards.filter(x => x.charId === c.id).length, () => setAlbumChar(c.id), c.id))),
+        // 一行三个下拉（她 2026-10-26：分类一行行往下加太高、往右滑不方便）：点开在下面弹一小块，选项换行平铺
+        (() => { const chs = characters.filter(c => (st.cards || []).some(x => x.charId === c.id));
+          const thAll = Array.from(new Set((st.cards || []).filter(c => albumChar === "all" || c.charId === albumChar).map(themeOf)));
+          const lab = { who: albumChar === "all" ? "全部" : ((charOf(albumChar) || {}).remark || (charOf(albumChar) || {}).name || "?"), rar: albumRar === "all" ? "全部" : albumRar === "bad" ? "没写好" : albumRar, theme: albumTheme === "all" ? "全部" : albumTheme };
+          const pill = (k, zh) => h("button", { key: k, "data-wk": "stampfilter", "data-part": k, "data-on": albumPick === k ? "1" : "0", onClick: () => setAlbumPick(albumPick === k ? "" : k), className: "flex-1 min-w-0 active:opacity-70",
+            style: { padding: "7px 8px", borderRadius: 8, border: "1px solid " + (albumPick === k || lab[k] !== "全部" ? "#2f5d4a" : "rgba(47,42,34,.22)"), background: lab[k] !== "全部" ? "rgba(47,93,74,.08)" : "transparent", color: "#2f2a22", fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, zh + "：" + lab[k] + " ▾");
+          const opts = albumPick === "who" ? [["all", "全部 " + (st.cards || []).length]].concat(chs.map(c => [c.id, (c.remark || c.name) + " " + st.cards.filter(x => x.charId === c.id).length]))
+            : albumPick === "rar" ? [["all", "全部"], ["SSR", "SSR"], ["SR", "SR"], ["R", "R"]].concat(byChar.some(isBad) ? [["bad", "没写好"]] : []).map(x => [x[0], x[1] + " " + (x[0] === "all" ? byChar.length : x[0] === "bad" ? byChar.filter(isBad).length : byChar.filter(c => c.rarity === x[0]).length)])
+            : albumPick === "theme" ? [["all", "全部"]].concat(thAll.map(t2 => [t2, t2 + " " + byChar.filter(c => themeOf(c) === t2).length])) : [];
+          const cur = albumPick === "who" ? albumChar : albumPick === "rar" ? albumRar : albumTheme;
+          const set = v => { if (albumPick === "who") { setAlbumChar(v); setAlbumTheme("all"); } else if (albumPick === "rar") setAlbumRar(v); else setAlbumTheme(v); setAlbumPick(""); };
+          return h("div", { style: { paddingTop: 10 } },
+            h("div", { className: "flex", style: { gap: 6 } }, pill("who", "人"), pill("rar", "稀有度"), pill("theme", "主题")),
+            albumPick ? h("div", { "data-wk": "stampfilterpanel", className: "flex flex-wrap", style: { gap: 6, marginTop: 8, padding: 10, borderRadius: 10, background: "#FFF8E9", border: "1px solid rgba(87,119,103,.3)", boxShadow: "0 4px 14px rgba(57,56,47,.08)" } },
+              opts.map(o => chip(cur === o[0], o[1], () => set(o[0]), o[0]))) : null); })(),
         (() => { const ds = albumChar === "all" ? [] : weekDays(st, albumChar), wks = Math.floor(ds.length / 7);
           return albumChar !== "all" && ds.length ? h("button", { "data-wk": "stampweekbtn", "data-full": wks ? "1" : "0", onClick: () => setWeek(Math.ceil(ds.length / 7)), className: "w-full active:opacity-70", style: { marginTop: 10, minHeight: 40, borderRadius: 10, background: "#FFF8E9", border: "1px solid #577767", color: "#285C4B", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))" } }, "翻他的一周 · " + (wks ? "攒满 " + wks + " 周" : "") + (ds.length % 7 ? (wks ? "，" : "") + "这一周 " + (ds.length % 7) + " / 7 天" : "")) : null; })(),
-        h("div", { "data-wk": "stamprarpick", className: "flex overflow-x-auto", style: { gap: 6, paddingTop: 8 } },
-          [["all", "全部"], ["SSR", "SSR"], ["SR", "SR"], ["R", "R"], ["bad", "没写好"]].map(x => { const n = x[0] === "all" ? byChar.length : x[0] === "bad" ? byChar.filter(isBad).length : byChar.filter(c => c.rarity === x[0]).length;
-            return x[0] === "bad" && !n ? null : chip(albumRar === x[0], x[1] + " " + n, () => setAlbumRar(x[0]), x[0]); })),
         // 写失败的（或者写了三分钟还没回来的）一起重写：同一个人的 R、SR 还是并成一次调用，SSR 各一次
         (() => { const bad = (st.cards || []).filter(c => !c.text && (!c.writing || Date.now() - Number(c.writingTs || 0) > (c.queued ? 1800000 : 180000)));
           return bad.length ? h("button", { "data-wk": "stamprewriteall", onClick: () => { onWrite(bad); toast("在重写 " + bad.length + " 张"); }, className: "w-full active:opacity-70",
