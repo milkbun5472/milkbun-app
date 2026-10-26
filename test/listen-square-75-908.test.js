@@ -17,7 +17,7 @@ test('熟面孔就是论坛那批人：music 那一栏、同一本碰面账、�
   assert.equal((app.match(/music: \{ name: "/g)||[]).length,10);
   assert.match(app,/FORUM_NPC_REGISTRY\.filter\(n => n\.music\)/);
   assert.match(app,/touchForumPublicTie\(/);
-  assert.match(sh,/window\.ShuaKit = \{ regularsBlock,/);
+  assert.match(sh,/window\.ShuaKit = \{ worldLine, regularsBlock,/);
   assert.match(lq,/regularsBlock\(o\.regs, o\.pairs \|\| \[\], o\.me \|\| "她", "听歌、写歌评"\)/);
 });
 test('活人感给判据不给样例；转给TA落一张卡',()=>{

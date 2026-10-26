@@ -76,8 +76,10 @@
       + (friends && friends.length ? "\n认识你的人里，这几个也在刷「" + APP_NAME + "」，可能刷到这条：" + friends.map(f => f.name + (f.rel ? "（" + f.rel + "）" : "")).join("、")
         + "。他们评不评、评什么、当着网友的面说成什么样，照他们跟你的关系来，写进 friends（name 只能是这几个；一个都没刷到就空着）。" : "");
   }
-  function npcSystem(uName, persona, n, skin, hot, regs) {
-    return AC() + CB()
+  // world：这个世界是什么样（盖了「公开世界」章的世界书），跟今日热门同一份；没有就是现在的现实
+  function worldLine(world) { const w = String(world || "").trim(); return w ? "【这个世界】\n" + w.slice(0, 3000) + "\n平台上的人都活在这个世界里：博主是谁、过什么日子、拍什么、说话用什么词，照这个世界来；世界书里没写到的地方，按这个世界自然会有的样子补。\n" : ""; }
+  function npcSystem(uName, persona, n, skin, hot, regs, world) {
+    return AC() + CB() + worldLine(world)
       + (hot && hot.length ? "今天平台上的热门：" + hot.join("、") + "——推荐流里会有几条在蹭这些。\n" : "")
       + DATE_FACT().slice(1) + "\n【场景】" + uName + "在刷「" + APP_NAME + "」的推荐流，刷到的是 " + n + " 个互不相识的博主各发的一条视频。"
       + (persona ? "\n推荐流会跟她平时在意的东西沾一点边，但不是全都对口——她是这样一个人：" + persona : "")
@@ -165,8 +167,8 @@
       h("div", { style: { padding: "5px 10px", fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: "rgba(255,255,255,.6)", background: "#111" } }, APP_NAME + " · " + fmtN(v.likes) + " 赞 · 点开看"));
   }
   window.ShuaShareCard = ShuaShareCard;
-  window.ShuaKit = { regularsBlock, tasteLine, shareSnap, shareText, APP_NAME, PAL, charInstruction, npcSystem, crowdSystem, mineSystem, mkVideo, vidSkin };
+  window.ShuaKit = { worldLine, regularsBlock, tasteLine, shareSnap, shareText, APP_NAME, PAL, charInstruction, npcSystem, crowdSystem, mineSystem, mkVideo, vidSkin };
 
   // 页面那半要用的，原样递过去
-  window.ShuaCore = { APP_NAME, INK, DIM, BLACK, RED, LINE, PAL, vidSkin, S, arr, uid, AC, CB, fmtN, normComments, mkVideo, charInstruction, npcSystem, regularsBlock, crowdSystem, mineSystem };
+  window.ShuaCore = { worldLine, APP_NAME, INK, DIM, BLACK, RED, LINE, PAL, vidSkin, S, arr, uid, AC, CB, fmtN, normComments, mkVideo, charInstruction, npcSystem, regularsBlock, crowdSystem, mineSystem };
 })();

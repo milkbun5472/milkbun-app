@@ -237,9 +237,9 @@
   const ST_SCALE = ["几十个粉丝", "几百个粉丝", "几千粉丝", "几万粉丝", "几十万粉丝"];
   const ST_DAY = ["白天有正经工作，晚上下班才播", "全职在播，靠这个吃饭", "还在上学", "刚辞职在家", "家里开店，店里忙完了播"];
   const pick = a => a[Math.floor(Math.random() * a.length)];
-  function strangerSystem(n, hot, date, kinds) {
+  function strangerSystem(n, hot, date, kinds, world) {
     const rolls = Array.from({ length: n }, (_, i) => (i + 1) + ". 播的是「" + kindZh(kinds[i]) + "」，" + pick(ST_AGE) + "，" + pick(ST_RUN) + "，" + pick(ST_SCALE) + "，" + pick(ST_DAY));
-    return AC() + CB()
+    return AC() + CB() + (window.ShuaKit && window.ShuaKit.worldLine ? window.ShuaKit.worldLine(world) : "")
       + (date ? "今天是 " + date + "。" : "") + (hot && hot.length ? "今天平台上的热门：" + hot.join("、") + "。" : "")
       + "\n【场景】她在直播平台上随便逛，刷到 " + n + " 个正在开播、互不认识的主播。下面每个人先定了几样事实，人照这些事实长出来：\n" + rolls.join("\n")
       + "\n\n每个人写成一个具体的活人，不是一个类型：哪儿人、平时过什么日子、为什么开始播、镜头前和镜头外差在哪、在意什么、怕什么、说话什么样。"
@@ -921,7 +921,7 @@
       try {
         const d0 = new Date();
         const kinds = Array.from({ length: ST_BATCH }, () => pick(SLOT_KINDS.concat(["spicy"])));
-        const r = await props.askStranger(strangerSystem(ST_BATCH, props.hot ? props.hot() : [], d0.getFullYear() + " 年 " + (d0.getMonth() + 1) + " 月 " + d0.getDate() + " 日", kinds), ST_SHAPE);
+        const r = await props.askStranger(strangerSystem(ST_BATCH, props.hot ? props.hot() : [], d0.getFullYear() + " 年 " + (d0.getMonth() + 1) + " 月 " + d0.getDate() + " 日", kinds, props.worldHint ? props.worldHint() : ""), ST_SHAPE);
         const fresh = arr(r && r.streamers).slice(0, ST_BATCH).map((x, i) => x && S(x.name) && S(x.persona) ? Object.assign({}, x, { kind: kinds[i] }) : null).filter(Boolean).map(x => {
           return { id: uid("st"), name: S(x.name).slice(0, 20), title: S(x.title).slice(0, 40), bio: S(x.bio).slice(0, 80), persona: S(x.persona).slice(0, 1200), look: S(x.look).slice(0, 120),
             fans: Math.max(0, Math.round(Number(x.fans) || 0)), viewers: Math.max(1, Math.round(Number(x.viewers) || 1)), kind: KINDS.some(k => k[0] === x.kind) ? x.kind : "free",

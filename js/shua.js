@@ -632,7 +632,7 @@
       q = S(q).slice(0, 30);
       setBusy("npc");
       try {
-        const d = await props.ask(npcSystem(uName, String((profile && profile.persona) || "").slice(0, 600), NPC_BATCH, sk, hotToday(), regsText())
+        const d = await props.ask(npcSystem(uName, String((profile && profile.persona) || "").slice(0, 600), NPC_BATCH, sk, hotToday(), regsText(), props.worldHint ? props.worldHint() : "")
           + (city ? "\n这一批是「同城」：这几个博主都住在「" + city + "」，拍的东西跟这座城有关或者就发生在这座城里；城里是什么样子从你知道的这个地方长出来。"
             + (props.cityNote ? props.cityNote(city) : "") : "")
           + (q ? "\n这一批是「搜索结果」：有人在搜「" + q + "」，这几条都是跟「" + q + "」有关的视频——拍法、角度、口气各不一样，就像真在平台上搜出来的一页。每一条都得正面就是这个词说的那件事，点进来的人一眼认得出「对，我搜的就是这个」；不许借字面绕去别的行当（康复、健身、画画、考据那种），也不许用谐音、双关、误会来交差。尺度跟着这个词走，该多大就多大，不要含糊其辞。" : ""), shapeNpc(sk));

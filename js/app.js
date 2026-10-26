@@ -20,7 +20,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v76.645";
+const APP_VERSION = "v76.647";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -804,7 +804,8 @@ function App() {
       const label = (typeof TAKEOUT_SLOTS !== "undefined" ? TAKEOUT_SLOTS.find(s => s.key === slot) : null);
       const hm = new Date(); const clock = hm.getHours() + ":" + String(hm.getMinutes()).padStart(2, "0");
       const topic = keyword && keyword.trim() ? "她搜的是「" + keyword.trim() + "」" : "这一栏是「" + (label ? label.zh : slot) + "」";
-      const d = await runProbe(bgActive, { char: { id: "__takeout", name: "外卖", persona: "" }, chars: characters, rels, profile, timeAware: false }, {
+      // 世界书（生活功能那一类）也带上（2026-10-26 查一遍）：架空世界里刷出来的店和菜照那个世界来
+      const d = await runProbe(bgActive, { char: { id: "__takeout", name: "外卖", persona: "" }, chars: characters, rels, profile, timeAware: false, worldbook: loreForContext("lifestyle", [], topic) }, {
         // ⚠️占位值只写【说明】不写【样例】（prompt-no-content-samples）：写一家店名进去，刷出来就全是那一家。
         instruction: "你在给一个人刷外卖 App 的附近商家。现在是 " + clock + "，" + topic + "。**给 6~8 家店（shops 至少 6 个）**，"
           + "都是这个钟点真会开着、真会有人点的那种；彼此拉开：吃的东西、价位、是连锁还是街边小店，别一屏全是同一族。"
@@ -17977,7 +17978,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     setGen(g => ({ ...g, calendar: true }));
     try {
       const who = view === "world" ? "这个世界里所有人都知道的公共大事（节日、活动、纪念日、季节性事件、集体事件等）" : "「" + ((characters.find(c => c.id === view) || {}).name || "某角色") + "」个人的私人日程（贴合 TA 的人设、职业、生活）";
-      const ctx = view === "world" ? { char: { id: "__cal", name: "世界", persona: "" }, chars: characters, rels, profile, timeAware: false } : ctxFor(characters.find(c => c.id === view) || { id: view, name: "角色" });
+      const ctx = view === "world" ? { char: { id: "__cal", name: "世界", persona: "" }, chars: characters, rels, profile, timeAware: false, worldbook: loreForContext("lifestyle", [], promptText) } : ctxFor(characters.find(c => c.id === view) || { id: view, name: "角色" });
       const monthName = year + "年" + (month + 1) + "月";
       const d = await runProbe(active, ctx, {
         instruction: "为 " + monthName + " 生成一整月的日历事件——" + who + "。**至少 4 条、8-15 条为宜**，分散在当月不同日期。每条：day(该月第几天，1-" + new Date(year, month + 1, 0).getDate() + " 的整数) / title(简短事件名) / note(一句补充，可空)。" + (promptText && promptText.trim() ? "特别要求：" + promptText.trim() + "。" : ""),
@@ -18016,7 +18017,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     try { const on = mk ? (characters || []).find(c => c && maskKeyOf(c.id) === mk) : null; const r = mk ? (on ? myRealm(on.id) : null) : myRealm(null); myPlace = r ? (r.kind === "real" ? (r.geo && r.geo.label) || "" : r.label || "") : ""; } catch (e) {}
     setGen(g => ({ ...g, myweek: true }));
     try {
-      const d = await runProbe(active, { char: { id: "__me", name: mask.name, persona: String(mask.persona || "") }, chars: characters, rels, profile, timeAware: true }, {
+      const d = await runProbe(active, { char: { id: "__me", name: mask.name, persona: String(mask.persona || "") }, chars: characters, rels, profile, timeAware: true, worldbook: loreForContext("lifestyle", [], promptText) }, {
         // 跟角色排行程一个道理（她 2026-10-14「可以参考面具人设排，跟角色一样」）：照她面具里写的人来排——做什么的、在哪、什么作息
         instruction: (mask.persona ? "【她是这样一个人（她的面具设定）】\n" + String(mask.persona).slice(0, 1500) + "\n" : "")
           + (myPlace ? "【她在】" + myPlace + "\n" : "")
@@ -22209,7 +22210,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     const tones = anonDraw(ANON_ASKER_TONE, rolls), angles = anonDraw(ANON_ASKER_ANGLE, rolls), shapes = anonDraw(ANON_ASKER_SHAPE, rolls);
     const who = tones.map((tn, i) => "〔第" + (i + 1) + "组〕这一组的 " + ANON_POOL_PER_ROLL + " 条,全由这样一个人写：\n"
       + "  TA是" + tn + "\n  TA想撬的是" + angles[i] + "\n  TA开口的样子是" + shapes[i]).join("\n");
-    const sys = "你在给一个匿名树洞攒问题。这些问题会被丢进箱子里,由【某一个你完全不认识的陌生人】捡到并回答。\n"
+    const _anonWorld = window.ShuaKit ? window.ShuaKit.worldLine(loreForContext("social", [], "")) : "";   // 问问题的陌生人也活在这个世界里（2026-10-26）
+    const sys = _anonWorld + "你在给一个匿名树洞攒问题。这些问题会被丢进箱子里,由【某一个你完全不认识的陌生人】捡到并回答。\n"
       + "【你不知道的】收到这题的人是谁、男女、多大、做什么的、住在哪、长什么样、有没有对象、家里有谁、经历过什么——"
       + "一个都不知道,也【不许猜、不许假设、不许暗示你认识TA】。不许写成「听说你们XX的人如何如何」,你并不知道TA是哪一行的。\n"
       + "更要紧的一条:你写的时候【并不知道TA会怎么答】。所以不许先想好一个答案再倒着编一句问话——"
@@ -27822,7 +27824,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       // ctx.char.name 上）。这一条是关于【她自己】的，跟哪个角色都无关——
       // 灌一份角色上下文进来既没用又要花钱。自己拼一份最小的 system。
       const d = extractJSON(await callAI(bgActive || active,
-        ANTI_CLICHE + "\n\n给「" + uName + "」配 4 身衣服，挂进她自己的衣柜。\n"
+        ANTI_CLICHE + "\n\n" + (window.ShuaKit ? window.ShuaKit.worldLine(loreForContext("lifestyle", [], kw)) : "") + "给「" + uName + "」配 4 身衣服，挂进她自己的衣柜。\n"
           + (kw ? "【她给的关键词】" + kw + "\n按这几个词来，别另起炉灶。\n" : "【她没给关键词】那就配四个【互不重样的场合】各一身：日常、正经场合、见谁、以及一身她自己在家穿的。\n")
           + (_mp.persona ? "\n【她是这样一个人】\n" + String(_mp.persona).slice(0, 600) + "\n" : "")
           + (have ? "\n【柜子里已经有这几身，别再配一样的】" + have.slice(0, 300) + "\n" : "")
@@ -29690,7 +29692,9 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   const S0 = v => String(v == null ? "" : v).trim();
   // 刷出来的一批不是同一秒写的：在 from 到现在之间撒开，按先后排
   const sqSpread = (items, from) => { const now = Date.now(), a = Math.min(from || now, now); return items.map(x => ({ ...x, ts: a + Math.round(Math.random() * (now - a)) })).sort((x, y) => x.ts - y.ts); };
-  const sqAsk = async (sys, tag) => { const raw = await callAI(active, sys, [{ role: "user", content: "写。" }], { maxTokens: 8000, tag: tag }); return (typeof parseJSONLoose === "function" ? parseJSONLoose(raw) : extractJSON(raw)) || {}; };
+  // 广场上的人也活在这个世界里（2026-10-26 查一遍）；歌照旧得是现实里搜得到的真歌，世界只管人和说话的样子
+  const sqWorld = () => { const w = window.ShuaKit ? window.ShuaKit.worldLine(loreForContext("social", [], "")) : ""; return w ? w + "⚠️歌名、歌手照旧写现实里真有、网易云搜得到的歌，这个世界只管谁在听、怎么说话。\n\n" : ""; };
+  const sqAsk = async (sys, tag) => { const raw = await callAI(active, sqWorld() + sys, [{ role: "user", content: "写。" }], { maxTokens: 8000, tag: tag }); return (typeof parseJSONLoose === "function" ? parseJSONLoose(raw) : extractJSON(raw)) || {}; };
   const sqReady = () => { if (!active) { toast("请先到设置配置 API"); return false; } return true; };
   // 熟面孔回了她（或者她回了熟面孔）才记一笔；路人、熟人不进这本账
   const sqTouch = (items, dir) => { const seen = new Set(); (items || []).forEach(x => { if (x && /^npc_regular_/.test(x.by) && !seen.has(x.by)) { seen.add(x.by); touchForumPublicTie(x.by, dir, x.tone); } }); };
@@ -29980,7 +29984,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     try {
       const label = (typeof SHOP_CATS !== "undefined" ? SHOP_CATS.find(c => c.key === cat) : null);
       const topic = keyword && keyword.trim() ? "用户搜索关键词「" + keyword.trim() + "」" : "「" + (label ? label.zh : cat) + "」分类";
-      const d = await runProbe(bgActive, { char: { id: "__shop", name: "购物", persona: "" }, chars: characters, rels, profile, timeAware: false }, {
+      const d = await runProbe(bgActive, { char: { id: "__shop", name: "购物", persona: "" }, chars: characters, rels, profile, timeAware: false, worldbook: loreForContext("lifestyle", [], String(cat || "") + " " + String(keyword || "")) }, {
         // ⚠️别再写「类似淘宝」：那是直接叫它去抄别人（她 2026-09-02 点名这一处是照着别人做的）。
         // ⚠️schemaHint 里的占位值必须是【说明】不是【样例内容】——
         //   原来写的是「川味经典红油抄手 / 地道成都风味」，那两句会被逐字照抄，
@@ -33533,7 +33537,10 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     // 片刻上的熟面孔＝论坛那批人在片刻的号（shua 那一栏）；片刻的评论区和直播间都认这一份，碰面账是论坛那一本
     const shuaRegulars = () => { const book = forumPublicTies(); return FORUM_NPC_REGISTRY.filter(n => n.shua).map(n => ({ id: n.id, name: n.shua.name, voice: n.shua.voice, forum: n.name, tie: book.items[n.id] || null })); };
     const shuaPairs = () => FORUM_NPC_RELATIONS.map(r => { const a = FORUM_NPC_REGISTRY.find(n => n.id === r.a), b = FORUM_NPC_REGISTRY.find(n => n.id === r.b); return a && b && a.shua && b.shua ? { a: a.id, b: b.id, line: "「" + a.shua.name + "」↔「" + b.shua.name + "」：" + r.tone.split(a.name).join(a.shua.name).split(b.name).join(b.shua.name) } : null; }).filter(Boolean);
+    // 这个世界是什么样（盖了「公开世界」章的世界书）：今日热门、路人视频、直播间的路人主播都读这一份（群友 2026-10-26「片刻没绑世界书」）
+    const shuaWorldHint = () => String(loreForContext("social", [], "") || "").slice(0, 3000);
     const liveProps = {
+    worldHint: shuaWorldHint,
     // 直播（群友 2026-10-07，她拍板「两种都要、弹幕只当背景」）。见 js/live.js 开头。
     characters: liveChars.filter(c => !c.npc && !isBody(c.id)),
     myNpcs: npcsOf("me"),   // 她身边的配角：只来评论她发的视频
@@ -33675,7 +33682,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         return ref;
       },
       // 今日热门从这个世界里长出来：公开那一类世界书（第 6 条）
-      worldHint: () => String(loreForContext("social", [], "") || "").slice(0, 3000),
+      worldHint: shuaWorldHint,
       // 情侣号只给在一起的人开（她 2026-10-07）
       confirm: (title, body, ok) => requestAppConfirm(title, body, ok),
       togetherIds: () => Object.keys(couplesRef.current || {}).filter(id => ((couplesRef.current || {})[id] || {}).status === "together"),
