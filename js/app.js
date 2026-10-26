@@ -33533,7 +33533,10 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     // 片刻上的熟面孔＝论坛那批人在片刻的号（shua 那一栏）；片刻的评论区和直播间都认这一份，碰面账是论坛那一本
     const shuaRegulars = () => { const book = forumPublicTies(); return FORUM_NPC_REGISTRY.filter(n => n.shua).map(n => ({ id: n.id, name: n.shua.name, voice: n.shua.voice, forum: n.name, tie: book.items[n.id] || null })); };
     const shuaPairs = () => FORUM_NPC_RELATIONS.map(r => { const a = FORUM_NPC_REGISTRY.find(n => n.id === r.a), b = FORUM_NPC_REGISTRY.find(n => n.id === r.b); return a && b && a.shua && b.shua ? { a: a.id, b: b.id, line: "「" + a.shua.name + "」↔「" + b.shua.name + "」：" + r.tone.split(a.name).join(a.shua.name).split(b.name).join(b.shua.name) } : null; }).filter(Boolean);
+    // 这个世界是什么样（盖了「公开世界」章的世界书）：今日热门、路人视频、直播间的路人主播都读这一份（群友 2026-10-26「片刻没绑世界书」）
+    const shuaWorldHint = () => String(loreForContext("social", [], "") || "").slice(0, 3000);
     const liveProps = {
+    worldHint: shuaWorldHint,
     // 直播（群友 2026-10-07，她拍板「两种都要、弹幕只当背景」）。见 js/live.js 开头。
     characters: liveChars.filter(c => !c.npc && !isBody(c.id)),
     myNpcs: npcsOf("me"),   // 她身边的配角：只来评论她发的视频
@@ -33675,7 +33678,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         return ref;
       },
       // 今日热门从这个世界里长出来：公开那一类世界书（第 6 条）
-      worldHint: () => String(loreForContext("social", [], "") || "").slice(0, 3000),
+      worldHint: shuaWorldHint,
       // 情侣号只给在一起的人开（她 2026-10-07）
       confirm: (title, body, ok) => requestAppConfirm(title, body, ok),
       togetherIds: () => Object.keys(couplesRef.current || {}).filter(id => ((couplesRef.current || {})[id] || {}).status === "together"),

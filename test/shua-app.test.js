@@ -76,7 +76,7 @@ test("456：TA的号一贯的样子、今日热门、合拍", () => {
   assert.match(S, /v\.withCharId && props\.drawDuo \? await props\.drawDuo/);
   assert.match(S, /withId: onAlt \? "" : withId/);
   assert.match(A, /drawDuo: async \(charId, desc\) =>/);
-  assert.match(A, /worldHint: \(\) => String\(loreForContext\("social"/);
+  assert.match(A, /const shuaWorldHint = \(\) => String\(loreForContext\("social"/);
 });
 
 test("情侣号：只给在一起的人，你俩共用，TA也会发在上面", () => {
