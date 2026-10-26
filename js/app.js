@@ -10544,25 +10544,27 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     catch (e) { toast("没写出来：" + ((e && e.message) || e)); return null; }
   };
   // ⚠️这一条只管【角色身边的人】：她自己身边的人走 addMyNpc 手写，或者 draftMyNpc 起草稿。
-  const createNpc = async (hostId, ask) => {
+  // n＝一次生成几位（1–5，同一次调用）；ask 可以空着，空着就照主角色人设挑他身边最该有的人
+  const createNpc = async (hostId, ask, n) => {
     const host = characters.find(c => c.id === hostId);
     if (!host) return;
-    if (!String(ask || "").trim()) { toast("先写要生成谁，比如「陆闻」或「TA的属下」"); return; }
     const p = bgActiveRef.current || active;
     if (!p) { toast("先去 设置·API 配一条线路"); return; }
     if (laneBusy("npc:" + hostId)) return;
     startLane("npc:" + hostId);
     try {
-      const r = await generateNpc(p, host, ask, npcsOf(hostId).map(c => c.name));
-      const id = "c_" + Date.now() + "_npc";
-      pC(prev => [...prev, CharacterPronoun.newCharacter({
-        id: id, name: r.name, persona: r.brief,
-        npc: true, ownerId: hostId          // ← 这两个字段是全部区别
-      })]);
-      // 双向关系：群聊的【成员间关系】那一段就是读它，写了他俩在群里才认得彼此
-      if (r.relFromHost) saveRel(hostId + "->" + id, r.relFromHost, "");
-      if (r.relToHost) saveRel(id + "->" + hostId, r.relToHost, "");
-      toast("已加入「" + r.name + "」，去群里拉上TA");
+      const list = await generateNpcs(p, host, ask, npcsOf(hostId).map(c => c.name), n);
+      list.forEach((r, k) => {
+        const id = "c_" + Date.now() + "_" + k + "_npc";
+        pC(prev => [...prev, CharacterPronoun.newCharacter({
+          id: id, name: r.name, persona: r.brief,
+          npc: true, ownerId: hostId          // ← 这两个字段是全部区别
+        })]);
+        // 双向关系：群聊的【成员间关系】那一段就是读它，写了他俩在群里才认得彼此
+        if (r.relFromHost) saveRel(hostId + "->" + id, r.relFromHost, "");
+        if (r.relToHost) saveRel(id + "->" + hostId, r.relToHost, "");
+      });
+      toast("已加入" + list.map(r => "「" + r.name + "」").join("") + "，去群里拉上" + (list.length > 1 ? "他们" : "TA"));
     } catch (e) {
       toast("生成失败：" + ((e && e.message) || e));
     } finally { endLane("npc:" + hostId); }
@@ -32780,7 +32782,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       knowsUserNote: String(patch.knowsUserNote == null ? (c.knowsUserNote || "") : patch.knowsUserNote).slice(0, 120)
     } : c)),
     npcBusy: !!Object.keys(busyLanesRef.current || {}).some(k => k.indexOf("npc:") === 0),
-    onCreateNpc: (hostId, ask) => createNpc(hostId, ask),
+    onCreateNpc: (hostId, ask, n) => createNpc(hostId, ask, n),
     onAddMyNpc: addMyNpc,
     onDraftMyNpc: draftMyNpc,
     onDeleteNpc: id => deleteNpc(id, false)

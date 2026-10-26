@@ -1530,15 +1530,21 @@ function RelComposer({ comp, setComp, characters, profile, draftProfile, maskPic
           className: "w-full bg-transparent outline-none pb-2",
           style: { fontFamily: F_DISPLAY, fontSize: "calc(18px * var(--app-fs, 1))", color: t.ink, borderBottom: "1px solid " + t.line }
         }),
+        // 一次生成几位（群友 2026-10-26）：同一次调用，几位各不相同
+        h(Eyebrow, { style: { margin: "14px 0 8px" } }, "生成几位"),
+        h("div", { "data-wk": "tiesnpccount", style: { display: "flex", border: "1px solid " + t.line, borderRadius: 10, overflow: "hidden" } },
+          [1, 2, 3, 4, 5].map(k => { const on = (c.npcCount || 1) === k;
+            return h("button", { key: k, "data-on": on ? "1" : "0", onClick: () => set({ npcCount: k }),
+              style: { flex: 1, minHeight: 40, border: "none", borderLeft: k > 1 ? "1px solid " + t.line : "none", background: on ? t.ink : "transparent", color: on ? t.bg2 : t.sub, fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))" } }, k); })),
         h("div", { "data-wk": "tiesnpchint", style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.6, margin: "10px 0 14px" } },
-          "写人设里提到过的名字，或者一个位置（「TA的属下」）。会按 " + (nameOf(c.meChar) || "这个角色")
+          "写人设里提到过的名字、一个位置（「TA的属下」），也可以写性别和身份（「女，他妹妹」）；空着就照人设挑他身边最该有的人。要几位就点几，一次调用一起写，几位各不相同。会按 " + (nameOf(c.meChar) || "这个角色")
             + " 的人设生成一份几百字的小简介，并自动建好你俩的关系。\n配角只在群聊里出场：没有单聊、没有心情好感、不发朋友圈、不占后台生成；删掉 "
             + (nameOf(c.meChar) || "本人") + " 时会一起走。"),
         h("button", { "data-wk": "tiesnpcsubmit", "data-part": "gen",
-          onClick: () => { const v = String(c.npcAsk || "").trim(); if (!v || !c.meChar || npcBusy) return; onCreateNpc(c.meChar, v); set({ npcAsk: "" }); },
+          onClick: () => { const v = String(c.npcAsk || "").trim(); if (!c.meChar || npcBusy) return; onCreateNpc(c.meChar, v, c.npcCount || 1); set({ npcAsk: "" }); },
           className: "w-full active:opacity-70",
           style: { background: t.ink, color: t.bg2, border: "none", borderRadius: 12, padding: "12px 0", fontFamily: F_DISPLAY, fontSize: "calc(16px * var(--app-fs, 1))",
-            opacity: (String(c.npcAsk || "").trim() && c.meChar && !npcBusy) ? 1 : 0.4 }
+            opacity: (c.meChar && !npcBusy) ? 1 : 0.4 }
         }, npcBusy ? "生成中…" : "生成")),
       (npcsOf ? npcsOf(c.meChar) : []).length ? h("div", { "data-wk": "tiesnpclist", style: { marginTop: 18 } },
         h(Eyebrow, { style: { marginBottom: 8 } }, (c.meChar === "me" ? "我" : nameOf(c.meChar)) + " 身边已有的"),
