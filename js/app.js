@@ -20,7 +20,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v76.687";
+const APP_VERSION = "v76.695";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -909,6 +909,10 @@ function App() {
   };
   // 表情包字典 x_emotePacks：[{id,name,global,charIds:[],emotes:[{id,keyword,url}]}]
   const [emotePacks, setEmotePacks] = useState([]);
+  // 图从本机原生仓／云上拉回来了（engine.js 的 _imgPullMiss）：整页重画一次，空着的头像、表情包就补上；主题 CSS 里的图也重编一次
+  const [, setImgFilled] = useState(0);
+  useEffect(() => { const on = () => { setImgFilled(x => x + 1); try { if (window.ThemeStudio) window.ThemeStudio.apply(window.ThemeStudio.current()); } catch (_) {} };
+    window.addEventListener("img-vault-filled", on); return () => window.removeEventListener("img-vault-filled", on); }, []);
   const emotePacksRef = useRef([]);
   emotePacksRef.current = emotePacks;
   // 收藏的消息 x_favorites：[{id,charId,role,content,kind,url,keyword,ts,savedTs}]
@@ -9071,7 +9075,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         : "";
       // 世界书注入：用线下这段自己的文本做关键词命中（ctxFor 默认用线上聊天文本），常驻/绑定词条照常进
       const offText = (workSess.msgs || []).slice(-8).map(m => m.content || "").join("\n");
-      oCtx.worldbook = loreText(loreRef.current, { charIds: [charId], scope: "chat", text: offText });
+      oCtx.worldbook = loreText(loreRef.current, { charIds: [charId], scope: "offline", text: offText });
       const scopedOfflineState = liveStateForScope(charId, scopeKey);
       oCtx.curWear = freshLiveStateValue(scopedOfflineState, "wearing"); // 当天连贯；陈旧后自动重建
       oCtx.curAction = freshLiveStateValue(scopedOfflineState, "action"); // 短时活动不跨几个小时硬续
@@ -9755,7 +9759,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     worldbook: (() => {
       const sess = (groupOfflinesRef.current[group.id] || []).find(s => s && !s.endTs);
       const offText = sess && Array.isArray(sess.msgs) ? sess.msgs.slice(-8).map(m => m.content || "").join("\n") : "";
-      return loreText(loreRef.current, { charIds: (group.memberIds || []), scope: "chat", text: offText });
+      return loreText(loreRef.current, { charIds: (group.memberIds || []), scope: "offline", text: offText });
     })(),
     timeAware: (group.memberIds || []).some(id => timeAwareFor(id)),
     // 群 OOC 立的长期规矩（directives[groupId]）线下也要遵守——线上 replyGroup 早就注入了，线下之前漏了
@@ -13672,6 +13676,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         : typeof splitCardsAndLines === "function"
         ? splitCardsAndLines(w)
         : String(w).split(/\n+/).map(x => x.trim()).filter(Boolean)), []);
+      if (_splitOn && typeof bubbleGlueBrokenLines === "function") words = bubbleGlueBrokenLines(words);   // 半句话被断成两泡的粘回去
       if (_oneLong && words.length > 1 && words.every(w => typeof w === "string")) words = [words.join("\n\n")];
       // ①.5 剥掉模型偶尔照抄进每条气泡开头的历史时间标注〔今天07:57〕（她 2026-07-13 截图）
       words = words.map(stripAiStamp).map(stripEchoedMeta).filter(Boolean);
@@ -15766,7 +15771,10 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       });
       // 这一轮翻出来的〔照做〕条目，排在这一轮最末尾再说一遍（跟单聊同一支 loreDoNow）
       const _gDoTail = typeof loreDoNow === "function" ? loreDoNow(loreRef.current, { charIds: members.map(m => m.id), scope: "chat", text: hist }) : "";
-      let raw = await _gShoot(userContent + _gDoTail);
+      // 群里的导演便签（她 2026-10-26）：跟单聊同一句、同一套扣轮，只给模型看
+      const _gDirLive = chatDirNotesLive("g:" + groupId);
+      const _gDirHint = _gDirLive.length ? "\n\n〔幕后提醒，绝不出现在任何人说的话里〕想让接下来群里的聊天往这个方向走：" + _gDirLive.map(n => n.text).join("；") + "。由在场的人顺着自己的性子自然地聊过去，不用一下子说到。" : "";
+      let raw = await _gShoot(userContent + _gDirHint + _gDoTail);
       // 邮票册：群里一轮（自己聊、重 roll 不算）
       if (raw && !(rgOpts && (rgOpts.auto || rgOpts.rerollAvoid)) && typeof stampGain === "function") stampGain("round");
       if (_abort.signal.aborted) return;             // 她点叉断掉了
@@ -15786,6 +15794,9 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         const t = String(raw || "").replace(/\s+/g, " ").trim();
         throw new Error("模型没按 JSON 数组输出" + (t ? "（它回的是：" + t.slice(0, 200) + (t.length > 200 ? "…" : "") + "）" : "（上游什么都没回）"));
       }
+      // 导演便签：这一轮成功回了才扣一轮（失败不扣），跟单聊同一支
+      if (_gDirLive.length && !(rgOpts && rgOpts.auto)) { const _dn = directorNotesConsume((chatDirNotesRef.current || {})["g:" + groupId], 0);
+        if (_dn) { saveChatDirNotes({ ...(chatDirNotesRef.current || {}), ["g:" + groupId]: _dn.next.filter(n => n && (n.long || Number(n.remaining) > 0)) }); directorNoteToast(_dn.left); } }
       // ── 「查漏后重打一枪」整段撤掉（她 2026-09-16：「直接不要重写了宝宝」）────
       // 原来这儿会本地对字扫一遍：谁说出了只属于别人的那几个字，就**多打一枪模型**重写整轮。
       // ⚠️撤掉的理由是它【误报太多，而每次误报都要她多付一次钱】：
@@ -15973,8 +15984,9 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
             //   splitBubbles 会先按「？」「……」断句——「ん？なに？|……嗯？什么？」就被切成
             //   ん？／なに？／|……／嗯？／什么？ 五泡，竖线落单、中文自己成泡（她 2026-09-29 截图）。
             //   单聊一直是先劈竖线再拆泡，群里这一步跟上。
-            const rawLines = _gCard ? [_gCard]
+            const _gLines = _gCard ? [_gCard]
               : (gBiOn || !window.GroupIdentityGuard) ? String(item.text || "").split(/\n+/) : window.GroupIdentityGuard.splitBubbles(item.text);
+            const rawLines = !_gCard && typeof bubbleGlueBrokenLines === "function" ? bubbleGlueBrokenLines(_gLines.map(x => String(x).trim()).filter(Boolean)) : _gLines;   // 半句话断成两泡的粘回去，跟单聊同一支
             // 模型不打换行时 splitBubbles 等于没拆，所以再过一道和单聊同一个的长气泡兜底
             const gAllowComma = !isBody(spk.id);
             const gBiZh = new Map();
@@ -23500,6 +23512,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     likeCount: (m.likeCount || 0) + (m.liked ? -1 : 1)
   } : m));
   const delMoment = id => pMom(p => p.filter(m => m.id !== id));
+  // 置顶自己发的那条（群友 2026-10-26）：只改排序，挂一个 top；再点一下取消
+  const topMoment = id => pMom(p => p.map(m => m.id === id ? { ...m, top: !m.top } : m));
   // 朋友圈封面（me 或某角色）：存 x_momentsCover
   const setMomentCover = (key, uri) => setMomentsCover(p => { const n = { ...p, [key]: uri || "" }; saveJSON("x_momentsCover", n); return n; });
   const openMomProfile = (id, isMe) => { setMomTarget({ id, isMe: !!isMe }); setScreen("momprofile"); };
@@ -32504,6 +32518,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     onRegenMomentComments: regenMomentComments,
     momentMoreBusy: gen.momentMore || null,
     onDelMoment: delMoment,
+    onTopMoment: topMoment,
     onPinMoment: pinMomentToShike,
     onOpenMomProfile: openMomProfile,
     onEditProfile: () => setProfileOpen(true),
@@ -32537,6 +32552,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     coverPos: (momentsCover[((momTarget && momTarget.isMe) ? "me" : (momTarget && momTarget.id)) + "@pos"]) || "",
     onSetCoverPos: pos => setMomentCover(((momTarget && momTarget.isMe) ? "me" : (momTarget && momTarget.id)) + "@pos", pos),
     onDelMoment: delMoment,
+    onTopMoment: topMoment,
     onLikeMoment: likeMoment,
     onCommentMoment: commentMoment,
     onPostMoment: postUserMoment,
@@ -32650,6 +32666,9 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     onSetDirectiveTurns: (dirId, turns) => setDirectiveTurns(activeGroup.id, dirId, turns),
     onBack: () => setScreen("messages"),
     onSend: txt => pushGroupUser(activeGroup.id, txt),
+    dirNotes: chatDirNotes["g:" + activeGroup.id] || [],
+    onAddDirNote: (text, long) => chatDirNoteAdd("g:" + activeGroup.id, text, long),
+    onDelDirNote: id => chatDirNoteDel("g:" + activeGroup.id, id),
     onReply: () => replyGroup(activeGroup.id),
     onContinue: () => replyGroup(activeGroup.id),
     onOOC: txt => oocGroup(activeGroup.id, txt),

@@ -44,7 +44,7 @@ test("照做条目在这一轮最末尾再说一遍：单聊、群聊都接上�
   assert.equal(f([{ category: "世界观", payload: "x" }], {}), "");
   const app = require("fs").readFileSync(require("path").join(__dirname, "..", "js", "app.js"), "utf8");
   assert.match(app, /const _doTail = typeof loreDoNow === "function" \? loreDoNow\(loreRef\.current, \{ scope: "chat", charIds: \[charId\], text: recentChatText\(char\) \}\) : "";/);
-  assert.match(app, /let raw = await _gShoot\(userContent \+ _gDoTail\);/);
+  assert.match(app, /let raw = await _gShoot\(userContent \+ _gDirHint \+ _gDoTail\);/);
 });
 
 // 她 2026-10-06 第四次：「要么很快回复气泡文字，要么卡住 time out」——大卡写不完就被 180 秒掐断

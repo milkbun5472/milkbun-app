@@ -8765,6 +8765,7 @@ function Messages({
   onRegenMomentComments,
   momentMoreBusy,
   onDelMoment,
+  onTopMoment,
   onOpenMomProfile,
   onEditProfile,
   onOpenWallet,
@@ -9084,6 +9085,7 @@ function Messages({
     onRegen: onRegenMomentComments,
     moreBusy: momentMoreBusy,
     onDelete: onDelMoment,
+    onTop: onTopMoment,
     onPin: onPinMoment,
     onOpenProfile: cid => onOpenMomProfile && onOpenMomProfile(cid, false)
   }), tab === "me" && h("div", {
@@ -9827,6 +9829,11 @@ function momentDisplayName(characters, who) {
   const hit = (characters || []).find(c => c && (norm(c.name) === raw || norm(c.remark) === raw));
   return hit ? (hit.remark || hit.name) : raw;
 }
+// 置顶的（只认自己发的）排最前，其余照原来的先后（群友 2026-10-26）
+function momTopFirst(list) {
+  const arr = Array.isArray(list) ? list : [];
+  return arr.filter(m => m && m.mine && m.top).concat(arr.filter(m => !(m && m.mine && m.top)));
+}
 function MomentsFeed({
   npcs,
   characters: rawCharacters,
@@ -9842,6 +9849,7 @@ function MomentsFeed({
   onRegen,
   moreBusy,
   onDelete,
+  onTop,
   onPin,
   onOpenProfile
 }) {
@@ -9928,7 +9936,7 @@ function MomentsFeed({
   }), !gen && moments.length === 0 && /*#__PURE__*/React.createElement(Empty, {
     text: "朋友圈还没有动态",
     sub: "点右上「发朋友圈」或「角色发」"
-  }), moments.map(m => {
+  }), momTopFirst(moments).map(m => {
     const isMine = m.mine;
     // 开了「发朋友圈」的配角发的那条也摆出来（她 2026-10-22）
     const c = isMine ? null : (characters.find(x => x.id === m.characterId) || (npcs || []).find(x => x && x.id === m.characterId));
@@ -10050,7 +10058,10 @@ function MomentsFeed({
       // 收进时刻：连同底下的评论一起，收进发这条的那位名下（她 2026-10-06）
       onClick: () => onPin(m), "data-wk": "mompin",
       style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog }
-    }, "收进时刻"), onDelete && h("button", {
+    }, "收进时刻"), onTop && isMine && h("button", {
+      onClick: () => onTop(m.id), "data-wk": "momtop", "data-on": m.top ? "1" : "0",
+      style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: m.top ? t.accent : t.fog }
+    }, m.top ? "取消置顶" : "置顶"), onDelete && h("button", {
       onClick: () => setDelId(m.id),
       style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog }
     }, "删除")), h(MomentRemindLine, { m, characters }), m.poll && h(MomentPoll, { poll: m.poll, characters }), m.likers && m.likers.length > 0 && h("div", {
@@ -10221,7 +10232,7 @@ function AutoImgSwitch({ storeKey, color }) {
 }
 function MomentAutoImgSwitch() { return h(AutoImgSwitch, { storeKey: "x_momentAutoImg" }); }
 // 朋友圈个人页（仿微信「我的相册/TA 的朋友圈」）：封面 + 头像 + 签名 + 此人所有动态；me 可发/删/换封面
-function MomentsProfile({ isMe, character: rawCharacter, profile, characters: rawCharacters, moments, cover, coverPos, onSetCoverPos, coverText, gen, friendGroups, signature, onSetCover, onDelMoment, onLikeMoment, onCommentMoment, onPostMoment, onBack }) {
+function MomentsProfile({ isMe, character: rawCharacter, profile, characters: rawCharacters, moments, cover, coverPos, onSetCoverPos, coverText, gen, friendGroups, signature, onSetCover, onDelMoment, onTopMoment, onLikeMoment, onCommentMoment, onPostMoment, onBack }) {
   const character = chatFace(rawCharacter), characters = (rawCharacters || []).map(chatFace);   // 主页上的头像也认聊天那张
   const t = useTheme();
   const [compose, setCompose] = useState(false);
@@ -10240,7 +10251,7 @@ function MomentsProfile({ isMe, character: rawCharacter, profile, characters: ra
   const name = isMe ? (profile.name || "我") : (character.remark || character.name);
   // 签名：优先用传进来的（角色页＝查手机·微信里那句朋友圈签名），否则回落到 motto/tagline
   const sign = (signature != null && String(signature).trim()) ? signature : (isMe ? (profile.tagline || "") : (character.motto || character.tagline || ""));
-  const list = (moments || []).filter(m => isMe ? m.mine : (m.characterId === character.id && !m.mine)).slice().sort((a, b) => (b.ts || 0) - (a.ts || 0));
+  const list = (moments || []).filter(m => isMe ? m.mine : (m.characterId === character.id && !m.mine)).slice().sort((a, b) => ((b.mine && b.top) ? 1 : 0) - ((a.mine && a.top) ? 1 : 0) || (b.ts || 0) - (a.ts || 0));
   // 封面拖着调位置（群友 2026-10-08：「朋友圈壁纸要是能自己调位置就好了」）：
   //   选完图直接进调整，或者点「调位置」；在封面上拖，松手不存，点「好了」才存。
   const posNow = adj ? (adj.x + "% " + adj.y + "%") : (coverPos || "center");
@@ -10274,6 +10285,7 @@ function MomentsProfile({ isMe, character: rawCharacter, profile, characters: ra
       h("span", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog } }, typeof timeAgoOn === "function" ? timeAgoOn(m.ts, m.mine ? null : m.characterId) : timeAgo(m.ts)),
       h("button", { onClick: () => onLikeMoment(m.id), className: "active:opacity-60 flex items-center gap-1" }, h(IHeart, { size: 13, color: m.liked ? t.accent : t.fog, filled: m.liked }), (m.likeCount || 0) > 0 && h("span", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog } }, m.likeCount)),
       h("button", { onClick: () => { setCommenting(m.id); setCReply(null); setCText(""); }, style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog } }, "评论"),
+      onTopMoment && m.mine && h("button", { "data-wk": "momtop", "data-on": m.top ? "1" : "0", onClick: () => onTopMoment(m.id), style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: m.top ? t.accent : t.fog } }, m.top ? "取消置顶" : "置顶"),
       onDelMoment && h("button", { onClick: () => setDelId(m.id), style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog } }, "删除")),
     h(MomentRemindLine, { m, characters }),
     m.poll ? h(MomentPoll, { poll: m.poll, characters }) : null,
@@ -10614,6 +10626,26 @@ function RerollNav({ nav, onFlip, pad }) {
     btn(-1, nav.pos <= 0, "上一版", "‹"),
     h("span", { style: { letterSpacing: 1 } }, (nav.pos + 1) + " / " + nav.n),
     btn(1, nav.pos >= nav.n - 1, "下一版", "›"));
+}
+// 旁白那一栏：几档切换 + 还在生效的导演便签（单聊、群聊共用这一块，她 2026-10-26 群里也要导演便签）
+//   kinds：[[键, 名字]]；kind＝"dir" 时右边多一个「两轮／整场」；faces：「替谁说」那档的一排头像
+function NarrBar({ kinds, kind, setKind, dirLong, setDirLong, dirNotes, onDelDirNote, faces, asId, setAsId, hint }) {
+  const t = useTheme();
+  return h("div", { "data-wk": "narrbar", className: "shrink-0 px-3", style: { background: t.bg2, borderTop: "1px solid " + t.line, paddingTop: 8, paddingBottom: 6 } },
+    h("div", { className: "flex items-center gap-2 flex-wrap" },
+      kinds.map(([k, lb]) => h("button", { key: k, "data-wk": "narrkind", "data-on": kind === k ? "1" : "0", onClick: () => setKind(k), className: "active:opacity-70",
+        style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", minHeight: 30, padding: "4px 11px", borderRadius: 999, border: "1px solid " + (kind === k ? t.ink : t.line), color: kind === k ? t.ink : t.fog, background: kind === k ? t.bg : "transparent" } }, lb)),
+      kind === "dir" ? h("button", { "data-wk": "dirlong", onClick: () => setDirLong(v => !v), className: "active:opacity-70 ml-auto",
+        style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", minHeight: 30, padding: "4px 10px", color: t.sub, background: "transparent", border: "none" } }, dirLong ? "整场有效 · 轻触改两轮" : "管接下来两轮 · 轻触改整场") : null),
+    kind === "as" && faces ? h("div", { "data-wk": "asfaces", className: "flex items-center gap-2", style: { marginTop: 7, overflowX: "auto" } },
+      faces.map(c => h("button", { key: c.id, "data-wk": "asface", "data-on": asId === c.id ? "1" : "0", onClick: () => setAsId(c.id), className: "active:opacity-70 shrink-0 flex items-center gap-1",
+        style: { minHeight: 32, padding: "2px 9px 2px 2px", borderRadius: 999, border: "1px solid " + (asId === c.id ? t.ink : t.line), background: asId === c.id ? t.bg : "transparent", fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: asId === c.id ? t.ink : t.fog } },
+        h(Avatar, { character: c, size: 26, radius: 999 }), c.name))) : null,
+    hint ? h("div", { style: { marginTop: 5, fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", lineHeight: 1.45, color: t.fog } }, hint) : null,
+    (dirNotes || []).filter(n => n && (n.long || Number(n.remaining) > 0)).map(n => h("div", { key: n.id, "data-wk": "dirnote", className: "flex items-center gap-2", style: { marginTop: 6, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.sub, lineHeight: 1.5 } },
+      h("span", { style: { flexShrink: 0, color: t.fog, fontSize: "calc(11px * var(--app-fs, 1))" } }, n.long ? "整场" : "还剩 " + n.remaining + " 轮"),
+      h("span", { className: "flex-1 min-w-0", style: { overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, n.text),
+      onDelDirNote ? h("button", { "data-wk": "block", onClick: () => onDelDirNote(n.id), "aria-label": "删掉这条", className: "active:opacity-60 shrink-0", style: { width: 28, height: 28, color: t.fog, background: "none", border: "none", fontSize: "calc(14px * var(--app-fs, 1))" } }, "×") : null)));
 }
 function ChatThread({
   lucky,   // 你俩的幸运字符，顶栏名字旁边挂着
@@ -11900,17 +11932,8 @@ function ChatThread({
         onClick: () => { const txt = String(unblockDraft || "").trim(); if (!txt) return; setUnblockDraft(null); onSendUnblockReq(txt); },
         style: { padding: "7px 16px", borderRadius: 999, border: "none", background: t.accent, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: "#fff", opacity: String(unblockDraft || "").trim() ? 1 : .45 }
       }, "发给 TA"))),
-  // 旁白模式的两档 + 还在生效的导演便签（点 × 删掉）
-  chatMode === "narr" && onAddDirNote ? h("div", { "data-wk": "narrbar", className: "shrink-0 px-3", style: { background: t.bg2, borderTop: "1px solid " + t.line, paddingTop: 8, paddingBottom: 6 } },
-    h("div", { className: "flex items-center gap-2 flex-wrap" },
-      [["event", "此刻发生了什么"], ["dir", "往后的方向"]].map(([k, lb]) => h("button", { key: k, "data-wk": "narrkind", "data-on": narrKind === k ? "1" : "0", onClick: () => setNarrKind(k), className: "active:opacity-70",
-        style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", minHeight: 30, padding: "4px 11px", borderRadius: 999, border: "1px solid " + (narrKind === k ? t.ink : t.line), color: narrKind === k ? t.ink : t.fog, background: narrKind === k ? t.bg : "transparent" } }, lb)),
-      dirMode ? h("button", { "data-wk": "dirlong", onClick: () => setDirLong(v => !v), className: "active:opacity-70 ml-auto",
-        style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", minHeight: 30, padding: "4px 10px", color: t.sub, background: "transparent", border: "none" } }, dirLong ? "整场有效 · 轻触改两轮" : "管接下来两轮 · 轻触改整场") : null),
-    (dirNotes || []).filter(n => n && (n.long || Number(n.remaining) > 0)).map(n => h("div", { key: n.id, "data-wk": "dirnote", className: "flex items-center gap-2", style: { marginTop: 6, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.sub, lineHeight: 1.5 } },
-      h("span", { style: { flexShrink: 0, color: t.fog, fontSize: "calc(11px * var(--app-fs, 1))" } }, n.long ? "整场" : "还剩 " + n.remaining + " 轮"),
-      h("span", { className: "flex-1 min-w-0", style: { overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, n.text),
-      onDelDirNote ? h("button", { "data-wk": "block", onClick: () => onDelDirNote(n.id), "aria-label": "删掉这条", className: "active:opacity-60 shrink-0", style: { width: 28, height: 28, color: t.fog, background: "none", border: "none", fontSize: "calc(14px * var(--app-fs, 1))" } }, "×") : null))) : null,
+  // 旁白模式的两档 + 还在生效的导演便签（点 × 删掉）：跟群聊同一块 NarrBar
+  chatMode === "narr" && onAddDirNote ? h(NarrBar, { kinds: [["event", "此刻发生了什么"], ["dir", "往后的方向"]], kind: narrKind, setKind: setNarrKind, dirLong, setDirLong, dirNotes, onDelDirNote }) : null,
   /*#__PURE__*/React.createElement("div", {
     className: "flex items-center gap-2 px-3 py-2.5 shrink-0",
     "data-wk": "composer",
@@ -18986,6 +19009,9 @@ function GroupThread({
   onStopGen,
   group,
   groups,
+  dirNotes,       // 群里的导演便签（她 2026-10-26），跟单聊同一块 NarrBar
+  onAddDirNote,
+  onDelDirNote,
   characters,
   allChars,
   rels,
@@ -19094,7 +19120,11 @@ function GroupThread({
   const [panel, setPanel] = useState(false);
   const [gInviteOpen, setGInviteOpen] = useState(false);
   const [modeOpen, setModeOpen] = useState(false);
-  const [chatMode, setChatMode] = useState("chat"); // chat | ooc
+  const [chatMode, setChatMode] = useState("chat"); // chat | narr | ooc
+  // 旁白那一栏的几档：此刻发生了什么／往后的方向（导演便签）／替谁说（只有旁观群：她不在群里，替某个成员开口带话题）
+  const [narrKind, setNarrKind] = useState("event");
+  const [dirLong, setDirLong] = useState(false);
+  const [asId, setAsId] = useState("");
   const [quoted, setQuoted] = useState(null); // 我引用的某条消息原文
   const [menu, setMenu] = useState(null); // 长按弹出的消息下标
   const [gPhotoView, setGPhotoView] = useState(null);   // 点开那张照片：大图／描述／存到手机
@@ -19150,6 +19180,14 @@ function GroupThread({
   const send = (v) => {
     if (!v || sending) return;
     if (chatMode === "ooc") { onOOC && onOOC(v); return; }
+    if (gNarrBar && gKind === "dir") { onAddDirNote(v, dirLong); return; }
+    // 替谁说：就是那个成员自己发的一条（她替TA开口），后面的人照常接
+    if (gNarrBar && gKind === "as") {
+      const who = members.find(c => c.id === asId) || members[0];
+      if (!who) return;
+      onSendRich && onSendRich({ role: "assistant", senderId: who.id, senderName: who.name, content: v, byHer: true, read: true });
+      return;
+    }
     // 旁白：跟单聊同一种消息（role narration），群里本来就会把它当【旁白】喂给大家
     if (chatMode === "narr") { onSendRich && onSendRich({ role: "narration", kind: "narration", content: v, read: true }); return; }
     if (quoted) {
@@ -19178,6 +19216,10 @@ function GroupThread({
   // 群里也用TA单聊里那张头像（她 2026-10-02）：聊天头像 chatAvatar 只换脸，档案那张不动
   const memberById = id => chatFace((allChars || characters).find(x => x.id === id));
   const members = (group.memberIds || []).map(memberById).filter(Boolean);
+  // 旁白那一栏什么时候出来：旁白模式，或者旁观群照常打字（旁观群打的字本来就是旁白）
+  const gNarrBar = !!onAddDirNote && (chatMode === "narr" || (!!gs.spectate && chatMode === "chat"));
+  const gNarrKinds = gs.spectate && chatMode === "chat" ? [["event", "旁白"], ["as", "替谁说"], ["dir", "往后的方向"]] : [["event", "此刻发生了什么"], ["dir", "往后的方向"]];
+  const gKind = gNarrKinds.some(k => k[0] === narrKind) ? narrKind : "event";
   // 记忆互通时：成员头像可点，开心声卡（和私聊同一套 states）。没开互通就是普通头像。
   // ⚠️配角是例外：他那四样（心情／想法／穿着／动作）不看互通开关（她 2026-09-20），
   //   所以闭群里也点得开——否则料写进去了，她一眼都看不到。
@@ -19730,6 +19772,9 @@ function GroupThread({
       (characters || []).map(c => h("button", { key: c.id, onClick: () => doForward({ type: "chat", id: c.id }), className: "w-full flex items-center gap-3 py-2.5 active:opacity-60" }, h(Avatar, { character: c, size: 34, radius: 7 }), h("span", { style: { fontFamily: F_DISPLAY, fontSize: "calc(16px * var(--app-fs, 1))", color: t.ink } }, c.remark || c.name))),
       (groups || []).filter(g => g.id !== group.id).map(g => h("button", { key: "g_" + g.id, onClick: () => doForward({ type: "group", id: g.id }), className: "w-full flex items-center gap-3 py-2.5 active:opacity-60" }, h("div", { "data-wk": "block", style: { width: 34, height: 34, borderRadius: 7, background: t.bg2, border: "1px solid " + t.line, display: "flex", alignItems: "center", justifyContent: "center" } }, "👥"), h("span", { style: { fontFamily: F_DISPLAY, fontSize: "calc(16px * var(--app-fs, 1))", color: t.ink } }, g.name))))),
   h(NewBelowPill, { n: nb.newBelow, onGo: nb.go, group: true }),
+  !selMode && gNarrBar && h(NarrBar, { kinds: gNarrKinds, kind: gKind, setKind: setNarrKind, dirLong, setDirLong, dirNotes, onDelDirNote,
+    faces: members, asId: asId || (members[0] && members[0].id), setAsId,
+    hint: gKind === "as" ? "这句就当是 TA 自己发的，后面的人会顺着接。" : "" }),
   !selMode && quoted && h(QuoteDraftBar, { text: (window.GroupQuote ? window.GroupQuote.label(quoted) : "❝ " + (typeof quoted === "string" ? quoted : quoted.text)).replace(/^❝\s*/, ""), onClear: () => setQuoted(null) }),
   !selMode && h("div", {
     "data-wk": "composer",
@@ -19756,7 +19801,7 @@ function GroupThread({
   })), h(DraftInput, {
     keepKey: group && group.id ? "group:" + group.id : null,
     inputProps: { "data-wk": "chatinput" },
-    placeholder: chatMode === "ooc" ? "出戏说：跟演他们的那位说，可以让它改、也可以问状态…" : chatMode === "narr" ? "写一句旁白：下雨了、有人推门进来…" : gs.spectate ? "写一句旁白，推动剧情…" : "在群里发言…",
+    placeholder: gNarrBar && gKind === "dir" ? "往后往哪儿聊：比如聊到周末去哪儿玩…" : gNarrBar && gKind === "as" && gs.spectate ? "替 " + ((members.find(c => c.id === asId) || members[0] || {}).name || "TA") + " 说一句…" : chatMode === "ooc" ? "出戏说：跟演他们的那位说，可以让它改、也可以问状态…" : chatMode === "narr" ? "写一句旁白：下雨了、有人推门进来…" : gs.spectate ? "写一句旁白，推动剧情…" : "在群里发言…",
     inputStyle: {
       fontFamily: F_BODY,
       fontSize: "calc(14px * var(--app-fs, 1))",
