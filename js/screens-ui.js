@@ -6836,14 +6836,15 @@ function Config(props) {
         if (sec && e.id === "config") { curPage = CH[sec[1]] || ""; curWhere = sec[1] + " · " + sec[2]; }
         const head = line.match(/^#{2,4}\s*(.+)/); if (head) { curWhere = e.zh + " · " + head[1]; if (e.id === "config") curPage = ""; }
         const plain = line.replace(/【跳转】/g, "").replace(/\*\*/g, "").replace(/^[\s-]+/, "");
-        if (plain.toLowerCase().indexOf(ql) < 0) return;
+        const _hit = settingsHit(plain, q); if (!_hit) return;
         const bold = line.match(/\*\*([^*]{1,40})\*\*/);
         const ttl = bold ? bold[1].replace(/[：:。]$/, "") : plain.slice(0, 24), snip = settingsSnippet(plain, q);
-        out.push({ page: curPage, where: curWhere, title: ttl, snippet: plain.replace(/[：:。\s]+$/, "") === ttl ? "" : snip, full: plain });
+        out.push({ hit: _hit, page: curPage, where: curWhere, title: ttl, snippet: plain.replace(/[：:。\s]+$/, "") === ttl ? "" : snip, full: plain });
       });
     });
     homeRows.forEach(r => { if (String(r.title).toLowerCase().indexOf(ql) >= 0 && !out.some(x => x.page === r.key)) out.unshift({ page: r.key, where: r.char + " · " + r.title, title: r.title, snippet: "" }); });
-    return out.slice(0, 50);
+    const _exact = out.filter(x => x.hit !== 1);
+    return (_exact.length ? _exact : out).slice(0, 50);
   });
   const [cfOpenHit, setCfOpenHit] = useState(-1);
   const [toyUnlocked, setToyUnlocked] = useState(() => { try { return localStorage.getItem("x_toyUnlocked") === "1"; } catch (e) { return false; } });

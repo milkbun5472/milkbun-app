@@ -21071,6 +21071,19 @@ function SettingCatalog({ pages, onOpen, note }) {
 //   搜的是页面上真写着的字（标题、说明、选项），不另抄一份目录：设置怎么改，搜得到的就跟着变。
 //   settingsSnippet：在一段字里找到那个词，前后各留一截当结果那一行。
 const settingsNorm = s => String(s || "").replace(/\s+/g, " ").trim();
+// 设置搜索对不对得上（她 2026-10-26：搜「保留重roll」搜不出「重 Roll 留着旧的」）：
+//   2＝去掉空格、不分大小写后原样包含；1＝换了说法但大半对得上（按两个字一组比，六成以上的组在里面）；0＝对不上。
+//   聊天设置和全局设置两处搜索共用这一份；对得上原样的那几条排前面，一条都没有才放模糊的进来
+function settingsHit(text, q) {
+  const sq = s => String(s || "").replace(/\s+/g, "").toLowerCase();
+  const t = sq(text), k = sq(q);
+  if (!k) return 0;
+  if (t.indexOf(k) >= 0) return 2;
+  if (k.length < 3) return 0;
+  const grams = []; for (let i = 0; i < k.length - 1; i++) grams.push(k.slice(i, i + 2));
+  const got = grams.filter(g => t.indexOf(g) >= 0).length;
+  return got / grams.length >= 0.6 ? 1 : 0;
+}
 function settingsSnippet(text, q) {
   const s0 = settingsNorm(text), i = s0.toLowerCase().indexOf(String(q || "").toLowerCase());
   if (i < 0) return "";
@@ -22084,15 +22097,16 @@ function ChatSettings({
     const pageOf = k => settingPages.find(p => p.key === k);
     document.querySelectorAll("[data-cssearch]").forEach(el => {
       const txt = settingsNorm(el.textContent), title = el.getAttribute("data-cstitle") || "";
-      if (txt.toLowerCase().indexOf(ql) < 0) return;
+      const _hit = settingsHit(txt, q); if (!_hit) return;
       const pg = pageOf(el.getAttribute("data-cssearch"));
-      out.push({ tab: el.getAttribute("data-cssearch"), sec: el.getAttribute("data-cssec") || "", where: pg ? pg.char + " · " + pg.title : "", title: title || (pg && pg.title) || "", snippet: title.toLowerCase().indexOf(ql) >= 0 ? "" : settingsSnippet(txt, q) });
+      out.push({ hit: _hit, tab: el.getAttribute("data-cssearch"), sec: el.getAttribute("data-cssec") || "", where: pg ? pg.char + " · " + pg.title : "", title: title || (pg && pg.title) || "", snippet: title.toLowerCase().indexOf(ql) >= 0 ? "" : settingsSnippet(txt, q) });
     });
     // 分类名本身对上了（比如搜「线路」）也给一行，点了进那一类
     settingPages.forEach(p => { if (String(p.title).toLowerCase().indexOf(ql) >= 0 && !out.some(x => x.tab === p.key)) out.push({ tab: p.key, sec: "", where: p.char + " · " + p.title, title: p.title, snippet: "" }); });
     // 节名本身写着这个词的排前面
     out.sort((a, b) => (String(b.title).toLowerCase().indexOf(ql) >= 0) - (String(a.title).toLowerCase().indexOf(ql) >= 0));
-    setCsHits(out.slice(0, 40));
+    const _exact = out.filter(x => x.hit !== 1);
+    setCsHits((_exact.length ? _exact : out).slice(0, 40));
   }, [csQ, settingsTab]);
   // 点了一行跳进去以后，找到那个词、滚过去闪一下
   useEffect(() => {
