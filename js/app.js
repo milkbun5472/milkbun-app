@@ -19682,12 +19682,17 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       const uc = ((((phonesRef.current || {})[char.id] || {}).wechat || {}).userContact) || {};
       add(uc.remark); add(uc.name);
     } catch (e) {}
+    const _relKeep = (characters || []).filter(o => o && o.id !== char.id && ((o.npc && o.ownerId === char.id) || rels[char.id + "->" + o.id] || rels[o.id + "->" + char.id]))
+      .reduce((acc, o) => acc.concat([o.name, o.remark, netOf(o)]), []).filter(Boolean);
     phoneWechatActual(char).forEach(c => {
       // ⚠️群里那几个【真人】要收进来（她 2026-09-03 报：陆闻出现两次，一个真的一个假的）。
       //   原来整条群会话直接 return，于是只在群里跟TA说过话的人从来不进避重名单，
       //   模型就大大方方给同一个人再造一个假私聊。收的是【成员的名字】不是群名——
       //   群名不是人名，把群名塞进避重名单会误伤。
-      (c.memberNames || []).forEach(add);
+      // ⚠️只在【群】里一起的人，要是他身边的配角或关系网上的人，就不收（群友 2026-10-26：他的配角、同事查手机死活刷不出来）：
+      //   配角本来只活在群里，几乎个个都跟他同群——一收进来，模型照「必须有」写回来的私聊被这道闸整条丢掉。
+      //   他俩私下本来就该有话说；真私聊（旁观的那段）照旧整段避重
+      (c.type === "group" ? (c.memberNames || []).filter(n => !_relKeep.some(r => window.PhoneKit && window.PhoneKit.samePerson(n, r))) : (c.memberNames || [])).forEach(add);
       if (c.type === "group") return;   // 群会话本身的名字不算：那是群名
       add(c.name);
       // 会话名对得上哪个角色卡，就把那张卡上的所有叫法一起收进来
