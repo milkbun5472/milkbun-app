@@ -4535,8 +4535,9 @@ function MsgSoundPick({ p, save, toast }) {
   const t = useTheme();
   const fileRef = useRef(null);
   const cur = p.msgSound || "";
+  const [vol, setVol] = useState(() => Number(p.msgSoundVol) || 1);
   const hasFile = !!loadJSON("x_msgSoundFile", null);
-  const pick = id => { save({ ...p, msgSound: id }); if (id) playMsgSound(id, p.msgSoundVol); };
+  const pick = id => { save({ ...p, msgSound: id }); if (id) playMsgSound(id, vol); };
   const chip = (id, zh) => h("button", { key: id || "off", "data-wk": "msgsoundopt", "data-on": cur === id ? "1" : "0", onClick: () => id === "custom" && !hasFile ? fileRef.current && fileRef.current.click() : pick(id),
     style: { minHeight: 40, padding: "0 12px", borderRadius: 8, border: "1px solid " + (cur === id ? t.ink : t.line), background: cur === id ? t.ink : "transparent", color: cur === id ? t.bg : t.sub, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))" } }, zh);
   return h("div", { "data-wk": "msgsound", className: "py-4", style: { borderBottom: "1px solid " + t.line } },
@@ -4546,15 +4547,18 @@ function MsgSoundPick({ p, save, toast }) {
       chip("", "不响"), MSG_SOUNDS.map(x => chip(x.id, x.zh)), chip("custom", hasFile ? "我传的" : "传一段…")),
     cur ? h("div", { className: "flex items-center", style: { gap: 10, marginTop: 10 } },
       h("span", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.sub } }, "音量"),
-      [0.3, 0.6, 1].map((v, i) => h("button", { key: v, "data-wk": "msgsoundvol", "data-on": (p.msgSoundVol || 0.6) === v ? "1" : "0", onClick: () => { save({ ...p, msgSoundVol: v }); playMsgSound(cur, v); },
-        style: { minWidth: 44, minHeight: 40, borderRadius: 8, border: "1px solid " + ((p.msgSoundVol || 0.6) === v ? t.ink : t.line), background: "transparent", color: t.ink, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))" } }, ["小", "中", "大"][i])),
+      // 拉条（她 2026-10-26：开大了还是被音乐盖住）：0.1～3，1 以上是往上加；松手试听一下
+      h("input", { type: "range", "data-wk": "msgsoundvol", min: 0.1, max: 3, step: 0.1, value: vol,
+        onChange: e => setVol(Number(e.target.value)), onPointerUp: () => { save({ ...p, msgSoundVol: vol }); playMsgSound(cur, vol); }, onTouchEnd: () => { save({ ...p, msgSoundVol: vol }); playMsgSound(cur, vol); },
+        style: { flex: 1, minHeight: 40 } }),
+      h("span", { style: { minWidth: 40, textAlign: "right", fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.sub } }, Math.round(vol * 100) + "%"),
       hasFile ? h("button", { onClick: () => fileRef.current && fileRef.current.click(), style: { marginLeft: "auto", minHeight: 40, background: "transparent", border: "none", color: t.accent, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))" } }, "换一段自己的") : null) : null,
     h("input", { ref: fileRef, type: "file", accept: "audio/*", style: { display: "none" }, onChange: e => {
       const f = e.target.files && e.target.files[0]; e.target.value = "";
       if (!f) return;
       if (f.size > 400 * 1024) { toast && toast("这段太大了，挑一段 400KB 以内的短音效"); return; }
       const r = new FileReader();
-      r.onload = () => { try { saveJSON("x_msgSoundFile", String(r.result)); } catch (err) { toast && toast("存不下，换一段更短的"); return; } save({ ...p, msgSound: "custom" }); playMsgSound("custom", p.msgSoundVol); toast && toast("换好了"); };
+      r.onload = () => { try { saveJSON("x_msgSoundFile", String(r.result)); } catch (err) { toast && toast("存不下，换一段更短的"); return; } save({ ...p, msgSound: "custom" }); playMsgSound("custom", vol); toast && toast("换好了"); };
       r.readAsDataURL(f);
     } }));
 }

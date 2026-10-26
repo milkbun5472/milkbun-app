@@ -9,4 +9,7 @@ test("新消息提示音：几种自带的、能传自己的、在 bumpUnread �
   assert.ok(app.slice(i, i + 500).includes("playMsgSound(_ps.msgSound, _ps.msgSoundVol)"));
   assert.match(ui, /h\(MsgSoundPick, \{ p, save, toast \}\)/);
   assert.match(ui, /f\.size > 400 \* 1024/);
+  assert.match(ui, /type: "range", "data-wk": "msgsoundvol", min: 0\.1, max: 3/);
+  assert.match(c, /const v = Math\.max\(0\.1, Math\.min\(3, vol == null \? 1 : Number\(vol\)\)\);/);
+  assert.match(c, /createDynamicsCompressor\(\)/);
 });
