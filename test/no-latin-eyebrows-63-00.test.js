@@ -44,6 +44,8 @@ const ALLOW = {
     "RAIN", "REWRITE", "SHOWERS", "SNOW", "THUNDERSTORM", "WAVE",
     // .ics（课表那种日历文件）里的字段名，不是给人看的眉标（2026-10-21 导入课表）
     "DTSTART", "DTEND", "VEVENT", "BEGIN", "END", "SUMMARY", "LOCATION", "RRULE", "UNTIL", "BYDAY"],
+  // 抽卡的稀有度名，全app都这么叫（SSR/SR/R 本身就是三个字母的专名，中文没有对应说法）
+  "js/stamps.js": ["R / SR / SSR", "R · "],
   // 测量字宽用的那串字母
   "js/weekly.js": ["ABCDEFGHIJKL"]
 };
