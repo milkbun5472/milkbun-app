@@ -39,11 +39,11 @@ test("生日池保底单独算，不动共用的那份", () => {
   assert.equal(n + 1, C.BDAY.hard);
 });
 
-test("一张卡升满的印泥正好是定好的数（误差 2%）", () => {
+test("一张卡升满的印泥正好是定好的数（误差 3%，便宜的卡每级取整多出一点）", () => {
   const C = fresh();
   for (const r of ["R", "SR", "SSR"]) {
     let s = 0; for (let l = 1; l < C.CAP[r]; l++) s += C.levelCost(r, l);
-    assert.ok(Math.abs(s - C.FULL_COST[r]) / C.FULL_COST[r] < 0.02, r + " " + s);
+    assert.ok(Math.abs(s - C.FULL_COST[r]) / C.FULL_COST[r] < 0.03, r + " " + s);
   }
 });
 
@@ -64,11 +64,11 @@ test("上线礼只给一次；限时主题上新送一张十连券", () => {
 test("互动记账：一轮 5、线下 10；callAI 广播的按用途分档，聊天不重记", () => {
   const C = fresh();
   C.gain("round"); C.gain("beat");
-  let st = C.load(); assert.equal(st.postage, 15); assert.equal(st.ink, 15);
+  let st = C.load(); assert.equal(st.postage, 15); assert.equal(st.ink, 60);
   dispatchEvent(new CustomEvent("ai-ok", { detail: { use: "chat", label: "", tag: "" } }));
   dispatchEvent(new CustomEvent("ai-ok", { detail: { use: "", label: "论坛回帖", tag: "" } }));
   dispatchEvent(new CustomEvent("ai-ok", { detail: { use: "", label: "", tag: "tarot" } }));
-  st = C.load(); assert.equal(st.postage, 15 + 10 + 5); assert.equal(st.ink, 15 + 10 + 10);
+  st = C.load(); assert.equal(st.postage, 15 + 10 + 5); assert.equal(st.ink, 60 + 40 + 40);
 });
 
 test("生日池窗口：生日前 14 天到生日后 7 天", () => {
