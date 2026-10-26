@@ -17,7 +17,7 @@ test("十处都走它：小剧场、跑团两处、聊天照片、通话照片�
   const n = f => (R(f).match(/h\(ImageViewer, ?\{/g) || []).length;
   assert.equal(n("js/theater.js"), 1, "小剧场");
   assert.equal(n("js/trpg.js"), 2, "跑团两处");
-  assert.equal(n("js/components.js"), 3, "聊天照片、通话照片、朋友圈多图（v76.243 九宫格点开）");
+  assert.equal(n("js/components.js"), 4, "聊天照片、通话照片、朋友圈多图（v76.243 九宫格点开）、通讯录资料页头像原图（v76.651）");
   assert.equal(n("js/shike.js"), 1, "时刻");
   assert.equal(n("js/fairy-garden.js"), 1, "小世界相框");
   assert.equal(n("js/dwell.js"), 1, "去处");
