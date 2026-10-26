@@ -21,7 +21,8 @@ test("① 每一轮卡片上有「复制」，走公共那一支", () => {
   assert.match(CARD, /h\(CGlyph, \{ k: "copy", size: 15/, "图标没用长按菜单那张同一个");
   assert.match(CARD, /title: "复制这一轮"/, "没有这颗按钮");
   // 排在最前：它最无害，不该挨着「删除」等着误触
-  const i = CARD.indexOf('title: "复制这一轮"'), j = CARD.indexOf('onDelete(m.id), "删除"');
+  // v76.670 删除先问一句（requestAppConfirm 包了一层），认那颗键本身
+  const i = CARD.indexOf('title: "复制这一轮"'), j = CARD.indexOf('"删除") : null');
   assert.ok(i > 0 && j > i, "复制排在删除后面了");
 });
 
