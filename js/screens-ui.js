@@ -10364,6 +10364,10 @@ function DiaryEntryView({ entry, char, isMe, chars, onBack, onDelete, onComment,
           h(InkStruck, { text: p.text, seed: (entry.id || "") + i, lineH: Math.round(16.5 * 2.05), rgb: iRGB }));
         if (p.secret) return h("p", { key: i, style: body },
           h(InkSecret, { text: p.text, seed: (entry.id || "") + i, rgb: iRGB, ink: t.ink }));
+        // 写的时候交了中文就直接摆在这一段底下，不用点「译」、不走免费翻译（她 2026-10-26）
+        if (p.zh) return h("div", { key: i, "data-wk": "diaryzh", style: { marginBottom: 20 } },
+          h("p", { style: Object.assign({}, body, { marginBottom: 6 }) }, STX(p.text)),
+          h("p", { style: { fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", lineHeight: 1.8, color: t.sub, borderLeft: "2px solid rgba(" + iRGB + ",.15)", paddingLeft: 10 } }, p.zh));
         return h("p", { key: i, style: body }, STW(isMe ? null : char && char.id, STX(p.text)));
       }),
       entry.signature ? h("div", { style: { marginTop: 20, fontFamily: F_DISPLAY, fontSize: "calc(18px * var(--app-fs, 1))", color: t.sub, textAlign: "right" } }, entry.signature) : null,
