@@ -29085,7 +29085,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     setCoupleSweet(n);
     const got = gachaEarn(char.id, "sweet");
     if (typeof stampGain === "function") stampGain("sweet");
-    toast("甜蜜值 +" + add + " 💗" + (got ? "　抽卡点数 +" + got : "") + (window.StampsCore ? "　印泥 +" + window.StampsCore.GAIN.sweet[1] : ""));
+    toast("甜蜜值 +" + add + " 💗" + (got ? "　抽卡点数 +" + got : "") + (window.StampsCore ? "　邮资 +" + window.StampsCore.GAIN.sweet[0] + "　印泥 +" + window.StampsCore.GAIN.sweet[1] : ""));
   };
   // 一起听（展示型）：改数据统一走 saveListen；图片经 resizeImageFile 缩小再存
   const saveListen = updater => {
