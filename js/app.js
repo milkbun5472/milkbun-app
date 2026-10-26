@@ -20,7 +20,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v76.686";
+const APP_VERSION = "v76.687";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -19319,7 +19319,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     if (!window.StampsCore) return;
     const st = window.StampsCore.load(), d = new Date(), today = d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate();
     if (st.lastDaily === today) return;
-    const pool = liveChars.filter(c => c && !c.npc && !settingsFor(c.id).engineerEyes);
+    const pickIds = ((st.opt || {}).letterPick || []).filter(id => liveChars.some(c => c.id === id));   // 卡池设置里挑了谁寄，就只在这几个人里轮；没挑＝所有人
+    const pool = liveChars.filter(c => c && !c.npc && !settingsFor(c.id).engineerEyes && (!pickIds.length || pickIds.includes(c.id)));
     if (!pool.length) return;
     const c = pool[Math.floor(Math.random() * pool.length)], id = "sl_" + Date.now().toString(36);
     st.lastDaily = today; window.StampsCore.save(st);
