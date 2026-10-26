@@ -20,7 +20,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v76.677";
+const APP_VERSION = "v76.678";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -19315,7 +19315,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   };
   // 邮票册「今天的信」（她 2026-10-26）：每天挑一个人，把一张单抽券寄进你们的聊天，点一下领。不调模型；
   //   他那边看得到这条（content 里写着），知道是他寄来的。一天一张，记在 x_stamps.lastDaily 上，跟开邮票册送的不叠
-  const stampLetterSweep = () => {
+  const stampLetterSweep = async () => {
     if (!window.StampsCore) return;
     const st = window.StampsCore.load(), d = new Date(), today = d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate();
     if (st.lastDaily === today) return;
@@ -19323,7 +19323,15 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     if (!pool.length) return;
     const c = pool[Math.floor(Math.random() * pool.length)], id = "sl_" + Date.now().toString(36);
     st.lastDaily = today; window.StampsCore.save(st);
-    pChat(c.id, p => [...p, { role: "char", kind: "stampletter", content: "〔从邮票册给你寄了一封「今天的信」：里面是一张单抽券，点一下就能领〕", ts: Date.now(), stampLetter: { id, day: today, by: c.remark || c.name }, read: false }]);
+    // 设置里开了「信里带他一句话」：多一次调用，让他写一两句附言（跟今日签一样，用他的口气）；没开或没写出来就只寄券
+    let note = "";
+    if ((st.opt || {}).letterLine && active) {
+      try { const d = await runProbe(apiFor(c.id), ctxFor(c), { voice: true, tag: "stamps",
+          instruction: "你今天从「邮票册」给她寄了一封信，信里是一张单抽券（她可以拿去抽一张印着你的邮票）。在信上写一两句附言，照你的性子和你们现在的关系，像你平时跟她说话那样，短。",
+          schemaHint: "{\"note\":\"一两句附言\"}", maxTokens: 4000 });
+        note = String((d && d.note) || "").trim().slice(0, 80); } catch (e) {}
+    }
+    pChat(c.id, p => [...p, { role: "char", kind: "stampletter", content: "〔从邮票册给你寄了一封「今天的信」：里面是一张单抽券，点一下就能领〕" + (note ? "附言：" + note : ""), ts: Date.now(), stampLetter: { id, day: today, by: c.remark || c.name, note }, read: false }]);
   };
   // 今日签（她 2026-10-05）：开了的那几位，每天替她抽一张发进私聊。一天一人一张，走公共闸（成了不再跑、失败两小时后再试）
   const astroSignSweep = async () => {

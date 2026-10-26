@@ -189,6 +189,7 @@
         h2("div", { style: { fontSize: fs(9.5), letterSpacing: ".3em", color: "#827C6F" } }, "邮票册 · 今天的信"),
         h2("div", { style: { marginTop: 4, fontFamily: "var(--f-display,'Fraunces',serif)", fontSize: fs(15), color: "#39382F" } }, "一张单抽券"),
         h2("div", { style: { marginTop: 2, fontSize: fs(11), color: "#827C6F" } }, (x.by ? x.by + " 寄来的" : "") + (x.day ? " · " + x.day.split("-").slice(1).join(".") : "")),
+        x.note ? h2("div", { "data-wk": "stampletternote", style: { marginTop: 8, paddingLeft: 8, borderLeft: "2px solid rgba(40,92,75,.35)", fontStyle: "italic", fontSize: fs(12.5), lineHeight: 1.6, color: "#2f5d4a" } }, "「" + x.note + "」") : null,
         h2("div", { style: { position: "absolute", right: 10, top: 8, width: 40, height: 40, borderRadius: 999, border: "1.5px solid #b23a2e", color: "#b23a2e", transform: "rotate(-12deg)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: fs(10) } }, got ? "已领" : "平信"),
         h2("button", { onClick: take, disabled: got, style: { marginTop: 10, width: "100%", padding: "7px 0", borderRadius: 8, border: "none", background: got ? "rgba(47,42,34,.08)" : "#285C4B", color: got ? "#827C6F" : "#FFF8E9", fontSize: fs(12.5) } }, got ? "领过了 · 去邮票册寄一封" : "领取")));
   };
