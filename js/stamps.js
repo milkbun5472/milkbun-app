@@ -94,6 +94,9 @@
       const st0 = C().load(); st0.cards = st0.cards.map(c => c.id === card.id ? Object.assign({}, c, { storyBg: nx }) : c); C().save(st0); };
     const [sid, setSid] = useState((start && secs.some(x => x.id === start) ? start : null) || (secs[0] && secs[0].id));   // 从回廊点哪一幕就从哪一幕开始
     const [i, setI] = useState(0);
+    const [stOpt, setStOpt] = useState(() => C().load().opt || {});
+    const audRef = useRef(null), autoT = useRef(0);
+    const stopAudio = () => { try { if (audRef.current) { audRef.current.onended = null; audRef.current.pause(); } } catch (e) {} audRef.current = null; };
     const [picks, setPicks] = useState({});   // 一节中间的小选项：选了哪个（同一节里换个回应，走完又回到主线）
     useEffect(() => { setPicks({}); if (onSeen && sid) onSeen(sid); }, [sid]);
     const sec = secs.find(s => s.id === sid) || secs[0];
@@ -120,30 +123,60 @@
     const tap = () => { if (beat._pick != null) return; if (!atEnd) setI(i + 1); else if (isFinal()) onClose(); };   // 走到头了，点哪儿都是退出
     const nextOf = cur => { const L = Number(cur.lv) || 1; return secs.filter(x => !x.hidden && (Number(x.lv) || 1) > L).sort((a, b) => (Number(a.lv) || 1) - (Number(b.lv) || 1))[0] || null; };
     const who = beat.who === "he" ? char.name : beat.who === "me" ? meName : beat.who === "inner" ? char.name + " 心里" : "";
+    // 选项那一下，框里接着显示上一句（选项本身挪到屏幕中间）
+    const shown = beat._pick != null ? (flat[i - 1] || {}) : beat;
+    const shownWho = shown.who === "he" ? char.name : shown.who === "me" ? meName : shown.who === "inner" ? char.name + " 心里" : "";
+    const go = () => { if (beat._pick != null) return; if (!atEnd) setI(x => x + 1); };
+    // 语音和自动播放（她 2026-10-26）：两个开关记在卡池设置里。开了语音，轮到他说话就念（念过的存着，再听不花钱）；
+    //   开了自动播放：有语音就念完翻页，没语音就按字数停几秒翻页；到选项、到一节结尾就停
+    const voiceOn = !!stOpt.storyVoice, autoOn = !!stOpt.storyAuto;
+    const vid = char.voiceId || (typeof ttsDefaultVoice === "function" && typeof loadTtsApi === "function" ? ttsDefaultVoice(loadTtsApi()) : "");
+    const canVoice = typeof ttsSpeak === "function" && typeof ttsReady === "function" && typeof loadTtsApi === "function" && ttsReady(loadTtsApi()) && !!vid;
+    const say = (txt, done) => {
+      stopAudio();
+      const sp = typeof splitBilingual === "function" ? splitBilingual(String(txt || "")) : null, line = sp ? sp.text : String(txt || "");
+      if (!line.trim() || !canVoice) { done && done(false); return; }
+      ttsSpeak(line, vid).then(blob => { const u = URL.createObjectURL(blob), a = new Audio(u); audRef.current = a; a.onended = () => { URL.revokeObjectURL(u); done && done(true); }; return a.play(); })
+        .catch(() => { done && done(false); });
+    };
+    useEffect(() => {
+      clearTimeout(autoT.current);
+      if (beat._pick != null) { stopAudio(); return; }
+      const next = () => { if (autoOn && !atEnd) autoT.current = setTimeout(go, 350); };
+      const timer = () => { if (autoOn && !atEnd) autoT.current = setTimeout(go, Math.min(9000, 1500 + String(beat.text || "").length * 110)); };
+      if (voiceOn && beat.who === "he" && canVoice) say(beat.text, ok => ok ? next() : timer());
+      else { stopAudio(); timer(); }
+      return () => clearTimeout(autoT.current);
+    }, [sid, i, beat._pick, voiceOn, autoOn]);
+    useEffect(() => () => { clearTimeout(autoT.current); stopAudio(); }, []);
+    const toggle = k => { const st0 = C().load(); st0.opt = Object.assign({}, st0.opt, { [k]: !(st0.opt || {})[k] }); C().save(st0); setStOpt(st0.opt); };
+    const choiceBtn = { textAlign: "center", width: "100%", maxWidth: 340, padding: "12px 14px", borderRadius: 12, border: "1px solid rgba(255,255,255,.45)", background: "rgba(16,14,22,.78)", color: "#fff", fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", boxShadow: "0 6px 18px rgba(0,0,0,.35)", backdropFilter: "blur(4px)" };
     return h("div", { "data-wk": "stampstory", className: "fixed inset-0 flex flex-col", style: { zIndex: 255, background: url ? "#111 center/cover no-repeat url(" + url + ")" : "linear-gradient(#2b2436,#14111b)" } },
       h("div", { className: "flex items-center", style: { padding: "calc(env(safe-area-inset-top) + 10px) 14px 8px", background: "linear-gradient(rgba(0,0,0,.55), transparent)" } },
         h("button", { onClick: onClose, className: "active:opacity-60", style: { color: "#fff", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))" } }, "‹ 收起"),
         h("div", { className: "flex-1 text-center", style: { color: "#fff", fontFamily: F_DISPLAY, fontSize: "calc(14px * var(--app-fs, 1))" } }, sec.title || card.text.name),
+        h("button", { "data-wk": "stampstoryvoice", "data-on": voiceOn ? "1" : "0", onClick: () => { if (!canVoice && !voiceOn) { alert("要先在「设置」里配好语音（minimax 那些），他的音色在人格档案馆挑。"); return; } toggle("storyVoice"); }, className: "active:opacity-60",
+          style: { marginRight: 6, color: "#fff", fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", padding: "3px 9px", borderRadius: 999, border: "1px solid rgba(255,255,255," + (voiceOn ? ".9" : ".35") + ")", background: voiceOn ? "rgba(255,255,255,.18)" : "transparent" } }, (voiceOn ? "🔊" : "🔈") + " 语音"),
+        h("button", { "data-wk": "stampstoryauto", "data-on": autoOn ? "1" : "0", onClick: () => toggle("storyAuto"), className: "active:opacity-60",
+          style: { marginRight: 6, color: "#fff", fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", padding: "3px 9px", borderRadius: 999, border: "1px solid rgba(255,255,255," + (autoOn ? ".9" : ".35") + ")", background: autoOn ? "rgba(255,255,255,.18)" : "transparent" } }, (autoOn ? "⏸" : "▶") + " 自动"),
         opts.length > 1 ? h("button", { "data-wk": "stampstorybg", onClick: nextBg, className: "active:opacity-60", style: { color: "#fff", fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", padding: "3px 10px", borderRadius: 999, border: "1px solid rgba(255,255,255,.5)" } }, "背景：" + curBg[1]) : h("span", { style: { width: 44 } })),
-      h("div", { className: "flex-1", onClick: tap }),
+      // 选项放在屏幕中间（她 2026-10-26），不挤在对话框里
+      h("div", { "data-wk": "stampstorychoices", className: "flex-1 flex flex-col items-center justify-center", onClick: tap, style: { padding: "0 28px", gap: 10 } },
+        beat._pick != null ? (beat.options || []).map((o, k) => h("button", { key: "p" + k, "data-wk": "stampstorychoice", "data-inline": "1", onClick: e => { e.stopPropagation(); setPicks(p => Object.assign({}, p, { [beat._pick]: k })); }, className: "active:opacity-80", style: choiceBtn }, h(BiText, { text: o.text || "" }))) : null,
+        atEnd && (sec.choices || []).length ? sec.choices.map((c, k) => { const to = secs.find(s => s.id === c.go) || nextOf(sec); const lk = to && locked(to);
+            return h("button", { key: "c" + k, "data-wk": "stampstorychoice", "data-locked": lk ? "1" : "0", onClick: e => { e.stopPropagation(); if (!to || lk) return; setSid(to.id); setI(0); }, className: "active:opacity-80",
+              style: Object.assign({}, choiceBtn, lk ? { background: "rgba(16,14,22,.5)", color: "rgba(255,255,255,.5)" } : {}) },
+              to && to.hidden ? h("span", { "data-wk": "stampstorysecret", style: { marginRight: 6, color: "#e3b65c" } }, "✦") : null,
+              h(BiText, { text: c.text || "" }), lk ? h("div", { style: { marginTop: 2, fontSize: "calc(11px * var(--app-fs, 1))" } }, "升到 " + to.lv + " 级才看得到") : null); }) : null,
+        atEnd && !(sec.choices || []).length && !sec.end && nextOf(sec) ? (() => { const nx = nextOf(sec);
+          return h("button", { "data-wk": "stampstorychoice", "data-locked": locked(nx) ? "1" : "0", onClick: e => { e.stopPropagation(); if (locked(nx)) return; setSid(nx.id); setI(0); }, className: "active:opacity-80",
+            style: Object.assign({}, choiceBtn, locked(nx) ? { background: "rgba(16,14,22,.5)", color: "rgba(255,255,255,.5)" } : {}) }, "下一幕：" + (nx.title || ""), locked(nx) ? h("div", { style: { marginTop: 2, fontSize: "calc(11px * var(--app-fs, 1))" } }, "升到 " + nx.lv + " 级才看得到") : null); })() : null),
       h("div", { "data-wk": "stampstorybox", onClick: tap,
         style: { margin: "0 12px calc(env(safe-area-inset-bottom) * 0.4 + 14px)", borderRadius: 14, background: "rgba(16,14,22,.82)", border: "1px solid rgba(255,255,255,.18)", padding: "14px 16px 30px", minHeight: 150, position: "relative", color: "#f4efe6" } },
-        who ? h("div", { "data-wk": "stampstorywho", style: { display: "inline-block", marginBottom: 6, padding: "2px 10px", borderRadius: 999, background: beat.who === "he" ? RC.SSR : beat.who === "inner" ? "#577767" : "#6b6480", fontFamily: F_DISPLAY, fontSize: "calc(13px * var(--app-fs, 1))" } }, who) : null,
-        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(15px * var(--app-fs, 1))", lineHeight: 1.75, fontStyle: who && beat.who !== "inner" ? "normal" : "italic", opacity: who ? 1 : .85, whiteSpace: "pre-wrap" } }, h(BiText, { text: beat.text || "" })),
-        beat._pick != null ? h("div", { className: "flex flex-col", style: { gap: 8, marginTop: 4 } },
-          (beat.options || []).map((o, k) => h("button", { key: k, "data-wk": "stampstorychoice", "data-inline": "1", onClick: e => { e.stopPropagation(); setPicks(p => Object.assign({}, p, { [beat._pick]: k })); },
-            style: { textAlign: "left", padding: "10px 12px", borderRadius: 10, border: "1px solid rgba(255,255,255,.3)", background: "rgba(255,255,255,.1)", color: "#fff", fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))" } }, o.text))) : null,
-        atEnd && (sec.choices || []).length ? h("div", { className: "flex flex-col", style: { gap: 8, marginTop: 12 } },
-          sec.choices.map((c, k) => { const to = secs.find(s => s.id === c.go) || nextOf(sec); const lk = to && locked(to);
-            return h("button", { key: k, "data-wk": "stampstorychoice", "data-locked": lk ? "1" : "0", onClick: e => { e.stopPropagation(); if (!to || lk) return; setSid(to.id); setI(0); },
-              style: { textAlign: "left", padding: "10px 12px", borderRadius: 10, border: "1px solid rgba(255,255,255,.3)", background: lk ? "transparent" : "rgba(255,255,255,.1)", color: lk ? "rgba(255,255,255,.45)" : "#fff", fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))" } },
-              to && to.hidden ? h("span", { "data-wk": "stampstorysecret", style: { marginRight: 6, color: "#e3b65c" } }, "✦") : null,
-              c.text, lk ? h("span", { style: { marginLeft: 6, fontSize: "calc(11px * var(--app-fs, 1))" } }, "· 升到 " + to.lv + " 级才看得到") : null); })) : null,
-        atEnd && !(sec.choices || []).length ? (() => { const nx = !sec.end && nextOf(sec);
-          return nx ? h("button", { "data-wk": "stampstorychoice", "data-locked": locked(nx) ? "1" : "0", onClick: e => { e.stopPropagation(); if (locked(nx)) return; setSid(nx.id); setI(0); },
-              style: { marginTop: 12, width: "100%", textAlign: "left", padding: "10px 12px", borderRadius: 10, border: "1px solid rgba(255,255,255,.3)", background: locked(nx) ? "transparent" : "rgba(255,255,255,.1)", color: locked(nx) ? "rgba(255,255,255,.45)" : "#fff", fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))" } },
-              "下一幕：" + (nx.title || ""), locked(nx) ? h("span", { style: { marginLeft: 6, fontSize: "calc(11px * var(--app-fs, 1))" } }, "· 升到 " + nx.lv + " 级才看得到") : null)
-            : h("div", { style: { marginTop: 12, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", opacity: .7 } }, "—— 这条路走到头了 · 点一下退出 ——"); })() : null,
+        shownWho ? h("div", { "data-wk": "stampstorywho", style: { display: "inline-block", marginBottom: 6, padding: "2px 10px", borderRadius: 999, background: shown.who === "he" ? RC.SSR : shown.who === "inner" ? "#577767" : "#6b6480", fontFamily: F_DISPLAY, fontSize: "calc(13px * var(--app-fs, 1))" } }, shownWho) : null,
+        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(15px * var(--app-fs, 1))", lineHeight: 1.75, fontStyle: shownWho && shown.who !== "inner" ? "normal" : "italic", opacity: shownWho ? 1 : .85, whiteSpace: "pre-wrap" } }, h(BiText, { text: shown.text || "" }),
+          shown.who === "he" && canVoice ? h("button", { "data-wk": "stampstorysay", onClick: e => { e.stopPropagation(); say(shown.text); }, style: { marginLeft: 6, fontSize: "0.85em", opacity: .75, verticalAlign: "middle" } }, "🔊") : null),
+        isFinal() ? h("div", { style: { marginTop: 12, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", opacity: .7 } }, "—— 这条路走到头了 · 点一下退出 ——") : null,
         !atEnd && beat._pick == null ? h("div", { "data-wk": "stampstorynext", style: { position: "absolute", right: 14, bottom: 10, fontSize: "calc(11px * var(--app-fs, 1))", opacity: .5 } }, "点一下继续 ▾") : null));
   }
 
@@ -347,7 +380,12 @@
           h("div", { className: "flex items-center", style: { marginTop: 22, gap: 10 } },
             h("div", { style: { fontFamily: F_DISPLAY, fontSize: fs(14), color: GOLD } }, "✦ 时刻回廊"),
             h("div", { style: { flex: 1, height: 1, background: LINE } })),
-          tx.line ? h("div", { style: { marginTop: 10, textAlign: "center", fontFamily: F_DISPLAY, fontSize: fs(15), color: P } }, "「" + tx.line + "」") : null,
+          tx.line ? h("div", { style: { marginTop: 10, textAlign: "center", fontFamily: F_DISPLAY, fontSize: fs(15), color: P } }, "「", h(BiText, { text: tx.line }), "」",
+            // 点喇叭听他念这句（念过的存着，再听不花钱）
+            typeof ttsSpeak === "function" && typeof ttsReady === "function" && typeof loadTtsApi === "function" && ttsReady(loadTtsApi()) ? h("button", { "data-wk": "stamplinesay", onClick: () => {
+              const vid = (char && char.voiceId) || ttsDefaultVoice(loadTtsApi()); const sp = splitBilingual(String(tx.line)), line = sp ? sp.text : String(tx.line);
+              ttsSpeak(line, vid).then(b => { const u = URL.createObjectURL(b), a2 = new Audio(u); a2.onended = () => URL.revokeObjectURL(u); a2.play(); }).catch(() => toast("没念出来，看看设置里的语音配好没有")); },
+              style: { marginLeft: 6, fontSize: fs(13), opacity: .7 } }, "🔊") : null) : null,
           h("div", { "data-wk": "stampcorridor", className: "flex overflow-x-auto", style: { gap: 10, marginTop: 12, paddingBottom: 4, marginRight: -20, paddingRight: 20 } },
             nodesShown.map((n, i) => { const lock = n.lv > lv, on = openNode && openNode.k === n.k;
               const left = lock ? (() => { let c = 0; for (let l = lv; l < n.lv; l++) c += C().levelCost(card.rarity, l); return c; })() : 0;
