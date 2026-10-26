@@ -20,7 +20,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v76.663";
+const APP_VERSION = "v76.664";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -17006,13 +17006,15 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
           + "\n" + (list.some(c => c.rarity === "R") ? STAMP_RARITY_SPEC.R + "\n" : "") + (list.some(c => c.rarity === "SR") ? STAMP_RARITY_SPEC.SR + "\n" : "")
           + "每张都有 name（卡名，八个字以内）、gist（一句话记下这张写的是什么事、在哪、怎么收的尾，给以后去重用）和 shot。" + STAMP_SHOT_SPEC
           + stampPrevLine(prev) + "\n这几张之间也是不同的事。",
-        schemaHint: "{\"cards\":[{\"name\":\"\",\"narration\":\"(R)\",\"thought\":\"(R)\",\"before\":{\"narration\":\"\",\"thought\":\"\"},\"after\":{\"narration\":\"\",\"thought\":\"\"},\"real\":\"(R)\",\"line\":\"(SR)\",\"open\":\"(SR)\",\"rest\":\"(SR)\",\"sequel\":\"(SR)\",\"hidden\":\"(SR)\",\"his\":\"(SR)\",\"keepsake\":{\"name\":\"(SR)\",\"desc\":\"\"},\"sound\":\"(R)\",\"back\":\"(R)\",\"gist\":\"\",\"shot\":\"\"}]}",
+        // 格式样例里不放 (R)/(SR) 这种占位：模型会照抄进正文。R、SR 各给一份，按这几张里有哪几种拼
+        schemaHint: "{\"cards\":[" + [list.some(c => c.rarity === "R") ? "{\"name\":\"\",\"narration\":\"\",\"thought\":\"\",\"before\":{\"narration\":\"\",\"thought\":\"\"},\"after\":{\"narration\":\"\",\"thought\":\"\"},\"real\":\"\",\"sound\":\"\",\"back\":\"\",\"gist\":\"\",\"shot\":\"\"}" : "",
+          list.some(c => c.rarity === "SR") ? "{\"name\":\"\",\"line\":\"\",\"open\":\"\",\"rest\":\"\",\"sequel\":\"\",\"hidden\":\"\",\"his\":\"\",\"keepsake\":{\"name\":\"\",\"desc\":\"\"},\"gist\":\"\",\"shot\":\"\"}" : ""].filter(Boolean).join(",") + "]}（按上面的顺序一张一个对象：R 卡用第一种的栏，SR 卡用第二种的栏）",
         maxTokens: 65000
       });
       const arr = Array.isArray(d && d.cards) ? d.cards : [];
       list.forEach((c, i) => {
         const x = arr[i];
-        if (x && x.name) stampSaveCard(c.id, { writing: false, err: "", text: x });
+        if (x && x.name) stampSaveCard(c.id, { writing: false, err: "", text: window.StampsCore.cleanText(x, c.rarity) });
         else stampSaveCard(c.id, { writing: false, err: "这一张没写出来，点一下重写" });
       });
     } catch (e) { list.forEach(c => stampSaveCard(c.id, { writing: false, err: "没写出来：" + String(e && e.message || e).slice(0, 60) })); }

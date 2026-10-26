@@ -150,7 +150,7 @@
     const [story, setStory] = useState(false);
     const [node, setNode] = useState(null);
     const [pop, setPop] = useState(0);
-    const tx = card.text, lv = card.lv || 1;
+    const tx = C().cleanText ? C().cleanText(card.text, card.rarity) : card.text, lv = card.lv || 1;
     // 升级页：一本打开的集邮册。奶油纸底、象牙白的卡、鼠尾草绿的盖印面板、旧铜金的邮戳；稀有度只让邮票本身变特别，整页不跟着变
     const P = "#39382F", P7 = "rgba(57,56,47,.78)", P5 = "#827C6F", GOLD = "#285C4B", LINE = "rgba(87,119,103,.38)", COPPER = "#B58C55", FRAME = "#577767";
     const rcL = card.rarity === "R" ? P : RC[card.rarity];
@@ -414,6 +414,10 @@
     const [begging, setBegging] = useState(false), [begLine, setBegLine] = useState("");
     const [paintDraft, setPaintDraft] = useState(null);
     useEffect(() => { const f = () => setSt(C().load()); window.addEventListener("stamps-change", f); return () => window.removeEventListener("stamps-change", f); }, []);
+    // 早先写的卡里带着「(R)」「(SR)」的，打开邮票册时洗一遍存回去（只动带标记或错栏的那几张）
+    useEffect(() => { try { const st0 = C().load(); let n = 0;
+      st0.cards = st0.cards.map(c => { if (!c.text || c.rarity === "SSR" && !/[（(]\s*S?S?R\s*[）)]/.test(JSON.stringify(c.text))) return c; const t2 = C().cleanText(c.text, c.rarity); if (JSON.stringify(t2) === JSON.stringify(c.text)) return c; n++; return Object.assign({}, c, { text: t2 }); });
+      if (n) C().save(st0); } catch (e) {} }, []);
     useEffect(() => { const got = C().grantOnOpen(Date.now(), characters.map(c => { const w = c.birthday ? C().bdayWindow(c.birthday, Date.now()) : null; return w ? { id: c.id, name: c.remark || c.name, year: w.year } : null; }).filter(Boolean)
       .concat((props.myBdays || []).map(m => { const w = m.birthday ? C().bdayWindow(m.birthday, Date.now()) : null; return w ? { id: "me_" + m.id, name: "你（" + (m.name || "你") + "）", year: w.year } : null; }).filter(Boolean))); if (got.length) { setGotNote(got); setSt(C().load()); } }, []);
     const lims = C().activeLimited(Date.now());

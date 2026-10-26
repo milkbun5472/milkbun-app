@@ -131,11 +131,24 @@
   // 卡里哪几段几级开（SSR 的节在剧情里按节标的 lv 开）
   const UNLOCK = { R: { before: 10, after: 20, real: 30, sound: 30 }, SR: { rest: 10, sequel: 20, hidden: 40, his: 40 } };
 
+  // 写回来的卡洗一遍（她 2026-10-26：卡上冒出「(R)」「(SR)」——模型把格式样例里的占位标记抄进了正文，R 卡还多写了 SR 的台词）：
+  //   去掉开头的 (R)/(SR)/（SSR）这类标记；R 卡只留 R 的那几栏，SR 卡只留 SR 的，免得错栏的内容冒出来。旧卡打开时也照这个洗
+  const KEEP = { R: ["name", "gist", "shot", "narration", "thought", "before", "after", "real", "sound", "back"], SR: ["name", "gist", "shot", "line", "open", "rest", "sequel", "hidden", "his", "keepsake"] };
+  const tagRe = /^\s*[（(]\s*(?:SSR|SR|R)\s*[）)]\s*/i;
+  function cleanStr(v) { return typeof v === "string" ? v.replace(tagRe, "") : v; }
+  function cleanDeep(v) { if (typeof v === "string") return cleanStr(v); if (Array.isArray(v)) return v.map(cleanDeep); if (v && typeof v === "object") { const o = {}; Object.keys(v).forEach(k => { o[k] = cleanDeep(v[k]); }); return o; } return v; }
+  function cleanText(tx, rarity) {
+    if (!tx || typeof tx !== "object") return tx;
+    const keep = KEEP[rarity], out = {};
+    Object.keys(tx).forEach(k => { if (!keep || keep.includes(k)) out[k] = cleanDeep(tx[k]); });
+    return out;
+  }
+
   // 剧情按等级解锁：SSR 每十级一节（1 级第一节，40 级结局，50 级隐藏的路）
   function ssrUnlocked(lv) { return { sections: Math.min(4, 1 + Math.floor(lv / 10)), ending: lv >= 40, hidden: lv >= 50 }; }
 
   g.StampsCore = { PRICE_ONE, PRICE_TEN, RATE, SOFT_FROM, HARD_AT, SR_EVERY, BDAY, CAP, FULL_COST, GIFT, GAIN, LIMITED,
-    DUPE_INK, UNLOCK, levelUp, canBeg, markBeg, load, save, gain, grantOnOpen, activeLimited, bdayWindow, rollRarity, pay, levelCost, isGate, gateBlocked, ssrUnlocked };
+    cleanText, DUPE_INK, UNLOCK, levelUp, canBeg, markBeg, load, save, gain, grantOnOpen, activeLimited, bdayWindow, rollRarity, pay, levelCost, isGate, gateBlocked, ssrUnlocked };
   // 各处喊一声就记上
   g.stampGain = gain;
   // 别的玩法不一处处去挂：callAI 成功一枪（她按下去的、不是后台）会广播 ai-ok，这儿按它是干嘛的分进几档。
