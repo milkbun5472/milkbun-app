@@ -8765,6 +8765,7 @@ function Messages({
   onRegenMomentComments,
   momentMoreBusy,
   onDelMoment,
+  onTopMoment,
   onOpenMomProfile,
   onEditProfile,
   onOpenWallet,
@@ -9084,6 +9085,7 @@ function Messages({
     onRegen: onRegenMomentComments,
     moreBusy: momentMoreBusy,
     onDelete: onDelMoment,
+    onTop: onTopMoment,
     onPin: onPinMoment,
     onOpenProfile: cid => onOpenMomProfile && onOpenMomProfile(cid, false)
   }), tab === "me" && h("div", {
@@ -9827,6 +9829,11 @@ function momentDisplayName(characters, who) {
   const hit = (characters || []).find(c => c && (norm(c.name) === raw || norm(c.remark) === raw));
   return hit ? (hit.remark || hit.name) : raw;
 }
+// 置顶的（只认自己发的）排最前，其余照原来的先后（群友 2026-10-26）
+function momTopFirst(list) {
+  const arr = Array.isArray(list) ? list : [];
+  return arr.filter(m => m && m.mine && m.top).concat(arr.filter(m => !(m && m.mine && m.top)));
+}
 function MomentsFeed({
   npcs,
   characters: rawCharacters,
@@ -9842,6 +9849,7 @@ function MomentsFeed({
   onRegen,
   moreBusy,
   onDelete,
+  onTop,
   onPin,
   onOpenProfile
 }) {
@@ -9928,7 +9936,7 @@ function MomentsFeed({
   }), !gen && moments.length === 0 && /*#__PURE__*/React.createElement(Empty, {
     text: "朋友圈还没有动态",
     sub: "点右上「发朋友圈」或「角色发」"
-  }), moments.map(m => {
+  }), momTopFirst(moments).map(m => {
     const isMine = m.mine;
     // 开了「发朋友圈」的配角发的那条也摆出来（她 2026-10-22）
     const c = isMine ? null : (characters.find(x => x.id === m.characterId) || (npcs || []).find(x => x && x.id === m.characterId));
@@ -10050,7 +10058,10 @@ function MomentsFeed({
       // 收进时刻：连同底下的评论一起，收进发这条的那位名下（她 2026-10-06）
       onClick: () => onPin(m), "data-wk": "mompin",
       style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog }
-    }, "收进时刻"), onDelete && h("button", {
+    }, "收进时刻"), onTop && isMine && h("button", {
+      onClick: () => onTop(m.id), "data-wk": "momtop", "data-on": m.top ? "1" : "0",
+      style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: m.top ? t.accent : t.fog }
+    }, m.top ? "取消置顶" : "置顶"), onDelete && h("button", {
       onClick: () => setDelId(m.id),
       style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog }
     }, "删除")), h(MomentRemindLine, { m, characters }), m.poll && h(MomentPoll, { poll: m.poll, characters }), m.likers && m.likers.length > 0 && h("div", {
@@ -10221,7 +10232,7 @@ function AutoImgSwitch({ storeKey, color }) {
 }
 function MomentAutoImgSwitch() { return h(AutoImgSwitch, { storeKey: "x_momentAutoImg" }); }
 // 朋友圈个人页（仿微信「我的相册/TA 的朋友圈」）：封面 + 头像 + 签名 + 此人所有动态；me 可发/删/换封面
-function MomentsProfile({ isMe, character: rawCharacter, profile, characters: rawCharacters, moments, cover, coverPos, onSetCoverPos, coverText, gen, friendGroups, signature, onSetCover, onDelMoment, onLikeMoment, onCommentMoment, onPostMoment, onBack }) {
+function MomentsProfile({ isMe, character: rawCharacter, profile, characters: rawCharacters, moments, cover, coverPos, onSetCoverPos, coverText, gen, friendGroups, signature, onSetCover, onDelMoment, onTopMoment, onLikeMoment, onCommentMoment, onPostMoment, onBack }) {
   const character = chatFace(rawCharacter), characters = (rawCharacters || []).map(chatFace);   // 主页上的头像也认聊天那张
   const t = useTheme();
   const [compose, setCompose] = useState(false);
@@ -10240,7 +10251,7 @@ function MomentsProfile({ isMe, character: rawCharacter, profile, characters: ra
   const name = isMe ? (profile.name || "我") : (character.remark || character.name);
   // 签名：优先用传进来的（角色页＝查手机·微信里那句朋友圈签名），否则回落到 motto/tagline
   const sign = (signature != null && String(signature).trim()) ? signature : (isMe ? (profile.tagline || "") : (character.motto || character.tagline || ""));
-  const list = (moments || []).filter(m => isMe ? m.mine : (m.characterId === character.id && !m.mine)).slice().sort((a, b) => (b.ts || 0) - (a.ts || 0));
+  const list = (moments || []).filter(m => isMe ? m.mine : (m.characterId === character.id && !m.mine)).slice().sort((a, b) => ((b.mine && b.top) ? 1 : 0) - ((a.mine && a.top) ? 1 : 0) || (b.ts || 0) - (a.ts || 0));
   // 封面拖着调位置（群友 2026-10-08：「朋友圈壁纸要是能自己调位置就好了」）：
   //   选完图直接进调整，或者点「调位置」；在封面上拖，松手不存，点「好了」才存。
   const posNow = adj ? (adj.x + "% " + adj.y + "%") : (coverPos || "center");
@@ -10274,6 +10285,7 @@ function MomentsProfile({ isMe, character: rawCharacter, profile, characters: ra
       h("span", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog } }, typeof timeAgoOn === "function" ? timeAgoOn(m.ts, m.mine ? null : m.characterId) : timeAgo(m.ts)),
       h("button", { onClick: () => onLikeMoment(m.id), className: "active:opacity-60 flex items-center gap-1" }, h(IHeart, { size: 13, color: m.liked ? t.accent : t.fog, filled: m.liked }), (m.likeCount || 0) > 0 && h("span", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog } }, m.likeCount)),
       h("button", { onClick: () => { setCommenting(m.id); setCReply(null); setCText(""); }, style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog } }, "评论"),
+      onTopMoment && m.mine && h("button", { "data-wk": "momtop", "data-on": m.top ? "1" : "0", onClick: () => onTopMoment(m.id), style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: m.top ? t.accent : t.fog } }, m.top ? "取消置顶" : "置顶"),
       onDelMoment && h("button", { onClick: () => setDelId(m.id), style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog } }, "删除")),
     h(MomentRemindLine, { m, characters }),
     m.poll ? h(MomentPoll, { poll: m.poll, characters }) : null,
