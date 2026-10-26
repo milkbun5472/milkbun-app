@@ -21589,12 +21589,13 @@ function ChatLorePicker({ character, entries, onBulk }) {
   const box = (on, part) => h("span", { style: { width: 20, height: 20, borderRadius: 5, flexShrink: 0, display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: "calc(12px * var(--app-fs, 1))",
     border: "1.5px solid " + (on ? t.ink : t.line), background: on === true ? t.ink : "transparent", color: t.bg } }, on === true ? "✓" : part ? "–" : "");
   const offN = live.filter(e => !uses(e)).length;
+  const shutN = (entries || []).filter(e => e && e.enabled === false && String(e.payload || "").trim() && e.category !== "生图").length;
   return h("div", { "data-wk": "chatlore", "data-only": offOnly ? "off" : "all", style: { paddingTop: 8 } },
     h("div", { "data-wk": "chatloreview", style: { display: "flex", border: "1px solid " + t.line, borderRadius: 10, overflow: "hidden", marginBottom: 8 } },
       [[false, "全部"], [true, "只看没用的" + (offN ? " · " + offN : "")]].map(([v, zh]) => h("button", { key: zh, "data-part": v ? "off" : "all", "data-on": offOnly === v ? "1" : "0", onClick: () => setOffOnly(v),
         style: { flex: 1, minHeight: 40, border: "none", background: offOnly === v ? t.ink : "transparent", color: offOnly === v ? t.bg2 : t.sub, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))" } }, zh))),
-    offOnly && !shown.length ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog, padding: "6px 0" } }, "在用的词条 TA 全都用着。") : null,
-    h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.6, marginBottom: 6 } }, offOnly ? "这几条 TA 现在没在用。点一条就给 TA 用上，当场生效，不影响别的人。" : "勾着的是 TA 用的。点了当场生效，不影响别的人；关键词、去哪几处照世界书里那条来。"),
+    offOnly && !shown.length ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog, padding: "6px 0" } }, "在用的词条 TA 全都用着。" + (shutN ? "世界书里还有 " + shutN + " 条是关着的，谁都不用，这里不列；要用先去世界书把那一条或那一夹的开关打开。" : "")) : null,
+    offOnly && !shown.length ? null : h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.6, marginBottom: 6 } }, offOnly ? "这几条 TA 现在没在用。点一条就给 TA 用上，当场生效，不影响别的人。" : "勾着的是 TA 用的。点了当场生效，不影响别的人；关键词、去哪几处照世界书里那条来。"),
     names.map(fd => {
       const items = shown.filter(e => fOf(e) === fd);
       if (!items.length) return null;
