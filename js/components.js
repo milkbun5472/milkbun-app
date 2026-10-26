@@ -2210,24 +2210,38 @@ function msgAudioCtx() {
 }
 // iOS 要在手指碰过屏幕之后才放得出声：第一次点屏幕时先把声道打开
 try { const _unlock = () => { msgAudioCtx(); window.removeEventListener("pointerdown", _unlock, true); }; window.addEventListener("pointerdown", _unlock, true); } catch (e) {}
+// 音量 0.1～3：1 以上是往上加的（群友 2026-10-26：开到大还是会被音乐盖住）。走一个压限器，开大了也不会破音
 function playMsgSound(id, vol) {
-  const v = Math.max(0.05, Math.min(1, vol == null ? 0.6 : Number(vol)));
+  const v = Math.max(0.1, Math.min(3, vol == null ? 1 : Number(vol)));
   if (!id) return;
+  const ctx = msgAudioCtx();
+  if (!ctx) return;
+  const out = ctx.createDynamicsCompressor();
+  out.threshold.value = -6; out.knee.value = 6; out.ratio.value = 8; out.attack.value = 0.002; out.release.value = 0.12;
+  const master = ctx.createGain(); master.gain.value = v;
+  master.connect(out); out.connect(ctx.destination);
   if (id === "custom") {
     const src = loadJSON("x_msgSoundFile", null);
     if (!src) return;
-    try { const a = new Audio(src); a.volume = v; a.play().catch(() => {}); } catch (e) {}
+    try {
+      fetch(src).then(r => r.arrayBuffer()).then(buf => ctx.decodeAudioData(buf)).then(ab => {
+        const b = ctx.createBufferSource(); b.buffer = ab; b.connect(master); b.start();
+      }).catch(() => { try { const a = new Audio(src); a.volume = Math.min(1, v); a.play().catch(() => {}); } catch (e) {} });
+    } catch (e) {}
     return;
   }
-  const s = MSG_SOUNDS.find(x => x.id === id); const ctx = msgAudioCtx();
-  if (!s || !ctx) return;
+  const s = MSG_SOUNDS.find(x => x.id === id);
+  if (!s) return;
   const t0 = ctx.currentTime + 0.01;
   const tone = (f, at, len, f2) => {
-    const o = ctx.createOscillator(), g = ctx.createGain();
-    o.type = s.wave || "sine"; o.frequency.setValueAtTime(f, t0 + at);
-    if (f2) o.frequency.exponentialRampToValueAtTime(f2, t0 + at + len);
-    g.gain.setValueAtTime(0.0001, t0 + at); g.gain.exponentialRampToValueAtTime(0.35 * v, t0 + at + 0.01); g.gain.exponentialRampToValueAtTime(0.0001, t0 + at + len);
-    o.connect(g); g.connect(ctx.destination); o.start(t0 + at); o.stop(t0 + at + len + 0.02);
+    // 基音再叠一个高八度的泛音：手机小喇叭放纯正弦很虚，带一点泛音听得清得多
+    [[1, 0.8], [2, 0.25]].forEach(([mul, amp]) => {
+      const o = ctx.createOscillator(), g = ctx.createGain();
+      o.type = s.wave || "sine"; o.frequency.setValueAtTime(f * mul, t0 + at);
+      if (f2) o.frequency.exponentialRampToValueAtTime(f2 * mul, t0 + at + len);
+      g.gain.setValueAtTime(0.0001, t0 + at); g.gain.exponentialRampToValueAtTime(amp, t0 + at + 0.008); g.gain.exponentialRampToValueAtTime(0.0001, t0 + at + len);
+      o.connect(g); g.connect(master); o.start(t0 + at); o.stop(t0 + at + len + 0.02);
+    });
   };
   if (s.sweep) tone(s.sweep[0], 0, s.sweep[2], s.sweep[1]); else s.notes.forEach(n => tone(n[0], n[1], n[2]));
 }
