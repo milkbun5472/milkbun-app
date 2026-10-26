@@ -4405,6 +4405,61 @@ function KinshipBill({ card, character, onBack, onRaise, onUnbind }) {
 // CONFIG
 // ============================================================
 // 一起听（展示型）：自定义唱片封面 + 添加"正在听"的歌（歌名/歌手/封面）+ 歌单，不真放声音
+function listenParseLrc(raw) {
+  const out = [];
+  String(raw || "").split("\n").forEach(ln => {
+    const stamps = [...ln.matchAll(/\[(\d+):(\d+(?:\.\d+)?)\]/g)];
+    const text = ln.replace(/\[[^\]]*\]/g, "").trim();
+    if (!stamps.length) { if (text) out.push({ t: null, text }); return; }
+    if (!text) return;
+    stamps.forEach(m => out.push({ t: Number(m[1]) * 60 + Number(m[2]), text }));
+  });
+  return out.sort((a, b) => (a.t == null ? 1 : 0) - (b.t == null ? 1 : 0) || (a.t || 0) - (b.t || 0));
+}
+
+// ── 浮窗歌词（群友 2026-10-26 许愿）：放歌时在任何一页上浮一行半透明的当前句，不挡手指 ──
+// 设置存在 x_floatLyric：{ on, color, size, opacity, pos: "top"|"mid"|"bottom" }。播放页「浮」那颗键开关、调样子，
+// 改了就发 floatlyric 事件，挂在 app 根上的这一层跟着变
+const FLOAT_LYRIC_DEF = { on: false, color: "#ffffff", size: 18, opacity: 0.85, pos: "bottom" };
+function floatLyricPrefs() { return Object.assign({}, FLOAT_LYRIC_DEF, loadJSON("x_floatLyric", {}) || {}); }
+function setFloatLyricPrefs(patch) {
+  const n = Object.assign(floatLyricPrefs(), patch || {});
+  saveJSON("x_floatLyric", n);
+  try { window.dispatchEvent(new CustomEvent("floatlyric")); } catch (e) {}
+  return n;
+}
+const _floatLyricCache = {};   // 歌 id → 解析好的带时间的行（null＝没有）
+function FloatLyric({ player, song, read, ready }) {
+  const [prefs, setPrefs] = useState(floatLyricPrefs);
+  const [, bump] = useState(0);
+  useEffect(() => { const f = () => setPrefs(floatLyricPrefs()); window.addEventListener("floatlyric", f); return () => window.removeEventListener("floatlyric", f); }, []);
+  const id = song && song.id;
+  useEffect(() => {
+    if (!prefs.on || !song || !ready || _floatLyricCache[id] !== undefined) return;
+    if (song.source !== "netease" || !song.neteaseId) { _floatLyricCache[id] = null; return; }
+    Promise.resolve(read("/lyric?id=" + encodeURIComponent(song.gdLyricId || song.neteaseId))).then(d => {
+      const raw = d && d.lrc && d.lrc.lyric;
+      const lines = raw ? listenParseLrc(raw).filter(l => l.text && l.t != null) : [];
+      _floatLyricCache[id] = lines.length ? lines : null; bump(x => x + 1);
+    }).catch(() => { _floatLyricCache[id] = null; bump(x => x + 1); });
+  }, [prefs.on, id, ready]);
+  if (!prefs.on || !player || !player.playing || !song) return null;
+  const lines = _floatLyricCache[id];
+  if (!lines) return null;
+  const tNow = player.t || 0;
+  let at = -1;
+  for (let i = 0; i < lines.length; i++) { if (lines[i].t <= tNow) at = i; else break; }
+  if (at < 0) return null;
+  const pos = prefs.pos === "top" ? { top: "calc(env(safe-area-inset-top, 0px) + 64px)" }
+    : prefs.pos === "mid" ? { top: "50%", transform: "translateY(-50%)" }
+    : { bottom: "calc(env(safe-area-inset-bottom, 0px) + 96px)" };
+  const size = Math.max(12, Math.min(36, Number(prefs.size) || 18));
+  return h("div", { "data-wk": "floatlyric", "aria-hidden": "true", style: Object.assign({ position: "fixed", left: 16, right: 16, zIndex: 9000, pointerEvents: "none", textAlign: "center",
+      fontFamily: F_BODY, fontSize: size, lineHeight: 1.4, fontWeight: 600, color: prefs.color || "#fff",
+      opacity: Math.max(0.15, Math.min(1, Number(prefs.opacity) || 0.85)), textShadow: "0 1px 3px rgba(0,0,0,.45)",
+      overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }, pos) }, lines[at].text);
+}
+window.FloatLyric = FloatLyric;
 function ListenTogether({ profile, active, ctxFor, toast, onToChat, onListenState, onSetTalkStay, onSetTalkNote, listenRoomName, talkKey, listen, characters, onBack, onSetDisc, onSetCover, onAddNetease, onAddLocal, onPlaySong, onRemoveSong, onSetPartner, apiBase, onSetApiBase, musicProvider = "gd", musicReady, onSetMusicProvider, onMusicRequest, cookie, onSetCookie, onTestLogin, onAddNeteaseResult, onPlayResult, onPlayResultList, onAddResultToPlaylist, onCreatePlaylist, onDeletePlaylist, onRenamePlaylist, onAddToPlaylist, onRemoveFromPlaylist, onRenameSong, onGenCharPlaylist, onGenSquare, genSquare, onPlaySquare, onPostSquare, onReplySquare, onMoreSquare, onDelSquare, onDelSquareComment, onDelSongTalk, squareBusy, onShareSquare, onGenSongTalk, onReplySongTalk, songTalkBusy, player, onTogglePlay, onStep, onSeek, onToggleFav, playMode, onCyclePlayMode, gen, genCharPl }) {
   const t = useTheme();
   // ⚠️深色/自定义主题下 t.ink 或 t.accent 未必是六位色号，拼透明度后缀会拼出废值、
@@ -4510,19 +4565,12 @@ function ListenTogether({ profile, active, ctxFor, toast, onToChat, onListenStat
   const coverRef = useRef(null);
   // ---- 播放页歌词（v54.50 她要的）：点「词」在唱片位置换成滚动歌词，带当前句高亮 ----
   const [showLyric, setShowLyric] = useState(false);
+  const [flOpen, setFlOpen] = useState(false);
+  const [flPrefs, setFlPrefs] = useState(floatLyricPrefs);
   const [lyrics, setLyrics] = useState({}); // songId -> {lines:[{t,text}]|null}；null=确认没有
   const lyricBoxRef = useRef(null);
-  const parseLrc = raw => {
-    const out = [];
-    String(raw || "").split("\n").forEach(ln => {
-      const stamps = [...ln.matchAll(/\[(\d+):(\d+(?:\.\d+)?)\]/g)];
-      const text = ln.replace(/\[[^\]]*\]/g, "").trim();
-      if (!stamps.length) { if (text) out.push({ t: null, text }); return; }
-      if (!text) return;
-      stamps.forEach(m => out.push({ t: Number(m[1]) * 60 + Number(m[2]), text }));
-    });
-    return out.sort((a, b) => (a.t == null ? 1 : 0) - (b.t == null ? 1 : 0) || (a.t || 0) - (b.t || 0));
-  };
+  // 解析歌词只有一份（listenParseLrc），浮窗歌词也用它
+  const parseLrc = listenParseLrc;
   useEffect(() => {
     // 一起听的人在旁边时也要词：TA 是跟着这几句词开口的（listen-talk.js）
     if ((!showLyric && !partner) || !now || lyrics[now.id] !== undefined) return;
@@ -4691,8 +4739,24 @@ function ListenTogether({ profile, active, ctxFor, toast, onToChat, onListenStat
       (now.source === "netease" && now.neteaseId && cookie) ? cbtn(ic("cloudplus", t.tint, 20), () => openCvAdd({ id: now.neteaseId, name: now.title, artist: now.artist, cover: now.cover }), { bg: t.bg2 }) : null,
       // 歌词页开关
       cbtn(h("span", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: showLyric ? (t.accent || "#8a6d3b") : t.fog } }, "词"), () => setShowLyric(v => !v), { bg: showLyric ? (t.accent || "#8a6d3b") + "22" : t.bg2 }),
+      // 浮窗歌词（群友 2026-10-26）：点开一块小设置，开关、颜色、大小、位置
+      cbtn(h("span", { "data-wk": "floatlyricbtn", style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: flPrefs.on ? (t.accent || "#8a6d3b") : t.fog } }, "浮"), () => setFlOpen(v => !v), { bg: flPrefs.on ? (t.accent || "#8a6d3b") + "22" : t.bg2 }),
       // 这首歌的歌评（她 2026-10-17）：一首一页，刷过的留着
       cbtn(h("span", { "data-wk": "listentalkopen", style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.fog } }, "评"), () => { setTalkSong(now); setTalkBack("play"); setNav("songtalk"); }, { bg: t.bg2 })),
+    flOpen ? h("div", { "data-wk": "floatlyricset", style: { width: "100%", marginTop: 12, padding: "12px 14px", borderRadius: 12, border: "1px solid " + t.line, background: t.bg2, display: "flex", flexDirection: "column", gap: 10 } },
+      h("div", { className: "flex items-center", style: { gap: 10 } },
+        h("span", { style: { flex: 1, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.ink } }, "浮窗歌词", h("span", { style: { color: t.fog, fontSize: "calc(11px * var(--app-fs, 1))", marginLeft: 6 } }, "放歌时在哪一页都浮着当前这句，点得穿")),
+        h(Toggle, { on: !!flPrefs.on, onChange: v => setFlPrefs(setFloatLyricPrefs({ on: v })) })),
+      h("div", { className: "flex items-center", style: { gap: 10 } },
+        h("span", { style: { width: 34, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.sub } }, "颜色"),
+        h(ColorDot, { value: flPrefs.color, onChange: v => setFlPrefs(setFloatLyricPrefs({ color: v })), hexField: true, hexOnly: true })),
+      [["size", "大小", 12, 36, 1], ["opacity", "透明", 0.15, 1, 0.05]].map(([k, zh, lo, hi, st]) => h("label", { key: k, className: "flex items-center", style: { gap: 10 } },
+        h("span", { style: { width: 34, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.sub } }, zh),
+        h("input", { type: "range", min: lo, max: hi, step: st, value: flPrefs[k], onChange: e => setFlPrefs(setFloatLyricPrefs({ [k]: Number(e.target.value) })), style: { flex: 1, minHeight: 40 } }))),
+      h("div", { className: "flex items-center", style: { gap: 8 } },
+        h("span", { style: { width: 34, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.sub } }, "位置"),
+        [["top", "上"], ["mid", "中"], ["bottom", "下"]].map(([v, zh]) => h("button", { key: v, "data-wk": "floatlyricpos", "data-on": flPrefs.pos === v ? "1" : "0", onClick: () => setFlPrefs(setFloatLyricPrefs({ pos: v })),
+          style: { minWidth: 44, minHeight: 40, borderRadius: 8, border: "1px solid " + (flPrefs.pos === v ? t.ink : t.line), background: flPrefs.pos === v ? t.ink : "transparent", color: flPrefs.pos === v ? t.bg : t.sub, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))" } }, zh)))) : null,
     // ── 进度＝唱针的行程（v62.46）────────────────────────────────────
     // 原来这儿是一根【原生 <input type="range">】：一页程序画的唱片沟纹中间躺着一根
     // iOS 系统滑块，是整页最裸的一件东西（审美审计点名）。

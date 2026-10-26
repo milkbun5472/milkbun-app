@@ -34984,6 +34984,10 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       h("div", { style: { flex: 1, minHeight: 0, position: "relative" } },
         h(HalfWinLayer.Provider, { value: true }, mkThread({ key: "half::" + activeChar.id, halfMode: true, onHalfWin: null, onBack: () => setHalfWin(null) }))));   // 里面打开的整页叠在半窗上面（usePageZ）
   })(), (function () {
+    // 浮窗歌词（群友 2026-10-26）：跟悬浮屏一样是 fixed 的兄弟节点、点得穿；通话和看TA玩时不出
+    if (!window.FloatLyric || call || ringing || watching || !player.songId || !player.playing) return null;
+    return h(window.FloatLyric, { player: player, song: resolveSong(player.songId), read: musicRequest, ready: musicReady });
+  })(), (function () {
     // 帮手的小悬浮屏（她 2026-09-03：「做个小悬浮屏可以拖动，边和它聊边改动或者研究功能」）。
     // ⚠️挂在这儿是照上面配件浮层那一层的做法：一个 position:fixed 的兄弟节点，
     //   不碰根节点的 background/height，也不碰那条 safe-area 空带
