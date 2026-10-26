@@ -19357,7 +19357,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     if (!window.StampsCore) return;
     const C2 = window.StampsCore, st = C2.load(); let changed = false;
     stampMyBdays().forEach(m => {
-      const w = m.birthday ? C2.bdayWindow(m.birthday, Date.now()) : null; if (!w) return;
+      const w = m.birthday ? C2.bdayWindow(m.birthday, Date.now(), "me_" + m.id) : null; if (!w) return;
       const ids = (m.charIds || []).filter(id => liveChars.some(c => c.id === id && !c.npc && !settingsFor(id).engineerEyes)); if (!ids.length) return;
       const k = "bd_me_" + m.id + "_" + w.year, bdKey = "me_" + m.id + "_" + w.year;
       const n = !st.seenLimited[k] ? 10 : !st.seenLimited[k + "_top"] ? 9 : 0;
@@ -19383,7 +19383,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     if (!window.StampsCore) return;
     const C2 = window.StampsCore, st = C2.load(); let changed = false;
     stampAnnivs().forEach(a => {
-      const w = C2.bdayWindow(a.md, Date.now()); if (!w) return;
+      const w = C2.bdayWindow(a.md, Date.now(), "an_" + a.id); if (!w) return;
       const bdKey = "an_" + a.id + "_" + w.year, k = "ltr_" + bdKey;
       if (st.seenLimited[k]) return; st.seenLimited[k] = 1; changed = true;
       const c = liveChars.find(x => x.id === a.charId); if (!c) return;

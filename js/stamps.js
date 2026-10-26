@@ -485,17 +485,17 @@
       st0.cards = st0.cards.map(c => { if (!c.limited || c.series) return c; const L = (C().LIMITED || []).find(x => x.id === c.limited); n++; return Object.assign({}, c, { series: (L && L.series) || c.limited, limYear: L ? new Date(Date.parse(L.from)).getFullYear() : undefined }); });
       st0.cards = st0.cards.map(c => { if (!c.text || c.rarity === "SSR" && !/[（(]\s*S?S?R\s*[）)]/.test(JSON.stringify(c.text))) return c; const t2 = C().cleanText(c.text, c.rarity); if (JSON.stringify(t2) === JSON.stringify(c.text)) return c; n++; return Object.assign({}, c, { text: t2 }); });
       if (n) C().save(st0); } catch (e) {} }, []);
-    useEffect(() => { const got = C().grantOnOpen(Date.now(), characters.map(c => { const w = c.birthday ? C().bdayWindow(c.birthday, Date.now()) : null; return w ? { id: c.id, name: c.remark || c.name, year: w.year } : null; }).filter(Boolean)
-      .concat((props.myBdays || []).map(m => { const w = m.birthday ? C().bdayWindow(m.birthday, Date.now()) : null; return w ? { id: "me_" + m.id, name: "你（" + (m.name || "你") + "）", year: w.year } : null; }).filter(Boolean)),
+    useEffect(() => { const got = C().grantOnOpen(Date.now(), characters.map(c => { const w = c.birthday ? C().bdayWindow(c.birthday, Date.now(), c.id) : null; return w ? { id: c.id, name: c.remark || c.name, year: w.year } : null; }).filter(Boolean)
+      .concat((props.myBdays || []).map(m => { const w = m.birthday ? C().bdayWindow(m.birthday, Date.now(), "me_" + m.id) : null; return w ? { id: "me_" + m.id, name: "你（" + (m.name || "你") + "）", year: w.year } : null; }).filter(Boolean)),
       (() => { const lp = ((C().load().opt || {}).limPick || []).filter(id => characters.some(c => c.id === id)); return lp.length || characters.length; })()); if (got.length) { setGotNote(got); setSt(C().load()); } }, []);
     const lims = C().activeLimited(Date.now());
     // 生日池：他生日前 14 天出现，生日后留 7 天；保底和求情按「这个人这一年」单独记
-    const bds = characters.map(c => { const w = c.birthday ? C().bdayWindow(c.birthday, Date.now()) : null; return w ? { char: c, win: w, key: c.id + "_" + w.year } : null; }).filter(Boolean)
+    const bds = characters.map(c => { const w = c.birthday ? C().bdayWindow(c.birthday, Date.now(), c.id) : null; return w ? { char: c, win: w, key: c.id + "_" + w.year } : null; }).filter(Boolean)
       // 她自己的生日池：每张面具一个，抽的是认这张面具的那几个人；卡都是你们俩的
-      .concat((props.myBdays || []).map(m => { const w = m.birthday ? C().bdayWindow(m.birthday, Date.now()) : null; const ids = (m.charIds || []).filter(id => characters.some(c => c.id === id));
+      .concat((props.myBdays || []).map(m => { const w = m.birthday ? C().bdayWindow(m.birthday, Date.now(), "me_" + m.id) : null; const ids = (m.charIds || []).filter(id => characters.some(c => c.id === id));
         return w && ids.length ? { char: { id: "me_" + m.id, name: m.name || "你", remark: m.name || "你", avatar: m.avatar }, win: w, key: "me_" + m.id + "_" + w.year, mine: true, maskId: m.id, charIds: ids } : null; }).filter(Boolean))
       // 纪念日池（她 2026-10-26）：情侣空间里跟他的纪念日，前 14 天出现、后留 7 天；只抽他一个人，每一张都是你们俩
-      .concat((props.annivs || []).map(a => { const c = characters.find(x => x.id === a.charId), w = c && a.md ? C().bdayWindow(a.md, Date.now()) : null;
+      .concat((props.annivs || []).map(a => { const c = characters.find(x => x.id === a.charId), w = c && a.md ? C().bdayWindow(a.md, Date.now(), "an_" + a.id) : null;
         return w ? { char: c, win: w, key: "an_" + a.id + "_" + w.year, pid: "an_" + a.id, anniv: { id: a.id, name: a.name || "纪念日", since: a.since || 0, n: a.since ? w.year - new Date(a.since).getFullYear() : 0 } } : null; }).filter(Boolean));
     const bd = pool.indexOf("bd:") === 0 ? bds.find(b => "bd:" + (b.pid || b.char.id) === pool) : null;
     const lim = pool.indexOf("lim:") === 0 ? lims.find(L => "lim:" + L.id === pool) : null;

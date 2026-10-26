@@ -93,17 +93,27 @@
   }
   function activeLimited(now) { const t = now || Date.now(); return LIMITED.filter(L => t >= Date.parse(L.from) && t < Date.parse(L.to)); }
   // 生日池：生日前 14 天出现，生日后留 7 天。bday 是 "MM-DD"
-  function bdayWindow(bday, now) {
+  //   lockId（她 2026-10-26 防多刷）：给了就按「这个人这一年」锁住第一次开池的那天——同一年里改生日、改在一起的日子，池子不挪，改的日子明年才用上
+  function bdayWindow(bday, now, lockId) {
     // 农历、公历都认：照 engine.js 那份 birthdaySolarDate 算今年落在哪天
-    const dayOf = y => {
+    const lunar = typeof parseLunarBirthday === "function" && parseLunarBirthday(bday);
+    const feb29 = !lunar && /(^|\D)0?2-29$/.test(String(bday || "").trim());
+    const dayOf0 = y => {
+      if (feb29 && new Date(y, 1, 29).getMonth() !== 1) return new Date(y, 1, 28).getTime();   // 2 月 29 的生日：平年算 2 月 28
+
       if (typeof birthdaySolarDate === "function") { const d = birthdaySolarDate(bday, y); return d ? new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime() : null; }
       const m = /(\d{1,2})-(\d{1,2})$/.exec(String(bday || "").trim()); return m ? new Date(y, +m[1] - 1, +m[2]).getTime() : null;
     };
+    const st = lockId ? load() : null, lk = st ? (st.dayLock || {}) : {};
+    const dayOf = y => { const v = lk[lockId + "_" + y]; return v != null ? v : dayOf0(y); };
     const t = now || Date.now(), y0 = new Date(t).getFullYear();
     for (const y of [y0 - 1, y0, y0 + 1]) {
       const day = dayOf(y); if (day == null) return null;
       const open = day - 14 * 86400000, close = day + 8 * 86400000;   // 生日当天算完整一天，再留 7 天
-      if (t >= open && t < close) return { year: y, day, open, close, isDay: t >= day && t < day + 86400000 };
+      if (t >= open && t < close) {
+        if (st && lk[lockId + "_" + y] == null) { st.dayLock = Object.assign({}, lk, { [lockId + "_" + y]: day }); save(st); }
+        return { year: y, day, open, close, isDay: t >= day && t < day + 86400000 };
+      }
     }
     return null;
   }
