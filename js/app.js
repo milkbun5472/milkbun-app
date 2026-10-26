@@ -20,7 +20,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v76.678";
+const APP_VERSION = "v76.679";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -7013,7 +7013,9 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         + "。按你的性格自然流露就好（期待被记得、感慨、或故作不在意都行）。" + _bdIsMine);
       else if (cdu != null && cdu <= 5) lines.push("再过 " + cdu + " 天就是你自己的生日"
         + (_cage != null ? "，过完就 " + (_cage + 1) + " 岁了" : "")
-        + (_uBdDu === cdu ? "（也是 " + uName + " 的生日，你俩同一天）" : "——是【你的】生日，不是 " + uName + " 的") + "。");
+        + (_uBdDu === cdu ? "（也是 " + uName + " 的生日，你俩同一天）" : "——是【你的】生日，不是 " + uName + " 的") + "。"
+        // 原来只说了「是哪天」，没说「你会惦记」——他就等她先开口（她 2026-10-26：「生日前几天他也不主动 cue，要我说才行」）
+        + "这几天你自己心里惦记着这件事，不用等 " + uName + " 先问：照你的性格，找个顺口的时候自己带出来（暗示、期待、问 Ta 记不记得、嘴上装不在意却忍不住提一嘴，都行）；一两次就够，别每句念叨。");
       // —— 纪念日：和这个角色在一起满几周年 ——
       // ⚠️v62.31 补上【提前几天】那一档（她 2026-09-04：「应该是进日历然后TA提前几天就会知道对吧」
       //   ——她的预期是对的，但原来只有当天那一句）。生日旁边早就有 cdu<=5 这一档，
