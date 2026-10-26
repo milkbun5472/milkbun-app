@@ -19311,6 +19311,18 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       }
     } finally { impressionAutoRunRef.current = false; }
   };
+  // 邮票册「今天的信」（她 2026-10-26）：每天挑一个人，把一张单抽券寄进你们的聊天，点一下领。不调模型；
+  //   他那边看得到这条（content 里写着），知道是他寄来的。一天一张，记在 x_stamps.lastDaily 上，跟开邮票册送的不叠
+  const stampLetterSweep = () => {
+    if (!window.StampsCore) return;
+    const st = window.StampsCore.load(), d = new Date(), today = d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate();
+    if (st.lastDaily === today) return;
+    const pool = liveChars.filter(c => c && !c.npc && !settingsFor(c.id).engineerEyes);
+    if (!pool.length) return;
+    const c = pool[Math.floor(Math.random() * pool.length)], id = "sl_" + Date.now().toString(36);
+    st.lastDaily = today; window.StampsCore.save(st);
+    pChat(c.id, p => [...p, { role: "char", kind: "stampletter", content: "〔从邮票册给你寄了一封「今天的信」：里面是一张单抽券，点一下就能领〕", ts: Date.now(), stampLetter: { id, day: today, by: c.remark || c.name }, read: false }]);
+  };
   // 今日签（她 2026-10-05）：开了的那几位，每天替她抽一张发进私聊。一天一人一张，走公共闸（成了不再跑、失败两小时后再试）
   const astroSignSweep = async () => {
     if (!active || !window.Astro || !window.Astro.todayFacts || !autoRefreshOn("astroSign")) return;
@@ -19338,6 +19350,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   };
   const sweepRunOnce = async () => {
     deliverDeskLog();
+    try { stampLetterSweep(); } catch (e) {}
     const steps = [schedGenAllToday, schedMaybeSelfRevise, walletCatchAllToday,
       desireMuseAllToday, desireTendAllToday, phoneWeeklySweep, autoImpressionSweep, astroSignSweep];
     for (const step of steps) { try { await step(); } catch (e) {/* 一步失手不拖累后面几步 */ } }

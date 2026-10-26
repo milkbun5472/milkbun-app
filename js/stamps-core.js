@@ -52,9 +52,7 @@
     if (!st.gifted) { st.gifted = true; st.tickets += GIFT.tickets; st.ink += GIFT.ink; got.push("开幕纪念：" + GIFT.tickets + " 张十连券、" + GIFT.ink + " 印泥"); }
     else if (!st.seenLimited[MAKEUP.id]) { st.tickets += MAKEUP.tickets; got.push("邮资改版补发：" + MAKEUP.tickets + " 张十连券"); }
     st.seenLimited[MAKEUP.id] = 1;
-    // 今天的信：每天第一次打开送一张单抽券。不用做任务，没有连签，哪天没开就没有
-    const d = new Date(now || Date.now()), today = d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate();
-    if (st.lastDaily !== today) { st.lastDaily = today; st.singles = (st.singles || 0) + 1; got.push("今天的信：一张单抽券"); }
+    // 「今天的信」改成每天由一个人寄进聊天里领（app.js 的 stampLetterSweep），这儿不再送
     activeLimited(now).forEach(L => { if (!st.seenLimited[L.id]) { st.seenLimited[L.id] = 1; st.tickets += 1; got.push("「" + L.name + "」上新：一张十连券"); } });
     (birthdays || []).forEach(b => { const k = "bd_" + b.id + "_" + b.year; if (!st.seenLimited[k]) { st.seenLimited[k] = 1; st.tickets += 1; got.push(b.name + " 的生日池：一张十连券"); } });
     if (got.length) save(st);
@@ -152,11 +150,15 @@
     return out;
   }
 
+  // 领聊天里那封「今天的信」：一封只能领一次
+  function claimLetter(id) { const st = load(); st.claimed = st.claimed || {}; if (st.claimed[id]) return false; st.claimed[id] = 1; st.singles = (st.singles || 0) + 1; save(st); return true; }
+  function letterClaimed(id) { return !!((load().claimed || {})[id]); }
+
   // 剧情按等级解锁：SSR 每十级一节（1 级第一节，40 级结局，50 级隐藏的路）
   function ssrUnlocked(lv) { return { sections: Math.min(4, 1 + Math.floor(lv / 10)), ending: lv >= 40, hidden: lv >= 50 }; }
 
   g.StampsCore = { PRICE_ONE, PRICE_TEN, RATE, SOFT_FROM, HARD_AT, SR_EVERY, BDAY, CAP, FULL_COST, GIFT, GAIN, LIMITED,
-    cleanText, DUPE_INK, UNLOCK, levelUp, canBeg, markBeg, load, save, gain, grantOnOpen, activeLimited, bdayWindow, rollRarity, pay, levelCost, isGate, gateBlocked, ssrUnlocked };
+    claimLetter, letterClaimed, cleanText, DUPE_INK, UNLOCK, levelUp, canBeg, markBeg, load, save, gain, grantOnOpen, activeLimited, bdayWindow, rollRarity, pay, levelCost, isGate, gateBlocked, ssrUnlocked };
   // 各处喊一声就记上
   g.stampGain = gain;
   // 别的玩法不一处处去挂：callAI 成功一枪（她按下去的、不是后台）会广播 ai-ok，这儿按它是干嘛的分进几档。
@@ -175,6 +177,21 @@
     const s = d.label + " " + d.tag;
     for (const [re, k] of SORT) if (re.test(s)) { if (k) gain(k); return; }
   });
+  // 聊天里那封「今天的信」：信封样子，点「领取」进邮票册的单抽券
+  g.StampLetterCard = function ({ m }) {
+    const R = g.React, h2 = R && R.createElement; if (!h2) return null;
+    const x = (m && m.stampLetter) || {}, fs = n => "calc(" + n + "px * var(--app-fs, 1))";
+    const [got, setGot] = R.useState(() => !!(x.id && g.StampsCore && g.StampsCore.letterClaimed(x.id)));
+    const take = e => { e && e.stopPropagation(); if (got || !x.id) return; g.StampsCore.claimLetter(x.id); setGot(true); };
+    return h2("div", { "data-wk": "stampletter", "data-got": got ? "1" : "0", style: { width: 210, borderRadius: 6, overflow: "hidden", background: "#FFF8E9", border: "1px solid #B58C55", boxShadow: "0 4px 12px rgba(40,30,20,.12)" } },
+      h2("div", { style: { height: 8, background: "repeating-linear-gradient(135deg, #b23a2e 0 8px, #FFF8E9 8px 14px, #2f5d8a 14px 22px, #FFF8E9 22px 28px)" } }),
+      h2("div", { style: { padding: "10px 12px 12px", position: "relative" } },
+        h2("div", { style: { fontSize: fs(9.5), letterSpacing: ".3em", color: "#827C6F" } }, "邮票册 · 今天的信"),
+        h2("div", { style: { marginTop: 4, fontFamily: "var(--f-display,'Fraunces',serif)", fontSize: fs(15), color: "#39382F" } }, "一张单抽券"),
+        h2("div", { style: { marginTop: 2, fontSize: fs(11), color: "#827C6F" } }, (x.by ? x.by + " 寄来的" : "") + (x.day ? " · " + x.day.split("-").slice(1).join(".") : "")),
+        h2("div", { style: { position: "absolute", right: 10, top: 8, width: 40, height: 40, borderRadius: 999, border: "1.5px solid #b23a2e", color: "#b23a2e", transform: "rotate(-12deg)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: fs(10) } }, got ? "已领" : "平信"),
+        h2("button", { onClick: take, disabled: got, style: { marginTop: 10, width: "100%", padding: "7px 0", borderRadius: 8, border: "none", background: got ? "rgba(47,42,34,.08)" : "#285C4B", color: got ? "#827C6F" : "#FFF8E9", fontSize: fs(12.5) } }, got ? "领过了 · 去邮票册寄一封" : "领取")));
+  };
   // 聊天里那枚邮票小卡：齿孔边、卡面（画了的话）、稀有度、卡名、一句台词。开机就要（聊天里会出现），所以放这份
   g.StampShareCard = function ({ m }) {
     const R = g.React, h2 = R && R.createElement; if (!h2) return null;

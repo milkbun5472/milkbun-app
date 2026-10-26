@@ -51,7 +51,7 @@ test("上线礼只给一次；限时主题上新送一张十连券", () => {
   const C = fresh();
   const t = Date.parse("2026-10-27T12:00:00+08:00");
   const got = C.grantOnOpen(t, []);
-  assert.equal(got.length, 3, "开幕礼、万圣夜、今天的信");
+  assert.equal(got.length, 2, "开幕礼、万圣夜");
   const st = C.load();
   assert.equal(st.tickets, C.GIFT.tickets + 1);
   assert.equal(st.ink, C.GIFT.ink);
@@ -122,12 +122,12 @@ test("写回来的卡去掉 (R)/(SR) 占位、R 卡不留 SR 的栏", () => {
   assert.equal(s.sections[0].beats[0].text, "嗯");
 });
 
-test("今天的信每天一张；老用户补发两张十连券只一次；单抽先用单抽券", () => {
+test("老用户补发两张十连券只一次；聊天里那封今天的信只能领一次；单抽先用单抽券", () => {
   const C = fresh(); const st = C.load(); st.gifted = true; C.save(st);
   const d1 = Date.parse("2026-10-27T09:00:00+08:00");
-  C.grantOnOpen(d1, []); let s = C.load();
-  assert.equal(s.tickets, 2 + 1); assert.equal(s.singles, 1);
-  C.grantOnOpen(d1 + 3600000, []); s = C.load(); assert.equal(s.singles, 1); assert.equal(s.tickets, 3);
-  C.grantOnOpen(d1 + 86400000, []); s = C.load(); assert.equal(s.singles, 2);
-  assert.equal(C.pay(s, 1, false), "single"); assert.equal(s.singles, 1);
+  C.grantOnOpen(d1, []); let s = C.load(); assert.equal(s.tickets, 2 + 1);
+  C.grantOnOpen(d1 + 86400000, []); s = C.load(); assert.equal(s.tickets, 3);
+  assert.equal(C.claimLetter("sl_a"), true); assert.equal(C.claimLetter("sl_a"), false);
+  s = C.load(); assert.equal(s.singles, 1); assert.equal(C.letterClaimed("sl_a"), true);
+  assert.equal(C.pay(s, 1, false), "single"); assert.equal(s.singles, 0);
 });
