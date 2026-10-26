@@ -101,7 +101,20 @@
     const logEnd = useRef(null);
     useEffect(() => { if (logOpen && logEnd.current) logEnd.current.scrollIntoView({ block: "end" }); }, [logOpen]);
     const [picks, setPicks] = useState({});   // 一节中间的小选项：选了哪个（同一节里换个回应，走完又回到主线）
-    useEffect(() => { setPicks({}); if (onSeen && sid) onSeen(sid); }, [sid]);
+    // 记住看到哪儿（她 2026-10-27）：收起时把这一节、第几句、选过什么存在卡上；再进来问一句接着看还是从头看。走到结局就清掉
+    const at0 = !start && card.storyAt && secs.some(x => x.id === card.storyAt.sid) && (card.storyAt.i > 0 || card.storyAt.sid !== (secs[0] && secs[0].id)) ? card.storyAt : null;
+    const [ask, setAsk] = useState(!!at0);
+    const resumeRef = useRef(null), posRef = useRef(null), doneRef = useRef(false);
+    useEffect(() => { const r = resumeRef.current; resumeRef.current = null; if (r) { setPicks(r.picks || {}); setI(r.i || 0); } else setPicks({}); if (onSeen && sid) onSeen(sid); }, [sid]);
+    const resume = () => { setAsk(false); if (!at0) return; if (at0.sid === sid) { setPicks(at0.picks || {}); setI(at0.i || 0); } else { resumeRef.current = at0; setSid(at0.sid); } };
+    useEffect(() => { posRef.current = { sid, i, picks }; }, [sid, i, picks]);
+    useEffect(() => () => { try { const st0 = C().load(), p0 = posRef.current; st0.cards = st0.cards.map(c => c.id === card.id ? Object.assign({}, c, { storyAt: doneRef.current || !p0 ? null : p0 }) : c); C().save(st0); } catch (e) {} }, []);
+    // 长按藏起对话框和按钮，只看卡面；松手回来（长按松开那一下不算点）
+    const [hideUi, setHideUi] = useState(false);
+    const lpT = useRef(0), lpRef = useRef(false);
+    const lpDown = () => { clearTimeout(lpT.current); lpT.current = setTimeout(() => { lpRef.current = true; setHideUi(true); }, 450); };
+    const lpUp = () => { clearTimeout(lpT.current); if (lpRef.current) { setHideUi(false); setTimeout(() => { lpRef.current = false; }, 60); } };
+    const eaten = () => { if (lpRef.current) { lpRef.current = false; return true; } return false; };
     // ⚠️这一句不许提前 return：下面还有两个 useEffect，先 return 就少跑两个 hook，
     //   React 下一次渲染对不上号就是 #310 白屏（施工规则：hook 全部排在 return 之前）。
     //   没有这一节时给一份空的壳子照常往下跑，真正的 return 挪到 hook 后面。
@@ -126,7 +139,7 @@
     const locked = s => (Number(s.lv) || 1) > lv;
     // 下一幕：模型有时没写选项、或者选项的 go 对不上 id——那就按等级往下找下一节（不走隐藏的路），不让她卡在这儿
     const isFinal = () => atEnd && !(sec.choices || []).length && (sec.end || !nextOf(sec));
-    const tap = () => { if (beat._pick != null) return; if (!atEnd) setI(i + 1); else if (isFinal()) onClose(); };   // 走到头了，点哪儿都是退出
+    const tap = () => { if (eaten() || ask) return; if (beat._pick != null) return; if (!atEnd) setI(i + 1); else if (isFinal()) { doneRef.current = true; onClose(); } };   // 走到头了，点哪儿都是退出
     const nextOf = cur => { const L = Number(cur.lv) || 1; return secs.filter(x => !x.hidden && (Number(x.lv) || 1) > L).sort((a, b) => (Number(a.lv) || 1) - (Number(b.lv) || 1))[0] || null; };
     const who = beat.who === "he" ? char.name : beat.who === "me" ? meName : beat.who === "inner" ? char.name + " 心里" : "";
     // 选项那一下，框里接着显示上一句（选项本身挪到屏幕中间）
@@ -147,19 +160,20 @@
     };
     useEffect(() => {
       clearTimeout(autoT.current);
-      if (beat._pick != null || logOpen) { stopAudio(); return; }
+      if (beat._pick != null || logOpen || hideUi || ask) { stopAudio(); return; }
       const next = () => { if (autoOn && !atEnd) autoT.current = setTimeout(go, 350); };
       const timer = () => { if (autoOn && !atEnd) autoT.current = setTimeout(go, Math.min(6500, 1000 + String(beat.text || "").length * 75)); };
       if (voiceOn && beat.who === "he" && canVoice) say(beat.text, ok => ok ? next() : timer());
       else { stopAudio(); timer(); }
       return () => clearTimeout(autoT.current);
-    }, [sid, i, beat._pick, voiceOn, autoOn, logOpen]);
+    }, [sid, i, beat._pick, voiceOn, autoOn, logOpen, hideUi, ask]);
     useEffect(() => () => { clearTimeout(autoT.current); stopAudio(); }, []);
     if (!sec0) return null;   // hook 都跑完了，这儿再退出
     const toggle = k => { const st0 = C().load(); st0.opt = Object.assign({}, st0.opt, { [k]: !(st0.opt || {})[k] }); C().save(st0); setStOpt(st0.opt); };
     const choiceBtn = { textAlign: "center", width: "100%", maxWidth: 340, padding: "12px 14px", borderRadius: 12, border: "1px solid rgba(255,255,255,.45)", background: "rgba(16,14,22,.78)", color: "#fff", fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", boxShadow: "0 6px 18px rgba(0,0,0,.35)", backdropFilter: "blur(4px)" };
-    return h("div", { "data-wk": "stampstory", className: "fixed inset-0 flex flex-col", style: { zIndex: 255, background: url ? "#111 center/cover no-repeat url(" + url + ")" : "linear-gradient(#2b2436,#14111b)" } },
-      h("div", { className: "flex items-center", style: { padding: "calc(env(safe-area-inset-top) + 10px) 14px 8px", background: "linear-gradient(rgba(0,0,0,.55), transparent)" } },
+    const hid = { opacity: hideUi ? 0 : 1, pointerEvents: hideUi ? "none" : undefined, transition: "opacity .2s" };
+    return h("div", { "data-wk": "stampstory", "data-hide": hideUi ? "1" : "0", onPointerDown: lpDown, onPointerUp: lpUp, onPointerCancel: lpUp, onPointerLeave: lpUp, onContextMenu: e => e.preventDefault(), className: "fixed inset-0 flex flex-col", style: { zIndex: 255, WebkitTouchCallout: "none", userSelect: "none", WebkitUserSelect: "none", background: url ? "#111 center/cover no-repeat url(" + url + ")" : "linear-gradient(#2b2436,#14111b)" } },
+      h("div", { className: "flex items-center", style: Object.assign({ padding: "calc(env(safe-area-inset-top) + 10px) 14px 8px", background: "linear-gradient(rgba(0,0,0,.55), transparent)" }, hid) },
         h("button", { onClick: onClose, className: "active:opacity-60", style: { flexShrink: 0, whiteSpace: "nowrap", color: "#fff", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))" } }, "‹ 收起"),
         h("div", { className: "flex-1 text-center", style: { minWidth: 0, margin: "0 6px", color: "#fff" } },
           h("div", { style: { whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", fontFamily: F_DISPLAY, fontSize: "calc(14px * var(--app-fs, 1))" } }, sec.title || card.text.name),
@@ -177,23 +191,27 @@
           style: { flexShrink: 0, marginRight: 4, color: "#fff", fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", padding: "1px 7px", borderRadius: 999, border: "1px solid rgba(255,255,255," + (autoOn ? ".9" : ".35") + ")", background: autoOn ? "rgba(255,255,255,.18)" : "transparent" } }, "自动"),
         opts.length > 1 ? h("button", { "data-wk": "stampstorybg", onClick: nextBg, className: "active:opacity-60", style: { color: "#fff", fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", padding: "3px 10px", borderRadius: 999, border: "1px solid rgba(255,255,255,.5)" } }, "背景：" + curBg[1]) : h("span", { style: { width: 44 } })),
       // 选项放在屏幕中间（她 2026-10-26），不挤在对话框里
-      h("div", { "data-wk": "stampstorychoices", className: "flex-1 flex flex-col items-center justify-center", onClick: tap, style: { padding: "0 28px", gap: 10 } },
-        beat._pick != null ? (beat.options || []).map((o, k) => h("button", { key: "p" + k, "data-wk": "stampstorychoice", "data-inline": "1", onClick: e => { e.stopPropagation(); setPicks(p => Object.assign({}, p, { [beat._pick]: k })); }, className: "active:opacity-80", style: choiceBtn }, h(BiText, { text: o.text || "" }))) : null,
+      h("div", { "data-wk": "stampstorychoices", className: "flex-1 flex flex-col items-center justify-center", onClick: tap, style: Object.assign({ padding: "0 28px", gap: 10 }, hid) },
+        beat._pick != null ? (beat.options || []).map((o, k) => h("button", { key: "p" + k, "data-wk": "stampstorychoice", "data-inline": "1", onClick: e => { e.stopPropagation(); if (eaten()) return; setPicks(p => Object.assign({}, p, { [beat._pick]: k })); }, className: "active:opacity-80", style: choiceBtn }, h(BiText, { text: o.text || "" }))) : null,
         atEnd && (sec.choices || []).length ? sec.choices.map((c, k) => { const to = secs.find(s => s.id === c.go) || nextOf(sec); const lk = to && locked(to);
-            return h("button", { key: "c" + k, "data-wk": "stampstorychoice", "data-locked": lk ? "1" : "0", onClick: e => { e.stopPropagation(); if (!to || lk) return; setSid(to.id); setI(0); }, className: "active:opacity-80",
+            return h("button", { key: "c" + k, "data-wk": "stampstorychoice", "data-locked": lk ? "1" : "0", onClick: e => { e.stopPropagation(); if (eaten() || !to || lk) return; setSid(to.id); setI(0); }, className: "active:opacity-80",
               style: Object.assign({}, choiceBtn, lk ? { background: "rgba(16,14,22,.5)", color: "rgba(255,255,255,.5)" } : {}) },
               to && to.hidden ? h("span", { "data-wk": "stampstorysecret", style: { marginRight: 6, color: "#e3b65c" } }, "✦") : null,
               h(BiText, { text: c.text || "" }), lk ? h("div", { style: { marginTop: 2, fontSize: "calc(11px * var(--app-fs, 1))" } }, "升到 " + to.lv + " 级才看得到") : null); }) : null,
         atEnd && !(sec.choices || []).length && !sec.end && nextOf(sec) ? (() => { const nx = nextOf(sec);
-          return h("button", { "data-wk": "stampstorychoice", "data-locked": locked(nx) ? "1" : "0", onClick: e => { e.stopPropagation(); if (locked(nx)) return; setSid(nx.id); setI(0); }, className: "active:opacity-80",
+          return h("button", { "data-wk": "stampstorychoice", "data-locked": locked(nx) ? "1" : "0", onClick: e => { e.stopPropagation(); if (eaten() || locked(nx)) return; setSid(nx.id); setI(0); }, className: "active:opacity-80",
             style: Object.assign({}, choiceBtn, locked(nx) ? { background: "rgba(16,14,22,.5)", color: "rgba(255,255,255,.5)" } : {}) }, "下一幕：" + (nx.title || ""), locked(nx) ? h("div", { style: { marginTop: 2, fontSize: "calc(11px * var(--app-fs, 1))" } }, "升到 " + nx.lv + " 级才看得到") : null); })() : null),
       h("div", { "data-wk": "stampstorybox", onClick: tap,
-        style: { margin: "0 12px calc(env(safe-area-inset-bottom) * 0.4 + 14px)", borderRadius: 14, background: "rgba(16,14,22,.82)", border: "1px solid rgba(255,255,255,.18)", padding: "14px 16px 30px", minHeight: 150, position: "relative", color: "#f4efe6" } },
+        style: { ...hid, margin: "0 12px calc(env(safe-area-inset-bottom) * 0.4 + 14px)", borderRadius: 14, background: "rgba(16,14,22,.82)", border: "1px solid rgba(255,255,255,.18)", padding: "14px 16px 30px", minHeight: 150, position: "relative", color: "#f4efe6" } },
         shownWho ? h("div", { "data-wk": "stampstorywho", style: { display: "inline-block", marginBottom: 6, padding: "2px 10px", borderRadius: 999, background: shown.who === "he" ? RC.SSR : shown.who === "inner" ? "#577767" : "#6b6480", fontFamily: F_DISPLAY, fontSize: "calc(13px * var(--app-fs, 1))" } }, shownWho) : null,
         h("div", { style: { fontFamily: F_BODY, fontSize: "calc(15px * var(--app-fs, 1))", lineHeight: 1.75, fontStyle: shownWho && shown.who !== "inner" ? "normal" : "italic", opacity: shownWho ? 1 : .85, whiteSpace: "pre-wrap" } }, h(BiText, { text: shown.text || "" }),
           shown.who === "he" && canVoice ? h("button", { "data-wk": "stampstorysay", onClick: e => { e.stopPropagation(); say(shown.text); }, style: { marginLeft: 6, fontSize: "0.85em", opacity: .75, verticalAlign: "middle" } }, "🔊") : null),
         isFinal() ? h("div", { style: { marginTop: 12, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", opacity: .7 } }, "—— 这条路走到头了 · 点一下退出 ——") : null,
         !atEnd && beat._pick == null ? h("div", { "data-wk": "stampstorynext", style: { position: "absolute", right: 14, bottom: 10, fontSize: "calc(11px * var(--app-fs, 1))", opacity: .5 } }, "点一下继续 ▾") : null),
+      ask ? h("div", { "data-wk": "stampresume", className: "fixed inset-0 flex flex-col items-center justify-center", onClick: e => e.stopPropagation(), style: { zIndex: 3, gap: 10, background: "rgba(10,9,14,.55)" } },
+        h("div", { style: { marginBottom: 4, color: "#fff", fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", opacity: .85 } }, "上次看到「" + ((secs.find(x => x.id === at0.sid) || {}).title || "") + "」"),
+        h("button", { "data-wk": "stampresumego", onClick: resume, className: "active:opacity-80", style: choiceBtn }, "接着看"),
+        h("button", { "data-wk": "stampresumetop", onClick: () => setAsk(false), className: "active:opacity-80", style: choiceBtn }, "从头看")) : null,
       // 回放记录：这一节走到现在的每一句（选过的那句标出来）；点空白处收起，从原来那句接着走
       logOpen ? h("div", { "data-wk": "stamplog", onClick: () => setLogOpen(false), className: "fixed inset-0 flex flex-col", style: { zIndex: 2, background: "rgba(10,9,14,.86)", backdropFilter: "blur(6px)", WebkitBackdropFilter: "blur(6px)", color: "#fff" } },
         h("div", { className: "flex items-center", style: { padding: "calc(env(safe-area-inset-top) + 10px) 14px 8px" } },
@@ -217,6 +235,7 @@
     const [side, setSide] = useState("main");         // main 第一面 / solo / duo
     const url = side === "solo" && urlSolo ? urlSolo : side === "duo" && urlDuo ? urlDuo : url1;
     const [full, setFull] = useState(false);
+    useEffect(() => { if (!card.unread) return; const st0 = C().load(); st0.cards = st0.cards.map(c => c.id === card.id ? Object.assign({}, c, { unread: false }) : c); C().save(st0); }, [card.id]);   // 点开过就不算新
     const [reArm, setReArm] = useState(false);   // 重写整张卡要点两下：第一下变成「再点一次」，三秒内不点就回去           // 卡面全屏看，满级的在这里戳
     const [say, setSay] = useState(null), [poking, setPoking] = useState(false);
     const sayT = useRef(0);
@@ -572,7 +591,7 @@
           if (fresh.length && Math.random() < 0.8) cid = fresh[Math.floor(Math.random() * fresh.length)];
         }
         const card = { id: uid(), ts: now + i, rarity: rar, charId: cid, lv: 1, pool: bd ? bdPool : pool === "char" ? "char" : lim ? "limited" : "mix",
-          kind: bd ? bdPool : pool === "mix" ? "daily" : "if", writing: true, writingTs: now };
+          kind: bd ? bdPool : pool === "mix" ? "daily" : "if", writing: true, writingTs: now, unread: true };
         if (pool === "char") Object.assign(card, { theme: charTheme.trim().slice(0, 40), themeLine: charThemeLine.slice(0, 200), ifMode });
         if (bd) Object.assign(card, { bdDay: bd.win.day }, bd.mine ? { maskId: bd.maskId } : {}, bd.anniv ? { annivId: bd.anniv.id, annivName: bd.anniv.name, annivN: bd.anniv.n } : {});
         if (lim) Object.assign(card, { theme: lim.name, themeLine: lim.line, themeLook: lim.look || "", limited: lim.id, series: lim.series || lim.id, limYear: new Date(Date.parse(lim.from)).getFullYear(), ifMode });
@@ -792,7 +811,9 @@
             style: { marginTop: 12, minHeight: 40, borderRadius: 10, border: "1px dashed #b23a2e", color: "#b23a2e", fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))" } }, "有 " + bad.length + " 张没写好 · 一起重写") : null; })(),
         album.length ? h("div", { "data-wk": "stampalbum", className: "grid", style: { gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 10, marginTop: 14, justifyItems: "center" } },
           album.map(c => { const ch = albumChar === "all" ? charOf(c.charId) : null;   // 「全部」时每枚下面写是谁的
-            return h("div", { key: c.id, className: "flex flex-col items-center", style: { gap: 3, minWidth: 0 } }, h(StampFace, { t, card: c, size: 88, onClick: () => setOpen(c.id) }),
+            return h("div", { key: c.id, className: "flex flex-col items-center", style: { gap: 3, minWidth: 0 } }, h("div", { style: { position: "relative" } }, h(StampFace, { t, card: c, size: 88, onClick: () => setOpen(c.id) }),
+                // 没点开过的：右上角一个小点，淡淡的（她 2026-10-27：不要太明显）
+                c.unread ? h("span", { "data-wk": "stampunread", style: { position: "absolute", top: 3, right: 3, width: 5, height: 5, borderRadius: 999, background: "rgba(181,140,85,.75)", pointerEvents: "none" } }) : null),
               // 每枚下面：星（养到哪儿了）、谁的、什么主题（群里许愿 2026-10-26）
               (() => { const cp = C().CAP[c.rarity] || 30, all = Math.round(cp / 10), on = Math.min(all, Math.floor((c.lv || 1) / 10));
                 return h("div", { "data-wk": "stampstarsmini", style: { fontSize: "calc(9.5px * var(--app-fs, 1))", letterSpacing: ".1em", color: "#285C4B", lineHeight: 1 } }, Array.from({ length: all }, (_, k) => k < on ? "★" : "☆").join("")); })(),

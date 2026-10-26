@@ -571,7 +571,7 @@
         // 重 Roll 留版那一行「‹ 2/3 ›」（她 2026-10-10）
         ["rerollnav", "最后一条回复底下翻重 Roll 旧版的那一行"],
         // 时刻「发给 TA」那张小卡（她 2026-10-03）——挂在聊天页这一组，聊天页的 CSS 才抓得到它
-        ["shikeshare", "聊天里那张「时刻」小卡（你从时刻里「发给 TA」的，和 TA 自己存进时刻时落的那张）"], ["gameshare", "聊天里那张小游戏战报卡"], ["stampletternote", "「今天的信」上他写的附言"], ["stamptkpick", "寄一版上面那排挑券（生日券、纪念日券 / 十连券，data-on=1 是这次用的）"], ["stampstorylog", "SSR 剧情顶上「记录」"], ["stamplog", "剧情回放记录（整页）"], ["stamplogline", "记录里的一句（data-who=he/me/narr/inner）"], ["stamplogpick", "记录里「你选的」小标"], ["stamplogsay", "记录里他那句旁边的「听」"], ["stampstorysec", "剧情标题底下「第几节」"], ["stampstoryskip", "SSR 剧情顶上「跳过」（翻到下一个选项）"], ["stampbdletter", "聊天里那封生日信（data-got=1 领过了）"], ["stampletter", "聊天里那封「今天的信」（data-got=1 领过了）"], ["stampshare", "聊天里那枚邮票小卡（从邮票册「发给他看」的；data-rarity）"], ["shikesharego", "时刻小卡右下「去时刻里看 ›」"],
+        ["shikeshare", "聊天里那张「时刻」小卡（你从时刻里「发给 TA」的，和 TA 自己存进时刻时落的那张）"], ["gameshare", "聊天里那张小游戏战报卡"], ["stampletternote", "「今天的信」上他写的附言"], ["stamptkpick", "寄一版上面那排挑券（生日券、纪念日券 / 十连券，data-on=1 是这次用的）"], ["stampstorylog", "SSR 剧情顶上「记录」"], ["stamplog", "剧情回放记录（整页）"], ["stamplogline", "记录里的一句（data-who=he/me/narr/inner）"], ["stamplogpick", "记录里「你选的」小标"], ["stamplogsay", "记录里他那句旁边的「听」"], ["stampstorysec", "剧情标题底下「第几节」"], ["stampresume", "剧情「接着看 / 从头看」那一层"], ["stampresumego", "「接着看」"], ["stampresumetop", "「从头看」"], ["stampunread", "册子里没点开过的邮票右上角那个小点"], ["stampstoryskip", "SSR 剧情顶上「跳过」（翻到下一个选项）"], ["stampbdletter", "聊天里那封生日信（data-got=1 领过了）"], ["stampletter", "聊天里那封「今天的信」（data-got=1 领过了）"], ["stampshare", "聊天里那枚邮票小卡（从邮票册「发给他看」的；data-rarity）"], ["shikesharego", "时刻小卡右下「去时刻里看 ›」"],
         // 番茄钟收桌后 TA 放进私聊的那张小卡（群里 2026-10-05）
         ["pomoshare", "聊天里那张「一起专注」小卡（番茄钟收桌后 TA 发来的；data-done=\"1\" 是坐满了）"],
         // 拉黑提示条和解除申请卡（她 2026-10-03：「拉黑的提示搞点挂点」）
