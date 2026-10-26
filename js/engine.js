@@ -7065,7 +7065,20 @@ async function saveFile(file) {
   return "download";
 }
 if (typeof window !== "undefined") window.saveTextFile = saveTextFile;
-function resolveImg(v) { if (!v || typeof v !== "string") return v; if (v.indexOf("iv_") === 0) return _imgCache().get(v) || ""; return v; }
+// 本机图库里没有的 iv_ 图（换了设备、刚从云上恢复）：去本机原生仓、再去云上拉一张回来，拉到了就通知界面重画。
+//   原来这里只认开机时灌进内存的那一份，没有的就一直空着——聊天头像、表情包、面具头像在新设备上全是空的，
+//   补传把图送上了云，这边却从来不去拿（群友 2026-10-25：「平板显示没有图片需要补传，手机上表情包和头像丢了」）。
+const _imgPull = { busy: new Set(), failAt: new Map(), t: 0 };
+function _imgPullMiss(k) {
+  if (_imgPull.busy.has(k) || Date.now() - (_imgPull.failAt.get(k) || 0) < 60000 || typeof idbVaultGet !== "function") return;
+  _imgPull.busy.add(k);
+  idbVaultGet(k).then(b => {
+    if (b && b.size) { try { _imgCache().set(k, URL.createObjectURL(b)); } catch (e) {}
+      clearTimeout(_imgPull.t); _imgPull.t = setTimeout(() => { try { window.dispatchEvent(new CustomEvent("img-vault-filled")); } catch (e) {} }, 300); }
+    else _imgPull.failAt.set(k, Date.now());
+  }).catch(() => _imgPull.failAt.set(k, Date.now())).finally(() => _imgPull.busy.delete(k));
+}
+function resolveImg(v) { if (!v || typeof v !== "string") return v; if (v.indexOf("iv_") === 0) { const u = _imgCache().get(v); if (!u) _imgPullMiss(v); return u || ""; } return v; }
 // 取图统一兜底(单11,2026-08-14):iOS IDB 写后立读偶发返 null(v47.36 案卷),但 imgToVault 存图时
 // 已把 objectURL 放进内存缓存——仓库装聋就从内存拿,本会话刚挂的图绝不再因时序丢失;两路皆空才算真 miss。
 async function imgVaultFetchBlob(ref) {
