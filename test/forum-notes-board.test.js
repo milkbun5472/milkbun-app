@@ -18,7 +18,9 @@ test("排版开关在论坛「我」页，不在排序那排", () => {
   assert.match(scr, /\(!inSub && nav === "home" && !cardLayout\) && h\("div", \{ "data-wk": "fosort", className: "shrink-0 grid grid-cols-3 gap-2 px-4 py-2"/);
 });
 test("卡片点开还是同一个帖子页", () => {
-  assert.match(scr, /"data-wk": "fonote", role: "button", onClick: \(\) => openPost\(p\)/);
+  // 2026-10-26 起点帖走 tapPost：没在多选时就是 openPost
+  assert.match(scr, /function tapPost\(p\) \{ if \(pick\) [^\n]*; else openPost\(p\); \}/);
+  assert.match(scr, /"data-wk": "fonote", "data-picked": pickedOn\(p\) \? "1" : "0", role: "button", onClick: \(\) => tapPost\(p\)/);
 });
 test("新帖、新回复默认收着，点了才展开", () => {
   assert.match(scr, /const \[newPostsOpen, setNewPostsOpen\] = useState\(false\);/);

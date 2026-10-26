@@ -2206,7 +2206,7 @@ function Forum({
   onStartPM, onStartCharPM, onDelPM, onClearPMs,
   onPostMine, onGenCharPost, onToggleFollow, onForwardToChat, onForwardToGroup,
   onRefreshPMs, onSendPM, onDelPMMsg, onForwardToPM, onAskWechat, onOpenWechat, onMarkPMRead, onEditMe, onEnsureCharMeta, onToggleForumChar, onRenameCharAlt, onRegenCharAlt,
-  onDeletePost, onDeleteFloor, onClearBoard, onRenameBoard, onDropBoard,  // 删帖（她 2026-09-19）：一条一条删，或者整版清空
+  onDeletePost, onDeletePosts, onDeleteFloor, onClearBoard, onRenameBoard, onDropBoard,  // 删帖（她 2026-09-19）：一条一条删，或者整版清空；onDeletePosts 多选一起删
   onGenCharPosts,              // 请角色来发帖（她 2026-09-23）
   toast
 }) {
@@ -2232,6 +2232,7 @@ function Forum({
   const [searchSort, setSearchSort] = useState("hot");
   const [xhsPage, setXhsPage] = useState(0);            // 多图笔记现在翻到第几张 // 小红书搜索结果：最热 / 最新   // 小红书主页那三栏：笔记 / 收藏 / 赞过  // 置顶吧规那块牌子，默认只露第一条
   const [refreshMenu, setRefreshMenu] = useState(false);  // 右上角刷新键点开的那张小单子
+  const [pick, setPick] = useState(null);   // 多选删帖：null＝没在选；数组＝选中的帖 id
   // 开个吧（她自己的吧，存 x_forumBoards）。boardsRev 只是让那排 tab 重画一次——吧表本身每次现读存档
   const [newBoard, setNewBoard] = useState(null);     // null＝没在开；{name, about}＝正在填
   const [, setBoardsRev] = useState(0);
@@ -2588,6 +2589,10 @@ function Forum({
   //   「这个叉在屏幕外」）——那一排本来就挤，上面那条注释写着她 2026-09-01 报过
   //   同一件事（赞和阅读一上万就顶出去）。space-between 只管间距，管不了总宽度，
   //   我又给它加了第七个。删除不该跟那几个数字抢宽度，挪到右上角就永远不用抢。
+  // 多选删帖（她 2026-10-26：入口放在右上角刷新那张单子里）：选着的时候点一帖是勾／不勾，不打开
+  function pickedOn(p) { return !!(pick && pick.indexOf(p.id) >= 0); }
+  function pickStyle(p) { return pick ? (pickedOn(p) ? { outline: "2.5px solid " + FORUM_SKIN.accent, outlineOffset: -1 } : { opacity: 0.72 }) : {}; }
+  function tapPost(p) { if (pick) setPick(x => x.indexOf(p.id) >= 0 ? x.filter(y => y !== p.id) : x.concat(p.id)); else openPost(p); }
   function delBtn(p) {
     if (!onDeletePost) return null;
     return h("button", { onClick: e => { e.stopPropagation(); askDelPost(p); },
@@ -2611,8 +2616,8 @@ function Forum({
     const img = ph && ph.imageRef ? (typeof resolveImg === "function" ? resolveImg(ph.imageRef) : ph.imageRef) : "";
     const hgt = 150 + (forumHash(p.id) % 4) * 22;   // 封面高低错落一点，才像瀑布流
     const likes = (forumLiveCounts(p, forumNow) || {}).likeCount ?? p.likeCount ?? 0;
-    return h("div", { key: p.id, "data-wk": "fonote", role: "button", onClick: () => openPost(p), className: "active:opacity-80 cursor-pointer",
-      style: { borderRadius: 12, overflow: "hidden", background: FORUM_SKIN.paper, border: "1px solid " + FORUM_SKIN.line, breakInside: "avoid", WebkitColumnBreakInside: "avoid", marginBottom: 8, display: "inline-block", width: "100%" } },
+    return h("div", { key: p.id, "data-wk": "fonote", "data-picked": pickedOn(p) ? "1" : "0", role: "button", onClick: () => tapPost(p), className: "active:opacity-80 cursor-pointer",
+      style: Object.assign({ borderRadius: 12, overflow: "hidden", background: FORUM_SKIN.paper, border: "1px solid " + FORUM_SKIN.line, breakInside: "avoid", WebkitColumnBreakInside: "avoid", marginBottom: 8, display: "inline-block", width: "100%" }, pickStyle(p)) },
       img ? h("img", { src: img, alt: "", style: { display: "block", width: "100%", height: hgt, objectFit: "cover" } })
         : h("div", { style: { height: hgt, padding: 12, display: "flex", alignItems: "center", justifyContent: "center", textAlign: "center", background: "linear-gradient(160deg," + bs[1] + "," + bs[0] + "33)",
             fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))", lineHeight: 1.45, color: FORUM_SKIN.ink, overflow: "hidden" } }, (ph && ph.desc) || p.title || ""),
@@ -2629,8 +2634,8 @@ function Forum({
     // ⚠️删帖【只有 actBar 末尾那颗 ✕ 这一条路】（她 2026-09-19 两次定：先说长按也要
     //   二次确认，隔一句又「算了长按删除去掉不要了，就留叉」）。
     //   别再加回长按：看得见的那一颗就够了，而且列表里长按十次有八次被当成滚动。
-    return h("div", { key: p.id, "data-wk": "forow", "data-me": p.authorType === "me" ? "1" : "0", "data-anon": p.anon ? "1" : "0", role: "button", onClick: () => openPost(p),
-      className: "text-left active:opacity-80 cursor-pointer", style: { margin: "10px 13px 0", padding: "13px 13px 12px", borderRadius: 18, border: "1px solid " + FORUM_SKIN.line, borderLeft: "3px solid " + bs[0], background: FORUM_SKIN.paper, boxShadow: "0 8px 22px rgba(42,55,38,.065)" } },
+    return h("div", { key: p.id, "data-wk": "forow", "data-me": p.authorType === "me" ? "1" : "0", "data-anon": p.anon ? "1" : "0", "data-picked": pickedOn(p) ? "1" : "0", role: "button", onClick: () => tapPost(p),
+      className: "text-left active:opacity-80 cursor-pointer", style: Object.assign({ margin: "10px 13px 0", padding: "13px 13px 12px", borderRadius: 18, border: "1px solid " + FORUM_SKIN.line, borderLeft: "3px solid " + bs[0], background: FORUM_SKIN.paper, boxShadow: "0 8px 22px rgba(42,55,38,.065)" }, pickStyle(p)) },
       h("div", { className: "flex gap-3" },
         avatarBtn(p, 40, p.anon),
         h("div", { className: "flex-1 min-w-0" },
@@ -3295,6 +3300,17 @@ function Forum({
     (!inSub && nav === "home" && !cardLayout) && h("div", { "data-wk": "fosort", className: "shrink-0 grid grid-cols-3 gap-2 px-4 py-2", style: { borderBottom: "1px solid " + FORUM_SKIN.line, background: "rgba(255,255,255,.34)" } },
       [["active", "正在聊"], ["latest", "最新发帖"], ["hot", "热榜"]].map((x, xi) => { const active = feedSort === x[0]; return h("button", { key: x[0], title: x[0] === "active" ? "新回复会把旧帖顶回来" : (x[0] === "hot" ? "热度会随时间降温" : "只按发帖时间"), onClick: () => { setFeedSort(x[0]); setPage(1); }, className: "active:opacity-70 flex flex-col items-center justify-center", style: { minHeight: 44, position: "relative", borderRadius: 4, transform: active ? "translateY(-2px) rotate(" + (xi - 1) * .35 + "deg)" : "translateY(2px)", fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: active ? FORUM_SKIN.ink : FORUM_SKIN.fog, background: active ? FORUM_SKIN.paper : "rgba(255,255,255,.26)", border: "1px solid " + (active ? FORUM_SKIN.line : "transparent"), borderTop: "3px solid " + (active ? FORUM_SKIN.accent : "rgba(74,94,65,.18)"), boxShadow: active ? "0 5px 12px rgba(74,94,65,.13)" : "none" } }, h("span", { style: { position: "absolute", top: 4, width: 5, height: 5, borderRadius: 99, background: active ? FORUM_SKIN.accent : FORUM_SKIN.line } }), h("span", { style: { marginTop: 5 } }, x[1])); })),
     bodyEl,
+    // 多选删帖那一条：顶在底栏上面
+    pick && !inSub ? h("div", { "data-wk": "fopickbar", className: "shrink-0 flex items-center justify-between", style: { padding: "8px 14px", borderTop: "1px solid " + FORUM_SKIN.line, background: FORUM_SKIN.paper } },
+      h("button", { onClick: () => setPick(null), className: "active:opacity-60", style: { minHeight: 40, padding: "0 8px", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: FORUM_SKIN.fog, background: "transparent", border: "none" } }, "取消"),
+      h("span", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: FORUM_SKIN.ink } }, pick.length ? "选了 " + pick.length + " 帖" : "点帖子勾上"),
+      h("button", { "data-wk": "fopickdel", disabled: !pick.length, className: "active:opacity-70 disabled:opacity-40",
+        onClick: () => {
+          const ids = pick.slice(), mine = (posts || []).filter(x => x && ids.indexOf(x.id) >= 0 && x.authorType === "me").length;
+          requestAppConfirm("删掉这 " + ids.length + " 帖？", (mine ? "里面有 " + mine + " 帖是你自己发的，删了回不来。" : "网友的帖子刷新一下还会有新的。") + "楼里的回复也一起删。",
+            () => { onDeletePosts(ids); setPick(null); }, "删掉");
+        },
+        style: { minHeight: 40, padding: "0 14px", borderRadius: 999, border: "none", background: FORUM_SKIN.accent, color: "#fff", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))" } }, "删掉")) : null,
     (!inSub) && h("div", { "data-wk": "fonav", className: "shrink-0 flex", style: { borderTop: "1px solid " + FORUM_SKIN.line, background: FORUM_SKIN.bar, backdropFilter: "blur(14px)", WebkitBackdropFilter: "blur(14px)", paddingBottom: COMPOSER_PAD_BOTTOM } },
       [["home", IHome, "主页"], ["search", ISearch, "搜索"], ["notice", IPulse, cardLayout ? "消息" : "回复"], ["pm", IMail, "私信"], ["me", GUser, "我"]].map(nx => { const Ic = nx[1]; const active = nav === nx[0]; return h("button", { key: nx[0], "data-wk": "fonavtab", "data-part": nx[0], "data-on": active ? "1" : "0", onClick: () => { setNav(nx[0]); setFromPost(null); }, className: "flex-1 pt-1.5 pb-1 flex flex-col items-center gap-0.5 active:opacity-60 relative", style: { color: active ? FORUM_SKIN.ink : FORUM_SKIN.fog } },
         h("span", { className: "flex items-center justify-center", style: { width: 38, height: 27, borderRadius: 999, background: active ? FORUM_SKIN.soft : "transparent" } }, h(Ic, { size: 19, color: active ? FORUM_SKIN.accent : FORUM_SKIN.fog })),
@@ -3305,7 +3321,8 @@ function Forum({
       h("div", { onClick: () => setRefreshMenu(false), style: { position: "absolute", inset: 0, zIndex: 40 } }),
       h("div", { "data-wk": "block", style: { position: "absolute", top: safeTop(46), right: 12, zIndex: 41, minWidth: 168, padding: 5, borderRadius: 10, background: FORUM_SKIN.paper, border: "1px solid " + FORUM_SKIN.line, boxShadow: "0 12px 28px rgba(39,49,38,.18)", animation: "qqIn .16s ease both" } },
         [tab !== "关注" && ["刷新", tab === "发现" ? "网友来发笔记，话题随机" : "网友来发帖", () => onGenBoard(tab === "发现" ? xhsRandBoard() : tab)],
-         onGenCharPosts && ["请TA们发帖", tab === "关注" || tab === "发现" ? "你的 char，自己挑吧" : "你的 char，发到「" + tab + "」", () => onGenCharPosts(tab === "发现" ? "关注" : tab)]]
+         onGenCharPosts && ["请TA们发帖", tab === "关注" || tab === "发现" ? "你的 char，自己挑吧" : "你的 char，发到「" + tab + "」", () => onGenCharPosts(tab === "发现" ? "关注" : tab)],
+         onDeletePosts && ["多选删帖", "点几帖勾上，一起删", () => setPick([])]]
           .filter(Boolean).map((x, k) => h("button", { key: k, onClick: () => { setRefreshMenu(false); x[2](); }, className: "w-full text-left active:opacity-60",
             style: { display: "block", minHeight: 44, padding: "7px 11px", borderRadius: 7, borderTop: k ? "1px solid " + FORUM_SKIN.line : "none" } },
             h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", color: FORUM_SKIN.ink } }, x[0]),
