@@ -17044,8 +17044,31 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         schemaHint: "{\"name\":\"\",\"line\":\"\",\"highlight\":\"\",\"gist\":\"\",\"allEndsLine\":\"\",\"shot\":\"\",\"sections\":[{\"id\":\"s1\",\"lv\":1,\"title\":\"\",\"beats\":[{\"who\":\"narr|he|me\",\"text\":\"\"},{\"who\":\"pick\",\"options\":[{\"text\":\"\",\"beats\":[{\"who\":\"he\",\"text\":\"\"}]}]}],\"choices\":[{\"text\":\"\",\"go\":\"s2a\"}],\"end\":false,\"hidden\":false}]}",
         maxTokens: 65000
       });
-      const secs = Array.isArray(d && d.sections) ? d.sections.filter(s => s && s.id && Array.isArray(s.beats) && s.beats.length) : [];
+      let secs = Array.isArray(d && d.sections) ? d.sections.filter(s => s && s.id && Array.isArray(s.beats) && s.beats.length) : [];
       if (!d || !d.name || !secs.length) throw new Error("剧情没写全");
+      // 一张 SSR 很长，有的线路一次吐不完（输出上限被截断，只剩第一节）——缺哪几道锁就接着补写，最多补两轮
+      //   （她 2026-10-26：「为啥有些人 SSR 只生了一段剧情」）
+      const NEED = [1, 10, 20, 30, 40, 50];
+      for (let round = 0; round < 2; round++) {
+        const have = new Set(secs.map(x => Number(x.lv) || 1)), miss = NEED.filter(l => !have.has(l));
+        if (!miss.length) break;
+        const sofar = secs.map(x => "【" + x.id + "｜lv" + (Number(x.lv) || 1) + "｜" + (x.title || "") + (x.end ? "｜结局" : "") + (x.hidden ? "｜隐藏" : "") + "】……"
+          + (x.beats || []).filter(b => b && b.who !== "pick").slice(-3).map(b => String(b.text || "").slice(0, 80)).join(" / ")
+          + ((x.choices || []).length ? "\n  选项：" + x.choices.map(o => (o.text || "") + " → " + (o.go || "")).join("；") : "")).join("\n");
+        let more = null;
+        try {
+          more = await runProbe(offlineApiFor(char.id), ctxFor(char), { voice: true,
+            instruction: STAMP_CORE() + stampVoice(char) + stampBi(char) + "你在写邮票册里那张 SSR「" + d.name + "」的剧情。" + stampKindLine(c, char)
+              + "\n前面已经写好了这几节（每节只摘了结尾几句）：\n" + sofar
+              + "\n\n接着把还缺的写完：" + miss.map(l => l === 10 || l === 30 ? "lv" + l + " 的两条岔路" : l === 40 ? "lv40 的两三个结局（end:true）" : l === 50 ? "lv50 的隐藏的路（hidden:true，也是一个结局）" : "lv" + l + " 那一节").join("、")
+              + "。id 要跟前面选项里 go 指向的那几个对上；没被指到的，就由你在新写的节里接上。每节写得跟前面一样丰满，口气、事情都接着前面走。",
+            schemaHint: "{\"sections\":[{\"id\":\"\",\"lv\":10,\"title\":\"\",\"beats\":[{\"who\":\"narr|he|me\",\"text\":\"\"}],\"choices\":[{\"text\":\"\",\"go\":\"\"}],\"end\":false,\"hidden\":false}]}",
+            maxTokens: 65000 });
+        } catch (e2) { more = null; }
+        const add = Array.isArray(more && more.sections) ? more.sections.filter(x => x && x.id && Array.isArray(x.beats) && x.beats.length && !secs.some(y => y.id === x.id)) : [];
+        if (!add.length) break;
+        secs = secs.concat(add);
+      }
       stampSaveCard(c.id, { writing: false, err: "", text: { name: d.name, line: d.line || "", highlight: d.highlight || "", gist: d.gist || "", allEndsLine: d.allEndsLine || "", shot: d.shot || "", sections: secs } });
     } catch (e) { stampSaveCard(c.id, { writing: false, err: "没写出来：" + String(e && e.message || e).slice(0, 60) }); }
   };
