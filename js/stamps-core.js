@@ -47,13 +47,17 @@
     const st = load(); st.postage += v[0]; st.ink += v[1]; save(st);
   }
   // 第一次打开时到账；每开一期限时主题、每个生日池出现时各送一张十连券
-  function grantOnOpen(now, birthdays) {
+  function grantOnOpen(now, birthdays, limCount) {
     const st = load(), got = [];
     if (!st.gifted) { st.gifted = true; st.tickets += GIFT.tickets; st.ink += GIFT.ink; got.push("开幕纪念：" + GIFT.tickets + " 张十连券、" + GIFT.ink + " 印泥"); }
     else if (!st.seenLimited[MAKEUP.id]) { st.tickets += MAKEUP.tickets; got.push("邮资改版补发：" + MAKEUP.tickets + " 张十连券"); }
     st.seenLimited[MAKEUP.id] = 1;
     // 「今天的信」改成每天由一个人寄进聊天里领（app.js 的 stampLetterSweep），这儿不再送
-    activeLimited(now).forEach(L => { if (!st.seenLimited[L.id]) { st.seenLimited[L.id] = 1; st.tickets += 1; got.push("「" + L.name + "」上新：一张十连券"); } });
+    // 限时池上新：按这一期池里有几个人送，每两个人一张十连，最少一张、最多五张（她 2026-10-26：「十个角色只给一个十连不够」）
+    activeLimited(now).forEach(L => { const n = Math.max(1, Math.min(5, Math.ceil((Number(limCount) || 1) / 2)));
+      if (!st.seenLimited[L.id]) { st.seenLimited[L.id] = 1; st.seenLimited[L.id + "_top"] = 1; st.tickets += n; got.push("「" + L.name + "」上新：" + n + " 张十连券" + (limCount > 1 ? "（这一期 " + limCount + " 个人）" : "")); }
+      // 改成按人数送之前就领过这一期那一张的：补上差的那几张，一期一次
+      else if (!st.seenLimited[L.id + "_top"]) { st.seenLimited[L.id + "_top"] = 1; if (n > 1) { st.tickets += n - 1; got.push("「" + L.name + "」按人数补发：" + (n - 1) + " 张十连券"); } } });
     (birthdays || []).forEach(b => { const k = "bd_" + b.id + "_" + b.year; if (!st.seenLimited[k]) { st.seenLimited[k] = 1; st.tickets += 1; got.push(b.name + " 的生日池：一张十连券"); } });
     if (got.length) save(st);
     return got;

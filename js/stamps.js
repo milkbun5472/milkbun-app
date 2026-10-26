@@ -432,7 +432,8 @@
       st0.cards = st0.cards.map(c => { if (!c.text || c.rarity === "SSR" && !/[（(]\s*S?S?R\s*[）)]/.test(JSON.stringify(c.text))) return c; const t2 = C().cleanText(c.text, c.rarity); if (JSON.stringify(t2) === JSON.stringify(c.text)) return c; n++; return Object.assign({}, c, { text: t2 }); });
       if (n) C().save(st0); } catch (e) {} }, []);
     useEffect(() => { const got = C().grantOnOpen(Date.now(), characters.map(c => { const w = c.birthday ? C().bdayWindow(c.birthday, Date.now()) : null; return w ? { id: c.id, name: c.remark || c.name, year: w.year } : null; }).filter(Boolean)
-      .concat((props.myBdays || []).map(m => { const w = m.birthday ? C().bdayWindow(m.birthday, Date.now()) : null; return w ? { id: "me_" + m.id, name: "你（" + (m.name || "你") + "）", year: w.year } : null; }).filter(Boolean))); if (got.length) { setGotNote(got); setSt(C().load()); } }, []);
+      .concat((props.myBdays || []).map(m => { const w = m.birthday ? C().bdayWindow(m.birthday, Date.now()) : null; return w ? { id: "me_" + m.id, name: "你（" + (m.name || "你") + "）", year: w.year } : null; }).filter(Boolean)),
+      (() => { const lp = ((C().load().opt || {}).limPick || []).filter(id => characters.some(c => c.id === id)); return lp.length || characters.length; })()); if (got.length) { setGotNote(got); setSt(C().load()); } }, []);
     const lims = C().activeLimited(Date.now());
     // 生日池：他生日前 14 天出现，生日后留 7 天；保底和求情按「这个人这一年」单独记
     const bds = characters.map(c => { const w = c.birthday ? C().bdayWindow(c.birthday, Date.now()) : null; return w ? { char: c, win: w, key: c.id + "_" + w.year } : null; }).filter(Boolean)

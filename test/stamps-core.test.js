@@ -138,3 +138,11 @@ test("十连没券时单抽券顶上：9 张一个十连，不够的拿邮资补
   st.singles = 4; st.postage = 500; assert.equal(C.pay(st, 10, true), "singles"); assert.equal(st.singles, 0); assert.equal(st.postage, 0);
   st.singles = 4; st.postage = 100; assert.equal(C.pay(st, 10, true), null);
 });
+
+test("限时池上新按人数送十连：每两人一张，1～5 张", () => {
+  const t0 = Date.parse("2026-10-27T12:00:00+08:00");
+  for (const [n, want] of [[1, 1], [2, 1], [3, 2], [10, 5], [20, 5]]) {
+    const C = fresh(); const st = C.load(); st.gifted = true; st.seenLimited = { postage26: 1 }; C.save(st);
+    C.grantOnOpen(t0, [], n); assert.equal(C.load().tickets, want, n + " 人");
+  }
+});
