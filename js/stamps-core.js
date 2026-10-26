@@ -100,6 +100,9 @@
   function pay(st, n, useTicket) {
     if (n === 10 && useTicket && st.tickets > 0) { st.tickets--; return "ticket"; }
     if (n === 1 && (st.singles || 0) > 0) { st.singles--; return "single"; }   // 单抽先用「今天的信」
+    // 十连没券：单抽券一张顶 100 邮资（十连 900＝9 张），不够的拿邮资补
+    if (n === 10 && (st.singles || 0) > 0) { const use = Math.min(9, st.singles), rest = (9 - use) * PRICE_ONE;
+      if (st.postage >= rest) { st.singles -= use; st.postage -= rest; return "singles"; } }
     const cost = n === 10 ? PRICE_TEN : PRICE_ONE;
     if (st.postage < cost) return null;
     st.postage -= cost; return "postage";

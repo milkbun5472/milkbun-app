@@ -131,3 +131,10 @@ test("老用户补发两张十连券只一次；聊天里那封今天的信只�
   s = C.load(); assert.equal(s.singles, 1); assert.equal(C.letterClaimed("sl_a"), true);
   assert.equal(C.pay(s, 1, false), "single"); assert.equal(s.singles, 0);
 });
+
+test("十连没券时单抽券顶上：9 张一个十连，不够的拿邮资补", () => {
+  const C = fresh(); const st = C.load();
+  st.singles = 9; st.postage = 0; assert.equal(C.pay(st, 10, true), "singles"); assert.equal(st.singles, 0);
+  st.singles = 4; st.postage = 500; assert.equal(C.pay(st, 10, true), "singles"); assert.equal(st.singles, 0); assert.equal(st.postage, 0);
+  st.singles = 4; st.postage = 100; assert.equal(C.pay(st, 10, true), null);
+});
