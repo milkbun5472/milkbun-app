@@ -721,7 +721,7 @@
           h("button", { "data-wk": "stampgoalbum", onClick: () => setTab("album"), className: "active:opacity-60", style: { padding: "6px 8px", color: "#2f2a22", fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))" } }, "册子"),
           h("button", { "data-wk": "stampgocfg", onClick: () => setCfg(true), className: "active:opacity-60", style: { padding: "6px 8px", color: "#2f2a22", fontFamily: F_BODY, fontSize: "calc(16px * var(--app-fs, 1))" } }, "⋯")) }),
       h("div", { className: "flex justify-end flex-wrap px-4 shrink-0", style: { gap: 6 } },
-        capsule("邮资", st.postage), capsule("印泥", st.ink), capsule("十连券", testInf ? "∞" : st.tickets)),
+        capsule("邮资", st.postage), capsule("印泥", st.ink), capsule("十连券", testInf ? "∞（手上 " + st.tickets + " 张）" : st.tickets)),
       h("div", { className: "flex-1 min-h-0 overflow-y-auto px-3", style: { paddingTop: 10 } },
         // 收到礼：一条薄薄的信笺，点开看是什么，✕ 收起
         gotNote.length ? h("div", { "data-wk": "stampgift", className: "flex items-start", style: { margin: "0 4px 10px", padding: "6px 10px", borderRadius: 8, borderLeft: "3px solid #b23a2e", background: "rgba(47,42,34,.08)", color: "#2f2a22", fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", lineHeight: 1.6, gap: 8 } },
