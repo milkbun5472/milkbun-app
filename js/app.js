@@ -20,7 +20,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v76.734";
+const APP_VERSION = "v76.736";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -23638,6 +23638,11 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   //   more=true  —— 我什么都没说，只是想看这条下面再多几条（刷更多评论）
   // ⚠️朋友圈没有路人（她同日）：roster 一直是【跟发帖人真有关系的角色】算出来的，
   //   两档共用同一份名单，more 那档还在提示里把「不许出现名单外的人」写明。
+  // 朋友圈评论区里能替谁开口：言秋（engineerEyes）不在里面——那是本人，不归引擎代笔（她 2026-10-26：朋友圈不该冒出言秋回她）
+  const momLive = () => liveChars.filter(c => !(settingsFor(c.id) || {}).engineerEyes);
+  const momBodyName = nm => { const c = momCharByName(nm); return !!(c && (settingsFor(c.id) || {}).engineerEyes); };
+  // 朋友圈里一个人的人设摘要：评论区的几处共用这一份，口气才对得上
+  const momPersonaBrief = c => (typeof groupPersonaText === "function" ? groupPersonaText(c && c.persona, 300) : String((c && c.persona) || "").slice(0, 300)).replace(/\s+/g, " ");
   const momentReplies = async (mom, opts) => {
     const o = opts || {};
     const more = !!o.more, text = o.text || "", replyTo = o.replyTo || null;
@@ -23650,7 +23655,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     let roster, primary;
     if (author) {
       // 角色的帖子：发帖人 + 认识发帖人的其他角色（都可能插话）；定向回复的对象排最前
-      const others = liveChars.filter(c => c.id !== author.id && (rels[c.id + "->" + author.id] || rels[author.id + "->" + c.id]));
+      const others = momLive().filter(c => c.id !== author.id && (rels[c.id + "->" + author.id] || rels[author.id + "->" + c.id]));
       const target = replyTo ? byName(replyTo) : null;
       primary = target || author;
       // 她身边的配角里跟发帖人连着关系的，也是共友（2026-10-22）
@@ -23658,7 +23663,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       roster = [...new Set([primary, author, ...others.slice(0, 4), ...npcCrowd([author, ...others.slice(0, 4)], 4), ...myKnow])].map(c => c.remark || c.name);
     } else {
       // 我自己的帖子：可见好友里，定向对象 > 已在评论区里的人 > 好感最高的，凑最多5个候选
-      const canSee = liveChars.filter(c => momSeen(mom, c.id));
+      const canSee = momLive().filter(c => momSeen(mom, c.id));
       if (!canSee.length) return;
       const target = replyTo ? byName(replyTo) : null;
       const inThread = canSee.filter(c => (mom.comments || []).some(cm => cm.author === (c.remark || c.name) || cm.author === c.name));
@@ -23715,7 +23720,10 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         characters.forEach(c => { const shown = c.remark || c.name; if (names.has(shown) || names.has(c.name)) rows.push("「" + shown + "」＝角色「" + c.name + "」" + (shown !== c.name ? "（这是她给TA存的备注，不是TA的名字，也不是她）" : "")); });
         return rows.length ? "\n【评论区里谁是谁】" + rows.join("；") + "；「" + meName + "」＝用户本人，评论区里只有这一个是她。角色之间照各自的关系说话，别把另一个角色当成她。" : "";
       })();
-      const system = bundle + (isMine ? MOMENT_TAKEOUT_ASK + momentCartAsk() + momStrangerPairs([...new Set(roster.map(momCharByName).filter(Boolean))]) : "") + "\n\n【场景】" + scene + (thread ? "\n【评论区已有的往来（按时间先后，你都看得到、要接着聊，别重复也别跳戏）】\n" + thread + "\n" : "") + whoLines + (more ? "\n" + moreAsk + "\n只输出 JSON：{\"replies\":[{\"author\":\"说话的人\",\"replyTo\":\"回复谁（回这条朋友圈本身就填 null）\",\"text\":\"内容\",\"who\":\"（只有人设里提到的人才填）身份词\"}]}" : "\n用户「" + meName + "」" + lastLine + "可能回复的人：" + roster.concat(_threadPeople).join("、") + "。请生成他们对【用户这条最新评论「" + text + "」】的回复——**必须直接回应用户说的这句话的具体内容、并接住上面评论区已经聊到的脉络（像微信朋友圈里回复评论那样，有来有往、能接着上一轮往下聊），别答非所问、别自说自话、别把前面聊过的又重说一遍。绝对不许用「看到啦」「收到」这种敷衍空话搪塞**；至少一条（保底），谁最合适谁回，1-3 条，各自符合人设与关系，短句、有具体内容。这是大家在评论区一起聊：除了回用户，也可以接评论区里别人刚说的（包括这一轮前面那条），回谁就把那人的名字填进 replyTo。\n只输出 JSON：{\"replies\":[{\"author\":\"回复者名\",\"replyTo\":\"回复谁（回用户就填用户的名字）\",\"text\":\"回复内容\"}]}");
+      // 名单上除了主答的那位，别人原来连人设都没有，只有个名字——模型只能照名字猜口气（她 2026-10-26）
+      const _rosterPersona = [...new Set(roster.map(momCharByName).filter(c => c && c.id !== primary.id))].slice(0, 8).map(c => "- " + (c.remark || c.name) + (c.remark && c.remark !== c.name ? "（" + c.name + "）" : "") + "：" + momPersonaBrief(c)).join("\n");
+      const _rosterBlock = _rosterPersona ? "\n【评论区里别人各自是什么样的人（他们开口照各自的人设和口气，别都写成一个味）】\n" + _rosterPersona + "\n" : "";
+      const system = bundle + _rosterBlock + (isMine ? MOMENT_TAKEOUT_ASK + momentCartAsk() + momStrangerPairs([...new Set(roster.map(momCharByName).filter(Boolean))]) : "") + "\n\n【场景】" + scene + (thread ? "\n【评论区已有的往来（按时间先后，你都看得到、要接着聊，别重复也别跳戏）】\n" + thread + "\n" : "") + whoLines + (more ? "\n" + moreAsk + "\n只输出 JSON：{\"replies\":[{\"author\":\"说话的人\",\"replyTo\":\"回复谁（回这条朋友圈本身就填 null）\",\"text\":\"内容\",\"who\":\"（只有人设里提到的人才填）身份词\"}]}" : "\n用户「" + meName + "」" + lastLine + "可能回复的人：" + roster.concat(_threadPeople).join("、") + "。请生成他们对【用户这条最新评论「" + text + "」】的回复——**必须直接回应用户说的这句话的具体内容、并接住上面评论区已经聊到的脉络（像微信朋友圈里回复评论那样，有来有往、能接着上一轮往下聊），别答非所问、别自说自话、别把前面聊过的又重说一遍。绝对不许用「看到啦」「收到」这种敷衍空话搪塞**；至少一条（保底），谁最合适谁回，1-3 条，各自符合人设与关系，短句、有具体内容。这是大家在评论区一起聊：除了回用户，也可以接评论区里别人刚说的（包括这一轮前面那条），回谁就把那人的名字填进 replyTo。\n只输出 JSON：{\"replies\":[{\"author\":\"回复者名\",\"replyTo\":\"回复谁（回用户就填用户的名字）\",\"text\":\"回复内容\"}]}");
       const raw = await callAI(apiFor(primary.id), system, [{ role: "user", content: more ? "生成这一轮新评论 JSON" : "针对用户评论「" + text + "」生成回复 JSON" }], { maxTokens: 10000 });
       const d = extractJSON(raw) || {};
       // 容错解析：{replies:[...]} / 裸数组 / {reply} / {text}
@@ -23727,6 +23735,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       reps = reps.filter(r => r && r.text && String(r.text).trim() && String(r.text).toLowerCase() !== "null" && r.author !== meName && r.author !== "我" && r.author !== "用户"
         && !(r.replyTo && momReplyToStranger(r.author, r.replyTo)) && !(author && momStrangerTo(author, r.author)));
       // 不编人只靠提示词管，代码不丢（她 2026-10-22：「不要丢，就怕模型写了认不出来的名字格式，丢掉就没了」）
+      reps = reps.filter(r => !momBodyName(r.author));   // 言秋就算被模型写进来也不落（同上）
       if (!reps.length) { if (!more) toast("这次没人接话，点「更多评论」再来一轮"); return; }
       if (isMine) { momentTakeouts(reps, "author"); momentCarts(reps, "author"); }
       // 前缀：原档（我刚评论过）一律「回复 我：」；刷更多那一档按模型填的 replyTo 来——
@@ -23907,7 +23916,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   const momReplyToStranger = (fromName, toName) => { const a = momCharByName(fromName), b = momCharByName(toName); return !!(a && b && !momKnow(a, b)); };
   const reactToUserMoment = async mom => {
     if (!active) return;
-    const canSeeMain = liveChars.filter(c => momSeen(mom, c.id));
+    const canSeeMain = momLive().filter(c => momSeen(mom, c.id));
     if (!canSeeMain.length) return;
     // 她自己身边的配角（在谁身边＝我）也刷得到她的朋友圈（群里 2026-10-22：「只有他的 npc 跟我互动，我的 npc 都不跟我互动」）
     const canSee = [...canSeeMain, ...npcCrowd(canSeeMain, 3), ...myNpcCrowd(2, mom)];
@@ -23924,7 +23933,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         const aff = Math.round(affOf(c.id));
         const md = moods[c.id] && moods[c.id].label ? moods[c.id].label : "平静";
         const rel = rels[c.id + "->me"] ? rels[c.id + "->me"].label : "";
-        return "- " + c.name + "：人设[" + String(c.persona || "").slice(0, 70) + "] 好感度" + aff + "/100 心情" + md + (rel ? " 对我关系[" + rel + "]" : "") + ((mom.remind || []).includes(c.id) ? " 【她发的时候提醒了TA看】" : "");
+        // 人设原来只截 70 个字（她 2026-10-26：顾朝第一句评论 OOC，后来回她那句才像他）——配角都给 300，正主反而只有一句话的料
+        return "- " + c.name + "：人设[" + momPersonaBrief(c) + "] 好感度" + aff + "/100 心情" + md + (rel ? " 对我关系[" + rel + "]" : "") + ((mom.remind || []).includes(c.id) ? " 【她发的时候提醒了TA看】" : "");
       }).join("\n");
       // 提醒谁看：点了名的人收到的是「她提醒你看」，不是自己刷到的——一定看见了，也知道是冲着自己来的
       const remindNames = (mom.remind || []).map(id => (liveChars.find(c => c.id === id) || {}).name).filter(Boolean);
@@ -23945,6 +23955,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       let d = extractJSON(raw);
       if (!d && typeof repairJSON === "function") { try { d = JSON.parse(repairJSON(raw)); } catch (e) {} }
       if (d) {
+        if (Array.isArray(d.reactions)) d.reactions = d.reactions.filter(r => r && !momBodyName(r.name));   // 言秋不替他开口
         const likers = (d.reactions || []).filter(r => r.liked).map(r => momentWho(r.name));
         const comments = [];
         (d.reactions || []).forEach(r => {

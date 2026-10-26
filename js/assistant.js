@@ -842,7 +842,7 @@
     const errs = (typeof window !== "undefined" && window.__errLog ? window.__errLog : []).slice(-5)
       .map(e => clip(e && e.msg, 120));
     // 聊天窗的长相现在是什么（她 2026-09-30：让秋秋改单聊/群聊的 CSS 和排版）——不给它看，它只能照空白重写、把她原来的盖掉
-    const cs = loadJ("x_chatSettings", {}) || {}, gsAll = loadJ("x_groupSettings", {}) || {};
+    const cs = loadJ("x_chatSettings", {}) || {}, gsAll = loadJ("x_groupSettings", {}) || {}, offAll = loadJ("x_offlineSettings", {}) || {};
     // 长期准则（她经 OOC 立的）：原来快照里没有，她问「是不是哪条规矩把TA架住了」时秋秋只能说看不到（2026-10-07）
     const dirs = loadJ("x_directives", {}) || {};
     const dirOf = id => (Array.isArray(dirs[id]) ? dirs[id] : []).map(x => String((x && x.text) || "").trim()).filter(Boolean);
@@ -858,6 +858,9 @@
       const st = cs[row.id] || {};
       row.聊天窗排版 = st.layout ? JSON.stringify(st.layout).replace(/"(data:image[^"]{0,40})[^"]*"/g, '"$1…"') : "（原样）";
       row.聊天窗CSS = st.customCSS ? clipRaw(st.customCSS, 3000) : "（空）";
+      // 线下那层的 CSS 也给它看（她 2026-10-26：秋秋说快照里看不到她线下写了哪段，没法改）
+      const os = offAll[row.id] || {};
+      row.线下CSS = os.customCSS ? clipRaw(os.customCSS, 3000) : "（空）";
     });
     const groups = (ctx.groups || []).map(g => {
       const st = gsAll[g.id] || {};
