@@ -19273,8 +19273,10 @@ function GroupThread({
   const memberById = id => chatFace((allChars || characters).find(x => x.id === id));
   const members = (group.memberIds || []).map(memberById).filter(Boolean);
   // 旁白那一栏什么时候出来：旁白模式，或者旁观群照常打字（旁观群打的字本来就是旁白）
-  const gNarrBar = !!onAddDirNote && (chatMode === "narr" || (!!gs.spectate && chatMode === "chat"));
-  const gNarrKinds = gs.spectate && chatMode === "chat" ? [["event", "旁白"], ["as", "替谁说"], ["dir", "往后的方向"]] : [["event", "此刻发生了什么"], ["dir", "往后的方向"]];
+  // 旁观群那一排（旁白／替谁说／往后的方向）只在切进旁白模式时出来，平时打开聊天不占地方（她 2026-10-26）；
+  //   旁观群照常打字仍旧算旁白，只是不再摆这一排
+  const gNarrBar = !!onAddDirNote && chatMode === "narr";
+  const gNarrKinds = gs.spectate ? [["event", "旁白"], ["as", "替谁说"], ["dir", "往后的方向"]] : [["event", "此刻发生了什么"], ["dir", "往后的方向"]];
   const gKind = gNarrKinds.some(k => k[0] === narrKind) ? narrKind : "event";
   // 记忆互通时：成员头像可点，开心声卡（和私聊同一套 states）。没开互通就是普通头像。
   // ⚠️配角是例外：他那四样（心情／想法／穿着／动作）不看互通开关（她 2026-09-20），
