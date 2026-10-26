@@ -456,11 +456,13 @@
       const now = Date.now(), cards = [];
       for (let i = 0; i < n; i++) {
         const rar = bd ? C().rollRarity(s, { bday: bd.key, isDay: bd.win.isDay }) : C().rollRarity(s);
-        // 出了 SSR、池里又不止一个人：八成落到还没有这池 SSR 的人身上（限定池一期一人一张，免得老抽到重复；大混池先补齐没 SSR 的）
+        // 出了 SSR、池里又不止一个人：八成落到这池里 SSR 最少的人身上（限定池一期一人一张，免得老抽到重复；大混池先补齐、再补张数少的）
         let cid = pool0[Math.floor(Math.random() * pool0.length)];
         if (rar === "SSR" && pool0.length > 1) {
-          const have = id => s.cards.concat(cards).some(x => x.rarity === "SSR" && !x.dupe && x.charId === id && (lim ? x.limited === lim.id : bd ? (x.pool === (bd.mine ? "mybday" : "bday") && x.bdDay === bd.win.day) : pool === "mix" ? x.pool === "mix" : true));
-          const fresh = pool0.filter(id => !have(id));
+          const have = id => s.cards.concat(cards).filter(x => x.rarity === "SSR" && !x.dupe && x.charId === id && (lim ? x.limited === lim.id : bd ? (x.pool === (bd.mine ? "mybday" : "bday") && x.bdDay === bd.win.day) : pool === "mix" ? x.pool === "mix" : true));
+          // 谁在这池里的 SSR 最少就先补谁（都有了以后也一样：先补张数少的）
+          const cnt = {}; pool0.forEach(id => { cnt[id] = have(id).length; });
+          const least = Math.min.apply(null, pool0.map(id => cnt[id])), fresh = pool0.filter(id => cnt[id] === least);
           if (fresh.length && Math.random() < 0.8) cid = fresh[Math.floor(Math.random() * fresh.length)];
         }
         const card = { id: uid(), ts: now + i, rarity: rar, charId: cid, lv: 1, pool: bd ? (bd.mine ? "mybday" : "bday") : pool === "char" ? "char" : lim ? "limited" : "mix",
