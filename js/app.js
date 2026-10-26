@@ -19319,7 +19319,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     if (!window.StampsCore) return;
     const st = window.StampsCore.load(), d = new Date(), today = d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate();
     if (st.lastDaily === today) return;
-    const pool = liveChars.filter(c => c && !c.npc && !settingsFor(c.id).engineerEyes);
+    const pickIds = ((st.opt || {}).letterPick || []).filter(id => liveChars.some(c => c.id === id));   // 卡池设置里挑了谁寄，就只在这几个人里轮；没挑＝所有人
+    const pool = liveChars.filter(c => c && !c.npc && !settingsFor(c.id).engineerEyes && (!pickIds.length || pickIds.includes(c.id)));
     if (!pool.length) return;
     const c = pool[Math.floor(Math.random() * pool.length)], id = "sl_" + Date.now().toString(36);
     st.lastDaily = today; window.StampsCore.save(st);

@@ -631,6 +631,8 @@
           onChange: e => setPaintDraft(e.target.value), onBlur: () => { if (paintDraft != null) { const v = paintDraft.trim(); setOpt({ paint: v }); setPaintDraft(null); } },
           style: { width: "100%", marginTop: 8, padding: "9px 12px", borderRadius: 10, border: "1px solid rgba(47,42,34,.22)", background: "rgba(47,42,34,.07)", color: "#2f2a22", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))" } }),
         h("div", { style: { marginTop: 6, fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: "rgba(47,42,34,.5)" } }, "只管以后画的和重画的卡面，画好的不会变。"),
+        h(Eyebrow, { style: { color: "rgba(47,42,34,.55)", marginTop: 18 } }, "今天的信由谁来寄（不勾就是所有人里随机）"),
+        peoplePick((opt.letterPick || []).filter(id => characters.some(c => c.id === id)), (id, on) => { const cu = opt.letterPick || []; setOpt({ letterPick: on ? cu.filter(x => x !== id) : cu.concat(id) }); }),
         h("div", { className: "flex items-center justify-between", style: { marginTop: 18 } },
           h("div", null, h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(14.5px * var(--app-fs, 1))", color: "#2f2a22" } }, "今天的信带他一句话"),
             h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: "rgba(47,42,34,.5)" } }, opt.letterLine ? "开着：每天寄信的那个人顺手写一两句附言，一天多一次调用" : "关着：只寄券，不花调用")),
