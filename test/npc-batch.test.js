@@ -8,7 +8,7 @@ test("一次生成几位配角：同一次调用、几位都建上（群友 2026
   assert.deepEqual(r.map(x => x.name), ["甲", "乙"]);
   const sys = new Function(cut("function npcSysOf(") + ";return npcSysOf;")()({ name: "主" }, "", [], 3);
   assert.match(sys, /这次要 3 位，彼此是不同的人/); assert.match(sys, /用户没写，照主角色的人设挑几位/); assert.match(sys, /⚠️TA不认识用户/);
-  assert.match(app, /const list = await generateNpcs\(p, host, ask, npcsOf\(hostId\)\.map\(c => c\.name\), n\);/);
+  assert.match(app, /const list = await generateNpcs\(p, host, ask, npcsOf\(hostId\)\.map\(c => c\.name\), n, loreForContext\("chat", \[hostId\]/);
   assert.match(app, /onCreateNpc: \(hostId, ask, n\) => createNpc\(hostId, ask, n\)/);
   assert.match(ui, /"data-wk": "tiesnpccount"/); assert.match(ui, /onCreateNpc\(c\.meChar, v, c\.npcCount \|\| 1\)/);
 });
