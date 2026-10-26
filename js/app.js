@@ -19447,6 +19447,9 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   window.__phoneFaceIsNpc = (ownerId, name) => !!_phoneFaceChar(ownerId, name);
   const relatedNames = char => {
     const set = new Set();
+    // 他自己身边的配角排最前，没连关系线也算（群友 2026-10-26：char 和他的配角的聊天，查手机刷几天都刷不出来——
+    //   手建的、或者生成时没带回关系那句的配角，关系表里没有线，这里原来就把他们漏了）
+    for (const o of characters) if (o.id !== char.id && o.npc && o.ownerId === char.id) set.add(o.name);
     for (const o of characters) {
       if (o.id === char.id) continue;
       if (rels[char.id + "->" + o.id] || rels[o.id + "->" + char.id]) set.add(o.name);
