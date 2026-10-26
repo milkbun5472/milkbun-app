@@ -4441,7 +4441,9 @@ function listenParseLrc(raw) {
 }
 
 // ── 浮窗歌词（群友 2026-10-26 许愿）：放歌时在任何一页上浮一行半透明的当前句，不挡手指 ──
-// 设置存在 x_floatLyric：{ on, color, size, opacity, pos: "top"|"mid"|"bottom" }。播放页「浮」那颗键开关、调样子，
+// 设置存在 x_floatLyric：{ on, color, size, opacity, pos: "top"|"mid"|"bottom"|"free", fx, fy }。
+//   pos "free"＝拖过的位置（她 2026-10-26）：fx/fy 是浮窗中心占屏幕宽高的比例，换屏幕方向也不跑出去。
+//   平时点得穿；「浮」那块设置开着时（floatLyricEdit）才接手指、能拖。播放页「浮」那颗键开关、调样子，
 // 改了就发 floatlyric 事件，挂在 app 根上的这一层跟着变
 const FLOAT_LYRIC_DEF = { on: false, color: "#ffffff", size: 18, opacity: 0.85, pos: "bottom" };
 function floatLyricPrefs() { return Object.assign({}, FLOAT_LYRIC_DEF, loadJSON("x_floatLyric", {}) || {}); }
@@ -4451,11 +4453,16 @@ function setFloatLyricPrefs(patch) {
   try { window.dispatchEvent(new CustomEvent("floatlyric")); } catch (e) {}
   return n;
 }
+let _floatLyricEditing = false;
+function setFloatLyricEdit(on) { _floatLyricEditing = !!on; try { window.dispatchEvent(new CustomEvent("floatlyric")); } catch (e) {} }
 const _floatLyricCache = {};   // 歌 id → 解析好的带时间的行（null＝没有）
 function FloatLyric({ player, song, read, ready }) {
   const [prefs, setPrefs] = useState(floatLyricPrefs);
   const [, bump] = useState(0);
-  useEffect(() => { const f = () => setPrefs(floatLyricPrefs()); window.addEventListener("floatlyric", f); return () => window.removeEventListener("floatlyric", f); }, []);
+  const [editing, setEditing] = useState(_floatLyricEditing);
+  const [drag, setDrag] = useState(null);   // 拖着时的 { fx, fy }，松手才存
+  const dragRef = useRef(null);
+  useEffect(() => { const f = () => { setPrefs(floatLyricPrefs()); setEditing(_floatLyricEditing); }; window.addEventListener("floatlyric", f); return () => window.removeEventListener("floatlyric", f); }, []);
   const id = song && song.id;
   useEffect(() => {
     if (!prefs.on || !song || !ready || _floatLyricCache[id] !== undefined) return;
@@ -4472,15 +4479,38 @@ function FloatLyric({ player, song, read, ready }) {
   const tNow = player.t || 0;
   let at = -1;
   for (let i = 0; i < lines.length; i++) { if (lines[i].t <= tNow) at = i; else break; }
-  if (at < 0) return null;
-  const pos = prefs.pos === "top" ? { top: "calc(env(safe-area-inset-top, 0px) + 64px)" }
+  if (at < 0 && !editing) return null;
+  const text = at >= 0 ? lines[at].text : "按住拖到想放的地方";
+  const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+  const free = drag || (prefs.pos === "free" && prefs.fx != null ? { fx: prefs.fx, fy: prefs.fy } : null);
+  const onDown = e => {
+    if (!editing) return;
+    try { e.currentTarget.setPointerCapture(e.pointerId); } catch (x) {}
+    const r = e.currentTarget.getBoundingClientRect();
+    dragRef.current = { dx: e.clientX - (r.left + r.width / 2), dy: e.clientY - (r.top + r.height / 2) };
+    e.preventDefault();
+  };
+  const onMove = e => {
+    const d = dragRef.current; if (!d) return;
+    const W = window.innerWidth || 1, H = window.innerHeight || 1;
+    setDrag({ fx: clamp((e.clientX - d.dx) / W, 0.12, 0.88), fy: clamp((e.clientY - d.dy) / H, 0.06, 0.94) });
+  };
+  const onUp = () => {
+    if (!dragRef.current) return; dragRef.current = null;
+    setDrag(cur => { if (cur) setFloatLyricPrefs({ pos: "free", fx: Math.round(cur.fx * 1000) / 1000, fy: Math.round(cur.fy * 1000) / 1000 }); return null; });
+  };
+  const pos = free ? { left: (free.fx * 100) + "%", top: (free.fy * 100) + "%", right: "auto", width: "max-content", maxWidth: "calc(100vw - 32px)", transform: "translate(-50%,-50%)" }
+    : prefs.pos === "top" ? { top: "calc(env(safe-area-inset-top, 0px) + 64px)" }
     : prefs.pos === "mid" ? { top: "50%", transform: "translateY(-50%)" }
     : { bottom: "calc(env(safe-area-inset-bottom, 0px) + 96px)" };
   const size = Math.max(12, Math.min(36, Number(prefs.size) || 18));
-  return h("div", { "data-wk": "floatlyric", "aria-hidden": "true", style: Object.assign({ position: "fixed", left: 16, right: 16, zIndex: 9000, pointerEvents: "none", textAlign: "center",
+  return h("div", { "data-wk": "floatlyric", "aria-hidden": "true", "data-editing": editing ? "1" : "0",
+    onPointerDown: onDown, onPointerMove: onMove, onPointerUp: onUp, onPointerCancel: onUp,
+    style: Object.assign({ position: "fixed", left: 16, right: 16, zIndex: 9000, pointerEvents: editing ? "auto" : "none", textAlign: "center",
+      ...(editing ? { outline: "1.5px dashed " + (prefs.color || "#fff"), outlineOffset: 4, borderRadius: 6, touchAction: "none", cursor: "grab", padding: "2px 6px" } : {}),
       fontFamily: F_BODY, fontSize: size, lineHeight: 1.4, fontWeight: 600, color: prefs.color || "#fff",
-      opacity: Math.max(0.15, Math.min(1, Number(prefs.opacity) || 0.85)), textShadow: "0 1px 3px rgba(0,0,0,.45)",
-      overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }, pos) }, lines[at].text);
+      opacity: Math.max(editing ? 0.6 : 0.15, Math.min(1, Number(prefs.opacity) || 0.85)), textShadow: "0 1px 3px rgba(0,0,0,.45)",
+      overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }, pos) }, text);
 }
 window.FloatLyric = FloatLyric;
 // 设置 → 通用「新消息提示音」（群友 2026-10-26）：关着／几种自带的／自己传一段。点一下就试听
@@ -4618,6 +4648,9 @@ function ListenTogether({ profile, active, ctxFor, toast, onToChat, onListenStat
   const [showLyric, setShowLyric] = useState(false);
   const [flOpen, setFlOpen] = useState(false);
   const [flPrefs, setFlPrefs] = useState(floatLyricPrefs);
+  // 「浮」那块设置开着时浮窗能拖，关了（或离开这页）又点得穿
+  useEffect(() => { setFloatLyricEdit(!!flOpen); return () => setFloatLyricEdit(false); }, [flOpen]);
+  useEffect(() => { const f = () => setFlPrefs(floatLyricPrefs()); window.addEventListener("floatlyric", f); return () => window.removeEventListener("floatlyric", f); }, []);
   const [lyrics, setLyrics] = useState({}); // songId -> {lines:[{t,text}]|null}；null=确认没有
   const lyricBoxRef = useRef(null);
   // 解析歌词只有一份（listenParseLrc），浮窗歌词也用它
@@ -4810,7 +4843,9 @@ function ListenTogether({ profile, active, ctxFor, toast, onToChat, onListenStat
       h("div", { className: "flex items-center", style: { gap: 8 } },
         h("span", { style: { width: 34, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.sub } }, "位置"),
         [["top", "上"], ["mid", "中"], ["bottom", "下"]].map(([v, zh]) => h("button", { key: v, "data-wk": "floatlyricpos", "data-on": flPrefs.pos === v ? "1" : "0", onClick: () => setFlPrefs(setFloatLyricPrefs({ pos: v })),
-          style: { minWidth: 44, minHeight: 40, borderRadius: 8, border: "1px solid " + (flPrefs.pos === v ? t.ink : t.line), background: flPrefs.pos === v ? t.ink : "transparent", color: flPrefs.pos === v ? t.bg : t.sub, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))" } }, zh)))) : null,
+          style: { minWidth: 44, minHeight: 40, borderRadius: 8, border: "1px solid " + (flPrefs.pos === v ? t.ink : t.line), background: flPrefs.pos === v ? t.ink : "transparent", color: flPrefs.pos === v ? t.bg : t.sub, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))" } }, zh)),
+        flPrefs.pos === "free" ? h("span", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.sub } }, "拖过的位置") : null),
+      h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", lineHeight: 1.45, color: t.fog } }, "这块开着时，按住屏幕上的浮窗歌词（带虚线框那行）拖到想放的地方，松手就记住了；点上中下回到固定位置。关上这块，浮窗又变回点得穿、不挡手指。")) : null,
     // ── 进度＝唱针的行程（v62.46）────────────────────────────────────
     // 原来这儿是一根【原生 <input type="range">】：一页程序画的唱片沟纹中间躺着一根
     // iOS 系统滑块，是整页最裸的一件东西（审美审计点名）。
