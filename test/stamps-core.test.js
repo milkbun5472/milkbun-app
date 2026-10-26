@@ -113,3 +113,11 @@ test("测试券开着时盖印不扣印泥", () => {
 });
 
 test("限定 SSR 重复折的印泥是定好的数", () => { const C = fresh(); assert.equal(C.DUPE_INK, 500); });
+
+test("写回来的卡去掉 (R)/(SR) 占位、R 卡不留 SR 的栏", () => {
+  const C = fresh();
+  const t = C.cleanText({ name: "南瓜灯", narration: "(R)万圣节当晚", thought: "（R）都多大了", line: "(SR)胡闹。", before: { narration: "(R)前面" } }, "R");
+  assert.equal(t.narration, "万圣节当晚"); assert.equal(t.thought, "都多大了"); assert.equal(t.line, undefined); assert.equal(t.before.narration, "前面");
+  const s = C.cleanText({ name: "x", sections: [{ beats: [{ text: "(SSR)嗯" }] }] }, "SSR");
+  assert.equal(s.sections[0].beats[0].text, "嗯");
+});
