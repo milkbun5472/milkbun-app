@@ -6539,6 +6539,36 @@ function Config(props) {
     const timer = setTimeout(reset, 120);
     return () => { cancelAnimationFrame(raf); clearTimeout(timer); };
   }, [page]);
+  // 搜索（她 2026-10-25）：这几页各是一整个大组件（连线路、连云……），不能全偷偷渲染一遍，
+  //   所以搜的是攻略里写设置的那几条（「设置」「每种调用走哪条」「能生图的地方」「主题工作台」「出毛病了怎么办」）——
+  //   攻略按规矩跟着设置改，搜到的就是现在的样子。点一行跳进那一页，再在页面上找那个词闪一下。
+  const [cfQ, setCfQ] = useState("");
+  const [, setCfTick] = useState(0);
+  const cfFlash = React.useRef("");
+  useEffect(() => { if (cfQ.trim() && !window.AssistantManual && window.LazyMods) window.LazyMods.load("manual").then(() => setCfTick(x => x + 1)).catch(() => {}); }, [cfQ]);
+  useEffect(() => { if (page === "home" || !cfFlash.current) return; const q = cfFlash.current; cfFlash.current = ""; setTimeout(() => typeof settingsFlash === "function" && settingsFlash(scrollRef.current, q), 400); }, [page]);
+  const cfHits = (() => {
+    const q = cfQ.trim(); if (!q) return [];
+    const ql = q.toLowerCase(), M = window.AssistantManual, out = [];
+    const CH = { 模: "api", 样: "look", 知: "sense", 动: "auto", 存: "data", 写: "write", 查: "debug", 新: "log" };
+    const ENTRY_PAGE = { apiroute: "api", imagegen: "apiImage", theme: "themeStudio" };
+    ((M && M.entries) || []).filter(e => e && e.app === "config" && e.doc).forEach(e => {
+      let curPage = ENTRY_PAGE[e.id] || "", curWhere = e.zh;
+      String(e.doc).split("\n").forEach(line => {
+        const sec = line.match(/^- \*\*(.) · ([^*：]+)：?\*\*/);
+        if (sec && e.id === "config") { curPage = CH[sec[1]] || ""; curWhere = sec[1] + " · " + sec[2]; }
+        const head = line.match(/^#{2,4}\s*(.+)/); if (head) { curWhere = e.zh + " · " + head[1]; if (e.id === "config") curPage = ""; }
+        const plain = line.replace(/【跳转】/g, "").replace(/\*\*/g, "").replace(/^[\s-]+/, "");
+        if (plain.toLowerCase().indexOf(ql) < 0) return;
+        const bold = line.match(/\*\*([^*]{1,40})\*\*/);
+        const ttl = bold ? bold[1].replace(/[：:。]$/, "") : plain.slice(0, 24), snip = settingsSnippet(plain, q);
+        out.push({ page: curPage, where: curWhere, title: ttl, snippet: plain.replace(/[：:。\s]+$/, "") === ttl ? "" : snip, full: plain });
+      });
+    });
+    homeRows.forEach(r => { if (String(r.title).toLowerCase().indexOf(ql) >= 0 && !out.some(x => x.page === r.key)) out.unshift({ page: r.key, where: r.char + " · " + r.title, title: r.title, snippet: "" }); });
+    return out.slice(0, 50);
+  });
+  const [cfOpenHit, setCfOpenHit] = useState(-1);
   const [toyUnlocked, setToyUnlocked] = useState(() => { try { return localStorage.getItem("x_toyUnlocked") === "1"; } catch (e) { return false; } });
   const toyKnockRef = React.useRef({ n: 0, ts: 0 });
   const toyKnock = () => {
@@ -6635,7 +6665,12 @@ function Config(props) {
   return h("div", { className: "h-full flex flex-col", style: sheet, "data-wk": "configpage" },
     h(Head, { zh: m, onBack: back, bg: "transparent", onTitleTap: page === "home" ? toyKnock : undefined }),
     h("div", { key: page || "home", ref: scrollRef, className: "flex-1 min-h-0 overflow-y-auto px-6 pb-10", style: { overflowAnchor: "none" } },
-      page === "home" && h("div", { style: { display: "flex", flexDirection: "column", gap: 0, marginTop: 16 }, "data-wk": "cfhome" },
+      page === "home" && h(SettingsSearchBox, { value: cfQ, onChange: v => { setCfQ(v); setCfOpenHit(-1); }, placeholder: "搜一个设置，比如 线路、壁纸、备份" }),
+      page === "home" && cfQ.trim() && (!window.AssistantManual ? h("div", { style: { padding: "20px 4px", textAlign: "center", fontFamily: F_BODY, fontSize: 12.5, color: t.fog } }, "正在翻说明…")
+        : (() => { const hits = cfHits(); return h(SettingsSearchHits, { hits: hits.map((x, i) => i === cfOpenHit ? { ...x, snippet: x.full } : x), q: cfQ.trim(),
+            empty: "没搜到。换个说法试试，或者问秋秋。",
+            onPick: x => { const i = hits.findIndex(y => y.title === x.title && y.where === x.where); if (x.page) { cfFlash.current = cfQ.trim(); setCfQ(""); setPage(x.page); } else setCfOpenHit(i === cfOpenHit ? -1 : i); } }); })()),
+      page === "home" && !cfQ.trim() && h("div", { style: { display: "flex", flexDirection: "column", gap: 0, marginTop: 16 }, "data-wk": "cfhome" },
         homeRows.map((row, ri) => h("button", {
           key: row.key,
           "data-wk": "cfrow", "data-page": row.key,
