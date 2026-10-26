@@ -1095,21 +1095,6 @@
     if (changed) saveMem(list);
     return changed;
   }
-  // 她桌面现在的样子（她 2026-10-26：「秋秋不知道这个 app 在桌面哪儿」）：手册写的是默认位置，她可能挪过、
-  //   老用户的文件夹也可能跟新装的不一样——问到「在哪儿」时照她这台的主屏答。读的是主屏自己存的那两份
-  function homeMap() {
-    let L = {}, F = {};
-    try { L = loadJSON("x_homeLayout", {}) || {}; F = loadJSON("x_homeFolders", {}) || {}; } catch (e) {}
-    const Z = typeof SCREEN_ZH !== "undefined" ? SCREEN_ZH : {};
-    const nm = k => Z[k] || "";
-    const pages = Object.keys(L).filter(k => Array.isArray(L[k])).sort((a, b) => a - b);
-    if (!pages.length) return "";
-    const lines = pages.map((pg, i) => {
-      const items = L[pg].map(k => F[k] ? "「" + (F[k].name || "文件夹") + "」文件夹（" + (F[k].keys || []).map(nm).filter(Boolean).join("、") + "）" : nm(k)).filter(Boolean);
-      return items.length ? "第 " + (i + 1) + " 页：" + items.join("、") : "";
-    }).filter(Boolean);
-    return lines.length ? "【她这台手机主屏现在的样子·问到某个 app 在哪儿时照这个答，跟目录里写的默认位置不一样时以这里为准】\n" + lines.join("\n") + "\n\n" : "";
-  }
   function buildSystem(ctx, question, history, extraIds) {
     // ⚠️「这会儿在说谁」拿【要发给模型的那整段窗口】来找，不是只看当前这一句：
     //   她上一句常常是「宝宝你再看看呢」，名字是在前面提的。
@@ -1128,9 +1113,7 @@
     //    否则模型不知道自己是谁，会退回「一个通用助手」那张脸。
     const persona = cfg.prompt.trim() || ("你是「" + cfg.name + "」，这个 App 里的向导。话短、直接、不客套。");
     // ② 底下这些是结构和安全面，不进那份预设，她删不掉
-    const askWhere = /在哪|哪儿|哪里|找不到|没找到|桌面|主屏|文件夹|图标|入口|位置/.test(focus);
     return persona + "\n\n"
-      + (askWhere ? homeMap() : "")
       + "【你可以回答什么】\n"
       + "你不只回答“某个按钮怎么用”。凡是关于这台 App 的基础问题都可以答：它整体是做什么的、某个页面或概念是什么意思、不同玩法有什么区别、她现在有哪些角色和文风、眼前页面与现状快照里能确认的设置是什么。能从目录、详细手册或现状快照确认，就直接归纳成人话；别因为她没有问具体操作步骤而拒绝。\n"
       + "你仍然只负责这个 App，不回答与它无关的百科、新闻或生活问题。基础问答不会给你新增任何写入权限，也不要为纯问答生成 patch。\n\n"
