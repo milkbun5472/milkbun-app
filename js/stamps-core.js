@@ -143,9 +143,9 @@
   function markBeg(key) { const st = load(), b = st.bday[key]; if (!b) return; b.begged = true; b.force = true; save(st); }
   // 付钱：用券或者邮资。n = 1 或 10
   function bdTicketCount(st) { return Object.values(st.bdTickets || {}).reduce((a, b) => a + (Number(b) || 0), 0); }
-  function pay(st, n, useTicket, bdKey) {
+  function pay(st, n, useTicket, bdKey, tenFirst) {   // tenFirst：她挑了这次用普通十连券，先不动生日券、纪念日券
     // 生日券哪个池都能用（她 2026-10-26：「别的池子也能用，只是样式特别点」）：在你的生日池里先用那个生日的，别处用哪张都行
-    if (n === 10) { const bt = st.bdTickets || {}, k = bdKey && bt[bdKey] > 0 ? bdKey : Object.keys(bt).find(x => bt[x] > 0); if (k) { bt[k]--; return "bdticket"; } }
+    if (n === 10 && !(tenFirst && useTicket && st.tickets > 0)) { const bt = st.bdTickets || {}, k = bdKey && bt[bdKey] > 0 ? bdKey : Object.keys(bt).find(x => bt[x] > 0); if (k) { bt[k]--; return "bdticket"; } }
     if (n === 10 && useTicket && st.tickets > 0) { st.tickets--; return "ticket"; }
     if (n === 1 && (st.singles || 0) > 0) { st.singles--; return "single"; }   // 单抽先用「今天的信」
     // 十连没券：单抽券一张顶 100 邮资（十连 900＝9 张），不够的拿邮资补

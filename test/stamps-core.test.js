@@ -103,6 +103,13 @@ test("里程碑信：不带池子的信领到的是普通十连券＋印泥，�
   const st = C.load(); assert.equal(st.tickets, t0 + 3); assert.equal(st.ink, i0 + 3000); assert.equal(C.bdTicketCount(st), 0);
 });
 
+test("十连挑券：挑了十连券就先不动生日券、纪念日券", () => {
+  const C = fresh(), st = C.load(); st.tickets = 1; st.bdTickets = { an_x_2026: 2 };
+  assert.equal(C.pay(st, 10, true, "an_x_2026", true), "ticket"); assert.equal(st.bdTickets.an_x_2026, 2);
+  assert.equal(C.pay(st, 10, true, "an_x_2026"), "bdticket"); assert.equal(st.bdTickets.an_x_2026, 1);
+  assert.equal(C.pay(st, 10, true, null, true), "bdticket");   // 十连券用完了，照样落回特别券
+});
+
 test("盖印升级：扣印泥，30 级那一坎没发给他看过就停住", () => {
   const C = fresh(), st = C.load();
   st.ink = 100000; st.cards = [{ id: "a", rarity: "SR", lv: 1 }]; C.save(st);
