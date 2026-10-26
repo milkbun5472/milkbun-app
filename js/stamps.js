@@ -23,7 +23,7 @@
         back ? h("div", { style: { position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: F_DISPLAY, fontSize: "calc(13px * var(--app-fs, 1))", color: col } }, card && card.rarity !== "R" ? "★" : "")
           : h(React.Fragment, null,
             !face ? h("div", { style: { position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", padding: 6, textAlign: "center",
-              fontFamily: F_DISPLAY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: "#6a5f4e", lineHeight: 1.4 } }, card && card.text ? card.text.name : card && card.writing && Date.now() - Number(card.writingTs || 0) < 180000 ? "他还在写…" : "没写好 · 点开重写") : null,
+              fontFamily: F_DISPLAY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: "#6a5f4e", lineHeight: 1.4 } }, card && card.text ? card.text.name : card && card.writing && Date.now() - Number(card.writingTs || 0) < (card.queued ? 1800000 : 180000) ? "他还在写…" : "没写好 · 点开重写") : null,
             h("span", { style: { position: "absolute", left: 4, top: 3, fontFamily: F_BODY, fontSize: "calc(9.5px * var(--app-fs, 1))", fontWeight: 700, color: "#fff", background: col, borderRadius: 3, padding: "0 4px" } }, RZH[card.rarity]),
             face && card.text ? h("span", { style: { position: "absolute", left: 0, right: 0, bottom: 0, padding: "10px 5px 4px", background: "linear-gradient(transparent, rgba(0,0,0,.6))", color: "#fff",
               fontFamily: F_DISPLAY, fontSize: "calc(10.5px * var(--app-fs, 1))", textAlign: "center", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, card.text.name) : null)));
@@ -154,7 +154,7 @@
     // 升级页：一本打开的集邮册。奶油纸底、象牙白的卡、鼠尾草绿的盖印面板、旧铜金的邮戳；稀有度只让邮票本身变特别，整页不跟着变
     const P = "#39382F", P7 = "rgba(57,56,47,.78)", P5 = "#827C6F", GOLD = "#285C4B", LINE = "rgba(87,119,103,.38)", COPPER = "#B58C55", FRAME = "#577767";
     const rcL = card.rarity === "R" ? P : RC[card.rarity];
-    const stale = card.writing && Date.now() - Number(card.writingTs || 0) > 180000;
+    const stale = card.writing && Date.now() - Number(card.writingTs || 0) > (card.queued ? 1800000 : 180000);
     const S = C().load(), U = C().UNLOCK, ink = S.ink, cap = C().CAP[card.rarity] || 30;
     const starsAll = Math.round(cap / 10), stars = Math.min(starsAll, Math.floor(lv / 10));
     const tierFrom = Math.floor(lv / 10) * 10 || 1, nextGate = Math.min(cap, (Math.floor(lv / 10) + 1) * 10);
@@ -493,7 +493,7 @@
     if (open) { const card = (st.cards || []).find(c => c.id === open) || null; if (card) return h(CardPage, { t, card, char: charOf(card.charId), meName, onBack: () => setOpen(null), onDraw, onRewrite: c => onWrite([c]), toast, onPoke: (c, sd) => props.onPoke ? props.onPoke(c, sd) : null, onInner: c => props.onInner ? props.onInner(c) : null,
       onSend: c => { props.onSend && props.onSend(c); }, onCanon: c => { props.onCanon && props.onCanon(c); } }); }
 
-    const isBad = c => !c.text && (!c.writing || Date.now() - Number(c.writingTs || 0) > 180000);
+    const isBad = c => !c.text && (!c.writing || Date.now() - Number(c.writingTs || 0) > (c.queued ? 1800000 : 180000));
     const byChar = (st.cards || []).filter(c => albumChar === "all" || c.charId === albumChar);
     const album = byChar.filter(c => albumRar === "all" || (albumRar === "bad" ? isBad(c) : c.rarity === albumRar)).slice().reverse();
     // ── 卡池页像乙游那样：一整张大海报（一枚放大的邮票），左边一列小邮票换池，底下两颗大键；其余设置收进「⋯」 ──
@@ -615,7 +615,7 @@
         h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: "rgba(47,42,34,.72)", lineHeight: 1.8, marginTop: 6 } },
           "概率：R 70%、SR 25%、SSR 5%。保底所有池通用：60 抽一定出 SSR（50 抽起概率往上加），每十抽至少一张 SR。", h("br"),
           "单抽 " + C().PRICE_ONE + " 邮资，十连 " + C().PRICE_TEN + "，有十连券先用券。", h("br"),
-          "邮资和印泥从互动里来、没有上限，印泥给得是邮资的四倍：聊天、群聊、通话一轮邮资 5、印泥 20；线下一拍、论坛片刻广场朋友圈、两个人的小事邮资 10、印泥 40；一起听一起看一起读、查手机、看他玩手机邮资 20、印泥 80；别的玩法邮资 5、印泥 40。重 roll、他主动发来的不算。升满一张 R 要 150 印泥、SR 500、SSR 2000。", h("br"),
+          "邮资和印泥从互动里来、没有上限，印泥给得是邮资的四倍：聊天、群聊、通话一轮邮资 5、印泥 20；线下一拍、论坛片刻广场朋友圈、两个人的小事邮资 10、印泥 40；一起听一起看一起读、查手机、看他玩手机邮资 20、印泥 80；别的玩法邮资 5、印泥 40。重 roll、他主动发来的不算。升满一张 R 要 150 印泥、SR 500、SSR 1000。", h("br"),
           "R 是你不在时他一个人的一刻，SR 是你俩的一小段，SSR 是带选项的分节剧情。"),
         testInf ? h("div", { style: { marginTop: 10, fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: RC.SSR } }, "测试券开着：抽卡不花邮资和券、盖印不花印泥（连点七下「规则」关掉）") : null));
     if (tab === "album") return h("div", { "data-wk": "stampalbumpage", "data-page": "1", className: "h-full flex flex-col overflow-hidden", style: { background: "repeating-linear-gradient(180deg, transparent 0 116px, rgba(47,42,34,.07) 116px 117px, transparent 117px 120px), linear-gradient(#f1e9d8, #e9dfca)" } },
@@ -630,7 +630,7 @@
           [["all", "全部"], ["SSR", "SSR"], ["SR", "SR"], ["R", "R"], ["bad", "没写好"]].map(x => { const n = x[0] === "all" ? byChar.length : x[0] === "bad" ? byChar.filter(isBad).length : byChar.filter(c => c.rarity === x[0]).length;
             return x[0] === "bad" && !n ? null : chip(albumRar === x[0], x[1] + " " + n, () => setAlbumRar(x[0]), x[0]); })),
         // 写失败的（或者写了三分钟还没回来的）一起重写：同一个人的 R、SR 还是并成一次调用，SSR 各一次
-        (() => { const bad = (st.cards || []).filter(c => !c.text && (!c.writing || Date.now() - Number(c.writingTs || 0) > 180000));
+        (() => { const bad = (st.cards || []).filter(c => !c.text && (!c.writing || Date.now() - Number(c.writingTs || 0) > (c.queued ? 1800000 : 180000)));
           return bad.length ? h("button", { "data-wk": "stamprewriteall", onClick: () => { onWrite(bad); toast("在重写 " + bad.length + " 张"); }, className: "w-full active:opacity-70",
             style: { marginTop: 12, minHeight: 40, borderRadius: 10, border: "1px dashed #b23a2e", color: "#b23a2e", fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))" } }, "有 " + bad.length + " 张没写好 · 一起重写") : null; })(),
         album.length ? h("div", { "data-wk": "stampalbum", className: "grid", style: { gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 10, marginTop: 14, justifyItems: "center" } },
