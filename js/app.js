@@ -17155,7 +17155,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         + "\n画面里不要任何文字。";
       // IF 主题只换衣服、场景、道具；他的脸、发色、瞳色、身材照他本人，不为贴合主题改（她 2026-10-25：恶魔主题把金发画成了黑发）
       // IF 卡每一面都要看得出是哪个主题（她 2026-10-25：万圣夜的满级双人卡面画成了普通卧室）
-      const keepLook = card.kind === "if" ? "\n这张是 IF「" + (card.theme || "") + "」" + (card.themeLine ? "：" + String(card.themeLine).slice(0, 160) : "") + "。衣服、场景、道具和光都照这个主题来，一眼看得出是这个主题" + (duo ? "，画里两个人的打扮都是" : "") + "。"
+      const keepLook = card.kind === "if" ? "\n这张是 IF「" + (card.theme || "") + "」" + (card.themeLine ? "：" + String(card.themeLine).slice(0, 500) : "") + "。" + (card.themeLook ? card.themeLook : "") + "衣服、场景、道具和光都照这个主题来，一眼看得出是这个主题" + (duo ? "，画里两个人的打扮都是" : "") + "。"
         + "他的长相照他本人：发色、发型、瞳色、五官和身材都不变，主题只换衣服、场景和道具。" : "";
       scene += keepLook;
       const freeFit = card.kind === "if" || card.kind === "bday" || card.kind === "mybday";   // 这几种衣服不走衣柜（先定义：下面她那份也要用）

@@ -487,7 +487,7 @@
           kind: bd ? (bd.mine ? "mybday" : "bday") : pool === "mix" ? "daily" : "if", writing: true, writingTs: now };
         if (pool === "char") Object.assign(card, { theme: charTheme.trim().slice(0, 40), themeLine: charThemeLine.slice(0, 200), ifMode });
         if (bd) Object.assign(card, { bdDay: bd.win.day }, bd.mine ? { maskId: bd.maskId } : {});
-        if (lim) Object.assign(card, { theme: lim.name, themeLine: lim.line, limited: lim.id, ifMode });
+        if (lim) Object.assign(card, { theme: lim.name, themeLine: lim.line, themeLook: lim.look || "", limited: lim.id, ifMode });
         // 限定（限时池一期、生日池一年）每人只有一张 SSR：再抽到就是重复，不写新卡，折成印泥
         const same = rar === "SSR" && (lim || bd) ? s.cards.concat(cards).find(x => x.rarity === "SSR" && !x.dupe && x.charId === cid && (lim ? x.limited === lim.id : x.pool === (bd.mine ? "mybday" : "bday") && x.bdDay === bd.win.day && (!bd.mine || x.maskId === bd.maskId))) : null;
         if (same) { s.ink += C().DUPE_INK; cards.push(Object.assign({}, same, { id: uid(), ts: now + i, dupe: true, dupeOf: same.id })); continue; }
