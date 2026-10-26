@@ -13402,6 +13402,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       }
       // 邮票册：她按一次回复、他回上来一轮，记一轮邮资印泥（他主动来的、重 roll 不算）
       if (raw && !(opts && (opts.proactive || opts.rerollAvoid)) && typeof stampGain === "function") stampGain("round");
+      // 他主动找你也攒一点邮资（她 2026-10-26：「上班很忙」——没空聊的时候，他惦记你也算）
+      else if (raw && opts && opts.proactive && !opts.rerollAvoid && typeof stampGain === "function") stampGain("nudge");
       // 从坏掉的 JSON 里【只】抠出 word 气泡，绝不把整段原始 JSON（含 thought 心声等内部字段）当消息发出去
       const salvageWords = () => {
         const s = String(raw || "");

@@ -13,15 +13,17 @@
   const GIFT = { tickets: 15, ink: 2000 };
   const DUPE_INK = 500;                         // 限定 SSR 重复一张折多少印泥      // 上线礼：15 张十连券 + 2000 印泥
   // 互动给多少（邮资、印泥）。一次调用算一轮；文档那张表。
-  // 印泥给得比邮资多四倍（她 2026-10-26：「经验值获取应该比抽卡资源多」）——抽到的卡都能慢慢升满，不用熔卡
+  // 邮资（她 2026-10-26：「上班很忙，谁有空聊那么多」）：聊 45 轮够一个十连；印泥照旧——抽到的卡都能慢慢升满，不用熔卡
   const GAIN = {
-    round: [5, 20],     // 单聊、群聊、通话、出戏：一轮
-    beat: [10, 40],     // 线下一拍（单人、群）
-    public: [10, 40],   // 论坛、片刻、广场、朋友圈：发一条或评论一条
-    duo: [10, 40],      // 匿名信箱、情书、交换日记、问答小本、悄悄话、留言、日记评论、照相馆、送礼、外卖
-    stay: [20, 80],     // 一起听、一起看、一起读、查手机翻一次、看 TA 玩
-    play: [5, 40]       // 其他花调用的玩法：同人文、梦境、擂台、另一种我们、跑团、塔罗、星测、解梦、一起学
+    round: [20, 20],    // 单聊、群聊、通话、出戏：一轮
+    beat: [40, 40],     // 线下一拍（单人、群）
+    public: [40, 40],   // 论坛、片刻、广场、朋友圈：发一条或评论一条
+    duo: [40, 40],      // 匿名信箱、情书、交换日记、问答小本、悄悄话、留言、日记评论、照相馆、送礼、外卖
+    stay: [80, 80],     // 一起听、一起看、一起读、查手机翻一次、看 TA 玩
+    play: [20, 40],     // 其他花调用的玩法：同人文、梦境、擂台、另一种我们、跑团、塔罗、星测、解梦、一起学
+    nudge: [10, 0]      // 他主动发来一条（她没回也算）
   };
+  const MAKEUP = { id: "postage26", tickets: 2 };   // 邮资改版补发：两张十连券，一人一次
   // 限时主题日历：到点自己上、到点自己下，不用发版开关。时间都是北京时间。
   const LIMITED = [
     { id: "halloween26", name: "万圣夜", from: "2026-10-26T00:00:00+08:00", to: "2026-11-15T00:00:00+08:00",
@@ -35,7 +37,7 @@
   ];
 
   const S = () => (typeof loadJSON === "function" ? loadJSON("x_stamps", null) : null) || {};
-  const blank = () => ({ postage: 0, ink: 0, tickets: 0, pulls: 0, sinceSSR: 0, sinceSR: 0, bday: {}, cards: [], gifted: false, seenLimited: {}, opt: {} });
+  const blank = () => ({ postage: 0, ink: 0, tickets: 0, singles: 0, pulls: 0, sinceSSR: 0, sinceSR: 0, bday: {}, cards: [], gifted: false, seenLimited: {}, opt: {} });
   function load() { const s = S(); return Object.assign(blank(), s, { bday: s.bday || {}, cards: Array.isArray(s.cards) ? s.cards : [], opt: s.opt || {}, seenLimited: s.seenLimited || {} }); }
   function save(st) { if (typeof saveJSON === "function") saveJSON("x_stamps", st); try { g.dispatchEvent && g.dispatchEvent(new CustomEvent("stamps-change")); } catch (e) {} return st; }
 
@@ -48,6 +50,11 @@
   function grantOnOpen(now, birthdays) {
     const st = load(), got = [];
     if (!st.gifted) { st.gifted = true; st.tickets += GIFT.tickets; st.ink += GIFT.ink; got.push("开幕纪念：" + GIFT.tickets + " 张十连券、" + GIFT.ink + " 印泥"); }
+    else if (!st.seenLimited[MAKEUP.id]) { st.tickets += MAKEUP.tickets; got.push("邮资改版补发：" + MAKEUP.tickets + " 张十连券"); }
+    st.seenLimited[MAKEUP.id] = 1;
+    // 今天的信：每天第一次打开送一张单抽券。不用做任务，没有连签，哪天没开就没有
+    const d = new Date(now || Date.now()), today = d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate();
+    if (st.lastDaily !== today) { st.lastDaily = today; st.singles = (st.singles || 0) + 1; got.push("今天的信：一张单抽券"); }
     activeLimited(now).forEach(L => { if (!st.seenLimited[L.id]) { st.seenLimited[L.id] = 1; st.tickets += 1; got.push("「" + L.name + "」上新：一张十连券"); } });
     (birthdays || []).forEach(b => { const k = "bd_" + b.id + "_" + b.year; if (!st.seenLimited[k]) { st.seenLimited[k] = 1; st.tickets += 1; got.push(b.name + " 的生日池：一张十连券"); } });
     if (got.length) save(st);
@@ -94,6 +101,7 @@
   // 付钱：用券或者邮资。n = 1 或 10
   function pay(st, n, useTicket) {
     if (n === 10 && useTicket && st.tickets > 0) { st.tickets--; return "ticket"; }
+    if (n === 1 && (st.singles || 0) > 0) { st.singles--; return "single"; }   // 单抽先用「今天的信」
     const cost = n === 10 ? PRICE_TEN : PRICE_ONE;
     if (st.postage < cost) return null;
     st.postage -= cost; return "postage";
