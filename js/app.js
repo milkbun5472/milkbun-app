@@ -20,7 +20,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v76.688";
+const APP_VERSION = "v76.690";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -909,6 +909,10 @@ function App() {
   };
   // 表情包字典 x_emotePacks：[{id,name,global,charIds:[],emotes:[{id,keyword,url}]}]
   const [emotePacks, setEmotePacks] = useState([]);
+  // 图从本机原生仓／云上拉回来了（engine.js 的 _imgPullMiss）：整页重画一次，空着的头像、表情包就补上；主题 CSS 里的图也重编一次
+  const [, setImgFilled] = useState(0);
+  useEffect(() => { const on = () => { setImgFilled(x => x + 1); try { if (window.ThemeStudio) window.ThemeStudio.apply(window.ThemeStudio.current()); } catch (_) {} };
+    window.addEventListener("img-vault-filled", on); return () => window.removeEventListener("img-vault-filled", on); }, []);
   const emotePacksRef = useRef([]);
   emotePacksRef.current = emotePacks;
   // 收藏的消息 x_favorites：[{id,charId,role,content,kind,url,keyword,ts,savedTs}]
@@ -9071,7 +9075,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         : "";
       // 世界书注入：用线下这段自己的文本做关键词命中（ctxFor 默认用线上聊天文本），常驻/绑定词条照常进
       const offText = (workSess.msgs || []).slice(-8).map(m => m.content || "").join("\n");
-      oCtx.worldbook = loreText(loreRef.current, { charIds: [charId], scope: "chat", text: offText });
+      oCtx.worldbook = loreText(loreRef.current, { charIds: [charId], scope: "offline", text: offText });
       const scopedOfflineState = liveStateForScope(charId, scopeKey);
       oCtx.curWear = freshLiveStateValue(scopedOfflineState, "wearing"); // 当天连贯；陈旧后自动重建
       oCtx.curAction = freshLiveStateValue(scopedOfflineState, "action"); // 短时活动不跨几个小时硬续
@@ -9755,7 +9759,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     worldbook: (() => {
       const sess = (groupOfflinesRef.current[group.id] || []).find(s => s && !s.endTs);
       const offText = sess && Array.isArray(sess.msgs) ? sess.msgs.slice(-8).map(m => m.content || "").join("\n") : "";
-      return loreText(loreRef.current, { charIds: (group.memberIds || []), scope: "chat", text: offText });
+      return loreText(loreRef.current, { charIds: (group.memberIds || []), scope: "offline", text: offText });
     })(),
     timeAware: (group.memberIds || []).some(id => timeAwareFor(id)),
     // 群 OOC 立的长期规矩（directives[groupId]）线下也要遵守——线上 replyGroup 早就注入了，线下之前漏了

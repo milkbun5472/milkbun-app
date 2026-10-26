@@ -3615,11 +3615,17 @@ async function offlineRewriteScene(p, charName, reference, draft, wireMeta) {
 }
 // ── 世界书注入引擎：所有功能都从这一道门按角色/触发词/去向/优先级筛选 ──
 // entries: 结构化词条数组；opts: { charIds:[在场角色id], scope, text:当前语境(供关键词命中) }
-// scope: chat | subjects | lifestyle | diary | study | creative | social | debate
+// scope: chat | offline | subjects | lifestyle | diary | study | creative | social | debate
 function loreScopeOn(e, scope) {
   if (!scope) return true;
   const sc = e && e.scope;
-  if (scope === "chat") return !sc || sc.chat !== false; // 聊天默认开
+  // 「聊天与线下」这枚章里还能只挑一半（群友 2026-10-26：世界书长了线下变短）：sc.side＝"online"／"offline"，没写＝两边都去。
+  //   scope "offline"＝线下见面（单人、群）；"chat"＝其余所有聊天口（线上、通话、关系、NPC……）。
+  if (scope === "chat" || scope === "offline") {
+    if (sc && sc.chat === false) return false;
+    const side = sc && sc.side;
+    return scope === "offline" ? side !== "online" : side !== "offline";
+  }
   // 旧版「群像注入」从未被消费。把它兼容为创作开关，老数据不会白勾；新数据统一写 scope.creative。
   if (scope === "creative" && e && e.ensemble) return true;
   return !!(sc && sc[scope]); // 其余默认关，勾了才进
@@ -7065,7 +7071,20 @@ async function saveFile(file) {
   return "download";
 }
 if (typeof window !== "undefined") window.saveTextFile = saveTextFile;
-function resolveImg(v) { if (!v || typeof v !== "string") return v; if (v.indexOf("iv_") === 0) return _imgCache().get(v) || ""; return v; }
+// 本机图库里没有的 iv_ 图（换了设备、刚从云上恢复）：去本机原生仓、再去云上拉一张回来，拉到了就通知界面重画。
+//   原来这里只认开机时灌进内存的那一份，没有的就一直空着——聊天头像、表情包、面具头像在新设备上全是空的，
+//   补传把图送上了云，这边却从来不去拿（群友 2026-10-25：「平板显示没有图片需要补传，手机上表情包和头像丢了」）。
+const _imgPull = { busy: new Set(), failAt: new Map(), t: 0 };
+function _imgPullMiss(k) {
+  if (_imgPull.busy.has(k) || Date.now() - (_imgPull.failAt.get(k) || 0) < 60000 || typeof idbVaultGet !== "function") return;
+  _imgPull.busy.add(k);
+  idbVaultGet(k).then(b => {
+    if (b && b.size) { try { _imgCache().set(k, URL.createObjectURL(b)); } catch (e) {}
+      clearTimeout(_imgPull.t); _imgPull.t = setTimeout(() => { try { window.dispatchEvent(new CustomEvent("img-vault-filled")); } catch (e) {} }, 300); }
+    else _imgPull.failAt.set(k, Date.now());
+  }).catch(() => _imgPull.failAt.set(k, Date.now())).finally(() => _imgPull.busy.delete(k));
+}
+function resolveImg(v) { if (!v || typeof v !== "string") return v; if (v.indexOf("iv_") === 0) { const u = _imgCache().get(v); if (!u) _imgPullMiss(v); return u || ""; } return v; }
 // 取图统一兜底(单11,2026-08-14):iOS IDB 写后立读偶发返 null(v47.36 案卷),但 imgToVault 存图时
 // 已把 objectURL 放进内存缓存——仓库装聋就从内存拿,本会话刚挂的图绝不再因时序丢失;两路皆空才算真 miss。
 async function imgVaultFetchBlob(ref) {
