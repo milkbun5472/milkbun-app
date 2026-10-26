@@ -16950,8 +16950,9 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     SR: "SR 卡＝短篇：一件有前因后果的小事，五六百字，重在你怎么应对它——事情有变化、有个结果；她在不在场看这件事本身。open 是开头一小段；rest 接着写完；sequel 是过了一阵以后的一小段后续；hidden 是你藏着没说出口的一句；line 是印在卡面上的一句你的台词；his 是同一件事你自己记得的版本——你那时注意到、记住的东西，一小段；keepsake 是这件事留下的一样小东西（name 叫什么、desc 一两句它的样子和来历）。"
   };
   // 去重按「写的是什么事」，不只按卡名：带上最近几十张的 gist
-  const stampPrev = charId => (StampsCoreSafe().cards || []).filter(c => c.charId === charId && c.text).slice(-30).map(c => "「" + c.text.name + "」" + (c.text.gist ? "：" + String(c.text.gist).slice(0, 60) : ""));
-  const stampPrevLine = prev => prev.length ? "\n你已经有的卡（卡名和写的是什么）：\n" + prev.join("\n") + "\n新写的别再是同一件事、同一种走向。" : "";
+  // 带上印在卡上的那句台词（她 2026-10-26：同一期两张卡印了一模一样的一句）
+  const stampPrev = charId => (StampsCoreSafe().cards || []).filter(c => c.charId === charId && c.text).slice(-30).map(c => "「" + c.text.name + "」" + (c.text.gist ? "：" + String(c.text.gist).slice(0, 60) : "") + (c.text.line ? "（卡上那句：" + String(c.text.line).slice(0, 40) + "）" : ""));
+  const stampPrevLine = prev => prev.length ? "\n你已经有的卡（卡名、写的是什么、卡上那句）：\n" + prev.join("\n") + "\n新写的别再是同一件事、同一种走向，卡上那句也别再说一样的话。" : "";
   // 他平时真说过的话（她 2026-10-26：「剧情有点刻板印象，不像他平时说话」）：从跟她的聊天里取最近几十句他自己打的字，
   //   叫他照这个口气、长短、用词开口——不是让他复述这些话，是让他认出自己。没聊过就不给
   const stampVoice = char => {
