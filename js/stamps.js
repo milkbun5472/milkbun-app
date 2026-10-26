@@ -146,7 +146,7 @@
       clearTimeout(autoT.current);
       if (beat._pick != null) { stopAudio(); return; }
       const next = () => { if (autoOn && !atEnd) autoT.current = setTimeout(go, 350); };
-      const timer = () => { if (autoOn && !atEnd) autoT.current = setTimeout(go, Math.min(9000, 1500 + String(beat.text || "").length * 110)); };
+      const timer = () => { if (autoOn && !atEnd) autoT.current = setTimeout(go, Math.min(6500, 1000 + String(beat.text || "").length * 75)); };
       if (voiceOn && beat.who === "he" && canVoice) say(beat.text, ok => ok ? next() : timer());
       else { stopAudio(); timer(); }
       return () => clearTimeout(autoT.current);
