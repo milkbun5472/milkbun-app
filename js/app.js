@@ -16977,7 +16977,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     window.StampsCore.save(st);
   };
   // 一批卡：同一个人的 R、SR 一次写完；每张 SSR 单独一次
-  // 写卡：同一个人的 R、SR 每六张并成一次调用，SSR 一张一次；最多同时跑三次，其余排队
+  // 写卡：同一个人的 R、SR 每十张并成一次调用（跟一个十连一样大），SSR 一张一次；最多同时跑三次，其余排队
   //   （她 2026-10-26：开幕一口气抽了一百多张，全并成一次、全一起发，大半没写出来）
   const stampWrite = async cards => {
     const byChar = {}, tasks = [];
@@ -16986,7 +16986,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       const char = characters.find(x => x.id === cid);
       if (!char) return;
       const small = byChar[cid].filter(c => c.rarity !== "SSR"), big = byChar[cid].filter(c => c.rarity === "SSR");
-      for (let i = 0; i < small.length; i += 6) { const part = small.slice(i, i + 6); tasks.push(() => stampWriteSmall(char, part)); }
+      for (let i = 0; i < small.length; i += 10) { const part = small.slice(i, i + 10); tasks.push(() => stampWriteSmall(char, part)); }
       big.forEach(c => tasks.push(() => stampWriteSSR(char, c)));
     });
     (cards || []).forEach(c => stampSaveCard(c.id, { writing: true, writingTs: Date.now(), queued: true, err: "" }));
