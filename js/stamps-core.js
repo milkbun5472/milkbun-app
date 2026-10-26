@@ -25,7 +25,7 @@
   };
   const MAKEUP = { id: "postage26", tickets: 2 };
   // 印泥（她 2026-10-26：「一直发抽数没发印泥」）：送出去的每张十连券都配 1000 印泥；之前送过的一次补 5000
-  const INK_PER_TEN = 1000, INK_MAKEUP = { id: "ink26", ink: 5000 };   // 邮资改版补发：两张十连券，一人一次
+  const INK_PER_TEN = 1000, INK_MAKEUP = { id: "ink26", ink: 10000 };   // 她：「改成发 10000 吧大方点」   // 邮资改版补发：两张十连券，一人一次
   // 限时主题日历：到点自己上、到点自己下，不用发版开关。时间都是北京时间。
   // 一年的排法（她 2026-10-26 定）：每月 1 号、16 号换一期。节日年年同一个 series（写卡带上往年同系列）；主题每期新的、用过不再用。
   //   节日：万圣夜（10 下～11.14）· 圣诞（12 下）· 跨年新年（1 上）· 春节（年前那半个月；2027 年是 1 下）· 情人节（2 上）
@@ -71,7 +71,8 @@
     else if (!st.seenLimited[MAKEUP.id]) { st.tickets += MAKEUP.tickets; st.ink += MAKEUP.tickets * INK_PER_TEN; got.push("邮资改版补发：" + MAKEUP.tickets + " 张十连券、" + MAKEUP.tickets * INK_PER_TEN + " 印泥"); }
     st.seenLimited[MAKEUP.id] = 1;
     if (wasOld && !st.seenLimited[INK_MAKEUP.id]) { st.ink += INK_MAKEUP.ink; got.push("印泥补发：" + INK_MAKEUP.ink + " 印泥（之前只送了抽数）"); }
-    st.seenLimited[INK_MAKEUP.id] = 1;
+    else if (wasOld && !st.seenLimited[INK_MAKEUP.id + "b"]) { st.ink += 5000; got.push("印泥补发加码：再补 5000 印泥"); }   // 上一版只补了 5000 的，补齐到 10000
+    st.seenLimited[INK_MAKEUP.id] = 1; st.seenLimited[INK_MAKEUP.id + "b"] = 1;
     // 「今天的信」改成每天由一个人寄进聊天里领（app.js 的 stampLetterSweep），这儿不再送
     // 限时池上新：按这一期池里有几个人送，每两个人一张十连，最少一张、最多五张（她 2026-10-26：「十个角色只给一个十连不够」）
     activeLimited(now).forEach(L => { const n = Math.max(1, Math.min(5, Math.ceil((Number(limCount) || 1) / 2)));
