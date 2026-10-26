@@ -18655,7 +18655,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       const bodyText = vRow ? ("综合 " + (vRow.score != null ? vRow.score : "—") +
         (vRow.marks && Object.keys(vRow.marks).length ? "｜" + Object.keys(vRow.marks).slice(0, 4).map(k => k + " " + vRow.marks[k]).join("、") : "")) : "";
       if (typeof vclockUse === "function") vclockUse(charId);
-      const d = handwritten || await generateDiary(offlineApiFor(charId), leanCtx, { scheduleText: scheduleTextFor(char, targetKey), walletText: walletText, bodyText: bodyText, dateStr: dateStr, placeText: freshLiveStateValue(statesRef.current[charId] || {}, "place"), noChatMaterial: dayRows.length < 2, prevDiary: prevDiary, voiceSamples: diaryVoiceSamples, digital: isBody(charId), digitalCc: !!settingsFor(charId).engineerEyes });
+      const d = handwritten || await generateDiary(offlineApiFor(charId), leanCtx, { scheduleText: scheduleTextFor(char, targetKey), walletText: walletText, bodyText: bodyText, dateStr: dateStr, placeText: freshLiveStateValue(statesRef.current[charId] || {}, "place"), noChatMaterial: dayRows.length < 2, prevDiary: prevDiary, voiceSamples: diaryVoiceSamples, digital: isBody(charId), digitalCc: !!settingsFor(charId).engineerEyes, sayZh: !!settingsFor(charId).bilingual && !settingsFor(charId).engineerEyes });
       const entry = {
         id: "d_" + Date.now() + "_" + Math.floor(Math.random() * 1000),
         unread: true,   // TA 新写的，她还没翻到（翻到那一篇就去掉；以前的旧日记没有这一格＝看过）
@@ -18671,7 +18671,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         // 提示词让模型写、界面也会画、云端也会归一化，唯独落库这儿只抄了 text 和 secret，
         // 所以「秘密改成划掉」写好了却一直没生效（她 2026-08-30 报的）。
         paras: Array.isArray(d.paras) ? d.paras.filter(p => p && p.text).map(p => ({
-          text: String(p.text), secret: !!p.secret, struck: !!p.struck, pasted: !!p.pasted
+          text: String(p.text), secret: !!p.secret, struck: !!p.struck, pasted: !!p.pasted,
+          ...(p.zh && String(p.zh).trim() && String(p.zh).trim() !== String(p.text).trim() ? { zh: String(p.zh).trim().slice(0, 2000) } : {})
         })) : [],
         signature: d.signature || "",
         mood: d.mood || "",
