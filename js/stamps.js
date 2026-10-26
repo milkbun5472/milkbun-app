@@ -367,12 +367,13 @@
           canPoke ? (poking ? h("span", { style: { color: P5 } }, "他在想怎么回你…") : say ? h(React.Fragment, null, h("div", { style: { fontSize: fs(10.5), color: COPPER, marginBottom: 2 } }, (char ? char.name : "") + (say.part === "head" ? " · 被戳了头" : say.part === "heart" ? " · 被戳了胸口" : " · 被戳了手")), say.text)
             : h("span", { style: { color: P5 } }, "戳戳他：上面是头，中间是胸口，下面是手。点外面收起。"))
             : h("span", { style: { color: P5 } }, card.rarity === "SSR" ? "这张升满 " + cap + " 级以后，点卡面能戳他（头、胸口、手）。点外面收起。" : "点外面收起。"),
-          h("div", { style: { textAlign: "left", marginTop: 6 } },
+
+          // 最底下一排：左边保存原图，右边（满级戳过的）换一批话
+          h("div", { className: "flex items-center justify-between", style: { marginTop: 10, paddingTop: 8, borderTop: "1px dashed rgba(181,140,85,.35)" } },
             h("button", { "data-wk": "stampsaveimg", onClick: e => { e.stopPropagation(); const key = side === "solo" ? faces2.solo : side === "duo" ? faces2.duo : card.face;
                 (window.saveImgOriginal ? window.saveImgOriginal(key, (tx && tx.name) || "邮票卡面") : Promise.resolve(false)).then(ok => { if (!ok) toast("这张取不到原图"); }); },
-              className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: fs(11.5), color: GOLD, border: "1px solid " + GOLD, borderRadius: 999, padding: "3px 10px" } }, "⬇ 保存原图")),
-          canPoke && card[side === "duo" ? "pokesDuo" : side === "solo" ? "pokesSolo" : "pokes"] && !poking ? h("div", { style: { textAlign: "right", marginTop: 6 } },
-            h("button", { "data-wk": "stamppokeredo", onClick: e => { e.stopPropagation(); poke("redo"); }, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: fs(11.5), color: COPPER, border: "1px solid " + COPPER, borderRadius: 999, padding: "3px 10px" } }, "↻ 这一面换一批话 · 花一次调用")) : null)) : null,
+              className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: fs(11.5), color: GOLD, border: "1px solid " + GOLD, borderRadius: 999, padding: "3px 10px" } }, "⬇ 保存原图"),
+            canPoke && card[side === "duo" ? "pokesDuo" : side === "solo" ? "pokesSolo" : "pokes"] && !poking ? h("button", { "data-wk": "stamppokeredo", onClick: e => { e.stopPropagation(); poke("redo"); }, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: fs(11.5), color: COPPER, border: "1px solid " + COPPER, borderRadius: 999, padding: "3px 10px" } }, "↻ 这一面换一批话 · 花一次调用") : null))) : null,
       story && tx ? h(StoryReader, { t, card, char, meName, lv, start: typeof story === "string" && story !== "his" ? story : null, inner: story === "his" ? tx.inner : null, onSeen: markSeen, onClose: () => setStory(false) }) : null);
   }
 
