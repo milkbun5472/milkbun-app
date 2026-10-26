@@ -1845,7 +1845,13 @@ function WorldBook({ entries, characters, onBack, onSave, onDelete, trash, onRes
             stampChip(x[0], scopeFilter === x[0], x[0] === "all" ? "全" : (LORE_STAMP[x[0]] || "?"), x[0] === "all" ? "全部" : (LORE_STAMP_ZH[x[0]] || x[1]), () => setScopeFilter(x[0])))
           : view === "cat" ? ["all"].concat(LORE_CATEGORIES).map(c =>
             stampChip(c, catFilter === c, c === "all" ? "全" : c.slice(0, 1), c === "all" ? "全部" : c + " " + list.filter(e => catOf(e) === c).length, () => setCatFilter(c)))
-          : view === "folder" ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.6 } }, folders.length ? "一份 json 导进来就是一夹。长按一条能多选，挪进文件夹。" : "还没有文件夹：长按一条多选，点「放进文件夹」就能建；导入一份 json 世界书也会自己成一夹。")
+          : view === "folder" ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.6 } }, folders.length ? h("div", { className: "flex items-center", style: { gap: 10 } },
+              h("span", { style: { flex: 1, minWidth: 0 } }, "一份 json 导进来就是一夹。长按一条能多选，挪进文件夹。"),
+              // 全部展开／全部收起（群友 2026-10-26）：夹多了一个个点太累
+              (() => { const keys = folders.concat([""]).map(f => f || "_"), allShut = keys.every(k => folderShut[k]);
+                return h("button", { "data-wk": "lorefoldall", onClick: () => setFolderShut(allShut ? {} : Object.fromEntries(keys.map(k => [k, true]))), className: "active:opacity-60 shrink-0",
+                  style: { minHeight: 40, padding: "0 4px", background: "transparent", border: "none", fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.ink, textDecoration: "underline", textUnderlineOffset: 3 } }, allShut ? "全部展开" : "全部收起"); })())
+            : "还没有文件夹：长按一条多选，点「放进文件夹」就能建；导入一份 json 世界书也会自己成一夹。")
           : [["all", "全部", "全"], ["pub", "共用", "众"]].map(x => stampChip(x[0], charFilter === x[0], x[2], x[1], () => setCharFilter(x[0])))
             .concat((characters || []).filter(c => list.some(e => (e.charIds || []).includes(c.id))).map(c =>
               stampChip(c.id, charFilter === c.id, h(Avatar, { character: c, size: 26, radius: 5 }), c.remark || c.name, () => setCharFilter(c.id), true)))),
