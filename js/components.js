@@ -21584,17 +21584,17 @@ function ChatLorePicker({ character, entries, onBulk }) {
   const [offOnly, setOffOnly] = useState(false);
   const shown = offOnly ? live.filter(e => !uses(e)) : live;
   const names = [...new Set(shown.map(fOf).filter(Boolean))].sort((a, b) => a.localeCompare(b, "zh")).concat([""]);
-  const shutList = (entries || []).filter(e => e && e.enabled === false && String(e.payload || "").trim() && e.category !== "生图");
-  if (!live.length && !shutList.length) return h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog, paddingTop: 12 } }, "世界书里还没有在用的词条。");
+  if (!live.length) return h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog, paddingTop: 12 } }, "世界书里还没有在用的词条。");
 
   const box = (on, part) => h("span", { style: { width: 20, height: 20, borderRadius: 5, flexShrink: 0, display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: "calc(12px * var(--app-fs, 1))",
     border: "1.5px solid " + (on ? t.ink : t.line), background: on === true ? t.ink : "transparent", color: t.bg } }, on === true ? "✓" : part ? "–" : "");
   const offN = live.filter(e => !uses(e)).length;
+  const shutN = (entries || []).filter(e => e && e.enabled === false && String(e.payload || "").trim() && e.category !== "生图").length;
   return h("div", { "data-wk": "chatlore", "data-only": offOnly ? "off" : "all", style: { paddingTop: 8 } },
     h("div", { "data-wk": "chatloreview", style: { display: "flex", border: "1px solid " + t.line, borderRadius: 10, overflow: "hidden", marginBottom: 8 } },
-      [[false, "全部"], [true, "只看没用的" + (offN + shutList.length ? " · " + (offN + shutList.length) : "")]].map(([v, zh]) => h("button", { key: zh, "data-part": v ? "off" : "all", "data-on": offOnly === v ? "1" : "0", onClick: () => setOffOnly(v),
+      [[false, "全部"], [true, "只看没用的" + (offN ? " · " + offN : "")]].map(([v, zh]) => h("button", { key: zh, "data-part": v ? "off" : "all", "data-on": offOnly === v ? "1" : "0", onClick: () => setOffOnly(v),
         style: { flex: 1, minHeight: 40, border: "none", background: offOnly === v ? t.ink : "transparent", color: offOnly === v ? t.bg2 : t.sub, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))" } }, zh))),
-    offOnly && !shown.length ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog, padding: "6px 0" } }, "开着的词条 TA 全都用着。") : null,
+    offOnly && !shown.length ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog, padding: "6px 0" } }, "在用的词条 TA 全都用着。" + (shutN ? "世界书里还有 " + shutN + " 条是关着的，谁都不用，这里不列；要用先去世界书把那一条或那一夹的开关打开。" : "")) : null,
     offOnly && !shown.length ? null : h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.6, marginBottom: 6 } }, offOnly ? "这几条 TA 现在没在用。点一条就给 TA 用上，当场生效，不影响别的人。" : "勾着的是 TA 用的。点了当场生效，不影响别的人；关键词、去哪几处照世界书里那条来。"),
     names.map(fd => {
       const items = shown.filter(e => fOf(e) === fd);
@@ -21611,14 +21611,7 @@ function ChatLorePicker({ character, entries, onBulk }) {
           box(uses(e)),
           h("span", { style: { flex: 1, minWidth: 0, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: uses(e) ? t.ink : t.fog, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, e.title || "未命名设定"),
           h("span", { style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", color: t.fog, flexShrink: 0 } }, (e.charIds || []).length ? "绑人" : "所有人"))));
-    }),
-    // 世界书里整条关掉的也是「没用的」（群友 2026-10-26：没开不就是没用吗）：点一条＝打开、只给 TA 用，别人照旧不用
-    offOnly && shutList.length ? h("div", { "data-wk": "chatloreshut", style: { borderTop: "1px solid " + t.line, paddingTop: 10 } },
-      h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.6, marginBottom: 4 } }, "世界书里关着的 " + shutList.length + " 条：谁都没在用。点一条就打开、只给 TA 用，别人照旧不用。"),
-      shutList.map(e => h("button", { key: e.id, "data-wk": "chatloreitem", "data-on": "0", onClick: () => onBulk([e.id], x => ({ ...x, enabled: true, charIds: [id], offFor: (x.offFor || []).filter(y => y !== id) })), className: "w-full flex items-center active:opacity-60",
-        style: { gap: 10, minHeight: 40, padding: "7px 0 7px 22px", background: "transparent", border: "none", textAlign: "left" } },
-        box(false),
-        h("span", { style: { flex: 1, minWidth: 0, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.fog, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, (fOf(e) ? fOf(e) + " · " : "") + (e.title || "未命名设定"))))) : null);
+    }));
 }
 function ChatSettings({
   lucky, onDrawLucky, onPickLucky,   // 你俩的幸运字符（2026-10-26）
