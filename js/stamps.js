@@ -365,9 +365,15 @@
             canPoke ? h("div", { "data-wk": "stamppoke", onClick: e => { e.stopPropagation(); poke(e); }, style: { position: "absolute", inset: 0, cursor: "pointer" } }) : null)),
         h("div", { "data-wk": "stamppokesay", onClick: e => e.stopPropagation(), style: { margin: "0 16px calc(env(safe-area-inset-bottom) * 0.4 + 16px)", minHeight: 72, padding: "12px 16px", borderRadius: 14, background: "#FFF8E9", border: "1px solid " + COPPER, color: P, fontFamily: F_BODY, fontSize: fs(14), lineHeight: 1.7 } },
           canPoke ? (poking ? h("span", { style: { color: P5 } }, "他在想怎么回你…") : say ? h(React.Fragment, null, h("div", { style: { fontSize: fs(10.5), color: COPPER, marginBottom: 2 } }, (char ? char.name : "") + (say.part === "head" ? " · 被戳了头" : say.part === "heart" ? " · 被戳了胸口" : " · 被戳了手")), say.text)
-            : h("span", { style: { color: P5 } }, "戳戳他：上面是头，中间是胸口，下面是手。点外面收起。")) : h("span", { style: { color: P5 } }, "点外面收起。"),
-          canPoke && card[side === "duo" ? "pokesDuo" : side === "solo" ? "pokesSolo" : "pokes"] && !poking ? h("div", { style: { textAlign: "right", marginTop: 6 } },
-            h("button", { "data-wk": "stamppokeredo", onClick: e => { e.stopPropagation(); poke("redo"); }, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: fs(11.5), color: COPPER, border: "1px solid " + COPPER, borderRadius: 999, padding: "3px 10px" } }, "↻ 这一面换一批话 · 花一次调用")) : null)) : null,
+            : h("span", { style: { color: P5 } }, "戳戳他：上面是头，中间是胸口，下面是手。点外面收起。"))
+            : h("span", { style: { color: P5 } }, card.rarity === "SSR" ? "这张升满 " + cap + " 级以后，点卡面能戳他（头、胸口、手）。点外面收起。" : "点外面收起。"),
+
+          // 最底下一排：左边保存原图，右边（满级戳过的）换一批话
+          h("div", { className: "flex items-center justify-between", style: { marginTop: 10, paddingTop: 8, borderTop: "1px dashed rgba(181,140,85,.35)" } },
+            h("button", { "data-wk": "stampsaveimg", onClick: e => { e.stopPropagation(); const key = side === "solo" ? faces2.solo : side === "duo" ? faces2.duo : card.face;
+                (window.saveImgOriginal ? window.saveImgOriginal(key, (tx && tx.name) || "邮票卡面") : Promise.resolve(false)).then(ok => { if (!ok) toast("这张取不到原图"); }); },
+              className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: fs(11.5), color: GOLD, border: "1px solid " + GOLD, borderRadius: 999, padding: "3px 10px" } }, "⬇ 保存原图"),
+            canPoke && card[side === "duo" ? "pokesDuo" : side === "solo" ? "pokesSolo" : "pokes"] && !poking ? h("button", { "data-wk": "stamppokeredo", onClick: e => { e.stopPropagation(); poke("redo"); }, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: fs(11.5), color: COPPER, border: "1px solid " + COPPER, borderRadius: 999, padding: "3px 10px" } }, "↻ 这一面换一批话 · 花一次调用") : null))) : null,
       story && tx ? h(StoryReader, { t, card, char, meName, lv, start: typeof story === "string" && story !== "his" ? story : null, inner: story === "his" ? tx.inner : null, onSeen: markSeen, onClose: () => setStory(false) }) : null);
   }
 
@@ -450,11 +456,13 @@
       const now = Date.now(), cards = [];
       for (let i = 0; i < n; i++) {
         const rar = bd ? C().rollRarity(s, { bday: bd.key, isDay: bd.win.isDay }) : C().rollRarity(s);
-        // 出了 SSR、池里又不止一个人：八成落到还没有这池 SSR 的人身上（限定池一期一人一张，免得老抽到重复；大混池先补齐没 SSR 的）
+        // 出了 SSR、池里又不止一个人：八成落到这池里 SSR 最少的人身上（限定池一期一人一张，免得老抽到重复；大混池先补齐、再补张数少的）
         let cid = pool0[Math.floor(Math.random() * pool0.length)];
         if (rar === "SSR" && pool0.length > 1) {
-          const have = id => s.cards.concat(cards).some(x => x.rarity === "SSR" && !x.dupe && x.charId === id && (lim ? x.limited === lim.id : bd ? (x.pool === (bd.mine ? "mybday" : "bday") && x.bdDay === bd.win.day) : pool === "mix" ? x.pool === "mix" : true));
-          const fresh = pool0.filter(id => !have(id));
+          const have = id => s.cards.concat(cards).filter(x => x.rarity === "SSR" && !x.dupe && x.charId === id && (lim ? x.limited === lim.id : bd ? (x.pool === (bd.mine ? "mybday" : "bday") && x.bdDay === bd.win.day) : pool === "mix" ? x.pool === "mix" : true));
+          // 谁在这池里的 SSR 最少就先补谁（都有了以后也一样：先补张数少的）
+          const cnt = {}; pool0.forEach(id => { cnt[id] = have(id).length; });
+          const least = Math.min.apply(null, pool0.map(id => cnt[id])), fresh = pool0.filter(id => cnt[id] === least);
           if (fresh.length && Math.random() < 0.8) cid = fresh[Math.floor(Math.random() * fresh.length)];
         }
         const card = { id: uid(), ts: now + i, rarity: rar, charId: cid, lv: 1, pool: bd ? (bd.mine ? "mybday" : "bday") : pool === "char" ? "char" : lim ? "limited" : "mix",
@@ -571,7 +579,7 @@
             : cur.lim ? h(React.Fragment, null, h("div", { style: { fontSize: "calc(9.5px * var(--app-fs, 1))" } }, deco ? "万圣夜限定" : fall ? "深秋限定" : "限定"), h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))" } }, new Date(Date.parse(cur.lim.to) - 1).toLocaleDateString("zh-CN", { month: "numeric", day: "numeric" }) + " 止"), h("div", { style: { fontSize: "calc(9px * var(--app-fs, 1))" } }, "还剩 " + leftText(Date.parse(cur.lim.to) - Date.now())))
               : h(React.Fragment, null, h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(13px * var(--app-fs, 1))", letterSpacing: ".15em" } }, "常驻发行"), h("div", { style: { fontSize: "calc(9px * var(--app-fs, 1))", opacity: .85 } }, "已收录 " + (st.cards || []).length + " 枚"))),
           h("div", { style: { order: 1, minWidth: 0, paddingBottom: 4, fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", lineHeight: 1.6, color: "rgba(244,236,218,.6)" } },
-            bd ? h("span", { style: { whiteSpace: "nowrap", color: acc } }, "生日限定 · 距结束 " + leftText(bd.win.close - Date.now())) : pool === "mix" ? "" : pool === "char" ? "IF 卡 · 衣服照主题来" : "IF 卡 · 下架后抽到的照样留着"))),
+            bd ? h("span", { style: { whiteSpace: "nowrap", color: acc } }, "生日限定 · 距结束 " + leftText(bd.win.close - Date.now())) : pool === "mix" ? "" : pool === "char" ? "IF 卡 · 衣服照主题来" : "IF 卡 · 每人只有一张限定 SSR"))),
         pool === "char" ? h("button", { onClick: () => setCfg(true), className: "active:opacity-70", style: { position: "absolute", right: 14, top: 12, padding: "4px 10px", borderRadius: 999, border: "1px solid " + tone[1], color: tone[1], fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))" } }, "改主题") : null));
     // 左边一列小邮票：换池。选中的那枚像从邮册里抽出来一截：放大、往右探出去
     const rail = h("div", { "data-wk": "stamprail", className: "flex flex-col shrink-0 overflow-y-auto", style: { gap: 8, width: 72, padding: "6px 12px 10px 0", maxHeight: "calc(min(56vh, 440px) + 18px)", scrollbarWidth: "none" } },
@@ -721,6 +729,8 @@
                 h("div", { style: { marginTop: 4, height: 3, borderRadius: 9, background: "rgba(47,42,34,.12)" } }, h("div", { style: { width: Math.min(100, n / H * 100) + "%", height: "100%", borderRadius: 9, background: "linear-gradient(90deg,#c98f74,#f6dcc8)" } })),
                 h("div", { style: { marginTop: 4 } }, b.force ? "求过情了，下一封就是他的生日 SSR" : "再寄出 " + Math.max(1, H - n) + " 封，必得" + (bd.mine ? "一张你的生日 SSR" : "他的生日 SSR"))); })()
             : "再抽 " + Math.max(1, ssrLeft) + " 次一定出 SSR · 每十抽至少一张 SR"),
+        lim || bd ? h("div", { "data-wk": "stamplimitnote", style: { margin: "-2px 0 6px", textAlign: "center", fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: "rgba(47,42,34,.5)" } },
+          (lim ? "这一期" : "这个生日") + "每个人只有一张限定 SSR，再抽到他的就折成 " + C().DUPE_INK + " 印泥") : null,
         bd && !bd.mine && C().canBeg(st, bd.key) ? h("div", { className: "flex justify-center" }, h("button", { "data-wk": "stampbeg", disabled: begging, onClick: () => doBeg(), className: "active:opacity-70 disabled:opacity-50",
           style: { marginTop: 2, padding: "6px 16px", borderRadius: 999, border: "1px solid #b0566e", color: "#b0566e", fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))" } }, begging ? "他在想…" : "去跟他求个情")) : null,
         begLine ? h("div", { "data-wk": "stampbegline", onClick: () => setBegLine(""), style: { margin: "8px 20px 0", padding: "10px 14px", borderRadius: 12, background: "rgba(176,86,110,.12)", border: "1px solid rgba(176,86,110,.4)", color: "#2f2a22", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", lineHeight: 1.7 } }, begLine) : null),
