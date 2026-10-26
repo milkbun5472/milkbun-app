@@ -19369,16 +19369,13 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     });
     if (changed) C2.save(st);
   };
-  // 纪念日池（她 2026-10-26）：在一起那天每年一份，情侣空间里挂在他名下、每年重复的纪念日各一份。md 是 "MM-DD"
+  // 纪念日池（她 2026-10-26）：只有在一起那天，每年一份。md 是 "MM-DD"
   const stampAnnivs = () => {
     const out = [], pad = n => String(n).padStart(2, "0");
     liveChars.forEach(c => { const cp = (couplesRef.current || {})[c.id]; if (c.npc || !cp || cp.status !== "together" || !cp.since) return;
       const d = new Date(cp.since); if (isNaN(d)) return;
       out.push({ id: "tg_" + c.id, charId: c.id, name: "在一起", md: pad(d.getMonth() + 1) + "-" + pad(d.getDate()), since: d.getTime() }); });
-    (coupleAnnivRef.current || []).forEach(a => { if (!a || !a.characterId || a.yearlyRepeat === false || !a.month || !a.day) return;
-      if (!liveChars.some(c => c.id === a.characterId)) return;
-      const y = Number(a.year);
-      out.push({ id: "ca_" + a.id, charId: a.characterId, name: String(a.name || "纪念日").slice(0, 12), md: pad(a.month) + "-" + pad(a.day), since: y > 1900 ? new Date(y, a.month - 1, a.day).getTime() : 0 }); });
+    // 只开「在一起」那天这一个（她 2026-10-26：自己记的纪念日也各开一池，池子太多抽不完）
     return out;
   };
   // 纪念日信：池子一开，他寄一封进私聊，五张纪念日券（哪个池都能用，在这个纪念日池里先用）＋五千印泥。不调模型
