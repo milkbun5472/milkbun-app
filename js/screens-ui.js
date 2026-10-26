@@ -1713,7 +1713,21 @@ function WorldBook({ entries, characters, onBack, onSave, onDelete, trash, onRes
   const pressT = useRef(null), pressed = useRef(false);
   const list = entries || [];
   const folderOf = e => String(e.folder || "").trim();
-  const folders = [...new Set(list.map(folderOf).filter(Boolean))].sort((a, b) => a.localeCompare(b, "zh"));
+  // 文件夹自己排（群友 2026-10-26）：排过的照排好的顺序，没排过的（新导进来的）按名字跟在后面
+  const [folderOrder, setFolderOrderRaw] = useState(() => { const o = loadJSON("x_loreFolderOrder", []); return Array.isArray(o) ? o : []; });
+  const [folderSorting, setFolderSorting] = useState(false);
+  const folders = [...new Set(list.map(folderOf).filter(Boolean))].sort((a, b) => {
+    const ia = folderOrder.indexOf(a), ib = folderOrder.indexOf(b);
+    if (ia >= 0 && ib >= 0) return ia - ib;
+    if (ia >= 0 || ib >= 0) return ia >= 0 ? -1 : 1;
+    return a.localeCompare(b, "zh");
+  });
+  const moveFolder = (fd, dir) => {
+    const cur = folders.slice(), i = cur.indexOf(fd), j = i + dir;
+    if (i < 0 || j < 0 || j >= cur.length) return;
+    cur[i] = cur[j]; cur[j] = fd;
+    setFolderOrderRaw(cur); saveJSON("x_loreFolderOrder", cur);
+  };
   const pressStart = e => { pressed.current = false; clearTimeout(pressT.current); pressT.current = setTimeout(() => { pressed.current = true; setSel(new Set([e.id])); try { navigator.vibrate && navigator.vibrate(12); } catch (x) {} }, 480); };
   const pressEnd = () => clearTimeout(pressT.current);
   const toggleSel = id => setSel(p => { const n = new Set(p || []); n.has(id) ? n.delete(id) : n.add(id); return n.size ? n : null; });
@@ -1812,8 +1826,11 @@ function WorldBook({ entries, characters, onBack, onSave, onDelete, trash, onRes
       h("div", { style: { display: "flex", alignItems: "center", gap: 8, padding: "13px 0 9px", borderTop: "1.5px solid " + t.ink } },
         h("button", { onClick: () => setFolderShut(p => ({ ...p, [fd || "_"]: !shut })), className: "active:opacity-60", style: { flex: 1, minWidth: 0, textAlign: "left", background: "transparent", border: "none", fontFamily: F_DISPLAY, fontSize: "calc(16px * var(--app-fs, 1))", color: t.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } },
           (shut ? "▸ " : "▾ ") + (fd || "没放进文件夹的"), h("span", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, marginLeft: 6 } }, items.length + " 条")),
-        fd ? h("button", { onClick: () => requestAppPrompt("改文件夹名", "", fd, v => { const nm = String(v || "").trim().slice(0, 30); if (nm && nm !== fd && onBulk) onBulk(list.filter(e => folderOf(e) === fd).map(e => e.id), { folder: nm }); }, "改好了"), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.sub, background: "transparent", border: "none" } }, "改名") : null,
-        fd ? h("button", { onClick: () => requestAppConfirm("拆掉「" + fd + "」？", "只拆文件夹，里面 " + list.filter(e => folderOf(e) === fd).length + " 条都留着，回到「没放进文件夹的」。", () => onBulk && onBulk(list.filter(e => folderOf(e) === fd).map(e => e.id), x => { const n = { ...x }; delete n.folder; return n; }), "拆掉"), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.sub, background: "transparent", border: "none" } }, "拆夹") : null,
+        fd && folderSorting ? [-1, 1].map(dir => { const k = folders.indexOf(fd), dis = dir < 0 ? k <= 0 : k >= folders.length - 1;
+          return h("button", { key: "mv" + dir, "data-wk": "lorefoldermove", "data-part": dir < 0 ? "up" : "down", disabled: dis, onClick: () => moveFolder(fd, dir), "aria-label": dir < 0 ? "往上挪" : "往下挪", className: "active:opacity-60 disabled:opacity-25",
+            style: { width: 40, height: 40, borderRadius: 8, border: "1px solid " + t.line, background: "transparent", color: t.ink, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))" } }, dir < 0 ? "上移" : "下移"); }) : null,
+        fd && !folderSorting ? h("button", { onClick: () => requestAppPrompt("改文件夹名", "", fd, v => { const nm = String(v || "").trim().slice(0, 30); if (nm && nm !== fd && onBulk) onBulk(list.filter(e => folderOf(e) === fd).map(e => e.id), { folder: nm }); }, "改好了"), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.sub, background: "transparent", border: "none" } }, "改名") : null,
+        fd && !folderSorting ? h("button", { onClick: () => requestAppConfirm("拆掉「" + fd + "」？", "只拆文件夹，里面 " + list.filter(e => folderOf(e) === fd).length + " 条都留着，回到「没放进文件夹的」。", () => onBulk && onBulk(list.filter(e => folderOf(e) === fd).map(e => e.id), x => { const n = { ...x }; delete n.folder; return n; }), "拆掉"), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.sub, background: "transparent", border: "none" } }, "拆夹") : null,
         h(Toggle, { on: allOn, onChange: () => onBulk && onBulk(ids, { enabled: !allOn }), size: "s", wk: "lorefolderswitch", label: allOn ? "整夹停用" : "整夹启用" })),
       shut ? null : items.map(card));
   });
@@ -1847,6 +1864,8 @@ function WorldBook({ entries, characters, onBack, onSave, onDelete, trash, onRes
             stampChip(c, catFilter === c, c === "all" ? "全" : c.slice(0, 1), c === "all" ? "全部" : c + " " + list.filter(e => catOf(e) === c).length, () => setCatFilter(c)))
           : view === "folder" ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.6 } }, folders.length ? h("div", { className: "flex items-center", style: { gap: 10 } },
               h("span", { style: { flex: 1, minWidth: 0 } }, "一份 json 导进来就是一夹。长按一条能多选，挪进文件夹。"),
+              folders.length > 1 ? h("button", { "data-wk": "lorefoldersort", "data-on": folderSorting ? "1" : "0", onClick: () => setFolderSorting(v => !v), className: "active:opacity-60 shrink-0",
+                style: { minHeight: 40, padding: "0 4px", background: "transparent", border: "none", fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: folderSorting ? (t.accent || t.ink) : t.ink, textDecoration: "underline", textUnderlineOffset: 3 } }, folderSorting ? "排好了" : "排顺序") : null,
               // 全部展开／全部收起（群友 2026-10-26）：夹多了一个个点太累
               (() => { const keys = folders.concat([""]).map(f => f || "_"), allShut = keys.every(k => folderShut[k]);
                 return h("button", { "data-wk": "lorefoldall", onClick: () => setFolderShut(allShut ? {} : Object.fromEntries(keys.map(k => [k, true]))), className: "active:opacity-60 shrink-0",
