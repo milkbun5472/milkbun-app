@@ -20,7 +20,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v76.671";
+const APP_VERSION = "v76.673";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -16937,6 +16937,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       .slice(-60).map(m => m.content.replace(/\s+/g, " ").trim()).filter(x => x.length <= 120).slice(-30);
     return said.length ? "【你平时跟她说话的样子】下面是你最近亲口打给她的话。剧情里你开口的口气、句子长短、用词、语气词和标点习惯都照这个来，你做事的分寸也照你平时；别换成这一类人设常见的说话方式，也别把这些原话搬进剧情：\n" + said.join("\n") + "\n\n" : "";
   };
+  // 他聊天里开着「外语消息自带中译」：写卡也照同一条规矩，外语台词和心里话写成「原文 | 中文」（群里 2026-10-26：卡面剧情也要翻译）
+  const stampBi = char => { const s0 = settingsFor(char.id) || {}; return s0.bilingual && !s0.engineerEyes && typeof bilingualRule === "function" ? bilingualRule(char.name, typeof hanLangOf === "function" && hanLangOf(char)) + "这条在卡里也照样：台词、心里那句、他视角里的话是外语的，都写成「原文 | 中文」；旁白照常用中文写。\n\n" : ""; };
   // 写卡的公共底子：跟线下、同人文同一套叙事规矩；排序也写明——人对了比戏好看要紧
   const STAMP_CORE = () => (typeof narrativeCore === "function" ? narrativeCore({ intimate: true }) + "\n\n" : "")
     + "写卡的先后：先是你这个人对不对，再是跟你的世界、你们现在的关系对不对，再是写的是不是一件具体的事，再是跟别的卡是不是不一样，最后才是好不好看。戏剧效果跟你会怎么做对不上时，照你会怎么做；没有冲突、没有告白、没有高潮也可以。\n\n";
@@ -17001,7 +17003,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       const prev = stampPrev(char.id);
       const d = await runProbe(offlineApiFor(char.id), ctxFor(char), {
         voice: true,
-        instruction: STAMP_CORE() + stampVoice(char) + "她在「邮票册」里抽到了几张印着你的邮票，每张是你的一个样子。下面按顺序写这几张。\n"
+        instruction: STAMP_CORE() + stampVoice(char) + stampBi(char) + "她在「邮票册」里抽到了几张印着你的邮票，每张是你的一个样子。下面按顺序写这几张。\n"
           + list.map((c, i) => "第 " + (i + 1) + " 张：" + c.rarity + "。" + stampKindLine(c, char)).join("\n")
           + "\n" + (list.some(c => c.rarity === "R") ? STAMP_RARITY_SPEC.R + "\n" : "") + (list.some(c => c.rarity === "SR") ? STAMP_RARITY_SPEC.SR + "\n" : "")
           + "每张都有 name（卡名，八个字以内）、gist（一句话记下这张写的是什么事、在哪、怎么收的尾，给以后去重用）和 shot。" + STAMP_SHOT_SPEC
@@ -17025,7 +17027,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       const prev = stampPrev(char.id), me = userName(meOf(char.id));
       const d = await runProbe(offlineApiFor(char.id), ctxFor(char), {
         voice: true,
-        instruction: STAMP_CORE() + stampVoice(char) + "她在「邮票册」里抽到了一张印着你的 SSR 邮票。" + stampKindLine(c, char)
+        instruction: STAMP_CORE() + stampVoice(char) + stampBi(char) + "她在「邮票册」里抽到了一张印着你的 SSR 邮票。" + stampKindLine(c, char)
           + "\nSSR 是一段完整的剧情，像乙游的卡面剧情：分几节，她在中间做选择，选的不同走的路不同。是什么样的故事，跟着你这个人、你的世界和你们现在的关系来，不一定是恋爱的事。"
           + "sections 里每一节：id、lv（第几道锁）、title、beats（一句一句往下走：who 是 he＝你说的话、me＝" + me + "说的话、narr＝旁白动作；text 是这一句）、"
           + "choices（这一节结尾她要选的两三个选项：text 是她说的话或做的事，go 是去哪一节的 id；没有选项就空着）、end（是不是一个结局）。"
@@ -17053,7 +17055,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     const me = userName(meOf(char.id));
     const dump = (tx.sections || []).map(sc => "【" + sc.id + "】" + (sc.title || "") + "\n" + (sc.beats || []).map((b, k) => k + ". " + (b.who === "pick" ? "（她在这儿做了个小选择）" : (b.who === "he" ? "你：" : b.who === "me" ? me + "：" : "") + String(b.text || "").slice(0, 160))).join("\n")).join("\n\n");
     const d = await runProbe(offlineApiFor(char.id), ctxFor(char), { voice: true,
-      instruction: STAMP_CORE() + stampVoice(char) + "她在「邮票册」里把你这张 SSR「" + (tx.name || "") + "」升满了，想换你的视角重读一遍。下面是这段剧情，每节每句前面有编号。"
+      instruction: STAMP_CORE() + stampVoice(char) + stampBi(char) + "她在「邮票册」里把你这张 SSR「" + (tx.name || "") + "」升满了，想换你的视角重读一遍。下面是这段剧情，每节每句前面有编号。"
         + "在你想说的地方插进你那时心里的话：那会儿你在想什么、注意到了什么、没说出口的是什么。照你这个人，有的地方多想、有的地方根本没想，不必每句都插；每节几处。at 是插在哪一句后面的编号。\n\n" + dump.slice(0, 24000),
       schemaHint: "{\"inner\":{\"节的id\":[{\"at\":0,\"text\":\"\"}]}}", maxTokens: 30000 });
     const inner = d && d.inner && typeof d.inner === "object" ? d.inner : null;
