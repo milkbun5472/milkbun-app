@@ -4483,6 +4483,34 @@ function FloatLyric({ player, song, read, ready }) {
       overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }, pos) }, lines[at].text);
 }
 window.FloatLyric = FloatLyric;
+// 设置 → 通用「新消息提示音」（群友 2026-10-26）：关着／几种自带的／自己传一段。点一下就试听
+function MsgSoundPick({ p, save, toast }) {
+  const t = useTheme();
+  const fileRef = useRef(null);
+  const cur = p.msgSound || "";
+  const hasFile = !!loadJSON("x_msgSoundFile", null);
+  const pick = id => { save({ ...p, msgSound: id }); if (id) playMsgSound(id, p.msgSoundVol); };
+  const chip = (id, zh) => h("button", { key: id || "off", "data-wk": "msgsoundopt", "data-on": cur === id ? "1" : "0", onClick: () => id === "custom" && !hasFile ? fileRef.current && fileRef.current.click() : pick(id),
+    style: { minHeight: 40, padding: "0 12px", borderRadius: 8, border: "1px solid " + (cur === id ? t.ink : t.line), background: cur === id ? t.ink : "transparent", color: cur === id ? t.bg : t.sub, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))" } }, zh);
+  return h("div", { "data-wk": "msgsound", className: "py-4", style: { borderBottom: "1px solid " + t.line } },
+    h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(16px * var(--app-fs, 1))", color: t.ink } }, "新消息提示音"),
+    h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", lineHeight: 1.5, color: t.fog, marginTop: 2, marginBottom: 10 } }, "app 开着、人不在那条聊天里时，来消息响一下。点一个就换上并试听；锁屏时响不响看系统通知。"),
+    h("div", { className: "flex flex-wrap", style: { gap: 8 } },
+      chip("", "不响"), MSG_SOUNDS.map(x => chip(x.id, x.zh)), chip("custom", hasFile ? "我传的" : "传一段…")),
+    cur ? h("div", { className: "flex items-center", style: { gap: 10, marginTop: 10 } },
+      h("span", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.sub } }, "音量"),
+      [0.3, 0.6, 1].map((v, i) => h("button", { key: v, "data-wk": "msgsoundvol", "data-on": (p.msgSoundVol || 0.6) === v ? "1" : "0", onClick: () => { save({ ...p, msgSoundVol: v }); playMsgSound(cur, v); },
+        style: { minWidth: 44, minHeight: 40, borderRadius: 8, border: "1px solid " + ((p.msgSoundVol || 0.6) === v ? t.ink : t.line), background: "transparent", color: t.ink, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))" } }, ["小", "中", "大"][i])),
+      hasFile ? h("button", { onClick: () => fileRef.current && fileRef.current.click(), style: { marginLeft: "auto", minHeight: 40, background: "transparent", border: "none", color: t.accent, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))" } }, "换一段自己的") : null) : null,
+    h("input", { ref: fileRef, type: "file", accept: "audio/*", style: { display: "none" }, onChange: e => {
+      const f = e.target.files && e.target.files[0]; e.target.value = "";
+      if (!f) return;
+      if (f.size > 400 * 1024) { toast && toast("这段太大了，挑一段 400KB 以内的短音效"); return; }
+      const r = new FileReader();
+      r.onload = () => { try { saveJSON("x_msgSoundFile", String(r.result)); } catch (err) { toast && toast("存不下，换一段更短的"); return; } save({ ...p, msgSound: "custom" }); playMsgSound("custom", p.msgSoundVol); toast && toast("换好了"); };
+      r.readAsDataURL(f);
+    } }));
+}
 function ListenTogether({ profile, active, ctxFor, toast, onToChat, onListenState, onSetTalkStay, onSetTalkNote, listenRoomName, talkKey, listen, characters, onBack, onSetDisc, onSetCover, onAddNetease, onAddLocal, onPlaySong, onRemoveSong, onSetPartner, apiBase, onSetApiBase, musicProvider = "gd", musicReady, onSetMusicProvider, onMusicRequest, cookie, onSetCookie, onTestLogin, onAddNeteaseResult, onPlayResult, onPlayResultList, onAddResultToPlaylist, onCreatePlaylist, onDeletePlaylist, onRenamePlaylist, onAddToPlaylist, onRemoveFromPlaylist, onRenameSong, onGenCharPlaylist, onGenSquare, genSquare, onPlaySquare, onPostSquare, onReplySquare, onMoreSquare, onDelSquare, onDelSquareComment, onDelSongTalk, squareBusy, onShareSquare, onGenSongTalk, onReplySongTalk, songTalkBusy, player, onTogglePlay, onStep, onSeek, onToggleFav, playMode, onCyclePlayMode, gen, genCharPl }) {
   const t = useTheme();
   // ⚠️深色/自定义主题下 t.ink 或 t.accent 未必是六位色号，拼透明度后缀会拼出废值、
@@ -7665,7 +7693,7 @@ function SenseConfig({
   }, "人在别的玩法里时，新消息在顶上出一条，过几秒自己翻上去；点一下直接进那条聊天。单聊、群聊、旁观群都算")), h(Toggle, {
     on: p.msgBanner !== false,
     onChange: v => save({ ...p, msgBanner: v })
-  })), /*#__PURE__*/React.createElement("div", {
+  })), h(MsgSoundPick, { p, save, toast }), /*#__PURE__*/React.createElement("div", {
     className: "flex items-center justify-between py-4",
     style: {
       borderBottom: `1px solid ${t.line}`

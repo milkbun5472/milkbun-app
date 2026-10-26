@@ -5086,6 +5086,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   // 未读小红点 +k（角色发来消息时若没在看这个聊天就累加）
   const bumpUnread = (id, k, roomId) => {
     pushBanner(id, k, roomId);
+    // 提示音（群友 2026-10-26）：设置 → 通用里挑了才响，跟横幅一样只在人不在那条聊天时（来这儿的都是没在看的）
+    try { const _ps = prefsRef.current || {}; if (_ps.msgSound && typeof playMsgSound === "function") playMsgSound(_ps.msgSound, _ps.msgSoundVol); } catch (e) {}
     setUnreadMap(p => {
       const n = { ...p, [id]: (p[id] || 0) + k };
       saveJSON("x_unread", n);
