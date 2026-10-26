@@ -15770,7 +15770,10 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       });
       // 这一轮翻出来的〔照做〕条目，排在这一轮最末尾再说一遍（跟单聊同一支 loreDoNow）
       const _gDoTail = typeof loreDoNow === "function" ? loreDoNow(loreRef.current, { charIds: members.map(m => m.id), scope: "chat", text: hist }) : "";
-      let raw = await _gShoot(userContent + _gDoTail);
+      // 群里的导演便签（她 2026-10-26）：跟单聊同一句、同一套扣轮，只给模型看
+      const _gDirLive = chatDirNotesLive("g:" + groupId);
+      const _gDirHint = _gDirLive.length ? "\n\n〔幕后提醒，绝不出现在任何人说的话里〕想让接下来群里的聊天往这个方向走：" + _gDirLive.map(n => n.text).join("；") + "。由在场的人顺着自己的性子自然地聊过去，不用一下子说到。" : "";
+      let raw = await _gShoot(userContent + _gDirHint + _gDoTail);
       // 邮票册：群里一轮（自己聊、重 roll 不算）
       if (raw && !(rgOpts && (rgOpts.auto || rgOpts.rerollAvoid)) && typeof stampGain === "function") stampGain("round");
       if (_abort.signal.aborted) return;             // 她点叉断掉了
@@ -15790,6 +15793,9 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         const t = String(raw || "").replace(/\s+/g, " ").trim();
         throw new Error("模型没按 JSON 数组输出" + (t ? "（它回的是：" + t.slice(0, 200) + (t.length > 200 ? "…" : "") + "）" : "（上游什么都没回）"));
       }
+      // 导演便签：这一轮成功回了才扣一轮（失败不扣），跟单聊同一支
+      if (_gDirLive.length && !(rgOpts && rgOpts.auto)) { const _dn = directorNotesConsume((chatDirNotesRef.current || {})["g:" + groupId], 0);
+        if (_dn) { saveChatDirNotes({ ...(chatDirNotesRef.current || {}), ["g:" + groupId]: _dn.next.filter(n => n && (n.long || Number(n.remaining) > 0)) }); directorNoteToast(_dn.left); } }
       // ── 「查漏后重打一枪」整段撤掉（她 2026-09-16：「直接不要重写了宝宝」）────
       // 原来这儿会本地对字扫一遍：谁说出了只属于别人的那几个字，就**多打一枪模型**重写整轮。
       // ⚠️撤掉的理由是它【误报太多，而每次误报都要她多付一次钱】：
@@ -32658,6 +32664,9 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     onSetDirectiveTurns: (dirId, turns) => setDirectiveTurns(activeGroup.id, dirId, turns),
     onBack: () => setScreen("messages"),
     onSend: txt => pushGroupUser(activeGroup.id, txt),
+    dirNotes: chatDirNotes["g:" + activeGroup.id] || [],
+    onAddDirNote: (text, long) => chatDirNoteAdd("g:" + activeGroup.id, text, long),
+    onDelDirNote: id => chatDirNoteDel("g:" + activeGroup.id, id),
     onReply: () => replyGroup(activeGroup.id),
     onContinue: () => replyGroup(activeGroup.id),
     onOOC: txt => oocGroup(activeGroup.id, txt),
