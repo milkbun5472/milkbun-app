@@ -16929,7 +16929,11 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       const mode = card.ifMode === "into" ? "把你自己丢进这个主题里：你还是原来那个世界的人，忽然到了这里，看什么都新鲜，这本身就是故事。"
         : card.ifMode === "adapt" ? "照你自己的世界改写这个主题：换成你那个世界、那个年代里本来就有的样子。"
         : "照你自己的世界改写这个主题，或者把你丢进主题里，两种挑一种更好看的。";
-      return "这是一张【IF 卡】，主题是「" + card.theme + "」" + (card.themeLine ? "：" + card.themeLine : "。")
+      // 同一个节日往年也过过：把他往年同系列的卡写了什么带上，今年写不一样的；关系变了，今年就该不一样
+      const past = card.series ? (StampsCoreSafe().cards || []).filter(x => x.charId === char.id && x.series === card.series && x.limited !== card.limited && x.text && !x.dupe)
+        .map(x => (x.limYear || "") + " 年「" + (x.text.name || "") + "」" + (x.text.gist ? "：" + String(x.text.gist).slice(0, 60) : "")).slice(-12) : [];
+      const pastLine = past.length ? "\n往年的「" + card.theme + "」你也过过，那时的卡：\n" + past.join("\n") + "\n今年写别的事、别的走向；你们的关系要是变了，今年的「" + card.theme + "」也该跟那时不一样。可以自然想起往年，但不必每张都提。" : "";
+      return pastLine + "这是一张【IF 卡】，主题是「" + card.theme + "」" + (card.themeLine ? "：" + card.themeLine : "。")
         + "写的是「如果」的你，不是真发生的事。先想清楚你是哪个世界、哪个年代的人，" + mode + "衣服照这个主题来配，不用你衣柜里的。";
     }
     return "这是一张【日常卡】：写你自己日子里真发生的一件事——不是你们已经发生过的事，也不是回忆。"
