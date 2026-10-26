@@ -54,7 +54,7 @@ test("上线礼只给一次；限时主题上新送一张十连券", () => {
   assert.equal(got.length, 2, "开幕礼、万圣夜");
   const st = C.load();
   assert.equal(st.tickets, C.GIFT.tickets + 1);
-  assert.equal(st.ink, C.GIFT.ink);
+  assert.equal(st.ink, C.GIFT.ink + C.INK_PER_TEN, "开幕礼的印泥＋万圣夜那张十连配的印泥");
   assert.equal(C.grantOnOpen(t, []).length, 0);
   const after = C.activeLimited(Date.parse("2026-11-15T00:00:01+08:00")).map(L => L.id);
   assert.ok(!after.includes("halloween26"), "万圣夜 11-15 0 点下架");
