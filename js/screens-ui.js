@@ -4752,9 +4752,9 @@ function ListenTogether({ profile, active, ctxFor, toast, onToChat, onListenStat
         h(ColorDot, { value: flPrefs.color, onChange: v => setFlPrefs(setFloatLyricPrefs({ color: v })), hexField: true, hexOnly: true })),
       [["size", "大小", 12, 36, 2], ["opacity", "浓淡", 0.15, 1, 0.1]].map(([k, zh, lo, hi, st]) => h("div", { key: k, className: "flex items-center", style: { gap: 10 } },
         h("span", { style: { width: 34, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.sub } }, zh),
-        // 不用原生滑条（播放页不许有那根系统 range，见 listen-turntable 测试）：− 数值 ＋
+        // 不用原生滑条（播放页不许有那根系统 range，见 listen-turntable 测试）：减、数值、加，图标走 ic()
         [-1, 1].map(dir => h("button", { key: dir, "data-wk": "floatlyricstep", onClick: () => setFlPrefs(setFloatLyricPrefs({ [k]: Math.round(Math.max(lo, Math.min(hi, Number(flPrefs[k]) + dir * st)) * 100) / 100 })),
-          style: { order: dir < 0 ? 0 : 2, width: 40, height: 40, borderRadius: 8, border: "1px solid " + t.line, background: "transparent", color: t.ink, fontFamily: F_BODY, fontSize: "calc(16px * var(--app-fs, 1))" } }, dir < 0 ? "−" : "＋")),
+          style: { order: dir < 0 ? 0 : 2, width: 40, height: 40, borderRadius: 8, border: "1px solid " + t.line, background: "transparent", color: t.ink, display: "flex", alignItems: "center", justifyContent: "center" } }, ic(dir < 0 ? "minus" : "plus", t.ink, 16))),
         h("span", { style: { order: 1, minWidth: 44, textAlign: "center", fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.ink } }, k === "size" ? flPrefs[k] + "px" : Math.round(flPrefs[k] * 100) + "%"))),
       h("div", { className: "flex items-center", style: { gap: 8 } },
         h("span", { style: { width: 34, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.sub } }, "位置"),
