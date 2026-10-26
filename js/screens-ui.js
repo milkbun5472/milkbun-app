@@ -4636,7 +4636,7 @@ function ListenTogether({ profile, active, ctxFor, toast, onToChat, onListenStat
   const rowBtn = (kind, color, onClick, title, size) => h("button", { onClick: onClick, title: title,
     className: "shrink-0 active:opacity-60 flex items-center justify-center", style: { width: 34, minHeight: 40 } },
     ic(kind, color, size || 17));
-  const cbtn = (child, onClick, o) => h("button", { "data-wk": "listenbtn", onClick: onClick, className: "active:opacity-60 flex items-center justify-center shrink-0", style: Object.assign({ borderRadius: 999, background: (o && o.bg) || "transparent", width: (o && o.size) || 46, height: (o && o.size) || 46 }, o && o.style) }, child);
+  const cbtn = (child, onClick, o) => h("button", { "data-wk": "listenbtn", onClick: onClick, className: "active:opacity-60 flex items-center justify-center" + (o && o.fit ? "" : " shrink-0"), style: Object.assign({ borderRadius: 999, background: (o && o.bg) || "transparent", width: (o && o.size) || 46, height: (o && o.size) || 46 }, o && o.fit ? { flex: "0 1 " + ((o && o.size) || 46) + "px", minWidth: 30, width: "auto", height: "auto", aspectRatio: "1" } : null, o && o.style) }, child);
   // ── 曲目单的一行（v62.46）────────────────────────────────────────────
   // 原来这一页有【两套歌行】：本地那套是描边圆角卡（songRow），云村那套是分隔线平铺行
   //（cloudRow）。同一样东西（一首歌）两张皮——她说的「一段一段加的所以看起来很乱」，
@@ -4754,18 +4754,19 @@ function ListenTogether({ profile, active, ctxFor, toast, onToChat, onListenStat
 
     h("div", { "data-wk": "listentitle", style: { fontFamily: F_DISPLAY, fontSize: "calc(24px * var(--app-fs, 1))", color: t.ink, marginTop: 12, textAlign: "center", maxWidth: "100%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, STX(now.title)),
     h("div", { "data-wk": "listenartist", style: { fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", color: t.fog, marginTop: 5, maxWidth: "100%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, now.artist || (now.source === "netease" ? "网易云" : "本地")),
-    h("div", { "data-wk": "listenctrl", className: "flex items-center justify-center gap-3", style: { marginTop: 14 } },
-      cbtn(ic("heart", now.fav ? "solid" : t.fog, 20), () => onToggleFav(now.id), { bg: t.bg2 }),
+    // 一排六个按钮在窄屏或美化把按钮放大时会挤出屏幕（她 2026-10-26 截图）：按钮可以缩，缩的时候保持正圆
+    h("div", { "data-wk": "listenctrl", "data-fit": "", className: "flex items-center justify-center gap-3", style: { marginTop: 14, width: "100%", maxWidth: "100%" } },
+      cbtn(ic("heart", now.fav ? "solid" : t.fog, 20), () => onToggleFav(now.id), { fit: 1, bg: t.bg2 }),
       // 加进本地歌单（复用底部选择层）
-      cbtn(ic("plus", t.fog, 20), () => setPickFor({ song: now }), { bg: t.bg2 }),
+      cbtn(ic("plus", t.fog, 20), () => setPickFor({ song: now }), { fit: 1, bg: t.bg2 }),
       // 加进她真网易云歌单（仅网易云歌 + 已连账号；openCvAdd 在下方云村区声明，闭包延迟取用没有 TDZ 问题）
-      (now.source === "netease" && now.neteaseId && cookie) ? cbtn(ic("cloudplus", t.tint, 20), () => openCvAdd({ id: now.neteaseId, name: now.title, artist: now.artist, cover: now.cover }), { bg: t.bg2 }) : null,
+      (now.source === "netease" && now.neteaseId && cookie) ? cbtn(ic("cloudplus", t.tint, 20), () => openCvAdd({ id: now.neteaseId, name: now.title, artist: now.artist, cover: now.cover }), { fit: 1, bg: t.bg2 }) : null,
       // 歌词页开关
-      cbtn(h("span", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: showLyric ? (t.accent || "#8a6d3b") : t.fog } }, "词"), () => setShowLyric(v => !v), { bg: showLyric ? (t.accent || "#8a6d3b") + "22" : t.bg2 }),
+      cbtn(h("span", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: showLyric ? (t.accent || "#8a6d3b") : t.fog } }, "词"), () => setShowLyric(v => !v), { fit: 1, bg: showLyric ? (t.accent || "#8a6d3b") + "22" : t.bg2 }),
       // 浮窗歌词（群友 2026-10-26）：点开一块小设置，开关、颜色、大小、位置
-      cbtn(h("span", { "data-wk": "floatlyricbtn", style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: flPrefs.on ? (t.accent || "#8a6d3b") : t.fog } }, "浮"), () => setFlOpen(v => !v), { bg: flPrefs.on ? (t.accent || "#8a6d3b") + "22" : t.bg2 }),
+      cbtn(h("span", { "data-wk": "floatlyricbtn", style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: flPrefs.on ? (t.accent || "#8a6d3b") : t.fog } }, "浮"), () => setFlOpen(v => !v), { fit: 1, bg: flPrefs.on ? (t.accent || "#8a6d3b") + "22" : t.bg2 }),
       // 这首歌的歌评（她 2026-10-17）：一首一页，刷过的留着
-      cbtn(h("span", { "data-wk": "listentalkopen", style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.fog } }, "评"), () => { setTalkSong(now); setTalkBack("play"); setNav("songtalk"); }, { bg: t.bg2 })),
+      cbtn(h("span", { "data-wk": "listentalkopen", style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.fog } }, "评"), () => { setTalkSong(now); setTalkBack("play"); setNav("songtalk"); }, { fit: 1, bg: t.bg2 })),
     flOpen ? h("div", { "data-wk": "floatlyricset", style: { width: "100%", marginTop: 12, padding: "12px 14px", borderRadius: 12, border: "1px solid " + t.line, background: t.bg2, display: "flex", flexDirection: "column", gap: 10 } },
       h("div", { className: "flex items-center", style: { gap: 10 } },
         h("span", { style: { flex: 1, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.ink } }, "浮窗歌词", h("span", { style: { color: t.fog, fontSize: "calc(11px * var(--app-fs, 1))", marginLeft: 6 } }, "放歌时在哪一页都浮着当前这句，点得穿")),
