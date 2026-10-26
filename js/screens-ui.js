@@ -2499,6 +2499,8 @@ function Forum({
   // 版块不是一排通用药丸：照公告栏上剪角、钉住的分类纸签来画。
   const chip = (b, sel, on) => { const toneKey = FORUM_BOARDS.find(x => String(b).indexOf(x) === 0) || b, bs = forumBoardSkin(toneKey); return h("button", { "data-wk": "block", key: b, "data-wk": "fochip", "data-on": sel ? "1" : "0", onClick: on, className: "active:opacity-70 whitespace-nowrap flex items-center", style: { minHeight: 40, padding: "6px 17px 6px 10px", clipPath: "polygon(0 0,calc(100% - 8px) 0,100% 50%,calc(100% - 8px) 100%,0 100%)", borderRadius: 4, background: sel ? bs[0] : "rgba(255,255,255,.58)", color: sel ? FORUM_SKIN.paper : FORUM_SKIN.sub, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", boxShadow: sel ? "0 4px 12px " + bs[0] + "2e" : "inset 0 0 0 1px " + FORUM_SKIN.line } }, h("span", { style: { width: 5, height: 5, borderRadius: 99, marginRight: 7, background: sel ? FORUM_SKIN.paper : bs[0], boxShadow: sel ? "0 0 0 2px " + bs[0] : "none" } }), b); };
   const toggleLike = id => setLiked(s => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); try { localStorage.setItem("x_forumLikes", JSON.stringify([...n])); } catch (e) {} return n; });
+  // 多选收藏（她 2026-10-26）：勾上的一起收进「全部」，已收藏的不动
+  const bookmarkMany = ids => setBookmarked(s => { const n = new Set(s); (ids || []).forEach(id => n.add(id)); try { localStorage.setItem("x_forumBookmarks", JSON.stringify([...n])); } catch (e) {} return n; });
   const toggleBookmark = id => setBookmarked(s => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); try { localStorage.setItem("x_forumBookmarks", JSON.stringify([...n])); } catch (e) {} return n; });
   // 收藏分专辑（她 2026-10-26）：{ names:[专辑名…], of:{ 笔记id: 专辑名 } }。没放进专辑的就在「全部」里
   const [albums, setAlbumsRaw] = useState(() => { const a = loadJSON("x_forumAlbums", null); return a && Array.isArray(a.names) ? a : { names: [], of: {} }; });
@@ -3304,13 +3306,17 @@ function Forum({
     pick && !inSub ? h("div", { "data-wk": "fopickbar", className: "shrink-0 flex items-center justify-between", style: { padding: "8px 14px", borderTop: "1px solid " + FORUM_SKIN.line, background: FORUM_SKIN.paper } },
       h("button", { onClick: () => setPick(null), className: "active:opacity-60", style: { minHeight: 40, padding: "0 8px", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: FORUM_SKIN.fog, background: "transparent", border: "none" } }, "取消"),
       h("span", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: FORUM_SKIN.ink } }, pick.length ? "选了 " + pick.length + " 帖" : "点帖子勾上"),
+      h("div", { className: "flex items-center", style: { gap: 8 } },
+      h("button", { "data-wk": "fopickfav", disabled: !pick.length, className: "active:opacity-70 disabled:opacity-40",
+        onClick: () => { const ids = pick.slice(), fresh = ids.filter(id => !bookmarked.has(id)).length; bookmarkMany(ids); setPick(null); toast && toast(fresh ? "收藏了 " + fresh + " 帖" : "这几帖本来就收藏着"); },
+        style: { minHeight: 40, padding: "0 14px", borderRadius: 999, border: "1px solid " + FORUM_SKIN.accent, background: "transparent", color: FORUM_SKIN.accent, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))" } }, "收藏"),
       h("button", { "data-wk": "fopickdel", disabled: !pick.length, className: "active:opacity-70 disabled:opacity-40",
         onClick: () => {
           const ids = pick.slice(), mine = (posts || []).filter(x => x && ids.indexOf(x.id) >= 0 && x.authorType === "me").length;
           requestAppConfirm("删掉这 " + ids.length + " 帖？", (mine ? "里面有 " + mine + " 帖是你自己发的，删了回不来。" : "网友的帖子刷新一下还会有新的。") + "楼里的回复也一起删。",
             () => { onDeletePosts(ids); setPick(null); }, "删掉");
         },
-        style: { minHeight: 40, padding: "0 14px", borderRadius: 999, border: "none", background: FORUM_SKIN.accent, color: "#fff", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))" } }, "删掉")) : null,
+        style: { minHeight: 40, padding: "0 14px", borderRadius: 999, border: "none", background: FORUM_SKIN.accent, color: "#fff", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))" } }, "删掉"))) : null,
     (!inSub) && h("div", { "data-wk": "fonav", className: "shrink-0 flex", style: { borderTop: "1px solid " + FORUM_SKIN.line, background: FORUM_SKIN.bar, backdropFilter: "blur(14px)", WebkitBackdropFilter: "blur(14px)", paddingBottom: COMPOSER_PAD_BOTTOM } },
       [["home", IHome, "主页"], ["search", ISearch, "搜索"], ["notice", IPulse, cardLayout ? "消息" : "回复"], ["pm", IMail, "私信"], ["me", GUser, "我"]].map(nx => { const Ic = nx[1]; const active = nav === nx[0]; return h("button", { key: nx[0], "data-wk": "fonavtab", "data-part": nx[0], "data-on": active ? "1" : "0", onClick: () => { setNav(nx[0]); setFromPost(null); }, className: "flex-1 pt-1.5 pb-1 flex flex-col items-center gap-0.5 active:opacity-60 relative", style: { color: active ? FORUM_SKIN.ink : FORUM_SKIN.fog } },
         h("span", { className: "flex items-center justify-center", style: { width: 38, height: 27, borderRadius: 999, background: active ? FORUM_SKIN.soft : "transparent" } }, h(Ic, { size: 19, color: active ? FORUM_SKIN.accent : FORUM_SKIN.fog })),
@@ -3322,7 +3328,7 @@ function Forum({
       h("div", { "data-wk": "block", style: { position: "absolute", top: safeTop(46), right: 12, zIndex: 41, minWidth: 168, padding: 5, borderRadius: 10, background: FORUM_SKIN.paper, border: "1px solid " + FORUM_SKIN.line, boxShadow: "0 12px 28px rgba(39,49,38,.18)", animation: "qqIn .16s ease both" } },
         [tab !== "关注" && ["刷新", tab === "发现" ? "网友来发笔记，话题随机" : "网友来发帖", () => onGenBoard(tab === "发现" ? xhsRandBoard() : tab)],
          onGenCharPosts && ["请TA们发帖", tab === "关注" || tab === "发现" ? "你的 char，自己挑吧" : "你的 char，发到「" + tab + "」", () => onGenCharPosts(tab === "发现" ? "关注" : tab)],
-         onDeletePosts && ["多选删帖", "点几帖勾上，一起删", () => setPick([])]]
+         onDeletePosts && ["多选", "点几帖勾上，一起收藏或删掉", () => setPick([])]]
           .filter(Boolean).map((x, k) => h("button", { key: k, onClick: () => { setRefreshMenu(false); x[2](); }, className: "w-full text-left active:opacity-60",
             style: { display: "block", minHeight: 44, padding: "7px 11px", borderRadius: 7, borderTop: k ? "1px solid " + FORUM_SKIN.line : "none" } },
             h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", color: FORUM_SKIN.ink } }, x[0]),
