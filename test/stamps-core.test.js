@@ -153,3 +153,9 @@ test("日历：深秋 11-30 底下架、温泉 12-01 上、12-15 底下架", () 
   assert.deepEqual(ids("2026-12-01T00:00:01+08:00"), ["onsen26"]);
   assert.deepEqual(ids("2026-12-16T00:00:01+08:00"), []);
 });
+
+test("你的生日池送十张十连，他的生日池送一张", () => {
+  const C = fresh(); const st = C.load(); st.gifted = true; st.seenLimited = { postage26: 1, halloween26: 1, halloween26_top: 1 }; C.save(st);
+  C.grantOnOpen(Date.parse("2026-10-27T12:00:00+08:00"), [{ id: "me_main", name: "你", year: 2026 }, { id: "c1", name: "他", year: 2026 }]);
+  assert.equal(C.load().tickets, 11);
+});

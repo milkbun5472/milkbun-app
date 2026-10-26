@@ -74,7 +74,8 @@
       if (!st.seenLimited[L.id]) { st.seenLimited[L.id] = 1; st.seenLimited[L.id + "_top"] = 1; st.tickets += n; got.push("「" + L.name + "」上新：" + n + " 张十连券" + (limCount > 1 ? "（这一期 " + limCount + " 个人）" : "")); }
       // 改成按人数送之前就领过这一期那一张的：补上差的那几张，一期一次
       else if (!st.seenLimited[L.id + "_top"]) { st.seenLimited[L.id + "_top"] = 1; if (n > 1) { st.tickets += n - 1; got.push("「" + L.name + "」按人数补发：" + (n - 1) + " 张十连券"); } } });
-    (birthdays || []).forEach(b => { const k = "bd_" + b.id + "_" + b.year; if (!st.seenLimited[k]) { st.seenLimited[k] = 1; st.tickets += 1; got.push(b.name + " 的生日池：一张十连券"); } });
+    // 他的生日池送一张十连；你自己的生日池（id 以 me_ 开头）送十张，就是 100 抽——你过生日（她 2026-10-26）
+    (birthdays || []).forEach(b => { const k = "bd_" + b.id + "_" + b.year; if (!st.seenLimited[k]) { const n = String(b.id).indexOf("me_") === 0 ? 10 : 1; st.seenLimited[k] = 1; st.tickets += n; got.push(b.name + " 的生日池：" + (n > 1 ? n + " 张十连券（" + n * 10 + " 抽）" : "一张十连券")); } });
     if (got.length) save(st);
     return got;
   }
