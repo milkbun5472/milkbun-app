@@ -401,6 +401,7 @@
     //   还是对不上：预览里对的东西上机不对，比没有预览更坏（她照着它调）。
     //   真正管用的是旁边那颗「先预览 30 秒」——它改的是【真 app 本身】。
     return h("div", null,
+      window.ThemeNightRow && theme && onSaveTheme ? h(window.ThemeNightRow, { theme: theme, onSave: onSaveTheme }) : null,
       h("div", { style: { display: "grid", gridTemplateColumns: "repeat(4,minmax(0,1fr))", gap: 6, marginBottom: 14 } }, tab("icons","图标","逐个替换"), tab("fonts","字体","全 App 换"), tab("css","页面 CSS","限定页面"), tab("package","主题包","带图搬家")),
       section === "icons" && h("div", null,
         // ── 整套换（v62.42）：仓库自带的几套，点一下整套换掉；她单独换过的那几张不动 ──

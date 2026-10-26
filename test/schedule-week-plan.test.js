@@ -7,7 +7,9 @@ const app = read("app.js"), engine = read("engine.js"), screens = (read("screens
 
 const i = screens.indexOf("function schedFillEnds(");
 const _sched = new Function('function pad2(n){return String(n).padStart(2,"0")}\n'
-  + screens.slice(i, screens.indexOf("\nfunction schedActIcon")) + "\nreturn { schedFillEnds, schedSleepCarry };")();
+  // ⚠️切到下一个函数为止：原来钉的 schedActIcon 2026-10-26 被删了（零引用清理），
+  //   切片一路吃到 screens-ui.js 的 window.FloatLyric，整份测试当场炸
+  + screens.slice(i, screens.indexOf("\nfunction schedTzShiftMin")) + "\nreturn { schedFillEnds, schedSleepCarry };")();
 const schedFillEnds = _sched.schedFillEnds, schedSleepCarry = _sched.schedSleepCarry;
 
 test("每段都有结束时刻，块才画得出高度", () => {

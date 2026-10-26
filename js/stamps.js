@@ -99,8 +99,11 @@
     const stopAudio = () => { try { if (audRef.current) { audRef.current.onended = null; audRef.current.pause(); } } catch (e) {} audRef.current = null; };
     const [picks, setPicks] = useState({});   // 一节中间的小选项：选了哪个（同一节里换个回应，走完又回到主线）
     useEffect(() => { setPicks({}); if (onSeen && sid) onSeen(sid); }, [sid]);
-    const sec = secs.find(s => s.id === sid) || secs[0];
-    if (!sec) return null;
+    // ⚠️这一句不许提前 return：下面还有两个 useEffect，先 return 就少跑两个 hook，
+    //   React 下一次渲染对不上号就是 #310 白屏（施工规则：hook 全部排在 return 之前）。
+    //   没有这一节时给一份空的壳子照常往下跑，真正的 return 挪到 hook 后面。
+    const sec0 = secs.find(s => s.id === sid) || secs[0];
+    const sec = sec0 || { id: "", title: "", beats: [], choices: [] };
     // 把这一节摊开：中间的 pick 没选时停在那儿；选了就换成「她说的那句＋他那几句」
     const flat = [];
     for (let k = 0; k < sec.beats.length; k++) {
@@ -149,6 +152,7 @@
       return () => clearTimeout(autoT.current);
     }, [sid, i, beat._pick, voiceOn, autoOn]);
     useEffect(() => () => { clearTimeout(autoT.current); stopAudio(); }, []);
+    if (!sec0) return null;   // hook 都跑完了，这儿再退出
     const toggle = k => { const st0 = C().load(); st0.opt = Object.assign({}, st0.opt, { [k]: !(st0.opt || {})[k] }); C().save(st0); setStOpt(st0.opt); };
     const choiceBtn = { textAlign: "center", width: "100%", maxWidth: 340, padding: "12px 14px", borderRadius: 12, border: "1px solid rgba(255,255,255,.45)", background: "rgba(16,14,22,.78)", color: "#fff", fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", boxShadow: "0 6px 18px rgba(0,0,0,.35)", backdropFilter: "blur(4px)" };
     return h("div", { "data-wk": "stampstory", className: "fixed inset-0 flex flex-col", style: { zIndex: 255, background: url ? "#111 center/cover no-repeat url(" + url + ")" : "linear-gradient(#2b2436,#14111b)" } },

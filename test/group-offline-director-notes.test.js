@@ -31,7 +31,9 @@ test("新便签默认两轮，只有成功生成后才扣轮次", () => {
   assert.equal((app.match(/const directorNoteNew = /g) || []).length, 1, "新建只许有一份");
   assert.equal((app.match(/directorNoteNew\(note, long\)/g) || []).length, 2, "单人线下 + 群线下都走它");
   assert.equal((app.match(/const directorNotesConsume = /g) || []).length, 1, "消耗只许有一份");
-  assert.equal((app.match(/directorNotesConsume\(/g) || []).length, 4, "单人线下 + 群线下 + 线上（v75.24x 搬过去的）各消耗一次，外加线下顺手扣 OOC 那张共用便签");
+  // v76.7xx 群聊线上那一轮也扣（原来只有单聊线上扣），所以 5
+  assert.equal((app.match(/directorNotesConsume\(/g) || []).length, 5,
+    "单人线下 + 群线下 + 单聊线上 + 群聊线上各消耗一次，外加线下顺手扣 OOC 那张共用便签");
   const consumeAt = app.indexOf("短期导演便签只在成功生成后消耗");
   const beatsAt = app.indexOf("for (let i = 0; i < beats.length; i++)", app.indexOf("const genGroupOfflineFrom"));
   assert.ok(consumeAt > beatsAt);

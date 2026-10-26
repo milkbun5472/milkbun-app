@@ -7922,6 +7922,22 @@ function BubbleSkinConfig({ toast }) {
 }
 // 夜间配色那一套：只换底、卡片、字、线这几格，点缀色和警示色照她原来的
 const THEME_NIGHT = { bg: "#1c1b20", bg2: "#26252b", ink: "#ece6dc", sub: "#cfc8bd", fog: "#8e877d", line: "#3a3840" };
+// 一键夜间配色（群友 2026-10-26「有夜间模式吗」）：把底、卡片、字、线换深，点缀色和警示色留着；
+//   换之前那一套存进 x_themeDay，关掉就原样换回。只管跟主题走的页面，自带皮的（论坛、日记这些）不变。
+//   主题色页和主题工作台顶上用的是这同一行（她 2026-10-26：在工作台里找不到）
+function ThemeNightRow({ theme, onSave }) {
+  const t = useTheme();
+  const [on, setOn] = useState(() => !!loadJSON("x_themeDay", null));
+  return h("div", { "data-wk": "themenight", className: "flex items-center justify-between py-3.5", style: { borderBottom: "1px solid " + t.line, marginBottom: 10 } },
+    h("div", { style: { paddingRight: 12 } },
+      h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))", color: t.ink } }, "夜间配色"),
+      h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.5, marginTop: 2 } }, "一下把底色和字换深，关掉换回你原来那套。论坛、日记这些自带皮的页面不跟着变。")),
+    h(Toggle, { on: on, onChange: v => {
+      if (v) { saveJSON("x_themeDay", theme); setOn(true); onSave({ ...theme, ...THEME_NIGHT }); }
+      else { const d = loadJSON("x_themeDay", null); saveJSON("x_themeDay", null); setOn(false); onSave(d && typeof d === "object" ? d : theme); }
+    } }));
+}
+window.ThemeNightRow = ThemeNightRow;
 function ThemeConfig({
   theme,
   onSave,
@@ -7933,7 +7949,6 @@ function ThemeConfig({
   const t = useTheme();
   const [th, setTh] = useState(theme);
   const fileRef = useRef(null);
-  const [nightOn, setNightOn] = useState(() => !!loadJSON("x_themeDay", null));
   // 壁纸上压的那一层（v61.38）。滑的时候本地先动，松手才落盘——
   // 每挪一格就 saveJSON 一次的话，拖一趟能写上百次。
   const [fx, setFx] = useState(() => ({ veil: (wallFx && wallFx.veil) || 0, blur: (wallFx && wallFx.blur) || 0 }));
@@ -7961,6 +7976,7 @@ function ThemeConfig({
   return /*#__PURE__*/React.createElement("div", {
     className: "pt-4"
   },
+  h(ThemeNightRow, { theme: th, onSave: n => { setTh(n); onSave(n); } }),
   // 主屏壁纸：从相册自定义
   /*#__PURE__*/React.createElement("div", {
     className: "pb-5 mb-2",
@@ -8048,16 +8064,6 @@ function ThemeConfig({
       display: "none"
     }
   })),
-  // 一键夜间配色（群友 2026-10-26「有夜间模式吗」）：把底、卡片、字、线换成深色，点缀色和警示色留着；
-  //   换之前那一套存进 x_themeDay，关掉就原样换回。只管跟主题走的页面，自带皮的（论坛、日记这些）不变
-  h("div", { "data-wk": "themenight", className: "flex items-center justify-between py-3.5", style: { borderBottom: "1px solid " + t.line } },
-    h("div", { style: { paddingRight: 12 } },
-      h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))", color: t.ink } }, "夜间配色"),
-      h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.5, marginTop: 2 } }, "一下把底色和字换深，关掉换回你原来那套。论坛、日记这些自带皮的页面不跟着变。")),
-    h(Toggle, { on: nightOn, onChange: v => {
-      if (v) { saveJSON("x_themeDay", th); const n = { ...th, ...THEME_NIGHT }; setTh(n); setNightOn(true); onSave(n); }
-      else { const d = loadJSON("x_themeDay", null); const n = d && typeof d === "object" ? d : th; saveJSON("x_themeDay", null); setTh(n); setNightOn(false); onSave(n); }
-    } })),
   fields.map(([k, l]) => /*#__PURE__*/React.createElement("div", {
     key: k,
     className: "flex items-center justify-between py-3.5",
