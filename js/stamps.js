@@ -746,11 +746,25 @@
           h(Toggle, { on: !!opt.autoDraw, onChange: () => setOpt({ autoDraw: !opt.autoDraw }) })),
         h("button", { onClick: () => { const r = testTap.current, now = Date.now(); r.n = now - r.t < 900 ? r.n + 1 : 1; r.t = now; if (r.n >= 7) { r.n = 0; setOpt({ testInf: !testInf }); toast(testInf ? "测试券关了" : "测试券开了：抽卡不花邮资和券，盖印不花印泥"); } },
           style: { display: "block", marginTop: 22, fontFamily: F_DISPLAY, fontSize: "calc(14.5px * var(--app-fs, 1))", color: "#2f2a22", background: "transparent", border: "none", padding: 0 } }, "规则"),
-        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: "rgba(47,42,34,.72)", lineHeight: 1.8, marginTop: 6 } },
-          "概率：R 70%、SR 25%、SSR 5%。保底所有池通用：60 抽一定出 SSR（50 抽起概率往上加），每十抽至少一张 SR。", h("br"),
-          "单抽 " + C().PRICE_ONE + " 邮资，十连 " + C().PRICE_TEN + "，有十连券先用券。", h("br"),
-          "邮资和印泥从互动里来、没有上限：聊天、群聊、通话一轮邮资 20、印泥 20；线下一拍、论坛片刻广场朋友圈、两个人的小事各 40；一起听一起看一起读、查手机、看他玩手机各 80；别的玩法邮资 20、印泥 40；他主动发来一条邮资 10。重 roll 不算。每天第一次打开邮票册送一张单抽券。升满一张 R 要 150 印泥、SR 500、SSR 1000。", h("br"),
-          "R 是你不在时他一个人的一刻，SR 是你俩的一小段，SSR 是带选项的分节剧情。"),
+        // 规则（她 2026-10-27：写好看点）：分几块，一块一个小标题；数字从 StampsCore 里取，改了常量这儿跟着变
+        (() => { const G = C().GAIN, F = C().FULL_COST, B = C().BDAY;
+          const blk = (title, rows) => h("div", { "data-wk": "stamprules", style: { marginTop: 12, padding: "10px 12px", borderRadius: 8, background: "rgba(255,248,233,.65)", border: "1px solid rgba(47,42,34,.1)" } },
+            h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: "#285C4B", letterSpacing: ".15em", marginBottom: 4 } }, title),
+            rows.map((r, k) => h("div", { key: k, className: "flex", style: { gap: 10, padding: "3px 0", borderTop: k ? "1px dashed rgba(47,42,34,.1)" : "none", fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", lineHeight: 1.6, color: "rgba(47,42,34,.78)" } },
+              h("span", { style: { flex: 1, minWidth: 0 } }, r[0]), r[1] != null ? h("span", { style: { flexShrink: 0, textAlign: "right", color: "#2f2a22", fontVariantNumeric: "tabular-nums" } }, r[1]) : null)));
+          const pi = k => G[k][0] + " / " + G[k][1];
+          return h("div", null,
+            blk("三档卡", [["R　你不在时，他一个人的一刻"], ["SR　你俩的一小段，卡上印着他一句台词"], ["SSR　分节、带选项的剧情，等级越高路越多"]]),
+            blk("概率与保底", [["R / SR / SSR", "70% / 25% / 5%"], ["SSR 保底（所有常驻和限时池通用）", "60 抽必出"], ["50 抽起 SSR 概率往上加"], ["每十抽至少一张", "SR"],
+              ["生日池、纪念日池 SSR", Math.round(B.rate * 100) + "%，当天 " + Math.round(B.dayRate * 100) + "%"], ["生日池、纪念日池保底（单独算）", B.hard + " 抽必出"],
+              ["限定 SSR 每人一期（一年）一张，重复的折成", C().DUPE_INK + " 印泥"]]),
+            blk("寄一封 · 寄一版", [["单抽", C().PRICE_ONE + " 邮资"], ["十连", C().PRICE_TEN + " 邮资"], ["单抽先用单抽券"],
+              ["十连先用生日券、纪念日券，再用十连券；没有券时单抽券一张顶 " + C().PRICE_ONE + "，不够的拿邮资补"], ["两种券都有时，寄一版上面能挑这次用哪种"]]),
+            blk("从哪来 · 右边是 邮资 / 印泥", [["聊天、群聊、通话一轮", pi("round")], ["线下一拍", pi("beat")], ["论坛、片刻、广场、朋友圈发一条或评论", pi("public")], ["匿名信箱、情书、交换日记这些两个人的小事", pi("duo")],
+              ["一起听、一起看、一起读、查手机、看他玩手机", pi("stay")], ["同人、梦境、擂台、跑团、塔罗这些别的玩法", pi("play")], ["他主动发来一条", G.nudge[0] + " 邮资"], ["情侣空间甜蜜打卡（每人每天一次）", pi("sweet")], ["把邮票发给他看，他回了你", G.share[1] + " 印泥"], ["都没有上限；重 roll 的不算"]]),
+            blk("他寄来的信（在私聊里点「领取」）", [["今天的信：每天一个人寄一张", "单抽券"], ["限时池上新：每两个人一张，最多五张", "十连券"], ["他的生日池出现", "1 张十连券"], ["你的生日", "10 张生日券"], ["在一起的纪念日", "5 张纪念日券"],
+              ["在一起了、满 100 / 520 / 1000 天，甜蜜值 10 / 30 / 50 / 100", "十连券，一辈子一次"], ["每张十连都配", C().INK_PER_TEN + " 印泥"]]),
+            blk("盖印升满一张", [["R", F.R + " 印泥"], ["SR", F.SR + " 印泥"], ["SSR", F.SSR + " 印泥"]])); })(),
         testInf ? h("div", { style: { marginTop: 10, fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: RC.SSR } }, "测试券开着：抽卡不花邮资和券、盖印不花印泥（连点七下「规则」关掉）") : null));
     if (tab === "album") return h("div", { "data-wk": "stampalbumpage", "data-page": "1", className: "h-full flex flex-col overflow-hidden", style: { background: "repeating-linear-gradient(180deg, transparent 0 116px, rgba(47,42,34,.07) 116px 117px, transparent 117px 120px), linear-gradient(#f1e9d8, #e9dfca)" } },
       h(Head, { zh: "邮票册", sub: (st.cards || []).length + " 枚", bg: "transparent", ink: "#2f2a22", onBack: () => setTab("pull") }),
