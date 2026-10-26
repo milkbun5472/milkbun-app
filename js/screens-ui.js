@@ -1668,7 +1668,7 @@ function RelComposer({ comp, setComp, characters, profile, draftProfile, maskPic
 // 世界书 · 设定索引：卡面直接回答「写了什么 / 谁能看 / 何时触发 / 会去哪儿」。
 // 去向键与 engine.js 的 loreScopeOn 一一对应，所有消费者必须从同一筛选器取书。
 const LORE_SCOPE_UI = [
-  ["chat", "聊天与线下", "单聊、群聊、语音与面对面"],
+  ["chat", "聊天与线下", "单聊、群聊、语音、面对面与邮票册写卡"],
   ["subjects", "查手机", "手机内容与角色资料生成"],
   ["lifestyle", "生活功能", "行程、备忘、记账与陪伴工具"],
   ["diary", "日记", "角色写日记时"],
@@ -2028,7 +2028,7 @@ function WorldBookEntryPage({ entry, characters, folders, onClose, onSave, onDel
       h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))" } }, label), h("div", { style: { fontFamily: F_BODY, fontSize: "calc(9.5px * var(--app-fs, 1))", lineHeight: 1.35, opacity: .62, marginTop: 3 } }, desc)); })),
     loreScopeEnabled(f, "chat") ? h("div", { "data-lore-side": "", style: { marginTop: 9 } },
       h("div", { style: { display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 6 } }, LORE_SIDE.map(([v, nm]) => { const on = String((f.scope && f.scope.side) || "") === v; return h("button", { key: v || "both", onClick: () => setF(x => { const sc = Object.assign({ chat: true }, x.scope); if (v) sc.side = v; else delete sc.side; return Object.assign({}, x, { scope: sc }); }), className: "active:opacity-70", style: { height: 34, fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: on ? t.bg : t.sub, background: on ? t.ink : "transparent", border: "1px solid " + (on ? t.ink : t.line) } }, nm); })),
-      h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", lineHeight: 1.45, color: t.sub, marginTop: 5 } }, "「聊天与线下」这枚章去哪一半。只线下：只在见面（单人、群）时带上，平时线上聊天、语音不带；只线上反过来。长的线下规则放「只线下」，线上就不用每轮都读一遍。")) : null,
+      h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", lineHeight: 1.45, color: t.sub, marginTop: 5 } }, "「聊天与线下」这枚章去哪一半。只线下：只在见面（单人、群）和邮票册写卡时带上，平时线上聊天、语音不带；只线上反过来。长的线下规则放「只线下」，线上就不用每轮都读一遍。")) : null,
     lbl("注入顺序", "数字越大越靠前；冲突时仍以更明确、更近期的系统规则为准"),
     h("div", { "data-wk": "block", style: { display: "grid", gridTemplateColumns: "repeat(5,1fr)", gap: 6 } }, [1, 2, 3, 4, 5].map(n => h("button", { key: n, onClick: () => set({ priority: n }), className: "active:opacity-70", style: { height: 38, fontFamily: F_DISPLAY, fontSize: "calc(13px * var(--app-fs, 1))", color: (f.priority || 3) === n ? t.bg : t.sub, background: (f.priority || 3) === n ? t.ink : "transparent", border: "1px solid " + ((f.priority || 3) === n ? t.ink : t.line) } }, n))),
     h("div", { style: { marginTop: 17, borderTop: "1px solid " + t.line } }, toggle("启用这条", "关闭后保留内容，但任何地方都不会注入", f.enabled !== false, () => set({ enabled: f.enabled === false }))),
