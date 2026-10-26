@@ -59,6 +59,7 @@
         h("div", { className: "flex flex-wrap justify-center", style: { gap: 8, maxWidth: 420 } },
           cards.map(c => torn[c.id]
             ? h("div", { key: c.id, className: "flex flex-col items-center", style: { gap: 3, animation: "stFlip .35s ease-out" } }, h(StampFace, { t, card: c, size: cards.length > 1 ? 64 : 150, onClick: () => onOpen(c.dupe ? Object.assign({}, c, { id: c.dupeOf }) : c) }),
+                nameOf(c) ? h("div", { "data-wk": "stampwho", style: { maxWidth: cards.length > 1 ? 70 : 160, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", color: "rgba(244,236,218,.85)" } }, nameOf(c)) : null,
                 c.dupe ? h("div", { "data-wk": "stampdupe", style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", color: "#e3b65c", whiteSpace: "nowrap" } }, "重复 · 印泥 +" + C().DUPE_INK) : null)
             : h("div", { key: c.id, className: "flex flex-col items-center", style: { gap: 3 } },
                 h(Stamp, { t, card: c, back: true, size: cards.length > 1 ? 64 : 150, onClick: () => setTorn(p => ({ ...p, [c.id]: 1 })) }),
@@ -69,6 +70,17 @@
   }
 
   // 剧情：乙游对话框。背景是卡面，一句一句点着走；锁着的那节写着要盖到第几枚
+  // 外语那句：写成「原文 | 中文」的，原文大字、中文一行小字；没带中文的外语，旁边一颗「译」，点了用免费翻译当场翻（不花模型）
+  function BiText({ text, small, color, sub }) {
+    const [zh, setZh] = useState(""), [busy, setBusy] = useState(false);
+    const sp = typeof splitBilingual === "function" ? splitBilingual(String(text || "")) : null;
+    const orig = sp ? sp.text : String(text || ""), cn = sp ? sp.zh : zh;
+    const can = !sp && !zh && typeof translatableLang === "function" && translatableLang(orig);
+    const go = async e => { e && e.stopPropagation(); if (busy) return; setBusy(true); try { const r = await translateToZh(orig, can); if (r && r.zh) setZh(r.zh); } catch (er) {} setBusy(false); };
+    return h(React.Fragment, null, orig,
+      can ? h("button", { "data-wk": "stamptrans", onClick: go, style: { marginLeft: 6, padding: "0 6px", borderRadius: 6, border: "1px solid currentColor", fontSize: "0.72em", opacity: .7, fontStyle: "normal", verticalAlign: "middle" } }, busy ? "…" : "译") : null,
+      cn ? h("div", { "data-wk": "stampzh", style: { marginTop: 3, fontSize: "0.8em", fontStyle: "normal", opacity: .72, color: sub || color } }, cn) : null);
+  }
   function StoryReader({ t, card, char, meName, lv, start, onClose, onSeen, inner }) {
     const secs = (card.text && card.text.sections) || [];
     // 剧情背景能挑：第一面、满级他一个人、满级你们俩，画了哪几张就能换哪几张；挑了记在卡上
@@ -117,7 +129,7 @@
       h("div", { "data-wk": "stampstorybox", onClick: tap,
         style: { margin: "0 12px calc(env(safe-area-inset-bottom) * 0.4 + 14px)", borderRadius: 14, background: "rgba(16,14,22,.82)", border: "1px solid rgba(255,255,255,.18)", padding: "14px 16px 30px", minHeight: 150, position: "relative", color: "#f4efe6" } },
         who ? h("div", { "data-wk": "stampstorywho", style: { display: "inline-block", marginBottom: 6, padding: "2px 10px", borderRadius: 999, background: beat.who === "he" ? RC.SSR : beat.who === "inner" ? "#577767" : "#6b6480", fontFamily: F_DISPLAY, fontSize: "calc(13px * var(--app-fs, 1))" } }, who) : null,
-        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(15px * var(--app-fs, 1))", lineHeight: 1.75, fontStyle: who && beat.who !== "inner" ? "normal" : "italic", opacity: who ? 1 : .85, whiteSpace: "pre-wrap" } }, beat.text || ""),
+        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(15px * var(--app-fs, 1))", lineHeight: 1.75, fontStyle: who && beat.who !== "inner" ? "normal" : "italic", opacity: who ? 1 : .85, whiteSpace: "pre-wrap" } }, h(BiText, { text: beat.text || "" })),
         beat._pick != null ? h("div", { className: "flex flex-col", style: { gap: 8, marginTop: 4 } },
           (beat.options || []).map((o, k) => h("button", { key: k, "data-wk": "stampstorychoice", "data-inline": "1", onClick: e => { e.stopPropagation(); setPicks(p => Object.assign({}, p, { [beat._pick]: k })); },
             style: { textAlign: "left", padding: "10px 12px", borderRadius: 10, border: "1px solid rgba(255,255,255,.3)", background: "rgba(255,255,255,.1)", color: "#fff", fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))" } }, o.text))) : null,
@@ -201,8 +213,8 @@
       const st = C().load(); st.cards = st.cards.map(c => c.id === card.id ? { ...c, shikeId: id } : c); C().save(st);
       toast("收进时刻了");
     };
-    const para = s => h("div", { style: { fontFamily: F_BODY, fontSize: fs(14), lineHeight: 1.85, color: P, whiteSpace: "pre-wrap" } }, s);
-    const quote = s => h("div", { style: { marginTop: 8, fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: fs(14.5), color: P7 } }, "「" + s + "」");
+    const para = s => h("div", { style: { fontFamily: F_BODY, fontSize: fs(14), lineHeight: 1.85, color: P, whiteSpace: "pre-wrap" } }, h(BiText, { text: s }));
+    const quote = s => h("div", { style: { marginTop: 8, fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: fs(14.5), color: P7 } }, "「", h(BiText, { text: s }), "」");
     // 回廊的格子：按时间排，从前一刻到他心里那句
     // SSR：走过哪几节、哪几个结局（路线图和结局章用）
     const markSeen = sid => { const st0 = C().load(); st0.cards = st0.cards.map(c => c.id === card.id ? { ...c, seen: Object.assign({}, c.seen, { [sid]: 1 }) } : c); C().save(st0); };
@@ -646,7 +658,9 @@
           return bad.length ? h("button", { "data-wk": "stamprewriteall", onClick: () => { onWrite(bad); toast("在重写 " + bad.length + " 张"); }, className: "w-full active:opacity-70",
             style: { marginTop: 12, minHeight: 40, borderRadius: 10, border: "1px dashed #b23a2e", color: "#b23a2e", fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))" } }, "有 " + bad.length + " 张没写好 · 一起重写") : null; })(),
         album.length ? h("div", { "data-wk": "stampalbum", className: "grid", style: { gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 10, marginTop: 14, justifyItems: "center" } },
-          album.map(c => h(StampFace, { key: c.id, t, card: c, size: 88, onClick: () => setOpen(c.id) })))
+          album.map(c => { const ch = albumChar === "all" ? charOf(c.charId) : null;   // 「全部」时每枚下面写是谁的
+            return h("div", { key: c.id, className: "flex flex-col items-center", style: { gap: 3, minWidth: 0 } }, h(StampFace, { t, card: c, size: 88, onClick: () => setOpen(c.id) }),
+              ch ? h("div", { "data-wk": "stampwho", style: { maxWidth: 92, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: "rgba(47,42,34,.62)" } }, ch.remark || ch.name) : null); }))
           : h("div", { style: { padding: "48px 0", textAlign: "center", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: "rgba(47,42,34,.5)" } }, "还没有邮票，去寄一封")),
       week ? (() => { const ch = charOf(albumChar); const all = byChar.filter(c => c.rarity === "R" && c.text).sort((x, y) => (x.ts || 0) - (y.ts || 0));
         const ds = weekDays(st, albumChar), weeks = Math.ceil(ds.length / 7), wk = Math.min(weeks, Math.max(1, Number(week) || 1));
