@@ -418,6 +418,8 @@
     const [open, setOpen] = useState(null);
     const [albumChar, setAlbumChar] = useState("all");
     const [albumRar, setAlbumRar] = useState("all");
+    const [albumTheme, setAlbumTheme] = useState("all");   // 主题：日常 / 生日 / 你的生日 / IF 各主题
+    const [albumPick, setAlbumPick] = useState("");        // 正弹着哪一个下拉：who / rar / theme
     const [week, setWeek] = useState(false);
     const [wkOpen, setWkOpen] = useState("");   // 「他的一周」里展开了哪一天的其他几张   // 他的一周：同一个人写好的 R 每攒够七张，按时间排成一页（第几周）   // 全部 / SSR / SR / R / bad（没写好）
     const [gotNote, setGotNote] = useState([]);
@@ -471,7 +473,7 @@
       if (pool === "char" && (thDraft != null || thLineDraft != null)) s.opt = Object.assign({}, s.opt, { charTheme: Object.assign({}, s.opt.charTheme, { [charId]: charTheme }), charThemeLine: Object.assign({}, s.opt.charThemeLine, { [charId]: charThemeLine }) });
       const pool0 = bd ? (bd.mine ? (mbOne ? [mbOne] : bd.charIds) : [bd.char.id]) : pool === "mix" ? mixIds : pool === "char" ? [charId] : (lim ? (limOne ? [limOne] : limIds) : []);
       if (!pool0.length) { toast("先挑几个角色"); return; }
-      const how = opt.testInf ? "test" : C().pay(s, n, ticket);   // 测试券：她自己试味道用，藏在设置里连点七下「规则」
+      const how = opt.testInf ? "test" : C().pay(s, n, ticket, bd && bd.mine ? bd.key : null);   // 测试券：她自己试味道用，藏在设置里连点七下「规则」
       if (!how) { toast("邮资不够：单抽 " + C().PRICE_ONE + "，十连 " + C().PRICE_TEN + "。多聊聊天就攒起来了"); return; }
       const now = Date.now(), cards = [];
       for (let i = 0; i < n; i++) {
@@ -523,7 +525,8 @@
 
     const isBad = c => !c.text && (!c.writing || Date.now() - Number(c.writingTs || 0) > (c.queued ? 1800000 : 180000));
     const byChar = (st.cards || []).filter(c => albumChar === "all" || c.charId === albumChar);
-    const album = byChar.filter(c => albumRar === "all" || (albumRar === "bad" ? isBad(c) : c.rarity === albumRar)).slice().reverse();
+    const themeOf = c => c.kind === "if" ? (c.theme || "IF") : c.kind === "bday" ? "生日" : c.kind === "mybday" ? "你的生日" : "日常";
+    const album = byChar.filter(c => (albumRar === "all" || (albumRar === "bad" ? isBad(c) : c.rarity === albumRar)) && (albumTheme === "all" || themeOf(c) === albumTheme)).slice().reverse();
     // ── 卡池页像乙游那样：一整张大海报（一枚放大的邮票），左边一列小邮票换池，底下两颗大键；其余设置收进「⋯」 ──
     const NIGHT = "#15121f", PAPER = "#f4ecda", GOLD = "#e3b65c";
     const pools = [{ key: "mix", zh: "大混池", tag: "常驻 · 日常卡" }, { key: "char", zh: "角色池", tag: "常驻 · IF 卡" }]
@@ -659,14 +662,23 @@
     if (tab === "album") return h("div", { "data-wk": "stampalbumpage", "data-page": "1", className: "h-full flex flex-col overflow-hidden", style: { background: "repeating-linear-gradient(180deg, transparent 0 116px, rgba(47,42,34,.07) 116px 117px, transparent 117px 120px), linear-gradient(#f1e9d8, #e9dfca)" } },
       h(Head, { zh: "邮票册", sub: (st.cards || []).length + " 枚", bg: "transparent", ink: "#2f2a22", onBack: () => setTab("pull") }),
       h("div", { className: "flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-5", style: { paddingBottom: "calc(env(safe-area-inset-bottom) * 0.4 + 28px)" } },
-        h("div", { className: "flex overflow-x-auto", style: { gap: 8, paddingTop: 10 } },
-          chip(albumChar === "all", "全部 " + (st.cards || []).length, () => setAlbumChar("all"), "all"),
-          characters.filter(c => (st.cards || []).some(x => x.charId === c.id)).map(c => chip(albumChar === c.id, (c.remark || c.name) + " " + st.cards.filter(x => x.charId === c.id).length, () => setAlbumChar(c.id), c.id))),
+        // 一行三个下拉（她 2026-10-26：分类一行行往下加太高、往右滑不方便）：点开在下面弹一小块，选项换行平铺
+        (() => { const chs = characters.filter(c => (st.cards || []).some(x => x.charId === c.id));
+          const thAll = Array.from(new Set((st.cards || []).filter(c => albumChar === "all" || c.charId === albumChar).map(themeOf)));
+          const lab = { who: albumChar === "all" ? "全部" : ((charOf(albumChar) || {}).remark || (charOf(albumChar) || {}).name || "?"), rar: albumRar === "all" ? "全部" : albumRar === "bad" ? "没写好" : albumRar, theme: albumTheme === "all" ? "全部" : albumTheme };
+          const pill = (k, zh) => h("button", { key: k, "data-wk": "stampfilter", "data-part": k, "data-on": albumPick === k ? "1" : "0", onClick: () => setAlbumPick(albumPick === k ? "" : k), className: "flex-1 min-w-0 active:opacity-70",
+            style: { padding: "7px 8px", borderRadius: 8, border: "1px solid " + (albumPick === k || lab[k] !== "全部" ? "#2f5d4a" : "rgba(47,42,34,.22)"), background: lab[k] !== "全部" ? "rgba(47,93,74,.08)" : "transparent", color: "#2f2a22", fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, zh + "：" + lab[k] + " ▾");
+          const opts = albumPick === "who" ? [["all", "全部 " + (st.cards || []).length]].concat(chs.map(c => [c.id, (c.remark || c.name) + " " + st.cards.filter(x => x.charId === c.id).length]))
+            : albumPick === "rar" ? [["all", "全部"], ["SSR", "SSR"], ["SR", "SR"], ["R", "R"]].concat(byChar.some(isBad) ? [["bad", "没写好"]] : []).map(x => [x[0], x[1] + " " + (x[0] === "all" ? byChar.length : x[0] === "bad" ? byChar.filter(isBad).length : byChar.filter(c => c.rarity === x[0]).length)])
+            : albumPick === "theme" ? [["all", "全部"]].concat(thAll.map(t2 => [t2, t2 + " " + byChar.filter(c => themeOf(c) === t2).length])) : [];
+          const cur = albumPick === "who" ? albumChar : albumPick === "rar" ? albumRar : albumTheme;
+          const set = v => { if (albumPick === "who") { setAlbumChar(v); setAlbumTheme("all"); } else if (albumPick === "rar") setAlbumRar(v); else setAlbumTheme(v); setAlbumPick(""); };
+          return h("div", { style: { paddingTop: 10 } },
+            h("div", { className: "flex", style: { gap: 6 } }, pill("who", "人"), pill("rar", "稀有度"), pill("theme", "主题")),
+            albumPick ? h("div", { "data-wk": "stampfilterpanel", className: "flex flex-wrap", style: { gap: 6, marginTop: 8, padding: 10, borderRadius: 10, background: "#FFF8E9", border: "1px solid rgba(87,119,103,.3)", boxShadow: "0 4px 14px rgba(57,56,47,.08)" } },
+              opts.map(o => chip(cur === o[0], o[1], () => set(o[0]), o[0]))) : null); })(),
         (() => { const ds = albumChar === "all" ? [] : weekDays(st, albumChar), wks = Math.floor(ds.length / 7);
           return albumChar !== "all" && ds.length ? h("button", { "data-wk": "stampweekbtn", "data-full": wks ? "1" : "0", onClick: () => setWeek(Math.ceil(ds.length / 7)), className: "w-full active:opacity-70", style: { marginTop: 10, minHeight: 40, borderRadius: 10, background: "#FFF8E9", border: "1px solid #577767", color: "#285C4B", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))" } }, "翻他的一周 · " + (wks ? "攒满 " + wks + " 周" : "") + (ds.length % 7 ? (wks ? "，" : "") + "这一周 " + (ds.length % 7) + " / 7 天" : "")) : null; })(),
-        h("div", { "data-wk": "stamprarpick", className: "flex overflow-x-auto", style: { gap: 6, paddingTop: 8 } },
-          [["all", "全部"], ["SSR", "SSR"], ["SR", "SR"], ["R", "R"], ["bad", "没写好"]].map(x => { const n = x[0] === "all" ? byChar.length : x[0] === "bad" ? byChar.filter(isBad).length : byChar.filter(c => c.rarity === x[0]).length;
-            return x[0] === "bad" && !n ? null : chip(albumRar === x[0], x[1] + " " + n, () => setAlbumRar(x[0]), x[0]); })),
         // 写失败的（或者写了三分钟还没回来的）一起重写：同一个人的 R、SR 还是并成一次调用，SSR 各一次
         (() => { const bad = (st.cards || []).filter(c => !c.text && (!c.writing || Date.now() - Number(c.writingTs || 0) > (c.queued ? 1800000 : 180000)));
           return bad.length ? h("button", { "data-wk": "stamprewriteall", onClick: () => { onWrite(bad); toast("在重写 " + bad.length + " 张"); }, className: "w-full active:opacity-70",
@@ -739,7 +751,8 @@
           h("button", { "data-wk": "stampgoalbum", onClick: () => setTab("album"), className: "active:opacity-60", style: { padding: "6px 8px", color: "#2f2a22", fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))" } }, "册子"),
           h("button", { "data-wk": "stampgocfg", onClick: () => setCfg(true), className: "active:opacity-60", style: { padding: "6px 8px", color: "#2f2a22", fontFamily: F_BODY, fontSize: "calc(16px * var(--app-fs, 1))" } }, "⋯")) }),
       h("div", { className: "flex justify-end flex-wrap px-4 shrink-0", style: { gap: 6 } },
-        capsule("邮资", st.postage), capsule("印泥", st.ink), (st.singles || 0) > 0 ? capsule("单抽券", st.singles) : null, capsule("十连券", testInf ? "∞（手上 " + st.tickets + " 张）" : st.tickets)),
+        capsule("邮资", st.postage), capsule("印泥", st.ink), (st.singles || 0) > 0 ? capsule("单抽券", st.singles) : null,
+        C().bdTicketCount(st) > 0 ? h("span", { key: "bdt", "data-wk": "stampwallet", "data-part": "bday", style: { padding: "3px 9px", borderRadius: 999, background: "linear-gradient(120deg, #fbe9e4, #f6e7c8)", border: "1px dashed #c98f74", color: "#8a3a4a", fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))" } }, "🎂 生日券 " + C().bdTicketCount(st)) : null, capsule("十连券", testInf ? "∞（手上 " + st.tickets + " 张）" : st.tickets)),
       h("div", { className: "flex-1 min-h-0 overflow-y-auto px-3", style: { paddingTop: 10 } },
         // 收到礼：一条薄薄的信笺，点开看是什么，✕ 收起
         gotNote.length ? h("div", { "data-wk": "stampgift", className: "flex items-start", style: { margin: "0 4px 10px", padding: "6px 10px", borderRadius: 8, borderLeft: "3px solid #b23a2e", background: "rgba(47,42,34,.08)", color: "#2f2a22", fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", lineHeight: 1.6, gap: 8 } },
@@ -757,6 +770,13 @@
           h("button", { key: "rnd", onClick: () => setOpt({ limOne: Object.assign({}, opt.limOne, { [lim.id]: "" }) }), className: "shrink-0 active:opacity-70",
             style: { width: 42, height: 42, borderRadius: 999, border: "2px solid " + (!limOne ? "#2f5d4a" : "rgba(47,42,34,.3)"), color: !limOne ? "#2f5d4a" : PAPER, fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))" } }, "随机"),
           limIds.map(charOf).filter(Boolean).map(c => h("button", { key: c.id, onClick: () => setOpt({ limOne: Object.assign({}, opt.limOne, { [lim.id]: c.id }) }), className: "shrink-0 active:opacity-70", style: { borderRadius: 999, padding: 2, border: "2px solid " + (limOne === c.id ? "#2f5d4a" : "transparent") } }, h(Avatar, { character: c, size: 38, radius: 999 })))) : null,
+        bd && bd.mine && C().bdTicketCount(st) > 0 ? h("div", { "data-wk": "stampbdticket", style: { position: "relative", margin: "12px 20px 4px", padding: "12px 14px 12px 64px", borderRadius: 8, overflow: "hidden",
+            background: "linear-gradient(120deg, #fbe9e4, #FFF8E9 55%, #f6e7c8)", border: "1.5px dashed #c98f74", boxShadow: "0 4px 14px rgba(160,97,74,.15)" } },
+          h("div", { style: { position: "absolute", left: 10, top: "50%", marginTop: -22, width: 44, height: 44, borderRadius: 999, border: "1.5px double #b23a2e", color: "#b23a2e", transform: "rotate(-12deg)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", fontFamily: F_BODY, fontSize: "calc(9px * var(--app-fs, 1))", lineHeight: 1.2, background: "rgba(255,248,233,.8)" } },
+            h("div", null, "生日"), h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(11px * var(--app-fs, 1))" } }, (d => (d.getMonth() + 1) + "." + d.getDate())(new Date(bd.win.day)))),
+          h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))", color: "#8a3a4a" } }, "生日券 × " + C().bdTicketCount(st) + "  ·  十连"),
+          h("div", { style: { marginTop: 3, fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: "calc(12.5px * var(--app-fs, 1))", lineHeight: 1.6, color: "#6b4a3a" } },
+            "生日快乐，" + (bd.char.name || "你") + "。这一池里的每一封，都是他们寄给你的；愿你新的一岁，被好好地爱着。")) : null,
         h("div", { style: { margin: "12px 0 6px", textAlign: "center", fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: "rgba(47,42,34,.6)" } },
           bd ? (() => { const b = st.bday[bd.key] || {}, n = b.since || 0, H = C().BDAY.hard;
               if (b.got) return bd.mine ? "今年你的生日 SSR 已经到手了" : "今年他的生日 SSR 已经到手了";
@@ -776,8 +796,8 @@
           style: { minHeight: 56, borderRadius: 16, border: "1.5px solid #2f2a22", color: "#2f2a22", background: "transparent", fontFamily: F_DISPLAY, fontSize: "calc(16px * var(--app-fs, 1))" } },
           "寄一封", h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", opacity: .75 } }, testInf ? "测试券" : (st.singles || 0) > 0 ? "用单抽券 · 持有 " + st.singles + " 张" : C().PRICE_ONE + " 邮资")),
         h("button", { "data-wk": "stamppullbtn", "data-part": "ten", onClick: () => doPull(10, st.tickets > 0), className: "flex-1 active:opacity-80",
-          style: { minHeight: 56, borderRadius: 16, background: "linear-gradient(160deg, #3c7a60, #2a5242)", color: "#f6efe0", fontFamily: F_DISPLAY, fontSize: "calc(16px * var(--app-fs, 1))", boxShadow: "0 4px 18px rgba(47,93,74,.3)" } },
-          "寄一版", h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", opacity: .8 } }, testInf ? "测试券" : st.tickets > 0 ? "用十连券 · 持有 " + st.tickets + " 张" : (st.singles || 0) > 0 ? (st.singles >= 9 ? "用 9 张单抽券" : "用 " + st.singles + " 张单抽券＋" + (9 - st.singles) * C().PRICE_ONE + " 邮资") : C().PRICE_TEN + " 邮资"))),
+          style: { minHeight: 56, borderRadius: 16, background: C().bdTicketCount(st) > 0 && !testInf ? "linear-gradient(160deg, #c98f74, #8a3a4a)" : "linear-gradient(160deg, #3c7a60, #2a5242)", color: "#f6efe0", fontFamily: F_DISPLAY, fontSize: "calc(16px * var(--app-fs, 1))", boxShadow: "0 4px 18px rgba(47,93,74,.3)" } },
+          "寄一版", h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", opacity: .8 } }, testInf ? "测试券" : C().bdTicketCount(st) > 0 ? "用生日券 · 还有 " + C().bdTicketCount(st) + " 张" : st.tickets > 0 ? "用十连券 · 持有 " + st.tickets + " 张" : (st.singles || 0) > 0 ? (st.singles >= 9 ? "用 9 张单抽券" : "用 " + st.singles + " 张单抽券＋" + (9 - st.singles) * C().PRICE_ONE + " 邮资") : C().PRICE_TEN + " 邮资"))),
       show ? h(PullShow, { t, cards: show.map(c => c.dupe ? c : (st.cards || []).find(x => x.id === c.id) || c), onDone: () => setShow(null), onOpen: c => { setShow(null); setOpen(c.id); }, charOf }) : null);
   }
   window.StampBookApp = StampBookApp;

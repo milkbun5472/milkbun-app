@@ -20,7 +20,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v76.704";
+const APP_VERSION = "v76.713";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -6647,7 +6647,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     nickname: ((charTitleRef.current || {})[char.id] || {}).text || "",
     coupleArchive: coupleArchiveFor(char.id),
     // 世界书：按当前角色 + 近期对话做关键词/绑定/范围/优先级检索式注入（第2步引擎），不再是一整团
-    worldbook: loreFor(char, "chat"),
+    worldbook: loreFor(char, (ctxOpts && ctxOpts.loreScope) || "chat"),   // 邮票册写卡递 offline：读线下那半（她 2026-10-26）
     // 长出来的自我（心上毕业念想凝成的自我认知，她拍板常驻当人设活体延伸）：多数角色为空=零成本，引擎里封顶400字
     personaGrown: (window.HeartKit && desiresRef.current[char.id]) ? HeartKit.personaText(desiresRef.current[char.id]) : "",
     personaEvolve: PERSONA_EVOLVE_IDS.includes(char.id), // B：这个角色是否开启软层成长（白名单）
@@ -17004,18 +17004,21 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   // 写卡：同一个人的 R、SR 每十张并成一次调用（跟一个十连一样大），SSR 一张一次；最多同时跑三次，其余排队
   //   （她 2026-10-26：开幕一口气抽了一百多张，全并成一次、全一起发，大半没写出来）
   const stampWrite = async cards => {
-    const byChar = {}, tasks = [];
+    // 同一个人的几批一批接一批写（后一批看得见前一批起了什么名、写了什么事，不会一口气全撞到同一个点子上；
+    //   她 2026-10-26：生日池一堆「霜降」），不同的人之间最多三个一起写
+    const byChar = {}, queues = [];
     (cards || []).forEach(c => { (byChar[c.charId] = byChar[c.charId] || []).push(c); });
     Object.keys(byChar).forEach(cid => {
       const char = characters.find(x => x.id === cid);
       if (!char) return;
-      const small = byChar[cid].filter(c => c.rarity !== "SSR"), big = byChar[cid].filter(c => c.rarity === "SSR");
-      for (let i = 0; i < small.length; i += 10) { const part = small.slice(i, i + 10); tasks.push(() => stampWriteSmall(char, part)); }
-      big.forEach(c => tasks.push(() => stampWriteSSR(char, c)));
+      const small = byChar[cid].filter(c => c.rarity !== "SSR"), big = byChar[cid].filter(c => c.rarity === "SSR"), q = [];
+      for (let i = 0; i < small.length; i += 10) { const part = small.slice(i, i + 10); q.push(() => stampWriteSmall(char, part)); }
+      big.forEach(c => q.push(() => stampWriteSSR(char, c)));
+      queues.push(q);
     });
     (cards || []).forEach(c => stampSaveCard(c.id, { writing: true, writingTs: Date.now(), queued: true, err: "" }));
     let next = 0;
-    const lane = async () => { while (next < tasks.length) { const t = tasks[next++]; try { await t(); } catch (e) {} } };
+    const lane = async () => { while (next < queues.length) { const q = queues[next++]; for (const t of q) { try { await t(); } catch (e) {} } } };
     await Promise.all([lane(), lane(), lane()]);
   };
   // 写卡是叙事正文，跟线下一样走线下线路（她 2026-10-25）；戳一戳、求情是他开口说话，照旧走聊天线路
@@ -17023,12 +17026,12 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     list.forEach(c => stampSaveCard(c.id, { writing: true, writingTs: Date.now(), queued: false, err: "" }));
     try {
       const prev = stampPrev(char.id);
-      const d = await runProbe(offlineApiFor(char.id), ctxFor(char), {
+      const d = await runProbe(offlineApiFor(char.id), ctxFor(char, { loreScope: "offline" }), {
         voice: true,
         instruction: STAMP_CORE() + stampVoice(char) + stampBi(char) + "她在「邮票册」里抽到了几张印着你的邮票，每张是你的一个样子。下面按顺序写这几张。\n"
           + list.map((c, i) => "第 " + (i + 1) + " 张：" + c.rarity + "。" + stampKindLine(c, char)).join("\n")
           + "\n" + (list.some(c => c.rarity === "R") ? STAMP_RARITY_SPEC.R + "\n" : "") + (list.some(c => c.rarity === "SR") ? STAMP_RARITY_SPEC.SR + "\n" : "")
-          + "每张都有 name（卡名，八个字以内）、gist（一句话记下这张写的是什么事、在哪、怎么收的尾，给以后去重用）和 shot。" + STAMP_SHOT_SPEC
+          + "每张都有 name（卡名，八个字以内，从这张卡里那件事本身来起，不拿日子、节气、天气这些背景起名）、gist（一句话记下这张写的是什么事、在哪、怎么收的尾，给以后去重用）和 shot。" + STAMP_SHOT_SPEC
           + stampPrevLine(prev) + "\n这几张之间也是不同的事。",
         // 格式样例里不放 (R)/(SR) 这种占位：模型会照抄进正文。R、SR 各给一份，按这几张里有哪几种拼
         schemaHint: "{\"cards\":[" + [list.some(c => c.rarity === "R") ? "{\"name\":\"\",\"narration\":\"\",\"thought\":\"\",\"before\":{\"narration\":\"\",\"thought\":\"\"},\"after\":{\"narration\":\"\",\"thought\":\"\"},\"real\":\"\",\"sound\":\"\",\"back\":\"\",\"gist\":\"\",\"shot\":\"\"}" : "",
@@ -17047,7 +17050,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     stampSaveCard(c.id, { writing: true, writingTs: Date.now(), queued: false, err: "" });
     try {
       const prev = stampPrev(char.id), me = userName(meOf(char.id));
-      const d = await runProbe(offlineApiFor(char.id), ctxFor(char), {
+      const d = await runProbe(offlineApiFor(char.id), ctxFor(char, { loreScope: "offline" }), {
         voice: true,
         instruction: STAMP_CORE() + stampVoice(char) + stampBi(char) + "她在「邮票册」里抽到了一张印着你的 SSR 邮票。" + stampKindLine(c, char)
           + "\nSSR 是一段完整的剧情，像乙游的卡面剧情：分几节，她在中间做选择，选的不同走的路不同。是什么样的故事，跟着你这个人、你的世界和你们现在的关系来，不一定是恋爱的事。"
@@ -17059,7 +17062,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
           + "一节中间也可以停下来让她选一两次（beats 里放一个 who:\"pick\"，options 两三个：text 是她说的话或做的事，beats 是你接着的那几句）——选的不同你的反应就不同，几句之后回到这一节的主线；节尾的 choices 两三个。"
           + "往前走靠的是发生的事、你的做法和你们之间自然的对话；你说多少话照你平时的样子，心里的东西让她从你做的事里看出来。每节都有点什么变了，不必每节都有大事。"
           + "两条岔路走下去，后面发生的事、你的处理、她知道的东西、你们之间的样子，至少有一样真的不一样。她那句（me）照她平时的样子写，少一点。"
-          + "\nname 是卡名（八个字以内），line 是印在卡面上的一句你的台词。highlight 是剧情里你最想留住的那一刻，一两句画面。gist 一句话记下这张写的是什么事、在哪、怎么收的尾。allEndsLine 是她把每个结局都走过一遍以后，你想对她说的一句。" + STAMP_SHOT_SPEC
+          + "\nname 是卡名（八个字以内），line 是印在卡面上的一句你的台词。highlight 是剧情里你最想留住的那一刻，一两句画面。gist 一句话记下这张写的是什么事、在哪、怎么收的尾。name 从这段剧情里的事本身来起，不拿日子、节气、天气这些背景起名。allEndsLine 是她把每个结局都走过一遍以后，你想对她说的一句。" + STAMP_SHOT_SPEC
           + stampPrevLine(prev),
         schemaHint: "{\"name\":\"\",\"line\":\"\",\"highlight\":\"\",\"gist\":\"\",\"allEndsLine\":\"\",\"shot\":\"\",\"sections\":[{\"id\":\"s1\",\"lv\":1,\"title\":\"\",\"beats\":[{\"who\":\"narr|he|me\",\"text\":\"\"},{\"who\":\"pick\",\"options\":[{\"text\":\"\",\"beats\":[{\"who\":\"he\",\"text\":\"\"}]}]}],\"choices\":[{\"text\":\"\",\"go\":\"s2a\"}],\"end\":false,\"hidden\":false}]}",
         maxTokens: 65000
@@ -17077,7 +17080,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
           + ((x.choices || []).length ? "\n  选项：" + x.choices.map(o => (o.text || "") + " → " + (o.go || "")).join("；") : "")).join("\n");
         let more = null;
         try {
-          more = await runProbe(offlineApiFor(char.id), ctxFor(char), { voice: true,
+          more = await runProbe(offlineApiFor(char.id), ctxFor(char, { loreScope: "offline" }), { voice: true,
             instruction: STAMP_CORE() + stampVoice(char) + stampBi(char) + "你在写邮票册里那张 SSR「" + d.name + "」的剧情。" + stampKindLine(c, char)
               + "\n前面已经写好了这几节（每节只摘了结尾几句）：\n" + sofar
               + "\n\n接着把还缺的写完：" + miss.map(l => l === 10 || l === 30 ? "lv" + l + " 的两条岔路" : l === 40 ? "lv40 的两三个结局（end:true）" : l === 50 ? "lv50 的隐藏的路（hidden:true，也是一个结局）" : "lv" + l + " 那一节").join("、")
@@ -17099,7 +17102,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     const char = characters.find(x => x.id === card.charId); const tx = card.text; if (!char || !tx) return null;
     const me = userName(meOf(char.id));
     const dump = (tx.sections || []).map(sc => "【" + sc.id + "】" + (sc.title || "") + "\n" + (sc.beats || []).map((b, k) => k + ". " + (b.who === "pick" ? "（她在这儿做了个小选择）" : (b.who === "he" ? "你：" : b.who === "me" ? me + "：" : "") + String(b.text || "").slice(0, 160))).join("\n")).join("\n\n");
-    const d = await runProbe(offlineApiFor(char.id), ctxFor(char), { voice: true,
+    const d = await runProbe(offlineApiFor(char.id), ctxFor(char, { loreScope: "offline" }), { voice: true,
       instruction: STAMP_CORE() + stampVoice(char) + stampBi(char) + "她在「邮票册」里把你这张 SSR「" + (tx.name || "") + "」升满了，想换你的视角重读一遍。下面是这段剧情，每节每句前面有编号。"
         + "在你想说的地方插进你那时心里的话：那会儿你在想什么、注意到了什么、没说出口的是什么。照你这个人，有的地方多想、有的地方根本没想，不必每句都插；每节几处。at 是插在哪一句后面的编号。\n\n" + dump.slice(0, 24000),
       schemaHint: "{\"inner\":{\"节的id\":[{\"at\":0,\"text\":\"\"}]}}", maxTokens: 30000 });
@@ -19333,6 +19336,27 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   };
   // 邮票册「今天的信」（她 2026-10-26）：每天挑一个人，把一张单抽券寄进你们的聊天，点一下领。不调模型；
   //   他那边看得到这条（content 里写着），知道是他寄来的。一天一张，记在 x_stamps.lastDaily 上，跟开邮票册送的不叠
+  // 她的生日池：主面具一份，每张副面具一份；各自只抽认这张面具的那几个人
+  const stampMyBdays = () => [{ id: "main", name: profile.name || "你", birthday: profile.birthday, avatar: profile.avatarImage, charIds: liveChars.filter(c => !maskKeyOf(c.id)).map(c => c.id) }]
+    .concat((masks || []).filter(m => m && m.id && m.id !== maskPrimary).map(m => ({ id: m.id, name: String(m.name || "").trim() || "你", birthday: m.birthday, avatar: m.avatarImage, charIds: liveChars.filter(c => maskKeyOf(c.id) === m.id).map(c => c.id) })));
+  // 生日信（她 2026-10-26）：她的生日池一开，认这张面具的人里挑一个，把十张生日券装进一封生日信寄进私聊，点领取才到账。不调模型。
+  //   以前在邮票册里直接到账过的不再寄；只领过一张旧十连券的，寄一封补 9 张的
+  const stampBdLetterSweep = () => {
+    if (!window.StampsCore) return;
+    const C2 = window.StampsCore, st = C2.load(); let changed = false;
+    stampMyBdays().forEach(m => {
+      const w = m.birthday ? C2.bdayWindow(m.birthday, Date.now()) : null; if (!w) return;
+      const ids = (m.charIds || []).filter(id => liveChars.some(c => c.id === id && !c.npc && !settingsFor(id).engineerEyes)); if (!ids.length) return;
+      const k = "bd_me_" + m.id + "_" + w.year, bdKey = "me_" + m.id + "_" + w.year;
+      const n = !st.seenLimited[k] ? 10 : !st.seenLimited[k + "_top"] ? 9 : 0;
+      st.seenLimited[k] = 1; st.seenLimited[k + "_top"] = 1; changed = true;
+      if (!n) return;
+      const c = liveChars.find(x => x.id === ids[Math.floor(Math.random() * ids.length)]);
+      pChat(c.id, p => [...p, { role: "char", kind: "stampbdletter", content: "〔从邮票册给你寄了一封生日信：生日快乐。里面是 " + n + " 张生日券，点一下就能领〕", ts: Date.now(),
+        stampBdLetter: { id: "bl_" + Date.now().toString(36) + m.id, bdKey, n, by: c.remark || c.name, to: m.name, day: w.day }, read: false }]);
+    });
+    if (changed) C2.save(st);
+  };
   const stampLetterSweep = async () => {
     if (!window.StampsCore) return;
     const st = window.StampsCore.load(), d = new Date(), today = d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate();
@@ -19380,6 +19404,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   const sweepRunOnce = async () => {
     deliverDeskLog();
     try { stampLetterSweep(); } catch (e) {}
+    try { stampBdLetterSweep(); } catch (e) {}
     const steps = [schedGenAllToday, schedMaybeSelfRevise, walletCatchAllToday,
       desireMuseAllToday, desireTendAllToday, phoneWeeklySweep, autoImpressionSweep, astroSignSweep];
     for (const step of steps) { try { await step(); } catch (e) {/* 一步失手不拖累后面几步 */ } }
@@ -33911,8 +33936,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     onPoke: stampPoke,
     onInner: stampInner,
     // 她的生日池：主面具一份，每张副面具一份；各自只抽认这张面具的那几个人
-    myBdays: [{ id: "main", name: profile.name || "你", birthday: profile.birthday, avatar: profile.avatarImage, charIds: liveChars.filter(c => !maskKeyOf(c.id)).map(c => c.id) }]
-      .concat((masks || []).filter(m => m && m.id && m.id !== maskPrimary).map(m => ({ id: m.id, name: String(m.name || "").trim() || "你", birthday: m.birthday, avatar: m.avatarImage, charIds: liveChars.filter(c => maskKeyOf(c.id) === m.id).map(c => c.id) }))),
+    myBdays: stampMyBdays(),
     onBack: () => setScreen("home")
   });else if (screen === "zhaoying") body = h(window.ZhaoyingApp, {
     // 按头像发卡：卡落进跟他的聊天，他在后台做题，做完了点卡看他做（她 2026-10-22）

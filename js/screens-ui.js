@@ -1668,7 +1668,7 @@ function RelComposer({ comp, setComp, characters, profile, draftProfile, maskPic
 // 世界书 · 设定索引：卡面直接回答「写了什么 / 谁能看 / 何时触发 / 会去哪儿」。
 // 去向键与 engine.js 的 loreScopeOn 一一对应，所有消费者必须从同一筛选器取书。
 const LORE_SCOPE_UI = [
-  ["chat", "聊天与线下", "单聊、群聊、语音与面对面"],
+  ["chat", "聊天与线下", "单聊、群聊、语音、面对面与邮票册写卡"],
   ["subjects", "查手机", "手机内容与角色资料生成"],
   ["lifestyle", "生活功能", "行程、备忘、记账与陪伴工具"],
   ["diary", "日记", "角色写日记时"],
@@ -1677,6 +1677,17 @@ const LORE_SCOPE_UI = [
   ["social", "公开世界", "朋友圈、论坛与周刊"],
   ["debate", "擂台"].concat(["辩论与裁决"])
 ];
+// 每枚章的全名单（她 2026-10-26：「描述能不能写全，太长搞展开」）。照代码里真在读这一类的地方写，加了新功能记得补一行
+const LORE_SCOPE_FULL = {
+  chat: "单聊（线上打字）、群聊、语音和视频通话、线下见面（单人、群）、出戏、小房间、群投票、直播；以他本人口吻写的那些小功能（匿名箱、情书、交换日记、问答小本、穿书、解梦馆这类）；印象卡、新建配角、给两个人生成关系时也读。邮票册写卡读的是线下那一半。",
+  subjects: "查手机：翻他的手机时，相册、备忘、聊天列表、浏览记录这些现编的内容。",
+  lifestyle: "他的行程和临时改计划、日历、外卖和购物（店和东西照这个世界来）、记账、备忘录、番茄钟，还有给你配衣服。",
+  diary: "他写日记的时候。",
+  study: "一起学、一起读。",
+  creative: "同人文（含续写新章）、梦境、塔罗、小游戏。",
+  social: "朋友圈（评论、谁刷得到）、论坛、片刻和广场、匿名提问里的陌生人、周刊。",
+  debate: "擂台：辩手发言和裁判裁决。"
+};
 // 每个去向一个字的印记（她 2026-09-03：「codex 重新做了一版世界书变得好平淡」）。
 // 那一版是一张通用的索引页：编号 + 标题 + 摘要 + 一行「去往：A / B / C」，
 // 原样搬到任何一个后台管理界面都成立。
@@ -1938,6 +1949,7 @@ function WorldBook({ entries, characters, onBack, onSave, onDelete, trash, onRes
 function WorldBookEntryPage({ entry, characters, folders, onClose, onSave, onDelete, onImportMany }) {
   const t = useTheme();
   const isNew = !(entry && entry.id);
+  const [scopeMore, setScopeMore] = useState(false);   // 「每一枚章具体去哪儿」展开
   const [f, setF] = useState(() => {
     const base = Object.assign({ title: "", keyword: "", category: "世界观", charIds: [], payload: "", regex: false, enabled: true, alwaysOn: true, ensemble: false, priority: 3, scope: { chat: true, subjects: false, lifestyle: false, diary: false, study: false, creative: false, social: false, debate: false } }, entry || {});
     // 旧版没关键词的词条实际一直会注入；编辑时也如实显示成常驻，避免出现“触发模式但没有触发词”的假状态。
@@ -2026,9 +2038,14 @@ function WorldBookEntryPage({ entry, characters, folders, onClose, onSave, onDel
     lbl("会去哪些地方", "只有勾中的功能可以取到这条；角色绑定和触发条件仍然继续生效"),
     h("div", { style: { display: "grid", gridTemplateColumns: "repeat(2,minmax(0,1fr))", gap: 7 } }, LORE_SCOPE_UI.map(([k, label, desc]) => { const on = loreScopeEnabled(f, k); return h("button", { key: k, onClick: () => { setScope(k); setError(""); }, className: "active:opacity-70 text-left", style: { minHeight: 62, border: "1px solid " + (on ? t.ink : t.line), background: on ? t.ink : "transparent", color: on ? t.bg : t.ink, padding: "9px 10px" } },
       h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))" } }, label), h("div", { style: { fontFamily: F_BODY, fontSize: "calc(9.5px * var(--app-fs, 1))", lineHeight: 1.35, opacity: .62, marginTop: 3 } }, desc)); })),
+    h("button", { "data-wk": "lorescopemore", onClick: () => setScopeMore(v => !v), className: "active:opacity-60", style: { marginTop: 7, fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.sub } }, scopeMore ? "收起 ▴" : "每一枚章具体去哪儿 ▾"),
+    scopeMore ? h("div", { "data-wk": "lorescopefull", style: { marginTop: 6, padding: "10px 12px", borderRadius: 10, border: "1px solid " + t.line, background: t.bg2 } },
+      LORE_SCOPE_UI.map(([k, label]) => h("div", { key: k, style: { marginTop: k === "chat" ? 0 : 8, fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", lineHeight: 1.6, color: t.ink } },
+        h("b", null, label + "："), LORE_SCOPE_FULL[k] || "")),
+      h("div", { style: { marginTop: 8, fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", lineHeight: 1.6, color: t.ink } }, h("b", null, "分类选「生图」的："), "不看这几枚章，只在画图时用：聊天里的照片、照相馆、邮票册卡面、头像这些画人的地方。")) : null,
     loreScopeEnabled(f, "chat") ? h("div", { "data-lore-side": "", style: { marginTop: 9 } },
       h("div", { style: { display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 6 } }, LORE_SIDE.map(([v, nm]) => { const on = String((f.scope && f.scope.side) || "") === v; return h("button", { key: v || "both", onClick: () => setF(x => { const sc = Object.assign({ chat: true }, x.scope); if (v) sc.side = v; else delete sc.side; return Object.assign({}, x, { scope: sc }); }), className: "active:opacity-70", style: { height: 34, fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: on ? t.bg : t.sub, background: on ? t.ink : "transparent", border: "1px solid " + (on ? t.ink : t.line) } }, nm); })),
-      h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", lineHeight: 1.45, color: t.sub, marginTop: 5 } }, "「聊天与线下」这枚章去哪一半。只线下：只在见面（单人、群）时带上，平时线上聊天、语音不带；只线上反过来。长的线下规则放「只线下」，线上就不用每轮都读一遍。")) : null,
+      h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", lineHeight: 1.45, color: t.sub, marginTop: 5 } }, "「聊天与线下」这枚章去哪一半。只线下：只在见面（单人、群）和邮票册写卡时带上，平时线上聊天、语音不带；只线上反过来。长的线下规则放「只线下」，线上就不用每轮都读一遍。")) : null,
     lbl("注入顺序", "数字越大越靠前；冲突时仍以更明确、更近期的系统规则为准"),
     h("div", { "data-wk": "block", style: { display: "grid", gridTemplateColumns: "repeat(5,1fr)", gap: 6 } }, [1, 2, 3, 4, 5].map(n => h("button", { key: n, onClick: () => set({ priority: n }), className: "active:opacity-70", style: { height: 38, fontFamily: F_DISPLAY, fontSize: "calc(13px * var(--app-fs, 1))", color: (f.priority || 3) === n ? t.bg : t.sub, background: (f.priority || 3) === n ? t.ink : "transparent", border: "1px solid " + ((f.priority || 3) === n ? t.ink : t.line) } }, n))),
     h("div", { style: { marginTop: 17, borderTop: "1px solid " + t.line } }, toggle("启用这条", "关闭后保留内容，但任何地方都不会注入", f.enabled !== false, () => set({ enabled: f.enabled === false }))),

@@ -153,3 +153,15 @@ test("日历：深秋 11-30 底下架、温泉 12-01 上、12-15 底下架", () 
   assert.deepEqual(ids("2026-12-01T00:00:01+08:00"), ["onsen26"]);
   assert.deepEqual(ids("2026-12-16T00:00:01+08:00"), []);
 });
+
+test("你的生日券不在邮票册直接到账（改成生日信），他的生日池照旧送一张十连；生日信领一次", () => {
+  const C = fresh(); const st = C.load(); st.gifted = true; st.seenLimited = { postage26: 1, halloween26: 1, halloween26_top: 1 }; C.save(st);
+  C.grantOnOpen(Date.parse("2026-10-27T12:00:00+08:00"), [{ id: "me_main", name: "你", year: 2026 }, { id: "c1", name: "他", year: 2026 }]);
+  let s = C.load(); assert.equal(s.tickets, 1); assert.equal(C.bdTicketCount(s), 0);
+  assert.equal(C.claimBdLetter("bl_x", "me_main_2026", 10), true); assert.equal(C.claimBdLetter("bl_x", "me_main_2026", 10), false);
+  s = C.load(); assert.equal(s.bdTickets["me_main_2026"], 10);
+  assert.equal(C.pay(s, 10, true, "me_main_2026"), "bdticket"); assert.equal(s.bdTickets["me_main_2026"], 9);
+});
+
+test("生日券别的池子也能用", () => { const C = fresh(); const st = C.load(); st.bdTickets = { me_main_2026: 2 }; st.tickets = 5;
+  assert.equal(C.pay(st, 10, true, null), "bdticket"); assert.equal(C.bdTicketCount(st), 1); });

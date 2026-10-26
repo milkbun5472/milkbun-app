@@ -74,7 +74,15 @@
       if (!st.seenLimited[L.id]) { st.seenLimited[L.id] = 1; st.seenLimited[L.id + "_top"] = 1; st.tickets += n; got.push("「" + L.name + "」上新：" + n + " 张十连券" + (limCount > 1 ? "（这一期 " + limCount + " 个人）" : "")); }
       // 改成按人数送之前就领过这一期那一张的：补上差的那几张，一期一次
       else if (!st.seenLimited[L.id + "_top"]) { st.seenLimited[L.id + "_top"] = 1; if (n > 1) { st.tickets += n - 1; got.push("「" + L.name + "」按人数补发：" + (n - 1) + " 张十连券"); } } });
-    (birthdays || []).forEach(b => { const k = "bd_" + b.id + "_" + b.year; if (!st.seenLimited[k]) { st.seenLimited[k] = 1; st.tickets += 1; got.push(b.name + " 的生日池：一张十连券"); } });
+    // 他的生日池送一张十连；你自己的生日池（id 以 me_ 开头）送十张，就是 100 抽——你过生日（她 2026-10-26）
+    //   你的那十张是「生日券」：单独记在 bdTickets[这个生日池]，只在你的生日池里用，券面上写着祝福；改版前只领过一张的补到十张
+    (birthdays || []).forEach(b => { const k = "bd_" + b.id + "_" + b.year, mine = String(b.id).indexOf("me_") === 0;
+      if (!mine) { if (!st.seenLimited[k]) { st.seenLimited[k] = 1; st.tickets += 1; got.push(b.name + " 的生日池：一张十连券"); } return; }
+      return;   // 你的生日券改成一封生日信寄进聊天（app.js stampBdLetterSweep），这儿不再直接到账
+      st.bdTickets = st.bdTickets || {};
+      const bk = b.id + "_" + b.year;
+      if (!st.seenLimited[k]) { st.seenLimited[k] = 1; st.seenLimited[k + "_top"] = 1; st.bdTickets[bk] = (st.bdTickets[bk] || 0) + 10; got.push("生日快乐！" + b.name + " 的生日池：10 张生日券（100 抽）"); }
+      else if (!st.seenLimited[k + "_top"]) { st.seenLimited[k + "_top"] = 1; st.bdTickets[bk] = (st.bdTickets[bk] || 0) + 9; got.push("生日快乐！" + b.name + " 的生日池补发：9 张生日券（凑满 100 抽）"); } });
     if (got.length) save(st);
     return got;
   }
@@ -117,7 +125,10 @@
   function canBeg(st, key) { const b = st.bday[key]; return !!b && !b.got && !b.begged && b.since >= BDAY.beg; }
   function markBeg(key) { const st = load(), b = st.bday[key]; if (!b) return; b.begged = true; b.force = true; save(st); }
   // 付钱：用券或者邮资。n = 1 或 10
-  function pay(st, n, useTicket) {
+  function bdTicketCount(st) { return Object.values(st.bdTickets || {}).reduce((a, b) => a + (Number(b) || 0), 0); }
+  function pay(st, n, useTicket, bdKey) {
+    // 生日券哪个池都能用（她 2026-10-26：「别的池子也能用，只是样式特别点」）：在你的生日池里先用那个生日的，别处用哪张都行
+    if (n === 10) { const bt = st.bdTickets || {}, k = bdKey && bt[bdKey] > 0 ? bdKey : Object.keys(bt).find(x => bt[x] > 0); if (k) { bt[k]--; return "bdticket"; } }
     if (n === 10 && useTicket && st.tickets > 0) { st.tickets--; return "ticket"; }
     if (n === 1 && (st.singles || 0) > 0) { st.singles--; return "single"; }   // 单抽先用「今天的信」
     // 十连没券：单抽券一张顶 100 邮资（十连 900＝9 张），不够的拿邮资补
@@ -175,13 +186,14 @@
 
   // 领聊天里那封「今天的信」：一封只能领一次
   function claimLetter(id) { const st = load(); st.claimed = st.claimed || {}; if (st.claimed[id]) return false; st.claimed[id] = 1; st.singles = (st.singles || 0) + 1; save(st); return true; }
+  function claimBdLetter(id, bdKey, n) { const st = load(); st.claimed = st.claimed || {}; if (st.claimed[id]) return false; st.claimed[id] = 1; st.bdTickets = st.bdTickets || {}; st.bdTickets[bdKey] = (st.bdTickets[bdKey] || 0) + (Number(n) || 0); save(st); return true; }
   function letterClaimed(id) { return !!((load().claimed || {})[id]); }
 
   // 剧情按等级解锁：SSR 每十级一节（1 级第一节，40 级结局，50 级隐藏的路）
   function ssrUnlocked(lv) { return { sections: Math.min(4, 1 + Math.floor(lv / 10)), ending: lv >= 40, hidden: lv >= 50 }; }
 
   g.StampsCore = { PRICE_ONE, PRICE_TEN, RATE, SOFT_FROM, HARD_AT, SR_EVERY, BDAY, CAP, FULL_COST, GIFT, GAIN, LIMITED,
-    claimLetter, letterClaimed, cleanText, DUPE_INK, UNLOCK, levelUp, canBeg, markBeg, load, save, gain, grantOnOpen, activeLimited, bdayWindow, rollRarity, pay, levelCost, isGate, gateBlocked, ssrUnlocked };
+    bdTicketCount, claimLetter, claimBdLetter, letterClaimed, cleanText, DUPE_INK, UNLOCK, levelUp, canBeg, markBeg, load, save, gain, grantOnOpen, activeLimited, bdayWindow, rollRarity, pay, levelCost, isGate, gateBlocked, ssrUnlocked };
   // 各处喊一声就记上
   g.stampGain = gain;
   // 别的玩法不一处处去挂：callAI 成功一枪（她按下去的、不是后台）会广播 ai-ok，这儿按它是干嘛的分进几档。
@@ -200,6 +212,23 @@
     const s = d.label + " " + d.tag;
     for (const [re, k] of SORT) if (re.test(s)) { if (k) gain(k); return; }
   });
+  // 聊天里那封生日信：贺卡的样子，点「领取」，生日券进邮票册（哪个池都能用）
+  g.StampBdLetterCard = function ({ m }) {
+    const R = g.React, h2 = R && R.createElement; if (!h2) return null;
+    const x = (m && m.stampBdLetter) || {}, fs = n => "calc(" + n + "px * var(--app-fs, 1))";
+    const [got, setGot] = R.useState(() => !!(x.id && g.StampsCore && g.StampsCore.letterClaimed(x.id)));
+    const take = e => { e && e.stopPropagation(); if (got || !x.id) return; g.StampsCore.claimBdLetter(x.id, x.bdKey, x.n); setGot(true); };
+    const d = x.day ? new Date(x.day) : null;
+    return h2("div", { "data-wk": "stampbdletter", "data-got": got ? "1" : "0", style: { width: 220, borderRadius: 10, overflow: "hidden", background: "linear-gradient(160deg, #fbe9e4, #FFF8E9 55%, #f6e7c8)", border: "1.5px solid #c98f74", boxShadow: "0 6px 16px rgba(160,97,74,.18)" } },
+      h2("div", { style: { padding: "14px 14px 12px", position: "relative", textAlign: "center" } },
+        h2("svg", { viewBox: "0 0 24 24", style: { width: 28, height: 28, display: "block", margin: "0 auto" } },
+          h2("rect", { x: 5, y: 12, width: 14, height: 8, rx: 1.5, fill: "#c98f74" }), h2("rect", { x: 11.2, y: 6, width: 1.6, height: 6, fill: "#f6e7c8" }), h2("path", { d: "M12 2.5c1.4 1.4 1.4 2.6 0 3.4-1.4-.8-1.4-2 0-3.4z", fill: "#e3893a" })),
+        h2("div", { style: { marginTop: 4, fontFamily: "var(--f-display,'Fraunces',serif)", fontSize: fs(19), color: "#8a3a4a", letterSpacing: ".1em" } }, "生日快乐"),
+        h2("div", { style: { marginTop: 2, fontSize: fs(11), color: "#6b4a3a" } }, (x.to ? "给 " + x.to : "") + (d ? " · " + (d.getMonth() + 1) + "." + d.getDate() : "")),
+        h2("div", { style: { margin: "10px auto 0", padding: "6px 10px", borderRadius: 6, border: "1px dashed #c98f74", background: "rgba(255,248,233,.7)", fontSize: fs(12.5), color: "#8a3a4a" } }, "🎂 生日券 × " + (x.n || 0) + "（" + (x.n || 0) * 10 + " 抽）"),
+        h2("div", { style: { marginTop: 8, fontStyle: "italic", fontSize: fs(11.5), lineHeight: 1.6, color: "#6b4a3a" } }, "这一池里的每一封，都是他们寄给你的。" + (x.by ? " —— " + x.by : "")),
+        h2("button", { onClick: take, disabled: got, style: { marginTop: 10, width: "100%", padding: "8px 0", borderRadius: 8, border: "none", background: got ? "rgba(47,42,34,.08)" : "linear-gradient(160deg, #c98f74, #8a3a4a)", color: got ? "#827C6F" : "#FFF8E9", fontSize: fs(12.5) } }, got ? "领过了 · 去邮票册抽" : "领取生日券")));
+  };
   // 聊天里那封「今天的信」：信封样子，点「领取」进邮票册的单抽券
   g.StampLetterCard = function ({ m }) {
     const R = g.React, h2 = R && R.createElement; if (!h2) return null;
