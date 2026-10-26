@@ -20,7 +20,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v76.648";
+const APP_VERSION = "v76.650";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -16977,22 +16977,26 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     window.StampsCore.save(st);
   };
   // 一批卡：同一个人的 R、SR 一次写完；每张 SSR 单独一次
+  // 写卡：同一个人的 R、SR 每十张并成一次调用（跟一个十连一样大），SSR 一张一次；最多同时跑三次，其余排队
+  //   （她 2026-10-26：开幕一口气抽了一百多张，全并成一次、全一起发，大半没写出来）
   const stampWrite = async cards => {
-    const byChar = {};
+    const byChar = {}, tasks = [];
     (cards || []).forEach(c => { (byChar[c.charId] = byChar[c.charId] || []).push(c); });
-    const jobs = [];
     Object.keys(byChar).forEach(cid => {
       const char = characters.find(x => x.id === cid);
       if (!char) return;
       const small = byChar[cid].filter(c => c.rarity !== "SSR"), big = byChar[cid].filter(c => c.rarity === "SSR");
-      if (small.length) jobs.push(stampWriteSmall(char, small));
-      big.forEach(c => jobs.push(stampWriteSSR(char, c)));
+      for (let i = 0; i < small.length; i += 10) { const part = small.slice(i, i + 10); tasks.push(() => stampWriteSmall(char, part)); }
+      big.forEach(c => tasks.push(() => stampWriteSSR(char, c)));
     });
-    await Promise.all(jobs.map(j => j.catch(() => {})));
+    (cards || []).forEach(c => stampSaveCard(c.id, { writing: true, writingTs: Date.now(), queued: true, err: "" }));
+    let next = 0;
+    const lane = async () => { while (next < tasks.length) { const t = tasks[next++]; try { await t(); } catch (e) {} } };
+    await Promise.all([lane(), lane(), lane()]);
   };
   // 写卡是叙事正文，跟线下一样走线下线路（她 2026-10-25）；戳一戳、求情是他开口说话，照旧走聊天线路
   const stampWriteSmall = async (char, list) => {
-    list.forEach(c => stampSaveCard(c.id, { writing: true, writingTs: Date.now(), err: "" }));
+    list.forEach(c => stampSaveCard(c.id, { writing: true, writingTs: Date.now(), queued: false, err: "" }));
     try {
       const prev = stampPrev(char.id);
       const d = await runProbe(offlineApiFor(char.id), ctxFor(char), {
@@ -17014,7 +17018,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     } catch (e) { list.forEach(c => stampSaveCard(c.id, { writing: false, err: "没写出来：" + String(e && e.message || e).slice(0, 60) })); }
   };
   const stampWriteSSR = async (char, c) => {
-    stampSaveCard(c.id, { writing: true, writingTs: Date.now(), err: "" });
+    stampSaveCard(c.id, { writing: true, writingTs: Date.now(), queued: false, err: "" });
     try {
       const prev = stampPrev(char.id), me = userName(meOf(char.id));
       const d = await runProbe(offlineApiFor(char.id), ctxFor(char), {
