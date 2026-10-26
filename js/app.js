@@ -20,7 +20,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v76.664";
+const APP_VERSION = "v76.670";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -10554,7 +10554,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     if (laneBusy("npc:" + hostId)) return;
     startLane("npc:" + hostId);
     try {
-      const list = await generateNpcs(p, host, ask, npcsOf(hostId).map(c => c.name), n);
+      const list = await generateNpcs(p, host, ask, npcsOf(hostId).map(c => c.name), n, loreForContext("chat", [hostId], [host.persona, ask].join("\n")));
       list.forEach((r, k) => {
         const id = "c_" + Date.now() + "_" + k + "_npc";
         pC(prev => [...prev, CharacterPronoun.newCharacter({
@@ -32778,7 +32778,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
             viaBits.push(who.name + " 是 " + owner.name + " 身边的人" + (e && e.label ? "（" + e.label + "）" : ""));
           }
         });
-        const d = await generateRelation(p, a, b, { via: viaBits.join("；") });
+        const d = await generateRelation(p, a, b, { via: viaBits.join("；"), world: loreForContext("chat", [a.id, b.id], [a.persona, b.persona].join("\n")) });   // 关系也读世界书（群友 2026-10-26）
         done(d);
       } catch (e) { toast("没拟成：" + ((e && e.message) || e)); }
       finally { endLane("rel:draft"); }

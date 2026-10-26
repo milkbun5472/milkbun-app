@@ -14191,11 +14191,17 @@ function TransTextState({ text, isU, zhReady, ink, autoShow: autoShowAll = false
     // 夹在一行里的那几处（线下台词、「某某：一句话」）：译文接在原文后面、跟着这一行走，不另起一块——
     //   原来这儿也是一整块，块落在台词那个带底色的 span 里，把这句和后面的字都盖住了（群里 2026-10-22 截图）
     open && inline && h("span", { "data-wk": "translatebody", "data-part": "inline", style: { fontWeight: 400, fontStyle: "normal", background: "none", color: fg, opacity: 0.72, fontSize: "0.92em", marginLeft: 4 } },
-      "（" + (busy ? "翻译中…" : err ? "翻译失败：" + err : (zh || "没有译文")) + "）"),
+      "（" + (busy ? "翻译中…" : err ? transErrZh(err) : (zh || "没有译文")) + "）"),
     open && !inline && h("span", { "data-wk": "translatebody", style: { display: "block", marginTop: 8, paddingTop: 7, borderTop: "1px solid " + (isU ? "rgba(0,0,0,0.13)" : t.line) } },
       h("span", { style: { display: "block", fontFamily: MONO, fontSize: "calc(8.5px * var(--app-fs, 1))", letterSpacing: "0.25em", color: fg, opacity: 0.45, marginBottom: 4 } }, "译自" + lang + (by ? " · " + by : "")),
       h("span", { style: { display: "block", fontFamily: F_BODY, fontSize: size || 14, lineHeight: 1.55, color: fg, opacity: err ? 0.75 : 1, whiteSpace: "pre-wrap" } },
-        busy ? "翻译中…" : err ? "翻译失败：" + err : (zh || "（没有译文）"))));
+        busy ? "翻译中…" : err ? transErrZh(err) : (zh || "（没有译文）"))));
+}
+// 翻译失败给人看的那句：说人话，不把每家引擎的报错原样摊出来（她 2026-10-26：「日记翻译也写写中文吧」）
+function transErrZh(err) {
+  const e = String(err || "");
+  if (/不是中文/.test(e)) return "翻译失败：免费翻译没把这段翻成中文，过一会儿再点一下试试";
+  return "翻译失败：网不好，免费翻译没连上，过一会儿再点一下";
 }
 // 语音消息（v60.17 她 2026-09-02：「这个语音也是参考别人的，也改成我们自己的吧」）
 //
@@ -18471,7 +18477,7 @@ function OffCard({ m, msgIndex, t, char, clockId, meProfile, members, canOpenSta
         // 她 2026-10-02：「线下的图不能编辑重roll」——重拍＝照原描述再画；改描述＝存下就照新描述重画。话一个字不动。
         (editable && onReroll && !m.pending) ? h("button", { onClick: () => onReroll(m.id), disabled: sending, className: "active:opacity-50 disabled:opacity-30", title: "重拍这张" }, h(IRefresh, { size: 15, color: t.fog })) : null,
         (editable && onEdit && !m.pending) ? h("button", { onClick: () => { setTxt(m.desc || ""); setEditing(true); }, className: "active:opacity-50", title: "改画面描述" }, h(IPencil, { size: 15, color: t.fog })) : null,
-        (editable && onDelete) ? h("button", { onClick: () => onDelete(m.id, msgIndex), className: "active:opacity-50", title: "删除" }, h(ITrash, { size: 15, color: t.fog })) : null),
+        (editable && onDelete) ? h("button", { onClick: () => requestAppConfirm("删掉这张照片？", "删了找不回来。", () => onDelete(m.id, msgIndex), "删掉"), className: "active:opacity-50", title: "删除" }, h(ITrash, { size: 15, color: t.fog })) : null),
       editing ? h("div", { className: "mb-2" },
         h("textarea", { "data-wk": "textarea", value: txt, onChange: e => setTxt(e.target.value), rows: 4, autoFocus: true, placeholder: "这张拍的是什么：谁在画面里、在做什么、从哪儿拍", className: "w-full outline-none p-2.5 rounded-lg", style: { fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", lineHeight: 1.7, color: t.ink, background: "#fff", border: `1px solid ${t.line}` } }),
         h("div", { className: "flex gap-4 mt-2 justify-end" },
@@ -18493,7 +18499,8 @@ function OffCard({ m, msgIndex, t, char, clockId, meProfile, members, canOpenSta
     // 收进时刻（群友 2026-10-05：「线下的内容也可以收进时刻里面吗」）：跟线上长按那一项同一个去处、同一个图标
     moreKeys && onPinShike ? h("button", { onClick: () => onPinShike(m, spk), className: "active:opacity-50", title: "收进时刻" }, h(CGlyph, { k: "shikeStar", size: 15, color: t.fog })) : null,
     (moreKeys && !isUser && !isNarr && !isNovel && onSaveExample) ? h("button", { onClick: () => onSaveExample(m, spk), className: "active:opacity-50", title: "收作好吃范例", style: { fontFamily: F_DISPLAY, fontSize: "calc(17px * var(--app-fs, 1))", lineHeight: 1, color: t.fog } }, "✦") : null,
-    moreKeys && onDelete ? iconBtn(ITrash, () => onDelete(m.id), "删除") : null,
+    // 删前问一句（群友 2026-10-26：点编辑手一滑点到旁边的删除，整段没了）
+    moreKeys && onDelete ? iconBtn(ITrash, () => requestAppConfirm("删掉这一段？", "删了找不回来。", () => onDelete(m.id), "删掉"), "删除") : null,
     (isUser || moreKeys) && onEdit ? iconBtn(IPencil, () => setEditing(true), "编辑") : null,
     (!isUser && !isNarr && onReroll) ? h("button", Object.assign({ "data-wk": "rerollpress", disabled: sending, className: "active:opacity-50 disabled:opacity-30", title: "重写（长按给方向）", style: { WebkitUserSelect: "none", userSelect: "none", WebkitTouchCallout: "none" } }, rerollPress(() => onReroll(m.id))), h(IRefresh, { size: 15, color: t.fog })) : null,
     h("button", { "data-wk": "offcardmore", "data-on": moreOpen ? "1" : "0", onClick: () => setMoreOpen(v => !v), className: "active:opacity-50", title: moreOpen ? "收起" : "更多", style: { fontFamily: F_BODY, fontSize: "calc(17px * var(--app-fs, 1))", lineHeight: 1, color: t.fog, minWidth: 22 } }, moreOpen ? "×" : "⋯"));

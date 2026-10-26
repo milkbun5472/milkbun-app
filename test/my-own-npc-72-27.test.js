@@ -35,10 +35,10 @@ test("她自己的人：她写什么就是什么，一枪都不打", () => {
 //   「拿主人的人设去编一个人」，她这一支压根不需要编，硬合成一条只会两头将就。
 test("生成那一枪收回去只管角色身边的人", () => {
   assert.ok(!/opts\.mine|\{ mine: mine \}/.test(engine + app), "她那一支的开关还留在生成路上（死代码）");
-  const i = engine.indexOf("async function generateNpc(p, hostChar, ask, takenNames)");
+  const i = engine.indexOf("async function generateNpc(p, hostChar, ask, takenNames, world)");
   assert.ok(i > 0, "generateNpc 的签名又长出了一个参数");
   // 2026-10-26 起说明只有一份 npcSysOf（一位和几位共用），generateNpc 叫它
-  assert.ok(/const sys = npcSysOf\(hostChar, ask, takenNames, 1\);/.test(engine.slice(i, engine.indexOf("const raw = await callAI", i))), "一位那条没用公共说明");
+  assert.ok(/const sys = npcSysOf\(hostChar, ask, takenNames, 1, world\);/.test(engine.slice(i, engine.indexOf("const raw = await callAI", i))), "一位那条没用公共说明");
   const seg = engine.slice(engine.indexOf("function npcSysOf("), engine.indexOf("async function generateNpc(p, hostChar"));
   assert.ok(/⚠️TA不认识用户/.test(seg), "角色那一支的铁律被删了");
   const i2 = app.indexOf("  const createNpc = async (hostId, ask, n) => {");
