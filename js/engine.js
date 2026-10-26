@@ -7577,7 +7577,7 @@ async function generateNpcs(p, hostChar, ask, takenNames, n) {
   const k = Math.max(1, Math.min(5, Math.round(Number(n) || 1)));
   if (k === 1) return [await generateNpc(p, hostChar, ask, takenNames)];
   const sys = npcSysOf(hostChar, ask, takenNames, k);
-  const raw = await callAI(p, sys, [{ role: "user", content: "生成这 " + k + " 位配角。" }], { maxTokens: Math.max(10000, 4000 * k), timeout: 120000 });
+  const raw = await callAI(p, sys, [{ role: "user", content: "生成这 " + k + " 位配角。" }], { maxTokens: 65000, timeout: 120000 });
   const d = parseJSONLoose(raw);
   const arr = Array.isArray(d) ? d : d && Array.isArray(d.npcs) ? d.npcs : [];
   const out = arr.filter(x => x && x.name && x.brief).slice(0, k).map(x => ({
@@ -7599,6 +7599,9 @@ function npcSysOf(hostChar, ask, takenNames, n) {
     + "· 如果这是一个【位置或身份】（如「TA的属下」「她的师姐」），就为这个位置造一个具体的人，起一个和主角色同一个时代、同一个世界的名字。\n"
     + (k > 1 ? "· 这次要 " + k + " 位，彼此是不同的人：名字、身份、性子、说话的调子都要分得开；用户写了几个人名或身份就照着一个个对上，写的是一类人（如「他的几个兄弟」）就在这一类里给出各不相同的几位。\n" : "")
     + (taken.length ? "· 已经有这几位了，名字和身份都别重复：" + taken.join("、") + "。\n" : "")
+    // 几位一起写时（她 2026-10-26「这几个 npc 为啥不是单独写是谁的」）：每一位都要各写各的那两句关系——
+    //   主角色眼里这个人是谁、这个人眼里主角色是谁。一起写容易偷懒成一句通用的、或者后几位干脆空着
+    + (k > 1 ? "· 每一位都要单独写清TA跟主角色是什么关系：relFromHost、relToHost 两句各位各写各的，照这个人自己的身份和来历写，不许几位共用一句、不许空着。\n" : "")
     + "\n【怎么写】\n"
     + "· brief 写 300~500 字，第二人称写给这位配角本人看（「你是…」）：TA是谁、做什么的、和主角色怎么认识的、性格什么样、说话什么调子、此刻大概在忙什么。\n"
     + "· 要具体到能照着演：给TA一两个只属于TA的习惯、口头禅或在意的事，别写成「忠心耿耿、办事得力」这种履历。\n"
@@ -7606,15 +7609,15 @@ function npcSysOf(hostChar, ask, takenNames, n) {
     + "· ⚠️TA不认识用户，也不知道用户和主角色是什么关系——绝不许在简介里写任何关于用户的事。\n"
     + "· ⚠️不许给TA安排和用户的感情线、不许写TA暗恋谁、不许写TA和主角色的暧昧。TA就是个配角。\n"
     + "\n【输出】只输出 JSON，不要代码块：\n"
-    + (k > 1 ? '{"npcs":[' : "")
-    // 输出格式不放内容示范（施工规则/prompt-no-content-samples.md）：原来两格里各挂一句「如：我的副将，跟了我八年」，
-    //   模型照着写，配角全成了副将和死人堆。公共版一直靠出炉补丁拿掉，2026-10-25 搬回源码，补丁退役。
-    + '{"name":"这位配角的名字（用户给了名字就用用户给的）","brief":"300~500字的第二人称简介","relFromHost":"主角色眼里这个人是谁，一句话","relToHost":"这个人眼里主角色是谁，一句话"}'
-    + (k > 1 ? "，……一共 " + k + " 个]}" : "");
+    // 格式里不放内容示范（施工规则/prompt-no-content-samples.md）：原来两格各挂一句「如：我的副将，跟了我八年」，配角全成了副将；
+    //   公共版一直靠出炉补丁拿掉，2026-10-26 搬回源码。几位时摆出每一位一个对象，各自带那两句关系
+    + (k > 1
+      ? '{"npcs":[' + Array.from({ length: k }, (_, q) => '{"name":"第' + (q + 1) + '位的名字","brief":"第' + (q + 1) + '位的 300~500 字第二人称简介","relFromHost":"主角色眼里第' + (q + 1) + '位是谁，一句话","relToHost":"第' + (q + 1) + '位眼里主角色是谁，一句话"}').join(",") + ']}'
+      : '{"name":"这位配角的名字（用户给了名字就用用户给的）","brief":"300~500字的第二人称简介","relFromHost":"主角色眼里这个人是谁，一句话","relToHost":"这个人眼里主角色是谁，一句话"}');
 }
 async function generateNpc(p, hostChar, ask, takenNames) {
   const sys = npcSysOf(hostChar, ask, takenNames, 1);   // 说明只有一份（npcSysOf），一位和几位共用
-  const raw = await callAI(p, sys, [{ role: "user", content: "生成这位配角。" }], { maxTokens: 10000, timeout: 90000 });
+  const raw = await callAI(p, sys, [{ role: "user", content: "生成这位配角。" }], { maxTokens: 65000, timeout: 90000 });   // 施工规则/max-tokens-floor.md
   let d = parseJSONLoose(raw);
   // 兜底（群友 2026-10-03 一直掉格式：回的是 {"name":"裴鸣玉","brief":"你是……——正文里夹了没转义的英文引号，或者被截断）：
   //   按字段名把几段字硬抠出来；brief 取到下一个字段名或结尾为止
