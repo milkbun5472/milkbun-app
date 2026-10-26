@@ -208,6 +208,14 @@
     const cost1 = C().levelCost(card.rarity, lv);
     const blockNow = C().gateBlocked(card, lv);
     const canPoke = card.rarity === "SSR" && lv >= cap && !!tx && !!url;
+    const pokeAud = useRef(null);
+    const speakPoke = txt => {
+      if (!(typeof ttsSpeak === "function" && typeof ttsReady === "function" && typeof loadTtsApi === "function" && ttsReady(loadTtsApi()))) return false;
+      const vid = (char && char.voiceId) || ttsDefaultVoice(loadTtsApi()); const sp = typeof splitBilingual === "function" ? splitBilingual(String(txt || "")) : null, line = sp ? sp.text : String(txt || "");
+      try { if (pokeAud.current) pokeAud.current.pause(); } catch (er) {}
+      ttsSpeak(line, vid).then(b => { const u = URL.createObjectURL(b), a2 = new Audio(u); pokeAud.current = a2; a2.onended = () => URL.revokeObjectURL(u); a2.play(); }).catch(() => {});
+      return true;
+    };
     const poke = async e => {
       const redo = e === "redo";
       const r = redo ? null : e.currentTarget.getBoundingClientRect(), y = redo ? 0.5 : (e.clientY - r.top) / r.height;
@@ -221,8 +229,11 @@
       if (!list.length) return;
       // 同一处连着戳不重复上一句
       const pool = list.length > 1 && say ? list.filter(x => x !== say.text) : list;
-      clearTimeout(sayT.current); setSay({ text: pool[Math.floor(Math.random() * pool.length)], part });
-      sayT.current = setTimeout(() => setSay(null), 3200);
+      const picked = pool[Math.floor(Math.random() * pool.length)];
+      clearTimeout(sayT.current); setSay({ text: picked, part });
+      // 剧情里开了「语音」，戳出来的话也念（念过的存着，再听不花钱）；念的时候字多留一会儿
+      if ((C().load().opt || {}).storyVoice) speakPoke(picked);
+      sayT.current = setTimeout(() => setSay(null), (C().load().opt || {}).storyVoice ? 6000 : 3200);
     };
     const up = steps => { const r = C().levelUp(card.id, steps); if (r.n) { setPop(Date.now()); toast("盖好了，到 " + r.lv + " 级"); } else if (r.msg) toast(r.msg); };
     const no = (S.cards || []).filter(c => c.charId === card.charId && !c.dupe).findIndex(c => c.id === card.id) + 1;   // 编号按人数：这是他的第几枚
@@ -415,7 +426,8 @@
             h("img", { src: url, alt: "", style: { display: "block", maxWidth: "calc(100vw - 32px)", maxHeight: "calc(100dvh - 190px)", width: "auto", height: "auto", borderRadius: 4, boxShadow: "0 0 0 3px #FFF8E9, 0 0 0 5px " + COPPER } }),
             canPoke ? h("div", { "data-wk": "stamppoke", onClick: e => { e.stopPropagation(); poke(e); }, style: { position: "absolute", inset: 0, cursor: "pointer" } }) : null)),
         h("div", { "data-wk": "stamppokesay", onClick: e => e.stopPropagation(), style: { margin: "0 16px calc(env(safe-area-inset-bottom) * 0.4 + 16px)", minHeight: 72, padding: "12px 16px", borderRadius: 14, background: "#FFF8E9", border: "1px solid " + COPPER, color: P, fontFamily: F_BODY, fontSize: fs(14), lineHeight: 1.7 } },
-          canPoke ? (poking ? h("span", { style: { color: P5 } }, "他在想怎么回你…") : say ? h(React.Fragment, null, h("div", { style: { fontSize: fs(10.5), color: COPPER, marginBottom: 2 } }, (char ? char.name : "") + (say.part === "head" ? " · 被戳了头" : say.part === "heart" ? " · 被戳了胸口" : " · 被戳了手")), say.text)
+          canPoke ? (poking ? h("span", { style: { color: P5 } }, "他在想怎么回你…") : say ? h(React.Fragment, null, h("div", { style: { fontSize: fs(10.5), color: COPPER, marginBottom: 2 } }, (char ? char.name : "") + (say.part === "head" ? " · 被戳了头" : say.part === "heart" ? " · 被戳了胸口" : " · 被戳了手")), say.text,
+              h("button", { "data-wk": "stamppokevoice", onClick: e => { e.stopPropagation(); if (!speakPoke(say.text)) toast("要先在「设置」里配好语音"); }, style: { marginLeft: 6, fontSize: "0.9em", opacity: .7 } }, "🔊"))
             : h("span", { style: { color: P5 } }, "戳戳他：上面是头，中间是胸口，下面是手。点外面收起。"))
             : h("span", { style: { color: P5 } }, card.rarity === "SSR" ? "这张升满 " + cap + " 级以后，点卡面能戳他（头、胸口、手）。点外面收起。" : "点外面收起。"),
 
