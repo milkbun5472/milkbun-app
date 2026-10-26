@@ -39,14 +39,12 @@ test("播放键常驻在气泡底下那一行，单聊和群聊两处都挂", ()
     "一处挂一处不挂，等于这个功能在群里不存在");
   // ⚠️数个数，别用 match：单聊和群聊各有一份 msgFoot，
   //   用 match 只咬得住第一份，改坏另一份照样是绿的（实测过）。
-  assert.equal((comp.match(/if \(!dot && !sub\) return null;/g) || []).length, 2,
-    "两样都没有时别留一行空的（两份都要）");
-  // 2026-10-19 起单聊那份跟着「字号」拉条走（fsz(9.5)），群里那份还没接：两种写法都算同一个字号
-  assert.equal((comp.match(/gap: 7, marginTop: 2, fontFamily: F_BODY, fontSize: (?:9\.5|fsz\(9\.5\)|"calc\(9\.5px \* var\(--app-fs, 1\)\)"), color: t\.fog/g) || []).length, 2,
-    "字号字色要跟「已读」那一行一致，不然又变成一个抢眼的钮（两份都要）");
-  // 她 2026-09-02：「听一下放已读右边吧现在看着有点别扭」——先「已读 23:50」再「听一下」
-  assert.equal((comp.match(/sub \? h\("span", null, sub\) : null, dot\)/g) || []).length, 2,
-    "听一下又跑到已读前面去了（两份都要）");
+  // 2026-10-26 起单聊群聊共用 chatMsgFoot：下面几条只看那一份，两边都得叫它
+  const foot = comp.slice(comp.indexOf("function chatMsgFoot("), comp.indexOf("function TtsBubbleDot("));
+  assert.equal((comp.match(/chatMsgFoot\(t, m, sub, sayDot\(i, m\)/g) || []).length, 2, "一处用一处不用，等于群里没有");
+  assert.match(foot, /if \(!dot && !sub && !onState\) return null;/, "都没有时别留一行空的");
+  assert.match(foot, /gap: 7, marginTop: 2, fontFamily: F_BODY, fontSize: "calc\(9\.5px \* var\(--app-fs, 1\)\)", color: t\.fog/, "字号字色要跟「已读」那一行一致");
+  assert.match(foot, /sub \? h\("span", null, sub\) : null, dot,/, "听一下又跑到已读前面去了");
   const sd = comp.slice(comp.indexOf("const sayDot = (i, m) =>"), comp.indexOf("const sayDot = (i, m) =>") + 700);
   assert.match(sd, /if \(!canSpeakMsg\(m\)\) return null/, "门槛跟长按菜单那一项同一个");
   assert.match(sd, /k !== "photo" && k !== "location"\) return null/, "语音条自己气泡上已经有一个了");

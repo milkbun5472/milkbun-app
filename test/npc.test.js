@@ -96,7 +96,7 @@ test("入口在【关系】的 + 里，跟另外两种并排；资料卡里那�
 
 // 「添加群聊的时候要放宽，可以只放我和角色进去，进去再拉人」
 test("建群只要一个角色就能建", () => {
-  assert.match(comp, /if \(name\.trim\(\) && sel\.length >= 1\) onCreate/);
+  assert.match(comp, /if \(!name\.trim\(\) || sel\.length < 1\) return;\s*const ok/);
   assert.match(comp, /disabled: !name\.trim\(\) \|\| sel\.length < 1/);
   assert.equal((comp.match(/sel\.length >= 2|sel\.length < 2/g) || []).length, 0, "还留着两人起的门槛");
 });

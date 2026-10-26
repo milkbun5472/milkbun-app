@@ -5,9 +5,9 @@ const fs = require("fs"), path = require("path");
 const app = fs.readFileSync(path.join(__dirname, "../js/app.js"), "utf8");
 const phone = (fs.readFileSync(path.join(__dirname, "../js/phone.js"), "utf8") + "\n" + fs.readFileSync(path.join(__dirname, "../js/phone-ui.js"), "utf8"));
 test("只有真实会话能转，私聊复用 postCharTransfer 并标 byUser", () => {
-  assert.match(app, /const phoneTransferAs = \(char, session, amount, note, toId\) => \{/);
+  assert.match(app, /const phoneTransferAs = \(char, session, amount, note, toId, opt\) => \{/);  // opt：红包（2026-10-25）
   assert.match(app, /id\.indexOf\("actual:"\) !== 0\) return false;/);
-  assert.match(app, /postCharTransfer\(char\.id, a, nt, \{ byUser: true \}\)/);
+  assert.match(app, /postCharTransfer\(char\.id, a, nt, pk \? \{ byUser: true, packet: true \} : \{ byUser: true \}\)/);
 });
 test("群里：两边钱包一减一加，不超过他余额", () => {
   assert.match(app, /const a = Math\.min\(a0, Math\.round\(bal \* 100\) \/ 100\);/);
@@ -15,7 +15,7 @@ test("群里：两边钱包一减一加，不超过他余额", () => {
   assert.match(app, /adjustCharBalance\(to\.id, a,/);
 });
 test("手机那头接上了，转账收在「＋」里", () => {
-  assert.match(phone, /onTransferAs: onTransferAs \? \(sess, amt, note, toId\) => onTransferAs\(char, sess, amt, note, toId\) : null/);
+  assert.match(phone, /onTransferAs: onTransferAs \? \(sess, amt, note, toId, opt\) => onTransferAs\(char, sess, amt, note, toId, opt\) : null/);
   assert.match(phone, /!drive && asCanSend && tfOpen \?/);
 });
 

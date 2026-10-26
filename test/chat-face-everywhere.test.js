@@ -14,7 +14,7 @@ test("顶上消息通知、通话也走同一张聊天脸；不许再手写一�
   assert.equal((all.match(/chatAvatar \? \{ \.\.\.c, avatarImage/g) || []).length, 0, "又有地方自己手写了一份 chatFace");
 });
 test("群头像能设、能存、列表里显示", () => {
-  assert.match(comp, /name: gName, avatarImage: gAvatar,/);
+  assert.match(comp, /name: gName, [^\n]*avatarImage: gAvatar,/);
   assert.match(app, /updateGroup\(activeGroup\.id, \{ avatarImage: gAvNew \|\| null \}\)/);
   assert.equal((comp.match(/g\.avatarImage \? h\(Avatar, \{ character: \{ name: g\.name, avatarImage: g\.avatarImage \}/g) || []).length, 2);
 });

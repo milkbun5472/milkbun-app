@@ -826,6 +826,11 @@ async function callAI(p, system, messages, opts) {
   // 调用记录：干嘛＝调用点自己写的 logLabel → 三种她按下去的（use）→ 后台活的名字 → tag → 其他。
   //   回合＝她按一下换来的那一枪（use 是 chat/offline/call，且不是兜底重发 logRetry）。⚠️这张表也写在函数里面，理由同上。
   const LOG_USE = { chat: "聊天回复", offline: "线下", call: "通话" };
+  // 她按下去的那一枪成了（不是后台自己跑的、不是兜底重发）：广播一声，邮票册照这个记邮资印泥（js/stamps-core.js）
+  const aiOkSay = () => {
+    if (bgShow || (opts && opts.logRetry)) return;
+    try { if (typeof window !== "undefined" && window.dispatchEvent) window.dispatchEvent(new CustomEvent("ai-ok", { detail: { use: String((opts && opts.use) || ""), label: String((opts && opts.logLabel) || logFrom || ""), tag: String((opts && opts.tag) || "") } })); } catch (e) {}
+  };
   const logIt = (ok, msg) => {
     if (typeof CallLog === "undefined") return;
     const o0 = opts || {}, use = String(o0.use || "");
@@ -855,7 +860,7 @@ async function callAI(p, system, messages, opts) {
   try {
     const first = await once();
     if (hasDoc) document.removeEventListener("visibilitychange", onVis);
-    bgSay(true); logIt(true);
+    bgSay(true); logIt(true); aiOkSay();
     return first;
   } catch (e) {
     const msg = String((e && e.message) || e || "");
@@ -868,7 +873,7 @@ async function callAI(p, system, messages, opts) {
       for (const wait of waits) {
         await new Promise(r => setTimeout(r, wait));
         if (o.signal && o.signal.aborted) break;    // 等的这几秒里她按了停止，就别再发
-        try { const again = await once(); bgSay(true); logIt(true); return again; }
+        try { const again = await once(); bgSay(true); logIt(true); aiOkSay(); return again; }
         catch (e2) { e = e2; if (!CAPACITY_ERR.test(String((e2 && e2.message) || e2 || ""))) break; }
       }
     }
@@ -2980,6 +2985,7 @@ const ONLINE_CHAT_RULE_V2 = `【线上即时通讯】
 【这一轮说到哪儿停】这一条管的是【给她留着她那一份】：一件事你自己从起头说到收尾、连她该怎么回都替她想好了，就是把她那一份也说完了——那件事停在她能接的地方，后面的等她回了再往下说。它不管你这一轮发几条：话多的人照样连着发，黏人的、兴头上的、分享欲上来的，一口气连发好多条、絮絮叨叨一句接一句，本来就是这个人；话少的人寥寥几句也是这个人。发几条照你这个人和你此刻的劲头来。
 
 标点按【手机打字】来，不按【写文章】来：日常消息句尾不打句号，一句说完直接断开，或者干脆拆开发。问号、感叹号、省略号、波浪号照常用——它们传的是语气，不是格式；所以这一句真有那个语气才打，一轮好几条都拿同一个标点起头或收尾，就成了口头禅，不是语气；不带情绪的陈述句，尾巴上空着就好，不补那个「。」。
+数字也按【手机打字】来：价钱、时间、日期、分数、几个几块，这个人在手机上平时怎么敲就怎么敲，阿拉伯数字、单位缩写都是打字人的习惯；写成汉字是念出来、写文章的样子。这个人本来就讲究、老派、爱写汉字的，照他自己来。发语音的那一条是嘴里说出来的，照说的写，不用缩写。
 
 
 ${ECHO_QUESTION_BAN}反过来，真的没听清、真的意外到要确认一遍、或者你就是在质疑这件事本身，那是真反问，照常用；区别在于它有没有带进新的东西。
@@ -3648,6 +3654,12 @@ function selectLore(entries, opts) {
     if (scope !== "img" && !loreScopeOn(e, scope)) return false;
     const bind = e.charIds || []; // 全局(无绑定)对所有人可见；否则要与在场角色有交集
     if (bind.length && !bind.some(id => charIds.indexOf(id) >= 0)) return false;
+    // 某个人的聊天设置里把这条关了（offFor，2026-10-26 群友许愿）：在场的人全都关了它才不进；群里还有人开着就照常进
+    const offFor = e.offFor || [];
+    if (offFor.length && charIds.length) {
+      const seen = bind.length ? charIds.filter(id => bind.indexOf(id) >= 0) : charIds;
+      if (seen.length && seen.every(id => offFor.indexOf(id) >= 0)) return false;
+    }
     if (e.alwaysOn) return true; // 常驻：无视关键词强注
     const ok = loreKeywordHit(e, text); // 有关键词=命中才进；无关键词=常进
     if (!ok && (e.keyword || "").trim() && !e.regex) missed.push(e);
@@ -5665,12 +5677,12 @@ function buildPhotoPrompt(char, sceneDesc, st, opts) {
     // 机位那一句紧跟在「场景/正在做什么」后面（她 2026-10-12：「我给正脸也都是这种角度」）：
     //   原来压在一长串外貌、画质、参考图说明的最后，出图模型读不到，照样回到它最熟的那个角度。
     //   不放最前面：身份锁得在最前，「上面那一句」也得先有场景那句。
-    const _shot = photoShotLine(kind, opts.shotSeed);
+    const _shot = opts.shotLine || photoShotLine(kind, opts.shotSeed);   // 调用方自己掷好的机位（邮票册卡面用乙游卡面那一套）
     const _si = parts.findIndex(x => typeof x === "string" && x.indexOf("场景/正在做什么：") === 0);
     if (_si >= 0) parts.splice(_si + 1, 0, _shot); else parts.push(_shot);
   }
   // 小剧场（cinematic）那张的动作由剧情那一格写死了，不再另掷。
-  if (kind === "duo" && !multi && !opts.cinematic && !opts.editorial) parts.push(photoDuoPoseLine(opts.shotSeed));
+  if (kind === "duo" && !multi && !opts.cinematic && !opts.editorial) parts.push(opts.poseLine || photoDuoPoseLine(opts.shotSeed));
   parts.push("画面干净真实，不要任何文字/水印/logo/相框/贴纸边框。");
   // opts.lead：管【整张图长什么样】的那一句（胶片条三格、四宫格）放在最前面——
   //   原来夹在「场景/正在做什么」里、排在三十几条规矩后面，gpt 出图常常没读到，三格只回一张（她 2026-10-16）。
@@ -7242,6 +7254,22 @@ function ttsHasPause(text) {
 //   在【原位置】换成一个 emoteslotN 占位，发气泡那一圈走到它就地发表情。
 //   单聊和群聊共用这一个（她 2026-10-16「不是跟群聊做公共的吗」）。kws[n] = { kw, sent }。
 const EMOTE_SLOT_RE = /^[\s\p{P}\p{S}]*emoteslot(\d+)[\s\p{P}\p{S}]*$/u;
+// 撤回前面几轮的那一条（她 2026-10-26）：在 TA 自己最近 8 条还没撤的话里找 text 对得上的那条，返回它在整串里的下标；
+//   对得上＝去掉空白标点后一样，或者有一边至少 6 个字、整句落在另一边里。找不到返回 -1。单聊、群聊共用
+function earlierRecallIdx(list, mine, text) {
+  const n = s => String(s == null ? "" : s).replace(/[\s\p{P}\p{S}]/gu, "");
+  const want = n(text); if (!want) return -1;
+  let seen = 0;
+  for (let i = (list || []).length - 1; i >= 0 && seen < 8; i--) {
+    const m = list[i];
+    if (!m || !mine(m) || m.recalled || m.kind === "recalled" || typeof m.content !== "string") continue;
+    seen++;
+    const have = n(m.content);
+    if (!have) continue;
+    if (have === want || (Math.min(have.length, want.length) >= 6 && (have.includes(want) || want.includes(have)))) return i;
+  }
+  return -1;
+}
 function emoteSlotOf(w) { const m = EMOTE_SLOT_RE.exec(String(w == null ? "" : w)); return m ? Number(m[1]) : null; }
 function emoteSlotWords(words, emotes, emoteNorm) {
   // {"emote":"关键词"} 那一项：对象照认；模型把它写成了一串字（她 2026-10-17 截图：气泡里冒出 {"emote":"拿枪打你"}）也认
@@ -7329,6 +7357,21 @@ function emoteSlotWords(words, emotes, emoteNorm) {
     if (hit) return EMOTE_SLOT(hit);
     return w;
   }).filter(w => w != null);
+  // 表情旁边紧跟一条「几乎就是这张表情的描述」的字（群友 2026-10-26 截图：发了小狗表情，下一泡是「黄色小狗叉腰冒星星」）：
+  //   模型把表情的说明当话写了出来，跟关键词差一两个字所以上面那道没认出来。字里九成以上都是那张表情描述里的字、
+  //   又不比描述长出一截的，算漏出来的描述，拿掉；「黄色小狗好可爱」这种夹了自己话的照旧留着
+  const _descEcho = (w, kw) => {
+    const a = emoteNorm(w), k = emoteNorm(kw);
+    if (!a || !k || a.length < 4 || a.length > k.length + 3) return false;
+    const pool = Array.from(k); let hitN = 0;
+    Array.from(a).forEach(ch => { const j = pool.indexOf(ch); if (j >= 0) { hitN++; pool.splice(j, 1); } });
+    return hitN / Array.from(a).length >= 0.85;
+  };
+  words = words.filter((w, i) => {
+    if (typeof w !== "string" || emoteSlotOf(w) != null) return true;
+    const near = [words[i - 1], words[i + 1]].map(x => emoteSlotOf(x)).filter(x => x != null);
+    return !near.some(si => kws[si] && _descEcho(w, kws[si].kw));
+  });
   return { words, kws };
 }
 //   （她 2026-09-30 截图），语音照旧掉到最后。改成纯字母的 voiceslot0，认的时候前后多了标点空白也认。
@@ -7475,6 +7518,7 @@ async function generateRelation(p, a, b, opts) {
   const sys = "你在为一个角色扮演 App 拟【两个人之间的关系】，供用户过目和修改。\n\n"
     + "【甲】" + a.name + "\n" + (a.persona ? "【甲的设定】\n" + cut(a.persona, 1800) + "\n" : "")
     + "\n【乙】" + b.name + "\n" + (b.persona ? "【乙的设定】\n" + cut(b.persona, 1800) + "\n" : "")
+    + (String(o.world || "").trim() ? "\n【这个世界（世界书，照它判断两人碰不碰得上）】\n" + cut(o.world, 3000) + "\n" : "")
     + (via ? "\n【已经写好的、不许推翻的】" + cut(via, 300) + "\n" : "")
     + (o.hint ? "\n【用户特别说的】" + cut(o.hint, 200) + "\n" : "")
     + "\n【先答这一个问题】这两个人有没有理由碰上过，怎么碰上的？照两人的设定（时代、地方、"
@@ -7528,16 +7572,39 @@ if (typeof window !== "undefined") window.generateMyNpc = generateMyNpc;
 
 // ⚠️这一枪只管【角色身边的人】。她自己身边的人（闺蜜、同事）由她手写，不走这儿——
 //   她 2026-09-20：「给我自己的 npc 就让我自己写就行了，不用生成」。
-async function generateNpc(p, hostChar, ask, takenNames) {
+// 一次生成几位（群友 2026-10-26「一次只能生成一个」）：说明跟一位的是同一份，只是要的人数和输出的形状不同；
+//   n<=1 照旧走一位的那条，返回一个人；n>1 返回一组，几位之间名字、身份都不重
+async function generateNpcs(p, hostChar, ask, takenNames, n, world) {
+  const k = Math.max(1, Math.min(5, Math.round(Number(n) || 1)));
+  if (k === 1) return [await generateNpc(p, hostChar, ask, takenNames, world)];
+  const sys = npcSysOf(hostChar, ask, takenNames, k, world);
+  const raw = await callAI(p, sys, [{ role: "user", content: "生成这 " + k + " 位配角。" }], { maxTokens: 65000, timeout: 120000 });
+  const d = parseJSONLoose(raw);
+  const arr = Array.isArray(d) ? d : d && Array.isArray(d.npcs) ? d.npcs : [];
+  const out = arr.filter(x => x && x.name && x.brief).slice(0, k).map(x => ({
+    name: String(x.name).trim().slice(0, 24), brief: String(x.brief).trim().slice(0, 1500),
+    relFromHost: String(x.relFromHost || "").trim().slice(0, 60), relToHost: String(x.relToHost || "").trim().slice(0, 60) }));
+  if (!out.length) throw new Error("模型没按格式返回（它回的是：" + String(raw || "").replace(/\s+/g, " ").slice(0, 120) + "）");
+  return out;
+}
+function npcSysOf(hostChar, ask, takenNames, n, world) {
+  const worldTxt = String(world || "").replace(/\s+/g, " ").trim().slice(0, 3000);   // 世界书（群友 2026-10-26 许愿：关系不读世界书）
+  const k = Math.max(1, Number(n) || 1);
   const host = (hostChar && hostChar.name) || "这个角色";
   const persona = String((hostChar && hostChar.persona) || "").replace(/\s+/g, " ").slice(0, 4000);
   const taken = (takenNames || []).filter(Boolean);
-  const sys = "你在为一个角色扮演 App 补一位【配角】。这位配角只会出现在群聊里，不会单独出场。\n\n"
+  const askTxt = String(ask || "").trim();
+  return "你在为一个角色扮演 App 补" + (k > 1 ? " " + k + " 位" : "一位") + "【配角】。配角只会出现在群聊里，不会单独出场。\n\n"
     + "【主角色】" + host + "\n" + (persona ? "【主角色的人设】\n" + persona + "\n" : "")
-    + "\n【要生成谁】用户填的是：「" + String(ask || "").trim() + "」。\n"
+    + (worldTxt ? "\n【这个世界（世界书）】\n" + worldTxt + "\n配角也活在这个世界里，时代、地方、势力、称谓照它来。\n" : "")
+    + "\n【要生成谁】" + (askTxt ? "用户填的是：「" + askTxt + "」。" : "用户没写，照主角色的人设挑" + (k > 1 ? "几位" : "一位") + "他身边最该有的人。") + "\n"
     + "· 如果这是【人设里已经提到过的人】，就按人设里已有的信息把TA补完整，绝不改写人设里已经写死的事。\n"
     + "· 如果这是一个【位置或身份】（如「TA的属下」「她的师姐」），就为这个位置造一个具体的人，起一个和主角色同一个时代、同一个世界的名字。\n"
+    + (k > 1 ? "· 这次要 " + k + " 位，彼此是不同的人：名字、身份、性子、说话的调子都要分得开；用户写了几个人名或身份就照着一个个对上，写的是一类人（如「他的几个兄弟」）就在这一类里给出各不相同的几位。\n" : "")
     + (taken.length ? "· 已经有这几位了，名字和身份都别重复：" + taken.join("、") + "。\n" : "")
+    // 几位一起写时（她 2026-10-26「这几个 npc 为啥不是单独写是谁的」）：每一位都要各写各的那两句关系——
+    //   主角色眼里这个人是谁、这个人眼里主角色是谁。一起写容易偷懒成一句通用的、或者后几位干脆空着
+    + (k > 1 ? "· 每一位都要单独写清TA跟主角色是什么关系：relFromHost、relToHost 两句各位各写各的，照这个人自己的身份和来历写，不许几位共用一句、不许空着。\n" : "")
     + "\n【怎么写】\n"
     + "· brief 写 300~500 字，第二人称写给这位配角本人看（「你是…」）：TA是谁、做什么的、和主角色怎么认识的、性格什么样、说话什么调子、此刻大概在忙什么。\n"
     + "· 要具体到能照着演：给TA一两个只属于TA的习惯、口头禅或在意的事，别写成「忠心耿耿、办事得力」这种履历。\n"
@@ -7545,8 +7612,15 @@ async function generateNpc(p, hostChar, ask, takenNames) {
     + "· ⚠️TA不认识用户，也不知道用户和主角色是什么关系——绝不许在简介里写任何关于用户的事。\n"
     + "· ⚠️不许给TA安排和用户的感情线、不许写TA暗恋谁、不许写TA和主角色的暧昧。TA就是个配角。\n"
     + "\n【输出】只输出 JSON，不要代码块：\n"
-    + '{"name":"这位配角的名字（用户给了名字就用用户给的）","brief":"300~500字的第二人称简介","relFromHost":"主角色眼里这个人是谁，一句话（如：我的副将，跟了我八年）","relToHost":"这个人眼里主角色是谁，一句话（如：我的主子，也是把我从死人堆里拖出来的人）"}';
-  const raw = await callAI(p, sys, [{ role: "user", content: "生成这位配角。" }], { maxTokens: 10000, timeout: 90000 });
+    // 格式里不放内容示范（施工规则/prompt-no-content-samples.md）：原来两格各挂一句「如：我的副将，跟了我八年」，配角全成了副将；
+    //   公共版一直靠出炉补丁拿掉，2026-10-26 搬回源码。几位时摆出每一位一个对象，各自带那两句关系
+    + (k > 1
+      ? '{"npcs":[' + Array.from({ length: k }, (_, q) => '{"name":"第' + (q + 1) + '位的名字","brief":"第' + (q + 1) + '位的 300~500 字第二人称简介","relFromHost":"主角色眼里第' + (q + 1) + '位是谁，一句话","relToHost":"第' + (q + 1) + '位眼里主角色是谁，一句话"}').join(",") + ']}'
+      : '{"name":"这位配角的名字（用户给了名字就用用户给的）","brief":"300~500字的第二人称简介","relFromHost":"主角色眼里这个人是谁，一句话","relToHost":"这个人眼里主角色是谁，一句话"}');
+}
+async function generateNpc(p, hostChar, ask, takenNames, world) {
+  const sys = npcSysOf(hostChar, ask, takenNames, 1, world);   // 说明只有一份（npcSysOf），一位和几位共用
+  const raw = await callAI(p, sys, [{ role: "user", content: "生成这位配角。" }], { maxTokens: 65000, timeout: 90000 });   // 施工规则/max-tokens-floor.md
   let d = parseJSONLoose(raw);
   // 兜底（群友 2026-10-03 一直掉格式：回的是 {"name":"裴鸣玉","brief":"你是……——正文里夹了没转义的英文引号，或者被截断）：
   //   按字段名把几段字硬抠出来；brief 取到下一个字段名或结尾为止
@@ -7585,7 +7659,12 @@ function _transStrip(text) {
 }
 // 颜文字（她 2026-10-02：「(っ˘з(˘⌣˘ )」里的「っ」被认成日文挂了译键）：
 //   括号里一个汉字都没有、又不长的那一段当成表情扔掉；嵌套的一层层剥，没合上的尾巴也扔
+// 括号外面挂着的手（她 2026-10-26：「(っ˘︶˘)っ」括号剥了，后面那只「っ」还在，照样认成日文）：
+//   单独一个假名、两边都不挨着字的，是颜文字的胳膊，不是日文。真日文的假名总挨着别的字（今夜も残業）
 function _transStripKaomoji(t) {
+  return String(_transStripKaoParens(t)).replace(/(^|[^぀-ヿ一-鿿])[぀-ヿ](?=$|[^぀-ヿ一-鿿])/g, "$1 ");
+}
+function _transStripKaoParens(t) {
   let s = String(t || ""), prev;
   do { prev = s; s = s.replace(/[(（][^()（）\u4e00-\u9fff]{0,24}[)）]/g, " "); } while (s !== prev);
   return s.replace(/[(（][^()（）\u4e00-\u9fff]{0,24}$/g, " ");
@@ -8770,6 +8849,22 @@ function reasoningFromBody(text) {
 function directorNoteTail(notes) {
   return (notes && notes.length) ? "本轮短期导演提示必须实际落实：" + notes.join("；") + "。" : "";
 }
+// 线下外语台词的中文（她 2026-10-26 选 B）：线下是一整段叙事，没有线上那一格译键，原来全靠免费翻译现翻——
+//   几家都连不上就一句也翻不出。开着「外语消息自带中译」时，叫模型在 JSON 里顺手交一份对照，
+//   画面照旧点「译」展开；对照里漏掉的那几句才去走免费翻译。who 是群线下里开着的那几个人名（单人线下传空）
+function offlineSayZhSpec(who) {
+  return "\n【sayZh·上面输出形状的追加项】" + (who ? who + " 开着「外语消息自带中译」" : "你开着「外语消息自带中译」")
+    + "：正文引号里" + (who ? "他们" : "你") + "说出口的【不是中文】的台词，另交一份 \"sayZh\":{\"外语原句\":\"中文\"}——"
+    + "按句交（一句外语一条，在句末标点处断开），键照正文里那一句原样抄，值按说话的人的口气译成简体中文；中文台词和旁白不交，没有外语台词就交 {}。它只是给对方看的字幕，不改正文写什么。";
+}
+// 对照里的键跟正文切出来的句子比对时，引号、空白和句末标点都不算
+function offlineSayKey(s) { return String(s || "").replace(/[\s「」『』"“”‘’'。．.！!？?…,，、~～]/g, ""); }
+function offlineSayZhParse(v) {
+  if (!v || typeof v !== "object" || Array.isArray(v)) return null;
+  const out = {}; let n = 0;
+  Object.keys(v).forEach(k => { const zh = String(v[k] == null ? "" : v[k]).trim(), key = offlineSayKey(k); if (key && zh && n < 60) { out[key] = zh.slice(0, 400); n++; } });
+  return n ? out : null;
+}
 async function generateOffline(p, ctx, session) {
   const char = ctx.char;
   const userName = (ctx.profile && ctx.profile.name) || "用户";
@@ -8862,7 +8957,7 @@ async function generateOffline(p, ctx, session) {
     (session.priorSummary ? "\n【这场线下的前情提要（早先发生的、已浓缩进记忆，接着往下演，别倒回去逐句重复复述）】\n" + session.priorSummary : "") +
     toyHint +
     offPhotoHint +
-    "") + outputSpec + stateBootstrapHint + gazeSpecBlock;
+    "") + outputSpec + ((!isDigital && session.sayZhOn) ? offlineSayZhSpec("") : "") + stateBootstrapHint + gazeSpecBlock;
   // v52.77：恢复正常首遍生成；首次跨越后的 scene 再交给同模型做删除优先的受约束编辑。
   // 最终只有编辑稿进入 session history，首遍草稿仅用于本轮内存诊断。
   const hist = offlineHistory(session.msgs, userName, char.name, ctx.timeAware !== false);
@@ -9094,6 +9189,7 @@ async function generateOffline(p, ctx, session) {
     rewriteOpCounts,
     rewriteDraft: rewriteApplied ? draftScene : null,
     thought: cln(parsed.thought),
+    sayZh: session.sayZhOn ? offlineSayZhParse(parsed.sayZh) : null,
     impression: (parsed.impression && typeof parsed.impression === "object") ? parsed.impression : null,
     // ⚠️这一头是【白名单】：不写在这儿的字段，模型填了也会被原样丢掉。
     // v58.100 线下补 photoSeen 时就栽在这——提示词发出去了、回来的答案没人接。
@@ -9442,13 +9538,15 @@ function groupStageLine(opts) {
   const offline = !!o.offline;
   if (o.spectate && pair.length === 2) {
     return offline
-      ? "这是「" + pair[0] + "」和「" + pair[1] + "」之间【他俩自己】的相处，此刻两人身处同一个地方、面对面（他们也不知道有任何外人在旁观）。" + SPECTATE_USER_ABSENT + "让两人自然地你来我往、多轮相处。\n" + SPECTATE_PAIR_NOTE
-      : "这是「" + pair[0] + "」和「" + pair[1] + "」之间【他俩自己】的私下对话（不是群聊，他们也不知道有任何外人在旁观）。用户以【旁白】推动场景。让两人自然地你来我往、多轮对话。\n" + SPECTATE_PAIR_NOTE;
+      ? "这是「" + pair[0] + "」和「" + pair[1] + "」之间【他俩自己】的相处，此刻两人身处同一个地方、面对面。" + SPECTATE_USER_ABSENT + "让两人自然地你来我往、多轮相处。\n" + SPECTATE_PAIR_NOTE
+      : "这是「" + pair[0] + "」和「" + pair[1] + "」之间【他俩自己】的私下对话（不是群聊）。用户以【旁白】推动场景。让两人自然地你来我往、多轮对话。\n" + SPECTATE_PAIR_NOTE;
   }
   if (o.spectate) {
     return offline
-      ? "上述角色此刻身处同一个地方，面对面相处（不是隔着手机的群聊），他们并不知道有任何外人在旁观。" + SPECTATE_USER_ABSENT + "让他们围绕旁白与彼此的关系自然相处。"
-      : "这是一个群聊，成员们并不知道有任何外人在旁观。用户以【旁白】推动剧情。让成员们围绕旁白与彼此的关系自然互动。";
+      ? "上述角色此刻身处同一个地方，面对面相处（不是隔着手机的群聊）。" + SPECTATE_USER_ABSENT + "让他们围绕旁白与彼此的关系自然相处。"
+      : "这是【成员】里这几个人的群聊。用户以【旁白】推动剧情。让成员们围绕旁白与彼此的关系自然互动。";
+  // ⚠️原来写「成员们并不知道有任何外人在旁观」（群友 2026-10-25 截图：成员聊起「群里那位新来的一直没说话，在潜水」）——
+  //   跟模型说「有人在看但你们不知道」，它就替这个看不见的人编出一个潜水的新人。只说群里就这几个人，不提旁观的人
   }
   return offline
     ? "用户和上述角色此刻身处同一个地方，面对面相处（不是隔着手机的群聊）。"
@@ -9605,7 +9703,8 @@ async function generateOfflineGroup(p, ctx, session) {
         + "整轮最多一个 beat 带 photo，别每个人都拍。"
       : "") +
     cotSystemBlock(cotT) +
-    (novel ? novelOut : "\n【输出】只输出一个 JSON，不要代码块：\n{\"beats\":[{\"name\":\"这一段里行动或说话的角色名；纯环境旁白填『旁白』\",\"scene\":\"这一段叙事正文（第三人称，含动作/神态/对话）\",\"thought\":\"（仅角色 beat，可选）该角色此刻没说出口的真实心声\",\"mood\":{\"label\":\"此刻中文心情词（禁止英文内部标签）\"},\"affinityDelta\":\"（仅角色 beat）" + AFFINITY_DELTA_SPEC + "\",\"impression\":\"（仅角色 beat，可选）{'side':'me|us','block':'me侧:person/soft/like/recent/unread；us侧:what/how/marks/elephant/want','text':'整块重写≤80字'}——" + (window.Gaze ? window.Gaze.updateRule(userName) : "没有新认识可省略") + "\"" + gSchedField + ((session.photoMembers || []).length ? ",\"photo\":\"（仅角色 beat，可选）这一拍真拍了照片才填 {'kind':'self|other" + ((session.photoDuoMembers || []).length ? "|duo" : "") + (session.photoGroupOk ? "|group" : "") + "','scene':'这一格拍到了什么'}，没拍就整个省略\"" : "") + "}]}\n一次产出 2~" + gBeatMax + " 个 beat（在场 " + members.length + " 个人），让在场角色轮流有戏、互相有来有往；name 必须逐字填写以下名字之一：" + members.map(c => "『" + memberLabel(members, c) + "』").join("、") + "；只有不属于任何人的纯环境段才填『旁白』，不许把整篇都塞进一个旁白 beat。") + sameNameNote(members) + "\nthought 的写法：" + THOUGHT_MEANING_CHAR + THOUGHT_VOICE + (typeof THOUGHT_EACH_OWN === "string" ? THOUGHT_EACH_OWN : "");
+    (novel ? novelOut : "\n【输出】只输出一个 JSON，不要代码块：\n{\"beats\":[{\"name\":\"这一段里行动或说话的角色名；纯环境旁白填『旁白』\",\"scene\":\"这一段叙事正文（第三人称，含动作/神态/对话）\",\"thought\":\"（仅角色 beat，可选）该角色此刻没说出口的真实心声\",\"mood\":{\"label\":\"此刻中文心情词（禁止英文内部标签）\"},\"affinityDelta\":\"（仅角色 beat）" + AFFINITY_DELTA_SPEC + "\",\"impression\":\"（仅角色 beat，可选）{'side':'me|us','block':'me侧:person/soft/like/recent/unread；us侧:what/how/marks/elephant/want','text':'整块重写≤80字'}——" + (window.Gaze ? window.Gaze.updateRule(userName) : "没有新认识可省略") + "\"" + gSchedField + ((session.photoMembers || []).length ? ",\"photo\":\"（仅角色 beat，可选）这一拍真拍了照片才填 {'kind':'self|other" + ((session.photoDuoMembers || []).length ? "|duo" : "") + (session.photoGroupOk ? "|group" : "") + "','scene':'这一格拍到了什么'}，没拍就整个省略\"" : "") + "}]}\n一次产出 2~" + gBeatMax + " 个 beat（在场 " + members.length + " 个人），让在场角色轮流有戏、互相有来有往；name 必须逐字填写以下名字之一：" + members.map(c => "『" + memberLabel(members, c) + "』").join("、") + "；只有不属于任何人的纯环境段才填『旁白』，不许把整篇都塞进一个旁白 beat。") + sameNameNote(members) + "\nthought 的写法：" + THOUGHT_MEANING_CHAR + THOUGHT_VOICE + (typeof THOUGHT_EACH_OWN === "string" ? THOUGHT_EACH_OWN : "")
+    + ((session.sayZhNames || []).length ? offlineSayZhSpec(session.sayZhNames.map(x => "『" + x + "』").join("、")) : "");
   const hist = offlineGroupHistory(session.msgs, userName, ctx.timeAware !== false);
   // 尾部重申（同单人线下）：治长对话后段八股回潮 + cot 丢失
   const gWantLong = session.minWords && session.minWords >= 150;
@@ -9653,6 +9752,7 @@ async function generateOfflineGroup(p, ctx, session) {
   }
   const sp = splitCot(raw, usedCot);
   let parsed = parseJSONLoose(sp.clean);
+  const gSayZh = (session.sayZhNames || []).length ? offlineSayZhParse(parsed && parsed.sayZh) : null;
   if (novel) {
     const nScene = String((parsed && (parsed.scene || parsed.text || parsed.content)) || (parsed ? "" : (sp.clean || raw || "").replace(/```(?:json)?/gi, ""))).trim();
     const seen = new Set();
@@ -9673,6 +9773,7 @@ async function generateOfflineGroup(p, ctx, session) {
     if (nOut.length && cotT) nOut[0].cotRequested = true;
     if (_wantReason && !_reasonMeta.reasoning) { const _fb = reasoningFromBody(raw); if (_fb) { _reasonMeta.reasoning = _fb; _reasonMeta.from = "正文 <thinking>"; } }
     if (nOut.length && _reasonMeta.reasoning) Object.assign(nOut[0], { reasoning: _reasonMeta.reasoning, reasonMs: _reasonMeta.ms || 0, reasonModel: _reasonMeta.model || "", reasonFrom: _reasonMeta.from || "" });
+    if (gSayZh) nOut.forEach(b => { b.sayZh = gSayZh; });
     return nOut;
   }
   let beats = offlineGroupBeatList(parsed);
@@ -9725,6 +9826,7 @@ async function generateOfflineGroup(p, ctx, session) {
     out[0].reasonModel = _reasonMeta.model || "";
     out[0].reasonFrom = _reasonMeta.from || "";
   }
+  if (gSayZh) out.forEach(b => { b.sayZh = gSayZh; });
   return out;
 }
 async function summarizeOfflineGroup(p, ctx, session, already) {
@@ -10157,6 +10259,7 @@ function sanitizeChatLayoutPatch(obj, knownRefs) {
   pick("enter", ["none", "fade", "rise", "pop"]); pick("head", ["normal", "clear", "glass"]); pick("composer", ["normal", "float", "glass"]);
   if (obj.fontSize != null && Number.isFinite(Number(obj.fontSize))) out.fontSize = Number(obj.fontSize) ? Math.max(12, Math.min(20, Number(obj.fontSize))) : 0;
   if (obj.lineHeight != null && Number.isFinite(Number(obj.lineHeight))) out.lineHeight = Number(obj.lineHeight) ? Math.max(1.2, Math.min(2.2, Number(obj.lineHeight))) : 0;
+  ["gapIn", "gapOut"].forEach(k => { if (obj[k] === null || obj[k] === "") out[k] = null; else if (obj[k] != null && Number.isFinite(Number(obj[k]))) out[k] = Math.max(0, Math.min(k === "gapIn" ? 40 : 60, Math.round(Number(obj[k])))); });
   if (obj.name != null) out.name = !!obj.name;
   if (obj.top != null && Number.isFinite(Number(obj.top))) out.top = Math.max(0, Math.min(240, Math.round(Number(obj.top))));
   const okImg = v => v === "" || /^https?:\/\/[^\s"'()<>]+$/i.test(String(v)) || (/^iv_[A-Za-z0-9_-]+$/.test(String(v)) && (knownRefs || []).indexOf(String(v)) >= 0);
@@ -10431,6 +10534,8 @@ async function generateDiary(p, ctx, opts = {}) {
     "· 今天的记录里若【根本没有你和用户见面/相处】，就别写你今天见了她、和她在一起——写你今天真正是跟谁、怎么过的；【没发生的相处绝不许当成发生了】。");
   parts.push("【输出容器·字段不是文章模板】只输出一个合法 JSON，无 markdown 无多余文字。titleEn/titleZh/signature 不适合本人时允许为空；paras 数量和长短不要为了字段整齐而平均：\n" +
     "{\"titleEn\":\"英文题或空字符串\",\"titleZh\":\"中文题/日期/空字符串\",\"location\":\"SHANGHAI, CN 或 家里/工作室 等\",\"coords\":\"经纬度串或 null\",\"weather\":\"OVERCAST 28°C 或 null\",\"timeStr\":\"HH:MM 写这篇的时刻\",\"paras\":[{\"text\":\"这个角色实际会写下的正文\",\"secret\":false,\"struck\":false,\"pasted\":false}],\"signature\":\"本人会落款才写，否则空字符串\",\"mood\":\"此刻中文心情词（禁止英文内部标签）\"}");
+  // 外语日记自带中文（她 2026-10-26：「日记不能写外语多带中文吗」）：跟聊天同一个开关「带翻译」
+  if (opts.sayZh) parts.push("【zh·paras 每一段的追加项】用户开着「外语消息自带中译」：哪一段正文不是普通话中文（外语、粤语等方言都算），那一段另交一个 \"zh\"：按这一段的意思和口气写成简体普通话；本来就是普通话中文的段不交。它只是给用户看的字幕，不改正文写什么、用什么语言写。");
   const system = "你现在完全代入这个角色，用 Ta 的口吻和内心写一篇私人日记。不是旁观推演，是 Ta 亲手写下的。\n\n" + parts.join("\n\n");
   // 尾部声纹守则:system 里声纹块被夹在中间，压轴的却是真实性铁律和 JSON 容器——
   // 模型落笔前读到的最后一样东西是格式规范，不是这个人怎么写字，于是一路滑向通用日记腔。
@@ -11000,6 +11105,79 @@ function timeAgo(ts) {
 // 「这一条跟已有的差不多一样吗」（她 2026-10-26「扫一眼还有哪些地方需要去重」）：问答小本、抽屉、时光轴、日记、论坛帖共用这一把尺。
 //   按两字一组的重合算（去掉标点空格），重合超过 th（默认七成，按短的那条算）就算重复。纯本地，不调模型
 function nearDupGrams(t) { const x = String(t || "").replace(/[\s，。？！?!、,.…「」“”『』（）()：:；;～~—-]/g, ""), o = new Set(); for (let i = 0; i < x.length - 1; i++) o.add(x.slice(i, i + 2)); return o; }
+// ── 群主和管理员（群友 2026-10-25 许愿，她「做吧」）──
+//   住在 x_groupSettings 那一格：owner 是成员 id 或 "me"，admins 是 id 列表，mutes 是 {id: 到几点}。
+//   禁言只在角色之间：她永远不会被禁言，群主也不会被禁言。
+function groupRoles(gs) {
+  const s = gs || {};
+  const owner = s.owner ? String(s.owner) : "";
+  const admins = (Array.isArray(s.admins) ? s.admins : []).map(String).filter(x => x && x !== owner);
+  return { owner, admins, mutes: s.mutes && typeof s.mutes === "object" ? s.mutes : {} };
+}
+// ── 群幸运字符（2026-10-26 群友许愿，照 QQ 群那个玩法）──
+//   全群一起养一个词：每 LUCKY_PER 条消息点亮一个字（文字、语音、表情包、照片都算，灰字系统行不算），
+//   一天最多算 LUCKY_DAY_CAP 条；一整天没人说话，熄掉一个。点满收进收藏本，再抽下一张。
+//   状态：{ word, lit, prog, day, dayN, lastDay, cards, book:[{word, ts}] }，存在 x_glucky[groupId]。
+const LUCKY_PER = 100, LUCKY_DAY_CAP = 200;
+function luckyUnits(word) { return Array.from(String(word || "")).filter(ch => /\S/.test(ch)); }
+function luckyDayKey(ts) { const d = new Date(ts || Date.now()); return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); }
+function luckyDayGap(a, b) { if (!a || !b) return 0; return Math.round((new Date(b + "T12:00:00") - new Date(a + "T12:00:00")) / 86400000); }
+// 先算熄灭：上次有人说话到今天之间整整空着的天数，每天熄一个
+function luckyDecay(st, today) {
+  const s = { ...(st || {}) }, ev = [];
+  const silent = s.lastDay ? luckyDayGap(s.lastDay, today) - 1 : 0;
+  if (s.word && silent > 0 && (s.lit > 0 || s.prog > 0)) {
+    const n = Math.min(s.lit || 0, silent);
+    s.lit = (s.lit || 0) - n; s.prog = 0;
+    if (n > 0) ev.push({ type: "fade", n });
+  }
+  return { st: s, ev };
+}
+// n 条新消息进来
+function luckyTick(st, n, today) {
+  const d = luckyDecay(st, today), s = d.st, ev = d.ev;
+  if (s.day !== today) { s.day = today; s.dayN = 0; }
+  s.lastDay = today;
+  const units = luckyUnits(s.word);
+  if (!s.word || !units.length) return { st: s, ev };
+  let room = Math.max(0, LUCKY_DAY_CAP - (s.dayN || 0)), k = Math.min(n, room);
+  s.dayN = (s.dayN || 0) + k;
+  s.prog = (s.prog || 0) + k;
+  s.lit = s.lit || 0;
+  while (s.prog >= LUCKY_PER && s.lit < units.length) {
+    s.prog -= LUCKY_PER;
+    ev.push({ type: "lit", idx: s.lit, ch: units[s.lit] });
+    s.lit++;
+  }
+  if (s.lit >= units.length) {
+    ev.push({ type: "done", word: s.word });
+    s.book = (s.book || []).concat([{ word: s.word, ts: Date.now() }]);
+    s.word = ""; s.lit = 0; s.prog = 0;
+  }
+  return { st: s, ev };
+}
+// 专属头衔（2026-10-26 群友许愿）：{id: "首席摸鱼官"}，id 是成员 id 或 "me"
+function groupTitleOf(gs, id) {
+  const t = gs && gs.titles && id != null ? gs.titles[String(id)] : "";
+  return t ? String(t).trim().slice(0, 12) : "";
+}
+function groupRoleOf(gs, id) {
+  if (id == null) return "";
+  const r = groupRoles(gs), k = String(id);
+  return r.owner === k ? "owner" : r.admins.indexOf(k) >= 0 ? "admin" : "";
+}
+function groupMutedLeft(gs, id, now) {
+  const until = Number(groupRoles(gs).mutes[String(id)]) || 0;
+  const left = until - (now || Date.now());
+  return left > 0 ? left : 0;
+}
+// 谁能禁言谁：群主管所有角色；管理员只管普通成员。她和群主不在被管的范围里。
+function groupCanMute(gs, byId, targetId) {
+  if (targetId == null || String(targetId) === "me" || String(byId) === String(targetId)) return false;
+  const a = groupRoleOf(gs, byId), b = groupRoleOf(gs, targetId);
+  if (b === "owner") return false;
+  return a === "owner" || (a === "admin" && b === "");
+}
 function isNearDup(text, list, th) {
   const a = nearDupGrams(text); if (a.size < 2) return false;
   return (list || []).some(y => { const b = nearDupGrams(y); if (b.size < 2) return false; let n = 0; a.forEach(k => { if (b.has(k)) n++; }); return n / Math.min(a.size, b.size) > (th || 0.7); });

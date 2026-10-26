@@ -4,8 +4,10 @@ const fs = require("fs");
 const eng = fs.readFileSync(__dirname + "/../js/engine.js", "utf8");
 const app = fs.readFileSync(__dirname + "/../js/app.js", "utf8");
 const scr = (fs.readFileSync(__dirname + "/../js/screens.js", "utf8") + "\n" + fs.readFileSync(__dirname + "/../js/screens-ui.js", "utf8"));
-const i = eng.indexOf("async function generateNpc"), src = eng.slice(i, eng.indexOf("\n}\n", i) + 2);
-const mk = raw => new Function("callAI", "parseJSONLoose", src + ";return generateNpc;")(async () => raw, () => null);
+// 一位那条现在叫公共说明 npcSysOf：把它一起切出来
+const i = eng.indexOf("async function generateNpc("), src = eng.slice(i, eng.indexOf("\n}\n", i) + 2);
+const j = eng.indexOf("function npcSysOf("), sysSrc = eng.slice(j, eng.indexOf("\n}\n", j) + 2);
+const mk = raw => new Function("callAI", "parseJSONLoose", sysSrc + "\n" + src + ";return generateNpc;")(async () => raw, () => null);
 test("NPC generation survives stray quotes and truncation", async () => {
   const a = await mk('{"name":"裴鸣玉","brief":"你是户部侍郎裴鸣玉，夏萧因常说"数字不会骗人"，你记住了。","relFromHost":"我的账房","relToHost":"摄政王"}')({}, { name: "夏" }, "");
   assert.equal(a.name, "裴鸣玉"); assert.equal(a.relFromHost, "我的账房"); assert.match(a.brief, /数字不会骗人/);

@@ -14,7 +14,7 @@ test("被拍的人换成她：她的外貌、参考照、衣柜、固定服装�
 });
 
 test("四处出图都认 me：单聊、群聊、线下（单人和群共用 runOfflineShot）", () => {
-  assert.match(app, /const char = meShot \? meSubject\(realChar, uName, charId\) : realChar;\n    if \(meShot\) photoKind = "other";/);
+  assert.match(app, /const char = meShot \? meSubject\(realChar, uName, charId\) : realChar;\n    if \(meShot\) photoKind = (photoKind === "myself" \? "self" : )?"other";/);
   assert.match(app, /const sub = meShot \? meSubject\(spk, "对方", "g:" \+ groupId\) : spk;\n    if \(meShot\) gPhotoKind = "other";/);
   assert.match(app, /const sub = kind === "me" \? \{ \.\.\.meSubject\(char, "我", meWho\), photoOutfit: me\.outfit \|\| "" \} : char;/);
   assert.match(app, /\["self", "other", "duo", "me", "view", "part", "none"\]\.includes/);
@@ -48,7 +48,8 @@ test("层从关系和好感来：在一起/恋人＝3，暧昧闺蜜挚友或好
   // v75.773 起空间分关系：只有恋人空间算 3，闺蜜 / 挚友 / 家人空间算 2
   assert.match(app, /lover = together && spaceRelKey\(cp\) === "lover";/);
   assert.match(app, /const tier = lover \|\| POV_LOVE_RE\.test\(label\) \? 3\n      : together \|\| POV_CLOSE_RE\.test\(label\) \|\| affOf\(char\.id\) >= 70 \? 2 : 1;/);
-  assert.match(app, /pov: meShot \? povFor\(realChar\) : null/);
+  // v76.518 起单聊多一档「她自己的自拍」（mySelf）：那张不是 TA 的视角，不带机位层
+  assert.match(app, /pov: meShot && !mySelf \? povFor\(realChar\) : null/);
   assert.match(app, /pov: meShot \? povFor\(spk\) : null/);
   assert.match(app, /pov: kind === "me" \? povFor\(char\) : null/);
 });

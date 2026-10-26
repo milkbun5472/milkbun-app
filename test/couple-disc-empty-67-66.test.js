@@ -25,12 +25,13 @@ const mk = state => {
   const discSongs = state.discSongs || [];
   const listenRef = { current: { nowQueue: state.queue || [], playlists: state.playlists || [] } };
   const fn = new Function("useRef", "playerSongIdRef", "audioElRef", "listenRef", "KEEPALIVE_ID",
-    "resolveSong", "discSpinning", "discSongsOf", "discNextId", "discPlay", "stopPlayer", "playSong", "setPlayer",
+    "resolveSong", "discSpinning", "discSongsOf", "discAutoOf", "discNextId", "discPlay", "stopPlayer", "playSong", "setPlayer",
     body + "\nreturn { discEnter, discLeave, phoneMusicEnter, phoneMusicLeave };")(
       v => ({ current: v }), nowRef, { current: el }, listenRef, "KEEPALIVE",
       id => (id === "KEEPALIVE" || (state.library || []).includes(id)) ? { id } : null,
       () => String(nowRef.current || "").indexOf("sgd_") === 0,
       () => discSongs,
+      () => state.discAuto !== false,   // 写存档那段：x_coupleDisc[cid].noAuto 没设＝要自动放
       () => (discSongs[0] || {}).id || null,
       (cid, id) => { nowRef.current = id; el.paused = false; log.push("discPlay"); },
       () => { nowRef.current = null; log.push("stopPlayer"); },

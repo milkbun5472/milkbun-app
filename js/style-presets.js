@@ -106,6 +106,17 @@
   }
   function saveUserModules(next) { saveJ(MKEY, next || []); return next || []; }
   function removeUserModule(id) { return saveUserModules(userModules().filter(m => m.id !== id)); }
+  // 整组删（群友 2026-10-25：同一份预设导了好几次，只能一条条删）：这一组的模块全删，
+  //   预设里勾着的这几条一并拿掉；导入时顺手建的那份预设（sp_ + 组名）删空了、又没有手写段，就一起删
+  function removeUserCat(cat) {
+    const gone = new Set(userModules().filter(m => (m.cat || "imported") === cat).map(m => m.id));
+    if (!gone.size) return 0;
+    saveUserModules(userModules().filter(m => !gone.has(m.id)));
+    const twin = "sp_" + cat;
+    save(list().map(p => p && Array.isArray(p.mods) ? Object.assign({}, p, { mods: p.mods.filter(id => !gone.has(id)) }) : p)
+      .filter(p => !(p && p.id === twin && !(p.mods || []).length && !String(p.free || "").trim())));
+    return gone.size;
+  }
   // 内置模块改过的话，读到的就是改后的那一份；内置原文一个字不动，「恢复原样」就是删掉这一条改动。
   //   text 是函数的那几条（按字数／场景现算的）不让改——改成死字就把那份「现算」弄没了。
   function modEdits() { const o = loadJ(OKEY, {}); return o && typeof o === "object" ? o : {}; }
@@ -438,7 +449,7 @@
     CATS: CATS, MODULES: MODULES, TEST_SCENES: TEST_SCENES,
     allCats: allCats, moduleById: moduleById, userModules: userModules,
     canEditModule: canEditModule, saveModuleEdit: saveModuleEdit, resetModule: resetModule, addUserModule: addUserModule,
-    removeUserModule: removeUserModule, importBundle: importBundle, fromPromptList: fromPromptList,
+    removeUserModule: removeUserModule, removeUserCat: removeUserCat, importBundle: importBundle, fromPromptList: fromPromptList,
     list: list, save: save, byId: byId, upsert: upsert, remove: remove,
     textFor: textFor, blockFor: blockFor, wrap: wrap,
     loadRuns: loadRuns, pushRun: pushRun, clearRuns: clearRuns, runTest: runTest,

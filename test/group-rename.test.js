@@ -54,7 +54,7 @@ const base = () => ({
 
 test("改名要同时迁走记忆的标签，别把旧记忆变成孤儿", () => {
   const r = drive({ ...base(), id: "g1", name: "王府夜话" });
-  assert.deepEqual(r.patch, { gid: "g1", patch: { name: "王府夜话" } });
+  assert.deepEqual(r.patch, { gid: "g1", patch: { name: "王府夜话", oldNames: ["三人群"] } });
   assert.ok(r.saved, "记忆库没被写回");
   assert.deepEqual(r.saved[0].tags, ["群聊", "王府夜话"]);
   assert.deepEqual(r.saved[1].tags, ["群聊", "朝暮"], "别的群不许动");
@@ -75,7 +75,7 @@ test("首尾空格要去掉，超过 24 字截断", () => {
 
 test("没有记忆要迁时也照常改名，别静默失败", () => {
   const r = drive({ groups: [{ id: "g1", name: "三人群" }], mem: [], id: "g1", name: "王府夜话" });
-  assert.deepEqual(r.patch, { gid: "g1", patch: { name: "王府夜话" } });
+  assert.deepEqual(r.patch, { gid: "g1", patch: { name: "王府夜话", oldNames: ["三人群"] } });
   assert.equal(r.saved, null, "没东西要迁就别白写一次盘");
   assert.equal(r.toast, "已改名");
 });

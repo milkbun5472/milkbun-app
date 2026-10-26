@@ -76,8 +76,10 @@
       + (friends && friends.length ? "\n认识你的人里，这几个也在刷「" + APP_NAME + "」，可能刷到这条：" + friends.map(f => f.name + (f.rel ? "（" + f.rel + "）" : "")).join("、")
         + "。他们评不评、评什么、当着网友的面说成什么样，照他们跟你的关系来，写进 friends（name 只能是这几个；一个都没刷到就空着）。" : "");
   }
-  function npcSystem(uName, persona, n, skin, hot, regs) {
-    return AC() + CB()
+  // world：这个世界是什么样（盖了「公开世界」章的世界书），跟今日热门同一份；没有就是现在的现实
+  function worldLine(world) { const w = String(world || "").trim(); return w ? "【这个世界】\n" + w.slice(0, 3000) + "\n平台上的人都活在这个世界里：博主是谁、过什么日子、拍什么、说话用什么词，照这个世界来；世界书里没写到的地方，按这个世界自然会有的样子补。\n" : ""; }
+  function npcSystem(uName, persona, n, skin, hot, regs, world) {
+    return AC() + CB() + worldLine(world)
       + (hot && hot.length ? "今天平台上的热门：" + hot.join("、") + "——推荐流里会有几条在蹭这些。\n" : "")
       + DATE_FACT().slice(1) + "\n【场景】" + uName + "在刷「" + APP_NAME + "」的推荐流，刷到的是 " + n + " 个互不相识的博主各发的一条视频。"
       + (persona ? "\n推荐流会跟她平时在意的东西沾一点边，但不是全都对口——她是这样一个人：" + persona : "")
@@ -91,7 +93,8 @@
   //   就是论坛那批常驻网友，换了片刻上的网名和刷视频的习惯。跟她的碰面账两边共用。
   //   regs：[{id,name,voice,tie}]；pairs：他们之间的交情；me：她这次用的号名
   // doing：这个平台上大家在干什么。片刻是「刷视频、发评论」，一起听广场是「听歌、写歌评」——同一批人、同一份交情，一段话两处用
-  function regularsBlock(regs, pairs, me, doing) {
+  // tail：最后那句「怎么混进去」——各处字段名不一样（同人文书评是 author、一批只来一两位），给了就用给的
+  function regularsBlock(regs, pairs, me, doing, tail) {
     if (!regs || !regs.length) return "";
     const pick = regs.filter(r => r.tie && r.tie.encounters).concat(regs.filter(r => !(r.tie && r.tie.encounters)).sort(() => Math.random() - 0.5)).slice(0, 6);
     const ids = new Set(pick.map(r => r.id));
@@ -101,7 +104,7 @@
     const ps = (pairs || []).filter(p => ids.has(p.a) && ids.has(p.b)).map(p => "· " + p.line);
     return "\n\n【这个平台上的熟面孔】下面几位是常在这儿" + (doing || "刷视频、发评论") + "的老网友：\n" + pick.map(r => "· 「" + r.name + "」：" + r.voice + tieOf(r)).join("\n")
       + (ps.length ? "\n他们彼此之间：\n" + ps.join("\n") + "\n同一条底下碰见了可以接旧梗、互损，别每次重新认识。" : "")
-      + "\n写评论时大约三分之一可以是他们（name 照抄上面的网名，同一串里一个人最多两条，tone 填 warm＝聊得来 / spar＝抬杠），其余是路人（tone 留空）。";
+      + (tail != null ? tail : "\n写评论时大约三分之一可以是他们（name 照抄上面的网名，同一串里一个人最多两条，tone 填 warm＝聊得来 / spar＝抬杠），其余是路人（tone 留空）。");
   }
   // 她评论之后那一串——一枪写完（她 2026-10-15：「论坛都不用两次调用」）。
   //   第一版 ooc 的病根不在一枪，在【没告诉模型谁是谁】：情侣号是他俩共用的、评论的「Lisa」就是他女朋友本人，
@@ -164,8 +167,8 @@
       h("div", { style: { padding: "5px 10px", fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: "rgba(255,255,255,.6)", background: "#111" } }, APP_NAME + " · " + fmtN(v.likes) + " 赞 · 点开看"));
   }
   window.ShuaShareCard = ShuaShareCard;
-  window.ShuaKit = { regularsBlock, tasteLine, shareSnap, shareText, APP_NAME, PAL, charInstruction, npcSystem, crowdSystem, mineSystem, mkVideo, vidSkin };
+  window.ShuaKit = { worldLine, regularsBlock, tasteLine, shareSnap, shareText, APP_NAME, PAL, charInstruction, npcSystem, crowdSystem, mineSystem, mkVideo, vidSkin };
 
   // 页面那半要用的，原样递过去
-  window.ShuaCore = { APP_NAME, INK, DIM, BLACK, RED, LINE, PAL, vidSkin, S, arr, uid, AC, CB, fmtN, normComments, mkVideo, charInstruction, npcSystem, regularsBlock, crowdSystem, mineSystem };
+  window.ShuaCore = { worldLine, APP_NAME, INK, DIM, BLACK, RED, LINE, PAL, vidSkin, S, arr, uid, AC, CB, fmtN, normComments, mkVideo, charInstruction, npcSystem, regularsBlock, crowdSystem, mineSystem };
 })();

@@ -11,7 +11,7 @@ test("not same room → apart line in single and group, cohabit escape kept", ()
 test("online reroll feeds the removed version as avoid, single and group", () => {
   assert.match(eng, /function onlineRerollHint\(avoid\)/);
   assert.match(app, /replyNow\(activeChar\.id, null, null, \{ chatKey: threadKey, room: rerollRoom, rerollAvoid \}\)/);
-  assert.match(app, /const _rerollHint = onlineRerollHint\(opts && opts\.rerollAvoid\)[\s\S]{0,1500}_rerollHint( \+ \w+)* \+ _turnClosing/);   // 中间可以插别的本轮提示（_threatTailHint），钉的是它接进收尾那串
+  assert.match(app, /const _rerollHint = onlineRerollHint\(opts && opts\.rerollAvoid\)[\s\S]{0,3000}_rerollHint( \+ \w+)* \+ _turnClosing/);   // 中间可以插别的本轮提示（_threatTailHint），钉的是它接进收尾那串
   assert.match(app, /replyGroup\(groupId, \{ rerollAvoid \}\)/);
   assert.match(app, /onlineRerollHint\(rgOpts && rgOpts\.rerollAvoid\)/);
 });

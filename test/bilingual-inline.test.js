@@ -116,7 +116,8 @@ test("自带中译走的还是气泡旁边那个译键，不另起一套 UI", ()
   assert.ok(/function TransText\(\{[^}]*\bzhReady\b[^}]*\}\)/.test(compCode), "TransText 没接自带中译");
   assert.ok(/zhReady \|\| \(cached && cached\.zh\)/.test(compCode), "有现成中译时该直接用");
   assert.ok(/zhReady \? \(_lang \|\| "外语"\)/.test(compCode), "探不出语种时也得给译键");
-  const hits = compCode.match(/zhReady: m\.zh/g) || [];
+  // 语音消息那处现在递的是 vZh（m.zh，没有时拆「原文 | 中文」得出的那一半，2026-10-26），也算
+  const hits = compCode.match(/zhReady: (?:m\.zh|vZh)\b/g) || [];
   // 4 → 7（v74.713）：朋友圈也接上了自带中译（她 2026-10-03「朋友圈也搞个外语翻译」），
   //   列表一处、个人页两处，都跟聊天走同一条路。
   assert.equal(hits.length, 7, "单聊、群聊、语音消息、通话气泡和朋友圈那三处都要把 m.zh 递进去");

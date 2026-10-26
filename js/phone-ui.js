@@ -1310,6 +1310,10 @@ function PeekPhotoMsg({ m }) {
   return h("img", { "data-wk": "pphoto", src: src, alt: m.body || "照片", style: { display: "block", maxWidth: 160, maxHeight: 220, borderRadius: 6, objectFit: "cover", background: "#ddd" } });
 }
 function WeChatViewFull({ d, char, t, profile, onBack, onRefresh, refreshing, drive, onSendAs, onTransferAs, onTfReplyAs, onShopAs, transferPeers, sendAsWaiting, onRemark, onDelFriend, onDissolve, onBlockFriend }) {
+  // 情头跟着进他手机（群友 2026-10-26）：他在聊天里换的头像（chatAvatar）就是他微信头像，
+  //   给你换的那张（myChatAvatar）就是他微信里你的头像；没换过就照旧档案那张、你资料那张
+  const selfFace = typeof chatFace === "function" ? chatFace(char) : char;
+  const herAv = (char && char.myChatAvatar) || (profile && profile.avatarImage);
   const [tab, setTab] = useState("chats");
   const [thread, setThread] = useState(null);
   // 她改TA通讯录里的备注（她 2026-10-07）：null＝没在改，字符串＝正在改的草稿
@@ -1369,7 +1373,7 @@ function WeChatViewFull({ d, char, t, profile, onBack, onRefresh, refreshing, dr
   //   （watchSend 那条路一个字没动），真聊天当场长出来，下一帧 actual 自己顶上来。
   const actual0 = arr(d.actualChats);
   const meRow = { id: "actual:private:" + char.id, type: "private", name: userName(profile),
-    avatarImage: profile && profile.avatarImage, time: "", last: "", ts: 0, messages: [], _empty: 1 };
+    avatarImage: herAv, time: "", last: "", ts: 0, messages: [], _empty: 1 };
   const hasMe = actual0.some(c => c && c.type !== "group"
     && (typeof phoneSamePerson === "function" ? phoneSamePerson(c.name, meRow.name) : String(c.name || "").trim() === meRow.name));
   const actual = (hasMe || !meRow.name) ? actual0 : actual0.concat([meRow]);
@@ -1414,7 +1418,7 @@ function WeChatViewFull({ d, char, t, profile, onBack, onRefresh, refreshing, dr
   const [, bumpFace] = useState(0);
   const faceOf = name => (typeof window !== "undefined" && typeof window.__phoneFaceOf === "function") ? window.__phoneFaceOf(char && char.id, name) : null;
   const person = (name, avatarImage) => ({ name: name || "?", avatarImage: faceOf(name) || avatarImage, color: strColor(name) });
-  const avatarForMessage = (m, c) => m.avatarImage || (selfNames.has(m.from) ? char.avatarImage : m.from === meName ? profile && profile.avatarImage : c.avatarImage);
+  const avatarForMessage = (m, c) => m.avatarImage || (selfNames.has(m.from) ? selfFace.avatarImage : m.from === meName ? herAv : c.avatarImage);
   // ⚠️查手机里这些内层 app【不换成公共 Head】：它们扮的是真手机上的微信、便签、相册……
   //   换成这个 app 自己的标题栏，扮演就散了（界面装修工单：「判据在这一处是反过来的」）。
   //   挂点还是要有——只加属性，长相一个像素没动。
@@ -1456,14 +1460,17 @@ function WeChatViewFull({ d, char, t, profile, onBack, onRefresh, refreshing, dr
   // 拿他手机转账那一小块（群友 2026-10-13）：点「转账」展开金额、留言，群里再挑转给谁
   // 「＋」展开（她 2026-10-13「跟聊天一样搞个加号」）：null 收着 / "menu" 一排功能 / "tf" 转账；购物、外卖直接开那两页（花他的钱）
   const [plus, setPlus] = useState(null);
-  const tfOpen = plus === "tf";
+  // 红包（她 2026-10-25「查手机加号里也加个红包」）：跟转账同一块输入，多一个「几个」，群里点名就是专属红包
+  const rpOpen = plus === "rp";
+  const tfOpen = plus === "tf" || rpOpen;
+  const [rpCount, setRpCount] = useState("");
   const [tfAmt, setTfAmt] = useState(""), [tfNote, setTfNote] = useState(""), [tfTo, setTfTo] = useState("");
   const tfPeers = tfOpen && th && th.type === "group" && transferPeers ? transferPeers(th) : [];
   const tfSend = () => {
     if (!onTransferAs || !th) return;
-    if (th.type === "group" && !tfTo) return;
-    if (onTransferAs(th, tfAmt, tfNote, tfTo) === false) return;
-    setPlus(null); setTfAmt(""); setTfNote(""); setTfTo("");
+    if (th.type === "group" && !tfTo && !rpOpen) return;
+    if (onTransferAs(th, tfAmt, tfNote, tfTo, rpOpen ? { packet: true, count: Number(rpCount) || 0 } : null) === false) return;
+    setPlus(null); setTfAmt(""); setTfNote(""); setTfTo(""); setRpCount("");
   };
   const canBuy = !!(onShopAs && th && th.type !== "group");
   const asSend = () => {
@@ -1498,15 +1505,15 @@ function WeChatViewFull({ d, char, t, profile, onBack, onRefresh, refreshing, dr
       : m.kind === "card" ? h("div", { "data-wk": "pcard", "data-label": m.label, style: { width: 210, borderRadius: 6, overflow: "hidden", background: "#fff", boxShadow: "0 1px 1px rgba(0,0,0,.05)", fontFamily: F_BODY } },
           h("div", { style: { padding: "10px 12px", fontSize: "calc(13.5px * var(--app-fs, 1))", lineHeight: 1.5, color: "#171717", minHeight: 22 } }, m.body ? PTX(m.body) : m.label),
           h("div", { style: { padding: "4px 12px 6px", fontSize: "calc(10.5px * var(--app-fs, 1))", color: "#9a9a9a", borderTop: "1px solid #eee" } }, PTX(m.label)))
-      : m.kind === "transfer" ? h("div", { "data-wk": "ptfcard", "data-status": m.status, style: { width: 210, borderRadius: 6, overflow: "hidden", background: m.status === "pending" ? "#fa9d3b" : "#fbd3a7", color: "#fff", fontFamily: F_BODY } },
+      : m.kind === "transfer" ? h("div", { "data-wk": "ptfcard", "data-status": m.status, "data-packet": m.packet ? "1" : "0", style: { width: 210, borderRadius: 6, overflow: "hidden", background: m.packet ? (m.status === "pending" ? "#f35543" : "#f5a99f") : m.status === "pending" ? "#fa9d3b" : "#fbd3a7", color: "#fff", fontFamily: F_BODY } },
           h("div", { className: "flex items-center", style: { gap: 10, padding: "11px 12px" } },
             h(Svg, { size: 30, color: "#fff", sw: 1.6 }, h("path", { d: "M7 4h10l3 4H4z" }), h("rect", { x: 4, y: 8, width: 16, height: 12, rx: 1.5 }), h("path", { d: "M9 12l3 3 3-3M12 15v-3" })),
             h("div", { className: "min-w-0" },
-              h("div", { style: { fontSize: "calc(15.5px * var(--app-fs, 1))", fontWeight: 600 } }, "¥" + (Number(m.amount) || 0).toFixed(2)),
+              h("div", { style: { fontSize: "calc(15.5px * var(--app-fs, 1))", fontWeight: 600 } }, m.packet ? (m.note || "恭喜发财，大吉大利") : "¥" + (Number(m.amount) || 0).toFixed(2)),
               h("div", { style: { fontSize: "calc(11.5px * var(--app-fs, 1))", opacity: 0.9, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } },
-                m.status === "accepted" ? "已收款" : m.status === "returned" || m.status === "rejected" ? "已退还" : (m.note || (self ? "等对方收款" : "请收款"))))),
+                m.packet ? (m.status === "accepted" ? "已被领取 ¥" + (Number(m.amount) || 0).toFixed(2) : m.status === "returned" ? "已退回" : self ? "等对方拆开" : "领取红包") : m.status === "accepted" ? "已收款" : m.status === "returned" || m.status === "rejected" ? "已退还" : (m.note || (self ? "等对方收款" : "请收款"))))),
           tfWait ? h("div", { className: "flex", style: { borderTop: "1px solid rgba(255,255,255,.35)" } },
-            [["no", "退回"], ["ok", "替" + char.name + "收下"]].map(([k, zh]) => h("button", { key: k, "data-wk": "ptfbtn", "data-part": k, onClick: () => onTfReplyAs(m.tid, k === "ok"), className: "flex-1 active:opacity-60", style: { padding: "8px 0", fontSize: "calc(12.5px * var(--app-fs, 1))", color: "#fff", fontWeight: k === "ok" ? 600 : 400 } }, zh)))
+            [["no", "退回"], ["ok", m.packet ? "替" + char.name + "拆开" : "替" + char.name + "收下"]].map(([k, zh]) => h("button", { key: k, "data-wk": "ptfbtn", "data-part": k, onClick: () => onTfReplyAs(m.tid, k === "ok"), className: "flex-1 active:opacity-60", style: { padding: "8px 0", fontSize: "calc(12.5px * var(--app-fs, 1))", color: "#fff", fontWeight: k === "ok" ? 600 : 400 } }, zh)))
             : h("div", { style: { padding: "4px 12px 6px", fontSize: "calc(10.5px * var(--app-fs, 1))", opacity: 0.85, borderTop: "1px solid rgba(255,255,255,.3)" } }, "转账"))
       : h("div", { "data-wk": "pbubble", "data-me": self ? "1" : "0", style: { position: "relative", padding: "9px 11px", borderRadius: 5, fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", lineHeight: 1.55, color: "#171717", background: self ? "#95ec69" : "#fff", boxShadow: "0 1px 1px rgba(0,0,0,.05)", animation: m._new ? "wkpop .26s cubic-bezier(.2,1.5,.4,1) both" : undefined } }, PTX(m.text));
     // 一批新话的开头画一条时间线（真微信隔一阵就有一行灰字时间）。没打过 _at 的老消息不画。
@@ -1539,22 +1546,25 @@ function WeChatViewFull({ d, char, t, profile, onBack, onRefresh, refreshing, dr
     // ⚠️「按了没反应的按钮比没有按钮更糟」：给了就得真有人回。
     !drive && asCanSend && plus === "menu" ? h("div", { "data-wk": "pplus", className: "shrink-0 flex", style: { gap: 18, padding: "14px 18px 8px", background: "#f7f7f7", borderTop: "1px solid #dcdcdc" } },
       [onTransferAs ? ["tf", "转账", [h("rect", { key: 1, x: 3, y: 6, width: 18, height: 13, rx: 2 }), h("path", { key: 2, d: "M9 9.5l3 3.5 3-3.5M12 13v4M9.5 14h5" })]] : null,
+       onTransferAs ? ["rp", "红包", [h("rect", { key: 1, x: 5, y: 3, width: 14, height: 18, rx: 2 }), h("path", { key: 2, d: "M5 8.5c4 2.5 10 2.5 14 0" }), h("circle", { key: 3, cx: 12, cy: 11, r: 1.8 })]] : null,
        canBuy ? ["shop", "购物", [h("path", { key: 1, d: "M5 8h14l-1.2 12H6.2z" }), h("path", { key: 2, d: "M9 10V6.5a3 3 0 016 0V10" })]] : null,
        canBuy ? ["takeout", "外卖", [h("path", { key: 1, d: "M4 11h16a8 8 0 01-16 0z" }), h("path", { key: 2, d: "M3 11h18M9 7c0-1 1-1.5 1-2.5M13 7c0-1 1-1.5 1-2.5" })]] : null].filter(Boolean).map(([k, zh, ic]) => h("button", { key: k, "data-wk": "pplusitem", "data-part": k,
-        onClick: () => { if (k === "tf") setPlus("tf"); else { setPlus(null); onShopAs(k); } }, className: "flex flex-col items-center active:opacity-60", style: { gap: 5, minWidth: 56 } },
+        onClick: () => { if (k === "tf" || k === "rp") setPlus(k); else { setPlus(null); onShopAs(k); } }, className: "flex flex-col items-center active:opacity-60", style: { gap: 5, minWidth: 56 } },
         h("div", { style: { width: 52, height: 52, borderRadius: 12, background: "#fff", display: "flex", alignItems: "center", justifyContent: "center" } }, h(Svg, { size: 24, color: "#555", sw: 1.6 }, ic)),
         h("span", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: "#666" } }, zh)))) : null,
     !drive && asCanSend && tfOpen ? h("div", { "data-wk": "ptransfer", className: "shrink-0", style: { padding: "10px 12px 4px", background: "#f7f7f7", borderTop: "1px solid #dcdcdc" } },
-      h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: "#888", marginBottom: 6 } }, th.type === "group" ? "从" + char.name + "的钱包转给群里的谁" : "从" + char.name + "的钱包转给你，回到聊天里点收下才到账"),
-      tfPeers.length ? h("div", { className: "flex flex-wrap", style: { gap: 6, marginBottom: 8 } }, tfPeers.map(p => h("button", { key: p.id, onClick: () => setTfTo(p.id),
+      h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: "#888", marginBottom: 6 } }, rpOpen ? (th.type === "group" ? "以" + char.name + "的名义在群里发红包（点一个人就是只给他的专属红包，不点就大家抢）" : "以" + char.name + "的名义给你发个红包，拆开前看不到多少") : th.type === "group" ? "从" + char.name + "的钱包转给群里的谁" : "从" + char.name + "的钱包转给你，回到聊天里点收下才到账"),
+      tfPeers.length ? h("div", { className: "flex flex-wrap", style: { gap: 6, marginBottom: 8 } }, tfPeers.map(p => h("button", { key: p.id, onClick: () => setTfTo(rpOpen && tfTo === p.id ? "" : p.id),
         style: { minHeight: 34, padding: "0 12px", borderRadius: 999, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", border: "1px solid " + (tfTo === p.id ? "#07c160" : "#dcdcdc"), background: tfTo === p.id ? "#07c160" : "#fff", color: tfTo === p.id ? "#fff" : "#333" } }, PTX(p.name)))) : null,
       h("div", { className: "flex items-center gap-2" },
+        rpOpen && th.type === "group" && !tfTo ? h("input", { "data-wk": "input", value: rpCount, onChange: e => setRpCount(e.target.value.replace(/[^\d]/g, "").slice(0, 2)), inputMode: "numeric", placeholder: "几个",
+          style: { width: 56, minHeight: 40, borderRadius: 5, border: "1px solid #e0e0e0", background: "#fff", padding: "0 8px", fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", outline: "none" } }) : null,
         h("input", { "data-wk": "input", value: tfAmt, onChange: e => setTfAmt(e.target.value.replace(/[^\d.]/g, "")), inputMode: "decimal", placeholder: "金额",
           style: { width: 96, minHeight: 40, borderRadius: 5, border: "1px solid #e0e0e0", background: "#fff", padding: "0 10px", fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", outline: "none" } }),
-        h("input", { "data-wk": "input", value: tfNote, onChange: e => setTfNote(e.target.value), maxLength: 40, placeholder: "留言（可不填）",
+        h("input", { "data-wk": "input", value: tfNote, onChange: e => setTfNote(e.target.value), maxLength: 40, placeholder: rpOpen ? "写在红包上的一句（可不填）" : "留言（可不填）",
           style: { flex: 1, minWidth: 0, minHeight: 40, borderRadius: 5, border: "1px solid #e0e0e0", background: "#fff", padding: "0 10px", fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", outline: "none" } }),
-        h("button", { onClick: tfSend, disabled: !(Number(tfAmt) > 0) || (th.type === "group" && !tfTo),
-          style: { flexShrink: 0, minHeight: 40, borderRadius: 5, padding: "0 14px", fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", color: "#fff", background: (Number(tfAmt) > 0 && (th.type !== "group" || tfTo)) ? "#f0a020" : "#ddd" } }, "转账"))) : null,
+        h("button", { onClick: tfSend, disabled: !(Number(tfAmt) > 0) || (th.type === "group" && !tfTo && !rpOpen),
+          style: { flexShrink: 0, minHeight: 40, borderRadius: 5, padding: "0 14px", fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", color: "#fff", background: (Number(tfAmt) > 0 && (th.type !== "group" || tfTo || rpOpen)) ? (rpOpen ? "#d9443a" : "#f0a020") : "#ddd" } }, rpOpen ? "塞钱进红包" : "转账"))) : null,
     !drive && th && ((th.type === "private" && isDel(th.name)) || (th.type === "group" && isGone(th.name) && String(th.id || "").indexOf("actual:") !== 0)) ? h("div", { "data-wk": "pdelnote", className: "shrink-0", style: { padding: "12px 14px", paddingBottom: "calc(env(safe-area-inset-bottom) * 0.4 + 12px)", background: "#f7f7f7", borderTop: "1px solid #dcdcdc", fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: "#999", textAlign: "center" } }, th.type === "group" ? "群已经解散了，点上面「恢复」才能发" : "已经不是好友了，去通讯录点开 TA 加回来才能发") : null,
     !drive && asCanType ? h("div", { className: "shrink-0 flex items-end gap-2", style: { padding: "8px 10px", paddingBottom: "calc(env(safe-area-inset-bottom) * 0.4 + 8px)", background: "#f7f7f7", borderTop: "1px solid #dcdcdc" } },
       asCanSend && (onTransferAs || canBuy) ? h("button", { "data-wk": "pbtn", "data-part": "plus", onClick: () => setPlus(v => v ? null : "menu"), "aria-label": "更多",
@@ -1597,7 +1607,7 @@ function WeChatViewFull({ d, char, t, profile, onBack, onRefresh, refreshing, dr
     .map(c => { _listed.add(_cn(c.name)); return { name: c.name, remark: c.remark || "", intro: "" }; });
   // 关系网上连着的人（角色、配角）本来就是TA认识的人：模型没写进 contacts、也还没开私聊的，照样列进通讯录
   const _fromRel = arr(d.relContacts).filter(n => n && !_listed.has(_cn(n))).map(n => { _listed.add(_cn(n)); return { name: n, remark: "", intro: "" }; });
-  const contacts = [{ ...userContact, name: meName, avatarImage: profile && profile.avatarImage, _me: true }, ...arr(d.contacts), ..._fromChats, ..._fromRel];
+  const contacts = [{ ...userContact, name: meName, avatarImage: herAv, _me: true }, ...arr(d.contacts), ..._fromChats, ..._fromRel];
   const contactRow = (c, i) => h("button", { key: i, "data-wk": "pitem", "data-kind": "contact", onClick: () => { setRemarkDraft(null); setThread({ ...c, type: "contact" }); }, className: "w-full flex items-center gap-3 text-left active:opacity-60", style: { minHeight: 64, padding: "8px 14px", background: "#fff", borderBottom: "1px solid #e7e7e7" } }, h(Avatar, { character: person(c.name, c.avatarImage), size: 43, radius: 7 }), h("div", null, h("div", { "data-wk": "ptitle", style: { fontFamily: F_DISPLAY, fontSize: "calc(15.5px * var(--app-fs, 1))", color: "#1c1c1c" } }, c.remark || c.name), h("div", { "data-wk": "ptext", style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: "#999", marginTop: 3 } }, PTX(c.intro))));
   const searchBox = h("div", { "data-wk": "block", className: "flex-1 flex items-center justify-center gap-2", style: { height: 39, borderRadius: 8, background: "#fff", border: "1px solid #e5e5e5", color: "#9a9a9a", boxShadow: "0 1px 1px rgba(0,0,0,.025)" } },
     h("svg", { width: 17, height: 17, viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 1.8, strokeLinecap: "round" }, h("circle", { cx: 10.5, cy: 10.5, r: 6.5 }), h("path", { d: "m16 16 4 4" })),
@@ -1630,7 +1640,7 @@ function WeChatViewFull({ d, char, t, profile, onBack, onRefresh, refreshing, dr
           arr(m.likes).length ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: "#526786", paddingBottom: arr(m.comments).length ? 5 : 0, borderBottom: arr(m.comments).length ? "1px solid #ddd" : "none" } }, "♡ " + arr(m.likes).join("、")) : null,
           arr(m.comments).map((x, j) => h("div", { key: j, style: { fontFamily: F_BODY, fontSize: "calc(11.8px * var(--app-fs, 1))", lineHeight: 1.55, color: "#333", marginTop: 4 } }, h("b", { style: { color: "#526786" } }, x.from + "："), PTX(x.text))))));
     body = h("div", { style: { background: "#fff" } },
-      h("div", { style: { height: 140, background: "linear-gradient(135deg,#4d6655,#c6c2ad)", position: "relative", marginBottom: 34 } }, h("div", { style: { position: "absolute", right: 18, bottom: -28, display: "flex", alignItems: "center", gap: 10 } }, h("span", { style: { color: "#fff", fontFamily: F_DISPLAY, fontSize: "calc(16px * var(--app-fs, 1))", textShadow: "0 1px 3px #000" } }, d.me && d.me.wechatName || char.name), h(Avatar, { character: char, size: 60, radius: 7 }))),
+      h("div", { style: { height: 140, background: "linear-gradient(135deg,#4d6655,#c6c2ad)", position: "relative", marginBottom: 34 } }, h("div", { style: { position: "absolute", right: 18, bottom: -28, display: "flex", alignItems: "center", gap: 10 } }, h("span", { style: { color: "#fff", fontFamily: F_DISPLAY, fontSize: "calc(16px * var(--app-fs, 1))", textShadow: "0 1px 3px #000" } }, d.me && d.me.wechatName || char.name), h(Avatar, { character: selfFace, size: 60, radius: 7 }))),
       // 真发过的那几条（TA自己和关系网上的人）跟推演出来的混在一起，按时间新的在上（她 2026-10-21：「按实际顺序，推演的按推演时间穿插」）；
       //   同一句话不摆两遍；拿不到时间的（老数据）沉到最后，彼此保持原来的先后
       (() => {
@@ -1641,7 +1651,7 @@ function WeChatViewFull({ d, char, t, profile, onBack, onRefresh, refreshing, dr
         return all.map((m, i) => ({ m, i, t: tsOf(m) })).sort((a, b) => (b.t - a.t) || (a.i - b.i)).map(x => x.m);
       })().map(momentCard));
   }
-  else body = h("div", { "data-wk": "block", style: { background: "#f5f5f5", minHeight: "100%", paddingTop: 14 } }, h("div", { className: "flex items-center gap-4", style: { background: "#fff", padding: "22px 18px" } }, h(Avatar, { character: char, size: 67, radius: 8 }), h("div", { className: "flex-1 min-w-0" }, h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(21px * var(--app-fs, 1))", color: "#1b1b1b" } }, d.me && d.me.wechatName || char.name), h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: "#888", marginTop: 6 } }, "微信号：" + (d.me && d.me.wechatId || "wx_" + String(char.id || "user").slice(0, 8))), h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: "#777", marginTop: 5 } }, d.me && d.me.signature || "还没有写个性签名"))), h("button", { onClick: () => setPublicPage(true), className: "w-full flex items-center gap-3 text-left active:opacity-60", style: { marginTop: 10, background: "#fff", padding: "16px 18px" } }, h("div", { style: { width: 34, height: 34, borderRadius: 7, background: "#07c160", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: F_DISPLAY, fontSize: "calc(18px * var(--app-fs, 1))" } }, "文"), h("div", { className: "flex-1" }, h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(15.5px * var(--app-fs, 1))", color: "#222" } }, "公众号"), h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: "#999", marginTop: 3 } }, "最近读过 " + accounts.length + " 篇文章")), h("span", { style: { color: "#aaa", fontSize: "calc(22px * var(--app-fs, 1))" } }, "›")));
+  else body = h("div", { "data-wk": "block", style: { background: "#f5f5f5", minHeight: "100%", paddingTop: 14 } }, h("div", { className: "flex items-center gap-4", style: { background: "#fff", padding: "22px 18px" } }, h(Avatar, { character: selfFace, size: 67, radius: 8 }), h("div", { className: "flex-1 min-w-0" }, h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(21px * var(--app-fs, 1))", color: "#1b1b1b" } }, d.me && d.me.wechatName || char.name), h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: "#888", marginTop: 6 } }, "微信号：" + (d.me && d.me.wechatId || "wx_" + String(char.id || "user").slice(0, 8))), h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: "#777", marginTop: 5 } }, d.me && d.me.signature || "还没有写个性签名"))), h("button", { onClick: () => setPublicPage(true), className: "w-full flex items-center gap-3 text-left active:opacity-60", style: { marginTop: 10, background: "#fff", padding: "16px 18px" } }, h("div", { style: { width: 34, height: 34, borderRadius: 7, background: "#07c160", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: F_DISPLAY, fontSize: "calc(18px * var(--app-fs, 1))" } }, "文"), h("div", { className: "flex-1" }, h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(15.5px * var(--app-fs, 1))", color: "#222" } }, "公众号"), h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: "#999", marginTop: 3 } }, "最近读过 " + accounts.length + " 篇文章")), h("span", { style: { color: "#aaa", fontSize: "calc(22px * var(--app-fs, 1))" } }, "›")));
   // ── 联系人详情（v62.60 重做）────────────────────────────────────────
   // 审美审计 2026-09-04 把这一页判成【基础款】：灰底 + 头像 + 一张白色圆角卡。
   // 换成任何一个 app 的「某某的资料」都成立——而这个 app 仿的是本尊，
@@ -1939,7 +1949,9 @@ function AlbumView({ d, char, t, onBack, onRefresh, refreshing, onPeek, onDrawPh
     h("div", { className: "flex-1 overflow-y-auto" },
       // 满幅、不切角、不投影——本尊就是把照片摊在黑底上
       h("div", { style: { position: "relative", width: "100%", aspectRatio: "1 / 1.12", overflow: "hidden" } }, art(photo, 0, true)),
-      h("div", { style: { padding: "20px 20px 30px" } },
+      // 字底下自己垫一层黑（群里 2026-10-26：有人查手机相册是白底白字——美化把整页底色换浅了，这几行字还是写死的白）。
+      //   底色和字色挂在同一个钩子上，想换浅色就在 palbuminfo 上两样一起改
+      h("div", { "data-wk": "palbuminfo", style: { padding: "20px 20px 30px", background: "#000", color: "#fff" } },
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(22px * var(--app-fs, 1))", color: "#fff" } }, PTX(photo.caption || "照片")),
         h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", lineHeight: 1.8, color: "rgba(255,255,255,.6)", marginTop: 8, whiteSpace: "pre-wrap" } }, PTX(photo.desc || "没有留下介绍。")),
         // TA的想法：黑底上用一道细线分栏，不再套一块浅灰圆角卡
@@ -5692,7 +5704,7 @@ function PhoneCarry({
     onDelAnonRecord: ts => onDelAnonRecord && onDelAnonRecord(char.id, ts),
     // 她在TA手机上以TA的名义真的发一条（只有真实会话给这条口子，见 app.js phoneSendAs）
     onSendAs: (sess, text) => onSendAs ? onSendAs(char, sess, text) : false,
-    onTransferAs: onTransferAs ? (sess, amt, note, toId) => onTransferAs(char, sess, amt, note, toId) : null,
+    onTransferAs: onTransferAs ? (sess, amt, note, toId, opt) => onTransferAs(char, sess, amt, note, toId, opt) : null,
     onTfReplyAs: onTfReplyAs ? (tid, ok) => onTfReplyAs(char, tid, ok) : null,
     transferPeers: sess => transferPeers ? transferPeers(char, sess) : [],
     onShopAs: onShopAs ? where => onShopAs(char, where) : null,

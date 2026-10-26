@@ -38,7 +38,8 @@ test("不替TA编生活：不排日程、不自动刷查手机，日记写成 AI
   assert.match(app, /const noSchedFor = char => !!\(char && settingsFor\(char\.id\)\.bodyMode && !settingsFor\(char\.id\)\.engineerEyes\);/);
   assert.match(app, /const genScheduleDay = async \(char, dayKey\) => \{\n    if \(noSchedFor\(char\)\) return false;/);
   assert.match(app, /const genScheduleWeek = async \(char, opts\) => \{\n    if \(noSchedFor\(char\)\) return false;/);
-  assert.match(app, /digital: isBody\(charId\), digitalCc: !!settingsFor\(charId\)\.engineerEyes \}/);
+  // v76.671 后面跟着 sayZh（外语日记跟「带翻译」走）
+  assert.match(app, /digital: isBody\(charId\), digitalCc: !!settingsFor\(charId\)\.engineerEyes(, sayZh: [^}]*)? \}/);
   assert.match(engine, /if \(opts\.digital && !opts\.digitalCc\) parts\.push\("【很重要·你是谁】你是 AI 本人/);
   assert.ok(!/opts\.digital && !opts\.digitalCc\) parts\.push\([^\n]*驻场/.test(engine), "本体模式的日记里出现了言秋那套差事");
   assert.match(app, /if \(isBody\(char\.id\)\) return "awake";/, "AI 本人不该犯困");

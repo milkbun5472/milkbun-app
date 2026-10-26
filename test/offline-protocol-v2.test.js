@@ -95,7 +95,8 @@ test("ordinary single offline establishes missing durable state exactly once", (
   assert.match(single, /!isDigital && !String\(ctx\.curWear \|\| ""\)\.trim\(\)/);
   assert.match(single, /!isDigital && !String\(ctx\.curAction \|\| ""\)\.trim\(\)/);
   assert.match(single, /【一次性状态建档】/);
-  assert.match(single, /outputSpec \+ stateBootstrapHint/);
+  // v76.570 中间插了「自带中译」那一句（开着才有）
+  assert.match(single, /outputSpec \+ (\(\([^\n]*?offlineSayZhSpec\(""\) : ""\) \+ )?stateBootstrapHint/);
 });
 
 test("wearing and action expire independently instead of becoming permanent facts", () => {

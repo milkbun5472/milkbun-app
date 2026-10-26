@@ -2774,7 +2774,7 @@ const ic = (kind, c, size) => { size = size || 22;
 // 情侣空间·我们的唱片（她 2026-09-01）。数据形状 { songs:[{id,neteaseId,title,artist,
 // cover,by,note,ts}] }。播放礼数不在这儿——落针/收针全归 app.js 的 discEnter/discLeave,
 // 这一页只是唱片本体:A 面是歌,B 面是「为什么是这首」。
-function CoupleDiscShelf({ partner, data, nowId, playing, onAdd, onRemove, onNote, onPlay, onPlayTop, nextId, onGen, gen, onBack }) {
+function CoupleDiscShelf({ partner, data, nowId, playing, onAdd, onRemove, onNote, onPlay, onPlayTop, nextId, onGen, gen, onBack, onAuto }) {
   const t = useTheme();
   const songs = (data && data.songs) || [];
   const [q, setQ] = useState("");
@@ -2804,7 +2804,7 @@ function CoupleDiscShelf({ partner, data, nowId, playing, onAdd, onRemove, onNot
           faceSong ? faceSong.title + (faceSong.artist ? " · " + faceSong.artist : "") : "这张唱片还是空的"),
         h("div", { style: { marginTop: 4, fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: "rgba(210,200,230,.55)", lineHeight: 1.6 } },
           spinning ? "正在转 · 离开空间会自己收针"
-            : songs.length ? songs.length + " 首 · 进空间接着上次那首往下放" + (nextSong ? "（下一首《" + nextSong.title + "》）" : "")
+            : songs.length ? songs.length + " 首 · " + (data && data.noAuto ? "进空间不自己放，想听点落针" : "进空间接着上次那首往下放" + (nextSong ? "（下一首《" + nextSong.title + "》）" : ""))
             : "刻下第一首，或者让 " + partner.name + " 自己挑几首——进空间它就会响起来"),
         h("div", { className: "flex items-center justify-center flex-wrap", style: { gap: 10, marginTop: 14 } },
           // ⚠️onClick 不许直接挂 onPlay：onPlay 现在收「从哪一首起」，
@@ -2813,7 +2813,13 @@ function CoupleDiscShelf({ partner, data, nowId, playing, onAdd, onRemove, onNot
           songs.length ? h("button", { onClick: onPlayTop, className: "active:opacity-70", style: { minHeight: 40, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: "rgba(230,223,242,.6)", padding: "9px 6px" } }, "从头") : null,
           // 让 TA 自己刻：跟「一起听」里的角色歌单同一条链（推歌 → 去云村搜到真曲）
           h("button", { "data-wk": "block", onClick: onGen, disabled: gen, className: "active:opacity-70 disabled:opacity-45", style: { minHeight: 40, fontFamily: F_DISPLAY, fontSize: "calc(13.5px * var(--app-fs, 1))", color: "#e6dff2", background: "transparent", border: "1px solid rgba(230,223,242,.4)", borderRadius: 999, padding: "9px 22px" } },
-            gen ? partner.name + " 在挑…" : songs.length ? "让 " + partner.name + " 再刻几首" : "让 " + partner.name + " 刻几首"))),
+            gen ? partner.name + " 在挑…" : songs.length ? "让 " + partner.name + " 再刻几首" : "让 " + partner.name + " 刻几首")),
+        // 进空间要不要自己响（她 2026-10-26）：每个人那张唱片各管各的
+        onAuto ? h("button", { "data-wk": "discauto", "data-on": data && data.noAuto ? "0" : "1", onClick: () => onAuto(!!(data && data.noAuto)), className: "active:opacity-70",
+          style: { marginTop: 12, minHeight: 40, display: "inline-flex", alignItems: "center", gap: 8, padding: "0 12px", borderRadius: 999, border: "1px solid rgba(210,200,230,.3)", background: "transparent", color: "rgba(230,223,242,.75)", fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))" } },
+          h("span", { style: { width: 30, height: 18, borderRadius: 999, background: data && data.noAuto ? "rgba(210,200,230,.25)" : "#d9c9f0", position: "relative", flexShrink: 0 } },
+            h("span", { style: { position: "absolute", top: 2, left: data && data.noAuto ? 2 : 14, width: 14, height: 14, borderRadius: 999, background: "#241f2c", transition: "left .15s" } })),
+          "进空间自动放") : null),
       // ── A 面:歌 + B 面:刻字 ──
       songs.length ? h("div", { style: { marginTop: 18 } },
         h(Eyebrow, null, "B 面"),
@@ -2937,7 +2943,7 @@ function SpaceDoor({ partner, home, busy, lit, carryNames, tone, eyebrow, put, t
     eyebrow("留灯", "今晚的，早上六点熄"), lights);
 }
 
-function Us({ characters, couples, onBack, myWallet, onJarMove, onJarGoal, onInvite, onSetRel, spaceBooks, spaceBookBusy, onBookAdd, onBookReply, onBookRemove, onBookTa, spaceHome, spaceHomeBusy, lightLit, carryNamesOf, onSpaceHome, onSpaceHomeTa, onUnlink, onSetSince, profile, profileFor, coupleProfile, coupleHome, onSaveCoupleHome, onSetCoupleImg, coupleQA, onAnswerQA, onEditQA, onRemoveQA, onRerollQA, onReplyQA, onEditQAReply, qaGen, coupleQATitle, onSaveQATitle, coupleQACustom, coupleQABooks, onSaveQABook, onSaveQACustom, coupleQACustomBooks, onSaveQACustomBooks, moodOf, coupleTimeline, onAddTimeline, onRemoveTimeline, onReadTimeline, onGenTimeline, tlGen, coupleAnniv, onAddAnniv, onRemoveAnniv, coupleLetters, coupleLetterCfg, onGenLetter, onAddMyLetter, onReplyLetter, onReadLetter, onRemoveLetter, onSaveLetterCfg, letterGen, coupleSweet, onCheckinSweet, coupleDrawer, onOpenDrawer, onDropDrawer, onEditDrawer, onForwardDrawer, coupleFirstsOf, myCloset, charClosetOf, studioShots, studioBusy, fitBusy, studioCanShoot, onGenDateFit, onStudioShoot, onRollStyles, onRollThemes, onShareShot, ifLines, ifBusy, ifBgBusy, onIfOpen, onIfAdvance, onIfBg, onIfShot, onIfBgPick, onIfEnd, onIfDrop, makeupOf, makeupSignalFor, makeupBusy, onMakeupOpen, onMakeupSay, onMakeupClose, gachaPts, gachaCards, gachaLuck, gachaBusy, onGachaPull, onGachaRedeem, onGachaShow, onGachaPin, onGachaDelete, onGachaTitle, onGachaShoot, onGachaCarve, land, onLanded, coupleExDiary, onAddExDiary, onReadExDiary, duoPhotosFor, onDeletePhoto, onUploadPhoto, couplePactsOf, onClosePact, onSetPactDue, onAddPact, onSealQA, onRevealQA, onPlanWish, wishPlanOf, coupleGarden, onGardenPlant, onGardenKeep, gardenGen, coupleTrips, onTripStart, onTripPlan, onTripBook, onTripBookPick, onTripBookPay, onTripDate, kinCardFrom, onTripDepart, onTripDone, tripGen, coupleRecall, onGenRecall, onReadRecall, onDelRecall, recallGen, onGenWish, charWishGen, outletLedger, outletKinds, capsuleProps, coupleDisc, onDiscAdd, onDiscRemove, onDiscNote, onDiscPlay, onDiscEnter, onDiscLeave, onDiscGen, discGen, discNextIdOf, discNowId, discPlaying, onPartnerView }) {
+function Us({ characters, couples, onBack, myWallet, onJarMove, onJarGoal, onInvite, onSetRel, spaceBooks, spaceBookBusy, onBookAdd, onBookReply, onBookRemove, onBookTa, spaceHome, spaceHomeBusy, lightLit, carryNamesOf, onSpaceHome, onSpaceHomeTa, onUnlink, onSetSince, profile, profileFor, coupleProfile, coupleHome, onSaveCoupleHome, onSetCoupleImg, coupleQA, onAnswerQA, onEditQA, onRemoveQA, onRerollQA, onReplyQA, onEditQAReply, qaGen, coupleQATitle, onSaveQATitle, coupleQACustom, coupleQABooks, onSaveQABook, onSaveQACustom, coupleQACustomBooks, onSaveQACustomBooks, moodOf, coupleTimeline, onAddTimeline, onRemoveTimeline, onReadTimeline, onGenTimeline, tlGen, coupleAnniv, onAddAnniv, onRemoveAnniv, coupleLetters, coupleLetterCfg, onGenLetter, onAddMyLetter, onReplyLetter, onReadLetter, onRemoveLetter, onSaveLetterCfg, letterGen, coupleSweet, onCheckinSweet, coupleDrawer, onOpenDrawer, onDropDrawer, onEditDrawer, onForwardDrawer, coupleFirstsOf, myCloset, charClosetOf, studioShots, studioBusy, fitBusy, studioCanShoot, onGenDateFit, onStudioShoot, onRollStyles, onRollThemes, onShareShot, ifLines, ifBusy, ifBgBusy, onIfOpen, onIfAdvance, onIfBg, onIfShot, onIfBgPick, onIfEnd, onIfDrop, makeupOf, makeupSignalFor, makeupBusy, onMakeupOpen, onMakeupSay, onMakeupClose, gachaPts, gachaCards, gachaLuck, gachaBusy, onGachaPull, onGachaRedeem, onGachaShow, onGachaPin, onGachaDelete, onGachaTitle, onGachaShoot, onGachaCarve, land, onLanded, coupleExDiary, onAddExDiary, onReadExDiary, duoPhotosFor, onDeletePhoto, onUploadPhoto, couplePactsOf, onClosePact, onSetPactDue, onAddPact, onSealQA, onRevealQA, onPlanWish, wishPlanOf, coupleGarden, onGardenPlant, onGardenKeep, gardenGen, coupleTrips, onTripStart, onTripPlan, onTripBook, onTripBookPick, onTripBookPay, onTripDate, kinCardFrom, onTripDepart, onTripDone, tripGen, coupleRecall, onGenRecall, onReadRecall, onDelRecall, recallGen, onGenWish, charWishGen, outletLedger, outletKinds, capsuleProps, coupleDisc, onDiscAdd, onDiscRemove, onDiscNote, onDiscAuto, onDiscPlay, onDiscEnter, onDiscLeave, onDiscGen, discGen, discNextIdOf, discNowId, discPlaying, onPartnerView }) {
   const t = useTheme();
   const [view, setView] = useState(null); // null=名册 / charId=某段情侣详情
   const [sub, setSub] = useState(null); // 情侣空间子模块：null / 'qa'（后续加 timeline/mood/notes/letters）
@@ -3116,7 +3122,8 @@ function Us({ characters, couples, onBack, myWallet, onJarMove, onJarGoal, onInv
       onPlay: id => onDiscPlay(partner.id, id || (discNextIdOf && discNextIdOf(partner.id))),
       onPlayTop: () => onDiscPlay(partner.id),
       nextId: discNextIdOf && discNextIdOf(partner.id),
-      onGen: () => onDiscGen && onDiscGen(partner), gen: discGen === partner.id, onBack: () => setSub(null) });
+      onGen: () => onDiscGen && onDiscGen(partner), gen: discGen === partner.id, onBack: () => setSub(null),
+      onAuto: onDiscAuto ? on => onDiscAuto(partner.id, on) : null });
   }
   // 情侣空间子模块：抽卡（她 2026-08-31：「抽卡是情侣空间的功能，每个恋爱角色单独一份，不是主页」）
   if (partner && cp[view] && cp[view].status === "together" && sub === "gacha") {

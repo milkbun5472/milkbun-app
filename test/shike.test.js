@@ -38,7 +38,7 @@ test("农历生日不瞎换算", () => {
 });
 
 test("接进了回头看、页面路由、攻略、挂点名单", () => {
-  assert.match(P("js/components.js"), /f_def_back:  \{ name: "回头看", keys: \["weekly", "impression", "shike"\] \}/);
+  assert.match(P("js/components.js"), /f_def_back:  \{ name: "回头看", keys: \["weekly", "impression", "shike"(, "stamps")?\] \}/);
   assert.match(P("js/components.js"), /st = placeNewAppOnce\(st, "shike", "impression", "x_shikePlaced"\);/);
   assert.match(P("js/app.js"), /screen === "shike"\) body = h\(window\.ShikeApp, \{/);
   assert.match(P("js/assistant-manual.js"), /id: "shike", app: "shike", zh: "时刻"/);

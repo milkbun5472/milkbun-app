@@ -68,6 +68,8 @@ test("皮肤用到的每一个挂点，单聊和群聊都得有", () => {
     if (k === "card") { if ((comp.match(/"data-wk": "card"/g) || []).length < 10) missing.push("card（卡片组件）"); return; }
     // 通话挂断回执那颗药丸是 CallEndPill 画的，单聊群聊都用它——同头像/卡片一样不按页查。
     // noteink 只长在它里面（那个话筒图标），所以整条只查这一个组件。
+    // 消息底下那一行是公共的 chatMsgFoot 画的，单聊群聊都叫它（2026-10-26 并成一份）——同头像一样不按页查
+    if (k === "meta") { if (!has(comp.slice(comp.indexOf("function chatMsgFoot("), comp.indexOf("function TtsBubbleDot(")))) missing.push("meta（chatMsgFoot）"); return; }
     if (k === "noteink") { if (!has(comp.slice(comp.indexOf("function CallEndPill("), comp.indexOf("function CallShotThumb(")))) missing.push("noteink（CallEndPill）"); return; }
     // 此刻日程条只有单聊有：一个群里几个人各有各的行程，摆不出一条「此刻」。
     // ⚠️这个例外自己会失效——下面那一条钉着「群聊确实没有 schedNow」，
@@ -207,9 +209,9 @@ test("五套之间真的分得开——不是只换了个色相", () => {
 });
 
 test("已读那一行两处都挂了，而且认得出是谁说的", () => {
-  // 单聊和群聊各有一份 msgFoot——「一层写在两处」，两处都得挂
-  assert.equal((comp.match(/"data-wk": "meta", "data-me"/g) || []).length, 2,
-    "msgFoot 有两份（单聊/群聊），得两处都挂");
+  // 2026-10-26 起单聊群聊共用 chatMsgFoot 一份：挂点只写一处，两边都叫它
+  assert.equal((comp.match(/"data-wk": "meta", "data-me"/g) || []).length, 1, "又抄出第二份了");
+  assert.equal((comp.match(/chatMsgFoot\(t, m, sub, sayDot\(i, m\)/g) || []).length, 2, "单聊群聊都得用这一份");
   // ⚠️塞进气泡那一路不许 absolute 到 [data-wk="msg"]（那是【整行】）：
   //   对方那侧会把已读甩到屏幕最右边，离气泡十万八千里。
   const wa = TS.CSS_BUILTINS.thread.find(x => x[0] === "仿 WhatsApp")[1];

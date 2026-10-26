@@ -912,7 +912,7 @@
       if (busyRev) return;
       setBusyRev(true);
       try {
-        const rv = await window.Fanfic.genReviews(props.active, f, props.tab, storyLore("书评"), props.characters, props.userName);
+        const rv = await window.Fanfic.genReviews(props.active, f, props.tab, storyLore("书评"), props.characters, props.userName, props.ficRegulars ? props.ficRegulars() : null);
         props.onUpdate(f.id, function (fic) { fic.reviews = (fic.reviews || []).concat(rv); return fic; });
       } catch (e) { props.toast && props.toast(String(e.message || e)); }
       setBusyRev(false);
@@ -1201,6 +1201,8 @@
         (function () {
           // ⚠️这颗按钮只此一份：楼主那一行和楼中楼那一行都是它。
           //   各写一份的结果就是「楼主点得进、回复里点不进」——同一件事写在两处的老毛病。
+          // 论坛那批熟面孔换了读书 id 来评：名字后面挂个小标，跟片刻同一个样子（2026-10-26）
+          const ficRegTag = function (r) { return r && r.reg ? h("span", { "data-wk": "ficregtag", style: { marginLeft: 4, padding: "0 4px", borderRadius: 4, fontSize: "calc(9.5px * var(--app-fs, 1))", border: "1px solid " + t.line, color: t.fog } }, "熟面孔") : null; };
           const penName = function (r, size) {
             return (r.pen && props.onOpenAuthor)
               ? h("button", { onClick: function () { props.onOpenAuthor(r.pen); }, className: "active:opacity-60",
@@ -1212,13 +1214,13 @@
             // 名册里那几位：名字点得进她的主页（路人读者没有主页，照旧是死的）
             h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: r.me ? t.accent : (r.isAuthor ? t.tint : t.fog), marginBottom: 3 } },
               penName(r, 12),
-              r.isAuthor ? authorTag(t) : null),
+              r.isAuthor ? authorTag(t) : null, ficRegTag(r)),
             h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", lineHeight: 1.6, color: t.ink } }, r.content),
             r.art ? h("div", { style: { marginTop: 8, width: "72%", borderRadius: 4, overflow: "hidden" } }, h(FicImg, { k: r.art, onClick: setArtView })) : null,
             r.art && r.artChap != null ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, marginTop: 4 } }, "画的是第 " + (r.artChap + 1) + " 章") : null,
             (r.replies || []).map(function (rp) {
               return h("div", { key: rp.id, className: "mt-2 ml-3 pl-3", style: { borderLeft: "2px solid " + t.line }, "data-wk": "ficreader", "data-part": "r6" },
-                h("span", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: rp.me ? t.accent : (rp.isAuthor ? t.tint : t.fog) } }, penName(rp, 11.5), "：", rp.isAuthor ? authorTag(t) : null),
+                h("span", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: rp.me ? t.accent : (rp.isAuthor ? t.tint : t.fog) } }, penName(rp, 11.5), ficRegTag(rp), "：", rp.isAuthor ? authorTag(t) : null),
                 h("span", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.sub } }, rp.content));
             }),
             replyTo === r.id
@@ -2890,7 +2892,7 @@
         onForwardToChat: fwdChat, onForwardToGroup: fwdGroup, onChapterShared: chapterShared,
         // 让角色来写：TA跟她、跟 CP 另一方是什么关系，由 app 那头算好递进来
         relOf: props.relOf, onFileChapter: props.onFileChapter, onNoteChapter: props.onNoteChapter, allChars: props.allChars,
-        onFicImage: props.onFicImage
+        onFicImage: props.onFicImage, ficRegulars: props.ficRegulars
       })));
     }
 
