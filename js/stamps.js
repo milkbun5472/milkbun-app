@@ -97,6 +97,9 @@
     const [stOpt, setStOpt] = useState(() => C().load().opt || {});
     const audRef = useRef(null), autoT = useRef(0);
     const stopAudio = () => { try { if (audRef.current) { audRef.current.onended = null; audRef.current.pause(); } } catch (e) {} audRef.current = null; };
+    const [logOpen, setLogOpen] = useState(false);   // 回放记录（她 2026-10-27）：只记这一节走过的
+    const logEnd = useRef(null);
+    useEffect(() => { if (logOpen && logEnd.current) logEnd.current.scrollIntoView({ block: "end" }); }, [logOpen]);
     const [picks, setPicks] = useState({});   // 一节中间的小选项：选了哪个（同一节里换个回应，走完又回到主线）
     useEffect(() => { setPicks({}); if (onSeen && sid) onSeen(sid); }, [sid]);
     // ⚠️这一句不许提前 return：下面还有两个 useEffect，先 return 就少跑两个 hook，
@@ -112,7 +115,7 @@
         const c = picks[k];
         if (c == null) { flat.push(Object.assign({}, b, { _pick: k })); break; }
         const o = b.options[c] || {};
-        flat.push({ who: "me", text: o.text || "" });
+        flat.push({ who: "me", text: o.text || "", _picked: true });
         (o.beats || []).forEach(x => x && x.who !== "pick" && flat.push(x));
       } else flat.push(b);
       // 他的视角重读：在这一句后面插他心里的话
@@ -144,13 +147,13 @@
     };
     useEffect(() => {
       clearTimeout(autoT.current);
-      if (beat._pick != null) { stopAudio(); return; }
+      if (beat._pick != null || logOpen) { stopAudio(); return; }
       const next = () => { if (autoOn && !atEnd) autoT.current = setTimeout(go, 350); };
       const timer = () => { if (autoOn && !atEnd) autoT.current = setTimeout(go, Math.min(6500, 1000 + String(beat.text || "").length * 75)); };
       if (voiceOn && beat.who === "he" && canVoice) say(beat.text, ok => ok ? next() : timer());
       else { stopAudio(); timer(); }
       return () => clearTimeout(autoT.current);
-    }, [sid, i, beat._pick, voiceOn, autoOn]);
+    }, [sid, i, beat._pick, voiceOn, autoOn, logOpen]);
     useEffect(() => () => { clearTimeout(autoT.current); stopAudio(); }, []);
     if (!sec0) return null;   // hook 都跑完了，这儿再退出
     const toggle = k => { const st0 = C().load(); st0.opt = Object.assign({}, st0.opt, { [k]: !(st0.opt || {})[k] }); C().save(st0); setStOpt(st0.opt); };
@@ -158,12 +161,18 @@
     return h("div", { "data-wk": "stampstory", className: "fixed inset-0 flex flex-col", style: { zIndex: 255, background: url ? "#111 center/cover no-repeat url(" + url + ")" : "linear-gradient(#2b2436,#14111b)" } },
       h("div", { className: "flex items-center", style: { padding: "calc(env(safe-area-inset-top) + 10px) 14px 8px", background: "linear-gradient(rgba(0,0,0,.55), transparent)" } },
         h("button", { onClick: onClose, className: "active:opacity-60", style: { flexShrink: 0, whiteSpace: "nowrap", color: "#fff", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))" } }, "‹ 收起"),
-        h("div", { className: "flex-1 text-center", style: { minWidth: 0, margin: "0 6px", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", color: "#fff", fontFamily: F_DISPLAY, fontSize: "calc(14px * var(--app-fs, 1))" } }, sec.title || card.text.name),
+        h("div", { className: "flex-1 text-center", style: { minWidth: 0, margin: "0 6px", color: "#fff" } },
+          h("div", { style: { whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", fontFamily: F_DISPLAY, fontSize: "calc(14px * var(--app-fs, 1))" } }, sec.title || card.text.name),
+          // 第几节：按等级那道锁数（1/10/20/30 级＝一到四节，40 级是结局，50 级是隐藏的路）
+          h("div", { "data-wk": "stampstorysec", style: { marginTop: 1, fontFamily: F_BODY, fontSize: "calc(9.5px * var(--app-fs, 1))", letterSpacing: ".2em", opacity: .65 } },
+            sec.hidden ? "隐藏的路" : sec.end ? "结局" : "第" + (["一", "二", "三", "四"][Math.min(3, Math.floor((Number(sec.lv) || 1) / 10))]) + "节")),
         h("button", { "data-wk": "stampstoryvoice", "data-on": voiceOn ? "1" : "0", onClick: () => { if (!canVoice && !voiceOn) { alert("要先在「设置」里配好语音（minimax 那些），他的音色在人格档案馆挑。"); return; } toggle("storyVoice"); }, className: "active:opacity-60",
           style: { flexShrink: 0, marginRight: 4, color: "#fff", fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", padding: "1px 7px", borderRadius: 999, border: "1px solid rgba(255,255,255," + (voiceOn ? ".9" : ".35") + ")", background: voiceOn ? "rgba(255,255,255,.18)" : "transparent" } }, "语音"),
         // 跳过（她 2026-10-26）：一下翻到这一节的下一个选项；没有选项了就到这一节结尾。结局那一节不给跳；选完要再跳就再点
         !atEnd && beat._pick == null && !sec.end ? h("button", { "data-wk": "stampstoryskip", onClick: () => { clearTimeout(autoT.current); stopAudio(); setI(flat.length - 1); }, className: "active:opacity-60",
           style: { flexShrink: 0, marginRight: 4, color: "#fff", fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", padding: "1px 7px", borderRadius: 999, border: "1px solid rgba(255,255,255,.35)" } }, "跳过") : null,
+        h("button", { "data-wk": "stampstorylog", onClick: () => { clearTimeout(autoT.current); stopAudio(); setLogOpen(true); }, className: "active:opacity-60",
+          style: { flexShrink: 0, marginRight: 4, color: "#fff", fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", padding: "1px 7px", borderRadius: 999, border: "1px solid rgba(255,255,255,.35)" } }, "记录"),
         h("button", { "data-wk": "stampstoryauto", "data-on": autoOn ? "1" : "0", onClick: () => toggle("storyAuto"), className: "active:opacity-60",
           style: { flexShrink: 0, marginRight: 4, color: "#fff", fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", padding: "1px 7px", borderRadius: 999, border: "1px solid rgba(255,255,255," + (autoOn ? ".9" : ".35") + ")", background: autoOn ? "rgba(255,255,255,.18)" : "transparent" } }, "自动"),
         opts.length > 1 ? h("button", { "data-wk": "stampstorybg", onClick: nextBg, className: "active:opacity-60", style: { color: "#fff", fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", padding: "3px 10px", borderRadius: 999, border: "1px solid rgba(255,255,255,.5)" } }, "背景：" + curBg[1]) : h("span", { style: { width: 44 } })),
@@ -184,7 +193,19 @@
         h("div", { style: { fontFamily: F_BODY, fontSize: "calc(15px * var(--app-fs, 1))", lineHeight: 1.75, fontStyle: shownWho && shown.who !== "inner" ? "normal" : "italic", opacity: shownWho ? 1 : .85, whiteSpace: "pre-wrap" } }, h(BiText, { text: shown.text || "" }),
           shown.who === "he" && canVoice ? h("button", { "data-wk": "stampstorysay", onClick: e => { e.stopPropagation(); say(shown.text); }, style: { marginLeft: 6, fontSize: "0.85em", opacity: .75, verticalAlign: "middle" } }, "🔊") : null),
         isFinal() ? h("div", { style: { marginTop: 12, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", opacity: .7 } }, "—— 这条路走到头了 · 点一下退出 ——") : null,
-        !atEnd && beat._pick == null ? h("div", { "data-wk": "stampstorynext", style: { position: "absolute", right: 14, bottom: 10, fontSize: "calc(11px * var(--app-fs, 1))", opacity: .5 } }, "点一下继续 ▾") : null));
+        !atEnd && beat._pick == null ? h("div", { "data-wk": "stampstorynext", style: { position: "absolute", right: 14, bottom: 10, fontSize: "calc(11px * var(--app-fs, 1))", opacity: .5 } }, "点一下继续 ▾") : null),
+      // 回放记录：这一节走到现在的每一句（选过的那句标出来）；点空白处收起，从原来那句接着走
+      logOpen ? h("div", { "data-wk": "stamplog", onClick: () => setLogOpen(false), className: "fixed inset-0 flex flex-col", style: { zIndex: 2, background: "rgba(10,9,14,.86)", backdropFilter: "blur(6px)", WebkitBackdropFilter: "blur(6px)", color: "#fff" } },
+        h("div", { className: "flex items-center", style: { padding: "calc(env(safe-area-inset-top) + 10px) 14px 8px" } },
+          h("button", { onClick: () => setLogOpen(false), className: "active:opacity-60", style: { flexShrink: 0, color: "#fff", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))" } }, "‹ 收起"),
+          h("div", { className: "flex-1 text-center", style: { fontFamily: F_DISPLAY, fontSize: "calc(14px * var(--app-fs, 1))", marginRight: 40 } }, "记录")),
+        h("div", { className: "flex-1 overflow-y-auto", style: { padding: "6px 22px calc(env(safe-area-inset-bottom) + 24px)" } },
+          flat.slice(0, Math.min(i, flat.length - 1) + (beat._pick != null ? 0 : 1)).map((b, k) => { const w = b.who === "he" ? char.name : b.who === "me" ? meName : b.who === "inner" ? char.name + " 心里" : "";
+            return h("div", { key: k, "data-wk": "stamplogline", "data-who": b.who || "narr", style: { padding: "10px 0", borderBottom: "1px solid rgba(255,255,255,.08)" } },
+              w ? h("div", { style: { marginBottom: 3, fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: b.who === "he" ? "#e3c48a" : b.who === "inner" ? "#9fc2ae" : "#c9c0e0" } }, w, b._picked ? h("span", { "data-wk": "stamplogpick", style: { marginLeft: 6, padding: "0 6px", borderRadius: 3, border: "1px solid rgba(201,192,224,.6)", fontSize: "0.9em" } }, "你选的") : null) : null,
+              h("div", { style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", lineHeight: 1.7, fontStyle: w && b.who !== "inner" ? "normal" : "italic", opacity: b.who === "inner" ? .7 : w ? 1 : .8, whiteSpace: "pre-wrap" } }, h(BiText, { text: b.text || "" }),
+                b.who === "he" && canVoice ? h("button", { "data-wk": "stamplogsay", onClick: e => { e.stopPropagation(); say(b.text); }, style: { marginLeft: 6, color: "#fff", fontSize: "calc(10.5px * var(--app-fs, 1))", padding: "0 6px", borderRadius: 999, border: "1px solid rgba(255,255,255,.35)", verticalAlign: "middle" } }, "听") : null)); }),
+          h("div", { ref: logEnd }))) : null);
   }
 
   // 一张卡打开：卡面、名字、内容
