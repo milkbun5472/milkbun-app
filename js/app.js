@@ -20,7 +20,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v76.691";
+const APP_VERSION = "v76.700";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -13678,6 +13678,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         : typeof splitCardsAndLines === "function"
         ? splitCardsAndLines(w)
         : String(w).split(/\n+/).map(x => x.trim()).filter(Boolean)), []);
+      if (_splitOn && typeof bubbleGlueBrokenLines === "function") words = bubbleGlueBrokenLines(words);   // 半句话被断成两泡的粘回去
       if (_oneLong && words.length > 1 && words.every(w => typeof w === "string")) words = [words.join("\n\n")];
       // ①.5 剥掉模型偶尔照抄进每条气泡开头的历史时间标注〔今天07:57〕（她 2026-07-13 截图）
       words = words.map(stripAiStamp).map(stripEchoedMeta).filter(Boolean);
@@ -15772,7 +15773,10 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       });
       // 这一轮翻出来的〔照做〕条目，排在这一轮最末尾再说一遍（跟单聊同一支 loreDoNow）
       const _gDoTail = typeof loreDoNow === "function" ? loreDoNow(loreRef.current, { charIds: members.map(m => m.id), scope: "chat", text: hist }) : "";
-      let raw = await _gShoot(userContent + _gDoTail);
+      // 群里的导演便签（她 2026-10-26）：跟单聊同一句、同一套扣轮，只给模型看
+      const _gDirLive = chatDirNotesLive("g:" + groupId);
+      const _gDirHint = _gDirLive.length ? "\n\n〔幕后提醒，绝不出现在任何人说的话里〕想让接下来群里的聊天往这个方向走：" + _gDirLive.map(n => n.text).join("；") + "。由在场的人顺着自己的性子自然地聊过去，不用一下子说到。" : "";
+      let raw = await _gShoot(userContent + _gDirHint + _gDoTail);
       // 邮票册：群里一轮（自己聊、重 roll 不算）
       if (raw && !(rgOpts && (rgOpts.auto || rgOpts.rerollAvoid)) && typeof stampGain === "function") stampGain("round");
       if (_abort.signal.aborted) return;             // 她点叉断掉了
@@ -15792,6 +15796,9 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         const t = String(raw || "").replace(/\s+/g, " ").trim();
         throw new Error("模型没按 JSON 数组输出" + (t ? "（它回的是：" + t.slice(0, 200) + (t.length > 200 ? "…" : "") + "）" : "（上游什么都没回）"));
       }
+      // 导演便签：这一轮成功回了才扣一轮（失败不扣），跟单聊同一支
+      if (_gDirLive.length && !(rgOpts && rgOpts.auto)) { const _dn = directorNotesConsume((chatDirNotesRef.current || {})["g:" + groupId], 0);
+        if (_dn) { saveChatDirNotes({ ...(chatDirNotesRef.current || {}), ["g:" + groupId]: _dn.next.filter(n => n && (n.long || Number(n.remaining) > 0)) }); directorNoteToast(_dn.left); } }
       // ── 「查漏后重打一枪」整段撤掉（她 2026-09-16：「直接不要重写了宝宝」）────
       // 原来这儿会本地对字扫一遍：谁说出了只属于别人的那几个字，就**多打一枪模型**重写整轮。
       // ⚠️撤掉的理由是它【误报太多，而每次误报都要她多付一次钱】：
@@ -15979,8 +15986,9 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
             //   splitBubbles 会先按「？」「……」断句——「ん？なに？|……嗯？什么？」就被切成
             //   ん？／なに？／|……／嗯？／什么？ 五泡，竖线落单、中文自己成泡（她 2026-09-29 截图）。
             //   单聊一直是先劈竖线再拆泡，群里这一步跟上。
-            const rawLines = _gCard ? [_gCard]
+            const _gLines = _gCard ? [_gCard]
               : (gBiOn || !window.GroupIdentityGuard) ? String(item.text || "").split(/\n+/) : window.GroupIdentityGuard.splitBubbles(item.text);
+            const rawLines = !_gCard && typeof bubbleGlueBrokenLines === "function" ? bubbleGlueBrokenLines(_gLines.map(x => String(x).trim()).filter(Boolean)) : _gLines;   // 半句话断成两泡的粘回去，跟单聊同一支
             // 模型不打换行时 splitBubbles 等于没拆，所以再过一道和单聊同一个的长气泡兜底
             const gAllowComma = !isBody(spk.id);
             const gBiZh = new Map();
@@ -16923,7 +16931,11 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       const mode = card.ifMode === "into" ? "把你自己丢进这个主题里：你还是原来那个世界的人，忽然到了这里，看什么都新鲜，这本身就是故事。"
         : card.ifMode === "adapt" ? "照你自己的世界改写这个主题：换成你那个世界、那个年代里本来就有的样子。"
         : "照你自己的世界改写这个主题，或者把你丢进主题里，两种挑一种更好看的。";
-      return "这是一张【IF 卡】，主题是「" + card.theme + "」" + (card.themeLine ? "：" + card.themeLine : "。")
+      // 同一个节日往年也过过：把他往年同系列的卡写了什么带上，今年写不一样的；关系变了，今年就该不一样
+      const past = card.series ? (StampsCoreSafe().cards || []).filter(x => x.charId === char.id && x.series === card.series && x.limited !== card.limited && x.text && !x.dupe)
+        .map(x => (x.limYear || "") + " 年「" + (x.text.name || "") + "」" + (x.text.gist ? "：" + String(x.text.gist).slice(0, 60) : "")).slice(-12) : [];
+      const pastLine = past.length ? "\n往年的「" + card.theme + "」你也过过，那时的卡：\n" + past.join("\n") + "\n今年写别的事、别的走向；你们的关系要是变了，今年的「" + card.theme + "」也该跟那时不一样。可以自然想起往年，但不必每张都提。" : "";
+      return pastLine + "这是一张【IF 卡】，主题是「" + card.theme + "」" + (card.themeLine ? "：" + card.themeLine : "。")
         + "写的是「如果」的你，不是真发生的事。先想清楚你是哪个世界、哪个年代的人，" + mode + "衣服照这个主题来配，不用你衣柜里的。";
     }
     return "这是一张【日常卡】：写你自己日子里真发生的一件事——不是你们已经发生过的事，也不是回忆。"
@@ -17149,7 +17161,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         + "\n画面里不要任何文字。";
       // IF 主题只换衣服、场景、道具；他的脸、发色、瞳色、身材照他本人，不为贴合主题改（她 2026-10-25：恶魔主题把金发画成了黑发）
       // IF 卡每一面都要看得出是哪个主题（她 2026-10-25：万圣夜的满级双人卡面画成了普通卧室）
-      const keepLook = card.kind === "if" ? "\n这张是 IF「" + (card.theme || "") + "」" + (card.themeLine ? "：" + String(card.themeLine).slice(0, 160) : "") + "。衣服、场景、道具和光都照这个主题来，一眼看得出是这个主题" + (duo ? "，画里两个人的打扮都是" : "") + "。"
+      const keepLook = card.kind === "if" ? "\n这张是 IF「" + (card.theme || "") + "」" + (card.themeLine ? "：" + String(card.themeLine).slice(0, 500) : "") + "。" + (card.themeLook ? card.themeLook : "") + "衣服、场景、道具和光都照这个主题来，一眼看得出是这个主题" + (duo ? "，画里两个人的打扮都是" : "") + "。"
         + "他的长相照他本人：发色、发型、瞳色、五官和身材都不变，主题只换衣服、场景和道具。" : "";
       scene += keepLook;
       const freeFit = card.kind === "if" || card.kind === "bday" || card.kind === "mybday";   // 这几种衣服不走衣柜（先定义：下面她那份也要用）
@@ -32660,6 +32672,9 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     onSetDirectiveTurns: (dirId, turns) => setDirectiveTurns(activeGroup.id, dirId, turns),
     onBack: () => setScreen("messages"),
     onSend: txt => pushGroupUser(activeGroup.id, txt),
+    dirNotes: chatDirNotes["g:" + activeGroup.id] || [],
+    onAddDirNote: (text, long) => chatDirNoteAdd("g:" + activeGroup.id, text, long),
+    onDelDirNote: id => chatDirNoteDel("g:" + activeGroup.id, id),
     onReply: () => replyGroup(activeGroup.id),
     onContinue: () => replyGroup(activeGroup.id),
     onOOC: txt => oocGroup(activeGroup.id, txt),

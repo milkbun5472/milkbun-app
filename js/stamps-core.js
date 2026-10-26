@@ -25,15 +25,31 @@
   };
   const MAKEUP = { id: "postage26", tickets: 2 };   // 邮资改版补发：两张十连券，一人一次
   // 限时主题日历：到点自己上、到点自己下，不用发版开关。时间都是北京时间。
+  // 一年的排法（她 2026-10-26 定）：每月 1 号、16 号换一期。节日年年同一个 series（写卡带上往年同系列）；主题每期新的、用过不再用。
+  //   节日：万圣夜（10 下～11.14）· 圣诞（12 下）· 跨年新年（1 上）· 春节（年前那半个月；2027 年是 1 下）· 情人节（2 上）
+  //         · 白色情人节（3 上）· 愚人节（4 上）· 520（5 下）· 端午（当年端午落在哪半个月就放哪；2027 年 6 上）
+  //         · 七夕（2027 年 8 上）· 中秋（2027 年 9 上）
+  //   主题：其余那十几期，每期一个新的，跟着季节想；已用过：深秋（2026.11 下）、温泉旅行（2026.12 上）
+  //   春节、端午、七夕、中秋是农历，每年按当年日子挪。主题说明只给判断、不列道具和情绪（见深秋那条）。
+  //   生日池不占这些格子。
   const LIMITED = [
-    { id: "halloween26", name: "万圣夜", from: "2026-10-26T00:00:00+08:00", to: "2026-11-15T00:00:00+08:00",
+    // series：同一个节日年年有，写卡时把他往年同系列那几张带上（她 2026-10-26：「明年万圣节又要重复吗」）
+    { id: "halloween26", series: "halloween", name: "万圣夜", from: "2026-10-26T00:00:00+08:00", to: "2026-11-15T00:00:00+08:00",
       stamp: "南瓜灯邮票", deco: "halloween",
       hook: "今晚敲开他的门，会收到糖果，还是别的惊喜？",
       line: "主题是万圣夜：南瓜灯、变装、糖果、讨糖、夜色里的派对和一点点吓人。先看这个人是哪个世界、哪个年代的人，再决定万圣夜怎么落到他身上。" },
-    { id: "lateautumn26", name: "深秋", from: "2026-11-15T00:00:00+08:00", to: "2026-12-01T00:00:00+08:00",
+    { id: "lateautumn26", series: "lateautumn", name: "深秋", from: "2026-11-15T00:00:00+08:00", to: "2026-12-01T00:00:00+08:00",
       stamp: "落叶邮票", deco: "autumn",
       hook: "风一吹，叶子就落满了他走过的路。这个秋天，你想和他去哪儿？",
-      line: "主题是深秋：落叶、银杏、风衣和围巾、晚风、一杯热的、天黑得早、一年快走到头的那一点安静和惦记。先看这个人是哪个世界、哪个年代的人，再决定深秋在他那儿是什么样子。" }
+      // 只给判断，不列道具和情绪（她 2026-10-26 跟 GPT 那版一起磨的）：列出来的东西模型会张张往里凑
+      line: "主题是「深秋：一年快到头的那段日子」。先想清楚你是哪个世界、哪个年代、什么地方的人，你那儿这个时候真实有些什么变化，从这些变化里找故事，不把常见的秋日意象直接套进来。重点始终是你：这个时节的某一天，你在过怎样的日子，发生了什么值得留在卡里的一刻。读的人要能从画面和故事里认出是深秋，但不必点明季节，也不借季节抒情；不预设情绪，也不强求故事一定有深意。",
+      look: "画面要看得出是那个季节、那一天的光，不靠堆道具。" },
+    { id: "onsen26", series: "onsen", name: "温泉旅行", from: "2026-12-01T00:00:00+08:00", to: "2026-12-16T00:00:00+08:00",
+      stamp: "汤屋邮票", deco: "onsen",
+      hook: "雪落在屋檐上，热气从水面升起来。这一趟，他会带你去哪儿？",
+      line: "主题是「温泉旅行」：你（或者你们）去了一个有温泉的地方住几天。先想清楚你是哪个世界、哪个年代的人，你那儿的温泉是什么样的地方、去那儿意味着什么，从这趟旅行里真会发生的事找故事。重点始终是你在这趟旅行里的样子。不预设情绪，也不强求故事一定有深意。",
+      // 不硬要求穿衣服（她 2026-10-26：「泳衣本来也行吧」）——只挡裸体，免得图像接口直接拦
+      look: "画面要看得出是在这趟温泉旅行里。画泡在水里的时候，穿泳衣或者围着浴巾都行，不画裸体。" }
   ];
 
   const S = () => (typeof loadJSON === "function" ? loadJSON("x_stamps", null) : null) || {};
@@ -47,13 +63,17 @@
     const st = load(); st.postage += v[0]; st.ink += v[1]; save(st);
   }
   // 第一次打开时到账；每开一期限时主题、每个生日池出现时各送一张十连券
-  function grantOnOpen(now, birthdays) {
+  function grantOnOpen(now, birthdays, limCount) {
     const st = load(), got = [];
     if (!st.gifted) { st.gifted = true; st.tickets += GIFT.tickets; st.ink += GIFT.ink; got.push("开幕纪念：" + GIFT.tickets + " 张十连券、" + GIFT.ink + " 印泥"); }
     else if (!st.seenLimited[MAKEUP.id]) { st.tickets += MAKEUP.tickets; got.push("邮资改版补发：" + MAKEUP.tickets + " 张十连券"); }
     st.seenLimited[MAKEUP.id] = 1;
     // 「今天的信」改成每天由一个人寄进聊天里领（app.js 的 stampLetterSweep），这儿不再送
-    activeLimited(now).forEach(L => { if (!st.seenLimited[L.id]) { st.seenLimited[L.id] = 1; st.tickets += 1; got.push("「" + L.name + "」上新：一张十连券"); } });
+    // 限时池上新：按这一期池里有几个人送，每两个人一张十连，最少一张、最多五张（她 2026-10-26：「十个角色只给一个十连不够」）
+    activeLimited(now).forEach(L => { const n = Math.max(1, Math.min(5, Math.ceil((Number(limCount) || 1) / 2)));
+      if (!st.seenLimited[L.id]) { st.seenLimited[L.id] = 1; st.seenLimited[L.id + "_top"] = 1; st.tickets += n; got.push("「" + L.name + "」上新：" + n + " 张十连券" + (limCount > 1 ? "（这一期 " + limCount + " 个人）" : "")); }
+      // 改成按人数送之前就领过这一期那一张的：补上差的那几张，一期一次
+      else if (!st.seenLimited[L.id + "_top"]) { st.seenLimited[L.id + "_top"] = 1; if (n > 1) { st.tickets += n - 1; got.push("「" + L.name + "」按人数补发：" + (n - 1) + " 张十连券"); } } });
     (birthdays || []).forEach(b => { const k = "bd_" + b.id + "_" + b.year; if (!st.seenLimited[k]) { st.seenLimited[k] = 1; st.tickets += 1; got.push(b.name + " 的生日池：一张十连券"); } });
     if (got.length) save(st);
     return got;

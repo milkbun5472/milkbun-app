@@ -2700,6 +2700,26 @@ function pullBareHtmlCard(raw) {
 // ⚠️这一步必须排在按换行拆【之前】：模型常把 HTML 打成多行，先拆就再也拼不回来了。
 //   （她 2026-09-20 真机报：一张高考成绩单被切成十几个气泡，第一个气泡只有「<!」——
 //    那是 splitLongBubble 按「！」断句断的。）
+// 一句话被从词中间断成两泡（她 2026-10-26 截图：「做完核心／训练」「配了杯／咖啡」「还是／又在……」）：
+//   模型在句子半中间打了换行，或者干脆把半句话单放成一条。拆泡那一刀是按换行的，于是照着断。
+//   这里只认两种很窄的形状，往回粘：
+//   ① 上一泡是半句长话（六个字以上、末尾不是标点也不是表情），这一泡只有一两个汉字、自己也不带标点——是上一句的尾巴；
+//   ② 这一泡只是一个连词（还是、但是、不过……），没说完——粘到下一泡前头。
+//   「好」「嗯」「晚安」这种能自己成一句的，跟在短句或收了尾的句子后面都不粘。
+const BUBBLE_CONJ = /^(还是|但是|可是|不过|所以|然后|而且|或者|因为|就是|而是|要么|如果|虽然|于是|结果)$/;
+function bubbleGlueBrokenLines(list) {
+  const isStr = x => typeof x === "string";
+  const out = [];
+  for (let i = 0; i < (list || []).length; i++) {
+    const x = list[i];
+    if (!isStr(x)) { out.push(x); continue; }
+    const cur = x.trim(), prev = out.length ? out[out.length - 1] : null;
+    if (isStr(prev) && /^[\u4e00-\u9fff]{1,2}$/.test(cur) && prev.trim().length >= 6 && /[\u4e00-\u9fff]$/.test(prev.trim())) { out[out.length - 1] = prev + cur; continue; }
+    if (BUBBLE_CONJ.test(cur) && isStr(list[i + 1]) && /^[\u4e00-\u9fff]/.test(list[i + 1].trim())) { list = list.slice(); list[i + 1] = cur + list[i + 1].trim(); continue; }
+    out.push(x);
+  }
+  return out;
+}
 function splitCardsAndLines(s) {
   const str = String(s == null ? "" : s);
   const whole = htmlCardOf(str);

@@ -263,7 +263,7 @@
     const ring = frame + ", 0 10px 26px rgba(57,56,47," + (0.16 + stars * 0.05) + ")" + (stars >= starsAll && stars ? ", 0 0 30px rgba(181,140,85,.45)" : "");
     return h("div", { "data-wk": "stampcard", "data-page": "1", className: "h-full flex flex-col overflow-hidden", style: { background: "radial-gradient(rgba(130,124,111,.07) 1px, transparent 1.2px) 0 0 / 5px 5px, radial-gradient(120% 60% at 50% 0%, #F6F0E2, #F1EAD9 60%, #EAE1CD)" } },
       h("style", null, "@keyframes stHalo{0%,100%{opacity:.55;transform:scale(1)}50%{opacity:.9;transform:scale(1.06)}}@keyframes stFloat{0%{transform:translateY(0)}35%{transform:translateY(-10px)}100%{transform:translateY(0)}}@keyframes stStampDown{0%{transform:rotate(-14deg) scale(1.9);opacity:0}100%{transform:rotate(-14deg) scale(1);opacity:1}}@keyframes stShine{0%{background-position:-200% 0}100%{background-position:200% 0}}"),
-      h(Head, { zh: tx ? tx.name : "一枚邮票", sub: card.rarity + " · " + (char ? char.name : "") + (card.kind === "if" ? " · IF「" + (card.theme || "") + "」" : card.kind === "bday" ? " · 生日限定" : card.kind === "mybday" ? " · 你的生日" : " · 日常"), bg: "transparent", ink: P, onBack }),
+      h(Head, { zh: tx ? tx.name : "一枚邮票", sub: card.rarity + " · " + (char ? char.name : "") + (card.kind === "if" ? " · IF「" + (card.theme || "") + "」" + (card.limYear ? " · " + card.limYear : "") : card.kind === "bday" ? " · 生日限定" : card.kind === "mybday" ? " · 你的生日" : " · 日常"), bg: "transparent", ink: P, onBack }),
       h("div", { className: "flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-5", style: { paddingBottom: "calc(env(safe-area-inset-bottom) * 0.4 + 28px)" } },
         // 卡
         h("div", { "data-wk": "stampshow", className: "flex flex-col items-center", style: { position: "relative", paddingTop: 14 } },
@@ -429,10 +429,13 @@
     useEffect(() => { const f = () => setSt(C().load()); window.addEventListener("stamps-change", f); return () => window.removeEventListener("stamps-change", f); }, []);
     // 早先写的卡里带着「(R)」「(SR)」的，打开邮票册时洗一遍存回去（只动带标记或错栏的那几张）
     useEffect(() => { try { const st0 = C().load(); let n = 0;
+      // 早先抽的限时卡补上 series 和年份（往年同系列靠它找）
+      st0.cards = st0.cards.map(c => { if (!c.limited || c.series) return c; const L = (C().LIMITED || []).find(x => x.id === c.limited); n++; return Object.assign({}, c, { series: (L && L.series) || c.limited, limYear: L ? new Date(Date.parse(L.from)).getFullYear() : undefined }); });
       st0.cards = st0.cards.map(c => { if (!c.text || c.rarity === "SSR" && !/[（(]\s*S?S?R\s*[）)]/.test(JSON.stringify(c.text))) return c; const t2 = C().cleanText(c.text, c.rarity); if (JSON.stringify(t2) === JSON.stringify(c.text)) return c; n++; return Object.assign({}, c, { text: t2 }); });
       if (n) C().save(st0); } catch (e) {} }, []);
     useEffect(() => { const got = C().grantOnOpen(Date.now(), characters.map(c => { const w = c.birthday ? C().bdayWindow(c.birthday, Date.now()) : null; return w ? { id: c.id, name: c.remark || c.name, year: w.year } : null; }).filter(Boolean)
-      .concat((props.myBdays || []).map(m => { const w = m.birthday ? C().bdayWindow(m.birthday, Date.now()) : null; return w ? { id: "me_" + m.id, name: "你（" + (m.name || "你") + "）", year: w.year } : null; }).filter(Boolean))); if (got.length) { setGotNote(got); setSt(C().load()); } }, []);
+      .concat((props.myBdays || []).map(m => { const w = m.birthday ? C().bdayWindow(m.birthday, Date.now()) : null; return w ? { id: "me_" + m.id, name: "你（" + (m.name || "你") + "）", year: w.year } : null; }).filter(Boolean)),
+      (() => { const lp = ((C().load().opt || {}).limPick || []).filter(id => characters.some(c => c.id === id)); return lp.length || characters.length; })()); if (got.length) { setGotNote(got); setSt(C().load()); } }, []);
     const lims = C().activeLimited(Date.now());
     // 生日池：他生日前 14 天出现，生日后留 7 天；保底和求情按「这个人这一年」单独记
     const bds = characters.map(c => { const w = c.birthday ? C().bdayWindow(c.birthday, Date.now()) : null; return w ? { char: c, win: w, key: c.id + "_" + w.year } : null; }).filter(Boolean)
@@ -486,7 +489,7 @@
           kind: bd ? (bd.mine ? "mybday" : "bday") : pool === "mix" ? "daily" : "if", writing: true, writingTs: now };
         if (pool === "char") Object.assign(card, { theme: charTheme.trim().slice(0, 40), themeLine: charThemeLine.slice(0, 200), ifMode });
         if (bd) Object.assign(card, { bdDay: bd.win.day }, bd.mine ? { maskId: bd.maskId } : {});
-        if (lim) Object.assign(card, { theme: lim.name, themeLine: lim.line, limited: lim.id, ifMode });
+        if (lim) Object.assign(card, { theme: lim.name, themeLine: lim.line, themeLook: lim.look || "", limited: lim.id, series: lim.series || lim.id, limYear: new Date(Date.parse(lim.from)).getFullYear(), ifMode });
         // 限定（限时池一期、生日池一年）每人只有一张 SSR：再抽到就是重复，不写新卡，折成印泥
         const same = rar === "SSR" && (lim || bd) ? s.cards.concat(cards).find(x => x.rarity === "SSR" && !x.dupe && x.charId === cid && (lim ? x.limited === lim.id : x.pool === (bd.mine ? "mybday" : "bday") && x.bdDay === bd.win.day && (!bd.mine || x.maskId === bd.maskId))) : null;
         if (same) { s.ink += C().DUPE_INK; cards.push(Object.assign({}, same, { id: uid(), ts: now + i, dupe: true, dupeOf: same.id })); continue; }
@@ -534,12 +537,13 @@
     const hueOf = c => { const m = /^#([0-9a-f]{6})$/i.exec(c.color || ""); if (m) { const r = parseInt(m[1].slice(0, 2), 16) / 255, g2 = parseInt(m[1].slice(2, 4), 16) / 255, b2 = parseInt(m[1].slice(4), 16) / 255, mx = Math.max(r, g2, b2), mn = Math.min(r, g2, b2); if (mx === mn) return 330; const d = mx - mn; const hh = mx === r ? ((g2 - b2) / d) % 6 : mx === g2 ? (b2 - r) / d + 2 : (r - g2) / d + 4; return Math.round(hh * 60 + 360) % 360; } let x = 0; for (const ch of String(c.id)) x = (x * 31 + ch.charCodeAt(0)) >>> 0; return x % 360; };
     const bdHue = bd ? hueOf(bd.char) : 0;
     const acc = bd ? hx(bdHue, 48, 80) : "#e6b8a2";
-    const tone = bd ? [hx((bd ? hueOf(bd.char) : 0), 28, 22), hx((bd ? hueOf(bd.char) : 0), 50, 80)] : pool === "mix" ? ["#2f4a46", "#7fa79a"] : pool === "char" ? [((charNow && charNow.color) || "#4a3d6b"), "#b9a7e0"] : (cur.lim && cur.lim.deco === "autumn" ? ["#4a2e1c", "#d9a25a"] : ["#3a1f3d", "#e08a3a"]);
+    const tone = bd ? [hx((bd ? hueOf(bd.char) : 0), 28, 22), hx((bd ? hueOf(bd.char) : 0), 50, 80)] : pool === "mix" ? ["#2f4a46", "#7fa79a"] : pool === "char" ? [((charNow && charNow.color) || "#4a3d6b"), "#b9a7e0"] : (cur.lim && cur.lim.deco === "autumn" ? ["#4a2e1c", "#d9a25a"] : cur.lim && cur.lim.deco === "onsen" ? ["#1f3a44", "#9fd0d6"] : ["#3a1f3d", "#e08a3a"]);
     const testInf = !!opt.testInf;
     const perf = c => "radial-gradient(circle at 6px 6px, transparent 4.6px, " + c + " 5px) -6px -6px / 12px 12px";
     // 限时池的节日装饰：只加在边角，不动整张模板（现在只有万圣夜：蝙蝠、南瓜、星星、蛛网）
     const deco = cur.lim && cur.lim.deco === "halloween";
-    const fall = cur.lim && cur.lim.deco === "autumn";   // 深秋：几片银杏和枫叶从海报上沿飘下来
+    const fall = cur.lim && cur.lim.deco === "autumn";
+    const steam = cur.lim && cur.lim.deco === "onsen";   // 温泉：几缕热气从海报下沿往上飘，顶上一点雪   // 深秋：几片银杏和枫叶从海报上沿飘下来
     const leaf = (x, y, sz, rot, col, k, maple) => h("svg", { key: k, viewBox: "0 0 24 24", style: { position: "absolute", left: x, top: y, width: sz, height: sz, transform: "rotate(" + rot + "deg)", opacity: .75, pointerEvents: "none" } },
       maple ? h("path", { d: "M12 2l1.6 4 3-1.6-.8 3.6 3.6-.4-2 3 3 1.6-3.6 1 1 3.2-3.4-1.4L12 22l-1.4-7-3.4 1.4 1-3.2-3.6-1 3-1.6-2-3 3.6.4-.8-3.6 3 1.6z", fill: col })
         : h("path", { d: "M12 21V13M12 13C7 13 3 9 4 4c3 3 5 2 8 0 3 2 5 3 8 0 1 5-3 9-8 9z", fill: col, stroke: col, strokeWidth: .6 }));
@@ -573,6 +577,9 @@
         // 底纹：一圈圈的邮戳线，淡到像防伪纹，不抢人
         h("div", { style: { position: "absolute", inset: 0, opacity: .05, background: "repeating-radial-gradient(circle at 85% 18%, transparent 0 14px, " + tone[1] + " 14px 15px)" } }),
         deco ? [web].concat(stars) : null,
+        steam ? [0, 1, 2].map(k => h("svg", { key: "st" + k, viewBox: "0 0 20 60", style: { position: "absolute", left: (22 + k * 26) + "%", bottom: 40, width: 22, height: 70, opacity: .28, pointerEvents: "none" } },
+          h("path", { d: "M10 58 C 2 46, 18 38, 10 26 S 4 8, 12 2", stroke: "#e8f4f4", strokeWidth: 2.2, fill: "none", strokeLinecap: "round" })))
+          .concat([[12, 18], [60, 40], [150, 24], [210, 60], [90, 90], [240, 110]].map((q, i) => h("span", { key: "sn" + i, style: { position: "absolute", left: q[0], top: q[1], width: 4, height: 4, borderRadius: 9, background: "#fff", opacity: .5 } }))) : null,
         fall ? [leaf("72%", 10, 26, -20, "#d9a25a", "l1"), leaf("86%", 52, 18, 30, "#c06a3a", "l2", 1), leaf("60%", 86, 14, 60, "#e3c06a", "l3"), leaf(8, "70%", 22, -40, "#c06a3a", "l4", 1), leaf("80%", "78%", 20, 15, "#d9a25a", "l5")] : null,
         // 生日：边上一层淡金光，底下藏两道很淡的丝带
         bd ? h("svg", { key: "rib", viewBox: "0 0 100 160", preserveAspectRatio: "none", style: { position: "absolute", inset: 0, width: "100%", height: "100%", opacity: .16, pointerEvents: "none" } },
@@ -590,10 +597,10 @@
           h("div", { className: "flex items-end justify-between", style: { gap: 8 } },
           // 邮戳：常驻写「常驻」；限时写截止日和还剩多久，万圣夜那枚是南瓜色的限定戳
           h("div", { "data-wk": "stampcountdown", style: { order: 2, flexShrink: 0, marginLeft: "auto", width: bd ? 62 : regular ? 88 : 72, height: bd ? 62 : regular ? 48 : 72, marginBottom: bd ? 18 : 0, borderRadius: regular ? 4 : 999,
-            backgroundImage: regular ? "repeating-linear-gradient(0deg, transparent 0 5px, rgba(227,182,92,.13) 5px 6px)" : "none", border: (deco ? "2px dashed #e08a3a" : fall ? "2px dashed #d9a25a" : regular ? "1.5px double " + GOLD : bd ? "2px double " + acc + "" : "2px solid " + GOLD), outline: deco ? "1px solid #e08a3a66" : bd ? "1px dashed " + acc + "88" : "none", outlineOffset: 3, color: deco ? "#f0a24f" : bd ? acc : GOLD, transform: regular ? "rotate(-5deg)" : "rotate(-12deg)",
+            backgroundImage: regular ? "repeating-linear-gradient(0deg, transparent 0 5px, rgba(227,182,92,.13) 5px 6px)" : "none", border: (deco ? "2px dashed #e08a3a" : fall ? "2px dashed #d9a25a" : steam ? "2px dashed #9fd0d6" : regular ? "1.5px double " + GOLD : bd ? "2px double " + acc + "" : "2px solid " + GOLD), outline: deco ? "1px solid #e08a3a66" : bd ? "1px dashed " + acc + "88" : "none", outlineOffset: 3, color: deco ? "#f0a24f" : bd ? acc : GOLD, transform: regular ? "rotate(-5deg)" : "rotate(-12deg)",
             display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", fontFamily: F_BODY, textAlign: "center", lineHeight: 1.25 } },
             cur.bd ? h(React.Fragment, null, h("div", { style: { fontSize: "calc(9.5px * var(--app-fs, 1))" } }, "生日邮戳"), h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))" } }, (d => (d.getMonth() + 1) + "." + d.getDate())(new Date(cur.bd.win.day))), h("div", { style: { fontSize: "calc(9px * var(--app-fs, 1))" } }, String(cur.bd.win.year)))
-            : cur.lim ? h(React.Fragment, null, h("div", { style: { fontSize: "calc(9.5px * var(--app-fs, 1))" } }, deco ? "万圣夜限定" : fall ? "深秋限定" : "限定"), h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))" } }, new Date(Date.parse(cur.lim.to) - 1).toLocaleDateString("zh-CN", { month: "numeric", day: "numeric" }) + " 止"), h("div", { style: { fontSize: "calc(9px * var(--app-fs, 1))" } }, "还剩 " + leftText(Date.parse(cur.lim.to) - Date.now())))
+            : cur.lim ? h(React.Fragment, null, h("div", { style: { fontSize: "calc(9.5px * var(--app-fs, 1))" } }, deco ? "万圣夜限定" : fall ? "深秋限定" : steam ? "温泉限定" : "限定"), h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))" } }, new Date(Date.parse(cur.lim.to) - 1).toLocaleDateString("zh-CN", { month: "numeric", day: "numeric" }) + " 止"), h("div", { style: { fontSize: "calc(9px * var(--app-fs, 1))" } }, "还剩 " + leftText(Date.parse(cur.lim.to) - Date.now())))
               : h(React.Fragment, null, h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(13px * var(--app-fs, 1))", letterSpacing: ".15em" } }, "常驻发行"), h("div", { style: { fontSize: "calc(9px * var(--app-fs, 1))", opacity: .85 } }, "已收录 " + (st.cards || []).length + " 枚"))),
           h("div", { style: { order: 1, minWidth: 0, paddingBottom: 4, fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", lineHeight: 1.6, color: "rgba(244,236,218,.6)" } },
             bd ? h("span", { style: { whiteSpace: "nowrap", color: acc } }, "生日限定 · 距结束 " + leftText(bd.win.close - Date.now())) : pool === "mix" ? "" : pool === "char" ? "IF 卡 · 衣服照主题来" : "IF 卡 · 每人只有一张限定 SSR"))),
