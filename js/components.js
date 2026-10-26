@@ -20803,6 +20803,10 @@ function ContactDetail({
 }) {
   const t = useTheme();
   const [remark, setRemark] = useState(character.remark || "");
+  // 点头像看原图（群友 2026-10-26「微信头像怎么查看原图」）：看的是聊天里用的那张（chatFace），走全库那一份 ImageViewer
+  const [avBig, setAvBig] = useState(false);
+  const avFace = typeof chatFace === "function" ? chatFace(character) : character;
+  const avSrc = avFace && avFace.avatarImage ? (typeof resolveImg === "function" ? resolveImg(avFace.avatarImage) : avFace.avatarImage) : "";
   // 这一页原来【一点底都没有】（连 background 都不写，全靠父层透过来）。
   // 它在现实里是什么？——一张【TA的】卡。所以底是纸，而且掺进TA自己那个色，
   // 换个人就是另一张卡。判据（tabs-not-plain-pills）：搬到别的 app 里还成立吗？
@@ -20827,11 +20831,11 @@ function ContactDetail({
   }, /*#__PURE__*/React.createElement("div", {
     className: "flex items-center gap-4 pt-2",
     "data-wk": "cdhead"
-  }, /*#__PURE__*/React.createElement(Avatar, {
-    character: character,
-    size: 72,
-    radius: 16
-  }), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+  }, h("button", { "data-wk": "cdavatar", onClick: () => { if (avSrc) setAvBig(true); }, "aria-label": avSrc ? "看头像原图" : undefined, className: avSrc ? "active:opacity-80" : "",
+    style: { padding: 0, border: "none", background: "transparent", flexShrink: 0, cursor: avSrc ? "zoom-in" : "default" } },
+    h(Avatar, { character: avFace || character, size: 72, radius: 16 })),
+  avBig && avSrc ? h(ImageViewer, { items: [{ src: avSrc, caption: (character.remark || character.name || "") + " 的头像" }], at: 0, zoomable: true, onClose: () => setAvBig(false) }) : null,
+  /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
     "data-wk": "cdname",
     style: {
       fontFamily: F_DISPLAY,
