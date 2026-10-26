@@ -8,7 +8,8 @@ const screens = (fs.readFileSync(path.join(__dirname, "..", "js", "screens.js"),
 const app = fs.readFileSync(path.join(__dirname, "..", "js", "app.js"), "utf8");
 const S = (() => {
   const a = screens.indexOf("const CARRY_SECTIONS = [");
-  const b = screens.indexOf("// 版块详情：打开即自动生成");
+  // ⚠️终点要在同一份文件里：原来钉的那句注释在 screens-ui.js，中间整段都被吃进来（window.FloatLyric 一跑就炸）
+  const b = screens.indexOf("const GACHA_SKIN = {", a);
   assert.ok(a > 0 && b > a, "抠不出随身物那几个函数");
   return new Function(screens.slice(a, b) + "\nreturn { carryProbeSpecAll, carryProbeSpec, CARRY_SECTIONS };")();
 })();

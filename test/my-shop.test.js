@@ -22,7 +22,7 @@ test("购物页有自己的一套配色，不跟主题的米白走", () => {
 test("商品图位不再把商品名印第二遍", () => {
   const i = screens.indexOf('className: "grid grid-cols-2 gap-2.5" }');
   assert.ok(i > 0, "找不到商品流");
-  const seg = screens.slice(i, screens.indexOf('onClick: () => doGen(true), disabled: busy', i));
+  const seg = screens.slice(i, screens.indexOf('"data-wk": "shopgenbtn", "data-part": "more"', i));
   assert.equal((seg.match(/it\.name/g) || []).length, 1, "商品名在一张卡里只该出现一次");
   assert.doesNotMatch(seg, /fontStyle: "italic"[^}]*\}\s*\}, it\.name\)/, "旧的斜体名字图位还在");
   // 图位改成从名字认出来的品类色
@@ -33,9 +33,13 @@ test("商品图位不再把商品名印第二遍", () => {
 test("品类色是从商品名里认出来的，和随身物共用同一套认法", () => {
   assert.match(screens, /const shopTone = \(it, i\) => toneFrom\(SHOP_TONES, SHOP_FALLBACK, it, i\)/);
   const F = (() => {
-    const pre = screens.slice(screens.indexOf("const clothHex"), screens.indexOf("const clothTone ="));
-    const head = screens.slice(screens.indexOf("const MSHOP"), screens.indexOf("const SHOP_CATS"));
-    return new Function(pre + head + "\nreturn shopTone;")();
+    // ⚠️终点要钉在同一份文件里：clothTone 2026-10 搬去了 screens-ui.js，这一刀会把中间整段都吃进来
+    const pre = screens.slice(screens.indexOf("const clothHex"), screens.indexOf("function carryClosetText("));
+    // MSHOP…shopTone 这一段 2026-10 也搬去了 screens-ui.js，SHOP_CATS 不再紧跟在它后面；
+    //   toneFrom 是这一套认法的公共件，一并带上
+    const head = screens.slice(screens.indexOf("const MSHOP"), screens.indexOf("\n", screens.indexOf("const shopTone = ")));
+    const tone = screens.slice(screens.indexOf("function toneFrom("), screens.indexOf("\nconst clothTone ="));
+    return new Function(pre + tone + head + "\nreturn shopTone;")();
   })();
   const w = n => F({ name: n }, 0).word;
   assert.equal(w("北欧风纯棉四件套 亲肤裸睡级"), "四件套");

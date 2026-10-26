@@ -81,6 +81,28 @@ test("生日池窗口：生日前 14 天到生日后 7 天", () => {
   assert.ok(C.bdayWindow("06-20", day + 3600000).isDay);
 });
 
+test("生日池防多刷：同一年改了生日，池子还按第一次那天；2 月 29 平年算 2 月 28", () => {
+  const C = fresh();
+  const day = new Date(2027, 5, 20).getTime();
+  assert.equal(C.bdayWindow("06-20", day, "c1").day, day);
+  // 改成 6 月 25：今年还是 6 月 20 那一池
+  assert.equal(C.bdayWindow("06-25", day + 86400000, "c1").day, day);
+  // 改到这一年后面：今年那一池已经开过，不再开
+  assert.equal(C.bdayWindow("09-01", new Date(2027, 8, 1).getTime(), "c1"), null);
+  // 别人、明年不受影响
+  assert.ok(C.bdayWindow("09-01", new Date(2027, 8, 1).getTime(), "c2"));
+  assert.ok(C.bdayWindow("09-01", new Date(2028, 8, 1).getTime(), "c1"));
+  assert.equal(C.bdayWindow("02-29", new Date(2027, 1, 28).getTime()).day, new Date(2027, 1, 28).getTime());
+  assert.equal(C.bdayWindow("02-29", new Date(2028, 1, 29).getTime()).day, new Date(2028, 1, 29).getTime());
+});
+
+test("里程碑信：不带池子的信领到的是普通十连券＋印泥，一封只领一次", () => {
+  const C = fresh(), t0 = C.load().tickets, i0 = C.load().ink;
+  assert.equal(C.claimBdLetter("ml1", null, 3), true);
+  assert.equal(C.claimBdLetter("ml1", null, 3), false);
+  const st = C.load(); assert.equal(st.tickets, t0 + 3); assert.equal(st.ink, i0 + 3000); assert.equal(C.bdTicketCount(st), 0);
+});
+
 test("盖印升级：扣印泥，30 级那一坎没发给他看过就停住", () => {
   const C = fresh(), st = C.load();
   st.ink = 100000; st.cards = [{ id: "a", rarity: "SR", lv: 1 }]; C.save(st);
