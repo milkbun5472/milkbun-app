@@ -9075,7 +9075,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         : "";
       // 世界书注入：用线下这段自己的文本做关键词命中（ctxFor 默认用线上聊天文本），常驻/绑定词条照常进
       const offText = (workSess.msgs || []).slice(-8).map(m => m.content || "").join("\n");
-      oCtx.worldbook = loreText(loreRef.current, { charIds: [charId], scope: "chat", text: offText });
+      oCtx.worldbook = loreText(loreRef.current, { charIds: [charId], scope: "offline", text: offText });
       const scopedOfflineState = liveStateForScope(charId, scopeKey);
       oCtx.curWear = freshLiveStateValue(scopedOfflineState, "wearing"); // 当天连贯；陈旧后自动重建
       oCtx.curAction = freshLiveStateValue(scopedOfflineState, "action"); // 短时活动不跨几个小时硬续
@@ -9759,7 +9759,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     worldbook: (() => {
       const sess = (groupOfflinesRef.current[group.id] || []).find(s => s && !s.endTs);
       const offText = sess && Array.isArray(sess.msgs) ? sess.msgs.slice(-8).map(m => m.content || "").join("\n") : "";
-      return loreText(loreRef.current, { charIds: (group.memberIds || []), scope: "chat", text: offText });
+      return loreText(loreRef.current, { charIds: (group.memberIds || []), scope: "offline", text: offText });
     })(),
     timeAware: (group.memberIds || []).some(id => timeAwareFor(id)),
     // 群 OOC 立的长期规矩（directives[groupId]）线下也要遵守——线上 replyGroup 早就注入了，线下之前漏了

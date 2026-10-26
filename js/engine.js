@@ -3615,11 +3615,17 @@ async function offlineRewriteScene(p, charName, reference, draft, wireMeta) {
 }
 // ── 世界书注入引擎：所有功能都从这一道门按角色/触发词/去向/优先级筛选 ──
 // entries: 结构化词条数组；opts: { charIds:[在场角色id], scope, text:当前语境(供关键词命中) }
-// scope: chat | subjects | lifestyle | diary | study | creative | social | debate
+// scope: chat | offline | subjects | lifestyle | diary | study | creative | social | debate
 function loreScopeOn(e, scope) {
   if (!scope) return true;
   const sc = e && e.scope;
-  if (scope === "chat") return !sc || sc.chat !== false; // 聊天默认开
+  // 「聊天与线下」这枚章里还能只挑一半（群友 2026-10-26：世界书长了线下变短）：sc.side＝"online"／"offline"，没写＝两边都去。
+  //   scope "offline"＝线下见面（单人、群）；"chat"＝其余所有聊天口（线上、通话、关系、NPC……）。
+  if (scope === "chat" || scope === "offline") {
+    if (sc && sc.chat === false) return false;
+    const side = sc && sc.side;
+    return scope === "offline" ? side !== "online" : side !== "offline";
+  }
   // 旧版「群像注入」从未被消费。把它兼容为创作开关，老数据不会白勾；新数据统一写 scope.creative。
   if (scope === "creative" && e && e.ensemble) return true;
   return !!(sc && sc[scope]); // 其余默认关，勾了才进

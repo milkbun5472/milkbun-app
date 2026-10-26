@@ -1689,8 +1689,9 @@ const LORE_STAMP_ZH = { chat: "聊天线下", subjects: "查手机", lifestyle: 
 // 「照做」：不是设定，是给模型的输出指令（比如提到冰箱就发一张 HTML 小卡）。领句在 engine.js 的 loreLine。
 // 「生图」：只在画图时拼进画面要求，聊天、线下这些文字一处都不进（engine.js selectLore 那一道）。
 const LORE_CATEGORIES = ["世界观", "地点", "组织", "人物", "规则", "共同经历", "用语", "照做", "生图", "其他"];
+const LORE_SIDE = [["", "线上和线下"], ["online", "只线上"], ["offline", "只线下"]];
 const loreScopeEnabled = (e, key) => key === "chat" ? (!e.scope || e.scope.chat !== false) : (key === "creative" && e.ensemble ? true : !!(e.scope && e.scope[key]));
-const loreScopeNames = e => LORE_SCOPE_UI.filter(x => loreScopeEnabled(e, x[0])).map(x => x[1]);
+const loreScopeNames = e => LORE_SCOPE_UI.filter(x => loreScopeEnabled(e, x[0])).map(x => x[0] === "chat" && e.scope && e.scope.side ? (e.scope.side === "online" ? "只线上聊天" : "只线下") : x[1]);
 function WorldBook({ entries, characters, onBack, onSave, onDelete, trash, onRestore, onImportMany, onBulk, onBulkDelete }) {
   const t = useTheme();
   const [trashOpen, setTrashOpen] = useState(false);
@@ -2006,6 +2007,9 @@ function WorldBookEntryPage({ entry, characters, folders, onClose, onSave, onDel
     lbl("会去哪些地方", "只有勾中的功能可以取到这条；角色绑定和触发条件仍然继续生效"),
     h("div", { style: { display: "grid", gridTemplateColumns: "repeat(2,minmax(0,1fr))", gap: 7 } }, LORE_SCOPE_UI.map(([k, label, desc]) => { const on = loreScopeEnabled(f, k); return h("button", { key: k, onClick: () => { setScope(k); setError(""); }, className: "active:opacity-70 text-left", style: { minHeight: 62, border: "1px solid " + (on ? t.ink : t.line), background: on ? t.ink : "transparent", color: on ? t.bg : t.ink, padding: "9px 10px" } },
       h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))" } }, label), h("div", { style: { fontFamily: F_BODY, fontSize: "calc(9.5px * var(--app-fs, 1))", lineHeight: 1.35, opacity: .62, marginTop: 3 } }, desc)); })),
+    loreScopeEnabled(f, "chat") ? h("div", { "data-lore-side": "", style: { marginTop: 9 } },
+      h("div", { style: { display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 6 } }, LORE_SIDE.map(([v, nm]) => { const on = String((f.scope && f.scope.side) || "") === v; return h("button", { key: v || "both", onClick: () => setF(x => { const sc = Object.assign({ chat: true }, x.scope); if (v) sc.side = v; else delete sc.side; return Object.assign({}, x, { scope: sc }); }), className: "active:opacity-70", style: { height: 34, fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: on ? t.bg : t.sub, background: on ? t.ink : "transparent", border: "1px solid " + (on ? t.ink : t.line) } }, nm); })),
+      h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", lineHeight: 1.45, color: t.sub, marginTop: 5 } }, "「聊天与线下」这枚章去哪一半。只线下：只在见面（单人、群）时带上，平时线上聊天、语音不带；只线上反过来。长的线下规则放「只线下」，线上就不用每轮都读一遍。")) : null,
     lbl("注入顺序", "数字越大越靠前；冲突时仍以更明确、更近期的系统规则为准"),
     h("div", { "data-wk": "block", style: { display: "grid", gridTemplateColumns: "repeat(5,1fr)", gap: 6 } }, [1, 2, 3, 4, 5].map(n => h("button", { key: n, onClick: () => set({ priority: n }), className: "active:opacity-70", style: { height: 38, fontFamily: F_DISPLAY, fontSize: "calc(13px * var(--app-fs, 1))", color: (f.priority || 3) === n ? t.bg : t.sub, background: (f.priority || 3) === n ? t.ink : "transparent", border: "1px solid " + ((f.priority || 3) === n ? t.ink : t.line) } }, n))),
     h("div", { style: { marginTop: 17, borderTop: "1px solid " + t.line } }, toggle("启用这条", "关闭后保留内容，但任何地方都不会注入", f.enabled !== false, () => set({ enabled: f.enabled === false }))),
