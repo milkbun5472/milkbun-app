@@ -166,7 +166,7 @@
           h2("span", { style: { position: "absolute", left: 6, top: 6, padding: "1px 7px", borderRadius: 3, background: col, color: "#FFF8E9", fontSize: fs(10), fontWeight: 700 } }, x.rarity || ""),
           x.canon ? h2("span", { style: { position: "absolute", right: 6, bottom: 6, padding: "2px 8px", border: "1.5px solid #b23a2e", color: "#b23a2e", borderRadius: 3, transform: "rotate(-8deg)", fontSize: fs(11), background: "rgba(255,248,233,.85)" } }, "当真") : null),
         h2("div", { style: { padding: "8px 10px 9px" } },
-          h2("div", { style: { fontSize: fs(9.5), letterSpacing: ".2em", color: "#827C6F" } }, "邮票册" + (x.kind === "if" ? " · IF「" + (x.theme || "") + "」" : x.kind === "bday" ? " · 生日" : "")),
+          h2("div", { style: { fontSize: fs(9.5), letterSpacing: ".2em", color: "#827C6F" } }, "邮票册" + (x.kind === "if" ? " · IF「" + (x.theme || "") + "」" : x.kind === "bday" ? " · 生日限定" : x.kind === "mybday" ? " · 你的生日" : "")),
           h2("div", { style: { marginTop: 2, fontFamily: "var(--f-display,'Fraunces',serif)", fontSize: fs(15), color: "#39382F" } }, "「" + (x.name || "") + "」"),
           x.line ? h2("div", { style: { marginTop: 4, fontSize: fs(11.5), lineHeight: 1.6, color: "#827C6F", overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" } }, x.line) : null)));
   };

@@ -251,7 +251,7 @@
     const ring = frame + ", 0 10px 26px rgba(57,56,47," + (0.16 + stars * 0.05) + ")" + (stars >= starsAll && stars ? ", 0 0 30px rgba(181,140,85,.45)" : "");
     return h("div", { "data-wk": "stampcard", "data-page": "1", className: "h-full flex flex-col overflow-hidden", style: { background: "radial-gradient(rgba(130,124,111,.07) 1px, transparent 1.2px) 0 0 / 5px 5px, radial-gradient(120% 60% at 50% 0%, #F6F0E2, #F1EAD9 60%, #EAE1CD)" } },
       h("style", null, "@keyframes stHalo{0%,100%{opacity:.55;transform:scale(1)}50%{opacity:.9;transform:scale(1.06)}}@keyframes stFloat{0%{transform:translateY(0)}35%{transform:translateY(-10px)}100%{transform:translateY(0)}}@keyframes stStampDown{0%{transform:rotate(-14deg) scale(1.9);opacity:0}100%{transform:rotate(-14deg) scale(1);opacity:1}}@keyframes stShine{0%{background-position:-200% 0}100%{background-position:200% 0}}"),
-      h(Head, { zh: tx ? tx.name : "一枚邮票", sub: card.rarity + " · " + (char ? char.name : "") + (card.kind === "if" ? " · IF「" + (card.theme || "") + "」" : " · 日常"), bg: "transparent", ink: P, onBack }),
+      h(Head, { zh: tx ? tx.name : "一枚邮票", sub: card.rarity + " · " + (char ? char.name : "") + (card.kind === "if" ? " · IF「" + (card.theme || "") + "」" : card.kind === "bday" ? " · 生日限定" : card.kind === "mybday" ? " · 你的生日" : " · 日常"), bg: "transparent", ink: P, onBack }),
       h("div", { className: "flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-5", style: { paddingBottom: "calc(env(safe-area-inset-bottom) * 0.4 + 28px)" } },
         // 卡
         h("div", { "data-wk": "stampshow", className: "flex flex-col items-center", style: { position: "relative", paddingTop: 14 } },
@@ -266,7 +266,7 @@
                 background: "repeating-linear-gradient(135deg, rgba(122,106,82,.05) 0 2px, transparent 2px 9px), radial-gradient(circle at 50% 42%, #fbf5e6, #ece1c8 75%)",
                 display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", textAlign: "center", color: "#5a4a32" } },
               h("div", { style: { position: "absolute", inset: 10, border: "1px solid rgba(122,106,82,.22)", borderRadius: 2 } }),
-              h("div", { style: { fontFamily: F_BODY, fontSize: fs(10), letterSpacing: ".4em", opacity: .55 } }, card.kind === "if" ? "如 果" : card.kind === "bday" ? "生 日" : "日 常"),
+              h("div", { style: { fontFamily: F_BODY, fontSize: fs(10), letterSpacing: ".4em", opacity: .55 } }, card.kind === "if" ? "如 果" : card.kind === "bday" || card.kind === "mybday" ? "生 日" : "日 常"),
               h("div", { style: { marginTop: 10, fontFamily: F_DISPLAY, fontSize: fs(26), letterSpacing: ".12em" } }, tx ? tx.name : "……"),
               h("div", { style: { width: 36, height: 1, margin: "12px 0", background: "rgba(122,106,82,.4)" } }),
               h("div", { style: { fontFamily: F_BODY, fontSize: fs(11.5), opacity: .7 } }, char ? (char.remark || char.name) : ""),
@@ -634,7 +634,7 @@
         const rs = ds.slice((wk - 1) * 7, wk * 7).map(d => Object.assign({}, d.card, { _day: d.day })), full = rs.length === 7;
         const WD = ["周日", "周一", "周二", "周三", "周四", "周五", "周六"], md = ts => { const d = new Date(ts); return (d.getMonth() + 1) + "." + d.getDate(); };
         const fz = n => "calc(" + n + "px * var(--app-fs, 1))", INK = "#39382F", SUB = "#827C6F", CU = "#B58C55", GR = "#285C4B";
-        const tag = c => c.kind === "bday" ? "生日" : c.kind === "if" ? "IF「" + (c.theme || "") + "」" : "日常";
+        const tag = c => c.kind === "bday" ? "生日" : c.kind === "mybday" ? "你的生日" : c.kind === "if" ? "IF「" + (c.theme || "") + "」" : "日常";
         const edge = c => c.kind === "bday" ? "#8a3a4a" : c.kind === "if" ? CU : GR;   // 有含义的颜色：日常墨绿、IF 铜金、生日酒红
         // 一页手账：顶上周数和日期范围；左边一条虚线串起日期邮戳，右边是那天那一刻；底下这一周的集邮页（没攒到的日子留空位）
         return h("div", { "data-wk": "stampweek", className: "fixed inset-0 flex flex-col", style: { zIndex: 250, background: "radial-gradient(rgba(130,124,111,.07) 1px, transparent 1.2px) 0 0 / 5px 5px, linear-gradient(#F6F0E2, #EFE7D5)" } },
