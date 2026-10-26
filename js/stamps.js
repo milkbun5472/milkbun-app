@@ -305,6 +305,7 @@
             style: { marginTop: 8, padding: "6px 14px", borderRadius: 999, border: "1px solid " + LINE, color: P7, fontFamily: F_BODY, fontSize: fs(12) } }, card.drawing ? "画着…" : "画卡面 · 花一次生图")
             : h("button", { "data-wk": "stampredraw", disabled: card.drawing, onClick: () => onDraw(card.id, side !== "main", side !== "main" ? side : undefined), className: "active:opacity-70 disabled:opacity-40",
               style: { marginTop: 8, padding: "6px 14px", borderRadius: 8, border: "1px solid " + LINE, color: P7, fontFamily: F_BODY, fontSize: fs(12) } }, card.drawing ? "重画着…" : "↻ 照原来的描述重画这一面 · 花一次生图"),
+          card.drawErr && !card.drawing ? h("div", { "data-wk": "stampdrawerr", style: { marginTop: 6, maxWidth: 300, textAlign: "center", fontFamily: F_BODY, fontSize: fs(11), lineHeight: 1.5, color: "#b23a2e" } }, "上次没画成：" + card.drawErr) : null,
           // SSR 满级：第二张卡面（一个人，或者你们俩），画好以后能翻面
           card.rarity === "SSR" && lv >= cap && tx ? h("div", { "data-wk": "stampalt", className: "flex flex-wrap justify-center", style: { gap: 8, marginTop: 8 } },
             side !== "main" ? h("button", { onClick: () => setSide("main"), className: "active:opacity-70", style: { padding: "6px 12px", borderRadius: 8, border: "1px solid " + COPPER, color: COPPER, fontFamily: F_BODY, fontSize: fs(12) } }, "看第一面") : null,
@@ -664,7 +665,11 @@
         album.length ? h("div", { "data-wk": "stampalbum", className: "grid", style: { gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 10, marginTop: 14, justifyItems: "center" } },
           album.map(c => { const ch = albumChar === "all" ? charOf(c.charId) : null;   // 「全部」时每枚下面写是谁的
             return h("div", { key: c.id, className: "flex flex-col items-center", style: { gap: 3, minWidth: 0 } }, h(StampFace, { t, card: c, size: 88, onClick: () => setOpen(c.id) }),
-              ch ? h("div", { "data-wk": "stampwho", style: { maxWidth: 92, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: "rgba(47,42,34,.62)" } }, ch.remark || ch.name) : null); }))
+              // 每枚下面：星（养到哪儿了）、谁的、什么主题（群里许愿 2026-10-26）
+              (() => { const cp = C().CAP[c.rarity] || 30, all = Math.round(cp / 10), on = Math.min(all, Math.floor((c.lv || 1) / 10));
+                return h("div", { "data-wk": "stampstarsmini", style: { fontSize: "calc(9.5px * var(--app-fs, 1))", letterSpacing: ".1em", color: "#285C4B", lineHeight: 1 } }, Array.from({ length: all }, (_, k) => k < on ? "★" : "☆").join("")); })(),
+              h("div", { "data-wk": "stampwho", style: { maxWidth: 92, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: "rgba(47,42,34,.62)" } },
+                [ch ? (ch.remark || ch.name) : "", c.kind === "if" ? (c.theme || "IF") : c.kind === "bday" ? "生日" : c.kind === "mybday" ? "你的生日" : "日常"].filter(Boolean).join(" · "))); }))
           : h("div", { style: { padding: "48px 0", textAlign: "center", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: "rgba(47,42,34,.5)" } }, "还没有邮票，去寄一封")),
       week ? (() => { const ch = charOf(albumChar); const all = byChar.filter(c => c.rarity === "R" && c.text).sort((x, y) => (x.ts || 0) - (y.ts || 0));
         const ds = weekDays(st, albumChar), weeks = Math.ceil(ds.length / 7), wk = Math.min(weeks, Math.max(1, Number(week) || 1));
