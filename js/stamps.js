@@ -617,7 +617,12 @@
           h("div", { style: { width: "100%", height: "100%", borderRadius: 2, background: p.bd ? (on ? "#4a2a3a" : "#3d2c38") : hal ? (on ? "#3a1f3d" : "#3a2830") : on ? NIGHT : "#3a3448", color: on ? (p.bd ? "#e6b8a2" : hal ? "#f0a24f" : GOLD) : PAPER, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", textAlign: "center",
             fontFamily: F_DISPLAY, fontSize: "calc(12.5px * var(--app-fs, 1))", lineHeight: 1.25, padding: 3, gap: 3 } },
             p.bd ? (p.bd.char.remark || p.bd.char.name).slice(0, 4) : p.zh, h("span", { style: { fontFamily: F_BODY, fontSize: "calc(9px * var(--app-fs, 1))", opacity: .7 } }, p.lim ? "限时" : p.bd ? "生日" : "常驻"))); }));
-    const capsule = (k, v) => h("span", { key: k, "data-wk": "stampwallet", style: { padding: "3px 9px", borderRadius: 999, background: "rgba(47,42,34,.12)", color: "#2f2a22", fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))" } }, k + " " + v);
+    // 钱包：不用药丸（她 2026-10-26），做成一张张小票根——方角、左右两个半圆缺口、虚线分隔，名字小字在上、数在下
+    const capsule = (k, v, tone) => h("span", { key: k, "data-wk": "stampwallet", style: { position: "relative", display: "inline-flex", flexDirection: "column", alignItems: "center", minWidth: 50, padding: "3px 10px 4px", borderRadius: 3,
+        background: tone ? tone.bg : "#FFF8E9", border: "1px solid " + (tone ? tone.line : "rgba(87,119,103,.4)"), boxShadow: "0 1px 0 rgba(57,56,47,.08)", color: tone ? tone.ink : "#2f2a22", lineHeight: 1.15,
+        WebkitMaskImage: "radial-gradient(circle at 0 50%, transparent 4px, #000 4.5px), radial-gradient(circle at 100% 50%, transparent 4px, #000 4.5px)", WebkitMaskComposite: "source-in", maskComposite: "intersect" } },
+      h("span", { style: { fontFamily: F_BODY, fontSize: "calc(9px * var(--app-fs, 1))", letterSpacing: ".1em", opacity: .65, borderBottom: "1px dashed " + (tone ? tone.line : "rgba(87,119,103,.35)"), paddingBottom: 1, marginBottom: 1 } }, k),
+      h("span", { style: { fontFamily: F_DISPLAY, fontSize: "calc(13px * var(--app-fs, 1))" } }, v));
     // ⋯ 设置页（整页，不做半窗）：谁会出、角色池主题、IF 写法、抽到就画、规则；连点七下「规则」开测试用的无限券
     if (cfg) return h("div", { "data-wk": "stampcfg", "data-page": "1", className: "h-full flex flex-col", style: { background: "repeating-linear-gradient(180deg, transparent 0 116px, rgba(47,42,34,.07) 116px 117px, transparent 117px 120px), linear-gradient(#f1e9d8, #e9dfca)" } },
       h(Head, { zh: "卡池设置", bg: "transparent", ink: "#2f2a22", onBack: () => setCfg(false) }),
@@ -752,7 +757,7 @@
           h("button", { "data-wk": "stampgocfg", onClick: () => setCfg(true), className: "active:opacity-60", style: { padding: "6px 8px", color: "#2f2a22", fontFamily: F_BODY, fontSize: "calc(16px * var(--app-fs, 1))" } }, "⋯")) }),
       h("div", { className: "flex justify-end flex-wrap px-4 shrink-0", style: { gap: 6 } },
         capsule("邮资", st.postage), capsule("印泥", st.ink), (st.singles || 0) > 0 ? capsule("单抽券", st.singles) : null,
-        C().bdTicketCount(st) > 0 ? h("span", { key: "bdt", "data-wk": "stampwallet", "data-part": "bday", style: { padding: "3px 9px", borderRadius: 999, background: "linear-gradient(120deg, #fbe9e4, #f6e7c8)", border: "1px dashed #c98f74", color: "#8a3a4a", fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))" } }, "🎂 生日券 " + C().bdTicketCount(st)) : null, capsule("十连券", testInf ? "∞（手上 " + st.tickets + " 张）" : st.tickets)),
+        C().bdTicketCount(st) > 0 ? capsule("🎂 生日券", C().bdTicketCount(st), { bg: "linear-gradient(120deg, #fbe9e4, #f6e7c8)", line: "#c98f74", ink: "#8a3a4a" }) : null, capsule("十连券", testInf ? "∞（手上 " + st.tickets + " 张）" : st.tickets)),
       h("div", { className: "flex-1 min-h-0 overflow-y-auto px-3", style: { paddingTop: 10 } },
         // 收到礼：一条薄薄的信笺，点开看是什么，✕ 收起
         gotNote.length ? h("div", { "data-wk": "stampgift", className: "flex items-start", style: { margin: "0 4px 10px", padding: "6px 10px", borderRadius: 8, borderLeft: "3px solid #b23a2e", background: "rgba(47,42,34,.08)", color: "#2f2a22", fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", lineHeight: 1.6, gap: 8 } },
