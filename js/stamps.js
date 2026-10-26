@@ -450,7 +450,13 @@
       const now = Date.now(), cards = [];
       for (let i = 0; i < n; i++) {
         const rar = bd ? C().rollRarity(s, { bday: bd.key, isDay: bd.win.isDay }) : C().rollRarity(s);
-        const cid = pool0[Math.floor(Math.random() * pool0.length)];
+        // 出了 SSR、池里又不止一个人：八成落到还没有这池 SSR 的人身上（限定池一期一人一张，免得老抽到重复；大混池先补齐没 SSR 的）
+        let cid = pool0[Math.floor(Math.random() * pool0.length)];
+        if (rar === "SSR" && pool0.length > 1) {
+          const have = id => s.cards.concat(cards).some(x => x.rarity === "SSR" && !x.dupe && x.charId === id && (lim ? x.limited === lim.id : bd ? (x.pool === (bd.mine ? "mybday" : "bday") && x.bdDay === bd.win.day) : pool === "mix" ? x.pool === "mix" : true));
+          const fresh = pool0.filter(id => !have(id));
+          if (fresh.length && Math.random() < 0.8) cid = fresh[Math.floor(Math.random() * fresh.length)];
+        }
         const card = { id: uid(), ts: now + i, rarity: rar, charId: cid, lv: 1, pool: bd ? (bd.mine ? "mybday" : "bday") : pool === "char" ? "char" : lim ? "limited" : "mix",
           kind: bd ? (bd.mine ? "mybday" : "bday") : pool === "mix" ? "daily" : "if", writing: true, writingTs: now };
         if (pool === "char") Object.assign(card, { theme: charTheme.trim().slice(0, 40), themeLine: charThemeLine.slice(0, 200), ifMode });
