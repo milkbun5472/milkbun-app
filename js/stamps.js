@@ -473,7 +473,7 @@
       if (pool === "char" && (thDraft != null || thLineDraft != null)) s.opt = Object.assign({}, s.opt, { charTheme: Object.assign({}, s.opt.charTheme, { [charId]: charTheme }), charThemeLine: Object.assign({}, s.opt.charThemeLine, { [charId]: charThemeLine }) });
       const pool0 = bd ? (bd.mine ? (mbOne ? [mbOne] : bd.charIds) : [bd.char.id]) : pool === "mix" ? mixIds : pool === "char" ? [charId] : (lim ? (limOne ? [limOne] : limIds) : []);
       if (!pool0.length) { toast("先挑几个角色"); return; }
-      const how = opt.testInf ? "test" : C().pay(s, n, ticket);   // 测试券：她自己试味道用，藏在设置里连点七下「规则」
+      const how = opt.testInf ? "test" : C().pay(s, n, ticket, bd && bd.mine ? bd.key : null);   // 测试券：她自己试味道用，藏在设置里连点七下「规则」
       if (!how) { toast("邮资不够：单抽 " + C().PRICE_ONE + "，十连 " + C().PRICE_TEN + "。多聊聊天就攒起来了"); return; }
       const now = Date.now(), cards = [];
       for (let i = 0; i < n; i++) {
@@ -769,6 +769,13 @@
           h("button", { key: "rnd", onClick: () => setOpt({ limOne: Object.assign({}, opt.limOne, { [lim.id]: "" }) }), className: "shrink-0 active:opacity-70",
             style: { width: 42, height: 42, borderRadius: 999, border: "2px solid " + (!limOne ? "#2f5d4a" : "rgba(47,42,34,.3)"), color: !limOne ? "#2f5d4a" : PAPER, fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))" } }, "随机"),
           limIds.map(charOf).filter(Boolean).map(c => h("button", { key: c.id, onClick: () => setOpt({ limOne: Object.assign({}, opt.limOne, { [lim.id]: c.id }) }), className: "shrink-0 active:opacity-70", style: { borderRadius: 999, padding: 2, border: "2px solid " + (limOne === c.id ? "#2f5d4a" : "transparent") } }, h(Avatar, { character: c, size: 38, radius: 999 })))) : null,
+        bd && bd.mine && ((st.bdTickets || {})[bd.key] || 0) > 0 ? h("div", { "data-wk": "stampbdticket", style: { position: "relative", margin: "12px 20px 4px", padding: "12px 14px 12px 64px", borderRadius: 8, overflow: "hidden",
+            background: "linear-gradient(120deg, #fbe9e4, #FFF8E9 55%, #f6e7c8)", border: "1.5px dashed #c98f74", boxShadow: "0 4px 14px rgba(160,97,74,.15)" } },
+          h("div", { style: { position: "absolute", left: 10, top: "50%", marginTop: -22, width: 44, height: 44, borderRadius: 999, border: "1.5px double #b23a2e", color: "#b23a2e", transform: "rotate(-12deg)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", fontFamily: F_BODY, fontSize: "calc(9px * var(--app-fs, 1))", lineHeight: 1.2, background: "rgba(255,248,233,.8)" } },
+            h("div", null, "生日"), h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(11px * var(--app-fs, 1))" } }, (d => (d.getMonth() + 1) + "." + d.getDate())(new Date(bd.win.day)))),
+          h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))", color: "#8a3a4a" } }, "生日券 × " + st.bdTickets[bd.key] + "  ·  十连"),
+          h("div", { style: { marginTop: 3, fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: "calc(12.5px * var(--app-fs, 1))", lineHeight: 1.6, color: "#6b4a3a" } },
+            "生日快乐，" + (bd.char.name || "你") + "。这一池里的每一封，都是他们寄给你的；愿你新的一岁，被好好地爱着。")) : null,
         h("div", { style: { margin: "12px 0 6px", textAlign: "center", fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: "rgba(47,42,34,.6)" } },
           bd ? (() => { const b = st.bday[bd.key] || {}, n = b.since || 0, H = C().BDAY.hard;
               if (b.got) return bd.mine ? "今年你的生日 SSR 已经到手了" : "今年他的生日 SSR 已经到手了";
@@ -789,7 +796,7 @@
           "寄一封", h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", opacity: .75 } }, testInf ? "测试券" : (st.singles || 0) > 0 ? "用单抽券 · 持有 " + st.singles + " 张" : C().PRICE_ONE + " 邮资")),
         h("button", { "data-wk": "stamppullbtn", "data-part": "ten", onClick: () => doPull(10, st.tickets > 0), className: "flex-1 active:opacity-80",
           style: { minHeight: 56, borderRadius: 16, background: "linear-gradient(160deg, #3c7a60, #2a5242)", color: "#f6efe0", fontFamily: F_DISPLAY, fontSize: "calc(16px * var(--app-fs, 1))", boxShadow: "0 4px 18px rgba(47,93,74,.3)" } },
-          "寄一版", h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", opacity: .8 } }, testInf ? "测试券" : st.tickets > 0 ? "用十连券 · 持有 " + st.tickets + " 张" : (st.singles || 0) > 0 ? (st.singles >= 9 ? "用 9 张单抽券" : "用 " + st.singles + " 张单抽券＋" + (9 - st.singles) * C().PRICE_ONE + " 邮资") : C().PRICE_TEN + " 邮资"))),
+          "寄一版", h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", opacity: .8 } }, testInf ? "测试券" : bd && bd.mine && ((st.bdTickets || {})[bd.key] || 0) > 0 ? "用生日券 · 还有 " + st.bdTickets[bd.key] + " 张" : st.tickets > 0 ? "用十连券 · 持有 " + st.tickets + " 张" : (st.singles || 0) > 0 ? (st.singles >= 9 ? "用 9 张单抽券" : "用 " + st.singles + " 张单抽券＋" + (9 - st.singles) * C().PRICE_ONE + " 邮资") : C().PRICE_TEN + " 邮资"))),
       show ? h(PullShow, { t, cards: show.map(c => c.dupe ? c : (st.cards || []).find(x => x.id === c.id) || c), onDone: () => setShow(null), onOpen: c => { setShow(null); setOpen(c.id); }, charOf }) : null);
   }
   window.StampBookApp = StampBookApp;

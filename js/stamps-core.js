@@ -75,7 +75,13 @@
       // 改成按人数送之前就领过这一期那一张的：补上差的那几张，一期一次
       else if (!st.seenLimited[L.id + "_top"]) { st.seenLimited[L.id + "_top"] = 1; if (n > 1) { st.tickets += n - 1; got.push("「" + L.name + "」按人数补发：" + (n - 1) + " 张十连券"); } } });
     // 他的生日池送一张十连；你自己的生日池（id 以 me_ 开头）送十张，就是 100 抽——你过生日（她 2026-10-26）
-    (birthdays || []).forEach(b => { const k = "bd_" + b.id + "_" + b.year; if (!st.seenLimited[k]) { const n = String(b.id).indexOf("me_") === 0 ? 10 : 1; st.seenLimited[k] = 1; st.tickets += n; got.push(b.name + " 的生日池：" + (n > 1 ? n + " 张十连券（" + n * 10 + " 抽）" : "一张十连券")); } });
+    //   你的那十张是「生日券」：单独记在 bdTickets[这个生日池]，只在你的生日池里用，券面上写着祝福；改版前只领过一张的补到十张
+    (birthdays || []).forEach(b => { const k = "bd_" + b.id + "_" + b.year, mine = String(b.id).indexOf("me_") === 0;
+      if (!mine) { if (!st.seenLimited[k]) { st.seenLimited[k] = 1; st.tickets += 1; got.push(b.name + " 的生日池：一张十连券"); } return; }
+      st.bdTickets = st.bdTickets || {};
+      const bk = b.id + "_" + b.year;
+      if (!st.seenLimited[k]) { st.seenLimited[k] = 1; st.seenLimited[k + "_top"] = 1; st.bdTickets[bk] = (st.bdTickets[bk] || 0) + 10; got.push("生日快乐！" + b.name + " 的生日池：10 张生日券（100 抽）"); }
+      else if (!st.seenLimited[k + "_top"]) { st.seenLimited[k + "_top"] = 1; st.bdTickets[bk] = (st.bdTickets[bk] || 0) + 9; got.push("生日快乐！" + b.name + " 的生日池补发：9 张生日券（凑满 100 抽）"); } });
     if (got.length) save(st);
     return got;
   }
@@ -118,7 +124,8 @@
   function canBeg(st, key) { const b = st.bday[key]; return !!b && !b.got && !b.begged && b.since >= BDAY.beg; }
   function markBeg(key) { const st = load(), b = st.bday[key]; if (!b) return; b.begged = true; b.force = true; save(st); }
   // 付钱：用券或者邮资。n = 1 或 10
-  function pay(st, n, useTicket) {
+  function pay(st, n, useTicket, bdKey) {
+    if (n === 10 && bdKey && ((st.bdTickets || {})[bdKey] || 0) > 0) { st.bdTickets[bdKey]--; return "bdticket"; }   // 你的生日池：先用生日券
     if (n === 10 && useTicket && st.tickets > 0) { st.tickets--; return "ticket"; }
     if (n === 1 && (st.singles || 0) > 0) { st.singles--; return "single"; }   // 单抽先用「今天的信」
     // 十连没券：单抽券一张顶 100 邮资（十连 900＝9 张），不够的拿邮资补
