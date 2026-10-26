@@ -124,8 +124,10 @@
   function canBeg(st, key) { const b = st.bday[key]; return !!b && !b.got && !b.begged && b.since >= BDAY.beg; }
   function markBeg(key) { const st = load(), b = st.bday[key]; if (!b) return; b.begged = true; b.force = true; save(st); }
   // 付钱：用券或者邮资。n = 1 或 10
+  function bdTicketCount(st) { return Object.values(st.bdTickets || {}).reduce((a, b) => a + (Number(b) || 0), 0); }
   function pay(st, n, useTicket, bdKey) {
-    if (n === 10 && bdKey && ((st.bdTickets || {})[bdKey] || 0) > 0) { st.bdTickets[bdKey]--; return "bdticket"; }   // 你的生日池：先用生日券
+    // 生日券哪个池都能用（她 2026-10-26：「别的池子也能用，只是样式特别点」）：在你的生日池里先用那个生日的，别处用哪张都行
+    if (n === 10) { const bt = st.bdTickets || {}, k = bdKey && bt[bdKey] > 0 ? bdKey : Object.keys(bt).find(x => bt[x] > 0); if (k) { bt[k]--; return "bdticket"; } }
     if (n === 10 && useTicket && st.tickets > 0) { st.tickets--; return "ticket"; }
     if (n === 1 && (st.singles || 0) > 0) { st.singles--; return "single"; }   // 单抽先用「今天的信」
     // 十连没券：单抽券一张顶 100 邮资（十连 900＝9 张），不够的拿邮资补
@@ -189,7 +191,7 @@
   function ssrUnlocked(lv) { return { sections: Math.min(4, 1 + Math.floor(lv / 10)), ending: lv >= 40, hidden: lv >= 50 }; }
 
   g.StampsCore = { PRICE_ONE, PRICE_TEN, RATE, SOFT_FROM, HARD_AT, SR_EVERY, BDAY, CAP, FULL_COST, GIFT, GAIN, LIMITED,
-    claimLetter, letterClaimed, cleanText, DUPE_INK, UNLOCK, levelUp, canBeg, markBeg, load, save, gain, grantOnOpen, activeLimited, bdayWindow, rollRarity, pay, levelCost, isGate, gateBlocked, ssrUnlocked };
+    bdTicketCount, claimLetter, letterClaimed, cleanText, DUPE_INK, UNLOCK, levelUp, canBeg, markBeg, load, save, gain, grantOnOpen, activeLimited, bdayWindow, rollRarity, pay, levelCost, isGate, gateBlocked, ssrUnlocked };
   // 各处喊一声就记上
   g.stampGain = gain;
   // 别的玩法不一处处去挂：callAI 成功一枪（她按下去的、不是后台）会广播 ai-ok，这儿按它是干嘛的分进几档。
