@@ -4441,7 +4441,9 @@ function listenParseLrc(raw) {
 }
 
 // ── 浮窗歌词（群友 2026-10-26 许愿）：放歌时在任何一页上浮一行半透明的当前句，不挡手指 ──
-// 设置存在 x_floatLyric：{ on, color, size, opacity, pos: "top"|"mid"|"bottom" }。播放页「浮」那颗键开关、调样子，
+// 设置存在 x_floatLyric：{ on, color, size, opacity, pos: "top"|"mid"|"bottom"|"free", fx, fy }。
+//   pos "free"＝拖过的位置（她 2026-10-26）：fx/fy 是浮窗中心占屏幕宽高的比例，换屏幕方向也不跑出去。
+//   平时点得穿；「浮」那块设置开着时（floatLyricEdit）才接手指、能拖。播放页「浮」那颗键开关、调样子，
 // 改了就发 floatlyric 事件，挂在 app 根上的这一层跟着变
 const FLOAT_LYRIC_DEF = { on: false, color: "#ffffff", size: 18, opacity: 0.85, pos: "bottom" };
 function floatLyricPrefs() { return Object.assign({}, FLOAT_LYRIC_DEF, loadJSON("x_floatLyric", {}) || {}); }
@@ -4451,11 +4453,16 @@ function setFloatLyricPrefs(patch) {
   try { window.dispatchEvent(new CustomEvent("floatlyric")); } catch (e) {}
   return n;
 }
+let _floatLyricEditing = false;
+function setFloatLyricEdit(on) { _floatLyricEditing = !!on; try { window.dispatchEvent(new CustomEvent("floatlyric")); } catch (e) {} }
 const _floatLyricCache = {};   // 歌 id → 解析好的带时间的行（null＝没有）
 function FloatLyric({ player, song, read, ready }) {
   const [prefs, setPrefs] = useState(floatLyricPrefs);
   const [, bump] = useState(0);
-  useEffect(() => { const f = () => setPrefs(floatLyricPrefs()); window.addEventListener("floatlyric", f); return () => window.removeEventListener("floatlyric", f); }, []);
+  const [editing, setEditing] = useState(_floatLyricEditing);
+  const [drag, setDrag] = useState(null);   // 拖着时的 { fx, fy }，松手才存
+  const dragRef = useRef(null);
+  useEffect(() => { const f = () => { setPrefs(floatLyricPrefs()); setEditing(_floatLyricEditing); }; window.addEventListener("floatlyric", f); return () => window.removeEventListener("floatlyric", f); }, []);
   const id = song && song.id;
   useEffect(() => {
     if (!prefs.on || !song || !ready || _floatLyricCache[id] !== undefined) return;
@@ -4472,17 +4479,68 @@ function FloatLyric({ player, song, read, ready }) {
   const tNow = player.t || 0;
   let at = -1;
   for (let i = 0; i < lines.length; i++) { if (lines[i].t <= tNow) at = i; else break; }
-  if (at < 0) return null;
-  const pos = prefs.pos === "top" ? { top: "calc(env(safe-area-inset-top, 0px) + 64px)" }
+  if (at < 0 && !editing) return null;
+  const text = at >= 0 ? lines[at].text : "按住拖到想放的地方";
+  const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+  const free = drag || (prefs.pos === "free" && prefs.fx != null ? { fx: prefs.fx, fy: prefs.fy } : null);
+  const onDown = e => {
+    if (!editing) return;
+    try { e.currentTarget.setPointerCapture(e.pointerId); } catch (x) {}
+    const r = e.currentTarget.getBoundingClientRect();
+    dragRef.current = { dx: e.clientX - (r.left + r.width / 2), dy: e.clientY - (r.top + r.height / 2) };
+    e.preventDefault();
+  };
+  const onMove = e => {
+    const d = dragRef.current; if (!d) return;
+    const W = window.innerWidth || 1, H = window.innerHeight || 1;
+    setDrag({ fx: clamp((e.clientX - d.dx) / W, 0.12, 0.88), fy: clamp((e.clientY - d.dy) / H, 0.06, 0.94) });
+  };
+  const onUp = () => {
+    if (!dragRef.current) return; dragRef.current = null;
+    setDrag(cur => { if (cur) setFloatLyricPrefs({ pos: "free", fx: Math.round(cur.fx * 1000) / 1000, fy: Math.round(cur.fy * 1000) / 1000 }); return null; });
+  };
+  const pos = free ? { left: (free.fx * 100) + "%", top: (free.fy * 100) + "%", right: "auto", width: "max-content", maxWidth: "calc(100vw - 32px)", transform: "translate(-50%,-50%)" }
+    : prefs.pos === "top" ? { top: "calc(env(safe-area-inset-top, 0px) + 64px)" }
     : prefs.pos === "mid" ? { top: "50%", transform: "translateY(-50%)" }
     : { bottom: "calc(env(safe-area-inset-bottom, 0px) + 96px)" };
   const size = Math.max(12, Math.min(36, Number(prefs.size) || 18));
-  return h("div", { "data-wk": "floatlyric", "aria-hidden": "true", style: Object.assign({ position: "fixed", left: 16, right: 16, zIndex: 9000, pointerEvents: "none", textAlign: "center",
+  return h("div", { "data-wk": "floatlyric", "aria-hidden": "true", "data-editing": editing ? "1" : "0",
+    onPointerDown: onDown, onPointerMove: onMove, onPointerUp: onUp, onPointerCancel: onUp,
+    style: Object.assign({ position: "fixed", left: 16, right: 16, zIndex: 9000, pointerEvents: editing ? "auto" : "none", textAlign: "center",
+      ...(editing ? { outline: "1.5px dashed " + (prefs.color || "#fff"), outlineOffset: 4, borderRadius: 6, touchAction: "none", cursor: "grab", padding: "2px 6px" } : {}),
       fontFamily: F_BODY, fontSize: size, lineHeight: 1.4, fontWeight: 600, color: prefs.color || "#fff",
-      opacity: Math.max(0.15, Math.min(1, Number(prefs.opacity) || 0.85)), textShadow: "0 1px 3px rgba(0,0,0,.45)",
-      overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }, pos) }, lines[at].text);
+      opacity: Math.max(editing ? 0.6 : 0.15, Math.min(1, Number(prefs.opacity) || 0.85)), textShadow: "0 1px 3px rgba(0,0,0,.45)",
+      overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }, pos) }, text);
 }
 window.FloatLyric = FloatLyric;
+// 设置 → 通用「新消息提示音」（群友 2026-10-26）：关着／几种自带的／自己传一段。点一下就试听
+function MsgSoundPick({ p, save, toast }) {
+  const t = useTheme();
+  const fileRef = useRef(null);
+  const cur = p.msgSound || "";
+  const hasFile = !!loadJSON("x_msgSoundFile", null);
+  const pick = id => { save({ ...p, msgSound: id }); if (id) playMsgSound(id, p.msgSoundVol); };
+  const chip = (id, zh) => h("button", { key: id || "off", "data-wk": "msgsoundopt", "data-on": cur === id ? "1" : "0", onClick: () => id === "custom" && !hasFile ? fileRef.current && fileRef.current.click() : pick(id),
+    style: { minHeight: 40, padding: "0 12px", borderRadius: 8, border: "1px solid " + (cur === id ? t.ink : t.line), background: cur === id ? t.ink : "transparent", color: cur === id ? t.bg : t.sub, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))" } }, zh);
+  return h("div", { "data-wk": "msgsound", className: "py-4", style: { borderBottom: "1px solid " + t.line } },
+    h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(16px * var(--app-fs, 1))", color: t.ink } }, "新消息提示音"),
+    h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", lineHeight: 1.5, color: t.fog, marginTop: 2, marginBottom: 10 } }, "app 开着、人不在那条聊天里时，来消息响一下。点一个就换上并试听；锁屏时响不响看系统通知。"),
+    h("div", { className: "flex flex-wrap", style: { gap: 8 } },
+      chip("", "不响"), MSG_SOUNDS.map(x => chip(x.id, x.zh)), chip("custom", hasFile ? "我传的" : "传一段…")),
+    cur ? h("div", { className: "flex items-center", style: { gap: 10, marginTop: 10 } },
+      h("span", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.sub } }, "音量"),
+      [0.3, 0.6, 1].map((v, i) => h("button", { key: v, "data-wk": "msgsoundvol", "data-on": (p.msgSoundVol || 0.6) === v ? "1" : "0", onClick: () => { save({ ...p, msgSoundVol: v }); playMsgSound(cur, v); },
+        style: { minWidth: 44, minHeight: 40, borderRadius: 8, border: "1px solid " + ((p.msgSoundVol || 0.6) === v ? t.ink : t.line), background: "transparent", color: t.ink, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))" } }, ["小", "中", "大"][i])),
+      hasFile ? h("button", { onClick: () => fileRef.current && fileRef.current.click(), style: { marginLeft: "auto", minHeight: 40, background: "transparent", border: "none", color: t.accent, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))" } }, "换一段自己的") : null) : null,
+    h("input", { ref: fileRef, type: "file", accept: "audio/*", style: { display: "none" }, onChange: e => {
+      const f = e.target.files && e.target.files[0]; e.target.value = "";
+      if (!f) return;
+      if (f.size > 400 * 1024) { toast && toast("这段太大了，挑一段 400KB 以内的短音效"); return; }
+      const r = new FileReader();
+      r.onload = () => { try { saveJSON("x_msgSoundFile", String(r.result)); } catch (err) { toast && toast("存不下，换一段更短的"); return; } save({ ...p, msgSound: "custom" }); playMsgSound("custom", p.msgSoundVol); toast && toast("换好了"); };
+      r.readAsDataURL(f);
+    } }));
+}
 function ListenTogether({ profile, active, ctxFor, toast, onToChat, onListenState, onSetTalkStay, onSetTalkNote, listenRoomName, talkKey, listen, characters, onBack, onSetDisc, onSetCover, onAddNetease, onAddLocal, onPlaySong, onRemoveSong, onSetPartner, apiBase, onSetApiBase, musicProvider = "gd", musicReady, onSetMusicProvider, onMusicRequest, cookie, onSetCookie, onTestLogin, onAddNeteaseResult, onPlayResult, onPlayResultList, onAddResultToPlaylist, onCreatePlaylist, onDeletePlaylist, onRenamePlaylist, onAddToPlaylist, onRemoveFromPlaylist, onRenameSong, onGenCharPlaylist, onGenSquare, genSquare, onPlaySquare, onPostSquare, onReplySquare, onMoreSquare, onDelSquare, onDelSquareComment, onDelSongTalk, squareBusy, onShareSquare, onGenSongTalk, onReplySongTalk, songTalkBusy, player, onTogglePlay, onStep, onSeek, onToggleFav, playMode, onCyclePlayMode, gen, genCharPl }) {
   const t = useTheme();
   // ⚠️深色/自定义主题下 t.ink 或 t.accent 未必是六位色号，拼透明度后缀会拼出废值、
@@ -4590,6 +4648,9 @@ function ListenTogether({ profile, active, ctxFor, toast, onToChat, onListenStat
   const [showLyric, setShowLyric] = useState(false);
   const [flOpen, setFlOpen] = useState(false);
   const [flPrefs, setFlPrefs] = useState(floatLyricPrefs);
+  // 「浮」那块设置开着时浮窗能拖，关了（或离开这页）又点得穿
+  useEffect(() => { setFloatLyricEdit(!!flOpen); return () => setFloatLyricEdit(false); }, [flOpen]);
+  useEffect(() => { const f = () => setFlPrefs(floatLyricPrefs()); window.addEventListener("floatlyric", f); return () => window.removeEventListener("floatlyric", f); }, []);
   const [lyrics, setLyrics] = useState({}); // songId -> {lines:[{t,text}]|null}；null=确认没有
   const lyricBoxRef = useRef(null);
   // 解析歌词只有一份（listenParseLrc），浮窗歌词也用它
@@ -4782,7 +4843,9 @@ function ListenTogether({ profile, active, ctxFor, toast, onToChat, onListenStat
       h("div", { className: "flex items-center", style: { gap: 8 } },
         h("span", { style: { width: 34, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.sub } }, "位置"),
         [["top", "上"], ["mid", "中"], ["bottom", "下"]].map(([v, zh]) => h("button", { key: v, "data-wk": "floatlyricpos", "data-on": flPrefs.pos === v ? "1" : "0", onClick: () => setFlPrefs(setFloatLyricPrefs({ pos: v })),
-          style: { minWidth: 44, minHeight: 40, borderRadius: 8, border: "1px solid " + (flPrefs.pos === v ? t.ink : t.line), background: flPrefs.pos === v ? t.ink : "transparent", color: flPrefs.pos === v ? t.bg : t.sub, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))" } }, zh)))) : null,
+          style: { minWidth: 44, minHeight: 40, borderRadius: 8, border: "1px solid " + (flPrefs.pos === v ? t.ink : t.line), background: flPrefs.pos === v ? t.ink : "transparent", color: flPrefs.pos === v ? t.bg : t.sub, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))" } }, zh)),
+        flPrefs.pos === "free" ? h("span", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.sub } }, "拖过的位置") : null),
+      h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", lineHeight: 1.45, color: t.fog } }, "这块开着时，按住屏幕上的浮窗歌词（带虚线框那行）拖到想放的地方，松手就记住了；点上中下回到固定位置。关上这块，浮窗又变回点得穿、不挡手指。")) : null,
     // ── 进度＝唱针的行程（v62.46）────────────────────────────────────
     // 原来这儿是一根【原生 <input type="range">】：一页程序画的唱片沟纹中间躺着一根
     // iOS 系统滑块，是整页最裸的一件东西（审美审计点名）。
@@ -6808,14 +6871,15 @@ function Config(props) {
         if (sec && e.id === "config") { curPage = CH[sec[1]] || ""; curWhere = sec[1] + " · " + sec[2]; }
         const head = line.match(/^#{2,4}\s*(.+)/); if (head) { curWhere = e.zh + " · " + head[1]; if (e.id === "config") curPage = ""; }
         const plain = line.replace(/【跳转】/g, "").replace(/\*\*/g, "").replace(/^[\s-]+/, "");
-        if (plain.toLowerCase().indexOf(ql) < 0) return;
+        const _hit = settingsHit(plain, q); if (!_hit) return;
         const bold = line.match(/\*\*([^*]{1,40})\*\*/);
         const ttl = bold ? bold[1].replace(/[：:。]$/, "") : plain.slice(0, 24), snip = settingsSnippet(plain, q);
-        out.push({ page: curPage, where: curWhere, title: ttl, snippet: plain.replace(/[：:。\s]+$/, "") === ttl ? "" : snip, full: plain });
+        out.push({ hit: _hit, page: curPage, where: curWhere, title: ttl, snippet: plain.replace(/[：:。\s]+$/, "") === ttl ? "" : snip, full: plain });
       });
     });
     homeRows.forEach(r => { if (String(r.title).toLowerCase().indexOf(ql) >= 0 && !out.some(x => x.page === r.key)) out.unshift({ page: r.key, where: r.char + " · " + r.title, title: r.title, snippet: "" }); });
-    return out.slice(0, 50);
+    const _exact = out.filter(x => x.hit !== 1);
+    return (_exact.length ? _exact : out).slice(0, 50);
   });
   const [cfOpenHit, setCfOpenHit] = useState(-1);
   const [toyUnlocked, setToyUnlocked] = useState(() => { try { return localStorage.getItem("x_toyUnlocked") === "1"; } catch (e) { return false; } });
@@ -7668,7 +7732,7 @@ function SenseConfig({
   }, "人在别的玩法里时，新消息在顶上出一条，过几秒自己翻上去；点一下直接进那条聊天。单聊、群聊、旁观群都算")), h(Toggle, {
     on: p.msgBanner !== false,
     onChange: v => save({ ...p, msgBanner: v })
-  })), /*#__PURE__*/React.createElement("div", {
+  })), h(MsgSoundPick, { p, save, toast }), /*#__PURE__*/React.createElement("div", {
     className: "flex items-center justify-between py-4",
     style: {
       borderBottom: `1px solid ${t.line}`
@@ -7835,6 +7899,8 @@ function BubbleSkinConfig({ toast }) {
       ? h("div", { style: { marginTop: 8 } }, h(window.ThemePackPasteBox, { onText: applySkinText, open: "挑不开文件？把气泡的 JSON 贴进来" }))
       : null));
 }
+// 夜间配色那一套：只换底、卡片、字、线这几格，点缀色和警示色照她原来的
+const THEME_NIGHT = { bg: "#1c1b20", bg2: "#26252b", ink: "#ece6dc", sub: "#cfc8bd", fog: "#8e877d", line: "#3a3840" };
 function ThemeConfig({
   theme,
   onSave,
@@ -7846,6 +7912,7 @@ function ThemeConfig({
   const t = useTheme();
   const [th, setTh] = useState(theme);
   const fileRef = useRef(null);
+  const [nightOn, setNightOn] = useState(() => !!loadJSON("x_themeDay", null));
   // 壁纸上压的那一层（v61.38）。滑的时候本地先动，松手才落盘——
   // 每挪一格就 saveJSON 一次的话，拖一趟能写上百次。
   const [fx, setFx] = useState(() => ({ veil: (wallFx && wallFx.veil) || 0, blur: (wallFx && wallFx.blur) || 0 }));
@@ -7959,7 +8026,18 @@ function ThemeConfig({
     style: {
       display: "none"
     }
-  })), fields.map(([k, l]) => /*#__PURE__*/React.createElement("div", {
+  })),
+  // 一键夜间配色（群友 2026-10-26「有夜间模式吗」）：把底、卡片、字、线换成深色，点缀色和警示色留着；
+  //   换之前那一套存进 x_themeDay，关掉就原样换回。只管跟主题走的页面，自带皮的（论坛、日记这些）不变
+  h("div", { "data-wk": "themenight", className: "flex items-center justify-between py-3.5", style: { borderBottom: "1px solid " + t.line } },
+    h("div", { style: { paddingRight: 12 } },
+      h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))", color: t.ink } }, "夜间配色"),
+      h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.5, marginTop: 2 } }, "一下把底色和字换深，关掉换回你原来那套。论坛、日记这些自带皮的页面不跟着变。")),
+    h(Toggle, { on: nightOn, onChange: v => {
+      if (v) { saveJSON("x_themeDay", th); const n = { ...th, ...THEME_NIGHT }; setTh(n); setNightOn(true); onSave(n); }
+      else { const d = loadJSON("x_themeDay", null); const n = d && typeof d === "object" ? d : th; saveJSON("x_themeDay", null); setTh(n); setNightOn(false); onSave(n); }
+    } })),
+  fields.map(([k, l]) => /*#__PURE__*/React.createElement("div", {
     key: k,
     className: "flex items-center justify-between py-3.5",
     style: {

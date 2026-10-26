@@ -2191,6 +2191,47 @@ function Toast({
     }
   }, msg)), document.body);
 }
+// ── 新消息提示音（群友 2026-10-26 许愿）──────────────────────────────
+// 几种自带的是现场合成的（不带音频文件，不占地方）；也能传一段自己的（≤400KB，存在这台设备上）。
+// 只在 app 开着、人不在那条聊天里时响（bumpUnread 那一处叫它）；锁屏响不响归系统通知管。
+const MSG_SOUNDS = [
+  { id: "ding", zh: "叮", notes: [[1318, 0, 0.18]] },
+  { id: "dingdong", zh: "叮咚", notes: [[988, 0, 0.16], [784, 0.16, 0.26]] },
+  { id: "bubble", zh: "啵", sweep: [420, 980, 0.09] },
+  { id: "drop", zh: "水滴", sweep: [1500, 600, 0.12] },
+  { id: "chime", zh: "风铃", notes: [[1568, 0, 0.3], [2093, 0.08, 0.32], [2637, 0.16, 0.36]] },
+  { id: "knock", zh: "咚咚", notes: [[196, 0, 0.09], [196, 0.14, 0.09]], wave: "triangle" },
+  { id: "pop", zh: "轻快", notes: [[880, 0, 0.07], [1175, 0.08, 0.07], [1760, 0.16, 0.12]] }
+];
+let _msgAudioCtx = null;
+function msgAudioCtx() {
+  try { if (!_msgAudioCtx) _msgAudioCtx = new (window.AudioContext || window.webkitAudioContext)(); if (_msgAudioCtx.state === "suspended") _msgAudioCtx.resume(); } catch (e) { _msgAudioCtx = null; }
+  return _msgAudioCtx;
+}
+// iOS 要在手指碰过屏幕之后才放得出声：第一次点屏幕时先把声道打开
+try { const _unlock = () => { msgAudioCtx(); window.removeEventListener("pointerdown", _unlock, true); }; window.addEventListener("pointerdown", _unlock, true); } catch (e) {}
+function playMsgSound(id, vol) {
+  const v = Math.max(0.05, Math.min(1, vol == null ? 0.6 : Number(vol)));
+  if (!id) return;
+  if (id === "custom") {
+    const src = loadJSON("x_msgSoundFile", null);
+    if (!src) return;
+    try { const a = new Audio(src); a.volume = v; a.play().catch(() => {}); } catch (e) {}
+    return;
+  }
+  const s = MSG_SOUNDS.find(x => x.id === id); const ctx = msgAudioCtx();
+  if (!s || !ctx) return;
+  const t0 = ctx.currentTime + 0.01;
+  const tone = (f, at, len, f2) => {
+    const o = ctx.createOscillator(), g = ctx.createGain();
+    o.type = s.wave || "sine"; o.frequency.setValueAtTime(f, t0 + at);
+    if (f2) o.frequency.exponentialRampToValueAtTime(f2, t0 + at + len);
+    g.gain.setValueAtTime(0.0001, t0 + at); g.gain.exponentialRampToValueAtTime(0.35 * v, t0 + at + 0.01); g.gain.exponentialRampToValueAtTime(0.0001, t0 + at + len);
+    o.connect(g); g.connect(ctx.destination); o.start(t0 + at); o.stop(t0 + at + len + 0.02);
+  };
+  if (s.sweep) tone(s.sweep[0], 0, s.sweep[2], s.sweep[1]); else s.notes.forEach(n => tone(n[0], n[1], n[2]));
+}
+window.playMsgSound = playMsgSound;
 // ── App 内消息提醒（她 2026-09-11）───────────────────────────────────
 // 她原话：「我发了消息然后退出聊天去别的玩法里玩，顶上也会有提醒，一个气泡出一条
 // 叠加在上面……过几秒就上翻消失，点击也可以快速到达聊天界面。群聊单聊旁观群都要。」
@@ -21030,6 +21071,19 @@ function SettingCatalog({ pages, onOpen, note }) {
 //   搜的是页面上真写着的字（标题、说明、选项），不另抄一份目录：设置怎么改，搜得到的就跟着变。
 //   settingsSnippet：在一段字里找到那个词，前后各留一截当结果那一行。
 const settingsNorm = s => String(s || "").replace(/\s+/g, " ").trim();
+// 设置搜索对不对得上（她 2026-10-26：搜「保留重roll」搜不出「重 Roll 留着旧的」）：
+//   2＝去掉空格、不分大小写后原样包含；1＝换了说法但大半对得上（按两个字一组比，六成以上的组在里面）；0＝对不上。
+//   聊天设置和全局设置两处搜索共用这一份；对得上原样的那几条排前面，一条都没有才放模糊的进来
+function settingsHit(text, q) {
+  const sq = s => String(s || "").replace(/\s+/g, "").toLowerCase();
+  const t = sq(text), k = sq(q);
+  if (!k) return 0;
+  if (t.indexOf(k) >= 0) return 2;
+  if (k.length < 3) return 0;
+  const grams = []; for (let i = 0; i < k.length - 1; i++) grams.push(k.slice(i, i + 2));
+  const got = grams.filter(g => t.indexOf(g) >= 0).length;
+  return got / grams.length >= 0.6 ? 1 : 0;
+}
 function settingsSnippet(text, q) {
   const s0 = settingsNorm(text), i = s0.toLowerCase().indexOf(String(q || "").toLowerCase());
   if (i < 0) return "";
@@ -22043,15 +22097,16 @@ function ChatSettings({
     const pageOf = k => settingPages.find(p => p.key === k);
     document.querySelectorAll("[data-cssearch]").forEach(el => {
       const txt = settingsNorm(el.textContent), title = el.getAttribute("data-cstitle") || "";
-      if (txt.toLowerCase().indexOf(ql) < 0) return;
+      const _hit = settingsHit(txt, q); if (!_hit) return;
       const pg = pageOf(el.getAttribute("data-cssearch"));
-      out.push({ tab: el.getAttribute("data-cssearch"), sec: el.getAttribute("data-cssec") || "", where: pg ? pg.char + " · " + pg.title : "", title: title || (pg && pg.title) || "", snippet: title.toLowerCase().indexOf(ql) >= 0 ? "" : settingsSnippet(txt, q) });
+      out.push({ hit: _hit, tab: el.getAttribute("data-cssearch"), sec: el.getAttribute("data-cssec") || "", where: pg ? pg.char + " · " + pg.title : "", title: title || (pg && pg.title) || "", snippet: title.toLowerCase().indexOf(ql) >= 0 ? "" : settingsSnippet(txt, q) });
     });
     // 分类名本身对上了（比如搜「线路」）也给一行，点了进那一类
     settingPages.forEach(p => { if (String(p.title).toLowerCase().indexOf(ql) >= 0 && !out.some(x => x.tab === p.key)) out.push({ tab: p.key, sec: "", where: p.char + " · " + p.title, title: p.title, snippet: "" }); });
     // 节名本身写着这个词的排前面
     out.sort((a, b) => (String(b.title).toLowerCase().indexOf(ql) >= 0) - (String(a.title).toLowerCase().indexOf(ql) >= 0));
-    setCsHits(out.slice(0, 40));
+    const _exact = out.filter(x => x.hit !== 1);
+    setCsHits((_exact.length ? _exact : out).slice(0, 40));
   }, [csQ, settingsTab]);
   // 点了一行跳进去以后，找到那个词、滚过去闪一下
   useEffect(() => {
