@@ -17004,18 +17004,21 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   // 写卡：同一个人的 R、SR 每十张并成一次调用（跟一个十连一样大），SSR 一张一次；最多同时跑三次，其余排队
   //   （她 2026-10-26：开幕一口气抽了一百多张，全并成一次、全一起发，大半没写出来）
   const stampWrite = async cards => {
-    const byChar = {}, tasks = [];
+    // 同一个人的几批一批接一批写（后一批看得见前一批起了什么名、写了什么事，不会一口气全撞到同一个点子上；
+    //   她 2026-10-26：生日池一堆「霜降」），不同的人之间最多三个一起写
+    const byChar = {}, queues = [];
     (cards || []).forEach(c => { (byChar[c.charId] = byChar[c.charId] || []).push(c); });
     Object.keys(byChar).forEach(cid => {
       const char = characters.find(x => x.id === cid);
       if (!char) return;
-      const small = byChar[cid].filter(c => c.rarity !== "SSR"), big = byChar[cid].filter(c => c.rarity === "SSR");
-      for (let i = 0; i < small.length; i += 10) { const part = small.slice(i, i + 10); tasks.push(() => stampWriteSmall(char, part)); }
-      big.forEach(c => tasks.push(() => stampWriteSSR(char, c)));
+      const small = byChar[cid].filter(c => c.rarity !== "SSR"), big = byChar[cid].filter(c => c.rarity === "SSR"), q = [];
+      for (let i = 0; i < small.length; i += 10) { const part = small.slice(i, i + 10); q.push(() => stampWriteSmall(char, part)); }
+      big.forEach(c => q.push(() => stampWriteSSR(char, c)));
+      queues.push(q);
     });
     (cards || []).forEach(c => stampSaveCard(c.id, { writing: true, writingTs: Date.now(), queued: true, err: "" }));
     let next = 0;
-    const lane = async () => { while (next < tasks.length) { const t = tasks[next++]; try { await t(); } catch (e) {} } };
+    const lane = async () => { while (next < queues.length) { const q = queues[next++]; for (const t of q) { try { await t(); } catch (e) {} } } };
     await Promise.all([lane(), lane(), lane()]);
   };
   // 写卡是叙事正文，跟线下一样走线下线路（她 2026-10-25）；戳一戳、求情是他开口说话，照旧走聊天线路
@@ -17028,7 +17031,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         instruction: STAMP_CORE() + stampVoice(char) + stampBi(char) + "她在「邮票册」里抽到了几张印着你的邮票，每张是你的一个样子。下面按顺序写这几张。\n"
           + list.map((c, i) => "第 " + (i + 1) + " 张：" + c.rarity + "。" + stampKindLine(c, char)).join("\n")
           + "\n" + (list.some(c => c.rarity === "R") ? STAMP_RARITY_SPEC.R + "\n" : "") + (list.some(c => c.rarity === "SR") ? STAMP_RARITY_SPEC.SR + "\n" : "")
-          + "每张都有 name（卡名，八个字以内）、gist（一句话记下这张写的是什么事、在哪、怎么收的尾，给以后去重用）和 shot。" + STAMP_SHOT_SPEC
+          + "每张都有 name（卡名，八个字以内，从这张卡里那件事本身来起，不拿日子、节气、天气这些背景起名）、gist（一句话记下这张写的是什么事、在哪、怎么收的尾，给以后去重用）和 shot。" + STAMP_SHOT_SPEC
           + stampPrevLine(prev) + "\n这几张之间也是不同的事。",
         // 格式样例里不放 (R)/(SR) 这种占位：模型会照抄进正文。R、SR 各给一份，按这几张里有哪几种拼
         schemaHint: "{\"cards\":[" + [list.some(c => c.rarity === "R") ? "{\"name\":\"\",\"narration\":\"\",\"thought\":\"\",\"before\":{\"narration\":\"\",\"thought\":\"\"},\"after\":{\"narration\":\"\",\"thought\":\"\"},\"real\":\"\",\"sound\":\"\",\"back\":\"\",\"gist\":\"\",\"shot\":\"\"}" : "",
@@ -17059,7 +17062,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
           + "一节中间也可以停下来让她选一两次（beats 里放一个 who:\"pick\"，options 两三个：text 是她说的话或做的事，beats 是你接着的那几句）——选的不同你的反应就不同，几句之后回到这一节的主线；节尾的 choices 两三个。"
           + "往前走靠的是发生的事、你的做法和你们之间自然的对话；你说多少话照你平时的样子，心里的东西让她从你做的事里看出来。每节都有点什么变了，不必每节都有大事。"
           + "两条岔路走下去，后面发生的事、你的处理、她知道的东西、你们之间的样子，至少有一样真的不一样。她那句（me）照她平时的样子写，少一点。"
-          + "\nname 是卡名（八个字以内），line 是印在卡面上的一句你的台词。highlight 是剧情里你最想留住的那一刻，一两句画面。gist 一句话记下这张写的是什么事、在哪、怎么收的尾。allEndsLine 是她把每个结局都走过一遍以后，你想对她说的一句。" + STAMP_SHOT_SPEC
+          + "\nname 是卡名（八个字以内），line 是印在卡面上的一句你的台词。highlight 是剧情里你最想留住的那一刻，一两句画面。gist 一句话记下这张写的是什么事、在哪、怎么收的尾。name 从这段剧情里的事本身来起，不拿日子、节气、天气这些背景起名。allEndsLine 是她把每个结局都走过一遍以后，你想对她说的一句。" + STAMP_SHOT_SPEC
           + stampPrevLine(prev),
         schemaHint: "{\"name\":\"\",\"line\":\"\",\"highlight\":\"\",\"gist\":\"\",\"allEndsLine\":\"\",\"shot\":\"\",\"sections\":[{\"id\":\"s1\",\"lv\":1,\"title\":\"\",\"beats\":[{\"who\":\"narr|he|me\",\"text\":\"\"},{\"who\":\"pick\",\"options\":[{\"text\":\"\",\"beats\":[{\"who\":\"he\",\"text\":\"\"}]}]}],\"choices\":[{\"text\":\"\",\"go\":\"s2a\"}],\"end\":false,\"hidden\":false}]}",
         maxTokens: 65000
