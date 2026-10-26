@@ -228,11 +228,11 @@
       h2("div", { style: { padding: "14px 14px 12px", position: "relative", textAlign: "center" } },
         h2("svg", { viewBox: "0 0 24 24", style: { width: 28, height: 28, display: "block", margin: "0 auto" } },
           h2("rect", { x: 5, y: 12, width: 14, height: 8, rx: 1.5, fill: "#c98f74" }), h2("rect", { x: 11.2, y: 6, width: 1.6, height: 6, fill: "#f6e7c8" }), h2("path", { d: "M12 2.5c1.4 1.4 1.4 2.6 0 3.4-1.4-.8-1.4-2 0-3.4z", fill: "#e3893a" })),
-        h2("div", { style: { marginTop: 4, fontFamily: "var(--f-display,'Fraunces',serif)", fontSize: fs(19), color: "#8a3a4a", letterSpacing: ".1em" } }, "生日快乐"),
+        h2("div", { style: { marginTop: 4, fontFamily: "var(--f-display,'Fraunces',serif)", fontSize: fs(19), color: "#8a3a4a", letterSpacing: ".1em" } }, x.anniv ? "「" + x.anniv + "」" : "生日快乐"),
         h2("div", { style: { marginTop: 2, fontSize: fs(11), color: "#6b4a3a" } }, (x.to ? "给 " + x.to : "") + (d ? " · " + (d.getMonth() + 1) + "." + d.getDate() : "")),
-        h2("div", { style: { margin: "10px auto 0", padding: "6px 10px", borderRadius: 6, border: "1px dashed #c98f74", background: "rgba(255,248,233,.7)", fontSize: fs(12.5), color: "#8a3a4a" } }, "🎂 生日券 × " + (x.n || 0) + "（" + (x.n || 0) * 10 + " 抽）＋ " + (x.n || 0) * 1000 + " 印泥"),
-        h2("div", { style: { marginTop: 8, fontStyle: "italic", fontSize: fs(11.5), lineHeight: 1.6, color: "#6b4a3a" } }, "这一池里的每一封，都是他们寄给你的。" + (x.by ? " —— " + x.by : "")),
-        h2("button", { onClick: take, disabled: got, style: { marginTop: 10, width: "100%", padding: "8px 0", borderRadius: 8, border: "none", background: got ? "rgba(47,42,34,.08)" : "linear-gradient(160deg, #c98f74, #8a3a4a)", color: got ? "#827C6F" : "#FFF8E9", fontSize: fs(12.5) } }, got ? "领过了 · 去邮票册抽" : "领取生日券")));
+        h2("div", { style: { margin: "10px auto 0", padding: "6px 10px", borderRadius: 6, border: "1px dashed #c98f74", background: "rgba(255,248,233,.7)", fontSize: fs(12.5), color: "#8a3a4a" } }, (x.anniv ? "💌 纪念日券 × " : "🎂 生日券 × ") + (x.n || 0) + "（" + (x.n || 0) * 10 + " 抽）＋ " + (x.n || 0) * 1000 + " 印泥"),
+        h2("div", { style: { marginTop: 8, fontStyle: "italic", fontSize: fs(11.5), lineHeight: 1.6, color: "#6b4a3a" } }, (x.anniv ? "这一池里的每一封，都是我们俩的。" : "这一池里的每一封，都是他们寄给你的。") + (x.by ? " —— " + x.by : "")),
+        h2("button", { onClick: take, disabled: got, style: { marginTop: 10, width: "100%", padding: "8px 0", borderRadius: 8, border: "none", background: got ? "rgba(47,42,34,.08)" : "linear-gradient(160deg, #c98f74, #8a3a4a)", color: got ? "#827C6F" : "#FFF8E9", fontSize: fs(12.5) } }, got ? "领过了 · 去邮票册抽" : x.anniv ? "领取纪念日券" : "领取生日券")));
   };
   // 聊天里那封「今天的信」：信封样子，点「领取」进邮票册的单抽券
   g.StampLetterCard = function ({ m }) {

@@ -16926,6 +16926,15 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   const STAMP_SHOT_SPEC = "shot 是给画卡面的人看的分镜（中文，几句话）：pose＝这一刻身体正在做的动作——朝向、重心往哪边、两只手各在干嘛、视线落在哪，要有动势，不是对着镜头站着坐着摆好；camera＝景别、机位高低、镜头远近，像乙游卡面那样人和场景一起讲这一刻，有前景、有纵深，景别别总是半身近照；"
     + "light＝主光从哪边来、是什么光、冷暖、有没有轮廓光、阴影落在哪；place＝在哪、身边两三样带着这一刻的东西；outfit＝穿什么；mood＝一两个词。"
     + "画的是这张卡里真的发生的那一刻，不另编动作：你那时在干什么就画什么，构图跟着这个动作来，全身、半身、背影、俯拍仰拍都行；你那时没在看谁，就不看镜头。卡面是竖版的，上面只画你一个人。";
+  // 纪念日卡：判据不是清单——这一天对你们俩意味着什么，照这一年真实的关系写；往年同一个纪念日的卡带上，今年不重样
+  const stampAnnivLine = (card, char) => {
+    const past = (StampsCoreSafe().cards || []).filter(x => x.charId === char.id && x.kind === "anniv" && x.annivId === card.annivId && x.bdDay !== card.bdDay && x.text && !x.dupe)
+      .map(x => new Date(x.bdDay).getFullYear() + " 年「" + (x.text.name || "") + "」" + (x.text.gist ? "：" + String(x.text.gist).slice(0, 60) : "")).slice(-12);
+    return "这一张是你们的「" + (card.annivName || "纪念日") + "」前后，你们俩之间的一刻" + (card.annivN > 0 ? "（第 " + card.annivN + " 年）" : "") + "：她在场，R 也写你们俩在一起的那一瞬间。"
+      + "这一天对你们是什么分量，照你们这一年真实走到的样子来写——这一年一起经历过什么、现在是什么相处的温度，就从那儿长出这一刻；不必隆重，记得这一天的方式像你自己。"
+      + "打扮是为这一天的，不从衣柜里挑。shot 画的是你们两个人。"
+      + (past.length ? "\n往年的这一天你们也过过，那时的卡：\n" + past.join("\n") + "\n今年写别的事；可以自然想起往年，但不必每张都提。" : "");
+  };
   const stampKindLine = (card, char) => {
     if (card.kind === "if") {
       const mode = card.ifMode === "into" ? "把你自己丢进这个主题里：你还是原来那个世界的人，忽然到了这里，看什么都新鲜，这本身就是故事。"
@@ -16942,6 +16951,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       + "这件事从你自己的生活里来：你的活儿、你在意的东西、你身边的人、你的选择，或者一点意外；它可以跟她一点关系都没有，你不必时时惦记着她。"
       + "写到她的时候，你俩的关系走到哪一步就写到哪一步，还没在一起就不写恋人之间的事，最近在别扭就别写得甜。衣服从你自己的衣柜里挑。"
       + (card.kind === "mybday" ? "这一张是【她的生日】前后，你们俩之间的一刻：她在场，R 也写你们俩在一起的那一瞬间。照你们现在的关系来，还没在一起就不写恋人之间的事。为她的生日，你们俩的打扮都是特意的，不从衣柜里挑。shot 画的是你们两个人。" : "")
+      + (card.kind === "anniv" ? stampAnnivLine(card, char) : "")
       + (card.kind === "bday" ? "这一张是你生日前后的一刻。衣服这次不从你衣柜里挑：生日卡是专门为这一天设计的限定造型——一眼看得出是特意的，比你平时隆重、细节多，面料、配饰、搭配都有讲究，同时还是你会穿、配你这个人的样子；隆重不等于西装，照那天在做的事配。shot 的景别拉开到看得见那天的场合和生日的氛围。" : "");
   };
   const STAMP_RARITY_SPEC = {
@@ -17156,7 +17166,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       // 满级的第二张（alt）：画剧情结局那一刻，不是第一张那一刻；mode=duo 是你们俩
       const endSec = (tx.sections || []).find(x => x && x.end && !x.hidden);
       const endWhat = endSec ? (endSec.beats || []).map(b => b.text || "").join("").slice(-300) : "";
-      const duo = (alt && mode === "duo") || (card.kind === "mybday" && mode !== "solo");   // 她的生日卡：第一面就是你们俩
+      const duo = (alt && mode === "duo") || (card.kind === "mybday" && mode !== "solo") || card.kind === "anniv";   // 纪念日卡：每一面都是你们俩   // 她的生日卡：第一面就是你们俩
       const lover = spaceLover((couplesRef.current || {})[char.id]);
       let scene = alt
         ? "一张乙游满级纪念卡面：「" + (tx.name || "") + "」。画的是这段剧情走到结局时的那一刻：" + (endWhat || String(what).slice(0, 300)) + "\n跟第一张卡面不是同一刻，构图和光也换一套。景别拉开到看得见这一刻的场景和氛围，不是一张脸部近照。"
@@ -17168,13 +17178,14 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       const keepLook = card.kind === "if" ? "\n这张是 IF「" + (card.theme || "") + "」" + (card.themeLine ? "：" + String(card.themeLine).slice(0, 500) : "") + "。" + (card.themeLook ? card.themeLook : "") + "衣服、场景、道具和光都照这个主题来，一眼看得出是这个主题" + (duo ? "，画里两个人的打扮都是" : "") + "。"
         + "他的长相照他本人：发色、发型、瞳色、五官和身材都不变，主题只换衣服、场景和道具。" : "";
       scene += keepLook;
-      const freeFit = card.kind === "if" || card.kind === "bday" || card.kind === "mybday";   // 这几种衣服不走衣柜（先定义：下面她那份也要用）
+      const freeFit = card.kind === "if" || card.kind === "bday" || card.kind === "mybday" || card.kind === "anniv";   // 这几种衣服不走衣柜（先定义：下面她那份也要用）
       const meP = duo ? Object.assign({}, photoMe("她", char.id), freeFit ? { outfit: "", closet: "" } : {}) : null;   // IF 双人：她也照主题穿，不从她衣柜里挑
       if (duo && !(meP && meP.refPhoto)) toast("你还没传自己的参考照（在你自己的资料里传一张），这张只能照文字画你", 6000);
       // 画风：卡池设置里挑的（空＝跟着这个人自己的设定；real＝写实照片；别的就是画风名）
       const paint = String(((StampsCoreSafe().opt || {}).paint) || "").trim();
       // IF 照主题穿；生日卡穿一身只属于这天的新打扮（她 2026-10-25：「乙游生日卡都出新衣服」）——这两种都不走衣柜
       if (card.kind === "mybday" && duo) scene += "\n这是她的生日卡：画面里是你们两个人，看得出是她的生日——场合、光和身边的东西带着生日的氛围，景别拉开到看得见这些。两个人都是为她生日特意的打扮，细节讲究，隆重不等于礼服西装，照那天在做的事、又各是自己会穿的样子。";
+      if (card.kind === "anniv") scene += "\n这是你们的纪念日卡「" + (card.annivName || "") + "」：画面里是你们两个人，看得出是属于你们俩的那一天——场合、光和身边的东西带着这一天的意思，景别拉开到看得见这些。两个人都是为这一天特意的打扮，又各是自己会穿的样子。";
       if (card.kind === "bday") scene += "\n这是他的生日限定卡面：画面里要看得出是他的生日——那天的场合、在哪儿、光和身边的东西带着生日的氛围，景别拉开到看得见这些，不是在普通背景前的一张近照。"
         + "他穿一身专门为这一天设计的造型，不照平时衣柜里那几身——一眼看得出是特意的，细节多，面料、配饰、搭配都有讲究；隆重不等于西装，照这一天他在做的事和他这个人来配。分镜里写的衣服跟这一条对不上时，照这一条。";
       const base = freeFit ? Object.assign({}, char, { photoOutfit: "" }) : char;
@@ -19358,6 +19369,32 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     });
     if (changed) C2.save(st);
   };
+  // 纪念日池（她 2026-10-26）：在一起那天每年一份，情侣空间里挂在他名下、每年重复的纪念日各一份。md 是 "MM-DD"
+  const stampAnnivs = () => {
+    const out = [], pad = n => String(n).padStart(2, "0");
+    liveChars.forEach(c => { const cp = (couplesRef.current || {})[c.id]; if (c.npc || !cp || cp.status !== "together" || !cp.since) return;
+      const d = new Date(cp.since); if (isNaN(d)) return;
+      out.push({ id: "tg_" + c.id, charId: c.id, name: "在一起", md: pad(d.getMonth() + 1) + "-" + pad(d.getDate()), since: d.getTime() }); });
+    (coupleAnnivRef.current || []).forEach(a => { if (!a || !a.characterId || a.yearlyRepeat === false || !a.month || !a.day) return;
+      if (!liveChars.some(c => c.id === a.characterId)) return;
+      const y = Number(a.year);
+      out.push({ id: "ca_" + a.id, charId: a.characterId, name: String(a.name || "纪念日").slice(0, 12), md: pad(a.month) + "-" + pad(a.day), since: y > 1900 ? new Date(y, a.month - 1, a.day).getTime() : 0 }); });
+    return out;
+  };
+  // 纪念日信：池子一开，他寄一封进私聊，五张纪念日券（哪个池都能用，在这个纪念日池里先用）＋五千印泥。不调模型
+  const stampAnnivLetterSweep = () => {
+    if (!window.StampsCore) return;
+    const C2 = window.StampsCore, st = C2.load(); let changed = false;
+    stampAnnivs().forEach(a => {
+      const w = C2.bdayWindow(a.md, Date.now()); if (!w) return;
+      const bdKey = "an_" + a.id + "_" + w.year, k = "ltr_" + bdKey;
+      if (st.seenLimited[k]) return; st.seenLimited[k] = 1; changed = true;
+      const c = liveChars.find(x => x.id === a.charId); if (!c) return;
+      pChat(c.id, p => [...p, { role: "char", kind: "stampbdletter", content: "〔从邮票册给你寄了一封纪念日的信：「" + a.name + "」。里面是 5 张纪念日券，点一下就能领〕", ts: Date.now(),
+        stampBdLetter: { id: "al_" + Date.now().toString(36) + a.id, bdKey, n: 5, by: c.remark || c.name, to: profile.name || "你", day: w.day, anniv: a.name }, read: false }]);
+    });
+    if (changed) C2.save(st);
+  };
   const stampLetterSweep = async () => {
     if (!window.StampsCore) return;
     const st = window.StampsCore.load(), d = new Date(), today = d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate();
@@ -19406,6 +19443,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     deliverDeskLog();
     try { stampLetterSweep(); } catch (e) {}
     try { stampBdLetterSweep(); } catch (e) {}
+    try { stampAnnivLetterSweep(); } catch (e) {}
     const steps = [schedGenAllToday, schedMaybeSelfRevise, walletCatchAllToday,
       desireMuseAllToday, desireTendAllToday, phoneWeeklySweep, autoImpressionSweep, astroSignSweep];
     for (const step of steps) { try { await step(); } catch (e) {/* 一步失手不拖累后面几步 */ } }
@@ -33938,6 +33976,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     onInner: stampInner,
     // 她的生日池：主面具一份，每张副面具一份；各自只抽认这张面具的那几个人
     myBdays: stampMyBdays(),
+    annivs: stampAnnivs(),
     onBack: () => setScreen("home")
   });else if (screen === "zhaoying") body = h(window.ZhaoyingApp, {
     // 按头像发卡：卡落进跟他的聊天，他在后台做题，做完了点卡看他做（她 2026-10-22）
