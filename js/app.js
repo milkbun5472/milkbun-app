@@ -13409,7 +13409,10 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         raw = await callAI(_route, system + mcpToolHint(_mcpT), retryMessages, { use: "chat", logRetry: true, logWho: (char && char.name) || "", signal: _abort.signal, maxTokens: 14000, cacheHistory: _shape.histCache, stream: _engineerChat, timeout: 180000, webSearch: _wantWeb, tools: _mcpT, runTool: (n, ar) => window.MCP.callTool(n, ar), tag: "聊天" });
       }
       // 邮票册：她按一次回复、他回上来一轮，记一轮邮资印泥（他主动来的、重 roll 不算）
-      if (raw && !(opts && (opts.proactive || opts.rerollAvoid)) && typeof stampGain === "function") stampGain("round");
+      if (raw && !(opts && (opts.proactive || opts.rerollAvoid)) && typeof stampGain === "function") { stampGain("round");
+        // 她刚把一枚邮票发给他看，他回了这一轮：多给一点印泥（一枚邮票只算一次）
+        try { const S2 = window.StampsCore, s2 = S2 && S2.load(), pend = s2 && s2.sharePend && char && s2.sharePend[char.id];
+          if (pend) { delete s2.sharePend[char.id]; S2.save(s2); stampGain("share"); } } catch (e) {} }
       // 他主动找你也攒一点邮资（她 2026-10-26：「上班很忙」——没空聊的时候，他惦记你也算）
       else if (raw && opts && opts.proactive && !opts.rerollAvoid && typeof stampGain === "function") stampGain("nudge");
       // 从坏掉的 JSON 里【只】抠出 word 气泡，绝不把整段原始 JSON（含 thought 心声等内部字段）当消息发出去
@@ -16990,6 +16993,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     const head = "（寄给你一枚邮票：「" + (tx.name || "") + "」" + (card.kind === "if" ? "。这是 IF 线「" + (card.theme || "") + "」里的你——另一个世界的你，不是你们真的发生过的事" : "") + "）";
     pChat(ch.id, p => [...p, { role: "user", kind: "stampshare", stamp: stampShareOf(card), content: (head + "\n" + gist).trim().slice(0, 900), ts: Date.now() }]);
     stampSaveCard(card.id, { sentTs: Date.now() });
+    if (!card.sentTs && window.StampsCore) { const s2 = window.StampsCore.load(); s2.sharePend = Object.assign({}, s2.sharePend, { [ch.id]: card.id }); window.StampsCore.save(s2); }   // 第一次发这枚才算
     toast("发给 " + (ch.remark || ch.name) + " 了，回聊天里看他怎么说");
   };
   // 生日池求情：她跟他讨一张生日 SSR，他回一句（用他的口气，答应或者逗她都行），回到了下一张就一定出
@@ -19395,6 +19399,27 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     });
     if (changed) C2.save(st);
   };
+  // 关系里程碑（她 2026-10-26：多点渠道，但不做成日常任务）：在一起了、在一起 100/520/1000 天、甜蜜值到 10/30/50/100，他寄一封信装几张十连券。
+  //   一辈子就这几次；改版时已经过了好几档的，只寄最高那一档，低的记成寄过
+  const STAMP_MILES = { tg: [[0, "在一起了", 3], [100, "在一起 100 天", 3], [520, "在一起 520 天", 5], [1000, "在一起 1000 天", 10]], sw: [[10, "甜蜜值 10", 1], [30, "甜蜜值 30", 2], [50, "甜蜜值 50", 3], [100, "甜蜜值 100", 5]] };
+  const stampMileSweep = () => {
+    if (!window.StampsCore) return;
+    const C2 = window.StampsCore, st = C2.load(), sweet = loadJSON("x_coupleSweet", {}); let changed = false;
+    if (!st.gifted) return;   // 没打开过邮票册的人不寄
+    liveChars.forEach(c => { if (c.npc) return;
+      const cp = (couplesRef.current || {})[c.id];
+      const vals = { tg: cp && cp.status === "together" && cp.since ? Math.floor((Date.now() - new Date(cp.since).getTime()) / 86400000) : -1, sw: Number((sweet[c.id] || {}).value) || 0 };
+      Object.keys(STAMP_MILES).forEach(k => {
+        const hit = STAMP_MILES[k].filter(m => vals[k] >= m[0] && !(k === "tg" && vals[k] < 0)), key = m => "mile_" + k + m[0] + "_" + c.id;   // 一个人一辈子一次：分手再在一起不重寄
+        const fresh = hit.filter(m => !st.seenLimited[key(m)]); if (!fresh.length) return;
+        fresh.forEach(m => { st.seenLimited[key(m)] = 1; }); changed = true;
+        const m = fresh[fresh.length - 1];
+        pChat(c.id, p => [...p, { role: "char", kind: "stampbdletter", content: "〔从邮票册给你寄了一封信：「" + m[1] + "」。里面是 " + m[2] + " 张十连券，点一下就能领〕", ts: Date.now(),
+          stampBdLetter: { id: "ml_" + Date.now().toString(36) + k + m[0] + c.id, bdKey: null, n: m[2], by: c.remark || c.name, to: profile.name || "你", day: Date.now(), mile: m[1] }, read: false }]);
+      });
+    });
+    if (changed) C2.save(st);
+  };
   const stampLetterSweep = async () => {
     if (!window.StampsCore) return;
     const st = window.StampsCore.load(), d = new Date(), today = d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate();
@@ -19444,6 +19469,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     try { stampLetterSweep(); } catch (e) {}
     try { stampBdLetterSweep(); } catch (e) {}
     try { stampAnnivLetterSweep(); } catch (e) {}
+    try { stampMileSweep(); } catch (e) {}
     const steps = [schedGenAllToday, schedMaybeSelfRevise, walletCatchAllToday,
       desireMuseAllToday, desireTendAllToday, phoneWeeklySweep, autoImpressionSweep, astroSignSweep];
     for (const step of steps) { try { await step(); } catch (e) {/* 一步失手不拖累后面几步 */ } }

@@ -96,6 +96,13 @@ test("生日池防多刷：同一年改了生日，池子还按第一次那天�
   assert.equal(C.bdayWindow("02-29", new Date(2028, 1, 29).getTime()).day, new Date(2028, 1, 29).getTime());
 });
 
+test("里程碑信：不带池子的信领到的是普通十连券＋印泥，一封只领一次", () => {
+  const C = fresh(), t0 = C.load().tickets, i0 = C.load().ink;
+  assert.equal(C.claimBdLetter("ml1", null, 3), true);
+  assert.equal(C.claimBdLetter("ml1", null, 3), false);
+  const st = C.load(); assert.equal(st.tickets, t0 + 3); assert.equal(st.ink, i0 + 3000); assert.equal(C.bdTicketCount(st), 0);
+});
+
 test("盖印升级：扣印泥，30 级那一坎没发给他看过就停住", () => {
   const C = fresh(), st = C.load();
   st.ink = 100000; st.cards = [{ id: "a", rarity: "SR", lv: 1 }]; C.save(st);

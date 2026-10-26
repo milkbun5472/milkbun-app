@@ -22,7 +22,8 @@
     stay: [80, 80],     // 一起听、一起看、一起读、查手机翻一次、看 TA 玩
     play: [20, 40],     // 其他花调用的玩法：同人文、梦境、擂台、另一种我们、跑团、塔罗、星测、解梦、一起学
     nudge: [10, 0],     // 他主动发来一条（她没回也算）
-    sweet: [20, 100]    // 情侣空间甜蜜打卡：每人每天一次（她 2026-10-26）
+    sweet: [20, 100],   // 情侣空间甜蜜打卡：每人每天一次（她 2026-10-26）
+    share: [0, 200]     // 她把邮票「发给他看」、他回了那一轮
   };
   const MAKEUP = { id: "postage26", tickets: 2 };
   // 印泥（她 2026-10-26：「一直发抽数没发印泥」）：送出去的每张十连券都配 1000 印泥；之前送过的一次补 5000
@@ -202,7 +203,7 @@
 
   // 领聊天里那封「今天的信」：一封只能领一次
   function claimLetter(id) { const st = load(); st.claimed = st.claimed || {}; if (st.claimed[id]) return false; st.claimed[id] = 1; st.singles = (st.singles || 0) + 1; save(st); return true; }
-  function claimBdLetter(id, bdKey, n) { const st = load(); st.claimed = st.claimed || {}; if (st.claimed[id]) return false; st.claimed[id] = 1; st.bdTickets = st.bdTickets || {}; st.bdTickets[bdKey] = (st.bdTickets[bdKey] || 0) + (Number(n) || 0); st.ink += (Number(n) || 0) * INK_PER_TEN; save(st); return true; }
+  function claimBdLetter(id, bdKey, n) { const st = load(); st.claimed = st.claimed || {}; if (st.claimed[id]) return false; st.claimed[id] = 1; if (bdKey) { st.bdTickets = st.bdTickets || {}; st.bdTickets[bdKey] = (st.bdTickets[bdKey] || 0) + (Number(n) || 0); } else st.tickets += Number(n) || 0; st.ink += (Number(n) || 0) * INK_PER_TEN; save(st); return true; }
   function letterClaimed(id) { return !!((load().claimed || {})[id]); }
 
   // 剧情按等级解锁：SSR 每十级一节（1 级第一节，40 级结局，50 级隐藏的路）
@@ -239,11 +240,11 @@
       h2("div", { style: { padding: "14px 14px 12px", position: "relative", textAlign: "center" } },
         h2("svg", { viewBox: "0 0 24 24", style: { width: 28, height: 28, display: "block", margin: "0 auto" } },
           h2("rect", { x: 5, y: 12, width: 14, height: 8, rx: 1.5, fill: "#c98f74" }), h2("rect", { x: 11.2, y: 6, width: 1.6, height: 6, fill: "#f6e7c8" }), h2("path", { d: "M12 2.5c1.4 1.4 1.4 2.6 0 3.4-1.4-.8-1.4-2 0-3.4z", fill: "#e3893a" })),
-        h2("div", { style: { marginTop: 4, fontFamily: "var(--f-display,'Fraunces',serif)", fontSize: fs(19), color: "#8a3a4a", letterSpacing: ".1em" } }, x.anniv ? "「" + x.anniv + "」" : "生日快乐"),
+        h2("div", { style: { marginTop: 4, fontFamily: "var(--f-display,'Fraunces',serif)", fontSize: fs(19), color: "#8a3a4a", letterSpacing: ".1em" } }, x.mile ? x.mile : x.anniv ? "「" + x.anniv + "」" : "生日快乐"),
         h2("div", { style: { marginTop: 2, fontSize: fs(11), color: "#6b4a3a" } }, (x.to ? "给 " + x.to : "") + (d ? " · " + (d.getMonth() + 1) + "." + d.getDate() : "")),
-        h2("div", { style: { margin: "10px auto 0", padding: "6px 10px", borderRadius: 6, border: "1px dashed #c98f74", background: "rgba(255,248,233,.7)", fontSize: fs(12.5), color: "#8a3a4a" } }, (x.anniv ? "💌 纪念日券 × " : "🎂 生日券 × ") + (x.n || 0) + "（" + (x.n || 0) * 10 + " 抽）＋ " + (x.n || 0) * 1000 + " 印泥"),
-        h2("div", { style: { marginTop: 8, fontStyle: "italic", fontSize: fs(11.5), lineHeight: 1.6, color: "#6b4a3a" } }, (x.anniv ? "这一池里的每一封，都是我们俩的。" : "这一池里的每一封，都是他们寄给你的。") + (x.by ? " —— " + x.by : "")),
-        h2("button", { onClick: take, disabled: got, style: { marginTop: 10, width: "100%", padding: "8px 0", borderRadius: 8, border: "none", background: got ? "rgba(47,42,34,.08)" : "linear-gradient(160deg, #c98f74, #8a3a4a)", color: got ? "#827C6F" : "#FFF8E9", fontSize: fs(12.5) } }, got ? "领过了 · 去邮票册抽" : x.anniv ? "领取纪念日券" : "领取生日券")));
+        h2("div", { style: { margin: "10px auto 0", padding: "6px 10px", borderRadius: 6, border: "1px dashed #c98f74", background: "rgba(255,248,233,.7)", fontSize: fs(12.5), color: "#8a3a4a" } }, (x.mile ? "💌 十连券 × " : x.anniv ? "💌 纪念日券 × " : "🎂 生日券 × ") + (x.n || 0) + "（" + (x.n || 0) * 10 + " 抽）＋ " + (x.n || 0) * 1000 + " 印泥"),
+        h2("div", { style: { marginTop: 8, fontStyle: "italic", fontSize: fs(11.5), lineHeight: 1.6, color: "#6b4a3a" } }, (x.mile ? "记着我们走到了这里。" : x.anniv ? "这一池里的每一封，都是我们俩的。" : "这一池里的每一封，都是他们寄给你的。") + (x.by ? " —— " + x.by : "")),
+        h2("button", { onClick: take, disabled: got, style: { marginTop: 10, width: "100%", padding: "8px 0", borderRadius: 8, border: "none", background: got ? "rgba(47,42,34,.08)" : "linear-gradient(160deg, #c98f74, #8a3a4a)", color: got ? "#827C6F" : "#FFF8E9", fontSize: fs(12.5) } }, got ? "领过了 · 去邮票册抽" : x.mile ? "领取十连券" : x.anniv ? "领取纪念日券" : "领取生日券")));
   };
   // 聊天里那封「今天的信」：信封样子，点「领取」进邮票册的单抽券
   g.StampLetterCard = function ({ m }) {
