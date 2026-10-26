@@ -20981,6 +20981,50 @@ function SettingCatalog({ pages, onOpen, note }) {
     ))),
     note ? h("div", { "data-wk": "setnote", style: { marginTop: 14, padding: "13px 15px", borderRadius: 16, border: "1px solid " + t.line, fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.6 } }, note) : null);
 }
+// ── 设置页搜索（她 2026-10-25：「这些设置页面能不能加搜索」）──────────────
+//   搜的是页面上真写着的字（标题、说明、选项），不另抄一份目录：设置怎么改，搜得到的就跟着变。
+//   settingsSnippet：在一段字里找到那个词，前后各留一截当结果那一行。
+const settingsNorm = s => String(s || "").replace(/\s+/g, " ").trim();
+function settingsSnippet(text, q) {
+  const s0 = settingsNorm(text), i = s0.toLowerCase().indexOf(String(q || "").toLowerCase());
+  if (i < 0) return "";
+  const a = Math.max(0, i - 16), b = Math.min(s0.length, i + q.length + 24);
+  return (a ? "…" : "") + s0.slice(a, b) + (b < s0.length ? "…" : "");
+}
+// 跳过去以后：在 root 里找第一处写着这个词的字，滚到正中、闪一下
+function settingsFlash(root, q) {
+  if (!root || !q) return false;
+  const want = String(q).toLowerCase();
+  const tw = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, null);
+  let n;
+  while ((n = tw.nextNode())) {
+    if (String(n.nodeValue || "").toLowerCase().indexOf(want) < 0) continue;
+    const el = n.parentElement; if (!el || !el.getClientRects().length) continue;
+    try { el.scrollIntoView({ block: "center", behavior: "smooth" }); } catch (e) {}
+    const old = el.style.backgroundColor, oldT = el.style.transition;
+    el.style.transition = "background-color .4s"; el.style.backgroundColor = "rgba(230,190,90,.45)";
+    setTimeout(() => { el.style.backgroundColor = old; setTimeout(() => { el.style.transition = oldT; }, 450); }, 1500);
+    return true;
+  }
+  return false;
+}
+function SettingsSearchBox({ value, onChange, placeholder }) {
+  const t = useTheme();
+  return h("div", { "data-wk": "setsearch", style: { position: "relative", margin: "8px 0 10px" } },
+    h("input", { "data-wk": "input", value: value, onChange: e => onChange(e.target.value), placeholder: placeholder || "搜一个设置",
+      style: { width: "100%", padding: "10px 34px 10px 13px", borderRadius: 12, border: "1px solid " + t.line, background: t.bg2, color: t.ink, fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", outline: "none" } }),
+    value ? h("button", { onClick: () => onChange(""), "aria-label": "清空", style: { position: "absolute", right: 4, top: "50%", marginTop: -18, width: 36, height: 36, color: t.fog, fontSize: 15, background: "transparent", border: "none" } }, "✕") : null);
+}
+// 搜到的一行：在哪一页 › 哪一节，底下一截写着那个词的原文
+function SettingsSearchHits({ hits, q, onPick, empty }) {
+  const t = useTheme();
+  if (!hits.length) return h("div", { style: { padding: "26px 4px", textAlign: "center", fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.7 } }, empty || "没搜到。换个说法试试，或者问秋秋。");
+  return h("div", { "data-wk": "setsearchhits" }, hits.map((x, i) => h("button", { key: i, "data-wk": "setsearchhit", onClick: () => onPick(x), className: "w-full text-left active:opacity-70",
+    style: { display: "block", padding: "11px 4px", borderBottom: "1px solid " + t.line } },
+    h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog } }, x.where),
+    h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(14.5px * var(--app-fs, 1))", color: t.ink, marginTop: 2 } }, x.title),
+    x.snippet ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.sub, marginTop: 3, lineHeight: 1.55 } }, x.snippet) : null)));
+}
 function SettingSection({ title, open, onToggle, danger, children }) {
   const t = useTheme();
   // ⚠️v63.92 从「一条发丝线 + 一行字」改成卡片：这一页铺上档案纸的底纹之后，
@@ -21667,7 +21711,12 @@ function ChatSettings({
   const [openSec, setOpenSec] = useState("");
   // 设置首页只放分类卡片；点进去才加载该类完整表单，避免所有选项挤在一张长页面里。
   const [settingsTab, setSettingsTab] = useState("");
-  const sec = key => ({ open: openSec === key, onToggle: () => setOpenSec(v => v === key ? "" : key) });
+  const sec = key => ({ secKey: key, open: openSec === key, onToggle: () => setOpenSec(v => v === key ? "" : key) });
+  // 搜索（她 2026-10-25）：打字时把每一节都摊开、藏着渲染一遍，拿页面上真写着的字去找
+  const [csQ, setCsQ] = useState("");
+  const [csHits, setCsHits] = useState([]);
+  const csFlash = useRef("");
+  const csSearching = !!csQ.trim();
   const [remark, setRemark] = useState(character.remark || "");
   // 聊天头像（chatAvatar）：只在聊天列表和聊天页用；档案那张不动（她 2026-09-30：「换了也不需要回人格档案馆改」）
   const [chatAvatar, setChatAvatar] = useState(character.chatAvatar || null);
@@ -21936,11 +21985,35 @@ function ChatSettings({
     h(Toggle, { on: val, onChange: () => set(v => !v) }));
   // 同一行档位尺写了三份（v63.43 收成一处 PersRow）
   const persRow = (label, val, set, opts) => h(PersRow, { label: label, val: val, set: set, opts: opts });
-  const show = (tab, props, ...children) => settingsTab === tab ? h(SettingSection, props, ...children) : null;
+  const show = (tab, props, ...children) => csSearching && !settingsTab
+    ? h("div", { "data-cssearch": tab, "data-cssec": props.secKey || "", "data-cstitle": props.title || "", style: { display: "none" } }, h(SettingSection, { ...props, open: true, onToggle: () => {} }, ...children))
+    : settingsTab === tab ? h(SettingSection, props, ...children) : null;
   // 只装了一节的那几类：进去就把它摊开。留着收起来的话，点进来是一片空白 +
   // 一行跟页标题几乎一样的字，还得再点一下——比改分类之前还难用。
   const SOLO = { route: "route", danger: "danger" };
   const openTab = k => { setSettingsTab(k); setOpenSec(SOLO[k] || ""); };
+  useEffect(() => {
+    if (!csSearching || settingsTab) { setCsHits([]); return; }
+    const q = csQ.trim(), ql = q.toLowerCase(), out = [];
+    const pageOf = k => settingPages.find(p => p.key === k);
+    document.querySelectorAll("[data-cssearch]").forEach(el => {
+      const txt = settingsNorm(el.textContent), title = el.getAttribute("data-cstitle") || "";
+      if (txt.toLowerCase().indexOf(ql) < 0) return;
+      const pg = pageOf(el.getAttribute("data-cssearch"));
+      out.push({ tab: el.getAttribute("data-cssearch"), sec: el.getAttribute("data-cssec") || "", where: pg ? pg.char + " · " + pg.title : "", title: title || (pg && pg.title) || "", snippet: title.toLowerCase().indexOf(ql) >= 0 ? "" : settingsSnippet(txt, q) });
+    });
+    // 分类名本身对上了（比如搜「线路」）也给一行，点了进那一类
+    settingPages.forEach(p => { if (String(p.title).toLowerCase().indexOf(ql) >= 0 && !out.some(x => x.tab === p.key)) out.push({ tab: p.key, sec: "", where: p.char + " · " + p.title, title: p.title, snippet: "" }); });
+    // 节名本身写着这个词的排前面
+    out.sort((a, b) => (String(b.title).toLowerCase().indexOf(ql) >= 0) - (String(a.title).toLowerCase().indexOf(ql) >= 0));
+    setCsHits(out.slice(0, 40));
+  }, [csQ, settingsTab]);
+  // 点了一行跳进去以后，找到那个词、滚过去闪一下
+  useEffect(() => {
+    if (!settingsTab || !csFlash.current) return;
+    const q = csFlash.current; csFlash.current = "";
+    setTimeout(() => settingsFlash(setScrollRef.current, q), 220);
+  }, [settingsTab, openSec]);
   // ── 分类（v61.79 重排，她 2026-09-04：「分类还是有点难找你重新分类一遍」）──
   // 原来七类是按【代码里怎么放的】切的，于是「相处与主动」变成杂物间（内在状态／
   // 时间感知／性情／主动消息／默认线下五件不相干的事挤一起），「线路与身份」的
@@ -22106,7 +22179,9 @@ function ChatSettings({
     //   这边一起搬过来（one-public-mechanism：新开公共的，已有的也要搬，
     //   不然就是「同一个形状两份，改一处另一处永远落单」）。
     //   卡片长什么样、右边那行状态怎么摆，现在只写在 SettingCatalog 一处。
-    !settingsTab && h(SettingCatalog, { pages: settingPages, onOpen: openTab,
+    !settingsTab && h(SettingsSearchBox, { value: csQ, onChange: setCsQ, placeholder: "搜一个设置，比如 朋友圈、时间、气泡" }),
+    !settingsTab && csSearching && h(SettingsSearchHits, { hits: csHits, q: csQ.trim(), onPick: x => { csFlash.current = csQ.trim(); setCsQ(""); setSettingsTab(x.tab); setOpenSec(x.sec || SOLO[x.tab] || ""); } }),
+    !settingsTab && !csSearching && h(SettingCatalog, { pages: settingPages, onOpen: openTab,
       note: "房间决定这一段对话看得见什么、能主动做什么、会写回哪里——只管当前这一段；其余八类是这个人的长期设置，换房间也跟着走。" }),
   settingsTab === "rooms" && h(ChatRoomSheet, {
     embedded: true,

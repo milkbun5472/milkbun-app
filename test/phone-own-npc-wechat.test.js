@@ -8,3 +8,10 @@ test("查手机微信：他自己的配角没连关系线也算熟人（群友 2
   const got = fn(cs, { "a->b": {} })(cs[0]);
   assert.deepEqual(got, ["小周", "沈"]);
 });
+
+test("只在群里一起的配角／关系网的人不进避重名单，私聊不再被整条丢掉（群友 2026-10-26）", () => {
+  const i = app.indexOf("const phoneTakenNames = char =>");
+  const body = app.slice(i, app.indexOf("const phoneWechatDigest", i));
+  assert.match(body, /const _relKeep = \(characters \|\| \[\]\)\.filter\(o => o && o\.id !== char\.id && \(\(o\.npc && o\.ownerId === char\.id\) \|\| rels\[/);
+  assert.ok(body.includes('(c.type === "group" ? (c.memberNames || []).filter(n => !_relKeep.some'), "群成员没按关系放行");
+});

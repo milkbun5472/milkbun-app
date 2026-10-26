@@ -24,7 +24,7 @@ test("首页是一列窄行，一屏放得下——不是两列大卡", () => {
   // 上限按「一屏放得下」算：一行 44px，九行（含「更新了什么」和藏起来的「本地配件」）也才四百来高
   assert.ok(ROWS.length >= 6 && ROWS.length <= 9, "首页现在 " + ROWS.length + " 行");
   // v62.48：表格的行是连着的，gap 一留它们就又读成一张张卡片了，所以 gap 归 0
-  assert.match(CFG, /page === "home" && h\("div", \{ style: \{ display: "flex", flexDirection: "column", gap: 0/);
+  assert.match(CFG, /page === "home" && !cfQ\.trim\(\) && h\("div", \{ style: \{ display: "flex", flexDirection: "column", gap: 0/);
   // 原来那一串平级大卡要全撤掉（撤东西是删掉，不是留着）
   assert.doesNotMatch(CFG, /title: "API 与模型"/, "旧那张大卡还在");
   // v62.48：几何符号（◐ ◒ ✦ ⌨ ▧ ◖ ∞ ◉ ≋）全换成汉字栏号——它们是靠字体撑的字符，

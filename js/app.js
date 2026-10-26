@@ -20,7 +20,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v76.683";
+const APP_VERSION = "v76.686";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -19683,12 +19683,17 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       const uc = ((((phonesRef.current || {})[char.id] || {}).wechat || {}).userContact) || {};
       add(uc.remark); add(uc.name);
     } catch (e) {}
+    const _relKeep = (characters || []).filter(o => o && o.id !== char.id && ((o.npc && o.ownerId === char.id) || rels[char.id + "->" + o.id] || rels[o.id + "->" + char.id]))
+      .reduce((acc, o) => acc.concat([o.name, o.remark, netOf(o)]), []).filter(Boolean);
     phoneWechatActual(char).forEach(c => {
       // ⚠️群里那几个【真人】要收进来（她 2026-09-03 报：陆闻出现两次，一个真的一个假的）。
       //   原来整条群会话直接 return，于是只在群里跟TA说过话的人从来不进避重名单，
       //   模型就大大方方给同一个人再造一个假私聊。收的是【成员的名字】不是群名——
       //   群名不是人名，把群名塞进避重名单会误伤。
-      (c.memberNames || []).forEach(add);
+      // ⚠️只在【群】里一起的人，要是他身边的配角或关系网上的人，就不收（群友 2026-10-26：他的配角、同事查手机死活刷不出来）：
+      //   配角本来只活在群里，几乎个个都跟他同群——一收进来，模型照「必须有」写回来的私聊被这道闸整条丢掉。
+      //   他俩私下本来就该有话说；真私聊（旁观的那段）照旧整段避重
+      (c.type === "group" ? (c.memberNames || []).filter(n => !_relKeep.some(r => window.PhoneKit && window.PhoneKit.samePerson(n, r))) : (c.memberNames || [])).forEach(add);
       if (c.type === "group") return;   // 群会话本身的名字不算：那是群名
       add(c.name);
       // 会话名对得上哪个角色卡，就把那张卡上的所有叫法一起收进来
@@ -34984,6 +34989,10 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         h("button", { onClick: () => setHalfWin(w => w ? { ...w, min: true } : w), "aria-label": "收起半窗", style: { minHeight: 32, padding: "0 10px", border: "none", background: "transparent", fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: "#555" } }, "收起")),
       h("div", { style: { flex: 1, minHeight: 0, position: "relative" } },
         h(HalfWinLayer.Provider, { value: true }, mkThread({ key: "half::" + activeChar.id, halfMode: true, onHalfWin: null, onBack: () => setHalfWin(null) }))));   // 里面打开的整页叠在半窗上面（usePageZ）
+  })(), (function () {
+    // 浮窗歌词（群友 2026-10-26）：跟悬浮屏一样是 fixed 的兄弟节点、点得穿；通话和看TA玩时不出
+    if (!window.FloatLyric || call || ringing || watching || !player.songId || !player.playing) return null;
+    return h(window.FloatLyric, { player: player, song: resolveSong(player.songId), read: musicRequest, ready: musicReady });
   })(), (function () {
     // 帮手的小悬浮屏（她 2026-09-03：「做个小悬浮屏可以拖动，边和它聊边改动或者研究功能」）。
     // ⚠️挂在这儿是照上面配件浮层那一层的做法：一个 position:fixed 的兄弟节点，
