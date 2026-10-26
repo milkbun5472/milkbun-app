@@ -14191,11 +14191,17 @@ function TransTextState({ text, isU, zhReady, ink, autoShow: autoShowAll = false
     // 夹在一行里的那几处（线下台词、「某某：一句话」）：译文接在原文后面、跟着这一行走，不另起一块——
     //   原来这儿也是一整块，块落在台词那个带底色的 span 里，把这句和后面的字都盖住了（群里 2026-10-22 截图）
     open && inline && h("span", { "data-wk": "translatebody", "data-part": "inline", style: { fontWeight: 400, fontStyle: "normal", background: "none", color: fg, opacity: 0.72, fontSize: "0.92em", marginLeft: 4 } },
-      "（" + (busy ? "翻译中…" : err ? "翻译失败：" + err : (zh || "没有译文")) + "）"),
+      "（" + (busy ? "翻译中…" : err ? transErrZh(err) : (zh || "没有译文")) + "）"),
     open && !inline && h("span", { "data-wk": "translatebody", style: { display: "block", marginTop: 8, paddingTop: 7, borderTop: "1px solid " + (isU ? "rgba(0,0,0,0.13)" : t.line) } },
       h("span", { style: { display: "block", fontFamily: MONO, fontSize: "calc(8.5px * var(--app-fs, 1))", letterSpacing: "0.25em", color: fg, opacity: 0.45, marginBottom: 4 } }, "译自" + lang + (by ? " · " + by : "")),
       h("span", { style: { display: "block", fontFamily: F_BODY, fontSize: size || 14, lineHeight: 1.55, color: fg, opacity: err ? 0.75 : 1, whiteSpace: "pre-wrap" } },
-        busy ? "翻译中…" : err ? "翻译失败：" + err : (zh || "（没有译文）"))));
+        busy ? "翻译中…" : err ? transErrZh(err) : (zh || "（没有译文）"))));
+}
+// 翻译失败给人看的那句：说人话，不把每家引擎的报错原样摊出来（她 2026-10-26：「日记翻译也写写中文吧」）
+function transErrZh(err) {
+  const e = String(err || "");
+  if (/不是中文/.test(e)) return "翻译失败：免费翻译没把这段翻成中文，过一会儿再点一下试试";
+  return "翻译失败：网不好，免费翻译没连上，过一会儿再点一下";
 }
 // 语音消息（v60.17 她 2026-09-02：「这个语音也是参考别人的，也改成我们自己的吧」）
 //
