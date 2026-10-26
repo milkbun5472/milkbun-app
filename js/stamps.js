@@ -639,7 +639,7 @@
         h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: "rgba(47,42,34,.72)", lineHeight: 1.8, marginTop: 6 } },
           "概率：R 70%、SR 25%、SSR 5%。保底所有池通用：60 抽一定出 SSR（50 抽起概率往上加），每十抽至少一张 SR。", h("br"),
           "单抽 " + C().PRICE_ONE + " 邮资，十连 " + C().PRICE_TEN + "，有十连券先用券。", h("br"),
-          "邮资和印泥从互动里来、没有上限，印泥给得是邮资的四倍：聊天、群聊、通话一轮邮资 5、印泥 20；线下一拍、论坛片刻广场朋友圈、两个人的小事邮资 10、印泥 40；一起听一起看一起读、查手机、看他玩手机邮资 20、印泥 80；别的玩法邮资 5、印泥 40。重 roll、他主动发来的不算。升满一张 R 要 150 印泥、SR 500、SSR 1000。", h("br"),
+          "邮资和印泥从互动里来、没有上限：聊天、群聊、通话一轮邮资 20、印泥 20；线下一拍、论坛片刻广场朋友圈、两个人的小事各 40；一起听一起看一起读、查手机、看他玩手机各 80；别的玩法邮资 20、印泥 40；他主动发来一条邮资 10。重 roll 不算。每天第一次打开邮票册送一张单抽券。升满一张 R 要 150 印泥、SR 500、SSR 1000。", h("br"),
           "R 是你不在时他一个人的一刻，SR 是你俩的一小段，SSR 是带选项的分节剧情。"),
         testInf ? h("div", { style: { marginTop: 10, fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: RC.SSR } }, "测试券开着：抽卡不花邮资和券、盖印不花印泥（连点七下「规则」关掉）") : null));
     if (tab === "album") return h("div", { "data-wk": "stampalbumpage", "data-page": "1", className: "h-full flex flex-col overflow-hidden", style: { background: "repeating-linear-gradient(180deg, transparent 0 116px, rgba(47,42,34,.07) 116px 117px, transparent 117px 120px), linear-gradient(#f1e9d8, #e9dfca)" } },
@@ -721,7 +721,7 @@
           h("button", { "data-wk": "stampgoalbum", onClick: () => setTab("album"), className: "active:opacity-60", style: { padding: "6px 8px", color: "#2f2a22", fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))" } }, "册子"),
           h("button", { "data-wk": "stampgocfg", onClick: () => setCfg(true), className: "active:opacity-60", style: { padding: "6px 8px", color: "#2f2a22", fontFamily: F_BODY, fontSize: "calc(16px * var(--app-fs, 1))" } }, "⋯")) }),
       h("div", { className: "flex justify-end flex-wrap px-4 shrink-0", style: { gap: 6 } },
-        capsule("邮资", st.postage), capsule("印泥", st.ink), capsule("十连券", testInf ? "∞（手上 " + st.tickets + " 张）" : st.tickets)),
+        capsule("邮资", st.postage), capsule("印泥", st.ink), (st.singles || 0) > 0 ? capsule("单抽券", st.singles) : null, capsule("十连券", testInf ? "∞（手上 " + st.tickets + " 张）" : st.tickets)),
       h("div", { className: "flex-1 min-h-0 overflow-y-auto px-3", style: { paddingTop: 10 } },
         // 收到礼：一条薄薄的信笺，点开看是什么，✕ 收起
         gotNote.length ? h("div", { "data-wk": "stampgift", className: "flex items-start", style: { margin: "0 4px 10px", padding: "6px 10px", borderRadius: 8, borderLeft: "3px solid #b23a2e", background: "rgba(47,42,34,.08)", color: "#2f2a22", fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", lineHeight: 1.6, gap: 8 } },
@@ -756,7 +756,7 @@
       h("div", { "data-wk": "stamppullbar", className: "flex shrink-0 px-4", style: { gap: 10, padding: "10px 16px calc(env(safe-area-inset-bottom) * 0.4 + 12px)" } },
         h("button", { "data-wk": "stamppullbtn", "data-part": "one", onClick: () => doPull(1), className: "flex-1 active:opacity-80",
           style: { minHeight: 56, borderRadius: 16, border: "1.5px solid #2f2a22", color: "#2f2a22", background: "transparent", fontFamily: F_DISPLAY, fontSize: "calc(16px * var(--app-fs, 1))" } },
-          "寄一封", h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", opacity: .75 } }, testInf ? "测试券" : C().PRICE_ONE + " 邮资")),
+          "寄一封", h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", opacity: .75 } }, testInf ? "测试券" : (st.singles || 0) > 0 ? "用单抽券 · 持有 " + st.singles + " 张" : C().PRICE_ONE + " 邮资")),
         h("button", { "data-wk": "stamppullbtn", "data-part": "ten", onClick: () => doPull(10, st.tickets > 0), className: "flex-1 active:opacity-80",
           style: { minHeight: 56, borderRadius: 16, background: "linear-gradient(160deg, #3c7a60, #2a5242)", color: "#f6efe0", fontFamily: F_DISPLAY, fontSize: "calc(16px * var(--app-fs, 1))", boxShadow: "0 4px 18px rgba(47,93,74,.3)" } },
           "寄一版", h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", opacity: .8 } }, testInf ? "测试券" : st.tickets > 0 ? "用十连券 · 持有 " + st.tickets + " 张" : C().PRICE_TEN + " 邮资"))),
