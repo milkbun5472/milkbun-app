@@ -15006,7 +15006,8 @@ function shareCardOf(kind) {
   if (kind === "shikeshare") return window.ShikeShareCard || null;
   if (kind === "gameshare") return GameShareCard;
   if (kind === "stampshare") return window.StampShareCard || null;
-  if (kind === "stampletter") return window.StampLetterCard || null;   // 邮票册「今天的信」（js/stamps-core.js）   // 邮票册发来的一枚邮票（js/stamps-core.js）
+  if (kind === "stampletter") return window.StampLetterCard || null;
+  if (kind === "stampbdletter") return window.StampBdLetterCard || null;   // 邮票册生日信（js/stamps-core.js）   // 邮票册「今天的信」（js/stamps-core.js）   // 邮票册发来的一枚邮票（js/stamps-core.js）
   if (kind === "pomoshare") return window.PomoShareCard || null;
   if (kind === "astroshare") return window.AstroSignCard || null;
   if (kind === "zyshare" || kind === "zyask" || kind === "zygroup") return window.ZhaoyingCard || null;

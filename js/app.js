@@ -19336,6 +19336,27 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   };
   // 邮票册「今天的信」（她 2026-10-26）：每天挑一个人，把一张单抽券寄进你们的聊天，点一下领。不调模型；
   //   他那边看得到这条（content 里写着），知道是他寄来的。一天一张，记在 x_stamps.lastDaily 上，跟开邮票册送的不叠
+  // 她的生日池：主面具一份，每张副面具一份；各自只抽认这张面具的那几个人
+  const stampMyBdays = () => [{ id: "main", name: profile.name || "你", birthday: profile.birthday, avatar: profile.avatarImage, charIds: liveChars.filter(c => !maskKeyOf(c.id)).map(c => c.id) }]
+    .concat((masks || []).filter(m => m && m.id && m.id !== maskPrimary).map(m => ({ id: m.id, name: String(m.name || "").trim() || "你", birthday: m.birthday, avatar: m.avatarImage, charIds: liveChars.filter(c => maskKeyOf(c.id) === m.id).map(c => c.id) })));
+  // 生日信（她 2026-10-26）：她的生日池一开，认这张面具的人里挑一个，把十张生日券装进一封生日信寄进私聊，点领取才到账。不调模型。
+  //   以前在邮票册里直接到账过的不再寄；只领过一张旧十连券的，寄一封补 9 张的
+  const stampBdLetterSweep = () => {
+    if (!window.StampsCore) return;
+    const C2 = window.StampsCore, st = C2.load(); let changed = false;
+    stampMyBdays().forEach(m => {
+      const w = m.birthday ? C2.bdayWindow(m.birthday, Date.now()) : null; if (!w) return;
+      const ids = (m.charIds || []).filter(id => liveChars.some(c => c.id === id && !c.npc && !settingsFor(id).engineerEyes)); if (!ids.length) return;
+      const k = "bd_me_" + m.id + "_" + w.year, bdKey = "me_" + m.id + "_" + w.year;
+      const n = !st.seenLimited[k] ? 10 : !st.seenLimited[k + "_top"] ? 9 : 0;
+      st.seenLimited[k] = 1; st.seenLimited[k + "_top"] = 1; changed = true;
+      if (!n) return;
+      const c = liveChars.find(x => x.id === ids[Math.floor(Math.random() * ids.length)]);
+      pChat(c.id, p => [...p, { role: "char", kind: "stampbdletter", content: "〔从邮票册给你寄了一封生日信：生日快乐。里面是 " + n + " 张生日券，点一下就能领〕", ts: Date.now(),
+        stampBdLetter: { id: "bl_" + Date.now().toString(36) + m.id, bdKey, n, by: c.remark || c.name, to: m.name, day: w.day }, read: false }]);
+    });
+    if (changed) C2.save(st);
+  };
   const stampLetterSweep = async () => {
     if (!window.StampsCore) return;
     const st = window.StampsCore.load(), d = new Date(), today = d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate();
@@ -19383,6 +19404,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   const sweepRunOnce = async () => {
     deliverDeskLog();
     try { stampLetterSweep(); } catch (e) {}
+    try { stampBdLetterSweep(); } catch (e) {}
     const steps = [schedGenAllToday, schedMaybeSelfRevise, walletCatchAllToday,
       desireMuseAllToday, desireTendAllToday, phoneWeeklySweep, autoImpressionSweep, astroSignSweep];
     for (const step of steps) { try { await step(); } catch (e) {/* 一步失手不拖累后面几步 */ } }
@@ -33914,8 +33936,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     onPoke: stampPoke,
     onInner: stampInner,
     // 她的生日池：主面具一份，每张副面具一份；各自只抽认这张面具的那几个人
-    myBdays: [{ id: "main", name: profile.name || "你", birthday: profile.birthday, avatar: profile.avatarImage, charIds: liveChars.filter(c => !maskKeyOf(c.id)).map(c => c.id) }]
-      .concat((masks || []).filter(m => m && m.id && m.id !== maskPrimary).map(m => ({ id: m.id, name: String(m.name || "").trim() || "你", birthday: m.birthday, avatar: m.avatarImage, charIds: liveChars.filter(c => maskKeyOf(c.id) === m.id).map(c => c.id) }))),
+    myBdays: stampMyBdays(),
     onBack: () => setScreen("home")
   });else if (screen === "zhaoying") body = h(window.ZhaoyingApp, {
     // 按头像发卡：卡落进跟他的聊天，他在后台做题，做完了点卡看他做（她 2026-10-22）
