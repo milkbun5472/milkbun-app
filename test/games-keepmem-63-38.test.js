@@ -24,9 +24,11 @@ test("app 侧那扇门：只收真实角色、打小游戏标签、knownBy 跟 c
 });
 
 test("按钮是唯一入口：九桌各一颗，点一次只写一条，全 NPC 局给说法", () => {
-  assert.equal((games.match(/h\(KeepMemBtn,\s*\{/g) || []).length, 19, "十九个终局屏该各有一颗（围棋/国际象棋/中国象棋/卧底/狼人/阿瓦隆/猜谜/真心话/大富翁/UNO/五子棋/你画我猜/骗子骰/故事接龙/俄罗斯方块/德州/抽鬼牌/21 点/斗地主）");
+  // v76.772 起国际象棋、中国象棋、斗兽棋共用一张 EngineBoardPage：三桌一颗按钮、一份战果，所以是十八处
+  assert.equal((games.match(/h\(KeepMemBtn,\s*\{/g) || []).length, 18, "十八个终局屏该各有一颗（围棋/走子棋那一张（国际象棋·中国象棋·斗兽棋）/卧底/狼人/阿瓦隆/猜谜/真心话/大富翁/UNO/五子棋/你画我猜/骗子骰/故事接龙/俄罗斯方块/德州/抽鬼牌/21 点/斗地主）");
+  assert.match(cut(games, "function EngineBoardPage(props)", "\n  function "), /h\(KeepMemBtn,\s*\{/, "走子棋那张公共页没挂按钮");
   // v75.328 起七桌各交一份战果 rep（同一份管收进记忆、战报、战绩），写记忆只剩按钮里那一处
-  assert.equal((games.match(/rep:\s*function\s*\(\)\s*\{/g) || []).length, 19, "有的桌没交战果");
+  assert.equal((games.match(/rep:\s*function\s*\(\)\s*\{/g) || []).length, 18, "有的桌没交战果");
   assert.ok((games.match(/ids:\s*realCharIds\(/g) || []).length >= 11, "有的桌没走 realCharIds——NPC 或言秋会被写进去");
   const btn = cut(games, "function KeepMemBtn(props)", "\n  }");
   assert.match(btn, /if \(kept\) return;/, "能连点连写");

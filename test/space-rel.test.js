@@ -50,7 +50,8 @@ test("非恋人空间：没有婚纱结婚题材，不抽 ♥ 姿势，问答小
   assert.match(app, /wedding:  \{ zh: "婚纱照", lover: true,/);
   assert.match(app, /marriage: \{ zh: "结婚登记照", lover: true,/);
   assert.match(app, /const theme = theme0 && theme0\.lover && notLover \? null : theme0;/);
-  assert.match(eng, /const pool = PHOTO_DUO_POSES\.filter\(x => !opts\.notLover \|\| x\.charAt\(0\) !== "♥"\)/);
+  // v76.776 起小时候的合照也不抽 ♥ 姿势：判据多了一个 younger，并在 notLover 旁边
+  assert.match(eng, /const pool = PHOTO_DUO_POSES\.filter\(x => !\(opts\.notLover \|\| younger\) \|\| x\.charAt\(0\) !== "♥"\)/);
   assert.match(scr, /COUPLE_QA_BANK\.filter\(x => !x\.love\)/);
   assert.ok((scr.match(/love: 1, cat:/g) || []).length >= 10);
 });

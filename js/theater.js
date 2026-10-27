@@ -1003,7 +1003,7 @@
       try {
         const char = charOf(l), recent = allMsgs(l).filter(x => x.role !== "photo").slice(-6).map(x => (x.role === "user" ? uName : char.name) + "：" + String(x.content || "").slice(0, 400)).join("\n");
         const raw = await callAI(props.active, "这是一场小剧场，" + uName + " 和 " + char.name + " 轮着演。设定：" + String(l.setting || "").slice(0, 400) + "\n这一幕的目标：" + ((l.rounds[l.rounds.length - 1] || {}).goal || "") + "\n给 " + uName + " 想两三个此刻可能会做或说的事，各一句、短，用 Ta 自己的口吻（动作直接写，说的话加引号），彼此方向不一样。只输出 JSON：{\"choices\":[\"\",\"\"]}",
-          [{ role: "user", content: recent || "开始。" }], { maxTokens: 4000, timeout: 60000 });
+          [{ role: "user", content: recent || "开始。" }], { maxTokens: 8000, timeout: 60000 });
         const d = typeof extractJSON === "function" ? extractJSON(raw) : null, cs = d && Array.isArray(d.choices) ? d.choices.map(x => String(x || "").trim()).filter(Boolean).slice(0, 3) : [];
         if (cs.length) update(list => list.map(x => x.id !== l.id ? x : { ...x, rounds: x.rounds.map(r => ({ ...r, msgs: r.msgs.map(y => y.id === m.id ? { ...y, choices: cs } : y) })) }));
       } catch (e) {}
