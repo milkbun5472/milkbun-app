@@ -34480,6 +34480,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     profile: profile,
     // 言秋的座位:if 线对戏的「演」也走 CC 亲笔(同小游戏切座管道),超时才由模型顶
     isEngineer: (charId) => !!settingsFor(charId).engineerEyes,
+    onOpenCard: cardId => { window.__stampsOpen = cardId; setScreen("stamps"); },
     voiceOf: char => stampVoice(char),   // 他平时真说过的话（只借口气）：跟邮票卡同一份
     toast: toast,
     onOpenStyleLab: goStyleLab,

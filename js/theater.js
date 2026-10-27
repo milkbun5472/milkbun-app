@@ -249,6 +249,7 @@
     const [goalOpen, setGoalOpen] = useState(false); // 顶上那条目标条:缩成一行 / 展开全文
     const [writeGoal, setWriteGoal] = useState(null); // null | string:手写下一轮目标的缓冲
     const [diff, setDiff] = useState("normal"); // 开线时的难度档
+    const [lineSrc, setLineSrc] = useState("all");
     // 新版播放（她 2026-10-27，原来叫乙游风）：一句一句点着走；vnI＝看到第几句，vnWrite＝底下「自己写」那一格开着没，vnLog＝记录，vnHide＝长按藏起界面
     const [vnI, setVnI] = useState(-1), [vnWrite, setVnWrite] = useState(false), [vnLog, setVnLog] = useState(false), [vnHide, setVnHide] = useState(false);
     const vnLen = useRef(0), vnLp = useRef(0), vnLpOn = useRef(false);
@@ -1349,15 +1350,22 @@
       return h("div", { "data-wk": "thrline", "data-on": l.ended ? "0" : "1", key: l.id, onClick: () => { setPlayId(l.id); setView("play"); setPanelOpen(false); }, style: Object.assign({}, S.card, { cursor: "pointer", position: "relative" }, coverBg) },
         h("button", { "data-wk": "thrlinedel", onClick: e => { e.stopPropagation(); requestAppConfirm("删除「" + l.title + "」？", "这条线和全部演出记录都会删除。", () => deleteLineNow(l.id), "删除"); },
           style: { position: "absolute", top: 10, right: 10, background: "none", border: "none", color: t.fog, fontSize: "calc(15px * var(--app-fs, 1))", padding: 4 } }, "✕"),
-        h("div", { "data-wk": "thrlinetitle", style: { fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))", color: t.ink, paddingRight: 26 } }, l.title),
+        h("div", { "data-wk": "thrlinetitle", style: { fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))", color: t.ink, paddingRight: 26 } }, l.title,
+          // 从邮票开的：标题旁一枚小邮票角标，写着哪张卡；点了回到那张卡
+          l.fromCard ? h("span", { "data-wk": "thrlinecard", onClick: e => { e.stopPropagation(); if (props.onOpenCard) props.onOpenCard(l.fromCard); }, style: { marginLeft: 8, display: "inline-block", verticalAlign: "middle", padding: "1px 7px", borderRadius: 3, border: "1px dashed #B58C55", background: "#FFF8E9", color: "#8a6a3a", fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))" } }, "✉ " + (l.fromCardName || "邮票")) : null),
         l.branchedFrom ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", color: t.fog, marginTop: 3 } },
           "⑂ 分支自「" + (l.branchedFrom.title || "原线") + "」第 " + (l.branchedFrom.at || 0) + " 拍") : null,
         h("div", { "data-wk": "thrlinesub", style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.sub, marginTop: 4 } }, (l.ended ? "已完结 · " : "") + "第" + l.rounds.length + "轮 · 目标达成" + done + " · " + n + "条" + (l.archives && l.archives.length ? " · 重开过" + l.archives.length + "次" : "")),
         h("div", { style: Object.assign({}, S.txt, { color: t.fog, fontSize: "calc(12px * var(--app-fs, 1))", marginTop: 4, overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }) }, l.setting)); };
     if (view === "lines") {
       const c = props.characters.find(x => x.id === listChar) || {};
-      const mine = lines.filter(l => l.charId === listChar);
+      const all = lines.filter(l => l.charId === listChar);
+      // 全部 / 从邮票 / 自己开的（她 2026-10-27）：平时混着按时间排，想分开时点一下
+      const mine = all.filter(l => lineSrc === "all" || (lineSrc === "card" ? !!l.fromCard : !l.fromCard));
+      const hasCard = all.some(l => l.fromCard);
       return h("div", { "data-wk": "thrlines", style: S.wrap }, badges(), header((c.name || "?") + " · 记录"),
+        hasCard ? h("div", { "data-wk": "thrlinesrc", style: { display: "flex", gap: 8, padding: "8px 14px 0" } },
+          [["all", "全部"], ["card", "从邮票"], ["self", "自己开的"]].map(([k, zh]) => h("button", { key: k, "data-on": lineSrc === k ? "1" : "0", onClick: () => setLineSrc(k), style: Object.assign({}, S.btn(lineSrc === k), { padding: "3px 12px" }) }, zh))) : null,
         h("div", { style: { flex: 1, overflowY: "auto", paddingBottom: 30 } },
           mine.length ? mine.map(lineCard)
           : h("div", { "data-wk": "thrempty", style: { textAlign: "center", marginTop: 80, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.fog, lineHeight: 2 } }, "还没有和 Ta 演过。", h("br"), "点右上角新开一条 if 线。")));
