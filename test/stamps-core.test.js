@@ -176,12 +176,14 @@ test("限时池上新按人数送十连：每两人一张，1～5 张", () => {
   }
 });
 
-test("日历：深秋 11-30 底下架、温泉 12-01 上、12-16 换圣诞、年底下架", () => {
+test("日历：深秋 11-30 底下架、温泉 12-01 上、12-16 换圣诞、1-1 新年、1-16 年前", () => {
   const C = fresh(); const ids = t => C.activeLimited(Date.parse(t)).map(L => L.id);
   assert.deepEqual(ids("2026-11-30T23:59:00+08:00"), ["lateautumn26"]);
   assert.deepEqual(ids("2026-12-01T00:00:01+08:00"), ["onsen26"]);
   assert.deepEqual(ids("2026-12-16T00:00:01+08:00"), ["xmas26"]);
-  assert.deepEqual(ids("2027-01-01T00:00:01+08:00"), []);
+  assert.deepEqual(ids("2027-01-01T00:00:01+08:00"), ["newyear27"]);
+  assert.deepEqual(ids("2027-01-16T00:00:01+08:00"), ["spring27"]);
+  assert.deepEqual(ids("2027-02-01T00:00:01+08:00"), []);
 });
 
 test("你的生日券不在邮票册直接到账（改成生日信），他的生日池照旧送一张十连；生日信领一次", () => {
@@ -195,3 +197,10 @@ test("你的生日券不在邮票册直接到账（改成生日信），他的�
 
 test("生日券别的池子也能用", () => { const C = fresh(); const st = C.load(); st.bdTickets = { me_main_2026: 2 }; st.tickets = 5;
   assert.equal(C.pay(st, 10, true, null), "bdticket"); assert.equal(C.bdTicketCount(st), 1); });
+
+test("每期限时主题都配了自己的颜色（海报、小邮票、邮戳圈），别等截图才补", () => {
+  const C = fresh(), src = require("fs").readFileSync(require("path").join(__dirname, "../js/stamps.js"), "utf8");
+  const m = /const LIM_TONE = (\{[^\n]*\});/.exec(src); assert.ok(m, "stamps.js 里要有 LIM_TONE");
+  const tone = Function("return " + m[1])();
+  C.LIMITED.filter(L => L.deco !== "halloween").forEach(L => assert.ok(tone[L.deco], L.id + " 的 deco「" + L.deco + "」没在 LIM_TONE 里配色"));
+});
