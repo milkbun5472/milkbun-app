@@ -606,7 +606,12 @@ function forumPhotoOf(x) {
 //   模型刚吐出来的是一串字，落盘后是 [{ desc }]，两种都认
 function forumMorePhotos(x) {
   const a = x && x.morePhotos;
-  return Array.isArray(a) ? a.map(v => String((typeof v === "string" ? v : v && v.desc) || "").trim().slice(0, 300)).filter(Boolean).slice(0, 8).map(desc => ({ desc })) : [];
+  // 她自己发的多图（群友 2026-10-27）带真图：{ imageRef, desc }，没写字也算一张
+  return Array.isArray(a) ? a.map(v => {
+    const desc = String((typeof v === "string" ? v : v && v.desc) || "").trim().slice(0, 300);
+    const imageRef = v && typeof v === "object" && v.imageRef ? v.imageRef : "";
+    return imageRef ? { imageRef, desc } : desc ? { desc } : null;
+  }).filter(Boolean).slice(0, 8) : [];
 }
 function forumWithPhoto(text, x) {
   const p = forumPhotoOf(x);

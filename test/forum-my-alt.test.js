@@ -4,12 +4,12 @@ const fs = require("fs");
 const app = fs.readFileSync(__dirname + "/../js/app.js", "utf8");
 const scr = (fs.readFileSync(__dirname + "/../js/screens.js", "utf8") + "\n" + fs.readFileSync(__dirname + "/../js/screens-ui.js", "utf8"));
 test("她能用小号发帖：角色认不出、她自己帖子里回楼也是小号", () => {
-  assert.ok(/const postMyForum = \(board, title, body, photo, as\) =>/.test(app));
+  assert.ok(/const postMyForum = \(board, title, body, photo, as, more\) =>/.test(app));
   assert.ok(/\.\.\.\(altB \? \{ alt: true \} : \{\}\)/.test(app));
   assert.ok(/const meOwn = post\.authorType === "me" && !post\.anon && !post\.alt/.test(app), "楼里的角色不把小号当成她");
   assert.ok(/const myPub = p => p\.authorType === "me" && !p\.anon && !p\.alt/.test(app), "小号帖不进角色知道的那份");
   assert.ok(/post\.alt && post\.authorType === "me"\) \? post\.authorName/.test(app), "她在小号帖里回楼还是小号");
-  assert.ok(/onPostMine\(cbBoard, cbTitle\.trim\(\), cbBody\.trim\(\), photoAttachValue\(cbPhoto\), cbAs\)/.test(scr));
+  assert.ok(/onPostMine\(cbBoard, cbTitle\.trim\(\), cbBody\.trim\(\), photoAttachValue\(cbPhoto\), cbAs, cbMore/.test(scr));
   assert.ok(/altName: emAlt\.trim\(\)/.test(scr) && /altName: \(fm && fm\.altName\)/.test(app));
 });
 test("小号是一个能切的号：回楼、私信都跟着；小号帖没人自动来回；小号私信不进聊天", () => {

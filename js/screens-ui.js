@@ -2353,6 +2353,13 @@ function Forum({
   const [rTxt, setRtxt] = useState("");
   // 配图（她 2026-09-24）：发帖那张、回楼那张各一份草稿；photoView＝点开看的那一张
   const [cbPhoto, setCbPhoto] = useState(null);
+  // 第二张起（群友 2026-10-27「论坛也可以多图」）：最多九张，第一张还是 cbPhoto（封面）
+  const [cbMore, setCbMore] = useState([]);
+  const cbPhotos = () => h("div", { "data-wk": "fomorephotos", className: "flex flex-col", style: { gap: 8 } },
+    h(PhotoAttach, { value: cbPhoto, onChange: v => { if (!v && cbMore.length) { setCbPhoto(cbMore[0]); setCbMore(cbMore.slice(1)); } else setCbPhoto(v); }, toast: toast }),
+    cbPhoto ? cbMore.map((v, i) => h(PhotoAttach, { key: i, value: v, onChange: nv => setCbMore(a => nv ? a.map((x, k) => k === i ? nv : x) : a.filter((x, k) => k !== i)), toast: toast })) : null,
+    cbPhoto && cbMore.length < 8 && (cbMore.length === 0 || cbMore[cbMore.length - 1]) ? h("button", { "data-wk": "foaddphoto", onClick: () => setCbMore(a => a.concat([null])), className: "active:opacity-70 self-start",
+      style: { minHeight: 36, padding: "0 14px", borderRadius: 999, border: "1px dashed " + t.line, background: "transparent", color: t.sub, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))" } }, "＋ 再加一张（" + (cbMore.length + 2) + "/9）") : null);
   const [rPhoto, setRPhoto] = useState(null);
   const [rPhotoOn, setRPhotoOn] = useState(false);
   const [photoView, setPhotoView] = useState(null);
@@ -2894,7 +2901,7 @@ function Forum({
             delBtn(p)),
           h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(20px * var(--app-fs, 1))", lineHeight: 1.35, color: FORUM_SKIN.ink, marginTop: 11 } }, STX(p.title)),
           xhs ? xhsBody(p) : h("div", { style: { fontFamily: F_BODY, fontSize: "calc(14.5px * var(--app-fs, 1))", lineHeight: 1.78, color: FORUM_SKIN.sub, marginTop: 8, whiteSpace: "pre-wrap" } }, STW(p, STX(p.body))),
-          xhs ? xhsPhotos(p) : forumPhotoCard(p, 280),
+          xhsPhotos(p),   // 好几张就左右滑：贴吧样子也一样（群友 2026-10-27）
           xhs ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, marginTop: 10 } }, forumTag(p.board) + "　编辑于 " + timeAgo(p.ts) + " " + forumIpOf(p, c)) : h("div", { className: "mt-3" }, tag(p.board)),
           xhs ? xhsBar(p) : actBar(p),
           c && h("button", { onClick: () => onToggleFollow(c.id), className: "mt-3 px-3.5 py-1.5 active:opacity-70", style: xhs ? { borderRadius: 999, border: "1px solid " + (flw.includes(c.id) ? FORUM_SKIN.line : FORUM_SKIN.accent), background: flw.includes(c.id) ? "transparent" : FORUM_SKIN.accent, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: flw.includes(c.id) ? FORUM_SKIN.fog : "#fff" }   // 小红书的关注是实心红（她 2026-10-26「红色不够多」）
@@ -3433,7 +3440,7 @@ function Forum({
     composer && h(PageSheet, { onClose: () => setComposer(false), tall: true },
       h(Eyebrow, { style: { marginBottom: 10 } }, cardLayout ? "发笔记" : "发帖"),
       // 小红书那样先放图，再写标题正文，最后挑 #话题
-      cardLayout && h("div", { "data-wk": "foxhsphoto", className: "mb-3" }, h(PhotoAttach, { value: cbPhoto, onChange: setCbPhoto, toast: toast })),
+      cardLayout && h("div", { "data-wk": "foxhsphoto", className: "mb-3" }, cbPhotos()),
       !cardLayout && h("div", { className: "flex gap-1.5 mb-3 flex-wrap" }, forumBoardsAll().map(b => chip(b, cbBoard === b, () => setCbBoard(b)))),
       // 用哪个号发：匿名吧本来就匿名，不用挑（群友 2026-10-06：「论坛能开小号发帖吗」）
       cbBoard !== "匿名吧" ? h("div", { className: "flex items-center gap-1.5 mb-3 flex-wrap" },
@@ -3443,8 +3450,8 @@ function Forum({
       h("input", { "data-wk": "input", value: cbTitle, onChange: e => setCbTitle(e.target.value), placeholder: cardLayout ? "填写标题会有更多赞哦" : "标题", className: "w-full outline-none px-3.5 py-2.5 rounded-lg mb-2", style: { fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))", background: t.bg2, color: t.ink, border: `1px solid ${t.line}` } }),
       h("textarea", { "data-wk": "textarea", value: cbBody, onChange: e => setCbBody(e.target.value), placeholder: cardLayout ? "添加正文" : "正文…", className: "w-full outline-none px-3.5 py-2.5 rounded-lg", style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", minHeight: 120, background: t.bg2, color: t.ink, border: `1px solid ${t.line}`, resize: "none" } }),
       cardLayout ? h("div", { "data-wk": "foxhstopics", className: "flex gap-1.5 mt-2 flex-wrap" }, forumBoardsAll().map(b => chip(forumTag(b), cbBoard === b, () => setCbBoard(b))))
-        : h("div", { className: "mt-2" }, h(PhotoAttach, { value: cbPhoto, onChange: setCbPhoto, toast: toast })),
-      h("button", { onClick: () => { if (cbTitle.trim()) { onPostMine(cbBoard, cbTitle.trim(), cbBody.trim(), photoAttachValue(cbPhoto), cbAs); setCbTitle(""); setCbBody(""); setCbPhoto(null); setComposer(false); setNav("home"); setTab(cbBoard); } }, className: "w-full mt-3 py-2.5 active:opacity-70", style: { borderRadius: 8, background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))" } }, cardLayout ? "发布笔记" : "发布")),
+        : h("div", { className: "mt-2" }, cbPhotos()),
+      h("button", { onClick: () => { if (cbTitle.trim()) { onPostMine(cbBoard, cbTitle.trim(), cbBody.trim(), photoAttachValue(cbPhoto), cbAs, cbMore.map(photoAttachValue).filter(Boolean)); setCbTitle(""); setCbBody(""); setCbPhoto(null); setCbMore([]); setComposer(false); setNav("home"); setTab(cbBoard); } }, className: "w-full mt-3 py-2.5 active:opacity-70", style: { borderRadius: 8, background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))" } }, cardLayout ? "发布笔记" : "发布")),
     // 编辑我的资料
     // 开个吧：居中一张卡（不做半窗，no-half-sheet.md）——吧名、这个吧聊什么、吧规（一行一条）
     newBoard && typeof CenterCard === "function" && h(CenterCard, { onClose: () => setNewBoard(null), maxWidth: 340, wk: "centercard" },
