@@ -20,7 +20,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v76.786";
+const APP_VERSION = "v76.807";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -17159,6 +17159,66 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     stampSaveCard(card.id, c0 => ({ ...c0, text: { ...c0.text, inner } }));
     return inner;
   };
+  // 番外（她 2026-10-27）：限定 SSR（限时一期、生日、纪念日）抽到重复，除了折印泥，给原来那张写一段番外；也能用番外券写。
+  //   一张卡的番外存在 card.extras（数组），写失败的留着 err，点一下重写，不再扣券
+  const stampExtra = async (cardId, extraId, wish) => {
+    const card0 = (StampsCoreSafe().cards || []).find(c => c.id === cardId); if (!card0 || !card0.text) return;
+    const char = characters.find(x => x.id === card0.charId); if (!char) return;
+    const xid = extraId || ("ex_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 5));
+    const wish0 = String(wish || ((card0.extras || []).find(x => x.id === xid) || {}).wish || "").trim().slice(0, 200);   // 她点的题；重写时照原来那句
+    stampSaveCard(cardId, c0 => ({ ...c0, extras: extraId ? (c0.extras || []).map(x => x.id === xid ? { ...x, writing: true, err: "" } : x) : (c0.extras || []).concat([{ id: xid, ts: Date.now(), writing: true, wish: wish0 || undefined }]) }));
+    try {
+      const tx = card0.text, me = userName(meOf(char.id));
+      const ends = (tx.sections || []).filter(x => x && (x.end || x.hidden)).map(x => "「" + (x.title || "") + "」" + (x.beats || []).filter(b => b && b.who !== "pick").slice(-3).map(b => String(b.text || "").slice(0, 80)).join(" / ")).join("\n");
+      const had = (card0.extras || []).filter(x => x.text && x.id !== xid).map(x => "「" + (x.title || "") + "」" + (x.gist || "")).slice(-10);
+      const d = await runProbe(offlineApiFor(char.id), ctxFor(char, { loreScope: "offline" }), { voice: true,
+        instruction: STAMP_CORE() + stampVoice(char) + stampBi(char) + "她在「邮票册」里又抽到了一张你的限定 SSR「" + (tx.name || "") + "」，这一张给你们写一段番外。" + stampKindLine(card0, char)
+          + "\n这张卡写的是：" + String(tx.gist || tx.highlight || "").slice(0, 200) + (ends ? "\n它的几个结局：\n" + ends.slice(0, 900) : "")
+          + (wish0 ? "\n她点了题，想看的是：「" + wish0 + "」。就写这个，落到这张卡的故事和你们真实的关系里；她说得不细的地方由你补。" : "")
+          + "\n番外是这段故事外面的一段：结局之后的某一天、故事里没写到的那一晚，或者同一件事里你那边没让她看到的部分" + (wish0 ? "。" : "，挑一个最想补上的。") + "八百到一千二百字，一个完整的小场景，有开头有收尾。旁白里她是「你」，你是「他」。"
+          + (had.length ? "\n这张卡已经有的番外：\n" + had.join("\n") + "\n这一段写别的。" : "")
+          + "\n照乙游剧情那样一句一句写在 beats 里：who 是 he＝你说的话、me＝她说的话、narr＝旁白动作，text 是这一句；" + STAMP_NARR_POV + ((StampsCoreSafe().opt || {}).meQuiet ? "她基本不开口，往前推的是你的话、你的动作和旁白。" : "她那句（me）照她平时的样子写，少一点。") + "\ntitle 是番外的名字（八个字以内）；gist 一句话记下写的是什么；shot 是给画卡面的人看的一句分镜（横版 CG，主要的人放正中间，画这段里最想留住的那一下：谁在、在干嘛、在哪、什么光）；duo 是这一下她在不在画里（true/false）。",
+        schemaHint: "{\"title\":\"\",\"beats\":[{\"who\":\"narr|he|me\",\"text\":\"\"}],\"gist\":\"\",\"shot\":\"\",\"duo\":false}", maxTokens: 30000 });
+      const beats = Array.isArray(d && d.beats) ? d.beats.filter(b => b && b.text && /^(he|me|narr)$/.test(b.who)).map(b => ({ who: b.who, text: String(b.text) })) : [];
+      const meN = userName(meOf(char.id)), plain = beats.length ? beats.map(b => b.who === "he" ? char.name + "：" + b.text : b.who === "me" ? meN + "：" + b.text : b.text).join("\n") : String((d && d.text) || "");
+      if (!plain.trim()) throw new Error("没写出来");
+      stampSaveCard(cardId, c0 => ({ ...c0, extras: (c0.extras || []).map(x => x.id === xid ? { ...x, writing: false, err: "", title: String(d.title || "番外").slice(0, 20), text: plain, beats: beats.length ? beats : undefined, gist: String(d.gist || "").slice(0, 120), shot: String(d.shot || "").slice(0, 400), duo: d.duo === true || d.duo === "true" } : x) }));
+    } catch (e) { stampSaveCard(cardId, c0 => ({ ...c0, extras: (c0.extras || []).map(x => x.id === xid ? { ...x, writing: false, err: String(e && e.message || e).slice(0, 60) } : x) })); }
+  };
+  // 番外发给他看（她 2026-10-27）：像邮票那样进你们的聊天，他看得到、会回；第一次发、他回了那一轮给一点印泥（跟邮票共用 sharePend）
+  const stampExtraSend = (card, x) => {
+    const ch = characters.find(c => c.id === card.charId); if (!ch || !x || !x.text) return;
+    const head = "（寄给你一段番外：「" + (x.title || "番外") + "」，是邮票「" + ((card.text || {}).name || "") + "」那段故事外面的一段" + (card.kind === "if" ? "——IF 线「" + (card.theme || "") + "」里的你，不是你们真的发生过的事" : "") + "）";
+    pChat(ch.id, p => [...p, { role: "user", kind: "stampshare", stamp: stampShareOf(card), content: (head + "\n" + String(x.text).slice(0, 700)).trim(), ts: Date.now() }]);
+    stampSaveCard(card.id, c0 => ({ ...c0, extras: (c0.extras || []).map(e => e.id === x.id ? { ...e, sentTs: Date.now() } : e) }));
+    if (!x.sentTs && window.StampsCore) { const s2 = window.StampsCore.load(); s2.sharePend = Object.assign({}, s2.sharePend, { [ch.id]: card.id }); window.StampsCore.save(s2); }
+    toast("发给 " + (ch.remark || ch.name) + " 了，回聊天里看他怎么说");
+  };
+  // 番外卡面：画横版 CG，平时裁中间一块当竖卡面，全屏能看整张、能横过来看（她 2026-10-27 照乙游那样）；她在不在画里照番外自己写的 duo。点了才画
+  const stampExtraDraw = async (cardId, xid) => {
+    const card = (StampsCoreSafe().cards || []).find(c => c.id === cardId); const x = card && (card.extras || []).find(e => e.id === xid); if (!x || !x.text) return;
+    const char = characters.find(c => c.id === card.charId); if (!char) return;
+    if (!(typeof imgApiReady === "function" && imgApiReady())) { toast("先去 设置·图像API 配一下"); return; }
+    const setX = p => stampSaveCard(cardId, c0 => ({ ...c0, extras: (c0.extras || []).map(e => e.id === xid ? { ...e, ...p } : e) }));
+    setX({ drawing: true, drawingTs: Date.now(), drawingBoot: (window.__stampBoot = window.__stampBoot || Date.now()), drawErr: "" });
+    try {
+      const st = statesRef.current[char.id] || {}, duo = !!x.duo, lover = spaceLover((couplesRef.current || {})[char.id]);
+      const meP = duo ? Object.assign({}, photoMe("她", char.id), { outfit: "", closet: "" }) : null;
+      const paint = String(((StampsCoreSafe().opt || {}).paint) || "").trim();
+      let scene = "一张横版的乙游番外 CG：「" + (x.title || "") + "」。平时会裁成竖的、只显示正中间那一块当卡面，所以主要的人和动作放在画面正中间那三分之一，左右两边是场景和氛围。这一下：" + (x.shot || String(x.text).slice(-300)) + "\n景别拉开到看得见这一刻在哪、什么光，不是一张脸部近照。"
+        + (duo ? "画面里是你们两个人。" + (lover ? "你们是恋人，距离和手就是恋人的样子。" : "你们之间是什么关系就是什么距离，不画成恋人。") : "画面里只画你一个人。") + "\n画面里不要任何文字。";
+      if (card.kind === "if") scene += "\n这张是 IF「" + (card.theme || "") + "」" + (card.themeLine ? "：" + String(card.themeLine).slice(0, 300) : "") + "。" + (card.themeLook || "") + "衣服、场景和光照这个主题来。他的长相照他本人，主题只换衣服、场景和道具。";
+      const base = Object.assign({}, char, { photoOutfit: "" });
+      const prompt = buildPhotoPrompt(paint === "real" ? Object.assign({}, base, { photoStyle: "realistic" }) : base, scene, Object.assign({}, st, { wearing: "", wearingUpdatedAt: 0 }),
+        Object.assign(duo ? { kind: "duo", me: meP, notLover: !lover } : { kind: "other" }, { shotLine: stampCam() + "这张番外 CG 里他的脸一定要看得见：正脸或者侧脸，不拍背影、不拍后脑勺；两个人在一起时，镜头在他们对面或者斜对面，不从他身后越肩拍。" }, { closet: "" }, paint && paint !== "real" ? { paint } : {}));
+      const refs = [char.refPhoto, duo && meP && meP.refPhoto].filter(Boolean);
+      const out = await generateSelfieImage(prompt, refs.length ? refs : null, { size: "1536x1024" });
+      if (!(out && out.blob)) throw new Error("没拿到图");
+      const key = "img_stamp_ex_" + xid + "_" + Date.now().toString(36);
+      await idbImgPut(key, out.blob);
+      setX({ drawing: false, img: key, drawErr: "" });
+    } catch (e) { setX({ drawing: false, drawErr: String(e && e.message || e).slice(0, 100) }); toast("插图没画成：" + String(e && e.message || e).slice(0, 60)); }
+  };
   const stampPoke = async (card, side) => {
     const char = characters.find(x => x.id === card.charId); if (!char || !card.text) return null;
     const d = await runProbe(apiFor(char.id), ctxFor(char), { voice: true,
@@ -34065,6 +34125,16 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     onDraw: (id, alt, mode) => stampDraw(id, alt, mode),
     onPoke: stampPoke,
     onInner: stampInner,
+    onExtra: stampExtra,
+    onExtraDraw: stampExtraDraw,
+    onExtraSend: stampExtraSend,
+    // 接着演（她 2026-10-27）：把这张卡写了什么打包交给小剧场，开一条从卡来的线；或者打开从这张卡开过的某一条
+    onTheater: card => { const tx = card.text || {}, ends = (tx.sections || []).filter(x => x && (x.end || x.hidden)).map(x => "「" + (x.title || "") + "」" + (x.beats || []).filter(b => b && b.who !== "pick").slice(-4).map(b => String(b.text || "").slice(0, 100)).join(" / ")).join("\n");
+      const text = ["卡名：" + (tx.name || ""), card.kind === "if" ? "IF 主题：" + (card.theme || "") + (card.themeLine ? "：" + String(card.themeLine).slice(0, 300) : "") : "", tx.gist ? "写的是：" + tx.gist : "",
+        card.rarity === "SSR" ? (tx.highlight ? "最想留住的一刻：" + tx.highlight : "") + (ends ? "\n几个结局：\n" + ends.slice(0, 1500) : "") : [tx.open, tx.rest, tx.sequel].filter(Boolean).join("\n").slice(0, 1500),
+        tx.hidden ? "他藏着没说的：" + tx.hidden : "", tx.line ? "卡上那句：" + tx.line : ""].filter(Boolean).join("\n");
+      window.__theaterReturn = { cardId: card.id }; window.__theaterHandoff = { fromCard: { cardId: card.id, charId: card.charId, kind: card.kind, rarity: card.rarity, theme: card.theme || "", name: tx.name || "", text } }; setScreen("theater"); },
+    onTheaterLine: (id, cardId) => { window.__theaterReturn = cardId ? { cardId } : null; window.__theaterHandoff = { openLine: id }; setScreen("theater"); },
     // 她的生日池：主面具一份，每张副面具一份；各自只抽认这张面具的那几个人
     myBdays: stampMyBdays(),
     annivs: stampAnnivs(),
@@ -34410,9 +34480,11 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     profile: profile,
     // 言秋的座位:if 线对戏的「演」也走 CC 亲笔(同小游戏切座管道),超时才由模型顶
     isEngineer: (charId) => !!settingsFor(charId).engineerEyes,
+    onOpenCard: cardId => { window.__stampsOpen = cardId; setScreen("stamps"); },
+    voiceOf: char => stampVoice(char),   // 他平时真说过的话（只借口气）：跟邮票卡同一份
     toast: toast,
     onOpenStyleLab: goStyleLab,
-    onBack: () => setScreen("home")
+    onBack: () => { const r = window.__theaterReturn; window.__theaterReturn = null; if (r && r.cardId) { window.__stampsOpen = r.cardId; setScreen("stamps"); } else setScreen("home"); }   // 从邮票进来的，退出回到那张卡（她 2026-10-27）
   });else if (screen === "stylelab") body = h(StyleLabApp, {
     // 文风预设台：一处生产，线下/小剧场/同人文三处消费。只在这里改预设本身，
     // 三处吃不吃各自有开关；开关关着＝行为和以前一模一样。

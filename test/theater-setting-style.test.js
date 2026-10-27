@@ -3,11 +3,11 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const src = fs.readFileSync(require('node:path').join(__dirname, '../js/theater.js'), 'utf8');
 
-test('搭台共用人物规则，不带演出视角；五条创作路径都接入', () => {
+test('搭台共用人物规则，不带演出视角；六条创作路径都接入（含从邮票开线）', () => {
   const body = src.slice(src.indexOf('  const settingStyle ='), src.indexOf('  const useState ='));
   const style = new Function('CB', 'ANTI_CLICHE', 'CHARCARD_RULE', body + '\nreturn settingStyle();')(() => '边界', '公共文风', '人物机制');
   for (const phrase of ['边界', '公共文风', '人物机制', '可观察', '不统一写成掌控局面的强者']) assert.ok(style.includes(phrase));
-  assert.equal((src.match(/const sys = settingStyle\(\)/g) || []).length, 5);
+  assert.equal((src.match(/const sys = settingStyle\(\)/g) || []).length, 6);
   assert.doesNotMatch(body, /OFFLINE_NARRATIVE_RUNTIME|buildBundle|loadJSON/);
   for (const phrase of ['那股聪明劲', '原本的聪明、魅力', '基调决定味道,不决定重量', '张力再拧深一档']) assert.ok(!src.includes(phrase));
 });

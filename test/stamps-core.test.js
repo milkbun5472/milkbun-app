@@ -204,3 +204,12 @@ test("每期限时主题都配了自己的颜色（海报、小邮票、邮戳�
   const tone = Function("return " + m[1])();
   C.LIMITED.filter(L => L.deco !== "halloween").forEach(L => assert.ok(tone[L.deco], L.id + " 的 deco「" + L.deco + "」没在 LIM_TONE 里配色"));
 });
+
+test("番外补发：老用户手上每张限定 SSR 补一张番外券，只补一次", () => {
+  const C = fresh(), st = C.load(); st.gifted = true; st.seenLimited = { postage26: 1, ink26: 1, ink26b: 1 };
+  st.cards = [{ id: "a", rarity: "SSR", limited: "halloween26" }, { id: "b", rarity: "SSR", pool: "bday" }, { id: "c", rarity: "SSR", pool: "mix" }, { id: "d", rarity: "SR", limited: "halloween26" }]; C.save(st);
+  C.grantOnOpen(Date.parse("2026-10-27T12:00:00+08:00"), [], 1);
+  assert.equal(C.load().extraTickets, 2);
+  C.grantOnOpen(Date.parse("2026-10-27T12:00:00+08:00"), [], 1);
+  assert.equal(C.load().extraTickets, 2);
+});

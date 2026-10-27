@@ -11,7 +11,8 @@
   const CAP = { R: 30, SR: 40, SSR: 50 };
   const FULL_COST = { R: 150, SR: 500, SSR: 1000 };    // 一张卡升满要的印泥（含过坎）。她 2026-10-26：不想熔卡、想把抽到的都看全——R、SR 便宜下来
   const GIFT = { tickets: 15, ink: 2000 };
-  const DUPE_INK = 500;                         // 限定 SSR 重复一张折多少印泥      // 上线礼：15 张十连券 + 2000 印泥
+  const DUPE_INK = 500;
+  const EXTRA_INK = 1500;                       // 1500 印泥换一张番外券（她 2026-10-27）                         // 限定 SSR 重复一张折多少印泥      // 上线礼：15 张十连券 + 2000 印泥
   // 互动给多少（邮资、印泥）。一次调用算一轮；文档那张表。
   // 邮资（她 2026-10-26：「上班很忙，谁有空聊那么多」）：聊 45 轮够一个十连；印泥照旧——抽到的卡都能慢慢升满，不用熔卡
   const GAIN = {
@@ -95,6 +96,10 @@
     if (wasOld && !st.seenLimited[INK_MAKEUP.id]) { st.ink += INK_MAKEUP.ink; got.push("印泥补发：" + INK_MAKEUP.ink + " 印泥（之前只送了抽数）"); }
     else if (wasOld && !st.seenLimited[INK_MAKEUP.id + "b"]) { st.ink += 5000; got.push("印泥补发加码：再补 5000 印泥"); }   // 上一版只补了 5000 的，补齐到 10000
     st.seenLimited[INK_MAKEUP.id] = 1; st.seenLimited[INK_MAKEUP.id + "b"] = 1;
+    // 番外补发（她 2026-10-27）：番外上线前抽到重复的限定 SSR 只折了印泥、没留记录，认不出是谁——手上每有一张限定 SSR，就补一张番外券，自己挑卡写
+    if (wasOld && !st.seenLimited.extra26) { const n = st.cards.filter(c => c.rarity === "SSR" && !c.dupe && (c.limited || c.pool === "bday" || c.pool === "mybday" || c.pool === "anniv")).length;
+      if (n) { st.extraTickets = (st.extraTickets || 0) + n; got.push("番外上线补发：" + n + " 张番外券（手上每张限定 SSR 一张），在那张卡页里写"); } }
+    st.seenLimited.extra26 = 1;
     // 「今天的信」改成每天由一个人寄进聊天里领（app.js 的 stampLetterSweep），这儿不再送
     // 限时池上新：按这一期池里有几个人送，每两个人一张十连，最少一张、最多五张（她 2026-10-26：「十个角色只给一个十连不够」）
     activeLimited(now).forEach(L => { const n = Math.max(1, Math.min(5, Math.ceil((Number(limCount) || 1) / 2)));
@@ -224,13 +229,14 @@
   // 领聊天里那封「今天的信」：一封只能领一次
   function claimLetter(id) { const st = load(); st.claimed = st.claimed || {}; if (st.claimed[id]) return false; st.claimed[id] = 1; st.singles = (st.singles || 0) + 1; save(st); return true; }
   function claimBdLetter(id, bdKey, n) { const st = load(); st.claimed = st.claimed || {}; if (st.claimed[id]) return false; st.claimed[id] = 1; if (bdKey) { st.bdTickets = st.bdTickets || {}; st.bdTickets[bdKey] = (st.bdTickets[bdKey] || 0) + (Number(n) || 0); } else st.tickets += Number(n) || 0; st.ink += (Number(n) || 0) * INK_PER_TEN; save(st); return true; }
+  function buyExtra() { const st = load(); if (st.ink < EXTRA_INK) return false; st.ink -= EXTRA_INK; st.extraTickets = (st.extraTickets || 0) + 1; save(st); return true; }
   function letterClaimed(id) { return !!((load().claimed || {})[id]); }
 
   // 剧情按等级解锁：SSR 每十级一节（1 级第一节，40 级结局，50 级隐藏的路）
   function ssrUnlocked(lv) { return { sections: Math.min(4, 1 + Math.floor(lv / 10)), ending: lv >= 40, hidden: lv >= 50 }; }
 
   g.StampsCore = { PRICE_ONE, PRICE_TEN, RATE, SOFT_FROM, HARD_AT, SR_EVERY, BDAY, CAP, FULL_COST, GIFT, GAIN, LIMITED,
-    bdTicketCount, INK_PER_TEN, claimLetter, claimBdLetter, letterClaimed, cleanText, DUPE_INK, UNLOCK, levelUp, canBeg, markBeg, load, save, gain, grantOnOpen, activeLimited, bdayWindow, rollRarity, pay, levelCost, isGate, gateBlocked, ssrUnlocked };
+    bdTicketCount, EXTRA_INK, buyExtra, INK_PER_TEN, claimLetter, claimBdLetter, letterClaimed, cleanText, DUPE_INK, UNLOCK, levelUp, canBeg, markBeg, load, save, gain, grantOnOpen, activeLimited, bdayWindow, rollRarity, pay, levelCost, isGate, gateBlocked, ssrUnlocked };
   // 各处喊一声就记上
   g.stampGain = gain;
   // 别的玩法不一处处去挂：callAI 成功一枪（她按下去的、不是后台）会广播 ai-ok，这儿按它是干嘛的分进几档。
