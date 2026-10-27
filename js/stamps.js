@@ -71,12 +71,15 @@
 
   // 剧情：乙游对话框。背景是卡面，一句一句点着走；锁着的那节写着要盖到第几枚
   // 外语那句：写成「原文 | 中文」的，原文大字、中文一行小字；没带中文的外语，旁边一颗「译」，点了用免费翻译当场翻（不花模型）
+  // 翻过的句子记在这儿（按原文），翻回来还在；换了一句不再挂着上一句的译文（群里 2026-10-27：旁白点过一次翻译，后面每句底下都是那一句的）
+  const BI_ZH = new Map();
   function BiText({ text, small, color, sub }) {
-    const [zh, setZh] = useState(""), [busy, setBusy] = useState(false);
     const sp = typeof splitBilingual === "function" ? splitBilingual(String(text || "")) : null;
-    const orig = sp ? sp.text : String(text || ""), cn = sp ? sp.zh : zh;
+    const orig = sp ? sp.text : String(text || "");
+    const [zhOf, setZhOf] = useState(null), [busy, setBusy] = useState(false);
+    const zh = zhOf && zhOf.o === orig ? zhOf.zh : (BI_ZH.get(orig) || ""), cn = sp ? sp.zh : zh;
     const can = !sp && !zh && typeof translatableLang === "function" && translatableLang(orig);
-    const go = async e => { e && e.stopPropagation(); if (busy) return; setBusy(true); try { const r = await translateToZh(orig, can); if (r && r.zh) setZh(r.zh); } catch (er) {} setBusy(false); };
+    const go = async e => { e && e.stopPropagation(); if (busy) return; setBusy(true); try { const r = await translateToZh(orig, can); if (r && r.zh) { BI_ZH.set(orig, r.zh); setZhOf({ o: orig, zh: r.zh }); } } catch (er) {} setBusy(false); };
     return h(React.Fragment, null, orig,
       can ? h("button", { "data-wk": "stamptrans", onClick: go, style: { marginLeft: 6, padding: "0 6px", borderRadius: 6, border: "1px solid currentColor", fontSize: "0.72em", opacity: .7, fontStyle: "normal", verticalAlign: "middle" } }, busy ? "…" : "译") : null,
       cn ? h("div", { "data-wk": "stampzh", style: { marginTop: 3, fontSize: "0.8em", fontStyle: "normal", opacity: .72, color: sub || color } }, cn) : null);
@@ -237,7 +240,7 @@
     const [full, setFull] = useState(false);
     useEffect(() => { if (!card.unread) return; const st0 = C().load(); st0.cards = st0.cards.map(c => c.id === card.id ? Object.assign({}, c, { unread: false }) : c); C().save(st0); }, [card.id]);   // 点开过就不算新
     // 「画着」超过八分钟还没回来＝那次没了（多半是画到一半关了 app）：按钮放开，能再画（她 2026-10-27：有人一直卡在重画中）
-    const drawing = !!card.drawing && Date.now() - (card.drawingTs || 0) < 8 * 60000;
+    const drawing = !!card.drawing && !!card.drawingBoot && card.drawingBoot === window.__stampBoot && Date.now() - (card.drawingTs || 0) < 8 * 60000;   // 关掉 app 再打开：上一回没画完的那次一定没了，直接放开
     const [reArm, setReArm] = useState(false);   // 重写整张卡要点两下：第一下变成「再点一次」，三秒内不点就回去           // 卡面全屏看，满级的在这里戳
     const [say, setSay] = useState(null), [poking, setPoking] = useState(false);
     const sayT = useRef(0);
