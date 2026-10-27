@@ -252,7 +252,16 @@
     // 新版播放（她 2026-10-27，原来叫乙游风）：一句一句点着走；vnI＝看到第几句，vnWrite＝底下「自己写」那一格开着没，vnLog＝记录，vnHide＝长按藏起界面
     const [vnI, setVnI] = useState(-1), [vnWrite, setVnWrite] = useState(false), [vnLog, setVnLog] = useState(false), [vnHide, setVnHide] = useState(false);
     const vnLen = useRef(0), vnLp = useRef(0), vnLpOn = useRef(false);
-    const [vnWide, setVnWide] = useState({});   // 背景图横不横：横的整张放上半屏、后面垫一层虚化，不裁人
+    const [vnWide, setVnWide] = useState({});
+    // 从邮票开的线还没拍剧照、没设背景：先拿那张卡的卡面当背景（她 2026-10-27）。卡面在 IDB（img_）或图库（iv_）
+    const [cardBg, setCardBg] = useState(null);
+    useEffect(() => { setCardBg(null); const l0 = lines.find(l => l.id === playId); if (!l0 || !l0.fromCard || !window.StampsCore) return;
+      const c = (window.StampsCore.load().cards || []).find(x => x.id === l0.fromCard), key = c && (c.cover || c.face); if (!key) return;
+      let alive = true, u = null;
+      const got = b => { if (alive && b) { u = URL.createObjectURL(b); setCardBg(u); } };
+      if (String(key).indexOf("iv_") === 0) { if (typeof imgVaultFetchBlob === "function") imgVaultFetchBlob(key).then(got).catch(() => {}); }
+      else if (typeof idbImgGet === "function") idbImgGet(key).then(got).catch(() => {});
+      return () => { alive = false; if (u) URL.revokeObjectURL(u); }; }, [playId]);   // 背景图横不横：横的整张放上半屏、后面垫一层虚化，不裁人
     const scrollRef = useRef(null);
     const linesRef = useRef(null);
     const sumBusyRef = useRef(false);
@@ -945,7 +954,7 @@
       : h("div", { style: { width: size, height: size, borderRadius: 999, background: (c && c.color) || "#c2bdb1", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: F_DISPLAY, fontSize: Math.round(size * 0.4), color: "#fff" } }, String((c && c.name) || "?")[0]);
     // 返回:子页面逐层退回,不要一脚踹回入口(演出→该角色的记录→入口)
     // 乙游风：整条线摊成一句一句——他那拍按段落拆（引号开头的段算他说的话），太长的再按句号切；她那拍是她说的；剧照那一条换背景
-    const vnBeats = l => { const out = []; let bg = l.bg || l.cover || null;
+    const vnBeats = l => { const out = []; let bg = l.bg || l.cover || (l.fromCard ? "__card" : null);
       allMsgs(l).forEach(m => {
         if (m.role === "photo") { if (m.img) bg = m.img; return; }
         if (m.role === "user") { out.push({ who: "me", text: m.content, bg, mid: m.id }); return; }
@@ -967,7 +976,7 @@
       const atEnd = i >= beats.length - 1, last = allMsgs(line).filter(m => m.role !== "photo").slice(-1)[0];
       const myTurn = atEnd && !busy && !line.ended && !!last && last.role === "char";
       const retry = atEnd && !busy && !line.ended && !!last && last.role === "user";
-      const bgUrl = b.bg ? imgSrc(b.bg) : null, fs = n => "calc(" + n + "px * var(--app-fs, 1))";
+      const bgUrl = b.bg === "__card" ? cardBg : b.bg ? imgSrc(b.bg) : null, fs = n => "calc(" + n + "px * var(--app-fs, 1))";
       if (bgUrl && vnWide[bgUrl] === undefined) { const im = new Image(); im.onload = () => setVnWide(m => Object.assign({}, m, { [bgUrl]: im.naturalWidth > im.naturalHeight * 1.1 })); im.src = bgUrl; }
       const wide = !!(bgUrl && vnWide[bgUrl]);
       const pill = on => ({ flexShrink: 0, marginLeft: 4, color: "#fff", fontFamily: F_BODY, fontSize: fs(10.5), padding: "1px 7px", borderRadius: 999, border: "1px solid rgba(255,255,255," + (on ? ".9" : ".35") + ")", background: on ? "rgba(255,255,255,.18)" : "transparent", whiteSpace: "nowrap" });
@@ -1276,7 +1285,7 @@
            ["⑂ 从这里分支", () => branchFrom(msgMenu)],
            ["取消", () => setMsgMenu(null)]].map(([label, fn], i, arr) => h("button", { "data-wk": "thrsheetbtn", key: label, onClick: fn, style: { width: "100%", padding: "13px 0", fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: i < arr.length - 1 ? t.ink : t.sub, background: "none", border: "none", borderTop: i ? "1px solid " + t.line : "none" } }, label))));
       return h("div", { "data-wk": "thrplay", style: S.wrap }, badges(),
-        line.bg ? h("div", { style: { position: "absolute", inset: 0, zIndex: 0, backgroundImage: "linear-gradient(" + veil(t.bg, 80) + "," + veil(t.bg, 80) + "), url(" + imgSrc(line.bg) + ")", backgroundSize: "cover", backgroundPosition: "center" } }) : null,
+        line.bg || cardBg ? h("div", { style: { position: "absolute", inset: 0, zIndex: 0, backgroundImage: "linear-gradient(" + veil(t.bg, 80) + "," + veil(t.bg, 80) + "), url(" + (line.bg ? imgSrc(line.bg) : cardBg) + ")", backgroundSize: "cover", backgroundPosition: "center" } }) : null,
         bigViewer(),
         h("div", { style: { position: "relative", zIndex: 1, flex: 1, minHeight: 0, display: "flex", flexDirection: "column" } }, header(line.title + " · " + (char.name || "")), photoSheet, msgSheet,
         // 目标条:这一幕要走到哪儿,一直钉在顶上。点一下展开全文,点开面板里还能改
