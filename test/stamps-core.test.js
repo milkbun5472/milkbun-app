@@ -197,3 +197,10 @@ test("你的生日券不在邮票册直接到账（改成生日信），他的�
 
 test("生日券别的池子也能用", () => { const C = fresh(); const st = C.load(); st.bdTickets = { me_main_2026: 2 }; st.tickets = 5;
   assert.equal(C.pay(st, 10, true, null), "bdticket"); assert.equal(C.bdTicketCount(st), 1); });
+
+test("每期限时主题都配了自己的颜色（海报、小邮票、邮戳圈），别等截图才补", () => {
+  const C = fresh(), src = require("fs").readFileSync(require("path").join(__dirname, "../js/stamps.js"), "utf8");
+  const m = /const LIM_TONE = (\{[^\n]*\});/.exec(src); assert.ok(m, "stamps.js 里要有 LIM_TONE");
+  const tone = Function("return " + m[1])();
+  C.LIMITED.filter(L => L.deco !== "halloween").forEach(L => assert.ok(tone[L.deco], L.id + " 的 deco「" + L.deco + "」没在 LIM_TONE 里配色"));
+});
