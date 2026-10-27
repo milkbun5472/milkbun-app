@@ -86,20 +86,15 @@
       cn ? h("div", { "data-wk": "stampzh", style: { marginTop: 3, fontSize: "0.8em", fontStyle: "normal", opacity: .72, color: sub || color } }, cn) : null);
   }
   // 番外那一行底下的一排小按钮：插图（画了显示一张小缩略图，点开看大图）、发给他看、设成封面、重写（点两下，不扣券）
-  function ExtraActs({ x, onDraw, onSend, onCover, isCover, onRewrite }) {
-    const url = useIdbImgUrl(x.img || null), [big, setBig] = useState(false), [arm, setArm] = useState(false);
-    const drawing = !!x.drawing && !!x.drawingBoot && x.drawingBoot === window.__stampBoot && Date.now() - (x.drawingTs || 0) < 8 * 60000;
+  function ExtraActs({ x, onSend, onRewrite }) {   // 番外那一行底下：发给他看、重写（点两下，不扣券）。卡面在上面卡面那边画
+    const [arm, setArm] = useState(false);
     const b = { padding: "2px 9px", borderRadius: 999, border: "1px solid rgba(87,119,103,.3)", color: "#827C6F", fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", whiteSpace: "nowrap" };
     return h("div", { "data-wk": "stampextraacts", className: "flex flex-wrap items-center", style: { gap: 6, marginTop: 6 } },
-      url ? h("img", { src: url, onClick: () => setBig(true), style: { width: 42, height: 28, objectFit: "cover", borderRadius: 3, border: "2px solid #fff", boxShadow: "0 1px 4px rgba(40,30,20,.2)" } }) : null,
-      h("button", { disabled: drawing, onClick: onDraw, className: "active:opacity-70 disabled:opacity-50", style: b }, drawing ? "画着…" : url ? "重画插图" : "画插图"),
       h("button", { "data-wk": "stampextrasend", onClick: onSend, className: "active:opacity-70", style: b }, x.sentTs ? "再发给他" : "发给他看"),
-      onCover ? h("button", { "data-wk": "stampextracover", onClick: onCover, className: "active:opacity-70", style: b }, isCover ? "取消封面" : "设成封面") : null,
       h("button", { "data-wk": "stampextrarewrite", onClick: () => { if (!arm) { setArm(true); setTimeout(() => setArm(false), 3000); return; } setArm(false); onRewrite(); }, className: "active:opacity-70",
-        style: Object.assign({}, b, arm ? { borderColor: "#b23a2e", color: "#b23a2e" } : { borderStyle: "dashed" }) }, arm ? "再点一次重写" : x.writing ? "重写中…" : "重写 · 不扣券"),
-      x.drawErr && !drawing ? h("div", { style: { width: "100%", fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: "#b23a2e" } }, "插图上次没画成：" + x.drawErr) : null,
-      big && url ? h("div", { onClick: () => setBig(false), className: "fixed inset-0 flex items-center justify-center", style: { zIndex: 260, background: "rgba(0,0,0,.88)" } }, h("img", { src: url, style: { maxWidth: "100%", maxHeight: "100%" } })) : null);
+        style: Object.assign({}, b, arm ? { borderColor: "#b23a2e", color: "#b23a2e" } : { borderStyle: "dashed" }) }, arm ? "再点一次重写" : x.writing ? "重写中…" : "重写 · 不扣券"));
   }
+
   function StoryReader({ t, card, char, meName, lv, start, onClose, onSeen, inner, noResume }) {   // noResume：番外播放用，不记「看到哪儿」
     const secs = (card.text && card.text.sections) || [];
     // 剧情背景能挑：第一面、满级他一个人、满级你们俩，画了哪几张就能换哪几张；挑了记在卡上
@@ -258,7 +253,12 @@
     const faces2 = Object.assign({}, card.faceAlt ? { [card.faceAltMode || "solo"]: card.faceAlt } : {}, card.faces || {});
     const url1 = useIdbImgUrl(card.face), urlSolo = useIdbImgUrl(faces2.solo || null), urlDuo = useIdbImgUrl(faces2.duo || null);
     const [side, setSide] = useState("main");         // main 第一面 / solo / duo
-    const url = side === "solo" && urlSolo ? urlSolo : side === "duo" && urlDuo ? urlDuo : url1;
+    // 番外卡面（她 2026-10-27）：在卡面这边跟满级那几面一起挑、一起画；side 是 "ex:番外id"
+    const exSel = side.indexOf("ex:") === 0 ? (card.extras || []).find(x => "ex:" + x.id === side) || null : null;
+    const urlEx = useIdbImgUrl(exSel && exSel.img || null);
+    const exDrawing = !!(exSel && exSel.drawing && exSel.drawingBoot && exSel.drawingBoot === window.__stampBoot && Date.now() - (exSel.drawingTs || 0) < 8 * 60000);
+    const url = exSel ? (urlEx || url1) : side === "solo" && urlSolo ? urlSolo : side === "duo" && urlDuo ? urlDuo : url1;
+    const sideKey = exSel ? exSel.img : side === "solo" ? faces2.solo : side === "duo" ? faces2.duo : card.face;
     const [full, setFull] = useState(false);
     useEffect(() => { if (!card.unread) return; const st0 = C().load(); st0.cards = st0.cards.map(c => c.id === card.id ? Object.assign({}, c, { unread: false }) : c); C().save(st0); }, [card.id]);   // 点开过就不算新
     // 「画着」超过八分钟还没回来＝那次没了（多半是画到一半关了 app）：按钮放开，能再画（她 2026-10-27：有人一直卡在重画中）
@@ -284,7 +284,7 @@
     let toGate = 0; for (let l = lv; l < nextGate; l++) toGate += C().levelCost(card.rarity, l);
     const cost1 = C().levelCost(card.rarity, lv);
     const blockNow = C().gateBlocked(card, lv);
-    const canPoke = card.rarity === "SSR" && lv >= cap && !!tx && !!url;
+    const canPoke = card.rarity === "SSR" && lv >= cap && !!tx && !!url && !exSel;
     const pokeAud = useRef(null);
     const speakPoke = txt => {
       if (!(typeof ttsSpeak === "function" && typeof ttsReady === "function" && typeof loadTtsApi === "function" && ttsReady(loadTtsApi()))) return false;
@@ -428,8 +428,10 @@
             card.canon ? h("span", { style: { alignSelf: "center", fontFamily: F_BODY, fontSize: fs(11.5), color: GOLD } }, "已当真") : null) : null,
           !card.face ? h("button", { "data-wk": "stampdraw", disabled: !tx || drawing, onClick: () => onDraw(card.id), className: "active:opacity-70 disabled:opacity-40",
             style: { marginTop: 8, padding: "6px 14px", borderRadius: 999, border: "1px solid " + LINE, color: P7, fontFamily: F_BODY, fontSize: fs(12) } }, drawing ? "画着…" : "画卡面 · 花一次生图")
-            : h("button", { "data-wk": "stampredraw", disabled: drawing, onClick: () => onDraw(card.id, side !== "main", side !== "main" ? side : undefined), className: "active:opacity-70 disabled:opacity-40",
-              style: { marginTop: 8, padding: "6px 14px", borderRadius: 8, border: "1px solid " + LINE, color: P7, fontFamily: F_BODY, fontSize: fs(12) } }, drawing ? "重画着…" : "↻ 照原来的描述重画这一面 · 花一次生图"),
+            : exSel && !exSel.img ? null
+            : h("button", { "data-wk": "stampredraw", disabled: exSel ? exDrawing : drawing, onClick: () => exSel ? onExtraDraw && onExtraDraw(card.id, exSel.id) : onDraw(card.id, side !== "main", side !== "main" ? side : undefined), className: "active:opacity-70 disabled:opacity-40",
+              style: { marginTop: 8, padding: "6px 14px", borderRadius: 8, border: "1px solid " + LINE, color: P7, fontFamily: F_BODY, fontSize: fs(12) } }, (exSel ? exDrawing : drawing) ? "重画着…" : "↻ 照原来的描述重画这一面 · 花一次生图"),
+          exSel && exSel.drawErr && !exDrawing ? h("div", { style: { marginTop: 6, maxWidth: 300, textAlign: "center", fontFamily: F_BODY, fontSize: fs(11), lineHeight: 1.5, color: "#b23a2e" } }, "番外卡面上次没画成：" + exSel.drawErr) : null,
           card.drawErr && !drawing ? h("div", { "data-wk": "stampdrawerr", style: { marginTop: 6, maxWidth: 300, textAlign: "center", fontFamily: F_BODY, fontSize: fs(11), lineHeight: 1.5, color: "#b23a2e" } }, "上次没画成：" + card.drawErr) : null,
           // SSR 满级：第二张卡面（一个人，或者你们俩），画好以后能翻面
           card.rarity === "SSR" && lv >= cap && tx ? h("div", { "data-wk": "stampalt", className: "flex flex-wrap justify-center", style: { gap: 8, marginTop: 8 } },
@@ -438,6 +440,13 @@
               ? (side === x[0] ? null : h("button", { key: x[0], onClick: () => setSide(x[0]), className: "active:opacity-70", style: { padding: "6px 12px", borderRadius: 8, background: COPPER, color: "#FFF8E9", fontFamily: F_BODY, fontSize: fs(12) } }, "看满级 · " + x[1]))
               : h("button", { key: x[0], disabled: drawing, onClick: () => { setSide(x[0]); onDraw(card.id, true, x[0]); }, className: "active:opacity-70 disabled:opacity-40",
                 style: { padding: "6px 12px", borderRadius: 8, border: "1px dashed " + COPPER, color: COPPER, fontFamily: F_BODY, fontSize: fs(12) } }, "画满级卡面 · " + x[1]))) : null,
+          // 番外卡面：每段写好的番外一颗，画了就能翻过去看，没画点了就画（不用满级）
+          (card.extras || []).some(x => x.text) ? h("div", { "data-wk": "stampexface", className: "flex flex-wrap justify-center", style: { gap: 8, marginTop: 8 } },
+            exSel && !(card.rarity === "SSR" && lv >= cap) ? h("button", { onClick: () => setSide("main"), className: "active:opacity-70", style: { padding: "6px 12px", borderRadius: 8, border: "1px solid " + COPPER, color: COPPER, fontFamily: F_BODY, fontSize: fs(12) } }, "看第一面") : null,
+            (card.extras || []).filter(x => x.text).map(x => { const on = side === "ex:" + x.id, dr = !!(x.drawing && x.drawingBoot && x.drawingBoot === window.__stampBoot && Date.now() - (x.drawingTs || 0) < 8 * 60000);
+              return x.img ? (on ? null : h("button", { key: x.id, onClick: () => setSide("ex:" + x.id), className: "active:opacity-70", style: { padding: "6px 12px", borderRadius: 8, background: "#8a6a3a", color: "#FFF8E9", fontFamily: F_BODY, fontSize: fs(12) } }, "看番外 ·「" + (x.title || "") + "」"))
+                : h("button", { key: x.id, disabled: dr, onClick: () => { setSide("ex:" + x.id); onExtraDraw && onExtraDraw(card.id, x.id); }, className: "active:opacity-70 disabled:opacity-40",
+                  style: { padding: "6px 12px", borderRadius: 8, border: "1px dashed #8a6a3a", color: "#8a6a3a", fontFamily: F_BODY, fontSize: fs(12) } }, dr ? "画着番外卡面…" : "画番外卡面 ·「" + (x.title || "") + "」"); })) : null,
           tx && !card.writing ? h("button", { "data-wk": "stamprewrite", onClick: () => {
               if (!reArm) { setReArm(true); setTimeout(() => setReArm(false), 3000); return; }
               setReArm(false);
@@ -515,8 +524,7 @@
                   h("div", { style: { fontFamily: F_DISPLAY, fontSize: fs(13.5), color: P } }, "「" + (x.title || "番外") + "」"),
                   h("div", { style: { marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", fontFamily: F_BODY, fontSize: fs(11.5), color: P5 } }, String(x.text).replace(/\s+/g, " ").slice(0, 60))),
                 h("span", { style: { flexShrink: 0, fontFamily: F_BODY, fontSize: fs(11.5), color: COPPER } }, "读 ›")),
-              h(ExtraActs, { x, isCover: !!x.img && card.cover === x.img, onDraw: () => onExtraDraw && onExtraDraw(card.id, x.id), onSend: () => onExtraSend && onExtraSend(card, x),
-                onCover: x.img ? () => setCover(card.cover === x.img ? null : x.img) : null, onRewrite: () => { onExtra && onExtra(card.id, x.id); toast("在重写这段番外，不扣券"); } }))
+              h(ExtraActs, { x, onSend: () => onExtraSend && onExtraSend(card, x), onRewrite: () => { onExtra && onExtra(card.id, x.id); toast("在重写这段番外，不扣券"); } }))
               : x.writing ? h("div", { style: { fontFamily: F_BODY, fontSize: fs(12), color: P5 } }, "他在写这段番外…")
               : h("button", { onClick: () => onExtra && onExtra(card.id, x.id), className: "active:opacity-70", style: { fontFamily: F_BODY, fontSize: fs(12), color: "#b23a2e" } }, "这段番外没写出来" + (x.err && x.err !== "没写出来" ? "（" + x.err + "）" : "") + " · 点一下重写"))),
             left <= 0 ? h("button", { "data-wk": "stampextrabuy", onClick: () => { if (!C().buyExtra()) { toast("印泥不够：" + C().EXTRA_INK + " 印泥换一张番外券"); return; } toast("换好了一张番外券"); }, className: "active:opacity-70",
@@ -538,7 +546,7 @@
             h("img", { src: url, alt: "", style: { display: "block", maxWidth: "calc(100vw - 32px)", maxHeight: "calc(100dvh - 190px)", width: "auto", height: "auto", borderRadius: 4, boxShadow: "0 0 0 3px #FFF8E9, 0 0 0 5px " + COPPER } }),
             canPoke ? h("div", { "data-wk": "stamppoke", onClick: e => { e.stopPropagation(); poke(e); }, style: { position: "absolute", inset: 0, cursor: "pointer" } }) : null)),
         // 画了好几面：全屏里左右箭头直接换（她 2026-10-27：不用退出全屏再换），底下小点标着是哪一面
-        (() => { const sides = [["main", url1, "第一面"], ["solo", urlSolo, "他一个人"], ["duo", urlDuo, "你们俩"]].filter(x => x[1]); if (sides.length < 2) return null;
+        (() => { const sides = [["main", url1, "第一面"], ["solo", urlSolo, "他一个人"], ["duo", urlDuo, "你们俩"]].concat(exSel && urlEx ? [[side, urlEx, "番外「" + (exSel.title || "") + "」"]] : []).filter(x => x[1]); if (sides.length < 2) return null;
           const k = Math.max(0, sides.findIndex(x => x[0] === side)), go = d => e => { e.stopPropagation(); setSay(null); setSide(sides[(k + d + sides.length) % sides.length][0]); };
           const arrow = (d, pos) => h("button", { "data-wk": "stampfullnav", onClick: go(d), className: "active:opacity-60", style: Object.assign({ position: "absolute", top: "42%", width: 36, height: 56, borderRadius: 8, background: "rgba(255,248,233,.16)", color: "#FFF8E9", fontSize: 26, lineHeight: "56px", textAlign: "center" }, pos) }, d < 0 ? "‹" : "›");
           return h(React.Fragment, null, arrow(-1, { left: 6 }), arrow(1, { right: 6 }),
@@ -552,10 +560,10 @@
 
           // 最底下一排：左边保存原图，右边（满级戳过的）换一批话
           h("div", { className: "flex items-center justify-between", style: { marginTop: 10, paddingTop: 8, borderTop: "1px dashed rgba(181,140,85,.35)" } },
-            h("button", { "data-wk": "stampsaveimg", onClick: e => { e.stopPropagation(); const key = side === "solo" ? faces2.solo : side === "duo" ? faces2.duo : card.face;
+            h("button", { "data-wk": "stampsaveimg", onClick: e => { e.stopPropagation(); const key = sideKey;
                 (window.saveImgOriginal ? window.saveImgOriginal(key, (tx && tx.name) || "邮票卡面") : Promise.resolve(false)).then(ok => { if (!ok) toast("这张取不到原图"); }); },
               className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: fs(11.5), color: GOLD, border: "1px solid " + GOLD, borderRadius: 999, padding: "3px 10px" } }, "⬇ 保存原图"),
-            (() => { const key = side === "solo" ? faces2.solo : side === "duo" ? faces2.duo : card.face, on = (card.cover || card.face) === key;
+            (() => { const key = sideKey, on = (card.cover || card.face) === key;
               return h("button", { "data-wk": "stampsetcover", disabled: on, onClick: e => { e.stopPropagation(); setCover(key === card.face ? null : key); }, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: fs(11.5), color: on ? P5 : COPPER, border: "1px solid " + (on ? "rgba(130,124,111,.4)" : COPPER), borderRadius: 999, padding: "3px 10px" } }, on ? "是册子封面" : "设成册子封面"); })(),
             canPoke && card[side === "duo" ? "pokesDuo" : side === "solo" ? "pokesSolo" : "pokes"] && !poking ? h("button", { "data-wk": "stamppokeredo", onClick: e => { e.stopPropagation(); poke("redo"); }, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: fs(11.5), color: COPPER, border: "1px solid " + COPPER, borderRadius: 999, padding: "3px 10px" } }, "↻ 这一面换一批话 · 花一次调用") : null))) : null,
       // 番外像剧情一样一句一句播（她 2026-10-27）：背景用番外插图，没画就用卡面；老的整段番外按段落拆成旁白
