@@ -17175,11 +17175,36 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
           + "\n这张卡写的是：" + String(tx.gist || tx.highlight || "").slice(0, 200) + (ends ? "\n它的几个结局：\n" + ends.slice(0, 900) : "")
           + "\n番外是这段故事外面的一段：结局之后的某一天、故事里没写到的那一晚，或者同一件事里你那边没让她看到的部分，挑一个最想补上的。八百到一千二百字，一个完整的小场景，有开头有收尾。旁白里她是「你」，你是「他」。"
           + (had.length ? "\n这张卡已经有的番外：\n" + had.join("\n") + "\n这一段写别的。" : "")
-          + "\ntitle 是番外的名字（八个字以内）；text 是正文；gist 一句话记下写的是什么。",
-        schemaHint: "{\"title\":\"\",\"text\":\"\",\"gist\":\"\"}", maxTokens: 30000 });
+          + "\ntitle 是番外的名字（八个字以内）；text 是正文；gist 一句话记下写的是什么；shot 是给画插图的人看的一句分镜（横版，画这段里最想留住的那一下：谁在、在干嘛、在哪、什么光）；duo 是这一下她在不在画里（true/false）。",
+        schemaHint: "{\"title\":\"\",\"text\":\"\",\"gist\":\"\",\"shot\":\"\",\"duo\":false}", maxTokens: 30000 });
       if (!d || !d.text) throw new Error("没写出来");
-      stampSaveCard(cardId, c0 => ({ ...c0, extras: (c0.extras || []).map(x => x.id === xid ? { ...x, writing: false, err: "", title: String(d.title || "番外").slice(0, 20), text: String(d.text), gist: String(d.gist || "").slice(0, 120) } : x) }));
+      stampSaveCard(cardId, c0 => ({ ...c0, extras: (c0.extras || []).map(x => x.id === xid ? { ...x, writing: false, err: "", title: String(d.title || "番外").slice(0, 20), text: String(d.text), gist: String(d.gist || "").slice(0, 120), shot: String(d.shot || "").slice(0, 400), duo: d.duo === true || d.duo === "true" } : x) }));
     } catch (e) { stampSaveCard(cardId, c0 => ({ ...c0, extras: (c0.extras || []).map(x => x.id === xid ? { ...x, writing: false, err: String(e && e.message || e).slice(0, 60) } : x) })); }
+  };
+  // 番外插图：横版，像书里夹的一张插画；她在不在画里照番外自己写的 duo。点了才画
+  const stampExtraDraw = async (cardId, xid) => {
+    const card = (StampsCoreSafe().cards || []).find(c => c.id === cardId); const x = card && (card.extras || []).find(e => e.id === xid); if (!x || !x.text) return;
+    const char = characters.find(c => c.id === card.charId); if (!char) return;
+    if (!(typeof imgApiReady === "function" && imgApiReady())) { toast("先去 设置·图像API 配一下"); return; }
+    const setX = p => stampSaveCard(cardId, c0 => ({ ...c0, extras: (c0.extras || []).map(e => e.id === xid ? { ...e, ...p } : e) }));
+    setX({ drawing: true, drawingTs: Date.now(), drawingBoot: (window.__stampBoot = window.__stampBoot || Date.now()), drawErr: "" });
+    try {
+      const st = statesRef.current[char.id] || {}, duo = !!x.duo, lover = spaceLover((couplesRef.current || {})[char.id]);
+      const meP = duo ? Object.assign({}, photoMe("她", char.id), { outfit: "", closet: "" }) : null;
+      const paint = String(((StampsCoreSafe().opt || {}).paint) || "").trim();
+      let scene = "一张横版的乙游番外插图：「" + (x.title || "") + "」，像书里夹着的一页插画。这一下：" + (x.shot || String(x.text).slice(-300)) + "\n景别拉开到看得见这一刻在哪、什么光，不是一张脸部近照。"
+        + (duo ? "画面里是你们两个人。" + (lover ? "你们是恋人，距离和手就是恋人的样子。" : "你们之间是什么关系就是什么距离，不画成恋人。") : "画面里只画你一个人。") + "\n画面里不要任何文字。";
+      if (card.kind === "if") scene += "\n这张是 IF「" + (card.theme || "") + "」" + (card.themeLine ? "：" + String(card.themeLine).slice(0, 300) : "") + "。" + (card.themeLook || "") + "衣服、场景和光照这个主题来。他的长相照他本人，主题只换衣服、场景和道具。";
+      const base = Object.assign({}, char, { photoOutfit: "" });
+      const prompt = buildPhotoPrompt(paint === "real" ? Object.assign({}, base, { photoStyle: "realistic" }) : base, scene, Object.assign({}, st, { wearing: "", wearingUpdatedAt: 0 }),
+        Object.assign(duo ? { kind: "duo", me: meP, notLover: !lover } : { kind: "other" }, { shotLine: stampCam() }, { closet: "" }, paint && paint !== "real" ? { paint } : {}));
+      const refs = [char.refPhoto, duo && meP && meP.refPhoto].filter(Boolean);
+      const out = await generateSelfieImage(prompt, refs.length ? refs : null, { size: "1536x1024" });
+      if (!(out && out.blob)) throw new Error("没拿到图");
+      const key = "img_stamp_ex_" + xid + "_" + Date.now().toString(36);
+      await idbImgPut(key, out.blob);
+      setX({ drawing: false, img: key, drawErr: "" });
+    } catch (e) { setX({ drawing: false, drawErr: String(e && e.message || e).slice(0, 100) }); toast("插图没画成：" + String(e && e.message || e).slice(0, 60)); }
   };
   const stampPoke = async (card, side) => {
     const char = characters.find(x => x.id === card.charId); if (!char || !card.text) return null;
@@ -34088,6 +34113,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     onPoke: stampPoke,
     onInner: stampInner,
     onExtra: stampExtra,
+    onExtraDraw: stampExtraDraw,
     // 她的生日池：主面具一份，每张副面具一份；各自只抽认这张面具的那几个人
     myBdays: stampMyBdays(),
     annivs: stampAnnivs(),

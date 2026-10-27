@@ -84,6 +84,17 @@
       can ? h("button", { "data-wk": "stamptrans", onClick: go, style: { marginLeft: 6, padding: "0 6px", borderRadius: 6, border: "1px solid currentColor", fontSize: "0.72em", opacity: .7, fontStyle: "normal", verticalAlign: "middle" } }, busy ? "…" : "译") : null,
       cn ? h("div", { "data-wk": "stampzh", style: { marginTop: 3, fontSize: "0.8em", fontStyle: "normal", opacity: .72, color: sub || color } }, cn) : null);
   }
+  // 番外插图：画了就显示（点开看大图）；没画给一个按钮。横版
+  function ExtraImg({ x, onDraw }) {
+    const url = useIdbImgUrl(x.img || null), [big, setBig] = useState(false);
+    const drawing = !!x.drawing && !!x.drawingBoot && x.drawingBoot === window.__stampBoot && Date.now() - (x.drawingTs || 0) < 8 * 60000;
+    const btn = { marginTop: 8, padding: "5px 12px", borderRadius: 999, border: "1px solid rgba(87,119,103,.38)", color: "rgba(57,56,47,.78)", fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))" };
+    return h("div", { "data-wk": "stampextraimg" },
+      url ? h("img", { src: url, onClick: () => setBig(true), style: { marginTop: 8, width: "100%", aspectRatio: "3 / 2", objectFit: "cover", borderRadius: 4, border: "4px solid #fff", boxShadow: "0 2px 10px rgba(40,30,20,.15)", cursor: "zoom-in" } }) : null,
+      h("button", { disabled: drawing, onClick: onDraw, className: "active:opacity-70 disabled:opacity-50", style: btn }, drawing ? "画着…" : url ? "↻ 重画插图 · 花一次生图" : "画一张插图 · 花一次生图"),
+      x.drawErr && !drawing ? h("div", { style: { marginTop: 4, fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: "#b23a2e" } }, "上次没画成：" + x.drawErr) : null,
+      big && url ? h("div", { onClick: () => setBig(false), className: "fixed inset-0 flex items-center justify-center", style: { zIndex: 260, background: "rgba(0,0,0,.88)" } }, h("img", { src: url, style: { maxWidth: "100%", maxHeight: "100%" } })) : null);
+  }
   function StoryReader({ t, card, char, meName, lv, start, onClose, onSeen, inner }) {
     const secs = (card.text && card.text.sections) || [];
     // 剧情背景能挑：第一面、满级他一个人、满级你们俩，画了哪几张就能换哪几张；挑了记在卡上
@@ -231,7 +242,7 @@
 
   // 一张卡打开：卡面、名字、内容
   // 卡页＝养成页：上面是卡（光晕、稀有度章、星、邮戳编号），中间养成面板，底下「时刻回廊」一格一格往外还原那个瞬间
-  function CardPage({ t, card, char, meName, onSwipe, onBack, onDraw, onRewrite, onSend, onCanon, onPoke, onInner, onExtra, toast }) {
+  function CardPage({ t, card, char, meName, onSwipe, onBack, onDraw, onRewrite, onSend, onCanon, onPoke, onInner, onExtra, onExtraDraw, toast }) {
     // 满级两面都能画：他一个人（solo）、你们俩（duo）。旧卡只有 faceAlt＋faceAltMode，照它认
     const faces2 = Object.assign({}, card.faceAlt ? { [card.faceAltMode || "solo"]: card.faceAlt } : {}, card.faces || {});
     const url1 = useIdbImgUrl(card.face), urlSolo = useIdbImgUrl(faces2.solo || null), urlDuo = useIdbImgUrl(faces2.duo || null);
@@ -425,7 +436,7 @@
           url ? h("div", { style: { marginTop: 6, fontFamily: F_BODY, fontSize: fs(11), color: P5 } }, canPoke ? "点卡面全屏看，满级了能戳他（头、胸口、手）" : "点卡面全屏看") : null),
         // 养成
         // 番外：限定 SSR 才有。重复抽到自动多一段；手上有番外券也能自己写一段
-        tx && card.rarity === "SSR" && (card.limited || card.pool === "bday" || card.pool === "mybday" || card.pool === "anniv") && ((card.extras || []).length || (C().load().extraTickets || 0) > 0) ? (() => {
+        tx && card.rarity === "SSR" && (card.limited || card.pool === "bday" || card.pool === "mybday" || card.pool === "anniv") ? (() => {
           const xs = card.extras || [], left = C().load().extraTickets || 0;
           return h("div", { "data-wk": "stampextras", style: { marginTop: 16, padding: "14px 16px", borderRadius: 16, border: "1px solid rgba(181,140,85,.3)", background: "#f6efe0" } },
             h("div", { className: "flex items-center justify-between" },
@@ -434,9 +445,13 @@
             xs.map(x => h("div", { key: x.id, "data-wk": "stampextra", style: { marginTop: 10, paddingTop: 10, borderTop: "1px dashed rgba(47,42,34,.15)" } },
               x.text ? h(React.Fragment, null,
                 h("button", { onClick: () => setExOpen(exOpen === x.id ? null : x.id), className: "w-full text-left active:opacity-70", style: { fontFamily: F_DISPLAY, fontSize: fs(13.5), color: P } }, "「" + (x.title || "番外") + "」", h("span", { style: { marginLeft: 6, fontFamily: F_BODY, fontSize: fs(11), color: P5 } }, exOpen === x.id ? "收起" : "展开")),
-                exOpen === x.id ? h("div", { style: { marginTop: 8, fontFamily: F_BODY, fontSize: fs(13.5), lineHeight: 1.85, color: P7, whiteSpace: "pre-wrap" } }, h(BiText, { text: x.text })) : null)
+                exOpen === x.id ? h(React.Fragment, null,
+                  h(ExtraImg, { x, onDraw: () => onExtraDraw && onExtraDraw(card.id, x.id) }),
+                  h("div", { style: { marginTop: 8, fontFamily: F_BODY, fontSize: fs(13.5), lineHeight: 1.85, color: P7, whiteSpace: "pre-wrap" } }, h(BiText, { text: x.text }))) : null)
               : x.writing ? h("div", { style: { fontFamily: F_BODY, fontSize: fs(12), color: P5 } }, "他在写这段番外…")
               : h("button", { onClick: () => onExtra && onExtra(card.id, x.id), className: "active:opacity-70", style: { fontFamily: F_BODY, fontSize: fs(12), color: "#b23a2e" } }, "这段番外没写出来" + (x.err && x.err !== "没写出来" ? "（" + x.err + "）" : "") + " · 点一下重写"))),
+            left <= 0 ? h("button", { "data-wk": "stampextrabuy", onClick: () => { if (!C().buyExtra()) { toast("印泥不够：" + C().EXTRA_INK + " 印泥换一张番外券"); return; } toast("换好了一张番外券"); }, className: "active:opacity-70",
+              style: { marginTop: 12, padding: "6px 14px", borderRadius: 999, border: "1px dashed " + COPPER, color: COPPER, fontFamily: F_BODY, fontSize: fs(12) } }, C().EXTRA_INK + " 印泥换一张番外券") : null,
             left > 0 ? h("button", { "data-wk": "stampextrawrite", onClick: () => { const s0 = C().load(); if (!(s0.extraTickets > 0)) return; s0.extraTickets--; C().save(s0); onExtra && onExtra(card.id); toast("用了一张番外券，他在写"); }, className: "active:opacity-70",
               style: { marginTop: 12, padding: "6px 14px", borderRadius: 999, border: "1px solid " + COPPER, color: COPPER, fontFamily: F_BODY, fontSize: fs(12) } }, "用一张番外券写一段") : null); })() : null,
         tx ? h("div", { "data-wk": "stampgrow", style: { marginTop: 16, padding: "14px 16px", borderRadius: 16, border: "1px solid rgba(87,119,103,.22)", background: "#E2E7DA", boxShadow: "0 2px 10px rgba(57,56,47,.06)" } },
@@ -653,13 +668,13 @@
             h(Avatar, { character: c, size: 46, radius: 10 }),
             on ? h("span", { style: { position: "absolute", right: -5, bottom: -5, width: 18, height: 18, borderRadius: 999, background: "#2f5d4a", color: "#15121f", fontSize: 11, lineHeight: "18px", textAlign: "center", fontWeight: 700 } }, "✓") : null),
           h("div", { style: { maxWidth: "100%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: on ? "#2f5d4a" : "rgba(47,42,34,.75)" } }, c.remark || c.name)); }));
-    if (open) { const card = (st.cards || []).find(c => c.id === open) || null; if (card) return h(CardPage, { key: card.id, onSwipe: d => { const ids = albumIds.current, k = ids.indexOf(card.id); if (k < 0) return; const nx = ids[k + d]; if (nx) setOpen(nx); else toast(d > 0 ? "已经是最后一张了" : "已经是第一张了"); }, t, card, char: charOf(card.charId), meName, onBack: () => setOpen(null), onDraw, onRewrite: c => onWrite([c]), toast, onPoke: (c, sd) => props.onPoke ? props.onPoke(c, sd) : null, onInner: c => props.onInner ? props.onInner(c) : null, onExtra: (id, xid) => props.onExtra ? props.onExtra(id, xid) : null,
+    if (open) { const card = (st.cards || []).find(c => c.id === open) || null; if (card) return h(CardPage, { key: card.id, onSwipe: d => { const ids = albumIds.current, k = ids.indexOf(card.id); if (k < 0) return; const nx = ids[k + d]; if (nx) setOpen(nx); else toast(d > 0 ? "已经是最后一张了" : "已经是第一张了"); }, t, card, char: charOf(card.charId), meName, onBack: () => setOpen(null), onDraw, onRewrite: c => onWrite([c]), toast, onPoke: (c, sd) => props.onPoke ? props.onPoke(c, sd) : null, onInner: c => props.onInner ? props.onInner(c) : null, onExtra: (id, xid) => props.onExtra ? props.onExtra(id, xid) : null, onExtraDraw: (id, xid) => props.onExtraDraw ? props.onExtraDraw(id, xid) : null,
       onSend: c => { props.onSend && props.onSend(c); }, onCanon: c => { props.onCanon && props.onCanon(c); } }); }
 
     const isBad = c => !c.text && (!c.writing || Date.now() - Number(c.writingTs || 0) > (c.queued ? 1800000 : 180000));
     const byChar = (st.cards || []).filter(c => albumChar === "all" || c.charId === albumChar);
     const themeOf = c => c.kind === "if" ? (c.theme || "IF") : c.kind === "bday" ? "生日" : c.kind === "mybday" ? "你的生日" : c.kind === "anniv" ? "纪念日" : "日常";
-    const album = byChar.filter(c => (albumRar === "all" || (albumRar === "bad" ? isBad(c) : c.rarity === albumRar)) && (albumTheme === "all" || themeOf(c) === albumTheme)).slice().reverse();
+    const album = byChar.filter(c => (albumRar === "all" || (albumRar === "bad" ? isBad(c) : albumRar === "extra" ? (c.extras || []).some(x => x.text) : c.rarity === albumRar)) && (albumTheme === "all" || themeOf(c) === albumTheme)).slice().reverse();
     if (tab === "album") albumIds.current = album.map(c => c.id);
     // ── 卡池页像乙游那样：一整张大海报（一枚放大的邮票），左边一列小邮票换池，底下两颗大键；其余设置收进「⋯」 ──
     const NIGHT = "#15121f", PAPER = "#f4ecda", GOLD = "#e3b65c";
@@ -844,11 +859,11 @@
         // 一行三个下拉（她 2026-10-26：分类一行行往下加太高、往右滑不方便）：点开在下面弹一小块，选项换行平铺
         (() => { const chs = characters.filter(c => (st.cards || []).some(x => x.charId === c.id));
           const thAll = Array.from(new Set((st.cards || []).filter(c => albumChar === "all" || c.charId === albumChar).map(themeOf)));
-          const lab = { who: albumChar === "all" ? "全部" : ((charOf(albumChar) || {}).remark || (charOf(albumChar) || {}).name || "?"), rar: albumRar === "all" ? "全部" : albumRar === "bad" ? "没写好" : albumRar, theme: albumTheme === "all" ? "全部" : albumTheme };
+          const lab = { who: albumChar === "all" ? "全部" : ((charOf(albumChar) || {}).remark || (charOf(albumChar) || {}).name || "?"), rar: albumRar === "all" ? "全部" : albumRar === "bad" ? "没写好" : albumRar === "extra" ? "有番外" : albumRar, theme: albumTheme === "all" ? "全部" : albumTheme };
           const pill = (k, zh) => h("button", { key: k, "data-wk": "stampfilter", "data-part": k, "data-on": albumPick === k ? "1" : "0", onClick: () => setAlbumPick(albumPick === k ? "" : k), className: "flex-1 min-w-0 active:opacity-70",
             style: { padding: "7px 8px", borderRadius: 8, border: "1px solid " + (albumPick === k || lab[k] !== "全部" ? "#2f5d4a" : "rgba(47,42,34,.22)"), background: lab[k] !== "全部" ? "rgba(47,93,74,.08)" : "transparent", color: "#2f2a22", fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, zh + "：" + lab[k] + " ▾");
           const opts = albumPick === "who" ? [["all", "全部 " + (st.cards || []).length]].concat(chs.map(c => [c.id, (c.remark || c.name) + " " + st.cards.filter(x => x.charId === c.id).length]))
-            : albumPick === "rar" ? [["all", "全部"], ["SSR", "SSR"], ["SR", "SR"], ["R", "R"]].concat(byChar.some(isBad) ? [["bad", "没写好"]] : []).map(x => [x[0], x[1] + " " + (x[0] === "all" ? byChar.length : x[0] === "bad" ? byChar.filter(isBad).length : byChar.filter(c => c.rarity === x[0]).length)])
+            : albumPick === "rar" ? [["all", "全部"], ["SSR", "SSR"], ["SR", "SR"], ["R", "R"]].concat(byChar.some(c => (c.extras || []).some(x => x.text)) ? [["extra", "有番外"]] : []).concat(byChar.some(isBad) ? [["bad", "没写好"]] : []).map(x => [x[0], x[1] + " " + (x[0] === "all" ? byChar.length : x[0] === "bad" ? byChar.filter(isBad).length : x[0] === "extra" ? byChar.filter(c => (c.extras || []).some(e => e.text)).length : byChar.filter(c => c.rarity === x[0]).length)])
             : albumPick === "theme" ? [["all", "全部"]].concat(thAll.map(t2 => [t2, t2 + " " + byChar.filter(c => themeOf(c) === t2).length])) : [];
           const cur = albumPick === "who" ? albumChar : albumPick === "rar" ? albumRar : albumTheme;
           const set = v => { if (albumPick === "who") { setAlbumChar(v); setAlbumTheme("all"); } else if (albumPick === "rar") setAlbumRar(v); else setAlbumTheme(v); setAlbumPick(""); };
@@ -866,6 +881,8 @@
           album.map(c => { const ch = albumChar === "all" ? charOf(c.charId) : null;   // 「全部」时每枚下面写是谁的
             return h("div", { key: c.id, className: "flex flex-col items-center", style: { gap: 3, minWidth: 0 } }, h("div", { style: { position: "relative" } }, h(StampFace, { t, card: c, size: 88, onClick: () => setOpen(c.id) }),
                 // 没点开过的：右上角一个小点，淡淡的（她 2026-10-27：不要太明显）
+                // 夹页：有番外的 SSR，邮票右边露一截纸边，写着夹了几页
+                (c.extras || []).some(x => x.text) ? h("span", { "data-wk": "stampextratab", style: { position: "absolute", right: -7, top: 22, padding: "3px 2px", writingMode: "vertical-rl", borderRadius: "0 3px 3px 0", background: "#f6efe0", border: "1px solid rgba(181,140,85,.45)", borderLeft: "none", fontFamily: F_BODY, fontSize: 9, letterSpacing: ".1em", color: "#8a6a3a", pointerEvents: "none" } }, "番外" + (c.extras || []).filter(x => x.text).length) : null,
                 c.unread ? h("span", { "data-wk": "stampunread", style: { position: "absolute", top: 3, right: 3, width: 5, height: 5, borderRadius: 999, background: "rgba(181,140,85,.75)", pointerEvents: "none" } }) : null),
               // 每枚下面：星（养到哪儿了）、谁的、什么主题（群里许愿 2026-10-26）
               (() => { const cp = C().CAP[c.rarity] || 30, all = Math.round(cp / 10), on = Math.min(all, Math.floor((c.lv || 1) / 10));
