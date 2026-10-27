@@ -7320,6 +7320,17 @@ function ApiConfig({
   const removeCur = () => {
     removeProfile(cur);
   };
+  const [apiTest, setApiTest] = useState(null);
+  useEffect(() => { setApiTest(null); }, [cur && cur.id, cur && cur.model, cur && cur.baseUrl, cur && cur.apiKey]);   // 换了方案或改了填的东西，上次的结果就不算了
+  const testCur = async () => {
+    if (!cur || !cur.model) return;
+    const t0 = Date.now(); setApiTest({ busy: true });
+    try {
+      const raw = await callAI(cur, "这是一次连通测试。只回一个字：好", [{ role: "user", content: "测试" }], { maxTokens: 8000, timeout: 45000, logLabel: "测一下线路" });
+      const txt = String(raw || "").replace(/\s+/g, " ").trim();
+      setApiTest({ ok: !!txt, sec: ((Date.now() - t0) / 1000).toFixed(1), text: txt ? txt.slice(0, 60) : "回来是空的（模型可能不支持这种调用，或者额度用完了）" });
+    } catch (e) { setApiTest({ ok: false, text: String((e && e.message) || e).slice(0, 200) }); }
+  };
   const pull = async () => {
     setFetching(true);
     try {
@@ -7568,6 +7579,14 @@ function ApiConfig({
       color: cur.model === m ? t.ink : t.fog
     }
   }, m)))),
+  // 测一下（群友 2026-10-27「设置 API 时没有测试模型之类的吗」）：用这一页现在填的地址、key、模型发一句极短的话，
+  //   通了显示它回了什么、花了几秒；不通把报错原话摆出来。点一次就是一次很小的调用
+  h("div", { "data-wk": "apitest", style: { margin: "-6px 0 18px" } },
+    h("button", { onClick: testCur, disabled: !!(apiTest && apiTest.busy) || !cur.model, className: "active:opacity-70 disabled:opacity-40",
+      style: { minHeight: 40, padding: "0 16px", borderRadius: 999, border: "1px solid " + t.line, background: "transparent", color: t.ink, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))" } },
+      apiTest && apiTest.busy ? "测着…" : "测一下这个模型"),
+    apiTest && !apiTest.busy ? h("div", { style: { marginTop: 8, fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", lineHeight: 1.6, color: apiTest.ok ? t.ink : "#a4442e", wordBreak: "break-word" } },
+      apiTest.ok ? "通了，" + apiTest.sec + " 秒，它回了：" + apiTest.text : "没通：" + apiTest.text) : null),
   served && served.got ? h("div", { "data-wk": "block", style: { margin: "-6px 0 18px", padding: "9px 12px", borderRadius: 12, background: t.bg2, border: "1px solid " + (served.verdict === "diff" ? "#a4442e" : t.line) } },
     h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.ink, lineHeight: 1.5 } },
       "它实际给的：" + served.got),
