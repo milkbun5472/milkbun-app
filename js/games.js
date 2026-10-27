@@ -263,7 +263,8 @@
     tetris:    { paper: "#26252c", ink: "#ece8e0", hot: "#e8b53c", band: "#17161b", bandInk: "#ece8e0" },
     chess:     { paper: "#ece4d6", ink: "#3d3128", hot: "#b58863", band: "#3d3128", bandInk: "#ece4d6" },
     xiangqi:   { paper: "#f2dfb8", ink: "#5a3418", hot: "#b8322a", band: "#5a3418", bandInk: "#f2dfb8" },
-    go:        { paper: "#e9cf98", ink: "#3d2c16", hot: "#1a1816", band: "#3d2c16", bandInk: "#e9cf98" }
+    go:        { paper: "#e9cf98", ink: "#3d2c16", hot: "#1a1816", band: "#3d2c16", bandInk: "#e9cf98" },
+    jungle:    { paper: "#dfe8c6", ink: "#3f5a3a", hot: "#b8322a", band: "#3f5a3a", bandInk: "#dfe8c6" }
   };
   function GameLid(props) {
     const k = props.k, c = LID[k] || LID.spy;
@@ -426,6 +427,14 @@
         h("circle", { key: "d", cx: 76, cy: 50, r: 15, fill: "#f7e6c4", stroke: "#2b2622", strokeWidth: 2 }),
         h("text", { key: "e", x: 76, y: 56, textAnchor: "middle", fontSize: 16, fontWeight: 700, fill: "#2b2622" }, "将")
       ],
+      // 一块绿地一条河，一红「狮」一蓝「象」隔河对着
+      jungle: [
+        h("rect", { key: "a", x: 22, y: 42, width: 76, height: 14, fill: "#8fc3dd", opacity: .8 }),
+        h("circle", { key: "b", cx: 44, cy: 32, r: 13, fill: "#fbf3df", stroke: "#b8322a", strokeWidth: 2 }),
+        h("text", { key: "c", x: 44, y: 37.5, textAnchor: "middle", fontSize: 14, fontWeight: 700, fill: "#b8322a" }, "狮"),
+        h("circle", { key: "d", cx: 76, cy: 66, r: 13, fill: "#fbf3df", stroke: "#2f5f9e", strokeWidth: 2 }),
+        h("text", { key: "e", x: 76, y: 71.5, textAnchor: "middle", fontSize: 14, fontWeight: 700, fill: "#2f5f9e" }, "象")
+      ],
       // 一角十九路，黑白几颗子交错着
       go: [
         h("path", { key: "a", d: "M24 26h72M24 38h72M24 50h72M24 62h72M24 74h72M30 20v60M42 20v60M54 20v60M66 20v60M78 20v60M90 20v60", stroke: c.ink, strokeWidth: 1.1, opacity: .35 }),
@@ -521,6 +530,7 @@
       if (session.game.key === "chess" && window.ChessCore) return h(ChessGame, engineProps);
       if (session.game.key === "xiangqi" && window.XiangqiCore) return h(XiangqiGame, engineProps);
       if (session.game.key === "go" && window.GoCore) return h(GoGame, engineProps);
+      if (session.game.key === "jungle" && window.JungleCore) return h(JungleGame, engineProps);
       if (session.game.key === "draw") return h(DrawGuessGame, engineProps);
       if (session.game.key === "liar") return h(LiarDiceGame, engineProps);
       if (session.game.key === "poker") return h(PokerGame, engineProps);
@@ -825,7 +835,7 @@
           h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.ink, marginBottom: 8 } }, "棋盘"),
           h(Segmented, { t: t, value: String(goSize), onChange: function (v) { setGoSize(Number(v)); }, options: [{ key: "9", zh: "九路" }, { key: "13", zh: "十三路" }, { key: "17", zh: "十七路" }, { key: "19", zh: "十九路" }] }),
           h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, marginTop: 6, lineHeight: 1.6 } }, goSize >= 17 ? (goSize === 19 ? "十九路" : "十七路") + "格子小、一盘下得久，电脑在这么大的盘上偏弱。" : goSize === 13 ? "十三路，一盘半小时上下。" : "九路一盘十来分钟，手机上看得最清楚，电脑也下得最像样。")) : null,
-        ["chess", "xiangqi", "go"].indexOf(game.key) >= 0 && !spectate ? h("div", { "data-wk": "boardteach", style: { marginBottom: 20 } },
+        ["chess", "xiangqi", "go", "jungle"].indexOf(game.key) >= 0 && !spectate ? h("div", { "data-wk": "boardteach", style: { marginBottom: 20 } },
           h(ToggleRow, { t: t, label: "教学", sub: "你说话或者按「让TA说」的时候，TA 照着引擎看出来的实情讲：你上一步怎么样、哪里有危险。按提示时 TA 也顺口讲为什么。怎么教、耐不耐心，照 TA 自己的性子。", on: boardTeach, onToggle: function () { setBoardTeach(!boardTeach); } })) : null,
         game.key === "gomoku" ? h("div", { "data-wk": "gomokubrain", style: { marginBottom: 20 } },
           h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.ink, marginBottom: 8 } }, "谁来想棋"),
@@ -928,7 +938,7 @@
 
       // 底部开始
       h("div", { "data-wk": "gamestartbar", className: "shrink-0", style: { padding: "12px 18px calc(env(safe-area-inset-bottom) + 16px)", borderTop: "1px solid " + t.line } },
-        h("button", { "data-wk": "gamestart", onClick: function () { if (canStart) props.onStart({ mode: mode, charIds: picked.slice(), npcFill: npcFill, npcCount: needNpc, injectChat: injectChat, ccSeat: ccSeat, unoRule: game.key === "uno" ? unoRule : undefined, dateTheme: game.key === "date" ? dateTheme : undefined, gmkCasual: game.key === "gomoku" ? gmkCasual : undefined, gmkBrain: game.key === "gomoku" ? gmkBrain : undefined, boardTeach: ["chess", "xiangqi", "go"].indexOf(game.key) >= 0 && !spectate ? boardTeach : undefined, goSize: game.key === "go" ? goSize : undefined, cardBrain: ["uno", "poker", "blackjack"].indexOf(game.key) >= 0 ? cardBrain : undefined, bjDealer: game.key === "blackjack" ? bjDealer : undefined, pkTruth: game.key === "poker" ? pkTruth : undefined, drawBrain: game.key === "draw" ? drawBrain : undefined, q25Host: game.key === "q25" ? q25Host : undefined, tetrisMode: game.key === "tetris" ? tetrisMode : undefined, tetrisSkill: game.key === "tetris" ? tetrisSkill : undefined, total: total, gods: isWolfGame ? effGods.slice() : undefined, wolfRole: isWolfGame ? wolfRole : undefined, winMode: isWolfGame ? winMode : undefined, av: isAvalonGame ? avOpts : undefined, stake: stake.trim() || undefined }); },
+        h("button", { "data-wk": "gamestart", onClick: function () { if (canStart) props.onStart({ mode: mode, charIds: picked.slice(), npcFill: npcFill, npcCount: needNpc, injectChat: injectChat, ccSeat: ccSeat, unoRule: game.key === "uno" ? unoRule : undefined, dateTheme: game.key === "date" ? dateTheme : undefined, gmkCasual: game.key === "gomoku" ? gmkCasual : undefined, gmkBrain: game.key === "gomoku" ? gmkBrain : undefined, boardTeach: ["chess", "xiangqi", "go", "jungle"].indexOf(game.key) >= 0 && !spectate ? boardTeach : undefined, goSize: game.key === "go" ? goSize : undefined, cardBrain: ["uno", "poker", "blackjack"].indexOf(game.key) >= 0 ? cardBrain : undefined, bjDealer: game.key === "blackjack" ? bjDealer : undefined, pkTruth: game.key === "poker" ? pkTruth : undefined, drawBrain: game.key === "draw" ? drawBrain : undefined, q25Host: game.key === "q25" ? q25Host : undefined, tetrisMode: game.key === "tetris" ? tetrisMode : undefined, tetrisSkill: game.key === "tetris" ? tetrisSkill : undefined, total: total, gods: isWolfGame ? effGods.slice() : undefined, wolfRole: isWolfGame ? wolfRole : undefined, winMode: isWolfGame ? winMode : undefined, av: isAvalonGame ? avOpts : undefined, stake: stake.trim() || undefined }); },
           disabled: !canStart, className: "w-full active:opacity-80",
           style: { fontFamily: F_BODY, fontSize: "calc(15px * var(--app-fs, 1))", fontWeight: 700, color: "#f3efe6", background: canStart ? t.ink : t.line, borderRadius: 13, padding: "13px" } },
           spectate ? "开始观战" : "开始游戏")));
@@ -3032,7 +3042,8 @@
     tetris: ["#4fb3c8", "#26252c"],
     chess: ["#b58863", "#3d3128"],
     xiangqi: ["#b8322a", "#5a3418"],
-    go: ["#c8a467", "#3d2c16"]
+    go: ["#c8a467", "#3d2c16"],
+    jungle: ["#7fa35a", "#3f5a3a"]
   };
   function gameTable(k, t) {
     // 透明度后缀要先验主题色是不是六位色号，验不过退回纯色（mobile-ui-layout §3.5）
@@ -6277,6 +6288,173 @@
             const winC = winner === charSide ? char : (winner && winner !== "draw" && winner !== userSide ? char2 : null);
             return { key: "xiangqi", zh: "中国象棋", ids: realCharIds(talkers.map(seat)), wins: winC ? realCharIds([seat(winC)]) : [], meWin: spectate ? null : winner === userSide,
               text: (spectate ? "看 " + nm(char) + " 和 " + nm(char2) + " 下了一盘象棋" : "跟 " + nm(char) + " 下了一盘象棋") + "，" + Math.ceil(state.history.length / 2) + " 回合，" + res + "。" };
+          } }) : null) : null));
+  }
+
+  // ============================ 斗兽棋 ============================
+  // 她 2026-10-27「小游戏能做个斗兽棋吗」：规则和走子都在 js/jungle-core.js，界面照象棋那一页（同一套说话、提示、悔棋、认输）。
+  function JungleGame(props) {
+    const C = window.JungleCore, KEY = "jungle", ZH = "斗兽棋";
+    const t = props.t, cfg = props.config, sv = props.savedState;
+    const spectate = cfg.mode === "spectate", easy = cfg.mode === "easy";
+    const findC = function (id) { return (props.characters || []).find(function (c) { return c.id === id; }) || null; };
+    const char = findC((cfg.charIds || [])[0]), char2 = spectate ? findC((cfg.charIds || [])[1]) : null;
+    const pf = props.profile || {}, uName = pf.name || "你";
+    const nm = function (c) { return c ? (c.remark || c.name) : "电脑"; };
+    // 她执红先走（红在下）；观战时 TA 执红、另一位（或电脑）执蓝
+    const userSide = spectate ? "" : "r", charSide = spectate ? "r" : "b";
+    const nameOf = function (s) { return s === userSide ? uName : s === charSide ? nm(char) : nm(char2); };
+    const sideZh = function (s) { return s === "r" ? "红" : "蓝"; };
+    const tiers = useBoardSkill(props, KEY, ZH, [char, char2].filter(Boolean));
+    const sideChar = function (s) { return s === charSide ? char : s !== userSide ? char2 : null; };
+    // 还没估出来就先等着（null），估出来再走
+    const levelOf = function (s) { const c = sideChar(s); if (!spectate && easy && s === charSide) return "easy"; if (!c) return "normal"; return tiers[c.id] ? BOARD_TIER_LV[tiers[c.id].tier] : null; };
+    const styleOf = function (s) { const c = sideChar(s); return c && tiers[c.id] ? tiers[c.id].style || undefined : undefined; };
+    const [mvs, setMvs] = useState(sv && sv.mvs ? sv.mvs : []);
+    const state = React.useMemo(function () { return boardReplay(C, mvs); }, [mvs]);
+    const [resigned, setResigned] = useState(sv && sv.resigned ? sv.resigned : "");
+    const st = C.status(state);
+    const over = st.over || !!resigned;
+    const winner = resigned ? (resigned === "r" ? "b" : "r") : st.result;
+    const [sel, setSel] = useState(null);
+    const [hint, setHint] = useState(null);
+    const [why, setWhy] = useState("");
+    const [hintsUsed, setHintsUsed] = useState(sv && sv.hintsUsed ? sv.hintsUsed : 0);
+    const runId = useRef((sv && sv.runId) || ("jungle-" + Date.now().toString(36)));
+    const talkers = [char, char2].filter(Boolean);
+    const teach = !!cfg.boardTeach && !spectate, teachRef = useRef(null);
+    const teachFacts = function () {
+      const n0 = teachRef.current, bits = [];
+      if (n0) bits.push(uName + "上一步：" + n0.mine + (n0.better ? "；引擎觉得更好的是：" + n0.better : "；跟引擎想的一样"));
+      if (!over && state.turn === userSide) { const b = C.bestMove(state, "normal"); if (b) bits.push(uName + "现在最好的一步：" + C.zhPlain(state, b)); }
+      return bits.join("\n");
+    };
+    const talk = useBoardTalk({ props: props, saved: sv, talkers: talkers, uName: uName, spectate: spectate, zh: "斗兽棋", teach: teach, teachFacts: teachFacts,
+      seatOf: function (c) { return "执" + sideZh(c === char ? charSide : "b") + (easy && c === char ? "，这局让着" + uName : "") + (tiers[c.id] ? "，下棋水平：" + { rookie: "新手", mid: "会下、业余水平", pro: "真下过、算得深" }[tiers[c.id].tier] + (tiers[c.id].style ? "，路子" + BOARD_STYLE_ZH[tiers[c.id].style] : "") : ""); },
+      scene: function () { return spectate ? nm(char) + " 和 " + nm(char2) + " 在下斗兽棋，" + uName + " 在旁边看" : nm(char) + " 在跟 " + uName + " 下斗兽棋（" + uName + "执红先走）"; },
+      where: function () {
+        const h0 = state.history, last = h0[h0.length - 1];
+        return "第 " + Math.ceil(h0.length / 2) + " 回合。" + (over ? (winner === "draw" ? "已经下完，和棋。" : "已经下完，" + nameOf(winner) + "赢了" + (resigned ? "（对面认输）" : st.reason === "den" ? "（进了兽穴）" : st.reason === "wiped" ? "（子被吃光了）" : "") + "。")
+          : (last ? "上一步：" + nameOf(h0.length % 2 ? "r" : "b") + "，" + C.zhPlain(boardReplay(C, mvs.slice(0, -1)), last.mv) + "。" : "还没开始走。"))
+          + (h0.length ? "\n最近几步：" + h0.slice(-8).map(function (x) { return x.zh; }).join(" ") : "") + "\n【棋盘现在】\n" + C.boardText(state);
+      } });
+
+    useEffect(function () {
+      if (over) { clearGameSave("jungle"); return; }
+      if (!mvs.length) return;
+      saveGameSnap("jungle", { runId: runId.current, config: cfg, mvs: mvs, lines: talk.lines.slice(-30), hintsUsed: hintsUsed, ts: Date.now(), label: "第 " + Math.ceil(mvs.length / 2) + " 回合" });
+    }, [mvs.length, over, talk.lines.length]);
+
+    const play = function (mv) {
+      if (teach && state.turn === userSide) { const b = C.bestMove(state, "normal"); teachRef.current = { mine: C.zhPlain(state, mv), better: b && !(b.from + "" === mv.from + "" && b.to + "" === mv.to + "") ? C.zhPlain(state, b) : "" }; }
+      setMvs(function (a) { return a.concat([{ from: mv.from, to: mv.to }]); }); setSel(null); setHint(null); setWhy("");
+    };
+    useEffect(function () {
+      if (over || state.turn === userSide) return;
+      const lv = levelOf(state.turn);
+      if (!lv) return;
+      const tm = setTimeout(function () { const m = C.bestMove(state, lv, styleOf(state.turn)); if (m) play(m); }, spectate ? 900 : 600);
+      return function () { clearTimeout(tm); };
+    }, [mvs.length, over, tiers]);
+
+    const targets = sel ? C.legalMoves(state, sel) : [];
+    const tap = function (r, c) {
+      if (over || state.turn !== userSide) return;
+      const go = targets.find(function (m) { return m.to[0] === r && m.to[1] === c; });
+      if (go) return play(go);
+      const p = state.board[r][c];
+      // 选着子又点了走不过去的地方：说一句为什么（她 2026-10-23「为啥我的帅吃不了你的炮」）
+      if (sel && !(p && p[0] === userSide) && C.whyNot) { const w = C.whyNot(state, sel, [r, c]); if (w) { setWhy(w); return; } }
+      setWhy("");
+      setSel(p && p[0] === userSide && !(sel && sel[0] === r && sel[1] === c) ? [r, c] : null);
+    };
+    const canHint = !over && state.turn === userSide && (easy || hintsUsed < BOARD_HINTS);
+    const askHint = function () { if (!canHint) return; const m = C.bestMove(state, "hard"); if (m) { setHint(m); setSel(m.from); setHintsUsed(hintsUsed + 1); if (teach) talk.say(uName + "按了提示，提示是：" + (C.zhPlain ? C.zhPlain(state, m) : C.zh(state, m)) + "。顺口讲讲这步好在哪。"); } };
+    const undo = function () { if (over || spectate || mvs.length < 2 || state.turn !== userSide) return; setMvs(mvs.slice(0, -2)); setSel(null); setHint(null); };
+    const resign = function () { if (over || spectate) return; requestAppConfirm("认输？", "这一局算 " + nm(char) + " 赢。", function () { setResigned(userSide); }, "认输"); };
+
+    // 棋盘：七列九行的格子。河是两块蓝，陷阱画一圈虚线，兽穴是一座小洞口；子是圆片，红方暖红、蓝方靛蓝，右上角小字是大小
+    const cell = 46, pad = 10, W = pad * 2 + cell * 7, H = pad * 2 + cell * 9;
+    const X = function (c) { return pad + c * cell + cell / 2; }, Y = function (r) { return pad + r * cell + cell / 2; };
+    const last = state.history.length ? state.history[state.history.length - 1].mv : null;
+    const sideCol = { r: "#b8322a", b: "#2f5f9e" };
+    const tiles = [];
+    for (let r = 0; r < 9; r++) for (let c = 0; c < 7; c++) {
+      const wtr = C.isWater(r, c), den = C.denOf(r, c), trap = C.trapOf(r, c);
+      tiles.push(h("rect", { key: "t" + r + c, x: pad + c * cell, y: pad + r * cell, width: cell, height: cell, fill: wtr ? "#8fc3dd" : (r + c) % 2 ? "#cfe0a8" : "#c4d99a", stroke: "rgba(63,90,58,.35)", strokeWidth: .8 }));
+      if (wtr) tiles.push(h("path", { key: "wv" + r + c, d: "M" + (pad + c * cell + 9) + " " + (Y(r) + 2) + "q7 -6 14 0t14 0", fill: "none", stroke: "#fff", strokeWidth: 1.4, opacity: .6 }));
+      if (trap) tiles.push(h("g", { key: "tp" + r + c, opacity: .75 }, h("circle", { cx: X(c), cy: Y(r), r: cell * 0.34, fill: "none", stroke: sideCol[trap], strokeWidth: 1.4, strokeDasharray: "3 3" }), h("text", { x: X(c), y: Y(r) + 4, textAnchor: "middle", fontSize: 11, fill: sideCol[trap], opacity: .8 }, "阱")));
+      if (den) tiles.push(h("g", { key: "dn" + r + c }, h("path", { d: "M" + (X(c) - 15) + " " + (Y(r) + 13) + "v-10a15 15 0 0 1 30 0v10z", fill: "#6b4a2b", opacity: .82 }), h("text", { x: X(c), y: Y(r) + 9, textAnchor: "middle", fontSize: 11, fill: "#f3e6c8" }, "穴")));
+    }
+    const mark = function (k, r, c, col) { return h("rect", { key: k, x: pad + c * cell + 3, y: pad + r * cell + 3, width: cell - 6, height: cell - 6, rx: 7, fill: "none", stroke: col, strokeWidth: 2, strokeDasharray: "5 3" }); };
+    const boardSvg = h("svg", { "data-wk": "jungleboard", viewBox: "0 0 " + W + " " + H, style: { width: "100%", maxWidth: 380, display: "block", margin: "0 auto", borderRadius: 12,
+        background: "#b9cf8c", boxShadow: "inset 0 0 0 3px rgba(63,90,58,.3), 0 10px 24px rgba(30,50,25,.25)", touchAction: "manipulation" },
+        onClick: function (e) {
+          const b = e.currentTarget.getBoundingClientRect(), k = W / b.width;
+          const c = Math.floor(((e.clientX - b.left) * k - pad) / cell), r = Math.floor(((e.clientY - b.top) * k - pad) / cell);
+          if (r >= 0 && r < 9 && c >= 0 && c < 7) tap(r, c);
+        } },
+      tiles,
+      last ? [mark("lf", last.from[0], last.from[1], "#e0a020"), mark("lt", last.to[0], last.to[1], "#e0a020")] : null,
+      hint ? [mark("hf", hint.from[0], hint.from[1], "#2f6b45"), mark("ht", hint.to[0], hint.to[1], "#2f6b45")] : null,
+      state.board.map(function (row, r) { return row.map(function (p, c) {
+        if (!p) return null;
+        const col = sideCol[p[0]], on = sel && sel[0] === r && sel[1] === c, R = cell * 0.42, lift = on ? -3 : 0;
+        return h("g", { key: "p" + r + "-" + c, transform: "translate(0," + lift + ")" },
+          h("circle", { cx: X(c) + 1, cy: Y(r) + 3 - lift, r: R, fill: "#1e2a18", opacity: on ? .2 : .3 }),
+          h("circle", { cx: X(c), cy: Y(r), r: R, style: { fill: "#fbf3df", stroke: col, strokeWidth: on ? 3 : 2.2 } }),
+          h("text", { x: X(c), y: Y(r) + 7, textAnchor: "middle", fontSize: 20, fontWeight: 700, fill: col, style: { fontFamily: "'STKaiti','KaiTi','Kaiti SC','BiauKai',serif" } }, C.PIECE_ZH[p]),
+          h("text", { x: X(c) + R * 0.62, y: Y(r) - R * 0.42, textAnchor: "middle", fontSize: 8.5, fill: col, opacity: .75 }, p[1]));
+      }); }),
+      targets.map(function (m, i) { return h("circle", { key: "t" + i, cx: X(m.to[1]), cy: Y(m.to[0]), r: m.capture ? cell * 0.46 : 6, fill: m.capture ? "none" : "#2f6b45", stroke: m.capture ? "#2f6b45" : "none", strokeWidth: 2.5, opacity: .78 }); }));
+
+    const status = over ? (winner === "draw" ? "和棋" : nameOf(winner) + "赢了" + (resigned ? "（认输）" : st.reason === "den" ? "（进了兽穴）" : st.reason === "wiped" ? "（子被吃光了）" : st.reason === "stuck" ? "（对面没路可走）" : ""))
+      : state.turn === userSide ? (sel ? "点绿点的位置走过去" : "轮到你（红）") : nameOf(state.turn) + "在想…";
+    const btn = function (wk, label, on, dis) { return h("button", { "data-wk": wk, onClick: on, disabled: dis, className: "active:opacity-70", style: { minHeight: 40, padding: "0 16px", borderRadius: 999, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.sub, background: t.bg2, border: "1px solid " + t.line, opacity: dis ? .45 : 1 } }, label); };
+    // 吃掉的子：各自那一排
+    const jgCaps = function (side) {   // side 吃掉的（对面丢的）
+      const o = side === "r" ? "b" : "r", left = {};
+      state.board.forEach(function (row) { row.forEach(function (p) { if (p && p[0] === o) left[p] = 1; }); });
+      const got = []; for (let i = 8; i >= 1; i--) if (!left[o + i]) got.push(o + i);
+      return h("div", { "data-wk": "junglecaps", style: { display: "flex", alignItems: "center", gap: 3, minHeight: 24, padding: "0 4px", flexWrap: "wrap" } },
+        h("span", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginRight: 4 } }, nameOf(side) + " 吃了"),
+        got.length ? got.map(function (p, i) { return h("span", { key: i, style: { display: "inline-flex", alignItems: "center", justifyContent: "center", width: 19, height: 19, borderRadius: 999, background: "#fbf3df", border: "1.2px solid " + sideCol[p[0]], color: sideCol[p[0]], fontSize: 11, fontWeight: 700, fontFamily: "'STKaiti','KaiTi','Kaiti SC',serif" } }, C.PIECE_ZH[p]); })
+          : h("span", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog } }, "—"));
+    };
+    const disc = function (sd) { return h("span", { style: { display: "inline-flex", alignItems: "center", justifyContent: "center", width: 16, height: 16, borderRadius: 999, background: "#fbf3df", border: "1.5px solid " + sideCol[sd], color: sideCol[sd], fontSize: 10, fontWeight: 700, fontFamily: "serif" } }, sd === "r" ? "红" : "蓝"); };
+    return h("div", { "data-wk": "jungle", className: "h-full flex flex-col", style: gameTable("jungle", t) },
+      h(Head, { zh: "斗兽棋", onBack: props.onBack, bg: "transparent" }),
+      h("div", { className: "flex-1 overflow-y-auto", style: { padding: "4px 16px 24px" } },
+        h(GameVsBar, { t: t, evalOf: { host: props, key: "jungle", zh: "斗兽棋" }, mid: state.history.length ? Math.ceil(state.history.length / 2) + " 回合" : "", seats: ["r", "b"].map(function (sd) {
+          const isMe = sd === userSide, c = sd === charSide ? char : char2;
+          return { key: sd, name: nameOf(sd), char: isMe ? { name: uName, avatarImage: pf.avatarImage, color: pf.color } : c, isUser: isMe, on: !over && state.turn === sd,
+            mark: disc(sd), sub: over ? (winner === sd ? "赢了" : winner === "draw" ? "和棋" : "") : sideZh(sd) + (sd === "r" ? " · 先走" : ""), hot: winner === sd };
+        }) }),
+        h("div", { "data-wk": "jungletalk" }, h(GameTalkLog, { t: t, lines: talk.lines, uName: uName, me: { name: uName, avatarImage: pf.avatarImage, color: pf.color }, busy: talk.talking, names: talkers.length > 1, k: "jg",
+          charOf: function (l) { return findC(l.id) || char; }, empty: spectate ? "他们在下棋，你可以在下面插一句" : nm(char) + " 在对面坐着" })),
+        jgCaps("b"),
+        boardSvg,
+        jgCaps("r"),
+        state.history.length ? h("div", { "data-wk": "junglemoves", style: { textAlign: "center", fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog, marginTop: 8 } }, state.history.slice(-4).map(function (x) { return x.zh; }).join("　")) : null,
+        h("div", { style: { display: "flex", gap: 8, marginTop: 12 } },
+          h("input", { "data-wk": "gameinput", "data-part": "jungle", value: talk.heckle, onChange: function (e) { talk.setHeckle(e.target.value); }, onKeyDown: function (e) { if (e.key === "Enter") talk.send(); },
+            placeholder: spectate ? "台下插一句…（空着按就是让他们说）" : "跟 " + nm(char) + " 说一句…（空着按就是让 TA 开口）",
+            style: { flex: 1, minWidth: 0, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", padding: "9px 13px", borderRadius: 11, border: "1px solid " + t.line, background: t.bg2, color: t.ink, outline: "none" } }),
+          h("button", { "data-wk": "junglesend", onClick: talk.send, disabled: talk.talking, className: "active:opacity-80", style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", fontWeight: 700, color: t.bg2, background: talk.talking ? t.line : t.tint, borderRadius: 11, padding: "0 14px" } }, talk.heckle.trim() ? "说" : "让TA说")),
+        why && !over ? h("div", { "data-wk": "junglewhy", style: { textAlign: "center", marginTop: 10, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: "#b8433a" } }, "走不了：" + why) : null,
+        h("div", { style: { textAlign: "center", marginTop: 12 } }, h("span", { "data-wk": "junglestatus", style: { display: "inline-block", fontFamily: F_DISPLAY, fontSize: "calc(14.5px * var(--app-fs, 1))", color: over ? "#f3efe6" : t.ink, background: over ? t.ink : t.bg2, border: "1px solid " + t.line, borderRadius: 999, padding: "6px 16px" } }, status)),
+        !over && !spectate ? h("div", { style: { display: "flex", justifyContent: "center", gap: 8, marginTop: 10, flexWrap: "wrap" } },
+          btn("junglehint", easy ? "提示" : "提示（还剩 " + Math.max(0, BOARD_HINTS - hintsUsed) + "）", askHint, !canHint),
+          btn("jungleundo", "悔一步", undo, mvs.length < 2 || state.turn !== userSide),
+          btn("jungleresign", "认输", resign, false)) : null,
+        over ? h("div", { style: { marginTop: 14 } },
+          h("button", { "data-wk": "block", onClick: props.onBack, className: "active:opacity-80", style: { width: "100%", fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.ink, background: t.bg2, border: "1px solid " + t.line, borderRadius: 12, padding: "12px" } }, "回中枢"),
+          char ? h(KeepMemBtn, { t: t, host: props, rep: function () {
+            const res = winner === "draw" ? "和棋" : nameOf(winner) + "赢了";
+            const seat = function (c) { return { key: c.id, engineer: !!(cfg.ccSeat !== false && props.isEngineer && props.isEngineer(c.id)) }; };
+            const winC = winner === charSide ? char : (winner && winner !== "draw" && winner !== userSide ? char2 : null);
+            return { key: "jungle", zh: "斗兽棋", ids: realCharIds(talkers.map(seat)), wins: winC ? realCharIds([seat(winC)]) : [], meWin: spectate ? null : winner === userSide,
+              text: (spectate ? "看 " + nm(char) + " 和 " + nm(char2) + " 下了一盘斗兽棋" : "跟 " + nm(char) + " 下了一盘斗兽棋") + "，" + Math.ceil(state.history.length / 2) + " 回合，" + res + "。" };
           } }) : null) : null));
   }
 
