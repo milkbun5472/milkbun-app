@@ -249,7 +249,7 @@
     const [goalOpen, setGoalOpen] = useState(false); // 顶上那条目标条:缩成一行 / 展开全文
     const [writeGoal, setWriteGoal] = useState(null); // null | string:手写下一轮目标的缓冲
     const [diff, setDiff] = useState("normal"); // 开线时的难度档
-    // 乙游风播放（她 2026-10-27）：一句一句点着走；vnI＝看到第几句，vnWrite＝底下「自己写」那一格开着没，vnLog＝记录，vnHide＝长按藏起界面
+    // 新版播放（她 2026-10-27，原来叫乙游风）：一句一句点着走；vnI＝看到第几句，vnWrite＝底下「自己写」那一格开着没，vnLog＝记录，vnHide＝长按藏起界面
     const [vnI, setVnI] = useState(-1), [vnWrite, setVnWrite] = useState(false), [vnLog, setVnLog] = useState(false), [vnHide, setVnHide] = useState(false);
     const vnLen = useRef(0), vnLp = useRef(0), vnLpOn = useRef(false);
     const [vnWide, setVnWide] = useState({});   // 背景图横不横：横的整张放上半屏、后面垫一层虚化，不裁人
@@ -502,6 +502,9 @@
         const sys = [narrativeCore({ intimate: true }),
           "【小剧场·if 线(独立平行时空)】这是一场与主线完全无关的平行扮演:不引用主线聊天里发生过的事,也不提及这是扮演。世界观、身份以下面的设定为准。",
           "【角色人设(性格与声纹的根基,保持不变)】\n" + (char.persona || char.name),
+          // 防 OOC（她 2026-10-27：「小剧场有点八股」）：跟邮票卡同一条——他平时真说过的话只当口气参考，不引用里面发生的事，沙箱照旧
+          typeof props.voiceOf === "function" ? (props.voiceOf(char) || "").replace("【你平时跟她说话的样子】", "【你平时说话的样子(只借口气,不引用里面发生过的任何事)】") || null : null,
+          "【先后】先是你这个人对不对，再是跟这条线的世界、你们此刻的关系对不对，再是写的是不是一件具体的事，最后才是好不好看。戏剧效果跟你会怎么做对不上时，照你会怎么做。",
           // 身份和情境走公共的 sceneSettingBlock（她 2026-09-29：设定里写的词别演成标签，所有场景一个说法）。
           //   「身份按此替换、性格仍是上面这个人」那句也收在那一处里了。
           // ⚠️下面给言秋的 ccSys 不走它：他不是被扮演的角色，扮演类的说法一律不发（four-surfaces 的合法差异）。
@@ -512,14 +515,14 @@
           dice ? "【剧场骰子】本拍必须自然引入一个出乎双方意料的外部意外(第三者闯入/环境突变/时限出现/被撞破…):与世界观相容、落在具体行动上,并让它实际搅动当前局面。" : null,
           "【对方主权】" + uName + " 的行动、反应和台词永远由 Ta 本人输入:你只能写「我」的言行心理与 NPC/环境,绝不替『你』做动作、说台词、下决定——哪怕剧情顺手也不行,写到需要 Ta 行动的位置就停。",
           window.StylePresets.SM_BEAT(uName),
-          window.StylePresets.SM_CAMERA,
-          window.StylePresets.SM_PARAGRAPH,
+          line.vn ? "【一句一句读】这条线是一句一句点着读的：写清楚这一刻在发生什么就够，不为了凑篇幅往里塞动作和细节；他不说话的地方，留一个具体的动作或者他注意到的一样东西就行。" : window.StylePresets.SM_CAMERA,
+          line.vn ? null : window.StylePresets.SM_PARAGRAPH,
           spBlock ? window.StylePresets.wrap(spBlock) : null,
           // 每拍最少写多少字（她 2026-09-28：「小剧场也加一个字数」）。
           // ⚠️那句规则走公共那一份 StylePresets.wordRule——线下、群线下、试写台、同人文
           //   都问它要，小剧场原来一份都没有（施工规则/one-public-mechanism.md）。
           //   演出是一拍一拍往下走的，所以给上限（不像同人文一章那样敞着）。
-          window.StylePresets.wordRule(window.StylePresets.clampWordFloor(line.minWords)),
+          line.vn ? null : window.StylePresets.wordRule(window.StylePresets.clampWordFloor(line.minWords)),
           // 乙游风（她 2026-10-27）：每拍顺手给她两三个选项；她也能不选、自己写
           line.vn ? "【给 " + uName + " 的选项】JSON 里再加一个 choices：两三个此刻 " + uName + " 可能会做或说的事，各一句、短，用 Ta 自己的口吻（动作直接写，说的话加引号），彼此方向不一样。这只是摆给 Ta 挑的，不替 Ta 决定，正文里也不写 Ta 选了哪个。" : null,
           "【输出】用第一人称『我』完全代入「" + char.name + "」,称对方为『你』,对话用引号,写成连续场景正文;篇幅由【场景需要】决定,不由角色话多话少决定——冷淡的人不等于短的段落。只输出 JSON:{\"scene\":\"场景正文\",\"goalReached\":false,\"goalFailed\":false,\"goalNote\":null}(达成时 goalReached=true;不可逆失败时 goalFailed=true;goalNote 一句话指出达成或失败的瞬间)",
@@ -546,7 +549,8 @@
           .slice(-48).map(m => ({ role: m.role === "user" ? "user" : "assistant", content: m.content }));
         // 尾部守则(recency 最强处;史里有旧八股时 system 中段压不住自我模仿)
         // 尾部原先全是减法,冷淡角色被砍完就只剩「我看着你。」——必须在同一处补上加法
-        const tail = characterText(char, "\n\n〔本拍守则〕只演我自己的一拍,绝不写「你」的动作、反应或台词,写到需要你行动处就停;用这个角色自己的说话方式,砍掉现成网文反应、连环强度词和总结旁白。台词可以短,镜头不能跟着短:他不说的那部分,用具体的动作、手上的事和他注意到的细节写出来,并且织成连贯的段落——不要一句一段,前文那种支离破碎的排版不要学。");
+        const tail = line.vn ? characterText(char, "\n\n〔本拍守则〕只演我自己的一拍,绝不写「你」的动作、反应或台词,写到需要你行动处就停;用这个角色自己的说话方式,砍掉现成网文反应、连环强度词和总结旁白,不为凑篇幅加动作。")
+          : characterText(char, "\n\n〔本拍守则〕只演我自己的一拍,绝不写「你」的动作、反应或台词,写到需要你行动处就停;用这个角色自己的说话方式,砍掉现成网文反应、连环强度词和总结旁白。台词可以短,镜头不能跟着短:他不说的那部分,用具体的动作、手上的事和他注意到的细节写出来,并且织成连贯的段落——不要一句一段,前文那种支离破碎的排版不要学。");
         if (hist.length && hist[hist.length - 1].role === "user") hist[hist.length - 1] = { ...hist[hist.length - 1], content: hist[hist.length - 1].content + tail };
         else hist.push({ role: "user", content: "(继续)" + tail });
         // 自修轮要多写一份初稿,预算给足,否则终稿会被截断
@@ -1278,7 +1282,9 @@
         // 目标条:这一幕要走到哪儿,一直钉在顶上。点一下展开全文,点开面板里还能改
         !line.ended && round ? h("div", { "data-wk": "thrgoal", "data-on": goalOpen ? "1" : "0", onClick: () => setGoalOpen(v => !v), style: { flexShrink: 0, display: "flex", alignItems: goalOpen ? "flex-start" : "center", gap: 8, padding: "7px 14px", borderBottom: "1px solid " + t.line, background: veil(t.bg2, 70), cursor: "pointer" } },
           h("span", { style: { flexShrink: 0, fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", letterSpacing: 1, color: round.failed ? "#a4442e" : t.fog } }, actName(line.rounds.length - 1) + (round.goalDone ? " ✓" : round.failed ? " ✗" : "")),
-          h("span", { style: Object.assign({ flex: 1, minWidth: 0, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", lineHeight: 1.6, color: round.goalDone ? t.fog : t.ink, textDecoration: round.failed ? "line-through" : "none" }, goalOpen ? { whiteSpace: "pre-wrap" } : { whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }) }, round.goal)) : null,
+          h("span", { style: Object.assign({ flex: 1, minWidth: 0, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", lineHeight: 1.6, color: round.goalDone ? t.fog : t.ink, textDecoration: round.failed ? "line-through" : "none" }, goalOpen ? { whiteSpace: "pre-wrap" } : { whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }) }, round.goal),
+          // 切到新版：放在目标条右边，一眼找得到（她 2026-10-27）
+          h("button", { "data-wk": "thrtonew", onClick: e => { e.stopPropagation(); vnLen.current = 0; update(list => list.map(l => l.id !== line.id ? l : { ...l, vn: true })); }, style: Object.assign({}, S.btn(false), { flexShrink: 0, padding: "2px 10px", fontSize: "calc(11px * var(--app-fs, 1))" }) }, "新版")) : null,
         panel, banner,
         h("div", { "data-wk": "thrfeed", ref: scrollRef, style: { flex: 1, overflowY: "auto", paddingBottom: 16 } }, flow,
           busy ? h("div", { "data-wk": "thrbusy", style: { margin: "10px 14px", display: "flex", alignItems: "center", gap: 8, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog } },
@@ -1287,7 +1293,6 @@
           h("textarea", { "data-wk": "thrinput", "data-part": "note", value: note, onChange: e => setNote(e.target.value), rows: 2, placeholder: "导演便签(只给这一拍的幕后指示,不入剧情):比如「让TA更凶一点」「引入一个不速之客」", style: { width: "100%", padding: 8, borderRadius: 10, border: "1px dashed " + t.line, background: t.bg2, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.ink, resize: "none", outline: "none" } })) : null,
         !line.ended && plusOpen ? h("div", { "data-wk": "thrplus", style: { display: "flex", gap: 8, padding: "8px 14px 0", borderTop: "1px solid " + t.line, flexWrap: "wrap" } },
           h("button", { "data-wk": "thrtool", "data-part": "dice", "data-on": dice ? "1" : "0", onClick: () => { setDice(v => !v); }, style: S.btn(dice) }, "🎲 骰子" + (dice ? "·已上膛" : "")),
-          h("button", { "data-wk": "thrtool", "data-part": "vn", onClick: () => { setPlusOpen(false); vnLen.current = 0; update(list => list.map(l => l.id !== line.id ? l : { ...l, vn: true })); }, style: S.btn(false) }, "换成乙游风"),
           h("button", { "data-wk": "thrtool", "data-part": "note", "data-on": noteOpen ? "1" : "0", onClick: () => { setNoteOpen(v => !v); }, style: S.btn(noteOpen || !!note.trim()) }, "() 便签"),
           h("button", { "data-wk": "thrtool", "data-part": "photo", onClick: genPhoto, disabled: busy, style: S.btn(false) }, "📷 当轮剧照"),
           // 常玩的三颗留在外面;封面和背景那一堆收进「布景」,以前一次挤出八颗同样的按钮
