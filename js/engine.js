@@ -10721,7 +10721,7 @@ function chatFace(c) { if (!c || !c.chatAvatar) return c; const ok = typeof reso
 //   挂在调用点上迟早漏一处（漏的那一处改错了就退不回去）。
 // ⚠️退一步不是「把上一版拿回来、当前这版再塞到最前面」——那样点第二下会跳回来，退不到更早。
 //   back 一摞、fwd 一摞：退一步把当前这版放进 fwd；「换回来」再从 fwd 拿；正常改一次就清掉 fwd。
-const LOOK_HIST_KEY = "x_look_hist", LOOK_HIST_MAX = 10, LOOK_HIST_CHARS = 1500000;
+const LOOK_HIST_KEY = "x_look_hist", LOOK_HIST_MAX = 30, LOOK_HIST_CHARS = 1500000;   // 每一处能退 30 步（原来 10，她 2026-10-27：秋秋改多了退不回去）；总字数仍封顶
 const LOOK_FIELDS = {
   chat: ["customCSS", "skin", "layout", "bubble", "font", "chatBg", "callBg"],
   group: ["customCSS", "layout", "bubble", "chatBg"],
