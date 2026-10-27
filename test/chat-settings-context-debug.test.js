@@ -12,8 +12,9 @@ const screens = (fs.readFileSync("js/screens.js", "utf8") + "\n" + fs.readFileSy
 // 换成「在 TA 知道什么 里进得去」。
 test("每个角色的聊天设置都有就地上下文诊断入口", () => {
   const chatSettings = components.slice(components.indexOf("function ChatSettings("));
-  assert.match(chatSettings, /settingsTab === "know" && renderContextDebug/);
-  assert.match(chatSettings, /title: "查上一轮真的发了什么"/);
+  // v76.749 起这一节也走 show()（不然打字搜不到它）：钉的还是同一件事——
+  //   诊断在【TA 知道什么】那一格里进得去。
+  assert.match(chatSettings, /show\("know", \{ title: "查上一轮真的发了什么"[\s\S]{0,120}renderContextDebug\(\)/);
   assert.match(chatSettings, /key: "know", char: "记", title: "TA 知道什么"/);
   assert.match(app, /renderContextDebug: \(\) => h\(CtxDebug/);
   assert.match(app, /lockedCharId: activeChar\.id/);

@@ -38,7 +38,7 @@ assert.equal(more.forumWithPhoto("正文", { photo: { desc: "一" }, morePhotos:
 assert.equal(more.forumWithPhoto("正文", { photo: { desc: "一" } }), "正文 〔配图：一〕");
 assert.equal((app.match(/\.\.\.forumMoreTag\((x|content)\)/g) || []).length, 3, "网友帖、角色帖、搜索帖三处都挂上");
 assert.equal((app.match(/forumFmtField\(\)/g) || []).length, 4);
-assert.match(ui, /xhs \? xhsPhotos\(p\) : forumPhotoCard\(p, 280\)/);
+assert.match(ui, /xhsPhotos\(p\),/);
 for (const k of ["foxhsphotos", "foxhspageno"]) { assert.match(ui, new RegExp('"data-wk": "' + k + '"')); assert.match(ts, new RegExp('\\["' + k + '", "')); }
 console.log("ok4");
 // 配色跟着排版换：双列用小红书那份，单列用原来那份；论坛里的底色都从 FORUM_SKIN 取

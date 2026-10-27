@@ -570,7 +570,18 @@ function forumCustomBoards() {
   const v = typeof loadJSON === "function" ? loadJSON("x_forumBoards", []) : [];
   return (Array.isArray(v) ? v : []).filter(b => b && typeof b.name === "string" && b.name.trim());
 }
-function forumBoardsAll() { return FORUM_BOARDS.concat(forumCustomBoards().map(b => b.name).filter(n => FORUM_BOARDS.indexOf(n) < 0)); }
+// 吧的顺序和藏起来的（群友 2026-10-27 许愿「吧排序」）：x_forumBoardOrder = { order: [吧名…], hidden: [吧名…] }。
+//   order 只管先后，没排过的（新开的吧）接在后面；hidden 只让它不出现在顶上那排，帖子、发帖选吧、角色发帖都照常。
+function forumBoardPrefs() {
+  const v = typeof loadJSON === "function" ? loadJSON("x_forumBoardOrder", {}) : {};
+  return { order: Array.isArray(v && v.order) ? v.order : [], hidden: Array.isArray(v && v.hidden) ? v.hidden : [] };
+}
+function forumBoardsAll() {
+  const all = FORUM_BOARDS.concat(forumCustomBoards().map(b => b.name).filter(n => FORUM_BOARDS.indexOf(n) < 0));
+  const ord = forumBoardPrefs().order.filter(n => all.indexOf(n) >= 0);
+  return ord.concat(all.filter(n => ord.indexOf(n) < 0));
+}
+function forumBoardsShown() { const hid = forumBoardPrefs().hidden; return forumBoardsAll().filter(n => hid.indexOf(n) < 0); }
 // 贴吧配图（她 2026-09-24：「贴吧能不能也支持上传图片或者写假图描述跟聊天一样。然后角色也可以（不要强制）」）。
 //   帖子和楼层身上挂一个 photo：{ imageRef?, desc }——跟聊天那张照片同一个形状，所以界面直接用 PhotoCard / PhotoSheet。
 //   模型那头只看得见字：凡是把帖子正文、楼层内容喂给模型的地方，都过 forumWithPhoto，别各拼各的。
@@ -595,7 +606,12 @@ function forumPhotoOf(x) {
 //   模型刚吐出来的是一串字，落盘后是 [{ desc }]，两种都认
 function forumMorePhotos(x) {
   const a = x && x.morePhotos;
-  return Array.isArray(a) ? a.map(v => String((typeof v === "string" ? v : v && v.desc) || "").trim().slice(0, 300)).filter(Boolean).slice(0, 8).map(desc => ({ desc })) : [];
+  // 她自己发的多图（群友 2026-10-27）带真图：{ imageRef, desc }，没写字也算一张
+  return Array.isArray(a) ? a.map(v => {
+    const desc = String((typeof v === "string" ? v : v && v.desc) || "").trim().slice(0, 300);
+    const imageRef = v && typeof v === "object" && v.imageRef ? v.imageRef : "";
+    return imageRef ? { imageRef, desc } : desc ? { desc } : null;
+  }).filter(Boolean).slice(0, 8) : [];
 }
 function forumWithPhoto(text, x) {
   const p = forumPhotoOf(x);

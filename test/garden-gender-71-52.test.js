@@ -25,7 +25,10 @@ test("角色或人设后来才就位时还要再补一次", () => {
 test("她自己永远是女生，而且不做成设置", () => {
   assert.match(host, /g\.ensureLook\('me', "她"\)/, "她自己那一侧不再写死成女生了");
   assert.doesNotMatch(host, /profile[^\n]*gender|me\.gender/, "又去读人设里的性别了");
-  assert.doesNotMatch(comp, /gender/, "「我的面具」里又冒出性别这一项了");
+  // ⚠️只能查「我的面具」那一页（ProfileSheet）：配角资料页 2026-10-27 起自己有一栏性别，
+  //   整份 components.js 查 gender 会把它一起拦下来。
+  const sheet = comp.slice(comp.indexOf("function ProfileSheet("), comp.indexOf("\nfunction Messages("));
+  assert.doesNotMatch(sheet, /gender/, "「我的面具」里又冒出性别这一项了");
 });
 
 // 施工规则/one-public-mechanism.md：换样貌只许有一处落点。

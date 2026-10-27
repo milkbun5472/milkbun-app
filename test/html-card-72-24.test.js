@@ -175,7 +175,8 @@ test("普通消息照常按换行拆，一条没少", () => {
 
 test("单聊和群聊两条流水线都接上了（四处一样喂）", () => {
   // 单聊：按换行还原那一步走公共的
-  assert.match(app, /splitCardsAndLines\(w\)/);
+  // v76.762 起先摘掉〔今天 14:10〕那种时间标注再拆（拆完就认不出来了）
+  assert.match(app, /splitCardsAndLines\(stripAiStamp\(w\)\)/);
   // 群聊：进 splitBubbles 之前先认一次
   assert.match(app, /const _gCard = typeof htmlCardOf === "function" \? htmlCardOf\(item\.text\) : null;/);
   // 双语那一刀按「|」劈，HTML 里正好有竖线——两条线都得放行卡片

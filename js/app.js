@@ -20,7 +20,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v76.766";
+const APP_VERSION = "v76.770";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -26292,13 +26292,13 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   };
   // 我发帖
   // as：「main」大号 /「alt」小号（她 2026-10-06）。小号的名字在「我」那页设，没设过就用一个默认的
-  const postMyForum = (board, title, body, photo, as) => {
+  const postMyForum = (board, title, body, photo, as, more) => {
     const anonB = board === "匿名吧";
     const altB = !anonB && (as ? as === "alt" : forumMe.using === "alt");
     const altName = String(forumMe.altName || "").trim() || "一只不说话的鱼";
     const base = Date.now();
     const maskB = !anonB && !altB ? forumMaskNow() : "";
-    const rec = { id: "fp_me_" + base, authorId: "me", authorType: "me", ...(altB ? { alt: true } : {}), ...(maskB ? { mask: maskB } : {}), authorName: anonB ? "匿名者" : altB ? altName : maskB ? forumMaskName(maskB) : (forumMe.handle || profile.name || "我"), authorHandle: anonB ? "匿名者" : altB ? altName : maskB ? forumMaskName(maskB) : (forumMe.handle || profile.name || "me"), board, title, body: body || "", ...(forumPhotoOf({ photo }) ? { photo: forumPhotoOf({ photo }) } : {}), anon: anonB, triggerSource: "我发帖", ts: base, replyCount: 0, likeCount: 0, viewCount: 0, rtCount: 0 , world: forumCurWorld(), ...forumFmtTag() };
+    const rec = { id: "fp_me_" + base, authorId: "me", authorType: "me", ...(altB ? { alt: true } : {}), ...(maskB ? { mask: maskB } : {}), authorName: anonB ? "匿名者" : altB ? altName : maskB ? forumMaskName(maskB) : (forumMe.handle || profile.name || "我"), authorHandle: anonB ? "匿名者" : altB ? altName : maskB ? forumMaskName(maskB) : (forumMe.handle || profile.name || "me"), board, title, body: body || "", ...(forumPhotoOf({ photo }) ? { photo: forumPhotoOf({ photo }) } : {}), ...(forumPhotoOf({ photo }) && forumMorePhotos({ morePhotos: more }).length ? { morePhotos: forumMorePhotos({ morePhotos: more }) } : {}), anon: anonB, triggerSource: "我发帖", ts: base, replyCount: 0, likeCount: 0, viewCount: 0, rtCount: 0 , world: forumCurWorld(), ...forumFmtTag() };
     setForumPosts(prev => { const n = [rec, ...prev]; saveJSON("x_forumPosts", n); return n; });
     // 小号发的帖安安静静放着：不排队叫人来回，打开也不现编一楼（她 2026-10-06：两个都要）
     if (altB) { setForumComments(prev => { const n = { ...prev, [rec.id]: [] }; saveForumComments(n); return n; }); toast("已用小号发到「" + board + "」"); return; }
