@@ -13,3 +13,9 @@ test("新消息提示音：几种自带的、能传自己的、在 bumpUnread �
   assert.match(c, /const v = Math\.max\(0\.1, Math\.min\(3, vol == null \? 1 : Number\(vol\)\)\);/);
   assert.match(c, /createDynamicsCompressor\(\)/);
 });
+
+test("切后台回来声道会再叫醒（她 2026-10-27：主动消息没响）", () => {
+  const c = fs.readFileSync(__dirname + "/../js/components.js", "utf8");
+  assert.ok(!/removeEventListener\("pointerdown", _unlock/.test(c), "又变回只开一次了");
+  assert.match(c, /visibilitychange[^\n]*_msgAudioCtx\.resume\(\)/);
+});

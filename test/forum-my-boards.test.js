@@ -15,7 +15,7 @@ const B = (stored) => {
   const ctx = { loadJSON: (k, d) => (k === "x_forumBoards" ? stored : d) };
   vm.createContext(ctx);
   const i = scr.indexOf("const FORUM_BOARDS = ");
-  vm.runInContext(scr.slice(i, scr.indexOf("\n", i)) + "\n" + ["forumCustomBoards", "forumBoardsAll", "forumBoardAbout", "forumBoardName"].map(fn).join("\n")
+  vm.runInContext(scr.slice(i, scr.indexOf("\n", i)) + "\n" + ["forumCustomBoards", "forumBoardPrefs", "forumBoardsAll", "forumBoardAbout", "forumBoardName"].map(fn).join("\n")
     + "\nthis.all = forumBoardsAll; this.about = forumBoardAbout; this.name = forumBoardName; this.mine = forumCustomBoards;", ctx);
   return ctx;
 };
@@ -38,7 +38,8 @@ test("吧名统一成「某某吧」", () => {
 
 test("「一共有哪些吧」只有一份：tab、版块筛选、搜索页、发帖选吧全读它", () => {
   const live = scr.split("\n").filter(l => !/^\s*\/\//.test(l)).join("\n");
-  assert.match(live, /\[\.\.\.forumBoardsAll\(\), "关注", "收藏"\]/, "tab 那一排");
+  assert.match(live, /\[\.\.\.forumBoardsShown\(\), "关注", "收藏"\]/, "tab 那一排（藏起来的不出现，顺序照排序）");
+  assert.match(live, /function forumBoardsShown\(\) \{ const hid = forumBoardPrefs\(\)\.hidden; return forumBoardsAll\(\)\.filter/);
   assert.match(live, /tab === "收藏" \|\| forumBoardsAll\(\)\.includes\(p\.board\)/, "版块筛选——漏了这处，她开的吧 tab 上有、帖子却跑去搜索页");
   assert.match(live, /!forumBoardsAll\(\)\.includes\(p\.board\)/, "搜索页");
   assert.match(live, /forumBoardsAll\(\)\.map\(b => chip\(b, cbBoard === b/, "发帖选吧");

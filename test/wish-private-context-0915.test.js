@@ -17,7 +17,9 @@ test('心愿清单所有入口共用最新八条；单人措辞、旁观身份�
 test('共用私有背景保持记忆三层；封闭群/零窗口无实时近况，NPC无主线私事',()=>{
  const env=wire(fixture());
  Object.assign(env,{memories:{a:'甲的长期记忆'},settingsFor:()=>({}),isBody:()=>false,noGaze:()=>false,formatMemLib:rows=>rows.map(x=>x.text).join('\n'),
- memberPrivLines:(c,n)=>Number(n)>0?'甲的私聊':'',crossRecentFor:(id,opts)=>{assert.deepEqual(opts,{surfaces:['offline']});return '甲的线下';}});
+ memberPrivLines:(c,n)=>Number(n)>0?'甲的私聊':'',crossRecentFor:(id,opts)=>{
+ // v76.761 起同一个 crossRecentFor 问两件事：线下那一摊，和他在别的互通群最近聊的
+ const sf=(opts&&opts.surfaces||[])[0];assert.ok(sf==='offline'||sf==='group');return sf==='group'?'甲的别群':'甲的线下';}});
  env.window.Gaze={text:()=> '甲的印象卡'};
  // retrieve/split 的输出保留原条目；knownBy 与 charIds 使用落库真实字段。
  const split={perChar:{a:[{id:'m1',text:'仅甲知道的事件',knownBy:['a'],charIds:['a']}]}};
@@ -25,6 +27,7 @@ test('共用私有背景保持记忆三层；封闭群/零窗口无实时近况�
   const text=env.memberPrivateContextFor(env.members[0],split,opts);
   assert.match(text,/甲的长期记忆/);assert.match(text,/甲的印象卡/);assert.match(text,/仅甲知道的事件/);
   assert.doesNotMatch(text,/甲的私聊|甲的线下/);
+  if(!opts.interop) assert.doesNotMatch(text,/甲的别群/,'封闭群不许带他在别的群聊的');
  }
  const text=env.memberPrivateContextFor(env.members[0],split,{interop:true,privateCtxN:2});
  assert.match(text,/甲的私聊/);assert.match(text,/甲的线下/);
