@@ -958,13 +958,29 @@
       allMsgs(l).forEach(m => {
         if (m.role === "photo") { if (m.img) bg = m.img; return; }
         if (m.role === "user") { out.push({ who: "me", text: m.content, bg, mid: m.id }); return; }
-        String(m.content || "").split(/\n+/).map(x => x.trim()).filter(Boolean).forEach(par => {
-          const who = /^[“"「『]/.test(par) ? "he" : "narr";
+        // 一段里夹着的台词也拆出来单独一句、标他的名字（她 2026-10-27：「他的台词没分出来」）
+        String(m.content || "").split(/\n+/).map(x => x.trim()).filter(Boolean).flatMap(par => {
+          const segs = []; let last = 0; const re = /[“「『"][^”」』"]{1,400}[”」』"]/g; let mm;
+          while ((mm = re.exec(par))) { const pre = par.slice(last, mm.index).replace(/[：:，,\s]+$/, "").trim(); if (pre) segs.push(["narr", pre]); segs.push(["he", mm[0]]); last = mm.index + mm[0].length; }
+          const rest = par.slice(last).replace(/^[，,。\s]+/, "").trim(); if (rest) segs.push(["narr", rest]);
+          return segs.length ? segs : [["narr", par]];
+        }).forEach(([who, par]) => {
           const parts = par.length > 110 ? (par.match(/[^。！？!?…]+[。！？!?…」”]*/g) || [par]).reduce((acc, sn) => { if (acc.length && (acc[acc.length - 1] + sn).length <= 90) acc[acc.length - 1] += sn; else acc.push(sn); return acc; }, []) : [par];
           parts.forEach(tx => out.push({ who, text: tx.trim(), bg, mid: m.id }));
         });
       });
       return out;
+    };
+    const choiceAsked = useRef({});
+    const fillChoices = async (l, m) => {
+      if (!m || choiceAsked.current[m.id] || !props.active) return; choiceAsked.current[m.id] = 1;
+      try {
+        const char = charOf(l), recent = allMsgs(l).filter(x => x.role !== "photo").slice(-6).map(x => (x.role === "user" ? uName : char.name) + "：" + String(x.content || "").slice(0, 400)).join("\n");
+        const raw = await callAI(props.active, "这是一场小剧场，" + uName + " 和 " + char.name + " 轮着演。设定：" + String(l.setting || "").slice(0, 400) + "\n这一幕的目标：" + ((l.rounds[l.rounds.length - 1] || {}).goal || "") + "\n给 " + uName + " 想两三个此刻可能会做或说的事，各一句、短，用 Ta 自己的口吻（动作直接写，说的话加引号），彼此方向不一样。只输出 JSON：{\"choices\":[\"\",\"\"]}",
+          [{ role: "user", content: recent || "开始。" }], { maxTokens: 4000, timeout: 60000 });
+        const d = typeof extractJSON === "function" ? extractJSON(raw) : null, cs = d && Array.isArray(d.choices) ? d.choices.map(x => String(x || "").trim()).filter(Boolean).slice(0, 3) : [];
+        if (cs.length) update(list => list.map(x => x.id !== l.id ? x : { ...x, rounds: x.rounds.map(r => ({ ...r, msgs: r.msgs.map(y => y.id === m.id ? { ...y, choices: cs } : y) })) }));
+      } catch (e) {}
     };
     const renderVN = () => {
       const char = charOf(line) || {}, round = line.rounds[line.rounds.length - 1], beats = vnBeats(line);
@@ -975,6 +991,7 @@
       const i = Math.max(0, Math.min(vnI < 0 ? beats.length - 1 : vnI, beats.length - 1)), b = beats[i] || { who: "narr", text: line.opening || "" };
       const atEnd = i >= beats.length - 1, last = allMsgs(line).filter(m => m.role !== "photo").slice(-1)[0];
       const myTurn = atEnd && !busy && !line.ended && !!last && last.role === "char";
+      if (myTurn && !(last.choices || []).length) setTimeout(() => fillChoices(line, last), 0);   // 开场那一拍、或者他漏写了选项：补一次
       const retry = atEnd && !busy && !line.ended && !!last && last.role === "user";
       const bgUrl = b.bg === "__card" ? cardBg : b.bg ? imgSrc(b.bg) : null, fs = n => "calc(" + n + "px * var(--app-fs, 1))";
       if (bgUrl && vnWide[bgUrl] === undefined) { const im = new Image(); im.onload = () => setVnWide(m => Object.assign({}, m, { [bgUrl]: im.naturalWidth > im.naturalHeight * 1.1 })); im.src = bgUrl; }
