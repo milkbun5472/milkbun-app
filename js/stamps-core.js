@@ -100,10 +100,13 @@
     if (wasOld && !st.seenLimited.extra26) { const n = st.cards.filter(c => c.rarity === "SSR" && !c.dupe && (c.limited || c.pool === "bday" || c.pool === "mybday" || c.pool === "anniv")).length;
       if (n) { st.extraTickets = (st.extraTickets || 0) + n; got.push("番外上线补发：" + n + " 张番外券（手上每张限定 SSR 一张），在那张卡页里写"); } }
     st.seenLimited.extra26 = 1;
+    // 番外、小剧场上线庆祝（她 2026-10-27）：每人 30 张番外券，一次
+    if (!st.seenLimited.extra30) { st.seenLimited.extra30 = 1; st.extraTickets = (st.extraTickets || 0) + 30; got.push("番外上线庆祝：30 张番外券"); }
     // 「今天的信」改成每天由一个人寄进聊天里领（app.js 的 stampLetterSweep），这儿不再送
     // 限时池上新：按这一期池里有几个人送，每两个人一张十连，最少一张、最多五张（她 2026-10-26：「十个角色只给一个十连不够」）
     activeLimited(now).forEach(L => { const n = Math.max(1, Math.min(5, Math.ceil((Number(limCount) || 1) / 2)));
-      if (!st.seenLimited[L.id]) { st.seenLimited[L.id] = 1; st.seenLimited[L.id + "_top"] = 1; st.tickets += n; st.ink += n * INK_PER_TEN; got.push("「" + L.name + "」上新：" + n + " 张十连券、" + n * INK_PER_TEN + " 印泥" + (limCount > 1 ? "（这一期 " + limCount + " 个人）" : "")); }
+      // 每张十连券再配一张番外券（她 2026-10-27）
+      if (!st.seenLimited[L.id]) { st.seenLimited[L.id] = 1; st.seenLimited[L.id + "_top"] = 1; st.seenLimited[L.id + "_ex"] = 1; st.tickets += n; st.ink += n * INK_PER_TEN; st.extraTickets = (st.extraTickets || 0) + n; got.push("「" + L.name + "」上新：" + n + " 张十连券、" + n * INK_PER_TEN + " 印泥、" + n + " 张番外券" + (limCount > 1 ? "（这一期 " + limCount + " 个人）" : "")); }
       // 改成按人数送之前就领过这一期那一张的：补上差的那几张，一期一次
       else if (!st.seenLimited[L.id + "_top"]) { st.seenLimited[L.id + "_top"] = 1; if (n > 1) { st.tickets += n - 1; st.ink += (n - 1) * INK_PER_TEN; got.push("「" + L.name + "」按人数补发：" + (n - 1) + " 张十连券、" + (n - 1) * INK_PER_TEN + " 印泥"); } } });
     // 他的生日池送一张十连；你自己的生日池（id 以 me_ 开头）送十张，就是 100 抽——你过生日（她 2026-10-26）
