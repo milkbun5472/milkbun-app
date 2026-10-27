@@ -95,6 +95,10 @@
     if (wasOld && !st.seenLimited[INK_MAKEUP.id]) { st.ink += INK_MAKEUP.ink; got.push("印泥补发：" + INK_MAKEUP.ink + " 印泥（之前只送了抽数）"); }
     else if (wasOld && !st.seenLimited[INK_MAKEUP.id + "b"]) { st.ink += 5000; got.push("印泥补发加码：再补 5000 印泥"); }   // 上一版只补了 5000 的，补齐到 10000
     st.seenLimited[INK_MAKEUP.id] = 1; st.seenLimited[INK_MAKEUP.id + "b"] = 1;
+    // 番外补发（她 2026-10-27）：番外上线前抽到重复的限定 SSR 只折了印泥、没留记录，认不出是谁——手上每有一张限定 SSR，就补一张番外券，自己挑卡写
+    if (wasOld && !st.seenLimited.extra26) { const n = st.cards.filter(c => c.rarity === "SSR" && !c.dupe && (c.limited || c.pool === "bday" || c.pool === "mybday" || c.pool === "anniv")).length;
+      if (n) { st.extraTickets = (st.extraTickets || 0) + n; got.push("番外上线补发：" + n + " 张番外券（手上每张限定 SSR 一张），在那张卡页里写"); } }
+    st.seenLimited.extra26 = 1;
     // 「今天的信」改成每天由一个人寄进聊天里领（app.js 的 stampLetterSweep），这儿不再送
     // 限时池上新：按这一期池里有几个人送，每两个人一张十连，最少一张、最多五张（她 2026-10-26：「十个角色只给一个十连不够」）
     activeLimited(now).forEach(L => { const n = Math.max(1, Math.min(5, Math.ceil((Number(limCount) || 1) / 2)));

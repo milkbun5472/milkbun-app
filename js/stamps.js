@@ -231,7 +231,7 @@
 
   // 一张卡打开：卡面、名字、内容
   // 卡页＝养成页：上面是卡（光晕、稀有度章、星、邮戳编号），中间养成面板，底下「时刻回廊」一格一格往外还原那个瞬间
-  function CardPage({ t, card, char, meName, onSwipe, onBack, onDraw, onRewrite, onSend, onCanon, onPoke, onInner, toast }) {
+  function CardPage({ t, card, char, meName, onSwipe, onBack, onDraw, onRewrite, onSend, onCanon, onPoke, onInner, onExtra, toast }) {
     // 满级两面都能画：他一个人（solo）、你们俩（duo）。旧卡只有 faceAlt＋faceAltMode，照它认
     const faces2 = Object.assign({}, card.faceAlt ? { [card.faceAltMode || "solo"]: card.faceAlt } : {}, card.faces || {});
     const url1 = useIdbImgUrl(card.face), urlSolo = useIdbImgUrl(faces2.solo || null), urlDuo = useIdbImgUrl(faces2.duo || null);
@@ -242,6 +242,7 @@
     // 「画着」超过八分钟还没回来＝那次没了（多半是画到一半关了 app）：按钮放开，能再画（她 2026-10-27：有人一直卡在重画中）
     const drawing = !!card.drawing && !!card.drawingBoot && card.drawingBoot === window.__stampBoot && Date.now() - (card.drawingTs || 0) < 8 * 60000;   // 关掉 app 再打开：上一回没画完的那次一定没了，直接放开
     const swipe = useRef(null), swiped = useRef(0);
+    const [exOpen, setExOpen] = useState(null);
     const [reArm, setReArm] = useState(false);   // 重写整张卡要点两下：第一下变成「再点一次」，三秒内不点就回去           // 卡面全屏看，满级的在这里戳
     const [say, setSay] = useState(null), [poking, setPoking] = useState(false);
     const sayT = useRef(0);
@@ -423,6 +424,21 @@
             reArm ? "再点一次：原来的文字会被换掉" : "✎ 重写这张卡（文字和分镜）· 花一次调用") : null,
           url ? h("div", { style: { marginTop: 6, fontFamily: F_BODY, fontSize: fs(11), color: P5 } }, canPoke ? "点卡面全屏看，满级了能戳他（头、胸口、手）" : "点卡面全屏看") : null),
         // 养成
+        // 番外：限定 SSR 才有。重复抽到自动多一段；手上有番外券也能自己写一段
+        tx && card.rarity === "SSR" && (card.limited || card.pool === "bday" || card.pool === "mybday" || card.pool === "anniv") && ((card.extras || []).length || (C().load().extraTickets || 0) > 0) ? (() => {
+          const xs = card.extras || [], left = C().load().extraTickets || 0;
+          return h("div", { "data-wk": "stampextras", style: { marginTop: 16, padding: "14px 16px", borderRadius: 16, border: "1px solid rgba(181,140,85,.3)", background: "#f6efe0" } },
+            h("div", { className: "flex items-center justify-between" },
+              h("div", { style: { fontFamily: F_DISPLAY, fontSize: fs(15), color: P } }, "番外"),
+              h("div", { style: { fontFamily: F_BODY, fontSize: fs(11), color: P5 } }, xs.filter(x => x.text).length + " 段" + (left ? " · 番外券 " + left + " 张" : ""))),
+            xs.map(x => h("div", { key: x.id, "data-wk": "stampextra", style: { marginTop: 10, paddingTop: 10, borderTop: "1px dashed rgba(47,42,34,.15)" } },
+              x.text ? h(React.Fragment, null,
+                h("button", { onClick: () => setExOpen(exOpen === x.id ? null : x.id), className: "w-full text-left active:opacity-70", style: { fontFamily: F_DISPLAY, fontSize: fs(13.5), color: P } }, "「" + (x.title || "番外") + "」", h("span", { style: { marginLeft: 6, fontFamily: F_BODY, fontSize: fs(11), color: P5 } }, exOpen === x.id ? "收起" : "展开")),
+                exOpen === x.id ? h("div", { style: { marginTop: 8, fontFamily: F_BODY, fontSize: fs(13.5), lineHeight: 1.85, color: P7, whiteSpace: "pre-wrap" } }, h(BiText, { text: x.text })) : null)
+              : x.writing ? h("div", { style: { fontFamily: F_BODY, fontSize: fs(12), color: P5 } }, "他在写这段番外…")
+              : h("button", { onClick: () => onExtra && onExtra(card.id, x.id), className: "active:opacity-70", style: { fontFamily: F_BODY, fontSize: fs(12), color: "#b23a2e" } }, "这段番外没写出来" + (x.err && x.err !== "没写出来" ? "（" + x.err + "）" : "") + " · 点一下重写"))),
+            left > 0 ? h("button", { "data-wk": "stampextrawrite", onClick: () => { const s0 = C().load(); if (!(s0.extraTickets > 0)) return; s0.extraTickets--; C().save(s0); onExtra && onExtra(card.id); toast("用了一张番外券，他在写"); }, className: "active:opacity-70",
+              style: { marginTop: 12, padding: "6px 14px", borderRadius: 999, border: "1px solid " + COPPER, color: COPPER, fontFamily: F_BODY, fontSize: fs(12) } }, "用一张番外券写一段") : null); })() : null,
         tx ? h("div", { "data-wk": "stampgrow", style: { marginTop: 16, padding: "14px 16px", borderRadius: 16, border: "1px solid rgba(87,119,103,.22)", background: "#E2E7DA", boxShadow: "0 2px 10px rgba(57,56,47,.06)" } },
           h("div", { className: "flex items-center justify-between" },
             h("div", { style: { fontFamily: F_DISPLAY, fontSize: fs(14), color: GOLD } }, "✦ 盖印"),
@@ -617,7 +633,8 @@
       s.cards = s.cards.concat(fresh);
       C().save(s); setSt(s);
       setShow(cards);
-      if (cards.length > fresh.length) toast("有 " + (cards.length - fresh.length) + " 枚重复的限定 SSR，折成了 " + (cards.length - fresh.length) * C().DUPE_INK + " 印泥");
+      if (cards.length > fresh.length) { toast("有 " + (cards.length - fresh.length) + " 枚重复的限定 SSR，折成了 " + (cards.length - fresh.length) * C().DUPE_INK + " 印泥，原来那张多一段番外");
+        cards.filter(c => c.dupe && c.dupeOf).forEach(c => props.onExtra && props.onExtra(c.dupeOf)); }
       // 动画放着的时候就开始写；挑了「抽到就画」的，写完接着画
       if (fresh.length) Promise.resolve(onWrite(fresh)).then(() => {
         if (!opt.autoDraw) return;
@@ -636,7 +653,7 @@
             h(Avatar, { character: c, size: 46, radius: 10 }),
             on ? h("span", { style: { position: "absolute", right: -5, bottom: -5, width: 18, height: 18, borderRadius: 999, background: "#2f5d4a", color: "#15121f", fontSize: 11, lineHeight: "18px", textAlign: "center", fontWeight: 700 } }, "✓") : null),
           h("div", { style: { maxWidth: "100%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: on ? "#2f5d4a" : "rgba(47,42,34,.75)" } }, c.remark || c.name)); }));
-    if (open) { const card = (st.cards || []).find(c => c.id === open) || null; if (card) return h(CardPage, { key: card.id, onSwipe: d => { const ids = albumIds.current, k = ids.indexOf(card.id); if (k < 0) return; const nx = ids[k + d]; if (nx) setOpen(nx); else toast(d > 0 ? "已经是最后一张了" : "已经是第一张了"); }, t, card, char: charOf(card.charId), meName, onBack: () => setOpen(null), onDraw, onRewrite: c => onWrite([c]), toast, onPoke: (c, sd) => props.onPoke ? props.onPoke(c, sd) : null, onInner: c => props.onInner ? props.onInner(c) : null,
+    if (open) { const card = (st.cards || []).find(c => c.id === open) || null; if (card) return h(CardPage, { key: card.id, onSwipe: d => { const ids = albumIds.current, k = ids.indexOf(card.id); if (k < 0) return; const nx = ids[k + d]; if (nx) setOpen(nx); else toast(d > 0 ? "已经是最后一张了" : "已经是第一张了"); }, t, card, char: charOf(card.charId), meName, onBack: () => setOpen(null), onDraw, onRewrite: c => onWrite([c]), toast, onPoke: (c, sd) => props.onPoke ? props.onPoke(c, sd) : null, onInner: c => props.onInner ? props.onInner(c) : null, onExtra: (id, xid) => props.onExtra ? props.onExtra(id, xid) : null,
       onSend: c => { props.onSend && props.onSend(c); }, onCanon: c => { props.onCanon && props.onCanon(c); } }); }
 
     const isBad = c => !c.text && (!c.writing || Date.now() - Number(c.writingTs || 0) > (c.queued ? 1800000 : 180000));
