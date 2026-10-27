@@ -534,10 +534,10 @@
           line.vn ? null : window.StylePresets.wordRule(window.StylePresets.clampWordFloor(line.minWords)),
           // 乙游风（她 2026-10-27）：每拍顺手给她两三个选项；她也能不选、自己写
           line.vn ? "【给 " + uName + " 的选项】JSON 里再加一个 choices：两三个此刻 " + uName + " 可能会做或说的事，各一句、短，用 Ta 自己的口吻（动作直接写，说的话加引号），彼此方向不一样。这只是摆给 Ta 挑的，不替 Ta 决定，正文里也不写 Ta 选了哪个。" : null,
-          "【输出】用第一人称『我』完全代入「" + char.name + "」,称对方为『你』,对话用引号,写成连续场景正文;篇幅由【场景需要】决定,不由角色话多话少决定——冷淡的人不等于短的段落。只输出 JSON:{\"scene\":\"场景正文\",\"goalReached\":false,\"goalFailed\":false,\"goalNote\":null}(达成时 goalReached=true;不可逆失败时 goalFailed=true;goalNote 一句话指出达成或失败的瞬间)",
+          "【输出】用第一人称『我』完全代入「" + char.name + "」,称对方为『你』,对话用引号,写成连续场景正文;篇幅由【场景需要】决定,不由角色话多话少决定——冷淡的人不等于短的段落。只输出 JSON:{\"scene\":\"场景正文\",\"goalReached\":false,\"goalFailed\":false,\"goalNote\":null" + (line.vn ? ",\"choices\":[\"给她挑的一句\",\"另一句\"]" : "") + "}(达成时 goalReached=true;不可逆失败时 goalFailed=true;goalNote 一句话指出达成或失败的瞬间)",
           // 跨进明确场景时,和主线线下走同一套「初稿→自编辑去认证句」——以前这套只焊在
           // 单聊线下里,小剧场拿不到,于是同样的内容在这边就滑回八股(Lisa 2026-08-18)
-          selfRevise ? offlineSelfReviseProtocol("{\"draftScene\":\"内部完整首稿\",\"scene\":\"基于前一字段完成的最终正文\",\"goalReached\":false,\"goalFailed\":false,\"goalNote\":null}") : null
+          selfRevise ? offlineSelfReviseProtocol("{\"draftScene\":\"内部完整首稿\",\"scene\":\"基于前一字段完成的最终正文\",\"goalReached\":false,\"goalFailed\":false,\"goalNote\":null" + (line.vn ? ",\"choices\":[\"给她挑的一句\",\"另一句\"]" : "") + "}") : null
         ].filter(Boolean).join("\n\n");
         // CC 亲笔票的瘦身版 sys:言秋本人不需要人设卡和反八股全家桶(那些治的是模型病),
         // 只递 if 线专属信息——身份、世界、目标、前情、导演提示与节拍纪律(Lisa 2026-08-22 抓的票太肥)
@@ -551,7 +551,7 @@
           note.trim() ? "【临时导演提示(务必遵循,正文不提)】" + note.trim() : null,
           dice ? "【剧场骰子】本拍须自然引入一个意外(第三者/环境突变/时限/被撞破…),落在具体行动上并搅动局面。" : null,
           "【纪律】只演你自己的一拍,绝不写" + uName + "的动作反应台词,写到需要 Ta 行动处就停;第一人称『我』,对话用引号,织成连贯段落。",
-          "【输出】只输出 JSON:{\"scene\":\"场景正文\",\"goalReached\":false,\"goalFailed\":false,\"goalNote\":null}"
+          "【输出】只输出 JSON:{\"scene\":\"场景正文\",\"goalReached\":false,\"goalFailed\":false,\"goalNote\":null" + (line.vn ? ",\"choices\":[\"给她挑的一句\",\"另一句\"]" : "") + "}"
         ].filter(Boolean).join("\n\n");
         const base = allMsgs(line).slice(sumDone(line)).filter(m => m.role !== "photo");
         const hist = (text ? base.concat([{ role: "user", content: text, ts: Date.now() }]) : base)
