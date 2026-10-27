@@ -18,12 +18,12 @@ const anchor = (() => {
   return engine.slice(start, engine.indexOf("`", start));
 })();
 
-test("关键的一条：明确点名心声与内心独白，并说破这是体裁默认不是人设", () => {
-  assert.match(anchor, /【心声、内心独白同样受这一条管】/);
-  assert.match(anchor, /那是【体裁自带的默认】，不是你的人设/);
-  assert.match(anchor, /和日记那边犯的是同一个毛病/);
+test("关键的一条：明确点名心声与内心独白，只说该怎么写（2026-10-27 改成正面说法）", () => {
+  assert.match(anchor, /【心声、内心独白同样照这一条】/);
+  assert.match(anchor, /心里叫她什么，就还是平时那个称呼/);
   // 心里直接用「你」是正常的，别把这条读成"必须用名字"
-  assert.match(anchor, /心里跟她说话时，直接用「你」也完全正常/);
+  assert.match(anchor, /心里跟她说话，直接用「你」/);
+  assert.ok(!/男主角旁白/.test(anchor), "又把套路名字念回去了");
 });
 
 test("六条通道都吃得到这条锚（心声在其中每一条里都会出现）", () => {
