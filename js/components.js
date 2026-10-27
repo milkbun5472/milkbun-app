@@ -8795,6 +8795,7 @@ function Messages({
   onPromoteNpc,
   onSetNpcMem,
   onSetNpcMoments,
+  onSetNpcGender,
   groups,
   chats,
   groupChats,
@@ -9286,7 +9287,7 @@ function Messages({
               h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))", color: t.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, g.name),
               h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginTop: 1 } }, (g.memberIds || []).length + " 人")),
             h(IChevR, { size: 15, color: t.line })))))
-  , npcBook && h(NpcBook, { npcs: npcAll, owners: allChars || characters, meName: meName, onCreate: onCreateNpc, onSaveAvatar: onSaveNpcAvatar, onSaveBrief: onSaveNpcBrief, onChat: onChatNpc, onPromote: onPromoteNpc, onDelete: onDeleteNpc, onSetMem: onSetNpcMem, onSetMoments: onSetNpcMoments, onClose: () => setNpcBook(false) })
+  , npcBook && h(NpcBook, { npcs: npcAll, owners: allChars || characters, meName: meName, onCreate: onCreateNpc, onSaveAvatar: onSaveNpcAvatar, onSaveBrief: onSaveNpcBrief, onChat: onChatNpc, onPromote: onPromoteNpc, onDelete: onDeleteNpc, onSetMem: onSetNpcMem, onSetMoments: onSetNpcMoments, onSetGender: onSetNpcGender, onClose: () => setNpcBook(false) })
   , rowMenu && h(Sheet, { onClose: () => setRowMenu(null) },
     h("div", { "data-wk": "mlrowmenu", className: "px-5 pb-6 pt-1" },
       h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))", color: t.ink, marginBottom: 10 } }, rowMenu.name || "配角"),
@@ -9636,7 +9637,7 @@ function MomentCompose({
 // 好友分组管理
 // 通讯录 → 配角：按主人分组的一本册子。整页，不是半窗（施工规则/no-half-sheet.md）。
 //   点头像就换（AvatarPicker 那一个，跟卷宗、群头像同一个）；换好的头像群聊和关系图都跟着用。
-function NpcBook({ npcs, owners, meName, onCreate, onSaveAvatar, onSaveBrief, onChat, onPromote, onDelete, onSetMem, onSetMoments, onClose }) {
+function NpcBook({ npcs, owners, meName, onCreate, onSaveAvatar, onSaveBrief, onChat, onPromote, onDelete, onSetMem, onSetMoments, onSetGender, onClose }) {
   const [promoArm, setPromoArm] = useState(null);   // 转正先问一句
   const t = useTheme();
   // 在这一页直接新建（她 2026-10-10：「不能创建的时候在 npc 页面弄吗」）：一步写好认识谁、各是什么关系，
@@ -9704,6 +9705,15 @@ function NpcBook({ npcs, owners, meName, onCreate, onSaveAvatar, onSaveBrief, on
       h("div", { "data-wk": "block", style: { background: t.bg2, border: "1px solid " + t.line, borderRadius: 14, padding: "12px 14px" } },
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(13.5px * var(--app-fs, 1))", color: t.sub } }, "简介"),
         h(NpcBrief, { key: cur.id, npc: cur, onSave: onSaveBrief, defaultOpen: true })),
+      // 性别（她 2026-10-27「性别在哪儿」）：生成时自己填，这里能改；叫 TA 他／她 都照这一格
+      onSetGender ? h("div", { "data-wk": "npcgender", style: { marginTop: 12, background: t.bg2, border: "1px solid " + t.line, borderRadius: 14, padding: "12px 14px" } },
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(13.5px * var(--app-fs, 1))", color: t.sub } }, "性别"),
+        h("div", { className: "flex gap-2", style: { marginTop: 9 } },
+          [["他", "男 · 他"], ["她", "女 · 她"], ["TA", "不分 · TA"]].map(([v, zh]) => {
+            const on = (cur.gender === "他" || cur.gender === "她" ? cur.gender : "TA") === v;
+            return h("button", { key: v, "data-on": on ? "1" : "0", onClick: () => onSetGender(cur.id, v), className: "flex-1 active:opacity-70",
+              style: { minHeight: 40, borderRadius: 9, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", border: "1px solid " + (on ? t.ink : t.line), background: on ? t.ink : "transparent", color: on ? t.bg2 : t.sub } }, zh);
+          }))) : null,
       // 私聊：配角没有好感、印象卡、日程，也从不主动找她——只在她点进来时说话。
       //   TA记得的是TA自己那份（私聊攒下的＋在场的群里那些），主人看不见你们聊了什么。
       onSetMem ? h("div", { "data-wk": "block", style: { marginTop: 12, background: t.bg2, border: "1px solid " + t.line, borderRadius: 14, padding: "12px 14px" } },

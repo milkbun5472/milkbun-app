@@ -32594,6 +32594,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       toast("「" + (c0.remark || c0.name) + "」转正了：聊天和记忆都还在，去人格档案馆补一补人设和头像");
     },
     onSetNpcMoments: (id, v) => pC(p => p.map(c => c.id === id && c.npc ? { ...c, npcMoments: !!v } : c)),
+    onSetNpcGender: (id, v) => pC(p => p.map(c => c.id === id && c.npc ? { ...c, gender: v === "他" || v === "她" ? v : "TA" } : c)),
     onSetNpcMem: (id, v) => pC(p => p.map(c => c.id === id && c.npc ? { ...c, memExtract: v || "" } : c)),   // 配角私聊：同一个开聊天的口子（按 id 从全量里取）
     // 配角只有一张脸（她 2026-10-05 转群里：「和生成的 NPC 聊天，里面头像可以换，外面的不行」）：
     //   配角没有档案页，聊天里换的是 chatAvatar、通讯录这儿换的是 avatarImage，两张各管各的，
