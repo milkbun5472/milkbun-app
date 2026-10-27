@@ -252,7 +252,8 @@
     // 满级两面都能画：他一个人（solo）、你们俩（duo）。旧卡只有 faceAlt＋faceAltMode，照它认
     const faces2 = Object.assign({}, card.faceAlt ? { [card.faceAltMode || "solo"]: card.faceAlt } : {}, card.faces || {});
     const url1 = useIdbImgUrl(card.face), urlSolo = useIdbImgUrl(faces2.solo || null), urlDuo = useIdbImgUrl(faces2.duo || null);
-    const [side, setSide] = useState("main");         // main 第一面 / solo / duo
+    // 打开时停在她挑的封面那一面（她 2026-10-27：选了别的当封面，点进来还是第一面）
+    const [side, setSide] = useState(() => { const cv = card.cover; if (!cv) return "main"; if (cv === faces2.solo) return "solo"; if (cv === faces2.duo) return "duo"; const ex = (card.extras || []).find(x => x.img === cv); return ex ? "ex:" + ex.id : "main"; });   // main 第一面 / solo / duo / ex:番外
     // 番外卡面（她 2026-10-27）：在卡面这边跟满级那几面一起挑、一起画；side 是 "ex:番外id"
     const exSel = side.indexOf("ex:") === 0 ? (card.extras || []).find(x => "ex:" + x.id === side) || null : null;
     const urlEx = useIdbImgUrl(exSel && exSel.img || null);
@@ -546,7 +547,6 @@
             h("img", { src: url, alt: "", onLoad: e => setFullWide(e.currentTarget.naturalWidth > e.currentTarget.naturalHeight * 1.1), style: { display: "block", maxWidth: "calc(100vw - 32px)", maxHeight: "calc(100dvh - 190px)", width: "auto", height: "auto", borderRadius: 4, boxShadow: "0 0 0 3px #FFF8E9, 0 0 0 5px " + COPPER } }),
             canPoke ? h("div", { "data-wk": "stamppoke", onClick: e => { e.stopPropagation(); poke(e); }, style: { position: "absolute", inset: 0, cursor: "pointer" } }) : null)),
         // 横的原画（番外 CG）：「横过来看」整张转 90 度占满屏幕，手机横着拿看；点一下回来
-        h("button", { "data-wk": "stampfullclose", onClick: e => { e.stopPropagation(); setFull(false); }, className: "active:opacity-60", style: { position: "absolute", left: 14, top: "calc(env(safe-area-inset-top) + 14px)", padding: "4px 12px", borderRadius: 999, border: "1px solid rgba(255,248,233,.6)", color: "#FFF8E9", fontFamily: F_BODY, fontSize: fs(12) } }, "‹ 收起"),
         fullWide ? h("button", { "data-wk": "stamprotate", onClick: e => { e.stopPropagation(); setRot(true); }, className: "active:opacity-60", style: { position: "absolute", right: 14, top: "calc(env(safe-area-inset-top) + 14px)", padding: "4px 12px", borderRadius: 999, border: "1px solid rgba(255,248,233,.6)", color: "#FFF8E9", fontFamily: F_BODY, fontSize: fs(12) } }, "⟲ 横过来看") : null,
         rot ? h("div", { "data-wk": "stamprotview", onClick: e => { e.stopPropagation(); setRot(false); }, className: "fixed inset-0", style: { zIndex: 2, background: "#000" } },
           h("img", { src: url, alt: "", style: { position: "absolute", left: "50%", top: "50%", width: "100dvh", height: "100vw", objectFit: "contain", transform: "translate(-50%, -50%) rotate(90deg)" } })) : null,
@@ -561,17 +561,18 @@
           canPoke ? (poking ? h("span", { style: { color: P5 } }, "他在想怎么回你…") : say ? h(React.Fragment, null, h("div", { style: { fontSize: fs(10.5), color: COPPER, marginBottom: 2 } }, (char ? char.name : "") + (say.part === "head" ? " · 被戳了头" : say.part === "heart" ? " · 被戳了胸口" : " · 被戳了手")), say.text,
               h("button", { "data-wk": "stamppokevoice", onClick: e => { e.stopPropagation(); if (!speakPoke(say.text)) toast("要先在「设置」里配好语音"); }, style: { marginLeft: 6, fontSize: "0.9em", opacity: .7 } }, "🔊"))
             : h("span", { style: { color: P5 } }, "戳戳他：上面是头，中间是胸口，下面是手。点外面收起。"))
-            : exSel ? h("span", { style: { color: P5 } }, "番外「" + (exSel.title || "") + "」。点外面或者左上角「收起」。")
+            : exSel ? h("span", { style: { color: P5 } }, "番外「" + (exSel.title || "") + "」。点外面或者「收起」。")
             : h("span", { style: { color: P5 } }, card.rarity === "SSR" ? "这张升满 " + cap + " 级以后，点卡面能戳他（头、胸口、手）。点外面收起。" : "点外面收起。"),
 
           // 最底下一排：左边保存原图，右边（满级戳过的）换一批话
           h("div", { className: "flex items-center justify-between", style: { marginTop: 10, paddingTop: 8, borderTop: "1px dashed rgba(181,140,85,.35)" } },
             h("button", { "data-wk": "stampsaveimg", onClick: e => { e.stopPropagation(); const key = sideKey;
                 (window.saveImgOriginal ? window.saveImgOriginal(key, (tx && tx.name) || "邮票卡面") : Promise.resolve(false)).then(ok => { if (!ok) toast("这张取不到原图"); }); },
-              className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: fs(11.5), color: GOLD, border: "1px solid " + GOLD, borderRadius: 999, padding: "3px 10px" } }, "⬇ 保存原图"),
+              className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: fs(11.5), color: GOLD, border: "1px solid " + GOLD, borderRadius: 999, padding: "3px 10px" } }, "保存原图"),
             (() => { const key = sideKey, on = (card.cover || card.face) === key;
-              return h("button", { "data-wk": "stampsetcover", disabled: on, onClick: e => { e.stopPropagation(); setCover(key === card.face ? null : key); }, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: fs(11.5), color: on ? P5 : COPPER, border: "1px solid " + (on ? "rgba(130,124,111,.4)" : COPPER), borderRadius: 999, padding: "3px 10px" } }, on ? "是册子封面" : "设成册子封面"); })(),
-            canPoke && card[side === "duo" ? "pokesDuo" : side === "solo" ? "pokesSolo" : "pokes"] && !poking ? h("button", { "data-wk": "stamppokeredo", onClick: e => { e.stopPropagation(); poke("redo"); }, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: fs(11.5), color: COPPER, border: "1px solid " + COPPER, borderRadius: 999, padding: "3px 10px" } }, "↻ 这一面换一批话 · 花一次调用") : null))) : null,
+              return h("button", { "data-wk": "stampsetcover", disabled: on, onClick: e => { e.stopPropagation(); setCover(key === card.face ? null : key); }, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: fs(11.5), color: on ? P5 : COPPER, border: "1px solid " + (on ? "rgba(130,124,111,.4)" : COPPER), borderRadius: 999, padding: "3px 10px" } }, on ? "封面" : "改封面"); })(),
+            h("button", { "data-wk": "stampfullclose", onClick: e => { e.stopPropagation(); setFull(false); }, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: fs(11.5), color: P5, border: "1px solid rgba(130,124,111,.4)", borderRadius: 999, padding: "3px 10px" } }, "收起"),
+            canPoke && card[side === "duo" ? "pokesDuo" : side === "solo" ? "pokesSolo" : "pokes"] && !poking ? h("button", { "data-wk": "stamppokeredo", onClick: e => { e.stopPropagation(); poke("redo"); }, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: fs(11.5), color: COPPER, border: "1px solid " + COPPER, borderRadius: 999, padding: "3px 10px" } }, "↻ 这一面换一批话") : null))) : null,
       // 番外像剧情一样一句一句播（她 2026-10-27）：背景用番外插图，没画就用卡面；老的整段番外按段落拆成旁白
       exOpen && (card.extras || []).find(x => x.id === exOpen && x.text) ? (() => { const x = card.extras.find(e => e.id === exOpen);
         const beats = Array.isArray(x.beats) && x.beats.length ? x.beats : String(x.text).split(/\n+/).map(t0 => t0.trim()).filter(Boolean).map(t0 => ({ who: "narr", text: t0 }));
