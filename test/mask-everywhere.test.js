@@ -25,6 +25,7 @@ test("直播：自己的号＝TA 认识的那张面具；开播时跟她用别�
 
 test("朋友圈：谁刷得到照「谁可以看」，没挑就只有主面具那边的人", () => {
   assert.match(A, /const momSeen = \(m, charId\) => /);
-  assert.equal((A.match(/const canSee(?:Main)? = liveChars\.filter\(c => momSeen\(mom, c\.id\)\);/g) || []).length, 2);
+  // v76.73x 起候选人先过 momLive()（把工程师视角那几位摘掉），再问谁刷得到
+  assert.equal((A.match(/const canSee(?:Main)? = momLive\(\)\.filter\(c => momSeen\(mom, c\.id\)\);/g) || []).length, 2);
   assert.match(A, /\(moments \|\| \[\]\)\.filter\(m => momSeen\(m, char\.id\)\)\.slice\(0, 3\)/);
 });

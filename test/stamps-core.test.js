@@ -103,6 +103,13 @@ test("里程碑信：不带池子的信领到的是普通十连券＋印泥，�
   const st = C.load(); assert.equal(st.tickets, t0 + 3); assert.equal(st.ink, i0 + 3000); assert.equal(C.bdTicketCount(st), 0);
 });
 
+test("十连挑券：挑了十连券就先不动生日券、纪念日券", () => {
+  const C = fresh(), st = C.load(); st.tickets = 1; st.bdTickets = { an_x_2026: 2 };
+  assert.equal(C.pay(st, 10, true, "an_x_2026", true), "ticket"); assert.equal(st.bdTickets.an_x_2026, 2);
+  assert.equal(C.pay(st, 10, true, "an_x_2026"), "bdticket"); assert.equal(st.bdTickets.an_x_2026, 1);
+  assert.equal(C.pay(st, 10, true, null, true), "bdticket");   // 十连券用完了，照样落回特别券
+});
+
 test("盖印升级：扣印泥，30 级那一坎没发给他看过就停住", () => {
   const C = fresh(), st = C.load();
   st.ink = 100000; st.cards = [{ id: "a", rarity: "SR", lv: 1 }]; C.save(st);
@@ -169,11 +176,12 @@ test("限时池上新按人数送十连：每两人一张，1～5 张", () => {
   }
 });
 
-test("日历：深秋 11-30 底下架、温泉 12-01 上、12-15 底下架", () => {
+test("日历：深秋 11-30 底下架、温泉 12-01 上、12-16 换圣诞、年底下架", () => {
   const C = fresh(); const ids = t => C.activeLimited(Date.parse(t)).map(L => L.id);
   assert.deepEqual(ids("2026-11-30T23:59:00+08:00"), ["lateautumn26"]);
   assert.deepEqual(ids("2026-12-01T00:00:01+08:00"), ["onsen26"]);
-  assert.deepEqual(ids("2026-12-16T00:00:01+08:00"), []);
+  assert.deepEqual(ids("2026-12-16T00:00:01+08:00"), ["xmas26"]);
+  assert.deepEqual(ids("2027-01-01T00:00:01+08:00"), []);
 });
 
 test("你的生日券不在邮票册直接到账（改成生日信），他的生日池照旧送一张十连；生日信领一次", () => {
