@@ -10321,7 +10321,7 @@ function MomentsProfile({ isMe, character: rawCharacter, profile, characters: ra
   const name = isMe ? (profile.name || "我") : (character.remark || character.name);
   // 签名：优先用传进来的（角色页＝查手机·微信里那句朋友圈签名），否则回落到 motto/tagline
   const sign = (signature != null && String(signature).trim()) ? signature : (isMe ? (profile.tagline || "") : (character.motto || character.tagline || ""));
-  const list = (moments || []).filter(m => isMe ? m.mine : (m.characterId === character.id && !m.mine)).slice().sort((a, b) => ((b.mine && b.top) ? 1 : 0) - ((a.mine && a.top) ? 1 : 0) || (b.ts || 0) - (a.ts || 0));
+  const list = (moments || []).filter(m => isMe ? m.mine : (m.characterId === character.id && !m.mine)).slice().sort((a, b) => (b.top ? 1 : 0) - (a.top ? 1 : 0) || (b.ts || 0) - (a.ts || 0));
   // 封面拖着调位置（群友 2026-10-08：「朋友圈壁纸要是能自己调位置就好了」）：
   //   选完图直接进调整，或者点「调位置」；在封面上拖，松手不存，点「好了」才存。
   const posNow = adj ? (adj.x + "% " + adj.y + "%") : (coverPos || "center");
@@ -10346,7 +10346,8 @@ function MomentsProfile({ isMe, character: rawCharacter, profile, characters: ra
   const pickCover = e => { const f = e.target.files && e.target.files[0]; if (f) resizeImageFile(f, 1400, 0.82).then(d => { onSetCover(d); if (onSetCoverPos) { onSetCoverPos(""); setAdj({ x: 50, y: 50 }); } }); e.target.value = ""; };
   const sendC = m => { if (cText.trim()) { onCommentMoment(m.id, cText.trim(), cReply || undefined); setCommenting(null); setCReply(null); setCText(""); } };
 
-  const momentRow = m => h("div", { key: m.id, "data-wk": "moprofilepost", className: "px-5 py-4", style: { borderBottom: "1px solid " + t.line } },
+  const momentRow = m => h("div", { key: m.id, "data-wk": "moprofilepost", "data-top": m.top ? "1" : "0", className: "px-5 py-4", style: { borderBottom: "1px solid " + t.line } },
+    m.top ? h("div", { "data-wk": "momtoptag", style: { display: "inline-block", marginBottom: 6, padding: "1px 7px", borderRadius: 4, border: "1px solid " + t.accent, color: t.accent, fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))" } }, "置顶") : null,
     h("div", { style: { fontFamily: F_BODY, fontSize: "calc(14.5px * var(--app-fs, 1))", lineHeight: 1.6, color: t.ink, whiteSpace: "pre-wrap" } }, h(TransWho, { id: isMe ? null : m.characterId }, h(TransText, { text: m.content, zhReady: m.zh }))),
     Array.isArray(m.images) && m.images.length > 1 ? h(MomentGrid, { refs: m.images }) : m.image ? (isImgRef(m.image)
       ? h("button", { onClick: () => { setImgView(m.image); setImgMid(m.characterId ? m.id : null); }, className: "mt-2.5 block active:opacity-80" }, h("img", { src: resolveImg(m.image), style: { maxWidth: 160, maxHeight: 160, borderRadius: 10, display: "block" } }))

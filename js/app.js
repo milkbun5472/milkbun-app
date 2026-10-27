@@ -23502,6 +23502,9 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       //   读的就是这个人聊天设置里那一格 bilingual。开着就在这一轮顺手把译文要回来
       //   （同一次调用，不额外花钱）；没开、或者模型没给，气泡上那颗「译」照旧点得动，
       //   走的是免费优先那条链（translateToZh：Google → MyMemory → 后台线路）。
+      // 角色自己的置顶（她 2026-10-27）：发的时候 TA 自己定要不要钉在主页最上面，最多钉三条，钉第四条就把最早钉的那条放回去
+      const _momPinned = (momentsRef && momentsRef.current ? momentsRef.current : moments).filter(m => m && m.characterId === char.id && !m.mine && m.top);
+      const _momPinSpec = ",\"pin\":\"（可选）想把这条钉在自己朋友圈主页最上面就填 true，别人点进你主页先看到它；不想就不填" + (_momPinned.length ? "。你现在已经钉着：" + _momPinned.slice(0, 3).map(m => "「" + String(m.content || "").slice(0, 24) + "」").join("") : "") + "\"";
       const _momBi = !!(settingsFor(char.id) || {}).bilingual;
       const _momBiSpec = _momBi
         ? "\n\n【这条朋友圈要带中译】你用的不是中文的话，在 zh 里给出这条正文的简体中文翻译："
@@ -23515,8 +23518,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         voice: true,
         instruction: "完全代入「" + char.name + "」。你就是他，此刻拿着自己的手机在发一条朋友圈——不是在替他写一条，是你自己想发。" + _momAxes + "1-4句，不暴露隐藏剧情。优先从你真正参与的近期相处里自然长出内容，但不要逐句复述或把私密细节直接公开。那些相处每句都带着时间：这条是现在发的，隔了一夜、半天的事是那时候的事，回头提一句可以，今天别的事也一样能发。" + (_momImgOpen ? "**配不配图你自己定**：看这一条本身，也看你这个人平时发朋友圈的习惯——有的人几乎条条带图，有的人一年配不了几张，别为了配而配。" + _momImgHabit + "要配就在 image 里写一句这张图的画面描述（如「窗台上的多肉，逆光」「深夜便利店的关东煮」），再在 imageWho 里说清楚画面里有没有你：none＝画面里没有人（拍的是东西、吃的、风景）；part＝只拍到你的手、背影这类局部、看不见脸；self＝你本人入镜、看得见脸。不配图 image 填 null。" : "这一条只发文字，不配图，image 填 null。") + "再生成认识的其他角色对这条的 0-3 条评论。" + (peerNames.length ? "TA 已经建立关系的人有：" + peerNames.join("、") + "——这些是【优先】人选，谁真会关心这条谁才出现，不必都出现。" : "") + "评论者也【不限于】这些人：人设里合理存在、只是还没单独建卡的人（同学、舍友、同事、下属、邻居、旧友…）照样可以来评论，那正是朋友圈该有的样子；只要名字和口吻贴这个世界、这个身份就行，别让明显不搭的人冒出来。**绝对不要替用户本人（" + meName + "）生成任何评论或回复——用户会自己去评论。**" + (livedMaterial ? "\n\n【你最近亲历的共同相处（含私聊、群聊与线上/线下）】\n" + livedMaterial : "") + noRepeat + _momBiSpec,
         schemaHint: _momImgOpen
-          ? "{\"content\":\"朋友圈正文\",\"image\":\"配图描述或null\",\"imageWho\":\"none｜part｜self\",\"comments\":[{\"author\":\"评论者名\",\"text\":\"评论\"" + (_momBi ? ",\"zh\":\"这条评论的中译或null\"" : "") + "}]" + (_momBi ? ",\"zh\":\"正文的中译或null\"" : "") + "}"
-          : "{\"content\":\"朋友圈正文\",\"image\":null,\"comments\":[{\"author\":\"评论者名\",\"text\":\"评论\"" + (_momBi ? ",\"zh\":\"这条评论的中译或null\"" : "") + "}]" + (_momBi ? ",\"zh\":\"正文的中译或null\"" : "") + "}"
+          ? "{\"content\":\"朋友圈正文\",\"image\":\"配图描述或null\",\"imageWho\":\"none｜part｜self\",\"comments\":[{\"author\":\"评论者名\",\"text\":\"评论\"" + (_momBi ? ",\"zh\":\"这条评论的中译或null\"" : "") + "}]" + (_momBi ? ",\"zh\":\"正文的中译或null\"" : "") + _momPinSpec + "}"
+          : "{\"content\":\"朋友圈正文\",\"image\":null,\"comments\":[{\"author\":\"评论者名\",\"text\":\"评论\"" + (_momBi ? ",\"zh\":\"这条评论的中译或null\"" : "") + "}]" + (_momBi ? ",\"zh\":\"正文的中译或null\"" : "") + _momPinSpec + "}"
       });
       const content = String(d && d.content || "").trim();
       if (!content) throw new Error("模型没有返回朋友圈正文");
@@ -23524,8 +23527,10 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       // 没给机会的那一条，模型硬填了也不作数（闸在代码这一道）
       const newMomImage = _momImgOpen && d.image && String(d.image).toLowerCase() !== "null" ? String(d.image) : null;
       const newMomWho = ["none", "part", "self"].includes(String(d.imageWho || "").toLowerCase()) ? String(d.imageWho).toLowerCase() : null;
+      const _pinNew = d && (d.pin === true || String(d.pin).toLowerCase() === "true");
       pMom(p => [{
         id: newMomId,
+        ...(_pinNew ? { top: true, topTs: Date.now() } : {}),
         characterId: char.id,
         content,
         image: newMomImage,
@@ -23537,7 +23542,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         likeCount: 0,
         // 跟发帖人不认识的角色不来评论（群友 2026-10-22：三个角色互不相干，评论区里却称兄道弟）
         comments: (d.comments || []).filter(c => c && c.author && c.author !== meName && c.author !== "我" && c.author !== "用户" && !momStrangerTo(char, c.author)).map(c => ({ ...c, author: momentWho(c.author) }))
-      }, ...p]);
+      }, ...(_pinNew ? (() => { const mineTop = p.filter(m => m && m.characterId === char.id && !m.mine && m.top).sort((x, y) => (y.topTs || y.ts || 0) - (x.topTs || x.ts || 0)); const drop = new Set(mineTop.slice(2).map(m => m.id)); return p.map(m => drop.has(m.id) ? { ...m, top: false } : m); })() : p)]);
       // 开关在朋友圈页顶上（x_momentAutoImg，默认关）：开着就顺手把这张配图画出来
       if (newMomImage && loadJSON("x_momentAutoImg", false) && imgApiReady()) setTimeout(() => momentGenImage(newMomId), 60);
       return true;
