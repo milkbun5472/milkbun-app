@@ -231,7 +231,7 @@
 
   // 一张卡打开：卡面、名字、内容
   // 卡页＝养成页：上面是卡（光晕、稀有度章、星、邮戳编号），中间养成面板，底下「时刻回廊」一格一格往外还原那个瞬间
-  function CardPage({ t, card, char, meName, onBack, onDraw, onRewrite, onSend, onCanon, onPoke, onInner, toast }) {
+  function CardPage({ t, card, char, meName, onSwipe, onBack, onDraw, onRewrite, onSend, onCanon, onPoke, onInner, toast }) {
     // 满级两面都能画：他一个人（solo）、你们俩（duo）。旧卡只有 faceAlt＋faceAltMode，照它认
     const faces2 = Object.assign({}, card.faceAlt ? { [card.faceAltMode || "solo"]: card.faceAlt } : {}, card.faces || {});
     const url1 = useIdbImgUrl(card.face), urlSolo = useIdbImgUrl(faces2.solo || null), urlDuo = useIdbImgUrl(faces2.duo || null);
@@ -241,6 +241,7 @@
     useEffect(() => { if (!card.unread) return; const st0 = C().load(); st0.cards = st0.cards.map(c => c.id === card.id ? Object.assign({}, c, { unread: false }) : c); C().save(st0); }, [card.id]);   // 点开过就不算新
     // 「画着」超过八分钟还没回来＝那次没了（多半是画到一半关了 app）：按钮放开，能再画（她 2026-10-27：有人一直卡在重画中）
     const drawing = !!card.drawing && !!card.drawingBoot && card.drawingBoot === window.__stampBoot && Date.now() - (card.drawingTs || 0) < 8 * 60000;   // 关掉 app 再打开：上一回没画完的那次一定没了，直接放开
+    const swipe = useRef(null), swiped = useRef(0);
     const [reArm, setReArm] = useState(false);   // 重写整张卡要点两下：第一下变成「再点一次」，三秒内不点就回去           // 卡面全屏看，满级的在这里戳
     const [say, setSay] = useState(null), [poking, setPoking] = useState(false);
     const sayT = useRef(0);
@@ -362,12 +363,16 @@
       h(Head, { zh: tx ? tx.name : "一枚邮票", sub: card.rarity + " · " + (char ? char.name : "") + (card.kind === "if" ? " · IF「" + (card.theme || "") + "」" + (card.limYear ? " · " + card.limYear : "") : card.kind === "bday" ? " · 生日限定" : card.kind === "mybday" ? " · 你的生日" : card.kind === "anniv" ? " · 纪念日「" + (card.annivName || "") + "」" : " · 日常"), bg: "transparent", ink: P, onBack }),
       h("div", { className: "flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-5", style: { paddingBottom: "calc(env(safe-area-inset-bottom) * 0.4 + 28px)" } },
         // 卡
-        h("div", { "data-wk": "stampshow", className: "flex flex-col items-center", style: { position: "relative", paddingTop: 14 } },
+        // 在卡面这一块左右滑：换册子里的上一张、下一张（群里 2026-10-27）；底下回廊那排自己能横滑，不在这儿抢
+        h("div", { "data-wk": "stampshow", className: "flex flex-col items-center", style: { position: "relative", paddingTop: 14, touchAction: "pan-y" },
+          onPointerDown: e => { swipe.current = { x: e.clientX, y: e.clientY }; },
+          onPointerUp: e => { const s0 = swipe.current; swipe.current = null; if (!s0 || !onSwipe) return; const dx = e.clientX - s0.x, dy = e.clientY - s0.y;
+            if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.5) { swiped.current = Date.now(); onSwipe(dx < 0 ? 1 : -1); } } },
           h("div", { style: { position: "absolute", top: 0, left: "50%", width: 320, height: 380, marginLeft: -160, borderRadius: 999, background: "radial-gradient(closest-side, " + (card.rarity === "R" ? "rgba(47,42,34,.16)" : RC[card.rarity] + "44") + ", transparent)", animation: "stHalo 4s ease-in-out infinite", pointerEvents: "none" } }),
           h("div", { key: pop, style: { position: "relative", boxShadow: ring, animation: pop ? "stFloat .9s ease-out" : "none" } },
             h(Stamp, { t, card, face: url, size: 236 }),
             // 满级 SSR 能戳：上面三分之一是头，中间是胸口，下面是手
-            url ? h("div", { onClick: () => setFull(true), style: { position: "absolute", inset: 0, cursor: "zoom-in" } }) : null,
+            url ? h("div", { onClick: () => { if (Date.now() - swiped.current < 400) return; setFull(true); }, style: { position: "absolute", inset: 0, cursor: "zoom-in" } }) : null,
             pop ? h("div", { style: { position: "absolute", inset: 0, pointerEvents: "none", background: "linear-gradient(110deg, transparent 35%, rgba(255,240,200,.55) 50%, transparent 65%) 0 0 / 200% 100%", animation: "stShine .9s ease-out 1 forwards" } }) : null,
             h("div", { "data-wk": "stampbadge", style: { position: "absolute", left: "50%", top: -13, transform: "translateX(-50%)", whiteSpace: "nowrap", padding: "3px 12px", borderRadius: 999, background: card.rarity === "SSR" ? "linear-gradient(135deg,#d9b57c,#B58C55)" : card.rarity === "SR" ? "#B58C55" : FRAME, color: "#FFF8E9", fontFamily: F_DISPLAY, fontSize: fs(12), letterSpacing: ".08em", boxShadow: "0 2px 6px rgba(57,56,47,.25)" } }, card.rarity + " · " + (card.rarity === "SSR" ? "急件" : card.rarity === "SR" ? "挂号" : "平信")),
             !url ? h("div", { "data-wk": "stampblank", style: { position: "absolute", inset: 6, borderRadius: 2, overflow: "hidden", pointerEvents: "none",
@@ -532,6 +537,7 @@
     const testTap = useRef({ n: 0, t: 0 });
     const [begging, setBegging] = useState(false), [begLine, setBegLine] = useState("");
     const [paintDraft, setPaintDraft] = useState(null);
+    const albumY = useRef(0), albumIds = useRef([]);   // 册子当前那一排（筛过的、照显示顺序），卡页左右滑照它走   // 册子翻到哪儿：点开一张看完回来，停在原来那儿（群里 2026-10-27：每次都跳回最上面）
     useEffect(() => { const f = () => setSt(C().load()); window.addEventListener("stamps-change", f); return () => window.removeEventListener("stamps-change", f); }, []);
     // 早先写的卡里带着「(R)」「(SR)」的，打开邮票册时洗一遍存回去（只动带标记或错栏的那几张）
     useEffect(() => { try { const st0 = C().load(); let n = 0;
@@ -630,13 +636,14 @@
             h(Avatar, { character: c, size: 46, radius: 10 }),
             on ? h("span", { style: { position: "absolute", right: -5, bottom: -5, width: 18, height: 18, borderRadius: 999, background: "#2f5d4a", color: "#15121f", fontSize: 11, lineHeight: "18px", textAlign: "center", fontWeight: 700 } }, "✓") : null),
           h("div", { style: { maxWidth: "100%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: on ? "#2f5d4a" : "rgba(47,42,34,.75)" } }, c.remark || c.name)); }));
-    if (open) { const card = (st.cards || []).find(c => c.id === open) || null; if (card) return h(CardPage, { t, card, char: charOf(card.charId), meName, onBack: () => setOpen(null), onDraw, onRewrite: c => onWrite([c]), toast, onPoke: (c, sd) => props.onPoke ? props.onPoke(c, sd) : null, onInner: c => props.onInner ? props.onInner(c) : null,
+    if (open) { const card = (st.cards || []).find(c => c.id === open) || null; if (card) return h(CardPage, { key: card.id, onSwipe: d => { const ids = albumIds.current, k = ids.indexOf(card.id); if (k < 0) return; const nx = ids[k + d]; if (nx) setOpen(nx); else toast(d > 0 ? "已经是最后一张了" : "已经是第一张了"); }, t, card, char: charOf(card.charId), meName, onBack: () => setOpen(null), onDraw, onRewrite: c => onWrite([c]), toast, onPoke: (c, sd) => props.onPoke ? props.onPoke(c, sd) : null, onInner: c => props.onInner ? props.onInner(c) : null,
       onSend: c => { props.onSend && props.onSend(c); }, onCanon: c => { props.onCanon && props.onCanon(c); } }); }
 
     const isBad = c => !c.text && (!c.writing || Date.now() - Number(c.writingTs || 0) > (c.queued ? 1800000 : 180000));
     const byChar = (st.cards || []).filter(c => albumChar === "all" || c.charId === albumChar);
     const themeOf = c => c.kind === "if" ? (c.theme || "IF") : c.kind === "bday" ? "生日" : c.kind === "mybday" ? "你的生日" : c.kind === "anniv" ? "纪念日" : "日常";
     const album = byChar.filter(c => (albumRar === "all" || (albumRar === "bad" ? isBad(c) : c.rarity === albumRar)) && (albumTheme === "all" || themeOf(c) === albumTheme)).slice().reverse();
+    if (tab === "album") albumIds.current = album.map(c => c.id);
     // ── 卡池页像乙游那样：一整张大海报（一枚放大的邮票），左边一列小邮票换池，底下两颗大键；其余设置收进「⋯」 ──
     const NIGHT = "#15121f", PAPER = "#f4ecda", GOLD = "#e3b65c";
     const pools = [{ key: "mix", zh: "大混池", tag: "常驻 · 日常卡" }, { key: "char", zh: "角色池", tag: "常驻 · IF 卡" }]
@@ -787,6 +794,11 @@
           h("div", null, h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(14.5px * var(--app-fs, 1))", color: "#2f2a22" } }, "抽到就画卡面"),
             h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: "rgba(47,42,34,.5)" } }, opt.autoDraw ? "开着：每张都画，十连就是十次生图" : "关着：点开哪张、想看再画哪张，省钱")),
           h(Toggle, { on: !!opt.autoDraw, onChange: () => setOpt({ autoDraw: !opt.autoDraw }) })),
+        // SSR 剧情里你少开口（群里 2026-10-27）：开着＝正文里你基本不说话，你的部分都在选项里，往前推的是他
+        h("div", { className: "flex items-center justify-between", style: { marginTop: 18 } },
+          h("div", null, h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(14.5px * var(--app-fs, 1))", color: "#2f2a22" } }, "剧情里你少开口"),
+            h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: "rgba(47,42,34,.5)" } }, opt.meQuiet ? "开着：SSR 正文里你基本不说话，你的部分都在选项里，剧情由他往前推" : "关着：正文里你也会说几句")),
+          h(Toggle, { on: !!opt.meQuiet, onChange: () => setOpt({ meQuiet: !opt.meQuiet }) })),
         h("button", { onClick: () => { const r = testTap.current, now = Date.now(); r.n = now - r.t < 900 ? r.n + 1 : 1; r.t = now; if (r.n >= 7) { r.n = 0; setOpt({ testInf: !testInf }); toast(testInf ? "测试券关了" : "测试券开了：抽卡不花邮资和券，盖印不花印泥"); } },
           style: { display: "block", marginTop: 22, fontFamily: F_DISPLAY, fontSize: "calc(14.5px * var(--app-fs, 1))", color: "#2f2a22", background: "transparent", border: "none", padding: 0 } }, "规则"),
         // 规则（她 2026-10-27：写好看点）：分几块，一块一个小标题；数字从 StampsCore 里取，改了常量这儿跟着变
@@ -811,7 +823,7 @@
         testInf ? h("div", { style: { marginTop: 10, fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: RC.SSR } }, "测试券开着：抽卡不花邮资和券、盖印不花印泥（连点七下「规则」关掉）") : null));
     if (tab === "album") return h("div", { "data-wk": "stampalbumpage", "data-page": "1", className: "h-full flex flex-col overflow-hidden", style: { background: "repeating-linear-gradient(180deg, transparent 0 116px, rgba(47,42,34,.07) 116px 117px, transparent 117px 120px), linear-gradient(#f1e9d8, #e9dfca)" } },
       h(Head, { zh: "邮票册", sub: (st.cards || []).length + " 枚", bg: "transparent", ink: "#2f2a22", onBack: () => setTab("pull") }),
-      h("div", { className: "flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-5", style: { paddingBottom: "calc(env(safe-area-inset-bottom) * 0.4 + 28px)" } },
+      h("div", { className: "flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-5", ref: el => { if (el && !el.__y) { el.__y = 1; el.scrollTop = albumY.current; } }, onScroll: e => { albumY.current = e.currentTarget.scrollTop; }, style: { paddingBottom: "calc(env(safe-area-inset-bottom) * 0.4 + 28px)" } },
         // 一行三个下拉（她 2026-10-26：分类一行行往下加太高、往右滑不方便）：点开在下面弹一小块，选项换行平铺
         (() => { const chs = characters.filter(c => (st.cards || []).some(x => x.charId === c.id));
           const thAll = Array.from(new Set((st.cards || []).filter(c => albumChar === "all" || c.charId === albumChar).map(themeOf)));

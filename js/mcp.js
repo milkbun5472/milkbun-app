@@ -56,11 +56,23 @@
   const relay = () => { const r = load(RELAY_KEY, null); return r && /^https?:\/\//i.test(String(r.url || "")) ? r : null; };
   const isSse = url => /\/sse(\?|$)/i.test(String(url || "").split("#")[0]);
   const authOf = srv => srv.token ? (/^bearer /i.test(srv.token) ? srv.token : "Bearer " + srv.token) : "";
+  // 等太久就放弃（群友 2026-10-27：红米上点「测一下」没反应）：地址被挡的时候请求不报错、只是一直挂着，
+  //   「测试中…」就永远转下去。到点给一句人话。工具真在干活（搜网页之类）也够用。
+  const WAIT_MS = 45000;
+  async function fetchT(url, init, where) {
+    const ac = typeof AbortController === "function" ? new AbortController() : null;
+    const tm = ac ? setTimeout(() => ac.abort(), WAIT_MS) : null;
+    try { return await fetch(url, Object.assign({}, init, ac ? { signal: ac.signal } : {})); }
+    catch (e) {
+      if (ac && ac.signal.aborted) throw new Error("等了 " + (WAIT_MS / 1000) + " 秒" + (where || "") + "都没回音：多半是这台手机连不上这个地址（" + url + "）。workers.dev 在国内常被挡，这台手机开着梯子再试；别的设备能开、这台不行，就是这台的网络问题。");
+      throw e;
+    } finally { if (tm) clearTimeout(tm); }
+  }
   async function viaRelay(rl, payload) {
     let r;
     try {
-      r = await fetch(rl.url, { method: "POST", headers: Object.assign({ "Content-Type": "application/json" }, rl.key ? { "X-Relay-Key": rl.key } : {}), body: JSON.stringify(payload) });
-    } catch (e) { throw new Error("连不上你的转接（" + rl.url + "）：地址对不对、Worker 部署好了没？在浏览器里直接打开这个地址，应该看得到「转接在线 ✓」。"); }
+      r = await fetchT(rl.url, { method: "POST", headers: Object.assign({ "Content-Type": "application/json" }, rl.key ? { "X-Relay-Key": rl.key } : {}), body: JSON.stringify(payload) });
+    } catch (e) { if (/都没回音/.test(String(e && e.message))) throw e; throw new Error("连不上你的转接（" + rl.url + "）：地址对不对、Worker 部署好了没？在浏览器里直接打开这个地址，应该看得到「转接在线 ✓」。"); }
     let w = null;
     try { w = await r.json(); } catch (e) {}
     if (!w) throw new Error("转接回了读不懂的东西（HTTP " + r.status + "）：多半是代码没贴全，重新复制一遍贴进去。");
@@ -100,8 +112,9 @@
     }
     let r;
     try {
-      r = await fetch(srv.url, { method: "POST", headers: headers, body: body });
+      r = await fetchT(srv.url, { method: "POST", headers: headers, body: body });
     } catch (e) {
+      if (/都没回音/.test(String(e && e.message))) throw e;
       // 浏览器把 CORS 拒绝和网络不通报成同一个 TypeError，分不出来——所以两种可能都说，
       // 别让她对着「Load failed」猜一晚上。
       throw new Error("连不上这台 MCP（" + (srv.name || srv.url) + "）：要么服务端没放行跨域(CORS)，要么地址不对或没开。多半是跨域（服务端没回 Access-Control-Allow-Origin）——在上面填一个「转接地址」就能绕过去。");

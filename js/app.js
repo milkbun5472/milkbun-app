@@ -20,7 +20,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v76.779";
+const APP_VERSION = "v76.784";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -8864,6 +8864,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     // 合照必须两张参考照都在，否则降级成「她替TA拍的单人照」——绝不一张真一张编。
     let kind = wantMe ? "me" : ["other", "duo", "group"].includes(arg.kind) ? arg.kind : "self";
     if (kind === "duo" && !offlinePhotoCanDuo(char)) kind = "other";
+    if (kind === "duo" && typeof photoDuoSaid === "function" && !photoDuoSaid(scene, userName(profile))) kind = "self";
     let cast = kind === "group" ? (arg.cast || []) : null;
     if (kind === "group" && (!cast || cast.length < 2)) { kind = "other"; cast = null; }
     // reuseSid：重拍 / 改描述重拍（她 2026-10-02：「线下的图不能编辑重roll」）——就地换这一格的像素，不另挂一张。
@@ -14131,6 +14132,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       } else if (photoScene) noPhotoStreakRef.current[charId] = 0;
       // 合照必须两张参考照都在，否则降级为「别人拍的单人照」——杜绝一张真一张编
       if (photoKind === "duo" && !(char.refPhoto && (meOf(charId) || {}).refPhoto)) photoKind = "other";
+      if (photoKind === "duo" && typeof photoDuoSaid === "function" && !photoDuoSaid(photoScene, userName(meOf(charId) || profile))) photoKind = "self";   // 画面里只有他一个人，不硬拼合照
       // ⚠️她 2026-09-09 连着三张截图都是同一个错：kind 填 self，脸被硬画进去。
       //   她问得对——kind 问的是【我在发什么】，一只手的照片说成 self 从TA的角度
       //   不算错，是这一格问错了。所以真正拍板的换成 face：**这张图里看不看得见
@@ -16138,6 +16140,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
           if (photoCooldownState(gchat, spk.id).cooling) { gPhotoKind = null; gPhotoScene = null; }
           // 合照必须两张参考照都在（用户 + 该成员），否则降级为「别人拍的单人照」
           if (gPhotoKind === "duo" && !(spk.refPhoto && (meOfGroup(groupId) || {}).refPhoto)) gPhotoKind = "other";
+          if (gPhotoKind === "duo" && typeof photoDuoSaid === "function" && !photoDuoSaid(gPhotoScene, userName(meOfGroup(groupId) || profile))) gPhotoKind = "self";
           // 同一套（判据只写在 engine 那一处，群这边不另写一份）
           const _gFaceSaid = item.photo && typeof item.photo === "object" ? item.photo.face : undefined;
           if (gPhotoKind === "none") gPhotoKind = "view";
@@ -17106,7 +17109,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
           + "每节写得丰满：二三十句到四十句，有场景、有动作、有来回的对话，事情在这一节里真的往前走。"
           + "一节中间也可以停下来让她选一两次（beats 里放一个 who:\"pick\"，options 两三个：text 是她说的话或做的事，beats 是你接着的那几句）——选的不同你的反应就不同，几句之后回到这一节的主线；节尾的 choices 两三个。"
           + "往前走靠的是发生的事、你的做法和你们之间自然的对话；你说多少话照你平时的样子，心里的东西让她从你做的事里看出来。每节都有点什么变了，不必每节都有大事。"
-          + "两条岔路走下去，后面发生的事、你的处理、她知道的东西、你们之间的样子，至少有一样真的不一样。她那句（me）照她平时的样子写，少一点。"
+          + "两条岔路走下去，后面发生的事、你的处理、她知道的东西、你们之间的样子，至少有一样真的不一样。" + ((StampsCoreSafe().opt || {}).meQuiet ? "正文里她基本不开口：me 一节最多一句，能不写就不写；她的说话和决定都放进选项（pick 和节尾 choices）里。往前推的是你的话、你的动作和旁白。" : "她那句（me）照她平时的样子写，少一点。")
           + "\nname 是卡名（八个字以内），line 是印在卡面上的一句你的台词。highlight 是剧情里你最想留住的那一刻，一两句画面。gist 一句话记下这张写的是什么事、在哪、怎么收的尾。name 从这段剧情里的事本身来起，不拿日子、节气、天气这些背景起名。allEndsLine 是她把每个结局都走过一遍以后，你想对她说的一句。" + STAMP_SHOT_SPEC
           + stampPrevLine(prev),
         schemaHint: "{\"name\":\"\",\"line\":\"\",\"highlight\":\"\",\"gist\":\"\",\"allEndsLine\":\"\",\"shot\":\"\",\"sections\":[{\"id\":\"s1\",\"lv\":1,\"title\":\"\",\"beats\":[{\"who\":\"narr|he|me\",\"text\":\"\"},{\"who\":\"pick\",\"options\":[{\"text\":\"\",\"beats\":[{\"who\":\"he\",\"text\":\"\"}]}]}],\"choices\":[{\"text\":\"\",\"go\":\"s2a\"}],\"end\":false,\"hidden\":false}]}",
