@@ -17161,11 +17161,12 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   };
   // 番外（她 2026-10-27）：限定 SSR（限时一期、生日、纪念日）抽到重复，除了折印泥，给原来那张写一段番外；也能用番外券写。
   //   一张卡的番外存在 card.extras（数组），写失败的留着 err，点一下重写，不再扣券
-  const stampExtra = async (cardId, extraId) => {
+  const stampExtra = async (cardId, extraId, wish) => {
     const card0 = (StampsCoreSafe().cards || []).find(c => c.id === cardId); if (!card0 || !card0.text) return;
     const char = characters.find(x => x.id === card0.charId); if (!char) return;
     const xid = extraId || ("ex_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 5));
-    stampSaveCard(cardId, c0 => ({ ...c0, extras: extraId ? (c0.extras || []).map(x => x.id === xid ? { ...x, writing: true, err: "" } : x) : (c0.extras || []).concat([{ id: xid, ts: Date.now(), writing: true }]) }));
+    const wish0 = String(wish || ((card0.extras || []).find(x => x.id === xid) || {}).wish || "").trim().slice(0, 200);   // 她点的题；重写时照原来那句
+    stampSaveCard(cardId, c0 => ({ ...c0, extras: extraId ? (c0.extras || []).map(x => x.id === xid ? { ...x, writing: true, err: "" } : x) : (c0.extras || []).concat([{ id: xid, ts: Date.now(), writing: true, wish: wish0 || undefined }]) }));
     try {
       const tx = card0.text, me = userName(meOf(char.id));
       const ends = (tx.sections || []).filter(x => x && (x.end || x.hidden)).map(x => "「" + (x.title || "") + "」" + (x.beats || []).filter(b => b && b.who !== "pick").slice(-3).map(b => String(b.text || "").slice(0, 80)).join(" / ")).join("\n");
@@ -17173,13 +17174,23 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       const d = await runProbe(offlineApiFor(char.id), ctxFor(char, { loreScope: "offline" }), { voice: true,
         instruction: STAMP_CORE() + stampVoice(char) + stampBi(char) + "她在「邮票册」里又抽到了一张你的限定 SSR「" + (tx.name || "") + "」，这一张给你们写一段番外。" + stampKindLine(card0, char)
           + "\n这张卡写的是：" + String(tx.gist || tx.highlight || "").slice(0, 200) + (ends ? "\n它的几个结局：\n" + ends.slice(0, 900) : "")
-          + "\n番外是这段故事外面的一段：结局之后的某一天、故事里没写到的那一晚，或者同一件事里你那边没让她看到的部分，挑一个最想补上的。八百到一千二百字，一个完整的小场景，有开头有收尾。旁白里她是「你」，你是「他」。"
+          + (wish0 ? "\n她点了题，想看的是：「" + wish0 + "」。就写这个，落到这张卡的故事和你们真实的关系里；她说得不细的地方由你补。" : "")
+          + "\n番外是这段故事外面的一段：结局之后的某一天、故事里没写到的那一晚，或者同一件事里你那边没让她看到的部分" + (wish0 ? "。" : "，挑一个最想补上的。") + "八百到一千二百字，一个完整的小场景，有开头有收尾。旁白里她是「你」，你是「他」。"
           + (had.length ? "\n这张卡已经有的番外：\n" + had.join("\n") + "\n这一段写别的。" : "")
           + "\ntitle 是番外的名字（八个字以内）；text 是正文；gist 一句话记下写的是什么；shot 是给画插图的人看的一句分镜（横版，画这段里最想留住的那一下：谁在、在干嘛、在哪、什么光）；duo 是这一下她在不在画里（true/false）。",
         schemaHint: "{\"title\":\"\",\"text\":\"\",\"gist\":\"\",\"shot\":\"\",\"duo\":false}", maxTokens: 30000 });
       if (!d || !d.text) throw new Error("没写出来");
       stampSaveCard(cardId, c0 => ({ ...c0, extras: (c0.extras || []).map(x => x.id === xid ? { ...x, writing: false, err: "", title: String(d.title || "番外").slice(0, 20), text: String(d.text), gist: String(d.gist || "").slice(0, 120), shot: String(d.shot || "").slice(0, 400), duo: d.duo === true || d.duo === "true" } : x) }));
     } catch (e) { stampSaveCard(cardId, c0 => ({ ...c0, extras: (c0.extras || []).map(x => x.id === xid ? { ...x, writing: false, err: String(e && e.message || e).slice(0, 60) } : x) })); }
+  };
+  // 番外发给他看（她 2026-10-27）：像邮票那样进你们的聊天，他看得到、会回；第一次发、他回了那一轮给一点印泥（跟邮票共用 sharePend）
+  const stampExtraSend = (card, x) => {
+    const ch = characters.find(c => c.id === card.charId); if (!ch || !x || !x.text) return;
+    const head = "（寄给你一段番外：「" + (x.title || "番外") + "」，是邮票「" + ((card.text || {}).name || "") + "」那段故事外面的一段" + (card.kind === "if" ? "——IF 线「" + (card.theme || "") + "」里的你，不是你们真的发生过的事" : "") + "）";
+    pChat(ch.id, p => [...p, { role: "user", kind: "stampshare", stamp: stampShareOf(card), content: (head + "\n" + String(x.text).slice(0, 700)).trim(), ts: Date.now() }]);
+    stampSaveCard(card.id, c0 => ({ ...c0, extras: (c0.extras || []).map(e => e.id === x.id ? { ...e, sentTs: Date.now() } : e) }));
+    if (!x.sentTs && window.StampsCore) { const s2 = window.StampsCore.load(); s2.sharePend = Object.assign({}, s2.sharePend, { [ch.id]: card.id }); window.StampsCore.save(s2); }
+    toast("发给 " + (ch.remark || ch.name) + " 了，回聊天里看他怎么说");
   };
   // 番外插图：横版，像书里夹的一张插画；她在不在画里照番外自己写的 duo。点了才画
   const stampExtraDraw = async (cardId, xid) => {
@@ -34114,6 +34125,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     onInner: stampInner,
     onExtra: stampExtra,
     onExtraDraw: stampExtraDraw,
+    onExtraSend: stampExtraSend,
     // 她的生日池：主面具一份，每张副面具一份；各自只抽认这张面具的那几个人
     myBdays: stampMyBdays(),
     annivs: stampAnnivs(),
