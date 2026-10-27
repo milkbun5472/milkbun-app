@@ -27,8 +27,9 @@ for(const modeZh of ['语音通话','视频通话']) test('多人'+modeZh+'发�
   Object.assign(env,{ON_ME_CAP:2,modeZh,uName:'读者',callMe:{},groupMaskNote:()=>'',cur:{groupId:'g'},hist:[],rels:{},loreRef:{current:[]},directives:{},
     groupPersonaBudget:()=>6000,directedRelationLines:()=>'',loreText:()=>'',gsFor:()=>({memoryInterop:false,privateCtxN:0}),
     primeQueryVec:async()=>{},memLibRef:{current:[]},splitGroupMemories:()=>({shared:[],perChar:{}}),formatMemLib:()=>'',
-    memories:{},settingsFor:()=>({}),isBody:()=>false,noGaze:()=>false,memberPrivLines:(c,n)=>Number(n)>0?'私聊_'+c.id:'',crossRecentFor:id=>'线下_'+id,groupContextRows:()=>[],
-    PERSONA_EVOLVE_IDS:[],groupGrowthLine:()=>'',groupBans:()=>'',callerIsChar:false,callerName:'',
+    memories:{},settingsFor:()=>({}),isBody:()=>false,noGaze:()=>false,memberPrivLines:(c,n)=>Number(n)>0?'私聊_'+c.id:'',// v76.761 起 crossRecentFor 两种用法：surfaces:["offline"] 是线下，surfaces:["group"] 是他在别的互通群聊的
+    crossRecentFor:(id,o)=>((o&&o.surfaces||['offline'])[0]==='group'?'别群_':'线下_')+id,groupContextRows:()=>[],
+    PERSONA_EVOLVE_IDS:[],groupGrowthLine:()=>'',groupBans:()=>'',groupNoticeBlock:()=>'',callerIsChar:false,callerName:'',
     PRIVATE_IS_BACKGROUND_NOT_AMMO:'',active:{},callBiHint:'',callVoiceHint:'',cameraHint:'',cameraFrame:null,callAI:async(_api,sys)=>{sent=sys;return '[]';}});
   evaluate(require('node:fs').readFileSync('js/call-camera.js','utf8'),env,'window.CallCamera');
   env.window.Gaze={text:id=>'印象卡_'+id+'_完整末尾'};
