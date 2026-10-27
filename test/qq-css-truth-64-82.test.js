@@ -44,6 +44,9 @@ test("清单上的每个钩子，源码里都真的挂着", () => {
   // ⚠️三种挂法都算数：直接写 "data-wk": "x"、写在同一行的三元里（组件格 / 装饰格那种）、
   //   或者作为 wk 属性传给共用组件（GlassPane、IArrow 自己转成 data-wk）
   // 单引号写法（'data-wk':'x'，char-day-kitchen-ui 那种压缩写法）也算挂上了
+  const boardKeys = [...src.matchAll(/useEngineBoard\(props, \{ C: [^,]+, key: "([a-z]+)"/g)].map(m => m[1]);
+  const boardSufs = [...src.matchAll(/"data-wk": K \+ "([a-z]+)"/g)].map(m => m[1]);
+  const boardHooks = new Set(boardKeys.flatMap(k => [k, ...boardSufs.map(x => k + x)]));
   const hung = n => new RegExp('"data-wk":[^\n]*"' + n + '"').test(src) || new RegExp("'data-wk':\\s*'" + n + "'").test(src)
     || src.indexOf('wk: "' + n + '"') >= 0 || src.indexOf('wk="' + n + '"') >= 0
     // 第四种：当参数传给本页自己的小帮手，帮手里写着 "data-wk": wk（screens.js 的 actBtn("listensqreply", …)、row(…, "quietpro")）
@@ -52,7 +55,9 @@ test("清单上的每个钩子，源码里都真的挂着", () => {
     //   fn 可能是一整段多行回调（zygroupbtn 那颗），所以不按行找：按「pill( 开头、隔不远收在 , "x")」找
     || new RegExp('pill\\([\\s\\S]{0,1500}?, "' + n + '"\\)').test(src)
     // 第六种：论坛小红书的 xhsGrid(list, "fonotes")——第二个参数就是挂点，帮手里写着 "data-wk": wk || "foxhsgrid"
-    || new RegExp('xhsGrid\\([^\n)]*, "' + n + '"\\)').test(src);
+    || new RegExp('xhsGrid\\([^\n)]*, "' + n + '"\\)').test(src)
+    // 第七种：走子棋公共页（v76.772）写的是 "data-wk": K + "talk"，K 是 useEngineBoard 那一桌的 key（chess / xiangqi / jungle）
+    || boardHooks.has(n);
   const missing = names.filter(n => !hung(n));
   assert.deepEqual(missing, [], "清单上有、源码里没挂：" + missing.join("、"));
 });
