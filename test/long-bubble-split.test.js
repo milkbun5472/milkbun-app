@@ -107,3 +107,17 @@ test("千分位不是句子边界：数字不许被切成两个气泡", () => {
     splitLongBubble(x, true).forEach(y =>
       assert.ok(y.indexOf(SENT) < 0, "哨兵漏进正文了：" + JSON.stringify(y))));
 });
+
+test("打标点的话里，汉字中间的空格不当停顿切（她 2026-10-27 截图）", () => {
+  const out = splitLongBubble("全是茶具，拍得我 眼睛都快花了 你要是不信，等会儿修好了我发几 张给你看看，让你感受一下什么叫正经工作", true);
+  assert.ok(out.every(x => !/^(眼睛|张给)/.test(x)), JSON.stringify(out));
+  assert.ok(out.some(x => x.includes("拍得我 眼睛")) && out.some(x => x.includes("发几 张")));
+  // 不打标点、拿空格断句的照旧按空格切
+  assert.ok(splitLongBubble("今天好累 不想动 想睡觉了 你在干嘛呢 我刚下班回来", true).length > 1);
+});
+test("〔今天 14:10〕这种带空格的时间标注在拆泡前就摘掉（她 2026-10-27）", () => {
+  assert.match(app, /\? splitCardsAndLines\(stripAiStamp\(w\)\)/);
+  const i = app.indexOf("const stripAiStamp = w =>"), src = app.slice(i, app.indexOf(".trim();", i) + 8);
+  const strip = new Function(src + "\nreturn stripAiStamp;")();
+  assert.equal(strip("〔今天 14:10〕不然呢？"), "不然呢？");
+});

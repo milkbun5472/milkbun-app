@@ -2752,9 +2752,14 @@ function splitLongBubble(s, allowComma) {
   // ⚠️空格后面得还是中文才算断句：中文和数字、英文之间习惯空一格（「乘以 0.312」「是 46,800」「跟 Ta 说」），
   //   那个空格是排版不是停顿——原来后面跟什么都切，一段算账的话被切成「乘以」「0.312，也就是46,800」
   const SEP = /([，,]|(?<=[\u4e00-\u9fff…~～])\s+(?=[\u4e00-\u9fff]))/;
+  // ⚠️空格只在【这段话本来就不打标点】时才算断句（她 2026-10-27 截图：「拍得我 眼睛都快花了」「我发几 张给你看看」被从空格劈开）：
+  //   这段里有逗号句号，就说明它是打标点的人，那个空格不当停顿用——只按逗号切，空格原样留着
+  const PUNC = /[，,。！？!?、；;]/;
+  const SEP_COMMA = /([，,])/;
   const out3 = out.reduce((acc, part) => {
-    if (part.length <= LONG || !SEP.test(part.slice(0, -1))) return acc.concat([part]);
-    const segs = part.split(SEP).reduce(glue, []).filter(x => x.trim());
+    const sep = PUNC.test(part.slice(0, -1)) ? SEP_COMMA : SEP;
+    if (part.length <= LONG || !sep.test(part.slice(0, -1))) return acc.concat([part]);
+    const segs = part.split(sep).reduce(glue, []).filter(x => x.trim());
     const chunks = [];
     segs.forEach(seg => {
       if (chunks.length && (chunks[chunks.length - 1].trim().length < MIN || chunks.length >= MAX_CHUNKS)) chunks[chunks.length - 1] += seg;
