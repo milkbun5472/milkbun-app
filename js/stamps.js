@@ -532,6 +532,7 @@
     const testTap = useRef({ n: 0, t: 0 });
     const [begging, setBegging] = useState(false), [begLine, setBegLine] = useState("");
     const [paintDraft, setPaintDraft] = useState(null);
+    const albumY = useRef(0);   // 册子翻到哪儿：点开一张看完回来，停在原来那儿（群里 2026-10-27：每次都跳回最上面）
     useEffect(() => { const f = () => setSt(C().load()); window.addEventListener("stamps-change", f); return () => window.removeEventListener("stamps-change", f); }, []);
     // 早先写的卡里带着「(R)」「(SR)」的，打开邮票册时洗一遍存回去（只动带标记或错栏的那几张）
     useEffect(() => { try { const st0 = C().load(); let n = 0;
@@ -811,7 +812,7 @@
         testInf ? h("div", { style: { marginTop: 10, fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: RC.SSR } }, "测试券开着：抽卡不花邮资和券、盖印不花印泥（连点七下「规则」关掉）") : null));
     if (tab === "album") return h("div", { "data-wk": "stampalbumpage", "data-page": "1", className: "h-full flex flex-col overflow-hidden", style: { background: "repeating-linear-gradient(180deg, transparent 0 116px, rgba(47,42,34,.07) 116px 117px, transparent 117px 120px), linear-gradient(#f1e9d8, #e9dfca)" } },
       h(Head, { zh: "邮票册", sub: (st.cards || []).length + " 枚", bg: "transparent", ink: "#2f2a22", onBack: () => setTab("pull") }),
-      h("div", { className: "flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-5", style: { paddingBottom: "calc(env(safe-area-inset-bottom) * 0.4 + 28px)" } },
+      h("div", { className: "flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-5", ref: el => { if (el && !el.__y) { el.__y = 1; el.scrollTop = albumY.current; } }, onScroll: e => { albumY.current = e.currentTarget.scrollTop; }, style: { paddingBottom: "calc(env(safe-area-inset-bottom) * 0.4 + 28px)" } },
         // 一行三个下拉（她 2026-10-26：分类一行行往下加太高、往右滑不方便）：点开在下面弹一小块，选项换行平铺
         (() => { const chs = characters.filter(c => (st.cards || []).some(x => x.charId === c.id));
           const thAll = Array.from(new Set((st.cards || []).filter(c => albumChar === "all" || c.charId === albumChar).map(themeOf)));
