@@ -275,7 +275,7 @@
     const swipe = useRef(null), swiped = useRef(0);
     const setCover = key => { const st0 = C().load(); st0.cards = st0.cards.map(c => c.id === card.id ? Object.assign({}, c, { cover: key || null }) : c); C().save(st0); toast(key ? "换好了：册子里这张就用它当封面" : "换回第一面了"); };
     const [exOpen, setExOpen] = useState(null), [exWish, setExWish] = useState(null);
-    const isExCard = card.rarity === "SSR" && !!(card.limited || card.pool === "bday" || card.pool === "mybday" || card.pool === "anniv");   // 限定 SSR 才有番外
+    const isExCard = card.rarity === "SSR" || card.rarity === "SR";   // SR、SSR 都能用番外券写番外（她 2026-10-27）；重复抽到自动送的还是只有限定 SSR
     const [buyOpen, setBuyOpen] = useState(false), [buyN, setBuyN] = useState(1);
     const exTk = C().load().extraTickets || 0;   // exWish：点了「用番外券」以后那一格「想看什么」，null＝没展开
     const [reArm, setReArm] = useState(false);   // 重写整张卡要点两下：第一下变成「再点一次」，三秒内不点就回去           // 卡面全屏看，满级的在这里戳
