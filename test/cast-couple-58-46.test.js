@@ -137,7 +137,7 @@ test("底色那排最后有一块自定义色", () => {
 test("邀请卡跟别的自己发的卡一样带头像", () => {
   const i = comp.indexOf('if (m.kind === "couple_invite")');
   const seg = comp.slice(i, i + 400);
-  assert.match(seg, /dsp\.myAvatar && h\(Avatar/, "自己发出去的邀请卡没有头像");
+  assert.match(seg, /meAvEl\(\)/, "自己发出去的邀请卡没有头像");
   assert.match(seg, /justify-end/);
 });
 

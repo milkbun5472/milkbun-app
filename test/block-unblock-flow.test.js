@@ -18,7 +18,7 @@ test("群红包要有头像和发的人是谁", () => {
   const seg = components.slice(at, components.indexOf('if (m.kind === "forumshare")', at));
   assert.match(seg, /mAvatar\(memberById\(m\.senderId\)/, "非本人发的要有头像");
   assert.match(seg, /m\.senderName && h\("div"/, "上面要有名字");
-  assert.match(seg, /m\.role === "user" && gsp\.showMyAvatar/, "自己发的按设置显示我的头像");
+  assert.match(seg, /m\.role === "user" && gMeAvEl\(\d+, \d+\)/, "自己发的按设置显示我的头像（公共那一颗，里面看 showMyAvatar）");
   assert.match(seg, /h\(RedPacketCard, \{ rp: m/, "卡片本身不动");
 });
 

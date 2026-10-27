@@ -144,7 +144,7 @@ function chatLayoutCSS(L) {
   if (L.avatar === "first") out.push('[data-wk="msg"][data-first="0"] [data-wk="row"] > [data-wk="avatar"]{visibility:hidden !important;}');
   // 群里每条上面都写着名字：头像只留第一条时，名字也跟着只留第一条，不然一串里重复写同一个名字
   if (L.avatar === "first") out.push('[data-wk="msg"][data-first="0"] [data-wk="name"]{display:none !important;}');
-  if (L.avatar === "none") out.push('[data-wk="msg"] [data-wk="row"] > [data-wk="avatar"]{display:none !important;}');
+  if (L.avatar === "none") out.push('[data-wk="msg"] [data-wk="row"] > [data-wk="avatar"],[data-wk="cardrow"] > [data-wk="avatar"]{display:none !important;}');
   // 头像藏了：状态卡没地方点了，在一串最后一条底下那行露出「状态」
   if (L.avatar === "none") out.push('[data-wk="msg"][data-last="1"] [data-wk="stlink"]{display:inline-flex !important;}');
   if (L.name) out.push('[data-wk="msg"][data-first="1"] [data-wk="name"]{display:block !important;}');
@@ -179,17 +179,19 @@ function chatLayoutCSS(L) {
   [["ta", "0"], ["me", "1"]].forEach(([k, me]) => {
     const d = (L.deco && L.deco[k]) || {};
     if (!d.frame && !d.pend) return;
-    const sel = '[data-wk="msg"][data-me="' + me + '"] [data-wk="row"] > [data-wk="avatar"]';
-    out.push(sel + "{position:relative !important;overflow:visible !important;}");
+    // 表情包、卡片那几行（cardrow）的头像也套同一个框（她 2026-10-27：跟文字气泡那颗不统一）
+    const one = '[data-wk="msg"][data-me="' + me + '"] [data-wk="row"] > [data-wk="avatar"]', two = '[data-wk="cardrow"][data-me="' + me + '"] > [data-wk="avatar"]';
+    const both = suf => one + suf + "," + two + suf;
+    out.push(both("") + "{position:relative !important;overflow:visible !important;}");
     if (d.frame) {
       const sz = Math.max(100, Math.min(200, Number(d.frameSize) || 140)), off = -(sz - 100) / 2;
-      out.push(sel + '::after{content:"" !important;position:absolute !important;left:' + off + "%;top:" + off + "%;width:" + sz + "%;height:" + sz
+      out.push(both("::after") + '{content:"" !important;position:absolute !important;left:' + off + "%;top:" + off + "%;width:" + sz + "%;height:" + sz
         + '%;background:url("' + img(d.frame) + '") center/contain no-repeat !important;pointer-events:none !important;z-index:2 !important;}');
     }
     if (d.pend) {
       const ps = Math.max(20, Math.min(100, Number(d.pendSize) || 45));
       const pos = { br: "right:-12%;bottom:-12%;", bl: "left:-12%;bottom:-12%;", tr: "right:-12%;top:-12%;", tl: "left:-12%;top:-12%;" }[d.pendPos] || "right:-12%;bottom:-12%;";
-      out.push(sel + '::before{content:"" !important;position:absolute !important;' + pos + "width:" + ps + "%;height:" + ps
+      out.push(both("::before") + '{content:"" !important;position:absolute !important;' + pos + "width:" + ps + "%;height:" + ps
         + '%;background:url("' + img(d.pend) + '") center/contain no-repeat !important;pointer-events:none !important;z-index:3 !important;}');
     }
   });
@@ -11469,13 +11471,17 @@ function ChatThread({
     // 聊天里一张卡的【位置和头像】：谁发的就在谁那边，对方的卡左边挂TA的头像、自己的卡右边挂我的头像（开着显示我的头像时）。
     //   长按／多选不在这儿——那是 cardPressRow 一处管（卡片名单 CARD_PRESS_KINDS），这儿再挂一次多选会点一下选两次。
     //   新卡片要进聊天：在这儿套上头像，再把 kind 写进 CARD_PRESS_KINDS。
+    // 消息行左右那颗头像：文字气泡、表情包、各种卡片全用这一份（她 2026-10-27：表情包那行的头像没套头像框、点了也开不了状态卡）。
+    //   跟文字气泡那颗一模一样：TA 那颗是按钮（单击看状态、双击拍一拍），我这颗是一层 span；挂点都是 data-wk="avatar"
+    const charAvEl = () => h("button", { onClick: avTap(onOpenState), className: "shrink-0 active:opacity-70", title: "查看 " + cName + " 的心声", "data-wk": "avatar" }, h(Avatar, { character: character, size: 40, radius: 10 }));
+    const meAvEl = () => dsp.myAvatar ? h("span", { "data-wk": "avatar", className: "shrink-0", style: { display: "inline-flex" } }, h(Avatar, { character: meAv, size: 40, radius: 10 })) : null;
     const cardRow = (i, m, card) => {
       const isU = m.role === "user";
       // data-kind：卡片挂点 card 全 App 二十几处共用，靠外面这一行认出是哪一种卡（她 2026-10-13：改一处牵扯别处）
-      return h("div", { key: i, "data-wk": "cardrow", "data-kind": m.kind || "", className: "py-1 flex items-start gap-2 " + (isU ? "justify-end" : "justify-start") },
-        !isU && h(Avatar, { character: character, size: 40, radius: 10 }),
+      return h("div", { key: i, "data-wk": "cardrow", "data-me": isU ? "1" : "0", "data-kind": m.kind || "", className: "py-1 flex items-start gap-2 " + (isU ? "justify-end" : "justify-start") },
+        !isU && charAvEl(),
         h("div", { style: { minWidth: 0, flex: "0 1 268px", maxWidth: 268 } }, card),
-        isU && dsp.myAvatar && h(Avatar, { character: meAv, size: 40, radius: 10 }));
+        isU && meAvEl());
     };
     if (m.kind === "namecard") return cardRow(i, m, h(NameCardMsg, { m: m, characters: characters, onOpen: onOpenNameCard ? () => onOpenNameCard(m.cardId) : null }));
     if (m.kind === "pat" || m.kind === "patsig") return h("div", {
@@ -11530,22 +11536,22 @@ function ChatThread({
     if (m.kind === "weathercard" && m.wx) return h("div", { key: i, className: "py-1 flex items-start gap-2 justify-start",
         onTouchStart: selMode ? undefined : () => startPress(i), onTouchEnd: endPress, onMouseDown: selMode ? undefined : () => startPress(i), onMouseUp: endPress, onMouseLeave: endPress,
         onClick: selMode ? () => toggleSel(i) : undefined },
-      h(Avatar, { character: character, size: 40, radius: 10 }),
+      charAvEl(),
       h(WeatherChatCard, { m: m, character: character }));
-    if (m.kind === "recorded") return h("div", { key: i, className: "py-1 flex items-start gap-2 justify-start" },
-      h(Avatar, { character: character, size: 40, radius: 10 }),
+    if (m.kind === "recorded") return h("div", { key: i, "data-wk": "cardrow", "data-me": "0", "data-kind": m.kind || "", className: "py-1 flex items-start gap-2 justify-start" },
+      charAvEl(),
       h(RecordedCard, { m: m }));
     // 红包的回执是一张领过的红包，不是转账单（群友 2026-10-25：「红包对方收了以后是转账的卡片」，改转账样式连红包一起变）
     if (m.receipt && m.receipt.amount != null && m.receipt.packet) { const mineR = m.receipt.side === "me", amtR = typeof Money !== "undefined" && Money ? Money.fmt(m.receipt.amount, character && character.id) : "¥" + m.receipt.amount;
       return h("div", { key: i, "data-wk": "rpreceipt", "data-status": m.receipt.status || "accepted", className: "py-1 flex items-start gap-2 " + (mineR ? "justify-end" : "justify-start") },
-        !mineR && h(Avatar, { character: character, size: 40, radius: 10 }),
+        !mineR && charAvEl(),
         h(RedPacketCard, { rp: { message: m.receipt.note }, dim: true, foot: m.receipt.status === "returned" ? (mineR ? "你退回了这个红包" : "红包退回了") : (mineR ? "你领了 " : cName + " 领了 ") + amtR }),
-        mineR && dsp.myAvatar && h(Avatar, { character: meAv, size: 40, radius: 10 })); }
+        mineR && meAvEl()); }
     // 转账回执：收款方那一侧的一张单子（她 2026-10-01），不是一行灰字
     if (m.receipt && m.receipt.amount != null) return h(TransferCard, { key: i, m: Object.assign({ tid: "rcpt_" + i }, m.receipt, { receiptCard: true }),
       isU: m.receipt.side === "me", charId: character && character.id,
-      avatar: h(Avatar, { character: character, size: 40, radius: 10 }),
-      myAvatar: dsp.myAvatar && h(Avatar, { character: meAv, size: 40, radius: 10 }) });
+      avatar: charAvEl(),
+      myAvatar: meAvEl() });
     if (m.kind === "datememory") return h(DateMemoryCard, { key: i, m: m, character: character });
     if (m.kind === "bdayletter") return h(BdayLetterCard, { key: i, m: m, character: character });
     if (m.kind === "bdayplan") return h(BdayPlanCard, { key: i, m: m, character: character, onOpen: onBdayPlanOpen });
@@ -11554,8 +11560,8 @@ function ChatThread({
     if (m.kind === "busynote") return h("div", { key: i, className: "text-center my-2" }, h("span", { "data-wk": "note", "data-part": "busy", style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, ...plate() } }, m.content));
     // v74.892 之前 TA 存进时刻只落一行灰字；这几行画的时候也认成那张小卡（存档不动），为什么从时刻里那条找回来
     const _oldKeep = (m.kind === "system" || m.role === "system") && m.kind !== "carved" && window.ShikeShareCard ? oldKeepMoment(m, character) : null;
-    if (_oldKeep) return h("div", { key: i, className: "py-1 flex items-start gap-2 justify-start" },
-      h(Avatar, { character: character, size: 40, radius: 10 }),
+    if (_oldKeep) return h("div", { key: i, "data-wk": "cardrow", "data-me": "0", "data-kind": m.kind || "", className: "py-1 flex items-start gap-2 justify-start" },
+      charAvEl(),
       h(window.ShikeShareCard, { m: _oldKeep, isU: false, charId: character && character.id }));
     // 刻歌那张卡 role 也是 system，但它有自己的样子（在下面）；先被这里接走就成了一块空的「系统」（她 2026-10-13 截图）
     if ((m.kind === "system" || m.role === "system") && m.kind !== "carved") return h(SysNote, { key: i, label: "系统", text: m.content, tone: "warn",
@@ -11567,11 +11573,11 @@ function ChatThread({
       return h("div", { key: i, "data-wk": "rpsingle", "data-status": st, className: "py-1 flex items-start gap-2 " + (mine ? "justify-end" : "justify-start"),
         onTouchStart: selMode ? undefined : () => startPress(i), onTouchEnd: endPress, onMouseDown: selMode ? undefined : () => startPress(i), onMouseUp: endPress, onMouseLeave: endPress,
         style: { outline: selMode && selIds.includes(i) ? `2px solid ${t.tint}` : "none", outlineOffset: 2, borderRadius: 14 } },
-        !mine && h(Avatar, { character: character, size: 40, radius: 10 }),
+        !mine && charAvEl(),
         h(RedPacketCard, { rp: { message: m.note }, dim: st !== "pending",
           foot: st === "accepted" ? (mine ? cName + " 领了 " : "你领了 ") + amt : st === "returned" ? (mine ? cName + " 没收，退回来了" : "你退回了") : mine ? "等 " + cName + " 拆开" : "拆红包",
           onClick: selMode ? () => toggleSel(i) : () => setRpEnv(i) }),
-        mine && dsp.myAvatar && h(Avatar, { character: meAv, size: 40, radius: 10 }),
+        mine && meAvEl(),
         rpEnv === i ? h(RedPacketEnvelope, { who: mine ? (meAv && meAv.name) || "我" : cName, whoChar: mine ? meAv : character, message: m.note,
           canOpen, amountText: st === "accepted" ? amt : "",
           status: st === "returned" ? (mine ? cName + " 没收，退回来了" : "你退回了这个红包") : st === "accepted" ? (mine ? cName + " 领了" : "已存进你的钱包") : mine ? "等 " + cName + " 拆开" : "",
@@ -11586,28 +11592,28 @@ function ChatThread({
       style: { outline: selMode && selIds.includes(i) ? `2px solid ${t.tint}` : "none", outlineOffset: 2, borderRadius: 14 }
     }, h(TransferCard, {
       m: m, isU: m.role === "user", onRespond: onRespondTransfer, charId: character && character.id,
-      avatar: h(Avatar, { character: character, size: 40, radius: 10 }),
-      myAvatar: dsp.myAvatar && h(Avatar, { character: meAv, size: 40, radius: 10 })
+      avatar: charAvEl(),
+      myAvatar: meAvEl()
     }));
     if (m.kind === "geo") return h(GeoCard, {
       key: i,
       m: m,
       isU: m.role === "user",
       who: cName,
-      avatar: h(Avatar, { character: character, size: 40, radius: 10 }),
-      myAvatar: dsp.myAvatar && h(Avatar, { character: meAv, size: 40, radius: 10 })
+      avatar: charAvEl(),
+      myAvatar: meAvEl()
     });
     if (m.kind === "gift") return h(GiftCard, { key: i, m: m, isU: m.role === "user", now: now, onOpenGift: onOpenGift,
-      avatar: h(Avatar, { character: character, size: 40, radius: 10 }),
-      myAvatar: dsp.myAvatar && h(Avatar, { character: meAv, size: 40, radius: 10 }) });
+      avatar: charAvEl(),
+      myAvatar: meAvEl() });
     if (m.kind === "takeout") return h(TakeoutCard, { key: i, m: m, isU: m.role === "user", now: now, character: character,
       onOpen: m.role !== "user" && onOpenTakeout ? onOpenTakeout : null,
-      avatar: h(Avatar, { character: character, size: 40, radius: 10 }),
-      myAvatar: dsp.myAvatar && h(Avatar, { character: meAv, size: 40, radius: 10 }) });
+      avatar: charAvEl(),
+      myAvatar: meAvEl() });
     if (m.kind === "dateinvite" || m.kind === "datereceipt" || m.kind === "dateask") return h(DateInviteCard, { key: i, m: m, character: character, onGo: () => onDateGo && onDateGo(m),
       onAnswer: m.kind === "dateask" && onDateAnswer ? yes => onDateAnswer(m, yes) : null,
-      avatar: h(Avatar, { character: character, size: 40, radius: 10 }),
-      myAvatar: dsp.myAvatar && h(Avatar, { character: meAv, size: 40, radius: 10 }) });
+      avatar: charAvEl(),
+      myAvatar: meAvEl() });
     if (m.kind === "peeksneak") return h(PeekSneakCard, { key: i, m: m, character: character, onPick: how => onSneak && onSneak(m, how) });
     if (m.kind === "loveletter") return cardRow(i, m, h(LoveLetterCard, { m: m, character: character,
       onOpen: () => onLoveLetterOpen && onLoveLetterOpen(m),
@@ -11620,18 +11626,18 @@ function ChatThread({
       mykin: MyKinIssueCard, mykinbill: MyKinSpendCard, mykindaily: MyKinDailyCard, mykinedit: MyKinEditCard };
     if (KIN_CARDS[m.kind]) return cardRow(i, m, h(KIN_CARDS[m.kind], { m: m, character: character, inRow: true }));
     if (m.kind === "paylater") return cardRow(i, m, h(PayLaterCard, { m: m }));
-    if (m.kind === "couple_invite") return h("div", { key: i, className: "py-1 flex items-start gap-2 justify-end" },
+    if (m.kind === "couple_invite") return h("div", { key: i, "data-wk": "cardrow", "data-me": "1", "data-kind": m.kind || "", className: "py-1 flex items-start gap-2 justify-end" },
       h(CoupleInviteCard, { m: m, character: character, asking: askingCouple === m.cid, onAsk: onAskCouple }),
-      dsp.myAvatar && h(Avatar, { character: meAv, size: 40, radius: 10 }));
-    if (m.kind === "unblock_req") return h("div", { key: i, className: "py-1 flex items-start gap-2 " + (m.role === "user" ? "justify-end" : "justify-start") },
-      m.role !== "user" && h(Avatar, { character: character, size: 40, radius: 10 }),
+      meAvEl());
+    if (m.kind === "unblock_req") return h("div", { key: i, "data-wk": "cardrow", "data-me": m.role === "user" ? "1" : "0", "data-kind": m.kind || "", className: "py-1 flex items-start gap-2 " + (m.role === "user" ? "justify-end" : "justify-start") },
+      m.role !== "user" && charAvEl(),
       h(UnblockReqCard, { m: m, character: character, onRespond: onRespondUnblock, onRetry: onSendUnblockReq ? (x => onSendUnblockReq(x.plea || "", x.cid)) : null, busy: !!sending }),
-      m.role === "user" && dsp.myAvatar && h(Avatar, { character: meAv, size: 40, radius: 10 }));
+      m.role === "user" && meAvEl());
     if (m.kind === "recalled") return h("div", { key: i, className: "text-center my-2" }, h("button", { "data-wk": "note", "data-part": "recalled", onClick: () => setRecallView(m), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, ...plate() } }, cName + " 撤回了一条消息 · 点看"));
     // 沉默权：TA 看了没回——一行居中灰斜体，已读不回本身就是态度
     if (m.kind === "silence") return h("div", { key: i, className: "text-center my-2" }, h("span", { "data-wk": "note", "data-part": "silence", style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", fontStyle: "italic", color: t.fog, opacity: 0.8, ...plate() } }, cName + " 看了你的消息，没有回"));
-    if (m.kind === "emote") return h("div", { key: i, className: "py-1 flex items-start gap-2 " + (m.role === "user" ? "justify-end" : "justify-start") },
-      m.role !== "user" && h(Avatar, { character: character, size: 40, radius: 10 }),
+    if (m.kind === "emote") return h("div", { key: i, "data-wk": "cardrow", "data-me": m.role === "user" ? "1" : "0", "data-kind": m.kind || "", className: "py-1 flex items-start gap-2 " + (m.role === "user" ? "justify-end" : "justify-start") },
+      m.role !== "user" && charAvEl(),
       h("div", {
         onTouchStart: selMode ? undefined : () => startPress(i),
         onTouchEnd: endPress,
@@ -11641,77 +11647,77 @@ function ChatThread({
         onClick: selMode ? () => toggleSel(i) : undefined,
         style: { borderRadius: 12, cursor: "pointer", outline: selMode && selIds.includes(i) ? `2px solid ${t.tint}` : "none", outlineOffset: 2 }
       }, h(EmoteBubble, { url: m.url, keyword: m.keyword, max: 118 })),
-      m.role === "user" && dsp.myAvatar && h(Avatar, { character: meAv, size: 40, radius: 10 }));
-    if (m.kind === "chatforward") return h("div", { key: i, className: "py-1 flex items-start gap-2 " + (m.role === "user" ? "justify-end" : "justify-start") },
-      m.role !== "user" && h(Avatar, { character: character, size: 40, radius: 10 }),
+      m.role === "user" && meAvEl());
+    if (m.kind === "chatforward") return h("div", { key: i, "data-wk": "cardrow", "data-me": m.role === "user" ? "1" : "0", "data-kind": m.kind || "", className: "py-1 flex items-start gap-2 " + (m.role === "user" ? "justify-end" : "justify-start") },
+      m.role !== "user" && charAvEl(),
       h("div", { className: "flex flex-col " + (m.role === "user" ? "items-end" : "items-start") },
         h(ChatForwardCard, { m: m, isU: m.role === "user", onOpen: setFwdView }),
         last && subLine(m) ? h("span", { style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", color: t.fog, margin: "1px 4px 0" } }, subLine(m)) : null),
-      m.role === "user" && dsp.myAvatar && h(Avatar, { character: meAv, size: 40, radius: 10 }));
+      m.role === "user" && meAvEl());
     // 分享来的那几张小卡（论坛帖 / 同人文 / 塔罗 / 时刻 / 番茄钟）：一个外框、一张表（shareCardOf），
     //   原来是四段一模一样的外框各抄一份（施工规则/one-public-mechanism.md）。
     const _Share = shareCardOf(m.kind);
-    if (_Share) return h("div", { key: i, className: "py-1 flex items-start gap-2 " + (m.role === "user" ? "justify-end" : "justify-start") },
-      m.role !== "user" && h(Avatar, { character: character, size: 40, radius: 10 }),
+    if (_Share) return h("div", { key: i, "data-wk": "cardrow", "data-me": m.role === "user" ? "1" : "0", "data-kind": m.kind || "", className: "py-1 flex items-start gap-2 " + (m.role === "user" ? "justify-end" : "justify-start") },
+      m.role !== "user" && charAvEl(),
       h(_Share, { m: m, isU: m.role === "user", charId: character && character.id }),
-      m.role === "user" && dsp.myAvatar && h(Avatar, { character: meAv, size: 40, radius: 10 }));
+      m.role === "user" && meAvEl());
     // 逛购物 app 时拿给TA看的那件东西（v57.98）
-    if (m.kind === "shopask") return h("div", { key: i, className: "py-1 flex items-start gap-2 justify-end" },
+    if (m.kind === "shopask") return h("div", { key: i, "data-wk": "cardrow", "data-me": "1", "data-kind": m.kind || "", className: "py-1 flex items-start gap-2 justify-end" },
       h(ShopAskCard, { m: m }),
-      dsp.myAvatar && h(Avatar, { character: meAv, size: 40, radius: 10 }));
-    if (m.kind === "phonepeek") return h("div", { key: i, className: "py-1 flex items-start gap-2 " + (m.role === "user" ? "justify-end" : "justify-start") },
-      m.role !== "user" && h(Avatar, { character: character, size: 40, radius: 10 }),
+      meAvEl());
+    if (m.kind === "phonepeek") return h("div", { key: i, "data-wk": "cardrow", "data-me": m.role === "user" ? "1" : "0", "data-kind": m.kind || "", className: "py-1 flex items-start gap-2 " + (m.role === "user" ? "justify-end" : "justify-start") },
+      m.role !== "user" && charAvEl(),
       h(PhonePeekCard, { m: m, isU: m.role === "user", character: character }),
-      m.role === "user" && dsp.myAvatar && h(Avatar, { character: meAv, size: 40, radius: 10 }));
-    if (m.kind === "voice") return h("div", { key: i, className: "py-1 flex items-start gap-2 " + (m.role === "user" ? "justify-end" : "justify-start") },
-      m.role !== "user" && h(Avatar, { character: character, size: 40, radius: 10 }),
+      m.role === "user" && meAvEl());
+    if (m.kind === "voice") return h("div", { key: i, "data-wk": "cardrow", "data-me": m.role === "user" ? "1" : "0", "data-kind": m.kind || "", className: "py-1 flex items-start gap-2 " + (m.role === "user" ? "justify-end" : "justify-start") },
+      m.role !== "user" && charAvEl(),
       h("div", {
         onTouchStart: selMode ? undefined : () => startPress(i), onTouchEnd: endPress,
         onMouseDown: selMode ? undefined : () => startPress(i), onMouseUp: endPress, onMouseLeave: endPress,
         onClick: selMode ? () => toggleSel(i) : undefined,
         style: { maxWidth: "72%", outline: selMode && selIds.includes(i) ? `2px solid ${t.tint}` : "none", outlineOffset: 2, borderRadius: BUBBLE_SKIN.radius }
       }, h(VoiceMsg, { m: m, isU: m.role === "user", speaker: m.role === "user" ? null : character })),
-      m.role === "user" && dsp.myAvatar && h(Avatar, { character: meAv, size: 40, radius: 10 }));
+      m.role === "user" && meAvEl());
     if (m.kind === "callinvite") return h(CallReceipt, { key: i, m: m, isU: m.role === "user", who: cName,
-      avatar: h(Avatar, { character: character, size: 40, radius: 10 }), onCallBack: onCallBack });
+      avatar: charAvEl(), onCallBack: onCallBack });
     // 她自己的自拍（role user）靠右、配她的头像
-    if (m.kind === "selfie") return h("div", { key: i, className: "py-1 flex items-start gap-2 " + (m.role === "user" ? "justify-end" : "justify-start") },
-      m.role === "user" ? null : h(Avatar, { character: character, size: 40, radius: 10 }),
+    if (m.kind === "selfie") return h("div", { key: i, "data-wk": "cardrow", "data-me": m.role === "user" ? "1" : "0", "data-kind": m.kind || "", className: "py-1 flex items-start gap-2 " + (m.role === "user" ? "justify-end" : "justify-start") },
+      m.role === "user" ? null : charAvEl(),
       h("div", {
         onTouchStart: selMode ? undefined : () => startPress(i), onTouchEnd: endPress,
         onMouseDown: selMode ? undefined : () => startPress(i), onMouseUp: endPress, onMouseLeave: endPress,
         onClick: selMode ? () => toggleSel(i) : undefined,
         style: { maxWidth: "72%", outline: selMode && selIds.includes(i) ? `2px solid ${t.tint}` : "none", outlineOffset: 2, borderRadius: 14 }
-      }, h(SelfieBubble, { m: m })), m.role === "user" && dsp.myAvatar ? h(Avatar, { character: meAv, size: 40, radius: 10 }) : null);
+      }, h(SelfieBubble, { m: m })), m.role === "user" && meAvEl());
     // 照片：有图没图都走公共那一张卡（PhotoCard）。
     // ⚠️原来这儿只接「有图」那一支，没图的会掉进下面的通用气泡里，
     //   变成一个 40px 灰方块 + 「[图片]」——描述看不见、也点不开。
     if (m.kind === "file") {
       const fMine = m.role === "user";
       return h("div", { key: i, className: "py-1 flex items-start gap-2 " + (fMine ? "justify-end" : "justify-start") },
-        !fMine && h(Avatar, { character: character, size: 40, radius: 10 }),
+        !fMine && charAvEl(),
         h("div", { onTouchStart: selMode ? undefined : () => startPress(i), onTouchEnd: endPress, onMouseDown: selMode ? undefined : () => startPress(i), onMouseUp: endPress, onMouseLeave: endPress,
           onClick: selMode ? () => toggleSel(i) : undefined,
           style: { maxWidth: "78%", borderRadius: 12, outline: selMode && selIds.includes(i) ? `2px solid ${t.tint}` : "none", outlineOffset: 2 } }, h(FileCard, { m: m })),
-        fMine && dsp.myAvatar && h(Avatar, { character: meAv, size: 40, radius: 10 }));
+        fMine && meAvEl());
     }
     if (m.kind === "photo") {
       const mine = m.role === "user";
       return h("div", { key: i, className: "py-1 flex items-start gap-2 " + (mine ? "justify-end" : "justify-start") },
-        !mine && h(Avatar, { character: character, size: 40, radius: 10 }),
+        !mine && charAvEl(),
         h("div", {
           onTouchStart: selMode ? undefined : () => startPress(i), onTouchEnd: endPress,
           onMouseDown: selMode ? undefined : () => startPress(i), onMouseUp: endPress, onMouseLeave: endPress,
           style: { maxWidth: "72%", borderRadius: 12, outline: selMode && selIds.includes(i) ? `2px solid ${t.tint}` : "none", outlineOffset: 2 }
         }, h(PhotoCard, { m: m, mine: mine, onOpen: selMode ? () => toggleSel(i) : () => setDescView(m) })),
-        mine && dsp.myAvatar && h(Avatar, { character: meAv, size: 40, radius: 10 }));
+        mine && meAvEl());
     }
     // TA刻的那张唱片：跟别的卡一样挂在TA那侧，点了去情侣空间的唱片架
-    if (m.kind === "carved") return h("div", { key: i, className: "py-1 flex items-start gap-2 justify-start" },
-      h(Avatar, { character: character, size: 40, radius: 10 }),
+    if (m.kind === "carved") return h("div", { key: i, "data-wk": "cardrow", "data-me": "0", "data-kind": m.kind || "", className: "py-1 flex items-start gap-2 justify-start" },
+      charAvEl(),
       h(CarvedCard, { m: m, onOpen: () => onOpenUs && onOpenUs() }));
-    if (m.kind === "listeninvite") return h("div", { key: i, className: "py-1 flex items-start gap-2 justify-start" },
-      h(Avatar, { character: character, size: 40, radius: 10 }),
+    if (m.kind === "listeninvite") return h("div", { key: i, "data-wk": "cardrow", "data-me": "0", "data-kind": m.kind || "", className: "py-1 flex items-start gap-2 justify-start" },
+      charAvEl(),
       h("div", { "data-wk": "block", style: { maxWidth: "72%", background: "linear-gradient(135deg,#2b2b30,#17171b)", borderRadius: 16, padding: "12px 14px", boxShadow: "0 6px 18px rgba(0,0,0,0.22)" } },
         h("div", { className: "flex items-center gap-1.5", style: { marginBottom: 6 } },
           h("span", { style: { fontSize: "calc(13px * var(--app-fs, 1))" } }, "🎧"),
@@ -19357,6 +19363,8 @@ function GroupThread({
       fontSize: "calc(9px * var(--app-fs, 1))", fontFamily: F_BODY, pointerEvents: "none", border: "1px solid " + t.bg2,
       background: mu ? "#8a8a8a" : r === "owner" ? "#d99a2b" : "#4a86c0", color: "#fff" } }, mu ? "禁" : r === "owner" ? "主" : "管");
   };
+  // 群里我自己那颗：文字气泡、红包、卡片全用这一份（她 2026-10-27：卡片那行没挂头像挂点，头像框套不上）
+  const gMeAvEl = (size, radius) => gsp.showMyAvatar ? h("span", { "data-wk": "avatar", className: "shrink-0", style: { display: "inline-flex" } }, h(Avatar, { character: meAv, size: size, radius: radius })) : null;
   const mAvatar = (character, size) => (canPeek && canPeek(character) && character && character.id)
     ? h("button", { "data-wk": "avatar", onClick: gAvTap(character.id, () => onOpenMemberState(character.id)), className: "active:opacity-60", style: { position: "relative", flexShrink: 0, lineHeight: 0, padding: 0, border: "none", background: "none" }, title: "看 " + (character.name || "") + " 的心声" }, h(Avatar, { character: character, size: size || 34, radius: 8 }), gAvBadge(character))
     // 包一层挂点壳：头像框/挂件叠在壳上（头像自己裁圆角，叠在里面会被裁掉）——跟单聊那颗同一个做法
@@ -19600,7 +19608,7 @@ function GroupThread({
     if (m.receipt && m.receipt.amount != null) return h(TransferCard, { key: i, m: Object.assign({ tid: "rcpt_" + i }, m.receipt, { receiptCard: true }),
       isU: m.receipt.side === "me", charId: m.receipt.senderId,
       avatar: mAvatar(memberById(m.receipt.senderId) || { name: m.receipt.senderName, color: t.tint }),
-      myAvatar: gsp.showMyAvatar && h(Avatar, { character: meAv, size: 40, radius: 10 }) });
+      myAvatar: gMeAvEl(40, 10) });
     if (m.kind === "pat") return h("div", { key: i,
       onTouchStart: selMode ? undefined : () => startPress(i), onTouchEnd: endPress,
       onMouseDown: selMode ? undefined : () => startPress(i), onMouseUp: endPress, onMouseLeave: endPress,
@@ -19610,7 +19618,7 @@ function GroupThread({
       onClose: onDeleteMessages ? function () { onDeleteMessages([i]); } : null });
     if (m.kind === "dateinvite") return h(DateInviteCard, { key: i, m: m, character: { name: (m.invitees || []).map(x => x.name).join("、") || "大家" },
       onGoMine: onGroupDateGo ? () => onGroupDateGo(m) : null,
-      myAvatar: gsp.showMyAvatar && h(Avatar, { character: meAv, size: 40, radius: 10 }) });
+      myAvatar: gMeAvEl(40, 10) });
     // 成员答应了落下的回执：跟单聊同一张，点出发＝带答应的人进群见面
     if (m.kind === "datereceipt") return h(DateInviteCard, { key: i, m: m, character: memberById(m.senderId) || { name: m.senderName || "TA" },
       onGo: () => onGroupDateGo && onGroupDateGo(m),
@@ -19624,7 +19632,7 @@ function GroupThread({
     });
     // 红包以前是整条裸着排的：没有头像、也没有发红包的人是谁（她 2026-08-20 报）。
     // 改成和语音/同人分享同一套外壳：左边头像、上面名字，卡片本身一个字不动。
-    if (m.kind === "redpacket") return h("div", { key: i, className: "py-1 flex items-start gap-2 " + (m.role === "user" ? "justify-end" : "justify-start") },
+    if (m.kind === "redpacket") return h("div", { key: i, "data-wk": "cardrow", "data-me": m.role === "user" ? "1" : "0", "data-kind": m.kind || "", className: "py-1 flex items-start gap-2 " + (m.role === "user" ? "justify-end" : "justify-start") },
       m.role !== "user" && mAvatar(memberById(m.senderId) || { name: m.senderName, color: t.tint }),
       h("div", {
         className: "flex flex-col " + (m.role === "user" ? "items-end" : "items-start"),
@@ -19634,16 +19642,16 @@ function GroupThread({
       },
         m.senderName && h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, margin: "0 4px 2px" } }, m.senderName, gRoleTag(m)),
         h(RedPacketCard, { rp: m, onClick: selMode ? () => toggleSel(i) : () => openRp(i) })),
-      m.role === "user" && gsp.showMyAvatar && h(Avatar, { character: meAv, size: 34, radius: 8 }));
+      m.role === "user" && gMeAvEl(34, 8));
     if (m.kind === "geo") return h(GeoCard, {
       key: i,
       m: m,
       isU: m.role === "user",
       who: m.senderName || ((memberById(m.senderId) || {}).name || "TA"),
       avatar: mAvatar(memberById(m.senderId) || { name: m.senderName, color: t.tint }),
-      myAvatar: gsp.showMyAvatar && h(Avatar, { character: meAv, size: 34, radius: 8 })
+      myAvatar: gMeAvEl(34, 8)
     });
-    if (m.kind === "emote") return h("div", { key: i, className: "py-1 flex items-start gap-2 " + (m.role === "user" ? "justify-end" : "justify-start") },
+    if (m.kind === "emote") return h("div", { key: i, "data-wk": "cardrow", "data-me": m.role === "user" ? "1" : "0", "data-kind": m.kind || "", className: "py-1 flex items-start gap-2 " + (m.role === "user" ? "justify-end" : "justify-start") },
       m.role !== "user" && mAvatar(memberById(m.senderId) || { name: m.senderName, color: t.tint }),
       h("div", {
         className: "flex flex-col " + (m.role === "user" ? "items-end" : "items-start"),
@@ -19654,26 +19662,26 @@ function GroupThread({
       },
         m.role !== "user" && m.senderName && h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, margin: "0 4px 2px" } }, m.senderName, gRoleTag(m)),
         h(EmoteBubble, { url: m.url, keyword: m.keyword, max: 112 })),
-      m.role === "user" && gsp.showMyAvatar && h(Avatar, { character: meAv, size: 34, radius: 8 }));
-    if (m.kind === "chatforward") return h("div", { key: i, className: "py-1 flex items-start gap-2 " + (m.role === "user" ? "justify-end" : "justify-start") },
+      m.role === "user" && gMeAvEl(34, 8));
+    if (m.kind === "chatforward") return h("div", { key: i, "data-wk": "cardrow", "data-me": m.role === "user" ? "1" : "0", "data-kind": m.kind || "", className: "py-1 flex items-start gap-2 " + (m.role === "user" ? "justify-end" : "justify-start") },
       m.role !== "user" && mAvatar(memberById(m.senderId) || { name: m.senderName, color: t.tint }),
       h("div", { className: "flex flex-col " + (m.role === "user" ? "items-end" : "items-start") },
         m.senderName && h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, margin: "0 4px 2px" } }, m.senderName, gRoleTag(m)),
         h(ChatForwardCard, { m: m, isU: m.role === "user", onOpen: setFwdView }),
         subLine(m) ? h("span", { style: { fontFamily: F_BODY, fontSize: "calc(9.5px * var(--app-fs, 1))", color: t.fog, margin: "1px 4px 0" } }, subLine(m)) : null),
-      m.role === "user" && gsp.showMyAvatar && h(Avatar, { character: meAv, size: 34, radius: 8 }));
+      m.role === "user" && gMeAvEl(34, 8));
     if (m.kind === "forumshare") return h("div", { key: i, className: "flex flex-col py-1 " + (m.role === "user" ? "items-end" : "items-start") },
       m.role === "user" && m.senderName && h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, margin: "0 4px 2px" } }, m.senderName, gRoleTag(m)),
       h(ForumShareCard, { m: m, isU: m.role === "user" }));
     // 群里的分享卡同一张表（论坛帖在群里另有排法，上面单写）
     const _GShare = m.kind !== "forumshare" && shareCardOf(m.kind);
-    if (_GShare) return h("div", { key: i, className: "py-1 flex items-start gap-2 " + (m.role === "user" ? "justify-end" : "justify-start") },
+    if (_GShare) return h("div", { key: i, "data-wk": "cardrow", "data-me": m.role === "user" ? "1" : "0", "data-kind": m.kind || "", className: "py-1 flex items-start gap-2 " + (m.role === "user" ? "justify-end" : "justify-start") },
       m.role !== "user" && mAvatar(memberById(m.senderId) || { name: m.senderName, color: t.tint }),
       h("div", { className: "flex flex-col " + (m.role === "user" ? "items-end" : "items-start") },
         m.senderName && h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, margin: "0 4px 2px" } }, m.senderName, gRoleTag(m)),
         h(_GShare, { m: m, isU: m.role === "user", charId: m.role !== "user" ? m.senderId : null })),
-      m.role === "user" && gsp.showMyAvatar && h(Avatar, { character: meAv, size: 34, radius: 8 }));
-    if (m.kind === "voice") return h("div", { key: i, className: "py-1 flex items-start gap-2 " + (m.role === "user" ? "justify-end" : "justify-start") },
+      m.role === "user" && gMeAvEl(34, 8));
+    if (m.kind === "voice") return h("div", { key: i, "data-wk": "cardrow", "data-me": m.role === "user" ? "1" : "0", "data-kind": m.kind || "", className: "py-1 flex items-start gap-2 " + (m.role === "user" ? "justify-end" : "justify-start") },
       m.role !== "user" && mAvatar(memberById(m.senderId) || { name: m.senderName, color: t.tint }),
       h("div", {
         className: "flex flex-col " + (m.role === "user" ? "items-end" : "items-start"),
@@ -19684,7 +19692,7 @@ function GroupThread({
       },
         m.role !== "user" && m.senderName && h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, margin: "0 4px 2px" } }, m.senderName, gRoleTag(m)),
         h(VoiceMsg, { m: m, isU: m.role === "user", speaker: m.role === "user" ? null : memberById(m.senderId) })),
-      m.role === "user" && gsp.showMyAvatar && h(Avatar, { character: meAv, size: 34, radius: 8 }));
+      m.role === "user" && gMeAvEl(34, 8));
     if (m.kind === "callinvite") return h(CallReceipt, { key: i, m: m, isU: m.role === "user",
       who: m.senderName || ((memberById(m.senderId) || {}).name || ""),
       avatar: mAvatar(memberById(m.senderId) || { name: m.senderName, color: t.tint }), onCallBack: onCallBack });
@@ -19706,7 +19714,7 @@ function GroupThread({
       // ⚠️不传 now：群里这份必然是当面给的（已送达），压根没有倒计时那一档要算；
       //   而 GroupThread 里根本没有 now 这个变量，写上去是直接 ReferenceError。
       avatar: mAvatar(memberById(m.senderId) || { name: m.senderName, color: t.tint }),
-      myAvatar: gsp.showMyAvatar && h(Avatar, { character: meAv, size: 40, radius: 10 })
+      myAvatar: gMeAvEl(40, 10)
     }));
     if (m.kind === "transfer") return h("div", {
       key: i,
@@ -19724,9 +19732,9 @@ function GroupThread({
       // 群里那张卡的「对方」＝收款的那位（她转出去）或者发款的那位（成员转给她）
       charId: m.toId || m.senderId,
       avatar: mAvatar(memberById(m.senderId) || { name: m.senderName, color: t.tint }),
-      myAvatar: gsp.showMyAvatar && h(Avatar, { character: meAv, size: 40, radius: 10 })
+      myAvatar: gMeAvEl(40, 10)
     }));
-    if (m.kind === "selfie") return h("div", { key: i, className: "py-1 flex items-start gap-2 justify-start" },
+    if (m.kind === "selfie") return h("div", { key: i, "data-wk": "cardrow", "data-me": "0", "data-kind": m.kind || "", className: "py-1 flex items-start gap-2 justify-start" },
       mAvatar(memberById(m.senderId) || { name: m.senderName, color: t.tint }),
       h("div", {
         className: "flex flex-col items-start",

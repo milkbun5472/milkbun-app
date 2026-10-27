@@ -80,8 +80,8 @@ test('主房默认键兼容旧存档，UI各入口传房间键并复用40px头�
   }
   const row=components.slice(components.indexOf('    if (m.kind === "unblock_req")'),components.indexOf('    if (m.kind === "recalled")'));
   assert.match(row,/items-start gap-2/);
-  assert.match(row,/character: character, size: 40, radius: 10/);
-  assert.match(row,/dsp.myAvatar && h\(Avatar, \{ character: meAv/);
+  assert.match(row,/charAvEl\(\)/);   // 40px 那颗走公共的 charAvEl / meAvEl（2026-10-27）
+  assert.match(row,/meAvEl\(\)/);
   const card=components.slice(components.indexOf('function UnblockReqCard('),components.indexOf('// 聊天 +面板的图标'));
   assert.match(card,/maxWidth: "100%"/);
 });

@@ -28,5 +28,5 @@ assert.match(run({ target: "theme", id: "chat", append: true, text: "[data-wk=\"
 assert.equal(run({ target: "theme", id: "chat", whole: true, text: ".c{}" }), "OK " + JSON.stringify(".c{}"));
 const comp = fs.readFileSync(path.join(__dirname, "..", "js", "components.js"), "utf8");
 assert.ok((comp.match(/"data-wk": "note", "data-part"/g) || []).length >= 10, "居中小灰字都要带 data-part");
-assert.match(comp, /"data-wk": "cardrow", "data-kind": m\.kind/);
+assert.match(comp, /"data-wk": "cardrow", "data-me": isU \? "1" : "0", "data-kind": m\.kind/);
 console.log("ok");
