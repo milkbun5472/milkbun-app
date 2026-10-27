@@ -24,7 +24,7 @@ function world() {
   const setFromPost = v => { st.fromPost = v; };
   // open / fromPost 在真实组件里都是渲染时读的闭包变量，这儿现取一次喂进去
   const api = new Function("state", "setOpen", "setFromPost",
-    "const open = state.open, fromPost = state.fromPost;" + pair + "\nreturn {enterSub, leaveSub};");
+    "const open = state.open, fromPost = state.fromPost, postScrollRef = { current: 0 };" + pair + "\nreturn {enterSub, leaveSub};");
   // open 在真实组件里是每次渲染重新读的，所以每次调用都现取一次
   return {
     st,
@@ -72,4 +72,14 @@ test("④ 换地方（跳私信 / 换底栏）要把记着的帖扔掉，别过�
   assert.equal((scr.match(/setNav\("pm"\); setPmId\(tid\);\s*setFromPost\(null\);/g) || []).length, 2,
     "从主页跳私信那两处要清掉 fromPost");
   assert.match(scr, /setNav\(nx\[0\]\); setFromPost\(null\);/, "底栏换一栏也要清掉");
+});
+
+test("③ 主页里再点进别人的主页，那条帖还记着（她 2026-10-27）", () => {
+  const w = world();
+  w.st.open = { id: "fp_1" };
+  w.enter(() => { w.st.profile = "c1"; });
+  w.enter(() => { w.st.profile = "c2"; });
+  assert.equal(w.st.fromPost.id, "fp_1", "第二次进主页时 open 是空的，不能拿空的盖掉");
+  w.leave(() => { w.st.profile = null; });
+  assert.equal(w.st.open.id, "fp_1");
 });
