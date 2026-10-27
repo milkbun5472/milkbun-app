@@ -2209,7 +2209,9 @@ function msgAudioCtx() {
   return _msgAudioCtx;
 }
 // iOS 要在手指碰过屏幕之后才放得出声：第一次点屏幕时先把声道打开
-try { const _unlock = () => { msgAudioCtx(); window.removeEventListener("pointerdown", _unlock, true); }; window.addEventListener("pointerdown", _unlock, true); } catch (e) {}
+// ⚠️不能只开一次：切到后台再回来，iOS 会把声道又挂起（她 2026-10-27：主动消息没响），之后每碰一下屏幕都顺手叫醒它
+try { window.addEventListener("pointerdown", () => { try { if (!_msgAudioCtx || _msgAudioCtx.state !== "running") msgAudioCtx(); } catch (e) {} }, true);
+  document.addEventListener("visibilitychange", () => { try { if (document.visibilityState === "visible" && _msgAudioCtx && _msgAudioCtx.state !== "running") _msgAudioCtx.resume(); } catch (e) {} }); } catch (e) {}
 // 音量 0.1～3：1 以上是往上加的（群友 2026-10-26：开到大还是会被音乐盖住）。走一个压限器，开大了也不会破音
 function playMsgSound(id, vol) {
   const v = Math.max(0.1, Math.min(3, vol == null ? 1 : Number(vol)));
