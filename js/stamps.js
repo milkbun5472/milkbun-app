@@ -236,6 +236,8 @@
     const url = side === "solo" && urlSolo ? urlSolo : side === "duo" && urlDuo ? urlDuo : url1;
     const [full, setFull] = useState(false);
     useEffect(() => { if (!card.unread) return; const st0 = C().load(); st0.cards = st0.cards.map(c => c.id === card.id ? Object.assign({}, c, { unread: false }) : c); C().save(st0); }, [card.id]);   // 点开过就不算新
+    // 「画着」超过八分钟还没回来＝那次没了（多半是画到一半关了 app）：按钮放开，能再画（她 2026-10-27：有人一直卡在重画中）
+    const drawing = !!card.drawing && Date.now() - (card.drawingTs || 0) < 8 * 60000;
     const [reArm, setReArm] = useState(false);   // 重写整张卡要点两下：第一下变成「再点一次」，三秒内不点就回去           // 卡面全屏看，满级的在这里戳
     const [say, setSay] = useState(null), [poking, setPoking] = useState(false);
     const sayT = useRef(0);
@@ -373,7 +375,7 @@
               h("div", { style: { marginTop: 10, fontFamily: F_DISPLAY, fontSize: fs(26), letterSpacing: ".12em" } }, tx ? tx.name : "……"),
               h("div", { style: { width: 36, height: 1, margin: "12px 0", background: "rgba(122,106,82,.4)" } }),
               h("div", { style: { fontFamily: F_BODY, fontSize: fs(11.5), opacity: .7 } }, char ? (char.remark || char.name) : ""),
-              h("div", { style: { marginTop: 18, fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: fs(12), opacity: .45 } }, card.drawing ? "正在显影……" : "这一刻还没显影"),
+              h("div", { style: { marginTop: 18, fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: fs(12), opacity: .45 } }, drawing ? "正在显影……" : "这一刻还没显影"),
               h("div", { style: { position: "absolute", left: 16, bottom: 14, fontFamily: F_BODY, fontSize: fs(9.5), opacity: .55 } }, "第 " + String(no).padStart(3, "0") + " 枚")) : null,
             h("div", { key: "pm" + pop, "data-wk": "stamppostmark", style: { position: "absolute", right: 14, bottom: 14, width: 54, height: 54, borderRadius: 999, border: "1.5px solid " + (url ? "rgba(255,248,233,.9)" : COPPER), color: url ? "rgba(255,248,233,.95)" : COPPER, transform: "rotate(-14deg)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", fontFamily: F_BODY, fontSize: fs(8.5), lineHeight: 1.25, pointerEvents: "none", animation: pop ? "stStampDown .45s cubic-bezier(.3,1.6,.5,1)" : "none" } },
               card.bdDay ? h(React.Fragment, null, h("div", null, card.kind === "anniv" ? "「" + (card.annivName || "纪念日") + "」" : "生日纪念"), h("div", { style: { fontFamily: F_DISPLAY, fontSize: fs(10) } }, (d => d.getFullYear() + "." + (d.getMonth() + 1) + "." + d.getDate())(new Date(card.bdDay))))
@@ -392,17 +394,17 @@
                 className: "active:opacity-70", style: { padding: "6px 14px", borderRadius: 999, border: "1px solid " + LINE, color: on ? P5 : P, fontFamily: F_BODY, fontSize: fs(12) } }, on ? "这天的一刻就是它" : "就它当那天的一刻"); })() : null,
             card.rarity !== "R" ? h("button", { "data-wk": "stampkeep", disabled: !!card.shikeId, onClick: keep, className: "active:opacity-70", style: { padding: "6px 14px", borderRadius: 999, border: "1px solid " + LINE, color: card.shikeId ? P5 : P, fontFamily: F_BODY, fontSize: fs(12) } }, card.shikeId ? "已收进时刻" : "☆ 收进时刻") : null,
             card.canon ? h("span", { style: { alignSelf: "center", fontFamily: F_BODY, fontSize: fs(11.5), color: GOLD } }, "已当真") : null) : null,
-          !card.face ? h("button", { "data-wk": "stampdraw", disabled: !tx || card.drawing, onClick: () => onDraw(card.id), className: "active:opacity-70 disabled:opacity-40",
-            style: { marginTop: 8, padding: "6px 14px", borderRadius: 999, border: "1px solid " + LINE, color: P7, fontFamily: F_BODY, fontSize: fs(12) } }, card.drawing ? "画着…" : "画卡面 · 花一次生图")
-            : h("button", { "data-wk": "stampredraw", disabled: card.drawing, onClick: () => onDraw(card.id, side !== "main", side !== "main" ? side : undefined), className: "active:opacity-70 disabled:opacity-40",
-              style: { marginTop: 8, padding: "6px 14px", borderRadius: 8, border: "1px solid " + LINE, color: P7, fontFamily: F_BODY, fontSize: fs(12) } }, card.drawing ? "重画着…" : "↻ 照原来的描述重画这一面 · 花一次生图"),
-          card.drawErr && !card.drawing ? h("div", { "data-wk": "stampdrawerr", style: { marginTop: 6, maxWidth: 300, textAlign: "center", fontFamily: F_BODY, fontSize: fs(11), lineHeight: 1.5, color: "#b23a2e" } }, "上次没画成：" + card.drawErr) : null,
+          !card.face ? h("button", { "data-wk": "stampdraw", disabled: !tx || drawing, onClick: () => onDraw(card.id), className: "active:opacity-70 disabled:opacity-40",
+            style: { marginTop: 8, padding: "6px 14px", borderRadius: 999, border: "1px solid " + LINE, color: P7, fontFamily: F_BODY, fontSize: fs(12) } }, drawing ? "画着…" : "画卡面 · 花一次生图")
+            : h("button", { "data-wk": "stampredraw", disabled: drawing, onClick: () => onDraw(card.id, side !== "main", side !== "main" ? side : undefined), className: "active:opacity-70 disabled:opacity-40",
+              style: { marginTop: 8, padding: "6px 14px", borderRadius: 8, border: "1px solid " + LINE, color: P7, fontFamily: F_BODY, fontSize: fs(12) } }, drawing ? "重画着…" : "↻ 照原来的描述重画这一面 · 花一次生图"),
+          card.drawErr && !drawing ? h("div", { "data-wk": "stampdrawerr", style: { marginTop: 6, maxWidth: 300, textAlign: "center", fontFamily: F_BODY, fontSize: fs(11), lineHeight: 1.5, color: "#b23a2e" } }, "上次没画成：" + card.drawErr) : null,
           // SSR 满级：第二张卡面（一个人，或者你们俩），画好以后能翻面
           card.rarity === "SSR" && lv >= cap && tx ? h("div", { "data-wk": "stampalt", className: "flex flex-wrap justify-center", style: { gap: 8, marginTop: 8 } },
             side !== "main" ? h("button", { onClick: () => setSide("main"), className: "active:opacity-70", style: { padding: "6px 12px", borderRadius: 8, border: "1px solid " + COPPER, color: COPPER, fontFamily: F_BODY, fontSize: fs(12) } }, "看第一面") : null,
             [["solo", "他一个人"], ["duo", "你们俩"]].filter(x => card.kind !== "anniv" || x[0] === "duo").map(x => faces2[x[0]]
               ? (side === x[0] ? null : h("button", { key: x[0], onClick: () => setSide(x[0]), className: "active:opacity-70", style: { padding: "6px 12px", borderRadius: 8, background: COPPER, color: "#FFF8E9", fontFamily: F_BODY, fontSize: fs(12) } }, "看满级 · " + x[1]))
-              : h("button", { key: x[0], disabled: card.drawing, onClick: () => { setSide(x[0]); onDraw(card.id, true, x[0]); }, className: "active:opacity-70 disabled:opacity-40",
+              : h("button", { key: x[0], disabled: drawing, onClick: () => { setSide(x[0]); onDraw(card.id, true, x[0]); }, className: "active:opacity-70 disabled:opacity-40",
                 style: { padding: "6px 12px", borderRadius: 8, border: "1px dashed " + COPPER, color: COPPER, fontFamily: F_BODY, fontSize: fs(12) } }, "画满级卡面 · " + x[1]))) : null,
           tx && !card.writing ? h("button", { "data-wk": "stamprewrite", onClick: () => {
               if (!reArm) { setReArm(true); setTimeout(() => setReArm(false), 3000); return; }

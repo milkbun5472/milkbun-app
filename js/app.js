@@ -17166,7 +17166,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     const char = characters.find(x => x.id === card.charId);
     if (!char) return;
     if (!(typeof imgApiReady === "function" && imgApiReady())) { toast("先去 设置·图像API 配一下"); return; }
-    stampSaveCard(cardId, { drawing: true });
+    stampSaveCard(cardId, { drawing: true, drawingTs: Date.now() });   // 记开画时间：画到一半关了 app，卡上不会一直挂着「画着」
     try {
       const st = statesRef.current[char.id] || {};
       const tx = card.text;
