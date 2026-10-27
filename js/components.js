@@ -22313,12 +22313,13 @@ function ChatSettings({
   }),
   // 上下文诊断并进【TA 知道什么】（v61.79）：她去查它，问的正是「TA到底记得什么、
   // 这一轮发进去的是什么」——那就是这一类。原来它自己占一格，还跟「线路」共用图标。
-  settingsTab === "look" && onDrawLucky ? h(SettingSection, { title: "我们的幸运字符", ...sec("lucky") },
+  // 这三节原来直接按 settingsTab 画、没走 show()，打字搜它们一个都搜不到（她 2026-10-27：搜「字符」搜不出来）
+  onDrawLucky ? show("look", { title: "我们的幸运字符", ...sec("lucky") },
     h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.6, paddingTop: 8 } }, luckyCardMeta(lucky, "你俩").note + "只算主聊天，小房间和见面不算。"),
     h(LuckyCharsPanelBox, { lucky, onDrawLucky, onPickLucky })) : null,
-  settingsTab === "know" && loreEntries && onLoreBulk ? h(SettingSection, { title: "世界书 · TA 用哪几条", ...sec("lorepick") }, h(ChatLorePicker, { character, entries: loreEntries, onBulk: onLoreBulk })) : null,
-  settingsTab === "know" && renderContextDebug
-    ? h(SettingSection, { title: "查上一轮真的发了什么", ...sec("ctxdebug") }, renderContextDebug())
+  loreEntries && onLoreBulk ? show("know", { title: "世界书 · TA 用哪几条", ...sec("lorepick") }, h(ChatLorePicker, { character, entries: loreEntries, onBulk: onLoreBulk })) : null,
+  renderContextDebug
+    ? show("know", { title: "查上一轮真的发了什么", ...sec("ctxdebug") }, renderContextDebug())
     : null,
   // 本体模式（她 2026-10-09：「如果想搞人机本体恋……把八股人设提示词之类的都不输入进去」）。
   //   给平时在 Kelivo 这类 app 里直连 API 聊天的人：人设原样当系统提示词，扮演那一套全不发。
