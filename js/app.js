@@ -17177,10 +17177,12 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
           + (wish0 ? "\n她点了题，想看的是：「" + wish0 + "」。就写这个，落到这张卡的故事和你们真实的关系里；她说得不细的地方由你补。" : "")
           + "\n番外是这段故事外面的一段：结局之后的某一天、故事里没写到的那一晚，或者同一件事里你那边没让她看到的部分" + (wish0 ? "。" : "，挑一个最想补上的。") + "八百到一千二百字，一个完整的小场景，有开头有收尾。旁白里她是「你」，你是「他」。"
           + (had.length ? "\n这张卡已经有的番外：\n" + had.join("\n") + "\n这一段写别的。" : "")
-          + "\ntitle 是番外的名字（八个字以内）；text 是正文；gist 一句话记下写的是什么；shot 是给画插图的人看的一句分镜（横版，画这段里最想留住的那一下：谁在、在干嘛、在哪、什么光）；duo 是这一下她在不在画里（true/false）。",
-        schemaHint: "{\"title\":\"\",\"text\":\"\",\"gist\":\"\",\"shot\":\"\",\"duo\":false}", maxTokens: 30000 });
-      if (!d || !d.text) throw new Error("没写出来");
-      stampSaveCard(cardId, c0 => ({ ...c0, extras: (c0.extras || []).map(x => x.id === xid ? { ...x, writing: false, err: "", title: String(d.title || "番外").slice(0, 20), text: String(d.text), gist: String(d.gist || "").slice(0, 120), shot: String(d.shot || "").slice(0, 400), duo: d.duo === true || d.duo === "true" } : x) }));
+          + "\n照乙游剧情那样一句一句写在 beats 里：who 是 he＝你说的话、me＝她说的话、narr＝旁白动作，text 是这一句；" + STAMP_NARR_POV + ((StampsCoreSafe().opt || {}).meQuiet ? "她基本不开口，往前推的是你的话、你的动作和旁白。" : "她那句（me）照她平时的样子写，少一点。") + "\ntitle 是番外的名字（八个字以内）；gist 一句话记下写的是什么；shot 是给画插图的人看的一句分镜（横版，画这段里最想留住的那一下：谁在、在干嘛、在哪、什么光）；duo 是这一下她在不在画里（true/false）。",
+        schemaHint: "{\"title\":\"\",\"beats\":[{\"who\":\"narr|he|me\",\"text\":\"\"}],\"gist\":\"\",\"shot\":\"\",\"duo\":false}", maxTokens: 30000 });
+      const beats = Array.isArray(d && d.beats) ? d.beats.filter(b => b && b.text && /^(he|me|narr)$/.test(b.who)).map(b => ({ who: b.who, text: String(b.text) })) : [];
+      const meN = userName(meOf(char.id)), plain = beats.length ? beats.map(b => b.who === "he" ? char.name + "：" + b.text : b.who === "me" ? meN + "：" + b.text : b.text).join("\n") : String((d && d.text) || "");
+      if (!plain.trim()) throw new Error("没写出来");
+      stampSaveCard(cardId, c0 => ({ ...c0, extras: (c0.extras || []).map(x => x.id === xid ? { ...x, writing: false, err: "", title: String(d.title || "番外").slice(0, 20), text: plain, beats: beats.length ? beats : undefined, gist: String(d.gist || "").slice(0, 120), shot: String(d.shot || "").slice(0, 400), duo: d.duo === true || d.duo === "true" } : x) }));
     } catch (e) { stampSaveCard(cardId, c0 => ({ ...c0, extras: (c0.extras || []).map(x => x.id === xid ? { ...x, writing: false, err: String(e && e.message || e).slice(0, 60) } : x) })); }
   };
   // 番外发给他看（她 2026-10-27）：像邮票那样进你们的聊天，他看得到、会回；第一次发、他回了那一轮给一点印泥（跟邮票共用 sharePend）
