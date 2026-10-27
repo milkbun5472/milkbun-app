@@ -2589,8 +2589,24 @@ function Forum({
   // ⚠️三种主页（角色／小号／网友）原来各写各的 setOpen(null)，是同一个形状——
   //   收成这一对（施工规则/one-public-mechanism），以后再添一种主页也不会漏。
   const [fromPost, setFromPost] = useState(null);
-  const enterSub = go => { setFromPost(open || null); setOpen(null); go(); };
-  const leaveSub = go => { go(); if (fromPost) { setOpen(fromPost); setFromPost(null); } };
+  // ⚠️主页里再点进别人的主页时，open 已经是 null——原来照样拿 null 盖掉，退回来就丢了那条帖（她 2026-10-27 又撞到）。
+  //   只有真从帖子里进来才记；还记着帖子读到哪儿，退回来滚回原处
+  const postScrollRef = useRef(0);
+  const enterSub = go => {
+    if (open) {
+      setFromPost(open);
+      try { const sc = document.querySelector('[data-wk="fopostpage"] > .overflow-y-auto'); postScrollRef.current = sc ? sc.scrollTop : 0; } catch (e) { postScrollRef.current = 0; }
+    }
+    setOpen(null); go();
+  };
+  const leaveSub = go => {
+    go();
+    if (fromPost) {
+      setOpen(fromPost); setFromPost(null);
+      const y = postScrollRef.current;
+      if (typeof requestAnimationFrame === "function") requestAnimationFrame(() => requestAnimationFrame(() => { try { const sc = document.querySelector('[data-wk="fopostpage"] > .overflow-y-auto'); if (sc) sc.scrollTop = y; } catch (e) {} }));
+    }
+  };
   // 点进一个人的主页：档案馆里已经没有这个人（删掉了、或者帖子是配角／旧号用角色身份留的）就当网友主页开，
   //   不再开一张白页（群友 2026-10-16：「为什么点一个人的论坛主页点不进去」）
   const goProfile = (id, a) => charOf(id) ? enterSub(() => setProfileId(id))
