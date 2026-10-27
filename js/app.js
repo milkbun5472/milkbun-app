@@ -17177,7 +17177,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
           + (wish0 ? "\n她点了题，想看的是：「" + wish0 + "」。就写这个，落到这张卡的故事和你们真实的关系里；她说得不细的地方由你补。" : "")
           + "\n番外是这段故事外面的一段：结局之后的某一天、故事里没写到的那一晚，或者同一件事里你那边没让她看到的部分" + (wish0 ? "。" : "，挑一个最想补上的。") + "八百到一千二百字，一个完整的小场景，有开头有收尾。旁白里她是「你」，你是「他」。"
           + (had.length ? "\n这张卡已经有的番外：\n" + had.join("\n") + "\n这一段写别的。" : "")
-          + "\n照乙游剧情那样一句一句写在 beats 里：who 是 he＝你说的话、me＝她说的话、narr＝旁白动作，text 是这一句；" + STAMP_NARR_POV + ((StampsCoreSafe().opt || {}).meQuiet ? "她基本不开口，往前推的是你的话、你的动作和旁白。" : "她那句（me）照她平时的样子写，少一点。") + "\ntitle 是番外的名字（八个字以内）；gist 一句话记下写的是什么；shot 是给画卡面的人看的一句分镜（竖版，画这段里最想留住的那一下：谁在、在干嘛、在哪、什么光）；duo 是这一下她在不在画里（true/false）。",
+          + "\n照乙游剧情那样一句一句写在 beats 里：who 是 he＝你说的话、me＝她说的话、narr＝旁白动作，text 是这一句；" + STAMP_NARR_POV + ((StampsCoreSafe().opt || {}).meQuiet ? "她基本不开口，往前推的是你的话、你的动作和旁白。" : "她那句（me）照她平时的样子写，少一点。") + "\ntitle 是番外的名字（八个字以内）；gist 一句话记下写的是什么；shot 是给画卡面的人看的一句分镜（横版 CG，主要的人放正中间，画这段里最想留住的那一下：谁在、在干嘛、在哪、什么光）；duo 是这一下她在不在画里（true/false）。",
         schemaHint: "{\"title\":\"\",\"beats\":[{\"who\":\"narr|he|me\",\"text\":\"\"}],\"gist\":\"\",\"shot\":\"\",\"duo\":false}", maxTokens: 30000 });
       const beats = Array.isArray(d && d.beats) ? d.beats.filter(b => b && b.text && /^(he|me|narr)$/.test(b.who)).map(b => ({ who: b.who, text: String(b.text) })) : [];
       const meN = userName(meOf(char.id)), plain = beats.length ? beats.map(b => b.who === "he" ? char.name + "：" + b.text : b.who === "me" ? meN + "：" + b.text : b.text).join("\n") : String((d && d.text) || "");
@@ -17194,7 +17194,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     if (!x.sentTs && window.StampsCore) { const s2 = window.StampsCore.load(); s2.sharePend = Object.assign({}, s2.sharePend, { [ch.id]: card.id }); window.StampsCore.save(s2); }
     toast("发给 " + (ch.remark || ch.name) + " 了，回聊天里看他怎么说");
   };
-  // 番外卡面：竖版，跟卡面一样在卡页上面挑着看（她 2026-10-27）；她在不在画里照番外自己写的 duo。点了才画
+  // 番外卡面：画横版 CG，平时裁中间一块当竖卡面，全屏能看整张、能横过来看（她 2026-10-27 照乙游那样）；她在不在画里照番外自己写的 duo。点了才画
   const stampExtraDraw = async (cardId, xid) => {
     const card = (StampsCoreSafe().cards || []).find(c => c.id === cardId); const x = card && (card.extras || []).find(e => e.id === xid); if (!x || !x.text) return;
     const char = characters.find(c => c.id === card.charId); if (!char) return;
@@ -17205,14 +17205,14 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       const st = statesRef.current[char.id] || {}, duo = !!x.duo, lover = spaceLover((couplesRef.current || {})[char.id]);
       const meP = duo ? Object.assign({}, photoMe("她", char.id), { outfit: "", closet: "" }) : null;
       const paint = String(((StampsCoreSafe().opt || {}).paint) || "").trim();
-      let scene = "一张乙游番外卡面：「" + (x.title || "") + "」。这一下：" + (x.shot || String(x.text).slice(-300)) + "\n景别拉开到看得见这一刻在哪、什么光，不是一张脸部近照。"
+      let scene = "一张横版的乙游番外 CG：「" + (x.title || "") + "」。平时会裁成竖的、只显示正中间那一块当卡面，所以主要的人和动作放在画面正中间那三分之一，左右两边是场景和氛围。这一下：" + (x.shot || String(x.text).slice(-300)) + "\n景别拉开到看得见这一刻在哪、什么光，不是一张脸部近照。"
         + (duo ? "画面里是你们两个人。" + (lover ? "你们是恋人，距离和手就是恋人的样子。" : "你们之间是什么关系就是什么距离，不画成恋人。") : "画面里只画你一个人。") + "\n画面里不要任何文字。";
       if (card.kind === "if") scene += "\n这张是 IF「" + (card.theme || "") + "」" + (card.themeLine ? "：" + String(card.themeLine).slice(0, 300) : "") + "。" + (card.themeLook || "") + "衣服、场景和光照这个主题来。他的长相照他本人，主题只换衣服、场景和道具。";
       const base = Object.assign({}, char, { photoOutfit: "" });
       const prompt = buildPhotoPrompt(paint === "real" ? Object.assign({}, base, { photoStyle: "realistic" }) : base, scene, Object.assign({}, st, { wearing: "", wearingUpdatedAt: 0 }),
         Object.assign(duo ? { kind: "duo", me: meP, notLover: !lover } : { kind: "other" }, { shotLine: stampCam() }, { closet: "" }, paint && paint !== "real" ? { paint } : {}));
       const refs = [char.refPhoto, duo && meP && meP.refPhoto].filter(Boolean);
-      const out = await generateSelfieImage(prompt, refs.length ? refs : null, { size: "1024x1536" });
+      const out = await generateSelfieImage(prompt, refs.length ? refs : null, { size: "1536x1024" });
       if (!(out && out.blob)) throw new Error("没拿到图");
       const key = "img_stamp_ex_" + xid + "_" + Date.now().toString(36);
       await idbImgPut(key, out.blob);

@@ -259,7 +259,7 @@
     const exDrawing = !!(exSel && exSel.drawing && exSel.drawingBoot && exSel.drawingBoot === window.__stampBoot && Date.now() - (exSel.drawingTs || 0) < 8 * 60000);
     const url = exSel ? (urlEx || url1) : side === "solo" && urlSolo ? urlSolo : side === "duo" && urlDuo ? urlDuo : url1;
     const sideKey = exSel ? exSel.img : side === "solo" ? faces2.solo : side === "duo" ? faces2.duo : card.face;
-    const [full, setFull] = useState(false);
+    const [full, setFull] = useState(false), [fullWide, setFullWide] = useState(false), [rot, setRot] = useState(false);
     useEffect(() => { if (!card.unread) return; const st0 = C().load(); st0.cards = st0.cards.map(c => c.id === card.id ? Object.assign({}, c, { unread: false }) : c); C().save(st0); }, [card.id]);   // 点开过就不算新
     // 「画着」超过八分钟还没回来＝那次没了（多半是画到一半关了 app）：按钮放开，能再画（她 2026-10-27：有人一直卡在重画中）
     const drawing = !!card.drawing && !!card.drawingBoot && card.drawingBoot === window.__stampBoot && Date.now() - (card.drawingTs || 0) < 8 * 60000;   // 关掉 app 再打开：上一回没画完的那次一定没了，直接放开
@@ -543,11 +543,15 @@
       full && url ? h("div", { "data-wk": "stampfull", className: "fixed inset-0 flex flex-col", onClick: () => setFull(false), style: { zIndex: 256, background: "rgba(20,18,14,.92)" } },
         h("div", { className: "flex-1 min-h-0 flex items-center justify-center", style: { padding: "calc(env(safe-area-inset-top) + 16px) 16px 8px" } },
           h("div", { style: { position: "relative", display: "inline-block", lineHeight: 0 } },
-            h("img", { src: url, alt: "", style: { display: "block", maxWidth: "calc(100vw - 32px)", maxHeight: "calc(100dvh - 190px)", width: "auto", height: "auto", borderRadius: 4, boxShadow: "0 0 0 3px #FFF8E9, 0 0 0 5px " + COPPER } }),
+            h("img", { src: url, alt: "", onLoad: e => setFullWide(e.currentTarget.naturalWidth > e.currentTarget.naturalHeight * 1.1), style: { display: "block", maxWidth: "calc(100vw - 32px)", maxHeight: "calc(100dvh - 190px)", width: "auto", height: "auto", borderRadius: 4, boxShadow: "0 0 0 3px #FFF8E9, 0 0 0 5px " + COPPER } }),
             canPoke ? h("div", { "data-wk": "stamppoke", onClick: e => { e.stopPropagation(); poke(e); }, style: { position: "absolute", inset: 0, cursor: "pointer" } }) : null)),
+        // 横的原画（番外 CG）：「横过来看」整张转 90 度占满屏幕，手机横着拿看；点一下回来
+        fullWide ? h("button", { "data-wk": "stamprotate", onClick: e => { e.stopPropagation(); setRot(true); }, className: "active:opacity-60", style: { position: "absolute", right: 14, top: "calc(env(safe-area-inset-top) + 14px)", padding: "4px 12px", borderRadius: 999, border: "1px solid rgba(255,248,233,.6)", color: "#FFF8E9", fontFamily: F_BODY, fontSize: fs(12) } }, "⟲ 横过来看") : null,
+        rot ? h("div", { "data-wk": "stamprotview", onClick: e => { e.stopPropagation(); setRot(false); }, className: "fixed inset-0", style: { zIndex: 2, background: "#000" } },
+          h("img", { src: url, alt: "", style: { position: "absolute", left: "50%", top: "50%", width: "100dvh", height: "100vw", objectFit: "contain", transform: "translate(-50%, -50%) rotate(90deg)" } })) : null,
         // 画了好几面：全屏里左右箭头直接换（她 2026-10-27：不用退出全屏再换），底下小点标着是哪一面
         (() => { const sides = [["main", url1, "第一面"], ["solo", urlSolo, "他一个人"], ["duo", urlDuo, "你们俩"]].concat(exSel && urlEx ? [[side, urlEx, "番外「" + (exSel.title || "") + "」"]] : []).filter(x => x[1]); if (sides.length < 2) return null;
-          const k = Math.max(0, sides.findIndex(x => x[0] === side)), go = d => e => { e.stopPropagation(); setSay(null); setSide(sides[(k + d + sides.length) % sides.length][0]); };
+          const k = Math.max(0, sides.findIndex(x => x[0] === side)), go = d => e => { e.stopPropagation(); setSay(null); setFullWide(false); setSide(sides[(k + d + sides.length) % sides.length][0]); };
           const arrow = (d, pos) => h("button", { "data-wk": "stampfullnav", onClick: go(d), className: "active:opacity-60", style: Object.assign({ position: "absolute", top: "42%", width: 36, height: 56, borderRadius: 8, background: "rgba(255,248,233,.16)", color: "#FFF8E9", fontSize: 26, lineHeight: "56px", textAlign: "center" }, pos) }, d < 0 ? "‹" : "›");
           return h(React.Fragment, null, arrow(-1, { left: 6 }), arrow(1, { right: 6 }),
             h("div", { "data-wk": "stampfullside", onClick: e => e.stopPropagation(), style: { textAlign: "center", marginBottom: 8, fontFamily: F_BODY, fontSize: fs(11), color: "rgba(255,248,233,.75)" } },
