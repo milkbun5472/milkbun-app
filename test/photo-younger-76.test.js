@@ -25,3 +25,8 @@ test("合照：点了名只画小那一个，笼统写就都画小；有小孩�
   assert.deepEqual(named("六岁的小沈屿白和现在的Lisa站在一起", ["沈屿白", "Lisa"]), ["沈屿白"]);
   assert.deepEqual(named("两个人小时候在院子里的老照片", ["沈屿白", "Lisa"]), []);
 });
+test("小时候也要认得出：有外貌抄外貌，没写就看参考照挑；神情照描述", () => {
+  assert.match(s, /const _yLook = younger \? "【小时候也要认得出是谁】"/);
+  assert.match(s, /看参考照，找出这个人脸上最认得出的几样/);
+  assert.equal((s.match(/像从相册里扫出来的。" : ""\) \+ _yLook\);/g) || []).length, 2);
+});

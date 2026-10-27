@@ -5500,6 +5500,11 @@ function buildPhotoPrompt(char, sceneDesc, st, opts) {
   const _yEsc = x => x.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   const _yNamed = _y0 && _yNames.length > 1 ? _yNames.filter(n => n && new RegExp("(?:小时候的|岁的|小)" + _yEsc(n) + "|" + _yEsc(n) + "(?:小时候|童年|还小)").test(String(sceneDesc || ""))) : [];
   const younger = _y0 ? Object.assign({}, _y0, { names: _yNamed.length ? _yNamed : _yNames }) : null;
+  // 小时候也要认得出是谁（她 2026-10-27：「像同一个人小时候嘛」——发型对上了，脸成了一张通用的可爱小孩）：
+  //   外貌写了就把那段当线索；没写就叫它自己看参考照挑。表情照描述（描述写板着脸，别画成甜笑）。
+  const _yLook = younger ? "【小时候也要认得出是谁】" + (String(char.appearance || "").trim() ? "TA 长大后的外貌是：" + String(char.appearance).trim().slice(0, 300) + "。从里面挑最认得出的几样（眼型和眼尾走向、眉形、鼻梁、嘴型、痣这类长在脸上的），" : "")
+    + (char.refPhoto || _yNames.length > 1 ? "看参考照，找出这个人脸上最认得出的几样（眼型和眼尾走向、眉形、鼻梁、嘴型和嘴角、痣），" : "")
+    + "按孩子的比例缩小、柔和一点，长在孩子脸上；不要画成一张谁都像的可爱小孩脸。神情照描述来，描述写的是板着脸、严肃、发呆，就别画成甜甜地笑。" : "";
   const isMinor = !!younger || _minorWord || (_minorAge && !_adultAge);
   const isBoy = /(?:小男孩|男童|男孩|少年|男性儿童|\bboy\b)/i.test(identityText);
   const parts = [];
@@ -5508,10 +5513,10 @@ function buildPhotoPrompt(char, sceneDesc, st, opts) {
     + (younger.names.length < _yNames.length ? _yNames.filter(n => younger.names.indexOf(n) < 0).map(n => "「" + n + "」").join("、") + "照现在的样子画，长相照参考图。" : "")
     + "参考照和外貌写的是长大以后的样子，对画小的人只用来认得出是同一个人：发色、眼型、标志性的痣或特征留着，不照搬成年的脸、身材和打扮；下面凡是说「年龄不得改变」「保住参考图的脸和身体」的，对画小的人都按小时候来。"
     + "画面里有小孩：两个人怎么待在一起照小孩之间、或者大人带着小孩的样子来（并排站、一起玩、牵着走、各自看镜头），不摆恋人的姿势。"
-    + (/老照片|旧照|扫描|相册|胶片/.test(String(sceneDesc || "")) ? "照片本身是那个年代的老照片：颜色发旧、有颗粒和一点褪色，像从相册里扫出来的。" : ""));
+    + (/老照片|旧照|扫描|相册|胶片/.test(String(sceneDesc || "")) ? "照片本身是那个年代的老照片：颜色发旧、有颗粒和一点褪色，像从相册里扫出来的。" : "") + _yLook);
   else if (younger) parts.push(PHOTO_YOUNGER_MARK + "画面里是「" + cName + "」" + (younger.age ? younger.age : "小时候") + "的样子，不是现在的" + cName + "：照画面描述把 TA 画成那个年纪的孩子——孩子的脸型、五官比例、身高和身体比例，衣服照描述来，不穿 TA 现在的衣服。"
     + "参考照和下面写的外貌是 TA 长大以后的样子，只用来让人认得出是同一个人：发色、眼型、标志性的痣或特征这些留着，像一个人小时候和长大后那种像；不要照搬成年的脸、身材和打扮，下面凡是说「年龄不得改变」「保住参考图的脸和身体」的，这一张都按小时候来。"
-    + (/老照片|旧照|扫描|相册|胶片/.test(String(sceneDesc || "")) ? "照片本身是那个年代的老照片：颜色发旧、有颗粒和一点褪色，像从相册里扫出来的。" : ""));
+    + (/老照片|旧照|扫描|相册|胶片/.test(String(sceneDesc || "")) ? "照片本身是那个年代的老照片：颜色发旧、有颗粒和一点褪色，像从相册里扫出来的。" : "") + _yLook);
   if (!younger && (multi || kind === "duo" || char.refPhoto)) parts.push("【首要任务：人物身份】所有人物参考图都是硬性身份来源。可改变姿势、表情、服装与背景，但不得重画、混合、平均化或替换任何参考人物的脸；无法保留全部身份时应失败，而不是生成陌生人。");
   // 每个角色独立控制画风；旧角色无字段时继续沿用写实，避免升级后突然变画风。
   // 照相馆拍之前挑了画风（opts.paint）：那就不是照片——写实总纲整段不发，不然「手机随手拍的生活照、真实皮肤纹理」那一大段
