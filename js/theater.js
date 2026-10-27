@@ -249,6 +249,9 @@
     const [goalOpen, setGoalOpen] = useState(false); // 顶上那条目标条:缩成一行 / 展开全文
     const [writeGoal, setWriteGoal] = useState(null); // null | string:手写下一轮目标的缓冲
     const [diff, setDiff] = useState("normal"); // 开线时的难度档
+    // 乙游风播放（她 2026-10-27）：一句一句点着走；vnI＝看到第几句，vnWrite＝底下「自己写」那一格开着没，vnLog＝记录，vnHide＝长按藏起界面
+    const [vnI, setVnI] = useState(-1), [vnWrite, setVnWrite] = useState(false), [vnLog, setVnLog] = useState(false), [vnHide, setVnHide] = useState(false);
+    const vnLen = useRef(0), vnLp = useRef(0), vnLpOn = useRef(false);
     const scrollRef = useRef(null);
     const linesRef = useRef(null);
     const sumBusyRef = useRef(false);
@@ -262,6 +265,7 @@
       setLines(n);
     };
     useEffect(() => { linesRef.current = lines; });
+    useEffect(() => { vnLen.current = 0; setVnI(-1); setVnWrite(false); setVnLog(false); }, [playId]);
     // 回填:图库上线前已经出过的剧照(含归档的重开局)一次性补进图库,按图引用去重
     useEffect(() => {
       const have = new Set(loadGal().map(x => x.img));
@@ -463,13 +467,14 @@
       else if (ho.fromCard) genFromCard(ho.fromCard); }, []);
     const acceptDraft = () => {
       const l = { id: rid("th_"), charId: draft.charId, title: draft.title, keywords: draft.keywords, difficulty: draft.difficulty || "normal", charRole: draft.charRole, userRole: draft.userRole, world: draft.world || draft.setting, hook: draft.hook || "", charOutfit: draft.charOutfit || "", userOutfit: draft.userOutfit || "", setting: draft.setting, presetId: draft.presetId || null, fromCard: draft.fromCard || null, fromCardName: draft.fromCardName || "", createdAt: Date.now(), rounds: [{ id: rid("tr_"), goal: draft.goal, goalDone: false, goalNote: null, pending: false, msgs: draft.opening ? [{ id: rid("tm_"), role: "char", content: draft.opening, ts: Date.now() }] : [], startTs: Date.now() }] };
+      l.vn = true;   // 新开的线默认乙游风；老线不动，在线里自己切
       update(list => [l, ...list]); setDraft(null); setKw(""); setPlayId(l.id); setView("play"); setPanelOpen(true);
     };
 
     // ---- 演出 ----
     const allMsgs = l => l.rounds.flatMap(r => r.msgs);
-    const send = async () => {
-      const text = input.trim();
+    const send = async (forced) => {
+      const text = (typeof forced === "string" ? forced : input).trim();   // 乙游风点选项时直接把那句递进来
       if (!line || busy) return;
       const round = line.rounds[line.rounds.length - 1];
       const lastIsUser = round.msgs.length && round.msgs[round.msgs.length - 1].role === "user";
@@ -513,6 +518,8 @@
           //   都问它要，小剧场原来一份都没有（施工规则/one-public-mechanism.md）。
           //   演出是一拍一拍往下走的，所以给上限（不像同人文一章那样敞着）。
           window.StylePresets.wordRule(window.StylePresets.clampWordFloor(line.minWords)),
+          // 乙游风（她 2026-10-27）：每拍顺手给她两三个选项；她也能不选、自己写
+          line.vn ? "【给 " + uName + " 的选项】JSON 里再加一个 choices：两三个此刻 " + uName + " 可能会做或说的事，各一句、短，用 Ta 自己的口吻（动作直接写，说的话加引号），彼此方向不一样。这只是摆给 Ta 挑的，不替 Ta 决定，正文里也不写 Ta 选了哪个。" : null,
           "【输出】用第一人称『我』完全代入「" + char.name + "」,称对方为『你』,对话用引号,写成连续场景正文;篇幅由【场景需要】决定,不由角色话多话少决定——冷淡的人不等于短的段落。只输出 JSON:{\"scene\":\"场景正文\",\"goalReached\":false,\"goalFailed\":false,\"goalNote\":null}(达成时 goalReached=true;不可逆失败时 goalFailed=true;goalNote 一句话指出达成或失败的瞬间)",
           // 跨进明确场景时,和主线线下走同一套「初稿→自编辑去认证句」——以前这套只焊在
           // 单聊线下里,小剧场拿不到,于是同样的内容在这边就滑回八股(Lisa 2026-08-18)
@@ -587,7 +594,7 @@
         const open = r => !r.goalDone && !r.failed;
         const userN = r => r.msgs.filter(m => m.role === "user").length;
         const reachNow = r => open(r) && !!p.goalReached ? (p.goalNote || "看起来目标达成了") : null;
-        update(list => list.map(l => l.id !== line.id ? l : { ...l, rounds: l.rounds.map((r, i) => i !== l.rounds.length - 1 ? r : { ...r, msgs: [...r.msgs, { id: rid("tm_"), role: "char", content: p.scene, ts: Date.now(), cot: cotOut || undefined, cotRequested: cotAsked || undefined, registerExplicitActive: rt.active || undefined }], pending: open(r) && !r.pending && userN(r) >= 3 && (reachNow(r) || r.earlyReach) ? (reachNow(r) || r.earlyReach) : r.pending, earlyReach: open(r) && userN(r) < 3 && reachNow(r) ? reachNow(r) : (userN(r) >= 3 ? null : r.earlyReach), pendingFail: !r.goalDone && !r.failed && !p.goalReached && !!p.goalFailed && r.msgs.filter(m => m.role === "user").length >= 3 ? (p.goalNote || "看起来这条路走死了") : r.pendingFail }) }));
+        update(list => list.map(l => l.id !== line.id ? l : { ...l, rounds: l.rounds.map((r, i) => i !== l.rounds.length - 1 ? r : { ...r, msgs: [...r.msgs, { id: rid("tm_"), role: "char", content: p.scene, ts: Date.now(), choices: Array.isArray(p.choices) ? p.choices.map(x => String(x || "").trim()).filter(Boolean).slice(0, 3) : undefined, cot: cotOut || undefined, cotRequested: cotAsked || undefined, registerExplicitActive: rt.active || undefined }], pending: open(r) && !r.pending && userN(r) >= 3 && (reachNow(r) || r.earlyReach) ? (reachNow(r) || r.earlyReach) : r.pending, earlyReach: open(r) && userN(r) < 3 && reachNow(r) ? reachNow(r) : (userN(r) >= 3 ? null : r.earlyReach), pendingFail: !r.goalDone && !r.failed && !p.goalReached && !!p.goalFailed && r.msgs.filter(m => m.role === "user").length >= 3 ? (p.goalNote || "看起来这条路走死了") : r.pendingFail }) }));
         setNote(""); setNoteOpen(false); setDice(false); // 便签与骰子都是一次性,用完即清
         setTimeout(() => maybeSummarize(line.id), 400);
       } catch (e) {
@@ -930,6 +937,92 @@
       ? h("img", { src: imgSrc(c.avatarImage), style: { width: size, height: size, borderRadius: 999, objectFit: "cover", display: "block" } })
       : h("div", { style: { width: size, height: size, borderRadius: 999, background: (c && c.color) || "#c2bdb1", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: F_DISPLAY, fontSize: Math.round(size * 0.4), color: "#fff" } }, String((c && c.name) || "?")[0]);
     // 返回:子页面逐层退回,不要一脚踹回入口(演出→该角色的记录→入口)
+    // 乙游风：整条线摊成一句一句——他那拍按段落拆（引号开头的段算他说的话），太长的再按句号切；她那拍是她说的；剧照那一条换背景
+    const vnBeats = l => { const out = []; let bg = l.bg || l.cover || null;
+      allMsgs(l).forEach(m => {
+        if (m.role === "photo") { if (m.img) bg = m.img; return; }
+        if (m.role === "user") { out.push({ who: "me", text: m.content, bg, mid: m.id }); return; }
+        String(m.content || "").split(/\n+/).map(x => x.trim()).filter(Boolean).forEach(par => {
+          const who = /^[“"「『]/.test(par) ? "he" : "narr";
+          const parts = par.length > 110 ? (par.match(/[^。！？!?…]+[。！？!?…」”]*/g) || [par]).reduce((acc, sn) => { if (acc.length && (acc[acc.length - 1] + sn).length <= 90) acc[acc.length - 1] += sn; else acc.push(sn); return acc; }, []) : [par];
+          parts.forEach(tx => out.push({ who, text: tx.trim(), bg, mid: m.id }));
+        });
+      });
+      return out;
+    };
+    const renderVN = () => {
+      const char = charOf(line) || {}, round = line.rounds[line.rounds.length - 1], beats = vnBeats(line);
+      const actName = k => "第" + (k < 10 ? "一二三四五六七八九十"[k] : String(k + 1)) + "幕";
+      // 有新的句子进来（他刚演完一拍）：跳到新的那一段开头；刚打开就停在最后一句
+      if (beats.length !== vnLen.current) { const was = vnLen.current; vnLen.current = beats.length; const lastMid = (beats[beats.length - 1] || {}).mid, startOfLast = Math.max(0, beats.findIndex(x => x.mid === lastMid));
+        setTimeout(() => setVnI(was === 0 || vnI < 0 ? startOfLast : Math.min(was, beats.length - 1)), 0); }   // 刚打开：从他最近那一拍的开头看
+      const i = Math.max(0, Math.min(vnI < 0 ? beats.length - 1 : vnI, beats.length - 1)), b = beats[i] || { who: "narr", text: line.opening || "" };
+      const atEnd = i >= beats.length - 1, last = allMsgs(line).filter(m => m.role !== "photo").slice(-1)[0];
+      const myTurn = atEnd && !busy && !line.ended && !!last && last.role === "char";
+      const retry = atEnd && !busy && !line.ended && !!last && last.role === "user";
+      const bgUrl = b.bg ? imgSrc(b.bg) : null, fs = n => "calc(" + n + "px * var(--app-fs, 1))";
+      const pill = on => ({ flexShrink: 0, marginLeft: 4, color: "#fff", fontFamily: F_BODY, fontSize: fs(10.5), padding: "1px 7px", borderRadius: 999, border: "1px solid rgba(255,255,255," + (on ? ".9" : ".35") + ")", background: on ? "rgba(255,255,255,.18)" : "transparent", whiteSpace: "nowrap" });
+      const choiceBtn = { textAlign: "center", width: "100%", maxWidth: 340, padding: "12px 14px", borderRadius: 12, border: "1px solid rgba(255,255,255,.45)", background: "rgba(16,14,22,.78)", color: "#fff", fontFamily: F_BODY, fontSize: fs(14), boxShadow: "0 6px 18px rgba(0,0,0,.35)" };
+      const hid = { opacity: vnHide ? 0 : 1, pointerEvents: vnHide ? "none" : undefined, transition: "opacity .2s" };
+      const tap = () => { if (vnLpOn.current) { vnLpOn.current = false; return; } if (!atEnd) setVnI(i + 1); };
+      const who = b.who === "he" ? char.name : b.who === "me" ? uName : "";
+      const pick = txt => { setVnWrite(false); send(txt); };
+      return h("div", { "data-wk": "thrvn", className: "fixed inset-0 flex flex-col",
+          onPointerDown: () => { clearTimeout(vnLp.current); vnLp.current = setTimeout(() => { vnLpOn.current = true; setVnHide(true); }, 450); },
+          onPointerUp: () => { clearTimeout(vnLp.current); if (vnHide) { setVnHide(false); setTimeout(() => { vnLpOn.current = false; }, 60); } },
+          onPointerCancel: () => clearTimeout(vnLp.current), onContextMenu: e => e.preventDefault(),
+          style: { zIndex: 60, userSelect: "none", WebkitUserSelect: "none", WebkitTouchCallout: "none", background: bgUrl ? "#111 center/cover no-repeat url(" + bgUrl + ")" : "linear-gradient(#2b2436,#14111b)" } },
+        h("div", { className: "flex items-center", style: Object.assign({ padding: "calc(env(safe-area-inset-top) + 10px) 14px 8px", background: "linear-gradient(rgba(0,0,0,.6), transparent)" }, hid) },
+          h("button", { onClick: back, style: { flexShrink: 0, color: "#fff", fontFamily: F_BODY, fontSize: fs(13), whiteSpace: "nowrap" } }, "‹ 收起"),
+          h("div", { className: "flex-1 text-center", style: { minWidth: 0, margin: "0 6px", color: "#fff" } },
+            h("div", { style: { whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", fontFamily: F_DISPLAY, fontSize: fs(14) } }, line.title),
+            round ? h("div", { "data-wk": "thrvngoal", onClick: e => { e.stopPropagation(); setGoalOpen(v => !v); }, style: { marginTop: 1, whiteSpace: goalOpen ? "normal" : "nowrap", overflow: "hidden", textOverflow: "ellipsis", fontFamily: F_BODY, fontSize: fs(10), opacity: .7 } }, actName(line.rounds.length - 1) + (round.goalDone ? " ✓ " : round.failed ? " ✗ " : " · ") + round.goal) : null),
+          h("button", { "data-wk": "thrvnlog", onClick: e => { e.stopPropagation(); setVnLog(true); }, style: pill(false) }, "记录"),
+          h("button", { "data-wk": "thrvnclassic", onClick: e => { e.stopPropagation(); update(list => list.map(l => l.id !== line.id ? l : { ...l, vn: false })); }, style: pill(false) }, "原版")),
+        // 目标确认、失败确认：跟原版同一套
+        round && (round.pending || round.pendingFail) && !line.ended ? h("div", { onClick: e => e.stopPropagation(), style: Object.assign({ margin: "6px 14px", padding: "10px 12px", borderRadius: 12, background: "rgba(255,248,233,.94)", fontFamily: F_BODY, fontSize: fs(12.5), color: "#39382F" }, hid) },
+          round.pending ? "看起来这一幕的目标达成了" + (typeof round.pending === "string" ? "：" + round.pending : "") : "这一幕的目标好像走不通了" + (typeof round.pendingFail === "string" ? "：" + round.pendingFail : ""),
+          h("div", { className: "flex justify-end", style: { gap: 8, marginTop: 8 } },
+            h("button", { onClick: () => round.pending ? confirmGoal(false) : confirmFail(false), style: { padding: "4px 12px", fontSize: fs(12), color: "#827C6F" } }, "还有机会"),
+            h("button", { onClick: () => { if (round.pending) confirmGoal(true); else confirmFail(true); }, style: { padding: "4px 12px", borderRadius: 999, background: "#285C4B", color: "#fff", fontSize: fs(12) } }, round.pending ? "确认达成" : "确认走不通"))) : null,
+        round && (round.goalDone || round.failed) && !round.pending && atEnd && !busy && !line.ended ? h("div", { className: "flex justify-center", onClick: e => e.stopPropagation(), style: Object.assign({ gap: 8, marginTop: 6 }, hid) },
+          h("button", { "data-wk": "thrvnnext", onClick: () => genGoal("next"), style: pill(true) }, "开下一幕（AI 想目标）")) : null,
+        // 中间：轮到她时的选项
+        h("div", { className: "flex-1 flex flex-col items-center justify-center", onClick: tap, style: Object.assign({ padding: "0 28px", gap: 10 }, hid) },
+          myTurn && !vnWrite ? [].concat((last.choices || []).map((c, k) => h("button", { key: "c" + k, "data-wk": "thrvnchoice", onClick: e => { e.stopPropagation(); pick(c); }, style: choiceBtn }, c)),
+            [h("button", { key: "w", "data-wk": "thrvnwrite", onClick: e => { e.stopPropagation(); setVnWrite(true); }, style: Object.assign({}, choiceBtn, { background: "rgba(16,14,22,.5)", borderStyle: "dashed" }) }, "自己写…")]) : null,
+          retry ? h("button", { onClick: e => { e.stopPropagation(); send(""); }, style: choiceBtn }, "上一拍没演出来，再演一次") : null,
+          busy ? h("div", { style: { color: "#fff", fontFamily: F_BODY, fontSize: fs(12.5), opacity: .8 } }, busyWhat || (char.name || "Ta") + " 在演…") : null),
+        // 底下：自己写那一格（带 + 菜单：骰子、便签、剧照、封面），或者对话框
+        myTurn && vnWrite ? h("div", { "data-wk": "thrvncompose", onClick: e => e.stopPropagation(), style: Object.assign({ margin: "0 12px calc(env(safe-area-inset-bottom) * 0.4 + 14px)", padding: 10, borderRadius: 14, background: "rgba(16,14,22,.88)", border: "1px solid rgba(255,255,255,.18)" }, hid) },
+          plusOpen ? h("div", { className: "flex flex-wrap", style: { gap: 6, marginBottom: 8 } },
+            h("button", { "data-wk": "thrtool", "data-part": "dice", onClick: () => setDice(v => !v), style: pill(dice) }, dice ? "骰子·已上膛" : "骰子"),
+            h("button", { "data-wk": "thrtool", "data-part": "note", onClick: () => setNoteOpen(v => !v), style: pill(noteOpen || !!note.trim()) }, "便签"),
+            h("button", { "data-wk": "thrtool", "data-part": "photo", onClick: genPhoto, disabled: busy, style: pill(false) }, "当轮剧照"),
+            h("button", { onClick: genCover, disabled: busy, style: pill(false) }, line.cover ? "重出封面" : "封面图"),
+            line.cover && line.bg !== line.cover ? h("button", { onClick: () => update(list => list.map(l => l.id !== line.id ? l : { ...l, bg: line.cover })), style: pill(false) }, "封面当背景") : null) : null,
+          noteOpen ? h("textarea", { value: note, onChange: e => setNote(e.target.value), rows: 2, placeholder: "导演便签：只给这一拍的幕后指示", style: { width: "100%", marginBottom: 8, padding: 8, borderRadius: 8, background: "rgba(255,255,255,.08)", color: "#fff", border: "1px solid rgba(255,255,255,.2)", fontFamily: F_BODY, fontSize: fs(12.5) } }) : null,
+          h("div", { className: "flex items-end", style: { gap: 8 } },
+            h("button", { onClick: () => setPlusOpen(v => !v), style: pill(plusOpen || dice || !!note.trim()) }, plusOpen ? "×" : "+"),
+            h("textarea", { value: input, onChange: e => setInput(e.target.value), rows: 2, placeholder: "你的行动或台词…", style: { flex: 1, padding: 8, borderRadius: 8, background: "rgba(255,255,255,.08)", color: "#fff", border: "1px solid rgba(255,255,255,.2)", fontFamily: F_BODY, fontSize: fs(13.5), resize: "none" } }),
+            h("div", { className: "flex flex-col", style: { gap: 6 } },
+              h("button", { "data-wk": "thrvnsend", onClick: () => { setVnWrite(false); send(); }, style: { padding: "6px 14px", borderRadius: 999, background: "#B58C55", color: "#fff", fontFamily: F_BODY, fontSize: fs(12.5) } }, "演"),
+              (last.choices || []).length ? h("button", { onClick: () => setVnWrite(false), style: { fontFamily: F_BODY, fontSize: fs(11), color: "rgba(255,255,255,.6)" } }, "看选项") : null)))
+        : h("div", { "data-wk": "thrvnbox", onClick: tap, style: Object.assign({ margin: "0 12px calc(env(safe-area-inset-bottom) * 0.4 + 14px)", borderRadius: 14, background: "rgba(16,14,22,.82)", border: "1px solid rgba(255,255,255,.18)", padding: "14px 16px 30px", minHeight: 150, position: "relative", color: "#fff" }, hid) },
+          who ? h("div", { style: { display: "inline-block", marginBottom: 6, padding: "2px 10px", borderRadius: 999, background: b.who === "he" ? "#B58C55" : "#6b6480", fontFamily: F_BODY, fontSize: fs(12) } }, who) : null,
+          h("div", { style: { fontFamily: F_BODY, fontSize: fs(15), lineHeight: 1.75, fontStyle: who ? "normal" : "italic", opacity: who ? 1 : .88, whiteSpace: "pre-wrap" } }, b.text),
+          line.ended && atEnd ? h("div", { style: { marginTop: 12, fontFamily: F_BODY, fontSize: fs(12), opacity: .7 } }, "—— 这条线已经谢幕 ——") : null,
+          !atEnd ? h("div", { style: { position: "absolute", right: 14, bottom: 10, fontSize: fs(11), opacity: .5 } }, "点一下继续 ▾") : null),
+        vnLog ? h("div", { "data-wk": "thrvnlogview", onClick: () => setVnLog(false), className: "fixed inset-0 flex flex-col", style: { zIndex: 2, background: "rgba(10,9,14,.9)", color: "#fff" } },
+          h("div", { className: "flex items-center", style: { padding: "calc(env(safe-area-inset-top) + 10px) 14px 8px" } },
+            h("button", { onClick: () => setVnLog(false), style: { color: "#fff", fontFamily: F_BODY, fontSize: fs(13) } }, "‹ 收起"),
+            h("div", { className: "flex-1 text-center", style: { fontFamily: F_DISPLAY, fontSize: fs(14), marginRight: 40 } }, "记录")),
+          h("div", { className: "flex-1 overflow-y-auto", ref: el => { if (el && !el.__s) { el.__s = 1; el.scrollTop = el.scrollHeight; } }, style: { padding: "6px 22px calc(env(safe-area-inset-bottom) + 24px)" } },
+            beats.slice(0, i + 1).map((x, k) => { const w = x.who === "he" ? char.name : x.who === "me" ? uName : "";
+              return h("div", { key: k, style: { padding: "10px 0", borderBottom: "1px solid rgba(255,255,255,.08)" } },
+                w ? h("div", { style: { marginBottom: 3, fontFamily: F_BODY, fontSize: fs(11), color: x.who === "he" ? "#e3c48a" : "#c9c0e0" } }, w) : null,
+                h("div", { style: { fontFamily: F_BODY, fontSize: fs(14), lineHeight: 1.7, fontStyle: w ? "normal" : "italic", opacity: w ? 1 : .8, whiteSpace: "pre-wrap" } }, x.text)); }))) : null);
+    };
     const back = () => {
       if (view === "list") return props.onBack();
       if (view === "gallery") { setGalView(null); return galChar ? setGalChar(null) : setView("list"); }
@@ -1064,6 +1157,7 @@
           : h("div", { "data-wk": "thrempty", style: { textAlign: "center", marginTop: 80, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.fog, lineHeight: 2 } }, "还没有收藏的设定。", h("br"), "生成设定时或演出面板里点「收藏」,身份和世界就存下来了。")));
     }
 
+    if (view === "play" && line && line.vn) return renderVN();
     if (view === "play" && line) {
       const char = charOf(line);
       const round = line.rounds[line.rounds.length - 1];
@@ -1181,6 +1275,7 @@
           h("textarea", { "data-wk": "thrinput", "data-part": "note", value: note, onChange: e => setNote(e.target.value), rows: 2, placeholder: "导演便签(只给这一拍的幕后指示,不入剧情):比如「让TA更凶一点」「引入一个不速之客」", style: { width: "100%", padding: 8, borderRadius: 10, border: "1px dashed " + t.line, background: t.bg2, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.ink, resize: "none", outline: "none" } })) : null,
         !line.ended && plusOpen ? h("div", { "data-wk": "thrplus", style: { display: "flex", gap: 8, padding: "8px 14px 0", borderTop: "1px solid " + t.line, flexWrap: "wrap" } },
           h("button", { "data-wk": "thrtool", "data-part": "dice", "data-on": dice ? "1" : "0", onClick: () => { setDice(v => !v); }, style: S.btn(dice) }, "🎲 骰子" + (dice ? "·已上膛" : "")),
+          h("button", { "data-wk": "thrtool", "data-part": "vn", onClick: () => { setPlusOpen(false); vnLen.current = 0; update(list => list.map(l => l.id !== line.id ? l : { ...l, vn: true })); }, style: S.btn(false) }, "换成乙游风"),
           h("button", { "data-wk": "thrtool", "data-part": "note", "data-on": noteOpen ? "1" : "0", onClick: () => { setNoteOpen(v => !v); }, style: S.btn(noteOpen || !!note.trim()) }, "() 便签"),
           h("button", { "data-wk": "thrtool", "data-part": "photo", onClick: genPhoto, disabled: busy, style: S.btn(false) }, "📷 当轮剧照"),
           // 常玩的三颗留在外面;封面和背景那一堆收进「布景」,以前一次挤出八颗同样的按钮
