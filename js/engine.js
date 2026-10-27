@@ -5354,6 +5354,15 @@ function photoYoungerOf(scene) {
     return { age: small ? num.replace(/(?:的|时|那年|的时候)$/, "") : "" };
   return null;
 }
+// 合照得是画面里真有两个人（群友 2026-10-27：「为什么让 char 发照片自动生成我们的合照，描述词里也没有」）：
+//   模型 kind 填了 duo、画面描述却只写了他一个人，原来照样拿两张参考照画成合照。
+//   画面里一点没提到另一个人，就按他自己的照片拍。
+function photoDuoSaid(scene, uName) {
+  const t = String(scene || "");
+  if (/合照|合影|两个人|两人|俩人|我们|我俩|咱们|一起|并肩|挽着|搂着|牵着|靠在.{0,4}(?:肩|怀)|抱着(?:她|你)|她|你/.test(t)) return true;
+  const n = String(uName || "").trim();
+  return !!n && n.length >= 1 && t.indexOf(n) >= 0;
+}
 function buildPhotoPrompt(char, sceneDesc, st, opts) {
   // 设定里【明说了画风】才算二次元：只认画风词。
   //   ⚠️发色瞳色、兽耳不算（她 2026-10-05：「有些人喜欢真人的兽耳或者银发之类的，你不能以偏概全」）——
