@@ -20,7 +20,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v76.762";
+const APP_VERSION = "v76.763";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -9599,6 +9599,16 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       if (sinceMs && (m.ts || 0) < sinceMs) return;
       beats.push({ ts: m.ts || 0, surface: "单人线下", who: m.role === "user" ? uName : m.role === "narration" ? "【场景】" : cName, text: String(m.content) });
     }));
+    // 他在的、开着互通的群（她 2026-10-27：「群聊带的应该是按时间上下文，不是限制条数」）——跟上面两样同一个时间窗、同一份字数预算。
+    //   闭群不外流；正在说话的那个群（excludeGroup）自己有完整记录，不重复带
+    if (surfaces.includes("group")) (groups || []).forEach(g => {
+      if (!g || g.id === opts.excludeGroup || !gsFor(g.id).memoryInterop || !(g.memberIds || []).includes(charId)) return;
+      (groupChatsRef.current[g.id] || []).forEach(m => {
+        if (!m || m.recalled || !m.content || isOocMsg(m) || m.role === "system" || !contextAllowsMessage(m)) return;
+        if (sinceMs && (m.ts || 0) < sinceMs) return;
+        beats.push({ ts: m.ts || 0, surface: "群「" + g.name + "」", who: m.role === "user" ? uName : m.role === "narration" ? "【旁白】" : (m.senderName || "某人"), text: String(m.content) });
+      });
+    });
     if (!beats.length) return "";
     beats.sort((a, b) => (a.ts || 0) - (b.ts || 0));
     const picked = []; let used = 0;
@@ -21125,14 +21135,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     const onlyMine = formatMemLib((split.perChar || {})[String(c.id)] || []);
     const priv = opts.interop ? memberPrivLines(c, opts.privateCtxN) : "";
     const offBeats = opts.interop && Number(opts.privateCtxN) > 0 ? crossRecentFor(c.id, { surfaces: ["offline"] }) : "";
-    // 他在别的互通群里最近聊的（她 2026-10-27：同一拨人在别的群里刚发生的事，新群里不知道——
-    //   原来只能等抽成记忆。单聊那头早就带着 groupEcho，群里这头补上同一种兜底）。闭群照旧不外流；只带最近一段、最多两个群
-    const crossMs = (memCfgRef.current.crossHours || 72) * 3600000, since = Date.now() - crossMs;
-    const otherGroups = !opts.interop ? "" : (groups || []).filter(g => g && g.id !== opts.groupId && gsFor(g.id).memoryInterop && (g.memberIds || []).includes(c.id)).map(g => {
-      const msgs = (groupChatsRef.current[g.id] || []).filter(m => m && !isOocMsg(m) && m.role !== "system" && (m.ts || 0) >= since && contextAllowsMessage(m) && String(m.content || "").trim()).slice(-8);
-      if (!msgs.length) return null;
-      return { ts: msgs[msgs.length - 1].ts || 0, text: "『群「" + g.name + "」最近』\n" + msgs.map(m => (aiStampFor(c.id, m.ts) ? "[" + aiStampFor(c.id, m.ts) + "] " : "") + (m.role === "narration" ? "【旁白】" : (m.role === "user" ? userName(profile) : (m.senderName || "某人"))) + "：" + String(m.content).replace(/\s+/g, " ").slice(0, 120)).join("\n") };
-    }).filter(Boolean).sort((a, b) => b.ts - a.ts).slice(0, 2).map(x => x.text).join("\n\n");
+    // 他在别的互通群里最近聊的（她 2026-10-27）：走 crossRecentFor 那一份——按时间窗＋字数预算（召回设置里那两根拉条），不按条数
+    const otherGroups = opts.interop ? crossRecentFor(c.id, { surfaces: ["group"], excludeGroup: opts.groupId }) : "";
     // 旁观群（群友 2026-10-20）：她不在这个群里。原样摆出他跟她刚才的私聊/线下，模型会顺着那段接着跟她说下去，
     //   而不是在群里跟群里的人聊。照样给（这是他真知道的近况），只说清那是【别处的事】。
     const away = opts.spectate ? "（下面是 " + c.name + " 在别处跟用户的往来，用户不在这个群里；这是他心里知道的近况，不是这个群里正在进行的对话——群里该接的是群里的人。）\n" : "";
