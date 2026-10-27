@@ -16872,12 +16872,22 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       // 存之前再读一次：等模型这十几秒里要是已经翻开了一张，别拿这套盖掉
       const now = luckyOf(groupId);
       if (now.word) return;
-      luckySave(groupId, { ...now, cards, picked: -1 });
+      luckySave(groupId, { ...now, cards, picked: -1, used: [] });
     } catch (e) { toast("抽字符失败：" + e.message); }
   };
+  // 重选（她 2026-10-27：抽到不满意的，从剩下五张里再翻一张）：不再叫模型，原来那套牌翻回去、翻过的那张划掉。
+  //   只在还没点亮第一个字之前能换；走的是同一个 onPickLucky，传 "again"
   const pickLucky = (groupId, i) => {
+    if (i === "again") {
+      const st0 = luckyOf(groupId);
+      if (!st0.word || !(st0.picked >= 0) || (st0.lit || 0) > 0) return;
+      const used = [...new Set([...(st0.used || []), st0.picked])];
+      if (used.length >= (st0.cards || []).length) { toast("六张都翻过了，点满这一张再抽下一套"); return; }
+      luckySave(groupId, { ...st0, word: "", lit: 0, prog: 0, picked: -1, used });
+      return;
+    }
     const st = luckyOf(groupId), w = (st.cards || [])[i];
-    if (!w || st.word) return;
+    if (!w || st.word || (st.used || []).includes(i)) return;
     luckySave(groupId, { ...st, word: w, lit: 0, prog: 0, picked: i });
     luckyLine(groupId, "抽到了" + (String(groupId).indexOf("c:") === 0 ? "我们的" : "群") + "幸运字符「" + w + "」，聊满 " + LUCKY_PER + " 条点亮一个字");
   };
@@ -16900,7 +16910,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       if (cards.length < 2) throw new Error("没起出来");
       const now = luckyOf(key);
       if (now.word) return;
-      luckySave(key, { ...now, cards, picked: -1 });
+      luckySave(key, { ...now, cards, picked: -1, used: [] });
     } catch (e) { toast("抽字符失败：" + e.message); }
   };
   // 抽头衔：照每个人的人设和最近在群里干了什么，一次给全群起一个（她在群里的话也给她）

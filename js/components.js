@@ -20352,11 +20352,18 @@ function LuckyCharsPanel({ lucky, onDrawLucky, onPickLucky, busy, setBusy }) {
           : picking ? h("div", null,
             h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.sub, marginBottom: 8 } }, "挑一张翻开："),
             h("div", { style: { display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8 } },
-              lk.cards.map((w, i) => h("button", { key: i, "data-wk": "gluckycard", onClick: () => onPickLucky && onPickLucky(i), className: "active:opacity-70",
-                style: { height: 74, borderRadius: 12, border: "1.5px solid #d9902b", background: "repeating-linear-gradient(45deg, #f6d38a33, #f6d38a33 6px, transparent 6px, transparent 12px)", color: "#a8641a", fontFamily: F_DISPLAY, fontSize: "calc(24px * var(--app-fs, 1))" } }, "?"))))
+              lk.cards.map((w, i) => { const gone = (lk.used || []).includes(i);
+                // 重选时翻过的那几张亮着字、划掉、点不了
+                return h("button", { key: i, "data-wk": "gluckycard", "data-part": gone ? "used" : "", disabled: gone, onClick: () => onPickLucky && onPickLucky(i), className: "active:opacity-70",
+                style: { height: 74, borderRadius: 12, border: "1.5px solid " + (gone ? t.line : "#d9902b"), background: gone ? "transparent" : "repeating-linear-gradient(45deg, #f6d38a33, #f6d38a33 6px, transparent 6px, transparent 12px)", color: gone ? t.fog : "#a8641a", fontFamily: F_DISPLAY, fontSize: gone ? "calc(14px * var(--app-fs, 1))" : "calc(24px * var(--app-fs, 1))", textDecoration: gone ? "line-through" : "none" } }, gone ? w : "?"); })))
           : h("button", { "data-wk": "gluckydraw", disabled: gLuckyBusy, onClick: async () => { if (gLuckyBusy) return; setGLuckyBusy(true); try { await onDrawLucky(); } finally { setGLuckyBusy(false); } }, className: "w-full active:opacity-70 disabled:opacity-60", style: { minHeight: 44, borderRadius: 12, border: "1.5px solid #d9902b", color: "#a8641a", background: "transparent", fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))" } },
               gLuckyBusy ? "洗牌中…要等十几秒" : (book.length ? "抽下一张" : "抽一张") + " · 花一次调用"),
           lk.word && lk.cards && lk.picked >= 0 ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginTop: 8 } }, "没翻的那几张：" + lk.cards.filter((_, i) => i !== lk.picked).join("、")) : null,
+          // 还没点亮第一个字、也还有没翻过的：能换一张（不花调用）
+          lk.word && lk.cards && lk.picked >= 0 && !(lk.lit > 0) && lk.cards.length - [...new Set([...(lk.used || []), lk.picked])].length > 0
+            ? h("button", { "data-wk": "gluckyagain", onClick: () => onPickLucky && onPickLucky("again"), className: "w-full active:opacity-70",
+                style: { marginTop: 8, minHeight: 40, borderRadius: 10, border: "1px dashed #d9902b", background: "transparent", color: "#a8641a", fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))" } },
+                "不喜欢这张，从剩下的再翻一张（不花调用）") : null,
           book.length ? h("div", { "data-wk": "gluckybook", className: "pt-4" },
             h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog, marginBottom: 6 } }, "收藏本 · " + book.length + " 个"),
             h("div", { className: "flex flex-wrap", style: { gap: 6 } }, book.slice().reverse().map((b, i) => h("span", { key: i, title: new Date(b.ts).toLocaleDateString(),
