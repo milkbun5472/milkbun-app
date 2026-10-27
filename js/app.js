@@ -7160,13 +7160,11 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       }
       return lines.join("\n");
     })(),
-    groupEcho: (groups || []).filter(g => gsFor(g.id).memoryInterop && (g.memberIds || []).includes(char.id)).map(g => {
-      const msgs = (groupChatsRef.current[g.id] || []).filter(m => m && !isOocMsg(m) && m.role !== "system" && contextAllowsMessage(m) && String(m.content || "").trim());
-      if (!msgs.length) return "";
-      const others = (g.memberIds || []).filter(id => id !== char.id).map(id => { const c = characters.find(x => x.id === id); return c ? c.name : null; }).filter(Boolean);
-      const lines = msgs.slice(-14).map(m => (aiStampFor(char.id, m.ts) ? "[" + aiStampFor(char.id, m.ts) + "] " : "") + (m.role === "narration" ? "【旁白】" : (m.role === "user" ? userName(profile) : (m.senderName || "某人")) + "：") + String(m.content).replace(/\s+/g, " ").slice(0, 60) + ((m.role === "user" || m.role === "narration") && window.TemporalAnchor ? " " + window.TemporalAnchor.anchor(m.content, m.ts) : "")).join("\n");
-      return "『群「" + g.name + "」" + (others.length ? "（群里还有 " + others.join("、") + "）" : "") + " 最近聊的（带时间，和你俩私聊按真实先后顺序理解）』\n" + lines;
-    }).filter(Boolean).slice(0, 2).join("\n\n"),
+    // 他在的互通群最近聊的（她 2026-10-27「换了」）：原来每群最近 14 句、最多两个群；现在跟群里那头同一份——
+    //   crossRecentFor 的 group 面，按记忆设置里跨场景的时间窗和字数预算，几个群按真实时间合排。闭群不外流。
+    //   try 包着：ctxFor 写在 crossRecentFor 上面，万一渲染时就被叫到，别因为先后顺序把整页带崩
+    groupEcho: (() => { let t = ""; try { t = crossRecentFor(char.id, { surfaces: ["group"] }); } catch (e) { t = ""; }
+      return t ? "『你在的群里最近聊的（带时间和群名，和你俩私聊按真实先后顺序理解）』\n" + t : ""; })(),
     // 群线下回显（v50.66）：这个角色参加过的群线下(大家面对面)最近片段，带时间戳，让单聊接得上"刚一起线下相处过"。
     //   只互通群 + 该角色在场；群线下是共同经历、非私密，无需 own-scope 遮蔽。
     groupOfflineEcho: (groups || []).filter(g => gsFor(g.id).memoryInterop && (g.memberIds || []).includes(char.id)).map(g => {

@@ -9,3 +9,8 @@ test("群里每个人也带着他在别的互通群最近聊的：按时间窗�
   assert.match(cr, /g\.id === opts\.excludeGroup \|\| !gsFor\(g\.id\)\.memoryInterop/);
   assert.match(app, /spectate: !imInGroup\(group\) \|\| !!gs\.spectate, groupId: group\.id \}\)/);
 });
+
+test("单聊带的群聊近况也走同一份（她 2026-10-27「换了」）", () => {
+  assert.match(app, /groupEcho: \(\(\) => \{ let t = ""; try \{ t = crossRecentFor\(char\.id, \{ surfaces: \["group"\] \}\); \}/);
+  assert.ok(!/groupEcho: \(groups \|\| \[\]\)\.filter/.test(app), "旧的按条数那份还在");
+});
