@@ -1083,14 +1083,14 @@
     const all = loadMem(); if (!all.length) return [];
     const F = memGrams(focus);
     const scored = all.map((m, i) => { let n = 0; memGrams(m.text).forEach(g => { if (F.has(g)) n++; }); return { m, i, n }; });
-    const hit = scored.filter(x => x.n >= 2).sort((a, b) => b.n - a.n).slice(0, 8);
-    const recent = scored.slice(-4);
+    const hit = scored.filter(x => x.n >= 2).sort((a, b) => b.n - a.n).slice(0, 16);   // 放开（她 2026-10-27「秋秋记忆放开点」）：相关的 8→16、最近的 4→8、一条 80→160 字
+    const recent = scored.slice(-8);
     const seen = new Set(); return hit.concat(recent).filter(x => !seen.has(x.i) && seen.add(x.i)).sort((a, b) => a.i - b.i).map(x => x.m);
   }
   function applyMem(remember, forget) {
     let list = loadMem(), changed = false;
     (Array.isArray(forget) ? forget : []).map(x => String(x || "").trim()).filter(Boolean).forEach(f => { const k = list.findIndex(m => m.text === f || memSame(m.text, f)); if (k >= 0) { list.splice(k, 1); changed = true; } });
-    (Array.isArray(remember) ? remember : []).map(x => String(x || "").trim().slice(0, 80)).filter(Boolean).slice(0, 3).forEach(r => {
+    (Array.isArray(remember) ? remember : []).map(x => String(x || "").trim().slice(0, 160)).filter(Boolean).slice(0, 4).forEach(r => {
       const k = list.findIndex(m => memSame(m.text, r));
       if (k >= 0) list.splice(k, 1);   // 同一件事说了新的：旧的那句拿掉，新的排到最后
       list.push({ id: "qm" + Date.now().toString(36) + Math.random().toString(36).slice(2, 5), text: r, ts: Date.now() }); changed = true;
