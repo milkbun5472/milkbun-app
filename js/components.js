@@ -8795,6 +8795,7 @@ function Messages({
   onPromoteNpc,
   onSetNpcMem,
   onSetNpcMoments,
+  onSetNpcGender,
   groups,
   chats,
   groupChats,
@@ -9286,7 +9287,7 @@ function Messages({
               h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))", color: t.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, g.name),
               h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginTop: 1 } }, (g.memberIds || []).length + " 人")),
             h(IChevR, { size: 15, color: t.line })))))
-  , npcBook && h(NpcBook, { npcs: npcAll, owners: allChars || characters, meName: meName, onCreate: onCreateNpc, onSaveAvatar: onSaveNpcAvatar, onSaveBrief: onSaveNpcBrief, onChat: onChatNpc, onPromote: onPromoteNpc, onDelete: onDeleteNpc, onSetMem: onSetNpcMem, onSetMoments: onSetNpcMoments, onClose: () => setNpcBook(false) })
+  , npcBook && h(NpcBook, { npcs: npcAll, owners: allChars || characters, meName: meName, onCreate: onCreateNpc, onSaveAvatar: onSaveNpcAvatar, onSaveBrief: onSaveNpcBrief, onChat: onChatNpc, onPromote: onPromoteNpc, onDelete: onDeleteNpc, onSetMem: onSetNpcMem, onSetMoments: onSetNpcMoments, onSetGender: onSetNpcGender, onClose: () => setNpcBook(false) })
   , rowMenu && h(Sheet, { onClose: () => setRowMenu(null) },
     h("div", { "data-wk": "mlrowmenu", className: "px-5 pb-6 pt-1" },
       h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))", color: t.ink, marginBottom: 10 } }, rowMenu.name || "配角"),
@@ -9636,7 +9637,7 @@ function MomentCompose({
 // 好友分组管理
 // 通讯录 → 配角：按主人分组的一本册子。整页，不是半窗（施工规则/no-half-sheet.md）。
 //   点头像就换（AvatarPicker 那一个，跟卷宗、群头像同一个）；换好的头像群聊和关系图都跟着用。
-function NpcBook({ npcs, owners, meName, onCreate, onSaveAvatar, onSaveBrief, onChat, onPromote, onDelete, onSetMem, onSetMoments, onClose }) {
+function NpcBook({ npcs, owners, meName, onCreate, onSaveAvatar, onSaveBrief, onChat, onPromote, onDelete, onSetMem, onSetMoments, onSetGender, onClose }) {
   const [promoArm, setPromoArm] = useState(null);   // 转正先问一句
   const t = useTheme();
   // 在这一页直接新建（她 2026-10-10：「不能创建的时候在 npc 页面弄吗」）：一步写好认识谁、各是什么关系，
@@ -9704,6 +9705,15 @@ function NpcBook({ npcs, owners, meName, onCreate, onSaveAvatar, onSaveBrief, on
       h("div", { "data-wk": "block", style: { background: t.bg2, border: "1px solid " + t.line, borderRadius: 14, padding: "12px 14px" } },
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(13.5px * var(--app-fs, 1))", color: t.sub } }, "简介"),
         h(NpcBrief, { key: cur.id, npc: cur, onSave: onSaveBrief, defaultOpen: true })),
+      // 性别（她 2026-10-27「性别在哪儿」）：生成时自己填，这里能改；叫 TA 他／她 都照这一格
+      onSetGender ? h("div", { "data-wk": "npcgender", style: { marginTop: 12, background: t.bg2, border: "1px solid " + t.line, borderRadius: 14, padding: "12px 14px" } },
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(13.5px * var(--app-fs, 1))", color: t.sub } }, "性别"),
+        h("div", { className: "flex gap-2", style: { marginTop: 9 } },
+          [["他", "男 · 他"], ["她", "女 · 她"], ["TA", "不分 · TA"]].map(([v, zh]) => {
+            const on = (cur.gender === "他" || cur.gender === "她" ? cur.gender : "TA") === v;
+            return h("button", { key: v, "data-on": on ? "1" : "0", onClick: () => onSetGender(cur.id, v), className: "flex-1 active:opacity-70",
+              style: { minHeight: 40, borderRadius: 9, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", border: "1px solid " + (on ? t.ink : t.line), background: on ? t.ink : "transparent", color: on ? t.bg2 : t.sub } }, zh);
+          }))) : null,
       // 私聊：配角没有好感、印象卡、日程，也从不主动找她——只在她点进来时说话。
       //   TA记得的是TA自己那份（私聊攒下的＋在场的群里那些），主人看不见你们聊了什么。
       onSetMem ? h("div", { "data-wk": "block", style: { marginTop: 12, background: t.bg2, border: "1px solid " + t.line, borderRadius: 14, padding: "12px 14px" } },
@@ -9759,7 +9769,7 @@ function NpcBook({ npcs, owners, meName, onCreate, onSaveAvatar, onSaveBrief, on
               h("div", { onClick: e => e.stopPropagation() }, h(AvatarPicker, { character: chatFace(n), size: 46, radius: 9, onPick: img => onSaveAvatar(n.id, img), onClear: (n.avatarImage || n.chatAvatar) ? () => onSaveAvatar(n.id, null) : undefined })),
               h("div", { className: "flex-1 min-w-0" },
                 h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))", color: t.ink } }, n.name),
-                h("div", { className: "truncate", style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, marginTop: 2 } }, String(n.persona || "").replace(/\s+/g, " ").slice(0, 60) || "（还没写介绍）")),
+                h("div", { className: "truncate", style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, marginTop: 2 } }, npcLine(n.persona) || "（还没写介绍）")),
               h(IChevR, { size: 15, color: t.line })))))));
 }
 function GroupManager({
@@ -9888,6 +9898,11 @@ function momentDisplayName(characters, who) {
 function momTopFirst(list) {
   const arr = Array.isArray(list) ? list : [];
   return arr.filter(m => m && m.mine && m.top).concat(arr.filter(m => !(m && m.mine && m.top)));
+}
+// 配角列表那一行（她 2026-10-27）：只摆简介第一句，开头的「你是」去掉——生成的简介第一句就是身份和年龄
+function npcLine(persona) {
+  const first = String(persona || "").trim().split(/\n|。/)[0].trim().replace(/^你是/, "");
+  return first.replace(/\s+/g, " ").slice(0, 40);
 }
 function MomentsFeed({
   npcs,
@@ -20359,6 +20374,9 @@ function LuckyCharsPanel({ lucky, onDrawLucky, onPickLucky, busy, setBusy }) {
           : h("button", { "data-wk": "gluckydraw", disabled: gLuckyBusy, onClick: async () => { if (gLuckyBusy) return; setGLuckyBusy(true); try { await onDrawLucky(); } finally { setGLuckyBusy(false); } }, className: "w-full active:opacity-70 disabled:opacity-60", style: { minHeight: 44, borderRadius: 12, border: "1.5px solid #d9902b", color: "#a8641a", background: "transparent", fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))" } },
               gLuckyBusy ? "洗牌中…要等十几秒" : (book.length ? "抽下一张" : "抽一张") + " · 花一次调用"),
           lk.word && lk.cards && lk.picked >= 0 ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginTop: 8 } }, "没翻的那几张：" + lk.cards.filter((_, i) => i !== lk.picked).join("、")) : null,
+          lk.word ? h("div", { "data-wk": "gluckybadgeset", className: "flex items-center justify-between", style: { marginTop: 10 } },
+            h("span", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.sub } }, "挂在名字旁边"),
+            h(Toggle, { on: !lk.hideBadge, onChange: () => onPickLucky && onPickLucky("badge") })) : null,
           // 还没点亮第一个字、也还有没翻过的：能换一张（不花调用）
           lk.word && lk.cards && lk.picked >= 0 && !(lk.lit > 0) && lk.cards.length - [...new Set([...(lk.used || []), lk.picked])].length > 0
             ? h("button", { "data-wk": "gluckyagain", onClick: () => onPickLucky && onPickLucky("again"), className: "w-full active:opacity-70",
@@ -20369,9 +20387,9 @@ function LuckyCharsPanel({ lucky, onDrawLucky, onPickLucky, busy, setBusy }) {
             h("div", { className: "flex flex-wrap", style: { gap: 6 } }, book.slice().reverse().map((b, i) => h("span", { key: i, title: new Date(b.ts).toLocaleDateString(),
               style: { padding: "4px 10px", borderRadius: 999, background: "#f6d38a44", color: "#a8641a", fontFamily: F_DISPLAY, fontSize: "calc(13px * var(--app-fs, 1))" } }, b.word)))) : null);
 }
-// 顶栏名字旁边那枚：点亮的字是实的，没点亮的是虚的
+// 顶栏名字旁边那枚：点亮的字是实的，没点亮的是虚的；面板里关了「挂在名字旁边」就不挂（进度照算）
 function luckyBadge(t, lucky) {
-  if (!lucky || !lucky.word || typeof luckyUnits !== "function") return null;
+  if (!lucky || !lucky.word || lucky.hideBadge || typeof luckyUnits !== "function") return null;
   return h("span", { "data-wk": "gluckybadge", title: "幸运字符", style: { flexShrink: 0, marginLeft: 4, padding: "0 6px", borderRadius: 999, border: "1px solid " + t.line, fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", letterSpacing: "0.05em" } },
     luckyUnits(lucky.word).map((ch, i) => h("span", { key: i, "data-on": i < (lucky.lit || 0) ? "1" : "0", style: { color: i < (lucky.lit || 0) ? "#d9902b" : t.fog, opacity: i < (lucky.lit || 0) ? 1 : 0.45, fontWeight: i < (lucky.lit || 0) ? 700 : 400 } }, ch)));
 }

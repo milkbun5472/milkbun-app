@@ -20,7 +20,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v76.752";
+const APP_VERSION = "v76.757";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -16878,6 +16878,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   // 重选（她 2026-10-27：抽到不满意的，从剩下五张里再翻一张）：不再叫模型，原来那套牌翻回去、翻过的那张划掉。
   //   只在还没点亮第一个字之前能换；走的是同一个 onPickLucky，传 "again"
   const pickLucky = (groupId, i) => {
+    if (i === "badge") { const sb = luckyOf(groupId); luckySave(groupId, { ...sb, hideBadge: !sb.hideBadge }); return; }   // 顶栏挂不挂（她 2026-10-27）
     if (i === "again") {
       const st0 = luckyOf(groupId);
       if (!st0.word || !(st0.picked >= 0) || (st0.lit || 0) > 0) return;
@@ -32593,6 +32594,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       toast("「" + (c0.remark || c0.name) + "」转正了：聊天和记忆都还在，去人格档案馆补一补人设和头像");
     },
     onSetNpcMoments: (id, v) => pC(p => p.map(c => c.id === id && c.npc ? { ...c, npcMoments: !!v } : c)),
+    onSetNpcGender: (id, v) => pC(p => p.map(c => c.id === id && c.npc ? { ...c, gender: v === "他" || v === "她" ? v : "TA" } : c)),
     onSetNpcMem: (id, v) => pC(p => p.map(c => c.id === id && c.npc ? { ...c, memExtract: v || "" } : c)),   // 配角私聊：同一个开聊天的口子（按 id 从全量里取）
     // 配角只有一张脸（她 2026-10-05 转群里：「和生成的 NPC 聊天，里面头像可以换，外面的不行」）：
     //   配角没有档案页，聊天里换的是 chatAvatar、通讯录这儿换的是 avatarImage，两张各管各的，

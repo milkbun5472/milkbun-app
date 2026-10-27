@@ -1232,7 +1232,9 @@ function LockScreen({ char, t, rows, newIds, newCount, onUnlock, onOpenApp, onTi
   //   记的是这几条的 id，之后新来的照样出来——跟 iPhone 锁屏上清通知一个意思
   const lockKey = "x_phoneLockClear";
   const [cleared, setCleared] = useState(() => new Set(((loadJSON(lockKey, {}) || {})[char && char.id] || []).map(String)));
-  const clearAll = ids => { const all = loadJSON(lockKey, {}) || {}; const next = [...new Set([...(all[char.id] || []), ...ids.map(String)])].slice(-200);
+  const clearAll = ids => { const all = loadJSON(lockKey, {}) || {}; const next = [...new Set([...ids.map(String), ...(all[char.id] || [])])].slice(0, 2000);
+    // ⚠️原来是旧的在前、新清的接在后面、再留最后 200 条：通知一多过 200（她 2026-10-27：359 条新的），
+    //   刚清的那几条（排在最前面的最新几条）正好被切掉，点了跟没点一样。现在刚清的排最前、留 2000 条
     saveJSON(lockKey, { ...all, [char.id]: next }); setCleared(new Set(next)); };
   const list = (Array.isArray(rows) ? rows : []).filter(r => !r.ahead && !cleared.has(String(r.id)));
   const fresh = list.filter(r => newIds && newIds[r.id]);
