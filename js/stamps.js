@@ -532,11 +532,13 @@
               h("div", { style: { fontFamily: F_DISPLAY, fontSize: fs(14), color: GOLD } }, "✦ 小剧场"),
               h("div", { style: { flex: 1, height: 1, background: LINE } })),
             h("div", { "data-wk": "stamptheater", className: "flex overflow-x-auto", style: { gap: 10, marginTop: 12, paddingBottom: 4, marginRight: -20, paddingRight: 20 } },
-              ls.map(l => { const cv = img(l.cover || l.bg); const n = (l.rounds || []).reduce((a, r) => a + (r.msgs || []).length, 0);
+              ls.map(l => { const cv = img((l.endCard && l.endCard.img) || l.cover || l.bg); const n = (l.rounds || []).reduce((a, r) => a + (r.msgs || []).length, 0);
                 return h("button", { key: l.id, "data-wk": "stamptheaterline", onClick: () => onTheaterLine && onTheaterLine(l.id), className: "shrink-0 text-left active:opacity-80",
                   style: { position: "relative", width: 150, minHeight: 168, borderRadius: 12, overflow: "hidden", border: "1px solid " + FRAME, background: cv ? "#222 center/cover no-repeat url(" + cv + ")" : "#FFF8E9", display: "flex", flexDirection: "column", justifyContent: "flex-end" } },
                   h("div", { style: { padding: "26px 12px 10px", background: cv ? "linear-gradient(transparent, rgba(0,0,0,.65))" : "none", color: cv ? "#FFF8E9" : P } },
                     h("div", { style: { fontFamily: F_DISPLAY, fontSize: fs(13.5) } }, l.title || "小剧场"),
+                    // 谢幕卡：他留的那一句印在剧照上，像一张明信片
+                    l.ended && l.endCard && l.endCard.quote ? h("div", { "data-wk": "stamptheaterquote", style: { marginTop: 4, fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: fs(11), lineHeight: 1.5, opacity: .95 } }, "「" + l.endCard.quote + "」") : null,
                     h("div", { style: { marginTop: 2, fontFamily: F_BODY, fontSize: fs(10.5), opacity: .75 } }, (l.ended ? "谢幕了" : "演到第 " + (l.rounds || []).length + " 轮") + " · " + n + " 拍"))); }),
               h("button", { "data-wk": "stamptheaternew", onClick: () => onTheater && onTheater(card), className: "shrink-0 active:opacity-70",
                 style: { width: 150, minHeight: 168, borderRadius: 12, border: "1.5px dashed " + GOLD, color: GOLD, background: "transparent", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 6, fontFamily: F_BODY, fontSize: fs(12.5) } },
