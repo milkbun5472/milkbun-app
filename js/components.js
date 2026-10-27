@@ -12400,6 +12400,10 @@ function CallScreen({
   onMinimize,
   onRestore
 }) {
+  // 群视频「拍谁」：有参考照的人才拍得了（锁脸靠它）
+  const shotCands = (participants || []).filter(p => p && p.refPhoto);
+  const [shotPick, setShotPick] = useState(false);
+  const [shotSel, setShotSel] = useState([]);
   // 通话里打字键盘把输入栏整个压住（她 2026-10-11 截图：语音通话点输入，只看见键盘看不见框）：
   //   通话页是 fixed 铺满屏，iOS 弹键盘不会替它挪；用聊天页同一个垫底的办法（useBrowserKbPad），被压住多少垫多少
   const kbPadRef = useBrowserKbPad();
@@ -12973,8 +12977,19 @@ function CallScreen({
     style: { top: "calc(env(safe-area-inset-top) + 14px)", right: onShot ? 112 : 16, zIndex: 5,
       height: 34, padding: "0 10px", borderRadius: 999, border: "none", background: "rgba(255,255,255,0.14)", fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: "#fff" }
   }, "保存照片") : null,
+  // 群视频：先挑这张拍谁（她 2026-10-27：「可以选生成谁，或者生成合照选几个人」）——还是一次一张，只是自己点名
+  shotPick ? h("div", { "data-wk": "callshotpick", className: "absolute", onClick: e => e.stopPropagation(),
+      style: { top: "calc(env(safe-area-inset-top) + 56px)", right: 16, zIndex: 6, width: 220, padding: 12, borderRadius: 14, background: "rgba(20,20,22,0.92)", color: "#fff", fontFamily: F_BODY } },
+    h("div", { style: { fontSize: "calc(12px * var(--app-fs, 1))", opacity: 0.75, marginBottom: 8 } }, "这张拍谁（一次一张，选几个就是合照）"),
+    shotCands.map(p => { const on = shotSel.includes(p.id); return h("button", { key: p.id, "data-wk": "callshotwho", "data-on": on ? "1" : "0",
+      onClick: () => setShotSel(v => on ? v.filter(x => x !== p.id) : v.concat(p.id).slice(-4)),
+      style: { display: "flex", alignItems: "center", gap: 8, width: "100%", minHeight: 40, background: "transparent", border: "none", color: "#fff", fontSize: "calc(13px * var(--app-fs, 1))", textAlign: "left" } },
+      h("span", { style: { width: 18, height: 18, borderRadius: 5, border: "1.5px solid #fff", background: on ? "#fff" : "transparent", color: "#111", fontSize: 12, display: "inline-flex", alignItems: "center", justifyContent: "center" } }, on ? "✓" : ""), p.name); }),
+    h("div", { className: "flex", style: { gap: 8, marginTop: 8 } },
+      h("button", { onClick: () => setShotPick(false), style: { flex: 1, minHeight: 40, borderRadius: 10, border: "1px solid rgba(255,255,255,.3)", background: "transparent", color: "#fff" } }, "取消"),
+      h("button", { disabled: !shotSel.length, onClick: () => { setShotPick(false); onShot(shotSel.slice()); }, style: { flex: 1, minHeight: 40, borderRadius: 10, border: "none", background: "#fff", color: "#111", opacity: shotSel.length ? 1 : 0.4 } }, "拍"))) : null,
   onShot ? h("button", {
-    onClick: () => !bgBusy && onShot(),
+    onClick: () => { if (bgBusy) return; if (shotCands.length > 1) { setShotSel(v => v.length ? v : shotCands.map(p => p.id).slice(0, 4)); setShotPick(v => !v); } else onShot(); },
     disabled: bgBusy,
     "aria-label": bg ? "换一张这通的画面" : "拍一张这通的画面",
     className: "absolute active:opacity-60 flex items-center",

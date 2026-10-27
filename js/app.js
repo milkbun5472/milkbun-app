@@ -21237,10 +21237,12 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     if (!((typeof imgApiReady === "function") && imgApiReady())) return false;
     return (c.participants || []).some(p => p && p.refPhoto);
   };
-  const runCallShot = async () => {
+  // ids：群视频里她点了名的那几位（不传＝电话里有参考照的全部）
+  const runCallShot = async ids => {
     const cur = callRef.current;
     if (!cur || !callShotCan() || cur.bgBusy) return;
-    const withRef = (cur.participants || []).filter(p => p && p.refPhoto);
+    const pickIds = Array.isArray(ids) && ids.length ? ids.map(String) : null;
+    const withRef = (cur.participants || []).filter(p => p && p.refPhoto && (!pickIds || pickIds.includes(String(p.id))));
     if (!withRef.length) { toast("先给TA传一张参考照，才锁得住脸"); return; }
     setCall(c => c ? { ...c, bgBusy: true } : c);
     try {
@@ -21250,7 +21252,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       const cast = withRef.length > 1
         ? withRef.slice(0, 4).map(c2 => ({ id: c2.id, name: c2.name, appearance: c2.appearance, refPhoto: c2.refPhoto }))
         : null;
-      const bits = (cur.participants || []).map(p => {
+      const bits = (pickIds ? withRef : (cur.participants || [])).map(p => {
         const s2 = liveStateForScope(p.id, cur.chatKey);
         const seg = [freshLiveStateValue(s2, "place"), freshLiveStateValue(s2, "action"), freshLiveStateValue(s2, "wearing")]
           .map(x => String(x || "").trim()).filter(Boolean).join("，");
