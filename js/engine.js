@@ -5339,6 +5339,21 @@ const POV_SLOTS = [
     "她仰着脸看镜头，离得很近，像要说悄悄话"]
 ];
 const povSlotsFor = tier => { const t = Math.max(1, Math.min(3, Number(tier) || 1)); return POV_SLOTS.slice(0, t).flat(); };
+// 小时候的照片（她 2026-10-27 截图：画面写「六七岁的小沈屿白」，出来的是现在的他）。
+//   身份锁和参考照（编辑接口 + input_fidelity=high）都在把人钉成现在的年纪，童年照永远画不出来。
+//   画面描述里写明是 TA 小时候的，就换一套：年纪照描述、参考照只用来认人，编辑接口也不再要求原样保脸。
+//   标记写在提示词开头，generateSelfieImage 认它（选参考图的地方有十来处，都不用改）。
+const PHOTO_YOUNGER_MARK = "【这张是小时候的照片】";
+function photoYoungerOf(scene) {
+  const t = String(scene || "");
+  const n = "(?:[一二三四五六七八九十两]{1,3}|\\d{1,2})";
+  const age = new RegExp("(?:大约|大概|才)?" + n + "(?:[、到至-]" + n + ")?(?:多)?(?:周)?岁(?:左右)?(?:的|时|那年|的时候)").exec(t);
+  const num = age ? age[0] : "";
+  const small = num && !/(?:1[89]|[2-9]\d|十[八九]|[二三四五六七八九]十)/.test(num);
+  if (/小时候|童年|儿时|幼儿园|上小学|小学(?:时|的时候|那会)|婴儿时|还是个?小(?:孩|不点|团子)/.test(t) || (small && /照片|老照|旧照|扫描|相册|小时|小[\u4e00-\u9fff]{1,3}(?:，|,|穿|抱|蹲|站|坐)/.test(t)))
+    return { age: small ? num.replace(/(?:的|时|那年|的时候)$/, "") : "" };
+  return null;
+}
 function buildPhotoPrompt(char, sceneDesc, st, opts) {
   // 设定里【明说了画风】才算二次元：只认画风词。
   //   ⚠️发色瞳色、兽耳不算（她 2026-10-05：「有些人喜欢真人的兽耳或者银发之类的，你不能以偏概全」）——
@@ -5479,10 +5494,14 @@ function buildPhotoPrompt(char, sceneDesc, st, opts) {
   const _minorWord = /(?:幼儿|儿童|小男孩|小女孩|男童|女童|孩童|少年儿童|未成年|\bchild\b|\bminor\b)/i.test(identityText);
   const _minorAge = /(?<![0-9０-９])(?:[1-9]|1[0-7])\s*周?岁(?!那|时|的时候|起|以前|之前|前|后)/.test(identityText);
   const _adultAge = /(?<![0-9０-９])(?:1[89]|[2-9][0-9])\s*周?岁(?!那|时|的时候|起|以前|之前|前|后)/.test(identityText);
-  const isMinor = _minorWord || (_minorAge && !_adultAge);
+  const younger = !(opts && (opts.cast || opts.kind === "duo")) && char !== "__shots" && typeof photoYoungerOf === "function" ? photoYoungerOf(sceneDesc) : null;
+  const isMinor = !!younger || _minorWord || (_minorAge && !_adultAge);
   const isBoy = /(?:小男孩|男童|男孩|少年|男性儿童|\bboy\b)/i.test(identityText);
   const parts = [];
-  if (multi || kind === "duo" || char.refPhoto) parts.push("【首要任务：人物身份】所有人物参考图都是硬性身份来源。可改变姿势、表情、服装与背景，但不得重画、混合、平均化或替换任何参考人物的脸；无法保留全部身份时应失败，而不是生成陌生人。");
+  if (younger) parts.push(PHOTO_YOUNGER_MARK + "画面里是「" + cName + "」" + (younger.age ? younger.age : "小时候") + "的样子，不是现在的" + cName + "：照画面描述把 TA 画成那个年纪的孩子——孩子的脸型、五官比例、身高和身体比例，衣服照描述来，不穿 TA 现在的衣服。"
+    + "参考照和下面写的外貌是 TA 长大以后的样子，只用来让人认得出是同一个人：发色、眼型、标志性的痣或特征这些留着，像一个人小时候和长大后那种像；不要照搬成年的脸、身材和打扮，下面凡是说「年龄不得改变」「保住参考图的脸和身体」的，这一张都按小时候来。"
+    + (/老照片|旧照|扫描|相册|胶片/.test(String(sceneDesc || "")) ? "照片本身是那个年代的老照片：颜色发旧、有颗粒和一点褪色，像从相册里扫出来的。" : ""));
+  if (!younger && (multi || kind === "duo" || char.refPhoto)) parts.push("【首要任务：人物身份】所有人物参考图都是硬性身份来源。可改变姿势、表情、服装与背景，但不得重画、混合、平均化或替换任何参考人物的脸；无法保留全部身份时应失败，而不是生成陌生人。");
   // 每个角色独立控制画风；旧角色无字段时继续沿用写实，避免升级后突然变画风。
   // 照相馆拍之前挑了画风（opts.paint）：那就不是照片——写实总纲整段不发，不然「手机随手拍的生活照、真实皮肤纹理」那一大段
   //   会压过开头那句画风，挑了日系动画照样出真人（群友 2026-10-17）
@@ -5517,11 +5536,11 @@ function buildPhotoPrompt(char, sceneDesc, st, opts) {
   // 数手：拿手机的那只也算（她 2026-10-01 对镜自拍截图：镜里两只手在掀衣服，画面边上又伸进来一只举手机的）
   parts.push("【数一数手】画面里每个人一共只有两条胳膊、两只手——举手机的那只也算在这两只里；画面边缘不许再伸进一只多出来、不属于任何人的手。");
   // 身体也属于人物身份。旧版曾要求“凌驾于参考图身体”，会造成脸没变、肩宽体型却被职业刻板印象重画。
-  parts.push("【身体身份锁，与脸同等重要】若提供人物参考图，必须保留同一个人的原始骨架与身体轮廓：肩宽、颈肩比例、躯干厚度、胸廓、腰线、四肢粗细、身高观感和整体体型都不得改变；不要增肌、加宽肩膀、加厚胸背，也不要因为『骑士／战士／军人』等职业词自动生成壮汉体格。只修复明显的解剖错误，不得以『更健康／更强壮』为理由重塑身体。若没有参考图，则严格服从身份锁和外貌设定；设定未写体型时使用普通自然体型，不做职业刻板补全。");
+  if (!younger) parts.push("【身体身份锁，与脸同等重要】若提供人物参考图，必须保留同一个人的原始骨架与身体轮廓：肩宽、颈肩比例、躯干厚度、胸廓、腰线、四肢粗细、身高观感和整体体型都不得改变；不要增肌、加宽肩膀、加厚胸背，也不要因为『骑士／战士／军人』等职业词自动生成壮汉体格。只修复明显的解剖错误，不得以『更健康／更强壮』为理由重塑身体。若没有参考图，则严格服从身份锁和外貌设定；设定未写体型时使用普通自然体型，不做职业刻板补全。");
   // 体态·治「驼背」和「偷感」（v48.52）：抓拍质感不等于畏缩——人要挺拔松弛
   parts.push("【体态自然挺拔，别驼背别『偷感』】good posture, upright relaxed natural stance, straight back, shoulders relaxed and open, confident at ease——脊背基本挺直、肩膀自然打开别缩着、脖子别前伸、下巴别往里缩；**绝不许含胸驼背、缩肩弓背、佝偻畏缩**。神态松弛自在、大方自然，像很自在地在自拍/被拍，**绝不要躲闪、拘谨、猥琐、鬼鬼祟祟、偷拍似的那种『偷感』**。哪怕是随手抓拍，人也站得/坐得舒展从容。");
   // 参考照负责像谁；角色卡负责是谁、什么年龄与穿什么。两路约束必须同时生效。
-  parts.push("【参考照与角色设定同时锁定】参考照用于固定脸、五官、发型和人物身份" + (photoStyle === "reference" ? "，并锁定参考图的视觉媒介与画风" : "") + "；角色档案与人设用于固定年龄、性别表达、种族、体型、时代和服装。不得只参考脸而忽略文字设定，也不得让参考照中冲突的身体或服装覆盖角色设定。场景和姿势可以变化，人物身份事实绝不能变化。");
+  if (!younger) parts.push("【参考照与角色设定同时锁定】参考照用于固定脸、五官、发型和人物身份" + (photoStyle === "reference" ? "，并锁定参考图的视觉媒介与画风" : "") + "；角色档案与人设用于固定年龄、性别表达、种族、体型、时代和服装。不得只参考脸而忽略文字设定，也不得让参考照中冲突的身体或服装覆盖角色设定。场景和姿势可以变化，人物身份事实绝不能变化。");
   if (personaVisualSource) parts.push("【角色完整人设中的视觉事实】以下人设不是气氛建议；凡涉及年龄、性别、种族、身体特征、时代与衣着，均为必须遵守的 canon：" + personaVisualSource + "。");
   const accessories = String(char.photoAccessories || "").trim();
   if (accessories) parts.push("【随身不摘的东西·每张都要有】" + (kind === "duo" || multi ? "「" + cName + "」" : "人物") + "身上始终带着：" + accessories + "。它们与换不换衣服无关,不因场景、季节或服装变化而消失或改动;戴的位置、数量、款式每张保持一致。");
@@ -6372,7 +6391,8 @@ async function generateSelfieImage(prompt, refPhotoDataUrl, opts) {
         // 真实 mime 起 .jpg/.webp。有些中转按可选字段/扩展名白名单解析 multipart，撞上就把
         // image 整个丢了（模型回「请上传参考图片」）。所以保留新形状为首选，一旦上游回话像
         // 「没收到图」，立刻用出事前验证过的老形状（ref.png + 不带 input_fidelity）重试。
-        if (!legacyShape) fd.append("input_fidelity", "high");
+        // 小时候的照片：参考照只是认人用的，不要求原样保脸（不然永远画回现在的年纪）
+        if (!legacyShape && !(typeof PHOTO_YOUNGER_MARK === "string" && String(promptText || "").indexOf(PHOTO_YOUNGER_MARK) >= 0)) fd.append("input_fidelity", "high");
         const refFilename = (blob, i) => {
           if (legacyShape) return "ref" + (i == null ? "" : i) + ".png";
           const mime = String((blob && blob.type) || "").toLowerCase();
