@@ -29,7 +29,15 @@
               fontFamily: F_DISPLAY, fontSize: "calc(10.5px * var(--app-fs, 1))", textAlign: "center", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, card.text.name) : null)));
   }
   // cover：她在卡页里挑的册子封面（满级那面、番外插图都行），没挑就是第一面
-  function StampFace({ t, card, onClick, size, back }) { const url = useIdbImgUrl(card && (card.cover || card.face)); return h(Stamp, { t, card, face: url, onClick, size, back }); }
+  // 图可能在两个仓库：邮票自己画的在 IDB（img_...），小剧场的剧照在图库（iv_...，她 2026-10-27 拿剧照当邮票封面）
+  function useStampImg(ref) {
+    const vault = !!ref && String(ref).indexOf("iv_") === 0, idb = useIdbImgUrl(vault ? null : ref || null);
+    const [v, setV] = useState(null);
+    useEffect(() => { setV(null); if (!vault || typeof imgVaultFetchBlob !== "function") return; let alive = true, u = null;
+      imgVaultFetchBlob(ref).then(b => { if (alive && b) { u = URL.createObjectURL(b); setV(u); } }).catch(() => {}); return () => { alive = false; if (u) URL.revokeObjectURL(u); }; }, [ref]);
+    return vault ? v : idb;
+  }
+  function StampFace({ t, card, onClick, size, back }) { const url = useStampImg(card && (card.cover || card.face)); return h(Stamp, { t, card, face: url, onClick, size, back }); }
 
   // 抽卡动画：信封落下 → 邮戳颜色预告 → 撕开一版
   function PullShow({ t, cards, onDone, onOpen, charOf }) {
@@ -645,7 +653,7 @@
     const [pick, setPick] = useState(() => (C().load().opt.mixPick) || null);   // 大混池勾的人
     const [charId, setCharId] = useState((characters[0] || {}).id);
     const [show, setShow] = useState(null);
-    const [open, setOpen] = useState(null);
+    const [open, setOpen] = useState(() => { const o = window.__stampsOpen; window.__stampsOpen = null; return o || null; });   // 从小剧场退回来：直接打开那张卡
     const [albumChar, setAlbumChar] = useState("all");
     const [albumRar, setAlbumRar] = useState("all");
     const [albumTheme, setAlbumTheme] = useState("all");   // 主题：日常 / 生日 / 你的生日 / IF 各主题
@@ -758,7 +766,7 @@
             h(Avatar, { character: c, size: 46, radius: 10 }),
             on ? h("span", { style: { position: "absolute", right: -5, bottom: -5, width: 18, height: 18, borderRadius: 999, background: "#2f5d4a", color: "#15121f", fontSize: 11, lineHeight: "18px", textAlign: "center", fontWeight: 700 } }, "✓") : null),
           h("div", { style: { maxWidth: "100%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: on ? "#2f5d4a" : "rgba(47,42,34,.75)" } }, c.remark || c.name)); }));
-    if (open) { const card = (st.cards || []).find(c => c.id === open) || null; if (card) return h(CardPage, { key: card.id, onSwipe: d => { const ids = albumIds.current, k = ids.indexOf(card.id); if (k < 0) return; const nx = ids[k + d]; if (nx) setOpen(nx); else toast(d > 0 ? "已经是最后一张了" : "已经是第一张了"); }, t, card, char: charOf(card.charId), meName, onBack: () => setOpen(null), onDraw, onRewrite: c => onWrite([c]), toast, onPoke: (c, sd) => props.onPoke ? props.onPoke(c, sd) : null, onInner: c => props.onInner ? props.onInner(c) : null, onExtra: (id, xid, wish) => props.onExtra ? props.onExtra(id, xid, wish) : null, onExtraSend: (c, x) => props.onExtraSend && props.onExtraSend(c, x), onTheater: c => props.onTheater && props.onTheater(c), onTheaterLine: id => props.onTheaterLine && props.onTheaterLine(id), onExtraDraw: (id, xid) => props.onExtraDraw ? props.onExtraDraw(id, xid) : null,
+    if (open) { const card = (st.cards || []).find(c => c.id === open) || null; if (card) return h(CardPage, { key: card.id, onSwipe: d => { const ids = albumIds.current, k = ids.indexOf(card.id); if (k < 0) return; const nx = ids[k + d]; if (nx) setOpen(nx); else toast(d > 0 ? "已经是最后一张了" : "已经是第一张了"); }, t, card, char: charOf(card.charId), meName, onBack: () => setOpen(null), onDraw, onRewrite: c => onWrite([c]), toast, onPoke: (c, sd) => props.onPoke ? props.onPoke(c, sd) : null, onInner: c => props.onInner ? props.onInner(c) : null, onExtra: (id, xid, wish) => props.onExtra ? props.onExtra(id, xid, wish) : null, onExtraSend: (c, x) => props.onExtraSend && props.onExtraSend(c, x), onTheater: c => props.onTheater && props.onTheater(c), onTheaterLine: id => props.onTheaterLine && props.onTheaterLine(id, card.id), onExtraDraw: (id, xid) => props.onExtraDraw ? props.onExtraDraw(id, xid) : null,
       onSend: c => { props.onSend && props.onSend(c); }, onCanon: c => { props.onCanon && props.onCanon(c); } }); }
 
     const isBad = c => !c.text && (!c.writing || Date.now() - Number(c.writingTs || 0) > (c.queued ? 1800000 : 180000));

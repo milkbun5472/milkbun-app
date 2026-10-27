@@ -34133,8 +34133,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       const text = ["卡名：" + (tx.name || ""), card.kind === "if" ? "IF 主题：" + (card.theme || "") + (card.themeLine ? "：" + String(card.themeLine).slice(0, 300) : "") : "", tx.gist ? "写的是：" + tx.gist : "",
         card.rarity === "SSR" ? (tx.highlight ? "最想留住的一刻：" + tx.highlight : "") + (ends ? "\n几个结局：\n" + ends.slice(0, 1500) : "") : [tx.open, tx.rest, tx.sequel].filter(Boolean).join("\n").slice(0, 1500),
         tx.hidden ? "他藏着没说的：" + tx.hidden : "", tx.line ? "卡上那句：" + tx.line : ""].filter(Boolean).join("\n");
-      window.__theaterHandoff = { fromCard: { cardId: card.id, charId: card.charId, kind: card.kind, rarity: card.rarity, theme: card.theme || "", name: tx.name || "", text } }; setScreen("theater"); },
-    onTheaterLine: id => { window.__theaterHandoff = { openLine: id }; setScreen("theater"); },
+      window.__theaterReturn = { cardId: card.id }; window.__theaterHandoff = { fromCard: { cardId: card.id, charId: card.charId, kind: card.kind, rarity: card.rarity, theme: card.theme || "", name: tx.name || "", text } }; setScreen("theater"); },
+    onTheaterLine: (id, cardId) => { window.__theaterReturn = cardId ? { cardId } : null; window.__theaterHandoff = { openLine: id }; setScreen("theater"); },
     // 她的生日池：主面具一份，每张副面具一份；各自只抽认这张面具的那几个人
     myBdays: stampMyBdays(),
     annivs: stampAnnivs(),
@@ -34482,7 +34482,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     isEngineer: (charId) => !!settingsFor(charId).engineerEyes,
     toast: toast,
     onOpenStyleLab: goStyleLab,
-    onBack: () => setScreen("home")
+    onBack: () => { const r = window.__theaterReturn; window.__theaterReturn = null; if (r && r.cardId) { window.__stampsOpen = r.cardId; setScreen("stamps"); } else setScreen("home"); }   // 从邮票进来的，退出回到那张卡（她 2026-10-27）
   });else if (screen === "stylelab") body = h(StyleLabApp, {
     // 文风预设台：一处生产，线下/小剧场/同人文三处消费。只在这里改预设本身，
     // 三处吃不吃各自有开关；开关关着＝行为和以前一模一样。

@@ -252,6 +252,7 @@
     // 乙游风播放（她 2026-10-27）：一句一句点着走；vnI＝看到第几句，vnWrite＝底下「自己写」那一格开着没，vnLog＝记录，vnHide＝长按藏起界面
     const [vnI, setVnI] = useState(-1), [vnWrite, setVnWrite] = useState(false), [vnLog, setVnLog] = useState(false), [vnHide, setVnHide] = useState(false);
     const vnLen = useRef(0), vnLp = useRef(0), vnLpOn = useRef(false);
+    const [vnWide, setVnWide] = useState({});   // 背景图横不横：横的整张放上半屏、后面垫一层虚化，不裁人
     const scrollRef = useRef(null);
     const linesRef = useRef(null);
     const sumBusyRef = useRef(false);
@@ -462,6 +463,7 @@
       try { setDraft(await run()); } catch (e) { props.toast("生成失败:" + (e.message || "重试")); } finally { setBusy(false); }
     };
     // 邮票册那边点过来：开一条从卡来的线，或者直接打开某一条线
+    const fromStamps = useRef(!!window.__theaterReturn);   // 从邮票册点进来的：退出直接回那张卡
     useEffect(() => { const ho = window.__theaterHandoff; window.__theaterHandoff = null; if (!ho) return;
       if (ho.openLine && lines.some(l => l.id === ho.openLine)) { setPlayId(ho.openLine); setView("play"); }
       else if (ho.fromCard) genFromCard(ho.fromCard); }, []);
@@ -794,7 +796,8 @@
           : "第三人称旁观的电影剧照，人物衣着完整，画面含蓄、可公开展示。";
         let out;
         try {
-          out = await generateSelfieImage(prompt, refs, { contRef: !!(prevPhoto && refList.length > (duo ? 2 : 1)), minimalPrompt: minimalPrompt });
+          // 乙游风的线：剧照画横版 CG（她 2026-10-27），人放中间，当背景时整张放上半屏、垫虚化
+          out = await generateSelfieImage(line.vn ? prompt + "\n这是一张横版 CG：主要的人和动作放在画面正中间那三分之一，左右两边是场景和氛围。" : prompt, refs, Object.assign({ contRef: !!(prevPhoto && refList.length > (duo ? 2 : 1)), minimalPrompt: minimalPrompt }, line.vn ? { size: "1536x1024" } : {}));
         } catch (e1) {
           if (!/safety|policy|内容政策|too long|sensitive|reject/i.test(String(e1 && e1.message || e1))) throw e1;
           props.toast("这一拍的描述被审核挡了,换成简版再试一次…");
@@ -961,6 +964,8 @@
       const myTurn = atEnd && !busy && !line.ended && !!last && last.role === "char";
       const retry = atEnd && !busy && !line.ended && !!last && last.role === "user";
       const bgUrl = b.bg ? imgSrc(b.bg) : null, fs = n => "calc(" + n + "px * var(--app-fs, 1))";
+      if (bgUrl && vnWide[bgUrl] === undefined) { const im = new Image(); im.onload = () => setVnWide(m => Object.assign({}, m, { [bgUrl]: im.naturalWidth > im.naturalHeight * 1.1 })); im.src = bgUrl; }
+      const wide = !!(bgUrl && vnWide[bgUrl]);
       const pill = on => ({ flexShrink: 0, marginLeft: 4, color: "#fff", fontFamily: F_BODY, fontSize: fs(10.5), padding: "1px 7px", borderRadius: 999, border: "1px solid rgba(255,255,255," + (on ? ".9" : ".35") + ")", background: on ? "rgba(255,255,255,.18)" : "transparent", whiteSpace: "nowrap" });
       const choiceBtn = { textAlign: "center", width: "100%", maxWidth: 340, padding: "12px 14px", borderRadius: 12, border: "1px solid rgba(255,255,255,.45)", background: "rgba(16,14,22,.78)", color: "#fff", fontFamily: F_BODY, fontSize: fs(14), boxShadow: "0 6px 18px rgba(0,0,0,.35)" };
       const hid = { opacity: vnHide ? 0 : 1, pointerEvents: vnHide ? "none" : undefined, transition: "opacity .2s" };
@@ -971,7 +976,10 @@
           onPointerDown: () => { clearTimeout(vnLp.current); vnLp.current = setTimeout(() => { vnLpOn.current = true; setVnHide(true); }, 450); },
           onPointerUp: () => { clearTimeout(vnLp.current); if (vnHide) { setVnHide(false); setTimeout(() => { vnLpOn.current = false; }, 60); } },
           onPointerCancel: () => clearTimeout(vnLp.current), onContextMenu: e => e.preventDefault(),
-          style: { zIndex: 60, userSelect: "none", WebkitUserSelect: "none", WebkitTouchCallout: "none", background: bgUrl ? "#111 center/cover no-repeat url(" + bgUrl + ")" : "linear-gradient(#2b2436,#14111b)" } },
+          style: { zIndex: 60, userSelect: "none", WebkitUserSelect: "none", WebkitTouchCallout: "none", background: bgUrl && !wide ? "#111 center/cover no-repeat url(" + bgUrl + ")" : bgUrl ? "#0e0c12" : "linear-gradient(#2b2436,#14111b)" } },
+        wide ? h("div", { style: { position: "absolute", inset: 0, zIndex: -1, overflow: "hidden", pointerEvents: "none" } },
+          h("div", { style: { position: "absolute", inset: -40, background: "center/cover no-repeat url(" + bgUrl + ")", filter: "blur(28px) brightness(.55)" } }),
+          h("img", { src: bgUrl, alt: "", style: { position: "absolute", left: 0, right: 0, top: "calc(env(safe-area-inset-top) + 72px)", width: "100%", height: "auto", boxShadow: "0 10px 40px rgba(0,0,0,.5)" } })) : null,
         h("div", { className: "flex items-center", style: Object.assign({ padding: "calc(env(safe-area-inset-top) + 10px) 14px 8px", background: "linear-gradient(rgba(0,0,0,.6), transparent)" }, hid) },
           h("button", { onClick: back, style: { flexShrink: 0, color: "#fff", fontFamily: F_BODY, fontSize: fs(13), whiteSpace: "nowrap" } }, "‹ 收起"),
           h("div", { className: "flex-1 text-center", style: { minWidth: 0, margin: "0 6px", color: "#fff" } },
@@ -1001,12 +1009,15 @@
             h("button", { "data-wk": "thrtool", "data-part": "photo", onClick: genPhoto, disabled: busy, style: pill(false) }, "当轮剧照"),
             h("button", { onClick: genCover, disabled: busy, style: pill(false) }, line.cover ? "重出封面" : "封面图"),
             line.cover && line.bg !== line.cover ? h("button", { onClick: () => update(list => list.map(l => l.id !== line.id ? l : { ...l, bg: line.cover })), style: pill(false) }, "封面当背景") : null) : null,
+          h("div", { className: "flex flex-wrap", style: { gap: 6, marginBottom: 8 } },
+            h("button", { "data-wk": "thrvnphoto", onClick: () => { setVnWrite(false); genPhoto(); }, disabled: busy, style: Object.assign({}, pill(false), { marginLeft: 0 }) }, "/生成这一轮剧照"),
+            line.fromCard && (line.bg || line.cover) && window.StampsCore ? h("button", { "data-wk": "thrvnstampcover", onClick: () => { const S2 = window.StampsCore, st = S2.load(), ref = line.bg || line.cover; st.cards = st.cards.map(c => c.id === line.fromCard ? Object.assign({}, c, { cover: ref }) : c); S2.save(st); props.toast("换好了：邮票册里那张卡用这张图当封面"); }, style: Object.assign({}, pill(false), { marginLeft: 0 }) }, "当邮票封面") : null),
           noteOpen ? h("textarea", { value: note, onChange: e => setNote(e.target.value), rows: 2, placeholder: "导演便签：只给这一拍的幕后指示", style: { width: "100%", marginBottom: 8, padding: 8, borderRadius: 8, background: "rgba(255,255,255,.08)", color: "#fff", border: "1px solid rgba(255,255,255,.2)", fontFamily: F_BODY, fontSize: fs(12.5) } }) : null,
           h("div", { className: "flex items-end", style: { gap: 8 } },
             h("button", { onClick: () => setPlusOpen(v => !v), style: pill(plusOpen || dice || !!note.trim()) }, plusOpen ? "×" : "+"),
             h("textarea", { value: input, onChange: e => setInput(e.target.value), rows: 2, placeholder: "你的行动或台词…", style: { flex: 1, padding: 8, borderRadius: 8, background: "rgba(255,255,255,.08)", color: "#fff", border: "1px solid rgba(255,255,255,.2)", fontFamily: F_BODY, fontSize: fs(13.5), resize: "none" } }),
             h("div", { className: "flex flex-col", style: { gap: 6 } },
-              h("button", { "data-wk": "thrvnsend", onClick: () => { setVnWrite(false); send(); }, style: { padding: "6px 14px", borderRadius: 999, background: "#B58C55", color: "#fff", fontFamily: F_BODY, fontSize: fs(12.5) } }, "演"),
+              h("button", { "data-wk": "thrvnsend", onClick: () => { setVnWrite(false); if (/^\s*\/(生成)?(这一轮)?剧照\s*$/.test(input)) { setInput(""); genPhoto(); return; } send(); }, style: { padding: "6px 14px", borderRadius: 999, background: "#B58C55", color: "#fff", fontFamily: F_BODY, fontSize: fs(12.5) } }, "演"),
               (last.choices || []).length ? h("button", { onClick: () => setVnWrite(false), style: { fontFamily: F_BODY, fontSize: fs(11), color: "rgba(255,255,255,.6)" } }, "看选项") : null)))
         : h("div", { "data-wk": "thrvnbox", onClick: tap, style: Object.assign({ margin: "0 12px calc(env(safe-area-inset-bottom) * 0.4 + 14px)", borderRadius: 14, background: "rgba(16,14,22,.82)", border: "1px solid rgba(255,255,255,.18)", padding: "14px 16px 30px", minHeight: 150, position: "relative", color: "#fff" }, hid) },
           who ? h("div", { style: { display: "inline-block", marginBottom: 6, padding: "2px 10px", borderRadius: 999, background: b.who === "he" ? "#B58C55" : "#6b6480", fontFamily: F_BODY, fontSize: fs(12) } }, who) : null,
@@ -1024,6 +1035,7 @@
                 h("div", { style: { fontFamily: F_BODY, fontSize: fs(14), lineHeight: 1.7, fontStyle: w ? "normal" : "italic", opacity: w ? 1 : .8, whiteSpace: "pre-wrap" } }, x.text)); }))) : null);
     };
     const back = () => {
+      if (fromStamps.current && (view === "play" || view === "create")) { setDraft(null); return props.onBack(); }
       if (view === "list") return props.onBack();
       if (view === "gallery") { setGalView(null); return galChar ? setGalChar(null) : setView("list"); }
       if (view === "play" && line) { setListChar(line.charId); setPlayId(null); setDraft(null); setView("lines"); return; }
