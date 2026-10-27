@@ -35690,6 +35690,9 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     bgBusy: !!call.bgBusy,
     fixedBg: (!call.groupId && call.participants && call.participants.length === 1) ? (settingsFor(call.participants[0].id).callBg || "") : "",
     onShot: callShotCan() ? runCallShot : null,
+    // 这一通拍过的几张来回切着看（她 2026-10-27：「一场可以拍好几张然后可以切换着看」）
+    shots: call.shots || [],
+    onPickShot: key => setCall(c => c && (c.shots || []).includes(key) ? { ...c, bg: key } : c),
     minimized: !!call.min,
     onMinimize: () => setCall(c => c ? { ...c, min: true } : c),
     onRestore: () => setCall(c => c ? { ...c, min: false } : c),

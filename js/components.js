@@ -12388,6 +12388,8 @@ function CallScreen({
   bg,
   bgBusy,
   onShot,
+  shots,
+  onPickShot,
   onSend: sendCall,
   onReroll,
   onEditLine,
@@ -12977,6 +12979,12 @@ function CallScreen({
     style: { top: "calc(env(safe-area-inset-top) + 14px)", right: onShot ? 112 : 16, zIndex: 5,
       height: 34, padding: "0 10px", borderRadius: 999, border: "none", background: "rgba(255,255,255,0.14)", fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: "#fff" }
   }, "保存照片") : null,
+  // 这一通拍过不止一张：顶上一排「‹ 2/3 ›」切着看，挂了照旧全部落进聊天
+  (shots || []).length > 1 && onPickShot ? (() => { const list = shots, k = Math.max(0, list.indexOf(bg)), go = d => onPickShot(list[(k + d + list.length) % list.length]);
+    return h("div", { "data-wk": "callshotnav", className: "absolute flex items-center", style: { top: "calc(env(safe-area-inset-top) + 56px)", left: 16, zIndex: 5, gap: 2, borderRadius: 999, background: "rgba(255,255,255,0.14)", color: "#fff", fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))" } },
+      h("button", { onClick: () => go(-1), "aria-label": "上一张", style: { width: 40, height: 34, border: "none", background: "transparent", color: "#fff", fontSize: 16 } }, "‹"),
+      h("span", { style: { minWidth: 34, textAlign: "center" } }, (k + 1) + "/" + list.length),
+      h("button", { onClick: () => go(1), "aria-label": "下一张", style: { width: 40, height: 34, border: "none", background: "transparent", color: "#fff", fontSize: 16 } }, "›")); })() : null,
   // 群视频：先挑这张拍谁（她 2026-10-27：「可以选生成谁，或者生成合照选几个人」）——还是一次一张，只是自己点名
   shotPick ? h("div", { "data-wk": "callshotpick", className: "absolute", onClick: e => e.stopPropagation(),
       style: { top: "calc(env(safe-area-inset-top) + 56px)", right: 16, zIndex: 6, width: 220, padding: 12, borderRadius: 14, background: "rgba(20,20,22,0.92)", color: "#fff", fontFamily: F_BODY } },
@@ -12991,7 +12999,7 @@ function CallScreen({
   onShot ? h("button", {
     onClick: () => { if (bgBusy) return; if (shotCands.length > 1) { setShotSel(v => v.length ? v : shotCands.map(p => p.id).slice(0, 4)); setShotPick(v => !v); } else onShot(); },
     disabled: bgBusy,
-    "aria-label": bg ? "换一张这通的画面" : "拍一张这通的画面",
+    "aria-label": bg ? "再拍一张这通的画面" : "拍一张这通的画面",
     className: "absolute active:opacity-60 flex items-center",
     style: { top: "calc(env(safe-area-inset-top) + 14px)", right: 16, zIndex: 5, gap: 5,
       height: 34, padding: "0 12px", borderRadius: 999, border: "none", background: "rgba(255,255,255,0.14)",
@@ -13000,7 +13008,7 @@ function CallScreen({
     bgBusy
       ? h("span", { style: { width: 11, height: 11, borderRadius: 2, border: "1.6px solid #fff", borderTopColor: "transparent", animation: "wk-spin .7s linear infinite" } })
       : h(CGlyph, { k: "picture", size: 14, color: "#fff" }),
-    h("span", null, bgBusy ? "在拍" : bg ? "换一张" : "看看画面")) : null,
+    h("span", null, bgBusy ? "在拍" : bg ? "再拍一张" : "看看画面")) : null,
   h("div", {
     "data-wk": "callhead",
     className: "shrink-0 pb-3 flex flex-col " + (pip ? "pt-14 items-start" : "pt-10 items-center"), // 靠左时让开左上那颗收起键

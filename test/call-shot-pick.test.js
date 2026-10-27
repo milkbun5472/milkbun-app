@@ -7,3 +7,8 @@ test("群视频拍画面能挑拍谁，还是一次一张（她 2026-10-27）", 
   assert.match(app, /const runCallShot = async ids => \{/);
   assert.match(app, /p\.refPhoto && \(!pickIds \|\| pickIds\.includes\(String\(p\.id\)\)\)/);
 });
+
+test("一通里拍过的几张能切着看（她 2026-10-27）", () => {
+  assert.match(c, /"data-wk": "callshotnav"/);
+  assert.match(app, /onPickShot: key => setCall\(c => c && \(c\.shots \|\| \[\]\)\.includes\(key\) \? \{ \.\.\.c, bg: key \} : c\)/);
+});
