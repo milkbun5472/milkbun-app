@@ -9759,7 +9759,7 @@ function NpcBook({ npcs, owners, meName, onCreate, onSaveAvatar, onSaveBrief, on
               h("div", { onClick: e => e.stopPropagation() }, h(AvatarPicker, { character: chatFace(n), size: 46, radius: 9, onPick: img => onSaveAvatar(n.id, img), onClear: (n.avatarImage || n.chatAvatar) ? () => onSaveAvatar(n.id, null) : undefined })),
               h("div", { className: "flex-1 min-w-0" },
                 h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))", color: t.ink } }, n.name),
-                h("div", { className: "truncate", style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, marginTop: 2 } }, String(n.persona || "").replace(/\s+/g, " ").slice(0, 60) || "（还没写介绍）")),
+                h("div", { className: "truncate", style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, marginTop: 2 } }, npcLine(n.persona) || "（还没写介绍）")),
               h(IChevR, { size: 15, color: t.line })))))));
 }
 function GroupManager({
@@ -9888,6 +9888,11 @@ function momentDisplayName(characters, who) {
 function momTopFirst(list) {
   const arr = Array.isArray(list) ? list : [];
   return arr.filter(m => m && m.mine && m.top).concat(arr.filter(m => !(m && m.mine && m.top)));
+}
+// 配角列表那一行（她 2026-10-27）：只摆简介第一句，开头的「你是」去掉——生成的简介第一句就是身份和年龄
+function npcLine(persona) {
+  const first = String(persona || "").trim().split(/\n|。/)[0].trim().replace(/^你是/, "");
+  return first.replace(/\s+/g, " ").slice(0, 40);
 }
 function MomentsFeed({
   npcs,
@@ -20359,6 +20364,9 @@ function LuckyCharsPanel({ lucky, onDrawLucky, onPickLucky, busy, setBusy }) {
           : h("button", { "data-wk": "gluckydraw", disabled: gLuckyBusy, onClick: async () => { if (gLuckyBusy) return; setGLuckyBusy(true); try { await onDrawLucky(); } finally { setGLuckyBusy(false); } }, className: "w-full active:opacity-70 disabled:opacity-60", style: { minHeight: 44, borderRadius: 12, border: "1.5px solid #d9902b", color: "#a8641a", background: "transparent", fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))" } },
               gLuckyBusy ? "洗牌中…要等十几秒" : (book.length ? "抽下一张" : "抽一张") + " · 花一次调用"),
           lk.word && lk.cards && lk.picked >= 0 ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginTop: 8 } }, "没翻的那几张：" + lk.cards.filter((_, i) => i !== lk.picked).join("、")) : null,
+          lk.word ? h("div", { "data-wk": "gluckybadgeset", className: "flex items-center justify-between", style: { marginTop: 10 } },
+            h("span", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.sub } }, "挂在名字旁边"),
+            h(Toggle, { on: !lk.hideBadge, onChange: () => onPickLucky && onPickLucky("badge") })) : null,
           // 还没点亮第一个字、也还有没翻过的：能换一张（不花调用）
           lk.word && lk.cards && lk.picked >= 0 && !(lk.lit > 0) && lk.cards.length - [...new Set([...(lk.used || []), lk.picked])].length > 0
             ? h("button", { "data-wk": "gluckyagain", onClick: () => onPickLucky && onPickLucky("again"), className: "w-full active:opacity-70",
@@ -20369,9 +20377,9 @@ function LuckyCharsPanel({ lucky, onDrawLucky, onPickLucky, busy, setBusy }) {
             h("div", { className: "flex flex-wrap", style: { gap: 6 } }, book.slice().reverse().map((b, i) => h("span", { key: i, title: new Date(b.ts).toLocaleDateString(),
               style: { padding: "4px 10px", borderRadius: 999, background: "#f6d38a44", color: "#a8641a", fontFamily: F_DISPLAY, fontSize: "calc(13px * var(--app-fs, 1))" } }, b.word)))) : null);
 }
-// 顶栏名字旁边那枚：点亮的字是实的，没点亮的是虚的
+// 顶栏名字旁边那枚：点亮的字是实的，没点亮的是虚的；面板里关了「挂在名字旁边」就不挂（进度照算）
 function luckyBadge(t, lucky) {
-  if (!lucky || !lucky.word || typeof luckyUnits !== "function") return null;
+  if (!lucky || !lucky.word || lucky.hideBadge || typeof luckyUnits !== "function") return null;
   return h("span", { "data-wk": "gluckybadge", title: "幸运字符", style: { flexShrink: 0, marginLeft: 4, padding: "0 6px", borderRadius: 999, border: "1px solid " + t.line, fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", letterSpacing: "0.05em" } },
     luckyUnits(lucky.word).map((ch, i) => h("span", { key: i, "data-on": i < (lucky.lit || 0) ? "1" : "0", style: { color: i < (lucky.lit || 0) ? "#d9902b" : t.fog, opacity: i < (lucky.lit || 0) ? 1 : 0.45, fontWeight: i < (lucky.lit || 0) ? 700 : 400 } }, ch)));
 }

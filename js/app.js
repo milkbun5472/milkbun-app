@@ -16878,6 +16878,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   // 重选（她 2026-10-27：抽到不满意的，从剩下五张里再翻一张）：不再叫模型，原来那套牌翻回去、翻过的那张划掉。
   //   只在还没点亮第一个字之前能换；走的是同一个 onPickLucky，传 "again"
   const pickLucky = (groupId, i) => {
+    if (i === "badge") { const sb = luckyOf(groupId); luckySave(groupId, { ...sb, hideBadge: !sb.hideBadge }); return; }   // 顶栏挂不挂（她 2026-10-27）
     if (i === "again") {
       const st0 = luckyOf(groupId);
       if (!st0.word || !(st0.picked >= 0) || (st0.lit || 0) > 0) return;
