@@ -176,11 +176,12 @@ test("限时池上新按人数送十连：每两人一张，1～5 张", () => {
   }
 });
 
-test("日历：深秋 11-30 底下架、温泉 12-01 上、12-15 底下架", () => {
+test("日历：深秋 11-30 底下架、温泉 12-01 上、12-16 换圣诞、年底下架", () => {
   const C = fresh(); const ids = t => C.activeLimited(Date.parse(t)).map(L => L.id);
   assert.deepEqual(ids("2026-11-30T23:59:00+08:00"), ["lateautumn26"]);
   assert.deepEqual(ids("2026-12-01T00:00:01+08:00"), ["onsen26"]);
-  assert.deepEqual(ids("2026-12-16T00:00:01+08:00"), []);
+  assert.deepEqual(ids("2026-12-16T00:00:01+08:00"), ["xmas26"]);
+  assert.deepEqual(ids("2027-01-01T00:00:01+08:00"), []);
 });
 
 test("你的生日券不在邮票册直接到账（改成生日信），他的生日池照旧送一张十连；生日信领一次", () => {

@@ -651,13 +651,13 @@
     // 生日券和纪念日券记在同一个 bdTickets 里（纪念日的 key 以 an_ 开头），名字照手上有的那种叫
     const tkKeys = Object.keys(st.bdTickets || {}).filter(k => st.bdTickets[k] > 0), tkName = tkKeys.length && tkKeys.every(k => k.indexOf("an_") === 0) ? "纪念日券" : tkKeys.some(k => k.indexOf("an_") === 0) ? "生日券、纪念日券" : "生日券";   // 纪念日池：玫瑰色一套，跟生日池分得开（她 2026-10-27）
     const acc = ann ? "#f3bfcc" : bd ? hx(bdHue, 48, 80) : "#e6b8a2";
-    const tone = ann ? ["#4a1a2c", "#f3bfcc"] : bd ? [hx((bd ? hueOf(bd.char) : 0), 28, 22), hx((bd ? hueOf(bd.char) : 0), 50, 80)] : pool === "mix" ? ["#2f4a46", "#7fa79a"] : pool === "char" ? [((charNow && charNow.color) || "#4a3d6b"), "#b9a7e0"] : (cur.lim && cur.lim.deco === "autumn" ? ["#4a2e1c", "#d9a25a"] : cur.lim && cur.lim.deco === "onsen" ? ["#1f3a44", "#9fd0d6"] : ["#3a1f3d", "#e08a3a"]);
+    const tone = ann ? ["#4a1a2c", "#f3bfcc"] : bd ? [hx((bd ? hueOf(bd.char) : 0), 28, 22), hx((bd ? hueOf(bd.char) : 0), 50, 80)] : pool === "mix" ? ["#2f4a46", "#7fa79a"] : pool === "char" ? [((charNow && charNow.color) || "#4a3d6b"), "#b9a7e0"] : (cur.lim && cur.lim.deco === "autumn" ? ["#4a2e1c", "#d9a25a"] : cur.lim && cur.lim.deco === "onsen" ? ["#1f3a44", "#9fd0d6"] : cur.lim && cur.lim.deco === "xmas" ? ["#1d3a2c", "#e3b65c"] : ["#3a1f3d", "#e08a3a"]);
     const testInf = !!opt.testInf;
     const perf = c => "radial-gradient(circle at 6px 6px, transparent 4.6px, " + c + " 5px) -6px -6px / 12px 12px";
     // 限时池的节日装饰：只加在边角，不动整张模板（现在只有万圣夜：蝙蝠、南瓜、星星、蛛网）
     const deco = cur.lim && cur.lim.deco === "halloween";
     const fall = cur.lim && cur.lim.deco === "autumn";
-    const steam = cur.lim && cur.lim.deco === "onsen";   // 温泉：几缕热气从海报下沿往上飘，顶上一点雪   // 深秋：几片银杏和枫叶从海报上沿飘下来
+    const steam = cur.lim && cur.lim.deco === "onsen", xmas = cur.lim && cur.lim.deco === "xmas";   // 圣诞：墨绿底、金边   // 温泉：几缕热气从海报下沿往上飘，顶上一点雪   // 深秋：几片银杏和枫叶从海报上沿飘下来
     const leaf = (x, y, sz, rot, col, k, maple) => h("svg", { key: k, viewBox: "0 0 24 24", style: { position: "absolute", left: x, top: y, width: sz, height: sz, transform: "rotate(" + rot + "deg)", opacity: .75, pointerEvents: "none" } },
       maple ? h("path", { d: "M12 2l1.6 4 3-1.6-.8 3.6 3.6-.4-2 3 3 1.6-3.6 1 1 3.2-3.4-1.4L12 22l-1.4-7-3.4 1.4 1-3.2-3.6-1 3-1.6-2-3 3.6.4-.8-3.6 3 1.6z", fill: col })
         : h("path", { d: "M12 21V13M12 13C7 13 3 9 4 4c3 3 5 2 8 0 3 2 5 3 8 0 1 5-3 9-8 9z", fill: col, stroke: col, strokeWidth: .6 }));
@@ -712,7 +712,7 @@
           h("div", { className: "flex items-end justify-between", style: { gap: 8 } },
           // 邮戳：常驻写「常驻」；限时写截止日和还剩多久，万圣夜那枚是南瓜色的限定戳
           h("div", { "data-wk": "stampcountdown", style: { order: 2, flexShrink: 0, marginLeft: "auto", width: bd ? 62 : regular ? 88 : 72, height: bd ? 62 : regular ? 48 : 72, marginBottom: bd ? 18 : 0, borderRadius: regular ? 4 : 999,
-            backgroundImage: regular ? "repeating-linear-gradient(0deg, transparent 0 5px, rgba(227,182,92,.13) 5px 6px)" : "none", border: (deco ? "2px dashed #e08a3a" : fall ? "2px dashed #d9a25a" : steam ? "2px dashed #9fd0d6" : regular ? "1.5px double " + GOLD : bd ? "2px double " + acc + "" : "2px solid " + GOLD), outline: deco ? "1px solid #e08a3a66" : bd ? "1px dashed " + acc + "88" : "none", outlineOffset: 3, color: deco ? "#f0a24f" : bd ? acc : GOLD, transform: regular ? "rotate(-5deg)" : "rotate(-12deg)",
+            backgroundImage: regular ? "repeating-linear-gradient(0deg, transparent 0 5px, rgba(227,182,92,.13) 5px 6px)" : "none", border: (deco ? "2px dashed #e08a3a" : fall ? "2px dashed #d9a25a" : steam ? "2px dashed #9fd0d6" : xmas ? "2px dashed #e3b65c" : regular ? "1.5px double " + GOLD : bd ? "2px double " + acc + "" : "2px solid " + GOLD), outline: deco ? "1px solid #e08a3a66" : bd ? "1px dashed " + acc + "88" : "none", outlineOffset: 3, color: deco ? "#f0a24f" : bd ? acc : GOLD, transform: regular ? "rotate(-5deg)" : "rotate(-12deg)",
             display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", fontFamily: F_BODY, textAlign: "center", lineHeight: 1.25 } },
             cur.bd ? h(React.Fragment, null, h("div", { style: { fontSize: "calc(9.5px * var(--app-fs, 1))" } }, cur.bd.anniv ? "纪念邮戳" : "生日邮戳"), h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))" } }, (d => (d.getMonth() + 1) + "." + d.getDate())(new Date(cur.bd.win.day))), h("div", { style: { fontSize: "calc(9px * var(--app-fs, 1))" } }, String(cur.bd.win.year)))
             : cur.lim ? h(React.Fragment, null, h("div", { style: { fontSize: "calc(9.5px * var(--app-fs, 1))" } }, deco ? "万圣夜限定" : fall ? "深秋限定" : steam ? "温泉限定" : "限定"), h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))" } }, new Date(Date.parse(cur.lim.to) - 1).toLocaleDateString("zh-CN", { month: "numeric", day: "numeric" }) + " 止"), h("div", { style: { fontSize: "calc(9px * var(--app-fs, 1))" } }, "还剩 " + leftText(Date.parse(cur.lim.to) - Date.now())))
