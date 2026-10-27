@@ -34128,6 +34128,13 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     onExtra: stampExtra,
     onExtraDraw: stampExtraDraw,
     onExtraSend: stampExtraSend,
+    // 接着演（她 2026-10-27）：把这张卡写了什么打包交给小剧场，开一条从卡来的线；或者打开从这张卡开过的某一条
+    onTheater: card => { const tx = card.text || {}, ends = (tx.sections || []).filter(x => x && (x.end || x.hidden)).map(x => "「" + (x.title || "") + "」" + (x.beats || []).filter(b => b && b.who !== "pick").slice(-4).map(b => String(b.text || "").slice(0, 100)).join(" / ")).join("\n");
+      const text = ["卡名：" + (tx.name || ""), card.kind === "if" ? "IF 主题：" + (card.theme || "") + (card.themeLine ? "：" + String(card.themeLine).slice(0, 300) : "") : "", tx.gist ? "写的是：" + tx.gist : "",
+        card.rarity === "SSR" ? (tx.highlight ? "最想留住的一刻：" + tx.highlight : "") + (ends ? "\n几个结局：\n" + ends.slice(0, 1500) : "") : [tx.open, tx.rest, tx.sequel].filter(Boolean).join("\n").slice(0, 1500),
+        tx.hidden ? "他藏着没说的：" + tx.hidden : "", tx.line ? "卡上那句：" + tx.line : ""].filter(Boolean).join("\n");
+      window.__theaterHandoff = { fromCard: { cardId: card.id, charId: card.charId, kind: card.kind, rarity: card.rarity, theme: card.theme || "", name: tx.name || "", text } }; setScreen("theater"); },
+    onTheaterLine: id => { window.__theaterHandoff = { openLine: id }; setScreen("theater"); },
     // 她的生日池：主面具一份，每张副面具一份；各自只抽认这张面具的那几个人
     myBdays: stampMyBdays(),
     annivs: stampAnnivs(),

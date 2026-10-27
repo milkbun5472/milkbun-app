@@ -248,7 +248,7 @@
 
   // 一张卡打开：卡面、名字、内容
   // 卡页＝养成页：上面是卡（光晕、稀有度章、星、邮戳编号），中间养成面板，底下「时刻回廊」一格一格往外还原那个瞬间
-  function CardPage({ t, card, char, meName, onSwipe, onBack, onDraw, onRewrite, onSend, onCanon, onPoke, onInner, onExtra, onExtraDraw, onExtraSend, toast }) {
+  function CardPage({ t, card, char, meName, onSwipe, onBack, onDraw, onRewrite, onSend, onCanon, onPoke, onInner, onExtra, onExtraDraw, onExtraSend, onTheater, onTheaterLine, toast }) {
     // 满级两面都能画：他一个人（solo）、你们俩（duo）。旧卡只有 faceAlt＋faceAltMode，照它认
     const faces2 = Object.assign({}, card.faceAlt ? { [card.faceAltMode || "solo"]: card.faceAlt } : {}, card.faces || {});
     const url1 = useIdbImgUrl(card.face), urlSolo = useIdbImgUrl(faces2.solo || null), urlDuo = useIdbImgUrl(faces2.duo || null);
@@ -516,6 +516,23 @@
             : openNode && openNode.body ? h("div", { "data-wk": "stampbox", style: { marginTop: 12, padding: "14px 16px", borderRadius: 14, border: "1px solid " + FRAME, background: "#FFF8E9" } },
               h("div", { style: { fontFamily: F_DISPLAY, fontSize: fs(13), color: GOLD, marginBottom: 8 } }, openNode.zh), openNode.body) : null) : null,
         // 番外放在剧情最后面（她 2026-10-27）
+        // 小剧场：从这张卡接着演（SR、SSR）。演过的线一条一张横着排，封面是那条线的剧照；最后一张虚线框开新的
+        tx && (card.rarity === "SSR" || card.rarity === "SR") ? (() => { const ls = (typeof loadJSON === "function" ? loadJSON("x_theater", []) : []).filter(l => l && l.fromCard === card.id);
+          const img = r => r ? (typeof resolveImg === "function" ? resolveImg(r) : r) : null;
+          return h(React.Fragment, null,
+            h("div", { className: "flex items-center", style: { marginTop: 22, gap: 10 } },
+              h("div", { style: { fontFamily: F_DISPLAY, fontSize: fs(14), color: GOLD } }, "✦ 小剧场"),
+              h("div", { style: { flex: 1, height: 1, background: LINE } })),
+            h("div", { "data-wk": "stamptheater", className: "flex overflow-x-auto", style: { gap: 10, marginTop: 12, paddingBottom: 4, marginRight: -20, paddingRight: 20 } },
+              ls.map(l => { const cv = img(l.cover || l.bg); const n = (l.rounds || []).reduce((a, r) => a + (r.msgs || []).length, 0);
+                return h("button", { key: l.id, "data-wk": "stamptheaterline", onClick: () => onTheaterLine && onTheaterLine(l.id), className: "shrink-0 text-left active:opacity-80",
+                  style: { position: "relative", width: 150, minHeight: 168, borderRadius: 12, overflow: "hidden", border: "1px solid " + FRAME, background: cv ? "#222 center/cover no-repeat url(" + cv + ")" : "#FFF8E9", display: "flex", flexDirection: "column", justifyContent: "flex-end" } },
+                  h("div", { style: { padding: "26px 12px 10px", background: cv ? "linear-gradient(transparent, rgba(0,0,0,.65))" : "none", color: cv ? "#FFF8E9" : P } },
+                    h("div", { style: { fontFamily: F_DISPLAY, fontSize: fs(13.5) } }, l.title || "小剧场"),
+                    h("div", { style: { marginTop: 2, fontFamily: F_BODY, fontSize: fs(10.5), opacity: .75 } }, (l.ended ? "谢幕了" : "演到第 " + (l.rounds || []).length + " 轮") + " · " + n + " 拍"))); }),
+              h("button", { "data-wk": "stamptheaternew", onClick: () => onTheater && onTheater(card), className: "shrink-0 active:opacity-70",
+                style: { width: 150, minHeight: 168, borderRadius: 12, border: "1.5px dashed " + GOLD, color: GOLD, background: "transparent", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 6, fontFamily: F_BODY, fontSize: fs(12.5) } },
+                h("span", { style: { fontSize: fs(22), lineHeight: 1 } }, "＋"), "接着演", h("span", { style: { fontSize: fs(10.5), color: P5 } }, "从这张卡开一条小剧场")))); })() : null,
         // 番外：跟时刻回廊一个样子（她 2026-10-27）：标题＋横线，一段一张横着往右滑，最后一张虚线框写新的
         isExCard && tx ? h(React.Fragment, null,
           h("div", { className: "flex items-center", style: { marginTop: 22, gap: 10 } },
@@ -741,7 +758,7 @@
             h(Avatar, { character: c, size: 46, radius: 10 }),
             on ? h("span", { style: { position: "absolute", right: -5, bottom: -5, width: 18, height: 18, borderRadius: 999, background: "#2f5d4a", color: "#15121f", fontSize: 11, lineHeight: "18px", textAlign: "center", fontWeight: 700 } }, "✓") : null),
           h("div", { style: { maxWidth: "100%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: on ? "#2f5d4a" : "rgba(47,42,34,.75)" } }, c.remark || c.name)); }));
-    if (open) { const card = (st.cards || []).find(c => c.id === open) || null; if (card) return h(CardPage, { key: card.id, onSwipe: d => { const ids = albumIds.current, k = ids.indexOf(card.id); if (k < 0) return; const nx = ids[k + d]; if (nx) setOpen(nx); else toast(d > 0 ? "已经是最后一张了" : "已经是第一张了"); }, t, card, char: charOf(card.charId), meName, onBack: () => setOpen(null), onDraw, onRewrite: c => onWrite([c]), toast, onPoke: (c, sd) => props.onPoke ? props.onPoke(c, sd) : null, onInner: c => props.onInner ? props.onInner(c) : null, onExtra: (id, xid, wish) => props.onExtra ? props.onExtra(id, xid, wish) : null, onExtraSend: (c, x) => props.onExtraSend && props.onExtraSend(c, x), onExtraDraw: (id, xid) => props.onExtraDraw ? props.onExtraDraw(id, xid) : null,
+    if (open) { const card = (st.cards || []).find(c => c.id === open) || null; if (card) return h(CardPage, { key: card.id, onSwipe: d => { const ids = albumIds.current, k = ids.indexOf(card.id); if (k < 0) return; const nx = ids[k + d]; if (nx) setOpen(nx); else toast(d > 0 ? "已经是最后一张了" : "已经是第一张了"); }, t, card, char: charOf(card.charId), meName, onBack: () => setOpen(null), onDraw, onRewrite: c => onWrite([c]), toast, onPoke: (c, sd) => props.onPoke ? props.onPoke(c, sd) : null, onInner: c => props.onInner ? props.onInner(c) : null, onExtra: (id, xid, wish) => props.onExtra ? props.onExtra(id, xid, wish) : null, onExtraSend: (c, x) => props.onExtraSend && props.onExtraSend(c, x), onTheater: c => props.onTheater && props.onTheater(c), onTheaterLine: id => props.onTheaterLine && props.onTheaterLine(id), onExtraDraw: (id, xid) => props.onExtraDraw ? props.onExtraDraw(id, xid) : null,
       onSend: c => { props.onSend && props.onSend(c); }, onCanon: c => { props.onCanon && props.onCanon(c); } }); }
 
     const isBad = c => !c.text && (!c.writing || Date.now() - Number(c.writingTs || 0) > (c.queued ? 1800000 : 180000));

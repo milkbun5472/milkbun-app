@@ -430,8 +430,39 @@
       if (DRAFT_BG) { DRAFT_BG.start(DRAFT_KEY, { label: "正在开局…" }, run).catch(() => {}); return; }
       try { setDraft(await run()); } catch (e) { props.toast("生成失败:" + (e.message || "重试")); } finally { setBusy(false); }
     };
+    // 从邮票开线（她 2026-10-27）：卡里的世界、身份和你们的关系就是设定；SSR 从结局那一刻往后、SR 从那件事之后往后。
+    //   恋爱向也要有冲突：甜是筹码，每一幕都有一件挡在你们面前的事；先找这张卡自己留下的那个没解决的口子
+    const CARD_CONFLICT = "这条线的甜是筹码，不是全部：每一幕都有一件挡在你们面前的事——外面的压力、两个人想要的不一样、没说出口的事、选择的代价，或者他自己的难处。目标是去争取或者解决它，过程里有得有失；关系照你们现在走到的那一步来，冲突不是为了拆散，是让在一起这件事有分量。";
+    const genFromCard = async cd => {
+      const char = props.characters.find(c => c.id === cd.charId);
+      if (!char) return props.toast("这张卡的人不在了");
+      if (!props.active) return props.toast("请先配置线下 API");
+      setPickChar(cd.charId); setView("create"); setBusy(true);
+      const run = async () => {
+        const sys = settingStyle() + "你在为一场「小剧场」做开场设定。这一条线从一枚邮票卡接着往下演：卡里写好的世界、他的身份、你们之间的关系就是这一条线的设定，原样接住，不另起一个世界。"
+          + (cd.kind === "if" ? "这张是 IF 卡「" + (cd.theme || "") + "」，演的是那个「如果」的世界。" : "这张写的是你们真实关系里的事，演的是那之后。")
+          + (cd.rarity === "SSR" ? "开场接在这段剧情的结局之后。" : "开场接在这件事之后。")
+          + "\n" + CARD_CONFLICT + "先从卡里找它自己留下的那个还没解决的口子（藏着没说的话、没做完的事、悬着的选择），当这一条线的第一件挡在面前的事。"
+          + "\n" + DIFF[diff].goal + "\ngoal:" + GOAL_RULE + "\nopening 是写给 " + uName + " 的开场正文(第二人称『你』,5-9句),接住卡里最后那一刻往下走一步,留出自然接话或行动的空间,绝不替 " + uName + " 做决定。\n只输出 JSON:" + SHAPE_SETTING;
+        const user = "【角色人设】\n" + (char.persona || char.name) + "\n\n【这张邮票卡】\n" + cd.text;
+        const raw = await callAI(props.active, sys + "\n\n" + user, [{ role: "user", content: "开始。" }], { maxTokens: 65000, timeout: 150000 });
+        const KEYS = ["title", "charRole", "userRole", "world", "hook", "charOutfit", "userOutfit", "goal", "opening"];
+        let p = parseSettingPayload(raw, KEYS) || await reformatSetting(raw, SHAPE_SETTING, KEYS);
+        if (!p) throw new Error("模型没按 JSON 输出,也整理不回来" + rawHint(raw));
+        p = await completeSetting(p, raw, ["charRole", "goal", "opening"].concat(p.setting ? [] : ["world"]), "goal:" + GOAL_RULE + "\n" + CARD_CONFLICT);
+        if (!String(p.goal || "").trim() || !String(p.opening || "").trim()) throw new Error("开局缺了目标或开场,再试一次");
+        const world = p.world || p.setting;
+        return ({ charId: char.id, keywords: "", difficulty: diff, title: p.title || cd.name || "接着演", charRole: p.charRole, userRole: p.userRole || "", world: world, hook: p.hook || "", charOutfit: p.charOutfit || "", userOutfit: p.userOutfit || "", setting: joinScene(world, p.hook || ""), opening: p.opening || "", goal: p.goal, fromCard: cd.cardId, fromCardName: cd.name || "" });
+      };
+      if (DRAFT_BG) { DRAFT_BG.start(DRAFT_KEY, { label: "正在从卡开局…" }, run).catch(() => {}); return; }
+      try { setDraft(await run()); } catch (e) { props.toast("生成失败:" + (e.message || "重试")); } finally { setBusy(false); }
+    };
+    // 邮票册那边点过来：开一条从卡来的线，或者直接打开某一条线
+    useEffect(() => { const ho = window.__theaterHandoff; window.__theaterHandoff = null; if (!ho) return;
+      if (ho.openLine && lines.some(l => l.id === ho.openLine)) { setPlayId(ho.openLine); setView("play"); }
+      else if (ho.fromCard) genFromCard(ho.fromCard); }, []);
     const acceptDraft = () => {
-      const l = { id: rid("th_"), charId: draft.charId, title: draft.title, keywords: draft.keywords, difficulty: draft.difficulty || "normal", charRole: draft.charRole, userRole: draft.userRole, world: draft.world || draft.setting, hook: draft.hook || "", charOutfit: draft.charOutfit || "", userOutfit: draft.userOutfit || "", setting: draft.setting, presetId: draft.presetId || null, createdAt: Date.now(), rounds: [{ id: rid("tr_"), goal: draft.goal, goalDone: false, goalNote: null, pending: false, msgs: draft.opening ? [{ id: rid("tm_"), role: "char", content: draft.opening, ts: Date.now() }] : [], startTs: Date.now() }] };
+      const l = { id: rid("th_"), charId: draft.charId, title: draft.title, keywords: draft.keywords, difficulty: draft.difficulty || "normal", charRole: draft.charRole, userRole: draft.userRole, world: draft.world || draft.setting, hook: draft.hook || "", charOutfit: draft.charOutfit || "", userOutfit: draft.userOutfit || "", setting: draft.setting, presetId: draft.presetId || null, fromCard: draft.fromCard || null, fromCardName: draft.fromCardName || "", createdAt: Date.now(), rounds: [{ id: rid("tr_"), goal: draft.goal, goalDone: false, goalNote: null, pending: false, msgs: draft.opening ? [{ id: rid("tm_"), role: "char", content: draft.opening, ts: Date.now() }] : [], startTs: Date.now() }] };
       update(list => [l, ...list]); setDraft(null); setKw(""); setPlayId(l.id); setView("play"); setPanelOpen(true);
     };
 
