@@ -15303,7 +15303,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         // 只有部分成员知道的（比如 A 私下说了自己受伤、没告诉别人）只落进那几个人各自的私密段。
         const gSplit = splitGroupMemories(memLibRef.current, members.map(c => c.id), hist, { limit: memCfgRef.current.topK || 5 });
         const memLines = members.map(c => {
-          const seg = memberPrivateContextFor(c, gSplit, { interop: gs.memoryInterop, privateCtxN: gs.privateCtxN, spectate: !imInGroup(group) || !!gs.spectate });
+          const seg = memberPrivateContextFor(c, gSplit, { interop: gs.memoryInterop, privateCtxN: gs.privateCtxN, spectate: !imInGroup(group) || !!gs.spectate, groupId: group.id });
           return seg ? "『" + c.name + "』〔以下只有 " + c.name + " 本人知道，别的成员并不知情〕\n" + seg : "";
         }).filter(Boolean).join("\n\n");
         const groupMem = formatMemLib(gSplit.shared);
@@ -21122,13 +21122,22 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     const onlyMine = formatMemLib((split.perChar || {})[String(c.id)] || []);
     const priv = opts.interop ? memberPrivLines(c, opts.privateCtxN) : "";
     const offBeats = opts.interop && Number(opts.privateCtxN) > 0 ? crossRecentFor(c.id, { surfaces: ["offline"] }) : "";
+    // 他在别的互通群里最近聊的（她 2026-10-27：同一拨人在别的群里刚发生的事，新群里不知道——
+    //   原来只能等抽成记忆。单聊那头早就带着 groupEcho，群里这头补上同一种兜底）。闭群照旧不外流；只带最近一段、最多两个群
+    const crossMs = (memCfgRef.current.crossHours || 72) * 3600000, since = Date.now() - crossMs;
+    const otherGroups = !opts.interop ? "" : (groups || []).filter(g => g && g.id !== opts.groupId && gsFor(g.id).memoryInterop && (g.memberIds || []).includes(c.id)).map(g => {
+      const msgs = (groupChatsRef.current[g.id] || []).filter(m => m && !isOocMsg(m) && m.role !== "system" && (m.ts || 0) >= since && contextAllowsMessage(m) && String(m.content || "").trim()).slice(-8);
+      if (!msgs.length) return null;
+      return { ts: msgs[msgs.length - 1].ts || 0, text: "『群「" + g.name + "」最近』\n" + msgs.map(m => (aiStampFor(c.id, m.ts) ? "[" + aiStampFor(c.id, m.ts) + "] " : "") + (m.role === "narration" ? "【旁白】" : (m.role === "user" ? userName(profile) : (m.senderName || "某人"))) + "：" + String(m.content).replace(/\s+/g, " ").slice(0, 120)).join("\n") };
+    }).filter(Boolean).sort((a, b) => b.ts - a.ts).slice(0, 2).map(x => x.text).join("\n\n");
     // 旁观群（群友 2026-10-20）：她不在这个群里。原样摆出他跟她刚才的私聊/线下，模型会顺着那段接着跟她说下去，
     //   而不是在群里跟群里的人聊。照样给（这是他真知道的近况），只说清那是【别处的事】。
     const away = opts.spectate ? "（下面是 " + c.name + " 在别处跟用户的往来，用户不在这个群里；这是他心里知道的近况，不是这个群里正在进行的对话——群里该接的是群里的人。）\n" : "";
     return [mem && "长期记忆：" + mem, gz,
       onlyMine && onlyMine.trim() && "记忆库里【只有 " + c.name + " 知道】的事（别的成员并不知情，除非 TA 自己说出来）：\n" + onlyMine.trim(),
       priv && away + "最近私聊（带时间，请和群聊记录一起按真实时间先后理解发生顺序）：\n" + priv,
-      offBeats && (priv ? "" : away) + "最近单人线下（带时间，和上面私聊/群聊一起按真实先后理解）：\n" + offBeats
+      offBeats && (priv ? "" : away) + "最近单人线下（带时间，和上面私聊/群聊一起按真实先后理解）：\n" + offBeats,
+      otherGroups && c.name + " 在别的群里最近聊的（那边的事 TA 知道；这个群里的人在不在那个群，照名单看，不在的就不知道）：\n" + otherGroups
     ].filter(Boolean).join("\n");
   };
   // ---- 通话 / 视频（私聊单人 或 群聊多人；发一句回一句，即时）----
@@ -21622,7 +21631,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         //   只有不挂在任何群上的临时多人通话（没有 cgs）才按单聊那一档给。
         const gcPrivN = cgs ? (Number(cgs.privateCtxN) || 0) : 6;
         const gcPriv = gcMembers.map(c => {
-          const seg = memberPrivateContextFor(c, gcSplit, { interop: gcInterop, privateCtxN: gcPrivN });
+          const seg = memberPrivateContextFor(c, gcSplit, { interop: gcInterop, privateCtxN: gcPrivN, groupId: cur.groupId });
           return seg ? "『" + c.name + "』〔以下只有 " + c.name + " 本人知道，别的成员并不知情〕\n" + seg : "";
         }).filter(Boolean).join("\n\n");
         const gcPrivBlock = gcPriv ? "\n\n【每位成员各自和用户的私下往来 · ⚠️隐私边界铁律】\n下面每一段【只属于标注的那位成员本人】。**一个成员绝不知道、也绝不许提及、暗示或质问另一个成员和用户之间私聊过什么" + (cgs && cgs.drama ? "" : "、是什么关系") + "**——除非那位成员【自己在这通电话或群里主动说了出来】。每个成员只凭『自己那一段』和『这通电话里公开说过的话』行动。\n" + PRIVATE_IS_BACKGROUND_NOT_AMMO + "\n" + gcPriv : "";
