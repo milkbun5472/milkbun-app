@@ -5442,7 +5442,7 @@ function buildPhotoPrompt(char, sceneDesc, st, opts) {
   ];
   function photoDuoPoseLine(seed) {
     // ♥ 开头的那几格是恋人才摆的（环抱、头挨着）：闺蜜 / 挚友 / 家人空间不抽它（她 2026-10-16）
-    const pool = PHOTO_DUO_POSES.filter(x => !opts.notLover || x.charAt(0) !== "♥").map(x => x.replace(/^♥/, ""));
+    const pool = PHOTO_DUO_POSES.filter(x => !(opts.notLover || younger) || x.charAt(0) !== "♥").map(x => x.replace(/^♥/, ""));
     const n = Number.isFinite(seed) ? Math.abs(Math.floor(seed / 7)) : Math.floor(Math.random() * 100000);
     let idx = n % pool.length;
     if (idx === buildPhotoPrompt._lastDuoPose) idx = (idx + 1 + Math.floor(Math.random() * (pool.length - 1))) % pool.length;
@@ -5494,11 +5494,22 @@ function buildPhotoPrompt(char, sceneDesc, st, opts) {
   const _minorWord = /(?:幼儿|儿童|小男孩|小女孩|男童|女童|孩童|少年儿童|未成年|\bchild\b|\bminor\b)/i.test(identityText);
   const _minorAge = /(?<![0-9０-９])(?:[1-9]|1[0-7])\s*周?岁(?!那|时|的时候|起|以前|之前|前|后)/.test(identityText);
   const _adultAge = /(?<![0-9０-９])(?:1[89]|[2-9][0-9])\s*周?岁(?!那|时|的时候|起|以前|之前|前|后)/.test(identityText);
-  const younger = !(opts && (opts.cast || opts.kind === "duo")) && char !== "__shots" && typeof photoYoungerOf === "function" ? photoYoungerOf(sceneDesc) : null;
+  // 合照也认（她 2026-10-27「合照也能弄吗」）：描述里点了谁小时候就只画小谁；笼统写「小时候」「童年合照」就是每个人都小时候
+  const _yNames = multi ? cast.map(x => String(x.name).trim()) : kind === "duo" ? [cName, uName] : [cName];
+  const _y0 = char !== "__shots" && typeof photoYoungerOf === "function" ? photoYoungerOf(sceneDesc) : null;
+  const _yEsc = x => x.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const _yNamed = _y0 && _yNames.length > 1 ? _yNames.filter(n => n && new RegExp("(?:小时候的|岁的|小)" + _yEsc(n) + "|" + _yEsc(n) + "(?:小时候|童年|还小)").test(String(sceneDesc || ""))) : [];
+  const younger = _y0 ? Object.assign({}, _y0, { names: _yNamed.length ? _yNamed : _yNames }) : null;
   const isMinor = !!younger || _minorWord || (_minorAge && !_adultAge);
   const isBoy = /(?:小男孩|男童|男孩|少年|男性儿童|\bboy\b)/i.test(identityText);
   const parts = [];
-  if (younger) parts.push(PHOTO_YOUNGER_MARK + "画面里是「" + cName + "」" + (younger.age ? younger.age : "小时候") + "的样子，不是现在的" + cName + "：照画面描述把 TA 画成那个年纪的孩子——孩子的脸型、五官比例、身高和身体比例，衣服照描述来，不穿 TA 现在的衣服。"
+  if (younger && _yNames.length > 1) parts.push(PHOTO_YOUNGER_MARK + "这张合照里，" + younger.names.map(n => "「" + n + "」").join("、") + "是" + (younger.age ? younger.age : "小时候") + "的样子，不是现在的："
+    + "照画面描述把" + (younger.names.length > 1 ? "他们" : "TA") + "画成那个年纪的孩子——孩子的脸型、五官比例、身高和身体比例，衣服照描述来，不穿现在的衣服。"
+    + (younger.names.length < _yNames.length ? _yNames.filter(n => younger.names.indexOf(n) < 0).map(n => "「" + n + "」").join("、") + "照现在的样子画，长相照参考图。" : "")
+    + "参考照和外貌写的是长大以后的样子，对画小的人只用来认得出是同一个人：发色、眼型、标志性的痣或特征留着，不照搬成年的脸、身材和打扮；下面凡是说「年龄不得改变」「保住参考图的脸和身体」的，对画小的人都按小时候来。"
+    + "画面里有小孩：两个人怎么待在一起照小孩之间、或者大人带着小孩的样子来（并排站、一起玩、牵着走、各自看镜头），不摆恋人的姿势。"
+    + (/老照片|旧照|扫描|相册|胶片/.test(String(sceneDesc || "")) ? "照片本身是那个年代的老照片：颜色发旧、有颗粒和一点褪色，像从相册里扫出来的。" : ""));
+  else if (younger) parts.push(PHOTO_YOUNGER_MARK + "画面里是「" + cName + "」" + (younger.age ? younger.age : "小时候") + "的样子，不是现在的" + cName + "：照画面描述把 TA 画成那个年纪的孩子——孩子的脸型、五官比例、身高和身体比例，衣服照描述来，不穿 TA 现在的衣服。"
     + "参考照和下面写的外貌是 TA 长大以后的样子，只用来让人认得出是同一个人：发色、眼型、标志性的痣或特征这些留着，像一个人小时候和长大后那种像；不要照搬成年的脸、身材和打扮，下面凡是说「年龄不得改变」「保住参考图的脸和身体」的，这一张都按小时候来。"
     + (/老照片|旧照|扫描|相册|胶片/.test(String(sceneDesc || "")) ? "照片本身是那个年代的老照片：颜色发旧、有颗粒和一点褪色，像从相册里扫出来的。" : ""));
   if (!younger && (multi || kind === "duo" || char.refPhoto)) parts.push("【首要任务：人物身份】所有人物参考图都是硬性身份来源。可改变姿势、表情、服装与背景，但不得重画、混合、平均化或替换任何参考人物的脸；无法保留全部身份时应失败，而不是生成陌生人。");
