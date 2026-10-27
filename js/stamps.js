@@ -546,11 +546,12 @@
             h("img", { src: url, alt: "", onLoad: e => setFullWide(e.currentTarget.naturalWidth > e.currentTarget.naturalHeight * 1.1), style: { display: "block", maxWidth: "calc(100vw - 32px)", maxHeight: "calc(100dvh - 190px)", width: "auto", height: "auto", borderRadius: 4, boxShadow: "0 0 0 3px #FFF8E9, 0 0 0 5px " + COPPER } }),
             canPoke ? h("div", { "data-wk": "stamppoke", onClick: e => { e.stopPropagation(); poke(e); }, style: { position: "absolute", inset: 0, cursor: "pointer" } }) : null)),
         // 横的原画（番外 CG）：「横过来看」整张转 90 度占满屏幕，手机横着拿看；点一下回来
+        h("button", { "data-wk": "stampfullclose", onClick: e => { e.stopPropagation(); setFull(false); }, className: "active:opacity-60", style: { position: "absolute", left: 14, top: "calc(env(safe-area-inset-top) + 14px)", padding: "4px 12px", borderRadius: 999, border: "1px solid rgba(255,248,233,.6)", color: "#FFF8E9", fontFamily: F_BODY, fontSize: fs(12) } }, "‹ 收起"),
         fullWide ? h("button", { "data-wk": "stamprotate", onClick: e => { e.stopPropagation(); setRot(true); }, className: "active:opacity-60", style: { position: "absolute", right: 14, top: "calc(env(safe-area-inset-top) + 14px)", padding: "4px 12px", borderRadius: 999, border: "1px solid rgba(255,248,233,.6)", color: "#FFF8E9", fontFamily: F_BODY, fontSize: fs(12) } }, "⟲ 横过来看") : null,
         rot ? h("div", { "data-wk": "stamprotview", onClick: e => { e.stopPropagation(); setRot(false); }, className: "fixed inset-0", style: { zIndex: 2, background: "#000" } },
           h("img", { src: url, alt: "", style: { position: "absolute", left: "50%", top: "50%", width: "100dvh", height: "100vw", objectFit: "contain", transform: "translate(-50%, -50%) rotate(90deg)" } })) : null,
         // 画了好几面：全屏里左右箭头直接换（她 2026-10-27：不用退出全屏再换），底下小点标着是哪一面
-        (() => { const sides = [["main", url1, "第一面"], ["solo", urlSolo, "他一个人"], ["duo", urlDuo, "你们俩"]].concat(exSel && urlEx ? [[side, urlEx, "番外「" + (exSel.title || "") + "」"]] : []).filter(x => x[1]); if (sides.length < 2) return null;
+        (() => { const sides = [["main", url1, "第一面"], ["solo", urlSolo, "他一个人"], ["duo", urlDuo, "你们俩"]].concat((card.extras || []).filter(x => x.img).map(x => ["ex:" + x.id, x.img, "番外「" + (x.title || "") + "」"])).filter(x => x[1]);   // 番外按 key 列进来：翻走了也翻得回来 if (sides.length < 2) return null;
           const k = Math.max(0, sides.findIndex(x => x[0] === side)), go = d => e => { e.stopPropagation(); setSay(null); setFullWide(false); setSide(sides[(k + d + sides.length) % sides.length][0]); };
           const arrow = (d, pos) => h("button", { "data-wk": "stampfullnav", onClick: go(d), className: "active:opacity-60", style: Object.assign({ position: "absolute", top: "42%", width: 36, height: 56, borderRadius: 8, background: "rgba(255,248,233,.16)", color: "#FFF8E9", fontSize: 26, lineHeight: "56px", textAlign: "center" }, pos) }, d < 0 ? "‹" : "›");
           return h(React.Fragment, null, arrow(-1, { left: 6 }), arrow(1, { right: 6 }),
@@ -560,6 +561,7 @@
           canPoke ? (poking ? h("span", { style: { color: P5 } }, "他在想怎么回你…") : say ? h(React.Fragment, null, h("div", { style: { fontSize: fs(10.5), color: COPPER, marginBottom: 2 } }, (char ? char.name : "") + (say.part === "head" ? " · 被戳了头" : say.part === "heart" ? " · 被戳了胸口" : " · 被戳了手")), say.text,
               h("button", { "data-wk": "stamppokevoice", onClick: e => { e.stopPropagation(); if (!speakPoke(say.text)) toast("要先在「设置」里配好语音"); }, style: { marginLeft: 6, fontSize: "0.9em", opacity: .7 } }, "🔊"))
             : h("span", { style: { color: P5 } }, "戳戳他：上面是头，中间是胸口，下面是手。点外面收起。"))
+            : exSel ? h("span", { style: { color: P5 } }, "番外「" + (exSel.title || "") + "」。点外面或者左上角「收起」。")
             : h("span", { style: { color: P5 } }, card.rarity === "SSR" ? "这张升满 " + cap + " 级以后，点卡面能戳他（头、胸口、手）。点外面收起。" : "点外面收起。"),
 
           // 最底下一排：左边保存原图，右边（满级戳过的）换一批话
