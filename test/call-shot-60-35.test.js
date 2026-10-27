@@ -22,7 +22,8 @@ test("只有视频通话、配了出图、而且有人有参考照，才给这�
 });
 
 test("谁在电话里都锁——不是只锁主叫那一个", () => {
-  assert.match(shot, /const withRef = \(cur\.participants \|\| \[\]\)\.filter\(p => p && p\.refPhoto\)/);
+  // 2026-10-27 起群视频能挑拍谁：没挑＝有参考照的全部，挑了就只拍挑中的那几位
+  assert.match(shot, /const withRef = \(cur\.participants \|\| \[\]\)\.filter\(p => p && p\.refPhoto && \(!pickIds \|\| pickIds\.includes\(String\(p\.id\)\)\)\)/);
   assert.match(shot, /withRef\.length > 1[\s\S]{0,220}withRef\.slice\(0, 4\)\.map/, "两个人以上要走合影那一路");
   assert.match(shot, /refPhoto: c2\.refPhoto/, "每人拿自己那张锁脸");
   // 参考图顺序＝点名顺序，错位脸就串
