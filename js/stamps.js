@@ -524,6 +524,13 @@
           h("div", { style: { position: "relative", display: "inline-block", lineHeight: 0 } },
             h("img", { src: url, alt: "", style: { display: "block", maxWidth: "calc(100vw - 32px)", maxHeight: "calc(100dvh - 190px)", width: "auto", height: "auto", borderRadius: 4, boxShadow: "0 0 0 3px #FFF8E9, 0 0 0 5px " + COPPER } }),
             canPoke ? h("div", { "data-wk": "stamppoke", onClick: e => { e.stopPropagation(); poke(e); }, style: { position: "absolute", inset: 0, cursor: "pointer" } }) : null)),
+        // 画了好几面：全屏里左右箭头直接换（她 2026-10-27：不用退出全屏再换），底下小点标着是哪一面
+        (() => { const sides = [["main", url1, "第一面"], ["solo", urlSolo, "他一个人"], ["duo", urlDuo, "你们俩"]].filter(x => x[1]); if (sides.length < 2) return null;
+          const k = Math.max(0, sides.findIndex(x => x[0] === side)), go = d => e => { e.stopPropagation(); setSay(null); setSide(sides[(k + d + sides.length) % sides.length][0]); };
+          const arrow = (d, pos) => h("button", { "data-wk": "stampfullnav", onClick: go(d), className: "active:opacity-60", style: Object.assign({ position: "absolute", top: "42%", width: 36, height: 56, borderRadius: 8, background: "rgba(255,248,233,.16)", color: "#FFF8E9", fontSize: 26, lineHeight: "56px", textAlign: "center" }, pos) }, d < 0 ? "‹" : "›");
+          return h(React.Fragment, null, arrow(-1, { left: 6 }), arrow(1, { right: 6 }),
+            h("div", { "data-wk": "stampfullside", onClick: e => e.stopPropagation(), style: { textAlign: "center", marginBottom: 8, fontFamily: F_BODY, fontSize: fs(11), color: "rgba(255,248,233,.75)" } },
+              sides.map((x, i) => h("span", { key: x[0], style: { display: "inline-block", width: 6, height: 6, margin: "0 3px", borderRadius: 9, background: i === k ? "#FFF8E9" : "rgba(255,248,233,.3)" } })), "  " + sides[k][2])); })(),
         h("div", { "data-wk": "stamppokesay", onClick: e => e.stopPropagation(), style: { margin: "0 16px calc(env(safe-area-inset-bottom) * 0.4 + 16px)", minHeight: 72, padding: "12px 16px", borderRadius: 14, background: "#FFF8E9", border: "1px solid " + COPPER, color: P, fontFamily: F_BODY, fontSize: fs(14), lineHeight: 1.7 } },
           canPoke ? (poking ? h("span", { style: { color: P5 } }, "他在想怎么回你…") : say ? h(React.Fragment, null, h("div", { style: { fontSize: fs(10.5), color: COPPER, marginBottom: 2 } }, (char ? char.name : "") + (say.part === "head" ? " · 被戳了头" : say.part === "heart" ? " · 被戳了胸口" : " · 被戳了手")), say.text,
               h("button", { "data-wk": "stamppokevoice", onClick: e => { e.stopPropagation(); if (!speakPoke(say.text)) toast("要先在「设置」里配好语音"); }, style: { marginLeft: 6, fontSize: "0.9em", opacity: .7 } }, "🔊"))
