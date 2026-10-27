@@ -7622,10 +7622,12 @@ async function generateNpcs(p, hostChar, ask, takenNames, n, world) {
   const arr = Array.isArray(d) ? d : d && Array.isArray(d.npcs) ? d.npcs : [];
   const out = arr.filter(x => x && x.name && x.brief).slice(0, k).map(x => ({
     name: String(x.name).trim().slice(0, 24), brief: String(x.brief).trim().slice(0, 1500),
-    relFromHost: String(x.relFromHost || "").trim().slice(0, 60), relToHost: String(x.relToHost || "").trim().slice(0, 60) }));
+    relFromHost: String(x.relFromHost || "").trim().slice(0, 60), relToHost: String(x.relToHost || "").trim().slice(0, 60), gender: npcGenderOf(x.gender) }));
   if (!out.length) throw new Error("模型没按格式返回（它回的是：" + String(raw || "").replace(/\s+/g, " ").slice(0, 120) + "）");
   return out;
 }
+// 配角的性别栏（她 2026-10-26：单独一栏、不混在简介里）：只认 他／她／TA，别的一律当 TA
+function npcGenderOf(v) { const g = String(v == null ? "" : v).trim(); return g === "他" || g === "她" ? g : "TA"; }
 function npcSysOf(hostChar, ask, takenNames, n, world) {
   const worldTxt = String(world || "").replace(/\s+/g, " ").trim().slice(0, 3000);   // 世界书（群友 2026-10-26 许愿：关系不读世界书）
   const k = Math.max(1, Number(n) || 1);
@@ -7643,6 +7645,7 @@ function npcSysOf(hostChar, ask, takenNames, n, world) {
     + (taken.length ? "· 已经有这几位了，名字和身份都别重复：" + taken.join("、") + "。\n" : "")
     // 几位一起写时（她 2026-10-26「这几个 npc 为啥不是单独写是谁的」）：每一位都要各写各的那两句关系——
     //   主角色眼里这个人是谁、这个人眼里主角色是谁。一起写容易偷懒成一句通用的、或者后几位干脆空着
+    + "· gender 单独一栏，填这个人的称呼代词：男的填「他」，女的填「她」，不确定或不分的填「TA」；跟简介里写的对得上。\n"
     + (k > 1 ? "· 每一位都要单独写清TA跟主角色是什么关系：relFromHost、relToHost 两句各位各写各的，照这个人自己的身份和来历写，不许几位共用一句、不许空着。\n" : "")
     + "\n【怎么写】\n"
     + "· brief 写 300~500 字，第二人称写给这位配角本人看（「你是…」）：TA是谁、做什么的、和主角色怎么认识的、性格什么样、说话什么调子、此刻大概在忙什么。\n"
@@ -7654,8 +7657,8 @@ function npcSysOf(hostChar, ask, takenNames, n, world) {
     // 格式里不放内容示范（施工规则/prompt-no-content-samples.md）：原来两格各挂一句「如：我的副将，跟了我八年」，配角全成了副将；
     //   公共版一直靠出炉补丁拿掉，2026-10-26 搬回源码。几位时摆出每一位一个对象，各自带那两句关系
     + (k > 1
-      ? '{"npcs":[' + Array.from({ length: k }, (_, q) => '{"name":"第' + (q + 1) + '位的名字","brief":"第' + (q + 1) + '位的 300~500 字第二人称简介","relFromHost":"主角色眼里第' + (q + 1) + '位是谁，一句话","relToHost":"第' + (q + 1) + '位眼里主角色是谁，一句话"}').join(",") + ']}'
-      : '{"name":"这位配角的名字（用户给了名字就用用户给的）","brief":"300~500字的第二人称简介","relFromHost":"主角色眼里这个人是谁，一句话","relToHost":"这个人眼里主角色是谁，一句话"}');
+      ? '{"npcs":[' + Array.from({ length: k }, (_, q) => '{"name":"第' + (q + 1) + '位的名字","brief":"第' + (q + 1) + '位的 300~500 字第二人称简介","relFromHost":"主角色眼里第' + (q + 1) + '位是谁，一句话","relToHost":"第' + (q + 1) + '位眼里主角色是谁，一句话","gender":"他、她或TA"}').join(",") + ']}'
+      : '{"name":"这位配角的名字（用户给了名字就用用户给的）","brief":"300~500字的第二人称简介","relFromHost":"主角色眼里这个人是谁，一句话","relToHost":"这个人眼里主角色是谁，一句话","gender":"他、她或TA"}');
 }
 async function generateNpc(p, hostChar, ask, takenNames, world) {
   const sys = npcSysOf(hostChar, ask, takenNames, 1, world);   // 说明只有一份（npcSysOf），一位和几位共用
@@ -7680,7 +7683,8 @@ async function generateNpc(p, hostChar, ask, takenNames, world) {
     name: String(d.name).trim().slice(0, 24),
     brief: String(d.brief).trim().slice(0, 1500),
     relFromHost: String(d.relFromHost || "").trim().slice(0, 60),
-    relToHost: String(d.relToHost || "").trim().slice(0, 60)
+    relToHost: String(d.relToHost || "").trim().slice(0, 60),
+    gender: npcGenderOf(d.gender)
   };
 }
 

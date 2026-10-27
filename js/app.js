@@ -20,7 +20,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v76.747";
+const APP_VERSION = "v76.749";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -10567,7 +10567,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         const id = "c_" + Date.now() + "_" + k + "_npc";
         pC(prev => [...prev, CharacterPronoun.newCharacter({
           id: id, name: r.name, persona: r.brief,
-          npc: true, ownerId: hostId          // ← 这两个字段是全部区别
+          npc: true, ownerId: hostId,         // ← 这两个字段是全部区别
+          gender: r.gender || "TA"            // 生成时单独交的那一栏（她 2026-10-26）
         })]);
         // 双向关系：群聊的【成员间关系】那一段就是读它，写了他俩在群里才认得彼此
         if (r.relFromHost) saveRel(hostId + "->" + id, r.relFromHost, "");
