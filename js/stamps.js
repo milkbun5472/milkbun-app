@@ -181,7 +181,7 @@
         h("div", { className: "flex-1 text-center", style: { minWidth: 0, margin: "0 6px", color: "#fff" } },
           h("div", { style: { whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", fontFamily: F_DISPLAY, fontSize: "calc(14px * var(--app-fs, 1))" } }, sec.title || card.text.name),
           // 第几节：按等级那道锁数（1/10/20/30 级＝一到四节，40 级是结局，50 级是隐藏的路）
-          h("div", { "data-wk": "stampstorysec", style: { marginTop: 1, fontFamily: F_BODY, fontSize: "calc(9.5px * var(--app-fs, 1))", letterSpacing: ".2em", opacity: .65 } },
+          h("div", { "data-wk": "stampstorysec", style: { whiteSpace: "nowrap", marginTop: 1, fontFamily: F_BODY, fontSize: "calc(9.5px * var(--app-fs, 1))", letterSpacing: ".2em", opacity: .65 } },
             sec.hidden ? "隐藏的路" : sec.end ? "结局" : "第" + (["一", "二", "三", "四"][Math.min(3, Math.floor((Number(sec.lv) || 1) / 10))]) + "节")),
         h("button", { "data-wk": "stampstoryvoice", "data-on": voiceOn ? "1" : "0", onClick: () => { if (!canVoice && !voiceOn) { alert("要先在「设置」里配好语音（minimax 那些），他的音色在人格档案馆挑。"); return; } toggle("storyVoice"); }, className: "active:opacity-60",
           style: { flexShrink: 0, marginRight: 4, color: "#fff", fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", padding: "1px 7px", borderRadius: 999, border: "1px solid rgba(255,255,255," + (voiceOn ? ".9" : ".35") + ")", background: voiceOn ? "rgba(255,255,255,.18)" : "transparent" } }, "语音"),
@@ -192,7 +192,7 @@
           style: { flexShrink: 0, marginRight: 4, color: "#fff", fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", padding: "1px 7px", borderRadius: 999, border: "1px solid rgba(255,255,255,.35)" } }, "记录"),
         h("button", { "data-wk": "stampstoryauto", "data-on": autoOn ? "1" : "0", onClick: () => toggle("storyAuto"), className: "active:opacity-60",
           style: { flexShrink: 0, marginRight: 4, color: "#fff", fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", padding: "1px 7px", borderRadius: 999, border: "1px solid rgba(255,255,255," + (autoOn ? ".9" : ".35") + ")", background: autoOn ? "rgba(255,255,255,.18)" : "transparent" } }, "自动"),
-        opts.length > 1 ? h("button", { "data-wk": "stampstorybg", onClick: nextBg, className: "active:opacity-60", style: { color: "#fff", fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", padding: "3px 10px", borderRadius: 999, border: "1px solid rgba(255,255,255,.5)" } }, "背景：" + curBg[1]) : null),
+        opts.length > 1 ? h("button", { "data-wk": "stampstorybg", onClick: nextBg, className: "active:opacity-60", style: { flexShrink: 0, whiteSpace: "nowrap", color: "#fff", fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", padding: "1px 7px", borderRadius: 999, border: "1px solid rgba(255,255,255,.35)" } }, "背景") : null),   // 跟另外四个一样大，只写「背景」两个字，点一下换下一张（她 2026-10-27：「背景：他一个人」太挤）
       // 选项放在屏幕中间（她 2026-10-26），不挤在对话框里
       h("div", { "data-wk": "stampstorychoices", className: "flex-1 flex flex-col items-center justify-center", onClick: tap, style: Object.assign({ padding: "0 28px", gap: 10 }, hid) },
         beat._pick != null ? (beat.options || []).map((o, k) => h("button", { key: "p" + k, "data-wk": "stampstorychoice", "data-inline": "1", onClick: e => { e.stopPropagation(); if (eaten()) return; setPicks(p => Object.assign({}, p, { [beat._pick]: k })); }, className: "active:opacity-80", style: choiceBtn }, h(BiText, { text: o.text || "" }))) : null,
