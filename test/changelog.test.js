@@ -23,7 +23,7 @@ test("日志的形状：一天一条、新的在最上面、日子不重复、�
 
 test("写给用的人看的：不带施工话、不带家里才有的东西、不用破折号", () => {
   const items = loadList().flatMap(x => x.items);
-  const bad = items.filter(it => /言秋|电台|配件|VPS|站长|提示词里|测试|锚点|挂点名单|——/.test(it));
+  const bad = items.filter(it => /言秋|电台|配件|VPS|站长|提示词里|测试|锚点|挂点名单|——|乙游/.test(it));   // 乙游：她 2026-10-27「更新日志不要提乙游这种」
   assert.deepEqual(bad, [], "这几条不该进日志：" + bad.join(" / "));
 });
 

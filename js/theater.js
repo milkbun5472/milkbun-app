@@ -254,6 +254,28 @@
     const [vnI, setVnI] = useState(-1), [vnWrite, setVnWrite] = useState(false), [vnLog, setVnLog] = useState(false), [vnHide, setVnHide] = useState(false);
     const vnLen = useRef(0), vnLp = useRef(0), vnLpOn = useRef(false);
     const [vnWide, setVnWide] = useState({});
+    // 新版的语音、自动（她 2026-10-27）：跟邮票剧情同一套——开了语音他那句用他的音色念；开了自动一句一句往下走，轮到你就停
+    const [vnPref, setVnPref] = useState(() => loadJSON("x_theaterVnPrefs", {}) || {});
+    const vnToggle = k => setVnPref(p0 => { const n = Object.assign({}, p0, { [k]: !p0[k] }); saveJSON("x_theaterVnPrefs", n); return n; });
+    const vnAud = useRef(null), vnAutoT = useRef(0);
+    const vnStop = () => { try { if (vnAud.current) { vnAud.current.onended = null; vnAud.current.pause(); } } catch (e) {} vnAud.current = null; };
+    useEffect(() => {
+      clearTimeout(vnAutoT.current);
+      const l0 = lines.find(l => l.id === playId); if (view !== "play" || !l0 || !l0.vn || vnLog || vnHide || vnWrite) { vnStop(); return; }
+      const bs = vnBeats(l0), k = Math.max(0, Math.min(vnI, bs.length - 1)), b = bs[k]; if (!b || vnI < 0) return;
+      const atEnd = k >= bs.length - 1, ch = charOf(l0);
+      const next = ms => { if (vnPref.auto && !atEnd) vnAutoT.current = setTimeout(() => setVnI(x => x + 1), ms); };
+      const vid = ch.voiceId || (typeof ttsDefaultVoice === "function" && typeof loadTtsApi === "function" ? ttsDefaultVoice(loadTtsApi()) : "");
+      const canVoice = typeof ttsSpeak === "function" && typeof ttsReady === "function" && typeof loadTtsApi === "function" && ttsReady(loadTtsApi()) && !!vid;
+      const wait = Math.min(6500, 1000 + String(b.text || "").length * 75);
+      if (vnPref.voice && canVoice && b.who === "he") {
+        vnStop(); const sp = typeof splitBilingual === "function" ? splitBilingual(String(b.text)) : null;
+        ttsSpeak((sp ? sp.text : String(b.text)).replace(/^[“「『"]|[”」』"]$/g, ""), vid).then(blob => { const u = URL.createObjectURL(blob), a = new Audio(u); vnAud.current = a; a.onended = () => { URL.revokeObjectURL(u); next(350); }; return a.play(); }).catch(() => next(wait));
+      } else { vnStop(); next(wait); }
+      return () => clearTimeout(vnAutoT.current);
+    }, [vnI, playId, view, vnPref.auto, vnPref.voice, vnLog, vnHide, vnWrite, busy]);
+    const [logPick, setLogPick] = useState(null);   // 记录里长按的那一句：问要不要从这里分支
+    const logLp = useRef(0), logPickAt = useRef(0);   // 长按松手那一下不算点空白处
     // 从邮票开的线还没拍剧照、没设背景：先拿那张卡的卡面当背景（她 2026-10-27）。卡面在 IDB（img_）或图库（iv_）
     const [cardBg, setCardBg] = useState(null);
     useEffect(() => { setCardBg(null); const l0 = lines.find(l => l.id === playId); if (!l0 || !l0.fromCard || !window.StampsCore) return;
@@ -676,12 +698,15 @@
         const char = charOf(line);
         const recent = allMsgs(line).slice(-14).map(m => (m.role === "user" ? uName : char.name) + ":" + m.content).join("\n").slice(-3000);
         const spEnd = window.StylePresets.blockFor(line, "theater", { uName: uName, charName: char.name });
-        const sys = narrativeCore({ intimate: true }) + (spEnd ? "\n\n" + window.StylePresets.wrap(spEnd) : "") + "\n\n【谢幕】为这条 if 线写终场戏:用第一人称『我』代入「" + char.name + "」,顺着已发生的剧情把这条线收在一个有余味的落点——不强行大团圆、不总结陈词,最后一拍落在具体的动作或一句话上。只输出 JSON:{\"scene\":\"终场正文\"}";
+        const sys = narrativeCore({ intimate: true }) + (spEnd ? "\n\n" + window.StylePresets.wrap(spEnd) : "") + "\n\n【谢幕】为这条 if 线写终场戏:用第一人称『我』代入「" + char.name + "」,顺着已发生的剧情把这条线收在一个有余味的落点——不强行大团圆、不总结陈词,最后一拍落在具体的动作或一句话上。只输出 JSON:{\"scene\":\"终场正文\",\"quote\":\"这条线留给她的一句话（一句，你的口吻，会印在谢幕卡上）\"}";
         const user = "【设定】" + line.setting + "\n【各轮目标】" + line.rounds.map(r => r.goal + (r.goalDone ? "(✓)" : r.failed ? "(✗失败)" : "")).join(";") + "\n【最近剧情】\n" + recent;
         const raw = await callAI(props.active, sys, [{ role: "user", content: user }], { maxTokens: 10600, timeout: 150000 });
         const p = parseTheaterPayload(raw);
         if (!p || !p.scene) throw new Error("终场格式无法解析，已拦住协议原文；请再试一次");
-        update(list => list.map(l => l.id !== line.id ? l : { ...l, ended: true, rounds: l.rounds.map((r, i) => i !== l.rounds.length - 1 ? r : { ...r, msgs: [...r.msgs, { id: rid("tm_"), role: "char", content: p.scene, ts: Date.now(), curtain: true }] }) }));
+        // 谢幕卡（她 2026-10-27）：挑最后一张剧照（没有就用背景、封面），配他留的一句，从邮票开的线会排进那张卡的小剧场里
+        const lastPhoto = allMsgs(line).filter(m => m.role === "photo" && m.img).slice(-1)[0];
+        const endCard = { img: (lastPhoto && lastPhoto.img) || line.bg || line.cover || null, quote: String(p.quote || "").trim().slice(0, 80), ts: Date.now() };
+        update(list => list.map(l => l.id !== line.id ? l : { ...l, ended: true, endCard, rounds: l.rounds.map((r, i) => i !== l.rounds.length - 1 ? r : { ...r, msgs: [...r.msgs, { id: rid("tm_"), role: "char", content: p.scene, ts: Date.now(), curtain: true }] }) }));
       } catch (e) { props.toast("生成失败:" + (e.message || "重试")); } finally { setBusy(false); }
     };
     // 当轮剧照:第三人称旁观构图,服饰道具跟 if 线世界观;有两张脸参考才双人,否则TA单人
@@ -978,7 +1003,7 @@
       try {
         const char = charOf(l), recent = allMsgs(l).filter(x => x.role !== "photo").slice(-6).map(x => (x.role === "user" ? uName : char.name) + "：" + String(x.content || "").slice(0, 400)).join("\n");
         const raw = await callAI(props.active, "这是一场小剧场，" + uName + " 和 " + char.name + " 轮着演。设定：" + String(l.setting || "").slice(0, 400) + "\n这一幕的目标：" + ((l.rounds[l.rounds.length - 1] || {}).goal || "") + "\n给 " + uName + " 想两三个此刻可能会做或说的事，各一句、短，用 Ta 自己的口吻（动作直接写，说的话加引号），彼此方向不一样。只输出 JSON：{\"choices\":[\"\",\"\"]}",
-          [{ role: "user", content: recent || "开始。" }], { maxTokens: 4000, timeout: 60000 });
+          [{ role: "user", content: recent || "开始。" }], { maxTokens: 8000, timeout: 60000 });
         const d = typeof extractJSON === "function" ? extractJSON(raw) : null, cs = d && Array.isArray(d.choices) ? d.choices.map(x => String(x || "").trim()).filter(Boolean).slice(0, 3) : [];
         if (cs.length) update(list => list.map(x => x.id !== l.id ? x : { ...x, rounds: x.rounds.map(r => ({ ...r, msgs: r.msgs.map(y => y.id === m.id ? { ...y, choices: cs } : y) })) }));
       } catch (e) {}
@@ -1016,6 +1041,8 @@
           h("div", { className: "flex-1 text-center", style: { minWidth: 0, margin: "0 6px", color: "#fff" } },
             h("div", { style: { whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", fontFamily: F_DISPLAY, fontSize: fs(14) } }, line.title),
             round ? h("div", { "data-wk": "thrvngoal", onClick: e => { e.stopPropagation(); setGoalOpen(v => !v); }, style: { marginTop: 1, whiteSpace: goalOpen ? "normal" : "nowrap", overflow: "hidden", textOverflow: "ellipsis", fontFamily: F_BODY, fontSize: fs(10), opacity: .7 } }, actName(line.rounds.length - 1) + (round.goalDone ? " ✓ " : round.failed ? " ✗ " : " · ") + round.goal) : null),
+          h("button", { "data-wk": "thrvnvoice", onClick: e => { e.stopPropagation(); if (!vnPref.voice && !(typeof ttsReady === "function" && typeof loadTtsApi === "function" && ttsReady(loadTtsApi()))) { props.toast("要先在「设置」里配好语音"); return; } vnToggle("voice"); }, style: pill(!!vnPref.voice) }, "语音"),
+          h("button", { "data-wk": "thrvnauto", onClick: e => { e.stopPropagation(); vnToggle("auto"); }, style: pill(!!vnPref.auto) }, "自动"),
           h("button", { "data-wk": "thrvnlog", onClick: e => { e.stopPropagation(); setVnLog(true); }, style: pill(false) }, "记录"),
           h("button", { "data-wk": "thrvnclassic", onClick: e => { e.stopPropagation(); update(list => list.map(l => l.id !== line.id ? l : { ...l, vn: false })); }, style: pill(false) }, "原版")),
         // 目标确认、失败确认：跟原版同一套
@@ -1055,15 +1082,23 @@
           h("div", { style: { fontFamily: F_BODY, fontSize: fs(15), lineHeight: 1.75, fontStyle: who ? "normal" : "italic", opacity: who ? 1 : .88, whiteSpace: "pre-wrap" } }, b.text),
           line.ended && atEnd ? h("div", { style: { marginTop: 12, fontFamily: F_BODY, fontSize: fs(12), opacity: .7 } }, "—— 这条线已经谢幕 ——") : null,
           !atEnd ? h("div", { style: { position: "absolute", right: 14, bottom: 10, fontSize: fs(11), opacity: .5 } }, "点一下继续 ▾") : null),
-        vnLog ? h("div", { "data-wk": "thrvnlogview", onClick: () => setVnLog(false), className: "fixed inset-0 flex flex-col", style: { zIndex: 2, background: "rgba(10,9,14,.9)", color: "#fff" } },
+        vnLog ? h("div", { "data-wk": "thrvnlogview", onClick: () => { if (logPick || Date.now() - logPickAt.current < 600) return; setVnLog(false); }, className: "fixed inset-0 flex flex-col", style: { zIndex: 2, background: "rgba(10,9,14,.9)", color: "#fff" } },
           h("div", { className: "flex items-center", style: { padding: "calc(env(safe-area-inset-top) + 10px) 14px 8px" } },
             h("button", { onClick: () => setVnLog(false), style: { color: "#fff", fontFamily: F_BODY, fontSize: fs(13) } }, "‹ 收起"),
             h("div", { className: "flex-1 text-center", style: { fontFamily: F_DISPLAY, fontSize: fs(14), marginRight: 40 } }, "记录")),
           h("div", { className: "flex-1 overflow-y-auto", ref: el => { if (el && !el.__s) { el.__s = 1; el.scrollTop = el.scrollHeight; } }, style: { padding: "6px 22px calc(env(safe-area-inset-bottom) + 24px)" } },
             beats.slice(0, i + 1).map((x, k) => { const w = x.who === "he" ? char.name : x.who === "me" ? uName : "";
-              return h("div", { key: k, style: { padding: "10px 0", borderBottom: "1px solid rgba(255,255,255,.08)" } },
+              return h("div", { key: k, "data-wk": "thrvnlogline", onClick: e => e.stopPropagation(),
+                  onPointerDown: () => { clearTimeout(logLp.current); logLp.current = setTimeout(() => { logPickAt.current = Date.now(); setLogPick(x); }, 500); }, onPointerUp: () => clearTimeout(logLp.current), onPointerLeave: () => clearTimeout(logLp.current),
+                  style: { padding: "10px 0", borderBottom: "1px solid rgba(255,255,255,.08)", background: logPick === x ? "rgba(255,255,255,.08)" : "transparent" } },
                 w ? h("div", { style: { marginBottom: 3, fontFamily: F_BODY, fontSize: fs(11), color: x.who === "he" ? "#e3c48a" : "#c9c0e0" } }, w) : null,
-                h("div", { style: { fontFamily: F_BODY, fontSize: fs(14), lineHeight: 1.7, fontStyle: w ? "normal" : "italic", opacity: w ? 1 : .8, whiteSpace: "pre-wrap" } }, x.text)); }))) : null);
+                h("div", { style: { fontFamily: F_BODY, fontSize: fs(14), lineHeight: 1.7, fontStyle: w ? "normal" : "italic", opacity: w ? 1 : .8, whiteSpace: "pre-wrap" } }, x.text)); }),
+            h("div", { style: { marginTop: 14, textAlign: "center", fontFamily: F_BODY, fontSize: fs(11), opacity: .45 } }, "长按某一句，可以从那里分支出另一条路")),
+          logPick ? h("div", { "data-wk": "thrvnbranch", onClick: e => { e.stopPropagation(); if (Date.now() - logPickAt.current < 600) return; setLogPick(null); }, className: "fixed inset-0 flex items-end", style: { zIndex: 3, background: "rgba(0,0,0,.4)" } },
+            h("div", { onClick: e => e.stopPropagation(), style: { width: "100%", padding: "14px 16px calc(env(safe-area-inset-bottom) + 14px)", background: "#1c1924", borderTop: "1px solid rgba(255,255,255,.15)" } },
+              h("div", { style: { fontFamily: F_BODY, fontSize: fs(12), opacity: .7, marginBottom: 10, overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" } }, logPick.text),
+              h("button", { "data-wk": "thrvnbranchgo", onClick: () => { const m = allMsgs(line).find(y => y.id === logPick.mid); setLogPick(null); setVnLog(false); if (m) { vnLen.current = 0; branchFrom(m); } }, style: { width: "100%", padding: "10px 0", borderRadius: 10, background: "#B58C55", color: "#fff", fontFamily: F_BODY, fontSize: fs(13.5) } }, "⑂ 从这一拍分支"),
+              h("button", { onClick: () => setLogPick(null), style: { width: "100%", marginTop: 8, padding: "8px 0", color: "rgba(255,255,255,.6)", fontFamily: F_BODY, fontSize: fs(12.5) } }, "取消"))) : null) : null);
     };
     const back = () => {
       if (fromStamps.current && (view === "play" || view === "create")) { setDraft(null); return props.onBack(); }

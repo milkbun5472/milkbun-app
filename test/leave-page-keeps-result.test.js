@@ -46,7 +46,7 @@ test("② 结果只在页面里的那几处，都交给后台生成跑、页面�
     assert.ok(src.includes(start), f + " 没交给后台生成跑：" + start);
     assert.ok(/\.useTask\(/.test(src), f + " 页面没挂 useTask，走开回来接不住");
   });
-  assert.equal((R("theater.js").match(/DRAFT_BG\.start\(DRAFT_KEY/g) || []).length, 2, "小剧场两种开局都要走");
+  assert.equal((R("theater.js").match(/DRAFT_BG\.start\(DRAFT_KEY/g) || []).length, 3, "小剧场三种开局都要走（v76.800 起多了「从邮票卡接着演」）");
   assert.equal((R("trpg.js").match(/DRAFT_BG\.start\(DRAFT_KEY/g) || []).length, 2, "跑团两种开团都要走");
 });
 

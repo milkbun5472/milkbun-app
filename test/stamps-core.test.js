@@ -51,10 +51,11 @@ test("上线礼只给一次；限时主题上新送一张十连券", () => {
   const C = fresh();
   const t = Date.parse("2026-10-27T12:00:00+08:00");
   const got = C.grantOnOpen(t, []);
-  assert.equal(got.length, 2, "开幕礼、万圣夜");
+  assert.equal(got.length, 3, "开幕礼、番外上线 30 张、万圣夜");
   const st = C.load();
   assert.equal(st.tickets, C.GIFT.tickets + 1);
   assert.equal(st.ink, C.GIFT.ink + C.INK_PER_TEN, "开幕礼的印泥＋万圣夜那张十连配的印泥");
+  assert.equal(st.extraTickets, 30 + 1, "番外上线 30 张＋万圣夜那张十连配的一张番外券");
   assert.equal(C.grantOnOpen(t, []).length, 0);
   const after = C.activeLimited(Date.parse("2026-11-15T00:00:01+08:00")).map(L => L.id);
   assert.ok(!after.includes("halloween26"), "万圣夜 11-15 0 点下架");
@@ -209,7 +210,7 @@ test("番外补发：老用户手上每张限定 SSR 补一张番外券，只补
   const C = fresh(), st = C.load(); st.gifted = true; st.seenLimited = { postage26: 1, ink26: 1, ink26b: 1 };
   st.cards = [{ id: "a", rarity: "SSR", limited: "halloween26" }, { id: "b", rarity: "SSR", pool: "bday" }, { id: "c", rarity: "SSR", pool: "mix" }, { id: "d", rarity: "SR", limited: "halloween26" }]; C.save(st);
   C.grantOnOpen(Date.parse("2026-10-27T12:00:00+08:00"), [], 1);
-  assert.equal(C.load().extraTickets, 2);
+  assert.equal(C.load().extraTickets, 2 + 30 + 1, "两张补发＋上线庆祝 30 张＋万圣夜上新配的一张");
   C.grantOnOpen(Date.parse("2026-10-27T12:00:00+08:00"), [], 1);
-  assert.equal(C.load().extraTickets, 2);
+  assert.equal(C.load().extraTickets, 2 + 30 + 1);
 });

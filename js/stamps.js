@@ -275,7 +275,7 @@
     const swipe = useRef(null), swiped = useRef(0);
     const setCover = key => { const st0 = C().load(); st0.cards = st0.cards.map(c => c.id === card.id ? Object.assign({}, c, { cover: key || null }) : c); C().save(st0); toast(key ? "换好了：册子里这张就用它当封面" : "换回第一面了"); };
     const [exOpen, setExOpen] = useState(null), [exWish, setExWish] = useState(null);
-    const isExCard = card.rarity === "SSR" && !!(card.limited || card.pool === "bday" || card.pool === "mybday" || card.pool === "anniv");   // 限定 SSR 才有番外
+    const isExCard = card.rarity === "SSR" || card.rarity === "SR";   // SR、SSR 都能用番外券写番外（她 2026-10-27）；重复抽到自动送的还是只有限定 SSR
     const [buyOpen, setBuyOpen] = useState(false), [buyN, setBuyN] = useState(1);
     const exTk = C().load().extraTickets || 0;   // exWish：点了「用番外券」以后那一格「想看什么」，null＝没展开
     const [reArm, setReArm] = useState(false);   // 重写整张卡要点两下：第一下变成「再点一次」，三秒内不点就回去           // 卡面全屏看，满级的在这里戳
@@ -532,11 +532,13 @@
               h("div", { style: { fontFamily: F_DISPLAY, fontSize: fs(14), color: GOLD } }, "✦ 小剧场"),
               h("div", { style: { flex: 1, height: 1, background: LINE } })),
             h("div", { "data-wk": "stamptheater", className: "flex overflow-x-auto", style: { gap: 10, marginTop: 12, paddingBottom: 4, marginRight: -20, paddingRight: 20 } },
-              ls.map(l => { const cv = img(l.cover || l.bg); const n = (l.rounds || []).reduce((a, r) => a + (r.msgs || []).length, 0);
+              ls.map(l => { const cv = img((l.endCard && l.endCard.img) || l.cover || l.bg); const n = (l.rounds || []).reduce((a, r) => a + (r.msgs || []).length, 0);
                 return h("button", { key: l.id, "data-wk": "stamptheaterline", onClick: () => onTheaterLine && onTheaterLine(l.id), className: "shrink-0 text-left active:opacity-80",
                   style: { position: "relative", width: 150, minHeight: 168, borderRadius: 12, overflow: "hidden", border: "1px solid " + FRAME, background: cv ? "#222 center/cover no-repeat url(" + cv + ")" : "#FFF8E9", display: "flex", flexDirection: "column", justifyContent: "flex-end" } },
                   h("div", { style: { padding: "26px 12px 10px", background: cv ? "linear-gradient(transparent, rgba(0,0,0,.65))" : "none", color: cv ? "#FFF8E9" : P } },
                     h("div", { style: { fontFamily: F_DISPLAY, fontSize: fs(13.5) } }, l.title || "小剧场"),
+                    // 谢幕卡：他留的那一句印在剧照上，像一张明信片
+                    l.ended && l.endCard && l.endCard.quote ? h("div", { "data-wk": "stamptheaterquote", style: { marginTop: 4, fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: fs(11), lineHeight: 1.5, opacity: .95 } }, "「" + l.endCard.quote + "」") : null,
                     h("div", { style: { marginTop: 2, fontFamily: F_BODY, fontSize: fs(10.5), opacity: .75 } }, (l.ended ? "谢幕了" : "演到第 " + (l.rounds || []).length + " 轮") + " · " + n + " 拍"))); }),
               h("button", { "data-wk": "stamptheaternew", onClick: () => onTheater && onTheater(card), className: "shrink-0 active:opacity-70",
                 style: { width: 150, minHeight: 168, borderRadius: 12, border: "1.5px dashed " + GOLD, color: GOLD, background: "transparent", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 6, fontFamily: F_BODY, fontSize: fs(12.5) } },
@@ -947,7 +949,7 @@
               ["十连先用生日券、纪念日券，再用十连券；没有券时单抽券一张顶 " + C().PRICE_ONE + "，不够的拿邮资补"], ["两种券都有时，寄一版上面能挑这次用哪种"]]),
             blk("从哪来 · 右边是 邮资 / 印泥", [["聊天、群聊、通话一轮", pi("round")], ["线下一拍", pi("beat")], ["论坛、片刻、广场、朋友圈发一条或评论", pi("public")], ["匿名信箱、情书、交换日记这些两个人的小事", pi("duo")],
               ["一起听、一起看、一起读、查手机、看他玩手机", pi("stay")], ["同人、梦境、擂台、跑团、塔罗这些别的玩法", pi("play")], ["他主动发来一条", G.nudge[0] + " 邮资"], ["情侣空间甜蜜打卡（每人每天一次）", pi("sweet")], ["把邮票发给他看，他回了你", G.share[1] + " 印泥"], ["都没有上限；重 roll 的不算"]]),
-            blk("他寄来的信（在私聊里点「领取」）", [["今天的信：每天一个人寄一张", "单抽券"], ["限时池上新：每两个人一张，最多五张", "十连券"], ["他的生日池出现", "1 张十连券"], ["你的生日", "10 张生日券"], ["在一起的纪念日", "5 张纪念日券"],
+            blk("他寄来的信（在私聊里点「领取」）", [["今天的信：每天一个人寄一张", "单抽券"], ["限时池上新：每两个人一张，最多五张", "十连券＋同样多番外券"], ["他的生日池出现", "1 张十连券"], ["你的生日", "10 张生日券"], ["在一起的纪念日", "5 张纪念日券"],
               ["在一起了、满 100 / 520 / 1000 天，甜蜜值 10 / 30 / 50 / 100", "十连券，一辈子一次"], ["每张十连都配", C().INK_PER_TEN + " 印泥"]]),
             blk("盖印升满一张", [["R", F.R + " 印泥"], ["SR", F.SR + " 印泥"], ["SSR", F.SSR + " 印泥"]])); })(),
         testInf ? h("div", { style: { marginTop: 10, fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: RC.SSR } }, "测试券开着：抽卡不花邮资和券、盖印不花印泥（连点七下「规则」关掉）") : null));

@@ -20,7 +20,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v76.808";
+const APP_VERSION = "v76.815";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -17172,8 +17172,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       const ends = (tx.sections || []).filter(x => x && (x.end || x.hidden)).map(x => "「" + (x.title || "") + "」" + (x.beats || []).filter(b => b && b.who !== "pick").slice(-3).map(b => String(b.text || "").slice(0, 80)).join(" / ")).join("\n");
       const had = (card0.extras || []).filter(x => x.text && x.id !== xid).map(x => "「" + (x.title || "") + "」" + (x.gist || "")).slice(-10);
       const d = await runProbe(offlineApiFor(char.id), ctxFor(char, { loreScope: "offline" }), { voice: true,
-        instruction: STAMP_CORE() + stampVoice(char) + stampBi(char) + "她在「邮票册」里又抽到了一张你的限定 SSR「" + (tx.name || "") + "」，这一张给你们写一段番外。" + stampKindLine(card0, char)
-          + "\n这张卡写的是：" + String(tx.gist || tx.highlight || "").slice(0, 200) + (ends ? "\n它的几个结局：\n" + ends.slice(0, 900) : "")
+        instruction: STAMP_CORE() + stampVoice(char) + stampBi(char) + "她想给你这张" + card0.rarity + "「" + (tx.name || "") + "」写一段番外。" + stampKindLine(card0, char)
+          + "\n这张卡写的是：" + String(tx.gist || tx.highlight || "").slice(0, 200) + (ends ? "\n它的几个结局：\n" + ends.slice(0, 900) : card0.rarity === "SR" ? "\n那件事：\n" + [tx.open, tx.rest, tx.sequel].filter(Boolean).join("\n").slice(0, 900) : "")
           + (wish0 ? "\n她点了题，想看的是：「" + wish0 + "」。就写这个，落到这张卡的故事和你们真实的关系里；她说得不细的地方由你补。" : "")
           + "\n番外是这段故事外面的一段：结局之后的某一天、故事里没写到的那一晚，或者同一件事里你那边没让她看到的部分" + (wish0 ? "。" : "，挑一个最想补上的。") + "八百到一千二百字，一个完整的小场景，有开头有收尾。旁白里她是「你」，你是「他」。"
           + (had.length ? "\n这张卡已经有的番外：\n" + had.join("\n") + "\n这一段写别的。" : "")
@@ -17269,7 +17269,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         ? "一张乙游满级纪念卡面：「" + (tx.name || "") + "」。画的是这段剧情走到结局时的那一刻：" + (endWhat || String(what).slice(0, 300)) + "\n跟第一张卡面不是同一刻，构图和光也换一套。景别拉开到看得见这一刻的场景和氛围，不是一张脸部近照。"
           + (duo ? "画面里是你们两个人。" + (lover ? "你们是恋人，两个人之间的距离、眼神和手就是恋人的样子。" : "你们之间是什么关系就是什么距离，不画成恋人。") : "卡面上只画你一个人。") + "\n画面里不要任何文字。"
         : "一张乙游卡面：「" + (tx.name || "") + "」。这一刻：" + String(what).slice(0, 300) + "\n【分镜】" + String(tx.shot || "").slice(0, 600)
-        + "\n画面里不要任何文字。";
+        + "\n画面里不要任何文字。" + (duo ? "" : "\n这是他的单人卡面。如果画到她从镜头这边伸进画面的手（第一人称视角，比如被他牵着），要看得出是她的手：手腕连着一截小臂，从画面下沿或侧边自然伸进来，袖口看得见，不是凭空飘着的半截手。");   // 她 2026-10-27：喜欢这种第一人称牵手，只是别像断掉的半截手
       // IF 主题只换衣服、场景、道具；他的脸、发色、瞳色、身材照他本人，不为贴合主题改（她 2026-10-25：恶魔主题把金发画成了黑发）
       // IF 卡每一面都要看得出是哪个主题（她 2026-10-25：万圣夜的满级双人卡面画成了普通卧室）
       const keepLook = card.kind === "if" ? "\n这张是 IF「" + (card.theme || "") + "」" + (card.themeLine ? "：" + String(card.themeLine).slice(0, 500) : "") + "。" + (card.themeLook ? card.themeLook : "") + "衣服、场景、道具和光都照这个主题来，一眼看得出是这个主题" + (duo ? "，画里两个人的打扮都是" : "") + "。"
