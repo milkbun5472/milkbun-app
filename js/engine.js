@@ -2161,6 +2161,14 @@ const OVERREACH_BAN = STOCK_REPLY_BAN;
 // 心声不摆最近几条给TA对照（她 2026-10-18 又试了一回 v76.007，照旧有角色照着旧心声学、骨架压不住，撤回；
 //   10-04 撤过同一个做法）。治「每句收在待会儿对她怎样」改的是 THOUGHT_MEANING 本身。
 // 她立下的长期准则那一块：单聊和一起学共用这一份说法（施工规则/one-public-mechanism）
+// 群公告（群友 2026-10-27 许愿）：存在群设置 gs.notice = { text, ts, by }。群线上、群线下、群通话都读这一支。
+//   它是群里人人看得到的一段置顶文字，不是规矩：照着聊、提它、吐槽它都行，用不上就不提。
+function groupNoticeBlock(notice) {
+  const t = String((notice && notice.text) || "").trim();
+  if (!t) return "";
+  const d = notice.ts ? new Date(notice.ts) : null;
+  return "\n\n【群公告】（钉在群聊顶上，群里每个人都看过" + (notice.by ? "，" + notice.by + " 发的" : "") + (d ? "，" + (d.getMonth() + 1) + "月" + d.getDate() + "日" : "") + "）\n" + t.slice(0, 2000);
+}
 function directivesBlock(dirs) {
   return "【⚠️用户立下的长期准则·最高优先级，压过一般演绎习惯和对话惯性】\n这些是用户明确要求、而且你【之前已经亲口答应过】的准则，每一条【现在就生效、永久有效】：\n" + dirs.map((s, i) => (i + 1) + ". " + s.trim()).join("\n") + "\n——从这一轮起就严格照做，别因为上文的惯性、或你原本的说话习惯，聊着聊着又滑回旧样子（惯性和旧习惯都不是理由）；用户若问「不是说好了吗」，大方承认记得、并且已经在照做，绝不许【答应了又照旧】、更不许一脸茫然装不知道。（放心：这些准则在 OOC 立的时候已经确认过不违背你的核心人设，才会留下来，所以【不需要你再判断违不违背人设】，照做就是。）";
 }
@@ -9717,6 +9725,7 @@ async function generateOfflineGroup(p, ctx, session) {
     // 她想要什么（四处一样喂）：用户的信息，群里共享一份
     wishLine(ctx.wishLog, userName, { group: true, gift: false }) +
     "\n\n【在场角色间的关系（有方向）】\n" + relLines + (ctx.dramaRule || "") +
+    groupNoticeBlock(ctx.groupNotice) +
     (gDirs.length ? "\n\n【用户立下的长期规矩（高优先·在场所有角色务必遵守）】\n这些是用户明确要求的准则，优先级高于一般演绎习惯；在不违背各自核心人设的前提下务必遵守：\n" + gDirs.map((s, i) => (i + 1) + ". " + s.trim()).join("\n") : "") +
     (loreSplit(ctx.worldbook).topic ? "\n\n【世界书 · 这一轮聊到的】\n" + loreSplit(ctx.worldbook).topic : "") +
     (ctx.extMem && String(ctx.extMem).trim() ? "\n\n【外置记忆库·这一轮搜到的（同一段人生，对不上时以发生过的为准）】\n" + String(ctx.extMem).trim() : "") +

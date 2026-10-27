@@ -19081,6 +19081,7 @@ function GroupThread({
   group,
   groups,
   dirNotes,       // 群里的导演便签（她 2026-10-26），跟单聊同一块 NarrBar
+  onSetNotice,    // 群公告（群友 2026-10-27）
   onAddDirNote,
   onDelDirNote,
   characters,
@@ -19196,6 +19197,7 @@ function GroupThread({
   const [narrKind, setNarrKind] = useState("event");
   const [dirLong, setDirLong] = useState(false);
   const [asId, setAsId] = useState("");
+  const [noticeOpen, setNoticeOpen] = useState(false);
   const [quoted, setQuoted] = useState(null); // 我引用的某条消息原文
   const [menu, setMenu] = useState(null); // 长按弹出的消息下标
   const [gPhotoView, setGPhotoView] = useState(null);   // 点开那张照片：大图／描述／存到手机
@@ -19487,7 +19489,14 @@ function GroupThread({
     size: 20,
     color: t.ink,
     wk: "headink"
-  }))), h("div", {
+  }))),
+  // 群公告钉条（群友 2026-10-27）：顶栏底下一条，点开看全文、再点收起；改公告就在群设置里
+  gs.notice && String(gs.notice.text || "").trim() ? h("button", { "data-wk": "gnoticebar", onClick: () => setNoticeOpen(v => !v), className: "shrink-0 w-full text-left active:opacity-70",
+    style: { position: "relative", zIndex: 2, display: "flex", gap: 8, alignItems: "flex-start", padding: "8px 16px", background: gChatBg ? "rgba(255,255,255,0.55)" : t.bg2, borderBottom: "1px solid " + t.line, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", lineHeight: 1.55, color: t.sub } },
+    h("span", { style: { flexShrink: 0, color: t.tint, fontSize: "calc(11.5px * var(--app-fs, 1))", marginTop: 1 } }, "群公告"),
+    h("span", { className: "flex-1 min-w-0", style: noticeOpen ? { whiteSpace: "pre-wrap", maxHeight: "40vh", overflowY: "auto" } : { overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, String(gs.notice.text).trim()),
+    h("span", { style: { flexShrink: 0, color: t.fog, transform: noticeOpen ? "rotate(-90deg)" : "rotate(90deg)", display: "inline-block" } }, "›")) : null,
+  h("div", {
     ref: ref,
     style: { overflowX: "hidden", touchAction: "pan-y pinch-zoom" },
     onScroll: e => { if (e.target.scrollTop < 320) growMore(); },
@@ -19923,6 +19932,7 @@ function GroupThread({
     h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", letterSpacing: "0.12em", color: t.fog, marginTop: 14, marginBottom: 4 } }, "TA 为什么撤回"),
     h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", lineHeight: 1.7, color: t.sub, fontStyle: "italic" } }, gRecallView.reason || "（没说）")),
   fwdView && h(ChatForwardSheet, { m: fwdView, onClose: () => setFwdView(null) }), sheet === "settings" && h(GroupSettingsSheet, {
+    onSetNotice: onSetNotice,
     onSuggestName: onSuggestName,
     onDrawTitles: onDrawTitles,
     lucky: lucky, onDrawLucky: onDrawLucky, onPickLucky: onPickLucky,
@@ -20401,7 +20411,7 @@ function luckyCardMeta(lucky, who) {
   return { state: lk.word ? "「" + lk.word + "」点亮 " + (lk.lit || 0) + "/" + units.length : picking ? "6 张卡等你翻" : "还没抽" + (book.length ? " · 收了 " + book.length + " 个" : ""),
     note: who + "一起养一个词：每聊满 " + per + " 条点亮一个字，文字、语音、表情包、照片都算；一天最多算 " + cap + " 条。一整天没说话，会熄掉一个字。点满收进收藏本，再抽下一张。" };
 }
-function GroupSettingsSheet({ onSuggestName, onDrawTitles, lucky, onDrawLucky, onPickLucky, gs, group, characters, allChars, rels, msgCount, directives, onRemoveDirective, onSetDirectiveTurns, onSave, onSummarize, onAddMember, onKickMember, onSetPresence, onDelete, onClearChat, onClose }) {
+function GroupSettingsSheet({ onSuggestName, onDrawTitles, lucky, onDrawLucky, onPickLucky, gs, group, characters, allChars, rels, msgCount, directives, onRemoveDirective, onSetDirectiveTurns, onSave, onSummarize, onAddMember, onKickMember, onSetPresence, onDelete, onClearChat, onClose, onSetNotice }) {
   const t = useTheme();
   const [interop, setInterop] = useState(!!gs.memoryInterop);
   const [privN, setPrivN] = useState(gs.privateCtxN || 0);
@@ -20518,6 +20528,8 @@ function GroupSettingsSheet({ onSuggestName, onDrawTitles, lucky, onDrawLucky, o
   // 长相照单聊设置那叠卡：左边一个汉字索引牌（一类一个字、一类一个色）、标题、下面一行现在是什么状态
   //   （她 2026-09-30：「你看单聊的框多好看，群聊现在纯黑白好敷衍」）。点开在卡里展开，一次开一格。
   const gOnOff = v => v ? "开" : "关";
+  // 群公告：写好点「发布」当场生效（不等底下的保存），群里落一行灰字、顶上钉一条
+  const [noticeDraft, setNoticeDraft] = useState(String((gs && gs.notice && gs.notice.text) || ""));
   const gCard = (meta, note, ...kids) => {
     const on = gOpen === meta.title;
     return h("div", { "data-wk": "block", style: { marginTop: 8, borderRadius: 14, background: t.bg2, border: "1px solid " + (on ? meta.tint + "88" : t.line), overflow: "hidden", transition: "border-color .2s" } },
@@ -20608,6 +20620,13 @@ function GroupSettingsSheet({ onSuggestName, onDrawTitles, lucky, onDrawLucky, o
         className: "active:opacity-60",
         style: { flexShrink: 0, minHeight: 40, padding: "0 14px", borderRadius: 999, border: "1px solid " + t.line, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: spec ? t.tint : t.sub }
       }, spec ? "回到群里" : "退出群聊"))),
+    onSetNotice ? gCard({ title: "群公告", char: "告", tint: "#7a8f4a", state: gs && gs.notice && gs.notice.text ? String(gs.notice.text).replace(/\s+/g, " ").slice(0, 30) : "还没有公告" },
+      "钉在群聊顶上，群里每个人都看得到。他们聊天、见面、打电话时都知道这段公告，会照着聊，也可能提起它、吐槽它。" + (spec ? "你在旁观，公告算群主发的。" : ""),
+      h("textarea", { "data-wk": "gnotice", value: noticeDraft, onChange: e => { setNoticeDraft(e.target.value); fitTextarea(e.target); }, rows: 3, placeholder: "比如：周六晚上七点老地方聚餐，都别迟到",
+        style: { width: "100%", marginTop: 10, padding: "9px 11px", borderRadius: 10, border: "1px solid " + t.line, background: t.bg, color: t.ink, fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", lineHeight: 1.55, resize: "none" } }),
+      h("div", { className: "flex items-center justify-end", style: { gap: 8, marginTop: 8 } },
+        gs && gs.notice && gs.notice.text ? h("button", { "data-wk": "gnoticeclear", onClick: () => { setNoticeDraft(""); onSetNotice(""); }, className: "active:opacity-60", style: { minHeight: 36, padding: "0 14px", borderRadius: 999, border: "1px solid " + t.line, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.sub } }, "撤掉公告") : null,
+        h("button", { "data-wk": "gnoticepost", disabled: !noticeDraft.trim() || noticeDraft.trim() === String((gs && gs.notice && gs.notice.text) || "").trim(), onClick: () => onSetNotice(noticeDraft.trim()), className: "active:opacity-60 disabled:opacity-40", style: { minHeight: 36, padding: "0 16px", borderRadius: 999, border: "none", background: t.ink, color: t.bg, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))" } }, gs && gs.notice && gs.notice.text ? "改公告" : "发布"))) : null,
     (() => {
       const nm = id => id === "me" ? "我" : ((members.find(c => c.id === id) || {}).name || "");
       const muted = members.filter(c => (Number(gMutes[c.id]) || 0) > Date.now());
