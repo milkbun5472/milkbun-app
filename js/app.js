@@ -10567,7 +10567,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         const id = "c_" + Date.now() + "_" + k + "_npc";
         pC(prev => [...prev, CharacterPronoun.newCharacter({
           id: id, name: r.name, persona: r.brief,
-          npc: true, ownerId: hostId          // ← 这两个字段是全部区别
+          npc: true, ownerId: hostId,         // ← 这两个字段是全部区别
+          gender: r.gender || "TA"            // 生成时单独交的那一栏（她 2026-10-26）
         })]);
         // 双向关系：群聊的【成员间关系】那一段就是读它，写了他俩在群里才认得彼此
         if (r.relFromHost) saveRel(hostId + "->" + id, r.relFromHost, "");
