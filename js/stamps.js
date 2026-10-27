@@ -85,39 +85,19 @@
       can ? h("button", { "data-wk": "stamptrans", onClick: go, style: { marginLeft: 6, padding: "0 6px", borderRadius: 6, border: "1px solid currentColor", fontSize: "0.72em", opacity: .7, fontStyle: "normal", verticalAlign: "middle" } }, busy ? "…" : "译") : null,
       cn ? h("div", { "data-wk": "stampzh", style: { marginTop: 3, fontSize: "0.8em", fontStyle: "normal", opacity: .72, color: sub || color } }, cn) : null);
   }
-  // 番外翻开读：一整页纸，上面插图（有的话），正文，底下几颗按钮
-  function ExtraReader({ card, char, x, onClose, onDraw, onSend, onCover, isCover, onPlay, onRewrite }) {
-    const fs = n => "calc(" + n + "px * var(--app-fs, 1))";
-    const [arm, setArm] = useState(false);
-    return h("div", { "data-wk": "stampextrareader", className: "fixed inset-0 flex flex-col", style: { zIndex: 255, background: "radial-gradient(rgba(130,124,111,.07) 1px, transparent 1.2px) 0 0 / 5px 5px, #f6efe0" } },
-      h("div", { className: "flex items-center", style: { padding: "calc(env(safe-area-inset-top) + 10px) 16px 8px", borderBottom: "1px dashed rgba(181,140,85,.35)" } },
-        h("button", { onClick: onClose, className: "active:opacity-60", style: { flexShrink: 0, fontFamily: F_BODY, fontSize: fs(13), color: "#39382F" } }, "‹ 收起"),
-        h("div", { className: "flex-1 text-center", style: { minWidth: 0, marginRight: 40, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", fontFamily: F_BODY, fontSize: fs(11), letterSpacing: ".2em", color: "#827C6F" } }, "番外 · " + (((card.text || {}).name) || ""))),
-      h("div", { className: "flex-1 min-h-0 overflow-y-auto", style: { padding: "18px 24px calc(env(safe-area-inset-bottom) + 28px)" } },
-        h("div", { style: { textAlign: "center", fontFamily: F_DISPLAY, fontSize: fs(20), color: "#39382F", letterSpacing: ".06em" } }, x.title || "番外"),
-        x.wish ? h("div", { style: { marginTop: 4, textAlign: "center", fontFamily: F_BODY, fontSize: fs(11), color: "#827C6F" } }, "你点的题：" + x.wish) : null,
-        h("div", { style: { margin: "6px auto 0", width: 40, height: 1, background: "#B58C55" } }),
-        h(ExtraImg, { x, onDraw, onSend, onCover, isCover }),
-        h("div", { className: "flex flex-wrap", style: { gap: 8, marginTop: 8 } },
-          onPlay ? h("button", { "data-wk": "stampextraplay", onClick: onPlay, className: "active:opacity-70", style: { padding: "5px 14px", borderRadius: 999, background: "#B58C55", color: "#FFF8E9", fontFamily: F_BODY, fontSize: fs(12) } }, "▶ 像剧情那样读") : null,
-          // 重写不扣券（她 2026-10-27）：点两下，三秒内不点第二下就算了
-          onRewrite ? h("button", { "data-wk": "stampextrarewrite", onClick: () => { if (!arm) { setArm(true); setTimeout(() => setArm(false), 3000); return; } setArm(false); onRewrite(); }, className: "active:opacity-70",
-            style: { padding: "5px 12px", borderRadius: 999, border: "1px " + (arm ? "solid #b23a2e" : "dashed rgba(87,119,103,.38)"), color: arm ? "#b23a2e" : "#827C6F", fontFamily: F_BODY, fontSize: fs(11.5) } }, arm ? "再点一次：这段会被换掉" : "✎ 重写这段 · 不扣券") : null),
-        h("div", { style: { marginTop: 16, fontFamily: F_BODY, fontSize: fs(15), lineHeight: 1.95, color: "rgba(57,56,47,.88)", whiteSpace: "pre-wrap" } }, h(BiText, { text: x.text })),
-        h("div", { style: { marginTop: 24, textAlign: "center", fontFamily: F_DISPLAY, fontSize: fs(11), color: "#B58C55", letterSpacing: ".3em" } }, "— 完 —")));
-  }
-  // 番外插图：画了就显示（点开看大图）；没画给一个按钮。横版
-  function ExtraImg({ x, onDraw, onSend, onCover, isCover }) {
-    const url = useIdbImgUrl(x.img || null), [big, setBig] = useState(false);
+  // 番外那一行底下的一排小按钮：插图（画了显示一张小缩略图，点开看大图）、发给他看、设成封面、重写（点两下，不扣券）
+  function ExtraActs({ x, onDraw, onSend, onCover, isCover, onRewrite }) {
+    const url = useIdbImgUrl(x.img || null), [big, setBig] = useState(false), [arm, setArm] = useState(false);
     const drawing = !!x.drawing && !!x.drawingBoot && x.drawingBoot === window.__stampBoot && Date.now() - (x.drawingTs || 0) < 8 * 60000;
-    const btn = { marginTop: 8, padding: "5px 12px", borderRadius: 999, border: "1px solid rgba(87,119,103,.38)", color: "rgba(57,56,47,.78)", fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))" };
-    return h("div", { "data-wk": "stampextraimg" },
-      url ? h("img", { src: url, onClick: () => setBig(true), style: { marginTop: 8, width: "100%", aspectRatio: "3 / 2", objectFit: "cover", borderRadius: 4, border: "4px solid #fff", boxShadow: "0 2px 10px rgba(40,30,20,.15)", cursor: "zoom-in" } }) : null,
-      h("div", { className: "flex flex-wrap", style: { gap: 8 } },
-        h("button", { disabled: drawing, onClick: onDraw, className: "active:opacity-70 disabled:opacity-50", style: btn }, drawing ? "画着…" : url ? "↻ 重画插图 · 花一次生图" : "画一张插图 · 花一次生图"),
-        onSend ? h("button", { "data-wk": "stampextrasend", onClick: onSend, className: "active:opacity-70", style: btn }, x.sentTs ? "再发给他看" : "发给他看") : null,
-        onCover ? h("button", { "data-wk": "stampextracover", onClick: onCover, className: "active:opacity-70", style: btn }, isCover ? "换回第一面当封面" : "设成册子封面") : null),
-      x.drawErr && !drawing ? h("div", { style: { marginTop: 4, fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: "#b23a2e" } }, "上次没画成：" + x.drawErr) : null,
+    const b = { padding: "2px 9px", borderRadius: 999, border: "1px solid rgba(87,119,103,.3)", color: "#827C6F", fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", whiteSpace: "nowrap" };
+    return h("div", { "data-wk": "stampextraacts", className: "flex flex-wrap items-center", style: { gap: 6, marginTop: 6 } },
+      url ? h("img", { src: url, onClick: () => setBig(true), style: { width: 42, height: 28, objectFit: "cover", borderRadius: 3, border: "2px solid #fff", boxShadow: "0 1px 4px rgba(40,30,20,.2)" } }) : null,
+      h("button", { disabled: drawing, onClick: onDraw, className: "active:opacity-70 disabled:opacity-50", style: b }, drawing ? "画着…" : url ? "重画插图" : "画插图"),
+      h("button", { "data-wk": "stampextrasend", onClick: onSend, className: "active:opacity-70", style: b }, x.sentTs ? "再发给他" : "发给他看"),
+      onCover ? h("button", { "data-wk": "stampextracover", onClick: onCover, className: "active:opacity-70", style: b }, isCover ? "取消封面" : "设成封面") : null,
+      h("button", { "data-wk": "stampextrarewrite", onClick: () => { if (!arm) { setArm(true); setTimeout(() => setArm(false), 3000); return; } setArm(false); onRewrite(); }, className: "active:opacity-70",
+        style: Object.assign({}, b, arm ? { borderColor: "#b23a2e", color: "#b23a2e" } : { borderStyle: "dashed" }) }, arm ? "再点一次重写" : x.writing ? "重写中…" : "重写 · 不扣券"),
+      x.drawErr && !drawing ? h("div", { style: { width: "100%", fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: "#b23a2e" } }, "插图上次没画成：" + x.drawErr) : null,
       big && url ? h("div", { onClick: () => setBig(false), className: "fixed inset-0 flex items-center justify-center", style: { zIndex: 260, background: "rgba(0,0,0,.88)" } }, h("img", { src: url, style: { maxWidth: "100%", maxHeight: "100%" } })) : null);
   }
   function StoryReader({ t, card, char, meName, lv, start, onClose, onSeen, inner, noResume }) {   // noResume：番外播放用，不记「看到哪儿」
@@ -136,6 +116,9 @@
     const [stOpt, setStOpt] = useState(() => C().load().opt || {});
     const audRef = useRef(null), autoT = useRef(0);
     const stopAudio = () => { try { if (audRef.current) { audRef.current.onended = null; audRef.current.pause(); } } catch (e) {} audRef.current = null; };
+    // 横图当背景（番外插图）：铺满会被放大裁掉大半。横的就整张放在上半屏，后面垫一层同一张图的虚化，不裁人（她 2026-10-27）
+    const [wide, setWide] = useState(false);
+    useEffect(() => { setWide(false); if (!url) return; const im = new Image(); im.onload = () => setWide(im.naturalWidth > im.naturalHeight * 1.1); im.src = url; }, [url]);
     const [logOpen, setLogOpen] = useState(false);   // 回放记录（她 2026-10-27）：只记这一节走过的
     const logEnd = useRef(null);
     useEffect(() => { if (logOpen && logEnd.current) logEnd.current.scrollIntoView({ block: "end" }); }, [logOpen]);
@@ -211,7 +194,10 @@
     const toggle = k => { const st0 = C().load(); st0.opt = Object.assign({}, st0.opt, { [k]: !(st0.opt || {})[k] }); C().save(st0); setStOpt(st0.opt); };
     const choiceBtn = { textAlign: "center", width: "100%", maxWidth: 340, padding: "12px 14px", borderRadius: 12, border: "1px solid rgba(255,255,255,.45)", background: "rgba(16,14,22,.78)", color: "#fff", fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", boxShadow: "0 6px 18px rgba(0,0,0,.35)", backdropFilter: "blur(4px)" };
     const hid = { opacity: hideUi ? 0 : 1, pointerEvents: hideUi ? "none" : undefined, transition: "opacity .2s" };
-    return h("div", { "data-wk": "stampstory", "data-hide": hideUi ? "1" : "0", onPointerDown: lpDown, onPointerUp: lpUp, onPointerCancel: lpUp, onPointerLeave: lpUp, onContextMenu: e => e.preventDefault(), className: "fixed inset-0 flex flex-col", style: { zIndex: 255, WebkitTouchCallout: "none", userSelect: "none", WebkitUserSelect: "none", background: url ? "#111 center/cover no-repeat url(" + url + ")" : "linear-gradient(#2b2436,#14111b)" } },
+    return h("div", { "data-wk": "stampstory", "data-hide": hideUi ? "1" : "0", onPointerDown: lpDown, onPointerUp: lpUp, onPointerCancel: lpUp, onPointerLeave: lpUp, onContextMenu: e => e.preventDefault(), className: "fixed inset-0 flex flex-col", style: { zIndex: 255, WebkitTouchCallout: "none", userSelect: "none", WebkitUserSelect: "none", background: url && !wide ? "#111 center/cover no-repeat url(" + url + ")" : url ? "#0e0c12" : "linear-gradient(#2b2436,#14111b)" } },
+      url && wide ? h("div", { "data-wk": "stampstorywide", style: { position: "absolute", inset: 0, zIndex: -1, overflow: "hidden", pointerEvents: "none" } },
+        h("div", { style: { position: "absolute", inset: -40, background: "center/cover no-repeat url(" + url + ")", filter: "blur(28px) brightness(.55)" } }),
+        h("img", { src: url, alt: "", style: { position: "absolute", left: 0, right: 0, top: "calc(env(safe-area-inset-top) + 72px)", width: "100%", height: "auto", boxShadow: "0 10px 40px rgba(0,0,0,.5)" } })) : null,
       h("div", { className: "flex items-center", style: Object.assign({ padding: "calc(env(safe-area-inset-top) + 10px) 14px 8px", background: "linear-gradient(rgba(0,0,0,.55), transparent)" }, hid) },
         h("button", { onClick: onClose, className: "active:opacity-60", style: { flexShrink: 0, whiteSpace: "nowrap", color: "#fff", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))" } }, "‹ 收起"),
         h("div", { className: "flex-1 text-center", style: { minWidth: 0, margin: "0 6px", color: "#fff" } },
@@ -279,7 +265,6 @@
     const drawing = !!card.drawing && !!card.drawingBoot && card.drawingBoot === window.__stampBoot && Date.now() - (card.drawingTs || 0) < 8 * 60000;   // 关掉 app 再打开：上一回没画完的那次一定没了，直接放开
     const swipe = useRef(null), swiped = useRef(0);
     const setCover = key => { const st0 = C().load(); st0.cards = st0.cards.map(c => c.id === card.id ? Object.assign({}, c, { cover: key || null }) : c); C().save(st0); toast(key ? "换好了：册子里这张就用它当封面" : "换回第一面了"); };
-    const [exMore, setExMore] = useState(null);   // ⋯：番外的插图、发给他看、封面、重写那一页
     const [exOpen, setExOpen] = useState(null), [exWish, setExWish] = useState(null);   // exWish：点了「用番外券」以后那一格「想看什么」，null＝没展开
     const [reArm, setReArm] = useState(false);   // 重写整张卡要点两下：第一下变成「再点一次」，三秒内不点就回去           // 卡面全屏看，满级的在这里戳
     const [say, setSay] = useState(null), [poking, setPoking] = useState(false);
@@ -462,35 +447,6 @@
             reArm ? "再点一次：原来的文字会被换掉" : "✎ 重写这张卡（文字和分镜）· 花一次调用") : null,
           url ? h("div", { style: { marginTop: 6, fontFamily: F_BODY, fontSize: fs(11), color: P5 } }, canPoke ? "点卡面全屏看，满级了能戳他（头、胸口、手）" : "点卡面全屏看") : null),
         // 养成
-        // 番外：限定 SSR 才有。重复抽到自动多一段；手上有番外券也能自己写一段
-        tx && card.rarity === "SSR" && (card.limited || card.pool === "bday" || card.pool === "mybday" || card.pool === "anniv") ? (() => {
-          const xs = card.extras || [], left = C().load().extraTickets || 0;
-          return h("div", { "data-wk": "stampextras", style: { marginTop: 16, padding: "14px 16px", borderRadius: 16, border: "1px solid rgba(181,140,85,.3)", background: "#f6efe0" } },
-            h("div", { className: "flex items-center justify-between" },
-              h("div", { style: { fontFamily: F_DISPLAY, fontSize: fs(15), color: P } }, "番外"),
-              h("div", { style: { fontFamily: F_BODY, fontSize: fs(11), color: P5 } }, xs.filter(x => x.text).length + " 段" + (left ? " · 番外券 " + left + " 张" : ""))),
-            xs.map(x => h("div", { key: x.id, "data-wk": "stampextra", style: { marginTop: 10, paddingTop: 10, borderTop: "1px dashed rgba(47,42,34,.15)" } },
-              // 一行一段：名字＋开头一句，点了全屏翻开读（她 2026-10-27：展开在卡页里太长）
-              x.text ? h("button", { "data-wk": "stampextrarow", onClick: () => setExOpen(x.id), className: "w-full text-left flex items-center active:opacity-70", style: { gap: 10 } },
-                h("div", { style: { flex: 1, minWidth: 0 } },
-                  h("div", { style: { fontFamily: F_DISPLAY, fontSize: fs(13.5), color: P } }, "「" + (x.title || "番外") + "」"),
-                  h("div", { style: { marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", fontFamily: F_BODY, fontSize: fs(11.5), color: P5 } }, String(x.text).replace(/\s+/g, " ").slice(0, 60))),
-                h("span", { style: { flexShrink: 0, fontFamily: F_BODY, fontSize: fs(11.5), color: COPPER } }, "读 ›"),
-                h("span", { "data-wk": "stampextramore", onClick: e => { e.stopPropagation(); setExMore(x.id); }, style: { flexShrink: 0, padding: "0 4px", fontFamily: F_BODY, fontSize: fs(14), color: P5 } }, "⋯"))
-              : x.writing ? h("div", { style: { fontFamily: F_BODY, fontSize: fs(12), color: P5 } }, "他在写这段番外…")
-              : h("button", { onClick: () => onExtra && onExtra(card.id, x.id), className: "active:opacity-70", style: { fontFamily: F_BODY, fontSize: fs(12), color: "#b23a2e" } }, "这段番外没写出来" + (x.err && x.err !== "没写出来" ? "（" + x.err + "）" : "") + " · 点一下重写"))),
-            left <= 0 ? h("button", { "data-wk": "stampextrabuy", onClick: () => { if (!C().buyExtra()) { toast("印泥不够：" + C().EXTRA_INK + " 印泥换一张番外券"); return; } toast("换好了一张番外券"); }, className: "active:opacity-70",
-              style: { marginTop: 12, padding: "6px 14px", borderRadius: 999, border: "1px dashed " + COPPER, color: COPPER, fontFamily: F_BODY, fontSize: fs(12) } }, C().EXTRA_INK + " 印泥换一张番外券") : null,
-            // 用番外券：先展开一格「想看什么」（可以不填），再点「写」
-            left > 0 && exWish == null ? h("button", { "data-wk": "stampextrawrite", onClick: () => setExWish(""), className: "active:opacity-70",
-              style: { marginTop: 12, padding: "6px 14px", borderRadius: 999, border: "1px solid " + COPPER, color: COPPER, fontFamily: F_BODY, fontSize: fs(12) } }, "用一张番外券写一段") : null,
-            left > 0 && exWish != null ? h("div", { "data-wk": "stampextrawish", style: { marginTop: 12 } },
-              h("textarea", { value: exWish, onChange: e => setExWish(e.target.value.slice(0, 200)), rows: 2, placeholder: "想看什么？比如「结局之后的某一天」「那天他那边是什么样」。不填就由他挑",
-                style: { width: "100%", padding: "8px 10px", borderRadius: 8, border: "1px solid rgba(181,140,85,.45)", background: "#fffaf0", fontFamily: F_BODY, fontSize: fs(13), color: P, resize: "none" } }),
-              h("div", { className: "flex justify-end", style: { gap: 8, marginTop: 6 } },
-                h("button", { onClick: () => setExWish(null), style: { padding: "5px 12px", fontFamily: F_BODY, fontSize: fs(12), color: P5 } }, "算了"),
-                h("button", { onClick: () => { const s0 = C().load(); if (!(s0.extraTickets > 0)) return; s0.extraTickets--; C().save(s0); onExtra && onExtra(card.id, null, exWish.trim()); setExWish(null); toast("用了一张番外券，他在写"); }, className: "active:opacity-70",
-                  style: { padding: "5px 14px", borderRadius: 999, background: COPPER, color: "#FFF8E9", fontFamily: F_BODY, fontSize: fs(12) } }, "写这一段"))) : null); })() : null,
         tx ? h("div", { "data-wk": "stampgrow", style: { marginTop: 16, padding: "14px 16px", borderRadius: 16, border: "1px solid rgba(87,119,103,.22)", background: "#E2E7DA", boxShadow: "0 2px 10px rgba(57,56,47,.06)" } },
           h("div", { className: "flex items-center justify-between" },
             h("div", { style: { fontFamily: F_DISPLAY, fontSize: fs(14), color: GOLD } }, "✦ 盖印"),
@@ -543,7 +499,38 @@
             innerBusy ? "他在回想那时候在想什么…" : tx.inner ? "换他的视角重读" : "换他的视角重读 · 花一次调用") : null,
           card.rarity === "SSR" ? h("button", { "data-wk": "stampstoryopen", onClick: () => setStory(true), className: "w-full active:opacity-70", style: { marginTop: 14, minHeight: 44, borderRadius: 12, background: RC.SSR, color: "#fff", fontFamily: F_BODY, fontSize: fs(14) } }, "进入剧情")
             : openNode && openNode.body ? h("div", { "data-wk": "stampbox", style: { marginTop: 12, padding: "14px 16px", borderRadius: 14, border: "1px solid " + FRAME, background: "#FFF8E9" } },
-              h("div", { style: { fontFamily: F_DISPLAY, fontSize: fs(13), color: GOLD, marginBottom: 8 } }, openNode.zh), openNode.body) : null) : null),
+              h("div", { style: { fontFamily: F_DISPLAY, fontSize: fs(13), color: GOLD, marginBottom: 8 } }, openNode.zh), openNode.body) : null) : null,
+        // 番外放在剧情最后面（她 2026-10-27）
+        // 番外：限定 SSR 才有。重复抽到自动多一段；手上有番外券也能自己写一段
+        tx && card.rarity === "SSR" && (card.limited || card.pool === "bday" || card.pool === "mybday" || card.pool === "anniv") ? (() => {
+          const xs = card.extras || [], left = C().load().extraTickets || 0;
+          return h("div", { "data-wk": "stampextras", style: { marginTop: 16, padding: "14px 16px", borderRadius: 16, border: "1px solid rgba(181,140,85,.3)", background: "#f6efe0" } },
+            h("div", { className: "flex items-center justify-between" },
+              h("div", { style: { fontFamily: F_DISPLAY, fontSize: fs(15), color: P } }, "番外"),
+              h("div", { style: { fontFamily: F_BODY, fontSize: fs(11), color: P5 } }, xs.filter(x => x.text).length + " 段" + (left ? " · 番外券 " + left + " 张" : ""))),
+            xs.map(x => h("div", { key: x.id, "data-wk": "stampextra", style: { marginTop: 10, paddingTop: 10, borderTop: "1px dashed rgba(47,42,34,.15)" } },
+              // 一行一段：名字＋开头一句，点了全屏翻开读（她 2026-10-27：展开在卡页里太长）
+              x.text ? h(React.Fragment, null, h("button", { "data-wk": "stampextrarow", onClick: () => setExOpen(x.id), className: "w-full text-left flex items-center active:opacity-70", style: { gap: 10 } },
+                h("div", { style: { flex: 1, minWidth: 0 } },
+                  h("div", { style: { fontFamily: F_DISPLAY, fontSize: fs(13.5), color: P } }, "「" + (x.title || "番外") + "」"),
+                  h("div", { style: { marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", fontFamily: F_BODY, fontSize: fs(11.5), color: P5 } }, String(x.text).replace(/\s+/g, " ").slice(0, 60))),
+                h("span", { style: { flexShrink: 0, fontFamily: F_BODY, fontSize: fs(11.5), color: COPPER } }, "读 ›")),
+              h(ExtraActs, { x, isCover: !!x.img && card.cover === x.img, onDraw: () => onExtraDraw && onExtraDraw(card.id, x.id), onSend: () => onExtraSend && onExtraSend(card, x),
+                onCover: x.img ? () => setCover(card.cover === x.img ? null : x.img) : null, onRewrite: () => { onExtra && onExtra(card.id, x.id); toast("在重写这段番外，不扣券"); } }))
+              : x.writing ? h("div", { style: { fontFamily: F_BODY, fontSize: fs(12), color: P5 } }, "他在写这段番外…")
+              : h("button", { onClick: () => onExtra && onExtra(card.id, x.id), className: "active:opacity-70", style: { fontFamily: F_BODY, fontSize: fs(12), color: "#b23a2e" } }, "这段番外没写出来" + (x.err && x.err !== "没写出来" ? "（" + x.err + "）" : "") + " · 点一下重写"))),
+            left <= 0 ? h("button", { "data-wk": "stampextrabuy", onClick: () => { if (!C().buyExtra()) { toast("印泥不够：" + C().EXTRA_INK + " 印泥换一张番外券"); return; } toast("换好了一张番外券"); }, className: "active:opacity-70",
+              style: { marginTop: 12, padding: "6px 14px", borderRadius: 999, border: "1px dashed " + COPPER, color: COPPER, fontFamily: F_BODY, fontSize: fs(12) } }, C().EXTRA_INK + " 印泥换一张番外券") : null,
+            // 用番外券：先展开一格「想看什么」（可以不填），再点「写」
+            left > 0 && exWish == null ? h("button", { "data-wk": "stampextrawrite", onClick: () => setExWish(""), className: "active:opacity-70",
+              style: { marginTop: 12, padding: "6px 14px", borderRadius: 999, border: "1px solid " + COPPER, color: COPPER, fontFamily: F_BODY, fontSize: fs(12) } }, "用一张番外券写一段") : null,
+            left > 0 && exWish != null ? h("div", { "data-wk": "stampextrawish", style: { marginTop: 12 } },
+              h("textarea", { value: exWish, onChange: e => setExWish(e.target.value.slice(0, 200)), rows: 2, placeholder: "想看什么？比如「结局之后的某一天」「那天他那边是什么样」。不填就由他挑",
+                style: { width: "100%", padding: "8px 10px", borderRadius: 8, border: "1px solid rgba(181,140,85,.45)", background: "#fffaf0", fontFamily: F_BODY, fontSize: fs(13), color: P, resize: "none" } }),
+              h("div", { className: "flex justify-end", style: { gap: 8, marginTop: 6 } },
+                h("button", { onClick: () => setExWish(null), style: { padding: "5px 12px", fontFamily: F_BODY, fontSize: fs(12), color: P5 } }, "算了"),
+                h("button", { onClick: () => { const s0 = C().load(); if (!(s0.extraTickets > 0)) return; s0.extraTickets--; C().save(s0); onExtra && onExtra(card.id, null, exWish.trim()); setExWish(null); toast("用了一张番外券，他在写"); }, className: "active:opacity-70",
+                  style: { padding: "5px 14px", borderRadius: 999, background: COPPER, color: "#FFF8E9", fontFamily: F_BODY, fontSize: fs(12) } }, "写这一段"))) : null); })() : null),
       // 全屏看卡面：点空白处收起；满级 SSR 在这里戳——他的话固定在底下那个框里，不跟着手指跳
       full && url ? h("div", { "data-wk": "stampfull", className: "fixed inset-0 flex flex-col", onClick: () => setFull(false), style: { zIndex: 256, background: "rgba(20,18,14,.92)" } },
         h("div", { className: "flex-1 min-h-0 flex items-center justify-center", style: { padding: "calc(env(safe-area-inset-top) + 16px) 16px 8px" } },
@@ -576,10 +563,6 @@
         const beats = Array.isArray(x.beats) && x.beats.length ? x.beats : String(x.text).split(/\n+/).map(t0 => t0.trim()).filter(Boolean).map(t0 => ({ who: "narr", text: t0 }));
         const pc = Object.assign({}, card, { face: x.img || card.face, faceAlt: null, faces: x.img ? { solo: card.face } : {}, storyBg: "main", storyAt: null, text: Object.assign({}, card.text, { name: x.title || "番外", sections: [{ id: "ex_" + x.id, lv: 1, title: x.title || "番外", beats, choices: [], end: true, extra: true }] }) });
         return h(StoryReader, { t, card: pc, char, meName, lv: 99, start: "ex_" + x.id, noResume: true, onSeen: () => {}, onClose: () => setExOpen(null) }); })() : null,
-      exMore && (card.extras || []).find(x => x.id === exMore && x.text) ? h(ExtraReader, { card, char, x: card.extras.find(x => x.id === exMore), onClose: () => setExMore(null), onPlay: () => { setExOpen(exMore); setExMore(null); },
-        onRewrite: () => { onExtra && onExtra(card.id, exMore); setExMore(null); toast("在重写这段番外，不扣券"); },
-        onDraw: () => onExtraDraw && onExtraDraw(card.id, exMore), onSend: () => onExtraSend && onExtraSend(card, card.extras.find(x => x.id === exMore)),
-        isCover: card.cover && card.cover === (card.extras.find(x => x.id === exMore) || {}).img, onCover: (card.extras.find(x => x.id === exMore) || {}).img ? () => { const im = card.extras.find(x => x.id === exMore).img; setCover(card.cover === im ? null : im); } : null }) : null,
       story && tx ? h(StoryReader, { t, card, char, meName, lv, start: typeof story === "string" && story !== "his" ? story : null, inner: story === "his" ? tx.inner : null, onSeen: markSeen, onClose: () => setStory(false) }) : null);
   }
 
