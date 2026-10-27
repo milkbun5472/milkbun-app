@@ -13225,7 +13225,7 @@ function CallScreen({
         if (k === "reroll") { stopCallAudio(); const cut = onReroll && onReroll(); if (typeof cut === "number") lv.current.played = cut; return; }
         if (k === "del") { stopCallAudio(); onDeleteLine && onDeleteLine(i); lv.current.played = Math.max(0, list.length - 1); }
       } })) : null,
-    callEdit != null && list[callEdit] ? h("div", { style: { position: "relative", zIndex: 90 } }, h(MsgEditSheet, {
+    callEdit != null && list[callEdit] ? h("div", { "data-wk": "calledit", style: { position: "absolute", inset: 0, zIndex: 90 } }, h(MsgEditSheet, {
       init: String(list[callEdit].content || ""), onCancel: () => setCallEdit(null),
       onSave: v => { const t2 = String(v || "").trim(), i = callEdit; setCallEdit(null); if (t2 && list[i] && t2 !== list[i].content) onEditLine && onEditLine(i, t2); } })) : null);
 }
