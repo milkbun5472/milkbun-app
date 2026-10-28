@@ -6,9 +6,10 @@ test("搬家页只留云同步和导入与导出，用的就是「设置 → 数
   const i = ui.indexOf("function MoveShell("), j = ui.indexOf("function DataConfig(", i);
   assert.ok(i > 0 && j > i, "抠不出 MoveShell");
   assert.match(ui.slice(i, j), /h\(DataConfig, Object\.assign\(\{\}, dataProps, \{ only: \["cloud", "backup"\] \}\)\)/);
+  assert.match(ui, /window\.MoveShell = MoveShell;/, "懒加载那组要把它挂到 window 上，不然公共版压缩后找不到");
   assert.match(ui, /\]\.filter\(x => !only \|\| only\.indexOf\(x\.id\) >= 0\);/);
 });
 test("只有公共版旧地址、过了点才换整页；家里那版没有 QQ_MOVE", () => {
-  assert.match(app, /if \(_mv && _mv\.host === location\.hostname && Date\.now\(\) >= _mv\.at\) \{\n\s*body = h\(LazyGate, \{ key: "lazy-move", group: "screens",[^\n]*render: \(\) => h\(MoveShell,/);
+  assert.match(app, /if \(_mv && _mv\.host === location\.hostname && Date\.now\(\) >= _mv\.at\) \{\n\s*body = h\(LazyGate, \{ key: "lazy-move", group: "screens",[^\n]*render: \(\) => h\(window\.MoveShell,/);
   assert.doesNotMatch(app, /QQ_MOVE\s*=/, "家里那份不许自己挂 QQ_MOVE");
 });

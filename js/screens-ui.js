@@ -8906,6 +8906,8 @@ function MoveShell({ to, dataProps }) {
           "去新家 " + host) : null),
       h(DataConfig, Object.assign({}, dataProps, { only: ["cloud", "backup"] }))));
 }
+// screens 这一组是用到才加载、公共版还会压缩改名：app.js 只认挂在 window 上的这一个
+if (typeof window !== "undefined") window.MoveShell = MoveShell;
 function DataConfig({
   characters,
   onExport,

@@ -35169,7 +35169,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   const _mv = typeof window !== "undefined" ? window.QQ_MOVE : null;
   // MoveShell 在 screens 那一组（用到才加载），走 LazyGate 等它到位再画
   if (_mv && _mv.host === location.hostname && Date.now() >= _mv.at) {
-    body = h(LazyGate, { key: "lazy-move", group: "screens", zh: "秋秋搬家了", render: () => h(MoveShell, { to: _mv.to, dataProps: { characters, onExport: doExport, mediaParts: mediaParts ? { n: mediaParts.parts.length, done: mediaParts.done } : null,
+    body = h(LazyGate, { key: "lazy-move", group: "screens", zh: "秋秋搬家了", render: () => h(window.MoveShell, { to: _mv.to, dataProps: { characters, onExport: doExport, mediaParts: mediaParts ? { n: mediaParts.parts.length, done: mediaParts.done } : null,
       onExportMedia: doExportMedia, onCopyExport: doCopyExport, copyParts, onImportText: doImportPasted, inAppBrowser: inAppBrowser(), onImport: doImport, toast } }) });
   }
   const _safeTop = { height: screen === "home" ? "env(safe-area-inset-top)" : 0 };
