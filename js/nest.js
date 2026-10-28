@@ -775,9 +775,10 @@
   //   位图（png/jpg/webp/gif）每张压到 ASSET_CHARS 以内都收，矢量图 8KB 内收；字体文件不收；整份 1.6MB。
   //   张数（ASSET_COUNT）原来是 12（群里 2026-10-22：一套 iOS 图标主题被这条挡住了——
   //   一套图标本来就二三十张）。真正的天花板是整份大小（D1 一行 2MB），张数这道闸只防一眼看出的离谱，
-  //   所以抬到 40，超了由大小那一条去拦、顺便告诉她压一压。
-  //   上传前先 shrinkImages 压一遍，再拿 imgProblem 查一遍，卡住了直接说是哪一样
-  const SVG_MAX = 8192, ASSET_CHARS = 400 * 1024, ASSET_COUNT = 40, PAYLOAD_ALL = 1600 * 1024;
+  //   所以张数放到 120（2026-10-28：一整套桌面美化四五十张起步，40 又挡住了）。
+  //   上传前 shrinkImages 先把每张压进 ASSET_CHARS，整份还超就一档一档往小里压到放得下（fitTotal），
+  //   再拿 imgProblem 查一遍，卡住了直接说是哪一样
+  const SVG_MAX = 8192, ASSET_CHARS = 400 * 1024, ASSET_COUNT = 120, PAYLOAD_ALL = 1600 * 1024;
   const RASTER = ["png", "jpeg", "jpg", "webp", "gif"];
   const blobToData = blob => new Promise((ok, no) => { const r = new FileReader(); r.onload = () => ok(r.result); r.onerror = no; r.readAsDataURL(blob); });
   function embeddedImages(text) {
@@ -809,6 +810,36 @@
     for (const x of big) {
       const src = text.slice(x.st, x.end), out = await shrinkOne(src);
       if (out !== src) text = text.slice(0, x.st) + out + text.slice(x.end);
+    }
+    return fitTotal(text);
+  }
+  // 整份还超 PAYLOAD_ALL：一档一档缩边重压，每一档先压最大的那几张（省得最多），够了就停。
+  //   位置全按同一份快照算，换好的那几张最后从后往前一起换回去，前面的位置不会被挪乱。
+  // 带透明的图压出来还是 png，体积下不去：浏览器会出 webp（安卓、电脑）就换成 webp，带着透明、小好几倍；
+  //   iPhone 的 Safari 出不了 webp，拿回来的不是 webp 就原样不动，靠上面缩边那几档。
+  async function webpIfSmaller(dataUrl, q) {
+    if (!/^data:image\/png/i.test(dataUrl)) return dataUrl;
+    const img = new window.Image();
+    await new Promise((ok, no) => { img.onload = ok; img.onerror = no; img.src = dataUrl; });
+    const c = document.createElement("canvas"); c.width = img.width; c.height = img.height;
+    c.getContext("2d").drawImage(img, 0, 0);
+    const w = c.toDataURL("image/webp", q); c.width = 0; c.height = 0;
+    return /^data:image\/webp/i.test(w) && w.length < dataUrl.length ? w : dataUrl;
+  }
+  async function fitTotal(text) {
+    const TIERS = [[1024, .78], [768, .75], [512, .72], [384, .7], [256, .7], [192, .65], [128, .6], [96, .6]];
+    for (const [dim, q] of TIERS) {
+      if (text.length <= PAYLOAD_ALL) return text;
+      const imgs = embeddedImages(text).filter(x => x.type !== "svg+xml" && x.type !== "gif").sort((a, b) => b.len - a.len);
+      let size = text.length; const swaps = [];
+      for (const x of imgs) {
+        if (size <= PAYLOAD_ALL) break;
+        const src = text.slice(x.st, x.end);
+        let out = src;
+        try { out = await resizeImageFile(await (await fetch(src)).blob(), dim, q); out = await webpIfSmaller(out, q); } catch (e) {}
+        if (out.length < src.length) { swaps.push([x.st, x.end, out]); size -= src.length - out.length; }
+      }
+      swaps.sort((a, b) => b[0] - a[0]).forEach(([st, end, out]) => { text = text.slice(0, st) + out + text.slice(end); });
     }
     return text;
   }
