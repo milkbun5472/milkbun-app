@@ -278,7 +278,7 @@ test("事件：到家/出门/起床/睡觉认得出、带收到时间、角色�
 test("网关一次回好几段：都认；拿过的那段不再当成新报的", () => {
   assert.match(src, /raw\.split\(new RegExp\("\(\?=" \+ SHORTCUT_MARK \+ "\)"\)\)/);
   assert.match(src, /next\.seen = seen\.concat\(fresh\.map\(hash\)\)\.slice\(-60\);/);
-  assert.match(src, /n\.env = \{ ts: r\.at \|\| Date\.now\(\),/, "位置的时间用网关收到的那一刻，不是秋秋机拿到的那一刻");
+  assert.match(src, /n\.env = \{ ts: r\.at \|\| Date\.now\(\),/, "位置的时间用网关收到的那一刻，不是秋秋\u673a拿到的那一刻");
 });
 
 test("从网关拿：健康和事件两段都合进来，再拿一次不重复、位置时间不刷新", async () => {

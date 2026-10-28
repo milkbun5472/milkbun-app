@@ -1229,7 +1229,7 @@
       + "【给她一份文件】她要把一份东西拿走（一整份 CSS、一份文风、一份整理好的清单），或者内容长到不适合放进对话框，就放进 file："
       + "{\"name\":\"文件名（带后缀，如 线下皮肤.css）\",\"text\":\"完整内容\"}——她那边会出一张文件卡，能一键复制、存成文件。"
       + "file 里放的东西【不受「正文不贴代码」那条限制】，CSS 就原样完整地放；reply 里只说一两句这份文件是什么。不需要就省略 file。\n"
-      + "【现成的 Worker 代码】App 里有三段现成的、要她复制进 Cloudflare 的代码：health＝健康网关（快捷指令往里投、秋秋机来拿），fish＝Fish Audio 语音中转，mcp＝MCP 转接（设置里语音 API 下面接 MCP 那一块用的）。"
+      + "【现成的 Worker 代码】App 里有三段现成的、要她复制进 Cloudflare 的代码：health＝健康网关（快捷指令往里投、秋秋\u673a来拿），fish＝Fish Audio 语音中转，mcp＝MCP 转接（设置里语音 API 下面接 MCP 那一块用的）。"
       + "她要这几段代码、或者说复制不下来时，填 code:\"health\"、code:\"fish\" 或 code:\"mcp\"，她那边会出一张能一键复制、存成文件的卡，代码由 App 照原样放进去——你自己不要写、不要改这几段代码。reply 里一两句说这是什么、接下来照哪一步做。\n"
       + "【她发来的文件】她这一句要是附了文件，内容就在这一轮她的话后面，照它办。\n\n"
       + "【两种改法 · 挑对的那一种】\n"
@@ -1370,10 +1370,10 @@
     // 现成的 Worker 代码（她 2026-10-13「有些人直接复制不了，让他们用秋秋发的复制」）：
     //   模型只报是哪一段，代码从 App 里那一份原样取——模型抄一遍，少一个括号整段就不能用。
     const WORKER_CODE = {
-      health: () => window.HealthCtx && window.HealthCtx.GATEWAY_WORKER ? { name: "秋秋机-健康网关-worker.js", text: window.HealthCtx.GATEWAY_WORKER } : null,
-      fish: () => typeof FISH_RELAY_CODE === "string" ? { name: "秋秋机-Fish语音中转-worker.js", text: FISH_RELAY_CODE } : null,
+      health: () => window.HealthCtx && window.HealthCtx.GATEWAY_WORKER ? { name: "秋秋\u673a-健康网关-worker.js", text: window.HealthCtx.GATEWAY_WORKER } : null,
+      fish: () => typeof FISH_RELAY_CODE === "string" ? { name: "秋秋\u673a-Fish语音中转-worker.js", text: FISH_RELAY_CODE } : null,
       // MCP 转接：跟设置里「复制转接代码」同一份文件（tools/mcp-relay-worker.js），现取
-      mcp: async () => { try { const c = await (await fetch("tools/mcp-relay-worker.js", { cache: "no-store" })).text(); return /export default/.test(c) ? { name: "秋秋机-MCP转接-worker.js", text: c } : null; } catch (e) { return null; } }
+      mcp: async () => { try { const c = await (await fetch("tools/mcp-relay-worker.js", { cache: "no-store" })).text(); return /export default/.test(c) ? { name: "秋秋\u673a-MCP转接-worker.js", text: c } : null; } catch (e) { return null; } }
     };
     const codeKey = String(d.code || "").trim().toLowerCase();
     const codeFile = WORKER_CODE[codeKey] ? await WORKER_CODE[codeKey]() : null;

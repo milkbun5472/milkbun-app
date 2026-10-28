@@ -1576,17 +1576,18 @@ function shareChatKey(c, roomId) { return roomId && roomId !== "main" && window.
 function ShareToCharPicker({ characters, onPick, onBack, title, sub, top, wk, ink, line, field, bg }) {
   const t = useTheme();
   const [to, setTo] = useState(null);
+  // 挂点名按调用方挑写死的那几个（各家原来就用这些名字，别人的美化照旧对得上）
   const W = wk || "sharepick";
   const fg = ink || t.ink, ln = line || t.line, fl = field || t.bg2;
   const pick = (c, rid) => { setTo(null); onPick(c, rid); };
-  return h("div", { "data-wk": W + "page", className: "h-full flex flex-col", style: bg ? { background: bg } : null },
+  return h("div", { "data-wk": W === "liveshare" ? "liveshareview" : W === "shuashare" ? "shuasharepage" : W === "listenshare" ? "listensharepage" : "sharepickpage", className: "h-full flex flex-col", style: bg ? { background: bg } : null },
     h(Head, { zh: to ? "发到 " + (to.remark || to.name) + " 的哪儿" : (title || "发给谁"), sub: to ? undefined : sub, bg: "transparent", ink: ink, onBack: () => to ? setTo(null) : onBack() }),
     h("div", { className: "flex-1 min-h-0 overflow-y-auto px-5", style: { paddingBottom: 30 } },
       top || null,
-      to ? [{ id: "main", name: "主聊天" }].concat(shareRoomsOf(to)).map(r => h("button", { "data-wk": W + "row", key: r.id, onClick: () => pick(to, r.id), className: "w-full text-left active:opacity-70",
+      to ? [{ id: "main", name: "主聊天" }].concat(shareRoomsOf(to)).map(r => h("button", { "data-wk": W === "liveshare" ? "livesharerow" : W === "shuashare" ? "shuasharerow" : W === "listenshare" ? "listensharerow" : "sharepickrow", key: r.id, onClick: () => pick(to, r.id), className: "w-full text-left active:opacity-70",
         style: { minHeight: 46, padding: "0 14px", marginTop: 8, borderRadius: 12, border: "1px solid " + ln, background: fl, color: fg, fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))" } }, r.id === "main" ? "主聊天" : "小房间「" + (r.name || "没起名的房间") + "」"))
       // 一排四等分（她 2026-10-07：「看起来够一排四个为什么只有三个」）
-      : h("div", { "data-wk": W + "list", style: { display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", rowGap: 16, columnGap: 8, marginTop: 12 } }, (characters || []).filter(c => c && !c.npc).map(c => h("button", { "data-wk": W + "char", key: c.id, onClick: () => shareRoomsOf(c).length ? setTo(c) : pick(c, "main"),
+      : h("div", { "data-wk": W === "liveshare" ? "livesharelist" : W === "shuashare" ? "shuasharelist" : W === "listenshare" ? "listensharelist" : "sharepicklist", style: { display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", rowGap: 16, columnGap: 8, marginTop: 12 } }, (characters || []).filter(c => c && !c.npc).map(c => h("button", { "data-wk": W === "liveshare" ? "livesharechar" : W === "shuashare" ? "shuasharechar" : W === "listenshare" ? "listensharechar" : "sharepickchar", key: c.id, onClick: () => shareRoomsOf(c).length ? setTo(c) : pick(c, "main"),
         className: "active:opacity-70 flex flex-col items-center", style: { minWidth: 0 } }, h(Avatar, { character: c, size: 48 }),
         h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: fg, marginTop: 4, maxWidth: "100%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, c.remark || c.name))))));
 }

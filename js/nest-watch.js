@@ -14,7 +14,8 @@
 // 记「看到哪儿了」的两个键都是 qq_ 开头：本机的游标，不进存档、不上云、不跟着导出走
 //   （施工规则/no-small-warehouse.md 第 5 条）——换台手机重新从「现在」算起，不会一开机把旧的全报一遍。
 (function (g) {
-  const NEST = "https://qiuqiu-machine.pages.dev/nest";
+  // 公共版走【自己这个站】的前门（换地址那几天新旧两个站都通）；家里那版不在 pages.dev 上，走公共版的前门
+  const NEST = (g.location && /\.pages\.dev$/.test(g.location.hostname || "") ? g.location.origin : "https://autumn-drawer.pages.dev") + "/nest";
   const ADMIN_KEY = "qq_nestAdmin";
   const SEEN_KEY = "qq_nestAdminSeen";   // 她点进小窝那一刻看到的最新一条的时间
   const TOLD_KEY = "qq_nestAdminTold";   // 已经弹过横幅的最新一条的时间（同一批不弹第二遍）
