@@ -33,7 +33,8 @@ test("接线：主屏有图标、路由进得去、脚本先于 app.js 加载", 
 test("走秋秋\u673a自己的前门：包里不许有 Worker 真地址、不许有她的名字", () => {
   // 2026-10-18 起地址写在 js/nest-watch.js（开机就加载，管理员提醒要用），nest.js 从那儿拿
   const watch = R("js/nest-watch.js");
-  assert.match(watch, /const NEST = "https:\/\/qiuqiu-machine\.pages\.dev\/nest";/);
+  // 公共版用自己站的前门（location.origin），家里那版用新地址的前门
+  assert.match(watch, /const NEST = \(g\.location && [^\n]*pages\\\.dev[^\n]*g\.location\.origin : "https:\/\/autumn-drawer\.pages\.dev"\) \+ "\/nest";/);
   [nest, watch].forEach(src => {
     assert.ok(!/workers\.dev/.test(src), "Worker 真地址进了包——里头带着账号名");
     assert.ok(!/lisa/i.test(src), "小窝里出现了她的名字");
