@@ -14015,6 +14015,14 @@ const CARD_PRESS_KINDS = ["recorded", "ledgershare", "geo", "gift", "takeout", "
   "askphone", "kinship", "kinbill", "kinraise", "kinunbind", "paylater", "couple_invite", "unblock_req", "chatforward", "shopask", "phonepeek", "carved", "listeninvite",
   // 她 2026-10-07：「全部小卡类都接上去」——她给TA的亲属卡那四张、约会回忆、通话邀请、一起学／玩／读／写／算一卦的邀请卡原来都漏在名单外
   "mykin", "mykinbill", "mykindaily", "mykinedit", "datememory", "callinvite", "ficinvite", "ficdone", "studyinvite", "gameinvite", "readinvite", "tarotinvite"];
+// 群聊居中那条时间：普通气泡和旁白/卡片行共用这一份长相（判据在 js/chat-stamp.js）
+function GStampLine({ st, t }) {
+  return h("div", { className: "flex justify-center", "data-wk": "time", "data-day": st.day ? "1" : "0",
+    style: { margin: st.day ? "18px 0 10px" : "13px 0 8px" } },
+    h("span", { style: st.day
+      ? { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, letterSpacing: "0.04em", padding: "3px 10px", borderRadius: 999, background: t.bg2, border: "1px solid " + t.line }
+      : { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, letterSpacing: "0.02em" } }, st.text));
+}
 function cardPressRow(el, m, i, o) {
   if (!el || !m || m.recalled) return el;
   const html = !m.kind && typeof htmlCardOf === "function" && htmlCardOf(m.content);
@@ -19787,16 +19795,11 @@ function GroupThread({
     const gStamp = window.ChatStamp.decide(window.ChatStamp.prevTimed(messages, i), m, { minGap: 30 * 60 * 1000,
       map: typeof vclockMap === "function" ? (ts => vclockMap(ts, group && group.id ? "g:" + group.id : null)) : undefined });   // 群照群挑的那张面具的钟
     const showGroupTime = gStamp.show;
-    const groupTimeLabel = gStamp.text;
     return h("div", {
       key: i,
       "data-wk": "msg", "data-me": isU ? "1" : "0", "data-i": i, "data-kind": cardLayout(m.content) ? "htmlcard" : (m.kind || "text"),
       ...msgRunAttrs(messages, i, 0, true, (a, b) => a.role === b.role && (a.senderId || "") === (b.senderId || ""))
-    }, showGroupTime && h("div", { className: "flex justify-center", "data-wk": "time", "data-day": gStamp.day ? "1" : "0",
-      style: { margin: gStamp.day ? "18px 0 10px" : "13px 0 8px" } },
-      h("span", { style: gStamp.day
-        ? { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, letterSpacing: "0.04em", padding: "3px 10px", borderRadius: 999, background: t.bg2, border: "1px solid " + t.line }
-        : { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, letterSpacing: "0.02em" } }, groupTimeLabel)), h("div", {
+    }, showGroupTime && h(GStampLine, { st: gStamp, t }), h("div", {
       "data-wk": "row",
       className: "flex items-start gap-2 " + (isU ? "justify-end" : "justify-start")
     }, !isU && mAvatar(c), h("div", {
@@ -19865,8 +19868,18 @@ function GroupThread({
     // 思考链画在这一组回复的上方（和单聊、线下同一个组件、同一个位置）。
     // 群聊一次调用写完所有人，所以它挂在这一轮最先冒出来的那条上（v56.75）。
     const _m = messages[i];
+    // 旁白、卡片、表情、转账这些行走的是上面的 early-return，不画时间条。
+    // 跨天后第一条恰好是它们时，那条「昨天／几月几日」就整条丢了（她 2026-10-28：过了一天中间没有灰字）。
+    // 只补跨天那一档；同一天隔半小时的小时刻仍只跟着普通气泡走。
+    let _dayLine = null;
+    if (row && _m && !(row.props && row.props["data-wk"] === "msg") && i >= winStart) {
+      const _st = window.ChatStamp.decide(window.ChatStamp.prevTimed(messages, i), _m, { minGap: 30 * 60 * 1000,
+        map: typeof vclockMap === "function" ? (ts => vclockMap(ts, group && group.id ? "g:" + group.id : null)) : undefined });
+      if (_st.show && _st.day) _dayLine = h(GStampLine, { key: "gday" + i, st: _st, t });
+    }
     row = cardPressRow(row, _m, i, { selMode, startPress, endPress, toggleSel });
     const _rows = (_m && _m.reasoning && _m.role !== "user") ? [h(ReasoningBlock, { key: "grz" + i, m: _m, off: showReason === false }), row] : [row];
+    if (_dayLine) _rows.unshift(_dayLine);
     // 重 Roll 留下的几版：贴在最后一条底下
     return (i === messages.length - 1 && !sending && !selMode && rerollNav && onRerollFlip) ? _rows.concat([h(RerollNav, { key: "grnav", nav: rerollNav, onFlip: onRerollFlip })]) : _rows;
   }), sending && h("div", {
