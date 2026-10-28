@@ -2851,14 +2851,24 @@ function Forum({
     const list = tab === "fav" ? all.filter(p => bookmarked.has(p.id) && (!albumTab || albums.of[p.id] === albumTab)) : tab === "liked" ? all.filter(p => liked.has(p.id)) : notes;
     const tabs = isMe ? [["notes", "笔记"], ["fav", "收藏"], ["liked", "赞过"], ["cmts", "评论"]] : [["notes", "笔记"]];
     // 我发过的评论（群友 2026-10-28 许愿，像小红书那样）：楼和楼中楼都算，新的在上；点一条打开那篇
+    //   跟着号走：大号、小号、每张面具各看各的，判据跟上面「我的笔记」同一条（小号看小号；大号/面具里匿名发的也算）
+    const onAltNow = !!(forumMe && forumMe.using === "alt");
+    const mineAs = x => !!x.alt === onAltNow && (onAltNow || !!x.anon || String(x.mask || "") === String(forumMaskNow || ""));
     const myCmts = tab !== "cmts" ? [] : (posts || []).filter(p => forumVisible(p) && p.fmt === "xhs").reduce((acc, p) => {
-      (cmts[p.id] || []).forEach(f => {
+      (cmts[p.id] || []).forEach((f, fi) => {
         if (!f) return;
-        if (f.authorType === "me") acc.push({ p, text: f.content, ts: f.ts, re: (f.replies || []).filter(r => r && r.authorType !== "me").length, as: f.authorName });
-        (f.replies || []).forEach(r => { if (r && r.authorType === "me") acc.push({ p, text: r.content, ts: r.ts, to: r.toName || f.authorName, as: r.authorName }); });
+        const fid = f.id || fi;
+        if (f.authorType === "me" && mineAs(f)) acc.push({ p, fid, text: f.content, ts: f.ts, re: (f.replies || []).filter(r => r && r.authorType !== "me").length, as: f.authorName });
+        (f.replies || []).forEach(r => { if (r && r.authorType === "me" && mineAs(r)) acc.push({ p, fid, text: r.content, ts: r.ts, to: r.toName || f.authorName, as: r.authorName }); });
       });
       return acc;
     }, []).sort((a, b) => (Number(b.ts) || 0) - (Number(a.ts) || 0));
+    // 点开那篇再滚到我那条所在的楼（楼是点开才排出来的，多等几下）
+    const openAtFloor = x => { openPost(x.p); let tries = 0;
+      const seek = () => { const el = document.getElementById("forum-floor-" + x.fid);
+        if (el) { el.scrollIntoView({ behavior: "smooth", block: "center" }); el.style.transition = "box-shadow .4s"; el.style.boxShadow = "0 0 0 2px " + FORUM_SKIN.accent; setTimeout(() => { el.style.boxShadow = ""; }, 1600); }
+        else if (++tries < 12) setTimeout(seek, 150); };
+      setTimeout(seek, 260); };
     return h("div", { "data-wk": "foxhsprofile" },
       h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.fog, padding: "10px 16px 0" } }, h("b", { style: { color: t.ink } }, fmtNum(got)), " 获赞与收藏"),
       h("div", { role: "tablist", className: "flex justify-center", style: { gap: 28, borderBottom: "1px solid " + t.line, marginTop: 8 } }, tabs.map(([k, zh]) => h("button", { key: k, role: "tab", "aria-selected": tab === k, "data-wk": "foxhsproftab", "data-on": tab === k ? "1" : "0", onClick: () => setProfTab(k), className: "active:opacity-60",
@@ -2867,7 +2877,7 @@ function Forum({
         [""].concat(albums.names).map(nm => h("button", { key: nm || "_all", "data-on": albumTab === nm ? "1" : "0", onClick: () => setAlbumTab(nm), className: "shrink-0 whitespace-nowrap active:opacity-60",
           style: { minHeight: 30, padding: "0 12px", borderRadius: 999, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", border: "1px solid " + (albumTab === nm ? FORUM_SKIN.accent : FORUM_SKIN.line), background: albumTab === nm ? FORUM_SKIN.soft : "transparent", color: albumTab === nm ? FORUM_SKIN.accent : FORUM_SKIN.fog } },
           nm ? nm + " " + Object.values(albums.of).filter(x => x === nm).length : "全部"))) : null,
-      tab === "cmts" ? (myCmts.length ? h("div", { "data-wk": "foxhsmycmts" }, myCmts.map((x, i) => h("button", { key: i, "data-wk": "foxhsmycmt", onClick: () => openPost(x.p), className: "w-full text-left active:opacity-70",
+      tab === "cmts" ? (myCmts.length ? h("div", { "data-wk": "foxhsmycmts" }, myCmts.map((x, i) => h("button", { key: i, "data-wk": "foxhsmycmt", onClick: () => openAtFloor(x), className: "w-full text-left active:opacity-70",
           style: { display: "block", padding: "12px 16px", borderBottom: "1px solid " + t.line, background: "transparent" } },
           h("div", { style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.ink, lineHeight: 1.6, whiteSpace: "pre-wrap" } }, (x.to ? "回复 " + x.to + "：" : "") + String(x.text || "")),
           h("div", { style: { marginTop: 6, padding: "6px 9px", borderRadius: 8, background: FORUM_SKIN.soft || t.bg2, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.sub, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, "评论了《" + String(x.p.title || "").slice(0, 40) + "》"),
@@ -7211,7 +7221,7 @@ function McpConfig({ toast }) {
         "① 打开 dash.cloudflare.com，用邮箱注册一个免费账号（不用绑卡）。\n"
         + "② 左边菜单「计算」（Compute）→「Workers 和 Pages」→「创建」→「创建 Worker」（Hello World 那个）→ 名字随便起 → 部署。\n"
         + "③ 部署好点「编辑代码」，把里面原来的代码全删掉，粘上这里「复制转接代码」复制的那一整段 → 右上角「部署」。\n"
-        + "④ 页面上方那个 https://名字.你的账号.workers.dev 就是转接地址。浏览器直接打开它，看到「秋秋机 MCP 转接在线 ✓」就是好了。\n"
+        + "④ 页面上方那个 https://名字.你的账号.workers.dev 就是转接地址。浏览器直接打开它，看到「秋秋\u673a MCP 转接在线 ✓」就是好了。\n"
         + "⑤ 填进上面「转接地址」，点「测一下转接」，再去下面每台 MCP 点「测一下」。\n"
         + "⑥（选做）怕别人拿你的地址转发：Worker 页面「设置」→「变量和机密」→ 添加变量，名字填 RELAY_KEY，值随便一串；上面「转接口令」填同一串。\n"
         + "免费额度每天十万次，聊天用不完；它只替你转发，不存任何东西。") : null),

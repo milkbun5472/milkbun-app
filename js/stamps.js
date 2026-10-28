@@ -29,15 +29,30 @@
               fontFamily: F_DISPLAY, fontSize: "calc(10.5px * var(--app-fs, 1))", textAlign: "center", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, card.text.name) : null)));
   }
   // cover：她在卡页里挑的册子封面（满级那面、番外插图都行），没挑就是第一面
-  // 图可能在两个仓库：邮票自己画的在 IDB（img_...），小剧场的剧照在图库（iv_...，她 2026-10-27 拿剧照当邮票封面）
-  function useStampImg(ref) {
-    const vault = !!ref && String(ref).indexOf("iv_") === 0, idb = useIdbImgUrl(vault ? null : ref || null);
-    const [v, setV] = useState(null);
-    useEffect(() => { setV(null); if (!vault || typeof imgVaultFetchBlob !== "function") return; let alive = true, u = null;
-      imgVaultFetchBlob(ref).then(b => { if (alive && b) { u = URL.createObjectURL(b); setV(u); } }).catch(() => {}); return () => { alive = false; if (u) URL.revokeObjectURL(u); }; }, [ref]);
-    return vault ? v : idb;
+  // 册子里那一格只要小图（群里 2026-10-28：邮票多了刷着刷着全部消失）：原图 1024×1536，一屏几十张全解码，手机网页内存顶不住就把图全丢了。
+  //   这里每张只解一次原图、缩成 300 宽的小图存进 IDB（th_ 开头），以后都用小图；还没滑到附近的先不加载
+  const THUMB_MEM = new Map();
+  const makeThumb = async blob => {
+    try { if (typeof createImageBitmap === "function") { const bm = await createImageBitmap(blob); const w = 300, hh = Math.round(bm.height * w / bm.width);
+      const cv = document.createElement("canvas"); cv.width = w; cv.height = hh; cv.getContext("2d").drawImage(bm, 0, 0, w, hh); bm.close && bm.close();
+      return await new Promise(r => cv.toBlob(r, "image/jpeg", .82)); } } catch (e) {}
+    return null;
+  };
+  function useStampThumb(ref) {
+    const [url, setUrl] = useState(() => (ref && THUMB_MEM.get(ref)) || null), [near, setNear] = useState(false), el = useRef(null);
+    useEffect(() => { const n = el.current; if (!n || typeof IntersectionObserver !== "function") { setNear(true); return; }
+      const io = new IntersectionObserver(es => { if (es.some(e => e.isIntersecting)) { setNear(true); io.disconnect(); } }, { rootMargin: "400px" }); io.observe(n); return () => io.disconnect(); }, []);
+    useEffect(() => { if (!ref) { setUrl(null); return; } if (THUMB_MEM.has(ref)) { setUrl(THUMB_MEM.get(ref)); return; } if (!near) return; let alive = true;
+      (async () => { const tk = "th_" + ref; let b = null;
+        try { b = typeof idbImgGet === "function" ? await idbImgGet(tk) : null; } catch (e) {}
+        if (!b || !b.size) { let src = null;
+          try { src = String(ref).indexOf("iv_") === 0 ? (typeof imgVaultFetchBlob === "function" ? await imgVaultFetchBlob(ref) : null) : await idbImgGet(ref); } catch (e) {}
+          if (!src) return; b = (await makeThumb(src)) || src; if (b !== src && typeof idbImgPut === "function") idbImgPut(tk, b).catch(() => {}); }
+        if (!alive || !b) return; const u = URL.createObjectURL(b); THUMB_MEM.set(ref, u); setUrl(u); })();
+      return () => { alive = false; }; }, [ref, near]);
+    return [url, el];
   }
-  function StampFace({ t, card, onClick, size, back }) { const url = useStampImg(card && (card.cover || card.face)); return h(Stamp, { t, card, face: url, onClick, size, back }); }
+  function StampFace({ t, card, onClick, size, back }) { const [url, el] = useStampThumb(card && (card.cover || card.face)); return h("span", { ref: el, style: { display: "inline-block", lineHeight: 0 } }, h(Stamp, { t, card, face: url, onClick, size, back })); }
 
   // 抽卡动画：信封落下 → 邮戳颜色预告 → 撕开一版
   function PullShow({ t, cards, onDone, onOpen, charOf }) {
@@ -926,6 +941,10 @@
           h("div", null, h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(14.5px * var(--app-fs, 1))", color: "#2f2a22" } }, "抽到就画卡面"),
             h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: "rgba(47,42,34,.5)" } }, opt.autoDraw ? "开着：每张都画，十连就是十次生图" : "关着：点开哪张、想看再画哪张，省钱")),
           h(Toggle, { on: !!opt.autoDraw, onChange: () => setOpt({ autoDraw: !opt.autoDraw }) })),
+        h("div", { className: "flex items-center justify-between", style: { marginTop: 18 } },
+          h("div", null, h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(14.5px * var(--app-fs, 1))", color: "#2f2a22" } }, "信寄进聊天"),
+            h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: "rgba(47,42,34,.5)" } }, opt.noLetters ? "关着：今天的信、生日信、纪念日信、里程碑信都不在聊天里发，券直接到账" : "开着：他把信寄进你们的私聊，点「领取」才到账")),
+          h(Toggle, { on: !opt.noLetters, onChange: () => setOpt({ noLetters: !opt.noLetters }) })),
         // SSR 剧情里你少开口（群里 2026-10-27）：开着＝正文里你基本不说话，你的部分都在选项里，往前推的是他
         h("div", { className: "flex items-center justify-between", style: { marginTop: 18 } },
           h("div", null, h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(14.5px * var(--app-fs, 1))", color: "#2f2a22" } }, "剧情里你少开口"),

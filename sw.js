@@ -99,7 +99,7 @@ self.addEventListener("fetch", (event) => {
 self.addEventListener("message", (event) => {
   const d = event.data || {};
   if (d.type !== "SHOW_LOCAL_NOTIFICATION") return;
-  event.waitUntil(self.registration.showNotification(d.title || "秋秋机", {
+  event.waitUntil(self.registration.showNotification(d.title || "秋秋\u673a", {
     body: d.body || "",
     icon: d.icon || "icon-192.png",
     badge: "icon-192.png",
