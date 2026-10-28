@@ -252,6 +252,8 @@
   const knownPage = (ts, id) => (ts.PAGES || []).some(x => x[0] === id);
   const badPage = (ts, id) => "没有「" + id + "」这一页。能改的是："
     + (ts.PAGES || []).filter(x => x[0] !== "all").map(x => x[0]).join("、");
+  // 面具能写的几栏：跟面具页那张表同名
+  const MASK_FIELDS = ["name", "label", "tagline", "persona", "appearance", "birthday"];
   // 新建角色那份 JSON → 只留认得的几栏
   function newCharObj(text) {
     let o = null;
@@ -378,6 +380,34 @@
         if (!o.name) throw new Error("新角色得有个名字");
         if (!o.persona) throw new Error("新角色得有人设");
         ctx.onCreateCharacter(o);
+        return 1;
+      }
+    },
+    // 面具（她 2026-10-28：「面具也让秋秋能直接写」）：id＝main 是主面具，new 是新建一张副面具，别的照抄快照里的 id。
+    //   text 是一份 JSON，只写要改的栏；没写的栏原样留着。存走面具页同一处（ctx.onSaveMainMask / ctx.onSaveMask）
+    mask: {
+      zh: "面具",
+      read: ctx => {
+        const main = ctx.mainMask ? ctx.mainMask() : null, pid = ctx.primaryMaskId ? ctx.primaryMaskId() : "";
+        const others = ((ctx.masks && ctx.masks()) || []).filter(m => m && m.id && m.id !== pid);
+        return (main ? [Object.assign({}, main, { id: "main" })] : []).concat(others).map(m => ({ id: m.id, name: (m.id === "main" ? "主面具 · " : "") + (String(m.label || "").trim() || m.name || "没起名的面具"), text: String(m.persona || "") }));
+      },
+      write: (id, patch, ctx) => {
+        if (!ctx.onSaveMask || !ctx.onSaveMainMask) throw new Error("这个页面没接面具的写入口");
+        let o = null; try { o = parseJSONLoose(patch.text || ""); } catch (e) { o = null; }
+        if (!o || typeof o !== "object" || Array.isArray(o)) throw new Error("这一条不是一份能读的面具 JSON");
+        const up = {};
+        MASK_FIELDS.forEach(k => { if (o[k] != null) up[k] = String(o[k]).trim().slice(0, k === "persona" ? 20000 : k === "appearance" ? 4000 : 200); });
+        if (!Object.keys(up).length) throw new Error("面具 JSON 里没有能写的栏（" + MASK_FIELDS.join("、") + "）");
+        if (id === "main") { const p = Object.assign({}, ctx.mainMask ? ctx.mainMask() : {}, up); delete p.id; ctx.onSaveMainMask(p); return 1; }
+        if (!id || id === "new") {
+          if (!up.name) throw new Error("新面具得有个名字");
+          ctx.onSaveMask(Object.assign({ id: "mk_" + Date.now(), name: "", label: "", tagline: "", persona: "", avatarImage: null, color: "#5a6a7d", birthday: "", appearance: "", refPhoto: null, photoOutfit: "", geoRealm: "" }, up));
+          return 1;
+        }
+        const cur = ((ctx.masks && ctx.masks()) || []).find(m => m && m.id === id);
+        if (!cur) throw new Error("面具里找不到 " + id + "；主面具写 main，新建写 new");
+        ctx.onSaveMask(Object.assign({}, cur, up));
         return 1;
       }
     },
@@ -890,7 +920,10 @@
     const hotAll = focusIds(ctx.allChars || list, focus, 12);
     const relRows = rk.filter(k => rk.length <= 120 || k.split("->").some(x => hotAll.has(x) || hot.has(x))).slice(0, 160)
       .map(k => ({ id: k, 谁: relName(k, ctx), 关系: String((R[k] || {}).label || "") }));
-    return { 角色: chars, 群: groups, 配角: npcs.length ? npcs : ["（还没有配角）"], 关系: relRows.length ? relRows : ["（还没连过关系）"], 已存的文风预设: styles, 线下设置: offSet, 世界书: lore.length ? lore : ["（还没有词条）"],
+    // 面具：主面具 id 是 main；人设总量不大就整份给
+    const maskAll = TARGETS.mask.read(ctx), maskFit = maskAll.reduce((n, m) => n + m.text.length, 0) <= 12000;
+    const maskRows = maskAll.slice(0, 20).map(m => ({ id: m.id, 名字: m.name, 人设: maskFit ? (m.text || "（空）") : clipRaw(m.text, 300), 这张是否完整: maskFit || m.text.length <= 300 }));
+    return { 角色: chars, 群: groups, 面具: maskRows.length ? maskRows : ["（还没有面具）"], 配角: npcs.length ? npcs : ["（还没有配角）"], 关系: relRows.length ? relRows : ["（还没连过关系）"], 已存的文风预设: styles, 线下设置: offSet, 世界书: lore.length ? lore : ["（还没有词条）"],
       美化能退回的: lookBack.length ? lookBack : ["（还没有存下的旧版本）"], 你改过还能撤回的: mine.length ? mine : ["（没有）"],
       最近报错: errs.length ? errs : ["（本次开机没抓到报错）"],
       ...(/mcp|MCP|转接|工具.{0,4}(连|调|用)不/.test(String(focus || "")) && typeof window !== "undefined" && window.MCP && window.MCP.status ? { MCP现状: window.MCP.status(),
@@ -989,7 +1022,7 @@
       + "  给那几页写 pagecolor 会【当场被拒并告诉你是哪一页】。被拒了就照实跟她说改不动，别换个法子硬试。\n"
       + "  真做不到的只有一样：精确改某一张卡片的形状、间距、圆角——**这种时候先说实话**，别硬出一份改不动的 CSS 糊弄过去。\n";
   }
-  const SHAPE = '{"reply":"给她看的话（中文）","patches":[{"target":"style|persona|appearance|profile|theme|pagecolor|bubble|memory|lore|rules|chatcss|chatlayout|offlinecss|groupcss|grouplayout|lookundo|undo|newchar|rel|npc","id":"要改的那一条的 id；style 留空=新建；lore 新建填 new；theme 填 global 或某一页的 key","field":"（只有 profile 用）要改哪一栏","title":"这条改动一句话叫什么","name":"（style 新建时是预设名；lore 是词条标题）","keyword":"（只有 lore 用，可选）触发关键词，逗号分开","always":"（只有 lore 用，可选）true＝常驻","bind":"（只有 lore 用，可选）绑给哪几个角色，名字或 id","find":"（改一小段时用）逐字抄下原文里要动的那一段","append":"（可选，true＝接在这一栏最后，用于 persona／appearance／profile 和美化 CSS 加新规则）","whole":"（可选，true＝美化 CSS 整份重做，只在她说整体重做时填）","text":"改一小段时＝换成这一段；不给 find 时＝改完的完整内容","why":"为什么这么改，一两句"}],"file":{"name":"（可选）文件名","text":"完整内容"},"code":"（可选）health / fish / mcp","remember":["（可选）以后用得上的一句"],"forget":["（可选）上面那几条里要删的那一句原文"]}';
+  const SHAPE = '{"reply":"给她看的话（中文）","patches":[{"target":"style|persona|appearance|profile|theme|pagecolor|bubble|memory|lore|rules|chatcss|chatlayout|offlinecss|groupcss|grouplayout|lookundo|undo|newchar|mask|rel|npc","id":"要改的那一条的 id；style 留空=新建；lore 新建填 new；theme 填 global 或某一页的 key","field":"（只有 profile 用）要改哪一栏","title":"这条改动一句话叫什么","name":"（style 新建时是预设名；lore 是词条标题）","keyword":"（只有 lore 用，可选）触发关键词，逗号分开","always":"（只有 lore 用，可选）true＝常驻","bind":"（只有 lore 用，可选）绑给哪几个角色，名字或 id","find":"（改一小段时用）逐字抄下原文里要动的那一段","append":"（可选，true＝接在这一栏最后，用于 persona／appearance／profile 和美化 CSS 加新规则）","whole":"（可选，true＝美化 CSS 整份重做，只在她说整体重做时填）","text":"改一小段时＝换成这一段；不给 find 时＝改完的完整内容","why":"为什么这么改，一两句"}],"file":{"name":"（可选）文件名","text":"完整内容"},"code":"（可选）health / fish / mcp","remember":["（可选）以后用得上的一句"],"forget":["（可选）上面那几条里要删的那一句原文"]}';
 
   // ---- 现状快照 + 手册：一份是「此刻长什么样」，一份是「这个世界有什么」----
   // extraIds：秋秋看了目录自己要翻的那几条（「翻一下」那一枪），连同字面挑中的一起给全文
@@ -1134,7 +1167,10 @@
       + "· style 文风预设（写给 AI 的文风提示词；id 留空＝新建一份）\n"
       + "· persona 角色人设　· appearance 角色外貌\n"
       + "· newchar 从头写一个新角色，落进人格档案馆（id 留空；text 是一份 JSON：{\"name\":\"名字\",\"persona\":\"完整人设\",\"appearance\":\"外貌\",\"tagline\":\"一句话简介\",\"gender\":\"性别\",\"birthday\":\"MM-DD\"}，name 和 persona 必填，其余可省）。"
-      + "她说「帮我写个人设／捏个角色」时，先问清她想要的那几样（是谁、什么关系、什么性子、什么世界），够了再出这一条；人设写成能直接拿去聊的完整一份，别留「待补充」。建好之后再改，用 persona／appearance／profile 那几条。\n"
+      + "她说「帮我写个人设／捏个角色」时：她给了的那几样照她的写，没给的按她选的世界书、她说过的话由你来定（她说「其他随便」就是交给你）；什么都没说才先问一句是谁、什么世界。人设写成能直接拿去聊的完整一份，别留「待补充」。建好之后再改，用 persona／appearance／profile 那几条。\n"
+      + "· mask 她自己的面具（快照【面具】那一栏；角色眼里的「她」就是这一张）：id＝main 改主面具，new 新建一张副面具，其余照抄那一张的 id；"
+      + "text 是一份 JSON，只写要改的栏，没写的原样留着：{\"name\":\"名字\",\"label\":\"面具标签（她自己看的，比如「校园AU」）\",\"tagline\":\"一句话签名\",\"persona\":\"人设全文\",\"appearance\":\"外貌\",\"birthday\":\"MM-DD\"}。"
+      + "persona 一写就是整份替换，改一小段也要给改完的全文。捏 user 人设跟捏角色同一个做法：她给了的照写，没给的你来定。\n"
       + "  · 【长人设边写边改】她要一份很长的人设时，别一口气塞进一条：先用 newchar 建档，persona 放第一部分（基本信息、人物核心）；"
       + "之后每一轮用 persona 加 \"append\":true 接着往后写下一部分（text 只写新的这一段，会接在现有人设最后）；她说哪里不对，就用 find 改那一小段。"
       + "每一轮写完告诉她这一段写了什么、下一段打算写什么，让她能边看边说。\n"
@@ -1572,6 +1608,7 @@
       // 配色那一栏同理：它是一份 JSON，在里头替换一小段，出来多半不再是合法 JSON
       if (p.target === "pagecolor") throw new Error("配色这一栏要整份给，不能改一小段");
       if (p.target === "newchar") throw new Error("新建角色要整份给，不能改一小段");
+      if (p.target === "mask") throw new Error("面具要给一份 JSON，人设改一小段也给改完的全文");
       if (p.target === "chatlayout" || p.target === "grouplayout") throw new Error("排版这一栏要整份给，不能改一小段");
       const cur = before(p, ctx);
       if (!String(cur || "").trim()) throw new Error("原来这一栏是空的，没有可改的一小段");

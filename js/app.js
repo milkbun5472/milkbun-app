@@ -2522,6 +2522,16 @@ function App() {
   const setBgApi = id => { setBgApiId(id); saveJSON("x_bgApi", id); };
   // 面具库只有这一处写（one-public-mechanism）：ref 跟着走，profileFor 那头才读得到最新的
   const saveMasks = next => { const n = (next || []).filter(m => m && m.id); masksRef.current = n; setMasks(n); saveJSON("x_masks", n); return n; };
+  // 主面具也只有这一处写：x_profile 是给全库读的镜像，库里那张主面具跟着改，不然切走再切回来改的就没了
+  const saveMainProfile = p => {
+    profileRef.current = p; setProfile(p); saveJSON("x_profile", p);
+    if (maskPrimary) saveMasks((masksRef.current || []).map(x => x.id === maskPrimary ? Object.assign({}, p, { id: maskPrimary }) : x));
+  };
+  const saveOneMask = m => {
+    if (!m || !m.id) return;
+    const cur = masksRef.current || [];
+    saveMasks(cur.some(x => x.id === m.id) ? cur.map(x => x.id === m.id ? m : x) : cur.concat([m]));
+  };
   const settingsFor = id => chatSettings[id] || {
     ctxN: 50,
     sumThresh: 150,
@@ -8795,8 +8805,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       if (scope.groupId) pGOffline(scope.groupId, put); else pOffline(scope.scopeKey, put);
       if (forever) {
         const p = { ...profile, photoOutfit: v };
-        setProfile(p); saveJSON("x_profile", p);
-        if (maskPrimary) saveMasks((masksRef.current || []).map(x => x.id === maskPrimary ? Object.assign({}, p, { id: maskPrimary }) : x));
+        saveMainProfile(p);
       }
     }
     const line = { id: "n_" + now, role: "narration", content: char ? (char.remark || char.name) + "换上了" + v + "。" : "你换上了" + v + "。", ts: now };
@@ -31627,6 +31636,11 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     onRoomsChanged: () => setChatSettings(p => ({ ...p })),
     apiProfiles: apiProfiles,
     masks: () => masksRef.current || [],
+    // 秋秋写面具（她 2026-10-28：「面具也让秋秋能直接写」）：主面具走 saveMainProfile，副面具走 saveOneMask，跟面具页同一处
+    mainMask: () => ({ ...(profileRef.current || {}), id: "" }),
+    primaryMaskId: () => maskPrimary,
+    onSaveMainMask: p => saveMainProfile(p),
+    onSaveMask: m => saveOneMask(m),
     onSetAuto: (feature, charId, on) => setAutoFromPage(feature, charId, on),
     onSetAutoRate: (feature, charId, rate) => saveAutoRefreshPolicy(window.AutoRefreshPolicy.setCharRate(autoRefreshRef.current, feature, charId, rate)),
     // 删角色走 delChar（它自己会再弹一道二次确认、说清先导出）；清聊天走设置里那颗同一个 clearChat
@@ -33252,7 +33266,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     //   钉住＝写进出图常服那把锁（跟线下「以后都这样」同一格），出图每张都穿它；再点一次就取消，回到从衣柜里挑
     onPin: text => { const v = String(text || "").trim().slice(0, 200);
       if (closetMask) { saveMasks((masksRef.current || []).map(x => x && x.id === closetMask ? { ...x, photoOutfit: v } : x)); toast(v ? "钉住了：这张面具出图都穿这一身" : "取消钉住"); return; }
-      const p = { ...profile, photoOutfit: v }; setProfile(p); saveJSON("x_profile", p);
+      saveMainProfile({ ...profile, photoOutfit: v });
       toast(v ? "钉住了：以后出图都穿这一身" : "取消钉住：出图回到从衣柜里挑"); },
     onBack: () => { const b = closetBack; setClosetBack(null); setScreen(b || "home"); }
   });else if (screen === "carry") body = h(Carry, {
@@ -35721,20 +35735,13 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     masks: masks,
     // opt.stay＝这是「切到另一张之前顺手存一下」，不是她按了保存：别关窗、别弹提示
     onSave: (p, opt) => {
-      setProfile(p);
-      saveJSON("x_profile", p);
-      // 主面具在库里的那一张也跟着改：不然回头切走再切回来，改的那几笔就没了
-      if (maskPrimary) saveMasks((masksRef.current || []).map(x => x.id === maskPrimary ? Object.assign({}, p, { id: maskPrimary }) : x));
+      saveMainProfile(p);
       if (opt && opt.stay) return;
       setProfileOpen(false);
       toast("已保存");
     },
     // 副面具：存一张（新建也走这儿，id 由调用方带来）
-    onSaveMask: m => {
-      if (!m || !m.id) return;
-      const cur = masksRef.current || [];
-      saveMasks(cur.some(x => x.id === m.id) ? cur.map(x => x.id === m.id ? m : x) : cur.concat([m]));
-    },
+    onSaveMask: saveOneMask,
     onDeleteMask: id => {
       const m = (masksRef.current || []).find(x => x && x.id === id);
       if (!m) return;
