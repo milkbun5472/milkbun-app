@@ -35165,6 +35165,12 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   // 顶栏和状态栏是同一个元素，中间没有交界，也就没有缝。
   // ⚠️主屏是唯一的例外，仍旧留着这条空带——它和 Home 的 height:100vh 是配好的一对，
   //   拆掉底部快捷栏当场被顶上去（v56.58 亲测，施工规则/home-screen-layout.md）。
+  // 公共版旧地址到点关门：整页换成搬家页（window.QQ_MOVE 只有公共版的 notice.js 会挂，家里那版永远走不进来）
+  const _mv = typeof window !== "undefined" ? window.QQ_MOVE : null;
+  if (_mv && _mv.host === location.hostname && Date.now() >= _mv.at && typeof MoveShell === "function") {
+    body = h(MoveShell, { to: _mv.to, dataProps: { characters, onExport: doExport, mediaParts: mediaParts ? { n: mediaParts.parts.length, done: mediaParts.done } : null,
+      onExportMedia: doExportMedia, onCopyExport: doCopyExport, copyParts, onImportText: doImportPasted, inAppBrowser: inAppBrowser(), onImport: doImport, toast } });
+  }
   const _safeTop = { height: screen === "home" ? "env(safe-area-inset-top)" : 0 };
   // 这一页单独换过色的话，发下去的就是换过的那一份（v65.06，她 2026-09-06：
   // 「全部能做主题的页面秋秋都应该可以改」）。没换过时原样发全局那一份——
