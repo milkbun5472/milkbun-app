@@ -55,3 +55,10 @@ test("两处都先把窗口撑到目标，再按重画后的起点去数", () =>
   const calls = src.match(/onLocate: i => \{ setSearchOpen\(false\); revealMsg\(i\); setTimeout\(\(\) => locateMsgIn\(ref\.current, i, messages, archCount > 0, \{ start: winStartRef\.current/g) || [];
   assert.equal(calls.length, 2, "单聊和群聊得都接上");
 });
+
+// 她 2026-10-28：群里点「↑ N 条新消息」还是卡着——刚进群那几秒 pinToBottom 一直钉底，撑开窗口一变高就被拽回去
+test("跳到某一条之前先叫停钉底", () => {
+  assert.match(src, /el\.addEventListener\("pinstop", halt\)/);
+  assert.match(src, /stopPin\(ref\.current\);\n\s*revealMsg\(idx\);/);
+  assert.match(src, /function locateMsgIn\([^)]*\) \{\n  try \{\n    if \(typeof stopPin === "function"\) stopPin\(container\);/);
+});

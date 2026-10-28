@@ -13781,6 +13781,9 @@ function pinToBottom(el, ms) {
   el.addEventListener("touchmove", halt, opt);
   el.addEventListener("wheel", halt, opt);
   el.addEventListener("keydown", halt);
+  // 点了「跳到某一条」（新消息药丸、查找定位）：她要去上面，别再把她拽回底下
+  //   （她 2026-10-28：群里点「↑ N 条新消息」还是卡着——刚进群这几秒一直在钉底，撑开窗口一变高就被拽回去）
+  el.addEventListener("pinstop", halt);
   // 图片解码完成会冒到这里（capture 才收得到 img 的 load）——这是最准的一枪
   el.addEventListener("load", pin, true);
   pin();
@@ -13792,6 +13795,7 @@ function pinToBottom(el, ms) {
     el.removeEventListener("touchmove", halt, opt);
     el.removeEventListener("wheel", halt, opt);
     el.removeEventListener("keydown", halt);
+    el.removeEventListener("pinstop", halt);
     el.removeEventListener("load", pin, true);
   };
 }
@@ -14713,8 +14717,11 @@ function CallLogSheet({ calls, chars, onClose }) {
 //   另外还漏了两样：窗口上面那颗「↑ 上面还有 N 条」按钮，和单聊里带思考/搜索的消息
 //   前面多出来的那一格 ReasoningBlock。现在按【真画出来的】那几样数。
 // opts.start：窗口从第几条开始画（重画之后的值）；opts.single：单聊那一路（有拆段和思考格）
+// 叫停 pinToBottom 那一下钉底（跳到某一条之前先拔掉）
+function stopPin(el) { try { el && el.dispatchEvent(new Event("pinstop")); } catch (e) {} }
 function locateMsgIn(container, i, messages, hasArchiveLead, opts) {
   try {
+    if (typeof stopPin === "function") stopPin(container);
     const o = opts || {};
     const start = Math.max(0, Number(o.start) || 0);
     if (i < start) return;
@@ -19567,6 +19574,7 @@ function GroupThread({
   }, h(ChatJumpArrows, { scroller: ref, t, onTop: () => revealMsg(0) }), (openUnread > 0 && messages.length - openUnread >= 0) ? h("div", { style: { position: "sticky", top: 0, zIndex: 6, height: 0, display: "flex", justifyContent: "flex-end" } },
     h("button", { "data-wk": "gunreadjump", onClick: () => {
         const idx = Math.max(0, messages.length - openUnread);
+        stopPin(ref.current);
         revealMsg(idx);
         setTimeout(() => locateMsgIn(ref.current, idx, messages, archCount > 0, { start: winStartRef.current }), 160);
         onOpenUnreadDone && onOpenUnreadDone();
