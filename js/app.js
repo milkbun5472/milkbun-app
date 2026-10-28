@@ -34341,6 +34341,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     //   配角进来不会碰到好感/心情那些（配角本来就没有）；选人页把配角单列一组。
     characters: playChars,
     profile: profile,
+    // 上桌的人认的是哪张面具：一桌都认同一张就叫那张的名字（群友 2026-10-29 真心话大冒险）
+    profileFor: profileFor,
     worldbook: loreForContext("creative", [], ""),
     worldbookFor: (charIds, text) => loreForContext("creative", charIds, text),
     moods: moods,
