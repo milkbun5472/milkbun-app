@@ -61,7 +61,7 @@
 
   // ── 转给TA：聊天里那张卡 ─────────────────────────────────────────
   // 只转一首歌时传 { song }（没有 id/name）：卡上就是这首歌，不写「谁说了什么」
-  const shareSnap = post => ({ id: post.id || null, name: S(post.name), text: S(post.text).slice(0, 300), song: post.song ? { title: S(post.song.title), artist: S(post.song.artist), cover: post.song.cover || null, neteaseId: post.song.neteaseId || "" } : null });
+  const shareSnap = post => ({ id: post.id || null, name: S(post.name), text: S(post.text).slice(0, 300), song: post.song ? { id: post.song.id || "", source: post.song.source || "", title: S(post.song.title), artist: S(post.song.artist), cover: post.song.cover || null, neteaseId: post.song.neteaseId || "", gdPicId: post.song.gdPicId || "", gdLyricId: post.song.gdLyricId || "" } : null });
   const shareText = snap => snap.id ? "[她从一起听的广场转来一帖] " + snap.name + " 分享了" + songLine(snap.song) + (snap.text ? "：「" + snap.text + "」" : "")
     : "[她从一起听转来一首歌] " + songLine(snap.song);
   // 聊天里那张卡：上半截是这首歌的封套（封面糊开当底，左边一张清楚的封面），下半截是谁说了什么
@@ -70,7 +70,8 @@
     const FB = typeof F_BODY !== "undefined" ? F_BODY : "inherit", FD = typeof F_DISPLAY !== "undefined" ? F_DISPLAY : FB;
     const p = m.listenPost || {}, sg = p.song || {};
     return h("div", { className: "py-1 flex " + (isU ? "justify-end" : "justify-start") },
-      h("div", { "data-wk": "card", "data-kind": "listenshare", style: { width: 248, borderRadius: 16, overflow: "hidden", background: t.bg2, border: "1px solid " + t.line, boxShadow: "0 4px 14px rgba(40,30,20,.08)" } },
+      // 点卡就放这首（她 2026-10-28）：交给 app 的 __listenPlay，库里有的照原样放，没有的按网易云 id 放
+      h("div", { "data-wk": "card", "data-kind": "listenshare", role: "button", onClick: () => window.__listenPlay && window.__listenPlay(sg), className: "active:opacity-80", style: { cursor: "pointer", width: 248, borderRadius: 16, overflow: "hidden", background: t.bg2, border: "1px solid " + t.line, boxShadow: "0 4px 14px rgba(40,30,20,.08)" } },
         h("div", { style: { position: "relative", height: 96, overflow: "hidden", background: "#2b2622" } },
           sg.cover ? h("div", { "aria-hidden": "true", style: { position: "absolute", inset: -24, background: "center/cover no-repeat url(" + sg.cover + ")", filter: "blur(16px)", opacity: .7 } }) : null,
           h("div", { "aria-hidden": "true", style: { position: "absolute", inset: 0, background: "linear-gradient(90deg,rgba(0,0,0,.45),rgba(0,0,0,.1))" } }),

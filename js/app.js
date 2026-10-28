@@ -30121,6 +30121,17 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     saveListen(p => { const st = p.songTalk || {}, cur = st[key]; if (!cur) return p; return { ...p, songTalk: { ...st, [key]: { ...cur, items: (cur.items || []).filter(c => c.id !== cid) } } }; }); };
   // 转给TA：落一张卡，跟片刻分享视频同一个形状，不让TA当场开口
   // 广场一帖、或者正在听的一首歌（她 2026-10-28 群里许愿）转给TA：落一张卡，不让TA当场开口，等她说完按回复
+  // 聊天里那张歌卡点了就放（js/listen-square.js 的 ListenShareCard）：先在她的歌库/歌单里认，认不到就按网易云 id 现放
+  window.__listenPlay = sg => {
+    if (!sg) return;
+    const L = listenRef.current || {};
+    const all = (L.songs || []).concat((L.playlists || []).reduce((a, pl) => a.concat(pl.songs || []), []));
+    const hit = all.find(x => x && ((sg.id && x.id === sg.id) || (sg.neteaseId && x.neteaseId === sg.neteaseId)));
+    if (hit) { playSong(hit); return; }
+    if (!sg.neteaseId) { toast("这首是本地上传的，这台手机上找不到了"); return; }
+    if (!musicReady) { toast("先在一起听里选择音乐源"); return; }
+    playSong({ id: "sg_card_" + sg.neteaseId, source: "netease", neteaseId: String(sg.neteaseId), title: sg.title || "一首歌", artist: sg.artist || "", cover: sg.cover || null, gdPicId: sg.gdPicId || undefined, gdLyricId: sg.gdLyricId || undefined });
+  };
   const shareSquare = (post, c, roomId) => {
     if (!post || !c) return;
     const snap = LQ().shareSnap(post);

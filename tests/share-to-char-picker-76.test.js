@@ -29,3 +29,11 @@ test("app 的转发把房间带上", () => {
   assert.match(rd("app.js"), /const shareSquare = \(post, c, roomId\)/);
   assert.match(rd("app.js"), /pChat\(shareChatKey\(c, roomId\)/);
 });
+
+test("聊天里的歌卡点了能放：卡交给 __listenPlay，快照留着放歌要的 id", () => {
+  assert.match(rd("listen-square.js"), /window\.__listenPlay\(sg\)/);
+  assert.match(rd("app.js"), /window\.__listenPlay = sg =>/);
+  const win = {}; new Function("window", rd("listen-square.js"))(win);
+  const snap = win.ListenSquare.shareSnap({ song: { id: "sgd_1", source: "netease", neteaseId: "1", title: "a", gdPicId: "p" } });
+  assert.equal(snap.song.id, "sgd_1"); assert.equal(snap.song.neteaseId, "1"); assert.equal(snap.song.gdPicId, "p");
+});
