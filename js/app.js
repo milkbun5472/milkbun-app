@@ -19470,7 +19470,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       st.seenLimited[k] = 1; st.seenLimited[k + "_top"] = 1; changed = true;
       if (!n) return;
       const c = liveChars.find(x => x.id === ids[Math.floor(Math.random() * ids.length)]);
-      pChat(c.id, p => [...p, { role: "char", kind: "stampbdletter", content: "〔从邮票册给你寄了一封生日信：生日快乐。里面是 " + n + " 张生日券，点一下就能领〕", ts: Date.now(),
+      stampMail(c.id, p => [...p, { role: "char", kind: "stampbdletter", content: "〔从邮票册给你寄了一封生日信：生日快乐。里面是 " + n + " 张生日券，点一下就能领〕", ts: Date.now(),
         stampBdLetter: { id: "bl_" + Date.now().toString(36) + m.id, bdKey, n, by: c.remark || c.name, to: m.name, day: w.day }, read: false }]);
     });
     if (changed) C2.save(st);
@@ -19493,7 +19493,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       const bdKey = "an_" + a.id + "_" + w.year, k = "ltr_" + bdKey;
       if (st.seenLimited[k]) return; st.seenLimited[k] = 1; changed = true;
       const c = liveChars.find(x => x.id === a.charId); if (!c) return;
-      pChat(c.id, p => [...p, { role: "char", kind: "stampbdletter", content: "〔从邮票册给你寄了一封纪念日的信：「" + a.name + "」。里面是 5 张纪念日券，点一下就能领〕", ts: Date.now(),
+      stampMail(c.id, p => [...p, { role: "char", kind: "stampbdletter", content: "〔从邮票册给你寄了一封纪念日的信：「" + a.name + "」。里面是 5 张纪念日券，点一下就能领〕", ts: Date.now(),
         stampBdLetter: { id: "al_" + Date.now().toString(36) + a.id, bdKey, n: 5, by: c.remark || c.name, to: profile.name || "你", day: w.day, anniv: a.name }, read: false }]);
     });
     if (changed) C2.save(st);
@@ -19513,11 +19513,21 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         const fresh = hit.filter(m => !st.seenLimited[key(m)]); if (!fresh.length) return;
         fresh.forEach(m => { st.seenLimited[key(m)] = 1; }); changed = true;
         const m = fresh[fresh.length - 1];
-        pChat(c.id, p => [...p, { role: "char", kind: "stampbdletter", content: "〔从邮票册给你寄了一封信：「" + m[1] + "」。里面是 " + m[2] + " 张十连券，点一下就能领〕", ts: Date.now(),
+        stampMail(c.id, p => [...p, { role: "char", kind: "stampbdletter", content: "〔从邮票册给你寄了一封信：「" + m[1] + "」。里面是 " + m[2] + " 张十连券，点一下就能领〕", ts: Date.now(),
           stampBdLetter: { id: "ml_" + Date.now().toString(36) + k + m[0] + c.id, bdKey: null, n: m[2], by: c.remark || c.name, to: profile.name || "你", day: Date.now(), mile: m[1] }, read: false }]);
       });
     });
     if (changed) C2.save(st);
+  };
+  // 邮票册寄来的信（她 2026-10-28：「不想要可以不发」）：卡池设置里关了「信寄进聊天」，就不在聊天里发，券直接到账
+  const stampMail = (cid, updater) => {
+    const S2 = window.StampsCore, m = (updater([]) || [])[0]; if (!m) return;
+    if (S2 && (S2.load().opt || {}).noLetters) {
+      if (m.kind === "stampletter" && m.stampLetter) S2.claimLetter(m.stampLetter.id);
+      else if (m.kind === "stampbdletter" && m.stampBdLetter) S2.claimBdLetter(m.stampBdLetter.id, m.stampBdLetter.bdKey, m.stampBdLetter.n);
+      return;
+    }
+    pChat(cid, updater);
   };
   const stampLetterSweep = async () => {
     if (!window.StampsCore) return;
@@ -19530,13 +19540,13 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     st.lastDaily = today; window.StampsCore.save(st);
     // 设置里开了「信里带他一句话」：多一次调用，让他写一两句附言（跟今日签一样，用他的口气）；没开或没写出来就只寄券
     let note = "";
-    if ((st.opt || {}).letterLine && active) {
+    if ((st.opt || {}).letterLine && active && !(st.opt || {}).noLetters) {   // 信不寄进聊天就不写附言，省一次调用
       try { const d = await runProbe(apiFor(c.id), ctxFor(c), { voice: true, tag: "stamps",
           instruction: "你今天从「邮票册」给她寄了一封信，信里是一张单抽券（她可以拿去抽一张印着你的邮票）。在信上写一两句附言，照你的性子和你们现在的关系，像你平时跟她说话那样，短。",
           schemaHint: "{\"note\":\"一两句附言\"}", maxTokens: 65000 });   // 施工规则/max-tokens-floor.md
         note = String((d && d.note) || "").trim().slice(0, 80); } catch (e) {}
     }
-    pChat(c.id, p => [...p, { role: "char", kind: "stampletter", content: "〔从邮票册给你寄了一封「今天的信」：里面是一张单抽券，点一下就能领〕" + (note ? "附言：" + note : ""), ts: Date.now(), stampLetter: { id, day: today, by: c.remark || c.name, note }, read: false }]);
+    stampMail(c.id, p => [...p, { role: "char", kind: "stampletter", content: "〔从邮票册给你寄了一封「今天的信」：里面是一张单抽券，点一下就能领〕" + (note ? "附言：" + note : ""), ts: Date.now(), stampLetter: { id, day: today, by: c.remark || c.name, note }, read: false }]);
   };
   // 今日签（她 2026-10-05）：开了的那几位，每天替她抽一张发进私聊。一天一人一张，走公共闸（成了不再跑、失败两小时后再试）
   const astroSignSweep = async () => {

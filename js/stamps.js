@@ -926,6 +926,10 @@
           h("div", null, h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(14.5px * var(--app-fs, 1))", color: "#2f2a22" } }, "抽到就画卡面"),
             h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: "rgba(47,42,34,.5)" } }, opt.autoDraw ? "开着：每张都画，十连就是十次生图" : "关着：点开哪张、想看再画哪张，省钱")),
           h(Toggle, { on: !!opt.autoDraw, onChange: () => setOpt({ autoDraw: !opt.autoDraw }) })),
+        h("div", { className: "flex items-center justify-between", style: { marginTop: 18 } },
+          h("div", null, h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(14.5px * var(--app-fs, 1))", color: "#2f2a22" } }, "信寄进聊天"),
+            h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: "rgba(47,42,34,.5)" } }, opt.noLetters ? "关着：今天的信、生日信、纪念日信、里程碑信都不在聊天里发，券直接到账" : "开着：他把信寄进你们的私聊，点「领取」才到账")),
+          h(Toggle, { on: !opt.noLetters, onChange: () => setOpt({ noLetters: !opt.noLetters }) })),
         // SSR 剧情里你少开口（群里 2026-10-27）：开着＝正文里你基本不说话，你的部分都在选项里，往前推的是他
         h("div", { className: "flex items-center justify-between", style: { marginTop: 18 } },
           h("div", null, h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(14.5px * var(--app-fs, 1))", color: "#2f2a22" } }, "剧情里你少开口"),
