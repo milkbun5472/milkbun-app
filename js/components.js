@@ -17818,6 +17818,18 @@ function OfflineWardrobe({ t, wardrobe, onPick, onMatch, matchBusy }) {
         h("span", { style: { width: 16, height: 16, borderRadius: 4, border: "1px solid " + t.line, background: forever ? t.ink : "transparent", display: "inline-block" } }),
         "以后出图都固定这身（不勾只管这一场）") : null) : null);
 }
+// 这一场演到第几轮（群友 2026-10-28「线下是不是显示不出来一共聊了多少轮」）：数 TA 们写回来的那几拍，单人、多人线下共用
+function offRoundTag(sess) {
+  //   一轮＝一次生成写回来的那一串：多人线下一轮会落好几条（每人一拍，前后隔不到半秒），连着的、隔不到 5 秒的算同一轮
+  let n = 0, prev = null;
+  ((sess && sess.msgs) || []).forEach(m => {
+    if (!m || m.ooc || !m.content) return;
+    if (m.role !== "char") { prev = null; return; }
+    if (!prev || Math.abs((Number(m.ts) || 0) - (Number(prev.ts) || 0)) > 5000) n++;
+    prev = m;
+  });
+  return n ? " · 第 " + n + " 轮" : "";
+}
 function OfflineMode({
   onStopGen,
   char,
@@ -18167,7 +18179,7 @@ function OfflineMode({
       h("button", { "data-wk": "chatback", onClick: exit, className: "active:opacity-50 flex items-center gap-1" }, h(IArrow, { size: 20, color: t.ink }), h("span", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.ink } }, "离开")),
       h("button", { "data-wk": "headname", onClick: () => setModeOpen(true), className: "flex-1 text-center active:opacity-60", style: { minWidth: 0 } },
         h("div", { "data-wk": "offtitle", style: { fontFamily: F_DISPLAY, fontSize: "calc(16px * var(--app-fs, 1))", color: t.ink, display: "flex", justifyContent: "center", alignItems: "baseline", gap: 3, minWidth: 0 } }, h("span", { style: { overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", minWidth: 0 } }, cName), h("span", { style: { flexShrink: 0 } }, "⌄")),
-        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", letterSpacing: 1, color: t.fog } }, room && !room.main ? room.name + " · 独立线下" : "线下 · 轻触切换")),
+        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", letterSpacing: 1, color: t.fog } }, (room && !room.main ? room.name + " · 独立线下" : "线下 · 轻触切换") + offRoundTag(activeSession))),
       h("button", { onClick: () => setNoteOpen(true), className: "active:opacity-50", title: "给 Ta 一个提示" }, h(IPlus, { size: 20, color: t.fog })),
       onSaveSettings && h("button", { "data-wk": "chatmore", onClick: () => setSetOpen(true), className: "active:opacity-50", title: "线下设置（人称/输出长度）", style: { fontFamily: F_BODY, fontSize: "calc(17px * var(--app-fs, 1))", color: t.fog } }, "⚙"),
       h("button", { onClick: () => setEndConfirm(true), className: "active:opacity-60 px-2 py-1", style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.accent } }, "结束")),
@@ -19076,7 +19088,7 @@ function GroupOfflineMode({
       h("button", { "data-wk": "chatback", onClick: exit, className: "active:opacity-50 flex items-center gap-1" }, h(IArrow, { size: 20, color: t.ink }), h("span", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.ink } }, "离开")),
       h("button", { "data-wk": "headname", onClick: () => setModeOpen(true), className: "flex-1 text-center active:opacity-60", style: { minWidth: 0 } },
         h("div", { "data-wk": "offtitle", style: { fontFamily: F_DISPLAY, fontSize: "calc(16px * var(--app-fs, 1))", color: t.ink, display: "flex", justifyContent: "center", alignItems: "baseline", gap: 3, minWidth: 0 } }, h("span", { style: { overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", minWidth: 0 } }, gName), h("span", { style: { flexShrink: 0 } }, "⌄")),
-        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", letterSpacing: 1, color: t.fog } }, "多人线下 · 轻触切换")),
+        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", letterSpacing: 1, color: t.fog } }, "多人线下 · 轻触切换" + offRoundTag(activeSession))),
       h("button", { onClick: () => setNoteOpen(true), className: "active:opacity-50", title: "给他们一个提示" }, h(IPlus, { size: 20, color: t.fog })),
       onSaveSettings && h("button", { "data-wk": "chatmore", onClick: () => setSetOpen(true), className: "active:opacity-50", title: "线下设置" }, h(GConfig, { size: 19, color: t.fog })),
       h("button", { onClick: () => setEndConfirm(true), className: "active:opacity-60 px-2 py-1", style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.accent } }, "结束")),
