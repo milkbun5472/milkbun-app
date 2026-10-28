@@ -240,16 +240,11 @@ function ModelQuickSwitch({ profiles, activeId, offlineApiId, bgApiId, onSetOnli
   // 闲着就贴边藏一半（群友 2026-09-30：「不用时吸附到边边就显示半个比较好，它有点点占屏」）。
   //   开着、拖着的时候整颗露出来；手一离开 3 秒就往边上缩进去一半。
   //   藏着的那半颗照样点得开、拖得动——露出来的 23px 宽、46px 高，够一根手指。
-  const TUCK_MS = 3000;
-  const [idle, setIdle] = useState(false);
-  useEffect(() => {
-    if (open || drag) { setIdle(false); return; }
-    const tm = setTimeout(() => setIdle(true), TUCK_MS);
-    return () => clearTimeout(tm);
-  }, [open, drag, pos]);
-  const tucked = idle && !open && !drag;
+  // 「闲着藏一半」收成公共的 useIdleTuck（components.js），黑胶那颗也用它
+  const [poke, setPoke] = useState(0);   // 手指一按就整颗露出来、重新计时
+  const tucked = useIdleTuck(!open && !drag, [pos, poke]);
   const onDown = e => {
-    setIdle(false);
+    setPoke(n => n + 1);
     dragStart.current = { x: e.clientX, y: e.clientY, moved: false };
     try { e.currentTarget.setPointerCapture(e.pointerId); } catch (err) {}
   };

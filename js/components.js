@@ -4064,6 +4064,18 @@ function useFloatKeepClear() {
   return v;
 }
 window.FloatKeepClear = { set: setFloatKeepClear, get: () => floatKeepClear };
+// 悬浮的小东西「闲着就贴边藏一半」只此一份（群友 2026-09-30 给切 API 那颗定的；2026-10-28「后台保活的黑胶 cd 和切换 api 的圆盘一样贴边边」）：
+//   canTuck 为真、deps 里的东西 ms 毫秒没变，就返回 true（该藏了）；一有动静（deps 变了）就整颗露出来、重新计时。
+function useIdleTuck(canTuck, deps, ms) {
+  const [idle, setIdle] = useState(false);
+  useEffect(() => {
+    if (!canTuck) { setIdle(false); return; }
+    setIdle(false);
+    const tm = setTimeout(() => setIdle(true), ms || 3000);
+    return () => clearTimeout(tm);
+  }, [canTuck].concat(deps || []));
+  return !!(idle && canTuck);
+}
 function MiniPlayer({ song, playing, loading, onOpen, onToggle, onNext, onClose }) {
   const t = useTheme();
   const [pos, setPos] = useState(function () { try { const s = JSON.parse(localStorage.getItem("x_miniPos")); if (s && typeof s.x === "number") return s; } catch (e) {} return null; });
@@ -4071,6 +4083,10 @@ function MiniPlayer({ song, playing, loading, onOpen, onToggle, onNext, onClose 
   const drag = useRef(null);
   const didDrag = useRef(false);
   const [folded, setFolded] = useState(() => { try { return localStorage.getItem("x_miniFolded") === "1"; } catch (e) { return false; } });
+  const [poke, setPoke] = useState(0);
+  const [dragging, setDragging] = useState(false);
+  // 收起成一颗碟时：贴边、闲着藏一半（跟切 API 那颗同一份 useIdleTuck）
+  const tucked = useIdleTuck(folded && !dragging, [poke, folded, dragging]);
   const declared = useFloatKeepClear();
   // ⚠️那条操作条可能占掉大半个屏（庭院的行动栏展开时就是）。禁区照单全收的话，
   //   这颗药丸会被顶到画面正中央——比压在操作条上更碍事。所以留一条：
@@ -4094,22 +4110,29 @@ function MiniPlayer({ song, playing, loading, onOpen, onToggle, onNext, onClose 
   if (!song) return null;
   const cover = song.cover || null;
   const btnStop = (e, fn) => { e.stopPropagation(); fn(); };
-  const onDown = e => { const el = elRef.current; if (!el) return; try { el.setPointerCapture(e.pointerId); } catch (x) {} const r = el.getBoundingClientRect(); drag.current = { sx: e.clientX, sy: e.clientY, ox: r.left, oy: r.top, moved: false }; };
+  const onDown = e => { setPoke(n => n + 1); const el = elRef.current; if (!el) return; try { el.setPointerCapture(e.pointerId); } catch (x) {} const r = el.getBoundingClientRect(); drag.current = { sx: e.clientX, sy: e.clientY, ox: r.left, oy: r.top, moved: false }; };
   const onMove = e => {
     if (!drag.current) return;
     const dx = e.clientX - drag.current.sx, dy = e.clientY - drag.current.sy;
     if (Math.abs(dx) + Math.abs(dy) > 6) drag.current.moved = true;
     if (!drag.current.moved) return;
+    if (!dragging) setDragging(true);
     if (e.cancelable) e.preventDefault();
     const el = elRef.current, w = el.offsetWidth, hh = el.offsetHeight;
     const nx = Math.max(6, Math.min(window.innerWidth - w - 6, drag.current.ox + dx));
     const ny = Math.max(44, Math.min(window.innerHeight - hh - 8 - keepClear, drag.current.oy + dy));
     setPos({ x: nx, y: ny });
   };
-  const onUp = e => { if (drag.current && drag.current.moved) { didDrag.current = true; try { localStorage.setItem("x_miniPos", JSON.stringify(pos)); } catch (x) {} setTimeout(() => { didDrag.current = false; }, 60); } drag.current = null; };
+  const onUp = e => { setDragging(false); if (drag.current && drag.current.moved) { didDrag.current = true;
+    // 收着的那颗松手就吸到近的那条边（展开的那条照旧停在松手的地方）
+    let keep = pos; if (folded && pos && elRef.current) { const w = elRef.current.offsetWidth; keep = { x: pos.x + w / 2 < window.innerWidth / 2 ? 6 : window.innerWidth - w - 6, y: pos.y }; setPos(keep); }
+    try { localStorage.setItem("x_miniPos", JSON.stringify(keep)); } catch (x) {} setTimeout(() => { didDrag.current = false; }, 60); } drag.current = null; };
   // 点一下(没拖动)=跳回播放器；拖过就不触发跳转
   const onClick = () => { if (!didDrag.current) { if (folded) fold(false); else onOpen(); } };
   const place = pos ? { left: pos.x, top: pos.y, right: "auto", bottom: "auto" } : { right: 12, bottom: 84 + keepClear };
+  // 藏一半：往它靠着的那条边缩进去半颗，露出来的半颗照样点得开、拖得动
+  const tuckLeft = !!(pos && elRef.current && pos.x + elRef.current.offsetWidth / 2 < window.innerWidth / 2);
+  const tuckMove = tucked ? { transform: "translateX(" + (tuckLeft ? "calc(-50% - 6px)" : "calc(50% + " + (pos ? 6 : 12) + "px)") + ")", opacity: 0.85 } : { transform: "none" };
   // ── 长相（她 2026-09-05：「这俩黑悬浮弄好看点」）────────────────────
   // 原来整条是一块近黑的板子（rgba(28,26,24,.92)），压在她那张暖色壁纸上像贴了张膏药。
   // ⚠️病不在「有黑」，在【整块都是黑的】：这条子上真正该黑的只有一样东西——唱片本身。
@@ -4126,7 +4149,7 @@ function MiniPlayer({ song, playing, loading, onOpen, onToggle, onNext, onClose 
     style: Object.assign({ position: "fixed", zIndex: MINI_PLAYER_Z, display: "flex", alignItems: "center", gap: 9, maxWidth: "78vw", touchAction: "none", cursor: "grab",
       background: skinAlpha(t.bg2, "F2"), backdropFilter: "blur(16px)", WebkitBackdropFilter: "blur(16px)",
       border: "1px solid " + skinAlpha(ink, "1e"), borderRadius: 999, padding: folded ? "6px" : "6px 8px 6px 6px",
-      boxShadow: "0 10px 26px rgba(0,0,0,.18), inset 0 1px 0 rgba(255,255,255,.35)" }, place) },
+      boxShadow: "0 10px 26px rgba(0,0,0,.18), inset 0 1px 0 rgba(255,255,255,.35)", transition: "transform .3s ease, opacity .3s ease" }, place, tuckMove) },
     // 那张碟：黑胶纹 + 封面当标 + 中间那个轴孔（跟一起听那张大碟同一种材质，没有唱臂——
     // 38px 上再画一根臂只会糊成一团）
     h("div", { style: { position: "relative", flexShrink: 0, width: disc, height: disc, borderRadius: 999,
