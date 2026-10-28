@@ -10,3 +10,9 @@ test("群线上两支心声都只用 THOUGHT_MEANING，旧禁令清掉", () => {
   assert.doesNotMatch(seg, /本轮真正有情绪波动/);
   assert.equal((seg.match(/_gThoughtIs/g) || []).length, 3, "两支没都用它");
 });
+
+// 她 2026-10-28：群里心声只剩场景（八股），单聊同一类人想得很多——给群心声跟单聊同一个来处
+test("群心声从TA这一轮最在意的那一点长出来", () => {
+  const src = require("fs").readFileSync(require("path").join(__dirname, "..", "js/app.js"), "utf8");
+  assert.match(src, /每个人的心声从TA在这一轮里最在意的那一点长出来/);
+});
