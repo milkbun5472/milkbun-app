@@ -14,7 +14,7 @@ test("改TA通讯录备注：走 savePhoneApp 就地改、灰字、等她按回�
 });
 
 test("TA知道的两个时刻：下一轮一次、刷新微信一次（刷完清掉）", () => {
-  assert.match(app, /const remarkHint = meddleHint \+ \(opts\.phoneRemark/);
+  assert.match(app, /const remarkHint = (?:avatarHint \+ )?meddleHint \+ \(opts\.phoneRemark/);
   assert.match(app, /peekMemoFor\(charId\)\) \+ remarkHint[ +\w]*;/);   // 后面接着照影那几句本轮的事
   assert.equal((app.match(/phoneRemarkSpec\(char, key, phoneProbeSpec\(/g) || []).length, 2);
   assert.equal((app.match(/phoneRemarkDone\(char, key\);/g) || []).length, 2);
