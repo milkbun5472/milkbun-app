@@ -144,7 +144,7 @@ function chatLayoutCSS(L) {
   if (L.avatar === "first") out.push('[data-wk="msg"][data-first="0"] [data-wk="row"] > [data-wk="avatar"]{visibility:hidden !important;}');
   // 群里每条上面都写着名字：头像只留第一条时，名字也跟着只留第一条，不然一串里重复写同一个名字
   if (L.avatar === "first") out.push('[data-wk="msg"][data-first="0"] [data-wk="name"]{display:none !important;}');
-  if (L.avatar === "none") out.push('[data-wk="msg"] [data-wk="row"] > [data-wk="avatar"]{display:none !important;}');
+  if (L.avatar === "none") out.push('[data-wk="msg"] [data-wk="row"] > [data-wk="avatar"],[data-wk="cardrow"] > [data-wk="avatar"]{display:none !important;}');
   // 头像藏了：状态卡没地方点了，在一串最后一条底下那行露出「状态」
   if (L.avatar === "none") out.push('[data-wk="msg"][data-last="1"] [data-wk="stlink"]{display:inline-flex !important;}');
   if (L.name) out.push('[data-wk="msg"][data-first="1"] [data-wk="name"]{display:block !important;}');
@@ -179,17 +179,19 @@ function chatLayoutCSS(L) {
   [["ta", "0"], ["me", "1"]].forEach(([k, me]) => {
     const d = (L.deco && L.deco[k]) || {};
     if (!d.frame && !d.pend) return;
-    const sel = '[data-wk="msg"][data-me="' + me + '"] [data-wk="row"] > [data-wk="avatar"]';
-    out.push(sel + "{position:relative !important;overflow:visible !important;}");
+    // 表情包、卡片那几行（cardrow）的头像也套同一个框（她 2026-10-27：跟文字气泡那颗不统一）
+    const one = '[data-wk="msg"][data-me="' + me + '"] [data-wk="row"] > [data-wk="avatar"]', two = '[data-wk="cardrow"][data-me="' + me + '"] > [data-wk="avatar"]';
+    const both = suf => one + suf + "," + two + suf;
+    out.push(both("") + "{position:relative !important;overflow:visible !important;}");
     if (d.frame) {
       const sz = Math.max(100, Math.min(200, Number(d.frameSize) || 140)), off = -(sz - 100) / 2;
-      out.push(sel + '::after{content:"" !important;position:absolute !important;left:' + off + "%;top:" + off + "%;width:" + sz + "%;height:" + sz
+      out.push(both("::after") + '{content:"" !important;position:absolute !important;left:' + off + "%;top:" + off + "%;width:" + sz + "%;height:" + sz
         + '%;background:url("' + img(d.frame) + '") center/contain no-repeat !important;pointer-events:none !important;z-index:2 !important;}');
     }
     if (d.pend) {
       const ps = Math.max(20, Math.min(100, Number(d.pendSize) || 45));
       const pos = { br: "right:-12%;bottom:-12%;", bl: "left:-12%;bottom:-12%;", tr: "right:-12%;top:-12%;", tl: "left:-12%;top:-12%;" }[d.pendPos] || "right:-12%;bottom:-12%;";
-      out.push(sel + '::before{content:"" !important;position:absolute !important;' + pos + "width:" + ps + "%;height:" + ps
+      out.push(both("::before") + '{content:"" !important;position:absolute !important;' + pos + "width:" + ps + "%;height:" + ps
         + '%;background:url("' + img(d.pend) + '") center/contain no-repeat !important;pointer-events:none !important;z-index:3 !important;}');
     }
   });
@@ -1565,6 +1567,29 @@ function pageShellPin(el) {
   if (z) el.style.setProperty("z-index", z, "important");
 }
 function pageShellStyle(z, extra) { return Object.assign({ position: "fixed", inset: 0, zIndex: z, animation: "qqIn .22s ease both" }, extra || {}); }
+// ── 发给谁（她 2026-10-28：一起听的歌也要能转进TA的对话框）────────────────────
+// 直播回放、片刻视频、一起听原来各写一份「挑人 → 开过小房间的再挑哪间」，收成这一份。
+//   onPick(角色, 房间id)：房间id 是 "main" 或小房间的 id。上面要加开关之类的放 top。
+//   wk 是美化钩子的前缀：`${wk}list` 头像那一格、`${wk}char` 一个头像、`${wk}row` 主聊天/小房间那一行。
+function shareRoomsOf(c) { return window.ChatRooms && c ? window.ChatRooms.list(c.id).filter(r => r && !r.main) : []; }
+function shareChatKey(c, roomId) { return roomId && roomId !== "main" && window.ChatRooms ? window.ChatRooms.chatKey(c.id, roomId) : c.id; }
+function ShareToCharPicker({ characters, onPick, onBack, title, sub, top, wk, ink, line, field, bg }) {
+  const t = useTheme();
+  const [to, setTo] = useState(null);
+  const W = wk || "sharepick";
+  const fg = ink || t.ink, ln = line || t.line, fl = field || t.bg2;
+  const pick = (c, rid) => { setTo(null); onPick(c, rid); };
+  return h("div", { "data-wk": W + "page", className: "h-full flex flex-col", style: bg ? { background: bg } : null },
+    h(Head, { zh: to ? "发到 " + (to.remark || to.name) + " 的哪儿" : (title || "发给谁"), sub: to ? undefined : sub, bg: "transparent", ink: ink, onBack: () => to ? setTo(null) : onBack() }),
+    h("div", { className: "flex-1 min-h-0 overflow-y-auto px-5", style: { paddingBottom: 30 } },
+      top || null,
+      to ? [{ id: "main", name: "主聊天" }].concat(shareRoomsOf(to)).map(r => h("button", { "data-wk": W + "row", key: r.id, onClick: () => pick(to, r.id), className: "w-full text-left active:opacity-70",
+        style: { minHeight: 46, padding: "0 14px", marginTop: 8, borderRadius: 12, border: "1px solid " + ln, background: fl, color: fg, fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))" } }, r.id === "main" ? "主聊天" : "小房间「" + (r.name || "没起名的房间") + "」"))
+      // 一排四等分（她 2026-10-07：「看起来够一排四个为什么只有三个」）
+      : h("div", { "data-wk": W + "list", style: { display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", rowGap: 16, columnGap: 8, marginTop: 12 } }, (characters || []).filter(c => c && !c.npc).map(c => h("button", { "data-wk": W + "char", key: c.id, onClick: () => shareRoomsOf(c).length ? setTo(c) : pick(c, "main"),
+        className: "active:opacity-70 flex flex-col items-center", style: { minWidth: 0 } }, h(Avatar, { character: c, size: 48 }),
+        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: fg, marginTop: 4, maxWidth: "100%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, c.remark || c.name))))));
+}
 function PageSheet({ children, onClose, zh, sub, right, scrollKey, skin }) {
   const t = useTheme();
   const pageZ = usePageZ(245);
@@ -3771,10 +3796,12 @@ const musicGround = id => MUSIC_GROUNDS.find(x => x.id === id) || MUSIC_GROUNDS[
 //   ② 字色深浅由她自己选（bgInk），不猜。
 function musicPhotoGround(card) {
   if (!card || !card.bgPhoto) return null;
-  const darkText = card.bgInk === "dark";
+  // 「原图」（她 2026-10-29 转群友：浅色海浪图一放上去整张发暗）：一层纱都不盖，照片原样，字用深色
+  const raw = card.bgInk === "raw";
+  const darkText = card.bgInk === "dark" || raw;
   const veil = darkText ? "rgba(250,246,238,.55)" : "rgba(26,22,18,.46)";
   return {
-    bg: "linear-gradient(" + veil + "," + veil + "), center/cover no-repeat url(" + card.bgPhoto + ")",
+    bg: (raw ? "" : "linear-gradient(" + veil + "," + veil + "), ") + "center/cover no-repeat url(" + card.bgPhoto + ")",
     ink: darkText ? "#2c261e" : "#fbf7f0",
     sub: darkText ? "rgba(44,38,30,.66)" : "rgba(251,247,240,.72)"
   };
@@ -4018,10 +4045,10 @@ function MusicCardEdit({ onClose }) {
         })),
       onPhoto ? h("div", { style: { marginTop: 14 } },
         h("div", { "data-wk": "mcardhint", style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.7, marginBottom: 7 } },
-          "照片的明暗事先不知道，所以字色由你定：图上会盖一层反方向的薄纱，字才有对比。"),
+          "照片的明暗事先不知道，所以字色由你定：图上会盖一层反方向的薄纱，字才有对比。想看照片本来的颜色就选「原图」，不盖纱、用深字，适合浅色的图。"),
         h("div", { "data-wk": "mcardinks", className: "flex", style: { gap: 10 } },
-          [["light", "浅字"], ["dark", "深字"]].map(function (o) {
-            const on = (card.bgInk === "dark") === (o[0] === "dark");
+          [["light", "浅字"], ["dark", "深字"], ["raw", "原图"]].map(function (o) {
+            const on = (card.bgInk === "dark" || card.bgInk === "raw" ? card.bgInk : "light") === o[0];
             return h("button", { "data-wk": "mcardink", "data-part": o[0], "data-on": on ? "1" : "0", key: o[0], onClick: function () { put({ bgInk: o[0] }); }, className: "flex-1 active:opacity-80",
               style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: on ? t.bg2 : t.ink, background: on ? t.ink : "transparent",
                 border: "1px solid " + (on ? t.ink : t.line), borderRadius: 12, padding: "9px 0" } }, (on ? "· " : "") + o[1]);
@@ -4062,6 +4089,18 @@ function useFloatKeepClear() {
   return v;
 }
 window.FloatKeepClear = { set: setFloatKeepClear, get: () => floatKeepClear };
+// 悬浮的小东西「闲着就贴边藏一半」只此一份（群友 2026-09-30 给切 API 那颗定的；2026-10-28「后台保活的黑胶 cd 和切换 api 的圆盘一样贴边边」）：
+//   canTuck 为真、deps 里的东西 ms 毫秒没变，就返回 true（该藏了）；一有动静（deps 变了）就整颗露出来、重新计时。
+function useIdleTuck(canTuck, deps, ms) {
+  const [idle, setIdle] = useState(false);
+  useEffect(() => {
+    if (!canTuck) { setIdle(false); return; }
+    setIdle(false);
+    const tm = setTimeout(() => setIdle(true), ms || 3000);
+    return () => clearTimeout(tm);
+  }, [canTuck].concat(deps || []));
+  return !!(idle && canTuck);
+}
 function MiniPlayer({ song, playing, loading, onOpen, onToggle, onNext, onClose }) {
   const t = useTheme();
   const [pos, setPos] = useState(function () { try { const s = JSON.parse(localStorage.getItem("x_miniPos")); if (s && typeof s.x === "number") return s; } catch (e) {} return null; });
@@ -4069,6 +4108,10 @@ function MiniPlayer({ song, playing, loading, onOpen, onToggle, onNext, onClose 
   const drag = useRef(null);
   const didDrag = useRef(false);
   const [folded, setFolded] = useState(() => { try { return localStorage.getItem("x_miniFolded") === "1"; } catch (e) { return false; } });
+  const [poke, setPoke] = useState(0);
+  const [dragging, setDragging] = useState(false);
+  // 收起成一颗碟时：贴边、闲着藏一半（跟切 API 那颗同一份 useIdleTuck）
+  const tucked = useIdleTuck(folded && !dragging, [poke, folded, dragging]);
   const declared = useFloatKeepClear();
   // ⚠️那条操作条可能占掉大半个屏（庭院的行动栏展开时就是）。禁区照单全收的话，
   //   这颗药丸会被顶到画面正中央——比压在操作条上更碍事。所以留一条：
@@ -4092,22 +4135,29 @@ function MiniPlayer({ song, playing, loading, onOpen, onToggle, onNext, onClose 
   if (!song) return null;
   const cover = song.cover || null;
   const btnStop = (e, fn) => { e.stopPropagation(); fn(); };
-  const onDown = e => { const el = elRef.current; if (!el) return; try { el.setPointerCapture(e.pointerId); } catch (x) {} const r = el.getBoundingClientRect(); drag.current = { sx: e.clientX, sy: e.clientY, ox: r.left, oy: r.top, moved: false }; };
+  const onDown = e => { setPoke(n => n + 1); const el = elRef.current; if (!el) return; try { el.setPointerCapture(e.pointerId); } catch (x) {} const r = el.getBoundingClientRect(); drag.current = { sx: e.clientX, sy: e.clientY, ox: r.left, oy: r.top, moved: false }; };
   const onMove = e => {
     if (!drag.current) return;
     const dx = e.clientX - drag.current.sx, dy = e.clientY - drag.current.sy;
     if (Math.abs(dx) + Math.abs(dy) > 6) drag.current.moved = true;
     if (!drag.current.moved) return;
+    if (!dragging) setDragging(true);
     if (e.cancelable) e.preventDefault();
     const el = elRef.current, w = el.offsetWidth, hh = el.offsetHeight;
     const nx = Math.max(6, Math.min(window.innerWidth - w - 6, drag.current.ox + dx));
     const ny = Math.max(44, Math.min(window.innerHeight - hh - 8 - keepClear, drag.current.oy + dy));
     setPos({ x: nx, y: ny });
   };
-  const onUp = e => { if (drag.current && drag.current.moved) { didDrag.current = true; try { localStorage.setItem("x_miniPos", JSON.stringify(pos)); } catch (x) {} setTimeout(() => { didDrag.current = false; }, 60); } drag.current = null; };
+  const onUp = e => { setDragging(false); if (drag.current && drag.current.moved) { didDrag.current = true;
+    // 收着的那颗松手就吸到近的那条边（展开的那条照旧停在松手的地方）
+    let keep = pos; if (folded && pos && elRef.current) { const w = elRef.current.offsetWidth; keep = { x: pos.x + w / 2 < window.innerWidth / 2 ? 6 : window.innerWidth - w - 6, y: pos.y }; setPos(keep); }
+    try { localStorage.setItem("x_miniPos", JSON.stringify(keep)); } catch (x) {} setTimeout(() => { didDrag.current = false; }, 60); } drag.current = null; };
   // 点一下(没拖动)=跳回播放器；拖过就不触发跳转
   const onClick = () => { if (!didDrag.current) { if (folded) fold(false); else onOpen(); } };
   const place = pos ? { left: pos.x, top: pos.y, right: "auto", bottom: "auto" } : { right: 12, bottom: 84 + keepClear };
+  // 藏一半：往它靠着的那条边缩进去半颗，露出来的半颗照样点得开、拖得动
+  const tuckLeft = !!(pos && elRef.current && pos.x + elRef.current.offsetWidth / 2 < window.innerWidth / 2);
+  const tuckMove = tucked ? { transform: "translateX(" + (tuckLeft ? "calc(-50% - 6px)" : "calc(50% + " + (pos ? 6 : 12) + "px)") + ")", opacity: 0.85 } : { transform: "none" };
   // ── 长相（她 2026-09-05：「这俩黑悬浮弄好看点」）────────────────────
   // 原来整条是一块近黑的板子（rgba(28,26,24,.92)），压在她那张暖色壁纸上像贴了张膏药。
   // ⚠️病不在「有黑」，在【整块都是黑的】：这条子上真正该黑的只有一样东西——唱片本身。
@@ -4124,7 +4174,7 @@ function MiniPlayer({ song, playing, loading, onOpen, onToggle, onNext, onClose 
     style: Object.assign({ position: "fixed", zIndex: MINI_PLAYER_Z, display: "flex", alignItems: "center", gap: 9, maxWidth: "78vw", touchAction: "none", cursor: "grab",
       background: skinAlpha(t.bg2, "F2"), backdropFilter: "blur(16px)", WebkitBackdropFilter: "blur(16px)",
       border: "1px solid " + skinAlpha(ink, "1e"), borderRadius: 999, padding: folded ? "6px" : "6px 8px 6px 6px",
-      boxShadow: "0 10px 26px rgba(0,0,0,.18), inset 0 1px 0 rgba(255,255,255,.35)" }, place) },
+      boxShadow: "0 10px 26px rgba(0,0,0,.18), inset 0 1px 0 rgba(255,255,255,.35)", transition: "transform .3s ease, opacity .3s ease" }, place, tuckMove) },
     // 那张碟：黑胶纹 + 封面当标 + 中间那个轴孔（跟一起听那张大碟同一种材质，没有唱臂——
     // 38px 上再画一根臂只会糊成一团）
     h("div", { style: { position: "relative", flexShrink: 0, width: disc, height: disc, borderRadius: 999,
@@ -11200,6 +11250,8 @@ function ChatThread({
   // 左滑引用：只给菜单里本来就有「引用」的那几类消息（动作行、照片卡这些引用了也没意义）
   // 双击头像拍一拍（她 2026-10-02）。单击原来的动作（看心声）往后让 260ms，等第二下
   const avTapRef = useRef({ t: 0, timer: null });
+  // 消息行左右TA那颗头像：气泡、表情包、卡片、正在输入共用这一份（挪到这一层，正在输入那行也够得着）
+  const charAvEl = () => h("button", { onClick: avTap(onOpenState), className: "shrink-0 active:opacity-70", title: "查看 " + cName + " 的心声", "data-wk": "avatar" }, h(Avatar, { character: character, size: 40, radius: 10 }));
   const avTap = single => e => {
     if (e && e.stopPropagation) e.stopPropagation();
     const r = avTapRef.current, now = Date.now();
@@ -11469,13 +11521,16 @@ function ChatThread({
     // 聊天里一张卡的【位置和头像】：谁发的就在谁那边，对方的卡左边挂TA的头像、自己的卡右边挂我的头像（开着显示我的头像时）。
     //   长按／多选不在这儿——那是 cardPressRow 一处管（卡片名单 CARD_PRESS_KINDS），这儿再挂一次多选会点一下选两次。
     //   新卡片要进聊天：在这儿套上头像，再把 kind 写进 CARD_PRESS_KINDS。
+    // 消息行左右那颗头像：文字气泡、表情包、各种卡片全用这一份（她 2026-10-27：表情包那行的头像没套头像框、点了也开不了状态卡）。
+    //   跟文字气泡那颗一模一样：TA 那颗是按钮（单击看状态、双击拍一拍），我这颗是一层 span；挂点都是 data-wk="avatar"
+    const meAvEl = () => dsp.myAvatar ? h("span", { "data-wk": "avatar", className: "shrink-0", style: { display: "inline-flex" } }, h(Avatar, { character: meAv, size: 40, radius: 10 })) : null;
     const cardRow = (i, m, card) => {
       const isU = m.role === "user";
       // data-kind：卡片挂点 card 全 App 二十几处共用，靠外面这一行认出是哪一种卡（她 2026-10-13：改一处牵扯别处）
-      return h("div", { key: i, "data-wk": "cardrow", "data-kind": m.kind || "", className: "py-1 flex items-start gap-2 " + (isU ? "justify-end" : "justify-start") },
-        !isU && h(Avatar, { character: character, size: 40, radius: 10 }),
+      return h("div", { key: i, "data-wk": "cardrow", "data-me": isU ? "1" : "0", "data-kind": m.kind || "", className: "py-1 flex items-start gap-2 " + (isU ? "justify-end" : "justify-start") },
+        !isU && charAvEl(),
         h("div", { style: { minWidth: 0, flex: "0 1 268px", maxWidth: 268 } }, card),
-        isU && dsp.myAvatar && h(Avatar, { character: meAv, size: 40, radius: 10 }));
+        isU && meAvEl());
     };
     if (m.kind === "namecard") return cardRow(i, m, h(NameCardMsg, { m: m, characters: characters, onOpen: onOpenNameCard ? () => onOpenNameCard(m.cardId) : null }));
     if (m.kind === "pat" || m.kind === "patsig") return h("div", {
@@ -11530,22 +11585,22 @@ function ChatThread({
     if (m.kind === "weathercard" && m.wx) return h("div", { key: i, className: "py-1 flex items-start gap-2 justify-start",
         onTouchStart: selMode ? undefined : () => startPress(i), onTouchEnd: endPress, onMouseDown: selMode ? undefined : () => startPress(i), onMouseUp: endPress, onMouseLeave: endPress,
         onClick: selMode ? () => toggleSel(i) : undefined },
-      h(Avatar, { character: character, size: 40, radius: 10 }),
+      charAvEl(),
       h(WeatherChatCard, { m: m, character: character }));
-    if (m.kind === "recorded") return h("div", { key: i, className: "py-1 flex items-start gap-2 justify-start" },
-      h(Avatar, { character: character, size: 40, radius: 10 }),
+    if (m.kind === "recorded") return h("div", { key: i, "data-wk": "cardrow", "data-me": "0", "data-kind": m.kind || "", className: "py-1 flex items-start gap-2 justify-start" },
+      charAvEl(),
       h(RecordedCard, { m: m }));
     // 红包的回执是一张领过的红包，不是转账单（群友 2026-10-25：「红包对方收了以后是转账的卡片」，改转账样式连红包一起变）
     if (m.receipt && m.receipt.amount != null && m.receipt.packet) { const mineR = m.receipt.side === "me", amtR = typeof Money !== "undefined" && Money ? Money.fmt(m.receipt.amount, character && character.id) : "¥" + m.receipt.amount;
       return h("div", { key: i, "data-wk": "rpreceipt", "data-status": m.receipt.status || "accepted", className: "py-1 flex items-start gap-2 " + (mineR ? "justify-end" : "justify-start") },
-        !mineR && h(Avatar, { character: character, size: 40, radius: 10 }),
+        !mineR && charAvEl(),
         h(RedPacketCard, { rp: { message: m.receipt.note }, dim: true, foot: m.receipt.status === "returned" ? (mineR ? "你退回了这个红包" : "红包退回了") : (mineR ? "你领了 " : cName + " 领了 ") + amtR }),
-        mineR && dsp.myAvatar && h(Avatar, { character: meAv, size: 40, radius: 10 })); }
+        mineR && meAvEl()); }
     // 转账回执：收款方那一侧的一张单子（她 2026-10-01），不是一行灰字
     if (m.receipt && m.receipt.amount != null) return h(TransferCard, { key: i, m: Object.assign({ tid: "rcpt_" + i }, m.receipt, { receiptCard: true }),
       isU: m.receipt.side === "me", charId: character && character.id,
-      avatar: h(Avatar, { character: character, size: 40, radius: 10 }),
-      myAvatar: dsp.myAvatar && h(Avatar, { character: meAv, size: 40, radius: 10 }) });
+      avatar: charAvEl(),
+      myAvatar: meAvEl() });
     if (m.kind === "datememory") return h(DateMemoryCard, { key: i, m: m, character: character });
     if (m.kind === "bdayletter") return h(BdayLetterCard, { key: i, m: m, character: character });
     if (m.kind === "bdayplan") return h(BdayPlanCard, { key: i, m: m, character: character, onOpen: onBdayPlanOpen });
@@ -11554,8 +11609,8 @@ function ChatThread({
     if (m.kind === "busynote") return h("div", { key: i, className: "text-center my-2" }, h("span", { "data-wk": "note", "data-part": "busy", style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, ...plate() } }, m.content));
     // v74.892 之前 TA 存进时刻只落一行灰字；这几行画的时候也认成那张小卡（存档不动），为什么从时刻里那条找回来
     const _oldKeep = (m.kind === "system" || m.role === "system") && m.kind !== "carved" && window.ShikeShareCard ? oldKeepMoment(m, character) : null;
-    if (_oldKeep) return h("div", { key: i, className: "py-1 flex items-start gap-2 justify-start" },
-      h(Avatar, { character: character, size: 40, radius: 10 }),
+    if (_oldKeep) return h("div", { key: i, "data-wk": "cardrow", "data-me": "0", "data-kind": m.kind || "", className: "py-1 flex items-start gap-2 justify-start" },
+      charAvEl(),
       h(window.ShikeShareCard, { m: _oldKeep, isU: false, charId: character && character.id }));
     // 刻歌那张卡 role 也是 system，但它有自己的样子（在下面）；先被这里接走就成了一块空的「系统」（她 2026-10-13 截图）
     if ((m.kind === "system" || m.role === "system") && m.kind !== "carved") return h(SysNote, { key: i, label: "系统", text: m.content, tone: "warn",
@@ -11567,11 +11622,11 @@ function ChatThread({
       return h("div", { key: i, "data-wk": "rpsingle", "data-status": st, className: "py-1 flex items-start gap-2 " + (mine ? "justify-end" : "justify-start"),
         onTouchStart: selMode ? undefined : () => startPress(i), onTouchEnd: endPress, onMouseDown: selMode ? undefined : () => startPress(i), onMouseUp: endPress, onMouseLeave: endPress,
         style: { outline: selMode && selIds.includes(i) ? `2px solid ${t.tint}` : "none", outlineOffset: 2, borderRadius: 14 } },
-        !mine && h(Avatar, { character: character, size: 40, radius: 10 }),
+        !mine && charAvEl(),
         h(RedPacketCard, { rp: { message: m.note }, dim: st !== "pending",
           foot: st === "accepted" ? (mine ? cName + " 领了 " : "你领了 ") + amt : st === "returned" ? (mine ? cName + " 没收，退回来了" : "你退回了") : mine ? "等 " + cName + " 拆开" : "拆红包",
           onClick: selMode ? () => toggleSel(i) : () => setRpEnv(i) }),
-        mine && dsp.myAvatar && h(Avatar, { character: meAv, size: 40, radius: 10 }),
+        mine && meAvEl(),
         rpEnv === i ? h(RedPacketEnvelope, { who: mine ? (meAv && meAv.name) || "我" : cName, whoChar: mine ? meAv : character, message: m.note,
           canOpen, amountText: st === "accepted" ? amt : "",
           status: st === "returned" ? (mine ? cName + " 没收，退回来了" : "你退回了这个红包") : st === "accepted" ? (mine ? cName + " 领了" : "已存进你的钱包") : mine ? "等 " + cName + " 拆开" : "",
@@ -11586,28 +11641,28 @@ function ChatThread({
       style: { outline: selMode && selIds.includes(i) ? `2px solid ${t.tint}` : "none", outlineOffset: 2, borderRadius: 14 }
     }, h(TransferCard, {
       m: m, isU: m.role === "user", onRespond: onRespondTransfer, charId: character && character.id,
-      avatar: h(Avatar, { character: character, size: 40, radius: 10 }),
-      myAvatar: dsp.myAvatar && h(Avatar, { character: meAv, size: 40, radius: 10 })
+      avatar: charAvEl(),
+      myAvatar: meAvEl()
     }));
     if (m.kind === "geo") return h(GeoCard, {
       key: i,
       m: m,
       isU: m.role === "user",
       who: cName,
-      avatar: h(Avatar, { character: character, size: 40, radius: 10 }),
-      myAvatar: dsp.myAvatar && h(Avatar, { character: meAv, size: 40, radius: 10 })
+      avatar: charAvEl(),
+      myAvatar: meAvEl()
     });
     if (m.kind === "gift") return h(GiftCard, { key: i, m: m, isU: m.role === "user", now: now, onOpenGift: onOpenGift,
-      avatar: h(Avatar, { character: character, size: 40, radius: 10 }),
-      myAvatar: dsp.myAvatar && h(Avatar, { character: meAv, size: 40, radius: 10 }) });
+      avatar: charAvEl(),
+      myAvatar: meAvEl() });
     if (m.kind === "takeout") return h(TakeoutCard, { key: i, m: m, isU: m.role === "user", now: now, character: character,
       onOpen: m.role !== "user" && onOpenTakeout ? onOpenTakeout : null,
-      avatar: h(Avatar, { character: character, size: 40, radius: 10 }),
-      myAvatar: dsp.myAvatar && h(Avatar, { character: meAv, size: 40, radius: 10 }) });
+      avatar: charAvEl(),
+      myAvatar: meAvEl() });
     if (m.kind === "dateinvite" || m.kind === "datereceipt" || m.kind === "dateask") return h(DateInviteCard, { key: i, m: m, character: character, onGo: () => onDateGo && onDateGo(m),
       onAnswer: m.kind === "dateask" && onDateAnswer ? yes => onDateAnswer(m, yes) : null,
-      avatar: h(Avatar, { character: character, size: 40, radius: 10 }),
-      myAvatar: dsp.myAvatar && h(Avatar, { character: meAv, size: 40, radius: 10 }) });
+      avatar: charAvEl(),
+      myAvatar: meAvEl() });
     if (m.kind === "peeksneak") return h(PeekSneakCard, { key: i, m: m, character: character, onPick: how => onSneak && onSneak(m, how) });
     if (m.kind === "loveletter") return cardRow(i, m, h(LoveLetterCard, { m: m, character: character,
       onOpen: () => onLoveLetterOpen && onLoveLetterOpen(m),
@@ -11620,18 +11675,18 @@ function ChatThread({
       mykin: MyKinIssueCard, mykinbill: MyKinSpendCard, mykindaily: MyKinDailyCard, mykinedit: MyKinEditCard };
     if (KIN_CARDS[m.kind]) return cardRow(i, m, h(KIN_CARDS[m.kind], { m: m, character: character, inRow: true }));
     if (m.kind === "paylater") return cardRow(i, m, h(PayLaterCard, { m: m }));
-    if (m.kind === "couple_invite") return h("div", { key: i, className: "py-1 flex items-start gap-2 justify-end" },
+    if (m.kind === "couple_invite") return h("div", { key: i, "data-wk": "cardrow", "data-me": "1", "data-kind": m.kind || "", className: "py-1 flex items-start gap-2 justify-end" },
       h(CoupleInviteCard, { m: m, character: character, asking: askingCouple === m.cid, onAsk: onAskCouple }),
-      dsp.myAvatar && h(Avatar, { character: meAv, size: 40, radius: 10 }));
-    if (m.kind === "unblock_req") return h("div", { key: i, className: "py-1 flex items-start gap-2 " + (m.role === "user" ? "justify-end" : "justify-start") },
-      m.role !== "user" && h(Avatar, { character: character, size: 40, radius: 10 }),
+      meAvEl());
+    if (m.kind === "unblock_req") return h("div", { key: i, "data-wk": "cardrow", "data-me": m.role === "user" ? "1" : "0", "data-kind": m.kind || "", className: "py-1 flex items-start gap-2 " + (m.role === "user" ? "justify-end" : "justify-start") },
+      m.role !== "user" && charAvEl(),
       h(UnblockReqCard, { m: m, character: character, onRespond: onRespondUnblock, onRetry: onSendUnblockReq ? (x => onSendUnblockReq(x.plea || "", x.cid)) : null, busy: !!sending }),
-      m.role === "user" && dsp.myAvatar && h(Avatar, { character: meAv, size: 40, radius: 10 }));
+      m.role === "user" && meAvEl());
     if (m.kind === "recalled") return h("div", { key: i, className: "text-center my-2" }, h("button", { "data-wk": "note", "data-part": "recalled", onClick: () => setRecallView(m), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, ...plate() } }, cName + " 撤回了一条消息 · 点看"));
     // 沉默权：TA 看了没回——一行居中灰斜体，已读不回本身就是态度
     if (m.kind === "silence") return h("div", { key: i, className: "text-center my-2" }, h("span", { "data-wk": "note", "data-part": "silence", style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", fontStyle: "italic", color: t.fog, opacity: 0.8, ...plate() } }, cName + " 看了你的消息，没有回"));
-    if (m.kind === "emote") return h("div", { key: i, className: "py-1 flex items-start gap-2 " + (m.role === "user" ? "justify-end" : "justify-start") },
-      m.role !== "user" && h(Avatar, { character: character, size: 40, radius: 10 }),
+    if (m.kind === "emote") return h("div", { key: i, "data-wk": "cardrow", "data-me": m.role === "user" ? "1" : "0", "data-kind": m.kind || "", className: "py-1 flex items-start gap-2 " + (m.role === "user" ? "justify-end" : "justify-start") },
+      m.role !== "user" && charAvEl(),
       h("div", {
         onTouchStart: selMode ? undefined : () => startPress(i),
         onTouchEnd: endPress,
@@ -11641,77 +11696,77 @@ function ChatThread({
         onClick: selMode ? () => toggleSel(i) : undefined,
         style: { borderRadius: 12, cursor: "pointer", outline: selMode && selIds.includes(i) ? `2px solid ${t.tint}` : "none", outlineOffset: 2 }
       }, h(EmoteBubble, { url: m.url, keyword: m.keyword, max: 118 })),
-      m.role === "user" && dsp.myAvatar && h(Avatar, { character: meAv, size: 40, radius: 10 }));
-    if (m.kind === "chatforward") return h("div", { key: i, className: "py-1 flex items-start gap-2 " + (m.role === "user" ? "justify-end" : "justify-start") },
-      m.role !== "user" && h(Avatar, { character: character, size: 40, radius: 10 }),
+      m.role === "user" && meAvEl());
+    if (m.kind === "chatforward") return h("div", { key: i, "data-wk": "cardrow", "data-me": m.role === "user" ? "1" : "0", "data-kind": m.kind || "", className: "py-1 flex items-start gap-2 " + (m.role === "user" ? "justify-end" : "justify-start") },
+      m.role !== "user" && charAvEl(),
       h("div", { className: "flex flex-col " + (m.role === "user" ? "items-end" : "items-start") },
         h(ChatForwardCard, { m: m, isU: m.role === "user", onOpen: setFwdView }),
         last && subLine(m) ? h("span", { style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", color: t.fog, margin: "1px 4px 0" } }, subLine(m)) : null),
-      m.role === "user" && dsp.myAvatar && h(Avatar, { character: meAv, size: 40, radius: 10 }));
+      m.role === "user" && meAvEl());
     // 分享来的那几张小卡（论坛帖 / 同人文 / 塔罗 / 时刻 / 番茄钟）：一个外框、一张表（shareCardOf），
     //   原来是四段一模一样的外框各抄一份（施工规则/one-public-mechanism.md）。
     const _Share = shareCardOf(m.kind);
-    if (_Share) return h("div", { key: i, className: "py-1 flex items-start gap-2 " + (m.role === "user" ? "justify-end" : "justify-start") },
-      m.role !== "user" && h(Avatar, { character: character, size: 40, radius: 10 }),
+    if (_Share) return h("div", { key: i, "data-wk": "cardrow", "data-me": m.role === "user" ? "1" : "0", "data-kind": m.kind || "", className: "py-1 flex items-start gap-2 " + (m.role === "user" ? "justify-end" : "justify-start") },
+      m.role !== "user" && charAvEl(),
       h(_Share, { m: m, isU: m.role === "user", charId: character && character.id }),
-      m.role === "user" && dsp.myAvatar && h(Avatar, { character: meAv, size: 40, radius: 10 }));
+      m.role === "user" && meAvEl());
     // 逛购物 app 时拿给TA看的那件东西（v57.98）
-    if (m.kind === "shopask") return h("div", { key: i, className: "py-1 flex items-start gap-2 justify-end" },
+    if (m.kind === "shopask") return h("div", { key: i, "data-wk": "cardrow", "data-me": "1", "data-kind": m.kind || "", className: "py-1 flex items-start gap-2 justify-end" },
       h(ShopAskCard, { m: m }),
-      dsp.myAvatar && h(Avatar, { character: meAv, size: 40, radius: 10 }));
-    if (m.kind === "phonepeek") return h("div", { key: i, className: "py-1 flex items-start gap-2 " + (m.role === "user" ? "justify-end" : "justify-start") },
-      m.role !== "user" && h(Avatar, { character: character, size: 40, radius: 10 }),
+      meAvEl());
+    if (m.kind === "phonepeek") return h("div", { key: i, "data-wk": "cardrow", "data-me": m.role === "user" ? "1" : "0", "data-kind": m.kind || "", className: "py-1 flex items-start gap-2 " + (m.role === "user" ? "justify-end" : "justify-start") },
+      m.role !== "user" && charAvEl(),
       h(PhonePeekCard, { m: m, isU: m.role === "user", character: character }),
-      m.role === "user" && dsp.myAvatar && h(Avatar, { character: meAv, size: 40, radius: 10 }));
-    if (m.kind === "voice") return h("div", { key: i, className: "py-1 flex items-start gap-2 " + (m.role === "user" ? "justify-end" : "justify-start") },
-      m.role !== "user" && h(Avatar, { character: character, size: 40, radius: 10 }),
+      m.role === "user" && meAvEl());
+    if (m.kind === "voice") return h("div", { key: i, "data-wk": "cardrow", "data-me": m.role === "user" ? "1" : "0", "data-kind": m.kind || "", className: "py-1 flex items-start gap-2 " + (m.role === "user" ? "justify-end" : "justify-start") },
+      m.role !== "user" && charAvEl(),
       h("div", {
         onTouchStart: selMode ? undefined : () => startPress(i), onTouchEnd: endPress,
         onMouseDown: selMode ? undefined : () => startPress(i), onMouseUp: endPress, onMouseLeave: endPress,
         onClick: selMode ? () => toggleSel(i) : undefined,
         style: { maxWidth: "72%", outline: selMode && selIds.includes(i) ? `2px solid ${t.tint}` : "none", outlineOffset: 2, borderRadius: BUBBLE_SKIN.radius }
       }, h(VoiceMsg, { m: m, isU: m.role === "user", speaker: m.role === "user" ? null : character })),
-      m.role === "user" && dsp.myAvatar && h(Avatar, { character: meAv, size: 40, radius: 10 }));
+      m.role === "user" && meAvEl());
     if (m.kind === "callinvite") return h(CallReceipt, { key: i, m: m, isU: m.role === "user", who: cName,
-      avatar: h(Avatar, { character: character, size: 40, radius: 10 }), onCallBack: onCallBack });
+      avatar: charAvEl(), onCallBack: onCallBack });
     // 她自己的自拍（role user）靠右、配她的头像
-    if (m.kind === "selfie") return h("div", { key: i, className: "py-1 flex items-start gap-2 " + (m.role === "user" ? "justify-end" : "justify-start") },
-      m.role === "user" ? null : h(Avatar, { character: character, size: 40, radius: 10 }),
+    if (m.kind === "selfie") return h("div", { key: i, "data-wk": "cardrow", "data-me": m.role === "user" ? "1" : "0", "data-kind": m.kind || "", className: "py-1 flex items-start gap-2 " + (m.role === "user" ? "justify-end" : "justify-start") },
+      m.role === "user" ? null : charAvEl(),
       h("div", {
         onTouchStart: selMode ? undefined : () => startPress(i), onTouchEnd: endPress,
         onMouseDown: selMode ? undefined : () => startPress(i), onMouseUp: endPress, onMouseLeave: endPress,
         onClick: selMode ? () => toggleSel(i) : undefined,
         style: { maxWidth: "72%", outline: selMode && selIds.includes(i) ? `2px solid ${t.tint}` : "none", outlineOffset: 2, borderRadius: 14 }
-      }, h(SelfieBubble, { m: m })), m.role === "user" && dsp.myAvatar ? h(Avatar, { character: meAv, size: 40, radius: 10 }) : null);
+      }, h(SelfieBubble, { m: m })), m.role === "user" && meAvEl());
     // 照片：有图没图都走公共那一张卡（PhotoCard）。
     // ⚠️原来这儿只接「有图」那一支，没图的会掉进下面的通用气泡里，
     //   变成一个 40px 灰方块 + 「[图片]」——描述看不见、也点不开。
     if (m.kind === "file") {
       const fMine = m.role === "user";
       return h("div", { key: i, className: "py-1 flex items-start gap-2 " + (fMine ? "justify-end" : "justify-start") },
-        !fMine && h(Avatar, { character: character, size: 40, radius: 10 }),
+        !fMine && charAvEl(),
         h("div", { onTouchStart: selMode ? undefined : () => startPress(i), onTouchEnd: endPress, onMouseDown: selMode ? undefined : () => startPress(i), onMouseUp: endPress, onMouseLeave: endPress,
           onClick: selMode ? () => toggleSel(i) : undefined,
           style: { maxWidth: "78%", borderRadius: 12, outline: selMode && selIds.includes(i) ? `2px solid ${t.tint}` : "none", outlineOffset: 2 } }, h(FileCard, { m: m })),
-        fMine && dsp.myAvatar && h(Avatar, { character: meAv, size: 40, radius: 10 }));
+        fMine && meAvEl());
     }
     if (m.kind === "photo") {
       const mine = m.role === "user";
       return h("div", { key: i, className: "py-1 flex items-start gap-2 " + (mine ? "justify-end" : "justify-start") },
-        !mine && h(Avatar, { character: character, size: 40, radius: 10 }),
+        !mine && charAvEl(),
         h("div", {
           onTouchStart: selMode ? undefined : () => startPress(i), onTouchEnd: endPress,
           onMouseDown: selMode ? undefined : () => startPress(i), onMouseUp: endPress, onMouseLeave: endPress,
           style: { maxWidth: "72%", borderRadius: 12, outline: selMode && selIds.includes(i) ? `2px solid ${t.tint}` : "none", outlineOffset: 2 }
         }, h(PhotoCard, { m: m, mine: mine, onOpen: selMode ? () => toggleSel(i) : () => setDescView(m) })),
-        mine && dsp.myAvatar && h(Avatar, { character: meAv, size: 40, radius: 10 }));
+        mine && meAvEl());
     }
     // TA刻的那张唱片：跟别的卡一样挂在TA那侧，点了去情侣空间的唱片架
-    if (m.kind === "carved") return h("div", { key: i, className: "py-1 flex items-start gap-2 justify-start" },
-      h(Avatar, { character: character, size: 40, radius: 10 }),
+    if (m.kind === "carved") return h("div", { key: i, "data-wk": "cardrow", "data-me": "0", "data-kind": m.kind || "", className: "py-1 flex items-start gap-2 justify-start" },
+      charAvEl(),
       h(CarvedCard, { m: m, onOpen: () => onOpenUs && onOpenUs() }));
-    if (m.kind === "listeninvite") return h("div", { key: i, className: "py-1 flex items-start gap-2 justify-start" },
-      h(Avatar, { character: character, size: 40, radius: 10 }),
+    if (m.kind === "listeninvite") return h("div", { key: i, "data-wk": "cardrow", "data-me": "0", "data-kind": m.kind || "", className: "py-1 flex items-start gap-2 justify-start" },
+      charAvEl(),
       h("div", { "data-wk": "block", style: { maxWidth: "72%", background: "linear-gradient(135deg,#2b2b30,#17171b)", borderRadius: 16, padding: "12px 14px", boxShadow: "0 6px 18px rgba(0,0,0,0.22)" } },
         h("div", { className: "flex items-center gap-1.5", style: { marginBottom: 6 } },
           h("span", { style: { fontSize: "calc(13px * var(--app-fs, 1))" } }, "🎧"),
@@ -11910,7 +11965,11 @@ function ChatThread({
     }, "!")));
   })(_row), _row.m, _row.i, { selMode, startPress, endPress, toggleSel })),
   // 重 Roll 留下的几版：贴着 TA 最后那条气泡底下，左右翻
-  !sending && !selMode && rerollNav && onRerollFlip ? h(RerollNav, { nav: rerollNav, onFlip: onRerollFlip }) : null, sending && /*#__PURE__*/React.createElement("div", {
+  !sending && !selMode && rerollNav && onRerollFlip ? h(RerollNav, { nav: rerollNav, onFlip: onRerollFlip }) : null, sending && h("div", {
+    // 外面套一层 msg（她 2026-10-28：美化没跟上输入中）：头像框、挂件、藏头像那几条都写在
+    //   [data-wk="msg"][data-me="0"] 底下，这一行不在 msg 里，头像就光秃秃的
+    "data-wk": "msg", "data-me": "0", "data-kind": "typing"
+  }, /*#__PURE__*/React.createElement("div", {
     role: "status",
     "aria-live": "polite",
     "aria-label": character.name + " 正在输入",
@@ -11919,11 +11978,7 @@ function ChatThread({
     //   满屏气泡都变圆了、只有这一颗还方着——最扎眼的恰恰是它，因为它天天出现。
     "data-wk": "row",
     className: "flex items-start gap-2"
-  }, /*#__PURE__*/React.createElement(Avatar, {
-    character: character,
-    size: 40,
-    radius: 10
-  }), h("div", null, /*#__PURE__*/React.createElement("div", {
+  }, charAvEl(), h("div", null, /*#__PURE__*/React.createElement("div", {
     // 外面多包一层（她 2026-10-19）：跟普通消息一样，气泡不直接挂在整行底下。
     //   美化常写「div:has(> 气泡) 竖着排」来把引用挪到气泡下面，直接挂在行上会把头像、点点、✕ 整行竖排拆散。
     "data-wk": "bubble", "data-me": "0", "data-kind": "typing",
@@ -11933,7 +11988,7 @@ function ChatThread({
       borderRadius: 14
     }
   }, /*#__PURE__*/React.createElement(TypingDots, { color: t.fog }))),
-  onStopGen && h(GenStopX, { onStop: onStopGen }))), selMode ? h("div", { "data-wk": "selbar", className: "shrink-0", style: { background: t.bg2, borderTop: `1px solid ${t.line}` } },
+  onStopGen && h(GenStopX, { onStop: onStopGen })))), selMode ? h("div", { "data-wk": "selbar", className: "shrink-0", style: { background: t.bg2, borderTop: `1px solid ${t.line}` } },
   // 多选栏两行（她 2026-10-17「太多东西塞不下了」）：上面一行是取消／已选几条／补中间，下面一行是能做的事，平均摊开
   h("div", {
     className: "flex items-center justify-between px-4 pt-2.5 pb-1",
@@ -13775,6 +13830,9 @@ function pinToBottom(el, ms) {
   el.addEventListener("touchmove", halt, opt);
   el.addEventListener("wheel", halt, opt);
   el.addEventListener("keydown", halt);
+  // 点了「跳到某一条」（新消息药丸、查找定位）：她要去上面，别再把她拽回底下
+  //   （她 2026-10-28：群里点「↑ N 条新消息」还是卡着——刚进群这几秒一直在钉底，撑开窗口一变高就被拽回去）
+  el.addEventListener("pinstop", halt);
   // 图片解码完成会冒到这里（capture 才收得到 img 的 load）——这是最准的一枪
   el.addEventListener("load", pin, true);
   pin();
@@ -13786,6 +13844,7 @@ function pinToBottom(el, ms) {
     el.removeEventListener("touchmove", halt, opt);
     el.removeEventListener("wheel", halt, opt);
     el.removeEventListener("keydown", halt);
+    el.removeEventListener("pinstop", halt);
     el.removeEventListener("load", pin, true);
   };
 }
@@ -14009,6 +14068,14 @@ const CARD_PRESS_KINDS = ["recorded", "ledgershare", "geo", "gift", "takeout", "
   "askphone", "kinship", "kinbill", "kinraise", "kinunbind", "paylater", "couple_invite", "unblock_req", "chatforward", "shopask", "phonepeek", "carved", "listeninvite",
   // 她 2026-10-07：「全部小卡类都接上去」——她给TA的亲属卡那四张、约会回忆、通话邀请、一起学／玩／读／写／算一卦的邀请卡原来都漏在名单外
   "mykin", "mykinbill", "mykindaily", "mykinedit", "datememory", "callinvite", "ficinvite", "ficdone", "studyinvite", "gameinvite", "readinvite", "tarotinvite"];
+// 群聊居中那条时间：普通气泡和旁白/卡片行共用这一份长相（判据在 js/chat-stamp.js）
+function GStampLine({ st, t }) {
+  return h("div", { className: "flex justify-center", "data-wk": "time", "data-day": st.day ? "1" : "0",
+    style: { margin: st.day ? "18px 0 10px" : "13px 0 8px" } },
+    h("span", { style: st.day
+      ? { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, letterSpacing: "0.04em", padding: "3px 10px", borderRadius: 999, background: t.bg2, border: "1px solid " + t.line }
+      : { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, letterSpacing: "0.02em" } }, st.text));
+}
 function cardPressRow(el, m, i, o) {
   if (!el || !m || m.recalled) return el;
   const html = !m.kind && typeof htmlCardOf === "function" && htmlCardOf(m.content);
@@ -14699,8 +14766,11 @@ function CallLogSheet({ calls, chars, onClose }) {
 //   另外还漏了两样：窗口上面那颗「↑ 上面还有 N 条」按钮，和单聊里带思考/搜索的消息
 //   前面多出来的那一格 ReasoningBlock。现在按【真画出来的】那几样数。
 // opts.start：窗口从第几条开始画（重画之后的值）；opts.single：单聊那一路（有拆段和思考格）
+// 叫停 pinToBottom 那一下钉底（跳到某一条之前先拔掉）
+function stopPin(el) { try { el && el.dispatchEvent(new Event("pinstop")); } catch (e) {} }
 function locateMsgIn(container, i, messages, hasArchiveLead, opts) {
   try {
+    if (typeof stopPin === "function") stopPin(container);
     const o = opts || {};
     const start = Math.max(0, Number(o.start) || 0);
     if (i < start) return;
@@ -14713,6 +14783,15 @@ function locateMsgIn(container, i, messages, hasArchiveLead, opts) {
       }
       return reasonRow(m) + 1;
     };
+    // 群聊不数格子（她 2026-10-28：「↑ N 条新消息」点了划不上去）：群的列表里还夹着跳转箭头、
+    //   新消息药丸、加载按钮、思考链、日期条、重 Roll 那一排，按「第几个孩子」数一定数歪。
+    //   直接找气泡自己挂的 data-i；这一条是旁白／卡片（没挂 data-i）就落到它后面最近的那条气泡。
+    if (!o.single) {
+      let node = null;
+      for (let j = i; j < list.length && !node; j++) node = container && container.querySelector('[data-wk="msg"][data-i="' + j + '"]');
+      if (node && node.scrollIntoView) node.scrollIntoView({ block: "center" });
+      return;
+    }
     let domIndex = (start > 0 ? 1 : 0) + (hasArchiveLead ? 1 : 0);
     for (let j = start; j < i; j++) domIndex += rowsOf(list[j]);
     domIndex += reasonRow(list[i]); // 落在气泡上，不落在它头顶那格思考上
@@ -17741,6 +17820,18 @@ function OfflineWardrobe({ t, wardrobe, onPick, onMatch, matchBusy }) {
         h("span", { style: { width: 16, height: 16, borderRadius: 4, border: "1px solid " + t.line, background: forever ? t.ink : "transparent", display: "inline-block" } }),
         "以后出图都固定这身（不勾只管这一场）") : null) : null);
 }
+// 这一场演到第几轮（群友 2026-10-28「线下是不是显示不出来一共聊了多少轮」）：数 TA 们写回来的那几拍，单人、多人线下共用
+function offRoundTag(sess) {
+  //   一轮＝一次生成写回来的那一串：多人线下一轮会落好几条（每人一拍，前后隔不到半秒），连着的、隔不到 5 秒的算同一轮
+  let n = 0, prev = null;
+  ((sess && sess.msgs) || []).forEach(m => {
+    if (!m || m.ooc || !m.content) return;
+    if (m.role !== "char") { prev = null; return; }
+    if (!prev || Math.abs((Number(m.ts) || 0) - (Number(prev.ts) || 0)) > 5000) n++;
+    prev = m;
+  });
+  return n ? " · 第 " + n + " 轮" : "";
+}
 function OfflineMode({
   onStopGen,
   char,
@@ -18090,7 +18181,7 @@ function OfflineMode({
       h("button", { "data-wk": "chatback", onClick: exit, className: "active:opacity-50 flex items-center gap-1" }, h(IArrow, { size: 20, color: t.ink }), h("span", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.ink } }, "离开")),
       h("button", { "data-wk": "headname", onClick: () => setModeOpen(true), className: "flex-1 text-center active:opacity-60", style: { minWidth: 0 } },
         h("div", { "data-wk": "offtitle", style: { fontFamily: F_DISPLAY, fontSize: "calc(16px * var(--app-fs, 1))", color: t.ink, display: "flex", justifyContent: "center", alignItems: "baseline", gap: 3, minWidth: 0 } }, h("span", { style: { overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", minWidth: 0 } }, cName), h("span", { style: { flexShrink: 0 } }, "⌄")),
-        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", letterSpacing: 1, color: t.fog } }, room && !room.main ? room.name + " · 独立线下" : "线下 · 轻触切换")),
+        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", letterSpacing: 1, color: t.fog } }, (room && !room.main ? room.name + " · 独立线下" : "线下 · 轻触切换") + offRoundTag(activeSession))),
       h("button", { onClick: () => setNoteOpen(true), className: "active:opacity-50", title: "给 Ta 一个提示" }, h(IPlus, { size: 20, color: t.fog })),
       onSaveSettings && h("button", { "data-wk": "chatmore", onClick: () => setSetOpen(true), className: "active:opacity-50", title: "线下设置（人称/输出长度）", style: { fontFamily: F_BODY, fontSize: "calc(17px * var(--app-fs, 1))", color: t.fog } }, "⚙"),
       h("button", { onClick: () => setEndConfirm(true), className: "active:opacity-60 px-2 py-1", style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.accent } }, "结束")),
@@ -18999,7 +19090,7 @@ function GroupOfflineMode({
       h("button", { "data-wk": "chatback", onClick: exit, className: "active:opacity-50 flex items-center gap-1" }, h(IArrow, { size: 20, color: t.ink }), h("span", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.ink } }, "离开")),
       h("button", { "data-wk": "headname", onClick: () => setModeOpen(true), className: "flex-1 text-center active:opacity-60", style: { minWidth: 0 } },
         h("div", { "data-wk": "offtitle", style: { fontFamily: F_DISPLAY, fontSize: "calc(16px * var(--app-fs, 1))", color: t.ink, display: "flex", justifyContent: "center", alignItems: "baseline", gap: 3, minWidth: 0 } }, h("span", { style: { overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", minWidth: 0 } }, gName), h("span", { style: { flexShrink: 0 } }, "⌄")),
-        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", letterSpacing: 1, color: t.fog } }, "多人线下 · 轻触切换")),
+        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", letterSpacing: 1, color: t.fog } }, "多人线下 · 轻触切换" + offRoundTag(activeSession))),
       h("button", { onClick: () => setNoteOpen(true), className: "active:opacity-50", title: "给他们一个提示" }, h(IPlus, { size: 20, color: t.fog })),
       onSaveSettings && h("button", { "data-wk": "chatmore", onClick: () => setSetOpen(true), className: "active:opacity-50", title: "线下设置" }, h(GConfig, { size: 19, color: t.fog })),
       h("button", { onClick: () => setEndConfirm(true), className: "active:opacity-60 px-2 py-1", style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.accent } }, "结束")),
@@ -19357,6 +19448,8 @@ function GroupThread({
       fontSize: "calc(9px * var(--app-fs, 1))", fontFamily: F_BODY, pointerEvents: "none", border: "1px solid " + t.bg2,
       background: mu ? "#8a8a8a" : r === "owner" ? "#d99a2b" : "#4a86c0", color: "#fff" } }, mu ? "禁" : r === "owner" ? "主" : "管");
   };
+  // 群里我自己那颗：文字气泡、红包、卡片全用这一份（她 2026-10-27：卡片那行没挂头像挂点，头像框套不上）
+  const gMeAvEl = (size, radius) => gsp.showMyAvatar ? h("span", { "data-wk": "avatar", className: "shrink-0", style: { display: "inline-flex" } }, h(Avatar, { character: meAv, size: size, radius: radius })) : null;
   const mAvatar = (character, size) => (canPeek && canPeek(character) && character && character.id)
     ? h("button", { "data-wk": "avatar", onClick: gAvTap(character.id, () => onOpenMemberState(character.id)), className: "active:opacity-60", style: { position: "relative", flexShrink: 0, lineHeight: 0, padding: 0, border: "none", background: "none" }, title: "看 " + (character.name || "") + " 的心声" }, h(Avatar, { character: character, size: size || 34, radius: 8 }), gAvBadge(character))
     // 包一层挂点壳：头像框/挂件叠在壳上（头像自己裁圆角，叠在里面会被裁掉）——跟单聊那颗同一个做法
@@ -19542,6 +19635,7 @@ function GroupThread({
   }, h(ChatJumpArrows, { scroller: ref, t, onTop: () => revealMsg(0) }), (openUnread > 0 && messages.length - openUnread >= 0) ? h("div", { style: { position: "sticky", top: 0, zIndex: 6, height: 0, display: "flex", justifyContent: "flex-end" } },
     h("button", { "data-wk": "gunreadjump", onClick: () => {
         const idx = Math.max(0, messages.length - openUnread);
+        stopPin(ref.current);
         revealMsg(idx);
         setTimeout(() => locateMsgIn(ref.current, idx, messages, archCount > 0, { start: winStartRef.current }), 160);
         onOpenUnreadDone && onOpenUnreadDone();
@@ -19600,7 +19694,7 @@ function GroupThread({
     if (m.receipt && m.receipt.amount != null) return h(TransferCard, { key: i, m: Object.assign({ tid: "rcpt_" + i }, m.receipt, { receiptCard: true }),
       isU: m.receipt.side === "me", charId: m.receipt.senderId,
       avatar: mAvatar(memberById(m.receipt.senderId) || { name: m.receipt.senderName, color: t.tint }),
-      myAvatar: gsp.showMyAvatar && h(Avatar, { character: meAv, size: 40, radius: 10 }) });
+      myAvatar: gMeAvEl(40, 10) });
     if (m.kind === "pat") return h("div", { key: i,
       onTouchStart: selMode ? undefined : () => startPress(i), onTouchEnd: endPress,
       onMouseDown: selMode ? undefined : () => startPress(i), onMouseUp: endPress, onMouseLeave: endPress,
@@ -19610,7 +19704,7 @@ function GroupThread({
       onClose: onDeleteMessages ? function () { onDeleteMessages([i]); } : null });
     if (m.kind === "dateinvite") return h(DateInviteCard, { key: i, m: m, character: { name: (m.invitees || []).map(x => x.name).join("、") || "大家" },
       onGoMine: onGroupDateGo ? () => onGroupDateGo(m) : null,
-      myAvatar: gsp.showMyAvatar && h(Avatar, { character: meAv, size: 40, radius: 10 }) });
+      myAvatar: gMeAvEl(40, 10) });
     // 成员答应了落下的回执：跟单聊同一张，点出发＝带答应的人进群见面
     if (m.kind === "datereceipt") return h(DateInviteCard, { key: i, m: m, character: memberById(m.senderId) || { name: m.senderName || "TA" },
       onGo: () => onGroupDateGo && onGroupDateGo(m),
@@ -19624,7 +19718,7 @@ function GroupThread({
     });
     // 红包以前是整条裸着排的：没有头像、也没有发红包的人是谁（她 2026-08-20 报）。
     // 改成和语音/同人分享同一套外壳：左边头像、上面名字，卡片本身一个字不动。
-    if (m.kind === "redpacket") return h("div", { key: i, className: "py-1 flex items-start gap-2 " + (m.role === "user" ? "justify-end" : "justify-start") },
+    if (m.kind === "redpacket") return h("div", { key: i, "data-wk": "cardrow", "data-me": m.role === "user" ? "1" : "0", "data-kind": m.kind || "", className: "py-1 flex items-start gap-2 " + (m.role === "user" ? "justify-end" : "justify-start") },
       m.role !== "user" && mAvatar(memberById(m.senderId) || { name: m.senderName, color: t.tint }),
       h("div", {
         className: "flex flex-col " + (m.role === "user" ? "items-end" : "items-start"),
@@ -19634,16 +19728,16 @@ function GroupThread({
       },
         m.senderName && h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, margin: "0 4px 2px" } }, m.senderName, gRoleTag(m)),
         h(RedPacketCard, { rp: m, onClick: selMode ? () => toggleSel(i) : () => openRp(i) })),
-      m.role === "user" && gsp.showMyAvatar && h(Avatar, { character: meAv, size: 34, radius: 8 }));
+      m.role === "user" && gMeAvEl(34, 8));
     if (m.kind === "geo") return h(GeoCard, {
       key: i,
       m: m,
       isU: m.role === "user",
       who: m.senderName || ((memberById(m.senderId) || {}).name || "TA"),
       avatar: mAvatar(memberById(m.senderId) || { name: m.senderName, color: t.tint }),
-      myAvatar: gsp.showMyAvatar && h(Avatar, { character: meAv, size: 34, radius: 8 })
+      myAvatar: gMeAvEl(34, 8)
     });
-    if (m.kind === "emote") return h("div", { key: i, className: "py-1 flex items-start gap-2 " + (m.role === "user" ? "justify-end" : "justify-start") },
+    if (m.kind === "emote") return h("div", { key: i, "data-wk": "cardrow", "data-me": m.role === "user" ? "1" : "0", "data-kind": m.kind || "", className: "py-1 flex items-start gap-2 " + (m.role === "user" ? "justify-end" : "justify-start") },
       m.role !== "user" && mAvatar(memberById(m.senderId) || { name: m.senderName, color: t.tint }),
       h("div", {
         className: "flex flex-col " + (m.role === "user" ? "items-end" : "items-start"),
@@ -19654,26 +19748,26 @@ function GroupThread({
       },
         m.role !== "user" && m.senderName && h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, margin: "0 4px 2px" } }, m.senderName, gRoleTag(m)),
         h(EmoteBubble, { url: m.url, keyword: m.keyword, max: 112 })),
-      m.role === "user" && gsp.showMyAvatar && h(Avatar, { character: meAv, size: 34, radius: 8 }));
-    if (m.kind === "chatforward") return h("div", { key: i, className: "py-1 flex items-start gap-2 " + (m.role === "user" ? "justify-end" : "justify-start") },
+      m.role === "user" && gMeAvEl(34, 8));
+    if (m.kind === "chatforward") return h("div", { key: i, "data-wk": "cardrow", "data-me": m.role === "user" ? "1" : "0", "data-kind": m.kind || "", className: "py-1 flex items-start gap-2 " + (m.role === "user" ? "justify-end" : "justify-start") },
       m.role !== "user" && mAvatar(memberById(m.senderId) || { name: m.senderName, color: t.tint }),
       h("div", { className: "flex flex-col " + (m.role === "user" ? "items-end" : "items-start") },
         m.senderName && h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, margin: "0 4px 2px" } }, m.senderName, gRoleTag(m)),
         h(ChatForwardCard, { m: m, isU: m.role === "user", onOpen: setFwdView }),
         subLine(m) ? h("span", { style: { fontFamily: F_BODY, fontSize: "calc(9.5px * var(--app-fs, 1))", color: t.fog, margin: "1px 4px 0" } }, subLine(m)) : null),
-      m.role === "user" && gsp.showMyAvatar && h(Avatar, { character: meAv, size: 34, radius: 8 }));
+      m.role === "user" && gMeAvEl(34, 8));
     if (m.kind === "forumshare") return h("div", { key: i, className: "flex flex-col py-1 " + (m.role === "user" ? "items-end" : "items-start") },
       m.role === "user" && m.senderName && h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, margin: "0 4px 2px" } }, m.senderName, gRoleTag(m)),
       h(ForumShareCard, { m: m, isU: m.role === "user" }));
     // 群里的分享卡同一张表（论坛帖在群里另有排法，上面单写）
     const _GShare = m.kind !== "forumshare" && shareCardOf(m.kind);
-    if (_GShare) return h("div", { key: i, className: "py-1 flex items-start gap-2 " + (m.role === "user" ? "justify-end" : "justify-start") },
+    if (_GShare) return h("div", { key: i, "data-wk": "cardrow", "data-me": m.role === "user" ? "1" : "0", "data-kind": m.kind || "", className: "py-1 flex items-start gap-2 " + (m.role === "user" ? "justify-end" : "justify-start") },
       m.role !== "user" && mAvatar(memberById(m.senderId) || { name: m.senderName, color: t.tint }),
       h("div", { className: "flex flex-col " + (m.role === "user" ? "items-end" : "items-start") },
         m.senderName && h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, margin: "0 4px 2px" } }, m.senderName, gRoleTag(m)),
         h(_GShare, { m: m, isU: m.role === "user", charId: m.role !== "user" ? m.senderId : null })),
-      m.role === "user" && gsp.showMyAvatar && h(Avatar, { character: meAv, size: 34, radius: 8 }));
-    if (m.kind === "voice") return h("div", { key: i, className: "py-1 flex items-start gap-2 " + (m.role === "user" ? "justify-end" : "justify-start") },
+      m.role === "user" && gMeAvEl(34, 8));
+    if (m.kind === "voice") return h("div", { key: i, "data-wk": "cardrow", "data-me": m.role === "user" ? "1" : "0", "data-kind": m.kind || "", className: "py-1 flex items-start gap-2 " + (m.role === "user" ? "justify-end" : "justify-start") },
       m.role !== "user" && mAvatar(memberById(m.senderId) || { name: m.senderName, color: t.tint }),
       h("div", {
         className: "flex flex-col " + (m.role === "user" ? "items-end" : "items-start"),
@@ -19684,7 +19778,7 @@ function GroupThread({
       },
         m.role !== "user" && m.senderName && h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, margin: "0 4px 2px" } }, m.senderName, gRoleTag(m)),
         h(VoiceMsg, { m: m, isU: m.role === "user", speaker: m.role === "user" ? null : memberById(m.senderId) })),
-      m.role === "user" && gsp.showMyAvatar && h(Avatar, { character: meAv, size: 34, radius: 8 }));
+      m.role === "user" && gMeAvEl(34, 8));
     if (m.kind === "callinvite") return h(CallReceipt, { key: i, m: m, isU: m.role === "user",
       who: m.senderName || ((memberById(m.senderId) || {}).name || ""),
       avatar: mAvatar(memberById(m.senderId) || { name: m.senderName, color: t.tint }), onCallBack: onCallBack });
@@ -19706,7 +19800,7 @@ function GroupThread({
       // ⚠️不传 now：群里这份必然是当面给的（已送达），压根没有倒计时那一档要算；
       //   而 GroupThread 里根本没有 now 这个变量，写上去是直接 ReferenceError。
       avatar: mAvatar(memberById(m.senderId) || { name: m.senderName, color: t.tint }),
-      myAvatar: gsp.showMyAvatar && h(Avatar, { character: meAv, size: 40, radius: 10 })
+      myAvatar: gMeAvEl(40, 10)
     }));
     if (m.kind === "transfer") return h("div", {
       key: i,
@@ -19724,9 +19818,9 @@ function GroupThread({
       // 群里那张卡的「对方」＝收款的那位（她转出去）或者发款的那位（成员转给她）
       charId: m.toId || m.senderId,
       avatar: mAvatar(memberById(m.senderId) || { name: m.senderName, color: t.tint }),
-      myAvatar: gsp.showMyAvatar && h(Avatar, { character: meAv, size: 40, radius: 10 })
+      myAvatar: gMeAvEl(40, 10)
     }));
-    if (m.kind === "selfie") return h("div", { key: i, className: "py-1 flex items-start gap-2 justify-start" },
+    if (m.kind === "selfie") return h("div", { key: i, "data-wk": "cardrow", "data-me": "0", "data-kind": m.kind || "", className: "py-1 flex items-start gap-2 justify-start" },
       mAvatar(memberById(m.senderId) || { name: m.senderName, color: t.tint }),
       h("div", {
         className: "flex flex-col items-start",
@@ -19779,16 +19873,11 @@ function GroupThread({
     const gStamp = window.ChatStamp.decide(window.ChatStamp.prevTimed(messages, i), m, { minGap: 30 * 60 * 1000,
       map: typeof vclockMap === "function" ? (ts => vclockMap(ts, group && group.id ? "g:" + group.id : null)) : undefined });   // 群照群挑的那张面具的钟
     const showGroupTime = gStamp.show;
-    const groupTimeLabel = gStamp.text;
     return h("div", {
       key: i,
       "data-wk": "msg", "data-me": isU ? "1" : "0", "data-i": i, "data-kind": cardLayout(m.content) ? "htmlcard" : (m.kind || "text"),
       ...msgRunAttrs(messages, i, 0, true, (a, b) => a.role === b.role && (a.senderId || "") === (b.senderId || ""))
-    }, showGroupTime && h("div", { className: "flex justify-center", "data-wk": "time", "data-day": gStamp.day ? "1" : "0",
-      style: { margin: gStamp.day ? "18px 0 10px" : "13px 0 8px" } },
-      h("span", { style: gStamp.day
-        ? { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, letterSpacing: "0.04em", padding: "3px 10px", borderRadius: 999, background: t.bg2, border: "1px solid " + t.line }
-        : { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, letterSpacing: "0.02em" } }, groupTimeLabel)), h("div", {
+    }, showGroupTime && h(GStampLine, { st: gStamp, t }), h("div", {
       "data-wk": "row",
       className: "flex items-start gap-2 " + (isU ? "justify-end" : "justify-start")
     }, !isU && mAvatar(c), h("div", {
@@ -19798,7 +19887,10 @@ function GroupThread({
         maxWidth: "72%",
         minWidth: 0
       }, (cardLayout(m.content) || {}).col)
-    }, !isU && h("span", {
+    }, isU && gsp.showMyName && h("span", {
+      "data-wk": "name", "data-me": "1",
+      style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, marginBottom: 2, marginRight: 2 }
+    }, gRoleTag(m), h("span", { style: { marginLeft: 4 } }, meName)), !isU && h("span", {
       "data-wk": "name", "data-me": "0",
       style: {
         fontFamily: F_BODY,
@@ -19857,8 +19949,18 @@ function GroupThread({
     // 思考链画在这一组回复的上方（和单聊、线下同一个组件、同一个位置）。
     // 群聊一次调用写完所有人，所以它挂在这一轮最先冒出来的那条上（v56.75）。
     const _m = messages[i];
+    // 旁白、卡片、表情、转账这些行走的是上面的 early-return，不画时间条。
+    // 跨天后第一条恰好是它们时，那条「昨天／几月几日」就整条丢了（她 2026-10-28：过了一天中间没有灰字）。
+    // 只补跨天那一档；同一天隔半小时的小时刻仍只跟着普通气泡走。
+    let _dayLine = null;
+    if (row && _m && !(row.props && row.props["data-wk"] === "msg") && i >= winStart) {
+      const _st = window.ChatStamp.decide(window.ChatStamp.prevTimed(messages, i), _m, { minGap: 30 * 60 * 1000,
+        map: typeof vclockMap === "function" ? (ts => vclockMap(ts, group && group.id ? "g:" + group.id : null)) : undefined });
+      if (_st.show && _st.day) _dayLine = h(GStampLine, { key: "gday" + i, st: _st, t });
+    }
     row = cardPressRow(row, _m, i, { selMode, startPress, endPress, toggleSel });
     const _rows = (_m && _m.reasoning && _m.role !== "user") ? [h(ReasoningBlock, { key: "grz" + i, m: _m, off: showReason === false }), row] : [row];
+    if (_dayLine) _rows.unshift(_dayLine);
     // 重 Roll 留下的几版：贴在最后一条底下
     return (i === messages.length - 1 && !sending && !selMode && rerollNav && onRerollFlip) ? _rows.concat([h(RerollNav, { key: "grnav", nav: rerollNav, onFlip: onRerollFlip })]) : _rows;
   }), sending && h("div", {
@@ -20461,6 +20563,7 @@ function GroupSettingsSheet({ onSuggestName, onDrawTitles, lucky, onDrawLucky, o
   const [userP, setUserP] = useState(gs.userP || "second");
   const [describeMe, setDescribeMe] = useState(!!gs.describeMe);
   const [showMyAvatar, setShowMyAvatar] = useState(!!gs.showMyAvatar);
+  const [showMyName, setShowMyName] = useState(!!gs.showMyName);   // 群里我那几条上面也写名字和头衔（群友 2026-10-28）
   const [showTime, setShowTime] = useState(!!gs.showTime);
   const [timeSec, setTimeSec] = useState(!!gs.timeSec);
   const [showRead, setShowRead] = useState(!!gs.showRead);
@@ -20586,7 +20689,7 @@ function GroupSettingsSheet({ onSuggestName, onDrawTitles, lucky, onDrawLucky, o
   //   跟单聊设置同一个形状：portal 出去铺满、紧凑顶栏、正文自己滚。
   return ReactDOM.createPortal(h("div", { "data-wk": "gsetpage", "data-page": "1", ref: pageShellPin, className: "h-full flex flex-col", style: pageShellStyle(240, { background: t.bg }) },
     h(Head, { bg: "transparent", zh: "群聊设置", sub: group && group.name ? group.name : undefined, onBack: onClose,
-      right: h("button", { onClick: () => { onSave({ actLong: gActLong, keepRerolls: gKeepRerolls, memoryInterop: interop, privateCtxN: privN, preJoinN: preJoinN, ctxN: ctxN, sumThresh: sumThresh, sumBuffer: sumBuffer, selfP: selfP, userP: userP, describeMe: describeMe, showMyAvatar: showMyAvatar, showTime: showTime, timeSec: timeSec, showRead: showRead, chatBg: chatBg, chatBgFx: chatBgFx, autoChat: autoChat, autoChatMin: autoChatMin, autoChatRounds: autoChatRounds, autoChatMaxMsg: autoChatMaxMsg, autoChatResetHours: autoChatResetHours, drama: gDrama, defaultOffline: gDefaultOffline, actDesc: gActDesc, actPerson: gActPerson, userPerson: gUserPerson, name: gName, titles: Object.fromEntries(Object.entries(gTitles).map(([k, v]) => [k, String(v || "").trim().slice(0, 12)]).filter(x => x[1])), owner: gOwner, admins: gAdmins.filter(x => x !== gOwner), mutes: gMutes, avatarImage: gAvatar, myAvatar: gMyAv || "", maskId: gMask, layout: gLayout, customCSS: gCss }); onClose(); } }, h(ICheck, { size: 19, color: t.ink })) }),
+      right: h("button", { onClick: () => { onSave({ actLong: gActLong, keepRerolls: gKeepRerolls, memoryInterop: interop, privateCtxN: privN, preJoinN: preJoinN, ctxN: ctxN, sumThresh: sumThresh, sumBuffer: sumBuffer, selfP: selfP, userP: userP, describeMe: describeMe, showMyAvatar: showMyAvatar, showMyName: showMyName, showTime: showTime, timeSec: timeSec, showRead: showRead, chatBg: chatBg, chatBgFx: chatBgFx, autoChat: autoChat, autoChatMin: autoChatMin, autoChatRounds: autoChatRounds, autoChatMaxMsg: autoChatMaxMsg, autoChatResetHours: autoChatResetHours, drama: gDrama, defaultOffline: gDefaultOffline, actDesc: gActDesc, actPerson: gActPerson, userPerson: gUserPerson, name: gName, titles: Object.fromEntries(Object.entries(gTitles).map(([k, v]) => [k, String(v || "").trim().slice(0, 12)]).filter(x => x[1])), owner: gOwner, admins: gAdmins.filter(x => x !== gOwner), mutes: gMutes, avatarImage: gAvatar, myAvatar: gMyAv || "", maskId: gMask, layout: gLayout, customCSS: gCss }); onClose(); } }, h(ICheck, { size: 19, color: t.ink })) }),
     h("div", { className: "flex-1 min-h-0 overflow-y-auto px-5 pt-3", style: { paddingBottom: "calc(env(safe-area-inset-bottom) + 28px)" } },
 
     // ⚠️原来一整条从上滚到底，什么都挨着（她 2026-09-30：「看起来有点乱，分成一个个框」）——
@@ -20766,6 +20869,7 @@ function GroupSettingsSheet({ onSuggestName, onDrawTitles, lucky, onDrawLucky, o
         h("input", { ref: bgFileRef, type: "file", accept: "image/*", style: { display: "none" }, onChange: e => { const f = e.target.files && e.target.files[0], el = e.target; if (f) resizeImageFile(f, screenImageDim(), 0.88).then(d => openWallPreview({ src: d, kind: "chat", fx: chatBgFx, onUse: () => setChatBg(d), onRepick: () => el.click() })); e.target.value = ""; } }))),
     chatBg ? h(WallFxRows, { t, fx: chatBgFx, onMove: setChatBgFx, veilHint: "图上压一层暖白，越往右图越淡、字越清楚。", blurHint: "把背景糊掉，气泡更显眼。0 就是原图。" }) : null,
     dispRow("显示我的头像", showMyAvatar, setShowMyAvatar),
+    dispRow("显示我的名字和头衔", showMyName, setShowMyName),
     dispRow("显示时间戳", showTime, setShowTime),
     showTime && dispRow("精确到秒", timeSec, setTimeSec, true),
     dispRow("显示已读", showRead, setShowRead),

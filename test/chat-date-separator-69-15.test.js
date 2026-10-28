@@ -95,8 +95,20 @@ test("单聊和群聊都改用公共那一份，没有第二套算法留在原�
 });
 
 test("新的一天那一条画得比普通时刻明显（data-day 挂着，主题工作室也认得）", () => {
-  assert.match(comp, /"data-day": gStamp\.day \? "1" : "0"/);
+  assert.match(comp, /function GStampLine\(\{ st, t \}\)[\s\S]{0,160}"data-day": st\.day \? "1" : "0"/, "群聊时间条那一份长相");
+  assert.match(comp, /showGroupTime && h\(GStampLine, \{ st: gStamp, t \}\)/, "普通气泡用的不是同一份");
   assert.match(comp, /"data-day": st\.day \? "1" : "0"/);
+});
+
+// 她 2026-10-28：群里过了一天，中间没有灰字——跨天后第一条是旁白（卡片、表情同理），
+// 那些行走 early-return，从来不画时间条。补在 flatMap 那一层：不是普通气泡的行，跨天就在它上面补一条日期。
+test("群聊：跨天后第一条是旁白/卡片，日期条也得在", () => {
+  const i = comp.indexOf("}).flatMap((row, i) => {\n    // 思考链画在这一组");
+  assert.ok(i > 0);
+  const seg = comp.slice(i, i + 1600);
+  assert.match(seg, /row\.props\["data-wk"\] === "msg"/, "普通气泡自己画，别画两条");
+  assert.match(seg, /_st\.show && _st\.day\) _dayLine = h\(GStampLine/, "只补跨天那一档");
+  assert.match(seg, /_rows\.unshift\(_dayLine\)/);
 });
 
 test("index.html 里挂上了，而且排在 components.js 前面", () => {

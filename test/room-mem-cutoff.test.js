@@ -22,7 +22,8 @@ test("开了才截，截到起点那一句；没时间戳的老记忆放行", ()
 test("单聊房、线下房两条检索都过这道截", () => {
   assert.match(app, /memCutoff: window\.ChatRooms\.memCutoff \? window\.ChatRooms\.memCutoff\(room\) : 0/);
   assert.match(app, /window\.ChatRooms\.memBefore\(memLibRef\.current, ctxOpts\.memCutoff\)/);
-  assert.match(app, /let oCtx = ctxFor\(char, sideRoom && window\.ChatRooms && window\.ChatRooms\.memCutoff/);
+  // 线下房走 roomContextFor（里面就是 gateRoomContext ＋ memCutoff），跟这间房的线上同一支
+  assert.match(app, /let oCtx = sideRoom \? roomContextFor\(char, scopeKey, sideRoom,/); assert.match(app, /const gated = gateRoomContext\(ctx, char, chatKey, room\);/); assert.match(app, /memCutoff: window\.ChatRooms\.memCutoff \? window\.ChatRooms\.memCutoff\(room\) : 0/);
   assert.match(comp, /patch\(\{ memUntilAnchor: !draft\.memUntilAnchor \}\)/);
 });
 

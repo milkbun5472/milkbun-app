@@ -93,7 +93,7 @@ test("头像框 / 挂件：TA 和她各一套，编进排版那层 CSS，门牌�
   const body = comp.slice(comp.indexOf("const CHAT_LAYOUT_DEFAULT"), comp.indexOf("// 排版里「头像框 / 挂件」那一行"));
   const f = new Function(body + "\nreturn chatLayoutCSS;")();
   const css = f({ deco: { ta: { frame: "iv_a", frameSize: 140, pend: "iv_b", pendPos: "tl" }, me: { frame: "iv_c" } } });
-  assert.match(css, /\[data-me="0"\] \[data-wk="row"\] > \[data-wk="avatar"\]::after\{[^}]*left:-20%;top:-20%;width:140%;height:140%;background:url\("iv_a"\)/);
+  assert.match(css, /\[data-me="0"\] \[data-wk="row"\] > \[data-wk="avatar"\]::after,\[data-wk="cardrow"\]\[data-me="0"\] > \[data-wk="avatar"\]::after\{[^}]*left:-20%;top:-20%;width:140%;height:140%;background:url\("iv_a"\)/);   // 卡片行的头像也套同一个框（2026-10-27）
   assert.match(css, /\[data-me="0"\][^{]*::before\{[^}]*left:-12%;top:-12%;[^}]*url\("iv_b"\)/);
   assert.match(css, /\[data-me="1"\][^{]*::after\{[^}]*url\("iv_c"\)/);
   assert.match(comp, /isU && dsp\.myAvatar && h\("span", \{ "data-wk": "avatar"/, "她那颗没包挂点壳，框会被头像的圆角裁掉");

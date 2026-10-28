@@ -79,13 +79,13 @@ test("转发时把每条的原始时刻一起带上", () => {
 // 她 2026-08-26：「卡片旁边没带头像」——群聊那支当初写成了 flex-col，把头像整个漏了
 test("单聊群聊的卡片旁边都有头像，底下都有时间行", () => {
   const single = comp.slice(comp.indexOf('if (m.kind === "chatforward")'), comp.indexOf('if (m.kind === "forumshare")'));
-  assert.match(single, /h\(Avatar, \{ character: character, size: 40/, "单聊：对方头像");
-  assert.match(single, /dsp\.myAvatar && h\(Avatar, \{ character: meAv/, "单聊：我的头像");
+  assert.match(single, /charAvEl\(\)/, "单聊：对方头像（公共那一颗）");
+  assert.match(single, /meAvEl\(\)/, "单聊：我的头像（公共那一颗）");
   assert.match(single, /last && subLine\(m\)/, "单聊：时间行照旧只在最后一条");
   const gi = comp.indexOf('if (m.kind === "chatforward")', comp.indexOf('if (m.kind === "chatforward")') + 10);
   const group = comp.slice(gi, comp.indexOf('if (m.kind === "forumshare")', gi));
   assert.match(group, /mAvatar\(memberById\(m\.senderId\)/, "群聊：发言人头像");
-  assert.match(group, /gsp\.showMyAvatar && h\(Avatar, \{ character: meAv/, "群聊：我的头像");
+  assert.match(group, /gMeAvEl\(\d+, \d+\)/, "群聊：我的头像（公共那一颗）");
   assert.match(group, /subLine\(m\) \?/, "群聊：时间行");
   assert.ok(!/flex flex-col py-1/.test(group), "别再回到那个没头像的 flex-col 写法");
 });

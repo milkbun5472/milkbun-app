@@ -18,7 +18,8 @@ test("buildBundle 把 sceneSetting 紧跟人设放", () => {
 });
 test("房间线上/线下两条路都挂上 sceneSetting", () => {
   assert.match(app, /gated\.sceneSetting = window\.ChatRooms && window\.ChatRooms\.scenarioSetting/);
-  assert.match(app, /oCtx\.sceneSetting = window\.ChatRooms && window\.ChatRooms\.scenarioSetting/);
+  // 线下（v76.820 起）跟线上走同一个 roomContextFor，底子从那里一起带进来
+  assert.match(app, /let oCtx = sideRoom \? roomContextFor\(char, scopeKey, sideRoom/);
   assert.match(rooms, /"roomPrompt", "sceneSetting"/);
   assert.doesNotMatch(rooms.split("\n").filter(l => !l.trim().startsWith("//")).join("\n"), /本房内优先级最高/);
 });

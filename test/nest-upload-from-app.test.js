@@ -120,3 +120,14 @@ test("嵌进去的图：小 SVG、压得下的位图都能传；大 SVG、字体
   // JSON 包里（主题、整套美化）引号是转义过的，也认得出
   assert.match(N.imgProblem(JSON.stringify({ look: { customCSS: 'a{b:url("data:image/tiff;base64,AAA=")}' } })), /tiff/);
 });
+
+test("整份超了先自己往小里压，压到放得下才拿去查（2026-10-28 桌面美化四五十张）", () => {
+  const src = require("node:fs").readFileSync(require("node:path").join(__dirname, "../js/nest.js"), "utf8");
+  const i = src.indexOf("async function fitTotal("), j = src.indexOf("function imgProblem(", i);
+  assert.ok(i > 0 && j > i, "抠不出 fitTotal");
+  const body = src.slice(i, j);
+  assert.match(body, /text\.length <= PAYLOAD_ALL/);
+  assert.match(body, /resizeImageFile\(/);
+  assert.match(body, /sort\(\(a, b\) => b\[0\] - a\[0\]\)/, "从后往前换，位置不乱");
+  assert.match(src, /return fitTotal\(text\);/, "shrinkImages 最后交给 fitTotal");
+});

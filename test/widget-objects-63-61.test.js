@@ -142,7 +142,7 @@ test("卡片的底能换，换深底之后字跟着换——不然直接看不�
   assert.match(mw, /const gr = musicPhotoGround\(card\) \|\| musicGround\(card\.bg\);/, "自定义底图没接上");
   // 自己的图：明暗不知道，所以盖一层反方向的薄纱 + 字色由她选，不猜
   const pg = cut("function musicPhotoGround(card)", "function PolaroidStack(");
-  assert.match(pg, /const darkText = card\.bgInk === "dark";/);
+  assert.match(pg, /const darkText = card\.bgInk === "dark"( \|\| raw)?;/);
   assert.match(pg, /veil = darkText \? "rgba\(250,246,238,\.55\)" : "rgba\(26,22,18,\.46\)"/, "薄纱没跟着字色反过来，字会糊在图上");
   // ⚠️每一档深底都必须自带 ink/sub：只换 background 的话夜色和木桌上是墨字压深底
   const gs = cut("const MUSIC_GROUNDS = [", "const musicGround =");
@@ -331,4 +331,16 @@ test("对齐层只套给自己决定高度的组件——别的照旧是块级�
   // 标题和那三个钮现在是同一段（section 的头和体），收口只此一处——
   // 分成两个判断的时候，正是「一层写在两处」最爱漏的那种形状。
   assert.equal((comp.match(/HOME_ALIGNS\.map/g) || []).length, 1, "那三个钮又被抄了一份");
+});
+
+// 她 2026-10-29 转群友：浅色照片放进音乐卡整张发暗——给一个「原图」，不盖纱
+test("音乐卡照片底：选「原图」不盖纱、用深字", () => {
+  const src = require("fs").readFileSync(require("path").join(__dirname, "..", "js/components.js"), "utf8");
+  const i = src.indexOf("function musicPhotoGround("), j = src.indexOf("\n}", i) + 2;
+  const g = new Function(src.slice(i, j) + "\nreturn musicPhotoGround;")();
+  const raw = g({ bgPhoto: "x.jpg", bgInk: "raw" });
+  require("assert").ok(!/linear-gradient/.test(raw.bg), raw.bg);
+  require("assert").equal(raw.ink, "#2c261e");
+  require("assert").ok(/linear-gradient/.test(g({ bgPhoto: "x.jpg" }).bg), "浅字照旧盖纱");
+  require("assert").match(src, /\["raw", "原图"\]/);
 });

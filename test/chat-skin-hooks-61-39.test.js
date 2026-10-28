@@ -70,6 +70,8 @@ test("皮肤用到的每一个挂点，单聊和群聊都得有", () => {
     // noteink 只长在它里面（那个话筒图标），所以整条只查这一个组件。
     // 消息底下那一行是公共的 chatMsgFoot 画的，单聊群聊都叫它（2026-10-26 并成一份）——同头像一样不按页查
     if (k === "meta") { if (!has(comp.slice(comp.indexOf("function chatMsgFoot("), comp.indexOf("function TtsBubbleDot(")))) missing.push("meta（chatMsgFoot）"); return; }
+    // 群聊的时刻条收进了 GStampLine（2026-10-27 跨天日期条修复），GroupThread 叫它——到那里去查
+    if (k === "time" && has(comp.slice(comp.indexOf("function GStampLine("), comp.indexOf("function cardPressRow("))) && GROUP.includes("GStampLine")) { if (!has(THREAD)) missing.push("time ← 单聊"); return; }
     if (k === "noteink") { if (!has(comp.slice(comp.indexOf("function CallEndPill("), comp.indexOf("function CallShotThumb(")))) missing.push("noteink（CallEndPill）"); return; }
     // 此刻日程条只有单聊有：一个群里几个人各有各的行程，摆不出一条「此刻」。
     // ⚠️这个例外自己会失效——下面那一条钉着「群聊确实没有 schedNow」，
@@ -217,4 +219,11 @@ test("已读那一行两处都挂了，而且认得出是谁说的", () => {
   const wa = TS.CSS_BUILTINS.thread.find(x => x[0] === "仿 WhatsApp")[1];
   assert.doesNotMatch(wa, /\[data-wk="msg"\] \{ position: relative/, "又锚到整行上了");
   assert.match(wa, /align-self: flex-end !important;/, "没落在气泡那一列的右缘");
+});
+
+// 她 2026-10-28：美化没跟上「正在输入」——头像框写在 msg[data-me=0] 底下，这一行原来不在 msg 里、头像也是裸的
+test("正在输入那一行：套在 msg 里，头像跟气泡那颗同一份", () => {
+  const src = require("fs").readFileSync(require("path").join(__dirname, "..", "js/components.js"), "utf8");
+  assert.match(src, /"data-wk": "msg", "data-me": "0", "data-kind": "typing"/);
+  assert.match(src, /"data-wk": "row",\n    className: "flex items-start gap-2"\n  \}, charAvEl\(\)/);
 });

@@ -8,8 +8,8 @@ test("长按只有 cardPressRow 一处：cardRow 只管位置和头像，不再�
   const a = src.indexOf("const cardRow = (i, m, card) =>"), b = src.indexOf("};", a);
   const row = src.slice(a, b);
   assert.doesNotMatch(row, /startPress|toggleSel/);
-  assert.match(row, /!isU && h\(Avatar, \{ character: character/);
-  assert.match(row, /isU && dsp\.myAvatar && h\(Avatar, \{ character: meAv/);
+  assert.match(row, /!isU && charAvEl\(\)/);
+  assert.match(row, /isU && meAvEl\(\)/);
 });
 
 test("所有小卡都在长按名单里", () => {

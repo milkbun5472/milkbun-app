@@ -1179,7 +1179,7 @@
       + "enter（新消息入场：\"none\"|\"fade\"|\"rise\"|\"pop\"）、head（顶栏：\"normal\"|\"clear\"|\"glass\"）、composer（输入栏：\"normal\"|\"float\"|\"glass\"）、"
       + "fontSize（气泡字号 12-20，0＝原样）、lineHeight（气泡行距 1.2-2.2，0＝原样）、gapIn（同一串里每条之间 0-40 px）、gapOut（每串之间 0-60 px；这两个填 null＝回到 gap 那一档）、"
       + "deco（{ta:{frame,frameSize,pend,pendSize,pendPos}, me:{…}}：头像框/挂件，图只能是 https 地址或现状里已有的 iv_ 门牌；frameSize 100-200，pendSize 20-100，pendPos br/bl/tr/tl）。"
-      + "想要不用图的框（一圈描边、发光、渐变圈），写进 chatcss／groupcss：对 [data-wk=\"row\"] > [data-wk=\"avatar\"] 写 position:relative，再用 ::after 画。"
+      + "想要不用图的框（一圈描边、发光、渐变圈），写进 chatcss／groupcss：对 [data-wk=\"row\"] > [data-wk=\"avatar\"], [data-wk=\"cardrow\"] > [data-wk=\"avatar\"] 写 position:relative，再用 ::after 画（后半是表情包、卡片那几行，不写的话它们的头像套不上框）。"
       + "只填她提到的那几栏。\n"
       + "· rules 某个角色或某个群的长期准则（她经 OOC 立的那几条，每轮都会作为高优先要求喂给TA；id＝角色 id 或群 id）：text 写【改完之后的整份】，一行一条——删一条就是不写它，加一条就是多写一行，改措辞就改那一行。快照里每个角色的「长期准则」、每个群的「群规矩」就是现在的样子。"
       + "她问某个角色为什么老这样、是不是哪条规矩卡住了TA，先去看这一栏。\n"
