@@ -118,7 +118,8 @@ test("app.js 那一处真的换成白名单了，黑名单删干净", () => {
   assert.match(app, /buildBundle\(_shape\.blankRecent \? \{ \.\.\._gated, recentChat: "" \} : _gated\)/, "过滤完的那份没被真正用上");
   // ⚠️线下那条路上原来还有【第二份一模一样的手抄件】，两处一起漏那 23 栏。
   //   两处都得走同一张白名单，不然改一处永远漏另一处（one-public-mechanism.md）。
-  assert.match(app, /oCtx = gateRoomContext\(oCtx,/, "线下那条路没换成公共那道闸");
+  // 线下房走 roomContextFor（里面就是 gateRoomContext ＋ memCutoff），跟这间房的线上同一支
+  assert.match(app, /let oCtx = sideRoom \? roomContextFor\(char, scopeKey, sideRoom,/); assert.match(app, /const gated = gateRoomContext\(ctx, char, chatKey, room\);/);
   assert.equal((app.match(/ChatRooms\.gateCtx\(/g) || []).length, 1, "线上线下应共用一道闸");
   // 「撤掉东西要删除，不是留在原地」
   assert.ok(!/moodLabel = null; /.test(app), "旧那张黑名单还留着");

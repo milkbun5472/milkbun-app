@@ -20,7 +20,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v76.819";
+const APP_VERSION = "v76.821";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -9024,15 +9024,16 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     try {
       // 外置记忆库：拿这一场她最近那句去搜（隔离房的闸照样在 gateRoomContext 那一道）
       if (window.ExtMem) { const _oq = ((workSess && workSess.msgs) || []).filter(m => m && m.role === "user" && m.content).slice(-1)[0]; await window.ExtMem.prefetch(char, String((_oq && _oq.content) || "")); }
-      let oCtx = ctxFor(char, sideRoom && window.ChatRooms && window.ChatRooms.memCutoff ? { memCutoff: window.ChatRooms.memCutoff(sideRoom) } : undefined);
+      // 小房间里的线下读【这间房自己】的聊天（群友 2026-10-28：「总结了，再聊线下他不记得之前线下的内容」）：
+      //   原来这里拿的是主聊天那份再被房门挡掉，这间房里聊过的、上一场线下收线留下的那张卡，一个字都进不来。
+      //   跟这间房的线上同一支 roomContextFor（四处一样喂）。
+      let oCtx = sideRoom ? roomContextFor(char, scopeKey, sideRoom, { queryText: (workSess.msgs || []).slice(-6).map(m => m.content || "").join("\n") }) : ctxFor(char);
       if (sideRoom) {
         // turns＝这间房自己已经有几条真对话：只决定【开场】那半是当指令发还是当往事发
         // 线下这份的查询字跟下面递进去的 queryText 是同一段——向量缓存按字对账
         if (window.ChatRooms && window.ChatRooms.memCount(charId, sideRoom.id) && typeof primeQueryVec === "function") await primeQueryVec((workSess.msgs || []).slice(-6).map(m => m.content || "").join("\n"));
         oCtx.roomPrompt = window.ChatRooms ? window.ChatRooms.prompt(sideRoom, chatsRef.current[charId] || [],
           { turns: roomTurnsOf(charId, sideRoom), record: true, queryText: (workSess.msgs || []).slice(-6).map(m => m.content || "").join("\n"), memLimit: osFor(charId).memN == null ? (memCfgRef.current.topK || 5) : Math.max(1, osFor(charId).memN) }) : "";
-        oCtx.sceneSetting = window.ChatRooms && window.ChatRooms.scenarioSetting ? window.ChatRooms.scenarioSetting(sideRoom) : "";
-        oCtx = gateRoomContext(oCtx, char, scopeKey, sideRoom);
       }
       // 思考链（v56.75）：线下和单聊共用同一个每角色开关（聊天设置 →「显示模型思考链」）。
       // 言秋那条线一个字都不碰——engineerEyes 的角色不传，和单聊那边同一道闸。
@@ -17523,7 +17524,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   const roomHistoryText = (char, chatKey, room) => {
     const rows = (chatsRef.current[chatKey] || []).filter(m => m && !m.recalled && !isOocMsg(m) && contextAllowsMessage(m));
     const me = (window.ChatRooms && window.ChatRooms.altCallName ? window.ChatRooms.altCallName(room) : "") || profile.name || "我";
-    return rows.slice(-20).map(m => (m.role === "user" ? me : char.name) + "：" + (m.content || "")).join("\n");
+    // 线下收线留下的那张卡（kind offlinelog）是这间房里见过的一面，不是谁说的一句话
+    return rows.slice(-20).map(m => m.kind === "offlinelog" ? "（你们在这间房里见过一面：" + String(m.content || "").trim() + "）" : (m.role === "user" ? me : char.name) + "：" + (m.content || "")).join("\n");
   };
   // 【这一轮的历史到底怎么发】——只此一份。
   // ⚠️她 2026-09-15 抓到：「TA 知道什么」里的【最近对话】是几百条之前的。
