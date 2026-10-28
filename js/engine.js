@@ -591,13 +591,14 @@ function upstreamErrorInContent(text) {
   return "";
 }
 // 三种协议分支共用：拿到正文先过这一关，是上游错误就当错误抛，别冒充模型的话往下走。
+// 秒回的那档要说清跟输出上限无关（她 2026-10-28 转群友：看见「输出上限 65000」就以为是上限把话拦了）
 function callDiag(model, promptChars, maxTokens, t0) {
   const secs = Math.round((Date.now() - t0) / 100) / 10;
   return "〔" + (model || "未知模型")
     + "｜提示词约 " + Math.round(promptChars / 1000) + "k 字"
     + "｜输出上限 " + maxTokens + " tok"
     + "｜等了 " + secs + " 秒"
-    + (secs < 8 ? "＝上游直接打回来了（拦截／格式／配额），不是超时" : "＝等到一半才断，像超时或冷启动") + "〕";
+    + (secs < 8 ? "＝上游直接打回来了（拦截／格式／配额），不是超时，也跟输出上限无关" : "＝等到一半才断，像超时或冷启动") + "〕";
 }
 // 正文里漏出来的英文思考（她 2026-10-16 转群友：新站子「容易掉思维链」——**Refining the Draft** 那种小标题 + 「I'm now…」一段段，
 //   被当成回话拆成一串气泡）。有的中转把模型的思考摘要直接拼在正文前面、不放进 reasoning 字段，也不带 <think> 标记。
