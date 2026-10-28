@@ -354,6 +354,7 @@
     { key: "defaultOffline", zh: "点进来先进线下", type: "bool", def: false, what: "点开这个群直接进群线下。" },
     { key: "actDesc", zh: "线上带动作描写", type: "bool", def: false, what: "群里每句话旁边带一行括号动作。" },
     { key: "showMyAvatar", zh: "显示我的头像", type: "bool", def: true, what: "我发的消息旁边带不带头像。" },
+    { key: "showMyName", zh: "显示我的名字和头衔", type: "bool", def: false, what: "我发的消息上面也写我的名字，挂着我在这个群的头衔和群主/管理员牌子。" },
     { key: "showTime", zh: "显示时间", type: "bool", def: true, what: "气泡底下显示时间。" },
     { key: "showRead", zh: "显示已读", type: "bool", def: false, what: "我发的消息底下显示已读。" }
   ];
