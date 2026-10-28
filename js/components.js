@@ -11202,6 +11202,8 @@ function ChatThread({
   // 左滑引用：只给菜单里本来就有「引用」的那几类消息（动作行、照片卡这些引用了也没意义）
   // 双击头像拍一拍（她 2026-10-02）。单击原来的动作（看心声）往后让 260ms，等第二下
   const avTapRef = useRef({ t: 0, timer: null });
+  // 消息行左右TA那颗头像：气泡、表情包、卡片、正在输入共用这一份（挪到这一层，正在输入那行也够得着）
+  const charAvEl = () => h("button", { onClick: avTap(onOpenState), className: "shrink-0 active:opacity-70", title: "查看 " + cName + " 的心声", "data-wk": "avatar" }, h(Avatar, { character: character, size: 40, radius: 10 }));
   const avTap = single => e => {
     if (e && e.stopPropagation) e.stopPropagation();
     const r = avTapRef.current, now = Date.now();
@@ -11473,7 +11475,6 @@ function ChatThread({
     //   新卡片要进聊天：在这儿套上头像，再把 kind 写进 CARD_PRESS_KINDS。
     // 消息行左右那颗头像：文字气泡、表情包、各种卡片全用这一份（她 2026-10-27：表情包那行的头像没套头像框、点了也开不了状态卡）。
     //   跟文字气泡那颗一模一样：TA 那颗是按钮（单击看状态、双击拍一拍），我这颗是一层 span；挂点都是 data-wk="avatar"
-    const charAvEl = () => h("button", { onClick: avTap(onOpenState), className: "shrink-0 active:opacity-70", title: "查看 " + cName + " 的心声", "data-wk": "avatar" }, h(Avatar, { character: character, size: 40, radius: 10 }));
     const meAvEl = () => dsp.myAvatar ? h("span", { "data-wk": "avatar", className: "shrink-0", style: { display: "inline-flex" } }, h(Avatar, { character: meAv, size: 40, radius: 10 })) : null;
     const cardRow = (i, m, card) => {
       const isU = m.role === "user";
@@ -11916,7 +11917,11 @@ function ChatThread({
     }, "!")));
   })(_row), _row.m, _row.i, { selMode, startPress, endPress, toggleSel })),
   // 重 Roll 留下的几版：贴着 TA 最后那条气泡底下，左右翻
-  !sending && !selMode && rerollNav && onRerollFlip ? h(RerollNav, { nav: rerollNav, onFlip: onRerollFlip }) : null, sending && /*#__PURE__*/React.createElement("div", {
+  !sending && !selMode && rerollNav && onRerollFlip ? h(RerollNav, { nav: rerollNav, onFlip: onRerollFlip }) : null, sending && h("div", {
+    // 外面套一层 msg（她 2026-10-28：美化没跟上输入中）：头像框、挂件、藏头像那几条都写在
+    //   [data-wk="msg"][data-me="0"] 底下，这一行不在 msg 里，头像就光秃秃的
+    "data-wk": "msg", "data-me": "0", "data-kind": "typing"
+  }, /*#__PURE__*/React.createElement("div", {
     role: "status",
     "aria-live": "polite",
     "aria-label": character.name + " 正在输入",
@@ -11925,11 +11930,7 @@ function ChatThread({
     //   满屏气泡都变圆了、只有这一颗还方着——最扎眼的恰恰是它，因为它天天出现。
     "data-wk": "row",
     className: "flex items-start gap-2"
-  }, /*#__PURE__*/React.createElement(Avatar, {
-    character: character,
-    size: 40,
-    radius: 10
-  }), h("div", null, /*#__PURE__*/React.createElement("div", {
+  }, charAvEl(), h("div", null, /*#__PURE__*/React.createElement("div", {
     // 外面多包一层（她 2026-10-19）：跟普通消息一样，气泡不直接挂在整行底下。
     //   美化常写「div:has(> 气泡) 竖着排」来把引用挪到气泡下面，直接挂在行上会把头像、点点、✕ 整行竖排拆散。
     "data-wk": "bubble", "data-me": "0", "data-kind": "typing",
@@ -11939,7 +11940,7 @@ function ChatThread({
       borderRadius: 14
     }
   }, /*#__PURE__*/React.createElement(TypingDots, { color: t.fog }))),
-  onStopGen && h(GenStopX, { onStop: onStopGen }))), selMode ? h("div", { "data-wk": "selbar", className: "shrink-0", style: { background: t.bg2, borderTop: `1px solid ${t.line}` } },
+  onStopGen && h(GenStopX, { onStop: onStopGen })))), selMode ? h("div", { "data-wk": "selbar", className: "shrink-0", style: { background: t.bg2, borderTop: `1px solid ${t.line}` } },
   // 多选栏两行（她 2026-10-17「太多东西塞不下了」）：上面一行是取消／已选几条／补中间，下面一行是能做的事，平均摊开
   h("div", {
     className: "flex items-center justify-between px-4 pt-2.5 pb-1",

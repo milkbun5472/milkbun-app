@@ -220,3 +220,10 @@ test("已读那一行两处都挂了，而且认得出是谁说的", () => {
   assert.doesNotMatch(wa, /\[data-wk="msg"\] \{ position: relative/, "又锚到整行上了");
   assert.match(wa, /align-self: flex-end !important;/, "没落在气泡那一列的右缘");
 });
+
+// 她 2026-10-28：美化没跟上「正在输入」——头像框写在 msg[data-me=0] 底下，这一行原来不在 msg 里、头像也是裸的
+test("正在输入那一行：套在 msg 里，头像跟气泡那颗同一份", () => {
+  const src = require("fs").readFileSync(require("path").join(__dirname, "..", "js/components.js"), "utf8");
+  assert.match(src, /"data-wk": "msg", "data-me": "0", "data-kind": "typing"/);
+  assert.match(src, /"data-wk": "row",\n    className: "flex items-start gap-2"\n  \}, charAvEl\(\)/);
+});
