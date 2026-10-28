@@ -2849,7 +2849,26 @@ function Forum({
     const all = (posts || []).filter(p => forumVisible(p) && p.fmt === "xhs");
     const tab = isMe ? profTab : "notes";
     const list = tab === "fav" ? all.filter(p => bookmarked.has(p.id) && (!albumTab || albums.of[p.id] === albumTab)) : tab === "liked" ? all.filter(p => liked.has(p.id)) : notes;
-    const tabs = isMe ? [["notes", "笔记"], ["fav", "收藏"], ["liked", "赞过"]] : [["notes", "笔记"]];
+    const tabs = isMe ? [["notes", "笔记"], ["fav", "收藏"], ["liked", "赞过"], ["cmts", "评论"]] : [["notes", "笔记"]];
+    // 我发过的评论（群友 2026-10-28 许愿，像小红书那样）：楼和楼中楼都算，新的在上；点一条打开那篇
+    //   跟着号走：大号、小号、每张面具各看各的，判据跟上面「我的笔记」同一条（小号看小号；大号/面具里匿名发的也算）
+    const onAltNow = !!(forumMe && forumMe.using === "alt");
+    const mineAs = x => !!x.alt === onAltNow && (onAltNow || !!x.anon || String(x.mask || "") === String(forumMaskNow || ""));
+    const myCmts = tab !== "cmts" ? [] : (posts || []).filter(p => forumVisible(p) && p.fmt === "xhs").reduce((acc, p) => {
+      (cmts[p.id] || []).forEach((f, fi) => {
+        if (!f) return;
+        const fid = f.id || fi;
+        if (f.authorType === "me" && mineAs(f)) acc.push({ p, fid, text: f.content, ts: f.ts, re: (f.replies || []).filter(r => r && r.authorType !== "me").length, as: f.authorName });
+        (f.replies || []).forEach(r => { if (r && r.authorType === "me" && mineAs(r)) acc.push({ p, fid, text: r.content, ts: r.ts, to: r.toName || f.authorName, as: r.authorName }); });
+      });
+      return acc;
+    }, []).sort((a, b) => (Number(b.ts) || 0) - (Number(a.ts) || 0));
+    // 点开那篇再滚到我那条所在的楼（楼是点开才排出来的，多等几下）
+    const openAtFloor = x => { openPost(x.p); let tries = 0;
+      const seek = () => { const el = document.getElementById("forum-floor-" + x.fid);
+        if (el) { el.scrollIntoView({ behavior: "smooth", block: "center" }); el.style.transition = "box-shadow .4s"; el.style.boxShadow = "0 0 0 2px " + FORUM_SKIN.accent; setTimeout(() => { el.style.boxShadow = ""; }, 1600); }
+        else if (++tries < 12) setTimeout(seek, 150); };
+      setTimeout(seek, 260); };
     return h("div", { "data-wk": "foxhsprofile" },
       h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.fog, padding: "10px 16px 0" } }, h("b", { style: { color: t.ink } }, fmtNum(got)), " 获赞与收藏"),
       h("div", { role: "tablist", className: "flex justify-center", style: { gap: 28, borderBottom: "1px solid " + t.line, marginTop: 8 } }, tabs.map(([k, zh]) => h("button", { key: k, role: "tab", "aria-selected": tab === k, "data-wk": "foxhsproftab", "data-on": tab === k ? "1" : "0", onClick: () => setProfTab(k), className: "active:opacity-60",
@@ -2858,7 +2877,12 @@ function Forum({
         [""].concat(albums.names).map(nm => h("button", { key: nm || "_all", "data-on": albumTab === nm ? "1" : "0", onClick: () => setAlbumTab(nm), className: "shrink-0 whitespace-nowrap active:opacity-60",
           style: { minHeight: 30, padding: "0 12px", borderRadius: 999, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", border: "1px solid " + (albumTab === nm ? FORUM_SKIN.accent : FORUM_SKIN.line), background: albumTab === nm ? FORUM_SKIN.soft : "transparent", color: albumTab === nm ? FORUM_SKIN.accent : FORUM_SKIN.fog } },
           nm ? nm + " " + Object.values(albums.of).filter(x => x === nm).length : "全部"))) : null,
-      list.length ? xhsGrid(list)
+      tab === "cmts" ? (myCmts.length ? h("div", { "data-wk": "foxhsmycmts" }, myCmts.map((x, i) => h("button", { key: i, "data-wk": "foxhsmycmt", onClick: () => openAtFloor(x), className: "w-full text-left active:opacity-70",
+          style: { display: "block", padding: "12px 16px", borderBottom: "1px solid " + t.line, background: "transparent" } },
+          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.ink, lineHeight: 1.6, whiteSpace: "pre-wrap" } }, (x.to ? "回复 " + x.to + "：" : "") + String(x.text || "")),
+          h("div", { style: { marginTop: 6, padding: "6px 9px", borderRadius: 8, background: FORUM_SKIN.soft || t.bg2, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.sub, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, "评论了《" + String(x.p.title || "").slice(0, 40) + "》"),
+          h("div", { style: { marginTop: 5, fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog } }, [x.ts ? timeAgo(x.ts) : "", x.as ? "用「" + x.as + "」" : "", x.re ? x.re + " 条回复" : ""].filter(Boolean).join(" · "))))) : h(Empty, { text: "还没评论过笔记" }))
+      : list.length ? xhsGrid(list)
         : h(Empty, { text: tab === "fav" ? "还没收藏过笔记" : tab === "liked" ? "还没赞过笔记" : (isMe ? "你还没发过笔记" : "还没有笔记") }));
   }
   // 小红书笔记的图：一张就照旧一张；好几张就左右滑，右上角写着第几张、底下一排小点
