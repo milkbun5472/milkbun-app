@@ -1,6 +1,6 @@
 const test = require("node:test"), assert = require("node:assert"), fs = require("fs");
 const s = fs.readFileSync("js/engine.js", "utf8"), app = fs.readFileSync("js/app.js", "utf8");
-const f = new Function(s.slice(s.indexOf("const BUBBLE_CONJ"), s.indexOf("function splitCardsAndLines")) + ";return bubbleGlueBrokenLines;")();
+const f = new Function(s.slice(s.indexOf("const BUBBLE_DANGLE"), s.indexOf("function splitCardsAndLines")) + ";return bubbleGlueBrokenLines;")();
 test("半句话断成两泡粘回去", () => {
   assert.deepEqual(f(["刚在健身会所做完核心", "训练", "两块全麦面包配了杯", "咖啡", "你呢？还没休息？", "还是", "又在做心理测试题？"]),
     ["刚在健身会所做完核心训练", "两块全麦面包配了杯咖啡", "你呢？还没休息？", "还是又在做心理测试题？"]);
