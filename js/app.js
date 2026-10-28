@@ -19695,7 +19695,13 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   const netOf = x => { const m = /网名(?:是|叫)?[：:「“"\s]*([^，,。；;」”"\n]{1,24})/.exec(String((x && (x.brief || x.persona || x.intro)) || "")); return m ? m[1].trim() : ""; };
   const _phoneFaceChar = (ownerId, name) => { const n = String(name || "").trim(); if (!n) return null;
     // 配角卡里常写着「网名X」，他手机微信里显示的正是那个网名（群里 2026-10-17 截图：沈韦＝韦制、苏漾＝盐汽水不加盐）
-    return (characters || []).find(x => x && x.id !== ownerId && (x.name === n || x.remark === n || netOf(x) === n)) || null; };
+    const exact = (characters || []).find(x => x && x.id !== ownerId && (x.name === n || x.remark === n || netOf(x) === n));
+    if (exact) return exact;
+    // 只写了名、没带姓（群里 2026-10-28：推演出来的群里「智旻」「泰亨」是色块，角色卡上叫「朴智旻」「金泰亨」）：
+    //   卡名正好是「一两个字的姓＋这个名」、而且只有这一张对得上，才认；对得上好几张就不认，免得认错人
+    if (n.length < 2) return null;
+    const tail = (characters || []).filter(x => x && x.id !== ownerId && [x.name, x.remark].some(v => { v = String(v || ""); return v.length - n.length >= 1 && v.length - n.length <= 2 && v.endsWith(n); }));
+    return tail.length === 1 ? tail[0] : null; };
   window.__phoneFaceOf = (ownerId, name) => {
     const mine = ((loadJSON("x_phoneContactAv", {}) || {})[ownerId] || {})[String(name || "").trim()];
     if (mine) return mine;
