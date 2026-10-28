@@ -30120,10 +30120,11 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   const delSongTalk = (song, cid) => { const key = LQ().songKey(song); if (!key) return;
     saveListen(p => { const st = p.songTalk || {}, cur = st[key]; if (!cur) return p; return { ...p, songTalk: { ...st, [key]: { ...cur, items: (cur.items || []).filter(c => c.id !== cid) } } }; }); };
   // 转给TA：落一张卡，跟片刻分享视频同一个形状，不让TA当场开口
-  const shareSquare = (post, c) => {
+  // 广场一帖、或者正在听的一首歌（她 2026-10-28 群里许愿）转给TA：落一张卡，不让TA当场开口，等她说完按回复
+  const shareSquare = (post, c, roomId) => {
     if (!post || !c) return;
     const snap = LQ().shareSnap(post);
-    pChat(c.id, p => [...p, { role: "user", kind: "listenshare", listenPost: snap, content: LQ().shareText(snap), ts: Date.now(), read: true }]);
+    pChat(shareChatKey(c, roomId), p => [...p, { role: "user", kind: "listenshare", listenPost: snap, content: LQ().shareText(snap), ts: Date.now(), read: true }]);
     toast("已转给 " + (c.remark || c.name));
   };
   const genCharPlaylist = async char => {
@@ -33894,7 +33895,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     onShare: (ses, c, roomId) => {
       const K = window.LiveKit; if (!K || !c) return;
       // 可以发进小房间（她 2026-10-07：「可以选发到房间」）：落进那间房自己的聊天，TA在那间房里接
-      const key = roomId && roomId !== "main" && window.ChatRooms ? window.ChatRooms.chatKey(c.id, roomId) : c.id;
+      const key = shareChatKey(c, roomId);
       const host = ses.mode === "watch" ? (ses.host || ((characters.find(x => x.id === ses.charId) || {}).name) || "主播") : userName(profile);
       const snap = K.shareSnap(ses, host);
       pChat(key, p => [...p, { role: "user", kind: "liveshare", live: snap, content: K.shareText(snap, userName(profile), c.name), ts: Date.now(), read: true }]);
@@ -34014,7 +34015,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       // 视频分享给 TA（她 2026-10-07）：跟直播回放一样，落一张卡、可选小房间、不让TA当场开口
       onShare: (v, c, roomId) => {
         const K = window.ShuaKit; if (!K || !c || !v) return;
-        const key = roomId && roomId !== "main" && window.ChatRooms ? window.ChatRooms.chatKey(c.id, roomId) : c.id;
+        const key = shareChatKey(c, roomId);
         const snap = K.shareSnap(v);
         pChat(key, p => [...p, { role: "user", kind: "shuashare", shua: snap, content: K.shareText(snap, c.id, ""), ts: Date.now(), read: true }]);
         toast("已分享给 " + (c.remark || c.name) + (key !== c.id ? "（小房间里）" : ""));

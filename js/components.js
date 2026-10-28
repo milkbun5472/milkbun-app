@@ -1567,6 +1567,29 @@ function pageShellPin(el) {
   if (z) el.style.setProperty("z-index", z, "important");
 }
 function pageShellStyle(z, extra) { return Object.assign({ position: "fixed", inset: 0, zIndex: z, animation: "qqIn .22s ease both" }, extra || {}); }
+// ── 发给谁（她 2026-10-28：一起听的歌也要能转进TA的对话框）────────────────────
+// 直播回放、片刻视频、一起听原来各写一份「挑人 → 开过小房间的再挑哪间」，收成这一份。
+//   onPick(角色, 房间id)：房间id 是 "main" 或小房间的 id。上面要加开关之类的放 top。
+//   wk 是美化钩子的前缀：`${wk}list` 头像那一格、`${wk}char` 一个头像、`${wk}row` 主聊天/小房间那一行。
+function shareRoomsOf(c) { return window.ChatRooms && c ? window.ChatRooms.list(c.id).filter(r => r && !r.main) : []; }
+function shareChatKey(c, roomId) { return roomId && roomId !== "main" && window.ChatRooms ? window.ChatRooms.chatKey(c.id, roomId) : c.id; }
+function ShareToCharPicker({ characters, onPick, onBack, title, sub, top, wk, ink, line, field, bg }) {
+  const t = useTheme();
+  const [to, setTo] = useState(null);
+  const W = wk || "sharepick";
+  const fg = ink || t.ink, ln = line || t.line, fl = field || t.bg2;
+  const pick = (c, rid) => { setTo(null); onPick(c, rid); };
+  return h("div", { "data-wk": W + "page", className: "h-full flex flex-col", style: bg ? { background: bg } : null },
+    h(Head, { zh: to ? "发到 " + (to.remark || to.name) + " 的哪儿" : (title || "发给谁"), sub: to ? undefined : sub, bg: "transparent", ink: ink, onBack: () => to ? setTo(null) : onBack() }),
+    h("div", { className: "flex-1 min-h-0 overflow-y-auto px-5", style: { paddingBottom: 30 } },
+      top || null,
+      to ? [{ id: "main", name: "主聊天" }].concat(shareRoomsOf(to)).map(r => h("button", { "data-wk": W + "row", key: r.id, onClick: () => pick(to, r.id), className: "w-full text-left active:opacity-70",
+        style: { minHeight: 46, padding: "0 14px", marginTop: 8, borderRadius: 12, border: "1px solid " + ln, background: fl, color: fg, fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))" } }, r.id === "main" ? "主聊天" : "小房间「" + (r.name || "没起名的房间") + "」"))
+      // 一排四等分（她 2026-10-07：「看起来够一排四个为什么只有三个」）
+      : h("div", { "data-wk": W + "list", style: { display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", rowGap: 16, columnGap: 8, marginTop: 12 } }, (characters || []).filter(c => c && !c.npc).map(c => h("button", { "data-wk": W + "char", key: c.id, onClick: () => shareRoomsOf(c).length ? setTo(c) : pick(c, "main"),
+        className: "active:opacity-70 flex flex-col items-center", style: { minWidth: 0 } }, h(Avatar, { character: c, size: 48 }),
+        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: fg, marginTop: 4, maxWidth: "100%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, c.remark || c.name))))));
+}
 function PageSheet({ children, onClose, zh, sub, right, scrollKey, skin }) {
   const t = useTheme();
   const pageZ = usePageZ(245);

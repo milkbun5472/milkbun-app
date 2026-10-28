@@ -4885,6 +4885,8 @@ function ListenTogether({ profile, active, ctxFor, toast, onToChat, onListenStat
       cbtn(ic("heart", now.fav ? "solid" : t.fog, 20), () => onToggleFav(now.id), { fit: 1, bg: t.bg2 }),
       // 加进本地歌单（复用底部选择层）
       cbtn(ic("plus", t.fog, 20), () => setPickFor({ song: now }), { fit: 1, bg: t.bg2 }),
+      // 转给TA（她 2026-10-28 群里许愿：听到的歌转进TA的对话框）
+      onShareSquare ? cbtn(ic("regift", t.fog, 20), () => setSqShare({ song: now }), { fit: 1, bg: t.bg2 }) : null,
       // 加进她真网易云歌单（仅网易云歌 + 已连账号；openCvAdd 在下方云村区声明，闭包延迟取用没有 TDZ 问题）
       (now.source === "netease" && now.neteaseId && cookie) ? cbtn(ic("cloudplus", t.tint, 20), () => openCvAdd({ id: now.neteaseId, name: now.title, artist: now.artist, cover: now.cover }), { fit: 1, bg: t.bg2 }) : null,
       // 歌词页开关
@@ -5462,9 +5464,7 @@ function ListenTogether({ profile, active, ctxFor, toast, onToChat, onListenStat
       h("div", { className: "flex items-center", style: { gap: 14, marginTop: 6 } },
         h("span", { className: "flex items-center", style: { gap: 4, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog } }, ic("heart", t.fog, 16), likeTxt(p.likes) || "赞"),
         actBtn("listensqreply", null, "评论" + (cms.length ? " " + cms.length : ""), open, () => { setSqAll(open ? null : p.id); setSqOpen(p.id); setSqTo(""); }),
-        actBtn("listensqshare", "regift", "转给TA", sqShare === p.id, () => setSqShare(sqShare === p.id ? null : p.id))),
-      sqShare === p.id ? h("div", { className: "flex flex-wrap", style: { gap: 6, marginTop: 4 } }, (characters || []).filter(c => c && !c.npc).map(c => h("button", { key: c.id, onClick: () => { onShareSquare && onShareSquare(p, c); setSqShare(null); }, className: "flex items-center active:opacity-70",
-        style: { minHeight: 40, padding: "0 12px 0 4px", gap: 6, borderRadius: 999, border: "1px solid " + t.line, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.ink } }, h(Avatar, { character: c, size: 30, radius: 999 }), c.remark || c.name))) : null,
+        actBtn("listensqshare", "regift", "转给TA", false, () => setSqShare({ post: p }))),
       !open && preview.length ? h("button", { onClick: () => { setSqAll(p.id); setSqOpen(p.id); }, className: "w-full active:opacity-70", style: { display: "block", textAlign: "left", marginTop: 6, padding: "8px 10px", borderRadius: 10, background: t.bg } },
         preview.map(c => h("div", { key: c.id, style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.sub, lineHeight: 1.7, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, h("span", { style: { color: t.ink } }, c.name + "："), c.text)),
         cms.length > preview.length ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.tint, marginTop: 2 } }, "查看全部 " + cms.length + " 条评论 ›") : null) : null,
@@ -5591,6 +5591,10 @@ function ListenTogether({ profile, active, ctxFor, toast, onToChat, onListenStat
       background: hex6(t.bg) ? "linear-gradient(to bottom," + t.bg + "b8 0%," + t.bg + "6b 55%,transparent 100%)" : "none" } })) : null;
   const crate = { background: t.bg };
   return h("div", { "data-wk": "listenpage", "data-tab": nav, className: "h-full flex flex-col relative", style: crate },
+    // 转给TA：广场一帖或者一首歌，挑人用公共的「发给谁」
+    sqShare ? h("div", { "data-wk": "listenshare", style: { position: "absolute", inset: 0, zIndex: 60, background: t.bg } },
+      h(ShareToCharPicker, { characters, wk: "listenshare", title: "转给谁", sub: sqShare.song ? STX(sqShare.song.title) : (sqShare.post && sqShare.post.name) || "", onBack: () => setSqShare(null),
+        onPick: (c, rid) => { const w = sqShare; setSqShare(null); onShareSquare(w.post || { song: w.song }, c, rid); } })) : null,
     // ⚠️「3 / 12」走 sub 不走 en：v61.29「标题不留英文」把纯拉丁的 en 一律吃掉，
     //   而这一处的 en 是【数字】——从那版起第几首就再也没显示过（她还没发现）。
     //   数字不是英文装饰，它是这一页唯一说得清「放到哪了」的东西。

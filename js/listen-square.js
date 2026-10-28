@@ -60,8 +60,10 @@
   const transcriptOf = (items, max) => (items || []).slice(-(max || 24)).map(x => "· " + S(x.name) + (x.to ? " 回 " + S(x.to) : "") + "：" + S(x.text).slice(0, 120)).join("\n");
 
   // ── 转给TA：聊天里那张卡 ─────────────────────────────────────────
-  const shareSnap = post => ({ id: post.id, name: S(post.name), text: S(post.text).slice(0, 300), song: post.song ? { title: S(post.song.title), artist: S(post.song.artist), cover: post.song.cover || null, neteaseId: post.song.neteaseId || "" } : null });
-  const shareText = snap => "[她从一起听的广场转来一帖] " + snap.name + " 分享了" + songLine(snap.song) + (snap.text ? "：「" + snap.text + "」" : "");
+  // 只转一首歌时传 { song }（没有 id/name）：卡上就是这首歌，不写「谁说了什么」
+  const shareSnap = post => ({ id: post.id || null, name: S(post.name), text: S(post.text).slice(0, 300), song: post.song ? { title: S(post.song.title), artist: S(post.song.artist), cover: post.song.cover || null, neteaseId: post.song.neteaseId || "" } : null });
+  const shareText = snap => snap.id ? "[她从一起听的广场转来一帖] " + snap.name + " 分享了" + songLine(snap.song) + (snap.text ? "：「" + snap.text + "」" : "")
+    : "[她从一起听转来一首歌] " + songLine(snap.song);
   // 聊天里那张卡：上半截是这首歌的封套（封面糊开当底，左边一张清楚的封面），下半截是谁说了什么
   function ListenShareCard({ m, isU }) {
     const h = React.createElement, t = (typeof useTheme === "function" ? useTheme() : {}) || {};
@@ -79,7 +81,7 @@
         h("div", { style: { padding: "10px 13px 11px" } },
           p.text ? h("div", { style: { fontFamily: FB, fontSize: "calc(12.5px * var(--app-fs, 1))", lineHeight: 1.65, color: t.ink, display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical", overflow: "hidden" } }, "「" + p.text + "」") : null,
           h("div", { style: { display: "flex", justifyContent: "space-between", fontFamily: FB, fontSize: "calc(10px * var(--app-fs, 1))", color: t.fog, marginTop: 7, letterSpacing: 1 } },
-            h("span", null, "—— " + (p.name || "")), h("span", null, "一起听 · 广场")))));
+            h("span", null, p.id ? "—— " + (p.name || "") : ""), h("span", null, p.id ? "一起听 · 广场" : "一起听")))));
   }
   window.ListenShareCard = ListenShareCard;
   window.ListenSquare = { KEEP_POSTS, KEEP_TALK, songKey, songLine, feedSystem, songSystem, replySystem, transcriptOf, shareSnap, shareText, LIVE };

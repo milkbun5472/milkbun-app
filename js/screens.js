@@ -2782,6 +2782,8 @@ const ic = (kind, c, size) => { size = size || 22;
   if (kind === "trash") return svg([h("path", { key: 1, d: "M4 7h16", ...stroke }), h("path", { key: 2, d: "M9 7V5h6v2", ...stroke }), h("path", { key: 3, d: "M6 7l1 13h10l1-13", ...stroke })]);
   // 收进咱家歌库：云上加一笔
   if (kind === "cloudplus") return svg([h("path", { key: 1, d: "M7 16h8a3.2 3.2 0 0 0 .4-6.37A4.6 4.6 0 0 0 7.6 8 3.7 3.7 0 0 0 7 16z", ...stroke }), h("path", { key: 2, d: "M12 14v6M9 17h6", ...stroke })]);
+  // 转给TA：一支往右上飞出去的箭（一起听的「转给TA」）
+  if (kind === "regift") return svg([h("path", { key: 1, d: "M14 5h5v5M19 5l-8 8", ...stroke }), h("path", { key: 2, d: "M17 14v4a1.5 1.5 0 0 1-1.5 1.5h-9A1.5 1.5 0 0 1 5 18V8.5A1.5 1.5 0 0 1 6.5 7H10", ...stroke })]);
   // 静音保活：一弯月，程序画的，不是 emoji
   if (kind === "moon") return svg(h("path", { d: "M20 14.5A8.5 8.5 0 0 1 9.5 4a8.5 8.5 0 1 0 10.5 10.5z", fill: c, stroke: "none" }));
   return svg(h("circle", { cx: 12, cy: 12, r: 8, fill: c }));
