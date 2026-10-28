@@ -178,3 +178,20 @@ test("没标点、用空格断句的长句按空格拆", () => {
   assert.equal(out.join(" "), "我可提前跟你说好 今晚我过来纯属是为了监督你老实待着 顺便借你家WiFi清两把手游日常");
   assert.deepEqual(splitLongBubble("I really want to see you tonight after work okay", true), ["I really want to see you tonight after work okay"]);
 });
+
+// 她 2026-10-28：法语问号叹号前都空一格，「cheveux ? !」被劈成「…cheveux ?」和单独一个「!」
+test("句尾标点中间夹空格也是同一个句尾，不单切出一个「!」", () => {
+  const out = splitLongBubble("Mais c'est quoi cette coupe de cheveux ? ! Tu te moques de moi ?", true);
+  assert.ok(!out.some(x => /^[!?！？\s]+$/.test(x)), JSON.stringify(out));
+  assert.equal(out[0], "Mais c'est quoi cette coupe de cheveux ? !");
+});
+test("单独一泡只有「!」：粘回上一句", () => {
+  const g = new Function(helpers + "\nreturn bubbleGlueOrphans;")();
+  assert.deepEqual(g(["coupe de cheveux ?", "!"]), ["coupe de cheveux ? !"]);
+  assert.deepEqual(g(["你说什么", "？！"]), ["你说什么？！"]);
+});
+test("模型单交一条「!」：拆泡后的那道粘回去", () => {
+  const j = engine.indexOf("const BUBBLE_CONJ"), k = engine.indexOf("function splitCardsAndLines(");
+  const g = new Function(engine.slice(j, k) + "\nreturn bubbleGlueBrokenLines;")();
+  assert.deepEqual(g(["Mais c'est quoi cette coupe de cheveux ?", "!", "怎么一边白一边紫"]), ["Mais c'est quoi cette coupe de cheveux ? !", "怎么一边白一边紫"]);
+});

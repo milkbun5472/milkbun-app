@@ -2667,7 +2667,8 @@ function bubbleIsFace(x) {
 }
 function bubbleGlueOrphans(list) {
   return list.reduce((a, x) => {
-    if (a.length && (BUBBLE_ORPHAN_TAIL.test(String(x).trim()) || bubbleIsFace(x))) a[a.length - 1] += x;
+    // 只剩几个句尾标点的一泡（「!」「?!」）是上一句的尾巴
+    if (a.length && (BUBBLE_ORPHAN_TAIL.test(String(x).trim()) || /^[!?！？。…~～]+$/.test(String(x).trim()) || bubbleIsFace(x))) a[a.length - 1] += (/^[!?]/.test(String(x).trim()) && /[!?]$/.test(String(a[a.length - 1]).trim()) ? " " : "") + String(x).trim();
     else a.push(x);
     return a;
   }, []);
@@ -2721,6 +2722,8 @@ function bubbleGlueBrokenLines(list) {
     const x = list[i];
     if (!isStr(x)) { out.push(x); continue; }
     const cur = x.trim(), prev = out.length ? out[out.length - 1] : null;
+    // 模型把句尾的「!」「?!」单交成一条（她 2026-10-28 法语那句）：粘回上一句
+    if (isStr(prev) && /^[!?！？。…~～]+$/.test(cur)) { out[out.length - 1] = prev.trim() + (/^[!?]/.test(cur) && /[!?]$/.test(prev.trim()) ? " " : "") + cur; continue; }
     if (isStr(prev) && /^[\u4e00-\u9fff]{1,2}$/.test(cur) && prev.trim().length >= 6 && /[\u4e00-\u9fff]$/.test(prev.trim())) { out[out.length - 1] = prev + cur; continue; }
     if (BUBBLE_CONJ.test(cur) && isStr(list[i + 1]) && /^[\u4e00-\u9fff]/.test(list[i + 1].trim())) { list = list.slice(); list[i + 1] = cur + list[i + 1].trim(); continue; }
     out.push(x);
@@ -2751,7 +2754,8 @@ function splitLongBubble(s, allowComma) {
   const glue = (a, seg, i) => { if (i % 2 === 0) a.push(seg); else a[a.length - 1] += seg; return a; };
   let out = [s];
   if (s.length > LONG && /[。！？!?]/.test(s.slice(0, -1))) {
-    out = s.split(/([。！？!?]+)/).reduce(glue, []).map(x => x.trim()).filter(Boolean);
+    // 连着的句尾标点中间夹空格也算一个句尾（她 2026-10-28：法语「cheveux ? !」把「!」单切成了一泡）
+    out = s.split(/((?:\s*[。！？!?])+)/).reduce(glue, []).map(x => x.trim()).filter(Boolean);
   }
   if (allowComma === false) return bubbleGlueOrphans(out).map(bubbleRestore);
   // 逗号和【中文后面的空格】是同一刀（她 2026-10-24：「要不要提到公共的跟标点符号一起，不要新开形状」）：
