@@ -31,11 +31,23 @@ test("带思考的消息前面多一格，而且落在气泡上", () => {
   assert.equal(hit(c), 3);
 });
 
-test("群聊没有思考格，不许多数", () => {
-  const msgs = [{ role: "assistant", content: "a", reasoning: "…" }, { role: "assistant", content: "b" }];
-  const c = fakeList(10);
-  locateMsgIn(c, 1, msgs, true, { start: 0 });
-  assert.equal(hit(c), 2);
+// 她 2026-10-28：群里「↑ N 条新消息」点了划不上去。群的列表里夹着箭头、药丸、加载按钮、
+//   思考链、日期条，数格子必歪——群聊改成直接找气泡的 data-i。
+function fakeGroup(ids) {
+  const nodes = ids.map(k => ({ k, style: {}, scrollIntoView() { this.hit = true; } }));
+  return { nodes, children: [], querySelector(sel) { const m = /data-i="(\d+)"/.exec(sel); return nodes.find(n => String(n.k) === m[1]) || null; } };
+}
+test("群聊：按 data-i 找那条气泡，不数格子", () => {
+  const msgs = Array.from({ length: 10 }, () => ({ role: "assistant", content: "x" }));
+  const c = fakeGroup([3, 4, 5, 6]);
+  locateMsgIn(c, 5, msgs, true, { start: 0 });
+  assert.equal(c.nodes.find(n => n.hit).k, 5);
+});
+test("群聊：那条是旁白／卡片（没挂 data-i）就落到后面最近那条气泡", () => {
+  const msgs = Array.from({ length: 10 }, () => ({ role: "assistant", content: "x" }));
+  const c = fakeGroup([3, 6]);
+  locateMsgIn(c, 4, msgs, false, { start: 0 });
+  assert.equal(c.nodes.find(n => n.hit).k, 6);
 });
 
 test("两处都先把窗口撑到目标，再按重画后的起点去数", () => {

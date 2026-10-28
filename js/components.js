@@ -14727,6 +14727,15 @@ function locateMsgIn(container, i, messages, hasArchiveLead, opts) {
       }
       return reasonRow(m) + 1;
     };
+    // 群聊不数格子（她 2026-10-28：「↑ N 条新消息」点了划不上去）：群的列表里还夹着跳转箭头、
+    //   新消息药丸、加载按钮、思考链、日期条、重 Roll 那一排，按「第几个孩子」数一定数歪。
+    //   直接找气泡自己挂的 data-i；这一条是旁白／卡片（没挂 data-i）就落到它后面最近的那条气泡。
+    if (!o.single) {
+      let node = null;
+      for (let j = i; j < list.length && !node; j++) node = container && container.querySelector('[data-wk="msg"][data-i="' + j + '"]');
+      if (node && node.scrollIntoView) node.scrollIntoView({ block: "center" });
+      return;
+    }
     let domIndex = (start > 0 ? 1 : 0) + (hasArchiveLead ? 1 : 0);
     for (let j = start; j < i; j++) domIndex += rowsOf(list[j]);
     domIndex += reasonRow(list[i]); // 落在气泡上，不落在它头顶那格思考上
