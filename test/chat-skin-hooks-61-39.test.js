@@ -70,6 +70,8 @@ test("皮肤用到的每一个挂点，单聊和群聊都得有", () => {
     // noteink 只长在它里面（那个话筒图标），所以整条只查这一个组件。
     // 消息底下那一行是公共的 chatMsgFoot 画的，单聊群聊都叫它（2026-10-26 并成一份）——同头像一样不按页查
     if (k === "meta") { if (!has(comp.slice(comp.indexOf("function chatMsgFoot("), comp.indexOf("function TtsBubbleDot(")))) missing.push("meta（chatMsgFoot）"); return; }
+    // 群聊的时刻条收进了 GStampLine（2026-10-27 跨天日期条修复），GroupThread 叫它——到那里去查
+    if (k === "time" && has(comp.slice(comp.indexOf("function GStampLine("), comp.indexOf("function cardPressRow("))) && GROUP.includes("GStampLine")) { if (!has(THREAD)) missing.push("time ← 单聊"); return; }
     if (k === "noteink") { if (!has(comp.slice(comp.indexOf("function CallEndPill("), comp.indexOf("function CallShotThumb(")))) missing.push("noteink（CallEndPill）"); return; }
     // 此刻日程条只有单聊有：一个群里几个人各有各的行程，摆不出一条「此刻」。
     // ⚠️这个例外自己会失效——下面那一条钉着「群聊确实没有 schedNow」，
