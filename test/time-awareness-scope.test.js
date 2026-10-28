@@ -22,7 +22,8 @@ test("character time awareness overrides the global default with inherit/on/off"
 test("room time awareness overrides the character and drives online, offline and schedule UI", () => {
   assert.match(app, /const roomTimeAwareFor = \(room, charId\)/);
   assert.match(app, /const roomClockOn = roomTimeAwareFor\(room, charId\)/);
-  assert.match(app, /oCtx = gateRoomContext\(oCtx, char, scopeKey, sideRoom\)/);
+  // 线下房走 roomContextFor（里面就是 gateRoomContext ＋ memCutoff），跟这间房的线上同一支
+  assert.match(app, /let oCtx = sideRoom \? roomContextFor\(char, scopeKey, sideRoom,/); assert.match(app, /const gated = gateRoomContext\(ctx, char, chatKey, room\);/);
   assert.match(app, /if \(clockOn\) \{ ctx\.schedNow = schedNowFor\(char\); ctx\.geo = geoForPrompt\(char\.id\); \}/);
   assert.match(app, /schedNow: roomTimeAwareFor\(window\.ChatRooms \? window\.ChatRooms\.get\(activeChar\.id, activeRoomId\)/);
   assert.match(rooms, /现实时间与行程/);

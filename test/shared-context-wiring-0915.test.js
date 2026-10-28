@@ -25,7 +25,8 @@ test('侧房上下文读取本房拉黑，主线认知关闭也保留本房事�
   assert.equal(gate().blockLine, '');
   blocks[key] = {endedTs:Date.now(), sinceTs:Date.now()-3600000, by:'char', reason:'侧房分歧'};
   assert.match(gate().blockLine, /刚解除拉黑/);
-  assert.match(app, /oCtx = gateRoomContext\(oCtx, char, scopeKey, sideRoom\)/);
+  // 线下房走 roomContextFor（里面就是 gateRoomContext ＋ memCutoff），跟这间房的线上同一支
+  assert.match(app, /let oCtx = sideRoom \? roomContextFor\(char, scopeKey, sideRoom,/); assert.match(app, /const gated = gateRoomContext\(ctx, char, chatKey, room\);/);
   assert.match(app, /const gated = gateRoomContext\(ctx, char, chatKey, room\)/);
 });
 test('群文字、通话和线下共用关系层的组合', () => {
