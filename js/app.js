@@ -20,7 +20,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v76.834";
+const APP_VERSION = "v76.838";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -17095,7 +17095,9 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
           + list.map((c, i) => "第 " + (i + 1) + " 张：" + c.rarity + "。" + stampKindLine(c, char)).join("\n")
           + "\n" + (list.some(c => c.rarity === "R") ? STAMP_RARITY_SPEC.R + "\n" : "") + (list.some(c => c.rarity === "SR") ? STAMP_RARITY_SPEC.SR + "\n" : "")
           + "每张都有 name（卡名，八个字以内，从这张卡里那件事本身来起，不拿日子、节气、天气这些背景起名）、gist（一句话记下这张写的是什么事、在哪、怎么收的尾，给以后去重用）和 shot。" + STAMP_SHOT_SPEC
-          + stampPrevLine(prev) + "\n这几张之间也是不同的事。",
+          + stampPrevLine(prev) + "\n这几张之间也是不同的事。"
+          // 人称跟 SSR 剧情一样（她 2026-10-28：R 卡里写成了「你调完色，碰了碰她的下颌」）：卡是写给她读的
+          + "\n人称：卡上的叙述（narration、open、rest、sequel，还有 before、after 里的 narration）是写给她读的，叙述里你是「他」、她是「你」，比如「他调完色，碰了碰你的下颌」；thought、real、hidden、line、back、his 是你自己心里或嘴上的话，用「我」。",
         // 格式样例里不放 (R)/(SR) 这种占位：模型会照抄进正文。R、SR 各给一份，按这几张里有哪几种拼
         schemaHint: "{\"cards\":[" + [list.some(c => c.rarity === "R") ? "{\"name\":\"\",\"narration\":\"\",\"thought\":\"\",\"before\":{\"narration\":\"\",\"thought\":\"\"},\"after\":{\"narration\":\"\",\"thought\":\"\"},\"real\":\"\",\"sound\":\"\",\"back\":\"\",\"gist\":\"\",\"shot\":\"\"}" : "",
           list.some(c => c.rarity === "SR") ? "{\"name\":\"\",\"line\":\"\",\"open\":\"\",\"rest\":\"\",\"sequel\":\"\",\"hidden\":\"\",\"his\":\"\",\"keepsake\":{\"name\":\"\",\"desc\":\"\"},\"gist\":\"\",\"shot\":\"\"}" : ""].filter(Boolean).join(",") + "]}（按上面的顺序一张一个对象：R 卡用第一种的栏，SR 卡用第二种的栏）",
@@ -34355,6 +34357,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     //   配角进来不会碰到好感/心情那些（配角本来就没有）；选人页把配角单列一组。
     characters: playChars,
     profile: profile,
+    // 上桌的人认的是哪张面具：一桌都认同一张就叫那张的名字（群友 2026-10-29 真心话大冒险）
+    profileFor: profileFor,
     worldbook: loreForContext("creative", [], ""),
     worldbookFor: (charIds, text) => loreForContext("creative", charIds, text),
     moods: moods,

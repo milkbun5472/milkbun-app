@@ -490,6 +490,14 @@
         const lore = props.worldbookFor ? props.worldbookFor(c.id, (session.game && session.game.zh) || "小游戏") : props.worldbook;
         return Object.assign({}, c, { persona: gameSheet(c) + (lore ? "\n\n【本局世界设定】\n" + lore : "") });
       });
+      // 她在这一桌叫什么（群友 2026-10-29：真心话大冒险里角色只叫主面具的名字）：
+      //   上桌的人认的都是同一张面具，就用那张；几个人认的不一样，各认各的没法一桌两个名字，照旧用主面具
+      const tableProfile = (function () {
+        if (!props.profileFor) return props.profile;
+        const ps = selected.map(function (id) { return props.profileFor(id); }).filter(Boolean);
+        if (!ps.length) return props.profile;
+        return ps.every(function (x) { return x === ps[0]; }) ? ps[0] : props.profile;
+      })();
       // ⚠️keepGameMemory 原来【不在这张表上】。app.js 那头的口子一直开着（v63.39
       //   「补上 63.38 被冲突刀吃掉的那半」），games.js 这头七个游戏也都画了那个键，
       //   **中间这一截从来没接过**——于是每一局终局点「把这一局收进记忆」都是空按，
@@ -507,12 +515,12 @@
       if (session.game.key === "date") return h(window.DateGame, {
         keepGameMemory: keepMem, sendGameReport: props.sendGameReport, sendGameReportGroup: props.sendGameReportGroup, reportGroups: props.reportGroups, toast: props.toast,
         config: session.config, savedState: session.saved, active: props.active, characters: routedCharacters,
-        profile: props.profile, recentChatFor: props.recentChatFor, t: t, table: gameTable, VsBar: GameVsBar,
+        profile: tableProfile, recentChatFor: props.recentChatFor, t: t, table: gameTable, VsBar: GameVsBar,
         call: callRetry, rules: gameVoiceRules(), isEngineer: props.isEngineer,
         onSave: function (snap) { return saveGameSnap("date", snap); },
         onBack: function () { setSession(null); setGame(null); setSaveTick(function (x) { return x + 1; }); }
       });
-      const engineProps = { config: session.config, game: session.game, active: props.active, bgActive: props.bgActive, characters: routedCharacters, profile: props.profile, recentChatFor: props.recentChatFor, isEngineer: props.isEngineer, t: t, toast: props.toast, savedState: session.saved,
+      const engineProps = { config: session.config, game: session.game, active: props.active, bgActive: props.bgActive, characters: routedCharacters, profile: tableProfile, recentChatFor: props.recentChatFor, isEngineer: props.isEngineer, t: t, toast: props.toast, savedState: session.saved,
         sendGameReport: props.sendGameReport,
         sendGameReportGroup: props.sendGameReportGroup, reportGroups: props.reportGroups,
         keepGameMemory: keepMem,
@@ -539,7 +547,7 @@
       if (session.game.key === "doudizhu") return h(DoudizhuGame, engineProps);
       if (session.game.key === "story") return h(StoryChainGame, engineProps);
       if (session.game.key === "tetris" && window.TetrisCore) return h(TetrisGame, Object.assign({}, engineProps, { t: t }));
-      return h(GamePlay, { game: session.game, config: session.config, characters: props.characters, profile: props.profile, t: t, onBack: function () { setSession(null); } });
+      return h(GamePlay, { game: session.game, config: session.config, characters: props.characters, profile: tableProfile, t: t, onBack: function () { setSession(null); } });
     }
     // 各怀心思的约会也走公共开局页（她 2026-10-12：「格式跟其他的也不一样」）——原来那张自己画的 DateGameSetup 不再挂
     if (game) return h(GameSetup, {

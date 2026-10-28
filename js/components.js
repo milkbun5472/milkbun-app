@@ -3796,10 +3796,12 @@ const musicGround = id => MUSIC_GROUNDS.find(x => x.id === id) || MUSIC_GROUNDS[
 //   ② 字色深浅由她自己选（bgInk），不猜。
 function musicPhotoGround(card) {
   if (!card || !card.bgPhoto) return null;
-  const darkText = card.bgInk === "dark";
+  // 「原图」（她 2026-10-29 转群友：浅色海浪图一放上去整张发暗）：一层纱都不盖，照片原样，字用深色
+  const raw = card.bgInk === "raw";
+  const darkText = card.bgInk === "dark" || raw;
   const veil = darkText ? "rgba(250,246,238,.55)" : "rgba(26,22,18,.46)";
   return {
-    bg: "linear-gradient(" + veil + "," + veil + "), center/cover no-repeat url(" + card.bgPhoto + ")",
+    bg: (raw ? "" : "linear-gradient(" + veil + "," + veil + "), ") + "center/cover no-repeat url(" + card.bgPhoto + ")",
     ink: darkText ? "#2c261e" : "#fbf7f0",
     sub: darkText ? "rgba(44,38,30,.66)" : "rgba(251,247,240,.72)"
   };
@@ -4043,10 +4045,10 @@ function MusicCardEdit({ onClose }) {
         })),
       onPhoto ? h("div", { style: { marginTop: 14 } },
         h("div", { "data-wk": "mcardhint", style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.7, marginBottom: 7 } },
-          "照片的明暗事先不知道，所以字色由你定：图上会盖一层反方向的薄纱，字才有对比。"),
+          "照片的明暗事先不知道，所以字色由你定：图上会盖一层反方向的薄纱，字才有对比。想看照片本来的颜色就选「原图」，不盖纱、用深字，适合浅色的图。"),
         h("div", { "data-wk": "mcardinks", className: "flex", style: { gap: 10 } },
-          [["light", "浅字"], ["dark", "深字"]].map(function (o) {
-            const on = (card.bgInk === "dark") === (o[0] === "dark");
+          [["light", "浅字"], ["dark", "深字"], ["raw", "原图"]].map(function (o) {
+            const on = (card.bgInk === "dark" || card.bgInk === "raw" ? card.bgInk : "light") === o[0];
             return h("button", { "data-wk": "mcardink", "data-part": o[0], "data-on": on ? "1" : "0", key: o[0], onClick: function () { put({ bgInk: o[0] }); }, className: "flex-1 active:opacity-80",
               style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: on ? t.bg2 : t.ink, background: on ? t.ink : "transparent",
                 border: "1px solid " + (on ? t.ink : t.line), borderRadius: 12, padding: "9px 0" } }, (on ? "· " : "") + o[1]);
