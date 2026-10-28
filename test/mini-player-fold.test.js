@@ -7,7 +7,7 @@ test('fold persists, expands without navigation, and never changes audio state',
   const ctx={h,React:{Fragment:'fragment',useLayoutEffect:()=>{}},useTheme:()=>({ink:'#222222',bg2:'#ffffff'}),useFloatKeepClear:()=>0,window:{innerHeight:844},
     useState:init=>{const i=si++;if(!(i in states))states[i]=typeof init==='function'?init():init;return[states[i],v=>states[i]=typeof v==='function'?v(states[i]):v];},
     useRef:init=>{const i=ri++;return refs[i]||(refs[i]={current:init});},localStorage:{getItem:k=>store.get(k),setItem:(k,v)=>store.set(k,v)},
-    skinAlpha:(s,a)=>s+a,MINI_PLAYER_Z:45,F_BODY:'',F_DISPLAY:''};
+    skinAlpha:(s,a)=>s+a,MINI_PLAYER_Z:45,F_BODY:'',F_DISPLAY:'',useIdleTuck:()=>false};   // 2026-10-28 贴边藏一半收成公共的 useIdleTuck
   vm.createContext(ctx);vm.runInContext(code,ctx);
   const render=()=>{si=0;ri=0;return ctx.MiniPlayer({song:{title:'fixture'},playing:true,onOpen:()=>calls.push('open'),onToggle:()=>calls.push('toggle'),onClose:()=>calls.push('close')});};
   const find=(n,label)=>{if(!n||typeof n!=='object')return null;if(n.props&&n.props['aria-label']===label)return n;return(n.children||[]).map(c=>find(c,label)).find(Boolean);};

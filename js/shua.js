@@ -951,21 +951,12 @@
     // 分享给 TA（她 2026-10-07 选的第 3 条）：挑人，开过小房间的再挑发进哪间。落一张卡，不让TA当场开口
     if (page && page.kind === "share") {
       const v = db.videos.find(x => x.id === page.id);
-      const roomsOf = c => (window.ChatRooms && c ? window.ChatRooms.list(c.id).filter(r => r && !r.main) : []);
       // 一起看（她 2026-10-08）：横着看的长视频可以拉 TA 一起看——卡里带着简介、时长、几条弹幕，TA 读到卡就知道你俩在一块儿看；不额外调用
       const together = !!page.together && vidSkin(v || {}) === "b";
       const done = (c, rid) => { props.onShare(together ? Object.assign({}, v, { together: true }) : v, c, rid); setPage(page.back || null); };
-      if (v) return h("div", { "data-wk": "shuasharepage", className: "h-full flex flex-col", style: { background: P.bg } },
-        h(Head, { zh: page.to ? "发到 " + page.to.name + " 的哪儿" : "分享给谁", bg: "transparent", ink: P.ink, onBack: () => page.to ? setPage(Object.assign({}, page, { to: null })) : setPage(page.back || null) }),
-        h("div", { className: "flex-1 min-h-0 overflow-y-auto px-5", style: { paddingBottom: 30 } },
-          vidSkin(v) === "b" ? h("button", { "data-wk": "shuatogether", "data-on": together ? "1" : "0", onClick: () => setPage(Object.assign({}, page, { together: !page.together })), className: "w-full text-left active:opacity-70", style: { minHeight: 42, marginTop: 4, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: together ? P.accent : P.dim } },
-            (together ? "● " : "○ ") + "拉 TA 一起看（TA 会跟你边看边聊）") : null,
-          page.to ? [{ id: "main", name: "主聊天" }].concat(roomsOf(page.to)).map(r => h("button", { "data-wk": "shuasharerow", key: r.id, onClick: () => done(page.to, r.id), className: "w-full text-left active:opacity-70",
-            style: { minHeight: 46, padding: "0 14px", marginTop: 8, borderRadius: 12, border: "1px solid " + P.line, background: P.field, color: P.ink, fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))" } }, r.id === "main" ? "主聊天" : "小房间「" + (r.name || "没起名的房间") + "」"))
-          // 一排四个（她 2026-10-07：「看起来够一排四个为什么只有三个」）：原来是定宽 + 换行，宽度一放大就掉成三个；改成四等分
-          : h("div", { style: { display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", rowGap: 16, columnGap: 8, marginTop: 12 } }, characters.map(c => h("button", { "data-wk": "shuasharechar", key: c.id, onClick: () => roomsOf(c).length ? setPage(Object.assign({}, page, { to: c })) : done(c, "main"),
-            className: "active:opacity-70 flex flex-col items-center", style: { minWidth: 0 } }, h(Avatar, { character: c, size: 48 }),
-            h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: P.ink, marginTop: 4, maxWidth: "100%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, c.remark || c.name))))));
+      if (v) return h(ShareToCharPicker, { characters, wk: "shuashare", title: "分享给谁", ink: P.ink, line: P.line, field: P.field, bg: P.bg, onPick: done, onBack: () => setPage(page.back || null),
+        top: vidSkin(v) === "b" ? h("button", { "data-wk": "shuatogether", "data-on": together ? "1" : "0", onClick: () => setPage(Object.assign({}, page, { together: !page.together })), className: "w-full text-left active:opacity-70", style: { minHeight: 42, marginTop: 4, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: together ? P.accent : P.dim } },
+          (together ? "● " : "○ ") + "拉 TA 一起看（TA 会跟你边看边聊）") : null });
     }
     if (page && page.kind === "refresh") return h(RefreshPage, { characters, t, P, busy, prog,
       realFriends: !!(db.me && db.me.realFriends), onRealFriends: () => save(Object.assign({}, dbRef.current, { me: Object.assign({}, dbRef.current.me, { realFriends: !(dbRef.current.me && dbRef.current.me.realFriends) }) })), onHot: props.ask ? genHot : null, hotDay: hot.length > 0, onSearch: props.ask ? (q => genNpc(null, q)) : null, onNpc: () => genNpc(feed === "city" && cities.length ? cityNow : ""), npcCity: feed === "city" && cities.length ? cityNow : "", onChars: genChars, onBack: () => setPage(null) });

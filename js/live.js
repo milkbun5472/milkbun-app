@@ -648,8 +648,6 @@
     // 嵌在刷刷里当一格时（v74.99x）：落地页不摆返回键，底栏就是出口；从「＋ → 开播」进来直接落在开播那一页
     const [curId, setCurId] = useState(null);
     const [busy, setBusy] = useState(false);
-    const [shareTo, setShareTo] = useState(null);   // 发给谁：开过小房间的人，再挑主聊天还是哪一间
-    const roomsOf = c => (window.ChatRooms && c ? window.ChatRooms.list(c.id).filter(r => r && !r.main) : []);
     const listRef = useRef(list); listRef.current = list;
     const uName = (profile && profile.name) || "我";
     const save = next => { const n = next.slice(0, CAP); listRef.current = n; setList(n); saveJSON(KEY, n); };
@@ -1031,18 +1029,9 @@
         onShare: props.onShare ? () => setView("share") : null });
     // 发给 TA：挑一个人。落进聊天的是一张回放卡，不让TA马上开口（等她说完按回复，wait-for-her）
     if (view === "share" && cur)
-      return h("div", { "data-wk": "liveshareview", className: "h-full flex flex-col", style: liveFloor(t) },
-        h(Head, { zh: "发给谁", sub: S(cur.title) || "直播回放", bg: "transparent", ink: t.__pal ? t.ink : undefined, onBack: () => { if (shareTo) setShareTo(null); else setView("room"); } }),
-        h("div", { className: "flex-1 min-h-0 overflow-y-auto px-5", style: { paddingBottom: 30 } },
-          shareTo ? h("div", { style: { marginTop: 12 } },
-            h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog, marginBottom: 8 } }, "发到 " + shareTo.name + " 的哪儿"),
-            [{ id: "main", name: "主聊天" }].concat(roomsOf(shareTo)).map(r => h("button", { "data-wk": "livesharerow", key: r.id, onClick: () => { props.onShare(cur, shareTo, r.id); setShareTo(null); setView("room"); },
-              className: "w-full text-left active:opacity-70", style: { minHeight: 46, padding: "0 14px", marginBottom: 8, borderRadius: 12, border: "1px solid " + t.line, background: t.bg2, color: t.ink, fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))" } },
-              r.id === "main" ? "主聊天" : "小房间「" + (r.name || "没起名的房间") + "」"))) :
-          h("div", { "data-wk": "livesharelist", className: "flex flex-wrap", style: { gap: 14, marginTop: 12 } }, characters.map(c => h("button", { "data-wk": "livesharechar", key: c.id, onClick: () => { if (roomsOf(c).length) { setShareTo(c); return; } props.onShare(cur, c, "main"); setView("room"); },
-            className: "active:opacity-70 flex flex-col items-center", style: { width: 60 } },
-            h(Avatar, { character: c, size: 48 }),
-            h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.sub, marginTop: 4, maxWidth: 60, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, c.remark || c.name))))));
+      return h("div", { className: "h-full", style: liveFloor(t) },
+        h(ShareToCharPicker, { characters, wk: "liveshare", sub: S(cur.title) || "直播回放", ink: t.__pal ? t.ink : undefined,
+          onPick: (c, rid) => { props.onShare(cur, c, rid); setView("room"); }, onBack: () => setView("room") }));
 
     // 落地页：两扇门 + 回放
     const door = (title, sub, fn) => h("button", { "data-wk": "livedoor", onClick: fn, className: "w-full text-left active:opacity-80",

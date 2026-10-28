@@ -1567,6 +1567,29 @@ function pageShellPin(el) {
   if (z) el.style.setProperty("z-index", z, "important");
 }
 function pageShellStyle(z, extra) { return Object.assign({ position: "fixed", inset: 0, zIndex: z, animation: "qqIn .22s ease both" }, extra || {}); }
+// ── 发给谁（她 2026-10-28：一起听的歌也要能转进TA的对话框）────────────────────
+// 直播回放、片刻视频、一起听原来各写一份「挑人 → 开过小房间的再挑哪间」，收成这一份。
+//   onPick(角色, 房间id)：房间id 是 "main" 或小房间的 id。上面要加开关之类的放 top。
+//   wk 是美化钩子的前缀：`${wk}list` 头像那一格、`${wk}char` 一个头像、`${wk}row` 主聊天/小房间那一行。
+function shareRoomsOf(c) { return window.ChatRooms && c ? window.ChatRooms.list(c.id).filter(r => r && !r.main) : []; }
+function shareChatKey(c, roomId) { return roomId && roomId !== "main" && window.ChatRooms ? window.ChatRooms.chatKey(c.id, roomId) : c.id; }
+function ShareToCharPicker({ characters, onPick, onBack, title, sub, top, wk, ink, line, field, bg }) {
+  const t = useTheme();
+  const [to, setTo] = useState(null);
+  const W = wk || "sharepick";
+  const fg = ink || t.ink, ln = line || t.line, fl = field || t.bg2;
+  const pick = (c, rid) => { setTo(null); onPick(c, rid); };
+  return h("div", { "data-wk": W + "page", className: "h-full flex flex-col", style: bg ? { background: bg } : null },
+    h(Head, { zh: to ? "发到 " + (to.remark || to.name) + " 的哪儿" : (title || "发给谁"), sub: to ? undefined : sub, bg: "transparent", ink: ink, onBack: () => to ? setTo(null) : onBack() }),
+    h("div", { className: "flex-1 min-h-0 overflow-y-auto px-5", style: { paddingBottom: 30 } },
+      top || null,
+      to ? [{ id: "main", name: "主聊天" }].concat(shareRoomsOf(to)).map(r => h("button", { "data-wk": W + "row", key: r.id, onClick: () => pick(to, r.id), className: "w-full text-left active:opacity-70",
+        style: { minHeight: 46, padding: "0 14px", marginTop: 8, borderRadius: 12, border: "1px solid " + ln, background: fl, color: fg, fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))" } }, r.id === "main" ? "主聊天" : "小房间「" + (r.name || "没起名的房间") + "」"))
+      // 一排四等分（她 2026-10-07：「看起来够一排四个为什么只有三个」）
+      : h("div", { "data-wk": W + "list", style: { display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", rowGap: 16, columnGap: 8, marginTop: 12 } }, (characters || []).filter(c => c && !c.npc).map(c => h("button", { "data-wk": W + "char", key: c.id, onClick: () => shareRoomsOf(c).length ? setTo(c) : pick(c, "main"),
+        className: "active:opacity-70 flex flex-col items-center", style: { minWidth: 0 } }, h(Avatar, { character: c, size: 48 }),
+        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: fg, marginTop: 4, maxWidth: "100%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, c.remark || c.name))))));
+}
 function PageSheet({ children, onClose, zh, sub, right, scrollKey, skin }) {
   const t = useTheme();
   const pageZ = usePageZ(245);
@@ -4064,6 +4087,18 @@ function useFloatKeepClear() {
   return v;
 }
 window.FloatKeepClear = { set: setFloatKeepClear, get: () => floatKeepClear };
+// 悬浮的小东西「闲着就贴边藏一半」只此一份（群友 2026-09-30 给切 API 那颗定的；2026-10-28「后台保活的黑胶 cd 和切换 api 的圆盘一样贴边边」）：
+//   canTuck 为真、deps 里的东西 ms 毫秒没变，就返回 true（该藏了）；一有动静（deps 变了）就整颗露出来、重新计时。
+function useIdleTuck(canTuck, deps, ms) {
+  const [idle, setIdle] = useState(false);
+  useEffect(() => {
+    if (!canTuck) { setIdle(false); return; }
+    setIdle(false);
+    const tm = setTimeout(() => setIdle(true), ms || 3000);
+    return () => clearTimeout(tm);
+  }, [canTuck].concat(deps || []));
+  return !!(idle && canTuck);
+}
 function MiniPlayer({ song, playing, loading, onOpen, onToggle, onNext, onClose }) {
   const t = useTheme();
   const [pos, setPos] = useState(function () { try { const s = JSON.parse(localStorage.getItem("x_miniPos")); if (s && typeof s.x === "number") return s; } catch (e) {} return null; });
@@ -4071,6 +4106,10 @@ function MiniPlayer({ song, playing, loading, onOpen, onToggle, onNext, onClose 
   const drag = useRef(null);
   const didDrag = useRef(false);
   const [folded, setFolded] = useState(() => { try { return localStorage.getItem("x_miniFolded") === "1"; } catch (e) { return false; } });
+  const [poke, setPoke] = useState(0);
+  const [dragging, setDragging] = useState(false);
+  // 收起成一颗碟时：贴边、闲着藏一半（跟切 API 那颗同一份 useIdleTuck）
+  const tucked = useIdleTuck(folded && !dragging, [poke, folded, dragging]);
   const declared = useFloatKeepClear();
   // ⚠️那条操作条可能占掉大半个屏（庭院的行动栏展开时就是）。禁区照单全收的话，
   //   这颗药丸会被顶到画面正中央——比压在操作条上更碍事。所以留一条：
@@ -4094,22 +4133,29 @@ function MiniPlayer({ song, playing, loading, onOpen, onToggle, onNext, onClose 
   if (!song) return null;
   const cover = song.cover || null;
   const btnStop = (e, fn) => { e.stopPropagation(); fn(); };
-  const onDown = e => { const el = elRef.current; if (!el) return; try { el.setPointerCapture(e.pointerId); } catch (x) {} const r = el.getBoundingClientRect(); drag.current = { sx: e.clientX, sy: e.clientY, ox: r.left, oy: r.top, moved: false }; };
+  const onDown = e => { setPoke(n => n + 1); const el = elRef.current; if (!el) return; try { el.setPointerCapture(e.pointerId); } catch (x) {} const r = el.getBoundingClientRect(); drag.current = { sx: e.clientX, sy: e.clientY, ox: r.left, oy: r.top, moved: false }; };
   const onMove = e => {
     if (!drag.current) return;
     const dx = e.clientX - drag.current.sx, dy = e.clientY - drag.current.sy;
     if (Math.abs(dx) + Math.abs(dy) > 6) drag.current.moved = true;
     if (!drag.current.moved) return;
+    if (!dragging) setDragging(true);
     if (e.cancelable) e.preventDefault();
     const el = elRef.current, w = el.offsetWidth, hh = el.offsetHeight;
     const nx = Math.max(6, Math.min(window.innerWidth - w - 6, drag.current.ox + dx));
     const ny = Math.max(44, Math.min(window.innerHeight - hh - 8 - keepClear, drag.current.oy + dy));
     setPos({ x: nx, y: ny });
   };
-  const onUp = e => { if (drag.current && drag.current.moved) { didDrag.current = true; try { localStorage.setItem("x_miniPos", JSON.stringify(pos)); } catch (x) {} setTimeout(() => { didDrag.current = false; }, 60); } drag.current = null; };
+  const onUp = e => { setDragging(false); if (drag.current && drag.current.moved) { didDrag.current = true;
+    // 收着的那颗松手就吸到近的那条边（展开的那条照旧停在松手的地方）
+    let keep = pos; if (folded && pos && elRef.current) { const w = elRef.current.offsetWidth; keep = { x: pos.x + w / 2 < window.innerWidth / 2 ? 6 : window.innerWidth - w - 6, y: pos.y }; setPos(keep); }
+    try { localStorage.setItem("x_miniPos", JSON.stringify(keep)); } catch (x) {} setTimeout(() => { didDrag.current = false; }, 60); } drag.current = null; };
   // 点一下(没拖动)=跳回播放器；拖过就不触发跳转
   const onClick = () => { if (!didDrag.current) { if (folded) fold(false); else onOpen(); } };
   const place = pos ? { left: pos.x, top: pos.y, right: "auto", bottom: "auto" } : { right: 12, bottom: 84 + keepClear };
+  // 藏一半：往它靠着的那条边缩进去半颗，露出来的半颗照样点得开、拖得动
+  const tuckLeft = !!(pos && elRef.current && pos.x + elRef.current.offsetWidth / 2 < window.innerWidth / 2);
+  const tuckMove = tucked ? { transform: "translateX(" + (tuckLeft ? "calc(-50% - 6px)" : "calc(50% + " + (pos ? 6 : 12) + "px)") + ")", opacity: 0.85 } : { transform: "none" };
   // ── 长相（她 2026-09-05：「这俩黑悬浮弄好看点」）────────────────────
   // 原来整条是一块近黑的板子（rgba(28,26,24,.92)），压在她那张暖色壁纸上像贴了张膏药。
   // ⚠️病不在「有黑」，在【整块都是黑的】：这条子上真正该黑的只有一样东西——唱片本身。
@@ -4126,7 +4172,7 @@ function MiniPlayer({ song, playing, loading, onOpen, onToggle, onNext, onClose 
     style: Object.assign({ position: "fixed", zIndex: MINI_PLAYER_Z, display: "flex", alignItems: "center", gap: 9, maxWidth: "78vw", touchAction: "none", cursor: "grab",
       background: skinAlpha(t.bg2, "F2"), backdropFilter: "blur(16px)", WebkitBackdropFilter: "blur(16px)",
       border: "1px solid " + skinAlpha(ink, "1e"), borderRadius: 999, padding: folded ? "6px" : "6px 8px 6px 6px",
-      boxShadow: "0 10px 26px rgba(0,0,0,.18), inset 0 1px 0 rgba(255,255,255,.35)" }, place) },
+      boxShadow: "0 10px 26px rgba(0,0,0,.18), inset 0 1px 0 rgba(255,255,255,.35)", transition: "transform .3s ease, opacity .3s ease" }, place, tuckMove) },
     // 那张碟：黑胶纹 + 封面当标 + 中间那个轴孔（跟一起听那张大碟同一种材质，没有唱臂——
     // 38px 上再画一根臂只会糊成一团）
     h("div", { style: { position: "relative", flexShrink: 0, width: disc, height: disc, borderRadius: 999,
@@ -17772,6 +17818,18 @@ function OfflineWardrobe({ t, wardrobe, onPick, onMatch, matchBusy }) {
         h("span", { style: { width: 16, height: 16, borderRadius: 4, border: "1px solid " + t.line, background: forever ? t.ink : "transparent", display: "inline-block" } }),
         "以后出图都固定这身（不勾只管这一场）") : null) : null);
 }
+// 这一场演到第几轮（群友 2026-10-28「线下是不是显示不出来一共聊了多少轮」）：数 TA 们写回来的那几拍，单人、多人线下共用
+function offRoundTag(sess) {
+  //   一轮＝一次生成写回来的那一串：多人线下一轮会落好几条（每人一拍，前后隔不到半秒），连着的、隔不到 5 秒的算同一轮
+  let n = 0, prev = null;
+  ((sess && sess.msgs) || []).forEach(m => {
+    if (!m || m.ooc || !m.content) return;
+    if (m.role !== "char") { prev = null; return; }
+    if (!prev || Math.abs((Number(m.ts) || 0) - (Number(prev.ts) || 0)) > 5000) n++;
+    prev = m;
+  });
+  return n ? " · 第 " + n + " 轮" : "";
+}
 function OfflineMode({
   onStopGen,
   char,
@@ -18121,7 +18179,7 @@ function OfflineMode({
       h("button", { "data-wk": "chatback", onClick: exit, className: "active:opacity-50 flex items-center gap-1" }, h(IArrow, { size: 20, color: t.ink }), h("span", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.ink } }, "离开")),
       h("button", { "data-wk": "headname", onClick: () => setModeOpen(true), className: "flex-1 text-center active:opacity-60", style: { minWidth: 0 } },
         h("div", { "data-wk": "offtitle", style: { fontFamily: F_DISPLAY, fontSize: "calc(16px * var(--app-fs, 1))", color: t.ink, display: "flex", justifyContent: "center", alignItems: "baseline", gap: 3, minWidth: 0 } }, h("span", { style: { overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", minWidth: 0 } }, cName), h("span", { style: { flexShrink: 0 } }, "⌄")),
-        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", letterSpacing: 1, color: t.fog } }, room && !room.main ? room.name + " · 独立线下" : "线下 · 轻触切换")),
+        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", letterSpacing: 1, color: t.fog } }, (room && !room.main ? room.name + " · 独立线下" : "线下 · 轻触切换") + offRoundTag(activeSession))),
       h("button", { onClick: () => setNoteOpen(true), className: "active:opacity-50", title: "给 Ta 一个提示" }, h(IPlus, { size: 20, color: t.fog })),
       onSaveSettings && h("button", { "data-wk": "chatmore", onClick: () => setSetOpen(true), className: "active:opacity-50", title: "线下设置（人称/输出长度）", style: { fontFamily: F_BODY, fontSize: "calc(17px * var(--app-fs, 1))", color: t.fog } }, "⚙"),
       h("button", { onClick: () => setEndConfirm(true), className: "active:opacity-60 px-2 py-1", style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.accent } }, "结束")),
@@ -19030,7 +19088,7 @@ function GroupOfflineMode({
       h("button", { "data-wk": "chatback", onClick: exit, className: "active:opacity-50 flex items-center gap-1" }, h(IArrow, { size: 20, color: t.ink }), h("span", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.ink } }, "离开")),
       h("button", { "data-wk": "headname", onClick: () => setModeOpen(true), className: "flex-1 text-center active:opacity-60", style: { minWidth: 0 } },
         h("div", { "data-wk": "offtitle", style: { fontFamily: F_DISPLAY, fontSize: "calc(16px * var(--app-fs, 1))", color: t.ink, display: "flex", justifyContent: "center", alignItems: "baseline", gap: 3, minWidth: 0 } }, h("span", { style: { overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", minWidth: 0 } }, gName), h("span", { style: { flexShrink: 0 } }, "⌄")),
-        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", letterSpacing: 1, color: t.fog } }, "多人线下 · 轻触切换")),
+        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", letterSpacing: 1, color: t.fog } }, "多人线下 · 轻触切换" + offRoundTag(activeSession))),
       h("button", { onClick: () => setNoteOpen(true), className: "active:opacity-50", title: "给他们一个提示" }, h(IPlus, { size: 20, color: t.fog })),
       onSaveSettings && h("button", { "data-wk": "chatmore", onClick: () => setSetOpen(true), className: "active:opacity-50", title: "线下设置" }, h(GConfig, { size: 19, color: t.fog })),
       h("button", { onClick: () => setEndConfirm(true), className: "active:opacity-60 px-2 py-1", style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.accent } }, "结束")),
@@ -19827,7 +19885,10 @@ function GroupThread({
         maxWidth: "72%",
         minWidth: 0
       }, (cardLayout(m.content) || {}).col)
-    }, !isU && h("span", {
+    }, isU && gsp.showMyName && h("span", {
+      "data-wk": "name", "data-me": "1",
+      style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, marginBottom: 2, marginRight: 2 }
+    }, gRoleTag(m), h("span", { style: { marginLeft: 4 } }, meName)), !isU && h("span", {
       "data-wk": "name", "data-me": "0",
       style: {
         fontFamily: F_BODY,
@@ -20500,6 +20561,7 @@ function GroupSettingsSheet({ onSuggestName, onDrawTitles, lucky, onDrawLucky, o
   const [userP, setUserP] = useState(gs.userP || "second");
   const [describeMe, setDescribeMe] = useState(!!gs.describeMe);
   const [showMyAvatar, setShowMyAvatar] = useState(!!gs.showMyAvatar);
+  const [showMyName, setShowMyName] = useState(!!gs.showMyName);   // 群里我那几条上面也写名字和头衔（群友 2026-10-28）
   const [showTime, setShowTime] = useState(!!gs.showTime);
   const [timeSec, setTimeSec] = useState(!!gs.timeSec);
   const [showRead, setShowRead] = useState(!!gs.showRead);
@@ -20625,7 +20687,7 @@ function GroupSettingsSheet({ onSuggestName, onDrawTitles, lucky, onDrawLucky, o
   //   跟单聊设置同一个形状：portal 出去铺满、紧凑顶栏、正文自己滚。
   return ReactDOM.createPortal(h("div", { "data-wk": "gsetpage", "data-page": "1", ref: pageShellPin, className: "h-full flex flex-col", style: pageShellStyle(240, { background: t.bg }) },
     h(Head, { bg: "transparent", zh: "群聊设置", sub: group && group.name ? group.name : undefined, onBack: onClose,
-      right: h("button", { onClick: () => { onSave({ actLong: gActLong, keepRerolls: gKeepRerolls, memoryInterop: interop, privateCtxN: privN, preJoinN: preJoinN, ctxN: ctxN, sumThresh: sumThresh, sumBuffer: sumBuffer, selfP: selfP, userP: userP, describeMe: describeMe, showMyAvatar: showMyAvatar, showTime: showTime, timeSec: timeSec, showRead: showRead, chatBg: chatBg, chatBgFx: chatBgFx, autoChat: autoChat, autoChatMin: autoChatMin, autoChatRounds: autoChatRounds, autoChatMaxMsg: autoChatMaxMsg, autoChatResetHours: autoChatResetHours, drama: gDrama, defaultOffline: gDefaultOffline, actDesc: gActDesc, actPerson: gActPerson, userPerson: gUserPerson, name: gName, titles: Object.fromEntries(Object.entries(gTitles).map(([k, v]) => [k, String(v || "").trim().slice(0, 12)]).filter(x => x[1])), owner: gOwner, admins: gAdmins.filter(x => x !== gOwner), mutes: gMutes, avatarImage: gAvatar, myAvatar: gMyAv || "", maskId: gMask, layout: gLayout, customCSS: gCss }); onClose(); } }, h(ICheck, { size: 19, color: t.ink })) }),
+      right: h("button", { onClick: () => { onSave({ actLong: gActLong, keepRerolls: gKeepRerolls, memoryInterop: interop, privateCtxN: privN, preJoinN: preJoinN, ctxN: ctxN, sumThresh: sumThresh, sumBuffer: sumBuffer, selfP: selfP, userP: userP, describeMe: describeMe, showMyAvatar: showMyAvatar, showMyName: showMyName, showTime: showTime, timeSec: timeSec, showRead: showRead, chatBg: chatBg, chatBgFx: chatBgFx, autoChat: autoChat, autoChatMin: autoChatMin, autoChatRounds: autoChatRounds, autoChatMaxMsg: autoChatMaxMsg, autoChatResetHours: autoChatResetHours, drama: gDrama, defaultOffline: gDefaultOffline, actDesc: gActDesc, actPerson: gActPerson, userPerson: gUserPerson, name: gName, titles: Object.fromEntries(Object.entries(gTitles).map(([k, v]) => [k, String(v || "").trim().slice(0, 12)]).filter(x => x[1])), owner: gOwner, admins: gAdmins.filter(x => x !== gOwner), mutes: gMutes, avatarImage: gAvatar, myAvatar: gMyAv || "", maskId: gMask, layout: gLayout, customCSS: gCss }); onClose(); } }, h(ICheck, { size: 19, color: t.ink })) }),
     h("div", { className: "flex-1 min-h-0 overflow-y-auto px-5 pt-3", style: { paddingBottom: "calc(env(safe-area-inset-bottom) + 28px)" } },
 
     // ⚠️原来一整条从上滚到底，什么都挨着（她 2026-09-30：「看起来有点乱，分成一个个框」）——
@@ -20805,6 +20867,7 @@ function GroupSettingsSheet({ onSuggestName, onDrawTitles, lucky, onDrawLucky, o
         h("input", { ref: bgFileRef, type: "file", accept: "image/*", style: { display: "none" }, onChange: e => { const f = e.target.files && e.target.files[0], el = e.target; if (f) resizeImageFile(f, screenImageDim(), 0.88).then(d => openWallPreview({ src: d, kind: "chat", fx: chatBgFx, onUse: () => setChatBg(d), onRepick: () => el.click() })); e.target.value = ""; } }))),
     chatBg ? h(WallFxRows, { t, fx: chatBgFx, onMove: setChatBgFx, veilHint: "图上压一层暖白，越往右图越淡、字越清楚。", blurHint: "把背景糊掉，气泡更显眼。0 就是原图。" }) : null,
     dispRow("显示我的头像", showMyAvatar, setShowMyAvatar),
+    dispRow("显示我的名字和头衔", showMyName, setShowMyName),
     dispRow("显示时间戳", showTime, setShowTime),
     showTime && dispRow("精确到秒", timeSec, setTimeSec, true),
     dispRow("显示已读", showRead, setShowRead),

@@ -24,9 +24,15 @@ test("闲着 3 秒就贴边藏一半；开着、拖着、按下去时整颗露�
   const i = src.indexOf("function ModelQuickSwitch("), j = src.indexOf("\nfunction ", i + 10);
   assert.ok(i > 0 && j > i, "抠不出 ModelQuickSwitch");
   const f = src.slice(i, j);
-  assert.match(f, /const TUCK_MS = 3000;/);
-  assert.match(f, /if \(open \|\| drag\) \{ setIdle\(false\); return; \}/, "开着或拖着的时候还会缩进去");
-  assert.match(f, /const tucked = idle && !open && !drag;/);
-  assert.match(f, /const onDown = e => \{\n\s*setIdle\(false\);/, "按下去没先整颗露出来");
+  // 2026-10-28 收成公共的 useIdleTuck（黑胶那颗也用）：开着、拖着不缩；按下去整颗露出来
+  assert.match(f, /const tucked = useIdleTuck\(!open && !drag, \[pos, poke\]\);/, "开着或拖着的时候还会缩进去");
+  assert.match(f, /const onDown = e => \{\n\s*setPoke\(n => n \+ 1\);/, "按下去没先整颗露出来");
   assert.match(f, /side === "left" \? \{ left: tucked \? -23 : 12, flexDirection: "row-reverse" \} : \{ right: tucked \? -23 : 12 \}/, "没往边上缩一半（按钮 46 宽，缩 23）");
+});
+
+test("「闲着藏一半」只此一份：useIdleTuck 默认 3 秒，黑胶收起时也用它", () => {
+  const comp = require("fs").readFileSync(require("path").join(__dirname, "..", "js", "components.js"), "utf8");
+  assert.match(comp, /function useIdleTuck\(canTuck, deps, ms\)/);
+  assert.match(comp, /setTimeout\(\(\) => setIdle\(true\), ms \|\| 3000\)/);
+  assert.match(comp, /const tucked = useIdleTuck\(folded && !dragging, \[poke, folded, dragging\]\);/);
 });
