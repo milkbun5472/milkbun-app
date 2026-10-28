@@ -41,7 +41,7 @@
     watch: { on: false, ids: [], nudge: false, env: false },
     env: null,          // 手机最近一次报上来的：{ ts, lat, lon, place, weather, temp, battery }
     home: null,         // { lat, lon }：她自己设的「家」
-    gateway: { url: "", key: "", at: 0, err: "" }   // 她自己的网关（有才填），秋秋机只去那儿拉、不往别处发
+    gateway: { url: "", key: "", at: 0, err: "" }   // 她自己的网关（有才填），秋秋\u673a只去那儿拉、不往别处发
   });
   function load() {
     const d = typeof loadJSON === "function" ? loadJSON(KEY, null) : null;
@@ -472,7 +472,7 @@
 
   // ── 她自己的网关（有才用）────────────────────────────────────
   // 有人自己架了网关：快捷指令每天定时把那段字（或同样字段的 JSON）发给网关，网关存着最新一份；
-  //   秋秋机打开、切回前台时去 GET 一次。只往她填的那个地址发，别的地方一个字都不发。十分钟内不重复拉。
+  //   秋秋打开、切回前台时去 GET 一次。只往她填的那个地址发，别的地方一个字都不发。十分钟内不重复拉。
   const JSON_KEYS = { steps: "步数", sleep: "睡眠", activeEnergy: "活动能量", kcal: "活动能量", exercise: "运动分钟", weight: "体重", water: "喝水",
     lat: "纬度", latitude: "纬度", lon: "经度", lng: "经度", longitude: "经度", weather: "天气", temp: "气温", temperature: "气温", battery: "电量", date: "日期", place: "地点", event: "事件", at: "收到时间" };
   function gatewayText(raw) {
@@ -486,10 +486,10 @@
     } catch (e) { return ""; }
   }
   // 没有网关的人照这个搭一个：Cloudflare Workers 免费档，自带 https，不用买服务器、不用装软件。
-  //   POST（快捷指令发来）→ 存进 KV 那一格；GET（秋秋机来拿）→ 吐出最新那一份。两头都要带同一把密钥。
+  //   POST（快捷指令发来）→ 存进 KV 那一格；GET（秋秋来拿）→ 吐出最新那一份。两头都要带同一把密钥。
   //   ⚠️这段代码是写给她们复制进 Cloudflare 的，改它要连着下面的教程和测试一起看。
   const GATEWAY_WORKER = [
-    "// 秋秋机 · 健康网关（Cloudflare Workers）第 2 版：健康数据存最新一份，到家/出门/起床/睡觉这些事件存最近 20 件",
+    "// 秋秋\u673a · 健康网关（Cloudflare Workers）第 2 版：健康数据存最新一份，到家/出门/起床/睡觉这些事件存最近 20 件",
     "// 需要：一个名为 HEALTH 的 KV 绑定，一个名为 SECRET 的密钥变量",
     "export default {",
     "  async fetch(req, env) {",

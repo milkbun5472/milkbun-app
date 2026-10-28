@@ -1,14 +1,14 @@
-// 秋秋机 · MCP 转接（贴进 Cloudflare Worker 用）
+// 秋秋 · MCP 转接（贴进 Cloudflare Worker 用）
 //
 // 用途：手机浏览器直连 MCP 时，对方没放行跨域（CORS）就会报「Load failed」；
 //   旧的 /sse 方式要一条长连接收回包，网页也接不住。这个小转接替手机去连，
-//   把回来的东西原样交给秋秋机。
+//   把回来的东西原样交给秋秋。
 //
-// 两种连法（秋秋机会自己选，不用管）：
+// 两种连法（秋秋会自己选，不用管）：
 //   http：新的 Streamable HTTP（地址多半以 /mcp 结尾），原样转发，会话号一起带回。
 //   sse ：旧的 /sse，在这一次请求里连上、握手、提问、拿到答案后断开。
 //
-// 加口令（可选）：在这个 Worker 的「设置 → 变量」里加一个 RELAY_KEY，秋秋机那边填一样的。
+// 加口令（可选）：在这个 Worker 的「设置 → 变量」里加一个 RELAY_KEY，秋秋那边填一样的。
 //   不加也能用，只是别人知道这个地址也能借它转发。
 const CORS = {
   "Access-Control-Allow-Origin": "*",
@@ -22,7 +22,7 @@ const WAIT_MS = 25000;
 export default {
   async fetch(req, env) {
     if (req.method === "OPTIONS") return new Response(null, { headers: CORS });
-    if (req.method !== "POST") return reply({ ok: true, hello: "秋秋机 MCP 转接在线 ✓" });
+    if (req.method !== "POST") return reply({ ok: true, hello: "秋秋\u673a MCP 转接在线 ✓" });
     const key = env && env.RELAY_KEY;
     if (key && req.headers.get("X-Relay-Key") !== key) return reply({ error: "转接口令不对" }, 403);
     let b;

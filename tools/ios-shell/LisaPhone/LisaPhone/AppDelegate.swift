@@ -341,7 +341,7 @@ class ShellViewController: UIViewController, WKNavigationDelegate, WKUIDelegate,
       }
     case "show":
       let c = UNMutableNotificationContent()
-      c.title = (d["title"] as? String) ?? "秋秋机"
+      c.title = (d["title"] as? String) ?? "秋秋\u{673A}"
       c.body = (d["body"] as? String) ?? ""
       c.sound = .default
       // 点开要落回她正在看的那个人/那个群:原样带回给 window.__openFromNotif
