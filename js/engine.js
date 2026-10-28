@@ -2715,6 +2715,11 @@ function pullBareHtmlCard(raw) {
 //   ① 上一泡是半句长话（六个字以上、末尾不是标点也不是表情），这一泡只有一两个汉字、自己也不带标点——是上一句的尾巴；
 //   ② 这一泡只是一个连词（还是、但是、不过……），没说完——粘到下一泡前头。
 //   「好」「嗯」「晚安」这种能自己成一句的，跟在短句或收了尾的句子后面都不粘。
+//   她 2026-10-28 截图又两种（「……哪怕发个表情也行，只要／让我知道你在看手机就行」「……去你公司楼下堵／人，免得你下班挤车受冻」）：
+//   ③ 上一泡停在一个说不完的词上（只要、哪怕、如果、把、给……）——话一定还在下一泡里；
+//   ④ 这一泡开头一两个字就接逗号，而上一泡是没收尾的半句长话——那一两个字是上一句的尾巴（「嗯，」「好，」这种自己起头的不算）。
+const BUBBLE_DANGLE = /(只要|哪怕|如果|因为|虽然|即使|就算|除非|为了|除了|而且|但是|可是|还是|或者|所以|然后|不过|甚至|以及|并且|把|被|给|跟|和|与|让|从|对|往|向|比|连|将|于)$/;
+const BUBBLE_INTERJ = /^[好嗯哎唉啊哦噢嘿喂行对是诶呃欸算靠切哼呵哈呀嗷喔唔]+$/;
 const BUBBLE_CONJ = /^(还是|但是|可是|不过|所以|然后|而且|或者|因为|就是|而是|要么|如果|虽然|于是|结果)$/;
 function bubbleGlueBrokenLines(list) {
   const isStr = x => typeof x === "string";
@@ -2726,6 +2731,9 @@ function bubbleGlueBrokenLines(list) {
     // 模型把句尾的「!」「?!」单交成一条（她 2026-10-28 法语那句）：粘回上一句
     if (isStr(prev) && /^[!?！？。…~～]+$/.test(cur)) { out[out.length - 1] = prev.trim() + (/^[!?]/.test(cur) && /[!?]$/.test(prev.trim()) ? " " : "") + cur; continue; }
     if (isStr(prev) && /^[\u4e00-\u9fff]{1,2}$/.test(cur) && prev.trim().length >= 6 && /[\u4e00-\u9fff]$/.test(prev.trim())) { out[out.length - 1] = prev + cur; continue; }
+    if (isStr(prev) && /^[\u4e00-\u9fff]/.test(cur) && prev.trim().length >= 6 && BUBBLE_DANGLE.test(prev.trim())) { out[out.length - 1] = prev.trim() + cur; continue; }
+    { const m = /^([\u4e00-\u9fff]{1,2})[，,]/.exec(cur);
+      if (m && !BUBBLE_INTERJ.test(m[1]) && isStr(prev) && prev.trim().length >= 10 && /[\u4e00-\u9fff]$/.test(prev.trim())) { out[out.length - 1] = prev.trim() + cur; continue; } }
     if (BUBBLE_CONJ.test(cur) && isStr(list[i + 1]) && /^[\u4e00-\u9fff]/.test(list[i + 1].trim())) { list = list.slice(); list[i + 1] = cur + list[i + 1].trim(); continue; }
     out.push(x);
   }
