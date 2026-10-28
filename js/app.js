@@ -20,7 +20,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v76.821";
+const APP_VERSION = "v76.829";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -3128,6 +3128,9 @@ function App() {
       if (inNote) { inNote.push(w); if (/】\s*$/.test(w)) { if (!ECHO_NOTE_HINT.test(inNote.join(""))) out.push(...inNote); inNote = null; } continue; }
       if (/^\s*【/.test(w) && !/】/.test(w.replace(/^\s*【/, ""))) { inNote = [w]; continue; }
       if (/^\s*【[^】]*】\s*$/.test(w) && ECHO_NOTE_HINT.test(w)) continue;
+      // 整条只是一句「〔某某发送了一张自拍〕」「[发了一张照片]」这种系统旁白腔（她 2026-10-28 截图）：
+      //   照片那张卡自己会出来，这句是它照着聊天记录的样子「播报」了一下，不是TA说的话
+      if (/^\s*[〔【\[(（]\s*[^〔〕【】\[\]()（）\n]{0,16}(?:发送了|发来了?|发了)(?:一张|一条|一段|一个)?(?:自拍|照片|图片|相片|语音|视频|表情包?|定位|位置)\s*[〕】\])）]\s*$/.test(w)) continue;
       if (/^\s*照片内容[:：]/.test(w) && out.length < list.length && ECHO_NOTE_HINT.test((list || []).join(""))) continue;
       out.push(w);
     }
@@ -12284,7 +12287,9 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         : opts.loveLetterAnswer === "no" ? "\n\n【此刻】你写给 " + uName + " 的那封申请信，她拆开看了，说再想想。失落、嘴硬、装没事、还是说等她——全看你这个人和你们现在的关系。" : "";
       const refuseHint = opts.phoneRefused ? "\n\n【此刻】你刚开口要看 " + uName + " 的手机，她没给。怎么想、追不追问、生不生气、还是算了，全看你这个人和你们现在的关系。" : "";
       const meddleHint = opts.phoneMeddle && opts.phoneMeddle.length ? "\n\n【你刚发现】你手机上有几样不是你动的：" + uName + " 拿你的手机" + opts.phoneMeddle.map(phoneMeddleLine).join("；") + "。这是刚发生的事；什么反应由你这个人和这段关系决定。" : "";
-      const remarkHint = meddleHint + (opts.phoneRemark && opts.phoneRemark.length ? "\n\n【你刚发现】你微信通讯录里的备注被 " + uName + " 偷偷改了：" + opts.phoneRemark.map(phoneRemarkLine).join("；") + "。这是刚发生的事；什么反应由你这个人和这段关系决定。" : "");
+      const _herAvRef = opts.herAvatar && opts.herAvatar.ref && typeof isImgRef === "function" && (isImgRef(opts.herAvatar.ref) || /^data:image/.test(String(opts.herAvatar.ref))) ? opts.herAvatar.ref : null;
+      const avatarHint = opts.herAvatar ? "\n\n【刚发生】" + uName + (opts.herAvatar.back ? " 把她在你俩这个聊天里的头像换回了原来那张" : " 换了她在你俩这个聊天里的头像") + (_herAvRef ? "（换上的那张附在她这一轮的消息上）" : "") + "。看见了想说就说，不想说也行。" : "";
+      const remarkHint = avatarHint + meddleHint + (opts.phoneRemark && opts.phoneRemark.length ? "\n\n【你刚发现】你微信通讯录里的备注被 " + uName + " 偷偷改了：" + opts.phoneRemark.map(phoneRemarkLine).join("；") + "。这是刚发生的事；什么反应由你这个人和这段关系决定。" : "");
       // 她刚改过TA通讯录备注（phoneRemarkEdit）跟「最近查过手机」是同一类事，挂在同一格里
       // ⚠️「你最近查过她的手机」是主线发生过的事，直接拼在提示词上、绕过了房间那道闸——
       //   隔离房里TA也知道（群友 2026-10-08）。跟 watchedNote 同一档（别处发生的事），房里关了就不带
@@ -13379,6 +13384,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         // 用户消息上的 _imageRefs 抖掉了——而她的新照片永远在最后一条上,于是新图永丢、旧图冒名。
         // 必须展开保留原字段。
         g[_i] = { ...g[_i], content: (bundleVolatile ? "【此刻的实时背景（只服务这一轮，不是历史）】\n" + bundleVolatile + "\n\n———\n" : "") + g[_i].content + _taskFull };
+        // 她刚换的那张头像也给他看一眼（附在她这一轮的消息上，跟她发的照片同一条路）
+        { const _av = opts.herAvatar && opts.herAvatar.ref; if (_av && ((typeof isImgRef === "function" && isImgRef(_av)) || /^data:image/.test(String(_av)))) g[_i] = { ...g[_i], _imageRefs: [...(g[_i]._imageRefs || []), _av] }; }
             // 留存这一轮 TA 实际收到的指令尾部（v53.73）：再遇到「TA说没有这个字段」时直接看真东西，不靠猜。只读快照，不参与判定。
             try { window.__lastSentTail = { ts: Date.now(), who: char.name, toyInTask: _taskFull.indexOf('"toy":null') >= 0, offlineBleed: /\u3010\u7ebf\u4e0b\u8fdb\u884c\u4e2d\u3011|\u8fd8\u6ca1\u6b63\u5f0f\u6563\u573a/.test(String(g[_i].content)), tail: String(g[_i].content).slice(-1100) }; } catch (e) {}
         break;
@@ -19692,7 +19699,13 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   const netOf = x => { const m = /网名(?:是|叫)?[：:「“"\s]*([^，,。；;」”"\n]{1,24})/.exec(String((x && (x.brief || x.persona || x.intro)) || "")); return m ? m[1].trim() : ""; };
   const _phoneFaceChar = (ownerId, name) => { const n = String(name || "").trim(); if (!n) return null;
     // 配角卡里常写着「网名X」，他手机微信里显示的正是那个网名（群里 2026-10-17 截图：沈韦＝韦制、苏漾＝盐汽水不加盐）
-    return (characters || []).find(x => x && x.id !== ownerId && (x.name === n || x.remark === n || netOf(x) === n)) || null; };
+    const exact = (characters || []).find(x => x && x.id !== ownerId && (x.name === n || x.remark === n || netOf(x) === n));
+    if (exact) return exact;
+    // 只写了名、没带姓（群里 2026-10-28：推演出来的群里「智旻」「泰亨」是色块，角色卡上叫「朴智旻」「金泰亨」）：
+    //   卡名正好是「一两个字的姓＋这个名」、而且只有这一张对得上，才认；对得上好几张就不认，免得认错人
+    if (n.length < 2) return null;
+    const tail = (characters || []).filter(x => x && x.id !== ownerId && [x.name, x.remark].some(v => { v = String(v || ""); return v.length - n.length >= 1 && v.length - n.length <= 2 && v.endsWith(n); }));
+    return tail.length === 1 ? tail[0] : null; };
   window.__phoneFaceOf = (ownerId, name) => {
     const mine = ((loadJSON("x_phoneContactAv", {}) || {})[ownerId] || {})[String(name || "").trim()];
     if (mine) return mine;
@@ -35515,6 +35528,13 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       saveRemark(activeChar.id, s.remark);
       if (!!s.proactive !== autoRefreshOn("proactive", activeChar.id)) setAutoFromPage("proactive", activeChar.id, !!s.proactive);
       if (s.proactiveRate !== undefined) saveAutoRefreshPolicy(window.AutoRefreshPolicy.setCharRate(autoRefreshRef.current, "proactive", activeChar.id, s.proactiveRate));
+      // 她换了自己在这个聊天里的头像（群里 2026-10-28「自己聊天框这边换了头像角色知道吗」）：聊天里落一行灰字，
+      //   他下一轮知道，新的那张也给他看——走「等她开口」那一份，不当场抢话（wait-for-her）
+      if ((s.myChatAvatar || null) !== (activeChar.myChatAvatar || null)) {
+        const _back = !s.myChatAvatar;
+        pChat(activeChar.id, p => [...p, { role: "system", kind: "system", content: _back ? "你在这个聊天里用回了原来的头像" : "你换了你在这个聊天里的头像", ts: Date.now() }]);
+        waitForHer(activeChar.id, { herAvatar: { ref: s.myChatAvatar || ((profileFor(activeChar.id) || {}).avatarImage) || null, back: _back } });
+      }
       pC(p => p.map(c => c.id === activeChar.id ? {
         ...c,
         patSig: s.patSig,

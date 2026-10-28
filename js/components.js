@@ -11202,6 +11202,8 @@ function ChatThread({
   // 左滑引用：只给菜单里本来就有「引用」的那几类消息（动作行、照片卡这些引用了也没意义）
   // 双击头像拍一拍（她 2026-10-02）。单击原来的动作（看心声）往后让 260ms，等第二下
   const avTapRef = useRef({ t: 0, timer: null });
+  // 消息行左右TA那颗头像：气泡、表情包、卡片、正在输入共用这一份（挪到这一层，正在输入那行也够得着）
+  const charAvEl = () => h("button", { onClick: avTap(onOpenState), className: "shrink-0 active:opacity-70", title: "查看 " + cName + " 的心声", "data-wk": "avatar" }, h(Avatar, { character: character, size: 40, radius: 10 }));
   const avTap = single => e => {
     if (e && e.stopPropagation) e.stopPropagation();
     const r = avTapRef.current, now = Date.now();
@@ -11473,7 +11475,6 @@ function ChatThread({
     //   新卡片要进聊天：在这儿套上头像，再把 kind 写进 CARD_PRESS_KINDS。
     // 消息行左右那颗头像：文字气泡、表情包、各种卡片全用这一份（她 2026-10-27：表情包那行的头像没套头像框、点了也开不了状态卡）。
     //   跟文字气泡那颗一模一样：TA 那颗是按钮（单击看状态、双击拍一拍），我这颗是一层 span；挂点都是 data-wk="avatar"
-    const charAvEl = () => h("button", { onClick: avTap(onOpenState), className: "shrink-0 active:opacity-70", title: "查看 " + cName + " 的心声", "data-wk": "avatar" }, h(Avatar, { character: character, size: 40, radius: 10 }));
     const meAvEl = () => dsp.myAvatar ? h("span", { "data-wk": "avatar", className: "shrink-0", style: { display: "inline-flex" } }, h(Avatar, { character: meAv, size: 40, radius: 10 })) : null;
     const cardRow = (i, m, card) => {
       const isU = m.role === "user";
@@ -11916,7 +11917,11 @@ function ChatThread({
     }, "!")));
   })(_row), _row.m, _row.i, { selMode, startPress, endPress, toggleSel })),
   // 重 Roll 留下的几版：贴着 TA 最后那条气泡底下，左右翻
-  !sending && !selMode && rerollNav && onRerollFlip ? h(RerollNav, { nav: rerollNav, onFlip: onRerollFlip }) : null, sending && /*#__PURE__*/React.createElement("div", {
+  !sending && !selMode && rerollNav && onRerollFlip ? h(RerollNav, { nav: rerollNav, onFlip: onRerollFlip }) : null, sending && h("div", {
+    // 外面套一层 msg（她 2026-10-28：美化没跟上输入中）：头像框、挂件、藏头像那几条都写在
+    //   [data-wk="msg"][data-me="0"] 底下，这一行不在 msg 里，头像就光秃秃的
+    "data-wk": "msg", "data-me": "0", "data-kind": "typing"
+  }, /*#__PURE__*/React.createElement("div", {
     role: "status",
     "aria-live": "polite",
     "aria-label": character.name + " 正在输入",
@@ -11925,11 +11930,7 @@ function ChatThread({
     //   满屏气泡都变圆了、只有这一颗还方着——最扎眼的恰恰是它，因为它天天出现。
     "data-wk": "row",
     className: "flex items-start gap-2"
-  }, /*#__PURE__*/React.createElement(Avatar, {
-    character: character,
-    size: 40,
-    radius: 10
-  }), h("div", null, /*#__PURE__*/React.createElement("div", {
+  }, charAvEl(), h("div", null, /*#__PURE__*/React.createElement("div", {
     // 外面多包一层（她 2026-10-19）：跟普通消息一样，气泡不直接挂在整行底下。
     //   美化常写「div:has(> 气泡) 竖着排」来把引用挪到气泡下面，直接挂在行上会把头像、点点、✕ 整行竖排拆散。
     "data-wk": "bubble", "data-me": "0", "data-kind": "typing",
@@ -11939,7 +11940,7 @@ function ChatThread({
       borderRadius: 14
     }
   }, /*#__PURE__*/React.createElement(TypingDots, { color: t.fog }))),
-  onStopGen && h(GenStopX, { onStop: onStopGen }))), selMode ? h("div", { "data-wk": "selbar", className: "shrink-0", style: { background: t.bg2, borderTop: `1px solid ${t.line}` } },
+  onStopGen && h(GenStopX, { onStop: onStopGen })))), selMode ? h("div", { "data-wk": "selbar", className: "shrink-0", style: { background: t.bg2, borderTop: `1px solid ${t.line}` } },
   // 多选栏两行（她 2026-10-17「太多东西塞不下了」）：上面一行是取消／已选几条／补中间，下面一行是能做的事，平均摊开
   h("div", {
     className: "flex items-center justify-between px-4 pt-2.5 pb-1",
@@ -13781,6 +13782,9 @@ function pinToBottom(el, ms) {
   el.addEventListener("touchmove", halt, opt);
   el.addEventListener("wheel", halt, opt);
   el.addEventListener("keydown", halt);
+  // 点了「跳到某一条」（新消息药丸、查找定位）：她要去上面，别再把她拽回底下
+  //   （她 2026-10-28：群里点「↑ N 条新消息」还是卡着——刚进群这几秒一直在钉底，撑开窗口一变高就被拽回去）
+  el.addEventListener("pinstop", halt);
   // 图片解码完成会冒到这里（capture 才收得到 img 的 load）——这是最准的一枪
   el.addEventListener("load", pin, true);
   pin();
@@ -13792,6 +13796,7 @@ function pinToBottom(el, ms) {
     el.removeEventListener("touchmove", halt, opt);
     el.removeEventListener("wheel", halt, opt);
     el.removeEventListener("keydown", halt);
+    el.removeEventListener("pinstop", halt);
     el.removeEventListener("load", pin, true);
   };
 }
@@ -14713,8 +14718,11 @@ function CallLogSheet({ calls, chars, onClose }) {
 //   另外还漏了两样：窗口上面那颗「↑ 上面还有 N 条」按钮，和单聊里带思考/搜索的消息
 //   前面多出来的那一格 ReasoningBlock。现在按【真画出来的】那几样数。
 // opts.start：窗口从第几条开始画（重画之后的值）；opts.single：单聊那一路（有拆段和思考格）
+// 叫停 pinToBottom 那一下钉底（跳到某一条之前先拔掉）
+function stopPin(el) { try { el && el.dispatchEvent(new Event("pinstop")); } catch (e) {} }
 function locateMsgIn(container, i, messages, hasArchiveLead, opts) {
   try {
+    if (typeof stopPin === "function") stopPin(container);
     const o = opts || {};
     const start = Math.max(0, Number(o.start) || 0);
     if (i < start) return;
@@ -19567,6 +19575,7 @@ function GroupThread({
   }, h(ChatJumpArrows, { scroller: ref, t, onTop: () => revealMsg(0) }), (openUnread > 0 && messages.length - openUnread >= 0) ? h("div", { style: { position: "sticky", top: 0, zIndex: 6, height: 0, display: "flex", justifyContent: "flex-end" } },
     h("button", { "data-wk": "gunreadjump", onClick: () => {
         const idx = Math.max(0, messages.length - openUnread);
+        stopPin(ref.current);
         revealMsg(idx);
         setTimeout(() => locateMsgIn(ref.current, idx, messages, archCount > 0, { start: winStartRef.current }), 160);
         onOpenUnreadDone && onOpenUnreadDone();
@@ -19818,7 +19827,10 @@ function GroupThread({
         maxWidth: "72%",
         minWidth: 0
       }, (cardLayout(m.content) || {}).col)
-    }, !isU && h("span", {
+    }, isU && gsp.showMyName && h("span", {
+      "data-wk": "name", "data-me": "1",
+      style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, marginBottom: 2, marginRight: 2 }
+    }, gRoleTag(m), h("span", { style: { marginLeft: 4 } }, meName)), !isU && h("span", {
       "data-wk": "name", "data-me": "0",
       style: {
         fontFamily: F_BODY,
@@ -20491,6 +20503,7 @@ function GroupSettingsSheet({ onSuggestName, onDrawTitles, lucky, onDrawLucky, o
   const [userP, setUserP] = useState(gs.userP || "second");
   const [describeMe, setDescribeMe] = useState(!!gs.describeMe);
   const [showMyAvatar, setShowMyAvatar] = useState(!!gs.showMyAvatar);
+  const [showMyName, setShowMyName] = useState(!!gs.showMyName);   // 群里我那几条上面也写名字和头衔（群友 2026-10-28）
   const [showTime, setShowTime] = useState(!!gs.showTime);
   const [timeSec, setTimeSec] = useState(!!gs.timeSec);
   const [showRead, setShowRead] = useState(!!gs.showRead);
@@ -20616,7 +20629,7 @@ function GroupSettingsSheet({ onSuggestName, onDrawTitles, lucky, onDrawLucky, o
   //   跟单聊设置同一个形状：portal 出去铺满、紧凑顶栏、正文自己滚。
   return ReactDOM.createPortal(h("div", { "data-wk": "gsetpage", "data-page": "1", ref: pageShellPin, className: "h-full flex flex-col", style: pageShellStyle(240, { background: t.bg }) },
     h(Head, { bg: "transparent", zh: "群聊设置", sub: group && group.name ? group.name : undefined, onBack: onClose,
-      right: h("button", { onClick: () => { onSave({ actLong: gActLong, keepRerolls: gKeepRerolls, memoryInterop: interop, privateCtxN: privN, preJoinN: preJoinN, ctxN: ctxN, sumThresh: sumThresh, sumBuffer: sumBuffer, selfP: selfP, userP: userP, describeMe: describeMe, showMyAvatar: showMyAvatar, showTime: showTime, timeSec: timeSec, showRead: showRead, chatBg: chatBg, chatBgFx: chatBgFx, autoChat: autoChat, autoChatMin: autoChatMin, autoChatRounds: autoChatRounds, autoChatMaxMsg: autoChatMaxMsg, autoChatResetHours: autoChatResetHours, drama: gDrama, defaultOffline: gDefaultOffline, actDesc: gActDesc, actPerson: gActPerson, userPerson: gUserPerson, name: gName, titles: Object.fromEntries(Object.entries(gTitles).map(([k, v]) => [k, String(v || "").trim().slice(0, 12)]).filter(x => x[1])), owner: gOwner, admins: gAdmins.filter(x => x !== gOwner), mutes: gMutes, avatarImage: gAvatar, myAvatar: gMyAv || "", maskId: gMask, layout: gLayout, customCSS: gCss }); onClose(); } }, h(ICheck, { size: 19, color: t.ink })) }),
+      right: h("button", { onClick: () => { onSave({ actLong: gActLong, keepRerolls: gKeepRerolls, memoryInterop: interop, privateCtxN: privN, preJoinN: preJoinN, ctxN: ctxN, sumThresh: sumThresh, sumBuffer: sumBuffer, selfP: selfP, userP: userP, describeMe: describeMe, showMyAvatar: showMyAvatar, showMyName: showMyName, showTime: showTime, timeSec: timeSec, showRead: showRead, chatBg: chatBg, chatBgFx: chatBgFx, autoChat: autoChat, autoChatMin: autoChatMin, autoChatRounds: autoChatRounds, autoChatMaxMsg: autoChatMaxMsg, autoChatResetHours: autoChatResetHours, drama: gDrama, defaultOffline: gDefaultOffline, actDesc: gActDesc, actPerson: gActPerson, userPerson: gUserPerson, name: gName, titles: Object.fromEntries(Object.entries(gTitles).map(([k, v]) => [k, String(v || "").trim().slice(0, 12)]).filter(x => x[1])), owner: gOwner, admins: gAdmins.filter(x => x !== gOwner), mutes: gMutes, avatarImage: gAvatar, myAvatar: gMyAv || "", maskId: gMask, layout: gLayout, customCSS: gCss }); onClose(); } }, h(ICheck, { size: 19, color: t.ink })) }),
     h("div", { className: "flex-1 min-h-0 overflow-y-auto px-5 pt-3", style: { paddingBottom: "calc(env(safe-area-inset-bottom) + 28px)" } },
 
     // ⚠️原来一整条从上滚到底，什么都挨着（她 2026-09-30：「看起来有点乱，分成一个个框」）——
@@ -20796,6 +20809,7 @@ function GroupSettingsSheet({ onSuggestName, onDrawTitles, lucky, onDrawLucky, o
         h("input", { ref: bgFileRef, type: "file", accept: "image/*", style: { display: "none" }, onChange: e => { const f = e.target.files && e.target.files[0], el = e.target; if (f) resizeImageFile(f, screenImageDim(), 0.88).then(d => openWallPreview({ src: d, kind: "chat", fx: chatBgFx, onUse: () => setChatBg(d), onRepick: () => el.click() })); e.target.value = ""; } }))),
     chatBg ? h(WallFxRows, { t, fx: chatBgFx, onMove: setChatBgFx, veilHint: "图上压一层暖白，越往右图越淡、字越清楚。", blurHint: "把背景糊掉，气泡更显眼。0 就是原图。" }) : null,
     dispRow("显示我的头像", showMyAvatar, setShowMyAvatar),
+    dispRow("显示我的名字和头衔", showMyName, setShowMyName),
     dispRow("显示时间戳", showTime, setShowTime),
     showTime && dispRow("精确到秒", timeSec, setTimeSec, true),
     dispRow("显示已读", showRead, setShowRead),
