@@ -719,6 +719,7 @@
     const charTheme = thDraft != null ? thDraft : ((opt.charTheme || {})[charId] || "");
     const charThemeLine = thLineDraft != null ? thLineDraft : ((opt.charThemeLine || {})[charId] || "");
     const ifMode = opt.ifMode || "random";
+    const [libEdit, setLibEdit] = useState(null);   // 主题库里正在改的那一个
     const charTime = (opt.charTime || {})[charId] || "now";
     // 限时池：跟角色池一样能单挑一个人抽；不挑就是勾了的人（不勾＝所有人）里随机
     const limIds = (opt.limPick && opt.limPick.length ? opt.limPick : characters.map(c => c.id)).filter(id => characters.some(c => c.id === id));
@@ -935,10 +936,19 @@
             h("div", { className: "flex items-center flex-wrap", style: { gap: 6 } },
               lib.map(x => h("span", { key: x.id, className: "inline-flex items-center", style: { borderRadius: 999, border: "1px solid " + (x.name === cur ? "#285C4B" : "rgba(47,42,34,.22)"), background: x.name === cur ? "rgba(40,92,75,.1)" : "transparent" } },
                 h("button", { onClick: () => useIt(x), style: { padding: "3px 4px 3px 10px", fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: "#2f2a22" } }, x.name),
+                h("button", { "data-wk": "stampthemeedit", onClick: () => setLibEdit({ id: x.id, name: x.name, line: x.line || "" }), style: { padding: "3px 2px", fontSize: "calc(11px * var(--app-fs, 1))", color: "rgba(47,42,34,.45)" } }, "✎"),
                 h("button", { onClick: () => setOpt({ themeLib: lib.filter(y => y.id !== x.id) }), style: { padding: "3px 8px 3px 4px", fontSize: "calc(11px * var(--app-fs, 1))", color: "rgba(47,42,34,.4)" } }, "×"))),
               cur && !lib.some(x => x.name === cur) ? h("button", { "data-wk": "stampthemesave", onClick: () => { setOpt({ themeLib: lib.concat([{ id: "tl_" + Date.now().toString(36), name: cur.slice(0, 40), line: charThemeLine.slice(0, 200) }]).slice(-30) }); toast("存进主题库了，别的人也能点它用"); },
                 style: { padding: "3px 10px", borderRadius: 999, border: "1px dashed #285C4B", color: "#285C4B", fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))" } }, "＋ 存下「" + cur.slice(0, 8) + "」") : null),
-            lib.length ? h("div", { style: { marginTop: 4, fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: "rgba(47,42,34,.45)" } }, "主题库：点一个就给上面选中的这个人用上（连那句说明），换个人再点就是给他用") : null); })(),
+            // ✎ 改主题库里的那一个（名字、说明）：已经用着它的人不跟着变，要用新的再点一下
+            libEdit ? h("div", { "data-wk": "stampthemeeditbox", style: { marginTop: 8, padding: 10, borderRadius: 10, border: "1px solid rgba(40,92,75,.35)", background: "rgba(40,92,75,.05)" } },
+              h("input", { value: libEdit.name, maxLength: 40, onChange: e => setLibEdit(Object.assign({}, libEdit, { name: e.target.value })), placeholder: "主题名", style: { width: "100%", padding: "7px 10px", borderRadius: 8, border: "1px solid rgba(47,42,34,.22)", background: "#FFF8E9", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))" } }),
+              h("textarea", { value: libEdit.line, maxLength: 200, rows: 2, onChange: e => setLibEdit(Object.assign({}, libEdit, { line: e.target.value })), placeholder: "一句说明（可空）", style: { width: "100%", marginTop: 6, padding: "7px 10px", borderRadius: 8, border: "1px solid rgba(47,42,34,.22)", background: "#FFF8E9", fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", resize: "none" } }),
+              h("div", { className: "flex justify-end", style: { gap: 8, marginTop: 6 } },
+                h("button", { onClick: () => setLibEdit(null), style: { padding: "4px 10px", fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: "rgba(47,42,34,.55)" } }, "取消"),
+                h("button", { onClick: () => { const nm = libEdit.name.trim(); if (!nm) { toast("主题名不能空着"); return; } setOpt({ themeLib: lib.map(y => y.id === libEdit.id ? Object.assign({}, y, { name: nm.slice(0, 40), line: libEdit.line.slice(0, 200) }) : y) }); setLibEdit(null); toast("改好了"); },
+                  style: { padding: "4px 14px", borderRadius: 999, background: "#285C4B", color: "#FFF8E9", fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))" } }, "保存"))) : null,
+            lib.length ? h("div", { style: { marginTop: 4, fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: "rgba(47,42,34,.45)" } }, "主题库：点一个就给上面选中的这个人用上（连那句说明），换个人再点就是给他用；✎ 改，× 删") : null); })(),
         h(Eyebrow, { style: { color: "rgba(47,42,34,.55)", marginTop: 14 } }, "时间（只挑时间、不写主题＝同一个他在别的时间；写了主题就是那个时间的 IF）"),
         h("div", { "data-wk": "stampchartime", className: "flex flex-wrap", style: { gap: 6, marginTop: 6 } }, [["now", "现在"]].concat(Object.keys(TIME_ZH).map(k => [k, TIME_ZH[k]])).map(x => chip(charTime === x[0], x[1], () => setOpt({ charTime: Object.assign({}, opt.charTime, { [charId]: x[0] }) }), "t" + x[0]))),
         h(Eyebrow, { style: { color: "rgba(47,42,34,.55)", marginTop: 18 } }, "IF 卡里，他是别的世界、别的年代的人时"),
