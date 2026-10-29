@@ -26,7 +26,9 @@ const AskSlip = (() => {
   // 再递一回：带上前几回的理由和批语，第几次一眼看得到
   const again = (prev, reason) => ({ what: prev.what, amount: prev.amount, reason, round: (prev.round || 1) + 1, prevAid: prev.aid,
     before: (prev.before || []).concat([{ reason: prev.reason || "", note: prev.note || "" }]).slice(-4) });
-  return { VERDICT, amountOf, line, tally, again };
+  // 编号：原卡和回执认同一个号
+  const no = key => { let x = 0; String(key || "").split("").forEach(c => { x = (x * 31 + c.charCodeAt(0)) % 9973; }); return String(x).padStart(4, "0"); };
+  return { VERDICT, amountOf, line, tally, again, no };
 })();
 if (typeof window !== "undefined") window.AskSlip = AskSlip;
 
@@ -67,7 +69,7 @@ function AskSlipCard({ m, asker, money, onDecide, onVote, onResend, meName, allo
   const SEAL = "#b8332e";
   const fs = n => "calc(" + n + "px * var(--app-fs, 1))";
   const small = { fontFamily: F_BODY, fontSize: fs(11), color: t.fog };
-  const no = (() => { let x = 0; String(m.aid || m.pollId || a.what || "").split("").forEach(c => { x = (x * 31 + c.charCodeAt(0)) % 9973; }); return String(x).padStart(4, "0"); })();
+  const no = AskSlip.no(m.aid || m.pollId || a.what);
   const day = m.ts ? (d => (d.getMonth() + 1) + "月" + d.getDate() + "日")(new Date(m.ts)) : "";
   const row = (label, body, key, extra) => h("div", { key, className: "flex", style: Object.assign({ borderTop: "1px solid " + t.line, padding: "7px 0", gap: 10, alignItems: "baseline" }, extra || {}) },
     h("span", { style: Object.assign({}, small, { width: 34, flexShrink: 0, letterSpacing: "0.15em" }) }, label),
@@ -77,7 +79,7 @@ function AskSlipCard({ m, asker, money, onDecide, onVote, onResend, meName, allo
       color: kind === "solid" ? "#fff" : kind === "seal" ? SEAL : t.ink, background: kind === "solid" ? SEAL : "transparent",
       border: "1px solid " + (kind === "solid" || kind === "seal" ? SEAL : t.line) } }, label);
   const voters = (names, on) => h("span", { style: { color: on ? SEAL : t.ink } }, names.length ? names.join("、") : "—");
-  return h("div", { "data-wk": "askslip", "data-status": st, style: { position: "relative", width: 260, maxWidth: "100%", background: t.bg2, borderRadius: 3,
+  return h("div", { "data-wk": "askslip", "data-status": st, "data-aid": m.aid || m.pollId || "", style: { position: "relative", width: 260, maxWidth: "100%", background: t.bg2, borderRadius: 3,
       padding: "12px 14px 12px 18px", border: "1px solid " + t.line, boxShadow: "0 2px 6px rgba(0,0,0,0.06)",
       // 左边一道红色装订线
       backgroundImage: "linear-gradient(90deg, transparent 8px, " + SEAL + "33 8px, " + SEAL + "33 9px, transparent 9px)" } },
@@ -114,4 +116,35 @@ function AskSlipCard({ m, asker, money, onDecide, onVote, onResend, meName, allo
     onResend && st === "rejected" && !m.resent ? h("div", { className: "flex", style: { gap: 6, marginTop: 10 } }, btn("补充理由再递", "seal", onResend, "r")) : null,
     onVote && st === "pending" ? h("div", { className: "flex", style: { gap: 6, marginTop: 10 } },
       btn(myVote === 0 ? "✓ 准" : "准", myVote === 0 ? "solid" : "seal", () => onVote(0), "y"), btn(myVote === 1 ? "✓ 驳" : "驳", "", () => onVote(1), "n")) : null);
+}
+
+// 批完那一刻落的存根（跟转账回执一个意思）：小印 + 编号事由 + 批语/条件 + 钱怎么走的。
+//   r：消息上的 askReceipt；whoName(side)：me/char 叫什么；onJump：点了跳回原卡
+function AskReceipt({ r, meName, charName, money, onJump }) {
+  const t = useTheme();
+  const SEAL = "#b8332e", fs = n => "calc(" + n + "px * var(--app-fs, 1))";
+  const small = { fontFamily: F_BODY, fontSize: fs(11), color: t.fog, lineHeight: 1.6 };
+  const payLine = r.amount ? (r.payer === "me" ? "从你的钱包出了 " : "从" + (charName || "TA") + "的钱包出了 ") + (money ? money(r.amount) : "¥" + r.amount) : "";
+  return h("div", { "data-wk": "askreceipt", "data-status": r.status, onClick: onJump, className: onJump ? "active:opacity-80" : "",
+      style: { width: 220, maxWidth: "100%", background: t.bg2, border: "1px solid " + t.line, borderTop: "2px dashed " + t.line, borderRadius: "0 0 4px 4px",
+        padding: "9px 12px", display: "flex", gap: 10, alignItems: "center", boxShadow: "0 1px 4px rgba(0,0,0,0.05)", cursor: onJump ? "pointer" : "default" } },
+    h("div", { style: { width: 38, height: 38, flexShrink: 0, borderRadius: "50%", border: "2px solid " + SEAL, boxShadow: "inset 0 0 0 2px " + t.bg2 + ", inset 0 0 0 3px " + SEAL,
+      color: SEAL, display: "flex", alignItems: "center", justifyContent: "center", transform: "rotate(-12deg)", fontFamily: F_DISPLAY, fontWeight: 700, fontSize: fs(r.status === "paid" ? 11 : 16) } }, AskSlip.VERDICT[r.status] || ""),
+    h("div", { style: { flex: 1, minWidth: 0 } },
+      h("div", { style: Object.assign({}, small, { fontSize: fs(9.5), letterSpacing: "0.05em" }) }, "批复 · No." + AskSlip.no(r.aid)),
+      h("div", { style: { fontFamily: F_BODY, fontSize: fs(13), color: t.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, r.what || ""),
+      r.group ? h("div", { style: small }, "准 " + r.yes + " : 驳 " + r.no) : null,
+      r.note ? h("div", { style: Object.assign({}, small, { color: t.ink, fontStyle: "italic", wordBreak: "break-word" }) }, "「" + r.note + "」") : null,
+      r.cond ? h("div", { style: Object.assign({}, small, { color: SEAL, wordBreak: "break-word" }) }, "条件：" + r.cond) : null,
+      payLine ? h("div", { style: small }, payLine) : null));
+}
+
+// 点回执跳回原卡：原卡还在屏上（没被收进更早的那几页）就滚过去，闪一下
+function askJump(aid) {
+  try {
+    const el = document.querySelector('[data-wk="askslip"][data-aid="' + String(aid).replace(/"/g, "") + '"]');
+    if (!el) return;
+    el.scrollIntoView({ block: "center", behavior: "smooth" });
+    el.animate && el.animate([{ outline: "2px solid #b8332e" }, { outline: "2px solid transparent" }], { duration: 1200 });
+  } catch (e) {}
 }
