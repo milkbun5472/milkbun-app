@@ -4,13 +4,17 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const eng = require("fs").readFileSync(require("path").join(__dirname, "..", "js", "engine.js"), "utf8");
 const block = name => { const i = eng.indexOf("const " + name + " = `"); return eng.slice(i, eng.indexOf("`;", i)); };
-test("身体投降／交出性命那一族并进已有的反模板，用判据认，不点原句", () => {
+// 原来这一族只给判据、不点原句（v74.88）。群友 2026-10-29 又撞上「骨头都酥了」——判据没管住，
+//   改成判据照留、再把最常冒的那一族点名（点的是【不许说的】，不是给它抄的示范；线下替换表一直这么写）。
+test("身体投降／交出性命那一族并进已有的反模板：判据在，最常冒的那一族也点了名", () => {
   const b = block("INTIMATE_CHAT_ANTI_CLICHE");
   assert.match(b, /【拿身体投降或交出性命来量心动】/);
   assert.match(b, /这句话里有没有她刚才做的那件具体的事/);
   assert.match(b, /禁的是模子，不是尺度/);
-  for (const w of ["骨头", "酥", "命都给", "腿一软"]) {
-    assert.ok(!b.includes(w), "线上反模板里写进了原句：" + w);
-    assert.ok(!block("INTIMATE_ANTI_CLICHE_LEGACY_V1").includes(w), "线下反模板里写进了原句：" + w);
-  }
+});
+
+test("骨头酥了这一族点名进了线上那条和线下替换表（群友 2026-10-29）", () => {
+  const src = require("fs").readFileSync(__dirname + "/../js/engine.js", "utf8");
+  assert.match(src, /「骨头都酥了／软了」「腿都软了」「心都化了」这一族/);
+  assert.match(src, /骨头\(都\)酥了\/骨头\(都\)软了\/酥了半边身子\/腿软→null；/);
 });
