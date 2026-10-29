@@ -10,7 +10,7 @@ test("记录只在管理中看得到，入口挂在管理那一行", () => {
   for (const p of ['"/verify/log?off="', '"/verify/conf"']) assert.ok(V.includes(p), "少了 " + p);
 });
 test("说清楚了这儿看不到是谁，以及开关关了会怎样", () => {
-  assert.ok(V.includes("截图和她们的密钥都不到这儿来，所以这儿看不到是谁。"));
+  assert.ok(V.includes("照片和她们的密钥都不到这儿来；记下的只有她们自己填的 QQ 号，用来跟加群的人对上。"));
   assert.ok(V.includes("谁来都只看到「去群里找群主」"));
   assert.ok(V.includes("还没设群号：验过了也拿不到"));
 });

@@ -782,7 +782,7 @@
       .then(x => { setErr(""); setD(prev => more && prev ? Object.assign({}, x, { rows: prev.rows.concat(x.rows || []) }) : x); })
       .catch(e => setErr(e.message));
     useEffect(() => { load(); }, []);
-    const WHY = { ok: "过了", blur: "字没认出来", noword: "纸上没写那个码", nophrase: "没写那句话", nonce: "暗号对不上", bad: "模型没按格式回话", nolink: "群链接还没设" };
+    const WHY = { ok: "过了", noqq: "QQ 号没填对", blur: "字没认出来", noword: "纸上没写那个码", nophrase: "没写那句话", nonce: "暗号对不上", bad: "模型没按格式回话", nolink: "群链接还没设" };
     const when = ms => { const x = new Date(ms); return (x.getMonth() + 1) + "·" + x.getDate() + " " + x.getHours() + ":" + String(x.getMinutes()).padStart(2, "0"); };
     const small = { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.6 };
     const pill = (on, txt, fn, wk) => h("button", { "data-wk": wk, onClick: fn, className: "active:opacity-60 shrink-0",
@@ -807,14 +807,14 @@
               pill(d.on, d.on ? "开着" : "打开", () => setOn(!d.on), "nestverifyon")),
             h("div", { style: Object.assign({}, small, { marginTop: 8 }) },
               "今天来了 " + d.dayTotal + " 次，过了 " + (d.dayPassed || 0) + "；一共 " + d.total + " 次，过了 " + (d.passed || 0) + "。"),
-            h("div", { style: Object.assign({}, small, { marginTop: 4 }) }, "截图和她们的密钥都不到这儿来，所以这儿看不到是谁。")),
+            h("div", { style: Object.assign({}, small, { marginTop: 4 }) }, "照片和她们的密钥都不到这儿来；记下的只有她们自己填的 QQ 号，用来跟加群的人对上。")),
           !d.rows.length ? h("div", { style: Object.assign({}, small, { padding: "28px 4px", textAlign: "center" }) }, "还没有人来验过") :
           d.rows.map(r => h("div", { key: r.id, "data-wk": "nestverifyrow", "data-on": r.pass ? "1" : "0", className: "flex items-center",
               style: { gap: 8, padding: "9px 2px", borderBottom: "1px solid " + t.line } },
             h("div", { className: "flex-1 min-w-0" },
               h("div", { className: "truncate", style: { fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", color: r.pass ? t.ink : t.fog } },
                 (r.pass ? "✓ " : "✗ ") + (WHY[r.reason] || r.reason)),
-              h("div", { className: "truncate", style: small }, when(r.at) + (r.station ? " · " + r.station : "") + (r.model ? " · " + r.model : ""))))),
+              h("div", { className: "truncate", style: small }, when(r.at) + (r.qq ? " · QQ " + r.qq : "") + (r.station ? " · " + r.station : "") + (r.model ? " · " + r.model : ""))))),
           d.rows.length < d.total ? h("div", { style: { textAlign: "center", marginTop: 12 } }, pill(false, "再往下看", () => load(true), "nestverifymore")) : null)));
   }
 
