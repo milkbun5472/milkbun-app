@@ -7,7 +7,8 @@ const app = fs.readFileSync(path.join(__dirname, "..", "js", "app.js"), "utf8");
 function kit(card, wallet) {
   const a = app.indexOf("  const saveMyKin = updater =>"), b = app.indexOf("  // 她在账单页做的几件事", a);
   const box = { myKinRef: { current: [card] }, walletRef: { current: wallet }, characters: [{ id: "c1", name: "甲" }],
-    pending: [], setMyKinCards: fn => box.pending.push(fn), saveJSON: () => {}, changeWallet: () => {}, toast: () => {}, pChat: () => {}, Date, Math };
+    pending: [], setMyKinCards: fn => box.pending.push(fn), saveJSON: () => {}, changeWallet: () => {}, toast: () => {}, pChat: () => {}, Date, Math,
+    maskKeyOf: () => "", pocketOf: () => "", balanceOf: () => box.walletRef.current };
   vm.createContext(box);
   vm.runInContext(app.slice(a, b) + ";this.spend=spendMyKin;", box);
   return box;

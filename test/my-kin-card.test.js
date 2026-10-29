@@ -10,7 +10,7 @@ test("刷的是她的钱，三道闸：冻结 / 额度 / 她钱包", () => {
   const body = A.slice(i, A.indexOf("\n  };\n", i));
   assert.match(body, /if \(card\.frozen\) return \{ ok: false/);
   assert.match(body, /myKinRemain\(card\) < amt\) return \{ ok: false/);
-  assert.match(body, /walletRef\.current < amt\) return \{ ok: false/);
+  assert.match(body, /balanceOf\(maskKeyOf\(charId\)\) < amt\) return \{ ok: false/);
   assert.match(body, /changeWallet\(-amt,/);
 });
 test("聊天里：有卡就把事实摆出来，冻结时不开刷卡字段", () => {

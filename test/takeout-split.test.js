@@ -131,7 +131,7 @@ function makeOrder(wallet) {
     + grab(app, "  const orderTakeout = (bag, mode, target, opts) => {", "  // 吃完了：", "下单");
   const st = { wallet: [], orders: [], kin: [], pay: [], chat: [], toasts: [] };
   const api = new Function("wallet", "toast", "changeWallet", "addOrder", "payWithKinship", "requestPayLater", "characters", "pChat", "deliverMsForCat", "Date",
-    src + "\nreturn { orderTakeout };")(
+    "const maskKeyOf = () => \"\", balanceOf = () => wallet;\n" + src + "\nreturn { orderTakeout };")(
     wallet, m => st.toasts.push(m), (d, l) => st.wallet.push([d, l]), o => st.orders.push(o),
     (id, items, total) => st.kin.push({ id, items, total }), (items, total, target) => st.pay.push({ items, total, target }),
     [{ id: "c1", name: "江识" }], (id, fn) => { st.chat = fn(st.chat); }, () => 600000, Date);

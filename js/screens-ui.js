@@ -3637,7 +3637,7 @@ function searchTopBar({ onBack, search, setSearch, onGo, busy, placeholder, acce
       busy ? h(IPulse, { size: 19, color: iconInk }) : h(IRefresh, { size: 19, color: sub })));
   return topBar;
 }
-function Shop({ payAs, initialNav, wallet, cart, orders, inventory, wish, characters, groups, kinshipCards, feed, busy, onBack, onGen, onAddCart, onRemoveCart, onCheckout, onReceiveUse, onReceiveGift, onAskChar, onToggleWish, onUseUp, onToggleOnMe, onGiftInv, onClosetInv, onLeaveAtHis, payMasks, toast }) {
+function Shop({ payAs, initialNav, wallet, cart, orders, inventory, wish, characters, groups, kinshipCards, feed, busy, onBack, onGen, onAddCart, onRemoveCart, onCheckout, onReceiveUse, onReceiveGift, onAskChar, onToggleWish, onUseUp, onToggleOnMe, onGiftInv, onClosetInv, onLeaveAtHis, payMasks, walletOf, toast }) {
   const t = useTheme();
   const [nav, setNav] = useState(initialNav || "home"); // home | cart | my
   const [cat, setCat] = useState("recommend");
@@ -3939,7 +3939,7 @@ function Shop({ payAs, initialNav, wallet, cart, orders, inventory, wish, charac
         h("div", { className: "flex flex-wrap", style: { gap: 6 } }, payMasks.map(m => h("button", { key: m.id || "_main", "data-wk": "shoppaymaskitem", "data-on": payMask === m.id ? "1" : "0", onClick: () => setPayMask(m.id),
           className: "active:opacity-70", style: { minHeight: 40, padding: "0 12px", borderRadius: 999, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))",
             background: payMask === m.id ? MSHOP.orange : "transparent", color: payMask === m.id ? "#fff" : MSHOP.dim, border: "1px solid " + (payMask === m.id ? MSHOP.orange : "rgba(0,0,0,.12)") } }, m.label)))) : null,
-      payAs ? null : chip("购买（用我的余额 ¥" + wallet + "）", () => { setSheet(null); onCheckout(sel, "buy", null, { mask: payMask }); setSel([]); }, true),
+      payAs ? null : chip("购买（用我的余额 ¥" + (walletOf ? walletOf(payMask) : wallet) + "）", () => { setSheet(null); onCheckout(sel, "buy", null, { mask: payMask }); setSel([]); }, true),
       payAs ? null : chip("送礼（付款后送给角色）", () => setSheet("gift")),
       payAs ? null : chip("代付（请角色/群帮我付）", () => setSheet("paylater")),
       !payAs && cards.length > 0 && chip("用亲属卡付（刷角色的钱）", () => setSheet("kinship")));
@@ -4150,7 +4150,7 @@ function TakeoutSlotRuler({ slot, onPick, now }) {
           at != null ? h("span", { "data-wk": "tkoslotnow", "aria-label": "现在", style: { position: "absolute", left: at + "%", top: 0, width: 8, height: 8, marginLeft: -4, borderRadius: 999, background: MTAKE.deep, boxShadow: "0 0 0 2px " + MTAKE.card } }) : null));
     }));
 }
-function Takeout({ payAs, wallet, orders, log, characters, groups, kinshipCards, feed, busy, onBack, onGen, onOrder, onEat, toast, initialNav, payMasks }) {
+function Takeout({ payAs, wallet, orders, log, characters, groups, kinshipCards, feed, busy, onBack, onGen, onOrder, onEat, toast, initialNav, payMasks, walletOf }) {
   // 用哪张面具点（她 2026-10-29「来我们慢慢开始分吧」，跟购物结算那一排同一个规矩）：""＝主面具
   const [payMask, setPayMask] = useState("");
   const t = useTheme();
@@ -4212,7 +4212,7 @@ function Takeout({ payAs, wallet, orders, log, characters, groups, kinshipCards,
       extra ? h("span", { "data-wk": "tkopickextra", style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: MTAKE.dim } }, extra) : null);
     // 拿他手机点（payAs）：只剩「用他的钱」这一种付法
     const modes = payAs ? [["his", "用" + payAs.name + "的钱付", "他还有 ¥" + payAs.balance + "，送到你这儿"]] : [
-      ["buy", "自己付", "余额 ¥" + wallet],
+      ["buy", "自己付", "余额 ¥" + (walletOf ? walletOf(payMask) : wallet)],
       ["paylater", "找TA代付", "发到聊天里，TA决定付不付"],
       cards.length ? ["kinship", "刷亲属卡", "花的是TA的钱"] : null,
       ["forchar", "给TA点一份", "送到TA那儿，聊天里会出一张小票"]
@@ -11329,7 +11329,7 @@ const slipSkin = t => ({
   boxShadow: "0 3px 10px rgba(0,0,0,.10)"
 });
 // ---- 我的钱包（聊天软件「我」下面）----
-function MyWallet({ balance, log, cards, characters, groups, onBack, onSetBalance, onAddEntry, onOpenCard, view, onView, myCards, onOpenMyKin, myCur, onSetMyCur, onTrace, recur, onSaveRecur, onDelLog }) {
+function MyWallet({ balance, log, cards, characters, groups, onBack, onSetBalance, onAddEntry, onOpenCard, view, onView, myCards, onOpenMyKin, myCur, onSetMyCur, onTrace, recur, onSaveRecur, onDelLog, pockets, pocket, onPocket }) {
   const t = useTheme();
   // ⚠️这个 view 原来是组件自己的 useState：从【亲属卡汇总】点进某张卡的账单页时
   // MyWallet 整个卸载，退回来就重挂成 main（＝钱包首页），她 2026-09-02 报的就是这个
@@ -11460,6 +11460,11 @@ function MyWallet({ balance, log, cards, characters, groups, onBack, onSetBalanc
     h(Head, { zh: "我的钱包", bg: "transparent", onBack,
       right: h("button", { "data-wk": "walletcardsbtn", onClick: () => setView("cards"), className: "active:opacity-60 flex items-center gap-1", style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.tint } }, "亲属卡", cardList.length ? h("span", { style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", color: t.bg, background: t.tint, borderRadius: 999, padding: "0 6px" } }, String(cardList.length)) : null) }),
     h("div", { className: "flex-1 min-h-0 overflow-y-auto", style: { overflowX: "hidden" } },
+      // 各张面具的钱（她 2026-10-29）：建过副面具才有这一排；挑哪张，余额、流水、改余额、记一笔都是那张的
+      (Array.isArray(pockets) && pockets.length > 1 && onPocket) ? h("div", { "data-wk": "walletpocket", className: "flex flex-wrap", style: { gap: 6, marginBottom: 10 } },
+        pockets.map(pk => h("button", { key: pk.id || "_main", "data-wk": "walletpocketitem", "data-on": String(pocket || "") === pk.id ? "1" : "0", onClick: () => onPocket(pk.id),
+          className: "active:opacity-70", style: { minHeight: 40, padding: "0 12px", borderRadius: 999, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))",
+            background: String(pocket || "") === pk.id ? t.ink : "transparent", color: String(pocket || "") === pk.id ? t.bg2 : t.sub, border: "1px solid " + (String(pocket || "") === pk.id ? t.ink : t.line) } }, pk.label))) : null,
       faceCard,
       // 手动改余额
       editing && h("div", { "data-wk": "walleteditor", className: "mx-5 mb-3 p-4", style: Object.assign({ borderRadius: 2 }, slipSkin(t)) },

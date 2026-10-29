@@ -42,7 +42,8 @@ test("外卖：点单时选面具，吃完进「吃过的」带着面具，查�
 
 // 第三步：钱包流水
 test("钱包流水记面具：购物外卖跟着选的那张，转给谁跟谁认的那张，其余主面具；查手机两头挡", () => {
-  assert.match(app, /entry\.mask = walletMaskOf\(\{ mask: ref && ref\.mask != null \? ref\.mask : undefined, ref: entry\.ref \}\);/);
+  assert.match(app, /const mask = walletMaskFor\(ref\), pocket = pocketOf\(mask\);/);
+  assert.match(app, /entry\.mask = mask;/);
   assert.match(app, /"shop", \{ where: "购物", mask: payMask \}\)/);
   assert.match(app, /"shop", \{ where: "外卖", mask: payMask \}\)/);
   const i = app.indexOf("const walletMaskOf = w =>");
@@ -53,4 +54,29 @@ test("钱包流水记面具：购物外卖跟着选的那张，转给谁跟谁�
   assert.equal(f({ label: "工资" }), "", "其余主面具");
   assert.match(app, /const log = \(walletLog \|\| \[\]\)\.filter\(w => !\(maskIds && maskIds\.length && walletMaskOf\(w\) !== maskKeyOf\(viewerId\)\)/);
   assert.match(app, /walletLog\.filter\(w => !\(peekMaskView\(\)\.mine != null && walletMaskOf\(w\) !== peekMaskView\(\)\.mine\)/);
+});
+
+// 第四步：余额分开（她：「余额都留主面具 副面具从0开始」）
+test("余额按面具分：主面具还是 x_wallet，副面具各一格 x_maskWallets；扣钱前查的是那张面具的钱", () => {
+  assert.match(app, /const \[maskWallets, setMaskWallets\] = useState\(\{\}\);/, "副面具从 0 开始（空表）");
+  assert.match(app, /if \(pocket\) \{\n      const cur = Object\.assign\(\{\}, maskWalletsRef\.current \|\| \{\}\);/);
+  assert.match(app, /saveJSON\("x_maskWallets", cur\)/);
+  // 不许再拿主面具的钱去判副面具那一笔够不够
+  assert.doesNotMatch(app, /if \(wallet < (total|a)\)/);
+  assert.match(app, /if \(balanceOf\(payMask\) < total\)/);
+  assert.match(app, /if \(balanceOf\(maskKeyOf\(charId\)\) < a\)/);
+  assert.match(app, /balanceOf\(maskKeyOf\("g:" \+ groupId\)\) < a/);
+  // 换主面具钱跟着人走；删面具钱并回主面具
+  assert.match(app, /if \(oldId\) mw\[oldId\] = Math\.round/);
+  assert.match(app, /那边的钱并回来/);
+  // 云上拉回来时副面具那几格也跟着刷新
+  assert.match(app, /x_maskWallets: v => \{/);
+});
+
+test("钱包页能切看哪张面具的钱，改余额、记一笔都落在那张", () => {
+  const ui = fs.readFileSync(path.join(__dirname, "..", "js", "screens-ui.js"), "utf8");
+  assert.match(app, /onSetBalance: v => setWalletTo\(v, walletPocket\)/);
+  assert.match(app, /"entry", \{ where: "手动", mask: walletPocket \}\)/);
+  assert.match(ui, /"data-wk": "walletpocketitem"[^\n]*\n[^\n]*minHeight: 40/);
+  assert.match(ui, /"购买（用我的余额 ¥" \+ \(walletOf \? walletOf\(payMask\) : wallet\) \+ "）"/);
 });

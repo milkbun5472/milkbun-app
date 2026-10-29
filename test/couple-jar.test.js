@@ -11,7 +11,7 @@ function load({ together = true, wallet = 500, charBal = 300, jar } = {}) {
   assert.ok(i > 0 && j > i, "抠不出存钱罐那一段");
   const st = { home: { c1: { wishes: [], jar } }, my: [], his: [], chat: [], toasts: [] };
   const lib = new Function("coupleHomeRef", "couples", "characters", "walletRef", "charBalanceOf", "changeWallet", "adjustCharBalance", "saveCoupleHome", "pChat", "toast", "userName", "profile",
-    app.slice(i, j) + "\nreturn { jarMove, jarSetGoal, jarSetAuto, jarContext, jarOf };")(
+    "const maskKeyOf = () => \"\", balanceOf = () => walletRef.current;\n" + app.slice(i, j) + "\nreturn { jarMove, jarSetGoal, jarSetAuto, jarContext, jarOf };")(
     { get current() { return st.home; } }, { c1: { status: together ? "together" : "dating" } }, [{ id: "c1", name: "陆闻" }],
     { current: wallet }, () => charBal,
     (d, label) => st.my.push([d, label]), (cid, d, label) => st.his.push([d, label]),
