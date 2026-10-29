@@ -22,3 +22,8 @@ test("CatsAPI 自己那套：/api/tasks，视频在 result_video.url，型号用
   assert.match(src, /"result_video\.url"/);
   assert.match(src, /CATS_VIDEO_MODELS = \["seedance20", "seedance20Mini", "grokImagineVideo", "geminiOmniFlash"\]/);
 });
+test("CatsAPI 型号秒数超范围：记任务之前就拦，不发请求", () => {
+  const i = src.indexOf("const _cs = v === \"relay\""), j = src.indexOf("const record = { vendor: v");
+  assert.ok(i > 0 && i < j);
+  assert.match(src, /seedance20Mini: \[4, 15\]/);
+});

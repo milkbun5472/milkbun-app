@@ -22,6 +22,8 @@
   //   cats＝CatsAPI 自己那套（照它家 ComfyUI 插件 maodeyu180/ComfyUI_Catsapi 的写法）：POST /api/tasks，GET /api/tasks/{id}，
   //   视频在 result_video.url；型号用它自己的叫法，不在 /v1/models 里列
   const CATS_VIDEO_MODELS = ["seedance20", "seedance20Mini", "grokImagineVideo", "geminiOmniFlash"];
+  // 这几个各自认几到几秒（同一份插件里写的）；不在这张表里的不拦，交给站点说
+  const CATS_SECONDS = { seedance20: [4, 15], seedance20Mini: [4, 15], grokImagineVideo: [5, 15], geminiOmniFlash: [5, 10] };
   const RELAY_DEFAULT = { baseUrl: "", apiKey: "", model: "", format: "tasks", duration: 5 };
   const KLING_SITES = [["国内 北京", "https://api-beijing.klingai.com"], ["海外 新加坡", "https://api-singapore.klingai.com"]];
   const KLING_MODELS = ["kling-v2-1", "kling-v2-1-master", "kling-v2-5-turbo", "kling-v2-6", "kling-v3", "kling-v2-master", "kling-v1-6", "kling-v1-5", "kling-v1"];
@@ -169,6 +171,9 @@
   // 可灵、即梦提交：跟 MiniMax 同一个规矩——先记 Submitting，超时断网不补发，拿到编号才算交上去
   async function createVendor(c, id, imageRef, input, prompt, signal) {
     const v = c.vendor, k = c[v], text = String(prompt).trim().slice(0, 2000);
+    // 秒数超出这个型号认的范围：在记任务之前就拦，不留一条「提交未确认」
+    const _cs = v === "relay" && k.format === "cats" && CATS_SECONDS[k.model], _sec = Number(k.duration) || 5;
+    if (_cs && (_sec < _cs[0] || _sec > _cs[1])) throw Error(k.model + " 只能生成 " + _cs[0] + "～" + _cs[1] + " 秒，改一下时长再点生成（这次没发出去，没扣费）");
     const record = { vendor: v, baseUrl: k.baseUrl, model: k.model, imageRef, prompt: text, createdAt: Date.now(), status: "Submitting" };
     patchMap(JOBS, id, record);
     let d;
@@ -411,7 +416,7 @@
         (r.format === "cats" && !models.length ? CATS_VIDEO_MODELS : models).length ? h("div", { "data-wk": "relaymodels", style: { display: "flex", flexWrap: "wrap", gap: 6, marginTop: 8, maxHeight: 180, overflowY: "auto" } },
           (r.format === "cats" && !models.length ? CATS_VIDEO_MODELS : models).map(m => h("button", { key: m, type: "button", onClick: () => sr({ model: m }), style: { minHeight: 32, padding: "0 10px", borderRadius: 999, fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))",
             border: "1px solid " + (r.model === m ? t.ink : t.line), background: r.model === m ? t.ink : "transparent", color: r.model === m ? t.bg2 : t.ink } }, m))) : null,
-        row("时长（秒，自己填，1～60）", h("input", { "data-wk": "input", type: "number", inputMode: "numeric", min: 1, max: 60, "aria-label": "中转时长", value: r.duration,
+        row(r.format === "cats" && CATS_SECONDS[r.model] ? "时长（秒，" + r.model + " 支持 " + CATS_SECONDS[r.model][0] + "～" + CATS_SECONDS[r.model][1] + " 秒）" : "时长（秒，自己填，1～60）", h("input", { "data-wk": "input", type: "number", inputMode: "numeric", min: 1, max: 60, "aria-label": "中转时长", value: r.duration,
           onChange: e => sr({ duration: e.target.value }), style: input })),
         note("给那种一个站里能挑很多家视频模型的中转站用：首帧是你选的那张图。写法挑它 API 文档里写的那种；只按官方原样转发的，直接用上面对应那一家、把接口地址换成中转站的就行。秒数随便填，但那个模型只认它支持的几档，填了它不支持的会报错，以中转站为准，点生成才扣费。"),
         err ? h("p", { role: "alert", style: { color: t.accent, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))" } }, err) : null);
