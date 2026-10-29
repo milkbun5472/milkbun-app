@@ -837,7 +837,7 @@ function App() {
     const byMode = {
       buy: () => {
         if (wallet < total) { toast("余额不足"); return false; }
-        changeWallet(-total, "外卖 " + item.name.slice(0, 18), "shop", { where: "外卖" });
+        changeWallet(-total, "外卖 " + item.name.slice(0, 18), "shop", { where: "外卖", mask: payMask });
         addOrder({ ...item, mask: payMask });
         toast("下单成功，骑手接单了");
       },
@@ -11154,6 +11154,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   // 一单算哪张面具：新单记在 mask 上；老单没记——TA 送的跟 TA 认的那张，其余算主面具
   // 「用哪张面具付」那一排的名单：购物、外卖共用这一份。只有建过副面具才有；主面具在前
   const payMaskList = () => (masks || []).length ? [{ id: "", label: ((profile && (profile.label || profile.name)) || "主面具") + " · 主" }].concat((masks || []).filter(m => m && m.id && m.id !== maskPrimary).map(m => ({ id: m.id, label: m.label || m.name || "未命名" }))) : [];
+  // 一笔流水算哪张面具：新的记在 mask 上；老的没记——写着给谁／哪个群的，跟那人（那个群）认的那张，其余算主面具
+  const walletMaskOf = w => w && w.mask != null ? String(w.mask || "") : (w && w.ref && w.ref.charId ? maskKeyOf(w.ref.charId) : (w && w.ref && w.ref.groupId ? maskKeyOf("g:" + w.ref.groupId) : ""));
   const orderMaskOf = o => o && o.mask != null ? String(o.mask || "") : (o && o.fromCharId ? maskKeyOf(o.fromCharId) : "");
   const peekPhoneMaterial = (viewerId, allow, hideIds, maskIds) => {
     const on = k => (allow || []).includes(k);
@@ -11244,7 +11246,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     }
     if (on("money")) {
       // 按 id 也挡一道（群里 2026-10-18：「不能查到我给别人点的」）：备注改过、名字没写进 label 的那几笔照样露
-      const log = (walletLog || []).filter(w => !maskTrace(w.label) && !(w.ref && ((w.ref.charId && maskSet.has(String(w.ref.charId))) || (w.ref.groupId && maskSet.has(String(w.ref.groupId)))))).slice(0, 10);
+      const log = (walletLog || []).filter(w => !(maskIds && maskIds.length && walletMaskOf(w) !== maskKeyOf(viewerId)) && !maskTrace(w.label) && !(w.ref && ((w.ref.charId && maskSet.has(String(w.ref.charId))) || (w.ref.groupId && maskSet.has(String(w.ref.groupId)))))).slice(0, 10);
       // 从她这边说清楚：钱是她给出去的还是别人给她的、给的是谁（她 2026-10-01：「看钱包也不知道哪些是我转给别人的」）
       const vName = nameOf(viewerId);
       const who = s => { const n = cut(s, 16); return n && vName && n === vName ? "「" + n + "」（就是你）" : "「" + n + "」"; };
@@ -20124,6 +20126,9 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       saveJSON("x_wallet", n);
       setWalletLog(log => {
         const entry = { id: "wl_" + Date.now() + "_" + Math.floor(Math.random() * 1000), ts: Date.now(), delta: d, after: n, label: label || (d > 0 ? "进账" : "支出"), kind: kind || "misc", ref: ref && typeof ref === "object" ? Object.assign({ ts: Date.now() }, ref) : null };
+        // 这一笔算哪张面具（她 2026-10-29 面具分开第三步）：调用方给了 ref.mask 就照它；没给就按写着的那人／那个群认的那张，都没有算主面具
+        entry.mask = walletMaskOf({ mask: ref && ref.mask != null ? ref.mask : undefined, ref: entry.ref });
+        if (entry.ref) delete entry.ref.mask;
         // 📚 累积层：满了挤掉最旧的（施工规则/phone-data-layers.md）。
         // 这是全 app 唯一写流水的地方，原来是纯 [entry, ...log]：每笔买东西、
         // 收礼、结算都追一条，还整份重写 localStorage。账本页也翻不到那么下面。
@@ -30867,7 +30872,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     const total = Math.round(items.reduce((s, x) => s + (Number(x.price) || 0), 0) * 100) / 100;
     if (mode === "buy") {
       if (wallet < total) { toast("余额不足"); return; }
-      changeWallet(-total, "购物 " + items.map(x => x.name).join("、").slice(0, 18), "shop", { where: "购物" });
+      changeWallet(-total, "购物 " + items.map(x => x.name).join("、").slice(0, 18), "shop", { where: "购物", mask: payMask });
       items.forEach(it => addOrder({ name: it.name, price: it.price, cat: it.cat, kind: it.kind, takeout: it.takeout, mask: payMask }));
       removeCartUids(uids);
       toast("下单成功 · " + items.length + " 件，等待发货");
@@ -32921,7 +32926,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   });else if (screen === "wallet") body = h(MyWallet, {
     recur: myRecur, onSaveRecur: upsertMyRecur,
     balance: wallet,
-    log: peekMaskView() ? walletLog.filter(w => !peekMaskHit(peekMaskView(), w.label, (w.ref && w.ref.charId) || w.charId) && !peekMaskHit(peekMaskView(), "", w.ref && w.ref.groupId)) : walletLog,
+    log: peekMaskView() ? walletLog.filter(w => !(peekMaskView().mine != null && walletMaskOf(w) !== peekMaskView().mine) && !peekMaskHit(peekMaskView(), w.label, (w.ref && w.ref.charId) || w.charId) && !peekMaskHit(peekMaskView(), "", w.ref && w.ref.groupId)) : walletLog,
     cards: kinshipCards,
     characters: liveChars,
     groups: groups,

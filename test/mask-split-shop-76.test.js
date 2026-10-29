@@ -39,3 +39,18 @@ test("外卖：点单时选面具，吃完进「吃过的」带着面具，查�
   assert.match(app, /const tk = \(takeoutLog \|\| \[\]\)\.filter\(o => !\(maskIds && maskIds\.length && orderMaskOf\(o\) !== maskKeyOf\(viewerId\)\)/);
   assert.equal((app.match(/payMasks: payMaskList\(\),/g) || []).length, 2, "购物外卖共用一份名单");
 });
+
+// 第三步：钱包流水
+test("钱包流水记面具：购物外卖跟着选的那张，转给谁跟谁认的那张，其余主面具；查手机两头挡", () => {
+  assert.match(app, /entry\.mask = walletMaskOf\(\{ mask: ref && ref\.mask != null \? ref\.mask : undefined, ref: entry\.ref \}\);/);
+  assert.match(app, /"shop", \{ where: "购物", mask: payMask \}\)/);
+  assert.match(app, /"shop", \{ where: "外卖", mask: payMask \}\)/);
+  const i = app.indexOf("const walletMaskOf = w =>");
+  const f = new Function("maskKeyOf", "return " + app.slice(i + "const walletMaskOf = ".length, app.indexOf("\n", i)).replace(/;$/, ""))(id => id === "c_b" ? "mk_b" : id === "g:g1" ? "mk_g" : "");
+  assert.equal(f({ mask: "mk_b" }), "mk_b");
+  assert.equal(f({ ref: { charId: "c_b" } }), "mk_b", "转给他的跟他认的那张");
+  assert.equal(f({ ref: { groupId: "g1" } }), "mk_g", "群红包跟群那张");
+  assert.equal(f({ label: "工资" }), "", "其余主面具");
+  assert.match(app, /const log = \(walletLog \|\| \[\]\)\.filter\(w => !\(maskIds && maskIds\.length && walletMaskOf\(w\) !== maskKeyOf\(viewerId\)\)/);
+  assert.match(app, /walletLog\.filter\(w => !\(peekMaskView\(\)\.mine != null && walletMaskOf\(w\) !== peekMaskView\(\)\.mine\)/);
+});
