@@ -48,7 +48,7 @@
         skip = false; at = app;
         opens++; out.push({ do: "open", app, who });
         // open 自己带着一串心声（schema 里要求的）：边翻边想，一屏一句
-        (Array.isArray(s.thoughts) ? s.thoughts : []).slice(0, 4).forEach(t => { const text = S(t).trim().slice(0, 60);
+        (Array.isArray(s.thoughts) ? s.thoughts : []).slice(0, 4).forEach(t => { const text = clipThink(t);
           if (text) out.push({ do: "scroll", dir: app === "chat" ? "up" : "down", n: 1, auto: true }, { do: "think", text }); });
         return;
       }
@@ -95,7 +95,7 @@
         if (text) out.push({ do: "rename", text });
       }
       else if (d === "think") {
-        const text = S(s.text).trim().slice(0, 60);
+        const text = clipThink(s.text);
         if (text) out.push({ do: "think", text });
       }
     });
@@ -223,6 +223,15 @@
   }
 
   // props: charName, avatarChar, script(null＝还在想), goHome(), onOpen(app, who)（主屏找不到时直接打开）, onBack(), onDone(thoughts)
+  // 心声别从半句里切断（她 2026-10-29 截图：「一个随」「Tu te」）：给到 160 字，超了就退到最后一个句末标点
+  function clipThink(raw) {
+    const t = S(raw).trim();
+    if (t.length <= 160) return t;
+    const cut = t.slice(0, 160), m = cut.match(/^[\s\S]*[。！？!?…~～）)」』]/);
+    return (m && m[0].length >= 40 ? m[0] : cut) + (m && m[0].length >= 40 ? "" : "…");
+  }
+  // 他翻的时候打开过的底部单子（往期记录这种）：换去别处、看完的时候替他收起来（她 2026-10-29「开了往期记录这个不会关掉」）
+  function closeSheets() { try { document.querySelectorAll("[data-sheet-close]").forEach(b => { try { b.click(); } catch (e) {} }); } catch (e) {} }
   function PeekPlayer(props) {
     const h = React.createElement, t = (typeof useTheme === "function" ? useTheme() : {}) || {};
     const [dot, setDot] = React.useState({ x: window.innerWidth / 2, y: window.innerHeight * 0.62, down: false });
@@ -352,7 +361,7 @@
       if (app === "chat" && who) { const n = findRow(who); if (n) { await scrollTo(n); await pressOnly(n); } return false; }
       return true;
     };
-    const finish = () => { if (doneRef.current) return; doneRef.current = true; stopRef.current = true; props.onDone && props.onDone(logRef.current.slice()); };
+    const finish = () => { if (doneRef.current) return; doneRef.current = true; stopRef.current = true; closeSheets(); props.onDone && props.onDone(logRef.current.slice()); };
 
     React.useEffect(() => {
       if (!props.script) return;
@@ -364,6 +373,7 @@
           if (!alive || stopRef.current) return;
           const s = steps[i];
           if (s.do === "open") {
+            closeSheets();
             let ok = false;
             try { ok = await openViaHome(s.app, s.who); } catch (e) { ok = false; }
             openViaHomeLast.current = s.app;
@@ -397,6 +407,7 @@
             setDot(d => ({ ...d, down: false }));
             await sleep(500);
           } else if (s.do === "back") {
+            closeSheets();
             props.onBack && props.onBack();
             await sleep(800);
           } else if (s.do === "pause") {

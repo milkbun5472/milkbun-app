@@ -17771,7 +17771,7 @@ function offSheet(t, title, onClose, children) {
       h("div", { className: "flex items-center shrink-0", style: { padding: "14px 16px 6px 20px" } },
         // 标题给空串＝这张单子自己带抬头（线下那张「切换」就是），别再垫一条空标题
         h("div", { className: "flex-1 min-w-0", style: { fontFamily: F_DISPLAY, fontSize: "calc(16px * var(--app-fs, 1))", color: t.ink } }, title || ""),
-        h("button", { onClick: onClose, title: "收起", "aria-label": "收起", className: "active:opacity-60 flex items-center justify-center shrink-0", style: { width: 36, height: 36, borderRadius: 999 } },
+        h("button", { onClick: onClose, title: "收起", "aria-label": "收起", "data-sheet-close": "1", className: "active:opacity-60 flex items-center justify-center shrink-0", style: { width: 36, height: 36, borderRadius: 999 } },
           h("svg", { width: 20, height: 20, viewBox: "0 0 24 24", fill: "none", stroke: t.ink, strokeWidth: 1.8, strokeLinecap: "round", strokeLinejoin: "round" }, h("path", { d: "M5 12.5l4.5 4.5L19 7.5" })))),
       h("div", { className: "flex-1 min-h-0 overflow-y-auto", style: { padding: "6px 20px 32px", overscrollBehavior: "contain" } }, children)));
 }
