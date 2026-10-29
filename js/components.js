@@ -2066,8 +2066,13 @@ function rerollPress(go) {
 // 风格统一的输入弹窗。⚠️空字符串是【合法的取消】：点取消不回调；点确定但没填，
 //   由调用点自己决定要不要拦——这一层不替它做主。
 const APP_OVERLAY_LAYERS = Object.freeze({ dialog: 1200, feedback: 1210, banner: 1220 });
-function appDialogPortal(content, onCancel) {
+// 弹窗挂点（2026-10-29 群友：「这个弹窗的底色、层级是什么样的」，美化写不中）：
+//   遮罩 dialogmask（data-part＝prompt 填一行字 / confirm 确认 / 别的弹窗不带）；
+//   卡片和确定键原来挂的是通用的 block，名字不动（施工规则/skin-hooks-dont-break），只在上面加 data-part＝dialog / dialogok；
+//   原来没挂点的标题、说明、取消各补一个 dialogtitle / dialogbody / dialogcancel，输入框加 data-part＝dialog。
+function appDialogPortal(content, onCancel, kind) {
   return ReactDOM.createPortal(h("div", {
+    "data-wk": "dialogmask", "data-part": kind || undefined,
     className: "fixed inset-0 flex items-center justify-center",
     style: { zIndex: APP_OVERLAY_LAYERS.dialog, background: "rgba(20,19,15,0.5)", backdropFilter: "blur(3px)", padding: 24 },
     onClick: onCancel
@@ -2081,20 +2086,20 @@ function PromptDialog({ title, body, value, placeholder, okLabel, multiline, max
   const box = { width: "100%", fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", lineHeight: 1.6, color: t.ink,
     background: t.bg, border: "1px solid " + t.line, borderRadius: 12, padding: "10px 12px", outline: "none" };
   return appDialogPortal(
-    h("div", { "data-wk": "block", onClick: e => e.stopPropagation(), style: { width: "100%", maxWidth: 320, background: t.bg2, borderRadius: 20, padding: "22px 20px 18px", animation: "qqIn .2s ease both" } },
-      h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(19px * var(--app-fs, 1))", color: t.ink, marginBottom: body ? 8 : 14, textAlign: "center" } }, title),
-      body ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.sub, lineHeight: 1.6, textAlign: "center", marginBottom: 14, whiteSpace: "pre-wrap" } }, body) : null,
+    h("div", { "data-wk": "block", "data-part": "dialog", onClick: e => e.stopPropagation(), style: { width: "100%", maxWidth: 320, background: t.bg2, borderRadius: 20, padding: "22px 20px 18px", animation: "qqIn .2s ease both" } },
+      h("div", { "data-wk": "dialogtitle", style: { fontFamily: F_DISPLAY, fontSize: "calc(19px * var(--app-fs, 1))", color: t.ink, marginBottom: body ? 8 : 14, textAlign: "center" } }, title),
+      body ? h("div", { "data-wk": "dialogbody", style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.sub, lineHeight: 1.6, textAlign: "center", marginBottom: 14, whiteSpace: "pre-wrap" } }, body) : null,
       multiline
-        ? h("textarea", { "data-wk": "textarea", ref: ref, value: v, placeholder: placeholder || "", rows: 6, maxLength: maxLength || undefined,
+        ? h("textarea", { "data-wk": "textarea", "data-part": "dialog", ref: ref, value: v, placeholder: placeholder || "", rows: 6, maxLength: maxLength || undefined,
             onChange: e => setV(e.target.value), style: Object.assign({}, box, { resize: "vertical", minHeight: 120 }) })
-        : h("input", { "data-wk": "input", ref: ref, value: v, placeholder: placeholder || "", maxLength: maxLength || undefined,
+        : h("input", { "data-wk": "input", "data-part": "dialog", ref: ref, value: v, placeholder: placeholder || "", maxLength: maxLength || undefined,
             onChange: e => setV(e.target.value),
             onKeyDown: e => { if (e.key === "Enter") { e.preventDefault(); onOk(v); } },
             style: box }),
       h("div", { className: "flex gap-3", style: { marginTop: 16 } },
-        h("button", { onClick: onCancel, className: "flex-1 active:opacity-70", style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.sub, padding: "11px 0", borderRadius: 12, border: "1px solid " + t.line, background: "transparent" } }, "取消"),
+        h("button", { "data-wk": "dialogcancel", onClick: onCancel, className: "flex-1 active:opacity-70", style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.sub, padding: "11px 0", borderRadius: 12, border: "1px solid " + t.line, background: "transparent" } }, "取消"),
         // ⚠️字色 t.bg2 不是 #fff：深色主题里 t.ink 本身是浅色（tabs-not-plain-pills §2）
-        h("button", { "data-wk": "block", onClick: () => onOk(v), className: "flex-1 active:opacity-80", style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", fontWeight: 700, color: t.bg2, background: t.ink, padding: "12px 0", borderRadius: 12, border: "none" } }, okLabel || "好"))), onCancel);
+        h("button", { "data-wk": "block", "data-part": "dialogok", onClick: () => onOk(v), className: "flex-1 active:opacity-80", style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", fontWeight: 700, color: t.bg2, background: t.ink, padding: "12px 0", borderRadius: 12, border: "none" } }, okLabel || "好"))), onCancel, "prompt");
 }
 // 风格统一的确认弹窗（替掉不可靠的原生 confirm）。danger=true 时确认键用强调色。
 // ── 发表情那一格（她 2026-09-14：「能不能搞个分栏，每一套单独一个 tab，
@@ -2175,7 +2180,7 @@ function ConfirmDialog({ title, body, confirmLabel, cancelLabel, danger, onConfi
   //   ⚠️确认键的底仍是 `danger ? t.accent : t.ink`、字仍是 t.bg2——那是钉住的
   //   （深色主题里写死白会白底白字，v59.62 的教训）。好看这件事不靠改那两行。
   return appDialogPortal(
-    h("div", { onClick: e => e.stopPropagation(), style: {
+    h("div", { "data-wk": "block", "data-part": "dialog", "data-danger": danger ? "1" : "0", onClick: e => e.stopPropagation(), style: {
       width: "100%", maxWidth: 312, position: "relative", overflow: "hidden",
       background: t.bg2, border: "1px solid " + t.line, borderRadius: 20, padding: "22px 20px 18px",
       boxShadow: "0 2px 4px rgba(46,38,29,.10), 0 22px 46px -14px rgba(46,38,29,.34), inset 0 1px 0 rgba(255,255,255,.75)",
@@ -2188,15 +2193,15 @@ function ConfirmDialog({ title, body, confirmLabel, cancelLabel, danger, onConfi
         borderRadius: 999, border: "1.5px solid " + t.accent, display: "flex", alignItems: "center", justifyContent: "center",
         background: "transparent", transform: "rotate(-7deg)" } },
         h(ITrash, { size: 19, color: t.accent })) : null,
-      h("div", { style: { position: "relative", fontFamily: F_DISPLAY, fontSize: "calc(19px * var(--app-fs, 1))", lineHeight: 1.35, color: t.ink, marginBottom: body ? 9 : 18, textAlign: "center" } }, title),
+      h("div", { "data-wk": "dialogtitle", style: { position: "relative", fontFamily: F_DISPLAY, fontSize: "calc(19px * var(--app-fs, 1))", lineHeight: 1.35, color: t.ink, marginBottom: body ? 9 : 18, textAlign: "center" } }, title),
       // ⚠️正文左对齐：删除这一类的说明常常是两三句（什么会没、什么还留着），
       //   居中的长段落每一行起头都在动，读起来最累。
-      body ? h("div", { style: { position: "relative", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.sub, lineHeight: 1.85, textAlign: "left", marginBottom: 18,
+      body ? h("div", { "data-wk": "dialogbody", style: { position: "relative", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.sub, lineHeight: 1.85, textAlign: "left", marginBottom: 18,
         padding: "11px 13px", borderRadius: 12, background: "rgba(46,38,29,.035)", border: "1px solid " + t.line, whiteSpace: "pre-wrap" } }, body) : null,
       h("div", { className: "flex gap-3", style: { position: "relative" } },
-        h("button", { onClick: onCancel, className: "flex-1 active:opacity-70", style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.sub, padding: "11px 0", borderRadius: 12, border: "1px solid " + t.line, background: "rgba(46,38,29,.03)" } }, cancelLabel || "取消"),
+        h("button", { "data-wk": "dialogcancel", onClick: onCancel, className: "flex-1 active:opacity-70", style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.sub, padding: "11px 0", borderRadius: 12, border: "1px solid " + t.line, background: "rgba(46,38,29,.03)" } }, cancelLabel || "取消"),
         // ⚠️字色是 t.bg2 不是 #fff：深色主题里 t.ink 本身是浅色，白字压上去就是白底白字
-        h("button", { "data-wk": "block", onClick: onConfirm, className: "flex-1 active:opacity-80", style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", fontWeight: 700, color: t.bg2, background: danger ? t.accent : t.ink, padding: "12px 0", borderRadius: 12, border: "none", boxShadow: "0 6px 14px -6px rgba(46,38,29,.5)" } }, confirmLabel || "确定"))), onCancel);
+        h("button", { "data-wk": "block", "data-part": "dialogok", onClick: onConfirm, className: "flex-1 active:opacity-80", style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", fontWeight: 700, color: t.bg2, background: danger ? t.accent : t.ink, padding: "12px 0", borderRadius: 12, border: "none", boxShadow: "0 6px 14px -6px rgba(46,38,29,.5)" } }, confirmLabel || "确定"))), onCancel, "confirm");
 }
 // ⚠️居中不许再靠 -translate-x-1/2 -translate-y-1/2（她 2026-09-01：「这种黑框一直
 //   都是在屏幕右侧出现而不是中间」）。病根：这一层自己带着 animation:fadeUp，
