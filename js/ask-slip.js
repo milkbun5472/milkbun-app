@@ -63,30 +63,55 @@ function AskSlipCard({ m, asker, money, onDecide, onVote, onResend, meName, allo
   const st = group ? (m.askResult && m.askResult.status) || "pending" : m.status || "pending";
   const tl = group ? AskSlip.tally(m) : null;
   const myVote = group && meName ? (tl.yes.indexOf(meName) >= 0 ? 0 : tl.no.indexOf(meName) >= 0 ? 1 : -1) : -1;
-  const small = { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog };
-  const btn = (label, on, onClick, key) => h("button", { key, onClick, className: "flex-1 active:opacity-70",
-    style: { minHeight: 38, whiteSpace: "nowrap", padding: "0 4px", borderRadius: 10, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: on ? t.bg2 : t.ink, background: on ? t.ink : "transparent", border: "1px solid " + (on ? t.ink : t.line) } }, label);
-  return h("div", { "data-wk": "askslip", "data-status": st, style: { position: "relative", minHeight: st !== "pending" ? 112 : 0, width: 250, maxWidth: "100%", background: t.bg2, border: "1px solid " + t.line, borderRadius: 6, padding: "12px 14px 12px", boxShadow: "0 1px 0 " + t.line } },
-    h("div", { className: "flex items-baseline justify-between", style: { borderBottom: "1px dashed " + t.line, paddingBottom: 6 } },
-      h("span", { style: { fontFamily: F_DISPLAY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.ink, letterSpacing: "0.3em" } }, "请示"),
-      h("span", { style: small }, (a.round > 1 ? "第 " + a.round + " 次递 · " : "") + (asker || ""))),
-    h("div", { style: { fontFamily: F_BODY, fontSize: "calc(15px * var(--app-fs, 1))", color: t.ink, marginTop: 8, lineHeight: 1.5, wordBreak: "break-word" } }, a.what || ""),
-    amt ? h("div", { "data-wk": "askslipamount", style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.ink, marginTop: 4 } }, "要花 " + (money ? money(amt) : "¥" + amt)) : null,
-    (a.before || []).map((b, k) => h("div", { key: "b" + k, style: Object.assign({}, small, { marginTop: 4, lineHeight: 1.5, textDecoration: "line-through", opacity: 0.7, wordBreak: "break-word" }) }, "上回理由：" + b.reason + (b.note ? "（驳：" + b.note + "）" : ""))),
-    a.reason ? h("div", { style: Object.assign({}, small, { marginTop: 6, lineHeight: 1.6, wordBreak: "break-word" }) }, "理由：" + a.reason) : null,
-    group ? h("div", { style: Object.assign({}, small, { marginTop: 8, lineHeight: 1.6 }) },
-      "准 " + tl.yes.length + (tl.yes.length ? "（" + tl.yes.join("、") + "）" : ""), h("br"),
-      "驳 " + tl.no.length + (tl.no.length ? "（" + tl.no.join("、") + "）" : "")) : null,
-    st !== "pending" ? h("div", { "data-wk": "askslipstamp", style: { position: "absolute", right: 12, top: 42, width: 54, height: 54, borderRadius: "50%", border: "2.5px solid #b8332e", color: "#b8332e",
-      display: "flex", alignItems: "center", justifyContent: "center", transform: "rotate(-14deg)", fontFamily: F_DISPLAY, fontSize: "calc(" + (st === "paid" ? 15 : 22) + "px * var(--app-fs, 1))", opacity: 0.85, pointerEvents: "none" } }, AskSlip.VERDICT[st]) : null,
-    !group && st !== "pending" && (m.judge || m.note) ? h("div", { style: Object.assign({}, small, { marginTop: 8, color: t.ink, lineHeight: 1.6 }) }, (m.judge ? m.judge + " 批" : "批") + (m.note ? "：" + m.note : "")) : null,
-    !group && st === "approved" && m.cond ? h("div", { "data-wk": "askslipcond", style: Object.assign({}, small, { marginTop: 6, color: "#b8332e", lineHeight: 1.6, wordBreak: "break-word" }) }, "附带条件：" + m.cond) : null,
+  // 一张公文批条：红色双线抬头、编号、一格一格的栏目、落款，结案盖一枚双圈印
+  const SEAL = "#b8332e";
+  const fs = n => "calc(" + n + "px * var(--app-fs, 1))";
+  const small = { fontFamily: F_BODY, fontSize: fs(11), color: t.fog };
+  const no = (() => { let x = 0; String(m.aid || m.pollId || a.what || "").split("").forEach(c => { x = (x * 31 + c.charCodeAt(0)) % 9973; }); return String(x).padStart(4, "0"); })();
+  const day = m.ts ? (d => (d.getMonth() + 1) + "月" + d.getDate() + "日")(new Date(m.ts)) : "";
+  const row = (label, body, key, extra) => h("div", { key, className: "flex", style: Object.assign({ borderTop: "1px solid " + t.line, padding: "7px 0", gap: 10, alignItems: "baseline" }, extra || {}) },
+    h("span", { style: Object.assign({}, small, { width: 34, flexShrink: 0, letterSpacing: "0.15em" }) }, label),
+    h("div", { style: { flex: 1, minWidth: 0, wordBreak: "break-word" } }, body));
+  const btn = (label, kind, onClick, key) => h("button", { key, onClick, className: "flex-1 active:opacity-70",
+    style: { minHeight: 38, whiteSpace: "nowrap", padding: "0 4px", borderRadius: 4, fontFamily: F_DISPLAY, fontSize: fs(14), letterSpacing: "0.1em",
+      color: kind === "solid" ? "#fff" : kind === "seal" ? SEAL : t.ink, background: kind === "solid" ? SEAL : "transparent",
+      border: "1px solid " + (kind === "solid" || kind === "seal" ? SEAL : t.line) } }, label);
+  const voters = (names, on) => h("span", { style: { color: on ? SEAL : t.ink } }, names.length ? names.join("、") : "—");
+  return h("div", { "data-wk": "askslip", "data-status": st, style: { position: "relative", width: 260, maxWidth: "100%", background: t.bg2, borderRadius: 3,
+      padding: "12px 14px 12px 18px", border: "1px solid " + t.line, boxShadow: "0 2px 6px rgba(0,0,0,0.06)",
+      // 左边一道红色装订线
+      backgroundImage: "linear-gradient(90deg, transparent 8px, " + SEAL + "33 8px, " + SEAL + "33 9px, transparent 9px)" } },
+    // 抬头：红色双线 + 「请 示 单」+ 编号
+    h("div", { style: { borderBottom: "3px double " + SEAL, paddingBottom: 6, textAlign: "center", position: "relative" } },
+      h("div", { style: { fontFamily: F_DISPLAY, fontSize: fs(17), color: SEAL, letterSpacing: "0.55em", paddingLeft: "0.55em" } }, "请示单"),
+      h("div", { className: "flex justify-between", style: Object.assign({}, small, { fontSize: fs(9.5), marginTop: 2, letterSpacing: "0.05em" }) },
+        h("span", null, "No." + no), h("span", null, (a.round > 1 ? "第 " + a.round + " 次递 · " : "") + day))),
+    h("div", { style: { marginTop: 4, fontFamily: F_BODY, fontSize: fs(13), color: t.ink, lineHeight: 1.55 } },
+      row("事由", h("span", { style: { fontSize: fs(15), fontFamily: F_DISPLAY } }, a.what || ""), "w", { borderTop: "none" }),
+      amt ? row("金额", h("span", { "data-wk": "askslipamount", style: { fontVariantNumeric: "tabular-nums" } }, money ? money(amt) : "¥" + amt), "a") : null,
+      a.reason ? row("理由", a.reason, "r") : null,
+      (a.before || []).length ? row("前回", (a.before || []).map((b, k) => h("div", { key: k, style: Object.assign({}, small, { textDecoration: "line-through", opacity: 0.75 }) },
+        b.reason + (b.note ? "（驳：" + b.note + "）" : ""))), "b") : null,
+      group ? row("表决", h("div", { style: { lineHeight: 1.7 } },
+        h("div", null, h("span", { style: { color: SEAL, marginRight: 6 } }, "准 " + tl.yes.length), voters(tl.yes, false)),
+        h("div", null, h("span", { style: { color: t.fog, marginRight: 6 } }, "驳 " + tl.no.length), voters(tl.no, false))), "v") : null,
+      !group && st !== "pending" && m.note ? row("批示", h("span", { style: { fontFamily: F_DISPLAY, fontStyle: "italic" } }, m.note), "n") : null,
+      !group && st === "approved" && m.cond ? row("条件", h("span", { "data-wk": "askslipcond", style: { color: SEAL } }, m.cond), "c") : null),
+    // 落款
+    h("div", { className: "flex justify-between", style: Object.assign({}, small, { borderTop: "1px solid " + t.line, paddingTop: 7, marginTop: 2 }) },
+      h("span", null, "呈报 · " + (asker || "")),
+      h("span", null, st === "pending" ? h("span", { style: { border: "1px dashed " + t.fog, borderRadius: 3, padding: "0 6px" } }, "待批") : (group ? "众议" : m.judge ? "批 · " + m.judge : "已批"))),
+    // 结案印：双圈、斜盖、压在栏目上
+    st !== "pending" ? h("div", { "data-wk": "askslipstamp", style: { position: "absolute", right: 14, top: 58, width: 62, height: 62, borderRadius: "50%",
+        border: "2.5px solid " + SEAL, boxShadow: "inset 0 0 0 3px " + t.bg2 + ", inset 0 0 0 4px " + SEAL, color: SEAL,
+        display: "flex", alignItems: "center", justifyContent: "center", transform: "rotate(-14deg)", fontFamily: F_DISPLAY, fontWeight: 700,
+        fontSize: fs(st === "paid" ? 16 : 26), opacity: 0.82, mixBlendMode: "multiply", pointerEvents: "none" } }, AskSlip.VERDICT[st]) : null,
     onDecide && st === "pending" ? h("div", { className: "flex", style: { gap: 6, marginTop: 10 } },
-      btn("准", false, () => onDecide("approved"), "y"),
-      btn("准，但", false, () => requestAppPrompt("准，但是……", "写上你要的条件，他会记着。", "", v => { if (String(v || "").trim()) onDecide("approved", String(v).trim().slice(0, 40)); }, "就这么定"), "c"),
-      amt && allowPay ? btn("我出", false, () => onDecide("paid"), "p") : null,
-      btn("驳", false, () => onDecide("rejected"), "n")) : null,
-    onResend && st === "rejected" && !m.resent ? h("div", { className: "flex", style: { gap: 6, marginTop: 10 } }, btn("补充理由再递", false, onResend, "r")) : null,
+      btn("准", "solid", () => onDecide("approved"), "y"),
+      btn("准，但", "seal", () => requestAppPrompt("准，但是……", "写上你要的条件，他会记着。", "", v => { if (String(v || "").trim()) onDecide("approved", String(v).trim().slice(0, 40)); }, "就这么定"), "c"),
+      amt && allowPay ? btn("我出", "seal", () => onDecide("paid"), "p") : null,
+      btn("驳", "", () => onDecide("rejected"), "n")) : null,
+    onResend && st === "rejected" && !m.resent ? h("div", { className: "flex", style: { gap: 6, marginTop: 10 } }, btn("补充理由再递", "seal", onResend, "r")) : null,
     onVote && st === "pending" ? h("div", { className: "flex", style: { gap: 6, marginTop: 10 } },
-      btn("准", myVote === 0, () => onVote(0), "y"), btn("驳", myVote === 1, () => onVote(1), "n")) : null);
+      btn(myVote === 0 ? "✓ 准" : "准", myVote === 0 ? "solid" : "seal", () => onVote(0), "y"), btn(myVote === 1 ? "✓ 驳" : "驳", "", () => onVote(1), "n")) : null);
 }
