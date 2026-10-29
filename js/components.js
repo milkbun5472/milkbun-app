@@ -7866,7 +7866,9 @@ function Home({
         requestAnimationFrame(function () { moveGhost(tch.clientX, tch.clientY); });
         if (navigator.vibrate) try { navigator.vibrate(12); } catch (e) {}
       };
-      if (editMode) pickUp();
+      // 整理模式里摸到不再立刻拿起（群里 2026-10-29：「滑动屏幕那些 APP 老是被碰到移动」）：按住一小下才拿起，
+      //   这期间手指一滑就当翻页（下面 onTM 移动超过 8px 会 clearLP）
+      if (editMode) lpRef.current = setTimeout(function () { lpRef.current = null; pickUp(); }, 140);
       else lpRef.current = setTimeout(function () {
         lpRef.current = null;
         // 普通 app / 文件夹沿用 iOS 式长按整理；组件和装饰先开共用换皮面板，面板里仍可进入整理。
@@ -8191,7 +8193,12 @@ function Home({
   //   量过：格子区比可视区高出 68px、超出的被 overflow-hidden 切掉，而这一条在流里就吃掉 14px。
   //   改成 absolute 之后那 14px 还给内容，最后一排少切一截。跟 iOS 一样：点是浮在壁纸上的。
   //   pointer-events-none：它不该挡住底下那一排的点击。
-  curLayout.length > 1 && h("div", { "data-wk": "pager", className: "absolute left-0 right-0 flex justify-center gap-1.5 pointer-events-none", style: { bottom: 4, zIndex: 3 } }, curLayout.map(function (_, pi) { return h("span", { key: pi, "data-wk": "pagerdot", "data-on": pi === page ? "1" : "0", style: { width: pi === page ? 16 : 6, height: 6, borderRadius: 999, background: pi === page ? (wallpaper ? "rgba(255,255,255,0.95)" : t.ink) : (wallpaper ? "rgba(255,255,255,0.45)" : t.line), transition: "all .25s" } }); }))), /*#__PURE__*/React.createElement("div", {
+  // 整理模式的翻页箭头（群里 2026-10-29 许愿）：左右两边各一颗，到头那边不出；点页码那一排的点也能直接跳过去
+  editMode && curLayout.length > 1 && page > 0 && h("button", { "data-wk": "pagerarrow", "data-part": "prev", "aria-label": "上一页", onTouchStart: function (e) { e.stopPropagation(); }, onClick: function () { goPage(page - 1); },
+    className: "absolute active:opacity-60 flex items-center justify-center", style: { left: 2, top: "50%", transform: "translateY(-50%)", zIndex: 30, width: 30, height: 56, borderRadius: 999, background: "rgba(255,255,255,.72)", color: t.ink, border: "1px solid rgba(255,255,255,.9)", backdropFilter: "blur(14px)", WebkitBackdropFilter: "blur(14px)", boxShadow: "0 4px 14px rgba(30,28,24,0.16)", fontSize: 18 } }, "‹"),
+  editMode && curLayout.length > 1 && page < curLayout.length - 1 && h("button", { "data-wk": "pagerarrow", "data-part": "next", "aria-label": "下一页", onTouchStart: function (e) { e.stopPropagation(); }, onClick: function () { goPage(page + 1); },
+    className: "absolute active:opacity-60 flex items-center justify-center", style: { right: 2, top: "50%", transform: "translateY(-50%)", zIndex: 30, width: 30, height: 56, borderRadius: 999, background: "rgba(255,255,255,.72)", color: t.ink, border: "1px solid rgba(255,255,255,.9)", backdropFilter: "blur(14px)", WebkitBackdropFilter: "blur(14px)", boxShadow: "0 4px 14px rgba(30,28,24,0.16)", fontSize: 18 } }, "›"),
+  curLayout.length > 1 && h("div", { "data-wk": "pager", className: "absolute left-0 right-0 flex justify-center gap-1.5" + (editMode ? "" : " pointer-events-none"), style: { bottom: 4, zIndex: 3 } }, curLayout.map(function (_, pi) { return h("span", { key: pi, "data-wk": "pagerdot", "data-on": pi === page ? "1" : "0", onClick: editMode ? function () { goPage(pi); } : undefined, style: { cursor: editMode ? "pointer" : undefined, padding: editMode ? "6px 0" : undefined, backgroundClip: "content-box", width: pi === page ? 16 : 6, height: 6, borderRadius: 999, background: pi === page ? (wallpaper ? "rgba(255,255,255,0.95)" : t.ink) : (wallpaper ? "rgba(255,255,255,0.45)" : t.line), transition: "all .25s" } }); }))), /*#__PURE__*/React.createElement("div", {
     className: "relative shrink-0 pt-1",
     style: { paddingLeft: HOME_PAD_X, paddingRight: HOME_PAD_X, paddingBottom: "calc(env(safe-area-inset-bottom) + 26px)" }
   }, /*#__PURE__*/React.createElement("div", {
