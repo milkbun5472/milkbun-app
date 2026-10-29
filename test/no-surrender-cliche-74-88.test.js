@@ -18,3 +18,9 @@ test("骨头酥了这一族点名进了线上那条和线下替换表（群友 2
   assert.match(src, /「骨头都酥了／软了」「腿都软了」「心都化了」这一族/);
   assert.match(src, /骨头\(都\)酥了\/骨头\(都\)软了\/酥了半边身子\/腿软→null；/);
 });
+
+test("心声里也禁（她 2026-10-29）：挂在各处共用的 THOUGHT_VOICE 上", () => {
+  const src = require("fs").readFileSync(__dirname + "/../js/engine.js", "utf8");
+  const line = src.slice(src.indexOf("const THOUGHT_VOICE ="), src.indexOf("\n", src.indexOf("const THOUGHT_VOICE =")));
+  assert.match(line, /「骨头都酥了／软了」「腿都软了」「心都化了」这一族心声里也不用/);
+});
