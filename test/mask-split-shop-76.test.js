@@ -80,3 +80,9 @@ test("钱包页能切看哪张面具的钱，改余额、记一笔都落在那�
   assert.match(ui, /"data-wk": "walletpocketitem"[^\n]*\n[^\n]*minHeight: 40/);
   assert.match(ui, /"购买（用我的余额 ¥" \+ \(walletOf \? walletOf\(payMask\) : wallet\) \+ "）"/);
 });
+
+test("界面上看到的余额也是那张面具的：单聊转账框、群里、亲属卡页", () => {
+  assert.match(app, /myBalance: balanceOf\(maskKeyOf\(activeChar\.id\)\),/);
+  assert.match(app, /myBalance: balanceOf\(maskKeyOf\("g:" \+ activeGroup\.id\)\),/);
+  assert.match(app, /wallet: myKinFor \? balanceOf\(maskKeyOf\(myKinFor\)\) : wallet,/);
+});

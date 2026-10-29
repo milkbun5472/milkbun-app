@@ -20,7 +20,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v76.890";
+const APP_VERSION = "v76.891";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -32358,6 +32358,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     onRerollFlip: dir => rerollFlip(activeChar.id, activeChar.id, dir),
     onDelDirNote: id => chatDirNoteDel(activeRoomId && activeRoomId !== "main" && window.ChatRooms ? window.ChatRooms.chatKey(activeChar.id, activeRoomId) : activeChar.id, id),
     locateAt: walletTrace && walletTrace.type === "char" && String(walletTrace.id) === String(activeChar.id) ? walletTrace : null,
+    myBalance: balanceOf(maskKeyOf(activeChar.id)),   // 转账、红包框里显示的余额：TA 认的那张面具的钱（扣的也是这张）
     onLocated: () => setWalletTrace(null),
     // 返回键上那个圈：别处还剩几条没看（不含当前这一间——人已经在这儿了）
     unreadOther: Object.entries(unreadMap).reduce((a, kv) => a + (kv[0] === activeChar.id ? 0 : ((characters.some(c => c.id === kv[0]) || groups.some(g => g.id === kv[0])) ? (kv[1] || 0) : 0)), 0),
@@ -33027,7 +33028,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     myCards: myKinCards,
     onOpenMyKin: charId => { setMyKinFor(charId); myKinBackRef.current = "wallet"; setScreen("mykin"); }
   });else if (screen === "mykin") body = h(MyKinPage, {
-    characters: liveChars.filter(c => !c.npc), cards: myKinCards, charId: myKinFor, wallet: wallet,
+    characters: liveChars.filter(c => !c.npc), cards: myKinCards, charId: myKinFor, wallet: myKinFor ? balanceOf(maskKeyOf(myKinFor)) : wallet,   // 这张卡刷的是 TA 认的那张面具的钱
     onPick: id => setMyKinFor(id),
     onIssue: (id, limit, note, daily) => { if (issueMyKin(id, limit, note, daily)) setScreen(myKinBackRef.current || "wallet"); },
     onEdit: (id, action, val) => editMyKin(id, action, val),
@@ -33102,7 +33103,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     sending: sending,
     profile: groupProfileFor(activeGroup.id),
     meName: groupProfileFor(activeGroup.id).name || profile.name || "我",
-    myBalance: wallet,
+    myBalance: balanceOf(maskKeyOf("g:" + activeGroup.id)),   // 群里花的是这个群用的那张面具的钱
     settings: { ...gsFor(activeGroup.id), autoChat: gsFor(activeGroup.id).autoChat !== false && autoRefreshOn("groupChat") },
     directives: directives[activeGroup.id] || [],
     onRemoveDirective: dirId => removeDirective(activeGroup.id, dirId),
