@@ -6,17 +6,24 @@ test("选文件那一处能多选，整份名单交给 onImport", () => {
   assert.match(ui, /type: "file", accept: ANY_FILE, multiple: true, className: "hidden", onChange: e => \{\n\s*const fs = e\.target\.files; if \(fs && fs\.length\) onImport\(fs\);/);
 });
 test("文字那份一定排在图片包前面：它会把图库清掉", () => {
-  const i = app.indexOf("const doImportFiles = async files => {"), j = app.indexOf("\n  };", i);
+  const i = app.indexOf("const doImportFiles = async input => {"), j = app.indexOf("\n  };", i);
   assert.ok(i > 0 && j > i, "抠不出 doImportFiles");
   const f = app.slice(i, j);
   assert.match(f, /rows\.sort\(\(a, b\) => \(a\.media \? 1 : 0\) - \(b\.media \? 1 : 0\) \|\| a\.part - b\.part\);/);
-  assert.match(f, /await doImportText\(rows\[i\]\.text, \{ noReload: true \}\)/, "每一份都要先别重载");
+  assert.match(f, /await doImportText\(text, \{ noReload: true \}\)/, "每一份都要先别重载");
+  assert.match(f, /const head = await readText\(f, true\);/, "排序不许把整份读进来");
+  assert.match(f, /const text = await readText\(rows\[i\]\.f\);/, "要一份一份读，不许一次全摊开");
+  assert.match(f, /toast\(arr\.length > 1 \? "在读 " \+ arr\.length \+ " 份文件…" : "在读文件…"\);/, "按下去要立刻有反应");
   assert.match(f, /if \(ok\) setTimeout\(\(\) => location\.reload\(\)/, "全部导完才重载一次");
 });
 test("单份那条路照旧，只是绕到同一个口子", () => {
-  assert.match(app, /const doImport = file => doImportFiles\(\[file\]\);/);
+  // ⚠️v76.857 的事故：选择器改成多选（交 FileList）而这儿还按「一份」收，整串被当成一份去读，
+  //   抛在半路、界面一点反应都没有。两头的形状必须对得上，所以两条一起钉。
+  assert.match(app, /const doImport = input => doImportFiles\(input\);/);
+  assert.match(app, /const arr = \(input && typeof input\.length === "number" \? Array\.from\(input\) : input \? \[input\] : \[\]\)/, "没认 FileList／单个 File 两种形状");
+  assert.match(app, /\.filter\(f => f && typeof f\.slice === "function"\);/, "不是文件的没挡掉");
   assert.match(app, /const reloadIn = ms => \{ if \(!\(opts && opts\.noReload\)\) setTimeout\(\(\) => location\.reload\(\), ms\); \};/);
   // 导入那一段里只许有【一处】重载，就是 reloadIn 自己；别处再写一处就绕过了 noReload
-  const body = app.slice(app.indexOf("const doImportText = async (raw, opts)"), app.indexOf("const doImport = file =>"));
+  const body = app.slice(app.indexOf("const doImportText = async (raw, opts)"), app.indexOf("const doImport = input =>"));
   assert.equal((body.match(/setTimeout\(\(\) => location\.reload\(\)/g) || []).length, 1, "导入里还留着绕过 noReload 的重载");
 });

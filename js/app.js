@@ -32141,41 +32141,54 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     }
     return true;
   };
-  const doImport = file => doImportFiles([file]);
+  const doImport = input => doImportFiles(input);
   // 一次选好几份（群里 2026-10-28：「导入恢复图片只能一个一个点吗，每恢复一个就要从头再点进去」）：
   //   图片分成了好几包，原来一包一包导、每包导完还自动重载一次，于是每导一包都要重新点进设置。
   //   现在一次全选，按【文字那份在前、图片按包号在后】的顺序一份份导完，最后才重载一次。
   //   ⚠️顺序不能乱：文字那一份是整机覆盖，会把图库先清掉；它要是排在图片后面，刚导进去的图就没了。
-  const doImportFiles = async files => {
-    const arr = Array.from(files || []);
-    if (!arr.length) return;
-    const readOne = f => new Promise(res => {
+  const doImportFiles = async input => {
+    // ⚠️收进来的可能是【一串】（选择器给的 FileList）也可能是【一份】（别处直接递一个 File 进来）。
+    //   v76.857 把选择器改成多选、却把这儿留成「一份」，于是整串被当成一份去读，读的时候直接抛错，
+    //   界面上一点反应都没有（群里 2026-10-29「导入没有反应」）。两种都认，别再让调用方去迁就这儿。
+    const arr = (input && typeof input.length === "number" ? Array.from(input) : input ? [input] : [])
+      .filter(f => f && typeof f.slice === "function");   // 不是文件的一律丢掉，省得读的时候炸在半路
+    if (!arr.length) { toast("没选到文件"); return; }
+    // 一上来就说话：出了什么岔子也看得见，不会又变成一颗「按了没反应」的键
+    toast(arr.length > 1 ? "在读 " + arr.length + " 份文件…" : "在读文件…");
+    const readText = (f, slice) => new Promise(res => {
       const r = new FileReader();
-      r.onload = e => res({ name: f.name, text: String(e.target.result || "") });
+      r.onload = e => res(String(e.target.result || ""));
       // ⚠️读文件本身也会失败（权限、被别的 app 占着）。不吭声的话就是一颗死按钮。
-      r.onerror = () => res({ name: f.name, text: "" });
-      r.readAsText(f);
+      r.onerror = () => res("");
+      try { r.readAsText(slice ? f.slice(0, 400) : f); } catch (e) { res(""); }
     });
-    if (arr.length > 1) toast("在读 " + arr.length + " 份文件…");
-    const got = await Promise.all(arr.map(readOne));
-    const bad = got.filter(x => !x.text).map(x => x.name);
-    const rows = got.filter(x => x.text).map(x => {
-      let part = 0, media = false;
-      try { const o = JSON.parse(x.text); media = !!(o && o.__archive && o.kind === "media"); part = Number(o && o.part) || 0; } catch (e) {}
-      return Object.assign({}, x, { media, part });
-    });
-    rows.sort((a, b) => (a.media ? 1 : 0) - (b.media ? 1 : 0) || a.part - b.part);
-    if (!rows.length) { toast(bad.length ? "这些文件读不出来，换一份或者用「贴一份备份」" : "没选到文件"); return; }
-    let ok = 0;
-    for (let i = 0; i < rows.length; i++) {
-      if (rows.length > 1) toast("第 " + (i + 1) + "/" + rows.length + " 份…");
-      let r = false;
-      try { r = await doImportText(rows[i].text, { noReload: true }); } catch (e) {}
-      if (r) ok++;
+    try {
+      // 先只读每份的开头认一下是哪种（__archive / kind / part 都写在最前面），
+      //   别为了排序把几十 MB 的图片包整份读进来再 JSON.parse 一遍。
+      const rows = [];
+      for (const f of arr) {
+        const head = await readText(f, true);
+        rows.push({ f, name: f.name || "", media: /"kind"\s*:\s*"media"/.test(head),
+          part: Number((head.match(/"part"\s*:\s*(\d+)/) || [])[1]) || 0 });
+      }
+      // ⚠️文字那一份一定排在图片包前面：它是整机覆盖，会先把图库清掉
+      rows.sort((a, b) => (a.media ? 1 : 0) - (b.media ? 1 : 0) || a.part - b.part);
+      let ok = 0, bad = 0;
+      for (let i = 0; i < rows.length; i++) {
+        if (rows.length > 1) toast("第 " + (i + 1) + "/" + rows.length + " 份…");
+        // 一份一份读、读完就放手：几十 MB 的包同时摊开会把手机撑爆
+        const text = await readText(rows[i].f);
+        if (!text) { bad++; continue; }
+        let r = false;
+        try { r = await doImportText(text, { noReload: true }); } catch (e) {}
+        r ? ok++ : bad++;
+      }
+      toast(ok ? "导好了 " + ok + " 份" + (bad ? "，有 " + bad + " 份没导成" : "") + "，正在重载…"
+        : "一份都没导成——换一份，或者用下面的「贴一份备份」", bad && ok ? 4000 : undefined);
+      if (ok) setTimeout(() => location.reload(), bad ? 2200 : 900);
+    } catch (e) {
+      toast("导入出错了：" + ((e && e.message) || e) + "——数据还在，没有丢", 5000);
     }
-    const miss = rows.length - ok + bad.length;
-    toast(ok ? "导好了 " + ok + " 份" + (miss ? "，有 " + miss + " 份没导成" : "") + "，正在重载…" : "一份都没导成", miss && ok ? 4000 : undefined);
-    if (ok) setTimeout(() => location.reload(), miss ? 2200 : 900);
   };
 
   // ---- routing ----
