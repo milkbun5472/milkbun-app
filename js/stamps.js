@@ -990,7 +990,10 @@
           h("button", { "data-wk": "stampmeltgo", disabled: !picked.length, onClick: () => { if (!meltArm) { setMeltArm(true); return; } const r = C().melt(meltSel); (r.keys || []).forEach(k => { try { idbImgDel(k); idbImgDel("th_" + k); } catch (e) {} }); setMeltSel(null); setMeltArm(false); toast("熔了 " + r.n + " 张 R，得 " + r.ink + " 印泥"); },
             className: "active:opacity-70 disabled:opacity-40", style: { marginLeft: "auto", padding: "6px 16px", borderRadius: 999, background: meltArm ? "#b23a2e" : "#285C4B", color: "#fff", fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))" } }, meltArm ? "再点一次：熔掉" : "熔掉"))); })() : null;
     if (tab === "album") return h("div", { "data-wk": "stampalbumpage", "data-page": "1", className: "h-full flex flex-col overflow-hidden", style: { background: "repeating-linear-gradient(180deg, transparent 0 116px, rgba(47,42,34,.07) 116px 117px, transparent 117px 120px), linear-gradient(#f1e9d8, #e9dfca)" } },
-      h(Head, { zh: "邮票册", sub: (st.cards || []).length + " 枚", bg: "transparent", ink: "#2f2a22", onBack: () => setTab("pull") }),
+      // 融卡放右上角（她 2026-10-29）
+      h(Head, { zh: "邮票册", sub: (st.cards || []).length + " 枚", bg: "transparent", ink: "#2f2a22", onBack: () => setTab("pull"),
+        right: (st.cards || []).some(c => c.rarity === "R" && c.text) ? h("button", { "data-wk": "stampmeltbtn", onClick: () => { if (meltSel == null) { setMeltSel([]); setMeltArm(false); } else { setMeltSel(null); setMeltArm(false); } }, className: "active:opacity-70",
+          style: { padding: "3px 10px", borderRadius: 999, border: "1px " + (meltSel != null ? "solid #b23a2e" : "dashed rgba(87,119,103,.5)"), color: meltSel != null ? "#b23a2e" : "#577767", fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))" } }, meltSel != null ? "取消" : "融卡") : null }),
       meltBar,
       h("div", { className: "flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-5", ref: el => { if (el && !el.__y) { el.__y = 1; el.scrollTop = albumY.current; } }, onScroll: e => { albumY.current = e.currentTarget.scrollTop; }, style: { paddingBottom: "calc(env(safe-area-inset-bottom) * 0.4 + 28px)" } },
         // 一行三个下拉（她 2026-10-26：分类一行行往下加太高、往右滑不方便）：点开在下面弹一小块，选项换行平铺
@@ -1014,9 +1017,6 @@
         (() => { const bad = (st.cards || []).filter(c => !c.text && (!c.writing || Date.now() - Number(c.writingTs || 0) > (c.queued ? 1800000 : 180000)));
           return bad.length ? h("button", { "data-wk": "stamprewriteall", onClick: () => { onWrite(bad); toast("在重写 " + bad.length + " 张"); }, className: "w-full active:opacity-70",
             style: { marginTop: 12, minHeight: 40, borderRadius: 10, border: "1px dashed #b23a2e", color: "#b23a2e", fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))" } }, "有 " + bad.length + " 张没写好 · 一起重写") : null; })(),
-        // 熔 R 卡：点「熔几张 R」进挑选，点邮票挑，底下一条写着能得多少印泥
-        album.some(c => c.rarity === "R" && c.text) && meltSel == null ? h("button", { "data-wk": "stampmeltbtn", onClick: () => { setMeltSel([]); setMeltArm(false); }, className: "active:opacity-70",
-          style: { marginTop: 10, padding: "4px 12px", borderRadius: 999, border: "1px dashed rgba(87,119,103,.5)", color: "#577767", fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))" } }, "熔几张 R 换印泥") : null,
         album.length ? h("div", { "data-wk": "stampalbum", className: "grid", style: { gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 10, marginTop: 14, justifyItems: "center" } },
           album.map(c => { const ch = albumChar === "all" ? charOf(c.charId) : null;   // 「全部」时每枚下面写是谁的
             return h("div", { key: c.id, className: "flex flex-col items-center", style: { gap: 3, minWidth: 0 } }, h("div", { style: { position: "relative", opacity: meltSel != null && c.rarity !== "R" ? .35 : 1 } }, h(StampFace, { t, card: c, size: 88, onClick: () => { if (meltSel == null) return setOpen(c.id); if (c.rarity !== "R" || c.writing) return; setMeltArm(false); setMeltSel(s0 => s0.includes(c.id) ? s0.filter(x => x !== c.id) : s0.concat([c.id])); } }),
