@@ -20,7 +20,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v76.871";
+const APP_VERSION = "v76.873";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -17001,7 +17001,16 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   };
   // SSR 剧情的旁白是给她读的（她 2026-10-27：旁白写成了「他转头看向她」）：乙游卡面那样，读的人是「你」
   const STAMP_NARR_POV = "旁白（narr）是写给她读的，像乙游卡面剧情：旁白里她是「你」，你是「他」（比如「他转头看向你」），不写「她」；he、me 两种照常是各自说出口的话。";
+  // 时间线卡：同一个他、同一个世界，只换时间点（群里 2026-10-29）。关系照那个时间来，都算「如果」，不当真
+  const STAMP_TIME = {
+    before: "这一张写的是【认识她之前】的你：你那时候在过的日子、那时的你是什么样。她还不在你的生活里——不写你们之间的事，最多是一次你当时没在意的擦肩。",
+    early: "这一张写的是【刚认识她那阵子】的你：照你们最早的关系来，那时候还不熟、还在试探，你对她的了解只有那么一点，不写后来才有的亲近。",
+    later1: "这一张写的是【一年后】的你：照你们现在真实走的方向往后推一年，你和你们之间会有什么变化、什么还是老样子；不凭空跳到另一种关系。",
+    laterN: "这一张写的是【几年后】的你：照你们现在真实走的方向往后推几年，你的日子、你这个人和你们之间会变成什么样；变化要从现在长出来，不凭空另起。"
+  };
+  const stampTimeLine = card => card.timeAt && STAMP_TIME[card.timeAt] ? STAMP_TIME[card.timeAt] + "世界、身份、性格都是你本人，这是「如果」的那个时间，不是你们真的发生过的事。" : "";
   const stampKindLine = (card, char) => {
+    if (card.kind === "time") return "这是一张【时间卡】：" + stampTimeLine(card) + "衣服照那个时间的你会穿的来。";
     if (card.kind === "if") {
       const mode = card.ifMode === "into" ? "把你自己丢进这个主题里：你还是原来那个世界的人，忽然到了这里，看什么都新鲜，这本身就是故事。"
         : card.ifMode === "adapt" ? "照你自己的世界改写这个主题：换成你那个世界、那个年代里本来就有的样子。"
@@ -17012,7 +17021,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       const pastLine = past.length ? "\n往年的「" + card.theme + "」你也过过，那时的卡：\n" + past.join("\n") + "\n今年写别的事、别的走向；你们的关系要是变了，今年的「" + card.theme + "」也该跟那时不一样。可以自然想起往年，但不必每张都提。" : "";
       // 限时主题都用「你们俩」这层来看（她 2026-10-27：「整体还是要放在我和他的关系」）；角色池她自己写的主题不加
       const lens = card.limited ? "\n这一期的主题是你们俩的：在这样的世界、这样的日子里，你们之间是什么样——她在你这段日子里是什么位置、你们怎么遇见、怎么相处、为彼此做了什么或没说出口什么。R 是她不在场时你的一刻，但看得出这段日子里有她，不必每张都提她；SR、SSR 就是你们俩之间的事。关系照你们现在真实走到的那一步来，还没在一起就不写成恋人。" : "";
-      return pastLine + lens + "这是一张【IF 卡】，主题是「" + card.theme + "」" + (card.themeLine ? "：" + card.themeLine : "。")
+      return pastLine + lens + (card.timeAt ? stampTimeLine(card) : "") + "这是一张【IF 卡】，主题是「" + card.theme + "」" + (card.themeLine ? "：" + card.themeLine : "。")
         + "写的是「如果」的你，不是真发生的事。先想清楚你是哪个世界、哪个年代的人，" + mode
         // 主题跟他自己的世界本来就是同一种（她 2026-10-26：西幻主题撞上本来就是西幻的人）：世界不换，换他这个人
         + "主题跟你自己的世界本来就是同一种（时代、风格都对得上）的话，就别再写你原来的身份——世界不换，换的是你：要是你走了另一条路，在这个世界里会是谁。"
@@ -32564,6 +32573,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     onSneak: (m, how) => answerSneak(activeChar.id, m, how),
     onDateGo: m => dateGo(activeChar.id, m),
     onBdayPlanOpen: m => openBdayPlan(activeChar, m),
+    bdayToday: (() => { const bd = myBdayFor(activeChar.id); return !!bd && typeof daysUntilBirthday === "function" && daysUntilBirthday(bd, new Date()) === 0; })(),
     onDateAnswer: (m, yes) => answerDateAsk(activeChar.id, m, yes),
     peekSneakOn: !!peekSneakOk[activeChar.id], onToggleSneak: () => togglePeekSneak(activeChar.id),
     onOffline: () => openOffline(activeChar, window.ChatRooms ? window.ChatRooms.get(activeChar.id, activeRoomId) : null),
