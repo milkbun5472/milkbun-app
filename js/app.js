@@ -5145,7 +5145,13 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     const loadZh = { "HIGH LOAD": "满", "NORMAL": "一般", "LIGHT": "清闲", "LOW LOAD": "清闲" };
     const loadWord = loadZh[String(s.load || "").toUpperCase()] || "";
     let out = "今日安排" + (loadWord ? "（这天" + loadWord + "）" : "") + "：\n" + disp.map(x => (x._charTime || x.time || "") + " " + x.title + (x.location ? "（" + x.location + "）" : "") + (x.deviation ? "［临时改动：" + (x.deviation.reason || "") + "］" : "")).join("\n");
-    if (cur) out += "\n\n此刻（你当地约 " + (cur._charTime || cur.time || "") + "）Ta 正在：" + cur.title + (cur.location ? "，在 " + cur.location : "") + (cur.deviation ? "（这段是临时改动：" + (cur.deviation.reason || "") + "）" : "");
+    // 「此刻在做什么」必须跟【醒没醒】出自同一个判断（群里 2026-10-29：「显示睡着的角色疯狂发消息说自己在上班」）。
+    //   病根：这儿走 schedPlanOf——今天没排就借前后一天那份接着用；而「醒没醒」（charAwakeState，顶栏和主动那道闸都问它）
+    //   只认今天这一份。于是今天的日程还没排出来那会儿，界面说睡着、喂给 TA 的却是昨天同一时刻的「正在上班」。
+    //   收在这一处：以 sleepPhaseOf 为准（它还认「关了时间感知」那一档），睡着就说睡着，不拿另一天的事当此刻。
+    const _asleepNow = (() => { try { return sleepPhaseOf(char) === "asleep"; } catch (e) { return false; } })();
+    if (_asleepNow) out += "\n\n此刻 Ta 在睡觉（按 Ta 自己的作息）。别说成醒着在做别的事。";
+    else if (cur) out += "\n\n此刻（你当地约 " + (cur._charTime || cur.time || "") + "）Ta 正在：" + cur.title + (cur.location ? "，在 " + cur.location : "") + (cur.deviation ? "（这段是临时改动：" + (cur.deviation.reason || "") + "）" : "");
     else {
       const cy = schedCarryNowFor(char);
       out += cy
