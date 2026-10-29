@@ -28,3 +28,17 @@ test("单聊群里都接上：递、批、TA自己递；钱只在结案那一处
   assert.match(seg, /groupClosed\(groupId\)/, "闭群是过家家，不动钱");
   assert.ok(comp.includes('["ask", "请示", "checklist"]'));
 });
+
+test("被驳了再递：第几次、前几回的理由和批语都带上", () => {
+  const a2 = AskSlip.again({ aid: "x", what: "买相机", amount: 10, reason: "想拍你", note: "太贵" }, "我出一半");
+  assert.equal(a2.round, 2); assert.equal(a2.prevAid, "x");
+  assert.deepEqual(a2.before, [{ reason: "想拍你", note: "太贵" }]);
+  assert.equal(AskSlip.again({ ...a2, note: "还是贵" }, "求你").round, 3);
+  assert.match(AskSlip.line(a2, "我"), /^\[请示·第2次递\].*前几回：理由「想拍你」被驳（太贵）/);
+});
+
+test("准，但是：条件写进那一行，之后能被翻出来", () => {
+  assert.match(AskSlip.line({ what: "通宵", status: "approved", cond: "明天早起", judge: "他" }), /批：准，但是：明天早起$/);
+  assert.match(app, /_askConds = \(chatsRef\.current\[charId\] \|\| \[\]\)\.filter/);
+  assert.match(app, /askNew（再递）/);
+});

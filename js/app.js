@@ -11740,11 +11740,13 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   const pendingAskOf = (charId, role) => [...(chatsRef.current[charId] || [])].reverse().find(m => m && m.kind === "ask" && m.role === (role || "user") && (m.status || "pending") === "pending");
   const sendAsk = (char, a) => {
     if (!char || !a || !a.what) return;
-    const m = { role: "user", kind: "ask", aid: "ask_" + Date.now(), what: a.what, reason: a.reason || "", amount: AskSlip.amountOf(a.amount), status: "pending", ts: Date.now(), read: true };
+    const m = { role: "user", kind: "ask", aid: "ask_" + Date.now(), what: a.what, reason: a.reason || "", amount: AskSlip.amountOf(a.amount), status: "pending", ts: Date.now(), read: true,
+      ...(a.round > 1 ? { round: a.round, before: a.before || [], prevAid: a.prevAid } : {}) };
+    if (a.prevAid) pChat(char.id, p => p.map(x => x.kind === "ask" && x.aid === a.prevAid ? { ...x, resent: true } : x));
     // 不自动让TA回：她可能还要补几句（施工规则/wait-for-her）；卡在历史里，下一轮TA自然看得到
     pChat(char.id, p => [...p, { ...m, content: AskSlip.line(m, "我") }]);
   };
-  const settleAsk = (charId, aid, status, judge, note) => {
+  const settleAsk = (charId, aid, status, judge, note, cond) => {
     const char = characters.find(c => c.id === charId);
     const card = (chatsRef.current[charId] || []).find(m => m.kind === "ask" && m.aid === aid);
     if (!char || !card || (card.status || "pending") !== "pending" || !AskSlip.VERDICT[status]) return false;
@@ -11754,7 +11756,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     if (herPays && balanceOf(maskKeyOf(charId)) < amt) { toast("钱包里的钱不够这一笔"); return false; }
     if (herPays) changeWallet(-amt, mine ? "请示批准 · " + what : "替 " + char.name + " 出了「" + what + "」", "ask", { where: "单聊", charId });
     else if (amt && status !== "rejected") adjustCharBalance(charId, -amt, mine ? "替你出了「" + what + "」" : "请示批准 · " + what, "ask");
-    const done = { ...card, status, judge: judge || "", note: String(note || "").trim().slice(0, 60) };
+    const done = { ...card, status, judge: judge || "", note: String(note || "").trim().slice(0, 60), ...(status === "approved" && String(cond || "").trim() ? { cond: String(cond).trim().slice(0, 40) } : {}) };
     done.content = AskSlip.line(done, mine ? "我" : char.name);
     pChat(charId, p => p.map(m => m.kind === "ask" && m.aid === aid ? done : m));
     return true;
@@ -12798,11 +12800,19 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       if (_askPend) {
         openCaps.push("askVerdict");
         capState.push("askVerdict：" + uName + " 递了一张请示等你批——" + AskSlip.line(_askPend) + "。批不批照你这个人、你俩的关系和这件事本身来，不是默认准。"
-          + "批了填 askVerdict:{\"verdict\":\"准\",\"note\":\"盖在批条上的一句批语\"}，不批 verdict 填「驳」"
+          + (_askPend.round > 1 ? "这是她第 " + _askPend.round + " 次递这件事了，前几回你都驳了；这回批不批照你这个人来，磨不磨得动你也是你的事。" : "")
+          + "批了填 askVerdict:{\"verdict\":\"准\",\"note\":\"盖在批条上的一句批语\"}，不批 verdict 填「驳」；想准但要她答应点什么，就在准的同时加 \"cond\":\"你的条件\"（批条上会写着，你之后也记得）"
           + (AskSlip.amountOf(_askPend.amount) ? "；准了这笔钱从她自己钱包出，你想替她出就填「我出」（从你钱包出）" : "")
           + "。话照常写在 word 里。这一轮顾不上就省略，卡继续挂着。");
       }
-      if (!_peekTurn && !(room && !room.main) && !_body && !pendingAskOf(charId, "assistant") && Math.random() < 0.25) {
+      // 批过、带着条件的那几张：条件他记着，之后可以拿出来说（她 2026-10-29「附带的事他之后还记得」）
+      const _askConds = (chatsRef.current[charId] || []).filter(m => m && m.kind === "ask" && m.status === "approved" && m.cond && Date.now() - (m.ts || 0) < 30 * 86400000).slice(-3);
+      if (_askConds.length) capState.push("你们之间带条件批过的请示：" + _askConds.map(m => "「" + m.what + "」——条件「" + m.cond + "」（" + (m.role === "user" ? "你给她定的" : "她给你定的") + "）").join("；") + "。条件守没守、要不要提，照你这个人来。");
+      // 他自己的请示被她驳了：可以换个理由再递一回
+      const _myLastAsk = [...(chatsRef.current[charId] || [])].reverse().find(m => m && m.kind === "ask" && m.role === "assistant");
+      const _askAgain = _myLastAsk && _myLastAsk.status === "rejected" && !_myLastAsk.resent && Date.now() - (_myLastAsk.ts || 0) < 3 * 86400000 ? _myLastAsk : null;
+      if (_askAgain) { openCaps.push("askNew"); capState.push("askNew（再递）：你递的请示「" + _askAgain.what + "」被她驳了。你要是还想要、不甘心，可以换个理由再递一回：askNew:{\"again\":true,\"reason\":\"新的理由\"}；算了就不填。"); }
+      else if (!_peekTurn && !(room && !room.main) && !_body && !pendingAskOf(charId, "assistant") && Math.random() < 0.25) {
         openCaps.push("askNew");
         capState.push("askNew：你自己要是有件事想先问过 " + uName + " 再做——照你这个人、你此刻的处境会有的事——可以递一张请示让她批：askNew:{\"what\":\"想干嘛\",\"reason\":\"理由\",\"amount\":要花的钱数（不花钱写 0）}。她准了钱从你钱包出，她也可能说她来出。没有这样的事就不填。");
       }
@@ -14345,11 +14355,15 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         const _av = parsed.askVerdict, _vs = String((_av && typeof _av === "object" ? _av.verdict : _av) || "");
         const _st = /我出/.test(_vs) ? "paid" : /驳|不/.test(_vs) ? "rejected" : /准|批|同意|行|可以/.test(_vs) ? "approved" : null;
         const _pa = pendingAskOf(charId);
-        if (_st && _pa && settleAsk(charId, _pa.aid, _st, char.remark || char.name, _av && typeof _av === "object" ? _av.note : "")) delivered = true;
+        if (_st && _pa && settleAsk(charId, _pa.aid, _st, char.remark || char.name, _av && typeof _av === "object" ? _av.note : "", _av && typeof _av === "object" ? _av.cond : "")) delivered = true;
       }
+      const _anPrev = parsed.askNew && typeof parsed.askNew === "object" && parsed.askNew.again ? [...(chatsRef.current[charId] || [])].reverse().find(m => m && m.kind === "ask" && m.role === "assistant" && m.status === "rejected" && !m.resent) : null;
+      if (_anPrev && String(parsed.askNew.reason || "").trim()) parsed.askNew = { ...AskSlip.again(_anPrev, String(parsed.askNew.reason).trim().slice(0, 120)) };
       if (parsed.askNew && typeof parsed.askNew === "object" && String(parsed.askNew.what || "").trim() && !(room && !room.main) && !pendingAskOf(charId, "assistant")) {
         const _an = { role: "assistant", kind: "ask", aid: "ask_" + Date.now(), what: String(parsed.askNew.what).trim().slice(0, 40), reason: String(parsed.askNew.reason || "").trim().slice(0, 120),
-          amount: AskSlip.amountOf(parsed.askNew.amount), status: "pending", ts: Date.now(), turnId, read: false };
+          amount: AskSlip.amountOf(parsed.askNew.amount), status: "pending", ts: Date.now(), turnId, read: false,
+          ...(parsed.askNew.round > 1 ? { round: parsed.askNew.round, before: parsed.askNew.before || [], prevAid: parsed.askNew.prevAid } : {}) };
+        if (_an.prevAid) pChat(charId, p => p.map(x => x.kind === "ask" && x.aid === _an.prevAid ? { ...x, resent: true } : x));
         pChat(charId, p => [...p, { ..._an, content: AskSlip.line(_an, char.name) }]);
         delivered = true;
       }
@@ -16552,7 +16566,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         text: o,
         voters: []
       })),
-      ...(ask ? { ask: { what: ask.what, reason: ask.reason || "", amount: AskSlip.amountOf(ask.amount) } } : {}),
+      ...(ask ? { ask: { what: ask.what, reason: ask.reason || "", amount: AskSlip.amountOf(ask.amount), ...(ask.round > 1 ? { round: ask.round, before: ask.before || [] } : {}) } } : {}),
       content: ask ? AskSlip.line({ ask }, char ? char.name : "我") : "[投票] " + t
     });
     return pollId;
@@ -16570,6 +16584,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   const askPollTitle = a => AskSlip.line(a).replace(/^\[请示\] /, "请示：");
   const startAsk = (groupId, a) => {
     if (!a || !a.what) return;
+    if (a.prevAid) pGChat(groupId, rows => rows.map(m => m.pollId === a.prevAid ? { ...m, resent: true } : m));
     const pollId = pushPoll(groupId, askPollTitle(a), ["准", "驳"], false, null, a);
     if (pollId) setTimeout(() => genPollVotes(groupId, pollId), 900);
   };
@@ -32751,7 +32766,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     onMyKin: () => runRoomAction(activeChar.id, "herkinspend", () => { setMyKinFor(activeChar.id); myKinBackRef.current = "thread"; setScreen("mykin"); }),
     onDateInvite: (place, v) => sendDateInvite(activeChar, place, v),
     onSendAsk: a => sendAsk(activeChar, a),
-    onDecideAsk: (aid, st) => settleAsk(activeChar.id, aid, st, "我", ""),
+    onDecideAsk: (aid, st, cond) => settleAsk(activeChar.id, aid, st, "我", "", cond),
     invitePlaces: invitePlacesFor(activeChar),
     // 发位置时勾了「把我的位置也改到这儿」（她 2026-10-14）：世界里的地点→挪那个世界里「我」的钉；别的→跟设置里手填地名同一条路
     onSetMyPlace: p => setMyPlaceFrom(p, activeChar.id),
