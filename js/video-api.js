@@ -347,6 +347,7 @@
   }
   function VideoApiConfig() {
     const t = useTheme(), [c, setC] = useState(load), [err, setErr] = useState("");
+    const [models, setModels] = useState([]), [pulling, setPulling] = useState(false);
     const set = patch => { try { setC(save(patch)); setErr(""); } catch (e) { setErr(e.message); } };
     const input = { width: "100%", minWidth: 0, minHeight: 42, padding: "9px 12px", borderRadius: 6, border: "1px solid " + t.line, background: t.bg, color: t.ink, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))" };
     const row = (label, child) => h("div", { style: { display: "block", marginTop: 14, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.sub } }, h("span", { style: { display: "block", marginBottom: 6 } }, label), child);
@@ -368,13 +369,33 @@
         row("时长", h("select", { "aria-label": "可灵时长", value: k.duration, onChange: e => sk({ duration: Number(e.target.value) }), style: input }, [5, 10].map(n => h("option", { key: n, value: n }, n + " 秒")))),
         note("旧式的 Access Key／Secret Key 会在手机上现签一张 30 分钟的令牌，密钥本身不发出去。有的型号不支持「高品质」或 10 秒，以可灵控制台为准。浏览器直连被跨域拦住时，接口地址换成支持可灵的中转站。")); };
     const relayCfg = () => { const r = c.relay, sr = patch => set({ relay: Object.assign({}, r, patch) });
+      // 拉取模型：跟聊天 API 那颗同一个口子（fetchModelList 问 /v1/models），像视频的那几个排前面
+      const pullModels = async () => {
+        if (!r.baseUrl || !r.apiKey) { setErr("先填接口地址和 API Key"); return; }
+        setPulling(true); setErr("");
+        try {
+          const all = await fetchModelList({ baseUrl: r.baseUrl, apiKey: r.apiKey });
+          const vid = m => /video|seedance|kling|hailuo|minimax|veo|sora|wan|grok|vidu|pixverse|hunyuan|jimeng|runway|luma|i2v|t2v/i.test(m);
+          const list = [...new Set(all)].sort((a, b) => (vid(b) ? 1 : 0) - (vid(a) ? 1 : 0));
+          setModels(list);
+          if (!list.length) setErr("这个站没列出模型，照它控制台里写的名字手填");
+        } catch (e) { setErr("拉取模型失败：" + ((e && e.message) || "连不上") + "。也可以照它控制台里写的名字手填"); }
+        finally { setPulling(false); }
+      };
       return h(React.Fragment, null,
         row("写法（看中转站的 API 文档）", h("select", { "aria-label": "中转写法", value: r.format, onChange: e => sr({ format: e.target.value }), style: input }, RELAY_FORMATS.map(([v, zh]) => h("option", { key: v, value: v }, zh)))),
         row("接口地址", h("input", { "data-wk": "input", "aria-label": "中转接口地址", value: r.baseUrl, onChange: e => sr({ baseUrl: e.target.value }), placeholder: "https://你的中转站", style: input })),
         row("API Key", h("input", { "data-wk": "input", type: "password", "aria-label": "中转 API Key", autoComplete: "off", value: r.apiKey, onChange: e => sr({ apiKey: e.target.value }), style: input })),
-        row("视频模型（照中转站列出的名字填）", h("input", { "data-wk": "input", "aria-label": "中转视频模型", value: r.model, onChange: e => sr({ model: e.target.value }), style: input })),
+        row("视频模型（照中转站列出的名字填）", h("div", { style: { display: "flex", gap: 6 } },
+          h("input", { "data-wk": "input", "aria-label": "中转视频模型", list: "relay-models", value: r.model, onChange: e => sr({ model: e.target.value }), style: Object.assign({}, input, { flex: 1 }) }),
+          h("button", { type: "button", onClick: pullModels, disabled: pulling, style: Object.assign({}, input, { width: "auto", flexShrink: 0, color: t.ink, opacity: pulling ? 0.5 : 1 }) }, pulling ? "拉取中…" : "拉取模型"))),
+        h("datalist", { id: "relay-models" }, models.map(m => h("option", { key: m, value: m }))),
+        models.length ? h("div", { "data-wk": "relaymodels", style: { display: "flex", flexWrap: "wrap", gap: 6, marginTop: 8, maxHeight: 180, overflowY: "auto" } },
+          models.map(m => h("button", { key: m, type: "button", onClick: () => sr({ model: m }), style: { minHeight: 32, padding: "0 10px", borderRadius: 999, fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))",
+            border: "1px solid " + (r.model === m ? t.ink : t.line), background: r.model === m ? t.ink : "transparent", color: r.model === m ? t.bg2 : t.ink } }, m))) : null,
         row("时长", h("select", { "aria-label": "中转时长", value: r.duration, onChange: e => sr({ duration: Number(e.target.value) }), style: input }, [4, 5, 6, 8, 10, 12, 15].map(n => h("option", { key: n, value: n }, n + " 秒")))),
-        note("给那种一个站里能挑很多家视频模型的中转站用：首帧是你选的那张图。写法挑它 API 文档里写的那种；只按官方原样转发的，直接用上面对应那一家、把接口地址换成中转站的就行。模型支不支持这个时长以中转站为准，点生成才扣费。"));
+        note("给那种一个站里能挑很多家视频模型的中转站用：首帧是你选的那张图。写法挑它 API 文档里写的那种；只按官方原样转发的，直接用上面对应那一家、把接口地址换成中转站的就行。模型支不支持这个时长以中转站为准，点生成才扣费。"),
+        err ? h("p", { role: "alert", style: { color: t.accent, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))" } }, err) : null);
     };
     const ark = () => { const a = c.seedance, sa = patch => set({ seedance: Object.assign({}, a, patch) });
       return h(React.Fragment, null,

@@ -9,3 +9,7 @@ test("视频接口有「自定义中转」，两种常见写法都接", () => {
 test("下载只对中转站自己的地址带 key", () => {
   assert.match(src, /record\.vendor === "relay" && url\.indexOf\(record\.baseUrl \+ "\/"\) === 0/);
 });
+test("中转能拉取模型：跟聊天 API 同一个 fetchModelList，像视频的排前面", () => {
+  assert.match(src, /await fetchModelList\(\{ baseUrl: r\.baseUrl, apiKey: r\.apiKey \}\)/);
+  assert.match(src, /"拉取模型"/);
+});
