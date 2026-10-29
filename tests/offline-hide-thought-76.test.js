@@ -11,3 +11,8 @@ test("OffCard 关着就不画心声那一行", () => {
   assert.match(src, /\(!isUser && m\.thought && !hideThought\) && h\("div", \{ "data-wk": "offthought"/);
   assert.match(src, /hideThought: !!\(settings && settings\.hideThought\)/);
 });
+test("群见面也有开关，传进群的 OffCard", () => {
+  assert.match(src, /onSaveSettings && onSaveSettings\(\{ hideThought: !sShowTh, noAutoShot: sNoShot,/);
+  assert.match(src, /gShow\("scene", "thought", "显示心声",/);
+  assert.match(src, /clockId: group && group\.id \? "g:" \+ group\.id : undefined, hideThought: !!\(settings && settings\.hideThought\),/);
+});
