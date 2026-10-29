@@ -66,7 +66,7 @@ function AskSlipCard({ m, asker, money, onDecide, onVote, onResend, meName, allo
   const small = { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog };
   const btn = (label, on, onClick, key) => h("button", { key, onClick, className: "flex-1 active:opacity-70",
     style: { minHeight: 38, whiteSpace: "nowrap", padding: "0 4px", borderRadius: 10, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: on ? t.bg2 : t.ink, background: on ? t.ink : "transparent", border: "1px solid " + (on ? t.ink : t.line) } }, label);
-  return h("div", { "data-wk": "askslip", "data-status": st, style: { position: "relative", width: 250, maxWidth: "100%", background: t.bg2, border: "1px solid " + t.line, borderRadius: 6, padding: "12px 14px 12px", boxShadow: "0 1px 0 " + t.line } },
+  return h("div", { "data-wk": "askslip", "data-status": st, style: { position: "relative", minHeight: st !== "pending" ? 112 : 0, width: 250, maxWidth: "100%", background: t.bg2, border: "1px solid " + t.line, borderRadius: 6, padding: "12px 14px 12px", boxShadow: "0 1px 0 " + t.line } },
     h("div", { className: "flex items-baseline justify-between", style: { borderBottom: "1px dashed " + t.line, paddingBottom: 6 } },
       h("span", { style: { fontFamily: F_DISPLAY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.ink, letterSpacing: "0.3em" } }, "请示"),
       h("span", { style: small }, (a.round > 1 ? "第 " + a.round + " 次递 · " : "") + (asker || ""))),

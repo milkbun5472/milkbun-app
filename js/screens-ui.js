@@ -11345,7 +11345,7 @@ const slipSkin = t => ({
   boxShadow: "0 3px 10px rgba(0,0,0,.10)"
 });
 // ---- 我的钱包（聊天软件「我」下面）----
-function MyWallet({ balance, log, cards, characters, groups, onBack, onSetBalance, onAddEntry, onOpenCard, view, onView, myCards, onOpenMyKin, myCur, onSetMyCur, onTrace, recur, onSaveRecur, onDelLog, pockets, pocket, onPocket }) {
+function MyWallet({ asks, balance, log, cards, characters, groups, onBack, onSetBalance, onAddEntry, onOpenCard, view, onView, myCards, onOpenMyKin, myCur, onSetMyCur, onTrace, recur, onSaveRecur, onDelLog, pockets, pocket, onPocket }) {
   const t = useTheme();
   // ⚠️这个 view 原来是组件自己的 useState：从【亲属卡汇总】点进某张卡的账单页时
   // MyWallet 整个卸载，退回来就重挂成 main（＝钱包首页），她 2026-09-02 报的就是这个
@@ -11386,6 +11386,32 @@ function MyWallet({ balance, log, cards, characters, groups, onBack, onSetBalanc
   };
   if (curOpen && onSetMyCur) return h(CurrencyBook, { char: { name: "我", remark: "我的钱包" }, cur: myCur || {}, mine: true,
     onSave: c => { onSetMyCur(c); setCurOpen(false); }, onBack: () => setCurOpen(false) });
+  // 请示档案：一张张批条按时间排，最上面一行统计（像那种拿来吐槽的年度报告）
+  if (view === "asks" && asks) {
+    const stOf = x => x.m.kind === "poll" ? (x.m.askResult && x.m.askResult.status) || "pending" : x.m.status || "pending";
+    const mineA = asks.filter(x => x.mine), theirs = asks.filter(x => !x.mine);
+    const yes = arr => arr.filter(x => stOf(x) === "approved" || stOf(x) === "paid").length;
+    const byWho = {};
+    mineA.filter(x => !x.where).forEach(x => { const b = byWho[x.who] = byWho[x.who] || { n: 0, y: 0, paid: 0 }; b.n++; if (stOf(x) === "approved") b.y++; if (stOf(x) === "paid") { b.y++; b.paid++; } });
+    const most = Math.max(0, ...asks.map(x => (x.m.ask || x.m).round || 1));
+    const lines = [
+      mineA.length ? "你一共递了 " + mineA.length + " 张请示，批下来 " + yes(mineA) + " 张" : "",
+      ...Object.keys(byWho).map(w => "向 " + w + " 请示 " + byWho[w].n + " 次，准了 " + byWho[w].y + " 次" + (byWho[w].paid ? "（其中 " + byWho[w].paid + " 次是 TA 掏的钱）" : "")),
+      theirs.length ? "别人向你（和群里）递了 " + theirs.length + " 张，批下来 " + yes(theirs) + " 张" : "",
+      most > 1 ? "最磨人的一张递了 " + most + " 次" : ""
+    ].filter(Boolean);
+    return h("div", { "data-wk": "walletpage", "data-view": "asks", className: "h-full flex flex-col", style: LEATHER(t) },
+      h(Head, { zh: "请示档案", sub: asks.length ? asks.length + " 张批条" : "", bg: "transparent", onBack: () => setView("main") }),
+      h("div", { className: "flex-1 min-h-0 overflow-y-auto px-4 pb-10 pt-2" },
+        asks.length === 0 ? h("div", { "data-wk": "walletempty", className: "text-center mt-16", style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", lineHeight: 1.8, color: t.fog } }, "还没有递过请示。聊天里点左下角加号 →「请示」，写上想干嘛、为什么，递给他批。")
+          : h(React.Fragment, null,
+            h("div", { "data-wk": "block", style: { background: t.bg2, border: "1px solid " + t.line, borderRadius: 12, padding: "12px 14px", marginBottom: 14, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", lineHeight: 1.9, color: t.ink } },
+              lines.map((l, k) => h("div", { key: k }, l))),
+            asks.map((x, k) => h("div", { key: k, style: { marginBottom: 12, display: "flex", flexDirection: "column", alignItems: x.mine ? "flex-end" : "flex-start" } },
+              h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, marginBottom: 4 } },
+                (x.where ? x.where + " · " : (x.mine ? "递给 " + x.who + " · " : "")) + (x.m.ts ? new Date(x.m.ts).toLocaleDateString() : "")),
+              h(AskSlipCard, { m: x.m, asker: x.mine ? "我" : x.who }))))));
+  }
   if (view === "cards") {
     return h("div", { "data-wk": "walletpage", "data-view": "cards", className: "h-full flex flex-col", style: LEATHER(t) },
       h(Head, { zh: "亲属卡", sub: cardList.length ? cardList.length + " 张 · 刷他们的钱" : "角色给你的卡", bg: "transparent", onBack: () => setView("main") }),
@@ -11476,6 +11502,9 @@ function MyWallet({ balance, log, cards, characters, groups, onBack, onSetBalanc
     h(Head, { zh: "我的钱包", bg: "transparent", onBack,
       right: h("button", { "data-wk": "walletcardsbtn", onClick: () => setView("cards"), className: "active:opacity-60 flex items-center gap-1", style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.tint } }, "亲属卡", cardList.length ? h("span", { style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", color: t.bg, background: t.tint, borderRadius: 999, padding: "0 6px" } }, String(cardList.length)) : null) }),
     h("div", { className: "flex-1 min-h-0 overflow-y-auto", style: { overflowX: "hidden" } },
+      asks && asks.length ? h("button", { "data-wk": "walletasksbtn", onClick: () => setView("asks"), className: "w-full flex items-center justify-between active:opacity-70",
+        style: { minHeight: 44, padding: "0 14px", marginBottom: 10, borderRadius: 12, background: t.bg2, border: "1px solid " + t.line, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.ink } },
+        h("span", null, "请示档案"), h("span", { style: { color: t.fog, fontSize: "calc(11.5px * var(--app-fs, 1))" } }, asks.length + " 张批条 ›")) : null,
       // 各张面具的钱（她 2026-10-29）：建过副面具才有这一排；挑哪张，余额、流水、改余额、记一笔都是那张的
       (Array.isArray(pockets) && pockets.length > 1 && onPocket) ? h("div", { "data-wk": "walletpocket", className: "flex flex-wrap", style: { gap: 6, marginBottom: 10 } },
         pockets.map(pk => h("button", { key: pk.id || "_main", "data-wk": "walletpocketitem", "data-on": String(pocket || "") === pk.id ? "1" : "0", onClick: () => onPocket(pk.id),

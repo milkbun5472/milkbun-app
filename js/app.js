@@ -7834,6 +7834,25 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       } catch (e) {}
       // —— 花开主动（v62.33）：你们一起养的那盆开了，TA来说一声——一茬只说一次，
       //    闸照纪念日那条路（在聊的/不在旁边/不深夜/一次一个错峰）。
+      // —— 请示批了之后交差（她 2026-10-29）：她递的、批准了的那张，过一两天TA来问一句（东西到了没、玩得开不开心、条件守没守）——
+      //    一张只问一回；闸跟花开那条一样（在聊的/不在旁边/不深夜/一次一个）
+      try {
+        for (const c of characters) {
+          const fa = [...hist(c)].reverse().find(m => m && m.kind === "ask" && m.role === "user" && (m.status === "approved" || m.status === "paid") && !m.followed
+            && Date.now() - (m.ts || 0) > 20 * 3600000 && Date.now() - (m.ts || 0) < 4 * 86400000);
+          if (!fa) continue;
+          if (laneBusy("c:" + c.id) || viewRef.current.charId === c.id) continue;
+          if (currentlyTogetherWithChar(c.id)) continue;
+          const hr3 = Math.floor(charLocalMin(c) / 60);
+          if (hr3 < 9 || hr3 > 22) continue;
+          if (pSkip("askfollow:" + c.id)) continue;
+          pOnce("askfollow:" + c.id, "askfollow:" + c.id + ":" + fa.aid,
+            () => replyNow(c.id, "", null, { proactive: true, askFollow: { what: fa.what, amount: fa.amount, status: fa.status, cond: fa.cond || "" } }),
+            () => pChat(c.id, p => p.map(m => m.kind === "ask" && m.aid === fa.aid ? { ...m, followed: true } : m))
+          );
+          return;
+        }
+      } catch (e) {}
       try {
         for (const c of characters) {
           const cp2 = (couplesRef.current || {})[c.id];
@@ -11735,6 +11754,19 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   };
   const pendingInviteOf = charId => [...(chatsRef.current[charId] || [])].reverse().find(m => m && m.kind === "dateinvite" && m.state === "pending" && Date.now() - (m.ts || 0) < 2 * 86400000);
 
+  // 钱包里那页请示档案：单聊每张（谁递的、跟谁），群里每张（哪个群）；新的在前
+  const askArchive = () => {
+    const out = [];
+    Object.keys(chatsRef.current || {}).forEach(k => {
+      const c = characters.find(x => x.id === k);
+      if (!c) return;   // 小房间、已删的人不进档案
+      (chatsRef.current[k] || []).forEach(m => { if (m && m.kind === "ask") out.push({ m, who: c.remark || c.name, mine: m.role === "user", where: "" }); });
+    });
+    (groups || []).forEach(g => (groupChatsRef.current[g.id] || []).forEach(m => {
+      if (m && m.kind === "poll" && m.ask && !m.recalled) out.push({ m, who: m.by, mine: m.role === "user", where: g.name || "群" });
+    }));
+    return out.sort((a, b) => (b.m.ts || 0) - (a.m.ts || 0));
+  };
   // ---- 请示批条（她 2026-10-29）----
   //   准＝递请示的人自己掏这笔；我出＝批的人替他出；驳＝不动钱。单聊的钱都在 settleAsk 这一处结。
   const pendingAskOf = (charId, role) => [...(chatsRef.current[charId] || [])].reverse().find(m => m && m.kind === "ask" && m.role === (role || "user") && (m.status || "pending") === "pending");
@@ -12048,7 +12080,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     //   小房间里的那一路不算：房间本来就是另一处。
     if (opts.proactive && !opts.room && offlineTogetherNow(charId)) return null;
     if (opts.proactive) {
-      const outlet = opts.phoneAs ? "phone_as" : opts.dongnian ? "dongnian" : opts.bday ? "birthday" : opts.anniv ? "anniversary" : opts.bloom ? "garden_bloom" : opts.remind ? "reminder" : opts.health ? "health_meal" : opts.eyesAlert ? "eyes_alert" : opts.wx ? "weather" : "foreground_proactive";
+      const outlet = opts.phoneAs ? "phone_as" : opts.dongnian ? "dongnian" : opts.bday ? "birthday" : opts.anniv ? "anniversary" : opts.bloom ? "garden_bloom" : opts.askFollow ? "ask_follow" : opts.remind ? "reminder" : opts.health ? "health_meal" : opts.eyesAlert ? "eyes_alert" : opts.wx ? "weather" : "foreground_proactive";
       try { window.InnerLifeETidalShadow && window.InnerLifeETidalShadow.noteWouldHold(outlet, Date.now()); } catch (e) {}
       // C 第4步：全局发声闸 shadow——asleep 时记 would_hold，但绝不拦截（合同 §5.1；eyes_alert 天然豁免）
       try { if (window.SleepShadow) { const chG = characters.find(c => c.id === charId); if (chG) window.SleepShadow.gateCheck(chG, outlet, settingsFor(charId).engineerEyes === true); } } catch (e) {}
@@ -12196,6 +12228,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         + "从你记得的那件具体的事说起，而不是从「今天是我们的纪念日」说起。"
         + "合你性子的话可以顺手准备点什么，把 gift 填成一件【只有你会想到送给 Ta 的东西】；不想送就 null。"
         + "Ta 记不记得都行，情绪到哪儿说到哪儿。" : "";
+      const askFollowHint = opts.askFollow ? "\n\n【此刻·想起她那张请示】前一两天她递过一张请示「" + opts.askFollow.what + "」，你" + (opts.askFollow.status === "paid" ? "替她出了钱" : "批准了")
+        + (opts.askFollow.cond ? "，条件是「" + opts.askFollow.cond + "」" : "") + "。你【主动】来问一句后续——东西到了没、用着怎么样、事办得顺不顺" + (opts.askFollow.cond ? "、条件守没守" : "") + "，照你这个人会关心的那一面问，像随口想起来。" : "";
       const bloomHint = opts.bloom ? "\n\n【此刻·你们一起养的那盆" + opts.bloom.species + "开花了】你【主动】说这件事。"
         + "它是靠你们真实的相处一点点长到开花的——这一茬里你们真的一起过了些日子。"
         + (opts.bloom.why ? "当初挑它的时候你说过「" + opts.bloom.why + "」，现在它真开了。" : "")
@@ -12301,7 +12335,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
             + "也可以完全无关，那是你的事；但**那段是发生过的**，开口是你想说的话，不是报备行程。";
         } catch (e) { return ""; }
       })();
-      const proactiveHint = opts.phoneAs ? phoneAsHint : opts.promise ? promiseHint : opts.eyesAlert ? eyesAlertHint : opts.remind ? remindHint : opts.health ? healthHint : opts.tripEve ? tripEveHint : opts.bdayPrep ? bdayPrepHint : opts.bday ? bdayHint : opts.anniv ? annivHint : opts.bloom ? bloomHint : opts.wx ? wxHint : (opts.proactive || contMode)
+      const proactiveHint = opts.phoneAs ? phoneAsHint : opts.promise ? promiseHint : opts.eyesAlert ? eyesAlertHint : opts.remind ? remindHint : opts.health ? healthHint : opts.tripEve ? tripEveHint : opts.bdayPrep ? bdayPrepHint : opts.bday ? bdayHint : opts.anniv ? annivHint : opts.bloom ? bloomHint : opts.askFollow ? askFollowHint : opts.wx ? wxHint : (opts.proactive || contMode)
         ? (proactiveFreshStart
           // 新开场允许普通，具体事实仍须有来源与明确归属。
           // ⚠️这一段原来写的是「**不要默认续接聊天记录最后一句**」——一刀切。
@@ -16671,7 +16705,13 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         return "【" + memberLabel(members, c) + "】" + groupPersonaText(c.persona, groupPersonaBudget(members.filter(x => !x.npc).length)) + charLangLine(c) + Object.values(now).join("")
           + (privateText ? "\n〔以下只有 " + c.name + " 本人知道，别的成员并不知情〕\n" + privateText : "");
       }).join("\n");
-      const system = groupBans({ echo: false }) + "\n群里发起了投票。\n" + groupPollText(poll) + "\n每个成员按自己的人设、当前心情、关系与上下文决定投向或弃权；choice 为从 0 起的选项序号，-1 为弃权。say 可省略，填写时必须与实际 choice 一致。每位成员最多输出一个决定。只凭自己知道的事投票，不许从其他成员的私密段得知或泄露他人的私事。匿名投票不公开任何人的投向，say 不得透露自己的选择。\n【成员】\n" + memberDesc + sameNameNote(members) + "\n【群内共享记忆】\n" + formatMemLib(split.shared) + "\n【世界书】\n" + loreForContext("chat", members.map(c => c.id), hist) + "\n【近期群聊】\n" + hist + "\n【输出】只输出 JSON 数组：[{\"name\":\"成员名\",\"choice\":选项序号,\"say\":\"可选的评论\"}]";
+      // 请示（她 2026-10-29「群里会吵起来」）：同一枪里投完可以两边呛几句、递的人拉票翻旧账——不另花一次调用
+      const askPast = poll.ask ? (groupChatsRef.current[groupId] || []).filter(m => m && m.kind === "poll" && m.ask && m.pollId !== poll.pollId && m.askResult).slice(-5)
+        .map(m => { const tl = AskSlip.tally(m); return "· " + m.by + "：" + m.ask.what + "——准：" + (tl.yes.join("、") || "没人") + "；驳：" + (tl.no.join("、") || "没人"); }).join("\n") : "";
+      const askExtra = poll.ask ? "\n【这是一张请示】" + poll.by + " 递上来想让大家批，0＝准，1＝驳；过半才准" + (AskSlip.amountOf(poll.ask.amount) ? "，准了这笔钱从" + poll.by + "自己钱包出" : "") + "。"
+        + "投完以后，意见不一样的两边可以互相呛一两句，递请示的人（是成员的话）也可以拉票、翻旧账——这些另起对象写 {\"name\":\"成员名\",\"say\":\"那一句\",\"after\":true}，不带 choice；照这几个人的性子来，没什么好吵的就不写。"
+        + (askPast ? "\n这个群以前的请示和谁投了什么（翻旧账用得上）：\n" + askPast : "") : "";
+      const system = groupBans({ echo: false }) + "\n群里发起了投票。\n" + groupPollText(poll) + askExtra + "\n每个成员按自己的人设、当前心情、关系与上下文决定投向或弃权；choice 为从 0 起的选项序号，-1 为弃权。say 可省略，填写时必须与实际 choice 一致。每位成员最多输出一个决定。只凭自己知道的事投票，不许从其他成员的私密段得知或泄露他人的私事。匿名投票不公开任何人的投向，say 不得透露自己的选择。\n【成员】\n" + memberDesc + sameNameNote(members) + "\n【群内共享记忆】\n" + formatMemLib(split.shared) + "\n【世界书】\n" + loreForContext("chat", members.map(c => c.id), hist) + "\n【近期群聊】\n" + hist + "\n【输出】只输出 JSON 数组：[{\"name\":\"成员名\",\"choice\":选项序号,\"say\":\"可选的评论\"}]";
       const raw = await callAI(active, system, [{
         role: "user",
         content: "开始投票，按上面的规则决定每个人投什么。"
@@ -16682,9 +16722,10 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       const arr = parseJSONLoose(raw);
       if (!Array.isArray(arr)) throw new Error("投票回应未解析：" + String(raw || "").slice(0, 320));
       // 陆陆续续：每个动作间隔一会儿。同一成员只消费一次决定。
-      const voted = new Set();
+      const voted = new Set(), banter = [];
       for (const v of arr) {
         if (!v || typeof v !== "object") continue;
+        if (poll.ask && v.after) { banter.push(v); continue; }
         const spk = pickMember(members, v.name);
         if (!spk || voted.has(spk.id)) continue;
         const choice = groupPollChoice(v.choice, poll);
@@ -16702,6 +16743,12 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         }]);
       }
       if (!voted.size) throw new Error("未收到有效的成员选票：" + String(raw || "").slice(0, 320));
+      for (const b of banter.slice(0, 6)) {
+        const spk = pickMember(members, b.name), say = String(b.say || "").trim();
+        if (!spk || !say) continue;
+        await new Promise(r => setTimeout(r, 800 + Math.random() * 900));
+        pGChat(groupId, p => [...p, { role: "assistant", senderId: spk.id, senderName: spk.name, content: say, ts: Date.now() }]);
+      }
       if (poll.ask) { pGChat(groupId, rows => rows.map(m => m.pollId === poll.pollId ? { ...m, askVoted: true } : m)); setTimeout(() => settleGroupAsk(groupId, poll.pollId), 300); }
     } catch (e) {
       console.warn("[群投票]", e);
@@ -33113,6 +33160,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     onBack: () => { setMomTarget(null); setScreen("messages"); }
   });else if (screen === "wallet") body = h(MyWallet, {
     recur: myRecur, onSaveRecur: upsertMyRecur,
+    // 请示档案（她 2026-10-29「5 可以放钱包里」）：单聊、群里递过的每一张；被翻手机的时候不给
+    asks: peekMaskView() ? null : askArchive(),
     // 各张面具的钱：挑哪张就看哪张的余额和流水（挂着面具被翻的时候不给这一排，照旧）
     pockets: peekMaskView() ? [] : payMaskList(),
     pocket: walletPocket,

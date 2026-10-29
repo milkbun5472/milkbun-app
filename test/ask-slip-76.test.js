@@ -42,3 +42,12 @@ test("准，但是：条件写进那一行，之后能被翻出来", () => {
   assert.match(app, /_askConds = \(chatsRef\.current\[charId\] \|\| \[\]\)\.filter/);
   assert.match(app, /askNew（再递）/);
 });
+
+test("第二批：群里吵、批了交差、钱包档案", () => {
+  assert.match(app, /if \(poll\.ask && v\.after\) \{ banter\.push\(v\); continue; \}/, "呛的那几句不算票");
+  assert.match(app, /askFollow: \{ what: fa\.what/);
+  assert.match(app, /opts\.askFollow \? askFollowHint :/);
+  assert.match(app, /asks: peekMaskView\(\) \? null : askArchive\(\)/, "被翻手机时不给档案");
+  const ui = fs.readFileSync(root + "js/screens-ui.js", "utf8");
+  assert.match(ui, /view === "asks" && asks/);
+});
