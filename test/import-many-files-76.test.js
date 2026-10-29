@@ -9,7 +9,7 @@ test("文字那份一定排在图片包前面：它会把图库清掉", () => {
   const i = app.indexOf("const doImportFiles = async input => {"), j = app.indexOf("\n  };", i);
   assert.ok(i > 0 && j > i, "抠不出 doImportFiles");
   const f = app.slice(i, j);
-  assert.match(f, /rows\.sort\(\(a, b\) => \(a\.media \? 1 : 0\) - \(b\.media \? 1 : 0\) \|\| a\.part - b\.part\);/);
+  assert.match(f, /rows\.sort\(\(a, b\) => rank\(a\) - rank\(b\) \|\| a\.part - b\.part\);/);
   assert.match(f, /await doImportText\(text, \{ noReload: true \}\)/, "每一份都要先别重载");
   assert.match(f, /const head = await readText\(f, true\);/, "排序不许把整份读进来");
   assert.match(f, /const text = await readText\(rows\[i\]\.f\);/, "要一份一份读，不许一次全摊开");
@@ -26,4 +26,14 @@ test("单份那条路照旧，只是绕到同一个口子", () => {
   // 导入那一段里只许有【一处】重载，就是 reloadIn 自己；别处再写一处就绕过了 noReload
   const body = app.slice(app.indexOf("const doImportText = async (raw, opts)"), app.indexOf("const doImport = input =>"));
   assert.equal((body.match(/setTimeout\(\(\) => location\.reload\(\)/g) || []).length, 1, "导入里还留着绕过 noReload 的重载");
+});
+
+// 三档顺序（她 2026-10-29：旧地址四份存档要合到新地址一份里）：
+//   整份备份是【整机覆盖】，只有几个人的包是【往现有存档里加】。
+//   一次全选的时候，谁先谁后本来看系统交回的顺序；后者要是排在前者前面，刚合进来的人会被整个抹掉。
+test("只有几个人的那种包永远排在最后：不然会被整份备份抹掉", () => {
+  const i = app.indexOf("const doImportFiles = async input => {"), j = app.indexOf("\n  };", i);
+  const f = app.slice(i, j);
+  assert.match(f, /chars: \/"kind"\\s\*:\\s\*"chars"\//, "没认出「只有几个人」的包");
+  assert.match(f, /const rank = r => r\.chars \? 2 : r\.media \? 1 : 0;/, "三档顺序不对：整份 → 图片包 → 几个人的包");
 });
