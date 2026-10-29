@@ -24502,8 +24502,20 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     //   【模型一个字都没给】时的兜底，所以它就该长成一个系统默认账号的样子——
     //   一眼看得出「这条没人起名字」，而不是假装自己有灵气。真要少见它，
     //   得靠提示词那头把 guestName 要到手（见 forumNpcRule 和 FORUM_GUEST_FIELDS）。
-    const name = String((x && (x.guestName || x.authorName)) || ("网友" + hh.toString(36).slice(-4)));
+    const given = String((x && (x.guestName || x.authorName)) || "").trim();
+    const name = given || ("网友" + hh.toString(36).slice(-4));
     const handle = String((x && (x.guestHandle || x.handle)) || ("u_" + hh.toString(36))).replace(/^@/, "");
+    // 同一个名字就是同一个人（她 2026-10-29：同一楼里「红烧铁头娃」评了两次，点进去是两个主页、两个账号名）：
+    //   原来 id 跟着「出现在哪一处」变，模型每次还会给他编个新账号名。名字第一次出现时记下 id 和账号名，以后照用
+    if (given) {
+      let book = {}; try { book = JSON.parse(localStorage.getItem("x_forumGuests") || "{}") || {}; } catch (e) {}
+      if (book[given] && book[given].id) return { id: book[given].id, name, handle: book[given].handle || handle };
+      const one = { id: "npc_guest_" + forumHash("guest:" + given).toString(36), handle };
+      book[given] = one;
+      const ks = Object.keys(book); if (ks.length > 600) ks.slice(0, ks.length - 600).forEach(k => delete book[k]);
+      try { localStorage.setItem("x_forumGuests", JSON.stringify(book)); } catch (e) {}
+      return { id: one.id, name, handle };
+    }
     return { id: "npc_guest_" + hh.toString(36), name, handle };
   };
   // 她 2026-09-12：「论坛现在太多评论都是常驻 npc 了好无聊，说话调调也都一样」。

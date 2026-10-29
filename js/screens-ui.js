@@ -3100,11 +3100,14 @@ function Forum({
   function npcProfileView() {
     if (!npcProfile) return null;
     const id = npcProfile.id;
-    const authored = (posts || []).filter(p => forumVisible(p) && !p.anon && p.authorType === "npc" && p.authorId === id).sort((a, b) => Number(b.ts || 0) - Number(a.ts || 0));
+    // 路人按名字认人：同名的路人就是同一个（早先存下的楼里，同一个名字可能落成了好几个 id）
+    const guest = /^npc_guest_/.test(String(id)), gName = String(npcProfile.name || "");
+    const isHim = (aid, aname) => aid === id || (guest && gName && /^npc_guest_/.test(String(aid || "")) && String(aname || "") === gName);
+    const authored = (posts || []).filter(p => forumVisible(p) && !p.anon && p.authorType === "npc" && isHim(p.authorId, p.authorName)).sort((a, b) => Number(b.ts || 0) - Number(a.ts || 0));
     const traces = [];
     (posts || []).forEach(p => (cmts[p.id] || []).filter(forumVisible).forEach(f => {
-      if (!f.anon && f.authorType === "npc" && f.authorId === id) traces.push({ id: "f:" + p.id + ":" + f.id, post: p, text: f.content || "", ts: floorArrivedAt(f), kind: "回复" });
-      (f.replies || []).forEach((r, j) => { if (!r.anon && r.authorType === "npc" && r.authorId === id) traces.push({ id: "r:" + p.id + ":" + f.id + ":" + j, post: p, text: r.content || "", ts: Number(r.ts || f.ts || 0), kind: "楼中楼" }); });
+      if (!f.anon && f.authorType === "npc" && isHim(f.authorId, f.authorName)) traces.push({ id: "f:" + p.id + ":" + f.id, post: p, text: f.content || "", ts: floorArrivedAt(f), kind: "回复" });
+      (f.replies || []).forEach((r, j) => { if (!r.anon && r.authorType === "npc" && isHim(r.authorId, r.authorName)) traces.push({ id: "r:" + p.id + ":" + f.id + ":" + j, post: p, text: r.content || "", ts: Number(r.ts || f.ts || 0), kind: "楼中楼" }); });
     }));
     traces.sort((a, b) => b.ts - a.ts);
     let encounters = 0;
