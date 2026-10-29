@@ -20,11 +20,22 @@ test("订单记面具：自己挑的照挑的，TA 送的跟 TA 认的那张，�
 test("查手机：别的面具买的单他看不到（文字和录像两头）", () => {
   assert.match(app, /!\(maskIds && maskIds\.length && orderMaskOf\(o\) !== maskKeyOf\(viewerId\)\)/);
   assert.match(app, /window\.__peekMask = Object\.assign\(peekMaskInfo\(maskIds\), \{ mine: maskKeyOf\(charId\) \}\)/);
-  assert.equal((app.match(/orderMaskOf\(o\) !== peekMaskView\(\)\.mine/g) || []).length, 2);
+  assert.equal((app.match(/orderMaskOf\(o\) !== peekMaskView\(\)\.mine/g) || []).length, 3, "购物两屏＋外卖吃过的那屏");
 });
 
 test("结算时有「用哪张面具买」，只在有副面具时出现，点得到", () => {
   assert.match(ui, /payMasks\.length > 1\) \? h\("div", \{ "data-wk": "shoppaymask"/);
   assert.match(ui, /onCheckout\(sel, "buy", null, \{ mask: payMask \}\)/);
   assert.match(ui, /"data-wk": "shoppaymaskitem"[^\n]*\n[^\n]*minHeight: 40/);
+});
+
+// 第二步：外卖（跟购物同一个规矩、同一份面具名单）
+test("外卖：点单时选面具，吃完进「吃过的」带着面具，查手机按面具挡", () => {
+  const ui = fs.readFileSync(path.join(__dirname, "..", "js", "screens-ui.js"), "utf8");
+  assert.match(ui, /onOrder\(\{ shop: shop\.name, items: bagItems, remark, note: mode === "forchar" \? say : "" \}, mode, target, \{ mask: payMask \}\)/);
+  assert.match(ui, /"data-wk": "tkopaymaskitem"[^\n]*\n[^\n]*minHeight: 40/);
+  assert.match(app, /addOrder\(\{ \.\.\.item, mask: payMask \}\)/);
+  assert.match(app, /fromCharId: o\.fromCharId \|\| null, mask: orderMaskOf\(o\), ts: Date\.now\(\)/);
+  assert.match(app, /const tk = \(takeoutLog \|\| \[\]\)\.filter\(o => !\(maskIds && maskIds\.length && orderMaskOf\(o\) !== maskKeyOf\(viewerId\)\)/);
+  assert.equal((app.match(/payMasks: payMaskList\(\),/g) || []).length, 2, "购物外卖共用一份名单");
 });

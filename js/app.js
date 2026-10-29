@@ -829,15 +829,16 @@ function App() {
   };
   // 下单。mode 跟购物同一套词：buy 自己付 / kinship 亲属卡 / paylater 找TA代付；
   // 多一个 forchar：她给TA点一份——聊天里出一张她那边的外卖小票，不进TA的随身物（吃完就没了）。
-  const orderTakeout = (bag, mode, target) => {
+  const orderTakeout = (bag, mode, target, opts) => {
     const item = takeoutItemOf(bag || {});
+    const payMask = opts && opts.mask != null ? String(opts.mask || "") : "";
     if (!item.takeout.items.length) { toast("还没点东西"); return false; }
     const total = item.price;
     const byMode = {
       buy: () => {
         if (wallet < total) { toast("余额不足"); return false; }
         changeWallet(-total, "外卖 " + item.name.slice(0, 18), "shop", { where: "外卖" });
-        addOrder(item);
+        addOrder({ ...item, mask: payMask });
         toast("下单成功，骑手接单了");
       },
       kinship: () => {
@@ -874,7 +875,7 @@ function App() {
     const o = ordersRef.current.find(x => x.id === id);
     if (!o) return;
     saveOrders(p => p.filter(x => x.id !== id));
-    setTakeoutLog(p => { const n = [{ id: o.id, name: o.name, takeout: o.takeout || null, price: o.price, payLabel: o.payLabel || "", fromCharId: o.fromCharId || null, ts: Date.now() }, ...p].slice(0, 300); saveJSON("x_takeoutLog", n); return n; });
+    setTakeoutLog(p => { const n = [{ id: o.id, name: o.name, takeout: o.takeout || null, price: o.price, payLabel: o.payLabel || "", fromCharId: o.fromCharId || null, mask: orderMaskOf(o), ts: Date.now() }, ...p].slice(0, 300); saveJSON("x_takeoutLog", n); return n; });
   };
 
   // ⚠️v72.19 起这个数【不再是空间上限】（她 2026-09-20：「全都带进 indexdb 取消上限」）：
@@ -11151,6 +11152,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   };
   // ── 递手机：拼出TA这一趟能翻到的东西（都是她手机上真有的，一条不编）──────────
   // 一单算哪张面具：新单记在 mask 上；老单没记——TA 送的跟 TA 认的那张，其余算主面具
+  // 「用哪张面具付」那一排的名单：购物、外卖共用这一份。只有建过副面具才有；主面具在前
+  const payMaskList = () => (masks || []).length ? [{ id: "", label: ((profile && (profile.label || profile.name)) || "主面具") + " · 主" }].concat((masks || []).filter(m => m && m.id && m.id !== maskPrimary).map(m => ({ id: m.id, label: m.label || m.name || "未命名" }))) : [];
   const orderMaskOf = o => o && o.mask != null ? String(o.mask || "") : (o && o.fromCharId ? maskKeyOf(o.fromCharId) : "");
   const peekPhoneMaterial = (viewerId, allow, hideIds, maskIds) => {
     const on = k => (allow || []).includes(k);
@@ -11261,7 +11264,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     }
     if (on("shop")) {
       const od = (orders || []).filter(o => !(maskIds && maskIds.length && orderMaskOf(o) !== maskKeyOf(viewerId)) && !(o.fromCharId && maskSet.has(String(o.fromCharId))) && !maskTrace(o.payLabel) && !maskTrace(o.name)).slice(0, 8).map(o => "· " + md(o.ts) + "买了" + cut(o.name, 24) + (o.price ? "（" + o.price + "）" : "") + (o.fromCharId ? "——是「" + nameOf(o.fromCharId) + "」送的" : ""));
-      const tk = (takeoutLog || []).filter(o => !(o.fromCharId && maskSet.has(String(o.fromCharId))) && !maskTrace(o.payLabel) && !maskTrace(o.name)).slice(0, 6).map(o => "· " + md(o.ts) + "外卖" + cut(o.name, 24) + (o.fromCharId ? "——「" + nameOf(o.fromCharId) + "」给点的" : ""));
+      const tk = (takeoutLog || []).filter(o => !(maskIds && maskIds.length && orderMaskOf(o) !== maskKeyOf(viewerId)) && !(o.fromCharId && maskSet.has(String(o.fromCharId))) && !maskTrace(o.payLabel) && !maskTrace(o.name)).slice(0, 6).map(o => "· " + md(o.ts) + "外卖" + cut(o.name, 24) + (o.fromCharId ? "——「" + nameOf(o.fromCharId) + "」给点的" : ""));
       // 分两块写：混在一起时TA会在购物里念外卖的单（她 2026-10-01：「有些是外卖他也说是购物里的」）
       if (od.length) out.push("【购物 app 里的订单】\n" + od.join("\n"));
       if (tk.length) out.push("【外卖 app 里的订单】\n" + tk.join("\n"));
@@ -33515,7 +33518,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     onRemoveCart: uid => removeCartUids([uid]),
     onCheckout: checkout,
     // 用哪张面具付：只有建过副面具才给这一排（主面具在前，叫法跟面具页一样）
-    payMasks: (masks || []).length ? [{ id: "", label: ((profile && (profile.label || profile.name)) || "主面具") + " · 主" }].concat((masks || []).filter(m => m && m.id && m.id !== maskPrimary).map(m => ({ id: m.id, label: m.label || m.name || "未命名" }))) : [],
+    payMasks: payMaskList(),
     onAskChar: askCharAboutItem,
     wish: wish,
     onToggleWish: toggleWish,
@@ -33534,7 +33537,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     initialNav: takeoutNav,
     wallet: wallet,
     orders: peekMaskView() ? orders.filter(o => !(peekMaskView().mine != null && orderMaskOf(o) !== peekMaskView().mine) && !peekMaskHit(peekMaskView(), String(o.payLabel || "") + " " + String(o.name || ""), o.fromCharId)) : orders,
-    log: peekMaskView() ? takeoutLog.filter(o => !peekMaskHit(peekMaskView(), String(o.payLabel || "") + " " + String(o.name || ""), o.fromCharId)) : takeoutLog,
+    log: peekMaskView() ? takeoutLog.filter(o => !(peekMaskView().mine != null && orderMaskOf(o) !== peekMaskView().mine) && !peekMaskHit(peekMaskView(), String(o.payLabel || "") + " " + String(o.name || ""), o.fromCharId)) : takeoutLog,
     characters: liveChars,
     groups: groups.filter(imInGroup),
     kinshipCards: kinshipCards,
@@ -33542,6 +33545,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     busy: takeoutBusy,
     onGen: genTakeout,
     onOrder: orderTakeout,
+    payMasks: payMaskList(),
     onEat: eatTakeout,
     toast: toast,
     onBack: () => { if (asPhone) leaveAsPhone(); else if (takeoutBack) { const b = takeoutBack; setTakeoutBack(null); setTakeoutNav("near"); setScreen(b); } else goHome(); }

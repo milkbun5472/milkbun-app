@@ -128,7 +128,7 @@ test("饭点：打开时按现在几点停在对应那一格，凌晨算夜宵",
 
 function makeOrder(wallet) {
   const src = grab(app, "  const takeoutItemOf = bag => {", "  const genTakeout = async", "折单")
-    + grab(app, "  const orderTakeout = (bag, mode, target) => {", "  // 吃完了：", "下单");
+    + grab(app, "  const orderTakeout = (bag, mode, target, opts) => {", "  // 吃完了：", "下单");
   const st = { wallet: [], orders: [], kin: [], pay: [], chat: [], toasts: [] };
   const api = new Function("wallet", "toast", "changeWallet", "addOrder", "payWithKinship", "requestPayLater", "characters", "pChat", "deliverMsForCat", "Date",
     src + "\nreturn { orderTakeout };")(

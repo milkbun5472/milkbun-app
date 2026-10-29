@@ -4150,7 +4150,9 @@ function TakeoutSlotRuler({ slot, onPick, now }) {
           at != null ? h("span", { "data-wk": "tkoslotnow", "aria-label": "现在", style: { position: "absolute", left: at + "%", top: 0, width: 8, height: 8, marginLeft: -4, borderRadius: 999, background: MTAKE.deep, boxShadow: "0 0 0 2px " + MTAKE.card } }) : null));
     }));
 }
-function Takeout({ payAs, wallet, orders, log, characters, groups, kinshipCards, feed, busy, onBack, onGen, onOrder, onEat, toast, initialNav }) {
+function Takeout({ payAs, wallet, orders, log, characters, groups, kinshipCards, feed, busy, onBack, onGen, onOrder, onEat, toast, initialNav, payMasks }) {
+  // 用哪张面具点（她 2026-10-29「来我们慢慢开始分吧」，跟购物结算那一排同一个规矩）：""＝主面具
+  const [payMask, setPayMask] = useState("");
   const t = useTheme();
   const [nav, setNav] = useState(initialNav === "orders" ? "orders" : "near"); // near | orders（从聊天里的外卖卡点进来直接落在订单）
   const [slot, setSlot] = useState(() => takeoutSlotAt(new Date().getHours()));
@@ -4186,7 +4188,7 @@ function Takeout({ payAs, wallet, orders, log, characters, groups, kinshipCards,
   const openShop = s => { if (listRef.current) listTop.current = listRef.current.scrollTop; setQty({}); setRemark(""); setSay(""); setShop(s); };
   const leaveShop = () => { setShop(null); setQty({}); setPay(false); setPayMode(null); };
   const submit = (mode, target) => {
-    const ok = onOrder({ shop: shop.name, items: bagItems, remark, note: mode === "forchar" ? say : "" }, mode, target);
+    const ok = onOrder({ shop: shop.name, items: bagItems, remark, note: mode === "forchar" ? say : "" }, mode, target, { mask: payMask });
     if (ok !== false) { leaveShop(); if (mode !== "forchar") setNav("orders"); }
   };
   const doGen = () => { if (!busy) onGen(slot, search); };
@@ -4245,6 +4247,11 @@ function Takeout({ payAs, wallet, orders, log, characters, groups, kinshipCards,
             h("input", { "data-wk": "tkoremark", value: remark, onChange: e => setRemark(e.target.value), maxLength: 80, placeholder: "给店家的备注（口味、放门口……）", style: Object.assign({}, inputStyle, { marginTop: 12 }) })),
           h("div", { "data-wk": "tkoreceiptedge", style: { height: 7, background: "linear-gradient(-45deg, transparent 5px, #fff 0) 0 0 / 10px 7px repeat-x, linear-gradient(45deg, transparent 5px, #fff 0) 0 0 / 10px 7px repeat-x" } })),
         sectionLabel("怎么付"),
+        (!payAs && Array.isArray(payMasks) && payMasks.length > 1) ? h("div", { "data-wk": "tkopaymask", style: { marginBottom: 10 } },
+          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: MTAKE.dim, marginBottom: 6 } }, "用哪张面具点（只有认这张的人翻你手机看得到这一单）"),
+          h("div", { className: "flex flex-wrap", style: { gap: 6 } }, payMasks.map(m => h("button", { key: m.id || "_main", "data-wk": "tkopaymaskitem", "data-on": payMask === m.id ? "1" : "0", onClick: () => setPayMask(m.id),
+            className: "active:opacity-70", style: { minHeight: 40, padding: "0 12px", borderRadius: 999, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))",
+              background: payMask === m.id ? MTAKE.yellow : "transparent", color: payMask === m.id ? MTAKE.ink : MTAKE.dim, border: "1px solid " + (payMask === m.id ? MTAKE.yellow : "rgba(0,0,0,.12)") } }, m.label)))) : null,
         modes.map(([k, zh, sub]) => {
           const on = payMode === k;
           return h("div", { "data-wk": "tkopaymode", "data-part": k, "data-on": on ? "1" : "0", key: k, style: Object.assign({}, cardStyle, { marginBottom: 9, outline: on ? "1.5px solid " + MTAKE.yellow : "none" }) },
