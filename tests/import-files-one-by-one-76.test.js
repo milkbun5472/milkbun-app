@@ -8,6 +8,8 @@ test("不再 Promise.all 一次读完", () => {
   assert.match(body, /const text = await readText\(rows\[i\]\.f\)/);
 });
 test("文字那份排在图片包前面，图片包按第几包排", () => {
-  assert.match(body, /\(a\.media \? 1 : 0\) - \(b\.media \? 1 : 0\) \|\| a\.part - b\.part/);
+  // 2026-10-29 起是三档：整份备份 → 图片包 → 只有几个人的包（最后合，不然会被整份覆盖掉）
+  assert.match(body, /const rank = r => r\.chars \? 2 : r\.media \? 1 : 0;/);
+  assert.match(body, /rank\(a\) - rank\(b\) \|\| a\.part - b\.part/);
 });
 test("没导成的点名", () => { assert.match(body, /这几份没导成：/); });
