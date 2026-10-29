@@ -11693,7 +11693,8 @@ function ChatThread({
         style: { outline: selMode && selIds.includes(i) ? `2px solid ${t.tint}` : "none", outlineOffset: 2, borderRadius: 8 } },
         !mineA && charAvEl(),
         h(AskSlipCard, { m: m, asker: mineA ? (meAv && meAv.name) || "我" : cName, money: n => mTight(n, character && character.id), allowPay: true,
-          onDecide: !mineA && onDecideAsk && !selMode ? st => onDecideAsk(m.aid, st) : undefined }),
+          onDecide: !mineA && onDecideAsk && !selMode ? (st, cond) => onDecideAsk(m.aid, st, cond) : undefined,
+          onResend: mineA && onSendAsk && !selMode ? () => setAskOpen(m) : undefined }),
         mineA && meAvEl()); }
     if (m.kind === "transfer") return h("div", {
       key: i,
@@ -12322,7 +12323,7 @@ function ChatThread({
         setStickerOpen(false);
       }
     })
-  ), askOpen && h(AskComposeDialog, { who: character.remark || character.name, onCancel: () => setAskOpen(false), onSend: a => { setAskOpen(false); onSendAsk(a); } }), inviteOpen && h(DateComposeDialog, { places: invitePlaces || [], who: character.remark || character.name,
+  ), askOpen && h(AskComposeDialog, { who: character.remark || character.name, prev: askOpen === true ? null : askOpen, onCancel: () => setAskOpen(false), onSend: a => { setAskOpen(false); onSendAsk(a); } }), inviteOpen && h(DateComposeDialog, { places: invitePlaces || [], who: character.remark || character.name,
     onCancel: () => setInviteOpen(false),
     onSend: v => { setInviteOpen(false); onDateInvite(v.place, v); } }), peekOpen && h(PageSheet, { onClose: () => setPeekOpen(false) },
     h(Eyebrow, { style: { marginBottom: 6 } }, "把手机递给" + (character.remark || character.name)),
@@ -19431,6 +19432,7 @@ function GroupThread({
   const [gRecallView, setGRecallView] = useState(null);
   const [fwdView, setFwdView] = useState(null);   // 点开的转发聊天记录卡
   const [sheet, setSheet] = useState(null); // "settings"|"poll"|"rp"
+  const [askPrev, setAskPrev] = useState(null);   // 被驳了再递：上一张请示
   const [rpView, setRpView] = useState(null); // index of redpacket detail
   const [geoOpen, setGeoOpen] = useState(false);
   const [photoOpen, setPhotoOpen] = useState(false);
@@ -19809,7 +19811,8 @@ function GroupThread({
     if (m.kind === "poll" && m.ask) return h("div", { key: i, "data-wk": "cardrow", "data-me": m.role === "user" ? "1" : "0", "data-kind": "ask", className: "py-1 flex items-start gap-2 " + (m.role === "user" ? "justify-end" : "justify-start") },
       m.role !== "user" && mAvatar(memberById(m.senderId) || { name: m.senderName, color: t.tint }),
       h(AskSlipCard, { m: m, asker: m.by, meName: meName, money: n => mTight(n, m.senderId),
-        onVote: m.role !== "user" ? opt => onVote(i, opt) : undefined }),
+        onVote: m.role !== "user" ? opt => onVote(i, opt) : undefined,
+        onResend: m.role === "user" && onStartAsk ? () => { setAskPrev({ ...m.ask, aid: m.pollId, note: "" }); setSheet("ask"); } : undefined }),
       m.role === "user" && gMeAvEl(40, 10));
     if (m.kind === "poll") return h(PollCard, {
       key: i,
@@ -20194,7 +20197,7 @@ function GroupThread({
     onDelete: onDeleteGroup,
     onClearChat: onClearGroupChat,
     onClose: () => setSheet(null)
-  }), sheet === "ask" && h(AskComposeDialog, { who: "", onCancel: () => setSheet(null), onSend: a => { setSheet(null); onStartAsk(a); } }), sheet === "poll" && h(PollComposeSheet, {
+  }), sheet === "ask" && h(AskComposeDialog, { who: "", prev: askPrev, onCancel: () => { setSheet(null); setAskPrev(null); }, onSend: a => { setSheet(null); setAskPrev(null); onStartAsk(a); } }), sheet === "poll" && h(PollComposeSheet, {
     onSubmit: (title, opts, anon) => {
       onStartPoll(title, opts, anon);
       setSheet(null);
