@@ -20,7 +20,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v76.863";
+const APP_VERSION = "v76.864";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -32179,19 +32179,19 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       }
       // ⚠️文字那一份一定排在图片包前面：它是整机覆盖，会先把图库清掉
       rows.sort((a, b) => (a.media ? 1 : 0) - (b.media ? 1 : 0) || a.part - b.part);
-      let ok = 0, bad = 0;
+      let ok = 0, bad = 0; const badNames = [];
       for (let i = 0; i < rows.length; i++) {
         if (rows.length > 1) toast("第 " + (i + 1) + "/" + rows.length + " 份…");
         // 一份一份读、读完就放手：几十 MB 的包同时摊开会把手机撑爆
         const text = await readText(rows[i].f);
-        if (!text) { bad++; continue; }
+        if (!text) { bad++; badNames.push(rows[i].name); continue; }
         let r = false;
         try { r = await doImportText(text, { noReload: true }); } catch (e) {}
-        r ? ok++ : bad++;
+        if (r) ok++; else { bad++; badNames.push(rows[i].name); }
       }
-      toast(ok ? "导好了 " + ok + " 份" + (bad ? "，有 " + bad + " 份没导成" : "") + "，正在重载…"
-        : "一份都没导成——换一份，或者用下面的「贴一份备份」", bad && ok ? 4000 : undefined);
-      if (ok) setTimeout(() => location.reload(), bad ? 2200 : 900);
+      toast(ok ? "导好了 " + ok + " 份" + (bad ? "，这几份没导成：" + badNames.slice(0, 3).join("、") + (bad > 3 ? " 等 " + bad + " 份" : "") + "，重载后单独再导一次" : "") + "，正在重载…"
+        : "一份都没导成——换一份，或者用下面的「贴一份备份」", bad && ok ? 6000 : undefined);
+      if (ok) setTimeout(() => location.reload(), bad ? 4500 : 900);
     } catch (e) {
       toast("导入出错了：" + ((e && e.message) || e) + "——数据还在，没有丢", 5000);
     }
