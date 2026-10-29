@@ -133,7 +133,8 @@ test("贴吧味儿那几个词是【register】不是内容示范（照抄也对
 test("代码那头只剩一句兜底，没有名字生成器（固定 npc 时代前就是这样）", () => {
   assert.ok(!/const GN = \[|const GP = \[/.test(A), "又在代码里摆名词表了");
   assert.ok(A.indexOf("pool[forumHash(") < 0, "又抽签指派熟面孔了");
-  assert.match(A, /const name = String\(\(x && \(x\.guestName \|\| x\.authorName\)\) \|\| \("网友" \+ hh\.toString\(36\)\.slice\(-4\)\)\);/,
+  // 2026-10-29 拆成了 given + name（同一个名字就是同一个人要用到 given）；兜底那一半一个字没变
+  assert.match(A, /const name = given \|\| \("网友" \+ hh\.toString\(36\)\.slice\(-4\)\);/,
     "兜底得一眼看得出是系统默认，不跟模型起的名字混在一起");
 });
 
