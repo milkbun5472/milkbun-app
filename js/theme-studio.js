@@ -492,6 +492,7 @@
         ["htmlcard", "消息里那种小卡片（角色发的排版卡，iframe 本体）"],
         ["headname", "顶栏名字那一块（备注＋底下小字；开了双人头像被挡住就挪它，例如 margin-left:8px）"],
         ["now", "顶栏底下那条此刻日程"], ["nowdot", "日程条前面那个小点"],
+        ["bdaypin", "生日当天顶在最上面那条「信封可以拆了」"],
         ["row", "一整行消息（含头像）"], ["avatar", "头像"],
         ["bubble", "气泡本体（data-me=\"1\" 是她的；data-kind＝text/voice/photo…；长按菜单里那一颗带 data-preview=\"1\"）"],
         ["msg", "一条消息：data-me；data-first/data-last＝连发那一串的头/尾（\"1\"是）；data-kind；data-recent=\"1\" 刚进来（做入场动画）"],
@@ -1170,7 +1171,7 @@
   //   挂点表是从 WK_COMMON/WK_SCOPED 现拼的，代码里新挂的 data-wk 没进名单，测试 ai-brief-hooks 会红；
   //   可规矩、尺寸、现成写法是手写的——所以跟攻略一样立个戳：v 必须等于 APP_VERSION，
   //   这一版改了哪条写进 changed；这一版的改动碰不到样式，就在 none 写一句为什么。
-                                                                                                                                                                                                                                                                    const BRIEF_STAMP = {v: "v76.878",changed: "",none: "这一版没动美化挂点。"};
+                                                                                                                                                                                                                                                                    const BRIEF_STAMP = {v: "v76.880",changed: "",none: "这一版没动美化挂点。"};
   function aiBrief(page, css) {
     const grp = WK_SCOPED.filter(function (x) { return (x.pages || []).indexOf(page) >= 0; })[0];
     const line = function (r) { return '[data-wk="' + r[0] + '"]  ' + r[1]; };

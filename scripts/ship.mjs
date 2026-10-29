@@ -104,8 +104,12 @@ for (let round = 1; round <= 4; round++) {
   //   一行都认不出来，于是「没有红灯」，带着红灯照推（2026-10-16 v75.828 就是这么带着两条红推上去的）。
   //   还有一种「什么都没跑」：这个脚本自己在一个测试里被调起来时（ship-worktree.test.mjs），继承来的 NODE_TEST_CONTEXT
   //   会让里面这次 node --test 以为自己嵌在别的测试里，直接跳过、一条都不跑。拿掉它，让这一次真的跑。
+  // ⚠️两个目录都要喂：测试分家住在 test/ 和 tests/ 两处，而这里原来只写了 test/*，
+  //   于是 tests/ 那十来份从来没进过发版的闸——2026-10-29 翻出来时三条红灯已经红了半个月，
+  //   没人看见，也拦不住任何东西。
+  const FULL_SUITE = "test/*.test.js test/*.test.mjs tests/*.test.js tests/*.test.mjs";
   const testEnv = Object.assign({}, process.env); delete testEnv.NODE_TEST_CONTEXT;
-  try { out = sh("node --test --test-reporter=tap " + (only || "test/*.test.js test/*.test.mjs") + " 2>&1", { shell: "/bin/bash", env: testEnv }); } catch (e) { out = String(e.stdout || "") + String(e.stderr || ""); }
+  try { out = sh("node --test --test-reporter=tap " + (only || FULL_SUITE) + " 2>&1", { shell: "/bin/bash", env: testEnv }); } catch (e) { out = String(e.stdout || "") + String(e.stderr || ""); }
   const fails = (out.match(/^not ok \d+ - .*$/gm) || []).filter(l => !allow.some(a => l.includes(a)));
   const pass = (out.match(/^# pass (\d+)/m) || [])[1], fail = (out.match(/^# fail (\d+)/m) || [])[1];
   console.log("测试：" + pass + " 过，" + fail + " 不过" + (allow.length ? "（--allow 放过：" + allow.join("、") + "）" : ""));
