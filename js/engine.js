@@ -2776,8 +2776,15 @@ function splitLongBubble(s, allowComma) {
   //   这段里有逗号句号，就说明它是打标点的人，那个空格不当停顿用——只按逗号切，空格原样留着
   const PUNC = /[，,。！？!?、；;]/;
   const SEP_COMMA = /([，,])/;
+  // 日文（她 2026-10-29 群友截图：日男自己发来的一整段没「。」只靠空格断，挤成一个大泡）：
+  //   日文的「、」就是它的逗号，假名旁边的空格也是停顿。只认带假名的那段——中文里「苹果、香蕉」那种顿号是列举，不下刀。
+  //   韩文不算：韩文每个词之间本来就空一格，那不是停顿。
+  const JP = /[\u3040-\u30ff]/;
+  const SEP_JP = /([，,、]|(?<=[\u4e00-\u9fff\u3040-\u30ff…~～])\s+(?=[\u4e00-\u9fff\u3040-\u30ff]))/;
+  const SEP_COMMA_JP = /([，,、])/;
   const out3 = out.reduce((acc, part) => {
-    const sep = PUNC.test(part.slice(0, -1)) ? SEP_COMMA : SEP;
+    const jp = JP.test(part);
+    const sep = PUNC.test(part.slice(0, -1)) ? (jp ? SEP_COMMA_JP : SEP_COMMA) : (jp ? SEP_JP : SEP);
     if (part.length <= LONG || !sep.test(part.slice(0, -1))) return acc.concat([part]);
     const segs = part.split(sep).reduce(glue, []).filter(x => x.trim());
     const chunks = [];
@@ -2785,8 +2792,8 @@ function splitLongBubble(s, allowComma) {
       if (chunks.length && (chunks[chunks.length - 1].trim().length < MIN || chunks.length >= MAX_CHUNKS)) chunks[chunks.length - 1] += seg;
       else chunks.push(seg);
     });
-    while (chunks.length > 1 && chunks[chunks.length - 1].replace(/[，,]?\s*$/, "").length < TAIL_MIN) chunks[chunks.length - 2] += chunks.pop();
-    return acc.concat(chunks.map(x => x.replace(/[，,]?\s*$/, "").trim()).filter(Boolean));
+    while (chunks.length > 1 && chunks[chunks.length - 1].replace(/[，,、]?\s*$/, "").length < TAIL_MIN) chunks[chunks.length - 2] += chunks.pop();
+    return acc.concat(chunks.map(x => x.replace(jp ? /[，,、]?\s*$/ : /[，,]?\s*$/, "").trim()).filter(Boolean));
   }, []);
   return bubbleGlueOrphans(out3).map(bubbleRestore);
 }
