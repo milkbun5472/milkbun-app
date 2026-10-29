@@ -79,8 +79,9 @@ test("⑤ 返回要分两级：在某一类里就退回目录，不是直接关�
 
 test("⑥ 保存那颗 ✓ 还在，存的东西一样没少", () => {
   // v75.967 最前面加了「他会自己拍照」那一项（noAutoShot）
-  assert.match(SINGLE, /onSaveSettings\(\{ (noAutoShot: sNoShot, )?presetOn, presetId, maxTokens: sMax, minWords: sMinW, lengthMode: sLengthMode, memN: sMemN, onlineCtxN: sOnlineN, selfP: sSelf, userP: sUser, describeMe: sDesc/,
+  // v76.87x 又在它前面加了「显示心声」（hideThought）
+  assert.match(SINGLE, /onSaveSettings\(\{ (hideThought: !sShowTh, )?(noAutoShot: sNoShot, )?presetOn, presetId, maxTokens: sMax, minWords: sMinW, lengthMode: sLengthMode, memN: sMemN, onlineCtxN: sOnlineN, selfP: sSelf, userP: sUser, describeMe: sDesc/,
     "单人线下保存少存了字段");
-  assert.match(GROUP, /onSaveSettings\(\{ (noAutoShot: sNoShot, )?presetOn, presetId, maxTokens: sMax, minWords: sMinW, lengthMode: sLengthMode, writeMode: sWriteMode, memN: sMemN, onlineCtxN: sOnlineN, bg: sBg, describeMe: sDesc/,
+  assert.match(GROUP, /onSaveSettings\(\{ (hideThought: !sShowTh, )?(noAutoShot: sNoShot, )?presetOn, presetId, maxTokens: sMax, minWords: sMinW, lengthMode: sLengthMode, writeMode: sWriteMode, memN: sMemN, onlineCtxN: sOnlineN, bg: sBg, describeMe: sDesc/,
     "群线下保存少存了字段");
 });

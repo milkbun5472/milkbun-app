@@ -492,6 +492,7 @@
         ["htmlcard", "消息里那种小卡片（角色发的排版卡，iframe 本体）"],
         ["headname", "顶栏名字那一块（备注＋底下小字；开了双人头像被挡住就挪它，例如 margin-left:8px）"],
         ["now", "顶栏底下那条此刻日程"], ["nowdot", "日程条前面那个小点"],
+        ["bdaypin", "生日当天顶在最上面那条「信封可以拆了」"],
         ["row", "一整行消息（含头像）"], ["avatar", "头像"],
         ["bubble", "气泡本体（data-me=\"1\" 是她的；data-kind＝text/voice/photo…；长按菜单里那一颗带 data-preview=\"1\"）"],
         ["msg", "一条消息：data-me；data-first/data-last＝连发那一串的头/尾（\"1\"是）；data-kind；data-recent=\"1\" 刚进来（做入场动画）"],
