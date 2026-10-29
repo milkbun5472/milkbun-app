@@ -227,3 +227,16 @@ test("正在输入那一行：套在 msg 里，头像跟气泡那颗同一份", 
   assert.match(src, /"data-wk": "msg", "data-me": "0", "data-kind": "typing"/);
   assert.match(src, /"data-wk": "row",\n    className: "flex items-start gap-2"\n  \}, charAvEl\(\)/);
 });
+
+// 她 2026-10-29：通话页「正在说」那颗没接上美化——补上跟普通气泡同名的挂点
+test("通话页正在说那颗：callmsg / callbubble，data-kind=typing", () => {
+  const src = require("fs").readFileSync(require("path").join(__dirname, "..", "js/components.js"), "utf8");
+  assert.match(src, /key: "typing", "data-wk": "callmsg", "data-me": "0", "data-kind": "typing"/);
+  assert.match(src, /"data-wk": "callbubble", "data-me": "0", "data-kind": "typing",\n\s*role: "status"/);
+});
+
+// 她 2026-10-29 截图：转账卡旁边的头像没套头像框——那一行补成 cardrow
+test("转账卡那一行是 cardrow，头像框规则够得着", () => {
+  const src = require("fs").readFileSync(require("path").join(__dirname, "..", "js/components.js"), "utf8");
+  assert.match(src, /"data-wk": "cardrow", "data-me": isU \? "1" : "0", "data-kind": "transfer",\n    className: "py-1 flex items-start gap-2 "/);
+});

@@ -8775,8 +8775,10 @@ function ProfileSheet({
         className: "active:opacity-70", style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.tint, border: "1px solid " + t.line, borderRadius: 999, padding: "4px 12px" } }, "设为主面具"),
       h("button", { onClick: () => { onDeleteMask && onDeleteMask(editId); setEditId(""); loadInto(profile); },
         className: "active:opacity-70", style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, padding: "4px 6px" } }, "删掉这张")) : null);
+  // 关掉也算存（她 2026-10-29 转群友：换了面具头像、在「谁认得这张」里点了 uu，聊天里还是默认紫头像——
+  //   「谁认得」一点就生效，头像却要点 ✓ 才存，划走就丢了。两样一个规矩：关掉面板时把正在改的这张也存下）
   return /*#__PURE__*/React.createElement(Sheet, {
-    onClose: onClose,
+    onClose: () => { try { commit(); } catch (e) {} onClose && onClose(); },
     tall: true
   }, /*#__PURE__*/React.createElement("div", {
     className: "flex items-center justify-between mb-2"
@@ -10937,7 +10939,10 @@ function ChatThread({
   const [archView, setArchView] = useState(null); // null | "loading" | [归档消息数组]
   const _me = meProfile || profile;
   // 这个聊天窗单独给我设过头像，就用那张；没设就是我的资料（或这个人认的那张面具）那张
-  const meAv = { name: (_me && _me.name) || "我", color: (_me && _me.color) || t.tint, avatarImage: (character && character.myChatAvatar) || (_me && _me.avatarImage) };
+  // 这个聊天单独设的「我在这儿的头像」读不出来（图库里没这张了：换过手机、导入时没带图）就跳过它，用 TA 认的那张面具的头像——
+  //   原来它照样排在前面，读不出就落成默认紫圆，面具头像明明存好了也盖不上来（群友 2026-10-29）
+  const _myCA = character && character.myChatAvatar && (typeof resolveImg !== "function" || resolveImg(character.myChatAvatar)) ? character.myChatAvatar : null;
+  const meAv = { name: (_me && _me.name) || "我", color: (_me && _me.color) || t.tint, avatarImage: _myCA || (_me && _me.avatarImage) };
   const fmtT = ts => fmtMsgClock(ts, character ? character.id : null, dsp.timeSec);   // 跟群聊同一支（engine.js）
   const subLine = m => { const parts = []; if (m.crossSource === "cc") parts.push("来自 CC"); else if (m.crossSource === "stackchan") parts.push("来自 Stack-chan"); if (dsp.read) parts.push(m.role === "user" ? (m.read ? "已读" : "已送达") : "已读"); if (dsp.time) parts.push(fmtT(m.ts)); return parts.join(" "); };
   const [chatMode, setChatMode] = useState("chat"); // chat | narr | ooc
@@ -13288,11 +13293,13 @@ function CallScreen({
     bye && h("div", { key: "bye", className: "flex justify-center py-1" },
       h("div", { style: Object.assign({ fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: onPhoto ? "rgba(255,255,255,0.88)" : "rgba(255,255,255,0.55)" }, litText) },
         (bye.name || "对方") + "挂断了")),
-    !bye && sending && h("div", { key: "typing", className: "flex flex-col items-start" },
+    // 挂点跟普通那几条同名（她 2026-10-29：「输入中气泡没接上美化」）：callmsg / callbubble，data-me="0"，data-kind="typing" 分出来
+    !bye && sending && h("div", { key: "typing", "data-wk": "callmsg", "data-me": "0", "data-kind": "typing", className: "flex flex-col items-start" },
       !isGroup ? null : h("span", {
         style: Object.assign({ fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", color: onPhoto ? "rgba(255,255,255,0.85)" : "rgba(255,255,255,0.5)", marginBottom: 1, marginLeft: 2 }, litText)
       }, "对方"),
       h("div", {
+        "data-wk": "callbubble", "data-me": "0", "data-kind": "typing",
         role: "status", "aria-live": "polite",
         "aria-label": (isGroup ? "对方" : (primary.remark || primary.name || "对方")) + " 正在说",
         style: { padding: "10px 14px", borderRadius: 14, background: callBubble(false).background }
@@ -16479,6 +16486,8 @@ function TransferCard({
   const _tfCur = typeof Money !== "undefined" && Money ? Money.of(charId) : { symbol: "¥", pos: "pre" };
   const _tfAmt = typeof Money !== "undefined" && Money ? Money.conv(m.amount, charId) : m.amount;
   return h("div", {
+    // 这一行也是 cardrow（她 2026-10-29 截图：转账卡旁边的头像没套上头像框——框的规则写的是 cardrow > avatar）
+    "data-wk": "cardrow", "data-me": isU ? "1" : "0", "data-kind": "transfer",
     className: "py-1 flex items-start gap-2 " + (isU ? "justify-end" : "justify-start")
   // ⚠️挂点（她 2026-09-22：「聊天界面里的转账和照片样式看看能不能改」）：
   //   这张纸上原来只有那枚印有挂点，纸本身、金额、附言都抓不住——
@@ -19414,7 +19423,8 @@ function GroupThread({
   };
   const [archView, setArchView] = useState(null); // null | "loading" | [归档消息]
   // 这个群单独给我设过头像就用那张（她 2026-10-14：「群聊我改不了自己的头像」——单聊有这一格，群一直没有）
-  const meAv = { name: meName || "我", color: (profile && profile.color) || t.tint, avatarImage: gsp.myAvatar || (profile && profile.avatarImage) };
+  // 同单聊那条：群里单设的「我的头像」读不出来就跳过，用这个群那张面具的头像
+  const meAv = { name: meName || "我", color: (profile && profile.color) || t.tint, avatarImage: (gsp.myAvatar && (typeof resolveImg !== "function" || resolveImg(gsp.myAvatar)) ? gsp.myAvatar : null) || (profile && profile.avatarImage) };
   const fmtT = ts => fmtMsgClock(ts, group && group.id ? "g:" + group.id : null, gsp.timeSec);   // 跟单聊同一支（engine.js）
   const subLine = m => { const parts = []; if (gsp.showRead) parts.push(m.role === "user" ? (m.read === false ? "已送达" : "已读") : "已读"); if (gsp.showTime) parts.push(fmtT(m.ts)); return parts.join(" "); };
   const [panel, setPanel] = useState(false);
@@ -22213,6 +22223,8 @@ function ChatSettings({
   const tuneBubble = patch => setBubble(p => Object.assign({}, BUBBLE_SKIN, p || {}, patch, { _tuned: true }));
   const [bodyMode, setBodyMode] = useState(!!settings.bodyMode);
   const [bodyFillState, setBodyFillState] = useState(settings.bodyFillState === true); // 本体模式每轮都留心情、心声、好感（默认关） // 本体模式：不当演员，人设原样当系统提示词（2026-10-09）
+  // 本体模式也拆气泡（她 2026-10-29）：默认关＝一整条长消息；开了照普通角色那样一句一条，提示词也跟着说
+  const [bodySplit, setBodySplit] = useState(settings.bodySplit === true);
   const [engineerEyes, setEngineerEyes] = useState(!!settings.engineerEyes); // 驻场工程师的眼睛：把 app 体征仪表盘给这个角色看
   const [dongnianMsgOnly, setMsgOnly] = useState(settings.dongnianMsgOnly === true); // 想你时只发消息（默认关）
   const [loveLetter, setLoveLetter] = useState(!settings.noLoveLetter); // 允许TA主动写情侣申请信（默认开）
@@ -22559,6 +22571,7 @@ function ChatSettings({
       offlineApiId,
       bodyMode,
       bodyFillState,
+      bodySplit,
       engineerEyes,
       webSearch,
       mcpOff,
@@ -22625,7 +22638,7 @@ function ChatSettings({
       h("div", { style: { paddingRight: 12, flex: 1, minWidth: 0, fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.7 } },
         // 很多人当成「更贴人设」开了（她 2026-10-12）：先说清这是给谁的、一般不用开，再说开了少了什么
         h("div", { style: { color: t.ink, marginBottom: 4 } }, "一般不用开。想让 " + cNm + " 照人设演一个角色的，保持关着。"),
-        "这是给想跟 AI 本人聊的人用的。开了以后 " + cNm + " 不再是 App 在演的角色，而是 AI 自己：你写的人设原样当系统提示词，每次回一整条长消息，不拆成短气泡。"
+        "这是给想跟 AI 本人聊的人用的。开了以后 " + cNm + " 不再是 App 在演的角色，而是 AI 自己：你写的人设原样当系统提示词，默认每次回一整条长消息（想要短气泡，打开下面「拆成短气泡」）。"
         + "App 给角色加的那些都不发了：去八股的规矩、角色卡的写法要求、档案里的常用语言、行程、钱包、随身物、睡意；也不排日程、不自动刷查手机。"
         + "记忆库、长期记忆、最近的聊天、你俩在这儿真一起做过的事照常给。"),
       h("div", { className: "shrink-0" }, h(Toggle, { on: bodyMode, onChange: () => setBodyMode(v => !v) }))),
@@ -22634,7 +22647,12 @@ function ChatSettings({
       h("div", { style: { paddingRight: 12, flex: 1, minWidth: 0 } },
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.sub } }, "每轮都留心情、心声和好感"),
         h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.7, marginTop: 2 } }, "关着：想留就留，状态卡有时会空着。开着：每轮都写心情、一句心声和好感变化，跟普通角色一样。")),
-      h("div", { className: "shrink-0" }, h(Toggle, { on: bodyFillState, onChange: () => setBodyFillState(v => !v) }))) : null),
+      h("div", { className: "shrink-0" }, h(Toggle, { on: bodyFillState, onChange: () => setBodyFillState(v => !v) }))) : null,
+    bodyMode ? h("div", { className: "flex items-center justify-between pt-3" },
+      h("div", { style: { paddingRight: 12, flex: 1, minWidth: 0 } },
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.sub } }, "拆成短气泡"),
+        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.7, marginTop: 2 } }, "关着：每次回一整条长消息，不拆。开着：会提醒 " + cNm + " 一句一条地发，长的也会照普通聊天那样拆成几个气泡。")),
+      h("div", { className: "shrink-0" }, h(Toggle, { on: bodySplit, onChange: () => setBodySplit(v => !v) }))) : null),
   show("temper", { title: "正在影响 TA · " + innerLifeImpact.live.length + " 项", ...sec("inner-life-impact") },
     h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", lineHeight: 1.65, color: t.fog, padding: "7px 0 4px" } },
       "下面这几样，此刻真的在影响 " + cNm + " 怎么说话、什么时候来找你。"),
