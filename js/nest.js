@@ -787,7 +787,7 @@
     const small = { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.6 };
     const pill = (on, txt, fn, wk) => h("button", { "data-wk": wk, onClick: fn, className: "active:opacity-60 shrink-0",
       style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: on ? t.bg : t.ink, background: on ? t.ink : "transparent", border: "1px solid " + t.ink, borderRadius: 999, minHeight: 28, padding: "0 10px" } }, txt);
-    const setLink = () => requestAppPrompt("QQ 群链接", "验过的人看到的就是这一条。留空＝暂时不给链接。", d && d.link || "", async v => {
+    const setLink = () => requestAppPrompt("QQ 群号或链接", "验过的人看到的就是这一条。填群号就行（她们复制去 QQ 里搜），也能填加群链接。留空＝暂时不给。", d && d.link || "", async v => {
       try { await api("/verify/conf", { method: "POST", body: { link: String(v || "").trim() } }); props.toast("存好了"); load(); } catch (e) { props.toast(e.message); } });
     const setOn = async on => {
       try { await api("/verify/conf", { method: "POST", body: { on } }); props.toast(on ? "开了：验证页能用了" : "关了：验证页会说「去群里找群主」"); load(); } catch (e) { props.toast(e.message); } };
@@ -799,8 +799,8 @@
         h("div", null,
           h("div", { "data-wk": "nestverifyconf", style: { background: t.bg2, border: "1px solid " + t.line, borderRadius: 14, padding: "12px 12px", marginBottom: 12 } },
             h("div", { className: "flex items-center justify-between", style: { gap: 8 } },
-              h("div", { className: "min-w-0", style: { fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", color: t.ink } }, d.link ? "群链接已经设好" : "还没设群链接：验过了也拿不到"),
-              pill(false, d.link ? "换链接" : "设链接", setLink, "nestverifylink")),
+              h("div", { className: "min-w-0", style: { fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", color: t.ink } }, d.link ? "群号已经设好" : "还没设群号：验过了也拿不到"),
+              pill(false, d.link ? "换一个" : "设群号", setLink, "nestverifylink")),
             d.link ? h("div", { style: Object.assign({}, small, { marginTop: 4, wordBreak: "break-all" }) }, d.link) : null,
             h("div", { className: "flex items-center justify-between", style: { gap: 8, marginTop: 10 } },
               h("div", { style: small }, d.on ? "验证页开着" : "验证页关着：谁来都只看到「去群里找群主」"),
