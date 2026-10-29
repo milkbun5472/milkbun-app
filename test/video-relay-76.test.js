@@ -27,3 +27,6 @@ test("CatsAPI 型号秒数超范围：记任务之前就拦，不发请求", () 
   assert.ok(i > 0 && i < j);
   assert.match(src, /seedance20Mini: \[4, 15\]/);
 });
+test("CatsAPI 的 Seedance 是参考图模式，设置里提醒接不上原图", () => {
+  assert.match(src, /CatsAPI 的 Seedance 只有「参考图」模式/);
+});

@@ -417,6 +417,7 @@
           h("button", { type: "button", onClick: pullModels, disabled: pulling, style: Object.assign({}, input, { width: "auto", flexShrink: 0, color: t.ink, opacity: pulling ? 0.5 : 1 }) }, pulling ? "拉取中…" : "拉取模型"))),
         h("datalist", { id: "relay-models" }, (r.format === "cats" && !models.length ? CATS_VIDEO_MODELS : models).map(m => h("option", { key: m, value: m }))),
         r.format !== "cats" && typeof isCatsImageProvider === "function" && isCatsImageProvider(r.baseUrl) ? note("这是 CatsAPI 的地址：写法要选「CatsAPI 格式」，不然会 404。") : null,
+        r.format === "cats" && /^seedance/i.test(r.model) ? note("⚠️ CatsAPI 的 Seedance 只有「参考图」模式：图只当长相参考，画面会照文字重拍，人、场景、构图都可能换掉，接不上原图。要让一张图本身动起来（卡面、动态形象），选 grokImagineVideo 或 geminiOmniFlash，它们从这张图开始动。") : null,
         r.format === "cats" ? row("画面比例", h("select", { "aria-label": "中转画面比例", value: r.ratio, onChange: e => sr({ ratio: e.target.value }), style: input }, ["9:16", "3:4", "1:1", "4:3", "16:9"].map(x => h("option", { key: x, value: x }, x)))) : null,
         (r.format === "cats" && !models.length ? CATS_VIDEO_MODELS : models).length ? h("div", { "data-wk": "relaymodels", style: { display: "flex", flexWrap: "wrap", gap: 6, marginTop: 8, maxHeight: 180, overflowY: "auto" } },
           (r.format === "cats" && !models.length ? CATS_VIDEO_MODELS : models).map(m => h("button", { key: m, type: "button", onClick: () => sr({ model: m }), style: { minHeight: 32, padding: "0 10px", borderRadius: 999, fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))",
