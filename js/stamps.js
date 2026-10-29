@@ -683,7 +683,8 @@
     const testTap = useRef({ n: 0, t: 0 });
     const [begging, setBegging] = useState(false), [begLine, setBegLine] = useState("");
     const [paintDraft, setPaintDraft] = useState(null);
-    const albumY = useRef(0), albumIds = useRef([]);   // 册子当前那一排（筛过的、照显示顺序），卡页左右滑照它走   // 册子翻到哪儿：点开一张看完回来，停在原来那儿（群里 2026-10-27：每次都跳回最上面）
+    const albumY = useRef(0), albumIds = useRef([]);
+    const [meltSel, setMeltSel] = useState(null), [meltArm, setMeltArm] = useState(false);   // 熔 R 卡：null＝没在挑；数组＝挑中的   // 册子当前那一排（筛过的、照显示顺序），卡页左右滑照它走   // 册子翻到哪儿：点开一张看完回来，停在原来那儿（群里 2026-10-27：每次都跳回最上面）
     useEffect(() => { const f = () => setSt(C().load()); window.addEventListener("stamps-change", f); return () => window.removeEventListener("stamps-change", f); }, []);
     // 早先写的卡里带着「(R)」「(SR)」的，打开邮票册时洗一遍存回去（只动带标记或错栏的那几张）
     useEffect(() => { try { const st0 = C().load(); let n = 0;
@@ -974,8 +975,18 @@
               ["在一起了、满 100 / 520 / 1000 天，甜蜜值 10 / 30 / 50 / 100", "十连券，一辈子一次"], ["每张十连都配", C().INK_PER_TEN + " 印泥"]]),
             blk("盖印升满一张", [["R", F.R + " 印泥"], ["SR", F.SR + " 印泥"], ["SSR", F.SSR + " 印泥"]])); })(),
         testInf ? h("div", { style: { marginTop: 10, fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: RC.SSR } }, "测试券开着：抽卡不花邮资和券、盖印不花印泥（连点七下「规则」关掉）") : null));
+    const meltBar = meltSel != null ? (() => { const S0 = C().load(), picked = (S0.cards || []).filter(c => meltSel.includes(c.id)), ink = picked.reduce((a, c) => a + C().meltValue(c), 0);
+      return h("div", { "data-wk": "stampmeltbar", style: { position: "fixed", left: 0, right: 0, bottom: 0, zIndex: 40, padding: "10px 16px calc(env(safe-area-inset-bottom) + 12px)", background: "#FFF8E9", borderTop: "1px solid rgba(47,42,34,.15)", boxShadow: "0 -4px 14px rgba(40,30,20,.1)" } },
+        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: "#2f2a22" } }, "挑了 " + picked.length + " 张 R · 熔掉得 " + ink + " 印泥"),
+        h("div", { style: { marginTop: 2, fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: "rgba(47,42,34,.5)" } }, "一张 " + C().MELT_R + " 印泥，盖过的印退一半。熔掉的卡和卡面就没了，回不来。"),
+        h("div", { className: "flex", style: { gap: 8, marginTop: 8 } },
+          h("button", { onClick: () => { const rs = album.filter(c => c.rarity === "R" && !c.writing).map(c => c.id); setMeltArm(false); setMeltSel(meltSel.length === rs.length ? [] : rs); }, style: { padding: "6px 12px", borderRadius: 999, border: "1px solid rgba(87,119,103,.4)", color: "#577767", fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))" } }, "这一页的 R 全选"),
+          h("button", { onClick: () => { setMeltSel(null); setMeltArm(false); }, style: { padding: "6px 12px", fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: "rgba(47,42,34,.55)" } }, "取消"),
+          h("button", { "data-wk": "stampmeltgo", disabled: !picked.length, onClick: () => { if (!meltArm) { setMeltArm(true); return; } const r = C().melt(meltSel); (r.keys || []).forEach(k => { try { idbImgDel(k); idbImgDel("th_" + k); } catch (e) {} }); setMeltSel(null); setMeltArm(false); toast("熔了 " + r.n + " 张 R，得 " + r.ink + " 印泥"); },
+            className: "active:opacity-70 disabled:opacity-40", style: { marginLeft: "auto", padding: "6px 16px", borderRadius: 999, background: meltArm ? "#b23a2e" : "#285C4B", color: "#fff", fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))" } }, meltArm ? "再点一次：熔掉" : "熔掉"))); })() : null;
     if (tab === "album") return h("div", { "data-wk": "stampalbumpage", "data-page": "1", className: "h-full flex flex-col overflow-hidden", style: { background: "repeating-linear-gradient(180deg, transparent 0 116px, rgba(47,42,34,.07) 116px 117px, transparent 117px 120px), linear-gradient(#f1e9d8, #e9dfca)" } },
       h(Head, { zh: "邮票册", sub: (st.cards || []).length + " 枚", bg: "transparent", ink: "#2f2a22", onBack: () => setTab("pull") }),
+      meltBar,
       h("div", { className: "flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-5", ref: el => { if (el && !el.__y) { el.__y = 1; el.scrollTop = albumY.current; } }, onScroll: e => { albumY.current = e.currentTarget.scrollTop; }, style: { paddingBottom: "calc(env(safe-area-inset-bottom) * 0.4 + 28px)" } },
         // 一行三个下拉（她 2026-10-26：分类一行行往下加太高、往右滑不方便）：点开在下面弹一小块，选项换行平铺
         (() => { const chs = characters.filter(c => (st.cards || []).some(x => x.charId === c.id));
@@ -998,9 +1009,13 @@
         (() => { const bad = (st.cards || []).filter(c => !c.text && (!c.writing || Date.now() - Number(c.writingTs || 0) > (c.queued ? 1800000 : 180000)));
           return bad.length ? h("button", { "data-wk": "stamprewriteall", onClick: () => { onWrite(bad); toast("在重写 " + bad.length + " 张"); }, className: "w-full active:opacity-70",
             style: { marginTop: 12, minHeight: 40, borderRadius: 10, border: "1px dashed #b23a2e", color: "#b23a2e", fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))" } }, "有 " + bad.length + " 张没写好 · 一起重写") : null; })(),
+        // 熔 R 卡：点「熔几张 R」进挑选，点邮票挑，底下一条写着能得多少印泥
+        album.some(c => c.rarity === "R" && c.text) && meltSel == null ? h("button", { "data-wk": "stampmeltbtn", onClick: () => { setMeltSel([]); setMeltArm(false); }, className: "active:opacity-70",
+          style: { marginTop: 10, padding: "4px 12px", borderRadius: 999, border: "1px dashed rgba(87,119,103,.5)", color: "#577767", fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))" } }, "熔几张 R 换印泥") : null,
         album.length ? h("div", { "data-wk": "stampalbum", className: "grid", style: { gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 10, marginTop: 14, justifyItems: "center" } },
           album.map(c => { const ch = albumChar === "all" ? charOf(c.charId) : null;   // 「全部」时每枚下面写是谁的
-            return h("div", { key: c.id, className: "flex flex-col items-center", style: { gap: 3, minWidth: 0 } }, h("div", { style: { position: "relative" } }, h(StampFace, { t, card: c, size: 88, onClick: () => setOpen(c.id) }),
+            return h("div", { key: c.id, className: "flex flex-col items-center", style: { gap: 3, minWidth: 0 } }, h("div", { style: { position: "relative", opacity: meltSel != null && c.rarity !== "R" ? .35 : 1 } }, h(StampFace, { t, card: c, size: 88, onClick: () => { if (meltSel == null) return setOpen(c.id); if (c.rarity !== "R" || c.writing) return; setMeltArm(false); setMeltSel(s0 => s0.includes(c.id) ? s0.filter(x => x !== c.id) : s0.concat([c.id])); } }),
+                meltSel != null && meltSel.includes(c.id) ? h("span", { "data-wk": "stampmeltpick", style: { position: "absolute", left: "50%", top: "50%", transform: "translate(-50%,-50%)", width: 30, height: 30, borderRadius: 999, background: "rgba(178,58,46,.9)", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, pointerEvents: "none" } }, "✓") : null,
                 // 没点开过的：右上角一个小点，淡淡的（她 2026-10-27：不要太明显）
                 // 有番外的 SSR：右上角折起一个小角（她 2026-10-27：纸边太显眼）
                 (c.extras || []).some(x => x.text) ? h("span", { "data-wk": "stampextratab", style: { position: "absolute", right: 5, top: 5, width: 14, height: 14, background: "linear-gradient(225deg, #ece3cf 0 50%, #d9c9a6 50% 100%)", boxShadow: "-1px 1px 2px rgba(40,30,20,.25)", borderBottomLeftRadius: 2, pointerEvents: "none" } }) : null,

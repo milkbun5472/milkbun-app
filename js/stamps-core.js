@@ -238,6 +238,14 @@
   // 领聊天里那封「今天的信」：一封只能领一次
   function claimLetter(id) { const st = load(); st.claimed = st.claimed || {}; if (st.claimed[id]) return false; st.claimed[id] = 1; st.singles = (st.singles || 0) + 1; save(st); return true; }
   function claimBdLetter(id, bdKey, n) { const st = load(); st.claimed = st.claimed || {}; if (st.claimed[id]) return false; st.claimed[id] = 1; if (bdKey) { st.bdTickets = st.bdTickets || {}; st.bdTickets[bdKey] = (st.bdTickets[bdKey] || 0) + (Number(n) || 0); } else st.tickets += Number(n) || 0; st.ink += (Number(n) || 0) * INK_PER_TEN; save(st); return true; }
+  // 熔 R 卡（她 2026-10-29：「r 卡多选融了」）：一张 R 折 30 印泥，盖过的印再退一半。只熔 R，写着的不熔
+  const MELT_R = 30;
+  function meltValue(c) { if (!c || c.rarity !== "R") return 0; let spent = 0; for (let l = 1; l < (c.lv || 1); l++) spent += levelCost("R", l); return MELT_R + Math.floor(spent / 2); }
+  function melt(ids) { const st = load(), set = new Set(ids || []), gone = st.cards.filter(c => set.has(c.id) && c.rarity === "R" && !c.writing);
+    if (!gone.length) return { n: 0, ink: 0, keys: [] };
+    const ink = gone.reduce((a, c) => a + meltValue(c), 0), drop = new Set(gone.map(c => c.id));
+    st.cards = st.cards.filter(c => !drop.has(c.id)); st.ink += ink; save(st);
+    return { n: gone.length, ink, keys: gone.flatMap(c => [c.face, c.faceAlt].concat(Object.values(c.faces || {}))).filter(Boolean) }; }
   function buyExtra() { const st = load(); if (st.ink < EXTRA_INK) return false; st.ink -= EXTRA_INK; st.extraTickets = (st.extraTickets || 0) + 1; save(st); return true; }
   function letterClaimed(id) { return !!((load().claimed || {})[id]); }
 
@@ -245,7 +253,7 @@
   function ssrUnlocked(lv) { return { sections: Math.min(4, 1 + Math.floor(lv / 10)), ending: lv >= 40, hidden: lv >= 50 }; }
 
   g.StampsCore = { PRICE_ONE, PRICE_TEN, RATE, SOFT_FROM, HARD_AT, SR_EVERY, BDAY, CAP, FULL_COST, GIFT, GAIN, LIMITED,
-    bdTicketCount, EXTRA_INK, buyExtra, INK_PER_TEN, claimLetter, claimBdLetter, letterClaimed, cleanText, DUPE_INK, UNLOCK, levelUp, canBeg, markBeg, load, save, gain, grantOnOpen, activeLimited, bdayWindow, rollRarity, pay, levelCost, isGate, gateBlocked, ssrUnlocked };
+    bdTicketCount, EXTRA_INK, buyExtra, MELT_R, meltValue, melt, INK_PER_TEN, claimLetter, claimBdLetter, letterClaimed, cleanText, DUPE_INK, UNLOCK, levelUp, canBeg, markBeg, load, save, gain, grantOnOpen, activeLimited, bdayWindow, rollRarity, pay, levelCost, isGate, gateBlocked, ssrUnlocked };
   // 各处喊一声就记上
   g.stampGain = gain;
   // 别的玩法不一处处去挂：callAI 成功一枪（她按下去的、不是后台）会广播 ai-ok，这儿按它是干嘛的分进几档。
