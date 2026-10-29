@@ -214,3 +214,20 @@ test("番外补发：老用户手上每张限定 SSR 补一张番外券，只补
   C.grantOnOpen(Date.parse("2026-10-27T12:00:00+08:00"), [], 1);
   assert.equal(C.load().extraTickets, 2 + 30 + 1);
 });
+
+test("该是一段字的栏被写成对象时，洗成字（SR 开头、接着不再空）", () => {
+  const C = fresh();
+  const t = C.cleanText({ name: "林间问诊", open: { narration: "他推开门" }, rest: ["后来", "再后来"], line: "嗯" }, "SR");
+  assert.equal(t.open, "他推开门"); assert.equal(t.rest, "后来\n再后来"); assert.equal(t.line, "嗯");
+  const r = C.cleanText({ name: "x", narration: { text: "他在等" }, before: "前一刻" }, "R");
+  assert.equal(r.narration, "他在等"); assert.deepEqual(r.before, { narration: "前一刻" });
+});
+
+test("熔 R 卡：一张 30 印泥，盖过的印退一半；只熔 R", () => {
+  const C = fresh(), st = C.load(); st.ink = 0;
+  st.cards = [{ id: "a", rarity: "R", lv: 1, text: {} }, { id: "b", rarity: "R", lv: 11, text: {} }, { id: "c", rarity: "SR", lv: 1, text: {} }]; C.save(st);
+  let spent = 0; for (let l = 1; l < 11; l++) spent += C.levelCost("R", l);
+  const r = C.melt(["a", "b", "c"]);
+  assert.equal(r.n, 2); assert.equal(r.ink, 30 + 30 + Math.floor(spent / 2));
+  const s2 = C.load(); assert.equal(s2.ink, r.ink); assert.deepEqual(s2.cards.map(c => c.id), ["c"]);
+});

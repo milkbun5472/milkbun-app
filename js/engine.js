@@ -687,9 +687,9 @@ function noteServedModel(profile, req, got) {
 //   不工作；反过来默认放行的话，漏标一处就是在偷偷烧她的额度，而且没人看得见。
 const GIFT_USES = { chat: 1, offline: 1, call: 1, models: 1 };
 function isGiftRoute(p) {
-  // 地址两种都认：公共版里写的是秋秋机自己的 /gift/（Worker 的真地址带着她账号名，不进包），
+  // 地址两种都认：公共版里写的是秋秋自己的 /gift/（Worker 的真地址带着她账号名，不进包），
   //   Worker 的原地址也留着——有人手填它，照样走同一道闸。
-  try { return !!(p && p.gift) || /qiuqiu-trial\.[^/]*workers\.dev|qiuqiu-machine\.pages\.dev\/gift\//.test(String((p && p.baseUrl) || "")); }
+  try { return !!(p && p.gift) || /qiuqiu-trial\.[^/]*workers\.dev|[a-z0-9-]+\.pages\.dev\/gift\//.test(String((p && p.baseUrl) || "")); }
   catch (e) { return false; }
 }
 // 开场前她自己要在真的 app 里试（curl 只证明代理和站子通，证明不了整条链）。
@@ -2715,6 +2715,11 @@ function pullBareHtmlCard(raw) {
 //   ① 上一泡是半句长话（六个字以上、末尾不是标点也不是表情），这一泡只有一两个汉字、自己也不带标点——是上一句的尾巴；
 //   ② 这一泡只是一个连词（还是、但是、不过……），没说完——粘到下一泡前头。
 //   「好」「嗯」「晚安」这种能自己成一句的，跟在短句或收了尾的句子后面都不粘。
+//   她 2026-10-28 截图又两种（「……哪怕发个表情也行，只要／让我知道你在看手机就行」「……去你公司楼下堵／人，免得你下班挤车受冻」）：
+//   ③ 上一泡停在一个说不完的词上（只要、哪怕、如果、把、给……）——话一定还在下一泡里；
+//   ④ 这一泡开头一两个字就接逗号，而上一泡是没收尾的半句长话——那一两个字是上一句的尾巴（「嗯，」「好，」这种自己起头的不算）。
+const BUBBLE_DANGLE = /(只要|哪怕|如果|因为|虽然|即使|就算|除非|为了|除了|而且|但是|可是|还是|或者|所以|然后|不过|甚至|以及|并且|把|被|给|跟|和|与|让|从|对|往|向|比|连|将|于)$/;
+const BUBBLE_INTERJ = /^[好嗯哎唉啊哦噢嘿喂行对是诶呃欸算靠切哼呵哈呀嗷喔唔]+$/;
 const BUBBLE_CONJ = /^(还是|但是|可是|不过|所以|然后|而且|或者|因为|就是|而是|要么|如果|虽然|于是|结果)$/;
 function bubbleGlueBrokenLines(list) {
   const isStr = x => typeof x === "string";
@@ -2726,6 +2731,9 @@ function bubbleGlueBrokenLines(list) {
     // 模型把句尾的「!」「?!」单交成一条（她 2026-10-28 法语那句）：粘回上一句
     if (isStr(prev) && /^[!?！？。…~～]+$/.test(cur)) { out[out.length - 1] = prev.trim() + (/^[!?]/.test(cur) && /[!?]$/.test(prev.trim()) ? " " : "") + cur; continue; }
     if (isStr(prev) && /^[\u4e00-\u9fff]{1,2}$/.test(cur) && prev.trim().length >= 6 && /[\u4e00-\u9fff]$/.test(prev.trim())) { out[out.length - 1] = prev + cur; continue; }
+    if (isStr(prev) && /^[\u4e00-\u9fff]/.test(cur) && prev.trim().length >= 6 && BUBBLE_DANGLE.test(prev.trim())) { out[out.length - 1] = prev.trim() + cur; continue; }
+    { const m = /^([\u4e00-\u9fff]{1,2})[，,]/.exec(cur);
+      if (m && !BUBBLE_INTERJ.test(m[1]) && isStr(prev) && prev.trim().length >= 10 && /[\u4e00-\u9fff]$/.test(prev.trim())) { out[out.length - 1] = prev.trim() + cur; continue; } }
     if (BUBBLE_CONJ.test(cur) && isStr(list[i + 1]) && /^[\u4e00-\u9fff]/.test(list[i + 1].trim())) { list = list.slice(); list[i + 1] = cur + list[i + 1].trim(); continue; }
     out.push(x);
   }
@@ -2768,8 +2776,15 @@ function splitLongBubble(s, allowComma) {
   //   这段里有逗号句号，就说明它是打标点的人，那个空格不当停顿用——只按逗号切，空格原样留着
   const PUNC = /[，,。！？!?、；;]/;
   const SEP_COMMA = /([，,])/;
+  // 日文（她 2026-10-29 群友截图：日男自己发来的一整段没「。」只靠空格断，挤成一个大泡）：
+  //   日文的「、」就是它的逗号，假名旁边的空格也是停顿。只认带假名的那段——中文里「苹果、香蕉」那种顿号是列举，不下刀。
+  //   韩文不算：韩文每个词之间本来就空一格，那不是停顿。
+  const JP = /[\u3040-\u30ff]/;
+  const SEP_JP = /([，,、]|(?<=[\u4e00-\u9fff\u3040-\u30ff…~～])\s+(?=[\u4e00-\u9fff\u3040-\u30ff]))/;
+  const SEP_COMMA_JP = /([，,、])/;
   const out3 = out.reduce((acc, part) => {
-    const sep = PUNC.test(part.slice(0, -1)) ? SEP_COMMA : SEP;
+    const jp = JP.test(part);
+    const sep = PUNC.test(part.slice(0, -1)) ? (jp ? SEP_COMMA_JP : SEP_COMMA) : (jp ? SEP_JP : SEP);
     if (part.length <= LONG || !sep.test(part.slice(0, -1))) return acc.concat([part]);
     const segs = part.split(sep).reduce(glue, []).filter(x => x.trim());
     const chunks = [];
@@ -2777,8 +2792,8 @@ function splitLongBubble(s, allowComma) {
       if (chunks.length && (chunks[chunks.length - 1].trim().length < MIN || chunks.length >= MAX_CHUNKS)) chunks[chunks.length - 1] += seg;
       else chunks.push(seg);
     });
-    while (chunks.length > 1 && chunks[chunks.length - 1].replace(/[，,]?\s*$/, "").length < TAIL_MIN) chunks[chunks.length - 2] += chunks.pop();
-    return acc.concat(chunks.map(x => x.replace(/[，,]?\s*$/, "").trim()).filter(Boolean));
+    while (chunks.length > 1 && chunks[chunks.length - 1].replace(/[，,、]?\s*$/, "").length < TAIL_MIN) chunks[chunks.length - 2] += chunks.pop();
+    return acc.concat(chunks.map(x => x.replace(jp ? /[，,、]?\s*$/ : /[，,]?\s*$/, "").trim()).filter(Boolean));
   }, []);
   return bubbleGlueOrphans(out3).map(bubbleRestore);
 }
@@ -7152,7 +7167,15 @@ async function saveFile(file) {
   setTimeout(function () { URL.revokeObjectURL(href); }, 10000);
   return "download";
 }
-if (typeof window !== "undefined") window.saveTextFile = saveTextFile;
+// 存完了那句话里的「存到哪儿了」（群里 2026-10-28：「谷歌浏览器导出的文档从哪导入」）。
+//   安卓的浏览器走的是普通下载，文件会落进系统的【下载】文件夹；原来只说一句「已导出」，
+//   于是回头要导入时在选择器里到处找。只此一份：各处导出完都问它要这半句。
+function savedWhere(via) {
+  return via === "share" ? "已交给分享面板，在里面选「存储到文件」"
+    : via === "download" ? "存到手机的「下载」文件夹了"
+    : "已导出";
+}
+if (typeof window !== "undefined") { window.saveTextFile = saveTextFile; window.savedWhere = savedWhere; }
 // 本机图库里没有的 iv_ 图（换了设备、刚从云上恢复）：去本机原生仓、再去云上拉一张回来，拉到了就通知界面重画。
 //   原来这里只认开机时灌进内存的那一份，没有的就一直空着——聊天头像、表情包、面具头像在新设备上全是空的，
 //   补传把图送上了云，这边却从来不去拿（群友 2026-10-25：「平板显示没有图片需要补传，手机上表情包和头像丢了」）。
@@ -10684,6 +10707,25 @@ function wmoToText(code) {
   return "CLOUDY";
 }
 // 抓本地时间/天气/城市：定位→open-meteo(免key)拿天气→反查城市名。任何一步失败都降级，不抛错。
+// ── 自动取定位：只在【她已经授权过】的时候静默取（群里 2026-10-28 报：换了地址以后每次打开都弹一次系统询问）──
+//   病根不在哪一页：是主屏地图组件和写日记那一页各自直接 getCurrentPosition()，于是【开机就替她按下了要定位】。
+//   换个地址＝浏览器把权限从头问一遍；选过「本次允许」的人，每打开一次就被问一次。
+//   系统那个询问框只该由她自己按出来（设置 →「我在哪」、地图页里那颗定位键），自动的地方一个都不许弹。
+//   所以自动那几处一律问这一份：查得出已经授权才取；没授权、问不出来、老浏览器查不了，一律安静返回 null，
+//   退回她在设置里填的那个位置。
+function geoIfGranted(opts) {
+  return new Promise(res => {
+    try {
+      if (typeof navigator === "undefined" || !navigator.geolocation) return res(null);
+      if (!navigator.permissions || !navigator.permissions.query) return res(null);
+      navigator.permissions.query({ name: "geolocation" }).then(st => {
+        if (!st || st.state !== "granted") return res(null);
+        navigator.geolocation.getCurrentPosition(p => res(p), () => res(null),
+          Object.assign({ timeout: 8000, maximumAge: 600000 }, opts || {}));
+      }).catch(() => res(null));
+    } catch (e) { res(null); }
+  });
+}
 async function fetchLocalEnv() {
   const out = { weather: "", location: "", coords: null };
   // ⚠️她手填过位置就按那份来（v72.66）：这儿原来自己读一次 GPS，
@@ -10700,10 +10742,7 @@ async function fetchLocalEnv() {
     }
   } catch (e) {}
   const mine = geoNow();
-  const pos = mine && mine.manual ? { coords: { latitude: mine.lat, longitude: mine.lng } } : await new Promise(res => {
-    if (!navigator.geolocation) return res(null);
-    navigator.geolocation.getCurrentPosition(p => res(p), () => res(null), { timeout: 8000, maximumAge: 600000 });
-  });
+  const pos = mine && mine.manual ? { coords: { latitude: mine.lat, longitude: mine.lng } } : await geoIfGranted();
   if (!pos) return out;
   const lat = pos.coords.latitude, lon = pos.coords.longitude;
   out.coords = Math.abs(lat).toFixed(3) + "°" + (lat >= 0 ? "N" : "S") + ", " + Math.abs(lon).toFixed(3) + "°" + (lon >= 0 ? "E" : "W");

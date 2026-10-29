@@ -1598,7 +1598,7 @@
       const w = (rec.whys || [])[i]; if (w) add("「" + w + "」", 24, "#6f5f4d", 8, 20);
       const rv = (rec.revs || []).find(z => z.i === i); if (rv) add("回头改了：原本选「" + optText(test, i, rv.from) + "」" + (rv.why ? "——" + rv.why : ""), 23, ACC, 6, 20);
     });
-    add(dateZh(rec.ts || Date.now()) + " · 秋秋机", 22, FOG, 40);
+    add(dateZh(rec.ts || Date.now()) + " · 秋秋\u673a", 22, FOG, 40);
     let H = PAD; rows.forEach(r => { H += r.gap + r.size * 1.45; }); H += PAD;
     c.width = W; c.height = Math.ceil(H);
     x.fillStyle = PAPER; x.fillRect(0, 0, W, c.height);

@@ -32,7 +32,9 @@ test("入口、文件夹、脚本都挂上了", () => {
 test("回放能发回聊天：走公共那条转发卡，不让TA当场开口", () => {
   assert.match(C, /if \(kind === "liveshare"\) return window\.LiveShareCard \|\| null;/);
   assert.match(L, /window\.LiveShareCard = LiveShareCard;/);
-  assert.match(A, /window\.ChatRooms\.chatKey\(c\.id, roomId\)/);
+  // 主聊天/哪间房 统一走 shareChatKey（各家转发共用那一份）
+  assert.match(A, /const key = shareChatKey\(c, roomId\);/);
+  assert.match(require("node:fs").readFileSync(require("node:path").join(__dirname, "../js/components.js"), "utf8"), /function shareChatKey\(c, roomId\) \{[^\n]*ChatRooms\.chatKey\(c\.id, roomId\)/);
   assert.match(A, /kind: "liveshare", live: snap, content: K\.shareText\(snap, userName\(profile\), c\.name\), ts: Date\.now\(\), read: true \}/);
   assert.match(L, /直播间里那个「" \+ snap\.maskName \+ "」就是她/);
 });

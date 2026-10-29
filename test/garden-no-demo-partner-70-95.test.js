@@ -4,7 +4,7 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const host = fs.readFileSync("js/fairy-garden.js", "utf8");
 
-// 她 2026-09-18：「直接把示例同行者删了吧。玩秋秋机的都是有角色的。
+// 她 2026-09-18：「直接把示例同行者删了吧。玩秋秋的都是有角色的。
 //                 所以主要 focus 还是角色互动和关系」
 // ⚠️那条路本来就是残的：没有角色时井里刨不出碎片 → 做不了东西 → 收藏馆空 →
 //   念不了咒 → 三条会开的路一条都开不了。摆着它＝请人去玩一个阉割版。

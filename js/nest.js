@@ -6,7 +6,7 @@
 // 定下来的几条：大家自己传、传的人能删自己的、管理口令什么都能删；第一版不收图（2026-10-17 起收了：美化里的图压小了一起传）；
 //   不分尺度；没有举报键；只按时间排（新的在前／旧的在前），不按导入数排。
 //
-// 东西存在 Cloudflare 那边（qiuqiu-nest），这一页只走秋秋机自己的 /nest/ 前门——
+// 东西存在 Cloudflare 那边（qiuqiu-nest），这一页只走秋秋自己的 /nest/ 前门——
 //   Worker 的真地址里带着账号名，不能进包。家里那份 app 也走同一个前门（那边放行了跨域）。
 //
 // 导进来的东西一律落进它本来就住的那个库，不另开一份：
@@ -259,7 +259,7 @@
   //   CSS「放哪儿」那三格、上传页挑类别也是这面柜子（items / noAll 传进来）。
   // 管理中才有的一行：新消息提醒最近一次查得怎么样（她 2026-10-19「我还是收不到小窝提醒」——先让它看得见）
   //   查的那一套在 js/nest-watch.js；这一行只读它最近一次的结果，「现在查一次」就地再查一遍
-  function WatchLine({ t }) {
+  function WatchLine({ t, onGate, onVerify }) {
     const [, redraw] = useState(0);
     const [busy, setBusy] = useState(false);
     const W = window.NestWatch, L = W && W.lastCheck ? W.lastCheck() : null;
@@ -270,6 +270,10 @@
     const now = async () => { setBusy(true); try { await W.check(); W.markSeen(); } catch (e) {} setBusy(false); redraw(x => x + 1); };
     return h("div", { "data-wk": "nestwatchline", className: "shrink-0 flex items-center px-4", style: { gap: 8, paddingBottom: 6 } },
       h("div", { className: "flex-1 min-w-0", style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: L && !L.ok ? "#a0383f" : t.fog, lineHeight: 1.5 } }, txt),
+      onVerify ? h("button", { "data-wk": "nestverifybtn", onClick: onVerify, className: "shrink-0 active:opacity-60",
+        style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.ink, border: "1px solid " + t.line, borderRadius: 999, minHeight: 26, padding: "0 9px" } }, "验") : null,
+      onGate ? h("button", { "data-wk": "nestgatebtn", onClick: onGate, className: "shrink-0 active:opacity-60",
+        style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.ink, border: "1px solid " + t.line, borderRadius: 999, minHeight: 26, padding: "0 9px" } }, "门") : null,
       h("button", { "data-wk": "nestwatchnow", disabled: busy, onClick: now, className: "shrink-0 active:opacity-60",
         style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.ink, border: "1px solid " + t.line, borderRadius: 999, minHeight: 26, padding: "0 9px", opacity: busy ? .5 : 1 } }, busy ? "在查……" : "现在查一次"));
   }
@@ -470,15 +474,24 @@
       try { await api("/item/" + id, { method: "DELETE" }); props.toast("删掉了"); onGone(id); }
       catch (e) { props.toast("没删成：" + e.message); setBusy(false); }
     };
-    // 赞、收藏：再点一次就收回；没登录先去登录
+    // 赞、收藏：再点一次就收回。点心不用登录（她 2026-10-29「能不能不登录也能点赞」）——
+    //   没账号就记在这台设备名下；收藏还是要账号，它是「我自己的一份清单」，换台手机得找得回来。
     const toggle = async which => {
-      if (!me) { onLogin(); return; }
+      if (!me && which !== "like") { onLogin(); return; }
       const on = which === "like" ? !it.liked : !it.faved;
       try { const d = await api("/item/" + it.id + "/" + which, { method: on ? "POST" : "DELETE" });
         setIt(x => Object.assign({}, x, which === "like" ? { liked: on, likes: d.count } : { faved: on, favs: d.count })); }
       catch (e) { props.toast(e.message); }
     };
-    const doFollow = async () => {
+// 导进手机之前先给老师点个心（她 2026-10-29：「确实不喜欢为什么要导入呢」）。
+    //   不是收费：点心不用登录、点完还能自己收回去；只是把「拿了东西」和「说一声喜欢」放在同一下。
+    //   已经点过的照旧一下导入，不会重复问。
+    const importWithHeart = () => {
+      if (it.liked) { doImport(); return; }
+      requestAppConfirm("先给老师点个心", "这是老师熬夜捏出来的。点一下心再导进来，TA 看得到。",
+        async () => { await toggle("like"); doImport(); }, "点心并导入");
+    };
+        const doFollow = async () => {
       if (!me) { onLogin(); return; }
       try { await api("/user/" + it.uid + "/follow", { method: follow ? "DELETE" : "POST" }); setFollow(!follow); props.toast(follow ? "不再关注了" : "关注了，她贴新纸条时你会收到小纸条"); }
       catch (e) { props.toast(e.message); }
@@ -525,7 +538,7 @@
           // 动作：导入最大，赞、收藏、复制、删
           h("div", { "data-wk": "nestactions", className: "flex flex-wrap", style: { gap: 8, marginTop: 16 } },
             isPost ? null : isDoc ? h(Btn, { t, solid: true, wide: true, onClick: doCopy, wk: "nestdoccopy" }, "复制全文")
-              : h(Btn, { t, solid: true, wide: true, disabled: busy, onClick: doImport, wk: "nestimport" }, busy ? "……" : "导进我的手机"),
+              : h(Btn, { t, solid: true, wide: true, disabled: busy, onClick: importWithHeart, wk: "nestimport" }, busy ? "……" : it.liked ? "导进我的手机" : "点个心并导入"),
             pill({ on: it.liked, onClick: () => toggle("like"), icon: h(IHeart, { size: 15, color: it.liked ? "#c0717f" : t.ink, filled: it.liked }), txt: it.likes || 0, wk: "nestlike" }),
             pill({ on: it.faved, onClick: () => toggle("fav"), icon: h(IBookmark, { size: 15, color: it.faved ? "#c0717f" : t.ink }), txt: it.faved ? "已收" : "收藏", wk: "nestfav" })),
           h("div", { className: "flex", style: { gap: 8, marginTop: 8 } },
@@ -709,6 +722,132 @@
           h("div", { className: "flex justify-between", style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: n.seen ? t.fog : "#633806" } }, h("span", null, n.from || (n.kind === "return" ? "小窝管理员" : "")), h("span", null, ago(n.created))),
           h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", color: n.seen ? t.ink : "#412402", marginTop: 2, lineHeight: 1.6 } }, line(n)),
           n.text ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: n.seen ? t.fog : "#854f0b", marginTop: 2 } }, "「" + n.text + "」") : null))));
+  }
+
+  // ── 新地址的门（她 2026-10-28）：口令、要不要审核、进过门的设备名单；只有管理口令看得到 ──────
+  //   设备是在公共版新地址（autumn-drawer）门口输口令进来的，一台一行；停用＝那台几分钟内就打不开。
+  function GatePanel({ t, props, onClose }) {
+    const [d, setD] = useState(null), [err, setErr] = useState(""), [q, setQ] = useState(""), [busy, setBusy] = useState("");
+    const load = (qq, more) => api("/gate/list?q=" + encodeURIComponent(qq || "") + "&off=" + (more ? (d && d.devices.length) || 0 : 0))
+      .then(x => { setErr(""); setD(prev => more && prev ? Object.assign({}, x, { devices: prev.devices.concat(x.devices || []) }) : x); })
+      .catch(e => setErr(e.message));
+    useEffect(() => { const tm = setTimeout(() => load(q), q ? 350 : 0); return () => clearTimeout(tm); }, [q]);
+    const kindOf = ua => /iPhone|iPad/.test(ua) ? "苹果" : /Android/.test(ua) ? "安卓" : /Mac|Windows|Linux/.test(ua) ? "电脑" : "设备";
+    const day = ms => { const x = new Date(ms); return (x.getMonth() + 1) + "·" + x.getDate(); };
+    const ST = { ok: "能进", pending: "等通过", off: "已停用" };
+    const setPass = () => requestAppPrompt("群口令", "新设备进门要输这一句（4 到 40 个字）。换了以后，已经进来的设备照常能用，只有新设备要用新口令。", "", async v => {
+      v = String(v || "").trim(); if (!v) return;
+      try { await api("/gate/conf", { method: "POST", body: { pass: v } }); props.toast("口令换好了，记得改群公告"); load(q); } catch (e) { props.toast(e.message); } });
+    const setApprove = async on => {
+      try { await api("/gate/conf", { method: "POST", body: { approve: on } }); props.toast(on ? "审核打开了：新设备要你点通过才能进" : "审核关了：口令对了就直接进"); load(q); } catch (e) { props.toast(e.message); } };
+    const setSt = async (ids, st) => {
+      setBusy(ids[0]);
+      try { await api("/gate/device", { method: "POST", body: { ids, status: st } });
+        setD(x => Object.assign({}, x, { devices: x.devices.map(r => ids.includes(r.id) ? Object.assign({}, r, { status: st }) : r) }));
+        props.toast(st === "off" ? "停用了，几分钟内那台就打不开" : "放行了"); } catch (e) { props.toast(e.message); }
+      setBusy(""); };
+    const small = { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.6 };
+    const pill = (on, txt, fn, wk) => h("button", { "data-wk": wk, onClick: fn, className: "active:opacity-60 shrink-0",
+      style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: on ? t.bg : t.ink, background: on ? t.ink : "transparent", border: "1px solid " + t.ink, borderRadius: 999, minHeight: 28, padding: "0 10px" } }, txt);
+    const sameWho = d ? (who => d.devices.filter(r => r.who === who && r.status !== "off").map(r => r.id)) : () => [];
+    return h("div", { "data-wk": "nestgate", className: "h-full flex flex-col", style: shell(t) },
+      h(Head, { zh: "新地址的门", onBack: onClose, bg: "transparent" }),
+      h("div", { className: "flex-1 min-h-0 overflow-y-auto px-4 pt-3 pb-8" },
+        err ? h("div", { style: Object.assign({}, small, { padding: "24px 4px", fontSize: "calc(13px * var(--app-fs, 1))" }) }, err) :
+        !d ? h("div", { style: Object.assign({}, small, { padding: "24px 4px", fontSize: "calc(13px * var(--app-fs, 1))" }) }, "在拿……") :
+        h("div", null,
+          h("div", { "data-wk": "nestgateconf", style: { background: t.bg2, border: "1px solid " + t.line, borderRadius: 14, padding: "12px 12px", marginBottom: 12 } },
+            h("div", { className: "flex items-center justify-between", style: { gap: 8 } },
+              h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", color: t.ink } }, d.hasPass ? "口令已经设好" : "还没设口令：现在谁都进不来"),
+              pill(false, d.hasPass ? "换口令" : "设口令", setPass, "nestgatepass")),
+            h("div", { className: "flex items-center justify-between", style: { gap: 8, marginTop: 10 } },
+              h("div", { style: small }, d.approve ? "审核开着：新设备填完要你点「通过」" : "审核关着：口令对了就直接进"),
+              pill(d.approve, d.approve ? "审核中" : "开审核", () => setApprove(!d.approve), "nestgateapprove")),
+            h("div", { style: Object.assign({}, small, { marginTop: 8 }) }, "一共 " + d.total + " 台" + (d.pending ? "，" + d.pending + " 台等通过" : "") + "。口令被传出去时：打开审核、换口令，再把不认识的停用。")),
+          h("div", { className: "flex items-center", style: { gap: 6, background: t.bg2, border: "1px solid " + t.line, borderRadius: 12, padding: "0 11px", marginBottom: 10 } },
+            h(ISearch, { size: 15, color: t.fog }),
+            h("input", { "data-wk": "input", value: q, onChange: e => setQ(e.target.value), placeholder: "搜 QQ 号或昵称", maxLength: 40, className: "flex-1 min-w-0 outline-none",
+              style: { fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", color: t.ink, background: "transparent", border: "none", padding: "9px 0" } })),
+          !d.devices.length ? h("div", { style: Object.assign({}, small, { padding: "28px 4px", textAlign: "center" }) }, q ? "没搜到" : "还没有设备进过门") :
+          d.devices.map(r => h("div", { key: r.id, "data-wk": "nestgaterow", "data-on": r.status, className: "flex items-center",
+              style: { gap: 8, padding: "10px 2px", borderBottom: "1px solid " + t.line, opacity: r.status === "off" ? .55 : 1 } },
+            h("div", { className: "flex-1 min-w-0" },
+              h("div", { className: "truncate", style: { fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", color: t.ink } }, r.who || "（没填）"),
+              h("div", { style: small }, kindOf(r.ua || "") + " · " + day(r.created) + " 进门 · " + day(r.last) + " 最近打开 · " + (ST[r.status] || r.status))),
+            r.status === "pending" ? pill(true, "通过", () => setSt([r.id], "ok"), "nestgateok") : null,
+            r.status === "off" ? pill(false, busy === r.id ? "…" : "恢复", () => setSt([r.id], "ok"), "nestgateok")
+              : pill(false, busy === r.id ? "…" : "停用", async () => { const rest = sameWho(r.who).filter(x => x !== r.id);
+                  await setSt([r.id], "off");
+                  if (rest.length) requestAppConfirm("还有 " + rest.length + " 台", "「" + r.who + "」名下还有 " + rest.length + " 台设备，也一起停掉吗？", () => setSt(rest, "off"), "一起停掉"); }, "nestgateoff"))),
+          d.devices.length < d.total && !q ? h("div", { style: { textAlign: "center", marginTop: 12 } }, pill(false, "再往下看", () => load(q, true), "nestgatemore")) : null)));
+  }
+
+  // ── 进群验证（她 2026-10-28）：群链接、开关、验过的记录；只有管理口令看得到 ──────
+  //   验证页是另一个站（公开的，发给还没进群的人）。图和她们的 API 密钥都不经过服务器，
+  //   所以这儿看到的只有：什么时候、过没过、读出来多大、用的哪个站和哪个模型。
+  function VerifyPanel({ t, props, onClose }) {
+    const [d, setD] = useState(null), [err, setErr] = useState("");
+    const load = more => api("/verify/log?off=" + (more ? (d && d.rows.length) || 0 : 0))
+      .then(x => { setErr(""); setD(prev => more && prev ? Object.assign({}, x, { rows: prev.rows.concat(x.rows || []) }) : x); })
+      .catch(e => setErr(e.message));
+    useEffect(() => { load(); }, []);
+    const WHY = { ok: "过了", noqq: "QQ 号没填对", blur: "字没认出来", noword: "纸上没写那个码", nophrase: "没写那句话", nonce: "暗号对不上", bad: "模型没按格式回话", nolink: "群链接还没设" };
+    const when = ms => { const x = new Date(ms); return (x.getMonth() + 1) + "·" + x.getDate() + " " + x.getHours() + ":" + String(x.getMinutes()).padStart(2, "0"); };
+    const small = { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.6 };
+    const pill = (on, txt, fn, wk) => h("button", { "data-wk": wk, onClick: fn, className: "active:opacity-60 shrink-0",
+      style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: on ? t.bg : t.ink, background: on ? t.ink : "transparent", border: "1px solid " + t.ink, borderRadius: 999, minHeight: 28, padding: "0 10px" } }, txt);
+    const setLink = () => requestAppPrompt("QQ 群号或链接", "验过的人看到的就是这一条。填群号就行（她们复制去 QQ 里搜），也能填加群链接。留空＝暂时不给。", d && d.link || "", async v => {
+      try { await api("/verify/conf", { method: "POST", body: { link: String(v || "").trim() } }); props.toast("存好了"); load(); } catch (e) { props.toast(e.message); } });
+    const setOn = async on => {
+      try { await api("/verify/conf", { method: "POST", body: { on } }); props.toast(on ? "开了：验证页能用了" : "关了：验证页会说「去群里找群主」"); load(); } catch (e) { props.toast(e.message); } };
+    // 留底那张：点开才去取（一次一张，不随名单一起发下来）；看完能单张删，也能一键全清
+    const [shotOf, setShotOf] = useState(null);   // { id, src }
+    const openShot = async id => {
+      props.toast("在取……");
+      try { const d = await api("/verify/shot?id=" + id); setShotOf({ id, src: "data:" + d.mime + ";base64," + d.data }); props.toast(""); }
+      catch (e) { props.toast(e.message); }
+    };
+    const dropShot = (id, all) => requestAppConfirm(all ? "清空留底" : "删掉这一张",
+      all ? "把留着的截图全删掉，删了找不回来。验证记录本身留着，还能拿来对名单。" : "删了找不回来。这条记录本身留着。",
+      async () => {
+        try { const r = await api("/verify/drop", { method: "POST", body: all ? { all: true } : { id } });
+          props.toast(all ? "清空了（" + (r.n || 0) + " 张）" : "删了"); setShotOf(null); load(); } catch (e) { props.toast(e.message); }
+      }, all ? "全删掉" : "删掉");
+    return h("div", { "data-wk": "nestverify", className: "h-full flex flex-col", style: shell(t) },
+      h(Head, { zh: "进群验证", onBack: onClose, bg: "transparent" }),
+      // 看留底：铺满这一页，看完关掉；不另开一层半窗（施工规则/no-half-sheet.md）
+      shotOf ? h("div", { "data-wk": "nestverifyshotview", className: "absolute inset-0 flex flex-col", style: { zIndex: 40, background: t.bg } },
+        h(Head, { zh: "留底", sub: "只有你看得到", onBack: () => setShotOf(null), bg: "transparent",
+          right: pill(false, "删掉这张", () => dropShot(shotOf.id), "nestverifydropone") }),
+        h("div", { className: "flex-1 min-h-0 overflow-auto px-4 pb-8" },
+          h("img", { src: shotOf.src, alt: "留底截图", style: { width: "100%", borderRadius: 12, border: "1px solid " + t.line } }))) : null,
+      h("div", { className: "flex-1 min-h-0 overflow-y-auto px-4 pt-3 pb-8" },
+        err ? h("div", { style: Object.assign({}, small, { padding: "24px 4px", fontSize: "calc(13px * var(--app-fs, 1))" }) }, err) :
+        !d ? h("div", { style: Object.assign({}, small, { padding: "24px 4px", fontSize: "calc(13px * var(--app-fs, 1))" }) }, "在拿……") :
+        h("div", null,
+          h("div", { "data-wk": "nestverifyconf", style: { background: t.bg2, border: "1px solid " + t.line, borderRadius: 14, padding: "12px 12px", marginBottom: 12 } },
+            h("div", { className: "flex items-center justify-between", style: { gap: 8 } },
+              h("div", { className: "min-w-0", style: { fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", color: t.ink } }, d.link ? "群号已经设好" : "还没设群号：验过了也拿不到"),
+              pill(false, d.link ? "换一个" : "设群号", setLink, "nestverifylink")),
+            d.link ? h("div", { style: Object.assign({}, small, { marginTop: 4, wordBreak: "break-all" }) }, d.link) : null,
+            h("div", { className: "flex items-center justify-between", style: { gap: 8, marginTop: 10 } },
+              h("div", { style: small }, d.on ? "验证页开着" : "验证页关着：谁来都只看到「去群里找群主」"),
+              pill(d.on, d.on ? "开着" : "打开", () => setOn(!d.on), "nestverifyon")),
+            h("div", { style: Object.assign({}, small, { marginTop: 8 }) },
+              "今天来了 " + d.dayTotal + " 次，过了 " + (d.dayPassed || 0) + "；一共 " + d.total + " 次，过了 " + (d.passed || 0) + "。"),
+            h("div", { style: Object.assign({}, small, { marginTop: 4 }) }, "手写那张和她们的密钥都不到这儿来。留底那张只有你看得到，" + (d.shotDays || 14) + " 天自动删。"),
+            d.shots ? h("div", { className: "flex items-center justify-between", style: { gap: 8, marginTop: 10 } },
+              h("div", { style: small }, "现在留着 " + d.shots + " 张截图"),
+              pill(false, "清空留底", () => dropShot(0, true), "nestverifydropall")) : null),
+          !d.rows.length ? h("div", { style: Object.assign({}, small, { padding: "28px 4px", textAlign: "center" }) }, "还没有人来验过") :
+          d.rows.map(r => h("div", { key: r.id, "data-wk": "nestverifyrow", "data-on": r.pass ? "1" : "0", className: "flex items-center",
+              style: { gap: 8, padding: "9px 2px", borderBottom: "1px solid " + t.line } },
+            h("div", { className: "flex-1 min-w-0" },
+              h("div", { className: "truncate", style: { fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", color: r.pass ? t.ink : t.fog } },
+                (r.pass ? "✓ " : "✗ ") + (WHY[r.reason] || r.reason)),
+              h("div", { className: "truncate", style: small }, when(r.at) + (r.qq ? " · QQ " + r.qq : "") + (r.station ? " · " + r.station : "") + (r.model ? " · " + r.model : ""))),
+            r.shot ? pill(false, "看留底", () => openShot(r.id), "nestverifyshot") : null)),
+          d.rows.length < d.total ? h("div", { style: { textAlign: "center", marginTop: 12 } }, pill(false, "再往下看", () => load(true), "nestverifymore")) : null)));
   }
 
   // ── 登录／注册／用恢复码改密码；注册和恢复之后先给她看恢复码，确认存好了才进 ──────
@@ -1148,6 +1287,8 @@
       onGone: id => { setItems(l => l.filter(x => x.id !== id)); pop(); } });
     if (top && top.v === "user") return h(Profile, { key: top.id, t, uid: top.id, me, props, onClose: pop, onOpen: openItem, onUser: openUser, onLogin: () => needLogin(), onLogout: logout });
     if (top && top.v === "notices") return h(Notices, { t, props, onClose: pop, onOpen: openItem, onUser: openUser });
+    if (top && top.v === "gate") return h(GatePanel, { t, props, onClose: pop });
+    if (top && top.v === "verify") return h(VerifyPanel, { t, props, onClose: pop });
     if (top && top.v === "login") return h(Login, { t, props, onClose: pop, onDone: u => { const next = after.current; after.current = null; setMe(u); setStack(s => s.slice(0, -1).concat(next ? [next] : [])); } });
     if (top && top.v === "upload") return h(Upload, { t, props, initialKind: kind || "theme", onClose: pop,
       onDone: (id, k) => { setStack([]); setSort("new"); if (k !== kind && kind) setKind(k); else load(0); } });
@@ -1162,7 +1303,7 @@
         right: h("div", { className: "flex items-center", style: { gap: 4 } }, bell,
           h("button", { "data-wk": "nestupbtn", onClick: () => me ? push({ v: "upload" }) : needLogin({ v: "upload" }), className: "active:opacity-60",
             style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", fontWeight: 600, color: t.bg, background: t.ink, borderRadius: 999, minHeight: 30, padding: "0 11px" } }, kind === "post" ? "＋ 写一帖" : "＋ 传一个")) }),
-      adminToken() ? h(WatchLine, { t }) : null,
+      adminToken() ? h(WatchLine, { t, onGate: () => push({ v: "gate" }), onVerify: () => push({ v: "verify" }) }) : null,
       h(Cubbies, { t, kind, onPick: setKind, fold: true }),
       h("div", { className: "shrink-0 flex items-center px-4 pb-3", style: { gap: 8 } },
         h("div", { "data-wk": "nestsearch", className: "flex-1 min-w-0 flex items-center", style: { gap: 6, background: t.bg2, border: "1px solid " + t.line, borderRadius: 12, padding: "0 11px" } },

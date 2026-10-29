@@ -10,7 +10,8 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 const src = (fs.readFileSync(path.join(__dirname, "..", "js", "screens.js"), "utf8") + "\n" + fs.readFileSync(path.join(__dirname, "..", "js", "screens-ui.js"), "utf8"));
-const CFG = src.slice(src.indexOf("function Config(props)"), src.indexOf("function ApiConfig"));
+// 方格纸抽成了 configSheet（搬家页也铺它，2026-10-28），Config 只叫它；两段连起来查
+const CFG = src.slice(src.indexOf("function configSheet(t)"), src.indexOf("function ApiConfig"));
 const CODE = CFG.split("\n").filter(l => !/^\s*\/\//.test(l)).join("\n");
 
 test("外壳是一张工程格纸，铺在最外层、顶栏透上来", () => {
@@ -25,7 +26,8 @@ test("外壳是一张工程格纸，铺在最外层、顶栏透上来", () => {
   assert.equal(bold, 2, "每五格那道重线不是横竖各一套");
   // ⚠️深色/自定义主题下 t.ink 未必是六位色号，拼透明度后缀会拼出废值、整层静默消失
   assert.match(CFG, /const _hex6 = \/\^#\[0-9a-f\]\{6\}\$\/i\.test\(String\(t\.ink \|\| ""\)\)/);
-  assert.match(CFG, /const sheet = !_hex6 \? \{ background: t\.bg \}/, "验不过没退回纯色");
+  assert.match(CFG, /return !_hex6 \? \{ background: t\.bg \}/, "验不过没退回纯色");
+  assert.match(CFG, /const sheet = configSheet\(t\);/);
   // 底不跟着滚：内容在动，底不该动
   assert.doesNotMatch(CFG, /backgroundAttachment/);
 });

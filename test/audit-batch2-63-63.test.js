@@ -80,7 +80,7 @@ test("凭证金库打不开要说出来，不能被 catch(() => 0) 吞掉", () =
 });
 
 test("「导出全部数据」旁边固定写着它不含什么", () => {
-  const seg = slice(screens, 'if (part === "backup")', 'button("导入备份恢复"');
+  const seg = slice(screens, 'if (part === "backup")', 'button("导入备份恢复（能一次多选）"');
   assert.match(seg, /不含：API 密钥/);
   ["一起读的书正文", "语音音频", "本地歌", "网易云 Cookie"].forEach(x =>
     assert.ok(seg.indexOf(x) > 0, "漏了一样：" + x));
