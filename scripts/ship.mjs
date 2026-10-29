@@ -49,6 +49,23 @@ const takeTheirsStampLines = p => {
   return !/^<<<<<<< /m.test(s);
 };
 
+// index.html 冲突：取 main 那份（号马上重写），但【这一边新加的 <script src="js/…">】要插回去——
+//   原来整份取 main，新文件的那一行就丢了，发出去的版本根本不加载它（char-transfer、ask-slip 两次都是这样丢的）
+const keepNewScripts = () => {
+  const key = l => (String(l).match(/src="(js\/[^"?]+)/) || [])[1];
+  const ours = sh("git show :2:index.html").split("\n");
+  const out = sh("git show " + REMOTE + "/main:index.html").split("\n");
+  const have = new Set(out.map(key).filter(Boolean));
+  ours.forEach((l, i) => {
+    const k = key(l);
+    if (!k || have.has(k)) return;
+    let j = i - 1; while (j >= 0 && !(key(ours[j]) && have.has(key(ours[j])))) j--;
+    const at = j >= 0 ? out.findIndex(x => key(x) === key(ours[j])) + 1 : out.length;
+    out.splice(at, 0, l); have.add(k);
+    console.log("index.html 合 main：保住新加的 " + k);
+  });
+  writeFileSync("index.html", out.join("\n") + "\n");
+};
 // 开跑前：上一次合到一半没收完、或者文件里还留着冲突标记，一律不动
 if (existsSync(GIT_DIR + "/MERGE_HEAD")) die("有一次合并还没收完（.git/MERGE_HEAD 在）：先收好或 git merge --abort 再跑");
 { const left = tryd("git grep -lE \"^(<<<<<<<|>>>>>>>) \" -- js index.html test scripts");
@@ -63,6 +80,7 @@ for (let round = 1; round <= 4; round++) {
   if (tryd("git merge -q " + REMOTE + "/main -m \"merge main\"") === null) {
     const conflicted = sh("git diff --name-only --diff-filter=U").split("\n").filter(Boolean);
     for (const f of conflicted) {
+      if (f === "index.html") { keepNewScripts(); continue; }
       if (VERSION_FILES.includes(f) && f !== "js/app.js") { sh("git show " + REMOTE + "/main:" + f + " > " + f, { shell: "/bin/bash" }); continue; }
       if (/assistant-manual\.js$|theme-studio\.js$|js\/app\.js$/.test(f) && takeTheirsStampLines(f)) continue;
       // 先把合了一半的状态退回去再停：不然下次一跑，开头那个 wip 提交会把带冲突标记的文件原样提交掉（2026-10-13 真出过）

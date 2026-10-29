@@ -12,7 +12,7 @@ const app = fs.readFileSync(path.join(root, "js/app.js"), "utf8");
 
 // 真跑那一份出生点：桩照【写存档的那段】写——pushGroupRich 收到什么就是存档里那条
 const mk = () => {
-  const i = app.indexOf("  const pushPoll = (groupId, title, options, anon, char) => {");
+  const i = app.indexOf("  const pushPoll = (");
   const j = app.indexOf("  const groupPoll = (groupId, target) => {");
   assert.ok(i > 0 && j > i, "抠不出发投票那一份");
   const rows = [];

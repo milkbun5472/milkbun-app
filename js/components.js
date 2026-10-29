@@ -10905,6 +10905,7 @@ function ChatThread({
   onBdayPlanOpen, // 生日暗中准备的信封：生日当天拆开进线下
   bdayToday,      // 今天是不是她（这张面具）的生日：是的话还封着的信封顶到聊天最上面（2026-10-29：刷上去找不着了）
   onDateAnswer,  // TA约她的那张卡：好／改天
+  onSendAsk, onDecideAsk,   // 请示批条（2026-10-29）
   onMyKin,   // ＋面板「亲属卡」（她 2026-10-07）：给TA开一张，开过了就是那张卡的账单页
   onDateInvite, invitePlaces, onSetMyPlace,   // ＋面板「邀约」（她 2026-10-02 转群友）：挑地方、定时间，发一张约会卡
   peekSneakOn, onToggleSneak,   // 递手机那张单子底下：允不允许TA偷偷翻
@@ -10984,6 +10985,7 @@ function ChatThread({
   // 递手机：勾掉的那几样＝她先藏起来了（TA看不到，但可能察觉少了点什么）
   const [peekOpen, setPeekOpen] = useState(false);
   const [inviteOpen, setInviteOpen] = useState(false);
+  const [askOpen, setAskOpen] = useState(false);
   const [peekAllow, setPeekAllow] = useState(() => (window.PEEK_PHONE_SECTIONS || []).map(s => s[0]).filter(k => k !== "daily"));   // 日常联系人默认不编，要了才勾
   const [peekHide, setPeekHide] = useState([]);
   const [peekAllMasks, setPeekAllMasks] = useState(false);
@@ -11056,7 +11058,7 @@ function ChatThread({
     });
     return out.slice(0, 5);
   }, [messages]);
-  const PANEL = [["location", "位置", "pin"], ["sticker", "表情包", "sticker"], ["photo", "照片", "picture"], ["voicemsg", "发语音", "wave"], ["voice", "语音通话", "handset"], ["video", "视频通话", "camcorder"], ["calllog", "通话记录", "clock"], ["chatsearch", "查找记录", "magnifier"], ["moments", "朋友圈", "grid"], ["transfer", "转账", "bill"], ["packet", "红包", "packet"], ["mykin", "亲属卡", "card"], ["pat", "拍一拍", "hand"], ["namecard", "名片", "contact"], ["peekphone", "给TA看手机", "mobile"], ["dateinvite", "邀约", "invite"], ["file", "文件", "file"], ["halfwin", "半窗", "halfwin"]].filter(([key]) => key !== "halfwin" || !!onHalfWin).filter(([key]) => room && !room.main ? !["moments", "transfer", "packet", "mykin", "peekphone", "dateinvite"].includes(key) : true).filter(([key]) => key !== "mykin" || !!onMyKin).filter(([key]) => key !== "dateinvite" || !!onDateInvite).filter(([key]) => key !== "peekphone" || !!onHandPhone);
+  const PANEL = [["location", "位置", "pin"], ["sticker", "表情包", "sticker"], ["photo", "照片", "picture"], ["voicemsg", "发语音", "wave"], ["voice", "语音通话", "handset"], ["video", "视频通话", "camcorder"], ["calllog", "通话记录", "clock"], ["chatsearch", "查找记录", "magnifier"], ["moments", "朋友圈", "grid"], ["transfer", "转账", "bill"], ["packet", "红包", "packet"], ["ask", "请示", "checklist"], ["mykin", "亲属卡", "card"], ["pat", "拍一拍", "hand"], ["namecard", "名片", "contact"], ["peekphone", "给TA看手机", "mobile"], ["dateinvite", "邀约", "invite"], ["file", "文件", "file"], ["halfwin", "半窗", "halfwin"]].filter(([key]) => key !== "halfwin" || !!onHalfWin).filter(([key]) => room && !room.main ? !["moments", "transfer", "packet", "ask", "mykin", "peekphone", "dateinvite"].includes(key) : true).filter(([key]) => key !== "ask" || !!onSendAsk).filter(([key]) => key !== "mykin" || !!onMyKin).filter(([key]) => key !== "dateinvite" || !!onDateInvite).filter(([key]) => key !== "peekphone" || !!onHandPhone);
   const sendRich = msg => {
     onSendRich({
       ts: Date.now(),
@@ -11115,6 +11117,9 @@ function ChatThread({
     } else if (k === "dateinvite") {
       setPanelOpen(false);
       setInviteOpen(true);
+    } else if (k === "ask") {
+      setPanelOpen(false);
+      setAskOpen(true);
     } else if (k === "moments") {
       setPanelOpen(false);
       onOpenMoments && onOpenMoments();
@@ -11678,6 +11683,16 @@ function ChatThread({
           status: st === "returned" ? (mine ? cName + " 没收，退回来了" : "你退回了这个红包") : st === "accepted" ? (mine ? cName + " 领了" : "已存进你的钱包") : mine ? "等 " + cName + " 拆开" : "",
           onOpen: async () => { onRespondTransfer(m.tid, true); return amt; }, onClose: () => setRpEnv(null) }) : null);
     }
+    // 请示批条（她 2026-10-29）：她递的等 TA 下一轮批；TA 递的她点「准 / 我出 / 驳」
+    if (m.kind === "ask") { const mineA = m.role === "user";
+      return h("div", { key: i, "data-wk": "cardrow", "data-me": mineA ? "1" : "0", "data-kind": "ask", className: "py-1 flex items-start gap-2 " + (mineA ? "justify-end" : "justify-start"),
+        onTouchStart: selMode ? undefined : () => startPress(i), onTouchEnd: endPress, onMouseDown: selMode ? undefined : () => startPress(i), onMouseUp: endPress, onMouseLeave: endPress,
+        onClick: selMode ? () => toggleSel(i) : undefined,
+        style: { outline: selMode && selIds.includes(i) ? `2px solid ${t.tint}` : "none", outlineOffset: 2, borderRadius: 8 } },
+        !mineA && charAvEl(),
+        h(AskSlipCard, { m: m, asker: mineA ? (meAv && meAv.name) || "我" : cName, money: n => mTight(n, character && character.id), allowPay: true,
+          onDecide: !mineA && onDecideAsk && !selMode ? st => onDecideAsk(m.aid, st) : undefined }),
+        mineA && meAvEl()); }
     if (m.kind === "transfer") return h("div", {
       key: i,
       onTouchStart: selMode ? undefined : () => startPress(i), onTouchEnd: endPress,
@@ -12305,7 +12320,7 @@ function ChatThread({
         setStickerOpen(false);
       }
     })
-  ), inviteOpen && h(DateComposeDialog, { places: invitePlaces || [], who: character.remark || character.name,
+  ), askOpen && h(AskComposeDialog, { who: character.remark || character.name, onCancel: () => setAskOpen(false), onSend: a => { setAskOpen(false); onSendAsk(a); } }), inviteOpen && h(DateComposeDialog, { places: invitePlaces || [], who: character.remark || character.name,
     onCancel: () => setInviteOpen(false),
     onSend: v => { setInviteOpen(false); onDateInvite(v.place, v); } }), peekOpen && h(PageSheet, { onClose: () => setPeekOpen(false) },
     h(Eyebrow, { style: { marginBottom: 6 } }, "把手机递给" + (character.remark || character.name)),
@@ -19321,6 +19336,7 @@ function GroupThread({
   onPatMember,
   canPeekMember,
   onStartPoll,
+  onStartAsk,   // 请示批条（2026-10-29）：长在投票卡身上，大家投准或驳
   onGenVotes,
   onVote,
   onSendRedPacket,
@@ -19546,7 +19562,7 @@ function GroupThread({
     else if (r === "notyours") toast && toast("这是专属红包，只有 " + (rp.toName || "被点名的那位") + " 能领");
   };
   // 群聊 + 面板：跟私聊对齐（匿名箱→投票、拍一拍→红包）
-  const PANEL = [["location", "位置", "pin"], ["sticker", "表情包", "sticker"], ["photo", "照片", "picture"], ["voicemsg", "发语音", "wave"], ["voice", "语音通话", "handset"], ["video", "视频通话", "camcorder"], ["calllog", "通话记录", "clock"], ["chatsearch", "查找记录", "magnifier"], ["poll", "投票", "bars"], ["transfer", "转账", "bill"], ["rp", "红包", "packet"], ...(onGroupDateInvite ? [["dateinvite", "邀约", "invite"]] : []), ["file", "文件", "file"]];
+  const PANEL = [["location", "位置", "pin"], ["sticker", "表情包", "sticker"], ["photo", "照片", "picture"], ["voicemsg", "发语音", "wave"], ["voice", "语音通话", "handset"], ["video", "视频通话", "camcorder"], ["calllog", "通话记录", "clock"], ["chatsearch", "查找记录", "magnifier"], ["poll", "投票", "bars"], ...(onStartAsk ? [["ask", "请示", "checklist"]] : []), ["transfer", "转账", "bill"], ["rp", "红包", "packet"], ...(onGroupDateInvite ? [["dateinvite", "邀约", "invite"]] : []), ["file", "文件", "file"]];
   const sendRich = msg => {
     onSendRich && onSendRich({ ts: Date.now(), ...msg });
     setPanel(false);
@@ -19562,6 +19578,7 @@ function GroupThread({
     else if (k === "calllog") setCallLogOpen(true);
     else if (k === "chatsearch") setSearchOpen(true);
     else if (k === "poll") setSheet("poll");
+    else if (k === "ask") setSheet("ask");
     else if (k === "transfer") setXferPick(true);
     else if (k === "rp") setSheet("rp");
     else if (k === "sticker") setSheet("sticker");
@@ -19787,6 +19804,11 @@ function GroupThread({
     if (m.kind === "datereceipt") return h(DateInviteCard, { key: i, m: m, character: memberById(m.senderId) || { name: m.senderName || "TA" },
       onGo: () => onGroupDateGo && onGroupDateGo(m),
       avatar: mAvatar(memberById(m.senderId) || { name: m.senderName, color: t.tint }) });
+    if (m.kind === "poll" && m.ask) return h("div", { key: i, "data-wk": "cardrow", "data-me": m.role === "user" ? "1" : "0", "data-kind": "ask", className: "py-1 flex items-start gap-2 " + (m.role === "user" ? "justify-end" : "justify-start") },
+      m.role !== "user" && mAvatar(memberById(m.senderId) || { name: m.senderName, color: t.tint }),
+      h(AskSlipCard, { m: m, asker: m.by, meName: meName, money: n => mTight(n, m.senderId),
+        onVote: m.role !== "user" ? opt => onVote(i, opt) : undefined }),
+      m.role === "user" && gMeAvEl(40, 10));
     if (m.kind === "poll") return h(PollCard, {
       key: i,
       poll: m,
@@ -20170,7 +20192,7 @@ function GroupThread({
     onDelete: onDeleteGroup,
     onClearChat: onClearGroupChat,
     onClose: () => setSheet(null)
-  }), sheet === "poll" && h(PollComposeSheet, {
+  }), sheet === "ask" && h(AskComposeDialog, { who: "", onCancel: () => setSheet(null), onSend: a => { setSheet(null); onStartAsk(a); } }), sheet === "poll" && h(PollComposeSheet, {
     onSubmit: (title, opts, anon) => {
       onStartPoll(title, opts, anon);
       setSheet(null);

@@ -20,7 +20,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v76.891";
+const APP_VERSION = "v76.897";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -5452,7 +5452,9 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   //   最近一拍在 OFFLINE_TOGETHER_MIN 分钟内 = 还面对面(锁线上/别分身)；更久 = 已散/挂着(放行线上互动)。
   const OFFLINE_TOGETHER_MIN = 45;
   const offlineTogetherSess = charId => {
-    const sess = (offlinesRef.current[charId] || []).find(s => s && !s.endTs && (s.msgs || []).length);
+    let list = offlinesRef.current[charId];
+    if (!list) { list = loadJSON("x_offline:" + charId, []); offlinesRef.current = { ...offlinesRef.current, [charId]: list }; }
+    const sess = (list || []).find(s => s && !s.endTs && (s.msgs || []).length);
     if (!sess) return null;
     let lastTs = 0; (sess.msgs || []).forEach(m => { if (m && (m.ts || 0) > lastTs) lastTs = m.ts; });
     return (lastTs > 0 && Date.now() - lastTs < OFFLINE_TOGETHER_MIN * 60000) ? sess : null;
@@ -11732,6 +11734,31 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     if (yes && pl.name && window.DatePlaces && !window.DatePlaces.list(charId).some(x => x.name === pl.name)) window.DatePlaces.add(pl.name, pl.note || "", charId, charId);
   };
   const pendingInviteOf = charId => [...(chatsRef.current[charId] || [])].reverse().find(m => m && m.kind === "dateinvite" && m.state === "pending" && Date.now() - (m.ts || 0) < 2 * 86400000);
+
+  // ---- 请示批条（她 2026-10-29）----
+  //   准＝递请示的人自己掏这笔；我出＝批的人替他出；驳＝不动钱。单聊的钱都在 settleAsk 这一处结。
+  const pendingAskOf = (charId, role) => [...(chatsRef.current[charId] || [])].reverse().find(m => m && m.kind === "ask" && m.role === (role || "user") && (m.status || "pending") === "pending");
+  const sendAsk = (char, a) => {
+    if (!char || !a || !a.what) return;
+    const m = { role: "user", kind: "ask", aid: "ask_" + Date.now(), what: a.what, reason: a.reason || "", amount: AskSlip.amountOf(a.amount), status: "pending", ts: Date.now(), read: true };
+    // 不自动让TA回：她可能还要补几句（施工规则/wait-for-her）；卡在历史里，下一轮TA自然看得到
+    pChat(char.id, p => [...p, { ...m, content: AskSlip.line(m, "我") }]);
+  };
+  const settleAsk = (charId, aid, status, judge, note) => {
+    const char = characters.find(c => c.id === charId);
+    const card = (chatsRef.current[charId] || []).find(m => m.kind === "ask" && m.aid === aid);
+    if (!char || !card || (card.status || "pending") !== "pending" || !AskSlip.VERDICT[status]) return false;
+    const amt = AskSlip.amountOf(card.amount), mine = card.role === "user", what = String(card.what || "").slice(0, 20);
+    // 这笔从她钱包出的（她递的准了／TA递的她说我出）：先看够不够
+    const herPays = amt && ((mine && status === "approved") || (!mine && status === "paid"));
+    if (herPays && balanceOf(maskKeyOf(charId)) < amt) { toast("钱包里的钱不够这一笔"); return false; }
+    if (herPays) changeWallet(-amt, mine ? "请示批准 · " + what : "替 " + char.name + " 出了「" + what + "」", "ask", { where: "单聊", charId });
+    else if (amt && status !== "rejected") adjustCharBalance(charId, -amt, mine ? "替你出了「" + what + "」" : "请示批准 · " + what, "ask");
+    const done = { ...card, status, judge: judge || "", note: String(note || "").trim().slice(0, 60) };
+    done.content = AskSlip.line(done, mine ? "我" : char.name);
+    pChat(charId, p => p.map(m => m.kind === "ask" && m.aid === aid ? done : m));
+    return true;
+  };
   // 旧版大家共用的那座城，按「约过谁」认领一次（by、去过记录 DatePlaces 自己看）
   const dpMigRef = useRef(false);
   useEffect(() => {
@@ -12015,6 +12042,9 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     if (laneBusy("c:" + chatKey)) return null;
     if (opts.proactive && !autoRefreshOn("proactive", charId)) return null;
     if (opts.proactive && currentlyTogetherWithChar(charId)) return null;
+    // 单人线下正演着（最近一拍够新）：生日、提醒、吃饭这些岔路也别从线上冒出来——人就在跟前（群友 2026-10-29「线下见面唠嗑了，他线上还在说在路上」）。
+    //   小房间里的那一路不算：房间本来就是另一处。
+    if (opts.proactive && !opts.room && offlineTogetherNow(charId)) return null;
     if (opts.proactive) {
       const outlet = opts.phoneAs ? "phone_as" : opts.dongnian ? "dongnian" : opts.bday ? "birthday" : opts.anniv ? "anniversary" : opts.bloom ? "garden_bloom" : opts.remind ? "reminder" : opts.health ? "health_meal" : opts.eyesAlert ? "eyes_alert" : opts.wx ? "weather" : "foreground_proactive";
       try { window.InnerLifeETidalShadow && window.InnerLifeETidalShadow.noteWouldHold(outlet, Date.now()); } catch (e) {}
@@ -12762,6 +12792,19 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       if (_inv) {
         openCaps.push("dateReply");
         capState.push("dateReply：" + inviteAskText(_inv, "她"));
+      }
+      // 请示（她 2026-10-29）：她递上来还没批的那张，这一轮TA批；TA自己有事想先问过她，也能递一张
+      const _askPend = !(room && !room.main) && pendingAskOf(charId);
+      if (_askPend) {
+        openCaps.push("askVerdict");
+        capState.push("askVerdict：" + uName + " 递了一张请示等你批——" + AskSlip.line(_askPend) + "。批不批照你这个人、你俩的关系和这件事本身来，不是默认准。"
+          + "批了填 askVerdict:{\"verdict\":\"准\",\"note\":\"盖在批条上的一句批语\"}，不批 verdict 填「驳」"
+          + (AskSlip.amountOf(_askPend.amount) ? "；准了这笔钱从她自己钱包出，你想替她出就填「我出」（从你钱包出）" : "")
+          + "。话照常写在 word 里。这一轮顾不上就省略，卡继续挂着。");
+      }
+      if (!_peekTurn && !(room && !room.main) && !_body && !pendingAskOf(charId, "assistant") && Math.random() < 0.25) {
+        openCaps.push("askNew");
+        capState.push("askNew：你自己要是有件事想先问过 " + uName + " 再做——照你这个人、你此刻的处境会有的事——可以递一张请示让她批：askNew:{\"what\":\"想干嘛\",\"reason\":\"理由\",\"amount\":要花的钱数（不花钱写 0）}。她准了钱从你钱包出，她也可能说她来出。没有这样的事就不填。");
       }
       // 想看她手机（她 2026-10-02：「怎么样可以主动触发他要求查手机」）：不定条件，交给TA自己觉得不对劲；一天最多一回
       //   只在吵架、生气的时候才有几率开口要（她 2026-10-02：「应该就比如说吵架的时候或者生气的时候才有几率触发要看吧」）
@@ -13948,7 +13991,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         parsed.call = null; parsed.recall = null; parsed.moment = null; parsed.momentComment = null; parsed.whisper = null;
         // 决定不回她的时候，也别同一口气跑去群里发言——那会读成刻意冷落，而模型多半不是那个意思
         parsed.toGroup = null;
-        parsed.pat = null; parsed.patSig = null; parsed.listenInvite = null; parsed.songSwitch = null; parsed.location = null; parsed.kinshipcard = null; parsed.herkinspend = null; parsed.shuaShare = null; parsed.block = false; parsed.loveLetter = null;
+        parsed.pat = null; parsed.patSig = null; parsed.listenInvite = null; parsed.songSwitch = null; parsed.location = null; parsed.kinshipcard = null; parsed.herkinspend = null; parsed.shuaShare = null; parsed.block = false; parsed.loveLetter = null; parsed.askVerdict = null; parsed.askNew = null;
       }
       // 角色自行撤回一句：先正常显示 ~1s，再变成「已撤回」（点开看内容+撤回想法）
       const recall = parsed.recall && parsed.recall.text && String(parsed.recall.text).toLowerCase() !== "null" ? parsed.recall : null;
@@ -14297,6 +14340,18 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
           window.DatePlaces.add(nm, nt, charId, charId);
           pChat(charId, p => [...p, { role: "system", kind: "system", content: (char.remark || char.name) + " 在你们的城市地图上钉了「" + nm + "」" + (nt ? "：" + nt : "") + "（去处 → 选 TA →「我们的城市 · 手绘」里看）", ts: Date.now() + 3 }]);
         }
+      }
+      if (parsed.askVerdict && !(room && !room.main)) {
+        const _av = parsed.askVerdict, _vs = String((_av && typeof _av === "object" ? _av.verdict : _av) || "");
+        const _st = /我出/.test(_vs) ? "paid" : /驳|不/.test(_vs) ? "rejected" : /准|批|同意|行|可以/.test(_vs) ? "approved" : null;
+        const _pa = pendingAskOf(charId);
+        if (_st && _pa && settleAsk(charId, _pa.aid, _st, char.remark || char.name, _av && typeof _av === "object" ? _av.note : "")) delivered = true;
+      }
+      if (parsed.askNew && typeof parsed.askNew === "object" && String(parsed.askNew.what || "").trim() && !(room && !room.main) && !pendingAskOf(charId, "assistant")) {
+        const _an = { role: "assistant", kind: "ask", aid: "ask_" + Date.now(), what: String(parsed.askNew.what).trim().slice(0, 40), reason: String(parsed.askNew.reason || "").trim().slice(0, 120),
+          amount: AskSlip.amountOf(parsed.askNew.amount), status: "pending", ts: Date.now(), turnId, read: false };
+        pChat(charId, p => [...p, { ..._an, content: AskSlip.line(_an, char.name) }]);
+        delivered = true;
       }
       if (parsed.dateReply && !(room && !room.main)) {
         const inv = pendingInviteOf(charId);
@@ -15692,7 +15747,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
 
       // 群里拍一拍（她 2026-10-25）：她在群里时能拍她或别的成员；旁观群里只能拍群里的人
       const gPatField = ",\"pat\":\"（可选）想用「拍一拍」戳谁一下就填那个人的名字（" + (imInGroup(group) ? gUName + " 或" : "") + "群里某位成员）；是一个动作，不是一句话，不用再在 text 里写「拍了拍」\"";
-      const system = groupBans({ echo: false, drama: !!gsFor(groupId).drama }) + "\n\n" + groupOnlineRuntime + "\n\n" + dir + commonTurn + gSameRoomHint + gBdayHint + gWhereHint + gTimeHint + gTopicHint + onlineRerollHint(rgOpts && rgOpts.rerollAvoid) + gNoticeHint + gDirHint + gEmoteHint + gSelfieHint + gDmHint + thoughtHint + npcStateHint + gBusyHint + gOfflineHint + gBiHint + gTfHint + gInviteHint + gPollHint + gRoleHint + gTitleHint + gLuckyHint + gWhisperHint + gKickInviteHint + (_gSchedNames.length ? "\n【改安排】" + _gSchedNames.map(n => "「" + n + "」").join("、") + "有今天的安排（写在各自那段里）。这一轮谁真的定下了从现在起要做的事跟自己的安排不一样，就在他自己那条发言对象里加 " + SCHED_NOW_SPEC + "只改他本人的；各人填各人的，没写安排的人不填。" : "") + gIdRule + "\n\n【成员】\n" + memberDesc + sameNameNote(members) + gGrowthHint + gMeBlock + gWishHint + gOnMeHint + gRelRule + (relLines ? "\n" + relLines : "") + (gWorld ? "\n\n【世界书】\n" + gWorld : "") + interop + preJoin + "\n\n【近期群聊】\n" + hist + rotateSpeakersNote(members, groupChatsRef.current[groupId]) + gQuoteCatalogText + gDramaTail + "\n\n【输出】只输出 JSON 数组，按发言先后顺序。普通发言 {\"name\":\"成员名\",\"text\":\"内容" + gBiTextSpec + "\",\"quoteId\":\"（可选）正式引用旧消息时填写上面目录里的 Q 编号；要引用的是这一轮里前面某人刚说的那条（目录里还没有），填 R 加它在本数组里的序号（R1 是第一条）；不引用就省略，禁止只抄原文猜作者\",\"emote\":\"（可选）想发的表情关键词\",\"voice\":\"（可选）填 true 表示这条作为语音消息发（会显示成语音气泡+转文字）——手上腾不出手打字、这段话打字太长、或者情绪上来了想让人听见声音时就这么发，不必等人问；发多发少按这个人自己的习惯来" + VOICE_PAUSE_MARK + voiceSoundHint() + "\",\"voiceEmo\":\"（可选，voice=true 时）这条语音的真实语气：happy/sad/angry/fearful/disgusted/surprised/neutral 之一，按说话人此刻真实情绪选，不看字面\"" + gCallField + gPatField + "" + gDmField + thoughtField + impressionField + "}；某成员想撤掉自己说过的一句，那条加 \"recall\":true 和 \"recallReason\":\"为什么撤\"：text 照原话抄前面几轮自己已经发出去的那句，就撤那一句；写的是这一轮新的话，会先正常显示一秒再变成已撤回——真人在群里撤回多半是小事：打错字、发漏了半句、手滑发重了、群里说重了想换个说法、话本来是要私发的发错了地方；「后悔、说漏嘴」只是其中一种。撤完通常紧跟一条改好的。几十条里偶尔一次；发红包 {\"name\":\"成员名\",\"redpacket\":{\"total\":金额数字,\"count\":份数,\"message\":\"祝福语\",\"to\":\"（可选）只给某一个人时填 Ta 的名字——专属红包，别人领不了，金额不拆；谁都能抢就省略这一栏\"}}——有好事想请客、群里谁生日或有喜事、哄人、认输赔罪、节日、或者纯粹想热闹一下的时候就发，**不必等人开口要**；钱是真的从这个人钱包里扣的，所以数目要跟 Ta 的处境对得上，手头紧的人发小的、或者干脆不发。群里要拿主意、要挑一个、要看看大家怎么想时，谁都可以自己发起一张投票：那条加 \"pollNew\":{\"title\":\"投票题目\",\"options\":[\"选项1\",\"选项2\"],\"anon\":true或false}（至少两个选项；anon 为匿名投票）。发起的人照自己的性子决定发不发、发什么，同一条里的 text 照常说话。name 必须逐字等于成员名单中的一个名字；用户名字绝不能出现在 name。";
+      const system = groupBans({ echo: false, drama: !!gsFor(groupId).drama }) + "\n\n" + groupOnlineRuntime + "\n\n" + dir + commonTurn + gSameRoomHint + gBdayHint + gWhereHint + gTimeHint + gTopicHint + onlineRerollHint(rgOpts && rgOpts.rerollAvoid) + gNoticeHint + gDirHint + gEmoteHint + gSelfieHint + gDmHint + thoughtHint + npcStateHint + gBusyHint + gOfflineHint + gBiHint + gTfHint + gInviteHint + gPollHint + gRoleHint + gTitleHint + gLuckyHint + gWhisperHint + gKickInviteHint + (_gSchedNames.length ? "\n【改安排】" + _gSchedNames.map(n => "「" + n + "」").join("、") + "有今天的安排（写在各自那段里）。这一轮谁真的定下了从现在起要做的事跟自己的安排不一样，就在他自己那条发言对象里加 " + SCHED_NOW_SPEC + "只改他本人的；各人填各人的，没写安排的人不填。" : "") + gIdRule + "\n\n【成员】\n" + memberDesc + sameNameNote(members) + gGrowthHint + gMeBlock + gWishHint + gOnMeHint + gRelRule + (relLines ? "\n" + relLines : "") + (gWorld ? "\n\n【世界书】\n" + gWorld : "") + interop + preJoin + "\n\n【近期群聊】\n" + hist + rotateSpeakersNote(members, groupChatsRef.current[groupId]) + gQuoteCatalogText + gDramaTail + "\n\n【输出】只输出 JSON 数组，按发言先后顺序。普通发言 {\"name\":\"成员名\",\"text\":\"内容" + gBiTextSpec + "\",\"quoteId\":\"（可选）正式引用旧消息时填写上面目录里的 Q 编号；要引用的是这一轮里前面某人刚说的那条（目录里还没有），填 R 加它在本数组里的序号（R1 是第一条）；不引用就省略，禁止只抄原文猜作者\",\"emote\":\"（可选）想发的表情关键词\",\"voice\":\"（可选）填 true 表示这条作为语音消息发（会显示成语音气泡+转文字）——手上腾不出手打字、这段话打字太长、或者情绪上来了想让人听见声音时就这么发，不必等人问；发多发少按这个人自己的习惯来" + VOICE_PAUSE_MARK + voiceSoundHint() + "\",\"voiceEmo\":\"（可选，voice=true 时）这条语音的真实语气：happy/sad/angry/fearful/disgusted/surprised/neutral 之一，按说话人此刻真实情绪选，不看字面\"" + gCallField + gPatField + "" + gDmField + thoughtField + impressionField + "}；某成员想撤掉自己说过的一句，那条加 \"recall\":true 和 \"recallReason\":\"为什么撤\"：text 照原话抄前面几轮自己已经发出去的那句，就撤那一句；写的是这一轮新的话，会先正常显示一秒再变成已撤回——真人在群里撤回多半是小事：打错字、发漏了半句、手滑发重了、群里说重了想换个说法、话本来是要私发的发错了地方；「后悔、说漏嘴」只是其中一种。撤完通常紧跟一条改好的。几十条里偶尔一次；发红包 {\"name\":\"成员名\",\"redpacket\":{\"total\":金额数字,\"count\":份数,\"message\":\"祝福语\",\"to\":\"（可选）只给某一个人时填 Ta 的名字——专属红包，别人领不了，金额不拆；谁都能抢就省略这一栏\"}}——有好事想请客、群里谁生日或有喜事、哄人、认输赔罪、节日、或者纯粹想热闹一下的时候就发，**不必等人开口要**；钱是真的从这个人钱包里扣的，所以数目要跟 Ta 的处境对得上，手头紧的人发小的、或者干脆不发。群里要拿主意、要挑一个、要看看大家怎么想时，谁都可以自己发起一张投票：那条加 \"pollNew\":{\"title\":\"投票题目\",\"options\":[\"选项1\",\"选项2\"],\"anon\":true或false}（至少两个选项；anon 为匿名投票）。发起的人照自己的性子决定发不发、发什么，同一条里的 text 照常说话。谁自己有件事想先让大家批（想买个东西、想请假、想换工作……照这个人会有的事），可以在那条加 \"askNew\":{\"what\":\"想干嘛\",\"reason\":\"理由\",\"amount\":要花的钱数（不花钱写 0）}，大家投准或驳，过半就准，准了钱从这个人钱包出；没有就不加。name 必须逐字等于成员名单中的一个名字；用户名字绝不能出现在 name。";
       // 触发用户内容：自上一条角色发言以来我说的话/旁白
       let tail = [];
       for (let i = gchat.length - 1; i >= 0; i--) {
@@ -16016,6 +16071,10 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
             if (choice !== null) castVote(groupId, poll.pollId, choice, spk.name);
           }
           if (spk && (item.mute || item.unmute || item.rename || item.title || item.kick || item.invite)) applyGroupRoleAct(groupId, spk, item, members);
+          if (item.askNew && typeof item.askNew === "object" && spk) {
+            postAsk(groupId, spk, item.askNew);
+            autoTook();
+          }
           if (item.pollNew && spk) {
             postPoll(groupId, spk, item.pollNew.title, item.pollNew.options, item.pollNew.anon === true);
             autoTook();
@@ -16476,7 +16535,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   const pollVoteBusyRef = useRef(new Set());
   // 一张投票卡只有这一个出生点：我发起和成员发起共用它，只差 role/by 和发起人
   //   （她 2026-09-13 报「群里我可以发投票，但是他们是不是发不了」）。
-  const pushPoll = (groupId, title, options, anon, char) => {
+  const pushPoll = (groupId, title, options, anon, char, ask) => {
     const t = String(title || "").trim();
     const opts = (Array.isArray(options) ? options : []).map(o => String(o == null ? "" : o).trim()).filter(Boolean);
     if (!t || opts.length < 2) return null;
@@ -16493,7 +16552,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         text: o,
         voters: []
       })),
-      content: "[投票] " + t
+      ...(ask ? { ask: { what: ask.what, reason: ask.reason || "", amount: AskSlip.amountOf(ask.amount) } } : {}),
+      content: ask ? AskSlip.line({ ask }, char ? char.name : "我") : "[投票] " + t
     });
     return pollId;
   };
@@ -16505,6 +16565,37 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     setTimeout(() => {
       genPollVotes(groupId, pollId);
     }, 900);
+  };
+  // 请示（她 2026-10-29）：一张固定「准 / 驳」的投票，题目就是那一行请示；投完过半就准
+  const askPollTitle = a => AskSlip.line(a).replace(/^\[请示\] /, "请示：");
+  const startAsk = (groupId, a) => {
+    if (!a || !a.what) return;
+    const pollId = pushPoll(groupId, askPollTitle(a), ["准", "驳"], false, null, a);
+    if (pollId) setTimeout(() => genPollVotes(groupId, pollId), 900);
+  };
+  const postAsk = (groupId, char, a) => {
+    if (!char || !a || !String(a.what || "").trim()) return;
+    const ask = { what: String(a.what).trim().slice(0, 40), reason: String(a.reason || "").trim().slice(0, 120), amount: AskSlip.amountOf(a.amount) };
+    const pollId = pushPoll(groupId, askPollTitle(ask), ["准", "驳"], false, char, ask);
+    if (pollId) setTimeout(() => genPollVotes(groupId, pollId), 1400);
+  };
+  // 结案：成员都投过了，而且（她递的，或者她也投过了）才结。准了钱从递请示的那个人钱包出；记忆不互通的群是过家家，不动钱
+  const settleGroupAsk = (groupId, pollId) => {
+    const poll = groupPoll(groupId, pollId);
+    if (!poll || !poll.ask || poll.askResult || !poll.askVoted) return;
+    const me = profile.name || "我";   // 跟 onVote 落票时同一个名字
+    const tl = AskSlip.tally(poll);
+    if (poll.role !== "user" && tl.yes.indexOf(me) < 0 && tl.no.indexOf(me) < 0) return;
+    const amt = AskSlip.amountOf(poll.ask.amount), what = String(poll.ask.what || "").slice(0, 20);
+    let unpaid = false;
+    if (tl.status === "approved" && amt && !groupClosed(groupId)) {
+      if (poll.role === "user") {
+        if (balanceOf(walletMaskFor({ groupId })) < amt) { unpaid = true; toast("钱包里的钱不够这一笔，请示准了但没扣"); }
+        else changeWallet(-amt, "请示批准 · " + what, "ask", { where: "群聊", groupId });
+      } else if (poll.senderId) adjustCharBalance(poll.senderId, -amt, "请示批准 · " + what, "ask");
+    }
+    const askResult = { status: tl.status, ts: Date.now(), ...(unpaid ? { unpaid: true } : {}) };
+    pGChat(groupId, rows => rows.map(m => m.pollId === pollId ? { ...m, askResult, content: AskSlip.line({ ...m, askResult }, m.by) } : m));
   };
   // 成员自己发起的投票：跟红包一条路子——先把卡发出来，再让别人陆陆续续来投
   const postPoll = (groupId, char, title, options, anon) => {
@@ -16596,6 +16687,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         }]);
       }
       if (!voted.size) throw new Error("未收到有效的成员选票：" + String(raw || "").slice(0, 320));
+      if (poll.ask) { pGChat(groupId, rows => rows.map(m => m.pollId === poll.pollId ? { ...m, askVoted: true } : m)); setTimeout(() => settleGroupAsk(groupId, poll.pollId), 300); }
     } catch (e) {
       console.warn("[群投票]", e);
       pGChat(groupId, rows => rows.map(m => m.pollId === poll.pollId ? { ...m, voteError: String(e && e.message || e).slice(0, 1000) } : m));
@@ -31934,6 +32026,53 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       toast("这一包没导成：" + (e && e.message || e) + "——数据还在，没有丢");
     }
   };
+  // 只带几个人走（群友 2026-10-29：分开装了四份秋秋机，想把几个人合到一份里）。规则在 js/char-transfer.js：
+  //   只挑跟这几个人有关的（聊天、线下、记忆、日记、日程、朋友圈、关系线、成员全是他们的群……），全局设置一律不带。
+  //   他们的头像和图跟着走（只带这份里真用到的图），文件一份就够。导入那头认 kind:"chars"，是【加进去】不是整机覆盖。
+  const doExportChars = async ids => {
+    if (!window.CharTransfer || !ids || !ids.length) return;
+    toast("在打包这几个人…");
+    const pack = await buildExportPack({ noImages: true });
+    if (!pack) return;
+    let full; try { full = JSON.parse(pack.text).data || {}; } catch (e) { toast("没打包成：读不出本机存档"); return; }
+    const p = window.CharTransfer.pick(full, ids);
+    if (!p.ids.length) { toast("没找到这几个人"); return; }
+    const vault = {}, selfies = {};
+    const refs = new Set(JSON.stringify(p.data).match(/iv_[A-Za-z0-9_-]+/g) || []);
+    try { if (refs.size && typeof idbVaultEntries === "function") for (const [k, b] of await idbVaultEntries()) if (refs.has(k)) { try { vault[k] = await blobToDataUrl(b); } catch (e) {} } } catch (e) {}
+    const idRe = new RegExp("(?<![A-Za-z0-9])(?:" + p.ids.map(x => x.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|") + ")(?![A-Za-z0-9])");
+    try { if (typeof idbImgEntries === "function") for (const [k, b] of await idbImgEntries()) if (idRe.test(k)) { try { selfies[k] = await blobToDataUrl(b); } catch (e) {} } } catch (e) {}
+    const out = { __archive: 1, kind: "chars", version: 1, exportedAt: Date.now(), names: p.names, ids: p.ids, groups: p.groups, data: p.data, vault, selfies };
+    const name = "chars-" + p.names.filter(Boolean).slice(0, 3).join("_").replace(/[\\/:*?"<>|\s]/g, "") + "-" + new Date().toISOString().slice(0, 10) + ".json";
+    try {
+      const via = await saveTextFile(name, JSON.stringify(out), "application/json");
+      if (via === "cancel") { toast("取消了，什么都没存"); return; }
+      toast(p.names.join("、") + " 打包好了" + savedWhere(via) + "。去另一份秋秋机里点「导入备份恢复」选它，会合并进去，不动那边原来的人");
+    } catch (e) { toast("没导成：" + ((e && e.message) || e) + "——数据还在，没有丢"); }
+  };
+  // 合并进来：只加不删。本机原来的人、聊天、设置一样不动；编号撞了给后进来的换号
+  const mergeCharsPack = async parsed => {
+    if (!window.CharTransfer) { toast("合并没准备好，刷新一下再试"); return false; }
+    const pack = await buildExportPack({ noImages: true });
+    let local = {}; try { local = JSON.parse(pack.text).data || {}; } catch (e) { toast("读不出本机存档，没合并"); return false; }
+    const r = window.CharTransfer.merge(local, parsed);
+    const failed = [];
+    for (const [k, v] of Object.entries(r.writes)) {
+      if (typeof isIdbTextKey === "function" && isIdbTextKey(k)) {
+        try { if (typeof idbTxtPut === "function") await idbTxtPut(k, v); window.__txtMirror && window.__txtMirror.set(k, v); } catch (e) { failed.push(k); }
+        continue;
+      }
+      try { localStorage.setItem(k, v); } catch (e) { failed.push(k); }
+    }
+    const put = async (rows, fn) => { for (const [k, durl] of Object.entries(rows || {})) { try { const b = dataUrlToBlob(durl); if (b) await fn(k, b); } catch (e) {} } };
+    if (typeof dataUrlToBlob === "function") {
+      if (typeof idbVaultPut === "function") await put(r.pack.vault, idbVaultPut);
+      if (typeof idbImgPut === "function") await put(r.pack.selfies, idbImgPut);
+    }
+    const renamed = Object.keys(r.map || {}).length;
+    toast("合并进来了：" + (parsed.names || []).join("、") + (renamed ? "（有 " + renamed + " 个编号跟这边撞了，换了新号，人和东西都在）" : "") + (failed.length ? "；有 " + failed.length + " 样没写进去（多半是空间满了）" : ""), 6000);
+    return true;
+  };
   const doExport = async () => {
     const pack = await buildExportPack({ noImages: true });
     if (!pack) return;
@@ -32135,6 +32274,12 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         reloadIn(800);
         return true;
       }
+      // 只带了几个人的那种（kind:"chars"）：加进来，不整机覆盖
+      if (parsed.__archive && parsed.kind === "chars" && parsed.data) {
+        const okM = await mergeCharsPack(parsed);
+        if (okM) reloadIn(1600);
+        return okM;
+      }
       if (!parsed.__archive || !parsed.data) {
         toast("格式不对，这不像是这个 app 的备份");
         return false;
@@ -32249,10 +32394,15 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       for (const f of arr) {
         const head = await readText(f, true);
         rows.push({ f, name: f.name || "", media: /"kind"\s*:\s*"media"/.test(head),
+          chars: /"kind"\s*:\s*"chars"/.test(head),
           part: Number((head.match(/"part"\s*:\s*(\d+)/) || [])[1]) || 0 });
       }
-      // ⚠️文字那一份一定排在图片包前面：它是整机覆盖，会先把图库清掉
-      rows.sort((a, b) => (a.media ? 1 : 0) - (b.media ? 1 : 0) || a.part - b.part);
+      // ⚠️顺序是三档，不是两档（2026-10-29：她要把旧地址四份存档合到新地址一份里）：
+      //   ① 整份备份（整机覆盖，会先把本机清光）② 图片包（给①补图）③ 只有几个人的包（往现有存档里【加】）。
+      //   ③ 要是排在①前面，刚合进来的人会被①整个抹掉——而「一次全选」的时候谁先谁后本来是看系统交回的顺序，
+      //   等于全靠运气。所以这里按档排死。
+      const rank = r => r.chars ? 2 : r.media ? 1 : 0;
+      rows.sort((a, b) => rank(a) - rank(b) || a.part - b.part);
       let ok = 0, bad = 0; const badNames = [];
       for (let i = 0; i < rows.length; i++) {
         if (rows.length > 1) toast("第 " + (i + 1) + "/" + rows.length + " 份…");
@@ -32600,6 +32750,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     // 小房间里不碰亲属卡（她 2026-10-07：「小房间不准刷卡」「其他几个也改了」）——跟转账同一道 runRoomAction
     onMyKin: () => runRoomAction(activeChar.id, "herkinspend", () => { setMyKinFor(activeChar.id); myKinBackRef.current = "thread"; setScreen("mykin"); }),
     onDateInvite: (place, v) => sendDateInvite(activeChar, place, v),
+    onSendAsk: a => sendAsk(activeChar, a),
+    onDecideAsk: (aid, st) => settleAsk(activeChar.id, aid, st, "我", ""),
     invitePlaces: invitePlacesFor(activeChar),
     // 发位置时勾了「把我的位置也改到这儿」（她 2026-10-14）：世界里的地点→挪那个世界里「我」的钉；别的→跟设置里手填地名同一条路
     onSetMyPlace: p => setMyPlaceFrom(p, activeChar.id),
@@ -33153,7 +33305,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     canPeekMember: c => memberStatePeekable(activeGroup.id, c),
     onStartPoll: (title, options, anon) => startPoll(activeGroup.id, title, options, anon),
     onGenVotes: idx => genPollVotes(activeGroup.id, idx),
-    onVote: (idx, optIdx) => castVote(activeGroup.id, idx, optIdx, profile.name || "我"),
+    onVote: (idx, optIdx) => { castVote(activeGroup.id, idx, optIdx, profile.name || "我"); const _pl = groupPoll(activeGroup.id, idx); if (_pl && _pl.ask) setTimeout(() => settleGroupAsk(activeGroup.id, _pl.pollId), 300); },
+    onStartAsk: a => startAsk(activeGroup.id, a),
     onSendRedPacket: (total, count, message, toId) => sendRedPacket(activeGroup.id, total, count, message, toId),
     onClaim: idx => claimRedPacket(activeGroup.id, idx),
     onSummarize: () => summarizeGroupToMem(activeGroup.id),
@@ -35202,6 +35355,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     worlds: worlds,
     onBack: goHome,
     onExport: doExport,
+    onExportChars: doExportChars,
     onCopyExport: doCopyExport,
     mediaParts: mediaParts ? { n: mediaParts.parts.length, done: mediaParts.done } : null,
     onExportMedia: doExportMedia,
@@ -35304,7 +35458,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   const _mv = typeof window !== "undefined" ? window.QQ_MOVE : null;
   // MoveShell 在 screens 那一组（用到才加载），走 LazyGate 等它到位再画
   if (_mv && _mv.host === location.hostname && Date.now() >= _mv.at) {
-    body = h(LazyGate, { key: "lazy-move", group: "screens", zh: "秋秋搬家了", render: () => h(window.MoveShell, { to: _mv.to, dataProps: { characters, onExport: doExport, mediaParts: mediaParts ? { n: mediaParts.parts.length, done: mediaParts.done } : null,
+    body = h(LazyGate, { key: "lazy-move", group: "screens", zh: "秋秋搬家了", render: () => h(window.MoveShell, { to: _mv.to, dataProps: { characters, onExport: doExport, onExportChars: doExportChars, mediaParts: mediaParts ? { n: mediaParts.parts.length, done: mediaParts.done } : null,
       onExportMedia: doExportMedia, onCopyExport: doCopyExport, copyParts, onImportText: doImportPasted, inAppBrowser: inAppBrowser(), onImport: doImport, toast } }) });
   }
   const _safeTop = { height: screen === "home" ? "env(safe-area-inset-top)" : 0 };
