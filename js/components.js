@@ -8775,8 +8775,10 @@ function ProfileSheet({
         className: "active:opacity-70", style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.tint, border: "1px solid " + t.line, borderRadius: 999, padding: "4px 12px" } }, "设为主面具"),
       h("button", { onClick: () => { onDeleteMask && onDeleteMask(editId); setEditId(""); loadInto(profile); },
         className: "active:opacity-70", style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, padding: "4px 6px" } }, "删掉这张")) : null);
+  // 关掉也算存（她 2026-10-29 转群友：换了面具头像、在「谁认得这张」里点了 uu，聊天里还是默认紫头像——
+  //   「谁认得」一点就生效，头像却要点 ✓ 才存，划走就丢了。两样一个规矩：关掉面板时把正在改的这张也存下）
   return /*#__PURE__*/React.createElement(Sheet, {
-    onClose: onClose,
+    onClose: () => { try { commit(); } catch (e) {} onClose && onClose(); },
     tall: true
   }, /*#__PURE__*/React.createElement("div", {
     className: "flex items-center justify-between mb-2"
