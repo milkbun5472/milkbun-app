@@ -10692,6 +10692,25 @@ function wmoToText(code) {
   return "CLOUDY";
 }
 // 抓本地时间/天气/城市：定位→open-meteo(免key)拿天气→反查城市名。任何一步失败都降级，不抛错。
+// ── 自动取定位：只在【她已经授权过】的时候静默取（群里 2026-10-28 报：换了地址以后每次打开都弹一次系统询问）──
+//   病根不在哪一页：是主屏地图组件和写日记那一页各自直接 getCurrentPosition()，于是【开机就替她按下了要定位】。
+//   换个地址＝浏览器把权限从头问一遍；选过「本次允许」的人，每打开一次就被问一次。
+//   系统那个询问框只该由她自己按出来（设置 →「我在哪」、地图页里那颗定位键），自动的地方一个都不许弹。
+//   所以自动那几处一律问这一份：查得出已经授权才取；没授权、问不出来、老浏览器查不了，一律安静返回 null，
+//   退回她在设置里填的那个位置。
+function geoIfGranted(opts) {
+  return new Promise(res => {
+    try {
+      if (typeof navigator === "undefined" || !navigator.geolocation) return res(null);
+      if (!navigator.permissions || !navigator.permissions.query) return res(null);
+      navigator.permissions.query({ name: "geolocation" }).then(st => {
+        if (!st || st.state !== "granted") return res(null);
+        navigator.geolocation.getCurrentPosition(p => res(p), () => res(null),
+          Object.assign({ timeout: 8000, maximumAge: 600000 }, opts || {}));
+      }).catch(() => res(null));
+    } catch (e) { res(null); }
+  });
+}
 async function fetchLocalEnv() {
   const out = { weather: "", location: "", coords: null };
   // ⚠️她手填过位置就按那份来（v72.66）：这儿原来自己读一次 GPS，
@@ -10708,10 +10727,7 @@ async function fetchLocalEnv() {
     }
   } catch (e) {}
   const mine = geoNow();
-  const pos = mine && mine.manual ? { coords: { latitude: mine.lat, longitude: mine.lng } } : await new Promise(res => {
-    if (!navigator.geolocation) return res(null);
-    navigator.geolocation.getCurrentPosition(p => res(p), () => res(null), { timeout: 8000, maximumAge: 600000 });
-  });
+  const pos = mine && mine.manual ? { coords: { latitude: mine.lat, longitude: mine.lng } } : await geoIfGranted();
   if (!pos) return out;
   const lat = pos.coords.latitude, lon = pos.coords.longitude;
   out.coords = Math.abs(lat).toFixed(3) + "°" + (lat >= 0 ? "N" : "S") + ", " + Math.abs(lon).toFixed(3) + "°" + (lon >= 0 ? "E" : "W");
