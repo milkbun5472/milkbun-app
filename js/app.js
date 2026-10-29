@@ -13717,6 +13717,10 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       if (_oneLong && words.length > 1 && words.every(w => typeof w === "string")) words = [words.join("\n\n")];
       // ①.5 剥掉模型偶尔照抄进每条气泡开头的历史时间标注〔今天07:57〕（她 2026-07-13 截图）
       words = words.map(stripAiStamp).map(stripEchoedMeta).filter(Boolean);
+      // 照抄了「名字：」那种剧本格式（2026-10-29 群友截图：每条都是「温栩年：刚下班」）——只摘【TA 自己的名字】打头的，
+      //   「注意：」「重点：」这种正常话不碰
+      { const _selfNm = [char.name, char.remark].map(x => String(x || "").trim()).filter(Boolean).map(x => x.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
+        if (_selfNm.length) { const _selfRe = new RegExp("^\\s*(?:" + _selfNm.join("|") + ")\\s*[:：]\\s*"); words = words.map(w => typeof w === "string" ? w.replace(_selfRe, "") : w).filter(Boolean); } }
       // 照抄通话邀请卡的字当成一句话发（她 2026-10-06 截图：气泡里就是「〔语音通话邀请〕」）——
       //   这是它想打电话却没填 call。摘掉那一句，替它把电话真的打过来（这一轮房间不让打就只摘不打）。
       const CALL_TEXT = /^\s*[〔【\[（(]\s*(语音|视频)通话(?:邀请)?\s*[〕】\]）)]\s*$/;
