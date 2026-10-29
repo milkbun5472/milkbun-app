@@ -259,7 +259,7 @@
   //   CSS「放哪儿」那三格、上传页挑类别也是这面柜子（items / noAll 传进来）。
   // 管理中才有的一行：新消息提醒最近一次查得怎么样（她 2026-10-19「我还是收不到小窝提醒」——先让它看得见）
   //   查的那一套在 js/nest-watch.js；这一行只读它最近一次的结果，「现在查一次」就地再查一遍
-  function WatchLine({ t, onGate }) {
+  function WatchLine({ t, onGate, onVerify }) {
     const [, redraw] = useState(0);
     const [busy, setBusy] = useState(false);
     const W = window.NestWatch, L = W && W.lastCheck ? W.lastCheck() : null;
@@ -270,6 +270,8 @@
     const now = async () => { setBusy(true); try { await W.check(); W.markSeen(); } catch (e) {} setBusy(false); redraw(x => x + 1); };
     return h("div", { "data-wk": "nestwatchline", className: "shrink-0 flex items-center px-4", style: { gap: 8, paddingBottom: 6 } },
       h("div", { className: "flex-1 min-w-0", style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: L && !L.ok ? "#a0383f" : t.fog, lineHeight: 1.5 } }, txt),
+      onVerify ? h("button", { "data-wk": "nestverifybtn", onClick: onVerify, className: "shrink-0 active:opacity-60",
+        style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.ink, border: "1px solid " + t.line, borderRadius: 999, minHeight: 26, padding: "0 9px" } }, "验") : null,
       onGate ? h("button", { "data-wk": "nestgatebtn", onClick: onGate, className: "shrink-0 active:opacity-60",
         style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.ink, border: "1px solid " + t.line, borderRadius: 999, minHeight: 26, padding: "0 9px" } }, "门") : null,
       h("button", { "data-wk": "nestwatchnow", disabled: busy, onClick: now, className: "shrink-0 active:opacity-60",
@@ -771,6 +773,51 @@
           d.devices.length < d.total && !q ? h("div", { style: { textAlign: "center", marginTop: 12 } }, pill(false, "再往下看", () => load(q, true), "nestgatemore")) : null)));
   }
 
+  // ── 进群验证（她 2026-10-28）：群链接、开关、验过的记录；只有管理口令看得到 ──────
+  //   验证页是另一个站（公开的，发给还没进群的人）。图和她们的 API 密钥都不经过服务器，
+  //   所以这儿看到的只有：什么时候、过没过、读出来多大、用的哪个站和哪个模型。
+  function VerifyPanel({ t, props, onClose }) {
+    const [d, setD] = useState(null), [err, setErr] = useState("");
+    const load = more => api("/verify/log?off=" + (more ? (d && d.rows.length) || 0 : 0))
+      .then(x => { setErr(""); setD(prev => more && prev ? Object.assign({}, x, { rows: prev.rows.concat(x.rows || []) }) : x); })
+      .catch(e => setErr(e.message));
+    useEffect(() => { load(); }, []);
+    const WHY = { ok: "过了", minor: "不到 18", nobirth: "没读出出生日期", nonce: "暗号对不上", bad: "模型没按格式回话", nolink: "群链接还没设" };
+    const when = ms => { const x = new Date(ms); return (x.getMonth() + 1) + "·" + x.getDate() + " " + x.getHours() + ":" + String(x.getMinutes()).padStart(2, "0"); };
+    const small = { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.6 };
+    const pill = (on, txt, fn, wk) => h("button", { "data-wk": wk, onClick: fn, className: "active:opacity-60 shrink-0",
+      style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: on ? t.bg : t.ink, background: on ? t.ink : "transparent", border: "1px solid " + t.ink, borderRadius: 999, minHeight: 28, padding: "0 10px" } }, txt);
+    const setLink = () => requestAppPrompt("QQ 群链接", "验过的人看到的就是这一条。留空＝暂时不给链接。", d && d.link || "", async v => {
+      try { await api("/verify/conf", { method: "POST", body: { link: String(v || "").trim() } }); props.toast("存好了"); load(); } catch (e) { props.toast(e.message); } });
+    const setOn = async on => {
+      try { await api("/verify/conf", { method: "POST", body: { on } }); props.toast(on ? "开了：验证页能用了" : "关了：验证页会说「去群里找群主」"); load(); } catch (e) { props.toast(e.message); } };
+    return h("div", { "data-wk": "nestverify", className: "h-full flex flex-col", style: shell(t) },
+      h(Head, { zh: "进群验证", onBack: onClose, bg: "transparent" }),
+      h("div", { className: "flex-1 min-h-0 overflow-y-auto px-4 pt-3 pb-8" },
+        err ? h("div", { style: Object.assign({}, small, { padding: "24px 4px", fontSize: "calc(13px * var(--app-fs, 1))" }) }, err) :
+        !d ? h("div", { style: Object.assign({}, small, { padding: "24px 4px", fontSize: "calc(13px * var(--app-fs, 1))" }) }, "在拿……") :
+        h("div", null,
+          h("div", { "data-wk": "nestverifyconf", style: { background: t.bg2, border: "1px solid " + t.line, borderRadius: 14, padding: "12px 12px", marginBottom: 12 } },
+            h("div", { className: "flex items-center justify-between", style: { gap: 8 } },
+              h("div", { className: "min-w-0", style: { fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", color: t.ink } }, d.link ? "群链接已经设好" : "还没设群链接：验过了也拿不到"),
+              pill(false, d.link ? "换链接" : "设链接", setLink, "nestverifylink")),
+            d.link ? h("div", { style: Object.assign({}, small, { marginTop: 4, wordBreak: "break-all" }) }, d.link) : null,
+            h("div", { className: "flex items-center justify-between", style: { gap: 8, marginTop: 10 } },
+              h("div", { style: small }, d.on ? "验证页开着" : "验证页关着：谁来都只看到「去群里找群主」"),
+              pill(d.on, d.on ? "开着" : "打开", () => setOn(!d.on), "nestverifyon")),
+            h("div", { style: Object.assign({}, small, { marginTop: 8 }) },
+              "今天来了 " + d.dayTotal + " 次，过了 " + (d.dayPassed || 0) + "；一共 " + d.total + " 次，过了 " + (d.passed || 0) + "。"),
+            h("div", { style: Object.assign({}, small, { marginTop: 4 }) }, "截图和她们的密钥都不到这儿来，所以这儿看不到是谁。")),
+          !d.rows.length ? h("div", { style: Object.assign({}, small, { padding: "28px 4px", textAlign: "center" }) }, "还没有人来验过") :
+          d.rows.map(r => h("div", { key: r.id, "data-wk": "nestverifyrow", "data-on": r.pass ? "1" : "0", className: "flex items-center",
+              style: { gap: 8, padding: "9px 2px", borderBottom: "1px solid " + t.line } },
+            h("div", { className: "flex-1 min-w-0" },
+              h("div", { className: "truncate", style: { fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", color: r.pass ? t.ink : t.fog } },
+                (r.pass ? "✓ " : "✗ ") + (WHY[r.reason] || r.reason) + (r.age != null ? " · " + r.age + " 岁" : "")),
+              h("div", { className: "truncate", style: small }, when(r.at) + (r.station ? " · " + r.station : "") + (r.model ? " · " + r.model : ""))))),
+          d.rows.length < d.total ? h("div", { style: { textAlign: "center", marginTop: 12 } }, pill(false, "再往下看", () => load(true), "nestverifymore")) : null)));
+  }
+
   // ── 登录／注册／用恢复码改密码；注册和恢复之后先给她看恢复码，确认存好了才进 ──────
   function Login({ t, props, onClose, onDone }) {
     const [mode, setMode] = useState("login"), [name, setName] = useState(""), [pw, setPw] = useState(""), [code, setCode] = useState("");
@@ -1209,6 +1256,7 @@
     if (top && top.v === "user") return h(Profile, { key: top.id, t, uid: top.id, me, props, onClose: pop, onOpen: openItem, onUser: openUser, onLogin: () => needLogin(), onLogout: logout });
     if (top && top.v === "notices") return h(Notices, { t, props, onClose: pop, onOpen: openItem, onUser: openUser });
     if (top && top.v === "gate") return h(GatePanel, { t, props, onClose: pop });
+    if (top && top.v === "verify") return h(VerifyPanel, { t, props, onClose: pop });
     if (top && top.v === "login") return h(Login, { t, props, onClose: pop, onDone: u => { const next = after.current; after.current = null; setMe(u); setStack(s => s.slice(0, -1).concat(next ? [next] : [])); } });
     if (top && top.v === "upload") return h(Upload, { t, props, initialKind: kind || "theme", onClose: pop,
       onDone: (id, k) => { setStack([]); setSort("new"); if (k !== kind && kind) setKind(k); else load(0); } });
@@ -1223,7 +1271,7 @@
         right: h("div", { className: "flex items-center", style: { gap: 4 } }, bell,
           h("button", { "data-wk": "nestupbtn", onClick: () => me ? push({ v: "upload" }) : needLogin({ v: "upload" }), className: "active:opacity-60",
             style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", fontWeight: 600, color: t.bg, background: t.ink, borderRadius: 999, minHeight: 30, padding: "0 11px" } }, kind === "post" ? "＋ 写一帖" : "＋ 传一个")) }),
-      adminToken() ? h(WatchLine, { t, onGate: () => push({ v: "gate" }) }) : null,
+      adminToken() ? h(WatchLine, { t, onGate: () => push({ v: "gate" }), onVerify: () => push({ v: "verify" }) }) : null,
       h(Cubbies, { t, kind, onPick: setKind, fold: true }),
       h("div", { className: "shrink-0 flex items-center px-4 pb-3", style: { gap: 8 } },
         h("div", { "data-wk": "nestsearch", className: "flex-1 min-w-0 flex items-center", style: { gap: 6, background: t.bg2, border: "1px solid " + t.line, borderRadius: 12, padding: "0 11px" } },

@@ -5,7 +5,8 @@ const i = nest.indexOf("function GatePanel("), j = nest.indexOf("function Login(
 const G = nest.slice(i, j);
 test("门的名单只在管理中露面：入口挂在管理那一行，页面走管理口令那几条路", () => {
   assert.ok(i > 0 && j > i, "抠不出 GatePanel");
-  assert.match(nest, /adminToken\(\) \? h\(WatchLine, \{ t, onGate: \(\) => push\(\{ v: "gate" \}\) \}\) : null,/);
+  assert.match(nest, /adminToken\(\) \? h\(WatchLine, \{ t,/, "门的入口不在管理那一行上");
+  assert.match(nest, /onGate: \(\) => push\(\{ v: "gate" \}\)/);
   assert.match(nest, /if \(top && top\.v === "gate"\) return h\(GatePanel,/);
   for (const p of ['"/gate/list?q="', '"/gate/conf"', '"/gate/device"']) assert.ok(G.includes(p), "少了 " + p);
 });
