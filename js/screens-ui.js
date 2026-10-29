@@ -6685,6 +6685,40 @@ function noticeLine(t, line, k) {
   return h("p", { key: k, style: { margin: "0 0 8px", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.sub, lineHeight: 1.75, whiteSpace: "pre-line" } },
     parts.map((x, j) => j % 2 ? h("b", { key: j, style: { color: t.accent || t.ink, fontWeight: 600 } }, x) : x));
 }
+// 没看过的公告（她 2026-10-29：「把搬家公告显示在更新日志呢，点击一次就没了，以后公告也是」）：
+//   公告原来只有开机弹窗那一条路，搬家那则还按天换 id、一天弹一次，像催命。
+//   现在新公告整则摊在「更新了什么」最上面，自己点「知道了」才收起来——看不看、什么时候看，由她定。
+//   收起来之后不是没了，掉进下面的「秋秋的公告」里，什么时候想翻都在。
+//   记的是 qq_ 键，跟弹窗共用同一个：弹窗里按过「收到了」的，这儿不会再出现一次。
+const NOTICE_SEEN = "qq_noticeSeen";
+function noticeSeenIds() { try { return (localStorage.getItem(NOTICE_SEEN) || "").split(",").filter(Boolean); } catch (e) { return []; } }
+function markNoticeSeen(id) {
+  try { const a = noticeSeenIds(); if (a.indexOf(id) < 0) a.push(id); localStorage.setItem(NOTICE_SEEN, a.slice(-20).join(",")); } catch (e) {}
+}
+// 设置首页那颗红点读它：有没看过的公告也该亮，不是只看日志有没有新的一天
+function noticeUnreadCount() {
+  const list = Array.isArray(window.QQ_NOTICES) ? window.QQ_NOTICES : [];
+  const seen = noticeSeenIds();
+  return list.filter(n => n && n.id && seen.indexOf(n.id) < 0).length;
+}
+function NoticeUnread() {
+  const t = useTheme();
+  const list = Array.isArray(window.QQ_NOTICES) ? window.QQ_NOTICES : [];
+  // 进来时定一次：点「知道了」之前，这一则不许因为别处重画就消失
+  const [seen, setSeen] = useState(noticeSeenIds);
+  const unread = list.filter(n => n && n.id && seen.indexOf(n.id) < 0);
+  if (!unread.length) return null;
+  return h("div", { "data-wk": "clnew" }, unread.map(n =>
+    h("div", { key: n.id, "data-wk": "clnewone", style: { background: t.bg2, border: "1px solid " + (t.accent || CFG_LINE(t)), borderRadius: 3, padding: "14px 15px 10px", marginBottom: 12 } },
+      h("div", { style: { display: "flex", alignItems: "baseline", gap: 8, marginBottom: 8 } },
+        h("span", { "data-wk": "clnewtitle", style: { flex: 1, minWidth: 0, fontFamily: F_DISPLAY, fontSize: "calc(16px * var(--app-fs, 1))", color: t.ink } }, n.title),
+        n.d ? h("span", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, flexShrink: 0 } }, changelogDay(n.d)) : null),
+      (n.lines || []).map((ln, k) => noticeLine(t, ln, k)),
+      n.sign ? h("div", { style: { textAlign: "right", fontFamily: F_DISPLAY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.fog, marginBottom: 6 } }, n.sign) : null,
+      h("button", { "data-wk": "clnewok", onClick: () => { markNoticeSeen(n.id); setSeen(noticeSeenIds()); },
+        className: "w-full active:opacity-70",
+        style: { minHeight: 42, borderRadius: 3, border: "1px solid " + CFG_LINE(t), background: "transparent", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.sub } }, "知道了"))));
+}
 function NoticeArchive() {
   const t = useTheme();
   const list = Array.isArray(window.QQ_NOTICES) ? window.QQ_NOTICES : [];
@@ -6752,6 +6786,7 @@ function ChangelogView({ list }) {
   useEffect(() => { if (all[0]) { try { localStorage.setItem(CHANGELOG_SEEN, all[0].d); } catch (e) {} } }, []);
   const toggle = d => setOpen(o => Object.assign({}, o, { [d]: !o[d] }));
   return h("div", { "data-wk": "cldays", style: { paddingTop: 12, paddingBottom: 30 } },
+    words.length ? null : h(NoticeUnread, null),
     words.length ? null : h(NoticeArchive, null),
     h("input", { "data-wk": "clsearch", type: "search", value: q, onChange: e => setQ(e.target.value), placeholder: "搜一样东西，比如 片刻、亲属卡、照相馆",
       style: { width: "100%", background: t.bg2, color: t.ink, border: "1px solid " + t.line, borderRadius: 999, padding: "10px 14px", outline: "none", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", marginBottom: 10 } }),
@@ -7061,7 +7096,7 @@ function Config(props) {
   //   最新那天比这台手机上次点开时新，就亮一个红点；点进去就算看过（qq_ 键：本机标记，不进存档不上云）。
   const clList = Array.isArray(window.QQ_CHANGELOG) ? window.QQ_CHANGELOG : [];
   if (clList.length) homeRows.push({ key: "log", char: "新", title: "更新了什么", tint: "#b0705a",
-    dot: changelogUnseen(clList), state: () => "最近一次：" + changelogDay(clList[0].d) + " · 记了 " + clList.length + " 天" });
+    dot: changelogUnseen(clList) || noticeUnreadCount() > 0, state: () => "最近一次：" + changelogDay(clList[0].d) + " · 记了 " + clList.length + " 天" });
   if (toyUnlocked && typeof ToyConfig === "function")
     homeRows.push({ key: "toy", char: "件", title: "本地配件", tint: "#a8564a", state: () => "只在这台机器上" });
   const section = child => h("div", { style: { paddingTop: 4, paddingBottom: 30 } }, h(ConfigPanel, null, child));
