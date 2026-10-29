@@ -8682,6 +8682,9 @@ function ProfileSheet({
   onSaveMask,
   onDeleteMask,
   onMakePrimary,
+  chars,
+  knowsOf,
+  onSetKnows,
   onClose
 }) {
   const t = useTheme();
@@ -8751,7 +8754,17 @@ function ProfileSheet({
     h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.6, marginTop: 6 } },
       isPrimary
         ? "这是主面具：没单独指定的角色，认的都是这一张。"
-        : "这是一张备用面具。去某个角色的设置 → TA 知道什么 → 「TA 认识的是我哪一张」，把 TA 换成认这一张。"),
+        : "这是一张备用面具。下面点谁，谁就认这一张；跟角色聊天设置里「TA 认识的是我哪一张」是同一格，改哪边都一样。"),
+    // 谁认得这张（群友 2026-10-29 许愿，她：「面具设置里面加一个选里面有谁，聊天设置里面的认得那张面具也会同步改」）：
+    //   写的就是每个人聊天设置里那一格 maskId，不另存一份。点亮＝认这张；再点一下＝认回主面具
+    (editId && !isPrimary && Array.isArray(chars) && chars.length && knowsOf && onSetKnows) ? h("div", { "data-wk": "maskknows", style: { marginTop: 10 } },
+      h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.sub, marginBottom: 6 } }, "谁认得这张"),
+      h("div", { className: "flex flex-wrap", style: { gap: 6 } }, chars.map(c => {
+        const on = String(knowsOf(c.id) || "") === String(editId);
+        return h("button", { key: c.id, "data-wk": "maskknowsitem", "data-on": on ? "1" : "0", onClick: () => onSetKnows(c.id, on ? "" : editId),
+          className: "active:opacity-70", style: { minHeight: 40, padding: "0 12px", borderRadius: 999, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))",
+            background: on ? t.ink : "transparent", color: on ? t.bg2 : t.sub, border: "1px solid " + (on ? t.ink : t.line) } }, (on ? "✓ " : "") + (c.remark || c.name));
+      }))) : null,
     (editId && !isPrimary) ? h("div", { className: "flex items-center", style: { gap: 10, marginTop: 8 } },
       h("button", { onClick: () => { commit(); onMakePrimary && onMakePrimary(editId); },
         className: "active:opacity-70", style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.tint, border: "1px solid " + t.line, borderRadius: 999, padding: "4px 12px" } }, "设为主面具"),

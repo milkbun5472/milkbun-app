@@ -35867,6 +35867,10 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     // 设为主面具＝把这一张和 x_profile 的内容【对调】：
     // 全库几十处读的都是 x_profile，对调之后它们一个字都不用改。
     primaryId: maskPrimary,
+    // 谁认得这张：读写的就是每个人聊天设置里那一格 maskId（同一个出口 patchChatSetting）
+    chars: liveChars,
+    knowsOf: id => String(settingsFor(id).maskId || ""),
+    onSetKnows: (id, maskId) => patchChatSetting(id, { maskId: maskId || "" }),
     // 设为主面具：只改「哪一张是主」，不搬 id。
     // x_profile 跟着主面具走（它是给全库那几十处读的镜像）。
     onMakePrimary: id => {
