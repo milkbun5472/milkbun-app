@@ -5452,7 +5452,9 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   //   最近一拍在 OFFLINE_TOGETHER_MIN 分钟内 = 还面对面(锁线上/别分身)；更久 = 已散/挂着(放行线上互动)。
   const OFFLINE_TOGETHER_MIN = 45;
   const offlineTogetherSess = charId => {
-    const sess = (offlinesRef.current[charId] || []).find(s => s && !s.endTs && (s.msgs || []).length);
+    let list = offlinesRef.current[charId];
+    if (!list) { list = loadJSON("x_offline:" + charId, []); offlinesRef.current = { ...offlinesRef.current, [charId]: list }; }
+    const sess = (list || []).find(s => s && !s.endTs && (s.msgs || []).length);
     if (!sess) return null;
     let lastTs = 0; (sess.msgs || []).forEach(m => { if (m && (m.ts || 0) > lastTs) lastTs = m.ts; });
     return (lastTs > 0 && Date.now() - lastTs < OFFLINE_TOGETHER_MIN * 60000) ? sess : null;
@@ -12015,6 +12017,9 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     if (laneBusy("c:" + chatKey)) return null;
     if (opts.proactive && !autoRefreshOn("proactive", charId)) return null;
     if (opts.proactive && currentlyTogetherWithChar(charId)) return null;
+    // 单人线下正演着（最近一拍够新）：生日、提醒、吃饭这些岔路也别从线上冒出来——人就在跟前（群友 2026-10-29「线下见面唠嗑了，他线上还在说在路上」）。
+    //   小房间里的那一路不算：房间本来就是另一处。
+    if (opts.proactive && !opts.room && offlineTogetherNow(charId)) return null;
     if (opts.proactive) {
       const outlet = opts.phoneAs ? "phone_as" : opts.dongnian ? "dongnian" : opts.bday ? "birthday" : opts.anniv ? "anniversary" : opts.bloom ? "garden_bloom" : opts.remind ? "reminder" : opts.health ? "health_meal" : opts.eyesAlert ? "eyes_alert" : opts.wx ? "weather" : "foreground_proactive";
       try { window.InnerLifeETidalShadow && window.InnerLifeETidalShadow.noteWouldHold(outlet, Date.now()); } catch (e) {}
