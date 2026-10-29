@@ -18,7 +18,10 @@
   //   tasks＝new-api / one-api 那种通用任务：POST /v1/video/generations，GET /v1/video/generations/{id}
   //   openai＝OpenAI 视频：POST /v1/videos（表单传图），GET /v1/videos/{id}，成了到 /v1/videos/{id}/content 下载（要带 key）
   //   各家回来的字段名不一样，编号、状态、下载地址都按几种常见叫法去找。
-  const RELAY_FORMATS = [["tasks", "通用任务格式（/v1/video/generations）"], ["openai", "OpenAI 格式（/v1/videos）"]];
+  const RELAY_FORMATS = [["tasks", "通用任务格式（/v1/video/generations）"], ["openai", "OpenAI 格式（/v1/videos）"], ["cats", "CatsAPI 格式（/api/tasks）"]];
+  //   cats＝CatsAPI 自己那套（照它家 ComfyUI 插件 maodeyu180/ComfyUI_Catsapi 的写法）：POST /api/tasks，GET /api/tasks/{id}，
+  //   视频在 result_video.url；型号用它自己的叫法，不在 /v1/models 里列
+  const CATS_VIDEO_MODELS = ["seedance20", "seedance20Mini", "grokImagineVideo", "geminiOmniFlash"];
   const RELAY_DEFAULT = { baseUrl: "", apiKey: "", model: "", format: "tasks", duration: 5 };
   const KLING_SITES = [["国内 北京", "https://api-beijing.klingai.com"], ["海外 新加坡", "https://api-singapore.klingai.com"]];
   const KLING_MODELS = ["kling-v2-1", "kling-v2-1-master", "kling-v2-5-turbo", "kling-v2-6", "kling-v3", "kling-v2-master", "kling-v1-6", "kling-v1-5", "kling-v1"];
@@ -39,7 +42,7 @@
     const a = Object.assign({}, ARK_DEFAULT, c.seedance || {}); a.baseUrl = trimUrl(a.baseUrl) || ARK_DEFAULT.baseUrl; a.apiKey = String(a.apiKey || "").trim(); a.model = String(a.model || "").trim() || ARK_DEFAULT.model;
     a.resolution = ["480p", "720p", "1080p"].includes(a.resolution) ? a.resolution : "720p"; a.duration = Math.max(2, Math.min(12, Math.round(Number(a.duration) || 5))); c.seedance = a;
     const rl = Object.assign({}, RELAY_DEFAULT, c.relay || {}); rl.baseUrl = trimUrl(rl.baseUrl).replace(/\/v1$/i, ""); rl.apiKey = String(rl.apiKey || "").trim(); rl.model = String(rl.model || "").trim();
-    rl.format = rl.format === "openai" ? "openai" : "tasks"; rl.duration = rl.duration === "" ? "" : Math.max(1, Math.min(60, Math.round(Number(rl.duration) || 5))); c.relay = rl;
+    rl.format = ["openai", "cats"].includes(rl.format) ? rl.format : "tasks"; rl.ratio = ["9:16", "16:9", "3:4", "4:3", "1:1"].includes(rl.ratio) ? rl.ratio : "9:16"; rl.duration = rl.duration === "" ? "" : Math.max(1, Math.min(60, Math.round(Number(rl.duration) || 5))); c.relay = rl;
     if (!MODELS.includes(c.model)) c.model = DEFAULT.model;
     if (!resolutions(c.model).includes(c.resolution)) c.resolution = resolutions(c.model)[0];
     const allowed = durations(c.model, c.resolution); c.duration = allowed.includes(Number(c.duration)) ? Number(c.duration) : allowed[0];
@@ -177,7 +180,13 @@
       } else if (v === "relay") {
         record.format = k.format;
         const sec = Number(k.duration) || 5;   // 输入框清空了还没填就交：按 5 秒
-        if (k.format === "openai") {
+        if (k.format === "cats") {
+          const img = { name: "first.png", base64: input }, sd = /^seedance/i.test(k.model);
+          const params = { duration: String(sec), aspectRatio: k.ratio || "9:16", rewritePrompt: false, ...(/gemini/i.test(k.model) ? {} : { resolution: "720p" }),
+            ...(sd ? { inputMode: "reference" } : {}), ...(k.model === "seedance20" ? { mode: "fast" } : {}) };
+          d = await vendorRequest(k.baseUrl + "/api/tasks", k.apiKey, { model: k.model, prompt: text, task_type: "video", params, num_images: 1,
+            files: sd ? { referenceImages: [img] } : { startFrame: img } }, signal);
+        } else if (k.format === "openai") {
           const f = new FormData(); f.append("model", k.model); f.append("prompt", text); f.append("seconds", String(sec));
           f.append("input_reference", dataUrlToBlob(input), "first.png");
           d = await vendorRequest(k.baseUrl + "/v1/videos", k.apiKey, f, signal);
@@ -198,11 +207,11 @@
     if (k.baseUrl !== record.baseUrl) throw Error("请切回创建这段视频时的站点，再查询原任务");
     let status, url, why;
     if (record.vendor === "relay") {
-      const oa = record.format === "openai", path = oa ? "/v1/videos/" : "/v1/video/generations/";
+      const oa = record.format === "openai", path = oa ? "/v1/videos/" : record.format === "cats" ? "/api/tasks/" : "/v1/video/generations/";
       const d = await vendorRequest(record.baseUrl + path + encodeURIComponent(record.taskId), k.apiKey, null, signal);
       status = relayState(pick(d, ["status", "data.status", "task_status", "data.task_status", "state", "data.state"]));
-      why = pick(d, ["error.message", "data.error.message", "fail_reason", "data.fail_reason", "message", "error"]);
-      url = pick(d, ["url", "video_url", "data.url", "data.video_url", "content.video_url", "data.output.url", "result.url", "data.result_url", "output"]);
+      why = pick(d, ["error_message", "error.message", "data.error.message", "fail_reason", "data.fail_reason", "message", "error"]);
+      url = pick(d, ["result_video.url", "result_video.videoUrl", "result_video.video_url", "url", "video_url", "data.url", "data.video_url", "content.video_url", "data.output.url", "result.url", "data.result_url", "output"]);
       if (typeof url !== "string" || !/^https?:/i.test(url)) url = findVideoUrl(d);
       if (!url && oa && status === "succeeded") url = record.baseUrl + "/v1/videos/" + encodeURIComponent(record.taskId) + "/content";
       return { status, url, why: typeof why === "string" ? why : why && JSON.stringify(why).slice(0, 200) };
@@ -396,9 +405,11 @@
         row("视频模型（照中转站列出的名字填）", h("div", { style: { display: "flex", gap: 6 } },
           h("input", { "data-wk": "input", "aria-label": "中转视频模型", list: "relay-models", value: r.model, onChange: e => sr({ model: e.target.value }), style: Object.assign({}, input, { flex: 1 }) }),
           h("button", { type: "button", onClick: pullModels, disabled: pulling, style: Object.assign({}, input, { width: "auto", flexShrink: 0, color: t.ink, opacity: pulling ? 0.5 : 1 }) }, pulling ? "拉取中…" : "拉取模型"))),
-        h("datalist", { id: "relay-models" }, models.map(m => h("option", { key: m, value: m }))),
-        models.length ? h("div", { "data-wk": "relaymodels", style: { display: "flex", flexWrap: "wrap", gap: 6, marginTop: 8, maxHeight: 180, overflowY: "auto" } },
-          models.map(m => h("button", { key: m, type: "button", onClick: () => sr({ model: m }), style: { minHeight: 32, padding: "0 10px", borderRadius: 999, fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))",
+        h("datalist", { id: "relay-models" }, (r.format === "cats" && !models.length ? CATS_VIDEO_MODELS : models).map(m => h("option", { key: m, value: m }))),
+        r.format !== "cats" && typeof isCatsImageProvider === "function" && isCatsImageProvider(r.baseUrl) ? note("这是 CatsAPI 的地址：写法要选「CatsAPI 格式」，不然会 404。") : null,
+        r.format === "cats" ? row("画面比例", h("select", { "aria-label": "中转画面比例", value: r.ratio, onChange: e => sr({ ratio: e.target.value }), style: input }, ["9:16", "3:4", "1:1", "4:3", "16:9"].map(x => h("option", { key: x, value: x }, x)))) : null,
+        (r.format === "cats" && !models.length ? CATS_VIDEO_MODELS : models).length ? h("div", { "data-wk": "relaymodels", style: { display: "flex", flexWrap: "wrap", gap: 6, marginTop: 8, maxHeight: 180, overflowY: "auto" } },
+          (r.format === "cats" && !models.length ? CATS_VIDEO_MODELS : models).map(m => h("button", { key: m, type: "button", onClick: () => sr({ model: m }), style: { minHeight: 32, padding: "0 10px", borderRadius: 999, fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))",
             border: "1px solid " + (r.model === m ? t.ink : t.line), background: r.model === m ? t.ink : "transparent", color: r.model === m ? t.bg2 : t.ink } }, m))) : null,
         row("时长（秒，自己填，1～60）", h("input", { "data-wk": "input", type: "number", inputMode: "numeric", min: 1, max: 60, "aria-label": "中转时长", value: r.duration,
           onChange: e => sr({ duration: e.target.value }), style: input })),

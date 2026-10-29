@@ -16,3 +16,9 @@ test("中转能拉取模型：跟聊天 API 同一个 fetchModelList，像视频
 test("CatsAPI 的视频请求跟图像一样交给原生壳代发", () => {
   assert.match(src, /isCatsImageProvider\(url\) && typeof nativeProviderFetch === "function"/);
 });
+test("CatsAPI 自己那套：/api/tasks，视频在 result_video.url，型号用它的叫法", () => {
+  assert.match(src, /\["cats", "CatsAPI 格式（\/api\/tasks）"\]/);
+  assert.match(src, /k\.baseUrl \+ "\/api\/tasks", k\.apiKey, \{ model: k\.model, prompt: text, task_type: "video"/);
+  assert.match(src, /"result_video\.url"/);
+  assert.match(src, /CATS_VIDEO_MODELS = \["seedance20", "seedance20Mini", "grokImagineVideo", "geminiOmniFlash"\]/);
+});
