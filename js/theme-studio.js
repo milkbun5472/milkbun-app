@@ -934,9 +934,15 @@
   const cssImageRefs = css => [...String(css || "").matchAll(/url\(\s*(['"]?)(iv_[A-Za-z0-9_-]+)\1\s*\)/g)].map(m => m[2]);
   const resolveCSSImages = css => String(css || "").replace(/url\(\s*(['"]?)(iv_[A-Za-z0-9_-]+)\1\s*\)/g, function (_, q, ref) {
     const src = typeof g.resolveImg === "function" ? g.resolveImg(ref) : "";
-    if (!src) throw new Error("图片保险箱里找不到 " + ref);
+    // 找不到这张图：只让这一处空着（群友 2026-10-29：别人给的美化里带着【做的人自己图库】的 iv_，
+    //   原来这儿一抛，整套主题全部作废——跟这张图无关的查手机、朋友圈主页也一起没了）。
+    //   图库还没读完的那一下也走这里：读完 App 会再 apply 一次（app.js 那条 imgFilled），图就补上了
+    if (!src) return "none";
     return 'url("' + String(src).replace(/["\\\n\r]/g, "") + '")';
   });
+  // 这份主题里哪几张 iv_ 图在这台手机的图库里找不到（工作台「正式应用」时提一句；不再整套作废）
+  const missingCSSImages = p => { const n = normalize(p); const all = [n.globalCSS].concat(Object.values(n.pageCSS || {})).join("\n");
+    return [...new Set(cssImageRefs(all))].filter(ref => !(typeof g.resolveImg === "function" && g.resolveImg(ref))); };
   const remapCSSImages = (css, map) => String(css || "").replace(/url\(\s*(['"]?)(iv_[A-Za-z0-9_-]+)\1\s*\)/g,
     (_, q, ref) => 'url("' + (map[ref] || ref) + '")');
   const compile = p => {
@@ -1215,7 +1221,7 @@
   }
   // 单聊/群聊「自己写 CSS」能存多长：存的时候按这个截，编辑框按这个提醒（只这一处写数）
   const CHAT_CSS_MAX = 200000;
-  g.ThemeStudio = { CHAT_CSS_MAX, histCount, undoStep, aiBrief, sizePresets, BRIEF_STAMP, KEY, appIconList, PAGES, ICON_PACKS, packList, packIconSrc, packIcon, iconBare, fresh, normalize, load, save, apply, preview, commit, cancelPreview, history, restoreHist, current, iconRef, compile, scopeCSS, unsafeReason, cssImageRefs, resolveCSSImages, remapCSSImages, exportPackage, importPackage, PACK_PARTS, PACK_KEYS, packHas, packParts, cleanPick, pickProfile, isPreviewing: () => !!previewBase, safeMode, CSS_BUILTINS, WK_COMMON, WK_SCOPED, TOKENS, TOKEN_KEYS, OWN_PALETTE, okColor, cleanTokens, tokensFor, themeFor, SLOT_MAX, pageSlots, addSlot, saveSlot, clearSlot, cssStale, SKIN_VER, ZOOM_MIN, ZOOM_MAX, cleanZoom, zoomFor, fitPlan, screenWidth, HOME_KEYS, homeSnapshot, homeApply };
+  g.ThemeStudio = { CHAT_CSS_MAX, histCount, undoStep, aiBrief, sizePresets, BRIEF_STAMP, KEY, appIconList, PAGES, ICON_PACKS, packList, packIconSrc, packIcon, iconBare, fresh, normalize, load, save, apply, preview, commit, cancelPreview, history, restoreHist, current, iconRef, compile, scopeCSS, unsafeReason, cssImageRefs, missingCSSImages, resolveCSSImages, remapCSSImages, exportPackage, importPackage, PACK_PARTS, PACK_KEYS, packHas, packParts, cleanPick, pickProfile, isPreviewing: () => !!previewBase, safeMode, CSS_BUILTINS, WK_COMMON, WK_SCOPED, TOKENS, TOKEN_KEYS, OWN_PALETTE, okColor, cleanTokens, tokensFor, themeFor, SLOT_MAX, pageSlots, addSlot, saveSlot, clearSlot, cssStale, SKIN_VER, ZOOM_MIN, ZOOM_MAX, cleanZoom, zoomFor, fitPlan, screenWidth, HOME_KEYS, homeSnapshot, homeApply };
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", () => { try { apply(load()); } catch (_) {} });
   else { try { apply(load()); } catch (_) {} }
 })(window);
