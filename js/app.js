@@ -20,7 +20,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v76.906";
+const APP_VERSION = "v76.924";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -11791,6 +11791,11 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     const done = { ...card, status, judge: judge || "", note: String(note || "").trim().slice(0, 60), ...(status === "approved" && String(cond || "").trim() ? { cond: String(cond).trim().slice(0, 40) } : {}) };
     done.content = AskSlip.line(done, mine ? "我" : char.name);
     pChat(charId, p => p.map(m => m.kind === "ask" && m.aid === aid ? done : m));
+    // 回执（她 2026-10-29「放那轮最上面跟转账卡一样」）：原卡可能早刷上去了，这儿落一张存根，写清批了什么、钱怎么走的
+    const payer = !amt || status === "rejected" ? "" : herPays ? "me" : "char";
+    pChat(charId, p => [...p, { role: "system", kind: "system", ts: Date.now(),
+      content: (judge === "我" ? "你" : char.name) + " 批了" + (mine ? "你" : char.name) + "的请示「" + what + "」：" + AskSlip.VERDICT[status] + (done.cond ? "，条件：" + done.cond : "") + (payer ? "（" + (payer === "me" ? "从你钱包" : "从" + char.name + "钱包") + "出 " + amt + "）" : ""),
+      askReceipt: { aid, what: card.what, status, note: done.note, cond: done.cond || "", amount: payer ? amt : 0, payer, judge: judge === "我" ? "me" : "char" } }]);
     return true;
   };
   // 旧版大家共用的那座城，按「约过谁」认领一次（by、去过记录 DatePlaces 自己看）
@@ -13921,6 +13926,13 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         respondTransfer(charId, _pendingTf.tid, parsed.transferAccept === true);
         _tfTook = parsed.transferAccept === true;
       }
+      // 她那张请示：跟转账同一处结——回执落在这一轮最上面，他先盖章再说话
+      if (parsed.askVerdict && !(room && !room.main)) {
+        const _av = parsed.askVerdict, _vs = String((_av && typeof _av === "object" ? _av.verdict : _av) || "");
+        const _st = /我出/.test(_vs) ? "paid" : /驳|不/.test(_vs) ? "rejected" : /准|批|同意|行|可以/.test(_vs) ? "approved" : null;
+        const _pa = pendingAskOf(charId);
+        if (_st && _pa && settleAsk(charId, _pa.aid, _st, char.remark || char.name, _av && typeof _av === "object" ? _av.note : "", _av && typeof _av === "object" ? _av.cond : "")) delivered = true;
+      }
       const quote = parsed.quote && String(parsed.quote).toLowerCase() !== "null" ? String(parsed.quote) : null;
       const turnId = "t_" + Date.now();
       if (roomStudyOn && parsed.studyInvite && typeof parsed.studyInvite === "object") {
@@ -14385,12 +14397,6 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
           window.DatePlaces.add(nm, nt, charId, charId);
           pChat(charId, p => [...p, { role: "system", kind: "system", content: (char.remark || char.name) + " 在你们的城市地图上钉了「" + nm + "」" + (nt ? "：" + nt : "") + "（去处 → 选 TA →「我们的城市 · 手绘」里看）", ts: Date.now() + 3 }]);
         }
-      }
-      if (parsed.askVerdict && !(room && !room.main)) {
-        const _av = parsed.askVerdict, _vs = String((_av && typeof _av === "object" ? _av.verdict : _av) || "");
-        const _st = /我出/.test(_vs) ? "paid" : /驳|不/.test(_vs) ? "rejected" : /准|批|同意|行|可以/.test(_vs) ? "approved" : null;
-        const _pa = pendingAskOf(charId);
-        if (_st && _pa && settleAsk(charId, _pa.aid, _st, char.remark || char.name, _av && typeof _av === "object" ? _av.note : "", _av && typeof _av === "object" ? _av.cond : "")) delivered = true;
       }
       const _anPrev = parsed.askNew && typeof parsed.askNew === "object" && parsed.askNew.again ? [...(chatsRef.current[charId] || [])].reverse().find(m => m && m.kind === "ask" && m.role === "assistant" && m.status === "rejected" && !m.resent) : null;
       if (_anPrev && String(parsed.askNew.reason || "").trim()) parsed.askNew = { ...AskSlip.again(_anPrev, String(parsed.askNew.reason).trim().slice(0, 120)) };
@@ -16646,6 +16652,10 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     }
     const askResult = { status: tl.status, ts: Date.now(), ...(unpaid ? { unpaid: true } : {}) };
     pGChat(groupId, rows => rows.map(m => m.pollId === pollId ? { ...m, askResult, content: AskSlip.line({ ...m, askResult }, m.by) } : m));
+    const payer = tl.status === "approved" && amt && !groupClosed(groupId) && !unpaid ? (poll.role === "user" ? "me" : "char") : "";
+    pGChat(groupId, rows => [...rows, { role: "system", ts: Date.now(),
+      content: "请示「" + what + "」表决：准 " + tl.yes.length + " 驳 " + tl.no.length + "，" + AskSlip.VERDICT[tl.status] + (payer ? "（" + (payer === "me" ? "从你钱包" : "从" + poll.by + "钱包") + "出 " + amt + "）" : ""),
+      askReceipt: { aid: pollId, what: poll.ask.what, status: tl.status, group: true, yes: tl.yes.length, no: tl.no.length, amount: payer ? amt : 0, payer, payerName: poll.by } }]);
   };
   // 成员自己发起的投票：跟红包一条路子——先把卡发出来，再让别人陆陆续续来投
   const postPoll = (groupId, char, title, options, anon) => {
@@ -17179,7 +17189,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     later1: "这一张写的是【一年后】的你：照你们现在真实走的方向往后推一年，你和你们之间会有什么变化、什么还是老样子；不凭空跳到另一种关系。",
     laterN: "这一张写的是【几年后】的你：照你们现在真实走的方向往后推几年，你的日子、你这个人和你们之间会变成什么样；变化要从现在长出来，不凭空另起。"
   };
-  const stampTimeLine = card => card.timeAt && STAMP_TIME[card.timeAt] ? STAMP_TIME[card.timeAt] + "世界、身份、性格都是你本人，这是「如果」的那个时间，不是你们真的发生过的事。" : "";
+  const stampTimeLine = card => card.timeAt === "custom" && card.timeText ? "这一张写的是【" + card.timeText + "】的你：先想清楚那个时候你在哪、过着什么日子、你们之间是什么关系（那时还没认识就不写你们之间的事；在以后就照你们现在真实的方向往前推，变化要从现在长出来）。世界、身份、性格都是你本人，这是「如果」的那个时间，不是你们真的发生过的事。"
+    : card.timeAt && STAMP_TIME[card.timeAt] ? STAMP_TIME[card.timeAt] + "世界、身份、性格都是你本人，这是「如果」的那个时间，不是你们真的发生过的事。" : "";
   const stampKindLine = (card, char) => {
     if (card.kind === "time") return "这是一张【时间卡】：" + stampTimeLine(card) + "衣服照那个时间的你会穿的来。";
     if (card.kind === "if") {

@@ -51,3 +51,13 @@ test("第二批：群里吵、批了交差、钱包档案", () => {
   const ui = fs.readFileSync(root + "js/screens-ui.js", "utf8");
   assert.match(ui, /view === "asks" && asks/);
 });
+
+test("批复存根：他批的跟转账一样在那一轮最上面结，群里结案也落一张", () => {
+  const tf = app.indexOf("respondTransfer(charId, _pendingTf.tid"), av = app.indexOf("if (parsed.askVerdict && !(room && !room.main))");
+  const words = app.indexOf("for (let i = 0; i < words.length; i++) {", tf);
+  assert.ok(tf > 0 && av > tf && av < words, "批示要在他开口之前结");
+  assert.match(app, /askReceipt: \{ aid, what: card\.what/);
+  assert.match(app, /askReceipt: \{ aid: pollId, what: poll\.ask\.what, status: tl\.status, group: true/);
+  assert.match(comp, /if \(m\.askReceipt\) \{ const meSide/);
+  assert.equal(AskSlip.no("ask_1"), AskSlip.no("ask_1"));
+});

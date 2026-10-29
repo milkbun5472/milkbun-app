@@ -11664,6 +11664,12 @@ function ChatThread({
     if (m.kind === "locknote") return h("div", { key: i, className: "text-center my-2" }, h("span", { "data-wk": "note", "data-part": "lock", style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, ...plate() } }, m.content));
     if (m.kind === "busynote") return h("div", { key: i, className: "text-center my-2" }, h("span", { "data-wk": "note", "data-part": "busy", style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, ...plate() } }, m.content));
     // v74.892 之前 TA 存进时刻只落一行灰字；这几行画的时候也认成那张小卡（存档不动），为什么从时刻里那条找回来
+    // 请示批复存根：落在批的那一侧（他批的在他那边，我批的在我这边），跟转账回执一个摆法
+    if (m.askReceipt) { const meSide = m.askReceipt.judge === "me";
+      return h("div", { key: i, "data-wk": "cardrow", "data-me": meSide ? "1" : "0", "data-kind": "askreceipt", className: "py-1 flex items-start gap-2 " + (meSide ? "justify-end" : "justify-start") },
+        !meSide && charAvEl(),
+        h(AskReceipt, { r: m.askReceipt, charName: cName, money: n => mTight(n, character && character.id), onJump: () => askJump(m.askReceipt.aid) }),
+        meSide && meAvEl()); }
     const _oldKeep = (m.kind === "system" || m.role === "system") && m.kind !== "carved" && window.ShikeShareCard ? oldKeepMoment(m, character) : null;
     if (_oldKeep) return h("div", { key: i, "data-wk": "cardrow", "data-me": "0", "data-kind": m.kind || "", className: "py-1 flex items-start gap-2 justify-start" },
       charAvEl(),
@@ -19808,6 +19814,8 @@ function GroupThread({
       onMouseDown: selMode ? undefined : () => startPress(i), onMouseUp: endPress, onMouseLeave: endPress,
       onClick: selMode ? () => toggleSel(i) : undefined, className: "text-center py-1.5" },
       h("span", { "data-wk": "note", "data-part": "pat", style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog } }, m.content));
+    if (m.askReceipt) return h("div", { key: i, "data-wk": "cardrow", "data-me": "0", "data-kind": "askreceipt", className: "py-1 flex justify-center" },
+      h(AskReceipt, { r: m.askReceipt, charName: m.askReceipt.payerName, money: n => mTight(n), onJump: () => askJump(m.askReceipt.aid) }));
     if (m.kind === "system" || m.role === "system") return h(SysNote, { key: i, label: "系统", text: m.content, tone: "warn",
       onClose: onDeleteMessages ? function () { onDeleteMessages([i]); } : null });
     if (m.kind === "dateinvite") return h(DateInviteCard, { key: i, m: m, character: { name: (m.invitees || []).map(x => x.name).join("、") || "大家" },
