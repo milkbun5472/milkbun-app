@@ -154,10 +154,12 @@ test("秋秋也知道攻略里面的东西：正文里写着的按钮名、小�
   [["看他玩是什么", "phone"], ["塔罗能补牌吗", "tarot"], ["书脊是什么", "fanfic"],
    ["群里能艾特吗", "group"], ["抽卡点数怎么攒", "gacha"]].forEach(([q, id]) =>
     assert.ok(M.find(q, 4).some(x => x.id === id), "「" + q + "」翻不到 " + id));
-  // 她开着的那一页：2026-10-17 起不再整个 app 全带（「回复好慢」），只带这一页里跟这句最沾边的两条，一条不沾就带这一页本身
+  // 她开着的那一页：2026-10-17 起不再整个 app 全带（「回复好慢」），只带这一页里跟这句最沾边的两条。
+  // 2026-10-29 补：这一页本身那一条必须在场——攻略一长、排名一变，同页别的条目会把它挤出去，
+  //   而捎上它的理由就是「她不用先说出页名」。只钉这两件事，别钉整行。
   const asst = fs.readFileSync(path.join(root, "js/assistant.js"), "utf8");
   assert.match(asst, /const pageHit = M\.find\(question, 40\)\.filter\(x => pageAll\.some\(p => p\.id === x\.id\)\)\.slice\(0, 2\);/);
-  assert.match(asst, /const page = pageHit\.length \? pageHit : \(here \? \[here\] : \[\]\);/);
+  assert.match(asst, /const page = here \? \[here\]\.concat\(pageHit\.filter/, "这一页本身那一条又会被同页别的条目挤掉");
 });
 
 test("文档和 app 对齐：有一个脚本能把这份攻略原样导成文档用的 markdown", () => {
