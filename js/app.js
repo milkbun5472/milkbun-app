@@ -32302,10 +32302,15 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       for (const f of arr) {
         const head = await readText(f, true);
         rows.push({ f, name: f.name || "", media: /"kind"\s*:\s*"media"/.test(head),
+          chars: /"kind"\s*:\s*"chars"/.test(head),
           part: Number((head.match(/"part"\s*:\s*(\d+)/) || [])[1]) || 0 });
       }
-      // ⚠️文字那一份一定排在图片包前面：它是整机覆盖，会先把图库清掉
-      rows.sort((a, b) => (a.media ? 1 : 0) - (b.media ? 1 : 0) || a.part - b.part);
+      // ⚠️顺序是三档，不是两档（2026-10-29：她要把旧地址四份存档合到新地址一份里）：
+      //   ① 整份备份（整机覆盖，会先把本机清光）② 图片包（给①补图）③ 只有几个人的包（往现有存档里【加】）。
+      //   ③ 要是排在①前面，刚合进来的人会被①整个抹掉——而「一次全选」的时候谁先谁后本来是看系统交回的顺序，
+      //   等于全靠运气。所以这里按档排死。
+      const rank = r => r.chars ? 2 : r.media ? 1 : 0;
+      rows.sort((a, b) => rank(a) - rank(b) || a.part - b.part);
       let ok = 0, bad = 0; const badNames = [];
       for (let i = 0; i < rows.length; i++) {
         if (rows.length > 1) toast("第 " + (i + 1) + "/" + rows.length + " 份…");
