@@ -300,6 +300,8 @@
   // 备份：视频文件不在 localStorage 里，「导出全部数据」要专门来这儿取（她 2026-10-05：很多人就靠导入导出过日子）
   async function allVideos() {
     const refs = new Set(); Object.values(motionAll()).forEach(m => Object.values(m || {}).forEach(x => { if (x && x.videoRef) refs.add(x.videoRef); }));
+    // 邮票册 SSR 卡面动起来的那几段也一起备份（她 2026-10-30）
+    try { ((loadJSON("x_stamps", {}) || {}).cards || []).forEach(c => { if (c && c.video) refs.add(c.video); }); } catch (e) {}
     const out = []; for (const ref of refs) { const b = await blobOp(ref).catch(() => null); if (b) out.push([ref, b]); } return out;
   }
   const restoreVideo = (ref, blob) => blobOp(ref, blob);

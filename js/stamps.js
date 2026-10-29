@@ -29,6 +29,32 @@
               fontFamily: F_DISPLAY, fontSize: "calc(10.5px * var(--app-fs, 1))", textAlign: "center", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, card.text.name) : null)));
   }
   // cover：她在卡页里挑的册子封面（满级那面、番外插图都行），没挑就是第一面
+  // SSR 卡面动起来（她 2026-10-30）：拿第一面当首帧，走「设置 → 视频 API」那一套（海螺、可灵、即梦、中转）。任务编号记着，离开页面回来接着查，不重复付费
+  const STAMP_MOTION = "画面构图、人物长相和画风都保持原图不变，镜头几乎不动。人物只有很小的动作：呼吸、眨眼、头发和衣角被风轻轻吹动，场景里的光轻轻变化。最后回到开始的姿态，适合循环播放。";
+  const vidRunning = {};
+  const setCardP = (id, p) => { const st = C().load(); st.cards = st.cards.map(c => c.id === id ? Object.assign({}, c, p) : c); C().save(st); };
+  async function runStampVideo(card, toast, fresh) {
+    const V = window.VideoApi, jid = "stamp|" + card.id; if (!V || vidRunning[card.id]) return;
+    if (!V.ready()) { toast("先去「设置 → 视频 API」配好，再来让卡面动起来"); return; }
+    vidRunning[card.id] = true; setCardP(card.id, { videoBusy: true, videoErr: "" });
+    try {
+      if (fresh && V.job(jid) && (V.job(jid).draftRef || !V.job(jid).taskId)) V.patchMap(V.keys.JOBS, jid, null);
+      if (!V.job(jid)) await V.create(jid, card.face, STAMP_MOTION + ((card.text || {}).highlight ? "\n这一刻：" + String(card.text.highlight).slice(0, 120) : ""));
+      const r = await V.poll(jid, new AbortController().signal, rr => setCardP(card.id, { videoStatus: String(rr.status || "") }));
+      const old = (C().load().cards.find(c => c.id === card.id) || {}).video;
+      setCardP(card.id, { video: r.draftRef, videoBusy: false, videoStatus: "", videoErr: "" }); V.patchMap(V.keys.JOBS, jid, null);
+      if (old && old !== r.draftRef) V.blob(old, null, true).catch(() => {});
+      toast("卡面动起来了");
+    } catch (e) { setCardP(card.id, { videoBusy: false, videoErr: String(e && e.message || e).slice(0, 120) }); }
+    finally { delete vidRunning[card.id]; }
+  }
+  function useStampVideo(ref, on) {
+    const [url, setUrl] = useState(null);
+    useEffect(() => { if (!ref || !on || !window.VideoApi) { setUrl(null); return; } let alive = true, u = null;
+      window.VideoApi.blob(ref).then(b => { if (alive && b) { u = URL.createObjectURL(b); setUrl(u); } }).catch(() => {}); return () => { alive = false; if (u) URL.revokeObjectURL(u); }; }, [ref, on]);
+    return url;
+  }
+  const loopVid = (url, extra) => h("video", { src: url, autoPlay: true, muted: true, loop: true, playsInline: true, "webkit-playsinline": "true", preload: "auto", style: Object.assign({ position: "absolute", objectFit: "cover", pointerEvents: "none" }, extra) });
   // 册子里那一格只要小图（群里 2026-10-28：邮票多了刷着刷着全部消失）：原图 1024×1536，一屏几十张全解码，手机网页内存顶不住就把图全丢了。
   //   这里每张只解一次原图、缩成 300 宽的小图存进 IDB（th_ 开头），以后都用小图；还没滑到附近的先不加载
   const THUMB_MEM = new Map();
@@ -50,9 +76,13 @@
           if (!src) return; b = (await makeThumb(src)) || src; if (b !== src && typeof idbImgPut === "function") idbImgPut(tk, b).catch(() => {}); }
         if (!alive || !b) return; const u = URL.createObjectURL(b); THUMB_MEM.set(ref, u); setUrl(u); })();
       return () => { alive = false; }; }, [ref, near]);
-    return [url, el];
+    return [url, el, near];
   }
-  function StampFace({ t, card, onClick, size, back }) { const [url, el] = useStampThumb(card && (card.cover || card.face)); return h("span", { ref: el, style: { display: "inline-block", lineHeight: 0 } }, h(Stamp, { t, card, face: url, onClick, size, back })); }
+  function StampFace({ t, card, onClick, size, back }) { const [url, el, near] = useStampThumb(card && (card.cover || card.face));
+    // 卡面动起来了的 SSR：册子里那一格也在动（滑到附近才放，没封面换过别的图时才用）
+    const vurl = useStampVideo(card && card.video && !back && (!card.cover || card.cover === card.face) ? card.video : null, near);
+    return h("span", { ref: el, style: { display: "inline-block", lineHeight: 0, position: "relative" } }, h(Stamp, { t, card, face: url, onClick, size, back }),
+      vurl ? loopVid(vurl, { left: 5, top: 5, width: "calc(100% - 10px)", height: "calc(100% - 10px)", borderRadius: 2 }) : null); }
 
   // 抽卡动画：信封落下 → 邮戳颜色预告 → 撕开一版
   function PullShow({ t, cards, onDone, onOpen, charOf }) {
@@ -284,6 +314,8 @@
     const url = exSel ? (urlEx || url1) : side === "solo" && urlSolo ? urlSolo : side === "duo" && urlDuo ? urlDuo : url1;
     const sideKey = exSel ? exSel.img : side === "solo" ? faces2.solo : side === "duo" ? faces2.duo : card.face;
     const [full, setFull] = useState(false), [fullWide, setFullWide] = useState(false), [rot, setRot] = useState(false);
+    const vMain = useStampVideo(card.video || null, true);
+    useEffect(() => { const V = window.VideoApi, r = V && V.job("stamp|" + card.id); if (r && r.taskId && !vidRunning[card.id]) runStampVideo(card, toast); }, [card.id]);   // 上回没等完的任务：回来接着查
     useEffect(() => { if (!card.unread) return; const st0 = C().load(); st0.cards = st0.cards.map(c => c.id === card.id ? Object.assign({}, c, { unread: false }) : c); C().save(st0); }, [card.id]);   // 点开过就不算新
     // 「画着」超过八分钟还没回来＝那次没了（多半是画到一半关了 app）：按钮放开，能再画（她 2026-10-27：有人一直卡在重画中）
     const drawing = !!card.drawing && !!card.drawingBoot && card.drawingBoot === window.__stampBoot && Date.now() - (card.drawingTs || 0) < 8 * 60000;   // 关掉 app 再打开：上一回没画完的那次一定没了，直接放开
@@ -424,6 +456,7 @@
           h("div", { style: { position: "absolute", top: 0, left: "50%", width: 320, height: 380, marginLeft: -160, borderRadius: 999, background: "radial-gradient(closest-side, " + (card.rarity === "R" ? "rgba(47,42,34,.16)" : RC[card.rarity] + "44") + ", transparent)", animation: "stHalo 4s ease-in-out infinite", pointerEvents: "none" } }),
           h("div", { key: pop, style: { position: "relative", boxShadow: ring, animation: pop ? "stFloat .9s ease-out" : "none" } },
             h(Stamp, { t, card, face: url, size: 236 }),
+            side === "main" && vMain ? loopVid(vMain, { left: 5, top: 5, width: "calc(100% - 10px)", height: "calc(100% - 10px)", borderRadius: 2 }) : null,
             // 满级 SSR 能戳：上面三分之一是头，中间是胸口，下面是手
             url ? h("div", { onClick: () => { if (Date.now() - swiped.current < 400) return; setFull(true); }, style: { position: "absolute", inset: 0, cursor: "zoom-in" } }) : null,
             pop ? h("div", { style: { position: "absolute", inset: 0, pointerEvents: "none", background: "linear-gradient(110deg, transparent 35%, rgba(255,240,200,.55) 50%, transparent 65%) 0 0 / 200% 100%", animation: "stShine .9s ease-out 1 forwards" } }) : null,
@@ -461,6 +494,11 @@
             : h("button", { "data-wk": "stampredraw", disabled: exSel ? exDrawing : drawing, onClick: () => exSel ? onExtraDraw && onExtraDraw(card.id, exSel.id) : onDraw(card.id, side !== "main", side !== "main" ? side : undefined), className: "active:opacity-70 disabled:opacity-40",
               style: { marginTop: 8, padding: "6px 14px", borderRadius: 8, border: "1px solid " + LINE, color: P7, fontFamily: F_BODY, fontSize: fs(12) } }, (exSel ? exDrawing : drawing) ? "重画着…" : "↻ 照原来的描述重画这一面 · 花一次生图"),
           exSel && exSel.drawErr && !exDrawing ? h("div", { style: { marginTop: 6, maxWidth: 300, textAlign: "center", fontFamily: F_BODY, fontSize: fs(11), lineHeight: 1.5, color: "#b23a2e" } }, "番外卡面上次没画成：" + exSel.drawErr) : null,
+          // 让卡面动起来（SSR，画了第一面才有）
+          card.rarity === "SSR" && card.face && window.VideoApi ? h("button", { "data-wk": "stampvideo", disabled: !!card.videoBusy && !!vidRunning[card.id], onClick: () => runStampVideo(card, toast, true), className: "active:opacity-70 disabled:opacity-50",
+            style: { marginTop: 8, padding: "6px 14px", borderRadius: 8, border: "1px solid " + COPPER, color: COPPER, fontFamily: F_BODY, fontSize: fs(12) } },
+            card.videoBusy && vidRunning[card.id] ? "卡面在动起来…" + (card.videoStatus ? "（" + card.videoStatus + "）" : "") + "，可以先去别处，回来接着等" : card.video ? "↻ 重新让卡面动起来 · 花一次视频生成" : "▶ 让卡面动起来 · 花一次视频生成") : null,
+          card.videoErr && !(card.videoBusy && vidRunning[card.id]) ? h("div", { "data-wk": "stampvideoerr", style: { marginTop: 6, maxWidth: 300, textAlign: "center", fontFamily: F_BODY, fontSize: fs(11), lineHeight: 1.5, color: "#b23a2e" } }, "上次没动起来：" + card.videoErr) : null,
           card.drawErr && !drawing ? h("div", { "data-wk": "stampdrawerr", style: { marginTop: 6, maxWidth: 300, textAlign: "center", fontFamily: F_BODY, fontSize: fs(11), lineHeight: 1.5, color: "#b23a2e" } }, "上次没画成：" + card.drawErr) : null,
           // SSR 满级：第二张卡面（一个人，或者你们俩），画好以后能翻面
           card.rarity === "SSR" && lv >= cap && tx ? h("div", { "data-wk": "stampalt", className: "flex flex-wrap justify-center", style: { gap: 8, marginTop: 8 } },
