@@ -54,7 +54,11 @@
       window.VideoApi.blob(ref).then(b => { if (alive && b) { u = URL.createObjectURL(b); setUrl(u); } }).catch(() => {}); return () => { alive = false; if (u) URL.revokeObjectURL(u); }; }, [ref, on]);
     return url;
   }
-  const loopVid = (url, extra) => h("video", { src: url, autoPlay: true, muted: true, loop: true, playsInline: true, "webkit-playsinline": "true", preload: "auto", style: Object.assign({ position: "absolute", objectFit: "cover", pointerEvents: "none" }, extra) });
+  // iPhone 只放【一开始就静音】的视频自己播：React 的 muted 是挂上以后才设的，iOS 当它有声、autoPlay 被拦，卡面就一动不动
+  //   （她 2026-10-29：扣了钱、视频也存好了，「完全没动」）。跟番茄钟那段 LoopVideo 一样：挂上就补静音、自己叫一次 play()
+  const kickVid = v => { if (!v) return; v.muted = true; v.defaultMuted = true; v.setAttribute("muted", ""); v.setAttribute("playsinline", "");
+    const go = () => { const p = v.play(); if (p && p.catch) p.catch(() => {}); }; if (v.readyState >= 2) go(); else v.addEventListener("loadeddata", go, { once: true }); };
+  const loopVid = (url, extra) => h("video", { ref: kickVid, src: url, autoPlay: true, muted: true, loop: true, playsInline: true, "webkit-playsinline": "true", preload: "auto", style: Object.assign({ position: "absolute", objectFit: "cover", pointerEvents: "none" }, extra) });
   // 册子里那一格只要小图（群里 2026-10-28：邮票多了刷着刷着全部消失）：原图 1024×1536，一屏几十张全解码，手机网页内存顶不住就把图全丢了。
   //   这里每张只解一次原图、缩成 300 宽的小图存进 IDB（th_ 开头），以后都用小图；还没滑到附近的先不加载
   const THUMB_MEM = new Map();
