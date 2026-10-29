@@ -32156,26 +32156,27 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       r.onerror = () => res({ name: f.name, text: "" });
       r.readAsText(f);
     });
-    if (arr.length > 1) toast("在读 " + arr.length + " 份文件…");
-    const got = await Promise.all(arr.map(readOne));
-    const bad = got.filter(x => !x.text).map(x => x.name);
-    const rows = got.filter(x => x.text).map(x => {
-      let part = 0, media = false;
-      try { const o = JSON.parse(x.text); media = !!(o && o.__archive && o.kind === "media"); part = Number(o && o.part) || 0; } catch (e) {}
-      return Object.assign({}, x, { media, part });
-    });
-    rows.sort((a, b) => (a.media ? 1 : 0) - (b.media ? 1 : 0) || a.part - b.part);
-    if (!rows.length) { toast(bad.length ? "这些文件读不出来，换一份或者用「贴一份备份」" : "没选到文件"); return; }
+    // ⚠️一份一份读、读完导完再读下一份（群里 2026-10-29：十二包图、每包近 40MB）：原来是全部同时读进内存再挨个导，
+    //   几百 MB 的字一起压在手机浏览器里，撑不住就有几包悄悄没导成——图片就少了。
+    //   先后只看文件名：文字那份先、图片包按第几包排（QQ 把 .json 改成 .txt 也不影响，认的是内容）
+    const isMediaName = f => /archive-media/i.test(f.name || "");
+    const partOf = f => { const m = /(\d+)\s*of\s*\d+/i.exec(f.name || ""); return m ? Number(m[1]) : 0; };
+    const rows = arr.slice().sort((x, y) => (isMediaName(x) ? 1 : 0) - (isMediaName(y) ? 1 : 0) || partOf(x) - partOf(y));
+    const bad = [];
     let ok = 0;
     for (let i = 0; i < rows.length; i++) {
       if (rows.length > 1) toast("第 " + (i + 1) + "/" + rows.length + " 份…");
+      let x = await readOne(rows[i]);
+      if (!x.text) { bad.push(x.name); continue; }
       let r = false;
-      try { r = await doImportText(rows[i].text, { noReload: true }); } catch (e) {}
-      if (r) ok++;
+      try { r = await doImportText(x.text, { noReload: true }); } catch (e) {}
+      x = null;
+      if (r) ok++; else bad.push(rows[i].name);
     }
-    const miss = rows.length - ok + bad.length;
-    toast(ok ? "导好了 " + ok + " 份" + (miss ? "，有 " + miss + " 份没导成" : "") + "，正在重载…" : "一份都没导成", miss && ok ? 4000 : undefined);
-    if (ok) setTimeout(() => location.reload(), miss ? 2200 : 900);
+    if (!ok && !bad.length) { toast("没选到文件"); return; }
+    const miss = bad.length;
+    toast(ok ? "导好了 " + ok + " 份" + (miss ? "，这几份没导成：" + bad.slice(0, 3).join("、") + (miss > 3 ? " 等 " + miss + " 份" : "") + "，重载后单独再导一次" : "") + "，正在重载…" : "一份都没导成", miss && ok ? 6000 : undefined);
+    if (ok) setTimeout(() => location.reload(), miss ? 4500 : 900);
   };
 
   // ---- routing ----
