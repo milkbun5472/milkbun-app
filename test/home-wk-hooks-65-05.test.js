@@ -55,8 +55,11 @@ test("页码点浮在上面，不占一条实块", () => {
   // 没有实块的话木鱼和转盘能露出来的部分会多一点」。
   // 量过：格子区比可视区高出 68px、超出的被 overflow-hidden 切掉，而这一条在流里还吃掉 14px。
   const dots = home.slice(home.indexOf('"data-wk": "pager"'));
-  assert.match(dots.slice(0, 200), /className: "absolute left-0 right-0 flex justify-center gap-1\.5 pointer-events-none"/,
-    "页码点又回到流里了（或者会挡住底下那一排的点击）");
+  // 2026-10-29：整理页面那一档她要点着页码点翻页，所以只有那一档准它收点击；
+  //   平时还是一律 pointer-events-none——这条护的是「别挡住底下那一排」，不是「永远不能点」。
+  assert.match(dots.slice(0, 260), /className: "absolute left-0 right-0 flex justify-center gap-1\.5"(?: \+ \(editMode \? "" : " pointer-events-none"\))?/,
+    "页码点又回到流里了");
+  assert.ok(/pointer-events-none/.test(dots.slice(0, 260)), "不整理的时候还是会挡住底下那一排的点击");
   assert.ok(dots.slice(0, 300).indexOf("shrink-0") < 0, "页码点还占着一条实块");
 });
 

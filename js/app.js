@@ -20,7 +20,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v76.862";
+const APP_VERSION = "v76.863";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -32141,42 +32141,54 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     }
     return true;
   };
-  const doImport = file => doImportFiles([file]);
+  const doImport = input => doImportFiles(input);
   // 一次选好几份（群里 2026-10-28：「导入恢复图片只能一个一个点吗，每恢复一个就要从头再点进去」）：
   //   图片分成了好几包，原来一包一包导、每包导完还自动重载一次，于是每导一包都要重新点进设置。
   //   现在一次全选，按【文字那份在前、图片按包号在后】的顺序一份份导完，最后才重载一次。
   //   ⚠️顺序不能乱：文字那一份是整机覆盖，会把图库先清掉；它要是排在图片后面，刚导进去的图就没了。
-  const doImportFiles = async files => {
-    const arr = Array.from(files || []);
-    if (!arr.length) return;
-    const readOne = f => new Promise(res => {
+  const doImportFiles = async input => {
+    // ⚠️收进来的可能是【一串】（选择器给的 FileList）也可能是【一份】（别处直接递一个 File 进来）。
+    //   v76.857 把选择器改成多选、却把这儿留成「一份」，于是整串被当成一份去读，读的时候直接抛错，
+    //   界面上一点反应都没有（群里 2026-10-29「导入没有反应」）。两种都认，别再让调用方去迁就这儿。
+    const arr = (input && typeof input.length === "number" ? Array.from(input) : input ? [input] : [])
+      .filter(f => f && typeof f.slice === "function");   // 不是文件的一律丢掉，省得读的时候炸在半路
+    if (!arr.length) { toast("没选到文件"); return; }
+    // 一上来就说话：出了什么岔子也看得见，不会又变成一颗「按了没反应」的键
+    toast(arr.length > 1 ? "在读 " + arr.length + " 份文件…" : "在读文件…");
+    const readText = (f, slice) => new Promise(res => {
       const r = new FileReader();
-      r.onload = e => res({ name: f.name, text: String(e.target.result || "") });
+      r.onload = e => res(String(e.target.result || ""));
       // ⚠️读文件本身也会失败（权限、被别的 app 占着）。不吭声的话就是一颗死按钮。
-      r.onerror = () => res({ name: f.name, text: "" });
-      r.readAsText(f);
+      r.onerror = () => res("");
+      try { r.readAsText(slice ? f.slice(0, 400) : f); } catch (e) { res(""); }
     });
-    // ⚠️一份一份读、读完导完再读下一份（群里 2026-10-29：十二包图、每包近 40MB）：原来是全部同时读进内存再挨个导，
-    //   几百 MB 的字一起压在手机浏览器里，撑不住就有几包悄悄没导成——图片就少了。
-    //   先后只看文件名：文字那份先、图片包按第几包排（QQ 把 .json 改成 .txt 也不影响，认的是内容）
-    const isMediaName = f => /archive-media/i.test(f.name || "");
-    const partOf = f => { const m = /(\d+)\s*of\s*\d+/i.exec(f.name || ""); return m ? Number(m[1]) : 0; };
-    const rows = arr.slice().sort((x, y) => (isMediaName(x) ? 1 : 0) - (isMediaName(y) ? 1 : 0) || partOf(x) - partOf(y));
-    const bad = [];
-    let ok = 0;
-    for (let i = 0; i < rows.length; i++) {
-      if (rows.length > 1) toast("第 " + (i + 1) + "/" + rows.length + " 份…");
-      let x = await readOne(rows[i]);
-      if (!x.text) { bad.push(x.name); continue; }
-      let r = false;
-      try { r = await doImportText(x.text, { noReload: true }); } catch (e) {}
-      x = null;
-      if (r) ok++; else bad.push(rows[i].name);
+    try {
+      // 先只读每份的开头认一下是哪种（__archive / kind / part 都写在最前面），
+      //   别为了排序把几十 MB 的图片包整份读进来再 JSON.parse 一遍。
+      const rows = [];
+      for (const f of arr) {
+        const head = await readText(f, true);
+        rows.push({ f, name: f.name || "", media: /"kind"\s*:\s*"media"/.test(head),
+          part: Number((head.match(/"part"\s*:\s*(\d+)/) || [])[1]) || 0 });
+      }
+      // ⚠️文字那一份一定排在图片包前面：它是整机覆盖，会先把图库清掉
+      rows.sort((a, b) => (a.media ? 1 : 0) - (b.media ? 1 : 0) || a.part - b.part);
+      let ok = 0, bad = 0; const badNames = [];
+      for (let i = 0; i < rows.length; i++) {
+        if (rows.length > 1) toast("第 " + (i + 1) + "/" + rows.length + " 份…");
+        // 一份一份读、读完就放手：几十 MB 的包同时摊开会把手机撑爆
+        const text = await readText(rows[i].f);
+        if (!text) { bad++; badNames.push(rows[i].name); continue; }
+        let r = false;
+        try { r = await doImportText(text, { noReload: true }); } catch (e) {}
+        if (r) ok++; else { bad++; badNames.push(rows[i].name); }
+      }
+      toast(ok ? "导好了 " + ok + " 份" + (bad ? "，这几份没导成：" + badNames.slice(0, 3).join("、") + (bad > 3 ? " 等 " + bad + " 份" : "") + "，重载后单独再导一次" : "") + "，正在重载…"
+        : "一份都没导成——换一份，或者用下面的「贴一份备份」", bad && ok ? 6000 : undefined);
+      if (ok) setTimeout(() => location.reload(), bad ? 4500 : 900);
+    } catch (e) {
+      toast("导入出错了：" + ((e && e.message) || e) + "——数据还在，没有丢", 5000);
     }
-    if (!ok && !bad.length) { toast("没选到文件"); return; }
-    const miss = bad.length;
-    toast(ok ? "导好了 " + ok + " 份" + (miss ? "，这几份没导成：" + bad.slice(0, 3).join("、") + (miss > 3 ? " 等 " + miss + " 份" : "") + "，重载后单独再导一次" : "") + "，正在重载…" : "一份都没导成", miss && ok ? 6000 : undefined);
-    if (ok) setTimeout(() => location.reload(), miss ? 4500 : 900);
   };
 
   // ---- routing ----
