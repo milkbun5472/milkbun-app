@@ -16480,6 +16480,8 @@ function TransferCard({
   const _tfCur = typeof Money !== "undefined" && Money ? Money.of(charId) : { symbol: "¥", pos: "pre" };
   const _tfAmt = typeof Money !== "undefined" && Money ? Money.conv(m.amount, charId) : m.amount;
   return h("div", {
+    // 这一行也是 cardrow（她 2026-10-29 截图：转账卡旁边的头像没套上头像框——框的规则写的是 cardrow > avatar）
+    "data-wk": "cardrow", "data-me": isU ? "1" : "0", "data-kind": "transfer",
     className: "py-1 flex items-start gap-2 " + (isU ? "justify-end" : "justify-start")
   // ⚠️挂点（她 2026-09-22：「聊天界面里的转账和照片样式看看能不能改」）：
   //   这张纸上原来只有那枚印有挂点，纸本身、金额、附言都抓不住——
