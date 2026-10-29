@@ -3637,12 +3637,14 @@ function searchTopBar({ onBack, search, setSearch, onGo, busy, placeholder, acce
       busy ? h(IPulse, { size: 19, color: iconInk }) : h(IRefresh, { size: 19, color: sub })));
   return topBar;
 }
-function Shop({ payAs, initialNav, wallet, cart, orders, inventory, wish, characters, groups, kinshipCards, feed, busy, onBack, onGen, onAddCart, onRemoveCart, onCheckout, onReceiveUse, onReceiveGift, onAskChar, onToggleWish, onUseUp, onToggleOnMe, onGiftInv, onClosetInv, onLeaveAtHis, toast }) {
+function Shop({ payAs, initialNav, wallet, cart, orders, inventory, wish, characters, groups, kinshipCards, feed, busy, onBack, onGen, onAddCart, onRemoveCart, onCheckout, onReceiveUse, onReceiveGift, onAskChar, onToggleWish, onUseUp, onToggleOnMe, onGiftInv, onClosetInv, onLeaveAtHis, payMasks, toast }) {
   const t = useTheme();
   const [nav, setNav] = useState(initialNav || "home"); // home | cart | my
   const [cat, setCat] = useState("recommend");
   const [search, setSearch] = useState("");
   const [sel, setSel] = useState([]); // 选中的购物车 uid
+  // 用哪张面具付（她 2026-10-29「来我们慢慢开始分吧」）：""＝主面具。这一单就记在这张面具名下，查手机按它挡
+  const [payMask, setPayMask] = useState("");
   const [sheet, setSheet] = useState(null); // "actions" | "gift" | "paylater" | "kinship" | {kind:"regift",orderId}
   const [now, setNow] = useState(Date.now());
   const [detail, setDetail] = useState(null);   // 点开的那件商品（以前商品根本点不进去）
@@ -3932,7 +3934,12 @@ function Shop({ payAs, initialNav, wallet, cart, orders, inventory, wish, charac
     sheetEl = h(Sheet, { onClose: () => setSheet(null) },
       h(Eyebrow, { style: { marginBottom: 12 } }, "结算 " + selItems.length + " 件 · 合计 ¥" + selTotal),
       payAs ? chip("用" + payAs.name + "的钱买（他还有 ¥" + payAs.balance + "）", () => { setSheet(null); onCheckout(sel, "his", { type: "char", id: payAs.id }); setSel([]); }, true) : null,
-      payAs ? null : chip("购买（用我的余额 ¥" + wallet + "）", () => { setSheet(null); onCheckout(sel, "buy"); setSel([]); }, true),
+      (!payAs && Array.isArray(payMasks) && payMasks.length > 1) ? h("div", { "data-wk": "shoppaymask", style: { marginBottom: 10 } },
+        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: MSHOP.dim, marginBottom: 6 } }, "用哪张面具买（只有认这张的人翻你手机看得到这一单）"),
+        h("div", { className: "flex flex-wrap", style: { gap: 6 } }, payMasks.map(m => h("button", { key: m.id || "_main", "data-wk": "shoppaymaskitem", "data-on": payMask === m.id ? "1" : "0", onClick: () => setPayMask(m.id),
+          className: "active:opacity-70", style: { minHeight: 40, padding: "0 12px", borderRadius: 999, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))",
+            background: payMask === m.id ? MSHOP.orange : "transparent", color: payMask === m.id ? "#fff" : MSHOP.dim, border: "1px solid " + (payMask === m.id ? MSHOP.orange : "rgba(0,0,0,.12)") } }, m.label)))) : null,
+      payAs ? null : chip("购买（用我的余额 ¥" + wallet + "）", () => { setSheet(null); onCheckout(sel, "buy", null, { mask: payMask }); setSel([]); }, true),
       payAs ? null : chip("送礼（付款后送给角色）", () => setSheet("gift")),
       payAs ? null : chip("代付（请角色/群帮我付）", () => setSheet("paylater")),
       !payAs && cards.length > 0 && chip("用亲属卡付（刷角色的钱）", () => setSheet("kinship")));
