@@ -474,15 +474,24 @@
       try { await api("/item/" + id, { method: "DELETE" }); props.toast("删掉了"); onGone(id); }
       catch (e) { props.toast("没删成：" + e.message); setBusy(false); }
     };
-    // 赞、收藏：再点一次就收回；没登录先去登录
+    // 赞、收藏：再点一次就收回。点心不用登录（她 2026-10-29「能不能不登录也能点赞」）——
+    //   没账号就记在这台设备名下；收藏还是要账号，它是「我自己的一份清单」，换台手机得找得回来。
     const toggle = async which => {
-      if (!me) { onLogin(); return; }
+      if (!me && which !== "like") { onLogin(); return; }
       const on = which === "like" ? !it.liked : !it.faved;
       try { const d = await api("/item/" + it.id + "/" + which, { method: on ? "POST" : "DELETE" });
         setIt(x => Object.assign({}, x, which === "like" ? { liked: on, likes: d.count } : { faved: on, favs: d.count })); }
       catch (e) { props.toast(e.message); }
     };
-    const doFollow = async () => {
+// 导进手机之前先给老师点个心（她 2026-10-29：「确实不喜欢为什么要导入呢」）。
+    //   不是收费：点心不用登录、点完还能自己收回去；只是把「拿了东西」和「说一声喜欢」放在同一下。
+    //   已经点过的照旧一下导入，不会重复问。
+    const importWithHeart = () => {
+      if (it.liked) { doImport(); return; }
+      requestAppConfirm("先给老师点个心", "这是老师熬夜捏出来的。点一下心再导进来，TA 看得到。",
+        async () => { await toggle("like"); doImport(); }, "点心并导入");
+    };
+        const doFollow = async () => {
       if (!me) { onLogin(); return; }
       try { await api("/user/" + it.uid + "/follow", { method: follow ? "DELETE" : "POST" }); setFollow(!follow); props.toast(follow ? "不再关注了" : "关注了，她贴新纸条时你会收到小纸条"); }
       catch (e) { props.toast(e.message); }
@@ -529,7 +538,7 @@
           // 动作：导入最大，赞、收藏、复制、删
           h("div", { "data-wk": "nestactions", className: "flex flex-wrap", style: { gap: 8, marginTop: 16 } },
             isPost ? null : isDoc ? h(Btn, { t, solid: true, wide: true, onClick: doCopy, wk: "nestdoccopy" }, "复制全文")
-              : h(Btn, { t, solid: true, wide: true, disabled: busy, onClick: doImport, wk: "nestimport" }, busy ? "……" : "导进我的手机"),
+              : h(Btn, { t, solid: true, wide: true, disabled: busy, onClick: importWithHeart, wk: "nestimport" }, busy ? "……" : it.liked ? "导进我的手机" : "点个心并导入"),
             pill({ on: it.liked, onClick: () => toggle("like"), icon: h(IHeart, { size: 15, color: it.liked ? "#c0717f" : t.ink, filled: it.liked }), txt: it.likes || 0, wk: "nestlike" }),
             pill({ on: it.faved, onClick: () => toggle("fav"), icon: h(IBookmark, { size: 15, color: it.faved ? "#c0717f" : t.ink }), txt: it.faved ? "已收" : "收藏", wk: "nestfav" })),
           h("div", { className: "flex", style: { gap: 8, marginTop: 8 } },

@@ -76,7 +76,11 @@ test("同一条评论认出来的路人是稳定的（刷新不会换个名字�
   const x = { guestName: "空调外机下面", guestHandle: "ac_unit", content: "笑死" };
   const a = F.forumPublicNpcOf(x, "吐槽吧", 4), b = F.forumPublicNpcOf(x, "吐槽吧", 4);
   assert.deepEqual(a, b);
-  assert.notEqual(F.forumPublicNpcOf(x, "吐槽吧", 5).id, a.id, "换一楼就该是另一个 id，不然楼和楼会串");
+  // 2026-10-29 起「同一个名字就是同一个人」（她报：同一楼里同一个名字点进去是两个主页）：
+  //   有名字的，换一楼也还是他。没名字的照旧按楼分开，不然楼和楼会串。
+  assert.equal(F.forumPublicNpcOf(x, "吐槽吧", 5).id, a.id, "有名字的换一楼就变成另一个人了");
+  const anon = { content: "笑死" };
+  assert.notEqual(F.forumPublicNpcOf(anon, "吐槽吧", 5).id, F.forumPublicNpcOf(anon, "吐槽吧", 4).id, "没名字的换一楼还是同一个 id，楼和楼会串");
 });
 
 // 她 2026-09-12（v67.36 当天）：「那你实测路人名字也太像了吧，
@@ -86,7 +90,8 @@ test("同一条评论认出来的路人是稳定的（刷新不会换个名字�
 test("兜底名字是系统默认账号的样子，不是一张凑名字的表", () => {
   // ⚠️「路过的人」那个字符串还在，但它是 hash 的种子、不是给人看的名字——
   //   所以这条钉的是【给人看的那两行】，不是全文搜词。
-  assert.match(A, /const name = String\(\(x && \(x\.guestName \|\| x\.authorName\)\) \|\| \("网友" \+ hh\.toString\(36\)\.slice\(-4\)\)\);/);
+  assert.match(A, /const given = String\(\(x && \(x\.guestName \|\| x\.authorName\)\) \|\| ""\)\.trim\(\);/);
+  assert.match(A, /const name = given \|\| \("网友" \+ hh\.toString\(36\)\.slice\(-4\)\);/);
   assert.match(A, /const handle = String\(\(x && \(x\.guestHandle \|\| x\.handle\)\) \|\| \("u_" \+ hh\.toString\(36\)\)\)/);
   assert.ok(!/const GN = \[|const GP = \[/.test(A), "又在代码里摆名词表了");
   const names = [];
