@@ -65,7 +65,11 @@ const F_DISPLAY = "var(--f-display,'Fraunces',serif)";
 // ⚠️第二次（群里 2026-10-19：「edge 文件只有相册的 bug 还是没好」）：上面那串里有后缀，安卓的浏览器得先把后缀翻成类型，
 //   .ttf、.srt 这类翻不出来的一出现，整串就退回「什么都要」——又成了只给相册。改成【只写大类、不写后缀、不带图片】：
 //   application/* 和 text/* 两类，安卓会开「文件」那个选择器（选 json、txt、css、epub、docx 都在这两类里）。
-const ANY_FILE = (typeof navigator !== "undefined" && /EdgA\//.test(navigator.userAgent || ""))
+// ⚠️第三次（群里 2026-10-29：「用夸克浏览器不知道为什么一直导不进去数据」）：夸克和 UC 在安卓上是同一个内核，
+//   跟 Edge 一个毛病——见到 */* 就当成「要拍照／选相册」，根本不开文件那一栏，于是备份文件永远选不中。
+//   只认安卓上的这几个：iOS 上它们套的是系统选择器，*/* 本来就对，换成大类反而又把 .css、.epub 变灰。
+const ANDROID_PICKY_FILE = ua => /Android/.test(ua) && /EdgA\/|Quark\/|UCBrowser\/|UBrowser\//i.test(ua);
+const ANY_FILE = (typeof navigator !== "undefined" && ANDROID_PICKY_FILE(navigator.userAgent || ""))
   ? "application/*,text/*,font/*"
   : "*/*";
 const F_BODY = "var(--f-body,'Archivo','Noto Serif SC',system-ui,sans-serif)";
