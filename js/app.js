@@ -20,7 +20,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v76.860";
+const APP_VERSION = "v76.868";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -5145,7 +5145,13 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     const loadZh = { "HIGH LOAD": "满", "NORMAL": "一般", "LIGHT": "清闲", "LOW LOAD": "清闲" };
     const loadWord = loadZh[String(s.load || "").toUpperCase()] || "";
     let out = "今日安排" + (loadWord ? "（这天" + loadWord + "）" : "") + "：\n" + disp.map(x => (x._charTime || x.time || "") + " " + x.title + (x.location ? "（" + x.location + "）" : "") + (x.deviation ? "［临时改动：" + (x.deviation.reason || "") + "］" : "")).join("\n");
-    if (cur) out += "\n\n此刻（你当地约 " + (cur._charTime || cur.time || "") + "）Ta 正在：" + cur.title + (cur.location ? "，在 " + cur.location : "") + (cur.deviation ? "（这段是临时改动：" + (cur.deviation.reason || "") + "）" : "");
+    // 「此刻在做什么」必须跟【醒没醒】出自同一个判断（群里 2026-10-29：「显示睡着的角色疯狂发消息说自己在上班」）。
+    //   病根：这儿走 schedPlanOf——今天没排就借前后一天那份接着用；而「醒没醒」（charAwakeState，顶栏和主动那道闸都问它）
+    //   只认今天这一份。于是今天的日程还没排出来那会儿，界面说睡着、喂给 TA 的却是昨天同一时刻的「正在上班」。
+    //   收在这一处：以 sleepPhaseOf 为准（它还认「关了时间感知」那一档），睡着就说睡着，不拿另一天的事当此刻。
+    const _asleepNow = (() => { try { return sleepPhaseOf(char) === "asleep"; } catch (e) { return false; } })();
+    if (_asleepNow) out += "\n\n此刻 Ta 在睡觉（按 Ta 自己的作息）。别说成醒着在做别的事。";
+    else if (cur) out += "\n\n此刻（你当地约 " + (cur._charTime || cur.time || "") + "）Ta 正在：" + cur.title + (cur.location ? "，在 " + cur.location : "") + (cur.deviation ? "（这段是临时改动：" + (cur.deviation.reason || "") + "）" : "");
     else {
       const cy = schedCarryNowFor(char);
       out += cy
@@ -24496,8 +24502,20 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     //   【模型一个字都没给】时的兜底，所以它就该长成一个系统默认账号的样子——
     //   一眼看得出「这条没人起名字」，而不是假装自己有灵气。真要少见它，
     //   得靠提示词那头把 guestName 要到手（见 forumNpcRule 和 FORUM_GUEST_FIELDS）。
-    const name = String((x && (x.guestName || x.authorName)) || ("网友" + hh.toString(36).slice(-4)));
+    const given = String((x && (x.guestName || x.authorName)) || "").trim();
+    const name = given || ("网友" + hh.toString(36).slice(-4));
     const handle = String((x && (x.guestHandle || x.handle)) || ("u_" + hh.toString(36))).replace(/^@/, "");
+    // 同一个名字就是同一个人（她 2026-10-29：同一楼里「红烧铁头娃」评了两次，点进去是两个主页、两个账号名）：
+    //   原来 id 跟着「出现在哪一处」变，模型每次还会给他编个新账号名。名字第一次出现时记下 id 和账号名，以后照用
+    if (given) {
+      let book = {}; try { book = JSON.parse(localStorage.getItem("x_forumGuests") || "{}") || {}; } catch (e) {}
+      if (book[given] && book[given].id) return { id: book[given].id, name, handle: book[given].handle || handle };
+      const one = { id: "npc_guest_" + forumHash("guest:" + given).toString(36), handle };
+      book[given] = one;
+      const ks = Object.keys(book); if (ks.length > 600) ks.slice(0, ks.length - 600).forEach(k => delete book[k]);
+      try { localStorage.setItem("x_forumGuests", JSON.stringify(book)); } catch (e) {}
+      return { id: one.id, name, handle };
+    }
     return { id: "npc_guest_" + hh.toString(36), name, handle };
   };
   // 她 2026-09-12：「论坛现在太多评论都是常驻 npc 了好无聊，说话调调也都一样」。
@@ -32141,41 +32159,54 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     }
     return true;
   };
-  const doImport = file => doImportFiles([file]);
+  const doImport = input => doImportFiles(input);
   // 一次选好几份（群里 2026-10-28：「导入恢复图片只能一个一个点吗，每恢复一个就要从头再点进去」）：
   //   图片分成了好几包，原来一包一包导、每包导完还自动重载一次，于是每导一包都要重新点进设置。
   //   现在一次全选，按【文字那份在前、图片按包号在后】的顺序一份份导完，最后才重载一次。
   //   ⚠️顺序不能乱：文字那一份是整机覆盖，会把图库先清掉；它要是排在图片后面，刚导进去的图就没了。
-  const doImportFiles = async files => {
-    const arr = Array.from(files || []);
-    if (!arr.length) return;
-    const readOne = f => new Promise(res => {
+  const doImportFiles = async input => {
+    // ⚠️收进来的可能是【一串】（选择器给的 FileList）也可能是【一份】（别处直接递一个 File 进来）。
+    //   v76.857 把选择器改成多选、却把这儿留成「一份」，于是整串被当成一份去读，读的时候直接抛错，
+    //   界面上一点反应都没有（群里 2026-10-29「导入没有反应」）。两种都认，别再让调用方去迁就这儿。
+    const arr = (input && typeof input.length === "number" ? Array.from(input) : input ? [input] : [])
+      .filter(f => f && typeof f.slice === "function");   // 不是文件的一律丢掉，省得读的时候炸在半路
+    if (!arr.length) { toast("没选到文件"); return; }
+    // 一上来就说话：出了什么岔子也看得见，不会又变成一颗「按了没反应」的键
+    toast(arr.length > 1 ? "在读 " + arr.length + " 份文件…" : "在读文件…");
+    const readText = (f, slice) => new Promise(res => {
       const r = new FileReader();
-      r.onload = e => res({ name: f.name, text: String(e.target.result || "") });
+      r.onload = e => res(String(e.target.result || ""));
       // ⚠️读文件本身也会失败（权限、被别的 app 占着）。不吭声的话就是一颗死按钮。
-      r.onerror = () => res({ name: f.name, text: "" });
-      r.readAsText(f);
+      r.onerror = () => res("");
+      try { r.readAsText(slice ? f.slice(0, 400) : f); } catch (e) { res(""); }
     });
-    if (arr.length > 1) toast("在读 " + arr.length + " 份文件…");
-    const got = await Promise.all(arr.map(readOne));
-    const bad = got.filter(x => !x.text).map(x => x.name);
-    const rows = got.filter(x => x.text).map(x => {
-      let part = 0, media = false;
-      try { const o = JSON.parse(x.text); media = !!(o && o.__archive && o.kind === "media"); part = Number(o && o.part) || 0; } catch (e) {}
-      return Object.assign({}, x, { media, part });
-    });
-    rows.sort((a, b) => (a.media ? 1 : 0) - (b.media ? 1 : 0) || a.part - b.part);
-    if (!rows.length) { toast(bad.length ? "这些文件读不出来，换一份或者用「贴一份备份」" : "没选到文件"); return; }
-    let ok = 0;
-    for (let i = 0; i < rows.length; i++) {
-      if (rows.length > 1) toast("第 " + (i + 1) + "/" + rows.length + " 份…");
-      let r = false;
-      try { r = await doImportText(rows[i].text, { noReload: true }); } catch (e) {}
-      if (r) ok++;
+    try {
+      // 先只读每份的开头认一下是哪种（__archive / kind / part 都写在最前面），
+      //   别为了排序把几十 MB 的图片包整份读进来再 JSON.parse 一遍。
+      const rows = [];
+      for (const f of arr) {
+        const head = await readText(f, true);
+        rows.push({ f, name: f.name || "", media: /"kind"\s*:\s*"media"/.test(head),
+          part: Number((head.match(/"part"\s*:\s*(\d+)/) || [])[1]) || 0 });
+      }
+      // ⚠️文字那一份一定排在图片包前面：它是整机覆盖，会先把图库清掉
+      rows.sort((a, b) => (a.media ? 1 : 0) - (b.media ? 1 : 0) || a.part - b.part);
+      let ok = 0, bad = 0; const badNames = [];
+      for (let i = 0; i < rows.length; i++) {
+        if (rows.length > 1) toast("第 " + (i + 1) + "/" + rows.length + " 份…");
+        // 一份一份读、读完就放手：几十 MB 的包同时摊开会把手机撑爆
+        const text = await readText(rows[i].f);
+        if (!text) { bad++; badNames.push(rows[i].name); continue; }
+        let r = false;
+        try { r = await doImportText(text, { noReload: true }); } catch (e) {}
+        if (r) ok++; else { bad++; badNames.push(rows[i].name); }
+      }
+      toast(ok ? "导好了 " + ok + " 份" + (bad ? "，这几份没导成：" + badNames.slice(0, 3).join("、") + (bad > 3 ? " 等 " + bad + " 份" : "") + "，重载后单独再导一次" : "") + "，正在重载…"
+        : "一份都没导成——换一份，或者用下面的「贴一份备份」", bad && ok ? 6000 : undefined);
+      if (ok) setTimeout(() => location.reload(), bad ? 4500 : 900);
+    } catch (e) {
+      toast("导入出错了：" + ((e && e.message) || e) + "——数据还在，没有丢", 5000);
     }
-    const miss = rows.length - ok + bad.length;
-    toast(ok ? "导好了 " + ok + " 份" + (miss ? "，有 " + miss + " 份没导成" : "") + "，正在重载…" : "一份都没导成", miss && ok ? 4000 : undefined);
-    if (ok) setTimeout(() => location.reload(), miss ? 2200 : 900);
   };
 
   // ---- routing ----

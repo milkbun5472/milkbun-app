@@ -474,15 +474,24 @@
       try { await api("/item/" + id, { method: "DELETE" }); props.toast("删掉了"); onGone(id); }
       catch (e) { props.toast("没删成：" + e.message); setBusy(false); }
     };
-    // 赞、收藏：再点一次就收回；没登录先去登录
+    // 赞、收藏：再点一次就收回。点心不用登录（她 2026-10-29「能不能不登录也能点赞」）——
+    //   没账号就记在这台设备名下；收藏还是要账号，它是「我自己的一份清单」，换台手机得找得回来。
     const toggle = async which => {
-      if (!me) { onLogin(); return; }
+      if (!me && which !== "like") { onLogin(); return; }
       const on = which === "like" ? !it.liked : !it.faved;
       try { const d = await api("/item/" + it.id + "/" + which, { method: on ? "POST" : "DELETE" });
         setIt(x => Object.assign({}, x, which === "like" ? { liked: on, likes: d.count } : { faved: on, favs: d.count })); }
       catch (e) { props.toast(e.message); }
     };
-    const doFollow = async () => {
+// 导进手机之前先给老师点个心（她 2026-10-29：「确实不喜欢为什么要导入呢」）。
+    //   不是收费：点心不用登录、点完还能自己收回去；只是把「拿了东西」和「说一声喜欢」放在同一下。
+    //   已经点过的照旧一下导入，不会重复问。
+    const importWithHeart = () => {
+      if (it.liked) { doImport(); return; }
+      requestAppConfirm("先给老师点个心", "这是老师熬夜捏出来的。点一下心再导进来，TA 看得到。",
+        async () => { await toggle("like"); doImport(); }, "点心并导入");
+    };
+        const doFollow = async () => {
       if (!me) { onLogin(); return; }
       try { await api("/user/" + it.uid + "/follow", { method: follow ? "DELETE" : "POST" }); setFollow(!follow); props.toast(follow ? "不再关注了" : "关注了，她贴新纸条时你会收到小纸条"); }
       catch (e) { props.toast(e.message); }
@@ -529,7 +538,7 @@
           // 动作：导入最大，赞、收藏、复制、删
           h("div", { "data-wk": "nestactions", className: "flex flex-wrap", style: { gap: 8, marginTop: 16 } },
             isPost ? null : isDoc ? h(Btn, { t, solid: true, wide: true, onClick: doCopy, wk: "nestdoccopy" }, "复制全文")
-              : h(Btn, { t, solid: true, wide: true, disabled: busy, onClick: doImport, wk: "nestimport" }, busy ? "……" : "导进我的手机"),
+              : h(Btn, { t, solid: true, wide: true, disabled: busy, onClick: importWithHeart, wk: "nestimport" }, busy ? "……" : it.liked ? "导进我的手机" : "点个心并导入"),
             pill({ on: it.liked, onClick: () => toggle("like"), icon: h(IHeart, { size: 15, color: it.liked ? "#c0717f" : t.ink, filled: it.liked }), txt: it.likes || 0, wk: "nestlike" }),
             pill({ on: it.faved, onClick: () => toggle("fav"), icon: h(IBookmark, { size: 15, color: it.faved ? "#c0717f" : t.ink }), txt: it.faved ? "已收" : "收藏", wk: "nestfav" })),
           h("div", { className: "flex", style: { gap: 8, marginTop: 8 } },
@@ -791,8 +800,27 @@
       try { await api("/verify/conf", { method: "POST", body: { link: String(v || "").trim() } }); props.toast("存好了"); load(); } catch (e) { props.toast(e.message); } });
     const setOn = async on => {
       try { await api("/verify/conf", { method: "POST", body: { on } }); props.toast(on ? "开了：验证页能用了" : "关了：验证页会说「去群里找群主」"); load(); } catch (e) { props.toast(e.message); } };
+    // 留底那张：点开才去取（一次一张，不随名单一起发下来）；看完能单张删，也能一键全清
+    const [shotOf, setShotOf] = useState(null);   // { id, src }
+    const openShot = async id => {
+      props.toast("在取……");
+      try { const d = await api("/verify/shot?id=" + id); setShotOf({ id, src: "data:" + d.mime + ";base64," + d.data }); props.toast(""); }
+      catch (e) { props.toast(e.message); }
+    };
+    const dropShot = (id, all) => requestAppConfirm(all ? "清空留底" : "删掉这一张",
+      all ? "把留着的截图全删掉，删了找不回来。验证记录本身留着，还能拿来对名单。" : "删了找不回来。这条记录本身留着。",
+      async () => {
+        try { const r = await api("/verify/drop", { method: "POST", body: all ? { all: true } : { id } });
+          props.toast(all ? "清空了（" + (r.n || 0) + " 张）" : "删了"); setShotOf(null); load(); } catch (e) { props.toast(e.message); }
+      }, all ? "全删掉" : "删掉");
     return h("div", { "data-wk": "nestverify", className: "h-full flex flex-col", style: shell(t) },
       h(Head, { zh: "进群验证", onBack: onClose, bg: "transparent" }),
+      // 看留底：铺满这一页，看完关掉；不另开一层半窗（施工规则/no-half-sheet.md）
+      shotOf ? h("div", { "data-wk": "nestverifyshotview", className: "absolute inset-0 flex flex-col", style: { zIndex: 40, background: t.bg } },
+        h(Head, { zh: "留底", sub: "只有你看得到", onBack: () => setShotOf(null), bg: "transparent",
+          right: pill(false, "删掉这张", () => dropShot(shotOf.id), "nestverifydropone") }),
+        h("div", { className: "flex-1 min-h-0 overflow-auto px-4 pb-8" },
+          h("img", { src: shotOf.src, alt: "留底截图", style: { width: "100%", borderRadius: 12, border: "1px solid " + t.line } }))) : null,
       h("div", { className: "flex-1 min-h-0 overflow-y-auto px-4 pt-3 pb-8" },
         err ? h("div", { style: Object.assign({}, small, { padding: "24px 4px", fontSize: "calc(13px * var(--app-fs, 1))" }) }, err) :
         !d ? h("div", { style: Object.assign({}, small, { padding: "24px 4px", fontSize: "calc(13px * var(--app-fs, 1))" }) }, "在拿……") :
@@ -807,14 +835,18 @@
               pill(d.on, d.on ? "开着" : "打开", () => setOn(!d.on), "nestverifyon")),
             h("div", { style: Object.assign({}, small, { marginTop: 8 }) },
               "今天来了 " + d.dayTotal + " 次，过了 " + (d.dayPassed || 0) + "；一共 " + d.total + " 次，过了 " + (d.passed || 0) + "。"),
-            h("div", { style: Object.assign({}, small, { marginTop: 4 }) }, "照片和她们的密钥都不到这儿来；记下的只有她们自己填的 QQ 号，用来跟加群的人对上。")),
+            h("div", { style: Object.assign({}, small, { marginTop: 4 }) }, "手写那张和她们的密钥都不到这儿来。留底那张只有你看得到，" + (d.shotDays || 14) + " 天自动删。"),
+            d.shots ? h("div", { className: "flex items-center justify-between", style: { gap: 8, marginTop: 10 } },
+              h("div", { style: small }, "现在留着 " + d.shots + " 张截图"),
+              pill(false, "清空留底", () => dropShot(0, true), "nestverifydropall")) : null),
           !d.rows.length ? h("div", { style: Object.assign({}, small, { padding: "28px 4px", textAlign: "center" }) }, "还没有人来验过") :
           d.rows.map(r => h("div", { key: r.id, "data-wk": "nestverifyrow", "data-on": r.pass ? "1" : "0", className: "flex items-center",
               style: { gap: 8, padding: "9px 2px", borderBottom: "1px solid " + t.line } },
             h("div", { className: "flex-1 min-w-0" },
               h("div", { className: "truncate", style: { fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", color: r.pass ? t.ink : t.fog } },
                 (r.pass ? "✓ " : "✗ ") + (WHY[r.reason] || r.reason)),
-              h("div", { className: "truncate", style: small }, when(r.at) + (r.qq ? " · QQ " + r.qq : "") + (r.station ? " · " + r.station : "") + (r.model ? " · " + r.model : ""))))),
+              h("div", { className: "truncate", style: small }, when(r.at) + (r.qq ? " · QQ " + r.qq : "") + (r.station ? " · " + r.station : "") + (r.model ? " · " + r.model : ""))),
+            r.shot ? pill(false, "看留底", () => openShot(r.id), "nestverifyshot") : null)),
           d.rows.length < d.total ? h("div", { style: { textAlign: "center", marginTop: 12 } }, pill(false, "再往下看", () => load(true), "nestverifymore")) : null)));
   }
 
