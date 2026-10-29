@@ -95,12 +95,15 @@ test("界面：分了段就把每一段摆出来，点过的打勾", () => {
 });
 
 test("导入两条路只有一份实现", () => {
-  assert.match(app, /const doImportText = async raw => \{/, "没有公共那一份");
+  assert.match(app, /const doImportText = async \(raw, opts\) => \{/, "没有公共那一份");
   assert.match(app, /JSON\.parse\(raw\)/);
   assert.equal((app.match(/if \(!parsed\.__archive \|\| !parsed\.data\)/g) || []).length, 1, "校验写成了两份");
-  const fi = app.indexOf("const doImport = file => {");
-  const seg = app.slice(fi, fi + 420);
-  assert.match(seg, /doImportText\(String\(e\.target\.result \|\| ""\)\)/, "选文件那条没走公共那处");
+  // 选文件那条（单份、多份）都收到 doImportFiles，再一份份交给 doImportText（2026-10-28 加的多选）
+  const fi = app.indexOf("const doImportFiles = async files => {");
+  assert.ok(fi > 0, "抠不出 doImportFiles");
+  const seg = app.slice(fi, app.indexOf("\n  };", fi));
+  assert.match(app, /const doImport = file => doImportFiles\(\[file\]\);/, "单份那条没走公共那处");
+  assert.match(seg, /await doImportText\(rows\[i\]\.text, \{ noReload: true \}\)/, "多份那条没走公共那处");
   assert.match(seg, /r\.onerror/, "文件读不出来的时候闷着不吭声");
 });
 

@@ -8942,7 +8942,7 @@ function DataConfig({
     mediaParts && mediaParts.n
       ? h("div", { "data-wk": "block", style: { marginTop: 8, padding: "10px 12px", borderRadius: 10, background: t.bg2, border: "1px solid " + t.line } },
           h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", lineHeight: 1.7, color: t.ink } },
-            "文字那一份存好了。图片和视频分成了 " + mediaParts.n + " 包，按顺序一包一包点着存；恢复时每一包都用「导入备份恢复」导一次，先导哪份都行。"),
+            "文字那一份存好了。图片和视频分成了 " + mediaParts.n + " 包，按顺序一包一包点着存；恢复时点「导入备份恢复」，把文字那份和每一包【一次全选上】就行，顺序不用管。"),
           h("div", { className: "flex flex-wrap", style: { gap: 6, marginTop: 8 } },
             Array.from({ length: mediaParts.n }, (_, k) => h("button", {
               key: k, onClick: () => onExportMedia(k + 1), className: "active:opacity-70",
@@ -9011,7 +9011,7 @@ function DataConfig({
     //   带不带图是两回事，不许悄悄少图（never-say-delete-first 那条的地基）。
     h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", lineHeight: 1.7, color: "#c0503f", margin: "3px 2px 0" } },
       "⚠️复制的这一份只有文字（角色、聊天、记忆、手机、情侣空间这些），不含图片和自拍——图太大，塞进剪贴板会把页面撑崩。图要带走只能用上面的导出文件。"),
-    button("导入备份恢复", () => ref.current && ref.current.click(), false),
+    button("导入备份恢复（能一次多选）", () => ref.current && ref.current.click(), false),
     // 贴一份：跟主题包那条路同一个组件（施工规则/one-public-mechanism）
     typeof window !== "undefined" && window.ThemePackPasteBox && onImportText
       ? h("div", { style: { marginTop: 10 } }, h(window.ThemePackPasteBox, {
@@ -9027,8 +9027,9 @@ function DataConfig({
           h("br"), "3）几段得是同一次导出的：段头第三格那串字母要一样。"))
       : null,
     h(HomeLayoutProbe, { toast: toast }),
-    h("input", { ref: ref, type: "file", accept: ANY_FILE, className: "hidden", onChange: e => {
-      const f = e.target.files && e.target.files[0]; if (f) onImport(f); e.target.value = "";
+    // 一次能选好几份（群里 2026-10-28：图片分了好几包，一包一包点太麻烦）：顺序不用管，交给 onImport 排
+    h("input", { ref: ref, type: "file", accept: ANY_FILE, multiple: true, className: "hidden", onChange: e => {
+      const fs = e.target.files; if (fs && fs.length) onImport(fs); e.target.value = "";
     } }));
   if (part === "danger") content = h("div", { style: { paddingTop: 8 } },
     !c ? button("清空所有数据", () => setC(true), false) : h("div", null,

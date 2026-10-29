@@ -32027,7 +32027,9 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   // ⚠️导入分两条路：选文件、和【把整份 JSON 贴进来】（她 2026-09-22 转来的：
   //   在 QQ／微信内置浏览器里导出，文件根本落不到手上）。两条路只有这一份实现，
   //   选文件那条只负责把文件读成字符串（施工规则/one-public-mechanism）。
-  const doImportText = async raw => {
+  // opts.noReload：一次选了好几份时，每一份导完先别重载，全部导完再重载一次（见 doImportFiles）
+  const doImportText = async (raw, opts) => {
+    const reloadIn = ms => { if (!(opts && opts.noReload)) setTimeout(() => location.reload(), ms); };
     {
       let parsed;
       try {
@@ -32049,8 +32051,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         if (Array.isArray(parsed.album) && typeof idbAlbumPut === "function") {
           for (const row of parsed.album) { try { if (row && row.imageRef) await idbAlbumPut(row); } catch (e2) {} }
         }
-        toast("图片和视频第 " + (parsed.part || 1) + "/" + (parsed.parts || 1) + " 包导好了（" + n + " 个），正在重载…");
-        setTimeout(() => location.reload(), 800);
+        toast("图片和视频第 " + (parsed.part || 1) + "/" + (parsed.parts || 1) + " 包导好了（" + n + " 个）" + (opts && opts.noReload ? "" : "，正在重载…"));
+        reloadIn(800);
         return true;
       }
       if (!parsed.__archive || !parsed.data) {
@@ -32129,22 +32131,51 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
           (failed.length > 6 ? "\n…等共 " + failed.length + " 项" : "") +
           "\n\n这些多半是还没迁进图库的图（聊天图/朋友圈图/表情包）。头像和壁纸已迁进 IndexedDB 图库、随备份的图片仓库单独恢复、不占这 5MB。要全恢复，可在这台设备清掉这类图或分批导入。\n（注意：一起读的书正文、语音音频存在 IndexedDB，本就不进备份文件，换设备要重传。）"
         );
-        setTimeout(() => location.reload(), 400);
+        reloadIn(400);
       } else {
         // 清掉旧的灾后找回工单，并钉住这次权威导入的时间地板。
         // 以后云账本仍可找回导入之后的新消息，但绝不复活导入之前被覆盖掉的书签旧消息。
-        toast("导入成功：已用这份备份完整覆盖本机，正在重载…");
-        setTimeout(() => location.reload(), 800);
+        toast("导入成功：已用这份备份完整覆盖本机" + (opts && opts.noReload ? "" : "，正在重载…"));
+        reloadIn(800);
       }
     }
     return true;
   };
-  const doImport = file => {
-    const r = new FileReader();
-    r.onload = e => { doImportText(String(e.target.result || "")); };
-    // ⚠️读文件本身也会失败（权限、被别的 app 占着）。不吭声的话就是一颗死按钮。
-    r.onerror = () => toast("这份文件读不出来，换一份或者用「贴一份备份」");
-    r.readAsText(file);
+  const doImport = file => doImportFiles([file]);
+  // 一次选好几份（群里 2026-10-28：「导入恢复图片只能一个一个点吗，每恢复一个就要从头再点进去」）：
+  //   图片分成了好几包，原来一包一包导、每包导完还自动重载一次，于是每导一包都要重新点进设置。
+  //   现在一次全选，按【文字那份在前、图片按包号在后】的顺序一份份导完，最后才重载一次。
+  //   ⚠️顺序不能乱：文字那一份是整机覆盖，会把图库先清掉；它要是排在图片后面，刚导进去的图就没了。
+  const doImportFiles = async files => {
+    const arr = Array.from(files || []);
+    if (!arr.length) return;
+    const readOne = f => new Promise(res => {
+      const r = new FileReader();
+      r.onload = e => res({ name: f.name, text: String(e.target.result || "") });
+      // ⚠️读文件本身也会失败（权限、被别的 app 占着）。不吭声的话就是一颗死按钮。
+      r.onerror = () => res({ name: f.name, text: "" });
+      r.readAsText(f);
+    });
+    if (arr.length > 1) toast("在读 " + arr.length + " 份文件…");
+    const got = await Promise.all(arr.map(readOne));
+    const bad = got.filter(x => !x.text).map(x => x.name);
+    const rows = got.filter(x => x.text).map(x => {
+      let part = 0, media = false;
+      try { const o = JSON.parse(x.text); media = !!(o && o.__archive && o.kind === "media"); part = Number(o && o.part) || 0; } catch (e) {}
+      return Object.assign({}, x, { media, part });
+    });
+    rows.sort((a, b) => (a.media ? 1 : 0) - (b.media ? 1 : 0) || a.part - b.part);
+    if (!rows.length) { toast(bad.length ? "这些文件读不出来，换一份或者用「贴一份备份」" : "没选到文件"); return; }
+    let ok = 0;
+    for (let i = 0; i < rows.length; i++) {
+      if (rows.length > 1) toast("第 " + (i + 1) + "/" + rows.length + " 份…");
+      let r = false;
+      try { r = await doImportText(rows[i].text, { noReload: true }); } catch (e) {}
+      if (r) ok++;
+    }
+    const miss = rows.length - ok + bad.length;
+    toast(ok ? "导好了 " + ok + " 份" + (miss ? "，有 " + miss + " 份没导成" : "") + "，正在重载…" : "一份都没导成", miss && ok ? 4000 : undefined);
+    if (ok) setTimeout(() => location.reload(), miss ? 2200 : 900);
   };
 
   // ---- routing ----
