@@ -377,7 +377,17 @@ function ChatLookPack({ getLook, onApply, fileBase, group }) {
   const dropOne = it => { if (delId !== it.id) { setDelId(it.id); return; } saveJSON("x_chatLooks", chatLookShelf().filter(x => x.id !== it.id)); setShelf(chatLookShelf()); setDelId(""); };
   const take = async txt => {
     try { const look = await importChatLook(txt); onApply(look); toast("导进来了，顶栏已自动让开这台手机的刘海；看看效果，满意再点右上角 ✓ 保存" + (group && (look.skin || look.bubble || look.font) ? "（群里用不上皮肤/气泡/字那几样，已跳过）" : "")); return true; }
-    catch (e) { toast((e && e.message) || "导不进来"); return false; }
+    catch (e) {
+      // 贴进来的是一段 CSS、不是美化文件（群里 2026-10-29 截图）：那就是要写进「只给 TA 写 CSS」那格——接在原来的后面，原来的不丢
+      const css = String(txt || "").trim();
+      if (!/^[\[{]/.test(css) && /\{[^{}]*:[^{}]*\}/.test(css)) {
+        const cur = getLook() || {}, old = String(cur.customCSS || "").trim();
+        onApply(Object.assign({}, cur, { customCSS: old ? old + "\n\n" + css : css }));
+        toast("这是一段 CSS，已经放进下面「" + (group ? "只给这个群写 CSS" : "只给 TA 写 CSS") + "」那格" + (old ? "（接在原来的后面）" : "") + "；看看效果，满意再点右上角 ✓ 保存");
+        return true;
+      }
+      toast((e && e.message) || "导不进来"); return false;
+    }
   };
   const pick = e => { const f = e.target.files && e.target.files[0]; e.target.value = ""; if (f) f.text().then(take); };
   const btn = (label, fn) => h("button", { onClick: fn, disabled: busy, className: "active:opacity-70",

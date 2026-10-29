@@ -20,7 +20,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v76.843";
+const APP_VERSION = "v76.858";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -31849,7 +31849,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       const via = await saveTextFile(name, JSON.stringify(out), "application/json");
       if (via === "cancel") { toast("这一包取消了，什么都没存"); return; }
       setMediaParts(Object.assign({}, box, { done: Object.assign({}, box.done, { [partNo]: true }) }));
-      toast("图片和视频第 " + partNo + "/" + box.parts.length + " 包" + (via === "share" ? "已交给分享面板，在里面选「存储到文件」" : "已导出"));
+      toast("图片和视频第 " + partNo + "/" + box.parts.length + " 包" + savedWhere(via));
     } catch (e) {
       toast("这一包没导成：" + (e && e.message || e) + "——数据还在，没有丢");
     }
@@ -31863,7 +31863,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       if (via === "cancel") { toast("导出取消了，什么都没存"); return; }
       saved = true;
       try { window.Cloud && window.Cloud.noteExport && window.Cloud.noteExport(); } catch (e) {}
-      toast("文字那一份" + (via === "share" ? "已交给分享面板，在里面选「存储到文件」" : "已导出") + "——图片和视频在下面按包接着存");
+      toast("文字那一份" + savedWhere(via) + "——图片和视频在下面按包接着存");
     } catch (e) {
       toast("导出没成功：" + (e && e.message || e) + "——数据还在，没有丢");
     }
@@ -32027,7 +32027,9 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   // ⚠️导入分两条路：选文件、和【把整份 JSON 贴进来】（她 2026-09-22 转来的：
   //   在 QQ／微信内置浏览器里导出，文件根本落不到手上）。两条路只有这一份实现，
   //   选文件那条只负责把文件读成字符串（施工规则/one-public-mechanism）。
-  const doImportText = async raw => {
+  // opts.noReload：一次选了好几份时，每一份导完先别重载，全部导完再重载一次（见 doImportFiles）
+  const doImportText = async (raw, opts) => {
+    const reloadIn = ms => { if (!(opts && opts.noReload)) setTimeout(() => location.reload(), ms); };
     {
       let parsed;
       try {
@@ -32049,8 +32051,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         if (Array.isArray(parsed.album) && typeof idbAlbumPut === "function") {
           for (const row of parsed.album) { try { if (row && row.imageRef) await idbAlbumPut(row); } catch (e2) {} }
         }
-        toast("图片和视频第 " + (parsed.part || 1) + "/" + (parsed.parts || 1) + " 包导好了（" + n + " 个），正在重载…");
-        setTimeout(() => location.reload(), 800);
+        toast("图片和视频第 " + (parsed.part || 1) + "/" + (parsed.parts || 1) + " 包导好了（" + n + " 个）" + (opts && opts.noReload ? "" : "，正在重载…"));
+        reloadIn(800);
         return true;
       }
       if (!parsed.__archive || !parsed.data) {
@@ -32129,22 +32131,51 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
           (failed.length > 6 ? "\n…等共 " + failed.length + " 项" : "") +
           "\n\n这些多半是还没迁进图库的图（聊天图/朋友圈图/表情包）。头像和壁纸已迁进 IndexedDB 图库、随备份的图片仓库单独恢复、不占这 5MB。要全恢复，可在这台设备清掉这类图或分批导入。\n（注意：一起读的书正文、语音音频存在 IndexedDB，本就不进备份文件，换设备要重传。）"
         );
-        setTimeout(() => location.reload(), 400);
+        reloadIn(400);
       } else {
         // 清掉旧的灾后找回工单，并钉住这次权威导入的时间地板。
         // 以后云账本仍可找回导入之后的新消息，但绝不复活导入之前被覆盖掉的书签旧消息。
-        toast("导入成功：已用这份备份完整覆盖本机，正在重载…");
-        setTimeout(() => location.reload(), 800);
+        toast("导入成功：已用这份备份完整覆盖本机" + (opts && opts.noReload ? "" : "，正在重载…"));
+        reloadIn(800);
       }
     }
     return true;
   };
-  const doImport = file => {
-    const r = new FileReader();
-    r.onload = e => { doImportText(String(e.target.result || "")); };
-    // ⚠️读文件本身也会失败（权限、被别的 app 占着）。不吭声的话就是一颗死按钮。
-    r.onerror = () => toast("这份文件读不出来，换一份或者用「贴一份备份」");
-    r.readAsText(file);
+  const doImport = file => doImportFiles([file]);
+  // 一次选好几份（群里 2026-10-28：「导入恢复图片只能一个一个点吗，每恢复一个就要从头再点进去」）：
+  //   图片分成了好几包，原来一包一包导、每包导完还自动重载一次，于是每导一包都要重新点进设置。
+  //   现在一次全选，按【文字那份在前、图片按包号在后】的顺序一份份导完，最后才重载一次。
+  //   ⚠️顺序不能乱：文字那一份是整机覆盖，会把图库先清掉；它要是排在图片后面，刚导进去的图就没了。
+  const doImportFiles = async files => {
+    const arr = Array.from(files || []);
+    if (!arr.length) return;
+    const readOne = f => new Promise(res => {
+      const r = new FileReader();
+      r.onload = e => res({ name: f.name, text: String(e.target.result || "") });
+      // ⚠️读文件本身也会失败（权限、被别的 app 占着）。不吭声的话就是一颗死按钮。
+      r.onerror = () => res({ name: f.name, text: "" });
+      r.readAsText(f);
+    });
+    if (arr.length > 1) toast("在读 " + arr.length + " 份文件…");
+    const got = await Promise.all(arr.map(readOne));
+    const bad = got.filter(x => !x.text).map(x => x.name);
+    const rows = got.filter(x => x.text).map(x => {
+      let part = 0, media = false;
+      try { const o = JSON.parse(x.text); media = !!(o && o.__archive && o.kind === "media"); part = Number(o && o.part) || 0; } catch (e) {}
+      return Object.assign({}, x, { media, part });
+    });
+    rows.sort((a, b) => (a.media ? 1 : 0) - (b.media ? 1 : 0) || a.part - b.part);
+    if (!rows.length) { toast(bad.length ? "这些文件读不出来，换一份或者用「贴一份备份」" : "没选到文件"); return; }
+    let ok = 0;
+    for (let i = 0; i < rows.length; i++) {
+      if (rows.length > 1) toast("第 " + (i + 1) + "/" + rows.length + " 份…");
+      let r = false;
+      try { r = await doImportText(rows[i].text, { noReload: true }); } catch (e) {}
+      if (r) ok++;
+    }
+    const miss = rows.length - ok + bad.length;
+    toast(ok ? "导好了 " + ok + " 份" + (miss ? "，有 " + miss + " 份没导成" : "") + "，正在重载…" : "一份都没导成", miss && ok ? 4000 : undefined);
+    if (ok) setTimeout(() => location.reload(), miss ? 2200 : 900);
   };
 
   // ---- routing ----
@@ -35165,6 +35196,13 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   // 顶栏和状态栏是同一个元素，中间没有交界，也就没有缝。
   // ⚠️主屏是唯一的例外，仍旧留着这条空带——它和 Home 的 height:100vh 是配好的一对，
   //   拆掉底部快捷栏当场被顶上去（v56.58 亲测，施工规则/home-screen-layout.md）。
+  // 公共版旧地址到点关门：整页换成搬家页（window.QQ_MOVE 只有公共版的 notice.js 会挂，家里那版永远走不进来）
+  const _mv = typeof window !== "undefined" ? window.QQ_MOVE : null;
+  // MoveShell 在 screens 那一组（用到才加载），走 LazyGate 等它到位再画
+  if (_mv && _mv.host === location.hostname && Date.now() >= _mv.at) {
+    body = h(LazyGate, { key: "lazy-move", group: "screens", zh: "秋秋搬家了", render: () => h(window.MoveShell, { to: _mv.to, dataProps: { characters, onExport: doExport, mediaParts: mediaParts ? { n: mediaParts.parts.length, done: mediaParts.done } : null,
+      onExportMedia: doExportMedia, onCopyExport: doCopyExport, copyParts, onImportText: doImportPasted, inAppBrowser: inAppBrowser(), onImport: doImport, toast } }) });
+  }
   const _safeTop = { height: screen === "home" ? "env(safe-area-inset-top)" : 0 };
   // 这一页单独换过色的话，发下去的就是换过的那一份（v65.06，她 2026-09-06：
   // 「全部能做主题的页面秋秋都应该可以改」）。没换过时原样发全局那一份——

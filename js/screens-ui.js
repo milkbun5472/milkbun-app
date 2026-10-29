@@ -6925,6 +6925,16 @@ function AutoRefreshConfig(props) {
 //   最后一处英文标题（en: "Config"）。撤掉东西要删干净，不是留在原地当第二份真相：
 //   下一个人打开 screens.js 会读到两个设置页，不知道哪个是活的。
 
+// 设置那一页的方格纸外壳（搬家页 MoveShell 也铺这一张，只此一份）
+function configSheet(t) {
+  const _hex6 = /^#[0-9a-f]{6}$/i.test(String(t.ink || ""));
+  return !_hex6 ? { background: t.bg } : { background: t.bg, backgroundImage: [
+    "repeating-linear-gradient(0deg," + t.ink + "00 0 7px," + t.ink + "07 7px 8px)",
+    "repeating-linear-gradient(90deg," + t.ink + "00 0 7px," + t.ink + "07 7px 8px)",
+    "repeating-linear-gradient(0deg," + t.ink + "00 0 39px," + t.ink + "14 39px 40px)",
+    "repeating-linear-gradient(90deg," + t.ink + "00 0 39px," + t.ink + "14 39px 40px)"
+  ].join(",") };
+}
 function Config(props) {
   const t = useTheme();
   // initialPage：预览台按「回去改」回来时直接落在主题工作台那一栏（v65.00）
@@ -7060,13 +7070,7 @@ function Config(props) {
   // 外壳＝工程格纸：细格 8px，每五格一道重线。铺在【最外那层】、Head 传 transparent
   // 让它透上来（施工规则/mobile-ui-layout.md §3.5）；也不跟着滚。
   // ⚠️t.ink 在深色/自定义主题下未必是六位色号，拼透明度后缀会拼出废值、整层静默消失。
-  const _hex6 = /^#[0-9a-f]{6}$/i.test(String(t.ink || ""));
-  const sheet = !_hex6 ? { background: t.bg } : { background: t.bg, backgroundImage: [
-    "repeating-linear-gradient(0deg," + t.ink + "00 0 7px," + t.ink + "07 7px 8px)",
-    "repeating-linear-gradient(90deg," + t.ink + "00 0 7px," + t.ink + "07 7px 8px)",
-    "repeating-linear-gradient(0deg," + t.ink + "00 0 39px," + t.ink + "14 39px 40px)",
-    "repeating-linear-gradient(90deg," + t.ink + "00 0 39px," + t.ink + "14 39px 40px)"
-  ].join(",") };
+  const sheet = configSheet(t);
   // 外层挂点（她 2026-10-18 转群里：「设置的格子背景改不了」）——原来最外层没有 data-wk，主题 CSS 抓不住这层底纹
   return h("div", { className: "h-full flex flex-col", style: sheet, "data-wk": "configpage" },
     h(Head, { zh: m, onBack: back, bg: "transparent", onTitleTap: page === "home" ? toyKnock : undefined }),
@@ -7964,7 +7968,7 @@ function BubbleSkinConfig({ toast }) {
     try {
       const text = await st.exportPackage({ profile: st.load(), bubbleSkin: s, pick: { bubble: true } });
       const via = await window.saveTextFile("qq-bubble-" + new Date().toISOString().slice(0, 10) + ".json", text, "application/json");
-      toast && toast(via === "cancel" ? "导出取消了" : via === "share" ? "这套气泡已交给分享面板，在里面选「存储到文件」" : "这套气泡已导出");
+      toast && toast(via === "cancel" ? "导出取消了" : "这套气泡" + savedWhere(via));
     } catch (e) { toast && toast("导出失败：" + (e.message || e)); }
   };
   // 导进来只进草稿，不落盘：这一页本来就是「改草稿 → 点保存皮肤」，
@@ -8898,7 +8902,8 @@ function DataConfig({
   onPruneOld,
   onClearAll,
   onRescueChar,
-  toast
+  toast,
+  only
 }) {
   const t = useTheme();
   const [c, setC] = useState(false);
@@ -8914,7 +8919,7 @@ function DataConfig({
     { id: "backup", title: "导入与导出", sub: "备份与换设备恢复", icon: "⇅" },
     { id: "rescue", title: "找回失联的角色", sub: "档案没了，但记忆和聊天还在云上", icon: "⌕" },
     { id: "danger", title: "危险操作", sub: "不可撤销的数据清理", icon: "!", danger: true }
-  ];
+  ].filter(x => !only || only.indexOf(x.id) >= 0);   // 搬家页只留云同步和导入导出（MoveShell）
   const button = (label, onClick, primary) => h("button", {
     onClick: onClick, className: "w-full py-3 active:opacity-70",
     style: { marginTop: 10, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", borderRadius: 7,
@@ -8937,7 +8942,7 @@ function DataConfig({
     mediaParts && mediaParts.n
       ? h("div", { "data-wk": "block", style: { marginTop: 8, padding: "10px 12px", borderRadius: 10, background: t.bg2, border: "1px solid " + t.line } },
           h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", lineHeight: 1.7, color: t.ink } },
-            "文字那一份存好了。图片和视频分成了 " + mediaParts.n + " 包，按顺序一包一包点着存；恢复时每一包都用「导入备份恢复」导一次，先导哪份都行。"),
+            "文字那一份存好了。图片和视频分成了 " + mediaParts.n + " 包，按顺序一包一包点着存；恢复时点「导入备份恢复」，把文字那份和每一包【一次全选上】就行，顺序不用管。"),
           h("div", { className: "flex flex-wrap", style: { gap: 6, marginTop: 8 } },
             Array.from({ length: mediaParts.n }, (_, k) => h("button", {
               key: k, onClick: () => onExportMedia(k + 1), className: "active:opacity-70",
@@ -9006,7 +9011,7 @@ function DataConfig({
     //   带不带图是两回事，不许悄悄少图（never-say-delete-first 那条的地基）。
     h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", lineHeight: 1.7, color: "#c0503f", margin: "3px 2px 0" } },
       "⚠️复制的这一份只有文字（角色、聊天、记忆、手机、情侣空间这些），不含图片和自拍——图太大，塞进剪贴板会把页面撑崩。图要带走只能用上面的导出文件。"),
-    button("导入备份恢复", () => ref.current && ref.current.click(), false),
+    button("导入备份恢复（能一次多选）", () => ref.current && ref.current.click(), false),
     // 贴一份：跟主题包那条路同一个组件（施工规则/one-public-mechanism）
     typeof window !== "undefined" && window.ThemePackPasteBox && onImportText
       ? h("div", { style: { marginTop: 10 } }, h(window.ThemePackPasteBox, {
@@ -9022,8 +9027,9 @@ function DataConfig({
           h("br"), "3）几段得是同一次导出的：段头第三格那串字母要一样。"))
       : null,
     h(HomeLayoutProbe, { toast: toast }),
-    h("input", { ref: ref, type: "file", accept: ANY_FILE, className: "hidden", onChange: e => {
-      const f = e.target.files && e.target.files[0]; if (f) onImport(f); e.target.value = "";
+    // 一次能选好几份（群里 2026-10-28：图片分了好几包，一包一包点太麻烦）：顺序不用管，交给 onImport 排
+    h("input", { ref: ref, type: "file", accept: ANY_FILE, multiple: true, className: "hidden", onChange: e => {
+      const fs = e.target.files; if (fs && fs.length) onImport(fs); e.target.value = "";
     } }));
   if (part === "danger") content = h("div", { style: { paddingTop: 8 } },
     !c ? button("清空所有数据", () => setC(true), false) : h("div", null,
@@ -9053,6 +9059,26 @@ async function evSha256Hex(s) {
   const d = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(s));
   return [...new Uint8Array(d)].map(x => x.toString(16).padStart(2, "0")).join("");
 }
+// 旧地址关门以后的搬家页（她 2026-10-28：「到点了就变成搬家页，只留注册登录云还有它教程和普通导出页」）。
+//   只在公共版的旧地址出现：window.QQ_MOVE 由公共版的 notice.js 挂（家里那版没有这个文件），
+//   app.js 看到旧地址过了点，就把整页换成这一张。云同步和导出用的就是「设置 → 数据」那两格本身，不另写一份。
+function MoveShell({ to, dataProps }) {
+  const t = useTheme();
+  const host = String(to || "").replace(/^https?:\/\//, "").replace(/\/$/, "");
+  const p = (txt, k) => h("p", { key: k, style: { margin: "0 0 10px", fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", color: t.sub, lineHeight: 1.75 } }, txt);
+  return h("div", { "data-wk": "moveshell", className: "h-full flex flex-col", style: configSheet(t) },
+    h(Head, { zh: "秋秋搬家了", bg: "transparent" }),
+    h("div", { className: "flex-1 min-h-0 overflow-y-auto px-4 pt-3 pb-8" },
+      h("div", { "data-wk": "moveshellnote", style: { background: t.bg2, border: "1px solid " + t.line, borderRadius: 14, padding: "14px 14px 6px", marginBottom: 14 } },
+        p("噢！这里是秋秋的老房子，已经关门啦。新家在下面这个地址，进门的口令在群公告里。", 0),
+        p("你的东西还在这台手机上，没有丢。搬过去有两条路：登了云同步的，到新家登同一个账号，文字和图都会自己回来；没登的，先在下面点「导入与导出」，把文字那一份和图片的每一包都存好，再到新家导入。", 1),
+        to ? h("a", { "data-wk": "moveshellgo", href: to, className: "active:opacity-70",
+          style: { display: "block", textAlign: "center", margin: "6px 0 10px", padding: "11px 0", borderRadius: 999, background: t.ink, color: t.bg, fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", fontWeight: 600, textDecoration: "none" } },
+          "去新家 " + host) : null),
+      h(DataConfig, Object.assign({}, dataProps, { only: ["cloud", "backup"] }))));
+}
+// screens 这一组是用到才加载、公共版还会压缩改名：app.js 只认挂在 window 上的这一个
+if (typeof window !== "undefined") window.MoveShell = MoveShell;
 function EventComposeSheet({ entries, characters, onClose, onCreated, toast, preselect }) {
   const t = useTheme();
   const [stage, setStage] = useState("pick"); // pick → verify

@@ -191,7 +191,7 @@ test("单独一泡只有「!」：粘回上一句", () => {
   assert.deepEqual(g(["你说什么", "？！"]), ["你说什么？！"]);
 });
 test("模型单交一条「!」：拆泡后的那道粘回去", () => {
-  const j = engine.indexOf("const BUBBLE_CONJ"), k = engine.indexOf("function splitCardsAndLines(");
+  const j = engine.indexOf("const BUBBLE_DANGLE"), k = engine.indexOf("function splitCardsAndLines(");
   const g = new Function(engine.slice(j, k) + "\nreturn bubbleGlueBrokenLines;")();
   assert.deepEqual(g(["Mais c'est quoi cette coupe de cheveux ?", "!", "怎么一边白一边紫"]), ["Mais c'est quoi cette coupe de cheveux ? !", "怎么一边白一边紫"]);
 });

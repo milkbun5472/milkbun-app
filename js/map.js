@@ -284,8 +284,9 @@ function mapSubSkin(t) {
     // 组件自己取一次实时定位（像苹果地图 widget 对准你），失败就退回传入的 userGeo
     const [myPos, setMyPos] = useState(userGeo && typeof userGeo.lat === "number" ? [userGeo.lat, userGeo.lng] : null);
     useEffect(function () {
-      if (!navigator.geolocation) return;
-      navigator.geolocation.getCurrentPosition(function (p) { setMyPos([p.coords.latitude, p.coords.longitude]); }, function () {}, { enableHighAccuracy: false, maximumAge: 120000, timeout: 12000 });
+      // 不主动弹系统定位询问（2026-10-28）：授权过才静默对准你，没授权就用「我在哪」里填的那个位置
+      if (typeof geoIfGranted !== "function") return;
+      geoIfGranted({ enableHighAccuracy: false, maximumAge: 120000, timeout: 8000 }).then(function (p) { if (p) setMyPos([p.coords.latitude, p.coords.longitude]); });
     }, []);
     // 拿到定位就把组件地图对准你
     useEffect(function () { if (mapRef.current && myPos) { try { mapRef.current.setView(myPos, 12); } catch (e) {} } }, [myPos]);

@@ -100,7 +100,7 @@ test("后台也查；人不在 app 里走系统通知，在就弹横幅；桌面
   assert.match(notify, /ask\(\{ action: "badge", count: n \}\)/);
   assert.match(sw, /case "badge":/, "壳那头接 badge 的那一支");
   // 管理中那一行：看得见最近一次查得怎么样，能就地再查
-  assert.match(nest, /adminToken\(\) \? h\(WatchLine, \{ t \}\) : null,/);
+  assert.match(nest, /adminToken\(\) \? h\(WatchLine, \{ t[,}]/);
   assert.match(nest, /W\.lastCheck \? W\.lastCheck\(\) : null/);
 });
 

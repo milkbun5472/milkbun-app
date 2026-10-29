@@ -41,5 +41,5 @@ test("这几页【早就有底了】——钉住，别哪天被谁改平", () =>
   assert.match(memo, /return h\("div", \{ className: "h-full flex flex-col", style: notebook \}/, "备忘录的本子皮没了");
   // 设置：方格纸，而且【拼透明度前先验六位色号】（深色主题里 t.ink 可能不是六位，
   // 拼出废值整层底会静默消失——mobile-ui-layout §3.5 那条 ⚠️）
-  assert.match(scr, /const sheet = !_hex6 \? \{ background: t\.bg \} : \{ background: t\.bg, backgroundImage: \[/, "设置页的方格纸没了，或者那道色号校验没了");
+  assert.match(scr, /function configSheet\(t\) \{[\s\S]{0,120}?return !_hex6 \? \{ background: t\.bg \} : \{ background: t\.bg, backgroundImage: \[/, "设置页的方格纸没了，或者那道色号校验没了");
 });
