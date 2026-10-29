@@ -39,7 +39,7 @@
     const a = Object.assign({}, ARK_DEFAULT, c.seedance || {}); a.baseUrl = trimUrl(a.baseUrl) || ARK_DEFAULT.baseUrl; a.apiKey = String(a.apiKey || "").trim(); a.model = String(a.model || "").trim() || ARK_DEFAULT.model;
     a.resolution = ["480p", "720p", "1080p"].includes(a.resolution) ? a.resolution : "720p"; a.duration = Math.max(2, Math.min(12, Math.round(Number(a.duration) || 5))); c.seedance = a;
     const rl = Object.assign({}, RELAY_DEFAULT, c.relay || {}); rl.baseUrl = trimUrl(rl.baseUrl).replace(/\/v1$/i, ""); rl.apiKey = String(rl.apiKey || "").trim(); rl.model = String(rl.model || "").trim();
-    rl.format = rl.format === "openai" ? "openai" : "tasks"; rl.duration = Math.max(2, Math.min(20, Math.round(Number(rl.duration) || 5))); c.relay = rl;
+    rl.format = rl.format === "openai" ? "openai" : "tasks"; rl.duration = rl.duration === "" ? "" : Math.max(1, Math.min(60, Math.round(Number(rl.duration) || 5))); c.relay = rl;
     if (!MODELS.includes(c.model)) c.model = DEFAULT.model;
     if (!resolutions(c.model).includes(c.resolution)) c.resolution = resolutions(c.model)[0];
     const allowed = durations(c.model, c.resolution); c.duration = allowed.includes(Number(c.duration)) ? Number(c.duration) : allowed[0];
@@ -172,11 +172,12 @@
         d = await vendorRequest(k.baseUrl + "/v1/videos/image2video", await klingToken(k), { model_name: k.model, image, prompt: text, mode: k.mode, duration: String(k.duration) }, signal);
       } else if (v === "relay") {
         record.format = k.format;
+        const sec = Number(k.duration) || 5;   // 输入框清空了还没填就交：按 5 秒
         if (k.format === "openai") {
-          const f = new FormData(); f.append("model", k.model); f.append("prompt", text); f.append("seconds", String(k.duration));
+          const f = new FormData(); f.append("model", k.model); f.append("prompt", text); f.append("seconds", String(sec));
           f.append("input_reference", dataUrlToBlob(input), "first.png");
           d = await vendorRequest(k.baseUrl + "/v1/videos", k.apiKey, f, signal);
-        } else d = await vendorRequest(k.baseUrl + "/v1/video/generations", k.apiKey, { model: k.model, prompt: text, image: input, images: [input], duration: k.duration, seconds: String(k.duration) }, signal);
+        } else d = await vendorRequest(k.baseUrl + "/v1/video/generations", k.apiKey, { model: k.model, prompt: text, image: input, images: [input], duration: sec, seconds: String(sec) }, signal);
       } else {
         d = await vendorRequest(k.baseUrl + "/contents/generations/tasks", k.apiKey, { model: k.model, content: [{ type: "text", text }, { type: "image_url", image_url: { url: input }, role: "first_frame" }],
           duration: k.duration, resolution: k.resolution, ratio: "adaptive", camera_fixed: true, watermark: false }, signal);
@@ -393,8 +394,9 @@
         models.length ? h("div", { "data-wk": "relaymodels", style: { display: "flex", flexWrap: "wrap", gap: 6, marginTop: 8, maxHeight: 180, overflowY: "auto" } },
           models.map(m => h("button", { key: m, type: "button", onClick: () => sr({ model: m }), style: { minHeight: 32, padding: "0 10px", borderRadius: 999, fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))",
             border: "1px solid " + (r.model === m ? t.ink : t.line), background: r.model === m ? t.ink : "transparent", color: r.model === m ? t.bg2 : t.ink } }, m))) : null,
-        row("时长", h("select", { "aria-label": "中转时长", value: r.duration, onChange: e => sr({ duration: Number(e.target.value) }), style: input }, [4, 5, 6, 8, 10, 12, 15].map(n => h("option", { key: n, value: n }, n + " 秒")))),
-        note("给那种一个站里能挑很多家视频模型的中转站用：首帧是你选的那张图。写法挑它 API 文档里写的那种；只按官方原样转发的，直接用上面对应那一家、把接口地址换成中转站的就行。模型支不支持这个时长以中转站为准，点生成才扣费。"),
+        row("时长（秒，自己填，1～60）", h("input", { "data-wk": "input", type: "number", inputMode: "numeric", min: 1, max: 60, "aria-label": "中转时长", value: r.duration,
+          onChange: e => sr({ duration: e.target.value }), style: input })),
+        note("给那种一个站里能挑很多家视频模型的中转站用：首帧是你选的那张图。写法挑它 API 文档里写的那种；只按官方原样转发的，直接用上面对应那一家、把接口地址换成中转站的就行。秒数随便填，但那个模型只认它支持的几档，填了它不支持的会报错，以中转站为准，点生成才扣费。"),
         err ? h("p", { role: "alert", style: { color: t.accent, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))" } }, err) : null);
     };
     const ark = () => { const a = c.seedance, sa = patch => set({ seedance: Object.assign({}, a, patch) });
