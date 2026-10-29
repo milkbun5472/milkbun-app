@@ -16967,20 +16967,37 @@ function menuItemsForKind(m, canSpeak) {
 // 发真照片那一格（单聊、群聊共用）：一次能挑好几张（群友 2026-10-26「平时那个聊天界面只能一张一张发」），最多 6 张，
 //   跟给秋秋发图同一个上限。imgs 是挑好的那几张（dataURL），点 × 拿掉一张，「＋」再加
 const CHAT_PHOTO_MAX = 6;
+// 群友 2026-10-29：「弹了图片选了但是没有东西落下来」——有的安卓选图器在多选模式下选完不把图交回来，
+//   有的图解码卡住、既不成功也不报错。两道兜底：
+//   ① 选完一张都没交回来：记下来，这台手机以后就一次选一张（不再开多选）
+//   ② 缩图最多等 8 秒；卡住或解不开，图不大就原样读进来，大了才说读不出
+const CHAT_PHOTO_ONE_KEY = "qq_chatPhotoOne";
+const chatPhotoOneOnly = () => { try { return localStorage.getItem(CHAT_PHOTO_ONE_KEY) === "1"; } catch (e) { return false; } };
+const readRawImage = f => new Promise((ok, no) => { const r = new FileReader(); r.onload = () => ok(String(r.result || "")); r.onerror = () => no(r.error); r.readAsDataURL(f); });
+async function chatPhotoRead(f) {
+  const timeout = new Promise((_, no) => setTimeout(() => no(new Error("timeout")), 8000));
+  try { return await Promise.race([resizeImageFile(f, 1600, 0.86), timeout]); }
+  catch (e) { if (f && f.size && f.size <= 3 * 1024 * 1024) return await readRawImage(f); throw e; }
+}
 function ChatPhotoPick({ imgs, setImgs, toast, t }) {
   const ref = useRef(null);
+  const [one, setOne] = useState(chatPhotoOneOnly);
   const list = Array.isArray(imgs) ? imgs : [];
   const pick = async e => {
-    const fs = Array.from((e.target.files) || []); e.target.value = ""; if (!fs.length) return;
+    const fs = Array.from((e.target.files) || []); e.target.value = "";
+    if (!fs.length) {
+      if (!one) { try { localStorage.setItem(CHAT_PHOTO_ONE_KEY, "1"); } catch (err) {} setOne(true); toast && toast("这台手机的相册没把图交回来，换成一次选一张，再点一下试试"); }
+      return;
+    }
     const room = CHAT_PHOTO_MAX - list.length;
     if (fs.length > room) toast && toast("一次最多 " + CHAT_PHOTO_MAX + " 张，多的没放进来");
     const got = [];
-    for (const f of fs.slice(0, Math.max(0, room))) { try { got.push(await resizeImageFile(f, 1600, 0.86)); } catch (err) { toast && toast("有一张没能读出来，跳过了"); } }
+    for (const f of fs.slice(0, Math.max(0, room))) { try { got.push(await chatPhotoRead(f)); } catch (err) { toast && toast("有一张没能读出来，跳过了"); } }
     if (got.length) setImgs(list.concat(got));
   };
   const open = () => ref.current && ref.current.click();
   return h("div", { "data-wk": "chatphotopick", "data-n": String(list.length), style: { marginBottom: 10 } },
-    h("input", { ref: ref, type: "file", accept: "image/*", multiple: true, style: { display: "none" }, onChange: pick }),
+    h("input", { ref: ref, type: "file", accept: "image/*", multiple: !one, style: { display: "none" }, onChange: pick }),
     list.length === 0
       ? h("button", { "data-wk": "block", onClick: open, className: "w-full active:opacity-75", style: { minHeight: 150, borderRadius: 12, background: t.bg, border: "1px dashed " + t.line, display: "flex", alignItems: "center", justifyContent: "center" } },
           h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.8, whiteSpace: "pre-line" } }, "点这里选择照片\n相机或相册都可以，一次能挑 " + CHAT_PHOTO_MAX + " 张"))
