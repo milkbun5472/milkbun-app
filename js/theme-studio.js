@@ -638,7 +638,7 @@
         ["shikeotd", "主屏上那张「去年今天」小卡（时刻）"],
         ["widget", "组件卡那一格（天气、音乐、木鱼这些）"], ["decor", "装饰那一格"], ["decorcode", "装饰「自己写」画出来的那个小窗（贴进去的 HTML 在里面跑）"], ["decorcodeimgs", "「自己写」里自己传的那排图"],
         ["homeclock", "顶上时钟那一块"], ["homeclockink", "时钟的数字"], ["homedate", "时钟底下那行日期"],
-        ["pager", "页码点那一行"], ["pagerdot", "单个页码点（data-on=\"1\" 是当前页）"],
+        ["pager", "页码点那一行"], ["pagerarrow", "主屏整理页面时左右那两颗翻页箭头；data-part＝prev/next"], ["pagerdot", "单个页码点（data-on=\"1\" 是当前页）"],
         // 组件里面（她 2026-10-08：「具体组件也要挂点」）：一套共用的名字，哪个组件用 [data-wk="widget"][data-appkey="w_music"] 这样圈
         ["wtitle", "组件里的标题／大字（月份、温度、歌名、备忘录、名字、功德数）"], ["wsub", "次要小字（年份、天气描述、地点、歌手、签名、说明；data-part 区分）"],
         ["wlabel", "小眉标（本月支出、最近提醒、正在播放、功德、单位字、标签行）"], ["wnum", "醒目的数字或金额（支出、在一起天数、统计数、连击、倒数日）"],
@@ -1170,7 +1170,7 @@
   //   挂点表是从 WK_COMMON/WK_SCOPED 现拼的，代码里新挂的 data-wk 没进名单，测试 ai-brief-hooks 会红；
   //   可规矩、尺寸、现成写法是手写的——所以跟攻略一样立个戳：v 必须等于 APP_VERSION，
   //   这一版改了哪条写进 changed；这一版的改动碰不到样式，就在 none 写一句为什么。
-                                                                                                                                                                                                                                                                    const BRIEF_STAMP = {v: "v76.862",changed: "整理主屏有翻页箭头，滑动不再碰走图标",none: ""};
+                                                                                                                                                                                                                                                                    const BRIEF_STAMP = {v: "v76.863",changed: "",none: "这一版没动美化挂点。"};
   function aiBrief(page, css) {
     const grp = WK_SCOPED.filter(function (x) { return (x.pages || []).indexOf(page) >= 0; })[0];
     const line = function (r) { return '[data-wk="' + r[0] + '"]  ' + r[1]; };
