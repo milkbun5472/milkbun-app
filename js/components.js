@@ -10939,7 +10939,10 @@ function ChatThread({
   const [archView, setArchView] = useState(null); // null | "loading" | [归档消息数组]
   const _me = meProfile || profile;
   // 这个聊天窗单独给我设过头像，就用那张；没设就是我的资料（或这个人认的那张面具）那张
-  const meAv = { name: (_me && _me.name) || "我", color: (_me && _me.color) || t.tint, avatarImage: (character && character.myChatAvatar) || (_me && _me.avatarImage) };
+  // 这个聊天单独设的「我在这儿的头像」读不出来（图库里没这张了：换过手机、导入时没带图）就跳过它，用 TA 认的那张面具的头像——
+  //   原来它照样排在前面，读不出就落成默认紫圆，面具头像明明存好了也盖不上来（群友 2026-10-29）
+  const _myCA = character && character.myChatAvatar && (typeof resolveImg !== "function" || resolveImg(character.myChatAvatar)) ? character.myChatAvatar : null;
+  const meAv = { name: (_me && _me.name) || "我", color: (_me && _me.color) || t.tint, avatarImage: _myCA || (_me && _me.avatarImage) };
   const fmtT = ts => fmtMsgClock(ts, character ? character.id : null, dsp.timeSec);   // 跟群聊同一支（engine.js）
   const subLine = m => { const parts = []; if (m.crossSource === "cc") parts.push("来自 CC"); else if (m.crossSource === "stackchan") parts.push("来自 Stack-chan"); if (dsp.read) parts.push(m.role === "user" ? (m.read ? "已读" : "已送达") : "已读"); if (dsp.time) parts.push(fmtT(m.ts)); return parts.join(" "); };
   const [chatMode, setChatMode] = useState("chat"); // chat | narr | ooc
@@ -19410,7 +19413,8 @@ function GroupThread({
   };
   const [archView, setArchView] = useState(null); // null | "loading" | [归档消息]
   // 这个群单独给我设过头像就用那张（她 2026-10-14：「群聊我改不了自己的头像」——单聊有这一格，群一直没有）
-  const meAv = { name: meName || "我", color: (profile && profile.color) || t.tint, avatarImage: gsp.myAvatar || (profile && profile.avatarImage) };
+  // 同单聊那条：群里单设的「我的头像」读不出来就跳过，用这个群那张面具的头像
+  const meAv = { name: meName || "我", color: (profile && profile.color) || t.tint, avatarImage: (gsp.myAvatar && (typeof resolveImg !== "function" || resolveImg(gsp.myAvatar)) ? gsp.myAvatar : null) || (profile && profile.avatarImage) };
   const fmtT = ts => fmtMsgClock(ts, group && group.id ? "g:" + group.id : null, gsp.timeSec);   // 跟单聊同一支（engine.js）
   const subLine = m => { const parts = []; if (gsp.showRead) parts.push(m.role === "user" ? (m.read === false ? "已送达" : "已读") : "已读"); if (gsp.showTime) parts.push(fmtT(m.ts)); return parts.join(" "); };
   const [panel, setPanel] = useState(false);
