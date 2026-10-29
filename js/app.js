@@ -17189,7 +17189,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     later1: "这一张写的是【一年后】的你：照你们现在真实走的方向往后推一年，你和你们之间会有什么变化、什么还是老样子；不凭空跳到另一种关系。",
     laterN: "这一张写的是【几年后】的你：照你们现在真实走的方向往后推几年，你的日子、你这个人和你们之间会变成什么样；变化要从现在长出来，不凭空另起。"
   };
-  const stampTimeLine = card => card.timeAt && STAMP_TIME[card.timeAt] ? STAMP_TIME[card.timeAt] + "世界、身份、性格都是你本人，这是「如果」的那个时间，不是你们真的发生过的事。" : "";
+  const stampTimeLine = card => card.timeAt === "custom" && card.timeText ? "这一张写的是【" + card.timeText + "】的你：先想清楚那个时候你在哪、过着什么日子、你们之间是什么关系（那时还没认识就不写你们之间的事；在以后就照你们现在真实的方向往前推，变化要从现在长出来）。世界、身份、性格都是你本人，这是「如果」的那个时间，不是你们真的发生过的事。"
+    : card.timeAt && STAMP_TIME[card.timeAt] ? STAMP_TIME[card.timeAt] + "世界、身份、性格都是你本人，这是「如果」的那个时间，不是你们真的发生过的事。" : "";
   const stampKindLine = (card, char) => {
     if (card.kind === "time") return "这是一张【时间卡】：" + stampTimeLine(card) + "衣服照那个时间的你会穿的来。";
     if (card.kind === "if") {
