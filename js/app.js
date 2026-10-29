@@ -31934,6 +31934,53 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       toast("这一包没导成：" + (e && e.message || e) + "——数据还在，没有丢");
     }
   };
+  // 只带几个人走（群友 2026-10-29：分开装了四份秋秋机，想把几个人合到一份里）。规则在 js/char-transfer.js：
+  //   只挑跟这几个人有关的（聊天、线下、记忆、日记、日程、朋友圈、关系线、成员全是他们的群……），全局设置一律不带。
+  //   他们的头像和图跟着走（只带这份里真用到的图），文件一份就够。导入那头认 kind:"chars"，是【加进去】不是整机覆盖。
+  const doExportChars = async ids => {
+    if (!window.CharTransfer || !ids || !ids.length) return;
+    toast("在打包这几个人…");
+    const pack = await buildExportPack({ noImages: true });
+    if (!pack) return;
+    let full; try { full = JSON.parse(pack.text).data || {}; } catch (e) { toast("没打包成：读不出本机存档"); return; }
+    const p = window.CharTransfer.pick(full, ids);
+    if (!p.ids.length) { toast("没找到这几个人"); return; }
+    const vault = {}, selfies = {};
+    const refs = new Set(JSON.stringify(p.data).match(/iv_[A-Za-z0-9_-]+/g) || []);
+    try { if (refs.size && typeof idbVaultEntries === "function") for (const [k, b] of await idbVaultEntries()) if (refs.has(k)) { try { vault[k] = await blobToDataUrl(b); } catch (e) {} } } catch (e) {}
+    const idRe = new RegExp("(?<![A-Za-z0-9])(?:" + p.ids.map(x => x.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|") + ")(?![A-Za-z0-9])");
+    try { if (typeof idbImgEntries === "function") for (const [k, b] of await idbImgEntries()) if (idRe.test(k)) { try { selfies[k] = await blobToDataUrl(b); } catch (e) {} } } catch (e) {}
+    const out = { __archive: 1, kind: "chars", version: 1, exportedAt: Date.now(), names: p.names, ids: p.ids, groups: p.groups, data: p.data, vault, selfies };
+    const name = "chars-" + p.names.filter(Boolean).slice(0, 3).join("_").replace(/[\\/:*?"<>|\s]/g, "") + "-" + new Date().toISOString().slice(0, 10) + ".json";
+    try {
+      const via = await saveTextFile(name, JSON.stringify(out), "application/json");
+      if (via === "cancel") { toast("取消了，什么都没存"); return; }
+      toast(p.names.join("、") + " 打包好了" + savedWhere(via) + "。去另一份秋秋机里点「导入备份恢复」选它，会合并进去，不动那边原来的人");
+    } catch (e) { toast("没导成：" + ((e && e.message) || e) + "——数据还在，没有丢"); }
+  };
+  // 合并进来：只加不删。本机原来的人、聊天、设置一样不动；编号撞了给后进来的换号
+  const mergeCharsPack = async parsed => {
+    if (!window.CharTransfer) { toast("合并没准备好，刷新一下再试"); return false; }
+    const pack = await buildExportPack({ noImages: true });
+    let local = {}; try { local = JSON.parse(pack.text).data || {}; } catch (e) { toast("读不出本机存档，没合并"); return false; }
+    const r = window.CharTransfer.merge(local, parsed);
+    const failed = [];
+    for (const [k, v] of Object.entries(r.writes)) {
+      if (typeof isIdbTextKey === "function" && isIdbTextKey(k)) {
+        try { if (typeof idbTxtPut === "function") await idbTxtPut(k, v); window.__txtMirror && window.__txtMirror.set(k, v); } catch (e) { failed.push(k); }
+        continue;
+      }
+      try { localStorage.setItem(k, v); } catch (e) { failed.push(k); }
+    }
+    const put = async (rows, fn) => { for (const [k, durl] of Object.entries(rows || {})) { try { const b = dataUrlToBlob(durl); if (b) await fn(k, b); } catch (e) {} } };
+    if (typeof dataUrlToBlob === "function") {
+      if (typeof idbVaultPut === "function") await put(r.pack.vault, idbVaultPut);
+      if (typeof idbImgPut === "function") await put(r.pack.selfies, idbImgPut);
+    }
+    const renamed = Object.keys(r.map || {}).length;
+    toast("合并进来了：" + (parsed.names || []).join("、") + (renamed ? "（有 " + renamed + " 个编号跟这边撞了，换了新号，人和东西都在）" : "") + (failed.length ? "；有 " + failed.length + " 样没写进去（多半是空间满了）" : ""), 6000);
+    return true;
+  };
   const doExport = async () => {
     const pack = await buildExportPack({ noImages: true });
     if (!pack) return;
@@ -32134,6 +32181,12 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         toast("图片和视频第 " + (parsed.part || 1) + "/" + (parsed.parts || 1) + " 包导好了（" + n + " 个）" + (opts && opts.noReload ? "" : "，正在重载…"));
         reloadIn(800);
         return true;
+      }
+      // 只带了几个人的那种（kind:"chars"）：加进来，不整机覆盖
+      if (parsed.__archive && parsed.kind === "chars" && parsed.data) {
+        const okM = await mergeCharsPack(parsed);
+        if (okM) reloadIn(1600);
+        return okM;
       }
       if (!parsed.__archive || !parsed.data) {
         toast("格式不对，这不像是这个 app 的备份");
@@ -35201,6 +35254,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     worlds: worlds,
     onBack: goHome,
     onExport: doExport,
+    onExportChars: doExportChars,
     onCopyExport: doCopyExport,
     mediaParts: mediaParts ? { n: mediaParts.parts.length, done: mediaParts.done } : null,
     onExportMedia: doExportMedia,
@@ -35303,7 +35357,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   const _mv = typeof window !== "undefined" ? window.QQ_MOVE : null;
   // MoveShell 在 screens 那一组（用到才加载），走 LazyGate 等它到位再画
   if (_mv && _mv.host === location.hostname && Date.now() >= _mv.at) {
-    body = h(LazyGate, { key: "lazy-move", group: "screens", zh: "秋秋搬家了", render: () => h(window.MoveShell, { to: _mv.to, dataProps: { characters, onExport: doExport, mediaParts: mediaParts ? { n: mediaParts.parts.length, done: mediaParts.done } : null,
+    body = h(LazyGate, { key: "lazy-move", group: "screens", zh: "秋秋搬家了", render: () => h(window.MoveShell, { to: _mv.to, dataProps: { characters, onExport: doExport, onExportChars: doExportChars, mediaParts: mediaParts ? { n: mediaParts.parts.length, done: mediaParts.done } : null,
       onExportMedia: doExportMedia, onCopyExport: doCopyExport, copyParts, onImportText: doImportPasted, inAppBrowser: inAppBrowser(), onImport: doImport, toast } }) });
   }
   const _safeTop = { height: screen === "home" ? "env(safe-area-inset-top)" : 0 };

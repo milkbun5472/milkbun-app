@@ -7203,7 +7203,7 @@ function Config(props) {
       page === "themeStudio" && section(h(window.ThemeStudioConfig, { toast: props.toast, theme: props.theme, wallpaper: props.wallpaper, onSaveTheme: props.onSaveTheme, onSaveWallpaper: props.onSaveWallpaper })),
       page === "bubble" && section(h(BubbleSkinConfig, { toast: props.toast })),
       page === "auto" && h(AutoRefreshConfig, { characters: props.autoCharacters || props.characters, policy: props.autoRefreshPolicy, onSetGlobal: props.onSetAutoRefreshGlobal, onSetRate: props.onSetAutoRefreshRate, onSetChar: props.onSetAutoRefreshChar, toast: props.toast }),
-      page === "data" && section(h(DataConfig, { characters: props.characters, onExport: props.onExport, mediaParts: props.mediaParts, onExportMedia: props.onExportMedia, onCopyExport: props.onCopyExport, copyParts: props.copyParts, onImportText: props.onImportText, inAppBrowser: props.inAppBrowser, onImport: props.onImport, onOffloadChats: props.onOffloadChats, onPruneOld: props.onPruneOld, onClearAll: props.onClearAll, onRescueChar: props.onRescueChar, toast: props.toast })),
+      page === "data" && section(h(DataConfig, { characters: props.characters, onExport: props.onExport, onExportChars: props.onExportChars, mediaParts: props.mediaParts, onExportMedia: props.onExportMedia, onCopyExport: props.onCopyExport, copyParts: props.copyParts, onImportText: props.onImportText, inAppBrowser: props.inAppBrowser, onImport: props.onImport, onOffloadChats: props.onOffloadChats, onPruneOld: props.onPruneOld, onClearAll: props.onClearAll, onRescueChar: props.onRescueChar, toast: props.toast })),
       page === "log" && h(ChangelogView, { list: clList }),
       page === "debug" && section(h(CtxDebug, { characters: props.characters, getBundle: props.debugBundleFor })),
       page === "toy" && toyUnlocked && typeof ToyConfig === "function" && section(h(ToyConfig, { toast: props.toast }))));
@@ -8943,6 +8943,7 @@ function HomeLayoutProbe({ toast }) {
 function DataConfig({
   characters,
   onExport,
+  onExportChars,
   mediaParts,
   onExportMedia,
   onCopyExport,
@@ -8962,6 +8963,8 @@ function DataConfig({
   // 秋秋的跳转卡点名了「数据」里哪一块（她 2026-10-16「搞能进那一格吧」）：进来就落在那一块，用完就清
   const [part, setPart] = useState(() => { const w = typeof window !== "undefined" ? window : {}; const p0 = w.__dataPart || ""; w.__dataPart = ""; return p0; });
   const [innerLifeOpen, setInnerLifeOpen] = useState(false);
+  const [pickOpen, setPickOpen] = useState(false);
+  const [picked, setPicked] = useState([]);
   const ref = useRef(null);
   const items = [
     { id: "inner-life", title: "人格试点", sub: "余温、潮汐与角色影响", icon: "◌" },
@@ -8990,6 +8993,19 @@ function DataConfig({
   if (part === "backup") content = h("div", { style: { paddingTop: 8 } },
     h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", lineHeight: 1.65, color: t.fog } }, "数据主要保存在本机浏览器；重要操作前建议先导出一份 JSON。"),
     button("导出全部数据（.json）", onExport, true),
+    // 只带几个人走（群友 2026-10-29：分开装了几份，想把人合到一份里）：勾人 → 存一份只有这几个人的文件；
+    //   在另一份里「导入备份恢复」选它，会【合并】进去，原来的人和设置不动。
+    onExportChars ? button(pickOpen ? "收起" : "只导出几个人（用来合并到另一份）", () => setPickOpen(!pickOpen)) : null,
+    onExportChars && pickOpen ? h("div", { "data-wk": "block", style: { marginTop: 8, padding: "10px 12px", borderRadius: 10, background: t.bg2, border: "1px solid " + t.line } },
+      h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", lineHeight: 1.7, color: t.fog } },
+        "勾上要带走的人：人设、聊天、记忆、朋友圈这些跟着走；成员全被勾上的群也跟着走。设置、API、面具不带。到另一份里点「导入备份恢复」选这个文件，会合并进去，不动那边原来的人。合并前先在那边导出全部数据备份一份。"),
+      h("div", { className: "flex flex-wrap", style: { gap: 6, marginTop: 8 } },
+        (characters || []).map(ch => { const on = picked.indexOf(ch.id) >= 0; return h("button", {
+          key: ch.id, onClick: () => setPicked(on ? picked.filter(x => x !== ch.id) : picked.concat([ch.id])), className: "active:opacity-70",
+          style: { minHeight: 36, padding: "0 12px", borderRadius: 9, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))",
+            border: "1px solid " + (on ? t.ink : t.line), background: on ? t.ink : "transparent", color: on ? t.bg2 : t.ink }
+        }, (on ? "✓ " : "") + (ch.name || "未命名")); })),
+      button(picked.length ? "导出这 " + picked.length + " 个人" : "先勾人", () => { if (picked.length) onExportChars(picked); }, !!picked.length)) : null,
     // 图片和视频另按包存（群里 2026-10-16「备份不下来了」）：文字那份存好后这儿才冒出来
     mediaParts && mediaParts.n
       ? h("div", { "data-wk": "block", style: { marginTop: 8, padding: "10px 12px", borderRadius: 10, background: t.bg2, border: "1px solid " + t.line } },
