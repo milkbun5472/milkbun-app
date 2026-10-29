@@ -214,3 +214,11 @@ test("番外补发：老用户手上每张限定 SSR 补一张番外券，只补
   C.grantOnOpen(Date.parse("2026-10-27T12:00:00+08:00"), [], 1);
   assert.equal(C.load().extraTickets, 2 + 30 + 1);
 });
+
+test("该是一段字的栏被写成对象时，洗成字（SR 开头、接着不再空）", () => {
+  const C = fresh();
+  const t = C.cleanText({ name: "林间问诊", open: { narration: "他推开门" }, rest: ["后来", "再后来"], line: "嗯" }, "SR");
+  assert.equal(t.open, "他推开门"); assert.equal(t.rest, "后来\n再后来"); assert.equal(t.line, "嗯");
+  const r = C.cleanText({ name: "x", narration: { text: "他在等" }, before: "前一刻" }, "R");
+  assert.equal(r.narration, "他在等"); assert.deepEqual(r.before, { narration: "前一刻" });
+});

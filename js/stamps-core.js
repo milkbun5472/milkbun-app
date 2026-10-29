@@ -222,10 +222,14 @@
   const tagRe = /^\s*[（(]\s*(?:SSR|SR|R)\s*[）)]\s*/i;
   function cleanStr(v) { return typeof v === "string" ? v.replace(tagRe, "") : v; }
   function cleanDeep(v) { if (typeof v === "string") return cleanStr(v); if (Array.isArray(v)) return v.map(cleanDeep); if (v && typeof v === "object") { const o = {}; Object.keys(v).forEach(k => { o[k] = cleanDeep(v[k]); }); return o; } return v; }
+  // 这些栏必须是一段字（她 2026-10-29：SR 重写后「开头」「接着」全空——模型把它们写成了 {narration:...} 这种对象）。是对象、数组就把里面的字接起来
+  const STR = { R: ["name", "gist", "shot", "narration", "thought", "real", "sound", "back"], SR: ["name", "gist", "shot", "line", "open", "rest", "sequel", "hidden", "his"] };
+  const flat = v => typeof v === "string" ? v : Array.isArray(v) ? v.map(flat).filter(Boolean).join("\n") : v && typeof v === "object" ? Object.values(v).map(flat).filter(Boolean).join("\n") : v == null ? v : String(v);
   function cleanText(tx, rarity) {
     if (!tx || typeof tx !== "object") return tx;
-    const keep = KEEP[rarity], out = {};
-    Object.keys(tx).forEach(k => { if (!keep || keep.includes(k)) out[k] = cleanDeep(tx[k]); });
+    const keep = KEEP[rarity], str = STR[rarity] || [], out = {};
+    Object.keys(tx).forEach(k => { if (!keep || keep.includes(k)) out[k] = cleanDeep(str.includes(k) ? flat(tx[k]) : tx[k]); });
+    if (rarity === "R") ["before", "after"].forEach(k => { const v = out[k]; if (typeof v === "string") out[k] = { narration: v }; else if (v && typeof v === "object") out[k] = { narration: flat(v.narration), thought: flat(v.thought) }; });
     return out;
   }
 
