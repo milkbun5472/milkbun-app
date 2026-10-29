@@ -791,8 +791,27 @@
       try { await api("/verify/conf", { method: "POST", body: { link: String(v || "").trim() } }); props.toast("存好了"); load(); } catch (e) { props.toast(e.message); } });
     const setOn = async on => {
       try { await api("/verify/conf", { method: "POST", body: { on } }); props.toast(on ? "开了：验证页能用了" : "关了：验证页会说「去群里找群主」"); load(); } catch (e) { props.toast(e.message); } };
+    // 留底那张：点开才去取（一次一张，不随名单一起发下来）；看完能单张删，也能一键全清
+    const [shotOf, setShotOf] = useState(null);   // { id, src }
+    const openShot = async id => {
+      props.toast("在取……");
+      try { const d = await api("/verify/shot?id=" + id); setShotOf({ id, src: "data:" + d.mime + ";base64," + d.data }); props.toast(""); }
+      catch (e) { props.toast(e.message); }
+    };
+    const dropShot = (id, all) => requestAppConfirm(all ? "清空留底" : "删掉这一张",
+      all ? "把留着的截图全删掉，删了找不回来。验证记录本身留着，还能拿来对名单。" : "删了找不回来。这条记录本身留着。",
+      async () => {
+        try { const r = await api("/verify/drop", { method: "POST", body: all ? { all: true } : { id } });
+          props.toast(all ? "清空了（" + (r.n || 0) + " 张）" : "删了"); setShotOf(null); load(); } catch (e) { props.toast(e.message); }
+      }, all ? "全删掉" : "删掉");
     return h("div", { "data-wk": "nestverify", className: "h-full flex flex-col", style: shell(t) },
       h(Head, { zh: "进群验证", onBack: onClose, bg: "transparent" }),
+      // 看留底：铺满这一页，看完关掉；不另开一层半窗（施工规则/no-half-sheet.md）
+      shotOf ? h("div", { "data-wk": "nestverifyshotview", className: "absolute inset-0 flex flex-col", style: { zIndex: 40, background: t.bg } },
+        h(Head, { zh: "留底", sub: "只有你看得到", onBack: () => setShotOf(null), bg: "transparent",
+          right: pill(false, "删掉这张", () => dropShot(shotOf.id), "nestverifydropone") }),
+        h("div", { className: "flex-1 min-h-0 overflow-auto px-4 pb-8" },
+          h("img", { src: shotOf.src, alt: "留底截图", style: { width: "100%", borderRadius: 12, border: "1px solid " + t.line } }))) : null,
       h("div", { className: "flex-1 min-h-0 overflow-y-auto px-4 pt-3 pb-8" },
         err ? h("div", { style: Object.assign({}, small, { padding: "24px 4px", fontSize: "calc(13px * var(--app-fs, 1))" }) }, err) :
         !d ? h("div", { style: Object.assign({}, small, { padding: "24px 4px", fontSize: "calc(13px * var(--app-fs, 1))" }) }, "在拿……") :
@@ -807,14 +826,18 @@
               pill(d.on, d.on ? "开着" : "打开", () => setOn(!d.on), "nestverifyon")),
             h("div", { style: Object.assign({}, small, { marginTop: 8 }) },
               "今天来了 " + d.dayTotal + " 次，过了 " + (d.dayPassed || 0) + "；一共 " + d.total + " 次，过了 " + (d.passed || 0) + "。"),
-            h("div", { style: Object.assign({}, small, { marginTop: 4 }) }, "照片和她们的密钥都不到这儿来；记下的只有她们自己填的 QQ 号，用来跟加群的人对上。")),
+            h("div", { style: Object.assign({}, small, { marginTop: 4 }) }, "手写那张和她们的密钥都不到这儿来。留底那张只有你看得到，" + (d.shotDays || 14) + " 天自动删。"),
+            d.shots ? h("div", { className: "flex items-center justify-between", style: { gap: 8, marginTop: 10 } },
+              h("div", { style: small }, "现在留着 " + d.shots + " 张截图"),
+              pill(false, "清空留底", () => dropShot(0, true), "nestverifydropall")) : null),
           !d.rows.length ? h("div", { style: Object.assign({}, small, { padding: "28px 4px", textAlign: "center" }) }, "还没有人来验过") :
           d.rows.map(r => h("div", { key: r.id, "data-wk": "nestverifyrow", "data-on": r.pass ? "1" : "0", className: "flex items-center",
               style: { gap: 8, padding: "9px 2px", borderBottom: "1px solid " + t.line } },
             h("div", { className: "flex-1 min-w-0" },
               h("div", { className: "truncate", style: { fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", color: r.pass ? t.ink : t.fog } },
                 (r.pass ? "✓ " : "✗ ") + (WHY[r.reason] || r.reason)),
-              h("div", { className: "truncate", style: small }, when(r.at) + (r.qq ? " · QQ " + r.qq : "") + (r.station ? " · " + r.station : "") + (r.model ? " · " + r.model : ""))))),
+              h("div", { className: "truncate", style: small }, when(r.at) + (r.qq ? " · QQ " + r.qq : "") + (r.station ? " · " + r.station : "") + (r.model ? " · " + r.model : ""))),
+            r.shot ? pill(false, "看留底", () => openShot(r.id), "nestverifyshot") : null)),
           d.rows.length < d.total ? h("div", { style: { textAlign: "center", marginTop: 12 } }, pill(false, "再往下看", () => load(true), "nestverifymore")) : null)));
   }
 
