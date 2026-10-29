@@ -476,7 +476,7 @@
               return x.img ? (on ? null : h("button", { key: x.id, onClick: () => setSide("ex:" + x.id), className: "active:opacity-70", style: { padding: "6px 12px", borderRadius: 8, background: "#8a6a3a", color: "#FFF8E9", fontFamily: F_BODY, fontSize: fs(12) } }, "看番外 ·「" + (x.title || "") + "」"))
                 : h("button", { key: x.id, disabled: dr, onClick: () => { setSide("ex:" + x.id); onExtraDraw && onExtraDraw(card.id, x.id); }, className: "active:opacity-70 disabled:opacity-40",
                   style: { padding: "6px 12px", borderRadius: 8, border: "1px dashed #8a6a3a", color: "#8a6a3a", fontFamily: F_BODY, fontSize: fs(12) } }, dr ? "画着番外卡面…" : "画番外卡面 ·「" + (x.title || "") + "」"); })) : null,
-          tx && !card.writing ? h("button", { "data-wk": "stamprewrite", onClick: () => {
+          tx && (!card.writing || stale) ? h("button", { "data-wk": "stamprewrite", onClick: () => {
               if (!reArm) { setReArm(true); setTimeout(() => setReArm(false), 3000); return; }
               setReArm(false);
               const st0 = C().load(); st0.cards = st0.cards.map(c => c.id === card.id ? Object.assign({}, c, { seen: {}, pokes: null, pokesSolo: null, pokesDuo: null }) : c); C().save(st0);
