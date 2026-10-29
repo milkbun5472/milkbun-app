@@ -413,7 +413,7 @@
       h("style", null, "@keyframes stHalo{0%,100%{opacity:.55;transform:scale(1)}50%{opacity:.9;transform:scale(1.06)}}@keyframes stFloat{0%{transform:translateY(0)}35%{transform:translateY(-10px)}100%{transform:translateY(0)}}@keyframes stStampDown{0%{transform:rotate(-14deg) scale(1.9);opacity:0}100%{transform:rotate(-14deg) scale(1);opacity:1}}@keyframes stShine{0%{background-position:-200% 0}100%{background-position:200% 0}}"),
       h(Head, { right: isExCard ? h("button", { "data-wk": "stampextk", onClick: () => { setBuyN(1); setBuyOpen(true); }, className: "flex items-center active:opacity-70", style: { gap: 4, padding: "3px 8px 3px 6px", borderRadius: 6, border: "1px dashed " + COPPER, background: "#FFF8E9", color: "#8a6a3a", fontFamily: F_BODY, fontSize: fs(11.5) } },
           h("svg", { viewBox: "0 0 24 16", style: { width: 20, height: 14 } }, h("path", { d: "M2 2h20v4a2 2 0 0 0 0 4v4H2v-4a2 2 0 0 0 0-4z", fill: "#f6efe0", stroke: "#B58C55", strokeWidth: 1.4 }), h("path", { d: "M9 5l1.2 2.4 2.6.4-1.9 1.8.5 2.6L9 11l-2.4 1.2.5-2.6-1.9-1.8 2.6-.4z", fill: "#B58C55" })),
-          exTk, h("span", { style: { marginLeft: 2, fontSize: fs(14), lineHeight: 1, color: COPPER } }, "+")) : null, zh: tx ? tx.name : "一枚邮票", sub: card.rarity + " · " + (char ? char.name : "") + (card.kind === "if" ? " · IF「" + (card.theme || "") + "」" + (card.limYear ? " · " + card.limYear : "") : card.kind === "bday" ? " · 生日限定" : card.kind === "mybday" ? " · 你的生日" : card.kind === "anniv" ? " · 纪念日「" + (card.annivName || "") + "」" : " · 日常"), bg: "transparent", ink: P, onBack }),
+          exTk, h("span", { style: { marginLeft: 2, fontSize: fs(14), lineHeight: 1, color: COPPER } }, "+")) : null, zh: tx ? tx.name : "一枚邮票", sub: card.rarity + " · " + (char ? char.name : "") + (card.kind === "if" ? " · IF「" + (card.theme || "") + "」" + (card.limYear ? " · " + card.limYear : "") : card.kind === "bday" ? " · 生日限定" : card.kind === "mybday" ? " · 你的生日" : card.kind === "anniv" ? " · 纪念日「" + (card.annivName || "") + "」" : card.kind === "time" ? " · " + (TIME_ZH[card.timeAt] || "别的时间") : " · 日常"), bg: "transparent", ink: P, onBack }),
       h("div", { className: "flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-5", style: { paddingBottom: "calc(env(safe-area-inset-bottom) * 0.4 + 28px)" } },
         // 卡
         // 在卡面这一块左右滑：换册子里的上一张、下一张（群里 2026-10-27）；底下回廊那排自己能横滑，不在这儿抢
@@ -432,7 +432,7 @@
                 background: "repeating-linear-gradient(135deg, rgba(122,106,82,.05) 0 2px, transparent 2px 9px), radial-gradient(circle at 50% 42%, #fbf5e6, #ece1c8 75%)",
                 display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", textAlign: "center", color: "#5a4a32" } },
               h("div", { style: { position: "absolute", inset: 10, border: "1px solid rgba(122,106,82,.22)", borderRadius: 2 } }),
-              h("div", { style: { fontFamily: F_BODY, fontSize: fs(10), letterSpacing: ".4em", opacity: .55 } }, card.kind === "if" ? "如 果" : card.kind === "bday" || card.kind === "mybday" ? "生 日" : card.kind === "anniv" ? "纪 念" : "日 常"),
+              h("div", { style: { fontFamily: F_BODY, fontSize: fs(10), letterSpacing: ".4em", opacity: .55 } }, card.kind === "if" ? "如 果" : card.kind === "bday" || card.kind === "mybday" ? "生 日" : card.kind === "anniv" ? "纪 念" : card.kind === "time" ? "时 间" : "日 常"),
               h("div", { style: { marginTop: 10, fontFamily: F_DISPLAY, fontSize: fs(26), letterSpacing: ".12em" } }, tx ? tx.name : "……"),
               h("div", { style: { width: 36, height: 1, margin: "12px 0", background: "rgba(122,106,82,.4)" } }),
               h("div", { style: { fontFamily: F_BODY, fontSize: fs(11.5), opacity: .7 } }, char ? (char.remark || char.name) : ""),
@@ -661,6 +661,8 @@
   }
   // 每期限时主题一套颜色：[海报底色, 字和边的亮色]。新的一期加一行，海报、左边小邮票、邮戳圈都跟着变（她 2026-10-27：「为啥每次都要截图才去补」）
   const LIM_TONE = { autumn: ["#4a2e1c", "#d9a25a"], onsen: ["#1f3a44", "#9fd0d6"], xmas: ["#1d3a2c", "#e3b65c"], newyear: ["#1f2a44", "#d8c7f0"], spring: ["#7a1f1a", "#f3c766"] };
+  // 时间线卡（群里 2026-10-29「除了 if 卡也可以调节时间线」）：同一个他，换一个时间点
+  const TIME_ZH = { before: "认识你之前", early: "刚认识那阵子", later1: "一年后", laterN: "几年后" };
   function StampBookApp(props) {
     const t = useTheme();
     const { characters, onBack, onWrite, onDraw, toast, meName } = props;
@@ -717,6 +719,7 @@
     const charTheme = thDraft != null ? thDraft : ((opt.charTheme || {})[charId] || "");
     const charThemeLine = thLineDraft != null ? thLineDraft : ((opt.charThemeLine || {})[charId] || "");
     const ifMode = opt.ifMode || "random";
+    const charTime = (opt.charTime || {})[charId] || "now";
     // 限时池：跟角色池一样能单挑一个人抽；不挑就是勾了的人（不勾＝所有人）里随机
     const limIds = (opt.limPick && opt.limPick.length ? opt.limPick : characters.map(c => c.id)).filter(id => characters.some(c => c.id === id));
     const mbOne = bd && bd.mine && bd.charIds.includes((opt.limOne || {})["me:" + bd.maskId]) ? opt.limOne["me:" + bd.maskId] : "";   // 她的生日池：可以只抽一个人
@@ -734,7 +737,7 @@
     const bdPool = bd ? (bd.mine ? "mybday" : bd.anniv ? "anniv" : "bday") : "";
     const doPull = async (n, ticket) => {
       const s = C().load();
-      if (pool === "char" && !charTheme.trim()) { toast("先给 TA 写一个主题"); return; }
+      if (pool === "char" && !charTheme.trim() && charTime === "now") { toast("先给 TA 写一个主题，或者在卡池设置里挑一个时间"); return; }
       if (pool === "char" && (thDraft != null || thLineDraft != null)) s.opt = Object.assign({}, s.opt, { charTheme: Object.assign({}, s.opt.charTheme, { [charId]: charTheme }), charThemeLine: Object.assign({}, s.opt.charThemeLine, { [charId]: charThemeLine }) });
       const pool0 = bd ? (bd.mine ? (mbOne ? [mbOne] : bd.charIds) : [bd.char.id]) : pool === "mix" ? mixIds : pool === "char" ? [charId] : (lim ? (limOne ? [limOne] : limIds) : []);
       if (!pool0.length) { toast("先挑几个角色"); return; }
@@ -754,7 +757,7 @@
         }
         const card = { id: uid(), ts: now + i, rarity: rar, charId: cid, lv: 1, pool: bd ? bdPool : pool === "char" ? "char" : lim ? "limited" : "mix",
           kind: bd ? bdPool : pool === "mix" ? "daily" : "if", writing: true, writingTs: now, unread: true };
-        if (pool === "char") Object.assign(card, { theme: charTheme.trim().slice(0, 40), themeLine: charThemeLine.slice(0, 200), ifMode });
+        if (pool === "char") Object.assign(card, { theme: charTheme.trim().slice(0, 40), themeLine: charThemeLine.slice(0, 200), ifMode }, charTime !== "now" ? { timeAt: charTime } : {}, !charTheme.trim() ? { kind: "time" } : {});
         if (bd) Object.assign(card, { bdDay: bd.win.day }, bd.mine ? { maskId: bd.maskId } : {}, bd.anniv ? { annivId: bd.anniv.id, annivName: bd.anniv.name, annivN: bd.anniv.n } : {});
         if (lim) Object.assign(card, { theme: lim.name, themeLine: lim.line, themeLook: lim.look || "", limited: lim.id, series: lim.series || lim.id, limYear: new Date(Date.parse(lim.from)).getFullYear(), ifMode });
         // 限定（限时池一期、生日池一年）每人只有一张 SSR：再抽到就是重复，不写新卡，折成印泥
@@ -791,7 +794,7 @@
 
     const isBad = c => !c.text && (!c.writing || Date.now() - Number(c.writingTs || 0) > (c.queued ? 1800000 : 180000));
     const byChar = (st.cards || []).filter(c => albumChar === "all" || c.charId === albumChar);
-    const themeOf = c => c.kind === "if" ? (c.theme || "IF") : c.kind === "bday" ? "生日" : c.kind === "mybday" ? "你的生日" : c.kind === "anniv" ? "纪念日" : "日常";
+    const themeOf = c => c.kind === "if" ? (c.theme || "IF") : c.kind === "bday" ? "生日" : c.kind === "mybday" ? "你的生日" : c.kind === "anniv" ? "纪念日" : c.kind === "time" ? (TIME_ZH[c.timeAt] || "别的时间") : "日常";
     const album = byChar.filter(c => (albumRar === "all" || (albumRar === "bad" ? isBad(c) : albumRar === "extra" ? (c.extras || []).some(x => x.text) : c.rarity === albumRar)) && (albumTheme === "all" || themeOf(c) === albumTheme)).slice().reverse();
     if (tab === "album") albumIds.current = album.map(c => c.id);
     // ── 卡池页像乙游那样：一整张大海报（一枚放大的邮票），左边一列小邮票换池，底下两颗大键；其余设置收进「⋯」 ──
@@ -829,9 +832,9 @@
     const stars = [[18, 62], [70, 40], [52, 120], [230, 88], [205, 150], [32, 210]].map((q, i) => h("span", { key: "s" + i, style: { position: "absolute", left: q[0], top: q[1], width: 3, height: 3, borderRadius: 9, background: "#f6e3b5", opacity: .55, boxShadow: "0 0 6px #f6e3b5" } }));
     // 海报上那一句：说的是「抽了会得到什么」，不是玩法说明
     const regular = !cur.bd && !cur.lim;
-    const titleLen = bd ? (bd.char.remark || bd.char.name).length + (bd.anniv ? bd.anniv.name.length + 2 : 2) : pool === "char" ? charTheme.trim().length + 2 : cur.zh.length;
+    const titleLen = bd ? (bd.char.remark || bd.char.name).length + (bd.anniv ? bd.anniv.name.length + 2 : 2) : pool === "char" ? (charTheme.trim() || (charTime !== "now" ? TIME_ZH[charTime] : "还没写主题")).length + 2 : cur.zh.length;
     const annDays = bd && bd.anniv && bd.anniv.since ? Math.floor((Date.now() - bd.anniv.since) / 86400000) + 1 : 0;
-    const hook = bd && bd.anniv ? (bd.win.isDay ? (annDays ? "在一起的第 " + annDays + " 天。每一张都是你们俩。" : "就是今天。这一池的每一张，都是你们俩。") : (bd.anniv.n > 0 ? "第 " + bd.anniv.n + " 年" : "那一天") + "快到了。这一池，每一张都是你们俩。") : bd && bd.mine ? (bd.win.isDay ? "生日快乐。今天这一池，每一张都是他们陪你过的。" : "你的生日快到了。这一池里的每一张，都是他们陪你过的那几天。") : bd ? (bd.win.isDay ? "就是今天。一年只有这一天，今年的他会留下什么样的瞬间？" : "一年只有一次的日子快到了。今年的他，又会留下什么不一样的瞬间？") : pool === "mix" ? "不同的人，不同的故事。下一封会是谁寄来的？" : pool === "char" ? (charThemeLine.trim() || (charNow ? "如果 " + (charNow.remark || charNow.name) + " 活在「" + (charTheme.trim() || "另一个世界") + "」里——" : "")) : (cur.lim.hook || cur.lim.line.split("。")[0] + "。");
+    const hook = bd && bd.anniv ? (bd.win.isDay ? (annDays ? "在一起的第 " + annDays + " 天。每一张都是你们俩。" : "就是今天。这一池的每一张，都是你们俩。") : (bd.anniv.n > 0 ? "第 " + bd.anniv.n + " 年" : "那一天") + "快到了。这一池，每一张都是你们俩。") : bd && bd.mine ? (bd.win.isDay ? "生日快乐。今天这一池，每一张都是他们陪你过的。" : "你的生日快到了。这一池里的每一张，都是他们陪你过的那几天。") : bd ? (bd.win.isDay ? "就是今天。一年只有这一天，今年的他会留下什么样的瞬间？" : "一年只有一次的日子快到了。今年的他，又会留下什么不一样的瞬间？") : pool === "mix" ? "不同的人，不同的故事。下一封会是谁寄来的？" : pool === "char" ? (!charTheme.trim() && charTime !== "now" ? (charTime === "before" || charTime === "early" ? "那时候的他，还不知道后来会遇见你、会变成现在这样。" : "照你们现在走的方向，再往后推一推——那时候的他会是什么样？") : charThemeLine.trim() || (charNow ? "如果 " + (charNow.remark || charNow.name) + " 活在「" + (charTheme.trim() || "另一个世界") + "」里——" : "")) : (cur.lim.hook || cur.lim.line.split("。")[0] + "。");
     // 人：一个就放大；几个错落排，中间那个大一点、高一点（不排成整齐一行）
     const faceRow = faces.length === 1
       ? h("div", { style: { borderRadius: 12, padding: bd ? 1.5 : 3, background: deco ? "linear-gradient(135deg,#e08a3a,#6b2f6e)" : bd ? acc + "aa" : "rgba(255,255,255,.18)", boxShadow: "0 0 40px " + tone[1] + "88" } }, h(Avatar, { character: faces[0], size: 168, radius: 10 }))
@@ -880,7 +883,7 @@
         h("div", { style: { position: "absolute", inset: 0, display: "flex", flexDirection: "column", padding: "14px 16px 12px" } },
         h("div", { style: { paddingRight: pool === "char" ? 64 : 0, fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", letterSpacing: ".2em", color: tone[1] } }, bd ? "特别投递 · " + bd.win.year : cur.tag),
           h("div", { "data-wk": "stampbannertitle", style: { marginTop: 4, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", fontFamily: F_DISPLAY, fontSize: "calc(" + (titleLen > 6 ? 18 : titleLen > 4 ? 21 : 24) + "px * var(--app-fs, 1))", lineHeight: 1.15, color: PAPER, textShadow: "0 2px 12px rgba(0,0,0,.5)" } },
-            bd ? h(React.Fragment, null, bd.char.remark || bd.char.name, h("span", { style: { fontSize: "0.62em", marginLeft: 4, opacity: .85 } }, bd.anniv ? "「" + bd.anniv.name + "」" : "的生日")) : pool === "char" ? (charTheme.trim() ? "「" + charTheme.trim() + "」" : "还没写主题") : cur.zh,
+            bd ? h(React.Fragment, null, bd.char.remark || bd.char.name, h("span", { style: { fontSize: "0.62em", marginLeft: 4, opacity: .85 } }, bd.anniv ? "「" + bd.anniv.name + "」" : "的生日")) : pool === "char" ? (charTheme.trim() ? "「" + charTheme.trim() + "」" : charTime !== "now" ? TIME_ZH[charTime] : "还没写主题") : cur.zh,
             bd ? h("span", { style: { marginLeft: 6, fontSize: "calc(16px * var(--app-fs, 1))", color: acc, verticalAlign: "super", textShadow: "0 0 10px " + acc + "" } }, "✦") : null),
           bd ? h("div", { style: { marginTop: 3, fontFamily: F_BODY, fontSize: "calc(9.5px * var(--app-fs, 1))", letterSpacing: ".3em", color: acc, opacity: .6 } }, ann ? "你们俩 · 一年一次" : "生日限定 · 一年一次") : null,
           h("div", { "data-wk": "stampbannerhook", style: { marginTop: 12, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden", fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: "calc(12.5px * var(--app-fs, 1))", lineHeight: 1.5, color: "rgba(244,236,218,.88)", whiteSpace: "pre-line" } }, hook),
@@ -925,6 +928,8 @@
           style: { width: "100%", padding: "9px 12px", borderRadius: 10, border: "1px solid " + "rgba(47,42,34,.22)", background: "rgba(47,42,34,.07)", color: "#2f2a22", fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))" } }),
         h("textarea", { "data-wk": "input", value: charThemeLine, maxLength: 200, rows: 2, placeholder: "一句说明（可空）：这个世界里他是什么样", onChange: e => setThLineDraft(e.target.value), onBlur: () => { if (thLineDraft != null) setOpt({ charThemeLine: Object.assign({}, opt.charThemeLine, { [charId]: thLineDraft }) }); },
           style: { width: "100%", marginTop: 6, padding: "9px 12px", borderRadius: 10, border: "1px solid " + "rgba(47,42,34,.22)", background: "rgba(47,42,34,.07)", color: "#2f2a22", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", resize: "none" } }),
+        h(Eyebrow, { style: { color: "rgba(47,42,34,.55)", marginTop: 14 } }, "时间（只挑时间、不写主题＝同一个他在别的时间；写了主题就是那个时间的 IF）"),
+        h("div", { "data-wk": "stampchartime", className: "flex flex-wrap", style: { gap: 6, marginTop: 6 } }, [["now", "现在"]].concat(Object.keys(TIME_ZH).map(k => [k, TIME_ZH[k]])).map(x => chip(charTime === x[0], x[1], () => setOpt({ charTime: Object.assign({}, opt.charTime, { [charId]: x[0] }) }), "t" + x[0]))),
         h(Eyebrow, { style: { color: "rgba(47,42,34,.55)", marginTop: 18 } }, "IF 卡里，他是别的世界、别的年代的人时"),
         h("div", { className: "flex flex-wrap", style: { gap: 6, marginTop: 6 } }, [["adapt", "照他的世界改写"], ["into", "把他丢进主题里"], ["random", "两种随机"]].map(x => chip(ifMode === x[0], x[1], () => setOpt({ ifMode: x[0] }), x[0]))),
         h(Eyebrow, { style: { color: "rgba(47,42,34,.55)", marginTop: 18 } }, "卡面画风"),
@@ -1024,14 +1029,14 @@
               (() => { const cp = C().CAP[c.rarity] || 30, all = Math.round(cp / 10), on = Math.min(all, Math.floor((c.lv || 1) / 10));
                 return h("div", { "data-wk": "stampstarsmini", style: { fontSize: "calc(9.5px * var(--app-fs, 1))", letterSpacing: ".1em", color: "#285C4B", lineHeight: 1 } }, Array.from({ length: all }, (_, k) => k < on ? "★" : "☆").join("")); })(),
               h("div", { "data-wk": "stampwho", style: { maxWidth: 92, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: "rgba(47,42,34,.62)" } },
-                [ch ? (ch.remark || ch.name) : "", c.kind === "if" ? (c.theme || "IF") : c.kind === "bday" ? "生日" : c.kind === "mybday" ? "你的生日" : c.kind === "anniv" ? "纪念日" : "日常"].filter(Boolean).join(" · "))); }))
+                [ch ? (ch.remark || ch.name) : "", c.kind === "if" ? (c.theme || "IF") : c.kind === "bday" ? "生日" : c.kind === "mybday" ? "你的生日" : c.kind === "anniv" ? "纪念日" : c.kind === "time" ? (TIME_ZH[c.timeAt] || "别的时间") : "日常"].filter(Boolean).join(" · "))); }))
           : h("div", { style: { padding: "48px 0", textAlign: "center", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: "rgba(47,42,34,.5)" } }, "还没有邮票，去寄一封")),
       week ? (() => { const ch = charOf(albumChar); const all = byChar.filter(c => c.rarity === "R" && c.text).sort((x, y) => (x.ts || 0) - (y.ts || 0));
         const ds = weekDays(st, albumChar), weeks = Math.ceil(ds.length / 7), wk = Math.min(weeks, Math.max(1, Number(week) || 1));
         const rs = ds.slice((wk - 1) * 7, wk * 7).map(d => Object.assign({}, d.card, { _day: d.day, _all: d.all })), full = rs.length === 7;
         const WD = ["周日", "周一", "周二", "周三", "周四", "周五", "周六"], md = ts => { const d = new Date(ts); return (d.getMonth() + 1) + "." + d.getDate(); };
         const fz = n => "calc(" + n + "px * var(--app-fs, 1))", INK = "#39382F", SUB = "#827C6F", CU = "#B58C55", GR = "#285C4B";
-        const tag = c => c.kind === "bday" ? "生日" : c.kind === "mybday" ? "你的生日" : c.kind === "anniv" ? "纪念日" : c.kind === "if" ? "IF「" + (c.theme || "") + "」" : "日常";
+        const tag = c => c.kind === "bday" ? "生日" : c.kind === "mybday" ? "你的生日" : c.kind === "anniv" ? "纪念日" : c.kind === "time" ? (TIME_ZH[c.timeAt] || "别的时间") : c.kind === "if" ? "IF「" + (c.theme || "") + "」" : "日常";
         const edge = c => c.kind === "bday" ? "#8a3a4a" : c.kind === "if" ? CU : GR;   // 有含义的颜色：日常墨绿、IF 铜金、生日酒红
         // 一页手账：顶上周数和日期范围；左边一条虚线串起日期邮戳，右边是那天那一刻；底下这一周的集邮页（没攒到的日子留空位）
         return h("div", { "data-wk": "stampweek", className: "fixed inset-0 flex flex-col", style: { zIndex: 250, background: "radial-gradient(rgba(130,124,111,.07) 1px, transparent 1.2px) 0 0 / 5px 5px, linear-gradient(#F6F0E2, #EFE7D5)" } },
