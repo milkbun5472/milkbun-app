@@ -13287,11 +13287,13 @@ function CallScreen({
     bye && h("div", { key: "bye", className: "flex justify-center py-1" },
       h("div", { style: Object.assign({ fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: onPhoto ? "rgba(255,255,255,0.88)" : "rgba(255,255,255,0.55)" }, litText) },
         (bye.name || "对方") + "挂断了")),
-    !bye && sending && h("div", { key: "typing", className: "flex flex-col items-start" },
+    // 挂点跟普通那几条同名（她 2026-10-29：「输入中气泡没接上美化」）：callmsg / callbubble，data-me="0"，data-kind="typing" 分出来
+    !bye && sending && h("div", { key: "typing", "data-wk": "callmsg", "data-me": "0", "data-kind": "typing", className: "flex flex-col items-start" },
       !isGroup ? null : h("span", {
         style: Object.assign({ fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", color: onPhoto ? "rgba(255,255,255,0.85)" : "rgba(255,255,255,0.5)", marginBottom: 1, marginLeft: 2 }, litText)
       }, "对方"),
       h("div", {
+        "data-wk": "callbubble", "data-me": "0", "data-kind": "typing",
         role: "status", "aria-live": "polite",
         "aria-label": (isGroup ? "对方" : (primary.remark || primary.name || "对方")) + " 正在说",
         style: { padding: "10px 14px", borderRadius: 14, background: callBubble(false).background }
