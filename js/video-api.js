@@ -13,7 +13,13 @@
   //   MiniMax 的设置照旧摊在顶层（老配置一个字不用改）；可灵、即梦各收在自己那一格里。
   //   字段照官方来源核对：即梦＝火山方舟 Ark 的 contents/generations/tasks（volcengine-python-sdk），
   //   可灵＝/v1/videos/image2video（Vercel @ai-sdk/klingai 适配器）。型号名两家都可以手填，以控制台为准。
-  const VENDORS = [["minimax", "MiniMax 海螺"], ["kling", "可灵 Kling"], ["seedance", "即梦 Seedance（火山方舟）"]];
+  const VENDORS = [["minimax", "MiniMax 海螺"], ["kling", "可灵 Kling"], ["seedance", "即梦 Seedance（火山方舟）"], ["relay", "自定义中转"]];
+  // 自定义中转（她 2026-10-29「现在只能接官方」）：中转站自己那套写法，常见的两种——
+  //   tasks＝new-api / one-api 那种通用任务：POST /v1/video/generations，GET /v1/video/generations/{id}
+  //   openai＝OpenAI 视频：POST /v1/videos（表单传图），GET /v1/videos/{id}，成了到 /v1/videos/{id}/content 下载（要带 key）
+  //   各家回来的字段名不一样，编号、状态、下载地址都按几种常见叫法去找。
+  const RELAY_FORMATS = [["tasks", "通用任务格式（/v1/video/generations）"], ["openai", "OpenAI 格式（/v1/videos）"]];
+  const RELAY_DEFAULT = { baseUrl: "", apiKey: "", model: "", format: "tasks", duration: 5 };
   const KLING_SITES = [["国内 北京", "https://api-beijing.klingai.com"], ["海外 新加坡", "https://api-singapore.klingai.com"]];
   const KLING_MODELS = ["kling-v2-1", "kling-v2-1-master", "kling-v2-5-turbo", "kling-v2-6", "kling-v3", "kling-v2-master", "kling-v1-6", "kling-v1-5", "kling-v1"];
   const ARK_SITES = [["火山方舟 北京", "https://ark.cn-beijing.volces.com/api/v3"], ["BytePlus 海外", "https://ark.ap-southeast.bytepluses.com/api/v3"]];
@@ -21,6 +27,10 @@
   const KLING_DEFAULT = { baseUrl: KLING_SITES[0][1], apiKey: "", accessKey: "", secretKey: "", model: KLING_MODELS[0], mode: "std", duration: 5 };
   const ARK_DEFAULT = { baseUrl: ARK_SITES[0][1], apiKey: "", model: ARK_MODELS[0], resolution: "720p", duration: 5 };
   const trimUrl = v => cleanBaseUrl(v).replace(/\/+$/, "");
+  const pick = (o, paths) => { for (const p of paths) { let v = o; for (const k of p.split(".")) v = v == null ? v : v[k]; if (v != null && v !== "") return v; } return undefined; };
+  // 下载地址兜底：哪一层里有个 http 开头、像视频的字符串就认它
+  const findVideoUrl = o => { let hit; const walk = (v, d) => { if (hit || d > 5 || v == null) return; if (typeof v === "string") { if (/^https?:\/\//i.test(v) && /\.(mp4|webm|mov)(\?|$)/i.test(v)) hit = v; return; } if (typeof v === "object") Object.keys(v).forEach(k => walk(v[k], d + 1)); }; walk(o, 0); return hit; };
+  const relayState = s => { s = String(s || "").toLowerCase(); return /^(completed|complete|succeeded|success|succeed|done|finished)$/.test(s) ? "succeeded" : /^(failed|failure|fail|error|cancelled|canceled|expired)$/.test(s) ? "failed" : s || "processing"; };
   function normalize(raw) {
     const c = Object.assign({}, DEFAULT, raw || {}); c.baseUrl = base(c.baseUrl); c.apiKey = String(c.apiKey || "").trim();
     c.vendor = VENDORS.some(v => v[0] === c.vendor) ? c.vendor : "minimax";
@@ -28,6 +38,8 @@
     if (!k.model) k.model = KLING_DEFAULT.model; k.mode = k.mode === "pro" ? "pro" : "std"; k.duration = Number(k.duration) === 10 ? 10 : 5; c.kling = k;
     const a = Object.assign({}, ARK_DEFAULT, c.seedance || {}); a.baseUrl = trimUrl(a.baseUrl) || ARK_DEFAULT.baseUrl; a.apiKey = String(a.apiKey || "").trim(); a.model = String(a.model || "").trim() || ARK_DEFAULT.model;
     a.resolution = ["480p", "720p", "1080p"].includes(a.resolution) ? a.resolution : "720p"; a.duration = Math.max(2, Math.min(12, Math.round(Number(a.duration) || 5))); c.seedance = a;
+    const rl = Object.assign({}, RELAY_DEFAULT, c.relay || {}); rl.baseUrl = trimUrl(rl.baseUrl).replace(/\/v1$/i, ""); rl.apiKey = String(rl.apiKey || "").trim(); rl.model = String(rl.model || "").trim();
+    rl.format = rl.format === "openai" ? "openai" : "tasks"; rl.duration = Math.max(2, Math.min(20, Math.round(Number(rl.duration) || 5))); c.relay = rl;
     if (!MODELS.includes(c.model)) c.model = DEFAULT.model;
     if (!resolutions(c.model).includes(c.resolution)) c.resolution = resolutions(c.model)[0];
     const allowed = durations(c.model, c.resolution); c.duration = allowed.includes(Number(c.duration)) ? Number(c.duration) : allowed[0];
@@ -39,11 +51,13 @@
     c = c || load(); if (!c.enabled) return false;
     if (c.vendor === "kling") return /^https?:\/\//.test(c.kling.baseUrl) && !!(c.kling.apiKey || (c.kling.accessKey && c.kling.secretKey));
     if (c.vendor === "seedance") return /^https?:\/\//.test(c.seedance.baseUrl) && !!c.seedance.apiKey;
+    if (c.vendor === "relay") return /^https?:\/\//.test(c.relay.baseUrl) && !!c.relay.apiKey && !!c.relay.model;
     return !!(c.apiKey && /^https?:\/\//.test(c.baseUrl));
   }
   // 这一家现在的设置摘要：编辑页那行「当前：几秒 · 什么画质」用
   const summary = c => { c = c || load(); return c.vendor === "kling" ? "可灵 " + c.kling.model + " · " + c.kling.duration + " 秒 · " + (c.kling.mode === "pro" ? "高品质" : "标准")
-    : c.vendor === "seedance" ? "即梦 · " + c.seedance.duration + " 秒 · " + c.seedance.resolution : c.duration + " 秒 · " + c.resolution; };
+    : c.vendor === "seedance" ? "即梦 · " + c.seedance.duration + " 秒 · " + c.seedance.resolution
+    : c.vendor === "relay" ? "中转 " + c.relay.model + " · " + c.relay.duration + " 秒" : c.duration + " 秒 · " + c.resolution; };
   // 可灵的旧式 AccessKey/SecretKey：浏览器里现签一张 30 分钟的 HS256 JWT（官方说法：iss＝AK，exp/nbf）。
   //   新式 API Key 直接当 Bearer 用，不用签。
   async function klingToken(k) {
@@ -58,7 +72,9 @@
     const controller = new AbortController(), relay = () => controller.abort(); if (signal && signal.aborted) throw new DOMException("已停止等待", "AbortError");
     if (signal) signal.addEventListener("abort", relay, { once: true }); const timer = setTimeout(relay, 45000);
     try {
-      const r = await fetch(url, { method: body ? "POST" : "GET", headers: Object.assign({ Authorization: "Bearer " + token }, body ? { "Content-Type": "application/json" } : {}), body: body ? JSON.stringify(body) : undefined, signal: controller.signal });
+      // 表单（OpenAI 那种 /v1/videos 传图）原样发，浏览器自己带分隔符；别的照旧 JSON
+      const form = typeof FormData !== "undefined" && body instanceof FormData;
+      const r = await fetch(url, { method: body ? "POST" : "GET", headers: Object.assign({ Authorization: "Bearer " + token }, body && !form ? { "Content-Type": "application/json" } : {}), body: body ? (form ? body : JSON.stringify(body)) : undefined, signal: controller.signal });
       let d; try { d = JSON.parse(await r.text()); } catch (_) { throw Error("视频接口没有返回可读的内容（HTTP " + r.status + "）"); }
       if (!r.ok || (typeof d.code === "number" && d.code !== 0) || d.error && d.error.message) throw Error((d.error && d.error.message) || d.message || ("视频接口 HTTP " + r.status));
       return d;
@@ -133,7 +149,7 @@
     const c = load(); if (!ready(c)) throw Error("先开启并填写视频 API"); if (job(id)) throw Error("已有视频任务，请先查询结果或明确放弃");
     const input = await imageData(imageRef); if (!String(prompt || "").trim()) throw Error("写一下想让人物怎么动");
     if (job(id)) throw Error("已有视频任务，请先查询结果或明确放弃");
-    if (c.vendor === "kling" || c.vendor === "seedance") return createVendor(c, id, imageRef, input, prompt, signal);
+    if (c.vendor === "kling" || c.vendor === "seedance" || c.vendor === "relay") return createVendor(c, id, imageRef, input, prompt, signal);
     const record = { baseUrl: c.baseUrl, model: c.model, protocol: isV2(c.model) ? "v2" : "v1", imageRef, prompt: String(prompt).trim().slice(0, 2000), createdAt: Date.now(), status: "Submitting" };
     patchMap(JOBS, id, record);
     // 超时/断网时不能猜上游没收到：留下 Submitting，不自动补发一笔收费任务。
@@ -154,13 +170,20 @@
         // 可灵的 image 收【不带 data: 头的纯 base64】或网址
         const image = /^data:/i.test(input) ? input.split(",")[1] : input;
         d = await vendorRequest(k.baseUrl + "/v1/videos/image2video", await klingToken(k), { model_name: k.model, image, prompt: text, mode: k.mode, duration: String(k.duration) }, signal);
+      } else if (v === "relay") {
+        record.format = k.format;
+        if (k.format === "openai") {
+          const f = new FormData(); f.append("model", k.model); f.append("prompt", text); f.append("seconds", String(k.duration));
+          f.append("input_reference", dataUrlToBlob(input), "first.png");
+          d = await vendorRequest(k.baseUrl + "/v1/videos", k.apiKey, f, signal);
+        } else d = await vendorRequest(k.baseUrl + "/v1/video/generations", k.apiKey, { model: k.model, prompt: text, image: input, images: [input], duration: k.duration, seconds: String(k.duration) }, signal);
       } else {
         d = await vendorRequest(k.baseUrl + "/contents/generations/tasks", k.apiKey, { model: k.model, content: [{ type: "text", text }, { type: "image_url", image_url: { url: input }, role: "first_frame" }],
           duration: k.duration, resolution: k.resolution, ratio: "adaptive", camera_fixed: true, watermark: false }, signal);
       }
     } catch (e) { if (job(id) && job(id).createdAt === record.createdAt) rememberError(id, e); throw e; }
     if ((signal && signal.aborted) || !job(id) || job(id).createdAt !== record.createdAt) throw new DOMException("已停止等待", "AbortError");
-    const taskId = v === "kling" ? d.data && d.data.task_id : d.id;
+    const taskId = v === "kling" ? d.data && d.data.task_id : v === "relay" ? pick(d, ["task_id", "id", "data.task_id", "data.id", "data.taskId", "taskId"]) : d.id;
     if (!taskId) throw Error("接口没有返回任务编号；请先到控制台核对是否已创建");
     record.taskId = String(taskId); record.status = "Preparing"; return patchMap(JOBS, id, record);
   }
@@ -169,6 +192,16 @@
     const c = load(), k = c[record.vendor]; if (!k) throw Error("找不到这家视频接口的设置");
     if (k.baseUrl !== record.baseUrl) throw Error("请切回创建这段视频时的站点，再查询原任务");
     let status, url, why;
+    if (record.vendor === "relay") {
+      const oa = record.format === "openai", path = oa ? "/v1/videos/" : "/v1/video/generations/";
+      const d = await vendorRequest(record.baseUrl + path + encodeURIComponent(record.taskId), k.apiKey, null, signal);
+      status = relayState(pick(d, ["status", "data.status", "task_status", "data.task_status", "state", "data.state"]));
+      why = pick(d, ["error.message", "data.error.message", "fail_reason", "data.fail_reason", "message", "error"]);
+      url = pick(d, ["url", "video_url", "data.url", "data.video_url", "content.video_url", "data.output.url", "result.url", "data.result_url", "output"]);
+      if (typeof url !== "string" || !/^https?:/i.test(url)) url = findVideoUrl(d);
+      if (!url && oa && status === "succeeded") url = record.baseUrl + "/v1/videos/" + encodeURIComponent(record.taskId) + "/content";
+      return { status, url, why: typeof why === "string" ? why : why && JSON.stringify(why).slice(0, 200) };
+    }
     if (record.vendor === "kling") {
       const d = await vendorRequest(record.baseUrl + "/v1/videos/image2video/" + encodeURIComponent(record.taskId), await klingToken(k), null, signal), t = d.data || {};
       status = t.task_status; why = t.task_status_msg; url = t.task_result && t.task_result.videos && t.task_result.videos[0] && t.task_result.videos[0].url;
@@ -201,7 +234,7 @@
     const record = job(id); if (!record || !record.taskId) throw Error("没有拿到任务编号，请先在控制台核对，避免重复付费");
     if (record.draftRef) return record;
     let url;
-    if (record.vendor === "kling" || record.vendor === "seedance") {
+    if (record.vendor === "kling" || record.vendor === "seedance" || record.vendor === "relay") {
       const q = await queryVendor(record, signal);
       if ((signal && signal.aborted) || !job(id) || job(id).taskId !== record.taskId) throw new DOMException("已停止等待", "AbortError");
       record.status = q.status; delete record.lastError; patchMap(JOBS, id, record);
@@ -230,7 +263,9 @@
     const controller = new AbortController(), relay = () => controller.abort(), timer = setTimeout(relay, 90000);
     if (signal && signal.aborted) { clearTimeout(timer); throw new DOMException("已停止等待", "AbortError"); } if (signal) signal.addEventListener("abort", relay, { once: true });
     try {
-      const r = await fetch(url, { signal: controller.signal }); if (!r.ok) throw Error("下载视频失败（HTTP " + r.status + "），可以查询原任务重试下载");
+      // 中转站自己那一家的下载地址（OpenAI 那种 /content）要带 key；别人家的链接不带，免得把 key 发出去
+      const rk = record.vendor === "relay" && url.indexOf(record.baseUrl + "/") === 0 ? (load().relay || {}).apiKey : "";
+      const r = await fetch(url, Object.assign({ signal: controller.signal }, rk ? { headers: { Authorization: "Bearer " + rk } } : {})); if (!r.ok) throw Error("下载视频失败（HTTP " + r.status + "），可以查询原任务重试下载");
       return await saveDraftFile(id, await r.blob(), record.taskId, signal);
     } catch (e) {
       if (e instanceof TypeError) throw Error("视频下载连接失败，可能是网络或下载站点的跨域限制。可复制原视频链接到 Safari 手动保存，再导入这次任务；不需要重新生成。");
@@ -312,6 +347,7 @@
   }
   function VideoApiConfig() {
     const t = useTheme(), [c, setC] = useState(load), [err, setErr] = useState("");
+    const [models, setModels] = useState([]), [pulling, setPulling] = useState(false);
     const set = patch => { try { setC(save(patch)); setErr(""); } catch (e) { setErr(e.message); } };
     const input = { width: "100%", minWidth: 0, minHeight: 42, padding: "9px 12px", borderRadius: 6, border: "1px solid " + t.line, background: t.bg, color: t.ink, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))" };
     const row = (label, child) => h("div", { style: { display: "block", marginTop: 14, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.sub } }, h("span", { style: { display: "block", marginBottom: 6 } }, label), child);
@@ -332,6 +368,35 @@
         row("品质", h("select", { "aria-label": "可灵品质", value: k.mode, onChange: e => sk({ mode: e.target.value }), style: input }, h("option", { value: "std" }, "标准（std）"), h("option", { value: "pro" }, "高品质（pro，更贵）"))),
         row("时长", h("select", { "aria-label": "可灵时长", value: k.duration, onChange: e => sk({ duration: Number(e.target.value) }), style: input }, [5, 10].map(n => h("option", { key: n, value: n }, n + " 秒")))),
         note("旧式的 Access Key／Secret Key 会在手机上现签一张 30 分钟的令牌，密钥本身不发出去。有的型号不支持「高品质」或 10 秒，以可灵控制台为准。浏览器直连被跨域拦住时，接口地址换成支持可灵的中转站。")); };
+    const relayCfg = () => { const r = c.relay, sr = patch => set({ relay: Object.assign({}, r, patch) });
+      // 拉取模型：跟聊天 API 那颗同一个口子（fetchModelList 问 /v1/models），像视频的那几个排前面
+      const pullModels = async () => {
+        if (!r.baseUrl || !r.apiKey) { setErr("先填接口地址和 API Key"); return; }
+        setPulling(true); setErr("");
+        try {
+          const all = await fetchModelList({ baseUrl: r.baseUrl, apiKey: r.apiKey });
+          const vid = m => /video|seedance|kling|hailuo|minimax|veo|sora|wan|grok|vidu|pixverse|hunyuan|jimeng|runway|luma|i2v|t2v/i.test(m);
+          const list = [...new Set(all)].sort((a, b) => (vid(b) ? 1 : 0) - (vid(a) ? 1 : 0));
+          setModels(list);
+          if (!list.length) setErr("这个站没列出模型，照它控制台里写的名字手填");
+        } catch (e) { setErr("拉取模型失败：" + ((e && e.message) || "连不上") + "。也可以照它控制台里写的名字手填"); }
+        finally { setPulling(false); }
+      };
+      return h(React.Fragment, null,
+        row("写法（看中转站的 API 文档）", h("select", { "aria-label": "中转写法", value: r.format, onChange: e => sr({ format: e.target.value }), style: input }, RELAY_FORMATS.map(([v, zh]) => h("option", { key: v, value: v }, zh)))),
+        row("接口地址", h("input", { "data-wk": "input", "aria-label": "中转接口地址", value: r.baseUrl, onChange: e => sr({ baseUrl: e.target.value }), placeholder: "https://你的中转站", style: input })),
+        row("API Key", h("input", { "data-wk": "input", type: "password", "aria-label": "中转 API Key", autoComplete: "off", value: r.apiKey, onChange: e => sr({ apiKey: e.target.value }), style: input })),
+        row("视频模型（照中转站列出的名字填）", h("div", { style: { display: "flex", gap: 6 } },
+          h("input", { "data-wk": "input", "aria-label": "中转视频模型", list: "relay-models", value: r.model, onChange: e => sr({ model: e.target.value }), style: Object.assign({}, input, { flex: 1 }) }),
+          h("button", { type: "button", onClick: pullModels, disabled: pulling, style: Object.assign({}, input, { width: "auto", flexShrink: 0, color: t.ink, opacity: pulling ? 0.5 : 1 }) }, pulling ? "拉取中…" : "拉取模型"))),
+        h("datalist", { id: "relay-models" }, models.map(m => h("option", { key: m, value: m }))),
+        models.length ? h("div", { "data-wk": "relaymodels", style: { display: "flex", flexWrap: "wrap", gap: 6, marginTop: 8, maxHeight: 180, overflowY: "auto" } },
+          models.map(m => h("button", { key: m, type: "button", onClick: () => sr({ model: m }), style: { minHeight: 32, padding: "0 10px", borderRadius: 999, fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))",
+            border: "1px solid " + (r.model === m ? t.ink : t.line), background: r.model === m ? t.ink : "transparent", color: r.model === m ? t.bg2 : t.ink } }, m))) : null,
+        row("时长", h("select", { "aria-label": "中转时长", value: r.duration, onChange: e => sr({ duration: Number(e.target.value) }), style: input }, [4, 5, 6, 8, 10, 12, 15].map(n => h("option", { key: n, value: n }, n + " 秒")))),
+        note("给那种一个站里能挑很多家视频模型的中转站用：首帧是你选的那张图。写法挑它 API 文档里写的那种；只按官方原样转发的，直接用上面对应那一家、把接口地址换成中转站的就行。模型支不支持这个时长以中转站为准，点生成才扣费。"),
+        err ? h("p", { role: "alert", style: { color: t.accent, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))" } }, err) : null);
+    };
     const ark = () => { const a = c.seedance, sa = patch => set({ seedance: Object.assign({}, a, patch) });
       return h(React.Fragment, null,
         row("站点（与密钥申请的平台配对）", sites(ARK_SITES, a.baseUrl, url => sa({ baseUrl: url }))),
@@ -345,7 +410,7 @@
       h("p", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", lineHeight: 1.8, color: t.sub } }, "给图片制作一段动态陪伴画面。视频接口独立配置；只有点击生成才创建收费任务，满意后保存，循环播放不再调用。"),
       row("开启视频生成", h("input", { type: "checkbox", "aria-label": "开启视频生成", checked: c.enabled, onChange: e => set({ enabled: e.target.checked }), style: { width: 22, height: 22 } })),
       row("用哪一家", h("select", { "aria-label": "视频厂家", value: c.vendor, onChange: e => set({ vendor: e.target.value }), style: input }, VENDORS.map(([v, zh]) => h("option", { key: v, value: v }, zh)))),
-      c.vendor === "kling" ? kling() : c.vendor === "seedance" ? ark() : h(React.Fragment, null,
+      c.vendor === "kling" ? kling() : c.vendor === "seedance" ? ark() : c.vendor === "relay" ? relayCfg() : h(React.Fragment, null,
       row("站点（与密钥申请站点配对）", h("div", { style: { display: "grid", gap: 6 } }, MINIMAX_API_SITES.map(([name, url]) => h("button", { key: url, "aria-label": name, type: "button", onClick: () => set({ baseUrl: url }), "aria-pressed": c.baseUrl === url, style: Object.assign({}, input, { textAlign: "left", borderLeft: (c.baseUrl === url ? "5px" : "1px") + " solid " + (c.baseUrl === url ? t.accent : t.line) }) }, name)))),
       row("接口地址", h("input", { "data-wk": "input", "aria-label": "视频接口地址", value: c.baseUrl, onChange: e => set({ baseUrl: e.target.value }), placeholder: "https://api.minimax.io", style: input })),
       row("视频 API 密钥", h("input", { "data-wk": "input", type: "password", "aria-label": "视频 API 密钥", autoComplete: "off", value: c.apiKey, onChange: e => set({ apiKey: e.target.value }), placeholder: "填写对应站点的 API Key", style: input })),
