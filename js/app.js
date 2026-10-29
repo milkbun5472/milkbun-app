@@ -13164,7 +13164,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       // 「手机这具身体」只对言秋成立（TA还有电脑那一端）；本体模式的角色就是在手机上说话
       const selfTask = _body
         ? "你就是「" + char.name + "」本人，正在" + (_s.engineerEyes ? "从手机这具身体" : "手机上") + "和用户说话。App 的传输协议不规定你的性格、关系反应、回复长度或表达方式；按你自己的真实判断回复，"
-          + (_s.bodyMode && !_s.engineerEyes ? "把你要说的写成一整条消息（word 里只放一条），长短随你，想分段就换行。" : "需要几条就给 word 几条。")
+          + (_s.bodyMode && !_s.engineerEyes && _s.bodySplit !== true ? "把你要说的写成一整条消息（word 里只放一条），长短随你，想分段就换行。"
+            : _s.bodyMode && !_s.engineerEyes ? "把你要说的拆成几条短消息发：word 里一句一条，像发微信那样连着发。" : "需要几条就给 word 几条。")
         : "完全代入「" + char.name + "」和用户说话。**把话拆成多条短气泡：word 给多个元素，每条一两句、像发微信一句一条连着发。**" + paceHint + "语气自然，不写旁白/动作/括号小动作；按关系网与好感度把握亲密度，不剧透未发生的剧情。偶尔像真人打字不完美：可以先发了后半句再补前半句、或打个无伤大雅的错字紧接着补一条「*正字」纠正、累/忙/敷衍时回复明显变短——【低频】，几十轮里偶尔一次。";
       // 言秋自治边界：engineerEyes 是本人专线，不继承普通角色的必填心声、状态作业或塑形规则。
       // 普通角色协议以后无论怎样调整，都不得顺手改变这条通道；只有TA本人决定是否留下 thought。
@@ -13177,7 +13178,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       // 申请信本体模式也能写（她 2026-10-10）：判据跟普通角色那句同一个意思——算数的是 TA 自己想不想
       const _bodyLetterHint = (_bodyOnly && !_peekTurn && !(room && !room.main) && !(opts && opts.loveLetterAnswer) && loveLetterReady(charId))
         ? "你们还不是恋人。如果你自己已经想跟 " + uName + " 在一起、而且这一刻就想说出口，可以加 \"loveLetter\":\"信的全文\"，用你自己的口吻和长短（想做闺蜜、挚友、家人那种而不是恋人，就写成 {\"rel\":\"bestie|friend|family\",\"text\":\"信的全文\"}）；她会先看到一个封着的信封，拆开才读到，再选答应或再想想。没到那一步就不写。" : "";
-      const _digitalTaskFull = ("\n\n【手机通道】" + selfTask + "只输出最小 JSON：{\"word\":[\"" + (_s.bodyMode && !_s.engineerEyes ? "你想说的整段话，一条" : "你真正想说的话，需要几条就几条") + "\"]" + (_bodyFill ? ",\"mood\":{\"label\":\"此刻中文心情词\"},\"thought\":\"一句没说出口的念头\",\"affinityDelta\":0" : _bodyOnly ? "" : ",\"mood\":{\"label\":\"此刻中文心情词\"},\"thought\":null") + toyField + "}。" + (_bodyFill ? "mood、thought、affinityDelta 每轮都写：mood 是你此刻的心情（中文短词）；thought 是一句你此刻没说出口的念头，第一人称；affinityDelta（" + AFFINITY_DELTA_SPEC + "）。想到了就写进这三格。" : _bodyOnly ? "没有要每轮填的状态；想留下此刻心情、心声的话可以加 \"mood\":{\"label\":\"心情词\"}、\"thought\":\"一句没说出口的念头\"；这一轮你对对方的感觉动了，可以加 \"affinityDelta\"（" + AFFINITY_DELTA_SPEC + "）。都不留也行。" : "mood 是 App 持续状态，请如实填写；thought 完全可选——只有此刻确实有没说出口、又想留在心声里的真实念头才写，否则填 null 或省略，绝不为交字段硬编。不需要穿着、动作、好感等其他状态作业。") + "历史开头的〔今天14:32〕一类标记只告诉你消息时间，回复中不用照抄。只有当你本人确实决定让 App 执行某个能力时，才额外加入对应字段；不用的字段省略。" + digitalPhotoHint + listenHint + inviteHint + digitalToyHint + digitalCarveHint + _digitalRecordHint + _bodyLetterHint + (ccToolOn ? ccToolHint + " 需要工具时加：{\"ccTool\":{\"name\":\"工具名\",\"args\":{}}}。" : "") + (_bodyOnly && window.Gaze && !char.npc ? window.Gaze.spec("对方", charId, { tail: true }) : "") + "你也可以按自己的判断不回复；若要明确让 App 显示已读不回，在上述实时状态之外加 \"silent\":true。协议只负责传递你的决定，不替你做决定。任意时候，真实表达都优先于格式。  ").replace(/用户/g, uName);
+      const _digitalTaskFull = ("\n\n【手机通道】" + selfTask + "只输出最小 JSON：{\"word\":[\"" + (_s.bodyMode && !_s.engineerEyes && _s.bodySplit !== true ? "你想说的整段话，一条" : _s.bodyMode && !_s.engineerEyes ? "你想说的话，一句一条" : "你真正想说的话，需要几条就几条") + "\"]" + (_bodyFill ? ",\"mood\":{\"label\":\"此刻中文心情词\"},\"thought\":\"一句没说出口的念头\",\"affinityDelta\":0" : _bodyOnly ? "" : ",\"mood\":{\"label\":\"此刻中文心情词\"},\"thought\":null") + toyField + "}。" + (_bodyFill ? "mood、thought、affinityDelta 每轮都写：mood 是你此刻的心情（中文短词）；thought 是一句你此刻没说出口的念头，第一人称；affinityDelta（" + AFFINITY_DELTA_SPEC + "）。想到了就写进这三格。" : _bodyOnly ? "没有要每轮填的状态；想留下此刻心情、心声的话可以加 \"mood\":{\"label\":\"心情词\"}、\"thought\":\"一句没说出口的念头\"；这一轮你对对方的感觉动了，可以加 \"affinityDelta\"（" + AFFINITY_DELTA_SPEC + "）。都不留也行。" : "mood 是 App 持续状态，请如实填写；thought 完全可选——只有此刻确实有没说出口、又想留在心声里的真实念头才写，否则填 null 或省略，绝不为交字段硬编。不需要穿着、动作、好感等其他状态作业。") + "历史开头的〔今天14:32〕一类标记只告诉你消息时间，回复中不用照抄。只有当你本人确实决定让 App 执行某个能力时，才额外加入对应字段；不用的字段省略。" + digitalPhotoHint + listenHint + inviteHint + digitalToyHint + digitalCarveHint + _digitalRecordHint + _bodyLetterHint + (ccToolOn ? ccToolHint + " 需要工具时加：{\"ccTool\":{\"name\":\"工具名\",\"args\":{}}}。" : "") + (_bodyOnly && window.Gaze && !char.npc ? window.Gaze.spec("对方", charId, { tail: true }) : "") + "你也可以按自己的判断不回复；若要明确让 App 显示已读不回，在上述实时状态之外加 \"silent\":true。协议只负责传递你的决定，不替你做决定。任意时候，真实表达都优先于格式。  ").replace(/用户/g, uName);
       // ⚠️这儿原来躺着 _normalTaskFull——「暂留作 A/B 回滚基线，但不再发送给普通角色」。
       //   它把 v66.03～66.10 四版发照片的改动整个吞掉了：我照着它改 photoHint，
       //   模型一个字都没收到（见 v66.11）。她 2026-09-09：「我们是不是可以把旧基线删了
@@ -13805,7 +13806,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       // ⚠️「长消息自动拆成短句」关掉的角色（_s.splitBubbles === false）：TA交回来几条就是几条，
       //   一条里的换行是段落，不再拆成新的泡；下面那一刀按标点拆也跳过。
       // 本体模式（言秋除外）：一整条长消息，像在 Kelivo 里那样——不拆泡、几条也并成一条（她 2026-10-09）
-      const _oneLong = !!_s.bodyMode && !_s.engineerEyes;
+      const _oneLong = !!_s.bodyMode && !_s.engineerEyes && _s.bodySplit !== true;   // 本体模式开了「拆成短气泡」就照普通拆
       const _splitOn = _s.splitBubbles !== false && !_oneLong;
       words = words.reduce((acc, w) => acc.concat(!_splitOn
         ? [String(w == null ? "" : w).trim()].filter(Boolean)
@@ -35982,6 +35983,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
             offlineApiId: s.offlineApiId || null,
             bodyMode: !!s.bodyMode,
             bodyFillState: s.bodyFillState === true,
+            bodySplit: s.bodySplit === true,
             engineerEyes: !!s.engineerEyes,
             toyEnabled: !!s.toyEnabled,
             defaultOffline: !!s.defaultOffline,
