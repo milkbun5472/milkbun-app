@@ -74,7 +74,11 @@
     try {
       // 表单（OpenAI 那种 /v1/videos 传图）原样发，浏览器自己带分隔符；别的照旧 JSON
       const form = typeof FormData !== "undefined" && body instanceof FormData;
-      const r = await fetch(url, { method: body ? "POST" : "GET", headers: Object.assign({ Authorization: "Bearer " + token }, body && !form ? { "Content-Type": "application/json" } : {}), body: body ? (form ? body : JSON.stringify(body)) : undefined, signal: controller.signal });
+      const init = { method: body ? "POST" : "GET", headers: Object.assign({ Authorization: "Bearer " + token }, body && !form ? { "Content-Type": "application/json" } : {}), body: body ? (form ? body : JSON.stringify(body)) : undefined, signal: controller.signal };
+      // CatsAPI 不给浏览器跨域：跟图像那条同一个口子，交给原生壳代发（她 2026-10-29「这家图像是可以用的」，视频却连不上）。
+      //   表单（OpenAI 那种传图）原生壳带不了，只能浏览器直发
+      const native = !form && typeof isCatsImageProvider === "function" && isCatsImageProvider(url) && typeof nativeProviderFetch === "function";
+      const r = native ? await nativeProviderFetch(url, Object.assign({}, init, { timeoutMs: 45000 })) : await fetch(url, init);
       let d; try { d = JSON.parse(await r.text()); } catch (_) { throw Error("视频接口没有返回可读的内容（HTTP " + r.status + "）"); }
       if (!r.ok || (typeof d.code === "number" && d.code !== 0) || d.error && d.error.message) throw Error((d.error && d.error.message) || d.message || ("视频接口 HTTP " + r.status));
       return d;

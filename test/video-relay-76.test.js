@@ -13,3 +13,6 @@ test("中转能拉取模型：跟聊天 API 同一个 fetchModelList，像视频
   assert.match(src, /await fetchModelList\(\{ baseUrl: r\.baseUrl, apiKey: r\.apiKey \}\)/);
   assert.match(src, /"拉取模型"/);
 });
+test("CatsAPI 的视频请求跟图像一样交给原生壳代发", () => {
+  assert.match(src, /isCatsImageProvider\(url\) && typeof nativeProviderFetch === "function"/);
+});
