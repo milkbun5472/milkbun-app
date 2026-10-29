@@ -380,6 +380,7 @@
     ["csexport", "聊天设置里「导出聊天记录」那一块"], ["csexportbtn", "那一块里的「导出 txt」"], ["csreset", "聊天设置里「清除 / 重置…」那颗按钮"], ["callpill", "聊天里那条「通话已结束」回执的整块（多选时 data-on＝1）"], ["proactiverate", "聊天设置里「多久来找你一次」那一排（选项 data-on）"], ["csrouteoff", "线路那一格「线下见面单独走」的一颗（data-on＝1 选中）"], ["mcppick", "聊天设置 · 让 Ta 能上网 下面那一列「能用的工具」（一台 MCP 一行开关）"], ["resetpage", "清除 / 重置选择页整页"], ["resetgo", "选择页最后那颗「确定清掉」"],
     ["block", "页里一块自己有底色或边框的卡片、板、格子（凡是没单独起名的都是它；想只改某一页，前面带上那一页的最外层挂点）"],
     ["empty", "空状态那一块（还没有内容时）"],
+    ["dialogmask", "屏幕正中那种弹窗后面的遮罩（data-part=\"prompt\" 是填一行字的，比如「收进时刻」；\"confirm\" 是「确定要……吗」）。弹窗卡片本身是 [data-wk=block][data-part=dialog]，确定键是 [data-wk=block][data-part=dialogok]，输入框是 [data-part=dialog] 的 input / textarea"], ["dialogtitle", "弹窗标题"], ["dialogbody", "弹窗标题下面那段说明"], ["dialogcancel", "弹窗的「取消」"],
     ["sheet", "从底下掀起来的半窗"], ["pagesheet", "原来是半窗、现在铺满整页的那些（通话记录、查找记录、记忆库、备忘录编辑……）"], ["centercard", "屏幕正中弹出来的小卡片"], ["msgbanner", "顶上掉下来的新消息横幅"], ["msgbannericon", "顶上那条提醒里 App 来的那种（小窝新发的）左边那格图标"],
     ["avatar", "头像（全 App 每一颗）"],
     ["field", "一栏设置（标题＋内容＋底下那道细线）"], ["fieldlabel", "那一栏的标题"], ["fieldline", "那一栏底下的细线"],
@@ -1177,7 +1178,7 @@
   //   挂点表是从 WK_COMMON/WK_SCOPED 现拼的，代码里新挂的 data-wk 没进名单，测试 ai-brief-hooks 会红；
   //   可规矩、尺寸、现成写法是手写的——所以跟攻略一样立个戳：v 必须等于 APP_VERSION，
   //   这一版改了哪条写进 changed；这一版的改动碰不到样式，就在 none 写一句为什么。
-                                                                                                                                                                                                                                                                    const BRIEF_STAMP = {v: "v76.889",changed: "新挂点 walletpocket / walletpocketitem（钱包页看哪张面具的钱）",none: ""};
+                                                                                                                                                                                                                                                                    const BRIEF_STAMP = {v: "v76.890",changed: "",none: "这一版没动美化挂点。"};
   function aiBrief(page, css) {
     const grp = WK_SCOPED.filter(function (x) { return (x.pages || []).indexOf(page) >= 0; })[0];
     const line = function (r) { return '[data-wk="' + r[0] + '"]  ' + r[1]; };
