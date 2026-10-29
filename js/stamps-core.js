@@ -45,7 +45,9 @@
     { id: "halloween26", series: "halloween", name: "万圣夜", from: "2026-10-26T00:00:00+08:00", to: "2026-11-15T00:00:00+08:00",
       stamp: "南瓜灯邮票", deco: "halloween",
       hook: "今晚敲开他的门，会收到糖果，还是别的惊喜？",
-      line: "主题是万圣夜：南瓜灯、变装、糖果、讨糖、夜色里的派对和一点点吓人。先看这个人是哪个世界、哪个年代的人，再决定万圣夜怎么落到他身上。" },
+      // 改成只给判断（群里 2026-10-29：「怎么写出来全是灯」——原来列着南瓜灯那一串道具，模型张张往灯上凑）
+      line: "主题是「万圣夜」：一年里允许装成另一个人、允许被吓一跳的那一晚。先想清楚你是哪个世界、哪个年代的人，你那儿有没有这个节、过的是什么样子——没有这个节的世界，就是你们那儿最像它的那一晚。从这一晚里真实会发生的事找故事，不把常见的万圣节意象直接套进来。读的人要能认出是万圣夜前后，不必每张都点明；不预设情绪，也不强求故事一定有深意。",
+      look: "画面要看得出是万圣夜前后，不靠堆道具。" },
     { id: "lateautumn26", series: "lateautumn", name: "深秋", from: "2026-11-15T00:00:00+08:00", to: "2026-12-01T00:00:00+08:00",
       stamp: "落叶邮票", deco: "autumn",
       hook: "风一吹，叶子就落满了他走过的路。这个秋天，你想和他去哪儿？",
@@ -236,6 +238,14 @@
   // 领聊天里那封「今天的信」：一封只能领一次
   function claimLetter(id) { const st = load(); st.claimed = st.claimed || {}; if (st.claimed[id]) return false; st.claimed[id] = 1; st.singles = (st.singles || 0) + 1; save(st); return true; }
   function claimBdLetter(id, bdKey, n) { const st = load(); st.claimed = st.claimed || {}; if (st.claimed[id]) return false; st.claimed[id] = 1; if (bdKey) { st.bdTickets = st.bdTickets || {}; st.bdTickets[bdKey] = (st.bdTickets[bdKey] || 0) + (Number(n) || 0); } else st.tickets += Number(n) || 0; st.ink += (Number(n) || 0) * INK_PER_TEN; save(st); return true; }
+  // 熔 R 卡（她 2026-10-29：「r 卡多选融了」）：一张 R 折 30 印泥，盖过的印再退一半。只熔 R，写着的不熔
+  const MELT_R = 30;
+  function meltValue(c) { if (!c || c.rarity !== "R") return 0; let spent = 0; for (let l = 1; l < (c.lv || 1); l++) spent += levelCost("R", l); return MELT_R + Math.floor(spent / 2); }
+  function melt(ids) { const st = load(), set = new Set(ids || []), gone = st.cards.filter(c => set.has(c.id) && c.rarity === "R" && !c.writing);
+    if (!gone.length) return { n: 0, ink: 0, keys: [] };
+    const ink = gone.reduce((a, c) => a + meltValue(c), 0), drop = new Set(gone.map(c => c.id));
+    st.cards = st.cards.filter(c => !drop.has(c.id)); st.ink += ink; save(st);
+    return { n: gone.length, ink, keys: gone.flatMap(c => [c.face, c.faceAlt].concat(Object.values(c.faces || {}))).filter(Boolean) }; }
   function buyExtra() { const st = load(); if (st.ink < EXTRA_INK) return false; st.ink -= EXTRA_INK; st.extraTickets = (st.extraTickets || 0) + 1; save(st); return true; }
   function letterClaimed(id) { return !!((load().claimed || {})[id]); }
 
@@ -243,7 +253,7 @@
   function ssrUnlocked(lv) { return { sections: Math.min(4, 1 + Math.floor(lv / 10)), ending: lv >= 40, hidden: lv >= 50 }; }
 
   g.StampsCore = { PRICE_ONE, PRICE_TEN, RATE, SOFT_FROM, HARD_AT, SR_EVERY, BDAY, CAP, FULL_COST, GIFT, GAIN, LIMITED,
-    bdTicketCount, EXTRA_INK, buyExtra, INK_PER_TEN, claimLetter, claimBdLetter, letterClaimed, cleanText, DUPE_INK, UNLOCK, levelUp, canBeg, markBeg, load, save, gain, grantOnOpen, activeLimited, bdayWindow, rollRarity, pay, levelCost, isGate, gateBlocked, ssrUnlocked };
+    bdTicketCount, EXTRA_INK, buyExtra, MELT_R, meltValue, melt, INK_PER_TEN, claimLetter, claimBdLetter, letterClaimed, cleanText, DUPE_INK, UNLOCK, levelUp, canBeg, markBeg, load, save, gain, grantOnOpen, activeLimited, bdayWindow, rollRarity, pay, levelCost, isGate, gateBlocked, ssrUnlocked };
   // 各处喊一声就记上
   g.stampGain = gain;
   // 别的玩法不一处处去挂：callAI 成功一枪（她按下去的、不是后台）会广播 ai-ok，这儿按它是干嘛的分进几档。
