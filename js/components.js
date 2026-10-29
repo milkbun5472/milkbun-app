@@ -10883,6 +10883,7 @@ function ChatThread({
   onSneak,       // 「你发现TA偷偷翻过你的手机」那张卡：回放／当面问／装没看见
   onDateGo,      // 约会回执上的「出发」：点开才进见面
   onBdayPlanOpen, // 生日暗中准备的信封：生日当天拆开进线下
+  bdayToday,      // 今天是不是她（这张面具）的生日：是的话还封着的信封顶到聊天最上面（2026-10-29：刷上去找不着了）
   onDateAnswer,  // TA约她的那张卡：好／改天
   onMyKin,   // ＋面板「亲属卡」（她 2026-10-07）：给TA开一张，开过了就是那张卡的账单页
   onDateInvite, invitePlaces, onSetMyPlace,   // ＋面板「邀约」（她 2026-10-02 转群友）：挑地方、定时间，发一张约会卡
@@ -11465,6 +11466,13 @@ function ChatThread({
     h(Marquee, { wk: "headink", style: { flex: 1, minWidth: 0, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.ink } }, schedNow.title + (schedNow.location ? " · " + schedNow.location : "")),
     schedNow.dev && h("span", { style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", color: t.accent, flexShrink: 0 } }, "改"),
     h(IChevR, { size: 13, color: t.fog, wk: "headdim", style: { marginLeft: "auto", flexShrink: 0 } })),
+  // 生日那天，还封着的那个信封顶到最上面一条：几天前送来的早就刷上去了，点这条直接拆
+  (() => { const bp = bdayToday && onBdayPlanOpen ? (messages || []).find(m => m && m.kind === "bdayplan" && !m.opened) : null;
+    return bp ? h("button", { "data-wk": "bdaypin", onClick: () => onBdayPlanOpen(bp), className: "shrink-0 w-full flex items-center active:opacity-70",
+      style: { gap: 8, padding: "8px 16px", borderBottom: "1px solid " + t.line, background: dsp.chatBg ? "rgba(255,255,255,0.55)" : "transparent", fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.ink, textAlign: "left" } },
+      h("span", { style: { flexShrink: 0 } }, "✉️"),
+      h("span", { className: "flex-1 min-w-0", style: { overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, (character && (character.remark || character.name) || "TA") + " 给你的信封，今天可以拆了"),
+      h("span", { style: { flexShrink: 0, color: t.accent } }, "拆开")) : null; })(),
   // 拉黑提示条（她 2026-10-03：「拉黑的提示搞点挂点，顺便看看样式」）：
   //   原来是一整行居中的红字，读起来像报错。拆成「谁拉黑了谁」＋「现在能做什么」两层，
   //   她拉黑 TA 时右边直接给一颗「解除」（原来得钻进设置里找开关）。
@@ -19547,6 +19555,7 @@ function GroupThread({
   //   「我」：照原样，前面挂名字——「沈清和 我把伞递给你」；「名字」：把「我」换成名字、前面不再挂——「沈清和把伞递给你」。
   const groupActText = m => {
     const gsx = settings || {}, nm = m.senderName || "TA";
+    if (m.whisper) return nm + " 悄悄对" + (m.toId === "me" ? "你" : (m.toName || "TA")) + "说：" + m.content;
     const asName = gsx.actPerson === "name";
     const toYou = gsx.userPerson === "ta" ? [] : ["她", (profile && profile.name) || ""];
     const body = window.ActLine ? window.ActLine.as(m.content, asName ? nm : "", toYou, gsx.userPerson === "ta" ? "她" : "") : m.content;
