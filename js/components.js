@@ -14418,6 +14418,7 @@ function TransTextState({ text, isU, zhReady, ink, autoShow: autoShowAll = false
   const _whoAuto = typeof transWhoAuto === "function" && transWhoAuto(isU), autoShow = autoShowAll || _whoAuto;
   // 随消息来的译文要是繁体（模型没照「右边写简体」办），显示前换成简体（js/t2s.js）
   if (zhReady && typeof toSimplified === "function") zhReady = toSimplified(zhReady);
+  if (zhReady && typeof fixGarbledText === "function") zhReady = fixGarbledText(zhReady);   // 译文里的乱码还原（engine.js 那一份）
   const _lang = long && typeof translatableLangLong === "function" ? translatableLangLong(text)
     : typeof translatableLang === "function" ? translatableLang(text) : "";
   // 自带中译时哪怕探不出语种也要给译键：模型都判定这句不是中文了，比正则准
@@ -14425,7 +14426,7 @@ function TransTextState({ text, isU, zhReady, ink, autoShow: autoShowAll = false
   const [open, setOpen] = useState(!!autoShow);
   const cached = lang && !zhReady && typeof transCacheGet === "function" ? transCacheGet(text) : null;
   // 缓存里早先翻回来的那份可能是繁体，摆出来前换成简体
-  const [zh, setZh] = useState(() => { const z = zhReady || (cached && cached.zh) || ""; return z && typeof toSimplified === "function" ? toSimplified(z) : z; });
+  const [zh, setZh] = useState(() => { let z = zhReady || (cached && cached.zh) || ""; if (z && typeof fixGarbledText === "function") z = fixGarbledText(z); return z && typeof toSimplified === "function" ? toSimplified(z) : z; });
   const [by, setBy] = useState(() => zhReady ? "随消息提供" : (cached && cached.by) || "");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
@@ -14436,7 +14437,7 @@ function TransTextState({ text, isU, zhReady, ink, autoShow: autoShowAll = false
     setBusy(true); setErr("");
     // 长消息走切块版：免费接口是 GET 带 query，整段太长会被截断或直接失败
     // 点「译」翻回来的也换成简体（群里 2026-10-11：「有时候翻译是繁体字」——免费接口翻粤语常回繁体，随消息来的那份上面已经换过）
-    try { const r = await translateLongToZh(text, lang, noModel ? { noModel: true } : undefined); setZh(typeof toSimplified === "function" ? toSimplified(r.zh) : r.zh); setBy(r.by || ""); }
+    try { const r = await translateLongToZh(text, lang, noModel ? { noModel: true } : undefined); const _z = typeof fixGarbledText === "function" ? fixGarbledText(r.zh) : r.zh; setZh(typeof toSimplified === "function" ? toSimplified(_z) : _z); setBy(r.by || ""); }
     catch (x) { setErr(String((x && x.message) || x)); }
     finally { setBusy(false); }
   };
