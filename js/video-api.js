@@ -23,6 +23,9 @@
   //   视频在 result_video.url；型号用它自己的叫法，不在 /v1/models 里列
   const CATS_VIDEO_MODELS = ["seedance20", "seedance20Mini", "grokImagineVideo", "geminiOmniFlash"];
   // 这几个各自认几到几秒（同一份插件里写的）；不在这张表里的不拦，交给站点说
+  // CatsAPI 的任务接口挂在域名根上（跟图像那条 new URL("/api/tasks", base) 同一个认法）：
+  //   地址里带着 /api/v1 之类（从图像设置抄过来的）也一样落到根上，不拼成 …/api/v1/api/tasks
+  const catsRoot = u => { try { return new URL(u).origin; } catch (e) { return u; } };
   const CATS_SECONDS = { seedance20: [4, 15], seedance20Mini: [4, 15], grokImagineVideo: [5, 15], geminiOmniFlash: [5, 10] };
   const RELAY_DEFAULT = { baseUrl: "", apiKey: "", model: "", format: "tasks", duration: 5 };
   const KLING_SITES = [["国内 北京", "https://api-beijing.klingai.com"], ["海外 新加坡", "https://api-singapore.klingai.com"]];
@@ -84,8 +87,10 @@
       //   表单（OpenAI 那种传图）原生壳带不了，只能浏览器直发
       const native = !form && typeof isCatsImageProvider === "function" && isCatsImageProvider(url) && typeof nativeProviderFetch === "function";
       const r = native ? await nativeProviderFetch(url, Object.assign({}, init, { timeoutMs: 45000 })) : await fetch(url, init);
-      let d; try { d = JSON.parse(await r.text()); } catch (_) { throw Error("视频接口没有返回可读的内容（HTTP " + r.status + "）"); }
-      if (!r.ok || (typeof d.code === "number" && d.code !== 0) || d.error && d.error.message) throw Error((d.error && d.error.message) || d.message || ("视频接口 HTTP " + r.status));
+      // 报错带上发到哪个地址（她 2026-10-29 连报两次 404，光一个数字看不出是路径错还是站点错）
+      const where = " · " + (body ? "POST " : "GET ") + String(url).replace(/\?.*$/, "");
+      let d; try { d = JSON.parse(await r.text()); } catch (_) { throw Error("视频接口没有返回可读的内容（HTTP " + r.status + where + "）"); }
+      if (!r.ok || (typeof d.code === "number" && d.code !== 0) || d.error && d.error.message) throw Error(((d.error && d.error.message) || d.detail || d.message || ("视频接口 HTTP " + r.status)) + (r.ok ? "" : "（HTTP " + r.status + where + "）"));
       return d;
     } catch (e) {
       if (e.name === "AbortError") throw e;
@@ -189,7 +194,7 @@
           const img = { name: "first.png", base64: input }, sd = /^seedance/i.test(k.model);
           const params = { duration: String(sec), aspectRatio: k.ratio || "9:16", rewritePrompt: false, ...(/gemini/i.test(k.model) ? {} : { resolution: "720p" }),
             ...(sd ? { inputMode: "reference" } : {}), ...(k.model === "seedance20" ? { mode: "fast" } : {}) };
-          d = await vendorRequest(k.baseUrl + "/api/tasks", k.apiKey, { model: k.model, prompt: text, task_type: "video", params, num_images: 1,
+          d = await vendorRequest(catsRoot(k.baseUrl) + "/api/tasks", k.apiKey, { model: k.model, prompt: text, task_type: "video", params, num_images: 1,
             files: sd ? { referenceImages: [img] } : { startFrame: img } }, signal);
         } else if (k.format === "openai") {
           const f = new FormData(); f.append("model", k.model); f.append("prompt", text); f.append("seconds", String(sec));
@@ -213,7 +218,7 @@
     let status, url, why;
     if (record.vendor === "relay") {
       const oa = record.format === "openai", path = oa ? "/v1/videos/" : record.format === "cats" ? "/api/tasks/" : "/v1/video/generations/";
-      const d = await vendorRequest(record.baseUrl + path + encodeURIComponent(record.taskId), k.apiKey, null, signal);
+      const d = await vendorRequest((record.format === "cats" ? catsRoot(record.baseUrl) : record.baseUrl) + path + encodeURIComponent(record.taskId), k.apiKey, null, signal);
       status = relayState(pick(d, ["status", "data.status", "task_status", "data.task_status", "state", "data.state"]));
       why = pick(d, ["error_message", "error.message", "data.error.message", "fail_reason", "data.fail_reason", "message", "error"]);
       url = pick(d, ["result_video.url", "result_video.videoUrl", "result_video.video_url", "url", "video_url", "data.url", "data.video_url", "content.video_url", "data.output.url", "result.url", "data.result_url", "output"]);
