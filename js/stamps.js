@@ -319,6 +319,7 @@
     const sideKey = exSel ? exSel.img : side === "solo" ? faces2.solo : side === "duo" ? faces2.duo : card.face;
     const [full, setFull] = useState(false), [fullWide, setFullWide] = useState(false), [rot, setRot] = useState(false);
     const vMain = useStampVideo(card.video || null, true);
+    const [vidSolo, setVidSolo] = useState(false);   // 单独用系统播放器放这段（带进度条），分得清是没播起来还是视频本身就没动
     useEffect(() => { const V = window.VideoApi, r = V && V.job("stamp|" + card.id); if (r && r.taskId && !vidRunning[card.id]) runStampVideo(card, toast); }, [card.id]);   // 上回没等完的任务：回来接着查
     useEffect(() => { if (!card.unread) return; const st0 = C().load(); st0.cards = st0.cards.map(c => c.id === card.id ? Object.assign({}, c, { unread: false }) : c); C().save(st0); }, [card.id]);   // 点开过就不算新
     // 「画着」超过八分钟还没回来＝那次没了（多半是画到一半关了 app）：按钮放开，能再画（她 2026-10-27：有人一直卡在重画中）
@@ -502,6 +503,11 @@
           card.rarity === "SSR" && card.face && window.VideoApi ? h("button", { "data-wk": "stampvideo", disabled: !!card.videoBusy && !!vidRunning[card.id], onClick: () => runStampVideo(card, toast, true), className: "active:opacity-70 disabled:opacity-50",
             style: { marginTop: 8, padding: "6px 14px", borderRadius: 8, border: "1px solid " + COPPER, color: COPPER, fontFamily: F_BODY, fontSize: fs(12) } },
             card.videoBusy && vidRunning[card.id] ? "卡面在动起来…" + (card.videoStatus ? "（" + card.videoStatus + "）" : "") + "，可以先去别处，回来接着等" : card.video ? "↻ 重新让卡面动起来 · 花一次视频生成" : "▶ 让卡面动起来 · 花一次视频生成") : null,
+          card.video && vMain ? h("button", { "data-wk": "stampvideosolo", onClick: () => setVidSolo(true), className: "active:opacity-70",
+            style: { marginTop: 6, padding: "4px 12px", minHeight: 36, fontFamily: F_BODY, fontSize: fs(11.5), color: COPPER, textDecoration: "underline", background: "transparent", border: "none" } }, "单独播放这段视频（带进度条）") : null,
+          vidSolo && vMain ? h("div", { "data-wk": "stampvideosolopage", onClick: () => setVidSolo(false), style: { position: "fixed", inset: 0, zIndex: 9000, background: "rgba(0,0,0,.92)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 16 } },
+            h("video", { src: vMain, controls: true, playsInline: true, loop: true, onClick: e => e.stopPropagation(), style: { maxWidth: "100%", maxHeight: "80vh", borderRadius: 4, background: "#000" } }),
+            h("div", { style: { marginTop: 12, color: "rgba(255,255,255,.75)", fontFamily: F_BODY, fontSize: fs(12), textAlign: "center", lineHeight: 1.6 } }, "点播放键看看：这里能动，是卡面上没播起来；这里也不动，是生成的视频本身就没动。点空白处关掉")) : null,
           card.videoErr && !(card.videoBusy && vidRunning[card.id]) ? h("div", { "data-wk": "stampvideoerr", style: { marginTop: 6, maxWidth: 300, textAlign: "center", fontFamily: F_BODY, fontSize: fs(11), lineHeight: 1.5, color: "#b23a2e" } }, "上次没动起来：" + card.videoErr) : null,
           card.drawErr && !drawing ? h("div", { "data-wk": "stampdrawerr", style: { marginTop: 6, maxWidth: 300, textAlign: "center", fontFamily: F_BODY, fontSize: fs(11), lineHeight: 1.5, color: "#b23a2e" } }, "上次没画成：" + card.drawErr) : null,
           // SSR 满级：第二张卡面（一个人，或者你们俩），画好以后能翻面
