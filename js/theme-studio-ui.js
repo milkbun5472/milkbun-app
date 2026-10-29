@@ -205,7 +205,7 @@
       try { const text = await studio.exportPackage({ profile: draft, baseTheme: theme, wallpaper,
           bubbleSkin: typeof bubbleSkinSnapshot === "function" ? bubbleSkinSnapshot() : null, pick: xPick });
         const via = await window.saveTextFile("qq-theme-" + new Date().toISOString().slice(0,10) + ".json", text, "application/json");
-        toast(via === "cancel" ? "导出取消了" : via === "share" ? "主题包已交给分享面板（含真实图标素材），在里面选「存储到文件」" : "主题包已导出（含真实图标素材）"); }
+        toast(via === "cancel" ? "导出取消了" : "主题包（含真实图标素材）" + savedWhere(via)); }
       catch (e) { toast("导出失败：" + e.message); }
     };
     // 装包那一份文本 → 预览。文件选一份、或者直接贴一份，两条路都走这里

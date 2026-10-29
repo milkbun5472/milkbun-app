@@ -31849,7 +31849,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       const via = await saveTextFile(name, JSON.stringify(out), "application/json");
       if (via === "cancel") { toast("这一包取消了，什么都没存"); return; }
       setMediaParts(Object.assign({}, box, { done: Object.assign({}, box.done, { [partNo]: true }) }));
-      toast("图片和视频第 " + partNo + "/" + box.parts.length + " 包" + (via === "share" ? "已交给分享面板，在里面选「存储到文件」" : "已导出"));
+      toast("图片和视频第 " + partNo + "/" + box.parts.length + " 包" + savedWhere(via));
     } catch (e) {
       toast("这一包没导成：" + (e && e.message || e) + "——数据还在，没有丢");
     }
@@ -31863,7 +31863,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       if (via === "cancel") { toast("导出取消了，什么都没存"); return; }
       saved = true;
       try { window.Cloud && window.Cloud.noteExport && window.Cloud.noteExport(); } catch (e) {}
-      toast("文字那一份" + (via === "share" ? "已交给分享面板，在里面选「存储到文件」" : "已导出") + "——图片和视频在下面按包接着存");
+      toast("文字那一份" + savedWhere(via) + "——图片和视频在下面按包接着存");
     } catch (e) {
       toast("导出没成功：" + (e && e.message || e) + "——数据还在，没有丢");
     }

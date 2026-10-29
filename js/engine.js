@@ -7160,7 +7160,15 @@ async function saveFile(file) {
   setTimeout(function () { URL.revokeObjectURL(href); }, 10000);
   return "download";
 }
-if (typeof window !== "undefined") window.saveTextFile = saveTextFile;
+// 存完了那句话里的「存到哪儿了」（群里 2026-10-28：「谷歌浏览器导出的文档从哪导入」）。
+//   安卓的浏览器走的是普通下载，文件会落进系统的【下载】文件夹；原来只说一句「已导出」，
+//   于是回头要导入时在选择器里到处找。只此一份：各处导出完都问它要这半句。
+function savedWhere(via) {
+  return via === "share" ? "已交给分享面板，在里面选「存储到文件」"
+    : via === "download" ? "存到手机的「下载」文件夹了"
+    : "已导出";
+}
+if (typeof window !== "undefined") { window.saveTextFile = saveTextFile; window.savedWhere = savedWhere; }
 // 本机图库里没有的 iv_ 图（换了设备、刚从云上恢复）：去本机原生仓、再去云上拉一张回来，拉到了就通知界面重画。
 //   原来这里只认开机时灌进内存的那一份，没有的就一直空着——聊天头像、表情包、面具头像在新设备上全是空的，
 //   补传把图送上了云，这边却从来不去拿（群友 2026-10-25：「平板显示没有图片需要补传，手机上表情包和头像丢了」）。

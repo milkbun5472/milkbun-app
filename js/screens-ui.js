@@ -7968,7 +7968,7 @@ function BubbleSkinConfig({ toast }) {
     try {
       const text = await st.exportPackage({ profile: st.load(), bubbleSkin: s, pick: { bubble: true } });
       const via = await window.saveTextFile("qq-bubble-" + new Date().toISOString().slice(0, 10) + ".json", text, "application/json");
-      toast && toast(via === "cancel" ? "导出取消了" : via === "share" ? "这套气泡已交给分享面板，在里面选「存储到文件」" : "这套气泡已导出");
+      toast && toast(via === "cancel" ? "导出取消了" : "这套气泡" + savedWhere(via));
     } catch (e) { toast && toast("导出失败：" + (e.message || e)); }
   };
   // 导进来只进草稿，不落盘：这一页本来就是「改草稿 → 点保存皮肤」，
