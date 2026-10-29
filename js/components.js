@@ -19547,6 +19547,7 @@ function GroupThread({
   //   「我」：照原样，前面挂名字——「沈清和 我把伞递给你」；「名字」：把「我」换成名字、前面不再挂——「沈清和把伞递给你」。
   const groupActText = m => {
     const gsx = settings || {}, nm = m.senderName || "TA";
+    if (m.whisper) return nm + " 悄悄对" + (m.toId === "me" ? "你" : (m.toName || "TA")) + "说：" + m.content;
     const asName = gsx.actPerson === "name";
     const toYou = gsx.userPerson === "ta" ? [] : ["她", (profile && profile.name) || ""];
     const body = window.ActLine ? window.ActLine.as(m.content, asName ? nm : "", toYou, gsx.userPerson === "ta" ? "她" : "") : m.content;
