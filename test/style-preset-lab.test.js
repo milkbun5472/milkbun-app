@@ -127,7 +127,7 @@ test("线下两处设置页共用同一个预设小节，不再各写一份", ()
   assert.equal(comp.split("function OfflineStylePresetSection(").length - 1, 1);
   assert.equal(comp.split("h(OfflineStylePresetSection, {").length - 1, 5); // v74.165：设置页两处 + 进门那一页两处（单人、群）；v76：聊天设置里线上那一处
   assert.equal(comp.split("onChangeStyle({ styleKey, presetOn, presetId, stylePrompt:").length - 1, 2);
-  assert.equal(comp.split(/onSaveSettings\(\{ (?:noAutoShot: sNoShot, )?presetOn, presetId,/).length - 1, 2);   // v75.967 前面多一项 noAutoShot
+  assert.equal(comp.split(/onSaveSettings\(\{ (?:hideThought: !sShowTh, )?(?:noAutoShot: sNoShot, )?presetOn, presetId,/).length - 1, 2);   // v75.967 前面多一项 noAutoShot；v76.87x 再多一项 hideThought
   assert.equal(comp.split("onStart({ opening: opening.trim(), styleKey, presetOn, presetId,").length - 1, 2);
 });
 

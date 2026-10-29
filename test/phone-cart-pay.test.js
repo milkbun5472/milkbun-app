@@ -13,7 +13,7 @@ test("购物车每件有「替TA付」，点两下才付；付了的那件不再
 
 test("付款从她钱包扣、钱不够不付，付了变成一份寄给TA的礼物", () => {
   assert.match(a, /window\.__phoneCart = \{/);
-  assert.match(a, /if \(total > wallet\) \{ toast\("钱包不够付这一件"\); return false; \}/);
+  assert.match(a, /if \(total > balanceOf\(maskKeyOf\(char\.id\)\)\) \{ toast\("钱包不够付这一件"\); return false; \}/);
   assert.match(a, /changeWallet\(-total, "替 "/);
   assert.match(a, /sendGiftToChar\(char\.id, title \+ "（" \+ why \+ "）", null\)/);
 });

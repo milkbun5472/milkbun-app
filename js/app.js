@@ -20,7 +20,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v76.873";
+const APP_VERSION = "v76.892";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -778,6 +778,9 @@ function App() {
   // 情侣：多角色各一份 { [charId]: { status:"pending"|"together", since } }
   const [couples, setCouples] = useState({});
   const [wallet, setWallet] = useState(200);
+  const [walletPocket, setWalletPocket] = useState("");   // 钱包页正在看哪张面具的钱（""＝主面具）
+  const [maskWallets, setMaskWallets] = useState({});   // 副面具各自的钱（见 changeWallet 上面那段）
+  const maskWalletsRef = useRef(maskWallets); maskWalletsRef.current = maskWallets;
   const walletRef = useRef(200); walletRef.current = wallet;   // 刷她亲属卡时要读最新余额（回调里不读渲染期那份）
   // ============================================================
   // 外卖 Takeout —— 按饭点刷店 / 一次只在一家店里凑一单 / 骑手按分钟送
@@ -829,15 +832,16 @@ function App() {
   };
   // 下单。mode 跟购物同一套词：buy 自己付 / kinship 亲属卡 / paylater 找TA代付；
   // 多一个 forchar：她给TA点一份——聊天里出一张她那边的外卖小票，不进TA的随身物（吃完就没了）。
-  const orderTakeout = (bag, mode, target) => {
+  const orderTakeout = (bag, mode, target, opts) => {
     const item = takeoutItemOf(bag || {});
+    const payMask = opts && opts.mask != null ? String(opts.mask || "") : "";
     if (!item.takeout.items.length) { toast("还没点东西"); return false; }
     const total = item.price;
     const byMode = {
       buy: () => {
-        if (wallet < total) { toast("余额不足"); return false; }
-        changeWallet(-total, "外卖 " + item.name.slice(0, 18), "shop", { where: "外卖" });
-        addOrder(item);
+        if (balanceOf(payMask) < total) { toast("余额不足"); return false; }
+        changeWallet(-total, "外卖 " + item.name.slice(0, 18), "shop", { where: "外卖", mask: payMask });
+        addOrder({ ...item, mask: payMask });
         toast("下单成功，骑手接单了");
       },
       kinship: () => {
@@ -858,7 +862,7 @@ function App() {
       forchar: () => {
         const char = target && target.type === "char" ? characters.find(c => c.id === target.id) : null;
         if (!char) { toast("请选择给谁点"); return false; }
-        if (wallet < total) { toast("余额不足"); return false; }
+        if (balanceOf(maskKeyOf(char.id)) < total) { toast("余额不足"); return false; }
         changeWallet(-total, "给 " + (char.remark || char.name) + " 点外卖 " + item.takeout.shop, "shop", { where: "外卖", charId: char.id });
         const now = Date.now();
         pChat(char.id, p => [...p, { role: "user", kind: "takeout", takeout: item.takeout, arriveTs: now + deliverMsForCat("food", item.name), ts: now, read: true,
@@ -874,7 +878,7 @@ function App() {
     const o = ordersRef.current.find(x => x.id === id);
     if (!o) return;
     saveOrders(p => p.filter(x => x.id !== id));
-    setTakeoutLog(p => { const n = [{ id: o.id, name: o.name, takeout: o.takeout || null, price: o.price, payLabel: o.payLabel || "", fromCharId: o.fromCharId || null, ts: Date.now() }, ...p].slice(0, 300); saveJSON("x_takeoutLog", n); return n; });
+    setTakeoutLog(p => { const n = [{ id: o.id, name: o.name, takeout: o.takeout || null, price: o.price, payLabel: o.payLabel || "", fromCharId: o.fromCharId || null, mask: orderMaskOf(o), ts: Date.now() }, ...p].slice(0, 300); saveJSON("x_takeoutLog", n); return n; });
   };
 
   // ⚠️v72.19 起这个数【不再是空间上限】（她 2026-09-20：「全都带进 indexdb 取消上限」）：
@@ -2131,6 +2135,7 @@ function App() {
     }
     setCouples(cps);
     setWallet(loadJSON("x_wallet", 200));
+    { const mw = loadJSON("x_maskWallets", {}); setMaskWallets(mw && typeof mw === "object" ? mw : {}); }
     setWalletLog(loadJSON("x_walletLog", []));
     { const rl = recurFromOld(); myRecurRef.current = rl; setMyRecurState(rl); if (!Array.isArray(loadJSON("x_myRecur", null)) && rl.length) saveJSON("x_myRecur", rl); }
     setCharWallet(loadJSON("x_charWallet", {}));
@@ -10741,6 +10746,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       x_tiesPos: v => typeof setTiePos === "function" && setTiePos(v),
       x_unread: v => typeof setUnreadMap === "function" && setUnreadMap(v),
       x_walletLog: v => typeof setWalletLog === "function" && setWalletLog(v),
+      x_maskWallets: v => { const m = v && typeof v === "object" ? v : {}; maskWalletsRef.current = m; setMaskWallets(m); },
       x_inventory: v => typeof setInventory === "function" && setInventory(v),
       x_myRecur: v => { const l = Array.isArray(v) ? v : []; myRecurRef.current = l; setMyRecurState(l); },
       x_shopWish: v => typeof setWish === "function" && setWish(v),
@@ -11150,6 +11156,12 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     return await _replyTurn(charId, null, mode, { ...(opts || {}), _emptyRetry: true });
   };
   // ── 递手机：拼出TA这一趟能翻到的东西（都是她手机上真有的，一条不编）──────────
+  // 一单算哪张面具：新单记在 mask 上；老单没记——TA 送的跟 TA 认的那张，其余算主面具
+  // 「用哪张面具付」那一排的名单：购物、外卖共用这一份。只有建过副面具才有；主面具在前
+  const payMaskList = () => (masks || []).length ? [{ id: "", label: ((profile && (profile.label || profile.name)) || "主面具") + " · 主" }].concat((masks || []).filter(m => m && m.id && m.id !== maskPrimary).map(m => ({ id: m.id, label: m.label || m.name || "未命名" }))) : [];
+  // 一笔流水算哪张面具：新的记在 mask 上；老的没记——写着给谁／哪个群的，跟那人（那个群）认的那张，其余算主面具
+  const walletMaskOf = w => w && w.mask != null ? String(w.mask || "") : (w && w.ref && w.ref.charId ? maskKeyOf(w.ref.charId) : (w && w.ref && w.ref.groupId ? maskKeyOf("g:" + w.ref.groupId) : ""));
+  const orderMaskOf = o => o && o.mask != null ? String(o.mask || "") : (o && o.fromCharId ? maskKeyOf(o.fromCharId) : "");
   const peekPhoneMaterial = (viewerId, allow, hideIds, maskIds) => {
     const on = k => (allow || []).includes(k);
     // 她单独藏起来的那几个聊天：列表、聊天、群里都没有；钱包购物那些痕迹不替她擦（她 2026-10-02）
@@ -11239,7 +11251,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     }
     if (on("money")) {
       // 按 id 也挡一道（群里 2026-10-18：「不能查到我给别人点的」）：备注改过、名字没写进 label 的那几笔照样露
-      const log = (walletLog || []).filter(w => !maskTrace(w.label) && !(w.ref && ((w.ref.charId && maskSet.has(String(w.ref.charId))) || (w.ref.groupId && maskSet.has(String(w.ref.groupId)))))).slice(0, 10);
+      const log = (walletLog || []).filter(w => !(maskIds && maskIds.length && walletMaskOf(w) !== maskKeyOf(viewerId)) && !maskTrace(w.label) && !(w.ref && ((w.ref.charId && maskSet.has(String(w.ref.charId))) || (w.ref.groupId && maskSet.has(String(w.ref.groupId)))))).slice(0, 10);
       // 从她这边说清楚：钱是她给出去的还是别人给她的、给的是谁（她 2026-10-01：「看钱包也不知道哪些是我转给别人的」）
       const vName = nameOf(viewerId);
       const who = s => { const n = cut(s, 16); return n && vName && n === vName ? "「" + n + "」（就是你）" : "「" + n + "」"; };
@@ -11258,8 +11270,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         + "\n标了「就是你」的才是给你的；没写给谁的，你不知道是买给谁、给自己还是给别人的。");
     }
     if (on("shop")) {
-      const od = (orders || []).filter(o => !(o.fromCharId && maskSet.has(String(o.fromCharId))) && !maskTrace(o.payLabel) && !maskTrace(o.name)).slice(0, 8).map(o => "· " + md(o.ts) + "买了" + cut(o.name, 24) + (o.price ? "（" + o.price + "）" : "") + (o.fromCharId ? "——是「" + nameOf(o.fromCharId) + "」送的" : ""));
-      const tk = (takeoutLog || []).filter(o => !(o.fromCharId && maskSet.has(String(o.fromCharId))) && !maskTrace(o.payLabel) && !maskTrace(o.name)).slice(0, 6).map(o => "· " + md(o.ts) + "外卖" + cut(o.name, 24) + (o.fromCharId ? "——「" + nameOf(o.fromCharId) + "」给点的" : ""));
+      const od = (orders || []).filter(o => !(maskIds && maskIds.length && orderMaskOf(o) !== maskKeyOf(viewerId)) && !(o.fromCharId && maskSet.has(String(o.fromCharId))) && !maskTrace(o.payLabel) && !maskTrace(o.name)).slice(0, 8).map(o => "· " + md(o.ts) + "买了" + cut(o.name, 24) + (o.price ? "（" + o.price + "）" : "") + (o.fromCharId ? "——是「" + nameOf(o.fromCharId) + "」送的" : ""));
+      const tk = (takeoutLog || []).filter(o => !(maskIds && maskIds.length && orderMaskOf(o) !== maskKeyOf(viewerId)) && !(o.fromCharId && maskSet.has(String(o.fromCharId))) && !maskTrace(o.payLabel) && !maskTrace(o.name)).slice(0, 6).map(o => "· " + md(o.ts) + "外卖" + cut(o.name, 24) + (o.fromCharId ? "——「" + nameOf(o.fromCharId) + "」给点的" : ""));
       // 分两块写：混在一起时TA会在购物里念外卖的单（她 2026-10-01：「有些是外卖他也说是购物里的」）
       if (od.length) out.push("【购物 app 里的订单】\n" + od.join("\n"));
       if (tk.length) out.push("【外卖 app 里的订单】\n" + tk.join("\n"));
@@ -11543,7 +11555,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     const maskIds = allMasks ? [] : peekMaskOthers(charId);
     const hideSet = new Set((hideIds || []).map(String).concat(maskIds.map(String)));
     const seen = peekPhoneMaterial(charId, allow, hideIds, maskIds);
-    if (!sneak) try { window.__peekHide = hideSet; window.__peekMask = peekMaskInfo(maskIds); } catch (e) {}
+    if (!sneak) try { window.__peekHide = hideSet; window.__peekMask = Object.assign(peekMaskInfo(maskIds), { mine: maskKeyOf(charId) }); } catch (e) {}
     const hidden = PEEK_PHONE_SECTIONS.filter(s => s[0] !== "daily" && !(allow || []).includes(s[0])).map(s => s[1]);   // 没勾日常联系人不算「藏」：那些人本来就不存在
     const c = (characters || []).find(x => x.id === charId);
     if (!c) return;
@@ -13717,6 +13729,10 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       if (_oneLong && words.length > 1 && words.every(w => typeof w === "string")) words = [words.join("\n\n")];
       // ①.5 剥掉模型偶尔照抄进每条气泡开头的历史时间标注〔今天07:57〕（她 2026-07-13 截图）
       words = words.map(stripAiStamp).map(stripEchoedMeta).filter(Boolean);
+      // 照抄了「名字：」那种剧本格式（2026-10-29 群友截图：每条都是「温栩年：刚下班」）——只摘【TA 自己的名字】打头的，
+      //   「注意：」「重点：」这种正常话不碰
+      { const _selfNm = [char.name, char.remark].map(x => String(x || "").trim()).filter(Boolean).map(x => x.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
+        if (_selfNm.length) { const _selfRe = new RegExp("^\\s*(?:" + _selfNm.join("|") + ")\\s*[:：]\\s*"); words = words.map(w => typeof w === "string" ? w.replace(_selfRe, "") : w).filter(Boolean); } }
       // 照抄通话邀请卡的字当成一句话发（她 2026-10-06 截图：气泡里就是「〔语音通话邀请〕」）——
       //   这是它想打电话却没填 call。摘掉那一句，替它把电话真的打过来（这一轮房间不让打就只摘不打）。
       const CALL_TEXT = /^\s*[〔【\[（(]\s*(语音|视频)通话(?:邀请)?\s*[〕】\]）)]\s*$/;
@@ -16606,7 +16622,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     if (toId && !to) { toast("点名的那个人不在这个群里"); return; }
     const closed = groupClosed(groupId);
     if (!closed) {
-      if (wallet < a) { toast("余额不足"); return; }
+      if (balanceOf(maskKeyOf("g:" + groupId)) < a) { toast("余额不足"); return; }
       changeWallet(-a, "发红包", "redpacket", { where: "群聊", groupId: groupId });
     }
     const splits = splitRedPacket(a, to ? 1 : count);
@@ -20107,21 +20123,38 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   // 改我的钱包并记一条流水（delta 正=进账/负=支出）
   // ref＝这一笔的出处（凭证）：{ where, charId?, groupId?, ts, note? }。where 是在哪儿发生的（单聊/群聊/商城/外卖/直播间/亲属卡/手动）。
   //   有出处的那一笔，钱包里能点回去看；老流水没有，只显示说明。
+  // ── 各张面具的钱（她 2026-10-29「做吧 余额都留主面具 副面具从0开始」）──
+  //   主面具的钱还是 x_wallet 那一个数（全库几十处读它，一处不用改）；副面具各一格，存在 x_maskWallets = { [面具id]: 余额 }。
+  //   一笔算谁的钱，跟流水记面具同一把尺 walletMaskOf：给了 mask 照它，写着给谁就跟谁认的那张，都没有算主面具。
+  //   面具被删了：那格钱不再动，记回主面具（pocketOf 兜底）
+  const pocketOf = mask => { const m = String(mask || ""); return m && (masksRef.current || []).some(x => x && x.id === m && x.id !== maskPrimary) ? m : ""; };
+  const walletMaskFor = ref => walletMaskOf({ mask: ref && ref.mask != null ? ref.mask : undefined, ref: ref && typeof ref === "object" ? ref : null });
+  const balanceOf = mask => { const k = pocketOf(mask); return k ? (Number((maskWalletsRef.current || {})[k]) || 0) : (walletRef.current != null ? Number(walletRef.current) || 0 : wallet); };
   const changeWallet = (delta, label, kind, ref) => {
     const d = Math.round(Number(delta) * 100) / 100;
     if (!d) return;
-    setWallet(w => {
-      const n = Math.round((w + d) * 100) / 100;
-      saveJSON("x_wallet", n);
-      setWalletLog(log => {
+    const mask = walletMaskFor(ref), pocket = pocketOf(mask);
+    const writeLog = n => setWalletLog(log => {
         const entry = { id: "wl_" + Date.now() + "_" + Math.floor(Math.random() * 1000), ts: Date.now(), delta: d, after: n, label: label || (d > 0 ? "进账" : "支出"), kind: kind || "misc", ref: ref && typeof ref === "object" ? Object.assign({ ts: Date.now() }, ref) : null };
+        // 这一笔算哪张面具：调用方给了 ref.mask 就照它；没给就按写着的那人／那个群认的那张，都没有算主面具
+        entry.mask = mask;
+        if (entry.ref) delete entry.ref.mask;
         // 📚 累积层：满了挤掉最旧的（施工规则/phone-data-layers.md）。
-        // 这是全 app 唯一写流水的地方，原来是纯 [entry, ...log]：每笔买东西、
-        // 收礼、结算都追一条，还整份重写 localStorage。账本页也翻不到那么下面。
         const nl = [entry, ...log].slice(0, WALLET_LOG_KEEP);
         saveJSON("x_walletLog", nl);
         return nl;
       });
+    if (pocket) {
+      const cur = Object.assign({}, maskWalletsRef.current || {});
+      const n = Math.round(((Number(cur[pocket]) || 0) + d) * 100) / 100;
+      cur[pocket] = n; maskWalletsRef.current = cur; setMaskWallets(cur); saveJSON("x_maskWallets", cur);
+      writeLog(n);
+      return;
+    }
+    setWallet(w => {
+      const n = Math.round((w + d) * 100) / 100;
+      saveJSON("x_wallet", n);
+      writeLog(n);
       return n;
     });
   };
@@ -20195,10 +20228,11 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     return () => { clearTimeout(t0); clearInterval(iv); };
   }, [loaded]);
   // 手动改余额到指定值（记一条调整流水）
-  const setWalletTo = target => {
+  const setWalletTo = (target, mask) => {
     const tv = Math.round(Number(target) * 100) / 100;
     if (isNaN(tv)) return;
-    changeWallet(tv - wallet, "手动调整余额", "manual", { where: "手动" });
+    const pk = pocketOf(mask);
+    changeWallet(tv - balanceOf(pk), "手动调整余额", "manual", { where: "手动", mask: pk });
   };
   const CHAR_DEFAULT_BAL = 6000; // 角色未生成钱包档案时的默认余额（转账/代付/亲属卡扣款用）
   // 宽松解析金额：模型可能给 "¥38,400"、"3.8万"、字符串等 → 都抠成数字
@@ -21021,7 +21055,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   const sendTransfer = (charId, amount, note, extra) => {
     const a = Math.round(Number(amount) * 100) / 100;
     if (a <= 0) return;
-    if (wallet < a) {
+    if (balanceOf(maskKeyOf(charId)) < a) {
       toast("余额不足");
       return;
     }
@@ -21109,7 +21143,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   const sendGroupTransfer = (groupId, memberId, amount, note) => {
     const a = Math.round(Number(amount) * 100) / 100;
     if (a <= 0) return;
-    if (!groupClosed(groupId) && wallet < a) {
+    if (!groupClosed(groupId) && balanceOf(maskKeyOf("g:" + groupId)) < a) {
       toast("余额不足");
       return;
     }
@@ -26529,7 +26563,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     if (!d || !jarOpen(cid)) return false;
     const j = jarOf(cid), c = characters.find(x => x.id === cid);
     if (d < 0 && j.balance + d < -0.001) { if (who === "me") toast("罐子里没这么多"); return false; }
-    if (d > 0 && who === "me" && walletRef.current < d) { toast("钱包里没这么多"); return false; }
+    if (d > 0 && who === "me" && balanceOf(maskKeyOf(cid)) < d) { toast("钱包里没这么多"); return false; }
     if (d > 0 && who === "char" && charBalanceOf(cid) < d) return false;
     const nm = (c && c.name) || "TA", n2 = String(note || "").trim().slice(0, 60);
     if (who === "me") changeWallet(-d, (d > 0 ? "存进和 " + nm + " 的存钱罐" : "从和 " + nm + " 的存钱罐取出") + (n2 ? " · " + n2 : ""), "jar", { where: "couple", charId: cid });
@@ -27446,7 +27480,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     if (!fl || !ho || !(total > 0)) return;
     const label = "「" + trip.dest + "」机票酒店 · " + (fl.no || "去程") + (bk ? " + " + (bk.no || "回程") : "") + " + " + ho.name + " " + b.nights + " 晚";
     // who：me 我付／ta 他请客／aa 一人一半／kin 刷他给我的亲属卡
-    const myPay = amt => { const have = Number(walletRef.current) || 0; if (have < amt) { toast("钱包余额不够，还差 ¥" + Math.ceil(amt - have)); return false; }
+    const myPay = amt => { const have = balanceOf(maskKeyOf(char.id)); if (have < amt) { toast("钱包余额不够，还差 ¥" + Math.ceil(amt - have)); return false; }
       changeWallet(-amt, label + (who === "aa" ? "（AA 我那一半）" : ""), "travel", { where: "旅行", charId: char.id, ts: Date.now() }); return true; };
     const noTaWallet = () => toast(characterText(char, "他的钱包还没开通，先去钱包里点开他"));
     if (who === "ta") { if (!walletSpend(char.id, total, label, "gift")) { noTaWallet(); return; } }
@@ -30314,6 +30348,9 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     fromCharId: null,
     payLabel: "",
     ...o,
+    // 这一单算哪张面具的（她 2026-10-29「来我们慢慢开始分吧」：下单时选用哪张面具付）。
+    //   她自己没挑：TA 送的、TA 代付的，算 TA 认的那张；别的空着＝主面具（旧单也都算主面具）
+    mask: o && o.mask != null ? String(o.mask || "") : (o && o.fromCharId ? maskKeyOf(o.fromCharId) : ""),
     // 猜出来的品类也存下来——界面要靠它决定说「骑手在路上」还是「运输中」
     cat: (o && o.cat) || guessDeliverCat(o && o.name) || null
   }, ...p]);
@@ -30483,7 +30520,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     pay: (char, it, kind) => {
       const title = String(it.title || "").trim(), total = Math.round((Number(it.price) || 0) * (Number(it.qty) || 1) * 100) / 100;
       if (!title || !total) return false;
-      if (total > wallet) { toast("钱包不够付这一件"); return false; }
+      if (total > balanceOf(maskKeyOf(char.id))) { toast("钱包不够付这一件"); return false; }
       changeWallet(-total, "替 " + (char.remark || char.name) + " 付了" + ({ wish: "想买的", viewed: "反复看的" }[kind] || "购物车里的") + " " + title.slice(0, 18), "shop", { where: "购物", charId: char.id });
       const all = loadJSON("x_cartPaid", {}) || {}; all[char.id] = [...(all[char.id] || []), title].slice(-40); saveJSON("x_cartPaid", all);
       const why = ({ wish: "她翻你手机时看到你一直想买、迟迟没下手的这件，替你买了", viewed: "她翻你手机时看到你反复点开看、一直没买的这件，替你买了" })[kind]
@@ -30847,15 +30884,16 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     sendGiftToChar(charId, o.name, o.cat, true);
   };
   // 结算入口
-  const checkout = (uids, mode, target) => {
+  const checkout = (uids, mode, target, opts) => {
+    const payMask = opts && opts.mask != null ? String(opts.mask || "") : "";
     const set = new Set(uids);
     const items = cart.filter(x => set.has(x.uid));
     if (!items.length) { toast("请先选择商品"); return; }
     const total = Math.round(items.reduce((s, x) => s + (Number(x.price) || 0), 0) * 100) / 100;
     if (mode === "buy") {
-      if (wallet < total) { toast("余额不足"); return; }
-      changeWallet(-total, "购物 " + items.map(x => x.name).join("、").slice(0, 18), "shop", { where: "购物" });
-      items.forEach(it => addOrder({ name: it.name, price: it.price, cat: it.cat, kind: it.kind, takeout: it.takeout }));
+      if (balanceOf(payMask) < total) { toast("余额不足"); return; }
+      changeWallet(-total, "购物 " + items.map(x => x.name).join("、").slice(0, 18), "shop", { where: "购物", mask: payMask });
+      items.forEach(it => addOrder({ name: it.name, price: it.price, cat: it.cat, kind: it.kind, takeout: it.takeout, mask: payMask }));
       removeCartUids(uids);
       toast("下单成功 · " + items.length + " 件，等待发货");
     } else if (mode === "kinship") {
@@ -30868,7 +30906,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       const inGroup = target && target.type === "group";
       const toId = target && (inGroup ? target.toId : target.type === "char" ? target.id : null);
       if (!toId) { toast(inGroup ? "请选择送给群里的谁" : "请选择送礼对象"); return; }
-      if (wallet < total) { toast("余额不足"); return; }
+      if (balanceOf(walletMaskFor(inGroup ? { groupId: target.id } : { charId: toId })) < total) { toast("余额不足"); return; }
       changeWallet(-total, "送礼 " + items.map(x => x.name).join("、").slice(0, 18), "shop", inGroup ? { where: "群聊", groupId: target.id } : toId ? { where: "单聊", charId: toId } : { where: "购物" });
       items.forEach(it => sendGiftToChar(toId, it.name, it.cat, false, inGroup ? target.id : null));
       // ⚠️【送完不自动回复】（她 2026-09-10：「送完等我说完话再点回复，不要送了就回复」）。
@@ -30978,8 +31016,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     if (!card || !char || !amt) return { ok: false, why: "没有这张卡" };
     if (card.frozen) return { ok: false, why: "卡被冻结了" };
     if (myKinRemain(card) < amt) return { ok: false, why: "额度不够" };
-    if (walletRef.current < amt) return { ok: false, why: "她钱包里的钱不够" };
-    walletRef.current = Math.round((walletRef.current - amt) * 100) / 100;   // 同一拍里连刷几笔时，下一笔得看到这一笔扣过之后的钱
+    if (balanceOf(maskKeyOf(charId)) < amt) return { ok: false, why: "她钱包里的钱不够" };
+    if (!pocketOf(maskKeyOf(charId))) walletRef.current = Math.round((walletRef.current - amt) * 100) / 100;   // 副面具那格 changeWallet 当场就写回 ref 了   // 同一拍里连刷几笔时，下一笔得看到这一笔扣过之后的钱
     changeWallet(-amt, "亲属卡 · " + char.name + " 刷了「" + String(item || "").slice(0, 20) + "」", "kinship_out", { where: "单聊", charId: charId });
     // ⚠️新的那份【当场】写回 myKinRef 再交给 setState：每天补账那一路是一个循环里连刷好几笔，
     //   setState 的 updater 要等下一次渲染才跑，下一笔读 myKinOf 还是没扣过的旧卡——额度就能被刷穿（同钱包那一行的道理）。
@@ -31896,6 +31934,53 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       toast("这一包没导成：" + (e && e.message || e) + "——数据还在，没有丢");
     }
   };
+  // 只带几个人走（群友 2026-10-29：分开装了四份秋秋机，想把几个人合到一份里）。规则在 js/char-transfer.js：
+  //   只挑跟这几个人有关的（聊天、线下、记忆、日记、日程、朋友圈、关系线、成员全是他们的群……），全局设置一律不带。
+  //   他们的头像和图跟着走（只带这份里真用到的图），文件一份就够。导入那头认 kind:"chars"，是【加进去】不是整机覆盖。
+  const doExportChars = async ids => {
+    if (!window.CharTransfer || !ids || !ids.length) return;
+    toast("在打包这几个人…");
+    const pack = await buildExportPack({ noImages: true });
+    if (!pack) return;
+    let full; try { full = JSON.parse(pack.text).data || {}; } catch (e) { toast("没打包成：读不出本机存档"); return; }
+    const p = window.CharTransfer.pick(full, ids);
+    if (!p.ids.length) { toast("没找到这几个人"); return; }
+    const vault = {}, selfies = {};
+    const refs = new Set(JSON.stringify(p.data).match(/iv_[A-Za-z0-9_-]+/g) || []);
+    try { if (refs.size && typeof idbVaultEntries === "function") for (const [k, b] of await idbVaultEntries()) if (refs.has(k)) { try { vault[k] = await blobToDataUrl(b); } catch (e) {} } } catch (e) {}
+    const idRe = new RegExp("(?<![A-Za-z0-9])(?:" + p.ids.map(x => x.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|") + ")(?![A-Za-z0-9])");
+    try { if (typeof idbImgEntries === "function") for (const [k, b] of await idbImgEntries()) if (idRe.test(k)) { try { selfies[k] = await blobToDataUrl(b); } catch (e) {} } } catch (e) {}
+    const out = { __archive: 1, kind: "chars", version: 1, exportedAt: Date.now(), names: p.names, ids: p.ids, groups: p.groups, data: p.data, vault, selfies };
+    const name = "chars-" + p.names.filter(Boolean).slice(0, 3).join("_").replace(/[\\/:*?"<>|\s]/g, "") + "-" + new Date().toISOString().slice(0, 10) + ".json";
+    try {
+      const via = await saveTextFile(name, JSON.stringify(out), "application/json");
+      if (via === "cancel") { toast("取消了，什么都没存"); return; }
+      toast(p.names.join("、") + " 打包好了" + savedWhere(via) + "。去另一份秋秋机里点「导入备份恢复」选它，会合并进去，不动那边原来的人");
+    } catch (e) { toast("没导成：" + ((e && e.message) || e) + "——数据还在，没有丢"); }
+  };
+  // 合并进来：只加不删。本机原来的人、聊天、设置一样不动；编号撞了给后进来的换号
+  const mergeCharsPack = async parsed => {
+    if (!window.CharTransfer) { toast("合并没准备好，刷新一下再试"); return false; }
+    const pack = await buildExportPack({ noImages: true });
+    let local = {}; try { local = JSON.parse(pack.text).data || {}; } catch (e) { toast("读不出本机存档，没合并"); return false; }
+    const r = window.CharTransfer.merge(local, parsed);
+    const failed = [];
+    for (const [k, v] of Object.entries(r.writes)) {
+      if (typeof isIdbTextKey === "function" && isIdbTextKey(k)) {
+        try { if (typeof idbTxtPut === "function") await idbTxtPut(k, v); window.__txtMirror && window.__txtMirror.set(k, v); } catch (e) { failed.push(k); }
+        continue;
+      }
+      try { localStorage.setItem(k, v); } catch (e) { failed.push(k); }
+    }
+    const put = async (rows, fn) => { for (const [k, durl] of Object.entries(rows || {})) { try { const b = dataUrlToBlob(durl); if (b) await fn(k, b); } catch (e) {} } };
+    if (typeof dataUrlToBlob === "function") {
+      if (typeof idbVaultPut === "function") await put(r.pack.vault, idbVaultPut);
+      if (typeof idbImgPut === "function") await put(r.pack.selfies, idbImgPut);
+    }
+    const renamed = Object.keys(r.map || {}).length;
+    toast("合并进来了：" + (parsed.names || []).join("、") + (renamed ? "（有 " + renamed + " 个编号跟这边撞了，换了新号，人和东西都在）" : "") + (failed.length ? "；有 " + failed.length + " 样没写进去（多半是空间满了）" : ""), 6000);
+    return true;
+  };
   const doExport = async () => {
     const pack = await buildExportPack({ noImages: true });
     if (!pack) return;
@@ -32097,6 +32182,12 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         reloadIn(800);
         return true;
       }
+      // 只带了几个人的那种（kind:"chars"）：加进来，不整机覆盖
+      if (parsed.__archive && parsed.kind === "chars" && parsed.data) {
+        const okM = await mergeCharsPack(parsed);
+        if (okM) reloadIn(1600);
+        return okM;
+      }
       if (!parsed.__archive || !parsed.data) {
         toast("格式不对，这不像是这个 app 的备份");
         return false;
@@ -32267,6 +32358,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     onRerollFlip: dir => rerollFlip(activeChar.id, activeChar.id, dir),
     onDelDirNote: id => chatDirNoteDel(activeRoomId && activeRoomId !== "main" && window.ChatRooms ? window.ChatRooms.chatKey(activeChar.id, activeRoomId) : activeChar.id, id),
     locateAt: walletTrace && walletTrace.type === "char" && String(walletTrace.id) === String(activeChar.id) ? walletTrace : null,
+    myBalance: balanceOf(maskKeyOf(activeChar.id)),   // 转账、红包框里显示的余额：TA 认的那张面具的钱（扣的也是这张）
     onLocated: () => setWalletTrace(null),
     // 返回键上那个圈：别处还剩几条没看（不含当前这一间——人已经在这儿了）
     unreadOther: Object.entries(unreadMap).reduce((a, kv) => a + (kv[0] === activeChar.id ? 0 : ((characters.some(c => c.id === kv[0]) || groups.some(g => g.id === kv[0])) ? (kv[1] || 0) : 0)), 0),
@@ -32907,8 +32999,12 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     onBack: () => { setMomTarget(null); setScreen("messages"); }
   });else if (screen === "wallet") body = h(MyWallet, {
     recur: myRecur, onSaveRecur: upsertMyRecur,
-    balance: wallet,
-    log: peekMaskView() ? walletLog.filter(w => !peekMaskHit(peekMaskView(), w.label, (w.ref && w.ref.charId) || w.charId) && !peekMaskHit(peekMaskView(), "", w.ref && w.ref.groupId)) : walletLog,
+    // 各张面具的钱：挑哪张就看哪张的余额和流水（挂着面具被翻的时候不给这一排，照旧）
+    pockets: peekMaskView() ? [] : payMaskList(),
+    pocket: walletPocket,
+    onPocket: setWalletPocket,
+    balance: peekMaskView() ? wallet : balanceOf(walletPocket),
+    log: peekMaskView() ? walletLog.filter(w => !(peekMaskView().mine != null && walletMaskOf(w) !== peekMaskView().mine) && !peekMaskHit(peekMaskView(), w.label, (w.ref && w.ref.charId) || w.charId) && !peekMaskHit(peekMaskView(), "", w.ref && w.ref.groupId)) : (masks || []).length ? walletLog.filter(w => pocketOf(walletMaskOf(w)) === pocketOf(walletPocket)) : walletLog,
     cards: kinshipCards,
     characters: liveChars,
     groups: groups,
@@ -32924,15 +33020,15 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     // 删流水：只删小票，余额不动；挂着面具看时只删得到看得见的那几笔
     onDelLog: ids => { const del = new Set((ids || []).map(String)); setWalletLog(p => { const n = (p || []).filter(w => !del.has(String(w.id))); saveJSON("x_walletLog", n); return n; }); toast("删掉了"); },
     onBack: () => setScreen("messages"),
-    onSetBalance: setWalletTo,
-    onAddEntry: (delta, note) => changeWallet(delta, note, "entry", { where: "手动" }),   // 记一笔：带备注进流水，查手机时 TA 看得见
+    onSetBalance: v => setWalletTo(v, walletPocket),
+    onAddEntry: (delta, note) => changeWallet(delta, note, "entry", { where: "手动", mask: walletPocket }),   // 记一笔：带备注进流水，查手机时 TA 看得见
     view: walletView,
     onView: setWalletView,
     onOpenCard: charId => { setActiveCardId(charId); setScreen("kincard"); },
     myCards: myKinCards,
     onOpenMyKin: charId => { setMyKinFor(charId); myKinBackRef.current = "wallet"; setScreen("mykin"); }
   });else if (screen === "mykin") body = h(MyKinPage, {
-    characters: liveChars.filter(c => !c.npc), cards: myKinCards, charId: myKinFor, wallet: wallet,
+    characters: liveChars.filter(c => !c.npc), cards: myKinCards, charId: myKinFor, wallet: myKinFor ? balanceOf(maskKeyOf(myKinFor)) : wallet,   // 这张卡刷的是 TA 认的那张面具的钱
     onPick: id => setMyKinFor(id),
     onIssue: (id, limit, note, daily) => { if (issueMyKin(id, limit, note, daily)) setScreen(myKinBackRef.current || "wallet"); },
     onEdit: (id, action, val) => editMyKin(id, action, val),
@@ -33007,7 +33103,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     sending: sending,
     profile: groupProfileFor(activeGroup.id),
     meName: groupProfileFor(activeGroup.id).name || profile.name || "我",
-    myBalance: wallet,
+    myBalance: balanceOf(maskKeyOf("g:" + activeGroup.id)),   // 群里花的是这个群用的那张面具的钱
     settings: { ...gsFor(activeGroup.id), autoChat: gsFor(activeGroup.id).autoChat !== false && autoRefreshOn("groupChat") },
     directives: directives[activeGroup.id] || [],
     onRemoveDirective: dirId => removeDirective(activeGroup.id, dirId),
@@ -33487,7 +33583,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     payAs: asPhonePay,
     wallet: wallet,
     cart: cart,
-    orders: peekMaskView() ? orders.filter(o => !peekMaskHit(peekMaskView(), String(o.payLabel || "") + " " + String(o.name || ""), o.fromCharId)) : orders,
+    orders: peekMaskView() ? orders.filter(o => !(peekMaskView().mine != null && orderMaskOf(o) !== peekMaskView().mine) && !peekMaskHit(peekMaskView(), String(o.payLabel || "") + " " + String(o.name || ""), o.fromCharId)) : orders,
     inventory: inventory,
     characters: liveChars,
     // ⚠️购物这一屏里【她本人要当场做事】：送礼要把东西递到人手上、代付要开口请人付钱。
@@ -33504,6 +33600,9 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     onAddCart: addToCart,
     onRemoveCart: uid => removeCartUids([uid]),
     onCheckout: checkout,
+    // 用哪张面具付：只有建过副面具才给这一排（主面具在前，叫法跟面具页一样）
+    payMasks: payMaskList(),
+    walletOf: balanceOf,
     onAskChar: askCharAboutItem,
     wish: wish,
     onToggleWish: toggleWish,
@@ -33521,8 +33620,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     key: "takeout:" + takeoutNav + (asPhone ? ":as" : ""),
     initialNav: takeoutNav,
     wallet: wallet,
-    orders: peekMaskView() ? orders.filter(o => !peekMaskHit(peekMaskView(), String(o.payLabel || "") + " " + String(o.name || ""), o.fromCharId)) : orders,
-    log: peekMaskView() ? takeoutLog.filter(o => !peekMaskHit(peekMaskView(), String(o.payLabel || "") + " " + String(o.name || ""), o.fromCharId)) : takeoutLog,
+    orders: peekMaskView() ? orders.filter(o => !(peekMaskView().mine != null && orderMaskOf(o) !== peekMaskView().mine) && !peekMaskHit(peekMaskView(), String(o.payLabel || "") + " " + String(o.name || ""), o.fromCharId)) : orders,
+    log: peekMaskView() ? takeoutLog.filter(o => !(peekMaskView().mine != null && orderMaskOf(o) !== peekMaskView().mine) && !peekMaskHit(peekMaskView(), String(o.payLabel || "") + " " + String(o.name || ""), o.fromCharId)) : takeoutLog,
     characters: liveChars,
     groups: groups.filter(imInGroup),
     kinshipCards: kinshipCards,
@@ -33530,6 +33629,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     busy: takeoutBusy,
     onGen: genTakeout,
     onOrder: orderTakeout,
+    payMasks: payMaskList(),
+    walletOf: balanceOf,
     onEat: eatTakeout,
     toast: toast,
     onBack: () => { if (asPhone) leaveAsPhone(); else if (takeoutBack) { const b = takeoutBack; setTakeoutBack(null); setTakeoutNav("near"); setScreen(b); } else goHome(); }
@@ -35154,6 +35255,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     worlds: worlds,
     onBack: goHome,
     onExport: doExport,
+    onExportChars: doExportChars,
     onCopyExport: doCopyExport,
     mediaParts: mediaParts ? { n: mediaParts.parts.length, done: mediaParts.done } : null,
     onExportMedia: doExportMedia,
@@ -35256,7 +35358,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   const _mv = typeof window !== "undefined" ? window.QQ_MOVE : null;
   // MoveShell 在 screens 那一组（用到才加载），走 LazyGate 等它到位再画
   if (_mv && _mv.host === location.hostname && Date.now() >= _mv.at) {
-    body = h(LazyGate, { key: "lazy-move", group: "screens", zh: "秋秋搬家了", render: () => h(window.MoveShell, { to: _mv.to, dataProps: { characters, onExport: doExport, mediaParts: mediaParts ? { n: mediaParts.parts.length, done: mediaParts.done } : null,
+    body = h(LazyGate, { key: "lazy-move", group: "screens", zh: "秋秋搬家了", render: () => h(window.MoveShell, { to: _mv.to, dataProps: { characters, onExport: doExport, onExportChars: doExportChars, mediaParts: mediaParts ? { n: mediaParts.parts.length, done: mediaParts.done } : null,
       onExportMedia: doExportMedia, onCopyExport: doCopyExport, copyParts, onImportText: doImportPasted, inAppBrowser: inAppBrowser(), onImport: doImport, toast } }) });
   }
   const _safeTop = { height: screen === "home" ? "env(safe-area-inset-top)" : 0 };
@@ -35857,12 +35959,24 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       const used = liveChars.filter(c => c && String(settingsFor(c.id).maskId || "") === String(id));
       requestAppConfirm("删掉面具「" + (m.label || m.name || "未命名") + "」？",
         (used.length ? "有 " + used.length + " 个角色认的是这张（" + used.map(c => c.name).join("、").slice(0, 40) + "）——删了之后他们会认回主面具。\n" : "")
+        + ((Number((maskWalletsRef.current || {})[id]) || 0) ? "这张面具里还有 ¥" + (Number((maskWalletsRef.current || {})[id]) || 0) + "，删了会并回主面具。\n" : "")
         + "这张面具本身删了就没了。",
-        () => { saveMasks((masksRef.current || []).filter(x => x.id !== id)); toast("删掉了"); }, "删掉");
+        () => {
+          // 那张面具自己那格钱并回主面具，记一笔（不让钱凭空没了）
+          const mw = Object.assign({}, maskWalletsRef.current || {}), left = Math.round((Number(mw[id]) || 0) * 100) / 100;
+          if (id in mw) { delete mw[id]; maskWalletsRef.current = mw; setMaskWallets(mw); saveJSON("x_maskWallets", mw); }
+          saveMasks((masksRef.current || []).filter(x => x.id !== id));
+          if (left) changeWallet(left, "面具「" + (m.label || m.name || "未命名") + "」删掉了，那边的钱并回来", "manual", { where: "手动", mask: "" });
+          toast("删掉了");
+        }, "删掉");
     },
     // 设为主面具＝把这一张和 x_profile 的内容【对调】：
     // 全库几十处读的都是 x_profile，对调之后它们一个字都不用改。
     primaryId: maskPrimary,
+    // 谁认得这张：读写的就是每个人聊天设置里那一格 maskId（同一个出口 patchChatSetting）
+    chars: liveChars,
+    knowsOf: id => String(settingsFor(id).maskId || ""),
+    onSetKnows: (id, maskId) => patchChatSetting(id, { maskId: maskId || "" }),
     // 设为主面具：只改「哪一张是主」，不搬 id。
     // x_profile 跟着主面具走（它是给全库那几十处读的镜像）。
     onMakePrimary: id => {
@@ -35871,12 +35985,24 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       // ⚠️老存档里主面具【不在库里】（那时候只有 x_profile 一张）：先把它收进库，
       //   否则这一下换过去，原来那张脸就再也找不回来了。
       let lib = masksRef.current || [];
+      let keepId = maskPrimary || "";
       if (!maskPrimary) {
         const keep = Object.assign({}, profile, { id: "mk_" + Date.now() });
+        keepId = keep.id;
         lib = lib.concat([keep]);
         saveMasks(lib);
       }
       const next = Object.assign({}, m); delete next.id;
+      // 钱跟着人走（她 2026-10-29 分钱包）：主面具的钱住在 x_wallet，副面具各一格。换主之后，
+      //   原来的主面具变成一张副面具，它的钱挪进它那一格；新的主面具那格的钱挪进 x_wallet
+      {
+        const oldId = keepId;
+        const mw = Object.assign({}, maskWalletsRef.current || {});
+        const incoming = Number(mw[id]) || 0; delete mw[id];
+        if (oldId) mw[oldId] = Math.round((Number(walletRef.current) || 0) * 100) / 100;
+        maskWalletsRef.current = mw; setMaskWallets(mw); saveJSON("x_maskWallets", mw);
+        walletRef.current = incoming; setWallet(incoming); saveJSON("x_wallet", incoming);
+      }
       setProfile(next); saveJSON("x_profile", next);
       setMaskPrimary(id); saveJSON("x_maskPrimary", id);
       toast("「" + (m.name || "这张") + "」现在是主面具了");

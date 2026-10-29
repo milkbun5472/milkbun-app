@@ -34,7 +34,11 @@ test("CSS 的 iv_ 门牌编译成保险箱地址，丢图当场报错", () => {
   const studio = loadStudio(ref => ref === "iv_bear" ? "blob:bear-image" : "");
   const css = studio.compile({ pageCSS: { thread: '[data-wk="chatback"]{background-image:url("iv_bear")}' } });
   assert.match(css, /background-image:url\("blob:bear-image"\)/);
-  assert.throws(() => studio.compile({ globalCSS: 'a{background:url(iv_missing)}' }), /图片保险箱里找不到 iv_missing/);
+  // 群友 2026-10-29：别人给的美化带着【对方图库】的 iv_，原来一抛整套主题作废。现在只让那一处空着，其余照常
+  const out = studio.compile({ globalCSS: 'a{background:url(iv_missing)}', pageCSS: { phone: 'b{color:red}' } });
+  assert.match(out, /a\{background:none\}/);
+  assert.match(out, /color:red/, "别的页照常生效");
+  assert.equal(JSON.stringify(studio.missingCSSImages({ globalCSS: "a{background:url(iv_missing)}" })), "[\"iv_missing\"]", "工作台还能提醒是哪张");
 });
 
 test("工作台能插入图库图，主题包会收集并改写 CSS 图片门牌", () => {

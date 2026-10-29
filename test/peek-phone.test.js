@@ -342,7 +342,7 @@ test("翻手机：换了面具聊的人默认查不到（连钱包购物痕迹�
   const c = fs.readFileSync(path.join(__dirname, "../js/components.js"), "utf8");
   assert.match(a, /const peekMaskOthers = viewerId =>/);
   assert.match(a, /const maskIds = allMasks \? \[\] : peekMaskOthers\(charId\);/);
-  assert.match(a, /\(walletLog \|\| \[\]\)\.filter\(w => !maskTrace\(w\.label\) && !\(w\.ref && \(\(w\.ref\.charId && maskSet\.has/);
+  assert.match(a, /\(walletLog \|\| \[\]\)\.filter\(w => !\(maskIds && maskIds\.length && walletMaskOf\(w\) !== maskKeyOf\(viewerId\)\) && !maskTrace\(w\.label\) && !\(w\.ref && \(\(w\.ref\.charId && maskSet\.has/);
   assert.match(a, /const userHide = new Set\(\(hideIds \|\| \[\]\)\.map\(String\)\);/);
   assert.match(c, /"别的面具聊的也给看"/);
   assert.match(c, /onHandPhone\(peekAllow, peekHide, peekAllMasks\)/);
