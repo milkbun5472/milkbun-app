@@ -689,6 +689,8 @@
     useEffect(() => { try { const st0 = C().load(); let n = 0;
       // 早先抽的限时卡补上 series 和年份（往年同系列靠它找）
       st0.cards = st0.cards.map(c => { if (!c.limited || c.series) return c; const L = (C().LIMITED || []).find(x => x.id === c.limited); n++; return Object.assign({}, c, { series: (L && L.series) || c.limited, limYear: L ? new Date(Date.parse(L.from)).getFullYear() : undefined }); });
+      // 早先写坏的：该是一段字的栏被写成了对象（SR「开头」「接着」全空），洗成字
+      st0.cards = st0.cards.map(c => { if (!c.text || c.rarity === "SSR") return c; const bad = ["open", "rest", "sequel", "hidden", "his", "line", "narration", "thought", "real", "sound", "back"].some(k => c.text[k] && typeof c.text[k] === "object"); if (!bad) return c; n++; return Object.assign({}, c, { text: C().cleanText(c.text, c.rarity) }); });
       st0.cards = st0.cards.map(c => { if (!c.text || c.rarity === "SSR" && !/[（(]\s*S?S?R\s*[）)]/.test(JSON.stringify(c.text))) return c; const t2 = C().cleanText(c.text, c.rarity); if (JSON.stringify(t2) === JSON.stringify(c.text)) return c; n++; return Object.assign({}, c, { text: t2 }); });
       if (n) C().save(st0); } catch (e) {} }, []);
     useEffect(() => { const got = C().grantOnOpen(Date.now(), characters.map(c => { const w = c.birthday ? C().bdayWindow(c.birthday, Date.now(), c.id) : null; return w ? { id: c.id, name: c.remark || c.name, year: w.year } : null; }).filter(Boolean)
