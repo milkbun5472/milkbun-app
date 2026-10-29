@@ -10017,6 +10017,8 @@ function MomentsFeed({
   // 信息流自己铺白底（外壳的地是灰的）：朋友圈那种 app 的正文从来是一张白纸，
   // 格子靠分隔线认，不靠父层透过来的那点米色
   return /*#__PURE__*/React.createElement("div", {
+    // 挂点 mofeed（群友 2026-10-29：美化写了整页背景，朋友圈还是黄的——这层自己铺了底，原来没名字选不到）
+    "data-wk": "mofeed",
     className: "pb-8 min-h-full",
     style: { background: t.bg2 }
   }, delId && h(ConfirmDialog, { title: "删掉这条朋友圈？", body: "删掉后连同点赞评论一起没了。", confirmLabel: "删掉", danger: true, onConfirm: () => { onDelete(delId); setDelId(null); }, onCancel: () => setDelId(null) }), imgView && h(Sheet, {
