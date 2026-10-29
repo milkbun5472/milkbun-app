@@ -20,7 +20,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v76.897";
+const APP_VERSION = "v76.898";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -15593,7 +15593,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         + "一个人这一轮只挂一条心声，挂在他这一轮最后那条消息上，想得多就写得多，不用每条气泡都配一句。"
         // 她 2026-10-28：群里心声八股（「外面刮风，屋里暖，反正她窝我旁边」），单聊同一类人却想得很多。
         //   单聊协议开头有「先以TA第一人称把眼前这件事想一遍」，心声从那个判断里长出来；群里只剩场景可写。给它同一个来处
-        + "每个人的心声从TA在这一轮里最在意的那一点长出来：刚才谁说的哪句话、谁做的哪件事，在TA看来是什么意思，TA的脾气让TA怎么想它；话多、心思多的人就想得多。";
+        + (typeof THOUGHT_ORIGIN === "string" ? THOUGHT_ORIGIN : "");
       const thoughtHint = gs.memoryInterop ? "\n【心声与心情】开启了记忆互通：给本轮开口的成员各加一条 " + _gThoughtIs + "另可加 \"mood\"（必须填写中文心情词，如「愉快」「烦躁」，不要英文内部标签）、\"affinityDelta\"（" + AFFINITY_DELTA_SPEC + "）。【后台状态】每个真正发言的成员都要给 wearing 和 action：wearing 沿用上面的当前穿着，除非时间/地点/剧情明确导致换装；action 就是" + G_ACTION_SPEC + "两项只更新共享状态，绝不写进 text 气泡。\n" + MOOD_TURN_RULE
         // 闭群：只要心声那一栏，不要心情／好感／穿着——那些是写回主线的，闭群只进不出
         : "\n【心声】给本轮开口的成员各加一条 " + _gThoughtIs + "心声只留在这个群里，不会带回别处。";
