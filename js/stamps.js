@@ -928,6 +928,17 @@
           style: { width: "100%", padding: "9px 12px", borderRadius: 10, border: "1px solid " + "rgba(47,42,34,.22)", background: "rgba(47,42,34,.07)", color: "#2f2a22", fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))" } }),
         h("textarea", { "data-wk": "input", value: charThemeLine, maxLength: 200, rows: 2, placeholder: "一句说明（可空）：这个世界里他是什么样", onChange: e => setThLineDraft(e.target.value), onBlur: () => { if (thLineDraft != null) setOpt({ charThemeLine: Object.assign({}, opt.charThemeLine, { [charId]: thLineDraft }) }); },
           style: { width: "100%", marginTop: 6, padding: "9px 12px", borderRadius: 10, border: "1px solid " + "rgba(47,42,34,.22)", background: "rgba(47,42,34,.07)", color: "#2f2a22", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", resize: "none" } }),
+        // 主题库（群里 2026-10-30：自己写的主题能存，谁都能用）：存下这一个；点一个就给上面选中的这个人用上；× 删掉
+        (() => { const lib = Array.isArray(opt.themeLib) ? opt.themeLib : [], cur = charTheme.trim();
+          const useIt = x => { setThDraft(null); setThLineDraft(null); setOpt({ charTheme: Object.assign({}, opt.charTheme, { [charId]: x.name }), charThemeLine: Object.assign({}, opt.charThemeLine, { [charId]: x.line || "" }) }); toast("给 " + ((charOf(charId) || {}).remark || (charOf(charId) || {}).name || "TA") + " 用上了「" + x.name + "」"); };
+          return h("div", { "data-wk": "stampthemelib", style: { marginTop: 8 } },
+            h("div", { className: "flex items-center flex-wrap", style: { gap: 6 } },
+              lib.map(x => h("span", { key: x.id, className: "inline-flex items-center", style: { borderRadius: 999, border: "1px solid " + (x.name === cur ? "#285C4B" : "rgba(47,42,34,.22)"), background: x.name === cur ? "rgba(40,92,75,.1)" : "transparent" } },
+                h("button", { onClick: () => useIt(x), style: { padding: "3px 4px 3px 10px", fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: "#2f2a22" } }, x.name),
+                h("button", { onClick: () => setOpt({ themeLib: lib.filter(y => y.id !== x.id) }), style: { padding: "3px 8px 3px 4px", fontSize: "calc(11px * var(--app-fs, 1))", color: "rgba(47,42,34,.4)" } }, "×"))),
+              cur && !lib.some(x => x.name === cur) ? h("button", { "data-wk": "stampthemesave", onClick: () => { setOpt({ themeLib: lib.concat([{ id: "tl_" + Date.now().toString(36), name: cur.slice(0, 40), line: charThemeLine.slice(0, 200) }]).slice(-30) }); toast("存进主题库了，别的人也能点它用"); },
+                style: { padding: "3px 10px", borderRadius: 999, border: "1px dashed #285C4B", color: "#285C4B", fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))" } }, "＋ 存下「" + cur.slice(0, 8) + "」") : null),
+            lib.length ? h("div", { style: { marginTop: 4, fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: "rgba(47,42,34,.45)" } }, "主题库：点一个就给上面选中的这个人用上（连那句说明），换个人再点就是给他用") : null); })(),
         h(Eyebrow, { style: { color: "rgba(47,42,34,.55)", marginTop: 14 } }, "时间（只挑时间、不写主题＝同一个他在别的时间；写了主题就是那个时间的 IF）"),
         h("div", { "data-wk": "stampchartime", className: "flex flex-wrap", style: { gap: 6, marginTop: 6 } }, [["now", "现在"]].concat(Object.keys(TIME_ZH).map(k => [k, TIME_ZH[k]])).map(x => chip(charTime === x[0], x[1], () => setOpt({ charTime: Object.assign({}, opt.charTime, { [charId]: x[0] }) }), "t" + x[0]))),
         h(Eyebrow, { style: { color: "rgba(47,42,34,.55)", marginTop: 18 } }, "IF 卡里，他是别的世界、别的年代的人时"),
