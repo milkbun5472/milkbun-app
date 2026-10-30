@@ -4,7 +4,7 @@
   const CONFIG = "x_videoApi", MEDIA = "x_pomodoro_media", JOBS = "x_pomodoro_video_jobs";
   const DEFAULT = { enabled: false, baseUrl: "https://api.minimax.io", apiKey: "", model: "MiniMax-H3", resolution: "768P", duration: 4 };
   const MODELS = ["MiniMax-H3", "MiniMax-H3-Max", "MiniMax-Hailuo-2.3-Fast", "MiniMax-Hailuo-2.3", "MiniMax-Hailuo-02", "I2V-01-live", "I2V-01-Director", "I2V-01"];
-  const MOTION = "[Static shot] 人物保持原来的位置，轻轻呼吸、自然眨眼，头发轻微摆动，动作幅度很小，最后回到初始姿态，适合循环播放。";
+  const MOTION = "[Static shot] 人物保持原来的位置，动作又小又慢、不刻意做表情，眼睛和嘴保持原来的样子，头发和衣角轻轻摆动，最后回到初始姿态，适合循环播放。";
   function base(value) { return cleanBaseUrl(value).replace(/\/v[12](?:\/.*)?$/i, ""); }
   const isV2 = model => model === "MiniMax-H3" || model === "MiniMax-H3-Max";
   const resolutions = model => model === "MiniMax-H3" ? ["768P", "2K"] : model === "MiniMax-H3-Max" ? ["768P", "480P"] : model.startsWith("I2V-") ? ["720P"] : ["768P", "1080P", ...(model === "MiniMax-Hailuo-02" ? ["512P"] : [])];
