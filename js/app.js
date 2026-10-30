@@ -19997,6 +19997,12 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   //   查手机没跟上：又是「一层写在两处，第二处没跟上」。
   // ⚠️只掐【别人的事】那两栏，不动TA自己的（人设、心情、好感、TA自己的记忆、
   //   TA和用户的私聊）——砍多了TA会退化成一张标签（群里王爷变霸总那次的教训）。
+  // 查手机也跟着这个人的「双语」走（她 2026-10-31「补上吧」）：开着的话，他手机里写出来的外语一处一处带上中文，
+  //   写成「原文 | 中文」——画的那一层（PTX → TransText）本来就会把竖线劈开、挂成「随消息提供」的译文，不用另写显示。
+  //   同一次生成顺手带，不多花调用；没开就一个字都不加。
+  const phoneBiLine = char => { const st = settingsFor(char && char.id) || {}; return st.bilingual && !st.engineerEyes
+    ? "\n【双语】这部手机里凡是【不是中文】的正文（消息、帖子、标题、便签、评论这些），每一处都写成「原文 | 中文」：竖线左边照常写原文，右边是它的中文意思，整处只用这一根竖线；本来就是中文的照常写，不加。" : ""; };
+  const phoneBi = (char, spec) => spec && typeof spec.instruction === "string" ? { ...spec, instruction: spec.instruction + phoneBiLine(char) } : spec;
   const phoneCtx = char => Object.assign({}, ctxFor(char), {
     worldbook: loreFor(char, "subjects"),
     groupEcho: "", groupOfflineEcho: ""
@@ -23067,7 +23073,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       // 上一轮那份：号码/账号/住址/忌口这些身份项要沿用，不能每刷一次换一个人
       const known = ((phonesRef.current || {})[char.id] || {})[key];
       const spec = phoneRemarkSpec(char, key, phoneProbeSpec(key, char, relatedNames(char), key === "wechat" ? phoneWechatDigest(char) : "", avoid, known, phoneMoneyFor(char), weekly, phoneBondBlock(char), phoneLangRef.current));
-      let d = await runProbe(bgActive, phoneCtx(char), spec);
+      let d = await runProbe(bgActive, phoneCtx(char), phoneBi(char, spec));
       // ⚠️模型会把 schemaHint 里的占位说明原样抄回来当数据（她 2026-09-01：想吃清单
       // 刷完「什么时候会想起它」那句变成了灰的——那不是空，是占位词被逐字照抄，
       // 还把上一轮真写的那句盖掉了）。凡是跟这个 app 自己 schemaHint 里某条字符串
@@ -23122,7 +23128,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         // 避重从空开始（旧的马上要被换掉），但【身份】还得读旧那份——
         // 全刷不是换一个人，TA的号码住址忌口一律沿用。
         const known = ((phonesRef.current || {})[char.id] || {})[key];
-        const d = await runProbe(bgActive, phoneCtx(char), phoneRemarkSpec(char, key, phoneProbeSpec(key, char, relatedNames(char), key === "wechat" ? phoneWechatDigest(char) : "", avoid, known, phoneMoneyFor(char), weekly, phoneBondBlock(char), phoneLangRef.current)));
+        const d = await runProbe(bgActive, phoneCtx(char), phoneBi(char, phoneRemarkSpec(char, key, phoneProbeSpec(key, char, relatedNames(char), key === "wechat" ? phoneWechatDigest(char) : "", avoid, known, phoneMoneyFor(char), weekly, phoneBondBlock(char), phoneLangRef.current))));
         fresh[key] = d;
         savePhoneApp(char.id, key, d);
         phoneRemarkDone(char, key);
@@ -23671,7 +23677,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       + (ct.intro ? "在 " + char.name + " 眼里你是这样的人：" + String(ct.intro).slice(0, 400) + "\n" : "\n")
       + "下面是你俩在微信上的聊天，最后一条是 " + char.name + " 刚发来的。照你这个人平时在微信上说话的样子回，一到三条短消息；就当是 " + char.name + " 本人发的，照常接。\n"
       + "只输出 JSON 字符串数组，一条一个元素。";
-    callAI(p, sys, [{ role: "user", content: log }], { maxTokens: 65000, timeout: 60000, logLabel: "查手机·联系人回话" })
+    callAI(p, sys + phoneBiLine(char), [{ role: "user", content: log }], { maxTokens: 65000, timeout: 60000, logLabel: "查手机·联系人回话" })
       .then(raw => {
         let arr = parseJSONLoose(raw); if (!Array.isArray(arr)) arr = String(raw || "").split(/\n+/);
         const rows = arr.map(x => ({ from: isGrp ? String((x && x.from) || "").trim() : name, text: String(x == null ? "" : (x.text || x)).trim() }))
