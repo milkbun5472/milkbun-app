@@ -6887,7 +6887,11 @@ const DURABLE_TEXT_KEYS = new Set([
   // 搬进来之后墙没了，上限也跟着撤（见 app.js 各处的注释）。
   //   x_capsules 时光胶囊 / x_promises 我们说好的 / x_moments 朋友圈 /
   //   x_walletLog 钱包流水 / x_anonMine 她那箱匿名信 / x_shopWish 心愿 / x_forumPMs 贴吧私信
-  "x_capsules", "x_promises", "x_moments", "x_walletLog", "x_anonMine", "x_shopWish", "x_forumPMs", "x_radioLife"
+  "x_capsules", "x_promises", "x_moments", "x_walletLog", "x_anonMine", "x_shopWish", "x_forumPMs", "x_radioLife",
+  // API 线路和「哪件事走哪条」（群里 2026-10-31：「API 设置老是重置，把后台关了就会重置」，只她一人）：
+  //   普通键只在小仓库垫一份、再异步写 IDB；小仓库满了垫不进去、IDB 那一笔又没落稳，重开就读回旧的。
+  //   这几把一丢就整个 app 用不了，走保险仓（WAL 读回核对 + 开机回收）
+  "x_api", "x_activeApi", "x_offlineApi", "x_bgApi"
 ]);
 // ⚠️"x_fairyGarden" 同时罩住名册 x_fairyGardenSaves 与每一档 x_fairyGarden[:id]：
 //   一档庭院（日子、背包、碎片、聊过的话）实测就能到零点几 MB，几档下来 localStorage

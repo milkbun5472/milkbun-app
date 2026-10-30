@@ -35615,6 +35615,10 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         setActiveId(id);
         if (!window.CredentialVault) saveJSON("x_api", list);
         saveJSON("x_activeApi", id);
+        // 真落进保险仓、读回核对过才说「已保存」（原来金库那步过了就报成功，线路列表那份其实没写稳，关掉重开就回到旧的）
+        const _clean = loadJSON("x_api", null) || list;
+        const _a = await saveJSONDurable("x_api", _clean), _b = await saveJSONDurable("x_activeApi", id);
+        if (!_a.durable || !_b.durable) { toast("API 配置这次没在本机存稳：关掉重开可能会回到旧的。先去 设置 → 数据 看看本地空间是不是满了，清一清再保存一次", 8000); return true; }
         toast("API 配置已安全保存");
         return true;
       } catch (e) { toast("API 凭证保存失败，旧配置仍保留：" + (e.message || e)); return false; }
