@@ -13,14 +13,14 @@ test("身体投降／交出性命那一族并进已有的反模板：判据在�
   assert.match(b, /禁的是模子，不是尺度/);
 });
 
-test("骨头酥了这一族点名进了线上那条和线下替换表（群友 2026-10-29）", () => {
+// 她 2026-10-30：「禁了骨头酥变成骨头立起来了」「还有什么耳根子都麻了一下」——点名哪几个字，它就换个部位写。
+//   改回只给判据：说的是「身体哪一处一下子酥软麻化」这一整类，不点哪一句；线下替换表里那一格拿掉，换成一条判据。
+test("身体投降那一族：三处都只给判据、不点原句（线上反模板、线下、心声）", () => {
   const src = require("fs").readFileSync(__dirname + "/../js/engine.js", "utf8");
-  assert.match(src, /「骨头都酥了／软了」「腿都软了」「心都化了」这一族/);
-  assert.match(src, /骨头\(都\)酥了\/骨头\(都\)软了\/酥了半边身子\/腿软→null；/);
-});
-
-test("心声里也禁（她 2026-10-29）：挂在各处共用的 THOUGHT_VOICE 上", () => {
-  const src = require("fs").readFileSync(__dirname + "/../js/engine.js", "utf8");
+  assert.doesNotMatch(src, /「骨头都酥了／软了」/, "又点了原句");
+  assert.doesNotMatch(src, /骨头\(都\)酥了\/骨头\(都\)软了/, "线下替换表那一格又回来了");
+  assert.match(src, /身体整个投降了（身体哪一处一下子酥了、软了、麻了、化了，都是这一个模子）/);
+  assert.match(src, /· 【被她打动的那一下】写她刚才具体做了什么、他那一下实际怎么了/);
   const line = src.slice(src.indexOf("const THOUGHT_VOICE ="), src.indexOf("\n", src.indexOf("const THOUGHT_VOICE =")));
-  assert.match(line, /「骨头都酥了／软了」「腿都软了」「心都化了」这一族心声里也不用/);
+  assert.match(line, /不是报一个身体投降了的结果（身体哪一处一下子酥了、软了、麻了、化了，都是这一个模子）/);
 });
