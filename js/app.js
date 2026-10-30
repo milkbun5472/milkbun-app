@@ -20,7 +20,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v76.960";
+const APP_VERSION = "v76.963";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -13512,7 +13512,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
               : "【你想刷 " + uName + " 给你的亲属卡买「" + (m.item || "") + "」" + moneyText(m.amount || 0, charId) + "，没刷过去：" + (m.why || "") + "】")
             : m.kind === "mykindaily" ? "【你" + (m.day ? m.day + "那天" : "") + "平时花钱时刷了 " + uName + " 给你的亲属卡：" + (m.items || []).map(x => "「" + x.item + "」" + moneyText(x.amount, charId) + (x.ok ? "" : "（没刷过：" + (x.why || "") + "，你自己付的）")).join("、") + "】"
             : m.kind === "kinship" ? "【你给 " + uName + " 发了一张亲属卡，额度 " + moneyText(m.limit || 0, charId) + (m.note ? "，你当时说「" + String(m.note).slice(0, 60) + "」" : "") + "。这是你做过的一件事】"
-            : (m.content || ""));
+            : (m.content || ""))
+            + (m.stick ? "\n【" + uName + " 后来往你这句上贴了一个表情「" + (m.stick.keyword || "表情") + "」（像 QQ 的贴表情，贴在你气泡角上）；这是她做的、真实发生过的事，不是你说的话】" : "");
           if (l && l.role === "assistant" && l._t === m.turnId) l.content += "\n" + ac;else g.push({
             role: "assistant",
             content: ac,
@@ -32845,6 +32846,12 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     schedNow: roomTimeAwareFor(window.ChatRooms ? window.ChatRooms.get(activeChar.id, activeRoomId) : null, activeChar.id) ? schedNowBriefFor(activeChar) : null,
     onOpenSched: roomTimeAwareFor(window.ChatRooms ? window.ChatRooms.get(activeChar.id, activeRoomId) : null, activeChar.id) ? (() => { calReturnRef.current = { screen: screen }; setSelSched(activeChar.id); setScreen("calendar"); }) : null,
     onLongPress: (act, idx) => handleMsgAction(act, idx, window.ChatRooms ? window.ChatRooms.chatKey(activeChar.id, activeRoomId) : activeChar.id),
+    // 双击TA的气泡贴一个表情（群里 2026-10-31）：只记在那一条上，TA下一轮在历史里看得到；st 为 null 是拿掉
+    onStickMsg: (idx, st) => pChat(window.ChatRooms ? window.ChatRooms.chatKey(activeChar.id, activeRoomId) : activeChar.id, p => p.map((x, i) => {
+      if (i !== idx) return x;
+      if (!st) { const { stick, ...r } = x; return r; }
+      return { ...x, stick: { url: st.url, keyword: String(st.keyword || "").slice(0, 20), ts: Date.now() } };
+    })),
     // 唱片卡点进去＝去【这个人】情侣空间里的唱片架（那才是它落到的地方）。
     // ⚠️原来这儿只有 setScreen("us")：没说是谁，于是落在「所有情侣空间」那张名册上，
     //   她还得再点一次才进得去（她 2026-09-14 报的就是这个）。
@@ -35623,6 +35630,10 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         setActiveId(id);
         if (!window.CredentialVault) saveJSON("x_api", list);
         saveJSON("x_activeApi", id);
+        // 真落进保险仓、读回核对过才说「已保存」（原来金库那步过了就报成功，线路列表那份其实没写稳，关掉重开就回到旧的）
+        const _clean = loadJSON("x_api", null) || list;
+        const _a = await saveJSONDurable("x_api", _clean), _b = await saveJSONDurable("x_activeApi", id);
+        if (!_a.durable || !_b.durable) { toast("API 配置这次没在本机存稳：关掉重开可能会回到旧的。先去 设置 → 数据 看看本地空间是不是满了，清一清再保存一次", 8000); return true; }
         toast("API 配置已安全保存");
         return true;
       } catch (e) { toast("API 凭证保存失败，旧配置仍保留：" + (e.message || e)); return false; }
