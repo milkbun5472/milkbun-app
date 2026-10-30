@@ -219,7 +219,8 @@ test("「那天」收纳册：只收约过的（单聊的「那天」＋互通�
 });
 
 test("架空世界最多 12 块地方；造世界和画图同一个上限；能自己新开一块，接壤双向记上", () => {
-  assert.match(map, /WORLD_MAX_NODES = 8, WORLD_MAX_REGIONS = 12;/);
+  // v76.958 每块能放的地点 8→12（手动加地点那几道闸读 WORLD_MAX_NODES）；区域上限仍是 12
+  assert.match(map, /WORLD_MAX_NODES = 12, WORLD_MAX_REGIONS = 12;/);
   assert.match(app, /K\.normRegions\(d\.regions, 8, 12\)/);
   assert.match(app, /设定里点名了几块就照写几块，最多 12 块/);
   const add = app.slice(app.indexOf("const addWorldNode = "), app.indexOf("const genWorldNodes = "));

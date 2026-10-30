@@ -38,7 +38,8 @@ test("封面就是这一页：挂在外壳上、透到顶栏后面、往下淡�
   assert.match(CRATE, /className: "flex-1 overflow-y-auto", style: \{ position: "relative", zIndex: 1 \}/, "正文那层得压在封面上面");
   assert.match(CRATE, /h\(Head, \{ zh: "一起听", bg: "transparent"/, "顶栏得是透明的，底色由外壳给");
   assert.match(LT, /const crate = \{ background: t\.bg \};/, "外壳不是干净的底");
-  assert.match(LT, /const coverSrc = now \? \(nowCover \|\| discImg \|\| ""\) : "";/, "封面来源不对：先这首歌的封面，再她自己换的那张");
+  // v76.953 加了「每首都用这张」：她钉住的那张排最前，其次才是这首歌自己的封面、她换的那张
+  assert.match(LT, /const coverSrc = now \? \(coverFixed \|\| nowCover \|\| discImg \|\| ""\) : "";/, "封面来源不对：先她钉住的那张，再这首歌的封面，再她自己换的那张");
   // v62.95 白屏：coverSrc 必须声明在 playTab 之前——playTab 是声明处就求值的 const，引用后面的 const 就是 TDZ
   // ⚠️对着剥掉注释的代码问：coverSrc 上面那段注释正写着「const playTab = h(...)」，直接 indexOf 会先撞上注释
   const LTC = LT.split("\n").filter(l => !/^\s*\/\//.test(l)).join("\n");

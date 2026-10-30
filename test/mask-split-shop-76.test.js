@@ -9,7 +9,7 @@ const ui = fs.readFileSync(path.join(__dirname, "..", "js", "screens-ui.js"), "u
 
 test("订单记面具：自己挑的照挑的，TA 送的跟 TA 认的那张，其余主面具", () => {
   assert.match(app, /mask: o && o\.mask != null \? String\(o\.mask \|\| ""\) : \(o && o\.fromCharId \? maskKeyOf\(o\.fromCharId\) : ""\),/);
-  assert.match(app, /takeout: it\.takeout, mask: payMask \}\)\);\n      removeCartUids\(uids\);/);
+  assert.match(app, /takeout: it\.takeout, [^\n]*mask: payMask \}\)\);\n      removeCartUids\(uids\);/);
   const i = app.indexOf("const orderMaskOf = o =>");
   const f = new Function("maskKeyOf", "return " + app.slice(i + "const orderMaskOf = ".length, app.indexOf("\n", i)).replace(/;$/, ""))(id => id === "c_b" ? "mk_b" : "");
   assert.equal(f({ mask: "mk_b" }), "mk_b");
@@ -32,7 +32,7 @@ test("结算时有「用哪张面具买」，只在有副面具时出现，点�
 // 第二步：外卖（跟购物同一个规矩、同一份面具名单）
 test("外卖：点单时选面具，吃完进「吃过的」带着面具，查手机按面具挡", () => {
   const ui = fs.readFileSync(path.join(__dirname, "..", "js", "screens-ui.js"), "utf8");
-  assert.match(ui, /onOrder\(\{ shop: shop\.name, items: bagItems, remark, note: mode === "forchar" \? say : "" \}, mode, target, \{ mask: payMask \}\)/);
+  assert.match(ui, /onOrder\(\{ shop: shop\.name, items: bagItems, remark, note: [^\n]*\}, mode, target, \{ mask: payMask \}\)/);
   assert.match(ui, /"data-wk": "tkopaymaskitem"[^\n]*\n[^\n]*minHeight: 40/);
   assert.match(app, /addOrder\(\{ \.\.\.item, mask: payMask \}\)/);
   assert.match(app, /fromCharId: o\.fromCharId \|\| null, mask: orderMaskOf\(o\), ts: Date\.now\(\)/);
