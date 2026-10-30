@@ -31461,12 +31461,15 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     try {
       const url = await imgToVault(dataUrl);
       const c = characters.find(x => x.id === charId);
-      const packName = (c ? (c.remark || c.name) : "TA") + " 的表情";
+      // 她自己的那一套（群友 2026-10-30「可以画小U自己的表情包」）：charId 写成 "__me:面具"，组名用那张面具的名字
+      const _meK = String(charId || "").indexOf("__me:") === 0 ? String(charId).slice(5) : null;
+      const _meM = _meK == null ? null : (_meK ? (masksRef.current || []).find(m => m && m.id === _meK) : profile) || profile;
+      const packName = _meM ? ((_meM.label || _meM.name || "我") + " 的表情") : (c ? (c.remark || c.name) : "TA") + " 的表情";
       const packs = emotePacksRef.current || [];
       let pk = packs.find(x => x && x.fromCharFace === (charId || "_"));
       const em = { id: "em_" + Date.now() + "_" + Math.floor(Math.random() * 100000), keyword: String(name || "").trim().slice(0, 20) || ((c ? c.name : "TA") + "表情" + (((pk && pk.emotes) || []).length + 1)), url, ...(drawn ? { drawn: true } : {}), ...(captioned ? { captioned: true } : {}) };
       const next = pk ? packs.map(x => x === pk ? { ...x, emotes: [...(x.emotes || []), em] } : x)
-        : [...packs, { id: "ep_face_" + Date.now(), name: packName, global: false, mine: true, charIds: charId ? [charId] : [], fromCharFace: charId || "_", emotes: [em] }];
+        : [...packs, { id: "ep_face_" + Date.now(), name: packName, global: false, mine: true, charIds: charId && !_meM ? [charId] : [], fromCharFace: charId || "_", emotes: [em] }];
       return commitEmotePacks(next);
     } catch (e) { return false; }
   };
@@ -31516,6 +31519,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     toast(n ? "撤掉了 " + n + " 张的字" : "这一组印的字撤不回来（印的时候还没留原图）", 5000);
   };
   const makeEmoteSet = async (charId, setOpt) => {
+    if (String(charId || "").indexOf("__me:") === 0) return makeMyEmoteSet(String(charId).slice(5), setOpt);
     const char = characters.find(c => c.id === charId);
     if (!char || emoteSetBusy) return;
     if (!(typeof imgApiReady === "function" && imgApiReady())) { toast("先去 设置·图像API 配一下"); return; }
@@ -31556,6 +31560,55 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         if (await window.__addSelfSticker(cv.toDataURL("image/png"), char.id, items[k].name, true, !!(setOpt && setOpt.caption))) n++;
       }
       toast(n ? "画好了 " + n + " 张，在表情包「" + (char.remark || char.name) + " 的表情」里" : "存表情的时候没成，再试一次", 6000);
+    } catch (e) { toast("表情包没画成：" + (e.message || "重试"), 8000); }
+    finally { setEmoteSetBusy(""); }
+  };
+  // 她自己的一套（群友 2026-10-30：「表情包那块可以给 char 画，能不能加上可以画小U自己的」）：
+  //   跟上面同一套做法——挑九个表情 → 照面具的参考照画一张九宫格 → 切开存进「X 的表情」那一组。
+  //   不是哪个角色在挑，所以挑表情走后台线路、照这张面具的人设挑；画图和切图跟角色那套一模一样
+  const makeMyEmoteSet = async (maskKey, setOpt) => {
+    const me = (maskKey ? (masksRef.current || []).find(m => m && m.id === maskKey) : profile) || null;
+    const key = "__me:" + (maskKey || "");
+    if (!me || emoteSetBusy) return;
+    if (!(typeof imgApiReady === "function" && imgApiReady())) { toast("先去 设置·图像API 配一下"); return; }
+    if (!me.refPhoto) { toast("先在「我的面具」里给这张面具传一张参考照，脸才锁得住"); return; }
+    const api = bgActiveRef.current || active;
+    if (!api) { toast("请先到设置配置 API"); return; }
+    setEmoteSetBusy(key);
+    try {
+      const nm = me.name || "我";
+      const _pk = (emotePacksRef.current || []).find(x => x && x.fromCharFace === key);
+      const _have = ((_pk && _pk.emotes) || []).map(e => String(e.keyword || "").trim()).filter(Boolean);
+      const raw = await callAI(api, "你帮一个人挑她自己表情包里的九个表情。只输出 JSON。", [{ role: "user", content:
+        "这个人叫「" + nm + "」。" + (me.persona ? "她的人设：" + String(me.persona).slice(0, 600) + "\n" : "")
+        + (_have.length ? "她的表情包里已经有这些了（名字和意思都别再重复）：" + _have.slice(-60).join("、") + "\n" : "")
+        + "照她的性子挑九个最像她、她最常用的表情或小动作，各起一个 2~6 字的短名字（发表情时的关键词）；look＝这一张画什么（表情和动作，一句话）。九个各不一样。" }],
+        { maxTokens: 8000 });
+      const d = typeof extractJSON === "function" ? extractJSON(raw) : null;
+      const items = (d && Array.isArray(d.items) ? d.items : []).map(x => ({ name: String((x && x.name) || "").trim().slice(0, 8), look: String((x && x.look) || "").trim().slice(0, 60) })).filter(x => x.name && x.look).slice(0, 9);
+      if (items.length < 9) throw new Error("没挑够九个，再试一次");
+      const prompt = "一张 3×3 九宫格表情包贴纸图，九格一样大，格与格之间留明显的白色空隙，每格纯白底。"
+        + "每格都是同一个人「" + nm + "」的平面 Q 版二次元小人：二到三头身、大头小身子、手脚短短圆圆，干净的深色勾线、赛璐璐平涂，大眼睛、脸颊淡淡腮红，像聊天软件里的表情贴纸。"
+        + (me.appearance ? "外貌：" + String(me.appearance).slice(0, 200) + "。" : "")
+        + "九格从左到右、从上到下依次是：" + items.map((x, i) => (i + 1) + "." + x.look).join("；")
+        + "。每格人物居中、完整、别出格。画面里不要任何文字、字母、对话框。";
+      const out = await generateSelfieImage(prompt, [me.refPhoto], { size: "1024x1024", minimalPrompt: prompt });
+      let blob = out && out.blob;
+      if (!blob && out && out.url) { try { blob = await (await fetch(out.url)).blob(); } catch (e) { blob = null; } }
+      if (!blob) throw new Error("没拿到图");
+      const u = URL.createObjectURL(blob);
+      const im = await new Promise((ok, no) => { const x = new Image(); x.onload = () => ok(x); x.onerror = no; x.src = u; });
+      URL.revokeObjectURL(u);
+      const cw = im.naturalWidth / 3, ch = im.naturalHeight / 3, ix = cw * 0.04, iy = ch * 0.04;
+      let n = 0;
+      for (let k = 0; k < 9; k++) {
+        const cv = document.createElement("canvas"); cv.width = 384; cv.height = 384;
+        const g2 = cv.getContext("2d");
+        g2.drawImage(im, (k % 3) * cw + ix, Math.floor(k / 3) * ch + iy, cw - ix * 2, ch - iy * 2, 0, 0, 384, 384);
+        if (setOpt && setOpt.caption) paintEmoteCaption(g2, items[k].name, 384, 384);
+        if (await window.__addSelfSticker(cv.toDataURL("image/png"), key, items[k].name, true, !!(setOpt && setOpt.caption))) n++;
+      }
+      toast(n ? "画好了 " + n + " 张，在表情包「" + (me.label || nm) + " 的表情」里" : "存表情的时候没成，再试一次", 6000);
     } catch (e) { toast("表情包没画成：" + (e.message || "重试"), 8000); }
     finally { setEmoteSetBusy(""); }
   };
@@ -33719,7 +33772,9 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     onToggleChar: toggleEmotePackChar,
     onImport: importEmotes,
     onAddImages: addEmoteImages,
-    onMakeSet: makeEmoteSet, setBusy: emoteSetBusy, onCaptionPack: captionEmotePack, onUncaptionPack: uncaptionEmotePack,
+    onMakeSet: makeEmoteSet, setBusy: emoteSetBusy,
+    // 能画「我自己」那一套的面具：传过参考照的那几张（主面具 id 记成 ""）
+    myFaces: [{ id: "", name: (profile && (profile.label || profile.name)) || "我", ok: !!(profile && profile.refPhoto) }].concat((masks || []).filter(m => m && m.id && m.id !== maskPrimary).map(m => ({ id: m.id, name: m.label || m.name || "未命名", ok: !!m.refPhoto }))), onCaptionPack: captionEmotePack, onUncaptionPack: uncaptionEmotePack,
     onRenameEmote: renameEmote,
     onDeleteEmotes: deleteEmotes,
     onMoveEmotes: moveEmotes
