@@ -3129,15 +3129,31 @@ function App() {
   //   照抄的那句就原样进了「他说的是」。在哪儿出现都摘。
   const ECHOED_META = /\s*[（(【\[]\s*(?:这一条是你此刻|这条你是用语音说的)[^）)】\]]*[）)】\]]\s*/g;
   const stripEchoedMeta = w => String(w == null ? "" : w).replace(ECHOED_META, "").trim();
-  const ECHO_NOTE_HINT = /已经实际|亲手做过的事|真实发生过的事|用户刚才要求你|这里你已经|不得说自己|没发成的话/;
+  // 转账/红包的「播报」（她 2026-10-30 截图：转账卡出来了，底下又多出「【附言：…】转账给 Lisa 30000 元」被拆成四泡）：
+  //   卡自己会把钱数和附言摆出来，这一句是它照着聊天记录的样子念了一遍，不是TA说的话
+  const ECHO_NOTE_HINT = /已经实际|亲手做过的事|真实发生过的事|用户刚才要求你|这里你已经|不得说自己|没发成的话|^\s*【\s*(?:附言|转账|红包)\s*[:：]/;
+  const ECHO_MONEY_LINE = /^\s*[〔【\[(（]?\s*(?:群)?(?:转账给|发红包给)\s*[^\s，。！？!?]{0,16}\s*[¥￥]?\s*\d[\d,.]*\s*(?:元|块)?\s*[〕】\])）]?\s*$/;
   const dropEchoedNotes = list => {
     const out = [];
     let inNote = null;
     for (const w0 of list || []) {
       const w = String(w0 == null ? "" : w0);
-      if (inNote) { inNote.push(w); if (/】\s*$/.test(w)) { if (!ECHO_NOTE_HINT.test(inNote.join(""))) out.push(...inNote); inNote = null; } continue; }
+      if (inNote) {
+        // 收口那一泡后面还拖着半句（「】转账给 Lisa 30000 元」）：】之前算旁注，之后的另算
+        const k = w.indexOf("】");
+        if (k < 0) { inNote.push(w); continue; }
+        inNote.push(w.slice(0, k + 1));
+        const tail = w.slice(k + 1).trim();
+        if (!ECHO_NOTE_HINT.test(inNote.join(""))) out.push(...inNote.slice(0, -1), w);
+        else if (tail && !ECHO_MONEY_LINE.test(tail)) out.push(tail);
+        inNote = null; continue;
+      }
       if (/^\s*【/.test(w) && !/】/.test(w.replace(/^\s*【/, ""))) { inNote = [w]; continue; }
       if (/^\s*【[^】]*】\s*$/.test(w) && ECHO_NOTE_HINT.test(w)) continue;
+      if (ECHO_MONEY_LINE.test(w)) continue;
+      // 一泡里整句：「【附言：…】转账给 X 30000 元」
+      const mm = w.match(/^\s*(【[^】]*】)\s*(.*)$/);
+      if (mm && ECHO_NOTE_HINT.test(mm[1]) && (!mm[2] || ECHO_MONEY_LINE.test(mm[2]))) continue;
       // 整条只是一句「〔某某发送了一张自拍〕」「[发了一张照片]」这种系统旁白腔（她 2026-10-28 截图）：
       //   照片那张卡自己会出来，这句是它照着聊天记录的样子「播报」了一下，不是TA说的话
       if (/^\s*[〔【\[(（]\s*[^〔〕【】\[\]()（）\n]{0,16}(?:发送了|发来了?|发了)(?:一张|一条|一段|一个)?(?:自拍|照片|图片|相片|语音|视频|表情包?|定位|位置)\s*[〕】\])）]\s*$/.test(w)) continue;
