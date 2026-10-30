@@ -11,7 +11,9 @@ const screens = (fs.readFileSync(path.join(__dirname, "..", "js", "screens.js"),
 
 // 桩照【写那一单的地方】：外卖卡和在途礼物，两个写入方的字面量先钉住
 test("桩的字段照写入方：外卖卡、在途礼物", () => {
-  assert.match(app, /pChat\(char\.id, p => \[\.\.\.p, \{ role: "user", kind: "takeout", takeout: item\.takeout, arriveTs: now \+ deliverMsForCat\("food", item\.name\), ts: now,/);
+  // v76.954 能预约送达：到达时间先算进 _arr（预约的照预约，没预约照品类算），卡上写的就是它
+  assert.match(app, /const _arr = item\.arriveTs \|\| \(now \+ deliverMsForCat\("food", item\.name\)\);/);
+  assert.match(app, /pChat\(char\.id, p => \[\.\.\.p, \{ role: "user", kind: "takeout", takeout: item\.takeout, arriveTs: _arr, ts: now,/);
   assert.match(app, /\{ id: giftId, charId, name: itemName, arriveTs, cat: cat \|\| null \}/);
 });
 

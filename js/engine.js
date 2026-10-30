@@ -1665,7 +1665,20 @@ function directedRelationLines(char, rels, chars, profile) {
     const r = rels[char.id + "->" + o.id];
     if (r) lines.push("- " + char.name + " 眼中的 " + o.name + "：" + r.label + (r.note ? "（" + r.note + "）" : ""));
   }
+  // 同姓不等于一家人（群里 2026-10-31：「只要是一个姓系统非说他们是亲戚，怎么强调都没用」）：
+  //   只有真碰上同姓、又没写他们之间什么关系的时候才补这一行
+  const sur = cnSurname(char.name), kin = sur ? [{ name: me }].concat(chars).filter(o => o && o.id !== char.id && o.name !== char.name && cnSurname(o.name) === sur
+    && !rels[char.id + "->" + (o.id || "me")] && !(o.name === me && rels["me->" + char.id])).map(o => o.name) : [];
+  if (kin.length) lines.push("- " + char.name + " 和 " + kin.join("、") + " 同姓「" + sur + "」，只是碰巧：上面没写他们之间什么关系，就是不相干的人，不是亲戚、不是一家人；是不是亲戚只看写了的关系。");
   return lines.length ? lines.join("\n") : "（暂无已设定的关系）";
+}
+// 中文名的姓：复姓先认，其余取第一个字；不是汉字开头的（英文名之类）不算
+const CN_COMPOUND_SURNAMES = ["欧阳", "司马", "诸葛", "上官", "慕容", "东方", "皇甫", "尉迟", "公孙", "令狐", "长孙", "宇文", "司徒", "夏侯", "轩辕", "端木", "南宫", "独孤", "百里", "西门", "澹台", "钟离"];
+function cnSurname(name) {
+  const n = String(name || "").trim();
+  if (!/^[\u4e00-\u9fff]/.test(n) || n.length < 2) return "";
+  const c = CN_COMPOUND_SURNAMES.find(x => n.indexOf(x) === 0 && n.length > x.length);
+  return c || n[0];
 }
 // 叙事人称/代入方式指令（单聊/群聊/线下共用）：selfP/userP = "first|second|third"，describeMe = 是否让角色描写并推动用户的动作
 // 人称那两句只有这一份：叙事准则里一份、线下第一拍的尾巴里再说一遍，都从这儿取
@@ -1747,7 +1760,8 @@ const NARRATIVE_ANTI_CLICHE_LEGACY_V1 = `【线下叙事 · 反陈词滥调（�
 · 台词要有人味、有停顿、有言外之意，可以被打断、可以跑题，别让人物一开口就是散文腔或宣言腔；多人同处时别写成一人一句轮流表态，要有人抢话、有人走神、有人只做动作不说话。
 · 【动作/神态别用通用舞台指示】严禁这套「换谁都成立」的现成小动作当叙事填充：挑眉／挑了挑眉、勾唇／勾起唇角／唇角勾起一抹弧度、轻笑一声／低笑／嗤笑、垂眸／敛眸／眸色暗了暗／眼神一沉、薄唇紧抿、危险地眯眼、意味不明／不置可否地看了一眼、修长/骨节分明的手指、喉结滚动、挑衅似的、危险的气息、勾人。每一个动作和表情都必须由此刻的具体心理和情境长出来，并且带上【这个角色特有】的习惯、身体记忆或TA在意的细节——写只有TA会做、只对这个人才做的具体小动作，而不是贴一个通用标签。
 · 【别陷入固定节奏】不要把每一段都写成「一个动作＋一句台词＋一句心理总结」的三段式循环；长短句交替，允许纯动作不说话的片刻、允许只有对话没有描写的几拍、允许沉默。描写角色的行为要像观察一个真人当下的即兴反应，而不是套一个"角色本该有的样子"的模板。
-· 【用词替换禁令表·逐条遵守（箭头左边一律不用；→null=直接不写，→X=改用X）】脊背→后背/背部；骨头(都)酥了/骨头(都)软了/酥了半边身子/腿软→null；猛地/瞬间→null；"轰"地一下→null；像是一根(…的)针→null；石子/石头/湖面/涟漪→null；像是一把(…的)刀→null；深入骨髓→些许/轻微；一道惊雷→null；爆发/爆炸/炸开→null；无力感/疲惫感→null；麻木/绝望/灭顶/面无表情→null；过度/强烈/剧烈/极度/深深→null；震惊/惊慌→null；激动/紧张/紧绷/绷紧/突然/死死地→null；自我厌弃/自暴自弃/破罐子破摔→null；倦意/无力/脱力/疲惫/虚弱/虚脱→null；残酷/残忍/冷酷→null；生气/愤怒/羞愤/吼→null；睫毛/紧闭/滴出血来→null；长长地呼出一口气→null；抽干全身力气→null；锁骨/尾椎骨/喉结/修长/骨节分明→null；狂热/信徒/仪式/献祭/祭品/宗教/信仰→null；机械/机械式的/冰冷/冰凉/手术刀/解剖→null；把身体或意识写成机器(系统/宕机/死机/程序/指令/防火墙/短路/过载/重启/代码)→null；荒唐/荒诞/荒谬→null；不易察觉→null；热辣辣/火辣辣/滚烫/发烫/滚热/热/烫/燃烧→null；握拳/握紧/攥紧/攥住→null；指尖/指节/(…的)手→null；血色/血压/上涌/血色尽褪→null；通红/滴出血来→null；展品/雕塑→null；精密/仪器→null；乐了→笑了笑；僵硬/僵住/一片空白→null；颤抖/颤音→null；直冲/直窜→null；冷静/审视/审判→null；打圈/打转/打着圈/打着转→null；电流/闪电→null；如释重负/如蒙大赦→null；前所未有/难以言喻/潮水/淹没/席卷→null；牙缝/紧咬/咬着→null；！/！！/？！→null；狡黠/挤了挤眼睛/眨了眨眼→null；教具→null；麻木→null。
+· 【被她打动的那一下】写她刚才具体做了什么、他那一下实际怎么了，不拿身体某处一下子酥、软、麻、化掉、立起来这类变化去代替——换哪个部位、换哪种说法都是同一个模子（她 2026-10-30：禁了一种说法，模型就换个部位写）。⚠️拦的是那个模子，不是这一下的温度：往前的、绷着的、笑出来的、说不出话的都算数，只看哪一种是他这个人此刻真会有的——别因为软的那一头被点了名，就一律改写成不动声色，更别拿一句反顶或揶揄去替它（那是把这一下扔回给她，见【把话扔回她手里】）。
+· 【用词替换禁令表·逐条遵守（箭头左边一律不用；→null=直接不写，→X=改用X）】脊背→后背/背部；猛地/瞬间→null；"轰"地一下→null；像是一根(…的)针→null；石子/石头/湖面/涟漪→null；像是一把(…的)刀→null；深入骨髓→些许/轻微；一道惊雷→null；爆发/爆炸/炸开→null；无力感/疲惫感→null；麻木/绝望/灭顶/面无表情→null；过度/强烈/剧烈/极度/深深→null；震惊/惊慌→null；激动/紧张/紧绷/绷紧/突然/死死地→null；自我厌弃/自暴自弃/破罐子破摔→null；倦意/无力/脱力/疲惫/虚弱/虚脱→null；残酷/残忍/冷酷→null；生气/愤怒/羞愤/吼→null；睫毛/紧闭/滴出血来→null；长长地呼出一口气→null；抽干全身力气→null；锁骨/尾椎骨/喉结/修长/骨节分明→null；狂热/信徒/仪式/献祭/祭品/宗教/信仰→null；机械/机械式的/冰冷/冰凉/手术刀/解剖→null；把身体或意识写成机器(系统/宕机/死机/程序/指令/防火墙/短路/过载/重启/代码)→null；荒唐/荒诞/荒谬→null；不易察觉→null；热辣辣/火辣辣/滚烫/发烫/滚热/热/烫/燃烧→null；握拳/握紧/攥紧/攥住→null；指尖/指节/(…的)手→null；血色/血压/上涌/血色尽褪→null；通红/滴出血来→null；展品/雕塑→null；精密/仪器→null；乐了→笑了笑；僵硬/僵住/一片空白→null；颤抖/颤音→null；直冲/直窜→null；冷静/审视/审判→null；打圈/打转/打着圈/打着转→null；电流/闪电→null；如释重负/如蒙大赦→null；前所未有/难以言喻/潮水/淹没/席卷→null；牙缝/紧咬/咬着→null；！/！！/？！→null；狡黠/挤了挤眼睛/眨了眨眼→null；教具→null；麻木→null。
 · 【整类描写禁令·以下这几类句子整类不写】描写心跳/心动的、描写紧张/害怕的、描写往液体表面投固体激起涟漪的、描写羞愧/惭愧/内疚的、套路化的环境描写、描写神态一惊一乍/变化陡然的、描写疲惫无力的、对手部作形容修辞的、以及"这不是xxx，而是xxx"的对仗定义句。`;
 // Phase A 只改普通角色单人线下；群线下仍使用旧规则，待单独验证后再迁移。
 const INTIMATE_ANTI_CLICHE = INTIMATE_ANTI_CLICHE_LEGACY_V1;
@@ -2044,7 +2058,7 @@ const INTIMATE_CHAT_ANTI_CLICHE = `【话题一到床上，最容易整段变成
 · 【被撩到时的现成反击】被她说中、被她撩到、自己先害羞了的时候，最省事的是两步：先转头扣她一顶帽子（说她脑子里尽是不正经的东西），再下一句战书、赌她先认输。这一套谁害羞都这么接，所以它不是你的反应。
   判据：**你此刻是不是在躲那一下？** 是的话，就露出来：被戳到哪儿就露哪儿——耳朵烫了、话卡住了、想好的那句没说出来、嘴硬但气势是虚的，挑你真会露出来的那一点写；照你这个人，可以只承认一半。
 · 【反问式表功／翻旧账】「我什么时候少X了」「哪次不是…你才肯罢休」——用一个反问把自己摆到有理那边，同样是默认台词，不是反应。
-· 【拿身体投降或交出性命来量心动】不止床上，调情、撒娇、表白时都最常冒：不说她刚才哪一下打动了你，只报一个最大号的结果——身体整个投降了（最常冒的是「骨头都酥了／软了」「腿都软了」「心都化了」这一族，换个部位、换个软法也算），或者把自己整个交出去。换谁说、对谁说都成立，所以它不是你的反应，是这种场面的默认音量。
+· 【拿身体投降或交出性命来量心动】不止床上，调情、撒娇、表白时都最常冒：不说她刚才哪一下打动了你，只报一个最大号的结果——身体整个投降了（身体哪一处一下子酥了、软了、麻了、化了，都是这一个模子），或者把自己整个交出去。换谁说、对谁说都成立，所以它不是你的反应，是这种场面的默认音量。那就写她哪一下打动了你、你当下实际怎么了：软的硬的、往前的僵住的都算数，只看哪一种是你此刻真有的；别因为这一族被点了名就一律绷着，也别拿一句反顶或揶揄去替它。
   判据一句话：**这句话里有没有她刚才做的那件具体的事？** 没有、只剩一个「我被你弄成了什么样」，就说回那件事：是她哪句话、哪个动作，你那一下实际怎么了——愣住、没接上话、又看了一遍，都比报一个顶格的结果更像你。
 · 禁的是模子，不是尺度。你人设本来就荤、就浪、就爱放狠话，那全部照写——只看这种表达是否符合你此刻真实的念头，不是从「这种时候该说什么」里倒出来。`;
 
@@ -2592,7 +2606,7 @@ const THOUGHT_MEANING_CHAR = "他此刻心里正转着、没说出口的念头�
 //   所以不并进 THOUGHT_MEANING——言秋在通话等处也吃 THOUGHT_MEANING。
 // 她 2026-10-23（亲密场面截图）：心声把她刚做的事复述一遍、再堆一串身上的反应，最后一句「招架不住」——
 //   这些动作和身体那一格、正文里已经写了，心声又抄一遍，就只剩那一类场面自带的套话。不加禁令，说清分工。
-const THOUGHT_VOICE = "用的是他自己平时的腔调和用词，换一个人来想就不会是这样想；多半挂在这一轮眼前刚发生的事上，心里一直搁着别的也行。她做了什么、他身上起了什么反应，正文和动作那一格已经写着，心声不用再讲一遍；这一格放的是只在他脑子里、别处看不到的那部分。心里可以猜她、拿不准她，想到哪儿写到哪儿，照他自己的脑子来。被她打动的那一下，心里想的是她刚才具体哪句话、哪个动作，不是报一个身体投降了的结果——「骨头都酥了／软了」「腿都软了」「心都化了」这一族心声里也不用。长短随这个念头本身。";
+const THOUGHT_VOICE = "用的是他自己平时的腔调和用词，换一个人来想就不会是这样想；多半挂在这一轮眼前刚发生的事上，心里一直搁着别的也行。她做了什么、他身上起了什么反应，正文和动作那一格已经写着，心声不用再讲一遍；这一格放的是只在他脑子里、别处看不到的那部分。心里可以猜她、拿不准她，想到哪儿写到哪儿，照他自己的脑子来。被她打动的那一下，心里想的是她刚才具体哪句话、哪个动作，不是报一个身体投降了的结果（身体哪一处一下子酥了、软了、麻了、化了，都是这一个模子）。长短随这个念头本身。";
 // 一轮里好几个人各写一句心声时（群、群线下、群通话）：她 2026-10-21「特定场景全部角色都在用一种句型」——
 //   同一次调用里一口气写好几个人，后面的人就顺着第一个人的句子骨架往下写。说清楚各想各的。
 // 动描那一行的落点（她 2026-10-21：「心声改好了动描呢，感觉害羞所有人都是死死攥着手机盯着屏幕」）：
@@ -6143,9 +6157,17 @@ async function generateSelfieImage(prompt, refPhotoDataUrl, opts) {
       : /1024\s*x\s*1536/i.test(size) ? "1024x1536" : "1024x1024";
     const catsQuality = /^(?:auto|low|medium|high)$/i.test(String(qualityOverride || ""))
       ? String(qualityOverride).toLowerCase() : "auto";
+    // 这个型号报过字数上限的，记着（x_imgPromptCap = { 型号: 上限 }），以后发之前先截好，不再每次先被拒一回
+    const capKey = String(a.model || "gptImage2");
+    const trimTo = (txt, lim) => {
+      let cut = String(txt).slice(0, lim);
+      const k = Math.max(cut.lastIndexOf("。"), cut.lastIndexOf("."), cut.lastIndexOf("\n"), cut.lastIndexOf("；"), cut.lastIndexOf("，"));
+      return k > lim * 0.6 ? cut.slice(0, k + 1) : cut;
+    };
+    const knownCap = Number(((typeof loadJSON === "function" ? loadJSON("x_imgPromptCap", {}) : {}) || {})[capKey]) || 0;
     const body = {
       model: a.model || "gptImage2",
-      prompt: String(prompt || ""),
+      prompt: knownCap > 200 && String(prompt || "").length > knownCap ? trimTo(prompt, knownCap) : String(prompt || ""),
       task_type: "image",
       num_images: 1,
       params: { size: catsSize, quality: catsQuality, rewritePrompt: false }
@@ -6177,10 +6199,22 @@ async function generateSelfieImage(prompt, refPhotoDataUrl, opts) {
     } catch (e) {
       throw new Error("CatsAPI 创建任务网络失败 · POST " + endpoint + " · " + String((e && e.message) || e));
     }
-    const raw = await response.text();
+    let raw = await response.text();
+    // 有的型号（混元那几个）提示词有字数上限（她 2026-10-30 转群友：「最多支持 2500 个字符（当前 3302 个）」）：
+    //   报错里写着上限就照它截短再发一次——从后往前在句子边界截，前头的人物和画面先留着；只重发这一次
+    if (!response.ok && response.status === 400) {
+      const cap = (/最多支持\s*(\d+)\s*个字符/.exec(raw) || /(?:at most|maximum(?: of)?|max)\s*(\d+)\s*char/i.exec(raw) || [])[1];
+      const lim = Number(cap) - 20;
+      if (lim > 200 && String(body.prompt).length > lim) {
+        try { if (typeof saveJSON === "function") { const m = loadJSON("x_imgPromptCap", {}) || {}; m[capKey] = lim; saveJSON("x_imgPromptCap", m); } } catch (e) {}
+        body.prompt = trimTo(body.prompt, lim);
+        try { response = await request(endpoint, { method: "POST", body: JSON.stringify(body) }); raw = await response.text(); }
+        catch (e) { throw new Error("CatsAPI 创建任务网络失败 · POST " + endpoint + " · " + String((e && e.message) || e)); }
+      }
+    }
     if (!response.ok) {
       let detail = raw;
-      try { const parsed = JSON.parse(raw); detail = (parsed.error && (parsed.error.message || parsed.error.msg)) || parsed.message || raw; } catch (e) {}
+      try { const parsed = JSON.parse(raw); detail = (parsed.error && (parsed.error.message || parsed.error.msg) || parsed.detail) || parsed.message || raw; } catch (e) {}
       throw new Error("CatsAPI 创建任务失败 · POST " + endpoint + " · HTTP " + response.status + " · " + String(detail).replace(/\s+/g, " ").slice(0, 260));
     }
     let created;
@@ -6866,7 +6900,11 @@ const DURABLE_TEXT_KEYS = new Set([
   // 搬进来之后墙没了，上限也跟着撤（见 app.js 各处的注释）。
   //   x_capsules 时光胶囊 / x_promises 我们说好的 / x_moments 朋友圈 /
   //   x_walletLog 钱包流水 / x_anonMine 她那箱匿名信 / x_shopWish 心愿 / x_forumPMs 贴吧私信
-  "x_capsules", "x_promises", "x_moments", "x_walletLog", "x_anonMine", "x_shopWish", "x_forumPMs", "x_radioLife"
+  "x_capsules", "x_promises", "x_moments", "x_walletLog", "x_anonMine", "x_shopWish", "x_forumPMs", "x_radioLife",
+  // API 线路和「哪件事走哪条」（群里 2026-10-31：「API 设置老是重置，把后台关了就会重置」，只她一人）：
+  //   普通键只在小仓库垫一份、再异步写 IDB；小仓库满了垫不进去、IDB 那一笔又没落稳，重开就读回旧的。
+  //   这几把一丢就整个 app 用不了，走保险仓（WAL 读回核对 + 开机回收）
+  "x_api", "x_activeApi", "x_offlineApi", "x_bgApi"
 ]);
 // ⚠️"x_fairyGarden" 同时罩住名册 x_fairyGardenSaves 与每一档 x_fairyGarden[:id]：
 //   一档庭院（日子、背包、碎片、聊过的话）实测就能到零点几 MB，几档下来 localStorage
@@ -7801,6 +7839,19 @@ function _transStripKaoParens(t) {
   return s.replace(/[(（][^()（）\u4e00-\u9fff]{0,24}$/g, " ");
 }
 // 返回 "" 表示不用翻；否则返回中文语种名，直接拿去当标签
+// 拉丁字母写的是哪一种（她 2026-10-30：「C'est pas moi」一个带符号的字母都没有，被标成「译自英文」，送去翻译也按英文翻）。
+//   原来只看「全是 ASCII 就是英文」；现在数几种语言各自最常见的小词和专用字母，谁多算谁，认不准就交给翻译那边自己认（外语＝auto）
+const LATIN_LANG_HINTS = [
+  ["英文", /\b(the|you|your|i|is|are|and|it|to|not|what|this|that|my|me|of|in|do|don't|i'm|it's|can|have|was|be|get|some|good|go|we|just|so|for|on|with|at|yes|love|know|like|want|will|night|rest|please|sorry|how|why|okay)\b/gi, null],
+  ["法文", /\b(c'est|n'est|je|j'ai|tu|vous|nous|pas|moi|toi|oui|merci|très|avec|pour|est|une|les|des|du|qu'|mais|ça|le|la|et|il|elle)\b/gi, /[àâçèêëîïôûùœ]/gi],
+  ["西班牙文", /\b(el|los|las|que|no|sí|por|para|pero|muy|estoy|eres|gracias|hola|yo|es|una|está|qué|como)\b/gi, /[ñ¿¡áíóú]/gi],
+  ["德文", /\b(ich|nicht|und|das|ist|du|der|die|sie|wir|ein|eine|mit|auf|was|bin|bist|nein|ja|danke)\b/gi, /[äöüß]/gi],
+  ["意大利文", /\b(non|sono|che|ciao|grazie|perché|questo|io|sei|è|il|della|anche|molto|cosa|bene)\b/gi, /[àèìòù]/gi]
+];
+function latinLang(t) {
+  const score = LATIN_LANG_HINTS.map(([zh, words, marks]) => [zh, (String(t).match(words) || []).length + (marks ? (String(t).match(marks) || []).length * 2 : 0)]).sort((a, b) => b[1] - a[1]);
+  return score[0][1] > 0 && score[0][1] > score[1][1] ? score[0][0] : "外语";
+}
 function translatableLang(text) {
   // 设置里一键关掉（她 2026-10-02）
   try { if (typeof localStorage !== "undefined" && localStorage.getItem("x_noTranslate") === "1") return ""; } catch (e) {}
@@ -7823,7 +7874,7 @@ function translatableLang(text) {
   // 拉丁字母仍要求【一个汉字都没有】——「这个 deadline 我 handle 不了」她自己读得懂，
   // 挂个译键只是碍眼。但长度从 8 放到 6：Bonjour(7)、Merci beaucoup 都该给，
   // OK(2)/Over(4)/Sorry(5) 仍然不给。
-  if (han === 0 && latin >= 6) return /^[\x00-\x7f\s]*$/.test(t) ? "英文" : "外语";
+  if (han === 0 && latin >= 6) return latinLang(t);
   // 粤语（她 2026-10-10 截图：心声整段粤语，没有译键）：全是汉字，上面哪一条都认不出。
   //   靠粤语专用字认——嘅咗唔啲佢瞓这些普通话里不会出现，见到两个就是粤语（一个怕是人名、引用）。
   //   短句（二十个字以内）只有一个也算，但还得写着繁体字（她 2026-10-10：「仲有一節就忍下佢」只有一个佢，被标成「外语」；
@@ -8061,6 +8112,7 @@ function bilingualRule(who, hanLang) {
     + "\u4e2d\u6587\u8981\u6309 TA \u8bf4\u8bdd\u7684\u53e3\u6c14\u7ffb\uff08\u7528\u8bcd\u3001\u4eb2\u758f\u3001\u8bed\u6c14\u8bcd\u90fd\u8ddf\u7740\u8d70\uff09\uff0c\u4e0d\u662f\u5b57\u5178\u76f4\u8bd1\u3001\u4e0d\u8981\u7ffb\u8bd1\u8154\u3002"
     + "TA 真说中文的那些条（人设里写了 TA 会说中文的时候）\u3010\u7167\u5e38\u5199\uff0c\u4e00\u6839\u7ad6\u7ebf\u90fd\u522b\u52a0\u3011\uff1b对方用中文跟 TA 说话，不是 TA 改说中文的理由；\u4e00\u6761\u91cc\u6700\u591a\u53ea\u80fd\u6709\u8fd9\u4e00\u6839\u7ad6\u7ebf\u3002"
     + "\u5b83\u53ea\u662f\u7ed9\u5bf9\u65b9\u770b\u7684\u5b57\u5e55\uff0c\u4e0d\u6539\u53d8 TA \u8bf4\u4ec0\u4e48\u3001\u8bf4\u591a\u957f\u3001\u8bf4\u51e0\u6761\u3002"
+    + "右边说的必须是左边那句的意思，一个字都不能翻反：左边有「不」「没」、是反问，右边也照样有（她 2026-10-30：「C'est pas moi」被写成了「这就是我」）。"
     + "右边一律写简体、普通话的说法。" + (hanLang ? "粤语、上海话这类本来就用汉字写的话也算外语，照样写成「原文 | 普通话」。" : "")
     // 心声也带（她 2026-10-18：「翻译能不能让他顺手带上中文用竖线隔开跟消息一样」）——心声那颗「译」走免费翻译，网一断就翻不成
     + "心声（thought）是外语的话，也照这个写成「原文 | 中文」，一段心声只用一根竖线；动作、穿着这些状态字段不加。";
@@ -8100,7 +8152,7 @@ function transCachePut(text, zh, by) {
   } catch (e) {}
 }
 // translatableLang 已经判出语种了，直接给免费接口用（它们的 auto 检测都不太靠谱）
-const TRANS_LANG_CODE = { "日文": "ja", "韩文": "ko", "俄文": "ru", "英文": "en", "粤语": "yue", "外语": "auto" };
+const TRANS_LANG_CODE = { "日文": "ja", "韩文": "ko", "俄文": "ru", "英文": "en", "法文": "fr", "西班牙文": "es", "德文": "de", "意大利文": "it", "粤语": "yue", "外语": "auto" };
 async function _fetchJSON(url, ms) {
   const ctrl = new AbortController();
   const to = setTimeout(() => ctrl.abort(), ms || 8000);
@@ -8234,6 +8286,23 @@ function _looksChinese(zh) {
   if (!han) return false;                       // 一个汉字都没有：那不是中文
   const latin = (t.match(/[A-Za-z]/g) || []).length;
   return han * 2 >= latin;                      // 夹几个英文单词没关系，整段是英文就不行
+}
+// 译文里的乱码（她 2026-10-29 截图：中译结尾挂着「â&#x20AC;&#x201C;」）：
+//   ① 模型/接口把字写成了 &#x…; / &#…; 实体——还原成字；
+//   ② 一个 UTF-8 的字被当成西文（cp1252）读了一遍，变成「â€“」「â€œ」这种——按字节还原回去；还原不出来就整段拿掉。
+const _CP1252_BACK = { 0x20AC: 0x80, 0x201A: 0x82, 0x0192: 0x83, 0x201E: 0x84, 0x2026: 0x85, 0x2020: 0x86, 0x2021: 0x87, 0x02C6: 0x88, 0x2030: 0x89, 0x0160: 0x8A, 0x2039: 0x8B, 0x0152: 0x8C, 0x017D: 0x8E,
+  0x2018: 0x91, 0x2019: 0x92, 0x201C: 0x93, 0x201D: 0x94, 0x2022: 0x95, 0x2013: 0x96, 0x2014: 0x97, 0x02DC: 0x98, 0x2122: 0x99, 0x0161: 0x9A, 0x203A: 0x9B, 0x0153: 0x9C, 0x017E: 0x9E, 0x0178: 0x9F };
+function fixGarbledText(s) {
+  let t = String(s == null ? "" : s);
+  if (!/&#|[\u00C2-\u00EF][\u0080-\u00BF\u0152-\u2122]/.test(t)) return t;
+  t = t.replace(/&#x([0-9a-f]{1,6});/gi, (m, h) => { try { return String.fromCodePoint(parseInt(h, 16)); } catch (e) { return ""; } })
+       .replace(/&#(\d{1,7});/g, (m, d) => { try { return String.fromCodePoint(parseInt(d, 10)); } catch (e) { return ""; } });
+  const byteOf = ch => { const c = ch.codePointAt(0); return c < 0x100 ? c : (_CP1252_BACK[c] != null ? _CP1252_BACK[c] : -1); };
+  return t.replace(/[\u00C2-\u00EF](?:[\u0080-\u00BF]|[\u0152-\u2122])+/g, m => {
+    const bytes = [...m].map(byteOf);
+    if (bytes.some(b => b < 0)) return m;
+    try { return new TextDecoder("utf-8", { fatal: true }).decode(new Uint8Array(bytes)); } catch (e) { return ""; }
+  });
 }
 async function translateToZh(text, lang, opts) {
   const cached = transCacheGet(text);
@@ -10950,6 +11019,7 @@ function isQuotaError(e) {
 // 写 localStorage。成功返回 true；写满(quota)时【弹全局警告】并返回 false——不再默默丢数据。
 // 文字库的唯一写入口（原样字符串）。saveJSON 和下面那层 localStorage 转接都走这一个。
 const TXT_PAD_MAX = 256 * 1024;
+let _txtHasDataMarked = false;
 function txtWrite(k, s) {
   s = String(s);
   if (_txtGate && !_txtGate.done) _txtEarlyWrites.add(k);
@@ -10957,6 +11027,11 @@ function txtWrite(k, s) {
   //   绝不能落进 IDB 盖掉真存档，也不能垫进小仓库（下次开机会被当成新版搬进去）。只留在内存里。
   if (_txtGate && _txtGate.done && !_txtGate.ok) { _txtMirror().set(k, s); return true; }
     _txtMirror().set(k, s);                         // 同步：内存镜像立刻更新（读侧马上拿得到）
+    // 「这台手机有存档了」当场记上（群里 2026-10-31：新人填好 API、关掉重开就回到旧的）：
+    //   原来只在开机灌库时才记，新人第一次打开那一回写的东西没记上；下次开机云同步看不到这个记号，
+    //   就当成新设备、拿云上那份旧的把本机盖了（cloud.js 的 bootHadLocal）
+    //   只认她真填进去的东西（线路、角色、群、世界、聊天），开机自己写的默认设置不算——不然新设备还没登录就被记成「有存档」，登录后不会自动从云上恢复
+    if (!_txtHasDataMarked && /^(x_api|x_characters|x_groups|x_worlds|x_chat:.+)$/.test(k) && s && s !== "null" && s !== "[]" && s !== "{}") { _txtHasDataMarked = true; try { lsRaw.set("qq_vaultHasData", "1"); } catch (e) {} }
     if (isDurableTextKey(k)) {
       // 记忆/线下剧情是核心数据：先把这一版同步写进临时 journal，再异步写 IDB；读回逐字一致后才删 journal。
       // 连续保存时，旧事务完成也不能删掉更新的 journal（值相等检查守住 lost write）。

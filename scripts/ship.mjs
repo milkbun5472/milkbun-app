@@ -101,7 +101,9 @@ for (let round = 1; round <= 4; round++) {
   const down = (f, re) => { if (existsSync(f)) writeFileSync(f, readFileSync(f, "utf8").replace(re, (m0, pre, v) => numv(v) > numv(mv) ? pre + mv : m0)); };
   down("js/app.js", /(APP_VERSION\s*=\s*"v)([\d.]+)/g); down("index.html", /(\?v=)(\d{2}\.\d{2,3})(?![\d.])/g);
   down("manifest.json", /(launch=)([\d.]+)/g); down("rescue.html", /(TARGET=")([\d.]+)/g);
-  const bump = sh("node scripts/bump-version.mjs " + nextV);
+  // 本地历史里留着一次没推上 main 的发版提交（比如跑到一半被打断）：它的号也算「现有最大」，main+1 就会撞上它。
+  //   那就不指定号，让 bump-version 自己取「现有最大 +1」——main 上跳过一个号，总比发不出去强（2026-10-30 卡在 76.940）
+  let bump; try { bump = sh("node scripts/bump-version.mjs " + nextV); } catch (e) { if (!/不高于现有最大/.test(String((e && e.stderr) || e))) throw e; bump = sh("node scripts/bump-version.mjs"); }
   const V = readFileSync("js/app.js", "utf8").match(/APP_VERSION\s*=\s*"v([\d.]+)"/)[1];
   console.log(bump.split("\n").pop());
   let html = readFileSync("index.html", "utf8");

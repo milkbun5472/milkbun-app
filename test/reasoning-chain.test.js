@@ -122,7 +122,7 @@ test("译键走公共那一份：免费链、长文切块、长文按英文为�
   const seg = comp.slice(i2, comp.indexOf("// 转发的聊天记录（v56.38）"));
   assert.match(seg, /h\(TransText, \{ text: m\.reasoning, ink: t\.fog, inline: true, long: true, size: 12 \}\)/);
   assert.doesNotMatch(seg, /translateLongToZh\(/, "不许再自己另写一套翻译");
-  const st = comp.slice(comp.indexOf("function TransTextState("), comp.indexOf("function TransTextState(") + 1600);
+  const st = comp.slice(comp.indexOf("function TransTextState("), comp.indexOf("function TransTextState(") + 2400);
   assert.match(st, /long && typeof translatableLangLong === "function" \? translatableLangLong\(text\)/);
   assert.match(st, /translateLongToZh\(text, lang, noModel/);
 });

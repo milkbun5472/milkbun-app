@@ -56,6 +56,9 @@ test("清单上的每个钩子，源码里都真的挂着", () => {
     || new RegExp('pill\\([\\s\\S]{0,1500}?, "' + n + '"\\)').test(src)
     // 第六种：论坛小红书的 xhsGrid(list, "fonotes")——第二个参数就是挂点，帮手里写着 "data-wk": wk || "foxhsgrid"
     || new RegExp('xhsGrid\\([^\n)]*, "' + n + '"\\)').test(src)
+    // 第八种：贴表情面板的 chip(txt, on, onClick, "msgstickgroup") / btn(txt, onClick, "msgstickoff")
+    //   ——最后一个参数就是挂点，帮手里写着 "data-wk": wk。onClick 可能是多行回调，所以不按行找
+    || new RegExp('(chip|btn)\\([\\s\\S]{0,800}?, "' + n + '"[,)]').test(src)
     // 第七种：走子棋公共页（v76.772）写的是 "data-wk": K + "talk"，K 是 useEngineBoard 那一桌的 key（chess / xiangqi / jungle）
     || boardHooks.has(n);
   const missing = names.filter(n => !hung(n));

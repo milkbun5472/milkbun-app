@@ -15,7 +15,7 @@ test("滑和长按住在同一只钩子里，不另起一份量手指的", () =>
 });
 
 test("单聊、群聊都接上，只给本来能引用的消息", () => {
-  const calls = comp.match(/useLongPressMenu\(setMenu, \{ onSwipeLeft: i => \{[\s\S]{0,260}?menuItemsForKind\(mm, false\)\.some\(g => g\.indexOf\("quote"\) >= 0\)/g) || [];
+  const calls = comp.match(/useLongPressMenu\(setMenu, \{ (?:onDoubleTap: [^\n]*?, )?onSwipeLeft: i => \{[\s\S]{0,260}?menuItemsForKind\(mm, false\)\.some\(g => g\.indexOf\("quote"\) >= 0\)/g) || [];
   assert.equal(calls.length, 2);
   assert.match(comp, /setQuoted\(window\.GroupQuote \? window\.GroupQuote\.makeSelection\(mm, i, meName\)/, "群里没走 GroupQuote 那个形状");
 });

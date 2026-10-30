@@ -653,6 +653,15 @@ function forumBoardRulesOf(name) {
   const b = forumCustomBoards().find(x => x.name === name);
   return b && Array.isArray(b.rules) ? b.rules.map(r => String(r || "").trim()).filter(Boolean).slice(0, 8) : [];
 }
+// 吧主能挑的熟面孔：常驻名单里不在匿名吧的那些
+function forumOwnerRegulars() { return typeof FORUM_NPC_REGISTRY !== "undefined" ? FORUM_NPC_REGISTRY.filter(n => n && !(n.boards || []).includes("匿名吧")) : []; }
+// 她开的吧的吧主 → 名字；角色被删了、熟面孔对不上就当没有
+function forumBoardOwnerName(name, chars) {
+  const b = forumCustomBoards().find(x => x.name === name), o = b && b.owner;
+  if (!o || !o.id) return "";
+  if (o.kind === "char") { const c = (chars || []).find(x => x && x.id === o.id); return c ? c.name : ""; }
+  const n = forumOwnerRegulars().find(x => x.id === o.id); return n ? n.name : "";
+}
 function forumBoardAbout(name) { const b = forumCustomBoards().find(x => x.name === name); return b ? String(b.about || "").trim() : ""; }
 // FORUM_AV_EMOJI 已删（v56.12）：论坛头像不再画 emoji，改走 autoAvatarSrc。
 function forumHash(str) { let h = 2166136261; str = String(str || ""); for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 16777619); } return h >>> 0; }
@@ -4367,7 +4376,7 @@ const CARRY_SECTIONS = [
 // 她刚添上的那几套会在界面上被静默砍掉，人还以为没添进去。
 // 天花板是许可不是指标（她 2026-09-12 那句，v67.25 同一条）：
 // 用不到的时候它一分钱不花，太低的时候才实打实掐掉她攒的东西。
-const CLOSET_MAX_OCCASIONS = 16, CLOSET_MAX_SETS = 20, CLOSET_MAX_TOTAL = 120;   // 她 2026-10-13：「上限放宽点」
+const CLOSET_MAX_OCCASIONS = 30, CLOSET_MAX_SETS = 50, CLOSET_MAX_TOTAL = 120;   // 她 2026-10-13：「上限放宽点」；2026-10-30 又放到 30 类、每类 50 身（我的衣柜也读这一份）。总数 120 只管 TA 的：那份要进TA的提示词
 // 读衣柜：新形状按场合分组，旧形状是一条平的 items。两种都得认得（她手机上已经有旧数据）。
 function closetGroups(data) {
   if (!data) return [];

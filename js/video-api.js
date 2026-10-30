@@ -4,7 +4,7 @@
   const CONFIG = "x_videoApi", MEDIA = "x_pomodoro_media", JOBS = "x_pomodoro_video_jobs";
   const DEFAULT = { enabled: false, baseUrl: "https://api.minimax.io", apiKey: "", model: "MiniMax-H3", resolution: "768P", duration: 4 };
   const MODELS = ["MiniMax-H3", "MiniMax-H3-Max", "MiniMax-Hailuo-2.3-Fast", "MiniMax-Hailuo-2.3", "MiniMax-Hailuo-02", "I2V-01-live", "I2V-01-Director", "I2V-01"];
-  const MOTION = "[Static shot] 人物保持原来的位置，轻轻呼吸、自然眨眼，头发轻微摆动，动作幅度很小，最后回到初始姿态，适合循环播放。";
+  const MOTION = "[Static shot] 人物保持原来的位置，几乎静止，像一张动态照片：只有光线和空气在轻轻变，人和头发几乎不动，不做表情、不做动作，最后回到初始姿态，适合循环播放。";
   function base(value) { return cleanBaseUrl(value).replace(/\/v[12](?:\/.*)?$/i, ""); }
   const isV2 = model => model === "MiniMax-H3" || model === "MiniMax-H3-Max";
   const resolutions = model => model === "MiniMax-H3" ? ["768P", "2K"] : model === "MiniMax-H3-Max" ? ["768P", "480P"] : model.startsWith("I2V-") ? ["720P"] : ["768P", "1080P", ...(model === "MiniMax-Hailuo-02" ? ["512P"] : [])];
@@ -18,7 +18,15 @@
   //   tasks＝new-api / one-api 那种通用任务：POST /v1/video/generations，GET /v1/video/generations/{id}
   //   openai＝OpenAI 视频：POST /v1/videos（表单传图），GET /v1/videos/{id}，成了到 /v1/videos/{id}/content 下载（要带 key）
   //   各家回来的字段名不一样，编号、状态、下载地址都按几种常见叫法去找。
-  const RELAY_FORMATS = [["tasks", "通用任务格式（/v1/video/generations）"], ["openai", "OpenAI 格式（/v1/videos）"]];
+  const RELAY_FORMATS = [["tasks", "通用任务格式（/v1/video/generations）"], ["openai", "OpenAI 格式（/v1/videos）"], ["cats", "CatsAPI 格式（/api/tasks）"]];
+  //   cats＝CatsAPI 自己那套（照它家 ComfyUI 插件 maodeyu180/ComfyUI_Catsapi 的写法）：POST /api/tasks，GET /api/tasks/{id}，
+  //   视频在 result_video.url；型号用它自己的叫法，不在 /v1/models 里列
+  const CATS_VIDEO_MODELS = ["seedance20", "seedance20Mini", "grokImagineVideo", "geminiOmniFlash"];
+  // 这几个各自认几到几秒（同一份插件里写的）；不在这张表里的不拦，交给站点说
+  // CatsAPI 的任务接口挂在域名根上（跟图像那条 new URL("/api/tasks", base) 同一个认法）：
+  //   地址里带着 /api/v1 之类（从图像设置抄过来的）也一样落到根上，不拼成 …/api/v1/api/tasks
+  const catsRoot = u => { try { return new URL(u).origin; } catch (e) { return u; } };
+  const CATS_SECONDS = { seedance20: [4, 15], seedance20Mini: [4, 15], grokImagineVideo: [5, 15], geminiOmniFlash: [5, 10] };
   const RELAY_DEFAULT = { baseUrl: "", apiKey: "", model: "", format: "tasks", duration: 5 };
   const KLING_SITES = [["国内 北京", "https://api-beijing.klingai.com"], ["海外 新加坡", "https://api-singapore.klingai.com"]];
   const KLING_MODELS = ["kling-v2-1", "kling-v2-1-master", "kling-v2-5-turbo", "kling-v2-6", "kling-v3", "kling-v2-master", "kling-v1-6", "kling-v1-5", "kling-v1"];
@@ -39,7 +47,7 @@
     const a = Object.assign({}, ARK_DEFAULT, c.seedance || {}); a.baseUrl = trimUrl(a.baseUrl) || ARK_DEFAULT.baseUrl; a.apiKey = String(a.apiKey || "").trim(); a.model = String(a.model || "").trim() || ARK_DEFAULT.model;
     a.resolution = ["480p", "720p", "1080p"].includes(a.resolution) ? a.resolution : "720p"; a.duration = Math.max(2, Math.min(12, Math.round(Number(a.duration) || 5))); c.seedance = a;
     const rl = Object.assign({}, RELAY_DEFAULT, c.relay || {}); rl.baseUrl = trimUrl(rl.baseUrl).replace(/\/v1$/i, ""); rl.apiKey = String(rl.apiKey || "").trim(); rl.model = String(rl.model || "").trim();
-    rl.format = rl.format === "openai" ? "openai" : "tasks"; rl.duration = rl.duration === "" ? "" : Math.max(1, Math.min(60, Math.round(Number(rl.duration) || 5))); c.relay = rl;
+    rl.format = ["openai", "cats"].includes(rl.format) ? rl.format : "tasks"; rl.ratio = ["9:16", "16:9", "3:4", "4:3", "1:1"].includes(rl.ratio) ? rl.ratio : "9:16"; rl.duration = rl.duration === "" ? "" : Math.max(1, Math.min(60, Math.round(Number(rl.duration) || 5))); c.relay = rl;
     if (!MODELS.includes(c.model)) c.model = DEFAULT.model;
     if (!resolutions(c.model).includes(c.resolution)) c.resolution = resolutions(c.model)[0];
     const allowed = durations(c.model, c.resolution); c.duration = allowed.includes(Number(c.duration)) ? Number(c.duration) : allowed[0];
@@ -74,9 +82,15 @@
     try {
       // 表单（OpenAI 那种 /v1/videos 传图）原样发，浏览器自己带分隔符；别的照旧 JSON
       const form = typeof FormData !== "undefined" && body instanceof FormData;
-      const r = await fetch(url, { method: body ? "POST" : "GET", headers: Object.assign({ Authorization: "Bearer " + token }, body && !form ? { "Content-Type": "application/json" } : {}), body: body ? (form ? body : JSON.stringify(body)) : undefined, signal: controller.signal });
-      let d; try { d = JSON.parse(await r.text()); } catch (_) { throw Error("视频接口没有返回可读的内容（HTTP " + r.status + "）"); }
-      if (!r.ok || (typeof d.code === "number" && d.code !== 0) || d.error && d.error.message) throw Error((d.error && d.error.message) || d.message || ("视频接口 HTTP " + r.status));
+      const init = { method: body ? "POST" : "GET", headers: Object.assign({ Authorization: "Bearer " + token }, body && !form ? { "Content-Type": "application/json" } : {}), body: body ? (form ? body : JSON.stringify(body)) : undefined, signal: controller.signal };
+      // CatsAPI 不给浏览器跨域：跟图像那条同一个口子，交给原生壳代发（她 2026-10-29「这家图像是可以用的」，视频却连不上）。
+      //   表单（OpenAI 那种传图）原生壳带不了，只能浏览器直发
+      const native = !form && typeof isCatsImageProvider === "function" && isCatsImageProvider(url) && typeof nativeProviderFetch === "function";
+      const r = native ? await nativeProviderFetch(url, Object.assign({}, init, { timeoutMs: 45000 })) : await fetch(url, init);
+      // 报错带上发到哪个地址（她 2026-10-29 连报两次 404，光一个数字看不出是路径错还是站点错）
+      const where = " · " + (body ? "POST " : "GET ") + String(url).replace(/\?.*$/, "");
+      let d; try { d = JSON.parse(await r.text()); } catch (_) { throw Error("视频接口没有返回可读的内容（HTTP " + r.status + where + "）"); }
+      if (!r.ok || (typeof d.code === "number" && d.code !== 0) || d.error && d.error.message) throw Error(((d.error && d.error.message) || d.detail || d.message || ("视频接口 HTTP " + r.status)) + (r.ok ? "" : "（HTTP " + r.status + where + "）"));
       return d;
     } catch (e) {
       if (e.name === "AbortError") throw e;
@@ -162,6 +176,9 @@
   // 可灵、即梦提交：跟 MiniMax 同一个规矩——先记 Submitting，超时断网不补发，拿到编号才算交上去
   async function createVendor(c, id, imageRef, input, prompt, signal) {
     const v = c.vendor, k = c[v], text = String(prompt).trim().slice(0, 2000);
+    // 秒数超出这个型号认的范围：在记任务之前就拦，不留一条「提交未确认」
+    const _cs = v === "relay" && k.format === "cats" && CATS_SECONDS[k.model], _sec = Number(k.duration) || 5;
+    if (_cs && (_sec < _cs[0] || _sec > _cs[1])) throw Error(k.model + " 只能生成 " + _cs[0] + "～" + _cs[1] + " 秒，改一下时长再点生成（这次没发出去，没扣费）");
     const record = { vendor: v, baseUrl: k.baseUrl, model: k.model, imageRef, prompt: text, createdAt: Date.now(), status: "Submitting" };
     patchMap(JOBS, id, record);
     let d;
@@ -173,7 +190,13 @@
       } else if (v === "relay") {
         record.format = k.format;
         const sec = Number(k.duration) || 5;   // 输入框清空了还没填就交：按 5 秒
-        if (k.format === "openai") {
+        if (k.format === "cats") {
+          const img = { name: "first.png", base64: input }, sd = /^seedance/i.test(k.model);
+          const params = { duration: String(sec), aspectRatio: k.ratio || "9:16", rewritePrompt: false, ...(/gemini/i.test(k.model) ? {} : { resolution: "720p" }),
+            ...(sd ? { inputMode: "reference" } : {}), ...(k.model === "seedance20" ? { mode: "fast" } : {}) };
+          d = await vendorRequest(catsRoot(k.baseUrl) + "/api/tasks", k.apiKey, { model: k.model, prompt: text, task_type: "video", params, num_images: 1,
+            files: sd ? { referenceImages: [img] } : { startFrame: img } }, signal);
+        } else if (k.format === "openai") {
           const f = new FormData(); f.append("model", k.model); f.append("prompt", text); f.append("seconds", String(sec));
           f.append("input_reference", dataUrlToBlob(input), "first.png");
           d = await vendorRequest(k.baseUrl + "/v1/videos", k.apiKey, f, signal);
@@ -194,11 +217,11 @@
     if (k.baseUrl !== record.baseUrl) throw Error("请切回创建这段视频时的站点，再查询原任务");
     let status, url, why;
     if (record.vendor === "relay") {
-      const oa = record.format === "openai", path = oa ? "/v1/videos/" : "/v1/video/generations/";
-      const d = await vendorRequest(record.baseUrl + path + encodeURIComponent(record.taskId), k.apiKey, null, signal);
+      const oa = record.format === "openai", path = oa ? "/v1/videos/" : record.format === "cats" ? "/api/tasks/" : "/v1/video/generations/";
+      const d = await vendorRequest((record.format === "cats" ? catsRoot(record.baseUrl) : record.baseUrl) + path + encodeURIComponent(record.taskId), k.apiKey, null, signal);
       status = relayState(pick(d, ["status", "data.status", "task_status", "data.task_status", "state", "data.state"]));
-      why = pick(d, ["error.message", "data.error.message", "fail_reason", "data.fail_reason", "message", "error"]);
-      url = pick(d, ["url", "video_url", "data.url", "data.video_url", "content.video_url", "data.output.url", "result.url", "data.result_url", "output"]);
+      why = pick(d, ["error_message", "error.message", "data.error.message", "fail_reason", "data.fail_reason", "message", "error"]);
+      url = pick(d, ["result_video.url", "result_video.videoUrl", "result_video.video_url", "url", "video_url", "data.url", "data.video_url", "content.video_url", "data.output.url", "result.url", "data.result_url", "output"]);
       if (typeof url !== "string" || !/^https?:/i.test(url)) url = findVideoUrl(d);
       if (!url && oa && status === "succeeded") url = record.baseUrl + "/v1/videos/" + encodeURIComponent(record.taskId) + "/content";
       return { status, url, why: typeof why === "string" ? why : why && JSON.stringify(why).slice(0, 200) };
@@ -301,7 +324,7 @@
   async function allVideos() {
     const refs = new Set(); Object.values(motionAll()).forEach(m => Object.values(m || {}).forEach(x => { if (x && x.videoRef) refs.add(x.videoRef); }));
     // 邮票册 SSR 卡面动起来的那几段也一起备份（她 2026-10-30）
-    try { ((loadJSON("x_stamps", {}) || {}).cards || []).forEach(c => { if (c && c.video) refs.add(c.video); }); } catch (e) {}
+    try { ((loadJSON("x_stamps", {}) || {}).cards || []).forEach(c => { if (c && c.video) refs.add(c.video); if (c && c.videos) Object.values(c.videos).forEach(v => { if (v) refs.add(v); }); }); } catch (e) {}
     const out = []; for (const ref of refs) { const b = await blobOp(ref).catch(() => null); if (b) out.push([ref, b]); } return out;
   }
   const restoreVideo = (ref, blob) => blobOp(ref, blob);
@@ -392,11 +415,14 @@
         row("视频模型（照中转站列出的名字填）", h("div", { style: { display: "flex", gap: 6 } },
           h("input", { "data-wk": "input", "aria-label": "中转视频模型", list: "relay-models", value: r.model, onChange: e => sr({ model: e.target.value }), style: Object.assign({}, input, { flex: 1 }) }),
           h("button", { type: "button", onClick: pullModels, disabled: pulling, style: Object.assign({}, input, { width: "auto", flexShrink: 0, color: t.ink, opacity: pulling ? 0.5 : 1 }) }, pulling ? "拉取中…" : "拉取模型"))),
-        h("datalist", { id: "relay-models" }, models.map(m => h("option", { key: m, value: m }))),
-        models.length ? h("div", { "data-wk": "relaymodels", style: { display: "flex", flexWrap: "wrap", gap: 6, marginTop: 8, maxHeight: 180, overflowY: "auto" } },
-          models.map(m => h("button", { key: m, type: "button", onClick: () => sr({ model: m }), style: { minHeight: 32, padding: "0 10px", borderRadius: 999, fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))",
+        h("datalist", { id: "relay-models" }, (r.format === "cats" && !models.length ? CATS_VIDEO_MODELS : models).map(m => h("option", { key: m, value: m }))),
+        r.format !== "cats" && typeof isCatsImageProvider === "function" && isCatsImageProvider(r.baseUrl) ? note("这是 CatsAPI 的地址：写法要选「CatsAPI 格式」，不然会 404。") : null,
+        r.format === "cats" && /^seedance/i.test(r.model) ? note("⚠️ CatsAPI 的 Seedance 只有「参考图」模式：图只当长相参考，画面会照文字重拍，人、场景、构图都可能换掉，接不上原图。要让一张图本身动起来（卡面、动态形象），选 grokImagineVideo 或 geminiOmniFlash，它们从这张图开始动。") : null,
+        r.format === "cats" ? row("画面比例", h("select", { "aria-label": "中转画面比例", value: r.ratio, onChange: e => sr({ ratio: e.target.value }), style: input }, ["9:16", "3:4", "1:1", "4:3", "16:9"].map(x => h("option", { key: x, value: x }, x)))) : null,
+        (r.format === "cats" && !models.length ? CATS_VIDEO_MODELS : models).length ? h("div", { "data-wk": "relaymodels", style: { display: "flex", flexWrap: "wrap", gap: 6, marginTop: 8, maxHeight: 180, overflowY: "auto" } },
+          (r.format === "cats" && !models.length ? CATS_VIDEO_MODELS : models).map(m => h("button", { key: m, type: "button", onClick: () => sr({ model: m }), style: { minHeight: 32, padding: "0 10px", borderRadius: 999, fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))",
             border: "1px solid " + (r.model === m ? t.ink : t.line), background: r.model === m ? t.ink : "transparent", color: r.model === m ? t.bg2 : t.ink } }, m))) : null,
-        row("时长（秒，自己填，1～60）", h("input", { "data-wk": "input", type: "number", inputMode: "numeric", min: 1, max: 60, "aria-label": "中转时长", value: r.duration,
+        row(r.format === "cats" && CATS_SECONDS[r.model] ? "时长（秒，" + r.model + " 支持 " + CATS_SECONDS[r.model][0] + "～" + CATS_SECONDS[r.model][1] + " 秒）" : "时长（秒，自己填，1～60）", h("input", { "data-wk": "input", type: "number", inputMode: "numeric", min: 1, max: 60, "aria-label": "中转时长", value: r.duration,
           onChange: e => sr({ duration: e.target.value }), style: input })),
         note("给那种一个站里能挑很多家视频模型的中转站用：首帧是你选的那张图。写法挑它 API 文档里写的那种；只按官方原样转发的，直接用上面对应那一家、把接口地址换成中转站的就行。秒数随便填，但那个模型只认它支持的几档，填了它不支持的会报错，以中转站为准，点生成才扣费。"),
         err ? h("p", { role: "alert", style: { color: t.accent, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))" } }, err) : null);
