@@ -7396,7 +7396,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         const isOff = m._surface === "offline";
         // 只数TA的拍子：她自己在线下打的字本来就短，不该占掉「最近三拍给原文」的名额
         if (isOff && m.role !== "user") offSeen++;
-        const dateAnchor = m.role === "user" ? vAnchor(m.content, m.ts, charId) : "";
+        const dateAnchor = m.role === "user" ? vAnchor(m.content, m.ts, char.id) : "";
         const speaker = m.role === "user" ? uName : (m.role === "narration" ? "【线下场景】" : (m.senderName || char.name));
         // 线下的老拍子压成摘录；她自己在线下打的字很短，照原文走
         // ⚠️转账那一条不能照原文走：存下来的「你向 XX 转了 ¥200」是写给她看的旁白，
