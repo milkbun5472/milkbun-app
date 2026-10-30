@@ -24445,7 +24445,17 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         // 简介就是这个吧的设定（群里 2026-10-30：想开一个嗑她和角色 cp 的吧，「两个地方都试了不太有效」）：
         //   别处那几条「别把她和角色的事往网上发」「网友不认识她」是给普通吧的，在她亲手写了设定的吧里让位给简介
         + "简介是她给这个吧定的设定，说了算：简介里写到的人和关系（台上的角色、她、他们之间的事），在这个吧里就是大家都知道、天天在聊的，资料上面都有；"
-        + "别处那些「别把她和角色的事往网上发」「网友不认识她」的规矩，碰上简介写到的人和事，在这个吧里照简介来。" : "");
+        + "别处那些「别把她和角色的事往网上发」「网友不认识她」的规矩，碰上简介写到的人和事，在这个吧里照简介来。" : "")
+      + forumOwnerLine(b);
+  };
+  // 她给自己开的吧挑的吧主（群里 2026-10-31 许愿）：吧主是这个吧的管理员，大家都知道是谁；
+  //   Ta 怎么当吧主照 Ta 自己的性子来，有事才出来，不是每帖都在。
+  const forumOwnerLine = b => {
+    const bo = forumCustomBoards().find(x => x.name === b), o = bo && bo.owner;
+    const nm = typeof forumBoardOwnerName === "function" ? forumBoardOwnerName(b, forumActiveChars()) : "";
+    if (!nm) return "";
+    return "\n这个吧的吧主是「" + nm + "」" + (o.kind === "npc" ? "（常驻熟面孔，写 Ta 时 npcId 填 " + o.id + "）" : "（角色本人，写 Ta 时 char 填 " + nm + "）")
+      + "：在这儿说话大家都知道是吧主；管不管、怎么管照 Ta 自己的性子来，有事的帖子才出来，不是每帖都在。";
   };
   // 随机互动数（赞/浏览/转发），据种子稳定生成，纯展示
   const forumCounts = (seed, replyCount) => { const hh = forumHash(seed); const rc = replyCount || (12 + hh % 480); return { replyCount: rc, likeCount: Math.floor(rc * (0.6 + (hh % 40) / 25)) + (hh % 40), viewCount: rc * (8 + hh % 90) + (hh % 600), rtCount: Math.floor(rc / (5 + hh % 14)) }; };

@@ -653,6 +653,15 @@ function forumBoardRulesOf(name) {
   const b = forumCustomBoards().find(x => x.name === name);
   return b && Array.isArray(b.rules) ? b.rules.map(r => String(r || "").trim()).filter(Boolean).slice(0, 8) : [];
 }
+// 吧主能挑的熟面孔：常驻名单里不在匿名吧的那些
+function forumOwnerRegulars() { return typeof FORUM_NPC_REGISTRY !== "undefined" ? FORUM_NPC_REGISTRY.filter(n => n && !(n.boards || []).includes("匿名吧")) : []; }
+// 她开的吧的吧主 → 名字；角色被删了、熟面孔对不上就当没有
+function forumBoardOwnerName(name, chars) {
+  const b = forumCustomBoards().find(x => x.name === name), o = b && b.owner;
+  if (!o || !o.id) return "";
+  if (o.kind === "char") { const c = (chars || []).find(x => x && x.id === o.id); return c ? c.name : ""; }
+  const n = forumOwnerRegulars().find(x => x.id === o.id); return n ? n.name : "";
+}
 function forumBoardAbout(name) { const b = forumCustomBoards().find(x => x.name === name); return b ? String(b.about || "").trim() : ""; }
 // FORUM_AV_EMOJI 已删（v56.12）：论坛头像不再画 emoji，改走 autoAvatarSrc。
 function forumHash(str) { let h = 2166136261; str = String(str || ""); for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 16777619); } return h >>> 0; }

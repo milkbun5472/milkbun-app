@@ -2307,17 +2307,19 @@ function Forum({
     const about = String((newBoard && newBoard.about) || "").trim().slice(0, 300);   // 简介就是这个吧的设定，60 字写不下（群里 2026-10-30）
     const skin = Number.isInteger(newBoard && newBoard.skin) ? newBoard.skin : undefined;
     const rules = forumRulesFromText(newBoard && newBoard.rules);
+    // 吧主（群里 2026-10-31 许愿）：{ kind: "char"|"npc", id }，不选就没有
+    const owner = newBoard && newBoard.owner && newBoard.owner.id ? { kind: newBoard.owner.kind, id: newBoard.owner.id } : null;
     // 编辑已经开好的吧：吧名、简介、颜色都能改；改名时帖子跟着挪（onRenameBoard）
     if (newBoard && newBoard.editOf) {
       const from = newBoard.editOf;
       if (name !== from && forumBoardsAll().includes(name)) { toast && toast("已经有「" + name + "」了"); return; }
-      saveBoards(forumCustomBoards().map(b => b.name === from ? Object.assign({}, b, { name: name, about: about, rules: rules }, skin === undefined ? {} : { skin: skin }) : b));
+      saveBoards(forumCustomBoards().map(b => b.name === from ? Object.assign({}, b, { name: name, about: about, rules: rules, owner: owner }, skin === undefined ? {} : { skin: skin }) : b));
       if (name !== from && onRenameBoard) onRenameBoard(from, name);
       setNewBoard(null); setTab(name);
       return;
     }
     if (forumBoardsAll().includes(name)) { toast && toast("已经有「" + name + "」了"); setTab(name); setNewBoard(null); return; }
-    saveBoards(forumCustomBoards().concat([Object.assign({ name: name, about: about, rules: rules, createdAt: Date.now() }, skin === undefined ? {} : { skin: skin })]));
+    saveBoards(forumCustomBoards().concat([Object.assign({ name: name, about: about, rules: rules, owner: owner, createdAt: Date.now() }, skin === undefined ? {} : { skin: skin })]));
     setNewBoard(null); setTab(name); setPage(1);
   };
   // 拆吧：只拆这块牌子，帖子一条不删——它们不在吧表里了，就自然回到搜索页「别的吧」那一叠
@@ -2335,7 +2337,8 @@ function Forum({
   // 这一格是不是她开的吧；横杠上挂什么（写死的吧规，或者她写的那句简介）
   const myBoardNow = forumCustomBoards().some(b => b.name === tab);
   const myRules = myBoardNow ? forumBoardRulesOf(tab) : [];
-  const boardRules = FORUM_BOARD_RULES[tab] || (myBoardNow ? (myRules.length ? myRules : [forumBoardAbout(tab) || "你开的吧，还没写这个吧聊什么"]) : null);
+  const ownerNm = myBoardNow ? forumBoardOwnerName(tab, characters) : "";
+  const boardRules = FORUM_BOARD_RULES[tab] || (myBoardNow ? (myRules.length ? myRules : [forumBoardAbout(tab) || "你开的吧，还没写这个吧聊什么"]).concat(ownerNm ? ["吧主：" + ownerNm] : []) : null);
   const [page, setPage] = useState(1);
   const [open, setOpen] = useState(null);            // 打开的帖子
   const [profileId, setProfileId] = useState(null);  // 角色主页 charId（"me" 走 nav）
@@ -3409,7 +3412,7 @@ function Forum({
           h("span", { style: { flexShrink: 0, padding: "0 5px", borderRadius: 3, background: forumBoardSkin(tab)[1], color: forumBoardSkin(tab)[0], fontFamily: F_BODY, fontSize: "calc(9.5px * var(--app-fs, 1))", lineHeight: "15px" } }, myBoardNow && !myRules.length ? "简介" : "吧规"),
           h("span", { className: "truncate", style: { flex: 1, minWidth: 0, fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: FORUM_SKIN.fog } }, boardRules[0]),
           h("span", { style: { flexShrink: 0, fontFamily: F_BODY, fontSize: "calc(9.5px * var(--app-fs, 1))", color: FORUM_SKIN.line } }, rulesOpen ? "收起" : (myBoardNow && !myRules.length ? "展开" : "共 " + boardRules.length + " 条"))),
-        myBoardNow && h("button", { onClick: () => { const b = forumCustomBoards().find(x => x.name === tab) || {}; setNewBoard({ name: String(b.name || tab).replace(/吧$/, ""), about: b.about || "", rules: (Array.isArray(b.rules) ? b.rules : []).join("\n"), skin: forumCustomSkinIndex(b), editOf: tab }); }, className: "shrink-0 active:opacity-60", style: { padding: "0 7px", borderRadius: 3, border: "1px solid " + FORUM_SKIN.line, background: FORUM_SKIN.paper, fontFamily: F_BODY, fontSize: "calc(9.5px * var(--app-fs, 1))", lineHeight: "16px", color: FORUM_SKIN.fog, whiteSpace: "nowrap" } }, "编辑"),
+        myBoardNow && h("button", { onClick: () => { const b = forumCustomBoards().find(x => x.name === tab) || {}; setNewBoard({ name: String(b.name || tab).replace(/吧$/, ""), about: b.about || "", rules: (Array.isArray(b.rules) ? b.rules : []).join("\n"), skin: forumCustomSkinIndex(b), owner: b.owner || null, editOf: tab }); }, className: "shrink-0 active:opacity-60", style: { padding: "0 7px", borderRadius: 3, border: "1px solid " + FORUM_SKIN.line, background: FORUM_SKIN.paper, fontFamily: F_BODY, fontSize: "calc(9.5px * var(--app-fs, 1))", lineHeight: "16px", color: FORUM_SKIN.fog, whiteSpace: "nowrap" } }, "编辑"),
         myBoardNow && h("button", { onClick: () => dropBoard(tab), className: "shrink-0 active:opacity-60", style: { padding: "0 7px", borderRadius: 3, border: "1px solid " + FORUM_SKIN.line, background: FORUM_SKIN.paper, fontFamily: F_BODY, fontSize: "calc(9.5px * var(--app-fs, 1))", lineHeight: "16px", color: FORUM_SKIN.fog, whiteSpace: "nowrap" } }, "拆吧"),
         onClearBoard && h("button", { onClick: () => onClearBoard(tab), className: "shrink-0 active:opacity-60", style: { marginLeft: 2, padding: "0 7px", borderRadius: 3, border: "1px solid " + FORUM_SKIN.line, background: FORUM_SKIN.paper, fontFamily: F_BODY, fontSize: "calc(9.5px * var(--app-fs, 1))", lineHeight: "16px", color: FORUM_SKIN.fog, whiteSpace: "nowrap" } }, "清空本版")),
       rulesOpen && h("div", { "data-wk": "block", onClick: () => setRulesOpen(false), style: { position: "absolute", top: "100%", left: 10, right: 10, marginTop: 6, padding: "9px 12px", borderRadius: 7, background: FORUM_SKIN.paper, border: "1px solid " + FORUM_SKIN.line, boxShadow: "0 10px 24px rgba(39,49,38,.16)", animation: "qqIn .18s ease both" } },
@@ -3509,6 +3512,15 @@ function Forum({
         h("textarea", { "data-wk": "textarea", value: newBoard.rules || "", onChange: e => setNewBoard(Object.assign({}, newBoard, { rules: e.target.value })), rows: 3, placeholder: "吧规（可以不写）：一行一条，最多八条",
           className: "w-full outline-none px-3 py-2.5 rounded-lg", style: { marginTop: 8, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", lineHeight: 1.6, background: t.bg2, color: t.ink, border: "1px solid " + t.line, resize: "none" } }),
         h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: FORUM_SKIN.fog, lineHeight: 1.6, marginTop: 4 } }, "挂在这个吧的置顶；网友偶尔会拿它说事，发错地方也会有人提一句，不是每层楼都管人"),
+        // 吧主：不选 / 一个角色 / 一个熟面孔
+        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: FORUM_SKIN.fog, marginTop: 12 } }, "吧主（可以不选）"),
+        h("div", { "data-wk": "foboardowner", className: "flex flex-wrap overflow-y-auto", style: { gap: 6, marginTop: 6, maxHeight: 132 } },
+          [{ kind: "", id: "", name: "不选" }].concat((characters || []).filter(c => c && !(forumOff || []).includes(c.id)).map(c => ({ kind: "char", id: c.id, name: c.name })),
+            forumOwnerRegulars().map(n => ({ kind: "npc", id: n.id, name: n.name }))).map(o => {
+            const on = String((newBoard.owner && newBoard.owner.id) || "") === o.id;
+            return h("button", { key: o.kind + o.id, "data-on": on ? "1" : "0", onClick: () => setNewBoard(Object.assign({}, newBoard, { owner: o.id ? { kind: o.kind, id: o.id } : null })), className: "active:opacity-70",
+              style: { minHeight: 40, padding: "0 12px", borderRadius: 999, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: on ? FORUM_SKIN.paper : FORUM_SKIN.sub, background: on ? FORUM_SKIN.accent : "transparent", border: "1px solid " + (on ? FORUM_SKIN.accent : FORUM_SKIN.line) } }, o.name);
+          })),
         // 颜色：点一个就是这个吧的色；不点就按吧名自动给一个
         h("div", { className: "flex flex-wrap", style: { gap: 8, marginTop: 12 } }, FORUM_CUSTOM_SKINS.map((sk, i) => {
           const on = (Number.isInteger(newBoard.skin) ? newBoard.skin : forumHash(forumBoardName(newBoard.name)) % FORUM_CUSTOM_SKINS.length) === i;
