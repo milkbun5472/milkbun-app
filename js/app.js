@@ -1641,7 +1641,9 @@ function App() {
   // 面具「先歇着」（群友 2026-10-15：「能不能根据面具分组启用，不用时那边时间可以选择暂停」）：
   //   跟这张面具聊的人（群＝群挑的那张面具）后台什么都不自己动，时间那只钟也停着（停钟在 VClockMasks 里一起拨）。
   const maskRested = id => { try { if (!id) return false; const k = String(maskKeyOf(id) || "") || "main"; const c = (((prefsRef.current || {}).vclocks) || {})[k]; return !!(c && c.rest); } catch (e) { return false; } };
-  const autoRefreshOn = (feature, charId) => !bgOff() && !maskRested(charId) && !(charId && BODY_NO_LIFE[feature] && (chatSettings[charId] || {}).bodyMode && !(chatSettings[charId] || {}).engineerEyes)
+  // 收起来的人（她 2026-10-31：通讯录长按「收起来」）：档案、聊天都留着，但所有自己会动的活（主动私聊、朋友圈、日记、补账……）都停，安静待着
+  const shelvedChar = id => !!(id && (characters || []).some(c => c && c.id === id && c.shelved));
+  const autoRefreshOn = (feature, charId) => !bgOff() && !maskRested(charId) && !shelvedChar(charId) && !(charId && BODY_NO_LIFE[feature] && (chatSettings[charId] || {}).bodyMode && !(chatSettings[charId] || {}).engineerEyes)
     && window.AutoRefreshPolicy.enabled(autoRefreshRef.current, feature, charId);
   const bgToastOn = () => loadJSON("x_bgToast", true) !== false;
   // AutoGate 的 key 里只有 id（"diary|c1"），名字每次渲染从角色表现取
@@ -10520,6 +10522,13 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     const r = listenReturnRef.current || "home";
     if (r === "home") goHome(); else setScreen(r);
     if (back) { if (back.kind === "char") setOfflineChar(back.v); else setOfflineGroup(back.v); }
+  };
+  // 收起来／放回来：只改档案上一个 shelved 记号，别的一样不动（导出、云同步都跟着档案走）
+  const setShelved = (id, on) => {
+    pC(p => p.map(x => x && x.id === id ? Object.assign({}, x, { shelved: on ? true : undefined }) : x));
+    if (on) setPinnedChats(p => { if (!p.includes(id)) return p; const n = p.filter(x => x !== id); saveJSON("x_pinnedChats", n); return n; });
+    const c = characters.find(x => x.id === id);
+    toast(on ? "收起来了：" + ((c && (c.remark || c.name)) || "TA") + " 的档案和聊天都留着，通讯录最底下能放回来" : "放回来了");
   };
   const saveChar = c => {
     // 选了中文以外的常用语言：这个人的「外语消息自带中译」没动过的话，帮她打开（不然看不懂）；她自己关过的不碰
@@ -33125,7 +33134,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       setEditingChar(c);
       setScreen("castForm");
     },
-    onClone: cloneChar
+    onClone: cloneChar,
+    onUnshelve: id => setShelved(id, false)
   });else if (screen === "castForm") body = /*#__PURE__*/React.createElement(CastForm, {
     onAskAssistant: () => setScreen("assistant"),
     initial: editingChar,
@@ -33152,7 +33162,10 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     }
   });else if (screen === "messages") body = /*#__PURE__*/React.createElement(Messages, {
     onMomentsSeen: () => setMoments(p => { const n = (p || []).map(m => (m.newLikes || (m.comments || []).some(c => c && c.unseen)) ? { ...m, newLikes: undefined, comments: (m.comments || []).map(c => c && c.unseen ? { ...c, unseen: undefined } : c) } : m); saveJSON("x_moments", n); return n; }),
-    characters: liveChars.map(chatFace),
+    characters: liveChars.filter(c => !c.shelved).map(chatFace),
+    shelvedChars: liveChars.filter(c => c.shelved).map(chatFace),
+    onShelve: id => setShelved(id, true),
+    onUnshelve: id => setShelved(id, false),
     allChars: characters,   // 聊天列表的群头像要按成员 id 找人，NPC 也在里头
     onSaveNpcBrief: (id, text) => { pC(p => p.map(c => c.id === id && c.npc ? { ...c, persona: String(text || "") } : c)); toast("已保存"); },
     onCreateNpc: data => !!addNpcLinked(data),
