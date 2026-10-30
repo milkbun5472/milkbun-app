@@ -28,3 +28,9 @@ test("QQ 那样的小条＋面板，能自己建几栏、挑快捷条用哪栏",
   assert.match(c, /Date\.now\(\) - bornAt\.current > 450/);
   for (const k of ["msgstickbar", "msgstickpanel", "msgstickgroup", "msgstickgroupnew", "msgstickedit", "msgstickown", "msgstickpacks"]) assert.match(ts, new RegExp('"' + k + '"'));
 });
+test("TA 也能往她的气泡上贴一个 emoji", () => {
+  assert.match(app, /stick:\{"quote":"她某句话里的原话，照抄几个字","emoji":"一个 emoji"\}=往她那句话上贴一个表情/);
+  assert.match(app, /theirStick: \{ emoji: _e, ts: Date\.now\(\) \}/);
+  assert.match(app, /你往她这句上贴过一个/);
+  assert.match(c, /const st = m && \(isU \? m\.theirStick : m\.stick\);/);
+});

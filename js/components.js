@@ -1118,7 +1118,8 @@ function MsgStickPicker({ at, hasStick, onPick, onClose, onPacks }) {
         hasStick ? btn("拿掉贴着的那个", () => onPick(null), "msgstickoff") : null)));
 }
 function msgStickEl(m, isU) {
-  const st = m && m.stick;
+  // 她贴在TA气泡上的是 stick；TA贴在她气泡上的是 theirStick（同一个画法）
+  const st = m && (isU ? m.theirStick : m.stick);
   if (!st || (!st.url && !st.emoji)) return null;
   // 小黄脸 emoji（她 2026-10-31：QQ 那种贴的其实是 emoji）：一个字，叠在角上
   if (st.emoji) return h("span", { "data-wk": "msgstick", "data-emoji": "1", style: { position: "absolute", bottom: -16, [isU ? "left" : "right"]: -10, minWidth: 26, height: 26, padding: "0 3px", borderRadius: 13, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 17, lineHeight: 1, background: "rgba(255,255,255,.92)", boxShadow: "0 1px 3px rgba(0,0,0,.18)", pointerEvents: "none", zIndex: 3 } }, st.emoji);
