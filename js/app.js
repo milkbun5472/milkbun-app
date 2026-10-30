@@ -24696,16 +24696,20 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     return raw && raw.version === 1 && raw.items && typeof raw.items === "object" ? raw : { version: 1, items: {} };
   };
   const forumCharTieKey = (a, b) => [String(a), String(b)].sort().join("|");
+  // 熟面孔（不在匿名吧的常驻网友）→ 名单那一条；搭子关系是写死的（FORUM_NPC_RELATIONS），那几对不另记账
+  const forumRegularOf = id => FORUM_NPC_REGISTRY.find(n => n.id === id && !(n.boards || []).includes("匿名吧")) || null;
+  const forumFixedPair = (a, b) => FORUM_NPC_RELATIONS.some(r => (r.a === a && r.b === b) || (r.a === b && r.b === a));
   const noteForumCharMeets = all => {
     const book = forumCharTies(); let changed = false;
-    const isMain = x => x && x.authorType === "character" && x.authorId;
+    // 角色只认大号；熟面孔只认名单上的常驻（路人一帖一换，记了也没人接得上）。
+    const isMain = x => x && x.authorId && (x.authorType === "character" || (x.authorType === "npc" && forumRegularOf(x.authorId)));
     Object.keys(all || {}).forEach(postId => (all[postId] || []).forEach(f => {
       if (!f) return;
       const reps = f.replies || [];
       reps.forEach(r => {
         if (!isMain(r)) return;
         const to = r.toName ? reps.find(y => y && y !== r && y.authorName === r.toName) : f;
-        if (!isMain(to) || to.authorId === r.authorId) return;
+        if (!isMain(to) || to.authorId === r.authorId || forumFixedPair(r.authorId, to.authorId)) return;
         const k = forumCharTieKey(r.authorId, to.authorId), old = book.items[k] || {};
         const posts = Array.isArray(old.posts) ? old.posts : [];
         if (posts.includes(postId)) return;
@@ -24732,8 +24736,17 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     return "「" + a.name + "」和「" + b.name + "」在论坛公开楼里互相回过 " + Math.min(9, Number(t.encounters)) + " 次" + how
       + "；再碰见认得对方这个账号" + (how ? "、可以接着这个调子" : "") + "，但只是网上见过，不知道对方私下的事";
   };
+  // 熟面孔跟谁在楼里碰过：熟面孔↔熟面孔（不是搭子的那些）、熟面孔↔角色。只挑这个吧在场的熟面孔，最近的几条。
+  const forumRegularMeetLines = board => {
+    const pool = new Map(forumNpcPool(board).map(n => [n.id, n]));
+    const nameOf = id => pool.has(id) ? pool.get(id).name : (forumActiveChars().find(c => c.id === id) || {}).name;
+    return Object.entries(forumCharTies().items).map(([k, t]) => ({ ids: k.split("|"), t }))
+      .filter(x => x.ids.some(id => pool.has(id)) && x.ids.every(id => nameOf(id)))
+      .sort((a, b) => Number(b.t.lastTs || 0) - Number(a.t.lastTs || 0)).slice(0, 8)
+      .map(x => "· " + forumCharTieLine({ id: x.ids[0], name: nameOf(x.ids[0]) }, { id: x.ids[1], name: nameOf(x.ids[1]) }));
+  };
   const forumNpcRule = board => {
-    const ties = forumNpcRelationLines(board), userTies = forumPublicTieLines(board);
+    const ties = forumNpcRelationLines(board).concat(forumRegularMeetLines(board)), userTies = forumPublicTieLines(board);
     // ⚠️原来写的是「约六成来自固定熟面孔…其余约四成【可以】是路人」。两头的具体度不对等：
     //   熟面孔是一句陈述 + 一份现成名单（填个 id 就行），路人是「可以」+ 还得自己起名字。
     //   模型当然走好走的那条。所以这里把默认那一头换过来，并且两边都说成同样具体的动作。
@@ -24760,7 +24773,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       + "。同一 npcId 要保持它那条括号里写的习惯；同一批里同一个熟面孔最多冒两次。"
       + "\n⚠️**没点到名单上的一律按路人落账**——想让某个熟面孔开口，npcId 或者名单上那个名字必须写出来。"
       + (ties.length ? "\n【熟面孔之间已经存在的公开交情】\n" + ties.join("\n") + "\n同帖遇见时可以自然接旧梗、附和或抬杠；别每次重新自我介绍，也别把公开交情写成私密记忆。" : "")
-      + "\n角色回另一个角色的那一条，顺手标 meetTone：这一句冲对方是什么调子——warm（搭上话、附和）/ spar（抬杠、呛）/ 留空。先照想写的写，写完照实标。"
+      + "\n角色或熟面孔回另一个角色或熟面孔的那一条，顺手标 meetTone：这一句冲对方是什么调子——warm（搭上话、附和）/ spar（抬杠、呛）/ 留空。先照想写的写，写完照实标。"
       + (userTies.length ? "\n【与用户公开账号的既往碰面】\n" + userTies.join("\n") + "\n只承认公开见过，别凭空补共同经历。" : "") + "\n";
   };
   // 模型【点名】了才算熟面孔：npcId，或者 handle／名字对得上名单。点不上就返回 null。
@@ -25150,7 +25163,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         const rc = (characters || []).find(c => c.name === r.char && forumInWorld(c, post));
         const rn = rc ? null : forumPublicNpcOf(r, (post && post.board) || "日常吧", idx + ":reply");
         const ri = rc ? forumCharIdentity(rc, r.identity, (post && post.board) || "日常吧") : null;
-        return { authorName: rc ? ri.authorName : rn.name, authorHandle: rc ? ri.authorHandle : rn.handle, authorType: rc ? ri.authorType : "npc", authorId: rc ? rc.id : rn.id, content: r.content, ts: base + idx, _to: r.to, ...(rc && TIE_TONES[r.meetTone] ? { meetTone: r.meetTone } : {}) };
+        return { authorName: rc ? ri.authorName : rn.name, authorHandle: rc ? ri.authorHandle : rn.handle, authorType: rc ? ri.authorType : "npc", authorId: rc ? rc.id : rn.id, content: r.content, ts: base + idx, _to: r.to, ...(TIE_TONES[r.meetTone] ? { meetTone: r.meetTone } : {}) };
       }).filter(r => r && !forumIsMine(r)).map((r, j, arr) => {
         // 「回复 @谁」：只认这层里【在它之前】出现过的人（层主不写——回层主是默认）
         const seen = arr.slice(0, j).map(x => x.authorName).filter(n => n && n !== (cc ? identity.authorName : npc.name));
@@ -25231,7 +25244,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     const cc = (characters || []).find(c => c.name === x.char && forumInWorld(c, post));
     if (cc) { const ci = forumCharIdentity(cc, x.identity, (post && post.board) || "日常吧"); return { authorName: ci.authorName, authorHandle: ci.authorHandle, authorType: ci.authorType, authorId: cc.id, content: x.content, ts: Date.now(), ...(TIE_TONES[x.meetTone] ? { meetTone: x.meetTone } : {}) }; }
     const npc = forumPublicNpcOf(x, (post && post.board) || "日常吧", "reply");
-    return { authorName: npc.name, authorHandle: npc.handle, authorType: "npc", authorId: npc.id, content: x.content, ts: Date.now() };
+    return { authorName: npc.name, authorHandle: npc.handle, authorType: "npc", authorId: npc.id, content: x.content, ts: Date.now(), ...(TIE_TONES[x.meetTone] ? { meetTone: x.meetTone } : {}) };
   };
   // 这帖里某个角色的「真实背景」：人设 + 按话题检索到的真实记忆 + 最近真的一起经历过的事。
   // 回帖补细节时必须依据这些，别现编。
@@ -26677,7 +26690,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         const cc = forumActiveChars().find(c => c.name === x.char && forumInWorld(c, post));
         if (cc) { const ci = forumCharIdentity(cc, x.identity, post.board); return { authorName: ci.authorName, authorHandle: ci.authorHandle, authorType: ci.authorType, authorId: cc.id, content: x.content, replyToMe: true, ...(toName ? { toName } : {}), ...(TIE_TONES[x.meetTone] ? { meetTone: x.meetTone } : {}), ts: replyBase + replyIndex }; }
         const npc = forumPublicNpcOf(x, post.board, floorId + ":" + x.content);
-        return { authorName: npc.name, authorHandle: npc.handle, authorType: "npc", authorId: npc.id, content: x.content, replyToMe: true, ...(toName ? { toName } : {}), ts: replyBase + replyIndex };
+        return { authorName: npc.name, authorHandle: npc.handle, authorType: "npc", authorId: npc.id, content: x.content, replyToMe: true, ...(toName ? { toName } : {}), ...(TIE_TONES[x.meetTone] ? { meetTone: x.meetTone } : {}), ts: replyBase + replyIndex };
       });
       // ⚠️上面被丢掉的（以她的名义生成的那些）是 null，绝不能落进状态
       const keptReps = reps.filter(r => r && !forumIsMine(r));
