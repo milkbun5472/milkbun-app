@@ -11019,6 +11019,7 @@ function isQuotaError(e) {
 // 写 localStorage。成功返回 true；写满(quota)时【弹全局警告】并返回 false——不再默默丢数据。
 // 文字库的唯一写入口（原样字符串）。saveJSON 和下面那层 localStorage 转接都走这一个。
 const TXT_PAD_MAX = 256 * 1024;
+let _txtHasDataMarked = false;
 function txtWrite(k, s) {
   s = String(s);
   if (_txtGate && !_txtGate.done) _txtEarlyWrites.add(k);
@@ -11026,6 +11027,11 @@ function txtWrite(k, s) {
   //   绝不能落进 IDB 盖掉真存档，也不能垫进小仓库（下次开机会被当成新版搬进去）。只留在内存里。
   if (_txtGate && _txtGate.done && !_txtGate.ok) { _txtMirror().set(k, s); return true; }
     _txtMirror().set(k, s);                         // 同步：内存镜像立刻更新（读侧马上拿得到）
+    // 「这台手机有存档了」当场记上（群里 2026-10-31：新人填好 API、关掉重开就回到旧的）：
+    //   原来只在开机灌库时才记，新人第一次打开那一回写的东西没记上；下次开机云同步看不到这个记号，
+    //   就当成新设备、拿云上那份旧的把本机盖了（cloud.js 的 bootHadLocal）
+    //   只认她真填进去的东西（线路、角色、群、世界、聊天），开机自己写的默认设置不算——不然新设备还没登录就被记成「有存档」，登录后不会自动从云上恢复
+    if (!_txtHasDataMarked && /^(x_api|x_characters|x_groups|x_worlds|x_chat:.+)$/.test(k) && s && s !== "null" && s !== "[]" && s !== "{}") { _txtHasDataMarked = true; try { lsRaw.set("qq_vaultHasData", "1"); } catch (e) {} }
     if (isDurableTextKey(k)) {
       // 记忆/线下剧情是核心数据：先把这一版同步写进临时 journal，再异步写 IDB；读回逐字一致后才删 journal。
       // 连续保存时，旧事务完成也不能删掉更新的 journal（值相等检查守住 lost write）。
