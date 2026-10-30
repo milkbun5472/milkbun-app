@@ -21,3 +21,9 @@ test("也能贴 emoji", () => {
   assert.match(app, /st\.emoji \? \{ emoji: String\(st\.emoji\)\.slice\(0, 8\) \}/);
   assert.match(ts, /"msgstickemoji"/);
 });
+test("emoji 能自己打，最近贴过的排前面", () => {
+  assert.match(c, /function MsgStickEmojiRow\(\{ onPick \}\)/);
+  assert.match(c, /saveJSON\("x_stickEmojiRecent"/);
+  assert.match(c, /"data-wk": "msgstickown"/);
+  assert.match(ts, /"msgstickown"/);
+});
