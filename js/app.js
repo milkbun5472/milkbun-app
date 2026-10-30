@@ -858,9 +858,9 @@ function App() {
       his: () => {
         const cid = target && target.id;
         if (!cid) return false;
-        if (total > asPhoneBal(cid)) { toast("他钱包里不够，只剩 ¥" + Math.round(asPhoneBal(cid) * 100) / 100); return false; }
+        if (total > asPhoneBal(cid)) { toast(characterText(characters.find(c => c.id === cid), "他钱包里不够，只剩 ¥" + Math.round(asPhoneBal(cid) * 100) / 100)); return false; }
         postCharTakeout(cid, { shop: item.takeout.shop, items: item.takeout.items, price: total, note: item.takeout.remark }, { byUser: true });
-        toast("用他的钱点了，骑手接单了");
+        toast(characterText(characters.find(c => c.id === cid), "用他的钱点了，骑手接单了"));
       },
       forchar: () => {
         const char = target && target.type === "char" ? characters.find(c => c.id === target.id) : null;
@@ -9057,7 +9057,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     // TA 帮我拍（她 2026-10-12：「线下他帮我拍的按钮在哪儿」）：画的是她，要的是她自己的外貌或参考照；地方和机位跟着此刻的场景
     if (kind === "me") {
       if (!(typeof imgApiReady === "function" && imgApiReady())) { toast("先去 设置·图像API 接一个图像模型"); return; }
-      if (!canShootMe(charId)) { toast("这张画的是你：先去「我」的资料（他认的那张面具）里填外貌或传一张参考照"); return; }
+      if (!canShootMe(charId)) { toast(characterText(char, "这张画的是你：先去「我」的资料（他认的那张面具）里填外貌或传一张参考照")); return; }
       const st0 = liveStateForScope(charId, scopeKey);
       const where = freshLiveStateValue(st0, "place"), doing = freshLiveStateValue(st0, "action");
       await runOfflineShot({ char, scopeKey, kind: "me", scene: (where ? "在" + where + "，" : "") + (doing ? char.name + "正" + doing + "，" : "") + char.name + "拿起手机给她拍了一张，照此刻的场景挑拍法" });
@@ -14883,7 +14883,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   // 她自己发一张生成的自拍（群友 2026-10-25 许愿）：画的是「我」那页的外貌／参考照，跟「他帮我拍」同一条出图路，只是自拍那一档
   const shootMeOnline = (charId, chatKey, scene, third) => {
     if (!(typeof imgApiReady === "function" && imgApiReady())) { toast("先去 设置·图像API 接一个图像模型"); return; }
-    if (!canShootMe(charId)) { toast("这张画的是你：先去「我」的资料（他认的那张面具）里填外貌或传一张参考照"); return; }
+    if (!canShootMe(charId)) { toast(characterText(characters.find(c => c.id === charId), "这张画的是你：先去「我」的资料（他认的那张面具）里填外貌或传一张参考照")); return; }
     const sid = "sf_" + Date.now(), desc = String(scene || "").trim().slice(0, 300);
     const pk = third ? "myshot" : "myself";
     pChat(chatKey, p => [...p, { role: "user", kind: "selfie", sid, imgKey: null, pending: true, desc, photoKind: pk, content: (third ? "[照片] " : "[自拍] ") + desc, ts: Date.now() }]);
@@ -15864,7 +15864,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       // 群里拍一拍（她 2026-10-25）：她在群里时能拍她或别的成员；旁观群里只能拍群里的人
       const gStickField = ",\"stick\":{\"quote\":\"（可选）群里某条消息里的原话，照抄几个字\",\"emoji\":\"一个 emoji\"}（想贴自己的表情包就把 emoji 换成 \"emote\":\"表情包关键词\"；往那条气泡上贴一个表情，像 QQ 的贴表情：群里谁的哪句话让你当下有了反应、这个反应一个表情就说得清的时候，就随手贴一个，贴了照样可以说话，也可以只贴不说；没有反应就整个省掉）";
       const gPatField = ",\"pat\":\"（可选）想用「拍一拍」戳谁一下就填那个人的名字（" + (imInGroup(group) ? gUName + " 或" : "") + "群里某位成员）；是一个动作，不是一句话，不用再在 text 里写「拍了拍」\"";
-      const system = groupBans({ echo: false, drama: !!gsFor(groupId).drama }) + "\n\n" + groupOnlineRuntime + "\n\n" + dir + commonTurn + gSameRoomHint + gBdayHint + gWhereHint + gTimeHint + gTopicHint + onlineRerollHint(rgOpts && rgOpts.rerollAvoid) + gNoticeHint + gDirHint + gEmoteHint + gSelfieHint + gDmHint + thoughtHint + npcStateHint + gBusyHint + gOfflineHint + gBiHint + gTfHint + gInviteHint + gPollHint + gRoleHint + gTitleHint + gLuckyHint + gWhisperHint + gKickInviteHint + (_gSchedNames.length ? "\n【改安排】" + _gSchedNames.map(n => "「" + n + "」").join("、") + "有今天的安排（写在各自那段里）。这一轮谁真的定下了从现在起要做的事跟自己的安排不一样，就在他自己那条发言对象里加 " + SCHED_NOW_SPEC + "只改他本人的；各人填各人的，没写安排的人不填。" : "") + gIdRule + "\n\n【成员】\n" + memberDesc + sameNameNote(members) + gGrowthHint + gMeBlock + gWishHint + gOnMeHint + gRelRule + (relLines ? "\n" + relLines : "") + (gWorld ? "\n\n【世界书】\n" + gWorld : "") + interop + preJoin + "\n\n【近期群聊】\n" + hist + rotateSpeakersNote(members, groupChatsRef.current[groupId]) + gQuoteCatalogText + gDramaTail + "\n\n【输出】只输出 JSON 数组，按发言先后顺序。普通发言 {\"name\":\"成员名\",\"text\":\"内容" + gBiTextSpec + "\",\"quoteId\":\"（可选）正式引用旧消息时填写上面目录里的 Q 编号；要引用的是这一轮里前面某人刚说的那条（目录里还没有），填 R 加它在本数组里的序号（R1 是第一条）；不引用就省略，禁止只抄原文猜作者\",\"emote\":\"（可选）想发的表情关键词\",\"voice\":\"（可选）填 true 表示这条作为语音消息发（会显示成语音气泡+转文字）——手上腾不出手打字、这段话打字太长、或者情绪上来了想让人听见声音时就这么发，不必等人问；发多发少按这个人自己的习惯来" + VOICE_PAUSE_MARK + voiceSoundHint() + "\",\"voiceEmo\":\"（可选，voice=true 时）这条语音的真实语气：happy/sad/angry/fearful/disgusted/surprised/neutral 之一，按说话人此刻真实情绪选，不看字面\"" + gCallField + gPatField + "" + gStickField + gDmField + thoughtField + impressionField + "}；某成员想撤掉自己说过的一句，那条加 \"recall\":true 和 \"recallReason\":\"为什么撤\"：text 照原话抄前面几轮自己已经发出去的那句，就撤那一句；写的是这一轮新的话，会先正常显示一秒再变成已撤回——真人在群里撤回多半是小事：打错字、发漏了半句、手滑发重了、群里说重了想换个说法、话本来是要私发的发错了地方；「后悔、说漏嘴」只是其中一种。撤完通常紧跟一条改好的。几十条里偶尔一次；发红包 {\"name\":\"成员名\",\"redpacket\":{\"total\":金额数字,\"count\":份数,\"message\":\"祝福语\",\"to\":\"（可选）只给某一个人时填 Ta 的名字——专属红包，别人领不了，金额不拆；谁都能抢就省略这一栏\"}}——有好事想请客、群里谁生日或有喜事、哄人、认输赔罪、节日、或者纯粹想热闹一下的时候就发，**不必等人开口要**；钱是真的从这个人钱包里扣的，所以数目要跟 Ta 的处境对得上，手头紧的人发小的、或者干脆不发。群里要拿主意、要挑一个、要看看大家怎么想时，谁都可以自己发起一张投票：那条加 \"pollNew\":{\"title\":\"投票题目\",\"options\":[\"选项1\",\"选项2\"],\"anon\":true或false}（至少两个选项；anon 为匿名投票）。发起的人照自己的性子决定发不发、发什么，同一条里的 text 照常说话。谁自己有件事想先让大家批（想买个东西、想请假、想换工作……照这个人会有的事），可以在那条加 \"askNew\":{\"what\":\"想干嘛\",\"reason\":\"理由\",\"amount\":要花的钱数（不花钱写 0）}，大家投准或驳，过半就准，准了钱从这个人钱包出；没有就不加。name 必须逐字等于成员名单中的一个名字；用户名字绝不能出现在 name。";
+      const system = groupBans({ echo: false, drama: !!gsFor(groupId).drama }) + "\n\n" + groupOnlineRuntime + "\n\n" + dir + commonTurn + gSameRoomHint + gBdayHint + gWhereHint + gTimeHint + gTopicHint + onlineRerollHint(rgOpts && rgOpts.rerollAvoid) + gNoticeHint + gDirHint + gEmoteHint + gSelfieHint + gDmHint + thoughtHint + npcStateHint + gBusyHint + gOfflineHint + gBiHint + gTfHint + gInviteHint + gPollHint + gRoleHint + gTitleHint + gLuckyHint + gWhisperHint + gKickInviteHint + (_gSchedNames.length ? "\n【改安排】" + _gSchedNames.map(n => "「" + n + "」").join("、") + "有今天的安排（写在各自那段里）。这一轮谁真的定下了从现在起要做的事跟自己的安排不一样，就在他自己那条发言对象里加 " + SCHED_NOW_SPEC + "只改他本人的；各人填各人的，没写安排的人不填。" : "") + gIdRule + "\n\n【成员】\n" + memberDesc + sameNameNote(members) + gGrowthHint + gMeBlock + gWishHint + gOnMeHint + gRelRule + (relLines ? "\n" + relLines : "") + (gWorld ? "\n\n【世界书】\n" + gWorld : "") + interop + preJoin + "\n\n【近期群聊】\n" + hist + rotateSpeakersNote(members, groupChatsRef.current[groupId]) + gQuoteCatalogText + gDramaTail + "\n\n【输出】只输出 JSON 数组，按发言先后顺序。普通发言 {\"name\":\"成员名\",\"text\":\"内容" + gBiTextSpec + "\",\"quoteId\":\"（可选）正式引用旧消息时填写上面目录里的 Q 编号；要引用的是这一轮里前面某人刚说的那条（目录里还没有），填 R 加它在本数组里的序号（R1 是第一条）；不引用就省略，禁止只抄原文猜作者\",\"emote\":\"（可选）想发的表情关键词\",\"voice\":\"（可选）填 true 表示这条作为语音消息发（会显示成语音气泡+转文字）——手上腾不出手打字、这段话打字太长、或者情绪上来了想让人听见声音时就这么发，不必等人问；发多发少按这个人自己的习惯来" + VOICE_PAUSE_MARK + voiceSoundHint() + "\",\"voiceEmo\":\"（可选，voice=true 时）这条语音的真实语气：happy/sad/angry/fearful/disgusted/surprised/neutral 之一，按说话人此刻真实情绪选，不看字面\"" + gCallField + gPatField + gStickField + "" + gDmField + thoughtField + impressionField + "}；某成员想撤掉自己说过的一句，那条加 \"recall\":true 和 \"recallReason\":\"为什么撤\"：text 照原话抄前面几轮自己已经发出去的那句，就撤那一句；写的是这一轮新的话，会先正常显示一秒再变成已撤回——真人在群里撤回多半是小事：打错字、发漏了半句、手滑发重了、群里说重了想换个说法、话本来是要私发的发错了地方；「后悔、说漏嘴」只是其中一种。撤完通常紧跟一条改好的。几十条里偶尔一次；发红包 {\"name\":\"成员名\",\"redpacket\":{\"total\":金额数字,\"count\":份数,\"message\":\"祝福语\",\"to\":\"（可选）只给某一个人时填 Ta 的名字——专属红包，别人领不了，金额不拆；谁都能抢就省略这一栏\"}}——有好事想请客、群里谁生日或有喜事、哄人、认输赔罪、节日、或者纯粹想热闹一下的时候就发，**不必等人开口要**；钱是真的从这个人钱包里扣的，所以数目要跟 Ta 的处境对得上，手头紧的人发小的、或者干脆不发。群里要拿主意、要挑一个、要看看大家怎么想时，谁都可以自己发起一张投票：那条加 \"pollNew\":{\"title\":\"投票题目\",\"options\":[\"选项1\",\"选项2\"],\"anon\":true或false}（至少两个选项；anon 为匿名投票）。发起的人照自己的性子决定发不发、发什么，同一条里的 text 照常说话。谁自己有件事想先让大家批（想买个东西、想请假、想换工作……照这个人会有的事），可以在那条加 \"askNew\":{\"what\":\"想干嘛\",\"reason\":\"理由\",\"amount\":要花的钱数（不花钱写 0）}，大家投准或驳，过半就准，准了钱从这个人钱包出；没有就不加。name 必须逐字等于成员名单中的一个名字；用户名字绝不能出现在 name。";
       // 触发用户内容：自上一条角色发言以来我说的话/旁白
       let tail = [];
       for (let i = gchat.length - 1; i >= 0; i--) {
@@ -23515,7 +23515,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       pChat(charId, p => [...p, { id: "zyd_" + Date.now(), role: "assistant", kind: "zyask", ts: Date.now(),
         content: "〔照影〕我做完了「" + test.name + "」，测出「" + res.title + "」",
         zy: { testId, testName: test.name, status: "done", recId, title: res.title, charId, srcId: msgId, ...(scene ? { scene } : {}) } }]);
-    } catch (e) { patch({ status: "failed" }); toast("他这回没做成：" + String((e && e.message) || e).slice(0, 50)); }
+    } catch (e) { patch({ status: "failed" }); toast(characterText(c, "他这回没做成：") + String((e && e.message) || e).slice(0, 50)); }
   };
   window.__zyOpen = m => { const z = (m && m.zy) || {}; if (z.recId) setZyWatch({ charId: z.charId, testId: z.testId, recId: z.recId, msgId: z.srcId || m.id, ...(z.groupId ? { groupId: z.groupId } : {}), ...(z.she ? { replay: true } : {}) }); };
   const zyWatchDone = w => {
@@ -23547,9 +23547,9 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       const t = Z.saveCustom({ ...(d || {}), ...(kind != null ? { kind } : {}), id: "", scored: false, by: charId, ...(mode === "open" ? { open: true } : {}) });
       if (!hasPref && d && d.pref && typeof d.pref === "object") Z.setPref(charId, d.pref);
       if (t) Z.noteKind(charId, Z.kindOf(t));
-      if (!t) { toast("他这回没出成题，再试一次"); return null; }
+      if (!t) { toast(characterText(c, "他这回没出成题，再试一次")); return null; }
       return t;
-    } catch (e) { toast("他这回没出成题：" + String((e && e.message) || e).slice(0, 50)); return null; }
+    } catch (e) { toast(characterText(c, "他这回没出成题：") + String((e && e.message) || e).slice(0, 50)); return null; }
   };
   // 一个群一起做（她 2026-10-22）：群里每个主角色各做一遍（一人一次调用），做完把大家的选法发进群，让他们自己聊
   // 同一个群同一套还在跑就不再进（她 2026-10-24 截图：同一条发了两遍）
@@ -23733,7 +23733,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       // 红包跟转账同一条（packet 标记）：她回自己聊天里点「拆红包」
       const r = postCharTransfer(char.id, a, nt, pk ? { byUser: true, packet: true } : { byUser: true });
       if (!r) return false;
-      toast(a < a0 ? "他只剩这么多，" + (pk ? "塞了 " : "转了 ") + moneyText(a, char.id) : pk ? "红包发出去了，回他聊天里拆" : "转出去了，回他聊天里点收下");
+      toast(characterText(char, a < a0 ? "他只剩这么多，" + (pk ? "塞了 " : "转了 ") + moneyText(a, char.id) : pk ? "红包发出去了，回他聊天里拆" : "转出去了，回他聊天里点收下"));
       return true;
     }
     const gid = id.indexOf("actual:group:") === 0 ? id.slice("actual:group:".length) : "";
@@ -27828,7 +27828,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       const half = Math.round(total / 2);
       if (!((charWalletRef.current || {})[char.id] || {}).init) { noTaWallet(); return; }
       if (!myPay(total - half)) return;
-      walletSpend(char.id, half, label + "（AA 他那一半）", "travel");
+      walletSpend(char.id, half, characterText(char, label + "（AA 他那一半）"), "travel");
     } else if (who === "kin") {
       if (!payWithKinship(char.id, [{ name: label, price: total }], total, { noOrder: true })) return;
     } else if (!myPay(total)) return;
@@ -31301,10 +31301,10 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       // 拿他手机买（asPhone）：花他的钱，每件都像他寄给她的礼物，回聊天里拆
       const cid = target && target.id;
       if (!cid) return;
-      if (total > asPhoneBal(cid)) { toast("他钱包里不够，只剩 ¥" + Math.round(asPhoneBal(cid) * 100) / 100); return; }
+      if (total > asPhoneBal(cid)) { toast(characterText(characters.find(c => c.id === cid), "他钱包里不够，只剩 ¥" + Math.round(asPhoneBal(cid) * 100) / 100)); return; }
       items.forEach(it => postCharGift(cid, it.name, it.price, "", { byUser: true }));
       removeCartUids(uids);
-      toast("用他的钱下单了，回聊天里拆");
+      toast(characterText(characters.find(c => c.id === cid), "用他的钱下单了，回聊天里拆"));
     }
   };
 
@@ -31720,7 +31720,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       });
       // 重名的照样留着（她 2026-10-13：「重复的照样留着吧都花了钱的」）——去重只靠上面把已有的告诉他、降低概率
       const items = emoteSetItems(d);
-      if (items.length < 9) throw new Error("他没挑够九个，再试一次");
+      if (items.length < 9) throw new Error(characterText(char, "他没挑够九个，再试一次"));
       const prompt = emoteSetPrompt(char.name, char.appearance, items);
       const out = await generateSelfieImage(prompt, [char.refPhoto], { size: "1024x1024", minimalPrompt: prompt });
       let blob = out && out.blob;
@@ -36067,7 +36067,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       onDelThought: what => delThought(!!roomCard, roomCard ? stateCardRoomKey : scc.id, what),
       wearSets: roomCard ? null : closetSetsOf((carryRef.current || {})[scc.id]),
       tpl: roomCard || typeof stateTplFor !== "function" ? null : stateTplFor(settingsFor(scc.id)),
-      onSetWearing: roomCard ? null : v => { const live = statesRef.current[scc.id] || {}, now = Date.now(); setStateFor(scc.id, { ...live, wearing: v, wearingUpdatedAt: now, wearingRefreshPending: false, ts: now }); toast("改好了，下一轮他照这身来"); },
+      onSetWearing: roomCard ? null : v => { const live = statesRef.current[scc.id] || {}, now = Date.now(); setStateFor(scc.id, { ...live, wearing: v, wearingUpdatedAt: now, wearingRefreshPending: false, ts: now }); toast(characterText(scc, "改好了，下一轮他照这身来")); },
       roomName: roomMeta && roomMeta.name,
       // 房间自己的动作、穿着也摆（她 2026-10-22「房间的动作怎么也被丢掉了」）：setRoomThought 早就把这间房的 action/wearing 记在 roomStates 里，
       //   是这里一直藏着没摆。摆的是本房那一份，不是主线的

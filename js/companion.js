@@ -247,7 +247,7 @@
       } catch (e) {
         // 失败要说一声（她 2026-09-29：「任何时候生成东西好了或者失败都要有 toast 提醒」）——
         //   原来这里是静默吞掉，于是花了钱、他却一句话没说，她只能去翻使用日志才知道
-        props.toast && props.toast("他这一句没说出来：" + String((e && e.message) || e || "").replace(/\s+/g, " ").slice(0, 60), 5000);
+        props.toast && props.toast(characterText(char, "他这一句没说出来：") + String((e && e.message) || e || "").replace(/\s+/g, " ").slice(0, 60), 5000);
       }
       finally { POKE_GATE.busy = false; }
     };
@@ -359,7 +359,7 @@
                   h("div", { style: { fontSize: "calc(13px * var(--app-fs, 1))" } }, "小人在来的路上… " + (petState.pct || 0) + "%"),
                   h("div", { style: { width: 140, height: 4, borderRadius: 2, background: "rgba(138,106,75,.18)", overflow: "hidden" } },
                     h("div", { style: { width: (petState.pct || 0) + "%", height: "100%", background: "#8a6a4b", transition: "width .25s" } })),
-                  h("div", { style: { fontSize: "calc(11px * var(--app-fs, 1))", color: "#a89a80" } }, "第一次要把他整个人下下来，之后就快了"))) : null),
+                  h("div", { style: { fontSize: "calc(11px * var(--app-fs, 1))", color: "#a89a80" } }, characterText(char, "第一次要把他整个人下下来，之后就快了")))) : null),
         h("div", { "data-wk": "comppanel", className: "flex-1 min-h-0 overflow-y-auto", style: { padding: "8px 20px", paddingBottom: "calc(env(safe-area-inset-bottom) * 0.4 + 24px)", fontFamily: F_BODY } },
           h("div", { "data-wk": "compmood", style: { fontSize: "calc(12.5px * var(--app-fs, 1))", color: "#6b5440", lineHeight: 1.8 } },
             (char.remark || char.name) + " 现在" + (mood ? "的心情是「" + mood + "」" : "没有记下心情") + "，脸上是「" + FACE_ZH[face] + "」。"
@@ -375,8 +375,8 @@
           cfg.pokeTalk && char.voiceId ? h("div", { style: { display: "flex", gap: 8, margin: "6px 0 4px" } },
             chip(!voiceOn(), "只冒字", () => { try { localStorage.setItem("x_fairyGardenVoice", "0"); } catch (e) {} bump(n => n + 1); }, "va"),
             chip(voiceOn(), "念出来", () => { try { localStorage.setItem("x_fairyGardenVoice", "1"); } catch (e) {} bump(n => n + 1); }, "vb")) : null,
-          h("div", { style: { fontSize: "calc(11px * var(--app-fs, 1))", color: "#9a8a70", lineHeight: 1.7, marginBottom: 14 } }, "开了以后，戳他、拎他时他会按自己的性子和此刻的心情回一句。每一句都会调用一次 API；连着戳只算一次，两句之间至少隔 15 秒。" + (char.voiceId ? "「念出来」和庭院、列车是同一个开关。" : "给他在角色资料里选一个声音，就能念出来。")),
-          h("div", { style: { fontSize: "calc(11px * var(--app-fs, 1))", color: "#9a8a70", lineHeight: 1.7, marginBottom: 12 } }, "待机和戳拎反应跟着真实心情；开心更活跃，低落更安静，手选表情也照样联动。晚安后会睡，按角色作息醒来揉眼，点他能叫醒。回来招手、新消息轻跳、打字探头、深夜揉眼；跟着天气观测牌所选地点，雨雪、冷热、晴天和大风时偶尔做小动作；前台约每15分钟更新天气。这些只做动作，不花调用。陪伴与「TA的一天」共用这一身，和庭院那一身分开。悬浮的小人拖右下角的小圆点能调大小；点手邀击掌，手举稳时再点同一只手；连续点头顶会从抬眼到靠近。按住能拎起来，放下理衣服，紧接着再拎会抱起胳膊；点他底下那条把手打开这一页。"),
+          h("div", { style: { fontSize: "calc(11px * var(--app-fs, 1))", color: "#9a8a70", lineHeight: 1.7, marginBottom: 14 } }, characterText(char, "开了以后，戳他、拎他时他会按自己的性子和此刻的心情回一句。每一句都会调用一次 API；连着戳只算一次，两句之间至少隔 15 秒。" + (char.voiceId ? "「念出来」和庭院、列车是同一个开关。" : "给他在角色资料里选一个声音，就能念出来。"))),
+          h("div", { style: { fontSize: "calc(11px * var(--app-fs, 1))", color: "#9a8a70", lineHeight: 1.7, marginBottom: 12 } }, characterText(char, "待机和戳拎反应跟着真实心情；开心更活跃，低落更安静，手选表情也照样联动。晚安后会睡，按角色作息醒来揉眼，点他能叫醒。回来招手、新消息轻跳、打字探头、深夜揉眼；跟着天气观测牌所选地点，雨雪、冷热、晴天和大风时偶尔做小动作；前台约每15分钟更新天气。这些只做动作，不花调用。陪伴与「TA的一天」共用这一身，和庭院那一身分开。悬浮的小人拖右下角的小圆点能调大小；点手邀击掌，手举稳时再点同一只手；连续点头顶会从抬眼到靠近。按住能拎起来，放下理衣服，紧接着再拎会抱起胳膊；点他底下那条把手打开这一页。")),
           Dress && pet() ? h(Dress, { who: "me", look: { me: Object.assign({}, own, auto ? {} : {}) }, styles, game: pet, pushLook }) :
             h("div", { style: { fontSize: "calc(12px * var(--app-fs, 1))", color: "#9a8a70" } }, "小人还在来的路上…"))));
   }

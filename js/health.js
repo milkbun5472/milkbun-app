@@ -582,7 +582,7 @@
                 patch(prev => ({ pacts: (prev.pacts || []).concat([{ id: "pc" + Date.now().toString(36), charId: pk.charId, kind: pk.kind, target: K.goal(prev), start: today, days: pk.days, reported: false }]) }));
                 setPk({ charId: "", kind: "", days: 7 }); props.toast && props.toast("约好了，从今天算起"); },
               style: Object.assign(btnS(S, true), { marginLeft: "auto", opacity: pk.charId && pk.kind ? 1 : 0.45 }) }, "立约")),
-          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: S.fog, marginTop: 8, lineHeight: 1.6 } }, "约什么跟着你定的目标走（在右上角「谁看着」最底下改）。他这几天聊天时都知道你做到没，到期那天会自己来找你说。")) : null),
+          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: S.fog, marginTop: 8, lineHeight: 1.6 } }, characterText(chars.find(x => x.id === pk.charId), "约什么跟着你定的目标走（在右上角「谁看着」最底下改）。他这几天聊天时都知道你做到没，到期那天会自己来找你说。"))) : null),
       // ── 每周一封小结 ──
       h(Section, { S, title: "每周一封小结", wk: "healthweekly" },
         h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: S.sub, lineHeight: 1.6, marginBottom: 8 } },

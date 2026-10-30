@@ -11955,7 +11955,7 @@ function CharWallet({ characters, charWallet, profile, selId, busyKey, hasApi, o
         h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, flexShrink: 0 } }, schedDateParts(schedDayKey(new Date(e.ts))).md),
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(13.5px * var(--app-fs, 1))", color: t.ink, flexShrink: 0 } }, fmtMoney(Math.abs(e.delta), char.id)),
         // 扣错了／扣重了：撤销这一笔，钱退回他钱包
-        onUndoEntry && e.id ? h("button", { "data-wk": "cwundo", onClick: () => requestAppConfirm("撤销这一笔？", "这一行拿掉，" + fmtMoney(Math.abs(e.delta), char.id) + " 退回他的钱包。", () => onUndoEntry(char.id, e.id), "撤销"),
+        onUndoEntry && e.id ? h("button", { "data-wk": "cwundo", onClick: () => requestAppConfirm("撤销这一笔？", "这一行拿掉，" + fmtMoney(Math.abs(e.delta), char.id) + " 退回" + CharacterPronoun.ta(char) + "的钱包。", () => onUndoEntry(char.id, e.id), "撤销"),
           className: "active:opacity-60", style: { flexShrink: 0, fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, background: "transparent", padding: "0 2px" } }, "撤销") : null))) : null,
         forHerOpen && forHer.length > 30 ? h("div", { key: "fm", style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginTop: 8 } }, "还有 " + (forHer.length - 30) + " 笔") : null
       ]) : null,
