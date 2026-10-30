@@ -28,3 +28,26 @@ test("QQ 那样的小条＋面板，能自己建几栏、挑快捷条用哪栏",
   assert.match(c, /Date\.now\(\) - bornAt\.current > 450/);
   for (const k of ["msgstickbar", "msgstickpanel", "msgstickgroup", "msgstickgroupnew", "msgstickedit", "msgstickown", "msgstickpacks"]) assert.match(ts, new RegExp('"' + k + '"'));
 });
+test("TA 也能往她的气泡上贴一个 emoji", () => {
+  assert.match(app, /stick:\{"quote":"她某句话里的原话，照抄几个字","emoji":"一个 emoji"\}=往她那句话上贴一个表情/);
+  assert.match(app, /theirStick: \{ \.\.\._st, ts: Date\.now\(\) \}/);
+  assert.match(app, /你往她这句上贴过一个/);
+  assert.match(c, /const st = m && \(isU \? m\.theirStick : m\.stick\);/);
+});
+test("群聊也接上：她双击别人的气泡贴、成员也能往气泡上贴", () => {
+  assert.equal((c.match(/onDoubleTap: onStickMsg \?/g) || []).length, 2);
+  assert.match(c, /m\.gSticks/);
+  assert.match(app, /const gStickField = /);
+  assert.match(app, /gPatField \+ "" \+ gStickField/);
+  assert.match(app, /gSticks: \(x\.gSticks \|\| \[\]\)\.filter\(g => g\.by !== spk\.id\)/);
+  assert.match(app, /fmtGLine\(m\) \+ groupStickNote\(m\)/);
+});
+test("贴表情有场合：她哪句让他当下有反应就贴", () => {
+  assert.match(app, /capState\.push\("stick：" \+ uName \+ " 的某句话让你当下有了反应、这个反应一个表情就说得清的时候/);
+  assert.match(app, /群里谁的哪句话让你当下有了反应、这个反应一个表情就说得清的时候/);
+});
+test("TA 也能贴自己的表情包", () => {
+  assert.match(app, /const _em = _ek && emotes\.length \? emoteMatch\(emotes, _ek\) : null;/);
+  assert.match(app, /emoteMatch\(emotesForChar\(spk\.id\), String\(item\.stick\.emote\)\.trim\(\)\)/);
+  assert.match(c, /m\.gSticks\.filter\(x => x && \(x\.emoji \|\| x\.url\)\)/);
+});

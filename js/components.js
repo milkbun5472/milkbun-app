@@ -1102,6 +1102,10 @@ function MsgStickPicker({ at, hasStick, onPick, onClose, onPacks }) {
       h("button", { "aria-label": open ? "收起" : "更多", onClick: () => setOpen(!open), className: "shrink-0 active:opacity-60", style: { width: 44, height: 44, borderRadius: 22, background: "rgba(255,255,255,.12)", color: "#fff", fontSize: 18, display: "flex", alignItems: "center", justifyContent: "center", transform: open ? "rotate(180deg)" : "none" } }, "⌄")),
     open && h("div", { "data-wk": "msgstickpanel", onClick: e => e.stopPropagation(), className: "overflow-y-auto", style: { position: "fixed", left: 10, right: 10, ...(below >= above ? { top: barTop + 66 } : { bottom: vh - barTop + 8 }), maxHeight: Math.min(vh * 0.6, Math.max(below, above)), padding: "4px 10px 12px", borderRadius: 22, background: DARK, boxShadow: "0 8px 24px rgba(0,0,0,.25)" } },
       editPane,
+      // 贴表情包、拿掉放在最上面（她 2026-10-31「每次下翻太麻烦」）
+      h("div", { className: "flex flex-wrap", style: { gap: 6, marginTop: 8 } },
+        btn("贴表情包 ›", onPacks, "msgstickpacks"),
+        hasStick ? btn("拿掉贴着的那个", () => onPick(null), "msgstickoff") : null),
       head("快捷条显示", null),
       h("div", { "data-wk": "msgstickgroups", className: "flex flex-wrap", style: { gap: 6, margin: "0 4px" } },
         chip("最近使用", !quickGroup, () => save({ ...book, quick: "recent" }), "msgstickgroup"),
@@ -1112,13 +1116,18 @@ function MsgStickPicker({ at, hasStick, onPick, onClose, onPacks }) {
       head("全部表情"), grid(MSG_STICK_ALL),
       h("div", { className: "flex items-center", style: { gap: 6, marginTop: 12 } },
         h("input", { "data-wk": "msgstickown", value: own, onChange: e => setOwn(e.target.value.slice(0, 16)), placeholder: "打一个别的 emoji", style: { ...inputStyle, flex: 1 } }),
-        btn("贴", () => { const e = msgStickFirstEmoji(own); if (e) { setOwn(""); pick(e); } }, null, !msgStickFirstEmoji(own))),
-      h("div", { className: "flex flex-wrap", style: { gap: 6, marginTop: 8 } },
-        btn("贴表情包 ›", onPacks, "msgstickpacks"),
-        hasStick ? btn("拿掉贴着的那个", () => onPick(null), "msgstickoff") : null)));
+        btn("贴", () => { const e = msgStickFirstEmoji(own); if (e) { setOwn(""); pick(e); } }, null, !msgStickFirstEmoji(own)))));
 }
 function msgStickEl(m, isU) {
-  const st = m && m.stick;
+  // 群里成员贴的（gSticks，可能好几个人）：她自己贴的那个排在最后，一起排成一小串
+  const gs = m && Array.isArray(m.gSticks) ? m.gSticks.filter(x => x && (x.emoji || x.url)) : [];
+  if (gs.length) {
+    const mine = !isU && m.stick ? [m.stick] : [];
+    return h("span", { "data-wk": "msgstick", "data-multi": "1", style: { position: "absolute", bottom: -16, [isU ? "left" : "right"]: -10, height: 26, padding: "0 6px", borderRadius: 13, display: "flex", alignItems: "center", gap: 2, fontSize: 15, lineHeight: 1, background: "rgba(255,255,255,.92)", boxShadow: "0 1px 3px rgba(0,0,0,.18)", pointerEvents: "none", zIndex: 3, whiteSpace: "nowrap" } },
+      gs.concat(mine).slice(-5).map((x, k) => x.emoji ? h("span", { key: k }, x.emoji) : h("img", { key: k, src: x.url, alt: "", style: { width: 18, height: 18, objectFit: "contain" } })));
+  }
+  // 她贴在TA气泡上的是 stick；TA贴在她气泡上的是 theirStick（同一个画法）
+  const st = m && (isU ? m.theirStick : m.stick);
   if (!st || (!st.url && !st.emoji)) return null;
   // 小黄脸 emoji（她 2026-10-31：QQ 那种贴的其实是 emoji）：一个字，叠在角上
   if (st.emoji) return h("span", { "data-wk": "msgstick", "data-emoji": "1", style: { position: "absolute", bottom: -16, [isU ? "left" : "right"]: -10, minWidth: 26, height: 26, padding: "0 3px", borderRadius: 13, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 17, lineHeight: 1, background: "rgba(255,255,255,.92)", boxShadow: "0 1px 3px rgba(0,0,0,.18)", pointerEvents: "none", zIndex: 3 } }, st.emoji);
@@ -19472,6 +19481,7 @@ function GroupThread({
   onContinue,
   onOOC,
   onMsgAction,
+  onStickMsg,
   onLongShot,
   onDeleteMessages,
   onPinShike,
@@ -19572,6 +19582,7 @@ function GroupThread({
   const [noticeOpen, setNoticeOpen] = useState(false);
   const [quoted, setQuoted] = useState(null); // 我引用的某条消息原文
   const [menu, setMenu] = useState(null); // 长按弹出的消息下标
+  const [stickAt, setStickAt] = useState(null), [stickPacks, setStickPacks] = useState(false);   // 双击别人的气泡贴表情（群里 2026-10-31）
   const [gPhotoView, setGPhotoView] = useState(null);   // 点开那张照片：大图／描述／存到手机
   const [selMode, setSelMode] = useState(false);
   const [selIds, setSelIds] = useState([]);
@@ -19645,7 +19656,7 @@ function GroupThread({
   };
   // 同上，走公共那一份
   // 左滑引用：跟单聊同一只钩子、同一条判据；引用的形状走群里自己的 GroupQuote
-  const { startPress, endPress } = useLongPressMenu(setMenu, { onSwipeLeft: i => {
+  const { startPress, endPress } = useLongPressMenu(setMenu, { onDoubleTap: onStickMsg ? (i => { const mm = messages[i]; if (!selMode && mm && mm.role === "assistant" && !mm.recalled) setStickAt(i); }) : null, onSwipeLeft: i => {
     const mm = messages[i];
     if (!mm || selMode || !menuItemsForKind(mm, false).some(g => g.indexOf("quote") >= 0) || !mm.content) return;
     setQuoted(window.GroupQuote ? window.GroupQuote.makeSelection(mm, i, meName) : String(mm.content));
@@ -20199,7 +20210,7 @@ function GroupThread({
         WebkitUserSelect: "none",
         WebkitTouchCallout: "none"
       }, (cardLayout(m.content) || {}).bubble)
-    }, cardLayout(m.content) ? null : bubbleSticker(isU), m.recalled ? m.content : h(TransText, { text: m.content, isU: isU, zhReady: m.zh })), msgFoot(i, m, !m.recalled && subLine(m))), isU && gsp.showMyAvatar && h("span", { "data-wk": "avatar", className: "shrink-0", style: { display: "inline-flex" } }, h(Avatar, { character: meAv, size: 34, radius: 8 }))));
+    }, cardLayout(m.content) ? null : bubbleSticker(isU), msgStickEl(m, isU), m.recalled ? m.content : h(TransText, { text: m.content, isU: isU, zhReady: m.zh })), msgFoot(i, m, !m.recalled && subLine(m))), isU && gsp.showMyAvatar && h("span", { "data-wk": "avatar", className: "shrink-0", style: { display: "inline-flex" } }, h(Avatar, { character: meAv, size: 34, radius: 8 }))));
   }).flatMap((row, i) => {
     // 思考链画在这一组回复的上方（和单聊、线下同一个组件、同一个位置）。
     // 群聊一次调用写完所有人，所以它挂在这一轮最先冒出来的那条上（v56.75）。
@@ -20362,7 +20373,12 @@ function GroupThread({
       setSheet(null);
     },
     onClose: () => setSheet(null)
-  }), sheet === "sticker" && h(Sheet, { onClose: () => setSheet(null), tall: true },
+  }), stickAt != null && onStickMsg && (stickPacks
+    ? h(Sheet, { onClose: () => { setStickAt(null); setStickPacks(false); }, tall: true },
+      h(StickerPanel, { packs: emotePacks, emotes: emotes, onManage: () => { setStickAt(null); setStickPacks(false); }, caption: false, onCaption: null,
+        onPick: em => { onStickMsg(stickAt, { url: em.url, keyword: em.keyword || "" }); setStickAt(null); setStickPacks(false); } }))
+    : h(MsgStickPicker, { at: stickAt, hasStick: !!(messages[stickAt] && messages[stickAt].stick), onClose: () => setStickAt(null), onPacks: () => setStickPacks(true),
+        onPick: st => { onStickMsg(stickAt, st); setStickAt(null); } })), sheet === "sticker" && h(Sheet, { onClose: () => setSheet(null), tall: true },
     h(StickerPanel, {
       packs: emotePacks, emotes: emotes,
       onManage: () => { setSheet(null); onManageEmotes && onManageEmotes(); },
