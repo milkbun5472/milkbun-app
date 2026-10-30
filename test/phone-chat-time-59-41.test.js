@@ -40,8 +40,8 @@ test("会话列表的时刻是现算的，而且一屏一种写法", () => {
   const start = ph.indexOf("function WeChatViewFull(");
   const end = ph.indexOf("\nfunction ", start + 1);
   assert.ok(start >= 0 && end > start);
-  assert.match(ph.slice(start, end), /phoneChatWhen\(c\)/, "微信会话列表没有现算时刻");
-  assert.match(ph.slice(end), /phoneChatWhen\(c\)/, "桌面组件没有现算时刻");
+  assert.match(ph.slice(start, end), /phoneChatWhen\(c[,)]/, "微信会话列表没有现算时刻");
+  assert.match(ph.slice(end), /phoneChatWhen\(c[,)]/, "桌面组件没有现算时刻");
   assert.ok(ph.indexOf('} }, c.time || "")') < 0, "还有地方原样显示存着的那句时间");
 });
 
@@ -68,4 +68,13 @@ test("显示这一端也按时间排，不用等下次刷新", () => {
   assert.match(seg, /return known\.concat\(unknown\)/, "认不出的没沉底");
   // 真实互通那几条不参与排序：那是她跟他此刻正在说的话，永远在最前
   assert.match(seg, /const chats = \[\.\.\.actual, \.\.\.byWhen\(generated\)\.filter\(/, "真实那几条被拿去跟推演的比时间了");
+});
+
+test("查手机的「现在」照 TA 那只钟（小手机设 25 号，邮件别落成现实的 30 号）", () => {
+  const fs = require("fs"), p = fs.readFileSync(__dirname + "/../js/phone.js", "utf8");
+  assert.match(p, /function phoneNow\(charId\) \{ return charId && typeof vclockMap === "function" \? vclockMap\(Date\.now\(\), charId\) : Date\.now\(\); \}/);
+  const vm = require("vm"), ctx = { vclockMap: (t, id) => id === "c1" ? new Date(2026, 9, 25, 9).getTime() : t };
+  vm.createContext(ctx); vm.runInContext(p.slice(p.indexOf("function phoneNow"), p.indexOf("\n", p.indexOf("function phoneNow"))) + ";this.f=phoneNow;", ctx);
+  assert.equal(new Date(ctx.f("c1")).getDate(), 25);
+  assert.ok(Math.abs(ctx.f("") - Date.now()) < 1000);
 });

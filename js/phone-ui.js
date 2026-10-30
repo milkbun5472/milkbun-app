@@ -1599,7 +1599,7 @@ function WeChatViewFull({ d, char, t, profile, onBack, onRefresh, refreshing, dr
     const ct = arr(d.contacts).find(x => x && cn(x.name) === cn(c.name));
     return (ct && String(ct.remark || "").trim()) || c.name;
   };
-  const chatRow = (c, i) => h("button", { key: c.id || i, "data-wk": "pitem", "data-watch": "item:" + (c.name || ""), onClick: () => setThread(chatRemarkOf(c) !== c.name ? { ...c, remark: chatRemarkOf(c) } : c), className: "w-full text-left flex items-center gap-3 active:opacity-60", style: { minHeight: 67, borderBottom: "1px solid #e5e5e5", background: "#fff", padding: "8px 14px" } }, h(Avatar, { character: person(c.name, c.avatarImage), size: 47, radius: c.type === "group" ? 8 : 7 }), h("div", { className: "flex-1 min-w-0" }, h("div", { className: "flex justify-between gap-2" }, h("span", { "data-wk": "ptitle", style: { fontFamily: F_DISPLAY, fontSize: "calc(16px * var(--app-fs, 1))", color: "#191919" } }, PTX(chatRemarkOf(c))), h("span", { "data-wk": "ptime", style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: "#aaa", flexShrink: 0 } }, phoneChatWhen(c))), h("div", { "data-wk": "ptext", style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: c._empty ? "#bbb" : "#999", marginTop: 4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, c.last || (c._empty ? "还没说过话" : ""))));
+  const chatRow = (c, i) => h("button", { key: c.id || i, "data-wk": "pitem", "data-watch": "item:" + (c.name || ""), onClick: () => setThread(chatRemarkOf(c) !== c.name ? { ...c, remark: chatRemarkOf(c) } : c), className: "w-full text-left flex items-center gap-3 active:opacity-60", style: { minHeight: 67, borderBottom: "1px solid #e5e5e5", background: "#fff", padding: "8px 14px" } }, h(Avatar, { character: person(c.name, c.avatarImage), size: 47, radius: c.type === "group" ? 8 : 7 }), h("div", { className: "flex-1 min-w-0" }, h("div", { className: "flex justify-between gap-2" }, h("span", { "data-wk": "ptitle", style: { fontFamily: F_DISPLAY, fontSize: "calc(16px * var(--app-fs, 1))", color: "#191919" } }, PTX(chatRemarkOf(c))), h("span", { "data-wk": "ptime", style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: "#aaa", flexShrink: 0 } }, phoneChatWhen(c, phoneNow(char && char.id)))), h("div", { "data-wk": "ptext", style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: c._empty ? "#bbb" : "#999", marginTop: 4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, c.last || (c._empty ? "还没说过话" : ""))));
   const userContact = d.userContact || { name: meName, remark: meName, intro: "TA 把你放在最重要的位置，但这次刷新还没写下具体的话。" };
   // 通讯录不会比聊天列表还空（群友 2026-10-21：刷了两遍，通讯录里只有她自己）：模型那一份 contacts 漏写了也照样有人——
   //   跟TA有私聊的那几位（真聊天、推演出来的都算）都是联系人，名字没在 contacts 里的补在后面
@@ -1646,7 +1646,7 @@ function WeChatViewFull({ d, char, t, profile, onBack, onRefresh, refreshing, dr
       // 真发过的那几条（TA自己和关系网上的人）跟推演出来的混在一起，按时间新的在上（她 2026-10-21：「按实际顺序，推演的按推演时间穿插」）；
       //   同一句话不摆两遍；拿不到时间的（老数据）沉到最后，彼此保持原来的先后
       (() => {
-        const tsOf = m => m && m._ts != null ? Number(m._ts) : (typeof phoneWhenTs === "function" ? (phoneWhenTs(m && m.time, Date.now()) || 0) : 0);
+        const tsOf = m => m && m._ts != null ? Number(m._ts) : (typeof phoneWhenTs === "function" ? (phoneWhenTs(m && m.time, phoneNow(char && char.id)) || 0) : 0);
         // 真角色的朋友圈只认真发的：推演里冒名写的那几条（老数据、或模型没听话）不摆
         const realA = new Set(arr(d.actualMoments && d.actualMoments.realAuthors));
         const all = arr(d.actualMoments).concat(arr(d.moments).filter(m => !realA.has(String(m.author || "").trim()) && !arr(d.actualMoments).some(r => r.content === m.content)));
@@ -2744,7 +2744,7 @@ function TakeoutView({ d, char, t, onBack, onRefresh, refreshing, onPeek, monthS
   // 这就是她说的「顺延」——不需要任何搬运代码。
   const dayStart = ts => { const d = new Date(ts); d.setHours(0, 0, 0, 0); return d.getTime(); };
   const DAY = 86400000, todayStart = dayStart(Date.now());
-  const orderTs = o => (o && o._ts != null) ? o._ts : phoneWhenTs(o && (o.time || o.date), Date.now());
+  const orderTs = o => (o && o._ts != null) ? o._ts : phoneWhenTs(o && (o.time || o.date), phoneNow(char && char.id));
   const WK_ZH = ["日", "一", "二", "三", "四", "五", "六"];
   // 最近七天，今天在最下面（跟「吃过的记录」一样是新的在上？不——这一段读的是
   // 一周走下来的样子，顺着时间读才成立，所以从七天前开始往下走）
@@ -5727,7 +5727,7 @@ function PhoneCarry({
   // ── 时间线 + delta ──────────────────────────────────────────
   // 时间线不生成任何东西：它把上面那些 app 已经翻出来的碎片按时间串起来。
   // delta 就是「这一串里，上次翻完之后才出现的那些」。
-  const tlRows = phoneTimelineWithArchive(data, liveCtx, (archives || {})[char.id], Date.now());
+  const tlRows = phoneTimelineWithArchive(data, liveCtx, (archives || {})[char.id], phoneNow(char.id));
   const seenIds = (mark[char.id] || {}).ids || {};
   const newIds = {};
   let newCount = 0;
@@ -6057,7 +6057,7 @@ function PhoneCarry({
           h("div", { className: "min-w-0", style: { flex: 1 } },
             h("div", { className: "truncate", style: { fontFamily: F_DISPLAY, fontSize: "calc(13px * var(--app-fs, 1))", color: ink } }, PTX(c.name || "未命名")),
             h("div", { className: "truncate", style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: dim, marginTop: 1 } }, PTX(c.preview || ""))),
-          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", color: dim, flexShrink: 0 } }, phoneChatWhen(c)))));
+          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", color: dim, flexShrink: 0 } }, phoneChatWhen(c, phoneNow(char && char.id))))));
     }
     // 音乐：碟 + 曲名 + 一条进度
     if (key === "music") {

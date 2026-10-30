@@ -236,7 +236,7 @@ test("打得开哪几个 app 只此一份名单", () => {
 
 test("落盘一个入口按 app 分流，不是每个 app 一个函数", () => {
   assert.equal((watchSrc.match(/function applyWrite\(/g) || []).length, 1);
-  assert.match(app, /const r = WK\.applyWrite\(where, cur, to, text, Date\.now\(\), extra\);/);
+  assert.match(app, /const r = WK\.applyWrite\(where, cur, to, text, phoneNow\(char\.id\), extra\);/);
   // 那个 app 还没生成过就没有底稿可接
   assert.match(app, /if \(!cur\) return;/);
 });

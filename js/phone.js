@@ -572,6 +572,9 @@ const phoneRowKey = x => {
   const f = phoneTimeField(x);
   return (word || JSON.stringify(x).slice(0, 90)) + "@" + (f ? x[f] : "");
 };
+// 这部手机的「现在」：开了虚拟时间就照 TA 那张面具的钟（群里 2026-10-31：小手机设的是 25 号，邮件却刷成了 30 号——
+//   模型照钟写的「今天 09:15」，存的时候拿现实的今天去换算，就落成了现实的日子）。存、归档、排序、显示都问这一处
+function phoneNow(charId) { return charId && typeof vclockMap === "function" ? vclockMap(Date.now(), charId) : Date.now(); }
 // 「今天 09:12」存久了就是谎话，落成绝对写法。只落一次（_abs），之后不再动。
 function phoneFreezeTime(x, nowTs) {
   const f = phoneTimeField(x);

@@ -20206,7 +20206,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   const archivePhoneApp = (charId, key, oldData) => {
     if (!oldData || typeof phoneArchiveFrom !== "function") return;
     try {
-      const now = Date.now();
+      const now = phoneNow(charId);
       const add = phoneArchiveFrom(key, oldData, now);
       if (!add.length) return;
       setPhoneArch(a => {
@@ -20272,7 +20272,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       //   时刻变了就成了另一行，于是同一个人出现两次（真机上一眼看见的）。
       //   微信「只问 updates」那一路（v59.54）绕开 phoneGrowList，正是同一个理由。
       let merged = (opts && opts.patched) ? d
-        : (typeof phoneMergeSaved === "function" ? phoneMergeSaved(key, cur[key], d, Date.now()) : d);
+        : (typeof phoneMergeSaved === "function" ? phoneMergeSaved(key, cur[key], d, phoneNow(charId)) : d);
       // ⚠️去重原来只筛【这一轮模型新写的】，已经攒进名册里的那几条永远退不出来。
       //   陆闻早先被当成 NPC 存过一次，后来TA成了真角色——那条假私聊就一直挂在列表里，
       //   往后每一轮都照抄回来。名册每次是【整份重写】的，所以合并完再筛一次，
@@ -20764,7 +20764,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     // 说的是它被写下来那会儿的昨天。手机数据存进去时已经把时刻算死成 _ts 了
     //（见 phoneFreezeTime），优先用它；没有 _ts 的才现解析。
     const tsOf = x => (x && x._ts != null) ? x._ts
-      : (typeof phoneWhenTs === "function" ? phoneWhenTs(x && (x.time || x.date), Date.now()) : null);
+      : (typeof phoneWhenTs === "function" ? phoneWhenTs(x && (x.time || x.date), phoneNow(charId)) : null);
     const out = [];
     const A = a => Array.isArray(a) ? a : [];
     // ⚠️取消/退款的订单不许扣钱（Codex 2026-08-29 指出）。原来只看金额和日期，
@@ -23319,7 +23319,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       const k = (where === "mail") ? "mail" : "liked";
       const cur0 = ((phonesRef.current || {})[char.id] || {})[k];
       if (!cur0) return;
-      const r0 = WK.applyWrite(k === "mail" ? "_draft_mail" : "_draft_liked", cur0, to, text, Date.now(), extra);
+      const r0 = WK.applyWrite(k === "mail" ? "_draft_mail" : "_draft_liked", cur0, to, text, phoneNow(char.id), extra);
       if (r0.wrote) savePhoneApp(char.id, k, r0.d, { noArchive: true, patched: true });
       return;
     }
@@ -23338,7 +23338,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     }
     const cur = ((phonesRef.current || {})[char.id] || {})[where];
     if (!cur) return;                       // 那个 app 还没生成过，没有底稿可接
-    const r = WK.applyWrite(where, cur, to, text, Date.now(), extra);
+    const r = WK.applyWrite(where, cur, to, text, phoneNow(char.id), extra);
     if (r.wrote) savePhoneApp(char.id, where, r.d, { noArchive: true, patched: true });
   };
   // 对面回的那一句：落盘走跟TA自己发话同一条路（savePhoneApp），只是 from 是对面
