@@ -20,7 +20,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v76.992";
+const APP_VERSION = "v76.994";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -7396,7 +7396,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         const isOff = m._surface === "offline";
         // 只数TA的拍子：她自己在线下打的字本来就短，不该占掉「最近三拍给原文」的名额
         if (isOff && m.role !== "user") offSeen++;
-        const dateAnchor = m.role === "user" ? vAnchor(m.content, m.ts, charId) : "";
+        const dateAnchor = m.role === "user" ? vAnchor(m.content, m.ts, char.id) : "";
         const speaker = m.role === "user" ? uName : (m.role === "narration" ? "【线下场景】" : (m.senderName || char.name));
         // 线下的老拍子压成摘录；她自己在线下打的字很短，照原文走
         // ⚠️转账那一条不能照原文走：存下来的「你向 XX 转了 ¥200」是写给她看的旁白，

@@ -73,7 +73,7 @@ test("旁观群里她敲的字落成旁白，不是 role:user", () => {
 });
 
 test("旁白那一行，引擎是按【场景设定】读的（桩照写入方写）", () => {
-  const seg = engine.slice(engine.indexOf("function offlineGroupHistory(msgs, userName, clock)"), engine.indexOf("function memberLabel(members, c)"));
+  const seg = engine.slice(engine.indexOf("function offlineGroupHistory(msgs, userName, clock"), engine.indexOf("function memberLabel(members, c)"));
   assert.ok(seg.length > 0, "抠不出 offlineGroupHistory");
   assert.match(seg, /m\.role === "narration" \? "【场景设定】"/);
 });

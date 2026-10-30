@@ -11,7 +11,7 @@ const app = R("app.js"), engine = R("engine.js"), components = R("components.js"
 
 const offlineLengthGuide = (() => {
   const a = engine.indexOf("function offlineLengthGuide(mode)");
-  const b = engine.indexOf("function offlineGroupHistory(msgs, userName, clock)", a);
+  const b = engine.indexOf("function offlineGroupHistory(msgs, userName, clock", a);
   assert.ok(a > 0 && b > a, "抠不出 offlineLengthGuide");
   return new Function(engine.slice(a, b) + "; return offlineLengthGuide;")();
 })();
