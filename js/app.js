@@ -13512,7 +13512,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
               : "【你想刷 " + uName + " 给你的亲属卡买「" + (m.item || "") + "」" + moneyText(m.amount || 0, charId) + "，没刷过去：" + (m.why || "") + "】")
             : m.kind === "mykindaily" ? "【你" + (m.day ? m.day + "那天" : "") + "平时花钱时刷了 " + uName + " 给你的亲属卡：" + (m.items || []).map(x => "「" + x.item + "」" + moneyText(x.amount, charId) + (x.ok ? "" : "（没刷过：" + (x.why || "") + "，你自己付的）")).join("、") + "】"
             : m.kind === "kinship" ? "【你给 " + uName + " 发了一张亲属卡，额度 " + moneyText(m.limit || 0, charId) + (m.note ? "，你当时说「" + String(m.note).slice(0, 60) + "」" : "") + "。这是你做过的一件事】"
-            : (m.content || ""));
+            : (m.content || ""))
+            + (m.stick ? "\n【" + uName + " 后来往你这句上贴了一个表情「" + (m.stick.keyword || "表情") + "」（像 QQ 的贴表情，贴在你气泡角上）；这是她做的、真实发生过的事，不是你说的话】" : "");
           if (l && l.role === "assistant" && l._t === m.turnId) l.content += "\n" + ac;else g.push({
             role: "assistant",
             content: ac,
@@ -32845,6 +32846,12 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     schedNow: roomTimeAwareFor(window.ChatRooms ? window.ChatRooms.get(activeChar.id, activeRoomId) : null, activeChar.id) ? schedNowBriefFor(activeChar) : null,
     onOpenSched: roomTimeAwareFor(window.ChatRooms ? window.ChatRooms.get(activeChar.id, activeRoomId) : null, activeChar.id) ? (() => { calReturnRef.current = { screen: screen }; setSelSched(activeChar.id); setScreen("calendar"); }) : null,
     onLongPress: (act, idx) => handleMsgAction(act, idx, window.ChatRooms ? window.ChatRooms.chatKey(activeChar.id, activeRoomId) : activeChar.id),
+    // 双击TA的气泡贴一个表情（群里 2026-10-31）：只记在那一条上，TA下一轮在历史里看得到；st 为 null 是拿掉
+    onStickMsg: (idx, st) => pChat(window.ChatRooms ? window.ChatRooms.chatKey(activeChar.id, activeRoomId) : activeChar.id, p => p.map((x, i) => {
+      if (i !== idx) return x;
+      if (!st) { const { stick, ...r } = x; return r; }
+      return { ...x, stick: { url: st.url, keyword: String(st.keyword || "").slice(0, 20), ts: Date.now() } };
+    })),
     // 唱片卡点进去＝去【这个人】情侣空间里的唱片架（那才是它落到的地方）。
     // ⚠️原来这儿只有 setScreen("us")：没说是谁，于是落在「所有情侣空间」那张名册上，
     //   她还得再点一次才进得去（她 2026-09-14 报的就是这个）。
