@@ -25,5 +25,6 @@ test("群心声从TA这一轮最在意的那一点长出来", () => {
 // 她 2026-10-30：群聊心声太短——心声挂在短气泡那一格，被气泡长短带着走
 test("群心声跟气泡长短脱钩", () => {
   const src = require("fs").readFileSync(require("path").join(__dirname, "..", "js/app.js"), "utf8");
-  assert.match(src, /心声跟这条气泡的长短无关：话可以只说一两句，心里想的可以写成一整段；心思多的时候写长是正常的。/);
+  assert.match(src, /心声的长短跟这条气泡的长短各算各的，不跟着气泡走。/);
+  assert.doesNotMatch(src, /写成一整段；心思多的时候写长/, "不引导写长写短");
 });
