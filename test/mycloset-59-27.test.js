@@ -59,7 +59,9 @@ test("也能自己挂、拿得掉，且不会越攒越多", () => {
   assert.match(put, /if \(!one\.name\) return box;/, "没名字也往里塞");
   // 有上限，但满了是【不挂】，不是把最老的挤掉（群友 2026-10-13：「生成新的之后旧的就会被覆盖」）
   assert.match(put, /if \(\(cur\[i\]\.sets \|\| \[\]\)\.length >= MYCLOSET_MAX_SETS\) return box;/, "一个场合里没有上限，或者满了在挤旧的");
-  assert.match(put, /if \(cur\.length >= MYCLOSET_MAX_OCC\) return box;/, "场合数没有上限，或者满了在挤旧的");
+  // 分类满了挂进现成最空的那一格（2026-10-31），全满才不挂——还是不挤旧的
+  assert.match(put, /if \(cur\.length >= MYCLOSET_MAX_OCC\) \{/, "场合数没有上限");
+  assert.match(put, /if \(k < 0\) return box;/, "全满了还在挤旧的");
   const P = new Function("MYCLOSET_MAX_OCC", "MYCLOSET_MAX_SETS", "return " + put.slice(put.indexOf("(box, occ, set) =>")) + "\n  };")(2, 2);
   let box = {};
   ["一", "二", "三"].forEach(n => { box = P(box, "平常", { name: n }); });

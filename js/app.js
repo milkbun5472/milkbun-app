@@ -28475,7 +28475,13 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       if ((cur[i].sets || []).length >= MYCLOSET_MAX_SETS) return box;
       cur[i] = { ...cur[i], sets: [one, ...(cur[i].sets || [])] };
     } else {
-      if (cur.length >= MYCLOSET_MAX_OCC) return box;
+      // 分类满了不拒收（她 2026-10-31：AI 每次都开新场合，二十来套就挂不下了）：挂进现成分类里最空的那一格
+      if (cur.length >= MYCLOSET_MAX_OCC) {
+        const k = cur.reduce((b, g, j) => ((g.sets || []).length < MYCLOSET_MAX_SETS && (b < 0 || (g.sets || []).length < (cur[b].sets || []).length)) ? j : b, -1);
+        if (k < 0) return box;
+        cur[k] = { ...cur[k], sets: [one, ...(cur[k].sets || [])] };
+        return { ...(box || {}), closet: cur };
+      }
       cur.unshift({ occasion: occasion, sets: [one] });
     }
     return { ...(box || {}), closet: cur };
@@ -28509,6 +28515,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       const uName = _mp.name || profile.name || "我";
       const have = ((myBoxOf(closetWho()) || {}).closet || [])
         .map(g => (g.sets || []).map(x => x.name).filter(Boolean).join("、")).filter(Boolean).join("；");
+      const occs = ((myBoxOf(closetWho()) || {}).closet || []).map(g => g && g.occasion).filter(Boolean);
       // ⚠️不走 runProbe：它一定要 buildBundle，而 buildBundle 要角色（没有就炸在
       // ctx.char.name 上）。这一条是关于【她自己】的，跟哪个角色都无关——
       // 灌一份角色上下文进来既没用又要花钱。自己拼一份最小的 system。
@@ -28517,6 +28524,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
           + (kw ? "【她给的关键词】" + kw + "\n按这几个词来，别另起炉灶。\n" : "【她没给关键词】那就配四个【互不重样的场合】各一身：日常、正经场合、见谁、以及一身她自己在家穿的。\n")
           + (_mp.persona ? "\n【她是这样一个人】\n" + String(_mp.persona).slice(0, 600) + "\n" : "")
           + (have ? "\n【柜子里已经有这几身，别再配一样的】" + have.slice(0, 300) + "\n" : "")
+          + (occs.length ? "\n【柜子里现有的分类】" + occs.join("、") + "\noccasion 照抄这里面对得上的那一个，衣服就挂进那一类；真的哪个都对不上才写一个新的。\n" : "")
           + "\n每身写清：occasion（什么场合穿，四个字以内）、name（这身叫什么，别只写「连衣裙」这种类目名）、"
           + "note（是什么衣服——版型、颜色、料子、脚上穿什么，一到两句；再带上一句她为什么留着这身）。\n"
           + "⚠️四身要【真的不一样】：不是同一套换个颜色。冷暖、松紧、正式与随便，至少要拉开两头。\n"
