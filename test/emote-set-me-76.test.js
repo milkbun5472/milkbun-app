@@ -5,11 +5,11 @@ const fs = require("node:fs");
 const path = require("node:path");
 const app = fs.readFileSync(path.join(__dirname, "..", "js", "app.js"), "utf8");
 const ui = fs.readFileSync(path.join(__dirname, "..", "js", "screens-ui.js"), "utf8");
-test("画我自己那一套：挑有参考照的面具 → 同一套九宫格 → 存进「面具名 的表情」，角色用不了", () => {
+test("画我自己那一套：挑有参考照的面具 → 同一套九宫格 → 存进「面具名 的表情」", () => {
   assert.match(app, /if \(String\(charId \|\| ""\)\.indexOf\("__me:"\) === 0\) return makeMyEmoteSet\(String\(charId\)\.slice\(5\), setOpt\);/);
   assert.match(app, /if \(!me\.refPhoto\) \{ toast\("先在「我的面具」里给这张面具传一张参考照，脸才锁得住"\); return; \}/);
   assert.match(app, /generateSelfieImage\(prompt, \[me\.refPhoto\]/);
-  assert.match(app, /charIds: charId && !_meM \? \[charId\] : \[\]/, "她自己那组不贴角色名");
+  assert.match(app, /charIds: charId && !_meM \? \[charId\] : _meM \?/, "她自己那组贴的是认这张面具的人，不是 charId");
   assert.match(app, /myFaces: \[\{ id: "", name:/);
   assert.match(ui, /myFaces\.filter\(f => f\.ok\)\.map\(f => h\("button", \{ key: "me_" \+ \(f\.id \|\| "main"\), "data-wk": "emomyface", onClick: \(\) => \{ setSetPick\(false\); onMakeSet\("__me:" \+ f\.id/);
   assert.match(ui, /"data-wk": "emomyface"[^\n]*\n[^\n]*minHeight: 40/);
