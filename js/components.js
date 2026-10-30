@@ -12325,7 +12325,7 @@ function ChatThread({
       onManage: () => { setStickerOpen(false); onManageEmotes && onManageEmotes(); },
       caption: !!emoteCaption, onCaption: onEmoteCaption,
       onPick: em => {
-        sendRich({ role: "user", kind: "emote", url: em.url, keyword: em.keyword, content: "[表情] " + em.keyword });
+        sendRich({ role: "user", kind: "emote", url: em.url, keyword: em.keyword, content: "[表情] " + em.keyword + (em.selfFace ? "（画的是她自己）" : "") });
         // 书房直通（她 2026-09-25「表情包你能看到吗→你快去修」）：表情包走 sendRich 不过 onSend，
         // 车道原本看不见。把关键词描述进攒话缸，图不过桥、意思过桥。
         if (ccLane && !ccLane.direct && window.CcLane) window.CcLane.post("[表情包] " + em.keyword, { threadType: "private" });
@@ -20239,7 +20239,7 @@ function GroupThread({
       packs: emotePacks, emotes: emotes,
       onManage: () => { setSheet(null); onManageEmotes && onManageEmotes(); },
       caption: !!emoteCaption, onCaption: onEmoteCaption,
-      onPick: em => { sendRich({ role: "user", kind: "emote", url: em.url, keyword: em.keyword, content: "[表情] " + em.keyword }); setSheet(null); }
+      onPick: em => { sendRich({ role: "user", kind: "emote", url: em.url, keyword: em.keyword, content: "[表情] " + em.keyword + (em.selfFace ? "（画的是她自己）" : "") }); setSheet(null); }
     })
   ), rpView != null && messages[rpView] && messages[rpView].kind === "redpacket" && (() => { const rp = messages[rpView], mine = (rp.claims || []).find(c => c.me);
     const canOpen = !rp.byMe && !mine && (rp.claims || []).length < rp.count && !(rp.toId && rp.toId !== "me");

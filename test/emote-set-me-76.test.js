@@ -14,3 +14,10 @@ test("画我自己那一套：挑有参考照的面具 → 同一套九宫格 �
   assert.match(ui, /myFaces\.filter\(f => f\.ok\)\.map\(f => h\("button", \{ key: "me_" \+ \(f\.id \|\| "main"\), "data-wk": "emomyface", onClick: \(\) => \{ setSetPick\(false\); onMakeSet\("__me:" \+ f\.id/);
   assert.match(ui, /"data-wk": "emomyface"[^\n]*\n[^\n]*minHeight: 40/);
 });
+
+// 她 2026-10-30：「他们知道是我吧」——角色只收到「[表情] 关键词」，原来不知道画的是她
+test("照她的脸画的表情：存时打标记，她发出去角色收到「画的是她自己」", () => {
+  const comp = fs.readFileSync(path.join(__dirname, "..", "js", "components.js"), "utf8");
+  assert.match(app, /\.\.\.\(_meM \? \{ selfFace: true \} : \{\}\) \};/);
+  assert.equal((comp.match(/content: "\[表情\] " \+ em\.keyword \+ \(em\.selfFace \? "（画的是她自己）" : ""\)/g) || []).length, 2, "单聊、群聊两处");
+});

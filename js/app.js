@@ -31467,7 +31467,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       const packName = _meM ? ((_meM.label || _meM.name || "我") + " 的表情") : (c ? (c.remark || c.name) : "TA") + " 的表情";
       const packs = emotePacksRef.current || [];
       let pk = packs.find(x => x && x.fromCharFace === (charId || "_"));
-      const em = { id: "em_" + Date.now() + "_" + Math.floor(Math.random() * 100000), keyword: String(name || "").trim().slice(0, 20) || ((c ? c.name : "TA") + "表情" + (((pk && pk.emotes) || []).length + 1)), url, ...(drawn ? { drawn: true } : {}), ...(captioned ? { captioned: true } : {}) };
+      const em = { id: "em_" + Date.now() + "_" + Math.floor(Math.random() * 100000), keyword: String(name || "").trim().slice(0, 20) || ((c ? c.name : "TA") + "表情" + (((pk && pk.emotes) || []).length + 1)), url, ...(drawn ? { drawn: true } : {}), ...(captioned ? { captioned: true } : {}), ...(_meM ? { selfFace: true } : {}) };   // selfFace：照她自己的脸画的（发出去时角色知道画的是她）
       const next = pk ? packs.map(x => x === pk ? { ...x, emotes: [...(x.emotes || []), em] } : x)
         : [...packs, { id: "ep_face_" + Date.now(), name: packName, global: false, mine: true, charIds: charId && !_meM ? [charId] : [], fromCharFace: charId || "_", emotes: [em] }];
       return commitEmotePacks(next);
