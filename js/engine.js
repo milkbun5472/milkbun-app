@@ -6178,10 +6178,24 @@ async function generateSelfieImage(prompt, refPhotoDataUrl, opts) {
     } catch (e) {
       throw new Error("CatsAPI 创建任务网络失败 · POST " + endpoint + " · " + String((e && e.message) || e));
     }
-    const raw = await response.text();
+    let raw = await response.text();
+    // 有的型号（混元那几个）提示词有字数上限（她 2026-10-30 转群友：「最多支持 2500 个字符（当前 3302 个）」）：
+    //   报错里写着上限就照它截短再发一次——从后往前在句子边界截，前头的人物和画面先留着；只重发这一次
+    if (!response.ok && response.status === 400) {
+      const cap = (/最多支持\s*(\d+)\s*个字符/.exec(raw) || /(?:at most|maximum(?: of)?|max)\s*(\d+)\s*char/i.exec(raw) || [])[1];
+      const lim = Number(cap) - 20;
+      if (lim > 200 && String(body.prompt).length > lim) {
+        let cut = String(body.prompt).slice(0, lim);
+        const k = Math.max(cut.lastIndexOf("。"), cut.lastIndexOf("."), cut.lastIndexOf("\n"), cut.lastIndexOf("；"), cut.lastIndexOf("，"));
+        if (k > lim * 0.6) cut = cut.slice(0, k + 1);
+        body.prompt = cut;
+        try { response = await request(endpoint, { method: "POST", body: JSON.stringify(body) }); raw = await response.text(); }
+        catch (e) { throw new Error("CatsAPI 创建任务网络失败 · POST " + endpoint + " · " + String((e && e.message) || e)); }
+      }
+    }
     if (!response.ok) {
       let detail = raw;
-      try { const parsed = JSON.parse(raw); detail = (parsed.error && (parsed.error.message || parsed.error.msg)) || parsed.message || raw; } catch (e) {}
+      try { const parsed = JSON.parse(raw); detail = (parsed.error && (parsed.error.message || parsed.error.msg) || parsed.detail) || parsed.message || raw; } catch (e) {}
       throw new Error("CatsAPI 创建任务失败 · POST " + endpoint + " · HTTP " + response.status + " · " + String(detail).replace(/\s+/g, " ").slice(0, 260));
     }
     let created;
