@@ -1050,9 +1050,35 @@ function SysNote({ label, text, tone, onClose, title, kind, copyable }) {
 // ⚠️图片地址一律过 resolveImg：贴纸可以是图片保险箱的 iv_ 门牌（秋秋改气泡那一路
 //   engine.js BUBBLE_AI_STICKER_KEYS 明说了只许填 iv_），不换成真实地址就是一张裂图。
 // 她双击贴在TA气泡上的那个表情（QQ 那种）：压在气泡角上，跟气泡皮肤那张装饰贴纸是两回事
+const MSG_STICK_EMOJI = ["👍", "❤️", "😂", "🥺", "😭", "😡", "😮", "🤔", "👀", "🙏", "👏", "🔥", "🌹", "💩", "😘", "🫂"];
+// 贴 emoji 那一排（她 2026-10-31「不能自选emoji吗」）：最近贴过的排前面，接着是常用那几个；
+//   右边一格自己打——用手机键盘的 emoji 那页挑哪个都行，打进去点「贴」
+function msgStickRecent() { const v = typeof loadJSON === "function" ? loadJSON("x_stickEmojiRecent", []) : []; return Array.isArray(v) ? v.filter(x => typeof x === "string" && x) : []; }
+function MsgStickEmojiRow({ onPick }) {
+  const t = useTheme();
+  const [own, setOwn] = useState("");
+  const pick = e => {
+    const v = String(e || "").trim();
+    if (!v) return;
+    if (typeof saveJSON === "function") saveJSON("x_stickEmojiRecent", [v].concat(msgStickRecent().filter(x => x !== v)).slice(0, 8));
+    onPick(v);
+  };
+  const list = msgStickRecent().concat(MSG_STICK_EMOJI).filter((e, i, a) => a.indexOf(e) === i).slice(0, 24);
+  // 只收 emoji：打进去的字里挑出第一个 emoji（连同肤色、组合那些一起），没有就不贴
+  const firstEmoji = v => { const m = String(v || "").match(/\p{Extended_Pictographic}(?:\uFE0F|\p{Emoji_Modifier}|\u200D\p{Extended_Pictographic}\uFE0F?)*/u); return m ? m[0] : ""; };
+  return h("div", { "data-wk": "msgstickemoji", style: { marginBottom: 10 } },
+    h("div", { className: "flex flex-wrap", style: { gap: 2 } }, list.map(e => h("button", { key: e, onClick: () => pick(e), className: "active:opacity-60", style: { width: 44, height: 44, fontSize: 24, lineHeight: 1, display: "flex", alignItems: "center", justifyContent: "center", borderRadius: 10 } }, e))),
+    h("div", { className: "flex items-center", style: { gap: 8, marginTop: 6 } },
+      h("input", { "data-wk": "msgstickown", value: own, onChange: e => setOwn(e.target.value.slice(0, 16)), placeholder: "打一个别的 emoji", className: "flex-1 min-w-0 outline-none px-3 rounded-lg",
+        style: { height: 40, fontSize: 18, background: t.bg2, color: t.ink, border: "1px solid " + t.line } }),
+      h("button", { onClick: () => { const e = firstEmoji(own); if (e) { setOwn(""); pick(e); } }, disabled: !firstEmoji(own), className: "shrink-0 active:opacity-70 disabled:opacity-40",
+        style: { minHeight: 40, padding: "0 16px", borderRadius: 10, background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))" } }, "贴")));
+}
 function msgStickEl(m, isU) {
   const st = m && m.stick;
-  if (!st || !st.url) return null;
+  if (!st || (!st.url && !st.emoji)) return null;
+  // 小黄脸 emoji（她 2026-10-31：QQ 那种贴的其实是 emoji）：一个字，叠在角上
+  if (st.emoji) return h("span", { "data-wk": "msgstick", "data-emoji": "1", style: { position: "absolute", bottom: -16, [isU ? "left" : "right"]: -10, minWidth: 26, height: 26, padding: "0 3px", borderRadius: 13, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 17, lineHeight: 1, background: "rgba(255,255,255,.92)", boxShadow: "0 1px 3px rgba(0,0,0,.18)", pointerEvents: "none", zIndex: 3 } }, st.emoji);
   return h("img", { "data-wk": "msgstick", src: st.url, alt: st.keyword || "", style: { position: "absolute", bottom: -20, [isU ? "left" : "right"]: -12, width: 30, height: 30, objectFit: "contain", pointerEvents: "none", zIndex: 3, filter: "drop-shadow(0 1px 2px rgba(0,0,0,.18))" } });
 }
 function bubbleSticker(isU) {
@@ -12355,6 +12381,7 @@ function ChatThread({
       setGeoOpen(false);
     }
   }), stickAt != null && onStickMsg && h(Sheet, { onClose: () => setStickAt(null), tall: true },
+    h(MsgStickEmojiRow, { onPick: e => { onStickMsg(stickAt, { emoji: e, keyword: e }); setStickAt(null); } }),
     messages[stickAt] && messages[stickAt].stick ? h("button", { "data-wk": "msgstickoff", onClick: () => { onStickMsg(stickAt, null); setStickAt(null); }, className: "w-full active:opacity-70", style: { minHeight: 40, marginBottom: 8, borderRadius: 10, border: "1px solid " + t.line, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.sub } }, "拿掉贴着的那个") : null,
     h(StickerPanel, {
       packs: emotePacks, emotes: emotes,
