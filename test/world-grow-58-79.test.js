@@ -29,11 +29,12 @@ test("上限做成可调，但跑团那边的默认值一个字都不许变", ()
 });
 
 test("架空地图显式放开上限，加了却画不出来的那道坎要挡在存盘之前", () => {
-  assert.match(map, /const WORLD_MAX_NODES = 8, WORLD_MAX_REGIONS = \d+;/, "架空地图没放开上限");
+  assert.match(map, /const WORLD_MAX_NODES = \d+, WORLD_MAX_REGIONS = \d+;/, "架空地图没放开上限");
+  assert.match(map, /window\.WORLD_MAX_NODES = WORLD_MAX_NODES/, "闸那头读不到同一份上限");
   assert.match(map, /K\.mapBuild\(world\.id, world\.regions, 360, 620, WORLD_MAX_NODES, WORLD_MAX_REGIONS\)/, "放开了没传下去");
   // 「加得进去却画不出来」是最难查的一种；所以加之前就挡
-  assert.match(add, /if \(rg && \(rg\.nodes \|\| \[\]\)\.length >= 8\)/, "一块地方加满了还让加");
-  assert.match(gen, /const room = Math\.max\(0, 8 - /, "让模型添的时候不看还剩几个位置");
+  assert.match(add, /if \(rg && \(rg\.nodes \|\| \[\]\)\.length >= _maxN\)/, "一块地方加满了还让加");
+  assert.match(gen, /const room = Math\.max\(0, _maxN - /, "让模型添的时候不看还剩几个位置");
   assert.match(gen, /\.slice\(0, Math\.min\(4, room\)\)/, "模型一口气添超了也照收");
 });
 
