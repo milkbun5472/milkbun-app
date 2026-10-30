@@ -6144,9 +6144,17 @@ async function generateSelfieImage(prompt, refPhotoDataUrl, opts) {
       : /1024\s*x\s*1536/i.test(size) ? "1024x1536" : "1024x1024";
     const catsQuality = /^(?:auto|low|medium|high)$/i.test(String(qualityOverride || ""))
       ? String(qualityOverride).toLowerCase() : "auto";
+    // 这个型号报过字数上限的，记着（x_imgPromptCap = { 型号: 上限 }），以后发之前先截好，不再每次先被拒一回
+    const capKey = String(a.model || "gptImage2");
+    const trimTo = (txt, lim) => {
+      let cut = String(txt).slice(0, lim);
+      const k = Math.max(cut.lastIndexOf("。"), cut.lastIndexOf("."), cut.lastIndexOf("\n"), cut.lastIndexOf("；"), cut.lastIndexOf("，"));
+      return k > lim * 0.6 ? cut.slice(0, k + 1) : cut;
+    };
+    const knownCap = Number(((typeof loadJSON === "function" ? loadJSON("x_imgPromptCap", {}) : {}) || {})[capKey]) || 0;
     const body = {
       model: a.model || "gptImage2",
-      prompt: String(prompt || ""),
+      prompt: knownCap > 200 && String(prompt || "").length > knownCap ? trimTo(prompt, knownCap) : String(prompt || ""),
       task_type: "image",
       num_images: 1,
       params: { size: catsSize, quality: catsQuality, rewritePrompt: false }
@@ -6185,10 +6193,8 @@ async function generateSelfieImage(prompt, refPhotoDataUrl, opts) {
       const cap = (/最多支持\s*(\d+)\s*个字符/.exec(raw) || /(?:at most|maximum(?: of)?|max)\s*(\d+)\s*char/i.exec(raw) || [])[1];
       const lim = Number(cap) - 20;
       if (lim > 200 && String(body.prompt).length > lim) {
-        let cut = String(body.prompt).slice(0, lim);
-        const k = Math.max(cut.lastIndexOf("。"), cut.lastIndexOf("."), cut.lastIndexOf("\n"), cut.lastIndexOf("；"), cut.lastIndexOf("，"));
-        if (k > lim * 0.6) cut = cut.slice(0, k + 1);
-        body.prompt = cut;
+        try { if (typeof saveJSON === "function") { const m = loadJSON("x_imgPromptCap", {}) || {}; m[capKey] = lim; saveJSON("x_imgPromptCap", m); } } catch (e) {}
+        body.prompt = trimTo(body.prompt, lim);
         try { response = await request(endpoint, { method: "POST", body: JSON.stringify(body) }); raw = await response.text(); }
         catch (e) { throw new Error("CatsAPI 创建任务网络失败 · POST " + endpoint + " · " + String((e && e.message) || e)); }
       }
