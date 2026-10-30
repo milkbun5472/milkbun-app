@@ -32850,7 +32850,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     onStickMsg: (idx, st) => pChat(window.ChatRooms ? window.ChatRooms.chatKey(activeChar.id, activeRoomId) : activeChar.id, p => p.map((x, i) => {
       if (i !== idx) return x;
       if (!st) { const { stick, ...r } = x; return r; }
-      return { ...x, stick: { url: st.url, keyword: String(st.keyword || "").slice(0, 20), ts: Date.now() } };
+      return { ...x, stick: { ...(st.emoji ? { emoji: String(st.emoji).slice(0, 8) } : { url: st.url }), keyword: String(st.keyword || st.emoji || "").slice(0, 20), ts: Date.now() } };
     })),
     // 唱片卡点进去＝去【这个人】情侣空间里的唱片架（那才是它落到的地方）。
     // ⚠️原来这儿只有 setScreen("us")：没说是谁，于是落在「所有情侣空间」那张名册上，

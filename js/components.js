@@ -1050,9 +1050,12 @@ function SysNote({ label, text, tone, onClose, title, kind, copyable }) {
 // ⚠️图片地址一律过 resolveImg：贴纸可以是图片保险箱的 iv_ 门牌（秋秋改气泡那一路
 //   engine.js BUBBLE_AI_STICKER_KEYS 明说了只许填 iv_），不换成真实地址就是一张裂图。
 // 她双击贴在TA气泡上的那个表情（QQ 那种）：压在气泡角上，跟气泡皮肤那张装饰贴纸是两回事
+const MSG_STICK_EMOJI = ["👍", "❤️", "😂", "🥺", "😭", "😡", "😮", "🤔", "👀", "🙏", "👏", "🔥", "🌹", "💩", "😘", "🫂"];
 function msgStickEl(m, isU) {
   const st = m && m.stick;
-  if (!st || !st.url) return null;
+  if (!st || (!st.url && !st.emoji)) return null;
+  // 小黄脸 emoji（她 2026-10-31：QQ 那种贴的其实是 emoji）：一个字，叠在角上
+  if (st.emoji) return h("span", { "data-wk": "msgstick", "data-emoji": "1", style: { position: "absolute", bottom: -16, [isU ? "left" : "right"]: -10, minWidth: 26, height: 26, padding: "0 3px", borderRadius: 13, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 17, lineHeight: 1, background: "rgba(255,255,255,.92)", boxShadow: "0 1px 3px rgba(0,0,0,.18)", pointerEvents: "none", zIndex: 3 } }, st.emoji);
   return h("img", { "data-wk": "msgstick", src: st.url, alt: st.keyword || "", style: { position: "absolute", bottom: -20, [isU ? "left" : "right"]: -12, width: 30, height: 30, objectFit: "contain", pointerEvents: "none", zIndex: 3, filter: "drop-shadow(0 1px 2px rgba(0,0,0,.18))" } });
 }
 function bubbleSticker(isU) {
@@ -12355,6 +12358,7 @@ function ChatThread({
       setGeoOpen(false);
     }
   }), stickAt != null && onStickMsg && h(Sheet, { onClose: () => setStickAt(null), tall: true },
+    h("div", { "data-wk": "msgstickemoji", className: "flex flex-wrap", style: { gap: 2, marginBottom: 10 } }, MSG_STICK_EMOJI.map(e => h("button", { key: e, onClick: () => { onStickMsg(stickAt, { emoji: e, keyword: e }); setStickAt(null); }, className: "active:opacity-60", style: { width: 44, height: 44, fontSize: 24, lineHeight: 1, display: "flex", alignItems: "center", justifyContent: "center", borderRadius: 10 } }, e))),
     messages[stickAt] && messages[stickAt].stick ? h("button", { "data-wk": "msgstickoff", onClick: () => { onStickMsg(stickAt, null); setStickAt(null); }, className: "w-full active:opacity-70", style: { minHeight: 40, marginBottom: 8, borderRadius: 10, border: "1px solid " + t.line, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.sub } }, "拿掉贴着的那个") : null,
     h(StickerPanel, {
       packs: emotePacks, emotes: emotes,

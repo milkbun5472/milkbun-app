@@ -15,3 +15,9 @@ test("贴的存在那一条上，画在气泡角上，TA 下一轮看得到", ()
   assert.match(ts, /"msgstick"/);
   assert.match(ts, /"msgstickoff"/);
 });
+test("也能贴 emoji", () => {
+  assert.match(c, /const MSG_STICK_EMOJI = \[/);
+  assert.match(c, /onStickMsg\(stickAt, \{ emoji: e, keyword: e \}\)/);
+  assert.match(app, /st\.emoji \? \{ emoji: String\(st\.emoji\)\.slice\(0, 8\) \}/);
+  assert.match(ts, /"msgstickemoji"/);
+});
