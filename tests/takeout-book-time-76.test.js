@@ -5,7 +5,7 @@ const app = fs.readFileSync(path.join(__dirname, "..", "js", "app.js"), "utf8");
 const ui = fs.readFileSync(path.join(__dirname, "..", "js", "screens-ui.js"), "utf8");
 test("结算页有「什么时候送到」，下单带上 at", () => {
   assert.match(ui, /sectionLabel\("什么时候送到"\)/);
-  assert.match(ui, /note: mode === "forchar" \? say : "", at \}, mode, target\)/);
+  assert.match(ui, /note: mode === "forchar" \? say : "", at \}, mode, target/);
   assert.match(ui, /type: "time"/);
 });
 test("下单照 at 定送达；代付、亲属卡的订单也带上", () => {

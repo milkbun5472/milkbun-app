@@ -2,7 +2,8 @@ const test=require("node:test");const assert=require("node:assert");const fs=req
 const a=fs.readFileSync(__dirname+"/../js/app.js","utf8"),e=fs.readFileSync(__dirname+"/../js/engine.js","utf8");
 test("专属表情包单独标出来，带包名",()=>{
   assert.ok(a.includes("【你的专属表情包】"));
-  assert.ok(a.includes('!pk.global && (pk.charIds || []).includes(charId)'));
+  // 2026-10-30：她自己那一套（__me:）不算进他的专属，中间多了一道
+  assert.ok(a.includes('!pk.global && String(pk.fromCharFace || "").indexOf("__me:") !== 0 && (pk.charIds || []).includes(charId)'));
 });
 test("心情两处都带上「情绪怎么带出来照你这个人」",()=>{
   assert.equal((e.match(/\+ MOOD_HOW\)/g)||[]).length,2);

@@ -4,7 +4,7 @@ const app = require("fs").readFileSync(require("path").join(__dirname, "..", "js
 assert.match(app, /流水上没写是给谁的/);
 assert.match(app, /标了「就是你」的才是给你的；没写给谁的，你不知道是买给谁/);
 // 别的面具那几个人的照旧整条不进
-assert.match(app, /const log = \(walletLog \|\| \[\]\)\.filter\(w => !maskTrace\(w\.label\) && !\(w\.ref && \(\(w\.ref\.charId && maskSet\.has\(String\(w\.ref\.charId\)\)\) \|\| \(w\.ref\.groupId && maskSet\.has\(String\(w\.ref\.groupId\)\)\)\)/);
+assert.match(app, /const log = \(walletLog \|\| \[\]\)\.filter\(w => !\(maskIds && maskIds\.length && walletMaskOf\(w\) !== maskKeyOf\(viewerId\)\) && !maskTrace\(w\.label\) && !\(w\.ref && \(\(w\.ref\.charId && maskSet\.has\(String\(w\.ref\.charId\)\)\) \|\| \(w\.ref\.groupId && maskSet\.has\(String\(w\.ref\.groupId\)\)\)\)/);
 console.log("ok");
 
 assert.match(app, /!peekMaskHit\(peekMaskView\(\), "", w\.ref && w\.ref\.groupId\)/);

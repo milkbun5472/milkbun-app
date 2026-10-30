@@ -15,8 +15,8 @@ test("她能用小号发帖：角色认不出、她自己帖子里回楼也是�
 test("小号是一个能切的号：回楼、私信都跟着；小号帖没人自动来回；小号私信不进聊天", () => {
   assert.ok(/const usingAlt = post =>/.test(app) && /forumMe\.using === "alt"/.test(app));
   assert.ok(/if \(altB\) \{ setForumComments\(prev => \{ const n = \{ \.\.\.prev, \[rec\.id\]: \[\] \}/.test(app), "小号帖不排队、打开也不现编");
-  assert.ok(/t\.charId === char\.id && !t\.alt\);   \/\/ 小号那条线不进来/.test(app));
-  assert.ok(/if \(pmChar && th\.alt\)/.test(app), "小号私信角色：他当陌生人");
+  assert.ok(/t\.charId === char\.id && pmCharKnows\(t, char\)\);   \/\/ 小号、TA不认得的那张面具开的线不进来/.test(app));
+  assert.ok(/if \(pmChar && !pmCharKnows\(th, pmChar\)\)/.test(app), "小号私信角色：他当陌生人");
   assert.ok(/onEditMe\(\{ using: onAlt \? "main" : "alt" \}\)/.test(scr));
 });
 test("回楼用哪个号只看现在切的号，小号帖底下切了大号就用大号（2026-10-07 群友）", () => {

@@ -4367,7 +4367,7 @@ const CARRY_SECTIONS = [
 // 她刚添上的那几套会在界面上被静默砍掉，人还以为没添进去。
 // 天花板是许可不是指标（她 2026-09-12 那句，v67.25 同一条）：
 // 用不到的时候它一分钱不花，太低的时候才实打实掐掉她攒的东西。
-const CLOSET_MAX_OCCASIONS = 16, CLOSET_MAX_SETS = 20, CLOSET_MAX_TOTAL = 120;   // 她 2026-10-13：「上限放宽点」
+const CLOSET_MAX_OCCASIONS = 30, CLOSET_MAX_SETS = 50, CLOSET_MAX_TOTAL = 120;   // 她 2026-10-13：「上限放宽点」；2026-10-30 又放到 30 类、每类 50 身（我的衣柜也读这一份）。总数 120 只管 TA 的：那份要进TA的提示词
 // 读衣柜：新形状按场合分组，旧形状是一条平的 items。两种都得认得（她手机上已经有旧数据）。
 function closetGroups(data) {
   if (!data) return [];

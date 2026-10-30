@@ -2,7 +2,7 @@ const test = require("node:test"), assert = require("node:assert/strict"), fs = 
 const app = fs.readFileSync(__dirname + "/../js/app.js", "utf8"), ui = fs.readFileSync(__dirname + "/../js/screens-ui.js", "utf8"), ts = fs.readFileSync(__dirname + "/../js/theme-studio.js", "utf8");
 test("私信过的网友在评论区认得她（同一个号、匿名不算、不当众抖私信）", () => {
   assert.match(app, /const forumPmKnow = \(post, names\) =>/);
-  assert.match(app, /!!t\.alt === alt && want\.has\(String\(t\.npcName\)\)/);
+  assert.match(app, /pmAcctOf\(t\) === \(alt \? "alt" : String\(myMaskTag\(post\)\.mask \|\| ""\)\) && want\.has\(String\(t\.npcName\)\)/);
   assert.match(app, /post\.board === "匿名吧" \|\| post\.anon\) return ""/);
   assert.match(app, /\+ forumPmKnow\(post, \[resp\.name, floor\.authorName, post\.authorName\]/);
 });

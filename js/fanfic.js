@@ -1750,7 +1750,7 @@
     }
     function importStyleFile() {
       const inp = document.createElement("input");
-      inp.type = "file"; inp.accept = ANY_FILE;
+      inp.type = "file"; if (ANY_FILE) inp.accept = ANY_FILE;   // 安卓那边不写这个属性（见 core.js ANY_FILE）
       inp.onchange = async function () {
         const file = inp.files && inp.files[0]; if (!file) return;
         setImporting(true);

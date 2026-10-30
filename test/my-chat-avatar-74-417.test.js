@@ -7,7 +7,9 @@ const R = f => fs.readFileSync(path.join(__dirname, "..", "js", f), "utf8");
 const comp = R("components.js"), app = R("app.js");
 
 test("聊天页我的头像：这个窗设过就用它，没设用资料那张", () => {
-  assert.match(comp, /avatarImage: \(character && character\.myChatAvatar\) \|\| \(_me && _me\.avatarImage\)/);
+  // 2026-10-29：设过、而且读得出来才用它；读不出来（图库里没了）就跳过，用资料／面具那张
+  assert.match(comp, /const _myCA = character && character\.myChatAvatar && \(typeof resolveImg !== "function" \|\| resolveImg\(character\.myChatAvatar\)\) \? character\.myChatAvatar : null;/);
+  assert.match(comp, /avatarImage: _myCA \|\| \(_me && _me\.avatarImage\)/);
 });
 
 test("设置页那一格存得下来", () => {

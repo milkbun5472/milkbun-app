@@ -53,7 +53,8 @@ test("开关在「TA 是什么脾气」最上面，存档那头接得住", () =>
 
 // 她 2026-10-09：「本体模式有没有办法让他不分气泡一长段」
 test("本体模式一次回一整条：不拆泡，几条也并成一条；言秋照旧", () => {
-  assert.match(app, /const _oneLong = !!_s\.bodyMode && !_s\.engineerEyes;/);
+  // 2026-10-29 起多一道「拆成短气泡」开关：默认关＝还是一整条
+  assert.match(app, /const _oneLong = !!_s\.bodyMode && !_s\.engineerEyes && _s\.bodySplit !== true;/);
   assert.match(app, /const _splitOn = _s\.splitBubbles !== false && !_oneLong;/);
   assert.match(app, /if \(_oneLong && words\.length > 1 && words\.every\(w => typeof w === "string"\)\) words = \[words\.join\("\\n\\n"\)\];/);
   assert.match(app, /把你要说的写成一整条消息（word 里只放一条）/);

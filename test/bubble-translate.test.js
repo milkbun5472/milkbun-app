@@ -17,7 +17,8 @@ test("认得出真的外语", () => {
   assert.equal(lang("잘 자요, 내일 봐요"), "韩文");
   assert.equal(lang("Спокойной ночи"), "俄文");
   assert.equal(lang("Good night, get some rest"), "英文");
-  assert.equal(lang("Bonne nuit, dors bien mon cœur"), "外语");
+  assert.equal(lang("Bonne nuit, dors bien mon cœur"), "法文");   // 2026-10-30 起认得出法文
+  assert.equal(lang("C'est pas moi !"), "法文");   // 一个带符号的字母都没有也不当成英文
   // 假名/谚文是决定性的：句子里还有汉字也照样算日文
   assert.equal(lang("今日はいい天気ですね"), "日文");
 });

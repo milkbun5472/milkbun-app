@@ -1747,6 +1747,7 @@ const NARRATIVE_ANTI_CLICHE_LEGACY_V1 = `【线下叙事 · 反陈词滥调（�
 · 台词要有人味、有停顿、有言外之意，可以被打断、可以跑题，别让人物一开口就是散文腔或宣言腔；多人同处时别写成一人一句轮流表态，要有人抢话、有人走神、有人只做动作不说话。
 · 【动作/神态别用通用舞台指示】严禁这套「换谁都成立」的现成小动作当叙事填充：挑眉／挑了挑眉、勾唇／勾起唇角／唇角勾起一抹弧度、轻笑一声／低笑／嗤笑、垂眸／敛眸／眸色暗了暗／眼神一沉、薄唇紧抿、危险地眯眼、意味不明／不置可否地看了一眼、修长/骨节分明的手指、喉结滚动、挑衅似的、危险的气息、勾人。每一个动作和表情都必须由此刻的具体心理和情境长出来，并且带上【这个角色特有】的习惯、身体记忆或TA在意的细节——写只有TA会做、只对这个人才做的具体小动作，而不是贴一个通用标签。
 · 【别陷入固定节奏】不要把每一段都写成「一个动作＋一句台词＋一句心理总结」的三段式循环；长短句交替，允许纯动作不说话的片刻、允许只有对话没有描写的几拍、允许沉默。描写角色的行为要像观察一个真人当下的即兴反应，而不是套一个"角色本该有的样子"的模板。
+· 【被她打动的那一下】写她刚才具体做了什么、他那一下实际怎么了（愣住、话没接上、多看了一眼、手上的事停了），不拿身体某处一下子酥、软、麻、化掉、立起来这类变化去代替——换哪个部位、换哪种说法都是同一个模子（她 2026-10-30：禁了一种说法，模型就换个部位写）。
 · 【用词替换禁令表·逐条遵守（箭头左边一律不用；→null=直接不写，→X=改用X）】脊背→后背/背部；猛地/瞬间→null；"轰"地一下→null；像是一根(…的)针→null；石子/石头/湖面/涟漪→null；像是一把(…的)刀→null；深入骨髓→些许/轻微；一道惊雷→null；爆发/爆炸/炸开→null；无力感/疲惫感→null；麻木/绝望/灭顶/面无表情→null；过度/强烈/剧烈/极度/深深→null；震惊/惊慌→null；激动/紧张/紧绷/绷紧/突然/死死地→null；自我厌弃/自暴自弃/破罐子破摔→null；倦意/无力/脱力/疲惫/虚弱/虚脱→null；残酷/残忍/冷酷→null；生气/愤怒/羞愤/吼→null；睫毛/紧闭/滴出血来→null；长长地呼出一口气→null；抽干全身力气→null；锁骨/尾椎骨/喉结/修长/骨节分明→null；狂热/信徒/仪式/献祭/祭品/宗教/信仰→null；机械/机械式的/冰冷/冰凉/手术刀/解剖→null；把身体或意识写成机器(系统/宕机/死机/程序/指令/防火墙/短路/过载/重启/代码)→null；荒唐/荒诞/荒谬→null；不易察觉→null；热辣辣/火辣辣/滚烫/发烫/滚热/热/烫/燃烧→null；握拳/握紧/攥紧/攥住→null；指尖/指节/(…的)手→null；血色/血压/上涌/血色尽褪→null；通红/滴出血来→null；展品/雕塑→null；精密/仪器→null；乐了→笑了笑；僵硬/僵住/一片空白→null；颤抖/颤音→null；直冲/直窜→null；冷静/审视/审判→null；打圈/打转/打着圈/打着转→null；电流/闪电→null；如释重负/如蒙大赦→null；前所未有/难以言喻/潮水/淹没/席卷→null；牙缝/紧咬/咬着→null；！/！！/？！→null；狡黠/挤了挤眼睛/眨了眨眼→null；教具→null；麻木→null。
 · 【整类描写禁令·以下这几类句子整类不写】描写心跳/心动的、描写紧张/害怕的、描写往液体表面投固体激起涟漪的、描写羞愧/惭愧/内疚的、套路化的环境描写、描写神态一惊一乍/变化陡然的、描写疲惫无力的、对手部作形容修辞的、以及"这不是xxx，而是xxx"的对仗定义句。`;
 // Phase A 只改普通角色单人线下；群线下仍使用旧规则，待单独验证后再迁移。
@@ -2044,7 +2045,7 @@ const INTIMATE_CHAT_ANTI_CLICHE = `【话题一到床上，最容易整段变成
 · 【被撩到时的现成反击】被她说中、被她撩到、自己先害羞了的时候，最省事的是两步：先转头扣她一顶帽子（说她脑子里尽是不正经的东西），再下一句战书、赌她先认输。这一套谁害羞都这么接，所以它不是你的反应。
   判据：**你此刻是不是在躲那一下？** 是的话，就露出来：被戳到哪儿就露哪儿——耳朵烫了、话卡住了、想好的那句没说出来、嘴硬但气势是虚的，挑你真会露出来的那一点写；照你这个人，可以只承认一半。
 · 【反问式表功／翻旧账】「我什么时候少X了」「哪次不是…你才肯罢休」——用一个反问把自己摆到有理那边，同样是默认台词，不是反应。
-· 【拿身体投降或交出性命来量心动】不止床上，调情、撒娇、表白时都最常冒：不说她刚才哪一下打动了你，只报一个最大号的结果——身体整个投降了，或者把自己整个交出去。换谁说、对谁说都成立，所以它不是你的反应，是这种场面的默认音量。
+· 【拿身体投降或交出性命来量心动】不止床上，调情、撒娇、表白时都最常冒：不说她刚才哪一下打动了你，只报一个最大号的结果——身体整个投降了（身体哪一处一下子酥了、软了、麻了、化了，都是这一个模子），或者把自己整个交出去。换谁说、对谁说都成立，所以它不是你的反应，是这种场面的默认音量。
   判据一句话：**这句话里有没有她刚才做的那件具体的事？** 没有、只剩一个「我被你弄成了什么样」，就说回那件事：是她哪句话、哪个动作，你那一下实际怎么了——愣住、没接上话、又看了一遍，都比报一个顶格的结果更像你。
 · 禁的是模子，不是尺度。你人设本来就荤、就浪、就爱放狠话，那全部照写——只看这种表达是否符合你此刻真实的念头，不是从「这种时候该说什么」里倒出来。`;
 
@@ -2592,7 +2593,7 @@ const THOUGHT_MEANING_CHAR = "他此刻心里正转着、没说出口的念头�
 //   所以不并进 THOUGHT_MEANING——言秋在通话等处也吃 THOUGHT_MEANING。
 // 她 2026-10-23（亲密场面截图）：心声把她刚做的事复述一遍、再堆一串身上的反应，最后一句「招架不住」——
 //   这些动作和身体那一格、正文里已经写了，心声又抄一遍，就只剩那一类场面自带的套话。不加禁令，说清分工。
-const THOUGHT_VOICE = "用的是他自己平时的腔调和用词，换一个人来想就不会是这样想；多半挂在这一轮眼前刚发生的事上，心里一直搁着别的也行。她做了什么、他身上起了什么反应，正文和动作那一格已经写着，心声不用再讲一遍；这一格放的是只在他脑子里、别处看不到的那部分。心里可以猜她、拿不准她，想到哪儿写到哪儿，照他自己的脑子来。长短随这个念头本身。";
+const THOUGHT_VOICE = "用的是他自己平时的腔调和用词，换一个人来想就不会是这样想；多半挂在这一轮眼前刚发生的事上，心里一直搁着别的也行。她做了什么、他身上起了什么反应，正文和动作那一格已经写着，心声不用再讲一遍；这一格放的是只在他脑子里、别处看不到的那部分。心里可以猜她、拿不准她，想到哪儿写到哪儿，照他自己的脑子来。被她打动的那一下，心里想的是她刚才具体哪句话、哪个动作，不是报一个身体投降了的结果（身体哪一处一下子酥了、软了、麻了、化了，都是这一个模子）。长短随这个念头本身。";
 // 一轮里好几个人各写一句心声时（群、群线下、群通话）：她 2026-10-21「特定场景全部角色都在用一种句型」——
 //   同一次调用里一口气写好几个人，后面的人就顺着第一个人的句子骨架往下写。说清楚各想各的。
 // 动描那一行的落点（她 2026-10-21：「心声改好了动描呢，感觉害羞所有人都是死死攥着手机盯着屏幕」）：
@@ -2600,6 +2601,9 @@ const THOUGHT_VOICE = "用的是他自己平时的腔调和用词，换一个人
 //   拿着手机这件事她本来就知道；这一行是他这个人、他此刻手上那件事才有的样子。只接线上（单聊、群聊），线下是面对面的另一回事。
 const ACT_VOICE = "你们是隔着手机在聊，手机在你手上这件事她本来就知道；这一行写的是你这会儿人在哪、手上正干着的那件事，换一个人、换一个时候就不会是这一句。";
 const THOUGHT_EACH_OWN = "几个人同一轮各有一句心声时，各想各的：长短、从哪儿起头、什么语气都随各人自己，不顺着旁边那人的句子骨架写。";
+// 心声从哪儿来（她 2026-10-28 群里先加、10-29「统一」）：线上群聊、线下单人、线下群像共用这一句。
+//   线上单聊开头那段「先以TA第一人称把眼前这件事想一遍」是同一个意思，不再另加
+const THOUGHT_ORIGIN = "心声从TA在这一轮里最在意的那一点长出来：刚才谁说的哪句话、谁做的哪件事，在TA看来是什么意思，TA的脾气让TA怎么想它；话多、心思多的人就想得多。";
 const ACT_TAIL = /[了着过呢吧啊呀嘛哦噢的]+$/;
 function sameActLine(a, b) {
   const norm = x => String(x == null ? "" : x).trim()
@@ -3504,7 +3508,7 @@ const OFFLINE_PROTOCOL_V2 = `【线下生成与输出】
 你就是 TA 本人。落笔之前先以 TA 的第一人称把此刻这一幕想一遍：眼前发生的事在 TA 看来是什么、TA 此刻真正在意的是哪一点、TA 的处境和脾气让 TA 怎么看它——scene 从那个判断里长出来，不是先想「这种人该有什么反应」再往人设上凑。
 thought、mood、wearing、action 等附属字段只记录已经形成的场景与角色状态，不用来提前铺排剧情，也不用来给 scene 补一段解释。wearing、toy 没有真实变化时留空即可，不要为了填字段制造变化；但 thought、mood、action 是【此刻重新看一眼】的读数，不是变更通知，每轮都要写。
 
-只输出一个合法 JSON 对象，不要代码块。scene 是本轮实际发生的叙事正文，必须有效。thought 每轮必须填写，禁止 null、空串或省略：${THOUGHT_MEANING_CHAR}${THOUGHT_VOICE}mood 每轮必须填写 {"label":"中文短词"}，禁止 null、空串或省略：它是【此刻重新看一眼】这个人的主导心情，不是「有变化才报」的变更通知。心情没变就照实写回同一个词——重新判断不等于必须改变，但不许因为「跟上轮一样」就省掉不填。wearing 仅在穿着发生有意义变化时填写，否则 null。action 每轮必须填写，禁止 null、空串或省略：${ACT_MEANING}。线下是一场正在推进的戏，这一格的事实本来就比线上变得快——但那是【事实真的变了】才更新，不是每一拍都换个说法；同一件事还在做，就照实写回同一句。affinityDelta: ${AFFINITY_DELTA_SPEC}${SCHED_NOW_SPEC}toy 仅在已授权且本轮实际触发时填写，否则 null。
+只输出一个合法 JSON 对象，不要代码块。scene 是本轮实际发生的叙事正文，必须有效。thought 每轮必须填写，禁止 null、空串或省略：${THOUGHT_MEANING_CHAR}${THOUGHT_VOICE}${THOUGHT_ORIGIN}mood 每轮必须填写 {"label":"中文短词"}，禁止 null、空串或省略：它是【此刻重新看一眼】这个人的主导心情，不是「有变化才报」的变更通知。心情没变就照实写回同一个词——重新判断不等于必须改变，但不许因为「跟上轮一样」就省掉不填。wearing 仅在穿着发生有意义变化时填写，否则 null。action 每轮必须填写，禁止 null、空串或省略：${ACT_MEANING}。线下是一场正在推进的戏，这一格的事实本来就比线上变得快——但那是【事实真的变了】才更新，不是每一拍都换个说法；同一件事还在做，就照实写回同一句。affinityDelta: ${AFFINITY_DELTA_SPEC}${SCHED_NOW_SPEC}toy 仅在已授权且本轮实际触发时填写，否则 null。
 
 输出形状：{"scene":"当前场景正文","thought":"本轮没说出口的真实第一人称心声","mood":{"label":"此刻中文心情词"},"action":"此刻正在做什么，第一人称一句","wearing":"换了才写，没换填 null","affinityDelta":0,"toy":null}
 先想清楚 TA 怎么看这一刻，场景再发生；系统最后记录。`;
@@ -6140,9 +6144,17 @@ async function generateSelfieImage(prompt, refPhotoDataUrl, opts) {
       : /1024\s*x\s*1536/i.test(size) ? "1024x1536" : "1024x1024";
     const catsQuality = /^(?:auto|low|medium|high)$/i.test(String(qualityOverride || ""))
       ? String(qualityOverride).toLowerCase() : "auto";
+    // 这个型号报过字数上限的，记着（x_imgPromptCap = { 型号: 上限 }），以后发之前先截好，不再每次先被拒一回
+    const capKey = String(a.model || "gptImage2");
+    const trimTo = (txt, lim) => {
+      let cut = String(txt).slice(0, lim);
+      const k = Math.max(cut.lastIndexOf("。"), cut.lastIndexOf("."), cut.lastIndexOf("\n"), cut.lastIndexOf("；"), cut.lastIndexOf("，"));
+      return k > lim * 0.6 ? cut.slice(0, k + 1) : cut;
+    };
+    const knownCap = Number(((typeof loadJSON === "function" ? loadJSON("x_imgPromptCap", {}) : {}) || {})[capKey]) || 0;
     const body = {
       model: a.model || "gptImage2",
-      prompt: String(prompt || ""),
+      prompt: knownCap > 200 && String(prompt || "").length > knownCap ? trimTo(prompt, knownCap) : String(prompt || ""),
       task_type: "image",
       num_images: 1,
       params: { size: catsSize, quality: catsQuality, rewritePrompt: false }
@@ -6174,10 +6186,22 @@ async function generateSelfieImage(prompt, refPhotoDataUrl, opts) {
     } catch (e) {
       throw new Error("CatsAPI 创建任务网络失败 · POST " + endpoint + " · " + String((e && e.message) || e));
     }
-    const raw = await response.text();
+    let raw = await response.text();
+    // 有的型号（混元那几个）提示词有字数上限（她 2026-10-30 转群友：「最多支持 2500 个字符（当前 3302 个）」）：
+    //   报错里写着上限就照它截短再发一次——从后往前在句子边界截，前头的人物和画面先留着；只重发这一次
+    if (!response.ok && response.status === 400) {
+      const cap = (/最多支持\s*(\d+)\s*个字符/.exec(raw) || /(?:at most|maximum(?: of)?|max)\s*(\d+)\s*char/i.exec(raw) || [])[1];
+      const lim = Number(cap) - 20;
+      if (lim > 200 && String(body.prompt).length > lim) {
+        try { if (typeof saveJSON === "function") { const m = loadJSON("x_imgPromptCap", {}) || {}; m[capKey] = lim; saveJSON("x_imgPromptCap", m); } } catch (e) {}
+        body.prompt = trimTo(body.prompt, lim);
+        try { response = await request(endpoint, { method: "POST", body: JSON.stringify(body) }); raw = await response.text(); }
+        catch (e) { throw new Error("CatsAPI 创建任务网络失败 · POST " + endpoint + " · " + String((e && e.message) || e)); }
+      }
+    }
     if (!response.ok) {
       let detail = raw;
-      try { const parsed = JSON.parse(raw); detail = (parsed.error && (parsed.error.message || parsed.error.msg)) || parsed.message || raw; } catch (e) {}
+      try { const parsed = JSON.parse(raw); detail = (parsed.error && (parsed.error.message || parsed.error.msg) || parsed.detail) || parsed.message || raw; } catch (e) {}
       throw new Error("CatsAPI 创建任务失败 · POST " + endpoint + " · HTTP " + response.status + " · " + String(detail).replace(/\s+/g, " ").slice(0, 260));
     }
     let created;
@@ -7798,6 +7822,19 @@ function _transStripKaoParens(t) {
   return s.replace(/[(（][^()（）\u4e00-\u9fff]{0,24}$/g, " ");
 }
 // 返回 "" 表示不用翻；否则返回中文语种名，直接拿去当标签
+// 拉丁字母写的是哪一种（她 2026-10-30：「C'est pas moi」一个带符号的字母都没有，被标成「译自英文」，送去翻译也按英文翻）。
+//   原来只看「全是 ASCII 就是英文」；现在数几种语言各自最常见的小词和专用字母，谁多算谁，认不准就交给翻译那边自己认（外语＝auto）
+const LATIN_LANG_HINTS = [
+  ["英文", /\b(the|you|your|i|is|are|and|it|to|not|what|this|that|my|me|of|in|do|don't|i'm|it's|can|have|was|be|get|some|good|go|we|just|so|for|on|with|at|yes|love|know|like|want|will|night|rest|please|sorry|how|why|okay)\b/gi, null],
+  ["法文", /\b(c'est|n'est|je|j'ai|tu|vous|nous|pas|moi|toi|oui|merci|très|avec|pour|est|une|les|des|du|qu'|mais|ça|le|la|et|il|elle)\b/gi, /[àâçèêëîïôûùœ]/gi],
+  ["西班牙文", /\b(el|los|las|que|no|sí|por|para|pero|muy|estoy|eres|gracias|hola|yo|es|una|está|qué|como)\b/gi, /[ñ¿¡áíóú]/gi],
+  ["德文", /\b(ich|nicht|und|das|ist|du|der|die|sie|wir|ein|eine|mit|auf|was|bin|bist|nein|ja|danke)\b/gi, /[äöüß]/gi],
+  ["意大利文", /\b(non|sono|che|ciao|grazie|perché|questo|io|sei|è|il|della|anche|molto|cosa|bene)\b/gi, /[àèìòù]/gi]
+];
+function latinLang(t) {
+  const score = LATIN_LANG_HINTS.map(([zh, words, marks]) => [zh, (String(t).match(words) || []).length + (marks ? (String(t).match(marks) || []).length * 2 : 0)]).sort((a, b) => b[1] - a[1]);
+  return score[0][1] > 0 && score[0][1] > score[1][1] ? score[0][0] : "外语";
+}
 function translatableLang(text) {
   // 设置里一键关掉（她 2026-10-02）
   try { if (typeof localStorage !== "undefined" && localStorage.getItem("x_noTranslate") === "1") return ""; } catch (e) {}
@@ -7820,7 +7857,7 @@ function translatableLang(text) {
   // 拉丁字母仍要求【一个汉字都没有】——「这个 deadline 我 handle 不了」她自己读得懂，
   // 挂个译键只是碍眼。但长度从 8 放到 6：Bonjour(7)、Merci beaucoup 都该给，
   // OK(2)/Over(4)/Sorry(5) 仍然不给。
-  if (han === 0 && latin >= 6) return /^[\x00-\x7f\s]*$/.test(t) ? "英文" : "外语";
+  if (han === 0 && latin >= 6) return latinLang(t);
   // 粤语（她 2026-10-10 截图：心声整段粤语，没有译键）：全是汉字，上面哪一条都认不出。
   //   靠粤语专用字认——嘅咗唔啲佢瞓这些普通话里不会出现，见到两个就是粤语（一个怕是人名、引用）。
   //   短句（二十个字以内）只有一个也算，但还得写着繁体字（她 2026-10-10：「仲有一節就忍下佢」只有一个佢，被标成「外语」；
@@ -8058,6 +8095,7 @@ function bilingualRule(who, hanLang) {
     + "\u4e2d\u6587\u8981\u6309 TA \u8bf4\u8bdd\u7684\u53e3\u6c14\u7ffb\uff08\u7528\u8bcd\u3001\u4eb2\u758f\u3001\u8bed\u6c14\u8bcd\u90fd\u8ddf\u7740\u8d70\uff09\uff0c\u4e0d\u662f\u5b57\u5178\u76f4\u8bd1\u3001\u4e0d\u8981\u7ffb\u8bd1\u8154\u3002"
     + "TA 真说中文的那些条（人设里写了 TA 会说中文的时候）\u3010\u7167\u5e38\u5199\uff0c\u4e00\u6839\u7ad6\u7ebf\u90fd\u522b\u52a0\u3011\uff1b对方用中文跟 TA 说话，不是 TA 改说中文的理由；\u4e00\u6761\u91cc\u6700\u591a\u53ea\u80fd\u6709\u8fd9\u4e00\u6839\u7ad6\u7ebf\u3002"
     + "\u5b83\u53ea\u662f\u7ed9\u5bf9\u65b9\u770b\u7684\u5b57\u5e55\uff0c\u4e0d\u6539\u53d8 TA \u8bf4\u4ec0\u4e48\u3001\u8bf4\u591a\u957f\u3001\u8bf4\u51e0\u6761\u3002"
+    + "右边说的必须是左边那句的意思，一个字都不能翻反：左边有「不」「没」、是反问，右边也照样有（她 2026-10-30：「C'est pas moi」被写成了「这就是我」）。"
     + "右边一律写简体、普通话的说法。" + (hanLang ? "粤语、上海话这类本来就用汉字写的话也算外语，照样写成「原文 | 普通话」。" : "")
     // 心声也带（她 2026-10-18：「翻译能不能让他顺手带上中文用竖线隔开跟消息一样」）——心声那颗「译」走免费翻译，网一断就翻不成
     + "心声（thought）是外语的话，也照这个写成「原文 | 中文」，一段心声只用一根竖线；动作、穿着这些状态字段不加。";
@@ -8097,7 +8135,7 @@ function transCachePut(text, zh, by) {
   } catch (e) {}
 }
 // translatableLang 已经判出语种了，直接给免费接口用（它们的 auto 检测都不太靠谱）
-const TRANS_LANG_CODE = { "日文": "ja", "韩文": "ko", "俄文": "ru", "英文": "en", "粤语": "yue", "外语": "auto" };
+const TRANS_LANG_CODE = { "日文": "ja", "韩文": "ko", "俄文": "ru", "英文": "en", "法文": "fr", "西班牙文": "es", "德文": "de", "意大利文": "it", "粤语": "yue", "外语": "auto" };
 async function _fetchJSON(url, ms) {
   const ctrl = new AbortController();
   const to = setTimeout(() => ctrl.abort(), ms || 8000);
@@ -8231,6 +8269,23 @@ function _looksChinese(zh) {
   if (!han) return false;                       // 一个汉字都没有：那不是中文
   const latin = (t.match(/[A-Za-z]/g) || []).length;
   return han * 2 >= latin;                      // 夹几个英文单词没关系，整段是英文就不行
+}
+// 译文里的乱码（她 2026-10-29 截图：中译结尾挂着「â&#x20AC;&#x201C;」）：
+//   ① 模型/接口把字写成了 &#x…; / &#…; 实体——还原成字；
+//   ② 一个 UTF-8 的字被当成西文（cp1252）读了一遍，变成「â€“」「â€œ」这种——按字节还原回去；还原不出来就整段拿掉。
+const _CP1252_BACK = { 0x20AC: 0x80, 0x201A: 0x82, 0x0192: 0x83, 0x201E: 0x84, 0x2026: 0x85, 0x2020: 0x86, 0x2021: 0x87, 0x02C6: 0x88, 0x2030: 0x89, 0x0160: 0x8A, 0x2039: 0x8B, 0x0152: 0x8C, 0x017D: 0x8E,
+  0x2018: 0x91, 0x2019: 0x92, 0x201C: 0x93, 0x201D: 0x94, 0x2022: 0x95, 0x2013: 0x96, 0x2014: 0x97, 0x02DC: 0x98, 0x2122: 0x99, 0x0161: 0x9A, 0x203A: 0x9B, 0x0153: 0x9C, 0x017E: 0x9E, 0x0178: 0x9F };
+function fixGarbledText(s) {
+  let t = String(s == null ? "" : s);
+  if (!/&#|[\u00C2-\u00EF][\u0080-\u00BF\u0152-\u2122]/.test(t)) return t;
+  t = t.replace(/&#x([0-9a-f]{1,6});/gi, (m, h) => { try { return String.fromCodePoint(parseInt(h, 16)); } catch (e) { return ""; } })
+       .replace(/&#(\d{1,7});/g, (m, d) => { try { return String.fromCodePoint(parseInt(d, 10)); } catch (e) { return ""; } });
+  const byteOf = ch => { const c = ch.codePointAt(0); return c < 0x100 ? c : (_CP1252_BACK[c] != null ? _CP1252_BACK[c] : -1); };
+  return t.replace(/[\u00C2-\u00EF](?:[\u0080-\u00BF]|[\u0152-\u2122])+/g, m => {
+    const bytes = [...m].map(byteOf);
+    if (bytes.some(b => b < 0)) return m;
+    try { return new TextDecoder("utf-8", { fatal: true }).decode(new Uint8Array(bytes)); } catch (e) { return ""; }
+  });
 }
 async function translateToZh(text, lang, opts) {
   const cached = transCacheGet(text);
@@ -9832,7 +9887,7 @@ async function generateOfflineGroup(p, ctx, session) {
         + "整轮最多一个 beat 带 photo，别每个人都拍。"
       : "") +
     cotSystemBlock(cotT) +
-    (novel ? novelOut : "\n【输出】只输出一个 JSON，不要代码块：\n{\"beats\":[{\"name\":\"这一段里行动或说话的角色名；纯环境旁白填『旁白』\",\"scene\":\"这一段叙事正文（第三人称，含动作/神态/对话）\",\"thought\":\"（仅角色 beat，可选）该角色此刻没说出口的真实心声\",\"mood\":{\"label\":\"此刻中文心情词（禁止英文内部标签）\"},\"affinityDelta\":\"（仅角色 beat）" + AFFINITY_DELTA_SPEC + "\",\"impression\":\"（仅角色 beat，可选）{'side':'me|us','block':'me侧:person/soft/like/recent/unread；us侧:what/how/marks/elephant/want','text':'整块重写≤80字'}——" + (window.Gaze ? window.Gaze.updateRule(userName) : "没有新认识可省略") + "\"" + gSchedField + ((session.photoMembers || []).length ? ",\"photo\":\"（仅角色 beat，可选）这一拍真拍了照片才填 {'kind':'self|other" + ((session.photoDuoMembers || []).length ? "|duo" : "") + (session.photoGroupOk ? "|group" : "") + "','scene':'这一格拍到了什么'}，没拍就整个省略\"" : "") + "}]}\n一次产出 2~" + gBeatMax + " 个 beat（在场 " + members.length + " 个人），让在场角色轮流有戏、互相有来有往；name 必须逐字填写以下名字之一：" + members.map(c => "『" + memberLabel(members, c) + "』").join("、") + "；只有不属于任何人的纯环境段才填『旁白』，不许把整篇都塞进一个旁白 beat。") + sameNameNote(members) + "\nthought 的写法：" + THOUGHT_MEANING_CHAR + THOUGHT_VOICE + (typeof THOUGHT_EACH_OWN === "string" ? THOUGHT_EACH_OWN : "")
+    (novel ? novelOut : "\n【输出】只输出一个 JSON，不要代码块：\n{\"beats\":[{\"name\":\"这一段里行动或说话的角色名；纯环境旁白填『旁白』\",\"scene\":\"这一段叙事正文（第三人称，含动作/神态/对话）\",\"thought\":\"（仅角色 beat，可选）该角色此刻没说出口的真实心声\",\"mood\":{\"label\":\"此刻中文心情词（禁止英文内部标签）\"},\"affinityDelta\":\"（仅角色 beat）" + AFFINITY_DELTA_SPEC + "\",\"impression\":\"（仅角色 beat，可选）{'side':'me|us','block':'me侧:person/soft/like/recent/unread；us侧:what/how/marks/elephant/want','text':'整块重写≤80字'}——" + (window.Gaze ? window.Gaze.updateRule(userName) : "没有新认识可省略") + "\"" + gSchedField + ((session.photoMembers || []).length ? ",\"photo\":\"（仅角色 beat，可选）这一拍真拍了照片才填 {'kind':'self|other" + ((session.photoDuoMembers || []).length ? "|duo" : "") + (session.photoGroupOk ? "|group" : "") + "','scene':'这一格拍到了什么'}，没拍就整个省略\"" : "") + "}]}\n一次产出 2~" + gBeatMax + " 个 beat（在场 " + members.length + " 个人），让在场角色轮流有戏、互相有来有往；name 必须逐字填写以下名字之一：" + members.map(c => "『" + memberLabel(members, c) + "』").join("、") + "；只有不属于任何人的纯环境段才填『旁白』，不许把整篇都塞进一个旁白 beat。") + sameNameNote(members) + "\nthought 的写法：" + THOUGHT_MEANING_CHAR + THOUGHT_VOICE + (typeof THOUGHT_EACH_OWN === "string" ? THOUGHT_EACH_OWN : "") + THOUGHT_ORIGIN
     + ((session.sayZhNames || []).length ? offlineSayZhSpec(session.sayZhNames.map(x => "『" + x + "』").join("、")) : "");
   const hist = offlineGroupHistory(session.msgs, userName, ctx.timeAware !== false);
   // 尾部重申（同单人线下）：治长对话后段八股回潮 + cot 丢失

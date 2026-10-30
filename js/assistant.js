@@ -1036,7 +1036,11 @@
     //   只带这一页里跟她这句最沾边的两条；一条都不沾就带这一页本身那一条。还要别的，目录在、lookup 会翻。
     const pageAll = here ? M.appEntries(here.app) : [];
     const pageHit = M.find(question, 40).filter(x => pageAll.some(p => p.id === x.id)).slice(0, 2);
-    const page = pageHit.length ? pageHit : (here ? [here] : []);
+    // ⚠️这一页本身那一条必须在场（2026-10-29 发版时发现）：上面只取「这一页里最沾边的两条」，
+    //   而攻略一长、排名一变，同一页里别的条目就会把这一页本身挤出去——站在单聊里问「这个按钮干嘛的」，
+    //   发出去的 system 里连「这一页是干嘛的」都没有，而那正是捎上它的理由。
+    //   更沾边的那两条照旧捎上，只是不许顶掉这一页本身。
+    const page = here ? [here].concat(pageHit.filter(x => x.id !== here.id)) : pageHit;
     const hits = M.find(question, 4).filter(x => !page.some(p => p.id === x.id));
     hits.unshift.apply(hits, page);
     (extraIds || []).map(id => M.byId(id)).filter(x => x && !hits.some(h0 => h0.id === x.id)).forEach(x => hits.unshift(x));

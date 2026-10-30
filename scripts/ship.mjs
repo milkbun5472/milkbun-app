@@ -49,6 +49,23 @@ const takeTheirsStampLines = p => {
   return !/^<<<<<<< /m.test(s);
 };
 
+// index.html 冲突：取 main 那份（号马上重写），但【这一边新加的 <script src="js/…">】要插回去——
+//   原来整份取 main，新文件的那一行就丢了，发出去的版本根本不加载它（char-transfer、ask-slip 两次都是这样丢的）
+const keepNewScripts = () => {
+  const key = l => (String(l).match(/src="(js\/[^"?]+)/) || [])[1];
+  const ours = sh("git show :2:index.html").split("\n");
+  const out = sh("git show " + REMOTE + "/main:index.html").split("\n");
+  const have = new Set(out.map(key).filter(Boolean));
+  ours.forEach((l, i) => {
+    const k = key(l);
+    if (!k || have.has(k)) return;
+    let j = i - 1; while (j >= 0 && !(key(ours[j]) && have.has(key(ours[j])))) j--;
+    const at = j >= 0 ? out.findIndex(x => key(x) === key(ours[j])) + 1 : out.length;
+    out.splice(at, 0, l); have.add(k);
+    console.log("index.html 合 main：保住新加的 " + k);
+  });
+  writeFileSync("index.html", out.join("\n") + "\n");
+};
 // 开跑前：上一次合到一半没收完、或者文件里还留着冲突标记，一律不动
 if (existsSync(GIT_DIR + "/MERGE_HEAD")) die("有一次合并还没收完（.git/MERGE_HEAD 在）：先收好或 git merge --abort 再跑");
 { const left = tryd("git grep -lE \"^(<<<<<<<|>>>>>>>) \" -- js index.html test scripts");
@@ -63,6 +80,7 @@ for (let round = 1; round <= 4; round++) {
   if (tryd("git merge -q " + REMOTE + "/main -m \"merge main\"") === null) {
     const conflicted = sh("git diff --name-only --diff-filter=U").split("\n").filter(Boolean);
     for (const f of conflicted) {
+      if (f === "index.html") { keepNewScripts(); continue; }
       if (VERSION_FILES.includes(f) && f !== "js/app.js") { sh("git show " + REMOTE + "/main:" + f + " > " + f, { shell: "/bin/bash" }); continue; }
       if (/assistant-manual\.js$|theme-studio\.js$|js\/app\.js$/.test(f) && takeTheirsStampLines(f)) continue;
       // 先把合了一半的状态退回去再停：不然下次一跑，开头那个 wip 提交会把带冲突标记的文件原样提交掉（2026-10-13 真出过）
@@ -83,7 +101,9 @@ for (let round = 1; round <= 4; round++) {
   const down = (f, re) => { if (existsSync(f)) writeFileSync(f, readFileSync(f, "utf8").replace(re, (m0, pre, v) => numv(v) > numv(mv) ? pre + mv : m0)); };
   down("js/app.js", /(APP_VERSION\s*=\s*"v)([\d.]+)/g); down("index.html", /(\?v=)(\d{2}\.\d{2,3})(?![\d.])/g);
   down("manifest.json", /(launch=)([\d.]+)/g); down("rescue.html", /(TARGET=")([\d.]+)/g);
-  const bump = sh("node scripts/bump-version.mjs " + nextV);
+  // 本地历史里留着一次没推上 main 的发版提交（比如跑到一半被打断）：它的号也算「现有最大」，main+1 就会撞上它。
+  //   那就不指定号，让 bump-version 自己取「现有最大 +1」——main 上跳过一个号，总比发不出去强（2026-10-30 卡在 76.940）
+  let bump; try { bump = sh("node scripts/bump-version.mjs " + nextV); } catch (e) { if (!/不高于现有最大/.test(String((e && e.stderr) || e))) throw e; bump = sh("node scripts/bump-version.mjs"); }
   const V = readFileSync("js/app.js", "utf8").match(/APP_VERSION\s*=\s*"v([\d.]+)"/)[1];
   console.log(bump.split("\n").pop());
   let html = readFileSync("index.html", "utf8");
@@ -104,8 +124,12 @@ for (let round = 1; round <= 4; round++) {
   //   一行都认不出来，于是「没有红灯」，带着红灯照推（2026-10-16 v75.828 就是这么带着两条红推上去的）。
   //   还有一种「什么都没跑」：这个脚本自己在一个测试里被调起来时（ship-worktree.test.mjs），继承来的 NODE_TEST_CONTEXT
   //   会让里面这次 node --test 以为自己嵌在别的测试里，直接跳过、一条都不跑。拿掉它，让这一次真的跑。
+  // ⚠️两个目录都要喂：测试分家住在 test/ 和 tests/ 两处，而这里原来只写了 test/*，
+  //   于是 tests/ 那十来份从来没进过发版的闸——2026-10-29 翻出来时三条红灯已经红了半个月，
+  //   没人看见，也拦不住任何东西。
+  const FULL_SUITE = "test/*.test.js test/*.test.mjs tests/*.test.js tests/*.test.mjs";
   const testEnv = Object.assign({}, process.env); delete testEnv.NODE_TEST_CONTEXT;
-  try { out = sh("node --test --test-reporter=tap " + (only || "test/*.test.js test/*.test.mjs") + " 2>&1", { shell: "/bin/bash", env: testEnv }); } catch (e) { out = String(e.stdout || "") + String(e.stderr || ""); }
+  try { out = sh("node --test --test-reporter=tap " + (only || FULL_SUITE) + " 2>&1", { shell: "/bin/bash", env: testEnv }); } catch (e) { out = String(e.stdout || "") + String(e.stderr || ""); }
   const fails = (out.match(/^not ok \d+ - .*$/gm) || []).filter(l => !allow.some(a => l.includes(a)));
   const pass = (out.match(/^# pass (\d+)/m) || [])[1], fail = (out.match(/^# fail (\d+)/m) || [])[1];
   console.log("测试：" + pass + " 过，" + fail + " 不过" + (allow.length ? "（--allow 放过：" + allow.join("、") + "）" : ""));
