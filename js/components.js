@@ -1049,6 +1049,12 @@ function SysNote({ label, text, tone, onClose, title, kind, copyable }) {
 //   「只给 TA 换气泡」里贴的那张在聊天里一次都没出现过（底色换得了、贴纸换不了）。
 // ⚠️图片地址一律过 resolveImg：贴纸可以是图片保险箱的 iv_ 门牌（秋秋改气泡那一路
 //   engine.js BUBBLE_AI_STICKER_KEYS 明说了只许填 iv_），不换成真实地址就是一张裂图。
+// 她双击贴在TA气泡上的那个表情（QQ 那种）：压在气泡角上，跟气泡皮肤那张装饰贴纸是两回事
+function msgStickEl(m, isU) {
+  const st = m && m.stick;
+  if (!st || !st.url) return null;
+  return h("img", { "data-wk": "msgstick", src: st.url, alt: st.keyword || "", style: { position: "absolute", bottom: -20, [isU ? "left" : "right"]: -12, width: 30, height: 30, objectFit: "contain", pointerEvents: "none", zIndex: 3, filter: "drop-shadow(0 1px 2px rgba(0,0,0,.18))" } });
+}
 function bubbleSticker(isU) {
   const S = bubbleSkinNow();
   const src = stickerSrc(isU ? S.mySticker : S.charSticker);
@@ -10885,6 +10891,7 @@ function ChatThread({
   schedNow,
   onOpenSched,
   onLongPress,
+  onStickMsg,
   onOpenSettings,
   room,
   onOpenRooms,
@@ -11008,6 +11015,7 @@ function ChatThread({
   const [geoOpen, setGeoOpen] = useState(false);
   const [cardPick, setCardPick] = useState(false);   // 推荐名片：选谁
   const [stickerOpen, setStickerOpen] = useState(false);
+  const [stickAt, setStickAt] = useState(null);   // 双击了哪一条TA的气泡，要往上贴表情
   const [voiceMsgOpen, setVoiceMsgOpen] = useState(false);
   const [callLogOpen, setCallLogOpen] = useState(false);
   const [ficPickOpen, setFicPickOpen] = useState(false);   // 「换书」那张单子展开没有
@@ -11335,7 +11343,7 @@ function ChatThread({
     r.t = now; clearTimeout(r.timer);
     if (single) r.timer = setTimeout(single, 260);
   };
-  const { startPress, endPress } = useLongPressMenu(setMenu, { onSwipeLeft: i => {
+  const { startPress, endPress } = useLongPressMenu(setMenu, { onDoubleTap: onStickMsg ? (i => { const mm = messages[i]; if (!selMode && mm && mm.role === "assistant" && !mm.recalled) setStickAt(i); }) : null, onSwipeLeft: i => {
     const mm = messages[i];
     if (!mm || selMode || !menuItemsForKind(mm, false).some(g => g.indexOf("quote") >= 0) || !mm.content) return;
     setQuoted(String(mm.content));
@@ -12014,7 +12022,7 @@ function ChatThread({
         WebkitUserSelect: "none",
         WebkitTouchCallout: "none"
       }, (cardLayout(m.content) || {}).bubble)
-    }, cardLayout(m.content) ? null : bubbleSticker(isU), m.kind === "location" ? h("span", {
+    }, cardLayout(m.content) ? null : bubbleSticker(isU), msgStickEl(m, isU), m.kind === "location" ? h("span", {
       className: "flex items-center gap-1.5"
     }, h(Svg, {
       size: 15,
@@ -12346,7 +12354,14 @@ function ChatThread({
       sendRich({ role: "user", kind: "geo", name: name, content: "[位置] " + name });
       setGeoOpen(false);
     }
-  }), stickerOpen && h(Sheet, { onClose: () => setStickerOpen(false), tall: true },
+  }), stickAt != null && onStickMsg && h(Sheet, { onClose: () => setStickAt(null), tall: true },
+    messages[stickAt] && messages[stickAt].stick ? h("button", { "data-wk": "msgstickoff", onClick: () => { onStickMsg(stickAt, null); setStickAt(null); }, className: "w-full active:opacity-70", style: { minHeight: 40, marginBottom: 8, borderRadius: 10, border: "1px solid " + t.line, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.sub } }, "拿掉贴着的那个") : null,
+    h(StickerPanel, {
+      packs: emotePacks, emotes: emotes,
+      onManage: () => { setStickAt(null); onManageEmotes && onManageEmotes(); },
+      caption: false, onCaption: null,
+      onPick: em => { onStickMsg(stickAt, { url: em.url, keyword: em.keyword || "" }); setStickAt(null); }
+    })), stickerOpen && h(Sheet, { onClose: () => setStickerOpen(false), tall: true },
     h(StickerPanel, {
       packs: emotePacks, emotes: emotes,
       onManage: () => { setStickerOpen(false); onManageEmotes && onManageEmotes(); },
@@ -14360,6 +14375,11 @@ function useLongPressMenu(onFire, opts) {
   const onSwipeLeft = opts && opts.onSwipeLeft;
   const swipeRef = useRef(onSwipeLeft);
   swipeRef.current = onSwipeLeft;
+  // 双击气泡（群里 2026-10-31：像 QQ 那样往气泡上贴表情）：两下都落在同一条的气泡上、隔得够近才算
+  const dblRef = useRef(opts && opts.onDoubleTap);
+  dblRef.current = opts && opts.onDoubleTap;
+  const lastTap = useRef({ i: null, t: 0 });
+  const lastTouchTs = useRef(0);
   const resetSwipe = () => {
     const el = swipeEl.current;
     if (el) { el.style.transition = "transform .18s ease-out"; el.style.transform = ""; }
@@ -14371,6 +14391,15 @@ function useLongPressMenu(onFire, opts) {
     const down = e => {
       const p = (e.touches && e.touches[0]) || e;
       if (p) from.current = { x: p.clientX, y: p.clientY };
+      // 手机上一下点按会先来 touchstart、再补一个模拟的 mousedown：那个补的不算第二下
+      if (e.type === "touchstart") lastTouchTs.current = Date.now();
+      const echoMouse = e.type === "mousedown" && Date.now() - lastTouchTs.current < 800;
+      if (!echoMouse && dblRef.current && e.target && e.target.closest && e.target.closest('[data-wk="bubble"]')) {
+        const row = e.target.closest('[data-wk="msg"][data-i]');
+        const at = row ? Number(row.getAttribute("data-i")) : null, now = Date.now(), L = lastTap.current;
+        if (at != null && L.i === at && now - L.t < 320) { lastTap.current = { i: null, t: 0 }; if (timer.current) { clearTimeout(timer.current); timer.current = null; } setTimeout(() => dblRef.current && dblRef.current(at), 0); }
+        else lastTap.current = { i: at, t: now };
+      }
       // 左滑引用从整行起手都算（她 2026-10-19：美化把引用、译文、贴纸挪到气泡外面以后，
       //   手指常落在气泡外，原来只认气泡就很难滑出来）。气泡自己的 startPress 随后照样会再记一次。
       if (swipeRef.current && e.touches && e.target && e.target.closest) {
