@@ -1969,6 +1969,9 @@ function AlbumView({ d, char, t, onBack, onRefresh, refreshing, onPeek, onDrawPh
         //   后者是【画一个人】的说明书（身份锁、骨架、手指、参考照），
         //   外挂一句「不要有人」压不住它（v59.16 那次的教训）。
         //   相册里绝大多数是景和物（窗外那场雨、桌上那根发绳），空景那条路才对得上。
+        // 没收着的这张没有「画出来」那颗键——原地说一句怎么才有（群里 2026-10-31：不知道要先收藏）
+        !isSaved(photo) && onDrawPhoto ? h("div", { "data-wk": "palbumdrawhint", style: { marginTop: 20, fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", lineHeight: 1.7, color: "rgba(255,255,255,.5)" } },
+          "想把这张画成真图：先点右上角的 ♡ 收藏，收着的照片底下才有「把这张画出来」。") : null,
         isSaved(photo) && onDrawPhoto ? h("button", {
           onClick: () => drawPhoto(photo),
           disabled: !!drawing,
