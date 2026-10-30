@@ -106,7 +106,9 @@ function Cast({
   // 档案的另一半：TA自己长出来的那份（v61.63 从聊天资料卡里那个半窗挪过来）
   heartCountOf, onOpenHeart,
   // 调顺序（群友 2026-10-03：「想把最重要的几个放在上面方便修改」）。dir：-1 上移、1 下移、"top" 置顶
-  onMove
+  onMove,
+  // 通讯录里收起来的人（2026-10-31）：卷宗上标「已收起」，点一下放回通讯录
+  onUnshelve
 }) {
   const t = useTheme();
   const [sorting, setSorting] = useState(false);
@@ -185,7 +187,9 @@ function Cast({
           h("div", { style: { fontFamily: F_BODY, fontSize: "calc(7.5px * var(--app-fs, 1))", letterSpacing: ".05em", color: t.fog } }, "卷宗"),
           h("div", { className: "flex items-baseline gap-2", style: { marginTop: 2 } },
             h("div", { "data-wk": "castname", style: { fontFamily: F_DISPLAY, fontSize: "calc(21px * var(--app-fs, 1))", lineHeight: 1.15, color: t.ink, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, c.name),
-            c.remark ? h("span", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, whiteSpace: "nowrap", flexShrink: 0 } }, "备注 " + c.remark) : null),
+            c.remark ? h("span", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, whiteSpace: "nowrap", flexShrink: 0 } }, "备注 " + c.remark) : null,
+            c.shelved && onUnshelve ? h("span", { "data-wk": "castshelved", role: "button", onClick: e => { e.stopPropagation(); onUnshelve(c.id); },
+              style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.tint, border: "1px solid " + t.tint, borderRadius: 999, padding: "1px 8px", whiteSpace: "nowrap", flexShrink: 0 } }, "已收起 · 放回来") : null),
           sum ? h("div", { "data-wk": "castsum", style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", lineHeight: 1.55, color: t.sub, marginTop: 5, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" } }, sum)
               : h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.fog, marginTop: 5 } }, "还没写人设——点进去补一句"))),
       // 底部信息栏
