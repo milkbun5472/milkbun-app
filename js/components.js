@@ -1102,6 +1102,10 @@ function MsgStickPicker({ at, hasStick, onPick, onClose, onPacks }) {
       h("button", { "aria-label": open ? "收起" : "更多", onClick: () => setOpen(!open), className: "shrink-0 active:opacity-60", style: { width: 44, height: 44, borderRadius: 22, background: "rgba(255,255,255,.12)", color: "#fff", fontSize: 18, display: "flex", alignItems: "center", justifyContent: "center", transform: open ? "rotate(180deg)" : "none" } }, "⌄")),
     open && h("div", { "data-wk": "msgstickpanel", onClick: e => e.stopPropagation(), className: "overflow-y-auto", style: { position: "fixed", left: 10, right: 10, ...(below >= above ? { top: barTop + 66 } : { bottom: vh - barTop + 8 }), maxHeight: Math.min(vh * 0.6, Math.max(below, above)), padding: "4px 10px 12px", borderRadius: 22, background: DARK, boxShadow: "0 8px 24px rgba(0,0,0,.25)" } },
       editPane,
+      // 贴表情包、拿掉放在最上面（她 2026-10-31「每次下翻太麻烦」）
+      h("div", { className: "flex flex-wrap", style: { gap: 6, marginTop: 8 } },
+        btn("贴表情包 ›", onPacks, "msgstickpacks"),
+        hasStick ? btn("拿掉贴着的那个", () => onPick(null), "msgstickoff") : null),
       head("快捷条显示", null),
       h("div", { "data-wk": "msgstickgroups", className: "flex flex-wrap", style: { gap: 6, margin: "0 4px" } },
         chip("最近使用", !quickGroup, () => save({ ...book, quick: "recent" }), "msgstickgroup"),
@@ -1112,10 +1116,7 @@ function MsgStickPicker({ at, hasStick, onPick, onClose, onPacks }) {
       head("全部表情"), grid(MSG_STICK_ALL),
       h("div", { className: "flex items-center", style: { gap: 6, marginTop: 12 } },
         h("input", { "data-wk": "msgstickown", value: own, onChange: e => setOwn(e.target.value.slice(0, 16)), placeholder: "打一个别的 emoji", style: { ...inputStyle, flex: 1 } }),
-        btn("贴", () => { const e = msgStickFirstEmoji(own); if (e) { setOwn(""); pick(e); } }, null, !msgStickFirstEmoji(own))),
-      h("div", { className: "flex flex-wrap", style: { gap: 6, marginTop: 8 } },
-        btn("贴表情包 ›", onPacks, "msgstickpacks"),
-        hasStick ? btn("拿掉贴着的那个", () => onPick(null), "msgstickoff") : null)));
+        btn("贴", () => { const e = msgStickFirstEmoji(own); if (e) { setOwn(""); pick(e); } }, null, !msgStickFirstEmoji(own)))));
 }
 function msgStickEl(m, isU) {
   // 群里成员贴的（gSticks，可能好几个人）：她自己贴的那个排在最后，一起排成一小串
