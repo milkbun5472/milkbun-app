@@ -1,10 +1,12 @@
-// 安卓 Edge 选文件只给相册（群里 2026-10-18／19）：只写大类、不写后缀、不带图片
+// 安卓选文件只给相册／选不了文件（群里 2026-10-18 Edge、10-19 再报、10-29 夸克、10-29 又一台安卓）：
+//   安卓那一支一律不写 accept，系统文件选择器才开得出来。原来是「只写大类 application/*,text/*」，
+//   那还是一份清单、还是得一个浏览器一个浏览器加，2026-10-29 换掉了。
 const test = require("node:test"), assert = require("node:assert");
 const core = require("fs").readFileSync(require("path").join(__dirname, "../js/core.js"), "utf8");
-test("Edge 那一支只有大类", () => {
-  const m = core.match(/const ANY_FILE = [^?]+\?\s*"([^"]*)"/);
+test("安卓那一支不写 accept，别处还是全部放行", () => {
+  const m = core.match(/const ANY_FILE = [^?]+\?\s*([^\n]+)\n\s*:\s*"([^"]*)";/);
   assert.ok(m, "找不到 ANY_FILE");
-  assert.doesNotMatch(m[1], /\.\w/, "又写了后缀");
-  assert.doesNotMatch(m[1], /image/, "带了图片就开相册");
-  assert.match(m[1], /application\/\*/);
+  assert.strictEqual(m[1].trim(), "undefined", "安卓那一支必须是 undefined，属性才会整个省掉");
+  assert.strictEqual(m[2], "*/*", "安卓以外还得是全部放行");
+  assert.match(core, /ANDROID_NO_ACCEPT/, "安卓那条没集中成一处");
 });
