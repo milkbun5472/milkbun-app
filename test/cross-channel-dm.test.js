@@ -41,7 +41,8 @@ test("决定沉默时不许绕道去群里发言", () => {
 
 test("两个字段都要写进各自的输出形状里", () => {
   assert.match(app, /const gDmField = gDmMembers\.length \? ",\\"dm\\":\[/, "输出形状要是数组");
-  assert.match(app, /" \+ gDmField \+ thoughtField \+ impressionField \+ "/, "群输出形状要带上 dm");
+  // 2026-10-30 前面又插了一格（贴表情 gStickField）：只认 dm 这一格真拼进了输出形状，不钉整串邻居
+  assert.match(app, /\+ gDmField \+/, "群输出形状要带上 dm");
   assert.match(app, /toGroup:string=把这句公开发到共同群里/, "单聊协议要带上 toGroup");
 });
 

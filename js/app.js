@@ -20,7 +20,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v76.976";
+const APP_VERSION = "v76.978";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -17330,7 +17330,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     pChat(ch.id, p => [...p, { role: "user", kind: "stampshare", stamp: stampShareOf(card), content: (head + "\n" + gist).trim().slice(0, 900), ts: Date.now() }]);
     stampSaveCard(card.id, { sentTs: Date.now() });
     if (!card.sentTs && window.StampsCore) { const s2 = window.StampsCore.load(); s2.sharePend = Object.assign({}, s2.sharePend, { [ch.id]: card.id }); window.StampsCore.save(s2); }   // 第一次发这枚才算
-    toast("发给 " + (ch.remark || ch.name) + " 了，回聊天里看他怎么说");
+    toast(characterText(ch, "发给 " + (ch.remark || ch.name) + " 了，回聊天里看他怎么说"));
   };
   // 生日池求情：她跟他讨一张生日 SSR，他回一句（用他的口气，答应或者逗她都行），回到了下一张就一定出
   const stampBeg = async char => {
@@ -17500,7 +17500,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     pChat(ch.id, p => [...p, { role: "user", kind: "stampshare", stamp: stampShareOf(card), content: (head + "\n" + String(x.text).slice(0, 700)).trim(), ts: Date.now() }]);
     stampSaveCard(card.id, c0 => ({ ...c0, extras: (c0.extras || []).map(e => e.id === x.id ? { ...e, sentTs: Date.now() } : e) }));
     if (!x.sentTs && window.StampsCore) { const s2 = window.StampsCore.load(); s2.sharePend = Object.assign({}, s2.sharePend, { [ch.id]: card.id }); window.StampsCore.save(s2); }
-    toast("发给 " + (ch.remark || ch.name) + " 了，回聊天里看他怎么说");
+    toast(characterText(ch, "发给 " + (ch.remark || ch.name) + " 了，回聊天里看他怎么说"));
   };
   // 番外卡面：画横版 CG，平时裁中间一块当竖卡面，全屏能看整张、能横过来看（她 2026-10-27 照乙游那样）；她在不在画里照番外自己写的 duo。点了才画
   const stampExtraDraw = async (cardId, xid) => {
