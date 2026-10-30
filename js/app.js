@@ -6897,7 +6897,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     //   别的上下文挤掉。
     forumPmLog: (() => {
       if (ctxOpts && ctxOpts.chat === true && settingsFor(char.id).engineerEyes) return "";
-      const th = (forumPMsRef.current || []).find(t => t && t.charId === char.id && !t.alt);   // 小号那条线不进来
+      const th = (forumPMsRef.current || []).find(t => t && t.charId === char.id && pmCharKnows(t, char));   // 小号、TA不认得的那张面具开的线不进来
       if (!th || !Array.isArray(th.messages) || !th.messages.length) return "";
       const cut = Date.now() - 3 * 86400000;
       const meName = (forumMe && forumMe.handle) || profile.name || "对方";
@@ -24756,7 +24756,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     //   回她那一条另有 forumPmKnow 按名字点得更准；这里给的是最近私信过的那几位，号对得上才算（匿名吧不认人）。
     const pmKnown = board === "匿名吧" ? "" : (() => {
       const alt = forumMe.using === "alt";
-      const names = (forumPMsRef.current || []).filter(t => t && !t.charId && !!t.alt === alt && (t.messages || []).length)
+      const names = (forumPMsRef.current || []).filter(t => t && !t.charId && pmAcctOf(t) === (alt ? "alt" : forumMaskNow()) && (t.messages || []).length)
         .sort((a, b) => Number(b.updatedTs || 0) - Number(a.updatedTs || 0)).slice(0, 3).map(t => t.npcName);
       return names.length ? forumPmKnow({ board }, names) : "";
     })();
@@ -26105,14 +26105,15 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     if (!active) { toast("请先到设置配置 API"); return; }
     setGen(g => ({ ...g, forumPM: "refresh" }));
     try {
-      const meName = profile.name || "对方";
+      const meName = forumMe.using === "alt" || forumMaskNow() ? pmMeName(pmAcctTag()) : (profile.name || "对方");
       const meDesc = (profile.persona || profile.tagline || "").trim();
       // 收集用户在贴吧的真实动态：自己发的（非匿名）帖 + 自己写的评论/回复
-      const myPosts = (forumPosts || []).filter(p => p.authorId === "me" && !p.anon).slice(0, 6);
+      const acctMine = x => (forumMe.using === "alt" ? !!x.alt : !x.alt && String(x.mask || "") === forumMaskNow());
+      const myPosts = (forumPosts || []).filter(p => p.authorId === "me" && !p.anon && acctMine(p)).slice(0, 6);
       const myComments = [];
       Object.values(forumComments || {}).forEach(floors => (floors || []).forEach(f => {
-        if (f.authorId === "me" && f.content) myComments.push(f.content);
-        (f.replies || []).forEach(r => { if (r.authorId === "me" && r.content) myComments.push(r.content); });
+        if (f.authorId === "me" && f.content && acctMine(f)) myComments.push(f.content);
+        (f.replies || []).forEach(r => { if (r.authorId === "me" && r.content && acctMine(r)) myComments.push(r.content); });
       }));
       const actLines = [];
       myPosts.forEach(p => actLines.push("· 发帖《" + p.title + "》" + (p.body ? "：" + String(p.body).slice(0, 70) : "") + "（在" + p.board + "）"));
@@ -26151,7 +26152,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         let att = x.attitude === "troll" ? "troll" : (x.attitude || "curious");
         if (att === "troll") { if (trollLeft > 0) trollLeft--; else att = "curious"; }
         return {
-          id: "pm_" + base + "_" + i, npcName: x.npcName || "神秘网友", tagline: x.tagline || "",
+          id: "pm_" + base + "_" + i, npcName: x.npcName || "神秘网友", tagline: x.tagline || "", ...pmAcctTag(),
           attitude: att,
           messages: [{ from: "npc", text: x.opening, ts: base + i }], updatedTs: base + i, unread: true
         };
@@ -26199,15 +26200,23 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   //   换成谁都成立——那正是这个 app 最容易写坏的地方。
   // ⚠️已经有这个人的会话就直接开那一条，不新开：同一个人不该在列表里躺两遍。
   // 返回那条会话的 id，由论坛那边负责跳过去（pmId 是 Forum 组件自己的状态，app 够不着）
+  // 私信也跟着号走（她 2026-10-30：「私信能不能也分面具 看的是我现在用哪个号刷」）：
+  //   一条私信是哪个号开的——小号 "alt"、副面具那张的 id、大号（主面具）""。列表只给现在这个号的那几条。
+  const pmAcctOf = t => t && t.alt ? "alt" : String((t && t.mask) || "");
+  const pmAcctNow = () => forumMe.using === "alt" ? "alt" : forumMaskNow();
+  const pmAcctTag = () => forumMe.using === "alt" ? { alt: true, altName: myAltName() } : forumMaskNow() ? { mask: forumMaskNow() } : {};
+  const pmMeName = t => t && t.alt ? (t.altName || myAltName()) : t && t.mask && (masks || []).some(m => m && m.id === t.mask) ? forumMaskName(t.mask) : (forumMe.handle || profile.name || "我");
+  // 角色认不认得这条私信对面是她：跟TA聊天用的就是这张面具才认得；小号谁都不认得
+  const pmCharKnows = (t, ch) => !!ch && !(t && t.alt) && String((t && t.mask) || "") === maskKeyOf(ch.id);
   const startForumPM = async (npc, lines) => {
     if (!npc || !npc.id) return "";
-    const exist = (forumPMsRef.current || []).find(t => t && (t.npcId === npc.id || t.npcName === npc.name) && !!t.alt === (forumMe.using === "alt"));
+    const exist = (forumPMsRef.current || []).find(t => t && (t.npcId === npc.id || t.npcName === npc.name) && pmAcctOf(t) === pmAcctNow());
     if (exist) return exist.id;
     if (!active) { toast("请先到设置配置 API"); return ""; }
     const ground = forumNpcGround(npc.id, lines);
     setGen(g => ({ ...g, forumPM: "start" }));
     try {
-      const meName = forumMe.using === "alt" ? myAltName() : (forumMe.handle || profile.name || "我");
+      const meName = pmMeName(pmAcctTag());
       const d = await runProbeRetry(active, forumWorldCtx(ground || npc.name), {
         instruction: "贴吧网友「" + npc.name + "」（@" + (npc.handle || npc.name) + "）收到了网名「" + meName + "」的私信邀请——对方主动来找 TA 说话。\n"
           + (ground
@@ -26221,7 +26230,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       });
       const base = Date.now();
       const th = {
-        id: "pm_" + base + "_s", npcId: npc.id, npcName: npc.name, ...(forumMe.using === "alt" ? { alt: true, altName: myAltName() } : {}), tagline: (d && d.tagline) || "",
+        id: "pm_" + base + "_s", npcId: npc.id, npcName: npc.name, ...pmAcctTag(), tagline: (d && d.tagline) || "",
         attitude: (d && d.attitude === "troll") ? "troll" : ((d && d.attitude) || "curious"),
         ground,
         messages: (d && d.opening) ? [{ from: "npc", text: String(d.opening), ts: base }] : [],
@@ -26240,12 +26249,11 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   const startCharPM = char => {
     if (!char || !char.id) return "";
     // 大号、小号各一条私信线：小号那条在TA眼里是陌生人
-    const altNow = forumMe.using === "alt";
-    const exist = (forumPMsRef.current || []).find(t => t && t.charId === char.id && !!t.alt === altNow);
+    const exist = (forumPMsRef.current || []).find(t => t && t.charId === char.id && pmAcctOf(t) === pmAcctNow());
     if (exist) return exist.id;
     const meta = charForumMeta(char);
     const base = Date.now();
-    const th = { id: "pm_" + base + "_c", charId: char.id, ...(altNow ? { alt: true, altName: myAltName() } : {}), npcName: meta.handle || char.name, tagline: meta.bio || "", attitude: "friendly", messages: [], updatedTs: base, unread: false };
+    const th = { id: "pm_" + base + "_c", charId: char.id, ...pmAcctTag(), npcName: meta.handle || char.name, tagline: meta.bio || "", attitude: "friendly", messages: [], updatedTs: base, unread: false };
     setForumPMs(prev => { const n = [th, ...prev].slice(0, FORUM_PM_KEEP); saveJSON("x_forumPMs", n); return n; });
     return th.id;
   };
@@ -26260,7 +26268,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   // 私信记录写给网友那一方看时，两边都标清是谁（她 2026-10-16：加微信后的简介把她的话安到了对方头上——
   //   「我是潜水党」「是我先私信的」都成了他的。原来记录里她那一边写的是「我」，网友读来就是在说他自己）
   const pmConvo = (th, msgs) => {
-    const her = th.alt ? (th.altName || myAltName()) : (forumMe.handle || userName(profile));
+    const her = th.alt || th.mask ? pmMeName(th) : (forumMe.handle || userName(profile));
     return msgs.map(m => (m.from === "me" ? "对方「" + her + "」" : "你「" + th.npcName + "」") + "：" + (m.photo ? "〔发了一张照片：" + String(m.photo.desc || "").slice(0, 120) + "〕" : m.text)).join("\n");
   };
   // 私信里发照片（群里 2026-10-18 许愿「论坛私信聊天也能生图」）。
@@ -26313,7 +26321,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   const forumPublicWith = th => {
     if (!th || th.charId) return "";
     const nm = String(th.npcName || ""), alt = !!th.alt, out = [];
-    const mine = x => x && x.authorType === "me" && !!x.alt === alt && !x.anon;
+    const mine = x => x && x.authorType === "me" && !!x.alt === alt && !x.anon && (alt || String(x.mask || "") === String(th.mask || ""));
     const his = x => x && String(x.authorName || "") === nm;
     const all = forumCommentsRef.current || {};
     (forumPostsRef.current || []).forEach(p => {
@@ -26342,13 +26350,13 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       // 角色那条：走TA【自己】那份上下文（人设、心情、记忆、你俩的关系），不是网友那套。
       // 拿通用的网友提示词去演TA，出来的是个顶着TA网名的陌生人。
       const pmChar = th.charId ? (characters || []).find(c => c.id === th.charId) : null;
-      if (pmChar && th.alt) {
+      if (pmChar && !pmCharKnows(th, pmChar)) {
         // 她用小号私信了TA：在TA那头，这就是一个陌生网友——不认识、不知道是她
         const dc = await runProbe(apiFor(pmChar.id), ctxFor(pmChar), {
           voice: true,
-          instruction: "【这一轮发生在贴吧的私信框里】一个网名叫「" + (th.altName || myAltName()) + "」的陌生网友私信了你的大号。你不认识这个号，也不知道对面是谁——就按你的人设对待一个陌生网友。\n"
+          instruction: "【这一轮发生在贴吧的私信框里】一个网名叫「" + pmMeName(th) + "」的陌生网友私信了你的大号。你不认识这个号，也不知道对面是谁——就按你的人设对待一个陌生网友。\n"
             + "⚠️这是【打字】，不是当面：没有动作、没有神态，只有你打出去的那几行字。**别写任何动作描写或旁白**。\n"
-            + tl + "这是你们在私信里说过的：\n" + convo.replace(/^我：/gm, (th.altName || myAltName()) + "：") + "\n\n回最新这句（1-3 条，一条一个气泡）。" + pmPhotoHint(false),
+            + tl + "这是你们在私信里说过的：\n" + convo.replace(/^我：/gm, pmMeName(th) + "：") + "\n\n回最新这句（1-3 条，一条一个气泡）。" + pmPhotoHint(false),
           schemaHint: "{\"say\":[\"气泡1\",\"气泡2\"]" + pmPhotoSchema(false) + "}",
           maxTokens: FTOK.pm
         });
@@ -26357,7 +26365,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         return;
       }
       if (pmChar) {
-        const meHandle = (forumMe && forumMe.handle) || profile.name || "对方";
+        const meHandle = pmMeName(th);
         const dc = await runProbe(apiFor(pmChar.id), ctxFor(pmChar), {
           voice: true,
           instruction: "【这一轮发生在贴吧的私信框里】" + (profile.name || "对方") + "在论坛上用网名「" + meHandle + "」私信了你的大号。\n"
@@ -26586,7 +26594,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   const forumPmKnow = (post, names) => {
     if (!post || post.board === "匿名吧" || post.anon) return "";
     const alt = !!usingAlt(post), me = myForumName(post), want = new Set((names || []).filter(Boolean).map(String));
-    const ths = (forumPMsRef.current || []).filter(t => t && !t.charId && !!t.alt === alt && want.has(String(t.npcName)) && (t.messages || []).length).slice(0, 3);
+    const ths = (forumPMsRef.current || []).filter(t => t && !t.charId && pmAcctOf(t) === (alt ? "alt" : String(myMaskTag(post).mask || "")) && want.has(String(t.npcName)) && (t.messages || []).length).slice(0, 3);
     if (!ths.length) return "";
     return "【这几位跟「" + me + "」私信里聊过——在这儿碰到她认得她，就是私信里那个人】\n"
       + ths.map(t => "· 「" + t.npcName + "」：" + t.messages.slice(-6).map(m => (m.from === "me" ? me : t.npcName) + "：" + String(m.text || "").slice(0, 60)).join(" / ")).join("\n")
@@ -33863,7 +33871,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     followBack: forumBack,
     // 他关注了谁（互关的第 3 条）：回关了你就有你；再加上跟他有关系的那几个角色（有号的才算），只列名字
     followingOf: cid => ((characters || []).filter(x => x.id !== cid && !x.npc && (rels[cid + "->" + x.id] || rels[x.id + "->" + cid])).map(x => x.name)).slice(0, 12),
-    pms: forumPMs,
+    pms: (forumPMs || []).filter(t => pmAcctOf(t) === pmAcctNow()),
     groups: groups,
     gen: gen,
     forumMe: forumMe,
