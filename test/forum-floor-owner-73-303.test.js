@@ -11,7 +11,9 @@ const box = {
   forumPublicNpcOf: x => ({ name: x.authorName || "路人", handle: "h", id: "npc" })
 };
 vm.createContext(box);
-vm.runInContext(app.slice(app.indexOf("const forumIsMine = "), app.indexOf(";\n", app.indexOf("const forumIsMine = ")) + 2).replace(/^const /, "var ") + cut("forumValidTo") + cut("buildForumReplyObjBase") + cut("buildForumReplyObj"), box);
+// 2026-10-30 回帖带上碰面调子（v76.947）以后，buildForumReplyObj 要用 TIE_TONES：照原文那一行切进来，不另编一份
+const tieLine = (app.match(/const TIE_TONES = [^\n]*;/) || [""])[0]; assert(tieLine, "TIE_TONES");
+vm.runInContext(tieLine.replace(/^const /, "var ") + "\n" + app.slice(app.indexOf("const forumIsMine = "), app.indexOf(";\n", app.indexOf("const forumIsMine = ")) + 2).replace(/^const /, "var ") + cut("forumValidTo") + cut("buildForumReplyObjBase") + cut("buildForumReplyObj"), box);
 const post = { authorType: "npc", authorName: "电瓶车坐垫受害者" };
 const myFloor = { authorType: "me", authorId: "me", authorName: "Lisa" };
 assert.strictEqual(box.buildForumReplyObj({ authorName: "层主", content: "5秒太短了" }, post, myFloor), null, "层主是她：不许替她开口");

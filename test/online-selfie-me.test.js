@@ -21,8 +21,9 @@ test("他那边看得到是她发来的自拍；气泡靠右", () => {
 });
 test("她的自拍画好后存进图片仓库挂 imageRef，他回话时真的看得到（2026-10-25）", () => {
   assert.match(app, /if \(mySelf\) \{ try \{ const ref = await imgToVault\(await blobToDataUrl\(out\.blob\)\)/);
-  assert.match(app, /if \(\(m\.kind === "photo" \|\| m\.kind === "selfie"\) && m\.imageRef\) \(lu\._imageRefs/);
-  assert.match(app, /_imageRefs: \(m\.kind === "photo" \|\| m\.kind === "selfie"\) && m\.imageRef \? \[m\.imageRef\] : \[\]/);
+  // v76.946 请示附的图也走这条（m.kind === "ask"）：只认 photo、selfie 都在名单里，不钉名单有几样
+  assert.match(app, /if \(\(m\.kind === "photo" \|\| m\.kind === "selfie"[^)]*\) && m\.imageRef\) \(lu\._imageRefs/);
+  assert.match(app, /_imageRefs: \(m\.kind === "photo" \|\| m\.kind === "selfie"[^)]*\) && m\.imageRef \? \[m\.imageRef\] : \[\]/);
 });
 test("也能选「别人拍的」第三人角度（2026-10-25「比如我在做饭」）：画她、别人拍的那一档、没有他的视角", () => {
   assert.match(comp, /\[\[false, "自拍", "手机举在面前"\], \[true, "别人拍的", "第三人角度，拍你在做的事"\]\]/);

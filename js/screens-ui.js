@@ -4962,7 +4962,7 @@ function ListenTogether({ profile, active, ctxFor, toast, onToChat, onListenStat
             h("span", { style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", color: t.fog, background: t.bg2 + "", border: "1px solid " + t.line, borderRadius: 999, padding: "3px 9px", opacity: .85 } }, coverSrc ? "换封面" : "加封面")),
           coverSrc && onSetFixedCover ? h("button", { "data-wk": "listencoverall", onClick: () => onSetFixedCover(coverFixed ? "" : coverSrc), className: "active:opacity-70",
             style: { position: "absolute", left: 0, bottom: 0, minHeight: 40, padding: "0 4px", display: "flex", alignItems: "center" } },
-            h("span", { style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", color: coverFixed ? t.accent : t.fog, background: t.bg2 + "", border: "1px solid " + (coverFixed ? t.accent : t.line), borderRadius: 999, padding: "3px 9px", opacity: .85 } }, coverFixed ? "每首都用这张 ✓" : "每首都用这张")) : null),
+            h("span", { style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", color: coverFixed ? t.accent : t.fog, background: t.bg2 + "", border: "1px solid " + (coverFixed ? t.accent : t.line), borderRadius: 999, padding: "3px 9px", opacity: .85 } }, coverFixed ? "已设成每首都用这张" : "每首都用这张")) : null),
 
     h("div", { "data-wk": "listentitle", style: { fontFamily: F_DISPLAY, fontSize: "calc(24px * var(--app-fs, 1))", color: t.ink, marginTop: 12, textAlign: "center", maxWidth: "100%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, STX(now.title)),
     h("div", { "data-wk": "listenartist", style: { fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", color: t.fog, marginTop: 5, maxWidth: "100%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, now.artist || (now.source === "netease" ? "网易云" : "本地")),
@@ -9008,6 +9008,11 @@ function DataConfig({
 }) {
   const t = useTheme();
   const [c, setC] = useState(false);
+  // 「图片第 N 包」冒出来就滚过去（群里 2026-10-30：iOS 存完文字那份、关掉分享面板就以为存完了，
+  //   换机后头像一张没有）。那几颗按钮是存完文字才出现在下面的，不推到眼前就等于没有。
+  const mediaBoxRef = useRef(null);
+  const mediaN = (mediaParts && mediaParts.n) || 0;
+  useEffect(() => { if (mediaN && mediaBoxRef.current) { try { mediaBoxRef.current.scrollIntoView({ behavior: "smooth", block: "center" }); } catch (e) {} } }, [mediaN]);
   // 秋秋的跳转卡点名了「数据」里哪一块（她 2026-10-16「搞能进那一格吧」）：进来就落在那一块，用完就清
   const [part, setPart] = useState(() => { const w = typeof window !== "undefined" ? window : {}; const p0 = w.__dataPart || ""; w.__dataPart = ""; return p0; });
   const [innerLifeOpen, setInnerLifeOpen] = useState(false);
@@ -9056,9 +9061,9 @@ function DataConfig({
       button(picked.length ? "导出这 " + picked.length + " 个人" : "先勾人", () => { if (picked.length) onExportChars(picked); }, !!picked.length)) : null,
     // 图片和视频另按包存（群里 2026-10-16「备份不下来了」）：文字那份存好后这儿才冒出来
     mediaParts && mediaParts.n
-      ? h("div", { "data-wk": "block", style: { marginTop: 8, padding: "10px 12px", borderRadius: 10, background: t.bg2, border: "1px solid " + t.line } },
+      ? h("div", { "data-wk": "block", ref: mediaBoxRef, style: { marginTop: 8, padding: "10px 12px", borderRadius: 10, background: t.bg2, border: "1px solid " + t.ink } },
           h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", lineHeight: 1.7, color: t.ink } },
-            "文字那一份存好了。图片和视频分成了 " + mediaParts.n + " 包，按顺序一包一包点着存；恢复时点「导入备份恢复」，把文字那份和每一包【一次全选上】就行，顺序不用管。"),
+            "还没存完：文字那份好了，头像、照片和视频在下面这 " + mediaParts.n + " 包里，不存它们，换了手机图就一张都没有。按顺序一包一包点着存；恢复时点「导入备份恢复」，把文字那份和每一包都导进去就行，顺序不用管。"),
           h("div", { className: "flex flex-wrap", style: { gap: 6, marginTop: 8 } },
             Array.from({ length: mediaParts.n }, (_, k) => h("button", {
               key: k, onClick: () => onExportMedia(k + 1), className: "active:opacity-70",
