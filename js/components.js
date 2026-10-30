@@ -8898,6 +8898,7 @@ function Messages({
   onTogglePin,
   hiddenChats,
   onHideChat,
+  shelvedChars, onShelve, onUnshelve,   // 通讯录长按「收起来」（2026-10-31）：档案和聊天都留着，最底下能放回来
   onBack,
   onOpenThread,
   onOpenGroup,
@@ -9066,6 +9067,13 @@ function Messages({
   const pressT = useRef({}); const longFired = useRef(false);
   // 配角那一行长按：弹一个小菜单（置顶 / 从列表删掉）；别的照旧直接置顶
   const [rowMenu, setRowMenu] = useState(null);
+  // 通讯录那一格长按：收起来（消息列表那边长按照旧是置顶，不动）
+  const [ctMenu, setCtMenu] = useState(null), [shelfOpen, setShelfOpen] = useState(false);
+  const ctPress = useRef(null), ctFired = useRef(false);
+  const ctLong = c => onShelve ? ({
+    onPointerDown: () => { ctFired.current = false; clearTimeout(ctPress.current); ctPress.current = setTimeout(() => { ctFired.current = true; setCtMenu(c); }, 500); },
+    onPointerUp: () => clearTimeout(ctPress.current), onPointerLeave: () => clearTimeout(ctPress.current), onPointerCancel: () => clearTimeout(ctPress.current),
+    onContextMenu: e => e.preventDefault() }) : {};
   const startPress = id => { longFired.current = false; clearTimeout(pressT.current[id]); pressT.current[id] = setTimeout(() => {
     longFired.current = true;
     const npc = onHideChat && (allChars || []).find(c => c && c.npc && c.id === id);
@@ -9164,7 +9172,7 @@ function Messages({
     // 有备注按备注的首字母，没备注按本名——她明说的。
     // ⚠️分组只算一次（contactSecs 在组件那一层）：右边那条索引和这里的列表必须是
     // 同一份，各算各的迟早会有一边多出个字母、点了跳不动。
-    const secs = contactSecs.length ? contactSecs : [{ letter: "#", items: characters }];
+    const secs = contactSecs.length ? contactSecs : characters.length ? [{ letter: "#", items: characters }] : [];
     const entry = (label, sub, colors, icon, onClick) => h("button", { key: label, onClick: onClick, "data-wk": "ctentry",
       className: "w-full flex items-center justify-between px-5 py-3 active:bg-black/5", style: { borderBottom: "1px solid " + t.line } },
       h("div", { className: "flex items-center gap-3" },
@@ -9190,12 +9198,12 @@ function Messages({
       onSaveNpcAvatar ? entry("配角", npcAll.length ? npcAll.length + " 位" : "", "#c28a3e",
         [h("circle", { key: "a", cx: 12, cy: 8, r: 3.5 }), h("path", { key: "b", d: "M5 21v-1a5 5 0 015-5h4a5 5 0 015 5v1" }), h("path", { key: "c", d: "M18.5 3.5l1 1.8 2 .3-1.5 1.4.4 2-1.9-1-1.9 1 .4-2-1.5-1.4 2-.3z" })],
         () => setNpcBook(true)) : null,
-      characters.length === 0
+      characters.length === 0 && !(shelvedChars || []).length
         ? h(Empty, { text: "通讯录是空的", sub: "去人格档案馆录入角色" })
         : h("div", { style: { paddingRight: 22 } }, secs.map(sec => h("div", { key: sec.letter, id: "mcontact-" + sec.letter },
             h("div", { "data-wk": "ctletter", style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", letterSpacing: "0.08em", color: t.fog, background: t.bg2, padding: "3px 20px" } }, sec.letter),
-            sec.items.map(c => h("button", { key: c.id, "data-wk": "ctrow", onClick: () => onOpenContact(c),
-              className: "w-full flex items-center gap-3 px-5 py-3 active:bg-black/5", style: { borderBottom: "1px solid " + t.line } },
+            sec.items.map(c => h("button", Object.assign({ key: c.id, "data-wk": "ctrow", onClick: () => { if (ctFired.current) { ctFired.current = false; return; } onOpenContact(c); } }, ctLong(c), {
+              className: "w-full flex items-center gap-3 px-5 py-3 active:bg-black/5", style: { borderBottom: "1px solid " + t.line, WebkitTouchCallout: "none", userSelect: "none" } }),
               h(Avatar, { character: c, size: 42, radius: 9 }),
               h("div", { className: "flex-1 text-left" },
                 h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))", color: t.ink } }, c.remark || c.name),
@@ -9204,9 +9212,28 @@ function Messages({
                   ? h("div", { className: "flex flex-wrap gap-1 mt-1" }, friendGroups.filter(g => g.memberIds.includes(c.id)).map(g => h("span", { key: g.id,
                       style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", color: t.sub, background: t.bg, border: "1px solid " + t.line, borderRadius: 999, padding: "1px 7px" } }, g.name)))
                   : null),
-              h(IChevR, { size: 15, color: t.line }))))))
+              h(IChevR, { size: 15, color: t.line }))))),
+            // 收起来的人：最底下一栏，点开一排，点「放回来」就回到通讯录和消息列表
+            (shelvedChars || []).length ? h("div", { "data-wk": "ctshelf", style: { padding: "14px 20px 24px" } },
+              h("button", { onClick: () => setShelfOpen(v => !v), className: "w-full flex items-center justify-between active:opacity-70",
+                style: { minHeight: 44, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.sub } },
+                h("span", null, "收起来的人（" + shelvedChars.length + "）"), h("span", { style: { color: t.fog } }, shelfOpen ? "收起 ▴" : "展开 ▾")),
+              shelfOpen ? shelvedChars.map(c => h("div", { key: c.id, "data-wk": "ctshelfrow", className: "flex items-center gap-3", style: { padding: "8px 0", borderTop: "1px solid " + t.line } },
+                h(Avatar, { character: c, size: 36, radius: 8 }),
+                h("div", { className: "flex-1 min-w-0", style: { fontFamily: F_DISPLAY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.fog } }, c.remark || c.name),
+                h("button", { onClick: () => onUnshelve && onUnshelve(c.id), className: "active:opacity-70",
+                  style: { minHeight: 36, padding: "0 12px", borderRadius: 999, border: "1px solid " + t.line, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.ink } }, "放回来"))) : null,
+              shelfOpen ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.6, marginTop: 6 } },
+                "收起来的人档案、聊天、记忆都留着，只是不在列表里，也不会自己发消息、发朋友圈。放回来就接着原来的聊。") : null) : null)
       );
-  })(), tab === "moments" && momNews.length ? h("div", { "data-wk": "momnews", style: { margin: "10px 14px 0", borderRadius: 12, border: "1px solid " + t.line, background: t.bg2, overflow: "hidden" } },
+  })(), ctMenu && h(Sheet, { onClose: () => setCtMenu(null) },
+    h("div", { "data-wk": "ctmenu", className: "px-5 pb-6 pt-1" },
+      h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))", color: t.ink, marginBottom: 4 } }, ctMenu.remark || ctMenu.name),
+      h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.6, marginBottom: 8 } },
+        "收起来以后不在通讯录和消息列表里，也不会自己发消息、发朋友圈；人格档案馆里的档案、聊天记录、记忆都留着。通讯录最底下「收起来的人」能放回来。"),
+      h("button", { "data-wk": "ctmenushelve", onClick: () => { const id = ctMenu.id; setCtMenu(null); onShelve(id); }, className: "w-full text-left py-3 active:opacity-60",
+        style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.tint, borderTop: "1px solid " + t.line } }, "收起来（档案和聊天都留着）"))),
+  tab === "moments" && momNews.length ? h("div", { "data-wk": "momnews", style: { margin: "10px 14px 0", borderRadius: 12, border: "1px solid " + t.line, background: t.bg2, overflow: "hidden" } },
     h("button", { onClick: () => setNewsOpen(v => !v), className: "w-full flex items-center active:opacity-70", style: { gap: 8, padding: "10px 12px", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.ink } },
       h(Avatar, { character: (characters || []).find(c => c && (c.name === momNews[0].who || c.remark === momNews[0].who)) || { name: momNews[0].who }, size: 24, radius: 6 }),
       h("span", { className: "flex-1 text-left" }, momNews.length + " 条新消息"), h("span", { style: { color: t.fog, fontSize: "calc(12px * var(--app-fs, 1))" } }, newsOpen ? "收起" : "看看")),

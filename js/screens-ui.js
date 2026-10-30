@@ -106,7 +106,9 @@ function Cast({
   // 档案的另一半：TA自己长出来的那份（v61.63 从聊天资料卡里那个半窗挪过来）
   heartCountOf, onOpenHeart,
   // 调顺序（群友 2026-10-03：「想把最重要的几个放在上面方便修改」）。dir：-1 上移、1 下移、"top" 置顶
-  onMove
+  onMove,
+  // 通讯录里收起来的人（2026-10-31）：卷宗上标「已收起」，点一下放回通讯录
+  onUnshelve
 }) {
   const t = useTheme();
   const [sorting, setSorting] = useState(false);
@@ -185,7 +187,9 @@ function Cast({
           h("div", { style: { fontFamily: F_BODY, fontSize: "calc(7.5px * var(--app-fs, 1))", letterSpacing: ".05em", color: t.fog } }, "卷宗"),
           h("div", { className: "flex items-baseline gap-2", style: { marginTop: 2 } },
             h("div", { "data-wk": "castname", style: { fontFamily: F_DISPLAY, fontSize: "calc(21px * var(--app-fs, 1))", lineHeight: 1.15, color: t.ink, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, c.name),
-            c.remark ? h("span", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, whiteSpace: "nowrap", flexShrink: 0 } }, "备注 " + c.remark) : null),
+            c.remark ? h("span", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, whiteSpace: "nowrap", flexShrink: 0 } }, "备注 " + c.remark) : null,
+            c.shelved && onUnshelve ? h("span", { "data-wk": "castshelved", role: "button", onClick: e => { e.stopPropagation(); onUnshelve(c.id); },
+              style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.tint, border: "1px solid " + t.tint, borderRadius: 999, padding: "1px 8px", whiteSpace: "nowrap", flexShrink: 0 } }, "已收起 · 放回来") : null),
           sum ? h("div", { "data-wk": "castsum", style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", lineHeight: 1.55, color: t.sub, marginTop: 5, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" } }, sum)
               : h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.fog, marginTop: 5 } }, "还没写人设——点进去补一句"))),
       // 底部信息栏
@@ -4175,6 +4179,7 @@ function Takeout({ payAs, wallet, orders, log, characters, groups, kinshipCards,
   const [pay, setPay] = useState(false);      // 结账页
   const [payMode, setPayMode] = useState(null);
   const [remark, setRemark] = useState("");   // 给店家的备注
+  const [at, setAt] = useState(0);   // 预约送达：0＝尽快；否则几点到（群里 2026-10-30「外卖可不可以选择配送时间」）
   const [say, setSay] = useState("");         // 给TA点时，写在单子上的一句话
   const [openLog, setOpenLog] = useState(null); // 「吃过的」点开看全的那一条
   const [now, setNow] = useState(Date.now());
@@ -4198,10 +4203,10 @@ function Takeout({ payAs, wallet, orders, log, characters, groups, kinshipCards,
   const bagCount = bagItems.reduce((s, x) => s + x.qty, 0);
   const bagTotal = Math.round(bagItems.reduce((s, x) => s + x.price * x.qty, 0) * 100) / 100;
   const bump = (uid, dlt) => setQty(p => ({ ...p, [uid]: Math.max(0, Math.min(20, (p[uid] || 0) + dlt)) }));
-  const openShop = s => { if (listRef.current) listTop.current = listRef.current.scrollTop; setQty({}); setRemark(""); setSay(""); setShop(s); };
+  const openShop = s => { if (listRef.current) listTop.current = listRef.current.scrollTop; setQty({}); setRemark(""); setSay(""); setAt(0); setShop(s); };
   const leaveShop = () => { setShop(null); setQty({}); setPay(false); setPayMode(null); };
   const submit = (mode, target) => {
-    const ok = onOrder({ shop: shop.name, items: bagItems, remark, note: mode === "forchar" ? say : "" }, mode, target, { mask: payMask });
+    const ok = onOrder({ shop: shop.name, items: bagItems, remark, note: mode === "forchar" ? say : "", at }, mode, target, { mask: payMask });
     if (ok !== false) { leaveShop(); if (mode !== "forchar") setNav("orders"); }
   };
   const doGen = () => { if (!busy) onGen(slot, search); };
@@ -4259,6 +4264,27 @@ function Takeout({ payAs, wallet, orders, log, characters, groups, kinshipCards,
               takeoutPrice(bagTotal, 22)),
             h("input", { "data-wk": "tkoremark", value: remark, onChange: e => setRemark(e.target.value), maxLength: 80, placeholder: "给店家的备注（口味、放门口……）", style: Object.assign({}, inputStyle, { marginTop: 12 }) })),
           h("div", { "data-wk": "tkoreceiptedge", style: { height: 7, background: "linear-gradient(-45deg, transparent 5px, #fff 0) 0 0 / 10px 7px repeat-x, linear-gradient(45deg, transparent 5px, #fff 0) 0 0 / 10px 7px repeat-x" } })),
+        sectionLabel("什么时候送到"),
+        (() => {
+          const eta = Number(shop.eta) || 30, now0 = Date.now();
+          const hm = d => { const x = new Date(d); return String(x.getHours()).padStart(2, "0") + ":" + String(x.getMinutes()).padStart(2, "0"); };
+          const pickTime = v => { const m = /^(\d{1,2}):(\d{2})$/.exec(v || ""); if (!m) return; const d = new Date(); d.setHours(+m[1], +m[2], 0, 0); if (d.getTime() < Date.now() + eta * 60000) d.setDate(d.getDate() + 1); setAt(d.getTime()); };
+          const chip = (zh, v, on) => h("button", { "data-wk": "tkoeta", "data-on": on ? "1" : "0", key: zh, onClick: () => setAt(v), className: "active:opacity-70",
+            style: { minHeight: 34, padding: "0 12px", borderRadius: 999, border: "1px solid " + (on ? MTAKE.yellowD || MTAKE.ink : MTAKE.line), background: on ? MTAKE.soft : MTAKE.card, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: MTAKE.ink } }, zh);
+          const plus = [60, 120].map(mn => now0 + Math.max(mn, eta + 10) * 60000);
+          const custom = at && !plus.some(x => Math.abs(x - at) < 90000);
+          return h("div", { "data-wk": "tkoetarow", style: Object.assign({}, cardStyle, { padding: "10px 12px", marginBottom: 14 }) },
+            h("div", { className: "flex flex-wrap", style: { gap: 7 } },
+              chip("尽快（约 " + eta + " 分钟）", 0, !at),
+              chip(hm(plus[0]) + " 送到", plus[0], !!at && Math.abs(at - plus[0]) < 90000),
+              chip(hm(plus[1]) + " 送到", plus[1], !!at && Math.abs(at - plus[1]) < 90000),
+              h("label", { "data-wk": "tkoeta", "data-part": "custom", "data-on": custom ? "1" : "0", className: "flex items-center active:opacity-70",
+                style: { minHeight: 34, padding: "0 10px", gap: 6, borderRadius: 999, border: "1px solid " + (custom ? MTAKE.yellowD || MTAKE.ink : MTAKE.line), background: custom ? MTAKE.soft : MTAKE.card, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: MTAKE.ink } },
+                "自己挑",
+                h("input", { "data-wk": "tkoetatime", type: "time", value: custom ? hm(at) : "", onChange: e => pickTime(e.target.value),
+                  style: { width: 74, border: "none", background: "transparent", fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: MTAKE.ink } }))),
+            at ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: MTAKE.dim, marginTop: 7 } }, "预约 " + (new Date(at).getDate() !== new Date().getDate() ? "明天 " : "") + hm(at) + " 送到，骑手会掐着点出发") : null);
+        })(),
         sectionLabel("怎么付"),
         (!payAs && Array.isArray(payMasks) && payMasks.length > 1) ? h("div", { "data-wk": "tkopaymask", style: { marginBottom: 10 } },
           h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: MTAKE.dim, marginBottom: 6 } }, "用哪张面具点（只有认这张的人翻你手机看得到这一单）"),
