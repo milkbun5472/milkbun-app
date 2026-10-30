@@ -61,3 +61,11 @@ test("批复存根：他批的跟转账一样在那一轮最上面结，群里�
   assert.match(comp, /if \(m\.askReceipt\) \{ const meSide/);
   assert.equal(AskSlip.no("ask_1"), AskSlip.no("ask_1"));
 });
+
+test("请示能附一张图：卡上看得见，单聊批的那轮、群里投票那一枪都给模型看", () => {
+  assert.match(src, /＋ 加一张图（可以不加）/);
+  assert.match(src, /row\("附图"/);
+  assert.match(app, /\(m\.kind === "photo" \|\| m\.kind === "selfie" \|\| m\.kind === "ask"\) && m\.imageRef \? \[m\.imageRef\] : \[\]/);
+  assert.match(app, /_imageRefs: \[poll\.ask\.imageRef\] \}\], 1\)/);
+  assert.match(AskSlip.line({ what: "买", imageRef: "iv_x" }), /附了一张图/);
+});
