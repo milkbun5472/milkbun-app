@@ -42,3 +42,7 @@ test("群聊也接上：她双击别人的气泡贴、成员也能往气泡上�
   assert.match(app, /gSticks: \(x\.gSticks \|\| \[\]\)\.filter\(g => g\.by !== spk\.id\)/);
   assert.match(app, /fmtGLine\(m\) \+ groupStickNote\(m\)/);
 });
+test("贴表情有场合：她哪句让他当下有反应就贴", () => {
+  assert.match(app, /capState\.push\("stick：" \+ uName \+ " 某句话让你当下有个反应/);
+  assert.match(app, /群里谁的哪句话让你当下有个反应/);
+});
