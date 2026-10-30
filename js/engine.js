@@ -10164,6 +10164,11 @@ function ageDrift(ageAt, birthday, now) {
   return Math.floor((to - from) / 365.2425 / 86400000);
 }
 function charAgeNow(char, now) {
+  // 照 TA 那只虚拟钟算岁数（2026-10-31 全 app 排查）：「现在」和「填年龄那天」一起换到钟上，涨岁才算得对。
+  //   一处换，单聊、线下、档案馆、状态卡六处一起对
+  const vm = char && char.id && typeof vclockMap === "function" ? t => vclockMap(t, char.id) : t => t;
+  if (now != null) now = vm(Number(now));
+  if (char && char.ageAt != null && vm !== null) char = Object.assign({}, char, { ageAt: vm(Number(char.ageAt)) || char.ageAt });
   const fixed = char && char.age;
   if (fixed != null && String(fixed).trim() !== "") {
     const n = parseInt(String(fixed).trim(), 10);

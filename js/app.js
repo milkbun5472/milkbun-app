@@ -6653,7 +6653,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   const openBdayPlan = async (c, m) => {
     if (!c || !m) return;
     const bd = myBdayFor(c.id);
-    if (!bd || daysUntilBirthday(bd, new Date()) !== 0) { toast("还没到你生日呢，到那天再拆"); return; }
+    if (!bd || daysUntilBirthday(bd, new Date(typeof vclockMap === "function" ? vclockMap(Date.now(), c.id) : Date.now())) !== 0) { toast("还没到你生日呢，到那天再拆"); return; }   // 跟准备那头同一只钟
     if (m.opened) { openOffline(c); return; }
     const p = apiFor(c.id); if (!p) { toast("请先到设置配置 API"); return; }
     setGen(g => ({ ...g, bdayPlan: c.id }));
@@ -7746,13 +7746,14 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       const pOnce = (k, key, send, commit) => { pFail[k] = Date.now(); Promise.resolve(window.DeliveryCommit.once(key, send, commit)).then(ok => { if (ok) delete pFail[k]; }); };
       // —— 生日主动祝福：今天是用户生日 → 能看到你日历、真在聊的角色主动祝一次（每年每人一次，只白天发）——
       const nowD = new Date();
-      const isMyBdayFor = cid => { const b = parseMonthDay(myBdayFor(cid)); return !!(b && b.mo === nowD.getMonth() + 1 && b.d === nowD.getDate()); };
+      // 「今天是几号」照这个人那只虚拟钟（2026-10-31 全 app 排查）；几点才发这种时机照旧看现实
+      const vDay = cid => new Date(typeof vclockMap === "function" ? vclockMap(Date.now(), cid) : Date.now());
+      const isMyBdayFor = cid => { const b = parseMonthDay(myBdayFor(cid)), d = vDay(cid); return !!(b && b.mo === d.getMonth() + 1 && b.d === d.getDate()); };
       // —— 生日零点的信（她 2026-10-09：「3 不能全部都写吗」）：生日那天一过零点，认这张面具的每一位各写一封，一人一年一封 ——
       {
-        const year = String(nowD.getFullYear());
         for (const c of characters) {
           if (c.npc || !isMyBdayFor(c.id)) continue;
-          const cid = c.id;
+          const cid = c.id, year = String(vDay(cid).getFullYear());
           if (laneBusy("c:" + cid) || hist(c).length < 2) continue;
           if ((greetLogRef.current[cid] || {}).bl === year) continue;
           if (pSkip("bdayletter:" + cid)) continue;
@@ -7762,8 +7763,9 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       }
       // —— 旅行出发前一晚：订了日子的那一趟，TA 主动来提醒一次（一趟一次，晚上 19-23 点）——
       try {
-        const tomorrow = schedShiftDayKey(schedDayKey(nowD), 1);
-        const tr = (coupleTripsRef.current || []).find(t => t && t.status !== "done" && t.date === tomorrow && !t.eveSent);
+        const tomorrowOf = cid => schedShiftDayKey(schedDayKey(vDay(cid)), 1);
+        const tr = (coupleTripsRef.current || []).find(t => t && t.status !== "done" && t.date === tomorrowOf(t.charId) && !t.eveSent);
+        const tomorrow = tr ? tomorrowOf(tr.charId) : "";
         const tc = tr && characters.find(c => c.id === tr.charId);
         if (tc && nowD.getHours() >= 19 && nowD.getHours() <= 23 && !laneBusy("c:" + tc.id) && viewRef.current.charId !== tc.id && !pSkip("tripeve:" + tr.id)) {
           const b = tr.booking, fl = b && b.paid ? b.flights[b.pick.flight] : null;
@@ -7779,7 +7781,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         const plan = loadJSON("x_bdayPlan", null);
         if (!plan || plan.year !== year) {
           const cands = liveChars.filter(c => c && hist(c).length >= 2 && myBdayFor(c.id)
-            && (d => d != null && d >= 1 && d <= 3)(daysUntilBirthday(myBdayFor(c.id), nowD)));
+            && (d => d != null && d >= 1 && d <= 3)(daysUntilBirthday(myBdayFor(c.id), vDay(c.id))));
           if (cands.length) {
             const couple = cands.find(c => ((couplesRef.current || {})[c.id] || {}).status === "together");
             const pick = couple || cands.slice().sort((a, b) => affOf(b.id) - affOf(a.id))[0];
@@ -27108,7 +27110,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   const beginCouple = (charId, relOverride) => {
     const char = characters.find(c => c.id === charId);
     setCoupleBreakup(p => { if (!p[charId]) return p; const n = { ...p }; delete n[charId]; saveJSON("x_coupleBreakup", n); return n; });
-    const now = new Date();
+    const now = new Date(typeof vclockMap === "function" ? vclockMap(Date.now(), charId) : Date.now());
     const rk0 = spaceRelKey(relOverride || (couplesRef.current || {})[charId]);
     const role0 = rk0 === "family" ? ((couplesRef.current || {})[charId] || {}).role : "";
     setCoupleFor(charId, { status: "together", since: now.getTime(), rel: rk0, ...(role0 ? { role: role0 } : {}) });
@@ -27482,7 +27484,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         setCoupleTimeline(p => {
           // ⚠️日期必须走 ymd()（补零）：时光轴是按 date 字符串排序的，
           //   "2026-9-4" 混在 "2026-09-04" 里会被排到十月往后去。
-          const n = [{ id: "tl_" + Date.now(), characterId: char.id, date: ymd(new Date()),
+          const n = [{ id: "tl_" + Date.now(), characterId: char.id, date: ymd(new Date(typeof vclockMap === "function" ? vclockMap(Date.now(), char.id) : Date.now())),
             type: "感慨", title: String(d.title || characterText(char, "他记着的一件事")).slice(0, 20), content: txt, byCharacter: true, unread: true, createdAt: Date.now() }, ...p];
           saveJSON("x_coupleTimeline", n); return n;
         });
@@ -27895,7 +27897,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     if (!trip) return;
     saveTrips(p => p.map(t => t.id === trip.id ? { ...t, status: "done", doneTs: Date.now() } : t));
     // 零调用归档：时间轴一条 + 愿望自己翻成实现 + 凝一条记忆。第一次们那册按推导自己看得见。
-    addTimelineEvent(char, ymd(new Date()), ("去了" + trip.dest).slice(0, 20), trip.plan && trip.plan.title ? "「" + trip.plan.title + "」" : "");
+    addTimelineEvent(char, ymd(new Date(typeof vclockMap === "function" ? vclockMap(Date.now(), char.id) : Date.now())), ("去了" + trip.dest).slice(0, 20), trip.plan && trip.plan.title ? "「" + trip.plan.title + "」" : "");
     if (trip.wishId) saveCoupleHome(char.id, cur => ({ ...cur, wishes: (Array.isArray(cur.wishes) ? cur.wishes : []).map(w => w.id === trip.wishId ? { ...w, status: "done", updatedAt: Date.now() } : w) }));
     coupleKeep(char.id, (profile.name || "她") + "和" + char.name + "一起去了一趟「" + trip.dest + "」"
       + (trip.plan && trip.plan.title ? characterText(char, "，他给这趟起的名字是「") + cSnip(trip.plan.title, 20) + "」" : ""), "旅行");
@@ -29366,7 +29368,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     let wline = "";
     try { const g = realGeo(); const w = g ? weatherCached(g.lat, g.lng) : null; if (w) wline = wmoZh(wxNowCode(w)) + " " + w.t + "°C"; } catch (e) {}
     const due = Date.now() + (4 + Math.random() * 56) * 3600000; // TA 4~60 小时内挑个时候回（三天内）
-    saveExDiary(p => [{ id: "exd_" + Date.now(), characterId: char.id, author: "user", content: c, mood: (moodWord || "").trim(), weather: wline, date: ymd(new Date()), ts: Date.now(), dueTs: due, replied: false }, ...p]);
+    saveExDiary(p => [{ id: "exd_" + Date.now(), characterId: char.id, author: "user", content: c, mood: (moodWord || "").trim(), weather: wline, date: ymd(new Date(typeof vclockMap === "function" ? vclockMap(Date.now(), char.id) : Date.now())), ts: Date.now(), dueTs: due, replied: false }, ...p]);
     toast("写好了，TA 这几天会回你一页");
   };
   const exDiaryGenRef = useRef({});
@@ -29388,7 +29390,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         maxTokens: 14000
       });
       if (d && d.content) {
-        saveExDiary(p => [{ id: "exd_" + Date.now(), characterId: cid, author: cid, content: String(d.content).trim(), mood: String(d.mood || "").trim(), weather: String(d.weather || "").trim(), date: ymd(new Date()), ts: Date.now(), replyToId: pageId, unread: true }, ...p.map(x => x.id === pageId ? { ...x, replied: true } : x)]);
+        saveExDiary(p => [{ id: "exd_" + Date.now(), characterId: cid, author: cid, content: String(d.content).trim(), mood: String(d.mood || "").trim(), weather: String(d.weather || "").trim(), date: ymd(new Date(typeof vclockMap === "function" ? vclockMap(Date.now(), cid) : Date.now())), ts: Date.now(), replyToId: pageId, unread: true }, ...p.map(x => x.id === pageId ? { ...x, replied: true } : x)]);
         coupleKeep(cid, "交换日记里（" + page.date + "）" + uN + "写道「" + cSnip(page.content) + "」，"
           + char.name + "回页写道「" + cSnip(d.content) + "」", "交换日记");
         toast(char.name + " 回了你一页交换日记");
@@ -29447,7 +29449,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         schemaHint: "{\"title\":\"短标题\",\"content\":\"一两句话\"}"
       });
       setCoupleTimeline(p => {
-        const n = [{ id: "tl_" + Date.now(), characterId: char.id, date: ymd(new Date()), type: "感慨", title: (d.title || "").trim(), content: (d.content || "").trim(), byCharacter: true, createdAt: Date.now() }, ...p];
+        const n = [{ id: "tl_" + Date.now(), characterId: char.id, date: ymd(new Date(typeof vclockMap === "function" ? vclockMap(Date.now(), char.id) : Date.now())), type: "感慨", title: (d.title || "").trim(), content: (d.content || "").trim(), byCharacter: true, createdAt: Date.now() }, ...p];
         saveJSON("x_coupleTimeline", n);
         return n;
       });
@@ -33134,7 +33136,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     onSneak: (m, how) => answerSneak(activeChar.id, m, how),
     onDateGo: m => dateGo(activeChar.id, m),
     onBdayPlanOpen: m => openBdayPlan(activeChar, m),
-    bdayToday: (() => { const bd = myBdayFor(activeChar.id); return !!bd && typeof daysUntilBirthday === "function" && daysUntilBirthday(bd, new Date()) === 0; })(),
+    bdayToday: (() => { const bd = myBdayFor(activeChar.id); return !!bd && typeof daysUntilBirthday === "function" && daysUntilBirthday(bd, new Date(typeof vclockMap === "function" ? vclockMap(Date.now(), activeChar.id) : Date.now())) === 0; })(),
     onDateAnswer: (m, yes) => answerDateAsk(activeChar.id, m, yes),
     peekSneakOn: !!peekSneakOk[activeChar.id], onToggleSneak: () => togglePeekSneak(activeChar.id),
     onOffline: () => openOffline(activeChar, window.ChatRooms ? window.ChatRooms.get(activeChar.id, activeRoomId) : null),

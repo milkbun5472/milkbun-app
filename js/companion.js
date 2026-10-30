@@ -226,7 +226,7 @@
       if (!p || !ctx || typeof runProbe !== "function") return;
       POKE_GATE.busy = true; POKE_GATE.last = Date.now();
       try {
-        const hr = new Date().getHours(), uName = (props.profile && props.profile.name) || "她";
+        const hr = (typeof vclockNow === "function" ? vclockNow(char.id) : new Date()).getHours(), uName = (props.profile && props.profile.name) || "她";
         const log = pokeLog(char.id), gap = log.lastAt ? Math.round((Date.now() - log.lastAt) / 60000) : null;
         // once：这一句就一行字，没解析出来就算了，不自动再打一枪（原来一次戳最多会调三次）
         const d = await runProbe(p, ctx, { voice: true, tag: "陪伴", once: true, salvage: pokeSalvage,

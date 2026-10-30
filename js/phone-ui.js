@@ -2746,7 +2746,7 @@ function TakeoutView({ d, char, t, onBack, onRefresh, refreshing, onPeek, monthS
   // 同一份数据换个看法，天生对得上；过了七天的自己滑出窗口，留在吃过的记录里，
   // 这就是她说的「顺延」——不需要任何搬运代码。
   const dayStart = ts => { const d = new Date(ts); d.setHours(0, 0, 0, 0); return d.getTime(); };
-  const DAY = 86400000, todayStart = dayStart(Date.now());
+  const DAY = 86400000, todayStart = dayStart(phoneNow(char && char.id));
   const orderTs = o => (o && o._ts != null) ? o._ts : phoneWhenTs(o && (o.time || o.date), phoneNow(char && char.id));
   const WK_ZH = ["日", "一", "二", "三", "四", "五", "六"];
   // 最近七天，今天在最下面（跟「吃过的记录」一样是新的在上？不——这一段读的是
