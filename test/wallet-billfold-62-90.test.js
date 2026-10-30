@@ -17,13 +17,13 @@ const leatherSrc = src.slice(src.indexOf("const LEATHER = t =>"), src.indexOf("\
 const LEATHER = new Function("return " + leatherSrc.replace(/^const LEATHER = /, "").replace(/;\s*$/, ""))();
 
 test("六层外壳全铺皮革内衬，顶栏透上来，正文是唯一那个滚动容器", () => {
-  // 我的钱包 / 亲属卡 / 角色钱包空态 / 花名册 / 生成中 / 单角色详情
-  // v70.55 多了第七页：币种设置（她 2026-09-18「就放钱包右上角刷新那里」）。
-  // ⚠️它跟别的六页一样【整页】，不是半窗——施工规则/no-half-sheet.md：
-  //   这一层不需要同时看见底下那张账，而且里头四样要填，半屏挤不下。
-  assert.equal((seg.match(/style: LEATHER\(t\)/g) || []).length, 7, "有页没铺");
-  assert.equal((seg.match(/bg: "transparent"/g) || []).length, 6, "有顶栏还在刷平色");
-  assert.equal((seg.match(/className: "flex-1 min-h-0 overflow-y-auto/g) || []).length, 5);
+  // 我的钱包 / 亲属卡 / 角色钱包空态 / 花名册 / 生成中 / 单角色详情 / 币种设置 / 请示档案
+  // ⚠️这几页一律【整页】，不是半窗——施工规则/no-half-sheet.md：
+  //   这一层不需要同时看见底下那张账，而且里头几样要填，半屏挤不下。
+  // 数字会跟着新开的页长：再加一页时，连同下面两条一起加一，别把新页漏了内衬或顶栏。
+  assert.equal((seg.match(/style: LEATHER\(t\)/g) || []).length, 8, "有页没铺");
+  assert.equal((seg.match(/bg: "transparent"/g) || []).length, 7, "有顶栏还在刷平色");
+  assert.equal((seg.match(/className: "flex-1 min-h-0 overflow-y-auto/g) || []).length, 6);
   assert.ok(!/className: "flex-1 overflow-y-auto/.test(seg), "有正文少了 min-h-0");
   // 两页原来各自手写了一条 20px paddingTop 的顶栏（mobile-ui-layout §1 点名不许）
   assert.ok(!/paddingTop: safeTop\(20\), background: t\.bg2/.test(seg), "手写顶栏还在");

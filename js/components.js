@@ -12325,7 +12325,7 @@ function ChatThread({
       onManage: () => { setStickerOpen(false); onManageEmotes && onManageEmotes(); },
       caption: !!emoteCaption, onCaption: onEmoteCaption,
       onPick: em => {
-        sendRich({ role: "user", kind: "emote", url: em.url, keyword: em.keyword, content: "[表情] " + em.keyword });
+        sendRich({ role: "user", kind: "emote", url: em.url, keyword: em.keyword, content: "[表情] " + em.keyword + (em.selfFace ? "（画的是她自己）" : "") });
         // 书房直通（她 2026-09-25「表情包你能看到吗→你快去修」）：表情包走 sendRich 不过 onSend，
         // 车道原本看不见。把关键词描述进攒话缸，图不过桥、意思过桥。
         if (ccLane && !ccLane.direct && window.CcLane) window.CcLane.post("[表情包] " + em.keyword, { threadType: "private" });
@@ -14272,7 +14272,7 @@ const TransWhoCtx = typeof React !== "undefined" && React.createContext ? React.
 function TransWho({ id, children }) { return TransWhoCtx ? h(TransWhoCtx.Provider, { value: id || null }, children) : children; }
 function transWhoAuto(isU) { const w = !isU && TransWhoCtx ? React.useContext(TransWhoCtx) : null; return !!w && typeof window !== "undefined" && typeof window.__charBilingual === "function" && !!window.__charBilingual(w); }
 if (typeof window !== "undefined") { window.TransWho = TransWho; window.TransWhoCtx = TransWhoCtx; }
-function TransText({ text, isU, zhReady, ink, inline, long, size, noModel }) {
+function TransText({ text, isU, zhReady, ink, inline, long, size, noModel, langHint }) {
   const [autoShow] = useOnlineTranslationAuto();
   // <#0.4#> 这种停顿记号是念给语音听的，屏幕上一律不摆（群里 2026-10-10 截图：通话里漏了一串）。
   //   全库正文都从这一处画，剥在这儿，单聊、群聊、通话、引用一起管；原文照旧留着给 TTS。
@@ -14295,7 +14295,7 @@ function TransText({ text, isU, zhReady, ink, inline, long, size, noModel }) {
   // 重建内部状态；旧异步请求只会结束在旧实例，不能把结果写进新气泡。
   // 译文前头挂一串省略号、原文没有（群友 2026-10-26：模型卡顿时译文开头冒出「…」）：画的时候剥掉
   if (typeof zhReady === "string" && /^\s*(\.{2,}|…+|。{2,})\s*/.test(zhReady) && !/^\s*(\.{2,}|…)/.test(String(text || ""))) zhReady = zhReady.replace(/^\s*(\.{2,}|…+|。{2,})\s*/, "");
-  return h(TransTextState, { key: JSON.stringify([text, !!isU, zhReady || ""]), text, isU, zhReady, ink, autoShow, long, size, noModel, inline });
+  return h(TransTextState, { key: JSON.stringify([text, !!isU, zhReady || ""]), text, isU, zhReady, ink, autoShow, long, size, noModel, inline, langHint });
 }
 // ── 长按出菜单：一份公共的（她 2026-09-17 立）─────────────────────────
 // 她原话：**「上下滑的时候很容易误触让那一堆状态栏跳出来然后误触到撤回」**。
@@ -14418,15 +14418,16 @@ function useLongPressMenu(onFire, opts) {
   const endPress = () => { if (timer.current) { clearTimeout(timer.current); timer.current = null; } };
   return { startPress: startPress, endPress: endPress };
 }
-function TransTextState({ text, isU, zhReady, ink, autoShow: autoShowAll = false, long, size, noModel, inline }) {
+function TransTextState({ text, isU, zhReady, ink, autoShow: autoShowAll = false, long, size, noModel, inline, langHint }) {
   const t = useTheme();
   // 包在 TransWho 里、写的人开着「自带中译」：也当直接显示（她 2026-10-17）
   const _whoAuto = typeof transWhoAuto === "function" && transWhoAuto(isU), autoShow = autoShowAll || _whoAuto;
   // 随消息来的译文要是繁体（模型没照「右边写简体」办），显示前换成简体（js/t2s.js）
   if (zhReady && typeof toSimplified === "function") zhReady = toSimplified(zhReady);
   if (zhReady && typeof fixGarbledText === "function") zhReady = fixGarbledText(zhReady);   // 译文里的乱码还原（engine.js 那一份）
-  const _lang = long && typeof translatableLangLong === "function" ? translatableLangLong(text)
-    : typeof translatableLang === "function" ? translatableLang(text) : "";
+  // langHint：同一段里别的句子已经认出语种（粤语那种全是汉字、单句认不出的）——这句自己认不出时照它
+  const _lang = (long && typeof translatableLangLong === "function" ? translatableLangLong(text)
+    : typeof translatableLang === "function" ? translatableLang(text) : "") || (langHint && /[\u4e00-\u9fff]/.test(String(text || "")) ? langHint : "");
   // 自带中译时哪怕探不出语种也要给译键：模型都判定这句不是中文了，比正则准
   const lang = zhReady ? (_lang || "外语") : _lang;
   const [open, setOpen] = useState(!!autoShow);
@@ -18718,6 +18719,10 @@ function offSayZhOf(map, sen) {
 function offBody(t, text, accent, whoId, sayZh) {
   // <#0.5#> 停顿记号只给语音用，线下正文里不摆（群里 2026-10-10：「线下听说也会漏」）
   const segs = offSplit(typeof stripPauseMarks === "function" ? stripPauseMarks(text) : text);
+  // 粤语台词里有的句子一个粤语专用字都没有（她 2026-10-30 截图：「陸啟架車下晝兩點幾到機場……」没有译键）：
+  //   这一段台词里只要有一句认出是粤语，别的写着繁体的台词句也当粤语挂「译」——只看台词、只认繁体，叙述和简体普通话不碰
+  const _yueHere = typeof translatableLang === "function" && segs.some(x => x.k === "say" && offSaySentences(x.s).some(sen => translatableLang(sen) === "粤语"));
+  const _hintOf = sen => _yueHere && typeof toSimplified === "function" && toSimplified(sen) !== sen ? "粤语" : undefined;
   const hasSay = segs.some(x => x.k === "say");
   const d = offDark(t);
   const sayInk = offReadable(accent || t.tint, t.bg2);
@@ -18727,7 +18732,7 @@ function offBody(t, text, accent, whoId, sayZh) {
       color: sayInk, fontWeight: 600,
       background: "linear-gradient(180deg, transparent 12%, " + offA(accent || t.tint, d ? 0.16 : 0.13) + " 12%, " + offA(accent || t.tint, d ? 0.16 : 0.13) + " 92%, transparent 92%)",
       borderRadius: 2, padding: "0 1px", boxDecorationBreak: "clone", WebkitBoxDecorationBreak: "clone"
-    } }, typeof TransText === "function" ? offSaySentences(x.s).map((sen, k) => h(TransText, { key: k, text: sen, ink: sayInk, inline: true, size: 13, zhReady: offSayZhOf(sayZh, sen) })) : x.s)));
+    } }, typeof TransText === "function" ? offSaySentences(x.s).map((sen, k) => h(TransText, { key: k, text: sen, ink: sayInk, inline: true, size: 13, zhReady: offSayZhOf(sayZh, sen), langHint: _hintOf(sen) })) : x.s)));
   return whoId && typeof TransWho === "function" ? h(TransWho, { id: whoId }, out) : out;
   // ↑ 引号里那句话是外语时挂「译」（群友 2026-10-20：「线下外语不翻译」）：整段正文是中文叙述、只有台词是外语，
   //   按整段探语种永远探成中文，所以按一句句台词挂。中文台词原样返回、零开销；翻译走免费那条，跟线上气泡同一套。
@@ -20234,7 +20239,7 @@ function GroupThread({
       packs: emotePacks, emotes: emotes,
       onManage: () => { setSheet(null); onManageEmotes && onManageEmotes(); },
       caption: !!emoteCaption, onCaption: onEmoteCaption,
-      onPick: em => { sendRich({ role: "user", kind: "emote", url: em.url, keyword: em.keyword, content: "[表情] " + em.keyword }); setSheet(null); }
+      onPick: em => { sendRich({ role: "user", kind: "emote", url: em.url, keyword: em.keyword, content: "[表情] " + em.keyword + (em.selfFace ? "（画的是她自己）" : "") }); setSheet(null); }
     })
   ), rpView != null && messages[rpView] && messages[rpView].kind === "redpacket" && (() => { const rp = messages[rpView], mine = (rp.claims || []).find(c => c.me);
     const canOpen = !rp.byMe && !mine && (rp.claims || []).length < rp.count && !(rp.toId && rp.toId !== "me");

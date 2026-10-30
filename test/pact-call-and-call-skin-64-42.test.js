@@ -84,7 +84,9 @@ test("约定能约成打电话，而且到点走的是【响铃】不是发消�
   assert.match(app, /const v = PACT_VIA\[via\] \? via : "chat";/, "via 没兜底，写坏一个值就静默变成别的");
   assert.match(app, /dueTs, memId, via: v/, "via 没存进那条约里");
   // 到期那一段：电话在 replyNow 之前就 return，不许先花一次调用生成文字
-  const seg = app.slice(app.indexOf("const due = (promisesRef.current || [])"), app.indexOf("} catch (e) {}\n      try {\n        for (const c of characters)"));
+  // ⚠️收尾那个标记从这一段开头往后找：它在别处也出现，从头找会切出一段空的（2026-10-29 红过一次）
+  const segStart = app.indexOf("const due = (promisesRef.current || [])");
+  const seg = app.slice(segStart, app.indexOf("} catch (e) {}\n      try {\n        for (const c of characters)", segStart));
   const iRing = seg.indexOf('if (pm.via === "voice" || pm.via === "video")');
   const iReply = seg.indexOf("replyNow(pm.charId");
   assert.ok(iRing > 0 && iRing < iReply, "打电话这一路没排在发消息前面");

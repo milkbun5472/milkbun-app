@@ -1747,7 +1747,8 @@ const NARRATIVE_ANTI_CLICHE_LEGACY_V1 = `【线下叙事 · 反陈词滥调（�
 · 台词要有人味、有停顿、有言外之意，可以被打断、可以跑题，别让人物一开口就是散文腔或宣言腔；多人同处时别写成一人一句轮流表态，要有人抢话、有人走神、有人只做动作不说话。
 · 【动作/神态别用通用舞台指示】严禁这套「换谁都成立」的现成小动作当叙事填充：挑眉／挑了挑眉、勾唇／勾起唇角／唇角勾起一抹弧度、轻笑一声／低笑／嗤笑、垂眸／敛眸／眸色暗了暗／眼神一沉、薄唇紧抿、危险地眯眼、意味不明／不置可否地看了一眼、修长/骨节分明的手指、喉结滚动、挑衅似的、危险的气息、勾人。每一个动作和表情都必须由此刻的具体心理和情境长出来，并且带上【这个角色特有】的习惯、身体记忆或TA在意的细节——写只有TA会做、只对这个人才做的具体小动作，而不是贴一个通用标签。
 · 【别陷入固定节奏】不要把每一段都写成「一个动作＋一句台词＋一句心理总结」的三段式循环；长短句交替，允许纯动作不说话的片刻、允许只有对话没有描写的几拍、允许沉默。描写角色的行为要像观察一个真人当下的即兴反应，而不是套一个"角色本该有的样子"的模板。
-· 【用词替换禁令表·逐条遵守（箭头左边一律不用；→null=直接不写，→X=改用X）】脊背→后背/背部；骨头(都)酥了/骨头(都)软了/酥了半边身子/腿软→null；猛地/瞬间→null；"轰"地一下→null；像是一根(…的)针→null；石子/石头/湖面/涟漪→null；像是一把(…的)刀→null；深入骨髓→些许/轻微；一道惊雷→null；爆发/爆炸/炸开→null；无力感/疲惫感→null；麻木/绝望/灭顶/面无表情→null；过度/强烈/剧烈/极度/深深→null；震惊/惊慌→null；激动/紧张/紧绷/绷紧/突然/死死地→null；自我厌弃/自暴自弃/破罐子破摔→null；倦意/无力/脱力/疲惫/虚弱/虚脱→null；残酷/残忍/冷酷→null；生气/愤怒/羞愤/吼→null；睫毛/紧闭/滴出血来→null；长长地呼出一口气→null；抽干全身力气→null；锁骨/尾椎骨/喉结/修长/骨节分明→null；狂热/信徒/仪式/献祭/祭品/宗教/信仰→null；机械/机械式的/冰冷/冰凉/手术刀/解剖→null；把身体或意识写成机器(系统/宕机/死机/程序/指令/防火墙/短路/过载/重启/代码)→null；荒唐/荒诞/荒谬→null；不易察觉→null；热辣辣/火辣辣/滚烫/发烫/滚热/热/烫/燃烧→null；握拳/握紧/攥紧/攥住→null；指尖/指节/(…的)手→null；血色/血压/上涌/血色尽褪→null；通红/滴出血来→null；展品/雕塑→null；精密/仪器→null；乐了→笑了笑；僵硬/僵住/一片空白→null；颤抖/颤音→null；直冲/直窜→null；冷静/审视/审判→null；打圈/打转/打着圈/打着转→null；电流/闪电→null；如释重负/如蒙大赦→null；前所未有/难以言喻/潮水/淹没/席卷→null；牙缝/紧咬/咬着→null；！/！！/？！→null；狡黠/挤了挤眼睛/眨了眨眼→null；教具→null；麻木→null。
+· 【被她打动的那一下】写她刚才具体做了什么、他那一下实际怎么了（愣住、话没接上、多看了一眼、手上的事停了），不拿身体某处一下子酥、软、麻、化掉、立起来这类变化去代替——换哪个部位、换哪种说法都是同一个模子（她 2026-10-30：禁了一种说法，模型就换个部位写）。
+· 【用词替换禁令表·逐条遵守（箭头左边一律不用；→null=直接不写，→X=改用X）】脊背→后背/背部；猛地/瞬间→null；"轰"地一下→null；像是一根(…的)针→null；石子/石头/湖面/涟漪→null；像是一把(…的)刀→null；深入骨髓→些许/轻微；一道惊雷→null；爆发/爆炸/炸开→null；无力感/疲惫感→null；麻木/绝望/灭顶/面无表情→null；过度/强烈/剧烈/极度/深深→null；震惊/惊慌→null；激动/紧张/紧绷/绷紧/突然/死死地→null；自我厌弃/自暴自弃/破罐子破摔→null；倦意/无力/脱力/疲惫/虚弱/虚脱→null；残酷/残忍/冷酷→null；生气/愤怒/羞愤/吼→null；睫毛/紧闭/滴出血来→null；长长地呼出一口气→null；抽干全身力气→null；锁骨/尾椎骨/喉结/修长/骨节分明→null；狂热/信徒/仪式/献祭/祭品/宗教/信仰→null；机械/机械式的/冰冷/冰凉/手术刀/解剖→null；把身体或意识写成机器(系统/宕机/死机/程序/指令/防火墙/短路/过载/重启/代码)→null；荒唐/荒诞/荒谬→null；不易察觉→null；热辣辣/火辣辣/滚烫/发烫/滚热/热/烫/燃烧→null；握拳/握紧/攥紧/攥住→null；指尖/指节/(…的)手→null；血色/血压/上涌/血色尽褪→null；通红/滴出血来→null；展品/雕塑→null；精密/仪器→null；乐了→笑了笑；僵硬/僵住/一片空白→null；颤抖/颤音→null；直冲/直窜→null；冷静/审视/审判→null；打圈/打转/打着圈/打着转→null；电流/闪电→null；如释重负/如蒙大赦→null；前所未有/难以言喻/潮水/淹没/席卷→null；牙缝/紧咬/咬着→null；！/！！/？！→null；狡黠/挤了挤眼睛/眨了眨眼→null；教具→null；麻木→null。
 · 【整类描写禁令·以下这几类句子整类不写】描写心跳/心动的、描写紧张/害怕的、描写往液体表面投固体激起涟漪的、描写羞愧/惭愧/内疚的、套路化的环境描写、描写神态一惊一乍/变化陡然的、描写疲惫无力的、对手部作形容修辞的、以及"这不是xxx，而是xxx"的对仗定义句。`;
 // Phase A 只改普通角色单人线下；群线下仍使用旧规则，待单独验证后再迁移。
 const INTIMATE_ANTI_CLICHE = INTIMATE_ANTI_CLICHE_LEGACY_V1;
@@ -2044,7 +2045,7 @@ const INTIMATE_CHAT_ANTI_CLICHE = `【话题一到床上，最容易整段变成
 · 【被撩到时的现成反击】被她说中、被她撩到、自己先害羞了的时候，最省事的是两步：先转头扣她一顶帽子（说她脑子里尽是不正经的东西），再下一句战书、赌她先认输。这一套谁害羞都这么接，所以它不是你的反应。
   判据：**你此刻是不是在躲那一下？** 是的话，就露出来：被戳到哪儿就露哪儿——耳朵烫了、话卡住了、想好的那句没说出来、嘴硬但气势是虚的，挑你真会露出来的那一点写；照你这个人，可以只承认一半。
 · 【反问式表功／翻旧账】「我什么时候少X了」「哪次不是…你才肯罢休」——用一个反问把自己摆到有理那边，同样是默认台词，不是反应。
-· 【拿身体投降或交出性命来量心动】不止床上，调情、撒娇、表白时都最常冒：不说她刚才哪一下打动了你，只报一个最大号的结果——身体整个投降了（最常冒的是「骨头都酥了／软了」「腿都软了」「心都化了」这一族，换个部位、换个软法也算），或者把自己整个交出去。换谁说、对谁说都成立，所以它不是你的反应，是这种场面的默认音量。
+· 【拿身体投降或交出性命来量心动】不止床上，调情、撒娇、表白时都最常冒：不说她刚才哪一下打动了你，只报一个最大号的结果——身体整个投降了（身体哪一处一下子酥了、软了、麻了、化了，都是这一个模子），或者把自己整个交出去。换谁说、对谁说都成立，所以它不是你的反应，是这种场面的默认音量。
   判据一句话：**这句话里有没有她刚才做的那件具体的事？** 没有、只剩一个「我被你弄成了什么样」，就说回那件事：是她哪句话、哪个动作，你那一下实际怎么了——愣住、没接上话、又看了一遍，都比报一个顶格的结果更像你。
 · 禁的是模子，不是尺度。你人设本来就荤、就浪、就爱放狠话，那全部照写——只看这种表达是否符合你此刻真实的念头，不是从「这种时候该说什么」里倒出来。`;
 
@@ -2592,7 +2593,7 @@ const THOUGHT_MEANING_CHAR = "他此刻心里正转着、没说出口的念头�
 //   所以不并进 THOUGHT_MEANING——言秋在通话等处也吃 THOUGHT_MEANING。
 // 她 2026-10-23（亲密场面截图）：心声把她刚做的事复述一遍、再堆一串身上的反应，最后一句「招架不住」——
 //   这些动作和身体那一格、正文里已经写了，心声又抄一遍，就只剩那一类场面自带的套话。不加禁令，说清分工。
-const THOUGHT_VOICE = "用的是他自己平时的腔调和用词，换一个人来想就不会是这样想；多半挂在这一轮眼前刚发生的事上，心里一直搁着别的也行。她做了什么、他身上起了什么反应，正文和动作那一格已经写着，心声不用再讲一遍；这一格放的是只在他脑子里、别处看不到的那部分。心里可以猜她、拿不准她，想到哪儿写到哪儿，照他自己的脑子来。被她打动的那一下，心里想的是她刚才具体哪句话、哪个动作，不是报一个身体投降了的结果——「骨头都酥了／软了」「腿都软了」「心都化了」这一族心声里也不用。长短随这个念头本身。";
+const THOUGHT_VOICE = "用的是他自己平时的腔调和用词，换一个人来想就不会是这样想；多半挂在这一轮眼前刚发生的事上，心里一直搁着别的也行。她做了什么、他身上起了什么反应，正文和动作那一格已经写着，心声不用再讲一遍；这一格放的是只在他脑子里、别处看不到的那部分。心里可以猜她、拿不准她，想到哪儿写到哪儿，照他自己的脑子来。被她打动的那一下，心里想的是她刚才具体哪句话、哪个动作，不是报一个身体投降了的结果（身体哪一处一下子酥了、软了、麻了、化了，都是这一个模子）。长短随这个念头本身。";
 // 一轮里好几个人各写一句心声时（群、群线下、群通话）：她 2026-10-21「特定场景全部角色都在用一种句型」——
 //   同一次调用里一口气写好几个人，后面的人就顺着第一个人的句子骨架往下写。说清楚各想各的。
 // 动描那一行的落点（她 2026-10-21：「心声改好了动描呢，感觉害羞所有人都是死死攥着手机盯着屏幕」）：
@@ -6143,9 +6144,17 @@ async function generateSelfieImage(prompt, refPhotoDataUrl, opts) {
       : /1024\s*x\s*1536/i.test(size) ? "1024x1536" : "1024x1024";
     const catsQuality = /^(?:auto|low|medium|high)$/i.test(String(qualityOverride || ""))
       ? String(qualityOverride).toLowerCase() : "auto";
+    // 这个型号报过字数上限的，记着（x_imgPromptCap = { 型号: 上限 }），以后发之前先截好，不再每次先被拒一回
+    const capKey = String(a.model || "gptImage2");
+    const trimTo = (txt, lim) => {
+      let cut = String(txt).slice(0, lim);
+      const k = Math.max(cut.lastIndexOf("。"), cut.lastIndexOf("."), cut.lastIndexOf("\n"), cut.lastIndexOf("；"), cut.lastIndexOf("，"));
+      return k > lim * 0.6 ? cut.slice(0, k + 1) : cut;
+    };
+    const knownCap = Number(((typeof loadJSON === "function" ? loadJSON("x_imgPromptCap", {}) : {}) || {})[capKey]) || 0;
     const body = {
       model: a.model || "gptImage2",
-      prompt: String(prompt || ""),
+      prompt: knownCap > 200 && String(prompt || "").length > knownCap ? trimTo(prompt, knownCap) : String(prompt || ""),
       task_type: "image",
       num_images: 1,
       params: { size: catsSize, quality: catsQuality, rewritePrompt: false }
@@ -6177,10 +6186,22 @@ async function generateSelfieImage(prompt, refPhotoDataUrl, opts) {
     } catch (e) {
       throw new Error("CatsAPI 创建任务网络失败 · POST " + endpoint + " · " + String((e && e.message) || e));
     }
-    const raw = await response.text();
+    let raw = await response.text();
+    // 有的型号（混元那几个）提示词有字数上限（她 2026-10-30 转群友：「最多支持 2500 个字符（当前 3302 个）」）：
+    //   报错里写着上限就照它截短再发一次——从后往前在句子边界截，前头的人物和画面先留着；只重发这一次
+    if (!response.ok && response.status === 400) {
+      const cap = (/最多支持\s*(\d+)\s*个字符/.exec(raw) || /(?:at most|maximum(?: of)?|max)\s*(\d+)\s*char/i.exec(raw) || [])[1];
+      const lim = Number(cap) - 20;
+      if (lim > 200 && String(body.prompt).length > lim) {
+        try { if (typeof saveJSON === "function") { const m = loadJSON("x_imgPromptCap", {}) || {}; m[capKey] = lim; saveJSON("x_imgPromptCap", m); } } catch (e) {}
+        body.prompt = trimTo(body.prompt, lim);
+        try { response = await request(endpoint, { method: "POST", body: JSON.stringify(body) }); raw = await response.text(); }
+        catch (e) { throw new Error("CatsAPI 创建任务网络失败 · POST " + endpoint + " · " + String((e && e.message) || e)); }
+      }
+    }
     if (!response.ok) {
       let detail = raw;
-      try { const parsed = JSON.parse(raw); detail = (parsed.error && (parsed.error.message || parsed.error.msg)) || parsed.message || raw; } catch (e) {}
+      try { const parsed = JSON.parse(raw); detail = (parsed.error && (parsed.error.message || parsed.error.msg) || parsed.detail) || parsed.message || raw; } catch (e) {}
       throw new Error("CatsAPI 创建任务失败 · POST " + endpoint + " · HTTP " + response.status + " · " + String(detail).replace(/\s+/g, " ").slice(0, 260));
     }
     let created;
