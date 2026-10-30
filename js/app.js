@@ -5472,7 +5472,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     try {
       const realm = (window.MapKit && window.MapKit.charRealm) ? window.MapKit.charRealm(char, worldsRef.current || []) : { kind: "real" };
       if (realm.kind === "world" && typeof WorldWeather !== "undefined") {
-        const w = WorldWeather.dayOf(realm.world.id + "|" + realm.node, realm.terrain, new Date());
+        const w = WorldWeather.dayOf(realm.world.id + "|" + realm.node, realm.terrain, new Date(typeof vclockMap === "function" ? vclockMap(Date.now(), char.id) : Date.now()));
         return w ? (weatherLine(w) + "（" + realm.world.name + "·" + realm.node + "）") : "";
       }
       const hm = char.home && typeof char.home.lat === "number" ? char.home : realGeo(char.id);
@@ -25010,7 +25010,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     //    它在那儿摆着，日子一天天过去，TA没做。
     (promisesRef.current || []).forEach(pm => {
       if (!pm || pm.charId !== char.id || !S(pm.about)) return;
-      const due = new Date(Number(pm.dueTs) || Date.now());
+      const due = new Date(typeof vclockMap === "function" ? vclockMap(Number(pm.dueTs) || Date.now(), char.id) : (Number(pm.dueTs) || Date.now()));
       const late = Number(pm.dueTs) && Number(pm.dueTs) < Date.now();
       items.push({
         title: S(pm.about).slice(0, 40),
@@ -34669,7 +34669,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
           const name = region;
           if (seen[name]) return; seen[name] = 1;
           let weather = "";
-          try { if (W && W.dayOf && rg) { const d = W.dayOf(r.world.id + "|" + rg.name, rg.terrain || "平原", new Date()); weather = d ? wmoZh(d.code) + " " + d.lo + "~" + d.hi + "℃" : ""; } } catch (e) {}
+          try { if (W && W.dayOf && rg) { const d = W.dayOf(r.world.id + "|" + rg.name, rg.terrain || "平原", new Date(typeof vclockMap === "function" ? vclockMap(Date.now(), c.id) : Date.now())); weather = d ? wmoZh(d.code) + " " + d.lo + "~" + d.hi + "℃" : ""; } } catch (e) {}
           out.push({ name, world: String(r.world.name || "无名之地"), region, terrain: String((rg && rg.terrain) || r.terrain || "平原"), weather: weather.trim() });
           return;
         }
