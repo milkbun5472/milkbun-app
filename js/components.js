@@ -1120,7 +1120,7 @@ function MsgStickPicker({ at, hasStick, onPick, onClose, onPacks }) {
 }
 function msgStickEl(m, isU) {
   // 群里成员贴的（gSticks，可能好几个人）：她自己贴的那个排在最后，一起排成一小串
-  const gs = m && Array.isArray(m.gSticks) ? m.gSticks.filter(x => x && x.emoji) : [];
+  const gs = m && Array.isArray(m.gSticks) ? m.gSticks.filter(x => x && (x.emoji || x.url)) : [];
   if (gs.length) {
     const mine = !isU && m.stick ? [m.stick] : [];
     return h("span", { "data-wk": "msgstick", "data-multi": "1", style: { position: "absolute", bottom: -16, [isU ? "left" : "right"]: -10, height: 26, padding: "0 6px", borderRadius: 13, display: "flex", alignItems: "center", gap: 2, fontSize: 15, lineHeight: 1, background: "rgba(255,255,255,.92)", boxShadow: "0 1px 3px rgba(0,0,0,.18)", pointerEvents: "none", zIndex: 3, whiteSpace: "nowrap" } },

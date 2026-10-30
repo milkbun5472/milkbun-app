@@ -13199,7 +13199,7 @@ ${SCHED_NOW_SPEC}
 ${window.Gaze && !char.npc ? window.Gaze.spec("对方", charId, { tail: true }) : ""}
 【能力使用总则】这些功能都可以日常使用，gift、photo、call、voice、moment、recall 等按当前对话与你自己的真实意愿选择，不必等待特殊时刻。没有使用频率或轮数要求，不用为了证明记得能力而找机会触发。recall 可用于日常纠错或调整已发消息，不限于后悔、说漏嘴；需要补发时写入 word。能力字段是否使用不限制表达的热情、篇幅或性格。
 【能力字段字典】
-silent:true=明确不发消息；quote:string=引用某条消息；语音＝直接写进 word 数组里、你想让它出现的那个位置，那一项写成 {"voice":"内容","emo":"happy|sad|angry|fearful|disgusted|surprised|neutral"}（${VOICE_PAUSE_MARK}${voiceSoundHint()}）——先说一句、再发条语音、再补一句，就按这个顺序排在 word 里；transfer:{"amount":数字,"note":"附言"}=转账；redPacket:{"amount":数字,"note":"写在红包上的一句"}=发红包（她拆开前看不到多少）；location:{"name":"地点"}=位置；stick:{"quote":"她某句话里的原话，照抄几个字","emoji":"一个 emoji"}=往她那句话上贴一个表情（像 QQ 的贴表情，贴在她气泡角上，不是一句话）；pat:true=用微信「拍一拍」戳她一下（聊天里只出现一行灰字，不是一句话；想拍就拍，不用再在 word 里写「拍了拍你」）${char.myPatSig ? "，那一行显示「你拍了拍她 " + char.myPatSig + "」" : ""}；patSig:"新后缀"=把你自己的拍一拍后缀换掉（她拍你时显示「她拍了拍你 ＋这半句」${char.patSig ? "，现在是「" + char.patSig + "」" : "，现在没有"}；真想换才换）；gift:{"name":"物品","price":数字,"note":"寄语，一两句，不填就没有"}=寄一份会留下来的礼物；takeout:{"shop":"店名","items":["点的每一样"],"price":数字,"note":"写在单子上给对方的一句话，不填就没有","at":"想让它几点送到（HH:MM，你那边的钟点），不填就是尽快"}=给对方点外卖；kinshipcard:{"limit":数字,"note":"附言"}=亲属卡；askPhone:"开口那句话"=想看她的手机；pinPlace:{"name":"地名","note":"一句话"}=在你们的城市地图上钉一个想带她去的地方；dateReply:{"go":"yes"|"no","say":"写在回执上的一句"}=回她的约会邀请；loveLetter:"信的全文"=写给她的情侣申请信；block:true 与 blockreason:string=拉黑；recall:{"text":"要撤掉的那句原话","reason":"你为什么撤"}=撤回。text 照原话抄：抄的是你前面几轮已经发出去的某一条（说错了、发错了、漏了不该露的字），就撤那一条；是这一轮新写的，会先正常显示一秒再变成「已撤回」；momentComment:string=评论最新朋友圈；toGroup:string=把这句公开发到共同群里（只写要发的话）；moment:string=发朋友圈；whisper:string=情侣便签；carve:{"song":"歌名，可带歌手","note":"刻在B面的一句话"}=把一首歌刻进你俩的唱片（会进情侣空间，两个人都看得到）；keepMoment:{"title":"给这一刻起的名字","why":"你为什么想记住它，一两句"}=把刚才这一刻存进你们的相册「时刻」（她看得到；只在你真觉得这一刻值得记住时填，不是每轮都有）；emote:string=表情包关键词（想让表情夹在两句话中间，就别用这一栏，直接在 word 数组里那个位置写一项 {"emote":"关键词"}）；call:"voice"|"video"=发起通话；songSwitch:string=切歌；listenInvite:{"song":"歌名","say":"邀请语"}=邀请一起听；photo:{"kind":"self|other|duo","scene":"画面"}=发照片；toy:{"pattern":"teasing|steady|wave|pulse|edge|ramp|hold|throb|flutter|tide|knock|surge","intensity":1到20,"duration":1到90,"reason":"原因"}=配件。
+silent:true=明确不发消息；quote:string=引用某条消息；语音＝直接写进 word 数组里、你想让它出现的那个位置，那一项写成 {"voice":"内容","emo":"happy|sad|angry|fearful|disgusted|surprised|neutral"}（${VOICE_PAUSE_MARK}${voiceSoundHint()}）——先说一句、再发条语音、再补一句，就按这个顺序排在 word 里；transfer:{"amount":数字,"note":"附言"}=转账；redPacket:{"amount":数字,"note":"写在红包上的一句"}=发红包（她拆开前看不到多少）；location:{"name":"地点"}=位置；stick:{"quote":"她某句话里的原话，照抄几个字","emoji":"一个 emoji"}=往她那句话上贴一个表情（像 QQ 的贴表情，贴在她气泡角上，不是一句话）；想贴的是你自己的表情包，就把 emoji 换成 "emote":"表情包关键词"；pat:true=用微信「拍一拍」戳她一下（聊天里只出现一行灰字，不是一句话；想拍就拍，不用再在 word 里写「拍了拍你」）${char.myPatSig ? "，那一行显示「你拍了拍她 " + char.myPatSig + "」" : ""}；patSig:"新后缀"=把你自己的拍一拍后缀换掉（她拍你时显示「她拍了拍你 ＋这半句」${char.patSig ? "，现在是「" + char.patSig + "」" : "，现在没有"}；真想换才换）；gift:{"name":"物品","price":数字,"note":"寄语，一两句，不填就没有"}=寄一份会留下来的礼物；takeout:{"shop":"店名","items":["点的每一样"],"price":数字,"note":"写在单子上给对方的一句话，不填就没有","at":"想让它几点送到（HH:MM，你那边的钟点），不填就是尽快"}=给对方点外卖；kinshipcard:{"limit":数字,"note":"附言"}=亲属卡；askPhone:"开口那句话"=想看她的手机；pinPlace:{"name":"地名","note":"一句话"}=在你们的城市地图上钉一个想带她去的地方；dateReply:{"go":"yes"|"no","say":"写在回执上的一句"}=回她的约会邀请；loveLetter:"信的全文"=写给她的情侣申请信；block:true 与 blockreason:string=拉黑；recall:{"text":"要撤掉的那句原话","reason":"你为什么撤"}=撤回。text 照原话抄：抄的是你前面几轮已经发出去的某一条（说错了、发错了、漏了不该露的字），就撤那一条；是这一轮新写的，会先正常显示一秒再变成「已撤回」；momentComment:string=评论最新朋友圈；toGroup:string=把这句公开发到共同群里（只写要发的话）；moment:string=发朋友圈；whisper:string=情侣便签；carve:{"song":"歌名，可带歌手","note":"刻在B面的一句话"}=把一首歌刻进你俩的唱片（会进情侣空间，两个人都看得到）；keepMoment:{"title":"给这一刻起的名字","why":"你为什么想记住它，一两句"}=把刚才这一刻存进你们的相册「时刻」（她看得到；只在你真觉得这一刻值得记住时填，不是每轮都有）；emote:string=表情包关键词（想让表情夹在两句话中间，就别用这一栏，直接在 word 数组里那个位置写一项 {"emote":"关键词"}）；call:"voice"|"video"=发起通话；songSwitch:string=切歌；listenInvite:{"song":"歌名","say":"邀请语"}=邀请一起听；photo:{"kind":"self|other|duo","scene":"画面"}=发照片；toy:{"pattern":"teasing|steady|wave|pulse|edge|ramp|hold|throb|flutter|tide|knock|surge","intensity":1到20,"duration":1到90,"reason":"原因"}=配件。
 能力字段只在本轮开放且角色实际决定触发时填写，未触发直接省略。历史中的〔今天14:32〕等标记只表示时间，不得写进 word。
 ${_askedRecord ? "memo:{\"title\":\"这件事\",\"date\":\"YYYY-MM-DD\",\"time\":\"HH:MM或省略\",\"repeat\":\"none等\",\"note\":\"补充或省略\"}=替她记进备忘录；ledger:{\"type\":\"expense或income\",\"amount\":数字,\"currency\":\"上面列出的币种\",\"category\":\"上面列出的分类\",\"date\":\"YYYY-MM-DD或省略\",\"note\":\"缘由\"}=替她记一笔账；health:[{\"kind\":\"meal\",\"meal\":\"breakfast|lunch|dinner|snack\",\"name\":\"吃了什么\",\"kcal\":估的整数} 或 {\"kind\":\"water\",\"cups\":杯数} 或 {\"kind\":\"sport\",\"sport\":\"跑步等\",\"min\":分钟} 或 {\"kind\":\"weight\",\"kg\":数字} 或 {\"kind\":\"sleep\",\"bed\":\"HH:MM\",\"wake\":\"HH:MM\"} 或 {\"kind\":\"steps\",\"steps\":数字} 或 {\"kind\":\"mood\",\"v\":0到4}，每条都可带 \"date\":\"YYYY-MM-DD\"]=替她记进健康。这几个都只在她这一轮真的开口让你记时才填，记完在话里自然说一声记好了，一句话就够。\n" : ""}transferAccept:true|false=对【她转过来还挂着的那一笔】表态：true 收下、false 退回；这一轮不处理就省略。只在本轮开放能力里列出它时才有得填。
 laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不填 minutes）","about":"回来要说/要做的事","how":"chat|voice|video","after":"takeout|gift（等一件事时才填）"}=【约回】——只有你这一轮【真的说了】「等我开完会再找你」「忙完这阵找你」「到家给你打电话」这类话时才填；**说了「我现在过去，二十分钟到」这种正往她那儿赶的话也算**；**约好了几点（「五点半门口逮你」「七点来接你」）也算，那就填 at，不填 minutes**（about 写「到了跟她说一声」，minutes 就是你说的路上要多久），minutes 是从现在起大约多久（开个会 60、忙一下午 240、下班后 480…）。**她说几分钟就是几分钟**：她说「两分钟后打给我」而你答应了，就填 2——最短 1 分钟、最长一天，短的那几档照样会真的到点，about 一句话写清回来是为了什么。**how 照你自己刚说出口的那句来**：说的是回来发消息就 chat，说的是打给她/给她来个电话就 voice，说的是视频就 video——你说了打电话，到点她那边【真的会响】，所以别把随口一句「回头聊」写成打电话，也别把明明说好的电话缩水成一条消息。看不出是哪种就填 chat。**你说的回来是等一件事发生、不是等一段时间**（「外卖到了跟你说」「礼物拿到了告诉你」）时，加 after："takeout"＝她给你点的外卖送到、"gift"＝她送你的礼物送到——到的那一刻你会被叫回来，这时 minutes 可以省略。两头一样要紧：**嘴上答应了就填**（答应了不填，到点什么都不会发生，她会一直等）；没答应就省略，不为了制造互动硬填。${_biRuleLine}${_luckyLine}`;
@@ -13482,7 +13482,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
               + "——像微信里「推荐给朋友」。认不认识这个人、想不想加、会不会好奇或者吃醋，照你自己的人设和你俩的关系来；你们之间本来有什么交集，就照那层交集说】"
             : m.kind === "pat" ? "【对方（之前）用微信「拍一拍」戳了你一下（屏幕上那一行：「" + String(m.content || "").replace(/^你拍了拍\s*/, uName + " 拍了拍 ") + "」）（隔着屏幕逗你/求关注的小动作，不是一句话）——要不要理会、要不要提起，【完全看你的人设和当下心情】：爱闹/在意 Ta 的可以回拍、调侃、明知故问「戳我干嘛」；高冷、正忙、没在意的完全可以当没看见、根本不提也行。有反应就反应，自然就好】"
             : qpfx + m.content) + (roomClockOn && window.TemporalAnchor ? window.TemporalAnchor.anchor(m.content, m.ts) : "")
-            + (m.theirStick && m.theirStick.emoji ? "\n【你往她这句上贴过一个 " + m.theirStick.emoji + "；这是你做过的、真实发生过的事，不是谁说的话】" : "");
+            + (m.theirStick && (m.theirStick.emoji || m.theirStick.keyword) ? "\n【你往她这句上贴过一个 " + (m.theirStick.emoji || "表情包「" + m.theirStick.keyword + "」") + "；这是你做过的、真实发生过的事，不是谁说的话】" : "");
           // 合并连发的多条用户消息，兼容 Anthropic 等不允许连续同角色的接口
           if (lu && lu.role === "user") {
             lu.content += "\n" + uc;
@@ -14531,7 +14531,11 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       // 他往她某句话上贴一个 emoji（她 2026-10-31「然后弄他的吧」）：按他抄的原话找她最近那几条里对得上的一条，贴在那条上
       if (parsed.stick && typeof parsed.stick === "object") {
         const _q = String(parsed.stick.quote || "").trim(), _e = (String(parsed.stick.emoji || "").match(/\p{Extended_Pictographic}(?:\uFE0F|\p{Emoji_Modifier}|\u200D\p{Extended_Pictographic}\uFE0F?)*/u) || [""])[0];
-        if (_e) pChat(chatKey, p => {
+        // 也能贴他自己的表情包（她 2026-10-31「他也能贴表情包吧」）：关键词照他发表情那套去配
+        const _ek = !_e && parsed.stick.emote ? String(parsed.stick.emote).trim() : "";
+        const _em = _ek && emotes.length ? emoteMatch(emotes, _ek) : null;
+        const _st = _e ? { emoji: _e } : _em ? { url: _em.url, keyword: _em.keyword } : null;
+        if (_st) pChat(chatKey, p => {
           let at = -1;
           for (let k = p.length - 1, n = 0; k >= 0 && n < 20; k--) {
             const x = p[k]; if (!x || x.role !== "user" || x.recalled) continue; n++;
@@ -14539,7 +14543,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
             if (_q && String(x.content || "").includes(_q)) { at = k; break; }
           }
           if (at < 0) return p;
-          return p.map((x, k) => k === at ? { ...x, theirStick: { emoji: _e, ts: Date.now() } } : x);
+          return p.map((x, k) => k === at ? { ...x, theirStick: { ..._st, ts: Date.now() } } : x);
         });
       }
       // 他拍一拍她（她 2026-10-25）：跟她拍他那行同一个样子，居中灰字；后缀用她在他聊天设置里填的那半句
@@ -15858,7 +15862,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       const gRelRule = gsFor(groupId).drama ? groupDramaRule(groupId) : "\n\n【成员间关系 · ⚠️关系隐私铁律】\n每个成员和用户「" + _uN + "」是什么关系（恋人/暧昧/朋友…）【只有该成员本人知道】——别的成员并不知道 TA 和用户是不是对象、什么关系，除非那成员【在群里自己说了出来】。绝不许一个成员知道、提及、或据此反应（吃醋/打趣/拆穿）另一个成员和用户的私密关系。成员【彼此之间】的关系（朋友/兄弟/同事/对头等）才是双方都知道、可自然体现的。\n";
 
       // 群里拍一拍（她 2026-10-25）：她在群里时能拍她或别的成员；旁观群里只能拍群里的人
-      const gStickField = ",\"stick\":{\"quote\":\"（可选）群里某条消息里的原话，照抄几个字\",\"emoji\":\"一个 emoji\"}（往那条气泡上贴一个表情，像 QQ 的贴表情：群里谁的哪句话让你当下有了反应、这个反应一个表情就说得清的时候，就随手贴一个，贴了照样可以说话，也可以只贴不说；没有反应就整个省掉）";
+      const gStickField = ",\"stick\":{\"quote\":\"（可选）群里某条消息里的原话，照抄几个字\",\"emoji\":\"一个 emoji\"}（想贴自己的表情包就把 emoji 换成 \"emote\":\"表情包关键词\"；往那条气泡上贴一个表情，像 QQ 的贴表情：群里谁的哪句话让你当下有了反应、这个反应一个表情就说得清的时候，就随手贴一个，贴了照样可以说话，也可以只贴不说；没有反应就整个省掉）";
       const gPatField = ",\"pat\":\"（可选）想用「拍一拍」戳谁一下就填那个人的名字（" + (imInGroup(group) ? gUName + " 或" : "") + "群里某位成员）；是一个动作，不是一句话，不用再在 text 里写「拍了拍」\"";
       const system = groupBans({ echo: false, drama: !!gsFor(groupId).drama }) + "\n\n" + groupOnlineRuntime + "\n\n" + dir + commonTurn + gSameRoomHint + gBdayHint + gWhereHint + gTimeHint + gTopicHint + onlineRerollHint(rgOpts && rgOpts.rerollAvoid) + gNoticeHint + gDirHint + gEmoteHint + gSelfieHint + gDmHint + thoughtHint + npcStateHint + gBusyHint + gOfflineHint + gBiHint + gTfHint + gInviteHint + gPollHint + gRoleHint + gTitleHint + gLuckyHint + gWhisperHint + gKickInviteHint + (_gSchedNames.length ? "\n【改安排】" + _gSchedNames.map(n => "「" + n + "」").join("、") + "有今天的安排（写在各自那段里）。这一轮谁真的定下了从现在起要做的事跟自己的安排不一样，就在他自己那条发言对象里加 " + SCHED_NOW_SPEC + "只改他本人的；各人填各人的，没写安排的人不填。" : "") + gIdRule + "\n\n【成员】\n" + memberDesc + sameNameNote(members) + gGrowthHint + gMeBlock + gWishHint + gOnMeHint + gRelRule + (relLines ? "\n" + relLines : "") + (gWorld ? "\n\n【世界书】\n" + gWorld : "") + interop + preJoin + "\n\n【近期群聊】\n" + hist + rotateSpeakersNote(members, groupChatsRef.current[groupId]) + gQuoteCatalogText + gDramaTail + "\n\n【输出】只输出 JSON 数组，按发言先后顺序。普通发言 {\"name\":\"成员名\",\"text\":\"内容" + gBiTextSpec + "\",\"quoteId\":\"（可选）正式引用旧消息时填写上面目录里的 Q 编号；要引用的是这一轮里前面某人刚说的那条（目录里还没有），填 R 加它在本数组里的序号（R1 是第一条）；不引用就省略，禁止只抄原文猜作者\",\"emote\":\"（可选）想发的表情关键词\",\"voice\":\"（可选）填 true 表示这条作为语音消息发（会显示成语音气泡+转文字）——手上腾不出手打字、这段话打字太长、或者情绪上来了想让人听见声音时就这么发，不必等人问；发多发少按这个人自己的习惯来" + VOICE_PAUSE_MARK + voiceSoundHint() + "\",\"voiceEmo\":\"（可选，voice=true 时）这条语音的真实语气：happy/sad/angry/fearful/disgusted/surprised/neutral 之一，按说话人此刻真实情绪选，不看字面\"" + gCallField + gPatField + "" + gStickField + gDmField + thoughtField + impressionField + "}；某成员想撤掉自己说过的一句，那条加 \"recall\":true 和 \"recallReason\":\"为什么撤\"：text 照原话抄前面几轮自己已经发出去的那句，就撤那一句；写的是这一轮新的话，会先正常显示一秒再变成已撤回——真人在群里撤回多半是小事：打错字、发漏了半句、手滑发重了、群里说重了想换个说法、话本来是要私发的发错了地方；「后悔、说漏嘴」只是其中一种。撤完通常紧跟一条改好的。几十条里偶尔一次；发红包 {\"name\":\"成员名\",\"redpacket\":{\"total\":金额数字,\"count\":份数,\"message\":\"祝福语\",\"to\":\"（可选）只给某一个人时填 Ta 的名字——专属红包，别人领不了，金额不拆；谁都能抢就省略这一栏\"}}——有好事想请客、群里谁生日或有喜事、哄人、认输赔罪、节日、或者纯粹想热闹一下的时候就发，**不必等人开口要**；钱是真的从这个人钱包里扣的，所以数目要跟 Ta 的处境对得上，手头紧的人发小的、或者干脆不发。群里要拿主意、要挑一个、要看看大家怎么想时，谁都可以自己发起一张投票：那条加 \"pollNew\":{\"title\":\"投票题目\",\"options\":[\"选项1\",\"选项2\"],\"anon\":true或false}（至少两个选项；anon 为匿名投票）。发起的人照自己的性子决定发不发、发什么，同一条里的 text 照常说话。谁自己有件事想先让大家批（想买个东西、想请假、想换工作……照这个人会有的事），可以在那条加 \"askNew\":{\"what\":\"想干嘛\",\"reason\":\"理由\",\"amount\":要花的钱数（不花钱写 0）}，大家投准或驳，过半就准，准了钱从这个人钱包出；没有就不加。name 必须逐字等于成员名单中的一个名字；用户名字绝不能出现在 name。";
       // 触发用户内容：自上一条角色发言以来我说的话/旁白
@@ -16473,7 +16477,9 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
           // 往群里某条气泡上贴一个 emoji：按抄的原话从最近三十条里找，不贴自己的
           if (item.stick && typeof item.stick === "object" && spk) {
             const _q = String(item.stick.quote || "").trim(), _e = (String(item.stick.emoji || "").match(/\p{Extended_Pictographic}(?:\uFE0F|\p{Emoji_Modifier}|\u200D\p{Extended_Pictographic}\uFE0F?)*/u) || [""])[0];
-            if (_q && _e) pGChat(groupId, p => {
+            const _gm = !_e && item.stick.emote ? emoteMatch(emotesForChar(spk.id), String(item.stick.emote).trim()) : null;
+            const _gs = _e ? { emoji: _e } : _gm ? { url: _gm.url, keyword: _gm.keyword } : null;
+            if (_q && _gs) pGChat(groupId, p => {
               let at = -1;
               for (let k = p.length - 1, n = 0; k >= 0 && n < 30; k--) {
                 const x = p[k]; if (!x || x.recalled || (x.role !== "user" && x.role !== "assistant")) continue; n++;
@@ -16481,7 +16487,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
                 if (String(x.content || "").includes(_q)) { at = k; break; }
               }
               if (at < 0) return p;
-              return p.map((x, k) => k === at ? { ...x, gSticks: (x.gSticks || []).filter(g => g.by !== spk.id).concat([{ emoji: _e, by: spk.id, name: spk.name }]).slice(-6) } : x);
+              return p.map((x, k) => k === at ? { ...x, gSticks: (x.gSticks || []).filter(g => g.by !== spk.id).concat([{ ..._gs, by: spk.id, name: spk.name }]).slice(-6) } : x);
             });
           }
           // 拍一拍：拍她（她得在群里）或者拍群里另一个人
@@ -21450,7 +21456,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   // TA五分钟前在群里说过「到家了，抹茶放桌上」，电话里一个字都看不到。
   // 贴在这条上的表情（她贴的 stick、成员贴的 gSticks）：挂在这一行后面，大家都看得见
   const groupStickNote = m => { if (!m) return "";
-    const who = [].concat(m.stick ? [userName(profile) + " 贴了" + (m.stick.emoji || "「" + (m.stick.keyword || "表情") + "」")] : [], (m.gSticks || []).map(g => (g.name || "某人") + " 贴了" + g.emoji));
+    const who = [].concat(m.stick ? [userName(profile) + " 贴了" + (m.stick.emoji || "「" + (m.stick.keyword || "表情") + "」")] : [], (m.gSticks || []).map(g => (g.name || "某人") + " 贴了" + (g.emoji || "表情包「" + (g.keyword || "") + "」")));
     return who.length ? "\n【这条气泡上贴着表情：" + who.join("，") + "；这是做过的、真实发生过的事，不是谁说的话】" : ""; };
   // 一行群聊记录 + 贴在它上面的表情（群聊、群通话共用这一份）
   const groupHistLineStk = m => { const b = groupHistLine(m); return b && String(b).trim() ? b + groupStickNote(m) : b; };
