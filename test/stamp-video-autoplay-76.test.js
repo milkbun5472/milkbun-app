@@ -14,3 +14,7 @@ test("翻到哪一面动哪一面：满级、番外各存各的视频，备份�
   const va = fs.readFileSync(__dirname + "/../js/video-api.js", "utf8");
   assert.match(va, /if \(c && c\.videos\) Object\.values\(c\.videos\)\.forEach/);
 });
+test("放大也放这一面的视频，能切回原图；动作要求里保住原图朝向", () => {
+  assert.match(src, /vMain && fullVid \? loopVid\(vMain/);
+  assert.match(src, /人物保持原图里的朝向/);
+});

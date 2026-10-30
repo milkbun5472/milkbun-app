@@ -30,7 +30,7 @@
   }
   // cover：她在卡页里挑的册子封面（满级那面、番外插图都行），没挑就是第一面
   // SSR 卡面动起来（她 2026-10-30）：拿第一面当首帧，走「设置 → 视频 API」那一套（海螺、可灵、即梦、中转）。任务编号记着，离开页面回来接着查，不重复付费
-  const STAMP_MOTION = "画面构图、人物长相和画风都保持原图不变，镜头几乎不动。人物只有很小的动作：呼吸、眨眼、头发和衣角被风轻轻吹动，场景里的光轻轻变化。最后回到开始的姿态，适合循环播放。";
+  const STAMP_MOTION = "画面构图、人物长相和画风都保持原图不变，镜头几乎不动。人物保持原图里的朝向：背对着的就一直背对，侧脸就一直是侧脸，原图里看不见的脸不要转过来露出（她 2026-10-30：背影转过来那张脸不像）。人物只有很小的动作：呼吸、眨眼、头发和衣角被风轻轻吹动，场景里的光轻轻变化。最后回到开始的姿态，适合循环播放。";
   const vidRunning = {};
   const setCardP = (id, p) => { const st = C().load(); st.cards = st.cards.map(c => c.id === id ? Object.assign({}, c, p) : c); C().save(st); };
   // slot：动哪一面（main 第一面 / solo、duo 满级 / ex:番外id）；face：那一面的图（她 2026-10-30：「我选的满级卡面他给我生了初始」）。
@@ -331,7 +331,7 @@
     const [full, setFull] = useState(false), [fullWide, setFullWide] = useState(false), [rot, setRot] = useState(false);
     const vSlot = side === "main" ? card.video : (card.videos || {})[side];   // 这一面自己的那段
     const vMain = useStampVideo(vSlot || null, true);
-    const [vidSolo, setVidSolo] = useState(false);   // 单独用系统播放器放这段（带进度条），分得清是没播起来还是视频本身就没动
+    const [vidSolo, setVidSolo] = useState(false), [fullVid, setFullVid] = useState(true);   // 单独用系统播放器放这段（带进度条），分得清是没播起来还是视频本身就没动
     // 上回没等完的任务：回来接着查（哪一面在等就接哪一面）
     useEffect(() => { const V = window.VideoApi; if (!V || vidRunning[card.id]) return; const sl = card.videoSlot || "main", r = V.job(vidJid(card, sl));
       if (r && r.taskId) runStampVideo(card, toast, false, sl, r.imageRef); }, [card.id]);   // 上回没等完的任务：回来接着查
@@ -643,7 +643,12 @@
         h("div", { className: "flex-1 min-h-0 flex items-center justify-center", style: { padding: "calc(env(safe-area-inset-top) + 16px) 16px 8px" } },
           h("div", { style: { position: "relative", display: "inline-block", lineHeight: 0 } },
             h("img", { src: url, alt: "", onLoad: e => setFullWide(e.currentTarget.naturalWidth > e.currentTarget.naturalHeight * 1.1), style: { display: "block", maxWidth: "calc(100vw - 32px)", maxHeight: "calc(100dvh - 190px)", width: "auto", height: "auto", borderRadius: 4, boxShadow: "0 0 0 3px #FFF8E9, 0 0 0 5px " + COPPER } }),
-            canPoke ? h("div", { "data-wk": "stamppoke", onClick: e => { e.stopPropagation(); poke(e); }, style: { position: "absolute", inset: 0, cursor: "pointer" } }) : null)),
+            // 放大了也放这一面的视频（她 2026-10-30）；左上角能切回看原图
+            vMain && fullVid ? loopVid(vMain, { left: 0, top: 0, width: "100%", height: "100%", borderRadius: 4 }) : null,
+            canPoke ? h("div", { "data-wk": "stamppoke", onClick: e => { e.stopPropagation(); poke(e); }, style: { position: "absolute", inset: 0, cursor: "pointer" } }) : null,
+            vMain ? h("button", { "data-wk": "stampfullvid", onClick: e => { e.stopPropagation(); setFullVid(!fullVid); }, className: "active:opacity-60",
+              style: { position: "absolute", left: 8, top: 8, padding: "3px 10px", minHeight: 30, lineHeight: 1.4, borderRadius: 999, background: "rgba(20,18,14,.55)", color: "#FFF8E9", border: "1px solid rgba(255,248,233,.5)", fontFamily: F_BODY, fontSize: fs(11) } },
+              fullVid ? "看原图" : "▶ 看动起来的") : null)),
         // 横的原画（番外 CG）：「横过来看」整张转 90 度占满屏幕，手机横着拿看；点一下回来
         fullWide ? h("button", { "data-wk": "stamprotate", onClick: e => { e.stopPropagation(); setRot(true); }, className: "active:opacity-60", style: { position: "absolute", right: 14, top: "calc(env(safe-area-inset-top) + 14px)", padding: "4px 12px", borderRadius: 999, border: "1px solid rgba(255,248,233,.6)", color: "#FFF8E9", fontFamily: F_BODY, fontSize: fs(12) } }, "⟲ 横过来看") : null,
         rot ? h("div", { "data-wk": "stamprotview", onClick: e => { e.stopPropagation(); setRot(false); }, className: "fixed inset-0", style: { zIndex: 2, background: "#000" } },
