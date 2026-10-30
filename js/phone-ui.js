@@ -1529,7 +1529,7 @@ function WeChatViewFull({ d, char, t, profile, onBack, onRefresh, refreshing, dr
             const hm = String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0");
             const lb = String(m._atLabel || "");
             if (!lb) return md + " " + hm;
-            return d.toDateString() === new Date().toDateString() || /月|日|昨|前天|周|星期/.test(lb) ? lb : md + " " + lb;
+            return d.toDateString() === new Date(phoneNow(char && char.id)).toDateString() || /月|日|昨|前天|周|星期/.test(lb) ? lb : md + " " + lb;   // 「今天」是 TA 那只钟的今天
           })(new Date(m._at)))
       : null;
     const row = h("div", { key: i, className: "flex items-start gap-2 " + (self ? "flex-row-reverse" : "") }, h(Avatar, { character: person(m.from, avatarForMessage(m, th)), size: 37, radius: 7 }), h("div", { style: { maxWidth: "72%" } }, thread.type === "group" && !self && h("div", { style: { fontFamily: F_BODY, fontSize: "calc(9.5px * var(--app-fs, 1))", color: "#888", margin: "0 4px 3px" } }, PTX(m.from)), body));

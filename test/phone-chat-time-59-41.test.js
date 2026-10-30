@@ -78,3 +78,14 @@ test("查手机的「现在」照 TA 那只钟（小手机设 25 号，邮件别
   assert.equal(new Date(ctx.f("c1")).getDate(), 25);
   assert.ok(Math.abs(ctx.f("") - Date.now()) < 1000);
 });
+
+test("微信：正常刷新、只问更新两条路的「今天」都照 TA 那只钟；分隔线的「今天」也是", () => {
+  const P = require("../js/phone.js"), now = new Date(2026, 9, 25, 20, 0).getTime();
+  const m = P.phoneMergeSaved("wechat", { chats: [] }, { chats: [{ name: "小王", time: "今天 09:15", last: "x" }] }, now);
+  assert.equal(new Date(m.chats[0]._ts).getDate(), 25);
+  const old = { chats: [{ name: "阿秋", time: "昨天 10:00", _ts: new Date(2026, 9, 24, 10).getTime(), messages: [{ from: "阿秋", text: "在吗" }] }] };
+  const u = P.phoneMergeSaved("wechat", old, { updates: [{ name: "阿秋", time: "今天 19:30", messages: [{ from: "阿秋", text: "晚饭吃了吗" }] }] }, now);
+  assert.equal(new Date(u.chats[0]._ts).getDate(), 25);
+  const ui = require("fs").readFileSync(__dirname + "/../js/phone-ui.js", "utf8");
+  assert.match(ui, /d\.toDateString\(\) === new Date\(phoneNow\(char && char\.id\)\)\.toDateString\(\)/);
+});
