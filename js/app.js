@@ -11773,7 +11773,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   const sendAsk = (char, a) => {
     if (!char || !a || !a.what) return;
     const m = { role: "user", kind: "ask", aid: "ask_" + Date.now(), what: a.what, reason: a.reason || "", amount: AskSlip.amountOf(a.amount), status: "pending", ts: Date.now(), read: true,
-      ...(a.round > 1 ? { round: a.round, before: a.before || [], prevAid: a.prevAid } : {}) };
+      ...(a.round > 1 ? { round: a.round, before: a.before || [], prevAid: a.prevAid } : {}), ...(a.imageRef ? { imageRef: a.imageRef } : {}) };
     if (a.prevAid) pChat(char.id, p => p.map(x => x.kind === "ask" && x.aid === a.prevAid ? { ...x, resent: true } : x));
     // 不自动让TA回：她可能还要补几句（施工规则/wait-for-her）；卡在历史里，下一轮TA自然看得到
     pChat(char.id, p => [...p, { ...m, content: AskSlip.line(m, "我") }]);
@@ -13446,12 +13446,12 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
           // 合并连发的多条用户消息，兼容 Anthropic 等不允许连续同角色的接口
           if (lu && lu.role === "user") {
             lu.content += "\n" + uc;
-            if ((m.kind === "photo" || m.kind === "selfie") && m.imageRef) (lu._imageRefs || (lu._imageRefs = [])).push(m.imageRef);
+            if ((m.kind === "photo" || m.kind === "selfie" || m.kind === "ask") && m.imageRef) (lu._imageRefs || (lu._imageRefs = [])).push(m.imageRef);   // 请示附的图也给他看
           } else g.push({
             role: "user",
             content: uc,
             _t: null,
-            _imageRefs: (m.kind === "photo" || m.kind === "selfie") && m.imageRef ? [m.imageRef] : []
+            _imageRefs: (m.kind === "photo" || m.kind === "selfie" || m.kind === "ask") && m.imageRef ? [m.imageRef] : []
           });
         } else {
           const l = g[g.length - 1];
@@ -15881,7 +15881,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       }
       const groupImageDataUrls = [];
       // tail 就是上次有人开口之后她新发的那一批
-      const _gPick = freshImageRefs(tail, m => (m.kind === "photo" && m.imageRef) ? [m.imageRef] : [], () => false);
+      const _gPick = freshImageRefs(tail, m => (m.kind === "photo" && m.imageRef) ? [m.imageRef] : (m.kind === "poll" && m.ask && m.ask.imageRef) ? [m.ask.imageRef] : [], () => false);
       const groupImageRefs = _gPick.refs;
       if (_gPick.dropped) toast("一次发的图太多，这一轮只给大家看了最后 " + FRESH_IMG_CAP + " 张", 4000);
       for (const ref of groupImageRefs) {
@@ -16609,7 +16609,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         text: o,
         voters: []
       })),
-      ...(ask ? { ask: { what: ask.what, reason: ask.reason || "", amount: AskSlip.amountOf(ask.amount), ...(ask.round > 1 ? { round: ask.round, before: ask.before || [] } : {}) } } : {}),
+      ...(ask ? { ask: { what: ask.what, reason: ask.reason || "", amount: AskSlip.amountOf(ask.amount), ...(ask.round > 1 ? { round: ask.round, before: ask.before || [] } : {}), ...(ask.imageRef ? { imageRef: ask.imageRef } : {}) } } : {}),
       content: ask ? AskSlip.line({ ask }, char ? char.name : "我") : "[投票] " + t
     });
     return pollId;
@@ -16725,10 +16725,12 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         + "投完以后，意见不一样的两边可以互相呛一两句，递请示的人（是成员的话）也可以拉票、翻旧账——这些另起对象写 {\"name\":\"成员名\",\"say\":\"那一句\",\"after\":true}，不带 choice；照这几个人的性子来，没什么好吵的就不写。"
         + (askPast ? "\n这个群以前的请示和谁投了什么（翻旧账用得上）：\n" + askPast : "") : "";
       const system = groupBans({ echo: false }) + "\n群里发起了投票。\n" + groupPollText(poll) + askExtra + "\n每个成员按自己的人设、当前心情、关系与上下文决定投向或弃权；choice 为从 0 起的选项序号，-1 为弃权。say 可省略，填写时必须与实际 choice 一致。每位成员最多输出一个决定。只凭自己知道的事投票，不许从其他成员的私密段得知或泄露他人的私事。匿名投票不公开任何人的投向，say 不得透露自己的选择。\n【成员】\n" + memberDesc + sameNameNote(members) + "\n【群内共享记忆】\n" + formatMemLib(split.shared) + "\n【世界书】\n" + loreForContext("chat", members.map(c => c.id), hist) + "\n【近期群聊】\n" + hist + "\n【输出】只输出 JSON 数组：[{\"name\":\"成员名\",\"choice\":选项序号,\"say\":\"可选的评论\"}]";
-      const raw = await callAI(active, system, [{
-        role: "user",
-        content: "开始投票，按上面的规则决定每个人投什么。"
-      }], {
+      // 请示附了图：投票这一枪也带上，大家看着图投（同一个展开口子 expandMessageImages）
+      const voteAsk0 = { role: "user", content: "开始投票，按上面的规则决定每个人投什么。" };
+      const voteMsgs = poll.ask && poll.ask.imageRef
+        ? await expandMessageImages([{ role: "user", content: voteAsk0.content + "\n（请示附了一张图，已随本轮视觉输入附上，看着图投）", _imageRefs: [poll.ask.imageRef] }], 1)
+        : [voteAsk0];
+      const raw = await callAI(active, system, voteMsgs, {
         use: "chat", logLabel: "群投票", logWho: (group && group.name) || "",   // 投票是她在群里发起的，算她按下去的那一下
         maxTokens: 65000
       });

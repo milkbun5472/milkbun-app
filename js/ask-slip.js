@@ -13,6 +13,7 @@ const AskSlip = (() => {
   const line = (m, who) => {
     const a = m.ask || m;
     const head = "[请示" + (a.round > 1 ? "·第" + a.round + "次递" : "") + "] " + (who ? who + "：" : "") + (a.what || "") + (amountOf(a.amount) ? "（" + amountOf(a.amount) + " 块）" : "") + (a.reason ? "；理由：" + a.reason : "")
+      + (a.imageRef ? "；附了一张图" : "")
       + (a.before && a.before.length ? "；前几回：" + a.before.map(b => "理由「" + b.reason + "」被驳" + (b.note ? "（" + b.note + "）" : "")).join("，") : "");
     const st = m.status || (m.askResult && m.askResult.status);
     if (!st || st === "pending") return head;
@@ -38,6 +39,11 @@ function AskComposeDialog({ who, prev, onCancel, onSend }) {
   const [what, setWhat] = useState(prev ? prev.what || "" : "");
   const [reason, setReason] = useState("");
   const [amount, setAmount] = useState(prev && prev.amount ? String(prev.amount) : "");
+  // 附一张图（群里 2026-10-30「许愿请示那能加图片」）：想买的那件、请假条、截图……压一下存进本机图库，卡上存的只是引用
+  const [img, setImg] = useState(prev && prev.imageRef ? prev.imageRef : ""), [imgBusy, setImgBusy] = useState(false);
+  const pickRef = useRef(null);
+  const onPick = async e => { const f = e.target.files && e.target.files[0]; e.target.value = ""; if (!f) return; setImgBusy(true);
+    try { const d = await resizeImageFile(f, 1280, 0.85); const ref = await imgToVault(d); setImg(ref || d); } catch (er) {} finally { setImgBusy(false); } };
   const field = { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", background: t.bg, color: t.ink, border: "1px solid " + t.line, borderRadius: 12, padding: "9px 12px" };
   const ok = what.trim().length > 0;
   return appDialogPortal(
@@ -47,10 +53,16 @@ function AskComposeDialog({ who, prev, onCancel, onSend }) {
         prev ? "上回被驳了，换个理由再递一回。" + (prev.note ? "批语是：「" + prev.note + "」" : "") : "写上想干嘛、为什么，等着批。填了金额的，批准了这笔钱从你钱包里出；对方也可能说「我出」。"),
       h("input", { "data-wk": "input", value: what, onChange: e => setWhat(e.target.value.slice(0, 40)), placeholder: "想干嘛（买个东西、请天假、辞职……）", className: "w-full outline-none", style: Object.assign({}, field, { marginTop: 14 }) }),
       h("textarea", { "data-wk": "textarea", value: reason, onChange: e => setReason(e.target.value.slice(0, 120)), rows: 3, placeholder: "理由", className: "w-full outline-none", style: Object.assign({}, field, { marginTop: 8, resize: "none", lineHeight: 1.6 }) }),
+      h("input", { ref: pickRef, type: "file", accept: "image/*", onChange: onPick, style: { display: "none" } }),
+      img ? h("div", { style: { position: "relative", marginTop: 8 } },
+          h("img", { src: resolveImg(img), alt: "", style: { width: "100%", maxHeight: 180, objectFit: "contain", borderRadius: 10, background: t.bg, display: "block" } }),
+          h("button", { onClick: () => setImg(""), "aria-label": "去掉这张图", style: { position: "absolute", right: 6, top: 6, minWidth: 30, minHeight: 30, borderRadius: 99, background: "rgba(0,0,0,.5)", color: "#fff", border: "none" } }, "✕"))
+        : h("button", { onClick: () => pickRef.current && pickRef.current.click(), disabled: imgBusy, className: "w-full active:opacity-70",
+          style: Object.assign({}, field, { marginTop: 8, textAlign: "left", color: t.fog, borderStyle: "dashed" }) }, imgBusy ? "图片处理中…" : "＋ 加一张图（可以不加）"),
       h("input", { "data-wk": "input", value: amount, inputMode: "decimal", onChange: e => setAmount(e.target.value.replace(/[^\d.]/g, "").slice(0, 12)), placeholder: "要花多少钱（不花钱就空着）", className: "w-full outline-none", style: Object.assign({}, field, { marginTop: 8 }) }),
       h("div", { className: "flex", style: { gap: 10, marginTop: 16 } },
         h("button", { onClick: onCancel, className: "flex-1 active:opacity-70", style: { minHeight: 42, borderRadius: 999, fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.ink, background: "transparent", border: "1px solid " + t.line } }, "算了"),
-        h("button", { disabled: !ok, onClick: () => ok && onSend(prev ? Object.assign(AskSlip.again(prev, reason.trim()), { what: what.trim(), amount: AskSlip.amountOf(amount) }) : { what: what.trim(), reason: reason.trim(), amount: AskSlip.amountOf(amount) }), className: "flex-1 active:opacity-70",
+        h("button", { disabled: !ok, onClick: () => ok && onSend(Object.assign(prev ? Object.assign(AskSlip.again(prev, reason.trim()), { what: what.trim(), amount: AskSlip.amountOf(amount) }) : { what: what.trim(), reason: reason.trim(), amount: AskSlip.amountOf(amount) }, img ? { imageRef: img } : {})), className: "flex-1 active:opacity-70",
           style: { minHeight: 42, borderRadius: 999, fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.bg2, background: ok ? t.ink : t.line, border: "none" } }, "递上去"))),
     onCancel);
 }
@@ -64,6 +76,7 @@ function AskSlipCard({ m, asker, money, onDecide, onVote, onResend, meName, allo
   const amt = AskSlip.amountOf(a.amount);
   const st = group ? (m.askResult && m.askResult.status) || "pending" : m.status || "pending";
   const tl = group ? AskSlip.tally(m) : null;
+  const [big, setBig] = useState(false);   // 附图点开看大的
   const myVote = group && meName ? (tl.yes.indexOf(meName) >= 0 ? 0 : tl.no.indexOf(meName) >= 0 ? 1 : -1) : -1;
   // 一张公文批条：红色双线抬头、编号、一格一格的栏目、落款，结案盖一枚双圈印
   const SEAL = "#b8332e";
@@ -92,6 +105,8 @@ function AskSlipCard({ m, asker, money, onDecide, onVote, onResend, meName, allo
       row("事由", h("span", { style: { fontSize: fs(15), fontFamily: F_DISPLAY } }, a.what || ""), "w", { borderTop: "none" }),
       amt ? row("金额", h("span", { "data-wk": "askslipamount", style: { fontVariantNumeric: "tabular-nums" } }, money ? money(amt) : "¥" + amt), "a") : null,
       a.reason ? row("理由", a.reason, "r") : null,
+      a.imageRef ? row("附图", h("img", { "data-wk": "askslipimg", src: resolveImg(a.imageRef), alt: "", onClick: e => { e.stopPropagation(); setBig(true); },
+        style: { width: "100%", maxHeight: 160, objectFit: "cover", borderRadius: 4, display: "block", cursor: "zoom-in" } }), "img") : null,
       (a.before || []).length ? row("前回", (a.before || []).map((b, k) => h("div", { key: k, style: Object.assign({}, small, { textDecoration: "line-through", opacity: 0.75 }) },
         b.reason + (b.note ? "（驳：" + b.note + "）" : ""))), "b") : null,
       group ? row("表决", h("div", { style: { lineHeight: 1.7 } },
@@ -103,6 +118,7 @@ function AskSlipCard({ m, asker, money, onDecide, onVote, onResend, meName, allo
     h("div", { className: "flex justify-between", style: Object.assign({}, small, { borderTop: "1px solid " + t.line, paddingTop: 7, marginTop: 2 }) },
       h("span", null, "呈报 · " + (asker || "")),
       h("span", null, st === "pending" ? h("span", { style: { border: "1px dashed " + t.fog, borderRadius: 3, padding: "0 6px" } }, "待批") : (group ? "众议" : m.judge ? "批 · " + m.judge : "已批"))),
+    big && a.imageRef ? appDialogPortal(h("img", { src: resolveImg(a.imageRef), alt: "", onClick: () => setBig(false), style: { maxWidth: "100%", maxHeight: "85vh", objectFit: "contain", borderRadius: 6 } }), () => setBig(false)) : null,
     // 结案印：双圈、斜盖、压在栏目上
     st !== "pending" ? h("div", { "data-wk": "askslipstamp", style: { position: "absolute", right: 14, top: 58, width: 62, height: 62, borderRadius: "50%",
         border: "2.5px solid " + SEAL, boxShadow: "inset 0 0 0 3px " + t.bg2 + ", inset 0 0 0 4px " + SEAL, color: SEAL,
