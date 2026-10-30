@@ -3158,6 +3158,9 @@ function App() {
       if (/^\s*【/.test(w) && !/】/.test(w.replace(/^\s*【/, ""))) { inNote = [w]; continue; }
       if (/^\s*【[^】]*】\s*$/.test(w) && ECHO_NOTE_HINT.test(w)) continue;
       if (ECHO_MONEY_LINE.test(w)) continue;
+      // 整条是一句用「你」叙述自己刚做的事、套着【】的播报（她 2026-10-31 截图：亲属卡出来了，又多一泡「【你向 Lisa 赠送了一张额度 5000 元/月的亲属卡】」）：
+      //   是照聊天记录里给它看的旁注口气念了一遍，不是TA说的话；卡片自己会出来
+      if (/^\s*【\s*你(?:向|给|把|替|帮|在|已经|刚)[^】\n]{2,80}】\s*$/.test(w)) continue;
       // 一泡里整句：「【附言：…】转账给 X 30000 元」
       const mm = w.match(/^\s*(【[^】]*】)\s*(.*)$/);
       if (mm && ECHO_NOTE_HINT.test(mm[1]) && (!mm[2] || ECHO_MONEY_LINE.test(mm[2]))) continue;
