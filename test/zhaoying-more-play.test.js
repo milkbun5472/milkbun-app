@@ -4,9 +4,9 @@ const fs = require("fs"), path = require("path");
 const rd = f => fs.readFileSync(path.join(__dirname, "../js", f), "utf8");
 const core = rd("zhaoying-core.js"), ui = rd("zhaoying.js"), app = rd("app.js"), ts = rd("theme-studio.js");
 // 处境：一路带到提示词和记录
-assert.match(core, /function askInstruction\(test, meName, prev, scene, author, lie\)/);
+assert.match(core, /function askInstruction\(test, meName, prev, scene, author, lie(, charId)?\)/);
 assert.match(app, /const zhaoyingAsk = \(charId, testId, scene, guess, lie\) =>/);
-assert.match(app, /Z\.askInstruction\(test, userName\(profileFor\(charId\)\), Z\.recordsOf\(charId, testId\), scene, zyAuthor\(test, charId\), !!\(row\.zy \|\| \{\}\)\.lie\)/);
+assert.match(app, /Z\.askInstruction\(test, userName\(profileFor\(charId\)\), Z\.recordsOf\(charId, testId\), scene, zyAuthor\(test, charId\), !!\(row\.zy \|\| \{\}\)\.lie(, charId)?\)/);
 assert.match(app, /\.\.\.\(scene \? \{ scene \} : \{\}\)[^\n]*\}\);\n      patch\(\{ status: "done"/);
 // 他出题：用他的线路和上下文，存成带 by 的题；by 不被 cleanTest 丢掉
 assert.match(core, /\.\.\.\(t\.by \? \{ by: String\(t\.by\) \} : \{\}\)/);
@@ -164,7 +164,7 @@ console.log("ok");
   assert.match(Z.askInstruction(t, "她", [], "", { mine: true }), /这套题是你自己当初出给「她」的/);
   assert.match(Z.askInstruction(t, "她", [], "", { name: "顾朝" }), /这套题是「顾朝」出的/);
   assert.match(rd("app.js"), /zyAuthor\(test, charId\), !!/);
-  assert.match(rd("app.js"), /zyAuthor\(test, c\.id\), !!lie\)/);
+  assert.match(rd("app.js"), /zyAuthor\(test, c\.id\), !!lie[,)]/);
   // 美化：照影是一页、挂点在照影那一组；颜色走公共的 pagePalette
   assert.match(rd("core.js"), /zhaoying: "照影"/);
   const ts = rd("theme-studio.js"), gi = ts.indexOf('zh: "照影", pages: Object.freeze(["zhaoying"])');

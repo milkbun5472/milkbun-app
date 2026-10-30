@@ -44,6 +44,10 @@
   //   按「人 + 这一天」算出来，同一天永远同一个结果；只是一张时间表，她不点进去就一个字都不生成。
   const hashOf = str => { let x = 2166136261; for (let i = 0; i < str.length; i++) { x ^= str.charCodeAt(i); x = Math.imul(x, 16777619); } return x >>> 0; };
   const dayKey = d => d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate();
+  // 给人看、给模型看的日子照那只虚拟钟（2026-10-31）：时段本身还是现实的毫秒（判断此刻在不在播），只在说「哪天几点」时换算。
+  //   主播是谁就照谁那只；陌生主播、平台是大家共用的，照主面具那只
+  const vt = (ts, id) => typeof vclockMap === "function" ? vclockMap(ts, id) : ts;
+  const vMain = () => new Date(typeof vclockMainMap === "function" ? vclockMainMap(Date.now()) : Date.now());
   const SLOT_KINDS = ["chat", "game", "sing", "study", "cook", "outdoor", "sell"];
   // ⚠️先看日程（群友 2026-10-08：「直播不读日程吗？日程写 10 点直播，char 现在就播了」）：
   //   schedOf(c) 给的是今天日程里写着直播的那几段 [{start,end}]（毫秒）；
@@ -108,8 +112,8 @@
   //   TA 自己播完了、她没进去：落地页列出来，她点了才花一次调用剪一份高光；不点一个字都不生成。
   const RECAP_SHAPE = '{"title":"","host":"","scene":"","flow":[{"who":"","text":""}],"noise":[""],"viewers":0}';
   function recapInstruction(slot, uName) {
-    const d = new Date(slot.start), hm2 = x => x.getHours() + ":" + String(x.getMinutes()).padStart(2, "0");
-    return "你在一个直播平台上有自己的直播间。" + (d.getMonth() + 1) + " 月 " + d.getDate() + " 日 " + hm2(d) + " 到 " + hm2(new Date(slot.end)) + "，你播了一场" + kindZh(slot.kind) + "。" + uName + "那会儿没来看。"
+    const d = new Date(vt(slot.start, slot.charId)), hm2 = x => x.getHours() + ":" + String(x.getMinutes()).padStart(2, "0");
+    return "你在一个直播平台上有自己的直播间。" + (d.getMonth() + 1) + " 月 " + d.getDate() + " 日 " + hm2(d) + " 到 " + hm2(new Date(vt(slot.end, slot.charId))) + "，你播了一场" + kindZh(slot.kind) + "。" + uName + "那会儿没来看。"
       + "\n你在平台上是个什么样的主播——主播名、粉丝是一群什么人、对着镜头什么样——都从你这个人身上长出来。"
       + "\n平台把这场剪成了一份高光回放，看回放的人看到的就是这几段。写：直播间标题 title、你的主播名 host、镜头里的样子 scene（一两句）、"
       + "高光里按先后的 flow（8~14 项，每一项 who 写「主播」或某个观众的网名，text 写那一句；回谁的弹幕就把那条排在前面）、滚过去的路人弹幕 noise（6~10 条，很短）、这场最多时的在线人数 viewers（数字）。";
@@ -917,7 +921,7 @@
       if (!props.askStranger || stBusy) return;
       setStBusy("browse");
       try {
-        const d0 = new Date();
+        const d0 = vMain();
         const kinds = Array.from({ length: ST_BATCH }, () => pick(SLOT_KINDS.concat(["spicy"])));
         const r = await props.askStranger(strangerSystem(ST_BATCH, props.hot ? props.hot() : [], d0.getFullYear() + " 年 " + (d0.getMonth() + 1) + " 月 " + d0.getDate() + " 日", kinds, props.worldHint ? props.worldHint() : ""), ST_SHAPE);
         const fresh = arr(r && r.streamers).slice(0, ST_BATCH).map((x, i) => x && S(x.name) && S(x.persona) ? Object.assign({}, x, { kind: kinds[i] }) : null).filter(Boolean).map(x => {
@@ -1184,14 +1188,14 @@
         missed.map(x => h("div", { "data-wk": "livemissed", key: x.id, className: "flex items-center", style: { gap: 10, padding: "10px 0", borderBottom: "1px solid " + t.line } },
           h("div", { className: "flex-1 min-w-0" },
             h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, ((whoOf(x.charId) || {}).remark || (whoOf(x.charId) || {}).name) + " 播了" + kindZh(x.kind)),
-            h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginTop: 2 } }, (dayKey(new Date(x.start)) === dayKey(new Date()) ? "今天 " : "昨天 ") + hm(x.start) + "–" + hm(x.end) + " · 你没去")),
+            h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginTop: 2 } }, (dayKey(new Date(vt(x.start, x.charId))) === dayKey(new Date(vt(Date.now(), x.charId))) ? "今天 " : "昨天 ") + hm(vt(x.start, x.charId)) + "–" + hm(x.end) + " · 你没去")),
           h("button", { "data-wk": "liverecap", onClick: () => recap(x), disabled: !!recapBusy, className: "active:opacity-70 shrink-0", style: { minHeight: 34, padding: "0 12px", borderRadius: 10, border: "1px solid " + LIVE_RED, color: LIVE_RED, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", opacity: recapBusy && recapBusy !== x.id ? .5 : 1 } }, recapBusy === x.id ? "剪着…" : "看高光"))),
         list.length ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, margin: "24px 0 8px" } }, "回放") : null,
         list.map(s => h("div", { "data-wk": "livereplay", key: s.id, className: "flex items-center", style: { gap: 10, padding: "11px 0", borderBottom: "1px solid " + t.line } },
           h("button", { onClick: () => { setCurId(s.id); setView("room"); }, className: "flex-1 min-w-0 text-left active:opacity-70" },
             h("div", { "data-wk": "livereplaytitle", style: { fontFamily: F_DISPLAY, fontSize: "calc(14.5px * var(--app-fs, 1))", color: t.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, (s.endTs ? "" : "● ") + (S(s.title) || "直播间")),
             h("div", { "data-wk": "livereplaytime", style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginTop: 2 } },
-              (s.mode === "watch" ? nameOf(s) + " 播的" + (s.recap ? " · 高光" : "") : "我播的") + " · " + new Date(s.startTs).toLocaleDateString() + " · " + arr(s.lines).length + " 条")),
+              (s.mode === "watch" ? nameOf(s) + " 播的" + (s.recap ? " · 高光" : "") : "我播的") + " · " + new Date(vt(s.startTs, s.charId)).toLocaleDateString() + " · " + arr(s.lines).length + " 条")),
           h("button", { "data-wk": "livereplaydel", onClick: () => save(listRef.current.filter(x => x.id !== s.id)), className: "active:opacity-60 shrink-0", style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog, minHeight: 36, padding: "0 6px" } }, "删")))));
   }
 

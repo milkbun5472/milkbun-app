@@ -5,8 +5,8 @@ test("片刻：路人视频、直播路人主播都读「公开世界」那份�
   assert.match(app, /const shuaWorldHint = \(\) => String\(loreForContext\("social", \[\], ""\) \|\| ""\)\.slice\(0, 3000\);/);
   assert.match(app, /const liveProps = \{\n\s*worldHint: shuaWorldHint,/);
   assert.match(app, /worldHint: shuaWorldHint,\n/);
-  assert.match(core, /function npcSystem\(uName, persona, n, skin, hot, regs, world\) \{\n\s*return AC\(\) \+ CB\(\) \+ worldLine\(world\)/);
-  assert.match(shua, /regsText\(\), props\.worldHint \? props\.worldHint\(\) : ""\)/);
+  assert.match(core, /function npcSystem\(uName, persona, n, skin, hot, regs, world(, nowTs)?\) \{\n\s*return AC\(\) \+ CB\(\) \+ worldLine\(world\)/);
+  assert.match(shua, /regsText\(\), props\.worldHint \? props\.worldHint\(\) : ""[,)]/);
   assert.match(live, /function strangerSystem\(n, hot, date, kinds, world\)/);
   assert.match(live, /kinds, props\.worldHint \? props\.worldHint\(\) : ""\)/);
   const wl = new Function(core.slice(core.indexOf("  function worldLine"), core.indexOf("\n", core.indexOf("  function worldLine"))) + "; return worldLine;")();

@@ -7035,7 +7035,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     dateNote: (() => {
       const cal = calendar || {};
       const uName = userName(profile);
-      const today = new Date(); today.setHours(0, 0, 0, 0);
+      // 「今天」照 TA 那只虚拟钟（2026-10-31 排查）：生日、日历、节日、纪念日倒数都按钟上的日子说
+      const today = new Date(typeof vclockMap === "function" ? vclockMap(Date.now(), char.id) : Date.now()); today.setHours(0, 0, 0, 0);
       const tK = today.getFullYear() + "-" + (today.getMonth() + 1) + "-" + today.getDate();
       const mdK = (today.getMonth() + 1) + "-" + today.getDate();
       // 复用「我的日历/经期」可见名单：只有被允许的角色才知道用户的生日 / 私人日历
@@ -7395,7 +7396,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         const isOff = m._surface === "offline";
         // 只数TA的拍子：她自己在线下打的字本来就短，不该占掉「最近三拍给原文」的名额
         if (isOff && m.role !== "user") offSeen++;
-        const dateAnchor = m.role === "user" && window.TemporalAnchor ? window.TemporalAnchor.anchor(m.content, m.ts) : "";
+        const dateAnchor = m.role === "user" ? vAnchor(m.content, m.ts, charId) : "";
         const speaker = m.role === "user" ? uName : (m.role === "narration" ? "【线下场景】" : (m.senderName || char.name));
         // 线下的老拍子压成摘录；她自己在线下打的字很短，照原文走
         // ⚠️转账那一条不能照原文走：存下来的「你向 XX 转了 ¥200」是写给她看的旁白，
@@ -10065,7 +10066,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       const _gMe = meOfGroup(group.id) || {};
       const _gDuo = _gShooters.filter(c => c.refPhoto && _gMe.refPhoto);
       const _gGroupOk = _gShooters.filter(c => c.refPhoto).length + (_gMe.refPhoto ? 1 : 0) >= 2;
-      const beats = await generateOfflineGroup(offlineActive, gCtx, { ...effectiveSess, sayZhNames: (gCtx.members || []).filter(c => c && !c.npc && (settingsFor(c.id) || {}).bilingual).map(c => (typeof memberLabel === "function" ? memberLabel(gCtx.members, c) : c.name)), signal: _abort.signal, msgs: _gWindow, imageDataUrls: gOffImageDataUrls,
+      const beats = await generateOfflineGroup(offlineActive, { ...gCtx, clockId: "g:" + groupId }, { ...effectiveSess, sayZhNames: (gCtx.members || []).filter(c => c && !c.npc && (settingsFor(c.id) || {}).bilingual).map(c => (typeof memberLabel === "function" ? memberLabel(gCtx.members, c) : c.name)), signal: _abort.signal, msgs: _gWindow, imageDataUrls: gOffImageDataUrls,
         photoMembers: _gShooters.map(c => c.name), photoDuoMembers: _gDuo.map(c => c.name), photoMe: _gShooters.length > 0 && canShootMe("g:" + group.id), photoGroupOk: _gGroupOk, priorSummary: effectiveSess.summary || "", narr: osNarr("g_" + group.id), taste: effectiveSess.taste || osTaste("g_" + group.id), lengthMode: osFor("g_" + group.id).lengthMode || "natural", writeMode: osFor("g_" + group.id).writeMode === "novel" ? "novel" : "beats", maxTokens: osFor("g_" + group.id).maxTokens || 3200, minWords: osFor("g_" + group.id).minWords, rerollAvoid: effectiveSess.rerollAvoid || "" });
       if (beats && !(effectiveSess && effectiveSess.rerollAvoid) && typeof stampGain === "function") stampGain("beat");   // 邮票册：群线下一拍
       if (_abort.signal.aborted) return;             // 她点叉断掉了：回来的这几拍不落地
@@ -13491,7 +13492,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
             : m.kind === "namecard" ? "【" + uName + "把「" + (m.cardName || "某人") + "」的名片推给了你" + (m.cardTag ? "（名片上写着：" + m.cardTag + "）" : "")
               + "——像微信里「推荐给朋友」。认不认识这个人、想不想加、会不会好奇或者吃醋，照你自己的人设和你俩的关系来；你们之间本来有什么交集，就照那层交集说】"
             : m.kind === "pat" ? "【对方（之前）用微信「拍一拍」戳了你一下（屏幕上那一行：「" + String(m.content || "").replace(/^你拍了拍\s*/, uName + " 拍了拍 ") + "」）（隔着屏幕逗你/求关注的小动作，不是一句话）——要不要理会、要不要提起，【完全看你的人设和当下心情】：爱闹/在意 Ta 的可以回拍、调侃、明知故问「戳我干嘛」；高冷、正忙、没在意的完全可以当没看见、根本不提也行。有反应就反应，自然就好】"
-            : qpfx + m.content) + (roomClockOn && window.TemporalAnchor ? window.TemporalAnchor.anchor(m.content, m.ts) : "")
+            : qpfx + m.content) + (roomClockOn ? vAnchor(m.content, m.ts, charId) : "")
             + (m.theirStick && (m.theirStick.emoji || m.theirStick.keyword) ? "\n【你往她这句上贴过一个 " + (m.theirStick.emoji || "表情包「" + m.theirStick.keyword + "」") + "；这是你做过的、真实发生过的事，不是谁说的话】" : "");
           // 合并连发的多条用户消息，兼容 Anthropic 等不允许连续同角色的接口
           if (lu && lu.role === "user") {
@@ -15404,7 +15405,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       // ⚠️历史上的时刻戳原来挂在 gs.memoryInterop（闭群那个开关）上——那跟时间感知半点关系没有。
       //   v61.16 改成：群里没有一个人开着时间感知，就一个戳都不盖（相对间隔照留）。
       const _gClockAny = members.some(c => !c.npc && timeAwareFor(c.id));
-      for (const m of _graw) { const ts = m.ts || 0; if (_gClockAny && _gprev && ts && ts - _gprev > 90 * 60000) _gparts.push("〔—— 中间隔了约 " + gapPhrase(ts - _gprev) + (_gClockAny ? "，到 " + fmtStampAI(ts) : "") + " ——〕"); const ta = _gClockAny && (m.role === "user" || m.role === "narration") && window.TemporalAnchor ? window.TemporalAnchor.anchor(m.content, ts) : ""; const qr = gQuoteByMessage.get(m); const quoteNote = m.replyTo ? "【这条正在引用 " + (m.replyToSenderName || "作者未知") + (m.replyToId ? "（消息 " + m.replyToId + "）" : "") + "：『" + String(m.replyTo).replace(/\s+/g, " ").slice(0, 100) + "』】\n" : ""; _gparts.push((qr ? "[" + qr.alias + "] " : "") + quoteNote + (_gClockAny && ts ? "[" + fmtStampAI(ts) + "] " : "") + fmtGLine(m) + groupStickNote(m) + (ta ? " " + ta : "")); if (ts) _gprev = ts; }
+      for (const m of _graw) { const ts = m.ts || 0; if (_gClockAny && _gprev && ts && ts - _gprev > 90 * 60000) _gparts.push("〔—— 中间隔了约 " + gapPhrase(ts - _gprev) + (_gClockAny ? "，到 " + fmtStampAI(ts) : "") + " ——〕"); const ta = _gClockAny && (m.role === "user" || m.role === "narration") && window.TemporalAnchor ? vAnchor(m.content, ts, "g:" + groupId) : ""; const qr = gQuoteByMessage.get(m); const quoteNote = m.replyTo ? "【这条正在引用 " + (m.replyToSenderName || "作者未知") + (m.replyToId ? "（消息 " + m.replyToId + "）" : "") + "：『" + String(m.replyTo).replace(/\s+/g, " ").slice(0, 100) + "』】\n" : ""; _gparts.push((qr ? "[" + qr.alias + "] " : "") + quoteNote + (_gClockAny && ts ? "[" + fmtStampAI(ts) + "] " : "") + fmtGLine(m) + groupStickNote(m) + (ta ? " " + ta : "")); if (ts) _gprev = ts; }
       const hist = _gparts.join("\n");
       // 断档要看「用户这次刚发的几条」之前的最后一条——不然刚发的消息把间隔清零，
       // 断档提醒永远不触发，隔夜回来成员还接着昨晚的事演（比如牛腩炖了一整夜）
@@ -15597,7 +15598,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       //   旁观群不发：她根本不在场，没有「不是她的」这回事。
       const gBdayHint = (() => {
         if (gs.spectate) return "";
-        const _t = new Date();
+        const _t = new Date(typeof vclockMap === "function" ? vclockMap(Date.now(), "g:" + groupId) : Date.now());   // 这个群认的那只虚拟钟
         const who = members.filter(c => c && !c.npc && daysUntilBirthday(c.birthday, _t) === 0).map(c => c.name);
         if (!who.length) return "";
         const uN = userName(profile);
@@ -21552,7 +21553,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   const memberPrivLines = (c, n) => (Number(n) > 0
     ? (chatsRef.current[c.id] || []).filter(m => !m.recalled && !isOocMsg(m) && contextAllowsMessage(m)).slice(-Number(n))
         .map(m => (aiStampFor(c.id, m.ts) ? "[" + aiStampFor(c.id, m.ts) + "] " : "") + (m.role === "user" ? userName(profile) : c.name) + ": " + m.content
-          + (m.role === "user" && window.TemporalAnchor ? " " + window.TemporalAnchor.anchor(m.content, m.ts) : "")).join("\n")
+          + (m.role === "user" ? " " + vAnchor(m.content, m.ts, c.id) : "")).join("\n")
     : "");
   // 群文字与多人通话共用私有背景；实时窗口的开关同时约束线上与线下近况。
   const memberPrivateContextFor = (c, split, opts) => {
@@ -23520,7 +23521,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     patch({ status: "doing" });
     try {
       const scene = (row.zy || {}).scene || "";
-      const d = await runProbe(apiFor(charId), ctxFor(c), { voice: true, tag: "zhaoying", instruction: Z.askInstruction(test, userName(profileFor(charId)), Z.recordsOf(charId, testId), scene, zyAuthor(test, charId), !!(row.zy || {}).lie), schemaHint: Z.askSchema(test, !!(row.zy || {}).lie), maxTokens: 20000 });
+      const d = await runProbe(apiFor(charId), ctxFor(c), { voice: true, tag: "zhaoying", instruction: Z.askInstruction(test, userName(profileFor(charId)), Z.recordsOf(charId, testId), scene, zyAuthor(test, charId), !!(row.zy || {}).lie, charId), schemaHint: Z.askSchema(test, !!(row.zy || {}).lie), maxTokens: 20000 });
       const a = Z.readAnswers(test, d), res = Z.resultOf(testId, a.picks, a.bids);
       // 不算分的自定义题：结果就是他做完自己说的那句
       if (res.free) { res.title = a.feel || "做完了"; res.line = ""; }
@@ -23603,7 +23604,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       if (onStep) onStep(c);
       setRow(c.id, { state: "doing" });
       try {
-        const d = await runProbe(apiFor(c.id), ctxFor(c), { voice: true, tag: "zhaoying", instruction: Z.askInstruction(test, userName(profileFor(c.id)), Z.recordsOf(c.id, testId), "", zyAuthor(test, c.id), !!lie), schemaHint: Z.askSchema(test, !!lie), maxTokens: 20000 });
+        const d = await runProbe(apiFor(c.id), ctxFor(c), { voice: true, tag: "zhaoying", instruction: Z.askInstruction(test, userName(profileFor(c.id)), Z.recordsOf(c.id, testId), "", zyAuthor(test, c.id), !!lie, c.id), schemaHint: Z.askSchema(test, !!lie), maxTokens: 20000 });
         const a = Z.readAnswers(test, d), res = Z.resultOf(testId, a.picks, a.bids);
         if (res.free) { res.title = a.feel || "做完了"; res.line = ""; }
         Z.addRecord(c.id, { testId, ts: Date.now(), picks: a.picks, whys: a.whys, paths: a.paths, code: res.code, title: res.title, line: res.line, free: !!res.free, ...(a.review ? { review: a.review } : {}), ...(a.react ? { react: a.react } : {}), ...(a.bids ? { bids: a.bids } : {}), ...(a.revs ? { revs: a.revs } : {}), ...(a.fills ? { fills: a.fills } : {}), ...(a.lie ? { lie: a.lie } : {}), group: groupId });
