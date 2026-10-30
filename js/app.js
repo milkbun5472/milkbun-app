@@ -832,6 +832,9 @@ function App() {
   const orderTakeout = (bag, mode, target) => {
     const item = takeoutItemOf(bag || {});
     if (!item.takeout.items.length) { toast("还没点东西"); return false; }
+    // 预约送达（群里 2026-10-30「外卖可不可以选择配送时间」）：结算页挑了几点到，就照那个点到；没挑就尽快
+    const _at = Number(bag && bag.at) || 0;
+    if (_at > Date.now() + 10 * 60000) { item.arriveTs = _at; item.booked = true; }
     const total = item.price;
     const byMode = {
       buy: () => {
@@ -861,8 +864,10 @@ function App() {
         if (wallet < total) { toast("余额不足"); return false; }
         changeWallet(-total, "给 " + (char.remark || char.name) + " 点外卖 " + item.takeout.shop, "shop", { where: "外卖", charId: char.id });
         const now = Date.now();
-        pChat(char.id, p => [...p, { role: "user", kind: "takeout", takeout: item.takeout, arriveTs: now + deliverMsForCat("food", item.name), ts: now, read: true,
-          content: "[外卖] 给你点了" + (item.takeout.shop ? "「" + item.takeout.shop + "」的" : "") + item.takeout.items.join("、") }]);
+        const _arr = item.arriveTs || (now + deliverMsForCat("food", item.name));
+        const _hm = d => { const x = new Date(d); return String(x.getHours()).padStart(2, "0") + ":" + String(x.getMinutes()).padStart(2, "0"); };
+        pChat(char.id, p => [...p, { role: "user", kind: "takeout", takeout: item.takeout, arriveTs: _arr, ts: now, read: true,
+          content: "[外卖] 给你点了" + (item.takeout.shop ? "「" + item.takeout.shop + "」的" : "") + item.takeout.items.join("、") + (item.booked ? "，预约 " + _hm(_arr) + " 送到" : "") }]);
         toast("给 " + (char.remark || char.name) + " 点好了，骑手在路上");
       }
     };
@@ -30623,7 +30628,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   };
   const finishPayLater = (charId, items, total, char) => {
     adjustCharBalance(charId, -total, "代付 · " + items.map(x => x.name).join("、").slice(0, 18), "shop");
-    items.forEach(it => addOrder({ name: it.name, price: it.price, cat: it.cat, kind: it.kind, takeout: it.takeout, fromCharId: charId, payLabel: (char ? char.name : "对方") + " 代付" }));
+    items.forEach(it => addOrder({ name: it.name, price: it.price, cat: it.cat, kind: it.kind, takeout: it.takeout, ...(it.arriveTs ? { arriveTs: it.arriveTs } : {}), fromCharId: charId, payLabel: (char ? char.name : "对方") + " 代付" }));
   };
   const decidePayLater = async (charId, pid, items, total) => {
     const char = characters.find(c => c.id === charId);
@@ -30855,7 +30860,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     if (mode === "buy") {
       if (wallet < total) { toast("余额不足"); return; }
       changeWallet(-total, "购物 " + items.map(x => x.name).join("、").slice(0, 18), "shop", { where: "购物" });
-      items.forEach(it => addOrder({ name: it.name, price: it.price, cat: it.cat, kind: it.kind, takeout: it.takeout }));
+      items.forEach(it => addOrder({ name: it.name, price: it.price, cat: it.cat, kind: it.kind, takeout: it.takeout, ...(it.arriveTs ? { arriveTs: it.arriveTs } : {}) }));
       removeCartUids(uids);
       toast("下单成功 · " + items.length + " 件，等待发货");
     } else if (mode === "kinship") {
