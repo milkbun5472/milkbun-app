@@ -54,11 +54,12 @@ const recent = (() => {
   // v60.49 那把瘦身刀只改【怎么渲染】，挑法一个字没动（渲染那半在
   // test/recent-chat-thin-60-49.test.js 里单独真跑）。
   return (online, offline, budget, ctxN = 50, days = 0) => new Function(
-    "online", "offline", "offSummary", "settingsFor", "char", "profile", "memCfgRef", "window", "thinOnline", "userName",
+    "online", "offline", "offSummary", "settingsFor", "char", "profile", "memCfgRef", "window", "thinOnline", "userName", "vAnchor", "charId", "roomClockOn",
     body.replace("const ctxN = Math.max(0, Number(settingsFor(char.id).ctxN ?? 50));", "const ctxN = " + ctxN + ";")
         .replace("const budget = memCfgRef.current.recentBudget || 8000;", "const budget = " + budget + ";")
         .replace("const recentDays = Math.max(0, Number(memCfgRef.current.recentDays ?? 3));", "const recentDays = " + days + ";"))
-    (online, offline, "", () => ({}), { id: "c", name: "裴照川" }, { name: "Lisa" }, { current: {} }, {}, false, userName);
+    // 2026-10-30：虚拟时间巡检给每条用户消息加了日期锚（engine.js 的 vAnchor），这一组测的是挑法，桩成空串
+    (online, offline, "", () => ({}), { id: "c", name: "裴照川" }, { name: "Lisa" }, { current: {} }, {}, false, userName, () => "", "c", false);
 })();
 
 let ts = 0;

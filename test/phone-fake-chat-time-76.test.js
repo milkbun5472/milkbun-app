@@ -9,7 +9,9 @@ test("替他发的那句一定在对面读到的记录最后", () => {
 test("替他发、对面回的都记时间；时间线隔十分钟才画，不是今天的补日子", () => {
   assert.ok(app.includes("...msgs.map(m => ({ ...m, _at: m._at || Date.now() }))"));
   assert.ok(ui.includes("Math.abs(m._at - prevM._at) > 10 * 60000"));
-  assert.ok(ui.includes('return d.toDateString() === new Date().toDateString() || /月|日|昨|前天|周|星期/.test(lb) ? lb : md + " " + lb;'));
+  // 2026-10-30 重锚：虚拟时间巡检（v76.988~992）把「今天」改成照角色那只钟算，
+  //   这条测的不是取今天的写法，是上面那个判据本身。
+  assert.match(ui, /return d\.toDateString\(\) === new Date\([\s\S]{0,120}?\)\.toDateString\(\) \|\| \/月\|日\|昨\|前天\|周\|星期\/\.test\(lb\) \? lb : md \+ " " \+ lb;/);
 });
 test("刷新时告诉模型每个会话隔了几天", () => {
   assert.ok(ph.includes("（上次说话是 \" + _days + \" 天前，那件事已经过去了；这回说的是这几天新发生的）"));
