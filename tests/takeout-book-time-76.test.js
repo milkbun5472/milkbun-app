@@ -13,3 +13,7 @@ test("下单照 at 定送达；代付、亲属卡的订单也带上", () => {
   assert.match(app, /const _arr = item\.arriveTs \|\| \(now \+ deliverMsForCat\("food", item\.name\)\)/);
   assert.match(app, /takeout: it\.takeout, \.\.\.\(it\.arriveTs \? \{ arriveTs: it\.arriveTs \} : \{\}\)/);
 });
+test("他点外卖也能预约：schema 有 at，按他的钟点换回现实时间", () => {
+  assert.match(app, /"at":"想让它几点送到（HH:MM，你那边的钟点），不填就是尽快"\}=给对方点外卖/);
+  assert.match(app, /const arriveTs = dup \? \(dup\.arriveTs \|\| Date\.now\(\)\) : \(bookedTs \|\| Date\.now\(\) \+ deliverMsForCat\("food", label\)\)/);
+});
