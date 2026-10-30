@@ -20,7 +20,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v76.946";
+const APP_VERSION = "v76.954";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -836,6 +836,9 @@ function App() {
     const item = takeoutItemOf(bag || {});
     const payMask = opts && opts.mask != null ? String(opts.mask || "") : "";
     if (!item.takeout.items.length) { toast("还没点东西"); return false; }
+    // 预约送达（群里 2026-10-30「外卖可不可以选择配送时间」）：结算页挑了几点到，就照那个点到；没挑就尽快
+    const _at = Number(bag && bag.at) || 0;
+    if (_at > Date.now() + 10 * 60000) { item.arriveTs = _at; item.booked = true; }
     const total = item.price;
     const byMode = {
       buy: () => {
@@ -865,8 +868,10 @@ function App() {
         if (balanceOf(maskKeyOf(char.id)) < total) { toast("余额不足"); return false; }
         changeWallet(-total, "给 " + (char.remark || char.name) + " 点外卖 " + item.takeout.shop, "shop", { where: "外卖", charId: char.id });
         const now = Date.now();
-        pChat(char.id, p => [...p, { role: "user", kind: "takeout", takeout: item.takeout, arriveTs: now + deliverMsForCat("food", item.name), ts: now, read: true,
-          content: "[外卖] 给你点了" + (item.takeout.shop ? "「" + item.takeout.shop + "」的" : "") + item.takeout.items.join("、") }]);
+        const _arr = item.arriveTs || (now + deliverMsForCat("food", item.name));
+        const _hm = d => { const x = new Date(d); return String(x.getHours()).padStart(2, "0") + ":" + String(x.getMinutes()).padStart(2, "0"); };
+        pChat(char.id, p => [...p, { role: "user", kind: "takeout", takeout: item.takeout, arriveTs: _arr, ts: now, read: true,
+          content: "[外卖] 给你点了" + (item.takeout.shop ? "「" + item.takeout.shop + "」的" : "") + item.takeout.items.join("、") + (item.booked ? "，预约 " + _hm(_arr) + " 送到" : "") }]);
         toast("给 " + (char.remark || char.name) + " 点好了，骑手在路上");
       }
     };
@@ -3131,15 +3136,31 @@ function App() {
   //   照抄的那句就原样进了「他说的是」。在哪儿出现都摘。
   const ECHOED_META = /\s*[（(【\[]\s*(?:这一条是你此刻|这条你是用语音说的)[^）)】\]]*[）)】\]]\s*/g;
   const stripEchoedMeta = w => String(w == null ? "" : w).replace(ECHOED_META, "").trim();
-  const ECHO_NOTE_HINT = /已经实际|亲手做过的事|真实发生过的事|用户刚才要求你|这里你已经|不得说自己|没发成的话/;
+  // 转账/红包的「播报」（她 2026-10-30 截图：转账卡出来了，底下又多出「【附言：…】转账给 Lisa 30000 元」被拆成四泡）：
+  //   卡自己会把钱数和附言摆出来，这一句是它照着聊天记录的样子念了一遍，不是TA说的话
+  const ECHO_NOTE_HINT = /已经实际|亲手做过的事|真实发生过的事|用户刚才要求你|这里你已经|不得说自己|没发成的话|^\s*【\s*(?:附言|转账|红包)\s*[:：]/;
+  const ECHO_MONEY_LINE = /^\s*[〔【\[(（]?\s*(?:群)?(?:转账给|发红包给)\s*[^\s，。！？!?]{0,16}\s*[¥￥]?\s*\d[\d,.]*\s*(?:元|块)?\s*[〕】\])）]?\s*$/;
   const dropEchoedNotes = list => {
     const out = [];
     let inNote = null;
     for (const w0 of list || []) {
       const w = String(w0 == null ? "" : w0);
-      if (inNote) { inNote.push(w); if (/】\s*$/.test(w)) { if (!ECHO_NOTE_HINT.test(inNote.join(""))) out.push(...inNote); inNote = null; } continue; }
+      if (inNote) {
+        // 收口那一泡后面还拖着半句（「】转账给 Lisa 30000 元」）：】之前算旁注，之后的另算
+        const k = w.indexOf("】");
+        if (k < 0) { inNote.push(w); continue; }
+        inNote.push(w.slice(0, k + 1));
+        const tail = w.slice(k + 1).trim();
+        if (!ECHO_NOTE_HINT.test(inNote.join(""))) out.push(...inNote.slice(0, -1), w);
+        else if (tail && !ECHO_MONEY_LINE.test(tail)) out.push(tail);
+        inNote = null; continue;
+      }
       if (/^\s*【/.test(w) && !/】/.test(w.replace(/^\s*【/, ""))) { inNote = [w]; continue; }
       if (/^\s*【[^】]*】\s*$/.test(w) && ECHO_NOTE_HINT.test(w)) continue;
+      if (ECHO_MONEY_LINE.test(w)) continue;
+      // 一泡里整句：「【附言：…】转账给 X 30000 元」
+      const mm = w.match(/^\s*(【[^】]*】)\s*(.*)$/);
+      if (mm && ECHO_NOTE_HINT.test(mm[1]) && (!mm[2] || ECHO_MONEY_LINE.test(mm[2]))) continue;
       // 整条只是一句「〔某某发送了一张自拍〕」「[发了一张照片]」这种系统旁白腔（她 2026-10-28 截图）：
       //   照片那张卡自己会出来，这句是它照着聊天记录的样子「播报」了一下，不是TA说的话
       if (/^\s*[〔【\[(（]\s*[^〔〕【】\[\]()（）\n]{0,16}(?:发送了|发来了?|发了)(?:一张|一条|一段|一个)?(?:自拍|照片|图片|相片|语音|视频|表情包?|定位|位置)\s*[〕】\])）]\s*$/.test(w)) continue;
@@ -6899,7 +6920,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     //   别的上下文挤掉。
     forumPmLog: (() => {
       if (ctxOpts && ctxOpts.chat === true && settingsFor(char.id).engineerEyes) return "";
-      const th = (forumPMsRef.current || []).find(t => t && t.charId === char.id && !t.alt);   // 小号那条线不进来
+      const th = (forumPMsRef.current || []).find(t => t && t.charId === char.id && pmCharKnows(t, char));   // 小号、TA不认得的那张面具开的线不进来
       if (!th || !Array.isArray(th.messages) || !th.messages.length) return "";
       const cut = Date.now() - 3 * 86400000;
       const meName = (forumMe && forumMe.handle) || profile.name || "对方";
@@ -24509,6 +24530,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   // 一轮只吭一声，免得写一次弹一次。
   const forumSaveWarned = useRef(false);
   const saveForumComments = next => {
+    try { noteForumCharMeets(next); } catch (e) {}
     if (saveJSON("x_forumComments", next)) return true;
     if (!forumSaveWarned.current) {
       forumSaveWarned.current = true;
@@ -24694,8 +24716,67 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
           + "，但不能声称知道她的私生活";
       });
   };
+  // 角色和角色之间的「论坛碰面账」（她 2026-10-30：「做吧 只记次数和语气」）。
+  // 关系网里没连上的两个角色，在论坛楼里你来我往过几回，下次再碰见该认得这个账号。
+  // ⚠️只记次数、调子、最后一次的时间——不存帖子正文，不碰关系网、私聊、记忆。
+  // ⚠️只认【大号对大号】：小号、匿名吧里谁也不知道背后是谁，那不算碰过面。
+  // 同一帖里同一对只算一次（posts 记着算过的帖子 id），所以整份楼层重扫也不会越扫越多。
+  const forumCharTies = () => {
+    const raw = loadJSON("x_forumCharTies", { version: 1, items: {} });
+    return raw && raw.version === 1 && raw.items && typeof raw.items === "object" ? raw : { version: 1, items: {} };
+  };
+  const forumCharTieKey = (a, b) => [String(a), String(b)].sort().join("|");
+  // 熟面孔（不在匿名吧的常驻网友）→ 名单那一条；搭子关系是写死的（FORUM_NPC_RELATIONS），那几对不另记账
+  const forumRegularOf = id => FORUM_NPC_REGISTRY.find(n => n.id === id && !(n.boards || []).includes("匿名吧")) || null;
+  const forumFixedPair = (a, b) => FORUM_NPC_RELATIONS.some(r => (r.a === a && r.b === b) || (r.a === b && r.b === a));
+  const noteForumCharMeets = all => {
+    const book = forumCharTies(); let changed = false;
+    // 角色只认大号；熟面孔只认名单上的常驻（路人一帖一换，记了也没人接得上）。
+    const isMain = x => x && x.authorId && (x.authorType === "character" || (x.authorType === "npc" && forumRegularOf(x.authorId)));
+    Object.keys(all || {}).forEach(postId => (all[postId] || []).forEach(f => {
+      if (!f) return;
+      const reps = f.replies || [];
+      reps.forEach(r => {
+        if (!isMain(r)) return;
+        const to = r.toName ? reps.find(y => y && y !== r && y.authorName === r.toName) : f;
+        if (!isMain(to) || to.authorId === r.authorId || forumFixedPair(r.authorId, to.authorId)) return;
+        const k = forumCharTieKey(r.authorId, to.authorId), old = book.items[k] || {};
+        const posts = Array.isArray(old.posts) ? old.posts : [];
+        if (posts.includes(postId)) return;
+        const tone = TIE_TONES[r.meetTone] ? r.meetTone : "";
+        book.items[k] = {
+          encounters: Math.min(999, (Number(old.encounters) || 0) + 1),
+          warm: Math.min(999, (Number(old.warm) || 0) + (tone === "warm" ? 1 : 0)),
+          spar: Math.min(999, (Number(old.spar) || 0) + (tone === "spar" ? 1 : 0)),
+          lastTs: Math.max(Number(old.lastTs) || 0, Number(r.ts) || Date.now()),
+          posts: posts.concat(postId).slice(-200)
+        };
+        changed = true;
+      });
+    }));
+    if (changed) saveJSON("x_forumCharTies", book);
+  };
+  // 两个角色之间没有关系网连线时，才拿这份碰面账说一句「在论坛里见过」
+  const forumCharTieLine = (a, b) => {
+    const t = forumCharTies().items[forumCharTieKey(a.id, b.id)];
+    if (!t || !(Number(t.encounters) > 0)) return "";
+    const warm = Number(t.warm) || 0, spar = Number(t.spar) || 0;
+    const how = warm >= spar * 2 && warm > 1 ? "，碰上的时候多半是搭得上话的"
+      : spar >= warm * 2 && spar > 1 ? "，碰上多半要抬两句杠" : "";
+    return "「" + a.name + "」和「" + b.name + "」在论坛公开楼里互相回过 " + Math.min(9, Number(t.encounters)) + " 次" + how
+      + "；再碰见认得对方这个账号" + (how ? "、可以接着这个调子" : "") + "，但只是网上见过，不知道对方私下的事";
+  };
+  // 熟面孔跟谁在楼里碰过：熟面孔↔熟面孔（不是搭子的那些）、熟面孔↔角色。只挑这个吧在场的熟面孔，最近的几条。
+  const forumRegularMeetLines = board => {
+    const pool = new Map(forumNpcPool(board).map(n => [n.id, n]));
+    const nameOf = id => pool.has(id) ? pool.get(id).name : (forumActiveChars().find(c => c.id === id) || {}).name;
+    return Object.entries(forumCharTies().items).map(([k, t]) => ({ ids: k.split("|"), t }))
+      .filter(x => x.ids.some(id => pool.has(id)) && x.ids.every(id => nameOf(id)))
+      .sort((a, b) => Number(b.t.lastTs || 0) - Number(a.t.lastTs || 0)).slice(0, 8)
+      .map(x => "· " + forumCharTieLine({ id: x.ids[0], name: nameOf(x.ids[0]) }, { id: x.ids[1], name: nameOf(x.ids[1]) }));
+  };
   const forumNpcRule = board => {
-    const ties = forumNpcRelationLines(board), userTies = forumPublicTieLines(board);
+    const ties = forumNpcRelationLines(board).concat(forumRegularMeetLines(board)), userTies = forumPublicTieLines(board);
     // ⚠️原来写的是「约六成来自固定熟面孔…其余约四成【可以】是路人」。两头的具体度不对等：
     //   熟面孔是一句陈述 + 一份现成名单（填个 id 就行），路人是「可以」+ 还得自己起名字。
     //   模型当然走好走的那条。所以这里把默认那一头换过来，并且两边都说成同样具体的动作。
@@ -24705,7 +24786,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     //   回她那一条另有 forumPmKnow 按名字点得更准；这里给的是最近私信过的那几位，号对得上才算（匿名吧不认人）。
     const pmKnown = board === "匿名吧" ? "" : (() => {
       const alt = forumMe.using === "alt";
-      const names = (forumPMsRef.current || []).filter(t => t && !t.charId && !!t.alt === alt && (t.messages || []).length)
+      const names = (forumPMsRef.current || []).filter(t => t && !t.charId && pmAcctOf(t) === (alt ? "alt" : forumMaskNow()) && (t.messages || []).length)
         .sort((a, b) => Number(b.updatedTs || 0) - Number(a.updatedTs || 0)).slice(0, 3).map(t => t.npcName);
       return names.length ? forumPmKnow({ board }, names) : "";
     })();
@@ -24722,6 +24803,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       + "。同一 npcId 要保持它那条括号里写的习惯；同一批里同一个熟面孔最多冒两次。"
       + "\n⚠️**没点到名单上的一律按路人落账**——想让某个熟面孔开口，npcId 或者名单上那个名字必须写出来。"
       + (ties.length ? "\n【熟面孔之间已经存在的公开交情】\n" + ties.join("\n") + "\n同帖遇见时可以自然接旧梗、附和或抬杠；别每次重新自我介绍，也别把公开交情写成私密记忆。" : "")
+      + "\n角色或熟面孔回另一个角色或熟面孔的那一条，顺手标 meetTone：这一句冲对方是什么调子——warm（搭上话、附和）/ spar（抬杠、呛）/ 留空。先照想写的写，写完照实标。"
       + (userTies.length ? "\n【与用户公开账号的既往碰面】\n" + userTies.join("\n") + "\n只承认公开见过，别凭空补共同经历。" : "") + "\n";
   };
   // 模型【点名】了才算熟面孔：npcId，或者 handle／名字对得上名单。点不上就返回 null。
@@ -25111,7 +25193,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         const rc = (characters || []).find(c => c.name === r.char && forumInWorld(c, post));
         const rn = rc ? null : forumPublicNpcOf(r, (post && post.board) || "日常吧", idx + ":reply");
         const ri = rc ? forumCharIdentity(rc, r.identity, (post && post.board) || "日常吧") : null;
-        return { authorName: rc ? ri.authorName : rn.name, authorHandle: rc ? ri.authorHandle : rn.handle, authorType: rc ? ri.authorType : "npc", authorId: rc ? rc.id : rn.id, content: r.content, ts: base + idx, _to: r.to };
+        return { authorName: rc ? ri.authorName : rn.name, authorHandle: rc ? ri.authorHandle : rn.handle, authorType: rc ? ri.authorType : "npc", authorId: rc ? rc.id : rn.id, content: r.content, ts: base + idx, _to: r.to, ...(TIE_TONES[r.meetTone] ? { meetTone: r.meetTone } : {}) };
       }).filter(r => r && !forumIsMine(r)).map((r, j, arr) => {
         // 「回复 @谁」：只认这层里【在它之前】出现过的人（层主不写——回层主是默认）
         const seen = arr.slice(0, j).map(x => x.authorName).filter(n => n && n !== (cc ? identity.authorName : npc.name));
@@ -25155,6 +25237,9 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       // 配角认识自己跟着的那个人（她 2026-10-18：「我以前配角是认识角色的啊」）：配角跟TA的牵连记在 ownerId 上、不在关系表里，
       //   原来这里只翻关系表，论坛楼里配角就成了不认识楼主的路人
       else if (a.npc && String(a.ownerId) === String(b.id)) lines.push("「" + a.name + "」是「" + b.name + "」身边的人，认识TA、知道TA是谁" + (a.persona ? "（照「" + a.name + "」的人设里写的那层关系）" : ""));
+      else if (!(b.npc && String(b.ownerId) === String(a.id)) && !(rels[b.id + "->" + a.id] && rels[b.id + "->" + a.id].label) && String(a.id) < String(b.id)) {
+        const met = forumCharTieLine(a, b); if (met) lines.push(met);
+      }
     }
     return lines;
   };
@@ -25187,9 +25272,9 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       return { authorName: opName || "楼主", authorHandle: (post && post.authorHandle) || opName || "lz", authorType: "npc", authorId: null, content: x.content, isOp: true, ts: Date.now() };
     }
     const cc = (characters || []).find(c => c.name === x.char && forumInWorld(c, post));
-    if (cc) { const ci = forumCharIdentity(cc, x.identity, (post && post.board) || "日常吧"); return { authorName: ci.authorName, authorHandle: ci.authorHandle, authorType: ci.authorType, authorId: cc.id, content: x.content, ts: Date.now() }; }
+    if (cc) { const ci = forumCharIdentity(cc, x.identity, (post && post.board) || "日常吧"); return { authorName: ci.authorName, authorHandle: ci.authorHandle, authorType: ci.authorType, authorId: cc.id, content: x.content, ts: Date.now(), ...(TIE_TONES[x.meetTone] ? { meetTone: x.meetTone } : {}) }; }
     const npc = forumPublicNpcOf(x, (post && post.board) || "日常吧", "reply");
-    return { authorName: npc.name, authorHandle: npc.handle, authorType: "npc", authorId: npc.id, content: x.content, ts: Date.now() };
+    return { authorName: npc.name, authorHandle: npc.handle, authorType: "npc", authorId: npc.id, content: x.content, ts: Date.now(), ...(TIE_TONES[x.meetTone] ? { meetTone: x.meetTone } : {}) };
   };
   // 这帖里某个角色的「真实背景」：人设 + 按话题检索到的真实记忆 + 最近真的一起经历过的事。
   // 回帖补细节时必须依据这些，别现编。
@@ -26050,14 +26135,15 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     if (!active) { toast("请先到设置配置 API"); return; }
     setGen(g => ({ ...g, forumPM: "refresh" }));
     try {
-      const meName = profile.name || "对方";
+      const meName = forumMe.using === "alt" || forumMaskNow() ? pmMeName(pmAcctTag()) : (profile.name || "对方");
       const meDesc = (profile.persona || profile.tagline || "").trim();
       // 收集用户在贴吧的真实动态：自己发的（非匿名）帖 + 自己写的评论/回复
-      const myPosts = (forumPosts || []).filter(p => p.authorId === "me" && !p.anon).slice(0, 6);
+      const acctMine = x => (forumMe.using === "alt" ? !!x.alt : !x.alt && String(x.mask || "") === forumMaskNow());
+      const myPosts = (forumPosts || []).filter(p => p.authorId === "me" && !p.anon && acctMine(p)).slice(0, 6);
       const myComments = [];
       Object.values(forumComments || {}).forEach(floors => (floors || []).forEach(f => {
-        if (f.authorId === "me" && f.content) myComments.push(f.content);
-        (f.replies || []).forEach(r => { if (r.authorId === "me" && r.content) myComments.push(r.content); });
+        if (f.authorId === "me" && f.content && acctMine(f)) myComments.push(f.content);
+        (f.replies || []).forEach(r => { if (r.authorId === "me" && r.content && acctMine(r)) myComments.push(r.content); });
       }));
       const actLines = [];
       myPosts.forEach(p => actLines.push("· 发帖《" + p.title + "》" + (p.body ? "：" + String(p.body).slice(0, 70) : "") + "（在" + p.board + "）"));
@@ -26096,7 +26182,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         let att = x.attitude === "troll" ? "troll" : (x.attitude || "curious");
         if (att === "troll") { if (trollLeft > 0) trollLeft--; else att = "curious"; }
         return {
-          id: "pm_" + base + "_" + i, npcName: x.npcName || "神秘网友", tagline: x.tagline || "",
+          id: "pm_" + base + "_" + i, npcName: x.npcName || "神秘网友", tagline: x.tagline || "", ...pmAcctTag(),
           attitude: att,
           messages: [{ from: "npc", text: x.opening, ts: base + i }], updatedTs: base + i, unread: true
         };
@@ -26144,15 +26230,23 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   //   换成谁都成立——那正是这个 app 最容易写坏的地方。
   // ⚠️已经有这个人的会话就直接开那一条，不新开：同一个人不该在列表里躺两遍。
   // 返回那条会话的 id，由论坛那边负责跳过去（pmId 是 Forum 组件自己的状态，app 够不着）
+  // 私信也跟着号走（她 2026-10-30：「私信能不能也分面具 看的是我现在用哪个号刷」）：
+  //   一条私信是哪个号开的——小号 "alt"、副面具那张的 id、大号（主面具）""。列表只给现在这个号的那几条。
+  const pmAcctOf = t => t && t.alt ? "alt" : String((t && t.mask) || "");
+  const pmAcctNow = () => forumMe.using === "alt" ? "alt" : forumMaskNow();
+  const pmAcctTag = () => forumMe.using === "alt" ? { alt: true, altName: myAltName() } : forumMaskNow() ? { mask: forumMaskNow() } : {};
+  const pmMeName = t => t && t.alt ? (t.altName || myAltName()) : t && t.mask && (masks || []).some(m => m && m.id === t.mask) ? forumMaskName(t.mask) : (forumMe.handle || profile.name || "我");
+  // 角色认不认得这条私信对面是她：跟TA聊天用的就是这张面具才认得；小号谁都不认得
+  const pmCharKnows = (t, ch) => !!ch && !(t && t.alt) && String((t && t.mask) || "") === maskKeyOf(ch.id);
   const startForumPM = async (npc, lines) => {
     if (!npc || !npc.id) return "";
-    const exist = (forumPMsRef.current || []).find(t => t && (t.npcId === npc.id || t.npcName === npc.name) && !!t.alt === (forumMe.using === "alt"));
+    const exist = (forumPMsRef.current || []).find(t => t && (t.npcId === npc.id || t.npcName === npc.name) && pmAcctOf(t) === pmAcctNow());
     if (exist) return exist.id;
     if (!active) { toast("请先到设置配置 API"); return ""; }
     const ground = forumNpcGround(npc.id, lines);
     setGen(g => ({ ...g, forumPM: "start" }));
     try {
-      const meName = forumMe.using === "alt" ? myAltName() : (forumMe.handle || profile.name || "我");
+      const meName = pmMeName(pmAcctTag());
       const d = await runProbeRetry(active, forumWorldCtx(ground || npc.name), {
         instruction: "贴吧网友「" + npc.name + "」（@" + (npc.handle || npc.name) + "）收到了网名「" + meName + "」的私信邀请——对方主动来找 TA 说话。\n"
           + (ground
@@ -26166,7 +26260,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       });
       const base = Date.now();
       const th = {
-        id: "pm_" + base + "_s", npcId: npc.id, npcName: npc.name, ...(forumMe.using === "alt" ? { alt: true, altName: myAltName() } : {}), tagline: (d && d.tagline) || "",
+        id: "pm_" + base + "_s", npcId: npc.id, npcName: npc.name, ...pmAcctTag(), tagline: (d && d.tagline) || "",
         attitude: (d && d.attitude === "troll") ? "troll" : ((d && d.attitude) || "curious"),
         ground,
         messages: (d && d.opening) ? [{ from: "npc", text: String(d.opening), ts: base }] : [],
@@ -26185,12 +26279,11 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   const startCharPM = char => {
     if (!char || !char.id) return "";
     // 大号、小号各一条私信线：小号那条在TA眼里是陌生人
-    const altNow = forumMe.using === "alt";
-    const exist = (forumPMsRef.current || []).find(t => t && t.charId === char.id && !!t.alt === altNow);
+    const exist = (forumPMsRef.current || []).find(t => t && t.charId === char.id && pmAcctOf(t) === pmAcctNow());
     if (exist) return exist.id;
     const meta = charForumMeta(char);
     const base = Date.now();
-    const th = { id: "pm_" + base + "_c", charId: char.id, ...(altNow ? { alt: true, altName: myAltName() } : {}), npcName: meta.handle || char.name, tagline: meta.bio || "", attitude: "friendly", messages: [], updatedTs: base, unread: false };
+    const th = { id: "pm_" + base + "_c", charId: char.id, ...pmAcctTag(), npcName: meta.handle || char.name, tagline: meta.bio || "", attitude: "friendly", messages: [], updatedTs: base, unread: false };
     setForumPMs(prev => { const n = [th, ...prev].slice(0, FORUM_PM_KEEP); saveJSON("x_forumPMs", n); return n; });
     return th.id;
   };
@@ -26205,7 +26298,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   // 私信记录写给网友那一方看时，两边都标清是谁（她 2026-10-16：加微信后的简介把她的话安到了对方头上——
   //   「我是潜水党」「是我先私信的」都成了他的。原来记录里她那一边写的是「我」，网友读来就是在说他自己）
   const pmConvo = (th, msgs) => {
-    const her = th.alt ? (th.altName || myAltName()) : (forumMe.handle || userName(profile));
+    const her = th.alt || th.mask ? pmMeName(th) : (forumMe.handle || userName(profile));
     return msgs.map(m => (m.from === "me" ? "对方「" + her + "」" : "你「" + th.npcName + "」") + "：" + (m.photo ? "〔发了一张照片：" + String(m.photo.desc || "").slice(0, 120) + "〕" : m.text)).join("\n");
   };
   // 私信里发照片（群里 2026-10-18 许愿「论坛私信聊天也能生图」）。
@@ -26258,7 +26351,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   const forumPublicWith = th => {
     if (!th || th.charId) return "";
     const nm = String(th.npcName || ""), alt = !!th.alt, out = [];
-    const mine = x => x && x.authorType === "me" && !!x.alt === alt && !x.anon;
+    const mine = x => x && x.authorType === "me" && !!x.alt === alt && !x.anon && (alt || String(x.mask || "") === String(th.mask || ""));
     const his = x => x && String(x.authorName || "") === nm;
     const all = forumCommentsRef.current || {};
     (forumPostsRef.current || []).forEach(p => {
@@ -26287,13 +26380,13 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       // 角色那条：走TA【自己】那份上下文（人设、心情、记忆、你俩的关系），不是网友那套。
       // 拿通用的网友提示词去演TA，出来的是个顶着TA网名的陌生人。
       const pmChar = th.charId ? (characters || []).find(c => c.id === th.charId) : null;
-      if (pmChar && th.alt) {
+      if (pmChar && !pmCharKnows(th, pmChar)) {
         // 她用小号私信了TA：在TA那头，这就是一个陌生网友——不认识、不知道是她
         const dc = await runProbe(apiFor(pmChar.id), ctxFor(pmChar), {
           voice: true,
-          instruction: "【这一轮发生在贴吧的私信框里】一个网名叫「" + (th.altName || myAltName()) + "」的陌生网友私信了你的大号。你不认识这个号，也不知道对面是谁——就按你的人设对待一个陌生网友。\n"
+          instruction: "【这一轮发生在贴吧的私信框里】一个网名叫「" + pmMeName(th) + "」的陌生网友私信了你的大号。你不认识这个号，也不知道对面是谁——就按你的人设对待一个陌生网友。\n"
             + "⚠️这是【打字】，不是当面：没有动作、没有神态，只有你打出去的那几行字。**别写任何动作描写或旁白**。\n"
-            + tl + "这是你们在私信里说过的：\n" + convo.replace(/^我：/gm, (th.altName || myAltName()) + "：") + "\n\n回最新这句（1-3 条，一条一个气泡）。" + pmPhotoHint(false),
+            + tl + "这是你们在私信里说过的：\n" + convo.replace(/^我：/gm, pmMeName(th) + "：") + "\n\n回最新这句（1-3 条，一条一个气泡）。" + pmPhotoHint(false),
           schemaHint: "{\"say\":[\"气泡1\",\"气泡2\"]" + pmPhotoSchema(false) + "}",
           maxTokens: FTOK.pm
         });
@@ -26302,7 +26395,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         return;
       }
       if (pmChar) {
-        const meHandle = (forumMe && forumMe.handle) || profile.name || "对方";
+        const meHandle = pmMeName(th);
         const dc = await runProbe(apiFor(pmChar.id), ctxFor(pmChar), {
           voice: true,
           instruction: "【这一轮发生在贴吧的私信框里】" + (profile.name || "对方") + "在论坛上用网名「" + meHandle + "」私信了你的大号。\n"
@@ -26531,7 +26624,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   const forumPmKnow = (post, names) => {
     if (!post || post.board === "匿名吧" || post.anon) return "";
     const alt = !!usingAlt(post), me = myForumName(post), want = new Set((names || []).filter(Boolean).map(String));
-    const ths = (forumPMsRef.current || []).filter(t => t && !t.charId && !!t.alt === alt && want.has(String(t.npcName)) && (t.messages || []).length).slice(0, 3);
+    const ths = (forumPMsRef.current || []).filter(t => t && !t.charId && pmAcctOf(t) === (alt ? "alt" : String(myMaskTag(post).mask || "")) && want.has(String(t.npcName)) && (t.messages || []).length).slice(0, 3);
     if (!ths.length) return "";
     return "【这几位跟「" + me + "」私信里聊过——在这儿碰到她认得她，就是私信里那个人】\n"
       + ths.map(t => "· 「" + t.npcName + "」：" + t.messages.slice(-6).map(m => (m.from === "me" ? me : t.npcName) + "：" + String(m.text || "").slice(0, 60)).join(" / ")).join("\n")
@@ -26633,9 +26726,9 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         // 「回复 @谁」：她、或者这层里已经说过话的人（她 2026-09-24）
         const toName = forumValidTo(x.to, [meNow].concat((floor.replies || []).map(y => y && y.authorName)));
         const cc = forumActiveChars().find(c => c.name === x.char && forumInWorld(c, post));
-        if (cc) { const ci = forumCharIdentity(cc, x.identity, post.board); return { authorName: ci.authorName, authorHandle: ci.authorHandle, authorType: ci.authorType, authorId: cc.id, content: x.content, replyToMe: true, ...(toName ? { toName } : {}), ts: replyBase + replyIndex }; }
+        if (cc) { const ci = forumCharIdentity(cc, x.identity, post.board); return { authorName: ci.authorName, authorHandle: ci.authorHandle, authorType: ci.authorType, authorId: cc.id, content: x.content, replyToMe: true, ...(toName ? { toName } : {}), ...(TIE_TONES[x.meetTone] ? { meetTone: x.meetTone } : {}), ts: replyBase + replyIndex }; }
         const npc = forumPublicNpcOf(x, post.board, floorId + ":" + x.content);
-        return { authorName: npc.name, authorHandle: npc.handle, authorType: "npc", authorId: npc.id, content: x.content, replyToMe: true, ...(toName ? { toName } : {}), ts: replyBase + replyIndex };
+        return { authorName: npc.name, authorHandle: npc.handle, authorType: "npc", authorId: npc.id, content: x.content, replyToMe: true, ...(toName ? { toName } : {}), ...(TIE_TONES[x.meetTone] ? { meetTone: x.meetTone } : {}), ts: replyBase + replyIndex };
       });
       // ⚠️上面被丢掉的（以她的名义生成的那些）是 null，绝不能落进状态
       const keptReps = reps.filter(r => r && !forumIsMine(r));
@@ -30869,7 +30962,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   };
   const finishPayLater = (charId, items, total, char) => {
     adjustCharBalance(charId, -total, "代付 · " + items.map(x => x.name).join("、").slice(0, 18), "shop");
-    items.forEach(it => addOrder({ name: it.name, price: it.price, cat: it.cat, kind: it.kind, takeout: it.takeout, fromCharId: charId, payLabel: (char ? char.name : "对方") + " 代付" }));
+    items.forEach(it => addOrder({ name: it.name, price: it.price, cat: it.cat, kind: it.kind, takeout: it.takeout, ...(it.arriveTs ? { arriveTs: it.arriveTs } : {}), fromCharId: charId, payLabel: (char ? char.name : "对方") + " 代付" }));
   };
   const decidePayLater = async (charId, pid, items, total) => {
     const char = characters.find(c => c.id === charId);
@@ -31102,7 +31195,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     if (mode === "buy") {
       if (balanceOf(payMask) < total) { toast("余额不足"); return; }
       changeWallet(-total, "购物 " + items.map(x => x.name).join("、").slice(0, 18), "shop", { where: "购物", mask: payMask });
-      items.forEach(it => addOrder({ name: it.name, price: it.price, cat: it.cat, kind: it.kind, takeout: it.takeout, mask: payMask }));
+      items.forEach(it => addOrder({ name: it.name, price: it.price, cat: it.cat, kind: it.kind, takeout: it.takeout, ...(it.arriveTs ? { arriveTs: it.arriveTs } : {}), mask: payMask }));
       removeCartUids(uids);
       toast("下单成功 · " + items.length + " 件，等待发货");
     } else if (mode === "kinship") {
@@ -31550,13 +31643,9 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         maxTokens: 8000
       });
       // 重名的照样留着（她 2026-10-13：「重复的照样留着吧都花了钱的」）——去重只靠上面把已有的告诉他、降低概率
-      const items = (d && Array.isArray(d.items) ? d.items : []).map(x => ({ name: String((x && x.name) || "").trim().slice(0, 8), look: String((x && x.look) || "").trim().slice(0, 60) })).filter(x => x.name && x.look).slice(0, 9);
+      const items = emoteSetItems(d);
       if (items.length < 9) throw new Error("他没挑够九个，再试一次");
-      const prompt = "一张 3×3 九宫格表情包贴纸图，九格一样大，格与格之间留明显的白色空隙，每格纯白底。"
-        + "每格都是同一个人「" + char.name + "」的平面 Q 版二次元小人：二到三头身、大头小身子、手脚短短圆圆，干净的深色勾线、赛璐璐平涂，大眼睛、脸颊淡淡腮红，像聊天贴纸；长相、发型发色、标志性配饰照参考图。"
-        + (char.appearance ? "外貌：" + String(char.appearance).slice(0, 200) + "。" : "")
-        + "九格从左到右、从上到下依次是：" + items.map((x, i) => (i + 1) + "." + x.look).join("；")
-        + "。每格人物居中、完整、别出格。画面里不要任何文字、字母、对话框。";
+      const prompt = emoteSetPrompt(char.name, char.appearance, items);
       const out = await generateSelfieImage(prompt, [char.refPhoto], { size: "1024x1024", minimalPrompt: prompt });
       let blob = out && out.blob;
       if (!blob && out && out.url) { try { blob = await (await fetch(out.url)).blob(); } catch (e) { blob = null; } }
@@ -31581,6 +31670,22 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   // 她自己的一套（群友 2026-10-30：「表情包那块可以给 char 画，能不能加上可以画小U自己的」）：
   //   跟上面同一套做法——挑九个表情 → 照面具的参考照画一张九宫格 → 切开存进「X 的表情」那一组。
   //   不是哪个角色在挑，所以挑表情走后台线路、照这张面具的人设挑；画图和切图跟角色那套一模一样
+  // 挑出来的九个表情 → [{name, look}]。她 2026-10-30：「我的表情包一直说没画成没凑够9个」——
+  //   她那一套的提示词原来没写 JSON 长什么样，模型交回来的是裸数组或换了个键名，一律当成零个。两套都过这一份。
+  const emoteSetItems = d => {
+    const arr = Array.isArray(d) ? d : d && typeof d === "object" ? (Array.isArray(d.items) ? d.items : Object.values(d).find(Array.isArray) || []) : [];
+    return arr.map(x => typeof x === "string" ? { name: x, look: x } : x)
+      .map(x => ({ name: String((x && (x.name || x.keyword)) || "").trim().slice(0, 8), look: String((x && (x.look || x.desc || x.name)) || "").trim().slice(0, 60) }))
+      .filter(x => x.name && x.look).slice(0, 9);
+  };
+  // 九宫格那张图的说法，角色和她自己共用这一份（她 2026-10-30：两套画风不一样——她传的是真人照，
+  //   原来她那套也没说参考图只管长相，模型连照片的写实质感一起照搬了）。画风照这段字，参考图只认人。
+  const emoteSetPrompt = (name, appearance, items) => "一张 3×3 九宫格表情包贴纸图，九格一样大，格与格之间留明显的白色空隙，每格纯白底。"
+    + "每格都是同一个人「" + name + "」的平面 Q 版二次元小人：二到三头身、大头小身子、手脚短短圆圆，干净的深色勾线、赛璐璐平涂，大眼睛、脸颊淡淡腮红，像聊天软件里的表情贴纸。"
+    + "画风只照这段描述来；参考图只用来认这个人——长相、发型发色、标志性配饰照它，照片本身的写实质感、光影、画风都不跟。"
+    + (appearance ? "外貌：" + String(appearance).slice(0, 200) + "。" : "")
+    + "九格从左到右、从上到下依次是：" + items.map((x, i) => (i + 1) + "." + x.look).join("；")
+    + "。每格人物居中、完整、别出格。画面里不要任何文字、字母、对话框。";
   const makeMyEmoteSet = async (maskKey, setOpt) => {
     const me = (maskKey ? (masksRef.current || []).find(m => m && m.id === maskKey) : profile) || null;
     const key = "__me:" + (maskKey || "");
@@ -31597,16 +31702,12 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       const raw = await callAI(api, "你帮一个人挑她自己表情包里的九个表情。只输出 JSON。", [{ role: "user", content:
         "这个人叫「" + nm + "」。" + (me.persona ? "她的人设：" + String(me.persona).slice(0, 600) + "\n" : "")
         + (_have.length ? "她的表情包里已经有这些了（名字和意思都别再重复）：" + _have.slice(-60).join("、") + "\n" : "")
-        + "照她的性子挑九个最像她、她最常用的表情或小动作，各起一个 2~6 字的短名字（发表情时的关键词）；look＝这一张画什么（表情和动作，一句话）。九个各不一样。" }],
+        + "照她的性子挑九个最像她、她最常用的表情或小动作，各起一个 2~6 字的短名字（发表情时的关键词）；look＝这一张画什么（表情和动作，一句话）。九个各不一样。\n只输出这个形状的 JSON：{\"items\":[{\"name\":\"\",\"look\":\"\"}]}" }],
         { maxTokens: 8000 });
       const d = typeof extractJSON === "function" ? extractJSON(raw) : null;
-      const items = (d && Array.isArray(d.items) ? d.items : []).map(x => ({ name: String((x && x.name) || "").trim().slice(0, 8), look: String((x && x.look) || "").trim().slice(0, 60) })).filter(x => x.name && x.look).slice(0, 9);
+      const items = emoteSetItems(d);
       if (items.length < 9) throw new Error("没挑够九个，再试一次");
-      const prompt = "一张 3×3 九宫格表情包贴纸图，九格一样大，格与格之间留明显的白色空隙，每格纯白底。"
-        + "每格都是同一个人「" + nm + "」的平面 Q 版二次元小人：二到三头身、大头小身子、手脚短短圆圆，干净的深色勾线、赛璐璐平涂，大眼睛、脸颊淡淡腮红，像聊天软件里的表情贴纸。"
-        + (me.appearance ? "外貌：" + String(me.appearance).slice(0, 200) + "。" : "")
-        + "九格从左到右、从上到下依次是：" + items.map((x, i) => (i + 1) + "." + x.look).join("；")
-        + "。每格人物居中、完整、别出格。画面里不要任何文字、字母、对话框。";
+      const prompt = emoteSetPrompt(nm, me.appearance, items);
       const out = await generateSelfieImage(prompt, [me.refPhoto], { size: "1024x1024", minimalPrompt: prompt });
       let blob = out && out.blob;
       if (!blob && out && out.url) { try { blob = await (await fetch(out.url)).blob(); } catch (e) { blob = null; } }
@@ -33812,7 +33913,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     followBack: forumBack,
     // 他关注了谁（互关的第 3 条）：回关了你就有你；再加上跟他有关系的那几个角色（有号的才算），只列名字
     followingOf: cid => ((characters || []).filter(x => x.id !== cid && !x.npc && (rels[cid + "->" + x.id] || rels[x.id + "->" + cid])).map(x => x.name)).slice(0, 12),
-    pms: forumPMs,
+    pms: (forumPMs || []).filter(t => pmAcctOf(t) === pmAcctNow()),
     groups: groups,
     gen: gen,
     forumMe: forumMe,
@@ -35368,6 +35469,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     onBack: exitListen,
     onSetDisc: setListenDisc,
     onSetCover: setSongCover,
+    // 每首都用同一张封面（群里 2026-10-31：「音乐这里的封面能不能全部都是我换的这张」）：存在 listen 上，不改每首歌自己的封面
+    onSetFixedCover: v => saveListen(p => ({ ...p, coverFixed: v || "" })),
     onAddNetease: addNeteaseSong,
     onAddLocal: addLocalSong,
     onPlaySong: playSong,
