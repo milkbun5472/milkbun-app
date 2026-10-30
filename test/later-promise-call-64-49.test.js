@@ -50,7 +50,10 @@ test("两个来源共用同一条到期链，同一个 via", () => {
 });
 
 test("「她正看着这个聊天」那道闸不许拦电话", () => {
-  const seg = app.slice(app.indexOf("const due = (promisesRef.current || [])"), app.indexOf("      } catch (e) {}\n      try {"));
+  // ⚠️收尾那个标记要【从这一段开头往后找】：它在别处也出现，从头找会落在这一段前面、切出一段空的
+  //   （2026-10-29 就是这么红的）。
+  const segStart = app.indexOf("const due = (promisesRef.current || [])");
+  const seg = app.slice(segStart, app.indexOf("      } catch (e) {}\n      try {", segStart));
   const iRing = seg.indexOf('if (pm.via === "voice" || pm.via === "video")');
   const iView = seg.indexOf("viewRef.current.charId === pm.charId");
   assert.ok(iRing > 0 && iView > 0, "两句都得在");

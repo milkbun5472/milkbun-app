@@ -30,5 +30,7 @@ test("常用语言只管说出口的话；旁白动作照常写简体；译文�
   const eng = fs2.readFileSync(p2.join(__dirname, "../js/engine.js"), "utf8");
   const cmp = fs2.readFileSync(p2.join(__dirname, "../js/components.js"), "utf8");
   assert.match(eng, /这只管【说出口的话】：线下的旁白、动作、神态、心理描写不是" \+ c\.name \+ "说的话，照常用简体中文写。/);
-  assert.match(cmp, /setZh\(typeof toSimplified === "function" \? toSimplified\(r\.zh\) : r\.zh\)/);
+  // 钉「翻回来的那份一定过一遍转简体」这件事，别钉整行（2026-10-29：这行中间加了 fixGarbledText）
+  { const line = (cmp.match(/[^\n]*setZh\(typeof toSimplified[^\n]*/) || [""])[0];
+    assert.match(line, /toSimplified\(/, "译文没过转简体那一道"); }
 });
