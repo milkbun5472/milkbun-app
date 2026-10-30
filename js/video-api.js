@@ -4,7 +4,7 @@
   const CONFIG = "x_videoApi", MEDIA = "x_pomodoro_media", JOBS = "x_pomodoro_video_jobs";
   const DEFAULT = { enabled: false, baseUrl: "https://api.minimax.io", apiKey: "", model: "MiniMax-H3", resolution: "768P", duration: 4 };
   const MODELS = ["MiniMax-H3", "MiniMax-H3-Max", "MiniMax-Hailuo-2.3-Fast", "MiniMax-Hailuo-2.3", "MiniMax-Hailuo-02", "I2V-01-live", "I2V-01-Director", "I2V-01"];
-  const MOTION = "[Static shot] 人物保持原来的位置，轻轻呼吸、自然眨眼，头发轻微摆动，动作幅度很小，最后回到初始姿态，适合循环播放。";
+  const MOTION = "[Static shot] 人物保持原来的位置，几乎静止，像一张动态照片：只有光线和空气在轻轻变，人和头发几乎不动，不做表情、不做动作，最后回到初始姿态，适合循环播放。";
   function base(value) { return cleanBaseUrl(value).replace(/\/v[12](?:\/.*)?$/i, ""); }
   const isV2 = model => model === "MiniMax-H3" || model === "MiniMax-H3-Max";
   const resolutions = model => model === "MiniMax-H3" ? ["768P", "2K"] : model === "MiniMax-H3-Max" ? ["768P", "480P"] : model.startsWith("I2V-") ? ["720P"] : ["768P", "1080P", ...(model === "MiniMax-Hailuo-02" ? ["512P"] : [])];
@@ -324,7 +324,7 @@
   async function allVideos() {
     const refs = new Set(); Object.values(motionAll()).forEach(m => Object.values(m || {}).forEach(x => { if (x && x.videoRef) refs.add(x.videoRef); }));
     // 邮票册 SSR 卡面动起来的那几段也一起备份（她 2026-10-30）
-    try { ((loadJSON("x_stamps", {}) || {}).cards || []).forEach(c => { if (c && c.video) refs.add(c.video); }); } catch (e) {}
+    try { ((loadJSON("x_stamps", {}) || {}).cards || []).forEach(c => { if (c && c.video) refs.add(c.video); if (c && c.videos) Object.values(c.videos).forEach(v => { if (v) refs.add(v); }); }); } catch (e) {}
     const out = []; for (const ref of refs) { const b = await blobOp(ref).catch(() => null); if (b) out.push([ref, b]); } return out;
   }
   const restoreVideo = (ref, blob) => blobOp(ref, blob);

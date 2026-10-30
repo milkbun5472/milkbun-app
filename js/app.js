@@ -20,7 +20,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v76.926";
+const APP_VERSION = "v76.934";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -24417,7 +24417,11 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     return "「" + b + "」：" + (about ? "这个吧聊的是——" + about + "。" : "")
       + "来这儿的都是真泡在这个圈子里的人：有自己的行话、老梗、老面孔和吵不完的老话题，说话默认对方也懂；"
       + "不是路过的人在给外行介绍这个话题。"
-      + (about ? "这个吧里每一帖都在这个话题里，跟它对不上的不往这儿发。" : "");
+      + (about ? "这个吧里每一帖都在这个话题里，跟它对不上的不往这儿发。"
+        // 简介就是这个吧的设定（群里 2026-10-30：想开一个嗑她和角色 cp 的吧，「两个地方都试了不太有效」）：
+        //   别处那几条「别把她和角色的事往网上发」「网友不认识她」是给普通吧的，在她亲手写了设定的吧里让位给简介
+        + "简介是她给这个吧定的设定，说了算：简介里写到的人和关系（台上的角色、她、他们之间的事），在这个吧里就是大家都知道、天天在聊的，资料上面都有；"
+        + "别处那些「别把她和角色的事往网上发」「网友不认识她」的规矩，碰上简介写到的人和事，在这个吧里照简介来。" : "");
   };
   // 随机互动数（赞/浏览/转发），据种子稳定生成，纯展示
   const forumCounts = (seed, replyCount) => { const hh = forumHash(seed); const rc = replyCount || (12 + hh % 480); return { replyCount: rc, likeCount: Math.floor(rc * (0.6 + (hh % 40) / 25)) + (hh % 40), viewCount: rc * (8 + hh % 90) + (hh % 600), rtCount: Math.floor(rc / (5 + hh % 14)) }; };
@@ -28337,7 +28341,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   // 我的衣柜只添不挤（群友 2026-10-13：「生成新的之后旧的就会被覆盖」）：原来一类满 6 身就把最老那身挤掉、
   //   满 6 类就把最老那一类整个挤掉，而且一声不吭——看着就是「新的把旧的盖了」。
   //   现在挂满了就不挂，交给调用的地方说一声，收不收由她自己决定。
-  const MYCLOSET_MAX_OCC = 16, MYCLOSET_MAX_SETS = 20;   // 跟 TA 的衣柜同一档（她 2026-10-13：「上限放宽点，我和他的都是」）
+  const MYCLOSET_MAX_OCC = CLOSET_MAX_OCCASIONS, MYCLOSET_MAX_SETS = CLOSET_MAX_SETS;   // 跟 TA 的衣柜读同一份（screens.js），不另写数（她 2026-10-13：「上限放宽点，我和他的都是」）
   const myClosetN = box => ((box && box.closet) || []).reduce((n, g) => n + ((g && g.sets) || []).length, 0);
   const myClosetPut = (box, occ, set) => {
     const occasion = String(occ || "").trim().slice(0, 8) || "平常";

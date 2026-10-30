@@ -2304,7 +2304,7 @@ function Forum({
   const openBoard = () => {
     const name = forumBoardName(newBoard && newBoard.name);
     if (!name) { toast && toast("给这个吧起个名字"); return; }
-    const about = String((newBoard && newBoard.about) || "").trim().slice(0, 60);
+    const about = String((newBoard && newBoard.about) || "").trim().slice(0, 300);   // 简介就是这个吧的设定，60 字写不下（群里 2026-10-30）
     const skin = Number.isInteger(newBoard && newBoard.skin) ? newBoard.skin : undefined;
     const rules = forumRulesFromText(newBoard && newBoard.rules);
     // 编辑已经开好的吧：吧名、简介、颜色都能改；改名时帖子跟着挪（onRenameBoard）
@@ -3503,8 +3503,9 @@ function Forum({
         h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: FORUM_SKIN.fog, margin: "3px 0 12px", lineHeight: 1.6 } }, "开好就挂在版块那一排里，刷新、发帖、角色逛论坛都会来"),
         h("input", { "data-wk": "input", value: newBoard.name, autoFocus: true, onChange: e => setNewBoard(Object.assign({}, newBoard, { name: e.target.value })), placeholder: "吧名，后面的「吧」字会自己加上",
           className: "w-full outline-none px-3 py-2.5 rounded-lg mb-2", style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", background: t.bg2, color: t.ink, border: "1px solid " + t.line } }),
-        h("input", { "data-wk": "input", value: newBoard.about, onChange: e => setNewBoard(Object.assign({}, newBoard, { about: e.target.value })), onKeyDown: e => e.key === "Enter" && openBoard(), placeholder: "这个吧聊什么（可以不写）",
-          className: "w-full outline-none px-3 py-2.5 rounded-lg", style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", background: t.bg2, color: t.ink, border: "1px solid " + t.line } }),
+        h("textarea", { "data-wk": "textarea", value: newBoard.about, rows: 3, onChange: e => setNewBoard(Object.assign({}, newBoard, { about: e.target.value.slice(0, 300) })), placeholder: "这个吧聊什么（可以不写）",
+          className: "w-full outline-none px-3 py-2.5 rounded-lg", style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", lineHeight: 1.6, background: t.bg2, color: t.ink, border: "1px solid " + t.line, resize: "none" } }),
+        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: FORUM_SKIN.fog, lineHeight: 1.6, marginTop: 4 } }, "帖子写什么照这一格来：这就是这个吧的设定，写到的人和事（角色、你、你们之间）在这个吧里大家都知道、都在聊。最多 300 字"),
         h("textarea", { "data-wk": "textarea", value: newBoard.rules || "", onChange: e => setNewBoard(Object.assign({}, newBoard, { rules: e.target.value })), rows: 3, placeholder: "吧规（可以不写）：一行一条，最多八条",
           className: "w-full outline-none px-3 py-2.5 rounded-lg", style: { marginTop: 8, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", lineHeight: 1.6, background: t.bg2, color: t.ink, border: "1px solid " + t.line, resize: "none" } }),
         h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: FORUM_SKIN.fog, lineHeight: 1.6, marginTop: 4 } }, "挂在这个吧的置顶；网友偶尔会拿它说事，发错地方也会有人提一句，不是每层楼都管人"),
