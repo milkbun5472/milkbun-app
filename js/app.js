@@ -22279,7 +22279,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     if (!w) return false;
     const dup = (w.regions || []).some(r => (r.nodes || []).some(n => n.name === nm));
     if (dup) { toast("「" + nm + "」已经在图上了"); return false; }
-    // 画图那边一块地方最多画 8 个（WORLD_MAX_NODES）。加得进去却画不出来最难查，
+    // 画图那边一块地方最多画几个（WORLD_MAX_NODES，map.js 那一份）。加得进去却画不出来最难查，
     // 所以这一道挡在存盘之前。
     // 新开一块地方（她 2026-10-03）：名字不撞、总数不过 12，挨着的那几块也回头记上它（接壤是双向的）
     const nr = node && node.newRegion;
@@ -22296,7 +22296,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       return true;
     }
     const rg = (w.regions || []).find(r => r.name === regionName);
-    if (rg && (rg.nodes || []).length >= 8) { toast("「" + regionName + "」已经满了（最多 8 个地点）——加到别的地方去，或者开一块新的"); return false; }
+    const _maxN = window.WORLD_MAX_NODES || 12;
+    if (rg && (rg.nodes || []).length >= _maxN) { toast("「" + regionName + "」已经满了（最多 " + _maxN + " 个地点）——加到别的地方去，或者开一块新的"); return false; }
     saveWorlds((worlds || []).map(x => x.id !== wid ? x : { ...x, regions: (x.regions || []).map(r => r.name !== regionName ? r : {
       ...r, nodes: [...(r.nodes || []), { name: nm, kind: node.kind || "野外", hook: String(node.hook || "").trim().slice(0, 60) }]
     }) }));
@@ -22386,8 +22387,9 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       const raw = await callAI(active, sys, [{ role: "user", content: "开始。" }], { maxTokens: 65000 });
       const d = extractJSON(raw) || {};
       const seen = {}; (w.regions || []).forEach(r => (r.nodes || []).forEach(n => { seen[n.name] = 1; }));
-      const room = Math.max(0, 8 - (((w.regions || []).find(r => r.name === regionName) || {}).nodes || []).length);
-      if (!room) throw new Error("「" + regionName + "」已经满了（最多 8 个地点）");
+      const _maxN = window.WORLD_MAX_NODES || 12;
+      const room = Math.max(0, _maxN - (((w.regions || []).find(r => r.name === regionName) || {}).nodes || []).length);
+      if (!room) throw new Error("「" + regionName + "」已经满了（最多 " + _maxN + " 个地点）");
       const fresh = ((d && Array.isArray(d.nodes)) ? d.nodes : [])
         .map(x => ({ name: String((x && x.name) || "").trim().slice(0, 10), kind: ["城镇", "遗迹", "野外", "地标"].indexOf(x && x.kind) >= 0 ? x.kind : "野外", hook: String((x && x.hook) || "").trim().slice(0, 60) }))
         .filter(x => x.name && !seen[x.name] && (seen[x.name] = 1)).slice(0, Math.min(4, room));

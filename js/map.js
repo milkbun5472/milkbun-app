@@ -338,7 +338,9 @@ function mapSubSkin(t) {
   // 地图引擎直接借跑团那一份(window.TrpgMap):模型只宣告【区域·接壤·节点】,
   // 坐标全由力导向现算——同一个世界每次画出来一模一样,不存图片、不占云同步。
   // 区域上限 8 → 12（她 2026-10-03 转群友：「架空地图是最多六块地方吗？可以自设多的地方吗」）
-  const WORLD_MAX_NODES = 8, WORLD_MAX_REGIONS = 12;   // 一块地方最多画几个地点 / 一个世界最多几块地方
+  // 一块地方最多画几个地点 / 一个世界最多几块地方。2026-10-31 群里：8 个不够，放到 12（撒点也改成只落在自己那块里，挤得下）
+  const WORLD_MAX_NODES = 12, WORLD_MAX_REGIONS = 12;
+  if (typeof window !== "undefined") window.WORLD_MAX_NODES = WORLD_MAX_NODES;   // 加地点那几道闸读这一份
   const TERR_TINT = { 山地: "#d9d0c2", 平原: "#dde2cd", 森林: "#cfdac8", 水泽: "#cdd8dc", 荒漠: "#e4d9c2", 城郭: "#ddd3d6" };
   // ── 地点记号（v62.68）─────────────────────────────────────────────
   // 原来是四个 Unicode 符号 ⌂ ▲ • ★ 当图标。规矩里写着：Unicode 当图标一律换成
