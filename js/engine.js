@@ -1665,7 +1665,20 @@ function directedRelationLines(char, rels, chars, profile) {
     const r = rels[char.id + "->" + o.id];
     if (r) lines.push("- " + char.name + " 眼中的 " + o.name + "：" + r.label + (r.note ? "（" + r.note + "）" : ""));
   }
+  // 同姓不等于一家人（群里 2026-10-31：「只要是一个姓系统非说他们是亲戚，怎么强调都没用」）：
+  //   只有真碰上同姓、又没写他们之间什么关系的时候才补这一行
+  const sur = cnSurname(char.name), kin = sur ? [{ name: me }].concat(chars).filter(o => o && o.id !== char.id && o.name !== char.name && cnSurname(o.name) === sur
+    && !rels[char.id + "->" + (o.id || "me")] && !(o.name === me && rels["me->" + char.id])).map(o => o.name) : [];
+  if (kin.length) lines.push("- " + char.name + " 和 " + kin.join("、") + " 同姓「" + sur + "」，只是碰巧：上面没写他们之间什么关系，就是不相干的人，不是亲戚、不是一家人；是不是亲戚只看写了的关系。");
   return lines.length ? lines.join("\n") : "（暂无已设定的关系）";
+}
+// 中文名的姓：复姓先认，其余取第一个字；不是汉字开头的（英文名之类）不算
+const CN_COMPOUND_SURNAMES = ["欧阳", "司马", "诸葛", "上官", "慕容", "东方", "皇甫", "尉迟", "公孙", "令狐", "长孙", "宇文", "司徒", "夏侯", "轩辕", "端木", "南宫", "独孤", "百里", "西门", "澹台", "钟离"];
+function cnSurname(name) {
+  const n = String(name || "").trim();
+  if (!/^[\u4e00-\u9fff]/.test(n) || n.length < 2) return "";
+  const c = CN_COMPOUND_SURNAMES.find(x => n.indexOf(x) === 0 && n.length > x.length);
+  return c || n[0];
 }
 // 叙事人称/代入方式指令（单聊/群聊/线下共用）：selfP/userP = "first|second|third"，describeMe = 是否让角色描写并推动用户的动作
 // 人称那两句只有这一份：叙事准则里一份、线下第一拍的尾巴里再说一遍，都从这儿取
