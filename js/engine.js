@@ -7822,6 +7822,19 @@ function _transStripKaoParens(t) {
   return s.replace(/[(（][^()（）\u4e00-\u9fff]{0,24}$/g, " ");
 }
 // 返回 "" 表示不用翻；否则返回中文语种名，直接拿去当标签
+// 拉丁字母写的是哪一种（她 2026-10-30：「C'est pas moi」一个带符号的字母都没有，被标成「译自英文」，送去翻译也按英文翻）。
+//   原来只看「全是 ASCII 就是英文」；现在数几种语言各自最常见的小词和专用字母，谁多算谁，认不准就交给翻译那边自己认（外语＝auto）
+const LATIN_LANG_HINTS = [
+  ["英文", /\b(the|you|your|i|is|are|and|it|to|not|what|this|that|my|me|of|in|do|don't|i'm|it's|can|have|was|be|get|some|good|go|we|just|so|for|on|with|at|yes|love|know|like|want|will|night|rest|please|sorry|how|why|okay)\b/gi, null],
+  ["法文", /\b(c'est|n'est|je|j'ai|tu|vous|nous|pas|moi|toi|oui|merci|très|avec|pour|est|une|les|des|du|qu'|mais|ça|le|la|et|il|elle)\b/gi, /[àâçèêëîïôûùœ]/gi],
+  ["西班牙文", /\b(el|los|las|que|no|sí|por|para|pero|muy|estoy|eres|gracias|hola|yo|es|una|está|qué|como)\b/gi, /[ñ¿¡áíóú]/gi],
+  ["德文", /\b(ich|nicht|und|das|ist|du|der|die|sie|wir|ein|eine|mit|auf|was|bin|bist|nein|ja|danke)\b/gi, /[äöüß]/gi],
+  ["意大利文", /\b(non|sono|che|ciao|grazie|perché|questo|io|sei|è|il|della|anche|molto|cosa|bene)\b/gi, /[àèìòù]/gi]
+];
+function latinLang(t) {
+  const score = LATIN_LANG_HINTS.map(([zh, words, marks]) => [zh, (String(t).match(words) || []).length + (marks ? (String(t).match(marks) || []).length * 2 : 0)]).sort((a, b) => b[1] - a[1]);
+  return score[0][1] > 0 && score[0][1] > score[1][1] ? score[0][0] : "外语";
+}
 function translatableLang(text) {
   // 设置里一键关掉（她 2026-10-02）
   try { if (typeof localStorage !== "undefined" && localStorage.getItem("x_noTranslate") === "1") return ""; } catch (e) {}
@@ -7844,7 +7857,7 @@ function translatableLang(text) {
   // 拉丁字母仍要求【一个汉字都没有】——「这个 deadline 我 handle 不了」她自己读得懂，
   // 挂个译键只是碍眼。但长度从 8 放到 6：Bonjour(7)、Merci beaucoup 都该给，
   // OK(2)/Over(4)/Sorry(5) 仍然不给。
-  if (han === 0 && latin >= 6) return /^[\x00-\x7f\s]*$/.test(t) ? "英文" : "外语";
+  if (han === 0 && latin >= 6) return latinLang(t);
   // 粤语（她 2026-10-10 截图：心声整段粤语，没有译键）：全是汉字，上面哪一条都认不出。
   //   靠粤语专用字认——嘅咗唔啲佢瞓这些普通话里不会出现，见到两个就是粤语（一个怕是人名、引用）。
   //   短句（二十个字以内）只有一个也算，但还得写着繁体字（她 2026-10-10：「仲有一節就忍下佢」只有一个佢，被标成「外语」；
@@ -8082,6 +8095,7 @@ function bilingualRule(who, hanLang) {
     + "\u4e2d\u6587\u8981\u6309 TA \u8bf4\u8bdd\u7684\u53e3\u6c14\u7ffb\uff08\u7528\u8bcd\u3001\u4eb2\u758f\u3001\u8bed\u6c14\u8bcd\u90fd\u8ddf\u7740\u8d70\uff09\uff0c\u4e0d\u662f\u5b57\u5178\u76f4\u8bd1\u3001\u4e0d\u8981\u7ffb\u8bd1\u8154\u3002"
     + "TA 真说中文的那些条（人设里写了 TA 会说中文的时候）\u3010\u7167\u5e38\u5199\uff0c\u4e00\u6839\u7ad6\u7ebf\u90fd\u522b\u52a0\u3011\uff1b对方用中文跟 TA 说话，不是 TA 改说中文的理由；\u4e00\u6761\u91cc\u6700\u591a\u53ea\u80fd\u6709\u8fd9\u4e00\u6839\u7ad6\u7ebf\u3002"
     + "\u5b83\u53ea\u662f\u7ed9\u5bf9\u65b9\u770b\u7684\u5b57\u5e55\uff0c\u4e0d\u6539\u53d8 TA \u8bf4\u4ec0\u4e48\u3001\u8bf4\u591a\u957f\u3001\u8bf4\u51e0\u6761\u3002"
+    + "右边说的必须是左边那句的意思，一个字都不能翻反：左边有「不」「没」、是反问，右边也照样有（她 2026-10-30：「C'est pas moi」被写成了「这就是我」）。"
     + "右边一律写简体、普通话的说法。" + (hanLang ? "粤语、上海话这类本来就用汉字写的话也算外语，照样写成「原文 | 普通话」。" : "")
     // 心声也带（她 2026-10-18：「翻译能不能让他顺手带上中文用竖线隔开跟消息一样」）——心声那颗「译」走免费翻译，网一断就翻不成
     + "心声（thought）是外语的话，也照这个写成「原文 | 中文」，一段心声只用一根竖线；动作、穿着这些状态字段不加。";
@@ -8121,7 +8135,7 @@ function transCachePut(text, zh, by) {
   } catch (e) {}
 }
 // translatableLang 已经判出语种了，直接给免费接口用（它们的 auto 检测都不太靠谱）
-const TRANS_LANG_CODE = { "日文": "ja", "韩文": "ko", "俄文": "ru", "英文": "en", "粤语": "yue", "外语": "auto" };
+const TRANS_LANG_CODE = { "日文": "ja", "韩文": "ko", "俄文": "ru", "英文": "en", "法文": "fr", "西班牙文": "es", "德文": "de", "意大利文": "it", "粤语": "yue", "外语": "auto" };
 async function _fetchJSON(url, ms) {
   const ctrl = new AbortController();
   const to = setTimeout(() => ctrl.abort(), ms || 8000);
