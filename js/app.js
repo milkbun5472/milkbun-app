@@ -29479,11 +29479,33 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     saveJSON("x_coupleLetters", n);
     return n;
   });
-  const removeCoupleLetter = id => setCoupleLetters(p => {
-    const n = p.filter(l => l.id !== id);
-    saveJSON("x_coupleLetters", n);
-    return n;
-  });
+  // 一封情书写成时会顺手记一条「X 给 Y 写过一封情书《标题》，写道…」进记忆库（coupleKeep）。
+  //   信删了那条原来还在，每轮照样被召回——她 2026-10-30 转群友：「他说上一轮看的情书，根本就没有啊」，
+  //   集市、裙子、丝线全是那封删掉的信里的。删信连那条一起删；以前删掉的信留下的那几条，开机扫一次清掉。
+  const letterMemOf = (e, l) => !!(e && l && Array.isArray(e.tags) && e.tags.includes("情书") && (e.charIds || []).map(String).includes(String(l.characterId))
+    && String(e.text || "").includes("写过一封情书《" + (cSnip(l.title, 20) || "无题") + "》"));
+  const removeCoupleLetter = id => {
+    const l = (coupleLettersRef.current || []).find(x => x && x.id === id);
+    if (l) { const lib = memLibRef.current || []; const keep = lib.filter(e => !letterMemOf(e, l)); if (keep.length !== lib.length) saveMemLib(keep); }
+    setCoupleLetters(p => {
+      const n = p.filter(l => l.id !== id);
+      saveJSON("x_coupleLetters", n);
+      return n;
+    });
+  };
+  useEffect(() => {
+    if (!loaded || loadJSON("x_letterMemSwept", 0)) return;
+    const t = setTimeout(() => {
+      try {
+        const letters = coupleLettersRef.current || [], lib = memLibRef.current || [];
+        const keep = lib.filter(e => !(e && Array.isArray(e.tags) && e.tags.includes("情书") && e.source === "couple" && /写过一封情书《/.test(String(e.text || ""))
+          && !letters.some(l => letterMemOf(e, l))));
+        if (keep.length !== lib.length) saveMemLib(keep);
+        saveJSON("x_letterMemSwept", 1);
+      } catch (e) {}
+    }, 8000);
+    return () => clearTimeout(t);
+  }, [loaded]);
   // 情侣空间·甜蜜值每日打卡：每天一次，随机 +0.1~1。
   // v62.09：打卡原来纯装饰、哪儿都不接——现在那一下顺手攒抽卡点数（GachaKit 的 sweet 档）。
   // 判断挪到 updater 外面：toast/攒点是副作用，不该塞在 setState updater 里（严格模式会跑两遍）。
