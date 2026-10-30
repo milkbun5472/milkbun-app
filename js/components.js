@@ -853,7 +853,7 @@ function pickTextFile(onMsg, opts) {
   inp.type = "file";
   // 一律放行、读的时候再看是不是字（她 2026-10-14：「秋秋不收 css 文件吗」——iPhone 的文件选择器不认 .css 这种后缀，
   //   照后缀列的清单会把它变灰，点都点不了；一起读那边早就是这么改的）
-  inp.accept = ANY_FILE;
+  if (ANY_FILE) inp.accept = ANY_FILE;   // 安卓那边是 undefined：不写这个属性，别写成 "undefined"
   // 挂进页面再点（她 2026-10-14：「开着秋秋退出 app 保活再回来，文件就发不出去了，得重进才行」）：
   //   没挂进 DOM 的 input，iPhone 从后台切回来以后选完文件常常不回 change——选了等于没选。挂上、用完就拿掉。
   inp.style.cssText = "position:fixed;left:-9999px;top:0;width:1px;height:1px;opacity:0";
