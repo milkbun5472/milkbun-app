@@ -436,7 +436,7 @@
     const more = async () => {
       const s = sessRef.current, c = s && (charOf(s.charId) || s.char);
       if (!s || !c || MORE_PENDING.has(s.startTs)) return;
-      if (!props.active) { props.toast && props.toast("先在设置里配好文字模型，再让他多说几句"); return; }
+      if (!props.active) { props.toast && props.toast(characterText(c, "先在设置里配好文字模型，再让他多说几句")); return; }
       if (!remainingSec(s, Date.now())) return;
       if (stopSpeechRef.current) stopSpeechRef.current();
       MORE_PENDING.add(s.startTs); setMoreBusy(true);

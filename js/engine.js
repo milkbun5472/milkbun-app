@@ -8082,6 +8082,16 @@ function clipAtSentence(s, n) {
   const m = t.match(/^[\s\S]*[。！？!?…][」』”）)]?/);
   return m && m[0].length >= 8 ? m[0] : t;
 }
+// 一句「原文 | 中文」被拆成几泡时，中文怎么分（她 2026-10-31「模型自己翻译变得比以前蠢了」）：
+//   原来中文整段挂在最后一泡，前几泡没有中文，于是被当成「缺翻译」交给免费机翻补——「おやすみ」补成了「问候」。
+//   中文也按同一把刀拆，句数对得上就一泡一句；对不上就整段挂最后一泡，前几泡标成「不用补」（返回空串）。
+function bilingualSpread(parts, zh, allowComma) {
+  const n = (parts || []).length;
+  if (n <= 1) return [zh];
+  const zp = splitLongBubble(String(zh || ""), allowComma);
+  if (zp.length === n) return zp;
+  return parts.map((_, i) => i === n - 1 ? zh : "");
+}
 function bilingualKey(s) {
   return String(s == null ? "" : s).replace(/[\u3002\uff0e.\s]+$/, "");
 }

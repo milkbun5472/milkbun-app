@@ -49,7 +49,9 @@
     { key: "tetris", emoji: "🧱", zh: "俄罗斯方块", en: "Tetris", min: 2, max: 2,
       desc: "你玩，TA 坐旁边看着说话；或者一人一块板子对战，消多行往对面塞垃圾行。TA 那块由本地棋手照你挑的水平下。", rule: "你和一个角色" },
     { key: "story", emoji: "📖", zh: "故事接龙", en: "Story Chain", min: 2, max: 8,
-      desc: "从一句开头起，轮流往下写一句，每人每次抽一个必须用上的词。三圈写完，最后一个人收尾。不分输赢，写完的故事能留着。", rule: "2~8 人 · 三圈 · 不分输赢" }
+      desc: "从一句开头起，轮流往下写一句，每人每次抽一个必须用上的词。三圈写完，最后一个人收尾。不分输赢，写完的故事能留着。", rule: "2~8 人 · 三圈 · 不分输赢" },
+    { key: "lingxi", emoji: "🔗", zh: "心有灵犀", en: "Mind Link", min: 2, max: 2,
+      desc: "你和 TA 先各自悄悄想一个词，之后每一轮拿两人最新的两个词，各写一个能连上它俩的新词，一样就得一分，再拿这两个新词接着连。写词前可以先聊两句；亮词以后能看 TA 是怎么想的。", rule: "你和一个角色 · 不限轮数 · 随时结束" }
   ];
   const LIST = GAMES.map(function (x) { return { key: x.key, zh: x.zh, min: x.min, max: x.max, rule: x.rule }; });
   g.GamesCatalog = GAMES;

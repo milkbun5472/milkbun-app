@@ -264,7 +264,8 @@
     chess:     { paper: "#ece4d6", ink: "#3d3128", hot: "#b58863", band: "#3d3128", bandInk: "#ece4d6" },
     xiangqi:   { paper: "#f2dfb8", ink: "#5a3418", hot: "#b8322a", band: "#5a3418", bandInk: "#f2dfb8" },
     go:        { paper: "#e9cf98", ink: "#3d2c16", hot: "#1a1816", band: "#3d2c16", bandInk: "#e9cf98" },
-    jungle:    { paper: "#dfe8c6", ink: "#3f5a3a", hot: "#b8322a", band: "#3f5a3a", bandInk: "#dfe8c6" }
+    jungle:    { paper: "#dfe8c6", ink: "#3f5a3a", hot: "#b8322a", band: "#3f5a3a", bandInk: "#dfe8c6" },
+    lingxi:    { paper: "#f1e4e6", ink: "#4d3a40", hot: "#c2566e", band: "#4d3a40", bandInk: "#f1e4e6" }
   };
   function GameLid(props) {
     const k = props.k, c = LID[k] || LID.spy;
@@ -441,6 +442,14 @@
         h("circle", { key: "b", cx: 42, cy: 50, r: 5.5, fill: c.hot }), h("circle", { key: "c", cx: 54, cy: 38, r: 5.5, fill: c.hot }), h("circle", { key: "d", cx: 66, cy: 50, r: 5.5, fill: c.hot }),
         h("circle", { key: "e", cx: 54, cy: 50, r: 5.5, fill: "#fff", stroke: c.ink, strokeOpacity: .4 }), h("circle", { key: "f", cx: 54, cy: 62, r: 5.5, fill: "#fff", stroke: c.ink, strokeOpacity: .4 }), h("circle", { key: "g", cx: 66, cy: 62, r: 5.5, fill: "#fff", stroke: c.ink, strokeOpacity: .4 })
       ],
+      // 两张写着词的小纸片，中间一根红线把它们连起来
+      lingxi: [
+        h("rect", { key: "a", x: 16, y: 30, width: 32, height: 24, rx: 3, fill: "#fff", opacity: .92, stroke: c.ink, strokeOpacity: .3, transform: "rotate(-6 32 42)" }),
+        h("rect", { key: "b", x: 72, y: 30, width: 32, height: 24, rx: 3, fill: "#fff", opacity: .92, stroke: c.ink, strokeOpacity: .3, transform: "rotate(6 88 42)" }),
+        h("path", { key: "c", d: "M24 42h16M80 42h16", stroke: c.ink, strokeWidth: 2.2, strokeLinecap: "round", opacity: .45 }),
+        h("path", { key: "d", d: "M48 44c6 14 18 14 24 0", stroke: c.hot, strokeWidth: 2.4, fill: "none", strokeLinecap: "round" }),
+        h("circle", { key: "e", cx: 60, cy: 54, r: 4, fill: c.hot })
+      ],
       story: [
         h("path", { key: "a", d: "M60 24c-10-5-24-6-36-3v46c12-3 26-2 36 3z", fill: "#fff", opacity: .92, stroke: c.ink, strokeOpacity: .3 }),
         h("path", { key: "b", d: "M60 24c10-5 24-6 36-3v46c-12-3-26-2-36 3z", fill: "#fff", opacity: .92, stroke: c.ink, strokeOpacity: .3 }),
@@ -546,6 +555,7 @@
       if (session.game.key === "blackjack") return h(BlackjackGame, engineProps);
       if (session.game.key === "doudizhu") return h(DoudizhuGame, engineProps);
       if (session.game.key === "story") return h(StoryChainGame, engineProps);
+      if (session.game.key === "lingxi" && window.LingxiCore) return h(LingxiGame, engineProps);
       if (session.game.key === "tetris" && window.TetrisCore) return h(TetrisGame, Object.assign({}, engineProps, { t: t }));
       return h(GamePlay, { game: session.game, config: session.config, characters: props.characters, profile: tableProfile, t: t, onBack: function () { setSession(null); } });
     }
@@ -685,7 +695,7 @@
     const chars = props.characters || [];
     const [mode, setMode] = useState("normal");
     const [picked, setPicked] = useState((props.initialPicked || []).slice());  // 选中的角色 id（从邀请卡进来时先勾上TA）
-    const [npcFill, setNpcFill] = useState(game.key !== "date");   // 约会两个人的局：不补 NPC
+    const [npcFill, setNpcFill] = useState(game.key !== "date" && game.key !== "lingxi");   // 约会两个人的局：不补 NPC
     const [npcWant, setNpcWant] = useState(-1);      // 用户想要的 NPC 数；-1 = 跟随「补到最低」
     const [injectChat, setInjectChat] = useState(false);
     const [ccSeat, setCcSeat] = useState(true);      // UNO：工程师之眼角色是否由 CC 本人亲打
@@ -771,7 +781,7 @@
         // 模式
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.ink, marginBottom: 8 } }, "模式"),
         // 约会是两个人的局：没有观战、彩头和 NPC（它自己有输赢账，也不进回忆和战报）
-        h(Segmented, { t: t, value: mode, options: game.key === "date" ? MODES.filter(function (m) { return m.key !== "spectate"; }) : MODES, onChange: setMode }),
+        h(Segmented, { t: t, value: mode, options: game.key === "date" || game.key === "lingxi" ? MODES.filter(function (m) { return m.key !== "spectate"; }) : MODES, onChange: setMode }),
         h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.6, margin: "8px 2px 20px" } }, modeHint),
         // 彩头：开局前说好，终局 app 替你记着谁该兑现；战报发过去 TA 也知道
         game.key === "date" ? null : h("div", { "data-wk": "gamestake", style: { marginBottom: 20 } },
@@ -3051,7 +3061,8 @@
     chess: ["#b58863", "#3d3128"],
     xiangqi: ["#b8322a", "#5a3418"],
     go: ["#c8a467", "#3d2c16"],
-    jungle: ["#7fa35a", "#3f5a3a"]
+    jungle: ["#7fa35a", "#3f5a3a"],
+    lingxi: ["#c2566e", "#4d3a40"]
   };
   function gameTable(k, t) {
     // 透明度后缀要先验主题色是不是六位色号，验不过退回纯色（mobile-ui-layout §3.5）
@@ -5365,6 +5376,119 @@
               placeholder: r.host === "ta" ? "问一个是非题，或者写下你猜的" : "跟 " + cName + " 说句话", style: { flex: 1, minWidth: 0, padding: "9px 11px", borderRadius: 10, border: "1px solid " + t.line, background: t.bg2, color: t.ink, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))" } })),
           h("div", { className: "flex gap-2", style: { marginTop: 7 } },
             r.host === "ta" ? [btn("问", function () { meAsk(false); }, true, "q"), btn("我猜", function () { meAsk(true); }, false, "g"), btn("闲聊", chat, false, "c")] : [btn("说", chat, false, "c")]))));
+  }
+
+  // ============================================================
+  // 心有灵犀（她 2026-10-30）：你和 TA 各自悄悄想一个词，之后每轮拿两人最新的两个词各连一个新词，一样就得一分。
+  //   比对、计分、提示词在 js/lingxi-core.js。一轮只问 TA 一次：这一轮的词 + 对上一轮揭晓的反应 + TA 心里怎么想的。
+  //   她的词先锁住，TA 的提示词里没有它；TA 的话和心思都等亮词以后才上屏。
+  // ============================================================
+  function LingxiGame(props) {
+    const L = window.LingxiCore, t = props.t, api = props.active, cfg = props.config || {};
+    const seat = unoPlayers(props, 2).find(function (p) { return !p.isUser; }) || null;
+    const char = seat ? (props.characters || []).find(function (c) { return String(c.id) === seat.key; }) : null;
+    const pf = props.profile || {}, uName = userName(pf), cName = char ? (char.remark || char.name) : "TA";
+    const PT = function (s) { return typeof characterText === "function" && char ? characterText(char, s) : s; };
+    const restored = props.savedState && props.savedState.state;
+    const [state, setState] = useState(function () { return restored && restored.status !== "done" ? restored : L.newGame(); });
+    const [lines, setLines] = useState([]), [busy, setBusy] = useState(false), [draft, setDraft] = useState(""), [err, setErr] = useState(""), [openThought, setOpenThought] = useState(true);
+    const push = function (ls) { setLines(function (x) { return x.concat(ls.map(function (l) { return Object.assign({ at: Date.now() }, l); })); }); };
+    const recent = (cfg.injectChat && props.recentChatFor && char) ? String(props.recentChatFor(char.id) || "").slice(-600) : "";
+    const who = seatIdentity(seat) + gNote({ char: char }) + (recent ? "\n【你们最近聊的】" + recent : "");
+    useEffect(function () {
+      if (state.status === "done") { clearGameSave("lingxi"); return; }
+      if (state.status === "open") return;
+      saveGameSnap("lingxi", { config: cfg, state: state, label: "第 " + (state.rounds.length + 1) + " 轮 · 对上 " + L.score(state.rounds) + " 次" });
+    }, [state]);
+    const ask = function (sys, tag) {
+      return routeSeatCall(seat, api, gameVoiceRules() + sys, [{ role: "user", content: "轮到你。" }], { game: "lingxi", turnId: state.id + "#" + state.rounds.length, expect: "{\"say\":[\"...\"],\"thought\":\"...\",\"word\":\"...\"}", timeout: 150000, ai: { maxTokens: 12000, tag: tag } })
+        .then(function (r) { if (r.ccUnavailable) throw new Error(r.error); const p = unoJson(r.value), w = L.cleanWord(p.word); if (!w) throw new Error("没写出词来"); return { word: w, say: sayList(p.say), thought: String(p.thought || "").trim() }; });
+    };
+    const submit = function () {
+      const mine = draft.trim().slice(0, 20); if (!mine || busy) return;
+      if (!api && !(seat && seat.engineer)) { setErr("先在设置里配好线路"); return; }
+      setBusy(true); setErr("");
+      const opening = state.status === "open";
+      const sys = opening ? L.openPrompt({ uName: uName, who: who, sayFree: GAME_SAY_FREE })
+        : L.roundPrompt({ uName: uName, who: who, state: state, easy: cfg.mode === "easy", sayFree: GAME_SAY_FREE });
+      ask(sys, "心有灵犀").then(function (a) {
+        const n = JSON.parse(JSON.stringify(state));
+        // 先亮词，再上 TA 的话：TA 的反应、心思都在揭晓之后
+        if (opening) { n.start = [mine, a.word]; n.pair = [mine, a.word]; n.startThought = a.thought; n.status = "play";
+          push([{ sys: true, text: "起始词亮了：你「" + mine + "」· " + cName + "「" + a.word + "」" }]); }
+        else { const r = L.reveal(n, mine, a.word, a.say, a.thought);
+          push([{ sys: true, text: "第 " + r.n + " 轮：你「" + mine + "」· " + cName + "「" + a.word + "」 · " + (r.hit ? "对上了 +1" : "没对上") }]); }
+        if (a.say.length) push(a.say.map(function (s) { return { id: char && char.id, name: cName, text: s.slice(0, 200) }; }));
+        setState(n); setDraft(""); setOpenThought(true);
+      }).catch(function (e) { setErr(cName + " 没接上：" + e.message + "（你的词还在，再点一次）"); }).finally(function () { setBusy(false); });
+    };
+    // 写词之前先聊（她：「每一轮开始前也可以和他讨论」）：聊的话进本轮 talk，写词那一下 TA 能看到；她的词照旧不进
+    const [chatDraft, setChatDraft] = useState("");
+    const chat = function () {
+      const v = chatDraft.trim().slice(0, 120); if (!v || busy || state.status !== "play") return;
+      setChatDraft(""); setBusy(true); setErr("");
+      const n = JSON.parse(JSON.stringify(state)); n.talk = (n.talk || []).concat([{ who: "me", text: v }]); setState(n);
+      push([{ me: true, text: v }]);
+      routeSeatCall(seat, api, gameVoiceRules() + L.talkPrompt({ uName: uName, who: who, state: state, line: v, sayFree: GAME_SAY_FREE }), [{ role: "user", content: "接她的话。" }], { game: "lingxi", turnId: state.id + "#talk" + Date.now(), expect: "{\"say\":[\"...\"]}", timeout: 150000, ai: { maxTokens: 8000, tag: "心有灵犀" } })
+        .then(function (r) { const ss = sayList(unoJson(r.value).say); if (!ss.length) return;
+          push(ss.map(function (s) { return { id: char && char.id, name: cName, text: s.slice(0, 200) }; }));
+          setState(function (cur) { const m = JSON.parse(JSON.stringify(cur)); m.talk = (m.talk || []).concat(ss.map(function (s) { return { who: "ta", text: s.slice(0, 200) }; })); return m; });
+        }).catch(function (e) { setErr(cName + " 没接上：" + e.message); }).finally(function () { setBusy(false); });
+    };
+    // 「算我们一样」点了／撤了，聊天记录里那一行的结论跟着改，别留着一句「没对上」
+    const toggle = function (n) { const s = JSON.parse(JSON.stringify(state)); L.toggleManual(s, n); setState(s);
+      const r = s.rounds.find(function (x) { return x.n === n; }), tag = r && r.manual ? "算你们一样 +1" : "没对上";
+      setLines(function (ls) { return ls.map(function (x) { return x && x.sys && String(x.text || "").indexOf("第 " + n + " 轮：") === 0 ? Object.assign({}, x, { text: String(x.text).replace(/ · (?:对上了 \+1|没对上|算你们一样 \+1)$/, " · " + tag) }) : x; }); }); };
+    const end = function () { setState(Object.assign({}, state, { status: "done" })); };
+    const again = function () { setLines([]); setDraft(""); setState(L.newGame()); };
+    const last = state.rounds[state.rounds.length - 1], sc = L.score(state.rounds);
+    const thought = last ? last.thought : state.startThought;
+    const btnAt = function (label, on, primary, dis) { return { disabled: busy || dis, onClick: on, className: "active:opacity-70", style: { minHeight: 42, padding: "0 16px", borderRadius: 10, fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", border: "1px solid " + (primary ? t.tint : t.line), background: primary ? t.tint : t.bg2, color: primary ? "#fff" : t.ink, opacity: busy || dis ? .5 : 1, flexShrink: 0 } }; };
+    const chip = function (w, mine) { return h("span", { style: { flex: 1, minWidth: 0, textAlign: "center", padding: "10px 8px", borderRadius: 10, background: "#fffdf6", color: "#2f2a24", border: "1px solid " + (mine ? t.tint : LID.lingxi.hot), fontFamily: F_DISPLAY, fontSize: "calc(17px * var(--app-fs, 1))", wordBreak: "break-all" } }, w); };
+    const sub = function (s) { return h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginBottom: 6 } }, s); };
+    return h("div", { "data-wk": "gameplay", "data-part": "lingxi", className: "h-full flex flex-col", style: gameTable("lingxi", t) },
+      h(Head, { zh: "心有灵犀", en: state.status === "open" ? "先各想一个词" : state.status === "done" ? "这一局 " + state.rounds.length + " 轮 · 对上 " + sc + " 次" : "第 " + (state.rounds.length + 1) + " 轮 · 对上 " + sc + " 次", onBack: props.onBack, bg: "transparent" }),
+      h("div", { className: "flex-1 min-h-0 overflow-y-auto px-5 pb-3", style: { paddingTop: 12 } },
+        h(GameVsBar, { t: t, evalOf: { host: props, key: "lingxi", zh: "心有灵犀" }, seats: [
+          { key: "me", name: uName, char: { name: uName, avatarImage: pf.avatarImage, color: pf.color }, isUser: true, on: !busy && state.status !== "done", sub: "对上 " + sc },
+          { key: "ta", name: cName, char: char, on: busy, sub: busy ? "在想…" : "对上 " + sc }] }),
+        state.pair && state.status === "play" ? h("div", { "data-wk": "lingxipair", style: { margin: "4px 0 12px" } }, sub("这一轮要连的两个词"),
+          h("div", { style: { display: "flex", alignItems: "center", gap: 8 } }, chip(state.pair[0], true), h("span", { style: { color: t.fog, fontFamily: F_BODY } }, "＋"), chip(state.pair[1], false))) : null,
+        (last || state.start) ? h("div", { "data-wk": "lingxireveal", "data-hit": last && L.counted(last) ? "1" : "0", style: { background: t.bg2, border: "1px solid " + t.line, borderRadius: 13, padding: "10px 12px", marginBottom: 12 } },
+          sub(last ? "第 " + last.n + " 轮亮出来了" : "起始词"),
+          h("div", { style: { display: "flex", alignItems: "center", gap: 8 } }, chip(last ? last.mine : state.start[0], true), h("span", { style: { color: t.fog, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))" } }, last ? (last.hit ? "＝" : "≠") : "·"), chip(last ? last.yours : state.start[1], false)),
+          last ? h("div", { style: { display: "flex", alignItems: "center", gap: 8, marginTop: 8 } },
+            h("div", { style: { flex: 1, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: L.counted(last) ? t.tint : t.sub } }, last.hit ? "一模一样，+1" : last.manual ? "算你们一样，+1" : "没对上"),
+            last.hit ? null : h("button", { "data-wk": "lingxisame", "data-on": last.manual ? "1" : "0", disabled: busy, onClick: function () { toggle(last.n); }, className: "active:opacity-70", style: { minHeight: 40, padding: "0 12px", borderRadius: 999, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", border: "1px solid " + t.tint, background: last.manual ? "transparent" : t.tint + "14", color: t.tint } }, last.manual ? "撤回" : "算我们一样")) : null,
+          thought ? h("div", { "data-wk": "lingxithought", style: { marginTop: 8, borderTop: "1px dashed " + t.line } },
+            h("button", { onClick: function () { setOpenThought(!openThought); }, style: { minHeight: 40, width: "100%", textAlign: "left", fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog, background: "transparent" } }, (openThought ? "▾ " : "▸ ") + PT("他是怎么想的")),
+            openThought ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.sub, lineHeight: 1.7, whiteSpace: "pre-wrap", paddingBottom: 4 } }, thought) : null) : null) : null,
+        h(GameTalkLog, { t: t, lines: lines, busy: busy, uName: uName, me: { name: uName, avatarImage: pf.avatarImage, color: pf.color }, charOf: function () { return char; }, maxHeight: "none", empty: state.status === "open" ? "你先悄悄写一个起始词，" + cName + " 也在想自己的" : "" }),
+        state.rounds.length > 1 ? h("div", { "data-wk": "lingxihist", style: { marginTop: 4 } }, sub("往期"), state.rounds.slice(0, -1).reverse().map(function (r) {
+          return h("div", { key: r.n, style: { display: "flex", flexWrap: "wrap", alignItems: "center", gap: 6, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.sub, padding: "4px 0", borderBottom: "1px solid " + t.line } },
+            h("span", { style: { color: t.fog, width: 34, flexShrink: 0 } }, "第" + r.n), h("span", { style: { flex: 1, minWidth: 0 } }, r.pair[0] + " + " + r.pair[1] + " → 「" + r.mine + "」/「" + r.yours + "」"),
+            h("span", { style: { color: L.counted(r) ? t.tint : t.fog, flexShrink: 0 } }, r.hit ? "+1" : r.manual ? "算+1" : "—"),
+            (r.talk || []).length ? h("div", { "data-wk": "lingxihisttalk", style: { flexBasis: "100%", paddingLeft: 40, color: t.fog, fontSize: "calc(11px * var(--app-fs, 1))", lineHeight: 1.6, whiteSpace: "pre-wrap" } }, L.talkText(r.talk, uName).replace(/(^|\n)你：/g, "$1" + cName + "：")) : null);
+        })) : null,
+        err ? h("div", { style: { color: "#c0553f", fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", marginTop: 8 } }, err) : null,
+        state.status === "done" ? h("div", { style: { marginTop: 14 } },
+          h("div", { style: { textAlign: "center", fontFamily: F_DISPLAY, fontSize: "calc(20px * var(--app-fs, 1))", color: t.tint } }, "连了 " + state.rounds.length + " 轮，对上 " + sc + " 次"),
+          h(KeepMemBtn, { t: t, host: props, rep: function () {
+            return { key: "lingxi", zh: "心有灵犀", ids: char && !(seat && seat.engineer) ? [char.id] : [], wins: [], meWin: null, text: L.recap(state, "她", cName), procLabel: "每一轮",
+              proc: state.rounds.map(function (r) { return r.pair[0] + "+" + r.pair[1] + "→她「" + r.mine + "」" + cName + "「" + r.yours + "」" + (L.counted(r) ? "对上" : "没对上"); }) };
+          } })) : null),
+      h("div", { "data-wk": "lingxibar", className: "shrink-0 px-4 pt-2", style: { paddingBottom: COMPOSER_PAD_BOTTOM, borderTop: "1px solid " + t.line, background: t.bg } },
+        state.status === "done" ? h("div", { className: "flex gap-2", style: { padding: "6px 0" } }, h("div", { style: { flex: 1 } }), h("button", Object.assign({ "data-wk": "lingxiagain" }, btnAt("再来一局", again, true)), "再来一局")) :
+        h("div", null,
+        state.status === "play" ? h("div", { "data-wk": "lingxitalk", className: "flex gap-2", style: { padding: "6px 0 0", alignItems: "center" } },
+          h("input", { "data-wk": "gameinput", "data-part": "lingxitalk", value: chatDraft, onChange: function (e) { setChatDraft(e.target.value.slice(0, 120)); }, onKeyDown: function (e) { if (e.key === "Enter") chat(); },
+            placeholder: "写词之前先跟 " + cName + " 聊两句（可不聊）", style: { flex: 1, minWidth: 0, minHeight: 40, padding: "8px 11px", borderRadius: 999, border: "1px dashed " + t.line, background: "transparent", color: t.ink, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))" } }),
+          h("button", Object.assign({ "data-wk": "lingxichat" }, btnAt("说", chat, false, !chatDraft.trim())), "说")) : null,
+        h("div", { className: "flex gap-2", style: { padding: "6px 0", alignItems: "center" } },
+          h("input", { "data-wk": "gameinput", "data-part": "lingxi", value: draft, onChange: function (e) { setDraft(e.target.value.slice(0, 20)); }, onKeyDown: function (e) { if (e.key === "Enter") submit(); },
+            placeholder: state.status === "open" ? "你的起始词（" + cName + " 看不到）" : "连上这两个词的新词（" + cName + " 看不到）", style: { flex: 1, minWidth: 0, minHeight: 42, padding: "9px 11px", borderRadius: 10, border: "1px solid " + t.line, background: t.bg2, color: t.ink, fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))" } }),
+          h("button", Object.assign({ "data-wk": "lingxisend" }, btnAt(busy ? "等" + PT("他") + "…" : "亮词", submit, true, !draft.trim())), busy ? "等" + PT("他") + "…" : "亮词"),
+          state.status === "play" ? h("button", Object.assign({ "data-wk": "lingxiend" }, btnAt("结束", end, false)), "结束") : null))));
   }
 
   // ============================================================

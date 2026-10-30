@@ -53,7 +53,7 @@ test("手指画：setState 里不读会被清空的 ref，坏的一笔不让画�
 });
 // 她 2026-10-12：「我和他单独各自一边气泡像讲话不要全部塞一起」「根据人设水平有时候故意画丑一点」
 test("对话一句一个气泡、她在右；五子棋和你画我猜共用一个；画得丑不丑照人设", () => {
-  assert.equal((src.match(/h\(GameTalkLog, \{/g) || []).length, 6, "五子棋、你画我猜、25 问（我出题／TA 出题）、俄罗斯方块、走子棋公共页（国际象棋·中国象棋·斗兽棋，v76.772 起一张）、围棋共用这一份");
+  assert.equal((src.match(/h\(GameTalkLog, \{/g) || []).length, 7, "心有灵犀、五子棋、你画我猜、25 问（我出题／TA 出题）、俄罗斯方块、走子棋公共页（国际象棋·中国象棋·斗兽棋，v76.772 起一张）、围棋共用这一份");
   assert.match(src, /"data-wk": "gametalkrow", "data-me": "1", style: \{ display: "flex", justifyContent: "flex-end"/);
   assert.match(G, /照你人设里的画画水平来/);
 });

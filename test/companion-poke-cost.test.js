@@ -22,7 +22,7 @@ test("走后台线路；陪伴页和悬浮那只都拿到了后台线路和 toas
 });
 test("没说出来要告诉她，不再静默吞掉", () => {
   const fire = comp.slice(comp.indexOf("const fire = async () => {"), comp.indexOf("const onPoke = info =>"));
-  assert.match(fire, /props\.toast && props\.toast\("他这一句没说出来：/);
+  assert.match(fire, /props\.toast && props\.toast\(characterText\(char, "他这一句没说出来：/);
   assert.doesNotMatch(fire, /说不出来就只做动作，不打扰她/);
 });
 test("生成失败兜底网：runProbe 失败时广播，app 接住弹提示；调用方自己弹过就不重复，同一类一分钟一次", () => {
