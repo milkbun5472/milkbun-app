@@ -35451,6 +35451,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     onBack: exitListen,
     onSetDisc: setListenDisc,
     onSetCover: setSongCover,
+    // 每首都用同一张封面（群里 2026-10-31：「音乐这里的封面能不能全部都是我换的这张」）：存在 listen 上，不改每首歌自己的封面
+    onSetFixedCover: v => saveListen(p => ({ ...p, coverFixed: v || "" })),
     onAddNetease: addNeteaseSong,
     onAddLocal: addLocalSong,
     onPlaySong: playSong,

@@ -4648,7 +4648,7 @@ function MsgSoundPick({ p, save, toast }) {
       r.readAsDataURL(f);
     } }));
 }
-function ListenTogether({ profile, active, ctxFor, toast, onToChat, onListenState, onSetTalkStay, onSetTalkNote, listenRoomName, talkKey, listen, characters, onBack, onSetDisc, onSetCover, onAddNetease, onAddLocal, onPlaySong, onRemoveSong, onSetPartner, apiBase, onSetApiBase, musicProvider = "gd", musicReady, onSetMusicProvider, onMusicRequest, cookie, onSetCookie, onTestLogin, onAddNeteaseResult, onPlayResult, onPlayResultList, onAddResultToPlaylist, onCreatePlaylist, onDeletePlaylist, onRenamePlaylist, onAddToPlaylist, onRemoveFromPlaylist, onRenameSong, onGenCharPlaylist, onGenSquare, genSquare, onPlaySquare, onPostSquare, onReplySquare, onMoreSquare, onDelSquare, onDelSquareComment, onDelSongTalk, squareBusy, onShareSquare, onGenSongTalk, onReplySongTalk, songTalkBusy, player, onTogglePlay, onStep, onSeek, onToggleFav, playMode, onCyclePlayMode, gen, genCharPl }) {
+function ListenTogether({ profile, active, ctxFor, toast, onToChat, onListenState, onSetTalkStay, onSetTalkNote, listenRoomName, talkKey, listen, characters, onBack, onSetDisc, onSetCover, onSetFixedCover, onAddNetease, onAddLocal, onPlaySong, onRemoveSong, onSetPartner, apiBase, onSetApiBase, musicProvider = "gd", musicReady, onSetMusicProvider, onMusicRequest, cookie, onSetCookie, onTestLogin, onAddNeteaseResult, onPlayResult, onPlayResultList, onAddResultToPlaylist, onCreatePlaylist, onDeletePlaylist, onRenamePlaylist, onAddToPlaylist, onRemoveFromPlaylist, onRenameSong, onGenCharPlaylist, onGenSquare, genSquare, onPlaySquare, onPostSquare, onReplySquare, onMoreSquare, onDelSquare, onDelSquareComment, onDelSongTalk, squareBusy, onShareSquare, onGenSongTalk, onReplySongTalk, songTalkBusy, player, onTogglePlay, onStep, onSeek, onToggleFav, playMode, onCyclePlayMode, gen, genCharPl }) {
   const t = useTheme();
   // ⚠️深色/自定义主题下 t.ink 或 t.accent 未必是六位色号，拼透明度后缀会拼出废值、
   //   整层静默消失；两个都验，验不过退回纯色。
@@ -4685,7 +4685,9 @@ function ListenTogether({ profile, active, ctxFor, toast, onToChat, onListenStat
   // ⚠️封面来源必须在这儿就算好（v62.95 修白屏）：播放页那块「换封面/加封面」是 `const playTab = h(...)`，
   //   声明处就求值；v62.94 我把 coverSrc 写在页尾那段底里，前面一引用就是 TDZ，一进页面就崩。
   //   nav 还没声明（在下面几行），所以这儿不看 nav——底那层自己按 nav 决定挂不挂。
-  const coverSrc = now ? (nowCover || discImg || "") : "";
+  // 「每首都用这张」开着：播放页的封面固定成那一张，不跟着歌换
+  const coverFixed = data.coverFixed || "";
+  const coverSrc = now ? (coverFixed || nowCover || discImg || "") : "";
   const playing = !!(player && player.playing);
   const dur = (player && player.dur) || 0, cur = (player && player.t) || 0;
   const frac = dur ? cur / dur : 0;
@@ -4916,9 +4918,13 @@ function ListenTogether({ profile, active, ctxFor, toast, onToChat, onListenStat
       // ── 封面舞台（v62.92）：碟撤了。封面已经是整页的底（见下面 coverField），
       //   这儿只留一块透明的位子让它露出来，点一下换封面。碟上那 148px 的小封面跟整页的封面是同一张，
       //   留着就是同一样东西两份（她 2026-09-05：「封面整个代替掉页面」）。
-      : h("button", { onClick: () => coverRef.current && coverRef.current.click(), className: "w-full active:opacity-90", "aria-label": "换封面",
-          style: { height: talk ? 130 : 280, display: "flex", alignItems: "flex-end", justifyContent: "flex-end", padding: "0 0 10px" } },
-          h("span", { style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", color: t.fog, background: t.bg2 + "", border: "1px solid " + t.line, borderRadius: 999, padding: "3px 9px", opacity: .85 } }, coverSrc ? "换封面" : "加封面")),
+      : h("div", { className: "w-full", style: { position: "relative", height: talk ? 130 : 280 } },
+          h("button", { onClick: () => coverRef.current && coverRef.current.click(), className: "active:opacity-90", "aria-label": "换封面",
+            style: { position: "absolute", inset: 0, width: "100%", display: "flex", alignItems: "flex-end", justifyContent: "flex-end", padding: "0 0 10px" } },
+            h("span", { style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", color: t.fog, background: t.bg2 + "", border: "1px solid " + t.line, borderRadius: 999, padding: "3px 9px", opacity: .85 } }, coverSrc ? "换封面" : "加封面")),
+          coverSrc && onSetFixedCover ? h("button", { "data-wk": "listencoverall", onClick: () => onSetFixedCover(coverFixed ? "" : coverSrc), className: "active:opacity-70",
+            style: { position: "absolute", left: 0, bottom: 0, minHeight: 40, padding: "0 4px", display: "flex", alignItems: "center" } },
+            h("span", { style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", color: coverFixed ? t.accent : t.fog, background: t.bg2 + "", border: "1px solid " + (coverFixed ? t.accent : t.line), borderRadius: 999, padding: "3px 9px", opacity: .85 } }, coverFixed ? "每首都用这张 ✓" : "每首都用这张")) : null),
 
     h("div", { "data-wk": "listentitle", style: { fontFamily: F_DISPLAY, fontSize: "calc(24px * var(--app-fs, 1))", color: t.ink, marginTop: 12, textAlign: "center", maxWidth: "100%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, STX(now.title)),
     h("div", { "data-wk": "listenartist", style: { fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", color: t.fog, marginTop: 5, maxWidth: "100%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, now.artist || (now.source === "netease" ? "网易云" : "本地")),
@@ -5680,7 +5686,10 @@ function ListenTogether({ profile, active, ctxFor, toast, onToChat, onListenStat
       // 设置挪到顶栏右上（她 2026-10-17：「设置可以移到右上角这样底部只有四个」）
       ),
     h("input", { ref: audioFileRef, type: "file", accept: "audio/*", onChange: e => { const f = e.target.files && e.target.files[0]; if (f) { setLocalFile(f); setAddTab("local"); setNav("home"); } e.target.value = ""; }, style: { display: "none" } }),
-    h("input", { ref: coverRef, type: "file", accept: "image/*", onChange: e => { const f = e.target.files && e.target.files[0]; if (f && now) onSetCover(now.id, f); e.target.value = ""; }, style: { display: "none" } }));
+    h("input", { ref: coverRef, type: "file", accept: "image/*", onChange: async e => { const f = e.target.files && e.target.files[0]; e.target.value = ""; if (!f || !now) return;
+      // 固定着一张的时候，换的就是那一张
+      if (coverFixed && onSetFixedCover) { try { onSetFixedCover(await resizeImageFile(f, 500, 0.82)); } catch (err) { toast && toast("图片处理失败"); } return; }
+      onSetCover(now.id, f); }, style: { display: "none" } }));
 }
 
 // 创作小稿（原「思维链 COT」）设置：开关 + 检查方式 + 预设存取。
