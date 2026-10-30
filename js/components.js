@@ -19712,7 +19712,7 @@ function GroupThread({
     : h("span", { "data-wk": "avatar", onClick: gAvTap(character && character.id, null), className: "shrink-0", style: { position: "relative", display: "inline-flex" } }, h(Avatar, { character: character, size: size || 34, radius: 8 }), gAvBadge(character));
   const openRp = i => {
     const rp = messages[i];
-    if (rp.byMe || rp.claims.some(c => c.me) || rp.claims.length >= rp.count) {
+    if (rp.claims.some(c => c.me) || rp.claims.length >= rp.count) {
       setRpView(i);
       return;
     }
@@ -20386,10 +20386,10 @@ function GroupThread({
       onPick: em => { sendRich({ role: "user", kind: "emote", url: em.url, keyword: em.keyword, content: "[表情] " + em.keyword + (em.selfFace ? "（画的是她自己）" : "") }); setSheet(null); }
     })
   ), rpView != null && messages[rpView] && messages[rpView].kind === "redpacket" && (() => { const rp = messages[rpView], mine = (rp.claims || []).find(c => c.me);
-    const canOpen = !rp.byMe && !mine && (rp.claims || []).length < rp.count && !(rp.toId && rp.toId !== "me");
+    const canOpen = !mine && (rp.claims || []).length < rp.count && !(rp.toId && rp.toId !== "me");
     return h(RedPacketEnvelope, { key: "rp" + rpView, who: rp.by || rp.senderName, whoChar: rp.byMe ? meAv : (memberById(rp.senderId) || null), message: rp.message,
       canOpen, amountText: mine ? "¥" + mine.amount : "", claims: rp.claims || [], total: rp.total, count: rp.count, meName,
-      status: rp.byMe ? "你发的红包" : (!mine && rp.toId && rp.toId !== "me") ? "这是给 " + (rp.toName || "别人") + " 的专属红包" : (!mine && (rp.claims || []).length >= rp.count) ? "手慢了，红包派完了" : "",
+      status: rp.byMe && rp.toId ? "你发的红包" : (!mine && rp.toId && rp.toId !== "me") ? "这是给 " + (rp.toName || "别人") + " 的专属红包" : (!mine && (rp.claims || []).length >= rp.count) ? "手慢了，红包派完了" : "",
       onOpen: async () => { const r = onClaim(rpView); return typeof r === "number" ? "¥" + r : null; },
       onClose: () => setRpView(null) }); })(), gInviteOpen && h(DateComposeDialog, { places: invitePlaces || [], members: members, who: "大家",
     onCancel: () => setGInviteOpen(false),

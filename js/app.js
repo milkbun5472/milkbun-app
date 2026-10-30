@@ -17022,18 +17022,18 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     // 专属红包不走随机抢那条路；普通的先给她留一段先手窗口
     if (!to) setTimeout(() => autoGrabRedPacket(groupId, rpId), RP_GRAB_DELAY);
   };
-  // 我领红包（我发的不能领；角色发的可以领）
+  // 我领红包：角色发的能领，我自己发的也能领（她 2026-10-31：「自己发的自己可以抢吧，应该是三秒后他们抢」）——
+  //   跟微信群一样，发的人自己也能点开抢一个；角色照旧三秒后开抢
   const claimRedPacket = (groupId, msgIdx) => {
     const meName = profile.name || "我";
     const rp = (groupChatsRef.current[groupId] || [])[msgIdx];
     if (!rp || rp.kind !== "redpacket") return null;
-    if (rp.byMe) return "own";
     // 专属红包：点名给别人的，她碰不到（"me" 才是给她的）
     if (rp.toId && rp.toId !== "me") return "notyours";
     if (rp.claims.some(c => c.me)) return "claimed";
     if (rp.claims.length >= rp.count) return "empty";
     const amt = rp.splits[rp.claims.length];
-    if (!groupClosed(groupId)) changeWallet(amt, "抢到 " + (rp.by || "某人") + " 的红包", "redpacket", { where: "群聊", groupId: groupId, ts: rp.ts });
+    if (!groupClosed(groupId)) changeWallet(amt, rp.byMe ? "抢到自己发的红包" : "抢到 " + (rp.by || "某人") + " 的红包", "redpacket", { where: "群聊", groupId: groupId, ts: rp.ts });
     pGChat(groupId, p => p.map((m, i) => i === msgIdx ? {
       ...m,
       claims: [...m.claims, {
