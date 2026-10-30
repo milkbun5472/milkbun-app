@@ -33,16 +33,27 @@
   const STAMP_MOTION = "画面构图、人物长相和画风都保持原图不变，镜头几乎不动。人物只有很小的动作：呼吸、眨眼、头发和衣角被风轻轻吹动，场景里的光轻轻变化。最后回到开始的姿态，适合循环播放。";
   const vidRunning = {};
   const setCardP = (id, p) => { const st = C().load(); st.cards = st.cards.map(c => c.id === id ? Object.assign({}, c, p) : c); C().save(st); };
-  async function runStampVideo(card, toast, fresh) {
-    const V = window.VideoApi, jid = "stamp|" + card.id; if (!V || vidRunning[card.id]) return;
+  // slot：动哪一面（main 第一面 / solo、duo 满级 / ex:番外id）；face：那一面的图（她 2026-10-30：「我选的满级卡面他给我生了初始」）。
+  //   第一面的视频照旧记在 card.video，别的面记在 card.videos[slot]，各存各的
+  // 册子里那一格放哪段：封面是哪一面就放那一面自己的视频，没有就不放
+  const coverVideo = card => { if (!card) return null; const cv = card.cover;
+    if (!cv || cv === card.face) return card.video || null;
+    const f2 = Object.assign({}, card.faceAlt ? { [card.faceAltMode || "solo"]: card.faceAlt } : {}, card.faces || {});
+    const slot = cv === f2.solo ? "solo" : cv === f2.duo ? "duo" : (() => { const ex = (card.extras || []).find(x => x.img === cv); return ex ? "ex:" + ex.id : ""; })();
+    return (slot && (card.videos || {})[slot]) || null; };
+  const vidJid = (card, slot) => "stamp|" + card.id + (slot && slot !== "main" ? "|" + slot : "");
+  async function runStampVideo(card, toast, fresh, slot, face) {
+    slot = slot || "main"; face = face || card.face;
+    const V = window.VideoApi, jid = vidJid(card, slot); if (!V || vidRunning[card.id] || !face) return;
     if (!V.ready()) { toast("先去「设置 → 视频 API」配好，再来让卡面动起来"); return; }
-    vidRunning[card.id] = true; setCardP(card.id, { videoBusy: true, videoErr: "" });
+    vidRunning[card.id] = true; setCardP(card.id, { videoBusy: true, videoErr: "", videoSlot: slot });
     try {
       if (fresh && V.job(jid) && (V.job(jid).draftRef || !V.job(jid).taskId)) V.patchMap(V.keys.JOBS, jid, null);
-      if (!V.job(jid)) await V.create(jid, card.face, STAMP_MOTION + ((card.text || {}).highlight ? "\n这一刻：" + String(card.text.highlight).slice(0, 120) : ""));
+      if (!V.job(jid)) await V.create(jid, face, STAMP_MOTION + (slot === "main" && (card.text || {}).highlight ? "\n这一刻：" + String(card.text.highlight).slice(0, 120) : ""));
       const r = await V.poll(jid, new AbortController().signal, rr => setCardP(card.id, { videoStatus: String(rr.status || "") }));
-      const old = (C().load().cards.find(c => c.id === card.id) || {}).video;
-      setCardP(card.id, { video: r.draftRef, videoBusy: false, videoStatus: "", videoErr: "" }); V.patchMap(V.keys.JOBS, jid, null);
+      const cur = C().load().cards.find(c => c.id === card.id) || {}, old = slot === "main" ? cur.video : (cur.videos || {})[slot];
+      setCardP(card.id, Object.assign(slot === "main" ? { video: r.draftRef } : { videos: Object.assign({}, cur.videos || {}, { [slot]: r.draftRef }) }, { videoBusy: false, videoStatus: "", videoErr: "", videoSlot: "" }));
+      V.patchMap(V.keys.JOBS, jid, null);
       if (old && old !== r.draftRef) V.blob(old, null, true).catch(() => {});
       toast("卡面动起来了");
     } catch (e) { setCardP(card.id, { videoBusy: false, videoErr: String(e && e.message || e).slice(0, 120) }); }
@@ -84,7 +95,7 @@
   }
   function StampFace({ t, card, onClick, size, back }) { const [url, el, near] = useStampThumb(card && (card.cover || card.face));
     // 卡面动起来了的 SSR：册子里那一格也在动（滑到附近才放，没封面换过别的图时才用）
-    const vurl = useStampVideo(card && card.video && !back && (!card.cover || card.cover === card.face) ? card.video : null, near);
+    const vurl = useStampVideo(card && !back ? coverVideo(card) : null, near);
     return h("span", { ref: el, style: { display: "inline-block", lineHeight: 0, position: "relative" } }, h(Stamp, { t, card, face: url, onClick, size, back }),
       vurl ? loopVid(vurl, { left: 5, top: 5, width: "calc(100% - 10px)", height: "calc(100% - 10px)", borderRadius: 2 }) : null); }
 
@@ -318,9 +329,12 @@
     const url = exSel ? (urlEx || url1) : side === "solo" && urlSolo ? urlSolo : side === "duo" && urlDuo ? urlDuo : url1;
     const sideKey = exSel ? exSel.img : side === "solo" ? faces2.solo : side === "duo" ? faces2.duo : card.face;
     const [full, setFull] = useState(false), [fullWide, setFullWide] = useState(false), [rot, setRot] = useState(false);
-    const vMain = useStampVideo(card.video || null, true);
+    const vSlot = side === "main" ? card.video : (card.videos || {})[side];   // 这一面自己的那段
+    const vMain = useStampVideo(vSlot || null, true);
     const [vidSolo, setVidSolo] = useState(false);   // 单独用系统播放器放这段（带进度条），分得清是没播起来还是视频本身就没动
-    useEffect(() => { const V = window.VideoApi, r = V && V.job("stamp|" + card.id); if (r && r.taskId && !vidRunning[card.id]) runStampVideo(card, toast); }, [card.id]);   // 上回没等完的任务：回来接着查
+    // 上回没等完的任务：回来接着查（哪一面在等就接哪一面）
+    useEffect(() => { const V = window.VideoApi; if (!V || vidRunning[card.id]) return; const sl = card.videoSlot || "main", r = V.job(vidJid(card, sl));
+      if (r && r.taskId) runStampVideo(card, toast, false, sl, r.imageRef); }, [card.id]);   // 上回没等完的任务：回来接着查
     useEffect(() => { if (!card.unread) return; const st0 = C().load(); st0.cards = st0.cards.map(c => c.id === card.id ? Object.assign({}, c, { unread: false }) : c); C().save(st0); }, [card.id]);   // 点开过就不算新
     // 「画着」超过八分钟还没回来＝那次没了（多半是画到一半关了 app）：按钮放开，能再画（她 2026-10-27：有人一直卡在重画中）
     const drawing = !!card.drawing && !!card.drawingBoot && card.drawingBoot === window.__stampBoot && Date.now() - (card.drawingTs || 0) < 8 * 60000;   // 关掉 app 再打开：上一回没画完的那次一定没了，直接放开
@@ -461,7 +475,7 @@
           h("div", { style: { position: "absolute", top: 0, left: "50%", width: 320, height: 380, marginLeft: -160, borderRadius: 999, background: "radial-gradient(closest-side, " + (card.rarity === "R" ? "rgba(47,42,34,.16)" : RC[card.rarity] + "44") + ", transparent)", animation: "stHalo 4s ease-in-out infinite", pointerEvents: "none" } }),
           h("div", { key: pop, style: { position: "relative", boxShadow: ring, animation: pop ? "stFloat .9s ease-out" : "none" } },
             h(Stamp, { t, card, face: url, size: 236 }),
-            side === "main" && vMain ? loopVid(vMain, { left: 5, top: 5, width: "calc(100% - 10px)", height: "calc(100% - 10px)", borderRadius: 2 }) : null,
+            vMain ? loopVid(vMain, { left: 5, top: 5, width: "calc(100% - 10px)", height: "calc(100% - 10px)", borderRadius: 2 }) : null,
             // 满级 SSR 能戳：上面三分之一是头，中间是胸口，下面是手
             url ? h("div", { onClick: () => { if (Date.now() - swiped.current < 400) return; setFull(true); }, style: { position: "absolute", inset: 0, cursor: "zoom-in" } }) : null,
             pop ? h("div", { style: { position: "absolute", inset: 0, pointerEvents: "none", background: "linear-gradient(110deg, transparent 35%, rgba(255,240,200,.55) 50%, transparent 65%) 0 0 / 200% 100%", animation: "stShine .9s ease-out 1 forwards" } }) : null,
@@ -500,10 +514,10 @@
               style: { marginTop: 8, padding: "6px 14px", borderRadius: 8, border: "1px solid " + LINE, color: P7, fontFamily: F_BODY, fontSize: fs(12) } }, (exSel ? exDrawing : drawing) ? "重画着…" : "↻ 照原来的描述重画这一面 · 花一次生图"),
           exSel && exSel.drawErr && !exDrawing ? h("div", { style: { marginTop: 6, maxWidth: 300, textAlign: "center", fontFamily: F_BODY, fontSize: fs(11), lineHeight: 1.5, color: "#b23a2e" } }, "番外卡面上次没画成：" + exSel.drawErr) : null,
           // 让卡面动起来（SSR，画了第一面才有）
-          card.rarity === "SSR" && card.face && window.VideoApi ? h("button", { "data-wk": "stampvideo", disabled: !!card.videoBusy && !!vidRunning[card.id], onClick: () => runStampVideo(card, toast, true), className: "active:opacity-70 disabled:opacity-50",
+          card.rarity === "SSR" && sideKey && window.VideoApi ? h("button", { "data-wk": "stampvideo", disabled: !!card.videoBusy && !!vidRunning[card.id], onClick: () => runStampVideo(card, toast, true, side, sideKey), className: "active:opacity-70 disabled:opacity-50",
             style: { marginTop: 8, padding: "6px 14px", borderRadius: 8, border: "1px solid " + COPPER, color: COPPER, fontFamily: F_BODY, fontSize: fs(12) } },
-            card.videoBusy && vidRunning[card.id] ? "卡面在动起来…" + (card.videoStatus ? "（" + card.videoStatus + "）" : "") + "，可以先去别处，回来接着等" : card.video ? "↻ 重新让卡面动起来 · 花一次视频生成" : "▶ 让卡面动起来 · 花一次视频生成") : null,
-          card.video && vMain ? h("button", { "data-wk": "stampvideosolo", onClick: () => setVidSolo(true), className: "active:opacity-70",
+            card.videoBusy && vidRunning[card.id] ? "卡面在动起来…" + (card.videoStatus ? "（" + card.videoStatus + "）" : "") + "，可以先去别处，回来接着等" : vSlot ? "↻ 重新让这一面动起来 · 花一次视频生成" : "▶ 让这一面动起来 · 花一次视频生成") : null,
+          vSlot && vMain ? h("button", { "data-wk": "stampvideosolo", onClick: () => setVidSolo(true), className: "active:opacity-70",
             style: { marginTop: 6, padding: "4px 12px", minHeight: 36, fontFamily: F_BODY, fontSize: fs(11.5), color: COPPER, textDecoration: "underline", background: "transparent", border: "none" } }, "单独播放这段视频（带进度条）") : null,
           vidSolo && vMain ? h("div", { "data-wk": "stampvideosolopage", onClick: () => setVidSolo(false), style: { position: "fixed", inset: 0, zIndex: 9000, background: "rgba(0,0,0,.92)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 16 } },
             h("video", { src: vMain, controls: true, playsInline: true, loop: true, onClick: e => e.stopPropagation(), style: { maxWidth: "100%", maxHeight: "80vh", borderRadius: 4, background: "#000" } }),
