@@ -20,7 +20,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v76.961";
+const APP_VERSION = "v76.966";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -35630,6 +35630,10 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         setActiveId(id);
         if (!window.CredentialVault) saveJSON("x_api", list);
         saveJSON("x_activeApi", id);
+        // 真落进保险仓、读回核对过才说「已保存」（原来金库那步过了就报成功，线路列表那份其实没写稳，关掉重开就回到旧的）
+        const _clean = loadJSON("x_api", null) || list;
+        const _a = await saveJSONDurable("x_api", _clean), _b = await saveJSONDurable("x_activeApi", id);
+        if (!_a.durable || !_b.durable) { toast("API 配置这次没在本机存稳：关掉重开可能会回到旧的。先去 设置 → 数据 看看本地空间是不是满了，清一清再保存一次", 8000); return true; }
         toast("API 配置已安全保存");
         return true;
       } catch (e) { toast("API 凭证保存失败，旧配置仍保留：" + (e.message || e)); return false; }

@@ -12,11 +12,13 @@ test("发表情那一格只有一份：单聊和群聊都挂在 StickerPanel 上
   // ⚠️原来单聊和群聊各写了一份一模一样的四列网格——要分栏就得改两处，
   //   改一处必然漏一处（施工规则/one-public-mechanism.md）。
   assert.ok(comp.indexOf("function StickerPanel(") > 0, "没有公共那一份");
-  assert.equal((comp.match(/h\(StickerPanel, \{/g) || []).length, 2, "两处聊天都要用它");
+  // 2026-10-30 又多了一处（给消息贴表情）：要的是「只有这一份」，不是「正好两处」
+  assert.ok((comp.match(/h\(StickerPanel, \{/g) || []).length >= 2, "两处聊天都要用它");
   assert.equal((comp.match(/setStickerOpen\(false\); \}, className: "active:opacity-70", style: \{ border/g) || []).length, 0,
     "旧的那份手写网格还留着一份");
   // 两处都得把分好组的那份递下去
-  assert.equal((comp.match(/packs: emotePacks, emotes: emotes,/g) || []).length, 2);
+  assert.equal((comp.match(/packs: emotePacks, emotes: emotes,/g) || []).length,
+    (comp.match(/h\(StickerPanel, \{/g) || []).length, "每一处都要把分好组的那份递下去");
   assert.equal((comp.match(/^  emotePacks,$/gm) || []).length, 2, "两个组件都要收这个 prop");
 });
 
