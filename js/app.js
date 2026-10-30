@@ -13885,7 +13885,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       // ② 再把仍塞了一大段（多句）的按句末标点拆成一句一泡；一路逗号连下去的长句同样拆
       //    （splitLongBubble 两档合一，群聊用的是同一个函数——见 engine.js 上方那段）
       //    中译挂在拆出来的【最后一泡】上，长外语句该拆还是拆（她 2026-08-15「别整段砸」）。
-      const _biZh = new Map();
+      const _biZh = new Map(), _biCovered = new Set();   // _biCovered：这一泡的中文挂在同句最后一泡上了，别再拿机翻补
       // 中译另起一行的那种先接回去（群里同一个函数）
       // 双语开关没开、TA自己却每句都写成「原文 | 中文」的（她 2026-10-11：「他每一句不是已经自带翻译了吗，直接调成我们有翻译气泡的格式」）：
       //   竖线原样挂在气泡里很难看。劈得开（左边看得出是外语／粤语）就照双语那条路走，劈不开的普通竖线照旧不动。
@@ -13897,7 +13897,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         const bi = _biParse ? splitBilingual(w, hanLangOf(char)) : null;
         const parts = _splitOn ? splitLongBubble(bi ? bi.text : w, !_body) : [bi ? bi.text : w];
         // 键要归一化：②.5 那一步会削掉句尾那个句号，原样存就对不上了
-        if (bi && parts.length) _biZh.set(bilingualKey(parts[parts.length - 1]), bi.zh);
+        if (bi && parts.length) bilingualSpread(parts, bi.zh, !_body).forEach((z, k) => { if (z) _biZh.set(bilingualKey(parts[k]), z); else _biCovered.add(bilingualKey(parts[k])); });
         return acc.concat(parts);
       }, []);
       // ②.5 打字体标点兜底（v54.81）：削掉每一泡句尾那个句号。放在拆泡【之后】——
@@ -14196,7 +14196,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       //   ⚠️只认双语开关（她 2026-10-12：「不开翻译就是不想要这个功能」）——没开就一泡都不补、不合。
       //   粤语这类认字靠 hanLineLang，别的语言照「译」那颗按钮同一个判据（translatableLang）。
       const _yueFill = _bilingualOn && typeof translateToZh === "function"
-        ? words.map(w => { const lg = !_biZh.get(bilingualKey(w)) && typeof w === "string" && emoteSlotOf(w) == null && voiceSlotOf(w) == null ? (hanLangOf(char) ? hanLineLang(w) : translatableLang(w)) : "";
+        ? words.map(w => { const lg = !_biZh.get(bilingualKey(w)) && !_biCovered.has(bilingualKey(w)) && typeof w === "string" && emoteSlotOf(w) == null && voiceSlotOf(w) == null ? (hanLangOf(char) ? hanLineLang(w) : translatableLang(w)) : "";
             return lg ? translateToZh(w, lg, { noModel: true }).then(r => (r && r.zh) || "").catch(() => "") : null; })
         : [];
       for (let i = 0; i < words.length; i++) {
@@ -16235,13 +16235,13 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
             const rawLines = !_gCard && typeof bubbleGlueBrokenLines === "function" ? bubbleGlueBrokenLines(_gLines.map(x => String(x).trim()).filter(Boolean)) : _gLines;   // 半句话断成两泡的粘回去，跟单聊同一支
             // 模型不打换行时 splitBubbles 等于没拆，所以再过一道和单聊同一个的长气泡兜底
             const gAllowComma = !isBody(spk.id);
-            const gBiZh = new Map();
+            const gBiZh = new Map(), gBiCovered = new Set();
             const gLines = (gBiOn ? (ls => joinBilingualLines(ls, hanLangOf(spk), { pairNext: true })) : (x => x))(rawLines.map(x => x.trim()).filter(Boolean).map(stripAiStamp).map(stripEchoedMeta).filter(Boolean))
               .reduce((acc, x) => {
                 if (typeof htmlCardOf === "function" && htmlCardOf(x)) return acc.concat([x]);
                 const bi = gBiOn ? splitBilingual(x, hanLangOf(spk)) : null;
                 const parts = splitLongBubble(bi ? bi.text : x, gAllowComma);
-                if (bi && parts.length) gBiZh.set(bilingualKey(parts[parts.length - 1]), bi.zh);
+                if (bi && parts.length) bilingualSpread(parts, bi.zh, gAllowComma).forEach((z, k) => { if (z) gBiZh.set(bilingualKey(parts[k]), z); else gBiCovered.add(bilingualKey(parts[k])); });
                 return acc.concat(parts);
               }, []);
             let gBubbles = gLines.length ? gLines : [stripAiStamp(item.text || "")].filter(Boolean);
@@ -16307,7 +16307,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
             }
             // 粤语这类成员漏了竖线的那几泡，跟单聊同一个办法补中译（最多等 2.5 秒，没翻成就留「译」）
             const _gYueFill = gBiOn && hanLangOf(spk) && typeof translateToZh === "function"
-              ? gBubbles.map(w => { const lg = !gBiZh.get(bilingualKey(w)) && typeof w === "string" ? hanLineLang(w) : "";
+              ? gBubbles.map(w => { const lg = !gBiZh.get(bilingualKey(w)) && !gBiCovered.has(bilingualKey(w)) && typeof w === "string" ? hanLineLang(w) : "";
                   return lg ? translateToZh(w, lg, { noModel: true }).then(r => (r && r.zh) || "").catch(() => "") : null; })
               : [];
             for (let j = 0; j < gBubbles.length; j++) {
