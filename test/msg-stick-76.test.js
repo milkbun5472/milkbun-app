@@ -34,3 +34,11 @@ test("TA 也能往她的气泡上贴一个 emoji", () => {
   assert.match(app, /你往她这句上贴过一个/);
   assert.match(c, /const st = m && \(isU \? m\.theirStick : m\.stick\);/);
 });
+test("群聊也接上：她双击别人的气泡贴、成员也能往气泡上贴", () => {
+  assert.equal((c.match(/onDoubleTap: onStickMsg \?/g) || []).length, 2);
+  assert.match(c, /m\.gSticks/);
+  assert.match(app, /const gStickField = /);
+  assert.match(app, /gPatField \+ "" \+ gStickField/);
+  assert.match(app, /gSticks: \(x\.gSticks \|\| \[\]\)\.filter\(g => g\.by !== spk\.id\)/);
+  assert.match(app, /fmtGLine\(m\) \+ groupStickNote\(m\)/);
+});
