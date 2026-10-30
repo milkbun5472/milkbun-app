@@ -12721,11 +12721,15 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
               if (drawn.length) return "（表情里那个人都是你：" + drawn.join("、") + " 是你自己画的那套 Q 版；" + cut.join("、") + " 是她从你照片上抠下来的）";
               return "（这一套是她从你自己的照片上抠下来的，表情里那个人就是你）";
             };
-            const own = (emotePacksRef.current || []).filter(pk => !pk.global && (pk.charIds || []).includes(charId) && (pk.emotes || []).length);
-            if (!own.length) return "可用关键词：" + emotes.map(e => e.keyword).join(" / ");
+            // 她照自己面具画的那一套（fromCharFace "__me:…"）：画的是她，不是你——不算你的专属，单独说一句（她 2026-10-30「能给他们用吧」）
+            const herSets = (emotePacksRef.current || []).filter(pk => String(pk.fromCharFace || "").indexOf("__me:") === 0 && (pk.global || (pk.charIds || []).includes(charId)) && (pk.emotes || []).length);
+            const herIds = new Set(); herSets.forEach(pk => pk.emotes.forEach(e => herIds.add(e.id)));
+            const herLine = herSets.length ? "【她自己的表情】（照她本人画的 Q 版小人，表情里那个人是她；你也能发）：" + herSets.map(pk => pk.emotes.map(e => e.keyword).join(" / ")).join(" / ") + "。" : "";
+            const own = (emotePacksRef.current || []).filter(pk => !pk.global && String(pk.fromCharFace || "").indexOf("__me:") !== 0 && (pk.charIds || []).includes(charId) && (pk.emotes || []).length);
+            if (!own.length) return herLine + "可用关键词：" + emotes.filter(e => !herIds.has(e.id)).map(e => e.keyword).join(" / ");
             const ownIds = new Set(); own.forEach(pk => pk.emotes.forEach(e => ownIds.add(e.id)));
-            const rest = emotes.filter(e => !ownIds.has(e.id));
-            return "【你的专属表情包】（她专门给你挑的，就是你的表情；她说「你的表情包」「专属的」指的就是这几套）"
+            const rest = emotes.filter(e => !ownIds.has(e.id) && !herIds.has(e.id));
+            return herLine + "【你的专属表情包】（她专门给你挑的，就是你的表情；她说「你的表情包」「专属的」指的就是这几套）"
               + own.map(pk => "「" + (pk.name || "未命名") + "」" + (pk.fromCharFace === charId ? faceSetNote(pk) : "") + "：" + pk.emotes.map(e => e.keyword).join(" / ")).join("；")
               + (rest.length ? "。大家共用的：" + rest.map(e => e.keyword).join(" / ") : "")
               // 她 2026-10-17：「他们太过于强调用的是他们的表情包了，基本上每次都要提」——上面那几句是让你认得出哪几张是你、挑得准，
@@ -31469,7 +31473,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       let pk = packs.find(x => x && x.fromCharFace === (charId || "_"));
       const em = { id: "em_" + Date.now() + "_" + Math.floor(Math.random() * 100000), keyword: String(name || "").trim().slice(0, 20) || ((c ? c.name : "TA") + "表情" + (((pk && pk.emotes) || []).length + 1)), url, ...(drawn ? { drawn: true } : {}), ...(captioned ? { captioned: true } : {}), ...(_meM ? { selfFace: true } : {}) };   // selfFace：照她自己的脸画的（发出去时角色知道画的是她）
       const next = pk ? packs.map(x => x === pk ? { ...x, emotes: [...(x.emotes || []), em] } : x)
-        : [...packs, { id: "ep_face_" + Date.now(), name: packName, global: false, mine: true, charIds: charId && !_meM ? [charId] : [], fromCharFace: charId || "_", emotes: [em] }];
+        : [...packs, { id: "ep_face_" + Date.now(), name: packName, global: false, mine: true, charIds: charId && !_meM ? [charId] : _meM ? (characters || []).filter(x => x && !x.npc && String(maskKeyOf(x.id) || "") === String(_meK || "")).map(x => x.id) : [], fromCharFace: charId || "_", emotes: [em] }];
       return commitEmotePacks(next);
     } catch (e) { return false; }
   };

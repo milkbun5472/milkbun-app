@@ -21,3 +21,10 @@ test("照她的脸画的表情：存时打标记，她发出去角色收到「�
   assert.match(app, /\.\.\.\(_meM \? \{ selfFace: true \} : \{\}\) \};/);
   assert.equal((comp.match(/content: "\[表情\] " \+ em\.keyword \+ \(em\.selfFace \? "（画的是她自己）" : ""\)/g) || []).length, 2, "单聊、群聊两处");
 });
+
+// 她 2026-10-30「能给他们用吧」：她那一套默认给认这张面具的人用；角色那边单独说「画的是她」，不算进「你的专属」
+test("她自己的表情：默认给认这张面具的人，提示词里单独一行、不混进他的专属", () => {
+  assert.match(app, /_meM \? \(characters \|\| \[\]\)\.filter\(x => x && !x\.npc && String\(maskKeyOf\(x\.id\) \|\| ""\) === String\(_meK \|\| ""\)\)\.map\(x => x\.id\)/);
+  assert.match(app, /【她自己的表情】（照她本人画的 Q 版小人，表情里那个人是她；你也能发）/);
+  assert.match(app, /String\(pk\.fromCharFace \|\| ""\)\.indexOf\("__me:"\) !== 0 && \(pk\.charIds \|\| \[\]\)\.includes\(charId\)/, "不算进他的专属");
+});
