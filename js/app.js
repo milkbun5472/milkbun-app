@@ -31631,11 +31631,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       // 重名的照样留着（她 2026-10-13：「重复的照样留着吧都花了钱的」）——去重只靠上面把已有的告诉他、降低概率
       const items = emoteSetItems(d);
       if (items.length < 9) throw new Error("他没挑够九个，再试一次");
-      const prompt = "一张 3×3 九宫格表情包贴纸图，九格一样大，格与格之间留明显的白色空隙，每格纯白底。"
-        + "每格都是同一个人「" + char.name + "」的平面 Q 版二次元小人：二到三头身、大头小身子、手脚短短圆圆，干净的深色勾线、赛璐璐平涂，大眼睛、脸颊淡淡腮红，像聊天贴纸；长相、发型发色、标志性配饰照参考图。"
-        + (char.appearance ? "外貌：" + String(char.appearance).slice(0, 200) + "。" : "")
-        + "九格从左到右、从上到下依次是：" + items.map((x, i) => (i + 1) + "." + x.look).join("；")
-        + "。每格人物居中、完整、别出格。画面里不要任何文字、字母、对话框。";
+      const prompt = emoteSetPrompt(char.name, char.appearance, items);
       const out = await generateSelfieImage(prompt, [char.refPhoto], { size: "1024x1024", minimalPrompt: prompt });
       let blob = out && out.blob;
       if (!blob && out && out.url) { try { blob = await (await fetch(out.url)).blob(); } catch (e) { blob = null; } }
@@ -31668,6 +31664,14 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       .map(x => ({ name: String((x && (x.name || x.keyword)) || "").trim().slice(0, 8), look: String((x && (x.look || x.desc || x.name)) || "").trim().slice(0, 60) }))
       .filter(x => x.name && x.look).slice(0, 9);
   };
+  // 九宫格那张图的说法，角色和她自己共用这一份（她 2026-10-30：两套画风不一样——她传的是真人照，
+  //   原来她那套也没说参考图只管长相，模型连照片的写实质感一起照搬了）。画风照这段字，参考图只认人。
+  const emoteSetPrompt = (name, appearance, items) => "一张 3×3 九宫格表情包贴纸图，九格一样大，格与格之间留明显的白色空隙，每格纯白底。"
+    + "每格都是同一个人「" + name + "」的平面 Q 版二次元小人：二到三头身、大头小身子、手脚短短圆圆，干净的深色勾线、赛璐璐平涂，大眼睛、脸颊淡淡腮红，像聊天软件里的表情贴纸。"
+    + "画风只照这段描述来；参考图只用来认这个人——长相、发型发色、标志性配饰照它，照片本身的写实质感、光影、画风都不跟。"
+    + (appearance ? "外貌：" + String(appearance).slice(0, 200) + "。" : "")
+    + "九格从左到右、从上到下依次是：" + items.map((x, i) => (i + 1) + "." + x.look).join("；")
+    + "。每格人物居中、完整、别出格。画面里不要任何文字、字母、对话框。";
   const makeMyEmoteSet = async (maskKey, setOpt) => {
     const me = (maskKey ? (masksRef.current || []).find(m => m && m.id === maskKey) : profile) || null;
     const key = "__me:" + (maskKey || "");
@@ -31689,11 +31693,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       const d = typeof extractJSON === "function" ? extractJSON(raw) : null;
       const items = emoteSetItems(d);
       if (items.length < 9) throw new Error("没挑够九个，再试一次");
-      const prompt = "一张 3×3 九宫格表情包贴纸图，九格一样大，格与格之间留明显的白色空隙，每格纯白底。"
-        + "每格都是同一个人「" + nm + "」的平面 Q 版二次元小人：二到三头身、大头小身子、手脚短短圆圆，干净的深色勾线、赛璐璐平涂，大眼睛、脸颊淡淡腮红，像聊天软件里的表情贴纸。"
-        + (me.appearance ? "外貌：" + String(me.appearance).slice(0, 200) + "。" : "")
-        + "九格从左到右、从上到下依次是：" + items.map((x, i) => (i + 1) + "." + x.look).join("；")
-        + "。每格人物居中、完整、别出格。画面里不要任何文字、字母、对话框。";
+      const prompt = emoteSetPrompt(nm, me.appearance, items);
       const out = await generateSelfieImage(prompt, [me.refPhoto], { size: "1024x1024", minimalPrompt: prompt });
       let blob = out && out.blob;
       if (!blob && out && out.url) { try { blob = await (await fetch(out.url)).blob(); } catch (e) { blob = null; } }

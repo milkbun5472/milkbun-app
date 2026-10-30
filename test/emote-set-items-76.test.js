@@ -13,3 +13,7 @@ test("两套都走这一份，她那套写明 JSON 形状", () => {
   assert.equal((s.match(/const items = emoteSetItems\(d\);/g) || []).length, 2);
   assert.match(s, /只输出这个形状的 JSON：\{\\"items\\"/);
 });
+test("九宫格的画图说法两套共用一份，参考图只认人", () => {
+  assert.equal((s.match(/const prompt = emoteSetPrompt\(/g) || []).length, 2);
+  assert.match(s, /参考图只用来认这个人/);
+});
