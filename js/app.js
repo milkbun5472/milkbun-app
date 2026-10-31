@@ -11466,7 +11466,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       const mine = (momentsRef.current || []).filter(m => m && m.mine && String(m.mask || "") === vm && !maskTrace(m.content)).slice(0, 6);
       if (mine.length) out.push("【她自己发的朋友圈，最近这几条】\n" + mine.map(m => {
         const vis = Array.isArray(m.visibleTo) && m.visibleTo.length ? m.visibleTo : null;
-        const hidFromYou = vis && !vis.map(String).includes(String(viewerId));
+        const hidFromYou = (vis && !vis.map(String).includes(String(viewerId))) || (m.hiddenFrom || []).includes(String(viewerId));
         return "· " + md(m.ts) + "　" + cut(m.content, 80) + pic(m)
           + (hidFromYou ? "\n  ⚠这条设了只给" + vis.map(id => nameOf(id) || "别人").join("、") + "看——你平时刷不到" : "") + tail(m);
       }).join("\n"));
@@ -11637,7 +11637,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   //   跟她用别的面具聊的人加的是另一个「她」，刷不到这一条。原来 TA 想起朋友圈时连「部分可见」的名单都没看
   // 按面具发朋友圈（她 2026-10-11）：m.mask 是这条用哪张面具发的（主面具不记）。没挑「谁可以看」时，跟她用同一张面具聊的人刷得到
   // 她手机上被删了好友／拉黑的那位（x_peekCut）刷不到她的朋友圈，跟真微信一样（群友 2026-10-22：TA 果断删了人，朋友圈里那人还跟她互动得很好）
-  const momSeen = (m, charId) => !!m && !!m.mine && !((window.__peekCut || {})[charId]) && ((m.remind || []).includes(charId) || (m.visibleTo && m.visibleTo.length ? m.visibleTo.includes(charId) : maskKeyOf(charId) === String(m.mask || "")));
+  const momSeen = (m, charId) => !!m && !!m.mine && !((window.__peekCut || {})[charId]) && !(m.hiddenFrom || []).includes(String(charId)) && ((m.remind || []).includes(charId) || (m.visibleTo && m.visibleTo.length ? m.visibleTo.includes(charId) : maskKeyOf(charId) === String(m.mask || "")));
   // 发朋友圈那页挑面具用：主面具一张 + 其余几张（跟论坛挑面具同一份名单）；发出来的那条显示用哪张的名字和头像
   window.__momentMasks = () => [{ id: "", name: profile.name || "主面具", avatarImage: profile.avatarImage, color: profile.color }]
     .concat((masks || []).filter(m => m && m.id && m.id !== maskPrimary).map(m => ({ id: m.id, name: String(m.name || "").trim() || "没起名的面具", avatarImage: m.avatarImage, color: m.color })));
@@ -24405,6 +24405,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     image,
     images,
     visibleTo,
+    hiddenFrom,
     remind,
     poll,
     mask
@@ -24422,6 +24423,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       image: image || null,
       ...(pics.length > 1 ? { images: pics } : {}),
       visibleTo: visibleTo || null,
+      ...(Array.isArray(hiddenFrom) && hiddenFrom.length ? { hiddenFrom: hiddenFrom.map(String) } : {}),
       remind: Array.isArray(remind) && remind.length ? remind.slice(0, 20) : null,
       mask: mask && mask !== maskPrimary && (masks || []).some(m => m && m.id === mask) ? mask : undefined,
       poll: poll && Array.isArray(poll.options) && poll.options.length >= 2 ? { options: poll.options.slice(0, 4), votes: {} } : null,
@@ -24484,7 +24486,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   // 她自己身边的配角：随机挑几个（她的朋友圈她身边的人当然刷得到）
   const myNpcCrowd = (max, mom) => {
     // 只来戴着【这条朋友圈那张面具】建的那几个（群友 2026-10-25：用另一个面具认识的 NPC 也来评论了）；挑了「谁可以看」就照名单
-    const pool = (npcsOf("me") || []).filter(n => n && (!mom || (mom.visibleTo && mom.visibleTo.length ? mom.visibleTo.includes(n.id) : (String(n.maskId || "") === maskPrimary ? "" : String(n.maskId || "")) === String(mom.mask || "")))).slice();
+    const pool = (npcsOf("me") || []).filter(n => n && !(mom && (mom.hiddenFrom || []).includes(String(n.id))) && (!mom || (mom.visibleTo && mom.visibleTo.length ? mom.visibleTo.includes(n.id) : (String(n.maskId || "") === maskPrimary ? "" : String(n.maskId || "")) === String(mom.mask || "")))).slice();
     for (let k = pool.length - 1; k > 0; k--) { const j = Math.floor(Math.random() * (k + 1)); [pool[k], pool[j]] = [pool[j], pool[k]]; }
     return pool.slice(0, max == null ? 2 : max);
   };

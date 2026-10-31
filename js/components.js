@@ -9748,7 +9748,8 @@ function MomentCompose({
       content: body,
       image,
       images: realPics.length > 1 ? realPics : null,
-      visibleTo: vis === "all" ? null : [...new Set([...sel, ...remind])],   // 提醒了谁，谁就得看得见
+      visibleTo: vis === "pick" ? [...new Set([...sel, ...remind])] : null,   // 提醒了谁，谁就得看得见
+      hiddenFrom: vis === "hide" ? sel.filter(id => !remind.includes(id)) : null,
       remind: remind.length ? remind : null,
       poll: opts.length >= 2 ? { options: opts, votes: {} } : null,
       mask: mask || undefined
@@ -9861,7 +9862,7 @@ function MomentCompose({
     }
   }, "谁可以看"), h("div", {
     className: "flex gap-2 mb-3"
-  }, [["all", "公开"], ["pick", "部分可见"]].map(([k, l]) => h("button", {
+  }, [["all", "公开"], ["pick", "部分可见"], ["hide", "不给谁看"]].map(([k, l]) => h("button", {
     key: k,
     onClick: () => setVis(k),
     className: "px-4 py-1.5",
@@ -9873,7 +9874,8 @@ function MomentCompose({
       color: vis === k ? t.bg2 : t.fog,
       border: `1px solid ${vis === k ? t.ink : t.line}`
     }
-  }, l))), vis === "pick" && h("div", null, friendGroups.length > 0 && h("div", {
+  }, l))), vis === "hide" && h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, margin: "-4px 0 8px", lineHeight: 1.5 } }, "勾上的人刷不到这一条，别人照常；被提醒了的人不会被藏。"),
+  (vis === "pick" || vis === "hide") && h("div", null, vis === "pick" && friendGroups.length > 0 && h("div", {
     className: "flex flex-wrap gap-2 mb-3"
   }, friendGroups.map(g => h("button", {
     key: g.id,
@@ -10304,7 +10306,7 @@ function MomentsFeed({
   }), !gen && moments.length === 0 && /*#__PURE__*/React.createElement(Empty, {
     text: "朋友圈还没有动态",
     sub: "点右上「发朋友圈」或「角色发」"
-  }), momTopFirst(moments).map(m => {
+  }), momTopFirst(moments).filter(m => !m || m.mine || !momMutedIds().includes(String(m.characterId))).map(m => {
     const isMine = m.mine;
     // 开了「发朋友圈」的配角发的那条也摆出来（她 2026-10-22）
     const c = isMine ? null : (characters.find(x => x.id === m.characterId) || (npcs || []).find(x => x && x.id === m.characterId));
@@ -10598,7 +10600,18 @@ function AutoImgSwitch({ storeKey, color }) {
   const c = color || (on ? t.ink : t.fog);
   return h("button", { "data-auto-img": storeKey + ":" + (on ? "on" : "off"), onClick: () => { const n = !on; setOn(n); saveJSON(storeKey, n); }, className: "flex items-center gap-1.5", style: { minHeight: 40, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: on ? t.ink : t.fog } }, h(PGlyph, { k: "album", size: 13, color: on ? t.ink : t.fog }), on ? " 自动配图·开" : " 自动配图·关");
 }
+function MomMuteToggle({ id }) {
+  const t = useTheme();
+  const [on, setOn] = useState(() => momMutedIds().includes(String(id)));
+  const flip = () => { const cur = momMutedIds().filter(x => x !== String(id)); const next = on ? cur : cur.concat([String(id)]); saveJSON("x_momMute", next); setOn(!on); };
+  return h("div", { className: "px-5 pb-1 flex justify-end" },
+    h("button", { "data-wk": "momute", "data-on": on ? "1" : "0", onClick: flip, className: "active:opacity-70",
+      style: { minHeight: 40, padding: "0 12px", borderRadius: 999, border: "1px solid " + t.line, background: "transparent", fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: on ? t.accent : t.sub } },
+      on ? "已不看 · 点一下恢复" : "不看 TA 的朋友圈"));
+}
 function MomentAutoImgSwitch() { return h(AutoImgSwitch, { storeKey: "x_momentAutoImg" }); }
+// 「不看 TA 的朋友圈」（群友 2026-10-31）：她这边刷朋友圈时把这几位的藏起来；TA 照常发，TA 那头什么都不知道。
+function momMutedIds() { try { const v = loadJSON("x_momMute", []); return Array.isArray(v) ? v.map(String) : []; } catch (e) { return []; } }
 // 朋友圈个人页（仿微信「我的相册/TA 的朋友圈」）：封面 + 头像 + 签名 + 此人所有动态；me 可发/删/换封面
 function MomentsProfile({ isMe, character: rawCharacter, profile, characters: rawCharacters, moments, cover, coverPos, onSetCoverPos, coverText, gen, friendGroups, signature, onSetCover, onDelMoment, onTopMoment, onLikeMoment, onCommentMoment, onPostMoment, onBack }) {
   const character = chatFace(rawCharacter), characters = (rawCharacters || []).map(chatFace);   // 主页上的头像也认聊天那张
@@ -10695,6 +10708,7 @@ function MomentsProfile({ isMe, character: rawCharacter, profile, characters: ra
     sign ? h("div", { className: "shrink-0", "data-wk": "mosign", style: { textAlign: "right", padding: "46px 18px 6px" } },
       h("span", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", fontStyle: "italic", color: t.sub, lineHeight: 1.5 } }, "“" + sign + "”")) : null,
     h("div", { "data-wk": "moprofile", "data-me": isMe ? "1" : undefined, className: "flex-1 min-h-0 overflow-y-auto", style: { paddingTop: sign ? 0 : 44, overscrollBehavior: "contain" } },
+      !isMe && h(MomMuteToggle, { id: character.id }),
       isMe && h("div", { className: "px-5 pb-1 flex justify-end" }, h("button", { onClick: () => setCompose(true), className: "flex items-center gap-1.5 active:opacity-70", style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.ink } }, h(PGlyph, { k: "album", size: 14, color: t.ink }), " 发一条")),
       gen && h(Spinner, { label: "正在发朋友圈…" }),
       list.length === 0 && !gen && h(Empty, { text: isMe ? "你还没发过朋友圈" : name + " 还没有朋友圈", sub: isMe ? "点右上「发一条」" : "" }),
