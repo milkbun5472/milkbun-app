@@ -11028,20 +11028,23 @@ function RerollNav({ nav, onFlip, pad }) {
 }
 // 旁白那一栏：几档切换 + 还在生效的导演便签（单聊、群聊共用这一块，她 2026-10-26 群里也要导演便签）
 //   kinds：[[键, 名字]]；kind＝"dir" 时右边多一个「两轮／整场」；faces：「替谁说」那档的一排头像
-function ActFrameToggle() {
+// 「平时打的（）算不算动作」（群友 2026-10-31：「不要一个功能分两处」）：只在旁白模式「我的动作」那一档右边选，
+//   按对话记（x_parenAct[单聊 id 或 g:群 id]）。开着时，说话模式里打的（）那几段在气泡里斜体、TA 读成真在做的动作。
+function parenActOn(key) { try { return !!(loadJSON("x_parenAct", {}) || {})[key]; } catch (e) { return false; } }
+function ParenActToggle({ actKey }) {
   const t = useTheme();
-  const [f, setF] = useState(actFrameStyle);
-  return h("button", { "data-wk": "actframe", onClick: () => { const n = f === "dashed" ? "solid" : "dashed"; saveJSON("x_actFrame", n); setF(n); },
-    className: "active:opacity-70 ml-auto", style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", minHeight: 30, padding: "4px 10px", color: t.sub, background: "transparent", border: "none" } },
-    (f === "dashed" ? "虚线框" : "实线框") + " · 轻触换");
+  const [on, setOn] = useState(() => parenActOn(actKey));
+  return h("button", { "data-wk": "parenacttoggle", "data-on": on ? "1" : "0", onClick: () => { const all = loadJSON("x_parenAct", {}) || {}; saveJSON("x_parenAct", Object.assign({}, all, { [actKey]: !on })); setOn(!on); },
+    className: "active:opacity-70 ml-auto", style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", minHeight: 30, padding: "4px 10px", color: on ? t.accent : t.sub, background: "transparent", border: "none" } },
+    on ? "平时打的（）也算动作 · 轻触改" : "平时打的（）不算动作 · 轻触改");
 }
-function NarrBar({ kinds, kind, setKind, dirLong, setDirLong, dirNotes, onDelDirNote, faces, asId, setAsId, hint }) {
+function NarrBar({ kinds, kind, setKind, dirLong, setDirLong, dirNotes, onDelDirNote, faces, asId, setAsId, hint, actKey }) {
   const t = useTheme();
   return h("div", { "data-wk": "narrbar", className: "shrink-0 px-3", style: { background: t.bg2, borderTop: "1px solid " + t.line, paddingTop: 8, paddingBottom: 6 } },
     h("div", { className: "flex items-center gap-2 flex-wrap" },
       kinds.map(([k, lb]) => h("button", { key: k, "data-wk": "narrkind", "data-on": kind === k ? "1" : "0", onClick: () => setKind(k), className: "active:opacity-70",
         style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", minHeight: 30, padding: "4px 11px", borderRadius: 999, border: "1px solid " + (kind === k ? t.ink : t.line), color: kind === k ? t.ink : t.fog, background: kind === k ? t.bg : "transparent" } }, lb)),
-      kind === "act" ? h(ActFrameToggle, null) : null,
+      kind === "act" && actKey ? h(ParenActToggle, { key: actKey, actKey }) : null,
       kind === "dir" ? h("button", { "data-wk": "dirlong", onClick: () => setDirLong(v => !v), className: "active:opacity-70 ml-auto",
         style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", minHeight: 30, padding: "4px 10px", color: t.sub, background: "transparent", border: "none" } }, dirLong ? "整场有效 · 轻触改两轮" : "管接下来两轮 · 轻触改整场") : null),
     kind === "as" && faces ? h("div", { "data-wk": "asfaces", className: "flex items-center gap-2", style: { marginTop: 7, overflowX: "auto" } },
@@ -11184,10 +11187,10 @@ function ChatThread({
   const [narrKind, setNarrKind] = useState("event");
   const [dirLong, setDirLong] = useState(false);
   const dirMode = chatMode === "narr" && narrKind === "dir" && !!onAddDirNote;
-  // 她这句里（）算不算真做了的动作（群友 2026-10-31）：输入框里有括号才冒那颗开关；按人记住上回选的
-  const [parenAct, setParenAct] = useState(() => { try { return !!(loadJSON("x_parenAct", {}) || {})[character && character.id]; } catch (e) { return false; } });
-  const setParenActP = v => { setParenAct(v); try { const all = loadJSON("x_parenAct", {}) || {}; saveJSON("x_parenAct", Object.assign({}, all, { [character && character.id]: !!v })); } catch (e) {} };
-  const actOf = v => parenAct && PAREN_ACT_RE.test(String(v || ""));
+  // 她这句里（）算不算真做了的动作：开关在旁白模式「我的动作」那一档（ParenActToggle），这里发的时候现读
+  const actOf = v => !!(character && parenActOn(character.id)) && PAREN_ACT_RE.test(String(v || ""));
+  // 旁白模式「我的动作」写的：就是她自己的一句，括号包好、标成动作，跟平时打（）选了「算动作」是同一种消息
+  const actMsg = v => ({ role: "user", content: /^[（(][\s\S]*[）)]$/.test(String(v).trim()) ? String(v).trim() : "（" + String(v).trim() + "）", parenAct: true, read: true });
   const [quoted, setQuoted] = useState(null); // { id, text, senderId, senderName }；旧字符串仍兼容
   const [unblockDraft, setUnblockDraft] = useState(null); // 点感叹号后的「求解除」草稿框：null=没开
   const [menu, setMenu] = useState(null);
@@ -11493,11 +11496,11 @@ function ChatThread({
   const send = (v) => {
     if (!v || sending) return;
     if (dirMode) { onAddDirNote(v, dirLong); return; }
-    if (chatMode === "narr") sendRich({
+    if (chatMode === "narr" && narrKind === "act") sendRich(actMsg(v));
+    else if (chatMode === "narr") sendRich({
       role: "narration",
       kind: "narration",
       content: v,
-      ...(narrKind === "act" ? { who: "me" } : {}),
       read: true
     });else if (chatMode === "ooc") onOOC && onOOC(v);
     else if (quoted) { sendRich({ role: "user", content: v, replyTo: quoted, read: true, ...(actOf(v) ? { parenAct: true } : {}) }); setQuoted(null); }
@@ -11514,11 +11517,10 @@ function ChatThread({
     autoFiredRef.current = Math.max(autoFiredRef.current, Date.now() + 3000);
     if (dirMode) { if (pending) onAddDirNote(pending, dirLong); onReply(""); return; }
     if (chatMode === "narr") {
-      if (pending) sendRich({
+      if (pending) sendRich(narrKind === "act" ? actMsg(pending) : {
         role: "narration",
         kind: "narration",
         content: pending,
-        ...(narrKind === "act" ? { who: "me" } : {}),
         read: true
       });
       onReply("");
@@ -12394,7 +12396,7 @@ function ChatThread({
         style: { padding: "7px 16px", borderRadius: 999, border: "none", background: t.accent, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: "#fff", opacity: String(unblockDraft || "").trim() ? 1 : .45 }
       }, "发给 TA"))),
   // 旁白模式的两档 + 还在生效的导演便签（点 × 删掉）：跟群聊同一块 NarrBar
-  chatMode === "narr" && onAddDirNote ? h(NarrBar, { kinds: [["event", "此刻发生了什么"], ["act", "我的动作"], ["dir", "往后的方向"]], kind: narrKind, setKind: setNarrKind, dirLong, setDirLong, dirNotes, onDelDirNote }) : null,
+  chatMode === "narr" && onAddDirNote ? h(NarrBar, { actKey: character && character.id, kinds: [["event", "此刻发生了什么"], ["act", "我的动作"], ["dir", "往后的方向"]], kind: narrKind, setKind: setNarrKind, dirLong, setDirLong, dirNotes, onDelDirNote }) : null,
   /*#__PURE__*/React.createElement("div", {
     className: "flex items-center gap-2 px-3 py-2.5 shrink-0",
     "data-wk": "composer",
@@ -12432,7 +12434,7 @@ function ChatThread({
   }, ccLane.direct ? "直连" : "书房"), h(DraftInput, {
     keepKey: character && character.id ? "chat:" + character.id : null,
     inputProps: { "data-wk": "chatinput" },
-    placeholder: dirMode ? "写接下来的大概方向：比如慢慢聊到要不要一起搬家…" : chatMode === "narr" && narrKind === "act" ? "写你在做的动作：比如把脸埋进枕头里…" : chatMode === "narr" ? "写一段旁白：天气、灯、谁推门进来…" : chatMode === "ooc" ? characterText(character, "出戏说：跟演他的那位说，可以让它改、也可以问状态…") : "发一条消息…",
+    placeholder: dirMode ? "写接下来的大概方向：比如慢慢聊到要不要一起搬家…" : chatMode === "narr" && narrKind === "act" ? "写你在做的动作，会用（）包好发成你的一句：比如把脸埋进枕头里…" : chatMode === "narr" ? "写一段旁白：天气、灯、谁推门进来…" : chatMode === "ooc" ? characterText(character, "出戏说：跟演他的那位说，可以让它改、也可以问状态…") : "发一条消息…",
     inputStyle: {
       fontFamily: F_BODY,
       fontSize: "calc(14px * var(--app-fs, 1))",
@@ -12442,10 +12444,7 @@ function ChatThread({
       minWidth: 0
     },
     onSubmit: send,
-    after: (draft, fire, clear) => h(React.Fragment, null, chatMode === "chat" && PAREN_ACT_RE.test(String(draft || "")) ? h("button", { "data-wk": "parenacttoggle", "data-on": parenAct ? "1" : "0",
-      onClick: () => setParenActP(!parenAct), className: "active:opacity-70 shrink-0", title: "括号里的是动作还是打出来的字",
-      style: { minHeight: 40, padding: "0 8px", fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", fontStyle: parenAct ? "italic" : "normal", color: parenAct ? t.accent : t.fog, background: "transparent", border: "none" } },
-      parenAct ? "（动作）" : "（打的字）") : null, /*#__PURE__*/React.createElement("button", {
+    after: (draft, fire, clear) => h(React.Fragment, null, /*#__PURE__*/React.createElement("button", {
       onClick: fire,
       // 按下去不抢输入框的焦点：键盘留着，能连着发好几条（群里 2026-10-22）
       onMouseDown: e => e.preventDefault(),
@@ -19862,12 +19861,16 @@ function GroupThread({
       return;
     }
     // 旁白：跟单聊同一种消息（role narration），群里本来就会把它当【旁白】喂给大家
-    if (chatMode === "narr") { onSendRich && onSendRich({ role: "narration", kind: "narration", content: v, ...(gNarrBar && gKind === "act" ? { who: "me" } : {}), read: true }); return; }
+    // 「我的动作」：她自己的一句，括号包好、标成动作（跟单聊同一种消息）
+    const gAct = x => !!(group && parenActOn("g:" + group.id)) && PAREN_ACT_RE.test(String(x || ""));
+    if (chatMode === "narr" && gNarrBar && gKind === "act") { const tv = String(v).trim(); onSendRich && onSendRich({ role: "user", senderName: meName, content: /^[（(][\s\S]*[）)]$/.test(tv) ? tv : "（" + tv + "）", parenAct: true, read: true }); return; }
+    if (chatMode === "narr") { onSendRich && onSendRich({ role: "narration", kind: "narration", content: v, read: true }); return; }
     if (quoted) {
       const q = typeof quoted === "string" ? { text: quoted } : quoted;
-      onSendRich && onSendRich({ role: "user", senderName: meName, content: v, replyTo: q.text, replyToId: q.id || null, replyToSenderId: q.senderId || null, replyToSenderName: q.senderName || null });
+      onSendRich && onSendRich({ role: "user", senderName: meName, content: v, replyTo: q.text, replyToId: q.id || null, replyToSenderId: q.senderId || null, replyToSenderName: q.senderName || null, ...(gAct(v) ? { parenAct: true } : {}) });
       setQuoted(null); return;
     }
+    if (gAct(v)) { onSendRich && onSendRich({ role: "user", senderName: meName, content: v, parenAct: true }); return; }
     onSend(v);
   };
   // 同上，走公共那一份
@@ -20426,7 +20429,7 @@ function GroupThread({
         WebkitUserSelect: "none",
         WebkitTouchCallout: "none"
       }, (cardLayout(m.content) || {}).bubble)
-    }, cardLayout(m.content) ? null : bubbleSticker(isU), msgStickEl(m, isU), m.recalled ? m.content : h(TransText, { text: m.content, isU: isU, zhReady: m.zh })), msgFoot(i, m, !m.recalled && subLine(m))), isU && gsp.showMyAvatar && h("span", { "data-wk": "avatar", className: "shrink-0", style: { display: "inline-flex" } }, h(Avatar, { character: meAv, size: 34, radius: 8 }))));
+    }, cardLayout(m.content) ? null : bubbleSticker(isU), msgStickEl(m, isU), m.recalled ? m.content : isU && m.parenAct ? h(ParenActText, { text: m.content }) : h(TransText, { text: m.content, isU: isU, zhReady: m.zh })), msgFoot(i, m, !m.recalled && subLine(m))), isU && gsp.showMyAvatar && h("span", { "data-wk": "avatar", className: "shrink-0", style: { display: "inline-flex" } }, h(Avatar, { character: meAv, size: 34, radius: 8 }))));
   }).flatMap((row, i) => {
     // 思考链画在这一组回复的上方（和单聊、线下同一个组件、同一个位置）。
     // 群聊一次调用写完所有人，所以它挂在这一轮最先冒出来的那条上（v56.75）。
@@ -20475,7 +20478,7 @@ function GroupThread({
       (characters || []).map(c => h("button", { key: c.id, onClick: () => doForward({ type: "chat", id: c.id }), className: "w-full flex items-center gap-3 py-2.5 active:opacity-60" }, h(Avatar, { character: c, size: 34, radius: 7 }), h("span", { style: { fontFamily: F_DISPLAY, fontSize: "calc(16px * var(--app-fs, 1))", color: t.ink } }, c.remark || c.name))),
       (groups || []).filter(g => g.id !== group.id).map(g => h("button", { key: "g_" + g.id, onClick: () => doForward({ type: "group", id: g.id }), className: "w-full flex items-center gap-3 py-2.5 active:opacity-60" }, h("div", { "data-wk": "block", style: { width: 34, height: 34, borderRadius: 7, background: t.bg2, border: "1px solid " + t.line, display: "flex", alignItems: "center", justifyContent: "center" } }, "👥"), h("span", { style: { fontFamily: F_DISPLAY, fontSize: "calc(16px * var(--app-fs, 1))", color: t.ink } }, g.name))))),
   h(NewBelowPill, { n: nb.newBelow, onGo: nb.go, group: true }),
-  !selMode && gNarrBar && h(NarrBar, { kinds: gNarrKinds, kind: gKind, setKind: setNarrKind, dirLong, setDirLong, dirNotes, onDelDirNote,
+  !selMode && gNarrBar && h(NarrBar, { actKey: group && !gs.spectate ? "g:" + group.id : null, kinds: gNarrKinds, kind: gKind, setKind: setNarrKind, dirLong, setDirLong, dirNotes, onDelDirNote,
     faces: members, asId: asId || (members[0] && members[0].id), setAsId,
     hint: gKind === "as" ? "这句就当是 TA 自己发的，后面的人会顺着接。" : "" }),
   !selMode && quoted && h(QuoteDraftBar, { text: (window.GroupQuote ? window.GroupQuote.label(quoted) : "❝ " + (typeof quoted === "string" ? quoted : quoted.text)).replace(/^❝\s*/, ""), onClear: () => setQuoted(null) }),
