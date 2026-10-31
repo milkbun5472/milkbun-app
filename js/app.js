@@ -15741,6 +15741,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
             const who = (members.find(c => c.id === m.toId) || {}).name || m.toName || "某位成员";
             return "· " + gUName + " 转给「" + who + "」" + moneyText(m.amount, m.toId) + (m.note ? "（附言：" + m.note + "）" : "") + "，还没处理";
           }).join("\n")
+          + "\n同一个人有好几笔挂着的，表态管的是【最新那一笔】，前面的继续挂着。"
           + "\n收不收【由收款那个人自己按人设和此刻情形定，不是默认收】：TA缺不缺、跟她什么关系、当着别人的面好不好意思收、是不是正别扭着——都算数。"
           + "\n要表态就在【TA自己那条发言对象】里加 \"transferAccept\":true（收下）或 false（退回），并在 text 里说一句TA自己的话；这一轮没顾上就省略，卡继续挂着。"
         : "";
@@ -16230,7 +16231,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
           }
           // TA对挂着那笔转账的表态（v56.88）：只结算转给TA本人的那一笔
           if (spk && (item.transferAccept === true || item.transferAccept === false)) {
-            const _mine = gPendingTf.find(x => x.toId === spk.id && x.status === "pending");
+            // 结算【最新那一笔】，跟单聊同一个取法（她 2026-10-31：第一轮转了他没收，第二轮再转，他一表态退的却是第一轮那笔）
+            const _mine = gPendingTf.filter(x => x.toId === spk.id && x.status === "pending").pop();
             if (_mine) respondGroupTransfer(groupId, _mine.tid, item.transferAccept === true);
           }
           if (item.text) _gSaidRun += " " + item.text;   // 后面的人要能看见TA刚说的
