@@ -33,3 +33,13 @@ test('legacy shoe palettes migrate without dropping old saved slots; new slots s
   assert.equal(outfitColors(look).boots,'#ffdd44');assert.equal(look.wardrobe[outfit][slot],'#123456');
  }
 });
+test('共用异瞳开关与双眼控件只写对应字段，关闭再打开保留两眼选色',async()=>{
+ const {mergeLook,dyesOf}=await import('../apps/fairy-garden/wardrobe.mjs');
+ let look={eye:'#3f6fa8',skin:'#dfb093',hair:'bob'};
+ const render=()=>flatten(DressControls({who:'self',look:{self:look},styles:{},game:()=>({getDyes:()=>dyesOf(look)}),pushLook:p=>{look=mergeLook(look,p);}}));
+ let nodes=render();assert.equal(nodes.filter(n=>n.type===DyeControl&&n.props.label==='眼睛').length,1);
+ const toggle=on=>render().find(n=>n.type==='input'&&n.props.type==='checkbox').props.onChange({target:{checked:on}});
+ toggle(true);nodes=render();for(const [label,value] of [['左眼','#4e8a62'],['右眼','#8a5bb0']])nodes.find(n=>n.type===DyeControl&&n.props.label===label).props.onChange(value);
+ toggle(false);assert.equal(render().find(n=>n.type===DyeControl&&n.props.label==='眼睛').props.value,'#3f6fa8');
+ toggle(true);assert.equal(render().find(n=>n.type===DyeControl&&n.props.label==='左眼').props.value,'#4e8a62');assert.equal(look.eyeRight,'#8a5bb0');assert.equal(look.skin,'#dfb093');
+});
