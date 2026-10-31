@@ -23,3 +23,13 @@ assert.match(app, /seqs: schedSnap\(char, seqs\), murmurs: \[\]/);
 assert.match(app, /seqs: schedSnap\(c, seqs\), selfRevCheck: true/);
 assert.match(app, /onSchedMapWorld: setWorldSchedMap/);
 console.log("sched map only ok");
+// 替谁添
+const mapSrc = readFileSync(new URL("../js/map.js", import.meta.url), "utf8");
+assert.match(mapSrc, /onGen\(reg, hint\.trim\(\), forId \|\| ""\)/);
+assert.match(mapSrc, /h\(NodeAdd, \{ world: world, characters: characters/);
+assert.match(mapSrc, /o\.onGenNodes\(world\.id, r, hint, null, fid\)/);
+assert.match(mapSrc, /onGenNodes\(cur\.id, r, hint, null, fid\)/);
+assert.match(app, /const genWorldNodes = async \(wid, regionName, hint, done, forId\)/);
+assert.match(app, /\[forChar\.id\]: home/);
+assert.match(app, /k !== forChar\.id/);
+console.log("node add for ok");
