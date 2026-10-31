@@ -740,6 +740,7 @@
     const [tab, setTab] = useState("pull");
     const [pool, setPool] = useState("mix");
     const [pick, setPick] = useState(() => (C().load().opt.mixPick) || null);   // 大混池勾的人
+    const imgPick = useImgPick();   // 长按一枚进多选、存进相册（components.js 那份公共的）
     const [charId, setCharId] = useState((characters[0] || {}).id);
     const [show, setShow] = useState(null);
     const [open, setOpen] = useState(() => { const o = window.__stampsOpen; window.__stampsOpen = null; return o || null; });   // 从小剧场退回来：直接打开那张卡
@@ -1093,6 +1094,10 @@
         right: (st.cards || []).some(c => c.rarity === "R" && c.text) ? h("button", { "data-wk": "stampmeltbtn", onClick: () => { if (meltSel == null) { setMeltSel([]); setMeltArm(false); } else { setMeltSel(null); setMeltArm(false); } }, className: "active:opacity-70",
           style: { padding: "3px 10px", borderRadius: 999, border: "1px " + (meltSel != null ? "solid #b23a2e" : "dashed rgba(87,119,103,.5)"), color: meltSel != null ? "#b23a2e" : "#577767", fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))" } }, meltSel != null ? "取消" : "融卡") : null }),
       meltBar,
+      h(ImgPickBar, { pick: imgPick, toast, allIds: album.filter(c => c.face).map(c => c.id), itemsOf: ids => { const out = [];
+        ids.forEach(id => { const c = (st.cards || []).find(x => x.id === id); if (!c) return; const nm = (c.text && c.text.name) || "邮票";
+          Array.from(new Set([c.face].concat(Object.values(c.faces || {}), (c.extras || []).map(x => x.img)).filter(v => typeof v === "string" && v))).forEach(ref => out.push({ id, ref, name: nm })); });
+        return out; } }),
       h("div", { className: "flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-5", ref: el => { if (el && !el.__y) { el.__y = 1; el.scrollTop = albumY.current; } }, onScroll: e => { albumY.current = e.currentTarget.scrollTop; }, style: { paddingBottom: "calc(env(safe-area-inset-bottom) * 0.4 + 28px)" } },
         // 一行三个下拉（她 2026-10-26：分类一行行往下加太高、往右滑不方便）：点开在下面弹一小块，选项换行平铺
         (() => { const chs = characters.filter(c => (st.cards || []).some(x => x.charId === c.id));
@@ -1117,7 +1122,7 @@
             style: { marginTop: 12, minHeight: 40, borderRadius: 10, border: "1px dashed #b23a2e", color: "#b23a2e", fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))" } }, "有 " + bad.length + " 张没写好 · 一起重写") : null; })(),
         album.length ? h("div", { "data-wk": "stampalbum", className: "grid", style: { gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 10, marginTop: 14, justifyItems: "center" } },
           album.map(c => { const ch = albumChar === "all" ? charOf(c.charId) : null;   // 「全部」时每枚下面写是谁的
-            return h("div", { key: c.id, className: "flex flex-col items-center", style: { gap: 3, minWidth: 0 } }, h("div", { style: { position: "relative", opacity: meltSel != null && c.rarity !== "R" ? .35 : 1 } }, h(StampFace, { t, card: c, size: 88, onClick: () => { if (meltSel == null) return setOpen(c.id); if (c.rarity !== "R" || c.writing) return; setMeltArm(false); setMeltSel(s0 => s0.includes(c.id) ? s0.filter(x => x !== c.id) : s0.concat([c.id])); } }),
+            return h("div", { key: c.id, className: "flex flex-col items-center", style: { gap: 3, minWidth: 0 } }, h("div", Object.assign({}, meltSel == null ? imgPick.press(c.id) : null, { style: Object.assign({}, meltSel == null ? imgPick.press(c.id).style : null, { position: "relative", opacity: meltSel != null && c.rarity !== "R" ? .35 : 1 }) }), h(ImgPickMark, { pick: imgPick, id: c.id }), h(StampFace, { t, card: c, size: 88, onClick: imgPick.click(c.id, () => { if (meltSel == null) return setOpen(c.id); if (c.rarity !== "R" || c.writing) return; setMeltArm(false); setMeltSel(s0 => s0.includes(c.id) ? s0.filter(x => x !== c.id) : s0.concat([c.id])); }) }),
                 meltSel != null && meltSel.includes(c.id) ? h("span", { "data-wk": "stampmeltpick", style: { position: "absolute", left: "50%", top: "50%", transform: "translate(-50%,-50%)", width: 30, height: 30, borderRadius: 999, background: "rgba(178,58,46,.9)", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, pointerEvents: "none" } }, "✓") : null,
                 // 没点开过的：右上角一个小点，淡淡的（她 2026-10-27：不要太明显）
                 // 有番外的 SSR：右上角折起一个小角（她 2026-10-27：纸边太显眼）

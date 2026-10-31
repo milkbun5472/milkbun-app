@@ -12346,6 +12346,7 @@ function ChatThread({
   // 选了开头和结尾，点一下把中间的全补上（她 2026-10-03）
   selIds.length >= 2 ? h("button", { onClick: () => { const lo = Math.min.apply(null, selIds), hi = Math.max.apply(null, selIds); const a = []; for (let k = lo; k <= hi; k++) a.push(k); setSelIds(a); }, style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.sub } }, "补中间") : null)),
   h("div", { "data-wk": "selactions", className: "flex items-center justify-around px-2 pb-2.5", style: { gap: 4, minHeight: 44 } },
+  chatSelImgItems(messages, selIds).length ? h("button", { "data-wk": "selsaveimg", onClick: () => saveChatSelImgs(messages, selIds, character && (character.remark || character.name), exitSel), style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.ink } }, "存图") : null,
   onPinShike ? h("button", { onClick: () => { if (selIds.length) { onPinShike(selIds); exitSel(); } }, disabled: !selIds.length, className: "disabled:opacity-40", style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.ink } }, "收进时刻") : null,
   // 画成漫画先挑画风（她 2026-10-13）：真漫画＝勾线画出来；照片漫画＝保持真人照片，靠气泡和字做出漫画感
   // 拼成一张长图存下来（她 2026-10-23：整页截图截不了 app）
@@ -18838,6 +18839,97 @@ function GoodsPic({ imgKey, style, onClick }) {
   const url = useIdbImgUrl(imgKey || null);
   return url ? h("img", { "data-wk": "goodspic", src: url, alt: "", onClick, style: Object.assign({ display: "block", objectFit: "cover" }, style || {}) }) : null;
 }
+// ── 长按多选、一次存进相册（她 2026-10-31：「做隐蔽点不要把界面弄丑」）──────────────
+// 图墙那几处（邮票册／时刻／照相馆／查手机相册）共用这一份；聊天走它自己那条多选栏。
+// 平时界面上一个字都不多：长按一张进多选，点别的张加减，底下浮一条小栏「存进相册」。
+// 真正存图走 engine.js 的 saveImgsBatch（一个分享面板放好多张）。
+function useImgPick() {
+  const [sel, setSel] = useState(null);
+  const timer = useRef(null), fired = useRef(false), from = useRef(null), touchTs = useRef(0);
+  const stop = () => { clearTimeout(timer.current); timer.current = null; };
+  useEffect(() => stop, []);
+  const hold = id => { stop(); fired.current = false; timer.current = setTimeout(() => {
+    timer.current = null; fired.current = true;
+    try { navigator.vibrate && navigator.vibrate(12); } catch (e) {}
+    setSel(s => !s ? [id] : s.indexOf(id) >= 0 ? s : s.concat([id]));
+  }, 480); };
+  const at = e => { const p = (e.touches && e.touches[0]) || e; return p ? { x: p.clientX, y: p.clientY } : null; };
+  const moved = e => { const p = at(e), f = from.current; if (p && f && Math.hypot(p.clientX - f.x, p.clientY - f.y) > 10) stop(); };
+  const toggle = id => setSel(s => !s ? [id] : s.indexOf(id) >= 0 ? s.filter(x => x !== id) : s.concat([id]));
+  return {
+    on: sel != null, sel: sel || [], has: id => !!sel && sel.indexOf(id) >= 0, toggle, set: setSel, end: () => setSel(null),
+    // 挂在每一张上：{...pick.press(id), onClick: pick.click(id, 原来的点击)}
+    press: id => ({
+      onTouchStart: e => { touchTs.current = Date.now(); from.current = at(e); hold(id); }, onTouchMove: moved, onTouchEnd: stop, onTouchCancel: stop,
+      // 手机上松手后会补一套模拟的 mousedown/click：那个 mousedown 不许重置「吃掉下一下」
+      onMouseDown: e => { if (Date.now() - touchTs.current < 1500) return; from.current = at(e); hold(id); }, onMouseUp: stop, onMouseLeave: stop,
+      onContextMenu: e => { e.preventDefault(); },
+      style: { WebkitTouchCallout: "none", WebkitUserSelect: "none", userSelect: "none" }
+    }),
+    // 长按触发之后松手会再补一个 click（按多久都补），吃掉它；多选里点＝加减，不打开
+    click: (id, orig) => e => {
+      if (fired.current) { fired.current = false; if (e && e.preventDefault) e.preventDefault(); if (e && e.stopPropagation) e.stopPropagation(); return; }
+      if (sel != null) { if (e && e.stopPropagation) e.stopPropagation(); toggle(id); return; }
+      if (orig) orig(e);
+    }
+  };
+}
+// 多选时每张右上角那个小圈；不在多选里什么都不画
+function ImgPickMark({ pick, id }) {
+  if (!pick || !pick.on) return null;
+  const on = pick.has(id);
+  return h("span", { "data-wk": "imgpickmark", "data-on": on ? "1" : "0", style: { position: "absolute", top: 6, right: 6, zIndex: 3, width: 22, height: 22, borderRadius: 999, pointerEvents: "none",
+    border: "1.5px solid #fff", background: on ? "#3a7bd5" : "rgba(0,0,0,.18)", boxShadow: "0 1px 4px rgba(0,0,0,.25)", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 12, fontWeight: 700 } }, on ? "✓" : "");
+}
+// 底下浮的那一小条。itemsOf(ids) → [{ id, ref, name }]（一个 id 可以给好几张，比如一摞）
+function ImgPickBar({ pick, allIds, itemsOf, toast }) {
+  const [busy, setBusy] = useState(false);
+  if (!pick || !pick.on) return null;
+  const say = m => { try { (toast || window.__toast || window.toast)(m); } catch (e) {} };
+  const n = pick.sel.length, all = (allIds || []).length && n >= (allIds || []).length;
+  const go = async () => {
+    if (!n || busy) return;
+    const items = (itemsOf(pick.sel) || []).filter(x => x && x.ref);
+    if (!items.length) return say("选中的这几张还没有图");
+    if (typeof window.saveImgsBatch !== "function") return say("这台设备存不了图");
+    setBusy(true);
+    let r = null; try { r = await window.saveImgsBatch(items); } catch (e) {}
+    setBusy(false);
+    if (!r || r.via === "cancel") return;
+    if (!r.n) return say("这几张取不到图");
+    const rest = Array.from(new Set((r.left || []).map(x => x.id)));
+    if (rest.length) { pick.set(rest); say("一次最多存 30 张，剩下的再点一次「存进相册」"); return; }
+    pick.end();
+    if (r.miss) say("有 " + r.miss + " 张取不到图，没存上");
+    else if (r.via === "download") say("存好了 " + r.n + " 张，在「下载」里");
+  };
+  const btn = { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: "#fff", padding: "8px 10px", whiteSpace: "nowrap" };
+  return h("div", { "data-wk": "imgpickbar", style: { position: "fixed", left: 16, right: 16, bottom: "calc(env(safe-area-inset-bottom) * 0.4 + 14px)", zIndex: 80, display: "flex", justifyContent: "center", pointerEvents: "none" } },
+    h("div", { style: { pointerEvents: "auto", display: "flex", alignItems: "center", gap: 2, padding: "4px 6px", borderRadius: 999, background: "rgba(28,26,24,.86)", backdropFilter: "blur(10px)", WebkitBackdropFilter: "blur(10px)", boxShadow: "0 6px 20px rgba(0,0,0,.22)" } },
+      h("button", { "data-wk": "imgpickcancel", onClick: () => pick.end(), className: "active:opacity-60", style: Object.assign({}, btn, { color: "rgba(255,255,255,.7)" }) }, "取消"),
+      allIds && allIds.length > 1 ? h("button", { "data-wk": "imgpickall", onClick: () => pick.set(all ? [] : allIds.slice()), className: "active:opacity-60", style: btn }, all ? "全不选" : "全选") : null,
+      h("button", { "data-wk": "imgpicksave", disabled: !n || busy, onClick: go, className: "active:opacity-70 disabled:opacity-40", style: Object.assign({}, btn, { fontWeight: 600, padding: "8px 14px", borderRadius: 999, background: "rgba(255,255,255,.14)" }) },
+        busy ? "在取图…" : "存进相册" + (n ? " " + n : ""))));
+}
+if (typeof window !== "undefined") { window.useImgPick = useImgPick; window.ImgPickMark = ImgPickMark; window.ImgPickBar = ImgPickBar; }
+// 聊天多选里选中的那几条，哪些带真图：她发的照片（imageRef）、他发的自拍合照（imgKey）。视频、表情包不算。
+function chatSelImgItems(messages, ids, who) {
+  const out = [];
+  (ids || []).slice().sort((x, y) => x - y).forEach(i => { const m = messages && messages[i]; if (!m || m.recalled || m.video || m.kind === "sticker") return;
+    const ref = m.imgKey || ((m.kind === "photo" || m.kind === "selfie") && m.imageRef) || "";
+    if (ref) out.push({ id: i, ref, name: (m.role === "user" ? "我" : ((typeof who === "function" ? who(m) : who) || "他")) + "的照片" }); });
+  return out;
+}
+async function saveChatSelImgs(messages, ids, who, done) {
+  const items = chatSelImgItems(messages, ids, who), say = m => { try { (window.__toast || window.toast)(m); } catch (e) {} };
+  if (!items.length || typeof window.saveImgsBatch !== "function") return;
+  const r = await window.saveImgsBatch(items);
+  if (!r || r.via === "cancel") return;
+  if (!r.n) return say("这几张取不到图");
+  if (r.left && r.left.length) return say("一次最多存 30 张，剩下的再点一次「存图」");
+  if (r.via === "download") say("存好了 " + r.n + " 张，在「下载」里");
+  if (done) done();
+}
 function useIdbImgUrl(imgKey) {
   const [url, setUrl] = useState(null);
   useEffect(() => {
@@ -20527,6 +20619,7 @@ function GroupThread({
       selIds.length >= 2 ? h("button", { onClick: () => { const lo = Math.min.apply(null, selIds), hi = Math.max.apply(null, selIds); const a = []; for (let k = lo; k <= hi; k++) a.push(k); setSelIds(a); }, style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.sub } }, "补中间") : null,
       onPinShike ? h("button", { onClick: () => { if (selIds.length) { onPinShike(selIds); exitSel(); } }, disabled: !selIds.length, className: "disabled:opacity-40", style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.ink } }, "收进时刻") : null,
       onLongShot ? h("button", { "data-wk": "sellongshot", onClick: () => { if (selIds.length) { onLongShot(selIds); exitSel(); } }, disabled: !selIds.length, className: "disabled:opacity-40", style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.ink } }, "长图") : null,
+      chatSelImgItems(messages, selIds).length ? h("button", { "data-wk": "selsaveimg", onClick: () => saveChatSelImgs(messages, selIds, m => { const c = (allChars || characters || []).find(x => x.id === m.characterId); return c ? (c.remark || c.name) : ""; }, exitSel), style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.ink } }, "存图") : null,
       h("button", { onClick: doDelete, disabled: !selIds.length, className: "disabled:opacity-40", style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.accent } }, "删除"),
       h("button", { "data-wk": "block", onClick: () => selIds.length && setFwdPick(true), disabled: !selIds.length, className: "disabled:opacity-40 px-3 py-1.5", style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.bg2, background: t.ink, borderRadius: 6 } }, "转发"))),
   gPhotoView && h(PhotoSheet, { m: gPhotoView, toast: toast, onClose: () => setGPhotoView(null) }),

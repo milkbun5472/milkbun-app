@@ -1762,6 +1762,7 @@ function AlbumView({ d, char, t, onBack, onRefresh, refreshing, onPeek, onDrawPh
   const [tab, setTab] = useState("collections");
   const [opened, setOpened] = useState(null);
   const [photo, setPhoto] = useState(null);
+  const imgPick = useImgPick();   // 长按一张进多选、存进相册（components.js 那份公共的）；只有画出来的那几张有图
   // ──「看TA玩」驱动：这一路【零写入】——TA只是点开一张已有的照片看看。
   //   她 2026-09-10：「不一定是每次要加新东西，可以是比如说点开一张已有的照片
   //   然后屏幕某处有TA的想法之类的」。素材本来就在TA手机里，一个字都不用现编。
@@ -1924,7 +1925,7 @@ function AlbumView({ d, char, t, onBack, onRefresh, refreshing, onPeek, onDrawPh
         h("span", { style: { position: "absolute", width: "46%", height: "70%", borderRadius: "46% 54% 30% 70%", right: `${-8 + (seed >> 5) % 20}%`, bottom: "-12%", background: "rgba(18,18,24,.28)", transform: `rotate(${seed % 28 - 14}deg)` } }),
         bare ? null : h("span", { style: { position: "absolute", left: 9, right: 9, bottom: 8, color: "rgba(255,255,255,.92)", fontFamily: F_BODY, fontSize: "calc(9.5px * var(--app-fs, 1))", lineHeight: 1.25, textShadow: "0 1px 4px rgba(0,0,0,.45)", overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" } }, PTX(it.caption || "照片"))));
   };
-  const tile = (it, i, rounded) => h("button", { key: sig(it) + ":" + i, "data-wk": "pitem", "data-watch": "item:" + (it.caption || ""), onClick: () => openPhoto(it), className: "active:opacity-70", style: { position: "relative", aspectRatio: "1 / 1", overflow: "hidden", borderRadius: rounded ? 14 : 0, minWidth: 0 } }, art(it, rounded ? 14 : 0),
+  const tile = (it, i, rounded) => h("button", Object.assign({}, drawnRef(it) ? imgPick.press(sig(it)) : null, { key: sig(it) + ":" + i, "data-wk": "pitem", "data-watch": "item:" + (it.caption || ""), onClick: imgPick.click(sig(it), () => openPhoto(it)), className: "active:opacity-70", style: Object.assign({}, drawnRef(it) ? imgPick.press(sig(it)).style : null, { position: "relative", aspectRatio: "1 / 1", overflow: "hidden", borderRadius: rounded ? 14 : 0, minWidth: 0 }) }), art(it, rounded ? 14 : 0), drawnRef(it) ? h(ImgPickMark, { pick: imgPick, id: sig(it) }) : null,
     isSaved(it) ? h("span", { style: { position: "absolute", top: 6, right: 6, width: 23, height: 23, borderRadius: 99, background: "rgba(255,255,255,.9)", display: "flex", alignItems: "center", justifyContent: "center" } }, h(IHeart, { size: 13, color: "#ff375f", filled: true })) : null,
     it.category === "private" ? h("span", { style: { position: "absolute", left: 6, bottom: 6, borderRadius: 7, padding: "2px 5px", color: "#fff", background: "rgba(0,0,0,.5)", fontSize: "calc(9px * var(--app-fs, 1))" } }, "锁") : it.category === "deleted" ? h("span", { style: { position: "absolute", left: 6, bottom: 6, borderRadius: 7, padding: "2px 5px", color: "#fff", background: "rgba(0,0,0,.5)", fontSize: "calc(9px * var(--app-fs, 1))" } }, "已删除") : null);
   const grid = (list, rounded, cols) => h("div", { className: `grid ${cols === 2 ? "grid-cols-2 gap-2" : "grid-cols-3 gap-0.5"}` }, list.map((x, i) => tile(x, i, rounded)));
@@ -2056,7 +2057,7 @@ function AlbumView({ d, char, t, onBack, onRefresh, refreshing, onPeek, onDrawPh
   const favorites = h("div", { style: { padding: "4px 20px 30px" } }, saved.length ? grid(saved, true, 3) : h("div", { style: { textAlign: "center", padding: "70px 18px", color: "#8e8e93", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", lineHeight: 1.8 } }, "还没有收藏照片。\n点开一张照片，再点爱心就会一直留在这里。"));
   const title = tab === "library" ? "全部" : tab === "saved" ? "我收着的" : characterText(char, "他的几摞");
   const sub = tab === "library" && items.length ? ((items[items.length - 1].date || items[items.length - 1].time || "") + " – " + (items[0].date || items[0].time || "")) : tab === "collections" ? characterText(char, "他把 ") + items.length + " 张分成了这几摞" : saved.length + " 张 · 刷新也不会丢";
-  return h("div", { className: "h-full min-h-0 flex flex-col", "data-wk": "papp", "data-app": "album", style: { background: "#fff", animation: "qqIn .3s ease both" } }, chrome(title, sub, onBack), h("div", { ref: keepScroll("phone:album:" + (char && char.id) + ":" + tab, scrollRef), className: "flex-1 min-h-0 overflow-y-auto" }, tab === "library" ? library : tab === "saved" ? favorites : collections), nav);
+  return h("div", { className: "h-full min-h-0 flex flex-col", "data-wk": "papp", "data-app": "album", style: { background: "#fff", animation: "qqIn .3s ease both" } }, chrome(title, sub, onBack), h(ImgPickBar, { pick: imgPick, allIds: Array.from(new Set(items.concat(saved || []).filter(p => drawnRef(p)).map(sig))), itemsOf: ids => { const seen = {}; return items.concat(saved || []).filter(p => ids.indexOf(sig(p)) >= 0 && drawnRef(p) && !seen[sig(p)] && (seen[sig(p)] = 1)).map(p => ({ id: sig(p), ref: drawnRef(p), name: String(p.caption || "照片").slice(0, 20) })); } }), h("div", { ref: keepScroll("phone:album:" + (char && char.id) + ":" + tab, scrollRef), className: "flex-1 min-h-0 overflow-y-auto" }, tab === "library" ? library : tab === "saved" ? favorites : collections), nav);
 }
 
 // 各 app 详情内容
