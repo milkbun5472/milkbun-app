@@ -225,7 +225,8 @@ test("架空世界最多 12 块地方；造世界和画图同一个上限；能�
   assert.match(app, /设定里点名了几块就照写几块，最多 12 块/);
   const add = app.slice(app.indexOf("const addWorldNode = "), app.indexOf("const genWorldNodes = "));
   assert.match(add, /adj\.includes\(r\.name\) \? \{ \.\.\.r, adj: \[\.\.\.\(r\.adj \|\| \[\]\), rn\] \}/);
-  assert.match(map, /"＋ 新开一块"/);
+  // 2026-10-30 v77.012：「新开一块」并进加地点页那一排选项里
+  assert.match(map, /\["new", "新开一块"\]/);
   const { normRegions } = (require("../js/trpg-core.js"), require("../js/trpg.js"));
   assert.equal(normRegions(Array.from({ length: 9 }, (_, i) => ({ name: "r" + i, nodes: ["n" + i] }))).length, 6, "跑团那边默认上限一个字都不动");
 });

@@ -35,7 +35,8 @@ test("页面里打开一个人、总闸关着 → 总闸一起开", () => {
 test("每个页面开关都读写同一格", () => {
   assert.match(app, /const toggleForumChar = charId => setAutoRefreshChar\("forum"/);
   assert.match(app, /const forumOff = Object\.keys\(autoRefreshPolicy\.features\.forum\.chars\)/);
-  assert.match(app, /proactive: autoRefreshOn\("proactive", activeChar\.id\)/);
+  // 2026-10-30 v77.001：聊天设置那颗开关照实显示这一格本身（不再被总闸算成关），所以读的是策略不是 autoRefreshOn
+  assert.match(app, /proactive: window\.AutoRefreshPolicy\.enabled\(autoRefreshRef\.current, "proactive", activeChar\.id\)/);
   assert.match(app, /setAutoFromPage\("proactive", activeChar\.id/);
   assert.match(app, /if \(!autoRefreshOn\("proactive", cid\)\) continue;/);
   assert.match(app, /if \(!autoRefreshOn\("letter", c\.id\)\) continue;/);
