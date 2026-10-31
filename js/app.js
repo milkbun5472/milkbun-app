@@ -24837,6 +24837,13 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     forumCommentsRef.current = next; saveForumComments(next); setForumComments(next);
     await genMoreComments(post);
   };
+  // 改自己发的帖（群友 2026-10-31：「发出去打错字能改吗」）：只改标题和正文，楼、赞、时间都不动
+  const editForumPost = (id, patch) => {
+    const t = String((patch && patch.title) || "").trim(), b = String((patch && patch.body) || "").trim();
+    if (!t) { toast("标题不能空"); return; }
+    setForumPosts(prev => { const n = (prev || []).map(x => x && x.id === id && x.authorType === "me" ? { ...x, title: t, body: b, editedTs: Date.now() } : x); saveJSON("x_forumPosts", n); forumPostsRef.current = n; return n; });
+    toast("改好了");
+  };
   const deleteForumPost = id => {
     const p0 = (forumPostsRef.current || []).find(x => x.id === id);
     if (!p0) return;
@@ -34245,6 +34252,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     onForwardToGroup: forwardPostToGroup,
     onRefreshPMs: refreshForumPMs,
     onDeletePost: deleteForumPost,
+    onEditPost: editForumPost,
     onDeletePosts: ids => { const n = (ids || []).length; if (!n) return; forumDropPosts(ids); toast("删了 " + n + " 帖"); },
     onDeleteFloor: deleteForumFloor,
     onClearBoard: clearForumBoard,
