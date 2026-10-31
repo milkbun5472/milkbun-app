@@ -7129,22 +7129,56 @@ async function imgToVault(dataUrl) { if (!dataUrl || typeof dataUrl !== "string"
 // 渲染用：iv_ 键 -> objectURL（缓存里没有就返回空串，图不显示但不崩）；其它（base64/http/空）原样返回。向后兼容旧存档。
 // 保存原图(2026-08-21 她抓的产品缺陷:原图在 IDB 里是无损的,却只能截屏翻拍)
 // ref 可以是 iv_/img_ 键或 dataURL;取出 Blob 触发下载,文件名带日期。
-async function saveImgOriginal(ref, name) {
-  let blob = null;
+async function _imgBlobOf(ref) {
   try {
-    if (typeof ref === "string" && ref.indexOf("iv_") === 0) blob = await imgVaultFetchBlob(ref);
-    else if (typeof ref === "string" && ref.indexOf("img_") === 0) blob = await idbImgGet(ref);
-    else if (typeof ref === "string" && ref.slice(0, 5) === "data:") blob = dataUrlToBlob(ref);
+    if (typeof ref === "string" && ref.indexOf("iv_") === 0) return await imgVaultFetchBlob(ref);
+    if (typeof ref === "string" && ref.indexOf("img_") === 0) return await idbImgGet(ref);
+    if (typeof ref === "string" && ref.slice(0, 5) === "data:") return dataUrlToBlob(ref);
     // 网址的也认（小窝的预览图是后端地址，2026-10-16「小窝上传的图片能不能也保存」）：拉下来再走同一条存法
-    else if (typeof ref === "string" && /^(https?:|blob:)/.test(ref)) { const r = await fetch(ref); if (r.ok) blob = await r.blob(); }
+    if (typeof ref === "string" && /^(https?:|blob:)/.test(ref)) { const r = await fetch(ref); if (r.ok) return await r.blob(); }
   } catch (e) {}
-  if (!blob) return false;
-  const ext = (blob.type || "").indexOf("png") >= 0 ? "png" : ((blob.type || "").indexOf("webp") >= 0 ? "webp" : "jpg");
-  // 跟存文本走同一条路：iOS 的 PWA 里 <a download> 点了什么都不会发生，得先给分享面板
-  const fname = (name || "图片") + "-" + new Date().toISOString().slice(0, 10) + "." + ext;
-  const via = await saveFile(new File([blob], fname, { type: blob.type || "image/jpeg" }));
-  return via !== "cancel";
+  return null;
 }
+function _imgFileOf(blob, name, n) {
+  const ext = (blob.type || "").indexOf("png") >= 0 ? "png" : ((blob.type || "").indexOf("webp") >= 0 ? "webp" : "jpg");
+  const fname = String(name || "图片").replace(/[\\/:*?"<>|]/g, "") + "-" + new Date().toISOString().slice(0, 10) + (n ? "-" + n : "") + "." + ext;
+  return new File([blob], fname, { type: blob.type || "image/jpeg" });
+}
+async function saveImgOriginal(ref, name) {
+  const r = await saveImgsBatch([{ ref: ref, name: name }]);
+  return r.n > 0;
+}
+// 一次存好多张（她 2026-10-31：「苹果保存还要先存文件才能从文件保存」）。
+//   iOS：一个分享面板里放 N 张图，面板上就是「存储 N 张图像」，一下进相册。
+//   ⚠️不带 title：带着文件名标题时 iOS 会把它当成文件，面板里只剩「存储到文件」。
+//   ⚠️分享面板只能在她那一下点按里弹一次，不能连着弹第二个。所以一面板最多 BATCH 张，
+//     放不下的原样退回 left，界面留着没存的那几张、让她再点一下。
+//   安卓、没有分享面板的：一张张走普通下载（安卓那条见 saveFile 的注释）。
+// items: [{ ref, name }]；回 { n: 存了几张, left: 没轮到的 items, miss: 取不到图的张数, via }
+const IMG_BATCH = 30;
+async function saveImgsBatch(items) {
+  const list = (Array.isArray(items) ? items : []).filter(x => x && x.ref);
+  const take = list.slice(0, IMG_BATCH), left = list.slice(IMG_BATCH);
+  const files = []; let miss = 0;
+  for (let i = 0; i < take.length; i++) {
+    const b = await _imgBlobOf(take[i].ref);
+    if (b && b.size) files.push(_imgFileOf(b, take[i].name, take.length > 1 ? files.length + 1 : 0)); else miss++;
+  }
+  if (!files.length) return { n: 0, left: left, miss: miss, via: "none" };
+  if (typeof navigator !== "undefined" && navigator.share && !_isAndroid() && (!navigator.canShare || navigator.canShare({ files: files }))) {
+    const t0 = Date.now();
+    try { await navigator.share({ files: files }); return { n: files.length, left: left, miss: miss, via: "share" }; }
+    catch (e) {
+      if (e && (e.name === "AbortError" || /abort|cancel/i.test(String(e.message || ""))) && Date.now() - t0 > 1000) return { n: 0, left: list, miss: 0, via: "cancel" };
+    }
+  }
+  for (let i = 0; i < files.length; i++) {
+    await saveFile(files[i], { noShare: true });
+    if (i < files.length - 1) await new Promise(ok => setTimeout(ok, 350));
+  }
+  return { n: files.length, left: left, miss: miss, via: "download" };
+}
+if (typeof window !== "undefined") window.saveImgsBatch = saveImgsBatch;
 if (typeof window !== "undefined") window.saveImgOriginal = saveImgOriginal;
 // 生图结果 → 图库门牌（iv_）。⚠️有的中转只回一个图片地址，generateSelfieImage 会替它拉成 blob，
 //   这时 dataUrl 是 null——原来头像、时刻封面、时刻配图三处都只认 dataUrl/url，于是「一直不成功」
@@ -7198,8 +7232,8 @@ async function saveTextFile(filename, text, mime) {
 //   原来一律当成「她点了取消」就收手，于是永远导不出来。安卓本来普通下载就能存进「下载」，直接走下载；
 //   别的平台上，「取消」要是一秒内就回来了，也当成面板没起来、改走下载（真的人手点取消没这么快）。
 const _isAndroid = () => { try { return /android/i.test(navigator.userAgent || ""); } catch (e) { return false; } };
-async function saveFile(file) {
-  if (typeof navigator !== "undefined" && navigator.share && !_isAndroid() && (!navigator.canShare || navigator.canShare({ files: [file] }))) {
+async function saveFile(file, opt) {
+  if (!(opt && opt.noShare) && typeof navigator !== "undefined" && navigator.share && !_isAndroid() && (!navigator.canShare || navigator.canShare({ files: [file] }))) {
     const t0 = Date.now();
     try {
       await navigator.share({ files: [file], title: file.name });

@@ -57,6 +57,7 @@
     const [arts, setArts] = useState(() => { try { return (typeof loadJSON === "function" ? loadJSON("x_shikeArt", {}) : {}) || {}; } catch (e) { return {}; } });
     const [drawing, setDrawing] = useState("");
     const [big, setBig] = useState(null);   // 正在看大图的那张：{ img, name }
+    const imgPick = useImgPick();   // 长按一张时刻进多选、存进相册（components.js 那份公共的）
     const fileRef = React.useRef(null), pickFor = React.useRef(null), mRef = React.useRef(null);
     const [exporting, setExporting] = useState(false);
     const [menuOpen, setMenuOpen] = useState(false);
@@ -262,11 +263,15 @@
     }
     if (cur) {
       const list = (all[cur.id] || []).slice().reverse();
+      const imgOf = m => { const g = (arts[cur.id] || {})[m.key] ? { ref: arts[cur.id][m.key] } : m.img; return g ? (g.imgKey || g.ref || "") : ""; };
       const mcard = (m, i) => {
-        const d = new Date(m.ts);
-        return h("div", { key: m.key, "data-wk": "shikeitem", "data-kind": m.kind, className: "shrink-0",
-          style: { position: "relative", height: "100%", width: "min(80vw, 400px)", borderRadius: 24, overflow: "hidden", scrollSnapAlign: "center",
-            background: cur.color || t.ink, boxShadow: "0 16px 36px rgba(30,22,14,.26)", transform: i === mIdx ? "none" : "scale(.95)", transition: "transform .25s" } },
+        const d = new Date(m.ts), pk = imgOf(m) ? imgPick.press(m.key) : {};
+        // 多选时卡上的按钮一律不响：点哪儿都只是加减这一张（捕获阶段先拦下）
+        return h("div", Object.assign({}, pk, { key: m.key, "data-wk": "shikeitem", "data-kind": m.kind, className: "shrink-0",
+          onClickCapture: e => { const f = imgPick.click(m.key, null); if (imgPick.on) { e.stopPropagation(); if (!imgOf(m)) return; } f(e); },
+          style: Object.assign({}, pk.style, { position: "relative", height: "100%", width: "min(80vw, 400px)", borderRadius: 24, overflow: "hidden", scrollSnapAlign: "center",
+            background: cur.color || t.ink, boxShadow: "0 16px 36px rgba(30,22,14,.26)", transform: i === mIdx ? "none" : "scale(.95)", transition: "transform .25s" }) }),
+          imgOf(m) ? h(ImgPickMark, { pick: imgPick, id: m.key }) : null,
           art(cur, { filter: "blur(2px) brightness(.55)", transform: "scale(1.06)" }),
           ((arts[cur.id] || {})[m.key] || m.img) ? h(MomentArt, { img: (arts[cur.id] || {})[m.key] ? { ref: arts[cur.id][m.key] } : m.img }) : null,
           h("div", { style: { position: "absolute", inset: 10, borderRadius: 16, border: "1px solid rgba(255,255,255,.45)", pointerEvents: "none" } }),
@@ -339,13 +344,14 @@
              covers[cur.id] ? ["用回头像", () => setCover(cur.id, null)] : null,
              ["开一张时刻", () => setCreating({ date: dayKey(Date.now()), title: "", text: "" })],
              list.length ? [exporting ? "正在拼…" : "存成长图", () => exportLong(cur, all[cur.id] || [])] : null,
+             list.some(imgOf) ? ["挑几张图存进相册", () => imgPick.set([])] : null,
              ["改认识那天", () => editMeet(cur)]
             ].filter(Boolean).map((a, k) => h("button", { key: k, onClick: () => { setMenuOpen(false); a[1](); }, className: "w-full active:opacity-60",
               style: { display: "block", textAlign: "left", padding: "12px 16px", fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.ink, background: "transparent", border: "none", borderTop: k ? "1px solid " + t.line : "none" } }, a[0])))) : null,
         list.length
           ? h("div", { ref: mRef, onScroll: onMScroll, className: "flex-1 min-h-0 flex",
               style: { gap: 14, overflowX: "auto", overflowY: "hidden", scrollSnapType: "x mandatory", WebkitOverflowScrolling: "touch",
-                padding: "12px calc((100vw - min(80vw, 400px)) / 2) 10px" } }, list.map(mcard))
+                padding: "12px calc((100vw - min(80vw, 400px)) / 2) 10px" } }, list.map(mcard), h(ImgPickBar, { pick: imgPick, allIds: list.filter(imgOf).map(m => m.key), itemsOf: ids => list.filter(m => ids.indexOf(m.key) >= 0 && imgOf(m)).map(m => ({ id: m.key, ref: imgOf(m), name: (cur.remark || cur.name) + "·" + (m.title || "时刻") })) }))
           : h("div", { className: "flex-1", style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", lineHeight: 1.8, color: t.fog, textAlign: "center", padding: "60px 30px" } },
               "还没有时刻。认识满 100 天、在一起的日子、生日，还有节日那天你们说过话，都会自己出现在这里。"),
         // 底下一条展廊的时间轴（替掉原来那排月份药丸和小点）：一张时刻一道刻度，每个月第一张底下写月份，

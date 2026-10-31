@@ -5875,6 +5875,7 @@ function StudioPicker({ zh, groups, value, onPick, tint, character }) {
       : h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginTop: 6 } }, characterText(character, "衣柜里还没有——不指定也能拍，或者让他配一套")));
 }
 function PhotoStudio({ partner, myCloset, charCloset, shots, busy, fitBusy, canShoot, onGenFit, onShoot, onShare, onDelete, onRollStyles, onRollThemes, onBack }) {
+  const imgPick = useImgPick();   // 长按一张进多选、存进相册（components.js 那份公共的）
   const t = useTheme();
   // 「补一句」写了一大段，退出照相馆再进来就没了（群友 2026-10-17：「我刚写了那么多，一下子全没」）：
   //   跟聊天输入框同一个做法，没拍出去的那段留在本机，拍完也不清（下一张常常还想照着改）
@@ -6128,13 +6129,14 @@ function PhotoStudio({ partner, myCloset, charCloset, shots, busy, fitBusy, canS
             [""].concat(usedThemes).map(k => h("button", { key: k || "_", onClick: () => setThemeF(k), className: "active:opacity-70",
               style: { padding: "4px 10px", borderRadius: 999, border: "1px solid " + (themeF === k ? "#a74d70" : t.line), color: themeF === k ? "#a74d70" : t.fog, fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))" } }, k ? themeName(k) : "都看"))) : null,
           rows.length
-            ? h("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginTop: 12 } },
+            ? h(React.Fragment, null, h(ImgPickBar, { pick: imgPick, allIds: rows.map(x => x.id), itemsOf: ids => [].concat(...ids.map(id => (stacks[id] || stacks[stackKey((rows.find(r => r.id === id) || { id }))] || []).filter(y => y.imgKey).map(y => ({ id, ref: y.imgKey, name: (partner.remark || partner.name) + "照相馆" })))) }),
+              h("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginTop: 12 } },
                 // AlbumPhoto(cover) 是 absolute；卡片必须自己当定位边界。漏掉 relative 时，
                 // 图片一从 IDB 加载完就会铺满整页，还会把顶栏返回键的点击截成「打开大图」。
-                rows.map(x => h("button", { key: x.id, onClick: () => setBig(x), className: "active:opacity-80", style: { position: "relative", borderRadius: 15, overflow: "hidden", border: "1px solid " + t.line, background: "#20141f", aspectRatio: "3/4", padding: 0 } },
-                  h(AlbumPhoto, { photo: x, cover: true }),
+                rows.map(x => h("button", Object.assign({}, imgPick.press(x.id), { key: x.id, onClick: imgPick.click(x.id, () => setBig(x)), className: "active:opacity-80", style: Object.assign({}, imgPick.press(x.id).style, { position: "relative", borderRadius: 15, overflow: "hidden", border: "1px solid " + t.line, background: "#20141f", aspectRatio: "3/4", padding: 0 }) }),
+                  h(AlbumPhoto, { photo: x, cover: true }), h(ImgPickMark, { pick: imgPick, id: x.id }),
                   // 一摞：右上角叠出两道纸边＋张数
-                  (stacks[stackKey(x)] || []).length > 1 ? h("span", { "data-wk": "studiostackbadge", style: { position: "absolute", top: 8, right: 8, minWidth: 22, height: 22, padding: "0 6px", borderRadius: 11, background: "rgba(255,255,255,.9)", boxShadow: "3px 3px 0 rgba(255,255,255,.55), 6px 6px 0 rgba(255,255,255,.3)", color: "#6d4d8f", fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", lineHeight: "22px", textAlign: "center" } }, (stacks[stackKey(x)] || []).length) : null)))
+                  (stacks[stackKey(x)] || []).length > 1 ? h("span", { "data-wk": "studiostackbadge", style: { position: "absolute", top: 8, right: 8, minWidth: 22, height: 22, padding: "0 6px", borderRadius: 11, background: "rgba(255,255,255,.9)", boxShadow: "3px 3px 0 rgba(255,255,255,.55), 6px 6px 0 rgba(255,255,255,.3)", color: "#6d4d8f", fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", lineHeight: "22px", textAlign: "center" } }, (stacks[stackKey(x)] || []).length) : null))))
             : h("div", { style: { border: "1px dashed " + t.line, borderRadius: 16, padding: "28px 16px", marginTop: 16, textAlign: "center", fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.8 } },
                 covers.length ? "这一类还没有。" : "还没在这儿拍过。", h("div", { style: { marginTop: 4 } }, "拍出来的会同时挂上合照墙。"))));
 }

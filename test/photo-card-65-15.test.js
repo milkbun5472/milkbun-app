@@ -47,7 +47,7 @@ test("存到手机走公共那一条 saveImgOriginal，不另写一条下载", (
   assert.match(app, /const key = "img_" \+ char\.id \+ "_" \+ sid\b/);
   assert.match(app, /await idbImgPut\(key, out\.blob\);/);
   // 而 saveImgOriginal 认这个前缀
-  assert.match(fs.readFileSync("js/engine.js", "utf8"), /ref\.indexOf\("img_"\) === 0\) blob = await idbImgGet\(ref\)/);
+  assert.match(fs.readFileSync("js/engine.js", "utf8"), /ref\.indexOf\("img_"\) === 0\) return await idbImgGet\(ref\)/);
   // 全库没有第二条存图路径
   assert.match(comp, /window\.saveImgOriginal\(m\.imageRef, "照片"\)/);
 });
