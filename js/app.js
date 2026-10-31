@@ -6489,6 +6489,9 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   // 这样「不显示 NPC」是默认行为——漏掉哪一处，最坏也只是某个列表少显示了 NPC，
   // 而不是 NPC 漏进通讯录、聊天列表、朋友圈、日程。**让遗漏往安全那边掉。**
   const liveChars = characters.filter(c => c && !c.npc);
+  // 购物、外卖挑人：主要角色在前，配角跟在后面（她 2026-10-31「先做我给他们吧」）。
+  //   配角只能收：你送礼、给 TA 点外卖、找 TA 代付；TA 下一次回你时看得到。被收起来的不列
+  const shopPeople = liveChars.concat(characters.filter(c => c && c.npc && !c.shelved));
   // 一对一陪着做事的那几页（一起学/读/看/听、陪伴、番茄钟）也认聊天里那张脸（她 2026-10-13「看看哪儿还有漏的」）；
   //   档案、钱包、世界书这些「这个人本身」的页照旧用档案那张。
   const liveFaces = liveChars.map(chatFace);
@@ -34313,7 +34316,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     cart: cart,
     orders: peekMaskView() ? orders.filter(o => !(peekMaskView().mine != null && orderMaskOf(o) !== peekMaskView().mine) && !peekMaskHit(peekMaskView(), String(o.payLabel || "") + " " + String(o.name || ""), o.fromCharId)) : orders,
     inventory: inventory,
-    characters: liveChars,
+    characters: shopPeople,
     // ⚠️购物这一屏里【她本人要当场做事】：送礼要把东西递到人手上、代付要开口请人付钱。
     //   旁观群里她根本不在场（她 2026-09-10：「旁观群可以去掉，因为我都不在场」），
     //   所以名单在这儿就滤掉——滤在这一处，送礼和代付两屏一起对，不用各滤一遍。
@@ -34352,7 +34355,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     wallet: wallet,
     orders: peekMaskView() ? orders.filter(o => !(peekMaskView().mine != null && orderMaskOf(o) !== peekMaskView().mine) && !peekMaskHit(peekMaskView(), String(o.payLabel || "") + " " + String(o.name || ""), o.fromCharId)) : orders,
     log: peekMaskView() ? takeoutLog.filter(o => !(peekMaskView().mine != null && orderMaskOf(o) !== peekMaskView().mine) && !peekMaskHit(peekMaskView(), String(o.payLabel || "") + " " + String(o.name || ""), o.fromCharId)) : takeoutLog,
-    characters: liveChars,
+    characters: shopPeople,
     groups: groups.filter(imInGroup),
     kinshipCards: kinshipCards,
     feed: takeoutFeed,
