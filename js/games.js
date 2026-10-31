@@ -5417,13 +5417,16 @@
         : L.roundPrompt({ uName: uName, who: who, state: state, easy: cfg.mode === "easy", sayFree: GAME_SAY_FREE });
       ask(sys, "心有灵犀").then(function (a) {
         const n = JSON.parse(JSON.stringify(state));
-        // 先亮词，再上 TA 的话：TA 的反应、心思都在揭晓之后
-        if (opening) { n.start = [mine, a.word]; n.pair = [mine, a.word]; n.startThought = a.thought; n.status = "play";
-          push([{ sys: true, text: "起始词亮了：你「" + mine + "」· " + cName + "「" + a.word + "」" }]); }
-        else { const r = L.reveal(n, mine, a.word, a.say, a.thought);
-          push([{ sys: true, text: "第 " + r.n + " 轮：你「" + mine + "」· " + cName + "「" + a.word + "」 · " + (r.hit ? "对上了 +1" : "没对上") }]); }
+        // 先亮词（一张卡夹在对话里），再让 TA 对着【刚亮出来的这一对】说——
+        //   原来反应跟出词挤在一枪里，那一枪看不见她的词，只能回头说上一轮（她 2026-10-31：「他还在重新反应第一组的」）
         if (a.say.length) push(a.say.map(function (s) { return { id: char && char.id, name: cName, text: s.slice(0, 200) }; }));
+        let r = null;
+        if (opening) { n.start = [mine, a.word]; n.pair = [mine, a.word]; n.startThought = a.thought; n.status = "play"; push([{ rn: 0 }]); }
+        else { r = L.reveal(n, mine, a.word, [], a.thought); push([{ rn: r.n }]); }
         setState(n); setDraft(""); setOpenThought(true);
+        return routeSeatCall(seat, api, gameVoiceRules() + L.reactPrompt({ uName: uName, who: who, state: n, round: r, sayFree: GAME_SAY_FREE }), [{ role: "user", content: "词亮了。" }], { game: "lingxi", turnId: n.id + "#react" + n.rounds.length, expect: "{\"say\":[\"...\"]}", timeout: 150000, ai: { maxTokens: 8000, tag: "心有灵犀·亮词" } })
+          .then(function (rr) { const ss = sayList(unoJson(rr.value).say); if (ss.length) push(ss.map(function (x) { return { id: char && char.id, name: cName, text: x.slice(0, 200) }; })); })
+          .catch(function () {});
       }).catch(function (e) { setErr(cName + " 没接上：" + e.message + "（你的词还在，再点一次）"); }).finally(function () { setBusy(false); });
     };
     // 写词之前先聊（她：「每一轮开始前也可以和他讨论」）：聊的话进本轮 talk，写词那一下 TA 能看到；她的词照旧不进
@@ -5440,9 +5443,8 @@
         }).catch(function (e) { setErr(cName + " 没接上：" + e.message); }).finally(function () { setBusy(false); });
     };
     // 「算我们一样」点了／撤了，聊天记录里那一行的结论跟着改，别留着一句「没对上」
-    const toggle = function (n) { const s = JSON.parse(JSON.stringify(state)); L.toggleManual(s, n); setState(s);
-      const r = s.rounds.find(function (x) { return x.n === n; }), tag = r && r.manual ? "算你们一样 +1" : "没对上";
-      setLines(function (ls) { return ls.map(function (x) { return x && x.sys && String(x.text || "").indexOf("第 " + n + " 轮：") === 0 ? Object.assign({}, x, { text: String(x.text).replace(/ · (?:对上了 \+1|没对上|算你们一样 \+1)$/, " · " + tag) }) : x; }); }); };
+    // 对话里那张亮词卡是照 state 现画的，点了「算我们一样」它自己就跟着变
+    const toggle = function (n) { const s = JSON.parse(JSON.stringify(state)); L.toggleManual(s, n); setState(s); };
     const end = function () { setState(Object.assign({}, state, { status: "done" })); };
     const again = function () { setLines([]); setDraft(""); setState(L.newGame()); };
     const last = state.rounds[state.rounds.length - 1], sc = L.score(state.rounds);
@@ -5467,7 +5469,16 @@
           thought ? h("div", { "data-wk": "lingxithought", style: { marginTop: 8, borderTop: "1px dashed " + t.line } },
             h("button", { onClick: function () { setOpenThought(!openThought); }, style: { minHeight: 40, width: "100%", textAlign: "left", fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog, background: "transparent" } }, (openThought ? "▾ " : "▸ ") + PT("他是怎么想的")),
             openThought ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.sub, lineHeight: 1.7, whiteSpace: "pre-wrap", paddingBottom: 4 } }, thought) : null) : null) : null,
-        h(GameTalkLog, { t: t, lines: lines, busy: busy, uName: uName, me: { name: uName, avatarImage: pf.avatarImage, color: pf.color }, charOf: function () { return char; }, maxHeight: "none", empty: state.status === "open" ? "你先悄悄写一个起始词，" + cName + " 也在想自己的" : "" }),
+        h(GameTalkLog, { t: t, lines: lines.map(function (l) {
+          if (l.rn == null) return l;
+          const r = l.rn ? state.rounds.find(function (x) { return x.n === l.rn; }) : null;
+          if (l.rn && !r) return null;
+          const a = r ? r.mine : (state.start || [])[0], b = r ? r.yours : (state.start || [])[1];
+          return Object.assign({}, l, { node: h("div", { "data-wk": "lingxirevcard", "data-hit": r && L.counted(r) ? "1" : "0", style: { margin: "4px 0", padding: "9px 11px", borderRadius: 13, background: t.bg2, border: "1px solid " + (r && L.counted(r) ? t.tint : t.line) } },
+            h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginBottom: 6 } }, r ? "第 " + r.n + " 轮 · " + r.pair[0] + " ＋ " + r.pair[1] : "起始词"),
+            h("div", { style: { display: "flex", alignItems: "center", gap: 8 } }, chip(a, true), h("span", { style: { color: t.fog, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))" } }, r ? (r.hit ? "＝" : "≠") : "·"), chip(b, false)),
+            r ? h("div", { style: { marginTop: 6, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: L.counted(r) ? t.tint : t.sub } }, r.hit ? "一模一样，+1" : r.manual ? "算你们一样，+1" : "没对上") : null) });
+        }).filter(Boolean), busy: busy, uName: uName, me: { name: uName, avatarImage: pf.avatarImage, color: pf.color }, charOf: function () { return char; }, maxHeight: "none", empty: state.status === "open" ? "你先悄悄写一个起始词，" + cName + " 也在想自己的" : "" }),
         state.rounds.length > 1 ? h("div", { "data-wk": "lingxihist", style: { marginTop: 4 } }, sub("往期"), state.rounds.slice(0, -1).reverse().map(function (r) {
           return h("div", { key: r.n, style: { display: "flex", flexWrap: "wrap", alignItems: "center", gap: 6, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.sub, padding: "4px 0", borderBottom: "1px solid " + t.line } },
             h("span", { style: { color: t.fog, width: 34, flexShrink: 0 } }, "第" + r.n), h("span", { style: { flex: 1, minWidth: 0 } }, r.pair[0] + " + " + r.pair[1] + " → 「" + r.mine + "」/「" + r.yours + "」"),

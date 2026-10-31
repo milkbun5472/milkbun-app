@@ -63,8 +63,6 @@
   // 每一轮：只给桌上那两个词 + 往期。她这一轮写的词不在这里（揭晓前拿不到）。
   function roundPrompt(o) {
     const st = o.state, last = st.rounds[st.rounds.length - 1];
-    const prev = last ? "上一轮刚亮出来：" + o.uName + " 写「" + last.mine + "」，你写「" + last.yours + "」，" + verdict(last) + "。"
-      : "刚才亮出了起始词：" + o.uName + " 的是「" + st.pair[0] + "」，你的是「" + st.pair[1] + "」。";
     return GAME_LINE(o.uName) + (o.who || "")
       + "\n\n【往期】\n" + historyText(st.rounds, o.uName)
       + ((st.talk || []).length ? "\n\n【这一轮写词之前你们聊的】\n" + talkText(st.talk, o.uName) : "")
@@ -73,10 +71,9 @@
       + "你多了解她、你们之间有过什么、前面几轮她怎么想的，心里有数就照着猜，没数就照你自己的脑子。"
       + (o.easy ? "这局你让着她：挑她一眼就会想到的那个方向。" : "照你自己的脑子去猜，猜不中也是你们俩的事。")
       + "\nword 是一个词或很短的词组，不是一句话；别原样用桌上那两个词。"
-      + "\n\nsay 是你对【" + prev + "】的反应，照你这个人平时跟她说话的样子说。"
-      + "say 只说上一轮那件事；这一轮你写了什么，等亮出来再说。" + (o.sayFree || "")
+      + "\n\nsay 是亮词前你嘴上说的（可空，多半不用说）——不许透露你这一轮的词；亮了以后你另有机会说。" + (o.sayFree || "")
       + "\nthought 是这一下你心里真在想的东西：这两个词勾起了你什么——你自己的日子、身边的人、跟她的事，哪个先冒出来就是哪个——念头又是怎么落到这个词上的。就是你脑子里那几句自言自语，照你这个人想事情的样子来；它是心里话，不是在给谁讲解你怎么选词。她只会在亮词以后看到。"
-      + "\n\n只输出 JSON：{\"say\":[\"你对上一轮的反应\"],\"thought\":\"你心里怎么走到这个词的\",\"word\":\"这一轮你写的词\"}";
+      + "\n\n只输出 JSON：{\"say\":[\"可空\"],\"thought\":\"你心里怎么走到这个词的\",\"word\":\"这一轮你写的词\"}";
   }
   // 写词之前先聊：TA 还没定词，只是聊这两个词；她这一轮的词还没写，自然也不在这里
   function talkPrompt(o) {
@@ -90,12 +87,28 @@
       + "\n" + (o.sayFree || "")
       + "\n\n只输出 JSON：{\"say\":[\"你回她的话\"]}";
   }
+  // 亮词以后的反应（她 2026-10-31：「我们亮了第二组词但是他还在重新反应第一组的，而且还很八股」）：
+  //   原来反应跟出词挤在同一枪里，那一枪还看不见她的词，只能回头说上一轮——永远慢一拍。
+  //   亮完再问一次：两个词都在眼前，说的是眼前这一对。
+  function reactPrompt(o) {
+    const st = o.state, r = o.round;
+    const what = r ? "第 " + r.n + " 轮刚亮出来：桌上是「" + r.pair[0] + "」和「" + r.pair[1] + "」，" + o.uName + " 写了「" + r.mine + "」，你写了「" + r.yours + "」，" + verdict(r) + "。"
+      : "起始词刚亮出来：" + o.uName + " 的是「" + st.start[0] + "」，你的是「" + st.start[1] + "」。";
+    return GAME_LINE(o.uName) + (o.who || "")
+      + "\n\n【往期】\n" + historyText(st.rounds.slice(0, r ? -1 : undefined), o.uName)
+      + (r && (r.talk || []).length ? "\n\n【这一轮写词之前你们聊的】\n" + talkText(r.talk, o.uName) : "")
+      + "\n\n【刚刚】" + what
+      + (r && r.thought ? "\n你当时心里是这么想的：" + r.thought : "")
+      + "\n\n说你看到她这个词的那一下：它让你想到她什么、你们俩的脑子差在哪儿或者想到一块儿去了在哪儿。说的得是眼前这两个词、只有这一对才说得出的话，照你这个人平时跟她说话的样子；不是每轮都要说点评或者鼓劲。"
+      + "\n" + (o.sayFree || "")
+      + "\n\n只输出 JSON：{\"say\":[\"你的话\"]}";
+  }
   function recap(state, uName, cName) {
     const rs = state.rounds, s = score(rs);
     return "一起玩了一局「心有灵犀」：起始词 " + uName + "「" + (state.start ? state.start[0] : "") + "」、" + cName + "「" + (state.start ? state.start[1] : "") + "」，连了 " + rs.length + " 轮，对上 " + s + " 次。"
       + (rs.length ? "最后一轮 " + uName + " 写「" + rs[rs.length - 1].mine + "」，" + cName + " 写「" + rs[rs.length - 1].yours + "」。" : "");
   }
-  const api = { norm, same, cleanWord, counted, score, newGame, reveal, toggleManual, verdict, historyText, openPrompt, roundPrompt, talkPrompt, talkText, recap };
+  const api = { norm, same, cleanWord, counted, score, newGame, reveal, toggleManual, verdict, historyText, openPrompt, roundPrompt, talkPrompt, reactPrompt, talkText, recap };
   if (typeof window !== "undefined") window.LingxiCore = api;
   if (typeof module !== "undefined") module.exports = api;
 })();
