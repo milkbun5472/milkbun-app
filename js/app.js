@@ -20,7 +20,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v88.819";
+const APP_VERSION = "v88.824";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -2177,7 +2177,7 @@ function App() {
       setInventory(kept);
     })();
     setWish(loadJSON("x_shopWish", []));
-    setCart(loadJSON("x_shopCart", []));
+    setCart(mergeCart(loadJSON("x_shopCart", [])));
     setOrders(loadJSON("x_shopOrders", []));
     setShopFeed(loadJSON("x_shopFeed", {}));
     setTakeoutFeed(loadJSON("x_takeoutFeed", {}));
@@ -8145,6 +8145,9 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
           return; // 一次一个，错峰
         }
       } catch (e) {}
+      // 天气由头一天只给同一个人用一回（群友 2026-10-31：08:18「外头冷，披件厚实衣裳」、08:56「外头起风了，披件厚实衣裳」）：
+      //   他那边变天、她那边变天是两路，各自每天一次，同一个人两路都中就是同一句叮嘱来两遍
+      const wxWhoToday = () => { const r = loadJSON("x_wxWhoDay", null); return r && r.day === dayKey && Array.isArray(r.ids) ? r.ids : []; };
       // —— 特殊天气主动：TA 那边雨/雪/雷雾/极端温度 → 一位在聊的角色主动发条被天气牵动的消息（全局每天最多一条，读天气缓存零请求）——
       try {
         if (loadJSON("x_wxReactDay", "") !== dayKey && typeof wxSpecial === "function") {
@@ -8161,10 +8164,11 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
             const sp = wxSpecial(w);
             if (!sp) continue;
             if (pSkip("wx:" + c.id)) continue;
+            if (wxWhoToday().includes(c.id)) continue;   // 今天已经为天气来过一回（她那边变天那一路也算）
             pOnce("wx:" + c.id,
               "weather:" + dayKey,
               () => replyNow(c.id, "", null, { proactive: true, wx: { kind: sp, line: weatherLine(w) } }),
-              () => saveJSON("x_wxReactDay", dayKey)
+              () => { saveJSON("x_wxReactDay", dayKey); saveJSON("x_wxWhoDay", { day: dayKey, ids: [...(wxWhoToday()), c.id] }); }
             );
             return;                                             // 一次一个，错峰
           }
@@ -8178,13 +8182,13 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
           const spOf = x => x ? (wxSpecial(x) || (x.pp != null && x.pp >= 60 ? "可能下雨" : null)) : null;
           const nowHr = new Date().getHours();
           if (nowHr >= 7 && nowHr <= 21) {
-            const npool = liveChars.filter(c => hist(c).length >= 2 && wxShareOn(c.id, _wc) && !laneBusy("c:" + c.id) && viewRef.current.charId !== c.id && spOf((userWxFor(c.id) || {}).w));
+            const npool = liveChars.filter(c => hist(c).length >= 2 && wxShareOn(c.id, _wc) && !wxWhoToday().includes(c.id) && !laneBusy("c:" + c.id) && viewRef.current.charId !== c.id && spOf((userWxFor(c.id) || {}).w));
             const c = npool.length ? npool.slice().sort((a2, b2) => (affinities[b2.id] || 50) - (affinities[a2.id] || 50))[0] : null;
             const uw = c ? userWxFor(c.id).w : null, usp = c ? spOf(uw) : null;
             if (c && !pSkip("wxu:" + c.id)) {
               pOnce("wxu:" + c.id, "weatheru:" + dayKey,
                 () => replyNow(c.id, "", null, { proactive: true, wx: { kind: usp, line: weatherLine(uw), forUser: true } }),
-                () => saveJSON("x_wxNudgeDay", dayKey));
+                () => { saveJSON("x_wxNudgeDay", dayKey); saveJSON("x_wxWhoDay", { day: dayKey, ids: [...(wxWhoToday()), c.id] }); });
               return;
             }
           }
@@ -13940,7 +13944,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       // 主动开口的头一句记下来，下次发回去避重（她 2026-09-01：四个角色的主动
       // 消息全是同一个模板）。只记【主动】那一路——被动回复本来就该顺着她的话走。
       if (opts.proactive && words.length) {
-        const first = String(words.find(w => voiceSlotOf(w) == null) || "").replace(/\s+/g, " ").trim().slice(0, 40);
+        const first = words.filter(w => voiceSlotOf(w) == null).map(w => String(w || "").replace(/\s+/g, " ").trim()).filter(Boolean).join(" / ").slice(0, 90);   // 整轮都记（群友 2026-10-31：头一句换了、第二句原样又来一遍）
         if (first) {
           const cur = (openersRef.current || {})[charId] || [];
           const n = { ...(openersRef.current || {}), [charId]: [first, ...cur.filter(x => x !== first)].slice(0, 6) };
@@ -24837,6 +24841,13 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     forumCommentsRef.current = next; saveForumComments(next); setForumComments(next);
     await genMoreComments(post);
   };
+  // 改自己发的帖（群友 2026-10-31：「发出去打错字能改吗」）：只改标题和正文，楼、赞、时间都不动
+  const editForumPost = (id, patch) => {
+    const t = String((patch && patch.title) || "").trim(), b = String((patch && patch.body) || "").trim();
+    if (!t) { toast("标题不能空"); return; }
+    setForumPosts(prev => { const n = (prev || []).map(x => x && x.id === id && x.authorType === "me" ? { ...x, title: t, body: b, editedTs: Date.now() } : x); saveJSON("x_forumPosts", n); forumPostsRef.current = n; return n; });
+    toast("改好了");
+  };
   const deleteForumPost = id => {
     const p0 = (forumPostsRef.current || []).find(x => x.id === id);
     if (!p0) return;
@@ -30996,11 +31007,29 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       return n;
     });
   };
+  // 同一件东西加几次就是一行、数量加一（群里 2026-10-31：「点同一份能不能在一件里面加，而不是分成几十件」）
+  //   老存档里分成好几行的，读的时候也并成一行（mergeCart）
+  const cartKey = x => String((x && x.name) || "").trim() + "|" + (Number(x && x.price) || 0);
+  const mergeCart = list => {
+    const out = [], at = new Map();
+    (list || []).forEach(x => { if (!x || !x.name) return; const k = cartKey(x), q = Math.max(1, Number(x.qty) || 1);
+      if (at.has(k)) out[at.get(k)] = { ...out[at.get(k)], qty: (out[at.get(k)].qty || 1) + q };
+      else { at.set(k, out.length); out.push({ ...x, qty: q }); } });
+    return out;
+  };
   const addToCart = product => setCart(p => {
-    const n = [...p, { uid: "c_" + Date.now() + "_" + Math.floor(Math.random() * 10000), name: product.name, price: product.price, cat: product.cat, desc: product.desc }];
+    const n = mergeCart([...p, { uid: "c_" + Date.now() + "_" + Math.floor(Math.random() * 10000), name: product.name, price: product.price, cat: product.cat, desc: product.desc, qty: 1 }]);
     saveJSON("x_shopCart", n);
     return n;
   });
+  // 结算时一行只买其中几件，剩下的留在购物车
+  const takeFromCart = (uids, pick) => setCart(p => {
+    const set = new Set(uids);
+    const n = p.map(x => { if (!set.has(x.uid)) return x; const left = (x.qty || 1) - cartPickN(x, pick); return left > 0 ? { ...x, qty: left } : null; }).filter(Boolean);
+    saveJSON("x_shopCart", n);
+    return n;
+  });
+  const cartPickN = (x, pick) => { const q = Math.max(1, Number(x && x.qty) || 1), v = pick && pick[x.uid] != null ? Number(pick[x.uid]) : q; return Math.max(1, Math.min(q, Math.round(v) || q)); };
   const removeCartUids = uids => setCart(p => {
     const set = new Set(uids);
     const n = p.filter(x => !set.has(x.uid));
@@ -31480,19 +31509,21 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   const checkout = (uids, mode, target, opts) => {
     const payMask = opts && opts.mask != null ? String(opts.mask || "") : "";
     const set = new Set(uids);
-    const items = cart.filter(x => set.has(x.uid));
+    const pick = opts && opts.pick;
+    // 一行买几件：拼成一件「×N」，价钱乘上去（订单里也是一行）
+    const items = cart.filter(x => set.has(x.uid)).map(x => { const k = cartPickN(x, pick); return k > 1 ? { ...x, name: x.name + " ×" + k, price: Math.round((Number(x.price) || 0) * k * 100) / 100, qty: k } : { ...x, qty: 1 }; });
     if (!items.length) { toast("请先选择商品"); return; }
     const total = Math.round(items.reduce((s, x) => s + (Number(x.price) || 0), 0) * 100) / 100;
     if (mode === "buy") {
       if (balanceOf(payMask) < total) { toast("余额不足"); return; }
       changeWallet(-total, "购物 " + items.map(x => x.name).join("、").slice(0, 18), "shop", { where: "购物", mask: payMask });
       items.forEach(it => addOrder({ name: it.name, price: it.price, cat: it.cat, kind: it.kind, takeout: it.takeout, ...(it.arriveTs ? { arriveTs: it.arriveTs } : {}), mask: payMask }));
-      removeCartUids(uids);
+      takeFromCart(uids, pick);
       toast("下单成功 · " + items.length + " 件，等待发货");
     } else if (mode === "kinship") {
       if (!target || target.type !== "char") { toast("请选择亲属卡"); return; }
       payWithKinship(target.id, items, total);
-      removeCartUids(uids);
+      takeFromCart(uids, pick);
     } else if (mode === "gift") {
       // 群里送：target.id 是群，target.toId 才是收礼的那个人（她 2026-09-10）。
       // 收礼人是谁这件事只算一次，下面扣钱、发卡、要反应全用同一个 toId。
@@ -31507,18 +31538,18 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       //   接着说自己的话，这时候替她开一次群聊，就是把她的下半句堵在门外、还多花一次钱。
       //   群里那张卡本身就是证据——groupHistLine 那一支已经把「当着全群送给了谁」说清了，
       //   她按回复时大家自然接得上，不需要专门再调一次模型。
-      removeCartUids(uids);
+      takeFromCart(uids, pick);
     } else if (mode === "paylater") {
       if (!target) { toast("请选择代付对象"); return; }
       requestPayLater(items, total, target);
-      removeCartUids(uids);
+      takeFromCart(uids, pick);
     } else if (mode === "his") {
       // 拿他手机买（asPhone）：花他的钱，每件都像他寄给她的礼物，回聊天里拆
       const cid = target && target.id;
       if (!cid) return;
       if (total > asPhoneBal(cid)) { toast(characterText(characters.find(c => c.id === cid), "他钱包里不够，只剩 ¥" + Math.round(asPhoneBal(cid) * 100) / 100)); return; }
       items.forEach(it => postCharGift(cid, it.name, it.price, "", { byUser: true }));
-      removeCartUids(uids);
+      takeFromCart(uids, pick);
       toast(characterText(characters.find(c => c.id === cid), "用他的钱下单了，回聊天里拆"));
     }
   };
@@ -34245,6 +34276,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     onForwardToGroup: forwardPostToGroup,
     onRefreshPMs: refreshForumPMs,
     onDeletePost: deleteForumPost,
+    onEditPost: editForumPost,
     onDeletePosts: ids => { const n = (ids || []).length; if (!n) return; forumDropPosts(ids); toast("删了 " + n + " 帖"); },
     onDeleteFloor: deleteForumFloor,
     onClearBoard: clearForumBoard,

@@ -1017,3 +1017,7 @@ if (typeof module !== "undefined" && module.exports) {
     restore();
   }, 400));
 })();
+// 全局 toast（2026-10-31）：组件外面那些 `typeof toast === "function" && toast(…)` 原来一直是空的——
+//   全局没有这个名字，提示全被吞了（选文件「太大了」那几句她从来没看见过）。转给 App 挂在 window.__toast 上的那一个；
+//   组件里自己有 toast（props 或局部 const）的照旧用自己的，不受影响。
+function toast(msg, ms) { try { if (typeof window !== "undefined" && typeof window.__toast === "function") return window.__toast(msg, ms); } catch (e) {} }
