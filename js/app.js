@@ -20,7 +20,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v77.027";
+const APP_VERSION = "v77.030";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -13960,6 +13960,16 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       //   这轮发不了照片，模型就照着历史里那种【你在这里已经实际发出一张…】的旁注自己「写」了一张。
       //   旁注是给它看的，不是它说的话：整段【…】连同紧跟着的「照片内容：」一并拿掉。
       words = dropEchoedNotes(words);
+      // 把转账写成了一句字（群里 2026-10-31 截图：气泡里是「[转账] 向你转账 88.80 元」，没有卡）：
+      //   它照着聊天记录里转账那一条的样子写出来了，本意就是要转。这一轮没填 transfer 的，照这句的钱数当真转一笔，那句字拿掉
+      {
+        const TF_TEXT = /^\s*[\[【]\s*转账\s*[\]】]\s*(?:向你转账|给你转账|转账给你|转给你|给你转了?|转账|转了?)?\s*[¥￥]?\s*(\d+(?:\.\d+)?)\s*(?:元|块)?\s*$/;
+        const k = words.findIndex(w => typeof w === "string" && TF_TEXT.test(w));
+        if (k >= 0) {
+          if (!(parsed.transfer && Number(parsed.transfer.amount) > 0)) parsed.transfer = { amount: Number(TF_TEXT.exec(words[k])[1]), note: "" };
+          words = words.filter((w, j) => j !== k);
+        }
+      }
       // ①.8 双语（v56.56）：把「原文 | 中文」劈开——中译单独收着，原文照常往下走拆泡那一串。
       //      必须排在拆泡【之前】：不然长句会被从中间断开，竖线两边各落进一个气泡。
       // ② 再把仍塞了一大段（多句）的按句末标点拆成一句一泡；一路逗号连下去的长句同样拆
