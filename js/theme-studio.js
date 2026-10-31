@@ -639,6 +639,7 @@
         ["icon", "app 图标那一格（文件夹也是）"], ["iconlabel", "图标底下那行字"], ["folderbadge", "文件夹盖子右上角的数字（里面哪个 app 有新的，加起来）"],
         ["dock", "底部 dock 那一条"],
         ["shikeotd", "主屏上那张「去年今天」小卡（时刻）"],
+        ["bdaycard", "主屏顶上那张生日提醒卡（角色生日前一天和当天）"],
         ["widget", "组件卡那一格（天气、音乐、木鱼这些）"], ["decor", "装饰那一格"], ["decorcode", "装饰「自己写」画出来的那个小窗（贴进去的 HTML 在里面跑）"], ["decorcodeimgs", "「自己写」里自己传的那排图"],
         ["homeclock", "顶上时钟那一块"], ["homeclockink", "时钟的数字"], ["homedate", "时钟底下那行日期"],
         ["pager", "页码点那一行"], ["pagerarrow", "主屏整理页面时左右那两颗翻页箭头；data-part＝prev/next"], ["pagerdot", "单个页码点（data-on=\"1\" 是当前页）"],
@@ -1179,7 +1180,7 @@
   //   挂点表是从 WK_COMMON/WK_SCOPED 现拼的，代码里新挂的 data-wk 没进名单，测试 ai-brief-hooks 会红；
   //   可规矩、尺寸、现成写法是手写的——所以跟攻略一样立个戳：v 必须等于 APP_VERSION，
   //   这一版改了哪条写进 changed；这一版的改动碰不到样式，就在 none 写一句为什么。
-                                                                                                                                                                                                                                                                    const BRIEF_STAMP = {v: "v88.801",changed: "",none: "这一版没动美化挂点。"};
+                                                                                                                                                                                                                                                                    const BRIEF_STAMP = {v: "v88.803",changed: "",none: "这一版没动美化挂点。"};
   function aiBrief(page, css) {
     const grp = WK_SCOPED.filter(function (x) { return (x.pages || []).indexOf(page) >= 0; })[0];
     const line = function (r) { return '[data-wk="' + r[0] + '"]  ' + r[1]; };
