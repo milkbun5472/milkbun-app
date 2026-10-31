@@ -125,7 +125,8 @@ test("已经攒着的要回喂给模型，否则它会把旧的再写一遍", ()
 test("存进去走的是合并那一路，不是直接盖", () => {
   const m = appSrc.match(/const savePhoneApp = \(charId, key, d, opts\) => \{[\s\S]*?\n  \};/);
   assert.ok(m);
-  assert.match(m[0], /phoneMergeSaved\(key, cur\[key\], d, phoneNow\(charId\)\)/, "刷新还是整份盖掉，日志攒不起来（时刻照 TA 那只钟）");
+  // 2026-10-30 重锚：合并前后要设、归零钟差（phoneClockShift），这一行拆成了 try/finally，测的还是同一件事。
+  assert.match(m[0], /phoneMergeSaved\(key, cur\[key\], d, _pNow\)/, "刷新还是整份盖掉，日志攒不起来（时刻照 TA 那只钟）");
 });
 
 test("本来就是绝对日期的别动——相册跨年，改写会丢年份", () => {
