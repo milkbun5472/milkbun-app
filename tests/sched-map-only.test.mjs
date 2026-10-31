@@ -41,3 +41,15 @@ assert.match(mapSrc, /const PersonDot = function/);
 assert.match(mapSrc, /\["own", "自己写"\], \["gen", "让模型添"\], \["for", "替谁添"\]/);
 assert.ok(!mapSrc.includes('"＋ 地点"'), "顶上那颗「＋ 地点」收进工具栏了");
 console.log("map toolbar ok");
+// 多几种地形（各带天气）和按「去那儿干嘛」分的地点类型，全表只在 trpg-core 一处
+const W = require("../js/world-weather.js");
+for (const t of ["雪原", "海岸", "草原", "雨林", "峡谷", "火山"]) { const d = W.dayOf("w|x", t, new Date(2026, 6, 1, 12)); assert.ok(Number.isFinite(d.hi), t); }
+assert.ok(W.dayOf("w|x", "雪原", new Date(2026, 0, 10, 12)).hi < W.dayOf("w|x", "雨林", new Date(2026, 0, 10, 12)).lo, "雪原比雨林冷");
+const core = readFileSync(new URL("../js/trpg-core.js", import.meta.url), "utf8");
+assert.match(core, /const MAP_KINDS = \["城镇", "遗迹", "野外", "地标", "住处", "工作", "吃喝", "购物", "消遣", "学习", "出行"\]/);
+assert.match(core, /TERRAINS: MAP_TERRAINS, KINDS: MAP_KINDS/);
+for (const k of ["住处", "工作", "吃喝", "购物", "消遣", "学习", "出行"]) assert.ok(mapSrc.includes(k + ': "M'), k);
+assert.ok(!mapSrc.includes('["城镇", "遗迹", "野外", "地标"].map('));
+assert.match(app, /mapKinds\(\)\.indexOf\(x && x\.kind\)/);
+assert.match(app, /f\.kind = "住处"/);
+console.log("terrains kinds ok");

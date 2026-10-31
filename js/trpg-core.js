@@ -42,10 +42,14 @@
   //   ② 道路和可行走图【同一趟循环】生成:画出来的路永远等于能走的边,不会两张皮。
   // 丢掉它的栅格化重活(120×90 网格/行军方块/Dijkstra 描边):全走矢量,毫秒级出图,
   // 不卡主线程也不用存大 blob——布局由 (战役id, 骨架) 决定,每次现算,张张一样。
+  // 地形、地点类型的全表：造世界、加地点、改地点、天气、图例都认这一份（2026-10-31 她要多几种）。
+  //   地形管天气（world-weather.js 每种一套脾气）；类型前四种按地貌分，后七种按「去那儿干嘛」分——
+  //   不带年代：古风的茶楼、现代的咖啡馆、奇幻的旅店都是「吃喝」，叫什么交给地点名字。
+  const MAP_TERRAINS = ["山地", "平原", "森林", "水泽", "荒漠", "城郭", "雪原", "海岸", "草原", "雨林", "峡谷", "火山"];
+  const MAP_KINDS = ["城镇", "遗迹", "野外", "地标", "住处", "工作", "吃喝", "购物", "消遣", "学习", "出行"];
   function normRegions(raw, maxNodes, maxRegions) {
     const MAXN = maxNodes || 3, MAXR = maxRegions || 6;
-    const TERR = ["山地", "平原", "森林", "水泽", "荒漠", "城郭"];
-    const KIND = ["城镇", "遗迹", "野外", "地标"];
+    const TERR = MAP_TERRAINS, KIND = MAP_KINDS;
     const seen = {};
     const regions = (Array.isArray(raw) ? raw : []).map(r => {
       if (!r || typeof r !== "object") return null;
@@ -264,7 +268,7 @@
   };
   // 地图引擎(纯函数)外借给好友地图的【架空】那一半:同一套区域接壤→力导向→团块→道路,
   // 一份实现两处用。各写一份必然走成「一层写在两处,第二处没跟上」。
-  if (inApp) window.TrpgMap = { normRegions, mapBuild, mapAdjacent, findNode };
+  if (inApp) window.TrpgMap = { normRegions, mapBuild, mapAdjacent, findNode, TERRAINS: MAP_TERRAINS, KINDS: MAP_KINDS };
   // 页面那半要用的，原样递过去
   (typeof window !== "undefined" ? window : globalThis).TrpgCore = { inApp, mulberry32, hashStr, normRegions, mapBuild, mapAdjacent, findNode };
 })();

@@ -341,7 +341,11 @@ function mapSubSkin(t) {
   // 一块地方最多画几个地点 / 一个世界最多几块地方。2026-10-31 群里：8 个不够，放到 12（撒点也改成只落在自己那块里，挤得下）
   const WORLD_MAX_NODES = 12, WORLD_MAX_REGIONS = 12;
   if (typeof window !== "undefined") window.WORLD_MAX_NODES = WORLD_MAX_NODES;   // 加地点那几道闸读这一份
-  const TERR_TINT = { 山地: "#d9d0c2", 平原: "#dde2cd", 森林: "#cfdac8", 水泽: "#cdd8dc", 荒漠: "#e4d9c2", 城郭: "#ddd3d6" };
+  const TERR_TINT = { 山地: "#d9d0c2", 平原: "#dde2cd", 森林: "#cfdac8", 水泽: "#cdd8dc", 荒漠: "#e4d9c2", 城郭: "#ddd3d6",
+    雪原: "#e5e9ed", 海岸: "#d2dee3", 草原: "#e2e6c6", 雨林: "#c3d5bd", 峡谷: "#e1cfbf", 火山: "#dbc9c3" };
+  // 全表在 trpg-core（TrpgMap.TERRAINS / KINDS）：这儿只是取用，没加载到时退回最早那几种
+  const terrainList = function () { return (window.TrpgMap && window.TrpgMap.TERRAINS) || ["山地", "平原", "森林", "水泽", "荒漠", "城郭"]; };
+  const kindList = function () { return (window.TrpgMap && window.TrpgMap.KINDS) || ["城镇", "遗迹", "野外", "地标"]; };
   // ── 地点记号（v62.68）─────────────────────────────────────────────
   // 原来是四个 Unicode 符号 ⌂ ▲ • ★ 当图标。规矩里写着：Unicode 当图标一律换成
   // 程序画的 SVG——汉字一定渲得出来，emoji 和符号不行（⌂ 在不少字体里就是豆腐块）。
@@ -351,12 +355,20 @@ function mapSubSkin(t) {
     城镇: "M2 6.5 6 2.6l4 3.9V10a.6.6 0 0 1-.6.6H2.6A.6.6 0 0 1 2 10z",
     遗迹: "M6 2.2 10.4 10H1.6z",
     野外: "M6 3.4a2.6 2.6 0 1 0 0 5.2 2.6 2.6 0 0 0 0-5.2z",
-    地标: "M6 1.8 7.4 4.7l3.2.4-2.3 2.2.6 3.1L6 8.9l-2.9 1.5.6-3.1L1.4 5.1l3.2-.4z"
+    地标: "M6 1.8 7.4 4.7l3.2.4-2.3 2.2.6 3.1L6 8.9l-2.9 1.5.6-3.1L1.4 5.1l3.2-.4z",
+    // 按「去那儿干嘛」分的七种（2026-10-31）：门、公文包、杯子、袋子、音符、书、指路箭头——都不带年代
+    住处: "M3 1.4h6v9.2H3zm3.7 4.3a.7.7 0 1 0 0 1.4.7.7 0 0 0 0-1.4z",
+    工作: "M4.2 2.2h3.6v1.6h2.6v6.4H1.6V3.8h2.6zm1 1.6h1.6V3.1H5.2z",
+    吃喝: "M2.2 2.8h6.2v3.6a3.1 3.1 0 0 1-6.2 0zM8.4 3.8h1a1.5 1.5 0 0 1 0 3H8.2v-.9h1.2a.6.6 0 0 0 0-1.2H8.4zM1.8 9.9h7v1h-7z",
+    购物: "M2.4 4.2h7.2l-.7 6.4H3.1zM4.3 4.2V3.1a1.7 1.7 0 0 1 3.4 0v1.1h-1V3.1a.7.7 0 0 0-1.4 0v1.1z",
+    消遣: "M4.4 2.4 9.8 1.2v6.7a1.6 1.6 0 1 1-1-1.5V3.5L5.4 4.3v5a1.6 1.6 0 1 1-1-1.5z",
+    学习: "M1.4 2.6c1.6-.6 3.3-.4 4.6.7 1.3-1.1 3-1.3 4.6-.7v7.3c-1.6-.6-3.3-.4-4.6.7-1.3-1.1-3-1.3-4.6-.7z",
+    出行: "M6 1.4l4.2 9-4.2-2-4.2 2z"
   };
   // size 是那个方框的边长；stroke 传了就画线框，不传就实心
   const pathMark = function (d, size, color, stroke) {
     return h("svg", { width: size, height: size, viewBox: "0 0 12 12", "aria-hidden": "true", style: { display: "block", flexShrink: 0 } },
-      h("path", { d: d, fill: stroke ? "none" : color, stroke: stroke ? color : "none", strokeWidth: stroke || 0, strokeLinejoin: "round", strokeLinecap: "round" }));
+      h("path", { d: d, fill: stroke ? "none" : color, fillRule: "evenodd", stroke: stroke ? color : "none", strokeWidth: stroke || 0, strokeLinejoin: "round", strokeLinecap: "round" }));
   };
   // 一个人的小圆头像（地点详情、世界列表、地图的几个子页共用）：有图就铺图，没图就底色写首字
   const PersonDot = function (p) {
@@ -613,7 +625,7 @@ function mapSubSkin(t) {
           h("input", { "data-wk": "input", value: editing.name, onChange: function (e) { setEditing(Object.assign({}, editing, { name: e.target.value })); },
             style: { width: "100%", outline: "none", fontFamily: F_DISPLAY, fontSize: "calc(18px * var(--app-fs, 1))", color: "#3b3227", background: "transparent", border: "none", borderBottom: "1px solid rgba(120,104,80,0.45)", padding: "4px 0" }, "data-wk": "mapworldmapinput", "data-part": "1" }),
           h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: "#7a6a54", margin: "12px 0 6px" } }, "是什么地方"),
-          h("div", { className: "flex flex-wrap", style: { gap: 6 } }, ["城镇", "遗迹", "野外", "地标"].map(function (k) {
+          h("div", { className: "flex flex-wrap", style: { gap: 6 } }, kindList().map(function (k) {
             const on2 = editing.kind === k;
             return h("button", { key: k, onClick: function () { setEditing(Object.assign({}, editing, { kind: k })); }, className: "active:opacity-70 flex items-center",
               style: { gap: 5, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", padding: "5px 10px", borderRadius: 3, color: on2 ? "#fff" : "#3b3227", background: on2 ? "#3b3227" : "transparent", border: (on2 ? 2 : 1) + "px solid rgba(80,66,48," + (on2 ? 1 : 0.4) + ")" }, "data-wk": "mapworldmap", "data-part": "r2" },
@@ -641,7 +653,7 @@ function mapSubSkin(t) {
             h("input", { "data-wk": "input", value: regEdit.name, onChange: function (e) { setRegEdit(Object.assign({}, regEdit, { name: e.target.value })); },
               style: { width: "100%", outline: "none", fontFamily: F_DISPLAY, fontSize: "calc(16px * var(--app-fs, 1))", color: "#3b3227", background: "transparent", border: "none", borderBottom: "1px solid rgba(120,104,80,0.45)", padding: "4px 0" }, "data-wk": "mapworldmapinput", "data-part": "2" }),
             h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: "#7a6a54", margin: "10px 0 6px" } }, "地形"),
-            h("div", { className: "flex flex-wrap", style: { gap: 6 } }, ["山地", "平原", "森林", "水泽", "荒漠", "城郭"].map(function (k) {
+            h("div", { className: "flex flex-wrap", style: { gap: 6 } }, terrainList().map(function (k) {
               const on2 = regEdit.terrain === k;
               return h("button", { key: k, onClick: function () { setRegEdit(Object.assign({}, regEdit, { terrain: k })); }, className: "active:opacity-70",
                 style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", padding: "5px 10px", borderRadius: 3, color: on2 ? "#fff" : "#3b3227", background: on2 ? "#3b3227" : "transparent", border: (on2 ? 2 : 1) + "px solid rgba(80,66,48," + (on2 ? 1 : 0.4) + ")" }, "data-wk": "mapworldmap", "data-part": "r3" }, k);
@@ -893,7 +905,7 @@ function mapSubSkin(t) {
             r.name, h("span", { style: { fontSize: "calc(10.5px * var(--app-fs, 1))", opacity: 0.7 } }, (r.nodes || []).length + "/" + WORLD_MAX_NODES));
         })));
     const kindPick = h("div", { style: { display: "flex", flexWrap: "wrap", gap: 7, marginTop: 10 } },
-      ["城镇", "遗迹", "野外", "地标"].map(function (k) { return h(React.Fragment, { key: k }, legendItem(t, kind === k, function (c) { return kindMark(k, 13, c); }, k, function () { setKind(k); })); }));
+      kindList().map(function (k) { return h(React.Fragment, { key: k }, legendItem(t, kind === k, function (c) { return kindMark(k, 13, c); }, k, function () { setKind(k); })); }));
     const ownForm = h("div", null,
       h("input", { "data-wk": "input", value: nm, onChange: function (e) { setNm(e.target.value); }, placeholder: "地点叫什么", style: Object.assign({}, inp, { marginTop: 12 }), "data-wk": "mapnodeaddinput", "data-part": "地点叫什么" }),
       kindPick,
@@ -929,7 +941,7 @@ function mapSubSkin(t) {
           h("input", { "data-wk": "input", value: rName, onChange: function (e) { setRName(e.target.value.slice(0, 8)); }, placeholder: "≤8 个字", style: inp, "data-wk": "mapnodeaddinput", "data-part": "这块地方叫什么（≤8字）" }),
           h("div", { style: Object.assign({}, cap, { marginTop: 12 }) }, "地形"),
           h("div", { style: { display: "flex", flexWrap: "wrap", gap: 7 } },
-            ["山地", "平原", "森林", "水泽", "荒漠", "城郭"].map(function (k) { const on = rTerr === k;
+            terrainList().map(function (k) { const on = rTerr === k;
               return h("button", { key: k, onClick: function () { setRTerr(k); }, className: "active:opacity-70",
                 style: { minHeight: 36, padding: "5px 12px", borderRadius: 3, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: on ? "#fff" : "#3b3227", background: on ? "#3b3227" : (TERR_TINT[k] || "transparent"), border: "1px solid " + (on ? "#3b3227" : "rgba(88,72,52,0.35)") }, "data-wk": "mapnodeadd", "data-part": "r2" }, k); })),
           regions.length ? h("div", { style: Object.assign({}, cap, { marginTop: 12 }) }, "挨着哪几块（图上会画成接壤）") : null,
