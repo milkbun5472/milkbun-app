@@ -24683,6 +24683,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     });
     return out[cid] || FORUM_ALT_NAMES[forumHash(cid) % FORUM_ALT_NAMES.length];
   };
+  // 她自己改他的关注、粉丝数（群友 2026-10-31：大明星的号只有一千来个粉丝）——点他主页上那个数改
+  const editCharForumMeta = (charId, patch) => setForumCharMeta(prev => { const n = { ...prev, [charId]: { ...(prev[charId] || {}), ...patch } }; saveJSON("x_forumCharMeta", n); return n; });
   const charForumMeta = c => { const m = (forumCharMetaRef.current[c.id]) || {}; const hh = forumHash(c.id); const altName = forumAltNameOf(c.id); const habit = FORUM_HABIT_PRESETS[hh % FORUM_HABIT_PRESETS.length]; return { handle: m.handle || c.name, bio: m.bio != null ? m.bio : (c.motto || ""), joinTs: m.joinTs || (FORUM_EPOCH + (hh % 600) * 86400000), following: m.following != null ? m.following : (20 + hh % 380), followers: m.followers != null ? m.followers : (300 + (hh * 7) % 60000), altName, altHandle: m.altHandle || ("side_" + hh.toString(36).slice(0, 6)), altBio: m.altBio || (habit.participation + "。" + habit.replyStyle), altAvatarSeed: m.altAvatarSeed || ((m.altHandle || "side_" + hh.toString(36)) + ":mask"), altJoinTs: m.altJoinTs || (FORUM_EPOCH + ((hh * 13) % 760) * 86400000), altFollowing: m.altFollowing != null ? m.altFollowing : (8 + hh % 140), altFollowers: m.altFollowers != null ? m.altFollowers : (30 + (hh * 11) % 6800), boardPrefs: Array.isArray(m.boardPrefs) && m.boardPrefs.length ? m.boardPrefs : habit.boards, participation: m.participation || habit.participation, replyStyle: m.replyStyle || habit.replyStyle, identityBias: m.identityBias || habit.identityBias }; };
   // 在逛论坛的角色（默认全部；被 forumOff 关掉的不算）
   const forumActiveChars = () => (characters || []).filter(c => !forumOffRef.current.includes(c.id) && !isBody(c.id));
@@ -26982,8 +26984,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     if (!active) return;
     try {
       const d = await runProbe(apiFor(c.id), ctxFor(c), {
-        instruction: "为「" + c.name + "」设计 Ta 的贴吧资料：handle（大号 id）、bio（一句话签名）、altName（固定小号昵称）、altHandle（固定小号 id）、altBio（小号独立签名，不能泄露大号）、altAvatarSeed（几个词描述小号会用的头像意象，不出现本人真名）、boardPrefs（最常逛的 2 个主页板块）、participation（稳定参与习惯，如潜水/回帖/开帖）、replyStyle（稳定回帖风格）、identityBias（main 或 alt）、followers、following、altFollowers、altFollowing。小号要像 Ta 自己会长期使用的马甲，但旁人不能一眼认出。" + FORUM_ALT_NAME_RULE,
-        schemaHint: "{\"handle\":\"id\",\"bio\":\"签名\",\"altName\":\"固定小号昵称\",\"altHandle\":\"固定小号id\",\"altBio\":\"小号签名\",\"altAvatarSeed\":\"头像意象\",\"boardPrefs\":[\"兴趣吧\",\"日常吧\"],\"participation\":\"参与习惯\",\"replyStyle\":\"回帖风格\",\"identityBias\":\"main|alt\",\"followers\":1234,\"following\":88,\"altFollowers\":321,\"altFollowing\":45}",
+        instruction: "为「" + c.name + "」设计 Ta 的贴吧资料：handle（大号 id）、bio（一句话签名）、altName（固定小号昵称）、altHandle（固定小号 id）、altBio（小号独立签名，不能泄露大号）、altAvatarSeed（几个词描述小号会用的头像意象，不出现本人真名）、boardPrefs（最常逛的 2 个主页板块）、participation（稳定参与习惯，如潜水/回帖/开帖）、replyStyle（稳定回帖风格）、identityBias（main 或 alt）、followers（大号粉丝数）、following（大号关注数）、altFollowers、altFollowing（小号的）。小号要像 Ta 自己会长期使用的马甲，但旁人不能一眼认出。" + ACCOUNT_SCALE_RULE + FORUM_ALT_NAME_RULE,
+        schemaHint: "{\"handle\":\"id\",\"bio\":\"签名\",\"altName\":\"固定小号昵称\",\"altHandle\":\"固定小号id\",\"altBio\":\"小号签名\",\"altAvatarSeed\":\"头像意象\",\"boardPrefs\":[\"兴趣吧\",\"日常吧\"],\"participation\":\"参与习惯\",\"replyStyle\":\"回帖风格\",\"identityBias\":\"main|alt\",\"followers\":\"大号粉丝数\",\"following\":\"大号关注数\",\"altFollowers\":\"小号粉丝数\",\"altFollowing\":\"小号关注数\"}",
         maxTokens: FTOK.meta
       });
       const hh = forumHash(c.id);
@@ -26991,7 +26993,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       const priorAlt = (forumPostsRef.current || []).find(p => p && p.authorId === c.id && p.authorType === "character_alt");
       const allowedBoards = new Set(["吐槽吧", "日常吧", "求助吧", "兴趣吧", "脑洞吧", "匿名吧"]);
       const boardPrefs = Array.isArray(d.boardPrefs) ? d.boardPrefs.filter(x => allowedBoards.has(x)).slice(0, 3) : [];
-      const meta = { handle: d.handle || c.name, bio: d.bio != null ? d.bio : (c.motto || ""), altName: (priorAlt && priorAlt.authorName) || (d.altName && !(characters || []).some(o => o.id !== c.id && charForumMeta(o).altName === String(d.altName).trim()) ? d.altName : "") || fallback.altName, altHandle: String((priorAlt && priorAlt.authorHandle) || d.altHandle || fallback.altHandle).replace(/^@/, ""), altBio: String(d.altBio || fallback.altBio).slice(0, 100), altAvatarSeed: String(d.altAvatarSeed || fallback.altAvatarSeed).slice(0, 80), altFollowers: Number(d.altFollowers) || fallback.altFollowers, altFollowing: Number(d.altFollowing) || fallback.altFollowing, altJoinTs: fallback.altJoinTs, boardPrefs: boardPrefs.length ? boardPrefs : fallback.boardPrefs, participation: String(d.participation || fallback.participation).slice(0, 60), replyStyle: String(d.replyStyle || fallback.replyStyle).slice(0, 60), identityBias: d.identityBias === "alt" ? "alt" : "main", followers: Number(d.followers) || (300 + (hh * 7) % 60000), following: Number(d.following) || (20 + hh % 380), joinTs: (forumCharMetaRef.current[c.id] || {}).joinTs || (FORUM_EPOCH + (hh % 600) * 86400000) };
+      const meta = { handle: d.handle || c.name, bio: d.bio != null ? d.bio : (c.motto || ""), altName: (priorAlt && priorAlt.authorName) || (d.altName && !(characters || []).some(o => o.id !== c.id && charForumMeta(o).altName === String(d.altName).trim()) ? d.altName : "") || fallback.altName, altHandle: String((priorAlt && priorAlt.authorHandle) || d.altHandle || fallback.altHandle).replace(/^@/, ""), altBio: String(d.altBio || fallback.altBio).slice(0, 100), altAvatarSeed: String(d.altAvatarSeed || fallback.altAvatarSeed).slice(0, 80), altFollowers: (accountCount(d.altFollowers) > 0 ? accountCount(d.altFollowers) : 0) || fallback.altFollowers, altFollowing: (accountCount(d.altFollowing) > 0 ? accountCount(d.altFollowing) : 0) || fallback.altFollowing, altJoinTs: fallback.altJoinTs, boardPrefs: boardPrefs.length ? boardPrefs : fallback.boardPrefs, participation: String(d.participation || fallback.participation).slice(0, 60), replyStyle: String(d.replyStyle || fallback.replyStyle).slice(0, 60), identityBias: d.identityBias === "alt" ? "alt" : "main", followers: (accountCount(d.followers) > 0 ? accountCount(d.followers) : 0) || (300 + (hh * 7) % 60000), following: (accountCount(d.following) > 0 ? accountCount(d.following) : 0) || (20 + hh % 380), joinTs: (forumCharMetaRef.current[c.id] || {}).joinTs || (FORUM_EPOCH + (hh % 600) * 86400000) };
       setForumCharMeta(prev => { const n = { ...prev, [c.id]: meta }; saveJSON("x_forumCharMeta", n); return n; });
     } catch (e) {/* silent, 用兜底 */ }
   };
@@ -34225,6 +34227,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     onDelPM: delForumPM,
     onClearPMs: clearForumPMs,
     onEditMe: editForumMe,
+    onEditCharMeta: editCharForumMeta,
     onEnsureCharMeta: ensureCharForumMeta
   });else if (screen === "shop") body = h(Shop, {
     payAs: asPhonePay,

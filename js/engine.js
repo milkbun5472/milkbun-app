@@ -7996,6 +7996,18 @@ function bracketBilingual(text) {
   if (!foreign && !hanLineLang(orig)) return null;
   return { text: orig, zh: zh };
 }
+// 账号的关注、粉丝数照他这个人（群友 2026-10-31：大明星关注 38、粉丝 1000 多——查手机、论坛都是）：
+//   原来提示词叫模型把粉丝往少里写，格式示范还摆着 12、37、1234 这种小数，模型照着抄。改成照身份给出口，示范只写说明。
+//   查手机（phone.js）和论坛资料（app.js）共用这一句。
+const ACCOUNT_SCALE_RULE = "关注、粉丝这几个数照他这个人在这个平台上是谁来定：这是他公开的大号，就照他的名气来——有名的人粉丝成万上百万、自己关注的反倒不多；这是他只给自己看的小号，数字就小，名字、签名里看得出是小号；普通人就是普通人的数。数字可以写成「12.3万」这种。";
+// 「12.3万」「1.2w」「3k」「1,234」→ 数字；认不出就 NaN
+function accountCount(x) {
+  if (typeof x === "number") return x;
+  const m = String(x == null ? "" : x).replace(/[,，\s]/g, "").match(/^(\d+(?:\.\d+)?)(万|w|W|千|k|K|亿)?/);
+  if (!m) return NaN;
+  const mul = { 万: 1e4, w: 1e4, W: 1e4, 千: 1e3, k: 1e3, K: 1e3, 亿: 1e8 }[m[2]] || 1;
+  return Math.round(parseFloat(m[1]) * mul);
+}
 function splitBilingual(text, hanLang) {
   const t = String(text == null ? "" : text);
   const br = typeof bracketBilingual === "function" ? bracketBilingual(t) : null;
