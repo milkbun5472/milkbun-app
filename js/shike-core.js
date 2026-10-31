@@ -243,6 +243,39 @@
       h("button", { "data-wk": "block", onClick: onClose, className: "active:opacity-60", "aria-label": "收起", style: { fontFamily: F_BODY, fontSize: "calc(18px * var(--app-fs, 1))", color: t.fog, background: "transparent", border: "none", padding: "4px 6px" } }, "×"));
   }
   g.ShikeOTD = ShikeOTD;
+  // 角色生日 app 内提醒（她 2026-10-31：「算了做个app内提醒吧好看点」）：
+  //   前一天、当天，开机落主屏时在顶上冒一张小蛋糕卡；点卡进聊天，× 收起，当天不再冒。
+  //   日子走 daysUntilBirthday（公历、农历都认），跟提示词里那句同一个函数。
+  function bdaySoon(chars, now) {
+    if (typeof daysUntilBirthday !== "function") return [];
+    const out = [];
+    for (const c of chars || []) {
+      if (!c || c.npc || c.isGroup || !String(c.birthday || "").trim()) continue;
+      const du = daysUntilBirthday(c.birthday, now || new Date());
+      if (du === 0 || du === 1) out.push({ char: c, du });
+    }
+    return out.sort((a, b) => a.du - b.du).slice(0, 3);
+  }
+  function BdayCard({ items, onOpen, onClose }) {
+    const t = useTheme();
+    if (!items || !items.length) return null;
+    return h("div", { "data-wk": "bdaycard", style: { position: "absolute", left: 16, right: 16, top: "calc(env(safe-area-inset-top) + 56px)", zIndex: 41,
+        padding: "12px 14px", borderRadius: 20, background: "linear-gradient(135deg, rgba(255,240,235,.96), rgba(255,250,240,.96))", border: "1px solid rgba(230,170,160,.55)",
+        boxShadow: "0 12px 32px rgba(120,60,50,.22)", backdropFilter: "blur(10px)", WebkitBackdropFilter: "blur(10px)" } },
+      h("div", { className: "flex items-center", style: { justifyContent: "space-between" } },
+        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", letterSpacing: 3, color: "#b9776c" } }, "🎂  生日提醒"),
+        h("button", { "data-wk": "block", onClick: onClose, className: "active:opacity-60", "aria-label": "收起", style: { minWidth: 40, minHeight: 40, fontFamily: F_BODY, fontSize: "calc(18px * var(--app-fs, 1))", color: t.fog, background: "transparent", border: "none", margin: "-10px -10px -10px 0" } }, "×")),
+      items.map(it => {
+        const c = it.char, src = typeof resolveImg === "function" ? resolveImg(c.avatarImage || c.chatAvatar || "") : "";
+        return h("button", { key: c.id, "data-wk": "block", onClick: () => onOpen(c), className: "active:opacity-80 flex items-center", style: { width: "100%", minHeight: 48, gap: 12, marginTop: 6, background: "transparent", border: "none", padding: 0, textAlign: "left" } },
+          src ? h("img", { src, alt: "", style: { width: 44, height: 44, borderRadius: "50%", objectFit: "cover", flexShrink: 0, boxShadow: "0 0 0 2px #fff, 0 0 0 3.5px #f0b8ae" } }) : h("div", { style: { width: 44, height: 44, borderRadius: "50%", background: "#f6d9d2", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 } }, "🎂"),
+          h("div", { style: { minWidth: 0, flex: 1 } },
+            h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(16px * var(--app-fs, 1))", color: t.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, (it.du === 0 ? "今天是 " : "明天是 ") + (c.remark || c.name) + " 的生日"),
+            h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.sub, marginTop: 1 } }, it.du === 0 ? (typeof characterText === "function" ? characterText(c, "去跟他说一声 ›") : "去跟 TA 说一声 ›") : "还有一天，先想想怎么过 ›")));
+      }));
+  }
+  g.bdaySoon = bdaySoon;
+  g.BdayCard = BdayCard;
   // 聊天里那张时刻卡（她 2026-10-06：「这个时刻卡看不完啊，而且还是很普通」）：
   //   ① 点一下展开看全（原来正文写死两行、后面直接截掉，点了也没用）；
   //   ② 长相是一张夹进本子里的纪念签：左边一条丝带、右上一枚日期圆戳、标题下一道细线、

@@ -1722,6 +1722,8 @@ function App() {
   const [appPrompt, setAppPrompt] = useState(null);   // 借这一层填一行字（v64.88）
   // 去年今天（时刻）：开机进主屏时算一次；今天已经收起过就不再冒
   const [shikeOTD, setShikeOTD] = useState(null);
+  // 角色生日 app 内提醒：前一天、当天开机落主屏时冒；今天收起过（x_bdayCard）就不再冒
+  const [bdayCard, setBdayCard] = useState(null);
   // 聊天里时刻卡上「去时刻里看」：记下要翻到哪一张，再进时刻（她 2026-10-11）
   const [shikeFocus, setShikeFocus] = useState(null);
   // 离开时刻就忘掉这一次要翻到哪张——下次从主屏进来照常停在最新那张
@@ -6545,6 +6547,12 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     if (!loaded || screen !== "home" || !window.ShikeKit || !window.ShikeKit.onThisDay) return;
     if (loadJSON("x_shikeOTD", "") === schedDayKey(new Date())) return;
     try { setShikeOTD(window.ShikeKit.onThisDay(liveChars, { chats: chatsRef.current, lib: memLibRef.current, couples, profile, uName: userName(profile), calendar })); } catch (e) {}
+    // eslint-disable-next-line
+  }, [loaded, screen === "home"]);
+  useEffect(() => {
+    if (!loaded || screen !== "home" || !window.bdaySoon) return;
+    if (loadJSON("x_bdayCard", "") === schedDayKey(new Date())) return;
+    try { const l = window.bdaySoon(liveChars, new Date()); setBdayCard(l.length ? l : null); } catch (e) {}
     // eslint-disable-next-line
   }, [loaded, screen === "home"]);
   // 「一起玩」那三处（小游戏 / 跑团 / 小剧场）也能邀认识的配角（群里 2026-10-03：「全部游戏都要」）：
@@ -36904,6 +36912,10 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     item: shikeOTD,
     onOpen: () => { saveJSON("x_shikeOTD", schedDayKey(new Date())); setShikeOTD(null); setScreen("shike"); },
     onClose: () => { saveJSON("x_shikeOTD", schedDayKey(new Date())); setShikeOTD(null); }
+  }), screen === "home" && bdayCard && window.BdayCard && h(window.BdayCard, {
+    items: bdayCard,
+    onOpen: c => { saveJSON("x_bdayCard", schedDayKey(new Date())); setBdayCard(null); openChatById(c.id); },
+    onClose: () => { saveJSON("x_bdayCard", schedDayKey(new Date())); setBdayCard(null); }
   }), themePeek && h(ThemePeekBar, {
     zh: themePeek.zh,
     onBack: () => { setThemePeek(null); setConfigPage("themeStudio"); setScreen("config"); }
