@@ -20,7 +20,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v77.014";
+const APP_VERSION = "v77.015";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -22377,7 +22377,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         + "换到别的世界还照样成立的名字就是没写好。\n"
         + "每个地点的 hook 写【这儿眼下正有什么事】：一句，具体到有人到了那儿当场就能做点什么，不是介绍它的来历。\n"
         + "整张图只许从TA那段设定长出来：TA没写到的地方，按TA那段的调子往下推，不要换成另一个类型的世界。\n"
-        + "【输出】只输出合法 JSON，无 markdown 无多余文字：{\"name\":\"世界名（TA给了就照抄）\",\"brief\":\"一句话说清这个世界\",\"regions\":[{\"name\":\"地方名(≤6字)\",\"terrain\":\"山地|平原|森林|水泽|荒漠|城郭 之一\",\"adj\":[\"挨着的地方名\"],\"nodes\":[{\"name\":\"地点名(≤8字)\",\"kind\":\"城镇|遗迹|野外|地标 之一\",\"hook\":\"这儿眼下正有什么事(一句)\"}]}]"
+        + MAP_KIND_SAY + "【输出】只输出合法 JSON，无 markdown 无多余文字：{\"name\":\"世界名（TA给了就照抄）\",\"brief\":\"一句话说清这个世界\",\"regions\":[{\"name\":\"地方名(≤6字)\",\"terrain\":\"" + mapTerrains().join("|") + " 之一\",\"adj\":[\"挨着的地方名\"],\"nodes\":[{\"name\":\"地点名(≤8字)\",\"kind\":\"" + mapKinds().join("|") + " 之一\",\"hook\":\"这儿眼下正有什么事(一句)\"}]}]"
         + (cast.length ? ",\"cast\":[{\"name\":\"角色名(照抄上面给的)\",\"node\":\"TA在哪个地点\",\"why\":\"TA为什么在这儿(一句)\",\"home\":\"TA住在哪个地点\",\"places\":[{\"doing\":\"TA在做的那件事(照TA行程里的说法)\",\"node\":\"那件事发生在哪个地点\"}]}]" : "") + "}";
       const raw = await callAI(active, sys, [{ role: "user", content: "开始。" }], { maxTokens: 65000 });
       const d = extractJSON(raw) || {};
@@ -22418,6 +22418,10 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   // 往已有的世界里继续加地点（她 2026-08-31 要的）。
   // 手写那条【一次调用都不花】；让模型添几个才走一次调用，而且把这个世界已经有的
   // 地方全递过去，免得它编出一个重样的、或者跟这个世界不搭的。
+  // 地形、地点类型的全表在 trpg-core（TrpgMap）：提示词和校验都认这一份
+  const mapTerrains = () => (window.TrpgMap && window.TrpgMap.TERRAINS) || ["山地", "平原", "森林", "水泽", "荒漠", "城郭"];
+  const mapKinds = () => (window.TrpgMap && window.TrpgMap.KINDS) || ["城镇", "遗迹", "野外", "地标"];
+  const MAP_KIND_SAY = "kind 怎么挑：城镇、遗迹、野外、地标按地貌分；住处、工作、吃喝、购物、消遣、学习、出行按人去那儿干嘛分——一处地方主要是给人住、上班做事、吃饭喝东西、买东西、玩、念书、赶路换乘的，就挑后面对应那一种。\n";
   const addWorldNode = (wid, regionName, node) => {
     const nm = String((node && node.name) || "").trim().slice(0, 10);
     if (!nm) { toast("先给这个地点起个名"); return false; }
@@ -22532,7 +22536,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         + "新地点要跟这块地方已经有的那几个【不重样、不同类】：已经有集市就别再来一个集市。"
         + "名字要一眼看得出是这个世界的地方，换到别的世界还照样成立的名字就是没写好。\n"
         + "每个地点的 hook 写【这儿眼下正有什么事】：一句，具体到有人到了那儿当场就能做点什么。\n"
-        + "【输出】只输出合法 JSON，无 markdown 无多余文字：{\"nodes\":[{\"name\":\"地点名(≤8字)\",\"kind\":\"城镇|遗迹|野外|地标 之一\",\"hook\":\"这儿眼下正有什么事(一句)\"}]}";
+        + MAP_KIND_SAY + "【输出】只输出合法 JSON，无 markdown 无多余文字：{\"nodes\":[{\"name\":\"地点名(≤8字)\",\"kind\":\"" + mapKinds().join("|") + " 之一\",\"hook\":\"这儿眼下正有什么事(一句)\"}]}";
       const raw = await callAI(active, sys, [{ role: "user", content: "开始。" }], { maxTokens: 65000 });
       const d = extractJSON(raw) || {};
       const seen = {}; (w.regions || []).forEach(r => (r.nodes || []).forEach(n => { seen[n.name] = 1; }));
@@ -22540,12 +22544,13 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       const room = Math.max(0, _maxN - (((w.regions || []).find(r => r.name === regionName) || {}).nodes || []).length);
       if (!room) throw new Error("「" + regionName + "」已经满了（最多 " + _maxN + " 个地点）");
       const fresh = ((d && Array.isArray(d.nodes)) ? d.nodes : [])
-        .map(x => ({ name: String((x && x.name) || "").trim().slice(0, 10), kind: ["城镇", "遗迹", "野外", "地标"].indexOf(x && x.kind) >= 0 ? x.kind : "野外", hook: String((x && x.hook) || "").trim().slice(0, 60) }))
+        .map(x => ({ name: String((x && x.name) || "").trim().slice(0, 10), kind: mapKinds().indexOf(x && x.kind) >= 0 ? x.kind : "野外", hook: String((x && x.hook) || "").trim().slice(0, 60) }))
         .filter(x => x.name && !seen[x.name] && (seen[x.name] = 1)).slice(0, Math.min(4, room));
       if (!fresh.length) throw new Error("一个新地点都没添出来");
       // 替谁添的：钉在他住的那一处（模型没标就钉第一个）；已经钉在这个世界别处的照样挪过去——这一下就是她要给他安家
       const homeNm = forChar ? ((((d && d.nodes) || []).find(x => x && x.home && fresh.some(f => f.name === String(x.name || "").trim().slice(0, 10))) || {}).name || fresh[0].name) : "";
       const home = homeNm ? String(homeNm).trim().slice(0, 10) : "";
+      if (home) fresh.forEach(f => { if (f.name === home) f.kind = "住处"; });   // 他住的那一处就标住处，排日程一眼认得出家
       saveWorlds((worldsRef.current || worlds || []).map(x => x.id !== wid ? ((forChar && home && (x.pins || {})[forChar.id]) ? { ...x, pins: Object.fromEntries(Object.entries(x.pins).filter(([k]) => k !== forChar.id)) } : x) : { ...x, regions: (x.regions || []).map(r => r.name !== regionName ? r : { ...r, nodes: [...(r.nodes || []), ...fresh] }),
         ...(forChar && home ? { pins: { ...(x.pins || {}), [forChar.id]: home } } : {}) }));
       toast("「" + regionName + "」多了 " + fresh.length + " 个地点：" + fresh.map(x => x.name).join("、") + (forChar && home ? "；" + forChar.name + "住进了「" + home + "」" : ""));
