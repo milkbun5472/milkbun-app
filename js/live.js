@@ -192,11 +192,11 @@
     if (first) return base + "\n\n现在刚开播。" + (ses.needClub ? "你的粉丝团还没起名，顺手起好：" + CLUB_ASK + "。" : "") + "写：直播间标题 title、你的主播名 host、镜头里看得见的样子 scene（一两句）、几个常客 regulars（2~4 个，每人 name 是网名、who 一句话说清是什么人、lean 一句话说清对你什么态度，几个人别是同一种）、这一拍直播间里按先后发生的 flow（每一项 who 写「主播」或常客的网名，text 写那一句；你在回谁的弹幕，就把那条弹幕排在你那句前面；常客也可以没说话）、你此刻在镜头前做什么 act（一句，可以空）、滚过去的路人弹幕 noise（6~10 条，很短）、在线人数 viewers（数字）。";
     return base + "\n\n【常客】\n" + arr(ses.regulars).map(r => "· " + r.name + "：" + r.who + "；" + r.lean).join("\n")
       + "\n\n【刚才直播间里发生的】\n" + transcript(ses)
-      + "\n\n接着往下播。镜头里看得见的样子要是变了（换了地方、挪了镜头、换了衣服、灯变了），写一个新的 scene（一两句），没变就不写。写：这一拍直播间里按先后发生的 flow（每一项 who 写「主播」或常客的网名，text 写那一句；你在回谁的弹幕，就把那条弹幕排在你那句前面；常客也可以没说话）、你此刻在做什么 act（没变就照旧写）、新滚过去的路人弹幕 noise、在线人数 viewers、你要不要下播 end（true/false；真想下播才下）。";
+      + "\n\n接着往下播。镜头里看得见的样子要是变了（换了地方、挪了镜头、换了衣服、灯变了），写一个新的 scene（一两句），没变就不写。写：这一拍直播间里按先后发生的 flow（每一项 who 写「主播」或常客的网名，text 写那一句；你在回谁的弹幕，就把那条弹幕排在你那句前面；常客也可以没说话）、你此刻在做什么 act（没变就照旧写）、新滚过去的路人弹幕 noise、在线人数 viewers。";
   }
   // 一拍里主播和常客的话排成一条时间线（她 2026-10-08：「主播的话在上面然后才轮到评论，但他是在回复评论，对不上」）
   const WATCH_SHAPE_FIRST = '{"title":"","host":"","scene":"","regulars":[{"name":"","who":"","lean":""}],"flow":[{"who":"常客网名","text":""},{"who":"主播","text":""}],"act":"","gifts":[],"noise":["",""],"viewers":0}';
-  const WATCH_SHAPE = '{"flow":[{"who":"常客网名","text":""},{"who":"主播","text":""}],"act":"","scene":"","gifts":[],"noise":["",""],"viewers":0,"end":false}';
+  const WATCH_SHAPE = '{"flow":[{"who":"常客网名","text":""},{"who":"主播","text":""}],"act":"","scene":"","gifts":[],"noise":["",""],"viewers":0}';
   // 这几样只在用得上的时候往形状里加，不然模型会觉得每拍都该填
   const watchShape = (ses, first) => (first ? WATCH_SHAPE_FIRST : WATCH_SHAPE).replace(/\}$/, ""
     + (first && ses.needClub ? "," + CLUB_SHAPE : "")
@@ -746,13 +746,13 @@
           lines: arr(s.lines).concat(add.map(l => Object.assign({}, l, { beat: (s.beat || 0) + 1 }))).slice(-LINES_CAP),
           noise: normNoise(d.noise), noiseSeed: (s.noiseSeed || 0) + 1,
           viewers: Math.max(1, Math.round(Number(d.viewers) || s.viewers || 1)),
-          endTs: (!first && d.end === true) ? Date.now() : s.endTs }));
+          // 不自己下播（群友 2026-10-31：「主播播一会儿就自己下播了」）：下不下播只看她点不点「下播」
+          endTs: s.endTs }));
         // 她这场说过话、熟面孔也开了口：记一次碰面（一场一人只记一次；马甲号不算到她大号头上）
         if (props.touchRegular && ses.as !== "mask" && arr(get(id).lines).some(l => l.kind === "me")) {
           const done = arr(get(id).famTouched), spoke = regs.filter(r => r.famId && flowLines.some(l => l.kind === "reg" && l.name === r.name) && done.indexOf(r.famId) < 0);
           if (spoke.length) { spoke.forEach(r => props.touchRegular(r.famId, "theirs", "")); patch(id, s0 => ({ ...s0, famTouched: done.concat(spoke.map(r => r.famId)) })); }
         }
-        if (!first && d.end === true) wrapUp(id);
       } catch (e) { toast("直播间没连上：" + ((e && e.message) || "再试一次")); }
       finally { setBusy(false); }
     };

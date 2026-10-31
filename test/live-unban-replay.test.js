@@ -14,3 +14,8 @@ test("房管能解禁：被禁的那人弹幕右边「解禁」", () => {
 test("主播那句能再听", () => {
   assert.match(src, /isHost && replayC && l\.text \? h\("button", \{ "data-wk": "livereplay"/);
 });
+test("主播不自己下播：形状里没有 end，也不认 d.end", () => {
+  assert.doesNotMatch(src, /"end":false/);
+  assert.doesNotMatch(src, /d\.end === true/);
+  assert.doesNotMatch(src, /你要不要下播 end/);
+});
