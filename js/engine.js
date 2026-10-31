@@ -8045,6 +8045,15 @@ function joinBilingualLines(lines, hanLang, opts) {
         out0.push(line.trim() + " | " + next.trim()); k++;
       } else out0.push(line);
     }
+    // 开头漏出一段纯中文草稿（她 2026-10-31 截图：日语角色先冒三泡「…他愣了两秒才反应过来…」，后面才是正经的「原文 | 中译」）：
+    //   模型先用中文把这一轮想了一遍、没收住就写进了回复。只认【开头那一截】：后面跟着成双语的句子、
+    //   这一截自己一句竖线都没有、几乎全是汉字（夹一两个假名的「……は?」也算）。中间、末尾的中文照旧留着——那可能是他真的在说中文。
+    const lead = [];
+    let f = 0;
+    for (; f < out0.length && out0[f].indexOf("|") < 0; f++) lead.push(out0[f]);
+    const pairs = out0.slice(f).filter(x => x.indexOf("|") >= 0).length;
+    const drafty = x => { const t = String(x).replace(/\s/g, ""), han = (t.match(/[\u4e00-\u9fff]/g) || []).length, fr = (t.match(/[\u3040-\u30ff\uac00-\ud7afA-Za-z\u0400-\u04ff]/g) || []).length; return han >= 4 && fr <= 3; };
+    if (lead.length >= 2 && f < out0.length && pairs >= Math.max(1, Math.ceil((out0.length - f) / 2)) && lead.every(drafty) && lead.join("").replace(/[^\u4e00-\u9fff]/g, "").length >= 16) return out0.slice(f);   // 一两句短中文（「我在这儿」）可能是他真说的，整整一段才算草稿
     return out0;
   }
   // 粤语这类用汉字写的话（她 2026-10-11 截图）：模型把几句粤语各占一行，竖线只在其中一行，
