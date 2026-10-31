@@ -153,7 +153,7 @@ test("详情页有复制；CSS 和整套美化点导入先问放哪儿", () => {
 // 她 2026-10-08：「为啥不能全部直接从自己手机的文件里面选」
 test("每一类都能从手机文件里选，认 app 自己导出的那种", () => {
   const { N } = loadNest({});
-  N.KINDS.filter(k => k.key !== "post").forEach(k => assert.match(nest, new RegExp("    " + k.key + ": \"\\."), k.key + " 没有能选的文件类型"));   // 留言板只写字，没有文件
+  N.KINDS.filter(k => k.key !== "post" && k.key !== "topic").forEach(k => assert.match(nest, new RegExp("    " + k.key + ": \"\\."), k.key + " 没有能选的文件类型"));   // 留言板、梗与话题只写字，没有文件
   assert.match(N.fromFile("theme", JSON.stringify({ kind: "qq-theme", profile: {} }), "a.json").note, /主题包/);
   assert.match(N.fromFile("theme", JSON.stringify({ kind: ["lis", "a-theme"].join(""), profile: {} }), "a.json").note, /主题包/, "老名字的主题包选不进来");
   // 2026-10-17 起收图：带图的主题包照收，只有字体文件不收
