@@ -871,6 +871,8 @@ function pickTextFile(onMsg, opts) {
     if (f.size > 512 * 1024) typeof toast === "function" && toast("正在读「" + f.name + "」…");
     const isPdf = /\.pdf$/i.test(f.name) || f.type === "application/pdf";
     const isDocx = /\.docx$/i.test(f.name);
+    // 视频不是文字，读不进来（群友 2026-10-31：选了 mp4 窗口一关就没了）：说清楚该去哪儿
+    if (/^video\//.test(f.type || "") || /\.(mp4|mov|m4v|webm|avi|mkv|3gp)$/i.test(f.name)) { typeof toast === "function" && toast("聊天里发不了视频，TA 也看不了视频文件。想一起看，去主屏「一起看」导入；想让 TA 看某个画面，截图用「照片」发", 7000); return; }
     if (/\.doc$/i.test(f.name)) { typeof toast === "function" && toast("老的 .doc 读不了，在 Word 里另存为 .docx 再发"); return; }
     if (f.size > (isPdf || isDocx ? 20 : 5) * 1024 * 1024) { typeof toast === "function" && toast("文件太大了，挑一份小一点的"); return; }
     try {
