@@ -3,5 +3,5 @@ require("node:test")("菜的介绍不再用不换行的小标签", () => {
   const assert = require("node:assert/strict");
   const ui = require("fs").readFileSync(require("path").join(__dirname, "..", "js", "screens-ui.js"), "utf8");
   assert.doesNotMatch(ui, /"tkodishdesc", style: \{ marginTop: 4 \} \}, tag\(x\.desc\)\)/);
-  assert.match(ui, /"data-wk": "tkodishdesc", style: \{ marginTop: 4, maxWidth: "100%" \} \},\n\s*h\("span", \{ "data-wk": "tkotag", style: \{ display: "-webkit-box", WebkitLineClamp: 2/);
+  assert.match(ui, /"data-wk": "tkodishdesc"[^\n]*onClick: \(\) => setDescOpen\(o => \(\{ \.\.\.o, \[x\.uid\]: !o\[x\.uid\] \}\)\)[^\n]*\n\s*h\("span", \{ "data-wk": "tkotag", style: \{ display: descOpen\[x\.uid\] \? "block" : "-webkit-box", WebkitLineClamp: descOpen\[x\.uid\] \? "unset" : 2/);
 });

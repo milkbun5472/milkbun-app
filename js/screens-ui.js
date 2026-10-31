@@ -4256,6 +4256,7 @@ function Takeout({ goodsImgOf, onDrawGoods, drawingGoods, payAs, wallet, orders,
   const [slot, setSlot] = useState(() => takeoutSlotAt(new Date().getHours()));
   const [search, setSearch] = useState("");
   const [shop, setShop] = useState(null);     // 点进去的那家店
+  const [descOpen, setDescOpen] = useState({});   // 点开看全的那几道菜的介绍（群友 2026-10-31）
   const [qty, setQty] = useState({});         // {dishUid: 份数}，只属于当前这家店
   const [pay, setPay] = useState(false);      // 结账页
   const [payMode, setPayMode] = useState(null);
@@ -4417,8 +4418,8 @@ function Takeout({ goodsImgOf, onDrawGoods, drawingGoods, payAs, wallet, orders,
               h("div", { className: "flex-1 min-w-0 flex flex-col" },
                 h("div", { "data-wk": "tkodishname", style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", fontWeight: 600, color: MTAKE.ink, lineHeight: 1.35, wordBreak: "break-word" } }, x.name),
                 // 菜的介绍会换行、最多两行（群友 2026-10-31「太长了」）：原来套的是不换行的小标签，一长就把整张卡撑出屏幕
-                x.desc ? h("div", { "data-wk": "tkodishdesc", style: { marginTop: 4, maxWidth: "100%" } },
-                  h("span", { "data-wk": "tkotag", style: { display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden", padding: "1.5px 6px", fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", lineHeight: 1.5, color: "#9a6a00", background: MTAKE.soft, borderRadius: 3, wordBreak: "break-word" } }, x.desc)) : null,
+                x.desc ? h("div", { "data-wk": "tkodishdesc", "data-open": descOpen[x.uid] ? "1" : "0", role: "button", onClick: () => setDescOpen(o => ({ ...o, [x.uid]: !o[x.uid] })), className: "active:opacity-70", style: { marginTop: 4, maxWidth: "100%", cursor: "pointer" } },
+                  h("span", { "data-wk": "tkotag", style: { display: descOpen[x.uid] ? "block" : "-webkit-box", WebkitLineClamp: descOpen[x.uid] ? "unset" : 2, WebkitBoxOrient: "vertical", overflow: "hidden", padding: "1.5px 6px", fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", lineHeight: 1.5, color: "#9a6a00", background: MTAKE.soft, borderRadius: 3, wordBreak: "break-word" } }, x.desc)) : null,
                 h("div", { className: "flex items-end justify-between", style: { marginTop: "auto", paddingTop: 6 } },
                   takeoutPrice(x.price, 19),
                   h("div", { className: "flex items-center", style: { gap: 8 } },
