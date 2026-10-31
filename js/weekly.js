@@ -1655,7 +1655,10 @@
     const L = lookOf(s.voiceId);
     function pullQuoteFor(a) {
       const text = String(a && a.body || "").replace(/\s+/g, " ").trim();
-      const parts = text.match(/[^。！？!?]{12,70}[。！？!?]/g) || [];
+      // 句尾连着的收引号算这一句的（她 2026-10-31：「大字掉格式了括号分家了」——原来在「！」那儿就断，
+      //   「」」被甩到下一段开头）；引号没配上对的那句不拿来放大
+      const bal = q => { const c = (re) => (q.match(re) || []).length; return c(/「/g) === c(/」/g) && c(/『/g) === c(/』/g) && c(/“/g) === c(/”/g) && c(/（/g) === c(/）/g); };
+      const parts = (text.match(/[^。！？!?]{12,70}[。！？!?]+[」』”’）)]*/g) || []).filter(q => bal(q) && !/^[」』”’）)]/.test(q.trim()));
       if (!parts.length) return "";
       return parts[Math.min(parts.length - 1, Math.max(0, Math.floor(parts.length / 2)))].trim();
     }
