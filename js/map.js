@@ -775,7 +775,7 @@ function mapSubSkin(t) {
             if (reg === NEW) nd.newRegion = { name: rName.trim(), terrain: rTerr, adj: rAdj.slice() };
             if (onAdd(reg === NEW ? rName.trim() : reg, nd)) { setNm(""); setHook(""); if (reg === NEW) { setReg(rName.trim()); setRName(""); setRAdj([]); } } },
           disabled: !nm.trim() || (reg === NEW && !rName.trim()), className: "w-full active:opacity-80",
-          style: { marginTop: 12, fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: "#fff", background: t.ink, borderRadius: 14, padding: "13px 0", opacity: nm.trim() ? 1 : 0.5 }, "data-wk": "mapnodeaddbtn", "data-part": "2" }, "加进「" + (reg === NEW ? (rName.trim() || "新的一块") : reg) + "」（不花调用）"),
+          style: { marginTop: 12, fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: "#fff", background: t.ink, borderRadius: 14, padding: "13px 0", opacity: (!nm.trim() || (reg === NEW && !rName.trim())) ? 0.5 : 1 }, "data-wk": "mapnodeaddbtn", "data-part": "2" }, (reg === NEW && !rName.trim()) ? "先在上面给新的这块起个名字" : "加进「" + (reg === NEW ? rName.trim() : reg) + "」（不花调用）"),
         h("div", { style: lbl }, "或者让模型添几个"),
         h("input", { "data-wk": "input", value: hint, onChange: function (e) { setHint(e.target.value); }, placeholder: "想要什么样的？（可空）", style: inp, "data-wk": "mapnodeaddinput", "data-part": "想要什么样的？（可空）" }),
         h("button", { onClick: function () { onGen(reg, hint.trim()); }, disabled: busy || reg === NEW, className: "w-full active:opacity-80",

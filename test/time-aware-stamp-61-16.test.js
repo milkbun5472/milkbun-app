@@ -16,7 +16,7 @@ const eng = fs.readFileSync("js/engine.js", "utf8");
 
 test("单聊线上：时刻戳和日期锚都跟着 roomClockOn 走", () => {
   assert.match(app, /const stp = \(roomClockOn && m\.ts && typeof fmtStampAI === "function"\)/);
-  assert.match(app, /\(roomClockOn && window\.TemporalAnchor \? window\.TemporalAnchor\.anchor\(m\.content, m\.ts\)/);
+  assert.match(app, /\(roomClockOn \? vAnchor\(m\.content, m\.ts, charId\)/);
 });
 
 test("单聊线上：关了就别再教他读那些戳", () => {
@@ -39,13 +39,13 @@ test("群聊线上：改挂时间感知，不再挂闭群开关 memoryInterop", 
 });
 
 test("两处线下：offlineHistory / offlineGroupHistory 都收 clock", () => {
-  assert.match(eng, /function offlineHistory\(msgs, userName, charName, clock\)/);
-  assert.match(eng, /function offlineGroupHistory\(msgs, userName, clock\)/);
+  assert.match(eng, /function offlineHistory\(msgs, userName, charName, clock(, clockId)?\)/);
+  assert.match(eng, /function offlineGroupHistory\(msgs, userName, clock(, clockId)?\)/);
   // 调用处真的把 ctx 那一层传下去了（声明了没人传＝白写，v55.95 那个形状）
-  assert.match(eng, /offlineHistory\(session\.msgs, userName, char\.name, ctx\.timeAware !== false\)/);
-  assert.match(eng, /offlineGroupHistory\(session\.msgs, userName, ctx\.timeAware !== false\)/);
+  assert.match(eng, /offlineHistory\(session\.msgs, userName, char\.name, ctx\.timeAware !== false[,)]/);
+  assert.match(eng, /offlineGroupHistory\(session\.msgs, userName, ctx\.timeAware !== false[,)]/);
   assert.equal((eng.match(/const stamp = \(ts && clock !== false\)/g) || []).length, 2);
-  assert.equal((eng.match(/clock !== false && window\.TemporalAnchor/g) || []).length, 2);
+  assert.equal((eng.match(/const dateAnchor = clock !== false \? vAnchor\(raw, m\.ts, clockId\)/g) || []).length, 2);   // 2026-10-31 起日期锚照那只虚拟钟
 });
 
 test("线下：时间感知关着连相对间隔也不标（2026-10-04 改）；线上群聊照旧", () => {

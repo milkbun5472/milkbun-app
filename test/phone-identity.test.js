@@ -181,7 +181,8 @@ test("两处生成调用都把旧那份传过去了", () => {
 test("存进去之前代码把四层按顺序走一遍（规则降概率，代码才保证）", () => {
   const m = appSrc.match(/const savePhoneApp = \(charId, key, d, opts\) => \{[\s\S]*?\n  \};/);
   assert.ok(m);
-  assert.match(m[0], /phoneMergeSaved\(key, cur\[key\], d, Date\.now\(\)\)/);
+  // 2026-10-30 重锚：合并前后要设、归零钟差（phoneClockShift），这一行拆成了 try/finally，测的还是同一件事。
+  assert.match(m[0], /phoneMergeSaved\(key, cur\[key\], d, _pNow\)/);
   assert.match(phoneSrc, /function phoneMergeSaved[\s\S]{0,400}phoneEvolveMerge\(appKey, oldData, phoneKeepIdentity\(appKey, oldData, newData\)\)/,
     "四层顺序不对：必须 🔒 → 🌱 → 📚");
 });

@@ -392,7 +392,7 @@
     try {
       const byDay = ((props.schedules || {})[char && char.id] || {}), keys = Object.keys(byDay).sort();
       const seqs = keys.length ? ((byDay[keys[keys.length - 1]] || {}).seqs || []) : [];
-      const d = new Date(), nowM = d.getHours() * 60 + d.getMinutes();
+      const d = typeof schedNowDate === "function" ? schedNowDate(char) : new Date(), nowM = d.getHours() * 60 + d.getMinutes();
       seqs.forEach(function (r) { const m = /^(\d{1,2}):(\d{2})/.exec(String((r && r.time) || "")); if (m && +m[1] * 60 + +m[2] <= nowM) nowLoc = String(r.location || "").trim(); });
       if (nowLoc) herePin = dates.find(function (x) { return x.name && (nowLoc.indexOf(x.name) >= 0 || x.name.indexOf(nowLoc) >= 0); }) || null;
     } catch (e) {}

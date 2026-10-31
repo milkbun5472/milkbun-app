@@ -472,13 +472,15 @@
     const shapeNpc = sk => sk === "b" ? NPC_SHAPE.replace('"comments":[{"name":"","text":""}]}]}', '"comments":[{"name":"","text":""}]' + B_SHAPE_ADD + '}]}') : NPC_SHAPE;
 
     // 今日热门（第 6 条）：一天一份，点了才刷（一次调用）。从这个世界里正在发生的事长出来
-    const todayKey = () => { const d = new Date(); return d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate(); };
+    // 平台是大家共用的，照主面具那只钟（主屏的钟也是它）
+    const mainNow = () => new Date(typeof vclockMainMap === "function" ? vclockMainMap(Date.now()) : Date.now());
+    const todayKey = () => { const d = mainNow(); return d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate(); };
     const hotToday = () => (db.hot && db.hot.day === todayKey() ? arr(db.hot.topics).map(x => x.title + (x.about ? "（" + S(x.about).slice(0, 40) + "）" : "")) : []);
     const genHot = async () => {
       if (!props.ask) return;
       setBusy("hot");
       try {
-        const r = await props.ask(hotSystem(uName, props.worldHint ? props.worldHint() : "", new Date().toLocaleDateString()), HOT_SHAPE);
+        const r = await props.ask(hotSystem(uName, props.worldHint ? props.worldHint() : "", mainNow().toLocaleDateString()), HOT_SHAPE);
         const topics = arr(r && r.topics).map(x => x && { title: S(x.title).replace(/^#/, "").slice(0, 20), heat: Math.max(0, Math.round(Number(x.heat) || 0)), about: S(x.about).slice(0, 80) }).filter(x => x && x.title).slice(0, 8);
         if (!topics.length) { toast("热门没刷出来，再点一次"); return; }
         save(Object.assign({}, dbRef.current, { hot: { day: todayKey(), topics } }));
@@ -559,7 +561,7 @@
           const heard = mineB.slice(0, 3).flatMap(x => arr(x.myDms).map(d => d.text)).slice(0, 6);
           if (heard.length) extra += "\n你最近几条视频画面上，有人发过这几条弹幕：" + heard.map(x => "「" + x + "」").join("") + "（不知道是谁发的）。";
         }
-        return props.probeAs(c, charInstruction(acc.handle, sk, realFr ? [] : friends, acc, hotToday(), extra) + (toCp[c.id] ? cpPostLine(c, toCp[c.id], candid[c.id], opts.anniv) : ""), toCp[c.id] ? shapeChar(sk, !realFr && friends.length > 0, newAcc).replace(/\}$/, ',"cpEdit":{"handle":"","bio":""}}') : shapeChar(sk, !realFr && friends.length > 0, newAcc), { timeout: 180000 }).catch(() => null).then(d => {   // 等 3 分钟、到点真掐断（原来在外面赛跑，赛输了请求还在跑）
+        return props.probeAs(c, charInstruction(acc.handle, sk, realFr ? [] : friends, acc, hotToday(), extra, typeof vclockMap === "function" ? vclockMap(Date.now(), c.id) : 0) + (toCp[c.id] ? cpPostLine(c, toCp[c.id], candid[c.id], opts.anniv) : ""), toCp[c.id] ? shapeChar(sk, !realFr && friends.length > 0, newAcc).replace(/\}$/, ',"cpEdit":{"handle":"","bio":""}}') : shapeChar(sk, !realFr && friends.length > 0, newAcc), { timeout: 180000 }).catch(() => null).then(d => {   // 等 3 分钟、到点真掐断（原来在外面赛跑，赛输了请求还在跑）
           done++; setProg(done + "/" + pick.length);
           if (!d || !S(d.scene)) { failed.push(c.name); return; }
           // 跟TA发过的字面差不多：这条就当没发
@@ -632,7 +634,7 @@
       q = S(q).slice(0, 30);
       setBusy("npc");
       try {
-        const d = await props.ask(npcSystem(uName, String((profile && profile.persona) || "").slice(0, 600), NPC_BATCH, sk, hotToday(), regsText(), props.worldHint ? props.worldHint() : "")
+        const d = await props.ask(npcSystem(uName, String((profile && profile.persona) || "").slice(0, 600), NPC_BATCH, sk, hotToday(), regsText(), props.worldHint ? props.worldHint() : "", typeof vclockMainMap === "function" ? vclockMainMap(Date.now()) : 0)
           + (city ? "\n这一批是「同城」：这几个博主都住在「" + city + "」，拍的东西跟这座城有关或者就发生在这座城里；城里是什么样子从你知道的这个地方长出来。"
             + (props.cityNote ? props.cityNote(city) : "") : "")
           + (q ? "\n这一批是「搜索结果」：有人在搜「" + q + "」，这几条都是跟「" + q + "」有关的视频——拍法、角度、口气各不一样，就像真在平台上搜出来的一页。每一条都得正面就是这个词说的那件事，点进来的人一眼认得出「对，我搜的就是这个」；不许借字面绕去别的行当（康复、健身、画画、考据那种），也不许用谐音、双关、误会来交差。尺度跟着这个词走，该多大就多大，不要含糊其辞。" : ""), shapeNpc(sk));
@@ -853,12 +855,14 @@
     // 纪念日自动发（第 5 条）：在一起满整百天、整周年那天，进片刻时TA自己往情侣号发一条（一天一回，一次调用）
     useEffect(() => {
       if (!props.coupleOf || !props.probeAs) return;
-      const d0 = new Date(); d0.setHours(0, 0, 0, 0);
-      const key = d0.getFullYear() + "-" + (d0.getMonth() + 1) + "-" + d0.getDate();
+      // 「今天」和「在一起那天」都照这个人那只钟算（虚拟时间拨过的话，纪念日是钟上的那天）
+      const vm = (t, id) => typeof vclockMap === "function" ? vclockMap(t, id) : t;
       togetherIds.forEach(id => {
+        const d0 = new Date(vm(Date.now(), id)); d0.setHours(0, 0, 0, 0);
+        const key = d0.getFullYear() + "-" + (d0.getMonth() + 1) + "-" + d0.getDate();
         const a = (dbRef.current.cps || {})[id], cp = props.coupleOf(id) || {};
         if (!a || !cp.since || a.annivDone === key) return;
-        const label = annivLabel(cp.since, d0);
+        const label = annivLabel(vm(Number(cp.since) || cp.since, id), d0);
         if (!label) return;
         save(Object.assign({}, dbRef.current, { cps: Object.assign({}, dbRef.current.cps, { [id]: Object.assign({}, a, { annivDone: key }) }) }));
         genChars([id], true, { anniv: label, quiet: true }).then(() => note((charOf(id) || {}).name + " 在你俩的情侣号上发了一条「" + label + "」", null)).catch(() => {});

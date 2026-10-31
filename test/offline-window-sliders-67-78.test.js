@@ -56,9 +56,9 @@ const recent = (() => {
   assert.ok(i > 0 && j > i, "recentChat 那段没了");
   const body = app.slice(i, j) + "      return { lines: lines.slice().reverse(), used, usedOff };";
   return (offline, cfg) => new Function(
-    "online", "offline", "offSummary", "settingsFor", "char", "profile", "memCfgRef", "window", "thinOnline", "userName",
+    "online", "offline", "offSummary", "settingsFor", "char", "profile", "memCfgRef", "window", "thinOnline", "userName", "vAnchor", "charId", "roomClockOn",
     body)([], offline, "", () => ({}), { id: "c", name: "他" }, { name: "Lisa" },
-      { current: Object.assign({ recentBudget: 16000, recentDays: 0 }, cfg) }, {}, false, () => "Lisa");
+      { current: Object.assign({ recentBudget: 16000, recentDays: 0 }, cfg) }, {}, false, () => "Lisa", () => "", "c", false);
 })();
 // ⚠️拍子要够长、够多：摘录那一步【只在线下装不下自己那份限额时】才启动
 //   （装得下就全给原文——那是对的）。所以桩得照真实的长线下来给：一拍两三百字。

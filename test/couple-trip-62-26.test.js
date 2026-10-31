@@ -36,7 +36,9 @@ test("收行李零调用归档四件：trips 标 done、时间轴、愿望翻实
   const done = cut(app, "const tripDone = char => {", "\n  const coupleFirstsFor");
   assert.ok(done.indexOf("runProbe") < 0 && done.indexOf("callAI") < 0, "归档不许花调用");
   assert.match(done, /status: "done", doneTs: Date\.now\(\)/, "trips 没标 done");
-  assert.match(done, /addTimelineEvent\(char, ymd\(new Date\(\)\), \("去了" \+ trip\.dest\)/, "时间轴没落");
+  // 2026-10-30 重锚：虚拟时间巡检（v76.988~992）把「今天」改成照角色那只钟算，
+  //   这条测的不是取今天的写法，是上面那个判据本身。
+  assert.match(done, /addTimelineEvent\(char, ymd\(new Date\([\s\S]{0,160}?\)\), \("去了" \+ trip\.dest\)/, "时间轴没落");
   assert.match(done, /w\.id === trip\.wishId \? \{ \...w, status: "done"/, "愿望没自己翻成实现");
   assert.match(done, /coupleKeep\(char\.id, /, "没凝记忆");
 });

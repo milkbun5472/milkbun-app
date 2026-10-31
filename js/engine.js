@@ -6055,6 +6055,8 @@ async function generateSelfieImage(prompt, refPhotoDataUrl, opts) {
         // 被内容审核拦的（moderation / safety / content_policy）不是站子不收图：是这张参考照或这次画面被判成太露骨。
         //   同一个站、一个角色能拍另一个不能，多半就是那个角色的参考照（或外貌里的词）。别把人往「不锁脸」上指。
         if (/moderation|content[_ ]?policy|safety|sexual|nsfw/i.test(m)) throw new Error(m + "（这是站子的内容审核拦下来的，不是站子不收参考照：多半是这个角色的参考照、或者外貌和这次画面里有被判成太露骨的地方。换一张穿着整齐的参考照，或者把外貌里相关的词改掉再试；同一个站别的角色能拍就是这个原因。）");
+        // 站那边忙／上游挂了（暂时不可用、稍后重试、5xx、限流）跟收不收参考照无关：别把人往「不锁脸」上引
+        if (/暂时不可用|稍后再?试|繁忙|过载|限流|服务不可用|unavailable|overload|busy|rate.?limit|\b(?:429|500|502|503|504)\b/i.test(m)) throw new Error(m + "（这是站那边一时忙不过来，不是参考照的问题：同一个站之前能锁上脸就说明设置是对的，过一会儿再拍；一直这样就问问你买线路的那家，上游是不是出事了。）");
         if (!(opts && opts.singleShot) && /参考照|锁脸|不收图片|image/i.test(m)) throw new Error(m + "（这个站要是不收参考照，可以在「设置 → 图像 API」里给它打开「这个站不锁脸」：以后只发文字、照样出图，只是长相不保证像。）");
         throw e;
       }
@@ -8810,7 +8812,14 @@ function offlineFlashbackBlock(scenes) {
 //   已经不发了——但每一条历史前面还盖着〔今天14:32〕，最后一条就是她刚发的那句，
 //   等于把当前时刻原样告诉了TA，比直接发那一行还准。
 //   相对间隔（「中间隔了约三小时」）留着：那是对话连不连得上的事，不是现实几点的事。
-function offlineHistory(msgs, userName, charName, clock) {
+// 日期锚照那只虚拟钟（2026-10-31 排查虚拟时间漏网）：她说「明天」，补给模型的那句「明天=几月几日」要是钟上的日子，
+//   不是现实的。id：单聊是角色 id，群是 "g:群id"，主面具不传。聊天、小房间、群、线下、群线下都走这一个
+function vAnchor(text, ts, id) {
+  if (typeof window === "undefined" || !window.TemporalAnchor) return "";
+  const m = typeof vclockMap === "function" ? t => vclockMap(t, id) : t => t;
+  return window.TemporalAnchor.anchor(text, m(ts), m(Date.now()));
+}
+function offlineHistory(msgs, userName, charName, clock, clockId) {
   const g = [];
   let prevTs = 0;
   const mixed = (msgs || []).some(m => m && m._surface === "online");
@@ -8838,7 +8847,7 @@ function offlineHistory(msgs, userName, charName, clock) {
       if (l && l.role === "assistant") l.content += "\n" + c; else g.push({ role: "assistant", content: c });
     } else {
       const raw = m.content || "";
-      const dateAnchor = (clock !== false && window.TemporalAnchor) ? window.TemporalAnchor.anchor(raw, m.ts) : "";
+      const dateAnchor = clock !== false ? vAnchor(raw, m.ts, clockId) : "";
       // 她递过来的真照片：跟线上同一个落法。光一句「[照片]」什么都不说，
       // 而图只对最近两张作视觉输入附上——一滑出去TA就什么都不记得了。
       const shown = (m.kind === "photo" && m.imageRef)
@@ -9170,7 +9179,7 @@ async function generateOffline(p, ctx, session) {
     "") + outputSpec + ((!isDigital && session.sayZhOn) ? offlineSayZhSpec("") : "") + stateBootstrapHint + gazeSpecBlock;
   // v52.77：恢复正常首遍生成；首次跨越后的 scene 再交给同模型做删除优先的受约束编辑。
   // 最终只有编辑稿进入 session history，首遍草稿仅用于本轮内存诊断。
-  const hist = offlineHistory(session.msgs, userName, char.name, ctx.timeAware !== false);
+  const hist = offlineHistory(session.msgs, userName, char.name, ctx.timeAware !== false, char.id);
   if (session.hasOnlineInterlude) {
     const bridge = "\n\n〔跨情境衔接〕上面标成【线上私聊】的内容，是这场未结束的线下相处期间，你们切到手机聊天时真实说过的话。所有记录已经按实际时间排好；再次回到线下时，以时间最新的线上与线下内容共同作为现在的前情，绝不能跳过今天的线上聊天、倒回去续演更早的线下剧情，也不要把线上原话假装成刚刚面对面又说了一遍。";
     if (hist.length && hist[hist.length - 1].role === "user") hist[hist.length - 1] = { ...hist[hist.length - 1], content: hist[hist.length - 1].content + bridge };
@@ -9577,7 +9586,7 @@ function offlineLengthGuide(mode) {
     ? "本轮采用【沉浸长文】：允许这一刻在真正有内容时自然跨过多个有效阶段。每个继续展开的阶段都要带来新的行动、选择、对话、信息、时间流动或环境对行动造成的实际影响；不要重复解释同一种心理、反复重拍没变化的环境与姿态，也不要把一个简单动作拆成许多步骤。只有当前场景确实还能推进时才继续；一旦到了需要对方回应、选择或行动的位置，就自然停下，不为写长而替对方作答或硬造新事"
     : "本轮采用【自然长度】：篇幅由这一刻真正发生的内容决定。简单反应可以很短；有值得展开的行动、对话、判断或场景变化时自然展开，不为显得完整而补齐固定栏目";
 }
-function offlineGroupHistory(msgs, userName, clock) {
+function offlineGroupHistory(msgs, userName, clock, clockId) {
   const g = [];
   let prevTs = 0;
   (msgs || []).forEach(m => {
@@ -9600,7 +9609,7 @@ function offlineGroupHistory(msgs, userName, clock) {
       if (l && l.role === "assistant") l.content += "\n" + c; else g.push({ role: "assistant", content: c });
     } else {
       const raw = m.content || "";
-      const dateAnchor = (clock !== false && window.TemporalAnchor) ? window.TemporalAnchor.anchor(raw, m.ts) : "";
+      const dateAnchor = clock !== false ? vAnchor(raw, m.ts, clockId) : "";
       const c = gap + stamp + (m.role === "narration" ? "【场景设定】" + raw : userName + "：" + raw) + (dateAnchor ? dateAnchor : "");
       const l = g[g.length - 1];
       if (l && l.role === "user") l.content += "\n" + c; else g.push({ role: "user", content: c });
@@ -9916,7 +9925,7 @@ async function generateOfflineGroup(p, ctx, session) {
     cotSystemBlock(cotT) +
     (novel ? novelOut : "\n【输出】只输出一个 JSON，不要代码块：\n{\"beats\":[{\"name\":\"这一段里行动或说话的角色名；纯环境旁白填『旁白』\",\"scene\":\"这一段叙事正文（第三人称，含动作/神态/对话）\",\"thought\":\"（仅角色 beat，可选）该角色此刻没说出口的真实心声\",\"mood\":{\"label\":\"此刻中文心情词（禁止英文内部标签）\"},\"affinityDelta\":\"（仅角色 beat）" + AFFINITY_DELTA_SPEC + "\",\"impression\":\"（仅角色 beat，可选）{'side':'me|us','block':'me侧:person/soft/like/recent/unread；us侧:what/how/marks/elephant/want','text':'整块重写≤80字'}——" + (window.Gaze ? window.Gaze.updateRule(userName) : "没有新认识可省略") + "\"" + gSchedField + ((session.photoMembers || []).length ? ",\"photo\":\"（仅角色 beat，可选）这一拍真拍了照片才填 {'kind':'self|other" + ((session.photoDuoMembers || []).length ? "|duo" : "") + (session.photoGroupOk ? "|group" : "") + "','scene':'这一格拍到了什么'}，没拍就整个省略\"" : "") + "}]}\n一次产出 2~" + gBeatMax + " 个 beat（在场 " + members.length + " 个人），让在场角色轮流有戏、互相有来有往；name 必须逐字填写以下名字之一：" + members.map(c => "『" + memberLabel(members, c) + "』").join("、") + "；只有不属于任何人的纯环境段才填『旁白』，不许把整篇都塞进一个旁白 beat。") + sameNameNote(members) + "\nthought 的写法：" + THOUGHT_MEANING_CHAR + THOUGHT_VOICE + (typeof THOUGHT_EACH_OWN === "string" ? THOUGHT_EACH_OWN : "") + THOUGHT_ORIGIN
     + ((session.sayZhNames || []).length ? offlineSayZhSpec(session.sayZhNames.map(x => "『" + x + "』").join("、")) : "");
-  const hist = offlineGroupHistory(session.msgs, userName, ctx.timeAware !== false);
+  const hist = offlineGroupHistory(session.msgs, userName, ctx.timeAware !== false, ctx.clockId);
   // 尾部重申（同单人线下）：治长对话后段八股回潮 + cot 丢失
   const gWantLong = session.minWords && session.minWords >= 150;
   // max_tokens 是天花板不是预付款；思考模型的推理也从这儿扣，给窄了正文就只剩个零头
@@ -10157,6 +10166,11 @@ function ageDrift(ageAt, birthday, now) {
   return Math.floor((to - from) / 365.2425 / 86400000);
 }
 function charAgeNow(char, now) {
+  // 照 TA 那只虚拟钟算岁数（2026-10-31 全 app 排查）：「现在」和「填年龄那天」一起换到钟上，涨岁才算得对。
+  //   一处换，单聊、线下、档案馆、状态卡六处一起对
+  const vm = char && char.id && typeof vclockMap === "function" ? t => vclockMap(t, char.id) : t => t;
+  if (now != null) now = vm(Number(now));
+  if (char && char.ageAt != null && vm !== null) char = Object.assign({}, char, { ageAt: vm(Number(char.ageAt)) || char.ageAt });
   const fixed = char && char.age;
   if (fixed != null && String(fixed).trim() !== "") {
     const n = parseInt(String(fixed).trim(), 10);

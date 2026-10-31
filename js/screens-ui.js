@@ -7598,7 +7598,7 @@ function ApiConfig({
       + "总结不出来、「Ta 眼里」不更新时，先回来看这一栏。"
       // 「无」（她 2026-10-10：「后台 api 能不能选个无，这样可以强制不刷新」）：后台自己跑的那些一律不跑
       + "选「无」：「谁会自己动」里那些自己跑的（日程、日记、朋友圈、论坛、刷手机、群里自己聊、主动来找你……）和自动抽记忆一律停掉，只剩你点了才动的；聊天到一定长度的前情浓缩照旧走主模型，不然 TA 会忘。",
-      bgApiId, onSetBgApi, "跟随主模型", "无（后台一律不跑）"),
+      bgApiId, onSetBgApi, "跟随主模型", "无（记忆、日程这些后台活不跑）"),
     h(QuietHoursBox, { t: t, toast: toast }),
     h(McpConfig, { toast: toast }));
   return /*#__PURE__*/React.createElement("div", null,

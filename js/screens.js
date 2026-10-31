@@ -3620,7 +3620,7 @@ function Us({ characters, couples, onBack, myWallet, onJarMove, onJarGoal, onInv
             // 那么「时间轴与纪念日」在墙上是什么？——**一本挂历**。
             // 所以它就长成挂历页：顶上两个打穿的孔、跨过顶边的两个铁环、一条红头写月份，
             // 纸上有淡淡的竖格线，日子是那一页上最大的字，底边一道撕线。
-            const _cal = new Date();
+            const _cal = new Date(typeof vclockMap === "function" ? vclockMap(Date.now(), bCid) : Date.now());
             const CAL_M = bAnn && bAnn.month ? Number(bAnn.month) : _cal.getMonth() + 1;
             const CAL_RED = "#8d3f56";
             const calRing = left => h("span", { "aria-hidden": "true", key: "r" + left,

@@ -207,20 +207,23 @@
     const pins = ctx.pins || (typeof loadJSON === "function" ? loadJSON("x_shikePins", {}) : {}) || {};
     const pool = momentsFor(c, Object.assign({}, ctx, { pins, uName: ctx.uName || "她" })).filter(m => m.ts < startOf(now) - 14 * DAY && (m.what.lines || []).length);
     if (!pool.length) return "";
-    const m = pool[hashOf(c.id + ":" + d) % pool.length], dd = new Date(m.ts);
+    const m = pool[hashOf(c.id + ":" + d) % pool.length], dd = new Date(vtOf(m.ts, c.id));
     return "你们的相册里有一张「" + m.title + "」（" + dd.getFullYear() + " 年 " + (dd.getMonth() + 1) + " 月 " + dd.getDate() + " 日）：" + m.what.lines.slice(0, 2).join(" / ").slice(0, 160)
       + "。今天你偶尔会想起它——聊着自然想起就提一句，不合时宜就不提，别硬拐过去。";
   }
 
   // 去年今天（她 2026-10-03 点的第 5 条）：今天跟某张旧时刻同月同日、年份更早 → 主屏冒一张小卡。不花钱。
   //   一个人挑一张最近的那一年；几个人都有就挑第一个（主屏只冒一张，不堆）。
+  const vtOf = (ts, id) => typeof vclockMap === "function" ? vclockMap(ts, id) : ts;
   function onThisDay(chars, ctx) {
-    const now = new Date(ctx.now || Date.now()), mo = now.getMonth(), da = now.getDate(), yr = now.getFullYear();
+    const now0 = ctx.now || Date.now();
     const pins = ctx.pins || (typeof loadJSON === "function" ? loadJSON("x_shikePins", {}) : {}) || {};
     for (const c of (chars || [])) {
       if (!c || c.npc) continue;
-      const hit = momentsFor(c, Object.assign({}, ctx, { pins })).find(m => { const d = new Date(m.ts); return d.getMonth() === mo && d.getDate() === da && d.getFullYear() < yr; });
-      if (hit) return { char: c, m: hit, years: yr - new Date(hit.ts).getFullYear() };
+      // 今天、那张的日子都照这个人那只钟（虚拟时间拨过的话，「那年今日」是钟上的同月同日）
+      const now = new Date(vtOf(now0, c.id)), mo = now.getMonth(), da = now.getDate(), yr = now.getFullYear();
+      const hit = momentsFor(c, Object.assign({}, ctx, { pins })).find(m => { const d = new Date(vtOf(m.ts, c.id)); return d.getMonth() === mo && d.getDate() === da && d.getFullYear() < yr; });
+      if (hit) return { char: c, m: hit, years: yr - new Date(vtOf(hit.ts, c.id)).getFullYear() };
     }
     return null;
   }
