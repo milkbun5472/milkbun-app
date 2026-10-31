@@ -5290,13 +5290,14 @@ function saveSttApi(c) { const clean = Object.assign(loadSttApi(), c || {}); try
 function sttApiReady(a) { a = a || loadSttApi(); return !!(a.base && a.key); }
 // 通话的备用耳朵有没有：公共识别接口或书房耳朵，有一个就行
 function backupEarReady() { return sttApiReady() || voiceEarsReady(); }
-async function sttTranscribe(wavBlob) {
+async function sttTranscribe(wavBlob, opts) {
   const a = loadSttApi();
   if (!sttApiReady(a)) throw new Error("没配置语音识别（设置 · API）");
   const fd = new FormData();
-  fd.append("file", wavBlob, "speech.wav");
+  fd.append("file", wavBlob, (opts && opts.name) || "speech.wav");
   fd.append("model", a.model);
-  fd.append("language", "zh");
+  // 聊天里发来的音频文件不定是中文（歌、外语录音）：不指定语言，让它自己听
+  if (!(opts && opts.anyLang)) fd.append("language", "zh");
   fd.append("response_format", "json");
   const r = await fetchT(a.base + "/audio/transcriptions", { method: "POST", body: fd, headers: { Authorization: "Bearer " + a.key } }, 60000);
   let d = {}; try { d = await r.json(); } catch (e) {}
@@ -7386,6 +7387,25 @@ function ttsMarkForSynth(text) {
   return s.replace(/♪\s*([^♪]+?)\s*♪/g, (m, x) => sing ? " [sings] " + x + " " : x).replace(/[♪♫]/g, sing ? "" : " ").replace(TTS_MARK_TAG_RE, m => (keep && MM_SOUND_TAG_RE_ONE.test(m)) || (sing && m[0] === "[") ? m : " ").replace(/[ \t\u3000]+/g, " ")
     .replace(/\s+([，。！？、；：」』）])/g, "$1").trim();
 }
+// 文字气泡点读时念哪一段（群友 2026-10-31：「点读一下会把翻译一起读出来」）：
+//   气泡里写成「原文（中文）」「原文 | 中文」、或者第二行是中文的，只念原文；
+//   已经拆好挂在 m.zh 上的本来就不在 content 里。跟语音条用同一个 splitBilingual，不另写一套。
+function sayTextOf(m) {
+  const raw = String((m && m.content) || "");
+  if (!raw || (m && m.zh) || typeof splitBilingual !== "function") return raw;
+  const FOREIGN = /[\u3040-\u30ff\uac00-\ud7af\u0400-\u04ffA-Za-z\u00c0-\u024f]/;
+  let lines = raw.split(/\n+/);
+  try { if (typeof joinBilingualLines === "function") lines = joinBilingualLines(lines, false, { pairNext: true }) || lines; } catch (e) {}
+  const out = lines.map(x => {
+    const line = String(x || "").trim(), bi = splitBilingual(line, false);
+    if (bi) return bi.text;
+    // 念的时候「外语（中文）」括号里那句也不念：界面上（）可能是动作不敢劈，可点读时外语后面跟一句中文就是译文
+    const pm = line.match(/^([\s\S]*?\S)\s*[（(]([^（）()]+)[）)]\s*$/);
+    if (pm && FOREIGN.test(pm[1]) && /[\u4e00-\u9fff]/.test(pm[2]) && !FOREIGN.test(pm[2])) return pm[1];
+    return line;
+  }).filter(x => String(x).trim());
+  return out.join("\n");
+}
 function ttsMarkStrip(text) {
   const s = String(text == null ? "" : text);
   if (!s) return "";
@@ -7996,6 +8016,18 @@ function bracketBilingual(text) {
   if (!foreign && !hanLineLang(orig)) return null;
   return { text: orig, zh: zh };
 }
+// 账号的关注、粉丝数照他这个人（群友 2026-10-31：大明星关注 38、粉丝 1000 多——查手机、论坛都是）：
+//   原来提示词叫模型把粉丝往少里写，格式示范还摆着 12、37、1234 这种小数，模型照着抄。改成照身份给出口，示范只写说明。
+//   查手机（phone.js）和论坛资料（app.js）共用这一句。
+const ACCOUNT_SCALE_RULE = "关注、粉丝这几个数照他这个人在这个平台上是谁来定：这是他公开的大号，就照他的名气来——有名的人粉丝成万上百万、自己关注的反倒不多；这是他只给自己看的小号，数字就小，名字、签名里看得出是小号；普通人就是普通人的数。数字可以写成「12.3万」这种。";
+// 「12.3万」「1.2w」「3k」「1,234」→ 数字；认不出就 NaN
+function accountCount(x) {
+  if (typeof x === "number") return x;
+  const m = String(x == null ? "" : x).replace(/[,，\s]/g, "").match(/^(\d+(?:\.\d+)?)(万|w|W|千|k|K|亿)?/);
+  if (!m) return NaN;
+  const mul = { 万: 1e4, w: 1e4, W: 1e4, 千: 1e3, k: 1e3, K: 1e3, 亿: 1e8 }[m[2]] || 1;
+  return Math.round(parseFloat(m[1]) * mul);
+}
 function splitBilingual(text, hanLang) {
   const t = String(text == null ? "" : text);
   const br = typeof bracketBilingual === "function" ? bracketBilingual(t) : null;
@@ -8006,6 +8038,10 @@ function splitBilingual(text, hanLang) {
   if (!orig || !zh) return null;
   if (!/[\u4e00-\u9fff]/.test(zh)) return null;
   if (orig === zh) return null;
+  // 本来就是中文、竖线后面只是把同一句括起来又写了一遍（群里 2026-10-31 截图：「【想要】 | (想要)」原样摆在气泡里）：
+  //   双语开着，模型连中文那几句也照格式套了一遍。译文就是原文——摘掉竖线那半截，只留原文
+  const bare = x => x.replace(/[\s【】\[\]（）()「」『』"“”'‘’]/g, "");
+  if (bare(orig) && bare(orig) === bare(zh)) return { text: orig, zh: "" };
   const foreign = /[\u3040-\u30ff\uac00-\ud7af\u1100-\u11ff\u3130-\u318f\u0400-\u04ffA-Za-z\u00c0-\u024f]/.test(orig);
   if (/[\u4e00-\u9fff]/.test(orig) && !foreign && !hanLang && !/[嘅咗唔啲喺嗰冇佢嚟咁乜嘢噉哋囉㗎嘞啱揾搵睇畀咩攰瞓諗谂嚿冚啩喎嗮晒噃咪嘥]/.test(orig)) return null;
   return { text: orig, zh: zh };
@@ -8047,6 +8083,15 @@ function joinBilingualLines(lines, hanLang, opts) {
         out0.push(line.trim() + " | " + next.trim()); k++;
       } else out0.push(line);
     }
+    // 开头漏出一段纯中文草稿（她 2026-10-31 截图：日语角色先冒三泡「…他愣了两秒才反应过来…」，后面才是正经的「原文 | 中译」）：
+    //   模型先用中文把这一轮想了一遍、没收住就写进了回复。只认【开头那一截】：后面跟着成双语的句子、
+    //   这一截自己一句竖线都没有、几乎全是汉字（夹一两个假名的「……は?」也算）。中间、末尾的中文照旧留着——那可能是他真的在说中文。
+    const lead = [];
+    let f = 0;
+    for (; f < out0.length && out0[f].indexOf("|") < 0; f++) lead.push(out0[f]);
+    const pairs = out0.slice(f).filter(x => x.indexOf("|") >= 0).length;
+    const drafty = x => { const t = String(x).replace(/\s/g, ""), han = (t.match(/[\u4e00-\u9fff]/g) || []).length, fr = (t.match(/[\u3040-\u30ff\uac00-\ud7afA-Za-z\u0400-\u04ff]/g) || []).length; return han >= 4 && fr <= 3; };
+    if (lead.length >= 2 && f < out0.length && pairs >= Math.max(1, Math.ceil((out0.length - f) / 2)) && lead.every(drafty) && lead.join("").replace(/[^\u4e00-\u9fff]/g, "").length >= 16) return out0.slice(f);   // 一两句短中文（「我在这儿」）可能是他真说的，整整一段才算草稿
     return out0;
   }
   // 粤语这类用汉字写的话（她 2026-10-11 截图）：模型把几句粤语各占一行，竖线只在其中一行，
@@ -9546,18 +9591,24 @@ async function offlineSummaryRun(p, systemFor, text) {
   const chunks = offlineSummaryChunks(full, OFFLINE_SUM_ONE_SHOT);
   const quota = offlineSummaryQuota(full.length);
   if (chunks.length <= 1) return await offlineSummaryRunBlock(p, systemFor, chunks[0], quota, null);
+  // 一段没打出去不连累别的段（群友 2026-10-31：十万字那场前两段都成功了，第三段失败，整场总结一个字都没留下）：
+  //   成了的照留，没成的那段在总结里写明是哪段缺了，她点「重新总结」再补；一段都没成才照实报错。
   const parts = [];
+  let lastErr = null;
   for (let i = 0; i < chunks.length; i++) {
     const q = offlineSummaryQuota(chunks[i].length);
-    parts.push(await offlineSummaryRunBlock(p, systemFor, chunks[i], q, { i: i + 1, n: chunks.length }));
+    try { parts.push(await offlineSummaryRunBlock(p, systemFor, chunks[i], q, { i: i + 1, n: chunks.length })); }
+    catch (e) { lastErr = e; parts.push({ summary: "（这一段没总结出来：" + String((e && e.message) || e).split("\n")[0].slice(0, 60) + "）", details: [], open: [], failed: true }); }
   }
+  if (parts.every(x => x.failed)) throw lastErr || new Error("线下总结没打出去");
   const dedupe = arr => { const seen = new Set(); return arr.filter(x => { const k = String(x).replace(/\s+/g, ""); if (!k || seen.has(k)) return false; seen.add(k); return true; }); };
   const details = dedupe([].concat.apply([], parts.map(x => x.details))).slice(0, quota.details);
   const open = dedupe([].concat.apply([], parts.map(x => x.open))).slice(0, quota.open);
   const joined = parts.map((x, i) => "第 " + (i + 1) + " 段：" + x.summary).join("\n");
   // 合成那一枪只读各段的总结，不再读原文——它要干的是【把几段串成一条线】，不是重新概括。
   let merged = { summary: "" };
-  try { merged = await offlineSummaryCall(p, systemFor(quota, "merge"), joined, quota); } catch (e) {}
+  // 有段缺了就不合成：合成那一枪会把「这一段没总结出来」抹平，她就看不出该补了
+  if (!parts.some(x => x.failed)) { try { merged = await offlineSummaryCall(p, systemFor(quota, "merge"), joined, quota); } catch (e) {} }
   return { summary: merged.summary || joined, details: details, open: open };
 }
 async function summarizeOffline(p, ctx, session, already) {

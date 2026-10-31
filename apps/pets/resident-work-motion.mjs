@@ -1,4 +1,4 @@
-import {workroomFurniture} from './resident-workroom.mjs?v=fg-c485d06c678e8f5c';
+import {workroomFurniture} from './resident-workroom.mjs?v=fg-90b53e2779ab7a1c';
 // Standing positions, facing and hand contact all refer to the rendered furniture.
 export function professionalStation(form,stage=0){
  const furniture=workroomFurniture(form),f=furniture.find(x=>x.id===(form==='business'?'shop-counter':form==='clinic'&&stage===1?'exam':form==='studio'&&stage===1?'easel':form==='classroom'&&stage===1?'board':'desk'));

@@ -12,9 +12,9 @@ for (const spot of ["seat", "stand", "rack", "berth"]) assert.ok(html.includes('
 assert.ok(html.includes('id="open-move"'), "nav has 走动");
 assert.ok(/take-photo[\s\S]{0,400}passengers\?\.home\(\)/.test(game) || game.includes("passengers?.home()"), "photo brings both back");
 // 3. 改外貌：游戏侧四个接口，存进列车自己那份 looks，庭院那身作兜底
-for (const k of ["getLook:", "getDyes:", "getOutfit:", "setLook:"]) assert.ok(game.includes(k), "TrainGame." + k);
+for (const k of ["createWardrobe(", "setLook:"]) assert.ok(game.includes(k), "TrainGame." + k);
 assert.ok(game.includes("mergeLook(lookOf(who),patch)"), "same merge as the garden");
-assert.ok(pass.includes("state()?.looks?.me||journey.look||garden?.look"), "train look overrides garden look");
+assert.ok(pass.includes("lookOf('me')") && game.includes("()=>state,lookOf"), "live actors and wardrobe read the same source");
 // 4. 宿主：庭院、列车与小镇共用同一份 DressControls
 assert.equal((fg.match(/h\(DressControls,/g) || []).length, 3, "one control set, three worlds");
 assert.ok(fg.includes('"改外貌"') && fg.includes('panel==="dress"'), "train settings has 改外貌");

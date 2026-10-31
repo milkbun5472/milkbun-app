@@ -33,3 +33,25 @@ test('legacy shoe palettes migrate without dropping old saved slots; new slots s
   assert.equal(outfitColors(look).boots,'#ffdd44');assert.equal(look.wardrobe[outfit][slot],'#123456');
  }
 });
+test('共用异瞳开关与双眼控件只写对应字段，关闭再打开保留两眼选色',async()=>{
+ const {mergeLook,dyesOf}=await import('../apps/fairy-garden/wardrobe.mjs');
+ let look={eye:'#3f6fa8',skin:'#dfb093',hair:'bob'};
+ const render=()=>flatten(DressControls({who:'self',look:{self:look},styles:{},game:()=>({getDyes:()=>dyesOf(look)}),pushLook:p=>{look=mergeLook(look,p);}}));
+ let nodes=render();assert.equal(nodes.filter(n=>n.type===DyeControl&&n.props.label==='眼睛').length,1);
+ const toggle=on=>render().find(n=>n.type==='input'&&n.props.type==='checkbox').props.onChange({target:{checked:on}});
+ toggle(true);nodes=render();for(const [label,value] of [['左眼','#4e8a62'],['右眼','#8a5bb0']])nodes.find(n=>n.type===DyeControl&&n.props.label===label).props.onChange(value);
+ toggle(false);assert.equal(render().find(n=>n.type===DyeControl&&n.props.label==='眼睛').props.value,'#3f6fa8');
+ toggle(true);assert.equal(render().find(n=>n.type===DyeControl&&n.props.label==='左眼').props.value,'#4e8a62');assert.equal(look.eyeRight,'#8a5bb0');assert.equal(look.skin,'#dfb093');
+});
+
+test('公共衣柜用当前草稿显示，iframe仍是上次颜色时开关和配色不回弹',async()=>{
+ const {createWardrobe,mergeLook}=await import('../apps/fairy-garden/wardrobe.mjs');
+ const previous={eye:'#334455',hair:'bob',skin:'#dfb093'};let look=previous;
+ const api=createWardrobe(()=>({me:previous}));
+ const render=()=>flatten(DressControls({who:'me',look:{me:look},styles:{},game:()=>api,pushLook:p=>{look=mergeLook(look,p);}}));
+ render().find(n=>n.type==='input'&&n.props.type==='checkbox').props.onChange({target:{checked:true}});
+ assert.equal(render().find(n=>n.type==='input'&&n.props.type==='checkbox').props.checked,true);
+ render().find(n=>n.type===DyeControl&&n.props.label==='左眼').props.onChange('#aa3344');
+ assert.equal(render().find(n=>n.type===DyeControl&&n.props.label==='左眼').props.value,'#aa3344');
+ assert.equal(api.getDyes('me').eyeMode,'solid');assert.equal(previous.eyeLeft,undefined);
+});

@@ -2157,9 +2157,9 @@ function NpcAvatar({ seed, size }) {
   });
 }
 // 小号要和大号明显不是同一张脸（不然就自曝身份了）——加盐换一套种子。
-function AltAvatar({ seed, size }) {
+function AltAvatar({ seed, size, src }) {
   return React.createElement("img", {
-    src: typeof autoAvatarSrc === "function" ? autoAvatarSrc("alt:" + seed) : "",
+    src: src ? (typeof resolveImg === "function" ? resolveImg(src) : src) : typeof autoAvatarSrc === "function" ? autoAvatarSrc("alt:" + seed) : "",
     alt: "", className: "object-cover shrink-0",
     style: { width: size, height: size, borderRadius: "50%" }
   });
@@ -2255,8 +2255,8 @@ function Forum({
   onBack, onGenBoard, onGenSearch, onLoadComments, onMoreComments, onRegenFloors, onReplyFloor, onReplySub,
   onStartPM, onStartCharPM, onDelPM, onClearPMs,
   onPostMine, onGenCharPost, onToggleFollow, onForwardToChat, onForwardToGroup,
-  onRefreshPMs, onSendPM, onDelPMMsg, onForwardToPM, onAskWechat, onOpenWechat, onMarkPMRead, onEditMe, onEnsureCharMeta, onToggleForumChar, onRenameCharAlt, onRegenCharAlt,
-  onDeletePost, onDeletePosts, onDeleteFloor, onClearBoard, onRenameBoard, onDropBoard,  // 删帖（她 2026-09-19）：一条一条删，或者整版清空；onDeletePosts 多选一起删
+  onRefreshPMs, onSendPM, onDelPMMsg, onForwardToPM, onAskWechat, onOpenWechat, onMarkPMRead, onEditMe, onEditCharMeta, onEnsureCharMeta, onToggleForumChar, onRenameCharAlt, onRegenCharAlt,
+  onEditPost, onDeletePost, onDeletePosts, onDeleteFloor, onClearBoard, onRenameBoard, onDropBoard,  // 删帖（她 2026-09-19）：一条一条删，或者整版清空；onDeletePosts 多选一起删
   onGenCharPosts,              // 请角色来发帖（她 2026-09-23）
   toast
 }) {
@@ -2282,7 +2282,8 @@ function Forum({
   const [searchSort, setSearchSort] = useState("hot");
   const [xhsPage, setXhsPage] = useState(0);            // 多图笔记现在翻到第几张 // 小红书搜索结果：最热 / 最新   // 小红书主页那三栏：笔记 / 收藏 / 赞过  // 置顶吧规那块牌子，默认只露第一条
   const [refreshMenu, setRefreshMenu] = useState(false);  // 右上角刷新键点开的那张小单子
-  const [pick, setPick] = useState(null);   // 多选删帖：null＝没在选；数组＝选中的帖 id
+  const [pick, setPick] = useState(null);
+  const [editPost, setEditPost] = useState(null);   // 改自己的帖：{ id, title, body }   // 多选删帖：null＝没在选；数组＝选中的帖 id
   // 开个吧（她自己的吧，存 x_forumBoards）。boardsRev 只是让那排 tab 重画一次——吧表本身每次现读存档
   const [newBoard, setNewBoard] = useState(null);     // null＝没在开；{name, about}＝正在填
   const [, setBoardsRev] = useState(0);
@@ -2385,6 +2386,9 @@ function Forum({
   const [emHandle, setEmHandle] = useState("");
   const [emBio, setEmBio] = useState("");
   const [emAlt, setEmAlt] = useState("");             // 她的小号叫什么（群友 2026-10-06）
+  const [emAltFans, setEmAltFans] = useState("");     // 小号粉丝数（群友 2026-10-31）
+  const [emAltAv, setEmAltAv] = useState("");         // 小号头像；空＝照小号名字自动给的那张
+  const emAltAvRef = useRef(null);
   const [emFans, setEmFans] = useState("");           // 大号粉丝数，自己能改（群友 2026-10-16：设定是大作家，几百个粉丝太可怜）
   const [cbAs, setCbAs] = useState("main");           // 这一帖用哪个号发：main 大号 / alt 小号
   const [searchQ, setSearchQ] = useState("");
@@ -2587,7 +2591,7 @@ function Forum({
   const [albumTab, setAlbumTab] = useState("");
   const isAlt = a => !!(a && a.authorType === "character_alt" && !a.anon);
   const altFollowKey = a => "alt:" + String(a && a.authorId || "");
-  const avatarFor = (a, size, anon) => anon ? h(NpcAvatar, { seed: a.authorName, size: size }) : ((isAlt(a) || (a && a.authorType === "me" && a.alt)) ? h(AltAvatar, { seed: a.authorHandle || a.authorName, size: size }) : (a.authorType === "character" ? h(Avatar, { character: charOf(a.authorId) || { name: a.authorName, color: "#8a8a8a" }, size: size, radius: size / 2 }) : (a.authorType === "me" ? h(Avatar, { character: meChar, size: size, radius: size / 2 }) : h(NpcAvatar, { seed: a.authorHandle || a.authorName, size: size }))));
+  const avatarFor = (a, size, anon) => anon ? h(NpcAvatar, { seed: a.authorName, size: size }) : ((isAlt(a) || (a && a.authorType === "me" && a.alt)) ? h(AltAvatar, { seed: a.authorHandle || a.authorName, size: size, src: a && a.authorType === "me" && a.alt && forumMe ? forumMe.altAvatar : "" }) : (a.authorType === "character" ? h(Avatar, { character: charOf(a.authorId) || { name: a.authorName, color: "#8a8a8a" }, size: size, radius: size / 2 }) : (a.authorType === "me" ? h(Avatar, { character: meChar, size: size, radius: size / 2 }) : h(NpcAvatar, { seed: a.authorHandle || a.authorName, size: size }))));
   const nameOf = a => a.anon ? a.authorName : (a.authorType === "character" && charOf(a.authorId) ? charOf(a.authorId).name : (a.authorType === "me" ? (a.alt ? a.authorName : meChar.name) : a.authorName));
   // 从一条帖里点进谁的主页，退出来要回到【那条帖】，不是回贴吧主页
   // （她 2026-10-01：「从帖子点进主页再退出来直接回到贴吧主页而不是在看的那条帖」）。
@@ -2951,6 +2955,8 @@ function Forum({
           xhsPhotos(p),   // 好几张就左右滑：贴吧样子也一样（群友 2026-10-27）
           xhs ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, marginTop: 10 } }, forumTag(p.board) + "　编辑于 " + timeAgo(p.ts) + " " + forumIpOf(p, c)) : h("div", { className: "mt-3" }, tag(p.board)),
           xhs ? xhsBar(p) : actBar(p),
+          p.authorType === "me" && onEditPost && h("button", { "data-wk": "foeditpost", onClick: () => setEditPost({ id: p.id, title: p.title || "", body: p.body || "" }), className: "active:opacity-60",
+            style: { minHeight: 40, marginTop: 4, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: FORUM_SKIN.fog, background: "transparent" } }, "✎ 改一改"),
           c && h("button", { onClick: () => onToggleFollow(c.id), className: "mt-3 px-3.5 py-1.5 active:opacity-70", style: xhs ? { borderRadius: 999, border: "1px solid " + (flw.includes(c.id) ? FORUM_SKIN.line : FORUM_SKIN.accent), background: flw.includes(c.id) ? "transparent" : FORUM_SKIN.accent, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: flw.includes(c.id) ? FORUM_SKIN.fog : "#fff" }   // 小红书的关注是实心红（她 2026-10-26「红色不够多」）
             : { borderRadius: 999, border: `1px solid ${t.line}`, background: flw.includes(c.id) ? t.ink : "transparent", fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: flw.includes(c.id) ? t.bg2 : t.ink } }, flw.includes(c.id) ? "已关注" : (xhs ? "关注" : "关注 TA")),
           alt && h("button", { onClick: () => toggleNpcFollow(altFollowKey(p)), className: "mt-3 px-3.5 py-1.5 active:opacity-70", style: { borderRadius: 999, border: `1px solid ${t.line}`, background: npcFollowSet.has(altFollowKey(p)) ? t.ink : "transparent", fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: npcFollowSet.has(altFollowKey(p)) ? t.bg2 : t.ink } }, npcFollowSet.has(altFollowKey(p)) ? "已关注小号" : "关注小号")),
@@ -2986,8 +2992,8 @@ function Forum({
     // 她现在挂着小号：这一页就是小号的主页（名字、头像、帖子都是小号那份）
     const onAlt = isMe && forumMe && forumMe.using === "alt";
     const altNm = ((forumMe && forumMe.altName) || "").trim() || "一只不说话的鱼";
-    const meta = isMe ? { handle: onAlt ? altNm : maskCur && forumMaskNow ? maskCur.name : ((forumMe && forumMe.handle) || profile.name || "我"), bio: onAlt ? ((forumMe && forumMe.altBio) || "") : ((forumMe && forumMe.bio) || ""), joinTs: forumMe && forumMe.joinTs, following: followedChars.length + npcFollows.length, followers: (forumMe && forumMe.followers) || 0 } : (charMetaOf ? charMetaOf(c) : { handle: c.name, bio: c.motto || "", joinTs: 0, following: 0, followers: 0 });
-    const av = onAlt ? h(AltAvatar, { seed: altNm, size: 62 }) : h(Avatar, { character: isMe ? meChar : c, size: 62, radius: 31 });
+    const meta = isMe ? { handle: onAlt ? altNm : maskCur && forumMaskNow ? maskCur.name : ((forumMe && forumMe.handle) || profile.name || "我"), bio: onAlt ? ((forumMe && forumMe.altBio) || "") : ((forumMe && forumMe.bio) || ""), joinTs: forumMe && forumMe.joinTs, following: followedChars.length + npcFollows.length, followers: (onAlt ? forumMe && forumMe.altFollowers : forumMe && forumMe.followers) || 0 } : (charMetaOf ? charMetaOf(c) : { handle: c.name, bio: c.motto || "", joinTs: 0, following: 0, followers: 0 });
+    const av = onAlt ? h(AltAvatar, { seed: altNm, size: 62, src: forumMe && forumMe.altAvatar }) : h(Avatar, { character: isMe ? meChar : c, size: 62, radius: 31 });
     // 她自己的主页连匿名发的也列出来（她 2026-10-01：「我匿名的帖子能不能放进我的主页」）——
     //   这一页只有她自己看得到（还有她递手机时的那个人）；别人的主页照旧不露匿名帖
     const mine = (posts || []).filter(p => forumVisible(p) && (isMe ? (p.authorType === "me" && !!p.alt === !!onAlt && (onAlt || p.anon || p.board === "匿名吧" || String(p.mask || "") === String(forumMaskNow || ""))) : (p.authorId === profileId && p.authorType === "character" && !p.anon))).sort((a, b) => b.ts - a.ts);
@@ -3010,7 +3016,7 @@ function Forum({
                   m.name + (m.label ? "（" + m.label + "）" : "")); })) : null,
             h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.fog } }, "@" + meta.handle)),
           isMe
-            ? h("button", { onClick: () => { setEmHandle(meta.handle); setEmBio(meta.bio); setEmAlt((forumMe && forumMe.altName) || ""); setEmFans(String((forumMe && forumMe.followers) || 0)); setEditMe(true); }, className: "shrink-0 px-3.5 py-1.5 active:opacity-70", style: { borderRadius: 999, border: `1px solid ${t.line}`, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.ink } }, "编辑资料")
+            ? h("button", { onClick: () => { setEmHandle(meta.handle); setEmBio(meta.bio); setEmAltFans(String((forumMe && forumMe.altFollowers) || "")); setEmAltAv((forumMe && forumMe.altAvatar) || ""); setEmAlt((forumMe && forumMe.altName) || ""); setEmFans(String((forumMe && forumMe.followers) || 0)); setEditMe(true); }, className: "shrink-0 px-3.5 py-1.5 active:opacity-70", style: { borderRadius: 999, border: `1px solid ${t.line}`, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.ink } }, "编辑资料")
             : h("div", { className: "shrink-0 flex flex-col items-end gap-1.5" },
               h("button", { "data-wk": "block", onClick: () => onToggleFollow(c.id), className: "px-3.5 py-1.5 active:opacity-70", style: { borderRadius: 999, background: flw.includes(c.id) ? t.ink : "transparent", border: `1px solid ${t.line}`, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: flw.includes(c.id) ? t.bg2 : t.ink } }, flw.includes(c.id) ? (((followBack || {})[c.id] || {}).on ? "互相关注" : "已关注") : (((followBack || {})[c.id] || {}).on ? "回关" : "关注")),
               // 私信TA【大号】（v59.75）。这条线会喂回聊天，跟线上/线下一起算同一段关系。
@@ -3041,6 +3047,9 @@ function Forum({
             : h("span", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.ink, whiteSpace: "nowrap" } }, h("b", null, fmtNum(meta.following)), h("span", { style: { color: t.fog } }, " 关注")),
           isMe
             ? h("button", { "data-wk": "forumfans", onClick: () => setFanListOpen(true), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.ink, whiteSpace: "nowrap" } }, h("b", null, fmtNum(meta.followers)), h("span", { style: { color: t.fog } }, " 粉丝 ›"))
+            // 他的粉丝数她能自己改（群友 2026-10-31：大明星只有一千来个粉丝）：点这个数，填「12.3万」也认
+            : onEditCharMeta && c && c.id ? h("button", { "data-wk": "forumfans", "data-part": "char", className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.ink, whiteSpace: "nowrap", borderBottom: "1px dotted " + t.line },
+                onClick: () => requestAppPrompt("改 " + (meta.handle || c.name) + " 的粉丝数", "照他这个人在论坛上的名气填，写「12.3万」也行。", String(meta.followers || ""), v => { const n = accountCount(v); if (n >= 0) onEditCharMeta(c.id, { followers: n }); }, "改好了") }, h("b", null, fmtNum(meta.followers)), h("span", { style: { color: t.fog } }, " 粉丝"))
             : h("span", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.ink, whiteSpace: "nowrap" } }, h("b", null, fmtNum(meta.followers)), h("span", { style: { color: t.fog } }, " 粉丝"))),
         // 首页排版放在「我」里（她 2026-10-07：「单列双列的设置放进我里面吧不要放现在那里」）
         isMe && h("div", { className: "flex items-center gap-2 mt-3" },
@@ -3503,6 +3512,17 @@ function Forum({
         : h("div", { className: "mt-2" }, cbPhotos()),
       h("button", { onClick: () => { if (cbTitle.trim()) { onPostMine(cbBoard, cbTitle.trim(), cbBody.trim(), photoAttachValue(cbPhoto), cbAs, cbMore.map(photoAttachValue).filter(Boolean)); setCbTitle(""); setCbBody(""); setCbPhoto(null); setCbMore([]); setComposer(false); setNav("home"); setTab(cbBoard); } }, className: "w-full mt-3 py-2.5 active:opacity-70", style: { borderRadius: 8, background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))" } }, cardLayout ? "发布笔记" : "发布")),
     // 编辑我的资料
+    editPost && typeof CenterCard === "function" && h(CenterCard, { onClose: () => setEditPost(null), maxWidth: 360, wk: "centercard" },
+      h("div", { style: { padding: "16px 17px 17px" } },
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(17px * var(--app-fs, 1))", color: FORUM_SKIN.ink, marginBottom: 10 } }, "改一改这帖"),
+        h("input", { "data-wk": "input", value: editPost.title, onChange: e => setEditPost(Object.assign({}, editPost, { title: e.target.value })), placeholder: "标题",
+          className: "w-full outline-none px-3 py-2.5 rounded-lg mb-2", style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", background: t.bg2, color: t.ink, border: "1px solid " + t.line } }),
+        h("textarea", { "data-wk": "textarea", value: editPost.body, rows: 7, onChange: e => setEditPost(Object.assign({}, editPost, { body: e.target.value })), placeholder: "正文",
+          className: "w-full outline-none px-3 py-2.5 rounded-lg", style: { fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", lineHeight: 1.6, background: t.bg2, color: t.ink, border: "1px solid " + t.line, resize: "none" } }),
+        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: FORUM_SKIN.fog, marginTop: 4, lineHeight: 1.6 } }, "只改字；楼里已经有的回复、赞都留着。"),
+        h("div", { className: "flex gap-2", style: { marginTop: 12 } },
+          h("button", { onClick: () => setEditPost(null), className: "active:opacity-70", style: { minHeight: 42, padding: "0 16px", borderRadius: 8, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: FORUM_SKIN.sub, border: "1px solid " + FORUM_SKIN.line } }, "算了"),
+          h("button", { onClick: () => { onEditPost(editPost.id, editPost); setEditPost(null); }, className: "flex-1 active:opacity-80", style: { minHeight: 42, borderRadius: 8, fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", fontWeight: 700, color: FORUM_SKIN.paper, background: FORUM_SKIN.accent } }, "保存")))),
     // 开个吧：居中一张卡（不做半窗，no-half-sheet.md）——吧名、这个吧聊什么、吧规（一行一条）
     newBoard && typeof CenterCard === "function" && h(CenterCard, { onClose: () => setNewBoard(null), maxWidth: 340, wk: "centercard" },
       h("div", { style: { padding: "16px 17px 17px" } },
@@ -3544,11 +3564,23 @@ function Forum({
       h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, margin: "12px 0 4px" } }, "小号叫什么"),
       h("input", { "data-wk": "input", value: emAlt, onChange: e => setEmAlt(e.target.value.slice(0, 20)), placeholder: "另一个网名，发帖时可以选用它", className: "w-full outline-none px-3.5 py-2.5 rounded-lg", style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", background: t.bg2, color: t.ink, border: "1px solid " + t.line } }),
       h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginTop: 4, lineHeight: 1.5 } }, "用小号发的帖，楼里谁都认不出是你，认识你的角色也不知道；只有他翻你手机的时候才可能发现。"),
+      h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, margin: "12px 0 4px" } }, "小号头像"),
+      h("div", { className: "flex items-center gap-3" },
+        h(AltAvatar, { seed: emAlt.trim() || "一只不说话的鱼", size: 48, src: emAltAv }),
+        h("button", { "data-wk": "foaltavatar", onClick: () => emAltAvRef.current && emAltAvRef.current.click(), className: "active:opacity-70", style: { minHeight: 40, padding: "0 14px", borderRadius: 8, border: "1px solid " + t.line, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.ink } }, "换一张"),
+        emAltAv ? h("button", { onClick: () => setEmAltAv(""), className: "active:opacity-70", style: { minHeight: 40, padding: "0 10px", fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog } }, "用回自动的") : null,
+        h("input", { ref: emAltAvRef, type: "file", accept: "image/*", style: { display: "none" }, onChange: async e => {
+          const f = e.target.files && e.target.files[0]; e.target.value = ""; if (!f) return;
+          try { const d = await resizeImageFile(f, 400, 0.85); const ref = typeof imgToVault === "function" ? await imgToVault(d) : d; setEmAltAv(ref || d); } catch (er) { toast && toast("这张图读不出来，换一张试试"); }
+        } })),
+      h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, margin: "12px 0 4px" } }, "小号粉丝数"),
+      h("input", { "data-wk": "forumfans", value: emAltFans, onChange: e => setEmAltFans(e.target.value.replace(/[^\d]/g, "").slice(0, 10)), inputMode: "numeric", placeholder: "比如 36",
+        className: "w-full outline-none px-3.5 py-2.5 rounded-lg", style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", background: t.bg2, color: t.ink, border: "1px solid " + t.line } }),
       h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, margin: "12px 0 4px" } }, "大号粉丝数"),
       h("input", { "data-wk": "forumfans", value: emFans, onChange: e => setEmFans(e.target.value.replace(/[^\d]/g, "").slice(0, 10)), inputMode: "numeric", placeholder: "比如 120000",
         className: "w-full outline-none px-3.5 py-2.5 rounded-lg", style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", background: t.bg2, color: t.ink, border: "1px solid " + t.line } }),
       h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginTop: 4, lineHeight: 1.5 } }, "照你的设定填就行；之后用大号发帖还会自己慢慢涨。"),
-      h("button", { onClick: () => { onEditMe({ handle: emHandle.trim() || meChar.name, bio: emBio.trim(), altName: emAlt.trim(), ...(emFans !== "" ? { followers: Math.max(0, parseInt(emFans, 10) || 0) } : {}) }); setEditMe(false); }, className: "w-full mt-3 py-2.5 active:opacity-70", style: { borderRadius: 8, background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))" } }, "保存")),
+      h("button", { onClick: () => { onEditMe({ handle: emHandle.trim() || meChar.name, bio: emBio.trim(), altName: emAlt.trim(), altAvatar: emAltAv || "", ...(emAltFans !== "" ? { altFollowers: Math.max(0, parseInt(emAltFans, 10) || 0) } : {}), ...(emFans !== "" ? { followers: Math.max(0, parseInt(emFans, 10) || 0) } : {}) }); setEditMe(false); }, className: "w-full mt-3 py-2.5 active:opacity-70", style: { borderRadius: 8, background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))" } }, "保存")),
     // 谁在逛论坛
     settingsOpen && h(PageSheet, { onClose: () => setSettingsOpen(false) },
       h(Eyebrow, { style: { marginBottom: 4 } }, "论坛设置"),

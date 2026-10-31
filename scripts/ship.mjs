@@ -10,12 +10,14 @@
 // 用法（先把改动写好，不用自己 commit）：
 //   node scripts/ship.mjs --msg-file /tmp/msg.txt --entries couple,chat
 //   node scripts/ship.mjs --msg-file /tmp/msg.txt --none "纯修内部，用法没变"
-//   可选：--tests "test/x.test.js test/y.test.mjs"（只跑相关的；不传才跑全套）
+//   测试默认只跑这次动过的文件相关的那几份（她 2026-10-31「改吧」：每次推都跑全套太慢）：
+//     改过的 test 文件本身＋源码里提到改过的文件名的测试＋版本/攻略戳那几份。全套留给公共版出货前，或者加 --full。
+//   可选：--tests "test/x.test.js test/y.test.mjs"（自己点名）；--full（跑全套）
 //         --brief "新增 xxx、yyy 挂点。"（不传就写「没动挂点」）
 //         --allow 测试名片段（某个红灯【在 main 上也红、跟这次无关】时才用，要在回复里写明）
 // msg 文件里写整段提交说明（含 Co-Authored-By 等尾注）；脚本会在第一行前面补上版本号。
 //
-// 质量一样不少：全套测试照跑（并行，4 核约 1.5 分钟），任何一个红就不推。
+// 跑到的那几份任何一个红就不推。别的窗口留在 main 上的红灯这里不替它查，出货前跑全套时才会撞见。
 import { execSync } from "node:child_process";
 import { readFileSync, writeFileSync, existsSync } from "node:fs";
 
@@ -26,7 +28,8 @@ const entries = (arg("--entries") || "").split(",").map(s => s.trim()).filter(Bo
 const none = arg("--none") || "";
 const brief = arg("--brief") || "";
 // --tests "test/a.test.js test/b.test.mjs"：只跑这次动过的那几份（她 2026-10-13：「不要跑全套！就跑动过的」）
-const only = arg("--tests") || "";
+let only = arg("--tests") || "";
+const full = argv.includes("--full");
 const allow = argv.flatMap((v, i) => v === "--allow" ? [argv[i + 1]] : []).filter(Boolean);
 if (!msgFile || !existsSync(msgFile)) die("要给 --msg-file（提交说明，含尾注）");
 if (!entries.length && !none) die("攻略那一关：--entries 写这版改了哪几条攻略，或 --none 写为什么不用改（manual-stamp 规矩）");
@@ -35,6 +38,8 @@ const sh = (c, o) => execSync(c, { encoding: "utf8", stdio: ["ignore", "pipe", "
 const tryd = c => { try { return sh(c); } catch (e) { return null; } };
 function die(m) { console.error("✗ " + m); process.exit(1); }
 const REMOTE = (() => { const rs = (tryd("git remote") || "origin").split("\n"); return rs.includes("origin") ? "origin" : rs[0]; })();
+// 开工前先记下这次真改了哪些文件（后面会 bump 版本号、改 STAMP，那些不算）
+const PRE_FILES = ((tryd("git diff --name-only " + REMOTE + "/main") || "") + "\n" + (tryd("git ls-files --others --exclude-standard") || "")).split("\n").filter(Boolean);
 const BRANCH = sh("git rev-parse --abbrev-ref HEAD");
 const GIT_DIR = sh("git rev-parse --absolute-git-dir");
 const quote = s => "'" + String(s).replaceAll("'", "'\\''") + "'";
@@ -118,7 +123,6 @@ for (let round = 1; round <= 4; round++) {
   if (tryd("node scripts/check-version.mjs") === null) die("check-version 不过：" + (tryd("node scripts/check-version.mjs 2>&1; true") || ""));
   for (const f of changed) if (existsSync("js/" + f + ".js") && tryd("node --check js/" + f + ".js") === null) die("语法错：js/" + f + ".js");
   if (tryd("git diff --check " + REMOTE + "/main") === null) die("git diff --check 不过（行尾空白／冲突标记）");
-  console.log(only ? "跑这次相关的测试：" + only : "跑全套测试（并行）…");
   let out = "";
   // ⚠️钉死 tap 格式：下面认的是 tap 的「not ok」「# pass」。新版 node 管道里默认出的是另一种格式（✖ / ℹ pass），
   //   一行都认不出来，于是「没有红灯」，带着红灯照推（2026-10-16 v75.828 就是这么带着两条红推上去的）。
@@ -128,6 +132,9 @@ for (let round = 1; round <= 4; round++) {
   //   于是 tests/ 那十来份从来没进过发版的闸——2026-10-29 翻出来时三条红灯已经红了半个月，
   //   没人看见，也拦不住任何东西。
   const FULL_SUITE = "test/*.test.js test/*.test.mjs tests/*.test.js tests/*.test.mjs";
+  if (!only && !full) only = relatedTests();
+  if (!only && !full) console.log("（没找到相关测试，退回全套）");
+  console.log(only ? "跑这次相关的测试（" + only.split(" ").length + " 份）：" + only : "跑全套测试（并行）…");
   const testEnv = Object.assign({}, process.env); delete testEnv.NODE_TEST_CONTEXT;
   try { out = sh("node --test --test-reporter=tap " + (only || FULL_SUITE) + " 2>&1", { shell: "/bin/bash", env: testEnv }); } catch (e) { out = String(e.stdout || "") + String(e.stderr || ""); }
   const fails = (out.match(/^not ok \d+ - .*$/gm) || []).filter(l => !allow.some(a => l.includes(a)));
@@ -149,3 +156,22 @@ for (let round = 1; round <= 4; round++) {
   process.exit(0);
 }
 die("连撞四轮没推上去，过一会儿再跑");
+
+// 这次相关的测试：改过的测试文件本身，加上源码里点了改过文件名的测试，再加版本／攻略／美化戳那几份（每次发版都动它们）。
+//   版本号、?v= 指纹、STAMP 这些每次都改的文件不算「改过」——不然 index.html、app.js 一挂上，几乎全套都会被拉进来。
+function relatedTests() {
+  const ls = d => { try { return sh("ls " + d).split("\n").filter(f => /\.test\.(m?js)$/.test(f)).map(f => d + "/" + f); } catch (e) { return []; } };
+  const all = ls("test").concat(ls("tests"));
+  const files = PRE_FILES;
+  const pick = new Set(files.filter(f => all.includes(f)));
+  const base = files.filter(f => !all.includes(f) && !/^(index\.html|manifest\.json|rescue\.html)$/.test(f))
+    .map(f => f.split("/").pop()).filter(f => /\.(m?js|cjs|py|html|css|json)$/.test(f));
+  const always = /\/(ship-|check-version|manual-stamp|brief-stamp|changelog)/;
+  for (const t of all) {
+    if (always.test(t)) { pick.add(t); continue; }
+    if (!base.length) continue;
+    let src = ""; try { src = readFileSync(t, "utf8"); } catch (e) { continue; }
+    if (base.some(b => src.includes(b) || src.includes('"' + b.replace(/\.m?js$/, "") + '"'))) pick.add(t);
+  }
+  return [...pick].join(" ");
+}

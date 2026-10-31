@@ -27,13 +27,14 @@ test("住在村里的那几位排在选人那一页前面", () => {
 
 // 她 2026-09-17：「邀请邻居的话改不了外貌」
 test("住在村里的那几位走的是同一套换样貌", () => {
-  assert.match(game, /const n=neighborOf\(data,who\);/);
-  assert.match(game, /if\(x\)x\.avatar\.setLook\(look\);/);
-  assert.match(game, /给邻居另写一套，六根滑杆那条链就活在两处了/);
+  // 2026-10-31 v88.80x：换样貌收进 wardrobe.mjs（createWardrobe／mergeLook 一份），applyLook 改成就地 mergeLook 再 save，存不上就退回
+  assert.match(game, /const n=neighborOf\(data,who\),avatar=n\?crew\.get\(String\(n\.charId\)\)\?\.avatar/);
   // 同一份 merge：浅合并会把另外五根滑杆打回中性
   const fn = game.slice(game.indexOf('const applyLook=(who,look)=>{'), game.indexOf('window.FairyGardenGame={'));
-  assert.equal((fn.match(/const merge=/g) || []).length, 1, "merge 只许有一份");
-  assert.match(game, /\.\.\.Object\.fromEntries\(restoreNeighbors\(data\.neighbors\)\.map\(n=>\[String\(n\.charId\),\{\.\.\.\(n\.look\|\|\{\}\)\}\]\)\)/);
+  assert.equal((fn.match(/mergeLook\(/g) || []).length, 3, "邻居、同伴、我三处都走同一个 mergeLook");
+  assert.doesNotMatch(fn, /const merge=/, "别在这儿另写一份 merge");
+  assert.match(game, /\.\.\.Object\.fromEntries\(restoreNeighbors\(data\.neighbors\)\.map\(n=>\[String\(n\.charId\),n\.look\|\|\{\}\]\)\)/);
+  const host = fs.readFileSync('js/fairy-garden.js', 'utf8');
   assert.match(host, /\.\.\.\(\(\(crew && crew\.rows\) \|\| \[\]\)\.map\(n => \[String\(n\.charId\), n\.name\]\)\)/);
   assert.match(host, /onClick: \(\) => \{ pullLook\(\); pullGarden\(\); setDress\(true\); \}/, "开样貌页之前要先有邻居名单");
 });

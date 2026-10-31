@@ -1,5 +1,5 @@
 import * as T from 'three';
-import {makeRecipeFood,disposeFood} from './recipe-food.mjs?v=fg-c485d06c678e8f5c';
+import {makeRecipeFood,disposeFood} from './recipe-food.mjs?v=fg-90b53e2779ab7a1c';
 // One reusable parcel follows the actual hand, using the saved portion.
 export function createLunchCarry(scene){let group=null,key='';function clear(){disposeFood(group);group=null;key='';}
  function update(actor,portions,moving){const dish=portions?.[0],next=dish?.id||'';if(next!==key){clear();key=next;if(dish){group=new T.Group();group.name='PackedLunch';group.userData={dishId:dish.id,recipeId:dish.recipeId};for(const [y,h,c]of [[0,.10,'#b4c29c'],[.065,.025,'#ddd0af']]){const box=new T.Mesh(new T.BoxGeometry(.24,h,.17),new T.MeshStandardMaterial({color:c,roughness:.8}));box.position.y=y;group.add(box);}const food=makeRecipeFood(dish.recipeId,{variation:dish.variation,finish:dish.finish,tabletop:dish.tabletop});if(food){food.scale.setScalar(.30);food.position.y=.032;food.visible=false;group.add(food);}scene.add(group);}}

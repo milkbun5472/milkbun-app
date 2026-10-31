@@ -34,6 +34,9 @@
     // 文档（她 2026-10-19：「不能单独一个放各种文档可以下载复制的吗」——有人传的是一整份给角色的玩法提示词，
     //   哪一类都不是）：一段纯文字，不导进哪里，别人点进去整份看、复制、存成文件
     { key: "doc", zh: "文档", seal: "档", color: "#5d7a8c", hint: "提示词、玩法开局、教程、说明……不导进哪里，别人点进去整份复制或者存成文件" },
+    // 梗与话题（她 2026-10-31，群里许愿「上传聊天梗和聊天话题的地方」）：一条一个梗/话题，一段短字＋可配截图；
+    //   详情里「放进聊天」能勾好几个人，进到那几个人聊天 ＋ 面板的「话题卡」里，点一张填进输入框（只给自己用）
+    { key: "topic", zh: "梗与话题", seal: "梗", color: "#b5654a", hint: "一个聊天梗、一个话题、一句能逗 TA 的话；别人能放进自己的聊天里用" },
     // 留言板（她 2026-10-16：「纯发帖子反馈之类的，给不玩 qq 的人也能反馈」）：只有一段字和截图，没有导入；
     //   不进「全部」那面墙（后端就不给），只在这一格里看
     { key: "post", zh: "留言板", seal: "言", color: "#7a6f62", hint: "想反馈的、想问的、想聊的，写一帖" }
@@ -331,7 +334,7 @@
 
   // ── 放哪儿：全 App，或者某一个人的聊天窗／某一个群／某一个人的线下 ─────
   //   CSS 三处都能放；整套聊天美化只有聊天窗和群（线下没有那一套皮）。
-  function Place({ t, props, busy, slots, onPick, onAll, onCancel }) {
+  function Place({ t, props, busy, slots, onPick, onAll, onCancel, note }) {
     const [tab, setTab] = useState(slots[0]);
     const [sel, setSel] = useState([]);   // 勾上的那几个；换标签就清空，免得人和群混着放
     useEffect(() => { setSel([]); }, [tab]);
@@ -346,7 +349,7 @@
           h(Btn, { t, solid: true, wide: true, disabled: busy, onClick: onAll, wk: "nestplaceall" }, "全 App"),
           h(Btn, { t, disabled: busy, onClick: onCancel }, "先不放")))
       : h(React.Fragment, null,
-        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.fog, marginTop: 4, lineHeight: 1.6 } }, "整套换上，直接生效。不满意在那一页的设置里点「↶ 回到上一版」。"),
+        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.fog, marginTop: 4, lineHeight: 1.6 } }, note || "整套换上，直接生效。不满意在那一页的设置里点「↶ 回到上一版」。"),
         h("div", { style: { marginTop: 10 } }, h(Btn, { t, disabled: busy, onClick: onCancel }, "先不放"))),
       h("div", { "data-wk": "nestplacetabs", style: { marginTop: 14 } },
         h(Cubbies, { t, kind: tab, onPick: setTab, cols: slots.length, flush: true, items: slots.map(k => ({ key: k, zh: zh[k] })) })),
@@ -436,9 +439,15 @@
         const d = await api("/item/" + it.id + "?import=1");
         const done = [];
         for (const x of picks) {
+          if (it.kind === "topic") {
+            if (typeof window.topicCardsPut !== "function") break;
+            const text = String(d.payload || "").trim(), card0 = { id: "nest:" + it.id, title: d.title || "", text, ts: Date.now() };
+            window.topicCardsPut(x.id, l => [card0].concat(l.filter(y => y.id !== card0.id)).slice(0, 60)); done.push(x.name); continue;
+          }
           try { if (it.kind === "css") cssInto(where, x.id, d.payload, d.title, props); else await lookInto(where, x.id, d.payload, props); done.push(x.name); } catch (_) {}
         }
         if (!done.length) throw new Error("一处都没放成");
+        if (it.kind === "topic") { props.toast("放进 " + (done.length === 1 ? "「" + done[0] + "」" : done.length + " 个人") + " 的聊天了：聊天里点 ＋ →「话题卡」，点一张就填进输入框"); setPlacing(false); setBusy(false); return; }
         const what = where === "group" ? "群" : where === "offline" ? "人的线下" : "人的聊天窗";
         props.toast("已放进 " + (done.length === 1 ? "「" + done[0] + "」" : done.length + " 个" + what) + (done.length < picks.length ? "（有 " + (picks.length - done.length) + " 处没放成）" : "") + "，去那儿看看；不满意在那一页的设置里点「↶ 回到上一版」");
         setPlacing(false);
@@ -446,6 +455,7 @@
       setBusy(false);
     };
     const isPost = !!(it && it.kind === "post");
+    const isTopic = !!(it && it.kind === "topic");   // 梗与话题：整段摆出来，「放进聊天」勾几个人
     const isDoc = !!(it && it.kind === "doc");   // 文档：没有「导入」，整份摆出来，复制 + 存成文件
     const doSave = async () => {
       const name = String(it.title || "文档").replace(/[\\/:*?"<>|]/g, "").trim().slice(0, 40) || "文档";
@@ -491,6 +501,12 @@
       requestAppConfirm("先给老师点个心", "这是老师熬夜捏出来的。点一下心再导进来，TA 看得到。",
         async () => { await toggle("like"); doImport(); }, "点心并导入");
     };
+    // 梗与话题也一样先点心（她 2026-10-31「这个梗为啥没有导入点赞」）：点过的直接去勾人
+    const placeWithHeart = () => {
+      if (it.liked) { setPlacing(true); return; }
+      requestAppConfirm("先给老师点个心", "这是老师想出来的梗。点一下心再拿去用，TA 看得到。",
+        async () => { await toggle("like"); setPlacing(true); }, "点心并放进聊天");
+    };
         const doFollow = async () => {
       if (!me) { onLogin(); return; }
       try { await api("/user/" + it.uid + "/follow", { method: follow ? "DELETE" : "POST" }); setFollow(!follow); props.toast(follow ? "不再关注了" : "关注了，她贴新纸条时你会收到小纸条"); }
@@ -499,7 +515,7 @@
     let preview = "";
     if (it) {
       try {
-        if (it.kind === "css" || it.kind === "post" || it.kind === "doc") preview = it.payload;
+        if (it.kind === "css" || it.kind === "post" || it.kind === "doc" || it.kind === "topic") preview = it.payload;
         else {
           const d = JSON.parse(it.payload);
           if (it.kind === "lore") preview = (d.entries || []).map(e => "【" + (e.title || "未命名") + "】" + String(e.payload || "").slice(0, 140)).join("\n\n");
@@ -533,11 +549,14 @@
             h("div", { style: { whiteSpace: "pre-wrap", marginTop: 4 } }, "原因：" + it.returned),
             it.mine ? h("div", { style: { fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.fog, marginTop: 4 } }, "照着改一改，点「编辑」保存，就会重新摆回墙上原来的位置。") : null) : null,
           // 帖子：正文就摆在纸条底下，整段读，不折叠
-          isPost || isDoc ? h("div", { "data-wk": isDoc ? "nestdocbody" : "nestpostbody", style: Object.assign({ marginTop: 14, fontFamily: F_BODY, fontSize: "calc(14.5px * var(--app-fs, 1))", color: t.ink, lineHeight: 1.85,
+          isPost || isDoc || isTopic ? h("div", { "data-wk": isDoc ? "nestdocbody" : isTopic ? "nesttopicbody" : "nestpostbody", style: Object.assign({ marginTop: 14, fontFamily: F_BODY, fontSize: "calc(14.5px * var(--app-fs, 1))", color: t.ink, lineHeight: 1.85,
             whiteSpace: "pre-wrap", wordBreak: "break-word", padding: 16 }, card(t)) }, preview) : null,
           // 动作：导入最大，赞、收藏、复制、删
           h("div", { "data-wk": "nestactions", className: "flex flex-wrap", style: { gap: 8, marginTop: 16 } },
-            isPost ? null : isDoc ? h(Btn, { t, solid: true, wide: true, onClick: doCopy, wk: "nestdoccopy" }, "复制全文")
+            // 不认得的类别（小窝那头新开了一类、这台还没更新）：别硬当成包去导，说一声去更新（她 2026-10-31 截图：梗被当 json 导，报 JSON Parse error）
+            !KIND[it.kind] ? h("div", { "data-wk": "nestunknownkind", className: "flex-1", style: { fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.6, alignSelf: "center" } }, "这一类要更新 app 才能用：把 app 关掉重开一次就好")
+            : isPost ? null : isDoc ? h(Btn, { t, solid: true, wide: true, onClick: doCopy, wk: "nestdoccopy" }, "复制全文")
+              : isTopic ? h(Btn, { t, solid: true, wide: true, disabled: busy, onClick: placeWithHeart, wk: "nesttopicplace" }, it.liked ? "放进聊天" : "点个心并放进聊天")
               : h(Btn, { t, solid: true, wide: true, disabled: busy, onClick: importWithHeart, wk: "nestimport" }, busy ? "……" : it.liked ? "导进我的手机" : "点个心并导入"),
             pill({ on: it.liked, onClick: () => toggle("like"), icon: h(IHeart, { size: 15, color: it.liked ? "#c0717f" : t.ink, filled: it.liked }), txt: it.likes || 0, wk: "nestlike" }),
             pill({ on: it.faved, onClick: () => toggle("fav"), icon: h(IBookmark, { size: 15, color: it.faved ? "#c0717f" : t.ink }), txt: it.faved ? "已收" : "收藏", wk: "nestfav" })),
@@ -556,10 +575,10 @@
           // 她（管理口令）给帖子打标：别人只看得到标记，看不到这一排
           isPost && admin ? h("div", { "data-wk": "nestpostmark", className: "flex", style: { gap: 8, marginTop: 8 } },
             ["got", "fixed", ""].map(st => h(Btn, { key: st || "none", t, solid: (it.status || "") === st, onClick: () => setStatus(st), wk: "nestmark" }, st ? "标「" + STATUS[st].zh + "」" : "不标"))) : null,
-          placing ? h(Place, { t, props, busy, slots: it.kind === "css" ? ["chat", "group", "offline"] : ["chat", "group"],
-            onPick: placeMany, onAll: it.kind === "css" ? doImport : null, onCancel: () => setPlacing(false) }) : null,
+          placing ? h(Place, { t, props, busy, slots: it.kind === "css" ? ["chat", "group", "offline"] : it.kind === "topic" ? ["chat"] : ["chat", "group"],
+            onPick: placeMany, onAll: it.kind === "css" ? doImport : null, note: it.kind === "topic" ? "勾几个人：放进 TA 们聊天 ＋ 面板的「话题卡」里，想用的时候点一张填进输入框，自己改了再发。" : "", onCancel: () => setPlacing(false) }) : null,
           h(Shots, { t, it, props }),
-          preview && !isPost && !isDoc ? h("div", { style: { marginTop: 18 } }, label(t, "里面是什么"),
+          preview && !isPost && !isDoc && !isTopic ? h("div", { style: { marginTop: 18 } }, label(t, "里面是什么"),
             h("div", { "data-wk": "nestpreview", style: Object.assign({ fontFamily: it.kind === "css" ? "ui-monospace,Menlo,monospace" : F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.ink, lineHeight: 1.7,
               whiteSpace: "pre-wrap", wordBreak: "break-word", padding: 14, maxHeight: "46vh", overflowY: "auto" }, card(t)) }, preview.slice(0, 6000))) : null,
           h(Guestbook, { t, item: it, me, props, onUser, onLogin, onCount: n => setIt(x => Object.assign({}, x, { comments: n })) }))));
@@ -1055,7 +1074,7 @@
     const [kind, setKind] = useState(edit ? edit.kind : (initialKind || "theme"));
     const [pick, setPick] = useState({});        // 世界书可多选；其余单选（存 id → true）
     const [file, setFile] = useState(null);       // { payload, title, note, name }：选了文件就用它
-    const [text, setText] = useState(edit && edit.kind === "post" ? String(edit.payload || "") : "");   // 主题 / 美化 / CSS：贴一份；帖子：正文
+    const [text, setText] = useState(edit && (edit.kind === "post" || edit.kind === "topic") ? String(edit.payload || "") : "");   // 主题 / 美化 / CSS：贴一份；帖子：正文
     const [title, setTitle] = useState(edit ? edit.title || "" : ""), [intro, setIntro] = useState(edit ? edit.intro || "" : "");
     const oldShots = edit ? Array.from({ length: edit.pics || 0 }, (_, k) => ({ keep: k, thumb: NEST + "/img/" + edit.id + "/" + k + (edit.edited ? "?v=" + edit.edited : "") })) : [];
     const [shots, setShots] = useState(oldShots);  // [{ full, thumb }]：新压好的 dataURL；改的时候原来那几张是 { keep, thumb: 地址 }
@@ -1111,8 +1130,9 @@
       if (got.length) setShots(x => x.concat(got).slice(0, 3));
     };
     const pasteKind = kind === "theme" || kind === "look" || kind === "css" || kind === "doc";
-    const isPost = kind === "post";
+    const isPost = kind === "post", isTopic = kind === "topic";
     const build = async () => {
+      if (isTopic) { const s = String(text || "").trim(); if (!s) throw new Error("写下这个梗或话题"); return s; }
       if (isPost) { const s = String(text || "").trim(); if (!s) throw new Error("写两句想说的吧"); return s; }
       if (edit && !file && !chosen.length && !String(text || "").trim()) return null;   // 改的时候没碰内容：不发，后端留着原来的
       if (file) return file.payload;
@@ -1135,9 +1155,12 @@
     const send = async () => {
       let payload;
       try { payload = await build(); } catch (e) { props.toast(e.message); return; }
-      if (payload != null && kind !== "post") { try { payload = await shrinkImages(payload); } catch (e) {} }
+      if (payload != null && kind !== "post" && kind !== "topic") { try { payload = await shrinkImages(payload); } catch (e) {} }
       const ip = payload != null ? imgProblem(payload) : ""; if (ip) { props.toast(ip, 8000); return; }
-      if (!title.trim()) { props.toast("起个名字吧"); return; }
+      // 梗不用另起名：没填就拿正文开头那几个字
+      if (isTopic && !title.trim()) setTitle(String(payload || "").replace(/\s+/g, " ").slice(0, 20));
+      const title0 = isTopic && !title.trim() ? String(payload || "").replace(/\s+/g, " ").slice(0, 20) : title;
+      if (!title0.trim()) { props.toast("起个名字吧"); return; }
       setBusy(true);
       if (edit) {
         try {
@@ -1149,14 +1172,14 @@
             else if (f0.keep != null) thumb = await resizeImageFile(await (await fetch(f0.thumb)).blob(), 320, 0.7);   // 原来的第几张挪到了第一：现做一张小图
             else thumb = f0.thumb;
           }
-          const d = await api("/item/" + edit.id, { method: "PUT", body: { title: title.trim(), intro: intro.trim(),
+          const d = await api("/item/" + edit.id, { method: "PUT", body: { title: title0.trim(), intro: intro.trim(),
             payload: payload == null ? undefined : payload,
             images: same ? undefined : shots.map(x => x.keep != null ? { keep: x.keep } : x.full), thumb } });
-          props.toast(edit.returned ? "改好了，重新摆回墙上了" : "改好了"); onDone(edit.id, kind, { returned: "", title: title.trim(), intro: intro.trim(), edited: d.edited, pics: shots.length, thumb: !!shots.length });
+          props.toast(edit.returned ? "改好了，重新摆回墙上了" : "改好了"); onDone(edit.id, kind, { returned: "", title: title0.trim(), intro: intro.trim(), edited: d.edited, pics: shots.length, thumb: !!shots.length });
         } catch (e) { props.toast("没改成：" + e.message); setBusy(false); }
         return;
       }
-      try { const d = await api("/upload", { method: "POST", body: { kind, title: title.trim(), intro: intro.trim(), payload,
+      try { const d = await api("/upload", { method: "POST", body: { kind, title: title0.trim(), intro: intro.trim(), payload,
           images: shots.map(x => x.full), thumb: shots.length ? shots[0].thumb : undefined } }); props.toast("传上去了"); onDone(d.id, kind); }
       catch (e) { props.toast("没传上去：" + e.message); setBusy(false); }
     };
@@ -1178,7 +1201,7 @@
       h("div", { className: "flex-1 min-h-0 overflow-y-auto px-4 pb-6" },
         h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.6, padding: "0 4px 12px" } }, edit ? (isPost ? "标题、正文、截图都能改；底下的留言和赞都留着。" : "名字、简介、截图都能改。内容不想换就别动下面这几格，原来的留着；换了以后，已经导进别人手机的那份不会跟着变，想要新的得再导一次。留言、赞、收藏都留着。") : k.hint + (isPost ? "。大家都看得到，也都能在底下回；署名就是你的小窝昵称，随时能删。" : "。美化里的图（头像框、挂件、背景、图标、贴纸）会压小了一起传；不带记忆和聊天，也不带自己传的字体文件。署名就是你的小窝昵称，随时能删。")),
         // ① 从手机文件选（帖子没有文件）
-        isPost ? null : h("div", { style: Object.assign({ padding: 14 }, card(t)) },
+        isPost || isTopic ? null : h("div", { style: Object.assign({ padding: 14 }, card(t)) },
           h("div", { className: "flex items-center", style: { gap: 10 } },
             h(Seal, { k: kind, size: 32 }),
             h("div", { className: "min-w-0 flex-1" },
@@ -1202,14 +1225,17 @@
         isPost ? h("div", { "data-wk": "nestpostwrite" }, label(t, "想说什么（最多 4000 字）"),
           h("textarea", { "data-wk": "textarea", value: text, maxLength: 4000, rows: 8, placeholder: "哪里不好用、想要什么、遇到了什么，都可以写；配一张截图更好懂",
             onChange: e => setText(e.target.value), className: "w-full outline-none", style: Object.assign({}, inputStyle, { resize: "vertical" }) })) : null,
+        isTopic ? h("div", { "data-wk": "nesttopicwrite" }, label(t, "这个梗 / 话题（最多 1000 字）"),
+          h("textarea", { "data-wk": "textarea", value: text, maxLength: 1000, rows: 6, placeholder: "比如：问 TA「如果我变成一只猫，你还会爱我吗」——看 TA 怎么接",
+            onChange: e => setText(e.target.value), className: "w-full outline-none", style: Object.assign({}, inputStyle, { resize: "vertical" }) })) : null,
         pasteKind ? h("div", { style: { marginTop: 14 } }, label(t, kind === "css" ? "或者直接把 CSS 贴在这儿" : kind === "doc" ? "或者直接把整份内容贴在这儿" : "也可以把导出的那份文件内容整份贴进来"),
           // 上限跟小窝后端那一道同：整份最多 1.6MB（D1 一行 2MB）
           field(text, v => { setText(v); if (v) { setFile(null); setPick({}); } }, kind === "css" ? "[data-wk=\"bubble\"] { … }" : kind === "doc" ? "提示词、开局设定、教程……原样贴" : "{ \"kind\": … }", 1600 * 1024, true)) : null,
         // ③ 名字、简介、署名
-        h("div", { style: { marginTop: 18 } }, label(t, isPost ? "标题" : "名字"), field(title, setTitle, isPost ? "一句话说是什么事" : "别人在列表里看到的名字", 40)),
+        h("div", { style: { marginTop: 18 } }, label(t, isPost ? "标题" : isTopic ? "叫它什么（可不填，不填就用开头几个字）" : "名字"), field(title, setTitle, isPost ? "一句话说是什么事" : isTopic ? "猫猫测试" : "别人在列表里看到的名字", 40)),
         isPost ? null : h("div", { style: { marginTop: 12 } }, label(t, "说两句（可不填）"), field(intro, setIntro, "适合什么、怎么用", 200, true)),
         // ④ 预览截图：别人逛的时候先看个大概再决定要不要
-        h("div", { "data-wk": "nestshotpick", style: { marginTop: 14 } }, label(t, isPost ? "截图（可不放，最多 3 张）" : "预览截图（可不放，最多 3 张；第一张会贴在墙上那张纸条上）"),
+        h("div", { "data-wk": "nestshotpick", style: { marginTop: 14 } }, label(t, isPost ? "截图（可不放，最多 3 张）" : isTopic ? "截图（可不放：比如你家 TA 是怎么接的）" : "预览截图（可不放，最多 3 张；第一张会贴在墙上那张纸条上）"),
           h("div", { className: "flex flex-wrap", style: { gap: 10 } },
             shots.map((x, k) => h("div", { "data-wk": "block", key: k, style: { position: "relative", padding: "4px 4px 12px", background: "#fff", boxShadow: "0 2px 6px -3px rgba(0,0,0,.35)" } },
               h("img", { src: x.thumb, alt: "", style: { display: "block", width: 76, height: 100, objectFit: "cover" } }),
