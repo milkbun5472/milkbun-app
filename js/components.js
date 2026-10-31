@@ -11189,6 +11189,7 @@ function ChatThread({
   const [descView, setDescView] = useState(null);
   const [transferOpen, setTransferOpen] = useState(false);
   const [geoOpen, setGeoOpen] = useState(false);
+  const [topicsOpen, setTopicsOpen] = useState(null);   // 话题卡那一页：开着时是这一叠
   const [cardPick, setCardPick] = useState(false);   // 推荐名片：选谁
   const [stickerOpen, setStickerOpen] = useState(false);
   const [stickAt, setStickAt] = useState(null);   // 双击了哪一条TA的气泡，要往上贴表情
@@ -11275,7 +11276,7 @@ function ChatThread({
     });
     return out.slice(0, 5);
   }, [messages]);
-  const PANEL = [["location", "位置", "pin"], ["sticker", "表情包", "sticker"], ["photo", "照片", "picture"], ["voicemsg", "发语音", "wave"], ["voice", "语音通话", "handset"], ["video", "视频通话", "camcorder"], ["calllog", "通话记录", "clock"], ["chatsearch", "查找记录", "magnifier"], ["moments", "朋友圈", "grid"], ["transfer", "转账", "bill"], ["packet", "红包", "packet"], ["ask", "请示", "checklist"], ["mykin", "亲属卡", "card"], ["pat", "拍一拍", "hand"], ["namecard", "名片", "contact"], ["peekphone", "给TA看手机", "mobile"], ["dateinvite", "邀约", "invite"], ["file", "文件", "file"], ["halfwin", "半窗", "halfwin"]].filter(([key]) => key !== "halfwin" || !!onHalfWin).filter(([key]) => room && !room.main ? !["moments", "transfer", "packet", "ask", "mykin", "peekphone", "dateinvite"].includes(key) : true).filter(([key]) => key !== "ask" || !!onSendAsk).filter(([key]) => key !== "mykin" || !!onMyKin).filter(([key]) => key !== "dateinvite" || !!onDateInvite).filter(([key]) => key !== "peekphone" || !!onHandPhone);
+  const PANEL = [["location", "位置", "pin"], ["sticker", "表情包", "sticker"], ["photo", "照片", "picture"], ["voicemsg", "发语音", "wave"], ["voice", "语音通话", "handset"], ["video", "视频通话", "camcorder"], ["calllog", "通话记录", "clock"], ["chatsearch", "查找记录", "magnifier"], ["moments", "朋友圈", "grid"], ["transfer", "转账", "bill"], ["packet", "红包", "packet"], ["ask", "请示", "checklist"], ["mykin", "亲属卡", "card"], ["pat", "拍一拍", "hand"], ["namecard", "名片", "contact"], ["peekphone", "给TA看手机", "mobile"], ["dateinvite", "邀约", "invite"], ["file", "文件", "file"], ["halfwin", "半窗", "halfwin"], ["topics", "话题卡", "quote"]].filter(([key]) => key !== "halfwin" || !!onHalfWin).filter(([key]) => key !== "topics" || (!!character && topicCardsOf(character.id).length > 0)).filter(([key]) => room && !room.main ? !["moments", "transfer", "packet", "ask", "mykin", "peekphone", "dateinvite"].includes(key) : true).filter(([key]) => key !== "ask" || !!onSendAsk).filter(([key]) => key !== "mykin" || !!onMyKin).filter(([key]) => key !== "dateinvite" || !!onDateInvite).filter(([key]) => key !== "peekphone" || !!onHandPhone);
   const sendRich = msg => {
     onSendRich({
       ts: Date.now(),
@@ -11309,6 +11310,9 @@ function ChatThread({
     } else if (k === "halfwin") {
       setPanelOpen(false);
       onHalfWin && onHalfWin();
+    } else if (k === "topics") {
+      setPanelOpen(false);
+      setTopicsOpen(topicCardsOf(character.id));
     } else if (k === "voice" || k === "video") {
       setPanelOpen(false);
       onStartCall && onStartCall(k);
@@ -12522,7 +12526,17 @@ function ChatThread({
       onSendTransfer(amount, note, transferOpen === "packet");
       setTransferOpen(false);
     }
-  , packet: transferOpen === "packet" }), geoOpen && h(GeoStampSheet, {
+  , packet: transferOpen === "packet" }), topicsOpen && h(PageSheet, { zh: "话题卡", sub: "点一张填进输入框，改好了再发", onClose: () => setTopicsOpen(null) },
+    h("div", { "data-wk": "topiccards", style: { padding: "4px 16px 24px" } },
+      topicsOpen.length ? topicsOpen.map(x => h("div", { key: x.id, "data-wk": "topiccard", className: "flex items-start", style: { gap: 8, padding: "12px 0", borderBottom: "1px solid " + t.line } },
+        h("button", { onClick: () => { setTopicsOpen(null); window.dispatchEvent(new CustomEvent("qq-draft-fill", { detail: { key: "chat:" + character.id, text: x.text } })); },
+          className: "flex-1 min-w-0 active:opacity-60", style: { textAlign: "left" } },
+          x.title && x.title !== x.text ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog, marginBottom: 3 } }, x.title) : null,
+          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(14.5px * var(--app-fs, 1))", color: t.ink, lineHeight: 1.65, whiteSpace: "pre-wrap", wordBreak: "break-word" } }, x.text)),
+        h("button", { "aria-label": "从这一叠拿掉", "data-wk": "topiccarddel", onClick: () => setTopicsOpen(topicCardsPut(character.id, l => l.filter(y => y.id !== x.id))),
+          className: "shrink-0 active:opacity-60 flex items-center justify-center", style: { width: 40, height: 40, color: t.fog, fontSize: "calc(18px * var(--app-fs, 1))" } }, "×")))
+        : h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.fog, padding: "24px 0" } }, "这一叠空了。去小窝「梗与话题」挑几张放进来。"))),
+    geoOpen && h(GeoStampSheet, {
     recent: geoRecent,
     places: invitePlaces || [],
     onMoveMe: onSetMyPlace || null,
@@ -16509,6 +16523,11 @@ function fitTextarea(el, maxH) {
 // ⚠️不放 localStorage（她 2026-10-15 实测：打字→左上角返回→再进来就没了）：小仓库快满的手机上
 //   setItem 会悄悄失败，草稿根本没存住。现在先记在内存里（这一趟进进出出一定在），
 //   再攒一下写进 x_drafts（大仓库 IDB），关了 app 再开也在。
+// 话题卡（她 2026-10-31，群里许愿「上传聊天梗和聊天话题的地方」）：从小窝「梗与话题」放进某个人的聊天，
+//   一人一叠，存 x_topicCards（跟着云同步走）。只给你自己用：点一张填进输入框，你改了再发；不进 TA 的提示词。
+const topicCardsOf = id => { try { const m = loadJSON("x_topicCards", {}); return Array.isArray(m && m[id]) ? m[id] : []; } catch (e) { return []; } };
+const topicCardsPut = (id, fn) => { const m = loadJSON("x_topicCards", {}) || {}; const next = fn(Array.isArray(m[id]) ? m[id] : []); if (next.length) m[id] = next; else delete m[id]; saveJSON("x_topicCards", m); return next; };
+window.topicCardsOf = topicCardsOf; window.topicCardsPut = topicCardsPut;
 const DRAFTS = (() => { let m = null; return () => { if (!m) { m = {}; try { const v = loadJSON("x_drafts", {}); if (v && typeof v === "object") m = v; } catch (e) {} } return m; }; })();
 let draftSaveT = 0;
 const draftGet = k => (k && DRAFTS()[k]) || "";
@@ -16525,6 +16544,14 @@ function DraftInput({ placeholder, inputStyle, inputProps, onSubmit, after, keep
   // 同一个框换了对话（单聊里直接切人）：换成那个对话自己的草稿
   const lastKey = useRef(keepKey);
   useEffect(() => { if (lastKey.current === keepKey) return; lastKey.current = keepKey; setDraftRaw(draftGet(keepKey)); }, [keepKey]);
+  // 别处往这个框里填一句（话题卡，她 2026-10-31）：只填不发，接在原来打了一半的字后面
+  useEffect(() => {
+    if (!keepKey) return;
+    const on = e => { const d = e && e.detail; if (!d || d.key !== keepKey || !d.text) return;
+      const cur = draftGet(keepKey); setDraft(cur ? cur + (/\s$/.test(cur) ? "" : " ") + d.text : d.text);
+      setTimeout(() => { try { ref.current && ref.current.focus({ preventScroll: true }); } catch (e2) {} }, 60); };
+    window.addEventListener("qq-draft-fill", on); return () => window.removeEventListener("qq-draft-fill", on);
+  }, [keepKey]);
   const ref = useRef(null);
   // ⚠️量高度不许动真框（群里 2026-10-09 报：「一直反反复复弹上去弹下来」「修改对话很难」）：
   //   原来每打一个字都先把真框设成 auto 缩回一行再量，iOS 看见输入框忽高忽低，

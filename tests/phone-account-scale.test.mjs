@@ -3,7 +3,8 @@ import { readFileSync } from "node:fs"; import assert from "node:assert/strict";
 const r = f => readFileSync(new URL("../js/" + f, import.meta.url), "utf8");
 const eng = r("engine.js"), phone = r("phone.js"), app = r("app.js"), ui = r("screens-ui.js");
 assert.match(eng, /const ACCOUNT_SCALE_RULE = /);
-assert.equal((phone.match(/ACCOUNT_SCALE_RULE \+/g) || []).length, 2);
+// 2026-10-31：查手机那两处写成没加载 engine 时退成空字符串（测试沙盒里 phone.js 是单独跑的）
+assert.equal((phone.match(/\(typeof ACCOUNT_SCALE_RULE === "string" \? ACCOUNT_SCALE_RULE : ""\) \+/g) || []).length, 2);
 assert.match(app, /ACCOUNT_SCALE_RULE \+ FORUM_ALT_NAME_RULE/);
 for (const s of [phone, app]) assert.ok(!/\\"(followers|fans|following|altFollowers)\\":\d/.test(s));
 const ctx = {}; vm.createContext(ctx); vm.runInContext(eng.match(/function accountCount[\s\S]*?\n}\n/)[0], ctx);

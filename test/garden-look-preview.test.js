@@ -27,7 +27,8 @@ test("窗的高度和游戏那边渲的那条带子是同一个数", () => {
 test("预览用的还是同一个 createTraveler、同一份 doll.glb", () => {
   assert.match(game, /previewDolls\[who\]=d;/);
   assert.match(game, /createTraveler\(dollSource,who!=='me'\)/);
-  assert.match(game, /if\(previewDolls\[who\]\)previewDolls\[who\]\.setLook\(look\)/,
+// 2026-10-31 v88.80x：换样貌收进 wardrobe.mjs（createWardrobe／mergeLook 一份），applyLook 改成就地 mergeLook 再 save，存不上就退回
+  assert.match(game, /previewDolls\[who\]\?\.setLook\(look\)/,
     "拖滑杆的时候窗里那个要跟着一起变");
 });
 
