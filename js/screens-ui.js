@@ -3790,7 +3790,7 @@ function Shop({ goodsImgOf, onDrawGoods, drawingGoods, onSetCartQty, payAs, init
         : cartItems.map((it, ci) => {
             const on = sel.includes(it.uid);
             const c = shopTone(it, ci);
-            return h("div", { "data-wk": "shopcartrow", key: it.uid, className: "flex items-center gap-3", style: { background: MSHOP.card, borderRadius: 11, padding: "11px 12px", marginBottom: 9, boxShadow: "0 1px 3px rgba(0,0,0,.05)" } },
+            return h("div", { "data-wk": "shopcartrow", key: it.uid, className: "flex items-center gap-3", style: { position: "relative", background: MSHOP.card, borderRadius: 11, padding: "11px 30px 11px 12px", marginBottom: 9, boxShadow: "0 1px 3px rgba(0,0,0,.05)" } },
               h("button", { "data-wk": "shopcartcheck", onClick: () => toggleSel(it.uid), "aria-label": "选中", className: "shrink-0 active:opacity-60", style: { width: 21, height: 21, borderRadius: 999, border: "1.5px solid " + (on ? MSHOP.orange : "#d6d6de"), background: on ? MSHOP.orange : "transparent", display: "flex", alignItems: "center", justifyContent: "center" } }, on ? h(ICheck, { size: 12, color: "#fff" }) : null),
               // 缩略图位：和商品流那边同一套品类色，一眼认得出是同一件东西
               // 点缩略图／名字进详情（群友 2026-10-09：加了购物车、首页又刷掉了，就再也发不了给角色）
@@ -3799,16 +3799,21 @@ function Shop({ goodsImgOf, onDrawGoods, drawingGoods, onSetCartQty, payAs, init
               h("div", { className: "flex-1 min-w-0", onClick: () => setDetail(Object.assign({}, it, { _fromCart: true })), role: "button" },
                 h("div", { "data-wk": "shopcartname", style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: MSHOP.ink, lineHeight: 1.4, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" } }, it.name),
                 h("div", { className: "flex items-center justify-between", style: { gap: 8, marginTop: 4 } },
-                  h("div", { "data-wk": "shopcartprice", style: { fontFamily: F_DISPLAY, fontSize: "calc(16px * var(--app-fs, 1))", fontWeight: 700, color: MSHOP.price } }, "¥" + it.price),
+                  // 价格跟着件数走（群友 2026-10-31：「价格也不会跟着变」）：大字是这一行一共多少，买好几件时底下小字写单价
+                  h("div", { "data-wk": "shopcartprice", className: "min-w-0" },
+                    h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(16px * var(--app-fs, 1))", fontWeight: 700, color: MSHOP.price, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, "¥" + (Math.round((Number(it.price) || 0) * qtyOf(it) * 100) / 100)),
+                    qtyOf(it) > 1 ? h("div", { "data-wk": "shopcartunit", style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: MSHOP.dim } }, "单价 ¥" + it.price) : null),
                   // 件数：跟淘宝一样，一件也摆着 −1+，中间那格能直接打数字
                   h("div", { "data-wk": "shopcartqty", className: "flex items-center shrink-0", onClick: e => e.stopPropagation(), style: { border: "1px solid " + MSHOP.line, borderRadius: 7, overflow: "hidden" } },
                     h("button", { "data-wk": "shopcartqtybtn", "data-part": "minus", disabled: qtyOf(it) <= 1, onClick: () => onSetCartQty && onSetCartQty(it.uid, qtyOf(it) - 1), "aria-label": "少一件", className: "active:opacity-60", style: { width: 30, height: 28, color: qtyOf(it) <= 1 ? MSHOP.dim : MSHOP.ink, fontSize: 15, opacity: qtyOf(it) <= 1 ? .45 : 1 } }, "−"),
                     h("input", { "data-wk": "shopcartqtyinput", type: "text", inputMode: "numeric", value: qtyDraft[it.uid] != null ? qtyDraft[it.uid] : String(qtyOf(it)),
-                      onChange: e => { const v = e.target.value.replace(/[^0-9]/g, "").slice(0, 3); setQtyDraft(p => ({ ...p, [it.uid]: v })); if (v && Number(v) >= 1 && onSetCartQty) onSetCartQty(it.uid, Number(v)); },
+                      onChange: e => { const v = e.target.value.replace(/[^0-9]/g, "").slice(0, 7); setQtyDraft(p => ({ ...p, [it.uid]: v })); if (v && Number(v) >= 1 && onSetCartQty) onSetCartQty(it.uid, Number(v)); },
                       onBlur: () => setQtyDraft(p => { const n = { ...p }; delete n[it.uid]; return n; }),
-                      style: { width: 38, height: 28, textAlign: "center", border: "none", borderLeft: "1px solid " + MSHOP.line, borderRight: "1px solid " + MSHOP.line, background: "transparent", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: MSHOP.ink, outline: "none" } }),
+                      style: { width: Math.max(38, 14 + 9 * String(qtyDraft[it.uid] != null ? qtyDraft[it.uid] : qtyOf(it)).length), height: 28, textAlign: "center", border: "none", borderLeft: "1px solid " + MSHOP.line, borderRight: "1px solid " + MSHOP.line, background: "transparent", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: MSHOP.ink, outline: "none" } }),
                     h("button", { "data-wk": "shopcartqtybtn", "data-part": "plus", onClick: () => onSetCartQty && onSetCartQty(it.uid, qtyOf(it) + 1), "aria-label": "多一件", className: "active:opacity-60", style: { width: 30, height: 28, color: MSHOP.ink, fontSize: 15 } }, "+")))),
-              h("button", { "data-wk": "shopcartdel", onClick: () => { onRemoveCart(it.uid); setSel(p => p.filter(x => x !== it.uid)); }, "aria-label": "删除", className: "shrink-0 active:opacity-50 p-1" }, h(ITrash, { size: 16, color: MSHOP.dim })));
+              // 垃圾桶挂右上角（群友 2026-10-31）：原来夹在件数后面，跟 + 挨着容易点错
+              h("button", { "data-wk": "shopcartdel", onClick: () => { onRemoveCart(it.uid); setSel(p => p.filter(x => x !== it.uid)); }, "aria-label": "删除", className: "active:opacity-50 flex items-center justify-center",
+                style: { position: "absolute", top: 0, right: 0, width: 40, height: 40 } }, h(ITrash, { size: 15, color: MSHOP.dim })));
           })),
     cartItems.length > 0 && h("div", { "data-wk": "shopcartbar", className: "shrink-0 px-4 py-2.5 flex items-center gap-3", style: { background: MSHOP.card, borderTop: "1px solid " + MSHOP.line } },
       h("button", { "data-wk": "shopcartall", "data-on": sel.length === cartItems.length && cartItems.length ? "1" : "0", onClick: () => setSel(sel.length === cartItems.length ? [] : cartItems.map(x => x.uid)), className: "active:opacity-60 flex items-center gap-2" },
@@ -4251,6 +4256,7 @@ function Takeout({ goodsImgOf, onDrawGoods, drawingGoods, payAs, wallet, orders,
   const [slot, setSlot] = useState(() => takeoutSlotAt(new Date().getHours()));
   const [search, setSearch] = useState("");
   const [shop, setShop] = useState(null);     // 点进去的那家店
+  const [descOpen, setDescOpen] = useState({});   // 点开看全的那几道菜的介绍（群友 2026-10-31）
   const [qty, setQty] = useState({});         // {dishUid: 份数}，只属于当前这家店
   const [pay, setPay] = useState(false);      // 结账页
   const [payMode, setPayMode] = useState(null);
@@ -4411,7 +4417,9 @@ function Takeout({ goodsImgOf, onDrawGoods, drawingGoods, payAs, wallet, orders,
                 c.word && !(goodsImgOf && goodsImgOf(x.name)) ? h("div", { "data-wk": "tkodishword", style: { position: "absolute", right: 5, bottom: 5, padding: "1px 6px", borderRadius: 999, background: "rgba(255,255,255,.82)", fontFamily: F_BODY, fontSize: "calc(9.5px * var(--app-fs, 1))", color: c.ink } }, c.word) : null),
               h("div", { className: "flex-1 min-w-0 flex flex-col" },
                 h("div", { "data-wk": "tkodishname", style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", fontWeight: 600, color: MTAKE.ink, lineHeight: 1.35, wordBreak: "break-word" } }, x.name),
-                x.desc ? h("div", { "data-wk": "tkodishdesc", style: { marginTop: 4 } }, tag(x.desc)) : null,
+                // 菜的介绍会换行、最多两行（群友 2026-10-31「太长了」）：原来套的是不换行的小标签，一长就把整张卡撑出屏幕
+                x.desc ? h("div", { "data-wk": "tkodishdesc", "data-open": descOpen[x.uid] ? "1" : "0", role: "button", onClick: () => setDescOpen(o => ({ ...o, [x.uid]: !o[x.uid] })), className: "active:opacity-70", style: { marginTop: 4, maxWidth: "100%", cursor: "pointer" } },
+                  h("span", { "data-wk": "tkotag", style: { display: descOpen[x.uid] ? "block" : "-webkit-box", WebkitLineClamp: descOpen[x.uid] ? "unset" : 2, WebkitBoxOrient: "vertical", overflow: "hidden", padding: "1.5px 6px", fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", lineHeight: 1.5, color: "#9a6a00", background: MTAKE.soft, borderRadius: 3, wordBreak: "break-word" } }, x.desc)) : null,
                 h("div", { className: "flex items-end justify-between", style: { marginTop: "auto", paddingTop: 6 } },
                   takeoutPrice(x.price, 19),
                   h("div", { className: "flex items-center", style: { gap: 8 } },
@@ -7570,6 +7578,8 @@ function ApiConfig({
       const nextCur = curId === source.id ? nl[0].id : curId;
       const nextActive = activeId === source.id ? nl[0].id : activeId;
       if (await onSave(tidy(nl), nextActive) === false) return;
+      // 记下删过的 id：开机哪份旧副本把它带回来都拿掉（app.js 读线路那一处）。礼物卡开机本来就会装回去，不记
+      if (!source.gift) { try { const g = JSON.parse(localStorage.getItem("qq_apiGone") || "[]"); if (g.indexOf(source.id) < 0) localStorage.setItem("qq_apiGone", JSON.stringify(g.concat([source.id]).slice(-200))); } catch (e) {} }
       setList(nl); setCurId(nextCur); if (editing && curId === source.id) setEditing(false);
     }, "删除");
   };
@@ -10634,7 +10644,7 @@ function MemCfgSheet({ cfg, onSave, onClose, onPurgeWithered, witheredCount, onD
     slider("短期窗覆盖天数", c.recentDays || 3, 1, 7, 1, " 天", v => set({ recentDays: v }), "最近这些天说的话一定带进上下文（消死区，不忘最近几天）。"),
     // 上限从 16000 放开到 60000（她 2026-09-17 要的）：拉到 16000 那会儿，
     // 线下那份还被一个写死的 3000 卡着，「线下回看几拍」调大了也带不进来。
-    slider("短期窗字符预算", c.recentBudget || 8000, 3000, 60000, 1000, " 字", v => set({ recentBudget: v }), "上面那些原文最多带这么多字进上下文——长消息少带几条、短消息多带几条。调大记得更全、更费；调小更省。超出的老内容由自动抽取+摘要兜底。线下描写最多占走这里的三成（所以这根拉大了，线下才带得远）。"),
+    slider("短期窗字符预算", c.recentBudget || 8000, 3000, 60000, 1000, " 字", v => set({ recentBudget: v }), "上面那些原文最多带这么多字进上下文——长消息少带几条、短消息多带几条。调大记得更全、更费、更慢（单聊回复最少带 1.4 万字的聊天，拉过这个数才多带；条数看各人聊天设置里的「记忆上下文条数」）。超出的老内容由自动抽取+摘要兜底。线下描写最多占走这里的三成（所以这根拉大了，线下才带得远）。"),
     slider("跨情境回看时间窗", c.crossHours != null ? c.crossHours : 72, 12, 336, 12, " 小时", v => set({ crossHours: v }), "四个情境（单聊线上/线下·群聊线上/线下）互相衔接时，往回看多久内在别处发生的事。调大接得上更早的细节、更费；调小只带最近的。上限 14 天。"),
     slider("跨情境每段字符预算", c.crossBudget != null ? c.crossBudget : 800, 200, 3000, 100, " 字", v => set({ crossBudget: v }), "上面那些跨情境的近况，每一段最多带这么多字。按次收费尽管拉大——衔接更全、输出不额外收费；想省再调小。"),
     // 线下那半（她 2026-09-13：「50、3 天都是设置可以改的，但是 40 是钉死的」）。

@@ -241,6 +241,19 @@ function phoneTimeline(charData, live, nowTs) {
 // 一个月俸微薄的小官照样下单六百八十文的袍子，两边说的不是同一个人。
 // 这一块只是把钱包那份【读过来】发给它们，不生成任何东西。
 const PHONE_MONEY_KEYS = ["shopping", "takeout"];
+// 别的 app 也得知道TA现在的钱（群友 2026-10-31：人设穷学生，她转了 200 万，翻他手机还在哭穷；她：「有钱角色转了钱破产了也要反应出来」）：
+//   人设写的是TA的底子，钱这件事以眼下的数为准。只给数和判据，不替TA决定怎么面对——穷人暴富、富人破产、这个月花超了，同一句话都管得到。
+function phoneMoneyNowBlock(appKey, money) {
+  if (PHONE_MONEY_KEYS.indexOf(appKey) >= 0 || appKey === "wallet" || !money) return "";
+  const n = v => (v == null || !isFinite(Number(v))) ? null : Math.round(Number(v));
+  const bits = [];
+  if (n(money.balance) != null) bits.push("手头（可动用）约 " + n(money.balance) + (n(money.balance) < 0 ? "（已经透支）" : ""));
+  if (n(money.monthlyIncome)) bits.push("每月进账约 " + n(money.monthlyIncome));
+  if (!bits.length) return "";
+  return "\n\n【TA现在的钱】" + bits.join("；") + "。人设写的是TA原本的底子；钱这件事以眼下这个数为准。"
+    + "跟人设里的处境对不上的时候（多出一大笔、或者钱没了、或者比平时紧），手机里的东西照TA现在的处境来写，"
+    + "TA怎么面对这个落差、在意不在意、跟谁说不跟谁说，看TA这个人。";
+}
 function phoneMoneyBlock(appKey, money) {
   if (PHONE_MONEY_KEYS.indexOf(appKey) < 0 || !money) return "";
   const n = v => (v == null || !isFinite(Number(v))) ? null : Math.round(Number(v));
@@ -1896,8 +1909,9 @@ function phoneProbeSpec(key, char, rel, actualWechat, avoidLines, known, money, 
         + characterText(char, "inbox 收件箱 **8-12 封**：from（谁发的）、fromAddr、subject（主题）、time、kind（这封属于哪一类）、unread（true/false）、preview（列表里露出来的那一截）、body（正文，3-6 句，写成那类邮件真正的样子）、thought（他看完心里那句，一句，可空——大多数邮件他心里什么都没有，那就留空）。\n")
         + characterText(char, "sent 发出去的 **3-5 封**：to、subject、time、body（他写的正文）。\n")
         + characterText(char, "drafts 草稿 **1-3 封**：to、subject、body、savedAt（存了多久）——**草稿是这个 app 最有东西的一栏**：写了没发的那封，通常是他不敢发或者不知道怎么措辞的。\n\n")
-        + characterText(char, "【这一栏的全部意义是【落差】】邮件里的他是【对陌生人和上级说话】的样子：客气、绕、留余地、把话说死之前先铺三层。")
-        + characterText(char, "**这个腔调和他私下说话的差距，就是这个 app 要给出来的东西**——同一个人，一边是邮件里那套滴水不漏的说法，一边是他在便签里骂的那句。\n")
+        // 腔调不定死（她 2026-10-31：「邮件感觉有点正式」）：原来写死「客气、绕、滴水不漏」，什么人设都被拉成同一种公文腔
+        + characterText(char, "【邮件里是他对外的那一面】对外是什么样，看他这个人：有的人在这儿装得滴水不漏，有的人连正事都写得短、直、带着脾气，有的人根本懒得写。")
+        + characterText(char, "跟他私下说话差得多，就把这个落差写出来；差不多，就照他平时的样子写，别为了显得正式硬套一层公文腔。\n")
         + characterText(char, "【收件箱要杂】不是每封都重要：该有正事、有账单、有他懒得退订的推送、有群发的、有一封他一直没回的。**一直没回的那封最说明人。**\n")
         + "【不要和微信撞车】微信是熟人和随口，这儿是正式的往来。同一件事不要在两处各写一遍。",
       schemaHint: characterText(char, "{\"me\":{\"addr\":\"他的邮箱地址\",\"name\":\"发件人显示名\",\"sign\":\"签名档\"},\"inbox\":[{\"from\":\"谁发的\",\"fromAddr\":\"地址\",\"subject\":\"主题\",\"time\":\"今天 09:12\",\"kind\":\"哪一类\",\"unread\":true,\"preview\":\"列表里那一截\",\"body\":\"正文\",\"thought\":\"他心里那句\"}],\"sent\":[{\"to\":\"寄给谁\",\"subject\":\"主题\",\"time\":\"昨天 18:40\",\"body\":\"正文\"}],\"drafts\":[{\"to\":\"本来要寄给谁\",\"subject\":\"主题\",\"body\":\"正文\",\"savedAt\":\"存了多久\"}],\"retired\":{\"drafts\":[\"发出去或删掉的草稿主题\"]}}")
@@ -1924,7 +1938,8 @@ function phoneProbeSpec(key, char, rel, actualWechat, avoidLines, known, money, 
         + characterText(char, "   ⚠️theirs 那几条**不是他在讨债**——写成他自己惦记着的一件还没完的事，主语是他的在意，不是对方的亏欠。写成指责就是写坏了。三种都要有，别一边倒。\n")
         + characterText(char, "② policies（2-4 条）他给某个人兜的底，**写成保险条款那种腔调**：who 承保的是谁、name 险种名、scope 一句承保范围、terms 理赔条件（写成对方要做到什么，那句话里要看得出他的脾气）、clause 一句正文条款（承保人负责做什么）。\n")
         + characterText(char, "   条款体的用处是**逼他把说不出口的东西写成义务**——一个不肯说软话的人，在条款里反而什么都答应了。这层落差是这一栏的全部意义。")
-        + "兜底不等于情话：可以是护着一个晚辈、担着一个同伙的烂摊子、也可以是给自己留的那一条。\n"
+        + "兜底不等于情话：可以是护着一个晚辈、担着一个同伙的烂摊子、也可以是给自己留的那一条。\n"        // 她 2026-10-31：「为啥那么多命都给你」——上面那句「什么都答应了」把它往最大的承诺上推
+        + characterText(char, "   条款写的是他真会做到、也做得到的那一件事，具体到哪件事、做到哪一步；拿最大的词去撑分量的条款，换谁都写得出来，就是写坏了。\n")
         + characterText(char, "③ statements（4-6 条）他盖过章的定论，每条一句他会亲口说出来的话。who 这句是冲谁去的、text 那句话本身、heat 这句话的温度（一个字或两个字，从这句话的力道来定，别都用同一个）、")
         + characterText(char, "truth 这句话底下真正的意思——**他嘴上这么说，心里其实是什么**。\n")
         + characterText(char, "   ⚠️truth 不是把 text 换个说法再讲一遍，也不是替他解释这句话什么意思。它要说的是【那句话没说出来的那一半】：")
@@ -1960,7 +1975,7 @@ function phoneProbeSpec(key, char, rel, actualWechat, avoidLines, known, money, 
   // ⚠️不是「四处一样喂」的例外——那条讲的是同一层能力要在四个场合都给到；
   // 这一段是账本这一栏专属的取材facts，别的 app 本来就不看。
   const bondBlock = (key === "tally" && bond) ? bond : "";
-  const _full = spec.instruction + phoneOwnOnlyBlock(char.name) + bondBlock + angle + PHONE_WORLD_RULE + phoneMoneyBlock(key, money) + phoneIdentityBlock(key, known) + phoneEvolveBlock(key, known) + phoneRosterBlock(key, known) + phoneWatchDraftBlock(key, known) + phoneSelfAvoidBlock(key, known) + phoneQuoteAvoidBlock(key, known) + phoneAvoidBlock(avoidLines) + phoneLangBlock(lang) + (weekly ? PHONE_WEEKLY_HINT : "");
+  const _full = spec.instruction + phoneOwnOnlyBlock(char.name) + bondBlock + angle + PHONE_WORLD_RULE + phoneMoneyBlock(key, money) + phoneMoneyNowBlock(key, money) + phoneIdentityBlock(key, known) + phoneEvolveBlock(key, known) + phoneRosterBlock(key, known) + phoneWatchDraftBlock(key, known) + phoneSelfAvoidBlock(key, known) + phoneQuoteAvoidBlock(key, known) + phoneAvoidBlock(avoidLines) + phoneLangBlock(lang) + (weekly ? PHONE_WEEKLY_HINT : "");
   return { ...spec, maxTokens: PHONE_OUT_CEILING, instruction: _full };
 }
 // 纯函数导出给 node --test；浏览器里没有 module，原样跳过

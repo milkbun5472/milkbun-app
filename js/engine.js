@@ -7049,6 +7049,8 @@ async function hydrateTxtVault() {
     //   镜像会被上云和导出整份带走（cloud.js 那一处 forEach），放进去等于把旧副本也推上去。
     for (const [k, v] of entries) {
       if (!k || v == null || String(k).indexOf("x_lsjournal_rescue:") === 0 || _txtEarlyWrites.has(k)) continue;
+      // 聊天变短时留的那份：只躺在 IDB，不进镜像（不导出、不上云）；过了 14 天就清掉
+      if (String(k).indexOf("x_shrinkBak:") === 0) { const m = /^\{"at":(\d+)/.exec(String(v)); if (!m || Date.now() - Number(m[1]) > SHRINK_KEEP_MS) idbTxtDel(k).catch(() => {}); continue; }
       if (isIdbTextKey(k)) { mir.set(k, v); continue; }
       // 钉回小仓库的键（LS_ONLY_KEYS / lsPin）：IDB 里那份原样搬回 localStorage，读回一致才删 IDB。
       //   localStorage 已经有一份的，以它为准（开机前读写的就是它），IDB 那份不动、也不进镜像。
@@ -7127,22 +7129,56 @@ async function imgToVault(dataUrl) { if (!dataUrl || typeof dataUrl !== "string"
 // 渲染用：iv_ 键 -> objectURL（缓存里没有就返回空串，图不显示但不崩）；其它（base64/http/空）原样返回。向后兼容旧存档。
 // 保存原图(2026-08-21 她抓的产品缺陷:原图在 IDB 里是无损的,却只能截屏翻拍)
 // ref 可以是 iv_/img_ 键或 dataURL;取出 Blob 触发下载,文件名带日期。
-async function saveImgOriginal(ref, name) {
-  let blob = null;
+async function _imgBlobOf(ref) {
   try {
-    if (typeof ref === "string" && ref.indexOf("iv_") === 0) blob = await imgVaultFetchBlob(ref);
-    else if (typeof ref === "string" && ref.indexOf("img_") === 0) blob = await idbImgGet(ref);
-    else if (typeof ref === "string" && ref.slice(0, 5) === "data:") blob = dataUrlToBlob(ref);
+    if (typeof ref === "string" && ref.indexOf("iv_") === 0) return await imgVaultFetchBlob(ref);
+    if (typeof ref === "string" && ref.indexOf("img_") === 0) return await idbImgGet(ref);
+    if (typeof ref === "string" && ref.slice(0, 5) === "data:") return dataUrlToBlob(ref);
     // 网址的也认（小窝的预览图是后端地址，2026-10-16「小窝上传的图片能不能也保存」）：拉下来再走同一条存法
-    else if (typeof ref === "string" && /^(https?:|blob:)/.test(ref)) { const r = await fetch(ref); if (r.ok) blob = await r.blob(); }
+    if (typeof ref === "string" && /^(https?:|blob:)/.test(ref)) { const r = await fetch(ref); if (r.ok) return await r.blob(); }
   } catch (e) {}
-  if (!blob) return false;
-  const ext = (blob.type || "").indexOf("png") >= 0 ? "png" : ((blob.type || "").indexOf("webp") >= 0 ? "webp" : "jpg");
-  // 跟存文本走同一条路：iOS 的 PWA 里 <a download> 点了什么都不会发生，得先给分享面板
-  const fname = (name || "图片") + "-" + new Date().toISOString().slice(0, 10) + "." + ext;
-  const via = await saveFile(new File([blob], fname, { type: blob.type || "image/jpeg" }));
-  return via !== "cancel";
+  return null;
 }
+function _imgFileOf(blob, name, n) {
+  const ext = (blob.type || "").indexOf("png") >= 0 ? "png" : ((blob.type || "").indexOf("webp") >= 0 ? "webp" : "jpg");
+  const fname = String(name || "图片").replace(/[\\/:*?"<>|]/g, "") + "-" + new Date().toISOString().slice(0, 10) + (n ? "-" + n : "") + "." + ext;
+  return new File([blob], fname, { type: blob.type || "image/jpeg" });
+}
+async function saveImgOriginal(ref, name) {
+  const r = await saveImgsBatch([{ ref: ref, name: name }]);
+  return r.n > 0;
+}
+// 一次存好多张（她 2026-10-31：「苹果保存还要先存文件才能从文件保存」）。
+//   iOS：一个分享面板里放 N 张图，面板上就是「存储 N 张图像」，一下进相册。
+//   ⚠️不带 title：带着文件名标题时 iOS 会把它当成文件，面板里只剩「存储到文件」。
+//   ⚠️分享面板只能在她那一下点按里弹一次，不能连着弹第二个。所以一面板最多 BATCH 张，
+//     放不下的原样退回 left，界面留着没存的那几张、让她再点一下。
+//   安卓、没有分享面板的：一张张走普通下载（安卓那条见 saveFile 的注释）。
+// items: [{ ref, name }]；回 { n: 存了几张, left: 没轮到的 items, miss: 取不到图的张数, via }
+const IMG_BATCH = 30;
+async function saveImgsBatch(items) {
+  const list = (Array.isArray(items) ? items : []).filter(x => x && x.ref);
+  const take = list.slice(0, IMG_BATCH), left = list.slice(IMG_BATCH);
+  const files = []; let miss = 0;
+  for (let i = 0; i < take.length; i++) {
+    const b = await _imgBlobOf(take[i].ref);
+    if (b && b.size) files.push(_imgFileOf(b, take[i].name, take.length > 1 ? files.length + 1 : 0)); else miss++;
+  }
+  if (!files.length) return { n: 0, left: left, miss: miss, via: "none" };
+  if (typeof navigator !== "undefined" && navigator.share && !_isAndroid() && (!navigator.canShare || navigator.canShare({ files: files }))) {
+    const t0 = Date.now();
+    try { await navigator.share({ files: files }); return { n: files.length, left: left, miss: miss, via: "share" }; }
+    catch (e) {
+      if (e && (e.name === "AbortError" || /abort|cancel/i.test(String(e.message || ""))) && Date.now() - t0 > 1000) return { n: 0, left: list, miss: 0, via: "cancel" };
+    }
+  }
+  for (let i = 0; i < files.length; i++) {
+    await saveFile(files[i], { noShare: true });
+    if (i < files.length - 1) await new Promise(ok => setTimeout(ok, 350));
+  }
+  return { n: files.length, left: left, miss: miss, via: "download" };
+}
+if (typeof window !== "undefined") window.saveImgsBatch = saveImgsBatch;
 if (typeof window !== "undefined") window.saveImgOriginal = saveImgOriginal;
 // 生图结果 → 图库门牌（iv_）。⚠️有的中转只回一个图片地址，generateSelfieImage 会替它拉成 blob，
 //   这时 dataUrl 是 null——原来头像、时刻封面、时刻配图三处都只认 dataUrl/url，于是「一直不成功」
@@ -7196,8 +7232,8 @@ async function saveTextFile(filename, text, mime) {
 //   原来一律当成「她点了取消」就收手，于是永远导不出来。安卓本来普通下载就能存进「下载」，直接走下载；
 //   别的平台上，「取消」要是一秒内就回来了，也当成面板没起来、改走下载（真的人手点取消没这么快）。
 const _isAndroid = () => { try { return /android/i.test(navigator.userAgent || ""); } catch (e) { return false; } };
-async function saveFile(file) {
-  if (typeof navigator !== "undefined" && navigator.share && !_isAndroid() && (!navigator.canShare || navigator.canShare({ files: [file] }))) {
+async function saveFile(file, opt) {
+  if (!(opt && opt.noShare) && typeof navigator !== "undefined" && navigator.share && !_isAndroid() && (!navigator.canShare || navigator.canShare({ files: [file] }))) {
     const t0 = Date.now();
     try {
       await navigator.share({ files: [file], title: file.name });
@@ -9807,6 +9843,9 @@ const SPECTATE_PAIR_NOTE = "【重要】这是他俩之间的相处——聊他�
 // 她不在场这件事正面说完：说清这个世界是什么样，不写成一串「不许回应她」的禁令
 // （施工规则/bans-make-it-dumber：禁的是模子，不是尺度）。
 const SPECTATE_USER_ABSENT = "用户不在场：在场的人看不见她、也听不见她。她写下的句子是这一场的【旁白】，推动的是场景本身。";
+// 线上旁观群也要说（群友 2026-10-31：开着旁观，角色突然在群里问起她来）：原来只有线下那两支带着这句，
+//   线上只写了「用户以【旁白】推动剧情」——模型照常把她当群里一员，转头就问她
+const SPECTATE_USER_NOT_IN_GROUP = "用户不在这个群里：群里只有这几个人，谁也看不见她，她也不会在群里回话。她写下的句子是这一场的【旁白】，推动的是剧情本身，不是谁发的消息。";
 function groupStageLine(opts) {
   const o = opts || {};
   const userName = o.userName || "用户";
@@ -9815,12 +9854,12 @@ function groupStageLine(opts) {
   if (o.spectate && pair.length === 2) {
     return offline
       ? "这是「" + pair[0] + "」和「" + pair[1] + "」之间【他俩自己】的相处，此刻两人身处同一个地方、面对面。" + SPECTATE_USER_ABSENT + "让两人自然地你来我往、多轮相处。\n" + SPECTATE_PAIR_NOTE
-      : "这是「" + pair[0] + "」和「" + pair[1] + "」之间【他俩自己】的私下对话（不是群聊）。用户以【旁白】推动场景。让两人自然地你来我往、多轮对话。\n" + SPECTATE_PAIR_NOTE;
+      : "这是「" + pair[0] + "」和「" + pair[1] + "」之间【他俩自己】的私下对话（不是群聊）。" + SPECTATE_USER_NOT_IN_GROUP.replace("这个群里：群里只有这几个人", "这场对话里：只有他们两个").replace("在群里回话", "插话") + "让两人自然地你来我往、多轮对话。\n" + SPECTATE_PAIR_NOTE;
   }
   if (o.spectate) {
     return offline
       ? "上述角色此刻身处同一个地方，面对面相处（不是隔着手机的群聊）。" + SPECTATE_USER_ABSENT + "让他们围绕旁白与彼此的关系自然相处。"
-      : "这是【成员】里这几个人的群聊。用户以【旁白】推动剧情。让成员们围绕旁白与彼此的关系自然互动。";
+      : "这是【成员】里这几个人的群聊。" + SPECTATE_USER_NOT_IN_GROUP + "让成员们围绕旁白与彼此的关系自然互动。";
   // ⚠️原来写「成员们并不知道有任何外人在旁观」（群友 2026-10-25 截图：成员聊起「群里那位新来的一直没说话，在潜水」）——
   //   跟模型说「有人在看但你们不知道」，它就替这个看不见的人编出一个潜水的新人。只说群里就这几个人，不提旁观的人
   }
@@ -11100,9 +11139,38 @@ function isQuotaError(e) {
 // 写 localStorage。成功返回 true；写满(quota)时【弹全局警告】并返回 false——不再默默丢数据。
 // 文字库的唯一写入口（原样字符串）。saveJSON 和下面那层 localStorage 转接都走这一个。
 const TXT_PAD_MAX = 256 * 1024;
+// 写进手机没成（她 2026-10-31：群友「正聊着天突然东西没了」）：原来只在后台记一行，界面照常——
+//   屏幕上看到的是内存里那份，iOS 一杀后台再打开，读到的是最后一次真存进去的旧版，中间那几个小时就没了。
+//   现在当场喊出来（app 那头 __saveFailed，20 秒内只喊一次），叫她先导出、腾地方。
+function txtWriteFailed(k, e) {
+  try { if (typeof window !== "undefined" && typeof window.__saveFailed === "function") window.__saveFailed(k, isQuotaError(e)); } catch (x) {}
+}
 let _txtHasDataMarked = false;
+// 聊天一下子变短：先把变短之前那份留下来（她 2026-10-31：群友 Arlota 线上聊天中间一大段凭空没了，记忆还在，
+//   查了一圈对不上任何一种已知情况、又没有云同步）。不猜原因了：以后谁的聊天一口气少了 10 条以上，
+//   不管是哪条路写进来的，变短前那份整份存进 x_shrinkBak:<键>（一个对话只留最近一份），再记一笔 x_shrinkLog
+//   （什么时候、几条变几条、从哪段代码写进来）。聊天设置里能一键合并回来；导出备份里也带着，下次能看出是谁剪的。
+//   她自己点删除、清空、归档的不留（她 2026-10-31「有啥办法修一下代价吗」）：那几处先挂 __chatShrinkOkUntil，
+//   这儿只记一笔「是她自己删的」。备份不进内存镜像——不跟导出、不上云，只躺在本机 IDB 里，14 天后开机清掉。
+const SHRINK_MIN = 10, SHRINK_KEEP_MS = 14 * 86400000;
+function chatShrinkOk(ms) { try { window.__chatShrinkOkUntil = Date.now() + (ms || 8000); } catch (e) {} }
+function chatMsgCount(str) { const m = String(str || "").match(/"role":/g); return m ? m.length : 0; }
+function noteChatShrink(k, prev, next) {
+  try {
+    const was = chatMsgCount(prev), now = chatMsgCount(next);
+    if (was - now < SHRINK_MIN) return;
+    const where = String((new Error().stack || "")).split("\n").slice(2, 7).map(x => x.trim().replace(/https?:\/\/[^/]+\//, "")).join(" ← ").slice(0, 400);
+    const at = Date.now(), mine = typeof window !== "undefined" && Number(window.__chatShrinkOkUntil || 0) > at;
+    if (!mine) idbTxtPut("x_shrinkBak:" + k, JSON.stringify({ at, from: was, to: now, where, data: prev })).catch(() => {});
+    let log = []; try { log = JSON.parse(_txtMirror().get("x_shrinkLog") || "[]") || []; } catch (e) {}
+    log.push(mine ? { k, at, from: was, to: now, mine: 1 } : { k, at, from: was, to: now, where });
+    txtWrite("x_shrinkLog", JSON.stringify(log.slice(-40)));
+    console.warn("[chat shrink] " + k + " " + was + " → " + now, where);
+  } catch (e) {}
+}
 function txtWrite(k, s) {
   s = String(s);
+  if (/^x_g?chat:/.test(k)) { const prev = _txtMirror().get(k); if (prev != null && s.length < prev.length) noteChatShrink(k, String(prev), s); }
   if (_txtGate && !_txtGate.done) _txtEarlyWrites.add(k);
   // 文字库没灌起来（镜像是空的）：这时界面上看到的是一台「空手机」，它写下的默认值
   //   绝不能落进 IDB 盖掉真存档，也不能垫进小仓库（下次开机会被当成新版搬进去）。只留在内存里。
@@ -11137,7 +11205,7 @@ function txtWrite(k, s) {
               if (isDurableTextKey(k)) walDel(k).catch(e => console.error("wal cleanup failed:", k, e));
             }
           });
-        }).catch(e => console.error("durable idbTxtPut failed:", k, e));
+        }).catch(e => { console.error("durable idbTxtPut failed:", k, e); txtWriteFailed(k, e); });
       } catch (e) {}
     } else {
       // ⚠️小仓库只当【这一版落进 IDB 之前】的临时垫子：先同步垫一份（只垫小的），IDB 读回一致才撤。
@@ -11149,7 +11217,7 @@ function txtWrite(k, s) {
       try {
         idbTxtPut(k, s).then(() => idbTxtGet(k)).then(back => {
           if (back === s && lsRaw.get(k) === s) lsRaw.del(k);
-        }).catch(e => console.error("idbTxtPut failed:", k, e));
+        }).catch(e => { console.error("idbTxtPut failed:", k, e); txtWriteFailed(k, e); });
       } catch (e) {}
     }
     return true;

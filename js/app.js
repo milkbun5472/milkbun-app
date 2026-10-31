@@ -20,7 +20,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v88.832";
+const APP_VERSION = "v88.862";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -2232,6 +2232,22 @@ function App() {
     setActiveId(loadJSON("x_activeApi", aps[0] && aps[0].id || null));
     setOfflineApiId(loadJSON("x_offlineApi", null));
     setBgApiId(loadJSON("x_bgApi", null));
+    // 删掉的线路开机又回来（她 2026-10-31 群友：「删掉了 api 又会出现」）：哪一份旧副本把它带回来的都不认——
+    //   删的时候记下 id（qq_apiGone，不带 x_、不进云不进导出），开机见到就拿掉，再存一次干净的。
+    //   ⚠️放在这三句后面、就地改 aps：公共版补丁原样钉着「读线路→materialize→setApiProfiles」那三行
+    try {
+      const gone = new Set(JSON.parse(localStorage.getItem("qq_apiGone") || "[]"));
+      if (gone.size && aps.some(p => p && gone.has(p.id))) {
+        const left = aps.filter(p => !(p && gone.has(p.id)));
+        if (left.length) {
+          aps.length = 0; left.forEach(p => aps.push(p));
+          setApiProfiles(left.slice());
+          if (window.CredentialVault) window.CredentialVault.persistApiProfiles(left).catch(() => {}); else saveJSON("x_api", left);
+          [["x_activeApi", setActiveId], ["x_offlineApi", setOfflineApiId], ["x_bgApi", setBgApiId]].forEach(([k, set]) => {
+            if (gone.has(loadJSON(k, null))) { const v = k === "x_activeApi" ? left[0].id : null; saveJSON(k, v); set(v); } });
+        }
+      }
+    } catch (e) {}
     const cm = window.ChatRooms && typeof window.ChatRooms.hydrateChats === "function"
         ? window.ChatRooms.hydrateChats(c, loadJSON)
         : {},
@@ -2352,7 +2368,15 @@ function App() {
       storageWarnTs.current = now;
       toast("⚠️ 手机本地存储快满了，新内容可能存不进/会丢！去 设置·数据 看占用、清掉些图片，或先导出备份");
     };
-    return () => { if (window.__storageFull) delete window.__storageFull; };
+    // 写进手机没成（engine.js txtWrite）：聊天、线下这些屏幕上还在，但没真存进去，重开就回到旧的
+    window.__saveFailed = (k, full) => {
+      const now = Date.now();
+      if (now - storageWarnTs.current < 20000) return;
+      storageWarnTs.current = now;
+      const what = /^x_g?chat:/.test(String(k)) ? "刚才的聊天" : /^x_g?offline:/.test(String(k)) ? "刚才的线下" : "刚改的东西";
+      toast("⚠️ " + what + "没存进手机" + (full ? "（存储满了）" : "") + "：现在关掉重开会丢。先去 设置 → 数据 → 导入与导出 导出一份，再清掉些图片腾地方", 12000);
+    };
+    return () => { if (window.__storageFull) delete window.__storageFull; if (window.__saveFailed) delete window.__saveFailed; };
   }, []);
   const active = apiProfiles.find(p => p.id === activeId) || apiProfiles[0];
   // 线上/线下全局分流：未选择线下线路时完全沿用旧行为。
@@ -3145,11 +3169,11 @@ function App() {
   //   这儿再兜一道——只要它照抄了，就在落进气泡之前摘掉。
   // ⚠️不锚在开头（她 2026-10-06 截图）：语音条前面还挂着 [语音] 那种标记，旁注夹在中间，^ 抓不到，
   //   照抄的那句就原样进了「他说的是」。在哪儿出现都摘。
-  const ECHOED_META = /\s*[（(【\[]\s*(?:这一条是你此刻|这条你是用语音说的)[^）)】\]]*[）)】\]]\s*/g;
+  const ECHOED_META = /\s*[（(【\[]\s*(?:这一条是你此刻|这条你是用语音说的|这条说的是[^；;】]{0,10}[；;]\s*这是旁注)[^）)】\]]*[）)】\]]\s*/g;   // 它照着改写的那种（「这条说的是外语；这是旁注」，2026-10-31）也摘
   const stripEchoedMeta = w => String(w == null ? "" : w).replace(ECHOED_META, "").trim();
   // 转账/红包的「播报」（她 2026-10-30 截图：转账卡出来了，底下又多出「【附言：…】转账给 Lisa 30000 元」被拆成四泡）：
   //   卡自己会把钱数和附言摆出来，这一句是它照着聊天记录的样子念了一遍，不是TA说的话
-  const ECHO_NOTE_HINT = /已经实际|亲手做过的事|真实发生过的事|用户刚才要求你|这里你已经|不得说自己|没发成的话|^\s*【\s*(?:附言|转账|红包)\s*[:：]/;
+  const ECHO_NOTE_HINT = /已经实际|亲手做过的事|真实发生过的事|用户刚才要求你|这里你已经|不得说自己|没发成的话|这是旁注|正文里没有它|^\s*【\s*(?:附言|转账|红包)\s*[:：]/;
   const ECHO_MONEY_LINE = /^\s*[〔【\[(（]?\s*(?:群)?(?:转账给|发红包给)\s*[^\s，。！？!?]{0,16}\s*[¥￥]?\s*\d[\d,.]*\s*(?:元|块)?\s*[〕】\])）]?\s*$/;
   const dropEchoedNotes = list => {
     const out = [];
@@ -3291,6 +3315,21 @@ function App() {
     setFriendGroups(list);
     saveJSON("x_friendGroups", list);
   };
+  // 聊天一下子变短时留的那份（engine.js noteChatShrink）：合并回来＝把备份里有、现在没有的那些按时间插回去，现有的一条不动
+  useEffect(() => {
+    window.__shrinkRestore = async id => {
+      let bak = null; try { bak = JSON.parse((await idbTxtGet("x_shrinkBak:x_chat:" + id)) || "null"); } catch (e) {}
+      if (!bak || !bak.data) return 0;
+      let old = []; try { old = JSON.parse(bak.data) || []; } catch (e) { return 0; }
+      const sig = m => m ? (m.id || "") + "|" + (m.ts || "") + "|" + (m.role || "") + "|" + String(m.content || "").slice(0, 80) : "";
+      let added = 0;
+      pChat(id, p => { const have = new Set(p.map(sig)); const back = old.filter(m => m && !have.has(sig(m))); added = back.length;
+        return back.length ? p.concat(back).sort((a, b) => (Number(a && a.ts) || 0) - (Number(b && b.ts) || 0)) : p; });
+      idbTxtDel("x_shrinkBak:x_chat:" + id).catch(() => {});
+      return added || 1;
+    };
+    return () => { delete window.__shrinkRestore; };
+  });
   const pChat = (id, u) => setChats(p => {
     const pl = p[id] || [];
     let n = typeof u === "function" ? u(pl) : u;
@@ -3493,7 +3532,7 @@ function App() {
       //   按对象认不住的（期间被标了已读之类、换成了新对象）再按 时间+谁+内容 认一遍，认不出就宁可留着。
       const _dropSet = new Set(drop), _dk = m => m ? (m.id || "") + "|" + (m.ts || "") + "|" + (m.role || "") + "|" + String(m.content || "").slice(0, 80) : "";
       const _dropKeys = new Set(drop.map(_dk));
-      pChat(charId, p => p.filter(m => !_dropSet.has(m) && !(m && m.ts && _dropKeys.has(_dk(m)))));   // 云端确认后裁本地：合照(原序)+最近的+等上传时新来的
+      chatShrinkOk(); pChat(charId, p => p.filter(m => !_dropSet.has(m) && !(m && m.ts && _dropKeys.has(_dk(m)))));   // 云端确认后裁本地：合照(原序)+最近的+等上传时新来的
       const marks = loadJSON("x_chatArch", {}); marks[charId] = (marks[charId] || 0) + drop.length; saveJSON("x_chatArch", marks); setChatArch(marks);
       // ⭐长期记忆浓缩进度跟着回调（v48.14 修）：lastSummarizedCount 按本地列表位置数；只按【真正裁掉的 drop】折算(!recalled)。
       const cut = drop.filter(m => !m.recalled).length;
@@ -3513,7 +3552,7 @@ function App() {
       await window.Cloud.chatArchiveAppend(archKey, older); // 先上云
       const _gDropSet = new Set(older), _gdk = m => m ? (m.id || "") + "|" + (m.ts || "") + "|" + (m.senderId || m.role || "") + "|" + String(m.content || "").slice(0, 80) : "";
       const _gDropKeys = new Set(older.map(_gdk));
-      pGChat(groupId, p => p.filter(m => !_gDropSet.has(m) && !(m && m.ts && _gDropKeys.has(_gdk(m)))));   // 成功才裁本地；只撤归档上去的那几条，等上传时新来的留着
+      chatShrinkOk(); pGChat(groupId, p => p.filter(m => !_gDropSet.has(m) && !(m && m.ts && _gDropKeys.has(_gdk(m)))));   // 成功才裁本地；只撤归档上去的那几条，等上传时新来的留着
       const marks = loadJSON("x_chatArch", {}); marks[archKey] = (marks[archKey] || 0) + older.length; saveJSON("x_chatArch", marks); setChatArch(marks);
       // ⭐群记忆浓缩进度同样回调（v48.14 修）：按群 maybeSummarize 同口径（user/assistant/narration）折算裁掉的条数
       const cut = older.filter(m => m.role === "user" || m.role === "assistant" || m.role === "narration").length;
@@ -12272,9 +12311,20 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     // 订阅桥(云端函数)有硬性执行寿命：全量窗口+6000输出的单次工作量会超时被杀，
     // 浏览器侧表现为整条 Load failed（2026-08-12 全天她在旅途中完全失联的根因）。
     // 在函数寿命问题根治(流式/直连)之前，言秋线维持小窗口+短输出保命。
+    // 带多少条照聊天设置里「记忆上下文条数」来（她 2026-10-31 定：「1」——拉条说了算）：
+    //   原来这里写死 80 条／1.4 万字，拉条拉到 300 也只带 80，「短期窗覆盖天数」那几天也照样被截。
+    //   现在：至少 80（没动过拉条的人跟原来一样），拉高了就照拉条；最近那几天的聊天也一起算进来（最多 1000 条）；
+    //   字数上限跟着条数放宽。代价是拉得越高每次越贵、越慢，拉条底下写着。
+    const _ctxWant = (() => {
+      const n = Math.max(0, Number(settingsFor(charId).ctxN ?? 50));
+      const days = Math.max(0, Number((memCfgRef.current || {}).recentDays ?? 3));
+      const since = days ? Date.now() - days * 86400000 : Infinity;
+      const inFloor = days ? modelHistory.filter(m => m && (m.ts || 0) >= since).length : 0;
+      return Math.min(1000, Math.max(80, n, inFloor));
+    })();
     const _historyBudget = _engineerChat
       ? { maxChars: 7000, maxMessages: 48 }
-      : { maxChars: 14000, maxMessages: 80 };
+      : { maxChars: Math.max(14000, _ctxWant * 260, Number((memCfgRef.current || {}).recentBudget) || 0), maxMessages: _ctxWant };   // 记忆库「短期窗字符预算」拉高了也认
     const promptHistory = window.ChatContextWindow
       ? window.ChatContextWindow.select(modelHistory, _historyBudget)
       : modelHistory.slice(-_historyBudget.maxMessages);
@@ -13573,7 +13623,9 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
                 : "（外卖/快递还在路上" + (m.arriveTs && m.arriveTs > Date.now() ? "，大约还有 " + gapPhrase(m.arriveTs - Date.now()) + "到" : "，快到了") + "）") + "]"
             : m.kind === "takeout" ? "[" + uName + " 给你点了外卖：" + ((m.takeout && m.takeout.shop) ? "「" + m.takeout.shop + "」的" : "") + ((m.takeout && m.takeout.items) || []).join("、")
               + ((m.takeout && m.takeout.note) ? "（Ta 在单子上给你写了一句：「" + m.takeout.note + "」）" : "")
-              + (m.arriveTs && m.arriveTs > Date.now() ? "（骑手还在路上，大约还有 " + gapPhrase(m.arriveTs - Date.now()) + "到）" : "（已经送到你手上了）") + "]"
+              + (m.arriveTs && m.arriveTs > Date.now() ? "（骑手还在路上，大约还有 " + gapPhrase(m.arriveTs - Date.now()) + "到）" : "（已经送到你手上了）"
+                // 送到了，袋子上的小票看得见她给商家的备注（她 2026-10-31：「角色也要看到备注」）
+                + ((m.takeout && m.takeout.remark) ? "（袋子上的小票印着她给商家的备注：「" + m.takeout.remark + "」）" : "")) + "]"
             : m.kind === "kinraise" ? "【" + uName + "在你给 Ta 的那张亲属卡上申请提额" + (m.ask ? "，想加 " + moneyText(m.ask, charId) : "（没说数目，让你看着办）") + "（当时额度 " + moneyText(m.limit || 0, charId) + "）"
               + (m.status === "approved" ? "；你加了 " + moneyText(m.add || 0, charId) + "，现在额度 " + moneyText(m.newLimit || 0, charId) : m.status === "declined" ? "；你没有加" : "")
               + "。这是 Ta 按的一个申请，不是 Ta 说的一句话】"
@@ -13625,7 +13677,10 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
           // ⚠️动作行不在这儿了（v72.96 搬去了旁白那一侧，理由写在上面）。
           const byU = m.byUser ? bySomeoneElseMark(uName, char.name) : "";
           if (m.kind === "selfie" && m.imgKey && !m.failed && !m.pending && (m.turnId ? m.turnId === _lastTurn : m === _lastTurn)) _ownPicNext = m.imgKey;
-          const ac = stp + byU + (m.kind === "voice" ? "【这条你是用语音说的；这是旁注，正文里没有它】" + m.content
+          // 语音那句旁注不再贴在TA自己那一侧（2026-10-31 截图：TA照着编出「【这条说的是外语；这是旁注，正文里没有它】」发了出来）——
+          //   跟动作行同一个教训：贴在它自己输出通道里的记号，它会当成自己的说话格式。「上一条是语音」不要紧，不带了
+          //   （挪去 user 那侧会把同一轮几句话从中间劈开）。
+          const ac = stp + byU + (m.kind === "voice" ? m.content
             : m.kind === "selfie" ? (m.failed
               ? "【你在这里尝试发照片，但生成失败，没有真正发出】"
               : "【你在这里已经实际发出一张" + (m.photoKind === "part" ? PHOTO_PART_ZH + "（只拍了手/背影这类局部，没露脸）" : m.photoKind === "view" ? PHOTO_VIEW_ZH + "（画面里没有人，拍的是东西/地方）" : m.photoKind === "duo" ? "你和" + uName + "的合照" : m.photoKind === "other" ? "别人替你拍的照片" : m.photoKind === "me" ? "你给她拍的照片（画面里是她）" : "自拍") + "；这是你亲手做过的事，不得说自己没发过或马上重复发】" + (m.desc ? "\n照片内容：" + m.desc : ""))
@@ -16761,7 +16816,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   };
   const deleteGroupMsgs = (groupId, indices) => {
     const set = new Set(indices);
-    pGChat(groupId, p => p.filter((_, i) => !set.has(i)));
+    chatShrinkOk(); pGChat(groupId, p => p.filter((_, i) => !set.has(i)));
   };
   // ---- 群里的邀约（她 2026-10-02）：挑地方、挑请谁，发一张约会卡；没有回执，人齐了她点「出发」进群线下 ----
   const sendGroupDateInvite = (groupId, place, v) => {
@@ -18331,7 +18386,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     toast(wipeChat ? "已删除，聊天也清掉了" : "已删除");
   };
   const clearChat = (charId, wipeMem) => {
-    pChat(charId, () => []);
+    chatShrinkOk(); pChat(charId, () => []);
     // “清除聊天记录”覆盖这个角色的一对一线上 + 单人线下时间线。直接删除，不结束会话、
     // 不生成总结，也不调用模型；群线下属于多人共享记录，不能从单人设置里连带删除。
     pOffline(charId, () => []);
@@ -18363,7 +18418,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   // ⚠️不碰任何成员的单聊/单人线下——那是各自的记录，不该被群里的操作连带删掉。
   // 记忆库同理：只在她明确勾了「同步忘却」时，才摘掉【本群产生的】那些条目。
   const clearGroupChat = (groupId, wipeMem) => {
-    pGChat(groupId, () => []);
+    chatShrinkOk(); pGChat(groupId, () => []);
     pGOffline(groupId, () => []);
     saveGroupSettings(groupId, { lastSummarizedCount: 0 });
     // 自发额度也一起归零，否则清完记录它还记着「这一轮已经自发过 N 条」，
@@ -26088,8 +26143,14 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         + "别跟上一张一模一样。（第 " + Math.floor(Date.now() / 1000 % 100000) + " 次）" : "");
       // 拍的是她（群友 2026-10-03）：有参考照就锁她的脸——说明书在 albumHerShot 那一份
       const her = albumHerShot(char, scene, again);
-      const pFinal = her ? her.prompt : p0, pRefs = her ? her.refs : null;
-      const out = await generateSelfieImage(pFinal, pRefs, {});
+      // 拍的是TA自己、而且照片里露脸（群友 2026-10-31：描述写着唇钉、眼神、耳朵，画出来脸被裁掉、也不像TA）：
+      //   原来TA自己的照片一律不喂参考照，带身体字眼的还走「不露脸局部」那一档。露脸的这种改走聊天自拍那条锁脸的路
+      const faceShot = !her && !!char.refPhoto && /脸|眼|嘴|唇|眉|鼻|表情|自拍|笑着|看向镜头|对着镜头|盯着镜头/.test(scene);
+      const pFinal = her ? her.prompt
+        : faceShot ? buildPhotoPrompt(char, scene, (statesRef.current || {})[char.id] || {}, { kind: "selfie", closet: closetTextFor(char.id) }) + (again ? "【这是重画的一张】同一件事，换个拍法、换个角度和光。" : "")
+        : p0;
+      const pRefs = her ? her.refs : faceShot ? [char.refPhoto] : null;
+      const out = await generateSelfieImage(pFinal, pRefs, faceShot ? { minimalPrompt: buildMinimalPhotoPrompt(char, { kind: "selfie" }) } : {});
       if (!(out && (out.blob || out.url))) throw new Error("没拿到图");
       const sigOf = (window.PhoneKit && window.PhoneKit.photoSig) || (x => (x && x.id) || "");
       const all = (window.PhoneKit && window.PhoneKit.keepLoad) ? window.PhoneKit.keepLoad() : loadJSON("x_phoneKeep", {});
@@ -28681,10 +28742,12 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     // 拍的是她、可她自己没传参考照：没脸可锁，照实说一声（不然她只看到「又是个陌生人」）
     if (!(profile && profile.refPhoto)) { toast("这张拍的是你，但你还没传自己的参考照（在你自己的资料里传一张），只能照文字画一个人", 7000); return null; }
     const meP = photoMe("她", char.id);
-    const both = !!char.refPhoto && /合照|我们|一起|两个人|和她|跟她|我和|自拍/.test(scene);
+    // 「自拍」不算合照（群友 2026-10-31：「她半夜发来的对镜自拍」被画成了两个人）：她自己拍了发过来的，画面里只有她
+    const herSelf = /她(?:半夜|刚才|今天|昨晚|早上|晚上)?(?:发来|发给我|传来|自拍)|她的自拍|她拍了自己/.test(scene);
+    const both = !!char.refPhoto && !herSelf && /合照|我们|一起|两个人|和她|跟她|我和/.test(scene);
     const prompt = both
       ? buildPhotoPrompt(char, scene, statesRef.current[char.id] || null, { kind: "duo", me: meP, closet: closetTextFor(char.id) })
-      : buildPhotoPrompt({ id: "__me", name: meP.name, appearance: meP.appearance || "", refPhoto: profile.refPhoto }, scene + "（这张是" + (char.remark || char.name) + "拍的她）", null, { kind: "other", closet: meP.closet });
+      : buildPhotoPrompt({ id: "__me", name: meP.name, appearance: meP.appearance || "", refPhoto: profile.refPhoto }, scene + (herSelf ? "（这张是她自己拍了发给" + (char.remark || char.name) + "的）" : "（这张是" + (char.remark || char.name) + "拍的她）"), null, { kind: herSelf ? "selfie" : "other", closet: meP.closet });
     return { prompt: prompt + (again ? "【这是重画的一张】同一件事，换个拍法：换个角度、换个距离、换个时刻的光。" : ""), refs: both ? [char.refPhoto, profile.refPhoto] : [profile.refPhoto] };
   };
   const photoMe = (fallbackName, who) => { const P = meOf(who); return {
@@ -31080,7 +31143,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   });
   // 购物车里直接改件数（她 2026-10-31：「跟淘宝一样默认一件也有 −1+，可以手动输入数字」）
   const setCartQty = (uid, q) => setCart(p => {
-    const v = Math.max(1, Math.min(999, Math.round(Number(q)) || 1));
+    // 件数上限放到 999 万（群友 2026-10-31：「只能输入 3 位数」——给军队买东西这种一下就过千）
+    const v = Math.max(1, Math.min(9999999, Math.round(Number(q)) || 1));
     const n = p.map(x => x.uid === uid ? { ...x, qty: v } : x);
     saveJSON("x_shopCart", n);
     return n;
@@ -32169,7 +32233,11 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     .filter(pk => pk && pk.mine !== false)
     // 专属给别人的那几套不摆在这个人的聊天里（她 2026-10-16「专属的我想在他的界面只显示他的，不要其他角色的」）：
     //   全局的、没指定给谁的、指定里有这个人的才摆；群里照旧是成员们各自那份的并集
-    .filter(pk => pk.global || !(pk.charIds || []).length || (pk.charIds || []).map(String).includes(String(charId)))
+    // 她自己画的那一套（fromCharFace 是 "__me:面具"）：凡是跟她用这张面具聊的人都能用——配角也算、之后新认识的也算
+    //   （群友 2026-10-31：「npc 聊天能不能显示生成的自己的表情包」）。原来是画好那一刻把当时的主角色名单写死在 charIds 里。
+    .filter(pk => String(pk.fromCharFace || "").indexOf("__me:") === 0
+      ? String(maskKeyOf(charId) || "") === String(pk.fromCharFace).slice(5)
+      : (pk.global || !(pk.charIds || []).length || (pk.charIds || []).map(String).includes(String(charId))))
     // ⚠️cover 必须跟着传（她 2026-09-30：「为啥设了表情包封面实际不会变」）。
     //   这一步是重新捏一个干净对象给聊天面板，原来只捡了 id/name/emotes——
     //   于是 packCoverOf 在那边永远找不到她挑的那张，每次都退回第一张。
@@ -33450,6 +33518,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       comicFromMessages(activeChar, indices.slice().sort((a, b) => a - b).map(i => msgs[i]), style);
     },
     onDeleteMessages: indices => {
+      chatShrinkOk();   // 她自己勾了删的：不留「找回」备份
       const set = new Set(indices);
       const threadKey = window.ChatRooms ? window.ChatRooms.chatKey(activeChar.id, activeRoomId) : activeChar.id;
       const picked = (chatsRef.current[threadKey] || []).filter((_, i) => set.has(i));
