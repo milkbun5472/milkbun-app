@@ -20,7 +20,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v77.024";
+const APP_VERSION = "v77.026";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -19929,9 +19929,9 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     let note = "";
     if ((st.opt || {}).letterLine && active && !(st.opt || {}).noLetters) {   // 信不寄进聊天就不写附言，省一次调用
       try { const d = await runProbe(apiFor(c.id), ctxFor(c), { voice: true, tag: "stamps",
-          instruction: "你今天从「邮票册」给她寄了一封信，信里是一张单抽券（她可以拿去抽一张印着你的邮票）。在信上写一两句附言，照你的性子和你们现在的关系，像你平时跟她说话那样，短。",
+          instruction: stampBi(c) + "你今天从「邮票册」给她寄了一封信，信里是一张单抽券（她可以拿去抽一张印着你的邮票）。在信上写一两句附言，照你的性子和你们现在的关系，像你平时跟她说话那样，短。",
           schemaHint: "{\"note\":\"一两句附言\"}", maxTokens: 65000 });   // 施工规则/max-tokens-floor.md
-        note = String((d && d.note) || "").trim().slice(0, 80); } catch (e) {}
+        note = String((d && d.note) || "").trim().slice(0, 240); } catch (e) {}   // 双语的附言（原文 | 中文）要长一点
     }
     stampMail(c.id, p => [...p, { role: "char", kind: "stampletter", content: "〔从邮票册给你寄了一封「今天的信」：里面是一张单抽券，点一下就能领〕" + (note ? "附言：" + note : ""), ts: Date.now(), stampLetter: { id, day: today, by: c.remark || c.name, note }, read: false }]);
   };
