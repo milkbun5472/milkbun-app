@@ -32,3 +32,7 @@ test("聊天里：有卡才出「话题卡」，点一张只填进输入框、�
   assert.match(di, /window\.addEventListener\("qq-draft-fill", on\)/);
   assert.ok(!/onSubmit\s*&&\s*onSubmit\(d\.text\)/.test(di), "填卡不许直接发出去");
 });
+
+test("不认得的类别不给导入键，只说去更新", () => {
+  assert.match(nest, /!KIND\[it\.kind\] \? h\("div", \{ "data-wk": "nestunknownkind"/);
+});
