@@ -32185,7 +32185,11 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     .filter(pk => pk && pk.mine !== false)
     // 专属给别人的那几套不摆在这个人的聊天里（她 2026-10-16「专属的我想在他的界面只显示他的，不要其他角色的」）：
     //   全局的、没指定给谁的、指定里有这个人的才摆；群里照旧是成员们各自那份的并集
-    .filter(pk => pk.global || !(pk.charIds || []).length || (pk.charIds || []).map(String).includes(String(charId)))
+    // 她自己画的那一套（fromCharFace 是 "__me:面具"）：凡是跟她用这张面具聊的人都能用——配角也算、之后新认识的也算
+    //   （群友 2026-10-31：「npc 聊天能不能显示生成的自己的表情包」）。原来是画好那一刻把当时的主角色名单写死在 charIds 里。
+    .filter(pk => String(pk.fromCharFace || "").indexOf("__me:") === 0
+      ? String(maskKeyOf(charId) || "") === String(pk.fromCharFace).slice(5)
+      : (pk.global || !(pk.charIds || []).length || (pk.charIds || []).map(String).includes(String(charId))))
     // ⚠️cover 必须跟着传（她 2026-09-30：「为啥设了表情包封面实际不会变」）。
     //   这一步是重新捏一个干净对象给聊天面板，原来只捡了 id/name/emotes——
     //   于是 packCoverOf 在那边永远找不到她挑的那张，每次都退回第一张。
