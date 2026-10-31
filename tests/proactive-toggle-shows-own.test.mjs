@@ -4,4 +4,6 @@ assert.match(app, /proactive: window\.AutoRefreshPolicy\.enabled\(autoRefreshRef
 assert.match(app, /if \(!!s\.proactive !== window\.AutoRefreshPolicy\.enabled\(/);
 assert.match(app, /const autoBlockWhy = charId =>/);
 assert.match(cmp, /settings\.proactiveBlock \? h\("div", \{ "data-wk": "proactiveblock"/);
+assert.match(app, /OWN_LINE_FEATURES\[feature\] \? quietNow\("bg"\) : bgOff\(\)/);
+assert.match(app, /OWN_LINE_FEATURES = \{ proactive: 1, diary: 1, moments: 1/);
 console.log("proactive toggle ok");

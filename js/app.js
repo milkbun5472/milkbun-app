@@ -268,7 +268,7 @@ function ModelQuickSwitch({ profiles, activeId, offlineApiId, bgApiId, onSetOnli
   const label = p => (p && (p.name || p.model)) || "未命名线路";
   const online = (profiles || []).find(p => p.id === activeId) || (profiles || [])[0] || null;
   const offline = (offlineApiId && (profiles || []).find(p => p.id === offlineApiId)) || online;
-  const bg = bgApiId === "__off__" ? { id: "__off__", name: "无（后台不跑）" } : (bgApiId && (profiles || []).find(p => p.id === bgApiId)) || online;
+  const bg = bgApiId === "__off__" ? { id: "__off__", name: "无（后台活不跑）" } : (bgApiId && (profiles || []).find(p => p.id === bgApiId)) || online;
   if (!(profiles || []).length) return null;
   // 三档共用一份：谁选中、点下去往哪儿走、跟不跟随主模型，全按这张表来（one-public-mechanism）。
   // ⚠️线下和后台都有「跟随线上主模型」那一档，而它的值是 null——所以「选中」要看
@@ -359,7 +359,7 @@ function ModelQuickSwitch({ profiles, activeId, offlineApiId, bgApiId, onSetOnli
           h("span", { style: { flexShrink: 0, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog, transition: "transform .2s",
             transform: tab === lane.key ? "rotate(90deg)" : "none", display: "inline-block" } }, "›")),
         tab === lane.key
-          ? h("div", { style: { marginTop: 4 } }, (lane.follow ? [choice(lane, null)] : []).concat(lane.key === "bg" ? [choice(lane, { id: "__off__", name: "无（后台一律不跑）" })] : []).concat((lane.list || profiles || []).map(p => choice(lane, p))))
+          ? h("div", { style: { marginTop: 4 } }, (lane.follow ? [choice(lane, null)] : []).concat(lane.key === "bg" ? [choice(lane, { id: "__off__", name: "无（记忆、日程这些后台活不跑）" })] : []).concat((lane.list || profiles || []).map(p => choice(lane, p))))
           : null)), clockRow) : null,
     h("div", { style: Object.assign({ position: "fixed", zIndex: 90, display: "flex", alignItems: "center", gap: 8 }, anchor) },
     // ── 长相（她 2026-09-05：「这俩黑悬浮弄好看点」）──────────────────
@@ -1640,7 +1640,7 @@ function App() {
   // 本体模式的角色：「查手机」「角色日程」这两样是替TA编一个人的生活，自动补刷一律不跑（手动也不排日程，见 noSchedFor）
   const BODY_NO_LIFE = { phone: 1, schedule: 1 };
   // 后台线路选了「无」：自己跑的一律不跑（她 2026-10-10「后台 api 能不能选个无，强制不刷新」）
-  // 后台一律不跑：后台线路选了「无」，或者正在她设的免打扰时段里、勾了「这段时间后台不跑」
+  // 后台线路的活不跑：后台线路选了「无」，或者正在她设的免打扰时段里、勾了「这段时间后台不跑」
   const quietNow = kind => { try { return !!(window.ScheduleClock && window.ScheduleClock.quietActive(loadJSON("x_quiet", null), kind)); } catch (e) { return false; } };
   const bgOff = () => loadJSON("x_bgApi", null) === "__off__" || quietNow("bg");
   // 面具「先歇着」（群友 2026-10-15：「能不能根据面具分组启用，不用时那边时间可以选择暂停」）：
@@ -1648,11 +1648,13 @@ function App() {
   const maskRested = id => { try { if (!id) return false; const k = String(maskKeyOf(id) || "") || "main"; const c = (((prefsRef.current || {}).vclocks) || {})[k]; return !!(c && c.rest); } catch (e) { return false; } };
   // 收起来的人（她 2026-10-31：通讯录长按「收起来」）：档案、聊天都留着，但所有自己会动的活（主动私聊、朋友圈、日记、补账……）都停，安静待着
   const shelvedChar = id => !!(id && (characters || []).some(c => c && c.id === id && c.shelved));
-  const autoRefreshOn = (feature, charId) => !bgOff() && !maskRested(charId) && !shelvedChar(charId) && !(charId && BODY_NO_LIFE[feature] && (chatSettings[charId] || {}).bodyMode && !(chatSettings[charId] || {}).engineerEyes)
+  // 「后台任务模型」选「无」只停走后台线路的那几样；主动私聊、日记、朋友圈这些是 TA 亲笔、走 TA 自己的线路，不归它管
+  //   （她 2026-10-31「但是这俩都不是后台」）。免打扰里勾的「这段时间后台不跑」照旧全停——那一格自己写明了连日记朋友圈都停。
+  const OWN_LINE_FEATURES = { proactive: 1, diary: 1, moments: 1, forum: 1, whisper: 1, capsule: 1, letter: 1, astroSign: 1, react: 1, groupChat: 1, listen: 1, watch: 1 };
+  const autoRefreshOn = (feature, charId) => !(OWN_LINE_FEATURES[feature] ? quietNow("bg") : bgOff()) && !maskRested(charId) && !shelvedChar(charId) && !(charId && BODY_NO_LIFE[feature] && (chatSettings[charId] || {}).bodyMode && !(chatSettings[charId] || {}).engineerEyes)
     && window.AutoRefreshPolicy.enabled(autoRefreshRef.current, feature, charId);
   // 后台活儿全停的那几道总闸，各是哪一道：说给人听的
-  const autoBlockWhy = charId => loadJSON("x_bgApi", null) === "__off__" ? "设置里「后台任务模型」选的是「无（后台一律不跑）」：主动私聊、日记这些自己跑的全停着，换成一条线路或「跟随主模型」就恢复"
-    : quietNow("bg") ? "现在在「我的作息 · 免打扰」的时段里，勾了「这段时间后台不跑」：过了这段自己恢复"
+  const autoBlockWhy = charId => quietNow("bg") ? "现在在「我的作息 · 免打扰」的时段里，勾了「这段时间后台不跑」：过了这段自己恢复"
     : maskRested(charId) ? "这个人认的那张面具在「先歇着」：后台什么都不动，时间也停着"
     : shelvedChar(charId) ? "这个人被收起来了：自己会动的活都停着，在通讯录里放出来就恢复"
     : "";
@@ -36445,7 +36447,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       const cur = prefsRef.current; const old = { ...(cur.vclock ? { main: cur.vclock } : {}), ...(cur.vclocks || {}) };
       const all = typeof vclockKeepHist === "function" ? vclockKeepHist(old, { ...old, [k]: v }) : { ...old, [k]: v };
       const p = { ...cur, vclocks: all }; delete p.vclock; setPrefs(p); saveJSON("x_prefs", p); },
-    onSetBg: id => { setBgApi(id); const p = id && (apiProfiles || []).find(x => x.id === id); toast(id === "__off__" ? "后台关了：自己跑的那些都不跑了" : "后台已切换为 " + (p ? (p.name || p.model || "该线路") : "跟随线上主模型")); }
+    onSetBg: id => { setBgApi(id); const p = id && (apiProfiles || []).find(x => x.id === id); toast(id === "__off__" ? "后台线路关了：记忆、日程、钱包这些后台活不跑了；主动私聊、日记、朋友圈走TA自己的线路，照常" : "后台已切换为 " + (p ? (p.name || p.model || "该线路") : "跟随线上主模型")); }
   }), newGroupOpen && /*#__PURE__*/React.createElement(NewGroupSheet, {
     characters: liveChars,
     allChars: characters,   // 建群时配角也能直接选（她 2026-10-03：要简单点）
