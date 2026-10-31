@@ -16582,6 +16582,7 @@ function TopicCardsSheet({ charId, onClose, onUse }) {
   const [list, setList] = useState(() => topicCardsOf(charId));
   const [writing, setWriting] = useState(null);   // 正在写的那张：字符串
   const [sharing, setSharing] = useState(null), [pick, setPick] = useState([]);   // 「也给别人」：哪一张、勾了谁
+  const [delSel, setDelSel] = useState(null);   // 选几张删（群友 2026-10-31：导进来一大叠，要能一起删）：null＝没在选；数组＝勾了的 id
   const others = sharing ? (loadJSON("x_characters", []) || []).filter(c => c && !c.npc && c.id !== charId) : [];
   const small = { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.sub || t.fog, padding: "6px 10px", minHeight: 32, borderRadius: 999, border: "1px solid " + t.line, background: t.bg2 };
   const saveNew = () => { const text = String(writing || "").trim(); if (!text) return;
@@ -16607,7 +16608,14 @@ function TopicCardsSheet({ charId, onClose, onUse }) {
       writing == null ? h(React.Fragment, null, h("button", { "data-wk": "topiccardnew", onClick: () => setWriting(""), className: "w-full active:opacity-60",
         style: { margin: "6px 0 4px", minHeight: 44, borderRadius: 12, border: "1px dashed " + t.line, color: t.sub || t.fog, fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", background: "transparent" } }, "＋ 自己写一张"),
         h("button", { "data-wk": "topiccardfile", onClick: importFile, className: "w-full active:opacity-60",
-          style: { margin: "0 0 4px", minHeight: 40, borderRadius: 12, border: "1px dashed " + t.line, color: t.sub || t.fog, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", background: "transparent" } }, "从文件导入（空一行算一张）"))
+          style: { margin: "0 0 4px", minHeight: 40, borderRadius: 12, border: "1px dashed " + t.line, color: t.sub || t.fog, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", background: "transparent" } }, "从文件导入（空一行算一张）"),
+        list.length ? h("div", { "data-wk": "topiccarddelbar", className: "flex items-center", style: { gap: 8, margin: "6px 0 2px" } },
+          delSel == null ? h("button", { onClick: () => setDelSel([]), className: "active:opacity-60", style: Object.assign({}, small, { minHeight: 36 }) }, "选几张删")
+          : h(React.Fragment, null,
+              h("button", { onClick: () => setDelSel(delSel.length === list.length ? [] : list.map(x => x.id)), className: "active:opacity-60", style: Object.assign({}, small, { minHeight: 36 }) }, delSel.length === list.length ? "全不选" : "全选"),
+              h("button", { "data-wk": "topiccarddelgo", disabled: !delSel.length, onClick: () => requestAppConfirm("删掉这 " + delSel.length + " 张话题卡？", "删了回不来。", () => { const kill = new Set(delSel); setList(topicCardsPut(charId, l => l.filter(y => !kill.has(y.id)))); setDelSel(null); }, "删掉"),
+                className: "active:opacity-60 disabled:opacity-40", style: Object.assign({}, small, { minHeight: 36, color: "#fff", background: "#c0503f", border: "none" }) }, delSel.length ? "删掉 " + delSel.length + " 张" : "删掉"),
+              h("button", { onClick: () => setDelSel(null), className: "active:opacity-60 ml-auto", style: Object.assign({}, small, { minHeight: 36 }) }, "不删了"))) : null)
       : h("div", { "data-wk": "topiccardwrite", style: { margin: "6px 0 8px" } },
           h("textarea", { value: writing, maxLength: 1000, rows: 4, autoFocus: true, placeholder: "一个梗、一个想跟 TA 聊的话题……", onChange: e => setWriting(e.target.value), className: "w-full outline-none",
             style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.ink, background: t.bg2, border: "1px solid " + t.line, borderRadius: 12, padding: "10px 12px", resize: "vertical" } }),
@@ -16625,7 +16633,9 @@ function TopicCardsSheet({ charId, onClose, onUse }) {
           h("button", { onClick: () => { setSharing(null); setPick([]); }, className: "active:opacity-60", style: small }, "算了"),
           h("button", { onClick: shareGo, disabled: !pick.length, className: "active:opacity-60 disabled:opacity-40", style: Object.assign({}, small, { color: "#fff", background: t.accent, border: "none" }) }, pick.length ? "放进 " + pick.length + " 个人" : "先勾人"))) : null,
       list.length ? list.map(x => h("div", { key: x.id, "data-wk": "topiccard", style: { padding: "12px 0", borderBottom: "1px solid " + t.line } },
-        h("button", { onClick: () => onUse(x), className: "w-full active:opacity-60", style: { textAlign: "left" } },
+        h("button", { onClick: () => delSel ? setDelSel(d => d.includes(x.id) ? d.filter(y => y !== x.id) : d.concat([x.id])) : onUse(x), className: "w-full active:opacity-60",
+          style: Object.assign({ textAlign: "left" }, delSel ? { paddingLeft: 30, position: "relative" } : {}) },
+          delSel ? h("span", { style: { position: "absolute", left: 0, top: 2, width: 20, height: 20, borderRadius: 999, border: "1.5px solid " + (delSel.includes(x.id) ? "#c0503f" : t.line), background: delSel.includes(x.id) ? "#c0503f" : "transparent", color: "#fff", fontSize: 12, display: "flex", alignItems: "center", justifyContent: "center" } }, delSel.includes(x.id) ? "✓" : "") : null,
           x.title && x.title !== x.text ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog, marginBottom: 3 } }, x.title) : null,
           h("div", { style: { fontFamily: F_BODY, fontSize: "calc(14.5px * var(--app-fs, 1))", color: t.ink, lineHeight: 1.65, whiteSpace: "pre-wrap", wordBreak: "break-word" } }, x.text)),
         h("div", { className: "flex flex-wrap", style: { gap: 6, marginTop: 8 } },

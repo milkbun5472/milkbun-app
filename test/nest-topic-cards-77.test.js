@@ -58,3 +58,11 @@ require("node:test")("话题卡能从文件导入：走公共选文件，空一�
   assert.match(c, /for \(let k = 0; k < x\.length; k \+= 1000\) parts\.push\(x\.slice\(k, k \+ 1000\)\)/);
   assert.match(c, /"data-wk": "topiccardfile", onClick: importFile/);
 });
+
+require("node:test")("话题卡能勾几张一起删，先问一句", () => {
+  const assert = require("node:assert/strict"), fs = require("fs"), path = require("path");
+  const c = fs.readFileSync(path.join(__dirname, "..", "js", "components.js"), "utf8");
+  assert.match(c, /const \[delSel, setDelSel\] = useState\(null\);/);
+  assert.match(c, /requestAppConfirm\("删掉这 " \+ delSel\.length \+ " 张话题卡？"/);
+  assert.match(c, /onClick: \(\) => delSel \? setDelSel\(/);
+});
