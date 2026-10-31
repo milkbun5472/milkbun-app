@@ -1217,8 +1217,8 @@
         isPost ? h("div", { "data-wk": "nestpostwrite" }, label(t, "想说什么（最多 4000 字）"),
           h("textarea", { "data-wk": "textarea", value: text, maxLength: 4000, rows: 8, placeholder: "哪里不好用、想要什么、遇到了什么，都可以写；配一张截图更好懂",
             onChange: e => setText(e.target.value), className: "w-full outline-none", style: Object.assign({}, inputStyle, { resize: "vertical" }) })) : null,
-        isTopic ? h("div", { "data-wk": "nesttopicwrite" }, label(t, "这个梗 / 话题（最多 500 字）"),
-          h("textarea", { "data-wk": "textarea", value: text, maxLength: 500, rows: 5, placeholder: "比如：问 TA「如果我变成一只猫，你还会爱我吗」——看 TA 怎么接",
+        isTopic ? h("div", { "data-wk": "nesttopicwrite" }, label(t, "这个梗 / 话题（最多 1000 字）"),
+          h("textarea", { "data-wk": "textarea", value: text, maxLength: 1000, rows: 6, placeholder: "比如：问 TA「如果我变成一只猫，你还会爱我吗」——看 TA 怎么接",
             onChange: e => setText(e.target.value), className: "w-full outline-none", style: Object.assign({}, inputStyle, { resize: "vertical" }) })) : null,
         pasteKind ? h("div", { style: { marginTop: 14 } }, label(t, kind === "css" ? "或者直接把 CSS 贴在这儿" : kind === "doc" ? "或者直接把整份内容贴在这儿" : "也可以把导出的那份文件内容整份贴进来"),
           // 上限跟小窝后端那一道同：整份最多 1.6MB（D1 一行 2MB）

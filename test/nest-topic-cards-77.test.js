@@ -9,7 +9,7 @@ test("小窝多了「梗与话题」这一类，放进聊天只能选人", () =>
   assert.match(nest, /\{ key: "topic", zh: "梗与话题", seal: "梗"/);
   assert.match(nest, /it\.kind === "topic" \? \["chat"\]/);
   assert.match(nest, /isTopic \? h\(Btn, \{ t, solid: true, wide: true, disabled: busy, onClick: \(\) => setPlacing\(true\)/);
-  assert.match(nest, /maxLength: 500/, "跟后端同一个上限");
+  assert.match(nest, /maxLength: 1000/, "跟后端同一个上限");
 });
 
 test("放进去：同一条重复放只留一张，新的在最前，一人最多 60 张", () => {
