@@ -7282,6 +7282,14 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     //   是它把【线下场景】和线上消息按时间合流了，messages 里只有线上。
     //   所以线上压成位置标记、线下原样留着（言秋 2026-09-02 拍的板）。
     //   ⚠️别的调用方（推演/朋友圈/论坛/日记…）不发 messages，它们照旧拿全文。
+    // 往期线下：最新那场要是已经整场进了【最近对话】（结束得还近），这里就跳过它，不重复
+    pastOffline: settingsFor(char.id).engineerEyes ? "" : (() => {
+      const list = offlinesRef.current[char.id] || loadJSON("x_offline:" + char.id, []);
+      const newest = (list || []).find(s => s && (s.msgs || []).length > 0);
+      const floor = Math.max(0, Number(memCfgRef.current.recentDays ?? 3)) * 86400000;
+      const inRecent = newest && (!newest.endTs || (floor && Date.now() - newest.endTs <= floor));
+      try { return pastOfflineFor(char, inRecent ? newest.id : null); } catch (e) { return ""; }   // 定义在后面，渲染期早调也不炸
+    })(),
     recentChat: (() => {
       const thinOnline = !!(ctxOpts && ctxOpts.thinOnline);
       // 通话就是线上聊天的一种，没有第二套（她 2026-09-06：「有没有可能通话跟线上聊天
@@ -8662,6 +8670,28 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   //   跟通话那一路的做法对齐（记录存全的、拼 prompt 时才切尾巴）。
   //   这儿只留一道防失控的硬闸：单场再长也不写超过 20 万字。
   const TRANSCRIPT_KEEP_MAX = 200000;
+  // 往期线下（她 2026-10-31：群友许愿「调用往期线下记录 x 条」——线下总结完，再进线下、群里都对上次见面没印象，记忆库里明明有总结）：
+  //   原来只有【最新那一场、而且结束不久】才进上下文，再往前全靠记忆库按这一轮的话去搜，搜不到就像没发生过。
+  //   这里固定带最近 N 场已经结束的线下：总结＋原文（原文按字数从最近往回收，太长就只留后半截并说清）。
+  //   N 在聊天设置里每人一格（pastOfflineN，默认 1）；最新那场已经整场进了【最近对话】的就不重复。
+  //   单聊线上、再进线下（都走 ctxFor）和群聊（memberPrivateContextFor）共用这一份。
+  const PAST_OFF_CHARS = 4000;
+  const pastOfflineFor = (char, skipId) => {
+    try {
+      const n = Math.max(0, Math.min(10, Number((settingsFor(char.id) || {}).pastOfflineN ?? 1)));
+      if (!n) return "";
+      let list = offlinesRef.current[char.id];
+      if (!list) list = loadJSON("x_offline:" + char.id, []);
+      const done = (list || []).filter(x => x && x.endTs && (x.msgs || []).length && x.id !== skipId).slice(0, n);
+      return done.map(x => {
+        const when = new Date(x.startTs || x.endTs).toLocaleDateString("zh-CN", { month: "numeric", day: "numeric" });
+        let raw = offlineTranscriptForOnline(x.msgs, false, char.name) || "";
+        if (raw.length > PAST_OFF_CHARS) raw = "〔这一场太长，下面只是后半截〕\n" + raw.slice(raw.length - PAST_OFF_CHARS);
+        const sumOf = ((chatsRef.current[char.id] || []).find(m => m && m.kind === "offlinelog" && m.ofs === x.id) || {}).content || x.summary || "";
+        return "· " + when + "那次" + (sumOf ? "\n  总结：" + String(sumOf).trim() : "") + (raw ? "\n  经过（原文）：\n" + raw : "");
+      }).join("\n");
+    } catch (e) { return ""; }
+  };
   const offlineTranscriptForOnline = (msgs, groupMode, charName) => {
     const text = (msgs || []).filter(m => m && !isOocMsg(m) && m.content).map(m => {
       const who = m.role === "narration" ? "【场景】" : m.role === "user" ? userName(profile) : (groupMode ? (m.senderName || "某人") : charName);
@@ -21611,6 +21641,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     const onlyMine = formatMemLib((split.perChar || {})[String(c.id)] || []);
     const priv = opts.interop ? memberPrivLines(c, opts.privateCtxN) : "";
     const offBeats = opts.interop && Number(opts.privateCtxN) > 0 ? crossRecentFor(c.id, { surfaces: ["offline"] }) : "";
+    // 前几次线下跟实时私聊同一道闸：封闭群、私聊窗口关成 0 的不带
+    const pastOff = opts.interop && Number(opts.privateCtxN) > 0 ? (() => { try { return pastOfflineFor(c, null); } catch (e) { return ""; } })() : "";
     // 他在别的互通群里最近聊的（她 2026-10-27）：走 crossRecentFor 那一份——按时间窗＋字数预算（召回设置里那两根拉条），不按条数
     const otherGroups = opts.interop ? crossRecentFor(c.id, { surfaces: ["group"], excludeGroup: opts.groupId }) : "";
     // 旁观群（群友 2026-10-20）：她不在这个群里。原样摆出他跟她刚才的私聊/线下，模型会顺着那段接着跟她说下去，
@@ -21620,6 +21652,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       onlyMine && onlyMine.trim() && "记忆库里【只有 " + c.name + " 知道】的事（别的成员并不知情，除非 TA 自己说出来）：\n" + onlyMine.trim(),
       priv && away + "最近私聊（带时间，请和群聊记录一起按真实时间先后理解发生顺序）：\n" + priv,
       offBeats && (priv ? "" : away) + "最近单人线下（带时间，和上面私聊/群聊一起按真实先后理解）：\n" + offBeats,
+      pastOff && c.name + " 跟用户前几次的线下见面（只有 " + c.name + " 知道，别的成员不知情，除非 TA 自己说出来）：\n" + pastOff,
       otherGroups && c.name + " 在别的群里最近聊的（那边的事 TA 知道；这个群里的人在不在那个群，照名单看，不在的就不知道）：\n" + otherGroups
     ].filter(Boolean).join("\n");
   };
@@ -36404,6 +36437,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
           [activeChar.id]: {
             ...settingsFor(activeChar.id),
             ctxN: s.ctxN,
+            pastOfflineN: Math.max(0, Math.min(10, Number(s.pastOfflineN) || 0)),
             onlinePresetOn: !!s.onlinePresetOn,
             onlinePresetId: s.onlinePresetId || "",
             sumThresh: s.sumThresh,
