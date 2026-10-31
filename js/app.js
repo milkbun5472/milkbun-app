@@ -36258,6 +36258,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     }),
     onSaveMemory: text => { setMemFor(activeChar.id, text); toast("长期记忆已保存"); },
     onOpenStyleLab: goStyleLab,
+    onSetProactive: on => { if (on !== window.AutoRefreshPolicy.enabled(autoRefreshRef.current, "proactive", activeChar.id)) setAutoFromPage("proactive", activeChar.id, on); },
     onSave: s => {
       // 换了「TA 认识的是我哪一张」：今天起往后已经排好的日程是照旧面具写的（群里读者 2026-10-01：
       //   「绑了面具2，char 行程里提到的地方还是我主面具的」）——日程会提前排几天，换面具不重排。
