@@ -23348,7 +23348,7 @@ function ChatSettings({
       h("span", { style: { fontFamily: F_DISPLAY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.sub } }, "带上最近几次线下"),
       h("span", { style: { fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: "calc(16px * var(--app-fs, 1))", color: t.ink } }, pastOfflineN ? pastOfflineN + " 次" : "不带")),
     h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", lineHeight: 1.5, color: t.fog, marginBottom: 10 } },
-      characterText(character, "0 就跟原来一样：刚结束不久的那场照常带，再往前靠记忆库搜。往上调，就在那之外再往前固定多带几场（总结和原文）：单聊、再进线下、群里他都记得。每多一场，每轮多带一段（一场原文最多四千字）。")),
+      characterText(character, "填 0：他只牢牢记得刚见完的那一次，更早的见面记不记得看运气。填几，就多牢牢记得前面几次。填得越多，每次回话越费字数。")),
     h(Slider, { value: pastOfflineN, min: 0, max: 10, step: 1, onChange: setPastOfflineN })), /*#__PURE__*/React.createElement("div", {
     className: "pt-6"
   }, /*#__PURE__*/React.createElement("div", {
