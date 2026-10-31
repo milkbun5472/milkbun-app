@@ -9,7 +9,7 @@ const ui = fs.readFileSync(path.join(__dirname, "..", "js", "screens-ui.js"), "u
 
 test("订单记面具：自己挑的照挑的，TA 送的跟 TA 认的那张，其余主面具", () => {
   assert.match(app, /mask: o && o\.mask != null \? String\(o\.mask \|\| ""\) : \(o && o\.fromCharId \? maskKeyOf\(o\.fromCharId\) : ""\),/);
-  assert.match(app, /takeout: it\.takeout, [^\n]*mask: payMask \}\)\);\n      removeCartUids\(uids\);/);
+  assert.match(app, /takeout: it\.takeout, [^\n]*mask: payMask \}\)\);\n      takeFromCart\(uids, pick\);/);
   const i = app.indexOf("const orderMaskOf = o =>");
   const f = new Function("maskKeyOf", "return " + app.slice(i + "const orderMaskOf = ".length, app.indexOf("\n", i)).replace(/;$/, ""))(id => id === "c_b" ? "mk_b" : "");
   assert.equal(f({ mask: "mk_b" }), "mk_b");
@@ -24,8 +24,8 @@ test("查手机：别的面具买的单他看不到（文字和录像两头）",
 });
 
 test("结算时有「用哪张面具买」，只在有副面具时出现，点得到", () => {
-  assert.match(ui, /payMasks\.length > 1\) \? h\("div", \{ "data-wk": "shoppaymask"/);
-  assert.match(ui, /onCheckout\(sel, "buy", null, \{ mask: payMask \}\)/);
+  assert.match(ui, /const maskOn = !payAs && Array\.isArray\(payMasks\) && payMasks\.length > 1;[\s\S]*maskOn \? h\(FoldRow, \{ title: "用哪张面具买"[\s\S]*"data-wk": "shoppaymask"/);
+  assert.match(ui, /onCheckout\(sel, "buy", null, \{ mask: payMask, pick: pickN \}\)/);
   assert.match(ui, /"data-wk": "shoppaymaskitem"[^\n]*\n[^\n]*minHeight: 40/);
 });
 
