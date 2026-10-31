@@ -11096,6 +11096,12 @@ function isQuotaError(e) {
 // 写 localStorage。成功返回 true；写满(quota)时【弹全局警告】并返回 false——不再默默丢数据。
 // 文字库的唯一写入口（原样字符串）。saveJSON 和下面那层 localStorage 转接都走这一个。
 const TXT_PAD_MAX = 256 * 1024;
+// 写进手机没成（她 2026-10-31：群友「正聊着天突然东西没了」）：原来只在后台记一行，界面照常——
+//   屏幕上看到的是内存里那份，iOS 一杀后台再打开，读到的是最后一次真存进去的旧版，中间那几个小时就没了。
+//   现在当场喊出来（app 那头 __saveFailed，20 秒内只喊一次），叫她先导出、腾地方。
+function txtWriteFailed(k, e) {
+  try { if (typeof window !== "undefined" && typeof window.__saveFailed === "function") window.__saveFailed(k, isQuotaError(e)); } catch (x) {}
+}
 let _txtHasDataMarked = false;
 function txtWrite(k, s) {
   s = String(s);
@@ -11133,7 +11139,7 @@ function txtWrite(k, s) {
               if (isDurableTextKey(k)) walDel(k).catch(e => console.error("wal cleanup failed:", k, e));
             }
           });
-        }).catch(e => console.error("durable idbTxtPut failed:", k, e));
+        }).catch(e => { console.error("durable idbTxtPut failed:", k, e); txtWriteFailed(k, e); });
       } catch (e) {}
     } else {
       // ⚠️小仓库只当【这一版落进 IDB 之前】的临时垫子：先同步垫一份（只垫小的），IDB 读回一致才撤。
@@ -11145,7 +11151,7 @@ function txtWrite(k, s) {
       try {
         idbTxtPut(k, s).then(() => idbTxtGet(k)).then(back => {
           if (back === s && lsRaw.get(k) === s) lsRaw.del(k);
-        }).catch(e => console.error("idbTxtPut failed:", k, e));
+        }).catch(e => { console.error("idbTxtPut failed:", k, e); txtWriteFailed(k, e); });
       } catch (e) {}
     }
     return true;

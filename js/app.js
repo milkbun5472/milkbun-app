@@ -2352,7 +2352,15 @@ function App() {
       storageWarnTs.current = now;
       toast("⚠️ 手机本地存储快满了，新内容可能存不进/会丢！去 设置·数据 看占用、清掉些图片，或先导出备份");
     };
-    return () => { if (window.__storageFull) delete window.__storageFull; };
+    // 写进手机没成（engine.js txtWrite）：聊天、线下这些屏幕上还在，但没真存进去，重开就回到旧的
+    window.__saveFailed = (k, full) => {
+      const now = Date.now();
+      if (now - storageWarnTs.current < 20000) return;
+      storageWarnTs.current = now;
+      const what = /^x_g?chat:/.test(String(k)) ? "刚才的聊天" : /^x_g?offline:/.test(String(k)) ? "刚才的线下" : "刚改的东西";
+      toast("⚠️ " + what + "没存进手机" + (full ? "（存储满了）" : "") + "：现在关掉重开会丢。先去 设置 → 数据 → 导入与导出 导出一份，再清掉些图片腾地方", 12000);
+    };
+    return () => { if (window.__storageFull) delete window.__storageFull; if (window.__saveFailed) delete window.__saveFailed; };
   }, []);
   const active = apiProfiles.find(p => p.id === activeId) || apiProfiles[0];
   // 线上/线下全局分流：未选择线下线路时完全沿用旧行为。
