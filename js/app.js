@@ -26132,8 +26132,14 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         + "别跟上一张一模一样。（第 " + Math.floor(Date.now() / 1000 % 100000) + " 次）" : "");
       // 拍的是她（群友 2026-10-03）：有参考照就锁她的脸——说明书在 albumHerShot 那一份
       const her = albumHerShot(char, scene, again);
-      const pFinal = her ? her.prompt : p0, pRefs = her ? her.refs : null;
-      const out = await generateSelfieImage(pFinal, pRefs, {});
+      // 拍的是TA自己、而且照片里露脸（群友 2026-10-31：描述写着唇钉、眼神、耳朵，画出来脸被裁掉、也不像TA）：
+      //   原来TA自己的照片一律不喂参考照，带身体字眼的还走「不露脸局部」那一档。露脸的这种改走聊天自拍那条锁脸的路
+      const faceShot = !her && !!char.refPhoto && /脸|眼|嘴|唇|眉|鼻|表情|自拍|笑着|看向镜头|对着镜头|盯着镜头/.test(scene);
+      const pFinal = her ? her.prompt
+        : faceShot ? buildPhotoPrompt(char, scene, (statesRef.current || {})[char.id] || {}, { kind: "selfie", closet: closetTextFor(char.id) }) + (again ? "【这是重画的一张】同一件事，换个拍法、换个角度和光。" : "")
+        : p0;
+      const pRefs = her ? her.refs : faceShot ? [char.refPhoto] : null;
+      const out = await generateSelfieImage(pFinal, pRefs, faceShot ? { minimalPrompt: buildMinimalPhotoPrompt(char, { kind: "selfie" }) } : {});
       if (!(out && (out.blob || out.url))) throw new Error("没拿到图");
       const sigOf = (window.PhoneKit && window.PhoneKit.photoSig) || (x => (x && x.id) || "");
       const all = (window.PhoneKit && window.PhoneKit.keepLoad) ? window.PhoneKit.keepLoad() : loadJSON("x_phoneKeep", {});

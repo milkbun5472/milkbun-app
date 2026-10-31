@@ -97,7 +97,8 @@ test("走 buildScenePrompt 那条路，不走【画一个人】那份说明书",
   assert.match(draw, /buildScenePrompt\(char, scene, \{/,
     "没走 buildScenePrompt——buildPhotoPrompt 是画人的说明书，外挂一句「不要有人」压不住它");
   assert.match(draw, /forText: false, body: bodyish,/);
-  assert.ok(draw.indexOf("buildPhotoPrompt") < 0, "又拿画人那份说明书去画景了");
+  // 2026-10-31：TA自己露脸、有参考照的那种才走画人那份（锁脸）；空景／局部照旧
+  assert.ok(draw.indexOf("buildPhotoPrompt") < 0 || /faceShot \? buildPhotoPrompt\(/.test(draw), "又拿画人那份说明书去画景了");
   assert.match(draw, /\[photo\.caption, photo\.desc\]/, "没按这张照片自己写的东西画");
   assert.ok(draw.indexOf("photo.thought") < 0, "把他对这张照片的想法也塞进画图指令了");
 });

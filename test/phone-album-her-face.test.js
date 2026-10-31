@@ -5,7 +5,7 @@ test("phone album photo of her locks her face; both → duo", () => {
   assert.match(app, /const albumHerShot = \(char, scene, again\) => \{/);
   assert.match(app, /refs: both \? \[char\.refPhoto, profile\.refPhoto\] : \[profile\.refPhoto\]/);
   assert.match(app, /const her = albumHerShot\(char, scene, again\);/);
-  assert.match(app, /const out = await generateSelfieImage\(pFinal, pRefs, \{\}\);/);
+  assert.match(app, /const out = await generateSelfieImage\(pFinal, pRefs, faceShot \? \{ minimalPrompt:[^\n]*\} : \{\}\);/);   // TA露脸那种带上保脸备用稿（2026-10-31）
 });
 test("recognises her by nickname / common pet names; tells her when she has no ref photo", () => {
   assert.match(app, /宝宝\|宝贝\|老婆\|媳妇\|女朋友/);
