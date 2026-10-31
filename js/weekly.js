@@ -610,6 +610,8 @@
       byWho[who] = (byWho[who] || 0) + 1;
       hours[new Date(r.ts).getHours()]++;
       if (!longest || txt.length > longest.len) longest = { who: who, len: txt.length, text: txt.slice(0, 40) };
+      // 线下整段是叙述（「他坐在她旁边」），不在括号里也是动描：条数照算，词不算（她 2026-10-31「为啥还是手机之类的」）
+      if (/^【[^】]*线下[^】]*】/.test(line)) return;
       const pure = saidOnly(txt).replace(/[^\u4e00-\u9fa5]/g, "");
       for (let k = 0; k + 2 <= pure.length; k++) { const g = pure.slice(k, k + 2); if (STOP2.indexOf(g) < 0) gram[g] = (gram[g] || 0) + 1; }
     });
