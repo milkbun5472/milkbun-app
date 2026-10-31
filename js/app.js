@@ -20,7 +20,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v77.015";
+const APP_VERSION = "v77.022";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -7282,6 +7282,14 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     //   是它把【线下场景】和线上消息按时间合流了，messages 里只有线上。
     //   所以线上压成位置标记、线下原样留着（言秋 2026-09-02 拍的板）。
     //   ⚠️别的调用方（推演/朋友圈/论坛/日记…）不发 messages，它们照旧拿全文。
+    // 往期线下：最新那场要是已经整场进了【最近对话】（结束得还近），这里就跳过它，不重复
+    pastOffline: settingsFor(char.id).engineerEyes ? "" : (() => {
+      const list = offlinesRef.current[char.id] || loadJSON("x_offline:" + char.id, []);
+      const newest = (list || []).find(s => s && (s.msgs || []).length > 0);
+      const floor = Math.max(0, Number(memCfgRef.current.recentDays ?? 3)) * 86400000;
+      const inRecent = newest && (!newest.endTs || (floor && Date.now() - newest.endTs <= floor));
+      try { return pastOfflineFor(char, inRecent ? newest.id : null); } catch (e) { return ""; }   // 定义在后面，渲染期早调也不炸
+    })(),
     recentChat: (() => {
       const thinOnline = !!(ctxOpts && ctxOpts.thinOnline);
       // 通话就是线上聊天的一种，没有第二套（她 2026-09-06：「有没有可能通话跟线上聊天
@@ -8662,6 +8670,29 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   //   跟通话那一路的做法对齐（记录存全的、拼 prompt 时才切尾巴）。
   //   这儿只留一道防失控的硬闸：单场再长也不写超过 20 万字。
   const TRANSCRIPT_KEEP_MAX = 200000;
+  // 往期线下（她 2026-10-31：群友许愿「调用往期线下记录 x 条」——线下总结完，再进线下、群里都对上次见面没印象，记忆库里明明有总结）：
+  //   原来只有【最新那一场、而且结束不久】才进上下文，再往前全靠记忆库按这一轮的话去搜，搜不到就像没发生过。
+  //   这里固定带最近 N 场已经结束的线下：总结＋原文（原文按字数从最近往回收，太长就只留后半截并说清）。
+  //   N 在聊天设置里每人一格（pastOfflineN，默认 0＝跟原来一样不额外带）；最新那场已经由原来那条路带着的就不重复：
+  //   单聊／线下看「短期窗覆盖天数」，群里看「跨情境回看时间窗」——两边都是「原来那条带不到的，往前再补 N 场」。
+  //   单聊线上、再进线下（都走 ctxFor）和群聊（memberPrivateContextFor）共用这一份。
+  const PAST_OFF_CHARS = 4000;
+  const pastOfflineFor = (char, skipId) => {
+    try {
+      const n = Math.max(0, Math.min(10, Number((settingsFor(char.id) || {}).pastOfflineN ?? 0)));
+      if (!n) return "";
+      let list = offlinesRef.current[char.id];
+      if (!list) list = loadJSON("x_offline:" + char.id, []);
+      const done = (list || []).filter(x => x && x.endTs && (x.msgs || []).length && x.id !== skipId).slice(0, n);
+      return done.map(x => {
+        const when = new Date(x.startTs || x.endTs).toLocaleDateString("zh-CN", { month: "numeric", day: "numeric" });
+        let raw = offlineTranscriptForOnline(x.msgs, false, char.name) || "";
+        if (raw.length > PAST_OFF_CHARS) raw = "〔这一场太长，下面只是后半截〕\n" + raw.slice(raw.length - PAST_OFF_CHARS);
+        const sumOf = ((chatsRef.current[char.id] || []).find(m => m && m.kind === "offlinelog" && m.ofs === x.id) || {}).content || x.summary || "";
+        return "· " + when + "那次" + (sumOf ? "\n  总结：" + String(sumOf).trim() : "") + (raw ? "\n  经过（原文）：\n" + raw : "");
+      }).join("\n");
+    } catch (e) { return ""; }
+  };
   const offlineTranscriptForOnline = (msgs, groupMode, charName) => {
     const text = (msgs || []).filter(m => m && !isOocMsg(m) && m.content).map(m => {
       const who = m.role === "narration" ? "【场景】" : m.role === "user" ? userName(profile) : (groupMode ? (m.senderName || "某人") : charName);
@@ -15710,6 +15741,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
             const who = (members.find(c => c.id === m.toId) || {}).name || m.toName || "某位成员";
             return "· " + gUName + " 转给「" + who + "」" + moneyText(m.amount, m.toId) + (m.note ? "（附言：" + m.note + "）" : "") + "，还没处理";
           }).join("\n")
+          + "\n同一个人有好几笔挂着的，表态管的是【最新那一笔】，前面的继续挂着。"
           + "\n收不收【由收款那个人自己按人设和此刻情形定，不是默认收】：TA缺不缺、跟她什么关系、当着别人的面好不好意思收、是不是正别扭着——都算数。"
           + "\n要表态就在【TA自己那条发言对象】里加 \"transferAccept\":true（收下）或 false（退回），并在 text 里说一句TA自己的话；这一轮没顾上就省略，卡继续挂着。"
         : "";
@@ -16199,7 +16231,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
           }
           // TA对挂着那笔转账的表态（v56.88）：只结算转给TA本人的那一笔
           if (spk && (item.transferAccept === true || item.transferAccept === false)) {
-            const _mine = gPendingTf.find(x => x.toId === spk.id && x.status === "pending");
+            // 结算【最新那一笔】，跟单聊同一个取法（她 2026-10-31：第一轮转了他没收，第二轮再转，他一表态退的却是第一轮那笔）
+            const _mine = gPendingTf.filter(x => x.toId === spk.id && x.status === "pending").pop();
             if (_mine) respondGroupTransfer(groupId, _mine.tid, item.transferAccept === true);
           }
           if (item.text) _gSaidRun += " " + item.text;   // 后面的人要能看见TA刚说的
@@ -19271,7 +19304,10 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       const st0 = statesRef.current[charId] || {};
       const st = (!isToday || dayWears.length) ? { ...st0, wearing: "", wearingUpdatedAt: 0 } : st0;
       const scene = "【版式·胶片条】整张图是一条竖着的三格胶片，三格一样大、格子之间留一道粗白边，像一卷胶片冲出来的三张；"
-        + "三格按下面这篇日记里这一天的三个时刻，从早到晚排；地方跟着日记走。三格机位要各不一样（每格具体怎么拍见下面「每一格的机位」）；不要三格都从高处往下拍，也不要三格都抬头看镜头。脸：至少两格要看得清正脸或者四分之三侧的脸（不一定看镜头），纯侧脸、背影最多一格。第三格是晚上，但晚上不等于睡觉：挑日记和日程里晚上真在做的事（吃饭、洗完澡、看书、打游戏、回消息、出门……）；只有日记里写明了在睡、躺下了，才画睡着或躺在床上。挑日记里真写到的画面，别编日记里没有的地方和人。"
+        + "三格按下面这篇日记里这一天的三个时刻，从早到晚排；地方跟着日记走。"
+        // 日记里提一嘴「小时候」「以前」，三格就全画成了小时候（群里 2026-10-31）：拍的是这一天，人是他现在这个年纪
+        + "三格拍的都是这一天当下真发生的事，他就是现在这个年纪、现在的样子；日记里回想起的往事（小时候、以前、梦里）只是他心里想的，不拍成画面。"
+        + "三格机位要各不一样（每格具体怎么拍见下面「每一格的机位」）；不要三格都从高处往下拍，也不要三格都抬头看镜头。脸：至少两格要看得清正脸或者四分之三侧的脸（不一定看镜头），纯侧脸、背影最多一格。第三格是晚上，但晚上不等于睡觉：挑日记和日程里晚上真在做的事（吃饭、洗完澡、看书、打游戏、回消息、出门……）；只有日记里写明了在睡、躺下了，才画睡着或躺在床上。挑日记里真写到的画面，别编日记里没有的地方和人。"
         // 穿什么：先看写日记时记下的、再查状态历史；这天换过几身，每格穿那个时刻的那身
         + (() => { const w = dayWears;
             if (!w.length) return isToday ? "三格里他穿的是同一身衣服。" : "那天穿什么没记下来：从他衣柜里挑一身合这天天气、这天在做的事的，三格都是这一身；别照搬参考照里的衣服。";
@@ -21611,6 +21647,14 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     const onlyMine = formatMemLib((split.perChar || {})[String(c.id)] || []);
     const priv = opts.interop ? memberPrivLines(c, opts.privateCtxN) : "";
     const offBeats = opts.interop && Number(opts.privateCtxN) > 0 ? crossRecentFor(c.id, { surfaces: ["offline"] }) : "";
+    // 前几次线下跟实时私聊同一道闸：封闭群、私聊窗口关成 0 的不带
+    const pastOff = opts.interop && Number(opts.privateCtxN) > 0 ? (() => { try {
+      // 最新那场还在「跨情境回看时间窗」里的，上面 offBeats 已经带着它，这里从再往前那场数起（跟单聊同一个算法）
+      const list = offlinesRef.current[c.id] || loadJSON("x_offline:" + c.id, []);
+      const newest = (list || []).find(x => x && (x.msgs || []).length > 0);
+      const win = Math.max(0, Number(memCfgRef.current.crossHours ?? 72)) * 3600000;
+      const inCross = newest && (!newest.endTs || (win && Date.now() - newest.endTs <= win));
+      return pastOfflineFor(c, inCross ? newest.id : null); } catch (e) { return ""; } })() : "";
     // 他在别的互通群里最近聊的（她 2026-10-27）：走 crossRecentFor 那一份——按时间窗＋字数预算（召回设置里那两根拉条），不按条数
     const otherGroups = opts.interop ? crossRecentFor(c.id, { surfaces: ["group"], excludeGroup: opts.groupId }) : "";
     // 旁观群（群友 2026-10-20）：她不在这个群里。原样摆出他跟她刚才的私聊/线下，模型会顺着那段接着跟她说下去，
@@ -21620,6 +21664,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       onlyMine && onlyMine.trim() && "记忆库里【只有 " + c.name + " 知道】的事（别的成员并不知情，除非 TA 自己说出来）：\n" + onlyMine.trim(),
       priv && away + "最近私聊（带时间，请和群聊记录一起按真实时间先后理解发生顺序）：\n" + priv,
       offBeats && (priv ? "" : away) + "最近单人线下（带时间，和上面私聊/群聊一起按真实先后理解）：\n" + offBeats,
+      pastOff && c.name + " 跟用户前几次的线下见面（只有 " + c.name + " 知道，别的成员不知情，除非 TA 自己说出来）：\n" + pastOff,
       otherGroups && c.name + " 在别的群里最近聊的（那边的事 TA 知道；这个群里的人在不在那个群，照名单看，不在的就不知道）：\n" + otherGroups
     ].filter(Boolean).join("\n");
   };
@@ -36409,6 +36454,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
           [activeChar.id]: {
             ...settingsFor(activeChar.id),
             ctxN: s.ctxN,
+            pastOfflineN: Math.max(0, Math.min(10, Number(s.pastOfflineN) || 0)),
             onlinePresetOn: !!s.onlinePresetOn,
             onlinePresetId: s.onlinePresetId || "",
             sumThresh: s.sumThresh,

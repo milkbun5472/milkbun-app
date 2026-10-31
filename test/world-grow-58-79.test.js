@@ -11,7 +11,8 @@ const grab = (src, a, b, cap) => {
   return src.slice(i, j);
 };
 const add = grab(app, "  const addWorldNode = (wid, regionName, node) => {", "  const genWorldNodes = async");
-const gen = grab(app, "  const genWorldNodes = async (wid, regionName, hint, done) => {", "  const saveWorld = (");
+// 2026-10-30 v77.012 多了 forId（替谁添）
+const gen = grab(app, "  const genWorldNodes = async (wid, regionName, hint, done, forId) => {", "  const saveWorld = (");
 
 // 她 2026-08-31：「再加一个可以继续往这个地方加地点的功能」。
 // 这一版真正的坑不在界面上：跑团那个画图引擎每块地方【只画前 3 个地点】，
@@ -60,7 +61,7 @@ test("手写一个不花调用；让模型添才走一次", () => {
 });
 
 test("加地点是整页，不是半窗", () => {
-  const na = grab(map, "  function NodeAdd({ world, busy, onAdd, onGen, onBack }) {", "  // 开世界：整页表单");
+  const na = grab(map, "  function NodeAdd(props0) {", "  // 开世界：整页表单");   // 2026-10-30 v77.012 起参数改成 props0
   assert.ok(!/h\(Sheet/.test(na), "用了半窗——见 施工规则/no-half-sheet.md");
   // ⚠️口径改了（v64.03）：`position:"fixed", inset:0` 从这一行搬进了共用的 mapSubSkin
   //   （三层子页本来是三行一模一样的平色，各改各的迟早只改一处）。

@@ -1118,6 +1118,19 @@ function MsgStickPicker({ at, hasStick, onPick, onClose, onPacks }) {
         h("input", { "data-wk": "msgstickown", value: own, onChange: e => setOwn(e.target.value.slice(0, 16)), placeholder: "打一个别的 emoji", style: { ...inputStyle, flex: 1 } }),
         btn("贴", () => { const e = msgStickFirstEmoji(own); if (e) { setOwn(""); pick(e); } }, null, !msgStickFirstEmoji(own)))));
 }
+// 引用块引的是谁的话（群里 2026-10-31：「引用对方消息是他的气泡颜色，他引用我的是我的气泡颜色」能不能做）：
+//   挂在引用块上 data-from="me"/"ta"，美化按它分开配色。群里引的是成员就有 replyToSenderId；
+//   别的（单聊、引她自己）往前找原话对得上的那条看是谁说的，老消息也认得出来。
+function quoteFromOf(list, i, m) {
+  if (!m || !m.replyTo) return "";
+  if (m.replyToSenderId) return "ta";
+  const q = String(m.replyTo).trim();
+  for (let k = Math.min(i, (list || []).length) - 1; k >= 0; k--) {
+    const x = list[k];
+    if (x && typeof x.content === "string" && x.content.trim() && (x.content.trim() === q || x.content.indexOf(q) >= 0)) return x.role === "user" ? "me" : "ta";
+  }
+  return "";
+}
 function msgStickEl(m, isU) {
   // 贴在气泡【上沿】的角上（她 2026-10-31：贴在下面会挡住「听一下」）
   // 群里成员贴的（gSticks，可能好几个人）：她自己贴的那个排在最后，一起排成一小串
@@ -12060,7 +12073,7 @@ function ChatThread({
     // 名字：单聊平常不显示（只有两个人），留着给排版「名字写在气泡上面」和写 CSS 的人打开
     h("div", { "data-wk": "name", "data-me": isU ? "1" : "0", style: { display: "none", fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, margin: "0 4px 2px" } }, isU ? ((profile && profile.name) || "我") : cName),
     m.replyTo && h("div", {
-      "data-wk": "quote", "data-me": isU ? "1" : "0",
+      "data-wk": "quote", "data-me": isU ? "1" : "0", "data-from": quoteFromOf(messages, i, m) || undefined,
       style: {
         fontFamily: F_BODY,
         fontSize: "calc(11px * var(--app-fs, 1))",
@@ -20167,7 +20180,7 @@ function GroupThread({
         marginLeft: 2
       }
     }, m.senderName, gRoleTag(m)), m.replyTo && h("div", {
-      "data-wk": "quote", "data-me": isU ? "1" : "0",
+      "data-wk": "quote", "data-me": isU ? "1" : "0", "data-from": quoteFromOf(messages, i, m) || undefined,
       style: {
         fontFamily: F_BODY,
         fontSize: "calc(11px * var(--app-fs, 1))",
@@ -22300,6 +22313,7 @@ function ChatSettings({
   const [myPatSig, setMyPatSig] = useState(character.myPatSig || "");
   const [patGenBusy, setPatGenBusy] = useState(false);   // 他拍你时，你那半句后缀（她 2026-10-25）
   const [ctxN, setCtxN] = useState(settings.ctxN || 50);
+  const [pastOfflineN, setPastOfflineN] = useState(settings.pastOfflineN == null ? 0 : Number(settings.pastOfflineN) || 0);   // 带上最近几次线下（2026-10-31）
   const [sumThresh, setSumThresh] = useState(settings.sumThresh || 150);
   const [sumBuffer, setSumBuffer] = useState(settings.sumBuffer || 20);
   const [autoMoment, setAutoMoment] = useState(!!settings.autoMoment);
@@ -22694,6 +22708,7 @@ function ChatSettings({
       patSig,
       myPatSig,
       ctxN,
+      pastOfflineN,
       sumThresh,
       sumBuffer,
       autoMoment,
@@ -23341,7 +23356,13 @@ function ChatSettings({
     max: 1000,
     step: 10,
     onChange: setCtxN
-  })), /*#__PURE__*/React.createElement("div", {
+  })), h("div", { className: "pt-6", "data-wk": "pastoffline" },
+    h("div", { className: "flex items-baseline justify-between mb-1" },
+      h("span", { style: { fontFamily: F_DISPLAY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.sub } }, "带上最近几次线下"),
+      h("span", { style: { fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: "calc(16px * var(--app-fs, 1))", color: t.ink } }, pastOfflineN ? pastOfflineN + " 次" : "不带")),
+    h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", lineHeight: 1.5, color: t.fog, marginBottom: 10 } },
+      characterText(character, "填 0：他只牢牢记得刚见完的那一次，更早的见面记不记得看运气。填几，就多牢牢记得前面几次。填得越多，每次回话越费字数。")),
+    h(Slider, { value: pastOfflineN, min: 0, max: 10, step: 1, onChange: setPastOfflineN })), /*#__PURE__*/React.createElement("div", {
     className: "pt-6"
   }, /*#__PURE__*/React.createElement("div", {
     className: "flex items-baseline justify-between mb-1"
