@@ -40,12 +40,12 @@ test("普通群线下照旧：她本来就在场（别修出一个新毛病）",
   assert.ok(!/用户不在场/.test(line));
 });
 
-test("群线上那三句一字未改（搬去公共那一份时不许顺手改行为）", () => {
+test("群线上那三句（2026-10-31 旁观两句补上「用户不在」，有意改的）", () => {
   const PAIR = "【重要】这是他俩之间的相处——聊他们自己的生活、眼前的事、【彼此之间】的关系";
   const priv = groupStageLine({ spectate: true, pairNames: ["甲", "乙"], userName: "小鹿", offline: false });
-  assert.ok(priv.startsWith("这是「甲」和「乙」之间【他俩自己】的私下对话（不是群聊）。用户以【旁白】推动场景。让两人自然地你来我往、多轮对话。\n" + PAIR));
+  assert.ok(priv.startsWith("这是「甲」和「乙」之间【他俩自己】的私下对话（不是群聊）。用户不在这场对话里：只有他们两个，谁也看不见她，她也不会插话。她写下的句子是这一场的【旁白】，推动的是剧情本身，不是谁发的消息。让两人自然地你来我往、多轮对话。\n" + PAIR));
   assert.equal(groupStageLine({ spectate: true, pairNames: [], userName: "小鹿", offline: false }),
-    "这是【成员】里这几个人的群聊。用户以【旁白】推动剧情。让成员们围绕旁白与彼此的关系自然互动。");
+    "这是【成员】里这几个人的群聊。用户不在这个群里：群里只有这几个人，谁也看不见她，她也不会在群里回话。她写下的句子是这一场的【旁白】，推动的是剧情本身，不是谁发的消息。让成员们围绕旁白与彼此的关系自然互动。");
   assert.equal(groupStageLine({ spectate: false, pairNames: [], userName: "小鹿", offline: false }),
     "这是一个群聊，用户「小鹿」也是群里的一员，正在和大家一起说话。");
 });
@@ -92,4 +92,13 @@ test("留空开场不拦，也不自己开演：只有邀约那一场一到就�
 test("空场的触发句不是「（继续）」——没有可继续的东西", () => {
   assert.match(engine, /const OFFLINE_OPEN_SCENE = "（这一场还没开始。由你们起头/);
   assert.equal((engine.match(/\(hist\.length \? "（继续）" : OFFLINE_OPEN_SCENE\)/g) || []).length, 2, "单人线下和群线下都要认空场");
+});
+
+// 线上旁观群也说清她不在群里（群友 2026-10-31：开着旁观，角色突然在群里问起她来）
+require("node:test")("线上旁观群、旁观两人私聊都带「用户不在」那句", () => {
+  const assert = require("node:assert/strict");
+  const src = require("fs").readFileSync(require("path").join(__dirname, "..", "js", "engine.js"), "utf8");
+  assert.match(src, /: "这是【成员】里这几个人的群聊。" \+ SPECTATE_USER_NOT_IN_GROUP \+/);
+  assert.match(src, /（不是群聊）。" \+ SPECTATE_USER_NOT_IN_GROUP\.replace\(/);
+  assert.match(src, /const SPECTATE_USER_NOT_IN_GROUP = "用户不在这个群里：群里只有这几个人，谁也看不见她/);
 });
