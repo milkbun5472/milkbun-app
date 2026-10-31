@@ -20,7 +20,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v88.826";
+const APP_VERSION = "v88.827";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -31036,6 +31036,13 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     saveJSON("x_shopCart", n);
     return n;
   });
+  // 购物车里直接改件数（她 2026-10-31：「跟淘宝一样默认一件也有 −1+，可以手动输入数字」）
+  const setCartQty = (uid, q) => setCart(p => {
+    const v = Math.max(1, Math.min(999, Math.round(Number(q)) || 1));
+    const n = p.map(x => x.uid === uid ? { ...x, qty: v } : x);
+    saveJSON("x_shopCart", n);
+    return n;
+  });
   const cartPickN = (x, pick) => { const q = Math.max(1, Number(x && x.qty) || 1), v = pick && pick[x.uid] != null ? Number(pick[x.uid]) : q; return Math.max(1, Math.min(q, Math.round(v) || q)); };
   const removeCartUids = uids => setCart(p => {
     const set = new Set(uids);
@@ -34322,6 +34329,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     onGen: genShop,
     onAddCart: addToCart,
     onRemoveCart: uid => removeCartUids([uid]),
+    onSetCartQty: setCartQty,
     onCheckout: checkout,
     // 用哪张面具付：只有建过副面具才给这一排（主面具在前，叫法跟面具页一样）
     payMasks: payMaskList(),

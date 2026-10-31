@@ -25,3 +25,8 @@ test("结算那页：只摆「用余额买」，面具和别的付法收起来",
   assert.match(ui, /h\(FoldRow, \{ title: "用哪张面具买"/);
   assert.match(ui, /h\(FoldRow, \{ title: "别的付法"/);
 });
+test("购物车每行都有 −件数+，件数能直接打字", () => {
+  assert.match(ui, /"data-wk": "shopcartqtyinput", type: "text", inputMode: "numeric"/);
+  assert.match(app, /const setCartQty = \(uid, q\) =>/);
+  assert.match(app, /onSetCartQty: setCartQty,/);
+});

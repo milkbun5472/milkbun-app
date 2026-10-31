@@ -3686,7 +3686,7 @@ function searchTopBar({ onBack, search, setSearch, onGo, busy, placeholder, acce
       busy ? h(IPulse, { size: 19, color: iconInk }) : h(IRefresh, { size: 19, color: sub })));
   return topBar;
 }
-function Shop({ payAs, initialNav, wallet, cart, orders, inventory, wish, characters, groups, kinshipCards, feed, busy, onBack, onGen, onAddCart, onRemoveCart, onCheckout, onReceiveUse, onReceiveGift, onReturn, onAskChar, onToggleWish, onUseUp, onToggleOnMe, onGiftInv, onClosetInv, onLeaveAtHis, payMasks, walletOf, toast }) {
+function Shop({ onSetCartQty, payAs, initialNav, wallet, cart, orders, inventory, wish, characters, groups, kinshipCards, feed, busy, onBack, onGen, onAddCart, onRemoveCart, onCheckout, onReceiveUse, onReceiveGift, onReturn, onAskChar, onToggleWish, onUseUp, onToggleOnMe, onGiftInv, onClosetInv, onLeaveAtHis, payMasks, walletOf, toast }) {
   const t = useTheme();
   const [nav, setNav] = useState(initialNav || "home"); // home | cart | my
   const [cat, setCat] = useState("recommend");
@@ -3708,6 +3708,7 @@ function Shop({ payAs, initialNav, wallet, cart, orders, inventory, wish, charac
   const cartItems = cart || [];
   // 一行里这次买几件（群里 2026-10-31：「checkout 的时候可以选择买其中多少件，剩下的留在购物车」）：没动过就是整行都买
   const [pickN, setPickN] = useState({});
+  const [qtyDraft, setQtyDraft] = useState({});   // 件数那格正在打的字（打空了先不改，失焦再回到真数）
   const [actFold, setActFold] = useState("");   // 结算那一页收起来的两格：面具 / 别的付法（她 2026-10-31「一堆按键整理一下收起来」）
   const qtyOf = x => Math.max(1, Number(x && x.qty) || 1);
   const buyN = x => Math.max(1, Math.min(qtyOf(x), pickN[x.uid] != null ? pickN[x.uid] : qtyOf(x)));
@@ -3797,15 +3798,16 @@ function Shop({ payAs, initialNav, wallet, cart, orders, inventory, wish, charac
                 c.word ? h("span", { style: { position: "absolute", left: 0, right: 0, bottom: 4, textAlign: "center", fontFamily: F_BODY, fontSize: "calc(9px * var(--app-fs, 1))", color: "rgba(255,255,255,.92)" } }, c.word) : null),
               h("div", { className: "flex-1 min-w-0", onClick: () => setDetail(Object.assign({}, it, { _fromCart: true })), role: "button" },
                 h("div", { "data-wk": "shopcartname", style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: MSHOP.ink, lineHeight: 1.4, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" } }, it.name),
-                h("div", { className: "flex items-center", style: { gap: 8, marginTop: 4 } },
+                h("div", { className: "flex items-center justify-between", style: { gap: 8, marginTop: 4 } },
                   h("div", { "data-wk": "shopcartprice", style: { fontFamily: F_DISPLAY, fontSize: "calc(16px * var(--app-fs, 1))", fontWeight: 700, color: MSHOP.price } }, "¥" + it.price),
-                  qtyOf(it) > 1 ? h("span", { "data-wk": "shopcartqty", style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: MSHOP.sub } }, "×" + qtyOf(it)) : null),
-                on && qtyOf(it) > 1 ? h("div", { "data-wk": "shopcartpick", className: "flex items-center", onClick: e => e.stopPropagation(), style: { gap: 8, marginTop: 6 } },
-                  h("span", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: MSHOP.sub } }, "这次买"),
-                  h("button", { "data-wk": "shopcartpickbtn", "data-part": "minus", onClick: () => setPickN(p => ({ ...p, [it.uid]: Math.max(1, buyN(it) - 1) })), "aria-label": "少买一件", className: "active:opacity-60", style: { width: 28, height: 28, borderRadius: 999, border: "1px solid " + MSHOP.line, color: MSHOP.ink, fontSize: 15 } }, "−"),
-                  h("span", { "data-wk": "shopcartpickn", style: { minWidth: 18, textAlign: "center", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: MSHOP.ink } }, buyN(it)),
-                  h("button", { "data-wk": "shopcartpickbtn", "data-part": "plus", onClick: () => setPickN(p => ({ ...p, [it.uid]: Math.min(qtyOf(it), buyN(it) + 1) })), "aria-label": "多买一件", className: "active:opacity-60", style: { width: 28, height: 28, borderRadius: 999, border: "1px solid " + MSHOP.line, color: MSHOP.ink, fontSize: 15 } }, "+"),
-                  buyN(it) < qtyOf(it) ? h("span", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: MSHOP.dim } }, "剩 " + (qtyOf(it) - buyN(it)) + " 件留在购物车") : null) : null),
+                  // 件数：跟淘宝一样，一件也摆着 −1+，中间那格能直接打数字
+                  h("div", { "data-wk": "shopcartqty", className: "flex items-center shrink-0", onClick: e => e.stopPropagation(), style: { border: "1px solid " + MSHOP.line, borderRadius: 7, overflow: "hidden" } },
+                    h("button", { "data-wk": "shopcartqtybtn", "data-part": "minus", disabled: qtyOf(it) <= 1, onClick: () => onSetCartQty && onSetCartQty(it.uid, qtyOf(it) - 1), "aria-label": "少一件", className: "active:opacity-60", style: { width: 30, height: 28, color: qtyOf(it) <= 1 ? MSHOP.dim : MSHOP.ink, fontSize: 15, opacity: qtyOf(it) <= 1 ? .45 : 1 } }, "−"),
+                    h("input", { "data-wk": "shopcartqtyinput", type: "text", inputMode: "numeric", value: qtyDraft[it.uid] != null ? qtyDraft[it.uid] : String(qtyOf(it)),
+                      onChange: e => { const v = e.target.value.replace(/[^0-9]/g, "").slice(0, 3); setQtyDraft(p => ({ ...p, [it.uid]: v })); if (v && Number(v) >= 1 && onSetCartQty) onSetCartQty(it.uid, Number(v)); },
+                      onBlur: () => setQtyDraft(p => { const n = { ...p }; delete n[it.uid]; return n; }),
+                      style: { width: 38, height: 28, textAlign: "center", border: "none", borderLeft: "1px solid " + MSHOP.line, borderRight: "1px solid " + MSHOP.line, background: "transparent", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: MSHOP.ink, outline: "none" } }),
+                    h("button", { "data-wk": "shopcartqtybtn", "data-part": "plus", onClick: () => onSetCartQty && onSetCartQty(it.uid, qtyOf(it) + 1), "aria-label": "多一件", className: "active:opacity-60", style: { width: 30, height: 28, color: MSHOP.ink, fontSize: 15 } }, "+")))),
               h("button", { "data-wk": "shopcartdel", onClick: () => { onRemoveCart(it.uid); setSel(p => p.filter(x => x !== it.uid)); }, "aria-label": "删除", className: "shrink-0 active:opacity-50 p-1" }, h(ITrash, { size: 16, color: MSHOP.dim })));
           })),
     cartItems.length > 0 && h("div", { "data-wk": "shopcartbar", className: "shrink-0 px-4 py-2.5 flex items-center gap-3", style: { background: MSHOP.card, borderTop: "1px solid " + MSHOP.line } },
@@ -4005,6 +4007,14 @@ function Shop({ payAs, initialNav, wallet, cart, orders, inventory, wish, charac
       .concat(cards.length > 0 ? [["用亲属卡付", "刷角色的钱", () => setSheet("kinship")]] : []);
     sheetEl = h(Sheet, { onClose: () => { setSheet(null); setActFold(""); } },
       h(Eyebrow, { style: { marginBottom: 12 } }, "结算 " + selCount + " 件 · 合计 ¥" + selTotal),
+      // 这次只买其中几件、剩下留在购物车（她 2026-10-31）：只列购物车里不止一件的那几行
+      selItems.some(x => qtyOf(x) > 1) ? h(FoldRow, { title: "这次买几件", state: selItems.filter(x => qtyOf(x) > 1 && buyN(x) < qtyOf(x)).length ? "有几样只买一部分" : "全部都买", open: actFold === "pick", onToggle: () => setActFold(f => f === "pick" ? "" : "pick") },
+        selItems.filter(x => qtyOf(x) > 1).map(it => h("div", { "data-wk": "shopcartpick", key: it.uid, className: "flex items-center", style: { gap: 8, padding: "6px 0" } },
+          h("span", { className: "flex-1 min-w-0 truncate", style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.ink } }, it.name),
+          h("button", { "data-wk": "shopcartpickbtn", "data-part": "minus", onClick: () => setPickN(p => ({ ...p, [it.uid]: Math.max(1, buyN(it) - 1) })), "aria-label": "少买一件", className: "active:opacity-60", style: { width: 28, height: 28, borderRadius: 999, border: "1px solid " + MSHOP.line, color: MSHOP.ink, fontSize: 15 } }, "−"),
+          h("span", { "data-wk": "shopcartpickn", style: { minWidth: 44, textAlign: "center", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: MSHOP.ink } }, buyN(it) + "/" + qtyOf(it)),
+          h("button", { "data-wk": "shopcartpickbtn", "data-part": "plus", onClick: () => setPickN(p => ({ ...p, [it.uid]: Math.min(qtyOf(it), buyN(it) + 1) })), "aria-label": "多买一件", className: "active:opacity-60", style: { width: 28, height: 28, borderRadius: 999, border: "1px solid " + MSHOP.line, color: MSHOP.ink, fontSize: 15 } }, "+")))
+        .concat([h("div", { key: "_hint", style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: MSHOP.dim, paddingTop: 4 } }, "没买的那几件留在购物车里。")])) : null,
       payAs ? chip("用" + payAs.name + "的钱买（他还有 ¥" + payAs.balance + "）", () => { setSheet(null); onCheckout(sel, "his", { type: "char", id: payAs.id }, { pick: pickN }); setSel([]); }, true) : null,
       payAs ? null : chip("购买（用我的余额 ¥" + (walletOf ? walletOf(payMask) : wallet) + "）", () => { setSheet(null); setActFold(""); onCheckout(sel, "buy", null, { mask: payMask, pick: pickN }); setSel([]); }, true),
       maskOn ? h(FoldRow, { title: "用哪张面具买", state: maskNow, open: actFold === "mask", onToggle: () => setActFold(f => f === "mask" ? "" : "mask") },
