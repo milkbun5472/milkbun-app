@@ -25,8 +25,8 @@ test("「＋」里有转账；跟她的私聊里还有购物、外卖，开的�
   assert.match(phone, /canBuy \? \["shop", "购物", /);
   assert.match(phone, /canBuy \? \["takeout", "外卖", /);
   assert.match(app, /const phoneShopAs = \(char, where\) => \{/);
-  assert.match(app, /body = h\(Shop, \{\n    payAs: asPhonePay,/);
-  assert.match(app, /body = h\(Takeout, \{\n    payAs: asPhonePay,/);
+  assert.match(app, /body = h\(Shop, \{\n(    [^\n]*\n)?    payAs: asPhonePay,/);   // 上面可以多一行别的（商品图那几个，v88.831）
+  assert.match(app, /body = h\(Takeout, \{\n(    [^\n]*\n)?    payAs: asPhonePay,/);
 });
 test("用他的钱结账：购物每件走他送礼物那条路、外卖走他给她点外卖那条路，都标 byUser，钱不够不让下", () => {
   assert.match(app, /items\.forEach\(it => postCharGift\(cid, it\.name, it\.price, "", \{ byUser: true \}\)\)/);

@@ -11,7 +11,7 @@ test("聊天设置里能调、存得住、递进聊天页", () => {
   assert.match(app, /autoReplySec: Math\.max\(0, Math\.min\(600, Number\(settingsFor\(activeChar\.id\)\.autoReplySec\) \|\| 0\)\),/);
 });
 test("只在：最后一条是她的、键盘收着、框是空的；走的是叶子那一个 reply，一条只回一次", () => {
-  const i = cmp.indexOf("const autoFiredRef = useRef(0);"), seg = cmp.slice(i, i + 1800);
+  const i = cmp.indexOf("const autoFiredRef = useRef(0);"), seg = cmp.slice(i, i + 2600);   // reply 里多了「我的动作」那两支（2026-10-31），窗口放宽
   assert.match(seg, /last\.role !== "user"/);
   assert.match(seg, /document\.activeElement === b \|\| String\(b\.value \|\| ""\)\.trim\(\)\.length > 0/);
   assert.match(seg, /autoFiredRef\.current = last\.ts; reply\(""\);/);
