@@ -3708,6 +3708,7 @@ function Shop({ payAs, initialNav, wallet, cart, orders, inventory, wish, charac
   const cartItems = cart || [];
   // 一行里这次买几件（群里 2026-10-31：「checkout 的时候可以选择买其中多少件，剩下的留在购物车」）：没动过就是整行都买
   const [pickN, setPickN] = useState({});
+  const [actFold, setActFold] = useState("");   // 结算那一页收起来的两格：面具 / 别的付法（她 2026-10-31「一堆按键整理一下收起来」）
   const qtyOf = x => Math.max(1, Number(x && x.qty) || 1);
   const buyN = x => Math.max(1, Math.min(qtyOf(x), pickN[x.uid] != null ? pickN[x.uid] : qtyOf(x)));
   const selItems = cartItems.filter(x => sel.includes(x.uid));
@@ -3997,18 +3998,27 @@ function Shop({ payAs, initialNav, wallet, cart, orders, inventory, wish, charac
   const chip = (label, onClick, primary) => h("button", { "data-wk": "shopsheetbtn", "data-on": primary ? "1" : "0", onClick, className: "w-full py-3 active:opacity-75", style: { fontFamily: F_DISPLAY, fontSize: "calc(16px * var(--app-fs, 1))", borderRadius: 12, marginBottom: 10, background: primary ? t.ink : t.bg2, color: primary ? t.bg2 : t.ink, border: primary ? "none" : "1px solid " + t.line } }, label);
   let sheetEl = null;
   if (sheet === "actions") {
-    sheetEl = h(Sheet, { onClose: () => setSheet(null) },
+    // 只把「用余额买」摆在外面；挑面具、送礼/代付/亲属卡收进两格，点开才出来
+    const maskOn = !payAs && Array.isArray(payMasks) && payMasks.length > 1;
+    const maskNow = maskOn ? ((payMasks.find(m => m.id === payMask) || payMasks[0] || {}).label || "") : "";
+    const others = payAs ? [] : [["送礼", "付款后送给角色", () => setSheet("gift")], ["代付", "请角色/群帮我付", () => setSheet("paylater")]]
+      .concat(cards.length > 0 ? [["用亲属卡付", "刷角色的钱", () => setSheet("kinship")]] : []);
+    sheetEl = h(Sheet, { onClose: () => { setSheet(null); setActFold(""); } },
       h(Eyebrow, { style: { marginBottom: 12 } }, "结算 " + selCount + " 件 · 合计 ¥" + selTotal),
       payAs ? chip("用" + payAs.name + "的钱买（他还有 ¥" + payAs.balance + "）", () => { setSheet(null); onCheckout(sel, "his", { type: "char", id: payAs.id }, { pick: pickN }); setSel([]); }, true) : null,
-      (!payAs && Array.isArray(payMasks) && payMasks.length > 1) ? h("div", { "data-wk": "shoppaymask", style: { marginBottom: 10 } },
-        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: MSHOP.dim, marginBottom: 6 } }, "用哪张面具买（只有认这张的人翻你手机看得到这一单）"),
-        h("div", { className: "flex flex-wrap", style: { gap: 6 } }, payMasks.map(m => h("button", { key: m.id || "_main", "data-wk": "shoppaymaskitem", "data-on": payMask === m.id ? "1" : "0", onClick: () => setPayMask(m.id),
-          className: "active:opacity-70", style: { minHeight: 40, padding: "0 12px", borderRadius: 999, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))",
-            background: payMask === m.id ? MSHOP.orange : "transparent", color: payMask === m.id ? "#fff" : MSHOP.dim, border: "1px solid " + (payMask === m.id ? MSHOP.orange : "rgba(0,0,0,.12)") } }, m.label)))) : null,
-      payAs ? null : chip("购买（用我的余额 ¥" + (walletOf ? walletOf(payMask) : wallet) + "）", () => { setSheet(null); onCheckout(sel, "buy", null, { mask: payMask, pick: pickN }); setSel([]); }, true),
-      payAs ? null : chip("送礼（付款后送给角色）", () => setSheet("gift")),
-      payAs ? null : chip("代付（请角色/群帮我付）", () => setSheet("paylater")),
-      !payAs && cards.length > 0 && chip("用亲属卡付（刷角色的钱）", () => setSheet("kinship")));
+      payAs ? null : chip("购买（用我的余额 ¥" + (walletOf ? walletOf(payMask) : wallet) + "）", () => { setSheet(null); setActFold(""); onCheckout(sel, "buy", null, { mask: payMask, pick: pickN }); setSel([]); }, true),
+      maskOn ? h(FoldRow, { title: "用哪张面具买", state: maskNow, open: actFold === "mask", onToggle: () => setActFold(f => f === "mask" ? "" : "mask") },
+        h("div", { "data-wk": "shoppaymask", style: { padding: "2px 0 12px" } },
+          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: MSHOP.dim, marginBottom: 6 } }, "只有认这张的人翻你手机看得到这一单"),
+          h("div", { className: "flex flex-wrap", style: { gap: 6 } }, payMasks.map(m => h("button", { key: m.id || "_main", "data-wk": "shoppaymaskitem", "data-on": payMask === m.id ? "1" : "0", onClick: () => setPayMask(m.id),
+            className: "active:opacity-70", style: { minHeight: 40, padding: "0 12px", borderRadius: 999, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))",
+              background: payMask === m.id ? MSHOP.orange : "transparent", color: payMask === m.id ? "#fff" : MSHOP.dim, border: "1px solid " + (payMask === m.id ? MSHOP.orange : "rgba(0,0,0,.12)") } }, m.label))))) : null,
+      others.length ? h(FoldRow, { title: "别的付法", state: others.map(x => x[0]).join(" · "), open: actFold === "other", onToggle: () => setActFold(f => f === "other" ? "" : "other") },
+        h("div", { "data-wk": "shopotherpay", style: { padding: "4px 0 6px" } },
+          others.map(([zh, sub, fn]) => h("button", { key: zh, "data-wk": "shopsheetbtn", "data-part": "other", onClick: () => { setActFold(""); fn(); }, className: "w-full flex items-center justify-between active:opacity-70",
+            style: { minHeight: 48, padding: "0 4px", borderBottom: "1px solid rgba(0,0,0,.05)" } },
+            h("span", { style: { fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))", color: t.ink } }, zh),
+            h("span", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog } }, sub + " ›"))))) : null);
   } else if (sheet === "gift") {
     // 她 2026-09-10：「送礼物能不能选择发到群然后再选群里面的某位，想看大家看到礼物的反应」。
     // 挑人这一屏跟代付那屏同形状（人在上、群在下）；选了群不是就送给群，而是【换一屏挑人】——

@@ -21,3 +21,7 @@ test("购物车每一行能挑这次买几件，结算都带上", () => {
   const s = ui.indexOf("function Shop({"), blk = ui.slice(s, s + 60000);
   assert.equal((blk.match(/onCheckout\(sel/g) || []).length, (blk.match(/pick: pickN/g) || []).length);
 });
+test("结算那页：只摆「用余额买」，面具和别的付法收起来", () => {
+  assert.match(ui, /h\(FoldRow, \{ title: "用哪张面具买"/);
+  assert.match(ui, /h\(FoldRow, \{ title: "别的付法"/);
+});
