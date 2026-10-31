@@ -3317,15 +3317,15 @@ function App() {
   };
   // 聊天一下子变短时留的那份（engine.js noteChatShrink）：合并回来＝把备份里有、现在没有的那些按时间插回去，现有的一条不动
   useEffect(() => {
-    window.__shrinkRestore = id => {
-      const bak = loadJSON("x_shrinkBak:x_chat:" + id, null);
+    window.__shrinkRestore = async id => {
+      let bak = null; try { bak = JSON.parse((await idbTxtGet("x_shrinkBak:x_chat:" + id)) || "null"); } catch (e) {}
       if (!bak || !bak.data) return 0;
       let old = []; try { old = JSON.parse(bak.data) || []; } catch (e) { return 0; }
       const sig = m => m ? (m.id || "") + "|" + (m.ts || "") + "|" + (m.role || "") + "|" + String(m.content || "").slice(0, 80) : "";
       let added = 0;
       pChat(id, p => { const have = new Set(p.map(sig)); const back = old.filter(m => m && !have.has(sig(m))); added = back.length;
         return back.length ? p.concat(back).sort((a, b) => (Number(a && a.ts) || 0) - (Number(b && b.ts) || 0)) : p; });
-      dropStored("x_shrinkBak:x_chat:" + id);
+      idbTxtDel("x_shrinkBak:x_chat:" + id).catch(() => {});
       return added || 1;
     };
     return () => { delete window.__shrinkRestore; };
@@ -3532,7 +3532,7 @@ function App() {
       //   按对象认不住的（期间被标了已读之类、换成了新对象）再按 时间+谁+内容 认一遍，认不出就宁可留着。
       const _dropSet = new Set(drop), _dk = m => m ? (m.id || "") + "|" + (m.ts || "") + "|" + (m.role || "") + "|" + String(m.content || "").slice(0, 80) : "";
       const _dropKeys = new Set(drop.map(_dk));
-      pChat(charId, p => p.filter(m => !_dropSet.has(m) && !(m && m.ts && _dropKeys.has(_dk(m)))));   // 云端确认后裁本地：合照(原序)+最近的+等上传时新来的
+      chatShrinkOk(); pChat(charId, p => p.filter(m => !_dropSet.has(m) && !(m && m.ts && _dropKeys.has(_dk(m)))));   // 云端确认后裁本地：合照(原序)+最近的+等上传时新来的
       const marks = loadJSON("x_chatArch", {}); marks[charId] = (marks[charId] || 0) + drop.length; saveJSON("x_chatArch", marks); setChatArch(marks);
       // ⭐长期记忆浓缩进度跟着回调（v48.14 修）：lastSummarizedCount 按本地列表位置数；只按【真正裁掉的 drop】折算(!recalled)。
       const cut = drop.filter(m => !m.recalled).length;
@@ -3552,7 +3552,7 @@ function App() {
       await window.Cloud.chatArchiveAppend(archKey, older); // 先上云
       const _gDropSet = new Set(older), _gdk = m => m ? (m.id || "") + "|" + (m.ts || "") + "|" + (m.senderId || m.role || "") + "|" + String(m.content || "").slice(0, 80) : "";
       const _gDropKeys = new Set(older.map(_gdk));
-      pGChat(groupId, p => p.filter(m => !_gDropSet.has(m) && !(m && m.ts && _gDropKeys.has(_gdk(m)))));   // 成功才裁本地；只撤归档上去的那几条，等上传时新来的留着
+      chatShrinkOk(); pGChat(groupId, p => p.filter(m => !_gDropSet.has(m) && !(m && m.ts && _gDropKeys.has(_gdk(m)))));   // 成功才裁本地；只撤归档上去的那几条，等上传时新来的留着
       const marks = loadJSON("x_chatArch", {}); marks[archKey] = (marks[archKey] || 0) + older.length; saveJSON("x_chatArch", marks); setChatArch(marks);
       // ⭐群记忆浓缩进度同样回调（v48.14 修）：按群 maybeSummarize 同口径（user/assistant/narration）折算裁掉的条数
       const cut = older.filter(m => m.role === "user" || m.role === "assistant" || m.role === "narration").length;
@@ -16791,7 +16791,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   };
   const deleteGroupMsgs = (groupId, indices) => {
     const set = new Set(indices);
-    pGChat(groupId, p => p.filter((_, i) => !set.has(i)));
+    chatShrinkOk(); pGChat(groupId, p => p.filter((_, i) => !set.has(i)));
   };
   // ---- 群里的邀约（她 2026-10-02）：挑地方、挑请谁，发一张约会卡；没有回执，人齐了她点「出发」进群线下 ----
   const sendGroupDateInvite = (groupId, place, v) => {
@@ -18361,7 +18361,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     toast(wipeChat ? "已删除，聊天也清掉了" : "已删除");
   };
   const clearChat = (charId, wipeMem) => {
-    pChat(charId, () => []);
+    chatShrinkOk(); pChat(charId, () => []);
     // “清除聊天记录”覆盖这个角色的一对一线上 + 单人线下时间线。直接删除，不结束会话、
     // 不生成总结，也不调用模型；群线下属于多人共享记录，不能从单人设置里连带删除。
     pOffline(charId, () => []);
@@ -18393,7 +18393,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   // ⚠️不碰任何成员的单聊/单人线下——那是各自的记录，不该被群里的操作连带删掉。
   // 记忆库同理：只在她明确勾了「同步忘却」时，才摘掉【本群产生的】那些条目。
   const clearGroupChat = (groupId, wipeMem) => {
-    pGChat(groupId, () => []);
+    chatShrinkOk(); pGChat(groupId, () => []);
     pGOffline(groupId, () => []);
     saveGroupSettings(groupId, { lastSummarizedCount: 0 });
     // 自发额度也一起归零，否则清完记录它还记着「这一轮已经自发过 N 条」，
@@ -33481,6 +33481,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       comicFromMessages(activeChar, indices.slice().sort((a, b) => a - b).map(i => msgs[i]), style);
     },
     onDeleteMessages: indices => {
+      chatShrinkOk();   // 她自己勾了删的：不留「找回」备份
       const set = new Set(indices);
       const threadKey = window.ChatRooms ? window.ChatRooms.chatKey(activeChar.id, activeRoomId) : activeChar.id;
       const picked = (chatsRef.current[threadKey] || []).filter((_, i) => set.has(i));

@@ -2151,7 +2151,10 @@ function requestAppConfirm(title, body, onConfirm, confirmLabel, onCancel, opts)
     if (typeof window !== "undefined" && typeof window.__toast === "function") window.__toast("确认层还没准备好，请再点一次");
     return false;
   }
-  open({ title: title || "确认操作？", body: body || "", onConfirm, confirmLabel: confirmLabel || "确定",
+  // 她点了危险操作的「确定」（删除、清空……）：接下来几秒聊天变短是她自己要的，不留「找回」备份
+  const _danger = !(opts && opts.danger === false);
+  const _go = _danger ? (...a) => { if (typeof chatShrinkOk === "function") chatShrinkOk(); return onConfirm(...a); } : onConfirm;
+  open({ title: title || "确认操作？", body: body || "", onConfirm: _go, confirmLabel: confirmLabel || "确定",
     onCancel: typeof onCancel === "function" ? onCancel : null,
     cancelLabel: opts && opts.cancelLabel || "",
     danger: !(opts && opts.danger === false) });
@@ -22629,7 +22632,8 @@ function ChatSettings({
   // 预览台（她 2026-09-30）：设置页先藏起来（不卸载，草稿都还在），底下就是真的聊天窗，铺上这份没存的长相；
   //   回程条跟主题工作台那条是同一个 ThemePeekBar。
   const [lookPeek, setLookPeek] = useState(false);
-  const [shrinkBak, setShrinkBak] = useState(() => { try { const b = loadJSON("x_shrinkBak:x_chat:" + (character && character.id), null); return b && b.data ? b : null; } catch (e) { return null; } });
+  const [shrinkBak, setShrinkBak] = useState(null);
+  useEffect(() => { let live = true; if (character && typeof idbTxtGet === "function") idbTxtGet("x_shrinkBak:x_chat:" + character.id).then(v => { try { const b = v ? JSON.parse(v) : null; if (live && b && b.data) setShrinkBak({ at: b.at, from: b.from, to: b.to }); } catch (e) {} }).catch(() => {}); return () => { live = false; }; }, [character && character.id]);
   const peekLook = () => {
     if (!window.__previewChatLook) return;
     window.__previewChatLook({ skin, bubble, font, chatBg, customCSS, layout });
@@ -23737,9 +23741,9 @@ function ChatSettings({
       (function () { const d = new Date(shrinkBak.at || 0); return (d.getMonth() + 1) + " 月 " + d.getDate() + " 日 " + String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0"); })()
       + "，跟 " + cNm + " 的聊天一下子从 " + shrinkBak.from + " 条变成了 " + shrinkBak.to + " 条，变短之前那份留着。点「合并回来」，少掉的那些按时间插回去，现在有的一条不动。是你自己删的就点「不用了」。"),
     h("div", { className: "flex", style: { gap: 8 } },
-      h("button", { "data-wk": "csshrinkgo", onClick: () => { const n = window.__shrinkRestore ? window.__shrinkRestore(character.id) : 0; setShrinkBak(null); if (window.__toast) window.__toast(n > 1 ? "合并回来了 " + n + " 条" : "没有少掉的，备份收起来了"); },
+      h("button", { "data-wk": "csshrinkgo", onClick: async () => { const n = window.__shrinkRestore ? await window.__shrinkRestore(character.id) : 0; setShrinkBak(null); if (window.__toast) window.__toast(n > 1 ? "合并回来了 " + n + " 条" : "没有少掉的，备份收起来了"); },
         className: "flex-1 rounded-xl py-3 active:opacity-70", style: { border: "1px solid " + t.line, color: t.ink, fontFamily: F_DISPLAY, fontSize: "calc(14px * var(--app-fs, 1))" } }, "合并回来"),
-      h("button", { "data-wk": "csshrinkdrop", onClick: () => { try { dropStored("x_shrinkBak:x_chat:" + character.id); } catch (e) {} setShrinkBak(null); },
+      h("button", { "data-wk": "csshrinkdrop", onClick: () => { try { idbTxtDel("x_shrinkBak:x_chat:" + character.id).catch(() => {}); } catch (e) {} setShrinkBak(null); },
         className: "rounded-xl py-3 px-4 active:opacity-70", style: { border: "1px solid " + t.line, color: t.fog, fontFamily: F_DISPLAY, fontSize: "calc(14px * var(--app-fs, 1))" } }, "不用了"))),
   onExportChat && h("div", { className: "pt-6", "data-wk": "csexport" },
     h(Eyebrow, { style: { marginBottom: 6 } }, "导出聊天记录"),
