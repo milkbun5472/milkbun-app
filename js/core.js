@@ -1021,3 +1021,17 @@ if (typeof module !== "undefined" && module.exports) {
 //   全局没有这个名字，提示全被吞了（选文件「太大了」那几句她从来没看见过）。转给 App 挂在 window.__toast 上的那一个；
 //   组件里自己有 toast（props 或局部 const）的照旧用自己的，不受影响。
 function toast(msg, ms) { try { if (typeof window !== "undefined" && typeof window.__toast === "function") return window.__toast(msg, ms); } catch (e) {} }
+// 列表滚到哪儿记住，点进去再出来回到原位（群友 2026-10-31：查手机微信滑到下面点进聊天，出来回了顶上）。
+//   用法：h("div", { ref: keepScroll("phone:wechat:" + id), className: "overflow-y-auto" }, …)。
+//   只记在这一次打开 app 期间（内存里），关了 app 再开照常从顶上开始。
+const _keepScrollMem = {};
+function keepScroll(key, also) {
+  return el => {
+    if (typeof also === "function") also(el); else if (also && typeof also === "object") also.current = el;
+    if (!el || el.__ksKey === key) return;
+    el.__ksKey = key;
+    const v = _keepScrollMem[key];
+    if (v) requestAnimationFrame(() => { if (el.isConnected) el.scrollTop = v; });
+    el.addEventListener("scroll", () => { if (el.__ksKey === key) _keepScrollMem[key] = el.scrollTop; }, { passive: true });
+  };
+}

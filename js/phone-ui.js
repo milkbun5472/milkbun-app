@@ -1728,7 +1728,7 @@ function WeChatViewFull({ d, char, t, profile, onBack, onRefresh, refreshing, dr
           style: { marginTop: 10, background: "#fff", padding: "14px 0", fontFamily: F_BODY, fontSize: "calc(15px * var(--app-fs, 1))", color: isBlk(thread.name) ? "#07c160" : "#fa5151" } }, isBlk(thread.name) ? "已拉黑 · 移出黑名单" : "加入黑名单") : null));
   }
   const navs = [["chats", "聊天"], ["contacts", "联系人"], ["moments", "朋友圈"], ["me", "我"]];
-  return h("div", { className: "h-full min-h-0 flex flex-col", "data-wk": "papp", "data-app": "wechat", style: { background: "#f5f5f5" } }, topBar, h("div", { className: "flex-1 min-h-0 overflow-y-auto" }, body), h("div", { className: "shrink-0 grid grid-cols-4", style: { minHeight: 61, paddingBottom: "calc(env(safe-area-inset-bottom) * 0.4)", background: "rgba(250,250,250,.98)", borderTop: "1px solid #ddd" } }, navs.map(([k, label]) => h("button", { key: k, "data-wk": "ptab", "data-on": tab === k ? "1" : "0", "data-watch": "tab:" + k, onClick: () => setTab(k), className: "flex flex-col items-center justify-center gap-0.5 active:opacity-60", style: { color: tab === k ? "#07c160" : "#777" } }, h(WechatNavIcon, { kind: k, active: tab === k }), h("span", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))" } }, label)))));
+  return h("div", { className: "h-full min-h-0 flex flex-col", "data-wk": "papp", "data-app": "wechat", style: { background: "#f5f5f5" } }, topBar, h("div", { ref: keepScroll("phone:wechat:" + (char && char.id) + ":" + tab), className: "flex-1 min-h-0 overflow-y-auto" }, body), h("div", { className: "shrink-0 grid grid-cols-4", style: { minHeight: 61, paddingBottom: "calc(env(safe-area-inset-bottom) * 0.4)", background: "rgba(250,250,250,.98)", borderTop: "1px solid #ddd" } }, navs.map(([k, label]) => h("button", { key: k, "data-wk": "ptab", "data-on": tab === k ? "1" : "0", "data-watch": "tab:" + k, onClick: () => setTab(k), className: "flex flex-col items-center justify-center gap-0.5 active:opacity-60", style: { color: tab === k ? "#07c160" : "#777" } }, h(WechatNavIcon, { kind: k, active: tab === k }), h("span", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))" } }, label)))));
 }
 
 function AlbumNavIcon({ kind, active }) {
@@ -2056,7 +2056,7 @@ function AlbumView({ d, char, t, onBack, onRefresh, refreshing, onPeek, onDrawPh
   const favorites = h("div", { style: { padding: "4px 20px 30px" } }, saved.length ? grid(saved, true, 3) : h("div", { style: { textAlign: "center", padding: "70px 18px", color: "#8e8e93", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", lineHeight: 1.8 } }, "还没有收藏照片。\n点开一张照片，再点爱心就会一直留在这里。"));
   const title = tab === "library" ? "全部" : tab === "saved" ? "我收着的" : characterText(char, "他的几摞");
   const sub = tab === "library" && items.length ? ((items[items.length - 1].date || items[items.length - 1].time || "") + " – " + (items[0].date || items[0].time || "")) : tab === "collections" ? characterText(char, "他把 ") + items.length + " 张分成了这几摞" : saved.length + " 张 · 刷新也不会丢";
-  return h("div", { className: "h-full min-h-0 flex flex-col", "data-wk": "papp", "data-app": "album", style: { background: "#fff", animation: "qqIn .3s ease both" } }, chrome(title, sub, onBack), h("div", { ref: scrollRef, className: "flex-1 min-h-0 overflow-y-auto" }, tab === "library" ? library : tab === "saved" ? favorites : collections), nav);
+  return h("div", { className: "h-full min-h-0 flex flex-col", "data-wk": "papp", "data-app": "album", style: { background: "#fff", animation: "qqIn .3s ease both" } }, chrome(title, sub, onBack), h("div", { ref: keepScroll("phone:album:" + (char && char.id) + ":" + tab, scrollRef), className: "flex-1 min-h-0 overflow-y-auto" }, tab === "library" ? library : tab === "saved" ? favorites : collections), nav);
 }
 
 // 各 app 详情内容
@@ -3736,7 +3736,7 @@ function PlazaView({ d, char, t, onBack, onRefresh, refreshing, onPeek, drive })
   // 而且必须排在所有 hook 后面（提前 return 的组件里 hook 一律排最前，见 #310 那次教训）。
   if (detailPage) return detailPage;
   return h("div", { className: "h-full min-h-0 flex flex-col relative", "data-wk": "papp", "data-app": "liked", style: { background: PLAZA_BG } }, topBar,
-    h("div", { ref: scrollRef, className: "flex-1 min-h-0 overflow-y-auto", style: { padding: "10px 12px 20px" } }, PTX(page.body)),
+    h("div", { ref: keepScroll("phone:liked:" + (char && char.id) + ":" + tab, scrollRef), className: "flex-1 min-h-0 overflow-y-auto", style: { padding: "10px 12px 20px" } }, PTX(page.body)),
     h("div", { className: "shrink-0 grid grid-cols-3", style: { padding: "5px 16px", paddingBottom: COMPOSER_PAD_BOTTOM, background: "#fff", borderTop: "1px solid #eeeef1" } },
       PAGES.map(pg => h("button", {
         key: pg.key, onClick: () => { setTab(pg.key); setOpen(null); }, "data-wk": "ptab", "data-on": tab === pg.key ? "1" : "0", "data-watch": "tab:" + pg.key,
