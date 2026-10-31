@@ -58,7 +58,7 @@ test("TA 的话和心思只在亮词以后上屏", () => {
   assert.match(comp, /const thought = last \? last\.thought : state\.startThought;/);
   assert.match(comp, /PT\("他是怎么想的"\)/);
   const thenIdx = comp.indexOf("ask(sys, \"心有灵犀\").then");
-  assert.ok(comp.indexOf("L.reveal(n, mine, a.word, a.say, a.thought)", thenIdx) > thenIdx);
+  assert.ok(comp.indexOf("L.reveal(n, mine, a.word, [], a.thought)", thenIdx) > thenIdx);
   assert.match(comp, /maxTokens: 12000/);
 });
 
@@ -77,4 +77,12 @@ test("TA 联想时带着自己生活里的人和记忆、最近聊的", () => {
   assert.match(a, /lifeFor: \(charId, q\) => \{/);
   assert.match(g, /lifeFor: props\.lifeFor/);
   assert.match(g, /const who = who0 \+ lifeOf\(/);
+});
+test("亮词后另问一次，对着刚亮出来的这一对说；对话里是卡片不是灰字", () => {
+  const g = require("fs").readFileSync(require("path").join(__dirname, "..", "js", "games.js"), "utf8");
+  const core = require("fs").readFileSync(require("path").join(__dirname, "..", "js", "lingxi-core.js"), "utf8");
+  assert.match(core, /function reactPrompt\(o\)/);
+  assert.match(g, /L\.reactPrompt\(\{ uName: uName, who: who, state: n, round: r/);
+  assert.match(g, /"data-wk": "lingxirevcard"/);
+  assert.doesNotMatch(g, /push\(\[\{ sys: true, text: "第 " \+ r\.n \+ " 轮：/);
 });
