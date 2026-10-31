@@ -7049,6 +7049,8 @@ async function hydrateTxtVault() {
     //   镜像会被上云和导出整份带走（cloud.js 那一处 forEach），放进去等于把旧副本也推上去。
     for (const [k, v] of entries) {
       if (!k || v == null || String(k).indexOf("x_lsjournal_rescue:") === 0 || _txtEarlyWrites.has(k)) continue;
+      // 聊天变短时留的那份：只躺在 IDB，不进镜像（不导出、不上云）；过了 14 天就清掉
+      if (String(k).indexOf("x_shrinkBak:") === 0) { const m = /^\{"at":(\d+)/.exec(String(v)); if (!m || Date.now() - Number(m[1]) > SHRINK_KEEP_MS) idbTxtDel(k).catch(() => {}); continue; }
       if (isIdbTextKey(k)) { mir.set(k, v); continue; }
       // 钉回小仓库的键（LS_ONLY_KEYS / lsPin）：IDB 里那份原样搬回 localStorage，读回一致才删 IDB。
       //   localStorage 已经有一份的，以它为准（开机前读写的就是它），IDB 那份不动、也不进镜像。
@@ -11110,18 +11112,20 @@ let _txtHasDataMarked = false;
 //   查了一圈对不上任何一种已知情况、又没有云同步）。不猜原因了：以后谁的聊天一口气少了 10 条以上，
 //   不管是哪条路写进来的，变短前那份整份存进 x_shrinkBak:<键>（一个对话只留最近一份），再记一笔 x_shrinkLog
 //   （什么时候、几条变几条、从哪段代码写进来）。聊天设置里能一键合并回来；导出备份里也带着，下次能看出是谁剪的。
-//   她自己点删除、清空、归档也会留一份——不碍事，留着没人点就是一份旧副本，下一次变短就被换掉。
-const SHRINK_MIN = 10;
+//   她自己点删除、清空、归档的不留（她 2026-10-31「有啥办法修一下代价吗」）：那几处先挂 __chatShrinkOkUntil，
+//   这儿只记一笔「是她自己删的」。备份不进内存镜像——不跟导出、不上云，只躺在本机 IDB 里，14 天后开机清掉。
+const SHRINK_MIN = 10, SHRINK_KEEP_MS = 14 * 86400000;
+function chatShrinkOk(ms) { try { window.__chatShrinkOkUntil = Date.now() + (ms || 8000); } catch (e) {} }
 function chatMsgCount(str) { const m = String(str || "").match(/"role":/g); return m ? m.length : 0; }
 function noteChatShrink(k, prev, next) {
   try {
     const was = chatMsgCount(prev), now = chatMsgCount(next);
     if (was - now < SHRINK_MIN) return;
     const where = String((new Error().stack || "")).split("\n").slice(2, 7).map(x => x.trim().replace(/https?:\/\/[^/]+\//, "")).join(" ← ").slice(0, 400);
-    const at = Date.now();
-    txtWrite("x_shrinkBak:" + k, JSON.stringify({ at, from: was, to: now, where, data: prev }));
+    const at = Date.now(), mine = typeof window !== "undefined" && Number(window.__chatShrinkOkUntil || 0) > at;
+    if (!mine) idbTxtPut("x_shrinkBak:" + k, JSON.stringify({ at, from: was, to: now, where, data: prev })).catch(() => {});
     let log = []; try { log = JSON.parse(_txtMirror().get("x_shrinkLog") || "[]") || []; } catch (e) {}
-    log.push({ k, at, from: was, to: now, where });
+    log.push(mine ? { k, at, from: was, to: now, mine: 1 } : { k, at, from: was, to: now, where });
     txtWrite("x_shrinkLog", JSON.stringify(log.slice(-40)));
     console.warn("[chat shrink] " + k + " " + was + " → " + now, where);
   } catch (e) {}
