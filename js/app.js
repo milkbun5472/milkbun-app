@@ -20,7 +20,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v88.862";
+const APP_VERSION = "v88.863";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -13535,6 +13535,9 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       // 「长消息自动拆成短句」关掉的角色：把「一条＝一句」那一行换成「一口气」的判据（engine.js 的 freeLengthSystem 一处写）
       const system = _s.splitBubbles === false && !_body ? freeLengthSystem(system0) : system0;
       const g = [];
+      let _ownPicNext = null;   // 他自己刚发出去的那张照片，挂到下一条她的消息上
+      // 只给他【最近那一轮】发的照片：更早的已经看过了，每轮再塞一遍白费
+      const _lastTurn = (() => { for (let i = promptHistory.length - 1; i >= 0; i--) { const x = promptHistory[i]; if (x && x.role === "assistant") return x.turnId || x; } return null; })();
       for (const m of promptHistory) {
         // 每条历史带时间标注〔今天14:32〕（v47.83 她点名单聊也要）：裸消息模型会把几小时前的事说成昨天
         // ⚠️时间感知关了就不盖时刻戳（v61.16）：最后一条历史就是她刚发的那句，
@@ -13651,14 +13654,21 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
             : qpfx + m.content) + (roomClockOn ? vAnchor(m.content, m.ts, charId) : "")
             + (m.theirStick && (m.theirStick.emoji || m.theirStick.keyword) ? "\n【你往她这句上贴过一个 " + (m.theirStick.emoji || "表情包「" + m.theirStick.keyword + "」") + "；这是你做过的、真实发生过的事，不是谁说的话】" : "");
           // 合并连发的多条用户消息，兼容 Anthropic 等不允许连续同角色的接口
+          // 她的图：照片/请示/商品图走 imageRef，她的自拍走 imgKey
+          const _uRef = (m.kind === "photo" || m.kind === "selfie" || m.kind === "ask" || m.goodsImg) ? (m.imageRef || (m.kind === "selfie" ? m.imgKey : null)) : null;
+          // 他上一轮自己发出去的那张（她 2026-10-31：「他生图下一轮回复后能不能让他也看到实际生出来的画面」）：
+          //   助手那一侧挂不了图（很多接口不收），挂到紧跟着的这一条她的消息上，写明是他自己发的那张
+          const _own = _ownPicNext; _ownPicNext = null;
+          const _ownNote = _own ? "【下面附的第一张图，是你上一轮自己发出去的那张照片实际生成出来的样子，她看到的就是它】\n" : "";
           if (lu && lu.role === "user") {
-            lu.content += "\n" + uc;
-            if ((m.kind === "photo" || m.kind === "selfie" || m.kind === "ask" || m.goodsImg) && m.imageRef) (lu._imageRefs || (lu._imageRefs = [])).push(m.imageRef);   // 请示附的图也给他看
+            lu.content += "\n" + _ownNote + uc;
+            if (_own) (lu._imageRefs || (lu._imageRefs = [])).push(_own);
+            if (_uRef) (lu._imageRefs || (lu._imageRefs = [])).push(_uRef);   // 请示附的图也给他看
           } else g.push({
             role: "user",
-            content: uc,
+            content: _ownNote + uc,
             _t: null,
-            _imageRefs: (m.kind === "photo" || m.kind === "selfie" || m.kind === "ask" || m.goodsImg) && m.imageRef ? [m.imageRef] : []
+            _imageRefs: [_own, _uRef].filter(Boolean)
           });
         } else {
           const l = g[g.length - 1];
@@ -13666,6 +13676,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
           // 她替他发的那一条（查手机 → 微信）：标出来，不然他会当成自己说过的话顺着圆回来
           // ⚠️动作行不在这儿了（v72.96 搬去了旁白那一侧，理由写在上面）。
           const byU = m.byUser ? bySomeoneElseMark(uName, char.name) : "";
+          if (m.kind === "selfie" && m.imgKey && !m.failed && !m.pending && (m.turnId ? m.turnId === _lastTurn : m === _lastTurn)) _ownPicNext = m.imgKey;
           // 语音那句旁注不再贴在TA自己那一侧（2026-10-31 截图：TA照着编出「【这条说的是外语；这是旁注，正文里没有它】」发了出来）——
           //   跟动作行同一个教训：贴在它自己输出通道里的记号，它会当成自己的说话格式。「上一条是语音」不要紧，不带了
           //   （挪去 user 那侧会把同一轮几句话从中间劈开）。

@@ -7325,6 +7325,10 @@ async function expandMessageImages(msgs, budget, meta) {
           if (!blob) { await new Promise(rs => setTimeout(rs, 450)); blob = await imgVaultFetchBlob(ref); }
           if (blob) imageDataUrls.push(await blobToDataUrl(blob));
           else console.warn("[img] vault miss after retries:", ref);
+        } else if (typeof idbImgGet === "function") {
+          // 照片仓（自拍、他发的照片、商品图 img_…）：原来这一类一律跳过——他发出去的照片、她的自拍，模型从来没真看到过
+          const blob = await idbImgGet(ref);
+          if (blob) imageDataUrls.push(await blobToDataUrl(blob));
         }
       } catch (e) { console.warn("[img] expand failed:", ref, e); }
     }
