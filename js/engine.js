@@ -9591,18 +9591,24 @@ async function offlineSummaryRun(p, systemFor, text) {
   const chunks = offlineSummaryChunks(full, OFFLINE_SUM_ONE_SHOT);
   const quota = offlineSummaryQuota(full.length);
   if (chunks.length <= 1) return await offlineSummaryRunBlock(p, systemFor, chunks[0], quota, null);
+  // 一段没打出去不连累别的段（群友 2026-10-31：十万字那场前两段都成功了，第三段失败，整场总结一个字都没留下）：
+  //   成了的照留，没成的那段在总结里写明是哪段缺了，她点「重新总结」再补；一段都没成才照实报错。
   const parts = [];
+  let lastErr = null;
   for (let i = 0; i < chunks.length; i++) {
     const q = offlineSummaryQuota(chunks[i].length);
-    parts.push(await offlineSummaryRunBlock(p, systemFor, chunks[i], q, { i: i + 1, n: chunks.length }));
+    try { parts.push(await offlineSummaryRunBlock(p, systemFor, chunks[i], q, { i: i + 1, n: chunks.length })); }
+    catch (e) { lastErr = e; parts.push({ summary: "（这一段没总结出来：" + String((e && e.message) || e).split("\n")[0].slice(0, 60) + "）", details: [], open: [], failed: true }); }
   }
+  if (parts.every(x => x.failed)) throw lastErr || new Error("线下总结没打出去");
   const dedupe = arr => { const seen = new Set(); return arr.filter(x => { const k = String(x).replace(/\s+/g, ""); if (!k || seen.has(k)) return false; seen.add(k); return true; }); };
   const details = dedupe([].concat.apply([], parts.map(x => x.details))).slice(0, quota.details);
   const open = dedupe([].concat.apply([], parts.map(x => x.open))).slice(0, quota.open);
   const joined = parts.map((x, i) => "第 " + (i + 1) + " 段：" + x.summary).join("\n");
   // 合成那一枪只读各段的总结，不再读原文——它要干的是【把几段串成一条线】，不是重新概括。
   let merged = { summary: "" };
-  try { merged = await offlineSummaryCall(p, systemFor(quota, "merge"), joined, quota); } catch (e) {}
+  // 有段缺了就不合成：合成那一枪会把「这一段没总结出来」抹平，她就看不出该补了
+  if (!parts.some(x => x.failed)) { try { merged = await offlineSummaryCall(p, systemFor(quota, "merge"), joined, quota); } catch (e) {} }
   return { summary: merged.summary || joined, details: details, open: open };
 }
 async function summarizeOffline(p, ctx, session, already) {
