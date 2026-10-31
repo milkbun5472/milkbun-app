@@ -5177,10 +5177,30 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     return seg && seg.cur ? String(seg.cur.type || "") : "";
   };
   // 角色此刻的行程（给聊天/心情联动用）
+  // 别人此刻的安排里写着跟TA在一起（群里 2026-10-31：「C 的行程上显示和他朋友在一起，但我去问他朋友，他朋友回答不是」）：
+  //   每个人的日程是各排各的，C 的日程写着「跟谁谁吃饭」，谁谁那边一个字都不知道。
+  //   这里反过来查一遍：别人【此刻】那一项里点了TA的名字，就告诉TA「你此刻是跟他在一起的」。角色、配角都算。
+  const schedCrossFor = char => {
+    try {
+      const names = [char.name, char.remark].map(x => String(x || "").trim()).filter(x => x.length >= 2);
+      if (!names.length) return "";
+      const out = [];
+      (characters || []).forEach(o => {
+        if (!o || o.id === char.id || o.isGroup) return;
+        const s2 = schedPlanOf(o, schedulesRef.current[o.id] || {});
+        if (!s2 || !Array.isArray(s2.seqs) || !s2.seqs.length) return;
+        const disp = schedDisplaySeqs(o, s2.seqs), idx = schedCurrentSeqIdx(disp, true, o), cur = idx >= 0 ? disp[idx] : null;
+        if (!cur) return;
+        const txt = String(cur.title || "") + " " + String(cur.location || "");
+        if (names.some(nm => txt.indexOf(nm) >= 0)) out.push("「" + (o.remark || o.name) + "」此刻的安排是：" + cur.title + (cur.location ? "（在 " + cur.location + "）" : ""));
+      });
+      return out.length ? "\n\n别人此刻的安排里写着有你：\n" + out.map(x => "· " + x).join("\n") + "\n这是真的：此刻你就在那儿、跟这个人在一起，被问起照这个说，别说不是。" : "";
+    } catch (e) { return ""; }
+  };
   const schedNowFor = char => {
     const plans = schedulesRef.current[char.id] || {};
     const s = schedPlanOf(char, plans); // 右侧仅兼容 v49.71 前旧日键，生成新当地日程后自然退出
-    if (!s || !Array.isArray(s.seqs) || !s.seqs.length) return "";
+    if (!s || !Array.isArray(s.seqs) || !s.seqs.length) return schedCrossFor(char).trim();
     // 换算到我这边时间轴以正确判「此刻」，但给角色的文案仍用 TA 当地时刻（角色按自己时区想事情）
     const disp = schedDisplaySeqs(char, s.seqs);
     const idx = schedCurrentSeqIdx(disp, true, char);
@@ -5205,6 +5225,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         : "\n\n此刻还没到今天第一项，Ta 大概刚开始一天 / 还没起。";
     }
     if (next) out += "\n待会儿：" + (next._charTime || next.time || "") + " " + next.title;
+    out += schedCrossFor(char);
     // 天气搭日程便车进聊天（读缓存，零请求零新增常驻）：TA 家乡的天气，没设家乡用用户所在地
     try {
       const hm = char.home && typeof char.home.lat === "number" ? char.home : realGeo(char.id);
