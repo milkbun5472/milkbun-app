@@ -31077,7 +31077,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   });
   // 购物车里直接改件数（她 2026-10-31：「跟淘宝一样默认一件也有 −1+，可以手动输入数字」）
   const setCartQty = (uid, q) => setCart(p => {
-    const v = Math.max(1, Math.min(999, Math.round(Number(q)) || 1));
+    // 件数上限放到 999 万（群友 2026-10-31：「只能输入 3 位数」——给军队买东西这种一下就过千）
+    const v = Math.max(1, Math.min(9999999, Math.round(Number(q)) || 1));
     const n = p.map(x => x.uid === uid ? { ...x, qty: v } : x);
     saveJSON("x_shopCart", n);
     return n;

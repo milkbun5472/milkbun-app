@@ -30,3 +30,11 @@ test("购物车每行都有 −件数+，件数能直接打字", () => {
   assert.match(app, /const setCartQty = \(uid, q\) =>/);
   assert.match(app, /onSetCartQty: setCartQty,/);
 });
+
+// 件数能打到七位（群友 2026-10-31：「只能输入 3 位数」）
+require("node:test")("购物车件数上限 999 万，输入框跟着位数变宽", () => {
+  const assert = require("node:assert/strict"), fs = require("fs"), path = require("path");
+  const app = fs.readFileSync(path.join(__dirname, "..", "js", "app.js"), "utf8"), ui = fs.readFileSync(path.join(__dirname, "..", "js", "screens-ui.js"), "utf8");
+  assert.match(app, /Math\.min\(9999999, Math\.round\(Number\(q\)\) \|\| 1\)/);
+  assert.match(ui, /replace\(\/\[\^0-9\]\/g, ""\)\.slice\(0, 7\)/);
+});
