@@ -7575,6 +7575,8 @@ function ApiConfig({
       const nextCur = curId === source.id ? nl[0].id : curId;
       const nextActive = activeId === source.id ? nl[0].id : activeId;
       if (await onSave(tidy(nl), nextActive) === false) return;
+      // 记下删过的 id：开机哪份旧副本把它带回来都拿掉（app.js 读线路那一处）。礼物卡开机本来就会装回去，不记
+      if (!source.gift) { try { const g = JSON.parse(localStorage.getItem("qq_apiGone") || "[]"); if (g.indexOf(source.id) < 0) localStorage.setItem("qq_apiGone", JSON.stringify(g.concat([source.id]).slice(-200))); } catch (e) {} }
       setList(nl); setCurId(nextCur); if (editing && curId === source.id) setEditing(false);
     }, "删除");
   };
