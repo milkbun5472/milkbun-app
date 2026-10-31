@@ -25,7 +25,7 @@ assert.match(app, /onSchedMapWorld: setWorldSchedMap/);
 console.log("sched map only ok");
 // 替谁添
 const mapSrc = readFileSync(new URL("../js/map.js", import.meta.url), "utf8");
-assert.match(mapSrc, /onGen\(reg, hint\.trim\(\), forId \|\| ""\)/);
+assert.match(mapSrc, /onGen\(reg, hint\.trim\(\), mode === "for" \? forId : ""\)/);
 assert.match(mapSrc, /h\(NodeAdd, \{ world: world, characters: characters/);
 assert.match(mapSrc, /o\.onGenNodes\(world\.id, r, hint, null, fid\)/);
 assert.match(mapSrc, /onGenNodes\(cur\.id, r, hint, null, fid\)/);
@@ -33,3 +33,11 @@ assert.match(app, /const genWorldNodes = async \(wid, regionName, hint, done, fo
 assert.match(app, /\[forChar\.id\]: home/);
 assert.match(app, /k !== forChar\.id/);
 console.log("node add for ok");
+// 地图改版：底下工具栏四格，各开一整页；加地点那页四样分开
+assert.match(mapSrc, /"data-wk": "mapworldtools"/);
+for (const k of ["place", "people", "layout", "setup"]) assert.ok(mapSrc.includes('["' + k + '", '), k);
+assert.match(mapSrc, /const legendItem = function/);
+assert.match(mapSrc, /const PersonDot = function/);
+assert.match(mapSrc, /\["own", "自己写"\], \["gen", "让模型添"\], \["for", "替谁添"\]/);
+assert.ok(!mapSrc.includes('"＋ 地点"'), "顶上那颗「＋ 地点」收进工具栏了");
+console.log("map toolbar ok");
