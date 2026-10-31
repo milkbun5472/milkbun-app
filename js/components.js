@@ -18879,7 +18879,7 @@ function ImgPickMark({ pick, id }) {
   if (!pick || !pick.on) return null;
   const on = pick.has(id);
   return h("span", { "data-wk": "imgpickmark", "data-on": on ? "1" : "0", style: { position: "absolute", top: 6, right: 6, zIndex: 3, width: 22, height: 22, borderRadius: 999, pointerEvents: "none",
-    border: "1.5px solid #fff", background: on ? "#3a7bd5" : "rgba(0,0,0,.18)", boxShadow: "0 1px 4px rgba(0,0,0,.25)", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 12, fontWeight: 700 } }, on ? "✓" : "");
+    border: "1.5px solid #fff", background: on ? "#3a7bd5" : "rgba(0,0,0,.18)", boxShadow: "0 1px 4px rgba(0,0,0,.25)", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: "calc(12px * var(--app-fs, 1))", fontWeight: 700 } }, on ? "✓" : "");
 }
 // 底下浮的那一小条。itemsOf(ids) → [{ id, ref, name }]（一个 id 可以给好几张，比如一摞）
 function ImgPickBar({ pick, allIds, itemsOf, toast }) {

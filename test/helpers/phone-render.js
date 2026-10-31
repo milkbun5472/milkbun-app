@@ -35,6 +35,9 @@ function makeEnv(forceState) {
     saveJSON: () => {},
     safeTop: px => "calc(env(safe-area-inset-top, 0px) + " + px + "px)",
     COMPOSER_PAD_BOTTOM: "calc(env(safe-area-inset-bottom) * 0.4)",
+    // components.js 的长按多选存图（图墙那几处共用）：渲染烟测里只要它不在多选里
+    useImgPick: () => ({ on: false, sel: [], has: () => false, press: () => ({}), click: (_id, o) => o, set() {}, end() {}, toggle() {} }),
+    keepScroll: () => undefined,
     resetStateIdx: () => { stateIdx = 0; }
   };
   // 别的文件里的组件：不写死名单，直接从源码里扫出来补桩。

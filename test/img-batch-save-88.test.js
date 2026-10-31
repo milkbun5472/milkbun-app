@@ -11,7 +11,7 @@ function cut(src, a, b) { const i = src.indexOf(a), j = src.indexOf(b, i); asser
 function load(ua, opts) {
   const shared = [], clicks = [];
   const code = cut(eng, "async function _imgBlobOf(", "if (typeof window !== \"undefined\") window.saveImgsBatch") +
-    "\nconst _isAndroid = () => /android/i.test(navigator.userAgent);";
+    "\nconst _isAndroid = () => /android/i.test(navigator.userAgent);\n" + cut(eng, "async function saveFile(", "\n}\n") + "\n}\n";
   const ctx = {
     navigator: { userAgent: ua, share: async p => { shared.push(p); if (opts && opts.cancel) { await new Promise(r => setTimeout(r, 1100)); const e = new Error("x"); e.name = "AbortError"; throw e; } },
       canShare: p => p.files.length <= ((opts && opts.cap) || 99) },

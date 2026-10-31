@@ -7173,10 +7173,7 @@ async function saveImgsBatch(items) {
     }
   }
   for (let i = 0; i < files.length; i++) {
-    const href = URL.createObjectURL(files[i]), a = document.createElement("a");
-    a.href = href; a.download = files[i].name; a.style.display = "none";
-    document.body.appendChild(a); a.click(); a.remove();
-    setTimeout(function () { URL.revokeObjectURL(href); }, 15000);
+    await saveFile(files[i], { noShare: true });
     if (i < files.length - 1) await new Promise(ok => setTimeout(ok, 350));
   }
   return { n: files.length, left: left, miss: miss, via: "download" };
@@ -7235,8 +7232,8 @@ async function saveTextFile(filename, text, mime) {
 //   原来一律当成「她点了取消」就收手，于是永远导不出来。安卓本来普通下载就能存进「下载」，直接走下载；
 //   别的平台上，「取消」要是一秒内就回来了，也当成面板没起来、改走下载（真的人手点取消没这么快）。
 const _isAndroid = () => { try { return /android/i.test(navigator.userAgent || ""); } catch (e) { return false; } };
-async function saveFile(file) {
-  if (typeof navigator !== "undefined" && navigator.share && !_isAndroid() && (!navigator.canShare || navigator.canShare({ files: [file] }))) {
+async function saveFile(file, opt) {
+  if (!(opt && opt.noShare) && typeof navigator !== "undefined" && navigator.share && !_isAndroid() && (!navigator.canShare || navigator.canShare({ files: [file] }))) {
     const t0 = Date.now();
     try {
       await navigator.share({ files: [file], title: file.name });
