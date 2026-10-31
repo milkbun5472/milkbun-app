@@ -538,7 +538,7 @@
         ["name", "气泡上面那行名字（单聊默认藏着，排版里能打开）"],
         ["meta", "气泡边上的时间/已读那一小行"], ["time", "中间那条日期分隔"],
         ["note", "系统小字（撤回、进房这类）。只改其中一种要连 data-part 一起写：recalled 撤回、pat 拍一拍、busy 在忙、lock 换锁屏、silence 没回话、call 通话回执、callsum 通话小结；不带 data-part 就是全部一起改"], ["noteink", "系统小字的字色"],
-        ["narr", "居中那行旁白／动作（data-me=\"1\" 是她做的）"], ["narrink", "旁白那行字本身"], ["myact", "旁白模式「我的动作」写的那一条（靠右的小框；data-frame＝dashed/solid）"], ["myactink", "那一条里的字和框"], ["actframe", "旁白栏「我的动作」那一档右边「虚线框／实线框」那颗"],
+        ["narr", "居中那行旁白／动作（data-me=\"1\" 是她做的）"], ["narrink", "旁白那行字本身"], ["myact", "旁白模式「我的动作」写的那一条（靠右的小框；data-frame＝dashed/solid）"], ["parenact", "你气泡里选了「括号是动作」的那句正文"], ["parenactseg", "那句里（）括起来的一段（默认斜体）"], ["parenacttoggle", "输入框里打了括号时冒出来的「（动作）／（打的字）」那颗"], ["myactink", "那一条里的字和框"], ["actframe", "旁白栏「我的动作」那一档右边「虚线框／实线框」那颗"],
         ["sameroom", "顶栏那个「同处一室」键（data-on=\"1\" 是开着）"],
         ["askslip", "聊天里 TA 跟你要钱那张单子（data-status＝pending 等批／approved 准了／denied 没准）"], ["askslipimg", "单子上附的那张图（点开看大图）"],["askslipamount", "单子上的金额"], ["askslipcond", "准了时附的那句条件"], ["askslipstamp", "单子右上角那枚印章（批了／驳了）"],
         ["card", "气泡里的卡片（照片、转发、语音）。全 App 二十几种卡都叫 card：只改一种要写成 [data-wk=\"cardrow\"][data-kind=\"那种卡\"] [data-wk=\"card\"]"], ["cardrow", "单聊里一张卡片那一整行；data-kind 是卡的种类（namecard、ledger、health…）"],

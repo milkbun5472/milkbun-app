@@ -13552,7 +13552,9 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
           const lu = g[g.length - 1];
           const qpfx = m.replyTo ? "（我在回应你说的「" + String(m.replyTo).slice(0, 40) + "」）" : "";
           // 语音消息标出来：让 TA 知道这条是对方「说」的不是打的字（能回应语气、可以说「听到你声音了」）
-          const uc = stp + (m.kind === "voice" ? qpfx + "【这条是语音消息，对方亲口说的】" + m.content + voiceToneForPrompt(m)
+          // 她选了「括号里是动作」（群友 2026-10-31）：（）里那几段是她真在做的，不是打出来的字
+          const _pa = m.parenAct && !m.kind ? "【这条里（）括起来的是" + uName + "此刻真在做的动作，你看得到、感觉得到；括号外的才是她说的话】" : "";
+          const uc = _pa + stp + (m.kind === "voice" ? qpfx + "【这条是语音消息，对方亲口说的】" + m.content + voiceToneForPrompt(m)
             // 她自己生成的自拍（群友 2026-10-25）：照片是她发的、画的是她
             : m.kind === "selfie" ? qpfx + (m.failed ? "【" + uName + "想发一张自拍给你，但没发成】" : "【" + uName + "发来一张她自己的" + (m.photoKind === "myshot" ? "照片（别人帮她拍的）" : "自拍") + "】" + (m.imageRef ? "（照片已作为视觉输入附在本条消息上，直接看图回应）" : "") + "照片里：" + (m.desc || ""))
             : m.kind === "photo" && m.imageRef ? qpfx + _pairNo(m) + "【对方发来的真实照片已作为视觉输入附在本条消息上，请直接看图回应；不要假装看不到，也不要只复述配文】" + (m.desc ? "\n对方配文：" + m.desc : "") + (m.seenNote ? "\n（你当时记下的画面：" + m.seenNote + "）" : "")
