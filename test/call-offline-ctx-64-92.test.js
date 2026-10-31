@@ -18,7 +18,8 @@ test("没存转录的老通话，退回那句小结", () => {
 });
 
 test("刚收线的那场线下照样算最近发生的事", () => {
-  const i = app.indexOf("const newest = (list || []).find(s => s && (s.msgs || []).length > 0);");
+  // 2026-10-30：往期线下（pastOffline）前面也有一句同样的 newest，锚到 offFloor 那一句
+  const i = app.indexOf("const newest = (list || []).find(s => s && (s.msgs || []).length > 0);\n        const offFloor");
   assert.ok(i > 0, "还在只找没结束的那一场");
   const blk = app.slice(i, i + 600);
   // 结束得还近才带——三周前那场不该压在今天的上下文里，那是记忆库的活
