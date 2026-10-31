@@ -22300,7 +22300,7 @@ function ChatSettings({
   const [myPatSig, setMyPatSig] = useState(character.myPatSig || "");
   const [patGenBusy, setPatGenBusy] = useState(false);   // 他拍你时，你那半句后缀（她 2026-10-25）
   const [ctxN, setCtxN] = useState(settings.ctxN || 50);
-  const [pastOfflineN, setPastOfflineN] = useState(settings.pastOfflineN == null ? 1 : Number(settings.pastOfflineN) || 0);   // 带上最近几次线下（2026-10-31）
+  const [pastOfflineN, setPastOfflineN] = useState(settings.pastOfflineN == null ? 0 : Number(settings.pastOfflineN) || 0);   // 带上最近几次线下（2026-10-31）
   const [sumThresh, setSumThresh] = useState(settings.sumThresh || 150);
   const [sumBuffer, setSumBuffer] = useState(settings.sumBuffer || 20);
   const [autoMoment, setAutoMoment] = useState(!!settings.autoMoment);
@@ -23348,7 +23348,7 @@ function ChatSettings({
       h("span", { style: { fontFamily: F_DISPLAY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.sub } }, "带上最近几次线下"),
       h("span", { style: { fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: "calc(16px * var(--app-fs, 1))", color: t.ink } }, pastOfflineN ? pastOfflineN + " 次" : "不带")),
     h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", lineHeight: 1.5, color: t.fog, marginBottom: 10 } },
-      characterText(character, "已经结束的最近这几场线下，总结和原文固定带进上下文：单聊、再进线下、群里他都记得，不靠记忆库搜不搜得到。每多一场，每轮多带一段（一场原文最多四千字）。")),
+      characterText(character, "0 就跟原来一样：刚结束不久的那场照常带，再往前靠记忆库搜。往上调，就在那之外再往前固定多带几场（总结和原文）：单聊、再进线下、群里他都记得。每多一场，每轮多带一段（一场原文最多四千字）。")),
     h(Slider, { value: pastOfflineN, min: 0, max: 10, step: 1, onChange: setPastOfflineN })), /*#__PURE__*/React.createElement("div", {
     className: "pt-6"
   }, /*#__PURE__*/React.createElement("div", {

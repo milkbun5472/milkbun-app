@@ -8673,12 +8673,13 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   // 往期线下（她 2026-10-31：群友许愿「调用往期线下记录 x 条」——线下总结完，再进线下、群里都对上次见面没印象，记忆库里明明有总结）：
   //   原来只有【最新那一场、而且结束不久】才进上下文，再往前全靠记忆库按这一轮的话去搜，搜不到就像没发生过。
   //   这里固定带最近 N 场已经结束的线下：总结＋原文（原文按字数从最近往回收，太长就只留后半截并说清）。
-  //   N 在聊天设置里每人一格（pastOfflineN，默认 1）；最新那场已经整场进了【最近对话】的就不重复。
+  //   N 在聊天设置里每人一格（pastOfflineN，默认 0＝跟原来一样不额外带）；最新那场已经由原来那条路带着的就不重复：
+  //   单聊／线下看「短期窗覆盖天数」，群里看「跨情境回看时间窗」——两边都是「原来那条带不到的，往前再补 N 场」。
   //   单聊线上、再进线下（都走 ctxFor）和群聊（memberPrivateContextFor）共用这一份。
   const PAST_OFF_CHARS = 4000;
   const pastOfflineFor = (char, skipId) => {
     try {
-      const n = Math.max(0, Math.min(10, Number((settingsFor(char.id) || {}).pastOfflineN ?? 1)));
+      const n = Math.max(0, Math.min(10, Number((settingsFor(char.id) || {}).pastOfflineN ?? 0)));
       if (!n) return "";
       let list = offlinesRef.current[char.id];
       if (!list) list = loadJSON("x_offline:" + char.id, []);
@@ -21642,7 +21643,13 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     const priv = opts.interop ? memberPrivLines(c, opts.privateCtxN) : "";
     const offBeats = opts.interop && Number(opts.privateCtxN) > 0 ? crossRecentFor(c.id, { surfaces: ["offline"] }) : "";
     // 前几次线下跟实时私聊同一道闸：封闭群、私聊窗口关成 0 的不带
-    const pastOff = opts.interop && Number(opts.privateCtxN) > 0 ? (() => { try { return pastOfflineFor(c, null); } catch (e) { return ""; } })() : "";
+    const pastOff = opts.interop && Number(opts.privateCtxN) > 0 ? (() => { try {
+      // 最新那场还在「跨情境回看时间窗」里的，上面 offBeats 已经带着它，这里从再往前那场数起（跟单聊同一个算法）
+      const list = offlinesRef.current[c.id] || loadJSON("x_offline:" + c.id, []);
+      const newest = (list || []).find(x => x && (x.msgs || []).length > 0);
+      const win = Math.max(0, Number(memCfgRef.current.crossHours ?? 72)) * 3600000;
+      const inCross = newest && (!newest.endTs || (win && Date.now() - newest.endTs <= win));
+      return pastOfflineFor(c, inCross ? newest.id : null); } catch (e) { return ""; } })() : "";
     // 他在别的互通群里最近聊的（她 2026-10-27）：走 crossRecentFor 那一份——按时间窗＋字数预算（召回设置里那两根拉条），不按条数
     const otherGroups = opts.interop ? crossRecentFor(c.id, { surfaces: ["group"], excludeGroup: opts.groupId }) : "";
     // 旁观群（群友 2026-10-20）：她不在这个群里。原样摆出他跟她刚才的私聊/线下，模型会顺着那段接着跟她说下去，
