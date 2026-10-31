@@ -11106,8 +11106,29 @@ function txtWriteFailed(k, e) {
   try { if (typeof window !== "undefined" && typeof window.__saveFailed === "function") window.__saveFailed(k, isQuotaError(e)); } catch (x) {}
 }
 let _txtHasDataMarked = false;
+// 聊天一下子变短：先把变短之前那份留下来（她 2026-10-31：群友 Arlota 线上聊天中间一大段凭空没了，记忆还在，
+//   查了一圈对不上任何一种已知情况、又没有云同步）。不猜原因了：以后谁的聊天一口气少了 10 条以上，
+//   不管是哪条路写进来的，变短前那份整份存进 x_shrinkBak:<键>（一个对话只留最近一份），再记一笔 x_shrinkLog
+//   （什么时候、几条变几条、从哪段代码写进来）。聊天设置里能一键合并回来；导出备份里也带着，下次能看出是谁剪的。
+//   她自己点删除、清空、归档也会留一份——不碍事，留着没人点就是一份旧副本，下一次变短就被换掉。
+const SHRINK_MIN = 10;
+function chatMsgCount(str) { const m = String(str || "").match(/"role":/g); return m ? m.length : 0; }
+function noteChatShrink(k, prev, next) {
+  try {
+    const was = chatMsgCount(prev), now = chatMsgCount(next);
+    if (was - now < SHRINK_MIN) return;
+    const where = String((new Error().stack || "")).split("\n").slice(2, 7).map(x => x.trim().replace(/https?:\/\/[^/]+\//, "")).join(" ← ").slice(0, 400);
+    const at = Date.now();
+    txtWrite("x_shrinkBak:" + k, JSON.stringify({ at, from: was, to: now, where, data: prev }));
+    let log = []; try { log = JSON.parse(_txtMirror().get("x_shrinkLog") || "[]") || []; } catch (e) {}
+    log.push({ k, at, from: was, to: now, where });
+    txtWrite("x_shrinkLog", JSON.stringify(log.slice(-40)));
+    console.warn("[chat shrink] " + k + " " + was + " → " + now, where);
+  } catch (e) {}
+}
 function txtWrite(k, s) {
   s = String(s);
+  if (/^x_g?chat:/.test(k)) { const prev = _txtMirror().get(k); if (prev != null && s.length < prev.length) noteChatShrink(k, String(prev), s); }
   if (_txtGate && !_txtGate.done) _txtEarlyWrites.add(k);
   // 文字库没灌起来（镜像是空的）：这时界面上看到的是一台「空手机」，它写下的默认值
   //   绝不能落进 IDB 盖掉真存档，也不能垫进小仓库（下次开机会被当成新版搬进去）。只留在内存里。

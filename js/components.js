@@ -22629,6 +22629,7 @@ function ChatSettings({
   // 预览台（她 2026-09-30）：设置页先藏起来（不卸载，草稿都还在），底下就是真的聊天窗，铺上这份没存的长相；
   //   回程条跟主题工作台那条是同一个 ThemePeekBar。
   const [lookPeek, setLookPeek] = useState(false);
+  const [shrinkBak, setShrinkBak] = useState(() => { try { const b = loadJSON("x_shrinkBak:x_chat:" + (character && character.id), null); return b && b.data ? b : null; } catch (e) { return null; } });
   const peekLook = () => {
     if (!window.__previewChatLook) return;
     window.__previewChatLook({ skin, bubble, font, chatBg, customCSS, layout });
@@ -23729,6 +23730,17 @@ function ChatSettings({
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))", color: t.sub } }, iBlocked ? "已拉黑 " + cNm : "拉黑 " + cNm),
         h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, marginTop: 2, lineHeight: 1.5 } }, iBlocked ? "点击解除拉黑。" : "拉黑后，按「回复」TA 会以被拉黑的方式反应（碎碎念/生气/申请解除），气泡旁带红色感叹号。")),
       h(Toggle, { on: !!iBlocked, onChange: onToggleBlock }))),
+  // 聊天一下子少了一大截时留下的那份（她 2026-10-31）：有才出现
+  shrinkBak && h("div", { className: "pt-6", "data-wk": "csshrink" },
+    h(Eyebrow, { style: { marginBottom: 6 } }, "找回被剪掉的聊天"),
+    h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, marginBottom: 8, lineHeight: 1.5 } },
+      (function () { const d = new Date(shrinkBak.at || 0); return (d.getMonth() + 1) + " 月 " + d.getDate() + " 日 " + String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0"); })()
+      + "，跟 " + cNm + " 的聊天一下子从 " + shrinkBak.from + " 条变成了 " + shrinkBak.to + " 条，变短之前那份留着。点「合并回来」，少掉的那些按时间插回去，现在有的一条不动。是你自己删的就点「不用了」。"),
+    h("div", { className: "flex", style: { gap: 8 } },
+      h("button", { "data-wk": "csshrinkgo", onClick: () => { const n = window.__shrinkRestore ? window.__shrinkRestore(character.id) : 0; setShrinkBak(null); if (window.__toast) window.__toast(n > 1 ? "合并回来了 " + n + " 条" : "没有少掉的，备份收起来了"); },
+        className: "flex-1 rounded-xl py-3 active:opacity-70", style: { border: "1px solid " + t.line, color: t.ink, fontFamily: F_DISPLAY, fontSize: "calc(14px * var(--app-fs, 1))" } }, "合并回来"),
+      h("button", { "data-wk": "csshrinkdrop", onClick: () => { try { dropStored("x_shrinkBak:x_chat:" + character.id); } catch (e) {} setShrinkBak(null); },
+        className: "rounded-xl py-3 px-4 active:opacity-70", style: { border: "1px solid " + t.line, color: t.fog, fontFamily: F_DISPLAY, fontSize: "calc(14px * var(--app-fs, 1))" } }, "不用了"))),
   onExportChat && h("div", { className: "pt-6", "data-wk": "csexport" },
     h(Eyebrow, { style: { marginBottom: 6 } }, "导出聊天记录"),
     h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, marginBottom: 8, lineHeight: 1.5 } }, "把跟 " + cNm + " 的线上聊天存成一份 txt，每条带时间。开着别的房间时只导这一间。"),
