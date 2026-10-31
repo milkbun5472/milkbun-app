@@ -241,6 +241,19 @@ function phoneTimeline(charData, live, nowTs) {
 // 一个月俸微薄的小官照样下单六百八十文的袍子，两边说的不是同一个人。
 // 这一块只是把钱包那份【读过来】发给它们，不生成任何东西。
 const PHONE_MONEY_KEYS = ["shopping", "takeout"];
+// 别的 app 也得知道TA现在的钱（群友 2026-10-31：人设穷学生，她转了 200 万，翻他手机还在哭穷；她：「有钱角色转了钱破产了也要反应出来」）：
+//   人设写的是TA的底子，钱这件事以眼下的数为准。只给数和判据，不替TA决定怎么面对——穷人暴富、富人破产、这个月花超了，同一句话都管得到。
+function phoneMoneyNowBlock(appKey, money) {
+  if (PHONE_MONEY_KEYS.indexOf(appKey) >= 0 || appKey === "wallet" || !money) return "";
+  const n = v => (v == null || !isFinite(Number(v))) ? null : Math.round(Number(v));
+  const bits = [];
+  if (n(money.balance) != null) bits.push("手头（可动用）约 " + n(money.balance) + (n(money.balance) < 0 ? "（已经透支）" : ""));
+  if (n(money.monthlyIncome)) bits.push("每月进账约 " + n(money.monthlyIncome));
+  if (!bits.length) return "";
+  return "\n\n【TA现在的钱】" + bits.join("；") + "。人设写的是TA原本的底子；钱这件事以眼下这个数为准。"
+    + "跟人设里的处境对不上的时候（多出一大笔、或者钱没了、或者比平时紧），手机里的东西照TA现在的处境来写，"
+    + "TA怎么面对这个落差、在意不在意、跟谁说不跟谁说，看TA这个人。";
+}
 function phoneMoneyBlock(appKey, money) {
   if (PHONE_MONEY_KEYS.indexOf(appKey) < 0 || !money) return "";
   const n = v => (v == null || !isFinite(Number(v))) ? null : Math.round(Number(v));
@@ -1960,7 +1973,7 @@ function phoneProbeSpec(key, char, rel, actualWechat, avoidLines, known, money, 
   // ⚠️不是「四处一样喂」的例外——那条讲的是同一层能力要在四个场合都给到；
   // 这一段是账本这一栏专属的取材facts，别的 app 本来就不看。
   const bondBlock = (key === "tally" && bond) ? bond : "";
-  const _full = spec.instruction + phoneOwnOnlyBlock(char.name) + bondBlock + angle + PHONE_WORLD_RULE + phoneMoneyBlock(key, money) + phoneIdentityBlock(key, known) + phoneEvolveBlock(key, known) + phoneRosterBlock(key, known) + phoneWatchDraftBlock(key, known) + phoneSelfAvoidBlock(key, known) + phoneQuoteAvoidBlock(key, known) + phoneAvoidBlock(avoidLines) + phoneLangBlock(lang) + (weekly ? PHONE_WEEKLY_HINT : "");
+  const _full = spec.instruction + phoneOwnOnlyBlock(char.name) + bondBlock + angle + PHONE_WORLD_RULE + phoneMoneyBlock(key, money) + phoneMoneyNowBlock(key, money) + phoneIdentityBlock(key, known) + phoneEvolveBlock(key, known) + phoneRosterBlock(key, known) + phoneWatchDraftBlock(key, known) + phoneSelfAvoidBlock(key, known) + phoneQuoteAvoidBlock(key, known) + phoneAvoidBlock(avoidLines) + phoneLangBlock(lang) + (weekly ? PHONE_WEEKLY_HINT : "");
   return { ...spec, maxTokens: PHONE_OUT_CEILING, instruction: _full };
 }
 // 纯函数导出给 node --test；浏览器里没有 module，原样跳过
