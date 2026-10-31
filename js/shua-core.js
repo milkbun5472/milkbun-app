@@ -51,21 +51,22 @@
   //   同一个人放进两种处境，自然会拍出不一样的东西；写进去哪种内容，模型就只会往那儿钻。
   // 文案和画面是两样东西（她 2026-10-07：「除了图片描述你没写抖音文案」）：只写「文案 caption」四个字，模型常常空着或者塞进 scene
   const CAPTION_FACT = "caption 是作者发布时自己配在视频底下的那段话，不是画面描述——看视频的人在画面下面读到的就是它；话题标签另写在 tags 里，这里不用再带。";
-  const DATE_FACT = () => { const d = new Date(); return "\n今天是 " + d.getFullYear() + " 年 " + (d.getMonth() + 1) + " 月 " + d.getDate() + " 日。"; };
+  // 今天几号照那只虚拟钟（2026-10-31）：调用的地方把「现在」传进来——角色发视频是TA那只钟，推荐流是主面具那只；没传才用现实
+  const DATE_FACT = nowTs => { const d = new Date(nowTs || Date.now()); return "\n今天是 " + d.getFullYear() + " 年 " + (d.getMonth() + 1) + " 月 " + d.getDate() + " 日。"; };
   const V_FACT = "\n这个平台是竖屏的：一条通常十几秒到一两分钟。人是一条接一条往上划着看的，不喜欢一秒就划走了。推荐流会把你的视频推给不认识你的人，他们不知道你是谁，只看这一条。";
   const B_FACT = "\n这个平台是横屏的：一条几分钟到几十分钟都有。人多半是点进来从头看下去，很多是冲着这个号来的。视频有标题、有简介、放在某个分区里，看的人会在画面上发弹幕。";
   const B_EXTRA = B_FACT + "另外写：标题 title、简介 intro（一两句）、时长 dur（分:秒）、播放量 plays（数字）、分区 zone（两三个字）、视频里飘过去的弹幕 dms（6~12 条，很短，看视频的人发的）。";
   const THREAD_FACT = "\n评论里要是有哪条你回了，写 thread：name 照抄那条评论的网名、reply 你回的那句、back 对方看到以后又回了你什么（没再回就空着）；一条都不回就整个空着。";
   // acc：这个号一贯的样子（第一次发时定下来，之后一直照着来——她 2026-10-07 要的第 5 条）
   // hot：今天平台上的热门（第 6 条）。跟不跟由TA
-  function charInstruction(handle, skin, friends, acc, hot, extra) {
+  function charInstruction(handle, skin, friends, acc, hot, extra, nowTs) {
     const has = acc && (acc.bio || acc.niche);
     return "你在一个叫「" + APP_NAME + "」的短视频平台上有账号" + (handle ? "，账号名「" + handle + "」" : "") + "。"
       + (has ? "这个号一贯是这个样子：" + (acc.niche ? "平时主要发" + acc.niche + "；" : "") + (acc.bio ? "简介写着「" + acc.bio + "」；" : "") + "现在 " + (acc.followers || 0) + " 个粉丝。照这个号一贯的样子来，偶尔破例也正常。"
         : "这是你在这个号上发的头几条，这个号是个什么样子由你定下来：写 bio（主页简介一句）、niche（你平时主要发什么，几个字）、followers（现在多少粉丝，数字，照你这个人在网上会有的样子）。")
       + (hot && hot.length ? "\n今天「" + APP_NAME + "」上的热门：" + hot.join("、") + "。跟不跟、借不借它说你自己的事，照你这个人来——大多数时候不必跟。" : "")
       + (extra || "")
-      + DATE_FACT() + "你现在发一条新视频。"
+      + DATE_FACT(nowTs) + "你现在发一条新视频。"
       + "拍什么、怎么拍、配什么文案，都从你此刻真实的生活和你这个人身上长出来——你今天在干嘛、最近心里装着什么、你这种人平时会不会发这种。"
       + "\n写：账号名 handle（" + (handle ? "照旧填「" + handle + "」" : "你会给自己起的那个") + "）、视频里拍了什么 scene（镜头里看得见的画面，2~4 句，像在讲一段视频怎么走）、"
       + "画面里有没有你 who（self 本人出镜 / part 只露手或背影 / none 没有人）、文案 caption（" + CAPTION_FACT + "）、话题 tags（0~4 个，不带井号）、点赞数 likes（数字，照你这个号该有的热度）、"
@@ -78,10 +79,10 @@
   }
   // world：这个世界是什么样（盖了「公开世界」章的世界书），跟今日热门同一份；没有就是现在的现实
   function worldLine(world) { const w = String(world || "").trim(); return w ? "【这个世界】\n" + w.slice(0, 3000) + "\n平台上的人都活在这个世界里：博主是谁、过什么日子、拍什么、说话用什么词，照这个世界来；世界书里没写到的地方，按这个世界自然会有的样子补。\n" : ""; }
-  function npcSystem(uName, persona, n, skin, hot, regs, world) {
+  function npcSystem(uName, persona, n, skin, hot, regs, world, nowTs) {
     return AC() + CB() + worldLine(world)
       + (hot && hot.length ? "今天平台上的热门：" + hot.join("、") + "——推荐流里会有几条在蹭这些。\n" : "")
-      + DATE_FACT().slice(1) + "\n【场景】" + uName + "在刷「" + APP_NAME + "」的推荐流，刷到的是 " + n + " 个互不相识的博主各发的一条视频。"
+      + DATE_FACT(nowTs).slice(1) + "\n【场景】" + uName + "在刷「" + APP_NAME + "」的推荐流，刷到的是 " + n + " 个互不相识的博主各发的一条视频。"
       + (persona ? "\n推荐流会跟她平时在意的东西沾一点边，但不是全都对口——她是这样一个人：" + persona : "")
       + "\n\n每条一个不同的博主。题材、拍法、口吻、热度各不一样：有大号有小号，有认真做内容的也有随手一拍的。"
       + "\n写 videos（" + n + " 条），每条：author 博主网名、scene 视频里拍了什么（2~4 句，像在讲一段视频怎么走）、who 画面里有没有人（self 博主本人出镜 / part 只露手或背影 / none 没有人）、"

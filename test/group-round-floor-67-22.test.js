@@ -66,9 +66,10 @@ test("人多的时候上限跟着放宽，别把人挤掉", () => {
 //   而 maxTokens 给的是 65535——二十来条聊天离截断还远。
 //   万一哪天有人把它调小，长一点的一轮会被截断成坏 JSON，整枪白打。
 test("天花板敢给大，是因为那一枪的 token 预算够", () => {
-  const i = A.indexOf("const raw = await callAI(active, system, [{");
+  // 2026-10-30 群那一枪包成了 _gShoot（带 MCP 工具提示）；原来那串字只剩朋友圈那一枪还长这样，会认错人
+  const i = A.indexOf("const _gShoot = ");
   assert.ok(i > 0, "群那一枪的调用点变了");
-  const blk = A.slice(i, i + 700);
+  const blk = A.slice(i, i + 1500);
   const m = blk.match(/maxTokens: (\d+)/);
   assert.ok(m, "群那一枪没写 maxTokens：" + blk.slice(0, 200));
   assert.ok(Number(m[1]) >= 32000, "token 预算只有 " + m[1] + "＝条数放开之后，长一轮会被截成坏 JSON，白烧一次钱");

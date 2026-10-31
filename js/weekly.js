@@ -610,6 +610,8 @@
       byWho[who] = (byWho[who] || 0) + 1;
       hours[new Date(r.ts).getHours()]++;
       if (!longest || txt.length > longest.len) longest = { who: who, len: txt.length, text: txt.slice(0, 40) };
+      // 线下整段是叙述（「他坐在她旁边」），不在括号里也是动描：条数照算，词不算（她 2026-10-31「为啥还是手机之类的」）
+      if (/^【[^】]*线下[^】]*】/.test(line)) return;
       const pure = saidOnly(txt).replace(/[^\u4e00-\u9fa5]/g, "");
       for (let k = 0; k + 2 <= pure.length; k++) { const g = pure.slice(k, k + 2); if (STOP2.indexOf(g) < 0) gram[g] = (gram[g] || 0) + 1; }
     });
@@ -1653,7 +1655,10 @@
     const L = lookOf(s.voiceId);
     function pullQuoteFor(a) {
       const text = String(a && a.body || "").replace(/\s+/g, " ").trim();
-      const parts = text.match(/[^。！？!?]{12,70}[。！？!?]/g) || [];
+      // 句尾连着的收引号算这一句的（她 2026-10-31：「大字掉格式了括号分家了」——原来在「！」那儿就断，
+      //   「」」被甩到下一段开头）；引号没配上对的那句不拿来放大
+      const bal = q => { const c = (re) => (q.match(re) || []).length; return c(/「/g) === c(/」/g) && c(/『/g) === c(/』/g) && c(/“/g) === c(/”/g) && c(/（/g) === c(/）/g); };
+      const parts = (text.match(/[^。！？!?]{12,70}[。！？!?]+[」』”’）)]*/g) || []).filter(q => bal(q) && !/^[」』”’）)]/.test(q.trim()));
       if (!parts.length) return "";
       return parts[Math.min(parts.length - 1, Math.max(0, Math.floor(parts.length / 2)))].trim();
     }

@@ -5,7 +5,9 @@ const fs = require("node:fs");
 const path = require("node:path");
 const R = f => fs.readFileSync(path.join(__dirname, "..", "js", f), "utf8");
 const app = R("app.js"), comp = R("components.js");
-const src = app.slice(app.indexOf("  const SCHED_PEER_MAX = 3"), app.indexOf("  const genScheduleDay = async (char, dayKey) => {"));
+// 「谁算有关、叫什么」收成了一份放在前面（2026-10-31），一起拿进来
+const helpers = app.slice(app.indexOf("  // 日程互通只认这一份"), app.indexOf("  // 别人此刻的安排里写着跟TA在一起"));
+const src = helpers + app.slice(app.indexOf("  const SCHED_PEER_MAX = 3"), app.indexOf("  const genScheduleDay = async (char, dayKey) => {"));
 // 纯函数拿出来真跑：characters / rels / schedulesRef 由外面喂
 // window / worldsRef：同一个世界才互相参照（2026-10-16）——桩照 map.js 的 charRealm：钉在哪个世界的 pins 里就是哪个世界
 const mk = (chars, rels, plans, worlds) => new Function("characters", "rels", "schedulesRef", "window", "worldsRef",

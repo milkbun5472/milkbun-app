@@ -1012,7 +1012,8 @@
   }
   function delRecord(who, id) { const all = loadAll(); all[who] = (all[who] || []).filter(r => r.id !== id); saveAll(all); }
 
-  const dateZh = ts => { const d = new Date(ts); return (d.getMonth() + 1) + "月" + d.getDate() + "日"; };
+  // 给 TA 看的日子照 TA 那只虚拟钟（2026-10-31）；没给 id（她自己那张图上的落款）照主面具
+  const dateZh = (ts, id) => { const d = new Date(typeof vclockMap === "function" ? vclockMap(ts, id) : ts); return (d.getMonth() + 1) + "月" + d.getDate() + "日"; };
   const optText = (test, i, p) => { const o = test.qs[i] && test.qs[i].opts[p]; return o ? o.t : ""; };
 
   // 聊天时他知道的那一行（她 2026-10-22：「就他能看到结果并且知道自己选了啥」）：
@@ -1020,7 +1021,7 @@
   // 她做完发给你看过的（她 2026-10-23）：你知道她测出了什么，最近 5 套
   function herNote(charId) {
     const l = recordsOf("me").filter(r => (r.sentTo || []).indexOf(charId) >= 0).slice(0, 5);
-    return l.length ? "\n她做完发给你看过的：" + l.map(r => { const t = byId(r.testId); return t ? "「" + t.name + "」" + dateZh(r.ts) + (r.title && !r.free ? "测出「" + r.title + "」" : "做完了") : ""; }).filter(Boolean).join("、") : "";
+    return l.length ? "\n她做完发给你看过的：" + l.map(r => { const t = byId(r.testId); return t ? "「" + t.name + "」" + dateZh(r.ts, charId) + (r.title && !r.free ? "测出「" + r.title + "」" : "做完了") : ""; }).filter(Boolean).join("、") : "";
   }
   function chatNote(charId) {
     const l = recordsOf(charId); if (!l.length) return herNote(charId).replace(/^\n/, "你没做过照影的题。");
@@ -1028,7 +1029,7 @@
     const lines = [];
     l.forEach(r => {
       const t = byId(r.testId); if (!t) return;
-      if (seen[r.testId]) { seen[r.testId].push(dateZh(r.ts) + "「" + r.title + "」"); return; }
+      if (seen[r.testId]) { seen[r.testId].push(dateZh(r.ts, charId) + "「" + r.title + "」"); return; }
       seen[r.testId] = [];
       const picks = t.bid && r.bids ? r.bids.map((v, i) => v ? t.qs[i].q + v + "枚" : "").filter(Boolean).join("、")
         : t.rank ? rankOrder(t, r.picks).map(i => t.rank[i]).join("＞")
@@ -1043,7 +1044,7 @@
     // 上下文封顶（她 2026-10-23「不会太占上下文吗」）：最近 5 套带每题选了什么，再往前只留名字和结果，一行带过
     const more = lines.slice(5, 25).map(x => "「" + x.t.name + "」" + x.r.title).join("、");
     return "你做过照影里的小测（这是你自己做过的事，结果只是那次测出来的，不用照着它演）：\n" + lines.slice(0, 5).map((x, k) =>
-      "·「" + x.t.name + "」" + dateZh(x.r.ts) + " 测出「" + x.r.title + "」" + (x.r.scene ? "（那次的前提是：" + x.r.scene + "）" : "") + (seen[x.t.id].length ? "（更早几次：" + seen[x.t.id].slice(0, 3).join("、") + "）" : "") + "。那次你选的：" + x.picks
+      "·「" + x.t.name + "」" + dateZh(x.r.ts, charId) + " 测出「" + x.r.title + "」" + (x.r.scene ? "（那次的前提是：" + x.r.scene + "）" : "") + (seen[x.t.id].length ? "（更早几次：" + seen[x.t.id].slice(0, 3).join("、") + "）" : "") + "。那次你选的：" + x.picks
       + (x.r.review ? "\n  做完你写的评语：" + String(x.r.review).slice(0, k ? 80 : 300) : "") + (x.r.react ? "\n  你看完评语说：" + String(x.r.react).slice(0, 80) : "")
       + (k ? "" : recallDetail(x.t, x.r))).join("\n") + (more ? "\n·更早做过的：" + more : "") + herNote(charId);
   }
@@ -1106,7 +1107,7 @@
   // 让他做一套题的那一段（照影页里调 runProbe）
   // scene：她给这一次定的处境（她 2026-10-22「换个处境再做」）——同一套题，在那个前提下的你会怎么选
   // author：这套是谁出的（角色给她出的那种）；mine＝就是你自己出的（她 2026-10-22「我俩都能做也能发给别的角色」）
-  function askInstruction(test, meName, prev, scene, author, lie) {
+  function askInstruction(test, meName, prev, scene, author, lie, charId) {
     return "你在手机上做一套小测「" + test.name + "」（" + test.sub + "）。一题一题照你自己真实的样子选——不是挑看起来好的那个，也不是猜出题人想要什么。"
       + (author && author.mine ? "\n这套题是你自己当初出给「" + (meName || "她") + "」的，现在你自己也答一遍。" : author && author.name ? "\n这套题是「" + author.name + "」出的。" : "")
       + (scene ? "\n这一次有个前提：" + String(scene).slice(0, 60) + "。照这个前提下的你来答，心声里也是那时候的你；跟平时一样的题就一样，不为了显得不同硬改。" : "")
@@ -1116,7 +1117,7 @@
       // 纠结的人可以来回好几次（她 2026-10-22「有些角色可能会来回选好几次纠结的吧」）：原来卡在两到四步，最多改一两回
       + "大多数题一步就定。只有你这个人在这题上真的会拿不准、会反复的时候，才写多步：按了一个又改到另一个，在两三个之间来回、改过去又改回来，最多六下；每一下心里冒的东西可以不一样。最后一步就是你最终选的。犹不犹豫、来回几次照你的性子来，不为了好看硬晃，也不为了干脆硬压。"
       + (meName ? "这是「" + meName + "」让你做的，她会看到你每一题选了什么、为什么。" : "")
-      + (prev && prev.length ? "\n你以前做过这套：" + prev.slice(0, 3).map(r => dateZh(r.ts) + "测出「" + r.title + "」").join("；") + "。这次照你现在的样子答，变了就变了，没变也不用硬改。" : "")
+      + (prev && prev.length ? "\n你以前做过这套：" + prev.slice(0, 3).map(r => dateZh(r.ts, charId) + "测出「" + r.title + "」").join("；") + "。这次照你现在的样子答，变了就变了，没变也不用硬改。" : "")
       + (test.custom && !test.scored ? "\n这套不算分。全部做完后，feel 写你做完这一套的感觉，一两句，照你自己说话的样子。" : "")
       // 结果下面那段评语（她 2026-10-22「写一小段评语，每个角色就算答案一样评语也不一样」）：同一次调用里一起写，不多花一枪
       + (test.bracket ? "\n这一套是淘汰赛：十六样东西两两对决，一共十五场，每场在两边里留下你更想要的那个，at 0 是前一个、1 是后一个。第 1 到 8 场照下面的顺序两两对上；第 9 场是第 1、2 场赢下来的对决，第 10 场是第 3、4 场的，依此类推，第 13 场是第 9、10 场的，第 14 场是第 11、12 场的，第 15 场决赛是第 13、14 场的。后面几场的两边是你前面留下来的，自己记着。\n参赛的十六样：" + test.bracket.map((x, k) => (k + 1) + "." + x).join(" ") : "")

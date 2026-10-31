@@ -14,7 +14,7 @@ test("刷新两颗：路人一批 / 挑人请TA们发", () => {
   assert.match(S, /"刷几条路人的"/);
   assert.match(S, /"请TA们发"/);
   assert.match(S, /const genChars = async \(ids, forceCp(, opts)?\) =>/);   // 2026-10-15 多了 forceCp：情侣号那颗「让TA往这个号发一条」
-  assert.match(S, /props\.probeAs\(c, charInstruction\(acc\.handle, sk, realFr \? \[\] : friends, acc, hotToday\(\), extra\) \+ \(toCp\[c\.id\]/);
+  assert.match(S, /props\.probeAs\(c, charInstruction\(acc\.handle, sk, realFr \? \[\] : friends, acc, hotToday\(\), extra[^\n]*?\) \+ \(toCp\[c\.id\]/);
 });
 test("直播是底栏一格，生图要点了才画", () => {
   assert.match(S, /tabBtn\("live", "直播"\)/);
@@ -33,7 +33,7 @@ test("两套皮：竖着刷 / 横着看，两套视频各刷各的", () => {
 });
 
 test("请TA们发：拍好一条出一条，慢的那个不拖住整批；按不了时字色跟皮走", () => {
-  assert.match(S, /props\.probeAs\(c, charInstruction\(acc\.handle, sk, realFr \? \[\] : friends, acc, hotToday\(\), extra\) \+ \(toCp\[c\.id\][^\n]*?shapeChar\(sk, !realFr && friends\.length > 0, newAcc\), \{ timeout: 180000 \}\)\.catch\(\(\) => null\)/, "等 3 分钟交给调用本身掐断，不在外面赛跑");
+  assert.match(S, /props\.probeAs\(c, charInstruction\(acc\.handle, sk, realFr \? \[\] : friends, acc, hotToday\(\), extra[^\n]*?\) \+ \(toCp\[c\.id\][^\n]*?shapeChar\(sk, !realFr && friends\.length > 0, newAcc\), \{ timeout: 180000 \}\)\.catch\(\(\) => null\)/, "等 3 分钟交给调用本身掐断，不在外面赛跑");
   assert.match(S, /color: dis \? P\.ink : "#fff"/);
 });
 
@@ -61,14 +61,14 @@ test("分享进聊天 + TA甩来 + 刷到彼此", () => {
   assert.match(S, /if \(onAlt\) \{ spotAlt\(v, altName\); return; \}/);
   assert.match(S, /她不知道你认出来了/);
   // v75.007 省钱：熟人来评并进TA自己那一枪；小号被刷到一枪写完；旁支走后台线路
-  assert.match(S, /charInstruction\(acc\.handle, sk, realFr \? \[\] : friends, acc, hotToday\(\), extra\)/);
+  assert.match(S, /charInstruction\(acc\.handle, sk, realFr \? \[\] : friends, acc, hotToday\(\), extra[,)]/);
   assert.match(S, /props\.ask\(spotSystem\(/);
   assert.match(A, /const route = \(routePicked\(bgApiId\) && bgActive\) \? bgActive/);
 });
 
 test("456：TA的号一贯的样子、今日热门、合拍", () => {
   const A = fs.readFileSync(path.join(__dirname, "..", "js", "app.js"), "utf8");
-  assert.match(S, /function charInstruction\(handle, skin, friends, acc, hot, extra\)/);
+  assert.match(S, /function charInstruction\(handle, skin, friends, acc, hot, extra(, nowTs)?\)/);
   assert.match(S, /hadAcc \? \{\} : \{ bio: S\(d\.bio\)/);
   assert.match(S, /page\.kind === "acct"/);
   assert.match(S, /const genHot = async \(\) =>/);
@@ -181,7 +181,7 @@ test("同城算上架空世界；刷新在同城就刷这座城；带今天日�
   assert.match(app, /cityNote: name =>/);
   assert.doesNotMatch(src, /"刷几条这座城的"/);
   assert.match(src, /feed === "city" && cities\.length \? genNpc\(cityNow\)/);
-  assert.equal((src.match(/DATE_FACT\(\)/g) || []).length, 2);
+  assert.equal((src.match(/DATE_FACT\(nowTs\)/g) || []).length, 2);   // 2026-10-31 起「今天」照传进来的那只钟
   assert.match(src, /repeat\(4, minmax\(0, 1fr\)\)/);
   const pane = src.slice(src.indexOf("function VideoPane"), src.indexOf("function CommentsPage"));
   assert.match(pane, /"aria-label": "更多"/);

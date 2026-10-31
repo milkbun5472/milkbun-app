@@ -159,8 +159,9 @@ test("代付、亲属卡走购物现成的那两条路，带着同一件外卖",
   a.api.orderTakeout(bag, "kinship", { type: "char", id: "c1" });
   assert.equal(a.st.kin[0].items[0].kind, "takeout");
   // 那两条路落单时 kind 和明细要一路带到订单上
-  assert.match(app, /addOrder\(\{ name: it\.name, price: it\.price, cat: it\.cat, kind: it\.kind, takeout: it\.takeout, fromCharId: charId,/);
-  assert.match(app, /addOrder\(\{ name: it\.name, price: it\.price, cat: it\.cat, kind: it\.kind, takeout: it\.takeout, fromCharId: null,/);
+  // v76.954 预约送达：两条路都要把 arriveTs 带上（亲属卡那条起初漏了，2026-10-30 补上）
+  assert.match(app, /addOrder\(\{ name: it\.name, price: it\.price, cat: it\.cat, kind: it\.kind, takeout: it\.takeout, \.\.\.\(it\.arriveTs \? \{ arriveTs: it\.arriveTs \} : \{\}\), fromCharId: charId,/);
+  assert.match(app, /addOrder\(\{ name: it\.name, price: it\.price, cat: it\.cat, kind: it\.kind, takeout: it\.takeout, \.\.\.\(it\.arriveTs \? \{ arriveTs: it\.arriveTs \} : \{\}\), fromCharId: null,/);
 });
 
 test("给TA点：聊天里出她那边的外卖小票，不进TA随身物；钱不够就不点", () => {

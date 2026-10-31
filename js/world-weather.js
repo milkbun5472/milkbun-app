@@ -15,7 +15,7 @@
   if (root) root.WorldWeather = api;
 })(typeof globalThis !== "undefined" ? globalThis : this, function () {
   "use strict";
-  // 六种地形各自的脾气：常温、日夜温差、下雨的概率、起雾的概率。
+  // 每种地形各自的脾气：常温、日夜温差、下雨的概率、起雾的概率。
   // terrain 这一栏是造世界那一枪写下的（app.js 的 genWorld：山地|平原|森林|水泽|荒漠|城郭）。
   const CLIMATE = {
     "山地": { base: 8, amp: 10, wet: .34, fog: .18, wind: "山口的风" },
@@ -23,7 +23,14 @@
     "森林": { base: 14, amp: 7, wet: .42, fog: .22, wind: "林间的风" },
     "水泽": { base: 17, amp: 6, wet: .55, fog: .30, wind: "水面的风" },
     "荒漠": { base: 26, amp: 17, wet: .05, fog: .02, wind: "卷沙的风" },
-    "城郭": { base: 16, amp: 10, wet: .28, fog: .12, wind: "檐下的风" }
+    "城郭": { base: 16, amp: 10, wet: .28, fog: .12, wind: "檐下的风" },
+    // 2026-10-31 多六种（她：「地形和地点多加几种和他们相应的天气」）。够冷自己就下雪、够热够湿自己就打雷，下面 dayOf 那一段管
+    "雪原": { base: -9, amp: 8, wet: .40, fog: .14, wind: "贴地的雪风", gust: 1 },
+    "海岸": { base: 15, amp: 5, wet: .38, fog: .26, wind: "海上来的风", gust: 1 },
+    "草原": { base: 13, amp: 16, wet: .18, fog: .05, wind: "一望无际的风", gust: 1 },
+    "雨林": { base: 27, amp: 6, wet: .72, fog: .18, wind: "湿热的风" },
+    "峡谷": { base: 14, amp: 15, wet: .20, fog: .10, wind: "穿谷的风", gust: 1 },
+    "火山": { base: 24, amp: 12, wet: .12, fog: .24, wind: "带着烟尘的风" }
   };
   function climateOf(terrain) { return CLIMATE[terrain] || CLIMATE["平原"]; }
 
@@ -95,7 +102,7 @@
     // 「现在几度」要和逐小时那条曲线用同一条，否则卡片上写 10° 而横条上写 14°
     const hour = (date instanceof Date ? date : new Date()).getHours();
     const wind = rngOf(seed + "|" + dayKey(date) + "|wind")();
-    return { code: code, hi: hi, lo: lo, t: Math.round(lo + (hi - lo) * curve(hour)), isDay: hour >= 6 && hour < 18, windSpeed: Math.round(3 + wind * (terrain === "山地" || terrain === "荒漠" ? 42 : 29)) };
+    return { code: code, hi: hi, lo: lo, t: Math.round(lo + (hi - lo) * curve(hour)), isDay: hour >= 6 && hour < 18, windSpeed: Math.round(3 + wind * (terrain === "山地" || terrain === "荒漠" || climateOf(terrain).gust ? 42 : 29)) };
   }
   function forecast(seed, terrain, date, days) {
     const n = Math.max(1, Math.min(14, days || 7));

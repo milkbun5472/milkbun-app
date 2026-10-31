@@ -15,8 +15,9 @@ const strip = s => s.split("\n").filter(l => !/^\s*\/\//.test(l)).join("\n");
 test("好友地图那三层子页共用一份底，不是三份", () => {
   const code = strip(map);
   assert.match(code, /function mapSubSkin\(t\) \{/);
-  assert.equal((code.match(/style: mapSubSkin\(t\)/g) || []).length, 3,
-    "一处地点 / 加个地点 / 开一个世界，三处都得吃到");
+  // 2026-10-30：v77.012 起多了「世界面板」那一层，四处
+  assert.equal((code.match(/style: mapSubSkin\(t\)/g) || []).length, 4,
+    "一处地点 / 世界面板 / 加个地点 / 开一个世界，四处都得吃到");
   assert.ok(!/zIndex: 140, display: "flex", flexDirection: "column", background: t\.bg \}/.test(code),
     "还有一层留着平色的老写法");
   const fn = code.slice(code.indexOf("function mapSubSkin(t)"), code.indexOf("function mapSubSkin(t)") + 500);
@@ -24,7 +25,7 @@ test("好友地图那三层子页共用一份底，不是三份", () => {
   assert.match(fn, /position: "fixed", inset: 0, zIndex: 140/, "定位那几项丢了，页面会塌回文档流");
   assert.match(fn, /: \{ background: t\.bg \}/, "没兜底：pageSkin 没加载就整页透明");
   // 顶栏透上来，底纹才铺得到刘海（mobile-ui-layout §3.5）
-  assert.equal((map.match(/bg: "transparent"/g) || []).length, 3, "三层的顶栏都得透明");
+  assert.equal((map.match(/bg: "transparent"/g) || []).length, 4, "四层的顶栏都得透明");
 });
 
 test("跑团的舆图跟这一桌是同一张桌子", () => {

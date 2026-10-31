@@ -1665,7 +1665,20 @@ function directedRelationLines(char, rels, chars, profile) {
     const r = rels[char.id + "->" + o.id];
     if (r) lines.push("- " + char.name + " 眼中的 " + o.name + "：" + r.label + (r.note ? "（" + r.note + "）" : ""));
   }
+  // 同姓不等于一家人（群里 2026-10-31：「只要是一个姓系统非说他们是亲戚，怎么强调都没用」）：
+  //   只有真碰上同姓、又没写他们之间什么关系的时候才补这一行
+  const sur = cnSurname(char.name), kin = sur ? [{ name: me }].concat(chars).filter(o => o && o.id !== char.id && o.name !== char.name && cnSurname(o.name) === sur
+    && !rels[char.id + "->" + (o.id || "me")] && !(o.name === me && rels["me->" + char.id])).map(o => o.name) : [];
+  if (kin.length) lines.push("- " + char.name + " 和 " + kin.join("、") + " 同姓「" + sur + "」，只是碰巧：上面没写他们之间什么关系，就是不相干的人，不是亲戚、不是一家人；是不是亲戚只看写了的关系。");
   return lines.length ? lines.join("\n") : "（暂无已设定的关系）";
+}
+// 中文名的姓：复姓先认，其余取第一个字；不是汉字开头的（英文名之类）不算
+const CN_COMPOUND_SURNAMES = ["欧阳", "司马", "诸葛", "上官", "慕容", "东方", "皇甫", "尉迟", "公孙", "令狐", "长孙", "宇文", "司徒", "夏侯", "轩辕", "端木", "南宫", "独孤", "百里", "西门", "澹台", "钟离"];
+function cnSurname(name) {
+  const n = String(name || "").trim();
+  if (!/^[\u4e00-\u9fff]/.test(n) || n.length < 2) return "";
+  const c = CN_COMPOUND_SURNAMES.find(x => n.indexOf(x) === 0 && n.length > x.length);
+  return c || n[0];
 }
 // 叙事人称/代入方式指令（单聊/群聊/线下共用）：selfP/userP = "first|second|third"，describeMe = 是否让角色描写并推动用户的动作
 // 人称那两句只有这一份：叙事准则里一份、线下第一拍的尾巴里再说一遍，都从这儿取
@@ -1747,7 +1760,7 @@ const NARRATIVE_ANTI_CLICHE_LEGACY_V1 = `【线下叙事 · 反陈词滥调（�
 · 台词要有人味、有停顿、有言外之意，可以被打断、可以跑题，别让人物一开口就是散文腔或宣言腔；多人同处时别写成一人一句轮流表态，要有人抢话、有人走神、有人只做动作不说话。
 · 【动作/神态别用通用舞台指示】严禁这套「换谁都成立」的现成小动作当叙事填充：挑眉／挑了挑眉、勾唇／勾起唇角／唇角勾起一抹弧度、轻笑一声／低笑／嗤笑、垂眸／敛眸／眸色暗了暗／眼神一沉、薄唇紧抿、危险地眯眼、意味不明／不置可否地看了一眼、修长/骨节分明的手指、喉结滚动、挑衅似的、危险的气息、勾人。每一个动作和表情都必须由此刻的具体心理和情境长出来，并且带上【这个角色特有】的习惯、身体记忆或TA在意的细节——写只有TA会做、只对这个人才做的具体小动作，而不是贴一个通用标签。
 · 【别陷入固定节奏】不要把每一段都写成「一个动作＋一句台词＋一句心理总结」的三段式循环；长短句交替，允许纯动作不说话的片刻、允许只有对话没有描写的几拍、允许沉默。描写角色的行为要像观察一个真人当下的即兴反应，而不是套一个"角色本该有的样子"的模板。
-· 【被她打动的那一下】写她刚才具体做了什么、他那一下实际怎么了（愣住、话没接上、多看了一眼、手上的事停了），不拿身体某处一下子酥、软、麻、化掉、立起来这类变化去代替——换哪个部位、换哪种说法都是同一个模子（她 2026-10-30：禁了一种说法，模型就换个部位写）。
+· 【被她打动的那一下】写她刚才具体做了什么、他那一下实际怎么了，不拿身体某处一下子酥、软、麻、化掉、立起来这类变化去代替——换哪个部位、换哪种说法都是同一个模子（她 2026-10-30：禁了一种说法，模型就换个部位写）。⚠️拦的是那个模子，不是这一下的温度：往前的、绷着的、笑出来的、说不出话的都算数，只看哪一种是他这个人此刻真会有的——别因为软的那一头被点了名，就一律改写成不动声色，更别拿一句反顶或揶揄去替它（那是把这一下扔回给她，见【把话扔回她手里】）。
 · 【用词替换禁令表·逐条遵守（箭头左边一律不用；→null=直接不写，→X=改用X）】脊背→后背/背部；猛地/瞬间→null；"轰"地一下→null；像是一根(…的)针→null；石子/石头/湖面/涟漪→null；像是一把(…的)刀→null；深入骨髓→些许/轻微；一道惊雷→null；爆发/爆炸/炸开→null；无力感/疲惫感→null；麻木/绝望/灭顶/面无表情→null；过度/强烈/剧烈/极度/深深→null；震惊/惊慌→null；激动/紧张/紧绷/绷紧/突然/死死地→null；自我厌弃/自暴自弃/破罐子破摔→null；倦意/无力/脱力/疲惫/虚弱/虚脱→null；残酷/残忍/冷酷→null；生气/愤怒/羞愤/吼→null；睫毛/紧闭/滴出血来→null；长长地呼出一口气→null；抽干全身力气→null；锁骨/尾椎骨/喉结/修长/骨节分明→null；狂热/信徒/仪式/献祭/祭品/宗教/信仰→null；机械/机械式的/冰冷/冰凉/手术刀/解剖→null；把身体或意识写成机器(系统/宕机/死机/程序/指令/防火墙/短路/过载/重启/代码)→null；荒唐/荒诞/荒谬→null；不易察觉→null；热辣辣/火辣辣/滚烫/发烫/滚热/热/烫/燃烧→null；握拳/握紧/攥紧/攥住→null；指尖/指节/(…的)手→null；血色/血压/上涌/血色尽褪→null；通红/滴出血来→null；展品/雕塑→null；精密/仪器→null；乐了→笑了笑；僵硬/僵住/一片空白→null；颤抖/颤音→null；直冲/直窜→null；冷静/审视/审判→null；打圈/打转/打着圈/打着转→null；电流/闪电→null；如释重负/如蒙大赦→null；前所未有/难以言喻/潮水/淹没/席卷→null；牙缝/紧咬/咬着→null；！/！！/？！→null；狡黠/挤了挤眼睛/眨了眨眼→null；教具→null；麻木→null。
 · 【整类描写禁令·以下这几类句子整类不写】描写心跳/心动的、描写紧张/害怕的、描写往液体表面投固体激起涟漪的、描写羞愧/惭愧/内疚的、套路化的环境描写、描写神态一惊一乍/变化陡然的、描写疲惫无力的、对手部作形容修辞的、以及"这不是xxx，而是xxx"的对仗定义句。`;
 // Phase A 只改普通角色单人线下；群线下仍使用旧规则，待单独验证后再迁移。
@@ -2045,7 +2058,7 @@ const INTIMATE_CHAT_ANTI_CLICHE = `【话题一到床上，最容易整段变成
 · 【被撩到时的现成反击】被她说中、被她撩到、自己先害羞了的时候，最省事的是两步：先转头扣她一顶帽子（说她脑子里尽是不正经的东西），再下一句战书、赌她先认输。这一套谁害羞都这么接，所以它不是你的反应。
   判据：**你此刻是不是在躲那一下？** 是的话，就露出来：被戳到哪儿就露哪儿——耳朵烫了、话卡住了、想好的那句没说出来、嘴硬但气势是虚的，挑你真会露出来的那一点写；照你这个人，可以只承认一半。
 · 【反问式表功／翻旧账】「我什么时候少X了」「哪次不是…你才肯罢休」——用一个反问把自己摆到有理那边，同样是默认台词，不是反应。
-· 【拿身体投降或交出性命来量心动】不止床上，调情、撒娇、表白时都最常冒：不说她刚才哪一下打动了你，只报一个最大号的结果——身体整个投降了（身体哪一处一下子酥了、软了、麻了、化了，都是这一个模子），或者把自己整个交出去。换谁说、对谁说都成立，所以它不是你的反应，是这种场面的默认音量。
+· 【拿身体投降或交出性命来量心动】不止床上，调情、撒娇、表白时都最常冒：不说她刚才哪一下打动了你，只报一个最大号的结果——身体整个投降了（身体哪一处一下子酥了、软了、麻了、化了，都是这一个模子），或者把自己整个交出去。换谁说、对谁说都成立，所以它不是你的反应，是这种场面的默认音量。那就写她哪一下打动了你、你当下实际怎么了：软的硬的、往前的僵住的都算数，只看哪一种是你此刻真有的；别因为这一族被点了名就一律绷着，也别拿一句反顶或揶揄去替它。
   判据一句话：**这句话里有没有她刚才做的那件具体的事？** 没有、只剩一个「我被你弄成了什么样」，就说回那件事：是她哪句话、哪个动作，你那一下实际怎么了——愣住、没接上话、又看了一遍，都比报一个顶格的结果更像你。
 · 禁的是模子，不是尺度。你人设本来就荤、就浪、就爱放狠话，那全部照写——只看这种表达是否符合你此刻真实的念头，不是从「这种时候该说什么」里倒出来。`;
 
@@ -4220,6 +4233,8 @@ function buildBundle(ctx, opts) {
   if (ctx.financeNote && ctx.financeNote.trim()) parts.push(ledgerContextBlock(ctx.financeNote, uName));
   // 你俩之间真花过的钱：不看她给没给看账本——这些钱有一半是你自己经手的（app.js moneyWithHerLine）
   if (ctx.moneyWithHer && ctx.moneyWithHer.trim()) parts.push(ctx.moneyWithHer.trim());
+  // 往期线下（她 2026-10-31：线下总结完，再进线下、群里都对上次见面没印象）：固定带最近几场的经过，不靠记忆库搜不搜得到
+  if (ctx.pastOffline && String(ctx.pastOffline).trim()) parts.push("【你们前几次线下见面·真实发生过、你都记得】\n" + String(ctx.pastOffline).trim());
   if (recentChat && recentChat.trim()) parts.push("【最近对话】\n" + recentChat.trim());
   // 数字生命只需要最近对话作为事实，不再额外下达「不许否认/必须圆过去」的表演式行为命令。
   if (!(opts && opts.ooc) && !ctx.notRoleplay && recentChat && recentChat.trim()) parts.push("【对话连贯·别否认自己说过的话】" + userName(profile) + " 这一句多半是【顺着你自己上一句、或你俩最近聊的】接下来的。回应前先认清【你自己刚说过什么、提过什么要求或建议】——绝不许把你自己说过的话/提过的要求当成对方凭空冒出来的，更别反问『什么X？』『我什么时候说的』来装不知道（那多半是你自己刚说的）。真记不清就顺着圆过去，别当场否认、打自己脸。同时把 Ta 这句里的人称对准：中文接话常省略主语，省掉的部分必须从【你上一句的结构】里继承，不许悄悄换人——比如你刚说『我去哪你都得跟着』，Ta 接『去厕所也要吗』，问的是【你去厕所时 Ta 要不要跟】，不是 Ta 自己要去厕所。回应前先想清这句里『你』『我』各指谁、谁做动作谁承受，以 Ta 的原话和你上一句的框架为准；主客一旦弄反，整条回复都会答非所问。");
@@ -6042,6 +6057,8 @@ async function generateSelfieImage(prompt, refPhotoDataUrl, opts) {
         // 被内容审核拦的（moderation / safety / content_policy）不是站子不收图：是这张参考照或这次画面被判成太露骨。
         //   同一个站、一个角色能拍另一个不能，多半就是那个角色的参考照（或外貌里的词）。别把人往「不锁脸」上指。
         if (/moderation|content[_ ]?policy|safety|sexual|nsfw/i.test(m)) throw new Error(m + "（这是站子的内容审核拦下来的，不是站子不收参考照：多半是这个角色的参考照、或者外貌和这次画面里有被判成太露骨的地方。换一张穿着整齐的参考照，或者把外貌里相关的词改掉再试；同一个站别的角色能拍就是这个原因。）");
+        // 站那边忙／上游挂了（暂时不可用、稍后重试、5xx、限流）跟收不收参考照无关：别把人往「不锁脸」上引
+        if (/暂时不可用|稍后再?试|繁忙|过载|限流|服务不可用|unavailable|overload|busy|rate.?limit|\b(?:429|500|502|503|504)\b/i.test(m)) throw new Error(m + "（这是站那边一时忙不过来，不是参考照的问题：同一个站之前能锁上脸就说明设置是对的，过一会儿再拍；一直这样就问问你买线路的那家，上游是不是出事了。）");
         if (!(opts && opts.singleShot) && /参考照|锁脸|不收图片|image/i.test(m)) throw new Error(m + "（这个站要是不收参考照，可以在「设置 → 图像 API」里给它打开「这个站不锁脸」：以后只发文字、照样出图，只是长相不保证像。）");
         throw e;
       }
@@ -6887,7 +6904,11 @@ const DURABLE_TEXT_KEYS = new Set([
   // 搬进来之后墙没了，上限也跟着撤（见 app.js 各处的注释）。
   //   x_capsules 时光胶囊 / x_promises 我们说好的 / x_moments 朋友圈 /
   //   x_walletLog 钱包流水 / x_anonMine 她那箱匿名信 / x_shopWish 心愿 / x_forumPMs 贴吧私信
-  "x_capsules", "x_promises", "x_moments", "x_walletLog", "x_anonMine", "x_shopWish", "x_forumPMs", "x_radioLife"
+  "x_capsules", "x_promises", "x_moments", "x_walletLog", "x_anonMine", "x_shopWish", "x_forumPMs", "x_radioLife",
+  // API 线路和「哪件事走哪条」（群里 2026-10-31：「API 设置老是重置，把后台关了就会重置」，只她一人）：
+  //   普通键只在小仓库垫一份、再异步写 IDB；小仓库满了垫不进去、IDB 那一笔又没落稳，重开就读回旧的。
+  //   这几把一丢就整个 app 用不了，走保险仓（WAL 读回核对 + 开机回收）
+  "x_api", "x_activeApi", "x_offlineApi", "x_bgApi"
 ]);
 // ⚠️"x_fairyGarden" 同时罩住名册 x_fairyGardenSaves 与每一档 x_fairyGarden[:id]：
 //   一档庭院（日子、背包、碎片、聊过的话）实测就能到零点几 MB，几档下来 localStorage
@@ -8065,6 +8086,16 @@ function clipAtSentence(s, n) {
   const m = t.match(/^[\s\S]*[。！？!?…][」』”）)]?/);
   return m && m[0].length >= 8 ? m[0] : t;
 }
+// 一句「原文 | 中文」被拆成几泡时，中文怎么分（她 2026-10-31「模型自己翻译变得比以前蠢了」）：
+//   原来中文整段挂在最后一泡，前几泡没有中文，于是被当成「缺翻译」交给免费机翻补——「おやすみ」补成了「问候」。
+//   中文也按同一把刀拆，句数对得上就一泡一句；对不上就整段挂最后一泡，前几泡标成「不用补」（返回空串）。
+function bilingualSpread(parts, zh, allowComma) {
+  const n = (parts || []).length;
+  if (n <= 1) return [zh];
+  const zp = splitLongBubble(String(zh || ""), allowComma);
+  if (zp.length === n) return zp;
+  return parts.map((_, i) => i === n - 1 ? zh : "");
+}
 function bilingualKey(s) {
   return String(s == null ? "" : s).replace(/[\u3002\uff0e.\s]+$/, "");
 }
@@ -8783,7 +8814,14 @@ function offlineFlashbackBlock(scenes) {
 //   已经不发了——但每一条历史前面还盖着〔今天14:32〕，最后一条就是她刚发的那句，
 //   等于把当前时刻原样告诉了TA，比直接发那一行还准。
 //   相对间隔（「中间隔了约三小时」）留着：那是对话连不连得上的事，不是现实几点的事。
-function offlineHistory(msgs, userName, charName, clock) {
+// 日期锚照那只虚拟钟（2026-10-31 排查虚拟时间漏网）：她说「明天」，补给模型的那句「明天=几月几日」要是钟上的日子，
+//   不是现实的。id：单聊是角色 id，群是 "g:群id"，主面具不传。聊天、小房间、群、线下、群线下都走这一个
+function vAnchor(text, ts, id) {
+  if (typeof window === "undefined" || !window.TemporalAnchor) return "";
+  const m = typeof vclockMap === "function" ? t => vclockMap(t, id) : t => t;
+  return window.TemporalAnchor.anchor(text, m(ts), m(Date.now()));
+}
+function offlineHistory(msgs, userName, charName, clock, clockId) {
   const g = [];
   let prevTs = 0;
   const mixed = (msgs || []).some(m => m && m._surface === "online");
@@ -8811,7 +8849,7 @@ function offlineHistory(msgs, userName, charName, clock) {
       if (l && l.role === "assistant") l.content += "\n" + c; else g.push({ role: "assistant", content: c });
     } else {
       const raw = m.content || "";
-      const dateAnchor = (clock !== false && window.TemporalAnchor) ? window.TemporalAnchor.anchor(raw, m.ts) : "";
+      const dateAnchor = clock !== false ? vAnchor(raw, m.ts, clockId) : "";
       // 她递过来的真照片：跟线上同一个落法。光一句「[照片]」什么都不说，
       // 而图只对最近两张作视觉输入附上——一滑出去TA就什么都不记得了。
       const shown = (m.kind === "photo" && m.imageRef)
@@ -9143,7 +9181,7 @@ async function generateOffline(p, ctx, session) {
     "") + outputSpec + ((!isDigital && session.sayZhOn) ? offlineSayZhSpec("") : "") + stateBootstrapHint + gazeSpecBlock;
   // v52.77：恢复正常首遍生成；首次跨越后的 scene 再交给同模型做删除优先的受约束编辑。
   // 最终只有编辑稿进入 session history，首遍草稿仅用于本轮内存诊断。
-  const hist = offlineHistory(session.msgs, userName, char.name, ctx.timeAware !== false);
+  const hist = offlineHistory(session.msgs, userName, char.name, ctx.timeAware !== false, char.id);
   if (session.hasOnlineInterlude) {
     const bridge = "\n\n〔跨情境衔接〕上面标成【线上私聊】的内容，是这场未结束的线下相处期间，你们切到手机聊天时真实说过的话。所有记录已经按实际时间排好；再次回到线下时，以时间最新的线上与线下内容共同作为现在的前情，绝不能跳过今天的线上聊天、倒回去续演更早的线下剧情，也不要把线上原话假装成刚刚面对面又说了一遍。";
     if (hist.length && hist[hist.length - 1].role === "user") hist[hist.length - 1] = { ...hist[hist.length - 1], content: hist[hist.length - 1].content + bridge };
@@ -9550,7 +9588,7 @@ function offlineLengthGuide(mode) {
     ? "本轮采用【沉浸长文】：允许这一刻在真正有内容时自然跨过多个有效阶段。每个继续展开的阶段都要带来新的行动、选择、对话、信息、时间流动或环境对行动造成的实际影响；不要重复解释同一种心理、反复重拍没变化的环境与姿态，也不要把一个简单动作拆成许多步骤。只有当前场景确实还能推进时才继续；一旦到了需要对方回应、选择或行动的位置，就自然停下，不为写长而替对方作答或硬造新事"
     : "本轮采用【自然长度】：篇幅由这一刻真正发生的内容决定。简单反应可以很短；有值得展开的行动、对话、判断或场景变化时自然展开，不为显得完整而补齐固定栏目";
 }
-function offlineGroupHistory(msgs, userName, clock) {
+function offlineGroupHistory(msgs, userName, clock, clockId) {
   const g = [];
   let prevTs = 0;
   (msgs || []).forEach(m => {
@@ -9573,7 +9611,7 @@ function offlineGroupHistory(msgs, userName, clock) {
       if (l && l.role === "assistant") l.content += "\n" + c; else g.push({ role: "assistant", content: c });
     } else {
       const raw = m.content || "";
-      const dateAnchor = (clock !== false && window.TemporalAnchor) ? window.TemporalAnchor.anchor(raw, m.ts) : "";
+      const dateAnchor = clock !== false ? vAnchor(raw, m.ts, clockId) : "";
       const c = gap + stamp + (m.role === "narration" ? "【场景设定】" + raw : userName + "：" + raw) + (dateAnchor ? dateAnchor : "");
       const l = g[g.length - 1];
       if (l && l.role === "user") l.content += "\n" + c; else g.push({ role: "user", content: c });
@@ -9889,7 +9927,7 @@ async function generateOfflineGroup(p, ctx, session) {
     cotSystemBlock(cotT) +
     (novel ? novelOut : "\n【输出】只输出一个 JSON，不要代码块：\n{\"beats\":[{\"name\":\"这一段里行动或说话的角色名；纯环境旁白填『旁白』\",\"scene\":\"这一段叙事正文（第三人称，含动作/神态/对话）\",\"thought\":\"（仅角色 beat，可选）该角色此刻没说出口的真实心声\",\"mood\":{\"label\":\"此刻中文心情词（禁止英文内部标签）\"},\"affinityDelta\":\"（仅角色 beat）" + AFFINITY_DELTA_SPEC + "\",\"impression\":\"（仅角色 beat，可选）{'side':'me|us','block':'me侧:person/soft/like/recent/unread；us侧:what/how/marks/elephant/want','text':'整块重写≤80字'}——" + (window.Gaze ? window.Gaze.updateRule(userName) : "没有新认识可省略") + "\"" + gSchedField + ((session.photoMembers || []).length ? ",\"photo\":\"（仅角色 beat，可选）这一拍真拍了照片才填 {'kind':'self|other" + ((session.photoDuoMembers || []).length ? "|duo" : "") + (session.photoGroupOk ? "|group" : "") + "','scene':'这一格拍到了什么'}，没拍就整个省略\"" : "") + "}]}\n一次产出 2~" + gBeatMax + " 个 beat（在场 " + members.length + " 个人），让在场角色轮流有戏、互相有来有往；name 必须逐字填写以下名字之一：" + members.map(c => "『" + memberLabel(members, c) + "』").join("、") + "；只有不属于任何人的纯环境段才填『旁白』，不许把整篇都塞进一个旁白 beat。") + sameNameNote(members) + "\nthought 的写法：" + THOUGHT_MEANING_CHAR + THOUGHT_VOICE + (typeof THOUGHT_EACH_OWN === "string" ? THOUGHT_EACH_OWN : "") + THOUGHT_ORIGIN
     + ((session.sayZhNames || []).length ? offlineSayZhSpec(session.sayZhNames.map(x => "『" + x + "』").join("、")) : "");
-  const hist = offlineGroupHistory(session.msgs, userName, ctx.timeAware !== false);
+  const hist = offlineGroupHistory(session.msgs, userName, ctx.timeAware !== false, ctx.clockId);
   // 尾部重申（同单人线下）：治长对话后段八股回潮 + cot 丢失
   const gWantLong = session.minWords && session.minWords >= 150;
   // max_tokens 是天花板不是预付款；思考模型的推理也从这儿扣，给窄了正文就只剩个零头
@@ -10130,6 +10168,11 @@ function ageDrift(ageAt, birthday, now) {
   return Math.floor((to - from) / 365.2425 / 86400000);
 }
 function charAgeNow(char, now) {
+  // 照 TA 那只虚拟钟算岁数（2026-10-31 全 app 排查）：「现在」和「填年龄那天」一起换到钟上，涨岁才算得对。
+  //   一处换，单聊、线下、档案馆、状态卡六处一起对
+  const vm = char && char.id && typeof vclockMap === "function" ? t => vclockMap(t, char.id) : t => t;
+  if (now != null) now = vm(Number(now));
+  if (char && char.ageAt != null && vm !== null) char = Object.assign({}, char, { ageAt: vm(Number(char.ageAt)) || char.ageAt });
   const fixed = char && char.age;
   if (fixed != null && String(fixed).trim() !== "") {
     const n = parseInt(String(fixed).trim(), 10);
@@ -11002,6 +11045,7 @@ function isQuotaError(e) {
 // 写 localStorage。成功返回 true；写满(quota)时【弹全局警告】并返回 false——不再默默丢数据。
 // 文字库的唯一写入口（原样字符串）。saveJSON 和下面那层 localStorage 转接都走这一个。
 const TXT_PAD_MAX = 256 * 1024;
+let _txtHasDataMarked = false;
 function txtWrite(k, s) {
   s = String(s);
   if (_txtGate && !_txtGate.done) _txtEarlyWrites.add(k);
@@ -11009,6 +11053,11 @@ function txtWrite(k, s) {
   //   绝不能落进 IDB 盖掉真存档，也不能垫进小仓库（下次开机会被当成新版搬进去）。只留在内存里。
   if (_txtGate && _txtGate.done && !_txtGate.ok) { _txtMirror().set(k, s); return true; }
     _txtMirror().set(k, s);                         // 同步：内存镜像立刻更新（读侧马上拿得到）
+    // 「这台手机有存档了」当场记上（群里 2026-10-31：新人填好 API、关掉重开就回到旧的）：
+    //   原来只在开机灌库时才记，新人第一次打开那一回写的东西没记上；下次开机云同步看不到这个记号，
+    //   就当成新设备、拿云上那份旧的把本机盖了（cloud.js 的 bootHadLocal）
+    //   只认她真填进去的东西（线路、角色、群、世界、聊天），开机自己写的默认设置不算——不然新设备还没登录就被记成「有存档」，登录后不会自动从云上恢复
+    if (!_txtHasDataMarked && /^(x_api|x_characters|x_groups|x_worlds|x_chat:.+)$/.test(k) && s && s !== "null" && s !== "[]" && s !== "{}") { _txtHasDataMarked = true; try { lsRaw.set("qq_vaultHasData", "1"); } catch (e) {} }
     if (isDurableTextKey(k)) {
       // 记忆/线下剧情是核心数据：先把这一版同步写进临时 journal，再异步写 IDB；读回逐字一致后才删 journal。
       // 连续保存时，旧事务完成也不能删掉更新的 journal（值相等检查守住 lost write）。

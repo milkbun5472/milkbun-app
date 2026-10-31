@@ -653,6 +653,15 @@ function forumBoardRulesOf(name) {
   const b = forumCustomBoards().find(x => x.name === name);
   return b && Array.isArray(b.rules) ? b.rules.map(r => String(r || "").trim()).filter(Boolean).slice(0, 8) : [];
 }
+// 吧主能挑的熟面孔：常驻名单里不在匿名吧的那些
+function forumOwnerRegulars() { return typeof FORUM_NPC_REGISTRY !== "undefined" ? FORUM_NPC_REGISTRY.filter(n => n && !(n.boards || []).includes("匿名吧")) : []; }
+// 她开的吧的吧主 → 名字；角色被删了、熟面孔对不上就当没有
+function forumBoardOwnerName(name, chars) {
+  const b = forumCustomBoards().find(x => x.name === name), o = b && b.owner;
+  if (!o || !o.id) return "";
+  if (o.kind === "char") { const c = (chars || []).find(x => x && x.id === o.id); return c ? c.name : ""; }
+  const n = forumOwnerRegulars().find(x => x.id === o.id); return n ? n.name : "";
+}
 function forumBoardAbout(name) { const b = forumCustomBoards().find(x => x.name === name); return b ? String(b.about || "").trim() : ""; }
 // FORUM_AV_EMOJI 已删（v56.12）：论坛头像不再画 emoji，改走 autoAvatarSrc。
 function forumHash(str) { let h = 2166136261; str = String(str || ""); for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 16777619); } return h >>> 0; }
@@ -3611,7 +3620,7 @@ function Us({ characters, couples, onBack, myWallet, onJarMove, onJarGoal, onInv
             // 那么「时间轴与纪念日」在墙上是什么？——**一本挂历**。
             // 所以它就长成挂历页：顶上两个打穿的孔、跨过顶边的两个铁环、一条红头写月份，
             // 纸上有淡淡的竖格线，日子是那一页上最大的字，底边一道撕线。
-            const _cal = new Date();
+            const _cal = new Date(typeof vclockMap === "function" ? vclockMap(Date.now(), bCid) : Date.now());
             const CAL_M = bAnn && bAnn.month ? Number(bAnn.month) : _cal.getMonth() + 1;
             const CAL_RED = "#8d3f56";
             const calRing = left => h("span", { "aria-hidden": "true", key: "r" + left,
@@ -4853,7 +4862,7 @@ function GachaCard({ card, busy, onRedeem, onShow, onTitle, onShoot, onCarve, sh
               h("button", { onClick: () => onRedeem({ ...card, act: "titleAgain" }), disabled: !!busy, className: "active:opacity-60",
                 style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", padding: "6px 12px", borderRadius: 999, border: "1px solid " + sk.bd, color: sk.tag } },
                 busy === card.id ? "重想中…" : "换一个"),
-              h("button", { onClick: () => requestAppPrompt("自己改一个", "他起的那个不顺耳的话，你自己定。", String(res.title || ""),
+              h("button", { onClick: () => requestAppPrompt("自己改一个", characterText(character, "他起的那个不顺耳的话，你自己定。"), String(res.title || ""),
                   v => { const t0 = String(v || "").trim(); if (t0) onTitle && onTitle(card, "edit", t0); }, "就这个", { maxLength: 12 }),
                 className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog, padding: "6px 6px" } }, "自己改"),
               h("button", { onClick: () => onTitle && onTitle(card, "drop"), className: "active:opacity-60",
@@ -5438,7 +5447,7 @@ function CoupleDrawer({ partner, items, onOpen, onDrop, onEdit, onForward, ledge
                 h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", lineHeight: 1.85, color: "#5b4c3a", marginTop: 6, whiteSpace: "pre-wrap" } }, STX(x.text)),
                 // 改字（她 2026-10-05）：拆开的那张纸可以改；跟 ✕ 一样一直看得见，不藏在长按里
                 (onEdit || onForward) ? h("div", { className: "flex justify-end", style: { marginTop: 4, gap: 10 } },
-                  onForward ? h("button", { "data-wk": "drawerforward", onClick: () => requestAppConfirm("发给" + partner.name + "？", "这一张会作为你发的一条消息落进你们的聊天，" + (x.kind === "draw" ? "画也带上，" : "") + "他等你说话了再回。", () => onForward(x), "发过去"),
+                  onForward ? h("button", { "data-wk": "drawerforward", onClick: () => requestAppConfirm("发给" + partner.name + "？", characterText(partner, "这一张会作为你发的一条消息落进你们的聊天，" + (x.kind === "draw" ? "画也带上，" : "") + "他等你说话了再回。"), () => onForward(x), "发过去"),
                     className: "active:opacity-60", style: { minHeight: 32, padding: "0 4px", background: "transparent", border: "none", fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: "rgba(122,99,56,.65)" } }, "发给他") : null,
                   onEdit && h("button", { onClick: () => requestAppPrompt("改这一张", "改完就照新的留着。", x.text || "", v => { if (String(v || "").trim()) onEdit(x.id, v); }, "改好了", { multiline: true }),
                     "aria-label": "改这一样的字", className: "active:opacity-60",
@@ -6088,8 +6097,8 @@ function PhotoStudio({ partner, myCloset, charCloset, shots, busy, fitBusy, canS
             h("button", { "data-wk": "studioexpand", "data-on": expand ? "1" : "0", onClick: () => { const v = !expand; setExpand(v); saveJSON("x_studioExpand", v); }, className: "w-full flex items-center gap-2 active:opacity-70",
                 style: { marginTop: 10, padding: "8px 2px", textAlign: "left", background: "transparent" } },
               h("span", { style: { width: 16, height: 16, borderRadius: 5, flexShrink: 0, border: "1.5px solid " + (expand ? "#6d4d8f" : "#cbbfd8"), background: expand ? "#6d4d8f" : "transparent", color: "#fff", fontSize: "calc(11px * var(--app-fs, 1))", lineHeight: "13px", textAlign: "center" } }, expand ? "✓" : ""),
-              h("span", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.sub, lineHeight: 1.5 } }, "让他先把这一句写成画面",
-                h("span", { style: { color: t.fog, fontSize: "calc(11px * var(--app-fs, 1))" } }, "（补上光、环境、你们在做什么和他此刻在哪，像线下那样；每张多一次文字调用。题材、换画风不管这个）"))),
+              h("span", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.sub, lineHeight: 1.5 } }, characterText(partner, "让他先把这一句写成画面"),
+                h("span", { style: { color: t.fog, fontSize: "calc(11px * var(--app-fs, 1))" } }, characterText(partner, "（补上光、环境、你们在做什么和他此刻在哪，像线下那样；每张多一次文字调用。题材、换画风不管这个）")))),
             h("div", { className: "flex gap-2", style: { marginTop: 10 } },
               h("button", { onClick: () => onGenFit(scene), disabled: !!fitBusy, className: "active:opacity-70 shrink-0", style: { borderRadius: 13, padding: "11px 14px", whiteSpace: "nowrap", border: "1px solid " + t.line, background: "transparent", color: t.sub, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))" } },
                 fitBusy ? "配着…" : characterText(partner, "让他配一对")),

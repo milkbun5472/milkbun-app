@@ -126,7 +126,7 @@
   //   ② 对「月度」印象来说，只看得见月末那几天本来就是错的。
   // 做法：把整月切成若干段，每段各取一点；turn 变化时段内的取样起点跟着挪，
   // 于是重写不只换写法，连看到的素材也换了一批。
-  const spread = (rows, budget, turn) => {
+  const spread = (rows, budget, turn, charId) => {
     if (!rows.length) return "";
     const line = r => r.who + "：" + r.text;
     const whole = rows.map(line).join("\n");
@@ -143,7 +143,7 @@
       const picked = seg.slice(start).concat(seg.slice(0, start));
       let used = 0; const buf = [];
       for (const r of picked) { const t = line(r); if (used + t.length > per) break; buf.push(t); used += t.length + 1; }
-      if (buf.length) out.push("〔" + new Date(seg[0].ts).getDate() + "号前后〕\n" + buf.join("\n"));
+      if (buf.length) out.push("〔" + new Date(typeof vclockMap === "function" ? vclockMap(seg[0].ts, charId) : seg[0].ts).getDate() + "号前后〕\n" + buf.join("\n"));
     }
     return out.join("\n\n");
   };
@@ -310,7 +310,7 @@
         + others.map((x, i) => (i + 1) + ". " + [x.title, (Array.isArray(x.tags) ? x.tags : []).join("／"), x.quote].filter(Boolean).join(" ｜ ")).join("\n")
         + "\n这些是别人的卡。它们用过的意象【整族】不许再碰（有一张写了光，光这一族对你就关了；写了温度，温度计那一族也关了）、"
         + "取名的模子不许同型、关键词不许撞。整本册子摊开看，每一张都得长得不一样。" : "")
-      + "\n\n【这个月你和 " + uName + " 之间真实发生的事·从月初铺到月末】\n" + (spread(rows, 5200, turn) || "（这个月几乎没有来往。）")
+      + "\n\n【这个月你和 " + uName + " 之间真实发生的事·从月初铺到月末】\n" + (spread(rows, 5200, turn, char && char.id) || "（这个月几乎没有来往。）")
       + "\n\n【要写七样东西 · 每一样问的是不同的问题，别用同一句话答四遍】\n"
       + "① title：给这个月的她起一个【类型名】（≤10 字），像给一种人下定义那样——"
       + "「清冷理性的科研学者」就是这个感觉：气质定语＋一个【真实身份】（学者、医生、店主这种真的存在的身份），"

@@ -15,7 +15,7 @@ const wm = grab(map, "  function WorldMap({", "  // 开世界：整页表单");
 
 // ── 地图引擎只有一份 ───────────────────────────────────────────────────────
 test("架空地图借跑团那份引擎，不另写一份", () => {
-  assert.match(trpg, /window\.TrpgMap = \{ normRegions, mapBuild, mapAdjacent, findNode \}/, "跑团那边没把引擎导出来");
+  assert.match(trpg, /window\.TrpgMap = \{ normRegions, mapBuild, mapAdjacent, findNode(, TERRAINS: MAP_TERRAINS, KINDS: MAP_KINDS)? \}/, "跑团那边没把引擎导出来");
   assert.match(wm, /K\.mapBuild\(world\.id, world\.regions/, "架空地图没用共享引擎");
   assert.match(map, /window\.TrpgMap\.mapAdjacent\(built\.edges/, "「从这里可以去」没用共享的连通图");
   // 自己抄一份力导向/团块就是「一层写在两处，第二处没跟上」
@@ -52,9 +52,10 @@ test("带进来的人要落在图上，名字编错了就不落", () => {
 });
 
 // 她 2026-08-31 点名：跑团不要连上来
+// 2026-10-30 v77.015：地形表、地点类型表（TERRAINS / KINDS）也从那边取，是画图用的数据表，不是玩法
 test("只借跑团画图那套纯函数，不碰它的玩法", () => {
   const trpgRefs = (map.match(/window\.TrpgMap\.[A-Za-z]+/g) || []).concat(map.match(/K\.[a-zA-Z]+\(/g) || []);
-  trpgRefs.forEach(r => assert.ok(/mapBuild|mapAdjacent|normRegions|findNode/.test(r), "从跑团那边借了画图以外的东西：" + r));
+  trpgRefs.forEach(r => assert.ok(/mapBuild|mapAdjacent|normRegions|findNode|TERRAINS|KINDS/.test(r), "从跑团那边借了画图以外的东西：" + r));
   assert.ok(!/window\.TrpgApp|x_trpg|camp\b|stageIdx/.test(map), "架空地图里出现了跑团的玩法/存档");
   assert.ok(!/x_trpg|TrpgApp/.test(gen), "造世界那一枪碰了跑团的东西");
 });

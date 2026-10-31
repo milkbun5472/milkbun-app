@@ -72,7 +72,9 @@ test("行程的天气跟着他住的那套世界走", () => {
   assert.equal((app.match(/wline = await schedWeatherLine\(char\);/g) || []).length, 2, "两条链没都换过来");
   const fn = app.slice(app.indexOf("  const schedWeatherLine = async char => {"), app.indexOf("  const mapStatusAll = "));
   assert.match(fn, /realm\.kind === "world" && typeof WorldWeather !== "undefined"/);
-  assert.match(fn, /WorldWeather\.dayOf\(realm\.world\.id \+ "\|" \+ realm\.node, realm\.terrain, new Date\(\)\)/);
+  // 2026-10-30 重锚：虚拟时间巡检（v76.988~992）把「今天」改成照角色那只钟算，
+  //   这条测的不是取今天的写法，是上面那个判据本身。
+  assert.match(fn, /WorldWeather\.dayOf\(realm\.world\.id \+ "\|" \+ realm\.node, realm\.terrain, new Date\([\s\S]{0,160}?\)\)/);
   assert.match(fn, /char\.home && typeof char\.home\.lat === "number"/, "住现实的那一支不许丢");
   // async 闭包里读的是 ref，不是可能已经过期的那份 state
   assert.match(fn, /worldsRef\.current/);

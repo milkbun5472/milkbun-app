@@ -42,10 +42,14 @@
   //   ② 道路和可行走图【同一趟循环】生成:画出来的路永远等于能走的边,不会两张皮。
   // 丢掉它的栅格化重活(120×90 网格/行军方块/Dijkstra 描边):全走矢量,毫秒级出图,
   // 不卡主线程也不用存大 blob——布局由 (战役id, 骨架) 决定,每次现算,张张一样。
+  // 地形、地点类型的全表：造世界、加地点、改地点、天气、图例都认这一份（2026-10-31 她要多几种）。
+  //   地形管天气（world-weather.js 每种一套脾气）；类型前四种按地貌分，后七种按「去那儿干嘛」分——
+  //   不带年代：古风的茶楼、现代的咖啡馆、奇幻的旅店都是「吃喝」，叫什么交给地点名字。
+  const MAP_TERRAINS = ["山地", "平原", "森林", "水泽", "荒漠", "城郭", "雪原", "海岸", "草原", "雨林", "峡谷", "火山"];
+  const MAP_KINDS = ["城镇", "遗迹", "野外", "地标", "住处", "工作", "吃喝", "购物", "消遣", "学习", "出行"];
   function normRegions(raw, maxNodes, maxRegions) {
     const MAXN = maxNodes || 3, MAXR = maxRegions || 6;
-    const TERR = ["山地", "平原", "森林", "水泽", "荒漠", "城郭"];
-    const KIND = ["城镇", "遗迹", "野外", "地标"];
+    const TERR = MAP_TERRAINS, KIND = MAP_KINDS;
     const seen = {};
     const regions = (Array.isArray(raw) ? raw : []).map(r => {
       if (!r || typeof r !== "object") return null;
@@ -137,7 +141,19 @@
       pts.push({ x: center.x + Math.cos(a) * r, y: center.y + Math.sin(a) * r });
     }
     const sm = chaikinClosed(pts, 2);
-    return sm.map((p2, i) => (i ? "L" : "M") + p2.x.toFixed(1) + " " + p2.y.toFixed(1)).join("") + "Z";
+    const d = sm.map((p2, i) => (i ? "L" : "M") + p2.x.toFixed(1) + " " + p2.y.toFixed(1)).join("") + "Z";
+    // 每个方向伸出去多远（地点落不落在这块地里，照它算）
+    return { d, center, poly: sm, rays: pts.map(q => Math.sqrt((q.x - center.x) ** 2 + (q.y - center.y) ** 2)) };
+  }
+  // 一个点在不在这块地里：按它的方向在两条射线之间插值，留一点边（平滑过的边比射线往里收一点，字也要地方）
+  //   照画出来的那条边（磨圆以后的）判：把点从中心往外推一截（÷margin）还在边里，才算站得稳
+  function inBlob(b, p, margin) {
+    const m = margin || 0.8, q = { x: b.center.x + (p.x - b.center.x) / m, y: b.center.y + (p.y - b.center.y) / m }, P = b.poly;
+    let c = false;
+    for (let i = 0, j = P.length - 1; i < P.length; j = i++) {
+      if ((P[i].y > q.y) !== (P[j].y > q.y) && q.x < (P[j].x - P[i].x) * (q.y - P[i].y) / (P[j].y - P[i].y) + P[i].x) c = !c;
+    }
+    return c;
   }
   // 并查集:跨区兜底连通用
   function unionFind(n) {
@@ -156,7 +172,19 @@
     //   随机数照旧按原顺序消耗，所以没动过的那几块形状、地点位置都跟以前一模一样
     regions.forEach((r, i) => { if (r.pos) centers[i] = { x: r.pos.x * W, y: r.pos.y * H }; });
     const baseR = Math.min(W, H) / (regions.length <= 3 ? 3.4 : 4.2);
-    const outR = regions.map((r, i) => regionBlob(centers[i], centers.filter((_, j) => j !== i), rand, baseR * (r.size || 1)));
+    // 她手动挪过去的那块压在一块没动过的上面：把没动过的那块往旁边推开，两块都留出地方（不然被压的那块缩成一小团，地点放不下就跑到外面去）
+    //   只推没动过的；没有压到谁就一个都不动，原来的图照旧
+    regions.forEach((r, i) => { if (r.pos) return;
+      regions.forEach((m, j) => { if (!m.pos || j === i) return;
+        const need = baseR * 0.95 * ((r.size || 1) + (m.size || 1)) / 2, dx = centers[i].x - centers[j].x, dy = centers[i].y - centers[j].y, d = Math.sqrt(dx * dx + dy * dy);
+        if (d >= need) return;
+        const ux = d > 0.5 ? dx / d : Math.cos(i), uy = d > 0.5 ? dy / d : Math.sin(i);
+        centers[i] = { x: Math.max(30, Math.min(W - 30, centers[j].x + ux * need)), y: Math.max(30, Math.min(H - 30, centers[j].y + uy * need)) };
+      }); });
+    const blobs = regions.map((r, i) => regionBlob(centers[i], centers.filter((_, j) => j !== i), rand, baseR * (r.size || 1)));
+    const outR = blobs.map(b => b.d);
+    // 地点要落在自己那块地里、不压到别人那块上（群里 2026-10-31：挪过、缩放过以后地标跑到地图外面、别的地块上去了）
+    const fits = (i, c) => inBlob(blobs[i], c) && blobs.every((b, j) => j === i || !inBlob(b, c, 0.95));
     // 节点:围着区域中心的环带里撒,彼此至少隔 30;第一个节点就放中心(区域首府感)
     const nodes = [];
     regions.forEach((r, i) => {
@@ -168,9 +196,20 @@
             const a = rand() * Math.PI * 2, rr = baseR * (r.size || 1) * (0.35 + rand() * 0.45);
             const c = { x: centers[i].x + Math.cos(a) * rr, y: centers[i].y + Math.sin(a) * rr };
             if (c.x < 16 || c.x > W - 16 || c.y < 20 || c.y > H - 20) continue;
+            if (!fits(i, c)) continue;
             if (nodes.every(x => (x.x - c.x) ** 2 + (x.y - c.y) ** 2 > 30 * 30)) p2 = c;
           }
-          if (!p2) p2 = { x: centers[i].x + (rand() - 0.5) * baseR * (r.size || 1), y: centers[i].y + (rand() - 0.5) * baseR * (r.size || 1) };
+          // 原来那 40 次没找着（多半是地方被挤小了、点又多）：照着这块地自己的形状再找，间距一点点放小；还不行就往中心收，总之不出界
+          for (let gap = 26; !p2 && gap >= 14; gap -= 4) {
+            for (let t = 0; t < 60 && !p2; t++) {
+              const a = rand() * Math.PI * 2, b = blobs[i], n = b.rays.length, f = a / (Math.PI * 2) * n, ii = Math.floor(f) % n, tt = f - Math.floor(f);
+              const rr = (b.rays[ii] * (1 - tt) + b.rays[(ii + 1) % n] * tt) * 0.75 * Math.sqrt(rand());
+              const c = { x: centers[i].x + Math.cos(a) * rr, y: centers[i].y + Math.sin(a) * rr };
+              if (c.x < 16 || c.x > W - 16 || c.y < 20 || c.y > H - 20 || !fits(i, c)) continue;
+              if (nodes.every(x => (x.x - c.x) ** 2 + (x.y - c.y) ** 2 > gap * gap)) p2 = c;
+            }
+          }
+          if (!p2) p2 = { x: centers[i].x, y: centers[i].y + 1 };   // 实在挤不下：落在中心（中心一定在自己那块里）
         }
         nodes.push({ name: nd.name, kind: nd.kind, hook: nd.hook, region: r.name, ri: i, x: Math.round(p2.x * 10) / 10, y: Math.round(p2.y * 10) / 10 });
       });
@@ -229,7 +268,7 @@
   };
   // 地图引擎(纯函数)外借给好友地图的【架空】那一半:同一套区域接壤→力导向→团块→道路,
   // 一份实现两处用。各写一份必然走成「一层写在两处,第二处没跟上」。
-  if (inApp) window.TrpgMap = { normRegions, mapBuild, mapAdjacent, findNode };
+  if (inApp) window.TrpgMap = { normRegions, mapBuild, mapAdjacent, findNode, TERRAINS: MAP_TERRAINS, KINDS: MAP_KINDS };
   // 页面那半要用的，原样递过去
   (typeof window !== "undefined" ? window : globalThis).TrpgCore = { inApp, mulberry32, hashStr, normRegions, mapBuild, mapAdjacent, findNode };
 })();

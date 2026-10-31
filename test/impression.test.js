@@ -435,7 +435,7 @@ test("声纹样本与她的原话也铺开抽，别老盯最后十几句", () =>
   // 三处采样都要吃到 turn，漏一个那一路就还是老样子
   assert.match(imp, /ownLines\(rows, char\.name, turn\)/);
   assert.match(imp, /herLines\(rows, uName, turn\)/);
-  assert.match(imp, /spread\(rows, 5200, turn\)/);
+  assert.match(imp, /spread\(rows, 5200, turn(, [^)]*)?\)/);
   assert.doesNotMatch(imp, /const toText = /, "只截尾部的老取法已经废掉");
 });
 
