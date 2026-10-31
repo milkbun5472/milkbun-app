@@ -1949,7 +1949,19 @@ function useChatWindow(ref, total, resetKey, recentLimit = 0) {
   const [winN, setWinN] = useState(CHAT_WINDOW);
   // 换个人／换个房间／换个群：窗口收回去，别把上一处翻开的那一大段带过来
   useEffect(() => { setWinN(CHAT_WINDOW); }, [resetKey]);
-  const winStart = Math.max(0, total - (limit || winN));
+  // 来了新消息：窗口跟着撑大同样的条数，起点不动（她 2026-10-31：往上翻着看，每来一条就往下跳一截）。
+  //   原来窗口是「最近 N 条」，新来一条，顶上最老那条就被摘掉——上面少了一截，她正在看的那段就往上窜一截。
+  //   这一拍要在画之前补上（同一次渲染里算 winStart），所以不走 effect，直接按上一拍的 total 补。
+  const lastTotalRef = useRef(total), lastKeyRef = useRef(resetKey);
+  let winNow = winN;
+  if (lastKeyRef.current !== resetKey) { lastKeyRef.current = resetKey; lastTotalRef.current = total; winNow = CHAT_WINDOW; }
+  else if (total > lastTotalRef.current && !limit) {
+    const add = total - lastTotalRef.current; lastTotalRef.current = total;
+    winNow = winN + add;
+    // 存回去，下一拍接着用（在渲染里改状态要包在条件里，只在真变了的那一拍改一次）
+    if (winNow !== winN) setWinN(winNow);
+  } else lastTotalRef.current = total;
+  const winStart = Math.max(0, total - (limit || winNow));
   // 往上补一段。⚠️补完要把滚动位置顶回原处：DOM 前面凭空多出几百条，
   //   不补这一下，她正在看的那一段会当场往下窜掉一大截。
   const growRef = useRef(0);
