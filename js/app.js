@@ -5177,22 +5177,29 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     return seg && seg.cur ? String(seg.cur.type || "") : "";
   };
   // 角色此刻的行程（给聊天/心情联动用）
+  // 日程互通只认这一份「谁算跟TA有关」「TA叫什么」（她 2026-10-31：「问题就是修了很多次的多角色的日程互通」）。
+  //   原来抄过去、参照、此刻核对三处各认各的：只认关系线、把配角整个排除、只认本名不认备注、
+  //   聊着聊着改的那几段和TA自己回头改的那几段从来不往对方那边抄——C 写「跟朋友在一起」，朋友那边永远对不上。
+  const schedWorldKey = c => { const r = window.MapKit && window.MapKit.charRealm ? window.MapKit.charRealm(c, worldsRef.current || []) : null; return r && r.kind === "world" && r.world ? "w:" + r.world.id : "real"; };
+  const schedNamesOf = c => [c && c.name, c && c.remark].map(x => String(x || "").trim()).filter((x, i, a) => x.length >= 2 && a.indexOf(x) === i);
+  const schedMentions = (q, c) => { const txt = String((q && q.title) || "") + " " + String((q && q.location) || ""); return schedNamesOf(c).find(nm => txt.indexOf(nm) >= 0) || ""; };
+  // 有关系＝关系网上连着线（哪个方向都算），或者一个是另一个身边的配角；还得在同一个世界里
+  const schedPeersOf = char => (characters || []).filter(c => c && c.id !== char.id && !c.isGroup && c.name
+    && (rels[char.id + "->" + c.id] || rels[c.id + "->" + char.id] || String(c.ownerId || "") === String(char.id) || String(char.ownerId || "") === String(c.id))
+    && schedWorldKey(c) === schedWorldKey(char));
   // 别人此刻的安排里写着跟TA在一起（群里 2026-10-31：「C 的行程上显示和他朋友在一起，但我去问他朋友，他朋友回答不是」）：
   //   每个人的日程是各排各的，C 的日程写着「跟谁谁吃饭」，谁谁那边一个字都不知道。
   //   这里反过来查一遍：别人【此刻】那一项里点了TA的名字，就告诉TA「你此刻是跟他在一起的」。角色、配角都算。
   const schedCrossFor = char => {
     try {
-      const names = [char.name, char.remark].map(x => String(x || "").trim()).filter(x => x.length >= 2);
-      if (!names.length) return "";
+      if (!schedNamesOf(char).length) return "";
       const out = [];
-      (characters || []).forEach(o => {
-        if (!o || o.id === char.id || o.isGroup) return;
+      schedPeersOf(char).forEach(o => {
         const s2 = schedPlanOf(o, schedulesRef.current[o.id] || {});
         if (!s2 || !Array.isArray(s2.seqs) || !s2.seqs.length) return;
         const disp = schedDisplaySeqs(o, s2.seqs), idx = schedCurrentSeqIdx(disp, true, o), cur = idx >= 0 ? disp[idx] : null;
         if (!cur) return;
-        const txt = String(cur.title || "") + " " + String(cur.location || "");
-        if (names.some(nm => txt.indexOf(nm) >= 0)) out.push("「" + (o.remark || o.name) + "」此刻的安排是：" + cur.title + (cur.location ? "（在 " + cur.location + "）" : ""));
+        if (schedMentions(cur, char)) out.push("「" + (o.remark || o.name) + "」此刻的安排是：" + cur.title + (cur.location ? "（在 " + cur.location + "）" : ""));
       });
       return out.length ? "\n\n别人此刻的安排里写着有你：\n" + out.map(x => "· " + x).join("\n") + "\n这是真的：此刻你就在那儿、跟这个人在一起，被问起照这个说，别说不是。" : "";
     } catch (e) { return ""; }
@@ -18587,7 +18594,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       const plan = (schedulesRef.current[charId] || {})[today];
       if (!plan || !Array.isArray(plan.seqs) || !plan.seqs.length) return;
       const seqs = schedSpliceNow(plan.seqs, charLocalMin(c), change);   // 「此刻几点」跟日程别处一样问 ScheduleClock（跟钟排时是钟上的几点）
-      if (seqs) saveSchedDay(charId, today, { ...plan, seqs: seqs, selfRevCheck: true, liveRevisedAt: Date.now() });
+      if (seqs) { saveSchedDay(charId, today, { ...plan, seqs: seqs, selfRevCheck: true, liveRevisedAt: Date.now() }); schedMirrorPeers(c, today, seqs); }
     } catch (e) {}
   };
   // ── 删掉 AI 排的日程（她 2026-09-18：「做ai生成的日程可以删除吧，both individually
@@ -18682,15 +18689,11 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       const plans = schedulesRef.current || {};
       const nm = String(char.name || "").trim();
       if (!nm || !window.ScheduleClock || !window.ScheduleClock.mirrorJoint) return;
-      const worldKeyOf = c => { const r = window.MapKit && window.MapKit.charRealm ? window.MapKit.charRealm(c, worldsRef.current || []) : null; return r && r.kind === "world" && r.world ? "w:" + r.world.id : "real"; };
-      const myWorld = worldKeyOf(char);
-      (characters || []).forEach(c => {
-        if (!c || c.id === char.id || c.npc || !c.name) return;
-        if (!(rels[char.id + "->" + c.id] || rels[c.id + "->" + char.id]) || worldKeyOf(c) !== myWorld) return;
+      schedPeersOf(char).forEach(c => {
         const cur = (plans[c.id] || {})[dayKey];
         if (!cur || !Array.isArray(cur.seqs) || !cur.seqs.length) return;
         let next = cur.seqs;
-        (seqs || []).forEach(q => { if (String((q && q.title) || "").indexOf(c.name) < 0) return; const m = window.ScheduleClock.mirrorJoint(schedFillEnds(next), q, nm, c.name); if (m) next = m; });
+        (seqs || []).forEach(q => { const hitName = schedMentions(q, c); if (!hitName) return; const m = window.ScheduleClock.mirrorJoint(schedFillEnds(next), q, nm, hitName); if (m) next = m; });
         if (next !== cur.seqs) saveSchedDay(c.id, dayKey, { ...cur, seqs: next });
       });
     } catch (e) {}
@@ -18700,12 +18703,11 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     const nm = String(char.name || "").trim();
     // 只看【同一个世界】里的人（她 2026-10-16 转群友：同一个人的现代版和西幻版连着关系线，
     //   现代那位的日程照抄了西幻那位的「夏宫别墅、鹿鸣泉」）：钉在不同架空世界里的、一个钉了一个没钉的，不互相参照
-    const worldKeyOf = c => { const r = window.MapKit && window.MapKit.charRealm ? window.MapKit.charRealm(c, worldsRef.current || []) : null; return r && r.kind === "world" && r.world ? "w:" + r.world.id : "real"; };
-    const myWorld = worldKeyOf(char);
-    const peers = (characters || []).filter(c => c && c.id !== char.id && !c.npc
-      && (rels[char.id + "->" + c.id] || rels[c.id + "->" + char.id])
-      && worldKeyOf(c) === myWorld
-      && Object.keys(plans[c.id] || {}).length).slice(0, SCHED_PEER_MAX);
+    // 名额只有几个：先给日程里点到TA的那几位，剩下的再按顺序
+    const days0 = (Array.isArray(dayKeys) ? dayKeys : [dayKeys]).filter(Boolean).slice(0, SCHED_PEER_DAYS);
+    const namesMe = c => days0.some(k => (((plans[c.id] || {})[k] || {}).seqs || []).some(q => schedMentions(q, char)));
+    const peers = schedPeersOf(char).filter(c => Object.keys(plans[c.id] || {}).length)
+      .sort((a, b) => (namesMe(b) ? 1 : 0) - (namesMe(a) ? 1 : 0)).slice(0, SCHED_PEER_MAX);
     if (!peers.length) return "";
     const days = (Array.isArray(dayKeys) ? dayKeys : [dayKeys]).filter(Boolean).slice(0, SCHED_PEER_DAYS);
     const rows = [];
@@ -18719,7 +18721,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
           const title = String((q && q.title) || "").trim();
           if (!title) return;
           // 点到TA名字的那几段是【必须对上】的；其余只是让TA看看那天对方大概怎么过
-          const mine = nm && (title.indexOf(nm) >= 0 || String((q && q.location) || "").indexOf(nm) >= 0);
+          const mine = !!schedMentions(q, char);
           rows.push((mine ? "⭐" : "· ") + k + " " + String((q && q.time) || "") + " "
             + c.name + (label ? "（" + label + "）" : "") + "：" + title
             + (q && q.location ? "（" + q.location + "）" : ""));
@@ -19029,6 +19031,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
             const seqs = schedFillEnds(d.seqs.map((s, i) => window.CharDayLink.bindRow({ seq: i + 1, time: s.time || "", end: s.end || "", title: s.title || "", location: s.location || "", place: s.place || "", type: s.type || "other", deviation: s.deviation && (s.deviation.plan || s.deviation.reason) ? s.deviation : null }, s)));
             const cur = (schedulesRef.current[c.id] || {})[today] || plan;
             saveSchedDay(c.id, today, { ...cur, seqs: schedSnap(c, seqs), selfRevCheck: true, selfRevisedAt: Date.now() });
+            schedMirrorPeers(c, today, seqs);
           }
         } catch (e) {/* 改失败就算了，不重试不打扰 */}
       }
