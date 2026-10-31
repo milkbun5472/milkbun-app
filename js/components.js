@@ -1118,6 +1118,19 @@ function MsgStickPicker({ at, hasStick, onPick, onClose, onPacks }) {
         h("input", { "data-wk": "msgstickown", value: own, onChange: e => setOwn(e.target.value.slice(0, 16)), placeholder: "打一个别的 emoji", style: { ...inputStyle, flex: 1 } }),
         btn("贴", () => { const e = msgStickFirstEmoji(own); if (e) { setOwn(""); pick(e); } }, null, !msgStickFirstEmoji(own)))));
 }
+// 引用块引的是谁的话（群里 2026-10-31：「引用对方消息是他的气泡颜色，他引用我的是我的气泡颜色」能不能做）：
+//   挂在引用块上 data-from="me"/"ta"，美化按它分开配色。群里引的是成员就有 replyToSenderId；
+//   别的（单聊、引她自己）往前找原话对得上的那条看是谁说的，老消息也认得出来。
+function quoteFromOf(list, i, m) {
+  if (!m || !m.replyTo) return "";
+  if (m.replyToSenderId) return "ta";
+  const q = String(m.replyTo).trim();
+  for (let k = Math.min(i, (list || []).length) - 1; k >= 0; k--) {
+    const x = list[k];
+    if (x && typeof x.content === "string" && x.content.trim() && (x.content.trim() === q || x.content.indexOf(q) >= 0)) return x.role === "user" ? "me" : "ta";
+  }
+  return "";
+}
 function msgStickEl(m, isU) {
   // 贴在气泡【上沿】的角上（她 2026-10-31：贴在下面会挡住「听一下」）
   // 群里成员贴的（gSticks，可能好几个人）：她自己贴的那个排在最后，一起排成一小串
@@ -12060,7 +12073,7 @@ function ChatThread({
     // 名字：单聊平常不显示（只有两个人），留着给排版「名字写在气泡上面」和写 CSS 的人打开
     h("div", { "data-wk": "name", "data-me": isU ? "1" : "0", style: { display: "none", fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, margin: "0 4px 2px" } }, isU ? ((profile && profile.name) || "我") : cName),
     m.replyTo && h("div", {
-      "data-wk": "quote", "data-me": isU ? "1" : "0",
+      "data-wk": "quote", "data-me": isU ? "1" : "0", "data-from": quoteFromOf(messages, i, m) || undefined,
       style: {
         fontFamily: F_BODY,
         fontSize: "calc(11px * var(--app-fs, 1))",
@@ -20167,7 +20180,7 @@ function GroupThread({
         marginLeft: 2
       }
     }, m.senderName, gRoleTag(m)), m.replyTo && h("div", {
-      "data-wk": "quote", "data-me": isU ? "1" : "0",
+      "data-wk": "quote", "data-me": isU ? "1" : "0", "data-from": quoteFromOf(messages, i, m) || undefined,
       style: {
         fontFamily: F_BODY,
         fontSize: "calc(11px * var(--app-fs, 1))",
