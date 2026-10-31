@@ -259,19 +259,36 @@
   function BdayCard({ items, onOpen, onClose }) {
     const t = useTheme();
     if (!items || !items.length) return null;
-    return h("div", { "data-wk": "bdaycard", style: { position: "absolute", left: 16, right: 16, top: "calc(env(safe-area-inset-top) + 56px)", zIndex: 41,
-        padding: "12px 14px", borderRadius: 20, background: "linear-gradient(135deg, rgba(255,240,235,.96), rgba(255,250,240,.96))", border: "1px solid rgba(230,170,160,.55)",
-        boxShadow: "0 12px 32px rgba(120,60,50,.22)", backdropFilter: "blur(10px)", WebkitBackdropFilter: "blur(10px)" } },
-      h("div", { className: "flex items-center", style: { justifyContent: "space-between" } },
-        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", letterSpacing: 3, color: "#b9776c" } }, "🎂  生日提醒"),
-        h("button", { "data-wk": "block", onClick: onClose, className: "active:opacity-60", "aria-label": "收起", style: { minWidth: 40, minHeight: 40, fontFamily: F_BODY, fontSize: "calc(18px * var(--app-fs, 1))", color: t.fog, background: "transparent", border: "none", margin: "-10px -10px -10px 0" } }, "×")),
+    const n = new Date(), today = items.some(it => it.du === 0);
+    const dl = (n.getMonth() + 1) + " 月 " + n.getDate() + " 日";
+    // 彩色糖粒：几颗小圆点撒在底上，纯 CSS 不加图
+    const dots = ["#f4a7b9 8% 22%", "#ffd27a 18% 78%", "#a9d8f0 34% 14%", "#c8b6f2 62% 86%", "#f4a7b9 78% 30%", "#ffd27a 88% 70%", "#a8e0c4 50% 50%"]
+      .map(d => { const [c, x, y] = d.split(" "); return "radial-gradient(circle at " + x + " " + y + ", " + c + " 0 2.2px, transparent 2.8px)"; }).join(",");
+    return h("div", { "data-wk": "bdaycard", style: { position: "absolute", left: 14, right: 14, top: "calc(env(safe-area-inset-top) + 52px)", zIndex: 41,
+        padding: "14px 16px 12px", borderRadius: 24, overflow: "hidden",
+        background: dots + ", linear-gradient(150deg, #fff6f1 0%, #ffeef0 55%, #fff8e8 100%)",
+        border: "1px solid rgba(232,178,160,.6)", boxShadow: "0 14px 36px rgba(150,80,70,.22), inset 0 1px 0 rgba(255,255,255,.9)",
+        animation: "bdayIn .55s cubic-bezier(.2,.9,.3,1.2) both" } },
+      h("style", null, "@keyframes bdayIn{from{opacity:0;transform:translateY(-14px) scale(.97)}to{opacity:1;transform:none}}@keyframes bdayBob{0%,100%{transform:rotate(-8deg) translateY(0)}50%{transform:rotate(-4deg) translateY(-3px)}}"),
+      h("div", { "aria-hidden": "true", style: { position: "absolute", right: -6, bottom: -14, fontSize: 78, opacity: .16, animation: "bdayBob 3.2s ease-in-out infinite", pointerEvents: "none" } }, "🎂"),
+      h("div", { className: "flex items-center", style: { position: "relative", justifyContent: "space-between" } },
+        h("div", null,
+          h("div", { style: { fontFamily: "Georgia, 'Times New Roman', serif", fontStyle: "italic", fontSize: "calc(17px * var(--app-fs, 1))", color: "#c0705f", letterSpacing: .5 } }, today ? "Happy Birthday" : "Birthday Eve"),
+          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", letterSpacing: 2, color: "#c9a08f", marginTop: 1 } }, dl + (today ? " · 生日快乐" : " · 明天就到了"))),
+        h("button", { "data-wk": "block", onClick: onClose, className: "active:opacity-60", "aria-label": "收起", style: { minWidth: 40, minHeight: 40, fontSize: "calc(18px * var(--app-fs, 1))", color: "#c9a08f", background: "transparent", border: "none", margin: "-8px -10px -8px 0" } }, "×")),
+      h("div", { style: { position: "relative", height: 1, margin: "8px 0 4px", background: "linear-gradient(90deg, transparent, rgba(214,160,140,.55), transparent)" } }),
       items.map(it => {
         const c = it.char, src = typeof resolveImg === "function" ? resolveImg(c.avatarImage || c.chatAvatar || "") : "";
-        return h("button", { key: c.id, "data-wk": "block", onClick: () => onOpen(c), className: "active:opacity-80 flex items-center", style: { width: "100%", minHeight: 48, gap: 12, marginTop: 6, background: "transparent", border: "none", padding: 0, textAlign: "left" } },
-          src ? h("img", { src, alt: "", style: { width: 44, height: 44, borderRadius: "50%", objectFit: "cover", flexShrink: 0, boxShadow: "0 0 0 2px #fff, 0 0 0 3.5px #f0b8ae" } }) : h("div", { style: { width: 44, height: 44, borderRadius: "50%", background: "#f6d9d2", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 } }, "🎂"),
+        const ring = { width: 50, height: 50, borderRadius: "50%", flexShrink: 0, padding: 2.5, background: it.du === 0 ? "conic-gradient(#f4a7b9, #ffd27a, #a9d8f0, #c8b6f2, #f4a7b9)" : "linear-gradient(#ecd3c4, #ecd3c4)" };
+        const face = src ? h("img", { src, alt: "", style: { width: "100%", height: "100%", borderRadius: "50%", objectFit: "cover", border: "2px solid #fff", boxSizing: "border-box" } })
+          : h("div", { style: { width: "100%", height: "100%", borderRadius: "50%", background: "#fde4dc", border: "2px solid #fff", boxSizing: "border-box", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20 } }, "🎂");
+        return h("button", { key: c.id, "data-wk": "block", onClick: () => onOpen(c), className: "active:opacity-80 flex items-center", style: { position: "relative", width: "100%", minHeight: 56, gap: 12, marginTop: 6, background: "transparent", border: "none", padding: 0, textAlign: "left" } },
+          h("div", { style: ring }, face),
           h("div", { style: { minWidth: 0, flex: 1 } },
-            h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(16px * var(--app-fs, 1))", color: t.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, (it.du === 0 ? "今天是 " : "明天是 ") + (c.remark || c.name) + " 的生日"),
-            h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.sub, marginTop: 1 } }, it.du === 0 ? (typeof characterText === "function" ? characterText(c, "去跟他说一声 ›") : "去跟 TA 说一声 ›") : "还有一天，先想想怎么过 ›")));
+            h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(17px * var(--app-fs, 1))", color: t.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } },
+              (it.du === 0 ? "今天是 " : "明天是 "), h("span", { style: { color: "#c0705f" } }, c.remark || c.name), " 的生日"),
+            h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.sub, marginTop: 2 } }, it.du === 0 ? (typeof characterText === "function" ? characterText(c, "去跟他说一声 ›") : "去跟 TA 说一声 ›") : "还有一天，先想想怎么过 ›")),
+          h("div", { style: { fontSize: 18, flexShrink: 0 } }, it.du === 0 ? "🎉" : "🎁"));
       }));
   }
   g.bdaySoon = bdaySoon;
