@@ -832,6 +832,9 @@ function callBubble(isMe) {
 // 太长的截在 FILE_MAX 字（再长一轮上下文就被它吃光了），卡上照实标「只给了前 N 字」。
 // GBK 的老 txt 用 UTF-8 读会满屏「�」——乱码多就换 gb18030 再读一遍。
 const FILE_MAX = 12000;
+// 选文件那一路的提示（2026-10-31 查出来的）：这一段在组件外面，原来写 typeof toast === "function" && toast(…)——
+//   全局根本没有 toast，提示一句都没出来过，「文件太大了」这类话她从来没看见，选完就像窗口自己消失了。
+function fileToast(msg, ms) { try { if (typeof window !== "undefined" && typeof window.__toast === "function") window.__toast(msg, ms || 3500); } catch (e) {} }
 // PDF / Word（2026-10-03）：解析库放在 vendor/，【用到才加载】——不进开机那一串，平时一个字节都不多下。
 //   PDF 只抽文字层：扫描件（整页是图）抽不出来，照实说；Word 只认 .docx（老 .doc 是二进制，认不了）。
 const _lazyP = {};
@@ -880,7 +883,7 @@ function videoContactSheet(file) {
 }
 // 聊天里选到视频时：拼图 → 当一张照片发，配一句说明这是视频截的、按什么顺序看
 async function sendVideoAsPhoto(file, sendRich, source) {
-  typeof toast === "function" && toast("正在从视频里截几个画面…");
+  fileToast("正在从视频里截几个画面…");
   try {
     const r = await videoContactSheet(file);
     let imageRef = r.url;
@@ -890,7 +893,7 @@ async function sendVideoAsPhoto(file, sendRich, source) {
     try { await rememberRealPhoto(imageRef, note, source); } catch (e) {}
     sendRich({ role: "user", kind: "photo", imageRef, desc: note, photoMode: "real", video: { dur: r.dur, n: r.n, name: file.name }, content: "[视频] " + len });
   } catch (e) {
-    typeof toast === "function" && toast((e && e.message) || "这个视频没读出来", 6000);
+    fileToast((e && e.message) || "这个视频没读出来", 6000);
   }
 }
 function pickTextFile(onMsg, opts) {
@@ -914,49 +917,49 @@ function pickTextFile(onMsg, opts) {
     const f = inp.files && inp.files[0];
     drop();
     if (!f) return;
-    if (f.size > 512 * 1024) typeof toast === "function" && toast("正在读「" + f.name + "」…");
+    if (f.size > 512 * 1024) fileToast("正在读「" + f.name + "」…");
     const isPdf = /\.pdf$/i.test(f.name) || f.type === "application/pdf";
     const isDocx = /\.docx$/i.test(f.name);
     // 视频（群友 2026-10-31：「想给 char 发视频」）：模型看不了视频，截几个画面拼成一张图当照片发，
     //   TA 看得到画面；视频本身不存（几百兆，存不下也同步不了）。没接 onVideo 的地方照旧说发不了。
     if (/^video\//.test(f.type || "") || /\.(mp4|mov|m4v|webm|avi|mkv|3gp)$/i.test(f.name)) {
       if (opts && typeof opts.onVideo === "function") { opts.onVideo(f); return; }
-      typeof toast === "function" && toast("这里发不了视频。想让 TA 看某个画面，截图用「照片」发", 6000); return;
+      fileToast("这里发不了视频。想让 TA 看某个画面，截图用「照片」发", 6000); return;
     }
     // 音频（群友 2026-10-31：「音频呢」）：模型听不见，用设置里的语音识别听写成字，当一份文件发；
     //   没配识别就说清楚。视频本身不存，音频也一样不存。
     if (/^audio\//.test(f.type || "") || /\.(mp3|m4a|wav|aac|ogg|oga|opus|flac|amr|wma)$/i.test(f.name)) {
-      if (typeof sttApiReady !== "function" || !sttApiReady()) { typeof toast === "function" && toast("TA 听不见音频，要先把它听写成字：去 设置 → API 填「语音识别」，填好再发", 7000); return; }
-      if (f.size > 25 * 1024 * 1024) { typeof toast === "function" && toast("音频太大了（听写一次最多 25MB），剪短一点再发", 6000); return; }
-      typeof toast === "function" && toast("正在听「" + f.name + "」…", 8000);
+      if (typeof sttApiReady !== "function" || !sttApiReady()) { fileToast("TA 听不见音频，要先把它听写成字：去 设置 → API 填「语音识别」，填好再发", 7000); return; }
+      if (f.size > 25 * 1024 * 1024) { fileToast("音频太大了（听写一次最多 25MB），剪短一点再发", 6000); return; }
+      fileToast("正在听「" + f.name + "」…", 8000);
       try {
         const r = await sttTranscribe(f, { name: f.name, anyLang: true });
         const said = String((r && r.text) || "").trim();
-        if (!said) { typeof toast === "function" && toast("这段音频里没听出说话的内容"); return; }
+        if (!said) { fileToast("这段音频里没听出说话的内容"); return; }
         const body = "（这是一段音频，下面是听写出来的内容，听不到语气和声音）\n" + (said.length > MAX ? said.slice(0, MAX) : said);
         onMsg({ kind: "file", name: f.name, size: f.size, chars: said.length, cut: said.length > MAX, max: MAX, text: body, audio: true,
           content: "[音频] " + f.name + "（听写 " + said.length + " 字）\n" + body });
-      } catch (e) { typeof toast === "function" && toast((e && e.message) || "这段音频没听出来", 6000); }
+      } catch (e) { fileToast((e && e.message) || "这段音频没听出来", 6000); }
       return;
     }
-    if (/\.doc$/i.test(f.name)) { typeof toast === "function" && toast("老的 .doc 读不了，在 Word 里另存为 .docx 再发"); return; }
-    if (f.size > (isPdf || isDocx ? 20 : 5) * 1024 * 1024) { typeof toast === "function" && toast("文件太大了，挑一份小一点的"); return; }
+    if (/\.doc$/i.test(f.name)) { fileToast("老的 .doc 读不了，在 Word 里另存为 .docx 再发"); return; }
+    if (f.size > (isPdf || isDocx ? 20 : 5) * 1024 * 1024) { fileToast("文件太大了，挑一份小一点的"); return; }
     try {
       const buf = await f.arrayBuffer();
       let txt;
       if (isPdf || isDocx) {
-        if (f.size <= 512 * 1024) typeof toast === "function" && toast("正在读「" + f.name + "」…");
+        if (f.size <= 512 * 1024) fileToast("正在读「" + f.name + "」…");
         txt = isPdf ? await pdfToText(buf) : await docxToText(buf);
-        if (isPdf && !txt.replace(/\s+/g, "").length) { typeof toast === "function" && toast("这份 PDF 是扫描件（整页是图），抽不出字——截图用「照片」发给 TA 看吧", 6000); return; }
+        if (isPdf && !txt.replace(/\s+/g, "").length) { fileToast("这份 PDF 是扫描件（整页是图），抽不出字——截图用「照片」发给 TA 看吧", 6000); return; }
       } else {
         txt = new TextDecoder("utf-8").decode(buf);
         if ((txt.match(/\uFFFD/g) || []).length > 8) { try { txt = new TextDecoder("gb18030").decode(buf); } catch (e) {} }
         // 放行了所有类型，图片、压缩包这种就在这儿拦下：乱码太多、或者带着一串 0 字节的，不是文本
         const bad = (txt.match(/[\uFFFD\u0000]/g) || []).length;
-        if (bad > Math.max(8, txt.length * 0.02)) { typeof toast === "function" && toast("这不像文字文件：能发 txt、md、css、json、csv 这类，还有 PDF 和 Word（.docx）"); return; }
+        if (bad > Math.max(8, txt.length * 0.02)) { fileToast("这不像文字文件：能发 txt、md、css、json、csv 这类，还有 PDF 和 Word（.docx）"); return; }
       }
       txt = txt.replace(/^\uFEFF/, "").replace(/\r\n?/g, "\n").replace(/\n{3,}/g, "\n\n");
-      if (!txt.trim()) { typeof toast === "function" && toast("这份文件是空的"); return; }
+      if (!txt.trim()) { fileToast("这份文件是空的"); return; }
       // 文件里嵌着的图（美化 json 里的头像框、贴纸，CSS 里的 url(data:image…)）：一张就是几万个字母，
       //   读的人（秋秋、角色）看不懂也用不上，还会把真正的 CSS 挤到截断线后面（群里 2026-10-17：14 万字的气泡包只给了前 6 万）。
       //   换成一句「这里有张图」，字数照实算剩下的
@@ -967,7 +970,7 @@ function pickTextFile(onMsg, opts) {
       onMsg({ kind: "file", name: f.name, size: f.size, chars: txt.length, cut: cut, max: MAX, text: body,
         imgs: imgs.length,
         content: "[文件] " + f.name + "（" + txt.length + " 字" + (imgs.length ? "，里面 " + imgs.length + " 张图没给文字" : "") + (cut ? "，只给了前 " + MAX + " 字" : "") + "）\n" + body });
-    } catch (e) { typeof toast === "function" && toast("这份文件读不出来：" + ((e && e.message) || e)); }
+    } catch (e) { fileToast("这份文件读不出来：" + ((e && e.message) || e)); }
   };
   inp.click();
 }

@@ -92,7 +92,7 @@
   }
 
   // ── 一条视频（整屏那一格）─────────────────────────────────
-  function VideoPane({ v, charOf, onLike, onFave, onComments, onDraw, onEditDraw, drawing, height, onShare, onAuthor, onDel, onSame }) {
+  function VideoPane({ v, charOf, onLike, onFave, onComments, onDraw, onEditDraw, drawing, height, onShare, onAuthor, onDel, onSame, onEditText }) {
     const [open, setOpen] = useState(false);   // 画面那段太长时先收着，点一下展开（展开了在框里滑）
     const [more, setMore] = useState(false);   // 「⋯」：扔掉、画出来收在这儿，右边那排才不会顶到状态栏
     // 双击画面点赞、冒一颗心（只点亮，不会因为双击把赞取消掉；跟抖音一样）
@@ -139,6 +139,7 @@
           more ? h("div", { "data-wk": "shuamoremenu", style: { position: "absolute", right: 48, bottom: 0, minWidth: 120, borderRadius: 10, background: "rgba(28,28,34,.96)", padding: "4px 0", boxShadow: "0 6px 20px rgba(0,0,0,.4)" } },
             onDraw ? h("button", { "data-wk": "shuamoreitem", "data-part": "draw", onClick: () => { setMore(false); if (!drawing) onDraw(); }, className: "active:opacity-60 text-left", style: { display: "block", width: "100%", minHeight: 42, padding: "0 14px", color: INK, fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))" } }, drawing ? "画着…" : (src ? "重画" : "画出来")) : null,
             onEditDraw && !drawing ? h("button", { "data-wk": "shuamoreitem", "data-part": "editdraw", onClick: () => { setMore(false); onEditDraw(); }, className: "active:opacity-60 text-left", style: { display: "block", width: "100%", minHeight: 42, padding: "0 14px", color: INK, fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))" } }, "改画面描述再画") : null,
+            onEditText ? h("button", { "data-wk": "shuamoreitem", "data-part": "edittext", onClick: () => { setMore(false); onEditText(); }, className: "active:opacity-60 text-left", style: { display: "block", width: "100%", minHeight: 42, padding: "0 14px", color: INK, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", background: "transparent" } }, "改文案") : null,
             onDel ? h("button", { "data-wk": "shuamoreitem", "data-part": "del", onClick: () => { setMore(false); onDel(); }, className: "active:opacity-60 text-left", style: { display: "block", width: "100%", minHeight: 42, padding: "0 14px", color: INK, fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))" } }, "扔掉这条") : null) : null) : null),
       h("div", { "data-wk": "shuacaption", style: { position: "absolute", left: 14, right: 72, bottom: 22 } },
         h("div", { "data-wk": "shuaauthor", style: { fontFamily: F_BODY, fontSize: "calc(15px * var(--app-fs, 1))", color: INK, fontWeight: 600, textShadow: "0 1px 3px rgba(0,0,0,.6)" } }, "@" + (v.author || "") + (v.withName ? "  与 @" + v.withName + " 合拍" : "")),
@@ -328,7 +329,7 @@
         h("input", { "data-wk": "shuachargeinput", value: own, onChange: e => setOwn(e.target.value.replace(/[^\d]/g, "").slice(0, 6)), inputMode: "numeric", placeholder: "自己填多少", style: { flex: 1, minWidth: 0, minHeight: 38, borderRadius: 10, border: "1px solid " + B.line, background: B.card, color: B.ink, padding: "0 10px", fontFamily: F_BODY, fontSize: "calc(16px * var(--app-fs, 1))" } }),
         h("button", { "data-wk": "shuachargebtn", disabled: !ok, onClick: () => { onCharge(Math.round(Number(own))); setOwn(""); }, className: "active:opacity-70", style: { minHeight: 38, padding: "0 16px", borderRadius: 10, background: ok ? B.accent : B.line, color: B.card, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))" } }, "充")));
   }
-  function BDetail({ v, charOf, busy, onFollowSeries, seriesOn, onBack, onLike, onFave, onDraw, onEditDraw, drawing, onSend, onShare, onAuthor, onDel, coinsLeft, onCoin, onCharge, onDm, onReply, onMore, moreBusy }) {
+  function BDetail({ v, charOf, busy, onFollowSeries, seriesOn, onBack, onLike, onFave, onDraw, onEditDraw, drawing, onSend, onShare, onAuthor, onDel, onEditText, coinsLeft, onCoin, onCharge, onDm, onReply, onMore, moreBusy }) {
     const [text, setText] = useState("");
     const [mode, setMode] = useState("cm");          // cm 评论 / dm 弹幕
     const [replyTo, setReplyTo] = useState(null);    // 回复哪一条评论（楼中楼）
@@ -358,6 +359,7 @@
           more ? h("div", { "data-wk": "block", style: { position: "absolute", right: 10, top: 44, zIndex: 5, minWidth: 130, borderRadius: 10, background: B.card, boxShadow: "0 6px 20px rgba(0,0,0,.25)", padding: "4px 0" } },
             onDraw ? moreItem(drawing ? "画着…" : (imgOf(v) ? "重画封面" : "画出来"), drawing ? null : onDraw) : null,
             onEditDraw && !drawing ? moreItem("改画面描述再画", () => { setMore(false); onEditDraw(); }) : null,
+            onEditText ? moreItem("改文案", onEditText) : null,
             onDel ? moreItem("扔掉这条", onDel) : null) : null)),
       h("div", { className: "flex-1 min-h-0 overflow-y-auto", style: { paddingBottom: 10 } },
         h("div", { "data-wk": "shuabinfo", style: { background: B.card, padding: "12px 14px" } },
@@ -816,6 +818,11 @@
       if (typeof requestAppPrompt !== "function") return;
       requestAppPrompt("改画面描述再画", "改这一段，照新的画一张封面。", v.scene || "", txt => { if (String(txt || "").trim()) draw(v, txt); }, "照这个画", { multiline: true });
     };
+    // 改自己发的视频文案（群友 2026-10-31，跟论坛改帖一起）：只改文案和 #话题，评论、赞都留着
+    const editText = v => typeof requestAppPrompt === "function" && requestAppPrompt("改文案", "只改这条的文案，#话题 跟着文案里写的走；评论和赞都留着。", S(v.caption) + (arr(v.tags).length && !/#/.test(S(v.caption)) ? " " + v.tags.map(x => "#" + x).join(" ") : ""), val => {
+      const cap = String(val == null ? "" : val).trim().slice(0, 300);
+      patchV(v.id, x => Object.assign({}, x, { caption: cap, tags: (cap.match(/#([^\s#]+)/g) || []).map(t => t.slice(1)), editedTs: Date.now() }));
+    }, "改好了");
     const del = v => {
       const go = () => { save(Object.assign({}, dbRef.current, { videos: dbRef.current.videos.filter(x => x.id !== v.id) })); setPage(p => p && p.id === v.id ? (p.back || null) : p); toast("扔掉了"); };
       requestAppConfirm("扔掉这条视频？", "扔了就找不回来了" + (v.img ? "，画出来的那张图也一起不要了" : "") + "。", go, "扔掉");
@@ -925,6 +932,7 @@
         onShare: props.onShare ? () => setPage({ kind: "share", id: v.id, back: page }) : null,
         onAuthor: v.by === "char" ? () => setPage({ kind: "acct", charId: v.charId, back: page }) : null,
         onDel: () => del(v),
+        onEditText: v.by === "me" ? () => editText(v) : null,
         coinsLeft, onCoin: v.by === "me" ? null : () => coin(v),
         onCharge: v.by === "char" && props.pay ? amt => charge(v, amt) : null,
         onDm: x => dm(v, x), onReply: (cid, x) => reply(v, cid, x) });
@@ -985,6 +993,7 @@
         onShare: props.onShare ? () => setPage({ kind: "share", id: v.id, back: page }) : null,
         onAuthor: v.by === "char" ? () => setPage({ kind: "acct", charId: v.charId, back: page }) : null,
         onDel: () => del(v),
+        onEditText: v.by === "me" ? () => editText(v) : null,
         onSame: v.by !== "me" ? () => setPage({ kind: "post", same: v }) : null,
         onDraw: props.canDraw ? () => draw(v) : null, onEditDraw: props.canDraw ? () => editDraw(v) : null, drawing: drawing === v.id })) : empty);
     const gridView = (vids, empty) => h("div", { "data-wk": "shuagrid", ref: el => keepPos(el, 0), onScroll: e => { posRef.current[posKey] = e.currentTarget.scrollTop; }, className: "flex-1 min-h-0 overflow-y-auto", style: { padding: "8px 8px 14px", background: B.bg } },
@@ -1153,7 +1162,16 @@
         unread ? h("span", { style: { position: "absolute", top: 4, right: -10, minWidth: 16, height: 16, borderRadius: 99, background: P.accent, color: "#fff", fontSize: "calc(10px * var(--app-fs, 1))", lineHeight: "16px", textAlign: "center", padding: "0 4px" } }, unread > 99 ? "99+" : unread) : null) }),
       h("div", { className: "flex-1 min-h-0 overflow-y-auto px-5", style: { paddingBottom: 20 } },
         h("div", { "data-wk": "shuaprofilehead", className: "flex items-center", style: { gap: 14, marginTop: 6 } },
-          h(Avatar, { character: { name: maskUse ? maskName : uName, avatarImage: (maskUse && (maskList.find(m => m.id === maskUse) || {}).avatarImage) || (profile && profile.avatarImage) }, size: 70 }),
+          // 小号头像（群友 2026-10-31）：用小号时点头像换一张，不换就是一张认不出是你的默认图
+          onAlt ? h("label", { "data-wk": "shuaaltavatar", className: "active:opacity-70", style: { position: "relative", cursor: "pointer", flexShrink: 0 } },
+              h(Avatar, { character: { name: altName, avatarImage: S(db.me && db.me.altAvatar) }, size: 70 }),
+              h("span", { style: { position: "absolute", right: -2, bottom: -2, fontSize: 11, padding: "1px 5px", borderRadius: 99, background: P.accent, color: "#fff" } }, "换"),
+              h("input", { type: "file", accept: "image/*", style: { display: "none" }, onChange: async e => {
+                const f = e.target.files && e.target.files[0]; e.target.value = ""; if (!f) return;
+                try { const d = await resizeImageFile(f, 400, 0.85); const ref = typeof imgToVault === "function" ? await imgToVault(d) : d;
+                  save(Object.assign({}, dbRef.current, { me: Object.assign({}, dbRef.current.me, { altAvatar: ref || d }) })); } catch (er) { toast("这张图读不出来，换一张试试"); }
+              } }))
+          : h(Avatar, { character: { name: maskUse ? maskName : uName, avatarImage: (maskUse && (maskList.find(m => m.id === maskUse) || {}).avatarImage) || (profile && profile.avatarImage) }, size: 70 }),
           h("div", { className: "flex", style: { gap: 20 } },
             // 获赞、粉丝能自己改（群里 2026-10-22 许愿）：点一下填个数，按号分开记（大号／小号／情侣号各一份）；清空就回到算出来的那个
             (() => {
