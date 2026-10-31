@@ -2232,6 +2232,22 @@ function App() {
     setActiveId(loadJSON("x_activeApi", aps[0] && aps[0].id || null));
     setOfflineApiId(loadJSON("x_offlineApi", null));
     setBgApiId(loadJSON("x_bgApi", null));
+    // 删掉的线路开机又回来（她 2026-10-31 群友：「删掉了 api 又会出现」）：哪一份旧副本把它带回来的都不认——
+    //   删的时候记下 id（qq_apiGone，不带 x_、不进云不进导出），开机见到就拿掉，再存一次干净的。
+    //   ⚠️放在这三句后面、就地改 aps：公共版补丁原样钉着「读线路→materialize→setApiProfiles」那三行
+    try {
+      const gone = new Set(JSON.parse(localStorage.getItem("qq_apiGone") || "[]"));
+      if (gone.size && aps.some(p => p && gone.has(p.id))) {
+        const left = aps.filter(p => !(p && gone.has(p.id)));
+        if (left.length) {
+          aps.length = 0; left.forEach(p => aps.push(p));
+          setApiProfiles(left.slice());
+          if (window.CredentialVault) window.CredentialVault.persistApiProfiles(left).catch(() => {}); else saveJSON("x_api", left);
+          [["x_activeApi", setActiveId], ["x_offlineApi", setOfflineApiId], ["x_bgApi", setBgApiId]].forEach(([k, set]) => {
+            if (gone.has(loadJSON(k, null))) { const v = k === "x_activeApi" ? left[0].id : null; saveJSON(k, v); set(v); } });
+        }
+      }
+    } catch (e) {}
     const cm = window.ChatRooms && typeof window.ChatRooms.hydrateChats === "function"
         ? window.ChatRooms.hydrateChats(c, loadJSON)
         : {},
