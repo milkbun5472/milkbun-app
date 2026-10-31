@@ -21,3 +21,20 @@ test('hair gradient / split / streak survive save and default to plain colour',a
  assert.deepEqual(restoreLook({hairMode:'rainbow',hairColor2:'pink'}),{});
  const d=dyesOf({hairColor:'#112233'},{skin:'#f2cbb4'});assert.equal(d.hairMode,'solid');assert.equal(d.hairColor2,'#112233');
 });
+test('异瞳沿真实外貌写入/读档保留，关开不丢两眼颜色，旧存档仍同色',async()=>{
+ const {eyesOf,dyesOf,DEFAULT_EYE}=await import('./wardrobe.mjs');
+ assert.deepEqual(eyesOf({}),{eye:DEFAULT_EYE,eyeMode:'solid',eyeLeft:DEFAULT_EYE,eyeRight:DEFAULT_EYE});
+ const old={eye:'#3f6fa8',skin:'#dfb093',outfit:'ranger',hair:'bob'};
+ assert.equal(eyesOf(old).eyeMode,'solid');assert.equal(eyesOf(old).eyeLeft,old.eye);
+ let look=mergeLook(old,{eyeMode:'split'});look=mergeLook(look,{eyeLeft:'#4e8a62'});look=mergeLook(look,{eyeRight:'#8a5bb0'});
+ const s=freshState();s.look=look;s.companion.look=look;const saved=restoreState(JSON.parse(JSON.stringify(moveIn(s,{charId:'eyes-fixture',name:'异瞳邻居',look}))));
+ for(const result of [saved.look,saved.companion.look,saved.neighbors[0].look])assert.deepEqual(result,look);
+ const off=restoreLook(mergeLook(look,{eyeMode:'solid',outfit:'academy'}));assert.equal(eyesOf(off).eye,old.eye);assert.equal(eyesOf(off).eyeLeft,'#4e8a62');
+ const back=mergeLook(off,{eyeMode:'split'});assert.equal(dyesOf(back).eyeRight,'#8a5bb0');assert.equal(back.skin,old.skin);
+});
+test('单眼缺色沿同色底色，非法颜色/模式不会进入外貌存档',async()=>{
+ const {eyesOf}=await import('./wardrobe.mjs');
+ assert.deepEqual(restoreLook({eyeMode:'bad',eyeLeft:'red',eyeRight:'#xx00aa'}),{});
+ assert.deepEqual(eyesOf({eye:'#ABCDEF',eyeMode:'split',eyeLeft:'red'}),{eye:'#ABCDEF',eyeMode:'split',eyeLeft:'#ABCDEF',eyeRight:'#ABCDEF'});
+ assert.equal(eyesOf({eye:'bad',eyeMode:'split',eyeRight:'#112233'}).eyeLeft,'#5d4435');
+});
