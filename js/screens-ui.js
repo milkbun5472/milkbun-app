@@ -3790,7 +3790,7 @@ function Shop({ goodsImgOf, onDrawGoods, drawingGoods, onSetCartQty, payAs, init
         : cartItems.map((it, ci) => {
             const on = sel.includes(it.uid);
             const c = shopTone(it, ci);
-            return h("div", { "data-wk": "shopcartrow", key: it.uid, className: "flex items-center gap-3", style: { background: MSHOP.card, borderRadius: 11, padding: "11px 12px", marginBottom: 9, boxShadow: "0 1px 3px rgba(0,0,0,.05)" } },
+            return h("div", { "data-wk": "shopcartrow", key: it.uid, className: "flex items-center gap-3", style: { position: "relative", background: MSHOP.card, borderRadius: 11, padding: "11px 30px 11px 12px", marginBottom: 9, boxShadow: "0 1px 3px rgba(0,0,0,.05)" } },
               h("button", { "data-wk": "shopcartcheck", onClick: () => toggleSel(it.uid), "aria-label": "选中", className: "shrink-0 active:opacity-60", style: { width: 21, height: 21, borderRadius: 999, border: "1.5px solid " + (on ? MSHOP.orange : "#d6d6de"), background: on ? MSHOP.orange : "transparent", display: "flex", alignItems: "center", justifyContent: "center" } }, on ? h(ICheck, { size: 12, color: "#fff" }) : null),
               // 缩略图位：和商品流那边同一套品类色，一眼认得出是同一件东西
               // 点缩略图／名字进详情（群友 2026-10-09：加了购物车、首页又刷掉了，就再也发不了给角色）
@@ -3799,7 +3799,10 @@ function Shop({ goodsImgOf, onDrawGoods, drawingGoods, onSetCartQty, payAs, init
               h("div", { className: "flex-1 min-w-0", onClick: () => setDetail(Object.assign({}, it, { _fromCart: true })), role: "button" },
                 h("div", { "data-wk": "shopcartname", style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: MSHOP.ink, lineHeight: 1.4, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" } }, it.name),
                 h("div", { className: "flex items-center justify-between", style: { gap: 8, marginTop: 4 } },
-                  h("div", { "data-wk": "shopcartprice", style: { fontFamily: F_DISPLAY, fontSize: "calc(16px * var(--app-fs, 1))", fontWeight: 700, color: MSHOP.price } }, "¥" + it.price),
+                  // 价格跟着件数走（群友 2026-10-31：「价格也不会跟着变」）：大字是这一行一共多少，买好几件时底下小字写单价
+                  h("div", { "data-wk": "shopcartprice", className: "min-w-0" },
+                    h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(16px * var(--app-fs, 1))", fontWeight: 700, color: MSHOP.price, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, "¥" + (Math.round((Number(it.price) || 0) * qtyOf(it) * 100) / 100)),
+                    qtyOf(it) > 1 ? h("div", { "data-wk": "shopcartunit", style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: MSHOP.dim } }, "单价 ¥" + it.price) : null),
                   // 件数：跟淘宝一样，一件也摆着 −1+，中间那格能直接打数字
                   h("div", { "data-wk": "shopcartqty", className: "flex items-center shrink-0", onClick: e => e.stopPropagation(), style: { border: "1px solid " + MSHOP.line, borderRadius: 7, overflow: "hidden" } },
                     h("button", { "data-wk": "shopcartqtybtn", "data-part": "minus", disabled: qtyOf(it) <= 1, onClick: () => onSetCartQty && onSetCartQty(it.uid, qtyOf(it) - 1), "aria-label": "少一件", className: "active:opacity-60", style: { width: 30, height: 28, color: qtyOf(it) <= 1 ? MSHOP.dim : MSHOP.ink, fontSize: 15, opacity: qtyOf(it) <= 1 ? .45 : 1 } }, "−"),
@@ -3808,7 +3811,9 @@ function Shop({ goodsImgOf, onDrawGoods, drawingGoods, onSetCartQty, payAs, init
                       onBlur: () => setQtyDraft(p => { const n = { ...p }; delete n[it.uid]; return n; }),
                       style: { width: Math.max(38, 14 + 9 * String(qtyDraft[it.uid] != null ? qtyDraft[it.uid] : qtyOf(it)).length), height: 28, textAlign: "center", border: "none", borderLeft: "1px solid " + MSHOP.line, borderRight: "1px solid " + MSHOP.line, background: "transparent", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: MSHOP.ink, outline: "none" } }),
                     h("button", { "data-wk": "shopcartqtybtn", "data-part": "plus", onClick: () => onSetCartQty && onSetCartQty(it.uid, qtyOf(it) + 1), "aria-label": "多一件", className: "active:opacity-60", style: { width: 30, height: 28, color: MSHOP.ink, fontSize: 15 } }, "+")))),
-              h("button", { "data-wk": "shopcartdel", onClick: () => { onRemoveCart(it.uid); setSel(p => p.filter(x => x !== it.uid)); }, "aria-label": "删除", className: "shrink-0 active:opacity-50 p-1" }, h(ITrash, { size: 16, color: MSHOP.dim })));
+              // 垃圾桶挂右上角（群友 2026-10-31）：原来夹在件数后面，跟 + 挨着容易点错
+              h("button", { "data-wk": "shopcartdel", onClick: () => { onRemoveCart(it.uid); setSel(p => p.filter(x => x !== it.uid)); }, "aria-label": "删除", className: "active:opacity-50 flex items-center justify-center",
+                style: { position: "absolute", top: 0, right: 0, width: 40, height: 40 } }, h(ITrash, { size: 15, color: MSHOP.dim })));
           })),
     cartItems.length > 0 && h("div", { "data-wk": "shopcartbar", className: "shrink-0 px-4 py-2.5 flex items-center gap-3", style: { background: MSHOP.card, borderTop: "1px solid " + MSHOP.line } },
       h("button", { "data-wk": "shopcartall", "data-on": sel.length === cartItems.length && cartItems.length ? "1" : "0", onClick: () => setSel(sel.length === cartItems.length ? [] : cartItems.map(x => x.uid)), className: "active:opacity-60 flex items-center gap-2" },
