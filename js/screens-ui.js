@@ -3674,8 +3674,13 @@ function Shop({ payAs, initialNav, wallet, cart, orders, inventory, wish, charac
   const cards = Array.isArray(kinshipCards) ? kinshipCards : [];
   const list = (feed && feed[cat]) || [];
   const cartItems = cart || [];
+  // 一行里这次买几件（群里 2026-10-31：「checkout 的时候可以选择买其中多少件，剩下的留在购物车」）：没动过就是整行都买
+  const [pickN, setPickN] = useState({});
+  const qtyOf = x => Math.max(1, Number(x && x.qty) || 1);
+  const buyN = x => Math.max(1, Math.min(qtyOf(x), pickN[x.uid] != null ? pickN[x.uid] : qtyOf(x)));
   const selItems = cartItems.filter(x => sel.includes(x.uid));
-  const selTotal = Math.round(selItems.reduce((s, x) => s + (Number(x.price) || 0), 0) * 100) / 100;
+  const selTotal = Math.round(selItems.reduce((s, x) => s + (Number(x.price) || 0) * buyN(x), 0) * 100) / 100;
+  const selCount = selItems.reduce((s, x) => s + buyN(x), 0);
   // 外卖单归外卖 app 管（v74 拆出去的）；老的 cat:"food" 单没有 kind，照旧留在这儿
   const shipping = (orders || []).filter(o => o.status === "shipping" && o.kind !== "takeout");
   const receiving = (orders || []).filter(o => o.status === "receiving" && o.kind !== "takeout");
@@ -3759,7 +3764,15 @@ function Shop({ payAs, initialNav, wallet, cart, orders, inventory, wish, charac
                 c.word ? h("span", { style: { position: "absolute", left: 0, right: 0, bottom: 4, textAlign: "center", fontFamily: F_BODY, fontSize: "calc(9px * var(--app-fs, 1))", color: "rgba(255,255,255,.92)" } }, c.word) : null),
               h("div", { className: "flex-1 min-w-0", onClick: () => setDetail(Object.assign({}, it, { _fromCart: true })), role: "button" },
                 h("div", { "data-wk": "shopcartname", style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: MSHOP.ink, lineHeight: 1.4, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" } }, it.name),
-                h("div", { "data-wk": "shopcartprice", style: { fontFamily: F_DISPLAY, fontSize: "calc(16px * var(--app-fs, 1))", fontWeight: 700, color: MSHOP.price, marginTop: 4 } }, "¥" + it.price)),
+                h("div", { className: "flex items-center", style: { gap: 8, marginTop: 4 } },
+                  h("div", { "data-wk": "shopcartprice", style: { fontFamily: F_DISPLAY, fontSize: "calc(16px * var(--app-fs, 1))", fontWeight: 700, color: MSHOP.price } }, "¥" + it.price),
+                  qtyOf(it) > 1 ? h("span", { "data-wk": "shopcartqty", style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: MSHOP.sub } }, "×" + qtyOf(it)) : null),
+                on && qtyOf(it) > 1 ? h("div", { "data-wk": "shopcartpick", className: "flex items-center", onClick: e => e.stopPropagation(), style: { gap: 8, marginTop: 6 } },
+                  h("span", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: MSHOP.sub } }, "这次买"),
+                  h("button", { "data-wk": "shopcartpickbtn", "data-part": "minus", onClick: () => setPickN(p => ({ ...p, [it.uid]: Math.max(1, buyN(it) - 1) })), "aria-label": "少买一件", className: "active:opacity-60", style: { width: 28, height: 28, borderRadius: 999, border: "1px solid " + MSHOP.line, color: MSHOP.ink, fontSize: 15 } }, "−"),
+                  h("span", { "data-wk": "shopcartpickn", style: { minWidth: 18, textAlign: "center", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: MSHOP.ink } }, buyN(it)),
+                  h("button", { "data-wk": "shopcartpickbtn", "data-part": "plus", onClick: () => setPickN(p => ({ ...p, [it.uid]: Math.min(qtyOf(it), buyN(it) + 1) })), "aria-label": "多买一件", className: "active:opacity-60", style: { width: 28, height: 28, borderRadius: 999, border: "1px solid " + MSHOP.line, color: MSHOP.ink, fontSize: 15 } }, "+"),
+                  buyN(it) < qtyOf(it) ? h("span", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: MSHOP.dim } }, "剩 " + (qtyOf(it) - buyN(it)) + " 件留在购物车") : null) : null),
               h("button", { "data-wk": "shopcartdel", onClick: () => { onRemoveCart(it.uid); setSel(p => p.filter(x => x !== it.uid)); }, "aria-label": "删除", className: "shrink-0 active:opacity-50 p-1" }, h(ITrash, { size: 16, color: MSHOP.dim })));
           })),
     cartItems.length > 0 && h("div", { "data-wk": "shopcartbar", className: "shrink-0 px-4 py-2.5 flex items-center gap-3", style: { background: MSHOP.card, borderTop: "1px solid " + MSHOP.line } },
@@ -3953,14 +3966,14 @@ function Shop({ payAs, initialNav, wallet, cart, orders, inventory, wish, charac
   let sheetEl = null;
   if (sheet === "actions") {
     sheetEl = h(Sheet, { onClose: () => setSheet(null) },
-      h(Eyebrow, { style: { marginBottom: 12 } }, "结算 " + selItems.length + " 件 · 合计 ¥" + selTotal),
-      payAs ? chip("用" + payAs.name + "的钱买（他还有 ¥" + payAs.balance + "）", () => { setSheet(null); onCheckout(sel, "his", { type: "char", id: payAs.id }); setSel([]); }, true) : null,
+      h(Eyebrow, { style: { marginBottom: 12 } }, "结算 " + selCount + " 件 · 合计 ¥" + selTotal),
+      payAs ? chip("用" + payAs.name + "的钱买（他还有 ¥" + payAs.balance + "）", () => { setSheet(null); onCheckout(sel, "his", { type: "char", id: payAs.id }, { pick: pickN }); setSel([]); }, true) : null,
       (!payAs && Array.isArray(payMasks) && payMasks.length > 1) ? h("div", { "data-wk": "shoppaymask", style: { marginBottom: 10 } },
         h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: MSHOP.dim, marginBottom: 6 } }, "用哪张面具买（只有认这张的人翻你手机看得到这一单）"),
         h("div", { className: "flex flex-wrap", style: { gap: 6 } }, payMasks.map(m => h("button", { key: m.id || "_main", "data-wk": "shoppaymaskitem", "data-on": payMask === m.id ? "1" : "0", onClick: () => setPayMask(m.id),
           className: "active:opacity-70", style: { minHeight: 40, padding: "0 12px", borderRadius: 999, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))",
             background: payMask === m.id ? MSHOP.orange : "transparent", color: payMask === m.id ? "#fff" : MSHOP.dim, border: "1px solid " + (payMask === m.id ? MSHOP.orange : "rgba(0,0,0,.12)") } }, m.label)))) : null,
-      payAs ? null : chip("购买（用我的余额 ¥" + (walletOf ? walletOf(payMask) : wallet) + "）", () => { setSheet(null); onCheckout(sel, "buy", null, { mask: payMask }); setSel([]); }, true),
+      payAs ? null : chip("购买（用我的余额 ¥" + (walletOf ? walletOf(payMask) : wallet) + "）", () => { setSheet(null); onCheckout(sel, "buy", null, { mask: payMask, pick: pickN }); setSel([]); }, true),
       payAs ? null : chip("送礼（付款后送给角色）", () => setSheet("gift")),
       payAs ? null : chip("代付（请角色/群帮我付）", () => setSheet("paylater")),
       !payAs && cards.length > 0 && chip("用亲属卡付（刷角色的钱）", () => setSheet("kinship")));
@@ -3971,7 +3984,7 @@ function Shop({ payAs, initialNav, wallet, cart, orders, inventory, wish, charac
     sheetEl = h(Sheet, { onClose: () => setSheet(null) },
       h(Eyebrow, { style: { marginBottom: 12 } }, "送给谁"),
       h("div", { className: "space-y-1 max-h-80 overflow-y-auto" },
-        (characters || []).map(c => h("button", { "data-wk": "shoppickrow", "data-part": "char", key: c.id, onClick: () => { setSheet(null); onCheckout(sel, "gift", { type: "char", id: c.id }); setSel([]); }, className: "w-full flex items-center gap-3 py-2.5 active:opacity-60" },
+        (characters || []).map(c => h("button", { "data-wk": "shoppickrow", "data-part": "char", key: c.id, onClick: () => { setSheet(null); onCheckout(sel, "gift", { type: "char", id: c.id }, { pick: pickN }); setSel([]); }, className: "w-full flex items-center gap-3 py-2.5 active:opacity-60" },
           h(Avatar, { character: c, size: 38, radius: 9 }),
           h("span", { "data-wk": "shoppickname", style: { fontFamily: F_DISPLAY, fontSize: "calc(16px * var(--app-fs, 1))", color: t.ink } }, c.remark || c.name))),
         (groups || []).map(g => h("button", { "data-wk": "shoppickrow", "data-part": "group", key: g.id, onClick: () => setSheet({ kind: "giftgroup", id: g.id }), className: "w-full flex items-center gap-3 py-2.5 active:opacity-60" },
@@ -3985,7 +3998,7 @@ function Shop({ payAs, initialNav, wallet, cart, orders, inventory, wish, charac
       h("div", { "data-wk": "shopsheethint", style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.6, marginBottom: 10 } },
         "当着大家的面递过去，不走快递。送完你还能接着说话，说完按【回复】大家再一起接。"),
       mem.length
-        ? h("div", { className: "space-y-1 max-h-80 overflow-y-auto" }, mem.map(c => h("button", { "data-wk": "shoppickrow", "data-part": "member", key: c.id, onClick: () => { const gid = sheet.id; setSheet(null); onCheckout(sel, "gift", { type: "group", id: gid, toId: c.id }); setSel([]); }, className: "w-full flex items-center gap-3 py-2.5 active:opacity-60" },
+        ? h("div", { className: "space-y-1 max-h-80 overflow-y-auto" }, mem.map(c => h("button", { "data-wk": "shoppickrow", "data-part": "member", key: c.id, onClick: () => { const gid = sheet.id; setSheet(null); onCheckout(sel, "gift", { type: "group", id: gid, toId: c.id }, { pick: pickN }); setSel([]); }, className: "w-full flex items-center gap-3 py-2.5 active:opacity-60" },
             h(Avatar, { character: c, size: 38, radius: 9 }),
             h("span", { "data-wk": "shoppickname", style: { fontFamily: F_DISPLAY, fontSize: "calc(16px * var(--app-fs, 1))", color: t.ink } }, c.remark || c.name))))
         : h("div", { "data-wk": "shopempty", "data-part": "group", style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.fog, padding: "10px 2px", lineHeight: 1.7 } }, "这个群里还没有成员。"));
@@ -3993,10 +4006,10 @@ function Shop({ payAs, initialNav, wallet, cart, orders, inventory, wish, charac
     sheetEl = h(Sheet, { onClose: () => setSheet(null) },
       h(Eyebrow, { style: { marginBottom: 12 } }, "请谁帮我付"),
       h("div", { className: "space-y-1 max-h-80 overflow-y-auto" },
-        (characters || []).map(c => h("button", { "data-wk": "shoppickrow", "data-part": "char", key: c.id, onClick: () => { setSheet(null); onCheckout(sel, "paylater", { type: "char", id: c.id }); setSel([]); }, className: "w-full flex items-center gap-3 py-2.5 active:opacity-60" },
+        (characters || []).map(c => h("button", { "data-wk": "shoppickrow", "data-part": "char", key: c.id, onClick: () => { setSheet(null); onCheckout(sel, "paylater", { type: "char", id: c.id }, { pick: pickN }); setSel([]); }, className: "w-full flex items-center gap-3 py-2.5 active:opacity-60" },
           h(Avatar, { character: c, size: 38, radius: 9 }),
           h("span", { "data-wk": "shoppickname", style: { fontFamily: F_DISPLAY, fontSize: "calc(16px * var(--app-fs, 1))", color: t.ink } }, c.remark || c.name))),
-        (groups || []).map(g => h("button", { "data-wk": "shoppickrow", "data-part": "group", key: g.id, onClick: () => { setSheet(null); onCheckout(sel, "paylater", { type: "group", id: g.id }); setSel([]); }, className: "w-full flex items-center gap-3 py-2.5 active:opacity-60" },
+        (groups || []).map(g => h("button", { "data-wk": "shoppickrow", "data-part": "group", key: g.id, onClick: () => { setSheet(null); onCheckout(sel, "paylater", { type: "group", id: g.id }, { pick: pickN }); setSel([]); }, className: "w-full flex items-center gap-3 py-2.5 active:opacity-60" },
           h("div", { className: "flex items-center justify-center", style: { width: 38, height: 38, borderRadius: 9, background: t.bg2 } }, h("span", { style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", color: t.fog } }, "群")),
           h("span", { style: { fontFamily: F_DISPLAY, fontSize: "calc(16px * var(--app-fs, 1))", color: t.ink } }, g.name, h("span", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog } }, " · 群聊"))))));
   } else if (sheet === "kinship") {
@@ -4004,7 +4017,7 @@ function Shop({ payAs, initialNav, wallet, cart, orders, inventory, wish, charac
       h(Eyebrow, { style: { marginBottom: 12 } }, "用谁的亲属卡"),
       h("div", { className: "space-y-1 max-h-80 overflow-y-auto" }, cards.map(cd => {
         const c = charById(cd.charId) || {}; const remaining = (cd.limit || 0) - (cd.used || 0);
-        return h("button", { "data-wk": "shoppickrow", "data-part": "kinship", key: cd.charId, onClick: () => { setSheet(null); onCheckout(sel, "kinship", { type: "char", id: cd.charId }); setSel([]); }, className: "w-full flex items-center gap-3 py-2.5 active:opacity-60" },
+        return h("button", { "data-wk": "shoppickrow", "data-part": "kinship", key: cd.charId, onClick: () => { setSheet(null); onCheckout(sel, "kinship", { type: "char", id: cd.charId }, { pick: pickN }); setSel([]); }, className: "w-full flex items-center gap-3 py-2.5 active:opacity-60" },
           h(Avatar, { character: c, size: 38, radius: 9 }),
           h("div", { className: "flex-1 text-left" },
             h("div", { "data-wk": "shoppickname", style: { fontFamily: F_DISPLAY, fontSize: "calc(16px * var(--app-fs, 1))", color: t.ink } }, c.name || "亲属卡"),

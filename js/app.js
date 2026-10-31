@@ -2175,7 +2175,7 @@ function App() {
       setInventory(kept);
     })();
     setWish(loadJSON("x_shopWish", []));
-    setCart(loadJSON("x_shopCart", []));
+    setCart(mergeCart(loadJSON("x_shopCart", [])));
     setOrders(loadJSON("x_shopOrders", []));
     setShopFeed(loadJSON("x_shopFeed", {}));
     setTakeoutFeed(loadJSON("x_takeoutFeed", {}));
@@ -30960,11 +30960,29 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       return n;
     });
   };
+  // 同一件东西加几次就是一行、数量加一（群里 2026-10-31：「点同一份能不能在一件里面加，而不是分成几十件」）
+  //   老存档里分成好几行的，读的时候也并成一行（mergeCart）
+  const cartKey = x => String((x && x.name) || "").trim() + "|" + (Number(x && x.price) || 0);
+  const mergeCart = list => {
+    const out = [], at = new Map();
+    (list || []).forEach(x => { if (!x || !x.name) return; const k = cartKey(x), q = Math.max(1, Number(x.qty) || 1);
+      if (at.has(k)) out[at.get(k)] = { ...out[at.get(k)], qty: (out[at.get(k)].qty || 1) + q };
+      else { at.set(k, out.length); out.push({ ...x, qty: q }); } });
+    return out;
+  };
   const addToCart = product => setCart(p => {
-    const n = [...p, { uid: "c_" + Date.now() + "_" + Math.floor(Math.random() * 10000), name: product.name, price: product.price, cat: product.cat, desc: product.desc }];
+    const n = mergeCart([...p, { uid: "c_" + Date.now() + "_" + Math.floor(Math.random() * 10000), name: product.name, price: product.price, cat: product.cat, desc: product.desc, qty: 1 }]);
     saveJSON("x_shopCart", n);
     return n;
   });
+  // 结算时一行只买其中几件，剩下的留在购物车
+  const takeFromCart = (uids, pick) => setCart(p => {
+    const set = new Set(uids);
+    const n = p.map(x => { if (!set.has(x.uid)) return x; const left = (x.qty || 1) - cartPickN(x, pick); return left > 0 ? { ...x, qty: left } : null; }).filter(Boolean);
+    saveJSON("x_shopCart", n);
+    return n;
+  });
+  const cartPickN = (x, pick) => { const q = Math.max(1, Number(x && x.qty) || 1), v = pick && pick[x.uid] != null ? Number(pick[x.uid]) : q; return Math.max(1, Math.min(q, Math.round(v) || q)); };
   const removeCartUids = uids => setCart(p => {
     const set = new Set(uids);
     const n = p.filter(x => !set.has(x.uid));
@@ -31444,19 +31462,21 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   const checkout = (uids, mode, target, opts) => {
     const payMask = opts && opts.mask != null ? String(opts.mask || "") : "";
     const set = new Set(uids);
-    const items = cart.filter(x => set.has(x.uid));
+    const pick = opts && opts.pick;
+    // 一行买几件：拼成一件「×N」，价钱乘上去（订单里也是一行）
+    const items = cart.filter(x => set.has(x.uid)).map(x => { const k = cartPickN(x, pick); return k > 1 ? { ...x, name: x.name + " ×" + k, price: Math.round((Number(x.price) || 0) * k * 100) / 100, qty: k } : { ...x, qty: 1 }; });
     if (!items.length) { toast("请先选择商品"); return; }
     const total = Math.round(items.reduce((s, x) => s + (Number(x.price) || 0), 0) * 100) / 100;
     if (mode === "buy") {
       if (balanceOf(payMask) < total) { toast("余额不足"); return; }
       changeWallet(-total, "购物 " + items.map(x => x.name).join("、").slice(0, 18), "shop", { where: "购物", mask: payMask });
       items.forEach(it => addOrder({ name: it.name, price: it.price, cat: it.cat, kind: it.kind, takeout: it.takeout, ...(it.arriveTs ? { arriveTs: it.arriveTs } : {}), mask: payMask }));
-      removeCartUids(uids);
+      takeFromCart(uids, pick);
       toast("下单成功 · " + items.length + " 件，等待发货");
     } else if (mode === "kinship") {
       if (!target || target.type !== "char") { toast("请选择亲属卡"); return; }
       payWithKinship(target.id, items, total);
-      removeCartUids(uids);
+      takeFromCart(uids, pick);
     } else if (mode === "gift") {
       // 群里送：target.id 是群，target.toId 才是收礼的那个人（她 2026-09-10）。
       // 收礼人是谁这件事只算一次，下面扣钱、发卡、要反应全用同一个 toId。
@@ -31471,18 +31491,18 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       //   接着说自己的话，这时候替她开一次群聊，就是把她的下半句堵在门外、还多花一次钱。
       //   群里那张卡本身就是证据——groupHistLine 那一支已经把「当着全群送给了谁」说清了，
       //   她按回复时大家自然接得上，不需要专门再调一次模型。
-      removeCartUids(uids);
+      takeFromCart(uids, pick);
     } else if (mode === "paylater") {
       if (!target) { toast("请选择代付对象"); return; }
       requestPayLater(items, total, target);
-      removeCartUids(uids);
+      takeFromCart(uids, pick);
     } else if (mode === "his") {
       // 拿他手机买（asPhone）：花他的钱，每件都像他寄给她的礼物，回聊天里拆
       const cid = target && target.id;
       if (!cid) return;
       if (total > asPhoneBal(cid)) { toast(characterText(characters.find(c => c.id === cid), "他钱包里不够，只剩 ¥" + Math.round(asPhoneBal(cid) * 100) / 100)); return; }
       items.forEach(it => postCharGift(cid, it.name, it.price, "", { byUser: true }));
-      removeCartUids(uids);
+      takeFromCart(uids, pick);
       toast(characterText(characters.find(c => c.id === cid), "用他的钱下单了，回聊天里拆"));
     }
   };
