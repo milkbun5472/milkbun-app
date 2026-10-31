@@ -14,8 +14,10 @@ test("房管能解禁：被禁的那人弹幕右边「解禁」", () => {
 test("主播那句能再听", () => {
   assert.match(src, /isHost && replayC && l\.text \? h\("button", \{ "data-wk": "livereplay"/);
 });
-test("主播不自己下播：形状里没有 end，也不认 d.end", () => {
-  assert.doesNotMatch(src, /"end":false/);
-  assert.doesNotMatch(src, /d\.end === true/);
-  assert.doesNotMatch(src, /你要不要下播 end/);
+test("主播自己下播是开关：默认会，关了形状里没有 end、也不认 d.end", () => {
+  assert.match(src, /\(!first && !ses\.noSelfEnd \? ',"end":false' : ""\)/);
+  assert.match(src, /endTs: \(!first && d\.end === true && !ses\.noSelfEnd\) \? Date\.now\(\) : s\.endTs/);
+  assert.match(src, /if \(!first && d\.end === true && !ses\.noSelfEnd\) wrapUp\(id\);/);
+  assert.match(src, /"data-wk": "liveselfend"/);
+  assert.match(src, /noSelfEnd: !!\(props\.liveCfg \|\| \{\}\)\.noSelfEnd,/);
 });
