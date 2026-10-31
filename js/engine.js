@@ -5290,13 +5290,14 @@ function saveSttApi(c) { const clean = Object.assign(loadSttApi(), c || {}); try
 function sttApiReady(a) { a = a || loadSttApi(); return !!(a.base && a.key); }
 // 通话的备用耳朵有没有：公共识别接口或书房耳朵，有一个就行
 function backupEarReady() { return sttApiReady() || voiceEarsReady(); }
-async function sttTranscribe(wavBlob) {
+async function sttTranscribe(wavBlob, opts) {
   const a = loadSttApi();
   if (!sttApiReady(a)) throw new Error("没配置语音识别（设置 · API）");
   const fd = new FormData();
-  fd.append("file", wavBlob, "speech.wav");
+  fd.append("file", wavBlob, (opts && opts.name) || "speech.wav");
   fd.append("model", a.model);
-  fd.append("language", "zh");
+  // 聊天里发来的音频文件不定是中文（歌、外语录音）：不指定语言，让它自己听
+  if (!(opts && opts.anyLang)) fd.append("language", "zh");
   fd.append("response_format", "json");
   const r = await fetchT(a.base + "/audio/transcriptions", { method: "POST", body: fd, headers: { Authorization: "Bearer " + a.key } }, 60000);
   let d = {}; try { d = await r.json(); } catch (e) {}

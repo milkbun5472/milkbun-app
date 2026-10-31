@@ -66,3 +66,8 @@ test("选到视频：单聊、群聊都截画面拼成一张当照片发", () =>
   assert.match(c, /opts\.onVideo\(f\); return;/);
   assert.equal((c.match(/onVideo: f => sendVideoAsPhoto\(f, sendRich, "(private|group)-chat"\)/g) || []).length, 2);
 });
+test("选到音频：有语音识别就听写成字当文件发，没有就说清楚", () => {
+  const c = require("node:fs").readFileSync(require.resolve("../js/components.js"), "utf8");
+  assert.match(c, /sttTranscribe\(f, \{ name: f\.name, anyLang: true \}\)/);
+  assert.match(c, /去 设置 → API 填「语音识别」/);
+});

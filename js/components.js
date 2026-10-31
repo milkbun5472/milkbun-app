@@ -923,6 +923,22 @@ function pickTextFile(onMsg, opts) {
       if (opts && typeof opts.onVideo === "function") { opts.onVideo(f); return; }
       typeof toast === "function" && toast("这里发不了视频。想让 TA 看某个画面，截图用「照片」发", 6000); return;
     }
+    // 音频（群友 2026-10-31：「音频呢」）：模型听不见，用设置里的语音识别听写成字，当一份文件发；
+    //   没配识别就说清楚。视频本身不存，音频也一样不存。
+    if (/^audio\//.test(f.type || "") || /\.(mp3|m4a|wav|aac|ogg|oga|opus|flac|amr|wma)$/i.test(f.name)) {
+      if (typeof sttApiReady !== "function" || !sttApiReady()) { typeof toast === "function" && toast("TA 听不见音频，要先把它听写成字：去 设置 → API 填「语音识别」，填好再发", 7000); return; }
+      if (f.size > 25 * 1024 * 1024) { typeof toast === "function" && toast("音频太大了（听写一次最多 25MB），剪短一点再发", 6000); return; }
+      typeof toast === "function" && toast("正在听「" + f.name + "」…", 8000);
+      try {
+        const r = await sttTranscribe(f, { name: f.name, anyLang: true });
+        const said = String((r && r.text) || "").trim();
+        if (!said) { typeof toast === "function" && toast("这段音频里没听出说话的内容"); return; }
+        const body = "（这是一段音频，下面是听写出来的内容，听不到语气和声音）\n" + (said.length > MAX ? said.slice(0, MAX) : said);
+        onMsg({ kind: "file", name: f.name, size: f.size, chars: said.length, cut: said.length > MAX, max: MAX, text: body, audio: true,
+          content: "[音频] " + f.name + "（听写 " + said.length + " 字）\n" + body });
+      } catch (e) { typeof toast === "function" && toast((e && e.message) || "这段音频没听出来", 6000); }
+      return;
+    }
     if (/\.doc$/i.test(f.name)) { typeof toast === "function" && toast("老的 .doc 读不了，在 Word 里另存为 .docx 再发"); return; }
     if (f.size > (isPdf || isDocx ? 20 : 5) * 1024 * 1024) { typeof toast === "function" && toast("文件太大了，挑一份小一点的"); return; }
     try {
