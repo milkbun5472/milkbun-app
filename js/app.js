@@ -20,7 +20,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v77.008";
+const APP_VERSION = "v77.009";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -22479,10 +22479,11 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     if (!patch.quiet) toast(nm !== oldName ? "改好了：「" + oldName + "」→「" + nm + "」" : "改好了");
     return nm;
   };
-  const genWorldNodes = async (wid, regionName, hint, done) => {
+  const genWorldNodes = async (wid, regionName, hint, done, forId) => {
     if (!active) { toast("请先到设置配置 API"); return; }
     const w = (worlds || []).find(x => x.id === wid);
     if (!w) return;
+    const forChar = forId ? (characters || []).find(c => c && c.id === forId) : null;
     setWorldBusy(true);
     try {
       const have = (w.regions || []).map(r => r.name + "(" + r.terrain + ")：" + (r.nodes || []).map(n => n.name + "〔" + n.kind + (n.hook ? "·" + n.hook : "") + "〕").join(" / ")).join("\n");
@@ -22490,6 +22491,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         + "【这个世界】" + (w.brief || "") + "\n【TA当初写的设定】" + String(w.prompt || "").slice(0, 1200) + "\n"
         + "【已经有的地方和地点】\n" + have + "\n"
         + "【这次要添的】往「" + regionName + "」里添 2-4 个新地点。" + (hint ? "TA还说：" + hint + "\n" : "\n")
+        + (forChar ? "【这几个是替「" + forChar.name + "」添的，他自己的地方】照他的人设来：他住在哪、平常在哪做事、常去的一两处，都得是他这个身份的人在这个世界里会有的地方。"
+          + "其中正好一个是他住的地方，那一条加 \"home\":true。\n【" + forChar.name + "的人设】" + String(forChar.persona || forChar.desc || "").slice(0, 900) + "\n" : "")
         + "新地点要跟这块地方已经有的那几个【不重样、不同类】：已经有集市就别再来一个集市。"
         + "名字要一眼看得出是这个世界的地方，换到别的世界还照样成立的名字就是没写好。\n"
         + "每个地点的 hook 写【这儿眼下正有什么事】：一句，具体到有人到了那儿当场就能做点什么。\n"
@@ -22504,8 +22507,12 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         .map(x => ({ name: String((x && x.name) || "").trim().slice(0, 10), kind: ["城镇", "遗迹", "野外", "地标"].indexOf(x && x.kind) >= 0 ? x.kind : "野外", hook: String((x && x.hook) || "").trim().slice(0, 60) }))
         .filter(x => x.name && !seen[x.name] && (seen[x.name] = 1)).slice(0, Math.min(4, room));
       if (!fresh.length) throw new Error("一个新地点都没添出来");
-      saveWorlds((worlds || []).map(x => x.id !== wid ? x : { ...x, regions: (x.regions || []).map(r => r.name !== regionName ? r : { ...r, nodes: [...(r.nodes || []), ...fresh] }) }));
-      toast("「" + regionName + "」多了 " + fresh.length + " 个地点：" + fresh.map(x => x.name).join("、"));
+      // 替谁添的：钉在他住的那一处（模型没标就钉第一个）；已经钉在这个世界别处的照样挪过去——这一下就是她要给他安家
+      const homeNm = forChar ? ((((d && d.nodes) || []).find(x => x && x.home && fresh.some(f => f.name === String(x.name || "").trim().slice(0, 10))) || {}).name || fresh[0].name) : "";
+      const home = homeNm ? String(homeNm).trim().slice(0, 10) : "";
+      saveWorlds((worldsRef.current || worlds || []).map(x => x.id !== wid ? ((forChar && home && (x.pins || {})[forChar.id]) ? { ...x, pins: Object.fromEntries(Object.entries(x.pins).filter(([k]) => k !== forChar.id)) } : x) : { ...x, regions: (x.regions || []).map(r => r.name !== regionName ? r : { ...r, nodes: [...(r.nodes || []), ...fresh] }),
+        ...(forChar && home ? { pins: { ...(x.pins || {}), [forChar.id]: home } } : {}) }));
+      toast("「" + regionName + "」多了 " + fresh.length + " 个地点：" + fresh.map(x => x.name).join("、") + (forChar && home ? "；" + forChar.name + "住进了「" + home + "」" : ""));
       if (done) done();
     } catch (e) { toast("失败：" + e.message); } finally { setWorldBusy(false); }
   };

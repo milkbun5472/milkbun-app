@@ -679,8 +679,8 @@ function mapSubSkin(t) {
             return acc;
           }, [])))) : null;
     return h("div", { className: "flex-1 flex flex-col", style: { minHeight: 0 }, "data-wk": "mapworldmap", "data-part": "r7" }, nodePage,
-      adding ? h(NodeAdd, { world: world, busy: busy, onBack: function () { setAdding(false); },
-        onAdd: function (r, nd) { return onAdd(r, nd); }, onGen: function (r, hint) { onGen(r, hint); } }) : null,
+      adding ? h(NodeAdd, { world: world, characters: characters, busy: busy, onBack: function () { setAdding(false); },
+        onAdd: function (r, nd) { return onAdd(r, nd); }, onGen: function (r, hint, fid) { onGen(r, hint, fid); } }) : null,
       h("div", { style: { display: "flex", alignItems: "center", gap: 8, padding: "8px 14px 4px" } },
         onBack ? h("button", { onClick: onBack, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.sub }, "data-wk": "mapworldmapbtn", "data-part": "back" }, "‹ 全部世界") : null,
         h("div", { className: "min-w-0 flex-1", style: { fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))", color: t.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, world.name),
@@ -756,7 +756,7 @@ function mapSubSkin(t) {
 
   // 往已有的世界里加地点（她 2026-08-31 要的）。整页，不是半窗。
   // 手写那条一次调用都不花；「让模型添几个」才走一次。
-  function NodeAdd({ world, busy, onAdd, onGen, onBack }) {
+  function NodeAdd({ world, characters, busy, onAdd, onGen, onBack }) {
     const t = useTheme();
     const regions = (world.regions || []);
     const [reg, setReg] = useState(regions[0] ? regions[0].name : "");
@@ -769,6 +769,9 @@ function mapSubSkin(t) {
     const [kind, setKind] = useState("野外");
     const [hook, setHook] = useState("");
     const [hint, setHint] = useState("");
+    // 替谁添（她 2026-10-31）：挑一个人，模型照他的人设添他自己的地方，添完把他钉在住处
+    const [forId, setForId] = useState("");
+    const people = (characters || []).filter(function (c) { return c && !c.npc; });
     const inp = { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.ink, background: t.bg2, border: "1px solid " + t.line, borderRadius: 12, padding: "11px 13px", width: "100%", outline: "none" };
     const lbl = { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, margin: "18px 2px 7px" };
     const chip = function (on) { return { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: on ? "#fff" : t.ink, background: on ? t.tint : "transparent", border: "1px solid " + (on ? t.tint : t.line), borderRadius: 999, padding: "6px 14px" }; };
@@ -817,9 +820,12 @@ function mapSubSkin(t) {
           style: { marginTop: 12, fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: "#fff", background: t.ink, borderRadius: 14, padding: "13px 0", opacity: (!nm.trim() || (reg === NEW && !rName.trim())) ? 0.5 : 1 }, "data-wk": "mapnodeaddbtn", "data-part": "2" }, (reg === NEW && !rName.trim()) ? "先在上面给新的这块起个名字" : "加进「" + (reg === NEW ? rName.trim() : reg) + "」（不花调用）"),
         h("div", { style: lbl }, "或者让模型添几个"),
         h("input", { "data-wk": "input", value: hint, onChange: function (e) { setHint(e.target.value); }, placeholder: "想要什么样的？（可空）", style: inp, "data-wk": "mapnodeaddinput", "data-part": "想要什么样的？（可空）" }),
-        h("button", { onClick: function () { onGen(reg, hint.trim()); }, disabled: busy || reg === NEW, className: "w-full active:opacity-80",
+        people.length ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, margin: "10px 2px 6px" } }, "替谁添（可不挑）：挑了就照他的人设添他自己的地方——住处、做事的地方、常去的一两处，添完把他钉在住处") : null,
+        people.length ? h("div", { style: { display: "flex", flexWrap: "wrap", gap: 7 }, "data-wk": "mapnodeaddfor" },
+          people.map(function (c) { return h("button", { key: c.id, onClick: function () { setForId(forId === c.id ? "" : c.id); }, className: "active:opacity-70", style: chip(forId === c.id), "data-wk": "mapnodeadd", "data-part": "for" }, c.remark || c.name); })) : null,
+        h("button", { onClick: function () { onGen(reg, hint.trim(), forId || ""); }, disabled: busy || reg === NEW, className: "w-full active:opacity-80",
           style: { marginTop: 10, fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", color: t.tint, border: "1px dashed " + t.line, borderRadius: 14, padding: "12px 0", opacity: busy ? 0.5 : 1 }, "data-wk": "mapnodeaddbtn", "data-part": "3" },
-          busy ? "添着…" : (reg === NEW ? "新开的这块先自己写第一个地点" : "让模型往「" + reg + "」添 2-4 个（一次调用）")),
+          busy ? "添着…" : (reg === NEW ? "新开的这块先自己写第一个地点" : forId ? "往「" + reg + "」添" + ((people.find(function (c) { return c.id === forId; }) || {}).name || "他") + "的地方（一次调用）" : "让模型往「" + reg + "」添 2-4 个（一次调用）")),
         h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.8, marginTop: 16 } },
           "加完之后，同一块地方里其它地点的位置会挪一挪——地图是按骨架现算的，不存坐标。区域的形状和它们之间的路不会变，人也还站在原来那个地点上。")));
   }
@@ -891,7 +897,7 @@ function mapSubSkin(t) {
       onPin: function (charId, node) { o.onPin && o.onPin(world.id, charId, node); },
       onRoute: function (charId) { o.onRoute && o.onRoute(world.id, charId); },
       onAdd: function (r, nd) { return o.onAddNode ? o.onAddNode(world.id, r, nd) : false; },
-      onGen: function (r, hint) { o.onGenNodes && o.onGenNodes(world.id, r, hint); },
+      onGen: function (r, hint, fid) { o.onGenNodes && o.onGenNodes(world.id, r, hint, null, fid); },
       onDelNode: o.onDelNode ? function (nm) { return o.onDelNode(world.id, nm); } : null,
       onEditNode: o.onEditNode ? function (nm, p) { return o.onEditNode(world.id, nm, p); } : null,
       onEditRegion: o.onEditRegion ? function (nm, p) { return o.onEditRegion(world.id, nm, p); } : null,
@@ -920,7 +926,7 @@ function mapSubSkin(t) {
         onPin: function (charId, node) { onPin(cur.id, charId, node); },
         onRoute: function (charId) { onRoute(cur.id, charId); },
         onAdd: function (r, nd) { return onAddNode(cur.id, r, nd); },
-        onGen: function (r, hint) { onGenNodes(cur.id, r, hint); },
+        onGen: function (r, hint, fid) { onGenNodes(cur.id, r, hint, null, fid); },
         onDelNode: onDelNode ? function (nm) { return onDelNode(cur.id, nm); } : null,
         onEditNode: onEditNode ? function (nm, p) { return onEditNode(cur.id, nm, p); } : null,
         onEditRegion: onEditRegion ? function (nm, p) { return onEditRegion(cur.id, nm, p); } : null,
