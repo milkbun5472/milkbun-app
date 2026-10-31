@@ -11184,6 +11184,10 @@ function ChatThread({
   const [narrKind, setNarrKind] = useState("event");
   const [dirLong, setDirLong] = useState(false);
   const dirMode = chatMode === "narr" && narrKind === "dir" && !!onAddDirNote;
+  // 她这句里（）算不算真做了的动作（群友 2026-10-31）：输入框里有括号才冒那颗开关；按人记住上回选的
+  const [parenAct, setParenAct] = useState(() => { try { return !!(loadJSON("x_parenAct", {}) || {})[character && character.id]; } catch (e) { return false; } });
+  const setParenActP = v => { setParenAct(v); try { const all = loadJSON("x_parenAct", {}) || {}; saveJSON("x_parenAct", Object.assign({}, all, { [character && character.id]: !!v })); } catch (e) {} };
+  const actOf = v => parenAct && PAREN_ACT_RE.test(String(v || ""));
   const [quoted, setQuoted] = useState(null); // { id, text, senderId, senderName }；旧字符串仍兼容
   const [unblockDraft, setUnblockDraft] = useState(null); // 点感叹号后的「求解除」草稿框：null=没开
   const [menu, setMenu] = useState(null);
@@ -11496,7 +11500,8 @@ function ChatThread({
       ...(narrKind === "act" ? { who: "me" } : {}),
       read: true
     });else if (chatMode === "ooc") onOOC && onOOC(v);
-    else if (quoted) { sendRich({ role: "user", content: v, replyTo: quoted, read: true }); setQuoted(null); }
+    else if (quoted) { sendRich({ role: "user", content: v, replyTo: quoted, read: true, ...(actOf(v) ? { parenAct: true } : {}) }); setQuoted(null); }
+    else if (actOf(v)) sendRich({ role: "user", content: v, parenAct: true, read: true });
     else onSend(v);
   };
   // 让 TA 回复：对话/旁白模式都触发一次生成；旁白模式先把输入当旁白注入
@@ -11517,7 +11522,8 @@ function ChatThread({
         read: true
       });
       onReply("");
-    } else onReply(pending);
+    } else if (pending && actOf(pending) && chatMode === "chat") { sendRich({ role: "user", content: pending, parenAct: true, read: true }); onReply(""); }
+    else onReply(pending);
   };
   // ── 停手几秒自己回（群里唯心主弈 2026-10-06：「收起键盘多少秒后开始回复，点叶子感觉在逼他回复」）──
   //   判据只有三样，都是此刻看得见的：最后一条是她发的、还没回过；键盘收着（输入框没聚焦）；输入框是空的。
@@ -12268,7 +12274,7 @@ function ChatThread({
         fontSize: "calc(10.5px * var(--app-fs, 1))",
         opacity: 0.7
       }
-    }, m.dir === "toChar" ? "转账" : "转账给你"))) : h(TransText, { text: m.content, isU: isU, zhReady: m.zh })), msgFoot(i, m, !selMode && !m.kind && last && subLine(m))),
+    }, m.dir === "toChar" ? "转账" : "转账给你"))) : (isU && m.parenAct ? h(ParenActText, { text: m.content }) : h(TransText, { text: m.content, isU: isU, zhReady: m.zh }))), msgFoot(i, m, !selMode && !m.kind && last && subLine(m))),
     // 她自己那颗也包一层挂点壳：头像框/挂件要叠在壳上（头像本身裁成圆角，叠在里面会被裁掉）——跟 TA 那颗外面的按钮同一个位置
     isU && dsp.myAvatar && h("span", { "data-wk": "avatar", className: "shrink-0", style: { display: "inline-flex" } }, h(Avatar, { character: meAv, size: 40, radius: 10 })), m.blocked && h(isU && bk.theyBlocked ? "button" : "div", {
       onClick: (isU && bk.theyBlocked) ? () => setUnblockDraft(String(m.content || "")) : undefined,
@@ -12436,7 +12442,10 @@ function ChatThread({
       minWidth: 0
     },
     onSubmit: send,
-    after: (draft, fire, clear) => h(React.Fragment, null, /*#__PURE__*/React.createElement("button", {
+    after: (draft, fire, clear) => h(React.Fragment, null, chatMode === "chat" && PAREN_ACT_RE.test(String(draft || "")) ? h("button", { "data-wk": "parenacttoggle", "data-on": parenAct ? "1" : "0",
+      onClick: () => setParenActP(!parenAct), className: "active:opacity-70 shrink-0", title: "括号里的是动作还是打出来的字",
+      style: { minHeight: 40, padding: "0 8px", fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", fontStyle: parenAct ? "italic" : "normal", color: parenAct ? t.accent : t.fog, background: "transparent", border: "none" } },
+      parenAct ? "（动作）" : "（打的字）") : null, /*#__PURE__*/React.createElement("button", {
       onClick: fire,
       // 按下去不抢输入框的焦点：键盘留着，能连着发好几条（群里 2026-10-22）
       onMouseDown: e => e.preventDefault(),
@@ -14526,6 +14535,13 @@ const TransWhoCtx = typeof React !== "undefined" && React.createContext ? React.
 function TransWho({ id, children }) { return TransWhoCtx ? h(TransWhoCtx.Provider, { value: id || null }, children) : children; }
 function transWhoAuto(isU) { const w = !isU && TransWhoCtx ? React.useContext(TransWhoCtx) : null; return !!w && typeof window !== "undefined" && typeof window.__charBilingual === "function" && !!window.__charBilingual(w); }
 if (typeof window !== "undefined") { window.TransWho = TransWho; window.TransWhoCtx = TransWhoCtx; }
+// 她气泡里（）那几段当「真做了的动作」时（群友 2026-10-31：「括号里的字跟括号一起，可以选斜着或者不斜着，斜着就是真的做了」）：
+//   斜体、淡一点；不斜的就是她线上打出来的括号，照原样。
+const PAREN_ACT_RE = /([（(][^（）()]+[）)])/;
+function ParenActText({ text }) {
+  return h("span", { "data-wk": "parenact" }, String(text || "").split(PAREN_ACT_RE).map((seg, k) => PAREN_ACT_RE.test(seg) && /^[（(]/.test(seg)
+    ? h("span", { key: k, "data-wk": "parenactseg", style: { fontStyle: "italic", opacity: 0.78 } }, seg) : seg));
+}
 function TransText({ text, isU, zhReady, ink, inline, long, size, noModel, langHint }) {
   const [autoShow] = useOnlineTranslationAuto();
   // <#0.4#> 这种停顿记号是念给语音听的，屏幕上一律不摆（群里 2026-10-10 截图：通话里漏了一串）。
