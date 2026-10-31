@@ -12520,7 +12520,7 @@ function ChatThread({
           x.title && x.title !== x.text ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog, marginBottom: 3 } }, x.title) : null,
           h("div", { style: { fontFamily: F_BODY, fontSize: "calc(14.5px * var(--app-fs, 1))", color: t.ink, lineHeight: 1.65, whiteSpace: "pre-wrap", wordBreak: "break-word" } }, x.text)),
         h("button", { "aria-label": "从这一叠拿掉", "data-wk": "topiccarddel", onClick: () => setTopicsOpen(topicCardsPut(character.id, l => l.filter(y => y.id !== x.id))),
-          className: "shrink-0 active:opacity-60 flex items-center justify-center", style: { width: 40, height: 40, color: t.fog, fontSize: 18 } }, "×")))
+          className: "shrink-0 active:opacity-60 flex items-center justify-center", style: { width: 40, height: 40, color: t.fog, fontSize: "calc(18px * var(--app-fs, 1))" } }, "×")))
         : h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.fog, padding: "24px 0" } }, "这一叠空了。去小窝「梗与话题」挑几张放进来。"))),
     geoOpen && h(GeoStampSheet, {
     recent: geoRecent,

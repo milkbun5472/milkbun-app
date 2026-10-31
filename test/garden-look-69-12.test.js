@@ -27,7 +27,8 @@ test('谁的样貌存在谁名下，而且真的落盘', () => {
   assert.match(fn, /who==='companion'\?companionAvatar:playerAvatar/);
   assert.match(fn, /data=\{\.\.\.data,companion:\{\.\.\.data\.companion,look:/);
   assert.match(fn, /else data=\{\.\.\.data,look:/);
-  assert.match(fn, /return save\(\)/, '改完没存＝下次进来白改');
+// 2026-10-31 v88.80x：换样貌收进 wardrobe.mjs（createWardrobe／mergeLook 一份），applyLook 改成就地 mergeLook 再 save，存不上就退回
+  assert.match(fn, /if\(!save\(\)\)\{data=before;return false;\}/, '改完没存＝下次进来白改');
   // 进门时把存着的那份穿上
   assert.match(game, /if\(data\.look\)playerAvatar\.setLook\(data\.look\)/);
   assert.match(game, /data\.companion&&data\.companion\.look\)companionAvatar\.setLook/);

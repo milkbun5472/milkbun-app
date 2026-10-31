@@ -38,7 +38,9 @@ test('现场互动与样貌仍沿原小人机制，物理动作不另开模型�
   assert.match(page, /GardenDressControls/); assert.match(page, /saveHomeChange\("me","looks"/);
   assert.match(page, /cdayinteraction/); assert.match(page, /cdayprofessional/);
   assert.match(page, /safe-area-inset-bottom\) \* 0\.4/);
-  assert.match(game, /else data=\{\.\.\.data,look:merge\(data\.look\)\}/);
-  assert.match(host, /worldOf\(loadJSON\(key,null\)\|\|\{\},"garden"\)\?\.look/);
+// 2026-10-31 v88.80x：换样貌收进 wardrobe.mjs（createWardrobe／mergeLook 一份），applyLook 改成就地 mergeLook 再 save，存不上就退回
+  assert.match(game, /else data=\{\.\.\.data,look:mergeLook\(data\.look\|\|\{\},look\)\}/);
+  // 2026-10-31：读存档样貌先看旅程那份，再退回庭院那份
+  assert.match(host, /saved\.journey\?\.look\|\|worldOf\(saved,"garden"\)\?\.look/);
   assert.match(page, /visibility:mePanel\|\|kitchenTool\?"hidden":"visible"/);
 });
