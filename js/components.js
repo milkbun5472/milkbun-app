@@ -18774,6 +18774,27 @@ function CotReveal({ cot, requested }) {
 // v60.35 抽出来：通话页的画面、通话记录卡上的缩略图都要用，
 // 别让这段 blob→URL→revoke 的舞步在三个地方各抄一遍。
 // 商品、菜那张图（她 2026-10-31）：按图库键画出来，没有就不占地方。购物详情、外卖菜单、聊天里的礼物/外卖/拿给TA看的卡共用
+// 挑人名单：主要角色一个个列着，配角收在他挂着的那个人底下（她 2026-10-31「挂在哪个角色的 dropdown 下面，平时收起来」）。
+//   不挂在谁身边、或者挂在她自己身边的配角，收在最底下「其他配角」。row(c) 画一行，跟原来各处自己画的那一行一样
+//   购物送礼、代付、转赠，外卖给TA点、代付共用这一份
+function PeopleTree({ people, row }) {
+  const t = useTheme();
+  const [open, setOpen] = useState({});
+  const all = (people || []).filter(Boolean);
+  const mains = all.filter(c => !c.npc), npcs = all.filter(c => c.npc);
+  const under = id => npcs.filter(c => String(c.ownerId || "") === String(id));
+  const loose = npcs.filter(c => !mains.some(m => String(m.id) === String(c.ownerId || "")));
+  const toggle = k => setOpen(p => ({ ...p, [k]: !p[k] }));
+  const fold = (k, label, list) => h(React.Fragment, { key: "f_" + k },
+    h("button", { "data-wk": "peoplefold", "data-on": open[k] ? "1" : "0", onClick: () => toggle(k), className: "w-full flex items-center justify-end active:opacity-60",
+      style: { minHeight: 32, gap: 6, paddingRight: 4, fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog } },
+      label + " · " + list.length + " 个配角",
+      h("span", { style: { display: "inline-block", transition: "transform .2s", transform: open[k] ? "rotate(90deg)" : "none" } }, "›")),
+    open[k] ? h("div", { "data-wk": "peoplenpcs", style: { paddingLeft: 18, borderLeft: "2px solid " + t.line, marginLeft: 18 } }, list.map(row)) : null);
+  return h(React.Fragment, null,
+    mains.map(m => { const u = under(m.id); return h(React.Fragment, { key: m.id }, row(m), u.length ? fold(m.id, (m.remark || m.name) + " 身边", u) : null); }),
+    loose.length ? fold("_loose", "其他", loose) : null);
+}
 function GoodsPic({ imgKey, style, onClick }) {
   const url = useIdbImgUrl(imgKey || null);
   return url ? h("img", { "data-wk": "goodspic", src: url, alt: "", onClick, style: Object.assign({ display: "block", objectFit: "cover" }, style || {}) }) : null;

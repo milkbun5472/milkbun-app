@@ -4040,9 +4040,9 @@ function Shop({ goodsImgOf, onDrawGoods, drawingGoods, onSetCartQty, payAs, init
     sheetEl = h(Sheet, { onClose: () => setSheet(null) },
       h(Eyebrow, { style: { marginBottom: 12 } }, "送给谁"),
       h("div", { className: "space-y-1 max-h-80 overflow-y-auto" },
-        (characters || []).map(c => h("button", { "data-wk": "shoppickrow", "data-part": "char", key: c.id, onClick: () => { setSheet(null); onCheckout(sel, "gift", { type: "char", id: c.id }, { pick: pickN }); setSel([]); }, className: "w-full flex items-center gap-3 py-2.5 active:opacity-60" },
+        h(PeopleTree, { people: characters, row: c => h("button", { "data-wk": "shoppickrow", "data-part": "char", key: c.id, onClick: () => { setSheet(null); onCheckout(sel, "gift", { type: "char", id: c.id }, { pick: pickN }); setSel([]); }, className: "w-full flex items-center gap-3 py-2.5 active:opacity-60" },
           h(Avatar, { character: c, size: 38, radius: 9 }),
-          h("span", { "data-wk": "shoppickname", style: { fontFamily: F_DISPLAY, fontSize: "calc(16px * var(--app-fs, 1))", color: t.ink } }, c.remark || c.name))),
+          h("span", { "data-wk": "shoppickname", style: { fontFamily: F_DISPLAY, fontSize: "calc(16px * var(--app-fs, 1))", color: t.ink } }, c.remark || c.name)) }),
         (groups || []).map(g => h("button", { "data-wk": "shoppickrow", "data-part": "group", key: g.id, onClick: () => setSheet({ kind: "giftgroup", id: g.id }), className: "w-full flex items-center gap-3 py-2.5 active:opacity-60" },
           h("div", { className: "flex items-center justify-center", style: { width: 38, height: 38, borderRadius: 9, background: t.bg2 } }, h("span", { style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", color: t.fog } }, "群")),
           h("span", { style: { fontFamily: F_DISPLAY, fontSize: "calc(16px * var(--app-fs, 1))", color: t.ink } }, g.name, h("span", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog } }, " · 当着群里的面送"))))));
@@ -4062,9 +4062,9 @@ function Shop({ goodsImgOf, onDrawGoods, drawingGoods, onSetCartQty, payAs, init
     sheetEl = h(Sheet, { onClose: () => setSheet(null) },
       h(Eyebrow, { style: { marginBottom: 12 } }, "请谁帮我付"),
       h("div", { className: "space-y-1 max-h-80 overflow-y-auto" },
-        (characters || []).map(c => h("button", { "data-wk": "shoppickrow", "data-part": "char", key: c.id, onClick: () => { setSheet(null); onCheckout(sel, "paylater", { type: "char", id: c.id }, { pick: pickN }); setSel([]); }, className: "w-full flex items-center gap-3 py-2.5 active:opacity-60" },
+        h(PeopleTree, { people: characters, row: c => h("button", { "data-wk": "shoppickrow", "data-part": "char", key: c.id, onClick: () => { setSheet(null); onCheckout(sel, "paylater", { type: "char", id: c.id }, { pick: pickN }); setSel([]); }, className: "w-full flex items-center gap-3 py-2.5 active:opacity-60" },
           h(Avatar, { character: c, size: 38, radius: 9 }),
-          h("span", { "data-wk": "shoppickname", style: { fontFamily: F_DISPLAY, fontSize: "calc(16px * var(--app-fs, 1))", color: t.ink } }, c.remark || c.name))),
+          h("span", { "data-wk": "shoppickname", style: { fontFamily: F_DISPLAY, fontSize: "calc(16px * var(--app-fs, 1))", color: t.ink } }, c.remark || c.name)) }),
         (groups || []).map(g => h("button", { "data-wk": "shoppickrow", "data-part": "group", key: g.id, onClick: () => { setSheet(null); onCheckout(sel, "paylater", { type: "group", id: g.id }, { pick: pickN }); setSel([]); }, className: "w-full flex items-center gap-3 py-2.5 active:opacity-60" },
           h("div", { className: "flex items-center justify-center", style: { width: 38, height: 38, borderRadius: 9, background: t.bg2 } }, h("span", { style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", color: t.fog } }, "群")),
           h("span", { style: { fontFamily: F_DISPLAY, fontSize: "calc(16px * var(--app-fs, 1))", color: t.ink } }, g.name, h("span", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog } }, " · 群聊"))))));
@@ -4144,9 +4144,9 @@ function Shop({ goodsImgOf, onDrawGoods, drawingGoods, onSetCartQty, payAs, init
   } else if (sheet && sheet.kind === "regift") {
     sheetEl = h(Sheet, { onClose: () => setSheet(null) },
       h(Eyebrow, { style: { marginBottom: 12 } }, "转赠给谁"),
-      h("div", { className: "space-y-1 max-h-80 overflow-y-auto" }, (characters || []).map(c => h("button", { "data-wk": "shoppickrow", "data-part": "regift", key: c.id, onClick: () => { const oid = sheet.orderId; setSheet(null); onReceiveGift(oid, c.id); }, className: "w-full flex items-center gap-3 py-2.5 active:opacity-60" },
+      h("div", { className: "space-y-1 max-h-80 overflow-y-auto" }, h(PeopleTree, { people: characters, row: c => h("button", { "data-wk": "shoppickrow", "data-part": "regift", key: c.id, onClick: () => { const oid = sheet.orderId; setSheet(null); onReceiveGift(oid, c.id); }, className: "w-full flex items-center gap-3 py-2.5 active:opacity-60" },
         h(Avatar, { character: c, size: 38, radius: 9 }),
-        h("span", { "data-wk": "shoppickname", style: { fontFamily: F_DISPLAY, fontSize: "calc(16px * var(--app-fs, 1))", color: t.ink } }, c.remark || c.name)))));
+        h("span", { "data-wk": "shoppickname", style: { fontFamily: F_DISPLAY, fontSize: "calc(16px * var(--app-fs, 1))", color: t.ink } }, c.remark || c.name)) })));
   }
 
   const asStrip = payAs ? h("div", { "data-wk": "asphonestrip", className: "shrink-0", style: { padding: "7px 14px", paddingTop: safeTop(7), background: "#fff6e3", borderBottom: "1px solid #f0dfb5", fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: "#8a6a20" } },
@@ -4313,12 +4313,12 @@ function Takeout({ goodsImgOf, onDrawGoods, drawingGoods, payAs, wallet, orders,
     ].filter(Boolean);
     let targets = null;
     if (payMode === "paylater") targets = [
-      ...(characters || []).map(c => pickRow(c, () => submit("paylater", { type: "char", id: c.id }))),
+      h(PeopleTree, { key: "pt", people: characters, row: c => pickRow(c, () => submit("paylater", { type: "char", id: c.id })) }),
       ...(groups || []).map(g => h("button", { "data-wk": "tkopickrow", "data-part": "group", key: g.id, onClick: () => submit("paylater", { type: "group", id: g.id }), className: "w-full flex items-center gap-3 active:opacity-60", style: { padding: "9px 2px" } },
         h("div", { className: "flex items-center justify-center", style: { width: 36, height: 36, borderRadius: 9, background: MTAKE.bg } }, h("span", { style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", color: MTAKE.dim } }, "群")),
         h("span", { "data-wk": "tkopickname", style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: MTAKE.ink } }, g.name)))];
     else if (payMode === "kinship") targets = cards.map(cd => { const c = charById(cd.charId); return c ? pickRow(c, () => submit("kinship", { type: "char", id: cd.charId }), "还能刷 ¥" + Math.round(((cd.limit || 0) - (cd.used || 0)) * 100) / 100) : null; });
-    else if (payMode === "forchar") targets = (characters || []).map(c => pickRow(c, () => submit("forchar", { type: "char", id: c.id })));
+    else if (payMode === "forchar") targets = (characters || []).length ? [h(PeopleTree, { key: "pt", people: characters, row: c => pickRow(c, () => submit("forchar", { type: "char", id: c.id })) })] : [];
     return h("div", { "data-wk": "tkopaypage", className: "h-full flex flex-col", style: { background: MTAKE.bg } },
       head("确认订单", () => { setPay(false); setPayMode(null); }),
       h("div", { "data-wk": "tkopayscroll", className: "flex-1 min-h-0 overflow-y-auto px-3 py-3" },
