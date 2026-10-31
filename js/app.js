@@ -12324,7 +12324,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     })();
     const _historyBudget = _engineerChat
       ? { maxChars: 7000, maxMessages: 48 }
-      : { maxChars: Math.max(14000, _ctxWant * 260), maxMessages: _ctxWant };
+      : { maxChars: Math.max(14000, _ctxWant * 260, Number((memCfgRef.current || {}).recentBudget) || 0), maxMessages: _ctxWant };   // 记忆库「短期窗字符预算」拉高了也认
     const promptHistory = window.ChatContextWindow
       ? window.ChatContextWindow.select(modelHistory, _historyBudget)
       : modelHistory.slice(-_historyBudget.maxMessages);
