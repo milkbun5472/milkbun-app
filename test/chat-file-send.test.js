@@ -60,3 +60,9 @@ test("数据页：TA 们拍的照片按人认键前缀；本机照片库一进�
   const c = { id: "c1" };
   assert.deepEqual(keys.filter(k => k.indexOf("img_" + c.id + "_") === 0 || k.indexOf("img_pdiary_" + c.id + "_") === 0), ["img_c1_a", "img_pdiary_c1_x"]);
 });
+test("选到视频：单聊、群聊都截画面拼成一张当照片发", () => {
+  const c = require("node:fs").readFileSync(require.resolve("../js/components.js"), "utf8");
+  assert.match(c, /function videoContactSheet\(file\)/);
+  assert.match(c, /opts\.onVideo\(f\); return;/);
+  assert.equal((c.match(/onVideo: f => sendVideoAsPhoto\(f, sendRich, "(private|group)-chat"\)/g) || []).length, 2);
+});

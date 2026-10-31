@@ -847,6 +847,52 @@ async function docxToText(buf) {
   return (await window.mammoth.extractRawText({ arrayBuffer: buf })).value || "";
 }
 // opts.max：最多留多少字（默认 FILE_MAX；秋秋那边收 CSS 这种长文件给得宽一些）
+// 视频 → 一张按时间排的画面拼图。返回 { url: jpeg dataURL, dur: 秒, n: 几格 }
+//   短视频（10 秒内）4 格，长的 6 格；均匀取在 8%～92% 之间，避开开头黑屏和片尾。
+function videoContactSheet(file) {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file), v = document.createElement("video");
+    let done = false;
+    const end = (err, r) => { if (done) return; done = true; try { URL.revokeObjectURL(url); } catch (e) {} err ? reject(err) : resolve(r); };
+    const timer = setTimeout(() => end(new Error("读这个视频太久了")), 45000);
+    v.muted = true; v.playsInline = true; v.setAttribute("playsinline", ""); v.preload = "auto";
+    v.onerror = () => { clearTimeout(timer); end(new Error("这个视频格式手机读不出来，换成 mp4 试试")); };
+    v.onloadedmetadata = async () => {
+      try {
+        const dur = isFinite(v.duration) ? v.duration : 0;
+        const n = dur > 10 ? 6 : 4, cols = 2, rows = n / cols;
+        const vw = v.videoWidth || 640, vh = v.videoHeight || 360, sc = Math.min(1, 480 / Math.max(vw, vh));
+        const cw = Math.round(vw * sc), ch = Math.round(vh * sc), gap = 4;
+        const cv = document.createElement("canvas");
+        cv.width = cols * cw + gap * (cols - 1); cv.height = rows * ch + gap * (rows - 1);
+        const g = cv.getContext("2d"); g.fillStyle = "#111"; g.fillRect(0, 0, cv.width, cv.height);
+        for (let i = 0; i < n; i++) {
+          const t = dur ? dur * (0.08 + 0.84 * (n === 1 ? 0 : i / (n - 1))) : 0;
+          await new Promise(ok => { const go = () => { v.removeEventListener("seeked", go); ok(); }; v.addEventListener("seeked", go); v.currentTime = t; setTimeout(go, 4000); });
+          g.drawImage(v, (i % cols) * (cw + gap), Math.floor(i / cols) * (ch + gap), cw, ch);
+        }
+        clearTimeout(timer);
+        end(null, { url: cv.toDataURL("image/jpeg", 0.82), dur: Math.round(dur), n });
+      } catch (e) { clearTimeout(timer); end(e); }
+    };
+    v.src = url;
+  });
+}
+// 聊天里选到视频时：拼图 → 当一张照片发，配一句说明这是视频截的、按什么顺序看
+async function sendVideoAsPhoto(file, sendRich, source) {
+  typeof toast === "function" && toast("正在从视频里截几个画面…");
+  try {
+    const r = await videoContactSheet(file);
+    let imageRef = r.url;
+    try { if (typeof imgToVault === "function") imageRef = await imgToVault(r.url); } catch (e) {}
+    const len = r.dur >= 60 ? Math.floor(r.dur / 60) + " 分 " + (r.dur % 60) + " 秒" : r.dur + " 秒";
+    const note = "这是一段 " + len + " 的视频，从里面按时间先后截了 " + r.n + " 个画面拼成这一张（从左往右、从上往下）";
+    try { await rememberRealPhoto(imageRef, note, source); } catch (e) {}
+    sendRich({ role: "user", kind: "photo", imageRef, desc: note, photoMode: "real", video: { dur: r.dur, n: r.n, name: file.name }, content: "[视频] " + len });
+  } catch (e) {
+    typeof toast === "function" && toast((e && e.message) || "这个视频没读出来", 6000);
+  }
+}
 function pickTextFile(onMsg, opts) {
   const MAX = (opts && opts.max) || FILE_MAX;
   const inp = document.createElement("input");
@@ -871,8 +917,12 @@ function pickTextFile(onMsg, opts) {
     if (f.size > 512 * 1024) typeof toast === "function" && toast("正在读「" + f.name + "」…");
     const isPdf = /\.pdf$/i.test(f.name) || f.type === "application/pdf";
     const isDocx = /\.docx$/i.test(f.name);
-    // 视频不是文字，读不进来（群友 2026-10-31：选了 mp4 窗口一关就没了）：说清楚该去哪儿
-    if (/^video\//.test(f.type || "") || /\.(mp4|mov|m4v|webm|avi|mkv|3gp)$/i.test(f.name)) { typeof toast === "function" && toast("聊天里发不了视频，TA 也看不了视频文件。想一起看，去主屏「一起看」导入；想让 TA 看某个画面，截图用「照片」发", 7000); return; }
+    // 视频（群友 2026-10-31：「想给 char 发视频」）：模型看不了视频，截几个画面拼成一张图当照片发，
+    //   TA 看得到画面；视频本身不存（几百兆，存不下也同步不了）。没接 onVideo 的地方照旧说发不了。
+    if (/^video\//.test(f.type || "") || /\.(mp4|mov|m4v|webm|avi|mkv|3gp)$/i.test(f.name)) {
+      if (opts && typeof opts.onVideo === "function") { opts.onVideo(f); return; }
+      typeof toast === "function" && toast("这里发不了视频。想让 TA 看某个画面，截图用「照片」发", 6000); return;
+    }
     if (/\.doc$/i.test(f.name)) { typeof toast === "function" && toast("老的 .doc 读不了，在 Word 里另存为 .docx 再发"); return; }
     if (f.size > (isPdf || isDocx ? 20 : 5) * 1024 * 1024) { typeof toast === "function" && toast("文件太大了，挑一份小一点的"); return; }
     try {
@@ -11210,7 +11260,7 @@ function ChatThread({
       setCardPick(true);
     } else if (k === "file") {
       setPanelOpen(false);
-      pickTextFile(msg => sendRich(Object.assign({ role: "user" }, msg)));
+      pickTextFile(msg => sendRich(Object.assign({ role: "user" }, msg)), { onVideo: f => sendVideoAsPhoto(f, sendRich, "private-chat") });
     } else if (k === "location") {
       setGeoOpen(true);
       setPanelOpen(false);
@@ -19751,7 +19801,7 @@ function GroupThread({
   const onPanelTap = k => {
     setPanel(false);
     if (k === "dateinvite") { setGInviteOpen(true); return; }
-    if (k === "file") { pickTextFile(msg => sendRich(Object.assign({ role: "user" }, msg))); return; }
+    if (k === "file") { pickTextFile(msg => sendRich(Object.assign({ role: "user" }, msg)), { onVideo: f => sendVideoAsPhoto(f, sendRich, "group-chat") }); return; }
     if (k === "location") setGeoOpen(true);
     else if (k === "photo") { setPhotoText(""); setGroupPhotoImg(""); setGroupPhotoMode("real"); setPhotoOpen(true); }
     else if (k === "voicemsg") setVoiceMsgOpen(true);
