@@ -15724,6 +15724,7 @@ function ShopAskCard({ m }) {
   const a = m.ask || {};
   return h("div", { "data-wk": "card", style: { width: 216, borderRadius: 14, overflow: "hidden", background: "#fff", border: "1px solid #ececf0", boxShadow: "0 1px 4px rgba(0,0,0,.06)" } },
     h("div", { style: { height: 4, background: "linear-gradient(90deg,#ff5000,#ff9500)" } }),
+    m.imageRef ? h(GoodsPic, { imgKey: m.imageRef, style: { width: "100%", height: 150 } }) : null,
     h("div", { style: { padding: "10px 12px 11px" } },
       h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", letterSpacing: ".06em", color: "#ff5000" } }, "购物"),
       h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: "#20202a", lineHeight: 1.45, marginTop: 5 } }, a.name || ""),
@@ -15871,6 +15872,8 @@ function GiftCard({ m, isU, now, avatar, myAvatar, onOpenGift }) {
     !isU && avatar ? avatar : null,
     h(canOpen ? "button" : "div", Object.assign({ style: { width: 224, textAlign: "left" } },
       canOpen ? { onClick: () => onOpenGift(m), className: "active:opacity-80", "aria-label": "拆开这份礼物" } : {}),
+      // 她给这件东西画过图：封着的盒子不露，送出去的（她送TA的）和拆开了的挂在盒子上面
+      m.imageRef && open ? h(GoodsPic, { imgKey: m.imageRef, style: { width: "100%", height: 132, borderRadius: 9, marginBottom: 6 } }) : null,
       h("div", { style: { position: "relative", height: 118, filter: "drop-shadow(0 2px 4px rgba(46,38,29,.16))" } },
         // 盒身
         h("div", { style: { position: "absolute", left: 0, right: 0, top: 28, bottom: 0, borderRadius: "3px 3px 9px 9px",
@@ -15922,7 +15925,8 @@ function TakeoutCard({ m, isU, now, avatar, myAvatar, character, onOpen }) {
     !isU && avatar ? avatar : null,
     h("div", { "data-kind": "takeout", onClick: onOpen || undefined, className: onOpen ? "active:opacity-80" : undefined,
       style: { width: 224, filter: "drop-shadow(0 2px 4px rgba(46,38,29,.16))", cursor: onOpen ? "pointer" : undefined } },
-      h("div", { "data-wk": "block", style: { background: PAPER, borderRadius: "4px 4px 0 0", padding: "12px 14px 10px", color: INK } },
+      m.imageRef ? h(GoodsPic, { imgKey: m.imageRef, style: { width: "100%", height: 132, borderRadius: "4px 4px 0 0" } }) : null,
+      h("div", { "data-wk": "block", style: { background: PAPER, borderRadius: m.imageRef ? 0 : "4px 4px 0 0", padding: "12px 14px 10px", color: INK } },
         h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", letterSpacing: "0.12em", color: SUB, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } },
           isU ? "外卖 · 你给 " + ((character && (character.remark || character.name)) || "TA") + " 点的" : "外卖 · " + ((character && (character.remark || character.name)) || "TA") + " 给你点的"),
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(15.5px * var(--app-fs, 1))", lineHeight: 1.3, marginTop: 4, wordBreak: "break-word" } }, d.shop || "一家小店"),
@@ -18770,6 +18774,11 @@ function CotReveal({ cot, requested }) {
 // 从 IndexedDB 取一张图，换成能用的 objectURL（用完撤掉，别攒着）。
 // v60.35 抽出来：通话页的画面、通话记录卡上的缩略图都要用，
 // 别让这段 blob→URL→revoke 的舞步在三个地方各抄一遍。
+// 商品、菜那张图（她 2026-10-31）：按图库键画出来，没有就不占地方。购物详情、外卖菜单、聊天里的礼物/外卖/拿给TA看的卡共用
+function GoodsPic({ imgKey, style, onClick }) {
+  const url = useIdbImgUrl(imgKey || null);
+  return url ? h("img", { "data-wk": "goodspic", src: url, alt: "", onClick, style: Object.assign({ display: "block", objectFit: "cover" }, style || {}) }) : null;
+}
 function useIdbImgUrl(imgKey) {
   const [url, setUrl] = useState(null);
   useEffect(() => {

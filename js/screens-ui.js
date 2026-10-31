@@ -3686,7 +3686,7 @@ function searchTopBar({ onBack, search, setSearch, onGo, busy, placeholder, acce
       busy ? h(IPulse, { size: 19, color: iconInk }) : h(IRefresh, { size: 19, color: sub })));
   return topBar;
 }
-function Shop({ onSetCartQty, payAs, initialNav, wallet, cart, orders, inventory, wish, characters, groups, kinshipCards, feed, busy, onBack, onGen, onAddCart, onRemoveCart, onCheckout, onReceiveUse, onReceiveGift, onReturn, onAskChar, onToggleWish, onUseUp, onToggleOnMe, onGiftInv, onClosetInv, onLeaveAtHis, payMasks, walletOf, toast }) {
+function Shop({ goodsImgOf, onDrawGoods, drawingGoods, onSetCartQty, payAs, initialNav, wallet, cart, orders, inventory, wish, characters, groups, kinshipCards, feed, busy, onBack, onGen, onAddCart, onRemoveCart, onCheckout, onReceiveUse, onReceiveGift, onReturn, onAskChar, onToggleWish, onUseUp, onToggleOnMe, onGiftInv, onClosetInv, onLeaveAtHis, payMasks, walletOf, toast }) {
   const t = useTheme();
   const [nav, setNav] = useState(initialNav || "home"); // home | cart | my
   const [cat, setCat] = useState("recommend");
@@ -3931,7 +3931,11 @@ function Shop({ onSetCartQty, payAs, initialNav, wallet, cart, orders, inventory
         className: "w-full",
         style: { background: MSHOP.card, borderRadius: "18px 18px 0 0", maxHeight: "84vh", overflowY: "auto", animation: "qqIn .26s ease both", paddingBottom: COMPOSER_PAD_BOTTOM }
       },
-        h("div", { "data-wk": "shopdetailhero", style: { position: "relative", height: 180, background: "linear-gradient(150deg," + c.light + " 0%," + c.base + " 58%," + c.dark + " 100%)", borderRadius: "18px 18px 0 0" } },
+        h("div", { "data-wk": "shopdetailhero", style: { position: "relative", height: goodsImgOf && goodsImgOf(detail.name) ? 260 : 180, overflow: "hidden", background: "linear-gradient(150deg," + c.light + " 0%," + c.base + " 58%," + c.dark + " 100%)", borderRadius: "18px 18px 0 0" } },
+          goodsImgOf && goodsImgOf(detail.name) ? h(GoodsPic, { imgKey: goodsImgOf(detail.name), style: { position: "absolute", inset: 0, width: "100%", height: "100%", borderRadius: "18px 18px 0 0" } }) : null,
+          onDrawGoods ? h("button", { "data-wk": "goodsdraw", onClick: () => onDrawGoods(detail.name, detail.desc, "shop"), disabled: !!drawingGoods, className: "active:opacity-70",
+            style: { position: "absolute", right: 12, top: 12, zIndex: 2, minHeight: 30, padding: "0 12px", borderRadius: 999, background: "rgba(255,255,255,.88)", fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: MSHOP.ink, opacity: drawingGoods ? .6 : 1 } },
+            drawingGoods ? "在画…" : goodsImgOf(detail.name) ? "重画" : "画一张") : null,
           h("div", { style: { position: "absolute", inset: 0, borderRadius: "18px 18px 0 0", background: "repeating-linear-gradient(58deg,rgba(255,255,255,.07) 0px,rgba(255,255,255,.07) 1px,rgba(255,255,255,0) 1px,rgba(255,255,255,0) 7px)" } }),
           c.word ? h("div", { style: { position: "absolute", right: 12, bottom: 12, padding: "3px 10px", borderRadius: 999, background: "rgba(255,255,255,.85)", fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: c.ink } }, c.word) : null,
           h("button", { "data-wk": "shopdetailclose", onClick: () => setDetail(null), "aria-label": "关闭", className: "active:opacity-70", style: { position: "absolute", left: 12, top: 12, width: 30, height: 30, borderRadius: 999, background: "rgba(255,255,255,.85)", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: F_BODY, fontSize: "calc(15px * var(--app-fs, 1))", color: MSHOP.ink } }, "✕")),
@@ -4199,10 +4203,10 @@ const TAKEOUT_TONES = [
 const TAKEOUT_FALLBACK = ["#d6b98a", "#c9a17a", "#d8a86a", "#bfa98c", "#cfae7e"];
 const takeoutTone = (it, i) => toneFrom(TAKEOUT_TONES, TAKEOUT_FALLBACK, it, i);
 // 没有真图的图位：一块品类色＋细斜纹（购物页的商品格也用这一块，别再各画一份）
-function toneSwatch(c, style, kids) {
+function toneSwatch(c, style, ...kids) {
   return h("div", { style: Object.assign({ position: "relative", overflow: "hidden", background: "linear-gradient(150deg," + c.light + " 0%," + c.base + " 58%," + c.dark + " 100%)" }, style || {}) },
     h("div", { style: { position: "absolute", inset: 0, background: "repeating-linear-gradient(58deg,rgba(255,255,255,.07) 0px,rgba(255,255,255,.07) 1px,rgba(255,255,255,0) 1px,rgba(255,255,255,0) 7px)" } }),
-    kids || null);
+    ...kids);
 }
 // 衬线大价钱：小 ¥ ＋ 大数字（购物页那一种）
 const takeoutPrice = (n, size) => h("span", { style: { lineHeight: 1, whiteSpace: "nowrap" } },
@@ -4239,7 +4243,7 @@ function TakeoutSlotRuler({ slot, onPick, now }) {
           at != null ? h("span", { "data-wk": "tkoslotnow", "aria-label": "现在", style: { position: "absolute", left: at + "%", top: 0, width: 8, height: 8, marginLeft: -4, borderRadius: 999, background: MTAKE.deep, boxShadow: "0 0 0 2px " + MTAKE.card } }) : null));
     }));
 }
-function Takeout({ payAs, wallet, orders, log, characters, groups, kinshipCards, feed, busy, onBack, onGen, onOrder, onEat, toast, initialNav, payMasks, walletOf }) {
+function Takeout({ goodsImgOf, onDrawGoods, drawingGoods, payAs, wallet, orders, log, characters, groups, kinshipCards, feed, busy, onBack, onGen, onOrder, onEat, toast, initialNav, payMasks, walletOf }) {
   // 用哪张面具点（她 2026-10-29「来我们慢慢开始分吧」，跟购物结算那一排同一个规矩）：""＝主面具
   const [payMask, setPayMask] = useState("");
   const t = useTheme();
@@ -4399,8 +4403,12 @@ function Takeout({ payAs, wallet, orders, log, characters, groups, kinshipCards,
             const c = takeoutTone(x, di + 1);
             const n = qty[x.uid] || 0;
             return h("div", { "data-wk": "tkodish", "data-on": n > 0 ? "1" : "0", key: x.uid, className: "flex", style: Object.assign({}, cardStyle, { padding: 10, marginBottom: 9, gap: 11 }) },
-              toneSwatch(c, { width: 76, height: 76, borderRadius: 9, flexShrink: 0 },
-                c.word ? h("div", { "data-wk": "tkodishword", style: { position: "absolute", right: 5, bottom: 5, padding: "1px 6px", borderRadius: 999, background: "rgba(255,255,255,.82)", fontFamily: F_BODY, fontSize: "calc(9.5px * var(--app-fs, 1))", color: c.ink } }, c.word) : null),
+              toneSwatch(c, { width: 76, height: 76, borderRadius: 9, flexShrink: 0, overflow: "hidden" },
+                goodsImgOf && goodsImgOf(x.name) ? h(GoodsPic, { imgKey: goodsImgOf(x.name), style: { position: "absolute", inset: 0, width: "100%", height: "100%" } }) : null,
+                onDrawGoods ? h("button", { "data-wk": "goodsdraw", onClick: () => onDrawGoods(x.name, x.desc, "food"), disabled: !!drawingGoods, "aria-label": "给这道菜画一张", className: "active:opacity-70",
+                  style: { position: "absolute", left: 4, top: 4, zIndex: 2, minHeight: 22, padding: "0 7px", borderRadius: 999, background: "rgba(255,255,255,.86)", fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", color: MTAKE.ink, opacity: drawingGoods ? .6 : 1 } },
+                  drawingGoods ? "画…" : goodsImgOf(x.name) ? "重画" : "画") : null,
+                c.word && !(goodsImgOf && goodsImgOf(x.name)) ? h("div", { "data-wk": "tkodishword", style: { position: "absolute", right: 5, bottom: 5, padding: "1px 6px", borderRadius: 999, background: "rgba(255,255,255,.82)", fontFamily: F_BODY, fontSize: "calc(9.5px * var(--app-fs, 1))", color: c.ink } }, c.word) : null),
               h("div", { className: "flex-1 min-w-0 flex flex-col" },
                 h("div", { "data-wk": "tkodishname", style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", fontWeight: 600, color: MTAKE.ink, lineHeight: 1.35, wordBreak: "break-word" } }, x.name),
                 x.desc ? h("div", { "data-wk": "tkodishdesc", style: { marginTop: 4 } }, tag(x.desc)) : null,
