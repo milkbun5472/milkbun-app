@@ -14149,6 +14149,8 @@ function useNewBelow(ref, resetKey) {
     const added = len - seenLenRef.current; seenLenRef.current = len;
     const last = messages[len - 1];
     if (!atBottomRef.current && added > 0 && !(last && last.role === "user")) { setNewBelow(n => n + added); return false; }
+    // 没来新消息、她又不在底下（「正在输入」冒出来／收起来那一拍，群友 2026-10-31：「往上翻着又被拽下去了」）：原地不动
+    if (!atBottomRef.current && added <= 0) return false;
     setNewBelow(0); return true;
   };
   const go = () => { const el = ref.current; if (el) el.scrollTo({ top: el.scrollHeight, behavior: "smooth" }); setNewBelow(0); };
