@@ -11205,7 +11205,8 @@ function ChatThread({
   const [inviteOpen, setInviteOpen] = useState(false);
   const [askOpen, setAskOpen] = useState(false);
   const [peekAllow, setPeekAllow] = useState(() => (window.PEEK_PHONE_SECTIONS || []).map(s => s[0]).filter(k => k !== "daily"));   // 日常联系人默认不编，要了才勾
-  const [peekHide, setPeekHide] = useState([]);
+  // 上回递手机时藏了谁，这回照样勾着（群友 2026-10-31）；偷偷翻那一路也认这份
+  const [peekHide, setPeekHide] = useState(() => { try { return ((loadJSON("x_peekHide", {}) || {})[character && character.id] || []).slice(); } catch (e) { return []; } });
   const [peekAllMasks, setPeekAllMasks] = useState(false);
   const [peekFold, setPeekFold] = useState("");   // 单子分几格收着（她 2026-10-02：「单子能不能做 dropdown，东西有点多」）
   const pf = k => ({ open: peekFold === k, onToggle: () => setPeekFold(v => v === k ? "" : k) });   // 别的面具聊的也给看（默认不给：换了面具就是另一个你）   // 藏某一个人的聊天（她 2026-10-02：比藏整类更像真的在心虚）

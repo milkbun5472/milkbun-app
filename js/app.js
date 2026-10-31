@@ -11501,7 +11501,19 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     // 最后整份再过一遍别的面具的名字（群友 2026-10-12：关了「别的面具也给看」，TA 翻完还是问「X是谁」）。
     //   上面每一格各自滤过，可总有漏的：群里 X 发的话、别人聊天里提到 X、订单「送给 X」、健康备注……
     //   一格一格补永远补不完，所以出口统一拦：带那几个名字的那一行整行不给，只剩标题的那一格整格不给。
-    if (maskNames.length) return out.map(blk => blk.split("\n").filter(l => !maskTrace(l)).join("\n")).filter(blk => blk.trim() && (blk.indexOf("\n") > 0 || !blk.startsWith("【"))).join("\n\n");
+    // 她单独藏起来的那几个人也一样（群友 2026-10-31：「我给聊天隐藏了，他怎么还能知道内容」）：
+    //   跟那人的聊天是不在了，可群里那人说的话、别人聊天里提到那人的那几句还摆着。出口统一按名字拦一遍；
+    //   钱包、购物、外卖那三格照她 2026-10-02 说的不替她擦。
+    const hidNames = (characters || []).filter(x => (hideIds || []).map(String).includes(String(x.id)) && !maskSet.has(String(x.id))).flatMap(x => [x.name, x.remark]).filter(n => n && String(n).length >= 2);
+    const hidTrace = txt => hidNames.some(n => String(txt || "").includes(n));
+    const KEEP_TRACE = /^【(她的钱包流水|购物 app|外卖 app)/;
+    const scrub = (blk, fn) => blk.split("\n").filter(l => !fn(l)).join("\n");
+    const kept = out.map(blk => {
+      let b = maskNames.length ? scrub(blk, maskTrace) : blk;
+      if (hidNames.length && !KEEP_TRACE.test(b)) b = scrub(b, hidTrace);
+      return b;
+    });
+    if (maskNames.length || hidNames.length) return kept.filter(blk => blk.trim() && (blk.indexOf("\n") > 0 || !blk.startsWith("【"))).join("\n\n");
     return out.join("\n\n");
   };
   // 递手机：先让TA写一段「怎么翻」的录像（每点开一样东西想一句），在她真的 app 上播完，再回聊天开口。
@@ -11691,6 +11703,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     //   要先等模型编完（几十秒），原来这段时间屏幕上什么都没有，看着就像没点上
     if (!sneak) setPeekPlay({ charId, allow, seen: "", hidden: [], script: null });
     if (!sneak && (allow || []).includes("daily")) { const c0 = (characters || []).find(x => x.id === charId); if (c0) await peekDailyEnsure(charId, c0); }
+    if (!sneak) { try { const _h = loadJSON("x_peekHide", {}) || {}; saveJSON("x_peekHide", Object.assign({}, _h, { [charId]: (hideIds || []).map(String) })); } catch (e) {} }
     const maskIds = allMasks ? [] : peekMaskOthers(charId);
     const hideSet = new Set((hideIds || []).map(String).concat(maskIds.map(String)));
     const seen = peekPhoneMaterial(charId, allow, hideIds, maskIds);
@@ -11801,7 +11814,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     const last = Number(loadJSON("x_peekSneakLast", 0)) || 0;
     if (Date.now() - last < PEEK_SNEAK_GAP || Math.random() > 0.25) return;
     saveJSON("x_peekSneakLast", Date.now());
-    handPhoneTo(charId, PEEK_PHONE_SECTIONS.map(s => s[0]), [], true);
+    // 偷偷翻也认她上回递手机时藏起来的那几个（群友 2026-10-31）：藏是她的意思，不该只管递过去那一回
+    handPhoneTo(charId, PEEK_PHONE_SECTIONS.map(s => s[0]), ((loadJSON("x_peekHide", {}) || {})[charId] || []), true);
   };
   // 她看到那张卡：回放（只看）／当面问（TA接）／装没看见
   // 她点开一个允许偷偷翻的人的聊天时，偶尔会发现TA刚翻过（冷却够了才有几率）
