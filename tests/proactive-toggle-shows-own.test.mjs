@@ -6,4 +6,6 @@ assert.match(app, /const autoBlockWhy = charId =>/);
 assert.match(cmp, /settings\.proactiveBlock \? h\("div", \{ "data-wk": "proactiveblock"/);
 assert.match(app, /OWN_LINE_FEATURES\[feature\] \? quietNow\("bg"\) : bgOff\(\)/);
 assert.match(app, /OWN_LINE_FEATURES = \{ proactive: 1, diary: 1, moments: 1/);
+assert.match(cmp, /onChange: v => \{ setProactive\(v\); if \(onSetProactive\) onSetProactive\(!!v\); \}/);
+assert.match(app, /onSetProactive: on => \{[^\n]*setAutoFromPage\("proactive", activeChar\.id, on\)/);
 console.log("proactive toggle ok");

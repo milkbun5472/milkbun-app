@@ -22240,6 +22240,7 @@ function ChatLorePicker({ character, entries, onBulk }) {
 }
 function ChatSettings({
   lucky, onDrawLucky, onPickLucky,   // 你俩的幸运字符（2026-10-26）
+  onSetProactive,  // 「允许 Ta 主动发消息」点了当场存（群友 2026-10-31：开了、点返回出去，再进来又是关的——原来要点右上角 ✓ 才存）
   loreEntries,     // 世界书：这个人用哪几条（2026-10-26 群友许愿），点了当场生效
   onLoreBulk,
   onOpenStyleLab,
@@ -23203,7 +23204,7 @@ function ChatSettings({
       color: t.fog,
       marginTop: 2
     }
-  }, "不必打开这个聊天：只要 App 还活着，Ta 想联系你时就会来找你，并在消息页挂未读（iOS 杀进程后仍不是后台推送）", settings.proactiveBlock ? h("div", { "data-wk": "proactiveblock", style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", lineHeight: 1.5, color: t.accent || t.tint, marginTop: 4 } }, "⚠️开着也不会动：" + settings.proactiveBlock) : null)), h(Toggle, { on: proactive, onChange: v => setProactive(v), color: t.tint })),
+  }, "不必打开这个聊天：只要 App 还活着，Ta 想联系你时就会来找你，并在消息页挂未读（iOS 杀进程后仍不是后台推送）", settings.proactiveBlock ? h("div", { "data-wk": "proactiveblock", style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", lineHeight: 1.5, color: t.accent || t.tint, marginTop: 4 } }, "⚠️开着也不会动：" + settings.proactiveBlock) : null)), h(Toggle, { on: proactive, onChange: v => { setProactive(v); if (onSetProactive) onSetProactive(!!v); }, color: t.tint })),
   // 想我时只发消息（她 2026-10-05）：在一起之后，条子满了原本有三个出口——钉愿望、往情侣空间留东西、发消息。
   //   开了这个就只剩发消息那一个；没在一起的本来就只发消息，开不开一样。
   proactive ? h("div", { className: "flex items-center justify-between pt-3", style: { paddingLeft: 14 } },
