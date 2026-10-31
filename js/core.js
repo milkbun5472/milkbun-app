@@ -1031,7 +1031,13 @@ function keepScroll(key, also) {
     if (!el || el.__ksKey === key) return;
     el.__ksKey = key;
     const v = _keepScrollMem[key];
-    if (v) requestAnimationFrame(() => { if (el.isConnected) el.scrollTop = v; });
-    el.addEventListener("scroll", () => { if (el.__ksKey === key) _keepScrollMem[key] = el.scrollTop; }, { passive: true });
+    // 恢复要补几次（2026-10-31 查手机小红书：页面一出来，「切分栏回顶」那个 effect 晚一拍跑，又把它清回 0）。
+    //   她自己一动手（touch/滚轮）就不再补
+    let touched = false, restoring = !!v;
+    const touch = () => { touched = true; };
+    el.addEventListener("touchstart", touch, { passive: true }); el.addEventListener("wheel", touch, { passive: true });
+    const put = () => { if (!touched && el.isConnected && el.__ksKey === key && Math.abs(el.scrollTop - v) > 4) el.scrollTop = v; };
+    if (v) { requestAnimationFrame(put); setTimeout(put, 60); setTimeout(put, 220); setTimeout(() => { put(); restoring = false; }, 450); }
+    el.addEventListener("scroll", () => { if (el.__ksKey === key && (!restoring || touched)) _keepScrollMem[key] = el.scrollTop; }, { passive: true });
   };
 }

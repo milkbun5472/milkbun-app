@@ -2012,7 +2012,7 @@ function AlbumView({ d, char, t, onBack, onRefresh, refreshing, onPeek, onDrawPh
   if (opened) {
     const meta = albums.find(a => a.key === opened);
     const list = items.filter(p => p.category === opened);
-    return h("div", { "data-wk": "phoneapppage", "data-part": "albumview", className: "h-full min-h-0 flex flex-col", style: { background: "#fff" } }, chrome(meta ? meta.label : "相簿", list.length + " 张", () => setOpened(null)), h("div", { ref: scrollRef, className: "flex-1 overflow-y-auto", style: { padding: "8px 20px 28px" } }, grid(list, true, 3)), nav);
+    return h("div", { "data-wk": "phoneapppage", "data-part": "albumview", className: "h-full min-h-0 flex flex-col", style: { background: "#fff" } }, chrome(meta ? meta.label : "相簿", list.length + " 张", () => setOpened(null)), h("div", { ref: keepScroll("phone:albumset:" + (char && char.id) + ":" + opened, scrollRef), className: "flex-1 overflow-y-auto", style: { padding: "8px 20px 28px" } }, grid(list, true, 3)), nav);
   }
   const library = h("div", { style: { paddingTop: 14, paddingBottom: 26 } }, (() => {
     const groups = [];
@@ -4822,7 +4822,7 @@ function PhoneForumView({ accounts, char, onBack, onPeek, tab, onTab, drive }) {
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(12.5px * var(--app-fs, 1))" } }, a.label),
         h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: "calc(8.5px * var(--app-fs, 1))", letterSpacing: ".1em", color: active ? s2.accent : skin.dim, marginTop: 1 } }, countOf(a) + " TRACE"));
     })),
-    h("div", { ref: scrollRef, className: "flex-1 min-h-0 overflow-y-auto px-4", style: { paddingBottom: COMPOSER_PAD_BOTTOM } },
+    h("div", { ref: keepScroll("phone:forum:" + (char && char.id) + ":" + acc.key, scrollRef), className: "flex-1 min-h-0 overflow-y-auto px-4", style: { paddingBottom: COMPOSER_PAD_BOTTOM } },
       h("section", { "data-wk": "block", style: { marginTop: 13, borderRadius: 22, padding: "16px", background: skin.paper, border: "1px solid " + skin.line, boxShadow: "0 12px 28px rgba(24,31,24,.08)" } },
         h("div", { className: "flex items-center gap-3" },
           h("div", { "data-wk": "block", className: "shrink-0 flex items-center justify-center", style: { width: 48, height: 48, borderRadius: 16, background: skin.soft, border: "1px solid " + skin.line } }, h(PGlyph, { k: "forum", size: 22, color: skin.accent })),
@@ -6246,7 +6246,7 @@ function PhoneCarry({
     deskBody(key, dark, hero));
   };
   const pages = layout.pages.map((keys, pageIndex) => h("section", {
-    key: pageIndex,
+    key: pageIndex, ref: keepScroll("phone:home:" + (char && char.id) + ":" + pageIndex),
     className: "h-full min-w-full overflow-y-auto px-5 pt-3",
     // ⚠️底部要让开那排 dock：pb-5 只有 20px，最后一排图标会被压在 dock 底下
     //（多加一格「外观」之后一眼看出来的）。
