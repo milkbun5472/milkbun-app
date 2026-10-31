@@ -8,7 +8,8 @@ const nest = R("nest.js"), comp = R("components.js");
 test("小窝多了「梗与话题」这一类，放进聊天只能选人", () => {
   assert.match(nest, /\{ key: "topic", zh: "梗与话题", seal: "梗"/);
   assert.match(nest, /it\.kind === "topic" \? \["chat"\]/);
-  assert.match(nest, /isTopic \? h\(Btn, \{ t, solid: true, wide: true, disabled: busy, onClick: \(\) => setPlacing\(true\)/);
+  assert.match(nest, /isTopic \? h\(Btn, \{ t, solid: true, wide: true, disabled: busy, onClick: placeWithHeart/);
+  assert.match(nest, /if \(it\.liked\) \{ setPlacing\(true\); return; \}/, "点过心的直接去勾人");
   assert.match(nest, /maxLength: 1000/, "跟后端同一个上限");
 });
 
