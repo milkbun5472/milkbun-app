@@ -36,6 +36,9 @@
     .then(r => { if (!r.ok) throw new Error(String(r.status)); return r.text(); })
     .catch(() => { throw new Error("没下载下来：" + src.split("?")[0]); });
   const runText = (src, text) => {
+    // sourceURL 只供调试，不能替内联脚本保住 import() 的相对基址。
+    // 含动态导入的脚本沿原 src 执行（下载仍并行预取并复用缓存），子目录部署也照脚本位置找模块。
+    if (/\bimport\s*(?:\(|\/[/*])/.test(text)) return addScript(src);
     const s = document.createElement("script");
     s.text = text + "\n//# sourceURL=" + src.split("?")[0];
     document.head.appendChild(s);   // 内联脚本挂上就同步执行完
@@ -52,7 +55,7 @@
         texts.forEach(p => p.catch(() => {}));   // 先挂上接手的，别在等前面那份时冒「未处理」
         for (let i = 0; i < todo.length; i++) {
           const text = await texts[i];   // 前面那份没到，后面的已经在下着了
-          runText(todo[i].getAttribute("data-src"), text);
+          await runText(todo[i].getAttribute("data-src"), text);
           todo[i].setAttribute("data-done", "1");   // 半路断了，下次从没跑过的那份接着来，跑过的不重跑
         }
       } else {

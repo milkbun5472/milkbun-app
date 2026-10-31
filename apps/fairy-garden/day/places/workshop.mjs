@@ -1,7 +1,7 @@
-import {deskWorkSurfaces} from '../work-contacts.mjs?v=fg-bf2a8f69e3079bf5';
-import {createRoomKit,roomObstacles,finishRoom} from './room-kit.mjs?v=fg-bf2a8f69e3079bf5';
-import {computer,notebook} from './work-room-kit.mjs?v=fg-bf2a8f69e3079bf5';
-import {furnishRoom,seatedSpot,benchFlask} from './occupation-room-kit.mjs?v=fg-bf2a8f69e3079bf5';
+import {deskWorkSurfaces} from '../work-contacts.mjs?v=fg-90b53e2779ab7a1c';
+import {createRoomKit,roomObstacles,finishRoom} from './room-kit.mjs?v=fg-90b53e2779ab7a1c';
+import {computer,notebook} from './work-room-kit.mjs?v=fg-90b53e2779ab7a1c';
+import {furnishRoom,seatedSpot,benchFlask} from './occupation-room-kit.mjs?v=fg-90b53e2779ab7a1c';
 const SIZE={w:14,d:12};
 const furniture=[
  {id:'repair-bench',kind:'table',x:-4.4,z:-3.75,w:3.1,d:1.2,top:.85,color:'#ae9672',work:{repair:{x:.0,y:1.012,z:.30},craft:{x:-.64,y:.905,z:.38}}},
