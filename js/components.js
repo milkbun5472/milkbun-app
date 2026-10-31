@@ -17443,7 +17443,10 @@ function CenterCard({ children, onClose, maxWidth, wk }) {
       background: "repeating-linear-gradient(112deg,rgba(120,110,95,.028) 0 1px,transparent 1px 7px)," + t.bg2,
       borderRadius: 20, border: "1px solid " + t.line,
       borderTop: "3px solid " + t.accent,
-      boxShadow: "0 24px 60px rgba(20,19,15,.34)", overflow: "hidden",
+      boxShadow: "0 24px 60px rgba(20,19,15,.34)",
+      // 内容比卡高时卡自己能滑（群友 2026-10-31：开吧那张卡角色一多，「保存」被挤出 82vh 外面点不到）：
+      //   原来是 overflow:hidden，超出的直接被裁掉。自己有滚动区的卡不受影响——它们本来就不超高。
+      overflowX: "hidden", overflowY: "auto", overscrollBehavior: "contain", WebkitOverflowScrolling: "touch",
       animation: "qqIn .22s ease both"
     }
   }, children));
