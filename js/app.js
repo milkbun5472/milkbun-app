@@ -20,7 +20,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v88.830";
+const APP_VERSION = "v88.832";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -870,7 +870,8 @@ function App() {
         const now = Date.now();
         const _arr = item.arriveTs || (now + deliverMsForCat("food", item.name));
         const _hm = d => { const x = new Date(d); return String(x.getHours()).padStart(2, "0") + ":" + String(x.getMinutes()).padStart(2, "0"); };
-        pChat(char.id, p => [...p, { role: "user", kind: "takeout", takeout: item.takeout, arriveTs: _arr, ts: now, read: true,
+        const _tImg = goodsImgOfList((bag && bag.items || []).map(x => x && x.name));
+        pChat(char.id, p => [...p, { role: "user", kind: "takeout", takeout: item.takeout, arriveTs: _arr, ts: now, read: true, ...(_tImg ? { imageRef: _tImg, goodsImg: true } : {}),
           content: "[外卖] 给你点了" + (item.takeout.shop ? "「" + item.takeout.shop + "」的" : "") + item.takeout.items.join("、") + (item.booked ? "，预约 " + _hm(_arr) + " 送到" : "") }]);
         toast("给 " + (char.remark || char.name) + " 点好了，骑手在路上");
       }
@@ -13600,12 +13601,12 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
           // 合并连发的多条用户消息，兼容 Anthropic 等不允许连续同角色的接口
           if (lu && lu.role === "user") {
             lu.content += "\n" + uc;
-            if ((m.kind === "photo" || m.kind === "selfie" || m.kind === "ask") && m.imageRef) (lu._imageRefs || (lu._imageRefs = [])).push(m.imageRef);   // 请示附的图也给他看
+            if ((m.kind === "photo" || m.kind === "selfie" || m.kind === "ask" || m.goodsImg) && m.imageRef) (lu._imageRefs || (lu._imageRefs = [])).push(m.imageRef);   // 请示附的图也给他看
           } else g.push({
             role: "user",
             content: uc,
             _t: null,
-            _imageRefs: (m.kind === "photo" || m.kind === "selfie" || m.kind === "ask") && m.imageRef ? [m.imageRef] : []
+            _imageRefs: (m.kind === "photo" || m.kind === "selfie" || m.kind === "ask" || m.goodsImg) && m.imageRef ? [m.imageRef] : []
           });
         } else {
           const l = g[g.length - 1];
@@ -26122,6 +26123,32 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   // 逛购物 app 时问问TA：把这件商品发进和TA的聊天，问值不值得买。
   // 和「摆到TA面前」是同一个动作语言，但语境完全相反——那边是TA被撞破，
   // 这边是我主动拿给你看。所以【不能】复用 phonepeek 那张卡和那段判词。
+  // 商品、菜的图（她 2026-10-31：「购物外卖也可以选择生图吧，然后转发他们也看得到图」）：
+  //   按名字记一张（x_goodsImgs：名字→图库键），点「画一张」才画，不自己画。
+  //   送礼、给TA点外卖、拿给TA看的卡带着这张图，TA 回话时跟她发的照片一样看得到
+  const [goodsImgs, setGoodsImgs] = useState(() => { const v = loadJSON("x_goodsImgs", {}); return v && typeof v === "object" && !Array.isArray(v) ? v : {}; });
+  const goodsImgsRef = useRef(goodsImgs); goodsImgsRef.current = goodsImgs;
+  const [drawingGoods, setDrawingGoods] = useState("");
+  const goodsKey = n => String(n || "").replace(/\s*×\s*\d+\s*$/, "").replace(/\s+/g, "").slice(0, 60);
+  const goodsImgFor = name => (goodsImgsRef.current || {})[goodsKey(name)] || null;
+  const goodsImgOfList = names => { for (const n of names || []) { const k = goodsImgFor(n); if (k) return k; } return null; };
+  const drawGoods = async (name, desc, kind) => {
+    const k = goodsKey(name);
+    if (!k || drawingGoods) return;
+    if (!(typeof imgApiReady === "function" && imgApiReady())) { toast("先去 设置·图像API 配一下"); return; }
+    setDrawingGoods(k);
+    try {
+      const prompt = (kind === "food" ? "一张外卖菜品的实拍照片：「" + name + "」" + (desc ? "（" + desc + "）" : "") + "。装在外卖盒或碗盘里，俯拍或四十五度，看着好吃。"
+        : "一张网购商品的实拍照片：「" + name + "」" + (desc ? "（" + desc + "）" : "") + "。商品是画面主体，干净的背景，像购物 app 里的商品主图。") + "\n画面里不要任何文字、价签和水印。";
+      const out = await generateSelfieImage(prompt, null, { size: "1024x1024" });
+      if (!(out && out.blob)) throw new Error("没拿到图");
+      const key = "img_goods_" + Date.now().toString(36);
+      await idbImgPut(key, out.blob);
+      setGoodsImgs(p => { const n = { ...p, [k]: key }; const ks = Object.keys(n); if (ks.length > 400) ks.slice(0, ks.length - 400).forEach(x => delete n[x]); saveJSON("x_goodsImgs", n); goodsImgsRef.current = n; return n; });
+      toast("画好了");
+    } catch (e) { toast("没画成：" + String(e && e.message || e).slice(0, 60)); }
+    finally { setDrawingGoods(""); }
+  };
   const askCharAboutItem = (charId, item) => {
     const char = characters.find(c => c.id === charId);
     if (!char || !item || !String(item.name || "").trim()) return;
@@ -26131,6 +26158,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     pChat(char.id, p => [...p, {
       role: "user", kind: "shopask",
       ask: { name, price: isFinite(price) ? price : null, desc },
+      ...(goodsImgFor(name) ? { imageRef: goodsImgFor(name), goodsImg: true } : {}),
       content: "[我在逛购物 app，把一件东西拿给你看]《" + name + "》"
         + (desc ? "｜" + desc : "") + (isFinite(price) ? "｜" + moneyText(price, charId) : "")
         + "｜（她在问你的意见，不是在通知你。按你的人设和你俩的关系来：真觉得好就说好、"
@@ -31083,7 +31111,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     const handNow = !!hand || inGroup;
     const arriveTs = handNow ? now : now + deliverMsForCat(cat, itemName);
     const toName = char.remark || char.name;
-    const card = { role: "user", kind: "gift", dir: "toChar", giftId, arriveTs, delivered: handNow, hand: handNow, item: { name: itemName }, ts: now, read: true };
+    const card = { role: "user", kind: "gift", dir: "toChar", giftId, arriveTs, delivered: handNow, hand: handNow, item: { name: itemName }, ts: now, read: true, ...(goodsImgFor(itemName) ? { imageRef: goodsImgFor(itemName), goodsImg: true } : {}) };
     if (inGroup) pushGroupRich(groupId, { ...card, toId: charId, toName: toName, content: "[礼物] 当着大家的面把「" + itemName + "」送给了" + toName });
     else pChat(charId, p => [...p, { ...card, content: "[礼物] " + (handNow ? "当面给你：" : "送给你：") + itemName }]);
     if (handNow) {
@@ -34313,6 +34341,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     onEditCharMeta: editCharForumMeta,
     onEnsureCharMeta: ensureCharForumMeta
   });else if (screen === "shop") body = h(Shop, {
+    goodsImgOf: goodsImgFor, onDrawGoods: drawGoods, drawingGoods: drawingGoods, goodsImgsVer: goodsImgs,
     payAs: asPhonePay,
     wallet: wallet,
     cart: cart,
@@ -34351,6 +34380,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     onLeaveAtHis: leaveAtHis,
     toast: toast
   });else if (screen === "takeout") body = h(Takeout, {
+    goodsImgOf: goodsImgFor, onDrawGoods: drawGoods, drawingGoods: drawingGoods, goodsImgsVer: goodsImgs,
     payAs: asPhonePay,
     key: "takeout:" + takeoutNav + (asPhone ? ":as" : ""),
     initialNav: takeoutNav,
