@@ -19,8 +19,8 @@ const comp = fs.readFileSync("js/components.js", "utf8");
 test("ctxN 的上限跟本机保留线对齐，不然多留的那些够不着", () => {
   assert.match(app, /const CHAT_KEEP_LOCAL = 1000;/);
   // 单聊那根滑杆
-  const i = comp.indexOf("AI 回复时真正读到的就是这些条");
-  assert.ok(i > 0, "说明文案没了——那句话得挑明它是硬闸");
+  const i = comp.indexOf("TA 回你时会往回读这么多条聊天");   // 2026-10-31 改了说明（拉条说了算、最少 80）
+  assert.ok(i > 0, "说明文案没了");
   const near = comp.slice(i, i + 400);
   assert.match(near, /max: 1000/, "滑杆封在 300 的话，本机留的一千条有七百条永远进不去");
 });
@@ -30,7 +30,7 @@ test("短期窗那块地板也跟着抬，不然拉条到不了它说的天数",
 });
 
 test("滑杆底下必须说清它是硬闸，别再让人以为归档会自己进来", () => {
-  const i = comp.indexOf("AI 回复时真正读到的就是这些条");
+  const i = comp.indexOf("TA 回你时会往回读这么多条聊天");
   const near = comp.slice(i, i + 300);
-  assert.match(near, /归档只供你翻看/);
+  assert.match(near, /只在归档里供你翻看/);
 });

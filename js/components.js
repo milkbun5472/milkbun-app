@@ -22575,7 +22575,7 @@ function ChatSettings({
   const [patSig, setPatSig] = useState(character.patSig || "");
   const [myPatSig, setMyPatSig] = useState(character.myPatSig || "");
   const [patGenBusy, setPatGenBusy] = useState(false);   // 他拍你时，你那半句后缀（她 2026-10-25）
-  const [ctxN, setCtxN] = useState(settings.ctxN || 50);
+  const [ctxN, setCtxN] = useState(Math.max(80, settings.ctxN || 80));   // 回复时至少带 80 条（2026-10-31），拉条从 80 起
   const [pastOfflineN, setPastOfflineN] = useState(settings.pastOfflineN == null ? 0 : Number(settings.pastOfflineN) || 0);   // 带上最近几次线下（2026-10-31）
   const [sumThresh, setSumThresh] = useState(settings.sumThresh || 150);
   const [sumBuffer, setSumBuffer] = useState(settings.sumBuffer || 20);
@@ -23615,9 +23615,9 @@ function ChatSettings({
       color: t.fog,
       marginBottom: 10
     }
-  }, "AI 回复时真正读到的就是这些条。⚠️它是【硬闸】：本机存着一千条也好、云端归档着一万条也好，超出这个数的一句都不会进上下文——归档只供你翻看。上限跟本机保留线（1000）对齐。"), /*#__PURE__*/React.createElement(Slider, {
-    value: ctxN,
-    min: 10,
+  }, "TA 回你时会往回读这么多条聊天（最少 80 条；记忆库里「短期窗覆盖天数」那几天的聊天也一起读）。拉得越高 TA 记得越多，但每次回复越贵、越慢，有的线路太长会超时。本机最多存 1000 条，再早的只在归档里供你翻看。"), /*#__PURE__*/React.createElement(Slider, {
+    value: Math.max(80, ctxN),
+    min: 80,
     max: 1000,
     step: 10,
     onChange: setCtxN

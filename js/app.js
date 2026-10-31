@@ -12311,9 +12311,20 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     // 订阅桥(云端函数)有硬性执行寿命：全量窗口+6000输出的单次工作量会超时被杀，
     // 浏览器侧表现为整条 Load failed（2026-08-12 全天她在旅途中完全失联的根因）。
     // 在函数寿命问题根治(流式/直连)之前，言秋线维持小窗口+短输出保命。
+    // 带多少条照聊天设置里「记忆上下文条数」来（她 2026-10-31 定：「1」——拉条说了算）：
+    //   原来这里写死 80 条／1.4 万字，拉条拉到 300 也只带 80，「短期窗覆盖天数」那几天也照样被截。
+    //   现在：至少 80（没动过拉条的人跟原来一样），拉高了就照拉条；最近那几天的聊天也一起算进来（最多 1000 条）；
+    //   字数上限跟着条数放宽。代价是拉得越高每次越贵、越慢，拉条底下写着。
+    const _ctxWant = (() => {
+      const n = Math.max(0, Number(settingsFor(charId).ctxN ?? 50));
+      const days = Math.max(0, Number((memCfgRef.current || {}).recentDays ?? 3));
+      const since = days ? Date.now() - days * 86400000 : Infinity;
+      const inFloor = days ? modelHistory.filter(m => m && (m.ts || 0) >= since).length : 0;
+      return Math.min(1000, Math.max(80, n, inFloor));
+    })();
     const _historyBudget = _engineerChat
       ? { maxChars: 7000, maxMessages: 48 }
-      : { maxChars: 14000, maxMessages: 80 };
+      : { maxChars: Math.max(14000, _ctxWant * 260), maxMessages: _ctxWant };
     const promptHistory = window.ChatContextWindow
       ? window.ChatContextWindow.select(modelHistory, _historyBudget)
       : modelHistory.slice(-_historyBudget.maxMessages);
