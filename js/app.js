@@ -20,7 +20,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v88.847";
+const APP_VERSION = "v88.848";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -3315,6 +3315,21 @@ function App() {
     setFriendGroups(list);
     saveJSON("x_friendGroups", list);
   };
+  // 聊天一下子变短时留的那份（engine.js noteChatShrink）：合并回来＝把备份里有、现在没有的那些按时间插回去，现有的一条不动
+  useEffect(() => {
+    window.__shrinkRestore = id => {
+      const bak = loadJSON("x_shrinkBak:x_chat:" + id, null);
+      if (!bak || !bak.data) return 0;
+      let old = []; try { old = JSON.parse(bak.data) || []; } catch (e) { return 0; }
+      const sig = m => m ? (m.id || "") + "|" + (m.ts || "") + "|" + (m.role || "") + "|" + String(m.content || "").slice(0, 80) : "";
+      let added = 0;
+      pChat(id, p => { const have = new Set(p.map(sig)); const back = old.filter(m => m && !have.has(sig(m))); added = back.length;
+        return back.length ? p.concat(back).sort((a, b) => (Number(a && a.ts) || 0) - (Number(b && b.ts) || 0)) : p; });
+      dropStored("x_shrinkBak:x_chat:" + id);
+      return added || 1;
+    };
+    return () => { delete window.__shrinkRestore; };
+  });
   const pChat = (id, u) => setChats(p => {
     const pl = p[id] || [];
     let n = typeof u === "function" ? u(pl) : u;
