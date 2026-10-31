@@ -27,7 +27,8 @@ test("放进去：同一条重复放只留一张，新的在最前，一人最�
 });
 
 test("聊天里：有卡才出「话题卡」，点一张只填进输入框、不发", () => {
-  assert.match(comp, /key !== "topics" \|\| \(!!character && topicCardsOf\(character\.id\)\.length > 0\)/);
+  // 2026-10-31 起能自己写，所以「话题卡」那一格一直在
+  assert.match(comp, /key !== "topics" \|\| !!character\)/);
   assert.match(comp, /new CustomEvent\("qq-draft-fill", \{ detail: \{ key: "chat:" \+ character\.id, text: x\.text \} \}\)/);
   const di = comp.slice(comp.indexOf("function DraftInput("), comp.indexOf("function ReplyKey("));
   assert.match(di, /window\.addEventListener\("qq-draft-fill", on\)/);
@@ -36,4 +37,14 @@ test("聊天里：有卡才出「话题卡」，点一张只填进输入框、�
 
 test("不认得的类别不给导入键，只说去更新", () => {
   assert.match(nest, /!KIND\[it\.kind\] \? h\("div", \{ "data-wk": "nestunknownkind"/);
+});
+
+test("话题卡互通：自己写、传到小窝带着正文、也放给别人", () => {
+  const sheet = comp.slice(comp.indexOf("function TopicCardsSheet("), comp.indexOf("const DRAFTS = (() => {"));
+  assert.match(sheet, /id: "own:" \+ Date\.now\(\)\.toString\(36\)/, "自己写的那张");
+  assert.match(sheet, /maxLength: 1000/, "跟小窝同一个上限");
+  assert.match(sheet, /window\.__nestPending = \{ kind: "topic", text: x\.text/);
+  assert.match(sheet, /c\.id !== charId/, "也给别人：名单里不含自己");
+  assert.match(nest, /initialKind: \(top\.pre && top\.pre\.kind\)/);
+  assert.match(nest, /if \(sessionTok\(\)\) push\(v\); else needLogin\(v\);/, "没登录先登录，登完接着传");
 });
