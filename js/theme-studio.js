@@ -558,7 +558,7 @@
         ["composer", "底部输入栏整条"], ["narrbar", "旁白模式时输入栏上面那一条（两档＋还在生效的便签）"], ["narrkind", "旁白那两档「此刻发生了什么／往后的方向」（data-on=\"1\" 选中）"], ["dirlong", "「管接下来两轮／整场有效」那颗切换"], ["dirnote", "一条还在生效的方向便签"], ["chatback", "返回键"], ["namecard", "聊天里那张推荐名片整张"], ["namecardname", "名片上的名字"], ["namecardpick", "选名片那一页的一行"], ["wxcard", "聊天里的天气小卡片整张（data-kind＝sun/partly/cloud/fog/rain/storm/snow）"], ["wxcardsky", "天气卡上半截那块天"], ["wxcardtemp", "天气卡上的大字气温"], ["wxcardrain", "天气卡上的降雨概率小签"], ["wxcardsay", "天气卡下半截TA那一句叮嘱"], ["chatmore", "右上角更多/设置键"],
         ["chatplus", "输入栏加号键"], ["chatinput", "输入框"], ["send", "发送键"], ["chatreply", "让 TA/他们回复的 AI 键"],
         ["chatpanel", "点＋弹出来的那整块面板（底色、上边线、内边距；群友 2026-10-06 要的）"],
-        ["topiccards", "聊天 ＋ 面板「话题卡」那一页的列表"], ["topiccard", "话题卡里的一张"], ["topiccarddel", "话题卡底下「拿掉」那颗"], ["topiccardnew", "话题卡页「＋ 自己写一张」"], ["topiccardwrite", "自己写话题卡那一块（输入框和存）"], ["topiccardshare", "「也给别人」勾人那一块"], ["topiccardshareto", "话题卡底下「也给别人」那颗"], ["topiccardnest", "话题卡底下「传到小窝」那颗"],
+        ["topiccards", "聊天 ＋ 面板「话题卡」那一页的列表"], ["topiccard", "话题卡里的一张"], ["topiccarddel", "话题卡底下「拿掉」那颗"], ["topiccardnew", "话题卡页「＋ 自己写一张」"], ["topiccardfile", "话题卡那一页「从文件导入」那颗"], ["topiccardwrite", "自己写话题卡那一块（输入框和存）"], ["topiccardshare", "「也给别人」勾人那一块"], ["topiccardshareto", "话题卡底下「也给别人」那颗"], ["topiccardnest", "话题卡底下「传到小窝」那颗"],
         ["chattool", "加号面板工具键（data-chat-tool 区分 voicemsg／sticker 等）"],
         ["chattoolicon", "加号面板每个键上面那个方块（底色、边框、圆角、大小；也带 data-chat-tool）"],
         ["chattoolglyph", "方块里的图标（svg：stroke 换颜色；换图就先 svg { display:none }，给这一格写 background）"],

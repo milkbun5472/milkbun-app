@@ -16586,14 +16586,28 @@ function TopicCardsSheet({ charId, onClose, onUse }) {
   const small = { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.sub || t.fog, padding: "6px 10px", minHeight: 32, borderRadius: 999, border: "1px solid " + t.line, background: t.bg2 };
   const saveNew = () => { const text = String(writing || "").trim(); if (!text) return;
     setList(topicCardsPut(charId, l => [{ id: "own:" + Date.now().toString(36), title: "", text, ts: Date.now() }].concat(l).slice(0, 60))); setWriting(null); };
+  // 从文件导入（群友 2026-10-31）：走公共那个选文件（txt/md/docx/PDF 都认）；空一行算一张，一张超 1000 字就切开，整叠照旧最多 60 张
+  const importFile = () => pickTextFile(msg => {
+    const txt = String((msg && msg.text) || "").replace(/\r\n?/g, "\n");
+    const parts = [];
+    txt.split(/\n\s*\n+/).map(x => x.trim()).filter(Boolean).forEach(x => { for (let k = 0; k < x.length; k += 1000) parts.push(x.slice(k, k + 1000)); });
+    if (!parts.length) { fileToast("这份文件里没读出字"); return; }
+    const base = Date.now().toString(36);
+    const fresh = parts.map((text, k) => ({ id: "own:" + base + "_" + k, title: "", text, ts: Date.now() }));
+    const room = 60 - list.length;
+    setList(topicCardsPut(charId, l => fresh.concat(l).slice(0, 60)));
+    fileToast("放进来 " + parts.length + " 张" + (parts.length > room ? "（满 60 张了，最旧的几张挤掉了）" : ""));
+  }, { max: 60000 });
   const toNest = x => { window.__nestPending = { kind: "topic", text: x.text, title: x.title || "" }; onClose(); if (typeof window.__goScreen === "function") window.__goScreen("nest"); };
   const shareGo = () => { const x = sharing; if (!x || !pick.length) return;
     pick.forEach(id => topicCardsPut(id, l => [Object.assign({}, x, { ts: Date.now() })].concat(l.filter(y => y.id !== x.id)).slice(0, 60)));
     typeof toast === "function" && toast("放进 " + pick.length + " 个人的话题卡了"); setSharing(null); setPick([]); };
   return h(PageSheet, { zh: "话题卡", sub: "点一张填进输入框，改好了再发", onClose },
     h("div", { "data-wk": "topiccards", style: { padding: "4px 16px 24px" } },
-      writing == null ? h("button", { "data-wk": "topiccardnew", onClick: () => setWriting(""), className: "w-full active:opacity-60",
-        style: { margin: "6px 0 4px", minHeight: 44, borderRadius: 12, border: "1px dashed " + t.line, color: t.sub || t.fog, fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", background: "transparent" } }, "＋ 自己写一张")
+      writing == null ? h(React.Fragment, null, h("button", { "data-wk": "topiccardnew", onClick: () => setWriting(""), className: "w-full active:opacity-60",
+        style: { margin: "6px 0 4px", minHeight: 44, borderRadius: 12, border: "1px dashed " + t.line, color: t.sub || t.fog, fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", background: "transparent" } }, "＋ 自己写一张"),
+        h("button", { "data-wk": "topiccardfile", onClick: importFile, className: "w-full active:opacity-60",
+          style: { margin: "0 0 4px", minHeight: 40, borderRadius: 12, border: "1px dashed " + t.line, color: t.sub || t.fog, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", background: "transparent" } }, "从文件导入（空一行算一张）"))
       : h("div", { "data-wk": "topiccardwrite", style: { margin: "6px 0 8px" } },
           h("textarea", { value: writing, maxLength: 1000, rows: 4, autoFocus: true, placeholder: "一个梗、一个想跟 TA 聊的话题……", onChange: e => setWriting(e.target.value), className: "w-full outline-none",
             style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.ink, background: t.bg2, border: "1px solid " + t.line, borderRadius: 12, padding: "10px 12px", resize: "vertical" } }),

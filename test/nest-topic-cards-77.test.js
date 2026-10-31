@@ -48,3 +48,13 @@ test("话题卡互通：自己写、传到小窝带着正文、也放给别人",
   assert.match(nest, /initialKind: \(top\.pre && top\.pre\.kind\)/);
   assert.match(nest, /if \(sessionTok\(\)\) push\(v\); else needLogin\(v\);/, "没登录先登录，登完接着传");
 });
+
+// 话题卡从文件导入（群友 2026-10-31）
+require("node:test")("话题卡能从文件导入：走公共选文件，空一行一张、超 1000 字切开、最多 60 张", () => {
+  const assert = require("node:assert/strict"), fs = require("fs"), path = require("path");
+  const c = fs.readFileSync(path.join(__dirname, "..", "js", "components.js"), "utf8");
+  assert.match(c, /const importFile = \(\) => pickTextFile\(msg => \{/);
+  assert.match(c, /txt\.split\(\/\\n\\s\*\\n\+\/\)/);
+  assert.match(c, /for \(let k = 0; k < x\.length; k \+= 1000\) parts\.push\(x\.slice\(k, k \+ 1000\)\)/);
+  assert.match(c, /"data-wk": "topiccardfile", onClick: importFile/);
+});
