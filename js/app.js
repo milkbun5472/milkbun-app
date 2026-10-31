@@ -28731,10 +28731,12 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     // 拍的是她、可她自己没传参考照：没脸可锁，照实说一声（不然她只看到「又是个陌生人」）
     if (!(profile && profile.refPhoto)) { toast("这张拍的是你，但你还没传自己的参考照（在你自己的资料里传一张），只能照文字画一个人", 7000); return null; }
     const meP = photoMe("她", char.id);
-    const both = !!char.refPhoto && /合照|我们|一起|两个人|和她|跟她|我和|自拍/.test(scene);
+    // 「自拍」不算合照（群友 2026-10-31：「她半夜发来的对镜自拍」被画成了两个人）：她自己拍了发过来的，画面里只有她
+    const herSelf = /她(?:半夜|刚才|今天|昨晚|早上|晚上)?(?:发来|发给我|传来|自拍)|她的自拍|她拍了自己/.test(scene);
+    const both = !!char.refPhoto && !herSelf && /合照|我们|一起|两个人|和她|跟她|我和/.test(scene);
     const prompt = both
       ? buildPhotoPrompt(char, scene, statesRef.current[char.id] || null, { kind: "duo", me: meP, closet: closetTextFor(char.id) })
-      : buildPhotoPrompt({ id: "__me", name: meP.name, appearance: meP.appearance || "", refPhoto: profile.refPhoto }, scene + "（这张是" + (char.remark || char.name) + "拍的她）", null, { kind: "other", closet: meP.closet });
+      : buildPhotoPrompt({ id: "__me", name: meP.name, appearance: meP.appearance || "", refPhoto: profile.refPhoto }, scene + (herSelf ? "（这张是她自己拍了发给" + (char.remark || char.name) + "的）" : "（这张是" + (char.remark || char.name) + "拍的她）"), null, { kind: herSelf ? "selfie" : "other", closet: meP.closet });
     return { prompt: prompt + (again ? "【这是重画的一张】同一件事，换个拍法：换个角度、换个距离、换个时刻的光。" : ""), refs: both ? [char.refPhoto, profile.refPhoto] : [profile.refPhoto] };
   };
   const photoMe = (fallbackName, who) => { const P = meOf(who); return {
