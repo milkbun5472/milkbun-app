@@ -8145,6 +8145,9 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
           return; // 一次一个，错峰
         }
       } catch (e) {}
+      // 天气由头一天只给同一个人用一回（群友 2026-10-31：08:18「外头冷，披件厚实衣裳」、08:56「外头起风了，披件厚实衣裳」）：
+      //   他那边变天、她那边变天是两路，各自每天一次，同一个人两路都中就是同一句叮嘱来两遍
+      const wxWhoToday = () => { const r = loadJSON("x_wxWhoDay", null); return r && r.day === dayKey && Array.isArray(r.ids) ? r.ids : []; };
       // —— 特殊天气主动：TA 那边雨/雪/雷雾/极端温度 → 一位在聊的角色主动发条被天气牵动的消息（全局每天最多一条，读天气缓存零请求）——
       try {
         if (loadJSON("x_wxReactDay", "") !== dayKey && typeof wxSpecial === "function") {
@@ -8161,10 +8164,11 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
             const sp = wxSpecial(w);
             if (!sp) continue;
             if (pSkip("wx:" + c.id)) continue;
+            if (wxWhoToday().includes(c.id)) continue;   // 今天已经为天气来过一回（她那边变天那一路也算）
             pOnce("wx:" + c.id,
               "weather:" + dayKey,
               () => replyNow(c.id, "", null, { proactive: true, wx: { kind: sp, line: weatherLine(w) } }),
-              () => saveJSON("x_wxReactDay", dayKey)
+              () => { saveJSON("x_wxReactDay", dayKey); saveJSON("x_wxWhoDay", { day: dayKey, ids: [...(wxWhoToday()), c.id] }); }
             );
             return;                                             // 一次一个，错峰
           }
@@ -8178,13 +8182,13 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
           const spOf = x => x ? (wxSpecial(x) || (x.pp != null && x.pp >= 60 ? "可能下雨" : null)) : null;
           const nowHr = new Date().getHours();
           if (nowHr >= 7 && nowHr <= 21) {
-            const npool = liveChars.filter(c => hist(c).length >= 2 && wxShareOn(c.id, _wc) && !laneBusy("c:" + c.id) && viewRef.current.charId !== c.id && spOf((userWxFor(c.id) || {}).w));
+            const npool = liveChars.filter(c => hist(c).length >= 2 && wxShareOn(c.id, _wc) && !wxWhoToday().includes(c.id) && !laneBusy("c:" + c.id) && viewRef.current.charId !== c.id && spOf((userWxFor(c.id) || {}).w));
             const c = npool.length ? npool.slice().sort((a2, b2) => (affinities[b2.id] || 50) - (affinities[a2.id] || 50))[0] : null;
             const uw = c ? userWxFor(c.id).w : null, usp = c ? spOf(uw) : null;
             if (c && !pSkip("wxu:" + c.id)) {
               pOnce("wxu:" + c.id, "weatheru:" + dayKey,
                 () => replyNow(c.id, "", null, { proactive: true, wx: { kind: usp, line: weatherLine(uw), forUser: true } }),
-                () => saveJSON("x_wxNudgeDay", dayKey));
+                () => { saveJSON("x_wxNudgeDay", dayKey); saveJSON("x_wxWhoDay", { day: dayKey, ids: [...(wxWhoToday()), c.id] }); });
               return;
             }
           }
@@ -13940,7 +13944,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       // 主动开口的头一句记下来，下次发回去避重（她 2026-09-01：四个角色的主动
       // 消息全是同一个模板）。只记【主动】那一路——被动回复本来就该顺着她的话走。
       if (opts.proactive && words.length) {
-        const first = String(words.find(w => voiceSlotOf(w) == null) || "").replace(/\s+/g, " ").trim().slice(0, 40);
+        const first = words.filter(w => voiceSlotOf(w) == null).map(w => String(w || "").replace(/\s+/g, " ").trim()).filter(Boolean).join(" / ").slice(0, 90);   // 整轮都记（群友 2026-10-31：头一句换了、第二句原样又来一遍）
         if (first) {
           const cur = (openersRef.current || {})[charId] || [];
           const n = { ...(openersRef.current || {}), [charId]: [first, ...cur.filter(x => x !== first)].slice(0, 6) };
