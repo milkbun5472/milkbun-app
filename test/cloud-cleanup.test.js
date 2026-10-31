@@ -65,26 +65,28 @@ test('三处备份显示共用状态：未备份、刚成功、近期失败、24
   assert.equal(C.pushState().headline, '最近备份正常');
 });
 
-test('实际横幅使用公共标题；未启用/正常状态隐藏，近期失败不误报一天', async () => {
+test('实际横幅使用公共标题；未启用/正常状态隐藏，近期失败不误报一天；能收起这一回', async () => {
   const components = fs.readFileSync(__dirname + '/../js/components.js', 'utf8');
-  const marker = components.indexOf('// ── 备份坏了要看得见');
-  const start = components.indexOf('(function () {', marker);
-  const end = components.indexOf('  h("div", { className: "flex-1 min-h-0"', start);
-  const body = components.slice(start, end).trim().replace(/,$/, '');
-  const render = new Function('window', 'h', 'onOpenSettings', 't', 'F_BODY', 'return ' + body);
+  const start = components.indexOf('function BackupBanner(');
+  const end = components.indexOf('\nfunction Messages(', start);
+  const src = components.slice(start, end);
+  let store = {};
+  const make = new Function('window', 'h', 't', 'F_BODY', 'loadJSON', 'saveJSON', 'useTheme', 'useState', src + '; return BackupBanner;');
   const h = (type, props, ...children) => ({ type, props, children });
   const { C, fail } = setup(Date.parse('2026-09-07T12:00:00Z'));
   const click = () => {};
-  const draw = cloud => render({ Cloud: cloud }, h, click, { fog: '#999' }, 'sans-serif');
+  const draw = cloud => make({ Cloud: cloud }, h, null, 'sans-serif', (k, d) => (k in store ? store[k] : d), (k, v) => { store[k] = v; }, () => ({ fog: '#999' }), v => [v, () => {}])({ onOpenSettings: click });
   assert.equal(draw(null), null);
   C.markSynced('2026-09-07T11:59:00Z');
   assert.equal(draw(C), null);
   fail(true);
   await C.autoPush();
   const tree = draw(C);
-  assert.equal(tree.props.onClick, click);
   assert.match(tree.props.className, /shrink-0/);
-  assert.equal(tree.children[0].children[0], '⚠️ 这次备份未成功');
+  assert.equal(tree.children[0].props.onClick, click);
+  assert.equal(tree.children[0].children[0].children[0], '⚠️ 这次备份未成功');
+  tree.children[1].props.onClick();   // 点 ×
+  assert.equal(draw(C), null, '收起了这一回就不再冒');
   assert.equal(draw({ ...C, ready: () => false }), null);
 });
 

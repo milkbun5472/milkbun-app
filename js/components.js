@@ -9056,6 +9056,26 @@ function ProfileSheet({
 // ============================================================
 // ⚠️线下暂离的提醒（聊天顶上那条、消息列表那个「线下中」小签）试过又撤了——她 2026-09-30：「不要这个点！我知道我还在线下」「要拿掉」。
 //   别再加回来：进线下走聊天顶上「见一面」，或者聊天设置里开「默认进线下」。
+// 聊天列表顶上那条「备份没成功」（群友 2026-10-31：「这个提示框可以关闭吗，我一天备份一次」）：
+//   右边一颗 ✕。收起的是【这一回】这件事（哪种毛病 + 上次成功是哪天），换了毛病、或者又成功过一次以后再坏，照样冒出来；
+//   设置 → 数据 → 云同步那里一直看得到状态，不受影响。
+function BackupBanner({ onOpenSettings }) {
+  const t = useTheme();
+  const [, bump] = useState(0);
+  const st = (window.Cloud && window.Cloud.ready && window.Cloud.ready() && window.Cloud.pushState) ? window.Cloud.pushState() : null;
+  // 一天内导出过文件就不喊了（群友 2026-10-23「备份完它还在聊天栏顶上」）；云那边的状态在设置里照样看得到
+  if (!st || !st.banner) return null;
+  const sig = String(st.headline || "") + "|" + String((st.blocked && st.blocked.reason) || "") + "|" + String(st.at || "");
+  if (loadJSON("x_bkBannerHide", "") === sig) return null;
+  return h("div", { "data-wk": "bkbanner", className: "shrink-0 flex items-start", style: { margin: "0 12px 6px", borderRadius: 10,
+      background: "rgba(192,80,63,.10)", border: "1px solid rgba(192,80,63,.38)" } },
+    h("div", { onClick: onOpenSettings || null, className: "flex-1 min-w-0" + (onOpenSettings ? " active:opacity-70" : ""), style: { padding: "9px 4px 9px 12px" } },
+      h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", lineHeight: 1.6, color: "#c0503f" } }, "⚠️ " + st.headline),
+      h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", lineHeight: 1.6, color: t.fog, marginTop: 2 } },
+        (st.why ? st.why + "。" : "") + "先去 设置 → 数据 → 导出全部数据 存一份，再看云同步。")),
+    h("button", { "data-wk": "bkbannerx", "aria-label": "收起这条提示", onClick: () => { saveJSON("x_bkBannerHide", sig); bump(x => x + 1); }, className: "active:opacity-60 shrink-0",
+      style: { minWidth: 40, minHeight: 40, fontFamily: F_BODY, fontSize: "calc(16px * var(--app-fs, 1))", color: t.fog, background: "transparent", border: "none" } }, "×"));
+}
 function Messages({
   onPinMoment,
   characters,
@@ -9301,17 +9321,7 @@ function Messages({
     })) : null
   }),
   // ── 备份坏了要看得见：固定横幅读取 Cloud 的公共状态与标题。
-  (function () {
-    const st = (window.Cloud && window.Cloud.ready && window.Cloud.ready() && window.Cloud.pushState) ? window.Cloud.pushState() : null;
-    // 一天内导出过文件就不喊了（群友 2026-10-23「备份完它还在聊天栏顶上」）；云那边的状态在设置里照样看得到
-    if (!st || !st.banner) return null;
-    return h("div", { onClick: onOpenSettings || null, className: "shrink-0" + (onOpenSettings ? " active:opacity-70" : ""),
-      style: { margin: "0 12px 6px", padding: "9px 12px", borderRadius: 10,
-        background: "rgba(192,80,63,.10)", border: "1px solid rgba(192,80,63,.38)" } },
-      h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", lineHeight: 1.6, color: "#c0503f" } }, "⚠️ " + st.headline),
-      h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", lineHeight: 1.6, color: t.fog, marginTop: 2 } },
-        (st.why ? st.why + "。" : "") + "先去 设置 → 数据 → 导出全部数据 存一份，再看云同步。"));
-  })(),
+  h(BackupBanner, { onOpenSettings }),
   h("div", { className: "flex-1 min-h-0", style: { position: "relative" } }, /*#__PURE__*/React.createElement("div", {
     ref: listRef,
     className: "h-full overflow-y-auto"
