@@ -2847,7 +2847,9 @@ function GlassCard({
       borderRadius: 22,
       boxShadow: "0 8px 26px rgba(30,28,24,0.10), inset 0 1.2px 0.6px rgba(255,255,255,0.92), inset 0 -1.4px 1.4px rgba(255,255,255,0.38)",
       ...style,
-      ...(t.homeWidgetGroundStyle || (t.homeWidgetGround ? { background: t.homeWidgetGround, backgroundImage: "none" } : {}))
+      // 卡自己铺了图（名片封面）就听它的：样式面板那层底图/底色是给没有自己的图的组件垫的，
+      //   原来排在最后、把封面整张盖住（群里 2026-10-31：「明明点了更换，咋还是换不了」）
+      ...(style && /url\(/.test(String(style.backgroundImage || "")) ? {} : (t.homeWidgetGroundStyle || (t.homeWidgetGround ? { background: t.homeWidgetGround, backgroundImage: "none" } : {})))
     }
   }, children);
 }
