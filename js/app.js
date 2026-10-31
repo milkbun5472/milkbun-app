@@ -35123,6 +35123,21 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     profileFor: profileFor,
     worldbook: loreForContext("creative", [], ""),
     worldbookFor: (charIds, text) => loreForContext("creative", charIds, text),
+    // TA 自己生活里的人和事（她 2026-10-31：心有灵犀里「老张是他人设里的室友，为啥他不知道」）：
+    //   游戏桌上原来只有一段截到 1800 字的人设，关系网、身边的配角、记忆一样都没有，联想时自然想不到身边人。
+    //   联想类的游戏要的就是这些——关系网上跟TA连着的人、挂在TA身边的配角、按桌上这几个词搜到的记忆。
+    lifeFor: (charId, q) => {
+      const c = characters.find(x => x.id === charId); if (!c) return "";
+      const nm = id => { const x = characters.find(y => y.id === id); return x ? (x.remark || x.name) : ""; };
+      const ties = [];
+      Object.keys(rels || {}).forEach(k => { const [a, b] = k.split("->"); const r = rels[k]; if (a === String(charId) && r && r.label) { const o = b === "me" ? userName(profile) : nm(b); if (o) ties.push(o + "：" + String(r.label).slice(0, 24) + (r.note ? "（" + String(r.note).slice(0, 60) + "）" : "")); } });
+      characters.filter(x => x && x.npc && String(x.ownerId) === String(charId)).forEach(x => ties.push(x.name + "：你身边的人" + (x.persona ? "（" + String(x.persona).replace(/\s+/g, " ").slice(0, 80) + "）" : "")));
+      let mems = []; try { mems = retrieveMemories(memLibRef.current, charId, String(q || ""), { limit: 8, touch: false, vec: false }); } catch (e) {}
+      const persona = String(c.persona || "");
+      return (persona.length > 1800 ? "\n【人设后半截】" + persona.slice(1800, 4000) : "")
+        + (ties.length ? "\n【你生活里的人】\n" + ties.slice(0, 16).map(x => "· " + x).join("\n") : "")
+        + ((mems || []).length ? "\n【你记得的事】\n" + mems.map(m => "· " + String(m.text || "").replace(/\s+/g, " ").slice(0, 120)).join("\n") : "");
+    },
     moods: moods,
     // 注入最近聊天抓人设用（只读，不写回记忆）
     // 主要在群里处的也算（她 2026-10-12「如果和某个不怎么私聊、关系变化都在群聊里」）：
