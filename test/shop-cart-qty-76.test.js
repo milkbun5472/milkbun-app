@@ -38,3 +38,10 @@ require("node:test")("购物车件数上限 999 万，输入框跟着位数变�
   assert.match(app, /Math\.min\(9999999, Math\.round\(Number\(q\)\) \|\| 1\)/);
   assert.match(ui, /replace\(\/\[\^0-9\]\/g, ""\)\.slice\(0, 7\)/);
 });
+
+require("node:test")("购物车一行的价格跟着件数乘；垃圾桶挂右上角", () => {
+  const assert = require("node:assert/strict"), fs = require("fs"), path = require("path");
+  const ui = fs.readFileSync(path.join(__dirname, "..", "js", "screens-ui.js"), "utf8");
+  assert.match(ui, /"¥" \+ \(Math\.round\(\(Number\(it\.price\) \|\| 0\) \* qtyOf\(it\) \* 100\) \/ 100\)/);
+  assert.match(ui, /"data-wk": "shopcartdel"[^\n]*\n\s*style: \{ position: "absolute", top: 0, right: 0, width: 40, height: 40 \}/);
+});
