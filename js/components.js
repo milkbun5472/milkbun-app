@@ -1083,10 +1083,10 @@ function MsgStickPicker({ at, hasStick, onPick, onClose, onPacks }) {
   const DARK = "rgba(58,58,60,.96)", FG = "rgba(255,255,255,.72)";
   const cell = (e, k) => h("button", { key: k || e, onClick: () => pick(e), className: "active:opacity-60", style: { width: 44, height: 44, fontSize: 26, lineHeight: 1, display: "flex", alignItems: "center", justifyContent: "center", borderRadius: 10, background: "transparent" } }, e);
   const head = (txt, extra) => h("div", { className: "flex items-center", style: { gap: 8, margin: "10px 4px 4px", fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: FG } }, h("span", { className: "flex-1" }, txt), extra);
-  const chip = (txt, on, onClick, wk) => h("button", { "data-wk": wk || undefined, "data-on": on ? "1" : "0", onClick, className: "active:opacity-60", style: { minHeight: 32, padding: "0 10px", borderRadius: 999, border: "1px solid " + (on ? "#fff" : "rgba(255,255,255,.3)"), color: on ? "#fff" : FG, fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", background: "transparent" } }, txt);
+  const chip = (txt, on, onClick, wkProps) => h("button", { ...wkProps, "data-on": on ? "1" : "0", onClick, className: "active:opacity-60", style: { minHeight: 32, padding: "0 10px", borderRadius: 999, border: "1px solid " + (on ? "#fff" : "rgba(255,255,255,.3)"), color: on ? "#fff" : FG, fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", background: "transparent" } }, txt);
   const grid = list => h("div", { className: "flex flex-wrap", style: { gap: 2 } }, list.map((e, k) => cell(e, k + e)));
   const inputStyle = { height: 40, fontSize: 16, background: "rgba(255,255,255,.1)", color: "#fff", border: "1px solid rgba(255,255,255,.2)", borderRadius: 10, padding: "0 10px", outline: "none", minWidth: 0 };
-  const btn = (txt, onClick, wk, dis) => h("button", { "data-wk": wk || undefined, onClick, disabled: dis, className: "shrink-0 active:opacity-70 disabled:opacity-40", style: { minHeight: 40, padding: "0 12px", borderRadius: 10, background: "rgba(255,255,255,.14)", color: "#fff", fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))" } }, txt);
+  const btn = (txt, onClick, wkProps, dis) => h("button", { ...wkProps, onClick, disabled: dis, className: "shrink-0 active:opacity-70 disabled:opacity-40", style: { minHeight: 40, padding: "0 12px", borderRadius: 10, background: "rgba(255,255,255,.14)", color: "#fff", fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))" } }, txt);
   const editPane = edit && h("div", { "data-wk": "msgstickedit", style: { padding: "6px 4px 10px" } },
     h("input", { value: edit.name, onChange: e => setEdit({ ...edit, name: e.target.value.slice(0, 8) }), placeholder: "这一栏叫什么", style: { ...inputStyle, width: "100%", marginBottom: 6 } }),
     h("textarea", { value: edit.text, onChange: e => setEdit({ ...edit, text: e.target.value.slice(0, 400) }), rows: 3, placeholder: "把想放进这一栏的 emoji 一个个打进来（也可以在上面点，点的会加进来）", style: { ...inputStyle, width: "100%", height: "auto", padding: "8px 10px", resize: "none" } }),
@@ -1104,34 +1104,48 @@ function MsgStickPicker({ at, hasStick, onPick, onClose, onPacks }) {
       editPane,
       // 贴表情包、拿掉放在最上面（她 2026-10-31「每次下翻太麻烦」）
       h("div", { className: "flex flex-wrap", style: { gap: 6, marginTop: 8 } },
-        btn("贴表情包 ›", onPacks, "msgstickpacks"),
-        hasStick ? btn("拿掉贴着的那个", () => onPick(null), "msgstickoff") : null),
+        btn("贴表情包 ›", onPacks, { "data-wk": "msgstickpacks" }),
+        hasStick ? btn("拿掉贴着的那个", () => onPick(null), { "data-wk": "msgstickoff" }) : null),
       head("快捷条显示", null),
       h("div", { "data-wk": "msgstickgroups", className: "flex flex-wrap", style: { gap: 6, margin: "0 4px" } },
-        chip("最近使用", !quickGroup, () => save({ ...book, quick: "recent" }), "msgstickgroup"),
-        book.groups.map(g => h(React.Fragment, { key: g.id }, chip(g.name, book.quick === g.id, () => save({ ...book, quick: g.id }), "msgstickgroup"))),
-        chip("＋ 新建一栏", false, () => setEdit({ name: "", text: "" }), "msgstickgroupnew")),
+        chip("最近使用", !quickGroup, () => save({ ...book, quick: "recent" }), { "data-wk": "msgstickgroup" }),
+        book.groups.map(g => h(React.Fragment, { key: g.id }, chip(g.name, book.quick === g.id, () => save({ ...book, quick: g.id }), { "data-wk": "msgstickgroup" }))),
+        chip("＋ 新建一栏", false, () => setEdit({ name: "", text: "" }), { "data-wk": "msgstickgroupnew" })),
       book.recent.length ? h(React.Fragment, null, head("最近使用"), grid(book.recent)) : null,
-      book.groups.map(g => h(React.Fragment, { key: g.id }, head(g.name, chip("编辑", false, () => setEdit({ id: g.id, name: g.name, text: g.list.join("") }), "msgstickgroupedit")), grid(g.list))),
+      book.groups.map(g => h(React.Fragment, { key: g.id }, head(g.name, chip("编辑", false, () => setEdit({ id: g.id, name: g.name, text: g.list.join("") }), { "data-wk": "msgstickgroupedit" })), grid(g.list))),
       head("全部表情"), grid(MSG_STICK_ALL),
       h("div", { className: "flex items-center", style: { gap: 6, marginTop: 12 } },
         h("input", { "data-wk": "msgstickown", value: own, onChange: e => setOwn(e.target.value.slice(0, 16)), placeholder: "打一个别的 emoji", style: { ...inputStyle, flex: 1 } }),
         btn("贴", () => { const e = msgStickFirstEmoji(own); if (e) { setOwn(""); pick(e); } }, null, !msgStickFirstEmoji(own)))));
 }
+// 引用块引的是谁的话（群里 2026-10-31：「引用对方消息是他的气泡颜色，他引用我的是我的气泡颜色」能不能做）：
+//   挂在引用块上 data-from="me"/"ta"，美化按它分开配色。群里引的是成员就有 replyToSenderId；
+//   别的（单聊、引她自己）往前找原话对得上的那条看是谁说的，老消息也认得出来。
+function quoteFromOf(list, i, m) {
+  if (!m || !m.replyTo) return "";
+  if (m.replyToSenderId) return "ta";
+  const q = String(m.replyTo).trim();
+  for (let k = Math.min(i, (list || []).length) - 1; k >= 0; k--) {
+    const x = list[k];
+    if (x && typeof x.content === "string" && x.content.trim() && (x.content.trim() === q || x.content.indexOf(q) >= 0)) return x.role === "user" ? "me" : "ta";
+  }
+  return "";
+}
 function msgStickEl(m, isU) {
+  // 贴在气泡【上沿】的角上（她 2026-10-31：贴在下面会挡住「听一下」）
   // 群里成员贴的（gSticks，可能好几个人）：她自己贴的那个排在最后，一起排成一小串
   const gs = m && Array.isArray(m.gSticks) ? m.gSticks.filter(x => x && (x.emoji || x.url)) : [];
   if (gs.length) {
     const mine = !isU && m.stick ? [m.stick] : [];
-    return h("span", { "data-wk": "msgstick", "data-multi": "1", style: { position: "absolute", bottom: -16, [isU ? "left" : "right"]: -10, height: 26, padding: "0 6px", borderRadius: 13, display: "flex", alignItems: "center", gap: 2, fontSize: 15, lineHeight: 1, background: "rgba(255,255,255,.92)", boxShadow: "0 1px 3px rgba(0,0,0,.18)", pointerEvents: "none", zIndex: 3, whiteSpace: "nowrap" } },
+    return h("span", { "data-wk": "msgstick", "data-multi": "1", style: { position: "absolute", top: -14, [isU ? "left" : "right"]: -10, height: 26, padding: "0 6px", borderRadius: 13, display: "flex", alignItems: "center", gap: 2, fontSize: 15, lineHeight: 1, background: "rgba(255,255,255,.92)", boxShadow: "0 1px 3px rgba(0,0,0,.18)", pointerEvents: "none", zIndex: 3, whiteSpace: "nowrap" } },
       gs.concat(mine).slice(-5).map((x, k) => x.emoji ? h("span", { key: k }, x.emoji) : h("img", { key: k, src: x.url, alt: "", style: { width: 18, height: 18, objectFit: "contain" } })));
   }
   // 她贴在TA气泡上的是 stick；TA贴在她气泡上的是 theirStick（同一个画法）
   const st = m && (isU ? m.theirStick : m.stick);
   if (!st || (!st.url && !st.emoji)) return null;
   // 小黄脸 emoji（她 2026-10-31：QQ 那种贴的其实是 emoji）：一个字，叠在角上
-  if (st.emoji) return h("span", { "data-wk": "msgstick", "data-emoji": "1", style: { position: "absolute", bottom: -16, [isU ? "left" : "right"]: -10, minWidth: 26, height: 26, padding: "0 3px", borderRadius: 13, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 17, lineHeight: 1, background: "rgba(255,255,255,.92)", boxShadow: "0 1px 3px rgba(0,0,0,.18)", pointerEvents: "none", zIndex: 3 } }, st.emoji);
-  return h("img", { "data-wk": "msgstick", src: st.url, alt: st.keyword || "", style: { position: "absolute", bottom: -20, [isU ? "left" : "right"]: -12, width: 30, height: 30, objectFit: "contain", pointerEvents: "none", zIndex: 3, filter: "drop-shadow(0 1px 2px rgba(0,0,0,.18))" } });
+  if (st.emoji) return h("span", { "data-wk": "msgstick", "data-emoji": "1", style: { position: "absolute", top: -14, [isU ? "left" : "right"]: -10, minWidth: 26, height: 26, padding: "0 3px", borderRadius: 13, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 17, lineHeight: 1, background: "rgba(255,255,255,.92)", boxShadow: "0 1px 3px rgba(0,0,0,.18)", pointerEvents: "none", zIndex: 3 } }, st.emoji);
+  return h("img", { "data-wk": "msgstick", src: st.url, alt: st.keyword || "", style: { position: "absolute", top: -16, [isU ? "left" : "right"]: -12, width: 30, height: 30, objectFit: "contain", pointerEvents: "none", zIndex: 3, filter: "drop-shadow(0 1px 2px rgba(0,0,0,.18))" } });
 }
 function bubbleSticker(isU) {
   const S = bubbleSkinNow();
@@ -2931,7 +2945,9 @@ function GlassCard({
       borderRadius: 22,
       boxShadow: "0 8px 26px rgba(30,28,24,0.10), inset 0 1.2px 0.6px rgba(255,255,255,0.92), inset 0 -1.4px 1.4px rgba(255,255,255,0.38)",
       ...style,
-      ...(t.homeWidgetGroundStyle || (t.homeWidgetGround ? { background: t.homeWidgetGround, backgroundImage: "none" } : {}))
+      // 卡自己铺了图（名片封面）就听它的：样式面板那层底图/底色是给没有自己的图的组件垫的，
+      //   原来排在最后、把封面整张盖住（群里 2026-10-31：「明明点了更换，咋还是换不了」）
+      ...(style && /url\(/.test(String(style.backgroundImage || "")) ? {} : (t.homeWidgetGroundStyle || (t.homeWidgetGround ? { background: t.homeWidgetGround, backgroundImage: "none" } : {})))
     }
   }, children);
 }
@@ -5014,7 +5030,7 @@ function Calendar({ characters, calendar, calEvents, schedules, profile, period,
         view === "mine" && onParseTimetable && onSaveClasses && h("button", { "data-wk": "calfabitem", "data-part": "classes", onClick: () => { setFab(false); setClassOpen(true); }, className: "w-full text-left active:opacity-60", style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.ink, padding: "13px 16px" } }, "📚　导入课表"),
         isCharView && h("button", { "data-wk": "calfabitem", "data-part": "genweek", onClick: () => { setFab(false); if (!onGenWeek) return;
           // 排之前问一句方向（群友 2026-10-25：「许愿一个可以给 AI 排日程提供方向」）；不填就照旧让他自己排
-          const asked = requestAppPrompt("AI 排剩下这几天", "这几天想让 " + ((curChar && (curChar.remark || curChar.name)) || "他") + " 怎么过？可以不填，不填就他自己排。只给方向，具体怎么排还是他自己定。", "",
+          const asked = requestAppPrompt("AI 排剩下这几天", characterText(curChar, "这几天想让 " + ((curChar && (curChar.remark || curChar.name)) || "他") + " 怎么过？可以不填，不填就他自己排。只给方向，具体怎么排还是他自己定。"), "",
             v => onGenWeek(curChar, String(v || "").trim()), "排", { multiline: true, maxLength: 200, placeholder: "比如：这周在赶稿，少出门；周三晚上约了我吃饭" });
           if (!asked) onGenWeek(curChar); }, disabled: genWeekBusy, className: "w-full text-left active:opacity-60 disabled:opacity-40", style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.ink, padding: "13px 16px", borderTop: "1px solid " + t.line } }, genWeekBusy ? "　　正在排…" : "✨　AI 排剩下这几天"),
         // 删掉这几天 AI 排的（她 2026-09-18）。算一下真有几天，按钮上写清删几天——
@@ -12059,7 +12075,7 @@ function ChatThread({
     // 名字：单聊平常不显示（只有两个人），留着给排版「名字写在气泡上面」和写 CSS 的人打开
     h("div", { "data-wk": "name", "data-me": isU ? "1" : "0", style: { display: "none", fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, margin: "0 4px 2px" } }, isU ? ((profile && profile.name) || "我") : cName),
     m.replyTo && h("div", {
-      "data-wk": "quote", "data-me": isU ? "1" : "0",
+      "data-wk": "quote", "data-me": isU ? "1" : "0", "data-from": quoteFromOf(messages, i, m) || undefined,
       style: {
         fontFamily: F_BODY,
         fontSize: "calc(11px * var(--app-fs, 1))",
@@ -12374,7 +12390,7 @@ function ChatThread({
         style: { padding: "8px 5px", borderRadius: 8, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: photoSendMode === id ? t.bg2 : t.fog, background: photoSendMode === id ? t.ink : "transparent" }
       }, label))),
     photoSendMode === "ask" && h("div", { "data-wk": "askphotokind", className: "flex gap-2 mb-3" },
-      [["self", "自拍"], ["other", "拍他"], ["duo", "合照"]].map(([id, label]) => h("button", { key: id, "data-on": askKind === id ? "1" : "0", onClick: () => setAskKind(id), className: "flex-1 active:opacity-75",
+      [["self", "自拍"], ["other", characterText(character, "拍他")], ["duo", "合照"]].map(([id, label]) => h("button", { key: id, "data-on": askKind === id ? "1" : "0", onClick: () => setAskKind(id), className: "flex-1 active:opacity-75",
         style: { minHeight: 36, borderRadius: 999, border: "1px solid " + (askKind === id ? t.ink : t.line), background: askKind === id ? t.ink : "transparent", color: askKind === id ? t.bg2 : t.sub, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))" } }, label))),
     photoSendMode === "real" && h(ChatPhotoPick, { imgs: specialImgs, setImgs: setSpecialImgs, toast, t }),
     h("input", { "data-wk": "input", value: specialText, onChange: e => setSpecialText(e.target.value), placeholder: photoSendMode === "ask" ? "想看什么（选填），比如此刻在干嘛" : photoSendMode === "real" ? "可以顺手说一句（选填）" : photoSendMode === "selfme" ? "你在哪、在干嘛、想拍成什么样（必填）" : "描述照片里有什么（必填，不会上传图片）", className: "w-full outline-none px-3 py-2.5 rounded-lg", style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", background: t.bg, color: t.ink, border: `1px solid ${t.line}` } }),
@@ -12383,7 +12399,7 @@ function ChatThread({
         style: { minHeight: 44, padding: "7px 10px", borderRadius: 10, border: "1.5px solid " + (selfThird === v ? t.ink : t.line), background: selfThird === v ? t.bg : "transparent" } },
         h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.ink } }, l),
         h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, marginTop: 1 } }, d)))),
-    photoSendMode === "selfme" && h("div", { "data-wk": "selfmehint", style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.5, marginTop: 7 } }, "照「我」那页（他认的那张面具）的外貌或参考照画你自己，花一次出图；画好了以你的名义发出去，他看得到。"),
+    photoSendMode === "selfme" && h("div", { "data-wk": "selfmehint", style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.5, marginTop: 7 } }, characterText(character, "照「我」那页（他认的那张面具）的外貌或参考照画你自己，花一次出图；画好了以你的名义发出去，他看得到。")),
     photoSendMode === "describe" && h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.5, marginTop: 7 } }, "角色只会收到你的文字描述；不会读取相册，也不会上传真实照片。")
   ) : h("input", {
     value: specialText,
@@ -18188,12 +18204,12 @@ function OfflineMode({
   const offSetPages = [
     { key: "scene", char: "场", title: "这一场长什么样", tint: "#687f73",
       state: () => (sBg ? "有背景图" : "没有背景图") + " · " + offTasteBrief },
-    { key: "write", char: "写", title: "他每一轮写多长", tint: "#c0904f",
+    { key: "write", char: "写", title: characterText(char, "他每一轮写多长"), tint: "#c0904f",
       state: () => offLenBrief + " · 上限 " + sMax + " tok" + (sMinW ? " · 最低 " + sMinW + " 字" : "") },
     { key: "pers", char: "称", title: "人称 · 写不写我的动作", tint: "#d97c86",
-      state: () => (sSelf === "first" ? "他称「我」" : "他称名字") + " · " + (sUser === "second" ? "叫我「你」" : "叫我名字")
+      state: () => (sSelf === "first" ? characterText(char, "他称「我」") : characterText(char, "他称名字")) + " · " + (sUser === "second" ? "叫我「你」" : "叫我名字")
         + " · 描写我 " + (sDesc ? "开" : "关") },
-    { key: "bring", char: "带", title: "他带着什么进这一场", tint: "#477f88",
+    { key: "bring", char: "带", title: characterText(char, "他带着什么进这一场"), tint: "#477f88",
       state: () => "记忆 " + sMemN + " 条 · 线上 " + sOnlineN + " 条" },
     { key: "style", char: "风", title: "文风与好吃片段", tint: "#9b7bc4",
       state: () => (presetOn ? "吃着预设" : "没吃预设") + " · 片段 " + ((os.examples || []).length) + " 条" },
@@ -18221,7 +18237,7 @@ function OfflineMode({
         h("input", { ref: bgFileRef, type: "file", accept: "image/*", style: { display: "none" }, onChange: e => { const f = e.target.files && e.target.files[0], el = e.target; if (f) resizeImageFile(f, screenImageDim(), 0.88).then(d => openWallPreview({ src: d, kind: "offline", onUse: () => setSBg(d), onRepick: () => el.click() })); e.target.value = ""; } })))),
       offShow("scene", "taste", "本场口味",
     h(OfflineTastePanel, { t, pace: sTastePace, setPace: setSTastePace, focus: sTasteFocus, setFocus: setSTasteFocus, density: sTasteDensity, setDensity: setSTasteDensity })),
-      offShow("write", "len", "他每一轮写多长",
+      offShow("write", "len", characterText(char, "他每一轮写多长"),
     h(OfflineLengthModeSection, { value: sLengthMode, onChange: setSLengthMode })),
       offShow("write", "max", "单次输出上限",
     h("div", { className: "pt-4" },
@@ -18276,11 +18292,11 @@ function OfflineMode({
     h(OfflineStylePresetSection, { t, presetOn, setPresetOn, presetId, setPresetId, onOpenStyleLab })),
       offShow("style", "custom", "自定义文风", styleSection),
       offShow("style", "example", "好吃片段库", exampleSection),
-      offShow("scene", "autoshot", "他会不会自己拍照",
+      offShow("scene", "autoshot", characterText(char, "他会不会自己拍照"),
     h("button", { "data-wk": "offautoshot", "data-on": sNoShot ? "0" : "1", onClick: () => setSNoShot(v => !v), className: "w-full pt-5 flex items-center justify-between active:opacity-70", style: { gap: 12, textAlign: "left" } },
       h("div", null,
-        h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.sub } }, "他会自己拍照"),
-        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, marginTop: 3, lineHeight: 1.55 } }, sNoShot ? "关着：他不会在戏里顺手拍照生图；你点「拍一张」照样能拍" : "开着：戏里他觉得该拍的时候会自己拍一张（会花一次生图）")),
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.sub } }, characterText(char, "他会自己拍照")),
+        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, marginTop: 3, lineHeight: 1.55 } }, sNoShot ? characterText(char, "关着：他不会在戏里顺手拍照生图；你点「拍一张」照样能拍") : characterText(char, "开着：戏里他觉得该拍的时候会自己拍一张（会花一次生图）"))),
       h("span", { style: { flexShrink: 0, width: 44, height: 26, borderRadius: 999, background: sNoShot ? t.line : (t.accent || t.ink), position: "relative", transition: "background .15s" } },
         h("span", { style: { position: "absolute", top: 3, left: sNoShot ? 3 : 21, width: 20, height: 20, borderRadius: 999, background: t.bg2, transition: "left .15s" } })))),
       offShow("look", "font", "正文字号",
@@ -19712,7 +19728,7 @@ function GroupThread({
     : h("span", { "data-wk": "avatar", onClick: gAvTap(character && character.id, null), className: "shrink-0", style: { position: "relative", display: "inline-flex" } }, h(Avatar, { character: character, size: size || 34, radius: 8 }), gAvBadge(character));
   const openRp = i => {
     const rp = messages[i];
-    if (rp.byMe || rp.claims.some(c => c.me) || rp.claims.length >= rp.count) {
+    if (rp.claims.some(c => c.me) || rp.claims.length >= rp.count) {
       setRpView(i);
       return;
     }
@@ -20166,7 +20182,7 @@ function GroupThread({
         marginLeft: 2
       }
     }, m.senderName, gRoleTag(m)), m.replyTo && h("div", {
-      "data-wk": "quote", "data-me": isU ? "1" : "0",
+      "data-wk": "quote", "data-me": isU ? "1" : "0", "data-from": quoteFromOf(messages, i, m) || undefined,
       style: {
         fontFamily: F_BODY,
         fontSize: "calc(11px * var(--app-fs, 1))",
@@ -20386,10 +20402,10 @@ function GroupThread({
       onPick: em => { sendRich({ role: "user", kind: "emote", url: em.url, keyword: em.keyword, content: "[表情] " + em.keyword + (em.selfFace ? "（画的是她自己）" : "") }); setSheet(null); }
     })
   ), rpView != null && messages[rpView] && messages[rpView].kind === "redpacket" && (() => { const rp = messages[rpView], mine = (rp.claims || []).find(c => c.me);
-    const canOpen = !rp.byMe && !mine && (rp.claims || []).length < rp.count && !(rp.toId && rp.toId !== "me");
+    const canOpen = !mine && (rp.claims || []).length < rp.count && !(rp.toId && rp.toId !== "me");
     return h(RedPacketEnvelope, { key: "rp" + rpView, who: rp.by || rp.senderName, whoChar: rp.byMe ? meAv : (memberById(rp.senderId) || null), message: rp.message,
       canOpen, amountText: mine ? "¥" + mine.amount : "", claims: rp.claims || [], total: rp.total, count: rp.count, meName,
-      status: rp.byMe ? "你发的红包" : (!mine && rp.toId && rp.toId !== "me") ? "这是给 " + (rp.toName || "别人") + " 的专属红包" : (!mine && (rp.claims || []).length >= rp.count) ? "手慢了，红包派完了" : "",
+      status: rp.byMe && rp.toId ? "你发的红包" : (!mine && rp.toId && rp.toId !== "me") ? "这是给 " + (rp.toName || "别人") + " 的专属红包" : (!mine && (rp.claims || []).length >= rp.count) ? "手慢了，红包派完了" : "",
       onOpen: async () => { const r = onClaim(rpView); return typeof r === "number" ? "¥" + r : null; },
       onClose: () => setRpView(null) }); })(), gInviteOpen && h(DateComposeDialog, { places: invitePlaces || [], members: members, who: "大家",
     onCancel: () => setGInviteOpen(false),
@@ -21746,7 +21762,7 @@ function ChatRoomSheet({ character, activeRoomId, sourceMessages, onCreateRoom, 
       h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.ink } }, "只记得到起点那一句为止"),
       h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, marginTop: 2, lineHeight: 1.45 } }, characterText(character, (Kit.allows && !Kit.allows(draft, "formalMemory"))
         ? "上面那格关着时：只带记忆库，而且只到那一句为止；档案、礼物、长期记忆那些都不带。"
-        : "那一句之后才记下的记忆，他在这间房里想不起来。关系和心情还是现在的。"))),
+        : characterText(character, "那一句之后才记下的记忆，他在这间房里想不起来。关系和心情还是现在的。")))),
     h(Toggle, { on: !!draft.memUntilAnchor, onChange: () => patch({ memUntilAnchor: !draft.memUntilAnchor }) })) : null;
   // 小号房间那一块（她 2026-10-07）：用哪张面具当小号、TA认不认得出。建房和编辑页共用这一份。
   //   面具本身在「信息 → 我 → 我的面具」里建，这儿只挑（跟「TA 认识的是我哪一张」同一个分工）。
@@ -22044,7 +22060,7 @@ function ChatRoomSheet({ character, activeRoomId, sourceMessages, onCreateRoom, 
     h("div", { style: { marginTop: 14, paddingTop: 12, borderTop: "1px dashed " + t.line } },
       h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.ink } }, draft.main ? "主聊天记得什么、写回什么" : "这扇门带进带出什么"),
       h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, marginTop: 4, lineHeight: 1.6 } },
-        draft.main ? "你平时坐的那间：他带着你们的全部经历，这儿发生的事也照常记进去。"
+        draft.main ? characterText(character, "你平时坐的那间：他带着你们的全部经历，这儿发生的事也照常记进去。")
           : ((window.ChatRooms && window.ChatRooms.doorLine ? window.ChatRooms.doorLine(draft) : "") + "随时能改，改完下一轮就算数。"))),
     group("cognition", characterText(character, "他进这扇门时带着什么"), characterText(character, "他在这间房里，记得起你们的哪些事。")),
     memCutRow(!draft.main && !!(draft.startFrom && draft.startFrom.anchorTs)),
@@ -22239,6 +22255,7 @@ function ChatLorePicker({ character, entries, onBulk }) {
 }
 function ChatSettings({
   lucky, onDrawLucky, onPickLucky,   // 你俩的幸运字符（2026-10-26）
+  onSetProactive,  // 「允许 Ta 主动发消息」点了当场存（群友 2026-10-31：开了、点返回出去，再进来又是关的——原来要点右上角 ✓ 才存）
   loreEntries,     // 世界书：这个人用哪几条（2026-10-26 群友许愿），点了当场生效
   onLoreBulk,
   onOpenStyleLab,
@@ -22298,6 +22315,7 @@ function ChatSettings({
   const [myPatSig, setMyPatSig] = useState(character.myPatSig || "");
   const [patGenBusy, setPatGenBusy] = useState(false);   // 他拍你时，你那半句后缀（她 2026-10-25）
   const [ctxN, setCtxN] = useState(settings.ctxN || 50);
+  const [pastOfflineN, setPastOfflineN] = useState(settings.pastOfflineN == null ? 0 : Number(settings.pastOfflineN) || 0);   // 带上最近几次线下（2026-10-31）
   const [sumThresh, setSumThresh] = useState(settings.sumThresh || 150);
   const [sumBuffer, setSumBuffer] = useState(settings.sumBuffer || 20);
   const [autoMoment, setAutoMoment] = useState(!!settings.autoMoment);
@@ -22692,6 +22710,7 @@ function ChatSettings({
       patSig,
       myPatSig,
       ctxN,
+      pastOfflineN,
       sumThresh,
       sumBuffer,
       autoMoment,
@@ -22985,17 +23004,17 @@ function ChatSettings({
     en: "Nudge",
     // 让他自己起（她 2026-10-25）：起好填进框里，不满意直接改
     right: onGenPatSig ? h("button", { "data-wk": "patsiggen", disabled: patGenBusy, onClick: async () => { if (patGenBusy) return; setPatGenBusy(true);
-      try { const v = await onGenPatSig(); if (v) setPatSig(v); else window.__toast && window.__toast("他没想好，再点一次试试"); } catch (e) { window.__toast && window.__toast("没起好：" + (e.message || e)); } finally { setPatGenBusy(false); } },
-      className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.tint || t.ink, opacity: patGenBusy ? .5 : 1 } }, patGenBusy ? "在想…" : "让他自己起") : null
+      try { const v = await onGenPatSig(); if (v) setPatSig(v); else window.__toast && window.__toast(characterText(character, "他没想好，再点一次试试")); } catch (e) { window.__toast && window.__toast("没起好：" + (e.message || e)); } finally { setPatGenBusy(false); } },
+      className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.tint || t.ink, opacity: patGenBusy ? .5 : 1 } }, patGenBusy ? "在想…" : characterText(character, "让他自己起")) : null
   }, /*#__PURE__*/React.createElement(LineInput, {
     value: patSig,
     onChange: e => setPatSig(e.target.value),
     placeholder: "如：的脑袋、的猫耳朵"
   }), h("div", { "data-wk": "pathint", style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.6, marginTop: 4 } },
-    "在聊天里双击他的头像就能拍他，群里双击成员头像也一样。")),
+    characterText(character, "在聊天里双击他的头像就能拍他，群里双击成员头像也一样。"))),
   // 他拍你的时候显示「他 拍了拍我 + 这半句」（她 2026-10-25：char 的拍一拍原来只能写成一句话）
-  h(LineField, { zh: "他拍我时的后缀", en: "My Nudge" },
-    h(LineInput, { value: myPatSig, onChange: e => setMyPatSig(e.target.value.slice(0, 20)), placeholder: "他拍你时跟在「拍了拍我」后面，可以不填" })))),
+  h(LineField, { zh: characterText(character, "他拍我时的后缀"), en: "My Nudge" },
+    h(LineInput, { value: myPatSig, onChange: e => setMyPatSig(e.target.value.slice(0, 20)), placeholder: characterText(character, "他拍你时跟在「拍了拍我」后面，可以不填") })))),
   show("look", { title: "气泡里显示什么", ...sec("look") }, h("div", { className: "pt-2" },
     h(Eyebrow, { style: { marginBottom: 2 } }, "气泡显示"),
     dispRow("显示我的头像", showMyAvatar, setShowMyAvatar),
@@ -23202,7 +23221,7 @@ function ChatSettings({
       color: t.fog,
       marginTop: 2
     }
-  }, "不必打开这个聊天：只要 App 还活着，Ta 想联系你时就会来找你，并在消息页挂未读（iOS 杀进程后仍不是后台推送）")), h(Toggle, { on: proactive, onChange: v => setProactive(v), color: t.tint })),
+  }, "不必打开这个聊天：只要 App 还活着，Ta 想联系你时就会来找你，并在消息页挂未读（iOS 杀进程后仍不是后台推送）", settings.proactiveBlock ? h("div", { "data-wk": "proactiveblock", style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", lineHeight: 1.5, color: t.accent || t.tint, marginTop: 4 } }, "⚠️开着也不会动：" + settings.proactiveBlock) : null)), h(Toggle, { on: proactive, onChange: v => { setProactive(v); if (onSetProactive) onSetProactive(!!v); }, color: t.tint })),
   // 想我时只发消息（她 2026-10-05）：在一起之后，条子满了原本有三个出口——钉愿望、往情侣空间留东西、发消息。
   //   开了这个就只剩发消息那一个；没在一起的本来就只发消息，开不开一样。
   proactive ? h("div", { className: "flex items-center justify-between pt-3", style: { paddingLeft: 14 } },
@@ -23339,7 +23358,13 @@ function ChatSettings({
     max: 1000,
     step: 10,
     onChange: setCtxN
-  })), /*#__PURE__*/React.createElement("div", {
+  })), h("div", { className: "pt-6", "data-wk": "pastoffline" },
+    h("div", { className: "flex items-baseline justify-between mb-1" },
+      h("span", { style: { fontFamily: F_DISPLAY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.sub } }, "带上最近几次线下"),
+      h("span", { style: { fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: "calc(16px * var(--app-fs, 1))", color: t.ink } }, pastOfflineN ? pastOfflineN + " 次" : "不带")),
+    h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", lineHeight: 1.5, color: t.fog, marginBottom: 10 } },
+      characterText(character, "填 0：他只牢牢记得刚见完的那一次，更早的见面记不记得看运气。填几，就多牢牢记得前面几次。填得越多，每次回话越费字数。")),
+    h(Slider, { value: pastOfflineN, min: 0, max: 10, step: 1, onChange: setPastOfflineN })), /*#__PURE__*/React.createElement("div", {
     className: "pt-6"
   }, /*#__PURE__*/React.createElement("div", {
     className: "flex items-baseline justify-between mb-1"

@@ -9,7 +9,7 @@ function envFor(raw){
   characters:[c],active:{id:'main'},bgActive:{id:'background'},SCHED_PLAN_DAYS:7,SCHED_WORLD_RULE:'世界规则',SCHED_END_RULE:'结束规则',SCHED_TENSE_RULE:'时态规则',
   schedulesRef:{current:{}},schedSelfRevRef:{current:false},noSchedFor:()=>false,isBody:()=>false,
   ctxFor:ch=>({char:ch,persona:'完整人设'}),loreFor:()=>({lore:'同一世界'}),characterText:(_c,s)=>s,
-  schedPeerBlock:()=>'',schedMirrorPeers:()=>{},/* v75.786 排完抄进有关系那人的日程；沙盒里只有一个角色、没有关系线，真函数在这儿也什么都不做 */schedWeatherLine:async()=>'',setGen:()=>{},toast:()=>{},autoRefreshOn:()=>true,bgJob:async(_f,_c,fn)=>fn(),
+  schedPeerBlock:()=>'',schedMapRule:()=>'',schedSnap:(_c,s)=>s,/* 2026-10-30 v77.015 起日程 prompt 带地图那句；沙盒里没有地图 */schedMirrorPeers:()=>{},/* v75.786 排完抄进有关系那人的日程；沙盒里只有一个角色、没有关系线，真函数在这儿也什么都不做 */schedWeatherLine:async()=>'',setGen:()=>{},toast:()=>{},autoRefreshOn:()=>true,bgJob:async(_f,_c,fn)=>fn(),
   runProbe:async(api,ctx,spec)=>{calls.push({api,ctx,spec});return plain(raw);},
   saveJSON:(key,value)=>{writes.push({key,value:plain(value)});return true;},setSchedules:fn=>{e.schedulesRef.current=fn(e.schedulesRef.current);}};
  e.window=e;vm.createContext(e);

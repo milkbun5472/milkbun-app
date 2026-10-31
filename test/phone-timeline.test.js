@@ -275,11 +275,12 @@ test("只有日历那一路能算「还没发生」", () => {
 });
 
 // ── 归档 ────────────────────────────────────────────────────
+// （2026-10-30：砍旧、排序改看 phoneArchAge——现实里过了多久，所以抠函数时把它一起带上）
 // 刷新会整份覆盖某个 app，旧痕迹本来就没了——时间线于是只是「当前快照的重排」。
 // 归档层的活儿：覆盖之前先把旧那份存下来，那条线才会越来越长。
 
 const PA = runDecls(BASE.concat([
-  "PHONE_ARCH_CAP =", "PHONE_ARCH_DAYS =", "phoneArchTrim =",
+  "PHONE_ARCH_CAP =", "PHONE_ARCH_DAYS =", "phoneArchTrim =", "phoneArchAge =",
   "function phoneArchiveFrom", "function phoneArchMerge", "function phoneTimelineWithArchive"
 ]), ["phoneArchiveFrom", "phoneArchMerge", "phoneTimelineWithArchive", "PHONE_ARCH_CAP", "PHONE_ARCH_DAYS"]);
 
@@ -352,7 +353,7 @@ test("没有归档时行为和以前一模一样", () => {
 
 test("全库超量时从最旧的开始扔，不按角色平均砍", () => {
   const PC = runDecls(BASE.concat(["PHONE_ARCH_CAP =", "PHONE_ARCH_DAYS =", "PHONE_ARCH_CAP_ALL =",
-    "phoneArchTrim =", "function phoneArchiveFrom", "function phoneArchMerge", "function phoneArchCapAll"]),
+    "phoneArchTrim =", "phoneArchAge =", "function phoneArchiveFrom", "function phoneArchMerge", "function phoneArchCapAll"]),
     ["phoneArchCapAll", "PHONE_ARCH_CAP_ALL"]);
   const mk = (tag, n, base) => Array.from({ length: n }, (_, i) => ({ id: tag + i, app: "notes", ts: base - i * 1000, title: tag, text: "", when: "" }));
   const N = PC.PHONE_ARCH_CAP_ALL;
@@ -367,4 +368,19 @@ test("全库超量时从最旧的开始扔，不按角色平均砍", () => {
   // 没超量就原样返回
   const small = { x: mk("c", 3, NOW) };
   assert.strictEqual(PC.phoneArchCapAll(small), small);
+});
+
+// 2026-10-30：v76.988 起 ts 是 TA 那只虚拟钟上的时刻。钟一拨远，拿它算「九十天前」：
+//   往后拨 → 整份旧归档一次扔光；往前拨 → 新来的一进门就被当成最旧的挤掉。砍和排都得看现实时间（rt）。
+test("虚拟钟拨远了：旧归档不被一次扔光，新来的也不被当成最旧的", () => {
+  const DAY = 86400000;
+  const old = [{ id: "o1", app: "notes", ts: NOW - 3 * DAY, title: "旧", text: "", when: "" }];   // v76.988 以前存的：ts 就是现实
+  const far = NOW + 40 * 365 * DAY;   // 钟拨到四十年后
+  const fresh = [{ id: "n1", app: "notes", ts: far - DAY, rt: NOW - DAY, title: "新", text: "", when: "" }];
+  const merged = Array.from(PA.phoneArchMerge(old, fresh, NOW));
+  assert.deepStrictEqual(merged.map(r => r.id).sort(), ["n1", "o1"], "钟拨远以后旧归档被扔了");
+  const past = NOW - 300 * 365 * DAY;   // 钟拨到三百年前（古风）
+  const ancient = [{ id: "a1", app: "notes", ts: past, rt: NOW, title: "古", text: "", when: "" }];
+  const m2 = Array.from(PA.phoneArchMerge(old, ancient, NOW));
+  assert.strictEqual(m2[0].id, "a1", "刚进来的那条被当成了最旧的");
 });

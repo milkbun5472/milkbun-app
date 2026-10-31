@@ -87,11 +87,11 @@ const noComment = src => src.split("\n").filter(l => !/^\s*\/\//.test(l)).join("
 const appCode = noComment(app), compCode = noComment(comp);
 
 test("拆双语必须排在拆气泡【之前】，不然长句会从竖线中间断开", () => {
-  const i = appCode.indexOf("const _biZh = new Map();");
+  const i = appCode.indexOf("const _biZh = new Map()");
   assert.ok(i > 0, "单聊没接双语拆分");
   const seg = appCode.slice(i, i + 1400);
   assert.ok(seg.indexOf("splitBilingual(w)") < seg.indexOf("splitLongBubble("), "顺序反了");
-  assert.ok(/parts\[parts\.length - 1\]/.test(seg), "中译该挂在最后一泡上");
+  assert.ok(/bilingualSpread\(parts, bi\.zh,/.test(seg), "中译要按拆出来的泡分（对不上挂最后一泡）");
 });
 
 test("单聊和群聊两处都要接，一处都不许少", () => {

@@ -576,7 +576,7 @@
             h("div", { style: { display: "grid", gridTemplateColumns: "auto 1fr", gap: "6px 12px", marginTop: 10, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: S.sub, alignItems: "center" } },
               "爱情", h(Stars, { n: dd.love, color: S.accent }), "事业", h(Stars, { n: dd.work, color: S.accent }), "财运", h(Stars, { n: dd.money, color: S.accent })),
             h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: S.fog, marginTop: 8 } }, "幸运色 " + dd.color.name + " · 幸运数字 " + dd.number))),
-        h(Panel, { S, title: "他配过的对" }, (syn || sm)
+        h(Panel, { S, title: characterText(char, "他配过的对") }, (syn || sm)
           ? h("div", null, h("div", { className: "flex items-baseline justify-between" },
               h("div", { style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))" } }, cName + " × " + uName),
               h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(24px * var(--app-fs, 1))", color: S.tint } }, syn ? syn.score : sm.score)),

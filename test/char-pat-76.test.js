@@ -10,7 +10,7 @@ assert.match(app, /if \(m\.kind === "pat" && m\.role === "assistant"\) \{/, "他
 assert.match(app, /gCallField \+ gPatField \+ ""/);
 assert.match(app, /const groupHistLine = m => m\.kind === "pat" && m\.role === "assistant"/);
 assert.match(app, /myPatSig: String\(s\.myPatSig \|\| ""\)\.trim\(\)\.slice\(0, 20\)/);
-assert.match(cp, /zh: "他拍我时的后缀"/);
+assert.match(cp, /zh: characterText\(character, "他拍我时的后缀"\)/);
 console.log("ok");
 // 第二轮：他看得到两边的后缀、自己起签名、自己改后缀
 assert.match(app, /"laterPromise", "pat", "patSig"\];/);

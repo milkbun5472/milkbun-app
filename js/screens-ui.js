@@ -3654,7 +3654,7 @@ function searchTopBar({ onBack, search, setSearch, onGo, busy, placeholder, acce
       busy ? h(IPulse, { size: 19, color: iconInk }) : h(IRefresh, { size: 19, color: sub })));
   return topBar;
 }
-function Shop({ payAs, initialNav, wallet, cart, orders, inventory, wish, characters, groups, kinshipCards, feed, busy, onBack, onGen, onAddCart, onRemoveCart, onCheckout, onReceiveUse, onReceiveGift, onAskChar, onToggleWish, onUseUp, onToggleOnMe, onGiftInv, onClosetInv, onLeaveAtHis, payMasks, walletOf, toast }) {
+function Shop({ payAs, initialNav, wallet, cart, orders, inventory, wish, characters, groups, kinshipCards, feed, busy, onBack, onGen, onAddCart, onRemoveCart, onCheckout, onReceiveUse, onReceiveGift, onReturn, onAskChar, onToggleWish, onUseUp, onToggleOnMe, onGiftInv, onClosetInv, onLeaveAtHis, payMasks, walletOf, toast }) {
   const t = useTheme();
   const [nav, setNav] = useState(initialNav || "home"); // home | cart | my
   const [cat, setCat] = useState("recommend");
@@ -3789,7 +3789,10 @@ function Shop({ payAs, initialNav, wallet, cart, orders, inventory, wish, charac
                   h("div", { "data-wk": "shopordermeta", style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: MSHOP.dim, marginTop: 3 } }, (o.price ? "¥" + o.price : "") + (o.price && o.payLabel ? " · " : "") + (o.payLabel || (o.price ? "" : "礼物")))),
                 h("div", { className: "text-right shrink-0 ml-3" },
                   h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", color: MSHOP.dim } }, shopShipWord(o.cat)),
-                  h("div", { "data-wk": "shoporderleft", style: { fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", fontWeight: 600, color: MSHOP.orange } }, shopFmtLeft(left)))));
+                  h("div", { "data-wk": "shoporderleft", style: { fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", fontWeight: 600, color: MSHOP.orange } }, shopFmtLeft(left)))),
+              // 还没发货就能取消：钱原路退回付钱的那个人（确认框里说清退给谁）
+              onReturn ? h("div", { className: "flex justify-end", style: { marginTop: 8 } },
+                h("button", { "data-wk": "shoporderbtn", "data-part": "cancel", onClick: () => onReturn("order", o.id), className: "active:opacity-70", style: { minHeight: 40, padding: "0 16px", fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", border: "1px solid " + MSHOP.line, color: MSHOP.sub, borderRadius: 999, background: "transparent" } }, "取消订单")) : null);
           })),
       // 待收货
       h("div", { "data-wk": "shopsection", "data-part": "receiving", style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: MSHOP.sub, marginBottom: 8, paddingLeft: 2 } }, "待收货 · " + receiving.length),
@@ -3803,7 +3806,8 @@ function Shop({ payAs, initialNav, wallet, cart, orders, inventory, wish, charac
               o.price ? h("div", { "data-wk": "shoporderprice", style: { fontFamily: F_DISPLAY, fontSize: "calc(16px * var(--app-fs, 1))", fontWeight: 700, color: MSHOP.price } }, "¥" + o.price) : null),
             h("div", { className: "flex gap-2" },
               h("button", { "data-wk": "shoporderbtn", "data-part": "use", onClick: () => onReceiveUse(o.id), className: "flex-1 py-2 active:opacity-70", style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", fontWeight: 600, background: MSHOP.orange, color: "#fff", borderRadius: 999, boxShadow: "0 2px 7px rgba(255,80,0,.3)" } }, "收下"),
-              h("button", { "data-wk": "shoporderbtn", "data-part": "regift", onClick: () => { if (!(characters || []).length) { toast("还没有角色可转赠"); return; } setSheet({ kind: "regift", orderId: o.id }); }, className: "flex-1 py-2 active:opacity-70", style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", border: "1px solid " + MSHOP.orange, color: MSHOP.orange, borderRadius: 999 } }, "转赠"))))),
+              h("button", { "data-wk": "shoporderbtn", "data-part": "regift", onClick: () => { if (!(characters || []).length) { toast("还没有角色可转赠"); return; } setSheet({ kind: "regift", orderId: o.id }); }, className: "flex-1 py-2 active:opacity-70", style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", border: "1px solid " + MSHOP.orange, color: MSHOP.orange, borderRadius: 999 } }, "转赠"),
+              onReturn ? h("button", { "data-wk": "shoporderbtn", "data-part": "return", onClick: () => onReturn("order", o.id), className: "shrink-0 active:opacity-70", style: { minHeight: 40, padding: "0 14px", fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", border: "1px solid " + MSHOP.line, color: MSHOP.sub, borderRadius: 999, background: "transparent" } }, "退货") : null)))),
       // 想要清单：看上了但没买的。它真正的用处在【TA知道你想要什么】——
       // 单子会进TA的上下文，TA记不记得、送不送，是TA自己的事。
       wishList.length ? h("div", null,
@@ -4062,6 +4066,9 @@ function Shop({ payAs, initialNav, wallet, cart, orders, inventory, wish, charac
               () => { if (!(characters || []).length) { toast("还没有角色"); return; } setInvItem(Object.assign({}, invItem, { _gift: true })); }),
             dreamy ? null : row("收进衣柜", "衣服鞋帽收进【我的衣柜】，别堆在物品里。",
               () => { const it = invItem; gone(); onClosetInv && onClosetInv(it.id, "日常"); }),
+            // 退货：只有从订单收下来的那几件知道是谁付的、付了多少，才给这一格
+            !dreamy && onReturn && invItem.price != null ? row("退货", "钱原路退回付钱的那个人" + (invItem.fromCharId || invItem.kinCharId ? "，TA会知道。" : "。"),
+              () => { const it = invItem; gone(); onReturn("item", it.id); }, MSHOP.price) : null,
             dreamy ? h("div", { "data-wk": "shopinvdreamy", style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: MSHOP.dim, marginTop: 10, lineHeight: 1.75 } },
               "它只能你自己带着。送不出去、收不进衣柜、也放不到TA屋里——" +
               "梦里带出来的东西留不住，没人再提起，它自己就淡回梦里去了。") : null));
@@ -7598,7 +7605,7 @@ function ApiConfig({
       + "总结不出来、「Ta 眼里」不更新时，先回来看这一栏。"
       // 「无」（她 2026-10-10：「后台 api 能不能选个无，这样可以强制不刷新」）：后台自己跑的那些一律不跑
       + "选「无」：「谁会自己动」里那些自己跑的（日程、日记、朋友圈、论坛、刷手机、群里自己聊、主动来找你……）和自动抽记忆一律停掉，只剩你点了才动的；聊天到一定长度的前情浓缩照旧走主模型，不然 TA 会忘。",
-      bgApiId, onSetBgApi, "跟随主模型", "无（后台一律不跑）"),
+      bgApiId, onSetBgApi, "跟随主模型", "无（记忆、日程这些后台活不跑）"),
     h(QuietHoursBox, { t: t, toast: toast }),
     h(McpConfig, { toast: toast }));
   return /*#__PURE__*/React.createElement("div", null,
@@ -11955,7 +11962,7 @@ function CharWallet({ characters, charWallet, profile, selId, busyKey, hasApi, o
         h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, flexShrink: 0 } }, schedDateParts(schedDayKey(new Date(e.ts))).md),
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(13.5px * var(--app-fs, 1))", color: t.ink, flexShrink: 0 } }, fmtMoney(Math.abs(e.delta), char.id)),
         // 扣错了／扣重了：撤销这一笔，钱退回他钱包
-        onUndoEntry && e.id ? h("button", { "data-wk": "cwundo", onClick: () => requestAppConfirm("撤销这一笔？", "这一行拿掉，" + fmtMoney(Math.abs(e.delta), char.id) + " 退回他的钱包。", () => onUndoEntry(char.id, e.id), "撤销"),
+        onUndoEntry && e.id ? h("button", { "data-wk": "cwundo", onClick: () => requestAppConfirm("撤销这一笔？", "这一行拿掉，" + fmtMoney(Math.abs(e.delta), char.id) + " 退回" + CharacterPronoun.ta(char) + "的钱包。", () => onUndoEntry(char.id, e.id), "撤销"),
           className: "active:opacity-60", style: { flexShrink: 0, fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, background: "transparent", padding: "0 2px" } }, "撤销") : null))) : null,
         forHerOpen && forHer.length > 30 ? h("div", { key: "fm", style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginTop: 8 } }, "还有 " + (forHer.length - 30) + " 笔") : null
       ]) : null,

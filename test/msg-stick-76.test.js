@@ -38,7 +38,7 @@ test("群聊也接上：她双击别人的气泡贴、成员也能往气泡上�
   assert.equal((c.match(/onDoubleTap: onStickMsg \?/g) || []).length, 2);
   assert.match(c, /m\.gSticks/);
   assert.match(app, /const gStickField = /);
-  assert.match(app, /gPatField \+ "" \+ gStickField/);
+  assert.match(app, /gPatField \+ "" \+ gStickField \+ "" \+ gDmField/);
   assert.match(app, /gSticks: \(x\.gSticks \|\| \[\]\)\.filter\(g => g\.by !== spk\.id\)/);
   assert.match(app, /fmtGLine\(m\) \+ groupStickNote\(m\)/);
 });

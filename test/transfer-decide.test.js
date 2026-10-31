@@ -50,7 +50,8 @@ test("表态了才结算，省略就继续挂着", () => {
 test("群里同样接上，而且只结算转给他本人那一笔", () => {
   assert.match(app, /const gPendingTf = /, "群里没取挂着那几笔");
   assert.match(app, /\+ gBiHint \+ gTfHint \+/, "取了却没拼进 system");
-  assert.match(app, /const _mine = gPendingTf\.find\(x => x\.toId === spk\.id && x\.status === "pending"\)/,
+  // 2026-10-31 起取的是最新那一笔（跟单聊一样），还是按发言人对上收款人
+  assert.match(app, /const _mine = gPendingTf\.filter\(x => x\.toId === spk\.id && x\.status === "pending"\)\.pop\(\)/,
     "得按发言人对上收款人，别替别人收钱");
 });
 

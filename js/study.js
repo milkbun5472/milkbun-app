@@ -2739,7 +2739,7 @@
                     style: { padding: "3px 10px", borderRadius: 999, border: "1px solid " + (on ? accent : STUDY_SKIN.line), background: on ? accent : "transparent", color: on ? STUDY_SKIN.paper : STUDY_SKIN.sub, fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))" } }, o[1]);
                 })) : null);
             }),
-            lagN ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: STUDY_SKIN.sub, marginTop: 10, lineHeight: 1.6 } }, "落下的不会自己挪：在上面跟 " + tn + " 说一句「帮我摊一摊」，他照你打的卡把剩下的重新排。") : null))));
+            lagN ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: STUDY_SKIN.sub, marginTop: 10, lineHeight: 1.6 } }, characterText(teacher, "落下的不会自己挪：在上面跟 " + tn + " 说一句「帮我摊一摊」，他照你打的卡把剩下的重新排。")) : null))));
   }
   function KnowledgeMap(props) {
     const cur = findCurriculum(props.curriculum.id) || props.curriculum;

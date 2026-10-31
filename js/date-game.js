@@ -94,7 +94,7 @@
   }
   function DateGame(props) {
     const t = props.t, cfg = props.config, char = (props.characters || []).find(c => c.id === cfg.charIds[0]);
-    const [s, setS] = useState(() => props.savedState && props.savedState.state || C.newGame(cfg));
+    const [s, setS] = useState(() => props.savedState && props.savedState.state || C.newGame(cfg, null, { hour: (typeof vclockNow === "function" ? vclockNow(cfg.charIds[0]) : new Date()).getHours() }));
     const ref = useRef(s), ticket = useRef(0), abortRef = useRef(null), busyRef = useRef(false), alive = useRef(true);
     const [busy, setBusy] = useState(false), [unsaved, setUnsaved] = useState(false), [err, setErr] = useState(""), [text, setText] = useState(""), [selected, setSelected] = useState(""), [aim, setAim] = useState(1), [guess, setGuess] = useState(""), [talkText, setTalkText] = useState(""), [dareText, setDareText] = useState(""), [accuse, setAccuse] = useState(null), [copied, setCopied] = useState(false), [showTask, setShowTask] = useState(() => { const v = props.savedState && props.savedState.state; return !v || !(v.visits || []).length; });   // 第一站摊开给她看，之后折着，别把聊天往下挤
     const save = n => { const ok = props.onSave({ config: cfg, state: n, label: n.phase === "finished" ? "这一局已翻牌 · 可以回看" : "第 " + n.round + " 站 · 剩 " + n.minutes + " 分钟" }) !== false; setUnsaved(!ok); return ok; };

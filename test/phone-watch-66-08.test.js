@@ -97,7 +97,8 @@ test("写盘走现成的 savePhoneApp，不另开一条路", () => {
   assert.match(app, /savePhoneApp\(char\.id, where, r\.d, \{ noArchive: true, patched: true \}\)/);
   // ⚠️patched：这一份本来就是在旧那份上改出来的，再过一遍累积层就会重复——
   //   _ts 变了，而 phoneGrowList 对日志类按【名字＋时刻】认人，于是同一个人出现两次。
-  assert.match(app, /let merged = \(opts && opts\.patched\) \? d/);
+  // 2026-10-30 重锚：合并前后要设、归零钟差（phoneClockShift），这一行拆成了 try/finally，测的还是同一件事。
+  assert.match(app, /merged = \(opts && opts\.patched\) \? d/);
   assert.match(app, /微信「只问 updates」那一路（v59\.54）绕开 phoneGrowList，正是同一个理由/);
   // ⚠️noArchive：归档是给【整份覆盖】准备的；他刷手机是接着往下写，旧的还在
   assert.match(app, /if \(!\(opts && opts\.noArchive\)\) archivePhoneApp/);
@@ -236,7 +237,7 @@ test("打得开哪几个 app 只此一份名单", () => {
 
 test("落盘一个入口按 app 分流，不是每个 app 一个函数", () => {
   assert.equal((watchSrc.match(/function applyWrite\(/g) || []).length, 1);
-  assert.match(app, /const r = WK\.applyWrite\(where, cur, to, text, Date\.now\(\), extra\);/);
+  assert.match(app, /const r = WK\.applyWrite\(where, cur, to, text, phoneNow\(char\.id\), extra\);/);
   // 那个 app 还没生成过就没有底稿可接
   assert.match(app, /if \(!cur\) return;/);
 });

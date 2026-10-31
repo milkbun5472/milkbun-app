@@ -42,7 +42,8 @@ test("地图：类型选择是图例，而且记号是画出来的", () => {
   assert.ok((MP.match(/kindMark\(/g) || []).length >= 2, "记号没被共用，迟早三处长成三个样");
   assert.match(MP, /d: KIND_PATH\[nd\.kind\] \|\| KIND_PATH\.地标/, "图上的标注还在用符号字");
   // 图例条目：方角、只有一道边；圆角药丸是任何 app 的筛选器
-  assert.match(MP, /borderRadius: 2,\s*\n?\s*fontFamily: F_BODY, fontSize: "calc\(12\.5px \* var\(--app-fs, 1\)\)", color: on2/);
+  // 2026-10-30：类型选择改成编辑地点里那一排，方角 3、选中加粗边——还是方角，不是药丸
+  assert.match(MP, /fontFamily: F_BODY, fontSize: "calc\(12\.5px \* var\(--app-fs, 1\)\)", padding: "5px 10px", borderRadius: 3, color: on2/);
 });
 
 test("三处的选中态都不只靠色差，可点区也不低于 40px", () => {
@@ -52,5 +53,5 @@ test("三处的选中态都不只靠色差，可点区也不低于 40px", () => 
   assert.match(MP, /minHeight: 40/);
   // 主题工坊那三个抽屉：位置、底色、阴影、拉手颜色一起变
   assert.match(TS, /background: on \? t\.bg2 : "rgba\(127,127,127,\.07\)"/);
-  assert.match(MP, /border: \(on2 \? "2px" : "1px"\) \+ " solid "/);
+  assert.match(MP, /border: \(on2 \? 2 : 1\) \+ "px solid /);
 });

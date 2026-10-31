@@ -11,7 +11,8 @@ const grab = (src, a, b, cap) => {
   return src.slice(i, j);
 };
 const add = grab(app, "  const addWorldNode = (wid, regionName, node) => {", "  const genWorldNodes = async");
-const gen = grab(app, "  const genWorldNodes = async (wid, regionName, hint, done) => {", "  const saveWorld = (");
+// 2026-10-30 v77.012 多了 forId（替谁添）
+const gen = grab(app, "  const genWorldNodes = async (wid, regionName, hint, done, forId) => {", "  const saveWorld = (");
 
 // 她 2026-08-31：「再加一个可以继续往这个地方加地点的功能」。
 // 这一版真正的坑不在界面上：跑团那个画图引擎每块地方【只画前 3 个地点】，
@@ -52,14 +53,15 @@ test("手写一个不花调用；让模型添才走一次", () => {
   assert.match(gen, /await callAI\(active, sys/, "让模型添那条没走裸调用");
   assert.match(gen, /【已经有的地方和地点】/, "没把这个世界已经有的递过去,它会编出重样的、或者跟这个世界不搭的");
   assert.match(gen, /!seen\[x\.name\] && \(seen\[x\.name\] = 1\)/, "模型编了个重名的也照收");
-  assert.match(map, /"加进「" \+ \(reg === NEW \? \(rName\.trim\(\) \|\| "新的一块"\) : reg\) \+ "」（不花调用）"/, "界面上没说清哪条花钱哪条不花");
+  // 2026-10-30 重锚：按钮在新区没起名时整个置灰点不了，名字那半不再兜「新的一块」；这条测的是「（不花调用）」这句说明。
+  assert.match(map, /"加进「" \+ \(reg === NEW \? [^)]*?rName\.trim\(\)[^:]*?: reg\) \+ "」（不花调用）"/, "界面上没说清哪条花钱哪条不花");
   assert.match(map, /"让模型往「" \+ reg \+ "」添 2-4 个（一次调用）"/);
   // 位置会挪这件事得先说，不然她会以为图坏了
   assert.match(map, /加完之后，同一块地方里其它地点的位置会挪一挪/, "没提前说位置会变");
 });
 
 test("加地点是整页，不是半窗", () => {
-  const na = grab(map, "  function NodeAdd({ world, busy, onAdd, onGen, onBack }) {", "  // 开世界：整页表单");
+  const na = grab(map, "  function NodeAdd(props0) {", "  // 开世界：整页表单");   // 2026-10-30 v77.012 起参数改成 props0
   assert.ok(!/h\(Sheet/.test(na), "用了半窗——见 施工规则/no-half-sheet.md");
   // ⚠️口径改了（v64.03）：`position:"fixed", inset:0` 从这一行搬进了共用的 mapSubSkin
   //   （三层子页本来是三行一模一样的平色，各改各的迟早只改一处）。

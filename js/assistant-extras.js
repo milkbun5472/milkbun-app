@@ -378,7 +378,7 @@
     { key: "geoAware", zh: "位置感知", type: "bool", def: false, what: "角色知不知道你在哪（现实定位或架空世界里的位置）、那边天气。" },
     { key: "msgBanner", zh: "App 内消息提醒", type: "bool", def: true, what: "在别的页面时，有人发消息顶上弹一条。" },
     { key: "bgToast", zh: "后台跑完提示我", type: "bool", def: true, what: "日记、行程这些后台活跑完了弹一句。" },
-    { key: "bgApi", zh: "后台线路", type: "route", def: "", what: "记忆整理、翻译、日记、行程、查手机这些后台活走哪条线路。填线路名字，或「跟随线上」，或「无」＝后台一律不跑（省钱，但自动功能全停）。" },
+    { key: "bgApi", zh: "后台线路", type: "route", def: "", what: "记忆整理、翻译、行程、查手机这些后台活走哪条线路。填线路名字，或「跟随线上」，或「无」＝走后台线路的活（记忆整理、行程、钱包、查手机这些）不跑；主动私聊、日记、朋友圈走TA自己的线路，不受它管。" },
     { key: "musicProvider", zh: "一起听的音乐源", type: "pick", opts: { netease: "网易云", gd: "GD音乐台" }, def: "netease", what: "网易云要自己在设置里填接口地址；GD音乐台不用填，直接能搜能播。网易云接口挂了、搜不到歌，换成 GD音乐台。" }
   ];
   const byKey = L => L.reduce((o, d) => (o[d.key] = d, o), {});

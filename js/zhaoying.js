@@ -278,7 +278,7 @@
           itemKind ? null : addRow("＋ 再出一题", () => up({ qs: [...E.qs, { q: "", opts: [{ t: "", r: 0 }, { t: "", r: 0 }] }] }))),
         // 收卷：一枚印章似的按钮
         h("button", { "data-wk": "zysave", onClick: save, className: "w-full active:scale-[.98]", style: { marginTop: 22, minHeight: 50, borderRadius: 999, background: c.deep, color: "#fff", fontFamily: F_DISPLAY, fontSize: 16, letterSpacing: ".3em", boxShadow: "0 8px 18px -8px " + c.deep } }, "收 卷"),
-        h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: FOG, textAlign: "center", marginTop: 6 } }, "存好就能发给他做、自己做"),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: FOG, textAlign: "center", marginTop: 6 } }, characterText(char, "存好就能发给他做、自己做")),
         E.id ? h("button", { onClick: () => requestAppConfirm("删掉这套题？", "题删了，做过这套的记录也就看不到了。", () => { Z.delCustom(E.id); setEdit(null); setTestId(null); bump(x => x + 1); }, "删掉"), className: "w-full active:opacity-60", style: { marginTop: 10, minHeight: 40, fontFamily: F_BODY, fontSize: 12.5, color: "#b85c5c" } }, "删掉这套题") : null));
     }
 
@@ -288,7 +288,7 @@
       if (run.busy) return page(tt.name, () => setRun(null), h("div", { style: { padding: "60px 0", textAlign: "center", fontFamily: F_BODY, color: FOG } }, nameOf(run.who) + " 拿起手机，开始做题…"));
       const share = run.done && run.mode === "char" && props.onShare
         ? h("button", { "data-wk": "zyshare", onClick: () => props.onShare(char, { testName: tt.name, title: run.res.title, line: run.res.line, who: nameOf(run.who) }), className: "w-full active:opacity-70",
-            style: { marginTop: 4, padding: "12px 0", borderRadius: 10, background: INK, color: PAPER, fontFamily: F_DISPLAY } }, "发到跟他的聊天里") : null;
+            style: { marginTop: 4, padding: "12px 0", borderRadius: 10, background: INK, color: PAPER, fontFamily: F_DISPLAY } }, characterText(char, "发到跟他的聊天里")) : null;
       return page(tt.name, () => { clearTimeout(timer.current); setRun(null); },
         h(Fragment, null,
           run.mode === "char" && !run.done ? h("button", { "data-wk": "zyskip", onClick: () => finish(run), className: "active:opacity-60", style: { float: "right", fontFamily: F_BODY, fontSize: 12, color: FOG, padding: "6px 0" } }, "直接看结果 ›") : null,
@@ -372,18 +372,18 @@
             h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: FOG, marginBottom: 6 } }, "这一次假设（可不选）"),
             h("div", { className: "flex gap-2 flex-wrap" },
               ["", "刚跟你吵完架", "喝多了", "十年前的他", "你不在身边那阵子"].map(sc => pill(scene === sc, sc || "平时", () => setScene(sc), "zyscenechip")),
-              pill(!!scene && !["刚跟你吵完架", "喝多了", "十年前的他", "你不在身边那阵子"].includes(scene), "自己写…", () => requestAppPrompt("这一次假设", "写一个前提，比如「刚升职那天」。他会照那时候的自己来答。", scene, v => setScene(String(v || "").trim().slice(0, 60)), "好"), "zyscenechip"))) : null,
+              pill(!!scene && !["刚跟你吵完架", "喝多了", "十年前的他", "你不在身边那阵子"].includes(scene), "自己写…", () => requestAppPrompt("这一次假设", characterText(char, "写一个前提，比如「刚升职那天」。他会照那时候的自己来答。"), scene, v => setScene(String(v || "").trim().slice(0, 60)), "好"), "zyscenechip"))) : null,
           who !== "me" && char && (test.rank || test.bid) ? h("div", { "data-wk": "zyguesspick", style: { marginTop: 12 } },
-            h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: FOG, marginBottom: 6 } }, test.rank ? "先押一个：他会把哪个排第一（可不押）" : "先押一个：他会把最多的钱砸在哪（可不押）"),
+            h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: FOG, marginBottom: 6 } }, test.rank ? characterText(char, "先押一个：他会把哪个排第一（可不押）") : characterText(char, "先押一个：他会把最多的钱砸在哪（可不押）")),
             h("div", { className: "flex gap-2 flex-wrap" }, (test.rank || test.qs.map(q => q.q)).map((x, k) => pill(guess === k, x, () => setGuess(guess === k ? -1 : k), "zyscenechip")))) : null,
           // 说谎题（她 2026-10-23）：让他偷偷撒一题谎，你看完回放来猜
           who !== "me" && char && !(test.rank || test.bid || test.bracket || test.fill) ? h("div", { "data-wk": "zylietoggle", style: { marginTop: 12 } },
-            pill(lie, lie ? "✓ 这次让他偷偷撒一题谎" : "这次让他偷偷撒一题谎", () => setLie(v => !v), "zyscenechip"),
-            lie ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: FOG, marginTop: 6 } }, "他会挑一题故意不说实话，看完回放你点题号猜是哪一题，猜完揭晓。") : null) : null,
+            pill(lie, lie ? characterText(char, "✓ 这次让他偷偷撒一题谎") : characterText(char, "这次让他偷偷撒一题谎"), () => setLie(v => !v), "zyscenechip"),
+            lie ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: FOG, marginTop: 6 } }, characterText(char, "他会挑一题故意不说实话，看完回放你点题号猜是哪一题，猜完揭晓。")) : null) : null,
           who !== "me" && char ? h("button", { "data-wk": "zyaskwho", onClick: () => { props.onAsk && props.onAsk(char.id, test.id, scene, guess, lie); setScene(""); setGuess(-1); setLie(false); }, className: "w-full active:scale-[.98]",
             style: { marginTop: 10, padding: "13px 0", borderRadius: 999, background: pal(test).deep, color: "#fff", fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))", letterSpacing: ".08em", boxShadow: "0 6px 16px -6px " + pal(test).deep } },
             "发给 " + (char.remark || char.name) + " 做" + (scene ? "（" + scene.slice(0, 8) + "）" : "") + " →") : null,
-          who !== "me" && char ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: FOG, textAlign: "center", marginTop: 6 } }, "卡会落进你们的聊天，你按回复他就开始做") : null,
+          who !== "me" && char ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: FOG, textAlign: "center", marginTop: 6 } }, characterText(char, "卡会落进你们的聊天，你按回复他就开始做")) : null,
           who === "me" && drafts()[test.id] ? h("div", { "data-wk": "zydraft", style: { marginTop: 10, fontFamily: F_BODY, fontSize: 12.5, color: ACC, textAlign: "center" } }, "上次做到第 " + (drafts()[test.id].step + 1) + " 题，点下面接着做 · ",
             h("button", { onClick: () => startMe(true), className: "active:opacity-60", style: { minHeight: 40, color: FOG, textDecoration: "underline" } }, "重新做")) : null,
           who === "me" ? h("button", { "data-wk": "zygome", onClick: () => startMe(false), className: "w-full active:scale-[.98]", style: { marginTop: 10, padding: "13px 0", borderRadius: 999, background: pal(test).deep, color: "#fff", fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))", letterSpacing: ".08em", boxShadow: "0 6px 16px -6px " + pal(test).deep } }, drafts()[test.id] ? "接着做 →" : mine ? "我再做一次 →" : "开始做题 →") : null,
@@ -476,7 +476,7 @@
                 r.group ? h("span", { style: { marginLeft: 6, fontFamily: F_BODY, fontSize: 11, color: FOG } }, "群里一起做的") : null),
               h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: FOG } }, Z.dateZh(r.ts) + (openRec === r.id ? " ▴" : " ▾"))),
             openRec === r.id ? h("div", null,
-              who !== "me" && props.onReplay ? h("button", { "data-wk": "zyreplay", onClick: () => props.onReplay(who, r), className: "active:opacity-70", style: { margin: "6px 0", fontFamily: F_BODY, fontSize: 12.5, color: ACC, border: "1px solid " + ACC, borderRadius: 999, padding: "4px 12px" } }, "▶ 看他做的回放") : null,
+              who !== "me" && props.onReplay ? h("button", { "data-wk": "zyreplay", onClick: () => props.onReplay(who, r), className: "active:opacity-70", style: { margin: "6px 0", fontFamily: F_BODY, fontSize: 12.5, color: ACC, border: "1px solid " + ACC, borderRadius: 999, padding: "4px 12px" } }, characterText(char, "▶ 看他做的回放")) : null,
               // 存成图／收进时刻／发给出题的他（她 2026-10-22）
               h("div", { "data-wk": "zyrecacts", className: "flex gap-2 flex-wrap", style: { margin: "6px 0" } },
                 props.onSaveImage ? h("button", { onClick: () => props.onSaveImage(test.id, r, nameOf(who)), className: "active:opacity-70", style: { fontFamily: F_BODY, fontSize: 12.5, color: ACC, border: "1px solid " + ACC, borderRadius: 999, padding: "6px 12px", minHeight: 40 } }, "存成图") : null,
@@ -486,7 +486,7 @@
               // 换了处境的那次：跟最近一次「平时」的并排，只列选得不一样的题
               r.scene ? (function () {
                 const base = recs.find(x => !x.scene && x.id !== r.id);
-                if (!base) return h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: FOG, margin: "4px 0" } }, "他还没在平时做过这套，做一次就能跟这次对着看");
+                if (!base) return h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: FOG, margin: "4px 0" } }, characterText(char, "他还没在平时做过这套，做一次就能跟这次对着看"));
                 const moved = test.qs.map((q, i) => i).filter(i => base.picks[i] !== r.picks[i]);
                 return h("div", { "data-wk": "zyscenediff", style: { margin: "6px 0 10px", padding: "10px 12px", borderRadius: 10, background: "#fffaf3", border: "1px solid " + LINE } },
                   h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: ACC } }, moved.length ? "跟平时那次（" + Z.dateZh(base.ts) + "）比，这 " + moved.length + " 题换了：" : "跟平时那次（" + Z.dateZh(base.ts) + "）比，每题都一样"),
@@ -505,7 +505,7 @@
                 r.review ? h("div", { "data-wk": "zyreview", style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: "#5d5246", marginTop: 10, paddingTop: 10, borderTop: "1px dashed " + LINE, lineHeight: 1.75 } }, r.review) : null,
                 r.react ? h("div", { "data-wk": "zyreact", style: { marginTop: 10, padding: "8px 12px", borderLeft: "2px solid " + ACC, background: "rgba(176,118,74,.06)", borderRadius: "0 8px 8px 0", fontFamily: F_BODY } },
                   h("div", { style: { fontSize: 11, color: ACC, letterSpacing: ".1em" } }, nameOf(who) + " 看完说"), h("div", { style: { fontSize: 14, color: INK, lineHeight: 1.7, marginTop: 2 } }, "「" + r.react + "」")) : null),
-              h("button", { onClick: () => requestAppConfirm("删掉这一次？", "这次的结果和每题选了什么一起删掉，他也就不记得做过这一次了。", () => { Z.delRecord(who, r.id); setOpenRec(null); bump(x => x + 1); }, "删掉"),
+              h("button", { onClick: () => requestAppConfirm("删掉这一次？", characterText(char, "这次的结果和每题选了什么一起删掉，他也就不记得做过这一次了。"), () => { Z.delRecord(who, r.id); setOpenRec(null); bump(x => x + 1); }, "删掉"),
                 className: "active:opacity-60", style: { marginTop: 8, fontFamily: F_BODY, fontSize: 12, color: "#b85c5c" } }, "删掉这一次")) : null))));
     }
 
