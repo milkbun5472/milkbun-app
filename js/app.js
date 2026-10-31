@@ -20,7 +20,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v77.005";
+const APP_VERSION = "v77.008";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -31175,7 +31175,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       charId: charId, item: itemText, amount: total,
       remain: Math.round((remaining - total) * 100) / 100,
       content: "[亲属卡] 刷了" + (char ? char.name : "对方") + "的卡：" + itemText.slice(0, 40) + " · ¥" + total }]);
-    if (!(opts && opts.noOrder)) items.forEach(it => addOrder({ name: it.name, price: it.price, cat: it.cat, kind: it.kind, takeout: it.takeout, ...(it.arriveTs ? { arriveTs: it.arriveTs } : {}), fromCharId: null, payLabel: "刷了 " + (char ? char.name : "对方") + " 的亲属卡" }));
+    if (!(opts && opts.noOrder)) items.forEach(it => addOrder({ name: it.name, price: it.price, cat: it.cat, kind: it.kind, takeout: it.takeout, ...(it.arriveTs ? { arriveTs: it.arriveTs } : {}), fromCharId: null, kinCharId: charId, payLabel: "刷了 " + (char ? char.name : "对方") + " 的亲属卡" }));
     toast("已用 " + (char ? char.name : "对方") + " 的亲属卡付款");
     return true;
   };
@@ -31186,7 +31186,9 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     if (!o) return;
     saveOrders(p => p.filter(x => x.id !== orderId));
     setInventory(inv => {
-      const n = [{ id: "iv_" + Date.now() + "_" + Math.floor(Math.random() * 10000), name: o.name, fromCharId: o.fromCharId || null, addedTs: Date.now() }, ...inv];
+      const n = [{ id: "iv_" + Date.now() + "_" + Math.floor(Math.random() * 10000), name: o.name, fromCharId: o.fromCharId || null, addedTs: Date.now(),
+        // 退货要知道这件是谁付的、付了多少（她 2026-10-31 群友许愿「买重的东西可以退货」）：订单那几样原样带进来
+        ...(o.price != null ? { price: o.price, payLabel: o.payLabel || "", mask: orderMaskOf(o), ...(o.kinCharId ? { kinCharId: o.kinCharId } : {}) } : {}), ...(o.cat ? { cat: o.cat } : {}) }, ...inv];
       saveJSON("x_inventory", n);
       return n;
     });
@@ -31313,6 +31315,53 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     if (!o) return;
     saveOrders(p => p.filter(x => x.id !== orderId));
     sendGiftToChar(charId, o.name, o.cat, true);
+  };
+  // 退货 / 取消订单（群友许愿 2026-10-31「买重的东西可以退货」）：钱原路退回【真正付钱的那个人】。
+  //   payerOf 只认一处：亲属卡刷的退回TA账上并把卡上用掉的额度还回去；TA送的、TA代付的退回TA钱包；
+  //   她自己付的退回她当时用的那张面具。TA那边的，私聊里留一条旁白，TA下次说话知道这件事。
+  const payerOf = o => {
+    if (!o || o.kind === "takeout") return null;
+    const kinM = /^刷了 (.+) 的亲属卡$/.exec(String(o.payLabel || ""));
+    const kinId = o.kinCharId || (kinM ? ((kinshipCardsRef.current || []).find(cd => { const c = characters.find(x => x.id === cd.charId); return c && c.name === kinM[1]; }) || {}).charId : null);
+    if (kinId) return { type: "kin", charId: kinId };
+    if (o.fromCharId) return { type: "char", charId: o.fromCharId, how: /代付/.test(String(o.payLabel || "")) ? "代付" : "送的" };
+    return { type: "me", mask: orderMaskOf(o) };
+  };
+  // what: "order"（待发货/待收货）| "item"（我的物品）
+  const returnShopThing = (what, id) => {
+    const isItem = what === "item";
+    const x = isItem ? (inventoryRef.current || []).find(v => v.id === id) : (ordersRef.current || []).find(v => v.id === id);
+    const payer = payerOf(x);
+    if (!x || !payer || (isItem && (x.source === "dream" || x.price == null))) { toast("这件退不了"); return; }
+    const cancel = !isItem && x.status === "shipping";
+    const verb = cancel ? "取消订单" : "退货";
+    const price = Math.max(0, Number(x.price) || 0);
+    const char = payer.charId ? characters.find(c => c.id === payer.charId) : null;
+    const cName = char ? (char.remark || char.name) : "对方";
+    // TA送的那种是从TA钱包里扣的——TA钱包没开通的时候压根没扣成，退的时候也就不往回加
+    const charPaid = payer.type !== "char" || payer.how === "代付" || !!((charWalletRef.current || {})[payer.charId] || {}).init;
+    const amt = charPaid ? price : 0;
+    const money = payer.charId ? moneyText(amt, payer.charId) : "¥" + amt;
+    const toWho = !amt ? "这件没花钱，什么也不退。"
+      : payer.type === "me" ? money + " 退回你的钱包" + (pocketOf(payer.mask) ? "（下单时用的那张面具）" : "") + "。"
+      : payer.type === "kin" ? money + " 退回 " + cName + " 的账上，亲属卡的额度也还回去。"
+      : money + " 退回 " + cName + " 的钱包——是TA" + (payer.how === "代付" ? "付" : "买") + "的。";
+    requestAppConfirm(verb + "「" + x.name + "」？", toWho + (payer.charId ? "TA的私聊里会留一条，TA下次说话就知道了。" : "") + "东西会从这儿拿走，不能撤回。", () => {
+      if (isItem) dropInv(id); else saveOrders(p => p.filter(v => v.id !== id));
+      const why = (cancel ? "取消订单退款：" : "退货退款：") + x.name;
+      if (amt && payer.type === "me") changeWallet(amt, why, "shop", { where: "购物", mask: payer.mask });
+      else if (amt) {
+        adjustCharBalance(payer.charId, amt, why, payer.type === "kin" ? "kinship" : "shop");
+        if (payer.type === "kin") updateKinshipCard(payer.charId, cd => ({ ...cd, used: Math.max(0, Math.round(((cd.used || 0) - amt) * 100) / 100) }));
+      }
+      if (char) {
+        const uName = userName(profile);
+        const whose = payer.type === "kin" ? "刷 " + char.name + " 的亲属卡买的" : char.name + (payer.how === "代付" ? " 代付的" : " 送的");
+        pChat(char.id, p => [...p, { role: "narration", kind: "narration", read: true, ts: Date.now(),
+          content: uName + (cancel ? " 取消了" : " 把") + whose + "「" + x.name + "」" + (cancel ? "那一单" : "退了货") + (amt ? "，" + money + " 退回了 " + char.name + (payer.type === "kin" ? " 的账上" : " 的钱包") : "") + "。" }]);
+      }
+      toast(cancel ? "订单取消了" : "退货了" + (amt ? "，钱退回去了" : ""));
+    }, verb);
   };
   // 结算入口
   const checkout = (uids, mode, target, opts) => {
@@ -34129,6 +34178,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     onToggleWish: toggleWish,
     onReceiveUse: receiveUse,
     onReceiveGift: receiveGift,
+    onReturn: asPhone ? null : returnShopThing,
     // 物品的几个动词（v63.98）：入库之后它终于能变化了
     onUseUp: useUpItem,
     onToggleOnMe: toggleOnMe,
@@ -35080,6 +35130,21 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     profileFor: profileFor,
     worldbook: loreForContext("creative", [], ""),
     worldbookFor: (charIds, text) => loreForContext("creative", charIds, text),
+    // TA 自己生活里的人和事（她 2026-10-31：心有灵犀里「老张是他人设里的室友，为啥他不知道」）：
+    //   游戏桌上原来只有一段截到 1800 字的人设，关系网、身边的配角、记忆一样都没有，联想时自然想不到身边人。
+    //   联想类的游戏要的就是这些——关系网上跟TA连着的人、挂在TA身边的配角、按桌上这几个词搜到的记忆。
+    lifeFor: (charId, q) => {
+      const c = characters.find(x => x.id === charId); if (!c) return "";
+      const nm = id => { const x = characters.find(y => y.id === id); return x ? (x.remark || x.name) : ""; };
+      const ties = [];
+      Object.keys(rels || {}).forEach(k => { const [a, b] = k.split("->"); const r = rels[k]; if (a === String(charId) && r && r.label) { const o = b === "me" ? userName(profile) : nm(b); if (o) ties.push(o + "：" + String(r.label).slice(0, 24) + (r.note ? "（" + String(r.note).slice(0, 60) + "）" : "")); } });
+      characters.filter(x => x && x.npc && String(x.ownerId) === String(charId)).forEach(x => ties.push(x.name + "：你身边的人" + (x.persona ? "（" + String(x.persona).replace(/\s+/g, " ").slice(0, 80) + "）" : "")));
+      let mems = []; try { mems = retrieveMemories(memLibRef.current, charId, String(q || ""), { limit: 8, touch: false, vec: false }); } catch (e) {}
+      const persona = String(c.persona || "");
+      return (persona.length > 1800 ? "\n【人设后半截】" + persona.slice(1800, 4000) : "")
+        + (ties.length ? "\n【你生活里的人】\n" + ties.slice(0, 16).map(x => "· " + x).join("\n") : "")
+        + ((mems || []).length ? "\n【你记得的事】\n" + mems.map(m => "· " + String(m.text || "").replace(/\s+/g, " ").slice(0, 120)).join("\n") : "");
+    },
     moods: moods,
     // 注入最近聊天抓人设用（只读，不写回记忆）
     // 主要在群里处的也算（她 2026-10-12「如果和某个不怎么私聊、关系变化都在群聊里」）：

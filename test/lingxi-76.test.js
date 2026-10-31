@@ -71,3 +71,10 @@ test("新挂点都是写死的字面量，并且登记在小游戏页", () => {
   const games = ts.slice(ts.indexOf('zh:"小游戏"'), ts.indexOf('zh:"小游戏"') + 60000);
   new Set(wk).forEach(k => assert.ok(games.indexOf('["' + k + '"') >= 0, k + " 没登记"));
 });
+test("TA 联想时带着自己生活里的人和记忆、最近聊的", () => {
+  const g = require("fs").readFileSync(require("path").join(__dirname, "..", "js", "games.js"), "utf8");
+  const a = require("fs").readFileSync(require("path").join(__dirname, "..", "js", "app.js"), "utf8");
+  assert.match(a, /lifeFor: \(charId, q\) => \{/);
+  assert.match(g, /lifeFor: props\.lifeFor/);
+  assert.match(g, /const who = who0 \+ lifeOf\(/);
+});

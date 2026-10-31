@@ -529,7 +529,7 @@
         onSave: function (snap) { return saveGameSnap("date", snap); },
         onBack: function () { setSession(null); setGame(null); setSaveTick(function (x) { return x + 1; }); }
       });
-      const engineProps = { config: session.config, game: session.game, active: props.active, bgActive: props.bgActive, characters: routedCharacters, profile: tableProfile, recentChatFor: props.recentChatFor, isEngineer: props.isEngineer, t: t, toast: props.toast, savedState: session.saved,
+      const engineProps = { config: session.config, game: session.game, active: props.active, bgActive: props.bgActive, characters: routedCharacters, profile: tableProfile, recentChatFor: props.recentChatFor, lifeFor: props.lifeFor, isEngineer: props.isEngineer, t: t, toast: props.toast, savedState: session.saved,
         sendGameReport: props.sendGameReport,
         sendGameReportGroup: props.sendGameReportGroup, reportGroups: props.reportGroups,
         keepGameMemory: keepMem,
@@ -5393,8 +5393,12 @@
     const [state, setState] = useState(function () { return restored && restored.status !== "done" ? restored : L.newGame(); });
     const [lines, setLines] = useState([]), [busy, setBusy] = useState(false), [draft, setDraft] = useState(""), [err, setErr] = useState(""), [openThought, setOpenThought] = useState(true);
     const push = function (ls) { setLines(function (x) { return x.concat(ls.map(function (l) { return Object.assign({ at: Date.now() }, l); })); }); };
-    const recent = (cfg.injectChat && props.recentChatFor && char) ? String(props.recentChatFor(char.id) || "").slice(-600) : "";
-    const who = seatIdentity(seat) + gNote({ char: char }) + (recent ? "\n【你们最近聊的】" + recent : "");
+    // 联想靠的是TA自己的生活（她 2026-10-31：「老张是他人设里的室友，为啥他不知道，说话也很人机」）：
+    //   最近聊的一直带（这是两个人对着说话的游戏），再加上TA身边的人和按桌上这几个词搜到的记忆
+    const recent = (props.recentChatFor && char) ? String(props.recentChatFor(char.id) || "").slice(-1200) : "";
+    const lifeOf = function (q) { return props.lifeFor && char ? String(props.lifeFor(char.id, q) || "") : ""; };
+    const who0 = seatIdentity(seat) + gNote({ char: char }) + (recent ? "\n【你们最近聊的】" + recent : "");
+    const who = who0 + lifeOf(((state.pair || []).join(" ") + " " + (state.talk || []).map(function (x) { return x.text; }).join(" ")).trim());
     useEffect(function () {
       if (state.status === "done") { clearGameSave("lingxi"); return; }
       if (state.status === "open") return;
