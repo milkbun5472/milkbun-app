@@ -13594,7 +13594,9 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
                 : "（外卖/快递还在路上" + (m.arriveTs && m.arriveTs > Date.now() ? "，大约还有 " + gapPhrase(m.arriveTs - Date.now()) + "到" : "，快到了") + "）") + "]"
             : m.kind === "takeout" ? "[" + uName + " 给你点了外卖：" + ((m.takeout && m.takeout.shop) ? "「" + m.takeout.shop + "」的" : "") + ((m.takeout && m.takeout.items) || []).join("、")
               + ((m.takeout && m.takeout.note) ? "（Ta 在单子上给你写了一句：「" + m.takeout.note + "」）" : "")
-              + (m.arriveTs && m.arriveTs > Date.now() ? "（骑手还在路上，大约还有 " + gapPhrase(m.arriveTs - Date.now()) + "到）" : "（已经送到你手上了）") + "]"
+              + (m.arriveTs && m.arriveTs > Date.now() ? "（骑手还在路上，大约还有 " + gapPhrase(m.arriveTs - Date.now()) + "到）" : "（已经送到你手上了）"
+                // 送到了，袋子上的小票看得见她给商家的备注（她 2026-10-31：「角色也要看到备注」）
+                + ((m.takeout && m.takeout.remark) ? "（袋子上的小票印着她给商家的备注：「" + m.takeout.remark + "」）" : "")) + "]"
             : m.kind === "kinraise" ? "【" + uName + "在你给 Ta 的那张亲属卡上申请提额" + (m.ask ? "，想加 " + moneyText(m.ask, charId) : "（没说数目，让你看着办）") + "（当时额度 " + moneyText(m.limit || 0, charId) + "）"
               + (m.status === "approved" ? "；你加了 " + moneyText(m.add || 0, charId) + "，现在额度 " + moneyText(m.newLimit || 0, charId) : m.status === "declined" ? "；你没有加" : "")
               + "。这是 Ta 按的一个申请，不是 Ta 说的一句话】"
