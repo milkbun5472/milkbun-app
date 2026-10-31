@@ -1650,6 +1650,12 @@ function App() {
   const shelvedChar = id => !!(id && (characters || []).some(c => c && c.id === id && c.shelved));
   const autoRefreshOn = (feature, charId) => !bgOff() && !maskRested(charId) && !shelvedChar(charId) && !(charId && BODY_NO_LIFE[feature] && (chatSettings[charId] || {}).bodyMode && !(chatSettings[charId] || {}).engineerEyes)
     && window.AutoRefreshPolicy.enabled(autoRefreshRef.current, feature, charId);
+  // 后台活儿全停的那几道总闸，各是哪一道：说给人听的
+  const autoBlockWhy = charId => loadJSON("x_bgApi", null) === "__off__" ? "设置里「后台任务模型」选的是「无（后台一律不跑）」：主动私聊、日记这些自己跑的全停着，换成一条线路或「跟随主模型」就恢复"
+    : quietNow("bg") ? "现在在「我的作息 · 免打扰」的时段里，勾了「这段时间后台不跑」：过了这段自己恢复"
+    : maskRested(charId) ? "这个人认的那张面具在「先歇着」：后台什么都不动，时间也停着"
+    : shelvedChar(charId) ? "这个人被收起来了：自己会动的活都停着，在通讯录里放出来就恢复"
+    : "";
   const bgToastOn = () => loadJSON("x_bgToast", true) !== false;
   // AutoGate 的 key 里只有 id（"diary|c1"），名字每次渲染从角色表现取
   window.AutoGate.nameOf = id => { const c = (characters || []).find(x => x && x.id === id); return c ? (c.remark || c.name || "") : ""; };
@@ -36186,7 +36192,10 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     },
     // 「我在这儿的头像」那一格要显示我现在用的是哪张：跟聊天页同一个来源（这个人认的那张面具）
     meProfile: profileFor(activeChar.id),
-    settings: Object.assign({}, settingsFor(activeChar.id), { proactive: autoRefreshOn("proactive", activeChar.id),
+    settings: Object.assign({}, settingsFor(activeChar.id), {
+      // 开关只显示这个人自己这一格（群友 2026-10-31：开了再点进去又是关的）——总闸挡着时开关照样亮，底下写是哪一道闸
+      proactive: window.AutoRefreshPolicy.enabled(autoRefreshRef.current, "proactive", activeChar.id),
+      proactiveBlock: autoBlockWhy(activeChar.id),
       // 主动私聊的档：这个人自己挑的（空＝跟总的），和总的那一档叫什么
       proactiveRate: ((window.AutoRefreshPolicy.normalize(autoRefreshRef.current).features.proactive.charRates || {})[activeChar.id]) || "",
       proactiveRateGlobal: window.AutoRefreshPolicy.normalize(autoRefreshRef.current).features.proactive.rate }),
@@ -36259,7 +36268,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         } catch (e) {}
       }
       saveRemark(activeChar.id, s.remark);
-      if (!!s.proactive !== autoRefreshOn("proactive", activeChar.id)) setAutoFromPage("proactive", activeChar.id, !!s.proactive);
+      if (!!s.proactive !== window.AutoRefreshPolicy.enabled(autoRefreshRef.current, "proactive", activeChar.id)) setAutoFromPage("proactive", activeChar.id, !!s.proactive);
       if (s.proactiveRate !== undefined) saveAutoRefreshPolicy(window.AutoRefreshPolicy.setCharRate(autoRefreshRef.current, "proactive", activeChar.id, s.proactiveRate));
       // 她换了自己在这个聊天里的头像（群里 2026-10-28「自己聊天框这边换了头像角色知道吗」）：聊天里落一行灰字，
       //   他下一轮知道，新的那张也给他看——走「等她开口」那一份，不当场抢话（wait-for-her）
