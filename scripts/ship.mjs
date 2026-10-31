@@ -123,7 +123,6 @@ for (let round = 1; round <= 4; round++) {
   if (tryd("node scripts/check-version.mjs") === null) die("check-version 不过：" + (tryd("node scripts/check-version.mjs 2>&1; true") || ""));
   for (const f of changed) if (existsSync("js/" + f + ".js") && tryd("node --check js/" + f + ".js") === null) die("语法错：js/" + f + ".js");
   if (tryd("git diff --check " + REMOTE + "/main") === null) die("git diff --check 不过（行尾空白／冲突标记）");
-  console.log(only ? "跑这次相关的测试：" + only : "跑全套测试（并行）…");
   let out = "";
   // ⚠️钉死 tap 格式：下面认的是 tap 的「not ok」「# pass」。新版 node 管道里默认出的是另一种格式（✖ / ℹ pass），
   //   一行都认不出来，于是「没有红灯」，带着红灯照推（2026-10-16 v75.828 就是这么带着两条红推上去的）。
@@ -135,6 +134,7 @@ for (let round = 1; round <= 4; round++) {
   const FULL_SUITE = "test/*.test.js test/*.test.mjs tests/*.test.js tests/*.test.mjs";
   if (!only && !full) only = relatedTests();
   if (!only && !full) console.log("（没找到相关测试，退回全套）");
+  console.log(only ? "跑这次相关的测试（" + only.split(" ").length + " 份）：" + only : "跑全套测试（并行）…");
   const testEnv = Object.assign({}, process.env); delete testEnv.NODE_TEST_CONTEXT;
   try { out = sh("node --test --test-reporter=tap " + (only || FULL_SUITE) + " 2>&1", { shell: "/bin/bash", env: testEnv }); } catch (e) { out = String(e.stdout || "") + String(e.stderr || ""); }
   const fails = (out.match(/^not ok \d+ - .*$/gm) || []).filter(l => !allow.some(a => l.includes(a)));
