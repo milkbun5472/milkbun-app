@@ -8,7 +8,8 @@ const nest = R("nest.js"), comp = R("components.js");
 test("小窝多了「梗与话题」这一类，放进聊天只能选人", () => {
   assert.match(nest, /\{ key: "topic", zh: "梗与话题", seal: "梗"/);
   assert.match(nest, /it\.kind === "topic" \? \["chat"\]/);
-  assert.match(nest, /isTopic \? h\(Btn, \{ t, solid: true, wide: true, disabled: busy, onClick: \(\) => setPlacing\(true\)/);
+  assert.match(nest, /isTopic \? h\(Btn, \{ t, solid: true, wide: true, disabled: busy, onClick: placeWithHeart/);
+  assert.match(nest, /if \(it\.liked\) \{ setPlacing\(true\); return; \}/, "点过心的直接去勾人");
   assert.match(nest, /maxLength: 1000/, "跟后端同一个上限");
 });
 
@@ -31,4 +32,8 @@ test("聊天里：有卡才出「话题卡」，点一张只填进输入框、�
   const di = comp.slice(comp.indexOf("function DraftInput("), comp.indexOf("function ReplyKey("));
   assert.match(di, /window\.addEventListener\("qq-draft-fill", on\)/);
   assert.ok(!/onSubmit\s*&&\s*onSubmit\(d\.text\)/.test(di), "填卡不许直接发出去");
+});
+
+test("不认得的类别不给导入键，只说去更新", () => {
+  assert.match(nest, /!KIND\[it\.kind\] \? h\("div", \{ "data-wk": "nestunknownkind"/);
 });

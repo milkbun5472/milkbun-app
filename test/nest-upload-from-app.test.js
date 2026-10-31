@@ -78,7 +78,7 @@ test("留言板：最后一格、写帖子就是一段字、没有导入和复�
   assert.match(nest, /if \(isPost\) \{ const s = String\(text/);
   // 2026-10-19 起中间夹了文档那一支（复制全文），帖子照旧什么都不给
   // 2026-10-31 又夹了梗与话题那一支（放进聊天）
-  assert.match(nest, /isPost \? null : isDoc \? h\(Btn, [^\n]*\n\s*: isTopic \? h\(Btn, [^\n]*\n\s*: h\(Btn, \{ t, solid: true, wide: true, disabled: busy, onClick: importWithHeart/);
+  assert.match(nest, /: isPost \? null : isDoc \? h\(Btn, [^\n]*\n\s*: isTopic \? h\(Btn, [^\n]*\n\s*: h\(Btn, \{ t, solid: true, wide: true, disabled: busy, onClick: importWithHeart/);
   assert.match(nest, /api\("\/admin\/status"/);
   assert.match(nest, /isPost && admin \?/);
 });

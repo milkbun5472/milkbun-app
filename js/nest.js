@@ -501,6 +501,12 @@
       requestAppConfirm("先给老师点个心", "这是老师熬夜捏出来的。点一下心再导进来，TA 看得到。",
         async () => { await toggle("like"); doImport(); }, "点心并导入");
     };
+    // 梗与话题也一样先点心（她 2026-10-31「这个梗为啥没有导入点赞」）：点过的直接去勾人
+    const placeWithHeart = () => {
+      if (it.liked) { setPlacing(true); return; }
+      requestAppConfirm("先给老师点个心", "这是老师想出来的梗。点一下心再拿去用，TA 看得到。",
+        async () => { await toggle("like"); setPlacing(true); }, "点心并放进聊天");
+    };
         const doFollow = async () => {
       if (!me) { onLogin(); return; }
       try { await api("/user/" + it.uid + "/follow", { method: follow ? "DELETE" : "POST" }); setFollow(!follow); props.toast(follow ? "不再关注了" : "关注了，她贴新纸条时你会收到小纸条"); }
@@ -547,8 +553,10 @@
             whiteSpace: "pre-wrap", wordBreak: "break-word", padding: 16 }, card(t)) }, preview) : null,
           // 动作：导入最大，赞、收藏、复制、删
           h("div", { "data-wk": "nestactions", className: "flex flex-wrap", style: { gap: 8, marginTop: 16 } },
-            isPost ? null : isDoc ? h(Btn, { t, solid: true, wide: true, onClick: doCopy, wk: "nestdoccopy" }, "复制全文")
-              : isTopic ? h(Btn, { t, solid: true, wide: true, disabled: busy, onClick: () => setPlacing(true), wk: "nesttopicplace" }, "放进聊天")
+            // 不认得的类别（小窝那头新开了一类、这台还没更新）：别硬当成包去导，说一声去更新（她 2026-10-31 截图：梗被当 json 导，报 JSON Parse error）
+            !KIND[it.kind] ? h("div", { "data-wk": "nestunknownkind", className: "flex-1", style: { fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.6, alignSelf: "center" } }, "这一类要更新 app 才能用：把 app 关掉重开一次就好")
+            : isPost ? null : isDoc ? h(Btn, { t, solid: true, wide: true, onClick: doCopy, wk: "nestdoccopy" }, "复制全文")
+              : isTopic ? h(Btn, { t, solid: true, wide: true, disabled: busy, onClick: placeWithHeart, wk: "nesttopicplace" }, it.liked ? "放进聊天" : "点个心并放进聊天")
               : h(Btn, { t, solid: true, wide: true, disabled: busy, onClick: importWithHeart, wk: "nestimport" }, busy ? "……" : it.liked ? "导进我的手机" : "点个心并导入"),
             pill({ on: it.liked, onClick: () => toggle("like"), icon: h(IHeart, { size: 15, color: it.liked ? "#c0717f" : t.ink, filled: it.liked }), txt: it.likes || 0, wk: "nestlike" }),
             pill({ on: it.faved, onClick: () => toggle("fav"), icon: h(IBookmark, { size: 15, color: it.faved ? "#c0717f" : t.ink }), txt: it.faved ? "已收" : "收藏", wk: "nestfav" })),
