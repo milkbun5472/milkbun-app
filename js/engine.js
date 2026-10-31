@@ -7386,6 +7386,25 @@ function ttsMarkForSynth(text) {
   return s.replace(/♪\s*([^♪]+?)\s*♪/g, (m, x) => sing ? " [sings] " + x + " " : x).replace(/[♪♫]/g, sing ? "" : " ").replace(TTS_MARK_TAG_RE, m => (keep && MM_SOUND_TAG_RE_ONE.test(m)) || (sing && m[0] === "[") ? m : " ").replace(/[ \t\u3000]+/g, " ")
     .replace(/\s+([，。！？、；：」』）])/g, "$1").trim();
 }
+// 文字气泡点读时念哪一段（群友 2026-10-31：「点读一下会把翻译一起读出来」）：
+//   气泡里写成「原文（中文）」「原文 | 中文」、或者第二行是中文的，只念原文；
+//   已经拆好挂在 m.zh 上的本来就不在 content 里。跟语音条用同一个 splitBilingual，不另写一套。
+function sayTextOf(m) {
+  const raw = String((m && m.content) || "");
+  if (!raw || (m && m.zh) || typeof splitBilingual !== "function") return raw;
+  const FOREIGN = /[\u3040-\u30ff\uac00-\ud7af\u0400-\u04ffA-Za-z\u00c0-\u024f]/;
+  let lines = raw.split(/\n+/);
+  try { if (typeof joinBilingualLines === "function") lines = joinBilingualLines(lines, false, { pairNext: true }) || lines; } catch (e) {}
+  const out = lines.map(x => {
+    const line = String(x || "").trim(), bi = splitBilingual(line, false);
+    if (bi) return bi.text;
+    // 念的时候「外语（中文）」括号里那句也不念：界面上（）可能是动作不敢劈，可点读时外语后面跟一句中文就是译文
+    const pm = line.match(/^([\s\S]*?\S)\s*[（(]([^（）()]+)[）)]\s*$/);
+    if (pm && FOREIGN.test(pm[1]) && /[\u4e00-\u9fff]/.test(pm[2]) && !FOREIGN.test(pm[2])) return pm[1];
+    return line;
+  }).filter(x => String(x).trim());
+  return out.join("\n");
+}
 function ttsMarkStrip(text) {
   const s = String(text == null ? "" : text);
   if (!s) return "";

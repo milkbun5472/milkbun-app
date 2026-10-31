@@ -11146,7 +11146,7 @@ function ChatThread({
   const speakMsg = (i, m) => {
     const spk = speakerOf(m);
     if (!spk || !spk.voiceId) return;
-    tp.toggle("say" + i, String(m.content || ""), spk.voiceId);
+    tp.toggle("say" + i, sayTextOf(m), spk.voiceId);
   };
   // 新消息自动念（群友 2026-10-14 许愿「点进去角色单聊可以自动将文字生成语音并且读语音，不用手点合成」）：
   //   只念打开以后新来的；一条念完接下一条；她一发消息就清队列、停下。
@@ -11158,7 +11158,7 @@ function ChatThread({
     const m = ttsMsgsRef.current[i];
     if (!m || !canSpeakMsg(m)) { ttsNext(); return; }
     ttsBusyRef.current = true;
-    tp.toggle("say" + i, String(m.content || ""), speakerOf(m).voiceId, undefined, () => setTimeout(ttsNext, 120));
+    tp.toggle("say" + i, sayTextOf(m), speakerOf(m).voiceId, undefined, () => setTimeout(ttsNext, 120));
   };
   useEffect(() => {
     const n = messages.length, from = ttsSeenRef.current; ttsSeenRef.current = n;
@@ -19560,7 +19560,7 @@ function GroupThread({
   const speakMsg = (i, m) => {
     const spk = speakerOf(m);
     if (!spk || !spk.voiceId) return;
-    tp.toggle("say" + i, String(m.content || ""), spk.voiceId);
+    tp.toggle("say" + i, sayTextOf(m), spk.voiceId);
   };
   // 气泡上那颗播放键：跟长按菜单里的「念出来」同一个门槛、同一个动作，
   // 只是常驻在那儿——她不用每次长按，而且实心/空心一眼看得出这一句花没花过钱。
