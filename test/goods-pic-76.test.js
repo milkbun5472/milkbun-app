@@ -12,7 +12,7 @@ test("三种卡带图，回话时当图看", () => {
   assert.match(app, /kind: "shopask",\n      ask: [^\n]*\n      \.\.\.\(goodsImgFor\(name\) \? \{ imageRef: goodsImgFor\(name\), goodsImg: true \} : \{\}\)/);
   assert.match(app, /kind: "gift", dir: "toChar"[^\n]*goodsImgFor\(itemName\) \? \{ imageRef: goodsImgFor\(itemName\), goodsImg: true \}/);
   assert.match(app, /kind: "takeout", takeout: item\.takeout, arriveTs: _arr, ts: now, read: true, \.\.\.\(_tImg \? \{ imageRef: _tImg, goodsImg: true \} : \{\}\)/);
-  assert.equal((app.match(/m\.kind === "ask" \|\| m\.goodsImg\)/g) || []).length, 2);
+  assert.match(app, /const _uRef = \(m\.kind === "photo" \|\| m\.kind === "selfie" \|\| m\.kind === "ask" \|\| m\.goodsImg\)/);
 });
 test("购物详情和外卖菜单都有「画一张」，卡上画得出图", () => {
   assert.equal((ui.match(/"data-wk": "goodsdraw"/g) || []).length, 2);
