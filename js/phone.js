@@ -647,6 +647,13 @@ function phoneDropEchoes(data, schemaHint) {
 // 同一件事被再提起一次，它还是那一件事。
 // 不这么分的话，模型把便签照抄回来时随手改了 time，就会攒成两条一模一样的便签。
 // 日志那几栏仍然认「名字＋时刻」：同一家店昨天去一次今天去一次，那本来就是两条。
+// 这一次合并时 TA 那只钟比现实快（正）或慢（负）多少毫秒（2026-10-30）。app.js 合并前设、合并完归零；
+//   不设就是 0，什么都不变。为什么要它：v76.988 起新写进来的 _ts 是虚拟钟上的时刻，而攒着的旧行是现实时间——
+//   钟往回拨（古风常见），新行全都比旧行「早」，一排序一截断，新刷出来的东西进门就被截掉，刷了等于没刷。
+//   所以新行另记一个 _rt（平移回现实），排序截断都看它；旧行没有 _rt，它的 _ts 本来就是现实时间。
+let PHONE_CLOCK_SHIFT = 0;
+function phoneClockShift(ms) { PHONE_CLOCK_SHIFT = Number(ms) || 0; }
+const phoneRowAge = x => x._rt != null ? x._rt : x._ts;
 function phoneGrowList(fresh, old, cap, nowTs, byName) {
   const A = a => Array.isArray(a) ? a : [];
   const now = nowTs || Date.now();
@@ -657,9 +664,11 @@ function phoneGrowList(fresh, old, cap, nowTs, byName) {
   // 模型这一轮漏写了某一栏（想吃的那句「什么时候会想起它」最常漏），
   // 原来直接整行拿新的顶掉，上一轮真写的那句就没了。
   const at = {};
-  A(fresh).concat(A(old)).forEach(x => {
+  const shift = typeof PHONE_CLOCK_SHIFT !== "undefined" ? PHONE_CLOCK_SHIFT : 0, nFresh = A(fresh).length;
+  A(fresh).concat(A(old)).forEach((x, i) => {
     if (x == null) return;
-    const frozen = (x && typeof x === "object") ? phoneFreezeTime(x, now) : x;
+    let frozen = (x && typeof x === "object") ? phoneFreezeTime(x, now) : x;
+    if (shift && i < nFresh && frozen && typeof frozen === "object" && frozen._ts != null && frozen._rt == null) frozen = { ...frozen, _rt: frozen._ts - shift };
     // ⚠️取不出名字的行不能一律记成 "@"——那样它们会全部塌成一条。
     // 认不出名字就退回原来那把钥匙（名字＋时刻），宁可多留一条也不能吞掉别人。
     const nm = byName ? phoneNameNorm(phoneRowName(frozen)) : "";
@@ -686,7 +695,7 @@ function phoneGrowList(fresh, old, cap, nowTs, byName) {
   // 认得出的那些照旧按时间走，认不出的沉底、彼此保持原来的先后，一条都不会互相打乱。
   const known = [], unknown = [];
   out.forEach((x, i) => (x && typeof x === "object" && x._ts != null ? known : unknown).push(x));
-  known.sort((a, b) => b._ts - a._ts);
+  known.sort((a, b) => (typeof phoneRowAge === "function" ? phoneRowAge(b) - phoneRowAge(a) : b._ts - a._ts));
   out.length = 0;
   known.forEach(x => out.push(x));
   unknown.forEach(x => out.push(x));
@@ -1094,7 +1103,7 @@ const PHONE_ARCH_CAP_ALL = 20000;
 // 归档存的是精简版：正文和心声各截到 120 字。整条时间线只显示一两行，
 // 存全文纯粹是拿 localStorage 换看不见的东西（她的存档本来就紧）。
 const phoneArchTrim = r => ({
-  app: r.app, tag: r.tag, when: r.when, ts: r.ts, id: r.id,
+  app: r.app, tag: r.tag, when: r.when, ts: r.ts, id: r.id, ...(r.rt != null ? { rt: r.rt } : {}),
   title: String(r.title || "").slice(0, 60),
   text: String(r.text || "").slice(0, 120),
   thought: String(r.thought || "").slice(0, 120)
@@ -1108,19 +1117,23 @@ function phoneArchiveFrom(appKey, oldData, nowTs) {
 }
 // 并进归档：指纹去重（先到的那份为准，保住它当初算出来的时刻），
 // 然后砍掉太旧的、超量的。认不出时间的不进归档——它在线上没有位置，留着只占地方。
+// 砍旧、封顶按的是【现实里过了多久】（2026-10-30）：v76.988 起 ts 记的是 TA 那只虚拟钟上的时刻，
+//   钟一拨就跟现实差出几十年——拿它算「九十天前」，钟往后拨就把整份旧归档一次扔光，往前拨新来的又一进门就被挤掉。
+//   所以每条另带一个 rt（这条在现实里大约是什么时候），砍和排都看它；没有 rt 的是 v76.988 以前存的，那时 ts 就是现实时间。
+const phoneArchAge = r => r && r.rt != null ? Number(r.rt) : Number(r && r.ts);
 function phoneArchMerge(prev, add, nowTs) {
-  const now = nowTs || Date.now();
+  const now = nowTs || Date.now();   // 现实的「现在」，别传虚拟钟
   const floor = now - PHONE_ARCH_DAYS * 86400000;
   const seen = {};
   const out = [];
   (Array.isArray(prev) ? prev : []).concat(Array.isArray(add) ? add : []).forEach(r => {
     if (!r || !r.id || r.ts == null) return;
-    if (r.ts < floor) return;
+    if (phoneArchAge(r) < floor) return;
     if (seen[r.id]) return;
     seen[r.id] = 1;
     out.push(r);
   });
-  out.sort((a, b) => b.ts - a.ts);
+  out.sort((a, b) => phoneArchAge(b) - phoneArchAge(a));
   return out.slice(0, PHONE_ARCH_CAP);
 }
 // 清空重生：把某个 app 存的那份整个删掉，下一次刷新从零开始写
@@ -1179,7 +1192,7 @@ function phoneArchCapAll(map) {
   if (total <= PHONE_ARCH_CAP_ALL) return m;
   const all = [];
   ids.forEach(k => (Array.isArray(m[k]) ? m[k] : []).forEach(r => { if (r && r.ts != null) all.push({ k, r }) }));
-  all.sort((a, b) => b.r.ts - a.r.ts);
+  all.sort((a, b) => phoneArchAge(b.r) - phoneArchAge(a.r));   // 各人的钟不一样，跨人比只能比现实时间
   const out = {};
   all.slice(0, PHONE_ARCH_CAP_ALL).forEach(x => { (out[x.k] = out[x.k] || []).push(x.r) });
   return out;
@@ -1963,4 +1976,4 @@ if (typeof window !== "undefined") window.PhoneKit = {
   resetApp: phoneResetApp, archDropApp: phoneArchDropApp, resetStored: phoneResetStored,
   langBlock: phoneLangBlock, LANG_MODES: PHONE_LANG_MODES, LANG_ZH: PHONE_LANG_ZH
 };
-if (typeof module === "object" && module.exports) module.exports = { phoneResetStored, phoneResetApp, phoneArchDropApp, PHONE_LANG_MODES, PHONE_LANG_ZH, phoneLangBlock, PHONE_ACTION_WIDGETS, phoneTa, charTa, phoneProbeSpec, phoneOwnOnlyBlock, phoneKeptLine, phoneNameKeys, phoneSamePerson, phoneDropDupWechat, phoneDropEchoes, phoneGrowList, phoneChatWhen, phoneVisitHint, phoneGateVisits, phonePhotoSig, PHONE_VISIT_GAP_DAYS, phoneMergeShelves, phoneApplyBookUpdates, phoneGrowMerge, PHONE_RETIRE, PHONE_GROW, PHONE_WATCH_KEEP, PHONE_WATCH_KEEP_DAYS, phoneWatchKeep, phoneWatchDraftBlock, phoneMergeSaved, WATCH_BUY_APPS };
+if (typeof module === "object" && module.exports) module.exports = { phoneResetStored, phoneResetApp, phoneArchDropApp, PHONE_LANG_MODES, PHONE_LANG_ZH, phoneLangBlock, PHONE_ACTION_WIDGETS, phoneTa, charTa, phoneProbeSpec, phoneOwnOnlyBlock, phoneKeptLine, phoneNameKeys, phoneSamePerson, phoneDropDupWechat, phoneDropEchoes, phoneGrowList, phoneClockShift, phoneChatWhen, phoneVisitHint, phoneGateVisits, phonePhotoSig, PHONE_VISIT_GAP_DAYS, phoneMergeShelves, phoneApplyBookUpdates, phoneGrowMerge, PHONE_RETIRE, PHONE_GROW, PHONE_WATCH_KEEP, PHONE_WATCH_KEEP_DAYS, phoneWatchKeep, phoneWatchDraftBlock, phoneMergeSaved, WATCH_BUY_APPS };

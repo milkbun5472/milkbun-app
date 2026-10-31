@@ -20,7 +20,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v76.996";
+const APP_VERSION = "v76.999";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -10068,7 +10068,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       const _gMe = meOfGroup(group.id) || {};
       const _gDuo = _gShooters.filter(c => c.refPhoto && _gMe.refPhoto);
       const _gGroupOk = _gShooters.filter(c => c.refPhoto).length + (_gMe.refPhoto ? 1 : 0) >= 2;
-      const beats = await generateOfflineGroup(offlineActive, { ...gCtx, clockId: "g:" + groupId }, { ...effectiveSess, sayZhNames: (gCtx.members || []).filter(c => c && !c.npc && (settingsFor(c.id) || {}).bilingual).map(c => (typeof memberLabel === "function" ? memberLabel(gCtx.members, c) : c.name)), signal: _abort.signal, msgs: _gWindow, imageDataUrls: gOffImageDataUrls,
+      const beats = await generateOfflineGroup(offlineActive, { ...gCtx, clockId: "g:" + group.id }, { ...effectiveSess, sayZhNames: (gCtx.members || []).filter(c => c && !c.npc && (settingsFor(c.id) || {}).bilingual).map(c => (typeof memberLabel === "function" ? memberLabel(gCtx.members, c) : c.name)), signal: _abort.signal, msgs: _gWindow, imageDataUrls: gOffImageDataUrls,
         photoMembers: _gShooters.map(c => c.name), photoDuoMembers: _gDuo.map(c => c.name), photoMe: _gShooters.length > 0 && canShootMe("g:" + group.id), photoGroupOk: _gGroupOk, priorSummary: effectiveSess.summary || "", narr: osNarr("g_" + group.id), taste: effectiveSess.taste || osTaste("g_" + group.id), lengthMode: osFor("g_" + group.id).lengthMode || "natural", writeMode: osFor("g_" + group.id).writeMode === "novel" ? "novel" : "beats", maxTokens: osFor("g_" + group.id).maxTokens || 3200, minWords: osFor("g_" + group.id).minWords, rerollAvoid: effectiveSess.rerollAvoid || "" });
       if (beats && !(effectiveSess && effectiveSess.rerollAvoid) && typeof stampGain === "function") stampGain("beat");   // 邮票册：群线下一拍
       if (_abort.signal.aborted) return;             // 她点叉断掉了：回来的这几拍不落地
@@ -20266,11 +20266,13 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   const archivePhoneApp = (charId, key, oldData) => {
     if (!oldData || typeof phoneArchiveFrom !== "function") return;
     try {
-      const now = phoneNow(charId);
-      const add = phoneArchiveFrom(key, oldData, now);
+      // 抽条目用 TA 那只钟（「昨天 14:32」要落在 TA 的昨天）；砍旧用现实时间——见 phone.js phoneArchAge。
+      //   rt＝把这条在虚拟钟上离「现在」多远，原样平移回现实里。
+      const real = Date.now(), now = phoneNow(charId);
+      const add = phoneArchiveFrom(key, oldData, now).map(r => ({ ...r, rt: real - (now - Number(r.ts)) }));
       if (!add.length) return;
       setPhoneArch(a => {
-        const n = phoneArchCapAll({ ...a, [charId]: phoneArchMerge(a[charId], add, now) });
+        const n = phoneArchCapAll({ ...a, [charId]: phoneArchMerge(a[charId], add, real) });
         try { saveJSON("x_phoneArch", n); } catch (e) { return a; }
         return n;
       });
@@ -20331,8 +20333,14 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       //   v59.41 那个病），而 phoneGrowList 对日志类是按【名字＋时刻】认人的——
       //   时刻变了就成了另一行，于是同一个人出现两次（真机上一眼看见的）。
       //   微信「只问 updates」那一路（v59.54）绕开 phoneGrowList，正是同一个理由。
-      let merged = (opts && opts.patched) ? d
-        : (typeof phoneMergeSaved === "function" ? phoneMergeSaved(key, cur[key], d, phoneNow(charId)) : d);
+      // 合并时告诉累积层 TA 的钟差现实多少（见 phone.js PHONE_CLOCK_SHIFT），合并完立刻归零
+      const _pNow = phoneNow(charId);
+      if (typeof phoneClockShift === "function") phoneClockShift(_pNow - Date.now());
+      let merged;
+      try {
+        merged = (opts && opts.patched) ? d
+          : (typeof phoneMergeSaved === "function" ? phoneMergeSaved(key, cur[key], d, _pNow) : d);
+      } finally { if (typeof phoneClockShift === "function") phoneClockShift(0); }
       // ⚠️去重原来只筛【这一轮模型新写的】，已经攒进名册里的那几条永远退不出来。
       //   陆闻早先被当成 NPC 存过一次，后来TA成了真角色——那条假私聊就一直挂在列表里，
       //   往后每一轮都照抄回来。名册每次是【整份重写】的，所以合并完再筛一次，
@@ -27113,7 +27121,9 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     const now = new Date(typeof vclockMap === "function" ? vclockMap(Date.now(), charId) : Date.now());
     const rk0 = spaceRelKey(relOverride || (couplesRef.current || {})[charId]);
     const role0 = rk0 === "family" ? ((couplesRef.current || {})[charId] || {}).role : "";
-    setCoupleFor(charId, { status: "together", since: now.getTime(), rel: rk0, ...(role0 ? { role: role0 } : {}) });
+    // since 存【现实】那一刻（2026-10-30）：全 app 十几处都是 Date.now() - since 算「在一起第几天」，显示时再各自照钟换。
+    //   v76.991 把它存成了虚拟钟上的时刻——钟往回拨就是在一起十万天，往前拨永远是第 1 天。日历那条照旧写 TA 那边的日子（now）。
+    setCoupleFor(charId, { status: "together", since: Date.now(), rel: rk0, ...(role0 ? { role: role0 } : {}) });
     // 在一起纪念日写进日历（该角色视角）
     if (rk0 === "lover") saveCalEvent(charId, now.getFullYear() + "-" + (now.getMonth() + 1) + "-" + now.getDate(), "♥ 和 " + (char ? char.name : "TA") + " 在一起", "情侣纪念日");
     else saveCalEvent(charId, now.getFullYear() + "-" + (now.getMonth() + 1) + "-" + now.getDate(), "和 " + (char ? char.name : "TA") + " 开了" + spaceRel(rk0).space, spaceRel(rk0).space + "纪念日");

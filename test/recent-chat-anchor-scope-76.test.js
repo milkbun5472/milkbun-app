@@ -19,3 +19,15 @@ test("拼最近聊天那一段里不许出现裸的 charId（这一层只有 cha
   assert.equal(bare.length, 0, "recentChat 里又出现了裸的 charId：" + bare.length + " 处");
   assert.match(body, /vAnchor\(m\.content, m\.ts, char\.id\)/, "日期锚没按 char.id 走");
 });
+
+// 同一天第二例：群线下生成报「groupId is not defined」。genGroupOfflineFrom 拿到的是 group（groupIn），
+//   v76.989 给群线下接那只钟时照抄了 replyGroup 里的 "g:" + groupId。
+test("群线下生成那一段只认 group.id，不许出现裸的 groupId", () => {
+  const i = app.indexOf("  const genGroupOfflineFrom = async (groupIn, workSess) => {");
+  assert.ok(i > 0, "genGroupOfflineFrom 没了");
+  const j = app.indexOf("\n  const ", i + 10);
+  const body = app.slice(i, j > i ? j : i + 20000);
+  const bare = body.match(/(?<![.\w$])groupId(?![\w$])(?!\s*:)/g) || [];
+  assert.equal(bare.length, 0, "genGroupOfflineFrom 里又出现了裸的 groupId：" + bare.length + " 处");
+  assert.match(body, /clockId: "g:" \+ group\.id/);
+});
