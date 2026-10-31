@@ -9,7 +9,7 @@
 // 接口密钥留在父页 callAI，不传进游戏画面。
 (function (root) {
   const { h, useState, useRef, useEffect, selectDialogs, localDialogs, replaceDialogs, worldCognition, WORLDS } = root.FairyCore;
-  const KEY = "x_fairyGarden", BUILD = "fg-c485d06c678e8f5c", hosts = new WeakMap();
+  const KEY = "x_fairyGarden", BUILD = "fg-bf2a8f69e3079bf5", hosts = new WeakMap();
   root.FairyGardenHostFor = child => hosts.get(child) || null;
   // ⚠️「读回来是空」不等于「这儿本来就没有一档」。存档搬进 IDB 之后，文字仓没灌起来
   //   那一刻读到的也是空；这时候要是照着「没有」开一档新的，第一次保存就把她真正的
@@ -673,9 +673,16 @@
     return h(React.Fragment, null,
       h(DyeControl, { key: who + "skin", label: "肤色", value: game() && game().getDyes ? game().getDyes(who).skin : null,
         onChange: skin => pushLook({ skin }), palette: ["#f9e2d2", "#f2cbb4", "#dfb093", "#c58d69", "#9c694c", "#694536"] }),
-      // 眼睛颜色（她 2026-09-26）：庭院、列车、陪伴三处都走这一份控件，数据字段 eye
-      h(DyeControl, { key: who + "eye", label: "眼睛", value: game() && game().getDyes ? game().getDyes(who).eye : null,
-        onChange: eye => pushLook({ eye }), palette: ["#5d4435", "#2b2230", "#3f6fa8", "#4e8a62", "#8a5bb0", "#b5433f"] }),
+      // 陪伴、TA的一天、庭院、列车和小镇共用这套眼睛控件与外貌存档。
+      (() => { const d = look[who] || {}, split = d.eyeMode === "split";
+        const palette = ["#5d4435", "#2b2230", "#3f6fa8", "#4e8a62", "#8a5bb0", "#b5433f"];
+        return h("section", { "aria-label": "眼睛配色" },
+          h("label", { style: { display: "flex", alignItems: "center", gap: 9, minHeight: 44, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: G.ink } },
+            h("input", { type: "checkbox", checked: split, onChange: e => pushLook({ eyeMode: e.target.checked ? "split" : "solid" }), style: { width: 18, height: 18, accentColor: G.deep } }), "左右眼不同颜色（异瞳）"),
+          h("p", { style: { fontSize: "calc(11px * var(--app-fs, 1))", lineHeight: 1.7, color: G.soft, margin: "2px 0 10px" } }, "按小人自己的左右选色；关闭后使用同色，异瞳配色会保留。"),
+          ...(split ? [["eyeLeft", "左眼"], ["eyeRight", "右眼"]] : [["eye", "眼睛"]]).map(([key, label]) =>
+            h(DyeControl, { key: who + key, label, value: d?.[key] || d?.eye || "#5d4435", onChange: value => pushLook({ [key]: value }), palette })));
+      })(),
       h("section", { "aria-label": "衣柜", style: { marginBottom: 24 } },
         h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: G.ink, marginBottom: 10 } }, "挑一套衣服"),
         h("div", { style: { display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 8 } },

@@ -295,13 +295,19 @@
     const x = (m && m.stampLetter) || {}, fs = n => "calc(" + n + "px * var(--app-fs, 1))";
     const [got, setGot] = R.useState(() => !!(x.id && g.StampsCore && g.StampsCore.letterClaimed(x.id)));
     const take = e => { e && e.stopPropagation(); if (got || !x.id) return; g.StampsCore.claimLetter(x.id); setGot(true); };
+    const [tz, setTz] = R.useState(""), [tzBusy, setTzBusy] = R.useState(false);
     return h2("div", { "data-wk": "stampletter", "data-got": got ? "1" : "0", style: { width: 210, borderRadius: 6, overflow: "hidden", background: "#FFF8E9", border: "1px solid #B58C55", boxShadow: "0 4px 12px rgba(40,30,20,.12)" } },
       h2("div", { style: { height: 8, background: "repeating-linear-gradient(135deg, #b23a2e 0 8px, #FFF8E9 8px 14px, #2f5d8a 14px 22px, #FFF8E9 22px 28px)" } }),
       h2("div", { style: { padding: "10px 12px 12px", position: "relative" } },
         h2("div", { style: { fontSize: fs(9.5), letterSpacing: ".3em", color: "#827C6F" } }, "邮票册 · 今天的信"),
         h2("div", { style: { marginTop: 4, fontFamily: "var(--f-display,'Fraunces',serif)", fontSize: fs(15), color: "#39382F" } }, "一张单抽券"),
         h2("div", { style: { marginTop: 2, fontSize: fs(11), color: "#827C6F" } }, (x.by ? x.by + " 寄来的" : "") + (x.day ? " · " + x.day.split("-").slice(1).join(".") : "")),
-        x.note ? h2("div", { "data-wk": "stampletternote", style: { marginTop: 8, paddingLeft: 8, borderLeft: "2px solid rgba(40,92,75,.35)", fontStyle: "italic", fontSize: fs(12.5), lineHeight: 1.6, color: "#2f5d4a" } }, "「" + x.note + "」") : null,
+        // 外语附言（她 2026-10-31：日文附言没翻译）：带着「原文 | 中文」的分开显示；只有原文的给一个「译」
+        x.note ? (() => { const sp = typeof g.splitBilingual === "function" ? g.splitBilingual(String(x.note)) : null, orig = sp ? sp.text : String(x.note), zh = sp ? sp.zh : tz;
+          const can = !zh && typeof g.translatableLang === "function" && typeof g.translateToZh === "function" && g.translatableLang(orig);
+          return h2("div", { "data-wk": "stampletternote", style: { marginTop: 8, paddingLeft: 8, borderLeft: "2px solid rgba(40,92,75,.35)", fontStyle: "italic", fontSize: fs(12.5), lineHeight: 1.6, color: "#2f5d4a" } }, "「" + orig + "」",
+            can ? h2("button", { onClick: e => { e.stopPropagation(); if (tzBusy) return; setTzBusy(true); g.translateToZh(orig, can).then(r => { if (r && r.zh) setTz(r.zh); }).catch(() => {}).then(() => setTzBusy(false)); }, style: { marginLeft: 6, padding: "0 6px", borderRadius: 6, border: "1px solid currentColor", fontSize: "0.75em", fontStyle: "normal", opacity: .7 } }, tzBusy ? "…" : "译") : null,
+            zh ? h2("div", { "data-wk": "stampletterzh", style: { marginTop: 3, fontStyle: "normal", fontSize: fs(11.5), opacity: .75 } }, zh) : null); })() : null,
         h2("div", { style: { position: "absolute", right: 10, top: 8, width: 40, height: 40, borderRadius: 999, border: "1.5px solid #b23a2e", color: "#b23a2e", transform: "rotate(-12deg)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: fs(10) } }, got ? "已领" : "平信"),
         h2("button", { onClick: take, disabled: got, style: { marginTop: 10, width: "100%", padding: "7px 0", borderRadius: 8, border: "none", background: got ? "rgba(47,42,34,.08)" : "#285C4B", color: got ? "#827C6F" : "#FFF8E9", fontSize: fs(12.5) } }, got ? "领过了 · 去邮票册寄一封" : "领取")));
   };

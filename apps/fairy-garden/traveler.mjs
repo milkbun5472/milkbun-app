@@ -1,24 +1,24 @@
-import {makeWeatherEffects} from './emotion-weather.mjs?v=fg-c485d06c678e8f5c';
-import {makeEmotionHands,handStyle,handScaleOf} from './emotion-hands.mjs?v=fg-c485d06c678e8f5c';
-import {makeEmotionFeatures,transientEmotionFace} from './emotion-features.mjs?v=fg-c485d06c678e8f5c';
-import {settleEmotionGround} from './emotion-ground.mjs?v=fg-c485d06c678e8f5c';
-import {attachRegionDye,dyeRegions} from './outfit-dye.mjs?v=fg-c485d06c678e8f5c';
-import {reachHand,headSafeTarget} from './reach-hand.mjs?v=fg-c485d06c678e8f5c';
-import {taskPose,makeTaskProps,workHandTargets,GUITAR_HOLD,GUITAR_STRUM} from './task-motion.mjs?v=fg-c485d06c678e8f5c';
-import {dailyHandTargets} from './daily-motion.mjs?v=fg-c485d06c678e8f5c';
-import {motionClock,motionPosture} from './day/motion-profile.mjs?v=fg-c485d06c678e8f5c';
-import {emotionPose} from './emotion-pose.mjs?v=fg-c485d06c678e8f5c';
-import {makeEmotionProps,phoneTapTarget} from './emotion-props.mjs?v=fg-c485d06c678e8f5c';
-import {makeDollLife} from './doll-life.mjs?v=fg-c485d06c678e8f5c';
-import {makeSeatedLegs,WORK_SEATED_HIP} from './seated-legs.mjs?v=fg-c485d06c678e8f5c';
-import {makeUpperBody} from './upper-body.mjs?v=fg-c485d06c678e8f5c';
-import {makeBentArms} from './bent-arms.mjs?v=fg-c485d06c678e8f5c';
-import {makeHangingHair} from './hanging-hair.mjs?v=fg-c485d06c678e8f5c';
-import {OUTFITS,mergeLook,outfitId,outfitColors,hairId,hairModeOf,DEFAULT_LOOK,COMPANION_LOOK,DEFAULT_EYE} from './wardrobe.mjs?v=fg-c485d06c678e8f5c';
-import {makeSeatContact} from './seat-contact.mjs?v=fg-c485d06c678e8f5c';
+import {makeWeatherEffects} from './emotion-weather.mjs?v=fg-bf2a8f69e3079bf5';
+import {makeEmotionHands,handStyle,handScaleOf} from './emotion-hands.mjs?v=fg-bf2a8f69e3079bf5';
+import {makeEmotionFeatures,transientEmotionFace} from './emotion-features.mjs?v=fg-bf2a8f69e3079bf5';
+import {settleEmotionGround} from './emotion-ground.mjs?v=fg-bf2a8f69e3079bf5';
+import {attachRegionDye,dyeRegions} from './outfit-dye.mjs?v=fg-bf2a8f69e3079bf5';
+import {reachHand,headSafeTarget} from './reach-hand.mjs?v=fg-bf2a8f69e3079bf5';
+import {taskPose,makeTaskProps,workHandTargets,GUITAR_HOLD,GUITAR_STRUM} from './task-motion.mjs?v=fg-bf2a8f69e3079bf5';
+import {dailyHandTargets} from './daily-motion.mjs?v=fg-bf2a8f69e3079bf5';
+import {motionClock,motionPosture} from './day/motion-profile.mjs?v=fg-bf2a8f69e3079bf5';
+import {emotionPose} from './emotion-pose.mjs?v=fg-bf2a8f69e3079bf5';
+import {makeEmotionProps,phoneTapTarget} from './emotion-props.mjs?v=fg-bf2a8f69e3079bf5';
+import {makeDollLife} from './doll-life.mjs?v=fg-bf2a8f69e3079bf5';
+import {makeSeatedLegs,WORK_SEATED_HIP} from './seated-legs.mjs?v=fg-bf2a8f69e3079bf5';
+import {makeUpperBody} from './upper-body.mjs?v=fg-bf2a8f69e3079bf5';
+import {makeBentArms} from './bent-arms.mjs?v=fg-bf2a8f69e3079bf5';
+import {makeHangingHair} from './hanging-hair.mjs?v=fg-bf2a8f69e3079bf5';
+import {OUTFITS,mergeLook,outfitId,outfitColors,hairId,hairModeOf,DEFAULT_LOOK,COMPANION_LOOK,DEFAULT_EYE,eyesOf} from './wardrobe.mjs?v=fg-bf2a8f69e3079bf5';
+import {makeSeatContact} from './seat-contact.mjs?v=fg-bf2a8f69e3079bf5';
 import * as T from 'three';
-import {GLTFLoader} from './vendor/GLTFLoader.js?v=fg-c485d06c678e8f5c';
-import {DRACOLoader} from './vendor/DRACOLoader.js?v=fg-c485d06c678e8f5c';
+import {GLTFLoader} from './vendor/GLTFLoader.js?v=fg-bf2a8f69e3079bf5';
+import {DRACOLoader} from './vendor/DRACOLoader.js?v=fg-bf2a8f69e3079bf5';
 // 衣服按需加载（她 2026-09-26）：doll.glb 只有身体、骨架和头发，每套衣服是 outfits/<id>.glb，
 // 穿到哪套才下哪套。同一套全页只下一次（下面这张表），每个小人再各克隆一份、按骨头名字接到自己的骨架上。
 // 文件由 art/fairy-garden/doll/split_outfits.py 从完整娃娃拆出来；版本指纹跟着本模块自己的 ?v=。
@@ -108,7 +108,7 @@ const _a=new T.Color(),_b=new T.Color();
 // Coverage is authored on the outfit in rest coordinates. The same mask is used
 // for colour and shadow passes, and each avatar owns its uniform values.
 function coveredSkinShader(o){
- const coverage={feet:{value:-1},torso:{value:-1},torsoAbove:{value:-1},sleeve:{value:new T.Vector4(-1,0,0,0)},axis:{value:new T.Vector4(.165,.655,.11,-.255)},rightHand:{value:0},leftHand:{value:0},eye:{value:new T.Color()},eyeOn:{value:0}};
+ const coverage={feet:{value:-1},torso:{value:-1},torsoAbove:{value:-1},sleeve:{value:new T.Vector4(-1,0,0,0)},axis:{value:new T.Vector4(.165,.655,.11,-.255)},rightHand:{value:0},leftHand:{value:0},eye:{value:new T.Color()},eyeOn:{value:0},eyeRight:{value:new T.Color()},eyeRightOn:{value:0}};
  if(!o.geometry.getAttribute('skinArmInfluence')||!o.geometry.getAttribute('skinRightForearmInfluence')||!o.geometry.getAttribute('skinLeftForearmInfluence')){
   const weights=o.geometry.getAttribute('skinWeight'),indices=o.geometry.getAttribute('skinIndex'),values=new Float32Array(o.geometry.getAttribute('position').count),right=new Float32Array(values.length),left=new Float32Array(values.length);
   if(weights&&indices)for(let i=0;i<values.length;i++)for(let k=0;k<4;k++){const name=o.skeleton.bones[indices.getComponent(i,k)]?.name||'';if(/(?:Arm|Forearm)$/.test(name))values[i]+=weights.getComponent(i,k);if(name==='rightForearm')right[i]+=weights.getComponent(i,k);if(name==='leftForearm')left[i]+=weights.getComponent(i,k);}
@@ -119,13 +119,13 @@ function coveredSkinShader(o){
  const patch=m=>{m.onBeforeCompile=sh=>{
   // 眼睛颜色：脸贴图的透明通道记着眼珠在哪（art/fairy-garden/doll/eye_mask.py：皮肤 1、眼珠中心 .5）。
   //   直接把这一块换成选的颜色——不乘肤色，不然选的蓝眼睛会跟着肤色变深浅。
-  if(m.isMeshStandardMaterial||m.isMeshPhysicalMaterial){sh.uniforms.uEye=coverage.eye;sh.uniforms.uEyeOn=coverage.eyeOn;
-   sh.fragmentShader=sh.fragmentShader.replace('#include <common>','#include <common>\nuniform vec3 uEye;uniform float uEyeOn;').replace('#include <map_fragment>','#include <map_fragment>\n#ifdef USE_MAP\ndiffuseColor.rgb=mix(diffuseColor.rgb,uEye,clamp((1.-sampledDiffuseColor.a)*2.,0.,1.)*uEyeOn);diffuseColor.a=1.;\n#endif');}
+  if(m.isMeshStandardMaterial||m.isMeshPhysicalMaterial){sh.uniforms.uEye=coverage.eye;sh.uniforms.uEyeOn=coverage.eyeOn;sh.uniforms.uEyeRight=coverage.eyeRight;sh.uniforms.uEyeRightOn=coverage.eyeRightOn;
+   sh.fragmentShader=sh.fragmentShader.replace('#include <common>','#include <common>\nuniform vec3 uEye,uEyeRight;uniform float uEyeOn,uEyeRightOn;').replace('#include <map_fragment>','#include <map_fragment>\n#ifdef USE_MAP\nfloat leftEye=step(0.,vSkinRest.x);diffuseColor.rgb=mix(diffuseColor.rgb,mix(uEyeRight,uEye,leftEye),clamp((1.-sampledDiffuseColor.a)*2.,0.,1.)*mix(uEyeRightOn,uEyeOn,leftEye));diffuseColor.a=1.;\n#endif');}
   sh.uniforms.uCoveredFeet=coverage.feet;sh.uniforms.uCoveredTorso=coverage.torso;sh.uniforms.uCoveredTorsoAbove=coverage.torsoAbove;sh.uniforms.uSleeve=coverage.sleeve;sh.uniforms.uArmAxis=coverage.axis;sh.uniforms.uRightHand=coverage.rightHand;sh.uniforms.uLeftHand=coverage.leftHand;
   sh.vertexShader=sh.vertexShader.replace('#include <common>','#include <common>\nvarying vec3 vSkinRest;attribute float skinArmInfluence;attribute float skinRightForearmInfluence;attribute float skinLeftForearmInfluence;varying float vSkinArm,vSkinRightForearm,vSkinLeftForearm;').replace('#include <begin_vertex>','#include <begin_vertex>\nvSkinRest=position;vSkinArm=skinArmInfluence;vSkinRightForearm=skinRightForearmInfluence;vSkinLeftForearm=skinLeftForearmInfluence;');
   sh.fragmentShader=sh.fragmentShader.replace('#include <common>','#include <common>\nvarying vec3 vSkinRest;varying float vSkinArm,vSkinRightForearm,vSkinLeftForearm;uniform float uCoveredFeet;uniform float uCoveredTorso;uniform float uCoveredTorsoAbove;uniform vec4 uSleeve;uniform vec4 uArmAxis;uniform float uRightHand;uniform float uLeftHand;')
    .replace('#include <clipping_planes_fragment>','#include <clipping_planes_fragment>\nif(vSkinRest.y<.435 && ((uRightHand>.5 && vSkinRightForearm>.9)||(uLeftHand>.5 && vSkinLeftForearm>.9))) discard;float sleeveAlong=dot(vec2(abs(vSkinRest.x),vSkinRest.y)-uArmAxis.xy,normalize(uArmAxis.zw));\nif((vSkinRest.y<uCoveredFeet && vSkinArm<.5) || (vSkinRest.y<uCoveredTorso && vSkinRest.y>uCoveredTorsoAbove && vSkinArm<.5) || (uSleeve.x>0. && abs(vSkinRest.x)>uSleeve.w && sleeveAlong<uSleeve.x && vSkinRest.y>uSleeve.y && vSkinRest.y<uSleeve.z)) discard;');
- };m.customProgramCacheKey=()=>'coveredSkin-v7-sleeves';};
+ };m.customProgramCacheKey=()=>'coveredSkin-v8-eyes';};
  patch(o.material);
  o.customDepthMaterial=new T.MeshDepthMaterial({depthPacking:T.RGBADepthPacking});patch(o.customDepthMaterial);
  o.customDistanceMaterial=new T.MeshDistanceMaterial();patch(o.customDistanceMaterial);
@@ -218,8 +218,10 @@ export function createTraveler(source,companion=false,look={}){
    if(o.userData.skin)o.material.color.set(look.skin);
   // v2 身体：肤色＝选的颜色 ÷ 贴图自己的肤色（脸上的眼睛腮红跟着一起变深浅，不会被抹掉）；表情换贴图
   if(o.userData.skinBase){_a.set(look.skin||o.userData.skinBase);_b.set(o.userData.skinBase);o.material.color.setRGB(_a.r/_b.r,_a.g/_b.g,_a.b/_b.b);
-   const eye=/^#[0-9a-fA-F]{6}$/.test(look.eye||'')&&look.eye.toLowerCase()!==DEFAULT_EYE?look.eye:null,cov=o.userData.skinCoverageUniforms;
-   if(cov){cov.eyeOn.value=eye?1:0;if(eye)cov.eye.value.set(eye);}
+   const eyes=eyesOf(look),left=eyes.eyeMode==='split'?eyes.eyeLeft:eyes.eye,right=eyes.eyeMode==='split'?eyes.eyeRight:eyes.eye;
+   const leftOn=left.toLowerCase()!==DEFAULT_EYE,rightOn=right.toLowerCase()!==DEFAULT_EYE,eye=leftOn||rightOn,cov=o.userData.skinCoverageUniforms;
+   // 原始网格的 +X 是小人自己的左眼；用静止坐标，转身/歪头不会交换颜色。
+   if(cov){cov.eyeOn.value=leftOn?1:0;cov.eye.value.set(left);cov.eyeRightOn.value=rightOn?1:0;cov.eyeRight.value.set(right);}
    // 换了眼睛颜色时默认脸也走 faces/default.webp：模型自带那张贴图没有眼珠遮罩
    // 睡眠只临时显示现有闭眼脸；want 保留陪伴/衣柜当前表情，醒来按最新 look 恢复。
    const faceId=sleepFace?'cozy':actionFace||look.face;
@@ -409,6 +411,6 @@ export function createTraveler(source,companion=false,look={}){
 // Scene callers share the compressed doll and decoder lifecycle.
 let travelerSource;
 export function loadTravelerSource(){
- if(!travelerSource)travelerSource=(async()=>{const draco=new DRACOLoader();draco.setDecoderPath(new URL('./vendor/draco/',import.meta.url).href);const loader=new GLTFLoader();loader.setDRACOLoader(draco);try{return(await loader.loadAsync(new URL('./doll.glb?v=fg-c485d06c678e8f5c'+new URL(import.meta.url).search,import.meta.url).href)).scene;}finally{draco.dispose();}})().catch(e=>{travelerSource=null;throw e;});
+ if(!travelerSource)travelerSource=(async()=>{const draco=new DRACOLoader();draco.setDecoderPath(new URL('./vendor/draco/',import.meta.url).href);const loader=new GLTFLoader();loader.setDRACOLoader(draco);try{return(await loader.loadAsync(new URL('./doll.glb?v=fg-bf2a8f69e3079bf5'+new URL(import.meta.url).search,import.meta.url).href)).scene;}finally{draco.dispose();}})().catch(e=>{travelerSource=null;throw e;});
  return travelerSource;
 }
