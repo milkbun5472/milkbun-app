@@ -20,7 +20,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v77.004";
+const APP_VERSION = "v77.005";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -18540,6 +18540,11 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   // ⚠️先把【存档里已有的】合进来再写这一天（群友 2026-10-09：排好的一整周突然只剩今天）。
   //   这里存的是「内存里整本 + 这一天」：内存那本要是那一刻是空的或旧的，写下去就把别的日子全盖没了。
   //   合一次存档，最坏也只是多写一天，不会再抹掉别的。删日程走 delSchedDays，那边先写盘，这里读到的就是删过的。
+  // 日程只去地图上的地方（她 2026-10-31「按世界」）：他钉在开了这一格的世界里，排日程时交给他图上的地点、写回来的 place 对回图上
+  const schedMapOf = c => { const K = window.MapKit; const r = c && K && K.charRealm && K.schedMapOn ? K.charRealm(c, worldsRef.current || []) : null;
+    return r && r.kind === "world" && K.schedMapOn(r.world) ? { world: r.world, home: r.node } : null; };
+  const schedMapRule = c => { const m = schedMapOf(c); return m ? window.MapKit.schedMapBlock(m.world, m.home) : ""; };
+  const schedSnap = (c, seqs) => { const m = schedMapOf(c); return m && Array.isArray(seqs) ? seqs.map(x => window.MapKit.snapSeqToMap(m.world, x, m.home)) : seqs; };
   const saveSchedDay = (charId, dayKey, plan) => setSchedules(mem => {
     const disk = (typeof loadJSON === "function" && loadJSON("x_schedules", {})) || {};
     const p = { ...disk, ...mem };
@@ -18765,7 +18770,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         //   模型会连那个世界一起抄走（王爷也开始在公寓里煮咖啡）。
         : characterText(char, "{\"load\":\"HIGH LOAD\",\"estTime\":22,\"seqs\":[{\"time\":\"这一段几点开始\",\"end\":\"几点结束\",\"busy\":\"这一段他顾不顾得上看手机：0 随时能看／1 偶尔瞄一眼／2 基本顾不上／3 完全碰不了（整数）\",\"title\":\"这一段他在做什么（这个身份的人真会做的具体事）\",\"location\":\"在哪儿（细到具体处所，贴着他那个世界）\",\"place\":\"这会儿他在哪个【大地方】：城／坊市／宅院这一级，要跟地图上认得出的地名对得上\",\"type\":\"从上面那几个词里挑最接近的\",\"deviation\":null},{\"time\":\"就寝那一段几点\",\"end\":\"24:00\",\"title\":\"临睡前在做什么\",\"location\":\"他睡的地方\",\"type\":\"sleep\",\"deviation\":null}]") + murmurSchema + "}";
       const rawPlan = await runProbe(bgActive, { ...ctxFor(char), worldbook: loreFor(char, "lifestyle") }, {
-        instruction: schedInstr + schedPeerBlock(char, [dayKey]) + "\n" + SCHED_WORLD_RULE + "\n" + SCHED_END_RULE + "\n" + SCHED_TENSE_RULE + window.CharDayLink.instruction(isDigital),
+        instruction: schedInstr + schedPeerBlock(char, [dayKey]) + schedMapRule(char) + "\n" + SCHED_WORLD_RULE + "\n" + SCHED_END_RULE + "\n" + SCHED_TENSE_RULE + window.CharDayLink.instruction(isDigital),
         schemaHint: window.CharDayLink.schema(schedSchema, isDigital),
         maxTokens: 65000
       });
@@ -18778,6 +18783,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         murmurs: retro ? (Array.isArray(d.murmurs) ? d.murmurs : []).filter(m => m && m.text) : [],
         generatedAt: Date.now()
       };
+      plan.seqs = schedSnap(char, plan.seqs);
       saveSchedDay(char.id, dayKey, plan);
       schedMirrorPeers(char, dayKey, plan.seqs);
       // 回填昨天的碎碎念
@@ -18880,7 +18886,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         + "\n【别复读已经办完的事】和用户之间【已经做过的经历、已兑现的约定】绝不要当成还没做、再排一遍。"
         // 两个人的日程要对得上：这条链本来就是 for 循环一个一个排，后排的看得见先排好的。
         // 一层只写一处——跟单天那边共用同一个 schedPeerBlock。
-        + schedPeerBlock(char, want)
+        + schedPeerBlock(char, want) + schedMapRule(char)
         // 她给的方向（群友 2026-10-25）：跟重 Roll 带方向一个意思——给方向，不替他排
         + (opts && opts.wish ? "\n【她希望这几天的方向】" + String(opts.wish).slice(0, 200) + "\n照这个方向排；具体哪天几点做什么，还是照你自己这个人和你的日子来。跟你的人设、你们之间说好的事对不上的地方，以人设和说好的为准。" : "")
         + "\n" + SCHED_WORLD_RULE + "\n" + SCHED_END_RULE + "\n" + SCHED_TENSE_RULE + window.CharDayLink.instruction(isDigital);
@@ -18908,7 +18914,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         if (!seqs.length) return;
         saveSchedDay(char.id, key, {
           load: clean.load || "NORMAL", estTime: Number(clean.estTime) || null,
-          seqs, murmurs: [], kind: key === today ? "live" : "plan", generatedAt: Date.now()
+          seqs: schedSnap(char, seqs), murmurs: [], kind: key === today ? "live" : "plan", generatedAt: Date.now()
         });
         schedMirrorPeers(char, key, seqs);
         n++;
@@ -18993,7 +18999,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         const seqText = JSON.stringify(plan.seqs);
         try {
           const rawRevision = await bgJob("schedule", c, () => runProbe(bgActive, { ...ctxFor(c), worldbook: loreFor(c, "lifestyle") }, {
-            instruction: window.CharDayLink.instruction(!!isBody(c.id)) + SCHED_END_RULE + "\n" + SCHED_TENSE_RULE + "\n「" + c.name + "」今天原本的计划：\n" + seqText + "\n现在 TA 当地约 " + nowStr + "。TA 此刻临时起意，想改一下今天【还没到的】安排——人之常情：不想去了、朋友临时约、兴致来了想干别的、换个地方、临时多办一件事……原因要贴 TA 的人设和此刻心情，是日常的小变动，别硬编狗血事件。输出修改后的当天完整 seqs：【早于 " + nowStr + " 的时段一律原样保留】，只动之后的 1~2 段（就寝段保留或按需微调）；被改动的段 deviation 填 {\"plan\":\"原计划一句\",\"reason\":\"TA 自己起意的原因（TA 视角的念头，一句）\",\"actual\":\"实际改成什么\"}，没改的段 deviation 为 null。若 TA 今天就是会照计划走（负荷太高/性格自律/没由头），changed 填 false、seqs 给 []。",
+            instruction: window.CharDayLink.instruction(!!isBody(c.id)) + schedMapRule(c) + SCHED_END_RULE + "\n" + SCHED_TENSE_RULE + "\n「" + c.name + "」今天原本的计划：\n" + seqText + "\n现在 TA 当地约 " + nowStr + "。TA 此刻临时起意，想改一下今天【还没到的】安排——人之常情：不想去了、朋友临时约、兴致来了想干别的、换个地方、临时多办一件事……原因要贴 TA 的人设和此刻心情，是日常的小变动，别硬编狗血事件。输出修改后的当天完整 seqs：【早于 " + nowStr + " 的时段一律原样保留】，只动之后的 1~2 段（就寝段保留或按需微调）；被改动的段 deviation 填 {\"plan\":\"原计划一句\",\"reason\":\"TA 自己起意的原因（TA 视角的念头，一句）\",\"actual\":\"实际改成什么\"}，没改的段 deviation 为 null。若 TA 今天就是会照计划走（负荷太高/性格自律/没由头），changed 填 false、seqs 给 []。",
             schemaHint: window.CharDayLink.schema("{\"changed\":true,\"seqs\":[{\"time\":\"这一段几点开始\",\"end\":\"几点结束\",\"title\":\"这一段具体要做什么\",\"location\":\"原世界里的具体处所\",\"place\":\"所在大地方\",\"type\":\"活动类别\",\"deviation\":null}]}", !!isBody(c.id)),
             maxTokens: 65000
           }));
@@ -19001,7 +19007,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
           if (d && d.changed && Array.isArray(d.seqs) && d.seqs.length >= 3) {
             const seqs = schedFillEnds(d.seqs.map((s, i) => window.CharDayLink.bindRow({ seq: i + 1, time: s.time || "", end: s.end || "", title: s.title || "", location: s.location || "", place: s.place || "", type: s.type || "other", deviation: s.deviation && (s.deviation.plan || s.deviation.reason) ? s.deviation : null }, s)));
             const cur = (schedulesRef.current[c.id] || {})[today] || plan;
-            saveSchedDay(c.id, today, { ...cur, seqs: seqs, selfRevCheck: true, selfRevisedAt: Date.now() });
+            saveSchedDay(c.id, today, { ...cur, seqs: schedSnap(c, seqs), selfRevCheck: true, selfRevisedAt: Date.now() });
           }
         } catch (e) {/* 改失败就算了，不重试不打扰 */}
       }
@@ -22485,6 +22491,9 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   // refImgs：世界的风景参考 [{img,label}]。不传＝不动；存了新版就把旧的单张 refImg 清掉。
   // ⚠️读 worldsRef 不读 worlds：新开的世界刚画完就要存图，那一刻闭包里的 worlds 还是旧的。
   const saveWorld = (id, name, brief, refImgs) => saveWorlds((worldsRef.current || worlds || []).map(w => w.id !== id ? w : { ...w, name: (name || w.name).slice(0, 16), prompt: brief || w.prompt, ...(refImgs !== undefined ? { refImgs: Array.isArray(refImgs) ? refImgs.slice(0, 6) : [], refImg: null } : {}) }));
+  // 这个世界的人排日程只去图上的地方（她 2026-10-31）：已经排好的那几天不重排，下一次排的照新规矩
+  const setWorldSchedMap = (id, on) => { saveWorlds((worldsRef.current || worlds || []).map(w => w.id !== id ? w : { ...w, schedMapOnly: !!on }));
+    toast(on ? "开了：钉在这个世界的人，下次排日程只去图上的地方" : "关了：日程照人设自己排地方"); };
   const delWorld = id => saveWorlds((worlds || []).filter(w => w.id !== id));
   // 手动钉进来的人补一张「会去哪儿」（她 2026-10-02：开世界最多带 8 个，其余的钉进去就不动了——可以选择要不要补）
   // 她又说：「一个一次调用好浪费」——所以点谁都一样：这个世界里钉着、还没有小表的人，一次调用一起排完。
@@ -33376,6 +33385,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     onDelNode: delWorldNode,
     onEditNode: editWorldNode,
     onEditRegion: editWorldRegion,
+    onSchedMapWorld: setWorldSchedMap,
     onBack: goHome
   }) : h(Empty, { text: "地图组件没加载出来", sub: "需要联网加载地图库，检查网络后重开" }));else if (screen === "cast") body = /*#__PURE__*/React.createElement(Cast, {
     onAskAssistant: () => setScreen("assistant"),
@@ -35027,7 +35037,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     userGeo: realGeo(),
     profile: profile,
     dateAlbumFor: dateAlbumFor,
-    worldOps: { busy: worldBusy, onPin: pinWorld, onRoute: routeWorld, onAddNode: addWorldNode, onGenNodes: genWorldNodes, onDelNode: delWorldNode, onEditNode: editWorldNode, onEditRegion: editWorldRegion },
+    worldOps: { busy: worldBusy, onPin: pinWorld, onRoute: routeWorld, onAddNode: addWorldNode, onGenNodes: genWorldNodes, onDelNode: delWorldNode, onEditNode: editWorldNode, onEditRegion: editWorldRegion, onSchedMap: setWorldSchedMap },
     onOpenMap: () => setScreen("map"),
     toast: toast,
     onBack: () => setScreen("home")

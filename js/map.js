@@ -396,6 +396,39 @@ function mapSubSkin(t) {
     names.forEach(function (nm) { const sc = zhOverlap(nm, text); if (sc > score) { score = sc; best = nm; } });
     return best;
   };
+  // 日程只去地图上的地方（她 2026-10-31「做吧 按世界」）：世界里开了 schedMapOnly，
+  //   排日程时把图上的地点按离他住处远近交给他；写回来的 place 再对一遍，对不上就落到最像的那一处，再不行回他住的地方。
+  const schedMapOn = function (world) { return !!(world && world.schedMapOnly && worldNodeNames(world).length); };
+  const regionHops = function (world, homeNode) {
+    const regs = (world && world.regions) || [], hops = {};
+    const home = regs.find(function (r) { return (r.nodes || []).some(function (n) { return n && n.name === homeNode; }); });
+    if (!home) return hops;
+    const nb = function (nm) { const out = []; regs.forEach(function (r) {
+      if (r.name === nm) (r.adj || []).forEach(function (a) { out.push(a); });
+      else if ((r.adj || []).indexOf(nm) >= 0) out.push(r.name); }); return out; };
+    hops[home.name] = 0; let q = [home.name];
+    while (q.length) { const nx = []; q.forEach(function (nm) { nb(nm).forEach(function (a) { if (hops[a] == null) { hops[a] = hops[nm] + 1; nx.push(a); } }); }); q = nx; }
+    return hops;
+  };
+  const schedMapBlock = function (world, homeNode) {
+    if (!schedMapOn(world)) return "";
+    const hops = regionHops(world, homeNode), far = function (r) { return hops[r.name] == null ? 99 : hops[r.name]; };
+    const regs = ((world.regions || []).slice()).sort(function (a, b) { return far(a) - far(b); });
+    const lines = regs.filter(function (r) { return (r.nodes || []).length; }).map(function (r) {
+      const d = far(r), tag = d === 0 ? "你住的这块" : d === 1 ? "挨着你住的这块" : d === 99 ? "跟你住的这块不连着" : "隔着 " + (d - 1) + " 块";
+      return "· " + r.name + "（" + (r.terrain || "平原") + "，" + tag + "）：" + r.nodes.map(function (n) { return n.name + (n.kind ? "〔" + n.kind + "〕" : ""); }).join("、");
+    });
+    return "\n【这个世界的地图：这一天只在图上这些地方过】" + (homeNode ? "你落脚在「" + homeNode + "」。" : "")
+      + "每一段的 place 原样写下面某个地点的名字；location 写那个地点里头的具体角落。离你住的那块越远去得越少，路上要花时间：挨着的一块走一段就到，隔得越远越要算上路上的工夫。想去的地方图上没有，就挑最接近的那一处。\n" + lines.join("\n");
+  };
+  const snapSeqToMap = function (world, seq, homeNode) {
+    if (!schedMapOn(world) || !seq) return seq;
+    const names = worldNodeNames(world), p = String(seq.place || "").trim();
+    if (names.indexOf(p) >= 0) return seq;
+    const hit = (p && bestNode(names, p, 0.28)) || bestNode(names, String(seq.location || ""), 0.34) || bestNode(names, String(seq.title || ""), 0.5)
+      || (homeNode && names.indexOf(homeNode) >= 0 ? homeNode : names[0]);
+    return Object.assign({}, seq, { place: hit });
+  };
   // TA此刻在图上的哪一点。
   //
   // ⚠️她 2026-08-31 报「王爷一直在王府不动了，但是明明显示TA应该在别的地方」。
@@ -444,7 +477,7 @@ function mapSubSkin(t) {
 
 
   // 一个世界的舆图：满屏 SVG，可拖可捏；角色钉在节点上，头像贴着那个点
-  function WorldMap({ world, characters, status, me, busy, onPin, onRoute, onAdd, onGen, onBack, onEdit, onDelNode, onEditNode, onEditRegion }) {
+  function WorldMap({ world, characters, status, me, busy, onPin, onRoute, onAdd, onGen, onBack, onEdit, onDelNode, onEditNode, onEditRegion, onSchedMap }) {
     const [delAsk, setDelAsk] = useState(false);
     const [regEdit, setRegEdit] = useState(null);   // 改这个地点所在的那一块：{ name, terrain }
     const [layoutReg, setLayoutReg] = useState(null); // 正在图上挪位置／调大小的那一块
@@ -653,6 +686,12 @@ function mapSubSkin(t) {
         h("div", { className: "min-w-0 flex-1", style: { fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))", color: t.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, world.name),
         h("button", { onClick: function () { setAdding(true); }, className: "active:opacity-60 shrink-0", style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.tint, marginRight: 10 }, "data-wk": "mapworldmapbtn", "data-part": "12" }, "＋ 地点"),
         onEdit ? h("button", { onClick: onEdit, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog, flexShrink: 0 }, "data-wk": "mapworldmapbtn", "data-part": "edit" }, "···") : null),
+      onSchedMap ? h("div", { className: "flex items-center justify-between", style: { gap: 10, padding: "2px 16px 4px" }, "data-wk": "mapschedonly" },
+        h("div", { className: "min-w-0" },
+          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.ink } }, "日程只去图上的地方"),
+          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.6 } },
+            world.schedMapOnly ? "钉在这儿的人排日程只挑这张图上的地点，离住处越远去得越少" : "开了以后，钉在这儿的人排日程只挑这张图上的地点")),
+        h("div", { className: "shrink-0" }, h(Toggle, { on: !!world.schedMapOnly, onChange: function (v) { onSchedMap(!!v); } }))) : null,
       h("div", { className: "flex-1", style: { position: "relative", minHeight: 0, padding: "4px 12px 0" } },
         // 挪位置、调大小（她 2026-10-03 群友）：每按一下就存、图当场跟着变；没动过的那几块照旧自动排
         layoutReg && onEditRegion ? (function () {
@@ -855,10 +894,11 @@ function mapSubSkin(t) {
       onGen: function (r, hint) { o.onGenNodes && o.onGenNodes(world.id, r, hint); },
       onDelNode: o.onDelNode ? function (nm) { return o.onDelNode(world.id, nm); } : null,
       onEditNode: o.onEditNode ? function (nm, p) { return o.onEditNode(world.id, nm, p); } : null,
-      onEditRegion: o.onEditRegion ? function (nm, p) { return o.onEditRegion(world.id, nm, p); } : null });
+      onEditRegion: o.onEditRegion ? function (nm, p) { return o.onEditRegion(world.id, nm, p); } : null,
+      onSchedMap: o.onSchedMap ? function (on) { o.onSchedMap(world.id, on); } : null });
   }
   // 架空那一半的总入口：世界列表 → 某个世界的舆图
-  function StoryMap({ worlds, characters, status, me, busy, onGen, onSave, onDel, onPin, onRoute, onAddNode, onGenNodes, onDelNode, onEditNode, onEditRegion }) {
+  function StoryMap({ worlds, characters, status, me, busy, onGen, onSave, onDel, onPin, onRoute, onAddNode, onGenNodes, onDelNode, onEditNode, onEditRegion, onSchedMap }) {
     const t = useTheme();
     const [wid, setWid] = useState(null);
     const [form, setForm] = useState(null);   // "new" | 世界 id
@@ -883,7 +923,8 @@ function mapSubSkin(t) {
         onGen: function (r, hint) { onGenNodes(cur.id, r, hint); },
         onDelNode: onDelNode ? function (nm) { return onDelNode(cur.id, nm); } : null,
         onEditNode: onEditNode ? function (nm, p) { return onEditNode(cur.id, nm, p); } : null,
-        onEditRegion: onEditRegion ? function (nm, p) { return onEditRegion(cur.id, nm, p); } : null }));
+        onEditRegion: onEditRegion ? function (nm, p) { return onEditRegion(cur.id, nm, p); } : null,
+        onSchedMap: onSchedMap ? function (on) { onSchedMap(cur.id, on); } : null }));
     return h("div", { className: "flex-1 min-h-0 overflow-y-auto", style: { padding: "10px 16px 30px" }, "data-wk": "mapstorymap" }, formLayer,
       list.length === 0
         ? h("div", { style: { textAlign: "center", padding: "56px 10px 30px" } },
@@ -909,7 +950,7 @@ function mapSubSkin(t) {
   }
 
   // 全屏好友地图
-  function CharMap({ characters, status, profile, userGeo, mode, onSetMode, onSetHome, onBack, worlds, worldBusy, onGenWorld, onSaveWorld, onDelWorld, onPinWorld, onRouteWorld, onAddNode, onGenNodes, onDelNode, onEditNode, onEditRegion }) {
+  function CharMap({ characters, status, profile, userGeo, mode, onSetMode, onSetHome, onBack, worlds, worldBusy, onGenWorld, onSaveWorld, onDelWorld, onPinWorld, onRouteWorld, onAddNode, onGenNodes, onDelNode, onEditNode, onEditRegion, onSchedMapWorld }) {
     const t = useTheme();
     useSchedGeo(characters, status);
     const [sel, setSel] = useState(null);   // 选中要设城市的角色 id
@@ -1092,7 +1133,7 @@ function mapSubSkin(t) {
             return h("button", { key: m[0], onClick: function () { onSetMode && onSetMode(m[0]); }, style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", padding: "4px 11px", borderRadius: 999, background: on ? t.ink : "transparent", color: on ? t.bg2 : t.sub }, "data-wk": "mappage", "data-part": "r2", "data-on": on ? "1" : "0" }, m[1]);
           })) }),
       (mode || "real") === "story"
-        ? h(StoryMap, { worlds: worlds, characters: characters, status: status, me: profile, busy: worldBusy, onGen: onGenWorld, onSave: onSaveWorld, onDel: onDelWorld, onPin: onPinWorld, onRoute: onRouteWorld, onAddNode: onAddNode, onGenNodes: onGenNodes, onDelNode: onDelNode, onEditNode: onEditNode, onEditRegion: onEditRegion })
+        ? h(StoryMap, { worlds: worlds, characters: characters, status: status, me: profile, busy: worldBusy, onGen: onGenWorld, onSave: onSaveWorld, onDel: onDelWorld, onPin: onPinWorld, onRoute: onRouteWorld, onAddNode: onAddNode, onGenNodes: onGenNodes, onDelNode: onDelNode, onEditNode: onEditNode, onEditRegion: onEditRegion, onSchedMap: onSchedMapWorld })
         : h("div", { className: "flex-1", style: { position: "relative", minHeight: 0, isolation: "isolate" } },
             // ⚠️人少了要说一声：住在架空世界里的那几位不画在这张图上。
             //   不说的话她只会看见「有人不见了」，以为坏了（诚实的诊断要写在她看得见的地方）。
@@ -1174,7 +1215,7 @@ function mapSubSkin(t) {
           }, className: "w-full active:opacity-70", style: { marginTop: 10, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.tint, border: "1px dashed " + t.line, borderRadius: 10, padding: "10px 0" }, "data-wk": "mappagebtn", "data-part": "9" }, "🔍 全网搜「" + q.trim() + "」并设为家乡") : null));
   }
 
-  if (inApp) window.MapKit = { MapWidget: MapWidget, WorldMapEmbed: WorldMapEmbed, CharMap: CharMap, StoryMap: StoryMap, CITY_DB: CITY_DB, charHome: charHome, liveNodeOf: liveNodeOf, zhOverlap: zhOverlap, charRealm: charRealm, userRealm: userRealm, worldRefList: worldRefList, pickWorldRef: pickWorldRef };
+  if (inApp) window.MapKit = { MapWidget: MapWidget, WorldMapEmbed: WorldMapEmbed, CharMap: CharMap, StoryMap: StoryMap, CITY_DB: CITY_DB, charHome: charHome, liveNodeOf: liveNodeOf, zhOverlap: zhOverlap, charRealm: charRealm, schedMapOn: schedMapOn, schedMapBlock: schedMapBlock, snapSeqToMap: snapSeqToMap, userRealm: userRealm, worldRefList: worldRefList, pickWorldRef: pickWorldRef };
   // 纯函数导出给 node --test；浏览器里没有 module，原样跳过（同 trpg.js）
-  if (typeof module === "object" && module.exports) module.exports = { liveNodeOf: liveNodeOf, zhOverlap: zhOverlap, charRealm: charRealm, charPos: charPos, userRealm: userRealm, worldRefList: worldRefList, pickWorldRef: pickWorldRef };
+  if (typeof module === "object" && module.exports) module.exports = { schedMapOn: schedMapOn, schedMapBlock: schedMapBlock, snapSeqToMap: snapSeqToMap, liveNodeOf: liveNodeOf, zhOverlap: zhOverlap, charRealm: charRealm, charPos: charPos, userRealm: userRealm, worldRefList: worldRefList, pickWorldRef: pickWorldRef };
 })();
