@@ -1070,12 +1070,12 @@
 
   // 改一件（群友 2026-10-17「仓库上传可不可以加一个再编辑」）：同一页，edit＝点进去那件（带 payload）。
   //   类别不能换；内容不碰就不发、后端原样留着；截图一张张留或换，原来的那几张用 { keep: 第几张 }。
-  function Upload({ t, props, initialKind, onClose, onDone, edit }) {
+  function Upload({ t, props, initialKind, onClose, onDone, edit, pre }) {
     const [kind, setKind] = useState(edit ? edit.kind : (initialKind || "theme"));
     const [pick, setPick] = useState({});        // 世界书可多选；其余单选（存 id → true）
     const [file, setFile] = useState(null);       // { payload, title, note, name }：选了文件就用它
-    const [text, setText] = useState(edit && (edit.kind === "post" || edit.kind === "topic") ? String(edit.payload || "") : "");   // 主题 / 美化 / CSS：贴一份；帖子：正文
-    const [title, setTitle] = useState(edit ? edit.title || "" : ""), [intro, setIntro] = useState(edit ? edit.intro || "" : "");
+    const [text, setText] = useState(edit && (edit.kind === "post" || edit.kind === "topic") ? String(edit.payload || "") : pre ? String(pre.text || "") : "");   // 主题 / 美化 / CSS：贴一份；帖子：正文
+    const [title, setTitle] = useState(edit ? edit.title || "" : pre ? String(pre.title || "").slice(0, 40) : ""), [intro, setIntro] = useState(edit ? edit.intro || "" : "");
     const oldShots = edit ? Array.from({ length: edit.pics || 0 }, (_, k) => ({ keep: k, thumb: NEST + "/img/" + edit.id + "/" + k + (edit.edited ? "?v=" + edit.edited : "") })) : [];
     const [shots, setShots] = useState(oldShots);  // [{ full, thumb }]：新压好的 dataURL；改的时候原来那几张是 { keep, thumb: 地址 }
     const shotRef = useRef(null);
@@ -1297,6 +1297,9 @@
     useEffect(() => { if (!top && listRef.current) listRef.current.scrollTop = scrollAt.current; }, [top]);
     // 要登录才能做的事：先去登录，登完接着做
     const needLogin = then => { after.current = then || null; push({ v: "login" }); };
+    // 从聊天的话题卡点「传到小窝」进来的（她 2026-10-31）：直接打开「传一个上去」，梗与话题、正文都填好；没登录先登录
+    useEffect(() => { const pre = window.__nestPending; if (!pre) return; window.__nestPending = null;
+      const v = { v: "upload", pre }; if (sessionTok()) push(v); else needLogin(v); }, []);
     // 管理口令：连点标题七下，填一次就记在这台手机上
     const onTitleTap = () => {
       taps.current += 1; if (taps.current < 7) return; taps.current = 0;
@@ -1316,7 +1319,7 @@
     if (top && top.v === "gate") return h(GatePanel, { t, props, onClose: pop });
     if (top && top.v === "verify") return h(VerifyPanel, { t, props, onClose: pop });
     if (top && top.v === "login") return h(Login, { t, props, onClose: pop, onDone: u => { const next = after.current; after.current = null; setMe(u); setStack(s => s.slice(0, -1).concat(next ? [next] : [])); } });
-    if (top && top.v === "upload") return h(Upload, { t, props, initialKind: kind || "theme", onClose: pop,
+    if (top && top.v === "upload") return h(Upload, { t, props, initialKind: (top.pre && top.pre.kind) || kind || "theme", pre: top.pre || null, onClose: pop,
       onDone: (id, k) => { setStack([]); setSort("new"); if (k !== kind && kind) setKind(k); else load(0); } });
     const empty = (txt) => h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.fog, padding: "36px 8px", textAlign: "center", lineHeight: 1.8, whiteSpace: "pre-line" } }, txt);
     const bell = h("button", { "data-wk": "nestbell", "aria-label": "收到的小纸条", onClick: () => me ? push({ v: "notices" }) : needLogin({ v: "notices" }), className: "active:opacity-60 relative",
