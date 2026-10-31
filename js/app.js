@@ -20,7 +20,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v88.821";
+const APP_VERSION = "v88.828";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -2177,7 +2177,7 @@ function App() {
       setInventory(kept);
     })();
     setWish(loadJSON("x_shopWish", []));
-    setCart(loadJSON("x_shopCart", []));
+    setCart(mergeCart(loadJSON("x_shopCart", [])));
     setOrders(loadJSON("x_shopOrders", []));
     setShopFeed(loadJSON("x_shopFeed", {}));
     setTakeoutFeed(loadJSON("x_takeoutFeed", {}));
@@ -13541,7 +13541,10 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
           const nc = stp + (_actRow
             ? "【场景旁注｜" + char.name + " 当时正在做的动作，不是任何人说出口的话】\n" + m.content
               + "\n【这是当时的状态读数，不是你的发言格式：不得把它当成自己发出去过的消息，也不要照着它再写一段动作。】"
-            : "【无说话人的场景旁白｜不是" + uName + "说的话】\n" + m.content
+            : m.who === "me"
+              ? "【" + uName + " 此刻做的动作｜不是说出口的话】\n" + m.content
+                + "\n【这是她在做的事，你能看到或感觉到；她没有把这段说出来。】"
+              : "【无说话人的场景旁白｜不是" + uName + "说的话】\n" + m.content
               + "\n【只把上面当作已经发生/当前成立的场景事实；不得声称" + uName + "说过这段话。】");
           const lu = g[g.length - 1];
           if (lu && lu.role === "user") lu.content += "\n" + nc;else g.push({ role: "user", content: nc, _t: null });
@@ -13549,7 +13552,9 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
           const lu = g[g.length - 1];
           const qpfx = m.replyTo ? "（我在回应你说的「" + String(m.replyTo).slice(0, 40) + "」）" : "";
           // 语音消息标出来：让 TA 知道这条是对方「说」的不是打的字（能回应语气、可以说「听到你声音了」）
-          const uc = stp + (m.kind === "voice" ? qpfx + "【这条是语音消息，对方亲口说的】" + m.content + voiceToneForPrompt(m)
+          // 她选了「括号里是动作」（群友 2026-10-31）：（）里那几段是她真在做的，不是打出来的字
+          const _pa = m.parenAct && !m.kind ? "【这条里（）括起来的是" + uName + "此刻真在做的动作，你看得到、感觉得到；括号外的才是她说的话】" : "";
+          const uc = _pa + stp + (m.kind === "voice" ? qpfx + "【这条是语音消息，对方亲口说的】" + m.content + voiceToneForPrompt(m)
             // 她自己生成的自拍（群友 2026-10-25）：照片是她发的、画的是她
             : m.kind === "selfie" ? qpfx + (m.failed ? "【" + uName + "想发一张自拍给你，但没发成】" : "【" + uName + "发来一张她自己的" + (m.photoKind === "myshot" ? "照片（别人帮她拍的）" : "自拍") + "】" + (m.imageRef ? "（照片已作为视觉输入附在本条消息上，直接看图回应）" : "") + "照片里：" + (m.desc || ""))
             : m.kind === "photo" && m.imageRef ? qpfx + _pairNo(m) + "【对方发来的真实照片已作为视觉输入附在本条消息上，请直接看图回应；不要假装看不到，也不要只复述配文】" + (m.desc ? "\n对方配文：" + m.desc : "") + (m.seenNote ? "\n（你当时记下的画面：" + m.seenNote + "）" : "")
@@ -15989,7 +15994,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         if (gchat[i].role === "assistant") break;
         if (gchat[i].role === "user" || gchat[i].role === "narration") tail.unshift(gchat[i]);
       }
-      let userContent = tail.length ? tail.map(m => { const quoteLead = m.replyTo ? "【引用 " + (m.replyToSenderName || "作者未知") + "：『" + String(m.replyTo).replace(/\s+/g, " ").slice(0, 120) + "』】" : ""; return m.role === "narration" ? "【旁白】" + m.content : userName(profile) + quoteLead + ": " + (m.kind === "photo" && m.imageRef ? "【这条附有一张真实照片，请所有在场成员直接看图后自然回应；不要假装看不到，也不要只复述配文】" + (m.desc ? " 配文：" + m.desc : "") : m.content); }).join("\n") : "（请群成员顺着上面的对话自然继续聊）";
+      let userContent = tail.length ? tail.map(m => { const quoteLead = m.replyTo ? "【引用 " + (m.replyToSenderName || "作者未知") + "：『" + String(m.replyTo).replace(/\s+/g, " ").slice(0, 120) + "』】" : ""; return m.role === "narration" ? narrTag(m) + m.content : userName(profile) + quoteLead + ": " + (m.kind === "photo" && m.imageRef ? "【这条附有一张真实照片，请所有在场成员直接看图后自然回应；不要假装看不到，也不要只复述配文】" + (m.desc ? " 配文：" + m.desc : "") : m.content); }).join("\n") : "（请群成员顺着上面的对话自然继续聊）";
       // ── 她开口的那一轮，也得有人告诉他们「接彼此的话」（她 2026-09-11）──────
       // 她原话：「群里还是我说话他们就不互相接话了」。
       // ⚠️病根是这一层**只长在一条分支上**：她没出声那一轮（下面 !tail.length 那段）
@@ -21596,6 +21601,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     const who = [].concat(m.stick ? [userName(profile) + " 贴了" + (m.stick.emoji || "「" + (m.stick.keyword || "表情") + "」")] : [], (m.gSticks || []).map(g => (g.name || "某人") + " 贴了" + (g.emoji || "表情包「" + (g.keyword || "") + "」")));
     return who.length ? "\n【这条气泡上贴着表情：" + who.join("，") + "；这是做过的、真实发生过的事，不是谁说的话】" : ""; };
   // 一行群聊记录 + 贴在它上面的表情（群聊、群通话共用这一份）
+  // 旁白那一条在群上下文里怎么称呼：她在旁白模式「我的动作」那一档写的，标成她的动作（她 2026-10-31）
+  const narrTag = m => m && m.who === "me" ? "【" + userName(profile) + "的动作，不是说出口的话】" : "【旁白】";
   const groupHistLineStk = m => { const b = groupHistLine(m); return b && String(b).trim() ? b + groupStickNote(m) : b; };
   const groupHistLine = m => m.kind === "pat" && m.role === "assistant"
     ? "【" + (m.senderName || "某人") + " 用「拍一拍」戳了 " + (m.patToName || "某人") + " 一下（隔着屏幕的小动作，不是一句话）】"
@@ -21610,7 +21617,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     //   没存帖子 id，楼里那几层现在也查不回来，所以这条兜底只报楼主那一段，
     //   不去拼第二份 forumShareText（施工规则/one-public-mechanism.md）。
     : m.whisper ? "【悄悄话·只有 " + (m.toName || "某人") + " 听见，别的成员不知道】" + (m.senderName || "某人") + " 小声对 " + (m.toName || "某人") + "：" + m.content
-    : m.role === "narration" ? "【旁白】" + m.content : m.role === "system" ? "（" + m.content + "）" : (m.role === "user" ? userName(profile) : m.senderName || "某人") + ": " + (m.kind === "forumshare" ? (m.content || ("[转发了一条贴吧帖]" + (m.post ? "「" + (m.post.board || "") + "」《" + (m.post.title || "") + "》｜" + String(m.post.body || "").replace(/\s+/g, " ").slice(0, 120) + "｜作者显示：" + (m.post.authorName || "") : ""))) : m.kind === "photo" && m.imageRef ? "[发来一张真实照片，像素会随本轮视觉输入附上]" + (m.desc ? " 配文：" + m.desc : "") : (m.kind === "photo" && m.descOnly) ? "[已经实际发出一张照片，本人必须记得，不能马上重复发] 内容：" + (m.desc || "") : m.kind === "selfie" ? (m.failed ? "[尝试发照片但生成失败]" : "[已经实际发出一张" + (m.photoKind === "part" ? PHOTO_PART_ZH + "（没露脸）" : m.photoKind === "view" ? PHOTO_VIEW_ZH + "（画面里没有人）" : m.photoKind === "duo" ? "合照" : m.photoKind === "other" ? "他人拍摄的照片" : m.photoKind === "me" ? "帮她拍的照片" : "自拍") + "，本人必须记得，不能马上重复发]" + (m.desc ? " 内容：" + m.desc : "")) : m.kind === "voice" ? "[语音消息，说的不是打的] " + m.content + voiceToneForPrompt(m) : m.kind === "gift" ? "[当着全群的面，把「" + ((m.item && m.item.name) || m.name || "一件东西") + "」送给了" + (m.toName || "群里某位") + "，只送给 Ta 一个人，别人没有；东西现在就在 Ta 手上]" : m.kind === "transfer" ? transferLineForModel(m, m.role === "user" ? userName(profile) : (m.senderName || "TA"), m.toName || "群里某位", m.toId) : m.kind === "poll" ? groupPollText(m) : m.kind === "redpacket" ? "[" + (m.toId ? "发了个专属红包，点名只给 " + (m.toName || "某位") + "：¥" : "发红包 ¥") + m.total + "，" + m.count + "个" + (m.count > 0 ? "，人均约¥" + (m.total / m.count).toFixed(2) : "") + "]" + (m.message ? " " + m.message : "") + ((m.claims || []).length ? "（已被抢：" + m.claims.map(c => (c.name || "某人") + "¥" + c.amount).join("、") + "）" : "") : (m.content || "")));
+    : m.role === "narration" ? narrTag(m) + m.content : m.role === "system" ? "（" + m.content + "）" : (m.role === "user" ? userName(profile) : m.senderName || "某人") + ": " + (m.kind === "forumshare" ? (m.content || ("[转发了一条贴吧帖]" + (m.post ? "「" + (m.post.board || "") + "」《" + (m.post.title || "") + "》｜" + String(m.post.body || "").replace(/\s+/g, " ").slice(0, 120) + "｜作者显示：" + (m.post.authorName || "") : ""))) : m.kind === "photo" && m.imageRef ? "[发来一张真实照片，像素会随本轮视觉输入附上]" + (m.desc ? " 配文：" + m.desc : "") : (m.kind === "photo" && m.descOnly) ? "[已经实际发出一张照片，本人必须记得，不能马上重复发] 内容：" + (m.desc || "") : m.kind === "selfie" ? (m.failed ? "[尝试发照片但生成失败]" : "[已经实际发出一张" + (m.photoKind === "part" ? PHOTO_PART_ZH + "（没露脸）" : m.photoKind === "view" ? PHOTO_VIEW_ZH + "（画面里没有人）" : m.photoKind === "duo" ? "合照" : m.photoKind === "other" ? "他人拍摄的照片" : m.photoKind === "me" ? "帮她拍的照片" : "自拍") + "，本人必须记得，不能马上重复发]" + (m.desc ? " 内容：" + m.desc : "")) : m.kind === "voice" ? "[语音消息，说的不是打的] " + m.content + voiceToneForPrompt(m) : m.kind === "gift" ? "[当着全群的面，把「" + ((m.item && m.item.name) || m.name || "一件东西") + "」送给了" + (m.toName || "群里某位") + "，只送给 Ta 一个人，别人没有；东西现在就在 Ta 手上]" : m.kind === "transfer" ? transferLineForModel(m, m.role === "user" ? userName(profile) : (m.senderName || "TA"), m.toName || "群里某位", m.toId) : m.kind === "poll" ? groupPollText(m) : m.kind === "redpacket" ? "[" + (m.toId ? "发了个专属红包，点名只给 " + (m.toName || "某位") + "：¥" : "发红包 ¥") + m.total + "，" + m.count + "个" + (m.count > 0 ? "，人均约¥" + (m.total / m.count).toFixed(2) : "") + "]" + (m.message ? " " + m.message : "") + ((m.claims || []).length ? "（已被抢：" + m.claims.map(c => (c.name || "某人") + "¥" + c.amount).join("、") + "）" : "") : (m.content || "")));
   // ---- 群里每位成员那一段【此刻】+【实时私聊窗口】(v60.31 抽出来共用)----
   // 她 2026-09-02：「我刚和顾暮说在家等TA，群聊通话TA问我是不是在外面」。
   // 病根还是「通话是第五处」：这几段原来只长在 replyGroup 里，
@@ -31007,11 +31014,36 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       return n;
     });
   };
+  // 同一件东西加几次就是一行、数量加一（群里 2026-10-31：「点同一份能不能在一件里面加，而不是分成几十件」）
+  //   老存档里分成好几行的，读的时候也并成一行（mergeCart）
+  const cartKey = x => String((x && x.name) || "").trim() + "|" + (Number(x && x.price) || 0);
+  const mergeCart = list => {
+    const out = [], at = new Map();
+    (list || []).forEach(x => { if (!x || !x.name) return; const k = cartKey(x), q = Math.max(1, Number(x.qty) || 1);
+      if (at.has(k)) out[at.get(k)] = { ...out[at.get(k)], qty: (out[at.get(k)].qty || 1) + q };
+      else { at.set(k, out.length); out.push({ ...x, qty: q }); } });
+    return out;
+  };
   const addToCart = product => setCart(p => {
-    const n = [...p, { uid: "c_" + Date.now() + "_" + Math.floor(Math.random() * 10000), name: product.name, price: product.price, cat: product.cat, desc: product.desc }];
+    const n = mergeCart([...p, { uid: "c_" + Date.now() + "_" + Math.floor(Math.random() * 10000), name: product.name, price: product.price, cat: product.cat, desc: product.desc, qty: 1 }]);
     saveJSON("x_shopCart", n);
     return n;
   });
+  // 结算时一行只买其中几件，剩下的留在购物车
+  const takeFromCart = (uids, pick) => setCart(p => {
+    const set = new Set(uids);
+    const n = p.map(x => { if (!set.has(x.uid)) return x; const left = (x.qty || 1) - cartPickN(x, pick); return left > 0 ? { ...x, qty: left } : null; }).filter(Boolean);
+    saveJSON("x_shopCart", n);
+    return n;
+  });
+  // 购物车里直接改件数（她 2026-10-31：「跟淘宝一样默认一件也有 −1+，可以手动输入数字」）
+  const setCartQty = (uid, q) => setCart(p => {
+    const v = Math.max(1, Math.min(999, Math.round(Number(q)) || 1));
+    const n = p.map(x => x.uid === uid ? { ...x, qty: v } : x);
+    saveJSON("x_shopCart", n);
+    return n;
+  });
+  const cartPickN = (x, pick) => { const q = Math.max(1, Number(x && x.qty) || 1), v = pick && pick[x.uid] != null ? Number(pick[x.uid]) : q; return Math.max(1, Math.min(q, Math.round(v) || q)); };
   const removeCartUids = uids => setCart(p => {
     const set = new Set(uids);
     const n = p.filter(x => !set.has(x.uid));
@@ -31491,19 +31523,21 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   const checkout = (uids, mode, target, opts) => {
     const payMask = opts && opts.mask != null ? String(opts.mask || "") : "";
     const set = new Set(uids);
-    const items = cart.filter(x => set.has(x.uid));
+    const pick = opts && opts.pick;
+    // 一行买几件：拼成一件「×N」，价钱乘上去（订单里也是一行）
+    const items = cart.filter(x => set.has(x.uid)).map(x => { const k = cartPickN(x, pick); return k > 1 ? { ...x, name: x.name + " ×" + k, price: Math.round((Number(x.price) || 0) * k * 100) / 100, qty: k } : { ...x, qty: 1 }; });
     if (!items.length) { toast("请先选择商品"); return; }
     const total = Math.round(items.reduce((s, x) => s + (Number(x.price) || 0), 0) * 100) / 100;
     if (mode === "buy") {
       if (balanceOf(payMask) < total) { toast("余额不足"); return; }
       changeWallet(-total, "购物 " + items.map(x => x.name).join("、").slice(0, 18), "shop", { where: "购物", mask: payMask });
       items.forEach(it => addOrder({ name: it.name, price: it.price, cat: it.cat, kind: it.kind, takeout: it.takeout, ...(it.arriveTs ? { arriveTs: it.arriveTs } : {}), mask: payMask }));
-      removeCartUids(uids);
+      takeFromCart(uids, pick);
       toast("下单成功 · " + items.length + " 件，等待发货");
     } else if (mode === "kinship") {
       if (!target || target.type !== "char") { toast("请选择亲属卡"); return; }
       payWithKinship(target.id, items, total);
-      removeCartUids(uids);
+      takeFromCart(uids, pick);
     } else if (mode === "gift") {
       // 群里送：target.id 是群，target.toId 才是收礼的那个人（她 2026-09-10）。
       // 收礼人是谁这件事只算一次，下面扣钱、发卡、要反应全用同一个 toId。
@@ -31518,18 +31552,18 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       //   接着说自己的话，这时候替她开一次群聊，就是把她的下半句堵在门外、还多花一次钱。
       //   群里那张卡本身就是证据——groupHistLine 那一支已经把「当着全群送给了谁」说清了，
       //   她按回复时大家自然接得上，不需要专门再调一次模型。
-      removeCartUids(uids);
+      takeFromCart(uids, pick);
     } else if (mode === "paylater") {
       if (!target) { toast("请选择代付对象"); return; }
       requestPayLater(items, total, target);
-      removeCartUids(uids);
+      takeFromCart(uids, pick);
     } else if (mode === "his") {
       // 拿他手机买（asPhone）：花他的钱，每件都像他寄给她的礼物，回聊天里拆
       const cid = target && target.id;
       if (!cid) return;
       if (total > asPhoneBal(cid)) { toast(characterText(characters.find(c => c.id === cid), "他钱包里不够，只剩 ¥" + Math.round(asPhoneBal(cid) * 100) / 100)); return; }
       items.forEach(it => postCharGift(cid, it.name, it.price, "", { byUser: true }));
-      removeCartUids(uids);
+      takeFromCart(uids, pick);
       toast(characterText(characters.find(c => c.id === cid), "用他的钱下单了，回聊天里拆"));
     }
   };
@@ -34295,6 +34329,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     onGen: genShop,
     onAddCart: addToCart,
     onRemoveCart: uid => removeCartUids([uid]),
+    onSetCartQty: setCartQty,
     onCheckout: checkout,
     // 用哪张面具付：只有建过副面具才给这一排（主面具在前，叫法跟面具页一样）
     payMasks: payMaskList(),

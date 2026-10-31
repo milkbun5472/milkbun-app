@@ -832,6 +832,9 @@ function callBubble(isMe) {
 // 太长的截在 FILE_MAX 字（再长一轮上下文就被它吃光了），卡上照实标「只给了前 N 字」。
 // GBK 的老 txt 用 UTF-8 读会满屏「�」——乱码多就换 gb18030 再读一遍。
 const FILE_MAX = 12000;
+// 选文件那一路的提示（2026-10-31 查出来的）：这一段在组件外面，原来写 typeof toast === "function" && toast(…)——
+//   全局根本没有 toast，提示一句都没出来过，「文件太大了」这类话她从来没看见，选完就像窗口自己消失了。
+function fileToast(msg, ms) { try { if (typeof window !== "undefined" && typeof window.__toast === "function") window.__toast(msg, ms || 3500); } catch (e) {} }
 // PDF / Word（2026-10-03）：解析库放在 vendor/，【用到才加载】——不进开机那一串，平时一个字节都不多下。
 //   PDF 只抽文字层：扫描件（整页是图）抽不出来，照实说；Word 只认 .docx（老 .doc 是二进制，认不了）。
 const _lazyP = {};
@@ -880,7 +883,7 @@ function videoContactSheet(file) {
 }
 // 聊天里选到视频时：拼图 → 当一张照片发，配一句说明这是视频截的、按什么顺序看
 async function sendVideoAsPhoto(file, sendRich, source) {
-  typeof toast === "function" && toast("正在从视频里截几个画面…");
+  fileToast("正在从视频里截几个画面…");
   try {
     const r = await videoContactSheet(file);
     let imageRef = r.url;
@@ -890,7 +893,7 @@ async function sendVideoAsPhoto(file, sendRich, source) {
     try { await rememberRealPhoto(imageRef, note, source); } catch (e) {}
     sendRich({ role: "user", kind: "photo", imageRef, desc: note, photoMode: "real", video: { dur: r.dur, n: r.n, name: file.name }, content: "[视频] " + len });
   } catch (e) {
-    typeof toast === "function" && toast((e && e.message) || "这个视频没读出来", 6000);
+    fileToast((e && e.message) || "这个视频没读出来", 6000);
   }
 }
 function pickTextFile(onMsg, opts) {
@@ -914,49 +917,49 @@ function pickTextFile(onMsg, opts) {
     const f = inp.files && inp.files[0];
     drop();
     if (!f) return;
-    if (f.size > 512 * 1024) typeof toast === "function" && toast("正在读「" + f.name + "」…");
+    if (f.size > 512 * 1024) fileToast("正在读「" + f.name + "」…");
     const isPdf = /\.pdf$/i.test(f.name) || f.type === "application/pdf";
     const isDocx = /\.docx$/i.test(f.name);
     // 视频（群友 2026-10-31：「想给 char 发视频」）：模型看不了视频，截几个画面拼成一张图当照片发，
     //   TA 看得到画面；视频本身不存（几百兆，存不下也同步不了）。没接 onVideo 的地方照旧说发不了。
     if (/^video\//.test(f.type || "") || /\.(mp4|mov|m4v|webm|avi|mkv|3gp)$/i.test(f.name)) {
       if (opts && typeof opts.onVideo === "function") { opts.onVideo(f); return; }
-      typeof toast === "function" && toast("这里发不了视频。想让 TA 看某个画面，截图用「照片」发", 6000); return;
+      fileToast("这里发不了视频。想让 TA 看某个画面，截图用「照片」发", 6000); return;
     }
     // 音频（群友 2026-10-31：「音频呢」）：模型听不见，用设置里的语音识别听写成字，当一份文件发；
     //   没配识别就说清楚。视频本身不存，音频也一样不存。
     if (/^audio\//.test(f.type || "") || /\.(mp3|m4a|wav|aac|ogg|oga|opus|flac|amr|wma)$/i.test(f.name)) {
-      if (typeof sttApiReady !== "function" || !sttApiReady()) { typeof toast === "function" && toast("TA 听不见音频，要先把它听写成字：去 设置 → API 填「语音识别」，填好再发", 7000); return; }
-      if (f.size > 25 * 1024 * 1024) { typeof toast === "function" && toast("音频太大了（听写一次最多 25MB），剪短一点再发", 6000); return; }
-      typeof toast === "function" && toast("正在听「" + f.name + "」…", 8000);
+      if (typeof sttApiReady !== "function" || !sttApiReady()) { fileToast("TA 听不见音频，要先把它听写成字：去 设置 → API 填「语音识别」，填好再发", 7000); return; }
+      if (f.size > 25 * 1024 * 1024) { fileToast("音频太大了（听写一次最多 25MB），剪短一点再发", 6000); return; }
+      fileToast("正在听「" + f.name + "」…", 8000);
       try {
         const r = await sttTranscribe(f, { name: f.name, anyLang: true });
         const said = String((r && r.text) || "").trim();
-        if (!said) { typeof toast === "function" && toast("这段音频里没听出说话的内容"); return; }
+        if (!said) { fileToast("这段音频里没听出说话的内容"); return; }
         const body = "（这是一段音频，下面是听写出来的内容，听不到语气和声音）\n" + (said.length > MAX ? said.slice(0, MAX) : said);
         onMsg({ kind: "file", name: f.name, size: f.size, chars: said.length, cut: said.length > MAX, max: MAX, text: body, audio: true,
           content: "[音频] " + f.name + "（听写 " + said.length + " 字）\n" + body });
-      } catch (e) { typeof toast === "function" && toast((e && e.message) || "这段音频没听出来", 6000); }
+      } catch (e) { fileToast((e && e.message) || "这段音频没听出来", 6000); }
       return;
     }
-    if (/\.doc$/i.test(f.name)) { typeof toast === "function" && toast("老的 .doc 读不了，在 Word 里另存为 .docx 再发"); return; }
-    if (f.size > (isPdf || isDocx ? 20 : 5) * 1024 * 1024) { typeof toast === "function" && toast("文件太大了，挑一份小一点的"); return; }
+    if (/\.doc$/i.test(f.name)) { fileToast("老的 .doc 读不了，在 Word 里另存为 .docx 再发"); return; }
+    if (f.size > (isPdf || isDocx ? 20 : 5) * 1024 * 1024) { fileToast("文件太大了，挑一份小一点的"); return; }
     try {
       const buf = await f.arrayBuffer();
       let txt;
       if (isPdf || isDocx) {
-        if (f.size <= 512 * 1024) typeof toast === "function" && toast("正在读「" + f.name + "」…");
+        if (f.size <= 512 * 1024) fileToast("正在读「" + f.name + "」…");
         txt = isPdf ? await pdfToText(buf) : await docxToText(buf);
-        if (isPdf && !txt.replace(/\s+/g, "").length) { typeof toast === "function" && toast("这份 PDF 是扫描件（整页是图），抽不出字——截图用「照片」发给 TA 看吧", 6000); return; }
+        if (isPdf && !txt.replace(/\s+/g, "").length) { fileToast("这份 PDF 是扫描件（整页是图），抽不出字——截图用「照片」发给 TA 看吧", 6000); return; }
       } else {
         txt = new TextDecoder("utf-8").decode(buf);
         if ((txt.match(/\uFFFD/g) || []).length > 8) { try { txt = new TextDecoder("gb18030").decode(buf); } catch (e) {} }
         // 放行了所有类型，图片、压缩包这种就在这儿拦下：乱码太多、或者带着一串 0 字节的，不是文本
         const bad = (txt.match(/[\uFFFD\u0000]/g) || []).length;
-        if (bad > Math.max(8, txt.length * 0.02)) { typeof toast === "function" && toast("这不像文字文件：能发 txt、md、css、json、csv 这类，还有 PDF 和 Word（.docx）"); return; }
+        if (bad > Math.max(8, txt.length * 0.02)) { fileToast("这不像文字文件：能发 txt、md、css、json、csv 这类，还有 PDF 和 Word（.docx）"); return; }
       }
       txt = txt.replace(/^\uFEFF/, "").replace(/\r\n?/g, "\n").replace(/\n{3,}/g, "\n\n");
-      if (!txt.trim()) { typeof toast === "function" && toast("这份文件是空的"); return; }
+      if (!txt.trim()) { fileToast("这份文件是空的"); return; }
       // 文件里嵌着的图（美化 json 里的头像框、贴纸，CSS 里的 url(data:image…)）：一张就是几万个字母，
       //   读的人（秋秋、角色）看不懂也用不上，还会把真正的 CSS 挤到截断线后面（群里 2026-10-17：14 万字的气泡包只给了前 6 万）。
       //   换成一句「这里有张图」，字数照实算剩下的
@@ -967,7 +970,7 @@ function pickTextFile(onMsg, opts) {
       onMsg({ kind: "file", name: f.name, size: f.size, chars: txt.length, cut: cut, max: MAX, text: body,
         imgs: imgs.length,
         content: "[文件] " + f.name + "（" + txt.length + " 字" + (imgs.length ? "，里面 " + imgs.length + " 张图没给文字" : "") + (cut ? "，只给了前 " + MAX + " 字" : "") + "）\n" + body });
-    } catch (e) { typeof toast === "function" && toast("这份文件读不出来：" + ((e && e.message) || e)); }
+    } catch (e) { fileToast("这份文件读不出来：" + ((e && e.message) || e)); }
   };
   inp.click();
 }
@@ -1061,8 +1064,21 @@ const sysNoteKind = m => (m && (m.sub === "block" || /拉黑/.test(String(m.cont
 // 挂点（她 2026-10-03：「拉黑那个系统小纸条也要挂点」）：sysnote 带 data-kind（block＝拉黑/解除那几张，其余 system）
 // 旁白／动描那一行：单聊、群聊共用这一份（她 2026-10-08：「按单聊的来」）
 //   垫子判据跟单聊 plate 同一条：底下有聊天背景图或气泡皮肤底色，就铺一层白垫子，字跟着变深。
+// 她在旁白模式「我的动作」那一档写的（群友 2026-10-31：「经常用（）做动作，ai 总是容易和线上的搞混」）：
+//   靠右、一个小框，跟她的气泡一边；框是虚线还是实线，旁白栏「我的动作」那一档下面能换（x_actFrame）。
+function actFrameStyle() { try { return loadJSON("x_actFrame", "dashed") === "solid" ? "solid" : "dashed"; } catch (e) { return "dashed"; } }
 function NarrLine({ i, m, text, selMode, selected, onBg, startPress, endPress, toggleSel, onDelete }) {
   const t = useTheme();
+  if (m && m.who === "me") return h("div", {
+    "data-wk": "myact", "data-frame": actFrameStyle(),
+    onTouchStart: selMode ? undefined : () => startPress(i), onTouchEnd: endPress,
+    onMouseDown: selMode ? undefined : () => startPress(i), onMouseUp: endPress, onMouseLeave: endPress,
+    onClick: selMode ? () => toggleSel(i) : undefined,
+    className: "flex items-start justify-end gap-2 my-2 px-4"
+  }, (onDelete) ? h("button", { onClick: () => requestAppConfirm("删除这条动作？", "删除后不能恢复。", onDelete, "删除"), className: "active:opacity-50 shrink-0",
+      style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.fog, opacity: 0.6, padding: "1px 2px" }, title: "删除" }, "✕") : null,
+    h("span", { "data-wk": "myactink", style: { maxWidth: "78%", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", fontStyle: "italic", lineHeight: 1.65, color: selected ? t.ink : t.sub,
+      border: "1px " + actFrameStyle() + " " + t.line, borderRadius: 12, padding: "6px 12px", background: onBg ? narrPadBg() : "transparent" } }, text));
   return h("div", {
     "data-wk": "narr",
     "data-me": m.who === "char" ? "0" : "1",
@@ -11012,12 +11028,20 @@ function RerollNav({ nav, onFlip, pad }) {
 }
 // 旁白那一栏：几档切换 + 还在生效的导演便签（单聊、群聊共用这一块，她 2026-10-26 群里也要导演便签）
 //   kinds：[[键, 名字]]；kind＝"dir" 时右边多一个「两轮／整场」；faces：「替谁说」那档的一排头像
+function ActFrameToggle() {
+  const t = useTheme();
+  const [f, setF] = useState(actFrameStyle);
+  return h("button", { "data-wk": "actframe", onClick: () => { const n = f === "dashed" ? "solid" : "dashed"; saveJSON("x_actFrame", n); setF(n); },
+    className: "active:opacity-70 ml-auto", style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", minHeight: 30, padding: "4px 10px", color: t.sub, background: "transparent", border: "none" } },
+    (f === "dashed" ? "虚线框" : "实线框") + " · 轻触换");
+}
 function NarrBar({ kinds, kind, setKind, dirLong, setDirLong, dirNotes, onDelDirNote, faces, asId, setAsId, hint }) {
   const t = useTheme();
   return h("div", { "data-wk": "narrbar", className: "shrink-0 px-3", style: { background: t.bg2, borderTop: "1px solid " + t.line, paddingTop: 8, paddingBottom: 6 } },
     h("div", { className: "flex items-center gap-2 flex-wrap" },
       kinds.map(([k, lb]) => h("button", { key: k, "data-wk": "narrkind", "data-on": kind === k ? "1" : "0", onClick: () => setKind(k), className: "active:opacity-70",
         style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", minHeight: 30, padding: "4px 11px", borderRadius: 999, border: "1px solid " + (kind === k ? t.ink : t.line), color: kind === k ? t.ink : t.fog, background: kind === k ? t.bg : "transparent" } }, lb)),
+      kind === "act" ? h(ActFrameToggle, null) : null,
       kind === "dir" ? h("button", { "data-wk": "dirlong", onClick: () => setDirLong(v => !v), className: "active:opacity-70 ml-auto",
         style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", minHeight: 30, padding: "4px 10px", color: t.sub, background: "transparent", border: "none" } }, dirLong ? "整场有效 · 轻触改两轮" : "管接下来两轮 · 轻触改整场") : null),
     kind === "as" && faces ? h("div", { "data-wk": "asfaces", className: "flex items-center gap-2", style: { marginTop: 7, overflowX: "auto" } },
@@ -11160,6 +11184,10 @@ function ChatThread({
   const [narrKind, setNarrKind] = useState("event");
   const [dirLong, setDirLong] = useState(false);
   const dirMode = chatMode === "narr" && narrKind === "dir" && !!onAddDirNote;
+  // 她这句里（）算不算真做了的动作（群友 2026-10-31）：输入框里有括号才冒那颗开关；按人记住上回选的
+  const [parenAct, setParenAct] = useState(() => { try { return !!(loadJSON("x_parenAct", {}) || {})[character && character.id]; } catch (e) { return false; } });
+  const setParenActP = v => { setParenAct(v); try { const all = loadJSON("x_parenAct", {}) || {}; saveJSON("x_parenAct", Object.assign({}, all, { [character && character.id]: !!v })); } catch (e) {} };
+  const actOf = v => parenAct && PAREN_ACT_RE.test(String(v || ""));
   const [quoted, setQuoted] = useState(null); // { id, text, senderId, senderName }；旧字符串仍兼容
   const [unblockDraft, setUnblockDraft] = useState(null); // 点感叹号后的「求解除」草稿框：null=没开
   const [menu, setMenu] = useState(null);
@@ -11277,7 +11305,7 @@ function ChatThread({
     });
     return out.slice(0, 5);
   }, [messages]);
-  const PANEL = [["location", "位置", "pin"], ["sticker", "表情包", "sticker"], ["photo", "照片", "picture"], ["voicemsg", "发语音", "wave"], ["voice", "语音通话", "handset"], ["video", "视频通话", "camcorder"], ["calllog", "通话记录", "clock"], ["chatsearch", "查找记录", "magnifier"], ["moments", "朋友圈", "grid"], ["transfer", "转账", "bill"], ["packet", "红包", "packet"], ["ask", "请示", "checklist"], ["mykin", "亲属卡", "card"], ["pat", "拍一拍", "hand"], ["namecard", "名片", "contact"], ["peekphone", "给TA看手机", "mobile"], ["dateinvite", "邀约", "invite"], ["file", "文件", "file"], ["halfwin", "半窗", "halfwin"], ["topics", "话题卡", "quote"]].filter(([key]) => key !== "halfwin" || !!onHalfWin).filter(([key]) => key !== "topics" || (!!character && topicCardsOf(character.id).length > 0)).filter(([key]) => room && !room.main ? !["moments", "transfer", "packet", "ask", "mykin", "peekphone", "dateinvite"].includes(key) : true).filter(([key]) => key !== "ask" || !!onSendAsk).filter(([key]) => key !== "mykin" || !!onMyKin).filter(([key]) => key !== "dateinvite" || !!onDateInvite).filter(([key]) => key !== "peekphone" || !!onHandPhone);
+  const PANEL = [["location", "位置", "pin"], ["sticker", "表情包", "sticker"], ["photo", "照片", "picture"], ["voicemsg", "发语音", "wave"], ["voice", "语音通话", "handset"], ["video", "视频通话", "camcorder"], ["calllog", "通话记录", "clock"], ["chatsearch", "查找记录", "magnifier"], ["moments", "朋友圈", "grid"], ["transfer", "转账", "bill"], ["packet", "红包", "packet"], ["ask", "请示", "checklist"], ["mykin", "亲属卡", "card"], ["pat", "拍一拍", "hand"], ["namecard", "名片", "contact"], ["peekphone", "给TA看手机", "mobile"], ["dateinvite", "邀约", "invite"], ["file", "文件", "file"], ["halfwin", "半窗", "halfwin"], ["topics", "话题卡", "quote"]].filter(([key]) => key !== "halfwin" || !!onHalfWin).filter(([key]) => key !== "topics" || !!character).filter(([key]) => room && !room.main ? !["moments", "transfer", "packet", "ask", "mykin", "peekphone", "dateinvite"].includes(key) : true).filter(([key]) => key !== "ask" || !!onSendAsk).filter(([key]) => key !== "mykin" || !!onMyKin).filter(([key]) => key !== "dateinvite" || !!onDateInvite).filter(([key]) => key !== "peekphone" || !!onHandPhone);
   const sendRich = msg => {
     onSendRich({
       ts: Date.now(),
@@ -11469,9 +11497,11 @@ function ChatThread({
       role: "narration",
       kind: "narration",
       content: v,
+      ...(narrKind === "act" ? { who: "me" } : {}),
       read: true
     });else if (chatMode === "ooc") onOOC && onOOC(v);
-    else if (quoted) { sendRich({ role: "user", content: v, replyTo: quoted, read: true }); setQuoted(null); }
+    else if (quoted) { sendRich({ role: "user", content: v, replyTo: quoted, read: true, ...(actOf(v) ? { parenAct: true } : {}) }); setQuoted(null); }
+    else if (actOf(v)) sendRich({ role: "user", content: v, parenAct: true, read: true });
     else onSend(v);
   };
   // 让 TA 回复：对话/旁白模式都触发一次生成；旁白模式先把输入当旁白注入
@@ -11488,10 +11518,12 @@ function ChatThread({
         role: "narration",
         kind: "narration",
         content: pending,
+        ...(narrKind === "act" ? { who: "me" } : {}),
         read: true
       });
       onReply("");
-    } else onReply(pending);
+    } else if (pending && actOf(pending) && chatMode === "chat") { sendRich({ role: "user", content: pending, parenAct: true, read: true }); onReply(""); }
+    else onReply(pending);
   };
   // ── 停手几秒自己回（群里唯心主弈 2026-10-06：「收起键盘多少秒后开始回复，点叶子感觉在逼他回复」）──
   //   判据只有三样，都是此刻看得见的：最后一条是她发的、还没回过；键盘收着（输入框没聚焦）；输入框是空的。
@@ -12242,7 +12274,7 @@ function ChatThread({
         fontSize: "calc(10.5px * var(--app-fs, 1))",
         opacity: 0.7
       }
-    }, m.dir === "toChar" ? "转账" : "转账给你"))) : h(TransText, { text: m.content, isU: isU, zhReady: m.zh })), msgFoot(i, m, !selMode && !m.kind && last && subLine(m))),
+    }, m.dir === "toChar" ? "转账" : "转账给你"))) : (isU && m.parenAct ? h(ParenActText, { text: m.content }) : h(TransText, { text: m.content, isU: isU, zhReady: m.zh }))), msgFoot(i, m, !selMode && !m.kind && last && subLine(m))),
     // 她自己那颗也包一层挂点壳：头像框/挂件要叠在壳上（头像本身裁成圆角，叠在里面会被裁掉）——跟 TA 那颗外面的按钮同一个位置
     isU && dsp.myAvatar && h("span", { "data-wk": "avatar", className: "shrink-0", style: { display: "inline-flex" } }, h(Avatar, { character: meAv, size: 40, radius: 10 })), m.blocked && h(isU && bk.theyBlocked ? "button" : "div", {
       onClick: (isU && bk.theyBlocked) ? () => setUnblockDraft(String(m.content || "")) : undefined,
@@ -12362,7 +12394,7 @@ function ChatThread({
         style: { padding: "7px 16px", borderRadius: 999, border: "none", background: t.accent, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: "#fff", opacity: String(unblockDraft || "").trim() ? 1 : .45 }
       }, "发给 TA"))),
   // 旁白模式的两档 + 还在生效的导演便签（点 × 删掉）：跟群聊同一块 NarrBar
-  chatMode === "narr" && onAddDirNote ? h(NarrBar, { kinds: [["event", "此刻发生了什么"], ["dir", "往后的方向"]], kind: narrKind, setKind: setNarrKind, dirLong, setDirLong, dirNotes, onDelDirNote }) : null,
+  chatMode === "narr" && onAddDirNote ? h(NarrBar, { kinds: [["event", "此刻发生了什么"], ["act", "我的动作"], ["dir", "往后的方向"]], kind: narrKind, setKind: setNarrKind, dirLong, setDirLong, dirNotes, onDelDirNote }) : null,
   /*#__PURE__*/React.createElement("div", {
     className: "flex items-center gap-2 px-3 py-2.5 shrink-0",
     "data-wk": "composer",
@@ -12400,7 +12432,7 @@ function ChatThread({
   }, ccLane.direct ? "直连" : "书房"), h(DraftInput, {
     keepKey: character && character.id ? "chat:" + character.id : null,
     inputProps: { "data-wk": "chatinput" },
-    placeholder: dirMode ? "写接下来的大概方向：比如慢慢聊到要不要一起搬家…" : chatMode === "narr" ? "写一段旁白：天气、灯、谁推门进来…" : chatMode === "ooc" ? characterText(character, "出戏说：跟演他的那位说，可以让它改、也可以问状态…") : "发一条消息…",
+    placeholder: dirMode ? "写接下来的大概方向：比如慢慢聊到要不要一起搬家…" : chatMode === "narr" && narrKind === "act" ? "写你在做的动作：比如把脸埋进枕头里…" : chatMode === "narr" ? "写一段旁白：天气、灯、谁推门进来…" : chatMode === "ooc" ? characterText(character, "出戏说：跟演他的那位说，可以让它改、也可以问状态…") : "发一条消息…",
     inputStyle: {
       fontFamily: F_BODY,
       fontSize: "calc(14px * var(--app-fs, 1))",
@@ -12410,7 +12442,10 @@ function ChatThread({
       minWidth: 0
     },
     onSubmit: send,
-    after: (draft, fire, clear) => h(React.Fragment, null, /*#__PURE__*/React.createElement("button", {
+    after: (draft, fire, clear) => h(React.Fragment, null, chatMode === "chat" && PAREN_ACT_RE.test(String(draft || "")) ? h("button", { "data-wk": "parenacttoggle", "data-on": parenAct ? "1" : "0",
+      onClick: () => setParenActP(!parenAct), className: "active:opacity-70 shrink-0", title: "括号里的是动作还是打出来的字",
+      style: { minHeight: 40, padding: "0 8px", fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", fontStyle: parenAct ? "italic" : "normal", color: parenAct ? t.accent : t.fog, background: "transparent", border: "none" } },
+      parenAct ? "（动作）" : "（打的字）") : null, /*#__PURE__*/React.createElement("button", {
       onClick: fire,
       // 按下去不抢输入框的焦点：键盘留着，能连着发好几条（群里 2026-10-22）
       onMouseDown: e => e.preventDefault(),
@@ -12527,16 +12562,8 @@ function ChatThread({
       onSendTransfer(amount, note, transferOpen === "packet");
       setTransferOpen(false);
     }
-  , packet: transferOpen === "packet" }), topicsOpen && h(PageSheet, { zh: "话题卡", sub: "点一张填进输入框，改好了再发", onClose: () => setTopicsOpen(null) },
-    h("div", { "data-wk": "topiccards", style: { padding: "4px 16px 24px" } },
-      topicsOpen.length ? topicsOpen.map(x => h("div", { key: x.id, "data-wk": "topiccard", className: "flex items-start", style: { gap: 8, padding: "12px 0", borderBottom: "1px solid " + t.line } },
-        h("button", { onClick: () => { setTopicsOpen(null); window.dispatchEvent(new CustomEvent("qq-draft-fill", { detail: { key: "chat:" + character.id, text: x.text } })); },
-          className: "flex-1 min-w-0 active:opacity-60", style: { textAlign: "left" } },
-          x.title && x.title !== x.text ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog, marginBottom: 3 } }, x.title) : null,
-          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(14.5px * var(--app-fs, 1))", color: t.ink, lineHeight: 1.65, whiteSpace: "pre-wrap", wordBreak: "break-word" } }, x.text)),
-        h("button", { "aria-label": "从这一叠拿掉", "data-wk": "topiccarddel", onClick: () => setTopicsOpen(topicCardsPut(character.id, l => l.filter(y => y.id !== x.id))),
-          className: "shrink-0 active:opacity-60 flex items-center justify-center", style: { width: 40, height: 40, color: t.fog, fontSize: "calc(18px * var(--app-fs, 1))" } }, "×")))
-        : h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.fog, padding: "24px 0" } }, "这一叠空了。去小窝「梗与话题」挑几张放进来。"))),
+  , packet: transferOpen === "packet" }), topicsOpen && h(TopicCardsSheet, { charId: character.id, onClose: () => setTopicsOpen(null),
+    onUse: x => { setTopicsOpen(null); window.dispatchEvent(new CustomEvent("qq-draft-fill", { detail: { key: "chat:" + character.id, text: x.text } })); } }),
     geoOpen && h(GeoStampSheet, {
     recent: geoRecent,
     places: invitePlaces || [],
@@ -14508,6 +14535,13 @@ const TransWhoCtx = typeof React !== "undefined" && React.createContext ? React.
 function TransWho({ id, children }) { return TransWhoCtx ? h(TransWhoCtx.Provider, { value: id || null }, children) : children; }
 function transWhoAuto(isU) { const w = !isU && TransWhoCtx ? React.useContext(TransWhoCtx) : null; return !!w && typeof window !== "undefined" && typeof window.__charBilingual === "function" && !!window.__charBilingual(w); }
 if (typeof window !== "undefined") { window.TransWho = TransWho; window.TransWhoCtx = TransWhoCtx; }
+// 她气泡里（）那几段当「真做了的动作」时（群友 2026-10-31：「括号里的字跟括号一起，可以选斜着或者不斜着，斜着就是真的做了」）：
+//   斜体、淡一点；不斜的就是她线上打出来的括号，照原样。
+const PAREN_ACT_RE = /([（(][^（）()]+[）)])/;
+function ParenActText({ text }) {
+  return h("span", { "data-wk": "parenact" }, String(text || "").split(PAREN_ACT_RE).map((seg, k) => PAREN_ACT_RE.test(seg) && /^[（(]/.test(seg)
+    ? h("span", { key: k, "data-wk": "parenactseg", style: { fontStyle: "italic", opacity: 0.78 } }, seg) : seg));
+}
 function TransText({ text, isU, zhReady, ink, inline, long, size, noModel, langHint }) {
   const [autoShow] = useOnlineTranslationAuto();
   // <#0.4#> 这种停顿记号是念给语音听的，屏幕上一律不摆（群里 2026-10-10 截图：通话里漏了一串）。
@@ -16529,6 +16563,50 @@ function fitTextarea(el, maxH) {
 const topicCardsOf = id => { try { const m = loadJSON("x_topicCards", {}); return Array.isArray(m && m[id]) ? m[id] : []; } catch (e) { return []; } };
 const topicCardsPut = (id, fn) => { const m = loadJSON("x_topicCards", {}) || {}; const next = fn(Array.isArray(m[id]) ? m[id] : []); if (next.length) m[id] = next; else delete m[id]; saveJSON("x_topicCards", m); return next; };
 window.topicCardsOf = topicCardsOf; window.topicCardsPut = topicCardsPut;
+// 话题卡那一页（她 2026-10-31「话题卡本身能不能互通」）：点一张填进输入框；自己写一张；传到小窝；也放给别的角色
+function TopicCardsSheet({ charId, onClose, onUse }) {
+  const t = useTheme();
+  const [list, setList] = useState(() => topicCardsOf(charId));
+  const [writing, setWriting] = useState(null);   // 正在写的那张：字符串
+  const [sharing, setSharing] = useState(null), [pick, setPick] = useState([]);   // 「也给别人」：哪一张、勾了谁
+  const others = sharing ? (loadJSON("x_characters", []) || []).filter(c => c && !c.npc && c.id !== charId) : [];
+  const small = { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.sub || t.fog, padding: "6px 10px", minHeight: 32, borderRadius: 999, border: "1px solid " + t.line, background: t.bg2 };
+  const saveNew = () => { const text = String(writing || "").trim(); if (!text) return;
+    setList(topicCardsPut(charId, l => [{ id: "own:" + Date.now().toString(36), title: "", text, ts: Date.now() }].concat(l).slice(0, 60))); setWriting(null); };
+  const toNest = x => { window.__nestPending = { kind: "topic", text: x.text, title: x.title || "" }; onClose(); if (typeof window.__goScreen === "function") window.__goScreen("nest"); };
+  const shareGo = () => { const x = sharing; if (!x || !pick.length) return;
+    pick.forEach(id => topicCardsPut(id, l => [Object.assign({}, x, { ts: Date.now() })].concat(l.filter(y => y.id !== x.id)).slice(0, 60)));
+    typeof toast === "function" && toast("放进 " + pick.length + " 个人的话题卡了"); setSharing(null); setPick([]); };
+  return h(PageSheet, { zh: "话题卡", sub: "点一张填进输入框，改好了再发", onClose },
+    h("div", { "data-wk": "topiccards", style: { padding: "4px 16px 24px" } },
+      writing == null ? h("button", { "data-wk": "topiccardnew", onClick: () => setWriting(""), className: "w-full active:opacity-60",
+        style: { margin: "6px 0 4px", minHeight: 44, borderRadius: 12, border: "1px dashed " + t.line, color: t.sub || t.fog, fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", background: "transparent" } }, "＋ 自己写一张")
+      : h("div", { "data-wk": "topiccardwrite", style: { margin: "6px 0 8px" } },
+          h("textarea", { value: writing, maxLength: 1000, rows: 4, autoFocus: true, placeholder: "一个梗、一个想跟 TA 聊的话题……", onChange: e => setWriting(e.target.value), className: "w-full outline-none",
+            style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.ink, background: t.bg2, border: "1px solid " + t.line, borderRadius: 12, padding: "10px 12px", resize: "vertical" } }),
+          h("div", { className: "flex", style: { gap: 8, marginTop: 8, justifyContent: "flex-end" } },
+            h("button", { onClick: () => setWriting(null), className: "active:opacity-60", style: small }, "算了"),
+            h("button", { onClick: saveNew, disabled: !String(writing).trim(), className: "active:opacity-60 disabled:opacity-40", style: Object.assign({}, small, { color: "#fff", background: t.accent, border: "none" }) }, "存进这一叠"))),
+      sharing ? h("div", { "data-wk": "topiccardshare", style: { margin: "8px 0", padding: 12, borderRadius: 12, border: "1px solid " + t.line, background: t.bg2 } },
+        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.ink, marginBottom: 6 } }, "也放给谁（可以勾好几个）"),
+        others.length ? others.map(c => { const on = pick.includes(c.id);
+          return h("button", { key: c.id, onClick: () => setPick(p => on ? p.filter(y => y !== c.id) : p.concat([c.id])), className: "w-full flex items-center justify-between active:opacity-60",
+            style: { minHeight: 42, borderBottom: "1px solid " + t.line, fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.ink, textAlign: "left" } },
+            h("span", { className: "truncate" }, c.remark || c.name), h("span", { style: { color: on ? t.accent : t.fog } }, on ? "✓" : "")); })
+          : h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.fog, padding: "8px 0" } }, "没有别的角色"),
+        h("div", { className: "flex", style: { gap: 8, marginTop: 10, justifyContent: "flex-end" } },
+          h("button", { onClick: () => { setSharing(null); setPick([]); }, className: "active:opacity-60", style: small }, "算了"),
+          h("button", { onClick: shareGo, disabled: !pick.length, className: "active:opacity-60 disabled:opacity-40", style: Object.assign({}, small, { color: "#fff", background: t.accent, border: "none" }) }, pick.length ? "放进 " + pick.length + " 个人" : "先勾人"))) : null,
+      list.length ? list.map(x => h("div", { key: x.id, "data-wk": "topiccard", style: { padding: "12px 0", borderBottom: "1px solid " + t.line } },
+        h("button", { onClick: () => onUse(x), className: "w-full active:opacity-60", style: { textAlign: "left" } },
+          x.title && x.title !== x.text ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog, marginBottom: 3 } }, x.title) : null,
+          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(14.5px * var(--app-fs, 1))", color: t.ink, lineHeight: 1.65, whiteSpace: "pre-wrap", wordBreak: "break-word" } }, x.text)),
+        h("div", { className: "flex flex-wrap", style: { gap: 6, marginTop: 8 } },
+          h("button", { "data-wk": "topiccardshareto", onClick: () => { setSharing(x); setPick([]); }, className: "active:opacity-60", style: small }, "也给别人"),
+          h("button", { "data-wk": "topiccardnest", onClick: () => toNest(x), className: "active:opacity-60", style: small }, "传到小窝"),
+          h("button", { "data-wk": "topiccarddel", onClick: () => setList(topicCardsPut(charId, l => l.filter(y => y.id !== x.id))), className: "active:opacity-60", style: small }, "拿掉"))))
+      : writing == null ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.fog, padding: "18px 0" } }, "这一叠还空着。自己写一张，或者去小窝「梗与话题」挑几张放进来。") : null));
+}
 const DRAFTS = (() => { let m = null; return () => { if (!m) { m = {}; try { const v = loadJSON("x_drafts", {}); if (v && typeof v === "object") m = v; } catch (e) {} } return m; }; })();
 let draftSaveT = 0;
 const draftGet = k => (k && DRAFTS()[k]) || "";
@@ -19775,7 +19853,7 @@ function GroupThread({
       return;
     }
     // 旁白：跟单聊同一种消息（role narration），群里本来就会把它当【旁白】喂给大家
-    if (chatMode === "narr") { onSendRich && onSendRich({ role: "narration", kind: "narration", content: v, read: true }); return; }
+    if (chatMode === "narr") { onSendRich && onSendRich({ role: "narration", kind: "narration", content: v, ...(gNarrBar && gKind === "act" ? { who: "me" } : {}), read: true }); return; }
     if (quoted) {
       const q = typeof quoted === "string" ? { text: quoted } : quoted;
       onSendRich && onSendRich({ role: "user", senderName: meName, content: v, replyTo: q.text, replyToId: q.id || null, replyToSenderId: q.senderId || null, replyToSenderName: q.senderName || null });
@@ -19806,7 +19884,7 @@ function GroupThread({
   // 旁观群那一排（旁白／替谁说／往后的方向）只在切进旁白模式时出来，平时打开聊天不占地方（她 2026-10-26）；
   //   旁观群照常打字仍旧算旁白，只是不再摆这一排
   const gNarrBar = !!onAddDirNote && chatMode === "narr";
-  const gNarrKinds = gs.spectate ? [["event", "旁白"], ["as", "替谁说"], ["dir", "往后的方向"]] : [["event", "此刻发生了什么"], ["dir", "往后的方向"]];
+  const gNarrKinds = gs.spectate ? [["event", "旁白"], ["as", "替谁说"], ["dir", "往后的方向"]] : [["event", "此刻发生了什么"], ["act", "我的动作"], ["dir", "往后的方向"]];
   const gKind = gNarrKinds.some(k => k[0] === narrKind) ? narrKind : "event";
   // 记忆互通时：成员头像可点，开心声卡（和私聊同一套 states）。没开互通就是普通头像。
   // ⚠️配角是例外：他那四样（心情／想法／穿着／动作）不看互通开关（她 2026-09-20），
