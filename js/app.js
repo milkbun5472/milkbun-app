@@ -20,7 +20,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v88.864";
+const APP_VERSION = "v88.871";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -14086,7 +14086,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         // 卡片原样过：双语那一刀按「|」劈，HTML 里正好有竖线
         if (typeof htmlCardOf === "function" && htmlCardOf(w)) return acc.concat([w]);
         const bi = _biParse ? splitBilingual(w, hanLangOf(char)) : null;
-        const parts = _splitOn ? splitLongBubble(bi ? bi.text : w, !_body) : [bi ? bi.text : w];
+        // 带译文的外语句不按逗号拆（她 2026-11-01：「Tu vois, j'avais raison !」劈成两泡，译文只挂在后一泡）：只在整句结束处拆，译文才对得上
+        const parts = _splitOn ? splitLongBubble(bi ? bi.text : w, bi ? false : !_body) : [bi ? bi.text : w];
         // 键要归一化：②.5 那一步会削掉句尾那个句号，原样存就对不上了
         if (bi && parts.length) bilingualSpread(parts, bi.zh, !_body).forEach((z, k) => { if (z) _biZh.set(bilingualKey(parts[k]), z); else _biCovered.add(bilingualKey(parts[k])); });
         return acc.concat(parts);
@@ -14147,7 +14148,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       //   所以这一刀落在代码里。挪进动作行，不删、不改字，只是别冒充「发出去的话」。
       // ⚠️称谓设成第三人称的场次不落刀：那儿的「她」本来就是对的。
       const _actGuard = window.BubbleActGuard
-        ? window.BubbleActGuard.split(words, { secondPerson: (settingsFor(charId) || {}).userPerson !== "ta" })
+        ? window.BubbleActGuard.split(words, { secondPerson: (settingsFor(charId) || {}).userPerson !== "ta", selfNames: [char && char.name, char && char.remark] })
         : { words: words, acts: [] };
       words = _actGuard.words;
       const rescuedActLines = _actGuard.acts;
@@ -16433,14 +16434,14 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
               .reduce((acc, x) => {
                 if (typeof htmlCardOf === "function" && htmlCardOf(x)) return acc.concat([x]);
                 const bi = gBiOn ? splitBilingual(x, hanLangOf(spk)) : null;
-                const parts = splitLongBubble(bi ? bi.text : x, gAllowComma);
+                const parts = splitLongBubble(bi ? bi.text : x, bi ? false : gAllowComma);   // 带译文的不按逗号拆，跟单聊同一条
                 if (bi && parts.length) bilingualSpread(parts, bi.zh, gAllowComma).forEach((z, k) => { if (z) gBiZh.set(bilingualKey(parts[k]), z); else gBiCovered.add(bilingualKey(parts[k])); });
                 return acc.concat(parts);
               }, []);
             let gBubbles = gLines.length ? gLines : [stripAiStamp(item.text || "")].filter(Boolean);
             // 掉格式兜底（四处一样喂：跟单聊同一把刀、同一个模块）。群里没有逐人称谓设置，
             // 默认就是第二人称。
-            const _gGuard = window.BubbleActGuard ? window.BubbleActGuard.split(gBubbles, {}) : { words: gBubbles, acts: [] };
+            const _gGuard = window.BubbleActGuard ? window.BubbleActGuard.split(gBubbles, { selfNames: [spk && spk.name, spk && spk.remark] }) : { words: gBubbles, acts: [] };
             gBubbles = _gGuard.words;
             // 写进气泡里的表情就地发（跟单聊同一个 emoteSlotWords）：气泡里留 emoteslotN，下面那一圈走到它发表情
             const _gEs = emoteSlotWords(gBubbles, emotesForChar(spk.id), emoteNorm);
@@ -17719,6 +17720,20 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       await idbImgPut(key, out.blob);
       setX({ drawing: false, img: key, drawErr: "" });
     } catch (e) { setX({ drawing: false, drawErr: String(e && e.message || e).slice(0, 100) }); toast("插图没画成：" + String(e && e.message || e).slice(0, 60)); }
+  };
+  // 只重写卡面描述（shot），卡上的字一个不动（群里 2026-11-01）。上次被图像站拒了的，叫他写含蓄一点
+  const stampReshot = async card => {
+    const char = characters.find(x => x.id === card.charId), tx = card.text; if (!char || !tx) return false;
+    const what = card.rarity === "R" ? [tx.narration, tx.thought].filter(Boolean).join("\n") : card.rarity === "SSR" ? (tx.highlight || tx.line || tx.gist || "") : [tx.open, tx.line].filter(Boolean).join("\n");
+    const d = await runProbe(offlineApiFor(char.id), ctxFor(char, { loreScope: "offline" }), { voice: true,
+      instruction: "邮票册里你这张" + card.rarity + "「" + (tx.name || "") + "」的卡面要重画，只重写画卡面用的那段分镜，卡上的字不动。这张卡写的那一刻：\n" + String(what).slice(0, 600)
+        + (tx.shot ? "\n原来的分镜：" + String(tx.shot).slice(0, 400) + "\n换一种写法，别照抄。" : "")
+        + (card.drawErr && /safety|policy|审核|违规|内容|sensitive|reject/i.test(card.drawErr) ? "\n上次画的时候被图像站的审核拒了：画面写得含蓄一点，不写血、伤口、武器、裸露、过于亲密的身体接触这类容易被拦的东西，换成别的方式表达同一个意思。" : "")
+        + "\n" + STAMP_SHOT_SPEC,
+      schemaHint: "{\"shot\":\"\"}", maxTokens: 8000 });
+    const shot = String((d && d.shot) || "").trim(); if (!shot) return false;
+    stampSaveCard(card.id, c0 => ({ ...c0, text: { ...c0.text, shot: shot.slice(0, 800) } }));
+    return true;
   };
   const stampPoke = async (card, side) => {
     const char = characters.find(x => x.id === card.charId); if (!char || !card.text) return null;
@@ -35212,6 +35227,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     onExtra: stampExtra,
     onExtraDraw: stampExtraDraw,
     onExtraSend: stampExtraSend,
+    onReshot: stampReshot,
     // 接着演（她 2026-10-27）：把这张卡写了什么打包交给小剧场，开一条从卡来的线；或者打开从这张卡开过的某一条
     onTheater: card => { const tx = card.text || {}, ends = (tx.sections || []).filter(x => x && (x.end || x.hidden)).map(x => "「" + (x.title || "") + "」" + (x.beats || []).filter(b => b && b.who !== "pick").slice(-4).map(b => String(b.text || "").slice(0, 100)).join(" / ")).join("\n");
       const text = ["卡名：" + (tx.name || ""), card.kind === "if" ? "IF 主题：" + (card.theme || "") + (card.themeLine ? "：" + String(card.themeLine).slice(0, 300) : "") : "", tx.gist ? "写的是：" + tx.gist : "",
