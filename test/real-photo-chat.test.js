@@ -16,7 +16,9 @@ test("本机照片库有独立索引且不删除聊天像素", () => {
   assert.match(engine, /async function idbAlbumEntries/);
   assert.match(engine, /删除目录项不删像素/);
   assert.match(screens, /function LocalPhotoLibrary/);
-  assert.match(screens, /"移出本机照片库"/);   // 按钮挪到图片正下方（2026-11-01），只删目录项
+  // 2026-11-02 起删一处处处没：照片库里删掉，聊天里那条也删；她发的真照片（iv_）像素照留，别处（壁纸、头像）还可能用着
+  assert.match(screens, /"data-wk": "localphotodrop", onClick: \(\) => dropMany\(\[preview\.imageRef\]\)/);
+  assert.match(screens, /if \(window\.__purgeImages\) await window\.__purgeImages\(ks\);/);
   assert.match(components, /rememberRealPhoto\(imageRef, cap, "private-chat"\)/);
   assert.match(components, /rememberRealPhoto\(imageRef, cap, "group-chat"\)/);
 });

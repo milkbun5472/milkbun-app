@@ -62,3 +62,14 @@ test("五处都接上公共那一份，不各写一条", () => {
   assert.strictEqual((c.match(/saveChatSelImgs\(messages, selIds/g) || []).length, 2, "单聊群聊各一个「存图」");
   assert.match(c, /function ImgPickBar\(/); assert.match(c, /window\.saveImgsBatch\(items\)/);
 });
+
+// 长按别太容易触发（她 2026-11-02：「我只是想按着下滑也会」）：700ms、页面一滚就作废、容差 8px
+{
+  const assert = require("node:assert/strict");
+  const c = require("fs").readFileSync(require("path").join(__dirname, "..", "js", "components.js"), "utf8");
+  const seg = c.slice(c.indexOf("function useImgPick()"), c.indexOf("function useImgPick()") + 2500);
+  assert.match(seg, /\}, 700\); \};/);
+  assert.match(seg, /window\.addEventListener\("scroll", onScroll, \{ capture: true, passive: true \}\)/);
+  assert.match(seg, /const onScroll = \(\) => stop\(\);/);
+  assert.match(seg, /p\.clientY - f\.y\) > 8\) stop\(\)/);
+}

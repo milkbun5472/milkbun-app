@@ -14341,11 +14341,16 @@ function useShrank(key) {
 }
 function pinToBottom(el, ms) {
   if (!el) return () => {};
-  let stopped = false, lastH = -1;
+  // 刚进来（没给固定时长）：钉到内容不再变高——连续 1.5 秒没长才停，最多 8 秒。
+  //   她 2026-11-02：「弹窗消息点进去会跳到很上面」——点弹窗进去时 TA 往往还在一条条发、上面的图还在解码，
+  //   原来 2.5 秒一到就撒手，iPhone 的 Safari 又不会替你稳住位置，后长出来的那截把她顶到了上面
+  let stopped = false, lastH = -1, changedAt = Date.now();
+  const t0 = Date.now();
   const halt = () => { stopped = true; };
   const pin = () => {
     if (stopped || !el.isConnected) return;
-    if (el.scrollHeight !== lastH) { lastH = el.scrollHeight; el.scrollTop = el.scrollHeight; }
+    if (!ms && Date.now() - t0 > 2500 && Date.now() - changedAt > 1500) { stopped = true; return; }
+    if (el.scrollHeight !== lastH) { lastH = el.scrollHeight; changedAt = Date.now(); el.scrollTop = el.scrollHeight; }
   };
   const opt = { passive: true };
   // 她自己动手的三种方式；纯 touchstart（点一下气泡）不算，所以听 touchmove
@@ -14359,7 +14364,7 @@ function pinToBottom(el, ms) {
   el.addEventListener("load", pin, true);
   pin();
   const iv = setInterval(pin, 80);           // 字体/布局这类没有 load 事件的兜底
-  const done = setTimeout(halt, ms || 2500);
+  const done = setTimeout(halt, ms || 8000);
   return () => {
     stopped = true;
     clearInterval(iv); clearTimeout(done);
@@ -19109,15 +19114,18 @@ function GoodsPic({ imgKey, style, onClick }) {
 function useImgPick() {
   const [sel, setSel] = useState(null);
   const timer = useRef(null), fired = useRef(false), from = useRef(null), touchTs = useRef(0);
-  const stop = () => { clearTimeout(timer.current); timer.current = null; };
+  // 按着往下滑也会进多选（她 2026-11-02：「太容易触发了，我只是想按着下滑」）：
+  //   按住得更久才算（700ms）；等着的这段时间里页面一滚就作废；挪动容差收到 8px
+  const onScroll = () => stop();
+  const stop = () => { clearTimeout(timer.current); timer.current = null; window.removeEventListener("scroll", onScroll, true); };
   useEffect(() => stop, []);
-  const hold = id => { stop(); fired.current = false; timer.current = setTimeout(() => {
-    timer.current = null; fired.current = true;
+  const hold = id => { stop(); fired.current = false; window.addEventListener("scroll", onScroll, { capture: true, passive: true }); timer.current = setTimeout(() => {
+    timer.current = null; fired.current = true; window.removeEventListener("scroll", onScroll, true);
     try { navigator.vibrate && navigator.vibrate(12); } catch (e) {}
     setSel(s => !s ? [id] : s.indexOf(id) >= 0 ? s : s.concat([id]));
-  }, 480); };
+  }, 700); };
   const at = e => { const p = (e.touches && e.touches[0]) || e; return p ? { x: p.clientX, y: p.clientY } : null; };
-  const moved = e => { const p = at(e), f = from.current; if (p && f && Math.hypot(p.clientX - f.x, p.clientY - f.y) > 10) stop(); };
+  const moved = e => { const p = at(e), f = from.current; if (p && f && Math.hypot(p.clientX - f.x, p.clientY - f.y) > 8) stop(); };
   const toggle = id => setSel(s => !s ? [id] : s.indexOf(id) >= 0 ? s.filter(x => x !== id) : s.concat([id]));
   return {
     on: sel != null, sel: sel || [], has: id => !!sel && sel.indexOf(id) >= 0, toggle, set: setSel, end: () => setSel(null),

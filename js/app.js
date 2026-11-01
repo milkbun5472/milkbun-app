@@ -20,7 +20,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v88.935";
+const APP_VERSION = "v88.938";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -16864,9 +16864,48 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       setTimeout(() => replyGroup(groupId, { rerollAvoid }), 200);
     }
   };
+  // ── 照片删一处、处处没（她 2026-11-02：「本机照片库和他们拍的照片弄成一个公共的，从一边删除另一边就没了」）──
+  //   一条消息里的图只认两样：她发的真照片 imageRef（iv_ 图库键），他拍的 imgKey（img_ 键）。
+  //   ⚠️iv_ 是按内容存的，同一张图设成过壁纸／头像就是同一把键——那份像素不删，只拿掉消息和照片库那一行；
+  //   img_ 是一条消息一把，连像素（和 _raw 原图）一起删。
+  const msgImgRefs = m => m ? [m.imageRef, m.imgKey].filter(x => typeof x === "string" && x) : [];
+  // skip：刚删掉的那几条（状态还没落地，别把它们算成「还在用」）
+  const imgStillUsed = (ref, skip) => {
+    const uses = l => (l || []).some(m => !(skip && skip.has(m)) && msgImgRefs(m).indexOf(ref) >= 0);
+    const inSess = o => Object.values(o || {}).some(ss => (ss || []).some(se => uses(se && se.msgs)));
+    return Object.values(chatsRef.current || {}).some(uses) || Object.values(groupChatsRef.current || {}).some(uses)
+      || inSess(offlinesRef.current) || inSess(groupOfflinesRef.current);
+  };
+  const dropImgFiles = async (refs, skip, force) => {
+    for (const r of refs) {
+      if (!force && imgStillUsed(r, skip)) continue;   // 别的消息还用着（转发过、同一张图发了两回）就留着
+      try { if (typeof idbAlbumDel === "function") await idbAlbumDel(r); } catch (e) {}
+      if (String(r).indexOf("img_") === 0) { try { await idbImgDel(r); } catch (e) {} try { await idbImgDel(r + "_raw"); } catch (e) {} }
+    }
+  };
+  // 相册那两页的「删」：用到这几张的消息（单聊／小房间、群聊、线下、群线下）一起删掉，再删图
+  const purgeImages = async refs => {
+    const R = new Set((refs || []).filter(Boolean).map(String)); if (!R.size) return 0;
+    const hit = m => msgImgRefs(m).some(x => R.has(x));
+    let n = 0;
+    chatShrinkOk();
+    Object.keys(chatsRef.current || {}).forEach(k => { const c = (chatsRef.current[k] || []).filter(hit).length; if (c) { n += c; pChat(k, p => p.filter(m => !hit(m))); } });
+    Object.keys(groupChatsRef.current || {}).forEach(k => { const c = (groupChatsRef.current[k] || []).filter(hit).length; if (c) { n += c; pGChat(k, p => p.filter(m => !hit(m))); } });
+    const inSess = ss => (ss || []).some(se => ((se && se.msgs) || []).some(hit));
+    const strip = ss => (ss || []).map(se => se && Array.isArray(se.msgs) && se.msgs.some(hit) ? { ...se, msgs: se.msgs.filter(m => !hit(m)) } : se);
+    Object.keys(offlinesRef.current || {}).forEach(k => { if (inSess(offlinesRef.current[k])) { n++; pOffline(k, strip); } });
+    Object.keys(groupOfflinesRef.current || {}).forEach(k => { if (inSess(groupOfflinesRef.current[k])) { n++; pGOffline(k, strip); } });
+    // 用到这几张的消息上面已经全删了，图直接删（不再等状态落地去数）
+    await dropImgFiles([...R], null, true);
+    return n;
+  };
+  window.__purgeImages = purgeImages;
   const deleteGroupMsgs = (groupId, indices) => {
     const set = new Set(indices);
+    const goneMsgs = (groupChatsRef.current[groupId] || []).filter((_, i) => set.has(i)), gone = goneMsgs.flatMap(msgImgRefs);
     chatShrinkOk(); pGChat(groupId, p => p.filter((_, i) => !set.has(i)));
+    // 聊天里删了带图的那条：照片库／TA 们拍的照片里那张也跟着没（别处还用着的留着）
+    if (gone.length) dropImgFiles(gone, new Set(goneMsgs));
   };
   // ---- 群里的邀约（她 2026-10-02）：挑地方、挑请谁，发一张约会卡；没有回执，人齐了她点「出发」进群线下 ----
   const sendGroupDateInvite = (groupId, place, v) => {
@@ -33632,6 +33671,9 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       const threadKey = window.ChatRooms ? window.ChatRooms.chatKey(activeChar.id, activeRoomId) : activeChar.id;
       const picked = (chatsRef.current[threadKey] || []).filter((_, i) => set.has(i));
       const imported = picked.filter(m => m && m.ledgerImported && m.ledgerKey);
+      // 删了带图的那几条：照片库／TA 们拍的照片里那张也跟着没（别处还用着的留着；跨端原话只是软删，图不动）
+      const goneImgs = picked.filter(m => m && !m.ledgerImported).flatMap(msgImgRefs);
+      if (goneImgs.length) dropImgFiles(goneImgs, new Set(picked));
       // 跨端原话只能软删：本地先变成撤回占位，云端再盖 tombstone；普通本地消息保持原来的本机删除行为。
       pChat(threadKey, p => p.map((m, i) => set.has(i) && m && m.ledgerImported ? { ...m, recalled: true } : m).filter((m, i) => !set.has(i) || (m && m.ledgerImported)));
       if (imported.length && window.Cloud) window.Cloud.chatMessagesSoftDelete(imported.map(m => m.ledgerKey)).catch(e => {

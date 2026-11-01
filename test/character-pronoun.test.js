@@ -27,7 +27,7 @@ test('旧档无性别沿用他，新建明确存TA，已选性别与原对象不
   }
   const app = fs.readFileSync('js/app.js','utf8');
   assert.ok(app.includes(': [...p, CharacterPronoun.newCharacter(c)]'));
-  assert.ok(app.includes('CharacterPronoun.newCharacter({ id, name: (parsed.name'));
+  assert.ok(/CharacterPronoun\.newCharacter\((?:Object\.assign\()?\{ id, name: \(parsed\.name/.test(app));
   // ⚠️只查【新建角色必须过 newCharacter】这一件事，别钉那一行长什么样：
   //   v72.27 她自己的配角那一支给它包了一层 Object.assign（多带 knowsUser 两个字段）。
   assert.ok(/pC\(prev => \[\.\.\.prev, CharacterPronoun\.newCharacter\(/.test(app));
