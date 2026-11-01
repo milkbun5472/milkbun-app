@@ -16723,7 +16723,7 @@ function emoteHits(packs, text) {
 function EmoteSuggest({ hits, anchor, onPick }) {
   const t = useTheme();
   if (!hits.length || !anchor) return null;
-  return h("div", { "data-wk": "emotesuggest", style: { position: "fixed", left: 10, right: 10, bottom: anchor, zIndex: 60, display: "flex", gap: 6, overflowX: "auto",
+  return h("div", { "data-wk": "emotesuggest", style: { position: "fixed", left: 10, right: 10, bottom: anchor, zIndex: 61, display: "flex", gap: 6, overflowX: "auto",
       padding: 6, borderRadius: 14, background: t.bg2, border: "1px solid " + t.line, boxShadow: "0 6px 20px rgba(0,0,0,.14)" } },
     hits.map(em => h("button", { key: em.url, onMouseDown: e => e.preventDefault(), onClick: () => onPick(em), className: "active:opacity-70 shrink-0",
       style: { width: 58, height: 58, borderRadius: 10, padding: 0, background: t.bg, border: "none", overflow: "hidden" } },
