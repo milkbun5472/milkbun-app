@@ -20,3 +20,8 @@ test("本机照片库也能多选移出", () => {
   assert.match(lb, /const dropMany = ks =>/);
   assert.match(lb, /await idbAlbumDel\(k\)/);
 });
+test("两个照片栏多选都能「存 N 张」，走 saveImgsBatch", () => {
+  assert.match(ui, /async function savePickedImgs\(refs, name, toast, keepLeft\)/);
+  assert.match(ui, /"data-wk": "charphotosavemany"/);
+  assert.match(ui, /"data-wk": "localphotosavemany"/);
+});

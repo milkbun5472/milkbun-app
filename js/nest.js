@@ -129,6 +129,7 @@
     persona: ".json,.txt,.md,.docx,application/json,text/plain",
     doc: ".txt,.md,.docx,.json,text/plain"
   };
+  const MULTI_FILE = { persona: 1, doc: 1, lore: 1 };
   const stem = name => String(name || "").replace(/\.[a-z0-9]+$/i, "").trim().slice(0, 40);
   async function readAny(file) {
     if (/\.docx$/i.test(file.name || "")) {
@@ -1103,11 +1104,26 @@
       if (!rows || title || multi || kind === "theme" || kind === "css") return;
       const r = rows.find(x => x.id === chosen[0]); if (r) setTitle(String(r.name || "").slice(0, 40));
     }, [chosen.join(",")]);
+    // 人设、文档、世界书能一次选好几份（群友 2026-11-01：人设常拆成好几个 Word）：
+    //   人设／文档按选的顺序接成一整份，每份前面标上文件名；世界书每份各自的词条合在一起。
     const readFile = async e => {
-      const f = e.target.files && e.target.files[0]; e.target.value = ""; if (!f) return;
+      const fs0 = [...(e.target.files || [])]; e.target.value = ""; if (!fs0.length) return;
+      const fs = MULTI_FILE[kind] ? fs0.slice(0, 10) : fs0.slice(0, 1);
+      if (fs0.length > fs.length) props.toast(MULTI_FILE[kind] ? "一次最多 10 份，多的先没放" : "这一类一次传一份，先放了第一份");
       try {
-        const got = fromFile(kind, await readAny(f), f.name);
-        setFile(Object.assign({ name: f.name }, got)); setPick({}); setText("");
+        let got;
+        if (fs.length === 1) got = fromFile(kind, await readAny(fs[0]), fs[0].name);
+        else if (kind === "lore") {
+          const all = [];
+          for (const f of fs) all.push(...JSON.parse(fromFile("lore", await readAny(f), f.name).payload).entries);
+          got = { payload: packLore(all), title: stem(fs[0].name), note: fs.length + " 份文件，共 " + all.length + " 条词条" };
+        } else {
+          const parts = [];
+          for (const f of fs) { const s = String(await readAny(f) || "").trim(); if (s) parts.push(parts.length ? "【" + stem(f.name) + "】\n" + s : s); }
+          got = fromFile(kind, parts.join("\n\n"), fs[0].name);
+          got.note = fs.length + " 份文件接成一份，" + got.note;
+        }
+        setFile(Object.assign({ name: fs.length > 1 ? fs.map(f => f.name).join("、") : fs[0].name }, got)); setPick({}); setText("");
         if (!title && got.title) setTitle(got.title);
       } catch (err) { props.toast((err && err.message) || "这份文件读不出来"); }
     };
@@ -1190,11 +1206,11 @@
     const where = kind === "theme" ? "「设置 → 主题工作台」点「导出」存的 json（自己传的字体那一样别勾）"
       : kind === "look" ? "聊天设置里「整套美化」导出的 json，或「设置 → 聊天气泡」导出的 json（头像框、挂件、背景图都能带）"
       : kind === "css" ? ".css、.txt，或者老师给的 Word（.docx）；Word 改坏的引号和破折号会自动改回来"
-      : kind === "lore" ? "世界书 json，或者一份 txt／docx（整份当一条词条）"
+      : kind === "lore" ? "世界书 json，或者 txt／docx（每份当一条词条）；能一次选好几份"
       : kind === "style" ? "一份 txt／docx／md，整份就是这条文风"
       : kind === "preset" ? "文风台导出的预设 json"
-      : kind === "doc" ? "一份 txt／md／docx（Word 里的字会读出来），整份原样传上去"
-      : "角色卡 json，或者一份 txt／docx（名字、简介、人设照档案馆导入角色卡那样认）";
+      : kind === "doc" ? "txt／md／docx（Word 里的字会读出来），原样传上去；一次选好几份会按顺序接成一份"
+      : "角色卡 json，或者 txt／docx（名字、简介、人设照档案馆导入角色卡那样认）；人设拆成好几个 Word 的，一次全选上，按选的顺序接成一份";
     return h("div", { "data-wk": "nestupload", className: "h-full flex flex-col", style: shell(t) },
       h(Head, { zh: edit ? "改一改" : "传一个上去", onBack: onClose, bg: "transparent" }),
       edit ? null : h(Cubbies, { t, kind, noAll: true, onPick: setKind }),
@@ -1209,7 +1225,7 @@
               h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog, marginTop: 2, lineHeight: 1.5 } }, where))),
           h("div", { style: { marginTop: 12 } },
             h(Btn, { t, solid: !file, onClick: () => fileRef.current && fileRef.current.click(), wk: "nestfile" }, file ? "换一份" : "选文件"),
-            h("input", { ref: fileRef, type: "file", accept: ANY_FILE, style: { display: "none" }, onChange: readFile })),
+            h("input", { ref: fileRef, type: "file", accept: ANY_FILE, multiple: !!MULTI_FILE[kind], style: { display: "none" }, onChange: readFile })),
           file ? h("div", { "data-wk": "nestfilechip", style: { marginTop: 10, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.ink, padding: "8px 10px", borderRadius: 10, background: tint(k.color, "14") } },
             "已选 " + file.name + " · 读到" + file.note) : null),
         // ② 从 app 里直接挑（七类都能挑）；主题／美化／CSS 还能整份贴
