@@ -12534,12 +12534,12 @@ function ChatThread({
   }))), specialKind === "photo" ? h("div", null,
     h("div", { "data-wk": "block", className: "flex gap-2 mb-3", style: { background: t.bg, borderRadius: 11, padding: 4 } },
       [["real", "发送真照片"], ["describe", "只发文字描述"], ...(onShootMe ? [["selfme", "生成我的自拍"]] : []), ["ask", "叫 TA 拍"]].map(([id, label]) => h("button", {
-        key: id, onClick: () => setPhotoSendMode(id), className: "flex-1 active:opacity-75",
-        style: { padding: "8px 5px", borderRadius: 8, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: photoSendMode === id ? t.bg2 : t.fog, background: photoSendMode === id ? t.ink : "transparent" }
-      }, label))),
+        key: id, "data-on": photoSendMode === id ? "1" : "0", onClick: () => setPhotoSendMode(id), className: "flex-1 active:opacity-75",
+        style: { padding: "8px 5px", borderRadius: 8, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", fontWeight: photoSendMode === id ? 700 : 400, color: photoSendMode === id ? t.bg2 : t.fog, background: photoSendMode === id ? t.ink : "transparent" }
+      }, pickMark(photoSendMode === id, label)))),
     photoSendMode === "ask" && h("div", { "data-wk": "askphotokind", className: "flex gap-2 mb-3" },
       [["self", "自拍"], ["other", characterText(character, "拍他")], ["duo", "合照"]].map(([id, label]) => h("button", { key: id, "data-on": askKind === id ? "1" : "0", onClick: () => setAskKind(id), className: "flex-1 active:opacity-75",
-        style: { minHeight: 36, borderRadius: 999, border: "1px solid " + (askKind === id ? t.ink : t.line), background: askKind === id ? t.ink : "transparent", color: askKind === id ? t.bg2 : t.sub, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))" } }, label))),
+        style: { minHeight: 36, borderRadius: 999, border: "1px solid " + (askKind === id ? t.ink : t.line), background: askKind === id ? t.ink : "transparent", color: askKind === id ? t.bg2 : t.sub, fontWeight: askKind === id ? 700 : 400, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))" } }, pickMark(askKind === id, label)))),
     photoSendMode === "real" && h(ChatPhotoPick, { imgs: specialImgs, setImgs: setSpecialImgs, toast, t }),
     h("input", { "data-wk": "input", value: specialText, onChange: e => setSpecialText(e.target.value), placeholder: photoSendMode === "ask" ? "想看什么（选填），比如此刻在干嘛" : photoSendMode === "real" ? "可以顺手说一句（选填）" : photoSendMode === "selfme" ? "你在哪、在干嘛、想拍成什么样（必填）" : "描述照片里有什么（必填，不会上传图片）", className: "w-full outline-none px-3 py-2.5 rounded-lg", style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", background: t.bg, color: t.ink, border: `1px solid ${t.line}` } }),
     photoSendMode !== "real" && h(PhotoPromptChips, { value: specialText, onPick: setSpecialText }),
@@ -17258,6 +17258,9 @@ function GeoCard({ m, isU, who, avatar, myAvatar }) {
 //   居中）。它是【公共那一层】，别再自己写一个居中的盒子。
 // 转账、红包「用什么付」那一排（她 2026-11-01 群友许愿「转账/红包可以用亲属卡」）：
 //   手里没有亲属卡就不出现；收款人自己给的那张不列（拿他的钱转给他）。value＝""是我的钱包，否则是卡主 charId。
+// 选中的那颗不能只靠底色认（她 2026-11-01 截图：美化把按钮底色一律盖成白的，「自拍／拍他／合照」看着点不动）：
+//   前面带一个 ✓、字加粗——底色被谁盖掉都还认得出。
+const pickMark = (on, label) => on ? h(Fragment, null, h("span", { "aria-hidden": "true", style: { marginRight: 3 } }, "✓"), label) : label;
 function KinPayPick({ value, onChange, exclude, accent }) {
   const t = useTheme();
   const cards = (window.KinPay && window.KinPay.cards ? window.KinPay.cards() : []).filter(c => c.charId !== exclude);
@@ -17269,7 +17272,7 @@ function KinPayPick({ value, onChange, exclude, accent }) {
       className: "active:opacity-70",
       style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", padding: "6px 11px", borderRadius: 999,
         background: value === c.charId ? on : "transparent", color: value === c.charId ? t.bg2 : t.sub, border: "1px solid " + (value === c.charId ? on : t.line) } },
-      c.charId ? c.name + " 的亲属卡 · 剩 ¥" + c.remain : c.name)));
+      pickMark(value === c.charId, c.charId ? c.name + " 的亲属卡 · 剩 ¥" + c.remain : c.name))));
 }
 function TransferComposeSheet({ cName, myBalance, charId, onClose, onSend, packet }) {
   const t = useTheme();
@@ -20840,9 +20843,9 @@ function GroupThread({
   }, h(ISend, { size: 18, color: t.ink }))),
     h("div", { "data-wk": "block", className: "flex gap-2 mb-3", style: { background: t.bg, borderRadius: 11, padding: 4 } },
       [["real", "发送真照片"], ["describe", "只发文字描述"]].map(([id, label]) => h("button", {
-        key: id, onClick: () => setGroupPhotoMode(id), className: "flex-1 active:opacity-75",
-        style: { padding: "8px 5px", borderRadius: 8, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: groupPhotoMode === id ? t.bg2 : t.fog, background: groupPhotoMode === id ? t.ink : "transparent" }
-      }, label))),
+        key: id, "data-on": groupPhotoMode === id ? "1" : "0", onClick: () => setGroupPhotoMode(id), className: "flex-1 active:opacity-75",
+        style: { padding: "8px 5px", borderRadius: 8, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", fontWeight: groupPhotoMode === id ? 700 : 400, color: groupPhotoMode === id ? t.bg2 : t.fog, background: groupPhotoMode === id ? t.ink : "transparent" }
+      }, pickMark(groupPhotoMode === id, label)))),
     groupPhotoMode === "real" && h(ChatPhotoPick, { imgs: groupPhotoImgs, setImgs: setGroupPhotoImgs, toast, t }),
     h("input", { "data-wk": "input", value: photoText, onChange: e => setPhotoText(e.target.value), placeholder: groupPhotoMode === "real" ? "可以顺手说一句（选填）" : "描述照片里有什么（必填，不会上传图片）", className: "w-full outline-none px-4 py-3 rounded-xl", style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.ink, background: "#fff", border: "1px solid " + t.line } }),
     groupPhotoMode !== "real" && h(PhotoPromptChips, { value: photoText, onPick: setPhotoText }),

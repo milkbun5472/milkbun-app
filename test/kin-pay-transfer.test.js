@@ -21,3 +21,6 @@ assert.match(comp, /function KinPayPick\(\{ value, onChange, exclude, accent \}\
 assert.match(comp, /filter\(c => c\.charId !== exclude\)/);
 assert.match(ts, /\["kinpay", /);
 console.log("ok");
+// 选中靠 ✓ 认，不只靠底色（美化会把底色盖掉）
+assert.match(comp, /const pickMark = \(on, label\) =>/);
+assert.ok((comp.match(/pickMark\(/g) || []).length >= 4, "单聊两排、群聊一排照片 + 付款那排都用");
