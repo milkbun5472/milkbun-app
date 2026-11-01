@@ -536,18 +536,16 @@
               h("button", { onClick: () => setShotDraft(null), style: { padding: "4px 12px", fontFamily: F_BODY, fontSize: fs(12), color: P5 } }, "取消"),
               h("button", { "data-wk": "stampshotsave", onClick: () => { const st0 = C().load(); st0.cards = st0.cards.map(c => c.id === card.id ? Object.assign({}, c, { text: Object.assign({}, c.text, { shot: shotDraft.trim() }) }) : c); C().save(st0); setShotDraft(null); toast("存好了，点重画就照这段画"); },
                 style: { padding: "4px 14px", borderRadius: 999, background: GOLD, color: "#FFF8E9", fontFamily: F_BODY, fontSize: fs(12) } }, "存好"))) : null,
-          // SSR 满级：第二张卡面（一个人，或者你们俩），画好以后能翻面
-          card.rarity === "SSR" && lv >= cap && tx ? h("div", { "data-wk": "stampalt", className: "flex flex-wrap justify-center", style: { gap: 8, marginTop: 8 } },
-            side !== "main" ? h("button", { onClick: () => setSide("main"), className: "active:opacity-70", style: { padding: "6px 12px", borderRadius: 8, border: "1px solid " + COPPER, color: COPPER, fontFamily: F_BODY, fontSize: fs(12) } }, "看第一面") : null,
-            [["solo", PT("他一个人")], ["duo", "你们俩"]].filter(x => card.kind !== "anniv" || x[0] === "duo").map(x => faces2[x[0]]
-              ? (side === x[0] ? null : h("button", { key: x[0], onClick: () => setSide(x[0]), className: "active:opacity-70", style: { padding: "6px 12px", borderRadius: 8, background: COPPER, color: "#FFF8E9", fontFamily: F_BODY, fontSize: fs(12) } }, "看满级 · " + x[1]))
-              : null)) : null,
-          // 番外卡面：每段写好的番外一颗，画了就能翻过去看，没画点了就画（不用满级）
-          (card.extras || []).some(x => x.text) ? h("div", { "data-wk": "stampexface", className: "flex flex-wrap justify-center", style: { gap: 8, marginTop: 8 } },
-            exSel && !(card.rarity === "SSR" && lv >= cap) ? h("button", { onClick: () => setSide("main"), className: "active:opacity-70", style: { padding: "6px 12px", borderRadius: 8, border: "1px solid " + COPPER, color: COPPER, fontFamily: F_BODY, fontSize: fs(12) } }, "看第一面") : null,
-            (card.extras || []).filter(x => x.text).map(x => { const on = side === "ex:" + x.id, dr = !!(x.drawing && x.drawingBoot && x.drawingBoot === window.__stampBoot && Date.now() - (x.drawingTs || 0) < 8 * 60000);
-              return x.img ? (on ? null : h("button", { key: x.id, onClick: () => setSide("ex:" + x.id), className: "active:opacity-70", style: { padding: "6px 12px", borderRadius: 8, background: "#8a6a3a", color: "#FFF8E9", fontFamily: F_BODY, fontSize: fs(12) } }, "看番外 ·「" + (x.title || "") + "」"))
-                : null; })) : null,
+          // 几张卡面一排页签：画好的点一下就换过去；没画的虚线，点一下就画（她 2026-11-01：切换别多点一次）
+          (() => { const tabs = [], full = card.rarity === "SSR" && lv >= cap && tx;
+            if (full) [["solo", PT("他一个人")], ["duo", "你们俩"]].filter(x => card.kind !== "anniv" || x[0] === "duo").forEach(x => tabs.push({ k: x[0], label: x[1], has: !!faces2[x[0]], draw: () => onDraw(card.id, true, x[0]) }));
+            (card.extras || []).filter(x => x.text).forEach(x => tabs.push({ k: "ex:" + x.id, label: "番外「" + (x.title || "") + "」", has: !!x.img, draw: () => onExtraDraw && onExtraDraw(card.id, x.id) }));
+            if (!tabs.length) return null;
+            tabs.unshift({ k: "main", label: "第一面", has: true });
+            return h("div", { "data-wk": "stampfacetabs", className: "flex flex-wrap justify-center", style: { gap: 6, marginTop: 8 } }, tabs.map(t => { const on = side === t.k;
+              return h("button", { key: t.k, onClick: () => { setSide(t.k); if (!t.has && t.draw && !on) t.draw(); }, className: "active:opacity-70",
+                style: { padding: "5px 11px", borderRadius: 999, fontFamily: F_BODY, fontSize: fs(12), border: (t.has ? "1px solid " : "1px dashed ") + COPPER, background: on ? COPPER : "transparent", color: on ? "#FFF8E9" : COPPER, opacity: t.has || on ? 1 : .75 } },
+                (t.has ? "" : "＋ ") + t.label); })); })(),
 
           url ? h("div", { style: { marginTop: 6, fontFamily: F_BODY, fontSize: fs(11), color: P5 } }, canPoke ? PT("点卡面全屏看，满级了能戳他（头、胸口、手）") : "点卡面全屏看") : null),
         // 养成
@@ -713,8 +711,6 @@
         if (card.face && !(exSel && !exSel.img)) rows.push(["stampredraw", (exSel ? exDrawing : drawing) ? "重画着…" : "↻ 照原来的描述重画这一面", "花一次生图", () => { close(); exSel ? onExtraDraw && onExtraDraw(card.id, exSel.id) : onDraw(card.id, side !== "main", side !== "main" ? side : undefined); }]);
         rows.push(["stampshotedit", "✎ 改卡面描述", "不花调用，卡上的字不动", () => { close(); setShotDraft(String(tx.shot || "")); }]);
         rows.push(["stampreshot", reshotBusy ? "在重写卡面描述…" : "只重写卡面描述", "花一次调用，卡上的字不动", async () => { close(); if (!onReshot) return; setReshotBusy(true); try { const ok = await onReshot(card); toast(ok ? "卡面描述换好了，点重画就照新的画" : "没写出来，再试一次"); } catch (e) { toast("没写出来：" + String(e && e.message || e).slice(0, 40)); } setReshotBusy(false); }]);
-        if (card.rarity === "SSR" && lv >= cap) [["solo", PT("他一个人")], ["duo", "你们俩"]].filter(x => (card.kind !== "anniv" || x[0] === "duo") && !faces2[x[0]]).forEach(x => rows.push(["stampaltdraw", "画满级卡面 · " + x[1], "花一次生图", () => { close(); setSide(x[0]); onDraw(card.id, true, x[0]); }]));
-        (card.extras || []).filter(x => x.text && !x.img).forEach(x => rows.push(["stampexdraw", "画番外卡面「" + (x.title || "") + "」", "花一次生图", () => { close(); setSide("ex:" + x.id); onExtraDraw && onExtraDraw(card.id, x.id); }]));
         if (card.rarity === "SSR" && sideKey && window.VideoApi && !(card.videoBusy && vidRunning[card.id])) rows.push(["stampvideo", vSlot ? "↻ 重新让这一面动起来" : "▶ 让这一面动起来", "花一次视频生成", () => { close(); runStampVideo(card, toast, true, side, sideKey); }]);
         if (!card.writing || stale) rows.push(["stamprewrite", reArm ? "再点一次：原来的文字会被换掉" : "✎ 重写这张卡（文字和分镜）", "花一次调用", () => { if (!reArm) { setReArm(true); return; } close();
           const st0 = C().load(); st0.cards = st0.cards.map(c => c.id === card.id ? Object.assign({}, c, { seen: {}, pokes: null, pokesSolo: null, pokesDuo: null }) : c); C().save(st0);
