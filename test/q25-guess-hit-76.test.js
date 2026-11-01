@@ -13,3 +13,7 @@ test("直接说出答案、问「是不是X」「它是X吗」都算猜中；问
 test("跑完主持人那一轮后先自己认，猜中就收题", () => {
   assert.match(src, /if \(uq && hitQ25\(uq\)\) \{ r\.userAnswer = \{ verdict: "是", note: "猜中了" \}; r\.solvedBy = me \? me\.name : r\.solvedBy;/);
 });
+test("问几个字代码自己数；主持人判的破题要真说中才算", () => {
+  assert.match(src, /const lenAns = q =>/);
+  assert.match(src, /if \(!hitQ25\(said\)\) \{ r\.solvedBy = ""; r\.reveal = ""; \}/);
+});

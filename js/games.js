@@ -3299,8 +3299,19 @@
         // 25 问：猜的就是那个东西，代码自己认，不全听主持人的（群里 2026-11-01：她打「馒头」，主持人回「不是，馒头不是米饭」，答案正是馒头）
         if (kind === "q25" && ctx && ctx.secret) {
           const hitQ25 = q => { const sec = q25Norm(ctx.secret), x = q25Norm(q); return !!sec && !!x && (x === sec || (sec.length >= 2 && x.length <= sec.length + 4 && x.indexOf(sec) >= 0)); };
-          if (uq && hitQ25(uq)) { r.userAnswer = { verdict: "是", note: "猜中了" }; r.solvedBy = me ? me.name : r.solvedBy; r.reveal = r.reveal || ctx.secret; }
-          else if (!r.solvedBy) (r.ai || []).forEach(a => { if (!r.solvedBy && a && hitQ25(a.question)) { a.verdict = "是"; a.note = "猜中了"; r.solvedBy = a.name; r.reveal = r.reveal || ctx.secret; } });
+          // 问字数的，代码自己数（2026-11-01：答案「篮球」，主持人说「是三个字」，还判她破题了）
+          const ZH_N = { "一": 1, "两": 2, "二": 2, "三": 3, "四": 4, "五": 5, "六": 6, "七": 7, "八": 8, "九": 9, "十": 10 };
+          const lenAns = q => { const m = /([一两二三四五六七八九十]|\d+)\s*个字/.exec(String(q || "")); if (!m) return null; const n = ZH_N[m[1]] || Number(m[1]); const real = Array.from(String(ctx.secret).replace(/\s+/g, "")).length;
+            return real === n ? { verdict: "是", note: "是 " + real + " 个字" } : { verdict: "不是", note: "不是 " + n + " 个字" }; };
+          if (uq && lenAns(uq) && r.userAnswer) r.userAnswer = lenAns(uq);
+          (r.ai || []).forEach(a => { const la = a && lenAns(a.question); if (la) { a.verdict = la.verdict; a.note = la.note; } });
+          // 主持人说谁破题：那人这一轮问的话里真说中了才算
+          if (r.solvedBy) {
+            const said = r.solvedBy === (me && me.name) ? uq : ((r.ai || []).find(a => a && a.name === r.solvedBy) || {}).question;
+            if (!hitQ25(said)) { r.solvedBy = ""; r.reveal = ""; }
+          }
+          if (uq && hitQ25(uq)) { r.userAnswer = { verdict: "是", note: "猜中了" }; r.solvedBy = me ? me.name : r.solvedBy; r.reveal = ctx.secret; }
+          else if (!r.solvedBy) (r.ai || []).forEach(a => { if (!r.solvedBy && a && hitQ25(a.question)) { a.verdict = "是"; a.note = "猜中了"; r.solvedBy = a.name; r.reveal = ctx.secret; } });
         }
         const items = [];
         const newHist = [];
