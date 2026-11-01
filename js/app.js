@@ -13979,6 +13979,11 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       // 夹在 word 里的 {"emote":"关键词"}（她 2026-10-16「为啥群聊表情包可以插在话中间但是单聊一定在最下面」）：
       //   先写成「[表情] 关键词」，底下那道认表情的会在原位置留一个 emoteslot，发气泡那一圈走到就地发
       words = (Array.isArray(words) ? words : []).map(w => w && typeof w === "object" && !w.voice && typeof w.emote === "string" && w.emote.trim() ? "[表情] " + w.emote.trim() : w);
+      // 语音那句里夹着「[表情] xx」：表情拆出来接在后面，语音只念剩下的字（splitVoiceEmote）
+      if (typeof splitVoiceEmote === "function") words = words.reduce((a, w) => {
+        if (w && typeof w === "object" && typeof w.voice === "string") { const sp = splitVoiceEmote(w.voice); if (sp.emote) return a.concat(sp.voice ? [{ ...w, voice: sp.voice }] : [], ["[表情] " + sp.emote]); }
+        return a.concat([w]);
+      }, []);
       if (typeof markPauseVoice === "function") { const _pv = markPauseVoice(words); words = _pv.words.filter(w => String(w).trim()); _inlineVoice = _pv.voice.map(v => typeof v === "object" ? { ...v, sent: false } : { t: v, sent: false }); }
       // 单独那一栏 voice 已经取消（她 2026-09-30：「取消掉语音那条，不喜欢在最下面」）。
       //   模型要是还照老习惯交回来，不丢、也不排到最后：插在第一句后面（「说一句→发条语音」最常见）。
@@ -16313,6 +16318,11 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         };
         for (let i = 0; i < safeArr.length; i++) {
           const item = safeArr[i];
+          // 整条语音就是「[表情] xx」：不念，当表情走文字那一路（那边认表情）；夹在句尾的，念的时候拿掉（splitVoiceEmote）
+          if (item && item.voice === true && typeof item.text === "string" && typeof splitVoiceEmote === "function") {
+            const _sv = splitVoiceEmote(item.text);
+            if (_sv.emote && !_sv.voice) { item.voice = false; item.text = "[表情] " + _sv.emote; }
+          }
           // 这一条的话写成了 {"voice":"…","emo":"…"} 一串字：拆回来当语音发（跟单聊同一支 unwrapVoiceJson）
           if (item && typeof item.text === "string" && typeof unwrapVoiceJson === "function") {
             const _uj = unwrapVoiceJson(item.text);
@@ -16419,7 +16429,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
             autoTook();
             setTimeout(() => pGChat(groupId, p => p.map(m => m.mid === mid ? { ...m, recalled: true, origText: item.text, reason: item.recallReason || "" } : m)), 1100);
           } else if (item.voice === true && item.text) {
-            let vt = stripEchoedMeta(stripAiStamp(item.text));
+            let vt = stripEchoedMeta(stripAiStamp(typeof splitVoiceEmote === "function" ? splitVoiceEmote(item.text).voice : item.text));
             const _gvbi = typeof splitBilingual === "function" ? splitBilingual(vt, hanLangOf(spk)) : null;   // 念原文，中文另存成译文
             if (_gvbi) vt = _gvbi.text;
             const gEmo = item.voiceEmo && ["happy","sad","angry","fearful","disgusted","surprised","neutral"].includes(String(item.voiceEmo)) ? String(item.voiceEmo) : undefined;

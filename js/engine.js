@@ -7540,6 +7540,15 @@ function earlierRecallIdx(list, mine, text) {
   return -1;
 }
 function emoteSlotOf(w) { const m = EMOTE_SLOT_RE.exec(String(w == null ? "" : w)); return m ? Number(m[1]) : null; }
+// 语音里夹着「[表情] xx」（她 2026-11-01 截图：语音条底下「他说的是：[表情] 死死抱住」）：
+//   模型把一张表情包写进了语音那句里。拆开：表情归表情，剩下的字才是他说出口的。单聊、群聊共用
+const VOICE_EMOTE_RE = /[\u3010\[\uff3b]\s*\u8868\u60c5(?:\u5305)?\s*[\u3011\]\uff3d]\s*[:\uff1a]?\s*([^\u3010\[\uff3b\n]{1,24}?)\s*$/;
+function splitVoiceEmote(text) {
+  const t = String(text == null ? "" : text);
+  const m = VOICE_EMOTE_RE.exec(t);
+  if (!m) return { voice: t, emote: "" };
+  return { voice: t.slice(0, m.index).replace(/[\s，,]+$/, "").trim(), emote: m[1].trim() };
+}
 function emoteSlotWords(words, emotes, emoteNorm) {
   // {"emote":"关键词"} 那一项：对象照认；模型把它写成了一串字（她 2026-10-17 截图：气泡里冒出 {"emote":"拿枪打你"}）也认
   const JSON_EMOTE = /^\s*[{｛]\s*["“”']?\s*(?:emote|sticker|表情(?:包)?)\s*["“”']?\s*[:：]\s*["“”']\s*([^"“”']+?)\s*["“”']\s*[}｝]\s*$/i;
