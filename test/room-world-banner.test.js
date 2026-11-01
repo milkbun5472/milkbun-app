@@ -4,9 +4,11 @@ const comp=fs.readFileSync('js/components.js','utf8'),app=fs.readFileSync('js/ap
 test('同档横幅三个独立入口传入正确世界，聊天只挂一处',()=>{
  const a=comp.indexOf('function RoomWorldBanner('),b=comp.indexOf('function ChatThread(',a);assert.ok(a>=0&&b>a);
  const ctx={h:(type,props,...children)=>({type,props,children}),useTheme:()=>({ink:'#123',line:'#ddd'}),F_BODY:'serif'};const worlds={React:{},WeakMap};worlds.window=worlds;vm.runInNewContext((fs.readFileSync('js/fairy-garden-core.js','utf8')+'\n'+fs.readFileSync('js/fairy-garden.js','utf8')),worlds);ctx.window={FairyWorlds:worlds.FairyWorlds};vm.createContext(ctx);vm.runInContext(comp.slice(a,b),ctx);
- const picked=[],tree=ctx.RoomWorldBanner({onEnter:w=>picked.push(w)}),buttons=tree.children.flat().filter(n=>n.type==='button');
+ const picked=[],tree=ctx.RoomWorldBanner({onEnter:w=>picked.push(w)}),buttons=tree.children.flat().filter(n=>n&&n.type==='button');
  assert.equal(buttons.length,3);buttons.forEach(n=>{assert.ok(n.props.style.minHeight>=44);n.props.onClick();});assert.deepEqual(picked,['garden','train','pets']);
  assert.equal((comp.match(/h\(RoomWorldBanner,/g)||[]).length,1);
+ // 「看看宠物」只在传了 onWatch（这间房的小镇里养了宠物）时才有，第四颗
+ const watched=[],t2=ctx.RoomWorldBanner({onEnter:()=>{},onWatch:()=>watched.push(1)}),b2=t2.children.flat().filter(n=>n&&n.type==='button');assert.equal(b2.length,4);b2[0].props.onClick();assert.equal(watched.length,1);
  assert.match(app,/entryWorld: gardenRoomWorld \|\|/);
  assert.match(app,/onEnterGarden:.*setGardenRoomWorld\(\["train","pets"\].includes\(world\) \? world : "garden"\); setGardenOpen\(activeRoomId\)/);
  assert.match(app,/storeKey: "x_fairyGarden::" \+ key/);

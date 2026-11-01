@@ -33345,6 +33345,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     room: window.ChatRooms ? window.ChatRooms.get(activeChar.id, activeRoomId) : { id: "main", name: "主聊天", main: true },
     onOpenRooms: () => setChatRoomsOpen(true),
     onEnterListen: listenRoomOf(activeChar.id, activeRoomId) ? () => { setListenPartner(activeChar.id); goListen({ charId: activeChar.id, roomId: activeRoomId }); } : null,
+    // 宠物监控读这间房自己的小镇存档（小镇是一间单独的房）
+    petWatchKey: gardenRoomOf(activeChar.id, activeRoomId) && window.ChatRooms ? "x_fairyGarden::" + window.ChatRooms.chatKey(activeChar.id, activeRoomId) : null,
     onEnterGarden: gardenRoomOf(activeChar.id, activeRoomId) ? world => { setGardenRoomWorld(["train","pets"].includes(world) ? world : "garden"); setGardenOpen(activeRoomId); } : null,
     // ── 这间房收着哪几门课（她 2026-09-23）────────────────────────────
     // 开了「TA可以拉你一起学」、或者就是从一起学开出来的房，才摆这一条。
