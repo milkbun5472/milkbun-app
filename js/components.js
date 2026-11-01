@@ -12585,8 +12585,8 @@ function ChatThread({
     charId: character && character.id,
     myBalance: myBalance,
     onClose: () => setTransferOpen(false),
-    onSend: (amount, note) => {
-      onSendTransfer(amount, note, transferOpen === "packet");
+    onSend: (amount, note, kin) => {
+      onSendTransfer(amount, note, transferOpen === "packet", kin);
       setTransferOpen(false);
     }
   , packet: transferOpen === "packet" }), topicsOpen && h(TopicCardsSheet, { charId: character.id, onClose: () => setTopicsOpen(null),
@@ -17256,8 +17256,24 @@ function GeoCard({ m, isU, who, avatar, myAvatar }) {
 //
 // ⚠️所以走 appDialogPortal——全库十几处弹窗共用的那一份（portal 到 body、压暗背景、
 //   居中）。它是【公共那一层】，别再自己写一个居中的盒子。
+// 转账、红包「用什么付」那一排（她 2026-11-01 群友许愿「转账/红包可以用亲属卡」）：
+//   手里没有亲属卡就不出现；收款人自己给的那张不列（拿他的钱转给他）。value＝""是我的钱包，否则是卡主 charId。
+function KinPayPick({ value, onChange, exclude, accent }) {
+  const t = useTheme();
+  const cards = (window.KinPay && window.KinPay.cards ? window.KinPay.cards() : []).filter(c => c.charId !== exclude);
+  useEffect(() => { if (value && !cards.some(c => c.charId === value)) onChange(""); }, [value, exclude]);
+  if (!cards.length) return null;
+  const on = accent || t.ink;
+  return h("div", { "data-wk": "kinpay", className: "flex flex-wrap", style: { gap: 6, marginTop: 10 } },
+    [{ charId: "", name: "我的钱包" }].concat(cards).map(c => h("button", { key: c.charId || "_me", "data-on": value === c.charId ? "1" : "0", onClick: () => onChange(c.charId),
+      className: "active:opacity-70",
+      style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", padding: "6px 11px", borderRadius: 999,
+        background: value === c.charId ? on : "transparent", color: value === c.charId ? t.bg2 : t.sub, border: "1px solid " + (value === c.charId ? on : t.line) } },
+      c.charId ? c.name + " 的亲属卡 · 剩 ¥" + c.remain : c.name)));
+}
 function TransferComposeSheet({ cName, myBalance, charId, onClose, onSend, packet }) {
   const t = useTheme();
+  const [kin, setKin] = useState("");
   const [amount, setAmount] = useState("");
   const [note, setNote] = useState("");
   const M = typeof Money !== "undefined" && Money ? Money : null;
@@ -17265,9 +17281,11 @@ function TransferComposeSheet({ cName, myBalance, charId, onClose, onSend, packe
   const isCNY = !M || M.isDefault(charId);
   // 她敲的是【他那边的数】，送出去之前折回人民币——存档永远是人民币
   const cny = M ? M.parse(amount, charId) : (Number(amount) || null);
-  const enough = cny != null && cny > 0 && (myBalance == null || cny <= Number(myBalance) + 1e-9);
-  const submit = () => { if (enough) onSend(cny, note.trim()); };
-  const balText = myBalance == null ? "—" : (M ? M.fmt(myBalance, charId) : "¥" + myBalance);
+  const kinCard = kin && window.KinPay ? window.KinPay.cards().find(c => c.charId === kin) : null;
+  const payBal = kinCard ? kinCard.remain : myBalance;
+  const enough = cny != null && cny > 0 && (payBal == null || cny <= Number(payBal) + 1e-9);
+  const submit = () => { if (enough) onSend(cny, note.trim(), kinCard ? kin : ""); };
+  const balText = payBal == null ? "—" : (M ? M.fmt(payBal, charId) : "¥" + payBal);
   const sym = h("span", { style: { fontFamily: F_DISPLAY, fontSize: "calc(20px * var(--app-fs, 1))", color: t.fog, lineHeight: 1 } }, cur.symbol);
   return appDialogPortal(
     h("div", { "data-wk": "block", onClick: e => e.stopPropagation(), style: { width: "100%", maxWidth: 320, background: t.bg2, borderRadius: 20, padding: "22px 20px 18px", animation: "qqIn .2s ease both" } },
@@ -17287,7 +17305,7 @@ function TransferComposeSheet({ cName, myBalance, charId, onClose, onSend, packe
         cur.pos === "post" ? sym : null),
       // ⚠️不是人民币时要说清【真正从她钱包里出去多少】：她按他那边的数转，扣的是另一个数
       h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.sub, textAlign: "center", marginTop: 7, minHeight: 16 } },
-        !isCNY && cny != null ? "从你钱包扣 ¥" + cny.toFixed(2) : ""),
+        !isCNY && cny != null ? (kinCard ? "从亲属卡刷 ¥" : "从你钱包扣 ¥") + cny.toFixed(2) : ""),
       h("input", {
         value: note, onChange: e => setNote(e.target.value),
         placeholder: packet ? "写在红包上的一句（拆开前他只看得到这句）" : "附言（如：诚意金）",
@@ -17295,8 +17313,9 @@ function TransferComposeSheet({ cName, myBalance, charId, onClose, onSend, packe
         style: { fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", background: t.bg, color: t.ink, border: "1px solid " + t.line, borderRadius: 12, padding: "10px 12px", marginTop: 10 }
       }),
       h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: cny != null && !enough ? t.accent : t.fog, textAlign: "center", marginTop: 10 } },
-        cny != null && !enough && myBalance != null ? "余额不够 · 你有 " + balText
-          : "我的余额 " + balText + (packet ? " · TA 拆开才扣款" : " · TA 接受后才扣款")),
+        cny != null && !enough && payBal != null ? (kinCard ? "额度不够 · 这张卡剩 " : "余额不够 · 你有 ") + balText
+          : (kinCard ? kinCard.name + " 的亲属卡剩 " : "我的余额 ") + balText + (packet ? " · TA 拆开才扣款" : " · TA 接受后才扣款")),
+      h(KinPayPick, { value: kin, onChange: setKin, exclude: charId }),
       h("div", { className: "flex gap-3", style: { marginTop: 16 } },
         h("button", { onClick: onClose, className: "flex-1 active:opacity-70", style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.sub, padding: "11px 0", borderRadius: 12, border: "1px solid " + t.line, background: "transparent" } }, "取消"),
         // ⚠️字色 t.bg2 不是 #fff：深色主题里 t.ink 本身是浅色
@@ -20776,8 +20795,8 @@ function GroupThread({
     memberCount: members.length,
     members: members,
     myBalance: myBalance,
-    onSubmit: (total, count, message, toId) => {
-      onSendRedPacket(total, count, message, toId);
+    onSubmit: (total, count, message, toId, kin) => {
+      onSendRedPacket(total, count, message, toId, kin);
       setSheet(null);
     },
     onClose: () => setSheet(null)
@@ -20871,8 +20890,8 @@ function GroupThread({
     charId: xferMember.id,
     myBalance: myBalance,
     onClose: () => setXferMember(null),
-    onSend: (amount, note) => {
-      onSendTransfer && onSendTransfer(xferMember.id, amount, note);
+    onSend: (amount, note, kin) => {
+      onSendTransfer && onSendTransfer(xferMember.id, amount, note, kin);
       setXferMember(null);
     }
   }), modeOpen && h(Sheet, {
@@ -21115,10 +21134,12 @@ function RedPacketComposeSheet({ memberCount, members, myBalance, onSubmit, onCl
   const [count, setCount] = useState(String(Math.max(1, memberCount || 1)));
   const [message, setMessage] = useState("");
   const [toId, setToId] = useState("");   // ""＝拼手气，谁都能抢
+  const [kin, setKin] = useState("");
   const field = { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.ink, background: t.bg, border: "1px solid " + t.line, borderRadius: 8, padding: "9px 11px", width: "100%", outline: "none" };
   const a = Math.round(Number(total) * 100) / 100;
   const c = Math.max(1, parseInt(count, 10) || 1);
-  const insufficient = a > (myBalance || 0);
+  const kinCard = kin && window.KinPay ? window.KinPay.cards().find(c => c.charId === kin) : null;
+  const insufficient = a > ((kinCard ? kinCard.remain : myBalance) || 0);
   const canSend = a > 0 && !insufficient;
   const lbl = { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.sub, margin: "14px 0 5px" };
   return h(Sheet, { onClose: onClose, tall: true },
@@ -21143,8 +21164,10 @@ function RedPacketComposeSheet({ memberCount, members, myBalance, onSubmit, onCl
         h("input", { "data-wk": "input", value: count, onChange: e => setCount(e.target.value.replace(/[^0-9]/g, "")), inputMode: "numeric", placeholder: String(memberCount || 1), style: field })),
     h("div", { style: lbl }, "祝福语（可选）"),
     h("input", { "data-wk": "input", value: message, onChange: e => setMessage(e.target.value), placeholder: "恭喜发财，大吉大利", style: field }),
-    insufficient ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.accent, marginTop: 10 } }, "余额不足") : null,
-    h("button", { onClick: () => { if (canSend) onSubmit(a, toId ? 1 : c, message.trim(), toId); }, disabled: !canSend, className: "w-full active:opacity-80", style: { fontFamily: F_BODY, fontSize: "calc(15px * var(--app-fs, 1))", background: "linear-gradient(160deg,#c3372c,#9d251c)", color: "#fff", borderRadius: 12, padding: "11px 0", marginTop: 20, opacity: canSend ? 1 : 0.5 } }, "塞进红包 " + (a > 0 ? "¥" + a : "")));
+    h(KinPayPick, { value: kin, onChange: setKin, exclude: toId, accent: "#c3372c" }),
+    kinCard ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginTop: 6 } }, "发出去就从 " + kinCard.name + " 的亲属卡刷，TA 下次说话会知道") : null,
+    insufficient ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.accent, marginTop: 10 } }, kinCard ? "亲属卡额度不足" : "余额不足") : null,
+    h("button", { onClick: () => { if (canSend) onSubmit(a, toId ? 1 : c, message.trim(), toId, kinCard ? kin : ""); }, disabled: !canSend, className: "w-full active:opacity-80", style: { fontFamily: F_BODY, fontSize: "calc(15px * var(--app-fs, 1))", background: "linear-gradient(160deg,#c3372c,#9d251c)", color: "#fff", borderRadius: 12, padding: "11px 0", marginTop: 20, opacity: canSend ? 1 : 0.5 } }, "塞进红包 " + (a > 0 ? "¥" + a : "")));
 }
 // 打开红包 / 看领取详情
 // 点开红包（她 2026-10-25：「点开有一个这样的红包可以点开」，照微信那张大红封）：

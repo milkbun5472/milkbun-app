@@ -230,7 +230,8 @@ test("整个框统一按对方的币种，不再一处 CNY 一处 ¥ 一处 円"
   assert.ok(!/"CNY"/.test(seg), "写死的 CNY 还在");
   assert.match(seg, /cur\.pos === "pre" \? sym : null/, "符号要跟着前后位置走");
   assert.match(seg, /cur\.pos === "post" \? sym : null/);
-  assert.match(seg, /const balText = myBalance == null \? "—" : \(M \? M\.fmt\(myBalance, charId\) : "¥" \+ myBalance\)/, "余额还写死 ¥");
+  // 余额那格现在是「这一笔从哪儿付」的那份（钱包或亲属卡，她 2026-11-01）
+  assert.match(seg, /const balText = payBal == null \? "—" : \(M \? M\.fmt\(payBal, charId\) : "¥" \+ payBal\)/, "余额还写死 ¥");
   // 两个调用点都得告诉它对方是谁
   assert.match(comp, /charId: character && character\.id,\n    myBalance: myBalance,/, "单聊那个入口");
   assert.match(comp, /charId: xferMember\.id,\n    myBalance: myBalance,/, "群里那个入口");
@@ -240,11 +241,11 @@ test("整个框统一按对方的币种，不再一处 CNY 一处 ¥ 一处 円"
 test("她敲的数要折回人民币再送出去，而且当场告诉她钱包会扣多少", () => {
   const seg = comp.slice(comp.indexOf("function TransferComposeSheet("), comp.indexOf("// 发位置:写一个地名"));
   assert.match(seg, /const cny = M \? M\.parse\(amount, charId\) : \(Number\(amount\) \|\| null\);/);
-  assert.match(seg, /const submit = \(\) => \{ if \(enough\) onSend\(cny, note\.trim\(\)\); \};/, "把没折算的数直接送出去了");
+  assert.match(seg, /const submit = \(\) => \{ if \(enough\) onSend\(cny, note\.trim\(\), kinCard \? kin : ""\); \};/, "把没折算的数直接送出去了");
   assert.ok(!/onSend\(a, note\.trim\(\)\)/.test(seg), "旧的 Number(amount) 那条路还在");
-  assert.match(seg, /"从你钱包扣 ¥" \+ cny\.toFixed\(2\)/, "不是人民币时没说清真正扣多少");
+  assert.match(seg, /"从你钱包扣 ¥"\) \+ cny\.toFixed\(2\)/, "不是人民币时没说清真正扣多少");
   // 余额不够就按不下去——原来一按就是一条「余额不足」的 toast，钱先发出去了才知道
-  assert.match(seg, /const enough = cny != null && cny > 0 && \(myBalance == null \|\| cny <= Number\(myBalance\) \+ 1e-9\);/);
+  assert.match(seg, /const enough = cny != null && cny > 0 && \(payBal == null \|\| cny <= Number\(payBal\) \+ 1e-9\);/);
   assert.match(seg, /disabled: !enough/);
 });
 

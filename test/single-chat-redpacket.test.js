@@ -5,7 +5,8 @@ const fs = require("node:fs"), path = require("node:path");
 const R = f => fs.readFileSync(path.join(__dirname, "../js", f), "utf8");
 const app = R("app.js"), comp = R("components.js"), ts = R("theme-studio.js");
 test("发红包就是带 packet 的转账，没开第二套记账", () => {
-  assert.match(app, /onSendTransfer: \(amount, note, packet\) => runRoomAction\(activeChar\.id, "transfer", \(\) => sendTransfer\(activeChar\.id, amount, note, packet \? \{ packet: true \} : undefined\)\)/);
+  // 第四个参数是亲属卡（她 2026-11-01）；红包还是同一个 sendTransfer 带 packet
+  assert.match(app, /onSendTransfer: \(amount, note, packet, kin\) => runRoomAction\(activeChar\.id, "transfer", \(\) => sendTransfer\(activeChar\.id, amount, note, packet \|\| kin \? \{ \.\.\.\(packet \? \{ packet: true \} : \{\}\)/);
   assert.match(app, /postCharTransfer\(charId, Number\(parsed\.redPacket\.amount\), parsed\.redPacket\.note \|\| "", \{ packet: true \}\)/);
   assert.doesNotMatch(app, /const sendRedPacketSingle|const respondPacket/);
 });
