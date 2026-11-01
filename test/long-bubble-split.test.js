@@ -71,7 +71,7 @@ test("单聊和群聊走的是同一个函数", () => {
   assert.match(app, /const gAllowComma = !isBody\(spk\.id\)/, "群里也按发言人豁免言秋");
   // v76.455 通话里一大段也按句拆，用的还是这一个函数（第三处调用）——同一把刀，没另写一份
   assert.match(app, /o\.speech != null && typeof splitLongBubble === "function"[^\n]*splitLongBubble\(o\.speech\)/, "通话那一处");
-  assert.equal((app.match(/splitLongBubble\(/g) || []).length, 3, "只该有单聊、群聊、通话这三处调用");
+  assert.equal((app.match(/splitLongBubble\(/g) || []).length, 5, "单聊、群聊、通话 + 两道最后兜底");
 });
 
 // 她 2026-08-29 截图：一段算账的话被切成「现在现值是 150」「000 乘以 0.312」

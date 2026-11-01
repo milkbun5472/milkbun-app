@@ -20,7 +20,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v88.882";
+const APP_VERSION = "v88.884";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -2374,7 +2374,8 @@ function App() {
       if (now - storageWarnTs.current < 20000) return;
       storageWarnTs.current = now;
       const what = /^x_g?chat:/.test(String(k)) ? "刚才的聊天" : /^x_g?offline:/.test(String(k)) ? "刚才的线下" : "刚改的东西";
-      toast("⚠️ " + what + "没存进手机" + (full ? "（存储满了）" : "") + "：现在关掉重开会丢。先去 设置 → 数据 → 导入与导出 导出一份，再清掉些图片腾地方", 12000);
+      // 没满就别叫人清图（群友 2026-11-01：「怎么只清理掉聊天记录的图片」）——不满时多半是 iOS 那一下卡住，过一会儿下一次保存会补上
+      toast("⚠️ " + what + "没存进手机" + (full ? "（存储满了）：现在关掉重开会丢。先去 设置 → 数据 → 导入与导出 导出一份，再删掉些用不上的旧聊天、同人文腾地方" : "：手机这一下没写进去，先别关 app，接着用，下一次保存会再存一遍；不放心就去 设置 → 数据 → 导入与导出 导出一份"), 12000);
     };
     return () => { if (window.__storageFull) delete window.__storageFull; if (window.__saveFailed) delete window.__saveFailed; };
   }, []);
@@ -14110,6 +14111,15 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       }
       // 队尾空气泡（小克反馈）：滤掉只剩空白/零宽字符/BOM 的空串——trim/Boolean 抓不住零宽符，这里连它一起清
       words = words.filter(w => String(w == null ? "" : w).replace(/[\s\u200b-\u200f\u202a-\u202e\u2060\ufeff]+/g, "") !== "");
+      // 最后兜一道（她 2026-11-01：「开了切泡怎么没切」「这种随机出现我也预测不了」）：前面哪一步漏了都不要紧——
+      //   开着拆泡、这一泡又长又只靠空格断句的，发出去之前再按同一个 splitLongBubble 拆一次。
+      //   带译文的（中文挂在它身上）、卡片、语音／表情占位都不动
+      if (_splitOn && typeof splitLongBubble === "function") words = words.reduce((acc, w) => {
+        const t = typeof w === "string" ? w : "";
+        if (!t || t.length <= 40 || !/[\u4e00-\u9fff…~～]\s+[\u4e00-\u9fff]/.test(t) || _biZh.has(bilingualKey(t)) || _biCovered.has(bilingualKey(t))
+          || (typeof htmlCardOf === "function" && htmlCardOf(t)) || /^emoteslot/i.test(t) || (typeof voiceSlotOf === "function" && voiceSlotOf(t) != null)) return acc.concat([w]);
+        return acc.concat(splitLongBubble(t, true));
+      }, []);
       // 带声音标签的那一泡【拆完泡以后】再认一遍语音（她 2026-10-19：普通回复里 (snorts)(clear-throat) 掉成了文字泡）：
       //   上面 markPauseVoice 认的是拆泡【之前】那几项；模型把几句塞进一项、或者 JSON 没解析出来走了兜底，
       //   带标签的那句是拆完才单独出来的，就漏了。（已经在 _oneLong 里并成一整段的不拆，照它）
@@ -16443,6 +16453,10 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
                 return acc.concat(parts);
               }, []);
             let gBubbles = gLines.length ? gLines : [stripAiStamp(item.text || "")].filter(Boolean);
+            // 最后兜一道（跟单聊同一条）：又长又只靠空格断句的，再拆一次；带译文的不动
+            if (gAllowComma) gBubbles = gBubbles.reduce((acc, w) => { const t = typeof w === "string" ? w : "";
+              if (!t || t.length <= 40 || !/[\u4e00-\u9fff…~～]\s+[\u4e00-\u9fff]/.test(t) || gBiZh.has(bilingualKey(t)) || gBiCovered.has(bilingualKey(t)) || (typeof htmlCardOf === "function" && htmlCardOf(t))) return acc.concat([w]);
+              return acc.concat(splitLongBubble(t, true)); }, []);
             if (typeof moveDanglingLeads === "function") gBubbles = moveDanglingLeads(gBubbles);   // 「第一：」挪到下一泡开头，跟单聊同一条
             // 掉格式兜底（四处一样喂：跟单聊同一把刀、同一个模块）。群里没有逐人称谓设置，
             // 默认就是第二人称。
