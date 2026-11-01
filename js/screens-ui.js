@@ -6236,7 +6236,7 @@ function TtsApiConfig({ toast, characters, onAssignVoice }) {
       c.provider === "minimax" && h("div", { className: "pt-4 mt-4", style: { borderTop: "1px dashed " + t.line } },
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.ink, marginBottom: 4 } }, "语气标记 · 先听一条"),
         h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.6, marginBottom: 9 } },
-          "⭐实测过了（她 2026-09-21 在这儿听的）：**停顿 <#0.5#> 认**，圆括号里的英文标记不认——那几个词会被当成单词念出来。"
+          "⭐实测过了：**停顿 <#0.5#> 认**，圆括号里的英文标记不认——那几个词会被当成单词念出来。"
           + "所以角色那边只教了停顿这一样；万一正文里真出现了别的标记，送去合成之前会剥掉，不用管。"
           + "这一格仍旧把【你写的原文】原样送上去，想再验一次、或者换个模型再试都行。"
           + "⚠️按字符计费，跟平时听语音一样。"),

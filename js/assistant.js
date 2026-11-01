@@ -1005,7 +1005,7 @@
       + "     **别对它们写 padding 简写，也别把 padding-top（底栏是 padding-bottom）写成死数**——一写就把安全区抹了，顶栏钻进时间、信号那条状态栏底下，看起来像「顶栏太高、跟时间叠在一起」。\n"
       + "     要调上下留白就写 padding-top: calc(var(--app-safe-top) + 6px) !important（底栏用 var(--app-safe-bottom)），左右单独写 padding-left/right。\n"
       + "     顶栏里用 position:absolute; top:50% 居中的东西（名字、头像）会比两边按钮高半截刘海——要写 top: calc(50% + var(--app-safe-top) / 2) !important。她说「名字／头像太高了、没跟按钮对齐」就先找这个——改的是【她 CSS 里写了 top:50% 的那一条】（多半是 headname，中间那块名字加小图标），不是 avatar：顶栏的 avatar 常常已经被她隐藏了，改它看不出任何变化。\n"
-      + "     她说「顶栏太高／跟时间叠了／顶栏跑到最上面去了」：先在她现有的 CSS 里找对 chathead 的 padding、min-height、height、position:absolute/fixed，照上面这条改回来，别再往上加新的。同一个选择器写了好几块的，【越靠后的越算数】：在前面补一条留白，后面那块 height:52px／padding:0 14px 照样把它盖掉（群里 2026-10-19 就是这样，秋秋补了两回都没用）——要改就改最后那块，或者把那几块并成一块。\n"
+      + "     她说「顶栏太高／跟时间叠了／顶栏跑到最上面去了」：先在她现有的 CSS 里找对 chathead 的 padding、min-height、height、position:absolute/fixed，照上面这条改回来，别再往上加新的。同一个选择器写了好几块的，【越靠后的越算数】：在前面补一条留白，后面那块 height:52px／padding:0 14px 照样把它盖掉——要改就改最后那块，或者把那几块并成一块。\n"
       // 群里 2026-10-19：她要「底栏透明」，秋秋给了 background:transparent，底栏下面那截露出一条米色，补了 body、外层都没用
       + "     她说「底部不贴边／最底下多一条颜色／底栏下面露一截」：是底栏（composer）没把自己的颜色铺到屏幕最底。底栏要写【实色或渐变】＋ padding-bottom: var(--app-safe-bottom) !important，一路铺到底；她想要「透明」，就把底栏刷成跟聊天底色同一个颜色，别写 transparent——透明了露出来的是底下那层，不是她的背景。别去刷 body、外壳。\n"
       + "  【共用件上的（顶栏、半窗、空状态、头像、开关、输入框这些，绝大多数页面都有）】\n" + fmt(ts.WK_COMMON) + "\n"
@@ -1255,7 +1255,7 @@
       + "【最重要的规矩】你给出的 patch 只是【草稿】。" + uName + " 会一条条看过再决定应不应用，所以：\n"
       + "· 不填 find 的时候，text 必须是【改完的完整内容】，不是 diff、不是「在原文基础上加一句」。\n"
       + "· 一次别超过 3 条 patch（导世界书、连一串关系、建一批配角——全是 lore／rel／npc 的一轮可以到 12 条）；纯粹问功能的时候给空数组，光用 reply 答她。\n"
-      + "· **卡只跟着她【最新这一句】走**：前几轮出过的卡她已经看到了（应没应用是她的事），不许再出一遍、也不许换个说法再出。她这一句是在聊天、道谢、吐槽、问你怎么想，没叫你改东西，patches 就给空数组，只用 reply 跟她说话。（她 2026-10-20：「做完卡想聊天，它还是每轮带着卡」）\n"
+      + "· **卡只跟着她【最新这一句】走**：前几轮出过的卡她已经看到了（应没应用是她的事），不许再出一遍、也不许换个说法再出。她这一句是在聊天、道谢、吐槽、问你怎么想，没叫你改东西，patches 就给空数组，只用 reply 跟她说话。\n"
       + "· 拿不准她想要什么就先问，别擅自动手。改人设尤其要谨慎——那是她攒了很久的东西。\n\n"
       + (pageLine(ctx.page) ? pageLine(ctx.page) + "\n\n" : "")
       + manualBlock(question, here && here.man, extraIds) + "\n\n"
