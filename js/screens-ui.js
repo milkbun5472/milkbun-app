@@ -2138,11 +2138,14 @@ const forumLiveCounts = (p, now) => {
   const heat = Math.log1p(Math.min(hours, 72)) + Math.log1p(Math.max(0, hours - 72)) * 0.12;
   const seed = (forumHash(String(p && p.id || "")) % 7) + 3;     // 3~9，每个帖自己的势头
   const live = Math.round(base.replyCount * 0.6 + 1);            // 楼里越热闹，外面越多人看
+  // 她自己发的那几条涨得更旺一点（群里 2026-11-02「小红书发帖子的点赞什么多一点」）：原来三天也就二三十个赞，冷得像没人看。
+  //   还是只长不落、头两天最快；别人的帖本来起步就是几百上千，照旧
+  const mine = p && p.authorType === "me" ? 4 : 1;
   return {
     replyCount: base.replyCount,
-    likeCount: base.likeCount + Math.round(heat * seed * 0.9 + live * 0.7),
-    viewCount: base.viewCount + Math.round(heat * seed * 26 + live * 9),
-    rtCount: base.rtCount + Math.round(heat * seed * 0.12 + live * 0.08)
+    likeCount: base.likeCount + Math.round((heat * seed * 0.9 + live * 0.7) * mine),
+    viewCount: base.viewCount + Math.round((heat * seed * 26 + live * 9) * mine),
+    rtCount: base.rtCount + Math.round((heat * seed * 0.12 + live * 0.08) * mine)
   };
 };
 function forumAge(ts) { if (!ts) return "新人"; const d = Math.floor((Date.now() - ts) / 86400000); if (d < 30) return "吧龄 " + Math.max(d, 1) + " 天"; const mo = Math.floor(d / 30); if (mo < 12) return "吧龄 " + mo + " 个月"; return "吧龄 " + (d / 365).toFixed(1) + " 年"; }
