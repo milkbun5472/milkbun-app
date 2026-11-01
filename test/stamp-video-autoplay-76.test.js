@@ -8,7 +8,7 @@ test("卡面视频能单独用系统播放器放（排查用）", () => {
   assert.match(src, /单独播放这段视频（带进度条）/);
 });
 test("翻到哪一面动哪一面：满级、番外各存各的视频，备份也带上", () => {
-  assert.match(src, /onClick: \(\) => runStampVideo\(card, toast, true, side, sideKey\)/);
+  assert.match(src, /runStampVideo\(card, toast, true, side, sideKey\)/);
   assert.match(src, /const vSlot = side === "main" \? card\.video : \(card\.videos \|\| \{\}\)\[side\];/);
   assert.match(src, /\{ videos: Object\.assign\(\{\}, cur\.videos \|\| \{\}, \{ \[slot\]: r\.draftRef \}\) \}/);
   const va = fs.readFileSync(__dirname + "/../js/video-api.js", "utf8");

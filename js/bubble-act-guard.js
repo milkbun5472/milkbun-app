@@ -85,10 +85,44 @@
     return { words, acts };
   }
 
+  // 【自己的名字 + 动作】（她 2026-11-01 截图：「【周树生 看着蛋糕上的英文耳朵瞬间热了一圈」「嘴硬地轻咳了一声】」两个白气泡）：
+  //   它照着喂给它的「【场景旁注｜某某 当时正在做的动作…】」学了个形状，用自己的名字写自己——那是描写，不是发出去的话。
+  //   【】开头紧跟TA自己的名字才认（证据是它亲手写的名字，不靠猜）；跨几个气泡的拼起来一起挪；】后面还有字的，那截照旧是气泡。
+  function pullSelfBracket(list, names) {
+    const ns = (names || []).map(clean).filter(x => x && x.length >= 1);
+    if (!ns.length) return null;
+    const startsSelf = w => { const m = /^[【\[]\s*(.+)$/.exec(w); return !!m && ns.some(n => m[1].indexOf(n) === 0); };
+    if (!list.some(startsSelf)) return null;
+    const words = [], acts = [];
+    let i = 0;
+    while (i < list.length) {
+      if (!startsSelf(list[i])) { words.push(list[i]); i++; continue; }
+      const parts = [];
+      let tail = "";
+      let j = i;
+      for (; j < list.length && j < i + 6; j++) {
+        const w = j === i ? list[j].replace(/^[【\[]\s*/, "") : list[j];
+        const k = w.search(/[】\]]/);
+        if (k >= 0) { parts.push(w.slice(0, k)); tail = w.slice(k + 1).trim(); break; }
+        parts.push(w);
+      }
+      if (j >= list.length || j >= i + 6) { words.push(list[i]); i++; continue; }   // 没合上：不是这种，原样留着
+      acts.push(parts.map(clean).filter(Boolean).join("，"));
+      if (tail) words.push(tail);
+      i = j + 1;
+    }
+    return { words, acts };
+  }
+
   function split(words, opts) {
     const list = (Array.isArray(words) ? words : []).map(clean).filter(Boolean);
     const o = opts || {};
     const nothing = { words: Array.isArray(words) ? words : [], acts: [] };
+    const self = pullSelfBracket(list, o.selfNames);
+    if (self && self.acts.length) {
+      const rest = self.words.length ? split(self.words, Object.assign({}, o, { selfNames: null })) : { words: [], acts: [] };
+      return { words: rest.words, acts: self.acts.concat(rest.acts) };
+    }
     // 挂了牌子的不看称谓设置：牌子本身就是证据，跟「她」对不对无关
     if (list.some(w => LABEL.test(w))) return pullLabeled(list);
     if (o.secondPerson === false) return nothing;
@@ -113,5 +147,5 @@
     return SECOND_PERSON.test(text) || SPEAKING.test(text) || TAIL_PARTICLE.test(text);
   }
 
-  return { split, couldBeAct, hasActEvidence, pullLabeled, spokenAction };
+  return { split, couldBeAct, hasActEvidence, pullLabeled, pullSelfBracket, spokenAction };
 });

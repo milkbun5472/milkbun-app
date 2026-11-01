@@ -10,9 +10,9 @@ test("单人和群线下每轮继续喂逐条原文，并给每条加真实时�
   const one = engine.slice(engine.indexOf("function offlineHistory"), engine.indexOf("async function generateOffline"));
   const group = engine.slice(engine.indexOf("function offlineGroupHistory"), engine.indexOf("function offlineGroupSpeaker"));
   assert.match(one, /fmtStampAI\(ts\)/);
-  assert.match(one, /gapPhrase\(ts - prevTs\)/);
+  assert.match(one, /gapPhrase\(_vg\)/);
   assert.match(group, /fmtStampAI\(ts\)/);
-  assert.match(group, /gapPhrase\(ts - prevTs\)/);
+  assert.match(group, /gapPhrase\(_vg\)/);
   assert.match(engine, /offlineHistory\(session\.msgs/);
   assert.match(engine, /offlineGroupHistory\(session\.msgs/);
 });

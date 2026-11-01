@@ -1949,7 +1949,19 @@ function useChatWindow(ref, total, resetKey, recentLimit = 0) {
   const [winN, setWinN] = useState(CHAT_WINDOW);
   // 换个人／换个房间／换个群：窗口收回去，别把上一处翻开的那一大段带过来
   useEffect(() => { setWinN(CHAT_WINDOW); }, [resetKey]);
-  const winStart = Math.max(0, total - (limit || winN));
+  // 来了新消息：窗口跟着撑大同样的条数，起点不动（她 2026-10-31：往上翻着看，每来一条就往下跳一截）。
+  //   原来窗口是「最近 N 条」，新来一条，顶上最老那条就被摘掉——上面少了一截，她正在看的那段就往上窜一截。
+  //   这一拍要在画之前补上（同一次渲染里算 winStart），所以不走 effect，直接按上一拍的 total 补。
+  const lastTotalRef = useRef(total), lastKeyRef = useRef(resetKey);
+  let winNow = winN;
+  if (lastKeyRef.current !== resetKey) { lastKeyRef.current = resetKey; lastTotalRef.current = total; winNow = CHAT_WINDOW; }
+  else if (total > lastTotalRef.current && !limit) {
+    const add = total - lastTotalRef.current; lastTotalRef.current = total;
+    winNow = winN + add;
+    // 存回去，下一拍接着用（在渲染里改状态要包在条件里，只在真变了的那一拍改一次）
+    if (winNow !== winN) setWinN(winNow);
+  } else lastTotalRef.current = total;
+  const winStart = Math.max(0, total - (limit || winNow));
   // 往上补一段。⚠️补完要把滚动位置顶回原处：DOM 前面凭空多出几百条，
   //   不补这一下，她正在看的那一段会当场往下窜掉一大截。
   const growRef = useRef(0);
@@ -12529,6 +12541,7 @@ function ChatThread({
         style: { minHeight: 36, borderRadius: 999, border: "1px solid " + (askKind === id ? t.ink : t.line), background: askKind === id ? t.ink : "transparent", color: askKind === id ? t.bg2 : t.sub, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))" } }, label))),
     photoSendMode === "real" && h(ChatPhotoPick, { imgs: specialImgs, setImgs: setSpecialImgs, toast, t }),
     h("input", { "data-wk": "input", value: specialText, onChange: e => setSpecialText(e.target.value), placeholder: photoSendMode === "ask" ? "想看什么（选填），比如此刻在干嘛" : photoSendMode === "real" ? "可以顺手说一句（选填）" : photoSendMode === "selfme" ? "你在哪、在干嘛、想拍成什么样（必填）" : "描述照片里有什么（必填，不会上传图片）", className: "w-full outline-none px-3 py-2.5 rounded-lg", style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", background: t.bg, color: t.ink, border: `1px solid ${t.line}` } }),
+    photoSendMode !== "real" && h(PhotoPromptChips, { value: specialText, onPick: setSpecialText }),
     photoSendMode === "selfme" && h("div", { "data-wk": "selfmeangle", className: "flex gap-2", style: { marginTop: 8 } }, [[false, "自拍", "手机举在面前"], [true, "别人拍的", "第三人角度，拍你在做的事"]].map(([v, l, d]) =>
       h("button", { key: l, onClick: () => setSelfThird(v), "aria-pressed": selfThird === v, className: "flex-1 text-left active:opacity-70",
         style: { minHeight: 44, padding: "7px 10px", borderRadius: 10, border: "1.5px solid " + (selfThird === v ? t.ink : t.line), background: selfThird === v ? t.bg : "transparent" } },
@@ -16583,6 +16596,25 @@ const topicCardsOf = id => { try { const m = loadJSON("x_topicCards", {}); retur
 const topicCardsPut = (id, fn) => { const m = loadJSON("x_topicCards", {}) || {}; const next = fn(Array.isArray(m[id]) ? m[id] : []); if (next.length) m[id] = next; else delete m[id]; saveJSON("x_topicCards", m); return next; };
 window.topicCardsOf = topicCardsOf; window.topicCardsPut = topicCardsPut;
 // 话题卡那一页（她 2026-10-31「话题卡本身能不能互通」）：点一张填进输入框；自己写一张；传到小窝；也放给别的角色
+// 存过的生图描述（群友 2026-10-31：「许愿生图指令可以像话题梗那样保存」）：发照片里写描述的那一格下面，
+//   存过的摆一排，点一下填进框里；框里有字时多一颗「存起来」。所有人共用一份（x_photoPrompts），最多 40 条，长按一条删掉。
+function PhotoPromptChips({ value, onPick }) {
+  const t = useTheme();
+  const [list, setList] = useState(() => { try { const v = loadJSON("x_photoPrompts", []); return Array.isArray(v) ? v.filter(x => typeof x === "string") : []; } catch (e) { return []; } });
+  const put = l => { setList(l); saveJSON("x_photoPrompts", l); };
+  const cur = String(value || "").trim();
+  const pressT = useRef(null);
+  const chip = { minHeight: 32, maxWidth: "100%", padding: "4px 11px", borderRadius: 999, border: "1px solid " + t.line, background: t.bg, color: t.sub, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" };
+  if (!list.length && !cur) return null;
+  return h("div", { "data-wk": "photoprompts", className: "flex flex-wrap", style: { gap: 6, marginTop: 8 } },
+    list.map((x, i) => h("button", { key: i, "data-wk": "photoprompt", title: x, className: "active:opacity-60", style: chip,
+      onClick: () => onPick(x),
+      onTouchStart: () => { clearTimeout(pressT.current); pressT.current = setTimeout(() => requestAppConfirm("删掉这条存着的描述？", x, () => put(list.filter((_, j) => j !== i)), "删掉"), 600); },
+      onTouchEnd: () => clearTimeout(pressT.current), onTouchMove: () => clearTimeout(pressT.current),
+      onContextMenu: e => { e.preventDefault(); requestAppConfirm("删掉这条存着的描述？", x, () => put(list.filter((_, j) => j !== i)), "删掉"); } }, x.length > 18 ? x.slice(0, 18) + "…" : x)),
+    cur && !list.includes(cur) ? h("button", { "data-wk": "photopromptsave", className: "active:opacity-60", onClick: () => put([cur].concat(list).slice(0, 40)),
+      style: Object.assign({}, chip, { border: "1px dashed " + t.line, background: "transparent", color: t.accent || t.ink }) }, "＋ 存起来") : null);
+}
 function TopicCardsSheet({ charId, onClose, onUse }) {
   const t = useTheme();
   const [list, setList] = useState(() => topicCardsOf(charId));
@@ -20790,6 +20822,7 @@ function GroupThread({
       }, label))),
     groupPhotoMode === "real" && h(ChatPhotoPick, { imgs: groupPhotoImgs, setImgs: setGroupPhotoImgs, toast, t }),
     h("input", { "data-wk": "input", value: photoText, onChange: e => setPhotoText(e.target.value), placeholder: groupPhotoMode === "real" ? "可以顺手说一句（选填）" : "描述照片里有什么（必填，不会上传图片）", className: "w-full outline-none px-4 py-3 rounded-xl", style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.ink, background: "#fff", border: "1px solid " + t.line } }),
+    groupPhotoMode !== "real" && h(PhotoPromptChips, { value: photoText, onPick: setPhotoText }),
     groupPhotoMode === "describe" && h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.5, marginTop: 7 } }, "群成员只会收到文字描述；不会读取或上传真实照片。")
   ), callLogOpen && h(CallLogSheet, { calls: (messages || []).filter(x => x.kind === "callend"), chars: characters, onClose: () => setCallLogOpen(false) }), searchOpen && h(ChatSearchSheet, { messages, chars: characters, archCount: archCount, loadArch: onLoadOlder ? () => onLoadOlder("g_" + group.id) : null, onClose: () => setSearchOpen(false), onLocate: i => { setSearchOpen(false); revealMsg(i); setTimeout(() => locateMsgIn(ref.current, i, messages, archCount > 0, { start: winStartRef.current }), 160); } }), voiceMsgOpen && h(Sheet, { onClose: () => setVoiceMsgOpen(false) },
     h(VoiceEarComposer, { onSend: sendRich, onClose: () => setVoiceMsgOpen(false), senderName: meName, ownerKey: profile && (profile.id || profile.name), toast })

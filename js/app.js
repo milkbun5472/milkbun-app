@@ -20,7 +20,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v88.863";
+const APP_VERSION = "v88.879";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -14086,11 +14086,16 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         // 卡片原样过：双语那一刀按「|」劈，HTML 里正好有竖线
         if (typeof htmlCardOf === "function" && htmlCardOf(w)) return acc.concat([w]);
         const bi = _biParse ? splitBilingual(w, hanLangOf(char)) : null;
-        const parts = _splitOn ? splitLongBubble(bi ? bi.text : w, !_body) : [bi ? bi.text : w];
+        // 带译文的外语句不按逗号拆（她 2026-11-01：「Tu vois, j'avais raison !」劈成两泡，译文只挂在后一泡）：只在整句结束处拆，译文才对得上
+        // 本体模式开了「拆成短气泡」：逗号、空格也算断句，跟普通角色一样（她 2026-11-01：「开了切泡怎么没切」——一整段只靠空格断句）
+        const _commaOk = !_body || _s.bodySplit === true;
+        const parts = _splitOn ? splitLongBubble(bi ? bi.text : w, bi ? false : _commaOk) : [bi ? bi.text : w];
         // 键要归一化：②.5 那一步会削掉句尾那个句号，原样存就对不上了
-        if (bi && parts.length) bilingualSpread(parts, bi.zh, !_body).forEach((z, k) => { if (z) _biZh.set(bilingualKey(parts[k]), z); else _biCovered.add(bilingualKey(parts[k])); });
+        if (bi && parts.length) bilingualSpread(parts, bi.zh, _commaOk).forEach((z, k) => { if (z) _biZh.set(bilingualKey(parts[k]), z); else _biCovered.add(bilingualKey(parts[k])); });
         return acc.concat(parts);
       }, []);
+      // 「第一：」挂在上一泡尾巴上的，挪到下一泡开头（2026-11-01）
+      if (typeof moveDanglingLeads === "function") words = moveDanglingLeads(words);
       // ②.5 打字体标点兜底（v54.81）：削掉每一泡句尾那个句号。放在拆泡【之后】——
       //     拆分本来就按句末标点断句，多句挤一泡的先被拆开，各泡再各削各的，
       //     不会留下「前半句带句号、后半句不带」的半吊子。engineerEyes 的角色跳过：
@@ -14147,7 +14152,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       //   所以这一刀落在代码里。挪进动作行，不删、不改字，只是别冒充「发出去的话」。
       // ⚠️称谓设成第三人称的场次不落刀：那儿的「她」本来就是对的。
       const _actGuard = window.BubbleActGuard
-        ? window.BubbleActGuard.split(words, { secondPerson: (settingsFor(charId) || {}).userPerson !== "ta" })
+        ? window.BubbleActGuard.split(words, { secondPerson: (settingsFor(charId) || {}).userPerson !== "ta", selfNames: [char && char.name, char && char.remark] })
         : { words: words, acts: [] };
       words = _actGuard.words;
       const rescuedActLines = _actGuard.acts;
@@ -15585,7 +15590,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       // ⚠️历史上的时刻戳原来挂在 gs.memoryInterop（闭群那个开关）上——那跟时间感知半点关系没有。
       //   v61.16 改成：群里没有一个人开着时间感知，就一个戳都不盖（相对间隔照留）。
       const _gClockAny = members.some(c => !c.npc && timeAwareFor(c.id));
-      for (const m of _graw) { const ts = m.ts || 0; if (_gClockAny && _gprev && ts && ts - _gprev > 90 * 60000) _gparts.push("〔—— 中间隔了约 " + gapPhrase(ts - _gprev) + (_gClockAny ? "，到 " + fmtStampAI(ts) : "") + " ——〕"); const ta = _gClockAny && (m.role === "user" || m.role === "narration") && window.TemporalAnchor ? vAnchor(m.content, ts, "g:" + groupId) : ""; const qr = gQuoteByMessage.get(m); const quoteNote = m.replyTo ? "【这条正在引用 " + (m.replyToSenderName || "作者未知") + (m.replyToId ? "（消息 " + m.replyToId + "）" : "") + "：『" + String(m.replyTo).replace(/\s+/g, " ").slice(0, 100) + "』】\n" : ""; _gparts.push((qr ? "[" + qr.alias + "] " : "") + quoteNote + (_gClockAny && ts ? "[" + fmtStampAI(ts) + "] " : "") + fmtGLine(m) + groupStickNote(m) + (ta ? " " + ta : "")); if (ts) _gprev = ts; }
+      for (const m of _graw) { const ts = m.ts || 0; const _gvg = typeof vGap === "function" ? vGap(_gprev, ts, "g:" + groupId) : ts - _gprev; if (_gClockAny && _gprev && ts && _gvg > 90 * 60000) _gparts.push("〔—— 中间隔了约 " + gapPhrase(_gvg) + (_gClockAny ? "，到 " + fmtStampAI(ts) : "") + " ——〕"); const ta = _gClockAny && (m.role === "user" || m.role === "narration") && window.TemporalAnchor ? vAnchor(m.content, ts, "g:" + groupId) : ""; const qr = gQuoteByMessage.get(m); const quoteNote = m.replyTo ? "【这条正在引用 " + (m.replyToSenderName || "作者未知") + (m.replyToId ? "（消息 " + m.replyToId + "）" : "") + "：『" + String(m.replyTo).replace(/\s+/g, " ").slice(0, 100) + "』】\n" : ""; _gparts.push((qr ? "[" + qr.alias + "] " : "") + quoteNote + (_gClockAny && ts ? "[" + fmtStampAI(ts) + "] " : "") + fmtGLine(m) + groupStickNote(m) + (ta ? " " + ta : "")); if (ts) _gprev = ts; }
       const hist = _gparts.join("\n");
       // 断档要看「用户这次刚发的几条」之前的最后一条——不然刚发的消息把间隔清零，
       // 断档提醒永远不触发，隔夜回来成员还接着昨晚的事演（比如牛腩炖了一整夜）
@@ -16433,14 +16438,15 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
               .reduce((acc, x) => {
                 if (typeof htmlCardOf === "function" && htmlCardOf(x)) return acc.concat([x]);
                 const bi = gBiOn ? splitBilingual(x, hanLangOf(spk)) : null;
-                const parts = splitLongBubble(bi ? bi.text : x, gAllowComma);
+                const parts = splitLongBubble(bi ? bi.text : x, bi ? false : gAllowComma);   // 带译文的不按逗号拆，跟单聊同一条
                 if (bi && parts.length) bilingualSpread(parts, bi.zh, gAllowComma).forEach((z, k) => { if (z) gBiZh.set(bilingualKey(parts[k]), z); else gBiCovered.add(bilingualKey(parts[k])); });
                 return acc.concat(parts);
               }, []);
             let gBubbles = gLines.length ? gLines : [stripAiStamp(item.text || "")].filter(Boolean);
+            if (typeof moveDanglingLeads === "function") gBubbles = moveDanglingLeads(gBubbles);   // 「第一：」挪到下一泡开头，跟单聊同一条
             // 掉格式兜底（四处一样喂：跟单聊同一把刀、同一个模块）。群里没有逐人称谓设置，
             // 默认就是第二人称。
-            const _gGuard = window.BubbleActGuard ? window.BubbleActGuard.split(gBubbles, {}) : { words: gBubbles, acts: [] };
+            const _gGuard = window.BubbleActGuard ? window.BubbleActGuard.split(gBubbles, { selfNames: [spk && spk.name, spk && spk.remark] }) : { words: gBubbles, acts: [] };
             gBubbles = _gGuard.words;
             // 写进气泡里的表情就地发（跟单聊同一个 emoteSlotWords）：气泡里留 emoteslotN，下面那一圈走到它发表情
             const _gEs = emoteSlotWords(gBubbles, emotesForChar(spk.id), emoteNorm);
@@ -17454,7 +17460,9 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       + (past.length ? "\n往年的这一天你们也过过，那时的卡：\n" + past.join("\n") + "\n今年写别的事；可以自然想起往年，但不必每张都提。" : "");
   };
   // SSR 剧情的旁白是给她读的（她 2026-10-27：旁白写成了「他转头看向她」）：乙游卡面那样，读的人是「你」
-  const STAMP_NARR_POV = "旁白（narr）是写给她读的，像乙游卡面剧情：旁白里她是「你」，你是「他」（比如「他转头看向你」），不写「她」；he、me 两种照常是各自说出口的话。";
+  // 旁白里角色用哪个代词照档案性别走（群里 2026-11-01：女角色剧情里全写成了「他」）
+  const stampPov = (char, t) => { const p = window.CharacterPronoun ? window.CharacterPronoun.ta(char) : "他"; return p === "他" ? t : t.replace(/「他/g, "「" + p); };
+  const STAMP_NARR_POV = char => stampPov(char, "旁白（narr）是写给她读的，像乙游卡面剧情：旁白里她是「你」，你是「他」（比如「他转头看向你」），玩家不用第三人称写；he、me 两种照常是各自说出口的话。");
   // 时间线卡：同一个他、同一个世界，只换时间点（群里 2026-10-29）。关系照那个时间来，都算「如果」，不当真
   const STAMP_TIME = {
     before: "这一张写的是【认识她之前】的你：你那时候在过的日子、那时的你是什么样。她还不在你的生活里——不写你们之间的事，最多是一次你当时没在意的擦肩。",
@@ -17581,7 +17589,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
           + "每张都有 name（卡名，八个字以内，从这张卡里那件事本身来起，不拿日子、节气、天气这些背景起名）、gist（一句话记下这张写的是什么事、在哪、怎么收的尾，给以后去重用）和 shot。" + STAMP_SHOT_SPEC
           + stampPrevLine(prev) + "\n这几张之间也是不同的事。"
           // 人称跟 SSR 剧情一样（她 2026-10-28：R 卡里写成了「你调完色，碰了碰她的下颌」）：卡是写给她读的
-          + "\n人称：卡上叙述的那几栏是写给她读的（每一栏还是照格式写成一段字），叙述里你是「他」、她是「你」，比如「他调完色，碰了碰你的下颌」；thought、real、hidden、line、back、his 是你自己心里或嘴上的话，用「我」。",
+          + stampPov(char, "\n人称：卡上叙述的那几栏是写给她读的（每一栏还是照格式写成一段字），叙述里你是「他」、她是「你」，比如「他调完色，碰了碰你的下颌」；thought、real、hidden、line、back、his 是你自己心里或嘴上的话，用「我」。"),
         // 格式样例里不放 (R)/(SR) 这种占位：模型会照抄进正文。R、SR 各给一份，按这几张里有哪几种拼
         schemaHint: "{\"cards\":[" + [list.some(c => c.rarity === "R") ? "{\"name\":\"\",\"narration\":\"\",\"thought\":\"\",\"before\":{\"narration\":\"\",\"thought\":\"\"},\"after\":{\"narration\":\"\",\"thought\":\"\"},\"real\":\"\",\"sound\":\"\",\"back\":\"\",\"gist\":\"\",\"shot\":\"\"}" : "",
           list.some(c => c.rarity === "SR") ? "{\"name\":\"\",\"line\":\"\",\"open\":\"\",\"rest\":\"\",\"sequel\":\"\",\"hidden\":\"\",\"his\":\"\",\"keepsake\":{\"name\":\"\",\"desc\":\"\"},\"gist\":\"\",\"shot\":\"\"}" : ""].filter(Boolean).join(",") + "]}（按上面的顺序一张一个对象：R 卡用第一种的栏，SR 卡用第二种的栏）",
@@ -17633,7 +17641,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
             instruction: STAMP_CORE() + stampVoice(char) + stampBi(char) + "你在写邮票册里那张 SSR「" + d.name + "」的剧情。" + stampKindLine(c, char)
               + "\n前面已经写好了这几节（每节只摘了结尾几句）：\n" + sofar
               + "\n\n接着把还缺的写完：" + miss.map(l => l === 10 || l === 30 ? "lv" + l + " 的两条岔路" : l === 40 ? "lv40 的两三个结局（end:true）" : l === 50 ? "lv50 的隐藏的路（hidden:true，也是一个结局）" : "lv" + l + " 那一节").join("、")
-              + "。" + STAMP_NARR_POV + "id 要跟前面选项里 go 指向的那几个对上；没被指到的，就由你在新写的节里接上。每节写得跟前面一样丰满，口气、事情都接着前面走。",
+              + "。" + STAMP_NARR_POV(char) + "id 要跟前面选项里 go 指向的那几个对上；没被指到的，就由你在新写的节里接上。每节写得跟前面一样丰满，口气、事情都接着前面走。",
             schemaHint: "{\"sections\":[{\"id\":\"\",\"lv\":10,\"title\":\"\",\"beats\":[{\"who\":\"narr|he|me\",\"text\":\"\"}],\"choices\":[{\"text\":\"\",\"go\":\"\"}],\"end\":false,\"hidden\":false}]}",
             maxTokens: 65000 });
         } catch (e2) { more = null; }
@@ -17676,9 +17684,9 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         instruction: STAMP_CORE() + stampVoice(char) + stampBi(char) + "她想给你这张" + card0.rarity + "「" + (tx.name || "") + "」写一段番外。" + stampKindLine(card0, char)
           + "\n这张卡写的是：" + String(tx.gist || tx.highlight || "").slice(0, 200) + (ends ? "\n它的几个结局：\n" + ends.slice(0, 900) : card0.rarity === "SR" ? "\n那件事：\n" + [tx.open, tx.rest, tx.sequel].filter(Boolean).join("\n").slice(0, 900) : "")
           + (wish0 ? "\n她点了题，想看的是：「" + wish0 + "」。就写这个，落到这张卡的故事和你们真实的关系里；她说得不细的地方由你补。" : "")
-          + "\n番外是这段故事外面的一段：结局之后的某一天、故事里没写到的那一晚，或者同一件事里你那边没让她看到的部分" + (wish0 ? "。" : "，挑一个最想补上的。") + "八百到一千二百字，一个完整的小场景，有开头有收尾。旁白里她是「你」，你是「他」。"
+          + "\n番外是这段故事外面的一段：结局之后的某一天、故事里没写到的那一晚，或者同一件事里你那边没让她看到的部分" + (wish0 ? "。" : "，挑一个最想补上的。") + stampPov(char, "八百到一千二百字，一个完整的小场景，有开头有收尾。旁白里她是「你」，你是「他」。")
           + (had.length ? "\n这张卡已经有的番外：\n" + had.join("\n") + "\n这一段写别的。" : "")
-          + "\n照乙游剧情那样一句一句写在 beats 里：who 是 he＝你说的话、me＝她说的话、narr＝旁白动作，text 是这一句；" + STAMP_NARR_POV + ((StampsCoreSafe().opt || {}).meQuiet ? "她基本不开口，往前推的是你的话、你的动作和旁白。" : "她那句（me）照她平时的样子写，少一点。") + "\ntitle 是番外的名字（八个字以内）；gist 一句话记下写的是什么；shot 是给画卡面的人看的一句分镜（横版 CG，主要的人放正中间，画这段里最想留住的那一下：谁在、在干嘛、在哪、什么光）；duo 是这一下她在不在画里（true/false）。",
+          + "\n照乙游剧情那样一句一句写在 beats 里：who 是 he＝你说的话、me＝她说的话、narr＝旁白动作，text 是这一句；" + STAMP_NARR_POV(char) + ((StampsCoreSafe().opt || {}).meQuiet ? "她基本不开口，往前推的是你的话、你的动作和旁白。" : "她那句（me）照她平时的样子写，少一点。") + "\ntitle 是番外的名字（八个字以内）；gist 一句话记下写的是什么；shot 是给画卡面的人看的一句分镜（横版 CG，主要的人放正中间，画这段里最想留住的那一下：谁在、在干嘛、在哪、什么光）；duo 是这一下她在不在画里（true/false）。",
         schemaHint: "{\"title\":\"\",\"beats\":[{\"who\":\"narr|he|me\",\"text\":\"\"}],\"gist\":\"\",\"shot\":\"\",\"duo\":false}", maxTokens: 30000 });
       const beats = Array.isArray(d && d.beats) ? d.beats.filter(b => b && b.text && /^(he|me|narr)$/.test(b.who)).map(b => ({ who: b.who, text: String(b.text) })) : [];
       const meN = userName(meOf(char.id)), plain = beats.length ? beats.map(b => b.who === "he" ? char.name + "：" + b.text : b.who === "me" ? meN + "：" + b.text : b.text).join("\n") : String((d && d.text) || "");
@@ -17719,6 +17727,20 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       await idbImgPut(key, out.blob);
       setX({ drawing: false, img: key, drawErr: "" });
     } catch (e) { setX({ drawing: false, drawErr: String(e && e.message || e).slice(0, 100) }); toast("插图没画成：" + String(e && e.message || e).slice(0, 60)); }
+  };
+  // 只重写卡面描述（shot），卡上的字一个不动（群里 2026-11-01）。上次被图像站拒了的，叫他写含蓄一点
+  const stampReshot = async card => {
+    const char = characters.find(x => x.id === card.charId), tx = card.text; if (!char || !tx) return false;
+    const what = card.rarity === "R" ? [tx.narration, tx.thought].filter(Boolean).join("\n") : card.rarity === "SSR" ? (tx.highlight || tx.line || tx.gist || "") : [tx.open, tx.line].filter(Boolean).join("\n");
+    const d = await runProbe(offlineApiFor(char.id), ctxFor(char, { loreScope: "offline" }), { voice: true,
+      instruction: "邮票册里你这张" + card.rarity + "「" + (tx.name || "") + "」的卡面要重画，只重写画卡面用的那段分镜，卡上的字不动。这张卡写的那一刻：\n" + String(what).slice(0, 600)
+        + (tx.shot ? "\n原来的分镜：" + String(tx.shot).slice(0, 400) + "\n换一种写法，别照抄。" : "")
+        + (card.drawErr && /safety|policy|审核|违规|内容|sensitive|reject/i.test(card.drawErr) ? "\n上次画的时候被图像站的审核拒了：画面写得含蓄一点，不写血、伤口、武器、裸露、过于亲密的身体接触这类容易被拦的东西，换成别的方式表达同一个意思。" : "")
+        + "\n" + STAMP_SHOT_SPEC,
+      schemaHint: "{\"shot\":\"\"}", maxTokens: 8000 });
+    const shot = String((d && d.shot) || "").trim(); if (!shot) return false;
+    stampSaveCard(card.id, c0 => ({ ...c0, text: { ...c0.text, shot: shot.slice(0, 800) } }));
+    return true;
   };
   const stampPoke = async (card, side) => {
     const char = characters.find(x => x.id === card.charId); if (!char || !card.text) return null;
@@ -35212,6 +35234,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     onExtra: stampExtra,
     onExtraDraw: stampExtraDraw,
     onExtraSend: stampExtraSend,
+    onReshot: stampReshot,
     // 接着演（她 2026-10-27）：把这张卡写了什么打包交给小剧场，开一条从卡来的线；或者打开从这张卡开过的某一条
     onTheater: card => { const tx = card.text || {}, ends = (tx.sections || []).filter(x => x && (x.end || x.hidden)).map(x => "「" + (x.title || "") + "」" + (x.beats || []).filter(b => b && b.who !== "pick").slice(-4).map(b => String(b.text || "").slice(0, 100)).join(" / ")).join("\n");
       const text = ["卡名：" + (tx.name || ""), card.kind === "if" ? "IF 主题：" + (card.theme || "") + (card.themeLine ? "：" + String(card.themeLine).slice(0, 300) : "") : "", tx.gist ? "写的是：" + tx.gist : "",

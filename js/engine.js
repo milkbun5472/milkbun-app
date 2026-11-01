@@ -2770,6 +2770,25 @@ function splitCardsAndLines(s) {
   }
   return str.split(/\n+/).map(x => x.trim()).filter(Boolean);
 }
+// 起头的词挂在上一泡尾巴上（她 2026-11-01 截图：「那我的诉求可太明确了第一」「严正拒绝…道具第二」）：
+//   模型换行时把「第一：」写在了上一行末尾，照换行一切，「第一」就跟着前一句走了。
+//   一泡的结尾是「第一／第二…／首先／其次／再者／最后」（后面可带：，）、而且后面还有下一泡，就挪到下一泡开头。
+const DANGLING_LEAD = /^([\s\S]*?[^\s，,：:])[\s，,]*((?:第[一二三四五六七八九十]+|首先|其次|再者|再次|最后|其一|其二|其三)[：:，,]?)\s*$/;
+function moveDanglingLeads(list) {
+  const out = (Array.isArray(list) ? list : []).slice();
+  for (let i = 0; i < out.length - 1; i++) {
+    if (typeof out[i] !== "string" || typeof out[i + 1] !== "string") continue;
+    const m = DANGLING_LEAD.exec(out[i]);
+    if (!m || m[1].length < 2) continue;
+    // 得看得出是在列点：前面隔着逗号／空格，或者后面跟着冒号。「这是第一」「好的」不挪
+    const sep = out[i].slice(m[1].length, out[i].length - m[2].length);
+    if (!/[\s，,]/.test(sep) && !/[：:]$/.test(m[2])) continue;
+    const lead = m[2].replace(/[，,]$/, "：");
+    out[i] = m[1].replace(/[，,：:\s]+$/, "");
+    out[i + 1] = lead + (/[：:]$/.test(lead) ? "" : "，") + out[i + 1].replace(/^\s+/, "");
+  }
+  return out;
+}
 function splitLongBubble(s, allowComma) {
   // 整块 HTML 卡片是一条消息，一刀都不许下（见上面 splitCardsAndLines 那段的由来）
   const _card = htmlCardOf(s);
@@ -2805,8 +2824,10 @@ function splitLongBubble(s, allowComma) {
     if (part.length <= LONG || !sep.test(part.slice(0, -1))) return acc.concat([part]);
     const segs = part.split(sep).reduce(glue, []).filter(x => x.trim());
     const chunks = [];
+    // 只靠空格断句的那种（不打标点）最多 6 泡（她 2026-11-01：切到第 4 刀就停，最后一泡剩一大截）；打了逗号的照旧最多 4 泡，免得切成碎屑
+    const maxN = (sep === SEP || sep === SEP_JP) ? 6 : MAX_CHUNKS;
     segs.forEach(seg => {
-      if (chunks.length && (chunks[chunks.length - 1].trim().length < MIN || chunks.length >= MAX_CHUNKS)) chunks[chunks.length - 1] += seg;
+      if (chunks.length && (chunks[chunks.length - 1].trim().length < MIN || chunks.length >= maxN)) chunks[chunks.length - 1] += seg;
       else chunks.push(seg);
     });
     while (chunks.length > 1 && chunks[chunks.length - 1].replace(/[，,、]?\s*$/, "").length < TAIL_MIN) chunks[chunks.length - 2] += chunks.pop();
@@ -7094,8 +7115,13 @@ async function hydrateTxtVault() {
       for (const k of durableWalKeys) {
         if (lsRaw.get(k) != null) continue; // journal 更可能是刚写的新版本，由上面的迁移负责
         const s = await walGetRaw(k); if (s == null) continue;
-        await idbTxtPut(k, s); const back = await idbTxtGet(k);
-        if (back === s) { mir.set(k, s); await walDel(k); }
+        // ⚠️WAL 只在 IDB 读回一致后才删，所以开机还在的那份【一定不比 IDB 旧】。
+        //   原来只有补进 IDB 成功才放进镜像：补不进去（满了、iOS 一时打不开）时镜像留的是 IDB 那份旧的，
+        //   界面就显示旧聊天，她再发一句，旧的连着新的一句一起写回去——WAL 里那一晚就被盖掉了
+        //   （群友 2026-11-01「早上进来昨晚十点以后的都没了」）。现在先认 WAL，IDB 补不进去就留着 WAL 下次再补。
+        mir.set(k, s);
+        try { await idbTxtPut(k, s); const back = await idbTxtGet(k); if (back === s) await walDelIf(k, s); }
+        catch (e) { console.error("WAL→IDB 补写没成，先用 WAL 那份:", k, e); txtWriteFailed(k, e); }
       }
     } catch (e) {
       console.error("durable text WAL recovery failed:", e);
@@ -7144,6 +7170,20 @@ function _imgFileOf(blob, name, n) {
   const fname = String(name || "图片").replace(/[\\/:*?"<>|]/g, "") + "-" + new Date().toISOString().slice(0, 10) + (n ? "-" + n : "") + "." + ext;
   return new File([blob], fname, { type: blob.type || "image/jpeg" });
 }
+// 她 2026-10-31：「还是不能直接保存到相册，就多了一个共享相册的选项」——
+//   iOS 只有认准是 jpg/png 的文件才给「存储图像」。库里有的图是 webp、或者类型是空的／octet-stream，
+//   分享面板就只给「共享相簿」「存到文件」。所以交出去之前统一成真 jpg/png（png 无损，原图清晰度不变）。
+async function _imgPhotoReady(blob) {
+  const t = String(blob.type || "");
+  if (t === "image/jpeg" || t === "image/png") return blob;
+  try {
+    const bmp = await createImageBitmap(blob);
+    const c = document.createElement("canvas"); c.width = bmp.width; c.height = bmp.height;
+    c.getContext("2d").drawImage(bmp, 0, 0);
+    const out = await new Promise(r => c.toBlob(r, "image/png"));
+    return out && out.size ? out : blob;
+  } catch (e) { return blob; }
+}
 async function saveImgOriginal(ref, name) {
   const r = await saveImgsBatch([{ ref: ref, name: name }]);
   return r.n > 0;
@@ -7162,7 +7202,7 @@ async function saveImgsBatch(items) {
   const files = []; let miss = 0;
   for (let i = 0; i < take.length; i++) {
     const b = await _imgBlobOf(take[i].ref);
-    if (b && b.size) files.push(_imgFileOf(b, take[i].name, take.length > 1 ? files.length + 1 : 0)); else miss++;
+    if (b && b.size) files.push(_imgFileOf(await _imgPhotoReady(b), take[i].name, take.length > 1 ? files.length + 1 : 0)); else miss++;
   }
   if (!files.length) return { n: 0, left: left, miss: miss, via: "none" };
   if (typeof navigator !== "undefined" && navigator.share && !_isAndroid() && (!navigator.canShare || navigator.canShare({ files: files }))) {
@@ -8906,6 +8946,14 @@ function vAnchor(text, ts, id) {
   const m = typeof vclockMap === "function" ? t => vclockMap(t, id) : t => t;
   return window.TemporalAnchor.anchor(text, m(ts), m(Date.now()));
 }
+// 两条消息之间、钟上过了多久（她 2026-11-01「调整了虚拟世界但 char 记忆一直停在之前」）：
+//   原来「中间隔了约 X」按现实算，她把钟往后拨了三天、现实只过了一分钟——分隔线不出来，TA 以为还接着刚才那场。
+//   开着虚拟钟就按钟算（拨钟那一下也算进去），没开就跟现实一样。线下、群线下、群聊都问这一个。
+function vGap(prevTs, ts, id) {
+  if (!prevTs || !ts) return 0;
+  if (typeof vclockMap !== "function") return ts - prevTs;
+  return vclockMap(ts, id) - vclockMap(prevTs, id);
+}
 function offlineHistory(msgs, userName, charName, clock, clockId) {
   const g = [];
   let prevTs = 0;
@@ -8915,8 +8963,9 @@ function offlineHistory(msgs, userName, charName, clock, clockId) {
     const ts = Number(m.ts) || 0;
     // 时间感知关着的时候，线下连「中间隔了多久」也不说（群友 2026-10-04：「线下昨天聊一半想继续聊，关了时间感知，他还是知道到第二天了」）——
     //   线下是一场戏，她隔天回来接着演，戏里不该凭空过了一夜。开着时照旧标出来。
-    const gap = clock !== false && prevTs && ts && ts - prevTs > 90 * 60000
-      ? "〔—— 中间隔了约 " + gapPhrase(ts - prevTs) + "，到 " + fmtStampAI(ts) + " ——〕\n"
+    const _vg = vGap(prevTs, ts, clockId);
+    const gap = clock !== false && prevTs && ts && _vg > 90 * 60000
+      ? "〔—— 中间隔了约 " + gapPhrase(_vg) + "，到 " + fmtStampAI(ts) + " ——〕\n"
       : "";
     const stamp = (ts && clock !== false) ? "〔" + fmtStampAI(ts) + "〕" : "";
     // ⚠️只标一边等于没标：线上那几条标了【线上私聊】，线下这几条什么都不标，
@@ -9687,8 +9736,9 @@ function offlineGroupHistory(msgs, userName, clock, clockId) {
     const ts = Number(m.ts) || 0;
     // 时间感知关着的时候，线下连「中间隔了多久」也不说（群友 2026-10-04：「线下昨天聊一半想继续聊，关了时间感知，他还是知道到第二天了」）——
     //   线下是一场戏，她隔天回来接着演，戏里不该凭空过了一夜。开着时照旧标出来。
-    const gap = clock !== false && prevTs && ts && ts - prevTs > 90 * 60000
-      ? "〔—— 中间隔了约 " + gapPhrase(ts - prevTs) + "，到 " + fmtStampAI(ts) + " ——〕\n"
+    const _vg = vGap(prevTs, ts, clockId);
+    const gap = clock !== false && prevTs && ts && _vg > 90 * 60000
+      ? "〔—— 中间隔了约 " + gapPhrase(_vg) + "，到 " + fmtStampAI(ts) + " ——〕\n"
       : "";
     const stamp = (ts && clock !== false) ? "〔" + fmtStampAI(ts) + "〕" : "";
     if (m.role === "char") {
@@ -11202,7 +11252,7 @@ function txtWrite(k, s) {
           return verifyWal.then(walBack => {
             if (back === s && (!needsLocalJournal || lsRaw.get(k) === s) && walBack === s) {
               if (needsLocalJournal) lsRaw.del(k);
-              if (isDurableTextKey(k)) walDel(k).catch(e => console.error("wal cleanup failed:", k, e));
+              if (isDurableTextKey(k)) walDelIf(k, s).catch(e => console.error("wal cleanup failed:", k, e));
             }
           });
         }).catch(e => { console.error("durable idbTxtPut failed:", k, e); txtWriteFailed(k, e); });
@@ -11328,6 +11378,16 @@ function walDel(key) {
   return walOpen().then(db => new Promise((res, rej) => {
     const tx = db.transaction("wal", "readwrite");
     tx.objectStore("wal").delete(key);
+    tx.oncomplete = res;
+    tx.onabort = tx.onerror = () => rej(tx.error || new Error("wal delete abort"));
+  }));
+}
+// 只在保险箱里还是【这一版】时才删（同一个事务里先读后删）。连着好几次保存同一个聊天时，
+//   前一次收尾那一下不许把后一次刚写进去、还没落进 IDB 的那份删掉。
+function walDelIf(key, str) {
+  return walOpen().then(db => new Promise((res, rej) => {
+    const tx = db.transaction("wal", "readwrite"), st = tx.objectStore("wal"), rq = st.get(key);
+    rq.onsuccess = () => { if (rq.result && rq.result.v === str) st.delete(key); };
     tx.oncomplete = res;
     tx.onabort = tx.onerror = () => rej(tx.error || new Error("wal delete abort"));
   }));
@@ -11623,7 +11683,20 @@ function vclockKeepHist(oldClocks, newClocks, now) {
   const out = { ...(newClocks || {}) }; now = now || Date.now();
   Object.keys(out).forEach(k => {
     const o = oldClocks && oldClocks[k], n = out[k];
-    if (!o || !n || !o.on || !n.on) return;
+    if (!o || !n) return;
+    // 开、关钟这一下也记一笔（她 2026-11-01：「从虚拟时间改到现实和 vice versa 不会有错吧」）：
+    //   原来只有「开着→开着」才记，关钟以后以前虚拟那段统统按现实重算，开钟以后以前现实那段统统被算成虚拟的。
+    //   关钟：把那一版虚拟钟记下来（之前的消息照旧是虚拟的日子）；开钟：把关着那段记成「现实」（real:true，原样）。
+    const hist0 = Array.isArray(o.hist) ? o.hist : (Array.isArray(n.hist) ? n.hist : []);
+    if (o.on && !n.on && isFinite(Number(o.base))) {
+      out[k] = { ...n, hist: [...hist0, { until: now, base: Number(o.base), at: Number(o.at || 0), speed: o.speed, ...(o.awayAt ? { awayAt: o.awayAt } : {}) }].slice(-300) };
+      return;
+    }
+    if (!o.on && n.on) {
+      out[k] = { ...n, hist: [...hist0, { until: now, real: true }].slice(-300) };
+      return;
+    }
+    if (!o.on || !n.on) { if (hist0.length && !n.hist) out[k] = { ...n, hist: hist0 }; return; }
     // 只要这版钟的四样有一样变了（拨钟、改速度、离开停住又回来），旧消息照旧版算才不会挪
     const jump = Number(o.base) !== Number(n.base) || Number(o.at || 0) !== Number(n.at || 0) || Number(o.speed) !== Number(n.speed) || (o.awayAt || 0) !== (n.awayAt || 0);
     if (!jump) { if (o.hist && !n.hist) out[k] = { ...n, hist: o.hist }; return; }
@@ -11632,7 +11705,24 @@ function vclockKeepHist(oldClocks, newClocks, now) {
   });
   return out;
 }
-function vclockMap(ts, id) { return vclockMapBy(vclockCfg(id, ts), ts); }
+function vclockMap(ts, id) {
+  const c = vclockCfg(id, ts);
+  if (c) return vclockMapBy(c, ts);
+  // 钟现在关着，可以前开过：那几段照当时的钟算，之后的照现实
+  const raw = vclockRawCfg(id, ts);
+  if (raw && Array.isArray(raw.hist) && raw.hist.length) {
+    for (let i = 0; i < raw.hist.length; i++) { const h = raw.hist[i]; if (h && Number(ts) < Number(h.until)) return h.real ? Number(ts) : vclockMapBy({ ...h, hist: null }, ts); }
+  }
+  return Number(ts);
+}
+// 不管开没开，拿这个人那只钟的原始设定（看历史分段用）
+function vclockRawCfg(id, ts) {
+  const W = vclockState(); if (!W || !W.clocks) return null;
+  const who = id !== undefined ? id : W.active;
+  let key = "";
+  try { key = who != null && typeof W.maskOf === "function" ? String(W.maskOf(String(who), ts) || "") : ""; } catch (e) { key = ""; }
+  return (W.clocks || {})[key || "main"] || null;
+}
 // 显示用的公共一处：现实时间戳 → 这个角色（或 "g:群id"、null＝主面具）那只钟上的 Date
 function vDate(ts, id) { const t = Number(ts) || Date.now(); return new Date(vclockMap(t, id)); }
 // 主面具那只钟（主屏的钟和日历、周刊这种不属于某一个人的地方用它）
@@ -11644,6 +11734,7 @@ function vclockMainMap(ts) {
 function vclockMapBy(c0, ts) {
   if (!c0) return Number(ts);
   const c = vclockSeg(c0, ts);
+  if (c && c.real) return Number(ts);   // 那一段钟是关着的：照现实
   const sp = Number(c.speed);
   // 离开小手机时停住：走开那段里后台照样会跑（自己发消息、写日记），那几下也按走开那一刻算
   const t = c.awayAt && Number(ts) > Number(c.awayAt) ? Number(c.awayAt) : Number(ts);
