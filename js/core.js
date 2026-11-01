@@ -60,19 +60,16 @@ const F_DISPLAY = "var(--f-display,'Fraunces',serif)";
 // 所有「选一份文件」的地方都用这一个（她 2026-10-14：「把全部能发文件的地方都弄成公共的全部放行」）：
 //   iPhone／小米的选择器照后缀清单把 .css、.epub、.srt 这类不认识的类型变灰，点都点不了；
 //   所以一律放行，读进来以后由各处自己看是不是能用的（解析不出就提示换一份）。图片、视频那几处不走这个。
-// ⚠️安卓上【一律不写 accept 这个属性】。四次同一回事：群里 2026-10-18「导入文件只能选相册」（Edge，点了弹
-//   「No camera access」）、10-19「edge 文件只有相册的 bug 还是没好」、10-29「用夸克浏览器一直导不进去数据」、
-//   10-29 又一台安卓「点导入备份就直接跳转相册了，选不了文件」。
-//   病根：安卓的浏览器要把 accept 翻成一个系统 intent，翻不动（*/*、不认识的后缀、混进图片类型）就退回
-//   「拍照／相册」那一个，于是备份文件永远选不中。前三次是一个浏览器一个浏览器往名单里加，加不完——
-//   没有 accept 的 input 只能开系统的文件选择器，什么都挑得到，比任何一份清单都宽。
-//   只在安卓上不写：iOS 不写反而只剩「照片/拍照」，*/* 在那边本来就对。
-const ANDROID_NO_ACCEPT = ua => /Android/.test(ua);
-// ⚠️这里是 undefined 不是 ""：React 见到 undefined 才会把属性整个省掉（传空字符串会留下一个空的 accept 属性）。
-//   直接写 DOM 的那两处（components.js 的 pickTextFile、fanfic.js 的 importStyleFile）要先判断再赋值，
-//   不然 inp.accept 会被写成 "undefined" 这个字符串。
-const ANY_FILE = (typeof navigator !== "undefined" && ANDROID_NO_ACCEPT(navigator.userAgent || ""))
-  ? undefined
+// 安卓上选文件（五次同一回事，记全了别再来回改）：
+//   ① 10-18、10-19 Edge「导入文件只能选相册」：它见到 */* 当成要拍照；② 10-29 夸克/UC 同一个毛病；
+//   ③ 10-29 又一台安卓写着 */* 也跳相册；④ 于是改成「安卓一律不写 accept」——
+//   ⑤ 11-01 一台原来好好的（Edge）反而只剩「相机／摄像机／照片和视频」：有的系统见到没写 accept 也只给拍照和相册。
+//   现在安卓一律写「只要文档和文字这两大类」：不带图片类型、不写后缀（后缀翻不出类型会整串退回去），
+//   安卓会开「文件」选择器；①② 当时就是靠这一串好的，③⑤ 坏在 */* 和没写。json、txt、css、epub、docx、字体都在这几类里。
+//   iOS 照旧 */*：那边写大类反而把 .css、.epub 变灰。
+const ANDROID_FILE_ACCEPT = ua => /Android/.test(ua);
+const ANY_FILE = (typeof navigator !== "undefined" && ANDROID_FILE_ACCEPT(navigator.userAgent || ""))
+  ? "application/*,text/*,font/*"
   : "*/*";
 const F_BODY = "var(--f-body,'Archivo','Noto Serif SC',system-ui,sans-serif)";
 // wk：主题工作室的挂点（不传就没有）。stroke 是【属性】不是行内样式，
