@@ -5,7 +5,7 @@ const R = f => require("fs").readFileSync(require("path").join(__dirname, "..", 
 const scr = R("js/screens.js"), app = R("js/app.js"), comp = R("js/components.js"), core = R("js/char-day-core.js");
 const SC = require("../js/schedule-clock.js");
 
-test("planDay／planMinute：钟上开了跟钟排就是钟上那天那分，没开照现实", () => {
+test("planDay／planMinute：开了跟钟排就是钟上那天那分；只开钟时日子照现实、钟点照钟", () => {
   const real = Date.UTC(2026, 9, 20, 4, 0);          // 现实 10-20 04:00 UTC
   const virt = Date.UTC(2031, 2, 7, 13, 30);         // 虚拟 2031-03-07 13:30 UTC
   let cfg = { on: true, base: virt, schedFollow: true };
@@ -17,8 +17,11 @@ test("planDay／planMinute：钟上开了跟钟排就是钟上那天那分，没
   assert.equal(SC.characterFrame(ch, real).sourceDay, "2031-03-07", "今天的日程那页也找虚拟那天");
   cfg = { on: true, base: virt };
   assert.equal(SC.planFollows(ch), false);
-  assert.equal(SC.planDay(ch, real, 0), "2026-10-20");
-  assert.equal(SC.planMinute(ch, real, 0), 4 * 60);
+  assert.equal(SC.planDay(ch, real, 0), "2026-10-20", "没开跟钟排：日程还从现实那天取");
+  // 2026-11-01 起：钟开着，「此刻几点」就照钟上的（NOW、此刻在干嘛、睡没睡）
+  assert.equal(SC.planMinute(ch, real, 0), 13 * 60 + 30);
+  cfg = null;
+  assert.equal(SC.planMinute(ch, real, 0), 4 * 60, "钟关了照现实");
   delete global.vclockCfg; delete global.vclockMap;
 });
 
