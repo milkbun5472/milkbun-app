@@ -3623,6 +3623,64 @@ function TaDayWidget({ characters, schedules, now, homeSize, pin, onOpen }) {
     thought ? h("div", { style: Object.assign({ fontFamily: F_BODY, fontSize: 11.5, color: t.ink, marginTop: 4, opacity: .85 }, line) }, "「" + thought.text.replace(/\s+/g, " ") + "」") : null,
     (kit.dayLine && kit.dayLine(st, { accent: t.accent })) || null);
 }
+// 宠物桌面组件（她 2026-11-02「新做宠物桌面组件放空白页最后面」）：跟「TA 在干嘛」一个样子，按宠物轮播。
+//   每间小镇房各自一档存档（x_fairyGarden::<房间聊天键>），只读存下的那一份，一次调用都不花。点开就是那间房的宠物监控。
+function petWidgetRows(characters) {
+  const CR = typeof window !== "undefined" ? window.ChatRooms : null; if (!CR || !CR.list) return [];
+  const out = [];
+  (characters || []).forEach(c => { if (!c || c.id == null) return;
+    let rooms = []; try { rooms = CR.list(c.id) || []; } catch (e) {}
+    rooms.filter(r => r && r.garden).forEach(r => {
+      const key = "x_fairyGarden::" + CR.chatKey(c.id, r.id);
+      petWatchOf(loadJSON(key, null)).forEach(p => out.push({ p, key, charId: c.id, roomId: r.id, who: c.remark || c.name || "TA" }));
+    });
+  });
+  return out;
+}
+function PetsWidget({ characters, now, homeSize, editMode }) {
+  const t = useTheme();
+  const minuteKey = Math.floor((now instanceof Date ? now.getTime() : Date.now()) / 60000);
+  const rows = React.useMemo(() => petWidgetRows(characters), [characters, minuteKey]);
+  const [ix, setIx] = useState(0), [sheet, setSheet] = useState(null);
+  const holdUntil = useRef(0);
+  useEffect(() => { if (rows.length < 2) return; const iv = setInterval(() => { if (Date.now() >= holdUntil.current) setIx(i => i + 1); }, 6000); return () => clearInterval(iv); }, [rows.length]);
+  const it = rows.length ? rows[ix % rows.length] : null;
+  const pr = (HOME_SIZE_PRESETS || []).find(x => x.id === homeSize);
+  const oneRow = !!(pr && pr.rows === 1), forced = homeSize && homeSize !== "auto";
+  const line = { overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" };
+  const open = () => { if (!editMode && it) setSheet(it); };
+  const hold = () => { holdUntil.current = Date.now() + 8000; };
+  const goRoom = x => { setSheet(null); if (window.__openFromNotif) window.__openFromNotif(x.charId, "thread", x.roomId); };
+  const sheetEl = sheet ? h(PetWatchSheet, { storeKey: sheet.key, onClose: () => setSheet(null), onEnter: () => goRoom(sheet) }) : null;
+  if (!it) return h(GlassCard, { style: { padding: "10px 14px", height: forced ? "100%" : "auto", display: "flex", alignItems: "center", gap: 10 } },
+    h("span", { "data-wk": "wicon", className: "flex items-center" }, h(GPaw, { size: 15, color: t.accent })),
+    h("span", { "data-wk": "wempty", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog } }, "还没有宠物：在小镇房间里养一只"));
+  const p = it.p, last = p.notes[0];
+  const mini = (v, tone) => h("div", { style: { flex: 1, height: 4, borderRadius: 2, background: t.line, overflow: "hidden" } }, h("div", { style: { width: Math.max(0, Math.min(100, v)) + "%", height: "100%", background: tone } }));
+  const bars = h("div", { "data-wk": "wpetbars", className: "flex", style: { gap: 6, marginTop: 6 } }, mini(p.satiety, "#c9a06a"), mini(p.energy, "#7faf7a"), mini(p.mood, "#c27a8a"));
+  const label = (p.seenAt ? petAgo(p.seenAt) : "") + (rows.length > 1 ? " · " + ((ix % rows.length) + 1) + "/" + rows.length : "");
+  const card = oneRow
+    ? h(GlassCard, { onClick: open, onPointerDown: hold, style: { padding: "8px 14px", cursor: "pointer", height: "100%", display: "flex", alignItems: "center", gap: 10, overflow: "hidden" } },
+        h("span", { "data-wk": "wicon", className: "flex items-center", style: { flexShrink: 0 } }, h(GPaw, { size: 15, color: t.accent })),
+        h("div", { className: "min-w-0", style: { flex: 1 } },
+          h("div", { className: "flex items-baseline min-w-0", style: { gap: 8 } },
+            h("span", { "data-wk": "wtitle", style: { fontFamily: F_DISPLAY, fontSize: 13.5, color: t.ink, flexShrink: 0 } }, p.name),
+            h("span", { "data-wk": "wrow", className: "min-w-0", style: Object.assign({ flex: 1, fontFamily: F_BODY, fontSize: 12.5, color: t.ink }, line) }, p.doing)),
+          bars))
+    : h(GlassCard, { onClick: open, onPointerDown: hold, style: { padding: "12px 16px", cursor: "pointer", height: forced ? "100%" : "auto", display: "flex", flexDirection: "column", justifyContent: "center", overflow: "hidden" } },
+        h("div", { className: "flex items-center gap-2", style: { marginBottom: 6 } },
+          h("span", { "data-wk": "wicon", className: "flex items-center" }, h(GPaw, { size: 15, color: t.accent })),
+          h("span", { "data-wk": "wtitle", style: { fontFamily: F_DISPLAY, fontSize: 14.5, color: t.ink } }, p.name),
+          h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog } }, "· 跟" + it.who),
+          h("span", { className: "flex-1" }),
+          h("span", { "data-wk": "wlabel", style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog } }, label)),
+        h("div", { "data-wk": "wrow", style: Object.assign({ fontFamily: F_BODY, fontSize: 13.5, color: t.ink }, line) }, p.doing + (p.bowl > 0 ? "" : " · 饭碗空了")),
+        last ? h("div", { "data-wk": "wsub", style: Object.assign({ fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 2 }, line) }, petAgo(last.at) + " · " + last.text) : null,
+        bars);
+  return h(React.Fragment, null, card, sheetEl);
+}
+const GPaw = p => h(Svg, p, h("circle", { cx: 7.5, cy: 9, r: 1.6 }), h("circle", { cx: 11, cy: 6.8, r: 1.6 }), h("circle", { cx: 14.6, cy: 7.4, r: 1.6 }), h("circle", { cx: 17.2, cy: 10.4, r: 1.6 }),
+  h("path", { d: "M8.6 16.2c0-2.6 2-4.6 4.4-4.6s4.4 2 4.4 4.6c0 1.8-1.4 2.6-2.6 2.2-.8-.3-1.2-.6-1.8-.6s-1 .3-1.8.6c-1.2.4-2.6-.4-2.6-2.2z" }));
 // 命运转盘（v47.81 全屏化）：主屏 2x2 小组件只是入口（静态小盘预览+上次结果），点开进全屏大转盘——
 // 点大盘开转，落定后随机一位在聊角色起哄（气泡完整显示不截断，带头像）。✎ 编辑主题/选项
 // 扇区的色：从马卡龙八色换成这个 app 自己的秋色（v63.08）。
@@ -5448,6 +5506,7 @@ function homeWidgetIcon(which) {
   us: { G: GUs, open: "us" },
   memo: { G: IPencil, open: "memo" },
   taday: { G: GWalk, open: "fairyGarden" },
+  pets: { G: function (p) { return GPaw(p); }, open: null },
   weather: { G: GWx, open: "map" },
   ledger: { G: GWallet, open: "ledger" },
   recent: { G: GChat, open: null },
@@ -5459,7 +5518,7 @@ function homeWidgetIcon(which) {
 // 组件的名字只此一份：拖动虚影和设置页顶栏都问它要。
 // 原来只有拖影那一处写着一张四个人的小表（名片/日历/音乐/地图），别的组件一律叫「组件」——
 // 设置页也要报名字，再抄一份就是又开了一处要同步的地方（one-public-mechanism）。
-const HOME_WIDGET_NAMES = { card: "名片", cal: "日历", music: "音乐", map: "地图", us: "我们", memo: "备忘录", weather: "天气", muyu: "木鱼", ledger: "记账", wheel: "转盘", recent: "最近聊过", taday: "TA在干嘛" };
+const HOME_WIDGET_NAMES = { card: "名片", cal: "日历", music: "音乐", map: "地图", us: "我们", memo: "备忘录", weather: "天气", muyu: "木鱼", ledger: "记账", wheel: "转盘", recent: "最近聊过", taday: "TA在干嘛", pets: "宠物" };
 function homeWidgetName(it) { return (it && HOME_WIDGET_NAMES[it.which]) || "组件"; }
 // 装饰不是换图标的文字卡：每一种都有自己的内容语义、默认尺寸和渲染骨架。
 const HOME_DECOR_TYPES = [
@@ -6089,7 +6148,7 @@ function homeSpanHeight(rows, unit) { return rows * (unit || HOME_ROW_UNIT) + (r
 //   默认就是一条 4×1，不占两行」，现在一起听单独放开，情侣空间那条照旧。
 //   剩下几个仍然照 v61.87：她那份 x_homeWidgetSizes 整份搬过来的话，
 //   默认第三页会排到【滑到底也够不着】的行数（home-rows-58-19 当场红）。
-const HOME_SIZE_DEFAULT = { w_us: "wide", w_music: "large", w_memo: "wide", w_recent: "large", w_taday: "wide" };
+const HOME_SIZE_DEFAULT = { w_us: "wide", w_music: "large", w_memo: "wide", w_recent: "large", w_taday: "wide", w_pets: "wide" };
 // 不钉高度的那几个：名片的高度是一版版调出来的，钉成一行会被裁掉半张。
 const HOME_FREE_HEIGHT = { w_card: true };
 // 组件比它占的格子矮时，多出来的那块空白靠哪儿（她 2026-09-05：
@@ -7110,6 +7169,8 @@ function Home({
     w_recent: { kind: "widget", which: "recent" },
     // tail：安全网补上桌面时放到最后一页（她 2026-10-12：「加到后面的空白页」），不挤进前面排好的页。
     w_taday: { kind: "widget", which: "taday", tail: true },
+    // 宠物（她 2026-11-02）：同 taday，补到最后那张空白页
+    w_pets: { kind: "widget", which: "pets", tail: true },
     cast: { kind: "app", zh: "人格档案馆", G: GCast },
     ties: { kind: "app", zh: "关系", G: GTies },
     phone: { kind: "app", zh: "查手机", G: GPhone },
@@ -7187,7 +7248,7 @@ function Home({
       "f_def_check", "w_cal", "f_def_daily", "f_def_ties"],
     ["w_us", "w_weather", "memlib", "f_def_play", "f_def_ops", "yanqiu",
       "f_def_do", "anon", "f_def_naodong", "f_def_back", "w_ledger", "w_music"],
-    ["w_memo", "w_map", "assistant", "stylelab", "dreamjournal", "sp_radio", "w_recent", "w_muyu", "w_wheel", "fairyGarden", "companion", "nest", "w_taday"]
+    ["w_memo", "w_map", "assistant", "stylelab", "dreamjournal", "sp_radio", "w_recent", "w_muyu", "w_wheel", "fairyGarden", "companion", "nest", "w_taday", "w_pets"]
   ];
   // 空格（sp_ 开头）：真实占一格的「洞」，自由摆放的基础——拖到空格＝挪过去，原位留洞
   const SP_RE = /^sp_/;
@@ -7419,6 +7480,7 @@ function Home({
       else if (it.which === "music") inner = h(MusicWidget, { listen: listen, player: player, homeSize: homeSize, cellH: fixedH, cellCols: span[0], editMode: editMode, onSetDisc: onSetDisc, onToggle: onTogglePlay, onNext: onNextSong, onPrev: onPrevSong, onEditCard: onEditMusicCard, onOpen: function () { return onOpenApp("listen"); } });
       else if (it.which === "us") inner = h(UsWidget, { characters: characters, couples: couples, sweet: coupleSweet, dot: nf.whisper || 0, homeSize: homeSize, onOpen: function () { return onOpenApp("us"); } });
       else if (it.which === "taday") inner = h(TaDayWidget, { characters: characters, schedules: schedules, now: now, homeSize: homeSize, pin: lookOf(key).pin, onOpen: function (id) { if (!editMode && onOpenDay) onOpenDay(id); } });
+      else if (it.which === "pets") inner = h(PetsWidget, { characters: characters, now: now, homeSize: homeSize, editMode: editMode });
       else if (it.which === "memo") inner = h(MemoWidget, { homeSize: homeSize, onOpen: function () { return onOpenApp("memo"); } });
       else if (it.which === "recent") inner = (window.RecentWidget ? h(window.RecentWidget.Widget, { characters: characters, groups: groups, chats: chats, groupChats: groupChats, unreadMap: unreadMap, now: now, editMode: editMode, onOpenChat: onOpenChat }) : null);
       else if (it.which === "muyu") inner = h(MuyuWidget, { editMode: editMode, imageRef: lookOf(key).tapImageRef });
@@ -7667,7 +7729,7 @@ function Home({
   }
   // 「最近聊过」当成功能性装饰（她 2026-09-28）：能从桌面移走，也能从做装饰那一页放回来。
   //   移走的记在 x_homeHiddenWidgets，底下那张安全网就不再把它硬塞回桌面。
-  var HOME_WIDGET_ZH = { w_card: "名片", w_cal: "日历", w_music: "音乐", w_map: "地图", w_us: "我们", w_memo: "备忘录", w_weather: "天气", w_muyu: "木鱼", w_ledger: "记账", w_wheel: "转盘" };
+  var HOME_WIDGET_ZH = { w_card: "名片", w_cal: "日历", w_music: "音乐", w_map: "地图", w_us: "我们", w_memo: "备忘录", w_weather: "天气", w_muyu: "木鱼", w_ledger: "记账", w_wheel: "转盘", w_pets: "宠物" };
   function hideWidget(key) {
     var hid = loadJSON("x_homeHiddenWidgets", []); if (!Array.isArray(hid)) hid = [];
     if (hid.indexOf(key) < 0) hid = hid.concat([key]);
