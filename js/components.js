@@ -4386,7 +4386,7 @@ function MiniPlayer({ song, playing, loading, onOpen, onToggle, onNext, onPrev, 
     "aria-label": folded ? "展开一起听播放器" : "一起听悬浮播放器",
     onKeyDown: e => { if (folded && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); fold(false); } },
     onPointerDown: onDown, onPointerMove: onMove, onPointerUp: onUp, onPointerCancel: onUp,
-    style: Object.assign({ position: "fixed", zIndex: MINI_PLAYER_Z, display: "flex", alignItems: "center", gap: 9, maxWidth: "78vw", touchAction: "none", cursor: "grab",
+    style: Object.assign({ position: "fixed", zIndex: MINI_PLAYER_Z, display: "flex", alignItems: "center", gap: 5, maxWidth: "88vw", touchAction: "none", cursor: "grab",
       background: skinAlpha(t.bg2, "F2"), backdropFilter: "blur(16px)", WebkitBackdropFilter: "blur(16px)",
       border: "1px solid " + skinAlpha(ink, "1e"), borderRadius: 999, padding: folded ? "6px" : "6px 8px 6px 6px",
       boxShadow: "0 10px 26px rgba(0,0,0,.18), inset 0 1px 0 rgba(255,255,255,.35)", transition: "transform .3s ease, opacity .3s ease" }, place, tuckMove) },
@@ -4401,7 +4401,8 @@ function MiniPlayer({ song, playing, loading, onOpen, onToggle, onNext, onPrev, 
         background: cover ? "center/cover no-repeat url(" + cover + ")" : "linear-gradient(140deg,#c9a06a,#8a6a45)",
         boxShadow: "0 0 0 1px rgba(255,255,255,.22)" } },
         h("div", { "data-wk": "block", style: { width: 3, height: 3, borderRadius: 999, background: "#f7f1e5", boxShadow: "0 0 0 1px rgba(0,0,0,.35)" } }))),
-    !folded && h(React.Fragment, null, h("div", { style: { minWidth: 0, maxWidth: 118 } },
+    // 歌名至少留 64px（她 2026-11-02：加了「上一首」就看不到歌名了——原来 minWidth:0，按钮一多先把它挤成零宽）
+    !folded && h(React.Fragment, null, h("div", { "data-wk": "miniplayertitle", style: { flex: "1 1 auto", minWidth: 64, maxWidth: 118, marginLeft: 3 } },
       h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(13px * var(--app-fs, 1))", color: ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, song.title),
       h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", color: t.fog || skinAlpha(ink, "8a"), overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, song.artist || "")),
     // 上一首（群里 2026-11-02「能不能加一个上一首」）：跟下一首一个样子，镜过来
@@ -11006,11 +11007,66 @@ function PhotoSheet({ m, onClose, toast, onGen, onRegen }) {
           onGen && cap ? h(DescGenImageButton, { run: onGen, onDone: onClose }) : null,
           onRegen ? h(DescEditRedraw, { initial: cap, run: d => onRegen(d), onDone: onClose, wk: "descedit" }) : null));
 }
-function RoomWorldBanner({ onEnter }) {
+// ── 宠物监控（她 2026-11-02 群友许愿「云养」）─────────────────────────────
+// 只读这间房小镇存档里存下的那一份（x_fairyGarden::<聊天键>.worlds.pets）。宠物的日子都是本地算的：
+//   进小镇时 apps/pets/routine.mjs 的 recoverPetLife 会把离开那段（最多 3 天）补算出来；小镇外面跑不了那套寻路，
+//   所以这里摆的是【上次存下的样子】，写清是多久前。一次调用都不花。
+const PET_TASK_ZH = { eat: "在吃饭", drink: "在喝水", treat: "在吃零食", play: "在玩", sleep: "在睡觉", pet: "在被摸摸", watch: "在看窗外", wander: "在屋里溜达",
+  carryBag: "在叼袋子", inspectBag: "在翻袋子", habit: "在忙自己的小习惯", skill: "在练小技能", waitFood: "在饭碗边等吃的", invitePlay: "想找人玩", invitePet: "想要摸摸", askSnack: "在讨零食" };
+function petWatchOf(store) {
+  const w = store && store.worlds && store.worlds.pets;
+  const rows = w && Array.isArray(w.pets) ? w.pets : [];
+  return rows.filter(p => p && p.profile && p.care).map(p => {
+    const c = p.care, tk = c.task, life = p.life || {};
+    const doing = tk ? (PET_TASK_ZH[tk.kind] || "在忙") + (tk.phase === "walking" ? "（正走过去）" : "") : "闲着";
+    const notes = (Array.isArray(life.notes) ? life.notes : []).filter(n => n && n.text).slice(-5).reverse();
+    const recent = (Array.isArray(c.recent) ? c.recent : []).filter(n => n && n.text && n.wallAt).slice(-3).reverse().map(n => ({ at: n.wallAt, text: n.text }));
+    return { id: p.id, name: p.profile.name || "它", species: p.profile.species === "dog" ? "dog" : "cat",
+      satiety: Math.round(Number(c.satiety) || 0), energy: Math.round(Number(c.energy) || 0), mood: Math.round(Number(c.mood) || 0),
+      bowl: Math.round(Number(c.bowl) || 0), doing, place: (p.town && p.town.place) || "", seenAt: Number(life.at) || 0,
+      notes: notes.length ? notes : recent };
+  });
+}
+const petAgo = at => { const m = Math.max(0, Math.round((Date.now() - at) / 60000)); return !at ? "" : m < 1 ? "刚刚" : m < 60 ? m + " 分钟前" : m < 1440 ? Math.round(m / 60) + " 小时前" : Math.round(m / 1440) + " 天前"; };
+const petWord = (v, lo, mid, hi) => v < 30 ? lo : v < 70 ? mid : hi;
+// 发给 TA 的那一段话：卡片上和模型读到的都是它
+function petShareText(p) {
+  return p.name + "此刻" + p.doing + "；" + petWord(p.satiety, "饿了", "不太饿", "吃得饱饱的") + "，" + petWord(p.energy, "没什么精神", "精神还行", "精神很好") + "，" + petWord(p.mood, "有点闷闷不乐", "心情平平", "心情很好")
+    + (p.notes.length ? "。最近：" + p.notes.slice(0, 3).map(n => (petAgo(n.at) ? petAgo(n.at) + "，" : "") + n.text).join("；") : "");
+}
+function PetWatchSheet({ storeKey, onClose, onShare, onEnter }) {
+  const t = useTheme();
+  const pets = petWatchOf(loadJSON(storeKey, null));
+  const bar = (zh, v, tone) => h("div", { className: "flex items-center", style: { gap: 8, marginTop: 6 } },
+    h("span", { style: { width: 30, fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.sub } }, zh),
+    h("div", { style: { flex: 1, height: 6, borderRadius: 3, background: t.line, overflow: "hidden" } }, h("div", { style: { width: Math.max(0, Math.min(100, v)) + "%", height: "100%", background: tone } })),
+    h("span", { style: { width: 28, textAlign: "right", fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog } }, v));
+  return h(PageSheet, { onClose },
+    h(Eyebrow, { style: { marginBottom: 6 } }, "宠物监控"),
+    h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.6, marginBottom: 12 } },
+      "这里是上次离开小镇时存下的样子。它的日子一直在过：进小镇时会把你不在的这段补算出来（最多三天），想看此刻就进去看看它。"),
+    !pets.length ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.fog, padding: "20px 0" } }, "这间房的小镇里还没养宠物。") : null,
+    pets.map(p => h("div", { key: p.id, "data-wk": "petwatchcard", style: { border: "1px solid " + t.line, borderRadius: 14, padding: "12px 14px", marginBottom: 12, background: t.bg2 } },
+      h("div", { className: "flex items-baseline justify-between" },
+        h("span", { style: { fontFamily: F_DISPLAY, fontSize: "calc(16px * var(--app-fs, 1))", color: t.ink } }, p.name),
+        h("span", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog } }, p.seenAt ? petAgo(p.seenAt) + "的样子" : "")),
+      h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.sub, marginTop: 4 } }, p.doing + (p.bowl > 0 ? " · 碗里还有粮" : " · 饭碗空了")),
+      bar("饱腹", p.satiety, "#c9a06a"), bar("精力", p.energy, "#7faf7a"), bar("心情", p.mood, "#c27a8a"),
+      p.notes.length ? h("div", { style: { marginTop: 10 } }, p.notes.map((n, i) => h("div", { key: i, style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.sub, lineHeight: 1.6 } },
+        h("span", { style: { color: t.fog, marginRight: 6 } }, petAgo(n.at)), n.text))) : null,
+      h("div", { className: "flex", style: { gap: 8, marginTop: 12 } },
+        onShare ? h("button", { "data-wk": "petwatchshare", onClick: () => onShare(p), className: "flex-1 active:opacity-70",
+          style: { minHeight: 40, borderRadius: 10, background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))" } }, "发给 TA 看看") : null,
+        onEnter ? h("button", { onClick: onEnter, className: "flex-1 active:opacity-70",
+          style: { minHeight: 40, borderRadius: 10, border: "1px solid " + t.line, color: t.ink, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))" } }, "进小镇看它 ›") : null))));
+}
+function RoomWorldBanner({ onEnter, onWatch }) {
   const t = useTheme();
   return h("div", { className: "shrink-0 w-full flex items-center",
     style: { padding: "0 16px", gap: 8, background: "rgba(107,135,83,.12)", borderBottom: "1px solid " + t.line } },
     h("span", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.ink, marginRight: "auto" } }, "进入小世界"),
+    onWatch ? h("button", { "data-wk": "petwatchopen", onClick: onWatch, className: "active:opacity-70",
+      style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.ink, padding: "10px 8px", minHeight: 44, flexShrink: 0, background: "transparent", border: "none" } }, "看看宠物") : null,
     (window.FairyWorlds || []).map(({id:world,label}) => h("button", {
       key: world, onClick: () => onEnter(world), className: "active:opacity-70",
       "aria-label": "进入" + label,
@@ -11138,6 +11194,7 @@ function ChatThread({
   room,
   onOpenRooms,
   onEnterGarden,
+  petWatchKey,
   onEnterListen,
   roomFics,        // 这间房放过哪几本同人文（最近的在前）
   roomFicId,       // 现在在聊的是哪一本
@@ -11211,6 +11268,7 @@ function ChatThread({
   const bk = block || {};
   const dsp = disp || {};
   const [recallView, setRecallView] = useState(null);
+  const [petWatch, setPetWatch] = useState(false);
   const [fwdView, setFwdView] = useState(null);   // 点开的转发聊天记录卡
   const [archView, setArchView] = useState(null); // null | "loading" | [归档消息数组]
   const _me = meProfile || profile;
@@ -11713,7 +11771,11 @@ function ChatThread({
   // ⚠️原来点进这间房＝直接开存档：那一屏把整个聊天盖住，她连这间房的设置都进不去
   //   （「我都没法调能不能有记忆进来出去」）。现在进门看到的是聊天记录——
   //   庭院里说过的话本来就同步在这儿——想进去玩再按这一条。
-  onEnterGarden && h(RoomWorldBanner, { onEnter: onEnterGarden }),
+  onEnterGarden && h(RoomWorldBanner, { onEnter: onEnterGarden, onWatch: petWatchKey && petWatchOf(loadJSON(petWatchKey, null)).length ? () => setPetWatch(true) : null }),
+  petWatch && petWatchKey && h(PetWatchSheet, { storeKey: petWatchKey, onClose: () => setPetWatch(false),
+    onEnter: () => { setPetWatch(false); onEnterGarden && onEnterGarden("pets"); },
+    // 发进这间房自己的聊天（小镇是一间单独的房）：卡片照「拿给你看的这笔账」那一张画，TA 读到的是 content 那段话
+    onShare: p => { const txt = petShareText(p); sendRich({ role: "user", kind: "petshare", title: p.name, sub: p.doing, note: txt.slice(txt.indexOf("；") + 1), content: "[宠物] 给你看看" + txt }); setPetWatch(false); } }),
   onEnterListen && h(RoomListenBanner, { onEnter: onEnterListen }),
   // ── 这间房在学哪一门（她 2026-09-23）──────────────────────────────
   // 「从哪儿开房就要有横幅导回哪儿」：点课名＝直接进那门课；最右边「换课」＝挑亮哪一门、
@@ -11934,7 +11996,7 @@ function ChatThread({
       className: "my-4 mx-6"
     }, h(OfflineLogCard, { m: m, t: t, sel: selMode && selIds.includes(i), onResummarize: onResummarizeOffline ? () => onResummarizeOffline(i) : null, onRestore: onRestoreOffline ? () => onRestoreOffline(i) : null }));
     // ⚠️TA 替她记的备忘录/账本卡也是 role:"system"（kind:"recorded"）——不许被这里吞成一个空的「系统」小框（她 2026-09-29「不行啊宝宝」）
-    if (m.kind === "ledgershare") return cardRow(i, m, h("div", { className: "flex justify-end" }, h(RecordedCard, { m })));
+    if (m.kind === "ledgershare" || m.kind === "petshare") return cardRow(i, m, h("div", { className: "flex justify-end" }, h(RecordedCard, { m })));
     if (m.kind === "weathercard" && m.wx) return h("div", { key: i, className: "py-1 flex items-start gap-2 justify-start",
         onTouchStart: selMode ? undefined : () => startPress(i), onTouchEnd: endPress, onMouseDown: selMode ? undefined : () => startPress(i), onMouseUp: endPress, onMouseLeave: endPress,
         onClick: selMode ? () => toggleSel(i) : undefined },
@@ -15741,9 +15803,9 @@ function RecordedCard({ m }) {
   const t = useTheme();
   const isMemo = m.what === "memo", isHealth = m.what === "health";
   if (m.what === "healthnote") return h(HealthNoteCard, { m });   // 排在账本小票那一条前面：不然玻璃皮会把它画成一张小票
-  if (!isMemo && !isHealth && typeof window !== "undefined" && window.ledgerIsGlass && window.ledgerIsGlass()) return h(LedgerTicketCard, { m });
+  if (!isMemo && !isHealth && m.kind !== "petshare" && typeof window !== "undefined" && window.ledgerIsGlass && window.ledgerIsGlass()) return h(LedgerTicketCard, { m });
   if (isHealth) return h(HealthRecordCard, { m });
-  const tone = isMemo ? "122,106,154" : isHealth ? "196,110,92" : "79,109,90";
+  const tone = isMemo ? "122,106,154" : isHealth ? "196,110,92" : m.kind === "petshare" ? "107,135,83" : "79,109,90";
   return h("div", { "data-wk": "card",
     style: {
       maxWidth: "78%", borderRadius: 14, padding: "10px 13px",
@@ -15758,7 +15820,7 @@ function RecordedCard({ m }) {
     }
   },
     h("div", { style: { fontFamily: F_BODY, fontSize: "calc(9.5px * var(--app-fs, 1))", letterSpacing: "0.14em", color: "rgba(" + tone + ",0.95)", marginBottom: 4 } },
-      m.kind === "ledgershare" ? "拿给你看的这笔账" : isMemo ? "已记进备忘录" : isHealth ? "已记进健康" : "已记进账本"),
+      m.kind === "petshare" ? "拿给你看看它" : m.kind === "ledgershare" ? "拿给你看的这笔账" : isMemo ? "已记进备忘录" : isHealth ? "已记进健康" : "已记进账本"),
     h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(15.5px * var(--app-fs, 1))", color: t.ink, lineHeight: 1.3 } }, m.title || ""),
     m.sub ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.sub, marginTop: 3 } }, m.sub) : null,
     m.note ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, marginTop: 4, lineHeight: 1.5 } }, m.note) : null);

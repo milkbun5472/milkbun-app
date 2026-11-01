@@ -6,3 +6,8 @@ test("邮票剧情旁白里角色的代词跟档案性别走", () => {
   assert.ok(!/STAMP_NARR_POV \+/.test(src), "每处都要带 char");
   src.split("\n").filter(l => l.includes("你是「他」")).forEach(l => assert.ok(l.includes("stampPov(char"), l.slice(0, 80)));
 });
+test("发给他看带的是卡页上正开着的那一面", () => {
+  const ui = fs.readFileSync(__dirname + "/../js/stamps.js", "utf8");
+  assert.match(ui, /onSend\(Object\.assign\(\{\}, card, \{ sendFace:/);
+  assert.match(src, /face: card\.sendFace \|\| card\.face \|\| card\.faceAlt/);
+});
