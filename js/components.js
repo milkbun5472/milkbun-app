@@ -10310,11 +10310,6 @@ function momentDisplayName(characters, who) {
   const hit = (characters || []).find(c => c && (norm(c.name) === raw || norm(c.remark) === raw));
   return hit ? (hit.remark || hit.name) : raw;
 }
-// 置顶的（只认自己发的）排最前，其余照原来的先后（群友 2026-10-26）
-function momTopFirst(list) {
-  const arr = Array.isArray(list) ? list : [];
-  return arr.filter(m => m && m.mine && m.top).concat(arr.filter(m => !(m && m.mine && m.top)));
-}
 // 配角列表那一行（她 2026-10-27）：只摆简介第一句，开头的「你是」去掉——生成的简介第一句就是身份和年龄
 function npcLine(persona) {
   const first = String(persona || "").trim().split(/\n|。/)[0].trim().replace(/^你是/, "");
@@ -10424,7 +10419,8 @@ function MomentsFeed({
   }), !gen && moments.length === 0 && /*#__PURE__*/React.createElement(Empty, {
     text: "朋友圈还没有动态",
     sub: "点右上「发朋友圈」或「角色发」"
-  }), momTopFirst(moments).filter(m => !m || m.mine || !momMutedIds().includes(String(m.characterId))).map(m => {
+  }), // 首页刷的那一列只按时间（她 2026-11-02：「置顶不应该挂在刷的地方，只在他朋友圈主页看得到」）；置顶只在个人主页排最前
+    (moments || []).filter(m => !m || m.mine || !momMutedIds().includes(String(m.characterId))).map(m => {
     const isMine = m.mine;
     // 开了「发朋友圈」的配角发的那条也摆出来（她 2026-10-22）
     const c = isMine ? null : (characters.find(x => x.id === m.characterId) || (npcs || []).find(x => x && x.id === m.characterId));
