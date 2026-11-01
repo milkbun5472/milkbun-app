@@ -107,8 +107,8 @@ test("人设：只带名字、简介、正文；导进来是新建一个角色",
   assert.deepEqual(Object.keys(out).sort(), ["kind", "name", "persona", "tagline"]);
   let made = null;
   N.importInto("persona", JSON.stringify(out), "沈", { onAddChar: o => { made = o; } });
-  assert.deepEqual(made, { name: "沈", tagline: "医生", persona: "正文" });
-  assert.match(app, /onAddChar: o => \{ createCharFromAssistant\(o\); \}/);
+  assert.deepEqual(made, { name: "沈", tagline: "医生", persona: "正文", lore: [], greeting: "", longMem: "", seeds: [] });
+  assert.match(app, /onAddChar: o => \{ importCharCard\(o\); \}/);
 });
 
 // 她 2026-10-08：「如果想要 css 应用在单一个聊天怎么弄」——CSS 导入先问放哪儿，能只放给一个人／一个群／一个人的线下

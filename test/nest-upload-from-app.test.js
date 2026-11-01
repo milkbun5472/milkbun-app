@@ -132,3 +132,23 @@ test("整份超了先自己往小里压，压到放得下才拿去查（2026-10-
   assert.match(body, /sort\(\(a, b\) => b\[0\] - a\[0\]\)/, "从后往前换，位置不乱");
   assert.match(src, /return fitTotal\(text\);/, "shrinkImages 最后交给 fitTotal");
 });
+
+// 群友 2026-11-01：「我的人设加自带的世界书一万多字全部选择后只有 600 字」——卡里的世界书、开场白被丢了
+test("人设卡自带的世界书、开场白跟着传，导入走档案馆那条", () => {
+  globalThis.parseCharCard = t => { const d = JSON.parse(t); return { name: d.name, tagline: "", persona: d.description, lore: d.book, greeting: d.first_mes, longMem: "", seeds: [] }; };
+  try {
+    const N = load({});
+    const got = N.fromFile("persona", JSON.stringify({ name: "阿白", description: "人设正文", first_mes: "你来了", book: [{ title: "宗门", payload: "设定", keyword: "宗门" }] }), "阿白.json");
+    const d = JSON.parse(got.payload);
+    assert.equal(d.persona, "人设正文");
+    assert.equal(d.lore.length, 1);
+    assert.equal(d.greeting, "你来了");
+    assert.match(got.note, /1 条世界书/);
+    let added = null;
+    N.importInto("persona", got.payload, "阿白", { onAddChar: o => { added = o; } });
+    assert.equal(added.lore[0].title, "宗门");
+    assert.equal(added.greeting, "你来了");
+  } finally { delete globalThis.parseCharCard; }
+  const app = fs.readFileSync(path.resolve(__dirname, "..", "js/app.js"), "utf8");
+  assert.match(app, /onAddChar: o => \{ importCharCard\(o\); \}/);
+});
