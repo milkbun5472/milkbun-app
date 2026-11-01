@@ -7144,6 +7144,20 @@ function _imgFileOf(blob, name, n) {
   const fname = String(name || "图片").replace(/[\\/:*?"<>|]/g, "") + "-" + new Date().toISOString().slice(0, 10) + (n ? "-" + n : "") + "." + ext;
   return new File([blob], fname, { type: blob.type || "image/jpeg" });
 }
+// 她 2026-10-31：「还是不能直接保存到相册，就多了一个共享相册的选项」——
+//   iOS 只有认准是 jpg/png 的文件才给「存储图像」。库里有的图是 webp、或者类型是空的／octet-stream，
+//   分享面板就只给「共享相簿」「存到文件」。所以交出去之前统一成真 jpg/png（png 无损，原图清晰度不变）。
+async function _imgPhotoReady(blob) {
+  const t = String(blob.type || "");
+  if (t === "image/jpeg" || t === "image/png") return blob;
+  try {
+    const bmp = await createImageBitmap(blob);
+    const c = document.createElement("canvas"); c.width = bmp.width; c.height = bmp.height;
+    c.getContext("2d").drawImage(bmp, 0, 0);
+    const out = await new Promise(r => c.toBlob(r, "image/png"));
+    return out && out.size ? out : blob;
+  } catch (e) { return blob; }
+}
 async function saveImgOriginal(ref, name) {
   const r = await saveImgsBatch([{ ref: ref, name: name }]);
   return r.n > 0;
@@ -7162,7 +7176,7 @@ async function saveImgsBatch(items) {
   const files = []; let miss = 0;
   for (let i = 0; i < take.length; i++) {
     const b = await _imgBlobOf(take[i].ref);
-    if (b && b.size) files.push(_imgFileOf(b, take[i].name, take.length > 1 ? files.length + 1 : 0)); else miss++;
+    if (b && b.size) files.push(_imgFileOf(await _imgPhotoReady(b), take[i].name, take.length > 1 ? files.length + 1 : 0)); else miss++;
   }
   if (!files.length) return { n: 0, left: left, miss: miss, via: "none" };
   if (typeof navigator !== "undefined" && navigator.share && !_isAndroid() && (!navigator.canShare || navigator.canShare({ files: files }))) {
