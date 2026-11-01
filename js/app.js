@@ -35814,6 +35814,15 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     groups: groups,          // 群聊也是素材：她和某些角色大半的话都在群里说
     profile: profile,
     toast: toast,
+    // 把这张卡拿给他看：卡片照「拿给你看」那一张画（RecordedCard），他读到的是 content 那段
+    onSendCard: (cid, e) => {
+      if (!cid || !e) return false;
+      const mo = String(e.monthKey || "").replace(/^(\d{4})-0?(\d+)$/, "$1年$2月");
+      const tags = (Array.isArray(e.tags) ? e.tags : []).filter(Boolean);
+      pChat(cid, p => [...p, { role: "user", kind: "impshare", read: true, ts: Date.now(), title: e.title || mo, sub: (mo ? mo + " · " : "") + tags.join("／"), note: e.quote || "",
+        content: "[月度印象] 给你看你写我的那一张（" + mo + "）：「" + (e.title || "") + "」" + (tags.length ? "，关键词" + tags.join("、") : "") + "。你写的是：" + (e.quote || "") }]);
+      return true;
+    },
     onBack: () => setScreen("home")
   });else if (screen === "fanfic") body = h(FanficApp, {
     onFicImage: ficImage,

@@ -11996,7 +11996,7 @@ function ChatThread({
       className: "my-4 mx-6"
     }, h(OfflineLogCard, { m: m, t: t, sel: selMode && selIds.includes(i), onResummarize: onResummarizeOffline ? () => onResummarizeOffline(i) : null, onRestore: onRestoreOffline ? () => onRestoreOffline(i) : null }));
     // ⚠️TA 替她记的备忘录/账本卡也是 role:"system"（kind:"recorded"）——不许被这里吞成一个空的「系统」小框（她 2026-09-29「不行啊宝宝」）
-    if (m.kind === "ledgershare" || m.kind === "petshare") return cardRow(i, m, h("div", { className: "flex justify-end" }, h(RecordedCard, { m })));
+    if (m.kind === "ledgershare" || m.kind === "petshare" || m.kind === "impshare") return cardRow(i, m, h("div", { className: "flex justify-end" }, h(RecordedCard, { m })));
     if (m.kind === "weathercard" && m.wx) return h("div", { key: i, className: "py-1 flex items-start gap-2 justify-start",
         onTouchStart: selMode ? undefined : () => startPress(i), onTouchEnd: endPress, onMouseDown: selMode ? undefined : () => startPress(i), onMouseUp: endPress, onMouseLeave: endPress,
         onClick: selMode ? () => toggleSel(i) : undefined },
@@ -15803,9 +15803,9 @@ function RecordedCard({ m }) {
   const t = useTheme();
   const isMemo = m.what === "memo", isHealth = m.what === "health";
   if (m.what === "healthnote") return h(HealthNoteCard, { m });   // 排在账本小票那一条前面：不然玻璃皮会把它画成一张小票
-  if (!isMemo && !isHealth && m.kind !== "petshare" && typeof window !== "undefined" && window.ledgerIsGlass && window.ledgerIsGlass()) return h(LedgerTicketCard, { m });
+  if (!isMemo && !isHealth && m.kind !== "petshare" && m.kind !== "impshare" && typeof window !== "undefined" && window.ledgerIsGlass && window.ledgerIsGlass()) return h(LedgerTicketCard, { m });
   if (isHealth) return h(HealthRecordCard, { m });
-  const tone = isMemo ? "122,106,154" : isHealth ? "196,110,92" : m.kind === "petshare" ? "107,135,83" : "79,109,90";
+  const tone = isMemo ? "122,106,154" : isHealth ? "196,110,92" : m.kind === "petshare" ? "107,135,83" : m.kind === "impshare" ? "138,108,72" : "79,109,90";
   return h("div", { "data-wk": "card",
     style: {
       maxWidth: "78%", borderRadius: 14, padding: "10px 13px",
@@ -15820,7 +15820,7 @@ function RecordedCard({ m }) {
     }
   },
     h("div", { style: { fontFamily: F_BODY, fontSize: "calc(9.5px * var(--app-fs, 1))", letterSpacing: "0.14em", color: "rgba(" + tone + ",0.95)", marginBottom: 4 } },
-      m.kind === "petshare" ? "拿给你看看它" : m.kind === "ledgershare" ? "拿给你看的这笔账" : isMemo ? "已记进备忘录" : isHealth ? "已记进健康" : "已记进账本"),
+      m.kind === "impshare" ? "你写我的那张月度印象" : m.kind === "petshare" ? "拿给你看看它" : m.kind === "ledgershare" ? "拿给你看的这笔账" : isMemo ? "已记进备忘录" : isHealth ? "已记进健康" : "已记进账本"),
     h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(15.5px * var(--app-fs, 1))", color: t.ink, lineHeight: 1.3 } }, m.title || ""),
     m.sub ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.sub, marginTop: 3 } }, m.sub) : null,
     m.note ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, marginTop: 4, lineHeight: 1.5 } }, m.note) : null);

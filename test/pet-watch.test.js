@@ -26,6 +26,6 @@ assert.doesNotMatch(comp.slice(comp.indexOf("const PET_TASK_ZH = "), comp.indexO
 // 接线：这间房自己的存档；卡片发进这间房的聊天；玻璃账本皮不把它画成小票
 assert.match(app, /petWatchKey: gardenRoomOf\(activeChar\.id, activeRoomId\) && window\.ChatRooms \? "x_fairyGarden::" \+ window\.ChatRooms\.chatKey\(activeChar\.id, activeRoomId\) : null,/);
 assert.match(comp, /sendRich\(\{ role: "user", kind: "petshare",[^\n]*content: "\[宠物\] 给你看看" \+ txt \}\)/);
-assert.match(comp, /m\.kind === "ledgershare" \|\| m\.kind === "petshare"/);
-assert.match(comp, /m\.kind !== "petshare" && typeof window !== "undefined" && window\.ledgerIsGlass/);
+assert.match(comp, /m\.kind === "ledgershare" \|\| m\.kind === "petshare" \|\| m\.kind === "impshare"/);
+assert.match(comp, /m\.kind !== "petshare" && m\.kind !== "impshare" && typeof window !== "undefined" && window\.ledgerIsGlass/);
 console.log("ok");
