@@ -8052,6 +8052,11 @@ function Home({
       const rows = [];
       Object.keys(REG).forEach(function (k) { if (REG[k] && REG[k].kind === "app") rows.push([k, REG[k].zh]); });
       dock.forEach(function (d) { rows.push([d.key, d.zh]); });
+      // 缩成 1×1 图标的组件也能换图（她 2026-11-01 群友：「这个日历图标换不了吗」）：
+      //   那一格画出来就是个 app 图标，appKey 是组件自己的 key（w_cal…），只是从来不在这份名单里
+      Object.keys(REG).forEach(function (k) {
+        if (REG[k] && REG[k].kind === "widget" && homeSizeOf(k, widgetSizes) === "icon") rows.push([k, (HOME_WIDGET_NAMES[REG[k].which] || "组件") + "（缩成图标的组件）"]);
+      });
       return rows;
     };
   });
