@@ -2259,7 +2259,7 @@ function Forum({
   onStartPM, onStartCharPM, onDelPM, onClearPMs,
   onPostMine, onGenCharPost, onToggleFollow, onForwardToChat, onForwardToGroup,
   onRefreshPMs, onSendPM, onDelPMMsg, onForwardToPM, onAskWechat, onOpenWechat, onMarkPMRead, onEditMe, onEditCharMeta, onEnsureCharMeta, onToggleForumChar, onRenameCharAlt, onRegenCharAlt,
-  onEditPost, onDeletePost, onDeletePosts, onDeleteFloor, onClearBoard, onRenameBoard, onDropBoard,  // 删帖（她 2026-09-19）：一条一条删，或者整版清空；onDeletePosts 多选一起删
+  onEditPost, onPinFloor, onDeletePost, onDeletePosts, onDeleteFloor, onClearBoard, onRenameBoard, onDropBoard,  // 删帖（她 2026-09-19）：一条一条删，或者整版清空；onDeletePosts 多选一起删
   onGenCharPosts,              // 请角色来发帖（她 2026-09-23）
   toast
 }) {
@@ -2789,6 +2789,11 @@ function Forum({
             h("div", { className: "flex items-center gap-1.5", style: { flexShrink: 0, whiteSpace: "nowrap" } },
               h("span", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog } }, xhs ? timeAgo(cm.ts || cm.visibleAt) + " " + forumIpOf(cm, c) : (cm.floor || i + 2) + " 楼"),
               fresh && newTag(),
+              post.pinFloor && post.pinFloor === cm.id && h("span", { "data-wk": "fopintag", style: { flexShrink: 0, fontFamily: F_BODY, fontSize: "calc(9.5px * var(--app-fs, 1))", color: FORUM_SKIN.accent, border: "1px solid " + FORUM_SKIN.accent, borderRadius: 4, padding: "0 4px", lineHeight: 1.5 } }, post.pinBy === "op" ? "楼主置顶" : "置顶"),
+              // 置顶这一楼：只在她自己的帖子下面有；再点一下取消
+              onPinFloor && post.authorType === "me" && cm.id && h("button", { "data-wk": "fopin", "data-on": post.pinFloor === cm.id ? "1" : "0", onClick: e => { e.stopPropagation(); onPinFloor(post.id, post.pinFloor === cm.id ? null : cm.id, "me"); },
+                title: post.pinFloor === cm.id ? "取消置顶" : "置顶这一楼", className: "shrink-0 active:opacity-60",
+                style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: post.pinFloor === cm.id ? FORUM_SKIN.accent : FORUM_SKIN.fog, padding: "0 2px" } }, post.pinFloor === cm.id ? "取消置顶" : "置顶"),
               // 转发这一楼（群友 2026-10-18）：跟转帖同一个面板，私聊、群聊、论坛私信都能去
               cm.content && h("button", { onClick: e => { e.stopPropagation(); setFwd({ board: post.board, title: "「" + String(post.title || "").slice(0, 20) + "」里的一楼", body: cm.content, authorName: cm.authorName, anon: !!(cm.anon || post.anon) }); },
                 title: "转发这一楼", "aria-label": "转发这一楼", className: "shrink-0 active:opacity-60 flex items-center", style: { padding: "0 2px" } }, h(ISend, { size: 13, color: FORUM_SKIN.fog })),
@@ -2933,11 +2938,15 @@ function Forum({
   }
   // ---- 帖子详情 ----
   function detail() {
-    const p = open;
+    // 读帖子的最新那份：点进来时存的 open 是一份旧快照，置顶、改帖之后要看得见（她 2026-11-02）
+    const p = ((posts || []).find(x => x && x.id === open.id)) || open;
     const allFloors = forumFloorOrder(cmts[p.id] || []);
     const xhs = p.fmt === "xhs";
     // 小红书评论区默认按热度：赞多的在上面
     const list = xhs ? allFloors.filter(forumVisible).sort((a, b) => (xhsAuthorReplied(p, b) ? 1 : 0) - (xhsAuthorReplied(p, a) ? 1 : 0) || xhsLikes(p, b) - xhsLikes(p, a)) : allFloors.filter(forumVisible);   // 作者回过的评论排最前（她 2026-10-26）
+    // 置顶的那一楼排最上面（她 2026-11-02）：楼号不变，只是挪到前面
+    const pinAt = p.pinFloor ? list.findIndex(f => f && f.id === p.pinFloor) : -1;
+    if (pinAt > 0) list.unshift(list.splice(pinAt, 1)[0]);
     const waitingFloors = Math.max(0, allFloors.length - list.length);
     const loadingC = gen && gen.forumC === p.id;
     const moreC = gen && gen.forumMore === p.id;

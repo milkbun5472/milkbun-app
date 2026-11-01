@@ -24991,6 +24991,26 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     setForumPosts(prev => { const n = (prev || []).map(x => x && x.id === id && x.authorType === "me" ? { ...x, title: t, body: b, editedTs: Date.now() } : x); saveJSON("x_forumPosts", n); forumPostsRef.current = n; return n; });
     toast("改好了");
   };
+  // 评论置顶（她 2026-11-02 转群友）：一帖只钉一楼，钉别的就换掉；floorId 空＝取消。
+  //   by：me＝她钉的（她自己的帖），op＝楼主角色回帖时自己钉的。楼里每一轮都看得见是谁被钉着。
+  const pinForumFloor = (postId, floorId, by) => {
+    setForumPosts(prev => { const n = (prev || []).map(x => x && x.id === postId ? { ...x, pinFloor: floorId || null, pinBy: floorId ? (by || "me") : null, pinTs: floorId ? Date.now() : null } : x); saveJSON("x_forumPosts", n); forumPostsRef.current = n; return n; });
+  };
+  // 楼主角色回帖时填的 pin_floor：是楼号，0／没填＝不动
+  const forumPinFromModel = (post, d, floors) => {
+    if (!post || !isForumCharAuthor(post) || !d || d.pin_floor == null) return;
+    const n = Number(d.pin_floor); if (!Number.isFinite(n) || n <= 0) return;
+    const f = (floors || []).find(x => x && x.floor === n);
+    if (f && f.id && f.id !== post.pinFloor) pinForumFloor(post.id, f.id, "op");
+  };
+  // 这一帖现在钉着谁：楼里每个开口的人都看得见
+  const forumPinLine = (post, floors) => {
+    if (!post || !post.pinFloor) return "";
+    const f = (floors || forumFloorOrder(forumCommentsRef.current[post.id] || [])).find(x => x && x.id === post.pinFloor);
+    if (!f) return "";
+    const who = f.authorType === "me" ? (f.alt || f.anon ? f.authorName : (forumMe.handle || profile.name || "她")) : f.authorType === "character" ? ((characters || []).find(c => c.id === f.authorId) || {}).name || f.authorName : f.authorName;
+    return " 【楼主把第 " + f.floor + " 楼置顶了】那一楼是「" + (who || "某人") + "」说的：「" + String(f.content || "").replace(/\s+/g, " ").slice(0, 60) + "」。楼里的人都看得见，被置顶的人、别的人，照自己的性子可以对这件事有反应，也可以不提。";
+  };
   const deleteForumPost = id => {
     const p0 = (forumPostsRef.current || []).find(x => x.id === id);
     if (!p0) return;
@@ -25802,10 +25822,12 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       const opGround = forumCharGrounding(opChar, post, "楼主")
         + poolChars.map(c => forumCharGrounding(c, post, "这帖里可能开口的")).join("");
       // 第二轮起同样要认得出楼主是她（她发帖后那几波陆续来回走的正是这条路）
-      const opRule2Full = opRule2 + meRule + opMineBan;
+      // 楼主角色可以钉一楼（她 2026-11-02）：只给判断方向，不给样子
+      const opPinRule = opChar ? " 楼主还可以把楼里的一楼置顶：照你的性子和你跟评论的人的关系，觉得谁说到你心坎上、或者想抬举谁，就在最外层填 pin_floor＝那一楼的楼号；想换一楼就填新的，不想动就填 0。" : "";
+      const opRule2Full = opRule2 + opPinRule + meRule + opMineBan;
       return {
-        instruction: forumPostVoice(post) + forumNpcRule(post.board) + " " + opRule2Full + relBlock + opGround + " 帖子：标题「" + post.title + "」，正文「" + forumWithPhoto(post.body, post) + "」。生成 " + n + " 条新回复（comments 数组务必凑满 " + n + " 条）。" + who2 + " " + FORUM_ID_VOICE + FORUM_THREAD_LINE + FORUM_PHOTO_LINE,
-        schemaHint: "{\"comments\":[{\"npcId\":\"熟面孔才填\"," + FORUM_GUEST_FIELDS + ",\"char\":\"角色发言才填角色名\",\"identity\":\"main|alt|anonymous（角色才填）\",\"reply_to_floor\":0,\"is_op\":false,\"content\":\"回复\"" + FORUM_PHOTO_FIELD + ",\"replies\":[]}]}",
+        instruction: forumPostVoice(post) + forumNpcRule(post.board) + " " + opRule2Full + forumPinLine(post, opts.existingFloors) + relBlock + opGround + " 帖子：标题「" + post.title + "」，正文「" + forumWithPhoto(post.body, post) + "」。生成 " + n + " 条新回复（comments 数组务必凑满 " + n + " 条）。" + who2 + " " + FORUM_ID_VOICE + FORUM_THREAD_LINE + FORUM_PHOTO_LINE,
+        schemaHint: "{" + (opChar ? "\"pin_floor\":0," : "") + "\"comments\":[{\"npcId\":\"熟面孔才填\"," + FORUM_GUEST_FIELDS + ",\"char\":\"角色发言才填角色名\",\"identity\":\"main|alt|anonymous（角色才填）\",\"reply_to_floor\":0,\"is_op\":false,\"content\":\"回复\"" + FORUM_PHOTO_FIELD + ",\"replies\":[]}]}",
         maxTokens: FTOK.floors
       };
     }
@@ -25889,6 +25911,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       }
       const repliedChars = forumRepliedCharCells(existing);
       const d = await runProbeRetry(active, forumWorldCtx((post.title || "") + "\n" + (post.body || ""), forumThreadWorld(post)), forumCommentProbe(post, "10-16", { round2: true, existingFloors: existing, repliedChars }));
+      forumPinFromModel(post, d, existing);
       let cs = (d && Array.isArray(d.comments) ? d.comments : (Array.isArray(d) ? d : [])).filter(x => x && x.content);
       if (!cs.length) throw new Error("没有更多");
       // 新楼从【旧队列最后一条之后】起排：这样它一定排在所有旧楼后面，
@@ -26909,6 +26932,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       // （她 2026-09-25：「就算是没放出来不应该是写好了的等到时间放吗」）。
       const d = await runProbeRetry(p, forumWorldCtx((post.title || "") + "\n" + (post.body || ""), forumThreadWorld(post)),
         forumCommentProbe(post, "1-2", { round2: true, existingFloors: existing, repliedChars: forumRepliedCharCells(existing) }));
+      forumPinFromModel(post, d, existing);
       const cs = (d && Array.isArray(d.comments) ? d.comments : (Array.isArray(d) ? d : [])).filter(x => x && x.content).slice(0, 2);
       if (cs.length) {
         const base = Date.now(), start = existing.length + 2;
@@ -34470,6 +34494,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     onRefreshPMs: refreshForumPMs,
     onDeletePost: deleteForumPost,
     onEditPost: editForumPost,
+    onPinFloor: pinForumFloor,
     onDeletePosts: ids => { const n = (ids || []).length; if (!n) return; forumDropPosts(ids); toast("删了 " + n + " 帖"); },
     onDeleteFloor: deleteForumFloor,
     onClearBoard: clearForumBoard,
