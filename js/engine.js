@@ -5574,7 +5574,8 @@ function buildPhotoPrompt(char, sceneDesc, st, opts) {
   const _adultAge = /(?<![0-9０-９])(?:1[89]|[2-9][0-9])\s*周?岁(?!那|时|的时候|起|以前|之前|前|后)/.test(identityText);
   // 合照也认（她 2026-10-27「合照也能弄吗」）：描述里点了谁小时候就只画小谁；笼统写「小时候」「童年合照」就是每个人都小时候
   const _yNames = multi ? cast.map(x => String(x.name).trim()) : kind === "duo" ? [cName, uName] : [cName];
-  const _y0 = char !== "__shots" && typeof photoYoungerOf === "function" ? photoYoungerOf(sceneDesc) : null;
+  // notYounger：调用方知道这张拍的就是现在（照片日记）。光看字会被要求里自己写的「小时候」骗到（她 2026-11-02：「怎么日记还是会生成小时候」）
+  const _y0 = char !== "__shots" && !(opts && opts.notYounger) && typeof photoYoungerOf === "function" ? photoYoungerOf(sceneDesc) : null;
   const _yEsc = x => x.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   const _yNamed = _y0 && _yNames.length > 1 ? _yNames.filter(n => n && new RegExp("(?:小时候的|岁的|小)" + _yEsc(n) + "|" + _yEsc(n) + "(?:小时候|童年|还小)").test(String(sceneDesc || ""))) : [];
   const younger = _y0 ? Object.assign({}, _y0, { names: _yNamed.length ? _yNamed : _yNames }) : null;

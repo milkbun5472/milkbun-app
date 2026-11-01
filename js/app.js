@@ -19499,7 +19499,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         // 那一天的日程也递上（她 2026-10-12：「这三个时刻会参考日程吧」）：日记就是照它写的，三格优先从日程和日记都对得上的时刻里挑
         + (() => { let sc = ""; try { sc = String(scheduleTextFor(char, schedDayKey(new Date(entry.ts))) || "").trim(); } catch (e) {} return sc ? "\n那一天的日程（三格优先挑日程和日记都对得上的时刻）：\n" + sc.slice(0, 600) : ""; })();
       const sceneFinal = scene;
-      const prompt = buildPhotoPrompt(char, sceneFinal, st, { kind: "other", closet: closetTextFor(charId, 240), panels: 3,
+      const prompt = buildPhotoPrompt(char, sceneFinal, st, { kind: "other", notYounger: true, closet: closetTextFor(charId, 240), panels: 3,
         lead: "【最重要·整张图的版式】这一张不是一张照片，是一条竖着的三格胶片：从上到下三格一样大、格子之间留一道粗白边，三格拍的是这一天的三个时刻。必须画成三格，不许只画一张。" });
       // 给看得见这一页的人（半窗里的他）一句话：这三张拍的是什么
       const stripDesc = "他这篇日记那天的照片日记，竖着三格，从早到晚：照日记里写的「" + body.replace(/\s+/g, " ").slice(0, 80) + "…」那一天拍的"
