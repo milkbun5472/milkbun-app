@@ -7172,15 +7172,26 @@ async function _imgBlobOf(ref) {
 }
 function _imgFileOf(blob, name, n) {
   const ext = (blob.type || "").indexOf("png") >= 0 ? "png" : ((blob.type || "").indexOf("webp") >= 0 ? "webp" : "jpg");
-  const fname = String(name || "图片").replace(/[\\/:*?"<>|]/g, "") + "-" + new Date().toISOString().slice(0, 10) + (n ? "-" + n : "") + "." + ext;
+  // 文件名只用英文数字（她 2026-11-01 再报「还是只能共享相册」）：中文名有的 iOS 不当成照片，面板里不给「存储图像」
+  const fname = "photo-" + new Date().toISOString().slice(0, 10).replace(/-/g, "") + "-" + Date.now().toString(36).slice(-4) + (n ? "-" + n : "") + "." + ext;
   return new File([blob], fname, { type: blob.type || "image/jpeg" });
+}
+// 看文件头认真实格式：标签写着 jpeg、里面其实是 webp 的（生图接口常这样），iOS 读出来对不上也不给「存储图像」
+async function _imgRealType(blob) {
+  try {
+    const b = new Uint8Array(await blob.slice(0, 12).arrayBuffer());
+    if (b[0] === 0xFF && b[1] === 0xD8 && b[2] === 0xFF) return "image/jpeg";
+    if (b[0] === 0x89 && b[1] === 0x50 && b[2] === 0x4E && b[3] === 0x47) return "image/png";
+    if (b[0] === 0x52 && b[1] === 0x49 && b[2] === 0x46 && b[3] === 0x46 && b[8] === 0x57 && b[9] === 0x45 && b[10] === 0x42 && b[11] === 0x50) return "image/webp";
+    return "";
+  } catch (e) { return ""; }
 }
 // 她 2026-10-31：「还是不能直接保存到相册，就多了一个共享相册的选项」——
 //   iOS 只有认准是 jpg/png 的文件才给「存储图像」。库里有的图是 webp、或者类型是空的／octet-stream，
 //   分享面板就只给「共享相簿」「存到文件」。所以交出去之前统一成真 jpg/png（png 无损，原图清晰度不变）。
 async function _imgPhotoReady(blob) {
-  const t = String(blob.type || "");
-  if (t === "image/jpeg" || t === "image/png") return blob;
+  const real = await _imgRealType(blob);
+  if (real === "image/jpeg" || real === "image/png") return blob.type === real ? blob : new Blob([blob], { type: real });
   try {
     const bmp = await createImageBitmap(blob);
     const c = document.createElement("canvas"); c.width = bmp.width; c.height = bmp.height;
