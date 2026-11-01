@@ -2642,7 +2642,7 @@ function VClockEditor({ v, onChange, compact, title }) {
       h("div", { className: "flex items-center justify-between", style: { gap: 10, marginTop: 12 } },
         h("div", { style: { minWidth: 0 } },
           h("div", { style: { fontFamily: F_DISPLAY, fontSize: compact ? 12.5 : 14, color: t.ink } }, "日程照这只钟的日子排"),
-          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, marginTop: 2, lineHeight: 1.45 } }, "钟开着，此刻几点、NOW、在干嘛、睡没睡都已经照这只钟；这一项管的是【按哪一天的日程】。打开后按这只钟的日期排；关着仍用现实那天排好的那份（钟拨到别的年份也不会空掉）。两边都是一次排一周（周日排下一周）；钟走得快，虚拟的一周过得也快，就排得勤一些")),
+          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, marginTop: 2, lineHeight: 1.45 } }, "打开后，跟这张面具聊的人按这只钟的日期排日程，此刻在做什么、日历上他那一页也照这只钟的几点。关着就照现实的日子排。两边都是一次排一周（周日排下一周）；钟走得快，虚拟的一周过得也快，就排得勤一些")),
         h(Toggle, { on: !!(v && v.schedFollow), onChange: x => put({ schedFollow: !!x }) })),
       compact ? null : h(Fragment, null,
         sub("年号（可空）：填了就叫「年号＋第几年」，元年是哪一年由你定"),

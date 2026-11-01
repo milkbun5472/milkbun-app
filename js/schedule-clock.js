@@ -59,9 +59,7 @@
   // ⭐日程「今天是哪一天、现在是几点」只问这两支（她 2026-10-20：「为啥不能抽成公共的」）。
   //   日历、此刻在干嘛、今天的日程、自动排日程全走这里；跟钟排时是钟上的那天那分钟，不跟时是现实（含角色时区）。
   const planDay = (char, nowMs, deviceOffset) => { const f = characterFrame(char, nowMs); return f.schedFollow ? f.day : dayKey(char, nowMs, deviceOffset); };
-  // 此刻是几点：钟开着就照钟上的钟点（她 2026-11-01「钟开了就自动跟钟走」——NOW、此刻在干嘛、睡没睡都问这一处）。
-  //   哪一天的日程（planDay）不动：没开「跟钟排」时日程还从现实那天取，钟拨到别的年份也不会空掉。
-  const planMinute = (char, nowMs, deviceOffset) => { const f = characterFrame(char, nowMs); return f.followVirtual || f.schedFollow ? f.minute : localMinute(char, nowMs, deviceOffset); };
+  const planMinute = (char, nowMs, deviceOffset) => { const f = characterFrame(char, nowMs); return f.schedFollow ? f.minute : localMinute(char, nowMs, deviceOffset); };
   const planFollows = char => { try { const c = root?.vclockCfg?.(char?.id); return !!(c && c.schedFollow); } catch (_) { return false; } };
   const shiftDayKey = (key, days) => {
     const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(key || ""));
