@@ -2824,8 +2824,10 @@ function splitLongBubble(s, allowComma) {
     if (part.length <= LONG || !sep.test(part.slice(0, -1))) return acc.concat([part]);
     const segs = part.split(sep).reduce(glue, []).filter(x => x.trim());
     const chunks = [];
+    // 只靠空格断句的那种（不打标点）最多 6 泡（她 2026-11-01：切到第 4 刀就停，最后一泡剩一大截）；打了逗号的照旧最多 4 泡，免得切成碎屑
+    const maxN = (sep === SEP || sep === SEP_JP) ? 6 : MAX_CHUNKS;
     segs.forEach(seg => {
-      if (chunks.length && (chunks[chunks.length - 1].trim().length < MIN || chunks.length >= MAX_CHUNKS)) chunks[chunks.length - 1] += seg;
+      if (chunks.length && (chunks[chunks.length - 1].trim().length < MIN || chunks.length >= maxN)) chunks[chunks.length - 1] += seg;
       else chunks.push(seg);
     });
     while (chunks.length > 1 && chunks[chunks.length - 1].replace(/[，,、]?\s*$/, "").length < TAIL_MIN) chunks[chunks.length - 2] += chunks.pop();
