@@ -64,7 +64,7 @@ test("余额按面具分：主面具还是 x_wallet，副面具各一格 x_maskW
   // 不许再拿主面具的钱去判副面具那一笔够不够
   assert.doesNotMatch(app, /if \(wallet < (total|a)\)/);
   assert.match(app, /if \(balanceOf\(payMask\) < total\)/);
-  assert.match(app, /if \(balanceOf\(maskKeyOf\(charId\)\) < a\)/);
+  assert.match(app, /balanceOf\(maskKeyOf\(charId\)\) < a/);   // 刷亲属卡时查卡额度，不刷才查这张面具
   assert.match(app, /balanceOf\(maskKeyOf\("g:" \+ groupId\)\) < a/);
   // 换主面具钱跟着人走；删面具钱并回主面具
   assert.match(app, /if \(oldId\) mw\[oldId\] = Math\.round/);

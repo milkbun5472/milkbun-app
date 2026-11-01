@@ -16,7 +16,7 @@ const card = () => {
 // ⚠️这条是那三样里唯一真坏了的：群里那一行判的是 m.role === "user"，
 //   而 sendRedPacket 压根没写 role → undefined，于是她发的红包被当成别人发的。
 test("我发的红包要认得出是我发的", () => {
-  const i = app.indexOf("  const sendRedPacket = (groupId, total, count, message, toId) => {");
+  const i = app.indexOf("  const sendRedPacket = (groupId, total, count, message, toId, kinId) => {");
   const j = app.indexOf("  const postClaimLine", i);
   assert.ok(i > 0 && j > i, "抠不出 sendRedPacket");
   assert.match(app.slice(i, j), /role: "user",\n\s*kind: "redpacket"/, "我发的红包没写 role——会靠左排、还套别人的头像");

@@ -20,7 +20,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v88.895";
+const APP_VERSION = "v88.896";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -13630,7 +13630,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
             : m.kind === "kinraise" ? "【" + uName + "在你给 Ta 的那张亲属卡上申请提额" + (m.ask ? "，想加 " + moneyText(m.ask, charId) : "（没说数目，让你看着办）") + "（当时额度 " + moneyText(m.limit || 0, charId) + "）"
               + (m.status === "approved" ? "；你加了 " + moneyText(m.add || 0, charId) + "，现在额度 " + moneyText(m.newLimit || 0, charId) : m.status === "declined" ? "；你没有加" : "")
               + "。这是 Ta 按的一个申请，不是 Ta 说的一句话】"
-            : m.kind === "kinbill" ? "【" + uName + "刷了你给 Ta 的亲属卡，买了「" + (m.item || "") + "」，" + moneyText(m.amount || 0, charId) + " 从你账上扣了" + (m.remain == null ? "" : "，这张卡还剩 " + moneyText(m.remain, charId)) + "。这不是 Ta 跟你说的一句话，是 Ta 做的一件事——要不要提、拿什么态度提，看你的人设和此刻心情，也完全可以不提】"
+            : m.kind === "kinbill" ? "【" + uName + "刷了你给 Ta 的亲属卡，" + (m.source && m.source !== "shop" ? "拿去" : "买了") + "「" + (m.item || "") + "」，" + moneyText(m.amount || 0, charId) + " 从你账上扣了" + (m.remain == null ? "" : "，这张卡还剩 " + moneyText(m.remain, charId)) + "。这不是 Ta 跟你说的一句话，是 Ta 做的一件事——要不要提、拿什么态度提，看你的人设和此刻心情，也完全可以不提】"
             : m.kind === "transfer" ? transferLineForModel(m, uName, char.name, charId)
             : m.kind === "paylater" ? "【" + uName + "把一张购物清单推给你，让你决定要不要替 Ta 付："
               + (m.items || []).map(x => x.name).join("、").slice(0, 60) + "，合计 " + moneyText(m.total || 0, charId)
@@ -17083,13 +17083,15 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   const memberStatePeekable = (gid, c) => !!(c && (gsFor(gid).memoryInterop || c.npc));
   // toId：专属红包（她 2026-09-19「群聊能发专属红包」）——点名给一个人，别人碰不到。
   // ⚠️专属就是【一份】：给一个人还分好几份，那不是专属，是普通红包写了个名字。
-  const sendRedPacket = (groupId, total, count, message, toId) => {
+  const sendRedPacket = (groupId, total, count, message, toId, kinId) => {
     const a = Math.round(Number(total) * 100) / 100;
     if (a <= 0) return;
     const to = toId ? characters.find(c => c.id === toId) : null;
     if (toId && !to) { toast("点名的那个人不在这个群里"); return; }
     const closed = groupClosed(groupId);
-    if (!closed) {
+    const kin = !closed && kinId && kinId !== toId ? kinId : null;
+    if (kin) { if (!kinCharge(kin, a, "在群里发红包", "redpacket")) return; }
+    else if (!closed) {
       if (balanceOf(maskKeyOf("g:" + groupId)) < a) { toast("余额不足"); return; }
       changeWallet(-a, "发红包", "redpacket", { where: "群聊", groupId: groupId });
     }
@@ -21559,10 +21561,13 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   const sendTransfer = (charId, amount, note, extra) => {
     const a = Math.round(Number(amount) * 100) / 100;
     if (a <= 0) return;
-    if (balanceOf(maskKeyOf(charId)) < a) {
-      toast("余额不足");
+    // 刷别人给她的亲属卡转（不许刷收款人自己那张——拿他的钱转给他）
+    const kin = extra && extra.kin && extra.kin !== charId ? extra.kin : null;
+    if (kin ? kinRemainOf(kin) < a : balanceOf(maskKeyOf(charId)) < a) {
+      toast(kin ? "亲属卡额度不足" : "余额不足");
       return;
     }
+    if (extra) { extra = Object.assign({}, extra); delete extra.kin; if (kin) extra.kin = kin; }
     const char = characters.find(c => c.id === charId);
     const tid = "tf_" + Date.now();
     pChat(charId, p => [...p, {
@@ -21619,9 +21624,13 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     const char = characters.find(c => c.id === charId);
     const card = (chatsRef.current[charId] || []).find(m => m.kind === "transfer" && m.tid === tid);
     if (!card || card.status !== "pending") return;
+    // 刷亲属卡的那一笔，收下那一刻才刷；额度这时不够了就当退回
+    if (accept && card.dir === "toChar" && card.kin && !kinCharge(card.kin, card.amount, (card.packet ? "给 " : "转账给 ") + (char ? char.name : "对方") + (card.packet ? " 的红包" : ""), "transfer")) accept = false;
     if (accept) {
       const W = card.packet ? "红包" : "转账";
-      if (card.dir === "toChar") {
+      if (card.dir === "toChar" && card.kin) {
+        adjustCharBalance(charId, card.amount, "收到你的" + W + (card.note ? "（" + card.note + "）" : ""), "transfer");
+      } else if (card.dir === "toChar") {
         changeWallet(-card.amount, (card.packet ? "发红包给 " : "转账给 ") + (char ? char.name : "对方"), "transfer", { where: "单聊", charId: charId, ts: card.ts });
         adjustCharBalance(charId, card.amount, "收到你的" + W + (card.note ? "（" + card.note + "）" : ""), "transfer");
       } else {
@@ -21644,11 +21653,12 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       receipt: { side: card.dir === "toChar" ? "char" : "me", amount: card.amount, note: card.note || "", status: accept ? "accepted" : "returned", ...(card.packet ? { packet: true } : {}) } }]);
   };
   // ---- 群聊转账（我转给群里某个指定成员）----
-  const sendGroupTransfer = (groupId, memberId, amount, note) => {
+  const sendGroupTransfer = (groupId, memberId, amount, note, kinId) => {
     const a = Math.round(Number(amount) * 100) / 100;
     if (a <= 0) return;
-    if (!groupClosed(groupId) && balanceOf(maskKeyOf("g:" + groupId)) < a) {
-      toast("余额不足");
+    const kin = kinId && kinId !== memberId && !groupClosed(groupId) ? kinId : null;
+    if (!groupClosed(groupId) && (kin ? kinRemainOf(kin) < a : balanceOf(maskKeyOf("g:" + groupId)) < a)) {
+      toast(kin ? "亲属卡额度不足" : "余额不足");
       return;
     }
     const member = characters.find(c => c.id === memberId);
@@ -21663,6 +21673,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       amount: a,
       note: note || "",
       status: "pending",
+      ...(kin ? { kin: kin } : {}),
       content: "[转账] 你向 " + (member ? member.name : "成员") + " 转了 " + moneyText(a, member && member.id) + (note ? "（" + note + "）" : "")
     });
     // 同单聊：挂着等 TA 点，收不收由 TA 在下一轮群发言里自己决定（见 replyGroup 的 transferAccept）
@@ -21672,8 +21683,9 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     const gc = groupChatsRef.current[groupId] || [];
     const card = gc.find(m => m.kind === "transfer" && m.tid === tid);
     if (!card || card.status !== "pending") return;
+    if (accept && !groupClosed(groupId) && card.kin && !kinCharge(card.kin, card.amount, "群里转账给 " + (card.toName || "成员"), "transfer")) accept = false;
     if (accept && !groupClosed(groupId)) {
-      changeWallet(-card.amount, "群转账给 " + (card.toName || "成员"), "transfer", { where: "群聊", groupId: groupId, ts: card.ts });
+      if (!card.kin) changeWallet(-card.amount, "群转账给 " + (card.toName || "成员"), "transfer", { where: "群聊", groupId: groupId, ts: card.ts });
       adjustCharBalance(card.toId, card.amount, "收到群转账", "transfer");
     }
     const nm = card.toName || "对方";
@@ -31458,31 +31470,31 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
 
   // 用某角色的亲属卡付款（刷 TA 的钱）
   // opts.noOrder：不是买东西（比如旅行订票），不进待收货；成功返回 true
-  const payWithKinship = (charId, items, total, opts) => {
+  // 刷她手里某张亲属卡付一笔（购物、外卖、转账、红包共用这一处，她 2026-11-01 群友许愿「转账/红包可以用亲属卡」）：
+  //   扣卡主的钱 + 记卡账单 + 卡主聊天里留一条刷卡通知（kinbill，不调模型，TA 下次说话时读得到）。
+  const kinRemainOf = charId => { const c = kinshipCardsRef.current.find(x => x.charId === charId); return c ? Math.round(((c.limit || 0) - (c.used || 0)) * 100) / 100 : 0; };
+  const kinCharge = (charId, total, itemText, source) => {
     const card = kinshipCardsRef.current.find(c => c.charId === charId);
     const char = characters.find(c => c.id === charId);
     if (!card) { toast("没有这张亲属卡"); return false; }
-    const remaining = (card.limit || 0) - (card.used || 0);
+    const remaining = kinRemainOf(charId);
     if (remaining < total) { toast("亲属卡额度不足（剩 ¥" + remaining + "）"); return false; }
-    // 扣角色余额 + 记卡账单，然后异步生成 TA 对这笔的评论
-    adjustCharBalance(charId, -total, "亲属卡消费 · " + items.map(x => x.name).join("、").slice(0, 16), "kinship");
-    const entryId = "kl_" + Date.now();
-    const itemText = items.map(x => x.name).join("、");
+    adjustCharBalance(charId, -total, "亲属卡消费 · " + String(itemText).slice(0, 16), "kinship");
     updateKinshipCard(charId, cd => ({
       ...cd,
       used: Math.round(((cd.used || 0) + total) * 100) / 100,
-      ledger: [{ id: entryId, ts: Date.now(), amount: total, item: itemText, source: "shop" }, ...(cd.ledger || [])]
+      ledger: [{ id: "kl_" + Date.now(), ts: Date.now(), amount: total, item: itemText, source: source || "shop" }, ...(cd.ledger || [])]
     }));
-    // 刷了TA的卡，聊天里留一条【刷卡通知】——不调模型（她 2026-09-02：
-    // 「本来买东西也不应该调用啊。应该做成系统通知放聊天里然后等我按回复TA才反应」）。
-    // v60.44 我在这儿现调了一次模型让TA当场评论：她按次计费，而买东西根本不是一次对话，
-    // 是她单方面刷了一下卡；TA该在【下次说话时】提这件事，不是被购物按钮拽出来说话。
-    // 所以这条走 kind:"kinbill"（不是 kind:"system"——那一类压根不进模型历史，
-    // 见上面 history 的过滤），role 记在她名下：这是她做的事，TA下一轮读得到。
     pChat(charId, p => [...p, { role: "user", kind: "kinbill", read: true, ts: Date.now(),
-      charId: charId, item: itemText, amount: total,
+      charId: charId, item: itemText, amount: total, source: source || "shop",
       remain: Math.round((remaining - total) * 100) / 100,
-      content: "[亲属卡] 刷了" + (char ? char.name : "对方") + "的卡：" + itemText.slice(0, 40) + " · ¥" + total }]);
+      content: "[亲属卡] 刷了" + (char ? char.name : "对方") + "的卡：" + String(itemText).slice(0, 40) + " · ¥" + total }]);
+    return true;
+  };
+  window.KinPay = { cards: () => kinshipCardsRef.current.map(c => { const ch = charactersRef.current.find(x => x.id === c.charId); return ch ? { charId: c.charId, name: ch.remark || ch.name, remain: kinRemainOf(c.charId) } : null; }).filter(Boolean) };
+  const payWithKinship = (charId, items, total, opts) => {
+    const char = characters.find(c => c.id === charId);
+    if (!kinCharge(charId, total, items.map(x => x.name).join("、"), "shop")) return false;
     if (!(opts && opts.noOrder)) items.forEach(it => addOrder({ name: it.name, price: it.price, cat: it.cat, kind: it.kind, takeout: it.takeout, ...(it.arriveTs ? { arriveTs: it.arriveTs } : {}), fromCharId: null, kinCharId: charId, payLabel: "刷了 " + (char ? char.name : "对方") + " 的亲属卡" }));
     toast("已用 " + (char ? char.name : "对方") + " 的亲属卡付款");
     return true;
@@ -33505,7 +33517,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     onLoadOlder: activeRoomId === "main" ? loadChatArchive : null,
     myBalance: wallet,
     onShootMe: (scene, third) => shootMeOnline(activeChar.id, window.ChatRooms ? window.ChatRooms.chatKey(activeChar.id, activeRoomId) : activeChar.id, scene, third),
-    onSendTransfer: (amount, note, packet) => runRoomAction(activeChar.id, "transfer", () => sendTransfer(activeChar.id, amount, note, packet ? { packet: true } : undefined)),
+    onSendTransfer: (amount, note, packet, kin) => runRoomAction(activeChar.id, "transfer", () => sendTransfer(activeChar.id, amount, note, packet || kin ? { ...(packet ? { packet: true } : {}), ...(kin ? { kin: kin } : {}) } : undefined)),
     onRespondTransfer: (tid, accept) => runRoomAction(activeChar.id, "transferAccept", () => respondTransfer(activeChar.id, tid, accept)),
     // 拆开TA寄来的那个盒子（她 2026-09-19）。盖子掀开这件事只发生一次，记在那条消息上——
     // ⚠️认的是 turnId 不是数组下标：聊天会删消息、会翻旧的，下标一变就拆错了那一盒。
@@ -34090,7 +34102,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     onGenVotes: idx => genPollVotes(activeGroup.id, idx),
     onVote: (idx, optIdx) => { castVote(activeGroup.id, idx, optIdx, profile.name || "我"); const _pl = groupPoll(activeGroup.id, idx); if (_pl && _pl.ask) setTimeout(() => settleGroupAsk(activeGroup.id, _pl.pollId), 300); },
     onStartAsk: a => startAsk(activeGroup.id, a),
-    onSendRedPacket: (total, count, message, toId) => sendRedPacket(activeGroup.id, total, count, message, toId),
+    onSendRedPacket: (total, count, message, toId, kin) => sendRedPacket(activeGroup.id, total, count, message, toId, kin),
     onClaim: idx => claimRedPacket(activeGroup.id, idx),
     onSummarize: () => summarizeGroupToMem(activeGroup.id),
     onAddMember: charId => addGroupMember(activeGroup.id, charId),
@@ -34113,7 +34125,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       startCall(people, mode, activeGroup.id, "me");
     },
     onCallBack: m => { const inv = characters.find(c => c.id === m.senderId); startCall(inv ? [inv] : groupMembers(activeGroup), m.mode, activeGroup.id, "me"); },
-    onSendTransfer: (memberId, amount, note) => sendGroupTransfer(activeGroup.id, memberId, amount, note),
+    onSendTransfer: (memberId, amount, note, kin) => sendGroupTransfer(activeGroup.id, memberId, amount, note, kin),
     onRespondTransfer: (tid, accept) => respondGroupTransfer(activeGroup.id, tid, accept),
     toast: toast
   });else if (screen === "contact" && activeChar) body = /*#__PURE__*/React.createElement(ContactDetail, {
