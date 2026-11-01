@@ -822,7 +822,10 @@ async function callAI(p, system, messages, opts) {
   // 后台自己跑的那一枪（AutoGate 里挂着名字的活儿）：成没成都广播一声，app 那头弹提示。
   //   发起那一刻就把名字取下来——等它回来，那件活儿可能已经收工了。
   const bgShow = typeof window !== "undefined" && window.AutoGate && window.AutoGate.currentShow ? window.AutoGate.currentShow() : "";
-  const bgRoute = (p && (p.name || p.model)) || "";
+  // 提示里写「线路名 · 实际调的模型」（她 2026-11-01 群友：「后台换了模型，一直显示原来那个模型还超时」）：
+  //   线路名是她起的，常常就是当初那个模型的名字；同一条线路里改了模型，光写名字就一直是旧的。
+  const _nm = String((p && p.name) || "").trim(), _md = String((p && p.model) || "").trim();
+  const bgRoute = _nm && _md && _nm.indexOf(_md) < 0 ? _nm + " · " + _md : (_nm || _md);
   const bgSay = (ok, msg) => { if (!bgShow) return; try { window.dispatchEvent(new CustomEvent("bg-call", { detail: { show: bgShow, route: bgRoute, ok: ok, msg: msg || "" } })); } catch (e) {} };
   // 调用记录：干嘛＝调用点自己写的 logLabel → 三种她按下去的（use）→ 后台活的名字 → tag → 其他。
   //   回合＝她按一下换来的那一枪（use 是 chat/offline/call，且不是兜底重发 logRetry）。⚠️这张表也写在函数里面，理由同上。
@@ -888,7 +891,9 @@ async function callAI(p, system, messages, opts) {
       : "站子打回来了，没附原因（" + ((e && e.name) || "Error") + "，" + ((Date.now() - t0) / 1000).toFixed(1) + " 秒）。去 设置 → API 在这条线路上点「拉取列表」：拉不下来是地址或 key 的问题；拉得下来就核对模型名在不在里面";
     bgSay(false, m2); logIt(e && e.userAbort ? "cut" : false, m2);
     if (!CONFIG_ERR.test(m2)) {
-      try { if (typeof window !== "undefined" && window.dispatchEvent) window.dispatchEvent(new CustomEvent("gen-failed", { detail: { tag: (opts && opts.tag) || "", msg: m2, route: bgRoute } })); } catch (_) {}
+      try { if (typeof window !== "undefined" && window.dispatchEvent) window.dispatchEvent(new CustomEvent("gen-failed", { detail: { tag: (opts && opts.tag) || "", msg: m2, route: bgRoute,
+        // 这一枪是干嘛的（跟调用记录同一个说法）：不写的话 app 那头只能套「后台生成」，走线上的活也被叫成后台（她 2026-11-01 截图）
+        label: (opts && opts.logLabel) || LOG_USE[String((opts && opts.use) || "")] || logFrom || (typeof callTagLabel === "function" && opts && opts.tag ? callTagLabel(opts.tag) : "") } })); } catch (_) {}
     }
     throw e;
   }
