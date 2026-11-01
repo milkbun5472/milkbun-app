@@ -21039,7 +21039,7 @@ function RedPacketCard({ rp, onClick, foot, dim: dimIn }) {
       h("div", { "data-wk": "rpfoot", style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: "rgba(255,255,255,.82)", marginTop: 5 } },
         foot != null ? foot : done ? "已被领完" : locked ? "不是给你的" : "领取红包")));
 }
-// 骰子 · 抽签（群里 2026-11-01 许愿「聊天的时候在群里可以发抽签或者是骰子，抽到谁和谁换情侣头像」）：
+// 骰子 · 抽签（群里 2026-11-01 许愿：群聊里能发抽签、掷骰子）：
 //   本机掷、本机抽，结果写进一张卡发到群里，他们读到的就是结果（不花调用）。
 function luckDiceText(vals) { return vals.join("、") + (vals.length > 1 ? "（共 " + vals.reduce((a, b) => a + b, 0) + " 点）" : " 点"); }
 function GroupLuckDialog({ members, meName, onCancel, onSend }) {
@@ -21064,7 +21064,7 @@ function GroupLuckDialog({ members, meName, onCancel, onSend }) {
       mode === "dice"
         ? h("div", { className: "flex items-center flex-wrap", style: { gap: 8 } }, h("span", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.sub } }, "掷几颗"), [1, 2, 3].map(x => chip(dice === x, x + " 颗", () => setDice(x))))
         : h("div", null,
-            h("input", { "data-wk": "input", value: what, maxLength: 40, onChange: e => setWhat(e.target.value), placeholder: "抽什么（可以不写，比如：谁和谁换情侣头像）",
+            h("input", { "data-wk": "input", value: what, maxLength: 40, onChange: e => setWhat(e.target.value), placeholder: "抽什么（可以不写，比如：今晚谁请客）",
               style: { width: "100%", minHeight: 42, padding: "0 12px", borderRadius: 10, border: "1px solid " + t.line, background: t.bg, color: t.ink, fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", outline: "none", boxSizing: "border-box" } }),
             h("div", { className: "flex items-center flex-wrap", style: { gap: 8, marginTop: 12 } },
               h("span", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.sub } }, "抽几个人"), [1, 2, 3].map(x => chip(n === x, x + " 个", () => setN(x))),
