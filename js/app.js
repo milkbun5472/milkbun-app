@@ -20,7 +20,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v88.889";
+const APP_VERSION = "v88.890";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -37163,23 +37163,28 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     // ThemeStudio 可能早于 IndexedDB 图片仓库先跑；hydrate 完再编一次，CSS 里的 iv_ 图片才有真实地址。
     try { if (window.ThemeStudio) window.ThemeStudio.apply(window.ThemeStudio.current()); } catch (_) {}
     ReactDOM.createRoot(document.getElementById("root")).render(/*#__PURE__*/React.createElement(App, null));
+    // 白屏守卫等不及先弹了「开机卡住」那张卡，后来又等齐了：界面已经出来，卡收掉
+    try { if (window.__bootStuckShown) document.querySelectorAll("[data-boot-guard]").forEach(n => n.remove()); } catch (_) {}
   };
+  // 还在等哪几样：index.html 的白屏守卫 10 秒后读它，说清是卡在哪个仓库
+  const bootWait = window.__bootWait = [];
+  const track = (name, p) => { bootWait.push(name); return Promise.resolve(p).finally(() => { const i = bootWait.indexOf(name); if (i >= 0) bootWait.splice(i, 1); }); };
   // 挂载前先灌好图库 + 文字库(同人文迁 IDB)镜像，首帧就能同步读到；失败也照常挂载(loadJSON 会回落 localStorage)。
   const hyd = [];
-  if (typeof hydrateImgVault === "function") hyd.push(hydrateImgVault());
-  if (typeof hydrateNativeSelfies === "function") hyd.push(hydrateNativeSelfies());
+  if (typeof hydrateImgVault === "function") hyd.push(track("图片库", hydrateImgVault()));
+  if (typeof hydrateNativeSelfies === "function") hyd.push(track("自拍库", hydrateNativeSelfies()));
   const txtP = typeof hydrateTxtVault === "function" ? hydrateTxtVault() : null;
-  if (txtP) hyd.push(txtP);
+  if (txtP) hyd.push(track("文字存档", txtP));
   // ⚠️凭证金库打不开要说出来（审计 P1）。API key 全都住在本机 IDB 的
   //   x_credential_vault 里，用一把【不可导出的设备密钥】加密；金库解不开时
   //   storeProfile 会抛「无法解密」，而这一路的 .catch(() => 0) 把它整个吞掉——
   //   开机静默、每条线路都在、每条线路都没 key，症状是【所有模型调用都失败】，
   //   而那个症状会把她引到完全错的方向（以为是模型坏了、以为是网络）。
   // ⚠️x_api（线路列表）也搬进 IDB 了：必须等文字库灌完再解密，否则读到的是空列表。
-  if (window.CredentialVault) hyd.push(Promise.resolve(txtP).catch(() => 0).then(() => window.CredentialVault.hydrateApiCredentials()).catch(e => {
+  if (window.CredentialVault) hyd.push(track("密钥库", Promise.resolve(txtP).catch(() => 0).then(() => window.CredentialVault.hydrateApiCredentials()).catch(e => {
     try { window.__credentialVaultError = String((e && e.message) || e || "凭证金库打不开"); } catch (_) {}
     throw e;
-  }));
+  })));
   if (hyd.length) Promise.all(hyd.map(p => Promise.resolve(p).catch(() => 0))).then(mount, mount); else mount();
   // 挂载之后再说——太早说的话 toast 还没挂起来
   setTimeout(() => {

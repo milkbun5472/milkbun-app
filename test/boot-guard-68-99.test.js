@@ -106,3 +106,36 @@ test("谷歌字体不许挡渲染——国内连不上时它是挂着等超时�
   assert.match(line, /onload="this\.media='all'"/,
     "拉到了要翻成 all，不然连得上的人也用不上字体");
 });
+
+// 她 2026-11-01：「一直白屏」「重进几次、用梯子还是白屏」——文件都拉下来了，app 卡在等本机存档仓库打开
+test("开机卡在读本机存档：10 秒后说清卡在哪个仓库", () => {
+  const g = runGuard();
+  g.win.__bootWait = ["文字存档", "密钥库"];
+  g.flush();
+  const card = g.nodes.find(n => n.guard === "1");
+  assert.ok(card, "卡在 IndexedDB 时屏幕不能一直空着");
+  assert.match(card.innerHTML, /文字存档、密钥库/);
+  assert.match(card.innerHTML, /你的存档一个字都没少/);
+  assert.match(card.innerHTML, /重新加载/);
+  assert.equal(g.win.__bootStuckShown, true);
+});
+
+test("等齐了、或者界面已经出来了，就不弹「开机卡住」", () => {
+  const g = runGuard();
+  g.win.__bootWait = [];
+  g.flush();
+  assert.equal(g.nodes.find(n => n.guard === "1"), undefined);
+  const h = runGuard();
+  h.win.__bootWait = ["文字存档"];
+  h.rootEl.childElementCount = 2;
+  h.flush();
+  assert.equal(h.nodes.find(n => n.guard === "1"), undefined);
+});
+
+test("app.js 开机把还在等的那几样记进 __bootWait，挂上界面后收卡", () => {
+  const app = fs.readFileSync(path.join(root, "js", "app.js"), "utf8");
+  assert.match(app, /const bootWait = window\.__bootWait = \[\];/);
+  assert.match(app, /track\("文字存档", txtP\)/);
+  assert.match(app, /track\("密钥库",/);
+  assert.match(app, /if \(window\.__bootStuckShown\) document\.querySelectorAll\("\[data-boot-guard\]"\)/);
+});
