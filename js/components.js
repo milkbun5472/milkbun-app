@@ -17375,15 +17375,22 @@ const pickMark = (on, label) => on ? h(Fragment, null, h("span", { "aria-hidden"
 function KinPayPick({ value, onChange, exclude, accent }) {
   const t = useTheme();
   const cards = (window.KinPay && window.KinPay.cards ? window.KinPay.cards() : []).filter(c => c.charId !== exclude);
+  // 亲属卡收成一格（她 2026-11-02「亲属卡能不能折叠一下，太多了不好看」）：平时一排就「我的钱包」「亲属卡 · N 张」，
+  //   点开才列出每一张；选中了哪张，收着的那一格就写着它
+  const [open, setOpen] = useState(false);
   useEffect(() => { if (value && !cards.some(c => c.charId === value)) onChange(""); }, [value, exclude]);
   if (!cards.length) return null;
   const on = accent || t.ink;
-  return h("div", { "data-wk": "kinpay", className: "flex flex-wrap", style: { gap: 6, marginTop: 10 } },
-    [{ charId: "", name: "我的钱包" }].concat(cards).map(c => h("button", { key: c.charId || "_me", "data-on": value === c.charId ? "1" : "0", onClick: () => onChange(c.charId),
-      className: "active:opacity-70",
-      style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", padding: "6px 11px", borderRadius: 999,
-        background: value === c.charId ? on : "transparent", color: value === c.charId ? t.bg2 : t.sub, border: "1px solid " + (value === c.charId ? on : t.line) } },
-      pickMark(value === c.charId, c.charId ? c.name + " 的亲属卡 · 剩 ¥" + c.remain : c.name))));
+  const chip = (key, sel, label, fn, extra) => h("button", { key, "data-on": sel ? "1" : "0", onClick: fn, className: "active:opacity-70",
+    style: Object.assign({ fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", padding: "6px 11px", borderRadius: 999, maxWidth: "100%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+      background: sel ? on : "transparent", color: sel ? t.bg2 : t.sub, border: "1px solid " + (sel ? on : t.line) }, extra || {}) }, pickMark(sel, label));
+  const cur = cards.find(c => c.charId === value);
+  return h("div", { "data-wk": "kinpay", style: { marginTop: 10 } },
+    h("div", { className: "flex flex-wrap justify-center", style: { gap: 6 } },
+      chip("_me", !value, "我的钱包", () => { onChange(""); setOpen(false); }),
+      chip("_kin", !!cur, cur ? cur.name + " 的卡 · 剩 ¥" + cur.remain : "亲属卡 · " + cards.length + " 张 " + (open ? "▴" : "▾"), () => setOpen(o => !o))),
+    open ? h("div", { "data-wk": "kinpaylist", className: "flex flex-wrap justify-center", style: { gap: 6, marginTop: 8 } },
+      cards.map(c => chip(c.charId, value === c.charId, c.name + " · 剩 ¥" + c.remain, () => { onChange(c.charId); setOpen(false); }, { fontSize: "calc(11.5px * var(--app-fs, 1))" }))) : null);
 }
 function TransferComposeSheet({ cName, myBalance, charId, onClose, onSend, packet }) {
   const t = useTheme();
