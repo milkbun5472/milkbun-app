@@ -14110,6 +14110,15 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       }
       // 队尾空气泡（小克反馈）：滤掉只剩空白/零宽字符/BOM 的空串——trim/Boolean 抓不住零宽符，这里连它一起清
       words = words.filter(w => String(w == null ? "" : w).replace(/[\s\u200b-\u200f\u202a-\u202e\u2060\ufeff]+/g, "") !== "");
+      // 最后兜一道（她 2026-11-01：「开了切泡怎么没切」「这种随机出现我也预测不了」）：前面哪一步漏了都不要紧——
+      //   开着拆泡、这一泡又长又只靠空格断句的，发出去之前再按同一个 splitLongBubble 拆一次。
+      //   带译文的（中文挂在它身上）、卡片、语音／表情占位都不动
+      if (_splitOn && typeof splitLongBubble === "function") words = words.reduce((acc, w) => {
+        const t = typeof w === "string" ? w : "";
+        if (!t || t.length <= 40 || !/[\u4e00-\u9fff…~～]\s+[\u4e00-\u9fff]/.test(t) || _biZh.has(bilingualKey(t)) || _biCovered.has(bilingualKey(t))
+          || (typeof htmlCardOf === "function" && htmlCardOf(t)) || /^emoteslot/i.test(t) || (typeof voiceSlotOf === "function" && voiceSlotOf(t) != null)) return acc.concat([w]);
+        return acc.concat(splitLongBubble(t, true));
+      }, []);
       // 带声音标签的那一泡【拆完泡以后】再认一遍语音（她 2026-10-19：普通回复里 (snorts)(clear-throat) 掉成了文字泡）：
       //   上面 markPauseVoice 认的是拆泡【之前】那几项；模型把几句塞进一项、或者 JSON 没解析出来走了兜底，
       //   带标签的那句是拆完才单独出来的，就漏了。（已经在 _oneLong 里并成一整段的不拆，照它）
@@ -16443,6 +16452,10 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
                 return acc.concat(parts);
               }, []);
             let gBubbles = gLines.length ? gLines : [stripAiStamp(item.text || "")].filter(Boolean);
+            // 最后兜一道（跟单聊同一条）：又长又只靠空格断句的，再拆一次；带译文的不动
+            if (gAllowComma) gBubbles = gBubbles.reduce((acc, w) => { const t = typeof w === "string" ? w : "";
+              if (!t || t.length <= 40 || !/[\u4e00-\u9fff…~～]\s+[\u4e00-\u9fff]/.test(t) || gBiZh.has(bilingualKey(t)) || gBiCovered.has(bilingualKey(t)) || (typeof htmlCardOf === "function" && htmlCardOf(t))) return acc.concat([w]);
+              return acc.concat(splitLongBubble(t, true)); }, []);
             if (typeof moveDanglingLeads === "function") gBubbles = moveDanglingLeads(gBubbles);   // 「第一：」挪到下一泡开头，跟单聊同一条
             // 掉格式兜底（四处一样喂：跟单聊同一把刀、同一个模块）。群里没有逐人称谓设置，
             // 默认就是第二人称。
