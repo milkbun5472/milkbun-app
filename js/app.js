@@ -3707,7 +3707,7 @@ function App() {
       // 幸运字符计数：她和角色发的都算（文字、语音、表情包、照片），灰字系统行不算
       const _luckyN = n.slice(pl.length).filter(m => m && m.role !== "system" && m.kind !== "system").length;
       if (_luckyN) setTimeout(() => luckyCount(id, _luckyN), 0);
-      const added = n.slice(pl.length).filter(m => m && m.role !== "user" && m.kind !== "system").length;
+      const added = n.slice(pl.length).filter(gUnreadCounts).length;   // 跟「↑ N 条新消息」找第一条同一个判断（components.js）
       const viewing = viewRef.current.screen === "gthread" && viewRef.current.charId === id;
       if (added > 0 && !viewing) setTimeout(() => bumpUnread(id, added), 0);
     }

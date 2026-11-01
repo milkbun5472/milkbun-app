@@ -11129,6 +11129,15 @@ function PetWatchSheet({ storeKey, onClose, onShare, onEnter }) {
         onEnter ? h("button", { onClick: onEnter, className: "flex-1 active:opacity-70",
           style: { minHeight: 40, borderRadius: 10, border: "1px solid " + t.line, color: t.ink, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))" } }, "进小镇看它 ›") : null))));
 }
+// 群里哪几条算进未读（数未读和「↑ N 条新消息」找第一条用同一个判断，她 2026-11-02：「跳不准，往上还有三条」）：
+//   别人发的、不是系统灰字的。夹在中间的系统行不算未读，倒推位置时也得跳过它们，不然就往下偏几条
+function gUnreadCounts(m) { return !!m && m.role !== "user" && m.kind !== "system"; }
+// 从最后一条往回数 n 条算未读的，停下那条就是第一条新消息
+function gFirstUnreadIdx(messages, n) {
+  const list = messages || []; let left = Number(n) || 0;
+  for (let i = list.length - 1; i >= 0; i--) { if (gUnreadCounts(list[i])) { left--; if (left <= 0) return i; } }
+  return 0;
+}
 function RoomWorldBanner({ onEnter, onWatch }) {
   const t = useTheme();
   return h("div", { className: "shrink-0 w-full flex items-center",
@@ -20520,7 +20529,7 @@ function GroupThread({
     className: "flex-1 overflow-y-auto px-4 py-4 space-y-2"
   }, h(ChatJumpArrows, { scroller: ref, t, onTop: () => revealMsg(0) }), (openUnread > 0 && messages.length - openUnread >= 0) ? h("div", { style: { position: "sticky", top: 0, zIndex: 6, height: 0, display: "flex", justifyContent: "flex-end" } },
     h("button", { "data-wk": "gunreadjump", onClick: () => {
-        const idx = Math.max(0, messages.length - openUnread);
+        const idx = gFirstUnreadIdx(messages, openUnread);
         stopPin(ref.current);
         revealMsg(idx);
         setTimeout(() => locateMsgIn(ref.current, idx, messages, archCount > 0, { start: winStartRef.current }), 160);
