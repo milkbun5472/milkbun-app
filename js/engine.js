@@ -822,7 +822,10 @@ async function callAI(p, system, messages, opts) {
   // 后台自己跑的那一枪（AutoGate 里挂着名字的活儿）：成没成都广播一声，app 那头弹提示。
   //   发起那一刻就把名字取下来——等它回来，那件活儿可能已经收工了。
   const bgShow = typeof window !== "undefined" && window.AutoGate && window.AutoGate.currentShow ? window.AutoGate.currentShow() : "";
-  const bgRoute = (p && (p.name || p.model)) || "";
+  // 提示里写「线路名 · 实际调的模型」（她 2026-11-01 群友：「后台换了模型，一直显示原来那个模型还超时」）：
+  //   线路名是她起的，常常就是当初那个模型的名字；同一条线路里改了模型，光写名字就一直是旧的。
+  const _nm = String((p && p.name) || "").trim(), _md = String((p && p.model) || "").trim();
+  const bgRoute = _nm && _md && _nm.indexOf(_md) < 0 ? _nm + " · " + _md : (_nm || _md);
   const bgSay = (ok, msg) => { if (!bgShow) return; try { window.dispatchEvent(new CustomEvent("bg-call", { detail: { show: bgShow, route: bgRoute, ok: ok, msg: msg || "" } })); } catch (e) {} };
   // 调用记录：干嘛＝调用点自己写的 logLabel → 三种她按下去的（use）→ 后台活的名字 → tag → 其他。
   //   回合＝她按一下换来的那一枪（use 是 chat/offline/call，且不是兜底重发 logRetry）。⚠️这张表也写在函数里面，理由同上。
