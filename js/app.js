@@ -9816,7 +9816,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     const picked = []; let used = 0;
     for (let i = beats.length - 1; i >= 0; i--) {
       const b = beats[i];
-      const line = "[" + (aiStampFor(charId, b.ts) ? aiStampFor(charId, b.ts) + "·" : "") + b.surface + "] " + b.who + "：" + b.text.replace(/\s+/g, " ").slice(0, 80);
+      const line = "[" + (aiStampFor(charId, b.ts) ? aiStampFor(charId, b.ts) + "·" : "") + b.surface + "] " + b.who + "：" + b.text.replace(/\s+/g, " ").slice(0, 200);   // 每句最多 200 字（2026-11-02 从 80 放宽：长句后半截总被切）
       if (used + line.length > budget && picked.length) break;
       used += line.length + 1; picked.push(line);
     }
