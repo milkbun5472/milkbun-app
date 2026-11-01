@@ -15298,7 +15298,9 @@ function locateMsgIn(container, i, messages, hasArchiveLead, opts) {
     if (typeof stopPin === "function") stopPin(container);
     const o = opts || {};
     const start = Math.max(0, Number(o.start) || 0);
-    if (i < start) return;
+    // ⚠️群聊不靠 start：它按气泡自己的 data-i 找，下面那段不数格子；而且窗口刚往上撑开时 start 可能还是旧的，
+    //   一比就当「不在窗口里」放弃了（她 2026-11-02：「点那个新消息也跳转不上去」）
+    if (o.single && i < start) return;
     const list = messages || [];
     const reasonRow = m => o.single && hasReasonRow(m) ? 1 : 0;
     const rowsOf = m => {
@@ -15312,9 +15314,18 @@ function locateMsgIn(container, i, messages, hasArchiveLead, opts) {
     //   新消息药丸、加载按钮、思考链、日期条、重 Roll 那一排，按「第几个孩子」数一定数歪。
     //   直接找气泡自己挂的 data-i；这一条是旁白／卡片（没挂 data-i）就落到它后面最近的那条气泡。
     if (!o.single) {
-      let node = null;
-      for (let j = i; j < list.length && !node; j++) node = container && container.querySelector('[data-wk="msg"][data-i="' + j + '"]');
-      if (node && node.scrollIntoView) node.scrollIntoView({ block: "center" });
+      // 那一条可能还没画出来（窗口正往上撑）：找不到就过一会儿再找，最多等 1.5 秒
+      //   先只认那一条本身；等到最后一次还没有（它是旁白／卡片，没挂 data-i），才落到它后面最近的那条气泡
+      const tryFind = left => {
+        const q = j => container && container.querySelector('[data-wk="msg"][data-i="' + j + '"]');
+        let node = q(i);
+        // 它前面已经画出了气泡＝它就在窗口里、只是没挂 data-i（旁白／卡片），不用等，当场往后找
+        let inWin = false; if (!node) for (let j = i - 1; j >= 0 && !inWin; j--) inWin = !!q(j);
+        if (!node && (inWin || left <= 0)) for (let j = i + 1; j < list.length && !node; j++) node = q(j);
+        if (node && node.scrollIntoView) { if (typeof stopPin === "function") stopPin(container); node.scrollIntoView({ block: "center" }); return; }
+        if (left > 0) setTimeout(() => tryFind(left - 1), 150);
+      };
+      tryFind(10);
       return;
     }
     let domIndex = (start > 0 ? 1 : 0) + (hasArchiveLead ? 1 : 0);
