@@ -3207,6 +3207,8 @@
     return extractJSON(raw) || { correct: false, note: "" };
   }
 
+  // 猜的是不是就是答案：去掉「是不是／是／吗／它／这个」和标点空格再比
+  function q25Norm(v) { return String(v == null ? "" : v).toLowerCase().replace(/[\s，。！？!?、,.~～…：:；;"'“”「」『』（）()]/g, "").replace(/^(它|这个|那个|答案)?(是不是|是|就是|会不会是|难道是)/, "").replace(/(吗|嘛|呢|吧|对吧|对不对|是吗)$/, ""); }
   function GuessGame(props) {
     const t = props.t, cfg = props.config, api = props.active, kind = props.kind;
     const K = GUESS_KINDS[kind];
@@ -3294,6 +3296,12 @@
       if (uq) pushLog([{ type: "q", name: me.name, text: uq, mine: true }]);
       try {
         const r = await runGuessRound(api, kind, ctx, uq || "", speakers, history, cfg.mode, me ? me.name : "");
+        // 25 问：猜的就是那个东西，代码自己认，不全听主持人的（群里 2026-11-01：她打「馒头」，主持人回「不是，馒头不是米饭」，答案正是馒头）
+        if (kind === "q25" && ctx && ctx.secret) {
+          const hitQ25 = q => { const sec = q25Norm(ctx.secret), x = q25Norm(q); return !!sec && !!x && (x === sec || (sec.length >= 2 && x.length <= sec.length + 4 && x.indexOf(sec) >= 0)); };
+          if (uq && hitQ25(uq)) { r.userAnswer = { verdict: "是", note: "猜中了" }; r.solvedBy = me ? me.name : r.solvedBy; r.reveal = r.reveal || ctx.secret; }
+          else if (!r.solvedBy) (r.ai || []).forEach(a => { if (!r.solvedBy && a && hitQ25(a.question)) { a.verdict = "是"; a.note = "猜中了"; r.solvedBy = a.name; r.reveal = r.reveal || ctx.secret; } });
+        }
         const items = [];
         const newHist = [];
         if (uq) { newHist.push(uq); if (r.userAnswer) items.push({ type: "a", verdict: r.userAnswer.verdict, note: r.userAnswer.note }); }
