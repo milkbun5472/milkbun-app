@@ -36501,6 +36501,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     onOpen: goListen,
     onToggle: togglePlay,
     onNext: () => stepSong(1),
+    onPrev: () => stepSong(-1),
     onClose: stopPlayer
   }) : null, (() => {
     const scc = stateCardChar || activeChar;
