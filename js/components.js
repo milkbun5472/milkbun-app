@@ -14341,11 +14341,16 @@ function useShrank(key) {
 }
 function pinToBottom(el, ms) {
   if (!el) return () => {};
-  let stopped = false, lastH = -1;
+  // 刚进来（没给固定时长）：钉到内容不再变高——连续 1.5 秒没长才停，最多 8 秒。
+  //   她 2026-11-02：「弹窗消息点进去会跳到很上面」——点弹窗进去时 TA 往往还在一条条发、上面的图还在解码，
+  //   原来 2.5 秒一到就撒手，iPhone 的 Safari 又不会替你稳住位置，后长出来的那截把她顶到了上面
+  let stopped = false, lastH = -1, changedAt = Date.now();
+  const t0 = Date.now();
   const halt = () => { stopped = true; };
   const pin = () => {
     if (stopped || !el.isConnected) return;
-    if (el.scrollHeight !== lastH) { lastH = el.scrollHeight; el.scrollTop = el.scrollHeight; }
+    if (!ms && Date.now() - t0 > 2500 && Date.now() - changedAt > 1500) { stopped = true; return; }
+    if (el.scrollHeight !== lastH) { lastH = el.scrollHeight; changedAt = Date.now(); el.scrollTop = el.scrollHeight; }
   };
   const opt = { passive: true };
   // 她自己动手的三种方式；纯 touchstart（点一下气泡）不算，所以听 touchmove
@@ -14359,7 +14364,7 @@ function pinToBottom(el, ms) {
   el.addEventListener("load", pin, true);
   pin();
   const iv = setInterval(pin, 80);           // 字体/布局这类没有 load 事件的兜底
-  const done = setTimeout(halt, ms || 2500);
+  const done = setTimeout(halt, ms || 8000);
   return () => {
     stopped = true;
     clearInterval(iv); clearTimeout(done);
