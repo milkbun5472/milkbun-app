@@ -3207,6 +3207,8 @@
     return extractJSON(raw) || { correct: false, note: "" };
   }
 
+  // 猜的是不是就是答案：去掉「是不是／是／吗／它／这个」和标点空格再比
+  function q25Norm(v) { return String(v == null ? "" : v).toLowerCase().replace(/[\s，。！？!?、,.~～…：:；;"'“”「」『』（）()]/g, "").replace(/^(它|这个|那个|答案)?(是不是|是|就是|会不会是|难道是)/, "").replace(/(吗|嘛|呢|吧|对吧|对不对|是吗)$/, ""); }
   function GuessGame(props) {
     const t = props.t, cfg = props.config, api = props.active, kind = props.kind;
     const K = GUESS_KINDS[kind];
@@ -3289,11 +3291,28 @@
       // 同时每轮按当前设置重认一次，避免旧存档里的工牌快照把票吞掉。
       const speakers = shuffle(aiPlayers).map(function (p) {
         const engineer = !!p.engineer || !!(cfg.ccSeat !== false && props.isEngineer && props.isEngineer(p.key));
-        return { key: p.key, name: p.name, skill: p.skill, engineer: engineer, alive: p.alive };
+        return { key: p.key, name: p.name, skill: p.skill, engineer: engineer, alive: p.alive, persona: p.persona || "", char: p.char || null };   // 人设跟着走：voiceBrief 靠它写「说话的样子」（群里 2026-11-01：25 问里他们问得像机器人）
       });
       if (uq) pushLog([{ type: "q", name: me.name, text: uq, mine: true }]);
       try {
         const r = await runGuessRound(api, kind, ctx, uq || "", speakers, history, cfg.mode, me ? me.name : "");
+        // 25 问：猜的就是那个东西，代码自己认，不全听主持人的（群里 2026-11-01：她打「馒头」，主持人回「不是，馒头不是米饭」，答案正是馒头）
+        if (kind === "q25" && ctx && ctx.secret) {
+          const hitQ25 = q => { const sec = q25Norm(ctx.secret), x = q25Norm(q); return !!sec && !!x && (x === sec || (sec.length >= 2 && x.length <= sec.length + 4 && x.indexOf(sec) >= 0)); };
+          // 问字数的，代码自己数（2026-11-01：答案「篮球」，主持人说「是三个字」，还判她破题了）
+          const ZH_N = { "一": 1, "两": 2, "二": 2, "三": 3, "四": 4, "五": 5, "六": 6, "七": 7, "八": 8, "九": 9, "十": 10 };
+          const lenAns = q => { const m = /([一两二三四五六七八九十]|\d+)\s*个字/.exec(String(q || "")); if (!m) return null; const n = ZH_N[m[1]] || Number(m[1]); const real = Array.from(String(ctx.secret).replace(/\s+/g, "")).length;
+            return real === n ? { verdict: "是", note: "是 " + real + " 个字" } : { verdict: "不是", note: "不是 " + n + " 个字" }; };
+          if (uq && lenAns(uq) && r.userAnswer) r.userAnswer = lenAns(uq);
+          (r.ai || []).forEach(a => { const la = a && lenAns(a.question); if (la) { a.verdict = la.verdict; a.note = la.note; } });
+          // 主持人说谁破题：那人这一轮问的话里真说中了才算
+          if (r.solvedBy) {
+            const said = r.solvedBy === (me && me.name) ? uq : ((r.ai || []).find(a => a && a.name === r.solvedBy) || {}).question;
+            if (!hitQ25(said)) { r.solvedBy = ""; r.reveal = ""; }
+          }
+          if (uq && hitQ25(uq)) { r.userAnswer = { verdict: "是", note: "猜中了" }; r.solvedBy = me ? me.name : r.solvedBy; r.reveal = ctx.secret; }
+          else if (!r.solvedBy) (r.ai || []).forEach(a => { if (!r.solvedBy && a && hitQ25(a.question)) { a.verdict = "是"; a.note = "猜中了"; r.solvedBy = a.name; r.reveal = ctx.secret; } });
+        }
         const items = [];
         const newHist = [];
         if (uq) { newHist.push(uq); if (r.userAnswer) items.push({ type: "a", verdict: r.userAnswer.verdict, note: r.userAnswer.note }); }
