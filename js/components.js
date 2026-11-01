@@ -4316,7 +4316,7 @@ function useIdleTuck(canTuck, deps, ms) {
   }, [canTuck].concat(deps || []));
   return !!(idle && canTuck);
 }
-function MiniPlayer({ song, playing, loading, onOpen, onToggle, onNext, onClose }) {
+function MiniPlayer({ song, playing, loading, onOpen, onToggle, onNext, onPrev, onClose }) {
   const t = useTheme();
   const [pos, setPos] = useState(function () { try { const s = JSON.parse(localStorage.getItem("x_miniPos")); if (s && typeof s.x === "number") return s; } catch (e) {} return null; });
   const elRef = useRef(null);
@@ -4404,6 +4404,9 @@ function MiniPlayer({ song, playing, loading, onOpen, onToggle, onNext, onClose 
     !folded && h(React.Fragment, null, h("div", { style: { minWidth: 0, maxWidth: 118 } },
       h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(13px * var(--app-fs, 1))", color: ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, song.title),
       h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", color: t.fog || skinAlpha(ink, "8a"), overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, song.artist || "")),
+    // 上一首（群里 2026-11-02「能不能加一个上一首」）：跟下一首一个样子，镜过来
+    onPrev ? h("button", { "aria-label": "上一首", onPointerDown: e => e.stopPropagation(), onClick: e => btnStop(e, onPrev), className: "active:opacity-60 shrink-0 flex items-center justify-center", style: { width: 28, height: 30 } },
+      h("svg", { width: 16, height: 16, viewBox: "0 0 24 24" }, h("path", { d: "M19 5v14L9 12z", fill: ink }), h("rect", { x: 6, y: 5, width: 2.4, height: 14, rx: 1, fill: ink }))) : null,
     h("button", { onPointerDown: e => e.stopPropagation(), onClick: e => btnStop(e, onToggle), className: "active:opacity-60 shrink-0 flex items-center justify-center", style: { width: 30, height: 30 } },
       loading ? h("span", { style: { color: ink, fontSize: "calc(12px * var(--app-fs, 1))" } }, "…")
       : playing ? h("svg", { width: 18, height: 18, viewBox: "0 0 24 24" }, h("rect", { x: 6, y: 5, width: 4, height: 14, rx: 1, fill: ink }), h("rect", { x: 14, y: 5, width: 4, height: 14, rx: 1, fill: ink }))
@@ -16720,7 +16723,7 @@ function emoteHits(packs, text) {
 function EmoteSuggest({ hits, anchor, onPick }) {
   const t = useTheme();
   if (!hits.length || !anchor) return null;
-  return h("div", { "data-wk": "emotesuggest", style: { position: "fixed", left: 10, right: 10, bottom: anchor, zIndex: 60, display: "flex", gap: 6, overflowX: "auto",
+  return h("div", { "data-wk": "emotesuggest", style: { position: "fixed", left: 10, right: 10, bottom: anchor, zIndex: 61, display: "flex", gap: 6, overflowX: "auto",
       padding: 6, borderRadius: 14, background: t.bg2, border: "1px solid " + t.line, boxShadow: "0 6px 20px rgba(0,0,0,.14)" } },
     hits.map(em => h("button", { key: em.url, onMouseDown: e => e.preventDefault(), onClick: () => onPick(em), className: "active:opacity-70 shrink-0",
       style: { width: 58, height: 58, borderRadius: 10, padding: 0, background: t.bg, border: "none", overflow: "hidden" } },
