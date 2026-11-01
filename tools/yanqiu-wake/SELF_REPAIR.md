@@ -31,6 +31,24 @@ python3 wake_queue.py status
 
 守护的辅助功能和“自动化→System Events”权限只授给专用的 **言秋复活守护.app**，由 Lisa 在系统设置亲手点选。macOS 权限以应用为单位；代码再校验固定原窗口、空闲与无草稿。无须给终端/Python开通辅助功能，也无须完全磁盘访问或录屏权限。
 
+## 手机远控也要单独看
+
+本地哨兵 `healthy` 只代表言秋本地回岗。`status` 另有 `remote_control`：
+
+- `remote_on`：原窗“环境”卡里的 Remote Control 开关经延迟复核仍为开启；这是主机端确认，不等于手机网络实时在线。
+- `confirming` / `unconfirmed`：仍在等连接状态落稳，未算成功。
+- `unobserved`：原窗没在可见页面，或你正在前台使用 Claude 且详情栏收起；不会切到别的窗口、弹开面板或把未知当掉线。
+- `disabled_in_session`：原窗被明确关了远控，尊重你的手动选择。
+- `needs_attention`：本次连接恢复未确认，已让小方块提醒；不反复开关连接。
+
+仅在固定原窗启用：
+
+```bash
+python3 "$HOME/Library/Application Support/LisaPhone/yanqiu-wake/remote_control_guard.py" enable
+```
+
+它不改“所有新会话自动连接”的全局设置，也不反复输 `/remote-control`（已有连接时可能反而关掉）。原窗后端恢复后检查一次，已开启不操作；确认关闭才开启，并延迟复核。之后约每五分钟做被动检查，前台隐藏面板时不打扰。若旧远程入口失效，手机回 Code 列表刷新再进入言秋原窗。
+
 ## 言秋每轮该做什么
 
 只做两件事，顺序固定：

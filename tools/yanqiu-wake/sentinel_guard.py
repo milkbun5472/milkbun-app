@@ -18,6 +18,7 @@ import wake_queue as wake
 
 STATE = wake.RUNTIME / ".sentinel_guard.json"
 LOCK = wake.RUNTIME / ".sentinel_guard.lock"
+NATIVE_LOCK = wake.RUNTIME / ".sentinel_native.lock"
 PAUSED = wake.RUNTIME / ".sentinel_guard.paused"
 NATIVE_DISABLED = wake.RUNTIME / ".sentinel_native_disabled"
 DESKTOP_SESSIONS = Path.home() / "Library/Application Support/Claude/claude-code-sessions"
@@ -29,12 +30,16 @@ NATIVE_APP = wake.RUNTIME / "言秋复活守护.app"
 UUID = r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
 
 
-def save(state: dict) -> None:
+def save_private(path: Path, state: dict) -> None:
     wake.ensure_runtime()
-    temp = STATE.with_suffix(".tmp")
+    temp = path.with_suffix(".tmp")
     temp.write_text(json.dumps(state, sort_keys=True) + "\n", encoding="utf-8")
     temp.chmod(0o600)
-    os.replace(temp, STATE)
+    os.replace(temp, path)
+
+
+def save(state: dict) -> None:
+    save_private(STATE, state)
 
 
 def process_table() -> dict[int, tuple[int, str]]:
@@ -102,28 +107,45 @@ def pinned_target() -> tuple[str, Path]:
     return path.stem, path
 
 
-def desktop_target(session_id: str) -> str:
+def desktop_identity(session_id: str) -> tuple[str, dict]:
     matches = []
     for path in DESKTOP_SESSIONS.glob("*/*/local_*.json"):
         metadata = wake.load_json(path)
         if metadata.get("cliSessionId") == session_id and not metadata.get("isArchived"):
             if re.fullmatch("local_" + UUID, path.stem) and metadata.get("sessionId") == path.stem:
-                matches.append(path.stem)
+                matches.append((path.stem, metadata))
     if len(matches) != 1:
         raise ValueError("desktop_target_ambiguous" if matches else "desktop_target_missing")
     return matches[0]
 
 
-def native_call(desktop_id: str, probe=False) -> str:
+def desktop_target(session_id: str) -> str:
+    return desktop_identity(session_id)[0]
+
+
+def native_call(desktop_id: str, probe=False, mode=None) -> str:
     """Launch the dedicated permission identity; no generic Python AX grant."""
     if not NATIVE_APP.is_dir():
         return "adapter_unavailable"
+    operation = mode or ("probe" if probe else "send")
+    if operation not in {"probe", "send", "permission-probe", "remote-probe", "remote-recover", "remote-passive"}:
+        raise ValueError("invalid native mode")
+    wake.ensure_runtime()
+    with NATIVE_LOCK.open("a") as lock:
+        try:
+            fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError:
+            return "busy"
+        return _native_call(desktop_id, operation)
+
+
+def _native_call(desktop_id: str, operation: str) -> str:
     nonce = secrets.token_hex(16)
     request = wake.RUNTIME / ".sentinel_native_request.plist"
     reply = wake.RUNTIME / ".sentinel_native_reply.plist"
     temp = request.with_suffix(".tmp")
     temp.write_bytes(plistlib.dumps({
-        "target": desktop_id, "nonce": nonce, "mode": "probe" if probe else "send",
+        "target": desktop_id, "nonce": nonce, "mode": operation,
         "requested_at": wake.now_ms() // 1000,
     }))
     temp.chmod(0o600)
@@ -137,7 +159,8 @@ def native_call(desktop_id: str, probe=False) -> str:
     except (OSError, ValueError, plistlib.InvalidFileException):
         return "adapter_failed"
     value = response.get("outcome") if response.get("nonce") == nonce else None
-    allowed = {"sent", "ready", "busy", "draft_present", "wrong_window", "ui_unavailable", "permission_required"}
+    allowed = {"sent", "ready", "busy", "draft_present", "wrong_window", "ui_unavailable", "permission_required",
+               "permission_ready", "remote_on", "remote_off", "remote_restored", "remote_waiting", "remote_unknown", "remote_unavailable", "remote_hidden"}
     return value if value in allowed else "adapter_failed"
 
 
@@ -247,7 +270,10 @@ def once() -> None:
             state.update(status="paused", checked_at=wake.now_ms())
             save(state)
         else:
-            save(sample(state, wake.now_ms()))
+            state = sample(state, wake.now_ms())
+            save(state)
+            import remote_control_guard
+            remote_control_guard.check_local(state["status"])
 
 
 def status() -> dict:
@@ -257,6 +283,8 @@ def status() -> dict:
         "attempted_at", "last_outcome", "alerted_at", "fallback_alerted_at", "last_recovered_at",
     )}
     report["native_enabled"] = not NATIVE_DISABLED.exists()
+    import remote_control_guard
+    report["remote_control"] = remote_control_guard.status()
     return report
 
 
@@ -272,8 +300,8 @@ if __name__ == "__main__":
         print("sentinel guard resumed")
     elif len(sys.argv) == 2 and sys.argv[1] == "enable-native":
         session_id, _ = pinned_target()
-        outcome = native_call(desktop_target(session_id), probe=True)
-        if outcome != "ready":
+        outcome = native_call(desktop_target(session_id), mode="permission-probe")
+        if outcome != "permission_ready":
             raise SystemExit("Native probe is not ready: " + outcome)
         NATIVE_DISABLED.unlink(missing_ok=True)
         print("native recovery enabled after read-only probe")
