@@ -2770,6 +2770,25 @@ function splitCardsAndLines(s) {
   }
   return str.split(/\n+/).map(x => x.trim()).filter(Boolean);
 }
+// 起头的词挂在上一泡尾巴上（她 2026-11-01 截图：「那我的诉求可太明确了第一」「严正拒绝…道具第二」）：
+//   模型换行时把「第一：」写在了上一行末尾，照换行一切，「第一」就跟着前一句走了。
+//   一泡的结尾是「第一／第二…／首先／其次／再者／最后」（后面可带：，）、而且后面还有下一泡，就挪到下一泡开头。
+const DANGLING_LEAD = /^([\s\S]*?[^\s，,：:])[\s，,]*((?:第[一二三四五六七八九十]+|首先|其次|再者|再次|最后|其一|其二|其三)[：:，,]?)\s*$/;
+function moveDanglingLeads(list) {
+  const out = (Array.isArray(list) ? list : []).slice();
+  for (let i = 0; i < out.length - 1; i++) {
+    if (typeof out[i] !== "string" || typeof out[i + 1] !== "string") continue;
+    const m = DANGLING_LEAD.exec(out[i]);
+    if (!m || m[1].length < 2) continue;
+    // 得看得出是在列点：前面隔着逗号／空格，或者后面跟着冒号。「这是第一」「好的」不挪
+    const sep = out[i].slice(m[1].length, out[i].length - m[2].length);
+    if (!/[\s，,]/.test(sep) && !/[：:]$/.test(m[2])) continue;
+    const lead = m[2].replace(/[，,]$/, "：");
+    out[i] = m[1].replace(/[，,：:\s]+$/, "");
+    out[i + 1] = lead + (/[：:]$/.test(lead) ? "" : "，") + out[i + 1].replace(/^\s+/, "");
+  }
+  return out;
+}
 function splitLongBubble(s, allowComma) {
   // 整块 HTML 卡片是一条消息，一刀都不许下（见上面 splitCardsAndLines 那段的由来）
   const _card = htmlCardOf(s);

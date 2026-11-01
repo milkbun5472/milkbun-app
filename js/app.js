@@ -14092,6 +14092,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         if (bi && parts.length) bilingualSpread(parts, bi.zh, !_body).forEach((z, k) => { if (z) _biZh.set(bilingualKey(parts[k]), z); else _biCovered.add(bilingualKey(parts[k])); });
         return acc.concat(parts);
       }, []);
+      // 「第一：」挂在上一泡尾巴上的，挪到下一泡开头（2026-11-01）
+      if (typeof moveDanglingLeads === "function") words = moveDanglingLeads(words);
       // ②.5 打字体标点兜底（v54.81）：削掉每一泡句尾那个句号。放在拆泡【之后】——
       //     拆分本来就按句末标点断句，多句挤一泡的先被拆开，各泡再各削各的，
       //     不会留下「前半句带句号、后半句不带」的半吊子。engineerEyes 的角色跳过：
@@ -16439,6 +16441,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
                 return acc.concat(parts);
               }, []);
             let gBubbles = gLines.length ? gLines : [stripAiStamp(item.text || "")].filter(Boolean);
+            if (typeof moveDanglingLeads === "function") gBubbles = moveDanglingLeads(gBubbles);   // 「第一：」挪到下一泡开头，跟单聊同一条
             // 掉格式兜底（四处一样喂：跟单聊同一把刀、同一个模块）。群里没有逐人称谓设置，
             // 默认就是第二人称。
             const _gGuard = window.BubbleActGuard ? window.BubbleActGuard.split(gBubbles, { selfNames: [spk && spk.name, spk && spk.remark] }) : { words: gBubbles, acts: [] };
