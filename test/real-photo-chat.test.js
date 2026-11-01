@@ -249,3 +249,16 @@ test("freshImageRefs：上次开口之后的那一批全给，封顶；没新图
   assert.match(seg, /padding: "20px 20px 120px", overflowY: "auto"/);
   assert.doesNotMatch(seg, /"仅移出本机照片库"/);
 }
+
+// 移出过的，「找回以前聊天里的照片」不再收回来（她 2026-11-01 群友：「移除照片之后，然后再刷新就还能移回来」）
+{
+  const assert = require("node:assert/strict");
+  const engine = require("fs").readFileSync(require("path").join(__dirname, "..", "js", "engine.js"), "utf8");
+  const app = require("fs").readFileSync(require("path").join(__dirname, "..", "js", "app.js"), "utf8");
+  assert.match(engine, /st\.delete\(k\); if \(String\(k\)\.indexOf\("gone:"\) !== 0\) st\.put\(\{ imageRef: "gone:" \+ k, gone: true/);
+  assert.match(engine, /\.filter\(r => r && !r\.gone\)\.sort\(/, "条子不进列表");
+  assert.match(engine, /async function idbAlbumGoneSet\(\)/);
+  const col = app.slice(app.indexOf("window.__collectMyOldPhotos = async"), app.indexOf("window.__openFromNotif"));
+  assert.match(col, /gone = await idbAlbumGoneSet\(\)/);
+  assert.match(col, /!have\.has\(m\.imageRef\) && !gone\.has\(m\.imageRef\)/);
+}

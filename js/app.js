@@ -2318,9 +2318,11 @@ function App() {
     //   她在照片库里点了才跑；单聊、群聊、线下都翻一遍，已经在库里的不动。返回补进去几张
     window.__collectMyOldPhotos = async () => {
       const have = new Set((await idbAlbumEntries()).map(r => r.imageRef));
+      // 她亲手移出过的不收回来
+      let gone = new Set(); try { gone = await idbAlbumGoneSet(); } catch (e) {}
       const found = new Map();
       const scan = (list, where) => (list || []).forEach(m => {
-        if (m && m.role === "user" && m.kind === "photo" && m.photoMode !== "describe" && typeof m.imageRef === "string" && m.imageRef.indexOf("iv_") === 0 && !have.has(m.imageRef) && !found.has(m.imageRef))
+        if (m && m.role === "user" && m.kind === "photo" && m.photoMode !== "describe" && typeof m.imageRef === "string" && m.imageRef.indexOf("iv_") === 0 && !have.has(m.imageRef) && !gone.has(m.imageRef) && !found.has(m.imageRef))
           found.set(m.imageRef, { imageRef: m.imageRef, caption: String(m.desc || "").trim(), source: where, createdAt: m.ts || Date.now() });
       });
       Object.values(chatsRef.current || {}).forEach(l => scan(l, "private-chat"));
