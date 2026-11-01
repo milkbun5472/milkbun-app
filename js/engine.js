@@ -2770,6 +2770,25 @@ function splitCardsAndLines(s) {
   }
   return str.split(/\n+/).map(x => x.trim()).filter(Boolean);
 }
+// 起头的词挂在上一泡尾巴上（她 2026-11-01 截图：「那我的诉求可太明确了第一」「严正拒绝…道具第二」）：
+//   模型换行时把「第一：」写在了上一行末尾，照换行一切，「第一」就跟着前一句走了。
+//   一泡的结尾是「第一／第二…／首先／其次／再者／最后」（后面可带：，）、而且后面还有下一泡，就挪到下一泡开头。
+const DANGLING_LEAD = /^([\s\S]*?[^\s，,：:])[\s，,]*((?:第[一二三四五六七八九十]+|首先|其次|再者|再次|最后|其一|其二|其三)[：:，,]?)\s*$/;
+function moveDanglingLeads(list) {
+  const out = (Array.isArray(list) ? list : []).slice();
+  for (let i = 0; i < out.length - 1; i++) {
+    if (typeof out[i] !== "string" || typeof out[i + 1] !== "string") continue;
+    const m = DANGLING_LEAD.exec(out[i]);
+    if (!m || m[1].length < 2) continue;
+    // 得看得出是在列点：前面隔着逗号／空格，或者后面跟着冒号。「这是第一」「好的」不挪
+    const sep = out[i].slice(m[1].length, out[i].length - m[2].length);
+    if (!/[\s，,]/.test(sep) && !/[：:]$/.test(m[2])) continue;
+    const lead = m[2].replace(/[，,]$/, "：");
+    out[i] = m[1].replace(/[，,：:\s]+$/, "");
+    out[i + 1] = lead + (/[：:]$/.test(lead) ? "" : "，") + out[i + 1].replace(/^\s+/, "");
+  }
+  return out;
+}
 function splitLongBubble(s, allowComma) {
   // 整块 HTML 卡片是一条消息，一刀都不许下（见上面 splitCardsAndLines 那段的由来）
   const _card = htmlCardOf(s);
@@ -8925,6 +8944,14 @@ function vAnchor(text, ts, id) {
   const m = typeof vclockMap === "function" ? t => vclockMap(t, id) : t => t;
   return window.TemporalAnchor.anchor(text, m(ts), m(Date.now()));
 }
+// 两条消息之间、钟上过了多久（她 2026-11-01「调整了虚拟世界但 char 记忆一直停在之前」）：
+//   原来「中间隔了约 X」按现实算，她把钟往后拨了三天、现实只过了一分钟——分隔线不出来，TA 以为还接着刚才那场。
+//   开着虚拟钟就按钟算（拨钟那一下也算进去），没开就跟现实一样。线下、群线下、群聊都问这一个。
+function vGap(prevTs, ts, id) {
+  if (!prevTs || !ts) return 0;
+  if (typeof vclockMap !== "function") return ts - prevTs;
+  return vclockMap(ts, id) - vclockMap(prevTs, id);
+}
 function offlineHistory(msgs, userName, charName, clock, clockId) {
   const g = [];
   let prevTs = 0;
@@ -8934,8 +8961,9 @@ function offlineHistory(msgs, userName, charName, clock, clockId) {
     const ts = Number(m.ts) || 0;
     // 时间感知关着的时候，线下连「中间隔了多久」也不说（群友 2026-10-04：「线下昨天聊一半想继续聊，关了时间感知，他还是知道到第二天了」）——
     //   线下是一场戏，她隔天回来接着演，戏里不该凭空过了一夜。开着时照旧标出来。
-    const gap = clock !== false && prevTs && ts && ts - prevTs > 90 * 60000
-      ? "〔—— 中间隔了约 " + gapPhrase(ts - prevTs) + "，到 " + fmtStampAI(ts) + " ——〕\n"
+    const _vg = vGap(prevTs, ts, clockId);
+    const gap = clock !== false && prevTs && ts && _vg > 90 * 60000
+      ? "〔—— 中间隔了约 " + gapPhrase(_vg) + "，到 " + fmtStampAI(ts) + " ——〕\n"
       : "";
     const stamp = (ts && clock !== false) ? "〔" + fmtStampAI(ts) + "〕" : "";
     // ⚠️只标一边等于没标：线上那几条标了【线上私聊】，线下这几条什么都不标，
@@ -9706,8 +9734,9 @@ function offlineGroupHistory(msgs, userName, clock, clockId) {
     const ts = Number(m.ts) || 0;
     // 时间感知关着的时候，线下连「中间隔了多久」也不说（群友 2026-10-04：「线下昨天聊一半想继续聊，关了时间感知，他还是知道到第二天了」）——
     //   线下是一场戏，她隔天回来接着演，戏里不该凭空过了一夜。开着时照旧标出来。
-    const gap = clock !== false && prevTs && ts && ts - prevTs > 90 * 60000
-      ? "〔—— 中间隔了约 " + gapPhrase(ts - prevTs) + "，到 " + fmtStampAI(ts) + " ——〕\n"
+    const _vg = vGap(prevTs, ts, clockId);
+    const gap = clock !== false && prevTs && ts && _vg > 90 * 60000
+      ? "〔—— 中间隔了约 " + gapPhrase(_vg) + "，到 " + fmtStampAI(ts) + " ——〕\n"
       : "";
     const stamp = (ts && clock !== false) ? "〔" + fmtStampAI(ts) + "〕" : "";
     if (m.role === "char") {
@@ -11652,7 +11681,20 @@ function vclockKeepHist(oldClocks, newClocks, now) {
   const out = { ...(newClocks || {}) }; now = now || Date.now();
   Object.keys(out).forEach(k => {
     const o = oldClocks && oldClocks[k], n = out[k];
-    if (!o || !n || !o.on || !n.on) return;
+    if (!o || !n) return;
+    // 开、关钟这一下也记一笔（她 2026-11-01：「从虚拟时间改到现实和 vice versa 不会有错吧」）：
+    //   原来只有「开着→开着」才记，关钟以后以前虚拟那段统统按现实重算，开钟以后以前现实那段统统被算成虚拟的。
+    //   关钟：把那一版虚拟钟记下来（之前的消息照旧是虚拟的日子）；开钟：把关着那段记成「现实」（real:true，原样）。
+    const hist0 = Array.isArray(o.hist) ? o.hist : (Array.isArray(n.hist) ? n.hist : []);
+    if (o.on && !n.on && isFinite(Number(o.base))) {
+      out[k] = { ...n, hist: [...hist0, { until: now, base: Number(o.base), at: Number(o.at || 0), speed: o.speed, ...(o.awayAt ? { awayAt: o.awayAt } : {}) }].slice(-300) };
+      return;
+    }
+    if (!o.on && n.on) {
+      out[k] = { ...n, hist: [...hist0, { until: now, real: true }].slice(-300) };
+      return;
+    }
+    if (!o.on || !n.on) { if (hist0.length && !n.hist) out[k] = { ...n, hist: hist0 }; return; }
     // 只要这版钟的四样有一样变了（拨钟、改速度、离开停住又回来），旧消息照旧版算才不会挪
     const jump = Number(o.base) !== Number(n.base) || Number(o.at || 0) !== Number(n.at || 0) || Number(o.speed) !== Number(n.speed) || (o.awayAt || 0) !== (n.awayAt || 0);
     if (!jump) { if (o.hist && !n.hist) out[k] = { ...n, hist: o.hist }; return; }
@@ -11661,7 +11703,24 @@ function vclockKeepHist(oldClocks, newClocks, now) {
   });
   return out;
 }
-function vclockMap(ts, id) { return vclockMapBy(vclockCfg(id, ts), ts); }
+function vclockMap(ts, id) {
+  const c = vclockCfg(id, ts);
+  if (c) return vclockMapBy(c, ts);
+  // 钟现在关着，可以前开过：那几段照当时的钟算，之后的照现实
+  const raw = vclockRawCfg(id, ts);
+  if (raw && Array.isArray(raw.hist) && raw.hist.length) {
+    for (let i = 0; i < raw.hist.length; i++) { const h = raw.hist[i]; if (h && Number(ts) < Number(h.until)) return h.real ? Number(ts) : vclockMapBy({ ...h, hist: null }, ts); }
+  }
+  return Number(ts);
+}
+// 不管开没开，拿这个人那只钟的原始设定（看历史分段用）
+function vclockRawCfg(id, ts) {
+  const W = vclockState(); if (!W || !W.clocks) return null;
+  const who = id !== undefined ? id : W.active;
+  let key = "";
+  try { key = who != null && typeof W.maskOf === "function" ? String(W.maskOf(String(who), ts) || "") : ""; } catch (e) { key = ""; }
+  return (W.clocks || {})[key || "main"] || null;
+}
 // 显示用的公共一处：现实时间戳 → 这个角色（或 "g:群id"、null＝主面具）那只钟上的 Date
 function vDate(ts, id) { const t = Number(ts) || Date.now(); return new Date(vclockMap(t, id)); }
 // 主面具那只钟（主屏的钟和日历、周刊这种不属于某一个人的地方用它）
@@ -11673,6 +11732,7 @@ function vclockMainMap(ts) {
 function vclockMapBy(c0, ts) {
   if (!c0) return Number(ts);
   const c = vclockSeg(c0, ts);
+  if (c && c.real) return Number(ts);   // 那一段钟是关着的：照现实
   const sp = Number(c.speed);
   // 离开小手机时停住：走开那段里后台照样会跑（自己发消息、写日记），那几下也按走开那一刻算
   const t = c.awayAt && Number(ts) > Number(c.awayAt) ? Number(c.awayAt) : Number(ts);

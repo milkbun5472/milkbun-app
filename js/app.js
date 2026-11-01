@@ -20,7 +20,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v88.873";
+const APP_VERSION = "v88.876";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -14092,6 +14092,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         if (bi && parts.length) bilingualSpread(parts, bi.zh, !_body).forEach((z, k) => { if (z) _biZh.set(bilingualKey(parts[k]), z); else _biCovered.add(bilingualKey(parts[k])); });
         return acc.concat(parts);
       }, []);
+      // 「第一：」挂在上一泡尾巴上的，挪到下一泡开头（2026-11-01）
+      if (typeof moveDanglingLeads === "function") words = moveDanglingLeads(words);
       // ②.5 打字体标点兜底（v54.81）：削掉每一泡句尾那个句号。放在拆泡【之后】——
       //     拆分本来就按句末标点断句，多句挤一泡的先被拆开，各泡再各削各的，
       //     不会留下「前半句带句号、后半句不带」的半吊子。engineerEyes 的角色跳过：
@@ -15586,7 +15588,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       // ⚠️历史上的时刻戳原来挂在 gs.memoryInterop（闭群那个开关）上——那跟时间感知半点关系没有。
       //   v61.16 改成：群里没有一个人开着时间感知，就一个戳都不盖（相对间隔照留）。
       const _gClockAny = members.some(c => !c.npc && timeAwareFor(c.id));
-      for (const m of _graw) { const ts = m.ts || 0; if (_gClockAny && _gprev && ts && ts - _gprev > 90 * 60000) _gparts.push("〔—— 中间隔了约 " + gapPhrase(ts - _gprev) + (_gClockAny ? "，到 " + fmtStampAI(ts) : "") + " ——〕"); const ta = _gClockAny && (m.role === "user" || m.role === "narration") && window.TemporalAnchor ? vAnchor(m.content, ts, "g:" + groupId) : ""; const qr = gQuoteByMessage.get(m); const quoteNote = m.replyTo ? "【这条正在引用 " + (m.replyToSenderName || "作者未知") + (m.replyToId ? "（消息 " + m.replyToId + "）" : "") + "：『" + String(m.replyTo).replace(/\s+/g, " ").slice(0, 100) + "』】\n" : ""; _gparts.push((qr ? "[" + qr.alias + "] " : "") + quoteNote + (_gClockAny && ts ? "[" + fmtStampAI(ts) + "] " : "") + fmtGLine(m) + groupStickNote(m) + (ta ? " " + ta : "")); if (ts) _gprev = ts; }
+      for (const m of _graw) { const ts = m.ts || 0; const _gvg = typeof vGap === "function" ? vGap(_gprev, ts, "g:" + groupId) : ts - _gprev; if (_gClockAny && _gprev && ts && _gvg > 90 * 60000) _gparts.push("〔—— 中间隔了约 " + gapPhrase(_gvg) + (_gClockAny ? "，到 " + fmtStampAI(ts) : "") + " ——〕"); const ta = _gClockAny && (m.role === "user" || m.role === "narration") && window.TemporalAnchor ? vAnchor(m.content, ts, "g:" + groupId) : ""; const qr = gQuoteByMessage.get(m); const quoteNote = m.replyTo ? "【这条正在引用 " + (m.replyToSenderName || "作者未知") + (m.replyToId ? "（消息 " + m.replyToId + "）" : "") + "：『" + String(m.replyTo).replace(/\s+/g, " ").slice(0, 100) + "』】\n" : ""; _gparts.push((qr ? "[" + qr.alias + "] " : "") + quoteNote + (_gClockAny && ts ? "[" + fmtStampAI(ts) + "] " : "") + fmtGLine(m) + groupStickNote(m) + (ta ? " " + ta : "")); if (ts) _gprev = ts; }
       const hist = _gparts.join("\n");
       // 断档要看「用户这次刚发的几条」之前的最后一条——不然刚发的消息把间隔清零，
       // 断档提醒永远不触发，隔夜回来成员还接着昨晚的事演（比如牛腩炖了一整夜）
@@ -16439,6 +16441,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
                 return acc.concat(parts);
               }, []);
             let gBubbles = gLines.length ? gLines : [stripAiStamp(item.text || "")].filter(Boolean);
+            if (typeof moveDanglingLeads === "function") gBubbles = moveDanglingLeads(gBubbles);   // 「第一：」挪到下一泡开头，跟单聊同一条
             // 掉格式兜底（四处一样喂：跟单聊同一把刀、同一个模块）。群里没有逐人称谓设置，
             // 默认就是第二人称。
             const _gGuard = window.BubbleActGuard ? window.BubbleActGuard.split(gBubbles, { selfNames: [spk && spk.name, spk && spk.remark] }) : { words: gBubbles, acts: [] };
