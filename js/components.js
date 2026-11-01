@@ -3651,7 +3651,13 @@ function PetsWidget({ characters, now, homeSize, editMode }) {
   const open = () => { if (!editMode && it) setSheet(it); };
   const hold = () => { holdUntil.current = Date.now() + 8000; };
   const goRoom = x => { setSheet(null); if (window.__openFromNotif) window.__openFromNotif(x.charId, "thread", x.roomId); };
-  const sheetEl = sheet ? h(PetWatchSheet, { storeKey: sheet.key, onClose: () => setSheet(null), onEnter: () => goRoom(sheet) }) : null;
+  // 从主屏也能发（她 2026-11-02）：发进这只宠物所在的那间小镇房，发完说一声发到哪间房了
+  const shareFromHome = (x, p) => {
+    const where = window.__postToRoom ? window.__postToRoom(x.charId, x.roomId, petShareMsg(p)) : null;
+    setSheet(null);
+    if (window.__toast) window.__toast(where ? "发到了" + x.who + "的「" + where + "」里，TA 下次说话会看到" : "没发出去，进那间房里再发试试");
+  };
+  const sheetEl = sheet ? h(PetWatchSheet, { storeKey: sheet.key, onClose: () => setSheet(null), onEnter: () => goRoom(sheet), onShare: p => shareFromHome(sheet, p) }) : null;
   if (!it) return h(GlassCard, { style: { padding: "10px 14px", height: forced ? "100%" : "auto", display: "flex", alignItems: "center", gap: 10 } },
     h("span", { "data-wk": "wicon", className: "flex items-center" }, h(GPaw, { size: 15, color: t.accent })),
     h("span", { "data-wk": "wempty", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog } }, "还没有宠物：在小镇房间里养一只"));
@@ -11092,6 +11098,11 @@ function petShareText(p) {
   return p.name + "此刻" + p.doing + "；" + petWord(p.satiety, "饿了", "不太饿", "吃得饱饱的") + "，" + petWord(p.energy, "没什么精神", "精神还行", "精神很好") + "，" + petWord(p.mood, "有点闷闷不乐", "心情平平", "心情很好")
     + (p.notes.length ? "。最近：" + p.notes.slice(0, 3).map(n => (petAgo(n.at) ? petAgo(n.at) + "，" : "") + n.text).join("；") : "");
 }
+// 发给 TA 的那张宠物卡：房间横幅那页和主屏组件那页共用这一份（卡片照「拿给你看」那一张画，TA 读到的是 content）
+function petShareMsg(p) {
+  const txt = petShareText(p);
+  return { role: "user", kind: "petshare", title: p.name, sub: p.doing, note: txt.slice(txt.indexOf("；") + 1), content: "[宠物] 给你看看" + txt };
+}
 function PetWatchSheet({ storeKey, onClose, onShare, onEnter }) {
   const t = useTheme();
   const pets = petWatchOf(loadJSON(storeKey, null));
@@ -11833,7 +11844,7 @@ function ChatThread({
   petWatch && petWatchKey && h(PetWatchSheet, { storeKey: petWatchKey, onClose: () => setPetWatch(false),
     onEnter: () => { setPetWatch(false); onEnterGarden && onEnterGarden("pets"); },
     // 发进这间房自己的聊天（小镇是一间单独的房）：卡片照「拿给你看的这笔账」那一张画，TA 读到的是 content 那段话
-    onShare: p => { const txt = petShareText(p); sendRich({ role: "user", kind: "petshare", title: p.name, sub: p.doing, note: txt.slice(txt.indexOf("；") + 1), content: "[宠物] 给你看看" + txt }); setPetWatch(false); } }),
+    onShare: p => { sendRich(petShareMsg(p)); setPetWatch(false); } }),
   onEnterListen && h(RoomListenBanner, { onEnter: onEnterListen }),
   // ── 这间房在学哪一门（她 2026-09-23）──────────────────────────────
   // 「从哪儿开房就要有横幅导回哪儿」：点课名＝直接进那门课；最右边「换课」＝挑亮哪一门、

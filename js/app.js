@@ -2331,6 +2331,14 @@ function App() {
       for (const row of found.values()) { try { await idbAlbumPut(row); } catch (e) {} }
       return found.size;
     };
+    // 往某个角色的某间房发一条（主屏宠物组件用，她 2026-11-02）：返回房间名，发不了返回 null
+    window.__postToRoom = (charId, roomId, msg) => {
+      const c = charId && characters.find(x => x.id === charId);
+      const room = c && window.ChatRooms ? window.ChatRooms.get(c.id, roomId || "main") : null;
+      if (!c || !room || (roomId && room.id !== roomId) || !msg) return null;
+      pChat(window.ChatRooms.chatKey(c.id, room.id), p => [...p, Object.assign({ ts: Date.now(), read: true }, msg)]);
+      return room.main ? "主聊天" : (room.name || "小房间");
+    };
     window.__openFromNotif = (charId, screen, roomId, groupId) => {
       const c = charId && characters.find(x => x.id === charId);
       if (charId && !c) return; // 冷启动资料未到，待下次角色列表更新重试。

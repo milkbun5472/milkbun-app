@@ -22,3 +22,15 @@ const rows = new Function("window", "loadJSON", comp.slice(comp.indexOf("const P
   k => k === "x_fairyGarden::c1::r2" ? store : null)([{ id: "c1", name: "周树生" }]);
 assert.equal(rows.length, 1); assert.equal(rows[0].p.name, "团子"); assert.equal(rows[0].roomId, "r2"); assert.equal(rows[0].who, "周树生");
 console.log("ok");
+
+// 主屏点进去也能发，发进那只宠物所在的那间房，发完说发到哪间（她 2026-11-02）
+{
+  const assert = require("node:assert/strict");
+  const fs = require("fs"), path = require("path");
+  const comp = fs.readFileSync(path.join(__dirname, "..", "js", "components.js"), "utf8");
+  const app = fs.readFileSync(path.join(__dirname, "..", "js", "app.js"), "utf8");
+  assert.match(comp, /window\.__postToRoom\(x\.charId, x\.roomId, petShareMsg\(p\)\)/);
+  assert.match(comp, /"发到了" \+ x\.who \+ "的「" \+ where \+ "」里/);
+  assert.match(app, /window\.__postToRoom = \(charId, roomId, msg\) => \{/);
+  assert.match(app, /pChat\(window\.ChatRooms\.chatKey\(c\.id, room\.id\), p => \[\.\.\.p, Object\.assign\(\{ ts: Date\.now\(\), read: true \}, msg\)\]\);/);
+}
