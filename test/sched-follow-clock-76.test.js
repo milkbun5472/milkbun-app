@@ -28,7 +28,8 @@ test("接线：日程的哪天哪分只问 ScheduleClock 一处", () => {
   assert.ok(/const charLocalMin = char => window\.ScheduleClock\.planMinute\(/.test(app));
   assert.ok(!/schedFollowOn/.test(core), "今天的日程那页不另写一份判断");
   assert.ok(!/plans\[schedLocalDayKey\(char\)\] \|\| plans\[schedDayKey\(new Date\(\)\)\]/.test(app));
-  assert.ok(/schedFollow: !!x/.test(comp) && /const today = _viewChar && typeof schedNowDate === "function" \? schedNowDate\(_viewChar\) : new Date\(\);/.test(comp));
+  // 看角色那页照他的钟；我那页照主面具那只钟（2026-11-01 起，跟主屏同一只）
+  assert.ok(/schedFollow: !!x/.test(comp) && /planFollows\(_viewChar\) \? schedNowDate\(_viewChar\) : null\) \|\| _vcNow\(_viewChar\.id\)/.test(comp));
 });
 
 test("清旧日程按他那只钟上的今天往前数 14 天，拨到过去的那串不被当成旧的", () => {

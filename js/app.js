@@ -20,7 +20,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v88.902";
+const APP_VERSION = "v88.911";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -2318,9 +2318,11 @@ function App() {
     //   她在照片库里点了才跑；单聊、群聊、线下都翻一遍，已经在库里的不动。返回补进去几张
     window.__collectMyOldPhotos = async () => {
       const have = new Set((await idbAlbumEntries()).map(r => r.imageRef));
+      // 她亲手移出过的不收回来
+      let gone = new Set(); try { gone = await idbAlbumGoneSet(); } catch (e) {}
       const found = new Map();
       const scan = (list, where) => (list || []).forEach(m => {
-        if (m && m.role === "user" && m.kind === "photo" && m.photoMode !== "describe" && typeof m.imageRef === "string" && m.imageRef.indexOf("iv_") === 0 && !have.has(m.imageRef) && !found.has(m.imageRef))
+        if (m && m.role === "user" && m.kind === "photo" && m.photoMode !== "describe" && typeof m.imageRef === "string" && m.imageRef.indexOf("iv_") === 0 && !have.has(m.imageRef) && !gone.has(m.imageRef) && !found.has(m.imageRef))
           found.set(m.imageRef, { imageRef: m.imageRef, caption: String(m.desc || "").trim(), source: where, createdAt: m.ts || Date.now() });
       });
       Object.values(chatsRef.current || {}).forEach(l => scan(l, "private-chat"));
@@ -7863,7 +7865,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         const tr = (coupleTripsRef.current || []).find(t => t && t.status !== "done" && t.date === tomorrowOf(t.charId) && !t.eveSent);
         const tomorrow = tr ? tomorrowOf(tr.charId) : "";
         const tc = tr && characters.find(c => c.id === tr.charId);
-        if (tc && nowD.getHours() >= 19 && nowD.getHours() <= 23 && !laneBusy("c:" + tc.id) && viewRef.current.charId !== tc.id && !pSkip("tripeve:" + tr.id)) {
+        if (tc && vDay(tc.id).getHours() >= 19 && vDay(tc.id).getHours() <= 23 && !laneBusy("c:" + tc.id) && viewRef.current.charId !== tc.id && !pSkip("tripeve:" + tr.id)) {
           const b = tr.booking, fl = b && b.paid ? b.flights[b.pick.flight] : null;
           const info = "明天你们要一起去「" + tr.dest + "」" + (fl ? "，" + (fl.no ? fl.no + " " : "") + (fl.dep ? fl.dep + " 出发" : "") : "") + (b && b.paid ? "，住「" + b.hotels[b.pick.hotel].name + "」" : "");
           pOnce("tripeve:" + tr.id, "tripeve:" + tr.id, () => replyNow(tc.id, "", null, { proactive: true, tripEve: info }),
@@ -7952,7 +7954,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
           if (hist(c).length < 2) continue;                          // 真在聊的
           if (currentlyTogetherWithChar(cid)) continue;              // 人就在旁边，不用发消息
           // 同一年同一个纪念日只发一次；一年里有好几个纪念日时，key 不同所以各发各的
-          const key = String(nowD.getFullYear()) + ":" + (it.name || "在一起");
+          const key = String(vDay(cid).getFullYear()) + ":" + (it.name || "在一起");
           if ((greetLogRef.current[cid] || {}).a === key) continue;
           const hr = Math.floor(charLocalMin(c) / 60);
           if (hr < 8 || hr > 23) continue;                           // 别半夜发
@@ -12611,7 +12613,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       // 时间流逝以「角色上次开口」为基准算间隔（用户回来连发几条也算得准，不会被自己刚发的消息归零）
       const localLastAsstTs = (function () { for (let i = history.length - 1; i >= 0; i--) { if (history[i].role === "assistant") return history[i].ts || 0; } return 0; })();
       const lastAsstTs = sideRoom ? localLastAsstTs : Math.max(localLastAsstTs, latestSharedInteractionTs(charId));
-      const gapMs = lastAsstTs ? Date.now() - lastAsstTs : 0;
+      // 按这个人那只钟算隔了多久（她 2026-11-01「虚拟时间好像没接上主动消息那几种」）：跟后面「现在是」同一只钟，群聊早就这么算了
+      const gapMs = lastAsstTs ? (typeof vGap === "function" ? vGap(lastAsstTs, Date.now(), charId) : Date.now() - lastAsstTs) : 0;
       const gapHrs = Math.round(gapMs / 3600000);
       const gapReopen = roomClockOn && gapMs > 3 * 3600000;
       // 心声每轮必写，但只写真正在脑内闪过的那一下；小、碎、跑题都可以，不能写成分析或回合总结。
@@ -20183,6 +20186,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       // 而且开了五个角色就得来回切五次前台才刷得完。周刊那条链就是这个形状——
       // 一步一步 await，每一步各自兜底，一个人失手不拖垮后面几个。
       for (const due of pending) {
+        // 刷到一半她关了开关、或者把线路删了：后面的人不刷了
+        if (!autoRefreshOn("phone") || !autoRefreshOn("phone", due.id) || !bgActiveRef.current) break;
         // 先占住这一轮再刷（同上）
         window.AutoGate.claim("phone|" + due.id, wk);
         // 一个人十几次串行调用，几个人要跑好一阵。每换一个人报一次，
@@ -23412,13 +23417,16 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     // 从空开始而不是从旧数据开始——全刷会把旧的全换掉，拿旧的避重等于避了个寂寞。
     const fresh = {};
     for (const key of keys) {
+      // 每周那一刷，每换一个 app 回头看一眼（她 2026-11-01 群友：「关了，api 也删了，依旧在刷新中」）：
+      //   开关关了、线路删了，就停在这儿，不把这个人剩下的十几次跑完
+      if (weekly && (!autoRefreshOn("phone", char.id) || !bgActiveRef.current)) break;
       try {
         setGen(g => ({ ...g, phoneApp: "__all__:" + key }));
         const avoid = phoneRoundDigest(fresh, key);
         // 避重从空开始（旧的马上要被换掉），但【身份】还得读旧那份——
         // 全刷不是换一个人，TA的号码住址忌口一律沿用。
         const known = ((phonesRef.current || {})[char.id] || {})[key];
-        const d = await runProbe(bgActive, phoneCtx(char), phoneBi(char, phoneRemarkSpec(char, key, phoneProbeSpec(key, char, relatedNames(char), key === "wechat" ? phoneWechatDigest(char) : "", avoid, known, phoneMoneyFor(char), weekly, phoneBondBlock(char), phoneLangRef.current))));
+        const d = await runProbe(weekly ? bgActiveRef.current : bgActive, phoneCtx(char), phoneBi(char, phoneRemarkSpec(char, key, phoneProbeSpec(key, char, relatedNames(char), key === "wechat" ? phoneWechatDigest(char) : "", avoid, known, phoneMoneyFor(char), weekly, phoneBondBlock(char), phoneLangRef.current))));
         fresh[key] = d;
         savePhoneApp(char.id, key, d);
         phoneRemarkDone(char, key);

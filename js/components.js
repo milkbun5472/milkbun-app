@@ -4803,9 +4803,14 @@ function Calendar({ characters, calendar, calEvents, schedules, profile, period,
   const t = useTheme();
   // 从聊天页「看 TA 的日程」进来时直接落在那个人身上（原来那个入口指向已退场的行程 app）
   const [view, setView] = useState(initialView || "mine");
-  // 他的日程跟着钟排时，他那一页的「今天」和红线也照他那只钟（她 2026-10-20）；别的页照现实
+  // 他的日程跟着钟排时，他那一页的「今天」和红线也照他那只钟（她 2026-10-20）；
+  //   我自己那一页照主面具那只钟，跟主屏的钟和日历组件同一只（她 2026-11-01：「我开了虚拟时间怎么对不上了」——红线还停在现实钟点）
   const _viewChar = (characters || []).find(c => c && c.id === view) || null;
-  const today = _viewChar && typeof schedNowDate === "function" ? schedNowDate(_viewChar) : new Date();
+  //   看角色那页：日程跟着钟排就问 schedNowDate；没跟着排、但他那只钟开着，红线和今天也照他的钟（她 2026-11-01「不行啊」：角色那页还停在现实）
+  const _vcNow = id => typeof vclockMap === "function" && typeof vclockCfg === "function" && vclockCfg(id) ? new Date(vclockMap(Date.now(), id)) : null;
+  const today = _viewChar
+    ? ((typeof schedNowDate === "function" && window.ScheduleClock && window.ScheduleClock.planFollows(_viewChar) ? schedNowDate(_viewChar) : null) || _vcNow(_viewChar.id) || new Date())
+    : (_vcNow(null) || new Date());
   const todayKey = calPadKey(today.getFullYear(), today.getMonth(), today.getDate());
   const cal = calendar || { world: {}, chars: {}, mine: {} };
   const per = period || { cycleLen: 28, periodLen: 5, starts: [], visibleTo: null };
@@ -8055,6 +8060,11 @@ function Home({
       const rows = [];
       Object.keys(REG).forEach(function (k) { if (REG[k] && REG[k].kind === "app") rows.push([k, REG[k].zh]); });
       dock.forEach(function (d) { rows.push([d.key, d.zh]); });
+      // 缩成 1×1 图标的组件也能换图（她 2026-11-01 群友：「这个日历图标换不了吗」）：
+      //   那一格画出来就是个 app 图标，appKey 是组件自己的 key（w_cal…），只是从来不在这份名单里
+      Object.keys(REG).forEach(function (k) {
+        if (REG[k] && REG[k].kind === "widget" && homeSizeOf(k, widgetSizes) === "icon") rows.push([k, (HOME_WIDGET_NAMES[REG[k].which] || "组件") + "（缩成图标的组件）"]);
+      });
       return rows;
     };
   });
@@ -11338,6 +11348,13 @@ function ChatThread({
     return out.slice(0, 5);
   }, [messages]);
   const PANEL = [["location", "位置", "pin"], ["sticker", "表情包", "sticker"], ["photo", "照片", "picture"], ["voicemsg", "发语音", "wave"], ["voice", "语音通话", "handset"], ["video", "视频通话", "camcorder"], ["calllog", "通话记录", "clock"], ["chatsearch", "查找记录", "magnifier"], ["moments", "朋友圈", "grid"], ["transfer", "转账", "bill"], ["packet", "红包", "packet"], ["ask", "请示", "checklist"], ["mykin", "亲属卡", "card"], ["pat", "拍一拍", "hand"], ["namecard", "名片", "contact"], ["peekphone", "给TA看手机", "mobile"], ["dateinvite", "邀约", "invite"], ["file", "文件", "file"], ["halfwin", "半窗", "halfwin"], ["topics", "话题卡", "quote"]].filter(([key]) => key !== "halfwin" || !!onHalfWin).filter(([key]) => key !== "topics" || !!character).filter(([key]) => room && !room.main ? !["moments", "transfer", "packet", "ask", "mykin", "peekphone", "dateinvite"].includes(key) : true).filter(([key]) => key !== "ask" || !!onSendAsk).filter(([key]) => key !== "mykin" || !!onMyKin).filter(([key]) => key !== "dateinvite" || !!onDateInvite).filter(([key]) => key !== "peekphone" || !!onHandPhone);
+  // 我发一张表情包：表情包面板和打字联想都走这一处
+  const sendMyEmote = em => {
+    sendRich({ role: "user", kind: "emote", url: em.url, keyword: em.keyword, content: "[表情] " + em.keyword + (em.selfFace ? "（画的是她自己）" : "") });
+    // 书房直通（她 2026-09-25「表情包你能看到吗→你快去修」）：表情包走 sendRich 不过 onSend，
+    // 车道原本看不见。把关键词描述进攒话缸，图不过桥、意思过桥。
+    if (ccLane && !ccLane.direct && window.CcLane) window.CcLane.post("[表情包] " + em.keyword, { threadType: "private" });
+  };
   const sendRich = msg => {
     onSendRich({
       ts: Date.now(),
@@ -12463,6 +12480,7 @@ function ChatThread({
     }
   }, ccLane.direct ? "直连" : "书房"), h(DraftInput, {
     keepKey: character && character.id ? "chat:" + character.id : null,
+    emotePacks: emotePacks, onEmote: sendMyEmote,
     inputProps: { "data-wk": "chatinput" },
     placeholder: dirMode ? "写接下来的大概方向：比如慢慢聊到要不要一起搬家…" : chatMode === "narr" && narrKind === "act" ? "写你在做的动作，会用（）包好发成你的一句：比如把脸埋进枕头里…" : chatMode === "narr" ? "写一段旁白：天气、灯、谁推门进来…" : chatMode === "ooc" ? characterText(character, "出戏说：跟演他的那位说，可以让它改、也可以问状态…") : "发一条消息…",
     inputStyle: {
@@ -12537,12 +12555,12 @@ function ChatThread({
   }))), specialKind === "photo" ? h("div", null,
     h("div", { "data-wk": "block", className: "flex gap-2 mb-3", style: { background: t.bg, borderRadius: 11, padding: 4 } },
       [["real", "发送真照片"], ["describe", "只发文字描述"], ...(onShootMe ? [["selfme", "生成我的自拍"]] : []), ["ask", "叫 TA 拍"]].map(([id, label]) => h("button", {
-        key: id, onClick: () => setPhotoSendMode(id), className: "flex-1 active:opacity-75",
-        style: { padding: "8px 5px", borderRadius: 8, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: photoSendMode === id ? t.bg2 : t.fog, background: photoSendMode === id ? t.ink : "transparent" }
-      }, label))),
+        key: id, "data-on": photoSendMode === id ? "1" : "0", onClick: () => setPhotoSendMode(id), className: "flex-1 active:opacity-75",
+        style: { padding: "8px 5px", borderRadius: 8, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", fontWeight: photoSendMode === id ? 700 : 400, color: photoSendMode === id ? t.bg2 : t.fog, background: photoSendMode === id ? t.ink : "transparent" }
+      }, pickMark(photoSendMode === id, label)))),
     photoSendMode === "ask" && h("div", { "data-wk": "askphotokind", className: "flex gap-2 mb-3" },
       [["self", "自拍"], ["other", characterText(character, "拍他")], ["duo", "合照"]].map(([id, label]) => h("button", { key: id, "data-on": askKind === id ? "1" : "0", onClick: () => setAskKind(id), className: "flex-1 active:opacity-75",
-        style: { minHeight: 36, borderRadius: 999, border: "1px solid " + (askKind === id ? t.ink : t.line), background: askKind === id ? t.ink : "transparent", color: askKind === id ? t.bg2 : t.sub, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))" } }, label))),
+        style: { minHeight: 36, borderRadius: 999, border: "1px solid " + (askKind === id ? t.ink : t.line), background: askKind === id ? t.ink : "transparent", color: askKind === id ? t.bg2 : t.sub, fontWeight: askKind === id ? 700 : 400, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))" } }, pickMark(askKind === id, label)))),
     photoSendMode === "real" && h(ChatPhotoPick, { imgs: specialImgs, setImgs: setSpecialImgs, toast, t }),
     h("input", { "data-wk": "input", value: specialText, onChange: e => setSpecialText(e.target.value), placeholder: photoSendMode === "ask" ? "想看什么（选填），比如此刻在干嘛" : photoSendMode === "real" ? "可以顺手说一句（选填）" : photoSendMode === "selfme" ? "你在哪、在干嘛、想拍成什么样（必填）" : "描述照片里有什么（必填，不会上传图片）", className: "w-full outline-none px-3 py-2.5 rounded-lg", style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", background: t.bg, color: t.ink, border: `1px solid ${t.line}` } }),
     photoSendMode !== "real" && h(PhotoPromptChips, { value: specialText, onPick: setSpecialText }),
@@ -12617,13 +12635,7 @@ function ChatThread({
       packs: emotePacks, emotes: emotes,
       onManage: () => { setStickerOpen(false); onManageEmotes && onManageEmotes(); },
       caption: !!emoteCaption, onCaption: onEmoteCaption,
-      onPick: em => {
-        sendRich({ role: "user", kind: "emote", url: em.url, keyword: em.keyword, content: "[表情] " + em.keyword + (em.selfFace ? "（画的是她自己）" : "") });
-        // 书房直通（她 2026-09-25「表情包你能看到吗→你快去修」）：表情包走 sendRich 不过 onSend，
-        // 车道原本看不见。把关键词描述进攒话缸，图不过桥、意思过桥。
-        if (ccLane && !ccLane.direct && window.CcLane) window.CcLane.post("[表情包] " + em.keyword, { threadType: "private" });
-        setStickerOpen(false);
-      }
+      onPick: em => { sendMyEmote(em); setStickerOpen(false); }
     })
   ), askOpen && h(AskComposeDialog, { who: character.remark || character.name, prev: askOpen === true ? null : askOpen, onCancel: () => setAskOpen(false), onSend: a => { setAskOpen(false); onSendAsk(a); } }), inviteOpen && h(DateComposeDialog, { places: invitePlaces || [], who: character.remark || character.name,
     onCancel: () => setInviteOpen(false),
@@ -16696,7 +16708,28 @@ const draftPut = (k, v) => {
   clearTimeout(draftSaveT);
   draftSaveT = setTimeout(() => { try { saveJSON("x_drafts", m); } catch (e) {} }, 800);
 };
-function DraftInput({ placeholder, inputStyle, inputProps, onSubmit, after, keepKey }) {
+// 打字联想表情包（她 2026-11-01 群友许愿「输入关键词出表情包，就像微信QQ」）：
+//   比的是表情包的名字（keyword）——她自己存的、她和角色生成的都在 x_emotePacks 那一份里，发表情包面板列的也是它。
+//   打的字短（≤12）时：名字里含这几个字就算；打得长时：只看句尾是不是正好落在某个名字上。最多摆 8 张。
+function emoteHits(packs, text) {
+  const q = String(text || "").trim(); if (!q || q.length > 40) return [];
+  const all = [], seen = new Set();
+  (Array.isArray(packs) ? packs : []).forEach(p => (p && p.emotes || []).forEach(em => { if (em && em.url && em.keyword && !seen.has(em.url)) { seen.add(em.url); all.push(em); } }));
+  const kw = em => String(em.keyword).trim();
+  const hit = q.length <= 12 ? all.filter(em => kw(em).includes(q) || (kw(em).length >= 2 && q.includes(kw(em))))
+    : all.filter(em => kw(em).length >= 2 && q.endsWith(kw(em)));
+  return hit.sort((a, b) => (kw(a) === q ? 0 : 1) - (kw(b) === q ? 0 : 1) || kw(a).length - kw(b).length).slice(0, 8);
+}
+function EmoteSuggest({ hits, anchor, onPick }) {
+  const t = useTheme();
+  if (!hits.length || !anchor) return null;
+  return h("div", { "data-wk": "emotesuggest", style: { position: "fixed", left: 10, right: 10, bottom: anchor, zIndex: 60, display: "flex", gap: 6, overflowX: "auto",
+      padding: 6, borderRadius: 14, background: t.bg2, border: "1px solid " + t.line, boxShadow: "0 6px 20px rgba(0,0,0,.14)" } },
+    hits.map(em => h("button", { key: em.url, onMouseDown: e => e.preventDefault(), onClick: () => onPick(em), className: "active:opacity-70 shrink-0",
+      style: { width: 58, height: 58, borderRadius: 10, padding: 0, background: t.bg, border: "none", overflow: "hidden" } },
+      h("img", { src: stickerSrc(em.url), alt: em.keyword || "", referrerPolicy: "no-referrer", style: { width: "100%", height: "100%", objectFit: "contain" } }))));
+}
+function DraftInput({ placeholder, inputStyle, inputProps, onSubmit, after, keepKey, emotePacks, onEmote }) {
   const [draft, setDraftRaw] = useState(() => draftGet(keepKey));
   const setDraft = v => { setDraftRaw(v); draftPut(keepKey, v); };
   // 同一个框换了对话（单聊里直接切人）：换成那个对话自己的草稿
@@ -16716,6 +16749,18 @@ function DraftInput({ placeholder, inputStyle, inputProps, onSubmit, after, keep
   //   就跟着把整页推上推下、光标也跳——所以在看不见的替身框里量，高度真变了才写回去。
   const fit = () => fitTextarea(ref.current, DRAFT_MAX_H);
   useEffect(fit, [draft]);
+  // 联想那一排：停手 250ms 再比，每个字上不扫整库、不量排版（typing-hot-path）
+  const [sug, setSug] = useState({ hits: [], at: 0 });
+  useEffect(() => {
+    if (!onEmote) return;
+    if (!draft.trim()) { setSug(x => x.hits.length ? { hits: [], at: 0 } : x); return; }
+    const tm = setTimeout(() => {
+      const hits = emoteHits(emotePacks, draft);
+      let at = 0; try { if (hits.length && ref.current) at = Math.max(0, (window.innerHeight || 0) - ref.current.getBoundingClientRect().top + 8); } catch (e) {}
+      setSug({ hits, at });
+    }, 250);
+    return () => clearTimeout(tm);
+  }, [draft, emotePacks]);
   const clear = () => setDraft("");
   // 发完键盘别收（群里 2026-10-22「发一次消息键盘就自动下落，想连发只能再点一次输入框」）：
   //   发送键按下不抢焦点；有的手机照样先失焦了，那就看是不是刚失焦，是的话在这次点击里把焦点还回去
@@ -16739,7 +16784,8 @@ function DraftInput({ placeholder, inputStyle, inputProps, onSubmit, after, keep
       className: "flex-1 outline-none px-4 py-2.5",
       style: Object.assign({ borderRadius: 20, resize: "none", lineHeight: 1.45, maxHeight: DRAFT_MAX_H, overflowY: "auto", display: "block" }, inputStyle)
     }, inputProps || {})),
-    after ? after(draft, fire, clear) : null);
+    after ? after(draft, fire, clear) : null,
+    onEmote ? h(EmoteSuggest, { hits: sug.hits, anchor: sug.at, onPick: em => { setDraft(""); setSug({ hits: [], at: 0 }); onEmote(em); } }) : null);
 }
 function ReplyKey({ sending, disabled, title, onClick, hold }) {
   const t = useTheme();
@@ -17261,6 +17307,9 @@ function GeoCard({ m, isU, who, avatar, myAvatar }) {
 //   居中）。它是【公共那一层】，别再自己写一个居中的盒子。
 // 转账、红包「用什么付」那一排（她 2026-11-01 群友许愿「转账/红包可以用亲属卡」）：
 //   手里没有亲属卡就不出现；收款人自己给的那张不列（拿他的钱转给他）。value＝""是我的钱包，否则是卡主 charId。
+// 选中的那颗不能只靠底色认（她 2026-11-01 截图：美化把按钮底色一律盖成白的，「自拍／拍他／合照」看着点不动）：
+//   前面带一个 ✓、字加粗——底色被谁盖掉都还认得出。
+const pickMark = (on, label) => on ? h(Fragment, null, h("span", { "aria-hidden": "true", style: { marginRight: 3 } }, "✓"), label) : label;
 function KinPayPick({ value, onChange, exclude, accent }) {
   const t = useTheme();
   const cards = (window.KinPay && window.KinPay.cards ? window.KinPay.cards() : []).filter(c => c.charId !== exclude);
@@ -17272,7 +17321,7 @@ function KinPayPick({ value, onChange, exclude, accent }) {
       className: "active:opacity-70",
       style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", padding: "6px 11px", borderRadius: 999,
         background: value === c.charId ? on : "transparent", color: value === c.charId ? t.bg2 : t.sub, border: "1px solid " + (value === c.charId ? on : t.line) } },
-      c.charId ? c.name + " 的亲属卡 · 剩 ¥" + c.remain : c.name)));
+      pickMark(value === c.charId, c.charId ? c.name + " 的亲属卡 · 剩 ¥" + c.remain : c.name))));
 }
 function TransferComposeSheet({ cName, myBalance, charId, onClose, onSend, packet }) {
   const t = useTheme();
@@ -20153,6 +20202,8 @@ function GroupThread({
   };
   // 群聊 + 面板：跟私聊对齐（匿名箱→投票、拍一拍→红包）
   const PANEL = [["location", "位置", "pin"], ["sticker", "表情包", "sticker"], ["photo", "照片", "picture"], ["voicemsg", "发语音", "wave"], ["voice", "语音通话", "handset"], ["video", "视频通话", "camcorder"], ["calllog", "通话记录", "clock"], ["chatsearch", "查找记录", "magnifier"], ["poll", "投票", "bars"], ["luck", "骰子 · 抽签", "dice"], ...(onStartAsk ? [["ask", "请示", "checklist"]] : []), ["transfer", "转账", "bill"], ["rp", "红包", "packet"], ...(onGroupDateInvite ? [["dateinvite", "邀约", "invite"]] : []), ["file", "文件", "file"]];
+  // 我发一张表情包：表情包面板和打字联想都走这一处
+  const sendMyEmote = em => sendRich({ role: "user", kind: "emote", url: em.url, keyword: em.keyword, content: "[表情] " + em.keyword + (em.selfFace ? "（画的是她自己）" : "") });
   const sendRich = msg => {
     onSendRich && onSendRich({ ts: Date.now(), ...msg });
     setPanel(false);
@@ -20717,6 +20768,7 @@ function GroupThread({
     color: t.fog
   })), h(DraftInput, {
     keepKey: group && group.id ? "group:" + group.id : null,
+    emotePacks: emotePacks, onEmote: sendMyEmote,
     inputProps: { "data-wk": "chatinput" },
     placeholder: gNarrBar && gKind === "dir" ? "往后往哪儿聊：比如聊到周末去哪儿玩…" : gNarrBar && gKind === "as" && gs.spectate ? "替 " + ((members.find(c => c.id === asId) || members[0] || {}).name || "TA") + " 说一句…" : chatMode === "ooc" ? "出戏说：跟演他们的那位说，可以让它改、也可以问状态…" : chatMode === "narr" ? "写一句旁白：下雨了、有人推门进来…" : gs.spectate ? "写一句旁白，推动剧情…" : "在群里发言…",
     inputStyle: {
@@ -20813,7 +20865,7 @@ function GroupThread({
       packs: emotePacks, emotes: emotes,
       onManage: () => { setSheet(null); onManageEmotes && onManageEmotes(); },
       caption: !!emoteCaption, onCaption: onEmoteCaption,
-      onPick: em => { sendRich({ role: "user", kind: "emote", url: em.url, keyword: em.keyword, content: "[表情] " + em.keyword + (em.selfFace ? "（画的是她自己）" : "") }); setSheet(null); }
+      onPick: em => { sendMyEmote(em); setSheet(null); }
     })
   ), rpView != null && messages[rpView] && messages[rpView].kind === "redpacket" && (() => { const rp = messages[rpView], mine = (rp.claims || []).find(c => c.me);
     const canOpen = !mine && (rp.claims || []).length < rp.count && !(rp.toId && rp.toId !== "me");
@@ -20843,9 +20895,9 @@ function GroupThread({
   }, h(ISend, { size: 18, color: t.ink }))),
     h("div", { "data-wk": "block", className: "flex gap-2 mb-3", style: { background: t.bg, borderRadius: 11, padding: 4 } },
       [["real", "发送真照片"], ["describe", "只发文字描述"]].map(([id, label]) => h("button", {
-        key: id, onClick: () => setGroupPhotoMode(id), className: "flex-1 active:opacity-75",
-        style: { padding: "8px 5px", borderRadius: 8, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: groupPhotoMode === id ? t.bg2 : t.fog, background: groupPhotoMode === id ? t.ink : "transparent" }
-      }, label))),
+        key: id, "data-on": groupPhotoMode === id ? "1" : "0", onClick: () => setGroupPhotoMode(id), className: "flex-1 active:opacity-75",
+        style: { padding: "8px 5px", borderRadius: 8, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", fontWeight: groupPhotoMode === id ? 700 : 400, color: groupPhotoMode === id ? t.bg2 : t.fog, background: groupPhotoMode === id ? t.ink : "transparent" }
+      }, pickMark(groupPhotoMode === id, label)))),
     groupPhotoMode === "real" && h(ChatPhotoPick, { imgs: groupPhotoImgs, setImgs: setGroupPhotoImgs, toast, t }),
     h("input", { "data-wk": "input", value: photoText, onChange: e => setPhotoText(e.target.value), placeholder: groupPhotoMode === "real" ? "可以顺手说一句（选填）" : "描述照片里有什么（必填，不会上传图片）", className: "w-full outline-none px-4 py-3 rounded-xl", style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.ink, background: "#fff", border: "1px solid " + t.line } }),
     groupPhotoMode !== "real" && h(PhotoPromptChips, { value: photoText, onPick: setPhotoText }),

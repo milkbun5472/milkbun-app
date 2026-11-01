@@ -16,7 +16,7 @@ test("本机照片库有独立索引且不删除聊天像素", () => {
   assert.match(engine, /async function idbAlbumEntries/);
   assert.match(engine, /删除目录项不删像素/);
   assert.match(screens, /function LocalPhotoLibrary/);
-  assert.match(screens, /仅移出本机照片库/);
+  assert.match(screens, /"移出本机照片库"/);   // 按钮挪到图片正下方（2026-11-01），只删目录项
   assert.match(components, /rememberRealPhoto\(imageRef, cap, "private-chat"\)/);
   assert.match(components, /rememberRealPhoto\(imageRef, cap, "group-chat"\)/);
 });
@@ -238,3 +238,27 @@ test("freshImageRefs：上次开口之后的那一批全给，封顶；没新图
   const none = [{ role: "user", r: ["x"] }, { role: "user", r: ["y", "z"] }, { role: "assistant" }, { role: "user" }];
   assert.deepEqual(f(none, refs, reply), { refs: ["y", "z"], dropped: 0 });
 });
+
+// 移出那颗挪到图片正下方，底下留空——浏览器自己的看图工具条会盖住屏幕最底下（她 2026-11-01 群友截图）
+{
+  const assert = require("node:assert/strict");
+  const scr = require("fs").readFileSync(require("path").join(__dirname, "..", "js", "screens-ui.js"), "utf8");
+  const seg = scr.slice(scr.indexOf("function LocalPhotoLibrary("), scr.indexOf("function HomeLayoutProbe("));
+  const img = seg.indexOf('alt: preview.caption || "照片"'), drop = seg.indexOf('"data-wk": "localphotodrop"'), area = seg.indexOf('"data-wk": "textarea", value: shareCaption');
+  assert.ok(img > 0 && drop > img && drop < area, "移出就在图片下面，排在照片桥那块前面");
+  assert.match(seg, /padding: "20px 20px 120px", overflowY: "auto"/);
+  assert.doesNotMatch(seg, /"仅移出本机照片库"/);
+}
+
+// 移出过的，「找回以前聊天里的照片」不再收回来（她 2026-11-01 群友：「移除照片之后，然后再刷新就还能移回来」）
+{
+  const assert = require("node:assert/strict");
+  const engine = require("fs").readFileSync(require("path").join(__dirname, "..", "js", "engine.js"), "utf8");
+  const app = require("fs").readFileSync(require("path").join(__dirname, "..", "js", "app.js"), "utf8");
+  assert.match(engine, /st\.delete\(k\); if \(String\(k\)\.indexOf\("gone:"\) !== 0\) st\.put\(\{ imageRef: "gone:" \+ k, gone: true/);
+  assert.match(engine, /\.filter\(r => r && !r\.gone\)\.sort\(/, "条子不进列表");
+  assert.match(engine, /async function idbAlbumGoneSet\(\)/);
+  const col = app.slice(app.indexOf("window.__collectMyOldPhotos = async"), app.indexOf("window.__openFromNotif"));
+  assert.match(col, /gone = await idbAlbumGoneSet\(\)/);
+  assert.match(col, /!have\.has\(m\.imageRef\) && !gone\.has\(m\.imageRef\)/);
+}

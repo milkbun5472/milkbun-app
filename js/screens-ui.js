@@ -9044,9 +9044,14 @@ function LocalPhotoLibrary({ toast }) {
       h("div", { className: "flex-1" }),
       h("button", { "data-wk": "localphotosavemany", disabled: !pick.size, onClick: () => savePickedImgs(rows.map(r => r.imageRef).filter(k => pick.has(k)), "照片", toast, left => setPick(left.length ? new Set(left) : null)), className: "active:opacity-70", style: { minHeight: 40, padding: "0 14px", borderRadius: 999, border: "1px solid " + t.line, color: pick.size ? t.ink : t.fog, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))" } }, "存 " + pick.size + " 张"),
       h("button", { "data-wk": "localphotodropmany", disabled: !pick.size, onClick: () => dropMany(Array.from(pick)), className: "active:opacity-70", style: { minHeight: 40, padding: "0 16px", borderRadius: 999, background: pick.size ? "#c25a4a" : t.line, color: "#fff", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))" } }, "移出 " + pick.size + " 张")) : null,
-    preview ? h("div", { className: "fixed inset-0 z-50 flex items-center justify-center", onClick: () => setPreview(null), style: { background: "rgba(0,0,0,.82)", padding: 20 } },
-      h("div", { onClick: e => e.stopPropagation(), style: { width: "100%", maxWidth: 520 } },
-        h("img", { src: resolveImg(preview.imageRef), alt: preview.caption || "照片", style: { width: "100%", maxHeight: "70vh", objectFit: "contain", borderRadius: 10 } }),
+    // ⚠️「移出」放在图片正下方、做成一颗看得见的按钮（她 2026-11-01 群友：「本机照片库还是没办法删除」）：
+    //   原来是最底下一行白字，有的浏览器点到图片会在屏幕底部浮一排自己的看图按钮（下载／网格／转发），正好盖住它。
+    //   底下再留一截空，整层可滚，别的按钮也不会被压在最底下。
+    preview ? h("div", { className: "fixed inset-0 z-50 flex items-center justify-center", onClick: () => setPreview(null), style: { background: "rgba(0,0,0,.82)", padding: "20px 20px 120px", overflowY: "auto" } },
+      h("div", { onClick: e => e.stopPropagation(), style: { width: "100%", maxWidth: 520, margin: "auto 0" } },
+        h("img", { src: resolveImg(preview.imageRef), alt: preview.caption || "照片", style: { width: "100%", maxHeight: "60vh", objectFit: "contain", borderRadius: 10 } }),
+        h("button", { "data-wk": "localphotodrop", onClick: async () => { await idbAlbumDel(preview.imageRef); setPreview(null); await refresh(); toast && toast("移出了，聊天里那张还在"); }, className: "w-full active:opacity-70",
+          style: { color: "#fff", background: "rgba(194,90,74,.85)", borderRadius: 8, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", padding: 11, marginTop: 10 } }, "移出本机照片库"),
         h("textarea", { "data-wk": "textarea", value: shareCaption, onChange: e => setShareCaption(e.target.value), maxLength: 500, placeholder: "分享给言秋前，写一句这张照片是什么…", style: { width: "100%", minHeight: 66, marginTop: 10, borderRadius: 8, padding: 10, background: "rgba(255,255,255,.12)", color: "#fff", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", outline: "none" } }),
         h("button", { disabled: sharing || (!preview.bridgeId && !shareCaption.trim()), onClick: async () => {
           if (sharing) return; setSharing(true);
@@ -9066,7 +9071,7 @@ function LocalPhotoLibrary({ toast }) {
             setPreview(null); await refresh();
           } catch (e) { toast && toast("照片桥失败：" + (e.message || e)); } finally { setSharing(false); }
         }, className: "w-full", style: { color: "#fff", background: preview.bridgeId ? "rgba(190,90,75,.75)" : "rgba(92,142,128,.9)", borderRadius: 8, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", padding: 11, marginTop: 8, opacity: sharing ? .55 : 1 } }, sharing ? "处理中…" : (preview.bridgeId ? "撤回给言秋看的照片" : "📮 给言秋看")),
-        h("button", { onClick: async () => { await idbAlbumDel(preview.imageRef); setPreview(null); await refresh(); }, className: "w-full", style: { color: "#fff", fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", padding: 12, marginTop: 8 } }, "仅移出本机照片库"))) : null);
+        )) : null);
 }
 // 主屏排查：直接读盘上的 x_homeLayout / x_homeFolders，告诉她某个 app 现在到底在哪儿。
 // 她 2026-08-30 报「整理出来就找不到了」，而导出整包在 iOS PWA 上又导不出来——

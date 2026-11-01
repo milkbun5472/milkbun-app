@@ -39,3 +39,25 @@ test("关钟：以前虚拟那段照旧是虚拟日子，之后的照现实；�
   assert.equal(map(onAt + 1000, "c"), vBase2 + 1000, "再开以后照新钟");
   ctx.window.__vclock = null;
 });
+
+// 单聊（含主动消息）「时间过去了」按这个人那只钟算；行程前一晚、纪念日也认他那只钟
+{
+  const assert = require("node:assert/strict");
+  const app = require("fs").readFileSync(require("path").join(__dirname, "..", "js", "app.js"), "utf8");
+  assert.match(app, /const gapMs = lastAsstTs \? \(typeof vGap === "function" \? vGap\(lastAsstTs, Date\.now\(\), charId\)/);
+  assert.match(app, /if \(tc && vDay\(tc\.id\)\.getHours\(\) >= 19/);
+  assert.match(app, /const key = String\(vDay\(cid\)\.getFullYear\(\)\) \+ ":" \+ \(it\.name/);
+  const tick = app.slice(app.indexOf("const vDay = cid =>"), app.indexOf("anniv: { name: it.name"));
+  assert.ok(tick.length > 0 && tick.length < 20000, "vDay 和用它的几处在同一轮 tick 里");
+}
+
+// 日历「我」那一页的今天和红线照主面具那只钟，跟主屏同一只
+{
+  const assert = require("node:assert/strict");
+  const comp = require("fs").readFileSync(require("path").join(__dirname, "..", "js", "components.js"), "utf8");
+  const app = require("fs").readFileSync(require("path").join(__dirname, "..", "js", "app.js"), "utf8");
+  assert.match(comp, /const _vcNow = id => typeof vclockMap === "function" && typeof vclockCfg === "function" && vclockCfg\(id\) \? new Date\(vclockMap\(Date\.now\(\), id\)\) : null;/);
+  assert.match(comp, /planFollows\(_viewChar\) \? schedNowDate\(_viewChar\) : null\) \|\| _vcNow\(_viewChar\.id\) \|\| new Date\(\)\)/, "角色那页：钟开着就照他的钟");
+  assert.match(comp, /: \(_vcNow\(null\) \|\| new Date\(\)\);/, "我那页照主面具那只钟");
+  assert.match(app, /vclockCfg\(null\) \? new Date\(vclockMap\(now\.getTime \? now\.getTime\(\) : Number\(now\), null\)\) : now/, "主屏用的是同一只");
+}
