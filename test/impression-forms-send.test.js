@@ -6,8 +6,8 @@ const core = R("js/impression-core.js"), imp = R("js/impression.js"), app = R("j
 assert.match(core, /const QUOTE_FLOOR = "不管哪一种写法，读完都不用猜/);
 assert.match(core, /【这一张的写法·必须照办】" \+ QUOTE_FLOOR \+ form/);
 assert.doesNotMatch(core, /≤25 字|≤30 字/, "背面三格不再限一句");
-assert.equal((core.match(/一两句，≤60 字/g) || []).length, 4, "moment、shift 两种说法、him");
-assert.match(core, /moment: S30\(d\.moment, 90\), shift: S30\(d\.shift, 90\),\n\s*him: S30\(d\.him, 90\)/);
+assert.equal((core.match(/写成一段话，想写多长写多长（≤160 字）/g) || []).length, 4, "moment、shift 两种说法、him：一段话，不限一两句（2026-11-02）");
+assert.match(core, /moment: S30\(d\.moment, 240\), shift: S30\(d\.shift, 240\),\n\s*him: S30\(d\.him, 240\)/);
 // 发给他看
 assert.match(imp, /"data-part": "send", onClick: \(\) => \{ if \(props\.onSendCard\(curChar, e\) !== false\)/);
 assert.match(app, /onSendCard: \(cid, e\) => \{/);
