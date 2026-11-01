@@ -8941,6 +8941,12 @@ function CharPhotoAlbum({ characters, toast }) {
   const t = useTheme();
   const [keys, setKeys] = useState(null), [who, setWho] = useState(null), [shown, setShown] = useState(30);
   const [urls, setUrls] = useState({}), [at, setAt] = useState(-1);
+  // 多选删（她 2026-11-01「搞个多选」）：点「多选」后点格子是勾，底下一排「全选／删掉 N 张」
+  const [pick, setPick] = useState(null);   // null＝没在多选；Set＝勾着的键
+  const delKeys = ks => (typeof requestAppConfirm === "function" ? requestAppConfirm : (a, b, go) => { if (window.confirm(a + "\n" + b)) go(); })(
+    "删掉这 " + ks.length + " 张照片？", "删了就没了：聊天里那几条消息还在，图那块会空着。想留着先点开存到手机。",
+    async () => { for (const k of ks) { try { await idbImgDel(k); await idbImgDel(k + "_raw").catch(() => {}); } catch (e) {} }
+      const gone = new Set(ks); setKeys(x => (x || []).filter(k => !gone.has(k))); setPick(null); setAt(-1); toast && toast("删掉了 " + ks.length + " 张"); }, "删掉");
   useEffect(() => { let live = true; (typeof idbImgKeys === "function" ? idbImgKeys() : Promise.resolve([])).then(k => { if (live) setKeys(k.filter(x => !String(x).endsWith("_raw"))); }); return () => { live = false; }; }, []);
   const mine = c => (keys || []).filter(k => k.indexOf("img_" + c.id + "_") === 0 || k.indexOf("img_pdiary_" + c.id + "_") === 0).reverse();
   const people = (characters || []).filter(c => c && !c.npc).map(c => ({ c, n: mine(c).length })).filter(x => x.n);
@@ -8953,7 +8959,9 @@ function CharPhotoAlbum({ characters, toast }) {
   useEffect(() => () => { Object.values(urls).forEach(u => { try { URL.revokeObjectURL(u); } catch (e) {} }); }, []);
   const save = k => window.saveImgOriginal ? window.saveImgOriginal(k, (who && who.name) || "照片").then(ok => toast && toast(ok ? "已经存下来了" : "这张取不到原图")) : toast && toast("这台设备存不了图");
   return h("div", { "data-wk": "charphotos", style: { margin: "18px 0", border: "1px solid " + t.line, borderRadius: 12, padding: 14 } },
-    h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))", color: t.ink } }, who ? h("button", { onClick: () => { setWho(null); setShown(30); setAt(-1); }, style: { color: t.ink } }, "← " + who.name + " 拍的 · " + mine(who).length) : "TA 们拍的照片"),
+    h("div", { className: "flex items-center", style: { fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))", color: t.ink, gap: 8 } },
+      h("span", { className: "flex-1 min-w-0" }, who ? h("button", { onClick: () => { setWho(null); setShown(30); setAt(-1); setPick(null); }, style: { color: t.ink } }, "← " + who.name + " 拍的 · " + mine(who).length) : "TA 们拍的照片"),
+      who && list.length ? h("button", { "data-wk": "charphotopick", "data-on": pick ? "1" : "0", onClick: () => setPick(p => p ? null : new Set()), className: "active:opacity-60 shrink-0", style: { minHeight: 34, padding: "0 12px", borderRadius: 999, border: "1px solid " + t.line, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: pick ? t.ink : t.sub } }, pick ? "完成" : "多选") : null),
     h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, marginTop: 6, lineHeight: 1.55 } }, "他们在单聊、群聊、线下发的照片和照片日记都在这儿，按人分开，新的在前。点开能左右划、存到手机。图只在这台手机上，换手机前先导出全部数据。"),
     keys == null ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog, marginTop: 10 } }, "在数……")
     : !who ? (people.length ? h("div", { style: { marginTop: 10 } }, people.map(({ c, n }) => h("button", { key: c.id, "data-wk": "charphotowho", onClick: () => setWho(c), className: "w-full flex items-center justify-between active:opacity-70",
@@ -8961,11 +8969,18 @@ function CharPhotoAlbum({ characters, toast }) {
       : h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog, marginTop: 10 } }, "还没有谁拍过照片。"))
     : h(React.Fragment, null,
       h("div", { style: { display: "grid", gridTemplateColumns: "repeat(3,minmax(0,1fr))", gap: 6, marginTop: 12 } },
-        list.map((k, i) => h("button", { key: k, "data-wk": "charphoto", onClick: () => setAt(i), style: { aspectRatio: "1", borderRadius: 8, overflow: "hidden", background: t.line } },
-          urls[k] ? h("img", { src: urls[k], alt: "", style: { width: "100%", height: "100%", objectFit: "cover", display: "block" } }) : null))),
+        list.map((k, i) => h("button", { key: k, "data-wk": "charphoto", "data-on": pick && pick.has(k) ? "1" : "0", onClick: () => pick ? setPick(p => { const n = new Set(p); n.has(k) ? n.delete(k) : n.add(k); return n; }) : setAt(i), style: { position: "relative", aspectRatio: "1", borderRadius: 8, overflow: "hidden", background: t.line, outline: pick && pick.has(k) ? "3px solid #c25a4a" : "none", outlineOffset: -3 } },
+          urls[k] ? h("img", { src: urls[k], alt: "", style: { width: "100%", height: "100%", objectFit: "cover", display: "block", opacity: pick && !pick.has(k) ? .75 : 1 } }) : null,
+          pick ? h("span", { style: { position: "absolute", right: 5, top: 5, width: 20, height: 20, borderRadius: 999, border: "2px solid #fff", background: pick.has(k) ? "#c25a4a" : "rgba(0,0,0,.25)", color: "#fff", fontSize: 12, lineHeight: "16px", textAlign: "center" } }, pick.has(k) ? "✓" : "") : null))),
       mine(who).length > shown ? h("button", { onClick: () => setShown(s => s + 30), className: "w-full active:opacity-60", style: { marginTop: 10, minHeight: 40, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.tint } }, "再看 30 张") : null,
       at >= 0 && typeof ImageViewer === "function" ? h(ImageViewer, { onClose: () => setAt(-1), at: at, items: list.map(k => ({ src: urls[k] || "", key: k })),
-        actions: item => [{ label: "⬇ 保存到手机（原图）", wk: "charphotosave", onClick: () => save(item.key) }] }) : null));
+        actions: item => [{ label: "⬇ 保存到手机（原图）", wk: "charphotosave", onClick: () => save(item.key) },
+          // 彻底删掉这一张（群里 2026-11-01「TA 们拍的照片可以彻底删掉吗」）：图库里那张（连原图）一起删，聊天里那条消息还在、图那块会空着
+          { label: "删掉这张", wk: "charphotodel", onClick: () => delKeys([item.key]) }] }) : null,
+      pick ? h("div", { "data-wk": "charphotopickbar", className: "flex items-center", style: { gap: 10, marginTop: 12 } },
+        h("button", { onClick: () => setPick(p => p && p.size === list.length ? new Set() : new Set(list)), className: "active:opacity-60", style: { minHeight: 40, padding: "0 12px", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.sub } }, pick.size === list.length && list.length ? "全不选" : "全选"),
+        h("div", { className: "flex-1" }),
+        h("button", { "data-wk": "charphotodelmany", disabled: !pick.size, onClick: () => delKeys(Array.from(pick)), className: "active:opacity-70", style: { minHeight: 40, padding: "0 16px", borderRadius: 999, background: pick.size ? "#c25a4a" : t.line, color: "#fff", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))" } }, "删掉 " + pick.size + " 张")) : null));
 }
 function LocalPhotoLibrary({ toast }) {
   const t = useTheme();
