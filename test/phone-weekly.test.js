@@ -92,3 +92,13 @@ test("没配 API、没开开关、这周刷过了，都不动", () => {
   assert.match(sweep[0], /window\.AutoGate\.due\("phone\|" \+ c\.id, wk, \{ maxTries: 1 \}\)/, "没看周次游标，这周刷过了还会再刷一遍");
   assert.match(sweep[0], /if \(!pending\.length\) return;/, "这一周谁都不欠的时候也往下走");
 });
+
+// 刷到一半关了开关、删了线路，就停（她 2026-11-01 群友：「关了，api 也删了，依旧在刷新中」）
+{
+  const assert = require("node:assert/strict");
+  const app = require("fs").readFileSync(require("path").join(__dirname, "..", "js", "app.js"), "utf8");
+  const all = app.slice(app.indexOf("const genPhoneAll = "), app.indexOf("const genPhoneAll = ") + 4000);
+  assert.match(all, /if \(weekly && \(!autoRefreshOn\("phone", char\.id\) \|\| !bgActiveRef\.current\)\) break;/);
+  assert.match(all, /runProbe\(weekly \? bgActiveRef\.current : bgActive,/, "每周那一刷读的是此刻的线路，不是开跑那一刻攥住的");
+  assert.match(app, /if \(!autoRefreshOn\("phone"\) \|\| !autoRefreshOn\("phone", due\.id\) \|\| !bgActiveRef\.current\) break;/);
+}

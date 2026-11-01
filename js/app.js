@@ -20184,6 +20184,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       // 而且开了五个角色就得来回切五次前台才刷得完。周刊那条链就是这个形状——
       // 一步一步 await，每一步各自兜底，一个人失手不拖垮后面几个。
       for (const due of pending) {
+        // 刷到一半她关了开关、或者把线路删了：后面的人不刷了
+        if (!autoRefreshOn("phone") || !autoRefreshOn("phone", due.id) || !bgActiveRef.current) break;
         // 先占住这一轮再刷（同上）
         window.AutoGate.claim("phone|" + due.id, wk);
         // 一个人十几次串行调用，几个人要跑好一阵。每换一个人报一次，
@@ -23413,13 +23415,16 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     // 从空开始而不是从旧数据开始——全刷会把旧的全换掉，拿旧的避重等于避了个寂寞。
     const fresh = {};
     for (const key of keys) {
+      // 每周那一刷，每换一个 app 回头看一眼（她 2026-11-01 群友：「关了，api 也删了，依旧在刷新中」）：
+      //   开关关了、线路删了，就停在这儿，不把这个人剩下的十几次跑完
+      if (weekly && (!autoRefreshOn("phone", char.id) || !bgActiveRef.current)) break;
       try {
         setGen(g => ({ ...g, phoneApp: "__all__:" + key }));
         const avoid = phoneRoundDigest(fresh, key);
         // 避重从空开始（旧的马上要被换掉），但【身份】还得读旧那份——
         // 全刷不是换一个人，TA的号码住址忌口一律沿用。
         const known = ((phonesRef.current || {})[char.id] || {})[key];
-        const d = await runProbe(bgActive, phoneCtx(char), phoneBi(char, phoneRemarkSpec(char, key, phoneProbeSpec(key, char, relatedNames(char), key === "wechat" ? phoneWechatDigest(char) : "", avoid, known, phoneMoneyFor(char), weekly, phoneBondBlock(char), phoneLangRef.current))));
+        const d = await runProbe(weekly ? bgActiveRef.current : bgActive, phoneCtx(char), phoneBi(char, phoneRemarkSpec(char, key, phoneProbeSpec(key, char, relatedNames(char), key === "wechat" ? phoneWechatDigest(char) : "", avoid, known, phoneMoneyFor(char), weekly, phoneBondBlock(char), phoneLangRef.current))));
         fresh[key] = d;
         savePhoneApp(char.id, key, d);
         phoneRemarkDone(char, key);
