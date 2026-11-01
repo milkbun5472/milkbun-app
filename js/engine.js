@@ -7094,8 +7094,13 @@ async function hydrateTxtVault() {
       for (const k of durableWalKeys) {
         if (lsRaw.get(k) != null) continue; // journal 更可能是刚写的新版本，由上面的迁移负责
         const s = await walGetRaw(k); if (s == null) continue;
-        await idbTxtPut(k, s); const back = await idbTxtGet(k);
-        if (back === s) { mir.set(k, s); await walDel(k); }
+        // ⚠️WAL 只在 IDB 读回一致后才删，所以开机还在的那份【一定不比 IDB 旧】。
+        //   原来只有补进 IDB 成功才放进镜像：补不进去（满了、iOS 一时打不开）时镜像留的是 IDB 那份旧的，
+        //   界面就显示旧聊天，她再发一句，旧的连着新的一句一起写回去——WAL 里那一晚就被盖掉了
+        //   （群友 2026-11-01「早上进来昨晚十点以后的都没了」）。现在先认 WAL，IDB 补不进去就留着 WAL 下次再补。
+        mir.set(k, s);
+        try { await idbTxtPut(k, s); const back = await idbTxtGet(k); if (back === s) await walDelIf(k, s); }
+        catch (e) { console.error("WAL→IDB 补写没成，先用 WAL 那份:", k, e); txtWriteFailed(k, e); }
       }
     } catch (e) {
       console.error("durable text WAL recovery failed:", e);
@@ -7144,6 +7149,20 @@ function _imgFileOf(blob, name, n) {
   const fname = String(name || "图片").replace(/[\\/:*?"<>|]/g, "") + "-" + new Date().toISOString().slice(0, 10) + (n ? "-" + n : "") + "." + ext;
   return new File([blob], fname, { type: blob.type || "image/jpeg" });
 }
+// 她 2026-10-31：「还是不能直接保存到相册，就多了一个共享相册的选项」——
+//   iOS 只有认准是 jpg/png 的文件才给「存储图像」。库里有的图是 webp、或者类型是空的／octet-stream，
+//   分享面板就只给「共享相簿」「存到文件」。所以交出去之前统一成真 jpg/png（png 无损，原图清晰度不变）。
+async function _imgPhotoReady(blob) {
+  const t = String(blob.type || "");
+  if (t === "image/jpeg" || t === "image/png") return blob;
+  try {
+    const bmp = await createImageBitmap(blob);
+    const c = document.createElement("canvas"); c.width = bmp.width; c.height = bmp.height;
+    c.getContext("2d").drawImage(bmp, 0, 0);
+    const out = await new Promise(r => c.toBlob(r, "image/png"));
+    return out && out.size ? out : blob;
+  } catch (e) { return blob; }
+}
 async function saveImgOriginal(ref, name) {
   const r = await saveImgsBatch([{ ref: ref, name: name }]);
   return r.n > 0;
@@ -7162,7 +7181,7 @@ async function saveImgsBatch(items) {
   const files = []; let miss = 0;
   for (let i = 0; i < take.length; i++) {
     const b = await _imgBlobOf(take[i].ref);
-    if (b && b.size) files.push(_imgFileOf(b, take[i].name, take.length > 1 ? files.length + 1 : 0)); else miss++;
+    if (b && b.size) files.push(_imgFileOf(await _imgPhotoReady(b), take[i].name, take.length > 1 ? files.length + 1 : 0)); else miss++;
   }
   if (!files.length) return { n: 0, left: left, miss: miss, via: "none" };
   if (typeof navigator !== "undefined" && navigator.share && !_isAndroid() && (!navigator.canShare || navigator.canShare({ files: files }))) {
@@ -11212,7 +11231,7 @@ function txtWrite(k, s) {
           return verifyWal.then(walBack => {
             if (back === s && (!needsLocalJournal || lsRaw.get(k) === s) && walBack === s) {
               if (needsLocalJournal) lsRaw.del(k);
-              if (isDurableTextKey(k)) walDel(k).catch(e => console.error("wal cleanup failed:", k, e));
+              if (isDurableTextKey(k)) walDelIf(k, s).catch(e => console.error("wal cleanup failed:", k, e));
             }
           });
         }).catch(e => { console.error("durable idbTxtPut failed:", k, e); txtWriteFailed(k, e); });
@@ -11338,6 +11357,16 @@ function walDel(key) {
   return walOpen().then(db => new Promise((res, rej) => {
     const tx = db.transaction("wal", "readwrite");
     tx.objectStore("wal").delete(key);
+    tx.oncomplete = res;
+    tx.onabort = tx.onerror = () => rej(tx.error || new Error("wal delete abort"));
+  }));
+}
+// 只在保险箱里还是【这一版】时才删（同一个事务里先读后删）。连着好几次保存同一个聊天时，
+//   前一次收尾那一下不许把后一次刚写进去、还没落进 IDB 的那份删掉。
+function walDelIf(key, str) {
+  return walOpen().then(db => new Promise((res, rej) => {
+    const tx = db.transaction("wal", "readwrite"), st = tx.objectStore("wal"), rq = st.get(key);
+    rq.onsuccess = () => { if (rq.result && rq.result.v === str) st.delete(key); };
     tx.oncomplete = res;
     tx.onabort = tx.onerror = () => rej(tx.error || new Error("wal delete abort"));
   }));
