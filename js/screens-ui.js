@@ -8987,6 +8987,11 @@ function LocalPhotoLibrary({ toast }) {
   const [open, setOpen] = useState(false);
   const [rows, setRows] = useState([]);
   const [preview, setPreview] = useState(null);
+  // 多选移出（她 2026-11-01「要」：跟「TA 们拍的照片」同一个样子）
+  const [pick, setPick] = useState(null);
+  const dropMany = ks => (typeof requestAppConfirm === "function" ? requestAppConfirm : (x, y, go) => { if (window.confirm(x + "\n" + y)) go(); })(
+    "把这 " + ks.length + " 张移出本机照片库？", "只是从照片库拿掉，聊天里发过的那几张照旧在。",
+    async () => { for (const k of ks) { try { await idbAlbumDel(k); } catch (e) {} } setPick(null); await refresh(); toast && toast("移出了 " + ks.length + " 张"); }, "移出");
   const [shareCaption, setShareCaption] = useState("");
   const [sharing, setSharing] = useState(false);
   const ref = useRef(null);
@@ -9014,12 +9019,19 @@ function LocalPhotoLibrary({ toast }) {
   return h("div", { style: { margin: "18px 0", border: "1px solid " + t.line, borderRadius: 12, padding: 14 } },
     h("div", { className: "flex items-center justify-between" },
       h("button", { onClick: () => setOpen(v => !v), style: { fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))", color: t.ink } }, "本机照片库 · " + rows.length + (open ? " ▴" : " ▾")),
-      h("button", { onClick: () => ref.current && ref.current.click(), style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.tint } }, "＋ 添加照片")),
+      h("span", { className: "flex items-center", style: { gap: 12 } },
+        open && rows.length ? h("button", { "data-wk": "localphotopick", "data-on": pick ? "1" : "0", onClick: () => setPick(p => p ? null : new Set()), style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: pick ? t.ink : t.sub } }, pick ? "完成" : "多选") : null,
+        h("button", { onClick: () => ref.current && ref.current.click(), style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.tint } }, "＋ 添加照片"))),
     h("input", { ref, type: "file", accept: "image/*", className: "hidden", onChange: add }),
     h("button", { "data-wk": "block", onClick: dig, disabled: digging, className: "active:opacity-60 disabled:opacity-40", style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.tint, marginTop: 6 } }, digging ? "在翻以前的聊天……" : "把以前聊天里我发过的照片也找回来"),
     h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, marginTop: 6, lineHeight: 1.55 } }, "聊天里发过的真实照片会自动归到这里。像素只在本机图库，不会自动上传云端；移出照片库也不会删掉聊天里的图。"),
     open ? h("div", { style: { display: "grid", gridTemplateColumns: "repeat(3,minmax(0,1fr))", gap: 7, marginTop: 12 } },
-      rows.length ? rows.map(r => h("button", { key: r.imageRef, onClick: () => setPreview(r), style: { position: "relative", aspectRatio: "1", borderRadius: 8, overflow: "hidden", background: t.line } }, h("img", { src: resolveImg(r.imageRef), alt: r.caption || "本机照片", style: { width: "100%", height: "100%", objectFit: "cover" } }), r.bridgeId ? h("span", { style: { position: "absolute", right: 4, bottom: 4, fontSize: "calc(15px * var(--app-fs, 1))", filter: "drop-shadow(0 1px 2px rgba(0,0,0,.45))" } }, "📮") : null)) : h("div", { style: { gridColumn: "1 / -1", fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog, padding: "18px 0", textAlign: "center" } }, "还没有真实照片")) : null,
+      rows.length ? rows.map(r => h("button", { key: r.imageRef, "data-on": pick && pick.has(r.imageRef) ? "1" : "0", onClick: () => pick ? setPick(p => { const n = new Set(p); n.has(r.imageRef) ? n.delete(r.imageRef) : n.add(r.imageRef); return n; }) : setPreview(r), style: { position: "relative", aspectRatio: "1", borderRadius: 8, overflow: "hidden", background: t.line, outline: pick && pick.has(r.imageRef) ? "3px solid #c25a4a" : "none", outlineOffset: -3 } },
+        pick ? h("span", { style: { position: "absolute", right: 5, top: 5, zIndex: 1, width: 20, height: 20, borderRadius: 999, border: "2px solid #fff", background: pick.has(r.imageRef) ? "#c25a4a" : "rgba(0,0,0,.25)", color: "#fff", fontSize: 12, lineHeight: "16px", textAlign: "center" } }, pick.has(r.imageRef) ? "✓" : "") : null, h("img", { src: resolveImg(r.imageRef), alt: r.caption || "本机照片", style: { width: "100%", height: "100%", objectFit: "cover" } }), r.bridgeId ? h("span", { style: { position: "absolute", right: 4, bottom: 4, fontSize: "calc(15px * var(--app-fs, 1))", filter: "drop-shadow(0 1px 2px rgba(0,0,0,.45))" } }, "📮") : null)) : h("div", { style: { gridColumn: "1 / -1", fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog, padding: "18px 0", textAlign: "center" } }, "还没有真实照片")) : null,
+    open && pick ? h("div", { "data-wk": "localphotopickbar", className: "flex items-center", style: { gap: 10, marginTop: 12 } },
+      h("button", { onClick: () => setPick(p => p && p.size === rows.length ? new Set() : new Set(rows.map(r => r.imageRef))), className: "active:opacity-60", style: { minHeight: 40, padding: "0 12px", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.sub } }, pick.size === rows.length && rows.length ? "全不选" : "全选"),
+      h("div", { className: "flex-1" }),
+      h("button", { "data-wk": "localphotodropmany", disabled: !pick.size, onClick: () => dropMany(Array.from(pick)), className: "active:opacity-70", style: { minHeight: 40, padding: "0 16px", borderRadius: 999, background: pick.size ? "#c25a4a" : t.line, color: "#fff", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))" } }, "移出 " + pick.size + " 张")) : null,
     preview ? h("div", { className: "fixed inset-0 z-50 flex items-center justify-center", onClick: () => setPreview(null), style: { background: "rgba(0,0,0,.82)", padding: 20 } },
       h("div", { onClick: e => e.stopPropagation(), style: { width: "100%", maxWidth: 520 } },
         h("img", { src: resolveImg(preview.imageRef), alt: preview.caption || "照片", style: { width: "100%", maxHeight: "70vh", objectFit: "contain", borderRadius: 10 } }),
