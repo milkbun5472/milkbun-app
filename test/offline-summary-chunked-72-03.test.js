@@ -120,3 +120,9 @@ test("两道静默的截断都放宽了，而且留记号", () => {
   assert.ok(!/String\(active\.summary\).trim\(\) : ""\)\.slice\(-1200\)/.test(app), "第二道静默截断还在");
   assert.match(app, /〔这一场更早的前情提要太长，下面是靠后的一段〕/, "第二道截断没留记号");
 });
+test("分段里有一段失败：成了的段照留，缺的段写明，不合成；全失败才报错", () => {
+  const src = require("node:fs").readFileSync(require.resolve("../js/engine.js"), "utf8");
+  assert.match(src, /parts\.push\(\{ summary: "（这一段没总结出来：/);
+  assert.match(src, /if \(parts\.every\(x => x\.failed\)\) throw lastErr/);
+  assert.match(src, /if \(!parts\.some\(x => x\.failed\)\) \{ try \{ merged = await offlineSummaryCall/);
+});

@@ -287,7 +287,7 @@ test("翻手机：偷偷翻——每个角色一个开关、所有角色共用�
   const c = fs.readFileSync(path.join(__dirname, "../js/components.js"), "utf8");
   assert.match(a, /const PEEK_SNEAK_GAP = 24 \* 3600e3;/);
   assert.match(a, /loadJSON\("x_peekSneakLast", 0\)/, "冷却只有一个，不按角色分");
-  assert.match(a, /handPhoneTo\(charId, PEEK_PHONE_SECTIONS\.map\(s => s\[0\]\), \[\], true\)/);
+  assert.match(a, /handPhoneTo\(charId, PEEK_PHONE_SECTIONS\.map\(s => s\[0\]\), \(\(loadJSON\("x_peekHide", \{\}\) \|\| \{\}\)\[charId\] \|\| \[\]\), true\)/);   // 偷偷翻也照她上回藏起来的那几个（2026-10-31）
   assert.match(a, /kind: "peeksneak"/);
   assert.match(a, /onEffect: step => \{ if \(!peekPlay\.replay\) peekEffect/);
   assert.match(a, /if \(p && p\.replay\) \{ openChatById\(p\.charId\); return; \}/);

@@ -161,12 +161,14 @@ test("pushState 说得出三件事：上次什么时候、算不算过期、这�
   assert.match(C.pushState().why, /还没.*读完/, "拦截理由没翻成人话");
 });
 
-test("真出事了要挂在她每天开得最多的那一页上，而且划不走", () => {
-  const seg = slice(components, "// ── 备份坏了要看得见", "h(\"div\", { className: \"flex-1 min-h-0\"");
+test("真出事了要挂在她每天开得最多的那一页上，划不走，但能用 × 收起这一回（群友 2026-10-31）", () => {
+  const seg = slice(components, "function BackupBanner(", "\nfunction Messages(");
+  assert.match(components, /\/\/ ── 备份坏了要看得见：固定横幅读取 Cloud 的公共状态与标题。\n  h\(BackupBanner, \{ onOpenSettings \}\),/);
+  assert.match(seg, /saveJSON\("x_bkBannerHide", sig\)/);
   // 横幅条件收在 Cloud.pushState().banner：云有毛病、且一天内没导出过文件（群友 2026-10-23「备份完它还在」）
   assert.match(seg, /if \(!st \|\| !st\.banner\)/, "云同步没开着也挂，那是吓唬人");
   assert.match(cloud, /out\.banner = out\.needsAttention && !out\.exportedRecent;/, "导出过文件还在聊天列表上喊");
-  assert.match(seg, /className: "shrink-0"/, "横幅会跟着列表滚走");
+  assert.match(seg, /className: "shrink-0 flex items-start"/, "横幅会跟着列表滚走");
   assert.match(seg, /导出全部数据/, "只报警不说怎么办");
   assert.match(app, /onOpenSettings: \(\) => setScreen\("config"\)/, "横幅点不动");
 });

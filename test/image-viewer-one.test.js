@@ -44,5 +44,5 @@ test("小窝预览图：都能存到手机；人设的还能当头像导入（�
   assert.match(seg, /it\.kind === "persona" \? \{ label: "用这张当头像，导入这个人设"/);
   assert.match(seg, /importInto\(d\.kind, d\.payload, d\.title, props, \{ avatarImage: key \}\)/);
   assert.match(nest, /opts && opts\.avatarImage \? \{ avatarImage: opts\.avatarImage \} : \{\}/);
-  assert.match(R("js/engine.js"), /else if \(typeof ref === "string" && \/\^\(https\?:\|blob:\)\/\.test\(ref\)\)/, "saveImgOriginal 还不认网址");
+  assert.match(R("js/engine.js"), /if \(typeof ref === "string" && \/\^\(https\?:\|blob:\)\/\.test\(ref\)\)/, "存图（_imgBlobOf）还不认网址");
 });

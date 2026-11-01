@@ -3,15 +3,15 @@
 // ?mode=float 是悬浮小窗：点一下就请外壳打开陪伴。
 // 小人本身、换装、表情、体型全部走庭院那一份 traveler.mjs，不另写一套（one-public-mechanism）。
 import * as T from 'three';
-import {makeReactions} from './reactions.mjs?v=fg-bf2a8f69e3079bf5';
-import {emotionCameraFrame} from '../fairy-garden/emotion-ground.mjs?v=fg-bf2a8f69e3079bf5';
-import {makeInteractions,afterInteraction} from './interactions.mjs?v=fg-bf2a8f69e3079bf5';
-import {targetAt} from './touch-targets.mjs?v=fg-bf2a8f69e3079bf5';
-import {MOODS,DUR,WEATHER_ACTIONS,moodBase,pulse,accent,chooseAction,touchForMood} from './motion.mjs?v=fg-bf2a8f69e3079bf5';
-import {GLTFLoader} from '../fairy-garden/vendor/GLTFLoader.js?v=fg-bf2a8f69e3079bf5';
-import {DRACOLoader} from '../fairy-garden/vendor/DRACOLoader.js?v=fg-bf2a8f69e3079bf5';
-import {createTraveler,setFaceBase} from '../fairy-garden/traveler.mjs?v=fg-bf2a8f69e3079bf5';
-import {lookForTa,mergeLook,dyesOf,outfitId,outfitColors,hairId,HAIR_MODES} from '../fairy-garden/wardrobe.mjs?v=fg-bf2a8f69e3079bf5';
+import {makeReactions} from './reactions.mjs?v=fg-90b53e2779ab7a1c';
+import {emotionCameraFrame} from '../fairy-garden/emotion-ground.mjs?v=fg-90b53e2779ab7a1c';
+import {makeInteractions,afterInteraction} from './interactions.mjs?v=fg-90b53e2779ab7a1c';
+import {targetAt} from './touch-targets.mjs?v=fg-90b53e2779ab7a1c';
+import {MOODS,DUR,WEATHER_ACTIONS,moodBase,pulse,accent,chooseAction,touchForMood} from './motion.mjs?v=fg-90b53e2779ab7a1c';
+import {GLTFLoader} from '../fairy-garden/vendor/GLTFLoader.js?v=fg-90b53e2779ab7a1c';
+import {DRACOLoader} from '../fairy-garden/vendor/DRACOLoader.js?v=fg-90b53e2779ab7a1c';
+import {createTraveler,setFaceBase} from '../fairy-garden/traveler.mjs?v=fg-90b53e2779ab7a1c';
+import {createWardrobe,lookForTa,mergeLook,outfitId,outfitColors} from '../fairy-garden/wardrobe.mjs?v=fg-90b53e2779ab7a1c';
 const mode=new URLSearchParams(location.search).get('mode')||'full',reactions=makeReactions(),interactions=makeInteractions();
 // 悬浮小窗用庭院那份 1K 的小人和脸：屏幕上只有指甲盖大，高清版白占内存（整页时手机会被挤得重载）
 if(mode!=='float')setFaceBase(new URL('./faces/',import.meta.url).href);
@@ -32,7 +32,7 @@ let held=null,taps=[],lifeKey='',cancelTouch=()=>{};const lastActions=new Map();
 const behaviorMood=()=>cur.mood||'default';
 // 外壳的换装面板（庭院那一份 DressControls）问这里要现值、让这里合并改动——换装规则只有 wardrobe.mjs 一份
 const full=()=>({...lookForTa(cur.ta),...cur.look});
-window.PetGame={hairModes:HAIR_MODES,getDyes:()=>dyesOf(full(),full()),getOutfit:()=>{const l=full();return {id:outfitId(l),colors:outfitColors(l)};},getHair:()=>hairId(full().hair),merge:(look,patch)=>mergeLook(look||{},patch||{})};
+window.PetGame={...createWardrobe(()=>({me:full()}),()=>full()),merge:(look,patch)=>mergeLook(look||{},patch||{})};
 const outfitKey=look=>JSON.stringify([outfitId(look),outfitColors(look)]);
 const apply=m=>{
  const previous=cur,oldLook=full(),wasReady=!!lastLook;
@@ -76,7 +76,7 @@ function applyLife(){
 // ⚠️这行原来是模块顶层的裸 await：网抖一下就整个 iframe 卡住、pet-ready 永不发，
 //   外壳那句「小人还在来的路上…」会永远挂着（2026-09-26 发公共版前查出来的）。
 try{
- const gltf=await loader.loadAsync('../fairy-garden/doll.glb?v=fg-bf2a8f69e3079bf5',
+ const gltf=await loader.loadAsync('../fairy-garden/doll.glb?v=fg-90b53e2779ab7a1c',
    e=>{if(e&&e.total)parent.postMessage({type:'pet-progress',pct:Math.min(99,Math.round(e.loaded/e.total*100))},'*');});
  pet=createTraveler(gltf.scene,true,pending?full():{});sc.add(pet.root);if(pending)apply(pending);   // 样貌先到了就直接照它建：头发按需下载，别先白下一款默认的
  parent.postMessage({type:'pet-ready'},'*');

@@ -1,10 +1,9 @@
-import {restState} from './rest.mjs?v=fg-bf2a8f69e3079bf5';
+import {restState} from './rest.mjs?v=fg-90b53e2779ab7a1c';
 import * as T from 'three';
-import {seatLook} from '../fairy-garden/wardrobe.mjs?v=fg-bf2a8f69e3079bf5';
-import {createTraveler,loadTravelerSource} from '../fairy-garden/traveler.mjs?v=fg-bf2a8f69e3079bf5';
-import {bubbleRows,bubbleHold,BUBBLE_GAP} from '../fairy-garden/speech.mjs?v=fg-bf2a8f69e3079bf5';
-export async function createPassengers(view,host,stage,state=()=>({})){
- const archive=host.load(),journey=archive.journey||{},garden=archive.worlds?.garden||archive.world,companion=host.companion?.();
+import {createTraveler,loadTravelerSource} from '../fairy-garden/traveler.mjs?v=fg-90b53e2779ab7a1c';
+import {bubbleRows,bubbleHold,BUBBLE_GAP} from '../fairy-garden/speech.mjs?v=fg-90b53e2779ab7a1c';
+export async function createPassengers(view,host,stage,state,lookOf){
+ const companion=host.companion?.();
  const source=await loadTravelerSource();
  const people=[];
  // 走动（她 2026-09-25：「可以走动不只是坐在那里，还可以下来活动，可以躺进卧铺，去整理上面的行李」）。
@@ -12,10 +11,10 @@ export async function createPassengers(view,host,stage,state=()=>({})){
  // 站在哪、朝哪都从车厢自带的锚点和床位算出来，不在这儿写死一张坐标表以外的东西。
  const AISLE_Z=.95,WALK=1.1;let floorY=.06;view.asset.traverse(o=>{if(o.userData.anchor==='entry')floorY=o.getWorldPosition(new T.Vector3()).y;});
  const SPOT_ZH={seat:'坐在座位上',stand:'站在过道里看窗外',rack:'在行李架底下整理行李',berth:'走到卧铺边',free:'在车厢里走动'};
- for(const [who,anchorName,look,name,angle] of [['me','seat_user',state()?.looks?.me||journey.look||garden?.look,'你',Math.PI/2],['companion','seat_companion',state()?.looks?.companion||journey.companionLook||garden?.companion?.look,companion?.name,-Math.PI/2]]){
+ for(const [who,anchorName,look,name,angle] of [['me','seat_user',lookOf('me'),'你',Math.PI/2],['companion','seat_companion',lookOf('companion'),companion?.name,-Math.PI/2]]){
   if(who==='companion'&&!companion?.id)continue;
   let anchor;view.asset.traverse(o=>{if(o.userData.anchor===anchorName)anchor=o;});if(!anchor)throw Error('座位还没有准备好');
-  const at=anchor.getWorldPosition(new T.Vector3()),avatar=createTraveler(source,who==='companion',seatLook(who,look,companion?.ta));avatar.root.position.copy(at);avatar.root.rotation.y=angle;const carrier=new T.Group();view.scene.add(carrier);carrier.add(avatar.root);let bedAnchor;view.asset.traverse(o=>{if(o.userData.anchor===(who==='me'?'berth_lower':'berth_upper'))bedAnchor=o;});if(!bedAnchor)throw Error('卧铺还没有准备好');const bed=bedAnchor.getWorldPosition(new T.Vector3());avatar.root.updateMatrixWorld(true);const face=avatar.root.getObjectByName('Face'),headPoint=new T.Vector3(0,1.48,0);if(face){const bounds=new T.Box3().setFromObject(face,true),top=bounds.getCenter(new T.Vector3());top.y=bounds.max.y+.09;headPoint.copy(avatar.root.worldToLocal(top));}
+  const at=anchor.getWorldPosition(new T.Vector3()),avatar=createTraveler(source,who==='companion',look);avatar.root.position.copy(at);avatar.root.rotation.y=angle;const carrier=new T.Group();view.scene.add(carrier);carrier.add(avatar.root);let bedAnchor;view.asset.traverse(o=>{if(o.userData.anchor===(who==='me'?'berth_lower':'berth_upper'))bedAnchor=o;});if(!bedAnchor)throw Error('卧铺还没有准备好');const bed=bedAnchor.getWorldPosition(new T.Vector3());avatar.root.updateMatrixWorld(true);const face=avatar.root.getObjectByName('Face'),headPoint=new T.Vector3(0,1.48,0);if(face){const bounds=new T.Box3().setFromObject(face,true),top=bounds.getCenter(new T.Vector3());top.y=bounds.max.y+.09;headPoint.copy(avatar.root.worldToLocal(top));}
   const bubble=document.createElement('div');bubble.id=who==='me'?'player-bubble':'companion-bubble';bubble.hidden=true;bubble.setAttribute('aria-live','polite');stage.append(bubble);
 
   people.push({who,avatar,carrier,bed,angle,face,resting:false,bubble,seat:at,headPoint,queue:[],line:null,left:0,spot:'seat',path:[],pos:new T.Vector3(at.x,0,AISLE_Z),yaw:angle,onArrive:null});

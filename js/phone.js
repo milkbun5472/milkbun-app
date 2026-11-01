@@ -78,9 +78,6 @@ const PHONE_APPS = [{
   key: "astro",
   zh: "星测"
 }];
-// 账号的关注、粉丝数照他这个人（群友 2026-10-31：大明星的号关注 38、粉丝 1000 多）：
-//   原来两处都叫模型把粉丝往少里写，格式示范里还摆着 12、37 这种小数，模型照着抄。改成照身份给出口，示范只写说明。
-const PHONE_ACCOUNT_SCALE = "关注、粉丝这几个数照他这个人在这个平台上是谁来定：这是他公开的大号，就照他的名气来——有名的人粉丝成万上百万、自己关注的反倒不多；这是他只给自己看的小号，数字就小，name、bio 里看得出是小号；普通人就是普通人的数。数字可以写成「12.3万」这种。";
 const PHONE_LABEL = PHONE_APPS.reduce((o, a) => (o[a.key] = a.zh, o), {});
 // 接真数据的 app：不调模型、不存进 phones，直接读 App 里那份真的。
 // 论坛读 x_forumPosts（TA真发过的帖，连小号和匿名一起），
@@ -244,6 +241,19 @@ function phoneTimeline(charData, live, nowTs) {
 // 一个月俸微薄的小官照样下单六百八十文的袍子，两边说的不是同一个人。
 // 这一块只是把钱包那份【读过来】发给它们，不生成任何东西。
 const PHONE_MONEY_KEYS = ["shopping", "takeout"];
+// 别的 app 也得知道TA现在的钱（群友 2026-10-31：人设穷学生，她转了 200 万，翻他手机还在哭穷；她：「有钱角色转了钱破产了也要反应出来」）：
+//   人设写的是TA的底子，钱这件事以眼下的数为准。只给数和判据，不替TA决定怎么面对——穷人暴富、富人破产、这个月花超了，同一句话都管得到。
+function phoneMoneyNowBlock(appKey, money) {
+  if (PHONE_MONEY_KEYS.indexOf(appKey) >= 0 || appKey === "wallet" || !money) return "";
+  const n = v => (v == null || !isFinite(Number(v))) ? null : Math.round(Number(v));
+  const bits = [];
+  if (n(money.balance) != null) bits.push("手头（可动用）约 " + n(money.balance) + (n(money.balance) < 0 ? "（已经透支）" : ""));
+  if (n(money.monthlyIncome)) bits.push("每月进账约 " + n(money.monthlyIncome));
+  if (!bits.length) return "";
+  return "\n\n【TA现在的钱】" + bits.join("；") + "。人设写的是TA原本的底子；钱这件事以眼下这个数为准。"
+    + "跟人设里的处境对不上的时候（多出一大笔、或者钱没了、或者比平时紧），手机里的东西照TA现在的处境来写，"
+    + "TA怎么面对这个落差、在意不在意、跟谁说不跟谁说，看TA这个人。";
+}
 function phoneMoneyBlock(appKey, money) {
   if (PHONE_MONEY_KEYS.indexOf(appKey) < 0 || !money) return "";
   const n = v => (v == null || !isFinite(Number(v))) ? null : Math.round(Number(v));
@@ -1794,7 +1804,7 @@ function phoneProbeSpec(key, char, rel, actualWechat, avoidLines, known, money, 
     },
     liked: {
       instruction: "推演「" + char.name + "」在小红书那样的图文社区里的账号。\n"
-        + characterText(char, "me：name（**他在这儿的昵称**，不是本名照抄；这种号往往随手起、有点敷衍或自嘲）、xhsId（一串数字号）、bio（一句简介，可以很敷衍甚至只有几个字）、tag（个人页上那颗小药丸：年纪、所在地、或一句自嘲，二选一）、posts（发过几条）、following、followers、likes（获赞与收藏总数）。**" + PHONE_ACCOUNT_SCALE + "**\n")
+        + characterText(char, "me：name（**他在这儿的昵称**，不是本名照抄；这种号往往随手起、有点敷衍或自嘲）、xhsId（一串数字号）、bio（一句简介，可以很敷衍甚至只有几个字）、tag（个人页上那颗小药丸：年纪、所在地、或一句自嘲，二选一）、posts（发过几条）、following、followers、likes（获赞与收藏总数）。**" + (typeof ACCOUNT_SCALE_RULE === "string" ? ACCOUNT_SCALE_RULE : "") + "**\n")
         + characterText(char, "tabs：他常看的频道 **4-6 个**，按他的口味起名（按他真正会点进去的东西起名，别用平台默认那几个大类）。\n")
         + characterText(char, "items **10-12 条**他【赞过或收藏过】的笔记，每条：author、title（社区那种口吻——夸张、口语、像在跟人诉苦或炫耀）、excerpt（正文一两句）、tab、tags（1-3 个）、likes、act（赞 或 收藏）、time、cover（0-5 的整数，定封面色）。\n")
         + characterText(char, "**点赞记录是一个人最诚实的东西**：他不会写下来，但他会点。这十来条要出现他【不主动说、也不觉得需要解释】的部分——某种审美、某个身体或情绪上的需要、一个他嘴上不承认的爱好、一条他其实想照做的建议、一件他偷偷惦记的事。也要有很没意思的（做饭、通勤、修东西），别每条都深刻。\n")
@@ -1864,7 +1874,7 @@ function phoneProbeSpec(key, char, rel, actualWechat, avoidLines, known, money, 
     },
     bili: {
       instruction: "推演「" + char.name + "」白天刷的视频站（仿 bilibili）。\n"
-        + characterText(char, "me：他自己的账号——name（**他给自己取的用户名**，不是本名照抄；这种名字往往随手起、有点中二或自嘲）、uid（一串数字）、level（1-6 整数）、followers（关注了多少人，数字）、fans（粉丝数）、coins（硬币数）。" + PHONE_ACCOUNT_SCALE + "\n")
+        + characterText(char, "me：他自己的账号——name（**他给自己取的用户名**，不是本名照抄；这种名字往往随手起、有点中二或自嘲）、uid（一串数字）、level（1-6 整数）、followers（关注了多少人，数字）、fans（粉丝数）、coins（硬币数）。" + (typeof ACCOUNT_SCALE_RULE === "string" ? ACCOUNT_SCALE_RULE : "") + "\n")
         + characterText(char, "tabs：他首页顶上的分区标签 **4-6 个**，按他真实的口味排（如「推荐」「科技」「生活」「鬼畜」「纪录片」）。\n")
         + characterText(char, "items **正好 10 条**视频，每条：title（真实感的视频标题，长短不一，可以有那种很长的标题党）、up（UP主名）、tab（属于上面哪个分区）、duration（如 08:24 / 1:12:05，按内容类型给合理长度）、views（播放量，如「12.4万」「873」）、danmaku（弹幕数，数字）、desc（视频简介一两句）、thought（**他看完的真实想法**，一句，可以很敷衍、可以骂、可以只是「行吧」）。\n")
         + characterText(char, "**myDanmaku：他自己在这个视频里发过的弹幕，0-3 条。**这是这个 app 最好的东西——**弹幕是他忍不住开口的地方**，短、脱口而出、没措辞，跟他在别处说话的样子可以完全不同。多数视频他是不发弹幕的（留空数组），只在真被戳到时才发。弹幕要短（十几个字以内），像真弹幕：可以是吐槽、接梗、数字刷屏、突然一句真心话。\n")
@@ -1899,8 +1909,9 @@ function phoneProbeSpec(key, char, rel, actualWechat, avoidLines, known, money, 
         + characterText(char, "inbox 收件箱 **8-12 封**：from（谁发的）、fromAddr、subject（主题）、time、kind（这封属于哪一类）、unread（true/false）、preview（列表里露出来的那一截）、body（正文，3-6 句，写成那类邮件真正的样子）、thought（他看完心里那句，一句，可空——大多数邮件他心里什么都没有，那就留空）。\n")
         + characterText(char, "sent 发出去的 **3-5 封**：to、subject、time、body（他写的正文）。\n")
         + characterText(char, "drafts 草稿 **1-3 封**：to、subject、body、savedAt（存了多久）——**草稿是这个 app 最有东西的一栏**：写了没发的那封，通常是他不敢发或者不知道怎么措辞的。\n\n")
-        + characterText(char, "【这一栏的全部意义是【落差】】邮件里的他是【对陌生人和上级说话】的样子：客气、绕、留余地、把话说死之前先铺三层。")
-        + characterText(char, "**这个腔调和他私下说话的差距，就是这个 app 要给出来的东西**——同一个人，一边是邮件里那套滴水不漏的说法，一边是他在便签里骂的那句。\n")
+        // 腔调不定死（她 2026-10-31：「邮件感觉有点正式」）：原来写死「客气、绕、滴水不漏」，什么人设都被拉成同一种公文腔
+        + characterText(char, "【邮件里是他对外的那一面】对外是什么样，看他这个人：有的人在这儿装得滴水不漏，有的人连正事都写得短、直、带着脾气，有的人根本懒得写。")
+        + characterText(char, "跟他私下说话差得多，就把这个落差写出来；差不多，就照他平时的样子写，别为了显得正式硬套一层公文腔。\n")
         + characterText(char, "【收件箱要杂】不是每封都重要：该有正事、有账单、有他懒得退订的推送、有群发的、有一封他一直没回的。**一直没回的那封最说明人。**\n")
         + "【不要和微信撞车】微信是熟人和随口，这儿是正式的往来。同一件事不要在两处各写一遍。",
       schemaHint: characterText(char, "{\"me\":{\"addr\":\"他的邮箱地址\",\"name\":\"发件人显示名\",\"sign\":\"签名档\"},\"inbox\":[{\"from\":\"谁发的\",\"fromAddr\":\"地址\",\"subject\":\"主题\",\"time\":\"今天 09:12\",\"kind\":\"哪一类\",\"unread\":true,\"preview\":\"列表里那一截\",\"body\":\"正文\",\"thought\":\"他心里那句\"}],\"sent\":[{\"to\":\"寄给谁\",\"subject\":\"主题\",\"time\":\"昨天 18:40\",\"body\":\"正文\"}],\"drafts\":[{\"to\":\"本来要寄给谁\",\"subject\":\"主题\",\"body\":\"正文\",\"savedAt\":\"存了多久\"}],\"retired\":{\"drafts\":[\"发出去或删掉的草稿主题\"]}}")
@@ -1927,7 +1938,8 @@ function phoneProbeSpec(key, char, rel, actualWechat, avoidLines, known, money, 
         + characterText(char, "   ⚠️theirs 那几条**不是他在讨债**——写成他自己惦记着的一件还没完的事，主语是他的在意，不是对方的亏欠。写成指责就是写坏了。三种都要有，别一边倒。\n")
         + characterText(char, "② policies（2-4 条）他给某个人兜的底，**写成保险条款那种腔调**：who 承保的是谁、name 险种名、scope 一句承保范围、terms 理赔条件（写成对方要做到什么，那句话里要看得出他的脾气）、clause 一句正文条款（承保人负责做什么）。\n")
         + characterText(char, "   条款体的用处是**逼他把说不出口的东西写成义务**——一个不肯说软话的人，在条款里反而什么都答应了。这层落差是这一栏的全部意义。")
-        + "兜底不等于情话：可以是护着一个晚辈、担着一个同伙的烂摊子、也可以是给自己留的那一条。\n"
+        + "兜底不等于情话：可以是护着一个晚辈、担着一个同伙的烂摊子、也可以是给自己留的那一条。\n"        // 她 2026-10-31：「为啥那么多命都给你」——上面那句「什么都答应了」把它往最大的承诺上推
+        + characterText(char, "   条款写的是他真会做到、也做得到的那一件事，具体到哪件事、做到哪一步；拿最大的词去撑分量的条款，换谁都写得出来，就是写坏了。\n")
         + characterText(char, "③ statements（4-6 条）他盖过章的定论，每条一句他会亲口说出来的话。who 这句是冲谁去的、text 那句话本身、heat 这句话的温度（一个字或两个字，从这句话的力道来定，别都用同一个）、")
         + characterText(char, "truth 这句话底下真正的意思——**他嘴上这么说，心里其实是什么**。\n")
         + characterText(char, "   ⚠️truth 不是把 text 换个说法再讲一遍，也不是替他解释这句话什么意思。它要说的是【那句话没说出来的那一半】：")
@@ -1963,7 +1975,7 @@ function phoneProbeSpec(key, char, rel, actualWechat, avoidLines, known, money, 
   // ⚠️不是「四处一样喂」的例外——那条讲的是同一层能力要在四个场合都给到；
   // 这一段是账本这一栏专属的取材facts，别的 app 本来就不看。
   const bondBlock = (key === "tally" && bond) ? bond : "";
-  const _full = spec.instruction + phoneOwnOnlyBlock(char.name) + bondBlock + angle + PHONE_WORLD_RULE + phoneMoneyBlock(key, money) + phoneIdentityBlock(key, known) + phoneEvolveBlock(key, known) + phoneRosterBlock(key, known) + phoneWatchDraftBlock(key, known) + phoneSelfAvoidBlock(key, known) + phoneQuoteAvoidBlock(key, known) + phoneAvoidBlock(avoidLines) + phoneLangBlock(lang) + (weekly ? PHONE_WEEKLY_HINT : "");
+  const _full = spec.instruction + phoneOwnOnlyBlock(char.name) + bondBlock + angle + PHONE_WORLD_RULE + phoneMoneyBlock(key, money) + phoneMoneyNowBlock(key, money) + phoneIdentityBlock(key, known) + phoneEvolveBlock(key, known) + phoneRosterBlock(key, known) + phoneWatchDraftBlock(key, known) + phoneSelfAvoidBlock(key, known) + phoneQuoteAvoidBlock(key, known) + phoneAvoidBlock(avoidLines) + phoneLangBlock(lang) + (weekly ? PHONE_WEEKLY_HINT : "");
   return { ...spec, maxTokens: PHONE_OUT_CEILING, instruction: _full };
 }
 // 纯函数导出给 node --test；浏览器里没有 module，原样跳过

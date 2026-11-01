@@ -15,6 +15,6 @@ test("app：存成 x_chatDirNotes，按 chatKey 分；新建和扣轮用线下�
 test("界面：旁白模式里两档，选「往后的方向」发出去是便签不是旁白卡", () => {
   assert.match(comp, /const dirMode = chatMode === "narr" && narrKind === "dir" && !!onAddDirNote;/);
   assert.match(comp, /if \(dirMode\) \{ onAddDirNote\(v, dirLong\); return; \}/);
-  assert.match(comp, /\[\["event", "此刻发生了什么"\], \["dir", "往后的方向"\]\]/);
+  assert.match(comp, /\[\["event", "此刻发生了什么"\], \["act", "我的动作"\], \["dir", "往后的方向"\]\]/);
   assert.match(comp, /"data-wk": "dirnote"/);
 });

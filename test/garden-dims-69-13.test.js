@@ -47,7 +47,8 @@ test('只拖一根滑杆，另外五根不许被打回中性', async () => {
   assert.deepEqual(mergeLook(old,{dims:{waist:1}}).dims,{...old.dims,waist:1});
   assert.equal(old.dims.waist,.9);
   const fn = game.slice(game.indexOf('const applyLook=(who,look)=>{'), game.indexOf('window.FairyGardenGame={'));
-  assert.match(fn, /mergeLook\(old,look\)/);
+// 2026-10-31 v88.80x：换样貌收进 wardrobe.mjs（createWardrobe／mergeLook 一份），applyLook 改成就地 mergeLook 再 save，存不上就退回
+  assert.match(fn, /data=\{\.\.\.data,look:mergeLook\(data\.look\|\|\{\},look\)\}/);
   assert.match(trav, /mergeLook\((?:reset\?.*?\):)?want,next\|\|\{\}\)/);
 });
 

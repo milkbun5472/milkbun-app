@@ -182,3 +182,16 @@ test("装载器：一组跑完就把名字换回替身，不等界面下一次�
   assert.match(src.slice(i, i + 260), /try \{ if \(g\.LazyReclaim\) g\.LazyReclaim\(\); \} catch \(e\) \{\}/);
   assert.ok(src.indexOf("g.LazyReclaim") < src.indexOf('.finally(() => { delete pending[group]; })'), "收名字要排在 load() 交差之前");
 });
+
+
+test("动态导入保留脚本原 src，失败重试不跳过、不重复前序，后序等执行完成",async()=>{
+ const tags=['a','b','c'].map(name=>({attrs:{'data-src':'js/'+name+'.js?v=1','data-lazy':'g'},getAttribute(k){return this.attrs[k];},setAttribute(k,v){this.attrs[k]=v;}})),ran=[],fetched=[];let fail=true;
+ const document={querySelectorAll:()=>tags,createElement:()=>({remove(){}}),head:{appendChild:s=>{
+  if(s.src){assert.equal(s.src,'js/b.js?v=1');setTimeout(()=>{if(fail)s.onerror();else{ran.push('b');s.onload();}},5);}
+  else ran.push(s.text.startsWith('RUN a')?'a':'c');
+ }}};
+ const fetch=async src=>{fetched.push(src);return {ok:true,text:async()=>src.includes('/b.')?"window.fromModule=()=>import('../apps/value.mjs')":src.includes('/a.')?'RUN a':'RUN c'};};
+ const g={addEventListener(){}};new Function('window','document','globalThis','fetch',R('js/lazy-mods.js'))(g,document,g,fetch);
+ await assert.rejects(g.LazyMods.load('g'),/没下载下来/);assert.deepEqual(ran,['a']);assert.equal(tags[1].getAttribute('data-done'),undefined);
+ fail=false;await g.LazyMods.load('g');assert.deepEqual(ran,['a','b','c']);assert.equal(g.LazyMods.isLoaded('g'),true);assert.deepEqual(fetched.slice(3),['js/b.js?v=1','js/c.js?v=1']);
+});

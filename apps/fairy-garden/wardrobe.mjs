@@ -1,4 +1,4 @@
-import {OUTFITS} from './outfits.mjs?v=fg-bf2a8f69e3079bf5';
+import {OUTFITS} from './outfits.mjs?v=fg-90b53e2779ab7a1c';
 export {OUTFITS};
 export const DEFAULT_SKIN='#f2cbb4';
 export const DEFAULT_LOOK={skin:DEFAULT_SKIN,hair:'korean',hairColor:'#6b4a33',cloth:'#d97a60'};
@@ -21,6 +21,17 @@ export function eyesOf(look={}){
  return {eye,eyeMode:look.eyeMode==='split'?'split':'solid',eyeLeft:color(look.eyeLeft)?look.eyeLeft:eye,eyeRight:color(look.eyeRight)?look.eyeRight:eye};
 }
 export function dyesOf(look={},defaults={}){const hairColor=look.hairColor||defaults.hairColor;return {skin:look.skin||defaults.skin,...eyesOf(look),hairColor,hairColor2:look.hairColor2||hairColor,hairMode:hairModeOf(look)};}
+// 共用的是读取/配色规则，不保存任何全局外貌。调用方提供自己存档的角色表与默认值。
+// 返回独立快照；传入当前控件草稿时仍先核对角色，避免异步预览覆盖正在选的颜色。
+export function createWardrobe(readLooks,defaultsFor=()=>({}),defaultWho='me'){
+ const wardrobeFor=(who=defaultWho,draft)=>{
+  const looks=readLooks();if(!looks||!Object.hasOwn(looks,who))return null;
+  const look=structuredClone(draft??looks[who]??{}),defaults=defaultsFor(who)||{};
+  return {look,dyes:dyesOf(look,defaults),hair:hairId(look.hair||defaults.hair),outfit:{id:outfitId(look),colors:outfitColors({...defaults,...look})}};
+ };
+ return {wardrobeFor,getLook:()=>structuredClone(readLooks()||{}),hairModes:HAIR_MODES,
+  getDyes:who=>wardrobeFor(who)?.dyes,getHair:who=>wardrobeFor(who)?.hair,getOutfit:who=>wardrobeFor(who)?.outfit};
+}
 // 旧衣柜的六套 ID 和四个色槽：模型里暂时没有它们，但存档里的选择和配色【照留】，
 // 不然读档体检一过就把她调过的色静默丢了（world.restoreLook 只认这里认得的 ID）。
 const LEGACY_OUTFITS=['traveler','academy','garden','alchemist','ranger','cardigan'],LEGACY_SLOTS=['cloth','trim','bottom','boots'];
@@ -50,7 +61,7 @@ export function outfitColors(look={}){const id=outfitId(look),saved=restoreWardr
  return {...OUTFITS[id].colors,...(id==='traveler'&&color(look.cloth)?{cloth:look.cloth}:{}),...inherited,...saved};
 }
 // One patch writer for the live avatar, preview and all residents; each outfit remembers its colors.
-export function mergeLook(old={},patch={}){const next={...old,...patch};delete next.outfitColors;if(patch.dims)next.dims={...old.dims,...patch.dims};
+export function mergeLook(old={},patch={}){const next=structuredClone({...old,...patch});delete next.outfitColors;if(patch.dims)next.dims={...old.dims,...patch.dims};
  if(patch.wardrobe||patch.outfitColors){next.wardrobe=restoreWardrobe({...old.wardrobe,...patch.wardrobe});if(patch.outfitColors){const id=outfitId(next);next.wardrobe=restoreWardrobe({...next.wardrobe,[id]:{...next.wardrobe[id],...patch.outfitColors}});}}
  return next;
 }

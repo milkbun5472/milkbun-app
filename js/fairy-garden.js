@@ -9,7 +9,7 @@
 // 接口密钥留在父页 callAI，不传进游戏画面。
 (function (root) {
   const { h, useState, useRef, useEffect, selectDialogs, localDialogs, replaceDialogs, worldCognition, WORLDS } = root.FairyCore;
-  const KEY = "x_fairyGarden", BUILD = "fg-bf2a8f69e3079bf5", hosts = new WeakMap();
+  const KEY = "x_fairyGarden", BUILD = "fg-90b53e2779ab7a1c", hosts = new WeakMap();
   root.FairyGardenHostFor = child => hosts.get(child) || null;
   // ⚠️「读回来是空」不等于「这儿本来就没有一档」。存档搬进 IDB 之后，文字仓没灌起来
   //   那一刻读到的也是空；这时候要是照着「没有」开一档新的，第一次保存就把她真正的
@@ -582,7 +582,7 @@
       h('div',{'data-pet-companion-preview':true,style:{position:'sticky',top:0,zIndex:2,height:'clamp(160px,28dvh,240px)',background:'var(--pet-paper)',borderRadius:14,marginBottom:16,overflow:'hidden'}},
         h(root.CompanionPreview,{mode:'full',msg:{type:'pet-look',characterId:String(character.id),ta,look:look.companion},ctx:{screen:'wardrobe'},onStatus:setPreviewStatus,reloadKey:previewRetry,style:{width:'100%',height:'100%'}}),
         previewStatus.state!=='ready'&&h('div',{role:'status',style:{position:'absolute',inset:0,display:'grid',placeContent:'center',background:'var(--pet-paper)',textAlign:'center'}},previewStatus.state==='failed'?h('button',{className:'pet-button',onClick:()=>{setPreviewStatus({state:'loading'});setPreviewRetry(x=>x+1);}},'重新打开小人预览'):'小人正在来… '+(previewStatus.pct||0)+'%')),
-      h('p',{className:'pet-footnote'},'为'+(character.remark||character.name)+'换一身。选好立即保存，搭配只属于这一档的同行者。'),
+      h('p',{className:'pet-footnote'},'为'+(character.remark||character.name)+'换一身。选好立即保存，搭配属于这一档的同行者，与同一旅程的庭院相通；其他存档和「陪伴」里的样貌各自保存。'),
       listError?h('div',{role:'alert'},listError,h('button',{className:'pet-button',onClick:()=>setListRetry(x=>x+1)},'重新打开衣柜')):!styles?h('p',{role:'status'},'正在打开衣柜…'):h(DressControls,{who:'companion',look,styles,game,pushLook}));
   }
 
@@ -670,11 +670,12 @@
   // 改外貌的那一整排控件：庭院的「样貌」页和列车的「旅程设置」共用这一份（2026-09-25 抽出来）。
   // game 是游戏 iframe 里那个对象，要有 getDyes / getOutfit；pushLook 负责落盘。
   function DressControls({ who, look, styles, game, pushLook }) {
+    const api=game(),selected=api?.wardrobeFor?.(who,look[who]),dyes=selected?.dyes||api?.getDyes?.(who),outfitChoice=selected?.outfit||api?.getOutfit?.(who);
     return h(React.Fragment, null,
-      h(DyeControl, { key: who + "skin", label: "肤色", value: game() && game().getDyes ? game().getDyes(who).skin : null,
+      h(DyeControl, { key: who + "skin", label: "肤色", value: dyes?.skin,
         onChange: skin => pushLook({ skin }), palette: ["#f9e2d2", "#f2cbb4", "#dfb093", "#c58d69", "#9c694c", "#694536"] }),
-      // 陪伴、TA的一天、庭院、列车和小镇共用这套眼睛控件与外貌存档。
-      (() => { const d = look[who] || {}, split = d.eyeMode === "split";
+      // 陪伴、TA的一天、庭院、列车和小镇共用这套眼睛控件；各自仍从原角色/旅程存档读取。
+      (() => { const d = dyes || look[who] || {}, split = d.eyeMode === "split";
         const palette = ["#5d4435", "#2b2230", "#3f6fa8", "#4e8a62", "#8a5bb0", "#b5433f"];
         return h("section", { "aria-label": "眼睛配色" },
           h("label", { style: { display: "flex", alignItems: "center", gap: 9, minHeight: 44, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: G.ink } },
@@ -687,12 +688,12 @@
         h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: G.ink, marginBottom: 10 } }, "挑一套衣服"),
         h("div", { style: { display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 8 } },
           Object.entries((styles && styles.outfits) || {}).map(([id, outfit]) => {
-            const on = (game() && game().getOutfit ? game().getOutfit(who).id : (look[who] || {}).outfit) === id;
+            const on = (outfitChoice?.id || (look[who] || {}).outfit) === id;
             return h("button", { key: id, "aria-pressed": on, onClick: () => pushLook({ outfit: id }),
               style: { minHeight: 54, padding: "10px 8px", borderRadius: 12, border: "1px solid " + (on ? G.deep : G.line), background: on ? "#d4ddc7" : "#f7f5e9", color: G.ink, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))" } }, outfit.label);
           })),
         // 按当前衣服列出真实可选区域；复位也走共用外貌写入，保留其他衣服。
-        (() => { const selected = game() && game().getOutfit ? game().getOutfit(who) : null;
+        (() => { const selected = outfitChoice;
           const outfit = selected && styles?.outfits?.[selected.id];
           const slots = Object.entries(outfit?.colorLabels || {cloth:"衣服主色",trim:"衬衫与领边",bottom:"裤袜颜色",accent:"领带与点缀",boots:"鞋子颜色"})
             .filter(([slot]) => outfit && slot in outfit.colors);
@@ -704,7 +705,7 @@
       h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: G.ink, marginBottom: 9 } }, "发型"),
       h("div", { style: { display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8 } },
         Object.entries((styles && styles.hair) || {}).map(([key, label]) => {
-          const on = (game() && game().getHair ? game().getHair(who) : (look[who] || {}).hair || "") === key;
+          const on = (selected?.hair || api?.getHair?.(who) || (look[who] || {}).hair || "") === key;
           return h("button", { key: key, onClick: () => pushLook({ hair: key }), className: "active:opacity-70",
             style: { padding: "11px 6px", borderRadius: 13, border: "1px solid " + (on ? G.deep : G.line),
               background: on ? "rgba(85,112,79,.12)" : "rgba(255,255,255,.55)",
@@ -738,11 +739,11 @@
             h("div", { className: "flex items-center justify-between", style: { fontSize: "calc(10px * var(--app-fs, 1))", color: G.soft } },
               h("span", null, d.low || "轻一些"), h("span", null, d.high || "多一些")));
         })) : null,
-      h(DyeControl, { key: who + "hair", label: "发色", value: game() && game().getDyes ? game().getDyes(who).hairColor : null,
+      h(DyeControl, { key: who + "hair", label: "发色", value: dyes?.hairColor,
         onChange: hairColor => pushLook({ hairColor }), palette: HAIR_COLORS }),
       // 发色花样：单色 / 渐变 / 拼色 / 挑染，后三种多一个副色（名单在 wardrobe.mjs 的 HAIR_MODES）
-      (() => { const d = game() && game().getDyes ? game().getDyes(who) : null, mode = (d && d.hairMode) || "solid";
-        const modes = (game() && game().hairModes) || [];
+      (() => { const d = dyes, mode = (d && d.hairMode) || "solid";
+        const modes = api?.hairModes || [];
         return h(React.Fragment, null,
           modes.length ? h("div", { style: { display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8, margin: "4px 0 14px" } },
             modes.map(([id, label]) => h("button", { key: id, "aria-pressed": mode === id, onClick: () => pushLook({ hairMode: id }), className: "active:opacity-70",
@@ -2428,7 +2429,7 @@
     const refresh = () => setSaves(readSaves());
     // openId 存的是【整把钥匙】，不是 id：房间那种键拼不回来（见 readSaves 的注释）
     // The mainline schedule viewer has no journey archive and never boards the game railway.
-    if (world?.id === "day") return h(root.CharDayApp, { ...(props.day || {}), profile:props.profile,apiFor:props.apiFor,active:props.active,characters: props.characters, build: BUILD, appearanceSaves:readSaves().map(row=>({id:row.id,name:row.name,key:saveKeyOf(row)})), readAppearance:key=>worldOf(loadJSON(key,null)||{},"garden")?.look||null, onBack: () => setWorld(null) });
+    if (world?.id === "day") return h(root.CharDayApp, { ...(props.day || {}), profile:props.profile,apiFor:props.apiFor,active:props.active,characters: props.characters, build: BUILD, appearanceSaves:readSaves().map(row=>({id:row.id,name:row.name,key:saveKeyOf(row)})), readAppearance:key=>{const saved=loadJSON(key,null)||{};return structuredClone(saved.journey?.look||worldOf(saved,"garden")?.look||null);}, onBack: () => setWorld(null) });
     if (openId) return h(WorldSession, Object.assign({}, props, {
       key: openId, storeKey: openId, startSolo: openSolo, entryWorld:world.id,
       onChooseSave: () => { setOpenId(null); setOpenSolo(false); refresh(); },
