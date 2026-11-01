@@ -902,7 +902,7 @@ function pickTextFile(onMsg, opts) {
   inp.type = "file";
   // 一律放行、读的时候再看是不是字（她 2026-10-14：「秋秋不收 css 文件吗」——iPhone 的文件选择器不认 .css 这种后缀，
   //   照后缀列的清单会把它变灰，点都点不了；一起读那边早就是这么改的）
-  if (ANY_FILE) inp.accept = ANY_FILE;   // 安卓那边是 undefined：不写这个属性，别写成 "undefined"
+  if (ANY_FILE) inp.accept = ANY_FILE;   // 安卓、iOS 各是哪一串见 core.js 的 ANY_FILE
   // 挂进页面再点（她 2026-10-14：「开着秋秋退出 app 保活再回来，文件就发不出去了，得重进才行」）：
   //   没挂进 DOM 的 input，iPhone 从后台切回来以后选完文件常常不回 change——选了等于没选。挂上、用完就拿掉。
   inp.style.cssText = "position:fixed;left:-9999px;top:0;width:1px;height:1px;opacity:0";
@@ -3183,7 +3183,7 @@ function CalWidget({ now, calendar, onOpen, period }) {
         const pcol = pk ? PERIOD_COLORS[pk.t] : null;
         const isToday = d === today;
         return h("div", { key: i, "data-wk": "wcell", "data-today": isToday ? "1" : "0", style: { position: "relative", textAlign: "center", padding: "2px 0" } },
-          h("span", { style: { display: "inline-flex", alignItems: "center", justifyContent: "center", width: 24, height: 24, borderRadius: 999, fontFamily: F_BODY, fontSize: 12.5, color: isToday ? "#fff" : (pcol || t.sub), background: isToday ? t.accent : (pcol ? pcol + "26" : "transparent"), border: pcol && !isToday ? "1px solid " + pcol + "66" : "none" } }, d),
+          h("span", { style: { display: "inline-flex", alignItems: "center", justifyContent: "center", width: 24, height: 24, borderRadius: 999, fontFamily: F_BODY, fontSize: 12.5, color: isToday && !pcol ? "#fff" : (isToday ? t.accent : (pcol || t.sub)), fontWeight: isToday ? 700 : undefined, background: isToday && !pcol ? t.accent : (pcol ? pcol + "26" : "transparent"), border: isToday && pcol ? "2px solid " + t.accent : (pcol ? "1px solid " + pcol + "66" : "none") } }, d),   // 今天落在经期颜色上：画一圈框，底色还是那天的颜色，不盖成一团实心
           calAnyEvent(cal, y, m, d) && h("span", { style: { position: "absolute", bottom: 0, left: "50%", transform: "translateX(-50%)", width: 4, height: 4, borderRadius: 999, background: isToday ? "#fff" : t.tint } }));
       })));
 }
@@ -4973,8 +4973,9 @@ function Calendar({ characters, calendar, calEvents, schedules, profile, period,
         return h("button", { "data-wk": "calday", "data-today": isT ? "1" : "0", "data-period": pk ? pk.t : "", key: i, onClick: () => { setDaySel(dk); setMode("day"); },
           className: "active:opacity-60 flex flex-col items-center justify-center", style: { minHeight: 0, borderTop: "1px solid " + t.line } },
           h("span", { "data-wk": "caldaynum", style: { display: "inline-flex", alignItems: "center", justifyContent: "center", width: 36, height: 36, borderRadius: 999,
-            background: isT ? "#c25a4a" : (pk ? PERIOD_COLORS[pk.t] + "33" : "transparent"),
-            fontFamily: F_DISPLAY, fontSize: "calc(19px * var(--app-fs, 1))", color: isT ? "#fff" : t.ink } }, d),
+            // 今天画成一圈框，底色照常是这一天的经期颜色（2026-11-01：原来今天是实心红圆，跟经期一个颜色，她以为没来的那天还标着经期）
+            background: pk ? PERIOD_COLORS[pk.t] + "33" : "transparent", boxShadow: isT ? "inset 0 0 0 2px #c25a4a" : "none",
+            fontFamily: F_DISPLAY, fontSize: "calc(19px * var(--app-fs, 1))", fontWeight: isT ? 700 : undefined, color: isT ? "#c25a4a" : t.ink } }, d),
           h("span", { "data-wk": "caldaylunar", style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", lineHeight: 1.3, marginTop: 1, color: lun.hi ? "#c25a4a" : t.fog, maxWidth: "100%", overflow: "hidden", whiteSpace: "nowrap" } }, lun.text),
           h("span", { "data-wk": "caldaydots", style: { display: "flex", gap: 2.5, height: 6, marginTop: 2 } },
             dots.map((c, j) => h("span", { key: j, style: { width: 5, height: 5, borderRadius: 999, background: c } }))));
@@ -17196,6 +17197,7 @@ function CGlyph({ k, size = 24, color = "#1b1a17" }) {
     pencil: [P("M16.4 3.6l4 4L8.2 19.8l-4.6 1.2 1.2-4.6z"), P("M14.2 5.8l4 4")],
     redo: [P("M20 5.6v5.2h-5.2"), P("M19.3 10.8a7.6 7.6 0 10-1.6 6.6")],
     checklist: [P("M4 6.6l1.8 1.8L9 5"), P("M4 15.6l1.8 1.8L9 13"), P("M12 7.2h8M12 16.2h8")],
+    dice: [R(4.4, 4.4, 15.2, 15.2, 3.2), C(9, 9, 1.1), C(15, 15, 1.1), C(12, 12, 1.1), C(15, 9, 1.1), C(9, 15, 1.1)],
     undo: [P("M4 5.6v5.2h5.2"), P("M4.7 10.8a7.6 7.6 0 111.6 6.6")],
     // 裂开的心：情侣页那个「解除」原来用的是 💔 这个 emoji——仓库铁律说过
     // 不用 Unicode 方块/爱心字符当图标，要走已有的 SVG 体系（mobile-ui-layout 第 2 条）。
@@ -20128,7 +20130,7 @@ function GroupThread({
     else if (r === "notyours") toast && toast("这是专属红包，只有 " + (rp.toName || "被点名的那位") + " 能领");
   };
   // 群聊 + 面板：跟私聊对齐（匿名箱→投票、拍一拍→红包）
-  const PANEL = [["location", "位置", "pin"], ["sticker", "表情包", "sticker"], ["photo", "照片", "picture"], ["voicemsg", "发语音", "wave"], ["voice", "语音通话", "handset"], ["video", "视频通话", "camcorder"], ["calllog", "通话记录", "clock"], ["chatsearch", "查找记录", "magnifier"], ["poll", "投票", "bars"], ...(onStartAsk ? [["ask", "请示", "checklist"]] : []), ["transfer", "转账", "bill"], ["rp", "红包", "packet"], ...(onGroupDateInvite ? [["dateinvite", "邀约", "invite"]] : []), ["file", "文件", "file"]];
+  const PANEL = [["location", "位置", "pin"], ["sticker", "表情包", "sticker"], ["photo", "照片", "picture"], ["voicemsg", "发语音", "wave"], ["voice", "语音通话", "handset"], ["video", "视频通话", "camcorder"], ["calllog", "通话记录", "clock"], ["chatsearch", "查找记录", "magnifier"], ["poll", "投票", "bars"], ["luck", "骰子 · 抽签", "dice"], ...(onStartAsk ? [["ask", "请示", "checklist"]] : []), ["transfer", "转账", "bill"], ["rp", "红包", "packet"], ...(onGroupDateInvite ? [["dateinvite", "邀约", "invite"]] : []), ["file", "文件", "file"]];
   const sendRich = msg => {
     onSendRich && onSendRich({ ts: Date.now(), ...msg });
     setPanel(false);
@@ -20144,6 +20146,7 @@ function GroupThread({
     else if (k === "calllog") setCallLogOpen(true);
     else if (k === "chatsearch") setSearchOpen(true);
     else if (k === "poll") setSheet("poll");
+    else if (k === "luck") setSheet("luck");
     else if (k === "ask") setSheet("ask");
     else if (k === "transfer") setXferPick(true);
     else if (k === "rp") setSheet("rp");
@@ -20378,6 +20381,7 @@ function GroupThread({
         onVote: m.role !== "user" ? opt => onVote(i, opt) : undefined,
         onResend: m.role === "user" && onStartAsk ? () => { setAskPrev({ ...m.ask, aid: m.pollId, note: "" }); setSheet("ask"); } : undefined }),
       m.role === "user" && gMeAvEl(40, 10));
+    if (m.kind === "luck") return h(GroupLuckCard, { key: i, m });
     if (m.kind === "poll") return h(PollCard, {
       key: i,
       poll: m,
@@ -20762,7 +20766,7 @@ function GroupThread({
     onDelete: onDeleteGroup,
     onClearChat: onClearGroupChat,
     onClose: () => setSheet(null)
-  }), sheet === "ask" && h(AskComposeDialog, { who: "", prev: askPrev, onCancel: () => { setSheet(null); setAskPrev(null); }, onSend: a => { setSheet(null); setAskPrev(null); onStartAsk(a); } }), sheet === "poll" && h(PollComposeSheet, {
+  }), sheet === "luck" && h(GroupLuckDialog, { members, meName: (profile && profile.name) || "我", onCancel: () => setSheet(null), onSend: m => { setSheet(null); sendRich(Object.assign({ role: "user" }, m)); } }), sheet === "ask" && h(AskComposeDialog, { who: "", prev: askPrev, onCancel: () => { setSheet(null); setAskPrev(null); }, onSend: a => { setSheet(null); setAskPrev(null); onStartAsk(a); } }), sheet === "poll" && h(PollComposeSheet, {
     onSubmit: (title, opts, anon) => {
       onStartPoll(title, opts, anon);
       setSheet(null);
@@ -21034,6 +21038,50 @@ function RedPacketCard({ rp, onClick, foot, dim: dimIn }) {
         rp.message || "恭喜发财，大吉大利"),
       h("div", { "data-wk": "rpfoot", style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: "rgba(255,255,255,.82)", marginTop: 5 } },
         foot != null ? foot : done ? "已被领完" : locked ? "不是给你的" : "领取红包")));
+}
+// 骰子 · 抽签（群里 2026-11-01 许愿「聊天的时候在群里可以发抽签或者是骰子，抽到谁和谁换情侣头像」）：
+//   本机掷、本机抽，结果写进一张卡发到群里，他们读到的就是结果（不花调用）。
+function luckDiceText(vals) { return vals.join("、") + (vals.length > 1 ? "（共 " + vals.reduce((a, b) => a + b, 0) + " 点）" : " 点"); }
+function GroupLuckDialog({ members, meName, onCancel, onSend }) {
+  const t = useTheme();
+  const [mode, setMode] = useState("draw"), [n, setN] = useState(2), [what, setWhat] = useState(""), [withMe, setWithMe] = useState(true), [dice, setDice] = useState(1);
+  const pool = (members || []).map(c => c.remark || c.name).concat(withMe ? [meName] : []);
+  const go = () => {
+    if (mode === "dice") {
+      const vals = Array.from({ length: dice }, () => 1 + Math.floor(Math.random() * 6));
+      onSend({ kind: "luck", luck: { type: "dice", vals }, content: "[掷骰子] " + meName + " 掷了 " + dice + " 颗骰子：" + luckDiceText(vals) });
+      return;
+    }
+    const k = Math.max(1, Math.min(n, pool.length));
+    const names = pool.slice().sort(() => Math.random() - 0.5).slice(0, k);
+    const q = what.trim().slice(0, 40);
+    onSend({ kind: "luck", luck: { type: "draw", what: q, names }, content: "[抽签] " + meName + " 在群里抽签" + (q ? "「" + q + "」" : "") + "，抽中了：" + names.join("、") + "（随机抽的，不是谁选的）" });
+  };
+  const chip = (on, label, fn) => h("button", { onClick: fn, className: "active:opacity-70", style: { minHeight: 36, padding: "0 14px", borderRadius: 999, border: "1px solid " + (on ? t.ink : t.line), background: on ? t.ink : "transparent", color: on ? t.bg2 : t.sub, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))" } }, label);
+  return h("div", { "data-wk": "grpluck", className: "fixed inset-0 z-50 flex items-end", style: { background: "rgba(0,0,0,.35)" }, onClick: onCancel },
+    h("div", { onClick: e => e.stopPropagation(), className: "w-full", style: { background: t.bg2, borderRadius: "18px 18px 0 0", padding: "18px 18px calc(env(safe-area-inset-bottom) + 18px)" } },
+      h("div", { className: "flex", style: { gap: 8, marginBottom: 14 } }, chip(mode === "draw", "抽签", () => setMode("draw")), chip(mode === "dice", "骰子", () => setMode("dice"))),
+      mode === "dice"
+        ? h("div", { className: "flex items-center flex-wrap", style: { gap: 8 } }, h("span", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.sub } }, "掷几颗"), [1, 2, 3].map(x => chip(dice === x, x + " 颗", () => setDice(x))))
+        : h("div", null,
+            h("input", { "data-wk": "input", value: what, maxLength: 40, onChange: e => setWhat(e.target.value), placeholder: "抽什么（可以不写，比如：谁和谁换情侣头像）",
+              style: { width: "100%", minHeight: 42, padding: "0 12px", borderRadius: 10, border: "1px solid " + t.line, background: t.bg, color: t.ink, fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", outline: "none", boxSizing: "border-box" } }),
+            h("div", { className: "flex items-center flex-wrap", style: { gap: 8, marginTop: 12 } },
+              h("span", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.sub } }, "抽几个人"), [1, 2, 3].map(x => chip(n === x, x + " 个", () => setN(x))),
+              chip(withMe, withMe ? "我也在里面" : "不抽我", () => setWithMe(v => !v))),
+            h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, marginTop: 8 } }, "从这些人里抽：" + pool.join("、"))),
+      h("button", { "data-wk": "grpluckgo", onClick: go, className: "w-full active:opacity-80", style: { marginTop: 16, minHeight: 46, borderRadius: 12, background: t.ink, color: t.bg2, fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))" } }, mode === "dice" ? "掷！" : "抽！")));
+}
+function GroupLuckCard({ m }) {
+  const t = useTheme(), L = m.luck || {};
+  const dice = L.type === "dice";
+  return h("div", { className: "py-1 flex justify-center" },
+    h("div", { "data-wk": "card", "data-kind": "luck", style: { minWidth: 200, maxWidth: "80%", padding: "12px 16px", borderRadius: 14, background: t.bg2, border: "1px solid " + t.line, textAlign: "center" } },
+      h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", letterSpacing: 2, color: t.fog } }, dice ? "掷骰子" : "抽签" + (L.what ? " · " + L.what : "")),
+      dice
+        ? h("div", { style: { display: "flex", justifyContent: "center", gap: 10, marginTop: 8 } }, (L.vals || []).map((v, k) => h("span", { key: k, style: { width: 38, height: 38, borderRadius: 9, border: "1.5px solid " + t.ink, display: "inline-flex", alignItems: "center", justifyContent: "center", fontFamily: F_DISPLAY, fontSize: "calc(20px * var(--app-fs, 1))", color: t.ink } }, v)))
+        : h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(17px * var(--app-fs, 1))", color: t.ink, marginTop: 6 } }, (L.names || []).join(" × ")),
+      dice && (L.vals || []).length > 1 ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginTop: 6 } }, "共 " + L.vals.reduce((a, b) => a + b, 0) + " 点") : null));
 }
 // 发起投票（群聊 +面板 → 投票）——原来被引用却从没实现，导致点投票直接崩
 function PollComposeSheet({ onSubmit, onClose }) {

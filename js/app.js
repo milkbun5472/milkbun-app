@@ -20,7 +20,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v88.883";
+const APP_VERSION = "v88.892";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -2374,7 +2374,8 @@ function App() {
       if (now - storageWarnTs.current < 20000) return;
       storageWarnTs.current = now;
       const what = /^x_g?chat:/.test(String(k)) ? "刚才的聊天" : /^x_g?offline:/.test(String(k)) ? "刚才的线下" : "刚改的东西";
-      toast("⚠️ " + what + "没存进手机" + (full ? "（存储满了）" : "") + "：现在关掉重开会丢。先去 设置 → 数据 → 导入与导出 导出一份，再清掉些图片腾地方", 12000);
+      // 没满就别叫人清图（群友 2026-11-01：「怎么只清理掉聊天记录的图片」）——不满时多半是 iOS 那一下卡住，过一会儿下一次保存会补上
+      toast("⚠️ " + what + "没存进手机" + (full ? "（存储满了）：现在关掉重开会丢。先去 设置 → 数据 → 导入与导出 导出一份，再删掉些用不上的旧聊天、同人文腾地方" : "：手机这一下没写进去，先别关 app，接着用，下一次保存会再存一遍；不放心就去 设置 → 数据 → 导入与导出 导出一份"), 12000);
     };
     return () => { if (window.__storageFull) delete window.__storageFull; if (window.__saveFailed) delete window.__saveFailed; };
   }, []);
@@ -13978,6 +13979,11 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       // 夹在 word 里的 {"emote":"关键词"}（她 2026-10-16「为啥群聊表情包可以插在话中间但是单聊一定在最下面」）：
       //   先写成「[表情] 关键词」，底下那道认表情的会在原位置留一个 emoteslot，发气泡那一圈走到就地发
       words = (Array.isArray(words) ? words : []).map(w => w && typeof w === "object" && !w.voice && typeof w.emote === "string" && w.emote.trim() ? "[表情] " + w.emote.trim() : w);
+      // 语音那句里夹着「[表情] xx」：表情拆出来接在后面，语音只念剩下的字（splitVoiceEmote）
+      if (typeof splitVoiceEmote === "function") words = words.reduce((a, w) => {
+        if (w && typeof w === "object" && typeof w.voice === "string") { const sp = splitVoiceEmote(w.voice); if (sp.emote) return a.concat(sp.voice ? [{ ...w, voice: sp.voice }] : [], ["[表情] " + sp.emote]); }
+        return a.concat([w]);
+      }, []);
       if (typeof markPauseVoice === "function") { const _pv = markPauseVoice(words); words = _pv.words.filter(w => String(w).trim()); _inlineVoice = _pv.voice.map(v => typeof v === "object" ? { ...v, sent: false } : { t: v, sent: false }); }
       // 单独那一栏 voice 已经取消（她 2026-09-30：「取消掉语音那条，不喜欢在最下面」）。
       //   模型要是还照老习惯交回来，不丢、也不排到最后：插在第一句后面（「说一句→发条语音」最常见）。
@@ -16312,6 +16318,11 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         };
         for (let i = 0; i < safeArr.length; i++) {
           const item = safeArr[i];
+          // 整条语音就是「[表情] xx」：不念，当表情走文字那一路（那边认表情）；夹在句尾的，念的时候拿掉（splitVoiceEmote）
+          if (item && item.voice === true && typeof item.text === "string" && typeof splitVoiceEmote === "function") {
+            const _sv = splitVoiceEmote(item.text);
+            if (_sv.emote && !_sv.voice) { item.voice = false; item.text = "[表情] " + _sv.emote; }
+          }
           // 这一条的话写成了 {"voice":"…","emo":"…"} 一串字：拆回来当语音发（跟单聊同一支 unwrapVoiceJson）
           if (item && typeof item.text === "string" && typeof unwrapVoiceJson === "function") {
             const _uj = unwrapVoiceJson(item.text);
@@ -16418,7 +16429,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
             autoTook();
             setTimeout(() => pGChat(groupId, p => p.map(m => m.mid === mid ? { ...m, recalled: true, origText: item.text, reason: item.recallReason || "" } : m)), 1100);
           } else if (item.voice === true && item.text) {
-            let vt = stripEchoedMeta(stripAiStamp(item.text));
+            let vt = stripEchoedMeta(stripAiStamp(typeof splitVoiceEmote === "function" ? splitVoiceEmote(item.text).voice : item.text));
             const _gvbi = typeof splitBilingual === "function" ? splitBilingual(vt, hanLangOf(spk)) : null;   // 念原文，中文另存成译文
             if (_gvbi) vt = _gvbi.text;
             const gEmo = item.voiceEmo && ["happy","sad","angry","fearful","disgusted","surprised","neutral"].includes(String(item.voiceEmo)) ? String(item.voiceEmo) : undefined;
@@ -37152,23 +37163,28 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     // ThemeStudio 可能早于 IndexedDB 图片仓库先跑；hydrate 完再编一次，CSS 里的 iv_ 图片才有真实地址。
     try { if (window.ThemeStudio) window.ThemeStudio.apply(window.ThemeStudio.current()); } catch (_) {}
     ReactDOM.createRoot(document.getElementById("root")).render(/*#__PURE__*/React.createElement(App, null));
+    // 白屏守卫等不及先弹了「开机卡住」那张卡，后来又等齐了：界面已经出来，卡收掉
+    try { if (window.__bootStuckShown) document.querySelectorAll("[data-boot-guard]").forEach(n => n.remove()); } catch (_) {}
   };
+  // 还在等哪几样：index.html 的白屏守卫 10 秒后读它，说清是卡在哪个仓库
+  const bootWait = window.__bootWait = [];
+  const track = (name, p) => { bootWait.push(name); return Promise.resolve(p).finally(() => { const i = bootWait.indexOf(name); if (i >= 0) bootWait.splice(i, 1); }); };
   // 挂载前先灌好图库 + 文字库(同人文迁 IDB)镜像，首帧就能同步读到；失败也照常挂载(loadJSON 会回落 localStorage)。
   const hyd = [];
-  if (typeof hydrateImgVault === "function") hyd.push(hydrateImgVault());
-  if (typeof hydrateNativeSelfies === "function") hyd.push(hydrateNativeSelfies());
+  if (typeof hydrateImgVault === "function") hyd.push(track("图片库", hydrateImgVault()));
+  if (typeof hydrateNativeSelfies === "function") hyd.push(track("自拍库", hydrateNativeSelfies()));
   const txtP = typeof hydrateTxtVault === "function" ? hydrateTxtVault() : null;
-  if (txtP) hyd.push(txtP);
+  if (txtP) hyd.push(track("文字存档", txtP));
   // ⚠️凭证金库打不开要说出来（审计 P1）。API key 全都住在本机 IDB 的
   //   x_credential_vault 里，用一把【不可导出的设备密钥】加密；金库解不开时
   //   storeProfile 会抛「无法解密」，而这一路的 .catch(() => 0) 把它整个吞掉——
   //   开机静默、每条线路都在、每条线路都没 key，症状是【所有模型调用都失败】，
   //   而那个症状会把她引到完全错的方向（以为是模型坏了、以为是网络）。
   // ⚠️x_api（线路列表）也搬进 IDB 了：必须等文字库灌完再解密，否则读到的是空列表。
-  if (window.CredentialVault) hyd.push(Promise.resolve(txtP).catch(() => 0).then(() => window.CredentialVault.hydrateApiCredentials()).catch(e => {
+  if (window.CredentialVault) hyd.push(track("密钥库", Promise.resolve(txtP).catch(() => 0).then(() => window.CredentialVault.hydrateApiCredentials()).catch(e => {
     try { window.__credentialVaultError = String((e && e.message) || e || "凭证金库打不开"); } catch (_) {}
     throw e;
-  }));
+  })));
   if (hyd.length) Promise.all(hyd.map(p => Promise.resolve(p).catch(() => 0))).then(mount, mount); else mount();
   // 挂载之后再说——太早说的话 toast 还没挂起来
   setTimeout(() => {

@@ -7481,6 +7481,16 @@
     return state;
   }
   function storyTotalTurns(state) { return state.players.length * state.laps; }
+  // 故事走到哪了：按写到第几句占全篇多少分四段，跟着写的人知道该铺、该推、该转还是该收
+  function storyStage(state) {
+    const total = storyTotalTurns(state), at = state.lines.length + 1, f = at / total;
+    const where = "现在是全篇第 " + at + " 句，一共 " + total + " 句。";
+    if (at >= total) return where;
+    if (f <= 0.25) return where + "故事刚开头：把那件事的人和地方立起来，让人想知道接下来。";
+    if (f <= 0.6) return where + "故事在中段：顺着那件事追下去，可以冒出一个岔子、一个发现、一个人的反应。";
+    if (f <= 0.85) return where + "故事快到尾声：前面散开的线往回收，那件事的答案或者转折该露出来了。";
+    return where + "下一句就是结尾：这一句往收尾那里靠，用前面已经出现过的人和东西。";
+  }
   function storyIsLast(state) { return state.lines.length === storyTotalTurns(state) - 1; }
   function storyText(state) { return [state.opener].concat(state.lines.map(function (l) { return l.text; })).join(""); }
   // 写一句：没用上抽到的词也收（她写的就是她写的），只是记一笔，界面上那个词不标绿
@@ -7517,7 +7527,11 @@
       if (running.current === turnId) return; running.current = turnId; setBusy(true); setError("");
       const last = storyIsLast(state), word = state.word;
       const sys = gameVoiceRules() + seatIdentity(current) + "你正在和大家玩「故事接龙」：每人轮流往下写一句，接在别人后面，合起来是一篇小故事。你写的就是你这一句，不是评论。保持你本人的性格和说话习惯——你会怎么接，就怎么接（爱搞怪的会拐个弯，细腻的会写细节）。"
-        + "\n这一句必须自然地用上「" + word + "」这个词。只写一到两句、60 字以内，紧接上文，别重复上文，别替别人写后面。" + (last ? "\n这是全篇最后一句，由你来收尾：把故事落下来，留一点余味。" : "")
+        // 流水账（她 2026-11-01 截图：一句一个新东西，拖鞋砸出信封、信封掉出照片，开头那个谜没人管）：
+        //   告诉他故事走到哪了、开头埋的是什么；抽到的词是道具，这一句的活是把那件事往前推一步
+        + "\n这篇故事从开头那一句埋下的事出发：「" + state.opener + "」。大家接的都是这一件事。"
+        + "\n" + storyStage(state)
+        + "\n这一句要用上「" + word + "」这个词，它是这一句里顺手出现的一样东西，一笔带过就够；这一句真正要做的是把故事往前推一步。只写一到两句、60 字以内，紧接上文。" + (last ? "\n这是全篇最后一句，由你来收尾：把开头那件事落下来，留一点余味。" : "")
         + "\nsay 是你写完这句以后嘴上冒出来的那句话：可以是对上一个人那句的反应、冲某个人说、得意或心虚自己这一句、接桌上刚才谁的话——照你这个人。轮到谁接大家都知道，不用你来报幕；没想说的就留空。"
         + "\n只输出 JSON：{\"line\":\"你接的这一句\",\"say\":\"可空：你嘴上那句\"}";
       const ctx = "故事到目前为止：\n" + storyText(state)
