@@ -1371,6 +1371,29 @@
         ...(x.target === "sched" ? { time: clip(x.time, 5) } : {}),
         ...(x.target === "lore" ? { cat: clip(x.cat, 6), stamps: clip(x.stamps, 80), priority: clip(x.priority, 2), keyword: x.keyword == null ? undefined : clip(x.keyword, 200), always: x.always == null ? undefined : (x.always === true || x.always === "true"), bind: clip(x.bind, 120) } : {})
       }));
+    // 文件卡同一个毛病（她 2026-11-01 截图：秋秋连说两遍「文件卡在下面」，一张都没有）：
+    //   认别名 → 从原文里抠 → 还没有、嘴上又说了有文件，就再问它一次只要 file。
+    const fileOf = o => { if (!o || typeof o !== "object") return null;
+      const f = (o.file && typeof o.file === "object") ? o.file : Array.isArray(o.files) ? o.files[0] : (o.attachment && typeof o.attachment === "object") ? o.attachment : null;
+      return f && String(f.text || f.content || "").trim() ? { name: f.name, text: f.text || f.content } : null; };
+    const saidFile = r => /文件卡|下面的文件|打包.{0,8}(文件|好)|存成文件/.test(String(r || ""));
+    if (!fileOf(d) && !d.code && /"file"\s*:\s*\{/.test(raw)) {
+      const chunk = raw.slice(raw.search(/"file"\s*:\s*\{/) + 6), t = salvageField(chunk, "text");
+      if (t.trim()) d = Object.assign({}, d, { file: { name: salvageField(chunk, "name"), text: t }, reply: d.reply || salvageField(raw, "reply") });
+    }
+    if (!fileOf(d) && !d.code && saidFile(d.reply || raw) && !(signal && signal.aborted)) {
+      try {
+        const raw3 = await callAI(active, sysText, msgs.concat([{ role: "assistant", content: String(raw).slice(0, 60000) },
+          { role: "user", content: "（系统：你上一条说给了她一份文件，但文件没写出来或者格式坏了，她那边什么都没收到。别重复说话，只把这份文件完整地发一遍："
+            + "只输出 {\"reply\":\"\",\"file\":{\"name\":\"…\",\"text\":\"…\"}}。text 里的双引号一律写成 \\\"，换行写成 \\n。）" }]),
+          { maxTokens: 65000, timeout: 600000, stream: true, signal: signal || undefined });
+        let d3 = (typeof parseJSONLoose === "function" ? parseJSONLoose(raw3) : extractJSON(raw3)) || {};
+        let f3 = fileOf(d3);
+        if (!f3 && /"text"\s*:/.test(raw3)) { const t = salvageField(raw3, "text"); if (t.trim()) f3 = { name: salvageField(raw3, "name"), text: t }; }
+        if (f3) d = Object.assign({}, d, { file: f3, reply: d.reply || salvageField(raw, "reply") || "" });
+      } catch (e) {}
+    }
+    if (!d.file || typeof d.file !== "object") { const f = fileOf(d); if (f) d = Object.assign({}, d, { file: f }); }
     // 现成的 Worker 代码（她 2026-10-13「有些人直接复制不了，让他们用秋秋发的复制」）：
     //   模型只报是哪一段，代码从 App 里那一份原样取——模型抄一遍，少一个括号整段就不能用。
     const WORKER_CODE = {
@@ -1403,6 +1426,7 @@
     if (rawPatches.length && !patches.length) reply = (reply ? reply + "\n\n" : "") + "（这一轮的 " + rawPatches.length + " 张改动稿格式不对，没能做成卡片。再叫它一次就好。）";
     // 嘴上说有卡、实际一张改动稿都没写：也照实说，别让她对着「点应用」找
     else if (!rawPatches.length && /改动卡|改动稿|卡片|卡在下面|点.{0,3}应用/.test(reply)) reply += "\n\n（这一轮它说了有改动卡，但其实一张都没写出来。再跟它说一次「把卡给我」就好。）";
+    if (!outFile && saidFile(reply)) reply += "\n\n（这一轮它说了有文件，但其实没写出来。再跟它说一次「把文件发我」就好。）";
     // 有些线路会无视 JSON 外壳，直接把已经写好的正文吐出来。纯问答没有 patch，
     // 这时保住正文比让她为同一个问题再付一次更重要；写入仍只认上面的结构化白名单。
     if (!reply && !patches.length) {
