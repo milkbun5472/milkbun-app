@@ -8937,6 +8937,16 @@ function StorageMeter({ onOffloadChats, onPruneOld }) {
 // TA 们拍的照片（群里 2026-10-18：「线下生的图找不到」「线上照片也没有」）：
 //   他在单聊、群聊、线下生的图都存在 x_selfies，键是 img_<他的id>_<那条消息>（照片日记是 img_pdiary_<他的id>_…）。
 //   这儿只按键前缀认人、数张数，点进谁才把谁的图读出来；一次摆 30 张，往下再要。不另存一份目录。
+// 多选存原图（她 2026-11-01「能不能多选保存原图」）：走 engine 的 saveImgsBatch——iPhone 一个分享面板「存储 N 张图像」，
+//   一次最多 30 张，没轮到的留着勾、再点一下接着存；安卓一张张下载。两个照片栏共用
+async function savePickedImgs(refs, name, toast, keepLeft) {
+  if (!window.saveImgsBatch) { toast && toast("这台设备存不了图"); return; }
+  const r = await window.saveImgsBatch(refs.map(k => ({ ref: k, name: name || "照片" })));
+  if (r.via === "cancel") return;
+  const left = (r.left || []).map(x => x.ref);
+  keepLeft && keepLeft(left);
+  toast && toast((r.n ? "存好了 " + r.n + " 张" : "一张都没存上") + (r.miss ? "，" + r.miss + " 张取不到原图" : "") + (left.length ? "；还剩 " + left.length + " 张，再点一下接着存" : ""));
+}
 function CharPhotoAlbum({ characters, toast }) {
   const t = useTheme();
   const [keys, setKeys] = useState(null), [who, setWho] = useState(null), [shown, setShown] = useState(30);
@@ -8980,6 +8990,7 @@ function CharPhotoAlbum({ characters, toast }) {
       pick ? h("div", { "data-wk": "charphotopickbar", className: "flex items-center", style: { gap: 10, marginTop: 12 } },
         h("button", { onClick: () => setPick(p => p && p.size === list.length ? new Set() : new Set(list)), className: "active:opacity-60", style: { minHeight: 40, padding: "0 12px", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.sub } }, pick.size === list.length && list.length ? "全不选" : "全选"),
         h("div", { className: "flex-1" }),
+        h("button", { "data-wk": "charphotosavemany", disabled: !pick.size, onClick: () => savePickedImgs(list.filter(k => pick.has(k)), who && who.name, toast, left => setPick(left.length ? new Set(left) : null)), className: "active:opacity-70", style: { minHeight: 40, padding: "0 14px", borderRadius: 999, border: "1px solid " + t.line, color: pick.size ? t.ink : t.fog, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))" } }, "存 " + pick.size + " 张"),
         h("button", { "data-wk": "charphotodelmany", disabled: !pick.size, onClick: () => delKeys(Array.from(pick)), className: "active:opacity-70", style: { minHeight: 40, padding: "0 16px", borderRadius: 999, background: pick.size ? "#c25a4a" : t.line, color: "#fff", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))" } }, "删掉 " + pick.size + " 张")) : null));
 }
 function LocalPhotoLibrary({ toast }) {
@@ -9031,6 +9042,7 @@ function LocalPhotoLibrary({ toast }) {
     open && pick ? h("div", { "data-wk": "localphotopickbar", className: "flex items-center", style: { gap: 10, marginTop: 12 } },
       h("button", { onClick: () => setPick(p => p && p.size === rows.length ? new Set() : new Set(rows.map(r => r.imageRef))), className: "active:opacity-60", style: { minHeight: 40, padding: "0 12px", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.sub } }, pick.size === rows.length && rows.length ? "全不选" : "全选"),
       h("div", { className: "flex-1" }),
+      h("button", { "data-wk": "localphotosavemany", disabled: !pick.size, onClick: () => savePickedImgs(rows.map(r => r.imageRef).filter(k => pick.has(k)), "照片", toast, left => setPick(left.length ? new Set(left) : null)), className: "active:opacity-70", style: { minHeight: 40, padding: "0 14px", borderRadius: 999, border: "1px solid " + t.line, color: pick.size ? t.ink : t.fog, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))" } }, "存 " + pick.size + " 张"),
       h("button", { "data-wk": "localphotodropmany", disabled: !pick.size, onClick: () => dropMany(Array.from(pick)), className: "active:opacity-70", style: { minHeight: 40, padding: "0 16px", borderRadius: 999, background: pick.size ? "#c25a4a" : t.line, color: "#fff", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))" } }, "移出 " + pick.size + " 张")) : null,
     preview ? h("div", { className: "fixed inset-0 z-50 flex items-center justify-center", onClick: () => setPreview(null), style: { background: "rgba(0,0,0,.82)", padding: 20 } },
       h("div", { onClick: e => e.stopPropagation(), style: { width: "100%", maxWidth: 520 } },
