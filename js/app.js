@@ -1782,7 +1782,7 @@ function App() {
       if (bgToastOn() && window.AutoGate && window.AutoGate.currentShow && window.AutoGate.currentShow()) return;
       // 没报名字的那一声，问一句「此刻在跑哪件活儿」（她 2026-10-04：「之前失败也只是说后台失败，没说到底是啥」）
       const _now = window.AutoGate && window.AutoGate.currentShow ? window.AutoGate.currentShow() : "";
-      const d = (ev && ev.detail) || {}, at = Date.now(), key = String(d.tag || _now || "后台生成") + (d.route ? "（" + d.route + "）" : "");
+      const d = (ev && ev.detail) || {}, at = Date.now(), key = String(d.label || d.tag || _now || "生成") + (d.route ? "（" + d.route + "）" : "");
       if (at - (genFailSeenRef.current[key] || 0) < 60000) return;
       // 收到就先记下：runProbe 和 callAI 两层都会报同一次失败，第二声进来直接挡掉
       genFailSeenRef.current[key] = at;

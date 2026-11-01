@@ -891,7 +891,9 @@ async function callAI(p, system, messages, opts) {
       : "站子打回来了，没附原因（" + ((e && e.name) || "Error") + "，" + ((Date.now() - t0) / 1000).toFixed(1) + " 秒）。去 设置 → API 在这条线路上点「拉取列表」：拉不下来是地址或 key 的问题；拉得下来就核对模型名在不在里面";
     bgSay(false, m2); logIt(e && e.userAbort ? "cut" : false, m2);
     if (!CONFIG_ERR.test(m2)) {
-      try { if (typeof window !== "undefined" && window.dispatchEvent) window.dispatchEvent(new CustomEvent("gen-failed", { detail: { tag: (opts && opts.tag) || "", msg: m2, route: bgRoute } })); } catch (_) {}
+      try { if (typeof window !== "undefined" && window.dispatchEvent) window.dispatchEvent(new CustomEvent("gen-failed", { detail: { tag: (opts && opts.tag) || "", msg: m2, route: bgRoute,
+        // 这一枪是干嘛的（跟调用记录同一个说法）：不写的话 app 那头只能套「后台生成」，走线上的活也被叫成后台（她 2026-11-01 截图）
+        label: (opts && opts.logLabel) || LOG_USE[String((opts && opts.use) || "")] || logFrom || (typeof callTagLabel === "function" && opts && opts.tag ? callTagLabel(opts.tag) : "") } })); } catch (_) {}
     }
     throw e;
   }
