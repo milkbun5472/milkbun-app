@@ -13741,6 +13741,14 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       // ⚠️只交出 role/content/_imageRefs：g 上别的字段不往外带（原来这一段就是这么收窄的）。
       const _imgMeta = {};
       const aiMessages = await expandMessageImages(g.map(m => ({ role: m.role, content: m.content, _imageRefs: m._imageRefs })), FRESH_IMG_CAP, _imgMeta);
+      // 聊天记录的收据（她 2026-11-02：「为啥看到群多少，看不到私聊历史带了多少」）：
+      //   聊天记录不在 system 那一大段里，是一条条单独发的，「TA 知道什么」拆不到它。真发出去这一刻记一笔，只记个数不存原文
+      try {
+        const _txt = m => typeof m.content === "string" ? m.content : Array.isArray(m.content) ? m.content.map(x => (x && x.text) || "").join("") : "";
+        const _first = g.find(m => m && (m.role === "user" || m.role === "assistant"));
+        window.__histReceipt = Object.assign({}, window.__histReceipt || {}, { [charId]: { ts: Date.now(), n: g.length, chars: g.reduce((s, m) => s + _txt(m).length, 0),
+          first: _first ? _txt(_first).replace(/\s+/g, " ").slice(0, 40) : "" } });
+      } catch (e) {}
       if (_imgMeta.droppedImages) toast("一次发的图太多，这一轮只给 TA 看了最后 " + FRESH_IMG_CAP + " 张", 4000);
       let raw;
       // 思考链（v56.42）：每个角色一个开关。言秋那条线一个字都不碰——她 2026-08-26 定的，
