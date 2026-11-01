@@ -3291,7 +3291,7 @@
       // 同时每轮按当前设置重认一次，避免旧存档里的工牌快照把票吞掉。
       const speakers = shuffle(aiPlayers).map(function (p) {
         const engineer = !!p.engineer || !!(cfg.ccSeat !== false && props.isEngineer && props.isEngineer(p.key));
-        return { key: p.key, name: p.name, skill: p.skill, engineer: engineer, alive: p.alive };
+        return { key: p.key, name: p.name, skill: p.skill, engineer: engineer, alive: p.alive, persona: p.persona || "", char: p.char || null };   // 人设跟着走：voiceBrief 靠它写「说话的样子」（群里 2026-11-01：25 问里他们问得像机器人）
       });
       if (uq) pushLog([{ type: "q", name: me.name, text: uq, mine: true }]);
       try {
