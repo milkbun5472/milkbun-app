@@ -21,3 +21,21 @@ test("线下、群线下、群聊三处都用 vGap", () => {
   assert.equal((eng.match(/const _vg = vGap\(prevTs, ts, clockId\);/g) || []).length, 2);
   assert.match(app, /vGap\(_gprev, ts, "g:" \+ groupId\)/);
 });
+
+test("关钟：以前虚拟那段照旧是虚拟日子，之后的照现实；再开：关着那段照现实", () => {
+  const DAY = 86400000, t0 = 1700000000000, vBase = Date.UTC(2026, 0, 1);
+  const keep = vm.runInContext("vclockKeepHist", ctx);
+  const on1 = { main: { on: true, base: vBase, at: t0, speed: 1 } };
+  const offAt = t0 + DAY, off = keep(on1, { main: { on: false, base: vBase, at: t0, speed: 1 } }, offAt);
+  ctx.window.__vclock = { clocks: off, maskOf: () => "" };
+  const map = vm.runInContext("vclockMap", ctx);
+  assert.equal(map(t0 + 1000, "c"), vBase + 1000, "关钟前那条还是虚拟日子");
+  assert.equal(map(offAt + 5000, "c"), offAt + 5000, "关钟后那条照现实");
+  const onAt = offAt + 2 * DAY, vBase2 = Date.UTC(2026, 5, 1);
+  const on2 = keep(off, { main: { on: true, base: vBase2, at: onAt, speed: 1 } }, onAt);
+  ctx.window.__vclock = { clocks: on2, maskOf: () => "" };
+  assert.equal(map(t0 + 1000, "c"), vBase + 1000, "最早那段还是第一只钟");
+  assert.equal(map(offAt + 5000, "c"), offAt + 5000, "关着那段是现实");
+  assert.equal(map(onAt + 1000, "c"), vBase2 + 1000, "再开以后照新钟");
+  ctx.window.__vclock = null;
+});

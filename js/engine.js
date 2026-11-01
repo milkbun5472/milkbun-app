@@ -11681,7 +11681,20 @@ function vclockKeepHist(oldClocks, newClocks, now) {
   const out = { ...(newClocks || {}) }; now = now || Date.now();
   Object.keys(out).forEach(k => {
     const o = oldClocks && oldClocks[k], n = out[k];
-    if (!o || !n || !o.on || !n.on) return;
+    if (!o || !n) return;
+    // 开、关钟这一下也记一笔（她 2026-11-01：「从虚拟时间改到现实和 vice versa 不会有错吧」）：
+    //   原来只有「开着→开着」才记，关钟以后以前虚拟那段统统按现实重算，开钟以后以前现实那段统统被算成虚拟的。
+    //   关钟：把那一版虚拟钟记下来（之前的消息照旧是虚拟的日子）；开钟：把关着那段记成「现实」（real:true，原样）。
+    const hist0 = Array.isArray(o.hist) ? o.hist : (Array.isArray(n.hist) ? n.hist : []);
+    if (o.on && !n.on && isFinite(Number(o.base))) {
+      out[k] = { ...n, hist: [...hist0, { until: now, base: Number(o.base), at: Number(o.at || 0), speed: o.speed, ...(o.awayAt ? { awayAt: o.awayAt } : {}) }].slice(-300) };
+      return;
+    }
+    if (!o.on && n.on) {
+      out[k] = { ...n, hist: [...hist0, { until: now, real: true }].slice(-300) };
+      return;
+    }
+    if (!o.on || !n.on) { if (hist0.length && !n.hist) out[k] = { ...n, hist: hist0 }; return; }
     // 只要这版钟的四样有一样变了（拨钟、改速度、离开停住又回来），旧消息照旧版算才不会挪
     const jump = Number(o.base) !== Number(n.base) || Number(o.at || 0) !== Number(n.at || 0) || Number(o.speed) !== Number(n.speed) || (o.awayAt || 0) !== (n.awayAt || 0);
     if (!jump) { if (o.hist && !n.hist) out[k] = { ...n, hist: o.hist }; return; }
@@ -11690,7 +11703,24 @@ function vclockKeepHist(oldClocks, newClocks, now) {
   });
   return out;
 }
-function vclockMap(ts, id) { return vclockMapBy(vclockCfg(id, ts), ts); }
+function vclockMap(ts, id) {
+  const c = vclockCfg(id, ts);
+  if (c) return vclockMapBy(c, ts);
+  // 钟现在关着，可以前开过：那几段照当时的钟算，之后的照现实
+  const raw = vclockRawCfg(id, ts);
+  if (raw && Array.isArray(raw.hist) && raw.hist.length) {
+    for (let i = 0; i < raw.hist.length; i++) { const h = raw.hist[i]; if (h && Number(ts) < Number(h.until)) return h.real ? Number(ts) : vclockMapBy({ ...h, hist: null }, ts); }
+  }
+  return Number(ts);
+}
+// 不管开没开，拿这个人那只钟的原始设定（看历史分段用）
+function vclockRawCfg(id, ts) {
+  const W = vclockState(); if (!W || !W.clocks) return null;
+  const who = id !== undefined ? id : W.active;
+  let key = "";
+  try { key = who != null && typeof W.maskOf === "function" ? String(W.maskOf(String(who), ts) || "") : ""; } catch (e) { key = ""; }
+  return (W.clocks || {})[key || "main"] || null;
+}
 // 显示用的公共一处：现实时间戳 → 这个角色（或 "g:群id"、null＝主面具）那只钟上的 Date
 function vDate(ts, id) { const t = Number(ts) || Date.now(); return new Date(vclockMap(t, id)); }
 // 主面具那只钟（主屏的钟和日历、周刊这种不属于某一个人的地方用它）
@@ -11702,6 +11732,7 @@ function vclockMainMap(ts) {
 function vclockMapBy(c0, ts) {
   if (!c0) return Number(ts);
   const c = vclockSeg(c0, ts);
+  if (c && c.real) return Number(ts);   // 那一段钟是关着的：照现实
   const sp = Number(c.speed);
   // 离开小手机时停住：走开那段里后台照样会跑（自己发消息、写日记），那几下也按走开那一刻算
   const t = c.awayAt && Number(ts) > Number(c.awayAt) ? Number(c.awayAt) : Number(ts);
