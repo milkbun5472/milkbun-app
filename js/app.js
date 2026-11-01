@@ -17609,6 +17609,20 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       setX({ drawing: false, img: key, drawErr: "" });
     } catch (e) { setX({ drawing: false, drawErr: String(e && e.message || e).slice(0, 100) }); toast("插图没画成：" + String(e && e.message || e).slice(0, 60)); }
   };
+  // 只重写卡面描述（shot），卡上的字一个不动（群里 2026-11-01）。上次被图像站拒了的，叫他写含蓄一点
+  const stampReshot = async card => {
+    const char = characters.find(x => x.id === card.charId), tx = card.text; if (!char || !tx) return false;
+    const what = card.rarity === "R" ? [tx.narration, tx.thought].filter(Boolean).join("\n") : card.rarity === "SSR" ? (tx.highlight || tx.line || tx.gist || "") : [tx.open, tx.line].filter(Boolean).join("\n");
+    const d = await runProbe(offlineApiFor(char.id), ctxFor(char, { loreScope: "offline" }), { voice: true,
+      instruction: "邮票册里你这张" + card.rarity + "「" + (tx.name || "") + "」的卡面要重画，只重写画卡面用的那段分镜，卡上的字不动。这张卡写的那一刻：\n" + String(what).slice(0, 600)
+        + (tx.shot ? "\n原来的分镜：" + String(tx.shot).slice(0, 400) + "\n换一种写法，别照抄。" : "")
+        + (card.drawErr && /safety|policy|审核|违规|内容|sensitive|reject/i.test(card.drawErr) ? "\n上次画的时候被图像站的审核拒了：画面写得含蓄一点，不写血、伤口、武器、裸露、过于亲密的身体接触这类容易被拦的东西，换成别的方式表达同一个意思。" : "")
+        + "\n" + STAMP_SHOT_SPEC,
+      schemaHint: "{\"shot\":\"\"}", maxTokens: 8000 });
+    const shot = String((d && d.shot) || "").trim(); if (!shot) return false;
+    stampSaveCard(card.id, c0 => ({ ...c0, text: { ...c0.text, shot: shot.slice(0, 800) } }));
+    return true;
+  };
   const stampPoke = async (card, side) => {
     const char = characters.find(x => x.id === card.charId); if (!char || !card.text) return null;
     const d = await runProbe(apiFor(char.id), ctxFor(char), { voice: true,
@@ -35015,6 +35029,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     onExtra: stampExtra,
     onExtraDraw: stampExtraDraw,
     onExtraSend: stampExtraSend,
+    onReshot: stampReshot,
     // 接着演（她 2026-10-27）：把这张卡写了什么打包交给小剧场，开一条从卡来的线；或者打开从这张卡开过的某一条
     onTheater: card => { const tx = card.text || {}, ends = (tx.sections || []).filter(x => x && (x.end || x.hidden)).map(x => "「" + (x.title || "") + "」" + (x.beats || []).filter(b => b && b.who !== "pick").slice(-4).map(b => String(b.text || "").slice(0, 100)).join(" / ")).join("\n");
       const text = ["卡名：" + (tx.name || ""), card.kind === "if" ? "IF 主题：" + (card.theme || "") + (card.themeLine ? "：" + String(card.themeLine).slice(0, 300) : "") : "", tx.gist ? "写的是：" + tx.gist : "",
