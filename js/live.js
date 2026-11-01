@@ -296,6 +296,7 @@
   function LiveRoom({ noSelfEnd, onNoSelfEnd, ses, chars, profile, busy, onInvite, onDraw, drawing, onVoice, onSay, onGift, onEnd, onBack, readOnly, onShare, onLink, onUnlink, onBan, onUnban, onSong, songs, onBuy, customGifts, onSaveCustom, onDropCustom, autoSec: props_autoSec, onAutoSec }) {
     const [text, setText] = useState("");
     const [giftOpen, setGiftOpen] = useState(false);
+    const [clean, setClean] = useState(false);
     const [songOpen, setSongOpen] = useState(false);
     const [inviteOpen, setInviteOpen] = useState(false);
     const [titleOpen, setTitleOpen] = useState(false);
@@ -429,6 +430,10 @@
       style: { display: "block", minHeight: 44, padding: "0 14px", color: LIVE_INK, fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", borderBottom: "1px solid " + LIVE_LINE, opacity: dis ? .5 : 1 } }, label);
     // 画出来的那张铺在最底下（她 2026-10-08）
     const bgSrc = ses.img ? (typeof resolveImg === "function" ? resolveImg(ses.img) : ses.img) : "";
+    // 清屏（群里 2026-11-01「片刻直播可以清屏看大图，文字有点挡住了」）：只留画面，点一下回来
+    if (clean && bgSrc) return h("div", { "data-wk": "liveroom", "data-part": "clean", onClick: () => setClean(false), className: "h-full", style: { position: "relative", overflow: "hidden", background: "#000" } },
+      h("img", { "data-wk": "livebg", src: bgSrc, alt: "", style: { position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "contain", pointerEvents: "none" } }),
+      h("div", { "data-wk": "livecleanhint", style: { position: "absolute", left: 0, right: 0, bottom: "calc(env(safe-area-inset-bottom) + 18px)", textAlign: "center", fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: "rgba(255,255,255,.7)", textShadow: "0 1px 3px rgba(0,0,0,.6)" } }, "点一下回到直播间"));
     return h("div", { "data-wk": "liveroom", className: "h-full flex flex-col", style: { position: "relative", overflow: "hidden",
         background: "radial-gradient(130% 80% at 30% 18%,rgba(226,85,107,.42),rgba(80,60,120,.38) 50%,rgba(20,16,25,1) 100%)" } },
       bgSrc ? h("img", { "data-wk": "livebg", src: bgSrc, alt: "", style: { position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", pointerEvents: "none" } }) : null,
@@ -446,6 +451,7 @@
               h("div", { "data-wk": "livestagetitle", style: { fontFamily: F_DISPLAY, fontSize: "calc(13.5px * var(--app-fs, 1))", color: LIVE_INK, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, stageTitle),
               h("div", { "data-wk": "livestagesub", style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", color: LIVE_DIM, whiteSpace: "nowrap" } }, ses.endTs ? "已下播" : h(Fragment, null, h(GlyphDot), "直播中")))),
           h("div", { className: "flex-1" }),
+          bgSrc ? h("button", { "data-wk": "liveclean", onClick: () => setClean(true), "aria-label": "清屏看画面", className: "active:opacity-60 shrink-0", style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: LIVE_INK, padding: "4px 9px", borderRadius: 99, background: "rgba(0,0,0,.32)", minHeight: 28 } }, "清屏") : null,
           h("span", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: LIVE_INK, padding: "4px 9px", borderRadius: 99, background: "rgba(0,0,0,.32)", flexShrink: 0 } }, (Number(ses.viewers) || 0) + " 人"),
           (ses.endTs || readOnly) ? (onShare ? h("button", { "data-wk": "liveshare", onClick: onShare, className: "active:opacity-60 shrink-0", style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: LIVE_INK, padding: "0 6px", minHeight: 40 } }, "发给 TA") : null)
             : h("button", { onClick: onEnd, disabled: !!busy, className: "active:opacity-60 shrink-0", style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: LIVE_RED, padding: "0 6px", minHeight: 40 } }, watching ? "离开" : "下播")),
