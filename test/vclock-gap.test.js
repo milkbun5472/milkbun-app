@@ -56,6 +56,8 @@ test("关钟：以前虚拟那段照旧是虚拟日子，之后的照现实；�
   const assert = require("node:assert/strict");
   const comp = require("fs").readFileSync(require("path").join(__dirname, "..", "js", "components.js"), "utf8");
   const app = require("fs").readFileSync(require("path").join(__dirname, "..", "js", "app.js"), "utf8");
-  assert.match(comp, /schedNowDate\(_viewChar\)\n\s*: \(typeof vclockMap === "function" && typeof vclockCfg === "function" && vclockCfg\(null\) \? new Date\(vclockMap\(Date\.now\(\), null\)\) : new Date\(\)\);/);
+  assert.match(comp, /const _vcNow = id => typeof vclockMap === "function" && typeof vclockCfg === "function" && vclockCfg\(id\) \? new Date\(vclockMap\(Date\.now\(\), id\)\) : null;/);
+  assert.match(comp, /planFollows\(_viewChar\) \? schedNowDate\(_viewChar\) : null\) \|\| _vcNow\(_viewChar\.id\) \|\| new Date\(\)\)/, "角色那页：钟开着就照他的钟");
+  assert.match(comp, /: \(_vcNow\(null\) \|\| new Date\(\)\);/, "我那页照主面具那只钟");
   assert.match(app, /vclockCfg\(null\) \? new Date\(vclockMap\(now\.getTime \? now\.getTime\(\) : Number\(now\), null\)\) : now/, "主屏用的是同一只");
 }

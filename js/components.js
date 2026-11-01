@@ -4803,8 +4803,11 @@ function Calendar({ characters, calendar, calEvents, schedules, profile, period,
   // 他的日程跟着钟排时，他那一页的「今天」和红线也照他那只钟（她 2026-10-20）；
   //   我自己那一页照主面具那只钟，跟主屏的钟和日历组件同一只（她 2026-11-01：「我开了虚拟时间怎么对不上了」——红线还停在现实钟点）
   const _viewChar = (characters || []).find(c => c && c.id === view) || null;
-  const today = _viewChar && typeof schedNowDate === "function" ? schedNowDate(_viewChar)
-    : (typeof vclockMap === "function" && typeof vclockCfg === "function" && vclockCfg(null) ? new Date(vclockMap(Date.now(), null)) : new Date());
+  //   看角色那页：日程跟着钟排就问 schedNowDate；没跟着排、但他那只钟开着，红线和今天也照他的钟（她 2026-11-01「不行啊」：角色那页还停在现实）
+  const _vcNow = id => typeof vclockMap === "function" && typeof vclockCfg === "function" && vclockCfg(id) ? new Date(vclockMap(Date.now(), id)) : null;
+  const today = _viewChar
+    ? ((typeof schedNowDate === "function" && window.ScheduleClock && window.ScheduleClock.planFollows(_viewChar) ? schedNowDate(_viewChar) : null) || _vcNow(_viewChar.id) || new Date())
+    : (_vcNow(null) || new Date());
   const todayKey = calPadKey(today.getFullYear(), today.getMonth(), today.getDate());
   const cal = calendar || { world: {}, chars: {}, mine: {} };
   const per = period || { cycleLen: 28, periodLen: 5, starts: [], visibleTo: null };
