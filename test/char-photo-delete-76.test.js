@@ -14,3 +14,9 @@ test("多选：右上「多选」，格子点了是勾，有全选", () => {
   assert.match(blk, /onClick: \(\) => pick \? setPick\(/);
   assert.match(blk, /"全不选" : "全选"/);
 });
+test("本机照片库也能多选移出", () => {
+  const b = ui.indexOf("function LocalPhotoLibrary("), lb = ui.slice(b, b + 9000);
+  assert.match(lb, /"data-wk": "localphotopick"/);
+  assert.match(lb, /const dropMany = ks =>/);
+  assert.match(lb, /await idbAlbumDel\(k\)/);
+});
