@@ -49,3 +49,11 @@ test("catalog keeps the latest fifty quotable messages", () => {
   assert.equal(catalog[0].id, "m10");
   assert.equal(catalog[49].id, "m59");
 });
+
+// 引用对不上原话：先认包含关系，还对不上就不挂（她 2026-11-01「引用错了」）
+test("摘一截也认得；群里没人说过的那句不挂引用", () => {
+  const GQ = require("../js/group-quote.js");
+  const cat = [{ id: "m1", alias: "M1", text: "某人刚才描眼眶差点把线条画歪到耳朵上去", preview: "某人刚才描眼眶", senderId: "b", senderName: "顾暮" }];
+  assert.equal(GQ.resolve({ quote: "描眼眶差点把线条画歪" }, cat).replyToId, "m1");
+  assert.equal(GQ.resolve({ quote: "不愧是我们" }, cat).replyTo, null);
+});

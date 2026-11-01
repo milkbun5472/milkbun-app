@@ -47,8 +47,15 @@
       const matches = rows.filter(x => x.text === quotedText || x.preview === quotedText);
       hit = [...matches].reverse().find(x => !quotedAuthor || x.senderName === quotedAuthor) || matches[matches.length - 1];
     }
+    // 一字不差没对上：它常常只摘一截、或者多写了几个字——互相包含（至少 4 个字）也算，取最近那条
+    if (!hit && quotedText && quotedText.length >= 4) {
+      const near = rows.filter(x => x.text && (x.text.indexOf(quotedText) >= 0 || quotedText.indexOf(x.text) >= 0 && x.text.length >= 4));
+      hit = [...near].reverse().find(x => !quotedAuthor || x.senderName === quotedAuthor) || near[near.length - 1] || null;
+    }
     if (hit) return { replyTo: hit.text, replyToId: hit.id, replyToSenderId: hit.senderId, replyToSenderName: hit.senderName };
-    if (quotedText) return { replyTo: quotedText, replyToId: null, replyToSenderId: null, replyToSenderName: quotedAuthor || null };
+    // 还对不上就不挂引用（她 2026-11-01「引用错了」）：原来把它自己写的那句原样摆成引用，
+    //   群里根本没人说过那句话，看着就是引错了。宁可没有，也不摆一句不存在的
+    if (quotedText) return { replyTo: null, replyToId: null, replyToSenderId: null, replyToSenderName: null };
     return { replyTo: null, replyToId: null, replyToSenderId: null, replyToSenderName: null };
   }
   // 界面上只摆被引用的那句原话，不写「引用 XXX：」——是谁说的代码里一直有
