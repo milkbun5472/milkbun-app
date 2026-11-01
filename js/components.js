@@ -3183,7 +3183,7 @@ function CalWidget({ now, calendar, onOpen, period }) {
         const pcol = pk ? PERIOD_COLORS[pk.t] : null;
         const isToday = d === today;
         return h("div", { key: i, "data-wk": "wcell", "data-today": isToday ? "1" : "0", style: { position: "relative", textAlign: "center", padding: "2px 0" } },
-          h("span", { style: { display: "inline-flex", alignItems: "center", justifyContent: "center", width: 24, height: 24, borderRadius: 999, fontFamily: F_BODY, fontSize: 12.5, color: isToday ? "#fff" : (pcol || t.sub), background: isToday ? t.accent : (pcol ? pcol + "26" : "transparent"), border: pcol && !isToday ? "1px solid " + pcol + "66" : "none" } }, d),
+          h("span", { style: { display: "inline-flex", alignItems: "center", justifyContent: "center", width: 24, height: 24, borderRadius: 999, fontFamily: F_BODY, fontSize: 12.5, color: isToday && !pcol ? "#fff" : (isToday ? t.accent : (pcol || t.sub)), fontWeight: isToday ? 700 : undefined, background: isToday && !pcol ? t.accent : (pcol ? pcol + "26" : "transparent"), border: isToday && pcol ? "2px solid " + t.accent : (pcol ? "1px solid " + pcol + "66" : "none") } }, d),   // 今天落在经期颜色上：画一圈框，底色还是那天的颜色，不盖成一团实心
           calAnyEvent(cal, y, m, d) && h("span", { style: { position: "absolute", bottom: 0, left: "50%", transform: "translateX(-50%)", width: 4, height: 4, borderRadius: 999, background: isToday ? "#fff" : t.tint } }));
       })));
 }
@@ -4973,8 +4973,9 @@ function Calendar({ characters, calendar, calEvents, schedules, profile, period,
         return h("button", { "data-wk": "calday", "data-today": isT ? "1" : "0", "data-period": pk ? pk.t : "", key: i, onClick: () => { setDaySel(dk); setMode("day"); },
           className: "active:opacity-60 flex flex-col items-center justify-center", style: { minHeight: 0, borderTop: "1px solid " + t.line } },
           h("span", { "data-wk": "caldaynum", style: { display: "inline-flex", alignItems: "center", justifyContent: "center", width: 36, height: 36, borderRadius: 999,
-            background: isT ? "#c25a4a" : (pk ? PERIOD_COLORS[pk.t] + "33" : "transparent"),
-            fontFamily: F_DISPLAY, fontSize: "calc(19px * var(--app-fs, 1))", color: isT ? "#fff" : t.ink } }, d),
+            // 今天画成一圈框，底色照常是这一天的经期颜色（2026-11-01：原来今天是实心红圆，跟经期一个颜色，她以为没来的那天还标着经期）
+            background: pk ? PERIOD_COLORS[pk.t] + "33" : "transparent", boxShadow: isT ? "inset 0 0 0 2px #c25a4a" : "none",
+            fontFamily: F_DISPLAY, fontSize: "calc(19px * var(--app-fs, 1))", fontWeight: isT ? 700 : undefined, color: isT ? "#c25a4a" : t.ink } }, d),
           h("span", { "data-wk": "caldaylunar", style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", lineHeight: 1.3, marginTop: 1, color: lun.hi ? "#c25a4a" : t.fog, maxWidth: "100%", overflow: "hidden", whiteSpace: "nowrap" } }, lun.text),
           h("span", { "data-wk": "caldaydots", style: { display: "flex", gap: 2.5, height: 6, marginTop: 2 } },
             dots.map((c, j) => h("span", { key: j, style: { width: 5, height: 5, borderRadius: 999, background: c } }))));
