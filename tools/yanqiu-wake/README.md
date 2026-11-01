@@ -74,6 +74,9 @@ System Events cannot marshal, then returns only scoped control paths and
 booleans. AppleScript still performs every input/click action. The empty
 contenteditable composer may contain its own newline, which is normalized
 before checking for a draft; substantive text is never overwritten.
+After filling, the adapter briefly waits for React to render and enable Send.
+It rechecks the same page and exact notice before pressing once; a delayed
+button does not trigger an early failure or a second message.
 The guardian never runs `claude --resume`, creates a conversation, claims a
 ticket, edits a transcript, or resets the queue cursor. A pending ticket stays
 pending until the original session re-arms its own one-shot sentinel.
