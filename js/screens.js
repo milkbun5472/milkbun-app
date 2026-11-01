@@ -4315,6 +4315,13 @@ function CtxDebug({ characters, getBundle, lockedCharId, compact }) {
       (roomRecall.picked || []).length
         ? h("div", { style: { marginTop: 7 } }, roomRecall.picked.map((row, i) => h("div", { key: row.id || i, style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.sub, lineHeight: 1.65, padding: "6px 0", borderTop: i ? "1px dashed " + t.line : "none" } }, "· " + row.text)))
         : h("div", { style: { marginTop: 8, fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog } }, "这一轮这间房里没有记忆可送。")) : null,
+    // 上一轮发过去的聊天记录：它不在 system 那段里，是一条条单独发的，所以单独摆一张（她 2026-11-02）
+    cid && window.__histReceipt && window.__histReceipt[cid] ? (() => { const r = window.__histReceipt[cid];
+      return h("div", { "data-wk": "histreceipt", style: { border: "1px solid " + t.line, borderRadius: 14, padding: "11px 12px", marginBottom: 10, background: t.bg2 } },
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.ink } }, "上一轮带过去的聊天记录"),
+        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.sub, marginTop: 4, lineHeight: 1.6 } }, r.n + " 条 · " + r.chars + " 字" + (r.first ? " · 最早一条：「" + r.first + "…」" : "")),
+        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, marginTop: 3, lineHeight: 1.55 } }, new Date(r.ts).toLocaleString() + " 那一轮。聊天记录是一条条单独发的，不在下面这些段里；带多少看聊天设置的「记忆上下文条数」和召回设置的「短期窗字符预算」。刷新 App 即清空。"));
+    })() : null,
     cid ? (() => {
       // 每段占比 + 肥度条（v47.84 她要的「谁肥一眼看穿」）：≥20% 红、≥10% 金、其余灰
       const total = Math.max(1, text.length);

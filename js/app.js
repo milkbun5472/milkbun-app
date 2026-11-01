@@ -20,7 +20,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v88.929";
+const APP_VERSION = "v88.934";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -2331,6 +2331,14 @@ function App() {
       for (const row of found.values()) { try { await idbAlbumPut(row); } catch (e) {} }
       return found.size;
     };
+    // 往某个角色的某间房发一条（主屏宠物组件用，她 2026-11-02）：返回房间名，发不了返回 null
+    window.__postToRoom = (charId, roomId, msg) => {
+      const c = charId && characters.find(x => x.id === charId);
+      const room = c && window.ChatRooms ? window.ChatRooms.get(c.id, roomId || "main") : null;
+      if (!c || !room || (roomId && room.id !== roomId) || !msg) return null;
+      pChat(window.ChatRooms.chatKey(c.id, room.id), p => [...p, Object.assign({ ts: Date.now(), read: true }, msg)]);
+      return room.main ? "主聊天" : (room.name || "小房间");
+    };
     window.__openFromNotif = (charId, screen, roomId, groupId) => {
       const c = charId && characters.find(x => x.id === charId);
       if (charId && !c) return; // 冷启动资料未到，待下次角色列表更新重试。
@@ -3699,7 +3707,7 @@ function App() {
       // 幸运字符计数：她和角色发的都算（文字、语音、表情包、照片），灰字系统行不算
       const _luckyN = n.slice(pl.length).filter(m => m && m.role !== "system" && m.kind !== "system").length;
       if (_luckyN) setTimeout(() => luckyCount(id, _luckyN), 0);
-      const added = n.slice(pl.length).filter(m => m && m.role !== "user" && m.kind !== "system").length;
+      const added = n.slice(pl.length).filter(gUnreadCounts).length;   // 跟「↑ N 条新消息」找第一条同一个判断（components.js）
       const viewing = viewRef.current.screen === "gthread" && viewRef.current.charId === id;
       if (added > 0 && !viewing) setTimeout(() => bumpUnread(id, added), 0);
     }
@@ -13741,6 +13749,14 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       // ⚠️只交出 role/content/_imageRefs：g 上别的字段不往外带（原来这一段就是这么收窄的）。
       const _imgMeta = {};
       const aiMessages = await expandMessageImages(g.map(m => ({ role: m.role, content: m.content, _imageRefs: m._imageRefs })), FRESH_IMG_CAP, _imgMeta);
+      // 聊天记录的收据（她 2026-11-02：「为啥看到群多少，看不到私聊历史带了多少」）：
+      //   聊天记录不在 system 那一大段里，是一条条单独发的，「TA 知道什么」拆不到它。真发出去这一刻记一笔，只记个数不存原文
+      try {
+        const _txt = m => typeof m.content === "string" ? m.content : Array.isArray(m.content) ? m.content.map(x => (x && x.text) || "").join("") : "";
+        const _first = g.find(m => m && (m.role === "user" || m.role === "assistant"));
+        window.__histReceipt = Object.assign({}, window.__histReceipt || {}, { [charId]: { ts: Date.now(), n: g.length, chars: g.reduce((s, m) => s + _txt(m).length, 0),
+          first: _first ? _txt(_first).replace(/\s+/g, " ").slice(0, 40) : "" } });
+      } catch (e) {}
       if (_imgMeta.droppedImages) toast("一次发的图太多，这一轮只给 TA 看了最后 " + FRESH_IMG_CAP + " 张", 4000);
       let raw;
       // 思考链（v56.42）：每个角色一个开关。言秋那条线一个字都不碰——她 2026-08-26 定的，
