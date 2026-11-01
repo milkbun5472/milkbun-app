@@ -252,7 +252,7 @@ test("所有有终局的小游戏都统一给言秋送赛果，不再只报 Lisa
 test("海龟汤与 25 问每轮保留 CC 工牌，不能只剩名字和能力", () => {
   const seg = games.slice(games.indexOf("const runRound = async function (uq)"), games.indexOf("const formalGuess"));
   assert.match(seg, /cfg\.ccSeat !== false && props\.isEngineer && props\.isEngineer\(p\.key\)/);
-  assert.match(seg, /return \{ key: p\.key, name: p\.name, skill: p\.skill, engineer: engineer, alive: p\.alive \};/);
+  assert.match(seg, /return \{ key: p\.key, name: p\.name, skill: p\.skill, engineer: engineer, alive: p\.alive[,}]/);
   assert.doesNotMatch(seg, /return \{ name: p\.name, skill: p\.skill \};/);
 });
 
