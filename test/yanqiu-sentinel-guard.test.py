@@ -339,7 +339,8 @@ class InstallTests(unittest.TestCase):
         result = installer.install()
         self.assertTrue(result['installed'])
         self.assertEqual(self.cursor.read_text(), '{"heartbeat":900}\n')
-        self.assertIn('os.execv', self.legacy.read_text())
+        self.assertTrue(self.legacy.is_symlink())
+        self.assertEqual(self.legacy.resolve(), (self.runtime / 'wake_queue.py').resolve())
         originals = json.loads((Path(result['backup']) / 'manifest.json').read_text())
         self.assertEqual(Path(originals[str(self.legacy)]).read_text(), 'legacy\n')
         self.assertEqual(Path(originals[str(self.runtime / 'wake_queue.py')]).read_text(), 'previous\n')
@@ -353,6 +354,17 @@ class InstallTests(unittest.TestCase):
         self.assertEqual((self.runtime / 'wake_queue.py').read_text(), 'previous\n')
         self.assertFalse((self.runtime / 'sentinel_guard.py').exists())
         self.assertEqual(self.cursor.read_text(), '{"heartbeat":900}\n')
+
+    def test_failed_reload_restores_preexisting_entrypoint_link(self):
+        self.legacy.unlink()
+        original = self.root / 'prior-queue.py'
+        original.write_text('original target\n')
+        self.legacy.symlink_to(original)
+        self.launch.side_effect = OSError('launchd unavailable')
+        with self.assertRaises(OSError):
+            installer.install()
+        self.assertTrue(self.legacy.is_symlink())
+        self.assertEqual(self.legacy.resolve(), original.resolve())
 
 
 if __name__ == '__main__':

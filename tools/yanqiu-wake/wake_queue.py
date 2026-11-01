@@ -435,7 +435,7 @@ def serve_watchdog() -> None:
         # must not stop the out-of-process recovery guardian.
         try:
             run_isolated_poll(
-                [sys.executable, str(Path(__file__).with_name("sentinel_guard.py")), "once"],
+                [sys.executable, str(Path(__file__).resolve().with_name("sentinel_guard.py")), "once"],
                 timeout=35,
             )
         except (OSError, subprocess.SubprocessError) as error:

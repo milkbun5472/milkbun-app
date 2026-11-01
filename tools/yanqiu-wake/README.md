@@ -119,7 +119,7 @@ This first performs a read-only probe. Only `ready` removes the delivery gate.
 while that gate exists.
 
 The installer backs up scripts, installs runtime siblings together, replaces
-legacy entrypoints with an exec wrapper to the canonical runtime, and reloads
+legacy entrypoints with symlinks to the canonical runtime, and reloads
 only the existing heartbeat agent. It never copies or resets a live inbox,
 cursor, claim log or clock. A failed reload restores the prior scripts. Backups
 and their restore manifest live in `LisaPhone/backups/sentinel-guard-*`.

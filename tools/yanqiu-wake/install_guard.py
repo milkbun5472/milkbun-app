@@ -54,36 +54,33 @@ def build_native(directory: Path) -> Path:
 
 def install(dry_run=False) -> dict:
     payloads = {name: (SOURCE / name).read_bytes() for name in FILES}
-    # All sibling imports come from the canonical runtime. Legacy callers keep
-    # their path but exec the current queue, so no second guardian copy drifts.
-    wrapper = (
-        '#!/usr/bin/env python3\n'
-        'import os, sys\n'
-        f'os.execv(sys.executable, [sys.executable, {str(RUNTIME / "wake_queue.py")!r}, *sys.argv[1:]])\n'
-    ).encode()
+    # Python resolves the entrypoint symlink before setting its import path.
+    # Both legacy callers and the deployment byte check see the canonical file.
     writes = {RUNTIME / name: data for name, data in payloads.items()}
-    writes.update({path: wrapper for path in ENTRYPOINTS if path.parent.is_dir()})
+    links = {path: RUNTIME / "wake_queue.py" for path in ENTRYPOINTS if path.parent.is_dir()}
     if not (RUNTIME / APP_NAME).exists():
         # Fresh installations monitor/alarm immediately, but native delivery
         # stays disabled until the human grants access and a probe succeeds.
         writes[RUNTIME / ".sentinel_native_disabled"] = b"awaiting manual permission\n"
-    report = {"files": len(writes), "native_app": APP_NAME, "sha256": {
+    report = {"files": len(writes) + len(links), "native_app": APP_NAME, "sha256": {
         path.name: hashlib.sha256(data).hexdigest() for path, data in writes.items() if path.parent == RUNTIME
     }}
     if dry_run:
         return {**report, "installed": False}
     with tempfile.TemporaryDirectory(prefix="yanqiu-native-build-") as directory:
         native = build_native(Path(directory))
-        return install_payloads(writes, native, report)
+        return install_payloads(writes, links, native, report)
 
 
-def install_payloads(writes: dict, native: Path, report: dict) -> dict:
+def install_payloads(writes: dict, links: dict, native: Path, report: dict) -> dict:
     RUNTIME.mkdir(parents=True, exist_ok=True, mode=0o700)
     backup = LISA_ROOT / "backups" / ("sentinel-guard-" + time.strftime("%Y%m%d-%H%M%S"))
     backup.mkdir(parents=True, mode=0o700)
     originals = {}
-    for index, path in enumerate(writes):
-        if path.exists():
+    for index, path in enumerate([*writes, *links]):
+        if path.is_symlink():
+            originals[str(path)] = {"symlink": os.readlink(path)}
+        elif path.exists():
             saved = backup / str(index)
             shutil.copy2(path, saved)
             saved.chmod(0o600)
@@ -101,6 +98,11 @@ def install_payloads(writes: dict, native: Path, report: dict) -> dict:
     try:
         for path, data in writes.items():
             atomic_write(path, data)
+        for path, target in links.items():
+            temp = path.with_name(path.name + ".install-tmp")
+            temp.unlink(missing_ok=True)
+            temp.symlink_to(target)
+            os.replace(temp, path)
         if native_app.exists():
             shutil.rmtree(native_app)
         shutil.copytree(native, native_app)
@@ -112,7 +114,10 @@ def install_payloads(writes: dict, native: Path, report: dict) -> dict:
         for path, saved in originals.items():
             if Path(path).is_dir():
                 shutil.rmtree(path)
-            if saved and Path(saved).is_dir():
+            if isinstance(saved, dict):
+                Path(path).unlink(missing_ok=True)
+                Path(path).symlink_to(saved["symlink"])
+            elif saved and Path(saved).is_dir():
                 shutil.copytree(saved, path)
             elif saved:
                 atomic_write(Path(path), Path(saved).read_bytes())
