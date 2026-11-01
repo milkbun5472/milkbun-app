@@ -8966,8 +8966,9 @@ function CharPhotoAlbum({ characters, toast }) {
   // 多选删（她 2026-11-01「搞个多选」）：点「多选」后点格子是勾，底下一排「全选／删掉 N 张」
   const [pick, setPick] = useState(null);   // null＝没在多选；Set＝勾着的键
   const delKeys = ks => (typeof requestAppConfirm === "function" ? requestAppConfirm : (a, b, go) => { if (window.confirm(a + "\n" + b)) go(); })(
-    "删掉这 " + ks.length + " 张照片？", "删了就没了：聊天里那几条消息还在，图那块会空着。想留着先点开存到手机。",
-    async () => { for (const k of ks) { try { await idbImgDel(k); await idbImgDel(k + "_raw").catch(() => {}); } catch (e) {} }
+    "删掉这 " + ks.length + " 张照片？", "照片和聊天里发这张的那条消息会一起删掉，删了就没了。想留着先点开存到手机。",
+    // 删一处、处处没（她 2026-11-02）：走 app 那一份 purgeImages——消息、照片库、像素一起
+    async () => { if (window.__purgeImages) await window.__purgeImages(ks); else for (const k of ks) { try { await idbImgDel(k); await idbImgDel(k + "_raw").catch(() => {}); } catch (e) {} }
       const gone = new Set(ks); setKeys(x => (x || []).filter(k => !gone.has(k))); setPick(null); setAt(-1); toast && toast("删掉了 " + ks.length + " 张"); }, "删掉");
   useEffect(() => { let live = true; (typeof idbImgKeys === "function" ? idbImgKeys() : Promise.resolve([])).then(k => { if (live) setKeys(k.filter(x => !String(x).endsWith("_raw"))); }); return () => { live = false; }; }, []);
   const mine = c => (keys || []).filter(k => k.indexOf("img_" + c.id + "_") === 0 || k.indexOf("img_pdiary_" + c.id + "_") === 0).reverse();
@@ -9013,8 +9014,8 @@ function LocalPhotoLibrary({ toast }) {
   // 多选移出（她 2026-11-01「要」：跟「TA 们拍的照片」同一个样子）
   const [pick, setPick] = useState(null);
   const dropMany = ks => (typeof requestAppConfirm === "function" ? requestAppConfirm : (x, y, go) => { if (window.confirm(x + "\n" + y)) go(); })(
-    "把这 " + ks.length + " 张移出本机照片库？", "只是从照片库拿掉，聊天里发过的那几张照旧在。",
-    async () => { for (const k of ks) { try { await idbAlbumDel(k); } catch (e) {} } setPick(null); await refresh(); toast && toast("移出了 " + ks.length + " 张"); }, "移出");
+    "删掉这 " + ks.length + " 张？", "聊天里发这几张的那几条消息会一起删掉，删了就没了。想留着先点开存到手机。",
+    async () => { if (window.__purgeImages) await window.__purgeImages(ks); else for (const k of ks) { try { await idbAlbumDel(k); } catch (e) {} } setPick(null); setPreview(null); await refresh(); toast && toast("删掉了 " + ks.length + " 张"); }, "删掉");
   const [shareCaption, setShareCaption] = useState("");
   const [sharing, setSharing] = useState(false);
   const ref = useRef(null);
@@ -9055,15 +9056,15 @@ function LocalPhotoLibrary({ toast }) {
       h("button", { onClick: () => setPick(p => p && p.size === rows.length ? new Set() : new Set(rows.map(r => r.imageRef))), className: "active:opacity-60", style: { minHeight: 40, padding: "0 12px", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.sub } }, pick.size === rows.length && rows.length ? "全不选" : "全选"),
       h("div", { className: "flex-1" }),
       h("button", { "data-wk": "localphotosavemany", disabled: !pick.size, onClick: () => savePickedImgs(rows.map(r => r.imageRef).filter(k => pick.has(k)), "照片", toast, left => setPick(left.length ? new Set(left) : null)), className: "active:opacity-70", style: { minHeight: 40, padding: "0 14px", borderRadius: 999, border: "1px solid " + t.line, color: pick.size ? t.ink : t.fog, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))" } }, "存 " + pick.size + " 张"),
-      h("button", { "data-wk": "localphotodropmany", disabled: !pick.size, onClick: () => dropMany(Array.from(pick)), className: "active:opacity-70", style: { minHeight: 40, padding: "0 16px", borderRadius: 999, background: pick.size ? "#c25a4a" : t.line, color: "#fff", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))" } }, "移出 " + pick.size + " 张")) : null,
+      h("button", { "data-wk": "localphotodropmany", disabled: !pick.size, onClick: () => dropMany(Array.from(pick)), className: "active:opacity-70", style: { minHeight: 40, padding: "0 16px", borderRadius: 999, background: pick.size ? "#c25a4a" : t.line, color: "#fff", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))" } }, "删掉 " + pick.size + " 张")) : null,
     // ⚠️「移出」放在图片正下方、做成一颗看得见的按钮（她 2026-11-01 群友：「本机照片库还是没办法删除」）：
     //   原来是最底下一行白字，有的浏览器点到图片会在屏幕底部浮一排自己的看图按钮（下载／网格／转发），正好盖住它。
     //   底下再留一截空，整层可滚，别的按钮也不会被压在最底下。
     preview ? h("div", { className: "fixed inset-0 z-50 flex items-center justify-center", onClick: () => setPreview(null), style: { background: "rgba(0,0,0,.82)", padding: "20px 20px 120px", overflowY: "auto" } },
       h("div", { onClick: e => e.stopPropagation(), style: { width: "100%", maxWidth: 520, margin: "auto 0" } },
         h("img", { src: resolveImg(preview.imageRef), alt: preview.caption || "照片", style: { width: "100%", maxHeight: "60vh", objectFit: "contain", borderRadius: 10 } }),
-        h("button", { "data-wk": "localphotodrop", onClick: async () => { await idbAlbumDel(preview.imageRef); setPreview(null); await refresh(); toast && toast("移出了，聊天里那张还在"); }, className: "w-full active:opacity-70",
-          style: { color: "#fff", background: "rgba(194,90,74,.85)", borderRadius: 8, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", padding: 11, marginTop: 10 } }, "移出本机照片库"),
+        h("button", { "data-wk": "localphotodrop", onClick: () => dropMany([preview.imageRef]), className: "w-full active:opacity-70",
+          style: { color: "#fff", background: "rgba(194,90,74,.85)", borderRadius: 8, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", padding: 11, marginTop: 10 } }, "删掉这张"),
         h("textarea", { "data-wk": "textarea", value: shareCaption, onChange: e => setShareCaption(e.target.value), maxLength: 500, placeholder: "分享给言秋前，写一句这张照片是什么…", style: { width: "100%", minHeight: 66, marginTop: 10, borderRadius: 8, padding: 10, background: "rgba(255,255,255,.12)", color: "#fff", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", outline: "none" } }),
         h("button", { disabled: sharing || (!preview.bridgeId && !shareCaption.trim()), onClick: async () => {
           if (sharing) return; setSharing(true);
