@@ -305,7 +305,8 @@
     },
     persona: {
       zh: "角色人设",
-      read: ctx => (ctx.characters || []).map(c => ({ id: c.id, name: c.name, text: c.persona })),
+      // 配角的简介就是它的 persona（她 2026-11-02：「秋秋不能直接贴 npc 简介更新吗」）：读的时候连配角一起，改前才摆得出来、find 才对得上
+      read: ctx => (ctx.allChars || ctx.characters || []).map(c => ({ id: c.id, name: c.name, text: c.persona })),
       write: (id, patch, ctx) => {
         if (!ctx.onPatchCharacter) throw new Error("这个页面没接角色写入口");
         ctx.onPatchCharacter(id, { persona: patch.text });
@@ -314,7 +315,7 @@
     },
     appearance: {
       zh: "角色外貌",
-      read: ctx => (ctx.characters || []).map(c => ({ id: c.id, name: c.name, text: c.appearance })),
+      read: ctx => (ctx.allChars || ctx.characters || []).map(c => ({ id: c.id, name: c.name, text: c.appearance })),
       write: (id, patch, ctx) => {
         if (!ctx.onPatchCharacter) throw new Error("这个页面没接角色写入口");
         ctx.onPatchCharacter(id, { appearance: patch.text });
@@ -915,7 +916,7 @@
     });
     // 配角和关系线（她 2026-10-10）：关系不多就整张给；多了只给跟这会儿在说的人沾边的那几条
     const npcs = (ctx.allChars || []).filter(c => c && c.npc).slice(0, 60).map(c => ({ 名字: c.name, id: c.id,
-      在谁身边: c.ownerId === "me" ? "我" : c.ownerId ? whoName(c.ownerId, ctx) : "（不挂在谁身边）", 认识她本人: !!c.knowsUser, 简介: clip(c.persona, 120) || "（空）" }));
+      在谁身边: c.ownerId === "me" ? "我" : c.ownerId ? whoName(c.ownerId, ctx) : "（不挂在谁身边）", 认识她本人: !!c.knowsUser, 简介: clip(c.persona, 600) || "（空）" }));
     const R = (ctx.relsOf && ctx.relsOf()) || {}, rk = Object.keys(R);
     const hotAll = focusIds(ctx.allChars || list, focus, 12);
     const relRows = rk.filter(k => rk.length <= 120 || k.split("->").some(x => hotAll.has(x) || hot.has(x))).slice(0, 160)
@@ -1169,7 +1170,7 @@
       + "模型不认可选字段；出图被上游审核拒。这种时候通常不需要改动稿，除非改一处设置就能解决。\n\n"
       + "【你能动手改的东西·只有这几样】\n"
       + "· style 文风预设（写给 AI 的文风提示词；id 留空＝新建一份）\n"
-      + "· persona 角色人设　· appearance 角色外貌\n"
+      + "· persona 角色人设　· appearance 角色外貌（配角也用这两样：配角的简介就是它的 persona，id 填快照「配角」那一栏的 id）\n"
       + "· newchar 从头写一个新角色，落进人格档案馆（id 留空；text 是一份 JSON：{\"name\":\"名字\",\"persona\":\"完整人设\",\"appearance\":\"外貌\",\"tagline\":\"一句话简介\",\"gender\":\"性别\",\"birthday\":\"MM-DD\"}，name 和 persona 必填，其余可省）。"
       + "她说「帮我写个人设／捏个角色」时：她给了的那几样照她的写，没给的按她选的世界书、她说过的话由你来定（她说「其他随便」就是交给你）；什么都没说才先问一句是谁、什么世界。人设写成能直接拿去聊的完整一份，别留「待补充」。建好之后再改，用 persona／appearance／profile 那几条。\n"
       + "· mask 她自己的面具（快照【面具】那一栏；角色眼里的「她」就是这一张）：id＝main 改主面具，new 新建一张副面具，其余照抄那一张的 id；"
