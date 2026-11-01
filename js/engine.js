@@ -8906,6 +8906,14 @@ function vAnchor(text, ts, id) {
   const m = typeof vclockMap === "function" ? t => vclockMap(t, id) : t => t;
   return window.TemporalAnchor.anchor(text, m(ts), m(Date.now()));
 }
+// 两条消息之间、钟上过了多久（她 2026-11-01「调整了虚拟世界但 char 记忆一直停在之前」）：
+//   原来「中间隔了约 X」按现实算，她把钟往后拨了三天、现实只过了一分钟——分隔线不出来，TA 以为还接着刚才那场。
+//   开着虚拟钟就按钟算（拨钟那一下也算进去），没开就跟现实一样。线下、群线下、群聊都问这一个。
+function vGap(prevTs, ts, id) {
+  if (!prevTs || !ts) return 0;
+  if (typeof vclockMap !== "function") return ts - prevTs;
+  return vclockMap(ts, id) - vclockMap(prevTs, id);
+}
 function offlineHistory(msgs, userName, charName, clock, clockId) {
   const g = [];
   let prevTs = 0;
@@ -8915,8 +8923,9 @@ function offlineHistory(msgs, userName, charName, clock, clockId) {
     const ts = Number(m.ts) || 0;
     // 时间感知关着的时候，线下连「中间隔了多久」也不说（群友 2026-10-04：「线下昨天聊一半想继续聊，关了时间感知，他还是知道到第二天了」）——
     //   线下是一场戏，她隔天回来接着演，戏里不该凭空过了一夜。开着时照旧标出来。
-    const gap = clock !== false && prevTs && ts && ts - prevTs > 90 * 60000
-      ? "〔—— 中间隔了约 " + gapPhrase(ts - prevTs) + "，到 " + fmtStampAI(ts) + " ——〕\n"
+    const _vg = vGap(prevTs, ts, clockId);
+    const gap = clock !== false && prevTs && ts && _vg > 90 * 60000
+      ? "〔—— 中间隔了约 " + gapPhrase(_vg) + "，到 " + fmtStampAI(ts) + " ——〕\n"
       : "";
     const stamp = (ts && clock !== false) ? "〔" + fmtStampAI(ts) + "〕" : "";
     // ⚠️只标一边等于没标：线上那几条标了【线上私聊】，线下这几条什么都不标，
@@ -9687,8 +9696,9 @@ function offlineGroupHistory(msgs, userName, clock, clockId) {
     const ts = Number(m.ts) || 0;
     // 时间感知关着的时候，线下连「中间隔了多久」也不说（群友 2026-10-04：「线下昨天聊一半想继续聊，关了时间感知，他还是知道到第二天了」）——
     //   线下是一场戏，她隔天回来接着演，戏里不该凭空过了一夜。开着时照旧标出来。
-    const gap = clock !== false && prevTs && ts && ts - prevTs > 90 * 60000
-      ? "〔—— 中间隔了约 " + gapPhrase(ts - prevTs) + "，到 " + fmtStampAI(ts) + " ——〕\n"
+    const _vg = vGap(prevTs, ts, clockId);
+    const gap = clock !== false && prevTs && ts && _vg > 90 * 60000
+      ? "〔—— 中间隔了约 " + gapPhrase(_vg) + "，到 " + fmtStampAI(ts) + " ——〕\n"
       : "";
     const stamp = (ts && clock !== false) ? "〔" + fmtStampAI(ts) + "〕" : "";
     if (m.role === "char") {
