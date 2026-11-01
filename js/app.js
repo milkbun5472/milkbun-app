@@ -7863,7 +7863,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         const tr = (coupleTripsRef.current || []).find(t => t && t.status !== "done" && t.date === tomorrowOf(t.charId) && !t.eveSent);
         const tomorrow = tr ? tomorrowOf(tr.charId) : "";
         const tc = tr && characters.find(c => c.id === tr.charId);
-        if (tc && nowD.getHours() >= 19 && nowD.getHours() <= 23 && !laneBusy("c:" + tc.id) && viewRef.current.charId !== tc.id && !pSkip("tripeve:" + tr.id)) {
+        if (tc && vDay(tc.id).getHours() >= 19 && vDay(tc.id).getHours() <= 23 && !laneBusy("c:" + tc.id) && viewRef.current.charId !== tc.id && !pSkip("tripeve:" + tr.id)) {
           const b = tr.booking, fl = b && b.paid ? b.flights[b.pick.flight] : null;
           const info = "明天你们要一起去「" + tr.dest + "」" + (fl ? "，" + (fl.no ? fl.no + " " : "") + (fl.dep ? fl.dep + " 出发" : "") : "") + (b && b.paid ? "，住「" + b.hotels[b.pick.hotel].name + "」" : "");
           pOnce("tripeve:" + tr.id, "tripeve:" + tr.id, () => replyNow(tc.id, "", null, { proactive: true, tripEve: info }),
@@ -7952,7 +7952,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
           if (hist(c).length < 2) continue;                          // 真在聊的
           if (currentlyTogetherWithChar(cid)) continue;              // 人就在旁边，不用发消息
           // 同一年同一个纪念日只发一次；一年里有好几个纪念日时，key 不同所以各发各的
-          const key = String(nowD.getFullYear()) + ":" + (it.name || "在一起");
+          const key = String(vDay(cid).getFullYear()) + ":" + (it.name || "在一起");
           if ((greetLogRef.current[cid] || {}).a === key) continue;
           const hr = Math.floor(charLocalMin(c) / 60);
           if (hr < 8 || hr > 23) continue;                           // 别半夜发
@@ -12611,7 +12611,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       // 时间流逝以「角色上次开口」为基准算间隔（用户回来连发几条也算得准，不会被自己刚发的消息归零）
       const localLastAsstTs = (function () { for (let i = history.length - 1; i >= 0; i--) { if (history[i].role === "assistant") return history[i].ts || 0; } return 0; })();
       const lastAsstTs = sideRoom ? localLastAsstTs : Math.max(localLastAsstTs, latestSharedInteractionTs(charId));
-      const gapMs = lastAsstTs ? Date.now() - lastAsstTs : 0;
+      // 按这个人那只钟算隔了多久（她 2026-11-01「虚拟时间好像没接上主动消息那几种」）：跟后面「现在是」同一只钟，群聊早就这么算了
+      const gapMs = lastAsstTs ? (typeof vGap === "function" ? vGap(lastAsstTs, Date.now(), charId) : Date.now() - lastAsstTs) : 0;
       const gapHrs = Math.round(gapMs / 3600000);
       const gapReopen = roomClockOn && gapMs > 3 * 3600000;
       // 心声每轮必写，但只写真正在脑内闪过的那一下；小、碎、跑题都可以，不能写成分析或回合总结。
