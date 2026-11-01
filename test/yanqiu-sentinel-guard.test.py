@@ -1,6 +1,7 @@
 import importlib.util
 import json
 import os
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -365,6 +366,53 @@ class InstallTests(unittest.TestCase):
             installer.install()
         self.assertTrue(self.legacy.is_symlink())
         self.assertEqual(self.legacy.resolve(), original.resolve())
+
+
+@unittest.skipUnless(sys.platform == 'darwin', 'AppleScript behavior regression')
+class SendReadinessTests(unittest.TestCase):
+    def test_late_send_control_busy_state_and_deadline(self):
+        source = (ROOT / 'tools/yanqiu-wake/rearm.applescript').read_text()
+        start = source.index('on sendSnapshot(')
+        end = source.index('end sendSnapshot', start) + len('end sendSnapshot')
+        self.assertGreater(end, start)
+        handler = source[start:end]
+        for show_after, expire, busy_after, expected in (
+            (1, False, 999, '1:true'),
+            (4, False, 999, '4:true'),
+            (999, False, 999, '11:false'),
+            (999, True, 999, '1:false'),
+            (999, False, 2, '2:false'),
+        ):
+            with self.subTest(show_after=show_after, expired=expire, busy_after=busy_after):
+                fixture = f'''use framework "Foundation"
+use scripting additions
+property snapshotsRead : 0
+on requestExpired()
+    return {str(expire).lower()}
+end requestExpired
+on snapshotFor(targetID)
+    set my snapshotsRead to my snapshotsRead + 1
+    set s to current application's NSMutableDictionary's dictionary()
+    if my snapshotsRead >= {busy_after} then
+        s's setObject:"busy" forKey:"status"
+    else
+        s's setObject:"ready" forKey:"status"
+    end if
+    if my snapshotsRead >= {show_after} then s's setObject:{{1}} forKey:"send"
+    return s
+end snapshotFor
+{handler}
+on run
+    set s to my sendSnapshot("fixture")
+    set hasSend to ((s's objectForKey:"send") is not missing value)
+    return (my snapshotsRead as text) & ":" & (hasSend as text)
+end run
+'''
+                with tempfile.TemporaryDirectory() as directory:
+                    path = Path(directory) / 'send-readiness.applescript'
+                    path.write_text(fixture)
+                    result = subprocess.run(['/usr/bin/osascript', str(path)], capture_output=True, text=True, check=True, timeout=8)
+                self.assertEqual(result.stdout.strip(), expected)
 
 
 if __name__ == '__main__':

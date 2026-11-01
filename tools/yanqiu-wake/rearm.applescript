@@ -19,6 +19,18 @@ on snapshotFor(targetID)
     return current application's NSJSONSerialization's JSONObjectWithData:payloadData options:0 |error|:(missing value)
 end snapshotFor
 
+on sendSnapshot(targetID)
+    set currentSnapshot to my snapshotFor(targetID)
+    repeat 10 times
+        if ((currentSnapshot's objectForKey:"status") as text) is not "ready" then exit repeat
+        if (currentSnapshot's objectForKey:"send") is not missing value then exit repeat
+        if my requestExpired() then exit repeat
+        delay 0.2
+        set currentSnapshot to my snapshotFor(targetID)
+    end repeat
+    return currentSnapshot
+end sendSnapshot
+
 on resolveControl(snapshot, keyName)
     set windowIndex to (snapshot's objectForKey:"window") as integer
     set controlPath to (snapshot's objectForKey:keyName) as list
@@ -80,7 +92,9 @@ on rearm(targetID, probeOnly)
                 set value of composer to notice
                 set noticeFilled to true
             end tell
-            set currentSnapshot to my snapshotFor(targetID)
+            -- AXValue updates before React has rendered/enabled Send. In a
+            -- restarted backend this takes longer than a normal idle window.
+            set currentSnapshot to my sendSnapshot(targetID)
             if ((currentSnapshot's objectForKey:"status") as text) is not "ready" then
                 my clearOwnNotice(targetID, notice)
                 return "busy"
