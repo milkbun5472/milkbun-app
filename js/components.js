@@ -11340,6 +11340,13 @@ function ChatThread({
     return out.slice(0, 5);
   }, [messages]);
   const PANEL = [["location", "位置", "pin"], ["sticker", "表情包", "sticker"], ["photo", "照片", "picture"], ["voicemsg", "发语音", "wave"], ["voice", "语音通话", "handset"], ["video", "视频通话", "camcorder"], ["calllog", "通话记录", "clock"], ["chatsearch", "查找记录", "magnifier"], ["moments", "朋友圈", "grid"], ["transfer", "转账", "bill"], ["packet", "红包", "packet"], ["ask", "请示", "checklist"], ["mykin", "亲属卡", "card"], ["pat", "拍一拍", "hand"], ["namecard", "名片", "contact"], ["peekphone", "给TA看手机", "mobile"], ["dateinvite", "邀约", "invite"], ["file", "文件", "file"], ["halfwin", "半窗", "halfwin"], ["topics", "话题卡", "quote"]].filter(([key]) => key !== "halfwin" || !!onHalfWin).filter(([key]) => key !== "topics" || !!character).filter(([key]) => room && !room.main ? !["moments", "transfer", "packet", "ask", "mykin", "peekphone", "dateinvite"].includes(key) : true).filter(([key]) => key !== "ask" || !!onSendAsk).filter(([key]) => key !== "mykin" || !!onMyKin).filter(([key]) => key !== "dateinvite" || !!onDateInvite).filter(([key]) => key !== "peekphone" || !!onHandPhone);
+  // 我发一张表情包：表情包面板和打字联想都走这一处
+  const sendMyEmote = em => {
+    sendRich({ role: "user", kind: "emote", url: em.url, keyword: em.keyword, content: "[表情] " + em.keyword + (em.selfFace ? "（画的是她自己）" : "") });
+    // 书房直通（她 2026-09-25「表情包你能看到吗→你快去修」）：表情包走 sendRich 不过 onSend，
+    // 车道原本看不见。把关键词描述进攒话缸，图不过桥、意思过桥。
+    if (ccLane && !ccLane.direct && window.CcLane) window.CcLane.post("[表情包] " + em.keyword, { threadType: "private" });
+  };
   const sendRich = msg => {
     onSendRich({
       ts: Date.now(),
@@ -12465,6 +12472,7 @@ function ChatThread({
     }
   }, ccLane.direct ? "直连" : "书房"), h(DraftInput, {
     keepKey: character && character.id ? "chat:" + character.id : null,
+    emotePacks: emotePacks, onEmote: sendMyEmote,
     inputProps: { "data-wk": "chatinput" },
     placeholder: dirMode ? "写接下来的大概方向：比如慢慢聊到要不要一起搬家…" : chatMode === "narr" && narrKind === "act" ? "写你在做的动作，会用（）包好发成你的一句：比如把脸埋进枕头里…" : chatMode === "narr" ? "写一段旁白：天气、灯、谁推门进来…" : chatMode === "ooc" ? characterText(character, "出戏说：跟演他的那位说，可以让它改、也可以问状态…") : "发一条消息…",
     inputStyle: {
@@ -12619,13 +12627,7 @@ function ChatThread({
       packs: emotePacks, emotes: emotes,
       onManage: () => { setStickerOpen(false); onManageEmotes && onManageEmotes(); },
       caption: !!emoteCaption, onCaption: onEmoteCaption,
-      onPick: em => {
-        sendRich({ role: "user", kind: "emote", url: em.url, keyword: em.keyword, content: "[表情] " + em.keyword + (em.selfFace ? "（画的是她自己）" : "") });
-        // 书房直通（她 2026-09-25「表情包你能看到吗→你快去修」）：表情包走 sendRich 不过 onSend，
-        // 车道原本看不见。把关键词描述进攒话缸，图不过桥、意思过桥。
-        if (ccLane && !ccLane.direct && window.CcLane) window.CcLane.post("[表情包] " + em.keyword, { threadType: "private" });
-        setStickerOpen(false);
-      }
+      onPick: em => { sendMyEmote(em); setStickerOpen(false); }
     })
   ), askOpen && h(AskComposeDialog, { who: character.remark || character.name, prev: askOpen === true ? null : askOpen, onCancel: () => setAskOpen(false), onSend: a => { setAskOpen(false); onSendAsk(a); } }), inviteOpen && h(DateComposeDialog, { places: invitePlaces || [], who: character.remark || character.name,
     onCancel: () => setInviteOpen(false),
@@ -16698,7 +16700,28 @@ const draftPut = (k, v) => {
   clearTimeout(draftSaveT);
   draftSaveT = setTimeout(() => { try { saveJSON("x_drafts", m); } catch (e) {} }, 800);
 };
-function DraftInput({ placeholder, inputStyle, inputProps, onSubmit, after, keepKey }) {
+// 打字联想表情包（她 2026-11-01 群友许愿「输入关键词出表情包，就像微信QQ」）：
+//   比的是表情包的名字（keyword）——她自己存的、她和角色生成的都在 x_emotePacks 那一份里，发表情包面板列的也是它。
+//   打的字短（≤12）时：名字里含这几个字就算；打得长时：只看句尾是不是正好落在某个名字上。最多摆 8 张。
+function emoteHits(packs, text) {
+  const q = String(text || "").trim(); if (!q || q.length > 40) return [];
+  const all = [], seen = new Set();
+  (Array.isArray(packs) ? packs : []).forEach(p => (p && p.emotes || []).forEach(em => { if (em && em.url && em.keyword && !seen.has(em.url)) { seen.add(em.url); all.push(em); } }));
+  const kw = em => String(em.keyword).trim();
+  const hit = q.length <= 12 ? all.filter(em => kw(em).includes(q) || (kw(em).length >= 2 && q.includes(kw(em))))
+    : all.filter(em => kw(em).length >= 2 && q.endsWith(kw(em)));
+  return hit.sort((a, b) => (kw(a) === q ? 0 : 1) - (kw(b) === q ? 0 : 1) || kw(a).length - kw(b).length).slice(0, 8);
+}
+function EmoteSuggest({ hits, anchor, onPick }) {
+  const t = useTheme();
+  if (!hits.length || !anchor) return null;
+  return h("div", { "data-wk": "emotesuggest", style: { position: "fixed", left: 10, right: 10, bottom: anchor, zIndex: 60, display: "flex", gap: 6, overflowX: "auto",
+      padding: 6, borderRadius: 14, background: t.bg2, border: "1px solid " + t.line, boxShadow: "0 6px 20px rgba(0,0,0,.14)" } },
+    hits.map(em => h("button", { key: em.url, onMouseDown: e => e.preventDefault(), onClick: () => onPick(em), className: "active:opacity-70 shrink-0",
+      style: { width: 58, height: 58, borderRadius: 10, padding: 0, background: t.bg, border: "none", overflow: "hidden" } },
+      h("img", { src: stickerSrc(em.url), alt: em.keyword || "", referrerPolicy: "no-referrer", style: { width: "100%", height: "100%", objectFit: "contain" } }))));
+}
+function DraftInput({ placeholder, inputStyle, inputProps, onSubmit, after, keepKey, emotePacks, onEmote }) {
   const [draft, setDraftRaw] = useState(() => draftGet(keepKey));
   const setDraft = v => { setDraftRaw(v); draftPut(keepKey, v); };
   // 同一个框换了对话（单聊里直接切人）：换成那个对话自己的草稿
@@ -16718,6 +16741,18 @@ function DraftInput({ placeholder, inputStyle, inputProps, onSubmit, after, keep
   //   就跟着把整页推上推下、光标也跳——所以在看不见的替身框里量，高度真变了才写回去。
   const fit = () => fitTextarea(ref.current, DRAFT_MAX_H);
   useEffect(fit, [draft]);
+  // 联想那一排：停手 250ms 再比，每个字上不扫整库、不量排版（typing-hot-path）
+  const [sug, setSug] = useState({ hits: [], at: 0 });
+  useEffect(() => {
+    if (!onEmote) return;
+    if (!draft.trim()) { setSug(x => x.hits.length ? { hits: [], at: 0 } : x); return; }
+    const tm = setTimeout(() => {
+      const hits = emoteHits(emotePacks, draft);
+      let at = 0; try { if (hits.length && ref.current) at = Math.max(0, (window.innerHeight || 0) - ref.current.getBoundingClientRect().top + 8); } catch (e) {}
+      setSug({ hits, at });
+    }, 250);
+    return () => clearTimeout(tm);
+  }, [draft, emotePacks]);
   const clear = () => setDraft("");
   // 发完键盘别收（群里 2026-10-22「发一次消息键盘就自动下落，想连发只能再点一次输入框」）：
   //   发送键按下不抢焦点；有的手机照样先失焦了，那就看是不是刚失焦，是的话在这次点击里把焦点还回去
@@ -16741,7 +16776,8 @@ function DraftInput({ placeholder, inputStyle, inputProps, onSubmit, after, keep
       className: "flex-1 outline-none px-4 py-2.5",
       style: Object.assign({ borderRadius: 20, resize: "none", lineHeight: 1.45, maxHeight: DRAFT_MAX_H, overflowY: "auto", display: "block" }, inputStyle)
     }, inputProps || {})),
-    after ? after(draft, fire, clear) : null);
+    after ? after(draft, fire, clear) : null,
+    onEmote ? h(EmoteSuggest, { hits: sug.hits, anchor: sug.at, onPick: em => { setDraft(""); setSug({ hits: [], at: 0 }); onEmote(em); } }) : null);
 }
 function ReplyKey({ sending, disabled, title, onClick, hold }) {
   const t = useTheme();
@@ -20158,6 +20194,8 @@ function GroupThread({
   };
   // 群聊 + 面板：跟私聊对齐（匿名箱→投票、拍一拍→红包）
   const PANEL = [["location", "位置", "pin"], ["sticker", "表情包", "sticker"], ["photo", "照片", "picture"], ["voicemsg", "发语音", "wave"], ["voice", "语音通话", "handset"], ["video", "视频通话", "camcorder"], ["calllog", "通话记录", "clock"], ["chatsearch", "查找记录", "magnifier"], ["poll", "投票", "bars"], ["luck", "骰子 · 抽签", "dice"], ...(onStartAsk ? [["ask", "请示", "checklist"]] : []), ["transfer", "转账", "bill"], ["rp", "红包", "packet"], ...(onGroupDateInvite ? [["dateinvite", "邀约", "invite"]] : []), ["file", "文件", "file"]];
+  // 我发一张表情包：表情包面板和打字联想都走这一处
+  const sendMyEmote = em => sendRich({ role: "user", kind: "emote", url: em.url, keyword: em.keyword, content: "[表情] " + em.keyword + (em.selfFace ? "（画的是她自己）" : "") });
   const sendRich = msg => {
     onSendRich && onSendRich({ ts: Date.now(), ...msg });
     setPanel(false);
@@ -20722,6 +20760,7 @@ function GroupThread({
     color: t.fog
   })), h(DraftInput, {
     keepKey: group && group.id ? "group:" + group.id : null,
+    emotePacks: emotePacks, onEmote: sendMyEmote,
     inputProps: { "data-wk": "chatinput" },
     placeholder: gNarrBar && gKind === "dir" ? "往后往哪儿聊：比如聊到周末去哪儿玩…" : gNarrBar && gKind === "as" && gs.spectate ? "替 " + ((members.find(c => c.id === asId) || members[0] || {}).name || "TA") + " 说一句…" : chatMode === "ooc" ? "出戏说：跟演他们的那位说，可以让它改、也可以问状态…" : chatMode === "narr" ? "写一句旁白：下雨了、有人推门进来…" : gs.spectate ? "写一句旁白，推动剧情…" : "在群里发言…",
     inputStyle: {
@@ -20818,7 +20857,7 @@ function GroupThread({
       packs: emotePacks, emotes: emotes,
       onManage: () => { setSheet(null); onManageEmotes && onManageEmotes(); },
       caption: !!emoteCaption, onCaption: onEmoteCaption,
-      onPick: em => { sendRich({ role: "user", kind: "emote", url: em.url, keyword: em.keyword, content: "[表情] " + em.keyword + (em.selfFace ? "（画的是她自己）" : "") }); setSheet(null); }
+      onPick: em => { sendMyEmote(em); setSheet(null); }
     })
   ), rpView != null && messages[rpView] && messages[rpView].kind === "redpacket" && (() => { const rp = messages[rpView], mine = (rp.claims || []).find(c => c.me);
     const canOpen = !mine && (rp.claims || []).length < rp.count && !(rp.toId && rp.toId !== "me");
