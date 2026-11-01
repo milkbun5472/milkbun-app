@@ -14087,9 +14087,11 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         if (typeof htmlCardOf === "function" && htmlCardOf(w)) return acc.concat([w]);
         const bi = _biParse ? splitBilingual(w, hanLangOf(char)) : null;
         // 带译文的外语句不按逗号拆（她 2026-11-01：「Tu vois, j'avais raison !」劈成两泡，译文只挂在后一泡）：只在整句结束处拆，译文才对得上
-        const parts = _splitOn ? splitLongBubble(bi ? bi.text : w, bi ? false : !_body) : [bi ? bi.text : w];
+        // 本体模式开了「拆成短气泡」：逗号、空格也算断句，跟普通角色一样（她 2026-11-01：「开了切泡怎么没切」——一整段只靠空格断句）
+        const _commaOk = !_body || _s.bodySplit === true;
+        const parts = _splitOn ? splitLongBubble(bi ? bi.text : w, bi ? false : _commaOk) : [bi ? bi.text : w];
         // 键要归一化：②.5 那一步会削掉句尾那个句号，原样存就对不上了
-        if (bi && parts.length) bilingualSpread(parts, bi.zh, !_body).forEach((z, k) => { if (z) _biZh.set(bilingualKey(parts[k]), z); else _biCovered.add(bilingualKey(parts[k])); });
+        if (bi && parts.length) bilingualSpread(parts, bi.zh, _commaOk).forEach((z, k) => { if (z) _biZh.set(bilingualKey(parts[k]), z); else _biCovered.add(bilingualKey(parts[k])); });
         return acc.concat(parts);
       }, []);
       // 「第一：」挂在上一泡尾巴上的，挪到下一泡开头（2026-11-01）
