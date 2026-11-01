@@ -50,3 +50,12 @@ test("关钟：以前虚拟那段照旧是虚拟日子，之后的照现实；�
   const tick = app.slice(app.indexOf("const vDay = cid =>"), app.indexOf("anniv: { name: it.name"));
   assert.ok(tick.length > 0 && tick.length < 20000, "vDay 和用它的几处在同一轮 tick 里");
 }
+
+// 日历「我」那一页的今天和红线照主面具那只钟，跟主屏同一只
+{
+  const assert = require("node:assert/strict");
+  const comp = require("fs").readFileSync(require("path").join(__dirname, "..", "js", "components.js"), "utf8");
+  const app = require("fs").readFileSync(require("path").join(__dirname, "..", "js", "app.js"), "utf8");
+  assert.match(comp, /schedNowDate\(_viewChar\)\n\s*: \(typeof vclockMap === "function" && typeof vclockCfg === "function" && vclockCfg\(null\) \? new Date\(vclockMap\(Date\.now\(\), null\)\) : new Date\(\)\);/);
+  assert.match(app, /vclockCfg\(null\) \? new Date\(vclockMap\(now\.getTime \? now\.getTime\(\) : Number\(now\), null\)\) : now/, "主屏用的是同一只");
+}

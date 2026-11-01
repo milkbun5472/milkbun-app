@@ -4800,9 +4800,11 @@ function Calendar({ characters, calendar, calEvents, schedules, profile, period,
   const t = useTheme();
   // 从聊天页「看 TA 的日程」进来时直接落在那个人身上（原来那个入口指向已退场的行程 app）
   const [view, setView] = useState(initialView || "mine");
-  // 他的日程跟着钟排时，他那一页的「今天」和红线也照他那只钟（她 2026-10-20）；别的页照现实
+  // 他的日程跟着钟排时，他那一页的「今天」和红线也照他那只钟（她 2026-10-20）；
+  //   我自己那一页照主面具那只钟，跟主屏的钟和日历组件同一只（她 2026-11-01：「我开了虚拟时间怎么对不上了」——红线还停在现实钟点）
   const _viewChar = (characters || []).find(c => c && c.id === view) || null;
-  const today = _viewChar && typeof schedNowDate === "function" ? schedNowDate(_viewChar) : new Date();
+  const today = _viewChar && typeof schedNowDate === "function" ? schedNowDate(_viewChar)
+    : (typeof vclockMap === "function" && typeof vclockCfg === "function" && vclockCfg(null) ? new Date(vclockMap(Date.now(), null)) : new Date());
   const todayKey = calPadKey(today.getFullYear(), today.getMonth(), today.getDate());
   const cal = calendar || { world: {}, chars: {}, mine: {} };
   const per = period || { cycleLen: 28, periodLen: 5, starts: [], visibleTo: null };
