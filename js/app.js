@@ -20,7 +20,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v88.924";
+const APP_VERSION = "v88.925";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -10710,7 +10710,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   const [cardImportOpen, setCardImportOpen] = useState(false);
   const importCharCard = parsed => {
     const id = "char_" + Date.now();
-    pC(p => [...p, CharacterPronoun.newCharacter({ id, name: (parsed.name || "新角色").slice(0, 20), persona: parsed.persona || "", tagline: (parsed.tagline || "").slice(0, 40), color: "#5a6a7d" })]);
+    pC(p => [...p, CharacterPronoun.newCharacter(Object.assign({ id, name: (parsed.name || "新角色").slice(0, 20), persona: parsed.persona || "", tagline: (parsed.tagline || "").slice(0, 40), color: "#5a6a7d" },
+      parsed.avatarImage ? { avatarImage: parsed.avatarImage } : {}))]);
     if (parsed.longMem) setMemFor(id, parsed.longMem);
     (parsed.seeds || []).forEach(s => addMemEntry({ text: s.text, charIds: [id], knownBy: [id], pinned: s.pinned, source: "manual" }));
     // 卡里自带的世界书落成真正的世界书词条，只绑这个角色、只进聊天与线下（跟手建一条的默认去向一样）
@@ -35694,7 +35695,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     characters: liveChars,
     loreEntries: loreEntries,
     onAddLore: list => saveLore((list || []).concat(loreRef.current || [])),
-    onAddChar: o => { createCharFromAssistant(o); },
+    onAddChar: o => { importCharCard(o); },   // 跟档案馆导入角色卡同一条：自带世界书绑这个人、开场白、记忆一起落
     onOpenThemeStudio: () => { setConfigPage("themeStudio"); setScreen("config"); },
     // CSS／整套聊天美化只放进一处：读写都走聊天设置／群设置／线下设置自己那一份（秋秋改 CSS 用的也是这三个入口）
     groups: groups,
