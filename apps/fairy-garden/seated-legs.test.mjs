@@ -47,3 +47,17 @@ test('工位坐姿伸开膝盖并重新贴合衣摆，离开工位恢复普通�
  seat.setWork(false);assert.equal(seat.needsFit(),true);seat.fit();seat.update(1);assert.ok(knee.quaternion.angleTo(new T.Quaternion())>Math.PI/4);
  seat.update(0);vertices(d.model,d.body).forEach((v,i)=>assert.ok(v.distanceTo(before[i])<1e-7));
 });
+test('连续棉布衣摆包住抬起的裤腿，侧边与折边保持厚度，站立与上身不变',()=>{
+ const d=doll(),denim=d.mesh('outfit_fixture',[[-.16,.24,.06],[.16,.24,.06],[-.08,.16,.04]],[1,2,1],true);
+ const cotton=d.mesh('outfit_fixture_cotton',[[0,.315,.06],[0,.319,.055],[-.14,.32,0],[0,.7,.06],[0,.32,-.11]],[0,0,0,0,0],true);cotton.userData.continuousCottonVersion=1;
+ const before=vertices(d.model,cotton),seat=makeSeatedLegs(d.model,d.rig,[d.body,denim,cotton],d.morphs);seat.fit();
+ assert.equal(cotton.userData.seatDrapeAllPoses,true);const index=cotton.morphTargetDictionary.seatDrape;cotton.morphTargetInfluences[index]=1;
+ for(const r of d.rig)r.p.userData.bone.quaternion.setFromAxisAngle(new T.Vector3(1,0,0),-Math.PI/2);seat.update(1);
+ const posed=vertices(d.model,cotton),pants=vertices(d.model,denim);
+ assert.ok(posed[0].y>before[0].y+.02,'前摆在腰腿交界收起，不只把整片向前撑长');assert.ok(posed[0].z>posed[2].z+.04,'两侧保留弧度，不成为平板');assert.ok(posed[0].z>pants[0].z+.01);assert.ok(posed[2].x<pants[0].x-.01,'两侧也在裤子外面');
+ assert.ok(posed[0].z>posed[1].z+.0005,'不把翻折的内外两层压成同一张面');
+ for(const i of [3,4])assert.ok(posed[i].distanceTo(before[i])<1e-7,'衣领与后中缝不前移');
+ seat.setStraight(true);assert.equal(seat.needsFit(),true);seat.fit();assert.equal(seat.needsFit(),false);
+ seat.setStraight(false);assert.equal(seat.needsFit(),true);seat.fit();
+ cotton.morphTargetInfluences[index]=0;vertices(d.model,cotton).forEach((v,i)=>assert.ok(v.distanceTo(before[i])<1e-7));
+});

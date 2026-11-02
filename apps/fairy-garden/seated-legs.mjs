@@ -4,11 +4,20 @@ const smooth=x=>{x=Math.max(0,Math.min(1,x));return x*x*(3-2*x);};
 const SEATED_KNEE=Math.PI*5/18; // Let the shoes hang forward of a supported pelvis.
 export const WORK_SEATED_HIP=.20;
 const WORK_SEATED_KNEE=Math.PI/9;
+// Conservative extent of the posed trousers. A 2:1 rise returns the cotton
+// smoothly to the torso above the lap. Prefix/suffix maxima keep fitting
+// O(n log n + m log n), rather than scanning the denim for every cloth vertex.
+function lapExtent(points){
+ const rows=points.slice().sort((a,b)=>a[0]-b[0]),before=[],after=[];
+ for(let i=0;i<rows.length;i++)before[i]=Math.max(before[i-1]??-Infinity,rows[i][1]+2*rows[i][0]);
+ for(let i=rows.length-1;i>=0;i--)after[i]=Math.max(after[i+1]??-Infinity,rows[i][1]);
+ return y=>{let lo=0,hi=rows.length;while(lo<hi){const mid=(lo+hi)>>>1;if(rows[mid][0]<y)lo=mid+1;else hi=mid;}return Math.max((before[lo-1]??-Infinity)-2*y,after[lo]??-Infinity);};
+}
 // Extend the existing hip rig at runtime. The original model, textures and
 // standing shape stay intact; every outfit uses the same knee joints.
 export function makeSeatedLegs(model,rig,meshes,morphs){
- const body=meshes.find(m=>m.userData.skinBase),joints=[],fabric=[];let fittedAngle=null,work=false,fittedWork=null;
- if(!body||!morphs)return {attach(){},fit(){},setWork(){},needsFit(){return false;},update(){},rests:[]};
+ const body=meshes.find(m=>m.userData.skinBase),joints=[],fabric=[];let fittedAngle=null,work=false,fittedWork=null,straight=false,fittedStraight=null;
+ if(!body||!morphs)return {attach(){},fit(){},setWork(){},setStraight(){},needsFit(){return false;},update(){},rests:[]};
  model.updateMatrixWorld(true);
  for(const {p,label}of rig){
   const hip=p.userData.bone;if(!label.endsWith('Leg')||!hip)continue;
@@ -39,6 +48,7 @@ export function makeSeatedLegs(model,rig,meshes,morphs){
  }
  function attach(mesh){
   if(!mesh.isSkinnedMesh||mesh.userData.seatedLegs)return;
+  const cotton=!!mesh.userData.continuousCottonVersion;
   const geometry=mesh.geometry.clone(),indices=geometry.attributes.skinIndex,weights=geometry.attributes.skinWeight,positions=geometry.attributes.position;
   if(!indices||!weights)return;
   const bones=[...mesh.skeleton.bones,...joints.map(j=>j.knee)],inverses=[...mesh.skeleton.boneInverses.map(m=>m.clone()),...joints.map(j=>j.inverse.clone())];
@@ -73,7 +83,7 @@ export function makeSeatedLegs(model,rig,meshes,morphs){
    if(influences.length>4)throw Error('Knee binding exceeds four skin influences '+JSON.stringify({mesh:mesh.name,point:point.toArray(),influences:influences.map(([index,weight])=>[bones[index].name,weight])}));
    for(let k=0;k<4;k++){indices.setComponent(i,k,influences[k]?.[0]||0);weights.setComponent(i,k,influences[k]?.[1]||0);}
    const bodyWeight=influences.filter(([index])=>bones[index].name==='body').reduce((sum,[,weight])=>sum+weight,0);
-   if(mesh.userData.outfit&&!footwear&&(point.y>joints[0].at.y-.01||bodyWeight>.4)&&point.y<joints[0].hipPoint.y+.04)candidates.push(i);
+   if(mesh.userData.outfit&&!footwear&&(cotton||(point.y>joints[0].at.y-.01||bodyWeight>.4)&&point.y<joints[0].hipPoint.y+.04))candidates.push(i);
   }
   mesh.geometry=geometry;mesh.bind(new T.Skeleton(bones,inverses),mesh.bindMatrix);
   if(candidates.length){
@@ -83,6 +93,7 @@ export function makeSeatedLegs(model,rig,meshes,morphs){
    mesh.morphTargetDictionary={...values,seatDrape:geometry.morphAttributes.position.length-1};
    for(const index of Object.values(values))mesh.morphTargetInfluences[index]=old[index];
    fabric.push({mesh,candidates,attribute:geometry.morphAttributes.position.at(-1)});
+   if(cotton)mesh.userData.seatDrapeAllPoses=true;
   }
   mesh.userData.seatedLegs=true;if(footwear)mesh.userData.seatKneeAngle=kneeAngle;
  }
@@ -91,26 +102,50 @@ export function makeSeatedLegs(model,rig,meshes,morphs){
  // Chunky rear cuffs need a more open knee to clear the seat underside.
  function angle(){let a=work?WORK_SEATED_KNEE:SEATED_KNEE;for(const mesh of meshes){if(!mesh.userData.seatKneeAngle)continue;let visible=true;for(let o=mesh;o;o=o.parent)visible&&=o.visible;if(visible)a=Math.min(a,work&&mesh.userData.seatKneeAngle<SEATED_KNEE?Math.PI/18:mesh.userData.seatKneeAngle);}return a;}
  function fit(){
-  const bend=angle();fittedAngle=bend;fittedWork=work;
+  const bend=straight?0:angle();fittedAngle=bend;fittedWork=work;fittedStraight=straight;
   const saved=joints.map(j=>[j.hip.quaternion.clone(),j.knee.quaternion.clone()]);
   for(const j of joints){j.hip.quaternion.setFromAxisAngle(new T.Vector3(1,0,0),-Math.PI/2+(work?WORK_SEATED_HIP:0)).multiply(j.hipRest);j.knee.quaternion.copy(j.rest).multiply(new T.Quaternion().setFromAxisAngle(new T.Vector3(1,0,0),bend));}
   model.updateMatrixWorld(true);const inverse=model.matrixWorld.clone().invert();
   const floor=joints[0].hip.getWorldPosition(new T.Vector3()).applyMatrix4(inverse).y-.052;
   for(const {mesh,candidates,attribute}of fabric){
    const index=mesh.morphTargetDictionary.seatDrape,blend=mesh.morphTargetInfluences[index],seated=mesh.morphTargetDictionary.seated,previous=mesh.morphTargetInfluences[seated];if(seated!=null)mesh.morphTargetInfluences[seated]=1;mesh.morphTargetInfluences[index]=0;attribute.array.fill(0);
+   // The separate cotton shell has no authored seated morph: fit its hem over
+   // the real raised denim, including body sliders. Gather the lower front
+   // at the waist before fitting its depth: pushing a standing-length hem
+   // straight forward makes a flat apron. Keep the upper torso untouched.
+   const lap=[];
+   if(mesh.userData.seatDrapeAllPoses){
+    for(const under of meshes){if(under.userData.outfit!==mesh.userData.outfit||under===mesh||under.userData.sleeveSide||/_footwear|_shoes/.test(under.name))continue;
+     for(let i=0;i<under.geometry.attributes.position.count;i++){const v=under.localToWorld(under.getVertexPosition(i,new T.Vector3())).applyMatrix4(inverse);lap.push([v.y,v.z,Math.abs(v.x)]);}
+    }
+   }
+   const frontAt=lapExtent(lap),sideAt=lapExtent(lap.map(v=>[v[0],v[2]]));
+   const top=lap.reduce((y,v)=>Math.max(y,v[0]),-Infinity);
+   let hem=Infinity;
+   if(lap.length)for(const i of candidates){const v=mesh.localToWorld(mesh.getVertexPosition(i,new T.Vector3())).applyMatrix4(inverse);hem=Math.min(hem,v.y);}
    const si=mesh.geometry.attributes.skinIndex,sw=mesh.geometry.attributes.skinWeight;
    for(const i of candidates){
     const point=mesh.getVertexPosition(i,new T.Vector3());mesh.localToWorld(point);point.applyMatrix4(inverse);
-    const lift=Math.max(0,floor-point.y)*smooth((.14-point.z)/.06);if(!lift)continue;
+    let lift=Math.max(0,floor-point.y)*smooth((.14-point.z)/.06),forward=0,side=0;
+    if(lap.length){
+     // Smooth compression preserves ring order and the sewn hem thickness.
+     // Front and side weights retain the round shirt outline and long back.
+     const gather=Math.max(0,top-.022-hem)*smooth((top+.12-point.y)/(top+.12-hem))*smooth((point.z+.10)/.12);
+     lift=Math.max(lift,gather);
+     const y=point.y+lift,front=frontAt(y);
+     forward=Math.max(0,front+.018-point.z*.85)*smooth((point.z+.005)/.115);
+     side=Math.sign(point.x)*Math.max(0,sideAt(y)+.014-Math.abs(point.x)*.95)*smooth(Math.abs(point.x)/.14);
+    }
+    if(!lift&&!forward&&!side)continue;
     const skin=new T.Matrix4();skin.elements.fill(0);
     for(let k=0;k<4;k++){const bi=si.getComponent(i,k),weight=sw.getComponent(i,k);if(!weight)continue;const bone=new T.Matrix4().multiplyMatrices(mesh.skeleton.bones[bi].matrixWorld,mesh.skeleton.boneInverses[bi]);for(let n=0;n<16;n++)skin.elements[n]+=bone.elements[n]*weight;}
     const matrix=new T.Matrix4().multiplyMatrices(inverse,skin).multiply(mesh.bindMatrix);
-    const delta=new T.Vector3(0,lift,0).applyMatrix3(new T.Matrix3().setFromMatrix4(matrix).invert());attribute.setXYZ(i,delta.x,delta.y,delta.z);
+    const delta=new T.Vector3(side,lift,forward).applyMatrix3(new T.Matrix3().setFromMatrix4(matrix).invert());attribute.setXYZ(i,delta.x,delta.y,delta.z);
    }
    attribute.needsUpdate=true;mesh.morphTargetInfluences[index]=blend;if(seated!=null)mesh.morphTargetInfluences[seated]=previous;
   }
   joints.forEach((j,i)=>{j.hip.quaternion.copy(saved[i][0]);j.knee.quaternion.copy(saved[i][1]);});model.updateMatrixWorld(true);
  }
  for(const mesh of meshes)attach(mesh);
- return {attach,fit,setWork:value=>{work=!!value;},needsFit:()=>fittedAngle!==angle()||fittedWork!==work,rests:joints.map(j=>[j.knee,j.rest]),update(blend){const bend=angle();for(const joint of joints)joint.knee.quaternion.copy(joint.rest).multiply(new T.Quaternion().setFromAxisAngle(new T.Vector3(1,0,0),bend*blend));}};
+ return {attach,fit,setWork:value=>{work=!!value;},setStraight:value=>{straight=!!value;},needsFit:()=>fittedAngle!==(straight?0:angle())||fittedWork!==work||fittedStraight!==straight,rests:joints.map(j=>[j.knee,j.rest]),update(blend){const bend=angle();for(const joint of joints)joint.knee.quaternion.copy(joint.rest).multiply(new T.Quaternion().setFromAxisAngle(new T.Vector3(1,0,0),bend*blend));}};
 }
