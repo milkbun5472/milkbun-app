@@ -108,7 +108,43 @@
       .map(m => ({ id: m.id, cat: m.cat, catZh: m.catZh, catHint: m.catHint, name: m.name, hint: m.hint, text: m.text }));
     return JSON.stringify({ modules: used, presets: [{ id: p.id, name: p.name, mods: (p.mods || []).slice(), free: p.free || "", freePos: p.freePos || "after" }] });
   }
+  // 人设连着卡里自带的世界书、开场白、长期记忆、记忆种子一起带（群友 2026-11-01：人设＋自带世界书一万多字，传上来只剩 600 字）
+  //   ⚠️只给【从文件读的角色卡】用：从 app 里挑的人设走 packPersona，长期记忆这些是 TA 的私事，一样不带
   const packPersona = c => JSON.stringify({ kind: "qq-persona", name: c.name || "", tagline: c.tagline || "", persona: c.persona || "" });
+  const packPersonaCard = c => {
+    const o = JSON.parse(packPersona(c));
+    const lore = JSON.parse(packLore(c.lore || [])).entries;
+    if (lore.length) o.lore = lore;
+    if (c.greeting) o.greeting = String(c.greeting);
+    if (c.longMem) o.longMem = String(c.longMem);
+    if ((c.seeds || []).length) o.seeds = c.seeds.map(x => ({ text: String(x.text || ""), pinned: !!x.pinned })).filter(x => x.text);
+    return JSON.stringify(o);
+  };
+  // 一份文件读成人设的几样；纯世界书 json 只给词条（跟人设一起选，就成了这个人自带的世界书）
+  function personaPart(text, name) {
+    const t = String(text || "").trim(), d = tryJSON(t);
+    const list = d && typeof loreEntriesFromJson === "function" && !(d.name || d.data || d.persona || d.description) ? loreEntriesFromJson(d) : null;
+    if (list && list.length) return { lore: list };
+    const c = typeof parseCharCard === "function" ? parseCharCard(t) : null;
+    return {
+      name: String((c && c.name) || (d && d.name) || "").slice(0, 20), tagline: (c && c.tagline) || (d && d.tagline) || "",
+      persona: String((c && c.persona) || (d && (d.persona || d.description)) || t), lore: (c && c.lore) || [],
+      greeting: (c && c.greeting) || "", longMem: (c && c.longMem) || "", seeds: (c && c.seeds) || [], file: stem(name)
+    };
+  }
+  function mergePersona(parts, fallbackName) {
+    const ps = parts.filter(x => x.persona);
+    const nm = ((ps.find(x => x.name) || {}).name || fallbackName || "").slice(0, 20);
+    const c = {
+      name: nm, tagline: (ps.find(x => x.tagline) || {}).tagline || "",
+      persona: ps.map((x, i) => i ? "【" + x.file + "】\n" + x.persona : x.persona).join("\n\n"),
+      lore: [].concat(...parts.map(x => x.lore || [])), greeting: (ps.find(x => x.greeting) || {}).greeting || "",
+      longMem: ps.map(x => x.longMem).filter(Boolean).join("\n\n"), seeds: [].concat(...ps.map(x => x.seeds || []))
+    };
+    if (!c.persona) throw new Error("只选到了世界书，人设那份也一起选上");
+    const extra = (c.lore.length ? "＋" + c.lore.length + " 条世界书" : "") + (c.greeting ? "＋开场白" : "") + (c.longMem ? "＋长期记忆" : "") + (c.seeds.length ? "＋" + c.seeds.length + " 条记忆种子" : "");
+    return { payload: packPersonaCard(c), title: nm, note: "人设「" + nm + "」，" + c.persona.length + " 字" + extra };
+  }
 
   // Word 会把 CSS 里的符号「改好看」：弯引号、长破折号、全角标点——原样贴进去整段失效。
   //   只换这几样，别的一个字不动。
@@ -168,11 +204,8 @@
     }
     if (kind === "doc") return { payload: t, title: base, note: t.length + " 字的文档" };
     if (kind === "persona") {
-      // 角色卡认法跟档案馆「导入角色卡」同一份（json 卡、带小标题的 txt 都认）；只取名字、简介、正文
-      const c = typeof parseCharCard === "function" ? parseCharCard(t) : null;
-      const nm = String((c && c.name) || (d && d.name) || base).slice(0, 20);
-      const persona = String((c && c.persona) || (d && (d.persona || d.description)) || t);
-      return { payload: packPersona({ name: nm, tagline: (c && c.tagline) || (d && d.tagline) || "", persona }), title: nm, note: "人设「" + nm + "」，" + persona.length + " 字" };
+      // 角色卡认法跟档案馆「导入角色卡」同一份（json 卡、带小标题的 txt 都认）
+      return mergePersona([personaPart(t, name)], base);
     }
     throw new Error("不认得的类别");
   }
@@ -210,7 +243,8 @@
       return "已放进预设台：" + r.presets + " 份预设" + (r.modules ? "、" + r.modules + " 个模块" : "");
     }
     if (kind === "persona") {
-      props.onAddChar(Object.assign({ name: String(d.name || title).slice(0, 20), tagline: String(d.tagline || "").slice(0, 40), persona: String(d.persona || d.description || "") },
+      props.onAddChar(Object.assign({ name: String(d.name || title).slice(0, 20), tagline: String(d.tagline || "").slice(0, 40), persona: String(d.persona || d.description || ""),
+        lore: Array.isArray(d.lore) ? d.lore : [], greeting: d.greeting || "", longMem: d.longMem || "", seeds: Array.isArray(d.seeds) ? d.seeds : [] },
         opts && opts.avatarImage ? { avatarImage: opts.avatarImage } : {}));
       return "";
     }
@@ -521,7 +555,7 @@
           const d = JSON.parse(it.payload);
           if (it.kind === "lore") preview = (d.entries || []).map(e => "【" + (e.title || "未命名") + "】" + String(e.payload || "").slice(0, 140)).join("\n\n");
           else if (it.kind === "style") preview = d.prompt;
-          else if (it.kind === "persona") preview = (d.tagline ? d.tagline + "\n\n" : "") + (d.persona || d.description || "");
+          else if (it.kind === "persona") preview = (d.tagline ? d.tagline + "\n\n" : "") + (d.persona || d.description || "") + ((d.lore || []).length ? "\n\n自带世界书 " + d.lore.length + " 条：" + d.lore.map(e => e.title || "未命名").join("、") : "");
           else if (it.kind === "preset") preview = (d.presets || []).map(p => p.name + "：" + (p.mods || []).length + " 个模块" + (p.free ? "，另有一段手写" : "")).join("\n") + ((d.modules || []).length ? "\n\n自带模块：" + d.modules.map(m => m.name).join("、") : "");
           else if (isChatLook) preview = "一整套聊天美化，里面有：" + Object.keys(d.look || {}).map(k => ({ skin: "皮肤", bubble: "气泡", font: "字体", chatBg: "背景", layout: "排版", customCSS: "CSS" })[k] || k).join("、") + "。\n导进来时选放给哪个人的聊天窗或哪个群。";
           else preview = "这是一份" + KZH[it.kind] + "包，导进来会先在主题工作台里预览，挑好要哪几样再换上。";
@@ -1113,7 +1147,12 @@
       try {
         let got;
         if (fs.length === 1) got = fromFile(kind, await readAny(fs[0]), fs[0].name);
-        else if (kind === "lore") {
+        else if (kind === "persona") {
+          const parts = [];
+          for (const f of fs) parts.push(personaPart(await readAny(f), f.name));
+          got = mergePersona(parts, stem(fs[0].name));
+          got.note = fs.length + " 份文件，" + got.note;
+        } else if (kind === "lore") {
           const all = [];
           for (const f of fs) all.push(...JSON.parse(fromFile("lore", await readAny(f), f.name).payload).entries);
           got = { payload: packLore(all), title: stem(fs[0].name), note: fs.length + " 份文件，共 " + all.length + " 条词条" };
@@ -1210,7 +1249,7 @@
       : kind === "style" ? "一份 txt／docx／md，整份就是这条文风"
       : kind === "preset" ? "文风台导出的预设 json"
       : kind === "doc" ? "txt／md／docx（Word 里的字会读出来），原样传上去；一次选好几份会按顺序接成一份"
-      : "角色卡 json，或者 txt／docx（名字、简介、人设照档案馆导入角色卡那样认）；人设拆成好几个 Word 的，一次全选上，按选的顺序接成一份";
+      : "角色卡 json，或者 txt／docx（照档案馆导入角色卡那样认，卡里自带的世界书、开场白一起带上）；人设拆成好几个 Word、或者另有一份世界书 json 的，一次全选上，接成这一个人";
     return h("div", { "data-wk": "nestupload", className: "h-full flex flex-col", style: shell(t) },
       h(Head, { zh: edit ? "改一改" : "传一个上去", onBack: onClose, bg: "transparent" }),
       edit ? null : h(Cubbies, { t, kind, noAll: true, onPick: setKind }),

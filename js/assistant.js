@@ -305,7 +305,8 @@
     },
     persona: {
       zh: "角色人设",
-      read: ctx => (ctx.characters || []).map(c => ({ id: c.id, name: c.name, text: c.persona })),
+      // 配角的简介就是它的 persona（她 2026-11-02：「秋秋不能直接贴 npc 简介更新吗」）：读的时候连配角一起，改前才摆得出来、find 才对得上
+      read: ctx => (ctx.allChars || ctx.characters || []).map(c => ({ id: c.id, name: c.name, text: c.persona })),
       write: (id, patch, ctx) => {
         if (!ctx.onPatchCharacter) throw new Error("这个页面没接角色写入口");
         ctx.onPatchCharacter(id, { persona: patch.text });
@@ -314,7 +315,7 @@
     },
     appearance: {
       zh: "角色外貌",
-      read: ctx => (ctx.characters || []).map(c => ({ id: c.id, name: c.name, text: c.appearance })),
+      read: ctx => (ctx.allChars || ctx.characters || []).map(c => ({ id: c.id, name: c.name, text: c.appearance })),
       write: (id, patch, ctx) => {
         if (!ctx.onPatchCharacter) throw new Error("这个页面没接角色写入口");
         ctx.onPatchCharacter(id, { appearance: patch.text });
@@ -915,7 +916,7 @@
     });
     // 配角和关系线（她 2026-10-10）：关系不多就整张给；多了只给跟这会儿在说的人沾边的那几条
     const npcs = (ctx.allChars || []).filter(c => c && c.npc).slice(0, 60).map(c => ({ 名字: c.name, id: c.id,
-      在谁身边: c.ownerId === "me" ? "我" : c.ownerId ? whoName(c.ownerId, ctx) : "（不挂在谁身边）", 认识她本人: !!c.knowsUser, 简介: clip(c.persona, 120) || "（空）" }));
+      在谁身边: c.ownerId === "me" ? "我" : c.ownerId ? whoName(c.ownerId, ctx) : "（不挂在谁身边）", 认识她本人: !!c.knowsUser, 简介: clip(c.persona, 600) || "（空）" }));
     const R = (ctx.relsOf && ctx.relsOf()) || {}, rk = Object.keys(R);
     const hotAll = focusIds(ctx.allChars || list, focus, 12);
     const relRows = rk.filter(k => rk.length <= 120 || k.split("->").some(x => hotAll.has(x) || hot.has(x))).slice(0, 160)
@@ -1005,7 +1006,7 @@
       + "     **别对它们写 padding 简写，也别把 padding-top（底栏是 padding-bottom）写成死数**——一写就把安全区抹了，顶栏钻进时间、信号那条状态栏底下，看起来像「顶栏太高、跟时间叠在一起」。\n"
       + "     要调上下留白就写 padding-top: calc(var(--app-safe-top) + 6px) !important（底栏用 var(--app-safe-bottom)），左右单独写 padding-left/right。\n"
       + "     顶栏里用 position:absolute; top:50% 居中的东西（名字、头像）会比两边按钮高半截刘海——要写 top: calc(50% + var(--app-safe-top) / 2) !important。她说「名字／头像太高了、没跟按钮对齐」就先找这个——改的是【她 CSS 里写了 top:50% 的那一条】（多半是 headname，中间那块名字加小图标），不是 avatar：顶栏的 avatar 常常已经被她隐藏了，改它看不出任何变化。\n"
-      + "     她说「顶栏太高／跟时间叠了／顶栏跑到最上面去了」：先在她现有的 CSS 里找对 chathead 的 padding、min-height、height、position:absolute/fixed，照上面这条改回来，别再往上加新的。同一个选择器写了好几块的，【越靠后的越算数】：在前面补一条留白，后面那块 height:52px／padding:0 14px 照样把它盖掉（群里 2026-10-19 就是这样，秋秋补了两回都没用）——要改就改最后那块，或者把那几块并成一块。\n"
+      + "     她说「顶栏太高／跟时间叠了／顶栏跑到最上面去了」：先在她现有的 CSS 里找对 chathead 的 padding、min-height、height、position:absolute/fixed，照上面这条改回来，别再往上加新的。同一个选择器写了好几块的，【越靠后的越算数】：在前面补一条留白，后面那块 height:52px／padding:0 14px 照样把它盖掉——要改就改最后那块，或者把那几块并成一块。\n"
       // 群里 2026-10-19：她要「底栏透明」，秋秋给了 background:transparent，底栏下面那截露出一条米色，补了 body、外层都没用
       + "     她说「底部不贴边／最底下多一条颜色／底栏下面露一截」：是底栏（composer）没把自己的颜色铺到屏幕最底。底栏要写【实色或渐变】＋ padding-bottom: var(--app-safe-bottom) !important，一路铺到底；她想要「透明」，就把底栏刷成跟聊天底色同一个颜色，别写 transparent——透明了露出来的是底下那层，不是她的背景。别去刷 body、外壳。\n"
       + "  【共用件上的（顶栏、半窗、空状态、头像、开关、输入框这些，绝大多数页面都有）】\n" + fmt(ts.WK_COMMON) + "\n"
@@ -1169,7 +1170,7 @@
       + "模型不认可选字段；出图被上游审核拒。这种时候通常不需要改动稿，除非改一处设置就能解决。\n\n"
       + "【你能动手改的东西·只有这几样】\n"
       + "· style 文风预设（写给 AI 的文风提示词；id 留空＝新建一份）\n"
-      + "· persona 角色人设　· appearance 角色外貌\n"
+      + "· persona 角色人设　· appearance 角色外貌（配角也用这两样：配角的简介就是它的 persona，id 填快照「配角」那一栏的 id）\n"
       + "· newchar 从头写一个新角色，落进人格档案馆（id 留空；text 是一份 JSON：{\"name\":\"名字\",\"persona\":\"完整人设\",\"appearance\":\"外貌\",\"tagline\":\"一句话简介\",\"gender\":\"性别\",\"birthday\":\"MM-DD\"}，name 和 persona 必填，其余可省）。"
       + "她说「帮我写个人设／捏个角色」时：她给了的那几样照她的写，没给的按她选的世界书、她说过的话由你来定（她说「其他随便」就是交给你）；什么都没说才先问一句是谁、什么世界。人设写成能直接拿去聊的完整一份，别留「待补充」。建好之后再改，用 persona／appearance／profile 那几条。\n"
       + "· mask 她自己的面具（快照【面具】那一栏；角色眼里的「她」就是这一张）：id＝main 改主面具，new 新建一张副面具，其余照抄那一张的 id；"
@@ -1255,7 +1256,7 @@
       + "【最重要的规矩】你给出的 patch 只是【草稿】。" + uName + " 会一条条看过再决定应不应用，所以：\n"
       + "· 不填 find 的时候，text 必须是【改完的完整内容】，不是 diff、不是「在原文基础上加一句」。\n"
       + "· 一次别超过 3 条 patch（导世界书、连一串关系、建一批配角——全是 lore／rel／npc 的一轮可以到 12 条）；纯粹问功能的时候给空数组，光用 reply 答她。\n"
-      + "· **卡只跟着她【最新这一句】走**：前几轮出过的卡她已经看到了（应没应用是她的事），不许再出一遍、也不许换个说法再出。她这一句是在聊天、道谢、吐槽、问你怎么想，没叫你改东西，patches 就给空数组，只用 reply 跟她说话。（她 2026-10-20：「做完卡想聊天，它还是每轮带着卡」）\n"
+      + "· **卡只跟着她【最新这一句】走**：前几轮出过的卡她已经看到了（应没应用是她的事），不许再出一遍、也不许换个说法再出。她这一句是在聊天、道谢、吐槽、问你怎么想，没叫你改东西，patches 就给空数组，只用 reply 跟她说话。\n"
       + "· 拿不准她想要什么就先问，别擅自动手。改人设尤其要谨慎——那是她攒了很久的东西。\n\n"
       + (pageLine(ctx.page) ? pageLine(ctx.page) + "\n\n" : "")
       + manualBlock(question, here && here.man, extraIds) + "\n\n"

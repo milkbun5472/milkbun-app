@@ -2259,7 +2259,7 @@ function Forum({
   onStartPM, onStartCharPM, onDelPM, onClearPMs,
   onPostMine, onGenCharPost, onToggleFollow, onForwardToChat, onForwardToGroup,
   onRefreshPMs, onSendPM, onDelPMMsg, onForwardToPM, onAskWechat, onOpenWechat, onMarkPMRead, onEditMe, onEditCharMeta, onEnsureCharMeta, onToggleForumChar, onRenameCharAlt, onRegenCharAlt,
-  onEditPost, onDeletePost, onDeletePosts, onDeleteFloor, onClearBoard, onRenameBoard, onDropBoard,  // 删帖（她 2026-09-19）：一条一条删，或者整版清空；onDeletePosts 多选一起删
+  onEditPost, onPinFloor, onDeletePost, onDeletePosts, onDeleteFloor, onClearBoard, onRenameBoard, onDropBoard,  // 删帖（她 2026-09-19）：一条一条删，或者整版清空；onDeletePosts 多选一起删
   onGenCharPosts,              // 请角色来发帖（她 2026-09-23）
   toast
 }) {
@@ -2789,6 +2789,11 @@ function Forum({
             h("div", { className: "flex items-center gap-1.5", style: { flexShrink: 0, whiteSpace: "nowrap" } },
               h("span", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog } }, xhs ? timeAgo(cm.ts || cm.visibleAt) + " " + forumIpOf(cm, c) : (cm.floor || i + 2) + " 楼"),
               fresh && newTag(),
+              post.pinFloor && post.pinFloor === cm.id && h("span", { "data-wk": "fopintag", style: { flexShrink: 0, fontFamily: F_BODY, fontSize: "calc(9.5px * var(--app-fs, 1))", color: FORUM_SKIN.accent, border: "1px solid " + FORUM_SKIN.accent, borderRadius: 4, padding: "0 4px", lineHeight: 1.5 } }, post.pinBy === "op" ? "楼主置顶" : "置顶"),
+              // 置顶这一楼：只在她自己的帖子下面有；再点一下取消
+              onPinFloor && post.authorType === "me" && cm.id && h("button", { "data-wk": "fopin", "data-on": post.pinFloor === cm.id ? "1" : "0", onClick: e => { e.stopPropagation(); onPinFloor(post.id, post.pinFloor === cm.id ? null : cm.id, "me"); },
+                title: post.pinFloor === cm.id ? "取消置顶" : "置顶这一楼", className: "shrink-0 active:opacity-60",
+                style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: post.pinFloor === cm.id ? FORUM_SKIN.accent : FORUM_SKIN.fog, padding: "0 2px" } }, post.pinFloor === cm.id ? "取消置顶" : "置顶"),
               // 转发这一楼（群友 2026-10-18）：跟转帖同一个面板，私聊、群聊、论坛私信都能去
               cm.content && h("button", { onClick: e => { e.stopPropagation(); setFwd({ board: post.board, title: "「" + String(post.title || "").slice(0, 20) + "」里的一楼", body: cm.content, authorName: cm.authorName, anon: !!(cm.anon || post.anon) }); },
                 title: "转发这一楼", "aria-label": "转发这一楼", className: "shrink-0 active:opacity-60 flex items-center", style: { padding: "0 2px" } }, h(ISend, { size: 13, color: FORUM_SKIN.fog })),
@@ -2933,11 +2938,15 @@ function Forum({
   }
   // ---- 帖子详情 ----
   function detail() {
-    const p = open;
+    // 读帖子的最新那份：点进来时存的 open 是一份旧快照，置顶、改帖之后要看得见（她 2026-11-02）
+    const p = ((posts || []).find(x => x && x.id === open.id)) || open;
     const allFloors = forumFloorOrder(cmts[p.id] || []);
     const xhs = p.fmt === "xhs";
     // 小红书评论区默认按热度：赞多的在上面
     const list = xhs ? allFloors.filter(forumVisible).sort((a, b) => (xhsAuthorReplied(p, b) ? 1 : 0) - (xhsAuthorReplied(p, a) ? 1 : 0) || xhsLikes(p, b) - xhsLikes(p, a)) : allFloors.filter(forumVisible);   // 作者回过的评论排最前（她 2026-10-26）
+    // 置顶的那一楼排最上面（她 2026-11-02）：楼号不变，只是挪到前面
+    const pinAt = p.pinFloor ? list.findIndex(f => f && f.id === p.pinFloor) : -1;
+    if (pinAt > 0) list.unshift(list.splice(pinAt, 1)[0]);
     const waitingFloors = Math.max(0, allFloors.length - list.length);
     const loadingC = gen && gen.forumC === p.id;
     const moreC = gen && gen.forumMore === p.id;
@@ -6227,7 +6236,7 @@ function TtsApiConfig({ toast, characters, onAssignVoice }) {
       c.provider === "minimax" && h("div", { className: "pt-4 mt-4", style: { borderTop: "1px dashed " + t.line } },
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.ink, marginBottom: 4 } }, "语气标记 · 先听一条"),
         h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.6, marginBottom: 9 } },
-          "⭐实测过了（她 2026-09-21 在这儿听的）：**停顿 <#0.5#> 认**，圆括号里的英文标记不认——那几个词会被当成单词念出来。"
+          "⭐实测过了：**停顿 <#0.5#> 认**，圆括号里的英文标记不认——那几个词会被当成单词念出来。"
           + "所以角色那边只教了停顿这一样；万一正文里真出现了别的标记，送去合成之前会剥掉，不用管。"
           + "这一格仍旧把【你写的原文】原样送上去，想再验一次、或者换个模型再试都行。"
           + "⚠️按字符计费，跟平时听语音一样。"),
@@ -8957,8 +8966,9 @@ function CharPhotoAlbum({ characters, toast }) {
   // 多选删（她 2026-11-01「搞个多选」）：点「多选」后点格子是勾，底下一排「全选／删掉 N 张」
   const [pick, setPick] = useState(null);   // null＝没在多选；Set＝勾着的键
   const delKeys = ks => (typeof requestAppConfirm === "function" ? requestAppConfirm : (a, b, go) => { if (window.confirm(a + "\n" + b)) go(); })(
-    "删掉这 " + ks.length + " 张照片？", "删了就没了：聊天里那几条消息还在，图那块会空着。想留着先点开存到手机。",
-    async () => { for (const k of ks) { try { await idbImgDel(k); await idbImgDel(k + "_raw").catch(() => {}); } catch (e) {} }
+    "删掉这 " + ks.length + " 张照片？", "照片和聊天里发这张的那条消息会一起删掉，删了就没了。想留着先点开存到手机。",
+    // 删一处、处处没（她 2026-11-02）：走 app 那一份 purgeImages——消息、照片库、像素一起
+    async () => { if (window.__purgeImages) await window.__purgeImages(ks); else for (const k of ks) { try { await idbImgDel(k); await idbImgDel(k + "_raw").catch(() => {}); } catch (e) {} }
       const gone = new Set(ks); setKeys(x => (x || []).filter(k => !gone.has(k))); setPick(null); setAt(-1); toast && toast("删掉了 " + ks.length + " 张"); }, "删掉");
   useEffect(() => { let live = true; (typeof idbImgKeys === "function" ? idbImgKeys() : Promise.resolve([])).then(k => { if (live) setKeys(k.filter(x => !String(x).endsWith("_raw"))); }); return () => { live = false; }; }, []);
   const mine = c => (keys || []).filter(k => k.indexOf("img_" + c.id + "_") === 0 || k.indexOf("img_pdiary_" + c.id + "_") === 0).reverse();
@@ -9004,8 +9014,8 @@ function LocalPhotoLibrary({ toast }) {
   // 多选移出（她 2026-11-01「要」：跟「TA 们拍的照片」同一个样子）
   const [pick, setPick] = useState(null);
   const dropMany = ks => (typeof requestAppConfirm === "function" ? requestAppConfirm : (x, y, go) => { if (window.confirm(x + "\n" + y)) go(); })(
-    "把这 " + ks.length + " 张移出本机照片库？", "只是从照片库拿掉，聊天里发过的那几张照旧在。",
-    async () => { for (const k of ks) { try { await idbAlbumDel(k); } catch (e) {} } setPick(null); await refresh(); toast && toast("移出了 " + ks.length + " 张"); }, "移出");
+    "删掉这 " + ks.length + " 张？", "聊天里发这几张的那几条消息会一起删掉，删了就没了。想留着先点开存到手机。",
+    async () => { if (window.__purgeImages) await window.__purgeImages(ks); else for (const k of ks) { try { await idbAlbumDel(k); } catch (e) {} } setPick(null); setPreview(null); await refresh(); toast && toast("删掉了 " + ks.length + " 张"); }, "删掉");
   const [shareCaption, setShareCaption] = useState("");
   const [sharing, setSharing] = useState(false);
   const ref = useRef(null);
@@ -9046,15 +9056,15 @@ function LocalPhotoLibrary({ toast }) {
       h("button", { onClick: () => setPick(p => p && p.size === rows.length ? new Set() : new Set(rows.map(r => r.imageRef))), className: "active:opacity-60", style: { minHeight: 40, padding: "0 12px", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.sub } }, pick.size === rows.length && rows.length ? "全不选" : "全选"),
       h("div", { className: "flex-1" }),
       h("button", { "data-wk": "localphotosavemany", disabled: !pick.size, onClick: () => savePickedImgs(rows.map(r => r.imageRef).filter(k => pick.has(k)), "照片", toast, left => setPick(left.length ? new Set(left) : null)), className: "active:opacity-70", style: { minHeight: 40, padding: "0 14px", borderRadius: 999, border: "1px solid " + t.line, color: pick.size ? t.ink : t.fog, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))" } }, "存 " + pick.size + " 张"),
-      h("button", { "data-wk": "localphotodropmany", disabled: !pick.size, onClick: () => dropMany(Array.from(pick)), className: "active:opacity-70", style: { minHeight: 40, padding: "0 16px", borderRadius: 999, background: pick.size ? "#c25a4a" : t.line, color: "#fff", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))" } }, "移出 " + pick.size + " 张")) : null,
+      h("button", { "data-wk": "localphotodropmany", disabled: !pick.size, onClick: () => dropMany(Array.from(pick)), className: "active:opacity-70", style: { minHeight: 40, padding: "0 16px", borderRadius: 999, background: pick.size ? "#c25a4a" : t.line, color: "#fff", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))" } }, "删掉 " + pick.size + " 张")) : null,
     // ⚠️「移出」放在图片正下方、做成一颗看得见的按钮（她 2026-11-01 群友：「本机照片库还是没办法删除」）：
     //   原来是最底下一行白字，有的浏览器点到图片会在屏幕底部浮一排自己的看图按钮（下载／网格／转发），正好盖住它。
     //   底下再留一截空，整层可滚，别的按钮也不会被压在最底下。
     preview ? h("div", { className: "fixed inset-0 z-50 flex items-center justify-center", onClick: () => setPreview(null), style: { background: "rgba(0,0,0,.82)", padding: "20px 20px 120px", overflowY: "auto" } },
       h("div", { onClick: e => e.stopPropagation(), style: { width: "100%", maxWidth: 520, margin: "auto 0" } },
         h("img", { src: resolveImg(preview.imageRef), alt: preview.caption || "照片", style: { width: "100%", maxHeight: "60vh", objectFit: "contain", borderRadius: 10 } }),
-        h("button", { "data-wk": "localphotodrop", onClick: async () => { await idbAlbumDel(preview.imageRef); setPreview(null); await refresh(); toast && toast("移出了，聊天里那张还在"); }, className: "w-full active:opacity-70",
-          style: { color: "#fff", background: "rgba(194,90,74,.85)", borderRadius: 8, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", padding: 11, marginTop: 10 } }, "移出本机照片库"),
+        h("button", { "data-wk": "localphotodrop", onClick: () => dropMany([preview.imageRef]), className: "w-full active:opacity-70",
+          style: { color: "#fff", background: "rgba(194,90,74,.85)", borderRadius: 8, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", padding: 11, marginTop: 10 } }, "删掉这张"),
         h("textarea", { "data-wk": "textarea", value: shareCaption, onChange: e => setShareCaption(e.target.value), maxLength: 500, placeholder: "分享给言秋前，写一句这张照片是什么…", style: { width: "100%", minHeight: 66, marginTop: 10, borderRadius: 8, padding: 10, background: "rgba(255,255,255,.12)", color: "#fff", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", outline: "none" } }),
         h("button", { disabled: sharing || (!preview.bridgeId && !shareCaption.trim()), onClick: async () => {
           if (sharing) return; setSharing(true);
@@ -10693,7 +10703,7 @@ function MemCfgSheet({ cfg, onSave, onClose, onPurgeWithered, witheredCount, onD
     // 线下那份还被一个写死的 3000 卡着，「线下回看几拍」调大了也带不进来。
     slider("短期窗字符预算", c.recentBudget || 8000, 3000, 60000, 1000, " 字", v => set({ recentBudget: v }), "上面那些原文最多带这么多字进上下文——长消息少带几条、短消息多带几条。调大记得更全、更费、更慢（单聊回复最少带 1.4 万字的聊天，拉过这个数才多带；条数看各人聊天设置里的「记忆上下文条数」）。超出的老内容由自动抽取+摘要兜底。线下描写最多占走这里的三成（所以这根拉大了，线下才带得远）。"),
     slider("跨情境回看时间窗", c.crossHours != null ? c.crossHours : 72, 12, 336, 12, " 小时", v => set({ crossHours: v }), "四个情境（单聊线上/线下·群聊线上/线下）互相衔接时，往回看多久内在别处发生的事。调大接得上更早的细节、更费；调小只带最近的。上限 14 天。"),
-    slider("跨情境每段字符预算", c.crossBudget != null ? c.crossBudget : 800, 200, 3000, 100, " 字", v => set({ crossBudget: v }), "上面那些跨情境的近况，每一段最多带这么多字。按次收费尽管拉大——衔接更全、输出不额外收费；想省再调小。"),
+    slider("跨情境每段字符预算", c.crossBudget != null ? c.crossBudget : 800, 200, 20000, 200, " 字", v => set({ crossBudget: v }), "上面那些跨情境的近况，每一段最多带这么多字（群聊那段按时间从新往旧取，满了就停；每句最多带 200 字）。按次收费尽管拉大——衔接更全、输出不额外收费；想省再调小。"),
     // 线下那半（她 2026-09-13：「50、3 天都是设置可以改的，但是 40 是钉死的」）。
     // ⚠️只放这两根。「摘录留多少字」「线下最多占三成预算」留在代码里——那是怎么压的手艺，
     //   不是她需要天天拧的旋钮；旋钮多了每一根都变得不值钱。

@@ -369,6 +369,8 @@
               h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: pageColor("impression", "ink", "rgba(94,79,58,.8)"), textAlign: "right", marginTop: 10 } }, "—— " + (c.name || "TA") + " 眼里的 " + uName))))),
           h("div", { "data-wk": "impactions", style: { display: "flex", gap: 8, marginTop: 16, flexWrap: "wrap", justifyContent: "center" } },
             e.img ? h("button", { "data-wk": "impbtn", "data-part": "save", onClick: () => saveToAlbum(e.img), style: S.btn(false) }, "保存到相册") : null,
+            // 发给他看（她 2026-11-02）：发进你俩的单聊，不当场叫他回话，等你按回复他才接
+            props.onSendCard ? h("button", { "data-wk": "impbtn", "data-part": "send", onClick: () => { if (props.onSendCard(curChar, e) !== false) props.toast && props.toast("发给 " + (c.name || "他") + " 了，回聊天按回复他就会看到"); }, style: S.btn(false) }, "发给他看") : null,
             h("button", { "data-wk": "impbtn", "data-part": "rewrite", onClick: () => rewriteText(curChar, e), disabled: !!busy, style: S.btn(false) }, busy ? "在写…" : "只重写文案"),
             h("button", { "data-wk": "impbtn", "data-part": "redraw", onClick: () => redrawArt(curChar, e), disabled: !!busy, style: S.btn(false) }, busy ? "在画…" : (e.img ? "只重出剪影" : "补一张剪影")),
             // ⚠️这个按钮原来长在背面上（v67.89/67.90 跟 iOS 的 3D 命中测试较劲了两版，

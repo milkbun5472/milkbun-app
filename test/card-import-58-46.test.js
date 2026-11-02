@@ -151,3 +151,22 @@ test("导入页是整页，不是半窗", () => {
   // ⚠️v64.90 起顶栏走共用 Head，刘海归它让（mobile-ui-layout.md §1）
   assert.match(sheet, /h\(Head, \{ zh: "导入角色卡", bg: "transparent", onBack: onClose \}\)/, "顶栏没走共用 Head");
 });
+
+// 群友 2026-11-01：人设加自带世界书一万多字，传上来只剩 600 字
+test("卡里的生日/外貌/喜好这些分节不许丢，跟人设一起留下", () => {
+  const p = parseCharCard("【姓名】阿屿\n【生日】三月初七\n【外貌】高个子，左耳一颗银钉。\n【人设】海洋所读研。\n【开场白】……你也来看海？", "Lisa");
+  assert.equal(p.name, "阿屿");
+  assert.equal(p.greeting, "……你也来看海？");
+  assert.match(p.persona, /三月初七/, "生日被吞了");
+  assert.match(p.persona, /银钉/, "外貌被吞了");
+  assert.match(p.persona, /海洋所读研/);
+  assert.doesNotMatch(p.persona, /你也来看海/, "开场白不该再抄进人设一遍");
+  assert.doesNotMatch(p.persona, /【姓名】/, "名字那节不用再留一遍");
+});
+
+test("导入角色卡能一次选好几份文件，单独的世界书 json 跟着这个人走", () => {
+  const sheet = screens.slice(screens.indexOf("function CardImportSheet"), screens.indexOf("function CardImportSheet") + 12000);
+  assert.match(sheet, /multiple: true/, "文件框还是只能选一份");
+  assert.match(sheet, /loreEntriesFromJson/, "纯世界书的 json 没被认出来");
+  assert.match(sheet, /lore: \(p\.lore \|\| \[\]\)\.concat\(extraLore\)/, "另选的世界书没带进导入");
+});

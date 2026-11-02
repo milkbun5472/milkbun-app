@@ -36,7 +36,7 @@ test("线上群聊和群线下都走这一份", () => {
 });
 
 test("修罗场开着时，在群聊历史【后面】、输出要求前面再摆一次局面", () => {
-  assert.match(app, /\+ gQuoteCatalogText \+ gDramaTail \+ "\\n\\n【输出】/);
+  assert.match(app, /\+ gQuoteCatalogText \+ gDramaTail \+ (gSayHint \+ )?"\\n\\n【输出】/);
   assert.match(app, /const gDramaTail = gsFor\(groupId\)\.drama\n/);
   assert.ok(app.indexOf("const gDramaTail = ") < app.indexOf("+ gDramaTail + "), "用在声明之前了（TDZ）");
   assert.match(tail, /按你自己那张卡来/);

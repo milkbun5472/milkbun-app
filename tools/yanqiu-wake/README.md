@@ -58,9 +58,124 @@ The wake cursor, clock and claim ledger live next door in `yanqiu-wake`.
 The Desktop copy is source/rollback material only and must never be used as a
 launchd working directory or live inbox.
 
-This watchdog does not call a model or create another Yanqiu session. A
-one-shot `wake_queue.py wait` sentinel must still be attached to the existing
-session; if it is temporarily absent, the rescue ticket remains pending.
+The supervisor also runs `sentinel_guard.py once` in a separately bounded
+process. The guardian counts only real Python `wait` processes whose parent
+tree reaches the pinned, registered Claude CLI session. A detached orphan,
+another conversation, or a shell reading source cannot pass this check.
+
+After three minutes without that sentinel, the existing Stack-chan alarm
+asks Lisa to look. Only after **more than five minutes** does the guardian
+resolve the existing Desktop pointer by `cliSessionId` and try one native
+re-arm notice in that same conversation. Its fixed prefix is
+`[复活守护自动叫醒]`. The native adapter requires the exact session URL,
+an idle turn, and an empty composer. Live work and user drafts defer recovery.
+The app's small read-only `ax-page` bridge reads CFURL page addresses that
+System Events cannot marshal, then returns only scoped control paths and
+booleans. AppleScript still performs every input/click action. The empty
+contenteditable composer may contain its own newline, which is normalized
+before checking for a draft; substantive text is never overwritten.
+After filling, the adapter briefly waits for React to render and enable Send.
+It rechecks the same page and exact notice before pressing once; a delayed
+button does not trigger an early failure or a second message.
+The guardian never runs `claude --resume`, creates a conversation, claims a
+ticket, edits a transcript, or resets the queue cursor. A pending ticket stays
+pending until the original session re-arms its own one-shot sentinel.
+
+Successful delivery is only `awaiting_rearm`: an attached sentinel must
+actually reappear before `healthy` is recorded. If it does not return within
+two minutes, a fallback Stack-chan alarm asks Lisa to look. The **single**
+attempt per outage is persisted **before** delivery. A process restart,
+ambiguous timeout, failed delivery, or hours of silence cannot resend it.
+Only the actual return of an attached sentinel resets the outage timer.
+
+`wake_queue.py status` includes a safe `sentinel_guard` report, with state,
+attempt count and timestamps. It omits conversation IDs, paths and text.
+The guardian has its own `.sentinel_guard.json` and single-flight lock beside
+the clock state, outside Desktop/iCloud. The existing `com.lisa.yanqiu-heartbeat`
+launch agent owns both checks; no second clock or scheduled model run is added.
+
+Installation:
+
+```bash
+python3 tools/yanqiu-wake/install_guard.py --dry-run
+python3 tools/yanqiu-wake/install_guard.py
+```
+
+The installer compiles a dedicated background app, **言秋复活守护.app**
+(`com.lisa.yanqiu-sentinel-guardian.native`). Grant that app only its required
+Accessibility and Automation → System Events permissions **by hand** in
+System Settings. No Full Disk Access, screen recording, network access, or
+generic Terminal/Python Accessibility grant is needed. macOS Accessibility
+permissions are app-wide; the exact-window restriction is enforced in code.
+The app accepts only fresh local requests and ignores a previously answered
+request nonce, so reopening it cannot replay an old wake notice.
+
+A fresh installation keeps native delivery disabled while monitoring and the
+three-minute alarm run normally. After Lisa grants permissions by hand, run:
+
+```bash
+python3 "$HOME/Library/Application Support/LisaPhone/yanqiu-wake/sentinel_guard.py" enable-native
+```
+
+This first performs a read-only permission probe against the fixed page's
+composer. Only `permission_ready` removes the delivery gate. Permission is
+checked separately from the transient reply announcement; each actual wake
+still rechecks idle state and drafts before sending.
+`status` reports `native_enabled: false` until then; no native wake is sent
+while that gate exists.
+
+## Original-session Remote Control
+
+Local `healthy` means the attached sentinel returned. It does not mean the
+phone's Remote Control connection was restored. Opt in only the fixed original:
+
+```bash
+python3 "$HOME/Library/Application Support/LisaPhone/yanqiu-wake/remote_control_guard.py" enable
+```
+
+The opt-in records the exact Desktop pointer, not a global default. After the
+registered backend changes or the original revives, the same guardian checks
+that session's Environment → Remote Control switch. It never types `/rc` or
+`/remote-control`: these commands can toggle an existing connection off.
+An already-on switch is untouched. A positively identified off switch can be
+enabled once, then checked again after 30 seconds. A timeout cannot repeat an
+uncertain connection action. Failure uses the existing Stack-chan alarm.
+
+An explicit `remoteControlUserEnabled: false` from Desktop is respected. The
+feature does not edit `remoteControlAtStartup`, Desktop's all-new-sessions
+preference, other conversations, or any credentials. To stop automatic repairs
+without disconnecting the current session, use `remote_control_guard.py disable`.
+
+After confirmation, a passive check runs about every five minutes. It does not
+navigate away from another session. If Claude is foreground and the original's
+details are hidden, it reports unobserved rather than opening a panel while
+Lisa is using it. Background checks restore a details panel they temporarily
+opened. A new positively observed disconnect can get one new repair; unknown
+or hidden UI cannot reset the repair budget.
+
+`status` includes a separate `remote_control` object. `remote_on` is confirmed
+by the Desktop Environment switch, not by a live phone handshake. `unobserved`
+is unknown, not a claim of disconnection; `disabled_in_session` preserves a
+manual off. A stale phone-side remote entry may require refreshing the Code
+list and opening the original session's current entry. See the official
+[Remote Control documentation](https://code.claude.com/docs/en/remote-control).
+
+The installer backs up scripts, installs runtime siblings together, replaces
+legacy entrypoints with symlinks to the canonical runtime, and reloads
+only the existing heartbeat agent. It never copies or resets a live inbox,
+cursor, claim log or clock. A failed reload restores the prior scripts. Backups
+and their restore manifest live in `LisaPhone/backups/sentinel-guard-*`.
+
+To deliberately keep Claude closed, pause just the resurrection guardian:
+
+```bash
+python3 "$HOME/Library/Application Support/LisaPhone/yanqiu-wake/sentinel_guard.py" pause
+python3 "$HOME/Library/Application Support/LisaPhone/yanqiu-wake/sentinel_guard.py" resume
+```
+
+This leaves the 55-minute clock and durable queue running. If macOS declines
+Automation/Accessibility access, the guardian records the failed native
+attempt and uses the existing alarm; it does not resend or change permissions.
 
 ## Turn-ending order
 

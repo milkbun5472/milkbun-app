@@ -96,7 +96,7 @@ const CARD_SEC_KWS = ["人设", "设定", "简介", "描述", "长期记忆", "�
 // colonKws：带冒号那一支只认这些词，别把正文里的「TA说：」当成分节
 function splitDocSections(text, colonKws) {
   const secs = [];
-  let last = null, mm;
+  let last = null, mm, firstAt = -1;
   const push = (sec, until) => secs.push({ title: sec.title, body: (sec.pre ? sec.pre + "\n" : "") + text.slice(sec.end, until).trim() });
   CARD_SEC_RE.lastIndex = 0;
   while ((mm = CARD_SEC_RE.exec(text))) {
@@ -104,10 +104,11 @@ function splitDocSections(text, colonKws) {
     const pre = (mm[3] || mm[5] || mm[7] || "").trim().replace(/^[:：]/, "").trim();
     if (mm[6] && !(colonKws || []).some(k => title.toLowerCase().includes(k))) continue;
     if (!title) continue;
-    if (last) push(last, mm.index);
+    if (last) push(last, mm.index); else firstAt = mm.index;
     last = { title: title, pre: pre, end: mm.index + mm[0].length };
   }
   if (last) push(last, text.length);
+  secs.lead = firstAt > 0 ? text.slice(0, firstAt).trim() : "";
   return secs;
 }
 function parseCharCard(raw, userName) {
@@ -131,7 +132,14 @@ function parseCharCard(raw, userName) {
     const pSec = find(["人设", "设定", "描述", "persona", "description"]);
     const gSec = find(["开场白", "问候语", "第一句", "greeting"]);
     const tSec = find(["一句话", "标签", "tagline"]);
-    if (pSec) out.persona = pSec.body.trim();
+    // 人设只取「人设」那一节，卡里的【生日】【外貌】【喜好】这些就全丢了（群友 2026-11-01：
+    //   一万多字的 word 传上来只剩 600 字）。没被别的栏收走的分节，一律跟着人设一起留下。
+    if (pSec) {
+      const named = s => /名字|姓名|角色名|人物名|角色卡/.test(s.title) || /^name$/i.test(s.title);
+      const keep = secs.filter(s => s !== sSec && s !== mSec && s !== gSec && s !== tSec && !named(s) && s.body.trim());
+      out.persona = keep.length <= 1 ? pSec.body.trim()
+        : [secs.lead || ""].concat(keep.map(s => "【" + s.title + "】\n" + s.body.trim())).filter(x => x.trim()).join("\n\n");
+    }
     if (mSec) out.longMem = mSec.body.trim();
     if (gSec) out.greeting = gSec.body.trim();
     if (tSec) out.tagline = tSec.body.trim().split("\n")[0].slice(0, 40);
@@ -164,6 +172,7 @@ function CardImportSheet({ onImport, onClose, userName }) {
   const [edits, setEdits] = useState({});
   const [fileBusy, setFileBusy] = useState(false);
   const [fileErr, setFileErr] = useState("");
+  const [extraLore, setExtraLore] = useState([]);   // 跟人设一起选上的那几份纯世界书
   const fileRef = useRef(null);
   const p = txt.trim() ? parseCharCard(txt, userName) : null;
   const seedsToText = arr => (arr || []).map(x => (x.pinned ? "〔置顶〕" : "") + x.text).join("\n");
@@ -174,17 +183,28 @@ function CardImportSheet({ onImport, onClose, userName }) {
   const val = k => edits[k] != null ? edits[k] : (p ? (k === "seeds" ? seedsToText(p.seeds) : (p[k] || "")) : "");
   const setVal = (k, v) => setEdits(e => Object.assign({}, e, { [k]: v }));
   const persona = val("persona");
+  // 一份人设拆成好几个文件是常事（群友 2026-11-01：人设一份、自带世界书一份）。
+  //   一次选上，人设那几份按选中顺序接起来；纯世界书的 json 收成这个人自带的世界书。
   const importFile = async e => {
-    const input = e.target, file = input.files && input.files[0];
+    const input = e.target, files = Array.from(input.files || []).slice(0, 10);
     input.value = "";
-    if (!file) return;
+    if (!files.length) return;
     setFileBusy(true); setFileErr("");
     try {
-      if (/\.doc$/i.test(file.name || "")) throw new Error("老的 .doc 读不了，在 Word 里另存为 .docx 再导");
-      if (!/\.(docx|txt|md|markdown|json)$/i.test(file.name || "")) throw new Error("请选择 .docx / .txt / .md / .json 文件");
-      const text = await readOfflineStyleDocument(file);
-      if (!String(text || "").trim()) throw new Error("文件里没有可导入的文字");
-      setTxt(text); setEdits({});
+      const texts = [], lore = [];
+      for (const file of files) {
+        if (/\.doc$/i.test(file.name || "")) throw new Error("老的 .doc 读不了，在 Word 里另存为 .docx 再导");
+        if (!/\.(docx|txt|md|markdown|json)$/i.test(file.name || "")) throw new Error("请选择 .docx / .txt / .md / .json 文件");
+        const text = String(await readOfflineStyleDocument(file) || "").trim();
+        if (!text) continue;
+        let d = null; try { d = JSON.parse(text); } catch (_) {}
+        const list = d && !(d.name || d.data || d.persona || d.description) && typeof loreEntriesFromJson === "function" ? loreEntriesFromJson(d) : null;
+        if (list && list.length) { lore.push.apply(lore, list); continue; }
+        texts.push(files.length > 1 ? "【" + String(file.name || "").replace(/\.[a-z0-9]+$/i, "") + "】\n" + text : text);
+      }
+      if (!texts.length && !lore.length) throw new Error("文件里没有可导入的文字");
+      if (!texts.length) throw new Error("只选到了世界书，人设那份也一起选上");
+      setTxt(texts.join("\n\n")); setEdits({}); setExtraLore(lore);
     } catch (err) {
       setFileErr(String(err && err.message || "文件读取失败，请重新选择").replace(/文风/g, "角色卡"));
     } finally { setFileBusy(false); }
@@ -199,15 +219,16 @@ function CardImportSheet({ onImport, onClose, userName }) {
     h(Head, { zh: "导入角色卡", bg: "transparent", onBack: onClose }),
     h("div", { className: "flex-1 min-h-0 overflow-y-auto px-5 pb-10" },
       h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog, margin: "14px 0 10px", lineHeight: 1.65 } },
-        "整篇粘进来，或者直接选文件（.docx / .txt / .md / .json）。认得出常见 JSON 角色卡（v1/v2，卡里的世界书收成只给 TA 的世界书词条），也认「# / ## / **加粗** / 【】」这几种分节。{{char}}/{{user}} 会自动换掉，<START> 之后的对话示例不导入。拆得不对就在下面的预览里直接改。"),
+        "整篇粘进来，或者直接选文件（.docx / .txt / .md / .json，一次可以选好几份：人设拆成几份的按顺序接起来，单独的世界书 json 收成只给 TA 的世界书）。认得出常见 JSON 角色卡（v1/v2，卡里的世界书收成只给 TA 的世界书词条），也认「# / ## / **加粗** / 【】」这几种分节。{{char}}/{{user}} 会自动换掉，<START> 之后的对话示例不导入。拆得不对就在下面的预览里直接改。"),
       h("button", {
         onClick: () => fileRef.current && fileRef.current.click(), disabled: fileBusy,
         className: "w-full active:opacity-70",
         style: { marginBottom: 10, background: "transparent", color: t.ink, border: "1px solid " + t.line, borderRadius: 12, padding: "10px 0", fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))" }
       }, fileBusy ? "正在读文件…" : "从文件导入"),
-      h("input", { ref: fileRef, type: "file", accept: ANY_FILE, style: { display: "none" }, onChange: importFile }),
+      h("input", { ref: fileRef, type: "file", accept: ANY_FILE, multiple: true, style: { display: "none" }, onChange: importFile }),
+      extraLore.length ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog, marginBottom: 8 } }, "另外读到 " + extraLore.length + " 条世界书，导入时只绑给 TA") : null,
       fileErr ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.accent || t.ink, marginBottom: 8 } }, fileErr) : null,
-      h("textarea", { "data-wk": "textarea", value: txt, onChange: e => { setTxt(e.target.value); setEdits({}); }, rows: 10, placeholder: "在这里粘贴整篇角色卡…", style: { width: "100%", background: t.bg2, border: "1px solid " + t.line, borderRadius: 12, padding: "11px 13px", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.ink, resize: "none", lineHeight: 1.6 } }),
+      h("textarea", { "data-wk": "textarea", value: txt, onChange: e => { setTxt(e.target.value); setEdits({}); setExtraLore([]); }, rows: 10, placeholder: "在这里粘贴整篇角色卡…", style: { width: "100%", background: t.bg2, border: "1px solid " + t.line, borderRadius: 12, padding: "11px 13px", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.ink, resize: "none", lineHeight: 1.6 } }),
       p ? h("div", { "data-wk": "block", style: { marginTop: 12, padding: "12px 14px", borderRadius: 14, background: t.bg2, border: "1px solid " + t.line } },
         h(Eyebrow, { style: { marginBottom: 7 } }, p.from === "json" ? "解析预览 · 认出是 JSON 角色卡 · 可直接改" : "解析预览 · 可直接改"),
         h("div", { className: "flex items-center gap-2", style: { marginBottom: 5 } },
@@ -235,7 +256,8 @@ function CardImportSheet({ onImport, onClose, userName }) {
           if (!p || !persona.trim()) return;
           onImport(Object.assign({}, p, {
             name: val("name").trim(), tagline: val("tagline").trim(), persona: persona.trim(),
-            longMem: val("longMem").trim(), greeting: val("greeting").trim(), seeds: textToSeeds(val("seeds"))
+            longMem: val("longMem").trim(), greeting: val("greeting").trim(), seeds: textToSeeds(val("seeds")),
+            lore: (p.lore || []).concat(extraLore)
           }));
         },
         className: "w-full mt-4 active:opacity-70",
@@ -1541,22 +1563,31 @@ function CoupleDays({ partner, since, events, annivs, onAdd, onRemove, onRead, o
 // 情书信纸字体（iOS 系统中文字体，零成本；非 iOS 走 fallback）+ 纸张样式
 const LETTER_FONTS = [
   { key: "auto", label: "🎲 智能 / 随机" },
+  // web：iPhone 上没有的那几支（圆体、楷体、行楷、手札……都是苹果电脑自带的），排在后面顶上的网上字体（她 2026-11-02：「情书换不了字体」）。
+  //   电脑上照旧先用自带那支；手机上找不到就落到 web 那支，选中／打开那封信时才去拉
   { key: "serif", label: "宋体信笺", css: "'Noto Serif SC','Songti SC',serif" },
-  { key: "kai", label: "楷体手写", css: "'Kaiti SC','STKaiti','KaiTi',serif" },
-  { key: "round", label: "圆体可爱", css: "'Yuanti SC','PingFang SC',sans-serif" },
-  { key: "sans", label: "现代简洁", css: "'PingFang SC',system-ui,sans-serif" },
-  // 下面这些都是 iOS 自带的中文字体，零成本；非 iOS 一路 fallback 回宋/黑
-  { key: "xingkai", label: "行楷疾书", css: "'Xingkai SC','STXingkai','Kaiti SC',cursive" },
-  { key: "hannotate", label: "手札随笔", css: "'Hannotate SC','HanziPen SC','Kaiti SC',cursive" },
-  { key: "hanzipen", label: "翩翩细笔", css: "'HanziPen SC','Hannotate SC','Kaiti SC',cursive" },
-  { key: "libian", label: "隶变旧体", css: "'Libian SC','Baoli SC','Songti SC',serif" },
-  { key: "baoli", label: "报隶端方", css: "'Baoli SC','Libian SC','Songti SC',serif" },
-  { key: "weibei", label: "魏碑刻痕", css: "'Weibei SC','Songti SC',serif" },
-  { key: "yuppy", label: "雅痞不羁", css: "'Yuppy SC','PingFang SC',sans-serif" },
-  { key: "wawa", label: "娃娃稚气", css: "'Wawati SC','Yuanti SC','PingFang SC'" },
-  { key: "lanting", label: "兰亭细体", css: "'Lantinghei SC','PingFang SC',sans-serif" }
+  { key: "kai", label: "楷体手写", css: "'Kaiti SC','STKaiti','KaiTi','Ma Shan Zheng',serif", web: "Ma+Shan+Zheng" },
+  { key: "round", label: "圆体可爱", css: "'Yuanti SC','ZCOOL KuaiLe','PingFang SC',sans-serif", web: "ZCOOL+KuaiLe" },
+  { key: "sans", label: "现代简洁", css: "'PingFang SC','Noto Sans SC',system-ui,sans-serif", web: "Noto+Sans+SC:wght@400;500" },
+  // 下面这些也是苹果电脑自带的中文字体；手机上落到各自后面那支网上字体
+  { key: "xingkai", label: "行楷疾书", css: "'Xingkai SC','STXingkai','Zhi Mang Xing','Kaiti SC',cursive", web: "Zhi+Mang+Xing" },
+  { key: "hannotate", label: "手札随笔", css: "'Hannotate SC','HanziPen SC','Long Cang','Kaiti SC',cursive", web: "Long+Cang" },
+  { key: "hanzipen", label: "翩翩细笔", css: "'HanziPen SC','Hannotate SC','Liu Jian Mao Cao','Kaiti SC',cursive", web: "Liu+Jian+Mao+Cao" },
+  { key: "libian", label: "隶变旧体", css: "'Libian SC','Baoli SC','ZCOOL XiaoWei','Songti SC',serif", web: "ZCOOL+XiaoWei" },
+  { key: "baoli", label: "报隶端方", css: "'Baoli SC','Libian SC','ZCOOL XiaoWei','Songti SC',serif", web: "ZCOOL+XiaoWei" },
+  { key: "weibei", label: "魏碑刻痕", css: "'Weibei SC','ZCOOL QingKe HuangYou','Songti SC',serif", web: "ZCOOL+QingKe+HuangYou" },
+  { key: "yuppy", label: "雅痞不羁", css: "'Yuppy SC','ZCOOL QingKe HuangYou','PingFang SC',sans-serif", web: "ZCOOL+QingKe+HuangYou" },
+  { key: "wawa", label: "娃娃稚气", css: "'Wawati SC','Yuanti SC','ZCOOL KuaiLe','PingFang SC'", web: "ZCOOL+KuaiLe" },
+  { key: "lanting", label: "兰亭细体", css: "'Lantinghei SC','PingFang SC','Noto Sans SC',sans-serif", web: "Noto+Sans+SC:wght@400;500" }
 ];
-const letterFontCss = key => { const f = LETTER_FONTS.find(x => x.key === key && x.css); return f ? f.css : LETTER_FONTS[1].css; };
+// 用到哪支才拉哪支（同一支只挂一次链接）；连不上 Google 就照旧落到系统字体，不卡页面
+const letterFontLoaded = new Set();
+const letterFontEnsure = f => {
+  if (!f || !f.web || letterFontLoaded.has(f.web) || typeof document === "undefined") return;
+  letterFontLoaded.add(f.web);
+  try { const l = document.createElement("link"); l.rel = "stylesheet"; l.href = "https://fonts.googleapis.com/css2?family=" + f.web + "&display=swap"; document.head.appendChild(l); } catch (e) {}
+};
+const letterFontCss = key => { const f = LETTER_FONTS.find(x => x.key === key && x.css); letterFontEnsure(f); return f ? f.css : LETTER_FONTS[1].css; };
 const LETTER_PAPERS = [
   { key: "cream", label: "米白", bg: "#faf6ee", ink: "#413a2e", line: "#ece2d0" },
   { key: "kraft", label: "牛皮", bg: "#e9ddc6", ink: "#4a3f2c", line: "#d6c7a8" },
@@ -4315,6 +4346,13 @@ function CtxDebug({ characters, getBundle, lockedCharId, compact }) {
       (roomRecall.picked || []).length
         ? h("div", { style: { marginTop: 7 } }, roomRecall.picked.map((row, i) => h("div", { key: row.id || i, style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.sub, lineHeight: 1.65, padding: "6px 0", borderTop: i ? "1px dashed " + t.line : "none" } }, "· " + row.text)))
         : h("div", { style: { marginTop: 8, fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog } }, "这一轮这间房里没有记忆可送。")) : null,
+    // 上一轮发过去的聊天记录：它不在 system 那段里，是一条条单独发的，所以单独摆一张（她 2026-11-02）
+    cid && window.__histReceipt && window.__histReceipt[cid] ? (() => { const r = window.__histReceipt[cid];
+      return h("div", { "data-wk": "histreceipt", style: { border: "1px solid " + t.line, borderRadius: 14, padding: "11px 12px", marginBottom: 10, background: t.bg2 } },
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.ink } }, "上一轮带过去的聊天记录"),
+        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.sub, marginTop: 4, lineHeight: 1.6 } }, r.n + " 条 · " + r.chars + " 字" + (r.first ? " · 最早一条：「" + r.first + "…」" : "")),
+        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, marginTop: 3, lineHeight: 1.55 } }, new Date(r.ts).toLocaleString() + " 那一轮。聊天记录是一条条单独发的，不在下面这些段里；带多少看聊天设置的「记忆上下文条数」和召回设置的「短期窗字符预算」。刷新 App 即清空。"));
+    })() : null,
     cid ? (() => {
       // 每段占比 + 肥度条（v47.84 她要的「谁肥一眼看穿」）：≥20% 红、≥10% 金、其余灰
       const total = Math.max(1, text.length);

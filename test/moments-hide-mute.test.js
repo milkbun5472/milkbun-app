@@ -16,7 +16,7 @@ test("角色、配角、查手机三处都认 hiddenFrom", () => {
 });
 test("不看 TA 的朋友圈：TA 主页一颗开关，刷朋友圈时藏掉", () => {
   assert.match(cmp, /saveJSON\("x_momMute", next\)/);
-  assert.match(cmp, /momTopFirst\(moments\)\.filter\(m => !m \|\| m\.mine \|\| !momMutedIds\(\)\.includes\(String\(m\.characterId\)\)\)/);
+  assert.match(cmp, /\(moments \|\| \[\]\)\.filter\(m => !m \|\| m\.mine \|\| !momMutedIds\(\)\.includes\(String\(m\.characterId\)\)\)/);
   assert.match(cmp, /"data-wk": "momute"/);
   assert.match(ts, /\["momute", /);
 });

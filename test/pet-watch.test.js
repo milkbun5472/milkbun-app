@@ -25,7 +25,9 @@ assert.deepEqual(petWatchOf(null), []); assert.deepEqual(petWatchOf({ worlds: {}
 assert.doesNotMatch(comp.slice(comp.indexOf("const PET_TASK_ZH = "), comp.indexOf("function RoomWorldBanner(")), /callAI|runProbe/);
 // 接线：这间房自己的存档；卡片发进这间房的聊天；玻璃账本皮不把它画成小票
 assert.match(app, /petWatchKey: gardenRoomOf\(activeChar\.id, activeRoomId\) && window\.ChatRooms \? "x_fairyGarden::" \+ window\.ChatRooms\.chatKey\(activeChar\.id, activeRoomId\) : null,/);
-assert.match(comp, /sendRich\(\{ role: "user", kind: "petshare",[^\n]*content: "\[宠物\] 给你看看" \+ txt \}\)/);
-assert.match(comp, /m\.kind === "ledgershare" \|\| m\.kind === "petshare"/);
-assert.match(comp, /m\.kind !== "petshare" && typeof window !== "undefined" && window\.ledgerIsGlass/);
+// 卡片长什么样只此一份（房间里和主屏两处共用，2026-11-02）
+assert.match(comp, /function petShareMsg\(p\) \{[\s\S]{0,200}kind: "petshare",[^\n]*content: "\[宠物\] 给你看看" \+ txt \};/);
+assert.match(comp, /onShare: p => \{ sendRich\(petShareMsg\(p\)\); setPetWatch\(false\); \}/);
+assert.match(comp, /m\.kind === "ledgershare" \|\| m\.kind === "petshare" \|\| m\.kind === "impshare"/);
+assert.match(comp, /m\.kind !== "petshare" && m\.kind !== "impshare" && typeof window !== "undefined" && window\.ledgerIsGlass/);
 console.log("ok");

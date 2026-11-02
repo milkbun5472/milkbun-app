@@ -21,3 +21,15 @@ test("单聊群聊都接上", () => {
   assert.match(app, /words = moveDanglingLeads\(words\);/);
   assert.match(app, /gBubbles = moveDanglingLeads\(gBubbles\);/);
 });
+
+// 再者／其次／此外这类前面没标点也挪（她 2026-11-02 截图）；第一、最后照旧要标点
+{
+  const assert = require("node:assert/strict");
+  const src = require("fs").readFileSync(require("path").join(__dirname, "..", "js", "engine.js"), "utf8");
+  const seg = src.slice(src.indexOf("const DANGLING_LEAD ="), src.indexOf("function splitLongBubble("));
+  const mv = new Function(seg + "; return moveDanglingLeads;")();
+  assert.deepEqual(mv(["轮不到你在这儿替裴照川充大方再者", "你这铁盒里跳出来的一串数目"]), ["轮不到你在这儿替裴照川充大方", "再者，你这铁盒里跳出来的一串数目"]);
+  assert.deepEqual(mv(["这事就这么定了况且", "朕说了算"]), ["这事就这么定了", "况且，朕说了算"]);
+  assert.deepEqual(mv(["你可真是到最后", "还嘴硬"]), ["你可真是到最后", "还嘴硬"], "最后：没标点不挪");
+  assert.deepEqual(mv(["这是第一", "次"]), ["这是第一", "次"]);
+}
