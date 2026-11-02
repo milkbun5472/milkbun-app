@@ -3901,7 +3901,7 @@ function StickyView({ d, char, t, onBack, onRefresh, refreshing, onPeek, drive }
   const A = a => Array.isArray(a) ? a : [];
   // 录音的 body 带着语音标记（(sighs)、<#0.5#>）：念的时候用，给人看的时候剥掉
   // 停顿记号（<#0.7#>）不只语音便签有：文字便签也会混进来（她 2026-11-02 截图），所以不管哪种都摘
-  const noteSay = x => typeof ttsMarkStrip === "function" ? ttsMarkStrip(x) : x;
+  const noteSay = x => typeof showClean === "function" ? showClean(typeof ttsMarkStrip === "function" ? ttsMarkStrip(x) : x) : x;
   // ──「看TA玩」驱动：这是【改】那一类——TA把写好的那条划掉重写（她举的例子之一）
   const driveItem = drive && drive.item;
   useEffect(() => {

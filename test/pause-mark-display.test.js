@@ -6,6 +6,6 @@ const fs = require("node:fs");
 const path = require("node:path");
 const c = fs.readFileSync(path.join(__dirname, "..", "js", "components.js"), "utf8");
 test("通话气泡、线下正文显示前剥掉停顿记号", () => {
-  assert.match(c, /function TransText\([^)]*\) \{\n  const \[autoShow\] = useOnlineTranslationAuto\(\);\n[\s\S]{0,200}if \(typeof text === "string" && text\.indexOf\("<#"\) >= 0 && typeof stripPauseMarks === "function"\) text = stripPauseMarks\(text\);/);
+  assert.match(c, /function TransText\([^)]*\) \{\n  const \[autoShow\] = useOnlineTranslationAuto\(\);\n[\s\S]{0,400}if \(typeof text === "string" && typeof showClean === "function"\) text = showClean\(text, isU\);/);
   assert.match(c, /const segs = offSplit\(typeof stripPauseMarks === "function" \? stripPauseMarks\(text\) : text\);/);
 });

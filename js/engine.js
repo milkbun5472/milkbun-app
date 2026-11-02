@@ -7628,6 +7628,25 @@ function ttsHasMark(text) {
 // 这句里有没有声音标签（(sighs) 那种）——单聊、群聊认语音都问这一处
 function ttsHasSoundTag(text) { return new RegExp(TTS_MARK_TAG_RE.source, "i").test(String(text == null ? "" : text)); }
 function stripPauseMarks(text) { return String(text == null ? "" : text).replace(TTS_MARK_PAUSE, "").replace(/[ \t]{2,}/g, " ").trim(); }
+// 屏幕上的公共兜底（她 2026-11-02：「为什么这些掉格式不做一个公共的兜底」）：
+//   模型漏出来的那几样记号——念给 TTS 的停顿 <#0.7#>、声音标签 (sighs)、多转义一层的字面 \n、
+//   我们写在历史里的〔〕（时间标注整个摘，别的换成（））——全在这一处剥。TransText（全库正文那条路）、
+//   查手机便签、拆气泡都调它；新冒出一种就加在这儿，别再在哪个页面单独补。她自己打的字（isU）只剥停顿。
+function privateBracketFix(text) {
+  return String(text == null ? "" : text)
+    .replace(/\s*〔\s*(?:(?:今天|昨天|前天)\s*|\d{1,2}\/\d{1,2}\s*)?\d{1,2}[:：]\d{2}\s*〕\s*/g, " ")
+    .replace(/〔([^〔〕\n]{1,120})〕/g, "（$1）");
+}
+function showClean(text, isU) {
+  let s = String(text == null ? "" : text);
+  if (!s) return s;
+  if (s.indexOf("<#") >= 0) s = stripPauseMarks(s);
+  if (isU) return s;
+  if (s.indexOf("(") >= 0 && ttsHasSoundTag(s)) s = ttsMarkStrip(s);
+  if (s.indexOf("\\n") >= 0) s = s.replace(/\\r\\n|\\n/g, "\n");
+  if (s.indexOf("〔") >= 0) s = privateBracketFix(s).replace(/ {2,}/g, " ").trim();
+  return s;
+}
 function ttsHasPause(text) {
   const s = String(text == null ? "" : text);
   return !!s && s.replace(TTS_MARK_PAUSE, "") !== s;
