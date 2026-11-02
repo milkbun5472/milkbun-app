@@ -117,9 +117,48 @@ three-minute alarm run normally. After Lisa grants permissions by hand, run:
 python3 "$HOME/Library/Application Support/LisaPhone/yanqiu-wake/sentinel_guard.py" enable-native
 ```
 
-This first performs a read-only probe. Only `ready` removes the delivery gate.
+This first performs a read-only permission probe against the fixed page's
+composer. Only `permission_ready` removes the delivery gate. Permission is
+checked separately from the transient reply announcement; each actual wake
+still rechecks idle state and drafts before sending.
 `status` reports `native_enabled: false` until then; no native wake is sent
 while that gate exists.
+
+## Original-session Remote Control
+
+Local `healthy` means the attached sentinel returned. It does not mean the
+phone's Remote Control connection was restored. Opt in only the fixed original:
+
+```bash
+python3 "$HOME/Library/Application Support/LisaPhone/yanqiu-wake/remote_control_guard.py" enable
+```
+
+The opt-in records the exact Desktop pointer, not a global default. After the
+registered backend changes or the original revives, the same guardian checks
+that session's Environment → Remote Control switch. It never types `/rc` or
+`/remote-control`: these commands can toggle an existing connection off.
+An already-on switch is untouched. A positively identified off switch can be
+enabled once, then checked again after 30 seconds. A timeout cannot repeat an
+uncertain connection action. Failure uses the existing Stack-chan alarm.
+
+An explicit `remoteControlUserEnabled: false` from Desktop is respected. The
+feature does not edit `remoteControlAtStartup`, Desktop's all-new-sessions
+preference, other conversations, or any credentials. To stop automatic repairs
+without disconnecting the current session, use `remote_control_guard.py disable`.
+
+After confirmation, a passive check runs about every five minutes. It does not
+navigate away from another session. If Claude is foreground and the original's
+details are hidden, it reports unobserved rather than opening a panel while
+Lisa is using it. Background checks restore a details panel they temporarily
+opened. A new positively observed disconnect can get one new repair; unknown
+or hidden UI cannot reset the repair budget.
+
+`status` includes a separate `remote_control` object. `remote_on` is confirmed
+by the Desktop Environment switch, not by a live phone handshake. `unobserved`
+is unknown, not a claim of disconnection; `disabled_in_session` preserves a
+manual off. A stale phone-side remote entry may require refreshing the Code
+list and opening the original session's current entry. See the official
+[Remote Control documentation](https://code.claude.com/docs/en/remote-control).
 
 The installer backs up scripts, installs runtime siblings together, replaces
 legacy entrypoints with symlinks to the canonical runtime, and reloads

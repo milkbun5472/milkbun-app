@@ -16,7 +16,7 @@ from pathlib import Path
 SOURCE = Path(__file__).resolve().parent
 LISA_ROOT = Path.home() / "Library/Application Support/LisaPhone"
 RUNTIME = LISA_ROOT / "yanqiu-wake"
-FILES = ("wake_queue.py", "sentinel_guard.py", "rearm.applescript", "native_runner.applescript", "ax_page.swift")
+FILES = ("wake_queue.py", "remote_control_guard.py", "sentinel_guard.py", "rearm.applescript", "native_runner.applescript", "ax_page.swift")
 APP_NAME = "言秋复活守护.app"
 ENTRYPOINTS = (
     LISA_ROOT / "stackchan-relay/wake_queue.py",
@@ -41,7 +41,7 @@ def build_native(directory: Path) -> Path:
     info.update({
         "CFBundleIdentifier": "com.lisa.yanqiu-sentinel-guardian.native",
         "CFBundleName": "言秋复活守护", "LSUIElement": True,
-        "NSAppleEventsUsageDescription": "仅在言秋固定原窗口空闲且没有草稿时，发送一次署名复活通知。",
+        "NSAppleEventsUsageDescription": "仅在言秋固定原窗口发送一次署名复活通知，并恢复该原窗已授权的手机远控连接。",
     })
     info_file.write_bytes(plistlib.dumps(info))
     bridge = app / "Contents/MacOS/ax-page"

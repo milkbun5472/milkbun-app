@@ -21,7 +21,8 @@ test("查手机的取材比聊天窄一圈：别人的话不进他手机", () =>
   assert.match(blk, /worldbook: loreFor\(char, "subjects"\)/, "世界书那一栏丢了");
   // 两个调用点都要走它，一处走一处不走＝手刷和周刷两个样
   // 查手机手刷 / 全刷 / 锁屏偷看，三处都得走它
-  assert.equal((app.match(/runProbe\(bgActive, phoneCtx\(char\)/g) || []).length, 3, "三处没都换过来");
+  // 钉「每一处查手机的调用都走 phoneCtx」，不钉第一个参数长什么样（v88.9xx 周刷那处改成了 bgActiveRef）
+  assert.ok((app.match(/runProbe\([^,]+, phoneCtx\(char\)/g) || []).length >= 3, "有查手机的调用没走 phoneCtx");
   assert.match(app, /window\.PhoneKit\.ownOnlyBlock\(char\.name\)/, "锁屏偷看那一处没接上围栏");
   assert.ok(app.indexOf('runProbe(bgActive, { ...ctxFor(char), worldbook: loreFor(char, "subjects") }') < 0,
     "还留着一处吃整份 ctxFor 的");
