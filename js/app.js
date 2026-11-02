@@ -24433,6 +24433,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     likeCount: (m.likeCount || 0) + (m.liked ? -1 : 1)
   } : m));
   const delMoment = id => pMom(p => p.filter(m => m.id !== id));
+  // 删一条评论（群友 2026-11-02 许愿：「朋友圈可以选择删除 char 的评论」）：谁的都能删，按这条朋友圈里的序号删
+  const delMomentComment = (id, idx) => pMom(p => p.map(m => m.id === id ? { ...m, comments: (m.comments || []).filter((_, i) => i !== idx) } : m));
   // 置顶自己发的那条（群友 2026-10-26）：只改排序，挂一个 top；再点一下取消
   const topMoment = id => pMom(p => p.map(m => m.id === id ? { ...m, top: !m.top } : m));
   // 朋友圈封面（me 或某角色）：存 x_momentsCover
@@ -33958,6 +33960,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     onRegenMomentComments: regenMomentComments,
     momentMoreBusy: gen.momentMore || null,
     onDelMoment: delMoment,
+    onDelMomentComment: delMomentComment,
     onTopMoment: topMoment,
     onPinMoment: pinMomentToShike,
     onOpenMomProfile: openMomProfile,
@@ -33992,6 +33995,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     coverPos: (momentsCover[((momTarget && momTarget.isMe) ? "me" : (momTarget && momTarget.id)) + "@pos"]) || "",
     onSetCoverPos: pos => setMomentCover(((momTarget && momTarget.isMe) ? "me" : (momTarget && momTarget.id)) + "@pos", pos),
     onDelMoment: delMoment,
+    onDelMomentComment: delMomentComment,
     onTopMoment: topMoment,
     onLikeMoment: likeMoment,
     onCommentMoment: commentMoment,
