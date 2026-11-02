@@ -126,6 +126,8 @@
     const list = d && typeof loreEntriesFromJson === "function" && !(d.name || d.data || d.persona || d.description) ? loreEntriesFromJson(d) : null;
     if (list && list.length) return { lore: list };
     const c = typeof parseCharCard === "function" ? parseCharCard(t) : null;
+    // 这一份整篇都是世界书（单独存的那份设定）：整份当世界书，别当人设正文并进去
+    if (c && c.allLore && (c.lore || []).length) return { lore: c.lore };
     return {
       name: String((c && c.name) || (d && d.name) || "").slice(0, 20), tagline: (c && c.tagline) || (d && d.tagline) || "",
       persona: String((c && c.persona) || (d && (d.persona || d.description)) || t), lore: (c && c.lore) || [],
@@ -243,8 +245,15 @@
       return "已放进预设台：" + r.presets + " 份预设" + (r.modules ? "、" + r.modules + " 个模块" : "");
     }
     if (kind === "persona") {
-      props.onAddChar(Object.assign({ name: String(d.name || title).slice(0, 20), tagline: String(d.tagline || "").slice(0, 40), persona: String(d.persona || d.description || ""),
-        lore: Array.isArray(d.lore) ? d.lore : [], greeting: d.greeting || "", longMem: d.longMem || "", seeds: Array.isArray(d.seeds) ? d.seeds : [] },
+      // 包是上传那一刻打好的：早先传上来的那些，整本世界书原样躺在人设正文里（那时候还不会拆）。
+      //   导入这头再拆一遍——包里本来就带世界书的不动，没带的现场看看正文里有没有，有就拆出来。
+      let persona = String(d.persona || d.description || ""), lore = Array.isArray(d.lore) ? d.lore : [];
+      if (!lore.length && typeof parseCharCard === "function") {
+        const re = parseCharCard(persona);
+        if (!re.allLore && (re.lore || []).length) { lore = re.lore; persona = re.persona || persona; }
+      }
+      props.onAddChar(Object.assign({ name: String(d.name || title).slice(0, 20), tagline: String(d.tagline || "").slice(0, 40), persona: persona,
+        lore: lore, greeting: d.greeting || "", longMem: d.longMem || "", seeds: Array.isArray(d.seeds) ? d.seeds : [] },
         opts && opts.avatarImage ? { avatarImage: opts.avatarImage } : {}));
       return "";
     }

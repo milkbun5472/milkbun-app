@@ -8,7 +8,7 @@ const screens = (fs.readFileSync(path.join(__dirname, "..", "js", "screens.js"),
 function loadParser() {
   const i = screens.indexOf("function cardFillNames");
   const j = screens.indexOf("function CardImportSheet");
-  assert.ok(i > 0 && j > i && j - i < 9000, "抠不出角色卡解析那一段");
+  assert.ok(i > 0 && j > i && j > i, "抠不出角色卡解析那一段");
   return new Function(screens.slice(i, j) + "\nreturn { parseCharCard, cardFromJSON, cardStripScaffold, cardFillNames };")();
 }
 const { parseCharCard, cardFromJSON } = loadParser();
@@ -170,5 +170,93 @@ test("导入角色卡能一次选好几份文件，单独的世界书 json 跟�
   assert.match(sheet, /loreEntriesFromJson/, "纯世界书的 json 没被认出来");
   assert.match(sheet, /applyPicked\(picked\.map/, "选完不能自己点哪份是人设、哪份是世界书");
   assert.match(sheet, /category: "世界观"/, "点成世界书的 txt\/docx 没收成词条");
-  assert.match(sheet, /lore: \(p\.lore \|\| \[\]\)\.concat\(extraLore\)/, "另选的世界书没带进导入");
+  assert.match(sheet, /lore: \(p\.allLore \? \[\] : \(p\.lore \|\| \[\]\)\)\.concat\(extraLore\)/, "另选的世界书没带进导入");
+});
+
+test("Word 写的世界书按它自己的分节拆成一条条", () => {
+  const i = screens.indexOf("const CARD_SEC_RE"), j = screens.indexOf("function parseCharCard");
+  assert.ok(i > 0 && j > i, "抠不出分节那一段");
+  const { splitDocSections } = new Function(screens.slice(i, j) + "\nreturn { splitDocSections };")();
+  const secs = splitDocSections("【落霞镇】镇子在河口，常年起雾。\n【夜巡司】管宵禁的衙门。\n【银钉】他左耳那颗，母亲留的。", []).filter(x => x.title && x.body.trim());
+  assert.equal(secs.length, 3, "没拆开");
+  assert.equal(secs[0].title, "落霞镇");
+  assert.match(secs[2].body, /母亲留的/);
+});
+
+// 群友 2026-11-01：小窝传的是一整份，人设和世界书写在同一个文件里
+test("一份文件里人设带着世界书：世界书那几节单拆成词条，不并进人设", () => {
+  const p = parseCharCard("【姓名】阿屿\n【人设】海洋所读研。\n【世界书】\n【落霞镇】镇子在河口，常年起雾。\n【夜巡司】管宵禁的衙门。", "Lisa");
+  assert.equal(p.name, "阿屿");
+  assert.match(p.persona, /海洋所读研/);
+  assert.doesNotMatch(p.persona, /落霞镇|夜巡司/, "世界书被并进人设了");
+  assert.equal((p.lore || []).length, 2);
+  assert.equal(p.lore[0].title, "落霞镇");
+  assert.equal(p.lore[0].keyword, "落霞镇");
+  assert.match(p.lore[1].payload, /管宵禁/);
+});
+
+// 群友 2026-11-01 那张：没写「人设」两个字，世界书一节用的是「世界书-社交关系网」
+test("没写人设那一节，世界书照样拆出来，人设只剩前面那段", () => {
+  const p = parseCharCard("【角色底稿】\n陆之遥，大三，游泳队。\n【世界书-社交关系网】\n## 一、家庭关系网\n### 老爸：陆大军\n身高183，市政工程项目经理。\n### 老妈：周文秀\n中学语文老师。", "Lisa");
+  assert.match(p.persona, /游泳队/);
+  assert.doesNotMatch(p.persona, /陆大军|周文秀/, "世界书又被塞回人设了");
+  assert.ok((p.lore || []).length >= 2, "世界书没拆出来");
+  assert.ok(p.lore.some(e => /陆大军/.test(e.title)));
+  assert.equal(p.lore[0].keyword, "陆大军", "关键词该是人名，不是整行标题");
+});
+
+test("整篇都是世界书、没有人设正文：人设留整篇兜底，挂上 allLore 记号", () => {
+  const p = parseCharCard("【世界书】\n## 落霞镇\n镇子在河口。\n## 夜巡司\n管宵禁的衙门。", "Lisa");
+  assert.equal(p.allLore, true, "单独一份世界书该挂记号");
+  assert.match(p.persona, /落霞镇/, "人设要有整篇兜底，免得只选了这一份时什么都没有");
+  assert.ok((p.lore || []).length >= 2, "拆好的词条要留着给合并那条路用");
+});
+
+// 群友 2026-11-01 那张「陆之遥」：名字写在「- **姓名**: 」那一行，两本世界书各自一节
+test("名字写成「- **姓名**: X」也认得出", () => {
+  const p = parseCharCard("【基本信息】\n- **姓名**: 陆之遥\n- **性别**: 男\n【性格】\n外静内热。", "Lisa");
+  assert.equal(p.name, "陆之遥");
+});
+
+test("世界书里的关系网：关键词剥成人名，准则那一本常驻", () => {
+  const p = parseCharCard([
+    "【基本信息】", "- **姓名**: 陆之遥", "【世界书-社交关系网】", "世界书-社交关系网", "<social_circle>",
+    "### 1. 老爸：陆大军（46岁 · 市政工程项目经理）", "- 身高183cm。",
+    "【世界书：线上聊天准则】", "### 1. 打字习惯", "- 不打标点。"
+  ].join("\n"), "Lisa");
+  const dad = p.lore.find(e => /陆大军/.test(e.title));
+  assert.ok(dad, "没拆出老爸那条");
+  assert.equal(dad.keyword, "陆大军", "关键词该剥成人名");
+  assert.equal(dad.alwaysOn, false, "关系网该提到才进");
+  const rule = p.lore.find(e => /打字习惯/.test(e.title));
+  assert.equal(rule.alwaysOn, true, "准则那一本该常驻");
+  assert.ok(!p.lore.some(e => /^世界书/.test(e.title)), "只有标题和 <标签> 的那一节不该成词条");
+});
+
+// 多认几套常见写法（她 2026-11-01：「你多做几套格式适配呢」）
+test("整段用 <persona> <first_mes> <world_info> 标签分块的卡也认", () => {
+  const p = parseCharCard("<persona>\n阿屿，海洋所读研二。\n</persona>\n<first_mes>\n……你也来看海？\n</first_mes>\n<world_info>\n=== 落霞镇 ===\n镇子在河口。\n■ 夜巡司\n管宵禁的衙门。\n</world_info>", "Lisa");
+  assert.match(p.persona, /海洋所读研二/);
+  assert.doesNotMatch(p.persona, /落霞镇|夜巡司/, "世界书并进人设了");
+  assert.equal(p.greeting, "……你也来看海？");
+  assert.equal(p.lore.length, 2);
+  assert.equal(p.lore[0].title, "落霞镇");
+});
+
+test("=== X === 和 ■ X 这两种分节也认", () => {
+  const secsOf = s => {
+    const i = screens.indexOf("const CARD_SEC_RE"), j = screens.indexOf("function parseCharCard");
+    const { splitDocSections } = new Function(screens.slice(i, j) + "\nreturn { splitDocSections };")();
+    return splitDocSections(s, []).filter(x => x.title && x.body.trim()).map(x => x.title);
+  };
+  assert.deepEqual(secsOf("=== 落霞镇 ===\n镇子在河口。\n=== 夜巡司 ===\n管宵禁的。"), ["落霞镇", "夜巡司"]);
+  assert.deepEqual(secsOf("■ 落霞镇\n镇子在河口。\n◆ 夜巡司\n管宵禁的。"), ["落霞镇", "夜巡司"]);
+});
+
+test("世界观/背景设定/关系网这几种叫法也当世界书", () => {
+  for (const ttl of ["世界观", "背景设定", "社交关系网", "world_info"]) {
+    const p = parseCharCard("【人设】\n海洋所读研。\n【" + ttl + "】\n## 落霞镇\n镇子在河口。", "Lisa");
+    assert.ok((p.lore || []).length >= 1, ttl + " 没当成世界书");
+    assert.doesNotMatch(p.persona, /镇子在河口/, ttl + " 并进人设了");
+  }
 });

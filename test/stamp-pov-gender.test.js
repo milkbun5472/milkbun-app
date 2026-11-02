@@ -11,3 +11,13 @@ test("发给他看带的是卡页上正开着的那一面", () => {
   assert.match(ui, /onSend\(Object\.assign\(\{\}, card, \{ sendFace:/);
   assert.match(src, /face: card\.sendFace \|\| card\.face \|\| card\.faceAlt/);
 });
+test("册子多选重写：挑写好的卡，R/SR 每十张一次调用", () => {
+  const ui = fs.readFileSync(__dirname + "/../js/stamps.js", "utf8");
+  assert.match(ui, /"data-wk": "stampremode"/);
+  assert.match(ui, /Math\.ceil\(by\[k\] \/ 10\)/);
+  assert.match(ui, /onWrite\(picked\)/);
+});
+test("写新卡时不把前面的卡名给他看，卡名跟着那件事走", () => {
+  assert.match(src, /卡名不给你看，免得照着起/);
+  assert.strictEqual((src.match(/长短、说法跟着这张卡里那件事走/g) || []).length, 2);
+});

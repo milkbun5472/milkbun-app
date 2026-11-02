@@ -80,7 +80,7 @@ test("两条 OOC 都要过房间那道闸，不许有裸 ctxFor", () => {
   assert.ok(i > 0 && j > i, "抠不出 offlineOOC");
   const seg = app.slice(i, j);
   assert.match(seg, /const oocRoom = offlineRoomFor\(scopeKey\);/);
-  assert.match(seg, /oocAsk\(offlineApiFor\(charId\), roomContextFor\(char, scopeKey, oocRoom, \{\}\), q\)/);
+  assert.match(seg, /oocAsk\(offlineApiFor\(charId\), (\{ \.\.\.)?roomContextFor\(char, scopeKey, oocRoom, \{\}\)(, oocMsgs: sess\.msgs \|\| \[\] \})?, q\)/);
   assert.ok(!/oocAsk\(offlineApiFor\(charId\), ctxFor\(char\), q\)/.test(seg), "裸 ctxFor 要撤掉");
   // 线上那条本来就是对的，别改坏
   assert.match(app, /const oocCtx = roomContextFor\(char, chatKey, room\);/);

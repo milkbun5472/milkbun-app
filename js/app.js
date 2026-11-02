@@ -20,7 +20,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v88.958";
+const APP_VERSION = "v88.974";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -9543,7 +9543,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       //   线上 OOC（oocCtx = roomContextFor(...)）早就是对的，**只有线下这一处没跟上**
       //   （施工规则/four-surfaces-same-context：一层规则在八处都要接上，漏的那处要写明理由）。
       const oocRoom = offlineRoomFor(scopeKey);
-      const res = await oocAsk(offlineApiFor(charId), roomContextFor(char, scopeKey, oocRoom, {}), q);
+      const res = await oocAsk(offlineApiFor(charId), { ...roomContextFor(char, scopeKey, oocRoom, {}), oocMsgs: sess.msgs || [] }, q);
       if (!sideRoom && !res.refused && (res.directive || (res.replaced || []).length)) addDirective(charId, res.directive, res.replaced);
       const _soonNote = !res.refused ? oocSoonNote(sideRoom ? scopeKey : charId, res.soon) : "";
       pushOffMsg(scopeKey, { id: "o_" + Date.now(), role: "char", kind: "ooc", content: res.reply + oocReplacedNote(res) + _soonNote + (!sideRoom && res.directive && !res.refused ? "\n\n〔已记为长期准则：" + res.directive + "〕" : sideRoom && res.directive && !res.refused ? "\n\n〔只在本房采用，不写进主房长期准则〕" : "") + (res.refused ? "\n\n〔这条我没照做——会破坏 " + char.name + " 的人设〕" : ""), ts: Date.now() });
@@ -10414,7 +10414,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       // 世界书走和正戏同一个筛选引擎（v48.20）：之前塞的是 deriveWorldbook 全量拼接（无视 scope/关键词），
       // 一条正戏根本不会注入的全局词条就能让群 OOC 永远被 Gemini 拦（正戏通/单聊OOC通/群OOC拦 的诡异组合）
       const oocLore = loreText(loreRef.current, { charIds: members.map(c => c.id), scope: "chat", text: histText });
-      const res = await oocAskGroup(offlineActive, { members, profile, rels, chars: characters, worldbook: oocLore, historyText: histText, directives: directives[groupId] || [] }, text.trim());
+      const res = await oocAskGroup(offlineActive, { members, profile, rels, chars: characters, worldbook: oocLore, historyText: histText, directives: directives[groupId] || [], oocMsgs: sess.msgs || [] }, text.trim());
       if (!res.refused && (res.directive || (res.replaced || []).length)) addDirective(groupId, res.directive, res.replaced);
       pushGOffMsg(groupId, { id: "ooca_" + Date.now(), role: "assistant", kind: "ooc", content: res.reply + oocReplacedNote(res) + (res.directive && !res.refused ? "\n\n〔已记为群规矩：" + res.directive + "〕" : "") + (res.refused ? "\n\n〔这条我没照做——会破坏群里某位的人设〕" : ""), ts: Date.now() });
     } catch (e) {
@@ -15077,9 +15077,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       if (room && room.main) throw new Error("这间房间已不存在");
       const oocCtx = roomContextFor(char, chatKey, room);
       oocCtx.recentChat = (oocCtx.recentChat || "") + roomPromptFor(charId, room);
-      const oocLines = (chatsRef.current[chatKey] || []).filter(m => !m.recalled && isOocMsg(m)).slice(-8)
-        .map(m => (m.role === "user" ? "用户(OOC)" : "助手(OOC)") + "：" + String(m.content || "").slice(0, 300)).join("\n");
-      if (oocLines) oocCtx.recentChat = (oocCtx.recentChat ? oocCtx.recentChat + "\n\n" : "") + "【最近的 OOC 幕后对话（用户越过角色和你这个助手聊的——角色本人不知道这些，别当成他俩的对话）】\n" + oocLines;
+      oocCtx.oocMsgs = chatsRef.current[chatKey] || [];
       const res = await oocAsk(apiFor(charId), oocCtx, text.trim());
       // 合理的调整要求 → 存成长期准则（refused 时不存）
       if (!res.refused && (res.directive || (res.replaced || []).length)) addDirective(chatKey, res.directive, res.replaced);
@@ -16809,7 +16807,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       const histText = (groupChatsRef.current[groupId] || []).filter(m => !isOocMsg(m) && m.content && contextAllowsMessage(m)).slice(-20).map(m => m.role === "narration" ? "【旁白】" + m.content : (m.role === "user" ? userName(profile) : m.senderName || "某人") + "：" + m.content).join("\n");
       // 世界书走和正戏同一个筛选引擎（v48.20，理由同群线下 OOC 处注释）
       const oocLore = loreText(loreRef.current, { charIds: members.map(c => c.id), scope: "chat", text: histText });
-      const res = await oocAskGroup(active, { members, profile, rels, chars: characters, worldbook: oocLore, historyText: histText, directives: directives[groupId] || [] }, text.trim());
+      const res = await oocAskGroup(active, { members, profile, rels, chars: characters, worldbook: oocLore, historyText: histText, directives: directives[groupId] || [], oocMsgs: groupChatsRef.current[groupId] || [] }, text.trim());
       if (!res.refused && (res.directive || (res.replaced || []).length)) addDirective(groupId, res.directive, res.replaced); // 群准则复用 directives[groupId]，注入 replyGroup
       pGChat(groupId, p => [...p, { role: "assistant", kind: "ooc", content: res.reply + oocReplacedNote(res) + (res.directive && !res.refused ? "\n\n〔已记为群规矩：" + res.directive + "〕" : "") + (res.refused ? "\n\n〔这条我没照做——会破坏群里某位的人设〕" : ""), ts: Date.now() }]);
     } catch (e) {
@@ -17599,8 +17597,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   };
   // 去重按「写的是什么事」，不只按卡名：带上最近几十张的 gist
   // 带上印在卡上的那句台词（她 2026-10-26：同一期两张卡印了一模一样的一句）
-  const stampPrev = charId => (StampsCoreSafe().cards || []).filter(c => c.charId === charId && c.text).slice(-30).map(c => "「" + c.text.name + "」" + (c.text.gist ? "：" + String(c.text.gist).slice(0, 60) : "") + (c.text.line ? "（卡上那句：" + String(c.text.line).slice(0, 40) + "）" : ""));
-  const stampPrevLine = prev => prev.length ? "\n你已经有的卡（卡名、写的是什么、卡上那句）：\n" + prev.join("\n") + "\n新写的别再是同一件事、同一种走向，卡上那句也别再说一样的话；上面这些卡名和故事里反复出现的那样东西（比如老是灯、雨、某个物件），新卡换一样，别再拿它起名、也别再让它当故事的中心。" : "";
+  const stampPrev = charId => (StampsCoreSafe().cards || []).filter(c => c.charId === charId && c.text).slice(-30).map(c => "- " + (c.text.gist ? String(c.text.gist).slice(0, 60) : "（没记）") + (c.text.line ? "（卡上那句：" + String(c.text.line).slice(0, 40) + "）" : ""));
+  const stampPrevLine = prev => prev.length ? "\n你已经有的卡（写的是什么、卡上那句；卡名不给你看，免得照着起）：\n" + prev.join("\n") + "\n新写的别再是同一件事、同一种走向，卡上那句也别再说一样的话。" : "";
   // 他平时真说过的话（她 2026-10-26：「剧情有点刻板印象，不像他平时说话」）：从跟她的聊天里取最近几十句他自己打的字，
   //   叫他照这个口气、长短、用词开口——不是让他复述这些话，是让他认出自己。没聊过就不给
   const stampVoice = char => {
@@ -17681,7 +17679,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         instruction: STAMP_CORE() + stampVoice(char) + stampBi(char) + "她在「邮票册」里抽到了几张印着你的邮票，每张是你的一个样子。下面按顺序写这几张。\n"
           + list.map((c, i) => "第 " + (i + 1) + " 张：" + c.rarity + "。" + stampKindLine(c, char)).join("\n")
           + "\n" + (list.some(c => c.rarity === "R") ? STAMP_RARITY_SPEC.R + "\n" : "") + (list.some(c => c.rarity === "SR") ? STAMP_RARITY_SPEC.SR + "\n" : "")
-          + "每张都有 name（卡名，八个字以内，从这张卡里那件事本身来起，不拿日子、节气、天气这些背景起名）、gist（一句话记下这张写的是什么事、在哪、怎么收的尾，给以后去重用）和 shot。" + STAMP_SHOT_SPEC
+          + "每张都有 name（卡名，八个字以内，从这张卡里那件事本身来起，不拿日子、节气、天气这些背景起名；长短、说法跟着这张卡里那件事走，像这一张自己的名字）、gist（一句话记下这张写的是什么事、在哪、怎么收的尾，给以后去重用）和 shot。" + STAMP_SHOT_SPEC
           + stampPrevLine(prev) + "\n这几张之间也是不同的事。"
           // 人称跟 SSR 剧情一样（她 2026-10-28：R 卡里写成了「你调完色，碰了碰她的下颌」）：卡是写给她读的
           + stampPov(char, "\n人称：卡上叙述的那几栏是写给她读的（每一栏还是照格式写成一段字），叙述里你是「他」、她是「你」，比如「他调完色，碰了碰你的下颌」；thought、real、hidden、line、back、his 是你自己心里或嘴上的话，用「我」。"),
@@ -17714,7 +17712,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
           + "一节中间也可以停下来让她选一两次（beats 里放一个 who:\"pick\"，options 两三个：text 是她说的话或做的事，beats 是你接着的那几句）——选的不同你的反应就不同，几句之后回到这一节的主线；节尾的 choices 两三个。"
           + "往前走靠的是发生的事、你的做法和你们之间自然的对话；你说多少话照你平时的样子，心里的东西让她从你做的事里看出来。每节都有点什么变了，不必每节都有大事。"
           + "两条岔路走下去，后面发生的事、你的处理、她知道的东西、你们之间的样子，至少有一样真的不一样。" + ((StampsCoreSafe().opt || {}).meQuiet ? "正文里她基本不开口：me 一节最多一句，能不写就不写；她的说话和决定都放进选项（pick 和节尾 choices）里。往前推的是你的话、你的动作和旁白。" : "她那句（me）照她平时的样子写，少一点。")
-          + "\nname 是卡名（八个字以内），line 是印在卡面上的一句你的台词。highlight 是剧情里你最想留住的那一刻，一两句画面。gist 一句话记下这张写的是什么事、在哪、怎么收的尾。name 从这段剧情里的事本身来起，不拿日子、节气、天气这些背景起名。allEndsLine 是她把每个结局都走过一遍以后，你想对她说的一句。" + STAMP_SHOT_SPEC
+          + "\nname 是卡名（八个字以内，长短、说法跟着这张卡里那件事走，像这一张自己的名字），line 是印在卡面上的一句你的台词。highlight 是剧情里你最想留住的那一刻，一两句画面。gist 一句话记下这张写的是什么事、在哪、怎么收的尾。name 从这段剧情里的事本身来起，不拿日子、节气、天气这些背景起名。allEndsLine 是她把每个结局都走过一遍以后，你想对她说的一句。" + STAMP_SHOT_SPEC
           + stampPrevLine(prev),
         schemaHint: "{\"name\":\"\",\"line\":\"\",\"highlight\":\"\",\"gist\":\"\",\"allEndsLine\":\"\",\"shot\":\"\",\"sections\":[{\"id\":\"s1\",\"lv\":1,\"title\":\"\",\"beats\":[{\"who\":\"narr|he|me\",\"text\":\"\"},{\"who\":\"pick\",\"options\":[{\"text\":\"\",\"beats\":[{\"who\":\"he\",\"text\":\"\"}]}]}],\"choices\":[{\"text\":\"\",\"go\":\"s2a\"}],\"end\":false,\"hidden\":false}]}",
         maxTokens: 65000
@@ -24435,6 +24433,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     likeCount: (m.likeCount || 0) + (m.liked ? -1 : 1)
   } : m));
   const delMoment = id => pMom(p => p.filter(m => m.id !== id));
+  // 删一条评论（群友 2026-11-02 许愿：「朋友圈可以选择删除 char 的评论」）：谁的都能删，按这条朋友圈里的序号删
+  const delMomentComment = (id, idx) => pMom(p => p.map(m => m.id === id ? { ...m, comments: (m.comments || []).filter((_, i) => i !== idx) } : m));
   // 置顶自己发的那条（群友 2026-10-26）：只改排序，挂一个 top；再点一下取消
   const topMoment = id => pMom(p => p.map(m => m.id === id ? { ...m, top: !m.top } : m));
   // 朋友圈封面（me 或某角色）：存 x_momentsCover
@@ -33960,6 +33960,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     onRegenMomentComments: regenMomentComments,
     momentMoreBusy: gen.momentMore || null,
     onDelMoment: delMoment,
+    onDelMomentComment: delMomentComment,
     onTopMoment: topMoment,
     onPinMoment: pinMomentToShike,
     onOpenMomProfile: openMomProfile,
@@ -33994,6 +33995,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     coverPos: (momentsCover[((momTarget && momTarget.isMe) ? "me" : (momTarget && momTarget.id)) + "@pos"]) || "",
     onSetCoverPos: pos => setMomentCover(((momTarget && momTarget.isMe) ? "me" : (momTarget && momTarget.id)) + "@pos", pos),
     onDelMoment: delMoment,
+    onDelMomentComment: delMomentComment,
     onTopMoment: topMoment,
     onLikeMoment: likeMoment,
     onCommentMoment: commentMoment,

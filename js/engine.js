@@ -3365,6 +3365,10 @@ const OFFLINE_AGENCY_RULE = `【谁的决定归谁 · 别把下一步做成选�
 · 这个地方、这个时辰本来就会发生的事（有人来、东西坏了、天变了、电话响了、该走了）；
 · 一件还没了结的旧事忽然在这一刻被碰到（记忆库里那些、你俩之前说过一半的）。
 ⚠️不是要你每拍都造一个事件：绝大多数时候一顿饭就是一顿饭。但**当一整场都停在同一个屋子里吃吃睡睡时，那不是平淡，那是没在往前走**。`;
+// 线下台词是本人开口（她 2026-11-02 截图：线上他说话短、松、随口；线下引号里成了网文对白腔）。
+//   单人线下、群线下共用。只给判据，不把线上原话摆进来（心声那次照抄的教训）。
+const OFFLINE_VOICE_RULE = `【台词是TA本人开口，不是小说对白】引号里的话是TA自己在说话。TA平时怎么说话——人设里写的说话习惯、TA线上跟她聊天的样子——到了面对面还是同一个人：一样的长短、一样的用词和口头禅、一样的松或者急。叙述可以是小说，台词不是。
+判据：把这句台词单独拿出来，放进你们线上的聊天里，像不像TA发的？不像，就是在念小说台词。`;
 
 const OFFLINE_NARRATIVE_RUNTIME = `【线下叙事 · 自然生成准则】
 【别拿对方刚说的词开口反问】${ECHO_QUESTION_BAN}把它和后半句塞进同一句台词里也一样是回声（「「自拍？行，别后悔。」」），别用这个办法把它留下来。反过来，真的没听清、真的意外到要确认一遍、或者你就是在质疑这件事本身，那是真反问，照常用；区别在于它有没有带进新的东西。
@@ -3389,6 +3393,8 @@ const OFFLINE_NARRATIVE_RUNTIME = `【线下叙事 · 自然生成准则】
 这一条禁的是【模板】，不是强势的人物。角色本来就居高位、说话带刺、动手快，那都照写——只是让它从这个人此刻真实的判断里长出来，而不是从「霸总该有的反应」这个现成模子里倒出来。
 
 ${OFFLINE_AGENCY_RULE}
+
+${OFFLINE_VOICE_RULE}
 
 【表达连续性】
 场景中发生的事情可以变化，但人物的注意方式、语言习惯和叙事密度保持连续。不要因为互动性质改变，就突然换一套描述重点或表达习惯。
@@ -9097,6 +9103,33 @@ function offlineLoosenBeat(text) {
   if (u.length >= 3 && !said(u[u.length - 1])) u.pop();
   return u.length ? "〔前情·只记事和原话〕" + u.join("") : String(text || "");
 }
+// 刷了好几拍的那几样，从发给模型的历史里拿掉（她 2026-11-02「做吧」：点名挂在尾巴上压不住——
+//   前面历史里同一批景物已经写了七八遍，他照着前文抄；换个场景就好了）。最近四拍里出现三拍以上的词算「刷过」，
+//   只删他正文里含这些词的那几句叙述；引号台词不动，删空了就原样留着。只动发出去的那份，存档不变。
+function offlineStaleTerms(msgs) {
+  const beats = (Array.isArray(msgs) ? msgs : []).filter(m => m && m.role === "char" && m.kind !== "selfie" && m._surface !== "online" && typeof m.content === "string").map(m => m.content);
+  const four = beats.slice(-4);
+  if (four.length < 3) return [];
+  const t = beats.slice(-2);
+  return echoCandidates(t[0], t[1]).filter(g => !/[你我他她]/.test(g) && four.filter(b => b.includes(g)).length >= 3);
+}
+function offlineDropStale(msgs) {
+  const list = Array.isArray(msgs) ? msgs : [];
+  const terms = offlineStaleTerms(list);
+  if (!terms.length) return list;
+  const hit = u => !/^[“「]/.test(u) && terms.some(w => u.includes(w));
+  return list.map(m => {
+    if (!m || m.role !== "char" || m.kind === "selfie" || m._surface === "online" || typeof m.content !== "string") return m;
+    const lines = m.content.split("\n").map(line => {
+      const units = line.match(/[“「][^”」]*[”」]|[^“「。！？!?]+[。！？!?…]*/g);
+      if (!units) return line;
+      const keep = units.filter(u => !hit(u.trim()));
+      return keep.length === units.length ? line : keep.join("");
+    });
+    const out = lines.join("\n");
+    return out.replace(/\s/g, "") ? (out === m.content ? m : { ...m, content: out }) : m;
+  });
+}
 function offlineLoosenOld(msgs) {
   const list = Array.isArray(msgs) ? msgs : [];
   let seen = 0, cut = -1;
@@ -9202,7 +9235,7 @@ function offlineSelfReviseProtocol(shape, archetypeGuard, narr) {
 
 scene 必须保留全部具体身体事实，不淡出、不概括、不降低明确程度，也不新增或升级动作。保留这个人的具体选择、现实注意、关系回应和独特说话方式；通用成人场面话可以在不改变含义与语气方向的前提下换成这个人更自然的说法。
 同样保留首稿里真正属于这个人的观察角度、嘴硬、自嘲、误判、注意取舍和有表现力的矛盾瞬间；这些不是可删的“修辞包装”。自修不把有疏密和气口的叙事改成等距的动作清单。
-删除或平实改写只负责再次证明刺激与强度、却不增加新事实或人物信息的内容，例如成串的嗓音变化、喉结、青筋、红眼、呼吸认证、神经刺激、理智或侵略性总结。同一种身体事实或反应维度只陈述一次。事实与渲染混在一句时保留事实核心，只移除认证包装；不要以缩短、清水化或统一成冷静短句为目标。
+删除或平实改写只负责再次证明刺激与强度、却不增加新事实或人物信息的内容，例如成串的嗓音变化、喉结、青筋、红眼、呼吸认证、神经刺激、理智或侵略性总结。同一种身体事实或反应维度只陈述一次。最后那几句〔……前两拍都写到了〕点名的东西，draftScene 里又写了、而且这一刻它没有新变化，scene 里就把那一句删掉。事实与渲染混在一句时保留事实核心，只移除认证包装；不要以缩短、清水化或统一成冷静短句为目标。
 ${archetypeGuard ? "角色卡里的强烈性格标签只决定人物会作何选择，不是要求旁白反复替TA宣传某种原型。行为或台词已经表现清楚时，删除随后给它贴标签、评点气场、认证TA有多强势／危险／无赖／宠溺的作者解说；保留真实的赖账、坚持、疲倦、占有、照顾、关系决定和说话功能，不把人物改乖。" : ""}
 ${offlineRevisionAddressRule(narr)}
 draftScene 是内部草稿，scene 才是展示并进入历史的终稿。两者都必须是完整字符串，不得省略、互换或解释修改过程。
@@ -9493,7 +9526,7 @@ async function generateOffline(p, ctx, session) {
     "") + outputSpec + ((!isDigital && session.sayZhOn) ? offlineSayZhSpec("") : "") + stateBootstrapHint + gazeSpecBlock;
   // v52.77：恢复正常首遍生成；首次跨越后的 scene 再交给同模型做删除优先的受约束编辑。
   // 最终只有编辑稿进入 session history，首遍草稿仅用于本轮内存诊断。
-  const hist = offlineHistory(offlineLoosenOn(session) ? offlineLoosenOld(session.msgs) : session.msgs, userName, char.name, ctx.timeAware !== false, char.id);
+  const hist = offlineHistory(offlineLoosenOn(session) ? offlineLoosenOld(offlineDropStale(session.msgs)) : session.msgs, userName, char.name, ctx.timeAware !== false, char.id);
   if (session.hasOnlineInterlude) {
     const bridge = "\n\n〔跨情境衔接〕上面标成【线上私聊】的内容，是这场未结束的线下相处期间，你们切到手机聊天时真实说过的话。所有记录已经按实际时间排好；再次回到线下时，以时间最新的线上与线下内容共同作为现在的前情，绝不能跳过今天的线上聊天、倒回去续演更早的线下剧情，也不要把线上原话假装成刚刚面对面又说了一遍。";
     if (hist.length && hist[hist.length - 1].role === "user") hist[hist.length - 1] = { ...hist[hist.length - 1], content: hist[hist.length - 1].content + bridge };
@@ -10204,7 +10237,7 @@ async function generateOfflineGroup(p, ctx, session) {
   const system =
     groupBans({ narrative: true, mood: true, echo: true, drama: !!ctx.dramaRule, worldbook: !!(ctx.worldbook && ctx.worldbook.trim()) }) +
     // 谁的决定归谁 / 一拍写到哪儿停 / 从哪儿往前走：跟单人线下同一份（v73.18）
-    "\n\n【以下对在场每个人各自成立：「TA」是正在写的那一位，「她」是用户】\n" + OFFLINE_AGENCY_RULE +
+    "\n\n【以下对在场每个人各自成立：「TA」是正在写的那一位，「她」是用户】\n" + OFFLINE_AGENCY_RULE + "\n\n" + OFFLINE_VOICE_RULE +
     groupGrowthRule +
     timeBlock +
     "\n\n【在场角色】\n" + memberDesc +
@@ -10254,7 +10287,7 @@ async function generateOfflineGroup(p, ctx, session) {
     cotSystemBlock(cotT) +
     (novel ? novelOut : "\n【输出】只输出一个 JSON，不要代码块：\n{\"beats\":[{\"name\":\"这一段里行动或说话的角色名；纯环境旁白填『旁白』\",\"scene\":\"这一段叙事正文（第三人称，含动作/神态/对话）\",\"thought\":\"（仅角色 beat，可选）该角色此刻没说出口的真实心声\",\"mood\":{\"label\":\"此刻中文心情词（禁止英文内部标签）\"},\"affinityDelta\":\"（仅角色 beat）" + AFFINITY_DELTA_SPEC + "\",\"impression\":\"（仅角色 beat，可选）{'side':'me|us','block':'me侧:person/soft/like/recent/unread；us侧:what/how/marks/elephant/want','text':'整块重写≤80字'}——" + (window.Gaze ? window.Gaze.updateRule(userName) : "没有新认识可省略") + "\"" + gSchedField + ((session.photoMembers || []).length ? ",\"photo\":\"（仅角色 beat，可选）这一拍真拍了照片才填 {'kind':'self|other" + ((session.photoDuoMembers || []).length ? "|duo" : "") + (session.photoGroupOk ? "|group" : "") + "','scene':'这一格拍到了什么'}，没拍就整个省略\"" : "") + "}]}\n一次产出 2~" + gBeatMax + " 个 beat（在场 " + members.length + " 个人），让在场角色轮流有戏、互相有来有往；name 必须逐字填写以下名字之一：" + members.map(c => "『" + memberLabel(members, c) + "』").join("、") + "；只有不属于任何人的纯环境段才填『旁白』，不许把整篇都塞进一个旁白 beat。") + sameNameNote(members) + "\nthought 的写法：" + THOUGHT_MEANING_CHAR + THOUGHT_VOICE + (typeof THOUGHT_EACH_OWN === "string" ? THOUGHT_EACH_OWN : "") + THOUGHT_ORIGIN
     + ((session.sayZhNames || []).length ? offlineSayZhSpec(session.sayZhNames.map(x => "『" + x + "』").join("、")) : "");
-  const hist = offlineGroupHistory(offlineLoosenOn(session) ? offlineLoosenOld(session.msgs) : session.msgs, userName, ctx.timeAware !== false, ctx.clockId);
+  const hist = offlineGroupHistory(offlineLoosenOn(session) ? offlineLoosenOld(offlineDropStale(session.msgs)) : session.msgs, userName, ctx.timeAware !== false, ctx.clockId);
   // 尾部重申（同单人线下）：治长对话后段八股回潮 + cot 丢失
   const gWantLong = session.minWords && session.minWords >= 150;
   // max_tokens 是天花板不是预付款；思考模型的推理也从这儿扣，给窄了正文就只剩个零头
@@ -10851,12 +10884,29 @@ function oocResult(parsed, existing) {
     ? { text: String(parsed.soon.text).trim().slice(0, 200), turns: Math.max(1, Math.min(10, Math.round(Number(parsed.soon.turns) || 1))) } : null;
   return { reply: parsed.reply.trim(), directive: (parsed.directive && String(parsed.directive).trim()) || null, refused, replaced, soon: sn };
 }
+// OOC 的前几个来回（群友 2026-11-02 许愿：「同一轮我前面刚指导完，后面让它改完那段发我，它就不知道之前聊的是哪段了」）：
+//   原来线下、群的 OOC 一句旧的都不带，线上那处只带 8 句、每句截 300 字——它改好的那一大段正好被截掉。
+//   现在四处都交最近的 OOC 来回，按真的一问一答排成多轮消息；它自己的回答给足 2000 字，改好的那段能原样接上。
+function oocTurns(msgs, question) {
+  const list = (Array.isArray(msgs) ? msgs : []).filter(m => m && !m.recalled && isOocMsg(m) && String(m.content || "").trim());
+  const last = list[list.length - 1];
+  const prior = last && last.role === "user" && String(question || "").trim().startsWith(String(last.content).trim()) ? list.slice(0, -1) : list;
+  const out = [];
+  prior.slice(-10).forEach(m => {
+    const role = m.role === "user" ? "user" : "assistant";
+    const text = String(m.content).trim().slice(0, role === "user" ? 800 : 2000);
+    const l = out[out.length - 1];
+    if (l && l.role === role) l.content += "\n" + text; else out.push({ role, content: text });
+  });
+  while (out.length && out[0].role !== "user") out.shift();
+  return out;
+}
 // OOC：跳出角色，直接和模型对话（调整/问状态/问剧情）
 async function oocAsk(p, ctx, question) {
   const existing = (ctx.directives || []).map(d => (typeof d === "string" ? d : d && d.text) || "").filter(s => s.trim());
   const system = "你现在跳出角色扮演，作为幕后的 AI 助手，用简体中文直接回答用户（OOC，越过角色本身）。你了解当前角色的人设、关系、此刻心情与剧情背景。\n\n用户这句 OOC 通常是两类之一：\n(A) 问角色此刻为什么这样 / 状态动机心理 / 剧情走向——就基于【角色人设 + 上文给你的此刻心情、好感度、近期对话】冷静分析讲给 Ta 听，别扮演。\n(B) 要求你调整角色接下来的说话或行为方式（想立一条长期规矩，如「以后对我别这么客气」「多主动关心我」）——你要判断这条要求和角色核心人设是否冲突：\n   · 合理（人设范围内做得到）：在 reply 里简短确认会照做，并把这条要求凝练成【一句、祈使句、对角色说的长期准则】填进 directive（例：『对用户更随意亲近，少用敬语』）。**只要你在 reply 里表示会照做，就【必须】同时把它填进 directive、绝不许留 null——reply 答应了却 directive 留空，这条准则就没被记下、角色下一轮又忘、等于骗用户，严禁。**\n   · 会严重崩人设、把角色变成另一个人：refused 填 true，directive 填 null，在 reply 里解释为什么这条你没法照做、它会怎样破坏这个角色，并可提议一个不崩人设的折中。\n(C) 不是长期规矩，而是【只管接下来几轮】的安排（让角色下一轮去做某件事、这几轮先别提某件事、接下来怎么接某段剧情）——这种别填 directive，改填 soon：text 写成一句对角色说的祈使句，turns 是管几轮（用户说「下一轮」就是 1；没说清就按这件事大概要几轮做完来估；用户说了数字就照它；最多 10，更长的就是长期规矩、走 B）。同样要先判断会不会崩人设，崩的话照 B 的办法拒绝。reply 里答应了就必须填上，别让角色下一轮又不知道。\n若只是 A 类提问，directive 和 soon 一律 null、refused 一律 false。" + (existing.length ? "\n\n【当前已生效的用户准则】\n" + existing.map((s, i) => (i + 1) + ". " + s).join("\n") + "\n" + OOC_REPLACE_RULE + "" : "") + "\n\n" + buildBundle(ctx, { ooc: true }) + "\n\n【输出】只输出一个 JSON，不要代码块：\n{\"reply\":\"给用户看的话（简洁直接）\",\"directive\":\"要新增/更新的一句长期准则，或 null\",\"replaces\":[被替换或取消的旧准则序号],\"soon\":{\"text\":\"只管接下来几轮的那句安排\",\"turns\":1}或 null,\"refused\":false}";
   // 放宽 token：gemini 等思考型模型思考也吃额度，900 太紧会把 reply(尤其A类分析)截在半句、或塞不完 JSON（输出免费）
-  const raw = await callAI(p, system, [{ role: "user", content: question }], { maxTokens: 14000 });
+  const raw = await callAI(p, system, [...oocTurns(ctx.oocMsgs, question), { role: "user", content: question }], { maxTokens: 14000 });
   const parsed = extractJSONKey(raw, "reply");
   if (parsed && typeof parsed.reply === "string") {
     return oocResult(parsed, existing);
@@ -10875,7 +10925,7 @@ async function oocAskGroup(p, ctx, question) {
   const relLines = members.map(c => directedRelationLines(c, ctx.rels, ctx.chars, ctx.profile)).join("\n");
   const existing = (ctx.directives || []).map(d => (typeof d === "string" ? d : d && d.text) || "").filter(s => s.trim());
   const system = "你现在跳出角色扮演，作为幕后的 AI 助手，用简体中文直接回答用户（OOC，越过群里所有角色）。你了解这个群里每个角色的人设、彼此关系与当前对话进展。语气是助手而非角色，简洁直接、不扮演。\n\n用户这句 OOC 通常是两类之一：\n(A) 问某角色/群里此刻的状态动机心理、关系张力、剧情走向——冷静说明。\n(B) 要求你调整接下来这些角色的演绎方式，或立一条【群里的长期规矩】（如「别再纠结那件事了」「都对我随和点」「少斗嘴」）——在 reply 里简短确认会照做，并把它凝练成【一句、祈使句、对全群成员今后都生效的长期准则】填进 directive（例：『别再揪着那件已经翻篇的旧事、往前聊』）。⚠️例子里的措辞只是示范格式，绝不许把示范里的任何具体事物（食物/地点/物件）照抄进你的回复或当成真发生过的事。若这条会严重崩掉某个角色的核心人设，refused 填 true、directive 填 null，并在 reply 里说明。只是 A 类提问就 directive 一律 null、refused 一律 false。\n\n【群成员】\n" + memberDesc + "\n\n【成员间关系】\n" + relLines + (ctx.worldbook && ctx.worldbook.trim() ? "\n\n【世界书】\n" + ctx.worldbook.trim() : "") + (ctx.historyText && ctx.historyText.trim() ? "\n\n【近期对话】\n" + ctx.historyText.trim() : "") + (existing.length ? "\n\n【当前群里已生效的准则】\n" + existing.map((s, i) => (i + 1) + ". " + s).join("\n") + "\n" + OOC_REPLACE_RULE + "" : "") + "\n\n【输出】只输出一个 JSON，不要代码块：\n{\"reply\":\"给用户看的话（简洁直接）\",\"directive\":\"要新增/更新的一句群规矩，或 null\",\"replaces\":[被替换或取消的旧规矩序号],\"refused\":false}";
-  const raw = await callAI(p, system, [{ role: "user", content: question }], { maxTokens: 14000 });
+  const raw = await callAI(p, system, [...oocTurns(ctx.oocMsgs, question), { role: "user", content: question }], { maxTokens: 14000 });
   const parsed = extractJSONKey(raw, "reply");
   if (parsed && typeof parsed.reply === "string") return oocResult(parsed, existing);
   return { reply: String(raw || "").trim(), directive: null, refused: false, replaced: [] };
