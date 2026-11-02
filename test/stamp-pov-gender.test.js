@@ -15,3 +15,9 @@ test("卡名有一句判断，R/SR 和 SSR 都带", () => {
   assert.match(src, /const STAMP_NAME_RULE = "/);
   assert.strictEqual((src.match(/" \+ STAMP_NAME_RULE \+ "/g) || []).length, 2);
 });
+test("册子多选重写：挑写好的卡，R/SR 每十张一次调用", () => {
+  const ui = fs.readFileSync(__dirname + "/../js/stamps.js", "utf8");
+  assert.match(ui, /"data-wk": "stampremode"/);
+  assert.match(ui, /Math\.ceil\(by\[k\] \/ 10\)/);
+  assert.match(ui, /onWrite\(picked\)/);
+});
