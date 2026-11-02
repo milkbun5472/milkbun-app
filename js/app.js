@@ -20,7 +20,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v88.949";
+const APP_VERSION = "v88.956";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -9175,13 +9175,17 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     runOfflineShot({ char, scopeKey, groupId, kind: m.photoKind, scene, cast: m.cast, reuseSid: m.sid, keep: { imgKey: m.imgKey || null, imgUrl: m.imgUrl || null, desc: m.desc } });
     return true;
   };
+  // 合影最多几个人一起入镜（她 2026-11-02 转群里：「五人群聊照片上只有四个人」）：原来三处各写死 4，
+  //   五人群加上她就得掉一个。生图那一步本身不限参考图张数，收成一个数。
+  //   上限只是「最多能上几个」，不是每张都上满（她 2026-11-02「干脆就 10 呗，反正上限又不是必用到」）：人多了脸容易串、有的接口收不了那么多张，那是少拍几个人的事
+  const GROUP_SHOT_MAX = 10;
   // 群线下当场拍一张合影：点名单＝在场有参考照的成员（第一位当拍照的那个）+ 用户。
   const groupOfflineShotNow = async groupId => {
     const group = groups.find(g => String(g.id) === String(groupId));
     if (!group) return;
     const withRef = groupMembers(group).filter(c => c && c.refPhoto);
     const gMe = meOfGroup(groupId);
-    const cast = withRef.slice(0, (gMe && gMe.refPhoto) ? 3 : 4)
+    const cast = withRef.slice(0, (gMe && gMe.refPhoto) ? GROUP_SHOT_MAX - 1 : GROUP_SHOT_MAX)
       .map(c => ({ id: c.id, name: c.name, appearance: c.appearance, refPhoto: c.refPhoto }));
     if (gMe && gMe.refPhoto) cast.push({ id: "__me", name: gMe.name || "我", appearance: gMe.appearance, refPhoto: gMe.refPhoto, outfit: sceneMeOutfit({ groupId }), closet: myClosetText("g:" + groupId) });
     if (cast.length < 2 || !withRef.length) { toast("合影要在场至少两个人有参考照，才能把脸都锁住——去给他们（或你自己）各传一张", 9000); return; }
@@ -10233,14 +10237,14 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         });
         // 这一拍真拍下了一张（四处一样喂：单人线下有的，群线下也有）。
         // 多人合影的点名单＝拍照那位排第一 + 在场其余有参考照的 + 用户，
-        // 顺序就是参考图顺序，错位了脸就串（duo 当年的老毛病）。上限 4 人。
+        // 顺序就是参考图顺序，错位了脸就串（duo 当年的老毛病）。上限 GROUP_SHOT_MAX 人。
         if (b.photo && b.photo.scene && b.senderId) {
           const _shooter = (gCtx.members || []).find(c => c.id === b.senderId);
           let _cast = null;
           if (_shooter && b.photo.kind === "group") {
             const withRef = [_shooter].concat((gCtx.members || []).filter(c => c.id !== _shooter.id)).filter(c => c && c.refPhoto);
             const _gm = meOfGroup(group.id) || {};
-            _cast = withRef.slice(0, _gm.refPhoto ? 3 : 4).map(c => ({ id: c.id, name: c.name, appearance: c.appearance, refPhoto: c.refPhoto }));
+            _cast = withRef.slice(0, _gm.refPhoto ? GROUP_SHOT_MAX - 1 : GROUP_SHOT_MAX).map(c => ({ id: c.id, name: c.name, appearance: c.appearance, refPhoto: c.refPhoto }));
             if (_gm.refPhoto) _cast.push({ id: "__me", name: _gm.name || "我", appearance: _gm.appearance, refPhoto: _gm.refPhoto, outfit: sceneMeOutfit({ groupId: group.id }), closet: myClosetText("g:" + group.id) });
           }
           if (_shooter) runOfflineShot({ char: _shooter, groupId: group.id, kind: b.photo.kind, scene: b.photo.scene, cast: _cast });
@@ -16635,7 +16639,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
             const withRef = [spk].concat(members.filter(c => c.id !== spk.id))
               .filter(c => c && c.refPhoto);
             const gMeR = meOfGroup(groupId) || {};
-            const roster = withRef.slice(0, gMeR.refPhoto ? 3 : 4).map(c => ({
+            const roster = withRef.slice(0, gMeR.refPhoto ? GROUP_SHOT_MAX - 1 : GROUP_SHOT_MAX).map(c => ({
               id: c.id, name: c.name, appearance: c.appearance, refPhoto: c.refPhoto
             }));
             if (gMeR.refPhoto) roster.push({
@@ -22015,7 +22019,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       const st = liveStateForScope(lead.id, cur.chatKey);
       // 电话里每一个人都锁：两个人以上走合影那一路（参考图顺序＝点名顺序，错位脸就串）
       const cast = withRef.length > 1
-        ? withRef.slice(0, 4).map(c2 => ({ id: c2.id, name: c2.name, appearance: c2.appearance, refPhoto: c2.refPhoto }))
+        ? withRef.slice(0, GROUP_SHOT_MAX).map(c2 => ({ id: c2.id, name: c2.name, appearance: c2.appearance, refPhoto: c2.refPhoto }))
         : null;
       const bits = (pickIds ? withRef : (cur.participants || [])).map(p => {
         const s2 = liveStateForScope(p.id, cur.chatKey);
