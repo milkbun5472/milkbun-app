@@ -7114,12 +7114,16 @@ function durableTextNeedsLocalJournal(k) {
 }
 function _txtMirror() { const g = (typeof window !== "undefined") ? window : globalThis; if (!g.__txtMirror) g.__txtMirror = new Map(); return g.__txtMirror; }
 function idbTxtOpen() { return new Promise((res, rej) => { const r = indexedDB.open("x_txtvault", 1); r.onupgradeneeded = () => { if (!r.result.objectStoreNames.contains("txt")) r.result.createObjectStore("txt"); }; r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); }); }
-async function idbTxtPut(k, v) { const db = await idbTxtOpen(); return new Promise((res, rej) => { const tx = db.transaction("txt", "readwrite"); tx.objectStore("txt").put(v, k); tx.oncomplete = () => res(); tx.onerror = () => rej(tx.error); }); }
-async function idbTxtGet(k) { const db = await idbTxtOpen(); return new Promise((res, rej) => { const tx = db.transaction("txt", "readonly"); const rq = tx.objectStore("txt").get(k); rq.onsuccess = () => res(rq.result == null ? null : rq.result); rq.onerror = () => rej(rq.error); }); }
-async function idbTxtDel(k) { const db = await idbTxtOpen(); return new Promise((res, rej) => { const tx = db.transaction("txt", "readwrite"); tx.objectStore("txt").delete(k); tx.oncomplete = () => res(); tx.onerror = () => rej(tx.error); }); }
+// 大仓库这一下没开成／事务被系统掐断（切后台回来最常见）：再开一次重跑，两次都不成才算真失败。
+//   跟保险箱那层（walWith）是同一个形状、同一个病根；最吃紧的是开机 idbTxtAll 那一下——
+//   它失败一次，界面上就是一台空手机（群友 2026-11-02：「只剩第 28 天，人全没了」）。
+function idbTxtRun(run) { return idbTxtOpen().then(run).catch(e => idbTxtOpen().then(run)); }
+function idbTxtPut(k, v) { return idbTxtRun(db => new Promise((res, rej) => { const tx = db.transaction("txt", "readwrite"); tx.objectStore("txt").put(v, k); tx.oncomplete = () => res(); tx.onerror = () => rej(tx.error); })); }
+function idbTxtGet(k) { return idbTxtRun(db => new Promise((res, rej) => { const tx = db.transaction("txt", "readonly"); const rq = tx.objectStore("txt").get(k); rq.onsuccess = () => res(rq.result == null ? null : rq.result); rq.onerror = () => rej(rq.error); })); }
+function idbTxtDel(k) { return idbTxtRun(db => new Promise((res, rej) => { const tx = db.transaction("txt", "readwrite"); tx.objectStore("txt").delete(k); tx.oncomplete = () => res(); tx.onerror = () => rej(tx.error); })); }
 async function idbTxtClear() { try { const db = await idbTxtOpen(); await new Promise((res, rej) => { const tx = db.transaction("txt", "readwrite"); tx.objectStore("txt").clear(); tx.oncomplete = () => res(); tx.onerror = () => rej(tx.error); }); } catch (e) {} try { _txtMirror().clear(); } catch (e) {} try { await walDeleteDurableTextKeys(); } catch (e) {} }
 // ⚠️读失败必须抛，不能当成「空的」：存档几乎全在这里，读失败当空 = 开机看见一台空手机。
-async function idbTxtAll() { const db = await idbTxtOpen(); return new Promise((res, rej) => { const tx = db.transaction("txt", "readonly"); const st = tx.objectStore("txt"); let ks = null, vs = null; const done = () => { if (ks && vs) res(ks.map((k, i) => [k, vs[i]])); }; const kq = st.getAllKeys(); const vq = st.getAll(); kq.onsuccess = () => { ks = kq.result || []; done(); }; vq.onsuccess = () => { vs = vq.result || []; done(); }; tx.onerror = () => rej(tx.error || new Error("文字库读不出来")); }); }
+function idbTxtAll() { return idbTxtRun(db => new Promise((res, rej) => { const tx = db.transaction("txt", "readonly"); const st = tx.objectStore("txt"); let ks = null, vs = null; const done = () => { if (ks && vs) res(ks.map((k, i) => [k, vs[i]])); }; const kq = st.getAllKeys(); const vq = st.getAll(); kq.onsuccess = () => { ks = kq.result || []; done(); }; vq.onsuccess = () => { vs = vq.result || []; done(); }; tx.onerror = () => rej(tx.error || new Error("文字库读不出来")); })); }
 // 云恢复用：只替换备份里归文字仓管理的键；preserveKeys（如行表权威的 x_memLib）原样保留。
 // 完成后调用方才允许 reload，避免大线下记录异步写到一半被刷新截断。
 async function idbTxtApplySnapshot(data, preserveKeys) {
@@ -11607,33 +11611,42 @@ function walOpen() {
     rq.onerror = () => rej(rq.error);
   });
 }
+// 连接【死在手里】：iOS/安卓把 app 切后台再回来，系统常把这个 IndexedDB 连接掐断，
+//   而 onclose 不一定发得出来——握着的 _walDB 从此每一笔事务都报错，手机根本没满。
+//   群友 2026-11-02 截到的「一直弹『刚才的聊天没存进手机』、存储还剩一大半」就是这一幕：
+//   不是偶尔卡一下，是坏了之后再也好不了，所以「下一次保存会补上」对她永远不成立。
+// 保险箱所有读写一律走这一层（施工规则/one-public-mechanism.md）：出错就把连接丢掉重开、
+//   再跑一次；两次都不成才算真失败，才往上报。以后新加的用法白得这一层。
+function walDrop() { try { if (_walDB) _walDB.close(); } catch (e) {} _walDB = null; }
+function walWith(run) {
+  return walOpen().then(run).catch(e => { walDrop(); return walOpen().then(run); });
+}
 async function walPutVerified(key, str) {
-  const db = await walOpen();
-  await new Promise((res, rej) => {
+  await walWith(db => new Promise((res, rej) => {
     const tx = db.transaction("wal", "readwrite");
     tx.objectStore("wal").put({ v: str, ts: Date.now() }, key);
     tx.oncomplete = res;
     tx.onabort = tx.onerror = () => rej(tx.error || new Error("wal tx abort"));
-  });
+  }));
   const back = await walGetRaw(key);
   return back === str;
 }
 function walGetRaw(key) {
-  return walOpen().then(db => new Promise((res, rej) => {
+  return walWith(db => new Promise((res, rej) => {
     const rq = db.transaction("wal", "readonly").objectStore("wal").get(key);
     rq.onsuccess = () => res(rq.result ? rq.result.v : null);
     rq.onerror = () => rej(rq.error);
   }));
 }
 function walKeys(prefix) {
-  return walOpen().then(db => new Promise((res, rej) => {
+  return walWith(db => new Promise((res, rej) => {
     const rq = db.transaction("wal", "readonly").objectStore("wal").getAllKeys();
     rq.onsuccess = () => res((rq.result || []).filter(k => typeof k === "string" && (!prefix || k.indexOf(prefix) === 0)));
     rq.onerror = () => rej(rq.error);
   }));
 }
 function walDel(key) {
-  return walOpen().then(db => new Promise((res, rej) => {
+  return walWith(db => new Promise((res, rej) => {
     const tx = db.transaction("wal", "readwrite");
     tx.objectStore("wal").delete(key);
     tx.oncomplete = res;
@@ -11643,7 +11656,7 @@ function walDel(key) {
 // 只在保险箱里还是【这一版】时才删（同一个事务里先读后删）。连着好几次保存同一个聊天时，
 //   前一次收尾那一下不许把后一次刚写进去、还没落进 IDB 的那份删掉。
 function walDelIf(key, str) {
-  return walOpen().then(db => new Promise((res, rej) => {
+  return walWith(db => new Promise((res, rej) => {
     const tx = db.transaction("wal", "readwrite"), st = tx.objectStore("wal"), rq = st.get(key);
     rq.onsuccess = () => { if (rq.result && rq.result.v === str) st.delete(key); };
     tx.oncomplete = res;
