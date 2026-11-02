@@ -9212,6 +9212,7 @@ function Messages({
   onLikeMoment,
   onCommentMoment,
   onMoreMomentComments,
+  onDelMomentComment,
   onRegenMomentComments,
   momentMoreBusy,
   onDelMoment,
@@ -9548,6 +9549,7 @@ function Messages({
     onLike: onLikeMoment,
     onComment: onCommentMoment,
     onMore: onMoreMomentComments,
+    onDelComment: onDelMomentComment,
     onRegen: onRegenMomentComments,
     moreBusy: momentMoreBusy,
     onDelete: onDelMoment,
@@ -10338,8 +10340,14 @@ function MomentsFeed({
   onDelete,
   onTop,
   onPin,
-  onOpenProfile
+  onOpenProfile,
+  onDelComment
 }) {
+  // 长按一条评论删掉（群友 2026-11-02）：按住 600ms，挪开手指就算了；按出来之后那一下不算点
+  const [delCm, setDelCm] = useState(null);
+  const cmPress = useRef({ t: null, fired: false });
+  const cmDown = (id, i) => { if (!onDelComment) return; cmPress.current.fired = false; clearTimeout(cmPress.current.t); cmPress.current.t = setTimeout(() => { cmPress.current.fired = true; setDelCm({ id, i }); }, 600); };
+  const cmUp = () => clearTimeout(cmPress.current.t);
   const t = useTheme();
   // 朋友圈里的头像也认聊天那张（她 2026-10-13「朋友圈也没变」）
   const characters = (rawCharacters || []).map(chatFace);
@@ -10577,7 +10585,9 @@ function MomentsFeed({
       key: i,
       "data-wk": "mocomment",
       className: "active:opacity-60",
-      onClick: () => { const me = (profile && profile.name) || "我"; if (cm.author && !cm.mine && cm.author !== me && cm.author !== "我") { setCommenting(m.id); setCReply(cm.author); setCText(""); } },
+      onTouchStart: () => cmDown(m.id, i), onTouchMove: cmUp, onTouchEnd: cmUp, onTouchCancel: cmUp,
+      onContextMenu: e => { if (!onDelComment) return; e.preventDefault(); cmUp(); cmPress.current.fired = true; setDelCm({ id: m.id, i }); },
+      onClick: () => { if (cmPress.current.fired) { cmPress.current.fired = false; return; } const me = (profile && profile.name) || "我"; if (cm.author && !cm.mine && cm.author !== me && cm.author !== "我") { setCommenting(m.id); setCReply(cm.author); setCText(""); } },
       style: {
         fontFamily: F_BODY,
         fontSize: "calc(12.5px * var(--app-fs, 1))",
@@ -10669,7 +10679,7 @@ function MomentsFeed({
       fontSize: "calc(16px * var(--app-fs, 1))",
       color: t.ink
     }
-  }, c.name))))));
+  }, c.name))))), delCm && h(ConfirmDialog, { title: "删掉这条评论？", body: "删了就没了，这条朋友圈和别的评论都不动。", confirmLabel: "删掉", danger: true, onConfirm: () => { onDelComment(delCm.id, delCm.i); setDelCm(null); }, onCancel: () => setDelCm(null) }));
 }
 // 只有描述、还没画的那张图：点开的描述下面给一个「生图」（她 2026-09-28，prompt＝描述本身）。
 // 朋友圈、贴吧共用这一个键；run 返回 true＝画好了。
