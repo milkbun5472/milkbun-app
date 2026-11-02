@@ -231,3 +231,8 @@ test("熔 R 卡：一张 30 印泥，盖过的印退一半；只熔 R", () => {
   assert.equal(r.n, 2); assert.equal(r.ink, 30 + 30 + Math.floor(spent / 2));
   const s2 = C.load(); assert.equal(s2.ink, r.ink); assert.deepEqual(s2.cards.map(c => c.id), ["c"]);
 });
+test("R 卡那句心里话写进了 line 也认回来", () => {
+  const C = fresh();
+  const out = C.cleanText({ name: "a", narration: "n", line: "我在想你" }, "R");
+  assert.strictEqual(out.thought, "我在想你");
+});
