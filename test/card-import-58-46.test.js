@@ -194,3 +194,19 @@ test("一份文件里人设带着世界书：世界书那几节单拆成词条�
   assert.equal(p.lore[0].keyword, "落霞镇");
   assert.match(p.lore[1].payload, /管宵禁/);
 });
+
+// 群友 2026-11-01 那张：没写「人设」两个字，世界书一节用的是「世界书-社交关系网」
+test("没写人设那一节，世界书照样拆出来，人设只剩前面那段", () => {
+  const p = parseCharCard("【角色底稿】\n陆之遥，大三，游泳队。\n【世界书-社交关系网】\n## 一、家庭关系网\n### 老爸：陆大军\n身高183，市政工程项目经理。\n### 老妈：周文秀\n中学语文老师。", "Lisa");
+  assert.match(p.persona, /游泳队/);
+  assert.doesNotMatch(p.persona, /陆大军|周文秀/, "世界书又被塞回人设了");
+  assert.ok((p.lore || []).length >= 2, "世界书没拆出来");
+  assert.ok(p.lore.some(e => /陆大军/.test(e.title)));
+  assert.equal(p.lore[0].keyword, "陆大军", "关键词该是人名，不是整行标题");
+});
+
+test("整篇都是世界书、没有人设正文：照旧整篇当人设，不两头各存一份", () => {
+  const p = parseCharCard("【世界书】\n## 落霞镇\n镇子在河口。\n## 夜巡司\n管宵禁的衙门。", "Lisa");
+  assert.equal((p.lore || []).length, 0);
+  assert.match(p.persona, /落霞镇/);
+});

@@ -138,19 +138,20 @@ function parseCharCard(raw, userName) {
     const gSec = find(["开场白", "问候语", "第一句", "greeting"]);
     const tSec = find(["一句话", "标签", "tagline"]);
     if (loreSecs.length) {
+      // 关键词从标题里剥出来：「### 1. 老爸：陆大军」要的是「陆大军」，不是整行
+      const kwOf = ttl => String(ttl).replace(/^[\d一二三四五六七八九十]+[、.．)）]\s*/, "").split(/[:：·]/).pop().trim().replace(/[（(].*$/, "").trim().slice(0, 24);
       out.lore = (out.lore || []).concat(loreSecs.map((x, i) => x.body.trim() ? {
-        title: x.title.slice(0, 40), keyword: i ? x.title.slice(0, 40) : "", payload: x.body.trim(),
+        title: x.title.slice(0, 40), keyword: i ? kwOf(x.title) : "", payload: x.body.trim(),
         category: "世界观", enabled: true, alwaysOn: !i
       } : null).filter(Boolean));
     }
     // 人设只取「人设」那一节，卡里的【生日】【外貌】【喜好】这些就全丢了（群友 2026-11-01：
     //   一万多字的 word 传上来只剩 600 字）。没被别的栏收走的分节，一律跟着人设一起留下。
-    if (pSec) {
-      const named = s => /名字|姓名|角色名|人物名|角色卡/.test(s.title) || /^name$/i.test(s.title);
-      const keep = secs.filter(s => s !== sSec && s !== mSec && s !== gSec && s !== tSec && !named(s) && !isLore(s) && s.body.trim());
-      out.persona = keep.length <= 1 ? pSec.body.trim()
-        : [secs.lead || ""].concat(keep.map(s => "【" + s.title + "】\n" + s.body.trim())).filter(x => x.trim()).join("\n\n");
-    }
+    const named = s => /名字|姓名|角色名|人物名|角色卡/.test(s.title) || /^name$/i.test(s.title);
+    const keep = secs.filter(s => s !== sSec && s !== mSec && s !== gSec && s !== tSec && !named(s) && !isLore(s) && s.body.trim());
+    if (pSec && keep.length <= 1) out.persona = pSec.body.trim();
+    else if (keep.length) out.persona = [secs.lead || ""].concat(keep.map(s => "【" + s.title + "】\n" + s.body.trim())).filter(x => x.trim()).join("\n\n");
+    else if (out.lore && out.lore.length) out.lore = [];   // 整篇都是世界书：不拆了，照旧整篇当人设，免得同一段两头各存一份
     if (mSec) out.longMem = mSec.body.trim();
     if (gSec) out.greeting = gSec.body.trim();
     if (tSec) out.tagline = tSec.body.trim().split("\n")[0].slice(0, 40);
