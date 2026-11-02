@@ -30,6 +30,8 @@ for (windowIndex, window) in windows.enumerated() {
             var scopedIndex = 0
             var inputPaths: [[Int]] = []
             var sendPaths: [[Int]] = []
+            var detailPaths: [[Int]] = [], remotePaths: [[Int]] = []
+            var detailsOpen = false, remoteOn = false, remoteEnabled = false
             var idle = false
             var busy = false
             var empty = false
@@ -37,6 +39,19 @@ for (windowIndex, window) in windows.enumerated() {
             while scopedIndex < scoped.count && scopedIndex < 2500 {
                 let (node, nodePath) = scoped[scopedIndex]; scopedIndex += 1
                 let role = attribute(node, "AXRole") as? String ?? ""
+                if ["AXButton", "AXCheckBox", "AXSwitch"].contains(role) {
+                    let title = attribute(node, "AXTitle") as? String ?? ""
+                    let label = title.isEmpty ? (attribute(node, "AXDescription") as? String ?? "") : title
+                    if ["会话侧栏", "Session sidebar", "Session details"].contains(label) {
+                        detailPaths.append(nodePath)
+                        detailsOpen = attribute(node, "AXValue") as? Bool ?? false
+                    }
+                    if label == "Remote Control" && ["AXCheckBox", "AXSwitch"].contains(role) {
+                        remotePaths.append(nodePath)
+                        remoteOn = attribute(node, "AXValue") as? Bool ?? false
+                        remoteEnabled = attribute(node, "AXEnabled") as? Bool ?? false
+                    }
+                }
                 if role == "AXTextArea" {
                     let description = attribute(node, "AXDescription") as? String ?? ""
                     if ["提示词", "Prompt"].contains(description) {
@@ -65,6 +80,22 @@ for (windowIndex, window) in windows.enumerated() {
             else if inputPaths.count == 1 && idle && enabled && scopedIndex < 2500 {
                 result = ["status": "ready", "window": windowIndex + 1, "page": path, "composer": inputPaths[0], "empty": empty]
                 if sendPaths.count == 1 { result["send"] = sendPaths[0] }
+            }
+            // Connection repair reads the exact page even when the local
+            // reply announcement has gone away. It never edits the composer.
+            result["window"] = windowIndex + 1
+            result["foreground"] = apps[0].isActive
+            result["page"] = path
+            result["empty"] = inputPaths.count == 1 && empty
+            if inputPaths.count == 1 { result["composer"] = inputPaths[0] }
+            if detailPaths.count == 1 {
+                result["details"] = detailPaths[0]
+                result["details_open"] = detailsOpen
+            }
+            if remotePaths.count == 1 {
+                result["remote_toggle"] = remotePaths[0]
+                result["remote_on"] = remoteOn
+                result["remote_toggle_enabled"] = remoteEnabled
             }
             let data = try! JSONSerialization.data(withJSONObject: result, options: [.sortedKeys])
             print(String(data: data, encoding: .utf8)!); exit(0)

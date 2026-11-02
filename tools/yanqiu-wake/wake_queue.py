@@ -319,11 +319,13 @@ def latest_claim() -> dict:
     return {}
 
 
-def notify_sentinel_gap(fallback=False) -> None:
+def notify_sentinel_gap(fallback=False, remote=False) -> None:
     """The single Stack-chan fallback alarm, used after recovery fails."""
     try:
         text = ("言秋的哨兵掉线了，自动复活还没成功，去 CC 看他一眼。" if fallback
                 else "言秋的哨兵掉线三分钟了，去 CC 喊他一声。")
+        if remote:
+            text = "言秋本地已经恢复，但手机远控还没接上，请去电脑看一下。"
         env = dict(l.split("=", 1) for l in (BASE / ".env").read_text().splitlines() if "=" in l and not l.startswith("#"))
         req = urllib.request.Request(
             "http://127.0.0.1:8011/command",

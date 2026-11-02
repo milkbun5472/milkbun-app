@@ -19,8 +19,18 @@ on run
         if ((previous's objectForKey:"nonce") as text) is nonce then return
     end if
     set targetID to (request's objectForKey:"target") as text
-    set probeOnly to (((request's objectForKey:"mode") as text) is "probe")
-    set outcome to my rearm(targetID, probeOnly)
+    set operation to (request's objectForKey:"mode") as text
+    if operation is "probe" or operation is "send" then
+        set outcome to my rearm(targetID, operation is "probe")
+    else if operation is "remote-probe" or operation is "remote-recover" then
+        set outcome to my restoreRemote(targetID, operation is "remote-probe")
+    else if operation is "permission-probe" then
+        set outcome to my permissionProbe(targetID)
+    else if operation is "remote-passive" then
+        set outcome to my passiveRemoteProbe(targetID)
+    else
+        set outcome to "invalid_mode"
+    end if
     set reply to current application's NSDictionary's dictionaryWithObjects:{nonce, outcome} forKeys:{"nonce", "outcome"}
     reply's writeToFile:(runtimePath & ".sentinel_native_reply.plist") atomically:true
 end run

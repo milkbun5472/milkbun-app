@@ -42,8 +42,8 @@ test("两处线下：offlineHistory / offlineGroupHistory 都收 clock", () => {
   assert.match(eng, /function offlineHistory\(msgs, userName, charName, clock(, clockId)?\)/);
   assert.match(eng, /function offlineGroupHistory\(msgs, userName, clock(, clockId)?\)/);
   // 调用处真的把 ctx 那一层传下去了（声明了没人传＝白写，v55.95 那个形状）
-  assert.match(eng, /offlineHistory\(session\.msgs, userName, char\.name, ctx\.timeAware !== false[,)]/);
-  assert.match(eng, /offlineGroupHistory\(session\.msgs, userName, ctx\.timeAware !== false[,)]/);
+  assert.match(eng, /offlineHistory\((offlineLoosenOn\(session\) \? offlineLoosenOld\(session\.msgs\) : )?session\.msgs, userName, char\.name, ctx\.timeAware !== false[,)]/);
+  assert.match(eng, /offlineGroupHistory\((offlineLoosenOn\(session\) \? offlineLoosenOld\(session\.msgs\) : )?session\.msgs, userName, ctx\.timeAware !== false[,)]/);
   assert.equal((eng.match(/const stamp = \(ts && clock !== false\)/g) || []).length, 2);
   assert.equal((eng.match(/const dateAnchor = clock !== false \? vAnchor\(raw, m\.ts, clockId\)/g) || []).length, 2);   // 2026-10-31 起日期锚照那只虚拟钟
 });

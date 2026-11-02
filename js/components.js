@@ -18662,6 +18662,7 @@ function OfflineMode({
   const [sMax, setSMax] = useState(os.maxTokens || 4000);
   const [sMinW, setSMinW] = useState(os.minWords || 0);
   const [sLengthMode, setSLengthMode] = useState(os.lengthMode === "immersive" ? "immersive" : "natural");
+  const [sLoose, setSLoose] = useState(os.looseOld !== false);
   const [sMemN, setSMemN] = useState(os.memN != null ? os.memN : 6);
   const [sOnlineN, setSOnlineN] = useState(os.onlineCtxN != null ? os.onlineCtxN : 50);
   const [sSelf, setSSelf] = useState(os.selfP || "first");
@@ -18724,7 +18725,7 @@ function OfflineMode({
     h(Head, { zh: offSetTab ? (offSetPages.find(x => x.key === offSetTab) || {}).title || "线下设置" : "线下设置",
       bg: "transparent",
       onBack: () => { if (offSetTab) { setOffSetTab(""); setOffSec(""); } else setSetOpen(false); },
-      right: h("button", { onClick: () => { onSaveSettings({ hideThought: !sShowTh, noAutoShot: sNoShot, presetOn, presetId, maxTokens: sMax, minWords: sMinW, lengthMode: sLengthMode, memN: sMemN, onlineCtxN: sOnlineN, selfP: sSelf, userP: sUser, describeMe: sDesc, tastePace: sTastePace, tasteFocus: sTasteFocus, tasteDensity: sTasteDensity, bg: sBg, customCSS: sCss, fontSize: sFont, replyOpts: sOpts }); onChangeStyle && onChangeStyle({ styleKey, presetOn, presetId, stylePrompt: (curStyle && curStyle.prompt) || "", taste: { pace: sTastePace, focus: sTasteFocus, density: sTasteDensity } }); setSetOpen(false); } }, h(ICheck, { size: 19, color: t.ink })) }),
+      right: h("button", { onClick: () => { onSaveSettings({ hideThought: !sShowTh, noAutoShot: sNoShot, presetOn, presetId, maxTokens: sMax, minWords: sMinW, lengthMode: sLengthMode, looseOld: sLoose, memN: sMemN, onlineCtxN: sOnlineN, selfP: sSelf, userP: sUser, describeMe: sDesc, tastePace: sTastePace, tasteFocus: sTasteFocus, tasteDensity: sTasteDensity, bg: sBg, customCSS: sCss, fontSize: sFont, replyOpts: sOpts }); onChangeStyle && onChangeStyle({ styleKey, presetOn, presetId, stylePrompt: (curStyle && curStyle.prompt) || "", taste: { pace: sTastePace, focus: sTasteFocus, density: sTasteDensity } }); setSetOpen(false); } }, h(ICheck, { size: 19, color: t.ink })) }),
     h("div", { className: "flex-1 min-h-0 overflow-y-auto", style: { padding: "4px 18px 40px" } },
       !offSetTab && h(SettingCatalog, { pages: offSetPages, onOpen: k => { setOffSetTab(k); setOffSec(""); } }),
       offShow("scene", "bg", "场景背景图",
@@ -18740,7 +18741,7 @@ function OfflineMode({
       offShow("scene", "taste", "本场口味",
     h(OfflineTastePanel, { t, pace: sTastePace, setPace: setSTastePace, focus: sTasteFocus, setFocus: setSTasteFocus, density: sTasteDensity, setDensity: setSTasteDensity })),
       offShow("write", "len", characterText(char, "他每一轮写多长"),
-    h(OfflineLengthModeSection, { value: sLengthMode, onChange: setSLengthMode })),
+    h(OfflineLengthModeSection, { value: sLengthMode, onChange: setSLengthMode, loose: sLoose, onLoose: setSLoose })),
       offShow("write", "max", "单次输出上限",
     h("div", { className: "pt-4" },
       h("div", { className: "flex items-baseline justify-between mb-1" },
@@ -19700,7 +19701,7 @@ function WordFloorSection({ value, onChange, title, note, hint, max }) {
     h(Slider, { value: Math.min(n, cap), min: 0, max: cap, step: 100,
       onChange: v => onChange(SP ? SP.clampWordFloor(v) : Math.round(v)) }));
 }
-function OfflineLengthModeSection({ value, onChange }) {
+function OfflineLengthModeSection({ value, onChange, loose, onLoose }) {
   const t = useTheme();
   const mode = value === "immersive" ? "immersive" : "natural";
   return h("div", { className: "pt-5" },
@@ -19711,7 +19712,13 @@ function OfflineLengthModeSection({ value, onChange }) {
       [{ v: "natural", t: "自然长度" }, { v: "immersive", t: "沉浸长文" }].map(o => h("button", {
         key: o.v, onClick: () => onChange(o.v),
         style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", padding: "7px 13px", borderRadius: 999, background: mode === o.v ? t.ink : "transparent", color: mode === o.v ? t.bg2 : t.fog, border: "1px solid " + (mode === o.v ? t.ink : t.line) }
-      }, o.t))));
+      }, o.t))),
+    // 旧段落只留事和原话（她 2026-11-02）：单人和群线下共用这一行，开关存在 looseOld
+    onLoose ? h("div", { className: "flex items-center justify-between pt-5", "data-wk": "offloose" },
+      h("div", { className: "pr-3" },
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.sub } }, "旧段落只留事和原话"),
+        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, marginTop: 2, lineHeight: 1.5 } }, "沉浸长文或设了最低字数时生效：最近两拍原样带，更早的只带发生的事和说过的原话，不带整段排法，免得照着前面几段的样子写。关掉＝全部原样带。")),
+      h(Toggle, { on: loose !== false, onChange: () => onLoose(loose === false) })) : null);
 }
 function GroupOfflineMode({
   onStopGen,
@@ -19775,6 +19782,7 @@ function GroupOfflineMode({
   const [sMinW, setSMinW] = useState(os.minWords || 0);
   // 篇幅模式（她 2026-09-26：单聊有的给群聊也加上），存档键和单聊同名 lengthMode
   const [sLengthMode, setSLengthMode] = useState(os.lengthMode === "immersive" ? "immersive" : "natural");
+  const [sLoose, setSLoose] = useState(os.looseOld !== false);
   // 写法（她 2026-10-08）：一人一拍＝原来那样；整段小说＝一次一整段、全员一起写，各人心声照常挂在这一段上
   const [sWriteMode, setSWriteMode] = useState(os.writeMode === "novel" ? "novel" : "beats");
   const [sNoShot, setSNoShot] = useState(!!os.noAutoShot);   // 关掉他们顺手拍照（她 2026-10-17）
@@ -19900,7 +19908,7 @@ function GroupOfflineMode({
     h(Head, { zh: gSetTab ? (gSetPages.find(x => x.key === gSetTab) || {}).title || "线下设置" : "线下设置",
       bg: "transparent",
       onBack: () => { if (gSetTab) { setGSetTab(""); setGSec(""); } else setSetOpen(false); },
-      right: h("button", { onClick: () => { onSaveSettings && onSaveSettings({ hideThought: !sShowTh, noAutoShot: sNoShot, presetOn, presetId, maxTokens: sMax, minWords: sMinW, lengthMode: sLengthMode, writeMode: sWriteMode, memN: sMemN, onlineCtxN: sOnlineN, bg: sBg, describeMe: sDesc, tastePace: sTastePace, tasteFocus: sTasteFocus, tasteDensity: sTasteDensity }); onChangeStyle && onChangeStyle({ styleKey, presetOn, presetId, stylePrompt: (curStyle && curStyle.prompt) || "", taste: { pace: sTastePace, focus: sTasteFocus, density: sTasteDensity } }); setSetOpen(false); }, className: "active:opacity-60" }, h(ICheck, { size: 19, color: t.ink })) }),
+      right: h("button", { onClick: () => { onSaveSettings && onSaveSettings({ hideThought: !sShowTh, noAutoShot: sNoShot, presetOn, presetId, maxTokens: sMax, minWords: sMinW, lengthMode: sLengthMode, looseOld: sLoose, writeMode: sWriteMode, memN: sMemN, onlineCtxN: sOnlineN, bg: sBg, describeMe: sDesc, tastePace: sTastePace, tasteFocus: sTasteFocus, tasteDensity: sTasteDensity }); onChangeStyle && onChangeStyle({ styleKey, presetOn, presetId, stylePrompt: (curStyle && curStyle.prompt) || "", taste: { pace: sTastePace, focus: sTasteFocus, density: sTasteDensity } }); setSetOpen(false); }, className: "active:opacity-60" }, h(ICheck, { size: 19, color: t.ink })) }),
     h("div", { className: "flex-1 min-h-0 overflow-y-auto", style: { padding: "4px 18px 40px" } },
       !gSetTab && h(SettingCatalog, { pages: gSetPages, onOpen: k => { setGSetTab(k); setGSec(""); },
         note: "保存后下次开场生效" }),
@@ -19939,7 +19947,7 @@ function GroupOfflineMode({
           style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", minHeight: 40, padding: "7px 13px", borderRadius: 999, background: sWriteMode === o.v ? t.ink : "transparent", color: sWriteMode === o.v ? t.bg2 : t.fog, border: "1px solid " + (sWriteMode === o.v ? t.ink : t.line) }
         }, o.t))))),
       gShow("write", "len", "他们每一轮写多长",
-    h(OfflineLengthModeSection, { value: sLengthMode, onChange: setSLengthMode })),
+    h(OfflineLengthModeSection, { value: sLengthMode, onChange: setSLengthMode, loose: sLoose, onLoose: setSLoose })),
       gShow("write", "max", "单次输出上限",
     h("div", { className: "pt-5" },
       h("div", { className: "flex items-baseline justify-between mb-1" },

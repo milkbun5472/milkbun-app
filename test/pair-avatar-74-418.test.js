@@ -33,7 +33,7 @@ test("只在她开口时给，而且换的能力真发下去了", () => {
   // 2026-10-19：4 句太短（两张图＋一句催就把「情头」挤掉了），放到 10
   assert.match(app, /const _pairAsked = !opts\.proactive && askedRecently\(history, PAIR_AVATAR_ASK_RE, 10\);/);
   assert.match(app, /const _pairPick = _pairAsked \? freshPhotoPairIn\(/);
-  assert.match(app, /if \(!_pairDone && !_pairPick && !_pairAsked && _avatarMsg/, "提过情头时单张兜底不许替它换");
+  assert.match(app, /if \(!_pairDone && \(!_pairPick \|\| _pairAuto\) && !_pairAsked && _avatarMsg/, "提过情头时单张兜底不许替它换");
   assert.match(app, /if \(_pairPick\) \{\n\s*openCaps\.push\("pairAvatar"\);/);
   assert.match(app, /const _pairDone = !!\(_pairPick && parsed\.pairAvatar/);
 });

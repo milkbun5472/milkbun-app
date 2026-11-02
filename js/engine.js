@@ -1860,6 +1860,8 @@ const CHARCARD_RULE = `【角色卡执行准则】
 
 职业、兴趣、习惯、关系、特殊知识和语言抓手自然存在，无需频繁调用来证明人设。人格首先体现在注意力自然落在哪里、如何理解眼前的事，以及在这个处境下倾向怎样判断或行动。
 
+长相和身上带着的东西（穿孔、纹身、首饰、疤、发色这一类）也一样：卡上写着，就一直在，读的人记得，不用每段提醒。只在它这一刻真的起了作用——被碰到、被看见、被说起、发出声音、碍了事——才写；一场里写过一次，之后除非它又起了新的作用就不再写。判据：把这句删掉，读的人会不会忘了他有这个？不会，就不用写。
+
 声纹的温度也是声纹的一部分：外向健谈的人滔滔不绝才是本色，收成冷静克制反而是走样；嘴硬别扭的人，硬是硬在那句话的态度上，在乎从行动、停顿和心声里漏出来；用哪句话硬，照TA自己平时说话的样子，换个人就不会是这一句。没有哪种「不冷不热的中间值」对所有角色安全——那正是千人一面。
 
 明确表达出的意愿与边界按其本意成立，不因恋爱关系、人物标签或潜在反差自动解释成相反含义。
@@ -2217,6 +2219,37 @@ function endsOnBossing(text) {
 }
 const BOSSING_TAIL_HINT = "\n【收尾】你上一轮是拿一句替她安排、叮嘱她的话收尾的。那一句是场面自带的，不是你此刻要说的，里头她会怎样的那一半也多半不是她跟你说过的。这一轮最后那个位置留给你自己真想说的。";
 const SEE_THROUGH_TAIL_HINT = "\n【上一轮】你上一轮在翻她以前的事来堵她、替她下定论。这一轮回应她此刻说的这件事。";
+// 按轮提醒（狠话收尾／替她安排收尾／翻旧账看穿她）只此一份：单聊、线下、群聊都问它（她 2026-11-02：「线下群聊都接上」）。
+//   tail：上一轮他说出口的最后一句；turnText：上一轮他说的全部，一句一行。只给方向（换个收法），不加禁令
+function tailHintsFor(tail, turnText) {
+  const threat = endsOnThreat(tail) ? THREAT_TAIL_HINT : "";
+  const boss = !threat && endsOnBossing(tail) ? BOSSING_TAIL_HINT : "";
+  const see = String(turnText || "").split("\n").some(seeThroughLast) ? SEE_THROUGH_TAIL_HINT : "";
+  return threat + boss + see;
+}
+// 线下一拍是一整段叙述：说出口的只有引号里那几句，按轮提醒只看这些
+// 身上那样东西每拍都写（她 2026-11-02：「我这个角色有舌钉然后每一段都描述他的金属小球」，加了判据「还是继续描述」）：
+//   判据写在 CHARCARD_RULE 里管不住惯性——前面几拍满屏都是它。改成代码数：卡上写着的穿孔／首饰／纹身／疤，
+//   最近两拍他的正文里都出现了，这一拍的尾巴上点名一句。单人线下、群线下共用。
+const PROP_TERM_RE = /[\u4e00-\u9fa5]{0,2}(?:舌钉|唇钉|眉钉|鼻钉|耳钉|脐钉|乳钉|耳骨钉|穿刺钉|银钉|穿孔|舌环|唇环|鼻环|耳环|耳坠|项链|锁骨链|手链|脚链|手镯|戒指|尾戒|纹身|刺青|疤痕|伤疤|胎记|泪痣|眼镜|口罩|颈环|项圈|choker)/gi;
+function propTermsOf(text) {
+  const out = new Set(); const t = String(text || ""); let m;
+  PROP_TERM_RE.lastIndex = 0;
+  while ((m = PROP_TERM_RE.exec(t))) out.add(m[0].replace(/^[\u4e00-\u9fa5]{0,2}(?=舌|唇|眉|鼻|耳|脐|乳|穿|银|手|脚|项|锁|戒|尾|纹|刺|疤|伤|胎|泪|眼|口|颈)/, ""));
+  return [...out].filter(x => x.length >= 2);
+}
+function propTailFor(cardText, beats) {
+  const terms = propTermsOf(cardText);
+  const recent = (beats || []).filter(Boolean).slice(-2);
+  if (!terms.length || recent.length < 2) return "";
+  const hit = terms.filter(w => recent.every(b => String(b).toLowerCase().includes(w.toLowerCase())));
+  return hit.length ? "\n〔" + hit.join("、") + "前两拍都写到了。这一拍别再写它（连带它的金属、凉意、碰响这些），读的人记得它在；笔墨给这一刻别的地方。〕" : "";
+}
+function spokenLinesOf(text) {
+  const out = []; const re = /[“「"]([^”」"]{2,200})[”」"]/g; let m;
+  while ((m = re.exec(String(text || "")))) out.push(m[1].trim());
+  return out;
+}
 const CANNED_PHRASE_BAN = `【你自己开口，不让现成的说法替你说】有三族现成货最容易顶掉你本来要说的那句话：
 · 【投降式敷衍】「行行行」「好好好」「行了吧」「可以了吧」「满意了吧」「服了你了」「随你」——这一族不是在回答，是在**收摊**：一句话把对话掐掉，同时把「你不讲理」和「我懒得跟你说」一起递过去。照你这个人平时说话的样子来，不借这一句现成的。
 · 【现成的腻歪称呼】「小祖宗」「小妖精」「小野猫」「小磨人精」「小东西」——这些不是你给她起的，是「这种关系该怎么叫她」倒出来的。你本来就爱起腻歪的称呼，那就起：从她名字里的字、她做过的一件蠢事、只有你知道的某个习惯、你俩之间真发生过的一件事里长出来的，怎么腻都行。
@@ -8986,6 +9019,45 @@ function vGap(prevTs, ts, id) {
   if (typeof vclockMap !== "function") return ts - prevTs;
   return vclockMap(ts, id) - vclockMap(prevTs, id);
 }
+// 旧段落拆掉样板（她 2026-11-02：「格式容易重复上文」→ 选了「试试都做」）：
+//   一场里他写过的整段长文原样带进去，模型就照着前面几段的开头、走法、收尾往下抄。
+//   最近两拍（从倒数第二条她的话起）原样；更早的只留事和原话：引号台词逐字照抄，
+//   叙述里开头那一句和收尾那一句不带，也不分段。纯程序处理，不经模型挑拣，事和话一样不丢。
+//   只在长文（沉浸长文或设了最低字数）时开，looseOld === false 关掉。
+// 正文里冒出字面的「\n」（她 2026-11-02 截图：段落之间印着 \n\n）：模型在 JSON 里把换行多转义了一层。
+//   单人和群线下解析正文都过这一道，换回真的换行。
+function offlineUnescapeNl(text) {
+  return String(text || "").replace(/\\r\\n|\\n/g, "\n").replace(/\\t/g, " ").trim();
+}
+function offlineLoosenOn(session) {
+  return !!session && session.looseOld !== false && (session.lengthMode === "immersive" || offlineMinimumSceneChars(session.minWords) > 0);
+}
+function offlineLoosenBeat(text) {
+  const units = String(text || "").match(/[“「][^”」]*[”」]|[^“「。！？!?\n]+[。！？!?…]*/g) || [];
+  const u = units.map(x => x.trim()).filter(Boolean);
+  const said = x => /^[“「]/.test(x);
+  if (u.length >= 3 && !said(u[0])) u.shift();
+  if (u.length >= 3 && !said(u[u.length - 1])) u.pop();
+  return u.length ? "〔前情·只记事和原话〕" + u.join("") : String(text || "");
+}
+function offlineLoosenOld(msgs) {
+  const list = Array.isArray(msgs) ? msgs : [];
+  let seen = 0, cut = -1;
+  for (let i = list.length - 1; i >= 0; i--) if (list[i] && list[i].role === "user" && list[i].kind !== "ooc" && ++seen === 2) { cut = i; break; }
+  if (cut <= 0) return list;
+  return list.map((m, i) => (i < cut && m && m.role === "char" && m.kind !== "selfie" && m._surface !== "online" && typeof m.content === "string" && m.content.length > 40)
+    ? { ...m, content: offlineLoosenBeat(m.content) } : m);
+}
+// 每拍篇幅在她设的区间里浮动（同一轮选的第二条）：区间照旧是 wordRule 的下限～1.35 倍，
+//   这一拍落在哪由代码掷，写在离生成最近的尾巴上（不进 system，免得每轮缓存失效）。
+function offlineWordAimTail(minW, rand) {
+  const lo = offlineMinimumSceneChars(minW);
+  if (!lo) return "";
+  const hi = Math.round(lo * 1.35);
+  const r = typeof rand === "number" ? rand : Math.random();
+  const aim = Math.min(hi, lo + Math.round(r * (hi - lo) / 50) * 50);
+  return "\n〔这一拍的篇幅〕写到 " + aim + " 字左右（仍在上面的字数区间里）；每拍长短不一样是正常的。";
+}
 function offlineHistory(msgs, userName, charName, clock, clockId) {
   const g = [];
   let prevTs = 0;
@@ -9364,7 +9436,7 @@ async function generateOffline(p, ctx, session) {
     "") + outputSpec + ((!isDigital && session.sayZhOn) ? offlineSayZhSpec("") : "") + stateBootstrapHint + gazeSpecBlock;
   // v52.77：恢复正常首遍生成；首次跨越后的 scene 再交给同模型做删除优先的受约束编辑。
   // 最终只有编辑稿进入 session history，首遍草稿仅用于本轮内存诊断。
-  const hist = offlineHistory(session.msgs, userName, char.name, ctx.timeAware !== false, char.id);
+  const hist = offlineHistory(offlineLoosenOn(session) ? offlineLoosenOld(session.msgs) : session.msgs, userName, char.name, ctx.timeAware !== false, char.id);
   if (session.hasOnlineInterlude) {
     const bridge = "\n\n〔跨情境衔接〕上面标成【线上私聊】的内容，是这场未结束的线下相处期间，你们切到手机聊天时真实说过的话。所有记录已经按实际时间排好；再次回到线下时，以时间最新的线上与线下内容共同作为现在的前情，绝不能跳过今天的线上聊天、倒回去续演更早的线下剧情，也不要把线上原话假装成刚刚面对面又说了一遍。";
     if (hist.length && hist[hist.length - 1].role === "user") hist[hist.length - 1] = { ...hist[hist.length - 1], content: hist[hist.length - 1].content + bridge };
@@ -9413,7 +9485,12 @@ async function generateOffline(p, ctx, session) {
   const personTail = !isDigital && _personParts.length && !(session.msgs || []).some(m => m && m.role === "char" && !isOocMsg(m))
     ? "\n\n〔这一场的人称〕" + _personParts.join("；") + "。从这一段的第一句就照这个写——线上聊天里那些用「我」写的动作是聊天的写法，不是这一场的。"
     : "";
-  const finalNudge = tailNudge + (isDigital ? "" : userActionTail) + characterSupplyTail + intimatePaceTail + flashbackTail + personTail + directorTail + styleTail;
+  // 按轮提醒（她 2026-11-02「线下还是这么爱这个句式」）：看他上一拍说出口的那几句（引号里的）
+  const _lastCharBeat = [...(session.msgs || [])].reverse().find(m => m && m.role === "char" && !isOocMsg(m));
+  const _said = _lastCharBeat ? spokenLinesOf(_lastCharBeat.content) : [];
+  const sayTail = !isDigital && _said.length ? tailHintsFor(_said[_said.length - 1], _said.join("\n")) : "";
+  const propTail = isDigital ? "" : propTailFor([char.persona, char.appearance].join("\n"), (session.msgs || []).filter(m => m && m.role === "char" && !isOocMsg(m) && m.kind !== "selfie").map(m => m.content));
+  const finalNudge = tailNudge + (isDigital ? "" : userActionTail) + characterSupplyTail + intimatePaceTail + flashbackTail + personTail + sayTail + propTail + offlineWordAimTail(minimumSceneChars) + directorTail + styleTail;
   if (hist.length && hist[hist.length - 1].role === "user") hist[hist.length - 1] = { role: "user", content: hist[hist.length - 1].content + finalNudge };
   else hist.push({ role: "user", content: (hist.length ? "（继续）" : OFFLINE_OPEN_SCENE) + finalNudge });
   if (Array.isArray(session.imageDataUrls) && session.imageDataUrls.length) {
@@ -9509,9 +9586,9 @@ async function generateOffline(p, ctx, session) {
   // 自修那一档只差一半时别整轮报错（群里 2026-10-22「总显示模型没有响应终稿，换了两个站子都不行」）：
   //   人设卡带风险词时每轮都自动走「首稿→终稿」，模型常写完首稿就停（输出被截、或只写一个 scene）。
   //   缺终稿就用首稿，缺首稿就用终稿——两样都没有才算没写出来。
-  const draftScene = String(singlePassRevisionRequested ? (parsed.draftScene || parsed.scene || "") : (parsed.scene || sp.clean || "")).trim();
+  const draftScene = offlineUnescapeNl(String(singlePassRevisionRequested ? (parsed.draftScene || parsed.scene || "") : (parsed.scene || sp.clean || "")));
   if (!draftScene) throw new Error("模型没有返回有效的线下正文，请重试");
-  const singlePassFinalScene = singlePassRevisionRequested ? String(parsed.scene || parsed.draftScene || "").trim() : "";
+  const singlePassFinalScene = singlePassRevisionRequested ? offlineUnescapeNl(String(parsed.scene || parsed.draftScene || "")) : "";
   // 预检只能看见 user/history。角色可能在本轮首稿里自行跨越，因此草稿形成后必须再检一次；
   // 否则最需要编辑的第一条会以 false→false 直接漏进 history。
   const draftExplicit = !isDigital && offlineRegisterExplicitText(draftScene);
@@ -10120,7 +10197,7 @@ async function generateOfflineGroup(p, ctx, session) {
     cotSystemBlock(cotT) +
     (novel ? novelOut : "\n【输出】只输出一个 JSON，不要代码块：\n{\"beats\":[{\"name\":\"这一段里行动或说话的角色名；纯环境旁白填『旁白』\",\"scene\":\"这一段叙事正文（第三人称，含动作/神态/对话）\",\"thought\":\"（仅角色 beat，可选）该角色此刻没说出口的真实心声\",\"mood\":{\"label\":\"此刻中文心情词（禁止英文内部标签）\"},\"affinityDelta\":\"（仅角色 beat）" + AFFINITY_DELTA_SPEC + "\",\"impression\":\"（仅角色 beat，可选）{'side':'me|us','block':'me侧:person/soft/like/recent/unread；us侧:what/how/marks/elephant/want','text':'整块重写≤80字'}——" + (window.Gaze ? window.Gaze.updateRule(userName) : "没有新认识可省略") + "\"" + gSchedField + ((session.photoMembers || []).length ? ",\"photo\":\"（仅角色 beat，可选）这一拍真拍了照片才填 {'kind':'self|other" + ((session.photoDuoMembers || []).length ? "|duo" : "") + (session.photoGroupOk ? "|group" : "") + "','scene':'这一格拍到了什么'}，没拍就整个省略\"" : "") + "}]}\n一次产出 2~" + gBeatMax + " 个 beat（在场 " + members.length + " 个人），让在场角色轮流有戏、互相有来有往；name 必须逐字填写以下名字之一：" + members.map(c => "『" + memberLabel(members, c) + "』").join("、") + "；只有不属于任何人的纯环境段才填『旁白』，不许把整篇都塞进一个旁白 beat。") + sameNameNote(members) + "\nthought 的写法：" + THOUGHT_MEANING_CHAR + THOUGHT_VOICE + (typeof THOUGHT_EACH_OWN === "string" ? THOUGHT_EACH_OWN : "") + THOUGHT_ORIGIN
     + ((session.sayZhNames || []).length ? offlineSayZhSpec(session.sayZhNames.map(x => "『" + x + "』").join("、")) : "");
-  const hist = offlineGroupHistory(session.msgs, userName, ctx.timeAware !== false, ctx.clockId);
+  const hist = offlineGroupHistory(offlineLoosenOn(session) ? offlineLoosenOld(session.msgs) : session.msgs, userName, ctx.timeAware !== false, ctx.clockId);
   // 尾部重申（同单人线下）：治长对话后段八股回潮 + cot 丢失
   const gWantLong = session.minWords && session.minWords >= 150;
   // max_tokens 是天花板不是预付款；思考模型的推理也从这儿扣，给窄了正文就只剩个零头
@@ -10139,8 +10216,12 @@ async function generateOfflineGroup(p, ctx, session) {
   // 场面进了身体戏就补人物连续那一句（和单人线下同一份）。群里「继续」是常态，
   //   所以不像单人那样只在她刚说完话时才补：场面还在，就每轮都补。
   const gCharacterTail = offlineRegisterTransition(session).active ? offlineCharacterSupplyLine(true) + offlineIntimatePaceLine(true) : "";
-  if (hist.length && hist[hist.length - 1].role === "user") hist[hist.length - 1] = { role: "user", content: hist[hist.length - 1].content + gFlashbackTail + gCharacterTail + gTail };
-  else hist.push({ role: "user", content: (hist.length ? "（继续）" : OFFLINE_OPEN_SCENE) + gFlashbackTail + gCharacterTail + gTail });
+  const _gLastBeat = [...(session.msgs || [])].reverse().find(m => m && m.role === "char" && !isOocMsg(m));
+  const _gSaid = _gLastBeat ? spokenLinesOf(_gLastBeat.content) : [];
+  const gSayTail = _gSaid.length ? tailHintsFor(_gSaid[_gSaid.length - 1], _gSaid.join("\n")) : "";
+  const gPropTail = propTailFor(members.map(c => [c && c.persona, c && c.appearance].join("\n")).join("\n"), (session.msgs || []).filter(m => m && m.role === "char" && !isOocMsg(m)).map(m => m.content));
+  if (hist.length && hist[hist.length - 1].role === "user") hist[hist.length - 1] = { role: "user", content: hist[hist.length - 1].content + gFlashbackTail + gCharacterTail + gSayTail + gPropTail + offlineWordAimTail(session.minWords) + gTail };
+  else hist.push({ role: "user", content: (hist.length ? "（继续）" : OFFLINE_OPEN_SCENE) + gFlashbackTail + gCharacterTail + gSayTail + gPropTail + offlineWordAimTail(session.minWords) + gTail });
   if (Array.isArray(session.imageDataUrls) && session.imageDataUrls.length) {
     const lastUser = [...hist].map((m, i) => [m, i]).reverse().find(([m]) => m.role === "user");
     if (lastUser) hist[lastUser[1]] = { ...hist[lastUser[1]], content: hist[lastUser[1]].content + "\n【用户刚给在场所有人展示了真实照片，图像已附在本轮视觉输入中；请让大家直接看图后自然反应。】", imageDataUrls: session.imageDataUrls.slice(-FRESH_IMG_CAP) };
@@ -10203,7 +10284,7 @@ async function generateOfflineGroup(p, ctx, session) {
   if (!beats || !beats.length) beats = salvageOfflineGroupProse(sp.clean || raw, members);
   const out = beats.map(b => {
     const nm = String(b.name || "").trim();
-    const scene = String(b.scene || b.text || b.content || "").trim();
+    const scene = offlineUnescapeNl(String(b.scene || b.text || b.content || ""));
     const explicitNarrator = /^(旁白|narration|__narration)$/i.test(nm);
     const spk = explicitNarrator ? null : offlineGroupSpeaker(members, nm, scene);
     return {
