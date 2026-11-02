@@ -21,3 +21,8 @@ test("写新卡时不把前面的卡名给他看，卡名跟着那件事走", ()
   assert.match(src, /卡名不给你看，免得照着起/);
   assert.strictEqual((src.match(/长短、说法跟着这张卡里那件事走/g) || []).length, 2);
 });
+test("站子只回图片链接时，邮票卡面也试着把图拿下来", () => {
+  assert.match(src, /^async function imgOutBlob\(out\)/m);
+  assert.ok((src.match(/await imgOutBlob\(out\)/g) || []).length >= 2);
+  assert.ok(!/if \(!\(out && out\.blob\)\) throw/.test(src));
+});
