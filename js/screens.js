@@ -89,7 +89,7 @@ function cardFromJSON(text) {
 // 后三种允许值写在【同一行】上（「【一句话】永安王」），那一段算这一节的正文头。
 // ⚠️每一支只留一段「吃到行尾」，首尾的空格和冒号拿到外面去剥（群里 2026-10-19「角色卡复制粘贴就卡死」）：
 //   原来写成 (.+?)[ \t]*[:：]?[ \t]*$，标题后面跟一长串空格时回溯是平方级以上，3000 个空格就卡一分多钟。
-const CARD_SEC_RE = /^[ \t]*(?:#{1,6}[ \t]*([^\n]+)|\*\*([^\n]+?)\*\*([^\n]*)|[【\[〔]([^\n]+?)[】\]〕]([^\n]*)|([一-龥A-Za-z][一-龥A-Za-z0-9_ ]{0,13})[ \t]*[:：]([^\n]*))$/gm;
+const CARD_SEC_RE = /^[ \t]*(?:#{1,6}[ \t]*([^\n]+)|\*\*([^\n]+?)\*\*([^\n]*)|[【\[〔]([^\n]+?)[】\]〕]([^\n]*)|[=＝─—━~*]{2,}[ \t]*([^\n=＝─—━~*]{1,30}?)[ \t]*[=＝─—━~*]{2,}|[■◆▼★※◎●□▲][ \t]*([^\n]{1,30})|([一-龥A-Za-z][一-龥A-Za-z0-9_ ]{0,13})[ \t]*[:：]([^\n]*))$/gm;
 // 带冒号那一种太宽（正文里随便一行「TA说：」也像），所以只认这些词
 const CARD_SEC_KWS = ["人设", "设定", "简介", "描述", "长期记忆", "初始记忆", "记忆库种子", "记忆种子", "种子", "记忆库", "开场白", "问候语", "第一句", "一句话", "标签", "外貌", "persona", "description", "memory", "greeting"];
 // 把一篇文档按分节标题切开：角色卡导入和跑团剧本导入共用这一把刀（one-public-mechanism）。
@@ -100,9 +100,9 @@ function splitDocSections(text, colonKws) {
   const push = (sec, until) => secs.push({ title: sec.title, body: (sec.pre ? sec.pre + "\n" : "") + text.slice(sec.end, until).trim() });
   CARD_SEC_RE.lastIndex = 0;
   while ((mm = CARD_SEC_RE.exec(text))) {
-    const title = (mm[1] || mm[2] || mm[4] || mm[6] || "").trim().replace(/[:：]$/, "").trim();
-    const pre = (mm[3] || mm[5] || mm[7] || "").trim().replace(/^[:：]/, "").trim();
-    if (mm[6] && !(colonKws || []).some(k => title.toLowerCase().includes(k))) continue;
+    const title = (mm[1] || mm[2] || mm[4] || mm[6] || mm[7] || mm[8] || "").trim().replace(/[:：]$/, "").trim();
+    const pre = (mm[3] || mm[5] || mm[9] || "").trim().replace(/^[:：]/, "").trim();
+    if (mm[8] && !(colonKws || []).some(k => title.toLowerCase().includes(k))) continue;
     if (!title) continue;
     if (last) push(last, mm.index); else firstAt = mm.index;
     last = { title: title, pre: pre, end: mm.index + mm[0].length };
@@ -116,34 +116,49 @@ function parseCharCard(raw, userName) {
   const asJson = cardFromJSON(text0);
   const out = asJson || { name: "", tagline: "", persona: "", longMem: "", seeds: [], greeting: "", hadExample: false, from: "text" };
   if (!asJson) {
-    const text = text0;
+    // 整段用 <persona>…</persona> <world_info>…</world_info> 这种标签分块的卡也认：
+    //   单独一行的开标签当成一节的标题，闭标签丢掉。大写的 <START> 不碰（那是对话示例的界碑）。
+    const text = text0.replace(/^[ \t]*<\/[a-z][a-z0-9_-]*>[ \t]*$/gm, "")
+      .replace(/^[ \t]*<([a-z][a-z0-9_-]*)>[ \t]*$/gm, (_, tag) => "## " + tag);
     // 「# X · 角色卡」「名字：X」「【姓名】X」「**姓名**：X」「名字「X」」，最后才退到第一个 # 标题
     // 「# X · 角色卡」：只在一行里找，名字里不带空格以外的分隔——原来 \s* 能跨行、又跟名字那段的空格重叠，长串空格回溯卡死
     let m = text.match(/^#[ \t]*([^\n·#|｜ \t][^\n·#|｜]{0,40}?)[ \t]*(?:[·|｜][ \t]*)?角色卡/m)
-      || text.match(/^[ \t]*(?:#{1,6}[ \t]*)?(?:(?:\*\*|[【\[〔])[ \t]*)?(?:名字|姓名|角色名|人物名|name)[ \t]*(?:(?:\*\*|[】\]〕])[ \t]*)?(?:[:：][ \t]*)?[「"'\[]?([^\n」"'\]]{1,20})/im)
+      || text.match(/^[ \t]*(?:[-*•+][ \t]*)?(?:#{1,6}[ \t]*)?(?:(?:\*\*|[【\[〔])[ \t]*)?(?:名字|姓名|角色名|人物名|name)[ \t]*(?:(?:\*\*|[】\]〕])[ \t]*)?(?:[:：][ \t]*)?[「"'\[]?([^\n」"'\]]{1,20})/im)
       || text.match(/名字[「"']([^」"']+)[」"']/)
       || text.match(/^#[ \t]*([^\n#]{1,20})[ \t]*$/m);
     if (m) out.name = m[1].trim().replace(/[*_`]/g, "");
     const secs = splitDocSections(text, CARD_SEC_KWS);
     const find = kws => secs.find(s => kws.some(k => s.title.toLowerCase().includes(k)));
     // 先挑种子再挑长期记忆：「记忆库种子」里也含着「记忆」两个字
-    const sSec = find(["记忆库种子", "记忆种子", "记忆库", "种子"]);
-    const mSec = secs.find(s => !(sSec && s === sSec) && ["长期记忆", "初始记忆"].some(k => s.title.includes(k)));
+    const sSec = find(["记忆库种子", "记忆种子", "记忆库", "种子", "memory_seed"]);
+    const mSec = secs.find(s => !(sSec && s === sSec) && ["长期记忆", "初始记忆", "long_term_memory", "memory"].some(k => s.title.toLowerCase().includes(k)));
     // 一份文件里人设和世界书写在一起（群友 2026-11-01，小窝传上来的就是这种）：
     //   「世界书」这一节往下的分节，全归世界书，拿标题当关键词；不许一股脑并进人设。
-    const lIdx = secs.findIndex(x => /世界书|世界观设定|设定集|词条|lorebook|world\s*info/i.test(x.title));
+    const lIdx = secs.findIndex(x => /世界书|世界观|世界设定|背景设定|补充设定|设定集|关系网|词条|lore_?book|world_?(info|book|setting)|social_circle/i.test(x.title));
     const loreSecs = lIdx < 0 ? [] : secs.slice(lIdx).filter(x => x === secs[lIdx] || !["长期记忆", "初始记忆", "开场白", "问候语", "第一句", "记忆库种子", "记忆种子"].some(k => x.title.includes(k)));
     const isLore = x => loreSecs.indexOf(x) >= 0;
-    const pSec = secs.find(x => !isLore(x) && ["人设", "设定", "描述", "persona", "description"].some(k => x.title.toLowerCase().includes(k)));
-    const gSec = find(["开场白", "问候语", "第一句", "greeting"]);
+    const pSec = secs.find(x => !isLore(x) && ["人设", "设定", "描述", "简介", "persona", "description", "character", "profile"].some(k => x.title.toLowerCase().includes(k)));
+    const gSec = find(["开场白", "问候语", "第一句", "greeting", "first_mes", "first_message"]);
     const tSec = find(["一句话", "标签", "tagline"]);
     if (loreSecs.length) {
       // 关键词从标题里剥出来：「### 1. 老爸：陆大军」要的是「陆大军」，不是整行
-      const kwOf = ttl => String(ttl).replace(/^[\d一二三四五六七八九十]+[、.．)）]\s*/, "").split(/[:：·]/).pop().trim().replace(/[（(].*$/, "").trim().slice(0, 24);
-      out.lore = (out.lore || []).concat(loreSecs.map((x, i) => x.body.trim() ? {
-        title: x.title.slice(0, 40), keyword: i ? kwOf(x.title) : "", payload: x.body.trim(),
-        category: "世界观", enabled: true, alwaysOn: !i
-      } : null).filter(Boolean));
+      const kwOf = ttl => String(ttl).replace(/^[\d一二三四五六七八九十]+[、.．)）]\s*/, "").replace(/[（(].*$/, "").split("·")[0].split(/[:：]/).pop().trim().slice(0, 24);
+      // 「世界书-社交关系网」这一节自己的正文往往只是把标题又写了一遍 + 一行 <xml 标签>，
+      //   那种不成一条词条，去掉；真有正文的才留。
+      const bodyOf = x => x.body.split("\n").filter(ln => {
+        const l = ln.trim();
+        return l && !/^<[^>]*>$/.test(l) && l !== x.title.trim();
+      }).join("\n").trim();
+      // 「准则/规矩」那一本管的是怎么说话，提不提到都得在场 → 常驻；
+      //   「关系网/设定」那一本是提到谁才翻的 → 拿标题当关键词。
+      const isHead = x => /世界书|世界观设定|设定集|词条|lorebook|world\s*info/i.test(x.title);
+      const always = x => /准则|规则|守则|规范|铁律|须知/.test(x.title);
+      let head = loreSecs[0];
+      out.lore = (out.lore || []).concat(loreSecs.map(x => {
+        if (isHead(x)) head = x;
+        const payload = bodyOf(x), on = always(head);
+        return payload ? { title: x.title.slice(0, 40), keyword: on ? "" : kwOf(x.title), payload: payload, category: "世界观", enabled: true, alwaysOn: on } : null;
+      }).filter(Boolean));
     }
     // 人设只取「人设」那一节，卡里的【生日】【外貌】【喜好】这些就全丢了（群友 2026-11-01：
     //   一万多字的 word 传上来只剩 600 字）。没被别的栏收走的分节，一律跟着人设一起留下。
@@ -151,7 +166,9 @@ function parseCharCard(raw, userName) {
     const keep = secs.filter(s => s !== sSec && s !== mSec && s !== gSec && s !== tSec && !named(s) && !isLore(s) && s.body.trim());
     if (pSec && keep.length <= 1) out.persona = pSec.body.trim();
     else if (keep.length) out.persona = [secs.lead || ""].concat(keep.map(s => "【" + s.title + "】\n" + s.body.trim())).filter(x => x.trim()).join("\n\n");
-    else if (out.lore && out.lore.length) out.lore = [];   // 整篇都是世界书：不拆了，照旧整篇当人设，免得同一段两头各存一份
+    // 整篇都是世界书（单独一份世界书文件）：人设留整篇兜底，但挂个记号，
+    //   合并几份文件时这一份就整份当世界书，不会被当成人设正文并进去。
+    else if (out.lore && out.lore.length) out.allLore = true;
     if (mSec) out.longMem = mSec.body.trim();
     if (gSec) out.greeting = gSec.body.trim();
     if (tSec) out.tagline = tSec.body.trim().split("\n")[0].slice(0, 40);
@@ -161,7 +178,7 @@ function parseCharCard(raw, userName) {
         return { text: x.replace(/[〔\[【]\s*置顶\s*[〕\]】]/g, "").trim(), pinned };
       });
     }
-    if (!out.persona) out.persona = text.trim(); // 没认出结构：整篇当人设，名字留给她改
+    if (!out.persona) out.persona = text0.trim(); // 没认出结构：整篇当人设，名字留给她改
   }
   out.warnings = cardWarnings(text0, out.hadExample);
   // 占位符替换和例句脚手架，两条路（JSON 和纯文本）都要走一遍
@@ -286,6 +303,8 @@ function CardImportSheet({ onImport, onClose, userName }) {
             style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.ink, borderBottom: "1px solid " + t.line, padding: "2px 0" }
           })),
         label("人设" + count("persona")), box("persona", 8, "人设是必填的"),
+        (p.allLore ? [] : (p.lore || [])).concat(extraLore).length ? (lore => h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, marginTop: 8, lineHeight: 1.7 } },
+          "自带世界书 " + lore.length + " 条（" + lore.reduce((n, e) => n + String(e.payload || "").length, 0) + " 字），导入时只绑给 TA：" + lore.map(e => e.title).filter(Boolean).slice(0, 8).join("、") + (lore.length > 8 ? "…" : "")))((p.allLore ? [] : (p.lore || [])).concat(extraLore)) : null,
         label("长期记忆" + count("longMem")), box("longMem", 3, "（可空）"),
         label("记忆种子 · 一行一条，行首写〔置顶〕就置顶（" + textToSeeds(val("seeds")).length + " 条）"), box("seeds", 4, "（可空）"),
         label("开场白 · 导入后当 TA 的第一句话" + count("greeting")), box("greeting", 3, "（可空）"),
@@ -297,7 +316,7 @@ function CardImportSheet({ onImport, onClose, userName }) {
           onImport(Object.assign({}, p, {
             name: val("name").trim(), tagline: val("tagline").trim(), persona: persona.trim(),
             longMem: val("longMem").trim(), greeting: val("greeting").trim(), seeds: textToSeeds(val("seeds")),
-            lore: (p.lore || []).concat(extraLore)
+            lore: (p.allLore ? [] : (p.lore || [])).concat(extraLore)
           }));
         },
         className: "w-full mt-4 active:opacity-70",
