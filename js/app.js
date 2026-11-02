@@ -20,7 +20,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v88.975";
+const APP_VERSION = "v88.977";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -475,6 +475,17 @@ function buildDefaultEmotes() {
     ["无语", "<path d='M30 44 L42 44' " + S + "/><path d='M58 44 L70 44' " + S + "/><path d='M38 66 L62 66' " + S + "/><path d='M74 34 q5 8 0 12 q-5 -4 0 -12' fill='#3F8FD6'/>"]
   ];
   return defs.map((d, i) => ({ id: "em_def_" + i, keyword: d[0], url: face(d[1]) }));
+}
+// 站子只回一个图片链接时（app 里直接 fetch 被跨域挡了），再用 <img crossOrigin> 画到 canvas 上试一次；都拿不到就是 null
+//   （群里 2026-11-03：站子后台显示画好了，邮票卡面却是「没拿到图」）
+async function imgOutBlob(out) {
+  if (!out) return null;
+  if (out.blob) return out.blob;
+  if (!out.url) return null;
+  try { const r = await fetch(out.url, { mode: "cors" }); if (r.ok) { const b = await r.blob(); if (b && b.size) return b; } } catch (e) {}
+  return await new Promise(res => { const im = new Image(); im.crossOrigin = "anonymous";
+    im.onload = () => { try { const c = document.createElement("canvas"); c.width = im.naturalWidth; c.height = im.naturalHeight; c.getContext("2d").drawImage(im, 0, 0); c.toBlob(b => res(b && b.size ? b : null), "image/png"); } catch (e) { res(null); } };
+    im.onerror = () => res(null); im.src = out.url; setTimeout(() => res(null), 30000); });
 }
 function App() {
   const isStandalone = typeof window !== "undefined" && (window.navigator.standalone === true || window.matchMedia("(display-mode: standalone)").matches);
@@ -17818,9 +17829,9 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         Object.assign(duo ? { kind: "duo", me: meP, notLover: !lover } : { kind: "other" }, { shotLine: stampCam() + "这张番外 CG 里他的脸一定要看得见：正脸或者侧脸，不拍背影、不拍后脑勺；两个人在一起时，镜头在他们对面或者斜对面，不从他身后越肩拍。" }, { closet: "" }, paint && paint !== "real" ? { paint } : {}));
       const refs = [char.refPhoto, duo && meP && meP.refPhoto].filter(Boolean);
       const out = await generateSelfieImage(prompt, refs.length ? refs : null, { size: "1536x1024" });
-      if (!(out && out.blob)) throw new Error("没拿到图");
+      const blob = await imgOutBlob(out); if (!blob) throw new Error(out && out.url ? "站子画好了，但只给了一个图片链接、不让 app 下载下来（跨域）：换一条直接回图的线路，或在站子那边改成返回 base64" : "没拿到图");
       const key = "img_stamp_ex_" + xid + "_" + Date.now().toString(36);
-      await idbImgPut(key, out.blob);
+      await idbImgPut(key, blob);
       setX({ drawing: false, img: key, drawErr: "" });
     } catch (e) { setX({ drawing: false, drawErr: String(e && e.message || e).slice(0, 100) }); toast("插图没画成：" + String(e && e.message || e).slice(0, 60)); }
   };
@@ -17910,9 +17921,9 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         Object.assign(duo ? { kind: "duo", me: meP, notLover: !lover, poseLine: "【两个人的姿势】两个人在一起做着这一刻的事，有互动、有动势，身体之间的距离照你们的关系，不是并排对着镜头站好。" } : { kind: "other" }, { shotLine: stampCam() }, { closet: freeFit ? "" : closetTextFor(char.id, 240) }, paint && paint !== "real" ? { paint } : {}));
       const refs = [char.refPhoto, duo && meP && meP.refPhoto].filter(Boolean);
       const out = await generateSelfieImage(prompt, refs.length ? refs : null, { size: "1024x1536" });
-      if (!(out && out.blob)) throw new Error("没拿到图");
+      const blob = await imgOutBlob(out); if (!blob) throw new Error(out && out.url ? "站子画好了，但只给了一个图片链接、不让 app 下载下来（跨域）：换一条直接回图的线路，或在站子那边改成返回 base64" : "没拿到图");
       const key = "img_stamp_" + cardId + (alt ? "_alt" : "") + "_" + Date.now().toString(36);
-      await idbImgPut(key, out.blob);
+      await idbImgPut(key, blob);
       stampSaveCard(cardId, alt ? c0 => ({ ...c0, drawing: false, drawErr: "", faceAlt: key, faceAltMode: duo ? "duo" : "solo",
         faces: Object.assign({}, c0.faceAlt ? { [c0.faceAltMode || "solo"]: c0.faceAlt } : {}, c0.faces || {}, { [duo ? "duo" : "solo"]: key }) }) : { drawing: false, face: key, drawErr: "" });
     } catch (e) { stampSaveCard(cardId, { drawing: false, drawErr: String(e && e.message || e).slice(0, 120), drawErrTs: Date.now() }); toast("卡面没画成：" + String(e && e.message || e).slice(0, 60)); }
@@ -26376,9 +26387,9 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       const prompt = (kind === "food" ? "一张外卖菜品的实拍照片：「" + name + "」" + (desc ? "（" + desc + "）" : "") + "。装在外卖盒或碗盘里，俯拍或四十五度，看着好吃。"
         : "一张网购商品的实拍照片：「" + name + "」" + (desc ? "（" + desc + "）" : "") + "。商品是画面主体，干净的背景，像购物 app 里的商品主图。") + "\n画面里不要任何文字、价签和水印。";
       const out = await generateSelfieImage(prompt, null, { size: "1024x1024" });
-      if (!(out && out.blob)) throw new Error("没拿到图");
+      const blob = await imgOutBlob(out); if (!blob) throw new Error(out && out.url ? "站子画好了，但只给了一个图片链接、不让 app 下载下来（跨域）：换一条直接回图的线路，或在站子那边改成返回 base64" : "没拿到图");
       const key = "img_goods_" + Date.now().toString(36);
-      await idbImgPut(key, out.blob);
+      await idbImgPut(key, blob);
       setGoodsImgs(p => { const n = { ...p, [k]: key }; const ks = Object.keys(n); if (ks.length > 400) ks.slice(0, ks.length - 400).forEach(x => delete n[x]); saveJSON("x_goodsImgs", n); goodsImgsRef.current = n; return n; });
       toast("画好了");
     } catch (e) { toast("没画成：" + String(e && e.message || e).slice(0, 60)); }
