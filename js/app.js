@@ -20,7 +20,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v88.977";
+const APP_VERSION = "v88.978";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -3182,6 +3182,9 @@ function App() {
     // 「今天」和时刻之间常带一个空格（她 2026-10-27 截图：〔今天 14:10〕原样漏进气泡，还被从空格处劈成两泡）
     .replace(/^\s*[〔【\[(（]\s*(?:(?:今天|昨天|前天)\s*|\d{1,2}\/\d{1,2}\s*)?\d{1,2}[:：]\d{2}\s*[〕】\])）]\s*/, "")
     .replace(/\s*〔\s*(?:(?:今天|昨天|前天)\s*|\d{1,2}\/\d{1,2}\s*)?\d{1,2}[:：]\d{2}\s*〕\s*/g, " ")
+    // 他说话时照着历史学了〔〕来打括号补一句（她 2026-11-02 截图「〔偏殿这帮老头……〕从巳初争到现在」，这是他跟她说的话）：
+    //   字是他的，括号是我们的记号——换成平常的（），话照留
+    .replace(/〔([^〔〕\n]{1,120})〕/g, "（$1）")
     .replace(/ {2,}/g, " ").trim();
   // ⚠️把【我们自己写在历史里的那几个记号】从它的回复里摘掉（她 2026-09-22 截图：
   //   气泡里原样出现了「（这一条是你此刻做的动作／你那边的动静，不是你发出去的消息）」）。
