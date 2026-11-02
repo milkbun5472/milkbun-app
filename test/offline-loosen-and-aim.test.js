@@ -32,8 +32,8 @@ test("篇幅浮动落在下限到 1.35 倍之间，没设下限不发", () => {
 });
 test("单人和群线下都接上，设置存 looseOld", () => {
   assert.equal((eng.match(/offlineLoosenOn\(session\) \? offlineLoosenOld\(session\.msgs\)/g) || []).length, 2);
-  assert.match(eng, /sayTail \+ offlineWordAimTail\(minimumSceneChars\)/);
-  assert.equal((eng.match(/gSayTail \+ offlineWordAimTail\(session\.minWords\)/g) || []).length, 2);
+  assert.match(eng, /sayTail \+ (propTail \+ )?offlineWordAimTail\(minimumSceneChars\)/);
+  assert.equal((eng.match(/gSayTail \+ (gPropTail \+ )?offlineWordAimTail\(session\.minWords\)/g) || []).length, 2);
   assert.equal((app.match(/looseOld: osFor\(/g) || []).length, 2);
   assert.equal((cmp.match(/lengthMode: sLengthMode, looseOld: sLoose/g) || []).length, 2);
 });
