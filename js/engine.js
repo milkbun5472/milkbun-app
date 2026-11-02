@@ -1851,7 +1851,18 @@ const WORLDBOOK_RULE = `【世界书执行准则】
 例外：标着〔照做〕的条目不是事实，是用户给你的输出指令，被翻出来的那一轮照着执行。
 不管分在哪一类，条目里写成【对你的要求】的——你该怎么说话、怎么写、怎么对待用户、什么不许做——同样是用户给你的要求，不是可用可不用的背景，每一轮都照着来；跟人设冲突时以这条要求为准。`;
 
-const CHARCARD_RULE = `【角色卡执行准则】
+// 别交出厂那一版（她 2026-11-02：「我们的提示可以本身也引导模型不要用它出厂设置的八股写」，
+//   以及「人设里的特点每轮都带不代表抓住了人物核心」）。放在角色卡准则最前面：线上、线下、群聊、
+//   同人文、周报都取 CHARCARD_RULE，一处写全接上。只给判据，不给例句，不加黑名单。
+const NOT_FACTORY_RULE = `【别交出厂那一版】你写任何一句话时，最先冒出来的那个说法，往往是千千万万个故事里这种场面最常见的写法——谁来写都一样的那一版：哪种人设该说什么、亲密戏该写哪些动作、长文该拿什么填、一段该怎么收尾。它顺手，是因为它不属于任何人。
+写之前问一句：这句话换到别的故事、别的两个人身上，照样成立吗？成立，就是出厂那一版——往下再想一层，找只有此刻的他、对着此刻的她才会有的那一句：从他这个人的经历、脾气、此刻的心情里出来，从她刚才那句话、这一场刚发生的事里出来。
+写长也一样：顺手的填法是再描一遍环境、身上的东西、她的设定；只属于这一刻的写法，是往这一刻里面走得更深。
+这不是让你写得更花：只属于这个人的那一句，常常比出厂那一版更平、更短、更具体。
+
+【特点露出来，不是拿出来】人设里写着的特点——口头禅、长相、身上带的东西、职业身份、招牌小动作——还有她资料里的职业和经历，每轮都带出来，不等于抓住了这个人，那只是在证明你记得设定。一个人的核心在他怎么看事、怎么选、此刻在意什么；特点只是这些偶尔露出来的地方：这一刻真碰到了才出现，出现过就退回去，不反反复复拿出来写。判据：把这句删掉，读的人会不会忘了他（或她）有这个？不会，就不用写。`;
+const CHARCARD_RULE = NOT_FACTORY_RULE + `
+
+【角色卡执行准则】
 角色卡决定这个人如何注意、理解、判断和选择，不是等待展示的标签。
 
 人格根基与稳定的表达逻辑不会因单轮互动突然反转；具体语气、长度、直接程度和行为会随对象、处境与情绪自然变化。
@@ -1859,8 +1870,6 @@ const CHARCARD_RULE = `【角色卡执行准则】
 人物变化来自已经发生并真正影响到TA的经历，包括重要事件，也包括长期重复、逐渐累积的相处模式。这些经历具体地改变与其相关的反应空间，不把人物无依据地全局优化或强化成某一种标签。短期状态影响本轮选择；长期成长影响未来相似情境中的可能性，二者不可机械互换，也不会因一次短期波动自动清零。
 
 职业、兴趣、习惯、关系、特殊知识和语言抓手自然存在，无需频繁调用来证明人设。人格首先体现在注意力自然落在哪里、如何理解眼前的事，以及在这个处境下倾向怎样判断或行动。
-
-长相和身上带着的东西（穿孔、纹身、首饰、疤、发色这一类）也一样：卡上写着，就一直在，读的人记得，不用每段提醒。只在它这一刻真的起了作用——被碰到、被看见、被说起、发出声音、碍了事——才写；一场里写过一次，之后除非它又起了新的作用就不再写。判据：把这句删掉，读的人会不会忘了他有这个？不会，就不用写。
 
 声纹的温度也是声纹的一部分：外向健谈的人滔滔不绝才是本色，收成冷静克制反而是走样；嘴硬别扭的人，硬是硬在那句话的态度上，在乎从行动、停顿和心声里漏出来；用哪句话硬，照TA自己平时说话的样子，换个人就不会是这一句。没有哪种「不冷不热的中间值」对所有角色安全——那正是千人一面。
 
@@ -2252,19 +2261,32 @@ const THOUGHT_ECHO_FILLER = /^[我你她他的了是在就都也这那个一不�
 function thoughtEchoWords(a, b) {
   const A = String(a || ""), B = String(b || "");
   const hits = [];
-  for (let n = 6; n >= 3; n--) for (let i = 0; i + n <= A.length; i++) {
-    const g = A.slice(i, i + n);
-    if (!/^[\u4e00-\u9fa5]+$/.test(g) || THOUGHT_ECHO_FILLER.test(g) || !B.includes(g)) continue;
-    if (hits.some(h => h.includes(g))) continue;
-    hits.push(g);
+  for (let i = 0; i < A.length;) {
+    let got = 0;
+    for (let n = Math.min(10, A.length - i); n >= 3; n--) {
+      const g = A.slice(i, i + n);
+      if (/^[\u4e00-\u9fa5]+$/.test(g) && B.includes(g)) { got = n; break; }
+    }
+    if (!got) { i++; continue; }
+    const g = A.slice(i, i + got).replace(/^[的了着地得是在把被和跟就都也又还]+|[的了着地得是在把被和跟就都也又还]+$/g, "");
+    if (g.length >= 3 && !THOUGHT_ECHO_FILLER.test(g) && !hits.some(h => h.includes(g) || g.includes(h))) hits.push(g);
+    i += got;
   }
-  return hits.slice(0, 4);
+  return hits.sort((x, y) => y.length - x.length).slice(0, 5);
 }
 function thoughtEchoTail(thoughts, who) {
   const t = (thoughts || []).map(x => String(x || "").trim()).filter(Boolean).slice(-2);
   if (t.length < 2) return "";
   const w = thoughtEchoWords(t[0], t[1]);
   return w.length ? "\n〔" + (who ? who + "的" : "") + "心声：前两条都说到了「" + w.join("」「") + "」。这一条别再绕回这些，写这一刻刚冒出来的念头。〕" : "";
+}
+// 正文前两拍都写到的词（她 2026-11-02：线下每拍都提她是审计、每拍都刷白炽灯管／马歇尔音箱／门缝冷风）：
+//   跟心声同一把尺子 thoughtEchoWords，比的是他最近两拍的正文。单人线下、群线下共用。
+function beatEchoTail(beats) {
+  const t = (beats || []).map(x => String(x || "").trim()).filter(Boolean).slice(-2);
+  if (t.length < 2) return "";
+  const w = thoughtEchoWords(t[0], t[1]);
+  return w.length ? "\n〔正文：前两拍都写到了「" + w.join("」「") + "」。这一拍不用再提，除非它有了新变化。〕" : "";
 }
 function spokenLinesOf(text) {
   const out = []; const re = /[“「"]([^”」"]{2,200})[”」"]/g; let m;
@@ -9511,7 +9533,7 @@ async function generateOffline(p, ctx, session) {
   const _said = _lastCharBeat ? spokenLinesOf(_lastCharBeat.content) : [];
   const sayTail = !isDigital && _said.length ? tailHintsFor(_said[_said.length - 1], _said.join("\n")) : "";
   const propTail = isDigital ? "" : propTailFor([char.persona, char.appearance].join("\n"), (session.msgs || []).filter(m => m && m.role === "char" && !isOocMsg(m) && m.kind !== "selfie").map(m => m.content));
-  const finalNudge = tailNudge + (isDigital ? "" : userActionTail) + characterSupplyTail + intimatePaceTail + flashbackTail + personTail + sayTail + propTail + (isDigital ? "" : thoughtEchoTail((session.msgs || []).filter(m => m && m.role === "char" && m.thought).map(m => m.thought))) + offlineWordAimTail(minimumSceneChars) + directorTail + styleTail;
+  const finalNudge = tailNudge + (isDigital ? "" : userActionTail) + characterSupplyTail + intimatePaceTail + flashbackTail + personTail + sayTail + propTail + (isDigital ? "" : beatEchoTail((session.msgs || []).filter(m => m && m.role === "char" && !isOocMsg(m) && m.kind !== "selfie").map(m => m.content))) + (isDigital ? "" : thoughtEchoTail((session.msgs || []).filter(m => m && m.role === "char" && m.thought).map(m => m.thought))) + offlineWordAimTail(minimumSceneChars) + directorTail + styleTail;
   if (hist.length && hist[hist.length - 1].role === "user") hist[hist.length - 1] = { role: "user", content: hist[hist.length - 1].content + finalNudge };
   else hist.push({ role: "user", content: (hist.length ? "（继续）" : OFFLINE_OPEN_SCENE) + finalNudge });
   if (Array.isArray(session.imageDataUrls) && session.imageDataUrls.length) {
@@ -10240,10 +10262,11 @@ async function generateOfflineGroup(p, ctx, session) {
   const _gLastBeat = [...(session.msgs || [])].reverse().find(m => m && m.role === "char" && !isOocMsg(m));
   const _gSaid = _gLastBeat ? spokenLinesOf(_gLastBeat.content) : [];
   const gSayTail = _gSaid.length ? tailHintsFor(_gSaid[_gSaid.length - 1], _gSaid.join("\n")) : "";
+  const gBeatEchoTail = beatEchoTail((session.msgs || []).filter(m => m && m.role === "char" && !isOocMsg(m)).map(m => m.content || m.scene));
   const gThoughtTail = members.map(c => c && thoughtEchoTail((session.msgs || []).filter(m => m && m.role === "char" && m.senderId === c.id && m.thought).map(m => m.thought), c.name)).join("");
   const gPropTail = propTailFor(members.map(c => [c && c.persona, c && c.appearance].join("\n")).join("\n"), (session.msgs || []).filter(m => m && m.role === "char" && !isOocMsg(m)).map(m => m.content));
-  if (hist.length && hist[hist.length - 1].role === "user") hist[hist.length - 1] = { role: "user", content: hist[hist.length - 1].content + gFlashbackTail + gCharacterTail + gSayTail + gPropTail + gThoughtTail + offlineWordAimTail(session.minWords) + gTail };
-  else hist.push({ role: "user", content: (hist.length ? "（继续）" : OFFLINE_OPEN_SCENE) + gFlashbackTail + gCharacterTail + gSayTail + gPropTail + gThoughtTail + offlineWordAimTail(session.minWords) + gTail });
+  if (hist.length && hist[hist.length - 1].role === "user") hist[hist.length - 1] = { role: "user", content: hist[hist.length - 1].content + gFlashbackTail + gCharacterTail + gSayTail + gPropTail + gThoughtTail + gBeatEchoTail + offlineWordAimTail(session.minWords) + gTail };
+  else hist.push({ role: "user", content: (hist.length ? "（继续）" : OFFLINE_OPEN_SCENE) + gFlashbackTail + gCharacterTail + gSayTail + gPropTail + gThoughtTail + gBeatEchoTail + offlineWordAimTail(session.minWords) + gTail });
   if (Array.isArray(session.imageDataUrls) && session.imageDataUrls.length) {
     const lastUser = [...hist].map((m, i) => [m, i]).reverse().find(([m]) => m.role === "user");
     if (lastUser) hist[lastUser[1]] = { ...hist[lastUser[1]], content: hist[lastUser[1]].content + "\n【用户刚给在场所有人展示了真实照片，图像已附在本轮视觉输入中；请让大家直接看图后自然反应。】", imageDataUrls: session.imageDataUrls.slice(-FRESH_IMG_CAP) };
