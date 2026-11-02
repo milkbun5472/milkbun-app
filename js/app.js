@@ -20,7 +20,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v88.978";
+const APP_VERSION = "v88.979";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -2396,7 +2396,7 @@ function App() {
       storageWarnTs.current = now;
       const what = /^x_g?chat:/.test(String(k)) ? "刚才的聊天" : /^x_g?offline:/.test(String(k)) ? "刚才的线下" : "刚改的东西";
       // 没满就别叫人清图（群友 2026-11-01：「怎么只清理掉聊天记录的图片」）——不满时多半是 iOS 那一下卡住，过一会儿下一次保存会补上
-      toast("⚠️ " + what + "没存进手机" + (full ? "（存储满了）：现在关掉重开会丢。先去 设置 → 数据 → 导入与导出 导出一份，再删掉些用不上的旧聊天、同人文腾地方" : "：手机这一下没写进去，先别关 app，接着用，下一次保存会再存一遍；不放心就去 设置 → 数据 → 导入与导出 导出一份"), 12000);
+      toast("⚠️ " + what + "没存进手机" + (full ? "（存储满了）：现在关掉重开会丢。先去 设置 → 数据 → 导入与导出 导出一份，再删掉些用不上的旧聊天、同人文腾地方" : "：手机这一下没写进去，别关 app。再发一条消息（或者让 TA 回一句）就会把刚才那些一起重存一遍。老是弹这句就先去 设置 → 数据 → 导入与导出 导出一份"), 12000);
     };
     return () => { if (window.__storageFull) delete window.__storageFull; if (window.__saveFailed) delete window.__saveFailed; };
   }, []);
