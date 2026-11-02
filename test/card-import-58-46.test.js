@@ -168,5 +168,7 @@ test("导入角色卡能一次选好几份文件，单独的世界书 json 跟�
   const sheet = screens.slice(screens.indexOf("function CardImportSheet"), screens.indexOf("function CardImportSheet") + 12000);
   assert.match(sheet, /multiple: true/, "文件框还是只能选一份");
   assert.match(sheet, /loreEntriesFromJson/, "纯世界书的 json 没被认出来");
+  assert.match(sheet, /applyPicked\(picked\.map/, "选完不能自己点哪份是人设、哪份是世界书");
+  assert.match(sheet, /category: "世界观"/, "点成世界书的 txt\/docx 没收成词条");
   assert.match(sheet, /lore: \(p\.lore \|\| \[\]\)\.concat\(extraLore\)/, "另选的世界书没带进导入");
 });

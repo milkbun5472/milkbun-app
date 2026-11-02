@@ -172,7 +172,8 @@ function CardImportSheet({ onImport, onClose, userName }) {
   const [edits, setEdits] = useState({});
   const [fileBusy, setFileBusy] = useState(false);
   const [fileErr, setFileErr] = useState("");
-  const [extraLore, setExtraLore] = useState([]);   // 跟人设一起选上的那几份纯世界书
+  const [extraLore, setExtraLore] = useState([]);   // 选中的文件里点成世界书的那几份
+  const [picked, setPicked] = useState([]);        // 这次选的几份文件，各自是人设还是世界书
   const fileRef = useRef(null);
   const p = txt.trim() ? parseCharCard(txt, userName) : null;
   const seedsToText = arr => (arr || []).map(x => (x.pinned ? "〔置顶〕" : "") + x.text).join("\n");
@@ -184,27 +185,39 @@ function CardImportSheet({ onImport, onClose, userName }) {
   const setVal = (k, v) => setEdits(e => Object.assign({}, e, { [k]: v }));
   const persona = val("persona");
   // 一份人设拆成好几个文件是常事（群友 2026-11-01：人设一份、自带世界书一份）。
-  //   一次选上，人设那几份按选中顺序接起来；纯世界书的 json 收成这个人自带的世界书。
+  //   一次选上，每一份自己点是人设还是世界书：人设那几份按选中顺序接起来，
+  //   世界书那几份收成只绑这个角色的词条（json 按词条拆，txt/docx 整份当一条）。
+  const applyPicked = list => {
+    const texts = [], lore = [];
+    const many = list.filter(f => f.as === "persona").length > 1;
+    list.forEach(f => {
+      if (f.as === "lore") {
+        if (f.lore && f.lore.length) lore.push.apply(lore, f.lore);
+        else lore.push({ title: f.title, payload: f.text, category: "世界观", alwaysOn: true, enabled: true });
+      } else texts.push(many ? "【" + f.title + "】\n" + f.text : f.text);
+    });
+    setPicked(list); setTxt(texts.join("\n\n")); setEdits({}); setExtraLore(lore);
+    setFileErr(texts.length ? "" : "这几份都点成世界书了，人设那一份点回「人设」");
+  };
   const importFile = async e => {
     const input = e.target, files = Array.from(input.files || []).slice(0, 10);
     input.value = "";
     if (!files.length) return;
     setFileBusy(true); setFileErr("");
     try {
-      const texts = [], lore = [];
+      const list = [];
       for (const file of files) {
         if (/\.doc$/i.test(file.name || "")) throw new Error("老的 .doc 读不了，在 Word 里另存为 .docx 再导");
         if (!/\.(docx|txt|md|markdown|json)$/i.test(file.name || "")) throw new Error("请选择 .docx / .txt / .md / .json 文件");
         const text = String(await readOfflineStyleDocument(file) || "").trim();
         if (!text) continue;
         let d = null; try { d = JSON.parse(text); } catch (_) {}
-        const list = d && !(d.name || d.data || d.persona || d.description) && typeof loreEntriesFromJson === "function" ? loreEntriesFromJson(d) : null;
-        if (list && list.length) { lore.push.apply(lore, list); continue; }
-        texts.push(files.length > 1 ? "【" + String(file.name || "").replace(/\.[a-z0-9]+$/i, "") + "】\n" + text : text);
+        const entries = d && !(d.name || d.data || d.persona || d.description) && typeof loreEntriesFromJson === "function" ? loreEntriesFromJson(d) : null;
+        const hit = entries && entries.length ? entries : null;
+        list.push({ title: String(file.name || "").replace(/\.[a-z0-9]+$/i, "").slice(0, 40), text: text, lore: hit, as: hit ? "lore" : "persona" });
       }
-      if (!texts.length && !lore.length) throw new Error("文件里没有可导入的文字");
-      if (!texts.length) throw new Error("只选到了世界书，人设那份也一起选上");
-      setTxt(texts.join("\n\n")); setEdits({}); setExtraLore(lore);
+      if (!list.length) throw new Error("文件里没有可导入的文字");
+      applyPicked(list);
     } catch (err) {
       setFileErr(String(err && err.message || "文件读取失败，请重新选择").replace(/文风/g, "角色卡"));
     } finally { setFileBusy(false); }
@@ -219,16 +232,24 @@ function CardImportSheet({ onImport, onClose, userName }) {
     h(Head, { zh: "导入角色卡", bg: "transparent", onBack: onClose }),
     h("div", { className: "flex-1 min-h-0 overflow-y-auto px-5 pb-10" },
       h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog, margin: "14px 0 10px", lineHeight: 1.65 } },
-        "整篇粘进来，或者直接选文件（.docx / .txt / .md / .json，一次可以选好几份：人设拆成几份的按顺序接起来，单独的世界书 json 收成只给 TA 的世界书）。认得出常见 JSON 角色卡（v1/v2，卡里的世界书收成只给 TA 的世界书词条），也认「# / ## / **加粗** / 【】」这几种分节。{{char}}/{{user}} 会自动换掉，<START> 之后的对话示例不导入。拆得不对就在下面的预览里直接改。"),
+        "整篇粘进来，或者直接选文件（.docx / .txt / .md / .json，一次可以选好几份，选完每一份自己点是「人设」还是「世界书」：人设那几份按顺序接起来，世界书那几份只绑给 TA）。认得出常见 JSON 角色卡（v1/v2，卡里的世界书收成只给 TA 的世界书词条），也认「# / ## / **加粗** / 【】」这几种分节。{{char}}/{{user}} 会自动换掉，<START> 之后的对话示例不导入。拆得不对就在下面的预览里直接改。"),
       h("button", {
         onClick: () => fileRef.current && fileRef.current.click(), disabled: fileBusy,
         className: "w-full active:opacity-70",
         style: { marginBottom: 10, background: "transparent", color: t.ink, border: "1px solid " + t.line, borderRadius: 12, padding: "10px 0", fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))" }
       }, fileBusy ? "正在读文件…" : "从文件导入"),
       h("input", { ref: fileRef, type: "file", accept: ANY_FILE, multiple: true, style: { display: "none" }, onChange: importFile }),
-      extraLore.length ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog, marginBottom: 8 } }, "另外读到 " + extraLore.length + " 条世界书，导入时只绑给 TA") : null,
+      picked.length ? h("div", { "data-wk": "block", style: { marginBottom: 10, padding: "9px 11px", borderRadius: 12, background: t.bg2, border: "1px solid " + t.line } },
+        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, marginBottom: 6 } }, "这几份各是什么？点一下能改" + (extraLore.length ? "；世界书导入时只绑给 TA" : "")),
+        picked.map((f, i) => h("div", { key: i, className: "flex items-center gap-2", style: { marginBottom: 5 } },
+          h("span", { className: "flex-1 min-w-0 truncate", style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.ink } }, f.title),
+          ["persona", "lore"].map(k => h("button", {
+            key: k, onClick: () => applyPicked(picked.map((x, n) => n === i ? Object.assign({}, x, { as: k }) : x)),
+            className: "active:opacity-70",
+            style: { padding: "3px 10px", borderRadius: 999, fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", border: "1px solid " + (f.as === k ? t.ink : t.line), background: f.as === k ? t.ink : "transparent", color: f.as === k ? t.bg2 : t.fog }
+          }, k === "persona" ? "人设" : "世界书"))))) : null,
       fileErr ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.accent || t.ink, marginBottom: 8 } }, fileErr) : null,
-      h("textarea", { "data-wk": "textarea", value: txt, onChange: e => { setTxt(e.target.value); setEdits({}); setExtraLore([]); }, rows: 10, placeholder: "在这里粘贴整篇角色卡…", style: { width: "100%", background: t.bg2, border: "1px solid " + t.line, borderRadius: 12, padding: "11px 13px", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.ink, resize: "none", lineHeight: 1.6 } }),
+      h("textarea", { "data-wk": "textarea", value: txt, onChange: e => { setTxt(e.target.value); setEdits({}); setExtraLore([]); setPicked([]); }, rows: 10, placeholder: "在这里粘贴整篇角色卡…", style: { width: "100%", background: t.bg2, border: "1px solid " + t.line, borderRadius: 12, padding: "11px 13px", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.ink, resize: "none", lineHeight: 1.6 } }),
       p ? h("div", { "data-wk": "block", style: { marginTop: 12, padding: "12px 14px", borderRadius: 14, background: t.bg2, border: "1px solid " + t.line } },
         h(Eyebrow, { style: { marginBottom: 7 } }, p.from === "json" ? "解析预览 · 认出是 JSON 角色卡 · 可直接改" : "解析预览 · 可直接改"),
         h("div", { className: "flex items-center gap-2", style: { marginBottom: 5 } },
