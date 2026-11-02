@@ -1541,22 +1541,31 @@ function CoupleDays({ partner, since, events, annivs, onAdd, onRemove, onRead, o
 // 情书信纸字体（iOS 系统中文字体，零成本；非 iOS 走 fallback）+ 纸张样式
 const LETTER_FONTS = [
   { key: "auto", label: "🎲 智能 / 随机" },
+  // web：iPhone 上没有的那几支（圆体、楷体、行楷、手札……都是苹果电脑自带的），排在后面顶上的网上字体（她 2026-11-02：「情书换不了字体」）。
+  //   电脑上照旧先用自带那支；手机上找不到就落到 web 那支，选中／打开那封信时才去拉
   { key: "serif", label: "宋体信笺", css: "'Noto Serif SC','Songti SC',serif" },
-  { key: "kai", label: "楷体手写", css: "'Kaiti SC','STKaiti','KaiTi',serif" },
-  { key: "round", label: "圆体可爱", css: "'Yuanti SC','PingFang SC',sans-serif" },
-  { key: "sans", label: "现代简洁", css: "'PingFang SC',system-ui,sans-serif" },
-  // 下面这些都是 iOS 自带的中文字体，零成本；非 iOS 一路 fallback 回宋/黑
-  { key: "xingkai", label: "行楷疾书", css: "'Xingkai SC','STXingkai','Kaiti SC',cursive" },
-  { key: "hannotate", label: "手札随笔", css: "'Hannotate SC','HanziPen SC','Kaiti SC',cursive" },
-  { key: "hanzipen", label: "翩翩细笔", css: "'HanziPen SC','Hannotate SC','Kaiti SC',cursive" },
-  { key: "libian", label: "隶变旧体", css: "'Libian SC','Baoli SC','Songti SC',serif" },
-  { key: "baoli", label: "报隶端方", css: "'Baoli SC','Libian SC','Songti SC',serif" },
-  { key: "weibei", label: "魏碑刻痕", css: "'Weibei SC','Songti SC',serif" },
-  { key: "yuppy", label: "雅痞不羁", css: "'Yuppy SC','PingFang SC',sans-serif" },
-  { key: "wawa", label: "娃娃稚气", css: "'Wawati SC','Yuanti SC','PingFang SC'" },
-  { key: "lanting", label: "兰亭细体", css: "'Lantinghei SC','PingFang SC',sans-serif" }
+  { key: "kai", label: "楷体手写", css: "'Kaiti SC','STKaiti','KaiTi','Ma Shan Zheng',serif", web: "Ma+Shan+Zheng" },
+  { key: "round", label: "圆体可爱", css: "'Yuanti SC','ZCOOL KuaiLe','PingFang SC',sans-serif", web: "ZCOOL+KuaiLe" },
+  { key: "sans", label: "现代简洁", css: "'PingFang SC','Noto Sans SC',system-ui,sans-serif", web: "Noto+Sans+SC:wght@400;500" },
+  // 下面这些也是苹果电脑自带的中文字体；手机上落到各自后面那支网上字体
+  { key: "xingkai", label: "行楷疾书", css: "'Xingkai SC','STXingkai','Zhi Mang Xing','Kaiti SC',cursive", web: "Zhi+Mang+Xing" },
+  { key: "hannotate", label: "手札随笔", css: "'Hannotate SC','HanziPen SC','Long Cang','Kaiti SC',cursive", web: "Long+Cang" },
+  { key: "hanzipen", label: "翩翩细笔", css: "'HanziPen SC','Hannotate SC','Liu Jian Mao Cao','Kaiti SC',cursive", web: "Liu+Jian+Mao+Cao" },
+  { key: "libian", label: "隶变旧体", css: "'Libian SC','Baoli SC','ZCOOL XiaoWei','Songti SC',serif", web: "ZCOOL+XiaoWei" },
+  { key: "baoli", label: "报隶端方", css: "'Baoli SC','Libian SC','ZCOOL XiaoWei','Songti SC',serif", web: "ZCOOL+XiaoWei" },
+  { key: "weibei", label: "魏碑刻痕", css: "'Weibei SC','ZCOOL QingKe HuangYou','Songti SC',serif", web: "ZCOOL+QingKe+HuangYou" },
+  { key: "yuppy", label: "雅痞不羁", css: "'Yuppy SC','ZCOOL QingKe HuangYou','PingFang SC',sans-serif", web: "ZCOOL+QingKe+HuangYou" },
+  { key: "wawa", label: "娃娃稚气", css: "'Wawati SC','Yuanti SC','ZCOOL KuaiLe','PingFang SC'", web: "ZCOOL+KuaiLe" },
+  { key: "lanting", label: "兰亭细体", css: "'Lantinghei SC','PingFang SC','Noto Sans SC',sans-serif", web: "Noto+Sans+SC:wght@400;500" }
 ];
-const letterFontCss = key => { const f = LETTER_FONTS.find(x => x.key === key && x.css); return f ? f.css : LETTER_FONTS[1].css; };
+// 用到哪支才拉哪支（同一支只挂一次链接）；连不上 Google 就照旧落到系统字体，不卡页面
+const letterFontLoaded = new Set();
+const letterFontEnsure = f => {
+  if (!f || !f.web || letterFontLoaded.has(f.web) || typeof document === "undefined") return;
+  letterFontLoaded.add(f.web);
+  try { const l = document.createElement("link"); l.rel = "stylesheet"; l.href = "https://fonts.googleapis.com/css2?family=" + f.web + "&display=swap"; document.head.appendChild(l); } catch (e) {}
+};
+const letterFontCss = key => { const f = LETTER_FONTS.find(x => x.key === key && x.css); letterFontEnsure(f); return f ? f.css : LETTER_FONTS[1].css; };
 const LETTER_PAPERS = [
   { key: "cream", label: "米白", bg: "#faf6ee", ink: "#413a2e", line: "#ece2d0" },
   { key: "kraft", label: "牛皮", bg: "#e9ddc6", ink: "#4a3f2c", line: "#d6c7a8" },
