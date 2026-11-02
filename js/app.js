@@ -20,7 +20,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v88.955";
+const APP_VERSION = "v88.961";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -9176,8 +9176,9 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     return true;
   };
   // 合影最多几个人一起入镜（她 2026-11-02 转群里：「五人群聊照片上只有四个人」）：原来三处各写死 4，
-  //   五人群加上她就得掉一个。生图那一步本身不限参考图张数，收成一个数、放到 6：人再多脸容易串
-  const GROUP_SHOT_MAX = 6;
+  //   五人群加上她就得掉一个。生图那一步本身不限参考图张数，收成一个数。
+  //   上限只是「最多能上几个」，不是每张都上满（她 2026-11-02「干脆就 10 呗，反正上限又不是必用到」）：人多了脸容易串、有的接口收不了那么多张，那是少拍几个人的事
+  const GROUP_SHOT_MAX = 10;
   // 群线下当场拍一张合影：点名单＝在场有参考照的成员（第一位当拍照的那个）+ 用户。
   const groupOfflineShotNow = async groupId => {
     const group = groups.find(g => String(g.id) === String(groupId));

@@ -168,5 +168,45 @@ test("导入角色卡能一次选好几份文件，单独的世界书 json 跟�
   const sheet = screens.slice(screens.indexOf("function CardImportSheet"), screens.indexOf("function CardImportSheet") + 12000);
   assert.match(sheet, /multiple: true/, "文件框还是只能选一份");
   assert.match(sheet, /loreEntriesFromJson/, "纯世界书的 json 没被认出来");
+  assert.match(sheet, /applyPicked\(picked\.map/, "选完不能自己点哪份是人设、哪份是世界书");
+  assert.match(sheet, /category: "世界观"/, "点成世界书的 txt\/docx 没收成词条");
   assert.match(sheet, /lore: \(p\.lore \|\| \[\]\)\.concat\(extraLore\)/, "另选的世界书没带进导入");
+});
+
+test("Word 写的世界书按它自己的分节拆成一条条", () => {
+  const i = screens.indexOf("const CARD_SEC_RE"), j = screens.indexOf("function parseCharCard");
+  assert.ok(i > 0 && j > i, "抠不出分节那一段");
+  const { splitDocSections } = new Function(screens.slice(i, j) + "\nreturn { splitDocSections };")();
+  const secs = splitDocSections("【落霞镇】镇子在河口，常年起雾。\n【夜巡司】管宵禁的衙门。\n【银钉】他左耳那颗，母亲留的。", []).filter(x => x.title && x.body.trim());
+  assert.equal(secs.length, 3, "没拆开");
+  assert.equal(secs[0].title, "落霞镇");
+  assert.match(secs[2].body, /母亲留的/);
+});
+
+// 群友 2026-11-01：小窝传的是一整份，人设和世界书写在同一个文件里
+test("一份文件里人设带着世界书：世界书那几节单拆成词条，不并进人设", () => {
+  const p = parseCharCard("【姓名】阿屿\n【人设】海洋所读研。\n【世界书】\n【落霞镇】镇子在河口，常年起雾。\n【夜巡司】管宵禁的衙门。", "Lisa");
+  assert.equal(p.name, "阿屿");
+  assert.match(p.persona, /海洋所读研/);
+  assert.doesNotMatch(p.persona, /落霞镇|夜巡司/, "世界书被并进人设了");
+  assert.equal((p.lore || []).length, 2);
+  assert.equal(p.lore[0].title, "落霞镇");
+  assert.equal(p.lore[0].keyword, "落霞镇");
+  assert.match(p.lore[1].payload, /管宵禁/);
+});
+
+// 群友 2026-11-01 那张：没写「人设」两个字，世界书一节用的是「世界书-社交关系网」
+test("没写人设那一节，世界书照样拆出来，人设只剩前面那段", () => {
+  const p = parseCharCard("【角色底稿】\n陆之遥，大三，游泳队。\n【世界书-社交关系网】\n## 一、家庭关系网\n### 老爸：陆大军\n身高183，市政工程项目经理。\n### 老妈：周文秀\n中学语文老师。", "Lisa");
+  assert.match(p.persona, /游泳队/);
+  assert.doesNotMatch(p.persona, /陆大军|周文秀/, "世界书又被塞回人设了");
+  assert.ok((p.lore || []).length >= 2, "世界书没拆出来");
+  assert.ok(p.lore.some(e => /陆大军/.test(e.title)));
+  assert.equal(p.lore[0].keyword, "陆大军", "关键词该是人名，不是整行标题");
+});
+
+test("整篇都是世界书、没有人设正文：照旧整篇当人设，不两头各存一份", () => {
+  const p = parseCharCard("【世界书】\n## 落霞镇\n镇子在河口。\n## 夜巡司\n管宵禁的衙门。", "Lisa");
+  assert.equal((p.lore || []).length, 0);
+  assert.match(p.persona, /落霞镇/);
 });
