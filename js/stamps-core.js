@@ -231,6 +231,8 @@
     if (!tx || typeof tx !== "object") return tx;
     const keep = KEEP[rarity], str = STR[rarity] || [], out = {};
     Object.keys(tx).forEach(k => { if (!keep || keep.includes(k)) out[k] = cleanDeep(str.includes(k) ? flat(tx[k]) : tx[k]); });
+    // R 卡面上那句心里话偶尔被写进了别的键（line、inner……），这里认回来（她 2026-11-03：「有时候 r 卡不写那句台词」）
+    if (rarity === "R" && !String(out.thought || "").trim()) { const alt = flat(tx.line || tx.inner || tx.quote || tx.words || ""); if (String(alt || "").trim()) out.thought = cleanDeep(alt); }
     if (rarity === "R") ["before", "after"].forEach(k => { const v = out[k]; if (typeof v === "string") out[k] = { narration: v }; else if (v && typeof v === "object") out[k] = { narration: flat(v.narration), thought: flat(v.thought) }; });
     return out;
   }

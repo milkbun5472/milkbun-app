@@ -326,6 +326,7 @@
     // 打开时停在她挑的封面那一面（她 2026-10-27：选了别的当封面，点进来还是第一面）
     const [side, setSide] = useState(() => { const cv = card.cover; if (!cv) return "main"; if (cv === faces2.solo) return "solo"; if (cv === faces2.duo) return "duo"; const ex = (card.extras || []).find(x => x.img === cv); return ex ? "ex:" + ex.id : "main"; });   // main 第一面 / solo / duo / ex:番外
     // 番外卡面（她 2026-10-27）：在卡面这边跟满级那几面一起挑、一起画；side 是 "ex:番外id"
+    const headLine = String((card.text && (card.text.line || (card.rarity === "R" ? card.text.thought : ""))) || "").trim().replace(/^[「“"]+|[」”"]+$/g, "");
     const exSel = side.indexOf("ex:") === 0 ? (card.extras || []).find(x => "ex:" + x.id === side) || null : null;
     const urlEx = useIdbImgUrl(exSel && exSel.img || null);
     const exDrawing = !!(exSel && exSel.drawing && exSel.drawingBoot && exSel.drawingBoot === window.__stampBoot && Date.now() - (exSel.drawingTs || 0) < 8 * 60000);
@@ -446,7 +447,7 @@
     };
     const nodes = !tx ? [] : card.rarity === "R" ? [
         { k: "before", zh: "前一刻", lv: U.R.before, body: tx.before && h("div", null, para(tx.before.narration || ""), tx.before.thought ? quote(tx.before.thought) : null), peek: tx.before && tx.before.narration },
-        { k: "now", zh: "那一刻", lv: 1, body: h("div", null, para(tx.narration || ""), tx.thought ? quote(tx.thought) : null), peek: tx.narration },
+        { k: "now", zh: "那一刻", lv: 1, body: h("div", null, para(tx.narration || "")), peek: tx.narration },
         { k: "after", zh: "后一刻", lv: U.R.after, body: tx.after && h("div", null, para(tx.after.narration || ""), tx.after.thought ? quote(tx.after.thought) : null), peek: tx.after && tx.after.narration },
         { k: "real", zh: PT("他真正想说的"), lv: U.R.real, body: tx.real && quote(tx.real), peek: tx.real },
         { k: "sound", zh: "那时的声音", lv: U.R.sound, opt: 1, body: tx.sound && para(tx.sound), peek: tx.sound },
@@ -569,15 +570,15 @@
         !tx ? h("div", { "data-wk": "stampbox", style: { marginTop: 16, padding: "12px 14px", borderRadius: 12, border: "1px solid " + LINE } },
             h("div", { style: { fontFamily: F_BODY, fontSize: fs(12.5), color: P5 } }, card.writing && !stale ? PT("他还在写，等一会儿。") : (card.err || "这一张没写出来。")),
             (!card.writing || stale) ? h("button", { onClick: () => onRewrite(card), className: "active:opacity-70", style: { marginTop: 8, padding: "7px 16px", borderRadius: 999, border: "1px solid " + P, color: P, fontFamily: F_BODY, fontSize: fs(12.5) } }, "重写这一张") : null) : null,
-        // 时刻回廊
+        // 时刻回廊：卡上那句台词摆在这儿；R 卡就是他心里那句（她 2026-11-03：不塞进「那一刻」里）
         tx ? h(React.Fragment, null,
           h("div", { className: "flex items-center", style: { marginTop: 22, gap: 10 } },
             h("div", { style: { fontFamily: F_DISPLAY, fontSize: fs(14), color: GOLD } }, "✦ 时刻回廊"),
             h("div", { style: { flex: 1, height: 1, background: LINE } })),
-          tx.line ? h("div", { style: { marginTop: 10, textAlign: "center", fontFamily: F_DISPLAY, fontSize: fs(15), color: P } }, "「", h(BiText, { text: tx.line }), "」",
+          headLine ? h("div", { style: { marginTop: 10, textAlign: "center", fontFamily: F_DISPLAY, fontSize: fs(15), color: P } }, "「", h(BiText, { text: headLine }), "」",
             // 点喇叭听他念这句（念过的存着，再听不花钱）
             typeof ttsSpeak === "function" && typeof ttsReady === "function" && typeof loadTtsApi === "function" && ttsReady(loadTtsApi()) ? h("button", { "data-wk": "stamplinesay", onClick: () => {
-              const vid = (char && char.voiceId) || ttsDefaultVoice(loadTtsApi()); const sp = splitBilingual(String(tx.line)), line = sp ? sp.text : String(tx.line);
+              const vid = (char && char.voiceId) || ttsDefaultVoice(loadTtsApi()); const sp = splitBilingual(String(headLine)), line = sp ? sp.text : String(headLine);
               ttsSpeak(line, vid).then(b => { const u = URL.createObjectURL(b), a2 = new Audio(u); a2.onended = () => URL.revokeObjectURL(u); a2.play(); }).catch(() => toast("没念出来，看看设置里的语音配好没有")); },
               style: { marginLeft: 6, fontSize: fs(13), opacity: .7 } }, "🔊") : null) : null,
           h("div", { "data-wk": "stampcorridor", className: "flex overflow-x-auto", style: { gap: 10, marginTop: 12, paddingBottom: 4, marginRight: -20, paddingRight: 20 } },

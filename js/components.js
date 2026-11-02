@@ -11141,7 +11141,8 @@ function PetWatchSheet({ storeKey, onClose, onShare, onEnter }) {
 }
 // 群里哪几条算进未读（数未读和「↑ N 条新消息」找第一条用同一个判断，她 2026-11-02：「跳不准，往上还有三条」）：
 //   别人发的、不是系统灰字的。夹在中间的系统行不算未读，倒推位置时也得跳过它们，不然就往下偏几条
-function gUnreadCounts(m) { return !!m && m.role !== "user" && m.kind !== "system"; }
+// 灰字也有不叫 system 的（通话结束、线下记录、录下的卡都是 role:system；旁白是 narration）——按 role 排，别按 kind 排
+function gUnreadCounts(m) { return !!m && m.role !== "user" && m.role !== "system" && m.role !== "narration" && m.kind !== "system"; }
 // 从最后一条往回数 n 条算未读的，停下那条就是第一条新消息
 function gFirstUnreadIdx(messages, n) {
   const list = messages || []; let left = Number(n) || 0;

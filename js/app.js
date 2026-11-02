@@ -20,7 +20,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v88.981";
+const APP_VERSION = "v88.993";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -11915,6 +11915,10 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   //   原来是递手机那一路自己的 peekPendingRef（她 2026-10-01「看完接不上啊」立的），现在所有这种都走这一份。
   //   ⚠️新功能里凡是「她点了一下 → TA要接一句」的，一律 waitForHer，不许直接 replyNow（测试 wait-for-her 钉着）。
   const waitHerRef = useRef({});
+  // 换聊天头像这件事记半天（她 2026-11-02：「换了没说话他当没看见说别的了，第二轮说给他换了头像他就看不到了，问我换的啥」）：
+  //   waitForHer 那一份只交一轮；之后她提起头像，他得还知道换的是哪张、看得到那张
+  const avatarSeenRef = useRef({});
+  const noteAvatarChange = (charId, who, ref, back) => { avatarSeenRef.current[charId] = { ...(avatarSeenRef.current[charId] || {}), [who]: { ref, back, ts: Date.now() } }; };
   const waitForHer = (charId, patch) => { waitHerRef.current[charId] = { ...(waitHerRef.current[charId] || {}), ...patch, _ts: Date.now() }; };
   // 约会邀请（她 2026-10-02：「约他应该先发送一个邀请到线上，他同意了再发回执卡，点开再进线下」）
   // 日子钟点写成一句人话：「10月3日（周四）20:30」
@@ -12603,8 +12607,23 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       const refuseHint = opts.phoneRefused ? "\n\n【此刻】你刚开口要看 " + uName + " 的手机，她没给。怎么想、追不追问、生不生气、还是算了，全看你这个人和你们现在的关系。" : "";
       const meddleHint = opts.phoneMeddle && opts.phoneMeddle.length ? "\n\n【你刚发现】你手机上有几样不是你动的：" + uName + " 拿你的手机" + opts.phoneMeddle.map(phoneMeddleLine).join("；") + "。这是刚发生的事；什么反应由你这个人和这段关系决定。" : "";
       const _herAvRef = opts.herAvatar && opts.herAvatar.ref && typeof isImgRef === "function" && (isImgRef(opts.herAvatar.ref) || /^data:image/.test(String(opts.herAvatar.ref))) ? opts.herAvatar.ref : null;
-      const avatarHint = opts.herAvatar ? "\n\n【刚发生】" + uName + (opts.herAvatar.back ? " 把她在你俩这个聊天里的头像换回了原来那张" : " 换了她在你俩这个聊天里的头像") + (_herAvRef ? "（换上的那张附在她这一轮的消息上）" : "") + "。看见了想说就说，不想说也行。" : "";
-      const remarkHint = avatarHint + meddleHint + (opts.phoneRemark && opts.phoneRemark.length ? "\n\n【你刚发现】你微信通讯录里的备注被 " + uName + " 偷偷改了：" + opts.phoneRemark.map(phoneRemarkLine).join("；") + "。这是刚发生的事；什么反应由你这个人和这段关系决定。" : "");
+      const avatarHint = opts.herAvatar ? "\n\n【刚发生】" + uName + (opts.herAvatar.back ? " 把她在你俩这个聊天里的头像换回了原来那张" : " 换了她在你俩这个聊天里的头像") + (_herAvRef ? "（换上的那张附在她这一轮的消息上）" : "") + "。这是她刚当着你做的事，你看见了：说不说、怎么说照你这个人，但别当它没发生。" : "";
+      // 她给【他】换了聊天头像（她 2026-11-02「给他和自己换聊天头像有提示吗」）：原来只有她换自己的才有
+      const _hisAvRef = opts.hisAvatar && opts.hisAvatar.ref && typeof isImgRef === "function" && (isImgRef(opts.hisAvatar.ref) || /^data:image/.test(String(opts.hisAvatar.ref))) ? opts.hisAvatar.ref : null;
+      const hisAvatarHint = opts.hisAvatar ? "\n\n【刚发生】" + uName + (opts.hisAvatar.back ? " 把你在你俩这个聊天里的头像换回了你原来那张" : " 给你换了你在你俩这个聊天里的头像——她那边看到的你，现在是这一张") + (_hisAvRef ? "（那张附在她这一轮的消息上）" : "") + "。你自己档案里那张没动。这是她刚当着你做的事，你看见了：说不说、怎么说照你这个人，但别当它没发生。" : "";
+      // 之后几轮（半天内）：还记得换过、换的是哪张；她又提起头像，就把那张再给他看一眼
+      const _avSeen = avatarSeenRef.current[charId] || {};
+      const _avTalk = /头像|换了|换的|这张/.test(history.filter(m => m.role === "user" && m.content).slice(-2).map(m => m.content).join(" "));
+      const _avLaterRefs = [];
+      const avatarLaterHint = ["his", "her"].map(k => {
+        const v = _avSeen[k];
+        if (!v || (k === "his" ? opts.hisAvatar : opts.herAvatar) || Date.now() - v.ts > 12 * 3600e3) return "";
+        const ok = v.ref && typeof isImgRef === "function" && (isImgRef(v.ref) || /^data:image/.test(String(v.ref)));
+        if (_avTalk && ok) _avLaterRefs.push(v.ref);
+        return "\n\n【不久前】" + uName + (k === "his" ? (v.back ? " 把你在你俩这个聊天里的头像换回了原来那张" : " 给你换了你在你俩这个聊天里的头像") : (v.back ? " 把她在这个聊天里的头像换回了原来那张" : " 换了她在这个聊天里的头像"))
+          + "（" + Math.max(1, Math.round((Date.now() - v.ts) / 60000)) + " 分钟前）" + (_avTalk && ok ? "，那张附在她这一轮的消息上。" : "。");
+      }).join("");
+      const remarkHint = avatarHint + hisAvatarHint + avatarLaterHint + meddleHint + (opts.phoneRemark && opts.phoneRemark.length ? "\n\n【你刚发现】你微信通讯录里的备注被 " + uName + " 偷偷改了：" + opts.phoneRemark.map(phoneRemarkLine).join("；") + "。这是刚发生的事；什么反应由你这个人和这段关系决定。" : "");
       // 她刚改过TA通讯录备注（phoneRemarkEdit）跟「最近查过手机」是同一类事，挂在同一格里
       // ⚠️「你最近查过她的手机」是主线发生过的事，直接拼在提示词上、绕过了房间那道闸——
       //   隔离房里TA也知道（群友 2026-10-08）。跟 watchedNote 同一档（别处发生的事），房里关了就不带
@@ -13760,6 +13779,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         g[_i] = { ...g[_i], content: (bundleVolatile ? "【此刻的实时背景（只服务这一轮，不是历史）】\n" + bundleVolatile + "\n\n———\n" : "") + g[_i].content + _taskFull };
         // 她刚换的那张头像也给他看一眼（附在她这一轮的消息上，跟她发的照片同一条路）
         { const _av = opts.herAvatar && opts.herAvatar.ref; if (_av && ((typeof isImgRef === "function" && isImgRef(_av)) || /^data:image/.test(String(_av)))) g[_i] = { ...g[_i], _imageRefs: [...(g[_i]._imageRefs || []), _av] }; }
+        { const _av = opts.hisAvatar && opts.hisAvatar.ref; if (_av && ((typeof isImgRef === "function" && isImgRef(_av)) || /^data:image/.test(String(_av)))) g[_i] = { ...g[_i], _imageRefs: [...(g[_i]._imageRefs || []), _av] }; }
+        if (_avLaterRefs.length) g[_i] = { ...g[_i], _imageRefs: [...(g[_i]._imageRefs || []), ..._avLaterRefs] };
             // 留存这一轮 TA 实际收到的指令尾部（v53.73）：再遇到「TA说没有这个字段」时直接看真东西，不靠猜。只读快照，不参与判定。
             try { window.__lastSentTail = { ts: Date.now(), who: char.name, toyInTask: _taskFull.indexOf('"toy":null') >= 0, offlineBleed: /\u3010\u7ebf\u4e0b\u8fdb\u884c\u4e2d\u3011|\u8fd8\u6ca1\u6b63\u5f0f\u6563\u573a/.test(String(g[_i].content)), tail: String(g[_i].content).slice(-1100) }; } catch (e) {}
         break;
@@ -17605,7 +17626,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       + (card.kind === "bday" ? "这一张是你生日前后的一刻。衣服这次不从你衣柜里挑：生日卡是专门为这一天设计的限定造型——一眼看得出是特意的，比你平时隆重、细节多，面料、配饰、搭配都有讲究，同时还是你会穿、配你这个人的样子；隆重不等于西装，照那天在做的事配。shot 的景别拉开到看得见那天的场合和生日的氛围。" : "");
   };
   const STAMP_RARITY_SPEC = {
-    R: "R 卡＝抓拍：她不在场时你的一个瞬间，重在你那会儿是什么状态，不必是一件完整的事。narration 一行交代是什么时候、你在干嘛；thought 是你心里的一句，你不知道会被她看到。"
+    R: "R 卡＝抓拍：她不在场时你的一个瞬间，重在你那会儿是什么状态，不必是一件完整的事。narration 一行交代是什么时候、你在干嘛；thought 是你心里的一句，你不知道会被她看到，印在卡面上，每张 R 都要有、不能空。"
       + "before、after 是这一刻的前一刻和后一刻，各自也有 narration 和 thought；real 是这一刻你心里真正的那一句；sound 是那一刻耳边的声音，一两句；back 是这枚邮票背面你随手写的一句，像寄明信片时背面那句。",
     SR: "SR 卡＝短篇：一件有前因后果的小事，五六百字，重在你怎么应对它——事情有变化、有个结果；她在不在场看这件事本身。open 是开头一小段；rest 接着写完；sequel 是过了一阵以后的一小段后续；hidden 是你藏着没说出口的一句；line 是印在卡面上的一句你的台词；his 是同一件事你自己记得的版本——你那时注意到、记住的东西，一小段；keepsake 是这件事留下的一样小东西（name 叫什么、desc 一两句它的样子和来历）。"
   };
@@ -30739,8 +30760,11 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   //   一放就变成「这一层的歌」，出门那一下 roomMusicLeave 认得是这一层的、
   //   却没有东西可还——只好 stopPlayer()，她自己的歌就这么没了。
   //   所以【记一份】和【落针】是两件事：没歌可放也要先记，礼数那一半才还得回去。
-  const roomMusicEnter = (isMine, play) => {
-    if (isMine()) return;                     // 已经在放这一层的歌了，别打断
+  const roomMusicEnter = (isMine, play, keepMine) => {
+    // 已经在放这一层的歌了，别打断——但要记一笔「进门前就在放」（她 2026-11-02：放着 A 歌单的歌、进 A 的手机再出来，
+    //   歌和悬浮窗一起没了；进 B 的就没事）。原来这儿直接 return 什么都没记，出门那一下认得是这一层的歌、又没东西可还，就 stopPlayer 了
+    //   只给查手机：她在一起听里放着 TA 的歌单，那是她自己在听；情侣唱片已经在转的照旧「走的时候只带走自己」
+    if (isMine()) { roomMusicRef.current = keepMine ? { keep: true } : null; return; }
     const prevId = playerSongIdRef.current;
     const el = audioElRef.current;
     // ⚠️静音保活那首也要还：它占着 iOS 的音频会话，被顺手停掉＝后台保活断了。
@@ -30757,6 +30781,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     if (!isMine()) { roomMusicRef.current = null; return; }  // 这一层压根没落针：她自己的歌照放，别动
     const prev = roomMusicRef.current;
     roomMusicRef.current = null;
+    if (prev && prev.keep) return;   // 进门前就在放这一层的歌：原样接着放，不收针
     // 进来前本来就没在放 → 停干净（她说的「出来音乐会停，这个确实要这样」）
     if (!prev || !resolveSong(prev.id)) { stopPlayer(); return; }
     // 有得还就直接换回去，不先 stopPlayer——那会让播放器闪一下没影
@@ -30801,7 +30826,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     //   施工规则/one-public-mechanism.md：已有的那几处也要搬过去）：
     //   她在TA手机里刷出一张歌单、点开一首，出门那一下才还得回她自己的歌。
     const from = ss.length ? phoneMusicNextId(cid) : null;
-    roomMusicEnter(phoneMusicMine(cid), from ? () => playSong(from, ss.map(x => x.id)) : null);
+    roomMusicEnter(phoneMusicMine(cid), from ? () => playSong(from, ss.map(x => x.id)) : null, true);
   };
   const phoneMusicLeave = cid => roomMusicLeave(phoneMusicMine(cid));
   const addNeteaseResult = s => saveListen(p => ({ ...p, songs: capListenSongs([resultToSong(s), ...(p.songs || []).filter(x => x.neteaseId !== String(s.id))]) }));
@@ -31089,13 +31114,23 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       const existingIds = new Set(existingSongs.map(s => s.neteaseId).filter(Boolean));
       const existingTitles = existingSongs.map(s => s.title).filter(Boolean);
       const avoidStr = existingTitles.length ? "\n**这张歌单里已经有这些歌了，别再推荐它们、也别推重复的，给全新的：** " + existingTitles.slice(0, 50).join("、") : "";
+      // 人人都有落日飞车《My Jinji》（她 2026-11-02）：每个人单独问一次，模型每次给出同一个「第一名」，又看不见别人的歌单。
+      //   代码数出别人歌单里【至少两个人】都放了的歌，摆给他；不是不许放，是要放得有他自己的理由。
+      const _songKey = x => String((x && x.title) || "").replace(/\s+/g, "").toLowerCase() + "|" + String((x && x.artist) || "").replace(/\s+/g, "").toLowerCase();
+      const _crowd = new Map();
+      (listenRef.current.playlists || []).filter(x => x && x.charId !== char.id).forEach(pl => {
+        const seen = new Set();
+        (pl.songs || []).forEach(sg => { const k = _songKey(sg); if (!sg || !sg.title || seen.has(k)) return; seen.add(k); const c = _crowd.get(k) || { n: 0, t: sg.title + (sg.artist ? "（" + sg.artist + "）" : "") }; c.n++; _crowd.set(k, c); });
+      });
+      const crowded = [..._crowd.values()].filter(c => c.n >= 2).sort((x, y) => y.n - x.n).slice(0, 30).map(c => c.t);
+      const crowdStr = crowded.length ? "\n【这几首已经在好几个人的歌单里了】" + crowded.join("、") + "。你不是不能放，但要放就得是你这个人真会循环它的理由；说不出只属于你的理由，就换一首只有你会听的。" : "";
       // 用干净上下文：去掉手机在听/最近听歌/朋友圈等会污染推荐的字段（否则角色只会照抄用户刚搜的、或查手机里那两首）
       const cleanCtx = Object.assign({}, ctxFor(char), { listenLog: "", nowPlaying: "", momentLog: "", forumEcho: "", giftLog: "", recentChat: "" });
       const probeOnce = async nudge => {
         try {
           const rec = await runProbe(active, cleanCtx, {
             voice: true,
-            instruction: "你是「" + char.name + "」。**完全按你自己的人设、成长背景、性格和音乐口味**，一次性列出 **18 首**你自己私下真会单曲循环、真实存在、能在主流平台搜到的歌（华语/欧美/日韩都行，别编造不存在的歌，风格可多样）。**别照抄任何你手机里在听/最近听过/用户刚搜过或已有的歌，要发自内心喜欢的。songs 数组必须给满 18 个元素，给少了这次就白跑了。**\n每首还要写一句 note：**这一首对你意味着什么**。第一人称，你自己的口气。\n【形状必须散开，不许套模板】常见的毛病是全都写成「……的时候」，十九条一个句式，等于一条都没写。所以：**绝对不许每条都用「……的时候」「……时」收尾，全篇这种收尾最多两条**。有的写一个具体场景，有的写一句评价，有的写一个突然冒出来的念头，有的是抱怨，有的只有三五个字（「循环了一个月。」「不知道为什么。」「难听，但戒不掉。」），有的是半句没说完的话。长短要差得很开。\n【这不是恋爱歌单】**大多数歌跟用户没有关系**。你自己的活计、旧事、烦躁、无聊、走过的某段路、某个早就不联系的人，都可以占满一首歌。全部歌里提到用户的最多三四首，别每首都往那儿绕。\n【写的是你，不是歌】不要评价旋律、编曲、歌词写得多好，也不要写「这首歌很治愈/很有力量/让我想起某段时光」这种谁都能说的话。换个角色还说得通的 note 就是写坏了。" + avoidStr + (nudge || "") + " 别写序号别写解释。",
+            instruction: "你是「" + char.name + "」。**完全按你自己的人设、成长背景、性格和音乐口味**，一次性列出 **18 首**你自己私下真会单曲循环、真实存在、能在主流平台搜到的歌（华语/欧美/日韩都行，别编造不存在的歌，风格可多样）。**别照抄任何你手机里在听/最近听过/用户刚搜过或已有的歌，要发自内心喜欢的。songs 数组必须给满 18 个元素，给少了这次就白跑了。**\n**每一首都问一句：这首歌换成别的角色也会放进歌单吗？会，那就是谁都会挑的那一首——换成只有你这个人的经历、年代、口味才会挑的。**\n每首还要写一句 note：**这一首对你意味着什么**。第一人称，你自己的口气。\n【形状必须散开，不许套模板】常见的毛病是全都写成「……的时候」，十九条一个句式，等于一条都没写。所以：**绝对不许每条都用「……的时候」「……时」收尾，全篇这种收尾最多两条**。有的写一个具体场景，有的写一句评价，有的写一个突然冒出来的念头，有的是抱怨，有的只有三五个字（「循环了一个月。」「不知道为什么。」「难听，但戒不掉。」），有的是半句没说完的话。长短要差得很开。\n【这不是恋爱歌单】**大多数歌跟用户没有关系**。你自己的活计、旧事、烦躁、无聊、走过的某段路、某个早就不联系的人，都可以占满一首歌。全部歌里提到用户的最多三四首，别每首都往那儿绕。\n【写的是你，不是歌】不要评价旋律、编曲、歌词写得多好，也不要写「这首歌很治愈/很有力量/让我想起某段时光」这种谁都能说的话。换个角色还说得通的 note 就是写坏了。" + avoidStr + crowdStr + (nudge || "") + " 别写序号别写解释。",
             schemaHint: "{\"songs\":[{\"title\":\"某首歌\",\"artist\":\"某歌手\",\"note\":\"第一人称一句，长短形状各不相同\"}]}（songs 必须 18 个元素）", maxTokens: (window.StylePresets && window.StylePresets.OUT_CEILING) || 65000
           });
           return parseSongWants(rec);
@@ -34093,6 +34128,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     character: activeChar, cut: peekCut[activeChar.id], byName: (((characters || []).find(x => x.id === peekCut[activeChar.id].by) || {}).name) || "",
     onBack: leaveCutPage, onRestore: () => peekRestore(activeChar.id)
   });else if (screen === "thread" && activeChar) body = mkThread();else if (screen === "gthread" && activeGroup) body = h(GroupThread, {
+    // 换一个群就是一块新的聊天屏（跟单聊 key 一样）：不然从 A 群点弹窗进 B 群，还停在 A 群翻到的那个高度、也不重新钉底
+    key: "g::" + activeGroup.id,
     rerollNav: gsFor(activeGroup.id).keepRerolls === true ? rerollNavOf(groupChats[activeGroup.id] || []) : null,
     onRerollFlip: dir => rerollFlipGroup(activeGroup.id, dir),
     locateAt: walletTrace && walletTrace.type === "group" && String(walletTrace.id) === String(activeGroup.id) ? walletTrace : null,
@@ -36837,6 +36874,14 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         const _back = !s.myChatAvatar;
         pChat(activeChar.id, p => [...p, { role: "system", kind: "system", content: _back ? "你在这个聊天里用回了原来的头像" : "你换了你在这个聊天里的头像", ts: Date.now() }]);
         waitForHer(activeChar.id, { herAvatar: { ref: s.myChatAvatar || ((profileFor(activeChar.id) || {}).avatarImage) || null, back: _back } });
+        noteAvatarChange(activeChar.id, "her", s.myChatAvatar || ((profileFor(activeChar.id) || {}).avatarImage) || null, _back);
+      }
+      // 她给他换了聊天头像：跟上面同一个落法——灰字一行，他下一轮知道、看得到新那张
+      if ((s.chatAvatar || null) !== (activeChar.chatAvatar || null)) {
+        const _hBack = !s.chatAvatar;
+        pChat(activeChar.id, p => [...p, { role: "system", kind: "system", content: _hBack ? "你把 " + (activeChar.remark || activeChar.name) + " 在这个聊天里的头像换回了原来那张" : "你给 " + (activeChar.remark || activeChar.name) + " 换了在这个聊天里的头像", ts: Date.now() }]);
+        waitForHer(activeChar.id, { hisAvatar: { ref: s.chatAvatar || activeChar.avatarImage || null, back: _hBack } });
+        noteAvatarChange(activeChar.id, "his", s.chatAvatar || activeChar.avatarImage || null, _hBack);
       }
       pC(p => p.map(c => c.id === activeChar.id ? {
         ...c,
