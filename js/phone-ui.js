@@ -3900,6 +3900,7 @@ function StickyView({ d, char, t, onBack, onRefresh, refreshing, onPeek, drive }
   const tp = typeof useTtsPlayer === "function" ? useTtsPlayer() : null;
   const A = a => Array.isArray(a) ? a : [];
   // 录音的 body 带着语音标记（(sighs)、<#0.5#>）：念的时候用，给人看的时候剥掉
+  // 停顿记号（<#0.7#>）不只语音便签有：文字便签也会混进来（她 2026-11-02 截图），所以不管哪种都摘
   const noteSay = x => typeof ttsMarkStrip === "function" ? ttsMarkStrip(x) : x;
   // ──「看TA玩」驱动：这是【改】那一类——TA把写好的那条划掉重写（她举的例子之一）
   const driveItem = drive && drive.item;
@@ -3930,7 +3931,7 @@ function StickyView({ d, char, t, onBack, onRefresh, refreshing, onPeek, drive }
       voice ? h(PGlyph, { k: "mic", size: 11, color: c.ink }) : null,
       h("span", { style: { fontFamily: F_BODY, fontSize: "calc(9.5px * var(--app-fs, 1))", color: c.ink, opacity: .6 } }, (voice && it.duration ? it.duration + " · " : "") + (it.time || ""))),
     h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(14px * var(--app-fs, 1))", lineHeight: 1.45, color: c.ink, display: "-webkit-box", WebkitLineClamp: phoneTextClamp(it.title, 2), WebkitBoxOrient: "vertical", overflow: "hidden" } }, PTX(it.title)),
-    it.body ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", lineHeight: 1.65, color: c.ink, opacity: .74, marginTop: 6, display: "-webkit-box", WebkitLineClamp: phoneTextClamp(it.body, voice ? 3 : 5), WebkitBoxOrient: "vertical", overflow: "hidden" } }, PTX(voice ? noteSay(it.body) : it.body)) : null,
+    it.body ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", lineHeight: 1.65, color: c.ink, opacity: .74, marginTop: 6, display: "-webkit-box", WebkitLineClamp: phoneTextClamp(it.body, voice ? 3 : 5), WebkitBoxOrient: "vertical", overflow: "hidden" } }, PTX(noteSay(it.body))) : null,
     voice ? wave(c.ink, 20) : null);
   };
   const cols = [[], []];
@@ -3955,9 +3956,9 @@ function StickyView({ d, char, t, onBack, onRefresh, refreshing, onPeek, drive }
           ? h("div", { "data-wk": "pinput", "data-watch": "input", style: { fontFamily: F_BODY, fontSize: "calc(15px * var(--app-fs, 1))", lineHeight: 1.95, color: c.ink, marginTop: 14, whiteSpace: "pre-wrap", minHeight: 30 } },
               drive.typing,
               h("span", { "aria-hidden": "true", style: { display: "inline-block", width: 1.5, height: 16, marginLeft: 1, verticalAlign: "-3px", background: c.ink, animation: "wkcaret 1s steps(2) infinite" } }))
-          : open.body ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(15px * var(--app-fs, 1))", lineHeight: 1.95, color: c.ink, marginTop: 14, whiteSpace: "pre-wrap", fontStyle: voice ? "italic" : "normal" } }, voice ? noteSay(open.body) : open.body) : null,
+          : open.body ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(15px * var(--app-fs, 1))", lineHeight: 1.95, color: c.ink, marginTop: 14, whiteSpace: "pre-wrap", fontStyle: voice ? "italic" : "normal" } }, noteSay(open.body)) : null,
         onPeek ? h("button", {
-          onClick: () => onPeek({ tier: "quiet", label: voice ? T("他录的一条") : T("他的便签"), title: open.title, text: voice ? noteSay(open.body) : open.body }),
+          onClick: () => onPeek({ tier: "quiet", label: voice ? T("他录的一条") : T("他的便签"), title: open.title, text: noteSay(open.body) }),
           className: "w-full active:opacity-60",
           style: { marginTop: 20, padding: "12px 0", borderRadius: 10, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", border: "1px solid " + c.edge, color: c.ink }
         }, T("转发给 TA · 他会知道你翻了手机")) : null));
