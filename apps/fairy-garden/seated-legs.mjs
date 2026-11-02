@@ -110,8 +110,9 @@ export function makeSeatedLegs(model,rig,meshes,morphs){
   for(const {mesh,candidates,attribute}of fabric){
    const index=mesh.morphTargetDictionary.seatDrape,blend=mesh.morphTargetInfluences[index],seated=mesh.morphTargetDictionary.seated,previous=mesh.morphTargetInfluences[seated];if(seated!=null)mesh.morphTargetInfluences[seated]=1;mesh.morphTargetInfluences[index]=0;attribute.array.fill(0);
    // The separate cotton shell has no authored seated morph: fit its hem over
-   // the real raised denim, including body sliders, instead of letting the
-   // trousers cut through a standing shirt. Keep the upper torso untouched.
+   // the real raised denim, including body sliders. Gather the lower front
+   // at the waist before fitting its depth: pushing a standing-length hem
+   // straight forward makes a flat apron. Keep the upper torso untouched.
    const lap=[];
    if(mesh.userData.seatDrapeAllPoses){
     for(const under of meshes){if(under.userData.outfit!==mesh.userData.outfit||under===mesh||under.userData.sleeveSide||/_footwear|_shoes/.test(under.name))continue;
@@ -119,17 +120,21 @@ export function makeSeatedLegs(model,rig,meshes,morphs){
     }
    }
    const frontAt=lapExtent(lap),sideAt=lapExtent(lap.map(v=>[v[0],v[2]]));
+   const top=lap.reduce((y,v)=>Math.max(y,v[0]),-Infinity);
+   let hem=Infinity;
+   if(lap.length)for(const i of candidates){const v=mesh.localToWorld(mesh.getVertexPosition(i,new T.Vector3())).applyMatrix4(inverse);hem=Math.min(hem,v.y);}
    const si=mesh.geometry.attributes.skinIndex,sw=mesh.geometry.attributes.skinWeight;
    for(const i of candidates){
     const point=mesh.getVertexPosition(i,new T.Vector3());mesh.localToWorld(point);point.applyMatrix4(inverse);
-    const lift=Math.max(0,floor-point.y)*smooth((.14-point.z)/.06);
-    let forward=0,side=0;
+    let lift=Math.max(0,floor-point.y)*smooth((.14-point.z)/.06),forward=0,side=0;
     if(lap.length){
-     const front=frontAt(point.y);
-     // Retain some shell depth/width so the turned-in hem cannot collapse
-     // onto the outer fabric and flicker. Spread the side seams past the lap too.
-     forward=Math.max(0,front+.018-point.z*.85)*smooth((point.z+.09)/.07);
-     side=Math.sign(point.x)*Math.max(0,sideAt(point.y)+.018-Math.abs(point.x)*.85)*smooth(Math.abs(point.x)/.10);
+     // Smooth compression preserves ring order and the sewn hem thickness.
+     // Front and side weights retain the round shirt outline and long back.
+     const gather=Math.max(0,top-.022-hem)*smooth((top+.12-point.y)/(top+.12-hem))*smooth((point.z+.10)/.12);
+     lift=Math.max(lift,gather);
+     const y=point.y+lift,front=frontAt(y);
+     forward=Math.max(0,front+.018-point.z*.85)*smooth((point.z+.005)/.115);
+     side=Math.sign(point.x)*Math.max(0,sideAt(y)+.014-Math.abs(point.x)*.95)*smooth(Math.abs(point.x)/.14);
     }
     if(!lift&&!forward&&!side)continue;
     const skin=new T.Matrix4();skin.elements.fill(0);
