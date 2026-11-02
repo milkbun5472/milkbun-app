@@ -25,3 +25,19 @@ test("验这页报的是次数和人数两个", () => {
   assert.match(V, /d\.people \|\| 0\) \+ " 个人/);
   assert.ok(V.includes("同一个号验两次只算一个人"), "没说清人数是怎么算的");
 });
+
+// 入群答案（她 2026-11-02：「门审核通过了，给她们 QQ 群答案才能进群」）
+test("入群答案：管理里能设、能看，设了才在门上给", () => {
+  assert.match(V, /const setAns = \(\) =>/, "没有设答案那一步");
+  assert.match(V, /body: \{ answer: String\(v \|\| ""\)\.trim\(\) \}/, "答案没原样存");
+  assert.ok(V.includes("留空＝只给群号。"), "没说清留空会怎样");
+  assert.ok(V.includes('"设答案"'), "管理面上没有那颗");
+});
+
+test("门那一页：答案单独一块、能单独复制，群主没设就不出现", () => {
+  const door = fs.readFileSync(path.join(process.env.HOME, "yanqiu-den/qiuqiu-door/public/index.html"), "utf8");
+  assert.match(door, /if \(v\.answer\) \{/, "没接住 answer");
+  assert.ok(door.includes('$("ansBox").style.display = "none"'), "没设答案时那一块没藏起来");
+  assert.match(door, /\$\("copyAns"\)\.onclick = copier\("ans",/, "答案没有自己的复制键");
+  assert.ok(!/autumn-drawer|qiuqiu-machine/.test(door), "门那一页不许出现秋秋的地址");
+});
