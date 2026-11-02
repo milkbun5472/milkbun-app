@@ -13,8 +13,8 @@ test("单人和群线下每轮继续喂逐条原文，并给每条加真实时�
   assert.match(one, /gapPhrase\(_vg\)/);
   assert.match(group, /fmtStampAI\(ts\)/);
   assert.match(group, /gapPhrase\(_vg\)/);
-  assert.match(engine, /offlineHistory\((offlineLoosenOn\(session\) \? offlineLoosenOld\(session\.msgs\) : )?session\.msgs/);
-  assert.match(engine, /offlineGroupHistory\((offlineLoosenOn\(session\) \? offlineLoosenOld\(session\.msgs\) : )?session\.msgs/);
+  assert.match(engine, /offlineHistory\((offlineLoosenOn\(session\) \? offlineLoosenOld\((offlineDropStale\()?session\.msgs\)?\) : )?session\.msgs/);
+  assert.match(engine, /offlineGroupHistory\((offlineLoosenOn\(session\) \? offlineLoosenOld\((offlineDropStale\()?session\.msgs\)?\) : )?session\.msgs/);
 });
 
 test("结束回线上后摘要只负责显示，模型另拿有上限的真实逐条尾段", () => {
