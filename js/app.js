@@ -31089,13 +31089,23 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       const existingIds = new Set(existingSongs.map(s => s.neteaseId).filter(Boolean));
       const existingTitles = existingSongs.map(s => s.title).filter(Boolean);
       const avoidStr = existingTitles.length ? "\n**这张歌单里已经有这些歌了，别再推荐它们、也别推重复的，给全新的：** " + existingTitles.slice(0, 50).join("、") : "";
+      // 人人都有落日飞车《My Jinji》（她 2026-11-02）：每个人单独问一次，模型每次给出同一个「第一名」，又看不见别人的歌单。
+      //   代码数出别人歌单里【至少两个人】都放了的歌，摆给他；不是不许放，是要放得有他自己的理由。
+      const _songKey = x => String((x && x.title) || "").replace(/\s+/g, "").toLowerCase() + "|" + String((x && x.artist) || "").replace(/\s+/g, "").toLowerCase();
+      const _crowd = new Map();
+      (listenRef.current.playlists || []).filter(x => x && x.charId !== char.id).forEach(pl => {
+        const seen = new Set();
+        (pl.songs || []).forEach(sg => { const k = _songKey(sg); if (!sg || !sg.title || seen.has(k)) return; seen.add(k); const c = _crowd.get(k) || { n: 0, t: sg.title + (sg.artist ? "（" + sg.artist + "）" : "") }; c.n++; _crowd.set(k, c); });
+      });
+      const crowded = [..._crowd.values()].filter(c => c.n >= 2).sort((x, y) => y.n - x.n).slice(0, 30).map(c => c.t);
+      const crowdStr = crowded.length ? "\n【这几首已经在好几个人的歌单里了】" + crowded.join("、") + "。你不是不能放，但要放就得是你这个人真会循环它的理由；说不出只属于你的理由，就换一首只有你会听的。" : "";
       // 用干净上下文：去掉手机在听/最近听歌/朋友圈等会污染推荐的字段（否则角色只会照抄用户刚搜的、或查手机里那两首）
       const cleanCtx = Object.assign({}, ctxFor(char), { listenLog: "", nowPlaying: "", momentLog: "", forumEcho: "", giftLog: "", recentChat: "" });
       const probeOnce = async nudge => {
         try {
           const rec = await runProbe(active, cleanCtx, {
             voice: true,
-            instruction: "你是「" + char.name + "」。**完全按你自己的人设、成长背景、性格和音乐口味**，一次性列出 **18 首**你自己私下真会单曲循环、真实存在、能在主流平台搜到的歌（华语/欧美/日韩都行，别编造不存在的歌，风格可多样）。**别照抄任何你手机里在听/最近听过/用户刚搜过或已有的歌，要发自内心喜欢的。songs 数组必须给满 18 个元素，给少了这次就白跑了。**\n每首还要写一句 note：**这一首对你意味着什么**。第一人称，你自己的口气。\n【形状必须散开，不许套模板】常见的毛病是全都写成「……的时候」，十九条一个句式，等于一条都没写。所以：**绝对不许每条都用「……的时候」「……时」收尾，全篇这种收尾最多两条**。有的写一个具体场景，有的写一句评价，有的写一个突然冒出来的念头，有的是抱怨，有的只有三五个字（「循环了一个月。」「不知道为什么。」「难听，但戒不掉。」），有的是半句没说完的话。长短要差得很开。\n【这不是恋爱歌单】**大多数歌跟用户没有关系**。你自己的活计、旧事、烦躁、无聊、走过的某段路、某个早就不联系的人，都可以占满一首歌。全部歌里提到用户的最多三四首，别每首都往那儿绕。\n【写的是你，不是歌】不要评价旋律、编曲、歌词写得多好，也不要写「这首歌很治愈/很有力量/让我想起某段时光」这种谁都能说的话。换个角色还说得通的 note 就是写坏了。" + avoidStr + (nudge || "") + " 别写序号别写解释。",
+            instruction: "你是「" + char.name + "」。**完全按你自己的人设、成长背景、性格和音乐口味**，一次性列出 **18 首**你自己私下真会单曲循环、真实存在、能在主流平台搜到的歌（华语/欧美/日韩都行，别编造不存在的歌，风格可多样）。**别照抄任何你手机里在听/最近听过/用户刚搜过或已有的歌，要发自内心喜欢的。songs 数组必须给满 18 个元素，给少了这次就白跑了。**\n**每一首都问一句：这首歌换成别的角色也会放进歌单吗？会，那就是谁都会挑的那一首——换成只有你这个人的经历、年代、口味才会挑的。**\n每首还要写一句 note：**这一首对你意味着什么**。第一人称，你自己的口气。\n【形状必须散开，不许套模板】常见的毛病是全都写成「……的时候」，十九条一个句式，等于一条都没写。所以：**绝对不许每条都用「……的时候」「……时」收尾，全篇这种收尾最多两条**。有的写一个具体场景，有的写一句评价，有的写一个突然冒出来的念头，有的是抱怨，有的只有三五个字（「循环了一个月。」「不知道为什么。」「难听，但戒不掉。」），有的是半句没说完的话。长短要差得很开。\n【这不是恋爱歌单】**大多数歌跟用户没有关系**。你自己的活计、旧事、烦躁、无聊、走过的某段路、某个早就不联系的人，都可以占满一首歌。全部歌里提到用户的最多三四首，别每首都往那儿绕。\n【写的是你，不是歌】不要评价旋律、编曲、歌词写得多好，也不要写「这首歌很治愈/很有力量/让我想起某段时光」这种谁都能说的话。换个角色还说得通的 note 就是写坏了。" + avoidStr + crowdStr + (nudge || "") + " 别写序号别写解释。",
             schemaHint: "{\"songs\":[{\"title\":\"某首歌\",\"artist\":\"某歌手\",\"note\":\"第一人称一句，长短形状各不相同\"}]}（songs 必须 18 个元素）", maxTokens: (window.StylePresets && window.StylePresets.OUT_CEILING) || 65000
           });
           return parseSongWants(rec);
