@@ -34103,6 +34103,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     character: activeChar, cut: peekCut[activeChar.id], byName: (((characters || []).find(x => x.id === peekCut[activeChar.id].by) || {}).name) || "",
     onBack: leaveCutPage, onRestore: () => peekRestore(activeChar.id)
   });else if (screen === "thread" && activeChar) body = mkThread();else if (screen === "gthread" && activeGroup) body = h(GroupThread, {
+    // 换一个群就是一块新的聊天屏（跟单聊 key 一样）：不然从 A 群点弹窗进 B 群，还停在 A 群翻到的那个高度、也不重新钉底
+    key: "g::" + activeGroup.id,
     rerollNav: gsFor(activeGroup.id).keepRerolls === true ? rerollNavOf(groupChats[activeGroup.id] || []) : null,
     onRerollFlip: dir => rerollFlipGroup(activeGroup.id, dir),
     locateAt: walletTrace && walletTrace.type === "group" && String(walletTrace.id) === String(activeGroup.id) ? walletTrace : null,

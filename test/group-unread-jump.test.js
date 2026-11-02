@@ -35,3 +35,16 @@ test("进群记住几条没看，群里挂一颗跳到第一条没看的",()=>{
   assert.match(comp, /const idx = gFirstUnreadIdx\(messages, openUnread\);/);
   assert.match(app, /const added = n\.slice\(pl\.length\)\.filter\(gUnreadCounts\)\.length;/);
 }
+
+// 她 2026-11-02「跳转还是不太准，点弹窗也跳到很上面」：通话结束、线下记录这类 role:system 的灰字和旁白不算未读；
+//   换群时群聊屏要重来一块（跟单聊一样 key）
+{
+  const fs2 = require("fs"), assert2 = require("node:assert/strict");
+  const cmp2 = fs2.readFileSync("js/components.js", "utf8"), app2 = fs2.readFileSync("js/app.js", "utf8");
+  const f = new Function(cmp2.match(/function gUnreadCounts\(m\) \{[^\n]+\}/)[0] + ";return gUnreadCounts;")();
+  assert2.equal(f({ role: "system", kind: "callend" }), false);
+  assert2.equal(f({ role: "system", kind: "offlinelog" }), false);
+  assert2.equal(f({ role: "narration", kind: "narration" }), false);
+  assert2.equal(f({ role: "assistant", content: "x" }), true);
+  assert2.match(app2, /h\(GroupThread, \{\n[^\n]*\n    key: "g::" \+ activeGroup\.id,/);
+}
