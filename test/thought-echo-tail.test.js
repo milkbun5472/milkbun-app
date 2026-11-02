@@ -23,3 +23,8 @@ test("正文：前两拍都刷的景物和她的设定点名", () => {
   assert.match(eng, /propTail \+ \(isDigital \? "" : beatEchoTail\(/);
   assert.equal((eng.match(/gThoughtTail \+ gBeatEchoTail \+ /g) || []).length, 2);
 });
+test("正文点名：带人称的动作碎片不算，几乎拍拍都在的景物排前面", () => {
+  const G = new Function(eng.slice(eng.indexOf("const THOUGHT_ECHO_FILLER"), eng.indexOf("function spokenLinesOf")) + ";return {beatEchoTail};")();
+  const out = G.beatEchoTail(["头顶白炽灯管响，嘴唇贴着你耳侧", "白炽灯管又响，嘴唇贴着你耳垂", "白炽灯管还在响，嘴唇贴着你"]);
+  assert.match(out, /白炽灯管/); assert.doesNotMatch(out, /嘴唇贴着你/);
+});
