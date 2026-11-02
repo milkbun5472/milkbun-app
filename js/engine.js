@@ -9000,6 +9000,40 @@ function vGap(prevTs, ts, id) {
   if (typeof vclockMap !== "function") return ts - prevTs;
   return vclockMap(ts, id) - vclockMap(prevTs, id);
 }
+// 旧段落拆掉样板（她 2026-11-02：「格式容易重复上文」→ 选了「试试都做」）：
+//   一场里他写过的整段长文原样带进去，模型就照着前面几段的开头、走法、收尾往下抄。
+//   最近两拍（从倒数第二条她的话起）原样；更早的只留事和原话：引号台词逐字照抄，
+//   叙述里开头那一句和收尾那一句不带，也不分段。纯程序处理，不经模型挑拣，事和话一样不丢。
+//   只在长文（沉浸长文或设了最低字数）时开，looseOld === false 关掉。
+function offlineLoosenOn(session) {
+  return !!session && session.looseOld !== false && (session.lengthMode === "immersive" || offlineMinimumSceneChars(session.minWords) > 0);
+}
+function offlineLoosenBeat(text) {
+  const units = String(text || "").match(/[“「][^”」]*[”」]|[^“「。！？!?\n]+[。！？!?…]*/g) || [];
+  const u = units.map(x => x.trim()).filter(Boolean);
+  const said = x => /^[“「]/.test(x);
+  if (u.length >= 3 && !said(u[0])) u.shift();
+  if (u.length >= 3 && !said(u[u.length - 1])) u.pop();
+  return u.length ? "〔前情·只记事和原话〕" + u.join("") : String(text || "");
+}
+function offlineLoosenOld(msgs) {
+  const list = Array.isArray(msgs) ? msgs : [];
+  let seen = 0, cut = -1;
+  for (let i = list.length - 1; i >= 0; i--) if (list[i] && list[i].role === "user" && list[i].kind !== "ooc" && ++seen === 2) { cut = i; break; }
+  if (cut <= 0) return list;
+  return list.map((m, i) => (i < cut && m && m.role === "char" && m.kind !== "selfie" && m._surface !== "online" && typeof m.content === "string" && m.content.length > 40)
+    ? { ...m, content: offlineLoosenBeat(m.content) } : m);
+}
+// 每拍篇幅在她设的区间里浮动（同一轮选的第二条）：区间照旧是 wordRule 的下限～1.35 倍，
+//   这一拍落在哪由代码掷，写在离生成最近的尾巴上（不进 system，免得每轮缓存失效）。
+function offlineWordAimTail(minW, rand) {
+  const lo = offlineMinimumSceneChars(minW);
+  if (!lo) return "";
+  const hi = Math.round(lo * 1.35);
+  const r = typeof rand === "number" ? rand : Math.random();
+  const aim = Math.min(hi, lo + Math.round(r * (hi - lo) / 50) * 50);
+  return "\n〔这一拍的篇幅〕写到 " + aim + " 字左右（仍在上面的字数区间里）；每拍长短不一样是正常的。";
+}
 function offlineHistory(msgs, userName, charName, clock, clockId) {
   const g = [];
   let prevTs = 0;
@@ -9378,7 +9412,7 @@ async function generateOffline(p, ctx, session) {
     "") + outputSpec + ((!isDigital && session.sayZhOn) ? offlineSayZhSpec("") : "") + stateBootstrapHint + gazeSpecBlock;
   // v52.77：恢复正常首遍生成；首次跨越后的 scene 再交给同模型做删除优先的受约束编辑。
   // 最终只有编辑稿进入 session history，首遍草稿仅用于本轮内存诊断。
-  const hist = offlineHistory(session.msgs, userName, char.name, ctx.timeAware !== false, char.id);
+  const hist = offlineHistory(offlineLoosenOn(session) ? offlineLoosenOld(session.msgs) : session.msgs, userName, char.name, ctx.timeAware !== false, char.id);
   if (session.hasOnlineInterlude) {
     const bridge = "\n\n〔跨情境衔接〕上面标成【线上私聊】的内容，是这场未结束的线下相处期间，你们切到手机聊天时真实说过的话。所有记录已经按实际时间排好；再次回到线下时，以时间最新的线上与线下内容共同作为现在的前情，绝不能跳过今天的线上聊天、倒回去续演更早的线下剧情，也不要把线上原话假装成刚刚面对面又说了一遍。";
     if (hist.length && hist[hist.length - 1].role === "user") hist[hist.length - 1] = { ...hist[hist.length - 1], content: hist[hist.length - 1].content + bridge };
@@ -9431,7 +9465,7 @@ async function generateOffline(p, ctx, session) {
   const _lastCharBeat = [...(session.msgs || [])].reverse().find(m => m && m.role === "char" && !isOocMsg(m));
   const _said = _lastCharBeat ? spokenLinesOf(_lastCharBeat.content) : [];
   const sayTail = !isDigital && _said.length ? tailHintsFor(_said[_said.length - 1], _said.join("\n")) : "";
-  const finalNudge = tailNudge + (isDigital ? "" : userActionTail) + characterSupplyTail + intimatePaceTail + flashbackTail + personTail + sayTail + directorTail + styleTail;
+  const finalNudge = tailNudge + (isDigital ? "" : userActionTail) + characterSupplyTail + intimatePaceTail + flashbackTail + personTail + sayTail + offlineWordAimTail(minimumSceneChars) + directorTail + styleTail;
   if (hist.length && hist[hist.length - 1].role === "user") hist[hist.length - 1] = { role: "user", content: hist[hist.length - 1].content + finalNudge };
   else hist.push({ role: "user", content: (hist.length ? "（继续）" : OFFLINE_OPEN_SCENE) + finalNudge });
   if (Array.isArray(session.imageDataUrls) && session.imageDataUrls.length) {
@@ -10138,7 +10172,7 @@ async function generateOfflineGroup(p, ctx, session) {
     cotSystemBlock(cotT) +
     (novel ? novelOut : "\n【输出】只输出一个 JSON，不要代码块：\n{\"beats\":[{\"name\":\"这一段里行动或说话的角色名；纯环境旁白填『旁白』\",\"scene\":\"这一段叙事正文（第三人称，含动作/神态/对话）\",\"thought\":\"（仅角色 beat，可选）该角色此刻没说出口的真实心声\",\"mood\":{\"label\":\"此刻中文心情词（禁止英文内部标签）\"},\"affinityDelta\":\"（仅角色 beat）" + AFFINITY_DELTA_SPEC + "\",\"impression\":\"（仅角色 beat，可选）{'side':'me|us','block':'me侧:person/soft/like/recent/unread；us侧:what/how/marks/elephant/want','text':'整块重写≤80字'}——" + (window.Gaze ? window.Gaze.updateRule(userName) : "没有新认识可省略") + "\"" + gSchedField + ((session.photoMembers || []).length ? ",\"photo\":\"（仅角色 beat，可选）这一拍真拍了照片才填 {'kind':'self|other" + ((session.photoDuoMembers || []).length ? "|duo" : "") + (session.photoGroupOk ? "|group" : "") + "','scene':'这一格拍到了什么'}，没拍就整个省略\"" : "") + "}]}\n一次产出 2~" + gBeatMax + " 个 beat（在场 " + members.length + " 个人），让在场角色轮流有戏、互相有来有往；name 必须逐字填写以下名字之一：" + members.map(c => "『" + memberLabel(members, c) + "』").join("、") + "；只有不属于任何人的纯环境段才填『旁白』，不许把整篇都塞进一个旁白 beat。") + sameNameNote(members) + "\nthought 的写法：" + THOUGHT_MEANING_CHAR + THOUGHT_VOICE + (typeof THOUGHT_EACH_OWN === "string" ? THOUGHT_EACH_OWN : "") + THOUGHT_ORIGIN
     + ((session.sayZhNames || []).length ? offlineSayZhSpec(session.sayZhNames.map(x => "『" + x + "』").join("、")) : "");
-  const hist = offlineGroupHistory(session.msgs, userName, ctx.timeAware !== false, ctx.clockId);
+  const hist = offlineGroupHistory(offlineLoosenOn(session) ? offlineLoosenOld(session.msgs) : session.msgs, userName, ctx.timeAware !== false, ctx.clockId);
   // 尾部重申（同单人线下）：治长对话后段八股回潮 + cot 丢失
   const gWantLong = session.minWords && session.minWords >= 150;
   // max_tokens 是天花板不是预付款；思考模型的推理也从这儿扣，给窄了正文就只剩个零头
@@ -10160,8 +10194,8 @@ async function generateOfflineGroup(p, ctx, session) {
   const _gLastBeat = [...(session.msgs || [])].reverse().find(m => m && m.role === "char" && !isOocMsg(m));
   const _gSaid = _gLastBeat ? spokenLinesOf(_gLastBeat.content) : [];
   const gSayTail = _gSaid.length ? tailHintsFor(_gSaid[_gSaid.length - 1], _gSaid.join("\n")) : "";
-  if (hist.length && hist[hist.length - 1].role === "user") hist[hist.length - 1] = { role: "user", content: hist[hist.length - 1].content + gFlashbackTail + gCharacterTail + gSayTail + gTail };
-  else hist.push({ role: "user", content: (hist.length ? "（继续）" : OFFLINE_OPEN_SCENE) + gFlashbackTail + gCharacterTail + gSayTail + gTail });
+  if (hist.length && hist[hist.length - 1].role === "user") hist[hist.length - 1] = { role: "user", content: hist[hist.length - 1].content + gFlashbackTail + gCharacterTail + gSayTail + offlineWordAimTail(session.minWords) + gTail };
+  else hist.push({ role: "user", content: (hist.length ? "（继续）" : OFFLINE_OPEN_SCENE) + gFlashbackTail + gCharacterTail + gSayTail + offlineWordAimTail(session.minWords) + gTail });
   if (Array.isArray(session.imageDataUrls) && session.imageDataUrls.length) {
     const lastUser = [...hist].map((m, i) => [m, i]).reverse().find(([m]) => m.role === "user");
     if (lastUser) hist[lastUser[1]] = { ...hist[lastUser[1]], content: hist[lastUser[1]].content + "\n【用户刚给在场所有人展示了真实照片，图像已附在本轮视觉输入中；请让大家直接看图后自然反应。】", imageDataUrls: session.imageDataUrls.slice(-FRESH_IMG_CAP) };

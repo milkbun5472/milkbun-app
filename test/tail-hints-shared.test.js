@@ -11,7 +11,7 @@ test("四条线都挂上同一份 tailHintsFor，没有第二份", () => {
   assert.equal((eng.match(/function tailHintsFor\(/g) || []).length, 1);
   assert.match(eng, /const sayTail = !isDigital && _said\.length \? tailHintsFor\(/);
   assert.match(eng, /const gSayTail = _gSaid\.length \? tailHintsFor\(/);
-  assert.match(eng, /gCharacterTail \+ gSayTail \+ gTail/);
+  assert.match(eng, /gCharacterTail \+ gSayTail \+ /);
   assert.match(app, /const gSayHint = [\s\S]{0,600}tailHintsFor\(out\[out\.length - 1\]/);
   assert.match(app, /gDramaTail \+ gSayHint \+ /);
   assert.match(app, /tailHintsFor\(_prevTail, _prevTurnText\)/);
