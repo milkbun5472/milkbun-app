@@ -11,11 +11,6 @@ test("发给他看带的是卡页上正开着的那一面", () => {
   assert.match(ui, /onSend\(Object\.assign\(\{\}, card, \{ sendFace:/);
   assert.match(src, /face: card\.sendFace \|\| card\.face \|\| card\.faceAlt/);
 });
-test("卡名有一句判断，R/SR 和 SSR 都带", () => {
-  assert.match(src, /const STAMP_NAME_RULE = "[^"]*不用「的」字/);
-  assert.ok(!/你已经有的卡（卡名/.test(src), "前面的卡名不再摆给他看，免得照着学");
-  assert.strictEqual((src.match(/" \+ STAMP_NAME_RULE \+ "/g) || []).length, 2);
-});
 test("册子多选重写：挑写好的卡，R/SR 每十张一次调用", () => {
   const ui = fs.readFileSync(__dirname + "/../js/stamps.js", "utf8");
   assert.match(ui, /"data-wk": "stampremode"/);
