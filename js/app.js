@@ -20,7 +20,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v88.985";
+const APP_VERSION = "v88.986";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -34103,6 +34103,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     character: activeChar, cut: peekCut[activeChar.id], byName: (((characters || []).find(x => x.id === peekCut[activeChar.id].by) || {}).name) || "",
     onBack: leaveCutPage, onRestore: () => peekRestore(activeChar.id)
   });else if (screen === "thread" && activeChar) body = mkThread();else if (screen === "gthread" && activeGroup) body = h(GroupThread, {
+    // 换一个群就是一块新的聊天屏（跟单聊 key 一样）：不然从 A 群点弹窗进 B 群，还停在 A 群翻到的那个高度、也不重新钉底
+    key: "g::" + activeGroup.id,
     rerollNav: gsFor(activeGroup.id).keepRerolls === true ? rerollNavOf(groupChats[activeGroup.id] || []) : null,
     onRerollFlip: dir => rerollFlipGroup(activeGroup.id, dir),
     locateAt: walletTrace && walletTrace.type === "group" && String(walletTrace.id) === String(activeGroup.id) ? walletTrace : null,
