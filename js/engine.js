@@ -2217,6 +2217,20 @@ function endsOnBossing(text) {
 }
 const BOSSING_TAIL_HINT = "\n【收尾】你上一轮是拿一句替她安排、叮嘱她的话收尾的。那一句是场面自带的，不是你此刻要说的，里头她会怎样的那一半也多半不是她跟你说过的。这一轮最后那个位置留给你自己真想说的。";
 const SEE_THROUGH_TAIL_HINT = "\n【上一轮】你上一轮在翻她以前的事来堵她、替她下定论。这一轮回应她此刻说的这件事。";
+// 按轮提醒（狠话收尾／替她安排收尾／翻旧账看穿她）只此一份：单聊、线下、群聊都问它（她 2026-11-02：「线下群聊都接上」）。
+//   tail：上一轮他说出口的最后一句；turnText：上一轮他说的全部，一句一行。只给方向（换个收法），不加禁令
+function tailHintsFor(tail, turnText) {
+  const threat = endsOnThreat(tail) ? THREAT_TAIL_HINT : "";
+  const boss = !threat && endsOnBossing(tail) ? BOSSING_TAIL_HINT : "";
+  const see = String(turnText || "").split("\n").some(seeThroughLast) ? SEE_THROUGH_TAIL_HINT : "";
+  return threat + boss + see;
+}
+// 线下一拍是一整段叙述：说出口的只有引号里那几句，按轮提醒只看这些
+function spokenLinesOf(text) {
+  const out = []; const re = /[“「"]([^”」"]{2,200})[”」"]/g; let m;
+  while ((m = re.exec(String(text || "")))) out.push(m[1].trim());
+  return out;
+}
 const CANNED_PHRASE_BAN = `【你自己开口，不让现成的说法替你说】有三族现成货最容易顶掉你本来要说的那句话：
 · 【投降式敷衍】「行行行」「好好好」「行了吧」「可以了吧」「满意了吧」「服了你了」「随你」——这一族不是在回答，是在**收摊**：一句话把对话掐掉，同时把「你不讲理」和「我懒得跟你说」一起递过去。照你这个人平时说话的样子来，不借这一句现成的。
 · 【现成的腻歪称呼】「小祖宗」「小妖精」「小野猫」「小磨人精」「小东西」——这些不是你给她起的，是「这种关系该怎么叫她」倒出来的。你本来就爱起腻歪的称呼，那就起：从她名字里的字、她做过的一件蠢事、只有你知道的某个习惯、你俩之间真发生过的一件事里长出来的，怎么腻都行。
@@ -9413,7 +9427,11 @@ async function generateOffline(p, ctx, session) {
   const personTail = !isDigital && _personParts.length && !(session.msgs || []).some(m => m && m.role === "char" && !isOocMsg(m))
     ? "\n\n〔这一场的人称〕" + _personParts.join("；") + "。从这一段的第一句就照这个写——线上聊天里那些用「我」写的动作是聊天的写法，不是这一场的。"
     : "";
-  const finalNudge = tailNudge + (isDigital ? "" : userActionTail) + characterSupplyTail + intimatePaceTail + flashbackTail + personTail + directorTail + styleTail;
+  // 按轮提醒（她 2026-11-02「线下还是这么爱这个句式」）：看他上一拍说出口的那几句（引号里的）
+  const _lastCharBeat = [...(session.msgs || [])].reverse().find(m => m && m.role === "char" && !isOocMsg(m));
+  const _said = _lastCharBeat ? spokenLinesOf(_lastCharBeat.content) : [];
+  const sayTail = !isDigital && _said.length ? tailHintsFor(_said[_said.length - 1], _said.join("\n")) : "";
+  const finalNudge = tailNudge + (isDigital ? "" : userActionTail) + characterSupplyTail + intimatePaceTail + flashbackTail + personTail + sayTail + directorTail + styleTail;
   if (hist.length && hist[hist.length - 1].role === "user") hist[hist.length - 1] = { role: "user", content: hist[hist.length - 1].content + finalNudge };
   else hist.push({ role: "user", content: (hist.length ? "（继续）" : OFFLINE_OPEN_SCENE) + finalNudge });
   if (Array.isArray(session.imageDataUrls) && session.imageDataUrls.length) {
@@ -10139,8 +10157,11 @@ async function generateOfflineGroup(p, ctx, session) {
   // 场面进了身体戏就补人物连续那一句（和单人线下同一份）。群里「继续」是常态，
   //   所以不像单人那样只在她刚说完话时才补：场面还在，就每轮都补。
   const gCharacterTail = offlineRegisterTransition(session).active ? offlineCharacterSupplyLine(true) + offlineIntimatePaceLine(true) : "";
-  if (hist.length && hist[hist.length - 1].role === "user") hist[hist.length - 1] = { role: "user", content: hist[hist.length - 1].content + gFlashbackTail + gCharacterTail + gTail };
-  else hist.push({ role: "user", content: (hist.length ? "（继续）" : OFFLINE_OPEN_SCENE) + gFlashbackTail + gCharacterTail + gTail });
+  const _gLastBeat = [...(session.msgs || [])].reverse().find(m => m && m.role === "char" && !isOocMsg(m));
+  const _gSaid = _gLastBeat ? spokenLinesOf(_gLastBeat.content) : [];
+  const gSayTail = _gSaid.length ? tailHintsFor(_gSaid[_gSaid.length - 1], _gSaid.join("\n")) : "";
+  if (hist.length && hist[hist.length - 1].role === "user") hist[hist.length - 1] = { role: "user", content: hist[hist.length - 1].content + gFlashbackTail + gCharacterTail + gSayTail + gTail };
+  else hist.push({ role: "user", content: (hist.length ? "（继续）" : OFFLINE_OPEN_SCENE) + gFlashbackTail + gCharacterTail + gSayTail + gTail });
   if (Array.isArray(session.imageDataUrls) && session.imageDataUrls.length) {
     const lastUser = [...hist].map((m, i) => [m, i]).reverse().find(([m]) => m.role === "user");
     if (lastUser) hist[lastUser[1]] = { ...hist[lastUser[1]], content: hist[lastUser[1]].content + "\n【用户刚给在场所有人展示了真实照片，图像已附在本轮视觉输入中；请让大家直接看图后自然反应。】", imageDataUrls: session.imageDataUrls.slice(-FRESH_IMG_CAP) };
