@@ -17,3 +17,7 @@ test("册子多选重写：挑写好的卡，R/SR 每十张一次调用", () => 
   assert.match(ui, /Math\.ceil\(by\[k\] \/ 10\)/);
   assert.match(ui, /onWrite\(picked\)/);
 });
+test("写新卡时不把前面的卡名给他看，卡名跟着那件事走", () => {
+  assert.match(src, /卡名不给你看，免得照着起/);
+  assert.strictEqual((src.match(/长短、说法跟着这张卡里那件事走/g) || []).length, 2);
+});
