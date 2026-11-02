@@ -2263,7 +2263,7 @@ function propTailFor(cardText, beats) {
 //   跟 propTailFor 同一招——不把旧心声摆给他（v76.007 试过，会照着学），只由代码数出
 //   上一条和再上一条心声里都出现的词，下一拍点名。单人线下、群线下共用。
 const THOUGHT_ECHO_FILLER = /^[我你她他的了是在就都也这那个一不么吗呢吧啊还又把被给让和跟到上下里来去说要会能想看得着过]+$/;
-function thoughtEchoWords(a, b) {
+function echoCandidates(a, b) {
   const A = String(a || ""), B = String(b || "");
   const hits = [];
   for (let i = 0; i < A.length;) {
@@ -2277,7 +2277,10 @@ function thoughtEchoWords(a, b) {
     if (g.length >= 3 && !THOUGHT_ECHO_FILLER.test(g) && !hits.some(h => h.includes(g) || g.includes(h))) hits.push(g);
     i += got;
   }
-  return hits.sort((x, y) => y.length - x.length).slice(0, 5);
+  return hits;
+}
+function thoughtEchoWords(a, b) {
+  return echoCandidates(a, b).sort((x, y) => y.length - x.length).slice(0, 5);
 }
 function thoughtEchoTail(thoughts, who) {
   const t = (thoughts || []).map(x => String(x || "").trim()).filter(Boolean).slice(-2);
@@ -2288,9 +2291,15 @@ function thoughtEchoTail(thoughts, who) {
 // 正文前两拍都写到的词（她 2026-11-02：线下每拍都提她是审计、每拍都刷白炽灯管／马歇尔音箱／门缝冷风）：
 //   跟心声同一把尺子 thoughtEchoWords，比的是他最近两拍的正文。单人线下、群线下共用。
 function beatEchoTail(beats) {
-  const t = (beats || []).map(x => String(x || "").trim()).filter(Boolean).slice(-2);
+  // 正文长，两拍之间撞上的多半是动作碎片（「嘴唇贴着你」）；真在刷的是景物和设定——它们几乎拍拍都在。
+  //   所以：带人称的碎片不算；按最近四拍里出现了几拍排，同样多再按长短。
+  const all = (beats || []).map(x => String(x || "").trim()).filter(Boolean);
+  const t = all.slice(-2);
   if (t.length < 2) return "";
-  const w = thoughtEchoWords(t[0], t[1]);
+  const four = all.slice(-4);
+  const w = echoCandidates(t[0], t[1]).filter(g => !/[你我他她]/.test(g))
+    .map(g => ({ g, n: four.filter(b => b.includes(g)).length }))
+    .sort((x, y) => (y.n - x.n) || (y.g.length - x.g.length)).slice(0, 5).map(x => x.g);
   return w.length ? "\n〔正文：前两拍都写到了「" + w.join("」「") + "」。这一拍不用再提，除非它有了新变化。〕" : "";
 }
 function spokenLinesOf(text) {
