@@ -158,3 +158,12 @@ test("合并上传时，整篇是世界书的那一份整份当世界书", () =>
   const nest = fs.readFileSync(path.join(__dirname, "..", "js", "nest.js"), "utf8");
   assert.match(nest, /c\.allLore && \(c\.lore \|\| \[\]\)\.length/, "单独一份世界书还是会被当人设正文");
 });
+
+// 早先传上来的包里没有世界书（打包那会儿还不会拆）：导入这头再拆一遍
+test("导入小窝人设：包里没带世界书就现场从正文里拆", () => {
+  const nest = fs.readFileSync(path.join(__dirname, "..", "js", "nest.js"), "utf8");
+  const i = nest.indexOf("function importInto");
+  const seg = nest.slice(nest.indexOf('if (kind === "persona") {', i), nest.indexOf('throw new Error("不认得的类别")', i));
+  assert.match(seg, /!lore\.length && typeof parseCharCard/, "旧包没有补拆这一步");
+  assert.match(seg, /!re\.allLore/, "整篇都是世界书的包不该被掏空人设");
+});
