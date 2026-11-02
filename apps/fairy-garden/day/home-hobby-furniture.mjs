@@ -1,6 +1,6 @@
-import './home-hobbies.js?v=fg-071767424d11f9f3';
-import {rounded,arch} from './home-shapes.mjs?v=fg-071767424d11f9f3';
-import {WORK_CHAIR} from './work-contacts.mjs?v=fg-071767424d11f9f3';
+import './home-hobbies.js?v=fg-c5c7b8ffbb7a68b2';
+import {rounded,arch} from './home-shapes.mjs?v=fg-c5c7b8ffbb7a68b2';
+import {WORK_CHAIR} from './work-contacts.mjs?v=fg-c5c7b8ffbb7a68b2';
 const F=.08;
 export function createHomeHobbyFurniture(k,a,p,g){
  if(!globalThis.CharDayHomeHobbies.activities[a.hobby])return false;
