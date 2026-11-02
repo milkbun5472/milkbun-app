@@ -152,3 +152,9 @@ test("人设卡自带的世界书、开场白跟着传，导入走档案馆那�
   const app = fs.readFileSync(path.resolve(__dirname, "..", "js/app.js"), "utf8");
   assert.match(app, /onAddChar: o => \{ importCharCard\(o\); \}/);
 });
+
+// 群友 2026-11-01：好几份文件合并成一份传上来，单独那份世界书被当人设正文并进去了
+test("合并上传时，整篇是世界书的那一份整份当世界书", () => {
+  const nest = fs.readFileSync(path.join(__dirname, "..", "js", "nest.js"), "utf8");
+  assert.match(nest, /c\.allLore && \(c\.lore \|\| \[\]\)\.length/, "单独一份世界书还是会被当人设正文");
+});

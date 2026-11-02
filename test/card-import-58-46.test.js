@@ -170,7 +170,7 @@ test("导入角色卡能一次选好几份文件，单独的世界书 json 跟�
   assert.match(sheet, /loreEntriesFromJson/, "纯世界书的 json 没被认出来");
   assert.match(sheet, /applyPicked\(picked\.map/, "选完不能自己点哪份是人设、哪份是世界书");
   assert.match(sheet, /category: "世界观"/, "点成世界书的 txt\/docx 没收成词条");
-  assert.match(sheet, /lore: \(p\.lore \|\| \[\]\)\.concat\(extraLore\)/, "另选的世界书没带进导入");
+  assert.match(sheet, /lore: \(p\.allLore \? \[\] : \(p\.lore \|\| \[\]\)\)\.concat\(extraLore\)/, "另选的世界书没带进导入");
 });
 
 test("Word 写的世界书按它自己的分节拆成一条条", () => {
@@ -205,10 +205,11 @@ test("没写人设那一节，世界书照样拆出来，人设只剩前面那�
   assert.equal(p.lore[0].keyword, "陆大军", "关键词该是人名，不是整行标题");
 });
 
-test("整篇都是世界书、没有人设正文：照旧整篇当人设，不两头各存一份", () => {
+test("整篇都是世界书、没有人设正文：人设留整篇兜底，挂上 allLore 记号", () => {
   const p = parseCharCard("【世界书】\n## 落霞镇\n镇子在河口。\n## 夜巡司\n管宵禁的衙门。", "Lisa");
-  assert.equal((p.lore || []).length, 0);
-  assert.match(p.persona, /落霞镇/);
+  assert.equal(p.allLore, true, "单独一份世界书该挂记号");
+  assert.match(p.persona, /落霞镇/, "人设要有整篇兜底，免得只选了这一份时什么都没有");
+  assert.ok((p.lore || []).length >= 2, "拆好的词条要留着给合并那条路用");
 });
 
 // 群友 2026-11-01 那张「陆之遥」：名字写在「- **姓名**: 」那一行，两本世界书各自一节

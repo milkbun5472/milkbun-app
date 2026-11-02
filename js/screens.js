@@ -166,7 +166,9 @@ function parseCharCard(raw, userName) {
     const keep = secs.filter(s => s !== sSec && s !== mSec && s !== gSec && s !== tSec && !named(s) && !isLore(s) && s.body.trim());
     if (pSec && keep.length <= 1) out.persona = pSec.body.trim();
     else if (keep.length) out.persona = [secs.lead || ""].concat(keep.map(s => "【" + s.title + "】\n" + s.body.trim())).filter(x => x.trim()).join("\n\n");
-    else if (out.lore && out.lore.length) out.lore = [];   // 整篇都是世界书：不拆了，照旧整篇当人设，免得同一段两头各存一份
+    // 整篇都是世界书（单独一份世界书文件）：人设留整篇兜底，但挂个记号，
+    //   合并几份文件时这一份就整份当世界书，不会被当成人设正文并进去。
+    else if (out.lore && out.lore.length) out.allLore = true;
     if (mSec) out.longMem = mSec.body.trim();
     if (gSec) out.greeting = gSec.body.trim();
     if (tSec) out.tagline = tSec.body.trim().split("\n")[0].slice(0, 40);
@@ -301,6 +303,8 @@ function CardImportSheet({ onImport, onClose, userName }) {
             style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.ink, borderBottom: "1px solid " + t.line, padding: "2px 0" }
           })),
         label("人设" + count("persona")), box("persona", 8, "人设是必填的"),
+        (p.allLore ? [] : (p.lore || [])).concat(extraLore).length ? (lore => h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, marginTop: 8, lineHeight: 1.7 } },
+          "自带世界书 " + lore.length + " 条（" + lore.reduce((n, e) => n + String(e.payload || "").length, 0) + " 字），导入时只绑给 TA：" + lore.map(e => e.title).filter(Boolean).slice(0, 8).join("、") + (lore.length > 8 ? "…" : "")))((p.allLore ? [] : (p.lore || [])).concat(extraLore)) : null,
         label("长期记忆" + count("longMem")), box("longMem", 3, "（可空）"),
         label("记忆种子 · 一行一条，行首写〔置顶〕就置顶（" + textToSeeds(val("seeds")).length + " 条）"), box("seeds", 4, "（可空）"),
         label("开场白 · 导入后当 TA 的第一句话" + count("greeting")), box("greeting", 3, "（可空）"),
@@ -312,7 +316,7 @@ function CardImportSheet({ onImport, onClose, userName }) {
           onImport(Object.assign({}, p, {
             name: val("name").trim(), tagline: val("tagline").trim(), persona: persona.trim(),
             longMem: val("longMem").trim(), greeting: val("greeting").trim(), seeds: textToSeeds(val("seeds")),
-            lore: (p.lore || []).concat(extraLore)
+            lore: (p.allLore ? [] : (p.lore || [])).concat(extraLore)
           }));
         },
         className: "w-full mt-4 active:opacity-70",

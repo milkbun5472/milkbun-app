@@ -126,6 +126,8 @@
     const list = d && typeof loreEntriesFromJson === "function" && !(d.name || d.data || d.persona || d.description) ? loreEntriesFromJson(d) : null;
     if (list && list.length) return { lore: list };
     const c = typeof parseCharCard === "function" ? parseCharCard(t) : null;
+    // 这一份整篇都是世界书（单独存的那份设定）：整份当世界书，别当人设正文并进去
+    if (c && c.allLore && (c.lore || []).length) return { lore: c.lore };
     return {
       name: String((c && c.name) || (d && d.name) || "").slice(0, 20), tagline: (c && c.tagline) || (d && d.tagline) || "",
       persona: String((c && c.persona) || (d && (d.persona || d.description)) || t), lore: (c && c.lore) || [],
