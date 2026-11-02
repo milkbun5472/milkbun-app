@@ -54,7 +54,7 @@ test('连续棉布衣摆包住抬起的裤腿，侧边与折边保持厚度，�
  assert.equal(cotton.userData.seatDrapeAllPoses,true);const index=cotton.morphTargetDictionary.seatDrape;cotton.morphTargetInfluences[index]=1;
  for(const r of d.rig)r.p.userData.bone.quaternion.setFromAxisAngle(new T.Vector3(1,0,0),-Math.PI/2);seat.update(1);
  const posed=vertices(d.model,cotton),pants=vertices(d.model,denim);
- assert.ok(posed[0].y>before[0].y+.02,'前摆在腰腿交界收起，不只把整片向前撑长');assert.ok(posed[0].z>posed[2].z+.04,'两侧保留弧度，不成为平板');assert.ok(posed[0].z>pants[0].z+.01);assert.ok(posed[2].x<pants[0].x-.01,'两侧也在裤子外面');
+ assert.ok(posed[0].y>before[0].y+.03,'前摆在腰腿交界收起，不只把整片向前撑长');assert.ok(posed[0].z>posed[2].z+.04,'两侧保留弧度，不成为平板');assert.ok(posed[0].z>pants[0].z+.01);assert.ok(posed[2].x<pants[0].x-.01,'两侧也在裤子外面');
  assert.ok(posed[0].z>posed[1].z+.0005,'不把翻折的内外两层压成同一张面');
  for(const i of [3,4])assert.ok(posed[i].distanceTo(before[i])<1e-7,'衣领与后中缝不前移');
  seat.setStraight(true);assert.equal(seat.needsFit(),true);seat.fit();assert.equal(seat.needsFit(),false);

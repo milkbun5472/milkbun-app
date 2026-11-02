@@ -1,16 +1,16 @@
 import * as T from 'three';
-import './social.js?v=fg-071767424d11f9f3';
-import {findPath,walkable,segmentClear,floorHeight} from '../world.mjs?v=fg-071767424d11f9f3';
-import {stepRoute} from '../locomotion.mjs?v=fg-071767424d11f9f3';
-import {furniturePoint,furnitureSeat,HOME_PREP} from './home-catalog.mjs?v=fg-071767424d11f9f3';
-import {pairProgress} from './motion-profile.mjs?v=fg-071767424d11f9f3';
-import {dailyTaskAt} from './daily-workflow.mjs?v=fg-071767424d11f9f3';
-import {createKitchenPair} from './kitchen-pair.mjs?v=fg-071767424d11f9f3';
-import {INTIMATE,createIntimate} from './intimate.mjs?v=fg-071767424d11f9f3';
-import {REST_PAIRS,sofaPairs,restPlans,restKindFor,createRestPair} from './rest-pair.mjs?v=fg-071767424d11f9f3';
+import './social.js?v=fg-c5c7b8ffbb7a68b2';
+import {findPath,walkable,segmentClear,floorHeight} from '../world.mjs?v=fg-c5c7b8ffbb7a68b2';
+import {stepRoute} from '../locomotion.mjs?v=fg-c5c7b8ffbb7a68b2';
+import {furniturePoint,furnitureSeat,HOME_PREP} from './home-catalog.mjs?v=fg-c5c7b8ffbb7a68b2';
+import {pairProgress} from './motion-profile.mjs?v=fg-c5c7b8ffbb7a68b2';
+import {dailyTaskAt} from './daily-workflow.mjs?v=fg-c5c7b8ffbb7a68b2';
+import {createKitchenPair} from './kitchen-pair.mjs?v=fg-c5c7b8ffbb7a68b2';
+import {INTIMATE,createIntimate} from './intimate.mjs?v=fg-c5c7b8ffbb7a68b2';
+import {REST_PAIRS,sofaPairs,restPlans,restKindFor,createRestPair} from './rest-pair.mjs?v=fg-c5c7b8ffbb7a68b2';
 
 
-import {pairSize,headPoint,pairSpacing,pairContact,nearHand,bonePoint,shoulderPose,hugPose} from './pair-pose.mjs?v=fg-071767424d11f9f3';
+import {pairSize,headPoint,pairSpacing,pairContact,nearHand,bonePoint,shoulderPose,hugPose} from './pair-pose.mjs?v=fg-c5c7b8ffbb7a68b2';
 
 export const TOGETHER_LABELS=globalThis.CharDaySocial.labels;
 const mapId=m=>m.id||m.renderer;

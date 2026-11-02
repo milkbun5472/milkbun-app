@@ -130,7 +130,7 @@ export function makeSeatedLegs(model,rig,meshes,morphs){
     if(lap.length){
      // Smooth compression preserves ring order and the sewn hem thickness.
      // Front and side weights retain the round shirt outline and long back.
-     const gather=Math.max(0,top-.022-hem)*smooth((top+.12-point.y)/(top+.12-hem))*smooth((point.z+.10)/.12);
+     const gather=Math.max(0,top-.008-hem)*smooth((top+.12-point.y)/(top+.12-hem))*smooth((point.z+.10)/.12);
      lift=Math.max(lift,gather);
      const y=point.y+lift,front=frontAt(y);
      forward=Math.max(0,front+.018-point.z*.85)*smooth((point.z+.005)/.115);
