@@ -30739,8 +30739,11 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   //   一放就变成「这一层的歌」，出门那一下 roomMusicLeave 认得是这一层的、
   //   却没有东西可还——只好 stopPlayer()，她自己的歌就这么没了。
   //   所以【记一份】和【落针】是两件事：没歌可放也要先记，礼数那一半才还得回去。
-  const roomMusicEnter = (isMine, play) => {
-    if (isMine()) return;                     // 已经在放这一层的歌了，别打断
+  const roomMusicEnter = (isMine, play, keepMine) => {
+    // 已经在放这一层的歌了，别打断——但要记一笔「进门前就在放」（她 2026-11-02：放着 A 歌单的歌、进 A 的手机再出来，
+    //   歌和悬浮窗一起没了；进 B 的就没事）。原来这儿直接 return 什么都没记，出门那一下认得是这一层的歌、又没东西可还，就 stopPlayer 了
+    //   只给查手机：她在一起听里放着 TA 的歌单，那是她自己在听；情侣唱片已经在转的照旧「走的时候只带走自己」
+    if (isMine()) { roomMusicRef.current = keepMine ? { keep: true } : null; return; }
     const prevId = playerSongIdRef.current;
     const el = audioElRef.current;
     // ⚠️静音保活那首也要还：它占着 iOS 的音频会话，被顺手停掉＝后台保活断了。
@@ -30757,6 +30760,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     if (!isMine()) { roomMusicRef.current = null; return; }  // 这一层压根没落针：她自己的歌照放，别动
     const prev = roomMusicRef.current;
     roomMusicRef.current = null;
+    if (prev && prev.keep) return;   // 进门前就在放这一层的歌：原样接着放，不收针
     // 进来前本来就没在放 → 停干净（她说的「出来音乐会停，这个确实要这样」）
     if (!prev || !resolveSong(prev.id)) { stopPlayer(); return; }
     // 有得还就直接换回去，不先 stopPlayer——那会让播放器闪一下没影
@@ -30801,7 +30805,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     //   施工规则/one-public-mechanism.md：已有的那几处也要搬过去）：
     //   她在TA手机里刷出一张歌单、点开一首，出门那一下才还得回她自己的歌。
     const from = ss.length ? phoneMusicNextId(cid) : null;
-    roomMusicEnter(phoneMusicMine(cid), from ? () => playSong(from, ss.map(x => x.id)) : null);
+    roomMusicEnter(phoneMusicMine(cid), from ? () => playSong(from, ss.map(x => x.id)) : null, true);
   };
   const phoneMusicLeave = cid => roomMusicLeave(phoneMusicMine(cid));
   const addNeteaseResult = s => saveListen(p => ({ ...p, songs: capListenSongs([resultToSong(s), ...(p.songs || []).filter(x => x.neteaseId !== String(s.id))]) }));

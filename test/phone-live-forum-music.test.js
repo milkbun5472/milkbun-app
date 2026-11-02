@@ -137,10 +137,11 @@ test("情侣唱片进空间一律落针，离开只收自己的针", () => {
   assert.deepEqual(guards, [], "discEnter 里又长出闸了——没歌也得先进门记一份");
   assert.match(m[0], /roomMusicEnter\(discSpinning, has \? \(\) => discPlay\(cid, discNextId\(cid\)\) : null\)/,
     "有歌才落针、没歌也要记一份，这一句是那件事的全部");
-  const shared = appSrc.match(/const roomMusicEnter = \(isMine, play\) => \{[\s\S]*?\n  \};/);
+  const shared = appSrc.match(/const roomMusicEnter = \(isMine, play(, keepMine)?\) => \{[\s\S]*?\n  \};/);
   assert.ok(shared, "找不到共用那份 roomMusicEnter");
-  assert.deepEqual(shared[0].match(/if \(.*?\) return;/g) || [], ["if (isMine()) return;"],
+  assert.deepEqual(shared[0].match(/if \(.*?\) return;/g) || [], [],
     "共用那份里多了一道闸——「播放器忙就不落针」那一版会让唱片永远轮不到");
+  assert.match(shared[0], /if \(isMine\(\)\) \{ roomMusicRef\.current = keepMine \? \{ keep: true \} : null; return; \}/, "已经在放这一层的歌：只记一笔，不落针");
   // 而且是【接着上次那首】，不是永远从第一首（她 2026-09-02：后面的永远轮不到）
   assert.match(m[0], /discPlay\(cid, discNextId\(cid\)\)/);
   const nx = appSrc.match(/const discNextId = cid => \{[\s\S]*?\n  \};/);
