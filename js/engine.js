@@ -2245,6 +2245,27 @@ function propTailFor(cardText, beats) {
   const hit = terms.filter(w => recent.every(b => String(b).toLowerCase().includes(w.toLowerCase())));
   return hit.length ? "\n〔" + hit.join("、") + "前两拍都写到了。这一拍别再写它（连带它的金属、凉意、碰响这些），读的人记得它在；笔墨给这一刻别的地方。〕" : "";
 }
+// 心声每拍都扯同几样（她 2026-11-02 截图：几条心声都是「十九岁生日」「全栽她手里」「地下室破沙发」）：
+//   跟 propTailFor 同一招——不把旧心声摆给他（v76.007 试过，会照着学），只由代码数出
+//   上一条和再上一条心声里都出现的词，下一拍点名。单人线下、群线下共用。
+const THOUGHT_ECHO_FILLER = /^[我你她他的了是在就都也这那个一不么吗呢吧啊还又把被给让和跟到上下里来去说要会能想看得着过]+$/;
+function thoughtEchoWords(a, b) {
+  const A = String(a || ""), B = String(b || "");
+  const hits = [];
+  for (let n = 6; n >= 3; n--) for (let i = 0; i + n <= A.length; i++) {
+    const g = A.slice(i, i + n);
+    if (!/^[\u4e00-\u9fa5]+$/.test(g) || THOUGHT_ECHO_FILLER.test(g) || !B.includes(g)) continue;
+    if (hits.some(h => h.includes(g))) continue;
+    hits.push(g);
+  }
+  return hits.slice(0, 4);
+}
+function thoughtEchoTail(thoughts, who) {
+  const t = (thoughts || []).map(x => String(x || "").trim()).filter(Boolean).slice(-2);
+  if (t.length < 2) return "";
+  const w = thoughtEchoWords(t[0], t[1]);
+  return w.length ? "\n〔" + (who ? who + "的" : "") + "心声：前两条都说到了「" + w.join("」「") + "」。这一条别再绕回这些，写这一刻刚冒出来的念头。〕" : "";
+}
 function spokenLinesOf(text) {
   const out = []; const re = /[“「"]([^”」"]{2,200})[”」"]/g; let m;
   while ((m = re.exec(String(text || "")))) out.push(m[1].trim());
@@ -9490,7 +9511,7 @@ async function generateOffline(p, ctx, session) {
   const _said = _lastCharBeat ? spokenLinesOf(_lastCharBeat.content) : [];
   const sayTail = !isDigital && _said.length ? tailHintsFor(_said[_said.length - 1], _said.join("\n")) : "";
   const propTail = isDigital ? "" : propTailFor([char.persona, char.appearance].join("\n"), (session.msgs || []).filter(m => m && m.role === "char" && !isOocMsg(m) && m.kind !== "selfie").map(m => m.content));
-  const finalNudge = tailNudge + (isDigital ? "" : userActionTail) + characterSupplyTail + intimatePaceTail + flashbackTail + personTail + sayTail + propTail + offlineWordAimTail(minimumSceneChars) + directorTail + styleTail;
+  const finalNudge = tailNudge + (isDigital ? "" : userActionTail) + characterSupplyTail + intimatePaceTail + flashbackTail + personTail + sayTail + propTail + (isDigital ? "" : thoughtEchoTail((session.msgs || []).filter(m => m && m.role === "char" && m.thought).map(m => m.thought))) + offlineWordAimTail(minimumSceneChars) + directorTail + styleTail;
   if (hist.length && hist[hist.length - 1].role === "user") hist[hist.length - 1] = { role: "user", content: hist[hist.length - 1].content + finalNudge };
   else hist.push({ role: "user", content: (hist.length ? "（继续）" : OFFLINE_OPEN_SCENE) + finalNudge });
   if (Array.isArray(session.imageDataUrls) && session.imageDataUrls.length) {
@@ -10219,9 +10240,10 @@ async function generateOfflineGroup(p, ctx, session) {
   const _gLastBeat = [...(session.msgs || [])].reverse().find(m => m && m.role === "char" && !isOocMsg(m));
   const _gSaid = _gLastBeat ? spokenLinesOf(_gLastBeat.content) : [];
   const gSayTail = _gSaid.length ? tailHintsFor(_gSaid[_gSaid.length - 1], _gSaid.join("\n")) : "";
+  const gThoughtTail = members.map(c => c && thoughtEchoTail((session.msgs || []).filter(m => m && m.role === "char" && m.senderId === c.id && m.thought).map(m => m.thought), c.name)).join("");
   const gPropTail = propTailFor(members.map(c => [c && c.persona, c && c.appearance].join("\n")).join("\n"), (session.msgs || []).filter(m => m && m.role === "char" && !isOocMsg(m)).map(m => m.content));
-  if (hist.length && hist[hist.length - 1].role === "user") hist[hist.length - 1] = { role: "user", content: hist[hist.length - 1].content + gFlashbackTail + gCharacterTail + gSayTail + gPropTail + offlineWordAimTail(session.minWords) + gTail };
-  else hist.push({ role: "user", content: (hist.length ? "（继续）" : OFFLINE_OPEN_SCENE) + gFlashbackTail + gCharacterTail + gSayTail + gPropTail + offlineWordAimTail(session.minWords) + gTail });
+  if (hist.length && hist[hist.length - 1].role === "user") hist[hist.length - 1] = { role: "user", content: hist[hist.length - 1].content + gFlashbackTail + gCharacterTail + gSayTail + gPropTail + gThoughtTail + offlineWordAimTail(session.minWords) + gTail };
+  else hist.push({ role: "user", content: (hist.length ? "（继续）" : OFFLINE_OPEN_SCENE) + gFlashbackTail + gCharacterTail + gSayTail + gPropTail + gThoughtTail + offlineWordAimTail(session.minWords) + gTail });
   if (Array.isArray(session.imageDataUrls) && session.imageDataUrls.length) {
     const lastUser = [...hist].map((m, i) => [m, i]).reverse().find(([m]) => m.role === "user");
     if (lastUser) hist[lastUser[1]] = { ...hist[lastUser[1]], content: hist[lastUser[1]].content + "\n【用户刚给在场所有人展示了真实照片，图像已附在本轮视觉输入中；请让大家直接看图后自然反应。】", imageDataUrls: session.imageDataUrls.slice(-FRESH_IMG_CAP) };
