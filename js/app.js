@@ -11915,6 +11915,10 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   //   原来是递手机那一路自己的 peekPendingRef（她 2026-10-01「看完接不上啊」立的），现在所有这种都走这一份。
   //   ⚠️新功能里凡是「她点了一下 → TA要接一句」的，一律 waitForHer，不许直接 replyNow（测试 wait-for-her 钉着）。
   const waitHerRef = useRef({});
+  // 换聊天头像这件事记半天（她 2026-11-02：「换了没说话他当没看见说别的了，第二轮说给他换了头像他就看不到了，问我换的啥」）：
+  //   waitForHer 那一份只交一轮；之后她提起头像，他得还知道换的是哪张、看得到那张
+  const avatarSeenRef = useRef({});
+  const noteAvatarChange = (charId, who, ref, back) => { avatarSeenRef.current[charId] = { ...(avatarSeenRef.current[charId] || {}), [who]: { ref, back, ts: Date.now() } }; };
   const waitForHer = (charId, patch) => { waitHerRef.current[charId] = { ...(waitHerRef.current[charId] || {}), ...patch, _ts: Date.now() }; };
   // 约会邀请（她 2026-10-02：「约他应该先发送一个邀请到线上，他同意了再发回执卡，点开再进线下」）
   // 日子钟点写成一句人话：「10月3日（周四）20:30」
@@ -12603,11 +12607,23 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       const refuseHint = opts.phoneRefused ? "\n\n【此刻】你刚开口要看 " + uName + " 的手机，她没给。怎么想、追不追问、生不生气、还是算了，全看你这个人和你们现在的关系。" : "";
       const meddleHint = opts.phoneMeddle && opts.phoneMeddle.length ? "\n\n【你刚发现】你手机上有几样不是你动的：" + uName + " 拿你的手机" + opts.phoneMeddle.map(phoneMeddleLine).join("；") + "。这是刚发生的事；什么反应由你这个人和这段关系决定。" : "";
       const _herAvRef = opts.herAvatar && opts.herAvatar.ref && typeof isImgRef === "function" && (isImgRef(opts.herAvatar.ref) || /^data:image/.test(String(opts.herAvatar.ref))) ? opts.herAvatar.ref : null;
-      const avatarHint = opts.herAvatar ? "\n\n【刚发生】" + uName + (opts.herAvatar.back ? " 把她在你俩这个聊天里的头像换回了原来那张" : " 换了她在你俩这个聊天里的头像") + (_herAvRef ? "（换上的那张附在她这一轮的消息上）" : "") + "。看见了想说就说，不想说也行。" : "";
+      const avatarHint = opts.herAvatar ? "\n\n【刚发生】" + uName + (opts.herAvatar.back ? " 把她在你俩这个聊天里的头像换回了原来那张" : " 换了她在你俩这个聊天里的头像") + (_herAvRef ? "（换上的那张附在她这一轮的消息上）" : "") + "。这是她刚当着你做的事，你看见了：说不说、怎么说照你这个人，但别当它没发生。" : "";
       // 她给【他】换了聊天头像（她 2026-11-02「给他和自己换聊天头像有提示吗」）：原来只有她换自己的才有
       const _hisAvRef = opts.hisAvatar && opts.hisAvatar.ref && typeof isImgRef === "function" && (isImgRef(opts.hisAvatar.ref) || /^data:image/.test(String(opts.hisAvatar.ref))) ? opts.hisAvatar.ref : null;
-      const hisAvatarHint = opts.hisAvatar ? "\n\n【刚发生】" + uName + (opts.hisAvatar.back ? " 把你在你俩这个聊天里的头像换回了你原来那张" : " 给你换了你在你俩这个聊天里的头像——她那边看到的你，现在是这一张") + (_hisAvRef ? "（那张附在她这一轮的消息上）" : "") + "。你自己档案里那张没动。看见了想说就说，不想说也行。" : "";
-      const remarkHint = avatarHint + hisAvatarHint + meddleHint + (opts.phoneRemark && opts.phoneRemark.length ? "\n\n【你刚发现】你微信通讯录里的备注被 " + uName + " 偷偷改了：" + opts.phoneRemark.map(phoneRemarkLine).join("；") + "。这是刚发生的事；什么反应由你这个人和这段关系决定。" : "");
+      const hisAvatarHint = opts.hisAvatar ? "\n\n【刚发生】" + uName + (opts.hisAvatar.back ? " 把你在你俩这个聊天里的头像换回了你原来那张" : " 给你换了你在你俩这个聊天里的头像——她那边看到的你，现在是这一张") + (_hisAvRef ? "（那张附在她这一轮的消息上）" : "") + "。你自己档案里那张没动。这是她刚当着你做的事，你看见了：说不说、怎么说照你这个人，但别当它没发生。" : "";
+      // 之后几轮（半天内）：还记得换过、换的是哪张；她又提起头像，就把那张再给他看一眼
+      const _avSeen = avatarSeenRef.current[charId] || {};
+      const _avTalk = /头像|换了|换的|这张/.test(history.filter(m => m.role === "user" && m.content).slice(-2).map(m => m.content).join(" "));
+      const _avLaterRefs = [];
+      const avatarLaterHint = ["his", "her"].map(k => {
+        const v = _avSeen[k];
+        if (!v || (k === "his" ? opts.hisAvatar : opts.herAvatar) || Date.now() - v.ts > 12 * 3600e3) return "";
+        const ok = v.ref && typeof isImgRef === "function" && (isImgRef(v.ref) || /^data:image/.test(String(v.ref)));
+        if (_avTalk && ok) _avLaterRefs.push(v.ref);
+        return "\n\n【不久前】" + uName + (k === "his" ? (v.back ? " 把你在你俩这个聊天里的头像换回了原来那张" : " 给你换了你在你俩这个聊天里的头像") : (v.back ? " 把她在这个聊天里的头像换回了原来那张" : " 换了她在这个聊天里的头像"))
+          + "（" + Math.max(1, Math.round((Date.now() - v.ts) / 60000)) + " 分钟前）" + (_avTalk && ok ? "，那张附在她这一轮的消息上。" : "。");
+      }).join("");
+      const remarkHint = avatarHint + hisAvatarHint + avatarLaterHint + meddleHint + (opts.phoneRemark && opts.phoneRemark.length ? "\n\n【你刚发现】你微信通讯录里的备注被 " + uName + " 偷偷改了：" + opts.phoneRemark.map(phoneRemarkLine).join("；") + "。这是刚发生的事；什么反应由你这个人和这段关系决定。" : "");
       // 她刚改过TA通讯录备注（phoneRemarkEdit）跟「最近查过手机」是同一类事，挂在同一格里
       // ⚠️「你最近查过她的手机」是主线发生过的事，直接拼在提示词上、绕过了房间那道闸——
       //   隔离房里TA也知道（群友 2026-10-08）。跟 watchedNote 同一档（别处发生的事），房里关了就不带
@@ -13764,6 +13780,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         // 她刚换的那张头像也给他看一眼（附在她这一轮的消息上，跟她发的照片同一条路）
         { const _av = opts.herAvatar && opts.herAvatar.ref; if (_av && ((typeof isImgRef === "function" && isImgRef(_av)) || /^data:image/.test(String(_av)))) g[_i] = { ...g[_i], _imageRefs: [...(g[_i]._imageRefs || []), _av] }; }
         { const _av = opts.hisAvatar && opts.hisAvatar.ref; if (_av && ((typeof isImgRef === "function" && isImgRef(_av)) || /^data:image/.test(String(_av)))) g[_i] = { ...g[_i], _imageRefs: [...(g[_i]._imageRefs || []), _av] }; }
+        if (_avLaterRefs.length) g[_i] = { ...g[_i], _imageRefs: [...(g[_i]._imageRefs || []), ..._avLaterRefs] };
             // 留存这一轮 TA 实际收到的指令尾部（v53.73）：再遇到「TA说没有这个字段」时直接看真东西，不靠猜。只读快照，不参与判定。
             try { window.__lastSentTail = { ts: Date.now(), who: char.name, toyInTask: _taskFull.indexOf('"toy":null') >= 0, offlineBleed: /\u3010\u7ebf\u4e0b\u8fdb\u884c\u4e2d\u3011|\u8fd8\u6ca1\u6b63\u5f0f\u6563\u573a/.test(String(g[_i].content)), tail: String(g[_i].content).slice(-1100) }; } catch (e) {}
         break;
@@ -36857,12 +36874,14 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         const _back = !s.myChatAvatar;
         pChat(activeChar.id, p => [...p, { role: "system", kind: "system", content: _back ? "你在这个聊天里用回了原来的头像" : "你换了你在这个聊天里的头像", ts: Date.now() }]);
         waitForHer(activeChar.id, { herAvatar: { ref: s.myChatAvatar || ((profileFor(activeChar.id) || {}).avatarImage) || null, back: _back } });
+        noteAvatarChange(activeChar.id, "her", s.myChatAvatar || ((profileFor(activeChar.id) || {}).avatarImage) || null, _back);
       }
       // 她给他换了聊天头像：跟上面同一个落法——灰字一行，他下一轮知道、看得到新那张
       if ((s.chatAvatar || null) !== (activeChar.chatAvatar || null)) {
         const _hBack = !s.chatAvatar;
         pChat(activeChar.id, p => [...p, { role: "system", kind: "system", content: _hBack ? "你把 " + (activeChar.remark || activeChar.name) + " 在这个聊天里的头像换回了原来那张" : "你给 " + (activeChar.remark || activeChar.name) + " 换了在这个聊天里的头像", ts: Date.now() }]);
         waitForHer(activeChar.id, { hisAvatar: { ref: s.chatAvatar || activeChar.avatarImage || null, back: _hBack } });
+        noteAvatarChange(activeChar.id, "his", s.chatAvatar || activeChar.avatarImage || null, _hBack);
       }
       pC(p => p.map(c => c.id === activeChar.id ? {
         ...c,
