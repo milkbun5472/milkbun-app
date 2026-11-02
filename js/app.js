@@ -20572,6 +20572,9 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       });
     } catch (e) { /* 归档失败就算了，不影响这次刷新 */ }
   };
+  // 刷这个 app 没刷出来：只记在内存里（手机数据只许 savePhoneApp 一个口子写，见 test/phone-ago-58-09），
+  //   「手机数据」那页拿它跟那一份的 _at 比；这次打开 App 以来的才有，刷新 App 就清空
+  const phoneMarkFail = (charId, key) => { try { const F = window.__phoneFail = window.__phoneFail || {}; F[charId] = Object.assign({}, F[charId], { [key]: Date.now() }); } catch (e) {} };
   const savePhoneApp = (charId, key, d, opts) => {
     if (phoneOpsRef.current.resetting) { toast("正在保存清空结果，请稍后再试"); return false; }
     // ⚠️规则降概率，代码才保证：提示词里已经把「这几个人已经有了」连别名一起发回去了，
@@ -20642,6 +20645,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       if (key === "wechat" && wxTaken && window.PhoneKit) {
         try { merged = window.PhoneKit.dropDupWechat(merged, wxTaken); } catch (e) {/* 同上，不连累刷新 */}
       }
+      // _at：这一份几号存的（「手机数据」那页照它写几号刷新的）
       const entry = { ...merged, _at: Date.now() };
       if (key === "wallet") { entry._startDate = ymd(new Date()); entry.extra = (cur.wallet && Number(cur.wallet.extra)) || 0; } // 记账起点；保留转账等外部收支
       const n = {
@@ -23437,6 +23441,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       return true;
     } catch (e) {
       try { window.__phoneLeftWhileGen && window.__phoneLeftWhileGen.delete(char.id + ":" + key); } catch (_) {}
+      phoneMarkFail(char.id, key);
       toast(phoneKeyLabel(key) + "生成失败：" + e.message);
       return false;
     } finally {
@@ -23487,7 +23492,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         savePhoneApp(char.id, key, d);
         phoneRemarkDone(char, key);
         ok++;
-      } catch (e) {/* 单个失败不中断其余 */}
+      } catch (e) { phoneMarkFail(char.id, key); /* 单个失败不中断其余 */ }
     }
     setGen(g => ({
       ...g,

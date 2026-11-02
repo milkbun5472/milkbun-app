@@ -1112,6 +1112,13 @@ function phonePickLookImage(file, done) {
 // 清空是止血的（不想等它自己走出来，就整份扔掉重生成）。
 // ⚠️清空是全 App 唯一会主动删手机数据的地方，所以按之前那条事故规矩
 //   （.claude/rules/never-say-delete-first.md）：确认框里必须先说「先导出一份」。
+// 这一份几号刷的、上次刷没刷出来（她 2026-11-02 转群友：「一次性刷新会有失败的，但不知道是哪些」）
+function phoneAppFailed(d, failAt) { return !!(failAt && (!d || !d._at || failAt > d._at)); }
+function phoneAppAtLabel(d, failAt) {
+  const day = ts => { const x = new Date(ts); return (x.getMonth() + 1) + "月" + x.getDate() + "日 " + String(x.getHours()).padStart(2, "0") + ":" + String(x.getMinutes()).padStart(2, "0"); };
+  const got = d && d._at ? day(d._at) + " 刷新的" : "存着一份";
+  return phoneAppFailed(d, failAt) ? day(failAt) + " 刷新没刷出来" + (d ? " · 现在还是" + (d._at ? " " + day(d._at) + " 那份" : "旧的那份") : "") : got;
+}
 function PhoneDataSettings({ char, t, look, lang, onLang, saved, onReset, onBack }) {
   const apps = PHONE_APPS.filter(a => !a.soon && PHONE_LIVE_KEYS.indexOf(a.key) < 0);
   const tone = phoneTone("notes");
@@ -1123,12 +1130,13 @@ function PhoneDataSettings({ char, t, look, lang, onLang, saved, onReset, onBack
   };
   const row = (a, i) => {
     const has = !!saved[a.key];
+    const failAt = ((window.__phoneFail || {})[char && char.id] || {})[a.key] || 0, failed = phoneAppFailed(saved[a.key], failAt);
     return h("div", { key: a.key, className: "flex items-center", style: { minHeight: 58, padding: "9px 13px", gap: 11, borderTop: i ? "1px solid rgba(34,31,27,.08)" : "none" } },
       h("div", { style: { width: 36, height: 36, borderRadius: 11, display: "flex", alignItems: "center", justifyContent: "center", background: phoneTone(a.key).wash, flexShrink: 0 } },
         h(PGlyph, { k: a.key, size: 18, color: phoneTone(a.key).glyph })),
       h("div", { className: "flex-1 min-w-0" },
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(14.5px * var(--app-fs, 1))", color: t.ink } }, a.zh),
-        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, marginTop: 3 } }, has ? "存着一份" : "还没生成过")),
+        h("div", { "data-wk": "phonedataat", "data-fail": failed ? "1" : "0", style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: failed ? "#c25a4a" : t.fog, marginTop: 3 } }, has || failed ? phoneAppAtLabel(saved[a.key], failAt) : "还没生成过")),
       has ? h("button", {
         className: "active:opacity-60 shrink-0",
         onClick: () => requestAppConfirm("清空「" + a.zh + "」？",
