@@ -2551,6 +2551,7 @@ function ShoppingView({ d, char, t, onBack, onRefresh, refreshing, onPeek, month
       h("div", { className: "flex-1 min-w-0" },
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(14.5px * var(--app-fs, 1))", lineHeight: 1.45, color: SHOP_INK } }, PTX(v.title || "")),
         v.shop ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: SHOP_DIM, marginTop: 5 } }, PTX(v.shop)) : null,
+        v.why ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", lineHeight: 1.8, color: SHOP_BODY, marginTop: 6 } }, PTX(v.why)) : null,
         PC && Number(v.price) > 0 ? h(CartPayBtn, { char, it: v, pay: PC.pay, kind: "viewed" }) : null),
       h("div", { style: { flexShrink: 0, textAlign: "right" } },
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(14.5px * var(--app-fs, 1))", color: SHOP_MARK } }, shopMoney(v.price, char.id)),
