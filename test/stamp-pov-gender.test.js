@@ -26,3 +26,8 @@ test("站子只回图片链接时，邮票卡面也试着把图拿下来", () =>
   assert.ok((src.match(/await imgOutBlob\(out\)/g) || []).length >= 2);
   assert.ok(!/if \(!\(out && out\.blob\)\) throw/.test(src));
 });
+test("R 卡心里那句摆在时刻回廊下面，不塞进「那一刻」", () => {
+  const ui = fs.readFileSync(__dirname + "/../js/stamps.js", "utf8");
+  assert.match(ui, /card\.rarity === "R" \? card\.text\.thought/);
+  assert.match(ui, /zh: "那一刻", lv: 1, body: h\("div", null, para\(tx\.narration \|\| ""\)\)/);
+});
