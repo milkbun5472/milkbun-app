@@ -17599,10 +17599,10 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   };
   // 去重按「写的是什么事」，不只按卡名：带上最近几十张的 gist
   // 带上印在卡上的那句台词（她 2026-10-26：同一期两张卡印了一模一样的一句）
-  const stampPrev = charId => (StampsCoreSafe().cards || []).filter(c => c.charId === charId && c.text).slice(-30).map(c => "「" + c.text.name + "」" + (c.text.gist ? "：" + String(c.text.gist).slice(0, 60) : "") + (c.text.line ? "（卡上那句：" + String(c.text.line).slice(0, 40) + "）" : ""));
+  const stampPrev = charId => (StampsCoreSafe().cards || []).filter(c => c.charId === charId && c.text).slice(-30).map(c => "- " + (c.text.gist ? String(c.text.gist).slice(0, 60) : "「" + c.text.name + "」") + (c.text.line ? "（卡上那句：" + String(c.text.line).slice(0, 40) + "）" : ""));
   // 卡名（她 2026-11-02：生日卡全成了「某样东西的某个细节」）：给判断，不给样子
-  const STAMP_NAME_RULE = "像一张卡的名字，不像一句描写：读一眼就记得住、说得出口，不靠「谁谁的什么」这种一串修饰堆出来；前面那些卡名的写法别照着学";
-  const stampPrevLine = prev => prev.length ? "\n你已经有的卡（卡名、写的是什么、卡上那句）：\n" + prev.join("\n") + "\n新写的别再是同一件事、同一种走向，卡上那句也别再说一样的话；上面这些卡名和故事里反复出现的那样东西（比如老是灯、雨、某个物件），新卡换一样，别再拿它起名、也别再让它当故事的中心。" : "";
+  const STAMP_NAME_RULE = "像一张卡的名字，不像一句描写：两到六个字，读一眼就记得住、说得出口；不用「的」字把东西和细节串成一串";
+  const stampPrevLine = prev => prev.length ? "\n你已经有的卡（写的是什么、卡上那句）：\n" + prev.join("\n") + "\n新写的别再是同一件事、同一种走向，卡上那句也别再说一样的话；上面这些故事里反复出现的那样东西（比如老是灯、雨、某个物件），新卡换一样，别再拿它起名、也别再让它当故事的中心。" : "";
   // 他平时真说过的话（她 2026-10-26：「剧情有点刻板印象，不像他平时说话」）：从跟她的聊天里取最近几十句他自己打的字，
   //   叫他照这个口气、长短、用词开口——不是让他复述这些话，是让他认出自己。没聊过就不给
   const stampVoice = char => {
