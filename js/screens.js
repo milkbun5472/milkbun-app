@@ -96,7 +96,7 @@ const CARD_SEC_KWS = ["人设", "设定", "简介", "描述", "长期记忆", "�
 // colonKws：带冒号那一支只认这些词，别把正文里的「TA说：」当成分节
 function splitDocSections(text, colonKws) {
   const secs = [];
-  let last = null, mm;
+  let last = null, mm, firstAt = -1;
   const push = (sec, until) => secs.push({ title: sec.title, body: (sec.pre ? sec.pre + "\n" : "") + text.slice(sec.end, until).trim() });
   CARD_SEC_RE.lastIndex = 0;
   while ((mm = CARD_SEC_RE.exec(text))) {
@@ -104,10 +104,11 @@ function splitDocSections(text, colonKws) {
     const pre = (mm[3] || mm[5] || mm[7] || "").trim().replace(/^[:：]/, "").trim();
     if (mm[6] && !(colonKws || []).some(k => title.toLowerCase().includes(k))) continue;
     if (!title) continue;
-    if (last) push(last, mm.index);
+    if (last) push(last, mm.index); else firstAt = mm.index;
     last = { title: title, pre: pre, end: mm.index + mm[0].length };
   }
   if (last) push(last, text.length);
+  secs.lead = firstAt > 0 ? text.slice(0, firstAt).trim() : "";
   return secs;
 }
 function parseCharCard(raw, userName) {
@@ -131,7 +132,14 @@ function parseCharCard(raw, userName) {
     const pSec = find(["人设", "设定", "描述", "persona", "description"]);
     const gSec = find(["开场白", "问候语", "第一句", "greeting"]);
     const tSec = find(["一句话", "标签", "tagline"]);
-    if (pSec) out.persona = pSec.body.trim();
+    // 人设只取「人设」那一节，卡里的【生日】【外貌】【喜好】这些就全丢了（群友 2026-11-01：
+    //   一万多字的 word 传上来只剩 600 字）。没被别的栏收走的分节，一律跟着人设一起留下。
+    if (pSec) {
+      const named = s => /名字|姓名|角色名|人物名|角色卡/.test(s.title) || /^name$/i.test(s.title);
+      const keep = secs.filter(s => s !== sSec && s !== mSec && s !== gSec && s !== tSec && !named(s) && s.body.trim());
+      out.persona = keep.length <= 1 ? pSec.body.trim()
+        : [secs.lead || ""].concat(keep.map(s => "【" + s.title + "】\n" + s.body.trim())).filter(x => x.trim()).join("\n\n");
+    }
     if (mSec) out.longMem = mSec.body.trim();
     if (gSec) out.greeting = gSec.body.trim();
     if (tSec) out.tagline = tSec.body.trim().split("\n")[0].slice(0, 40);
@@ -164,6 +172,7 @@ function CardImportSheet({ onImport, onClose, userName }) {
   const [edits, setEdits] = useState({});
   const [fileBusy, setFileBusy] = useState(false);
   const [fileErr, setFileErr] = useState("");
+  const [extraLore, setExtraLore] = useState([]);   // 跟人设一起选上的那几份纯世界书
   const fileRef = useRef(null);
   const p = txt.trim() ? parseCharCard(txt, userName) : null;
   const seedsToText = arr => (arr || []).map(x => (x.pinned ? "〔置顶〕" : "") + x.text).join("\n");
@@ -174,17 +183,28 @@ function CardImportSheet({ onImport, onClose, userName }) {
   const val = k => edits[k] != null ? edits[k] : (p ? (k === "seeds" ? seedsToText(p.seeds) : (p[k] || "")) : "");
   const setVal = (k, v) => setEdits(e => Object.assign({}, e, { [k]: v }));
   const persona = val("persona");
+  // 一份人设拆成好几个文件是常事（群友 2026-11-01：人设一份、自带世界书一份）。
+  //   一次选上，人设那几份按选中顺序接起来；纯世界书的 json 收成这个人自带的世界书。
   const importFile = async e => {
-    const input = e.target, file = input.files && input.files[0];
+    const input = e.target, files = Array.from(input.files || []).slice(0, 10);
     input.value = "";
-    if (!file) return;
+    if (!files.length) return;
     setFileBusy(true); setFileErr("");
     try {
-      if (/\.doc$/i.test(file.name || "")) throw new Error("老的 .doc 读不了，在 Word 里另存为 .docx 再导");
-      if (!/\.(docx|txt|md|markdown|json)$/i.test(file.name || "")) throw new Error("请选择 .docx / .txt / .md / .json 文件");
-      const text = await readOfflineStyleDocument(file);
-      if (!String(text || "").trim()) throw new Error("文件里没有可导入的文字");
-      setTxt(text); setEdits({});
+      const texts = [], lore = [];
+      for (const file of files) {
+        if (/\.doc$/i.test(file.name || "")) throw new Error("老的 .doc 读不了，在 Word 里另存为 .docx 再导");
+        if (!/\.(docx|txt|md|markdown|json)$/i.test(file.name || "")) throw new Error("请选择 .docx / .txt / .md / .json 文件");
+        const text = String(await readOfflineStyleDocument(file) || "").trim();
+        if (!text) continue;
+        let d = null; try { d = JSON.parse(text); } catch (_) {}
+        const list = d && !(d.name || d.data || d.persona || d.description) && typeof loreEntriesFromJson === "function" ? loreEntriesFromJson(d) : null;
+        if (list && list.length) { lore.push.apply(lore, list); continue; }
+        texts.push(files.length > 1 ? "【" + String(file.name || "").replace(/\.[a-z0-9]+$/i, "") + "】\n" + text : text);
+      }
+      if (!texts.length && !lore.length) throw new Error("文件里没有可导入的文字");
+      if (!texts.length) throw new Error("只选到了世界书，人设那份也一起选上");
+      setTxt(texts.join("\n\n")); setEdits({}); setExtraLore(lore);
     } catch (err) {
       setFileErr(String(err && err.message || "文件读取失败，请重新选择").replace(/文风/g, "角色卡"));
     } finally { setFileBusy(false); }
@@ -199,15 +219,16 @@ function CardImportSheet({ onImport, onClose, userName }) {
     h(Head, { zh: "导入角色卡", bg: "transparent", onBack: onClose }),
     h("div", { className: "flex-1 min-h-0 overflow-y-auto px-5 pb-10" },
       h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog, margin: "14px 0 10px", lineHeight: 1.65 } },
-        "整篇粘进来，或者直接选文件（.docx / .txt / .md / .json）。认得出常见 JSON 角色卡（v1/v2，卡里的世界书收成只给 TA 的世界书词条），也认「# / ## / **加粗** / 【】」这几种分节。{{char}}/{{user}} 会自动换掉，<START> 之后的对话示例不导入。拆得不对就在下面的预览里直接改。"),
+        "整篇粘进来，或者直接选文件（.docx / .txt / .md / .json，一次可以选好几份：人设拆成几份的按顺序接起来，单独的世界书 json 收成只给 TA 的世界书）。认得出常见 JSON 角色卡（v1/v2，卡里的世界书收成只给 TA 的世界书词条），也认「# / ## / **加粗** / 【】」这几种分节。{{char}}/{{user}} 会自动换掉，<START> 之后的对话示例不导入。拆得不对就在下面的预览里直接改。"),
       h("button", {
         onClick: () => fileRef.current && fileRef.current.click(), disabled: fileBusy,
         className: "w-full active:opacity-70",
         style: { marginBottom: 10, background: "transparent", color: t.ink, border: "1px solid " + t.line, borderRadius: 12, padding: "10px 0", fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))" }
       }, fileBusy ? "正在读文件…" : "从文件导入"),
-      h("input", { ref: fileRef, type: "file", accept: ANY_FILE, style: { display: "none" }, onChange: importFile }),
+      h("input", { ref: fileRef, type: "file", accept: ANY_FILE, multiple: true, style: { display: "none" }, onChange: importFile }),
+      extraLore.length ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog, marginBottom: 8 } }, "另外读到 " + extraLore.length + " 条世界书，导入时只绑给 TA") : null,
       fileErr ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.accent || t.ink, marginBottom: 8 } }, fileErr) : null,
-      h("textarea", { "data-wk": "textarea", value: txt, onChange: e => { setTxt(e.target.value); setEdits({}); }, rows: 10, placeholder: "在这里粘贴整篇角色卡…", style: { width: "100%", background: t.bg2, border: "1px solid " + t.line, borderRadius: 12, padding: "11px 13px", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.ink, resize: "none", lineHeight: 1.6 } }),
+      h("textarea", { "data-wk": "textarea", value: txt, onChange: e => { setTxt(e.target.value); setEdits({}); setExtraLore([]); }, rows: 10, placeholder: "在这里粘贴整篇角色卡…", style: { width: "100%", background: t.bg2, border: "1px solid " + t.line, borderRadius: 12, padding: "11px 13px", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.ink, resize: "none", lineHeight: 1.6 } }),
       p ? h("div", { "data-wk": "block", style: { marginTop: 12, padding: "12px 14px", borderRadius: 14, background: t.bg2, border: "1px solid " + t.line } },
         h(Eyebrow, { style: { marginBottom: 7 } }, p.from === "json" ? "解析预览 · 认出是 JSON 角色卡 · 可直接改" : "解析预览 · 可直接改"),
         h("div", { className: "flex items-center gap-2", style: { marginBottom: 5 } },
@@ -235,7 +256,8 @@ function CardImportSheet({ onImport, onClose, userName }) {
           if (!p || !persona.trim()) return;
           onImport(Object.assign({}, p, {
             name: val("name").trim(), tagline: val("tagline").trim(), persona: persona.trim(),
-            longMem: val("longMem").trim(), greeting: val("greeting").trim(), seeds: textToSeeds(val("seeds"))
+            longMem: val("longMem").trim(), greeting: val("greeting").trim(), seeds: textToSeeds(val("seeds")),
+            lore: (p.lore || []).concat(extraLore)
           }));
         },
         className: "w-full mt-4 active:opacity-70",
