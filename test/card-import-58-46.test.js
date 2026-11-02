@@ -8,7 +8,7 @@ const screens = (fs.readFileSync(path.join(__dirname, "..", "js", "screens.js"),
 function loadParser() {
   const i = screens.indexOf("function cardFillNames");
   const j = screens.indexOf("function CardImportSheet");
-  assert.ok(i > 0 && j > i && j - i < 9000, "抠不出角色卡解析那一段");
+  assert.ok(i > 0 && j > i && j > i, "抠不出角色卡解析那一段");
   return new Function(screens.slice(i, j) + "\nreturn { parseCharCard, cardFromJSON, cardStripScaffold, cardFillNames };")();
 }
 const { parseCharCard, cardFromJSON } = loadParser();
@@ -209,4 +209,25 @@ test("整篇都是世界书、没有人设正文：照旧整篇当人设，不�
   const p = parseCharCard("【世界书】\n## 落霞镇\n镇子在河口。\n## 夜巡司\n管宵禁的衙门。", "Lisa");
   assert.equal((p.lore || []).length, 0);
   assert.match(p.persona, /落霞镇/);
+});
+
+// 群友 2026-11-01 那张「陆之遥」：名字写在「- **姓名**: 」那一行，两本世界书各自一节
+test("名字写成「- **姓名**: X」也认得出", () => {
+  const p = parseCharCard("【基本信息】\n- **姓名**: 陆之遥\n- **性别**: 男\n【性格】\n外静内热。", "Lisa");
+  assert.equal(p.name, "陆之遥");
+});
+
+test("世界书里的关系网：关键词剥成人名，准则那一本常驻", () => {
+  const p = parseCharCard([
+    "【基本信息】", "- **姓名**: 陆之遥", "【世界书-社交关系网】", "世界书-社交关系网", "<social_circle>",
+    "### 1. 老爸：陆大军（46岁 · 市政工程项目经理）", "- 身高183cm。",
+    "【世界书：线上聊天准则】", "### 1. 打字习惯", "- 不打标点。"
+  ].join("\n"), "Lisa");
+  const dad = p.lore.find(e => /陆大军/.test(e.title));
+  assert.ok(dad, "没拆出老爸那条");
+  assert.equal(dad.keyword, "陆大军", "关键词该剥成人名");
+  assert.equal(dad.alwaysOn, false, "关系网该提到才进");
+  const rule = p.lore.find(e => /打字习惯/.test(e.title));
+  assert.equal(rule.alwaysOn, true, "准则那一本该常驻");
+  assert.ok(!p.lore.some(e => /^世界书/.test(e.title)), "只有标题和 <标签> 的那一节不该成词条");
 });

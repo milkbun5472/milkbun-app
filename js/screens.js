@@ -120,7 +120,7 @@ function parseCharCard(raw, userName) {
     // 「# X · 角色卡」「名字：X」「【姓名】X」「**姓名**：X」「名字「X」」，最后才退到第一个 # 标题
     // 「# X · 角色卡」：只在一行里找，名字里不带空格以外的分隔——原来 \s* 能跨行、又跟名字那段的空格重叠，长串空格回溯卡死
     let m = text.match(/^#[ \t]*([^\n·#|｜ \t][^\n·#|｜]{0,40}?)[ \t]*(?:[·|｜][ \t]*)?角色卡/m)
-      || text.match(/^[ \t]*(?:#{1,6}[ \t]*)?(?:(?:\*\*|[【\[〔])[ \t]*)?(?:名字|姓名|角色名|人物名|name)[ \t]*(?:(?:\*\*|[】\]〕])[ \t]*)?(?:[:：][ \t]*)?[「"'\[]?([^\n」"'\]]{1,20})/im)
+      || text.match(/^[ \t]*(?:[-*•+][ \t]*)?(?:#{1,6}[ \t]*)?(?:(?:\*\*|[【\[〔])[ \t]*)?(?:名字|姓名|角色名|人物名|name)[ \t]*(?:(?:\*\*|[】\]〕])[ \t]*)?(?:[:：][ \t]*)?[「"'\[]?([^\n」"'\]]{1,20})/im)
       || text.match(/名字[「"']([^」"']+)[」"']/)
       || text.match(/^#[ \t]*([^\n#]{1,20})[ \t]*$/m);
     if (m) out.name = m[1].trim().replace(/[*_`]/g, "");
@@ -139,11 +139,23 @@ function parseCharCard(raw, userName) {
     const tSec = find(["一句话", "标签", "tagline"]);
     if (loreSecs.length) {
       // 关键词从标题里剥出来：「### 1. 老爸：陆大军」要的是「陆大军」，不是整行
-      const kwOf = ttl => String(ttl).replace(/^[\d一二三四五六七八九十]+[、.．)）]\s*/, "").split(/[:：·]/).pop().trim().replace(/[（(].*$/, "").trim().slice(0, 24);
-      out.lore = (out.lore || []).concat(loreSecs.map((x, i) => x.body.trim() ? {
-        title: x.title.slice(0, 40), keyword: i ? kwOf(x.title) : "", payload: x.body.trim(),
-        category: "世界观", enabled: true, alwaysOn: !i
-      } : null).filter(Boolean));
+      const kwOf = ttl => String(ttl).replace(/^[\d一二三四五六七八九十]+[、.．)）]\s*/, "").replace(/[（(].*$/, "").split("·")[0].split(/[:：]/).pop().trim().slice(0, 24);
+      // 「世界书-社交关系网」这一节自己的正文往往只是把标题又写了一遍 + 一行 <xml 标签>，
+      //   那种不成一条词条，去掉；真有正文的才留。
+      const bodyOf = x => x.body.split("\n").filter(ln => {
+        const l = ln.trim();
+        return l && !/^<[^>]*>$/.test(l) && l !== x.title.trim();
+      }).join("\n").trim();
+      // 「准则/规矩」那一本管的是怎么说话，提不提到都得在场 → 常驻；
+      //   「关系网/设定」那一本是提到谁才翻的 → 拿标题当关键词。
+      const isHead = x => /世界书|世界观设定|设定集|词条|lorebook|world\s*info/i.test(x.title);
+      const always = x => /准则|规则|守则|规范|铁律|须知/.test(x.title);
+      let head = loreSecs[0];
+      out.lore = (out.lore || []).concat(loreSecs.map(x => {
+        if (isHead(x)) head = x;
+        const payload = bodyOf(x), on = always(head);
+        return payload ? { title: x.title.slice(0, 40), keyword: on ? "" : kwOf(x.title), payload: payload, category: "世界观", enabled: true, alwaysOn: on } : null;
+      }).filter(Boolean));
     }
     // 人设只取「人设」那一节，卡里的【生日】【外貌】【喜好】这些就全丢了（群友 2026-11-01：
     //   一万多字的 word 传上来只剩 600 字）。没被别的栏收走的分节，一律跟着人设一起留下。
