@@ -15,3 +15,4 @@ assert.match(eng, /P\.push\(CHARCARD_RULE\);/);
 assert.match(rule, /【每一轮看见新的，重心也换着走】/);
 assert.match(rule, /注意力落的地方换了没有/);
 assert.match(rule, /心里想的也要往前走/);
+assert.match(rule, /你自己上一拍也会变成出厂那一版/);
