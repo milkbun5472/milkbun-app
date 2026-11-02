@@ -231,3 +231,31 @@ test("世界书里的关系网：关键词剥成人名，准则那一本常驻",
   assert.equal(rule.alwaysOn, true, "准则那一本该常驻");
   assert.ok(!p.lore.some(e => /^世界书/.test(e.title)), "只有标题和 <标签> 的那一节不该成词条");
 });
+
+// 多认几套常见写法（她 2026-11-01：「你多做几套格式适配呢」）
+test("整段用 <persona> <first_mes> <world_info> 标签分块的卡也认", () => {
+  const p = parseCharCard("<persona>\n阿屿，海洋所读研二。\n</persona>\n<first_mes>\n……你也来看海？\n</first_mes>\n<world_info>\n=== 落霞镇 ===\n镇子在河口。\n■ 夜巡司\n管宵禁的衙门。\n</world_info>", "Lisa");
+  assert.match(p.persona, /海洋所读研二/);
+  assert.doesNotMatch(p.persona, /落霞镇|夜巡司/, "世界书并进人设了");
+  assert.equal(p.greeting, "……你也来看海？");
+  assert.equal(p.lore.length, 2);
+  assert.equal(p.lore[0].title, "落霞镇");
+});
+
+test("=== X === 和 ■ X 这两种分节也认", () => {
+  const secsOf = s => {
+    const i = screens.indexOf("const CARD_SEC_RE"), j = screens.indexOf("function parseCharCard");
+    const { splitDocSections } = new Function(screens.slice(i, j) + "\nreturn { splitDocSections };")();
+    return splitDocSections(s, []).filter(x => x.title && x.body.trim()).map(x => x.title);
+  };
+  assert.deepEqual(secsOf("=== 落霞镇 ===\n镇子在河口。\n=== 夜巡司 ===\n管宵禁的。"), ["落霞镇", "夜巡司"]);
+  assert.deepEqual(secsOf("■ 落霞镇\n镇子在河口。\n◆ 夜巡司\n管宵禁的。"), ["落霞镇", "夜巡司"]);
+});
+
+test("世界观/背景设定/关系网这几种叫法也当世界书", () => {
+  for (const ttl of ["世界观", "背景设定", "社交关系网", "world_info"]) {
+    const p = parseCharCard("【人设】\n海洋所读研。\n【" + ttl + "】\n## 落霞镇\n镇子在河口。", "Lisa");
+    assert.ok((p.lore || []).length >= 1, ttl + " 没当成世界书");
+    assert.doesNotMatch(p.persona, /镇子在河口/, ttl + " 并进人设了");
+  }
+});

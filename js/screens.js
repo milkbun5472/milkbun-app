@@ -89,7 +89,7 @@ function cardFromJSON(text) {
 // 后三种允许值写在【同一行】上（「【一句话】永安王」），那一段算这一节的正文头。
 // ⚠️每一支只留一段「吃到行尾」，首尾的空格和冒号拿到外面去剥（群里 2026-10-19「角色卡复制粘贴就卡死」）：
 //   原来写成 (.+?)[ \t]*[:：]?[ \t]*$，标题后面跟一长串空格时回溯是平方级以上，3000 个空格就卡一分多钟。
-const CARD_SEC_RE = /^[ \t]*(?:#{1,6}[ \t]*([^\n]+)|\*\*([^\n]+?)\*\*([^\n]*)|[【\[〔]([^\n]+?)[】\]〕]([^\n]*)|([一-龥A-Za-z][一-龥A-Za-z0-9_ ]{0,13})[ \t]*[:：]([^\n]*))$/gm;
+const CARD_SEC_RE = /^[ \t]*(?:#{1,6}[ \t]*([^\n]+)|\*\*([^\n]+?)\*\*([^\n]*)|[【\[〔]([^\n]+?)[】\]〕]([^\n]*)|[=＝─—━~*]{2,}[ \t]*([^\n=＝─—━~*]{1,30}?)[ \t]*[=＝─—━~*]{2,}|[■◆▼★※◎●□▲][ \t]*([^\n]{1,30})|([一-龥A-Za-z][一-龥A-Za-z0-9_ ]{0,13})[ \t]*[:：]([^\n]*))$/gm;
 // 带冒号那一种太宽（正文里随便一行「TA说：」也像），所以只认这些词
 const CARD_SEC_KWS = ["人设", "设定", "简介", "描述", "长期记忆", "初始记忆", "记忆库种子", "记忆种子", "种子", "记忆库", "开场白", "问候语", "第一句", "一句话", "标签", "外貌", "persona", "description", "memory", "greeting"];
 // 把一篇文档按分节标题切开：角色卡导入和跑团剧本导入共用这一把刀（one-public-mechanism）。
@@ -100,9 +100,9 @@ function splitDocSections(text, colonKws) {
   const push = (sec, until) => secs.push({ title: sec.title, body: (sec.pre ? sec.pre + "\n" : "") + text.slice(sec.end, until).trim() });
   CARD_SEC_RE.lastIndex = 0;
   while ((mm = CARD_SEC_RE.exec(text))) {
-    const title = (mm[1] || mm[2] || mm[4] || mm[6] || "").trim().replace(/[:：]$/, "").trim();
-    const pre = (mm[3] || mm[5] || mm[7] || "").trim().replace(/^[:：]/, "").trim();
-    if (mm[6] && !(colonKws || []).some(k => title.toLowerCase().includes(k))) continue;
+    const title = (mm[1] || mm[2] || mm[4] || mm[6] || mm[7] || mm[8] || "").trim().replace(/[:：]$/, "").trim();
+    const pre = (mm[3] || mm[5] || mm[9] || "").trim().replace(/^[:：]/, "").trim();
+    if (mm[8] && !(colonKws || []).some(k => title.toLowerCase().includes(k))) continue;
     if (!title) continue;
     if (last) push(last, mm.index); else firstAt = mm.index;
     last = { title: title, pre: pre, end: mm.index + mm[0].length };
@@ -116,7 +116,10 @@ function parseCharCard(raw, userName) {
   const asJson = cardFromJSON(text0);
   const out = asJson || { name: "", tagline: "", persona: "", longMem: "", seeds: [], greeting: "", hadExample: false, from: "text" };
   if (!asJson) {
-    const text = text0;
+    // 整段用 <persona>…</persona> <world_info>…</world_info> 这种标签分块的卡也认：
+    //   单独一行的开标签当成一节的标题，闭标签丢掉。大写的 <START> 不碰（那是对话示例的界碑）。
+    const text = text0.replace(/^[ \t]*<\/[a-z][a-z0-9_-]*>[ \t]*$/gm, "")
+      .replace(/^[ \t]*<([a-z][a-z0-9_-]*)>[ \t]*$/gm, (_, tag) => "## " + tag);
     // 「# X · 角色卡」「名字：X」「【姓名】X」「**姓名**：X」「名字「X」」，最后才退到第一个 # 标题
     // 「# X · 角色卡」：只在一行里找，名字里不带空格以外的分隔——原来 \s* 能跨行、又跟名字那段的空格重叠，长串空格回溯卡死
     let m = text.match(/^#[ \t]*([^\n·#|｜ \t][^\n·#|｜]{0,40}?)[ \t]*(?:[·|｜][ \t]*)?角色卡/m)
@@ -127,15 +130,15 @@ function parseCharCard(raw, userName) {
     const secs = splitDocSections(text, CARD_SEC_KWS);
     const find = kws => secs.find(s => kws.some(k => s.title.toLowerCase().includes(k)));
     // 先挑种子再挑长期记忆：「记忆库种子」里也含着「记忆」两个字
-    const sSec = find(["记忆库种子", "记忆种子", "记忆库", "种子"]);
-    const mSec = secs.find(s => !(sSec && s === sSec) && ["长期记忆", "初始记忆"].some(k => s.title.includes(k)));
+    const sSec = find(["记忆库种子", "记忆种子", "记忆库", "种子", "memory_seed"]);
+    const mSec = secs.find(s => !(sSec && s === sSec) && ["长期记忆", "初始记忆", "long_term_memory", "memory"].some(k => s.title.toLowerCase().includes(k)));
     // 一份文件里人设和世界书写在一起（群友 2026-11-01，小窝传上来的就是这种）：
     //   「世界书」这一节往下的分节，全归世界书，拿标题当关键词；不许一股脑并进人设。
-    const lIdx = secs.findIndex(x => /世界书|世界观设定|设定集|词条|lorebook|world\s*info/i.test(x.title));
+    const lIdx = secs.findIndex(x => /世界书|世界观|世界设定|背景设定|补充设定|设定集|关系网|词条|lore_?book|world_?(info|book|setting)|social_circle/i.test(x.title));
     const loreSecs = lIdx < 0 ? [] : secs.slice(lIdx).filter(x => x === secs[lIdx] || !["长期记忆", "初始记忆", "开场白", "问候语", "第一句", "记忆库种子", "记忆种子"].some(k => x.title.includes(k)));
     const isLore = x => loreSecs.indexOf(x) >= 0;
-    const pSec = secs.find(x => !isLore(x) && ["人设", "设定", "描述", "persona", "description"].some(k => x.title.toLowerCase().includes(k)));
-    const gSec = find(["开场白", "问候语", "第一句", "greeting"]);
+    const pSec = secs.find(x => !isLore(x) && ["人设", "设定", "描述", "简介", "persona", "description", "character", "profile"].some(k => x.title.toLowerCase().includes(k)));
+    const gSec = find(["开场白", "问候语", "第一句", "greeting", "first_mes", "first_message"]);
     const tSec = find(["一句话", "标签", "tagline"]);
     if (loreSecs.length) {
       // 关键词从标题里剥出来：「### 1. 老爸：陆大军」要的是「陆大军」，不是整行
@@ -173,7 +176,7 @@ function parseCharCard(raw, userName) {
         return { text: x.replace(/[〔\[【]\s*置顶\s*[〕\]】]/g, "").trim(), pinned };
       });
     }
-    if (!out.persona) out.persona = text.trim(); // 没认出结构：整篇当人设，名字留给她改
+    if (!out.persona) out.persona = text0.trim(); // 没认出结构：整篇当人设，名字留给她改
   }
   out.warnings = cardWarnings(text0, out.hadExample);
   // 占位符替换和例句脚手架，两条路（JSON 和纯文本）都要走一遍
