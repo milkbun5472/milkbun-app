@@ -9005,6 +9005,11 @@ function vGap(prevTs, ts, id) {
 //   最近两拍（从倒数第二条她的话起）原样；更早的只留事和原话：引号台词逐字照抄，
 //   叙述里开头那一句和收尾那一句不带，也不分段。纯程序处理，不经模型挑拣，事和话一样不丢。
 //   只在长文（沉浸长文或设了最低字数）时开，looseOld === false 关掉。
+// 正文里冒出字面的「\n」（她 2026-11-02 截图：段落之间印着 \n\n）：模型在 JSON 里把换行多转义了一层。
+//   单人和群线下解析正文都过这一道，换回真的换行。
+function offlineUnescapeNl(text) {
+  return String(text || "").replace(/\\r\\n|\\n/g, "\n").replace(/\\t/g, " ").trim();
+}
 function offlineLoosenOn(session) {
   return !!session && session.looseOld !== false && (session.lengthMode === "immersive" || offlineMinimumSceneChars(session.minWords) > 0);
 }
@@ -9561,9 +9566,9 @@ async function generateOffline(p, ctx, session) {
   // 自修那一档只差一半时别整轮报错（群里 2026-10-22「总显示模型没有响应终稿，换了两个站子都不行」）：
   //   人设卡带风险词时每轮都自动走「首稿→终稿」，模型常写完首稿就停（输出被截、或只写一个 scene）。
   //   缺终稿就用首稿，缺首稿就用终稿——两样都没有才算没写出来。
-  const draftScene = String(singlePassRevisionRequested ? (parsed.draftScene || parsed.scene || "") : (parsed.scene || sp.clean || "")).trim();
+  const draftScene = offlineUnescapeNl(String(singlePassRevisionRequested ? (parsed.draftScene || parsed.scene || "") : (parsed.scene || sp.clean || "")));
   if (!draftScene) throw new Error("模型没有返回有效的线下正文，请重试");
-  const singlePassFinalScene = singlePassRevisionRequested ? String(parsed.scene || parsed.draftScene || "").trim() : "";
+  const singlePassFinalScene = singlePassRevisionRequested ? offlineUnescapeNl(String(parsed.scene || parsed.draftScene || "")) : "";
   // 预检只能看见 user/history。角色可能在本轮首稿里自行跨越，因此草稿形成后必须再检一次；
   // 否则最需要编辑的第一条会以 false→false 直接漏进 history。
   const draftExplicit = !isDigital && offlineRegisterExplicitText(draftScene);
@@ -10258,7 +10263,7 @@ async function generateOfflineGroup(p, ctx, session) {
   if (!beats || !beats.length) beats = salvageOfflineGroupProse(sp.clean || raw, members);
   const out = beats.map(b => {
     const nm = String(b.name || "").trim();
-    const scene = String(b.scene || b.text || b.content || "").trim();
+    const scene = offlineUnescapeNl(String(b.scene || b.text || b.content || ""));
     const explicitNarrator = /^(旁白|narration|__narration)$/i.test(nm);
     const spk = explicitNarrator ? null : offlineGroupSpeaker(members, nm, scene);
     return {
