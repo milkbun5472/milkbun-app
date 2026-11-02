@@ -129,14 +129,25 @@ function parseCharCard(raw, userName) {
     // 先挑种子再挑长期记忆：「记忆库种子」里也含着「记忆」两个字
     const sSec = find(["记忆库种子", "记忆种子", "记忆库", "种子"]);
     const mSec = secs.find(s => !(sSec && s === sSec) && ["长期记忆", "初始记忆"].some(k => s.title.includes(k)));
-    const pSec = find(["人设", "设定", "描述", "persona", "description"]);
+    // 一份文件里人设和世界书写在一起（群友 2026-11-01，小窝传上来的就是这种）：
+    //   「世界书」这一节往下的分节，全归世界书，拿标题当关键词；不许一股脑并进人设。
+    const lIdx = secs.findIndex(x => /世界书|世界观设定|设定集|词条|lorebook|world\s*info/i.test(x.title));
+    const loreSecs = lIdx < 0 ? [] : secs.slice(lIdx).filter(x => x === secs[lIdx] || !["长期记忆", "初始记忆", "开场白", "问候语", "第一句", "记忆库种子", "记忆种子"].some(k => x.title.includes(k)));
+    const isLore = x => loreSecs.indexOf(x) >= 0;
+    const pSec = secs.find(x => !isLore(x) && ["人设", "设定", "描述", "persona", "description"].some(k => x.title.toLowerCase().includes(k)));
     const gSec = find(["开场白", "问候语", "第一句", "greeting"]);
     const tSec = find(["一句话", "标签", "tagline"]);
+    if (loreSecs.length) {
+      out.lore = (out.lore || []).concat(loreSecs.map((x, i) => x.body.trim() ? {
+        title: x.title.slice(0, 40), keyword: i ? x.title.slice(0, 40) : "", payload: x.body.trim(),
+        category: "世界观", enabled: true, alwaysOn: !i
+      } : null).filter(Boolean));
+    }
     // 人设只取「人设」那一节，卡里的【生日】【外貌】【喜好】这些就全丢了（群友 2026-11-01：
     //   一万多字的 word 传上来只剩 600 字）。没被别的栏收走的分节，一律跟着人设一起留下。
     if (pSec) {
       const named = s => /名字|姓名|角色名|人物名|角色卡/.test(s.title) || /^name$/i.test(s.title);
-      const keep = secs.filter(s => s !== sSec && s !== mSec && s !== gSec && s !== tSec && !named(s) && s.body.trim());
+      const keep = secs.filter(s => s !== sSec && s !== mSec && s !== gSec && s !== tSec && !named(s) && !isLore(s) && s.body.trim());
       out.persona = keep.length <= 1 ? pSec.body.trim()
         : [secs.lead || ""].concat(keep.map(s => "【" + s.title + "】\n" + s.body.trim())).filter(x => x.trim()).join("\n\n");
     }

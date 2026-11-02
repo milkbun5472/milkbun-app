@@ -182,3 +182,15 @@ test("Word 写的世界书按它自己的分节拆成一条条", () => {
   assert.equal(secs[0].title, "落霞镇");
   assert.match(secs[2].body, /母亲留的/);
 });
+
+// 群友 2026-11-01：小窝传的是一整份，人设和世界书写在同一个文件里
+test("一份文件里人设带着世界书：世界书那几节单拆成词条，不并进人设", () => {
+  const p = parseCharCard("【姓名】阿屿\n【人设】海洋所读研。\n【世界书】\n【落霞镇】镇子在河口，常年起雾。\n【夜巡司】管宵禁的衙门。", "Lisa");
+  assert.equal(p.name, "阿屿");
+  assert.match(p.persona, /海洋所读研/);
+  assert.doesNotMatch(p.persona, /落霞镇|夜巡司/, "世界书被并进人设了");
+  assert.equal((p.lore || []).length, 2);
+  assert.equal(p.lore[0].title, "落霞镇");
+  assert.equal(p.lore[0].keyword, "落霞镇");
+  assert.match(p.lore[1].payload, /管宵禁/);
+});
