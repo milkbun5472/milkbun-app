@@ -187,14 +187,20 @@ function CardImportSheet({ onImport, onClose, userName }) {
   // 一份人设拆成好几个文件是常事（群友 2026-11-01：人设一份、自带世界书一份）。
   //   一次选上，每一份自己点是人设还是世界书：人设那几份按选中顺序接起来，
   //   世界书那几份收成只绑这个角色的词条（json 按词条拆，txt/docx 整份当一条）。
+  // Word/txt 的世界书照它自己的分节拆成一条条（【地名】## 组织 **势力** 这几种都认），
+  //   拆不出两节以上就整份当一条常驻。拆出来的按标题当关键词，提到才进。
+  const loreFromPicked = f => {
+    if (f.lore && f.lore.length) return f.lore;
+    const secs = splitDocSections(f.text, []).filter(x => x.title && x.body.trim());
+    if (secs.length < 2) return [{ title: f.title, payload: f.text, category: "世界观", alwaysOn: true, enabled: true }];
+    return secs.map(x => ({ title: x.title.slice(0, 40), keyword: x.title.slice(0, 40), payload: x.body.trim(), category: "世界观", alwaysOn: false, enabled: true }));
+  };
   const applyPicked = list => {
     const texts = [], lore = [];
     const many = list.filter(f => f.as === "persona").length > 1;
     list.forEach(f => {
-      if (f.as === "lore") {
-        if (f.lore && f.lore.length) lore.push.apply(lore, f.lore);
-        else lore.push({ title: f.title, payload: f.text, category: "世界观", alwaysOn: true, enabled: true });
-      } else texts.push(many ? "【" + f.title + "】\n" + f.text : f.text);
+      if (f.as === "lore") lore.push.apply(lore, loreFromPicked(f));
+      else texts.push(many ? "【" + f.title + "】\n" + f.text : f.text);
     });
     setPicked(list); setTxt(texts.join("\n\n")); setEdits({}); setExtraLore(lore);
     setFileErr(texts.length ? "" : "这几份都点成世界书了，人设那一份点回「人设」");
@@ -242,7 +248,8 @@ function CardImportSheet({ onImport, onClose, userName }) {
       picked.length ? h("div", { "data-wk": "block", style: { marginBottom: 10, padding: "9px 11px", borderRadius: 12, background: t.bg2, border: "1px solid " + t.line } },
         h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, marginBottom: 6 } }, "这几份各是什么？点一下能改" + (extraLore.length ? "；世界书导入时只绑给 TA" : "")),
         picked.map((f, i) => h("div", { key: i, className: "flex items-center gap-2", style: { marginBottom: 5 } },
-          h("span", { className: "flex-1 min-w-0 truncate", style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.ink } }, f.title),
+          h("span", { className: "flex-1 min-w-0 truncate", style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.ink } },
+            f.title + (f.as === "lore" ? "（" + loreFromPicked(f).length + " 条）" : "")),
           ["persona", "lore"].map(k => h("button", {
             key: k, onClick: () => applyPicked(picked.map((x, n) => n === i ? Object.assign({}, x, { as: k }) : x)),
             className: "active:opacity-70",

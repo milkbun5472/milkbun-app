@@ -172,3 +172,13 @@ test("导入角色卡能一次选好几份文件，单独的世界书 json 跟�
   assert.match(sheet, /category: "世界观"/, "点成世界书的 txt\/docx 没收成词条");
   assert.match(sheet, /lore: \(p\.lore \|\| \[\]\)\.concat\(extraLore\)/, "另选的世界书没带进导入");
 });
+
+test("Word 写的世界书按它自己的分节拆成一条条", () => {
+  const i = screens.indexOf("const CARD_SEC_RE"), j = screens.indexOf("function parseCharCard");
+  assert.ok(i > 0 && j > i, "抠不出分节那一段");
+  const { splitDocSections } = new Function(screens.slice(i, j) + "\nreturn { splitDocSections };")();
+  const secs = splitDocSections("【落霞镇】镇子在河口，常年起雾。\n【夜巡司】管宵禁的衙门。\n【银钉】他左耳那颗，母亲留的。", []).filter(x => x.title && x.body.trim());
+  assert.equal(secs.length, 3, "没拆开");
+  assert.equal(secs[0].title, "落霞镇");
+  assert.match(secs[2].body, /母亲留的/);
+});
