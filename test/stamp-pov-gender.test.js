@@ -11,3 +11,7 @@ test("发给他看带的是卡页上正开着的那一面", () => {
   assert.match(ui, /onSend\(Object\.assign\(\{\}, card, \{ sendFace:/);
   assert.match(src, /face: card\.sendFace \|\| card\.face \|\| card\.faceAlt/);
 });
+test("卡名有一句判断，R/SR 和 SSR 都带", () => {
+  assert.match(src, /const STAMP_NAME_RULE = "/);
+  assert.strictEqual((src.match(/" \+ STAMP_NAME_RULE \+ "/g) || []).length, 2);
+});
