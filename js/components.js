@@ -11706,7 +11706,7 @@ function ChatThread({
     //   （她 2026-10-17 转群友：「他往后发，但我们的屏幕可以停在第一条，要不然太眼花了」）。
     //   她自己一发言就重新开始一轮、照常跟到底
     const _last = messages[messages.length - 1];
-    if (!_last || _last.role === "user") turnTopRef.current = null;
+    if (!_last || _last.role === "user" || (nb.chased && nb.chased.current)) turnTopRef.current = null;
     else if (turnTopRef.current == null) turnTopRef.current = _prevH;
     else {
       const top = Math.max(0, turnTopRef.current - 56);
@@ -14343,6 +14343,9 @@ function giftFmtLeft(ms) {
 //   单聊、群聊共用这一份（施工规则/one-public-mechanism.md）。
 function useNewBelow(ref, resetKey) {
   const atBottomRef = useRef(true), seenLenRef = useRef(null);
+  // 她点过「↓ N 条新消息」（她 2026-11-04：「这轮还在生成就一直跳回来」）：这一轮剩下的都跟到底，
+  //   不再照「停在这一轮第一条」那条规矩把她拉回去；她自己一发言就清掉
+  const chasedRef = useRef(false);
   const [newBelow, setNewBelow] = useState(0);
   useEffect(() => {
     const el = ref.current; if (!el) return;
@@ -14356,13 +14359,14 @@ function useNewBelow(ref, resetKey) {
     if (seenLenRef.current == null) { seenLenRef.current = len; return true; }
     const added = len - seenLenRef.current; seenLenRef.current = len;
     const last = messages[len - 1];
+    if (last && last.role === "user") chasedRef.current = false;
     if (!atBottomRef.current && added > 0 && !(last && last.role === "user")) { setNewBelow(n => n + added); return false; }
     // 没来新消息、她又不在底下（「正在输入」冒出来／收起来那一拍，群友 2026-10-31：「往上翻着又被拽下去了」）：原地不动
     if (!atBottomRef.current && added <= 0) return false;
     setNewBelow(0); return true;
   };
-  const go = () => { const el = ref.current; if (el) el.scrollTo({ top: el.scrollHeight, behavior: "smooth" }); setNewBelow(0); };
-  return { newBelow, follow, go };
+  const go = () => { const el = ref.current; chasedRef.current = true; if (el) el.scrollTo({ top: el.scrollHeight, behavior: "smooth" }); setNewBelow(0); };
+  return { newBelow, follow, go, chased: chasedRef };
 }
 function NewBelowPill({ n, onGo, group }) {
   const t = useTheme();
