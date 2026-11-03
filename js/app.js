@@ -25953,6 +25953,22 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   };
   // 评论懒加载：点进帖子若无缓存，一次调用生成 12-18 楼（含楼中楼），存缓存，再点不重复调 API。
   // 只有首批保留「陆续露面」：内容已经整批生成，只是 visibleAt 分批放出来。
+  // 模型交回来的楼（她 2026-11-03 截图：整个评论区变成「（还没人接话）」底下一串楼中楼）：
+  //   有时整批塞进一条空楼的 replies 里、有时字段叫 text/body——原来只认 content，于是首批一条都没认出来，落成占位楼，
+  //   下一轮「更多评论」又把新的全挂到那条占位楼底下。这里一处认全：空楼的楼中楼拆出来各成一楼，text/body 也算正文。
+  const FORUM_EMPTY_FLOOR = "（还没人接话）";
+  const forumRawComments = d => {
+    const arr = d && Array.isArray(d.comments) ? d.comments : d && Array.isArray(d.floors) ? d.floors : (Array.isArray(d) ? d : []);
+    const out = [];
+    arr.forEach(x => {
+      if (!x || typeof x !== "object") return;
+      const body = x.content || x.text || x.body || "";
+      if (String(body).trim()) { out.push(body === x.content ? x : { ...x, content: body }); return; }
+      (Array.isArray(x.replies) ? x.replies : []).forEach(r => { const rb = r && (r.content || r.text || r.body); if (rb && String(rb).trim()) out.push({ ...r, content: rb, replies: [] }); });
+    });
+    return out;
+  };
+  const isForumEmptyFloor = f => !!f && f.content === FORUM_EMPTY_FLOOR && !(f.replies || []).length;
   const loadForumComments = async post => {
     if (forumCommentsRef.current[post.id]) return; // 已缓存
     if (!active) return;
@@ -25964,8 +25980,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     try {
       const d = await runProbeRetry(active, forumWorldCtx((post.title || "") + "\n" + (post.body || ""), forumThreadWorld(post)), forumCommentProbe(post, "12-18"));
       if (!forumCommentsRef.current[post.id]) { // 等待期间别处已写入 → 保留先到的，绝不覆盖
-        let cs = (d && Array.isArray(d.comments) ? d.comments : (Array.isArray(d) ? d : [])).filter(x => x && x.content);
-        if (!cs.length) cs = [{ authorName: "沙发", content: "（还没人接话）", replies: [] }];
+        let cs = forumRawComments(d);
+        if (!cs.length) cs = [{ authorName: "沙发", content: FORUM_EMPTY_FLOOR, replies: [] }];
         const base = Date.now();
         const salt = forumHash(post.id) % 5;
         const list = dropRepeatCharFloors([], cs.map((x, i) => buildForumFloor(x, i + 2, base, i, post)).filter(Boolean)).map((f, i) => ({
@@ -26018,14 +26034,14 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       const repliedChars = forumRepliedCharCells(existing);
       const d = await runProbeRetry(active, forumWorldCtx((post.title || "") + "\n" + (post.body || ""), forumThreadWorld(post)), forumCommentProbe(post, "10-16", { round2: true, existingFloors: existing, repliedChars }));
       forumPinFromModel(post, d, existing);
-      let cs = (d && Array.isArray(d.comments) ? d.comments : (Array.isArray(d) ? d : [])).filter(x => x && x.content);
+      let cs = forumRawComments(d);
       if (!cs.length) throw new Error("没有更多");
       // 新楼从【旧队列最后一条之后】起排：这样它一定排在所有旧楼后面，
       // 「新回复接一段她看不见的空气」那个顾虑就不成立了，也不必把旧的倒空。
       const lastQueued = beforeFlush.reduce((n, f) => Math.max(n, Number(f && f.visibleAt || 0)), 0);
       const base = Math.max(Date.now(), lastQueued + 1,
         existing.reduce((n, f) => Math.max(n, Number(f && f.ts || 0)), 0) + 1);
-      const floorByNum = new Map(existing.map(f => [f.floor, f]));
+      const floorByNum = new Map(existing.filter(f => !(f && f.content === FORUM_EMPTY_FLOOR)).map(f => [f.floor, f]));   // 占位楼不接楼中楼：接它的话各自成楼
       const newRaw = [], subInserts = [];   // subInserts: {floorId, reply}
       cs.forEach(x => {
         const tf = Number(x.reply_to_floor);
@@ -26057,7 +26073,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
           const adds = subInserts.filter(s => s.floorId === f.id).map(s => s.reply);
           return adds.length ? { ...f, replies: [...(f.replies || []), ...adds] } : f;
         });
-        list = forumFloorOrder([...list, ...more]);
+        list = forumFloorOrder([...(more.length ? list.filter(f => !isForumEmptyFloor(f)) : list), ...more]);   // 真楼来了，占位楼退场
         const n = { ...prev, [post.id]: list }; saveForumComments(n); return n;
       });
       bumpReplyBy(post.id, more.length + subInserts.length);

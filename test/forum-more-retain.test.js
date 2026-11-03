@@ -28,6 +28,8 @@ function fixture() {
     forumInWorld: () => true, forumThreadWorld: () => "",
     // 评论置顶（2026-11-02）：楼主角色回帖时那一栏；这份测放楼顺序，帖主不是角色，照写的那一头它什么都不做
     forumPinFromModel: () => {},
+    // 楼的认法（2026-11-03）：照写的那一头取
+    ...new Function(app.slice(app.indexOf('  const FORUM_EMPTY_FLOOR'), app.indexOf('  const loadForumComments')) + ';return {FORUM_EMPTY_FLOOR, forumRawComments, isForumEmptyFloor};')(),
     runProbeRetry: () => { calls++; return new Promise((resolve, reject) => {finish=resolve; fail=reject;}); }
   };
   const code = new Function(...Object.keys(deps), ordering + writer + manual + '\nreturn {buildForumFloor,genMoreComments};')(...Object.values(deps));
