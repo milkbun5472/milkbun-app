@@ -56,3 +56,7 @@ test("限时池分镜里的衣服看得出在过节", () => { assert.match(src, 
 test("限时池画卡面时，衣服那一格写死要过节的那一身", () => {
   assert.ok((src.match(/"这一张不穿平时的衣服：穿过「"/g) || []).length >= 2);
 });
+test("锁了衣服的那张，人设和参考照里的衣服不算", () => {
+  const eng = fs.readFileSync(__dirname + "/../js/engine.js", "utf8");
+  assert.match(eng, /这一张的衣服只看后面的服装锁：人设、外貌里写的常穿衣物和参考照里那身衣服都不算/);
+});
