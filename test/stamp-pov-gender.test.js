@@ -60,3 +60,6 @@ test("锁了衣服的那张，人设和参考照里的衣服不算", () => {
   const eng = fs.readFileSync(__dirname + "/../js/engine.js", "utf8");
   assert.match(eng, /这一张的衣服只看后面的服装锁：人设、外貌里写的常穿衣物和参考照里那身衣服都不算/);
 });
+test("限时池画卡面时分镜里的衣服拿掉", () => {
+  assert.match(src, /card\.limited \? String\(tx\.shot \|\| ""\)\.replace\(\/\(\?:outfit/);
+});
