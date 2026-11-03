@@ -48,3 +48,8 @@ test("进群记住几条没看，群里挂一颗跳到第一条没看的",()=>{
   assert2.equal(f({ role: "assistant", content: "x" }), true);
   assert2.match(app2, /h\(GroupThread, \{\n[^\n]*\n    key: "g::" \+ activeGroup\.id,/);
 }
+require("node:test")("自己翻上去、第一条新消息露在屏幕上了，「↑ N 条新消息」就收起", () => {
+  const assert = require("node:assert/strict"), c = require("fs").readFileSync(require("path").join(__dirname, "..", "js", "components.js"), "utf8");
+  assert.match(c, /const row = Array\.from\(el\.querySelectorAll\("\[data-i\]"\)\)\.find\(x => Number\(x\.getAttribute\("data-i"\)\) >= idx\);/);
+  assert.match(c, /if \(row && row\.getBoundingClientRect\(\)\.top >= top - 4\) onOpenUnreadDone\(\);/);
+});

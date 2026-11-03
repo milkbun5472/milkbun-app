@@ -20317,6 +20317,17 @@ function GroupThread({
   useLocateAt(locateAt, onLocated, messages, revealMsg, ref, archCount, winStartRef, false);
   // 新消息跟不跟到底：跟单聊同一份 useNewBelow
   const nb = useNewBelow(ref, group && group.id);
+  // 她自己翻上去、第一条新消息已经露在屏幕上了：那颗「↑ N 条新消息」就收起（她 2026-11-04 截图：翻上去看过了它还挂着）
+  useEffect(() => {
+    const el = ref.current; if (!el || !(openUnread > 0) || !onOpenUnreadDone) return;
+    const check = () => {
+      const idx = gFirstUnreadIdx(messages, openUnread), top = el.getBoundingClientRect().top;
+      const row = Array.from(el.querySelectorAll("[data-i]")).find(x => Number(x.getAttribute("data-i")) >= idx);
+      if (row && row.getBoundingClientRect().top >= top - 4) onOpenUnreadDone();
+    };
+    el.addEventListener("scroll", check, { passive: true });
+    return () => el.removeEventListener("scroll", check);
+  }, [openUnread, messages.length]);
   const shrank = useShrank(group && group.id);
   useEffect(() => {
     const el = ref.current;
