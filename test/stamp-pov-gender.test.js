@@ -43,3 +43,7 @@ test("限时池照开池那天的写法写", () => {
   assert.match(src, /if \(card\.limited\) return pastLine \+ \(card\.timeAt \? stampTimeLine\(card\) : ""\)/);
   assert.match(src, /if \(card\.limited\) return[^;]*themeLook/s);
 });
+test("重写时不把这张自己的旧版本给他看", () => {
+  assert.match(src, /stampPrev\(char\.id, list\.map\(c => c\.id\)\)/);
+  assert.match(src, /stampPrev\(char\.id, \[c\.id\]\)/);
+});
