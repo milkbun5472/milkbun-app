@@ -54,3 +54,4 @@ test("册子里正在重写的卡有标记", () => {
   const ui = fs.readFileSync(__dirname + "/../js/stamps.js", "utf8");
   assert.match(ui, /"data-wk": "stamprewriting"/);
 });
+test("限时池卡名看得出是这一期", () => { assert.match(src, /"卡名一看就知道是「" \+ card\.theme \+ "」这一期的卡。"/); });
