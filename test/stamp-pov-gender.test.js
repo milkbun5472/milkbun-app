@@ -31,3 +31,8 @@ test("R 卡心里那句摆在时刻回廊下面，不塞进「那一刻」", () 
   assert.match(ui, /card\.rarity === "R" \? card\.text\.thought/);
   assert.match(ui, /zh: "那一刻", lv: 1, body: h\("div", null, para\(tx\.narration \|\| ""\)\)/);
 });
+test("限时池卡照这一期现在的主题说明写和画，分镜里的常服会被换掉", () => {
+  assert.match(src, /const stampLim = card =>/);
+  assert.ok(!/[^(]card\.themeLook/.test(src.replace(/const stampLim[^\n]*/, "")));
+  assert.match(src, /分镜里写的衣服是他平时的常服、看不出这个主题时，照这一条换掉/);
+});

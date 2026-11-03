@@ -17612,7 +17612,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       const pastLine = past.length ? "\n往年的「" + card.theme + "」你也过过，那时的卡：\n" + past.join("\n") + "\n今年写别的事、别的走向；你们的关系要是变了，今年的「" + card.theme + "」也该跟那时不一样。可以自然想起往年，但不必每张都提。" : "";
       // 限时主题都用「你们俩」这层来看（她 2026-10-27：「整体还是要放在我和他的关系」）；角色池她自己写的主题不加
       const lens = card.limited ? "\n这一期的主题是你们俩的：在这样的世界、这样的日子里，你们之间是什么样——她在你这段日子里是什么位置、你们怎么遇见、怎么相处、为彼此做了什么或没说出口什么。R 是她不在场时你的一刻，但看得出这段日子里有她，不必每张都提她；SR、SSR 就是你们俩之间的事。关系照你们现在真实走到的那一步来，还没在一起就不写成恋人。" : "";
-      return pastLine + lens + (card.timeAt ? stampTimeLine(card) : "") + "这是一张【IF 卡】，主题是「" + card.theme + "」" + (card.themeLine ? "：" + card.themeLine : "。")
+      return pastLine + lens + (card.timeAt ? stampTimeLine(card) : "") + "这是一张【IF 卡】，主题是「" + card.theme + "」" + (stampLim(card).themeLine ? "：" + stampLim(card).themeLine : "。")
         + "写的是「如果」的你，不是真发生的事。先想清楚你是哪个世界、哪个年代的人，" + mode
         // 主题跟他自己的世界本来就是同一种（她 2026-10-26：西幻主题撞上本来就是西幻的人）：世界不换，换他这个人
         + "主题跟你自己的世界本来就是同一种（时代、风格都对得上）的话，就别再写你原来的身份——世界不换，换的是你：要是你走了另一条路，在这个世界里会是谁。"
@@ -17646,6 +17646,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   // 写卡的公共底子：跟线下、同人文同一套叙事规矩；排序也写明——人对了比戏好看要紧
   const STAMP_CORE = () => (typeof narrativeCore === "function" ? narrativeCore({ intimate: true }) + "\n\n" : "")
     + "写卡的先后：先是你这个人对不对，再是跟你的世界、你们现在的关系对不对，再是写的是不是一件具体的事，再是跟别的卡是不是不一样，最后才是好不好看。戏剧效果跟你会怎么做对不上时，照你会怎么做；没有冲突、没有告白、没有高潮也可以。\n\n";
+  // 限时池的主题说明照这一期【现在】写的那份走，不照抽到那会儿存在卡上的旧字（她 2026-11-03：改了万圣夜的要求，重写还是常服）
+  const stampLim = card => { const L = card && card.limited && window.StampsCore && window.StampsCore.LIMITED; const x = L && L.find(e => e.id === card.limited); return x ? Object.assign({}, card, { themeLine: x.line || card.themeLine, themeLook: x.look || card.themeLook }) : card; };
   const StampsCoreSafe = () => (window.StampsCore ? window.StampsCore.load() : { cards: [] });
   // 聊天里那张小卡要的东西（不带整段正文，正文在 content 里给他读）
   const stampShareOf = card => { const tx = card.text || {}; return { id: card.id, name: tx.name || "", rarity: card.rarity, kind: card.kind, theme: card.theme || "", line: tx.line || tx.thought || "", face: card.sendFace || card.face || card.faceAlt || "" }; };
@@ -17844,7 +17846,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       const paint = String(((StampsCoreSafe().opt || {}).paint) || "").trim();
       let scene = "一张横版的乙游番外 CG：「" + (x.title || "") + "」。平时会裁成竖的、只显示正中间那一块当卡面，所以主要的人和动作放在画面正中间那三分之一，左右两边是场景和氛围。这一下：" + (x.shot || String(x.text).slice(-300)) + "\n景别拉开到看得见这一刻在哪、什么光，不是一张脸部近照。"
         + (duo ? "画面里是你们两个人。" + (lover ? "你们是恋人，距离和手就是恋人的样子。" : "你们之间是什么关系就是什么距离，不画成恋人。") : "画面里只画你一个人。") + "\n画面里不要任何文字。";
-      if (card.kind === "if") scene += "\n这张是 IF「" + (card.theme || "") + "」" + (card.themeLine ? "：" + String(card.themeLine).slice(0, 300) : "") + "。" + (card.themeLook || "") + "衣服、场景和光照这个主题来。他的长相照他本人，主题只换衣服、场景和道具。";
+      if (card.kind === "if") scene += "\n这张是 IF「" + (card.theme || "") + "」" + (stampLim(card).themeLine ? "：" + String(stampLim(card).themeLine).slice(0, 300) : "") + "。" + (stampLim(card).themeLook || "") + "衣服、场景和光照这个主题来。他的长相照他本人，主题只换衣服、场景和道具。";
       const base = Object.assign({}, char, { photoOutfit: "" });
       const prompt = buildPhotoPrompt(paint === "real" ? Object.assign({}, base, { photoStyle: "realistic" }) : base, scene, Object.assign({}, st, { wearing: "", wearingUpdatedAt: 0 }),
         Object.assign(duo ? { kind: "duo", me: meP, notLover: !lover } : { kind: "other" }, { shotLine: stampCam() + "这张番外 CG 里他的脸一定要看得见：正脸或者侧脸，不拍背影、不拍后脑勺；两个人在一起时，镜头在他们对面或者斜对面，不从他身后越肩拍。" }, { closet: "" }, paint && paint !== "real" ? { paint } : {}));
@@ -17923,7 +17925,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         + "\n画面里不要任何文字。" + (duo ? "" : "\n这是他的单人卡面。如果画到她从镜头这边伸进画面的手（第一人称视角，比如被他牵着），要看得出是她的手：手腕连着一截小臂，从画面下沿或侧边自然伸进来，袖口看得见，不是凭空飘着的半截手。");   // 她 2026-10-27：喜欢这种第一人称牵手，只是别像断掉的半截手
       // IF 主题只换衣服、场景、道具；他的脸、发色、瞳色、身材照他本人，不为贴合主题改（她 2026-10-25：恶魔主题把金发画成了黑发）
       // IF 卡每一面都要看得出是哪个主题（她 2026-10-25：万圣夜的满级双人卡面画成了普通卧室）
-      const keepLook = card.kind === "if" ? "\n这张是 IF「" + (card.theme || "") + "」" + (card.themeLine ? "：" + String(card.themeLine).slice(0, 500) : "") + "。" + (card.themeLook ? card.themeLook : "") + "衣服、场景、道具和光都照这个主题来，一眼看得出是这个主题" + (duo ? "，画里两个人的打扮都是" : "") + "。"
+      const keepLook = card.kind === "if" ? "\n这张是 IF「" + (card.theme || "") + "」" + (stampLim(card).themeLine ? "：" + String(stampLim(card).themeLine).slice(0, 500) : "") + "。" + (stampLim(card).themeLook ? stampLim(card).themeLook : "") + "衣服、场景、道具和光都照这个主题来，一眼看得出是这个主题；分镜里写的衣服是他平时的常服、看不出这个主题时，照这一条换掉" + (duo ? "，画里两个人的打扮都是" : "") + "。"
         + "他的长相照他本人：发色、发型、瞳色、五官和身材都不变，主题只换衣服、场景和道具。" : "";
       scene += keepLook;
       const freeFit = card.kind === "if" || card.kind === "bday" || card.kind === "mybday" || card.kind === "anniv";   // 这几种衣服不走衣柜（先定义：下面她那份也要用）
@@ -35459,7 +35461,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     onReshot: stampReshot,
     // 接着演（她 2026-10-27）：把这张卡写了什么打包交给小剧场，开一条从卡来的线；或者打开从这张卡开过的某一条
     onTheater: card => { const tx = card.text || {}, ends = (tx.sections || []).filter(x => x && (x.end || x.hidden)).map(x => "「" + (x.title || "") + "」" + (x.beats || []).filter(b => b && b.who !== "pick").slice(-4).map(b => String(b.text || "").slice(0, 100)).join(" / ")).join("\n");
-      const text = ["卡名：" + (tx.name || ""), card.kind === "if" ? "IF 主题：" + (card.theme || "") + (card.themeLine ? "：" + String(card.themeLine).slice(0, 300) : "") : "", tx.gist ? "写的是：" + tx.gist : "",
+      const text = ["卡名：" + (tx.name || ""), card.kind === "if" ? "IF 主题：" + (card.theme || "") + (stampLim(card).themeLine ? "：" + String(stampLim(card).themeLine).slice(0, 300) : "") : "", tx.gist ? "写的是：" + tx.gist : "",
         card.rarity === "SSR" ? (tx.highlight ? "最想留住的一刻：" + tx.highlight : "") + (ends ? "\n几个结局：\n" + ends.slice(0, 1500) : "") : [tx.open, tx.rest, tx.sequel].filter(Boolean).join("\n").slice(0, 1500),
         tx.hidden ? "他藏着没说的：" + tx.hidden : "", tx.line ? "卡上那句：" + tx.line : ""].filter(Boolean).join("\n");
       window.__theaterReturn = { cardId: card.id }; window.__theaterHandoff = { fromCard: { cardId: card.id, charId: card.charId, kind: card.kind, rarity: card.rarity, theme: card.theme || "", name: tx.name || "", text } }; setScreen("theater"); },
