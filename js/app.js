@@ -15265,9 +15265,11 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   //   跟单聊 drawChatSelfie 同一件事，群里多一个点名单 gCast（合照的那几张脸），存在消息上，重拍时原样带回来。
   const drawGroupSelfie = async ({ groupId, spk, gsid, gPhotoKind, gPhotoScene, gCast, keySuffix }) => {
     // TA 帮我拍：被拍的是她（见 meSubject），照「别人拍的」那一档画；存图的键还挂在拍照的那位名下
-    const meShot = gPhotoKind === "me";
+    // myself／myshot：她自己在群里发的自拍、别人拍的她（群友 2026-11-04）——照这个群用的那张面具画，没有谁的视角
+    const mySelf = gPhotoKind === "myself" || gPhotoKind === "myshot";
+    const meShot = gPhotoKind === "me" || mySelf;
     const sub = meShot ? meSubject(spk, "对方", "g:" + groupId) : spk;
-    if (meShot) gPhotoKind = "other";
+    if (meShot) gPhotoKind = gPhotoKind === "myself" ? "self" : "other";
     try {
       const st = (statesRef.current || {})[spk.id] || {};
       const me = photoMe("对方", "g:" + groupId);
@@ -15278,7 +15280,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         : gCast ? gCast.map(x => x.refPhoto)
         : gPhotoKind === "duo" ? [spk.refPhoto, (meOfGroup(groupId) || {}).refPhoto].filter(Boolean)
         : [sub.refPhoto].filter(Boolean);
-      const gPhotoOpts = gCast ? { kind: "duo", me, cast: gCast, closet: closetTextFor(spk.id) } : { kind: gPhotoKind, me, closet: meShot ? sub._closet : closetTextFor(spk.id), pov: meShot ? povFor(spk) : null };
+      const gPhotoOpts = gCast ? { kind: "duo", me, cast: gCast, closet: closetTextFor(spk.id) } : { kind: gPhotoKind, me, closet: meShot ? sub._closet : (spk.id ? closetTextFor(spk.id) : ""), pov: meShot && !mySelf ? povFor(spk) : null };
       const prompt = gIsView ? buildScenePrompt(spk, gPhotoScene, { forText: false }) : gIsPart ? buildScenePrompt(spk, gPhotoScene, { body: true }) : buildPhotoPrompt(sub, gPhotoScene, st, gPhotoOpts);
       const gMinimal = gNoFace ? null : buildMinimalPhotoPrompt(sub, gCast ? { kind: "duo", cast: gCast } : { kind: gPhotoKind });
       const out = await generateSelfieImage(prompt, refs.length ? refs : null, gNoFace ? {} : { minimalPrompt: gMinimal });
@@ -15288,6 +15290,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         const back = await idbImgGet(key).catch(() => null);
         if (!back || !back.size) throw new Error("图生成好了，但没能存进本机图库（iOS 存储偶发抽风，让 TA 重拍一张多半就好）");
         pGChat(groupId, p => p.map(m => m.sid === gsid ? { ...m, pending: false, imgKey: key } : m));
+        // 她自己的那张再挂一份进图片仓库：群里的人回话时跟她发的真照片一样看得到画面（同单聊 drawChatSelfie）
+        if (mySelf) { try { const ref = await imgToVault(await blobToDataUrl(out.blob)); if (String(ref || "").indexOf("iv_") === 0) pGChat(groupId, p => p.map(m => m.sid === gsid ? { ...m, imageRef: ref } : m)); } catch (e) {} }
       } else if (out.url) {
         pGChat(groupId, p => p.map(m => m.sid === gsid ? { ...m, pending: false, imgUrl: out.url } : m));
       } else { throw new Error("没拿到图"); }
@@ -15295,6 +15299,14 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       pGChat(groupId, p => p.map(m => m.sid === gsid ? { ...m, pending: false, failed: true, failErr: String((e && e.message) || "").slice(0, 300) } : m));
       toast("自拍没生成：" + (e.message || "重试"));
     }
+  };
+  // 群里生成我的自拍（群友 2026-11-04）：跟单聊 shootMeOnline 同一件事，画的是这个群挑的那张面具
+  const shootMeGroup = (groupId, scene, third) => {
+    if (!(typeof imgApiReady === "function" && imgApiReady())) { toast("先去 设置·图像API 接一个图像模型"); return; }
+    if (!canShootMe("g:" + groupId)) { toast("这张画的是你：先去「我」的资料（这个群用的那张面具）里填外貌或传一张参考照"); return; }
+    const gsid = "sf_" + Date.now(), desc = String(scene || "").trim().slice(0, 300), pk = third ? "myshot" : "myself";
+    pGChat(groupId, p => [...p, { role: "user", kind: "selfie", sid: gsid, imgKey: null, pending: true, desc, photoKind: pk, content: (third ? "[照片] " : "[自拍] ") + desc, ts: Date.now() }]);
+    drawGroupSelfie({ groupId, spk: { id: "me" }, gsid, gPhotoKind: pk, gPhotoScene: desc, gCast: null });
   };
   const reshootGroupSelfie = (groupId, idx) => {
     const m = (groupChatsRef.current[groupId] || [])[idx];
@@ -16166,7 +16178,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         if (gchat[i].role === "assistant") break;
         if (gchat[i].role === "user" || gchat[i].role === "narration") tail.unshift(gchat[i]);
       }
-      let userContent = tail.length ? tail.map(m => { const quoteLead = m.replyTo ? "【引用 " + (m.replyToSenderName || "作者未知") + "：『" + String(m.replyTo).replace(/\s+/g, " ").slice(0, 120) + "』】" : ""; return m.role === "narration" ? narrTag(m) + m.content : userName(profile) + quoteLead + (m.parenAct ? "（这条里（）括起来的是她真在做的动作，括号外才是她说的话）" : "") + ": " + (m.kind === "photo" && m.imageRef ? "【这条附有一张真实照片，请所有在场成员直接看图后自然回应；不要假装看不到，也不要只复述配文】" + (m.desc ? " 配文：" + m.desc : "") : m.content); }).join("\n") : "（请群成员顺着上面的对话自然继续聊）";
+      let userContent = tail.length ? tail.map(m => { const quoteLead = m.replyTo ? "【引用 " + (m.replyToSenderName || "作者未知") + "：『" + String(m.replyTo).replace(/\s+/g, " ").slice(0, 120) + "』】" : ""; return m.role === "narration" ? narrTag(m) + m.content : userName(profile) + quoteLead + (m.parenAct ? "（这条里（）括起来的是她真在做的动作，括号外才是她说的话）" : "") + ": " + (m.kind === "selfie" && m.role === "user" && m.imageRef ? "【这条是她发进群的一张她自己的" + (m.photoKind === "myshot" ? "照片（别人拍的她）" : "自拍") + "，已作为视觉输入附上，请在场成员直接看图后自然回应】" + (m.desc ? " 她拍的是：" + m.desc : "") : m.kind === "photo" && m.imageRef ? "【这条附有一张真实照片，请所有在场成员直接看图后自然回应；不要假装看不到，也不要只复述配文】" + (m.desc ? " 配文：" + m.desc : "") : m.content); }).join("\n") : "（请群成员顺着上面的对话自然继续聊）";
       // ── 她开口的那一轮，也得有人告诉他们「接彼此的话」（她 2026-09-11）──────
       // 她原话：「群里还是我说话他们就不互相接话了」。
       // ⚠️病根是这一层**只长在一条分支上**：她没出声那一轮（下面 !tail.length 那段）
@@ -16235,7 +16247,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       }
       const groupImageDataUrls = [];
       // tail 就是上次有人开口之后她新发的那一批
-      const _gPick = freshImageRefs(tail, m => (m.kind === "photo" && m.imageRef) ? [m.imageRef] : (m.kind === "poll" && m.ask && m.ask.imageRef) ? [m.ask.imageRef] : [], () => false);
+      const _gPick = freshImageRefs(tail, m => ((m.kind === "photo" || (m.kind === "selfie" && m.role === "user")) && m.imageRef) ? [m.imageRef] : (m.kind === "poll" && m.ask && m.ask.imageRef) ? [m.ask.imageRef] : [], () => false);
       const groupImageRefs = _gPick.refs;
       if (_gPick.dropped) toast("一次发的图太多，这一轮只给大家看了最后 " + FRESH_IMG_CAP + " 张", 4000);
       for (const ref of groupImageRefs) {
@@ -34203,6 +34215,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   });else if (screen === "thread" && activeChar) body = mkThread();else if (screen === "gthread" && activeGroup) body = h(GroupThread, {
     // 换一个群就是一块新的聊天屏（跟单聊 key 一样）：不然从 A 群点弹窗进 B 群，还停在 A 群翻到的那个高度、也不重新钉底
     key: "g::" + activeGroup.id,
+    onShootMe: (scene, third) => shootMeGroup(activeGroup.id, scene, third),
     rerollNav: gsFor(activeGroup.id).keepRerolls === true ? rerollNavOf(groupChats[activeGroup.id] || []) : null,
     onRerollFlip: dir => rerollFlipGroup(activeGroup.id, dir),
     locateAt: walletTrace && walletTrace.type === "group" && String(walletTrace.id) === String(activeGroup.id) ? walletTrace : null,

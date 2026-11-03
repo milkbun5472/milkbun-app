@@ -12746,11 +12746,7 @@ function ChatThread({
     photoSendMode === "real" && h(ChatPhotoPick, { imgs: specialImgs, setImgs: setSpecialImgs, toast, t }),
     h("input", { "data-wk": "input", value: specialText, onChange: e => setSpecialText(e.target.value), placeholder: photoSendMode === "ask" ? "想看什么（选填），比如此刻在干嘛" : photoSendMode === "real" ? "可以顺手说一句（选填）" : photoSendMode === "selfme" ? "你在哪、在干嘛、想拍成什么样（必填）" : "描述照片里有什么（必填，不会上传图片）", className: "w-full outline-none px-3 py-2.5 rounded-lg", style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", background: t.bg, color: t.ink, border: `1px solid ${t.line}` } }),
     photoSendMode !== "real" && h(PhotoPromptChips, { value: specialText, onPick: setSpecialText }),
-    photoSendMode === "selfme" && h("div", { "data-wk": "selfmeangle", className: "flex gap-2", style: { marginTop: 8 } }, [[false, "自拍", "手机举在面前"], [true, "别人拍的", "第三人角度，拍你在做的事"]].map(([v, l, d]) =>
-      h("button", { key: l, onClick: () => setSelfThird(v), "aria-pressed": selfThird === v, className: "flex-1 text-left active:opacity-70",
-        style: { minHeight: 44, padding: "7px 10px", borderRadius: 10, border: "1.5px solid " + (selfThird === v ? t.ink : t.line), background: selfThird === v ? t.bg : "transparent" } },
-        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.ink } }, l),
-        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, marginTop: 1 } }, d)))),
+    photoSendMode === "selfme" && h(SelfMeAngle, { third: selfThird, onPick: setSelfThird, t }),
     photoSendMode === "selfme" && h("div", { "data-wk": "selfmehint", style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.5, marginTop: 7 } }, characterText(character, "照「我」那页（他认的那张面具）的外貌或参考照画你自己，花一次出图；画好了以你的名义发出去，他看得到。")),
     photoSendMode === "describe" && h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.5, marginTop: 7 } }, "角色只会收到你的文字描述；不会读取相册，也不会上传真实照片。")
   ) : h("input", {
@@ -20133,7 +20129,16 @@ function GroupOfflineMode({
 //   （theme-studio.js 的 CSS_BUILTINS = { thread, gthread }），
 //   可 v61.15 只在单聊里挂了点——群聊这边一个都没有，那五套在群里是死的：
 //   点下去什么都不会变。又是「一层写在两处，第二处没跟上」。
+// 「生成我的照片」自拍／别人拍的那两格：单聊、群聊共用
+function SelfMeAngle({ third, onPick, t }) {
+  return h("div", { "data-wk": "selfmeangle", className: "flex gap-2", style: { marginTop: 8 } }, [[false, "自拍", "手机举在面前"], [true, "别人拍的", "第三人角度，拍你在做的事"]].map(([v, l, d]) =>
+    h("button", { key: l, onClick: () => onPick(v), "aria-pressed": third === v, className: "flex-1 text-left active:opacity-70",
+      style: { minHeight: 44, padding: "7px 10px", borderRadius: 10, border: "1.5px solid " + (third === v ? t.ink : t.line), background: third === v ? t.bg : "transparent" } },
+      h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.ink } }, l),
+      h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, marginTop: 1 } }, d))));
+}
 function GroupThread({
+  onShootMe,      // 生成我的自拍（群友 2026-11-04 许愿）：(scene, third)
   onSuggestName,
   onDrawTitles,
   lucky,
@@ -20288,7 +20293,8 @@ function GroupThread({
   const [groupPhotoImgs, setGroupPhotoImgs] = useState([]);   // 挑好的那几张（一次最多 6 张）
   const groupPhotoImg = groupPhotoImgs[0] || "";
   const setGroupPhotoImg = u => setGroupPhotoImgs(u ? [u] : []);
-  const [groupPhotoMode, setGroupPhotoMode] = useState("real"); // real | describe
+  const [groupPhotoMode, setGroupPhotoMode] = useState("real"); // real | describe | selfme
+  const [gSelfThird, setGSelfThird] = useState(false);
   useEffect(() => {   // 在群里某张照片上画完：同单聊，落进发照片那一步
     const f = e => { const d = (e && e.detail) || {}, u = d.dataUrl; if (!u) return; setGroupPhotoMode("real"); setGroupPhotoImg(u); if (typeof setPhotoText === "function") setPhotoText(d.text || ""); setPhotoOpen(true); };
     window.addEventListener("doodle-photo", f); return () => window.removeEventListener("doodle-photo", f);
@@ -20445,6 +20451,12 @@ function GroupThread({
   };
   const submitPhoto = async () => {
     const v = photoText.trim();
+    if (groupPhotoMode === "selfme") {
+      if (!v) { toast && toast("写一句：你在哪、在干嘛、想拍成什么样"); return; }
+      onShootMe && onShootMe(v, gSelfThird);
+      setPhotoText(""); setPhotoOpen(false);
+      return;
+    }
     if (groupPhotoMode === "describe") {
       if (!v) { toast && toast("写一句照片里有什么，大家才看得见"); return; }
       sendRich({ role: "user", kind: "photo", desc: v, photoMode: "describe", content: "[照片] " + v });
@@ -20783,10 +20795,11 @@ function GroupThread({
       avatar: mAvatar(memberById(m.senderId) || { name: m.senderName, color: t.tint }),
       myAvatar: gMeAvEl(40, 10)
     }));
-    if (m.kind === "selfie") return h("div", { key: i, "data-wk": "cardrow", "data-me": "0", "data-kind": m.kind || "", className: "py-1 flex items-start gap-2 justify-start" },
-      mAvatar(memberById(m.senderId) || { name: m.senderName, color: t.tint }),
+    // 她自己在群里生成的那张（群友 2026-11-04）：靠右、挂她的头像，跟单聊里她的那张一样
+    if (m.kind === "selfie") return h("div", { key: i, "data-wk": "cardrow", "data-me": m.role === "user" ? "1" : "0", "data-kind": m.kind || "", className: "py-1 flex items-start gap-2 " + (m.role === "user" ? "justify-end" : "justify-start") },
+      m.role === "user" ? null : mAvatar(memberById(m.senderId) || { name: m.senderName, color: t.tint }),
       h("div", {
-        className: "flex flex-col items-start",
+        className: "flex flex-col " + (m.role === "user" ? "items-end" : "items-start"),
         // 群聊自拍也要能长按（收藏/多选/撤回）——之前只有 1:1 接了 startPress，群里图长按没反应
         onTouchStart: selMode ? undefined : () => startPress(i), onTouchEnd: endPress,
         onMouseDown: selMode ? undefined : () => startPress(i), onMouseUp: endPress, onMouseLeave: endPress,
@@ -20794,7 +20807,8 @@ function GroupThread({
         style: { maxWidth: "72%", outline: selMode && selIds.includes(i) ? "2px solid " + t.tint : "none", outlineOffset: 2, borderRadius: 14 }
       },
         m.senderName && h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, margin: "0 4px 2px" } }, m.senderName, gRoleTag(m)),
-        h(SelfieBubble, { m: m })));
+        h(SelfieBubble, { m: m })),
+      m.role === "user" ? gMeAvEl(40, 10) : null);
     // 照片走公共那一张卡（PhotoCard）。原来这儿有图一种画法、没图一个灰方块＋
     // 描述整段摊在气泡里，而且【压根点不开】——「点开看描述」四处只有一处有。
     // ⚠️原来这儿写死 justify-end + mine:true——群里只有她会发图那会儿是对的。
@@ -21111,14 +21125,16 @@ function GroupThread({
     onClick: submitPhoto
   }, h(ISend, { size: 18, color: t.ink }))),
     h("div", { "data-wk": "block", className: "flex gap-2 mb-3", style: { background: t.bg, borderRadius: 11, padding: 4 } },
-      [["real", "发送真照片"], ["describe", "只发文字描述"]].map(([id, label]) => h("button", {
+      [["real", "发送真照片"], ["describe", "只发文字描述"], ...(onShootMe ? [["selfme", "生成我的自拍"]] : [])].map(([id, label]) => h("button", {
         key: id, "data-on": groupPhotoMode === id ? "1" : "0", onClick: () => setGroupPhotoMode(id), className: "flex-1 active:opacity-75",
         style: { padding: "8px 5px", borderRadius: 8, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", fontWeight: groupPhotoMode === id ? 700 : 400, color: groupPhotoMode === id ? t.bg2 : t.fog, background: groupPhotoMode === id ? t.ink : "transparent" }
       }, pickMark(groupPhotoMode === id, label)))),
     groupPhotoMode === "real" && h(ChatPhotoPick, { imgs: groupPhotoImgs, setImgs: setGroupPhotoImgs, toast, t }),
-    h("input", { "data-wk": "input", value: photoText, onChange: e => setPhotoText(e.target.value), placeholder: groupPhotoMode === "real" ? "可以顺手说一句（选填）" : "描述照片里有什么（必填，不会上传图片）", className: "w-full outline-none px-4 py-3 rounded-xl", style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.ink, background: "#fff", border: "1px solid " + t.line } }),
+    h("input", { "data-wk": "input", value: photoText, onChange: e => setPhotoText(e.target.value), placeholder: groupPhotoMode === "real" ? "可以顺手说一句（选填）" : groupPhotoMode === "selfme" ? "你在哪、在干嘛、想拍成什么样" : "描述照片里有什么（必填，不会上传图片）", className: "w-full outline-none px-4 py-3 rounded-xl", style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.ink, background: "#fff", border: "1px solid " + t.line } }),
     groupPhotoMode !== "real" && h(PhotoPromptChips, { value: photoText, onPick: setPhotoText }),
-    groupPhotoMode === "describe" && h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.5, marginTop: 7 } }, "群成员只会收到文字描述；不会读取或上传真实照片。")
+    groupPhotoMode === "describe" && h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.5, marginTop: 7 } }, "群成员只会收到文字描述；不会读取或上传真实照片。"),
+    groupPhotoMode === "selfme" && h(SelfMeAngle, { third: gSelfThird, onPick: setGSelfThird, t }),
+    groupPhotoMode === "selfme" && h("div", { "data-wk": "selfmehint", style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.5, marginTop: 7 } }, "照「我」那页（这个群用的那张面具）的外貌或参考照画你自己，花一次出图；画好了以你的名义发进群，大家看得到。")
   ), callLogOpen && h(CallLogSheet, { calls: (messages || []).filter(x => x.kind === "callend"), chars: characters, onClose: () => setCallLogOpen(false) }), searchOpen && h(ChatSearchSheet, { messages, chars: characters, archCount: archCount, loadArch: onLoadOlder ? () => onLoadOlder("g_" + group.id) : null, onClose: () => setSearchOpen(false), onLocate: i => { setSearchOpen(false); revealMsg(i); setTimeout(() => locateMsgIn(ref.current, i, messages, archCount > 0, { start: winStartRef.current }), 160); } }), voiceMsgOpen && h(Sheet, { onClose: () => setVoiceMsgOpen(false) },
     h(VoiceEarComposer, { onSend: sendRich, onClose: () => setVoiceMsgOpen(false), senderName: meName, ownerKey: profile && (profile.id || profile.name), toast })
   ), callPick && h(Sheet, {
