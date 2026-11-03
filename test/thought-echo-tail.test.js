@@ -20,7 +20,7 @@ test("正文：前两拍都刷的景物和她的设定点名", () => {
   const G = new Function(eng.slice(eng.indexOf("const THOUGHT_ECHO_FILLER"), eng.indexOf("function spokenLinesOf")) + ";return {beatEchoTail};")();
   const out = G.beatEchoTail(["头顶白炽灯管滋啦响，马歇尔音箱亮着。平时在事务所算账", "白炽灯管嗡嗡响，马歇尔音箱发沉。在事务所对账"]);
   assert.match(out, /白炽灯管/); assert.match(out, /马歇尔音箱/); assert.match(out, /事务所/);
-  assert.match(eng, /propTail \+ \(isDigital \? "" : beatEchoTail\(/);
+  assert.match(eng, /\(isDigital \? "" : beatEchoTail\(/);
   assert.equal((eng.match(/gThoughtTail \+ gBeatEchoTail \+ /g) || []).length, 2);
 });
 test("正文点名：带人称的动作碎片不算，几乎拍拍都在的景物排前面", () => {

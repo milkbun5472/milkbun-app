@@ -2302,6 +2302,18 @@ function beatEchoTail(beats) {
     .sort((x, y) => (y.n - x.n) || (y.g.length - x.g.length)).slice(0, 5).map(x => x.g);
   return w.length ? "\n〔正文：前两拍都写到了「" + w.join("」「") + "」。这一拍不用再提，除非它有了新变化。〕" : "";
 }
+// 拿身份当每拍的对照组（她 2026-11-03：医学生那位两拍都写「我本来按解剖学/临床的条理……结果全被撕碎」）：
+//   用词每拍都换，前两拍撞词那道认不出；认的是【骨架】——同一句里既提到平时那套专业/条理，又说它全没用了。
+//   不按职业列词表，什么身份都认得。前两拍都有，这一拍点名。单人线下、群线下共用。
+const PROF_FRAME_RE = /(条理|理性|理智|严谨|教科书|课本|文献|论文|专业|常识|笔记|学过的|术语|名词|规程|流程|守则|准则|经验|训练)/;
+const PROF_GONE_RE = /(一干二净|稀碎|空白|抛到了?脑后|派不上|没有?任何用|半点用|全(?:都)?(?:碎|乱|没了|散了|失灵|作废|白费|忘了|丢了|被)|彻底(?:碎|乱|失|断|没)|统统|荡然)/;
+function profFrameIn(text) {
+  return String(text || "").split(/[。！？!?\n]/).some(x => PROF_FRAME_RE.test(x) && PROF_GONE_RE.test(x));
+}
+function profTailFor(beats) {
+  const t = (beats || []).filter(Boolean).slice(-2);
+  return t.length === 2 && t.every(profFrameIn) ? "\n〔前两拍都拿「平时那套专业、条理、常识」跟此刻对照，再说它全不管用了。这一拍不用这个对照，直接写这一刻本身。〕" : "";
+}
 function spokenLinesOf(text) {
   const out = []; const re = /[“「"]([^”」"]{2,200})[”」"]/g; let m;
   while ((m = re.exec(String(text || "")))) out.push(m[1].trim());
@@ -9603,7 +9615,7 @@ async function generateOffline(p, ctx, session) {
   const _said = _lastCharBeat ? spokenLinesOf(_lastCharBeat.content) : [];
   const sayTail = !isDigital && _said.length ? tailHintsFor(_said[_said.length - 1], _said.join("\n")) : "";
   const propTail = isDigital ? "" : propTailFor([char.persona, char.appearance].join("\n"), (session.msgs || []).filter(m => m && m.role === "char" && !isOocMsg(m) && m.kind !== "selfie").map(m => m.content));
-  const finalNudge = tailNudge + (isDigital ? "" : userActionTail) + characterSupplyTail + intimatePaceTail + flashbackTail + personTail + sayTail + propTail + (isDigital ? "" : beatEchoTail((session.msgs || []).filter(m => m && m.role === "char" && !isOocMsg(m) && m.kind !== "selfie").map(m => m.content))) + (isDigital ? "" : thoughtEchoTail((session.msgs || []).filter(m => m && m.role === "char" && m.thought).map(m => m.thought))) + offlineWordAimTail(minimumSceneChars) + directorTail + styleTail;
+  const finalNudge = tailNudge + (isDigital ? "" : userActionTail) + characterSupplyTail + intimatePaceTail + flashbackTail + personTail + sayTail + propTail + (isDigital ? "" : profTailFor((session.msgs || []).filter(m => m && m.role === "char" && !isOocMsg(m) && m.kind !== "selfie").map(m => m.content))) + (isDigital ? "" : beatEchoTail((session.msgs || []).filter(m => m && m.role === "char" && !isOocMsg(m) && m.kind !== "selfie").map(m => m.content))) + (isDigital ? "" : thoughtEchoTail((session.msgs || []).filter(m => m && m.role === "char" && m.thought).map(m => m.thought))) + offlineWordAimTail(minimumSceneChars) + directorTail + styleTail;
   if (hist.length && hist[hist.length - 1].role === "user") hist[hist.length - 1] = { role: "user", content: hist[hist.length - 1].content + finalNudge };
   else hist.push({ role: "user", content: (hist.length ? "（继续）" : OFFLINE_OPEN_SCENE) + finalNudge });
   if (Array.isArray(session.imageDataUrls) && session.imageDataUrls.length) {
@@ -10332,11 +10344,12 @@ async function generateOfflineGroup(p, ctx, session) {
   const _gLastBeat = [...(session.msgs || [])].reverse().find(m => m && m.role === "char" && !isOocMsg(m));
   const _gSaid = _gLastBeat ? spokenLinesOf(_gLastBeat.content) : [];
   const gSayTail = _gSaid.length ? tailHintsFor(_gSaid[_gSaid.length - 1], _gSaid.join("\n")) : "";
+  const gProfTail = profTailFor((session.msgs || []).filter(m => m && m.role === "char" && !isOocMsg(m)).map(m => m.content || m.scene));
   const gBeatEchoTail = beatEchoTail((session.msgs || []).filter(m => m && m.role === "char" && !isOocMsg(m)).map(m => m.content || m.scene));
   const gThoughtTail = members.map(c => c && thoughtEchoTail((session.msgs || []).filter(m => m && m.role === "char" && m.senderId === c.id && m.thought).map(m => m.thought), c.name)).join("");
   const gPropTail = propTailFor(members.map(c => [c && c.persona, c && c.appearance].join("\n")).join("\n"), (session.msgs || []).filter(m => m && m.role === "char" && !isOocMsg(m)).map(m => m.content));
-  if (hist.length && hist[hist.length - 1].role === "user") hist[hist.length - 1] = { role: "user", content: hist[hist.length - 1].content + gFlashbackTail + gCharacterTail + gSayTail + gPropTail + gThoughtTail + gBeatEchoTail + offlineWordAimTail(session.minWords) + gTail };
-  else hist.push({ role: "user", content: (hist.length ? "（继续）" : OFFLINE_OPEN_SCENE) + gFlashbackTail + gCharacterTail + gSayTail + gPropTail + gThoughtTail + gBeatEchoTail + offlineWordAimTail(session.minWords) + gTail });
+  if (hist.length && hist[hist.length - 1].role === "user") hist[hist.length - 1] = { role: "user", content: hist[hist.length - 1].content + gFlashbackTail + gCharacterTail + gSayTail + gPropTail + gThoughtTail + gBeatEchoTail + gProfTail + offlineWordAimTail(session.minWords) + gTail };
+  else hist.push({ role: "user", content: (hist.length ? "（继续）" : OFFLINE_OPEN_SCENE) + gFlashbackTail + gCharacterTail + gSayTail + gPropTail + gThoughtTail + gBeatEchoTail + gProfTail + offlineWordAimTail(session.minWords) + gTail });
   if (Array.isArray(session.imageDataUrls) && session.imageDataUrls.length) {
     const lastUser = [...hist].map((m, i) => [m, i]).reverse().find(([m]) => m.role === "user");
     if (lastUser) hist[lastUser[1]] = { ...hist[lastUser[1]], content: hist[lastUser[1]].content + "\n【用户刚给在场所有人展示了真实照片，图像已附在本轮视觉输入中；请让大家直接看图后自然反应。】", imageDataUrls: session.imageDataUrls.slice(-FRESH_IMG_CAP) };
