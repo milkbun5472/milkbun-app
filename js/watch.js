@@ -43,7 +43,12 @@
     if (!video || !video.videoWidth) return "";
     const w = Math.min(maxW, video.videoWidth), hh = Math.round(video.videoHeight * w / video.videoWidth);
     const c = document.createElement("canvas"); c.width = w; c.height = hh;
-    c.getContext("2d").drawImage(video, 0, 0, w, hh);
+    const g = c.getContext("2d"); g.drawImage(video, 0, 0, w, hh);
+    // 截出来一片黑（群友 2026-11-04：mp4 能放，给 TA 截的全是黑屏）：手机硬解的片子（多半是 HEVC／HDR），
+    //   画面在屏幕上，浏览器却读不出来。抽几十个点看，几乎全黑就当没截到，交给调用方再试一次或换路
+    try { const d = g.getImageData(0, 0, w, hh).data, step = Math.max(4, Math.floor(d.length / 4 / 400) * 4); let lit = 0, n = 0;
+      for (let k = 0; k < d.length; k += step) { n++; if (d[k] + d[k + 1] + d[k + 2] > 36) lit++; }
+      if (n && lit / n < 0.02) return "black"; } catch (e) {}
     try { return c.toDataURL("image/jpeg", 0.8); } catch (e) { return ""; }
   }
 
@@ -504,11 +509,23 @@
     };
     // 给 TA 看一张图：本地片子直接截这一帧；网上的片子截不到（浏览器不让），
     // 就让她用手机自己截屏、从相册选一张发过来（她 2026-09-26：「加吧宝宝」）。两条路后面是同一段。
-    const showFrame = () => {
+    const [frameBlack, setFrameBlack] = useState(false);
+    const showFrame = async () => {
       const v = vRef.current; if (!v || busy) return;
-      const full = grabFrame(v, 768), thumb = grabFrame(v, 240);
+      let full = grabFrame(v, 768);
+      // 一片黑：先让它把这一帧重新画一遍再截（停着的片子往后挪一丁点），有的手机这样就读得出来了
+      if (full === "black") {
+        await new Promise(res => { let done = false; const go = () => { if (!done) { done = true; res(); } };
+          try { if (v.paused) v.currentTime = Math.min((v.duration || 1e9) - 0.05, v.currentTime + 0.04); } catch (e) {}
+          if (typeof v.requestVideoFrameCallback === "function") v.requestVideoFrameCallback(go); setTimeout(go, 400); });
+        full = grabFrame(v, 768);
+      }
+      // 还是黑的：这片子浏览器读不出画面，改让她截屏发图（跟网上的片子同一条路）
+      //   ⚠️不替她点开相册：等过那一下，iPhone 就不认这是她亲手点的了，相册弹不出来。把这颗键换成「发张截图给 TA」
+      if (full === "black") { setFrameBlack(true); props.toast && props.toast("这个片子手机截不到画面（多半是手机硬解的格式）：截个屏，再点「发张截图给 TA」从相册挑那张", 6000); return; }
       if (!full) { props.toast && props.toast("这一帧截不下来"); return; }
-      sendPic(full, thumb, v.currentTime);
+      const thumb = grabFrame(v, 240);
+      sendPic(full, thumb === "black" ? full : thumb, v.currentTime);
     };
     const picRef = useRef(null);
     const onPickPic = async e => {
@@ -628,10 +645,11 @@
         //   跟聊天的加号面板一个意思，平时不占地方，要用才展开在输入框上面
         toolsOpen && h("div", { style: { flexShrink: 0, borderTop: "1px solid " + W.line, background: "rgba(31,28,38,.96)" } },
           h("div", { className: "flex items-center gap-2", style: { padding: "10px 12px 2px", overflowX: "auto" } },
-          online
-            ? [btn("发张截图给 TA", () => picRef.current && picRef.current.click(), { disabled: busy }),
-               h("input", { key: "pic", ref: picRef, type: "file", accept: "image/*", style: { display: "none" }, onChange: onPickPic, "data-wk": "watchscreeninginput", "data-part": "1" })]
+          online || frameBlack
+            ? btn("发张截图给 TA", () => picRef.current && picRef.current.click(), { disabled: busy })
             : btn("给 TA 看这一帧", showFrame, { disabled: busy || missing }),
+          // 挑图那个框两种片子都挂着：本地片子截出来一片黑时，也走它（截屏发图）
+          h("input", { key: "pic", ref: picRef, type: "file", accept: "image/*", style: { display: "none" }, onChange: onPickPic, "data-wk": "watchscreeninginput", "data-part": "1" }),
           btn("让 TA 说两句", () => ask("auto-ask"), { disabled: busy }),
           btn("影院模式", enterCinema, { disabled: missing || playErr }),
           h("button", { onClick: () => { const n = !auto; setAuto(n); saveJSON("x_watch_auto", n); if (window.__setAutoFromPage) window.__setAutoFromPage("watch", null, n); }, "aria-pressed": String(auto), className: "active:opacity-70", style: { minHeight: 40, padding: "0 12px", borderRadius: 999, flexShrink: 0, border: "1px dashed " + (auto ? W.amber : W.line), background: "none", color: auto ? W.amber : W.fog, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", whiteSpace: "nowrap" }, "data-wk": "watchscreeningbtn", "data-part": "2" }, auto ? "TA 会自己开口" : "TA 不主动说话")),
