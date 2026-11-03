@@ -47,3 +47,6 @@ test("重写时不把这张自己的旧版本给他看", () => {
   assert.match(src, /stampPrev\(char\.id, list\.map\(c => c\.id\)\)/);
   assert.match(src, /stampPrev\(char\.id, \[c\.id\]\)/);
 });
+test("前面的卡只给写了什么事，不给卡名（免得卡名一个模子）", () => {
+  assert.match(src, /"\\n你已经有的卡（写的是什么、卡上那句）：\\n"/);
+});
