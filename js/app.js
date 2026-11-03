@@ -11836,8 +11836,12 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
           + (hidden.length ? "\n\n她递过来之前藏起了：" + hidden.join("、") + "（翻不到）。" : "")
           // 单独藏起来的人直接告诉TA（她 2026-10-02：「直接让他知道这个是藏起来的，不需要那么多前置」）
           + (hidePeople.length ? "\n\n她递过来之前，把和" + hidePeople.map(n => "「" + n + "」").join("") + "的聊天藏起来了——消息列表里没有，你翻不到，但你知道她藏了。翻的时候想到这一茬，心声里就带上。" : "")
-          + (() => { const L = peekLastOf(charId); const bits = [].concat(L.who && L.who.length ? ["和" + L.who.join("、") + "的聊天"] : [], L.taps && L.taps.length ? L.taps.slice(0, 6).map(x => "「" + x + "」") : []);
-              return bits.length ? "\n\n你上次翻她手机已经看过：" + bits.join("、") + (L.thoughts && L.thoughts.length ? "；当时心里想过：" + L.thoughts.slice(0, 3).map(x => "「" + x + "」").join("") : "") + "——这回多去看看上次没看的。" : ""; })()
+          // 上次翻过的那份记录也照这次的面具和藏人来滤（群友 2026-11-04 再查一遍）：上回开着「别的面具也给看」、
+          //   或者那时候还没分面具时翻到的人名，原来每次都原样摆回给他——这回明明挡住了，他还是从这一句知道那人
+          + (() => { const L = peekLastOf(charId), gone = peekMaskInfo(maskIds.concat([...userHide])).names.filter(n => n && String(n).length >= 2), ok = x => !gone.some(n => String(x || "").includes(n));
+              const who = (L.who || []).filter(ok), taps = (L.taps || []).filter(ok), th = (L.thoughts || []).filter(ok);
+              const bits = [].concat(who.length ? ["和" + who.join("、") + "的聊天"] : [], taps.length ? taps.slice(0, 6).map(x => "「" + x + "」") : []);
+              return bits.length ? "\n\n你上次翻她手机已经看过：" + bits.join("、") + (th.length ? "；当时心里想过：" + th.slice(0, 3).map(x => "「" + x + "」").join("") : "") + "——这回多去看看上次没看的。" : ""; })()
           + "\n\n能打开的：messages（消息列表——备注、最后一句、几点聊的都在上面）、chat（和某个人或某个群的聊天，要写 who＝对方名字或群名，能选的：" + others.join("、") + "）"
           + (apps.includes("offline") ? "；offline（她和别人线下见面的往期，要写 who＝那个人的名字）" : "")
           + (apps.includes("calendar") ? "；calendar（她的日历，看她写了哪天跟谁、去干嘛）" : "")

@@ -43,3 +43,10 @@ test("翻手机录像里的朋友圈也按面具滤：别的面具的人、她�
   assert.match(app, /filter\(x => x && !maskNames\.includes\(x\)\)/);
   assert.match(app, /window\.__peekMask = Object\.assign\(peekMaskInfo\(mo\), \{ mine: maskKeyOf\(charId\) \}\)/);
 });
+test("上次翻过的记录也照这次的面具和藏人滤；朋友圈互动消息那条也走同一份", () => {
+  const fs = require("fs"), app = fs.readFileSync(__dirname + "/../js/app.js", "utf8"), cmp = fs.readFileSync(__dirname + "/../js/components.js", "utf8");
+  assert.match(app, /gone = peekMaskInfo\(maskIds\.concat\(\[\.\.\.userHide\]\)\)\.names/);
+  assert.match(app, /const who = \(L\.who \|\| \[\]\)\.filter\(ok\), taps = \(L\.taps \|\| \[\]\)\.filter\(ok\), th = \(L\.thoughts \|\| \[\]\)\.filter\(ok\)/);
+  assert.ok(!/L\.who\.join/.test(app), "不许再把上回的人名原样摆回去");
+  assert.match(cmp, /const momNews = \(peekMomentsView\(moments\) \|\| \[\]\)/);
+});

@@ -9282,7 +9282,7 @@ function Messages({
     r: 4
   }), NP("M5 21v-1a7 7 0 0114 0v1")]]];
   // 朋友圈新消息（她 2026-10-14）：跟我有关的新评论（unseen）和我那条新来的赞（newLikes），挂在每条朋友圈自己身上
-  const momNews = (moments || []).flatMap(m => [
+  const momNews = (peekMomentsView(moments) || []).flatMap(m => [
     ...(m.comments || []).filter(c => c && c.unseen).map(c => ({ m, who: c.author, text: String(c.text || "").replace(/^回复 [^：]+：/, ""), reply: /^回复 /.test(String(c.text || "")), at: c.at || m.ts || 0 })),
     ...(m.newLikes || []).map(x => ({ m, who: x, like: true, at: m.ts || 0 }))
   ]).sort((a, b) => (b.at || 0) - (a.at || 0));
