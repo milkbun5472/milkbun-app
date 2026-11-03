@@ -16960,11 +16960,19 @@ function DraftInput({ placeholder, inputStyle, inputProps, onSubmit, after, keep
   // 发完键盘别收（群里 2026-10-22「发一次消息键盘就自动下落，想连发只能再点一次输入框」）：
   //   发送键按下不抢焦点；有的手机照样先失焦了，那就看是不是刚失焦，是的话在这次点击里把焦点还回去
   const blurAt = useRef(0);
+  // 安卓输入法（群友 2026-11-04 安卓 Edge：「聊两句就打不上字，有键盘但按了没字，退出重进就好」）：
+  //   框被程序清空时，输入法那边还以为自己在往原来那段里写，之后按什么都进不来。
+  //   安卓上发完先失焦、下一拍再聚焦，让输入法重新开一段；键盘只闪一下，照样不收（「发完键盘别收」那条还在）
+  const composing = useRef(false);
+  const ANDROID = typeof navigator !== "undefined" && /Android/i.test(navigator.userAgent || "");
   const fire = () => {
     const v = draft.trim(); if (!v) return;
     const el = ref.current, keep = el && (document.activeElement === el || Date.now() - blurAt.current < 600);
+    const reset = keep && (ANDROID || composing.current);
+    composing.current = false;
     setDraft(""); onSubmit && onSubmit(v);
-    if (keep) try { el.focus({ preventScroll: true }); } catch (e) {}
+    if (reset) { try { el.blur(); } catch (e) {} setTimeout(() => { try { el.focus({ preventScroll: true }); } catch (e) {} }, 0); }
+    else if (keep) try { el.focus({ preventScroll: true }); } catch (e) {}
   };
   return h(React.Fragment, null,
     h("textarea", Object.assign({
@@ -16972,6 +16980,8 @@ function DraftInput({ placeholder, inputStyle, inputProps, onSubmit, after, keep
       value: draft,
       onChange: e => setDraft(e.target.value),
       onBlur: () => { blurAt.current = Date.now(); },
+      onCompositionStart: () => { composing.current = true; },
+      onCompositionEnd: () => { composing.current = false; },
       // 回车：默认发送；设置 → 外观里改成「回车换行」的话就只换行，按发送键才发（她 2026-10-17）。
       //   手机键盘上「长按回车」浏览器认不出来，所以给的是一个开关；接着实体键盘按住回车不放（repeat）也当换行
       onKeyDown: e => { if (e.key === "Enter" && !e.shiftKey && !e.repeat && !e.isComposing && e.keyCode !== 229 && !enterNewline()) { e.preventDefault(); fire(); } },
