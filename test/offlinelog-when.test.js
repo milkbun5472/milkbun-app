@@ -10,4 +10,7 @@ test("总结卡记下那场散的时间；过了一个半钟头就照那时候�
   assert.equal(f.offEndOfCard({ ofs: "s1" }), 5000, "老卡按 ofs 找回那一场");
   assert.equal(f.offEndOfCard({ offEnd: 42 }), 42);
   assert.equal(f.offAgoWords(17 * 3600000), "17 个小时");
+  assert.equal(f.offSessEnd({ endTs: 9e12, msgs: [{ ts: 3000 }] }), 3000, "认最后一句的时间，不认她点结束的那一刻");
+  assert.equal(f.offSessEnd({ endTs: 77, msgs: [] }), 77);
+  assert.match(app, /Date\.now\(\) - offSessEnd\(x\) < 72 \* 3600000/);
 });

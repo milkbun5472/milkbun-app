@@ -4097,7 +4097,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   // 线下：一拍正文（群线下还有整段小说那一拍 novel）也算轻的；她自己说的话夹在中间就不留
   const offRerollKeepable = rm => (rm || []).length > 0 && rm.every(x => x && x.role !== "user" && (!x.kind || REROLL_LIGHT_KIND[x.kind] || x.kind === "novel"));
   // 一场线下什么时候散的：endTs，没有就用最后一句的时间
-  const offSessEnd = sess => (sess && (sess.endTs || ((sess.msgs || []).slice(-1)[0] || {}).ts)) || 0;
+  //   ⚠️先认最后一句的时间：endTs 是她点「结束」那一刻——昨晚的戏今天下午才收，endTs 就是今天下午（她 2026-11-04「不行耶还是」）
+  const offSessEnd = sess => { if (!sess) return 0; const ms = (sess.msgs || []).filter(x => x && x.ts); return (ms.length ? ms[ms.length - 1].ts : 0) || sess.endTs || 0; };
   // 总结卡上记着那场散的时间；老卡没记，就按 ofs 去往期里找那一场
   const offEndOfCard = m => { if (!m) return 0; if (m.offEnd) return m.offEnd; try { const id = m.ofs; if (!id) return 0;
     for (const k of Object.keys(offlinesRef.current || {})) { const x = ((offlinesRef.current || {})[k] || []).find(s0 => s0 && s0.id === id); if (x) return offSessEnd(x); } } catch (e) {} return 0; };
@@ -5633,9 +5634,9 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         + "——现在按【此刻的真实时间】正常发消息就好：那场线下若是一起睡下/在一起，现在多半是各自醒了/在忙别的了（比如此刻是早上，就该是睡醒后的样子，而不是继续道晚安、或说『明天早上叫你』）。**绝不许把自己演成才刚到、让用户『开门/让你进来』当没相处过；也绝不许凭空编一个和刚才那场线下矛盾的新处境**（比如你俩明明一起睡下了，你却说自己还在门外等着进屋）。顺着「你俩刚相处过、现在各自在忙／醒来」来，贴真实时间、别卡在线下那一刻。";
     }
     // 72h 内刚结束的线下：硬提示（不依赖聊天窗口里那条 offlinelog 沉没在多少楼）
-    const done = (list || []).filter(x => x && x.endTs && Date.now() - x.endTs < 72 * 3600000).sort((a, b) => b.endTs - a.endTs)[0];
+    const done = (list || []).filter(x => x && x.endTs && Date.now() - offSessEnd(x) < 72 * 3600000).sort((a, b) => offSessEnd(b) - offSessEnd(a))[0];
     if (done) {
-      const hrs = Math.max(1, Math.round((Date.now() - done.endTs) / 3600000));
+      const hrs = Math.max(1, Math.round((Date.now() - offSessEnd(done)) / 3600000));
       return "【最近线下·已发生】你们" + (timeAwareFor(charId) ? "约 " + (hrs >= 24 ? Math.round(hrs / 24) + " 天" : hrs + " 小时") + "前" : "前不久") + "刚线下见过面，这件事【已经发生并结束了】" + (done.summary ? "（经过：" + String(done.summary).replace(/\s+/g, " ").slice(0, 90) + "）" : "") + "——之前聊天里约的/计划的就是这件事，它做完了。**绝不许再问「什么时候做」、说「等了好久」或把它当成还没发生**；要聊就聊感受和回味。";
     }
     return "";
