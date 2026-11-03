@@ -8287,7 +8287,8 @@ function accountCount(x) {
   return Math.round(parseFloat(m[1]) * mul);
 }
 function splitBilingual(text, hanLang) {
-  const t = String(text == null ? "" : text);
+  // 全角竖线也是那根竖线（群友 2026-11-03：「加竖线为啥没被识别成翻译」——全角 ｜ 没认）。下面 joinBilingualLines 同一句
+  const t = String(text == null ? "" : text).replace(/[｜│︱┃]/g, "|");
   const br = typeof bracketBilingual === "function" ? bracketBilingual(t) : null;
   if (br) return br;
   const i = t.indexOf("|");
@@ -8309,6 +8310,7 @@ function splitBilingual(text, hanLang) {
 //   （她 2026-09-29 截图，群里江识那几条）。所以拆泡之前先把「竖线打头」的那一行接回上一行。
 //   上一行自己已经有竖线的不接：那是两条各自完整的双语，接上反而一条都劈不开。
 function joinBilingualLines(lines, hanLang, opts) {
+  lines = (lines || []).map(x => x == null ? x : String(x).replace(/[｜│︱┃]/g, "|"));   // 全角竖线，同 splitBilingual
   // 【 开了没合上、】落在下一行的（同一张截图：「頭髮都未吹好【刚刚…」换行「头发都还没吹好】」）：先接成一行再说
   const brJoined = (lines || []).reduce((acc, x) => {
     const line = String(x == null ? "" : x), prev = acc.length ? acc[acc.length - 1] : null;
