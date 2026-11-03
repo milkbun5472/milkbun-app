@@ -4096,6 +4096,15 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   const rerollFlipGroup = (groupId, dir) => rerollFlipIn(groupChatsRef.current[groupId] || [], u => pGChat(groupId, u), () => statesSnapMany(groupStateIds(groupId)), statesRestoreMany, dir);
   // 线下：一拍正文（群线下还有整段小说那一拍 novel）也算轻的；她自己说的话夹在中间就不留
   const offRerollKeepable = rm => (rm || []).length > 0 && rm.every(x => x && x.role !== "user" && (!x.kind || REROLL_LIGHT_KIND[x.kind] || x.kind === "novel"));
+  // 一场线下什么时候散的：endTs，没有就用最后一句的时间
+  const offSessEnd = sess => (sess && (sess.endTs || ((sess.msgs || []).slice(-1)[0] || {}).ts)) || 0;
+  // 总结卡上记着那场散的时间；老卡没记，就按 ofs 去往期里找那一场
+  const offEndOfCard = m => { if (!m) return 0; if (m.offEnd) return m.offEnd; try { const id = m.ofs; if (!id) return 0;
+    for (const k of Object.keys(offlinesRef.current || {})) { const x = ((offlinesRef.current || {})[k] || []).find(s0 => s0 && s0.id === id); if (x) return offSessEnd(x); } } catch (e) {} return 0; };
+  const offEndWords = ts => { const d = new Date(ts), n = new Date(), hm = String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0");
+    const day = (a, b) => a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate(), y = new Date(n.getTime() - 86400000);
+    return day(d, n) ? "今天 " + hm : day(d, y) ? (d.getHours() >= 18 ? "昨晚 " : "昨天 ") + hm : (d.getMonth() + 1) + "月" + d.getDate() + "日 " + hm; };
+  const offAgoWords = ms => { const m0 = Math.round(ms / 60000); return m0 < 60 ? m0 + " 分钟" : m0 < 48 * 60 ? Math.round(m0 / 60) + " 个小时" : Math.round(m0 / 1440) + " 天"; };
   const offLiveMsgs = sessions => ((sessions || []).find(x => !x.endTs) || {}).msgs || [];
   const offWrite = (setter, key) => u => setter(key, list => list.map(x => !x.endTs ? { ...x, msgs: u(x.msgs || []) } : x));
   const rerollFlipOffline = (scopeKey, dir) => { const cid = offlinePersonId(scopeKey); rerollFlipIn(offLiveMsgs(offlinesRef.current[scopeKey]), offWrite(pOffline, scopeKey), () => charStateSnap(cid), st => charStateRestore(cid, st), dir); };
@@ -9778,7 +9787,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     // 也会作为「场景」注入线上回复的历史里。
     // ofs 认场次：总结失败过的那张卡要能找回它是哪一场，才补得了（见 resummarizeOffline）
     // 侧房的线下也在【这间房自己的】线上聊天里留一张（群友 2026-10-20：「点了结束以后没有一段总结留在线上聊天的时间线里」）；不碰主聊天
-    pChat(sideRoom ? scopeKey : charId, p => [...p, { role: "system", kind: "offlinelog", content: summary || "你们刚在线下见了一面。", transcript: offlineTranscriptForOnline(sess.msgs, false, char.name), ofs: sess.id, ts: Date.now() }]);
+    pChat(sideRoom ? scopeKey : charId, p => [...p, { role: "system", kind: "offlinelog", content: summary || "你们刚在线下见了一面。", transcript: offlineTranscriptForOnline(sess.msgs, false, char.name), ofs: sess.id, offEnd: offSessEnd(sess), ts: Date.now() }]);
     // TODO(日程覆盖，用户说后面再弄)：把本次线下时间段的日程覆盖成这段经过 + 角色想法。
     endLane("c:" + scopeKey);
     toast(sideRoom ? "这场只留在「" + ((sideRoomData && sideRoomData.name) || "本房") + "」"
@@ -10486,7 +10495,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       opens.forEach(op => addMemEntry({ text: op, tags: gTags(group, "线下", "约定"), knownBy: (group.memberIds || []).slice(), charIds: memOwners(group.memberIds), source: "auto", open: true, groupId: groupId, ofs: sess.id }));
     }
     // 回写进线上群聊记录，接上线上/线下连贯（群成员回到线上不会还停在线下前的状态）
-    pGChat(groupId, p => [...p, { role: "system", kind: "offlinelog", content: summary || "你们刚一起在线下见了一面。", transcript: offlineTranscriptForOnline(sess.msgs, true, ""), ofs: sess.id, ts: Date.now() }]);
+    pGChat(groupId, p => [...p, { role: "system", kind: "offlinelog", content: summary || "你们刚一起在线下见了一面。", transcript: offlineTranscriptForOnline(sess.msgs, true, ""), ofs: sess.id, offEnd: offSessEnd(sess), ts: Date.now() }]);
     // TODO(日程覆盖，用户说后面再弄)：把本次群聊线下时间段的日程覆盖成这段经过 + 各角色想法。
     endLane("g:" + groupId);
     toast(summary ? (interopOn ? "已记入记忆库" : "已结束（记忆只留在本群）")
@@ -13637,7 +13646,11 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         }
         if (m.kind === "offlinelog") {
           // 线下经过：既不算用户发言也不算角色发言，作为「刚发生的场景」注入，让线上接得上线下
-          g.push({ role: "user", content: stp + "【你和" + uName + "刚刚在线下见了一面——这发生在上面聊天之后、现在你们已结束线下回到线上，请据此接话，从线下之后的状态说起】\n归档摘要：" + m.content + (m.transcript ? "\n【线下实际逐条记录·以原话为准】\n" + fedTranscript(m.transcript) : "") });
+          // 那场是什么时候散的（她 2026-11-04：昨晚的线下今天下午才总结，他以为是刚刚的事）：照那场最后一句的时间说，不一律说「刚刚」
+          const _oe = offEndOfCard(m), _ago = _oe ? Date.now() - _oe : 0;
+          g.push({ role: "user", content: stp + (_ago > 90 * 60000
+            ? "【你和" + uName + "线下见过一面，那场在" + offEndWords(_oe) + "就散了，离现在已经" + offAgoWords(_ago) + "——这一张是后来才补的总结，不是刚刚的事；接话照现在的时间、现在的状态来，那场是之前发生过的】\n归档摘要："
+            : "【你和" + uName + "刚刚在线下见了一面——这发生在上面聊天之后、现在你们已结束线下回到线上，请据此接话，从线下之后的状态说起】\n归档摘要：") + m.content + (m.transcript ? "\n【线下实际逐条记录·以原话为准】\n" + fedTranscript(m.transcript) : "") });
           continue;
         }
         if (m.kind === "callend") {
