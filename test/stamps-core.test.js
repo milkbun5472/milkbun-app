@@ -238,5 +238,5 @@ test("R 卡那句心里话写进了 line 也认回来", () => {
 });
 test("万圣夜那期卡面不穿常服", () => {
   const src = require("fs").readFileSync(__dirname + "/../js/stamps-core.js", "utf8");
-  assert.match(src, /不是平时的常服/);
+  assert.match(src, /就是真的变装/);
 });
