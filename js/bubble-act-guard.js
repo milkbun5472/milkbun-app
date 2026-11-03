@@ -126,6 +126,10 @@
     // 挂了牌子的不看称谓设置：牌子本身就是证据，跟「她」对不对无关
     if (list.some(w => LABEL.test(w))) return pullLabeled(list);
     if (o.secondPerson === false) return nothing;
+    // 群里不猜（她 2026-11-03 截图：萧成烨说「程策当场就能给他扣进西营马厩」，「他扣」被认成贴身动作，两句台词一起成了动作行）：
+    //   这把刀的前提是「他／她＝对面那个人」，单聊才成立；群里他她是在场任何一个人，台词里谈论别人再正常不过。
+    //   挂了牌子的、用自己名字括起来的，上面已经认过了，那两种不靠猜。
+    if (o.group) return nothing;
     if (list.length < 2) return nothing;
     if (!list.every(couldBeAct)) return nothing;
     // 至少一半的行要有硬证据，不是「有一行就够」：一轮里夹一句写她身体的，

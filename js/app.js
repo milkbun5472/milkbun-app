@@ -16533,7 +16533,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
             if (typeof moveDanglingLeads === "function") gBubbles = moveDanglingLeads(gBubbles);   // 「第一：」挪到下一泡开头，跟单聊同一条
             // 掉格式兜底（四处一样喂：跟单聊同一把刀、同一个模块）。群里没有逐人称谓设置，
             // 默认就是第二人称。
-            const _gGuard = window.BubbleActGuard ? window.BubbleActGuard.split(gBubbles, { selfNames: [spk && spk.name, spk && spk.remark] }) : { words: gBubbles, acts: [] };
+            const _gGuard = window.BubbleActGuard ? window.BubbleActGuard.split(gBubbles, { selfNames: [spk && spk.name, spk && spk.remark], group: true }) : { words: gBubbles, acts: [] };
             gBubbles = _gGuard.words;
             // 写进气泡里的表情就地发（跟单聊同一个 emoteSlotWords）：气泡里留 emoteslotN，下面那一圈走到它发表情
             const _gEs = emoteSlotWords(gBubbles, emotesForChar(spk.id), emoteNorm);
