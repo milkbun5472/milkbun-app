@@ -9,3 +9,7 @@ test("schedNow 标题或理由写着以后的日子就不动今天", () => {
   assert.ok(!re.test("留下来陪她吃饭 临时改了"));
   assert.match(app, /if \(SCHED_LATER_RE\.test\(String\(change\.title \|\| ""\) \+ " " \+ String\(change\.reason \|\| ""\)\)\) return;/);
 });
+test("schedNow 说明里写明：聊的是明天、以后的安排不填", () => {
+  const eng = fs.readFileSync(__dirname + "/../js/engine.js", "utf8");
+  assert.match(eng, /聊的是明天、以后的安排也不填，那不是此刻的事。';/);
+});
