@@ -39,5 +39,7 @@ test("限时池（节日）不换他的身份", () => {
   assert.match(src, /\(card\.limited \? "" : "主题跟你自己的世界本来就是同一种/);
 });
 test("限时池照开池那天的写法写", () => {
-  assert.match(src, /if \(card\.limited\) return pastLine \+ "这是一张【IF 卡】/);
+  // 开池那天的组成：早返回带节日时刻与分镜那一身（她 2026-11-02：少了 themeLook 卡就不像万圣节）
+  assert.match(src, /if \(card\.limited\) return pastLine \+ \(card\.timeAt \? stampTimeLine\(card\) : ""\)/);
+  assert.match(src, /if \(card\.limited\) return[^;]*themeLook/s);
 });

@@ -17613,8 +17613,11 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       // 限时主题都用「你们俩」这层来看（她 2026-10-27：「整体还是要放在我和他的关系」）；角色池她自己写的主题不加
       const lens = card.limited ? "\n这一期的主题是你们俩的：在这样的世界、这样的日子里，你们之间是什么样——她在你这段日子里是什么位置、你们怎么遇见、怎么相处、为彼此做了什么或没说出口什么。R 是她不在场时你的一刻，但看得出这段日子里有她，不必每张都提她；SR、SSR 就是你们俩之间的事。关系照你们现在真实走到的那一步来，还没在一起就不写成恋人。" : "";
       // 限时池（节日）照开池那天的写法原样写（她 2026-11-03：开池那批张张是万圣节，后来加的几句一叠就写成了他在干活）
-      if (card.limited) return pastLine + "这是一张【IF 卡】，主题是「" + card.theme + "」" + (stampLim(card).themeLine ? "：" + stampLim(card).themeLine : "。")
-        + "写的是「如果」的你，不是真发生的事。先想清楚你是哪个世界、哪个年代的人，" + mode + "衣服照这个主题来配，不用你衣柜里的。";
+      // 开池那天这条路上还有两样：节日时刻（timeAt）和分镜那一身（themeLook）——退回时把它们一起退回来，
+      //   少了 themeLook 分镜就不穿节日那身，只剩背景摆南瓜（她 2026-11-02：卡池突然变得不像万圣节）
+      if (card.limited) return pastLine + (card.timeAt ? stampTimeLine(card) : "") + "这是一张【IF 卡】，主题是「" + card.theme + "」" + (stampLim(card).themeLine ? "：" + stampLim(card).themeLine : "。")
+        + "写的是「如果」的你，不是真发生的事。先想清楚你是哪个世界、哪个年代的人，" + mode + "衣服照这个主题来配，不用你衣柜里的。"
+        + (stampLim(card).themeLook ? "分镜（shot）里写的那一身要照这一条：" + stampLim(card).themeLook : "");
       return pastLine + lens + (card.timeAt ? stampTimeLine(card) : "") + "这是一张【IF 卡】，主题是「" + card.theme + "」" + (stampLim(card).themeLine ? "：" + stampLim(card).themeLine : "。")
         + "写的是「如果」的你，不是真发生的事。先想清楚你是哪个世界、哪个年代的人，" + mode
         // 主题跟他自己的世界本来就是同一种（她 2026-10-26：西幻主题撞上本来就是西幻的人）：世界不换，换他这个人
