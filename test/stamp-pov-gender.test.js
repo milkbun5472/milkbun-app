@@ -70,3 +70,15 @@ test("限时池去重只跟同一期比，不一样指事不一样、节照过�
   assert.equal(f.stampSeriesOf([{ limited: "h", series: "h" }, { kind: "if" }]), null);
   assert.match(src, /是硬条件，排在写卡先后的最前面/);
 });
+test("锁了衣服的那张，人设和参考照里的衣服不算", () => {
+  const eng = fs.readFileSync(__dirname + "/../js/engine.js", "utf8");
+  assert.match(eng, /这一张的衣服只看后面的服装锁：人设、外貌里写的常穿衣物和参考照里那身衣服都不算/);
+});
+test("限时池画卡面时分镜里的衣服拿掉", () => {
+  assert.match(src, /card\.limited \? String\(tx\.shot \|\| ""\)\.replace\(\/\(\?:outfit/);
+});
+test("IF、生日、纪念日写卡不带衣柜那段（会叫他只穿衣柜里的）", () => {
+  assert.match(src, /const stampCtx = \(char, cards\) =>/);
+  assert.match(src, /\{ carryLog: "" \}/);
+  assert.ok(!/stampCtx\(char, \[c\]\)[\s\S]{0,40}const stampInner/.test(src));
+});

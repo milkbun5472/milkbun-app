@@ -20,7 +20,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v89.021";
+const APP_VERSION = "v89.025";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -17680,6 +17680,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   const STAMP_CORE = () => (typeof narrativeCore === "function" ? narrativeCore({ intimate: true }) + "\n\n" : "")
     + "写卡的先后：先是你这个人对不对，再是跟你的世界、你们现在的关系对不对，再是写的是不是一件具体的事，再是跟别的卡是不是不一样，最后才是好不好看。戏剧效果跟你会怎么做对不上时，照你会怎么做；没有冲突、没有告白、没有高潮也可以。\n\n";
   // 限时池的主题说明照这一期【现在】写的那份走，不照抽到那会儿存在卡上的旧字（她 2026-11-03：改了万圣夜的要求，重写还是常服）
+  // 限时池画卡面时，分镜里写的那身衣服拿掉，只留衣服那一格的过节装（她 2026-11-04：分镜里写的是常服，图像站照着分镜画）
   const stampLim = card => { const L = card && card.limited && window.StampsCore && window.StampsCore.LIMITED; const x = L && L.find(e => e.id === card.limited); return x ? Object.assign({}, card, { themeLine: x.line || card.themeLine, themeLook: x.look || "" }) : card; };
   const StampsCoreSafe = () => (window.StampsCore ? window.StampsCore.load() : { cards: [] });
   // 聊天里那张小卡要的东西（不带整段正文，正文在 content 里给他读）
@@ -17740,11 +17741,15 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     await Promise.all([lane(), lane(), lane()]);
   };
   // 写卡是叙事正文，跟线下一样走线下线路（她 2026-10-25）；戳一戳、求情是他开口说话，照旧走聊天线路
+  // 写卡的上下文：IF、生日、纪念日这几种衣服不从衣柜挑——上下文里那段「你的衣柜」会叫他「穿什么只从衣柜里真有的挑」，
+  //   跟「照这个节穿」打架，写出来全是常服（她 2026-11-04）。这几种就不带衣柜那段
+  const STAMP_FREE_FIT = c => c && (c.kind === "if" || c.kind === "bday" || c.kind === "mybday" || c.kind === "anniv");
+  const stampCtx = (char, cards) => { const x = ctxFor(char, { loreScope: "offline" }); return (cards || []).every(STAMP_FREE_FIT) ? Object.assign({}, x, { carryLog: "" }) : x; };
   const stampWriteSmall = async (char, list) => {
     list.forEach(c => stampSaveCard(c.id, { writing: true, writingTs: Date.now(), queued: false, err: "" }));
     try {
       const ser = stampSeriesOf(list), prev = stampPrev(char.id, list.map(c => c.id), ser && ser.series);
-      const d = await runProbe(offlineApiFor(char.id), ctxFor(char, { loreScope: "offline" }), {
+      const d = await runProbe(offlineApiFor(char.id), stampCtx(char, list), {
         voice: true,
         instruction: STAMP_CORE() + stampVoice(char) + stampBi(char) + "她在「邮票册」里抽到了几张印着你的邮票，每张是你的一个样子。下面按顺序写这几张。\n"
           + list.map((c, i) => "第 " + (i + 1) + " 张：" + c.rarity + "。" + stampKindLine(c, char)).join("\n")
@@ -17770,7 +17775,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     stampSaveCard(c.id, { writing: true, writingTs: Date.now(), queued: false, err: "" });
     try {
       const ser = stampSeriesOf([c]), prev = stampPrev(char.id, [c.id], ser && ser.series), me = userName(meOf(char.id));
-      const d = await runProbe(offlineApiFor(char.id), ctxFor(char, { loreScope: "offline" }), {
+      const d = await runProbe(offlineApiFor(char.id), stampCtx(char, [c]), {
         voice: true,
         instruction: STAMP_CORE() + stampVoice(char) + stampBi(char) + "她在「邮票册」里抽到了一张印着你的 SSR 邮票。" + stampKindLine(c, char)
           + "\nSSR 是一段完整的剧情，像乙游的卡面剧情：分几节，她在中间做选择，选的不同走的路不同。是什么样的故事，跟着你这个人、你的世界和你们现在的关系来，不一定是恋爱的事。"
@@ -17800,7 +17805,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
           + ((x.choices || []).length ? "\n  选项：" + x.choices.map(o => (o.text || "") + " → " + (o.go || "")).join("；") : "")).join("\n");
         let more = null;
         try {
-          more = await runProbe(offlineApiFor(char.id), ctxFor(char, { loreScope: "offline" }), { voice: true,
+          more = await runProbe(offlineApiFor(char.id), stampCtx(char, [c]), { voice: true,
             instruction: STAMP_CORE() + stampVoice(char) + stampBi(char) + "你在写邮票册里那张 SSR「" + d.name + "」的剧情。" + stampKindLine(c, char)
               + "\n前面已经写好了这几节（每节只摘了结尾几句）：\n" + sofar
               + "\n\n接着把还缺的写完：" + miss.map(l => l === 10 || l === 30 ? "lv" + l + " 的两条岔路" : l === 40 ? "lv40 的两三个结局（end:true）" : l === 50 ? "lv50 的隐藏的路（hidden:true，也是一个结局）" : "lv" + l + " 那一节").join("、")
@@ -17822,7 +17827,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     const char = characters.find(x => x.id === card.charId); const tx = card.text; if (!char || !tx) return null;
     const me = userName(meOf(char.id));
     const dump = (tx.sections || []).map(sc => "【" + sc.id + "】" + (sc.title || "") + "\n" + (sc.beats || []).map((b, k) => k + ". " + (b.who === "pick" ? "（她在这儿做了个小选择）" : (b.who === "he" ? "你：" : b.who === "me" ? me + "：" : "") + String(b.text || "").slice(0, 160))).join("\n")).join("\n\n");
-    const d = await runProbe(offlineApiFor(char.id), ctxFor(char, { loreScope: "offline" }), { voice: true,
+    const d = await runProbe(offlineApiFor(char.id), stampCtx(char, [card]), { voice: true,
       instruction: STAMP_CORE() + stampVoice(char) + stampBi(char) + "她在「邮票册」里把你这张 SSR「" + (tx.name || "") + "」升满了，想换你的视角重读一遍。下面是这段剧情，每节每句前面有编号。"
         + "在你想说的地方插进你那时心里的话：那会儿你在想什么、注意到了什么、没说出口的是什么。照你这个人，有的地方多想、有的地方根本没想，不必每句都插；每节几处。at 是插在哪一句后面的编号。\n\n" + dump.slice(0, 24000),
       schemaHint: "{\"inner\":{\"节的id\":[{\"at\":0,\"text\":\"\"}]}}", maxTokens: 30000 });
@@ -17954,7 +17959,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       let scene = alt
         ? "一张乙游满级纪念卡面：「" + (tx.name || "") + "」。画的是这段剧情走到结局时的那一刻：" + (endWhat || String(what).slice(0, 300)) + "\n跟第一张卡面不是同一刻，构图和光也换一套。景别拉开到看得见这一刻的场景和氛围，不是一张脸部近照。"
           + (duo ? "画面里是你们两个人。" + (lover ? "你们是恋人，两个人之间的距离、眼神和手就是恋人的样子。" : "你们之间是什么关系就是什么距离，不画成恋人。") : "卡面上只画你一个人。") + "\n画面里不要任何文字。"
-        : "一张乙游卡面：「" + (tx.name || "") + "」。这一刻：" + String(what).slice(0, 300) + "\n【分镜】" + String(tx.shot || "").slice(0, 600)
+        : "一张乙游卡面：「" + (tx.name || "") + "」。这一刻：" + String(what).slice(0, 300) + "\n【分镜】" + (card.limited ? String(tx.shot || "").replace(/(?:outfit|穿着|衣着|服装)\s*[＝=：:][^；;。\n]*[；;。]?/gi, "") : String(tx.shot || "")).slice(0, 600)
         + "\n画面里不要任何文字。" + (duo ? "" : "\n这是他的单人卡面。如果画到她从镜头这边伸进画面的手（第一人称视角，比如被他牵着），要看得出是她的手：手腕连着一截小臂，从画面下沿或侧边自然伸进来，袖口看得见，不是凭空飘着的半截手。");   // 她 2026-10-27：喜欢这种第一人称牵手，只是别像断掉的半截手
       // IF 主题只换衣服、场景、道具；他的脸、发色、瞳色、身材照他本人，不为贴合主题改（她 2026-10-25：恶魔主题把金发画成了黑发）
       // IF 卡每一面都要看得出是哪个主题（她 2026-10-25：万圣夜的满级双人卡面画成了普通卧室）
