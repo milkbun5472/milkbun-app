@@ -158,6 +158,11 @@ test("没开双语的角色，字段说明是空串——一个字都不多发",
 });
 require("node:test")("双语开着时心声的字段说明上也写着「原文 | 中文」", () => {
   const assert = require("node:assert/strict"), src = require("fs").readFileSync(require("path").join(__dirname, "..", "js", "app.js"), "utf8");
-  assert.match(src, /const _biThoughtSpec = _bilingualOn \? "（开着双语：心声是外语的话写成「原文 \| 中文」/);
+  assert.match(src, /const _biThoughtSpec = _bilingualOn \? "（开着双语：心声是外语的话，先写外语那几句，后面接一根竖线/);
+  assert.ok(!/_biThoughtSpec = [^\n]*「原文 \| 中文」/.test(src), "心声那栏不再摆格式样子，免得被原样抄进去");
+  const eng = require("fs").readFileSync(require("path").join(__dirname, "..", "js", "engine.js"), "utf8");
+  const f = new Function("stripPauseMarks", "ttsHasSoundTag", "ttsMarkStrip", "privateBracketFix", eng.slice(eng.indexOf("function showClean"), eng.indexOf("function ttsHasPause")) + "return showClean;")(x => x, () => false, x => x, x => x);
+  assert.equal(f("「原文 | 中文」\n……ん、限界。|……嗯，撑不住了。"), "……ん、限界。|……嗯，撑不住了。");
+  assert.equal(f("我说的原文是这样"), "我说的原文是这样");
   assert.match(src, /thought: string，【每轮必须写，禁止 null、空串或省略】。\$\{_biThoughtSpec\}/);
 });

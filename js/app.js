@@ -13413,7 +13413,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         : "";
       // 心声也挂在字段上（她 2026-11-04「开了翻译他怎么都不翻译心声了」）：只写在前面那段双语规则里，写到 thought 时就忘了，
       //   她那边只剩免费翻译。跟 word 同一招
-      const _biThoughtSpec = _bilingualOn ? "（开着双语：心声是外语的话写成「原文 | 中文」，整段只用一根竖线；是中文就照常写。）" : "";
+      const _biThoughtSpec = _bilingualOn ? "（开着双语：心声是外语的话，先写外语那几句，后面接一根竖线，再写它们的中文意思；整段只用一根竖线，竖线前面就是心声本身，不写格式说明；是中文就照常写。）" : "";
       const _normalProtocolStable = `
 
 【生成与输出协议】

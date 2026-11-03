@@ -7689,6 +7689,8 @@ function showClean(text, isU) {
   if (!s) return s;
   if (s.indexOf("<#") >= 0) s = stripPauseMarks(s);
   if (isU) return s;
+  // 模型把格式说明「原文 | 中文」原样抄进了正文（她 2026-11-04 心声截图）：那半截是说明不是话，摘掉，剩下的才劈得开
+  if (s.indexOf("原文") >= 0) s = s.replace(/^\s*[「『【\[(（]?\s*原文\s*[|｜│︱┃]\s*中文\s*[」』】\])）]?\s*[:：]?\s*/, "");
   if (s.indexOf("(") >= 0 && ttsHasSoundTag(s)) s = ttsMarkStrip(s);
   if (s.indexOf("\\n") >= 0) s = s.replace(/\\r\\n|\\n/g, "\n");
   if (s.indexOf("〔") >= 0) s = privateBracketFix(s).replace(/ {2,}/g, " ").trim();
