@@ -63,3 +63,8 @@ test("锁了衣服的那张，人设和参考照里的衣服不算", () => {
 test("限时池画卡面时分镜里的衣服拿掉", () => {
   assert.match(src, /card\.limited \? String\(tx\.shot \|\| ""\)\.replace\(\/\(\?:outfit/);
 });
+test("IF、生日、纪念日写卡不带衣柜那段（会叫他只穿衣柜里的）", () => {
+  assert.match(src, /const stampCtx = \(char, cards\) =>/);
+  assert.match(src, /\{ carryLog: "" \}/);
+  assert.ok(!/stampCtx\(char, \[c\]\)[\s\S]{0,40}const stampInner/.test(src));
+});
