@@ -54,7 +54,9 @@ test("册子里正在重写的卡有标记", () => {
 test("限时池卡名看得出是这一期", () => { assert.match(src, /"卡名一看就知道是「" \+ card\.theme \+ "」这一期的卡。"/); });
 test("限时池分镜里的衣服看得出在过节", () => { assert.match(src, /shot 里的 outfit 写你过这个节穿的那一身/); });
 test("限时池画卡面时，衣服那一格写死要过节的那一身", () => {
-  assert.ok((src.match(/"这一张不穿平时的衣服：穿过「"/g) || []).length >= 2);
+  assert.match(src, /const stampLimFit = card => "这一张不穿平时的衣服：穿过「"/);
+  assert.ok((src.match(/card\.limited \? stampLimFit\(card\) : ""/g) || []).length >= 2, "两处画卡面都走同一份");
+  assert.match(src, /不是平时那身衣服上加一个头饰、一件小配件；参考照里他穿的那件外套和上衣这张都不出现/);
 });
 test("限时池去重只跟同一期比，不一样指事不一样、节照过；主题排在写卡先后最前", () => {
   const body = src.slice(src.indexOf("const stampPrev = "), src.indexOf("const stampVoice"));
