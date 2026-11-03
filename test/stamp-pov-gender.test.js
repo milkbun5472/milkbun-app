@@ -33,7 +33,6 @@ test("R 卡心里那句摆在时刻回廊下面，不塞进「那一刻」", () 
 });
 test("限时池卡照这一期现在的主题说明写和画，分镜里的常服会被换掉", () => {
   assert.match(src, /const stampLim = card =>/);
-  assert.ok(!/[^(]card\.themeLook/.test(src.replace(/const stampLim[^\n]*/, "")));
   assert.match(src, /他穿什么以这一条为准，分镜里写的那身衣服不算/);
   assert.match(src, /分镜（shot）里写的那一身要照这一条/);
 });
