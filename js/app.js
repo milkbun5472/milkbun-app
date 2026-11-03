@@ -20,7 +20,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v88.999";
+const APP_VERSION = "v89.010";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -17612,11 +17612,20 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       const pastLine = past.length ? "\n往年的「" + card.theme + "」你也过过，那时的卡：\n" + past.join("\n") + "\n今年写别的事、别的走向；你们的关系要是变了，今年的「" + card.theme + "」也该跟那时不一样。可以自然想起往年，但不必每张都提。" : "";
       // 限时主题都用「你们俩」这层来看（她 2026-10-27：「整体还是要放在我和他的关系」）；角色池她自己写的主题不加
       const lens = card.limited ? "\n这一期的主题是你们俩的：在这样的世界、这样的日子里，你们之间是什么样——她在你这段日子里是什么位置、你们怎么遇见、怎么相处、为彼此做了什么或没说出口什么。R 是她不在场时你的一刻，但看得出这段日子里有她，不必每张都提她；SR、SSR 就是你们俩之间的事。关系照你们现在真实走到的那一步来，还没在一起就不写成恋人。" : "";
-      return pastLine + lens + (card.timeAt ? stampTimeLine(card) : "") + "这是一张【IF 卡】，主题是「" + card.theme + "」" + (card.themeLine ? "：" + card.themeLine : "。")
+      // 限时池（节日）照开池那天的写法原样写（她 2026-11-03：开池那批张张是万圣节，后来加的几句一叠就写成了他在干活）
+      // 开池那天这条路上还有两样：节日时刻（timeAt）和分镜那一身（themeLook）——退回时把它们一起退回来，
+      //   少了 themeLook 分镜就不穿节日那身，只剩背景摆南瓜（她 2026-11-02：卡池突然变得不像万圣节）
+      if (card.limited) return pastLine + (card.timeAt ? stampTimeLine(card) : "") + "这是一张【IF 卡】，主题是「" + card.theme + "」" + (stampLim(card).themeLine ? "：" + stampLim(card).themeLine : "。")
+        + "写的是「如果」的你，不是真发生的事。先想清楚你是哪个世界、哪个年代的人，" + mode + "衣服照这个主题来配，不用你衣柜里的。"
+        + (stampLim(card).themeLook ? "分镜（shot）里写的那一身要照这一条：" + stampLim(card).themeLook : "");
+      return pastLine + lens + (card.timeAt ? stampTimeLine(card) : "") + "这是一张【IF 卡】，主题是「" + card.theme + "」" + (stampLim(card).themeLine ? "：" + stampLim(card).themeLine : "。")
         + "写的是「如果」的你，不是真发生的事。先想清楚你是哪个世界、哪个年代的人，" + mode
         // 主题跟他自己的世界本来就是同一种（她 2026-10-26：西幻主题撞上本来就是西幻的人）：世界不换，换他这个人
-        + "主题跟你自己的世界本来就是同一种（时代、风格都对得上）的话，就别再写你原来的身份——世界不换，换的是你：要是你走了另一条路，在这个世界里会是谁。"
-        + "衣服照这个主题来配，不用你衣柜里的。";
+        // 限时池是节日、不是另一个世界：不换身份，还是他本人过这个节（她 2026-11-03：万圣夜把他写成了游乐园修机器的）
+        + (card.limited ? "" : "主题跟你自己的世界本来就是同一种（时代、风格都对得上）的话，就别再写你原来的身份——世界不换，换的是你：要是你走了另一条路，在这个世界里会是谁。")
+        // 限时池是一个节：这张就发生在过节的那一晚，他在过节（她 2026-11-03：沈屿白重写出来张张在修机器、穿工装，只是背景摆了南瓜）
+        + (card.limited ? "这一张发生在过这个节的时候，你在过这个节：在做只有这几天才会做的事，不是平常干活的一天摆上节日背景；穿的也是过这个节的人会穿的。" : "")
+        + "衣服照这个主题来配，不用你衣柜里的。" + (stampLim(card).themeLook ? "分镜（shot）里写的那一身要照这一条：" + stampLim(card).themeLook : "");
     }
     return "这是一张【日常卡】：写你自己日子里真发生的一件事——不是你们已经发生过的事，也不是回忆。"
       + "这件事从你自己的生活里来：你的活儿、你在意的东西、你身边的人、你的选择，或者一点意外；它可以跟她一点关系都没有，你不必时时惦记着她。"
@@ -17632,8 +17641,9 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   };
   // 去重按「写的是什么事」，不只按卡名：带上最近几十张的 gist
   // 带上印在卡上的那句台词（她 2026-10-26：同一期两张卡印了一模一样的一句）
-  const stampPrev = charId => (StampsCoreSafe().cards || []).filter(c => c.charId === charId && c.text).slice(-30).map(c => "- " + (c.text.gist ? String(c.text.gist).slice(0, 60) : "（没记）") + (c.text.line ? "（卡上那句：" + String(c.text.line).slice(0, 40) + "）" : ""));
-  const stampPrevLine = prev => prev.length ? "\n你已经有的卡（写的是什么、卡上那句；卡名不给你看，免得照着起）：\n" + prev.join("\n") + "\n新写的别再是同一件事、同一种走向，卡上那句也别再说一样的话。" : "";
+  // 重写时不把这几张自己的旧版本摆给他看（她 2026-11-03：重写是照着旧的改，修南瓜改成了修管道）
+  const stampPrev = (charId, skip) => (StampsCoreSafe().cards || []).filter(c => c.charId === charId && c.text && !(skip || []).includes(c.id)).slice(-30).map(c => "「" + c.text.name + "」" + (c.text.gist ? "：" + String(c.text.gist).slice(0, 60) : "") + (c.text.line ? "（卡上那句：" + String(c.text.line).slice(0, 40) + "）" : ""));
+  const stampPrevLine = prev => prev.length ? "\n你已经有的卡（卡名、写的是什么、卡上那句）：\n" + prev.join("\n") + "\n新写的别再是同一件事、同一种走向，卡上那句也别再说一样的话。" : "";
   // 他平时真说过的话（她 2026-10-26：「剧情有点刻板印象，不像他平时说话」）：从跟她的聊天里取最近几十句他自己打的字，
   //   叫他照这个口气、长短、用词开口——不是让他复述这些话，是让他认出自己。没聊过就不给
   const stampVoice = char => {
@@ -17646,6 +17656,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   // 写卡的公共底子：跟线下、同人文同一套叙事规矩；排序也写明——人对了比戏好看要紧
   const STAMP_CORE = () => (typeof narrativeCore === "function" ? narrativeCore({ intimate: true }) + "\n\n" : "")
     + "写卡的先后：先是你这个人对不对，再是跟你的世界、你们现在的关系对不对，再是写的是不是一件具体的事，再是跟别的卡是不是不一样，最后才是好不好看。戏剧效果跟你会怎么做对不上时，照你会怎么做；没有冲突、没有告白、没有高潮也可以。\n\n";
+  // 限时池的主题说明照这一期【现在】写的那份走，不照抽到那会儿存在卡上的旧字（她 2026-11-03：改了万圣夜的要求，重写还是常服）
+  const stampLim = card => { const L = card && card.limited && window.StampsCore && window.StampsCore.LIMITED; const x = L && L.find(e => e.id === card.limited); return x ? Object.assign({}, card, { themeLine: x.line || card.themeLine, themeLook: x.look || "" }) : card; };
   const StampsCoreSafe = () => (window.StampsCore ? window.StampsCore.load() : { cards: [] });
   // 聊天里那张小卡要的东西（不带整段正文，正文在 content 里给他读）
   const stampShareOf = card => { const tx = card.text || {}; return { id: card.id, name: tx.name || "", rarity: card.rarity, kind: card.kind, theme: card.theme || "", line: tx.line || tx.thought || "", face: card.sendFace || card.face || card.faceAlt || "" }; };
@@ -17708,13 +17720,13 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   const stampWriteSmall = async (char, list) => {
     list.forEach(c => stampSaveCard(c.id, { writing: true, writingTs: Date.now(), queued: false, err: "" }));
     try {
-      const prev = stampPrev(char.id);
+      const prev = stampPrev(char.id, list.map(c => c.id));
       const d = await runProbe(offlineApiFor(char.id), ctxFor(char, { loreScope: "offline" }), {
         voice: true,
         instruction: STAMP_CORE() + stampVoice(char) + stampBi(char) + "她在「邮票册」里抽到了几张印着你的邮票，每张是你的一个样子。下面按顺序写这几张。\n"
           + list.map((c, i) => "第 " + (i + 1) + " 张：" + c.rarity + "。" + stampKindLine(c, char)).join("\n")
           + "\n" + (list.some(c => c.rarity === "R") ? STAMP_RARITY_SPEC.R + "\n" : "") + (list.some(c => c.rarity === "SR") ? STAMP_RARITY_SPEC.SR + "\n" : "")
-          + "每张都有 name（卡名，八个字以内，从这张卡里那件事本身来起，不拿日子、节气、天气这些背景起名；长短、说法跟着这张卡里那件事走，像这一张自己的名字）、gist（一句话记下这张写的是什么事、在哪、怎么收的尾，给以后去重用）和 shot。" + STAMP_SHOT_SPEC
+          + "每张都有 name（卡名，八个字以内）、gist（一句话记下这张写的是什么事、在哪、怎么收的尾，给以后去重用）和 shot。" + STAMP_SHOT_SPEC
           + stampPrevLine(prev) + "\n这几张之间也是不同的事。"
           // 人称跟 SSR 剧情一样（她 2026-10-28：R 卡里写成了「你调完色，碰了碰她的下颌」）：卡是写给她读的
           + stampPov(char, "\n人称：卡上叙述的那几栏是写给她读的（每一栏还是照格式写成一段字），叙述里你是「他」、她是「你」，比如「他调完色，碰了碰你的下颌」；thought、real、hidden、line、back、his 是你自己心里或嘴上的话，用「我」。"),
@@ -17734,7 +17746,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   const stampWriteSSR = async (char, c) => {
     stampSaveCard(c.id, { writing: true, writingTs: Date.now(), queued: false, err: "" });
     try {
-      const prev = stampPrev(char.id), me = userName(meOf(char.id));
+      const prev = stampPrev(char.id, [c.id]), me = userName(meOf(char.id));
       const d = await runProbe(offlineApiFor(char.id), ctxFor(char, { loreScope: "offline" }), {
         voice: true,
         instruction: STAMP_CORE() + stampVoice(char) + stampBi(char) + "她在「邮票册」里抽到了一张印着你的 SSR 邮票。" + stampKindLine(c, char)
@@ -17747,7 +17759,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
           + "一节中间也可以停下来让她选一两次（beats 里放一个 who:\"pick\"，options 两三个：text 是她说的话或做的事，beats 是你接着的那几句）——选的不同你的反应就不同，几句之后回到这一节的主线；节尾的 choices 两三个。"
           + "往前走靠的是发生的事、你的做法和你们之间自然的对话；你说多少话照你平时的样子，心里的东西让她从你做的事里看出来。每节都有点什么变了，不必每节都有大事。"
           + "两条岔路走下去，后面发生的事、你的处理、她知道的东西、你们之间的样子，至少有一样真的不一样。" + ((StampsCoreSafe().opt || {}).meQuiet ? "正文里她基本不开口：me 一节最多一句，能不写就不写；她的说话和决定都放进选项（pick 和节尾 choices）里。往前推的是你的话、你的动作和旁白。" : "她那句（me）照她平时的样子写，少一点。")
-          + "\nname 是卡名（八个字以内，长短、说法跟着这张卡里那件事走，像这一张自己的名字），line 是印在卡面上的一句你的台词。highlight 是剧情里你最想留住的那一刻，一两句画面。gist 一句话记下这张写的是什么事、在哪、怎么收的尾。name 从这段剧情里的事本身来起，不拿日子、节气、天气这些背景起名。allEndsLine 是她把每个结局都走过一遍以后，你想对她说的一句。" + STAMP_SHOT_SPEC
+          + "\nname 是卡名（八个字以内），line 是印在卡面上的一句你的台词。highlight 是剧情里你最想留住的那一刻，一两句画面。gist 一句话记下这张写的是什么事、在哪、怎么收的尾。name 从这段剧情里的事本身来起，不拿日子、节气、天气这些背景起名。allEndsLine 是她把每个结局都走过一遍以后，你想对她说的一句。" + STAMP_SHOT_SPEC
           + stampPrevLine(prev),
         schemaHint: "{\"name\":\"\",\"line\":\"\",\"highlight\":\"\",\"gist\":\"\",\"allEndsLine\":\"\",\"shot\":\"\",\"sections\":[{\"id\":\"s1\",\"lv\":1,\"title\":\"\",\"beats\":[{\"who\":\"narr|he|me\",\"text\":\"\"},{\"who\":\"pick\",\"options\":[{\"text\":\"\",\"beats\":[{\"who\":\"he\",\"text\":\"\"}]}]}],\"choices\":[{\"text\":\"\",\"go\":\"s2a\"}],\"end\":false,\"hidden\":false}]}",
         maxTokens: 65000
@@ -17844,8 +17856,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       const paint = String(((StampsCoreSafe().opt || {}).paint) || "").trim();
       let scene = "一张横版的乙游番外 CG：「" + (x.title || "") + "」。平时会裁成竖的、只显示正中间那一块当卡面，所以主要的人和动作放在画面正中间那三分之一，左右两边是场景和氛围。这一下：" + (x.shot || String(x.text).slice(-300)) + "\n景别拉开到看得见这一刻在哪、什么光，不是一张脸部近照。"
         + (duo ? "画面里是你们两个人。" + (lover ? "你们是恋人，距离和手就是恋人的样子。" : "你们之间是什么关系就是什么距离，不画成恋人。") : "画面里只画你一个人。") + "\n画面里不要任何文字。";
-      if (card.kind === "if") scene += "\n这张是 IF「" + (card.theme || "") + "」" + (card.themeLine ? "：" + String(card.themeLine).slice(0, 300) : "") + "。" + (card.themeLook || "") + "衣服、场景和光照这个主题来。他的长相照他本人，主题只换衣服、场景和道具。";
-      const base = Object.assign({}, char, { photoOutfit: "" });
+      if (card.kind === "if") scene += "\n这张是 IF「" + (card.theme || "") + "」" + (stampLim(card).themeLine ? "：" + String(stampLim(card).themeLine).slice(0, 300) : "") + "。" + (stampLim(card).themeLook || "") + "衣服、场景和光照这个主题来。他的长相照他本人，主题只换衣服、场景和道具。";
+      const base = Object.assign({}, char, { photoOutfit: card.limited && stampLim(card).themeLook ? "这一张不穿平时的衣服：" + stampLim(card).themeLook : "" });
       const prompt = buildPhotoPrompt(paint === "real" ? Object.assign({}, base, { photoStyle: "realistic" }) : base, scene, Object.assign({}, st, { wearing: "", wearingUpdatedAt: 0 }),
         Object.assign(duo ? { kind: "duo", me: meP, notLover: !lover } : { kind: "other" }, { shotLine: stampCam() + "这张番外 CG 里他的脸一定要看得见：正脸或者侧脸，不拍背影、不拍后脑勺；两个人在一起时，镜头在他们对面或者斜对面，不从他身后越肩拍。" }, { closet: "" }, paint && paint !== "real" ? { paint } : {}));
       const refs = [char.refPhoto, duo && meP && meP.refPhoto].filter(Boolean);
@@ -17923,7 +17935,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         + "\n画面里不要任何文字。" + (duo ? "" : "\n这是他的单人卡面。如果画到她从镜头这边伸进画面的手（第一人称视角，比如被他牵着），要看得出是她的手：手腕连着一截小臂，从画面下沿或侧边自然伸进来，袖口看得见，不是凭空飘着的半截手。");   // 她 2026-10-27：喜欢这种第一人称牵手，只是别像断掉的半截手
       // IF 主题只换衣服、场景、道具；他的脸、发色、瞳色、身材照他本人，不为贴合主题改（她 2026-10-25：恶魔主题把金发画成了黑发）
       // IF 卡每一面都要看得出是哪个主题（她 2026-10-25：万圣夜的满级双人卡面画成了普通卧室）
-      const keepLook = card.kind === "if" ? "\n这张是 IF「" + (card.theme || "") + "」" + (card.themeLine ? "：" + String(card.themeLine).slice(0, 500) : "") + "。" + (card.themeLook ? card.themeLook : "") + "衣服、场景、道具和光都照这个主题来，一眼看得出是这个主题" + (duo ? "，画里两个人的打扮都是" : "") + "。"
+      const keepLook = card.kind === "if" ? "\n这张是 IF「" + (card.theme || "") + "」" + (stampLim(card).themeLine ? "：" + String(stampLim(card).themeLine).slice(0, 500) : "") + "。" + (stampLim(card).themeLook ? stampLim(card).themeLook : "") + "衣服、场景、道具和光都照这个主题来，一眼看得出是这个主题" + (card.limited && stampLim(card).themeLook ? "；他穿什么以这一条为准，分镜里写的那身衣服不算" : "") + (duo ? "，画里两个人的打扮都是" : "") + "。"
         + "他的长相照他本人：发色、发型、瞳色、五官和身材都不变，主题只换衣服、场景和道具。" : "";
       scene += keepLook;
       const freeFit = card.kind === "if" || card.kind === "bday" || card.kind === "mybday" || card.kind === "anniv";   // 这几种衣服不走衣柜（先定义：下面她那份也要用）
@@ -17936,7 +17948,9 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       if (card.kind === "anniv") scene += "\n这是你们的纪念日卡「" + (card.annivName || "") + "」：画面里是你们两个人，看得出是属于你们俩的那一天——场合、光和身边的东西带着这一天的意思，景别拉开到看得见这些。两个人都是为这一天特意的打扮，又各是自己会穿的样子。";
       if (card.kind === "bday") scene += "\n这是他的生日限定卡面：画面里要看得出是他的生日——那天的场合、在哪儿、光和身边的东西带着生日的氛围，景别拉开到看得见这些，不是在普通背景前的一张近照。"
         + "他穿一身专门为这一天设计的造型，不照平时衣柜里那几身——一眼看得出是特意的，细节多，面料、配饰、搭配都有讲究；隆重不等于西装，照这一天他在做的事和他这个人来配。分镜里写的衣服跟这一条对不上时，照这一条。";
-      const base = freeFit ? Object.assign({}, char, { photoOutfit: "" }) : char;
+      // 限时池那一期对衣服有要求的（万圣夜要变装），把要求放进「锁死的那身」那一格：图像端最认这一格，放在场景里会被人设、参考照里的常服盖掉（她 2026-11-03）
+      const limFit = card.limited && stampLim(card).themeLook ? "这一张不穿平时的衣服：" + stampLim(card).themeLook : "";
+      const base = freeFit ? Object.assign({}, char, { photoOutfit: limFit }) : char;
       const prompt = buildPhotoPrompt(paint === "real" ? Object.assign({}, base, { photoStyle: "realistic" }) : base, scene,
         freeFit ? Object.assign({}, st, { wearing: "", wearingUpdatedAt: 0 }) : st,
         Object.assign(duo ? { kind: "duo", me: meP, notLover: !lover, poseLine: "【两个人的姿势】两个人在一起做着这一刻的事，有互动、有动势，身体之间的距离照你们的关系，不是并排对着镜头站好。" } : { kind: "other" }, { shotLine: stampCam() }, { closet: freeFit ? "" : closetTextFor(char.id, 240) }, paint && paint !== "real" ? { paint } : {}));
@@ -35459,7 +35473,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     onReshot: stampReshot,
     // 接着演（她 2026-10-27）：把这张卡写了什么打包交给小剧场，开一条从卡来的线；或者打开从这张卡开过的某一条
     onTheater: card => { const tx = card.text || {}, ends = (tx.sections || []).filter(x => x && (x.end || x.hidden)).map(x => "「" + (x.title || "") + "」" + (x.beats || []).filter(b => b && b.who !== "pick").slice(-4).map(b => String(b.text || "").slice(0, 100)).join(" / ")).join("\n");
-      const text = ["卡名：" + (tx.name || ""), card.kind === "if" ? "IF 主题：" + (card.theme || "") + (card.themeLine ? "：" + String(card.themeLine).slice(0, 300) : "") : "", tx.gist ? "写的是：" + tx.gist : "",
+      const text = ["卡名：" + (tx.name || ""), card.kind === "if" ? "IF 主题：" + (card.theme || "") + (stampLim(card).themeLine ? "：" + String(stampLim(card).themeLine).slice(0, 300) : "") : "", tx.gist ? "写的是：" + tx.gist : "",
         card.rarity === "SSR" ? (tx.highlight ? "最想留住的一刻：" + tx.highlight : "") + (ends ? "\n几个结局：\n" + ends.slice(0, 1500) : "") : [tx.open, tx.rest, tx.sequel].filter(Boolean).join("\n").slice(0, 1500),
         tx.hidden ? "他藏着没说的：" + tx.hidden : "", tx.line ? "卡上那句：" + tx.line : ""].filter(Boolean).join("\n");
       window.__theaterReturn = { cardId: card.id }; window.__theaterHandoff = { fromCard: { cardId: card.id, charId: card.charId, kind: card.kind, rarity: card.rarity, theme: card.theme || "", name: tx.name || "", text } }; setScreen("theater"); },
