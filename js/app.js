@@ -20,7 +20,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v88.993";
+const APP_VERSION = "v88.994";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -37386,10 +37386,32 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     throw e;
   })));
   if (hyd.length) Promise.all(hyd.map(p => Promise.resolve(p).catch(() => 0))).then(mount, mount); else mount();
+  // 存档仓库没打开时那条赖着不走的横幅。它不进 React 树（挂在 body 上）：出事的时候
+  //   界面本身也可能半残，挂在外面才一定看得见。点「我知道了」才消失，这一次开机不再弹。
+  function showVaultDownBanner(err) {
+    if (document.getElementById("vaultDownBar")) return;
+    const bar = document.createElement("div");
+    bar.id = "vaultDownBar";
+    bar.style.cssText = "position:fixed;left:0;right:0;top:0;z-index:99999;background:#7f1d1d;color:#fff;" +
+      "padding:calc(env(safe-area-inset-top,0px) + 12px) 14px 12px;font-size:13px;line-height:1.7;box-shadow:0 2px 12px rgba(0,0,0,.3)";
+    const txt = document.createElement("div");
+    txt.textContent = "⚠️ 这台手机上放存档的仓库没打开（" + (err || "原因不明") + "）。你的东西大概率还在，只是这一次读不出来。" +
+      "现在千万别建角色、别导入、别点从云端恢复、别退出登录——在这个状态下动手才会把还活着的那份盖掉。" +
+      "先把 app 彻底关掉（不是切后台）重开一次；还是这样，换个浏览器或从桌面图标再试一次。";
+    const btn = document.createElement("button");
+    btn.textContent = "我知道了";
+    btn.style.cssText = "margin-top:8px;padding:6px 14px;border:0;border-radius:999px;background:#fff;color:#7f1d1d;font-size:13px";
+    btn.onclick = () => bar.remove();
+    bar.appendChild(txt); bar.appendChild(btn);
+    document.body.appendChild(bar);
+  }
   // 挂载之后再说——太早说的话 toast 还没挂起来
   setTimeout(() => {
     // 存档几乎全在本机 IDB：打不开时这台手机看起来是空的，而这段时间写的东西一律只留在内存里不落盘——必须说出来
-    try { const st = typeof txtVaultState === "function" ? txtVaultState() : null; if (st && st.done && !st.ok) window.toast && window.toast("⚠️ 本机存档仓库这次没打开（" + st.err + "）——东西都还在，先别改任何设置，把 app 彻底关掉重开一次", 8000); } catch (e) {}
+    // ⚠️不许只弹 8 秒就完（原来是 toast）：这句一飘走，看到的就是一台正常的空手机，
+    //   接着建角色、导入、点云端恢复——那几下才是真把还活着的那份盖掉的时刻
+    //   （群友 2026-11-02：只剩「来这儿第 28 天」，人全没了）。改成赖着不走、要自己点掉。
+    try { const st = typeof txtVaultState === "function" ? txtVaultState() : null; if (st && st.done && !st.ok) showVaultDownBanner(st.err); } catch (e) {}
     if (!window.__credentialVaultError) return;
     try { window.toast && window.toast("⚠️ 本机 API 凭证金库打不开：" + window.__credentialVaultError + "——各条线路的密钥要去「设置 · API」重新填一次"); } catch (e) {}
   }, 2500);
