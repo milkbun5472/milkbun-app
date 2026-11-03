@@ -9556,7 +9556,7 @@ function Messages({
       h("button", { "data-wk": "momnewsclear", onClick: () => { setNewsOpen(false); onMomentsSeen && onMomentsSeen(); }, className: "w-full active:opacity-70", style: { padding: "10px 0", fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.sub } }, "都看过了")) : null) : null, tab === "moments" && /*#__PURE__*/React.createElement(MomentsFeed, {
     characters: characters,
     npcs: npcAll,
-    moments: moments,
+    moments: peekMomentsView(moments),
     profile: profile,
     friendGroups: friendGroups,
     onGen: onGenMoment,
@@ -10338,6 +10338,21 @@ function momentDisplayName(characters, who) {
 function npcLine(persona) {
   const first = String(persona || "").trim().split(/\n|。/)[0].trim().replace(/^你是/, "");
   return first.replace(/\s+/g, " ").slice(0, 40);
+}
+// 他翻她手机、录像播到朋友圈那一屏（群友 2026-11-04：「明明关了，他还是看到别的面具、别的 char 的朋友圈」）：
+//   跟聊天列表同一份 window.__peekHide / __peekMask 来滤——别的面具那些人发的不在；她用别的面具发的不在；
+//   留下来的帖子底下，那些人的赞和评论也拿掉。没在翻手机时原样返回
+function peekMomentsView(list) {
+  let hid = null, pm = null;
+  try { hid = window.__peekHide instanceof Set ? window.__peekHide : null; pm = window.__peekMask || null; } catch (e) {}
+  if (!hid && !pm) return list;
+  const ids = new Set([...(hid || []), ...((pm && pm.ids) || [])].map(String)), names = (pm && pm.names) || [];
+  const gone = (id, name) => (id != null && ids.has(String(id))) || (!!name && names.includes(String(name)));
+  return (list || []).filter(m => m && !(m.mine ? (pm && pm.mine != null && String(m.mask || "") !== String(pm.mine || "")) : gone(m.characterId, "")))
+    .map(m => Object.assign({}, m, {
+      likers: (m.likers || []).filter(x => { const o = typeof x === "string" ? { name: x } : (x || {}); return !gone(o.charId || o.characterId, o.name || o.author); }),
+      comments: (m.comments || []).filter(c => !c || !gone(c.charId || c.characterId || c.authorId, c.author))
+    }));
 }
 function MomentsFeed({
   npcs,

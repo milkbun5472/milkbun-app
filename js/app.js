@@ -11548,8 +11548,9 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     //   她自己那几条：设了「谁可以看」、平时不给他看的，拿着她的手机也看得到——标出来
     if (on("moments")) {
       const vm = maskKeyOf(viewerId) || "";
-      const likesOf = m => (m.likers || []).map(x => typeof x === "string" ? x : (x && (x.name || x.author)) || "").filter(Boolean).slice(0, 8);
-      const tail = m => { const likes = likesOf(m), cms = (m.comments || []).filter(c => c && c.text).slice(-4).map(c => "    " + (c.author || "某人") + "：" + cut(c.text, 40));
+      // 别的面具那些人的赞和评论也不在（群友 2026-11-04：他看到了别的 char 在朋友圈里）
+      const likesOf = m => (m.likers || []).map(x => typeof x === "string" ? x : (x && (x.name || x.author)) || "").filter(x => x && !maskNames.includes(x)).slice(0, 8);
+      const tail = m => { const likes = likesOf(m), cms = (m.comments || []).filter(c => c && c.text && !maskNames.includes(String(c.author || ""))).slice(-4).map(c => "    " + (c.author || "某人") + "：" + cut(c.text, 40));
         return (likes.length ? "\n  赞：" + likes.join("、") : "") + (cms.length ? "\n  评论：\n" + cms.join("\n") : ""); };
       const pic = m => (m.images && m.images.length) || m.image ? "（配了图）" : "";
       const feed = (momentsRef.current || []).filter(m => m && !m.mine && m.characterId && m.characterId !== viewerId && shownId(m.characterId) && !maskTrace(m.content)).slice(0, 8);
@@ -11918,7 +11919,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   const answerSneak = (charId, m, how) => {
     pChat(charId, p => p.map(x => x === m || (m.id && x.id === m.id) ? { ...x, state: how === "replay" ? (x.state === "pending" ? "pending" : x.state) : how } : x));
     // 回放也照「别的面具不给看」那条挡着（录像里点到他们的名字不打开）
-    if (how === "replay") { try { const mo = peekMaskOthers(charId); window.__peekHide = new Set(mo.map(String)); window.__peekMask = peekMaskInfo(mo); } catch (e) {} setPeekPlay({ charId, allow: [], seen: m.seen || "", hidden: [], script: m.script || [], replay: true }); return; }
+    if (how === "replay") { try { const mo = peekMaskOthers(charId); window.__peekHide = new Set(mo.map(String)); window.__peekMask = Object.assign(peekMaskInfo(mo), { mine: maskKeyOf(charId) }); } catch (e) {} setPeekPlay({ charId, allow: [], seen: m.seen || "", hidden: [], script: m.script || [], replay: true }); return; }
     if (how === "ask" || how === "ignore") peekLogEndSneak(charId, how);
     // ⚠️这一处【故意当场开口】（她 2026-10-06：「要手机和偷翻这俩改回来」）——wait-for-her.md 里记着这条例外
     if (how === "ask") replyNow(charId, "", null, { proactive: true, peekCaught: { thoughts: m.thoughts || [] } });
