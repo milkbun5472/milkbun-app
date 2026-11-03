@@ -236,3 +236,7 @@ test("R 卡那句心里话写进了 line 也认回来", () => {
   const out = C.cleanText({ name: "a", narration: "n", line: "我在想你" }, "R");
   assert.strictEqual(out.thought, "我在想你");
 });
+test("万圣夜那期卡面不穿常服", () => {
+  const src = require("fs").readFileSync(__dirname + "/../js/stamps-core.js", "utf8");
+  assert.match(src, /不是平时的常服/);
+});
