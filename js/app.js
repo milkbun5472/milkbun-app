@@ -17717,12 +17717,11 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     await Promise.all([lane(), lane(), lane()]);
   };
   // 写卡是叙事正文，跟线下一样走线下线路（她 2026-10-25）；戳一戳、求情是他开口说话，照旧走聊天线路
-  // 限时池（节日）照开池那天：不读线下那半世界书——那份写的是他平常过日子的样子，会把节日写回平常（她 2026-11-03）
   const stampWriteSmall = async (char, list) => {
     list.forEach(c => stampSaveCard(c.id, { writing: true, writingTs: Date.now(), queued: false, err: "" }));
     try {
       const prev = stampPrev(char.id, list.map(c => c.id));
-      const d = await runProbe(offlineApiFor(char.id), ctxFor(char, list.every(c => c.limited) ? {} : { loreScope: "offline" }), {
+      const d = await runProbe(offlineApiFor(char.id), ctxFor(char, { loreScope: "offline" }), {
         voice: true,
         instruction: STAMP_CORE() + stampVoice(char) + stampBi(char) + "她在「邮票册」里抽到了几张印着你的邮票，每张是你的一个样子。下面按顺序写这几张。\n"
           + list.map((c, i) => "第 " + (i + 1) + " 张：" + c.rarity + "。" + stampKindLine(c, char)).join("\n")
@@ -17748,7 +17747,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     stampSaveCard(c.id, { writing: true, writingTs: Date.now(), queued: false, err: "" });
     try {
       const prev = stampPrev(char.id, [c.id]), me = userName(meOf(char.id));
-      const d = await runProbe(offlineApiFor(char.id), ctxFor(char, c.limited ? {} : { loreScope: "offline" }), {
+      const d = await runProbe(offlineApiFor(char.id), ctxFor(char, { loreScope: "offline" }), {
         voice: true,
         instruction: STAMP_CORE() + stampVoice(char) + stampBi(char) + "她在「邮票册」里抽到了一张印着你的 SSR 邮票。" + stampKindLine(c, char)
           + "\nSSR 是一段完整的剧情，像乙游的卡面剧情：分几节，她在中间做选择，选的不同走的路不同。是什么样的故事，跟着你这个人、你的世界和你们现在的关系来，不一定是恋爱的事。"
@@ -17778,7 +17777,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
           + ((x.choices || []).length ? "\n  选项：" + x.choices.map(o => (o.text || "") + " → " + (o.go || "")).join("；") : "")).join("\n");
         let more = null;
         try {
-          more = await runProbe(offlineApiFor(char.id), ctxFor(char, c.limited ? {} : { loreScope: "offline" }), { voice: true,
+          more = await runProbe(offlineApiFor(char.id), ctxFor(char, { loreScope: "offline" }), { voice: true,
             instruction: STAMP_CORE() + stampVoice(char) + stampBi(char) + "你在写邮票册里那张 SSR「" + d.name + "」的剧情。" + stampKindLine(c, char)
               + "\n前面已经写好了这几节（每节只摘了结尾几句）：\n" + sofar
               + "\n\n接着把还缺的写完：" + miss.map(l => l === 10 || l === 30 ? "lv" + l + " 的两条岔路" : l === 40 ? "lv40 的两三个结局（end:true）" : l === 50 ? "lv50 的隐藏的路（hidden:true，也是一个结局）" : "lv" + l + " 那一节").join("、")

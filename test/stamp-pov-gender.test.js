@@ -47,7 +47,3 @@ test("重写时不把这张自己的旧版本给他看", () => {
   assert.match(src, /stampPrev\(char\.id, list\.map\(c => c\.id\)\)/);
   assert.match(src, /stampPrev\(char\.id, \[c\.id\]\)/);
 });
-test("限时池写卡不读线下那半世界书（开池那天的样子）", () => {
-  assert.match(src, /list\.every\(c => c\.limited\) \? \{\} : \{ loreScope: "offline" \}/);
-  assert.strictEqual((src.match(/c\.limited \? \{\} : \{ loreScope: "offline" \}/g) || []).length, 2);
-});
