@@ -55,3 +55,4 @@ test("册子里正在重写的卡有标记", () => {
   assert.match(ui, /"data-wk": "stamprewriting"/);
 });
 test("限时池卡名看得出是这一期", () => { assert.match(src, /"卡名一看就知道是「" \+ card\.theme \+ "」这一期的卡。"/); });
+test("限时池分镜里的衣服看得出在过节", () => { assert.match(src, /shot 里的 outfit 写你过这个节穿的那一身/); });
