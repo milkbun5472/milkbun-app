@@ -11676,10 +11676,12 @@ function ChatThread({
     if (selIds.length) onDeleteMessages(selIds);
     exitSel();
   };
-  const doForward = destination => {
+  // 一次勾好几个（她 2026-11-04「转发能不能选同时转发给好几个人」）：挨个发，发完一个再发下一个
+  const doForwardMany = async dests => {
     const picked = selIds.slice().sort((a, b) => a - b).map(i => messages[i]).filter(Boolean);
-    if (picked.length) onForward(picked, destination, fwdMode);
-    exitSel();
+    exitSel(); setFwdPick(false);
+    for (const d of dests || []) { try { if (picked.length) await onForward(picked, d, fwdMode); } catch (e) {} }
+    if ((dests || []).length > 1 && toast) toast("已转发给 " + dests.length + " 个");
   };
   const { winStart, growMore, growing, reveal: revealMsg, startRef: winStartRef } = useChatWindow(ref, messages.length, (character && character.id) + "|" + (room && room.id || ""), recentLimit);
   useLocateAt(locateAt, onLocated, messages, revealMsg, ref, archCount, winStartRef, true);
@@ -12888,42 +12890,7 @@ function ChatThread({
       } else onLongPress(act, menu);
       setMenu(null);
     }
-  }), fwdPick && h(Sheet, {
-    onClose: () => setFwdPick(false)
-  }, h(Eyebrow, {
-    style: {
-      marginBottom: 12
-    }
-  }, "转发给谁"), h("div", { "data-wk": "fwdmode", className: "flex", style: { gap: 8, marginBottom: 10 } }, [["merge", "合并转发"], ["each", "逐条转发"]].map(([k, zh]) => h("button", { key: k, "data-on": fwdMode === k ? "1" : "0", onClick: () => setFwdMode(k), className: "active:opacity-70",
-      style: { minHeight: 34, padding: "0 14px", borderRadius: 999, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: fwdMode === k ? t.bg2 : t.ink, background: fwdMode === k ? t.ink : "transparent", border: "1px solid " + (fwdMode === k ? t.ink : t.line) } }, zh))), h("div", {
-    className: "space-y-1 max-h-72 overflow-y-auto"
-  }, (characters || []).filter(c => c.id !== character.id).map(c => h("button", {
-    key: c.id,
-    onClick: () => doForward({ type: "chat", id: c.id }),
-    className: "w-full flex items-center gap-3 py-2.5 active:opacity-60"
-  }, h(Avatar, {
-    character: c,
-    size: 34,
-    radius: 7
-  }), h("span", {
-    style: {
-      fontFamily: F_DISPLAY,
-      fontSize: "calc(16px * var(--app-fs, 1))",
-      color: t.ink
-    }
-  }, c.remark || c.name))), (groups || []).map(g => h("button", {
-    key: "g_" + g.id,
-    onClick: () => doForward({ type: "group", id: g.id }),
-    className: "w-full flex items-center gap-3 py-2.5 active:opacity-60"
-  }, h("div", { "data-wk": "block", style: { width: 34, height: 34, borderRadius: 7, background: t.bg2, border: "1px solid " + t.line, display: "flex", alignItems: "center", justifyContent: "center" } }, "👥"),
-  h("span", { style: { fontFamily: F_DISPLAY, fontSize: "calc(16px * var(--app-fs, 1))", color: t.ink } }, g.name))), (characters || []).filter(c => c.id !== character.id).length === 0 && !(groups || []).length && h("div", {
-    style: {
-      fontFamily: F_BODY,
-      fontSize: "calc(12.5px * var(--app-fs, 1))",
-      color: t.fog,
-      padding: "12px 0"
-    }
-  }, "没有其他角色可转发"))));
+  }), fwdPick && h(ForwardPickSheet, { chars: (characters || []).filter(c => c.id !== character.id), groups: groups || [], mode: fwdMode, setMode: setFwdMode, onClose: () => setFwdPick(false), onSend: doForwardMany }));
 }
 // 仿微信语音/视频通话：发一句自动回一句
 // 流式字幕（她 2026-09-12：「TA说的话一字一句显示出来在屏幕中间，换句就清掉上一句的显示，
@@ -15703,6 +15670,27 @@ function ChatForwardCard({ m, isU, onOpen }) {
       h("div", { className: "px-3.5 py-2", style: { borderTop: "1px solid " + t.line, fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog } }, (m.forward && m.forward.label) || "聊天记录")));
 }
 // 点开看全部
+// 转发给谁（单聊、群聊共用一份）：点一行勾上／取消，可以勾好几个；底下「发送」一起发（她 2026-11-04）
+function ForwardPickSheet({ chars, groups, mode, setMode, onClose, onSend }) {
+  const t = useTheme();
+  const [sel, setSel] = useState([]);
+  const keyOf = d => d.type + ":" + d.id, on = d => sel.some(x => keyOf(x) === keyOf(d));
+  const flip = d => setSel(l => on(d) ? l.filter(x => keyOf(x) !== keyOf(d)) : l.concat([d]));
+  const row = (d, face, name) => h("button", { key: keyOf(d), "data-wk": "fwdpick", "data-on": on(d) ? "1" : "0", onClick: () => flip(d), className: "w-full flex items-center gap-3 py-2.5 active:opacity-60" },
+    h("span", { style: { width: 20, height: 20, borderRadius: 999, flexShrink: 0, border: "1.5px solid " + (on(d) ? t.ink : t.line), background: on(d) ? t.ink : "transparent", color: t.bg2, fontSize: "calc(12px * var(--app-fs, 1))", lineHeight: "17px", textAlign: "center" } }, on(d) ? "✓" : ""),
+    face, h("span", { style: { fontFamily: F_DISPLAY, fontSize: "calc(16px * var(--app-fs, 1))", color: t.ink, textAlign: "left" } }, name));
+  const empty = !(chars || []).length && !(groups || []).length;
+  return h(Sheet, { onClose },
+    h(Eyebrow, { style: { marginBottom: 12 } }, "转发给谁"),
+    h("div", { "data-wk": "fwdmode", className: "flex", style: { gap: 8, marginBottom: 10 } }, [["merge", "合并转发"], ["each", "逐条转发"]].map(([k, zh]) => h("button", { key: k, "data-on": mode === k ? "1" : "0", onClick: () => setMode(k), className: "active:opacity-70",
+      style: { minHeight: 34, padding: "0 14px", borderRadius: 999, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: mode === k ? t.bg2 : t.ink, background: mode === k ? t.ink : "transparent", border: "1px solid " + (mode === k ? t.ink : t.line) } }, zh))),
+    h("div", { className: "space-y-1 max-h-72 overflow-y-auto" },
+      (chars || []).map(c => row({ type: "chat", id: c.id }, h(Avatar, { character: c, size: 34, radius: 7 }), c.remark || c.name)),
+      (groups || []).map(g => row({ type: "group", id: g.id }, h("div", { "data-wk": "block", style: { width: 34, height: 34, borderRadius: 7, background: t.bg2, border: "1px solid " + t.line, display: "flex", alignItems: "center", justifyContent: "center" } }, "👥"), g.name)),
+      empty ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.fog, padding: "12px 0" } }, "没有其他角色可转发") : null),
+    empty ? null : h("button", { "data-wk": "fwdsend", onClick: () => sel.length && onSend(sel), disabled: !sel.length, className: "w-full active:opacity-70 disabled:opacity-40",
+      style: { marginTop: 12, minHeight: 44, borderRadius: 12, background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))" } }, sel.length ? "发送给 " + sel.length + " 个" : "先勾上要发给谁"));
+}
 function ChatForwardSheet({ m, onClose }) {
   const t = useTheme();
   const items = chatForwardItems(m);
@@ -20378,10 +20366,11 @@ function GroupThread({
   const toggleSel = i => setSelIds(s => s.includes(i) ? s.filter(x => x !== i) : [...s, i]);
   const exitSel = () => { setSelMode(false); setSelIds([]); setFwdPick(false); };
   const doDelete = () => { if (selIds.length) onDeleteMessages && onDeleteMessages(selIds); exitSel(); };
-  const doForward = destination => {
+  const doForwardMany = async dests => {
     const picked = selIds.slice().sort((a, b) => a - b).map(i => messages[i]).filter(Boolean);
-    if (picked.length && onForward) onForward(picked, destination, fwdMode);
-    exitSel();
+    exitSel(); setFwdPick(false);
+    for (const d of dests || []) { try { if (picked.length && onForward) await onForward(picked, d, fwdMode); } catch (e) {} }
+    if ((dests || []).length > 1 && toast) toast("已转发到 " + dests.length + " 处");
   };
   // 群里也用TA单聊里那张头像（她 2026-10-02）：聊天头像 chatAvatar 只换脸，档案那张不动
   const memberById = id => chatFace((allChars || characters).find(x => x.id === id));
@@ -20977,13 +20966,7 @@ function GroupThread({
       h("button", { onClick: doDelete, disabled: !selIds.length, className: "disabled:opacity-40", style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.accent } }, "删除"),
       h("button", { "data-wk": "block", onClick: () => selIds.length && setFwdPick(true), disabled: !selIds.length, className: "disabled:opacity-40 px-3 py-1.5", style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.bg2, background: t.ink, borderRadius: 6 } }, "转发"))),
   gPhotoView && h(PhotoSheet, { m: gPhotoView, toast: toast, onClose: () => setGPhotoView(null) }),
-  fwdPick && h(Sheet, { onClose: () => setFwdPick(false) },
-    h(Eyebrow, { style: { marginBottom: 12 } }, "转发给谁"),
-    h("div", { "data-wk": "fwdmode", className: "flex", style: { gap: 8, marginBottom: 10 } }, [["merge", "合并转发"], ["each", "逐条转发"]].map(([k, zh]) => h("button", { key: k, "data-on": fwdMode === k ? "1" : "0", onClick: () => setFwdMode(k), className: "active:opacity-70",
-      style: { minHeight: 34, padding: "0 14px", borderRadius: 999, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: fwdMode === k ? t.bg2 : t.ink, background: fwdMode === k ? t.ink : "transparent", border: "1px solid " + (fwdMode === k ? t.ink : t.line) } }, zh))),
-    h("div", { className: "space-y-1 max-h-72 overflow-y-auto" },
-      (characters || []).map(c => h("button", { key: c.id, onClick: () => doForward({ type: "chat", id: c.id }), className: "w-full flex items-center gap-3 py-2.5 active:opacity-60" }, h(Avatar, { character: c, size: 34, radius: 7 }), h("span", { style: { fontFamily: F_DISPLAY, fontSize: "calc(16px * var(--app-fs, 1))", color: t.ink } }, c.remark || c.name))),
-      (groups || []).filter(g => g.id !== group.id).map(g => h("button", { key: "g_" + g.id, onClick: () => doForward({ type: "group", id: g.id }), className: "w-full flex items-center gap-3 py-2.5 active:opacity-60" }, h("div", { "data-wk": "block", style: { width: 34, height: 34, borderRadius: 7, background: t.bg2, border: "1px solid " + t.line, display: "flex", alignItems: "center", justifyContent: "center" } }, "👥"), h("span", { style: { fontFamily: F_DISPLAY, fontSize: "calc(16px * var(--app-fs, 1))", color: t.ink } }, g.name))))),
+  fwdPick && h(ForwardPickSheet, { chars: characters || [], groups: (groups || []).filter(g => g.id !== group.id), mode: fwdMode, setMode: setFwdMode, onClose: () => setFwdPick(false), onSend: doForwardMany }),
   h(NewBelowPill, { n: nb.newBelow, onGo: nb.go, group: true }),
   !selMode && gNarrBar && h(NarrBar, { actKey: group && !gs.spectate ? "g:" + group.id : null, kinds: gNarrKinds, kind: gKind, setKind: setNarrKind, dirLong, setDirLong, dirNotes, onDelDirNote,
     faces: members, asId: asId || (members[0] && members[0].id), setAsId,
