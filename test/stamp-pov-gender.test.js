@@ -41,11 +41,11 @@ test("限时池照开池那天的写法写", () => {
   assert.match(src, /if \(card\.limited\) return[^;]*themeLook/s);
 });
 test("重写时不把这张自己的旧版本给他看", () => {
-  assert.match(src, /stampPrev\(char\.id, list\.map\(c => c\.id\)\)/);
-  assert.match(src, /stampPrev\(char\.id, \[c\.id\]\)/);
+  assert.match(src, /stampPrev\(char\.id, list\.map\(c => c\.id\), ser && ser\.series\)/);
+  assert.match(src, /stampPrev\(char\.id, \[c\.id\], ser && ser\.series\)/);
 });
 test("前面的卡只给写了什么事，不给卡名（免得卡名一个模子）", () => {
-  assert.match(src, /"\\n你已经有的卡（写的是什么、卡上那句）：\\n"/);
+  assert.match(src, /"\\n你已经有的" \+ \(theme \? "「" \+ theme \+ "」" : ""\) \+ "卡（写的是什么、卡上那句）：\\n"/);
 });
 test("册子里正在重写的卡有标记", () => {
   const ui = fs.readFileSync(__dirname + "/../js/stamps.js", "utf8");
@@ -55,4 +55,18 @@ test("限时池卡名看得出是这一期", () => { assert.match(src, /"卡名�
 test("限时池分镜里的衣服看得出在过节", () => { assert.match(src, /shot 里的 outfit 写你过这个节穿的那一身/); });
 test("限时池画卡面时，衣服那一格写死要过节的那一身", () => {
   assert.ok((src.match(/"这一张不穿平时的衣服：穿过「"/g) || []).length >= 2);
+});
+test("限时池去重只跟同一期比，不一样指事不一样、节照过；主题排在写卡先后最前", () => {
+  const body = src.slice(src.indexOf("const stampPrev = "), src.indexOf("const stampVoice"));
+  const ctx = { StampsCoreSafe: () => ({ cards: [
+    { id: "a", charId: "x", series: "halloween", text: { gist: "南瓜灯" } },
+    { id: "b", charId: "x", text: { gist: "修机器" } }] }) };
+  const f = new Function("StampsCoreSafe", body + "return { stampPrev, stampPrevLine, stampSeriesOf };")(ctx.StampsCoreSafe);
+  assert.deepEqual(f.stampPrev("x", [], "halloween").length, 1);
+  assert.equal(f.stampPrev("x", []).length, 2);
+  assert.match(f.stampPrevLine(["- 南瓜灯"], "万圣夜"), /同样的节日元素可以再出现/);
+  assert.ok(!/节日元素/.test(f.stampPrevLine(["- x"])));
+  assert.deepEqual(f.stampSeriesOf([{ limited: "halloween26", series: "halloween", theme: "万圣夜" }]), { series: "halloween", theme: "万圣夜" });
+  assert.equal(f.stampSeriesOf([{ limited: "h", series: "h" }, { kind: "if" }]), null);
+  assert.match(src, /是硬条件，排在写卡先后的最前面/);
 });

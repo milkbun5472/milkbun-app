@@ -17629,7 +17629,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       // 限时池（节日）照开池那天的写法原样写（她 2026-11-03：开池那批张张是万圣节，后来加的几句一叠就写成了他在干活）
       // 开池那天这条路上还有两样：节日时刻（timeAt）和分镜那一身（themeLook）——退回时把它们一起退回来，
       //   少了 themeLook 分镜就不穿节日那身，只剩背景摆南瓜（她 2026-11-02：卡池突然变得不像万圣节）
-      if (card.limited) return pastLine + (card.timeAt ? stampTimeLine(card) : "") + "这是一张【IF 卡】，主题是「" + card.theme + "」" + (stampLim(card).themeLine ? "：" + stampLim(card).themeLine : "。")
+      // 写卡的先后里原来没有主题：人和主题一冲突，先丢的就是节日（她 2026-11-03）
+      if (card.limited) return pastLine + (card.timeAt ? stampTimeLine(card) : "") + "这一期的「" + card.theme + "」是硬条件，排在写卡先后的最前面：先保证这张是在过「" + card.theme + "」，再在这里面看你这个人对不对。这是一张【IF 卡】，主题是「" + card.theme + "」" + (stampLim(card).themeLine ? "：" + stampLim(card).themeLine : "。")
         + "写的是「如果」的你，不是真发生的事。先想清楚你是哪个世界、哪个年代的人，" + mode + "衣服照这个主题来配，不用你衣柜里的。"
         + (stampLim(card).themeLook ? "分镜（shot）里写的那一身要照这一条：" + stampLim(card).themeLook : "")
         // 卡名一眼看得出是这一期（她 2026-11-03：沈屿白的万圣夜卡名跟万圣节没关系）
@@ -17660,8 +17661,12 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   // 去重按「写的是什么事」，不只按卡名：带上最近几十张的 gist
   // 带上印在卡上的那句台词（她 2026-10-26：同一期两张卡印了一模一样的一句）
   // 重写时不把这几张自己的旧版本摆给他看（她 2026-11-03：重写是照着旧的改，修南瓜改成了修管道）
-  const stampPrev = (charId, skip) => (StampsCoreSafe().cards || []).filter(c => c.charId === charId && c.text && !c.writing && !(skip || []).includes(c.id)).slice(-30).map(c => "- " + (c.text.gist ? String(c.text.gist).slice(0, 60) : "（没记）") + (c.text.line ? "（卡上那句：" + String(c.text.line).slice(0, 40) + "）" : ""));
-  const stampPrevLine = prev => prev.length ? "\n你已经有的卡（写的是什么、卡上那句）：\n" + prev.join("\n") + "\n新写的别再是同一件事、同一种走向，卡上那句也别再说一样的话。" : "";
+  // 限时池只拿同一期的卡比（她 2026-11-03：抽多了，「别再写一样的」把南瓜也一起躲掉了，卡名分镜衣服全跑出万圣节）
+  const stampPrev = (charId, skip, series) => (StampsCoreSafe().cards || []).filter(c => c.charId === charId && c.text && !c.writing && !(skip || []).includes(c.id) && (!series || c.series === series)).slice(-30).map(c => "- " + (c.text.gist ? String(c.text.gist).slice(0, 60) : "（没记）") + (c.text.line ? "（卡上那句：" + String(c.text.line).slice(0, 40) + "）" : ""));
+  // 节日那一期：不一样指的是事不一样，节照样过（她 2026-11-03：「可以写很多次南瓜，但是每次的内容要不一样」）
+  const stampPrevLine = (prev, theme) => prev.length ? "\n你已经有的" + (theme ? "「" + theme + "」" : "") + "卡（写的是什么、卡上那句）：\n" + prev.join("\n") + "\n新写的别再是同一件事、同一种走向，卡上那句也别再说一样的话。"
+    + (theme ? "这里的不一样是这个节里发生的事、角度、你们之间的那一下不一样——同样的节日元素可以再出现，节本身不变，卡名、分镜、衣服照样一眼是「" + theme + "」。" : "") : "";
+  const stampSeriesOf = list => { const s0 = list.filter(c => c.limited).map(c => c.series || c.limited); return s0.length === list.length && s0.every(x => x === s0[0]) ? { series: s0[0], theme: list[0].theme } : null; };
   // 他平时真说过的话（她 2026-10-26：「剧情有点刻板印象，不像他平时说话」）：从跟她的聊天里取最近几十句他自己打的字，
   //   叫他照这个口气、长短、用词开口——不是让他复述这些话，是让他认出自己。没聊过就不给
   const stampVoice = char => {
@@ -17738,14 +17743,14 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   const stampWriteSmall = async (char, list) => {
     list.forEach(c => stampSaveCard(c.id, { writing: true, writingTs: Date.now(), queued: false, err: "" }));
     try {
-      const prev = stampPrev(char.id, list.map(c => c.id));
+      const ser = stampSeriesOf(list), prev = stampPrev(char.id, list.map(c => c.id), ser && ser.series);
       const d = await runProbe(offlineApiFor(char.id), ctxFor(char, { loreScope: "offline" }), {
         voice: true,
         instruction: STAMP_CORE() + stampVoice(char) + stampBi(char) + "她在「邮票册」里抽到了几张印着你的邮票，每张是你的一个样子。下面按顺序写这几张。\n"
           + list.map((c, i) => "第 " + (i + 1) + " 张：" + c.rarity + "。" + stampKindLine(c, char)).join("\n")
           + "\n" + (list.some(c => c.rarity === "R") ? STAMP_RARITY_SPEC.R + "\n" : "") + (list.some(c => c.rarity === "SR") ? STAMP_RARITY_SPEC.SR + "\n" : "")
           + "每张都有 name（卡名，八个字以内）、gist（一句话记下这张写的是什么事、在哪、怎么收的尾，给以后去重用）和 shot。" + STAMP_SHOT_SPEC
-          + stampPrevLine(prev) + "\n这几张之间也是不同的事。"
+          + stampPrevLine(prev, ser && ser.theme) + "\n这几张之间也是不同的事" + (ser ? "，但张张都在过「" + ser.theme + "」" : "") + "。"
           // 人称跟 SSR 剧情一样（她 2026-10-28：R 卡里写成了「你调完色，碰了碰她的下颌」）：卡是写给她读的
           + stampPov(char, "\n人称：卡上叙述的那几栏是写给她读的（每一栏还是照格式写成一段字），叙述里你是「他」、她是「你」，比如「他调完色，碰了碰你的下颌」；thought、real、hidden、line、back、his 是你自己心里或嘴上的话，用「我」。"),
         // 格式样例里不放 (R)/(SR) 这种占位：模型会照抄进正文。R、SR 各给一份，按这几张里有哪几种拼
@@ -17764,7 +17769,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   const stampWriteSSR = async (char, c) => {
     stampSaveCard(c.id, { writing: true, writingTs: Date.now(), queued: false, err: "" });
     try {
-      const prev = stampPrev(char.id, [c.id]), me = userName(meOf(char.id));
+      const ser = stampSeriesOf([c]), prev = stampPrev(char.id, [c.id], ser && ser.series), me = userName(meOf(char.id));
       const d = await runProbe(offlineApiFor(char.id), ctxFor(char, { loreScope: "offline" }), {
         voice: true,
         instruction: STAMP_CORE() + stampVoice(char) + stampBi(char) + "她在「邮票册」里抽到了一张印着你的 SSR 邮票。" + stampKindLine(c, char)
@@ -17778,7 +17783,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
           + "往前走靠的是发生的事、你的做法和你们之间自然的对话；你说多少话照你平时的样子，心里的东西让她从你做的事里看出来。每节都有点什么变了，不必每节都有大事。"
           + "两条岔路走下去，后面发生的事、你的处理、她知道的东西、你们之间的样子，至少有一样真的不一样。" + ((StampsCoreSafe().opt || {}).meQuiet ? "正文里她基本不开口：me 一节最多一句，能不写就不写；她的说话和决定都放进选项（pick 和节尾 choices）里。往前推的是你的话、你的动作和旁白。" : "她那句（me）照她平时的样子写，少一点。")
           + "\nname 是卡名（八个字以内），line 是印在卡面上的一句你的台词。highlight 是剧情里你最想留住的那一刻，一两句画面。gist 一句话记下这张写的是什么事、在哪、怎么收的尾。name 从这段剧情里的事本身来起，不拿日子、节气、天气这些背景起名。allEndsLine 是她把每个结局都走过一遍以后，你想对她说的一句。" + STAMP_SHOT_SPEC
-          + stampPrevLine(prev),
+          + stampPrevLine(prev, ser && ser.theme),
         schemaHint: "{\"name\":\"\",\"line\":\"\",\"highlight\":\"\",\"gist\":\"\",\"allEndsLine\":\"\",\"shot\":\"\",\"sections\":[{\"id\":\"s1\",\"lv\":1,\"title\":\"\",\"beats\":[{\"who\":\"narr|he|me\",\"text\":\"\"},{\"who\":\"pick\",\"options\":[{\"text\":\"\",\"beats\":[{\"who\":\"he\",\"text\":\"\"}]}]}],\"choices\":[{\"text\":\"\",\"go\":\"s2a\"}],\"end\":false,\"hidden\":false}]}",
         maxTokens: 65000
       });
