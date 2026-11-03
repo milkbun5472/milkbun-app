@@ -2305,7 +2305,8 @@ function thoughtEchoTail(thoughts, who) {
 }
 // 正文前两拍都写到的词（她 2026-11-02：线下每拍都提她是审计、每拍都刷白炽灯管／马歇尔音箱／门缝冷风）：
 //   跟心声同一把尺子 thoughtEchoWords，比的是他最近两拍的正文。单人线下、群线下共用。
-function beatEchoTail(beats) {
+// how：换个说法给别处用（情书回信：「你前两次回信」「这一次」），尺子不变
+function beatEchoTail(beats, how) {
   // 正文长，两拍之间撞上的多半是动作碎片（「嘴唇贴着你」）；真在刷的是景物和设定——它们几乎拍拍都在。
   //   所以：带人称的碎片不算；按最近四拍里出现了几拍排，同样多再按长短。
   const all = (beats || []).map(x => String(x || "").trim()).filter(Boolean);
@@ -2315,7 +2316,7 @@ function beatEchoTail(beats) {
   const w = echoCandidates(t[0], t[1]).filter(g => !/[你我他她]/.test(g))
     .map(g => ({ g, n: four.filter(b => b.includes(g)).length }))
     .sort((x, y) => (y.n - x.n) || (y.g.length - x.g.length)).slice(0, 5).map(x => x.g);
-  return w.length ? "\n〔正文：前两拍都写到了「" + w.join("」「") + "」。这一拍不用再提，除非它有了新变化。〕" : "";
+  return w.length ? (how ? "\n〔" + how.lead + "都说到了「" + w.join("」「") + "」。" + how.tail + "〕" : "\n〔正文：前两拍都写到了「" + w.join("」「") + "」。这一拍不用再提，除非它有了新变化。〕") : "";
 }
 // 拿身份当每拍的对照组（她 2026-11-03：医学生那位两拍都写「我本来按解剖学/临床的条理……结果全被撕碎」）：
 //   用词每拍都换，前两拍撞词那道认不出；认的是【骨架】——同一句里既提到平时那套专业/条理，又说它全没用了。

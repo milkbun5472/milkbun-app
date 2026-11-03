@@ -30249,9 +30249,16 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     if (!active) { toast("请先到设置配置 API"); return false; }
     setGen(g => ({ ...g, coupleLetter: true }));
     try {
+      // 跟聊天同一套按轮提醒（她 2026-11-04：情书回信一轮轮绕回两百万、负责到底、听到没——「应该有那个防八股那一套接上去像聊天一样」）：
+      //   ① 他上一次回信的收尾（狠话／叮嘱／看穿她）走 tailHintsFor；② 他最近几次回信反复说到的，走 beatEchoTail 那把尺子点名
+      const _lt = (coupleLettersRef.current || []).find(x => x && x.id === letterId);
+      const _rounds = []; ((_lt && _lt.replies) || []).forEach(r0 => { const mine = r0 && r0.authorId !== "user"; if (!mine) { _rounds.push(null); return; } if (_rounds.length && _rounds[_rounds.length - 1]) _rounds[_rounds.length - 1].push(String(r0.content || "")); else _rounds.push([String(r0.content || "")]); });
+      const _mine = _rounds.filter(Boolean), _last = _mine[_mine.length - 1] || [];
+      const letterTail = (_last.length && typeof tailHintsFor === "function" ? tailHintsFor(_last[_last.length - 1], _last.join("\n")) : "")
+        + (typeof beatEchoTail === "function" ? beatEchoTail(_mine.map(x => x.join("\n")), { lead: "你前两次回信", tail: "这一次别再绕回这些，接她最新这句往下写。" }) : "");
       const d = await runProbe(apiFor(char.id), ctxFor(char), { // 情书回信=TA 亲笔，跟随专线（v48.37）
         voice: true,
-        instruction: relSay(char) + "，在" + letterWord(char) + "里一来一回。" + letterTo(char) + (isNewLetter ? "用户刚给你写了一封" + letterWord(char) + "，你读完后回应" : "顺着下面的" + letterWord(char) + "往来，回应最新一句") + "。以「" + char.name + "」身份真挚回应，可以分成 2-4 条短消息（气泡），贴人设、别喊口号、别复述。" + LETTER_PERSON + "\n【情书往来】\n" + (context || ""),
+        instruction: relSay(char) + "，在" + letterWord(char) + "里一来一回。" + letterTo(char) + (isNewLetter ? "用户刚给你写了一封" + letterWord(char) + "，你读完后回应" : "顺着下面的" + letterWord(char) + "往来，回应最新一句") + "。以「" + char.name + "」身份真挚回应，可以分成 2-4 条短消息（气泡），贴人设、别喊口号、别复述。" + LETTER_PERSON + "\n【情书往来】（「她：」是她写的，「" + char.name + "：」是你自己前面已经回过的）\n" + (context || "") + letterTail,
         schemaHint: "{\"bubbles\":[\"气泡1\",\"气泡2\"]}",
         maxTokens: 12000
       });
@@ -30293,7 +30300,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       saveJSON("x_coupleLetters", n);
       return n;
     });
-    genLetterReply(char, letterId, (threadText || "") + "\n我：" + c, false);
+    genLetterReply(char, letterId, (threadText || "") + "\n她：" + c, false);
   };
   const saveLetterCfg = (charId, cfg) => {
     if (cfg && !!cfg.auto !== autoRefreshOn("letter", charId)) setAutoFromPage("letter", charId, !!cfg.auto);

@@ -1754,7 +1754,7 @@ function CoupleLetters({ partner, letters, cfg, onGen, onAddMy, onReply, onRead,
     // eslint-disable-next-line
   }, []);
   const md = ts => { const d = new Date(ts); return d.getFullYear() + "." + (d.getMonth() + 1) + "." + d.getDate(); };
-  const threadText = l => ["【" + (l.title || "无题") + "】\n" + l.body].concat((l.replies || []).map(r => (r.authorId === "user" ? "我：" : partner.name + "：") + r.content)).join("\n");
+  const threadText = l => ["【" + (l.title || "无题") + "】\n" + l.body].concat((l.replies || []).map(r => (r.authorId === "user" ? "她：" : partner.name + "：") + r.content)).join("\n");
   const doCompose = () => { if (cBody.trim()) { onAddMy(partner, cTitle, cBody, { paper: cPaper, font: cFont }); setCTitle(""); setCBody(""); setCompose(false); } };
   const mdParts = ts => { const d = new Date(ts); return { md: (d.getMonth() + 1) + "." + d.getDate(), y: d.getFullYear() }; };
 
