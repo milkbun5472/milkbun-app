@@ -18961,9 +18961,13 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   // 聊天/线下这一轮当场改了安排（schedNow 字段）→ 写回今天那份日程。一处收着，两条路都走这儿。
   //   没排今天的日程就不凭空造一份；写过之后记上 selfRevCheck，免得「临时起意」再把它改走。
   //   群聊、群线下暂不接：一拍里好几个人各有各的日程，先把单人两条路走通。
+  const SCHED_LATER_RE = /明天|明早|明晚|明日|明儿|后天|大后天|下周|下星期|下礼拜|下个月|下月|改天|过两天|过几天|周末再|下次/;
   const applySchedChange = (charId, change) => {
     try {
       if (!change || typeof change !== "object" || !change.title) return;
+      // 说的是以后的事（群友 2026-11-04：聊的是明天的安排，日历把今天此刻那项删了换成明天的）：
+      //   schedNow 只管「从现在起」，标题或理由里写着明天、后天、下周这些，就不是此刻的事，不动今天
+      if (SCHED_LATER_RE.test(String(change.title || "") + " " + String(change.reason || ""))) return;
       const c = characters.find(x => x && x.id === charId);
       if (!c) return;
       const today = schedLocalDayKey(c);
