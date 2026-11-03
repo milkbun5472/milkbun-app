@@ -870,6 +870,21 @@ async function callAI(p, system, messages, opts) {
     const msg = String((e && e.message) || e || "");
     if (hasDoc) document.removeEventListener("visibilitychange", onVis);
     if (userAborted()) { logIt("cut", "她自己断掉了"); throw abortErr(); }          // 自己断的不算失败：不重试、不弹「没生成出来」
+    // 线路不收历史里的图（她 2026-11-03 截图：「contents[158].parts[1].inlineData is not supported in text history」）：
+    //   这一轮她没新发图时，会照旧带上最近两张旧图，挂在更早那几条消息上——有的中转只认最后一条里的图。
+    //   照着报错退一步：先只留最后一条的图，还不行就一张都不带。原样再发一次，别让整轮失败。
+    if (!streamed && /not supported in (?:text )?history|inline_?data[^\n]{0,60}not supported|image[^\n]{0,40}(?:not supported|unsupported)|does not support (?:image|vision)/i.test(msg)
+      && Array.isArray(messages) && messages.some(m => m && Array.isArray(m.imageDataUrls) && m.imageDataUrls.length)) {
+      const lastIdx = messages.length - 1;
+      const tries = [messages.map((m, k) => k === lastIdx || !m || !m.imageDataUrls ? m : (({ imageDataUrls, ...r }) => r)(m)),
+        messages.map(m => !m || !m.imageDataUrls ? m : (({ imageDataUrls, ...r }) => r)(m))];
+      for (const alt of tries) {
+        if (alt.every((m, k) => m === messages[k])) continue;   // 这一步跟原来一样，跳过
+        messages = alt;
+        try { const again = await once(); bgSay(true); logIt(true); aiOkSay(); return again; }
+        catch (e2) { e = e2; if (!/not supported|unsupported/i.test(String((e2 && e2.message) || e2 || ""))) break; }
+      }
+    }
     const bgDrop = wentHidden && /连接中断|load failed|failed to fetch|network|aborted|中止/i.test(msg);
     const quickDrop = Date.now() - t0 < 5000 && /连接中断|load failed|failed to fetch|network/i.test(msg);
     if (!bgDrop && !streamed && !o.noNetRetry && !(o.signal && o.signal.aborted) && (quickDrop || TRANSIENT_ERR.test(msg))) {
