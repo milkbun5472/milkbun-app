@@ -38,6 +38,6 @@ test("限时池卡的衣服要求放进锁死衣服那一格", () => {
 test("限时池（节日）不换他的身份", () => {
   assert.match(src, /\(card\.limited \? "" : "主题跟你自己的世界本来就是同一种/);
 });
-test("限时池那张就发生在过节的时候", () => {
-  assert.match(src, /不是平常干活的一天摆上节日背景/);
+test("限时池照开池那天的写法写", () => {
+  assert.match(src, /if \(card\.limited\) return pastLine \+ "这是一张【IF 卡】/);
 });
