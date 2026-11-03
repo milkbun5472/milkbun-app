@@ -16392,6 +16392,9 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         //   ⚠️额度只是上限：第二次还得【真的跟上一条不一样】（sameActLine 那道）才摆得出来。
         const ACT_PER_TURN = 2;
         const _actOnce = new Map();
+        // 同一个人这一轮里一字不差又说一遍的那一泡（她 2026-11-04 截图：「我靠在主卧床头，单手抽走…」夹在每句话中间重复了四次）：
+        //   模型把一句动作当成每条发言的开头抄了一遍。只留第一次；表情、卡片不算
+        const _saidOnce = new Map();
         // 这一轮已经真写下过心声的那几个人（见下面 turnPatch 那一处）
         const _thoughtOnce = new Set();
         // 回声判定的比对文本：先装她这一整轮，然后随着本批成员依次开口往后累加
@@ -16566,6 +16569,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
             // 默认就是第二人称。
             const _gGuard = window.BubbleActGuard ? window.BubbleActGuard.split(gBubbles, { selfNames: [spk && spk.name, spk && spk.remark], group: true }) : { words: gBubbles, acts: [] };
             gBubbles = _gGuard.words;
+            if (spk) { const seen = _saidOnce.get(spk.id) || new Set(); _saidOnce.set(spk.id, seen);
+              gBubbles = gBubbles.filter(b => { const k = typeof b === "string" ? b.replace(/\s+/g, "") : ""; if (k.length < 8 || (typeof htmlCardOf === "function" && htmlCardOf(b))) return true; if (seen.has(k)) return false; seen.add(k); return true; }); }
             // 写进气泡里的表情就地发（跟单聊同一个 emoteSlotWords）：气泡里留 emoteslotN，下面那一圈走到它发表情
             const _gEs = emoteSlotWords(gBubbles, emotesForChar(spk.id), emoteNorm);
             gBubbles = _gEs.words;
