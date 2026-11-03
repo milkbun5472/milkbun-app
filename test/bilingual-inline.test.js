@@ -156,3 +156,8 @@ test("没开双语的角色，字段说明是空串——一个字都不多发",
   assert.match(appCode, /const _biWordSpec = _bilingualOn\n\s*\? "（这个角色开着双语/);
   assert.match(appCode, /members\.some\(c => !c\.npc && \(settingsFor\(c\.id\) \|\| \{\}\)\.bilingual\)\)\n\s*\? "（开了双语的成员/);
 });
+require("node:test")("双语开着时心声的字段说明上也写着「原文 | 中文」", () => {
+  const assert = require("node:assert/strict"), src = require("fs").readFileSync(require("path").join(__dirname, "..", "js", "app.js"), "utf8");
+  assert.match(src, /const _biThoughtSpec = _bilingualOn \? "（开着双语：心声是外语的话写成「原文 \| 中文」/);
+  assert.match(src, /thought: string，【每轮必须写，禁止 null、空串或省略】。\$\{_biThoughtSpec\}/);
+});

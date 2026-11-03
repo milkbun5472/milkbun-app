@@ -13411,6 +13411,9 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       const _biWordSpec = _bilingualOn
         ? "（这个角色开着双语：word 里【每一个】不是中文的元素都要写成「原文 | 中文」，一条不落——不是只给第一条；说中文的元素照常写、不加竖线。）"
         : "";
+      // 心声也挂在字段上（她 2026-11-04「开了翻译他怎么都不翻译心声了」）：只写在前面那段双语规则里，写到 thought 时就忘了，
+      //   她那边只剩免费翻译。跟 word 同一招
+      const _biThoughtSpec = _bilingualOn ? "（开着双语：心声是外语的话写成「原文 | 中文」，整段只用一根竖线；是中文就照常写。）" : "";
       const _normalProtocolStable = `
 
 【生成与输出协议】
@@ -13421,7 +13424,7 @@ mood、action、wearing 与能力字段只记录已经形成的反应、状态�
 word: string[]，角色实际发送的消息。【一个元素＝一句话】：说了几句就给几个元素，别把几句话用逗号缝进同一个元素。**这一格不能空着**——她那头看到的就是这几条；只填了 action 而 word 是空的，她收到的是一行动作、一个字都没有。这一轮你确实不想开口，就用 silent 那一格（那是专门给「已读不回」的），别交一个空 word。${_biWordSpec}
 mood: {"label":"中文短词"}，本轮回应完成后的当前主导心情；重新判断不等于必须变化。
 【每轮必填字段】
-thought: string，【每轮必须写，禁止 null、空串或省略】。${THOUGHT_MEANING_CHAR}${typeof THOUGHT_VOICE === "string" ? THOUGHT_VOICE : ""}${typeof stateExtraSpec === "function" && typeof stateTplFor === "function" && !sideRoom ? (x => x ? "\n" + x : "")(stateExtraSpec(stateTplFor(settingsFor(charId)))) : ""}
+thought: string，【每轮必须写，禁止 null、空串或省略】。${_biThoughtSpec}${THOUGHT_MEANING_CHAR}${typeof THOUGHT_VOICE === "string" ? THOUGHT_VOICE : ""}${typeof stateExtraSpec === "function" && typeof stateTplFor === "function" && !sideRoom ? (x => x ? "\n" + x : "")(stateExtraSpec(stateTplFor(settingsFor(charId)))) : ""}
 【实时动作字段·普通角色每轮必填】
 action: string，每轮回复完成后${ACT_MEANING}。${typeof ACT_VOICE === "string" && !(sameRoomFor(charId) && !offlineTogetherNow(charId)) ? ACT_VOICE : ""}这一格是它唯一的去处：写在这儿就够了，别在 word 里再说一遍——说完话再补一句交代自己此刻在做什么，不是人说话的样子。这件事真要紧到她该知道，就让它自然落在你要说的那句里，别在末尾挂一条通报。
 【按需状态字段】
