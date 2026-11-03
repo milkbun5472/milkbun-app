@@ -50,3 +50,7 @@ test("重写时不把这张自己的旧版本给他看", () => {
 test("前面的卡只给写了什么事，不给卡名（免得卡名一个模子）", () => {
   assert.match(src, /"\\n你已经有的卡（写的是什么、卡上那句）：\\n"/);
 });
+test("册子里正在重写的卡有标记", () => {
+  const ui = fs.readFileSync(__dirname + "/../js/stamps.js", "utf8");
+  assert.match(ui, /"data-wk": "stamprewriting"/);
+});
