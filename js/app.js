@@ -14187,7 +14187,9 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       // 中译另起一行的那种先接回去（群里同一个函数）
       // 双语开关没开、TA自己却每句都写成「原文 | 中文」的（她 2026-10-11：「他每一句不是已经自带翻译了吗，直接调成我们有翻译气泡的格式」）：
       //   竖线原样挂在气泡里很难看。劈得开（左边看得出是外语／粤语）就照双语那条路走，劈不开的普通竖线照旧不动。
-      const _biParse = _bilingualOn || (!_s.engineerEyes && words.some(w => typeof w === "string" && !(typeof htmlCardOf === "function" && htmlCardOf(w)) && splitBilingual(w, hanLangOf(char))));
+      // 竖线开头的那一条也算（她 2026-11-04 截图：外语一条、「| 中文」另起一条，两条单看都劈不开，竖线就漏进了气泡）
+      const _barLead = w => typeof w === "string" && /^\s*[|｜│︱┃]\s*\S/.test(w);
+      const _biParse = _bilingualOn || (!_s.engineerEyes && words.some((w, k) => typeof w === "string" && !(typeof htmlCardOf === "function" && htmlCardOf(w)) && (splitBilingual(w, hanLangOf(char)) || (k > 0 && _barLead(w)))));
       if (_biParse) words = joinBilingualLines(words, hanLangOf(char), { pairNext: _bilingualOn });   // 外语下一行的中文接回去：只在开着双语时（她 2026-10-12：没开就是不要这功能）
       words = words.reduce((acc, w) => {
         // 卡片原样过：双语那一刀按「|」劈，HTML 里正好有竖线
@@ -16560,7 +16562,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
             // 双语：和单聊同一条路——先把「原文 | 中文」劈开再拆泡，中译挂在最后一泡上
             // 开关没开、TA自己写着「原文 | 中文」的也照双语走（跟单聊 _biParse 同一个判据）
             const gBiOn = !!(settingsFor(spk.id) || {}).bilingual
-              || (!(settingsFor(spk.id) || {}).engineerEyes && String(item.text || "").split(/\n+/).some(x => splitBilingual(x.trim(), hanLangOf(spk))));
+              || (!(settingsFor(spk.id) || {}).engineerEyes && String(item.text || "").split(/\n+/).some((x, k) => splitBilingual(x.trim(), hanLangOf(spk)) || (k > 0 && /^\s*[|｜│︱┃]\s*\S/.test(x))));
             // ⚠️双语开着时【只按换行切】，按句末标点拆泡留给下面 splitLongBubble（劈完竖线之后）。
             //   splitBubbles 会先按「？」「……」断句——「ん？なに？|……嗯？什么？」就被切成
             //   ん？／なに？／|……／嗯？／什么？ 五泡，竖线落单、中文自己成泡（她 2026-09-29 截图）。
