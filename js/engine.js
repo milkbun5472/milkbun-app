@@ -2698,6 +2698,11 @@ const ACTLINE_LONG_RULE = "【动描写多长 · 这个聊天里压过上面 act
 //   见 施工规则/bans-make-it-dumber.md「掷约束，别掷答案」。
 // 当场改了接下来的安排 → 写回日程（app.js applySchedChange）。聊天、线下共用这一句。
 const SCHED_NOW_SPEC = 'schedNow:{"title":"接下来实际在做什么","location":"在哪","until":"HH:MM，大约到几点（TA 当地时间）","reason":"为什么改了，一句"}——只在这一轮【真的定下了】TA 从现在起要做的事跟今日安排不一样时才填（一起出门了、留下来陪她、临时去了别处……），好让日程跟上实际发生的事；照原安排走、或只是嘴上聊聊没定下来，就省略；聊的是明天、以后的安排也不填，那不是此刻的事。';
+// 以后的安排（她 2026-11-04「能改后几天或者不是现在的日程吗→做吧」）：今天晚些时候、明天、后天……这一轮真的定下的那几件。
+//   日子写成说法（明天、周五、11月8日），换成哪天由 app 照 TA 那只钟算；那天排过就插进去，没排就先记着，排那天时补上
+const SCHED_LATER_SPEC = 'schedLater:[{"day":"哪天：今天／明天／后天／周几／几月几号","time":"HH:MM 几点开始（TA 当地时间）","until":"HH:MM 大约到几点","title":"做什么","location":"在哪","reason":"怎么定下的，一句"}]——这一轮你们真的说定了一件不在此刻的事（今天晚些时候、明天、以后）才填，最多三件；两边都点了头才算定，「也许」「到时候再看」「改天吧」不算；此刻就要做的写 schedNow。';
+// 读进来：只留像样的那几件
+function normSchedLater(x) { return (Array.isArray(x) ? x : x && typeof x === "object" ? [x] : []).filter(y => y && typeof y === "object" && String(y.title || "").trim() && String(y.day || "").trim() && /\d{1,2}:\d{2}/.test(String(y.time || ""))).slice(0, 3); }
 const OFFLINE_OPEN_SCHED_CHECK = "\n\n这场线下刚开场：落笔前先对一眼上面此刻的安排——TA 此刻人在哪、在做什么，要跟这一幕对得上；这场见面本身就打乱了原来的安排，就把 schedNow 填上。";
 const AFFINITY_DELTA_SPEC = "整数 -5~5：这一轮 TA 对用户的感觉往哪边动了一点点，就填 ±1——聊得开心、被照顾到、有来有往、说了句戳心窝的话都算，不用等大事；真正的转折（表白、吵架、被戳到痛处、第一次交底）才给 ±3~5；确实什么都没发生才 0。";
 // 心声那一格的说明（v74.311 重写，她 2026-09-29：「三个不同的人…心声格式是不是太像了」）。
@@ -3673,7 +3678,8 @@ const OFFLINE_PROTOCOL_V2 = `【线下生成与输出】
 你就是 TA 本人。落笔之前先以 TA 的第一人称把此刻这一幕想一遍：眼前发生的事在 TA 看来是什么、TA 此刻真正在意的是哪一点、TA 的处境和脾气让 TA 怎么看它——scene 从那个判断里长出来，不是先想「这种人该有什么反应」再往人设上凑。
 thought、mood、wearing、action 等附属字段只记录已经形成的场景与角色状态，不用来提前铺排剧情，也不用来给 scene 补一段解释。wearing、toy 没有真实变化时留空即可，不要为了填字段制造变化；但 thought、mood、action 是【此刻重新看一眼】的读数，不是变更通知，每轮都要写。
 
-只输出一个合法 JSON 对象，不要代码块。scene 是本轮实际发生的叙事正文，必须有效。thought 每轮必须填写，禁止 null、空串或省略：${THOUGHT_MEANING_CHAR}${THOUGHT_VOICE}${THOUGHT_ORIGIN}mood 每轮必须填写 {"label":"中文短词"}，禁止 null、空串或省略：它是【此刻重新看一眼】这个人的主导心情，不是「有变化才报」的变更通知。心情没变就照实写回同一个词——重新判断不等于必须改变，但不许因为「跟上轮一样」就省掉不填。wearing 仅在穿着发生有意义变化时填写，否则 null。action 每轮必须填写，禁止 null、空串或省略：${ACT_MEANING}。线下是一场正在推进的戏，这一格的事实本来就比线上变得快——但那是【事实真的变了】才更新，不是每一拍都换个说法；同一件事还在做，就照实写回同一句。affinityDelta: ${AFFINITY_DELTA_SPEC}${SCHED_NOW_SPEC}toy 仅在已授权且本轮实际触发时填写，否则 null。
+只输出一个合法 JSON 对象，不要代码块。scene 是本轮实际发生的叙事正文，必须有效。thought 每轮必须填写，禁止 null、空串或省略：${THOUGHT_MEANING_CHAR}${THOUGHT_VOICE}${THOUGHT_ORIGIN}mood 每轮必须填写 {"label":"中文短词"}，禁止 null、空串或省略：它是【此刻重新看一眼】这个人的主导心情，不是「有变化才报」的变更通知。心情没变就照实写回同一个词——重新判断不等于必须改变，但不许因为「跟上轮一样」就省掉不填。wearing 仅在穿着发生有意义变化时填写，否则 null。action 每轮必须填写，禁止 null、空串或省略：${ACT_MEANING}。线下是一场正在推进的戏，这一格的事实本来就比线上变得快——但那是【事实真的变了】才更新，不是每一拍都换个说法；同一件事还在做，就照实写回同一句。affinityDelta: ${AFFINITY_DELTA_SPEC}${SCHED_NOW_SPEC}
+${SCHED_LATER_SPEC}toy 仅在已授权且本轮实际触发时填写，否则 null。
 
 输出形状：{"scene":"当前场景正文","thought":"本轮没说出口的真实第一人称心声","mood":{"label":"此刻中文心情词"},"action":"此刻正在做什么，第一人称一句","wearing":"换了才写，没换填 null","affinityDelta":0,"toy":null}
 先想清楚 TA 怎么看这一刻，场景再发生；系统最后记录。`;
@@ -9833,6 +9839,7 @@ async function generateOffline(p, ctx, session) {
     affinityDelta,
     toy: (session.toyOn && parsed.toy && typeof parsed.toy === "object") ? parsed.toy : null,
     schedNow: (parsed.schedNow && typeof parsed.schedNow === "object" && parsed.schedNow.title) ? parsed.schedNow : null,
+    schedLater: normSchedLater(parsed.schedLater),
     // 线下拍下的那一格。kind 由 app 再核一遍（duo 要两张参考照都在才作数）。
     // 线下切歌：app 侧只在她正跟这个人一起听时给 listenOn，换歌走 app 的 taSwitchSong。
     songSwitch: (session.listenOn && parsed.songSwitch && String(parsed.songSwitch).trim().toLowerCase() !== "null") ? String(parsed.songSwitch).trim() : null,
@@ -10137,7 +10144,7 @@ function offlineGroupBeatList(parsed) {
   return null;
 }
 // beats 那份 JSON 坏掉时，按 {"name": 一段段切开，每段照已知键名抠（同 salvageByKeys 一份），别把整串 JSON 当正文发出去
-const OFFLINE_GROUP_BEAT_KEYS = ["name", "scene", "thought", "action", "mood", "affinityDelta", "impression", "schedNow", "photo", "wearing"];
+const OFFLINE_GROUP_BEAT_KEYS = ["name", "scene", "thought", "action", "mood", "affinityDelta", "impression", "schedNow", "schedLater", "photo", "wearing"];
 function salvageOfflineGroupBeats(raw) {
   const text = String(raw || "");
   if (!/"scene"\s*:/.test(text)) return [];
@@ -10215,7 +10222,7 @@ async function generateOfflineGroup(p, ctx, session) {
   const castNames = members.map(c => "『" + memberLabel(members, c) + "』").join("、");
   // 群线下当场改了安排（她 2026-10-20「群聊能改日程吗→接上吧」）：只给写了〔今天此刻在做什么〕的人开这一栏，写回在 app 那边
   const gSchedField = (ctx.memberSched && Object.keys(ctx.memberSched).length)
-    ? ",\"schedNow\":\"（仅角色，可选；只有写了〔今天此刻在做什么〕的人才填，只填他本人的）" + SCHED_NOW_SPEC.replace(/^schedNow:/, "").replace(/"/g, "'") + "\"" : "";
+    ? ",\"schedNow\":\"（仅角色，可选；只有写了〔今天此刻在做什么〕的人才填，只填他本人的）" + SCHED_NOW_SPEC.replace(/^schedNow:/, "").replace(/"/g, "'") + "\",\"schedLater\":\"（仅角色，可选，同上只填他本人的）" + SCHED_LATER_SPEC.replace(/^schedLater:/, "").replace(/"/g, "'") + "\"" : "";
   const novelOut = "\n【输出】只输出一个 JSON，不要代码块：\n{\"scene\":\"这一轮的整段小说正文（第三人称；在场的人自然穿插出场、互相接话，动作/神态/对话/环境写在一起，分段用换行）\",\"cast\":[{\"name\":\"这一段里出场的角色名\",\"thought\":\"（可选）TA 此刻没说出口的真实心声\",\"mood\":{\"label\":\"此刻中文心情词（禁止英文内部标签）\"},\"affinityDelta\":\"" + AFFINITY_DELTA_SPEC + "\",\"impression\":\"（可选）{'side':'me|us','block':'me侧:person/soft/like/recent/unread；us侧:what/how/marks/elephant/want','text':'整块重写≤80字'}——" + (window.Gaze ? window.Gaze.updateRule(userName) : "没有新认识可省略") + "\"" + gSchedField + "}]}\n"
     + "scene 是一整段连着读的小说，不按人切块；cast 里列这一段真正出场的人，一人一项，name 必须逐字填写以下名字之一：" + castNames + "。没出场的人不列。";
   // 上一轮出过声的是谁 → 这一轮优先给还没出声的（线上线下共用同一份）
@@ -10415,7 +10422,7 @@ async function generateOfflineGroup(p, ctx, session) {
         mood: x.mood && x.mood.label ? x.mood : null,
         impression: (x.impression && typeof x.impression === "object") ? x.impression : null,
         affinityDelta: typeof x.affinityDelta === "number" ? x.affinityDelta : 0,
-        schedNow: x.schedNow && typeof x.schedNow === "object" ? x.schedNow : null };
+        schedNow: x.schedNow && typeof x.schedNow === "object" ? x.schedNow : null, schedLater: normSchedLater(x.schedLater) };
     }).filter(Boolean);
     const gSaid = lastUserTurnText(session.msgs);
     const nOut = nScene ? [{ role: "char", kind: "novel", senderId: null, senderName: nCast.map(x => x.senderName).join("、") || null, scene: gSaid ? stripEchoQuestionScene(nScene, gSaid) : nScene, cast: nCast, thought: null, mood: null, impression: null, affinityDelta: 0, photo: null }] : [];
@@ -10451,6 +10458,7 @@ async function generateOfflineGroup(p, ctx, session) {
       impression: (spk && b.impression && typeof b.impression === "object") ? b.impression : null,
       affinityDelta: spk && typeof b.affinityDelta === "number" ? b.affinityDelta : 0,
       schedNow: spk && b.schedNow && typeof b.schedNow === "object" ? b.schedNow : null,
+      schedLater: spk ? normSchedLater(b.schedLater) : [],
       // 这一拍拍下的那一格。kind 由 app 再核一遍（谁能拍、够不够参考照都在那边算）。
       photo: (spk && b.photo && typeof b.photo === "object" && String(b.photo.scene || "").trim())
         ? { kind: String(b.photo.kind || "self"), scene: String(b.photo.scene).trim() } : null

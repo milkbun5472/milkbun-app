@@ -19,7 +19,7 @@ test("聊天和线下都把 schedNow 交给 applySchedChange", () => {
   assert.ok(app.includes("applySchedChange(charId, parsed.schedNow)"));
   assert.ok(app.includes("applySchedChange(charId, res.schedNow)"));
   assert.ok(app.includes("${SCHED_NOW_SPEC}"));
-  assert.ok(engine.includes("${SCHED_NOW_SPEC}toy"));
+  assert.ok(engine.includes("${SCHED_NOW_SPEC}\n${SCHED_LATER_SPEC}toy"));
   assert.ok(engine.includes("schedNow: (parsed.schedNow"));
 });
 test("线下开场那一拍挂上对日程那一句", () => {

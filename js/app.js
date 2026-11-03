@@ -9427,7 +9427,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       // 线下相处也影响好感与心情（跟私聊一样）
       if (!sideRoom) bumpAff(charId, res.affinityDelta);   // 读成数这一步收在 affDelta 一处
       if (!sideRoom) tickAmbient(charId, {}); // 侧房不推动主时间线的人格/动态生态
-      if (!sideRoom) applySchedChange(charId, res.schedNow); // 线下这一拍改了接下来的安排 → 写回日程
+      if (!sideRoom) { applySchedChange(charId, res.schedNow); applySchedLater(charId, res.schedLater); } // 线下这一拍改了接下来的安排 → 写回日程
       // mood 一直不动的老毛病（她 2026-08-24）：病根是线下协议原本写着「值得更新才填，
       // 否则 null」，示范形状里还直接摆着 "mood":null——模型照着模板填 null，心情就永远冻着。
       // v55.67 改成每轮必填。这里再加一只计数器：还是不回就说出来，别又变成静默失败。
@@ -10276,6 +10276,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         if (!gOffSealed && !_bNpc && a.senderId) bumpAff(a.senderId, a.affinityDelta);
         // 群线下当场改了安排 → 写回他本人今天的日程（闭群照旧封死；配角没有日程）
         if (!gOffSealed && !_bNpc && a.senderId && a.schedNow && timeAwareFor(a.senderId)) applySchedChange(a.senderId, a.schedNow);
+        if (!gOffSealed && !_bNpc && a.senderId && a.schedLater && a.schedLater.length && timeAwareFor(a.senderId)) applySchedLater(a.senderId, a.schedLater);
         if ((!gOffSealed || _bNpc) && a.senderId && a.mood && a.mood.label) setMoodFor(a.senderId, { ...a.mood, ts: Date.now() });
         // Ta 眼里：群线下也写（闭群只进不出，照旧封死；配角没有印象卡；言秋不塑形）
         if (!gOffSealed && !_bNpc && a.senderId && a.impression && window.Gaze && !noGaze(a.senderId)) {
@@ -13427,6 +13428,7 @@ action: string，每轮回复完成后${ACT_MEANING}。${typeof ACT_VOICE === "s
 wearing: string，仅在穿着发生变化时填写。若你在 word 里明确决定马上出门、回家、洗澡、睡觉、起床、运动、上班、上课、赴约或换衣，本轮 wearing 必须同时填写为该决定落实后的实际穿着；不能嘴上已经去做下一件事，状态却仍停在旧衣服。
 affinityDelta: ${AFFINITY_DELTA_SPEC}
 ${SCHED_NOW_SPEC}
+${SCHED_LATER_SPEC}
 未发生、未改变的按需字段直接省略；action 不属于按需字段，普通角色每轮都要填写。
 ${window.Gaze && !char.npc ? window.Gaze.spec("对方", charId, { tail: true }) : ""}
 【能力使用总则】这些功能都可以日常使用，gift、photo、call、voice、moment、recall 等按当前对话与你自己的真实意愿选择，不必等待特殊时刻。没有使用频率或轮数要求，不用为了证明记得能力而找机会触发。recall 可用于日常纠错或调整已发消息，不限于后悔、说漏嘴；需要补发时写入 word。能力字段是否使用不限制表达的热情、篇幅或性格。
@@ -13992,7 +13994,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         }
       } catch (e) {}
       // 这一轮当场改了接下来的安排 → 写回日程。隔离房同约回，不许动共同状态。
-      if (!room || !!(room.writeback && room.writeback.sharedState)) applySchedChange(charId, parsed.schedNow);
+      if (!room || !!(room.writeback && room.writeback.sharedState)) { applySchedChange(charId, parsed.schedNow); applySchedLater(charId, normSchedLater(parsed.schedLater)); }
       // ⚠️好感那一栏也要救（她 2026-09-15：「感觉有时候不涨」）。
       //   上面那句注释写着「坏 JSON 时状态卡就冻住不变……逐个从 raw 里正则抠回来」，
       //   可救的只有 action/wearing/thought/mood 四样——全是字符串，salvageStr 只认带引号的。
@@ -16170,7 +16172,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       // 群里拍一拍（她 2026-10-25）：她在群里时能拍她或别的成员；旁观群里只能拍群里的人
       const gStickField = ",\"stick\":{\"quote\":\"（可选）群里某条消息里的原话，照抄几个字\",\"emoji\":\"一个 emoji\"}（想贴自己的表情包就把 emoji 换成 \"emote\":\"表情包关键词\"；往那条气泡上贴一个表情，像 QQ 的贴表情：群里谁的哪句话让你当下有了反应、这个反应一个表情就说得清的时候，就随手贴一个，贴了照样可以说话，也可以只贴不说；没有反应就整个省掉）";
       const gPatField = ",\"pat\":\"（可选）想用「拍一拍」戳谁一下就填那个人的名字（" + (imInGroup(group) ? gUName + " 或" : "") + "群里某位成员）；是一个动作，不是一句话，不用再在 text 里写「拍了拍」\"";
-      const system = groupBans({ echo: false, drama: !!gsFor(groupId).drama }) + "\n\n" + groupOnlineRuntime + "\n\n" + dir + commonTurn + gSameRoomHint + gBdayHint + gWhereHint + gTimeHint + gTopicHint + onlineRerollHint(rgOpts && rgOpts.rerollAvoid) + gNoticeHint + gDirHint + gEmoteHint + gSelfieHint + gDmHint + thoughtHint + npcStateHint + gBusyHint + gOfflineHint + gBiHint + gTfHint + gInviteHint + gPollHint + gRoleHint + gTitleHint + gLuckyHint + gWhisperHint + gKickInviteHint + (_gSchedNames.length ? "\n【改安排】" + _gSchedNames.map(n => "「" + n + "」").join("、") + "有今天的安排（写在各自那段里）。这一轮谁真的定下了从现在起要做的事跟自己的安排不一样，就在他自己那条发言对象里加 " + SCHED_NOW_SPEC + "只改他本人的；各人填各人的，没写安排的人不填。" : "") + gIdRule + "\n\n【成员】\n" + memberDesc + sameNameNote(members) + gGrowthHint + gMeBlock + gWishHint + gOnMeHint + gRelRule + (relLines ? "\n" + relLines : "") + (gWorld ? "\n\n【世界书】\n" + gWorld : "") + interop + preJoin + "\n\n【近期群聊】\n" + hist + rotateSpeakersNote(members, groupChatsRef.current[groupId]) + gQuoteCatalogText + gDramaTail + gSayHint + "\n\n【输出】只输出 JSON 数组，按发言先后顺序。普通发言 {\"name\":\"成员名\",\"text\":\"内容" + gBiTextSpec + "\",\"quoteId\":\"（可选）正式引用旧消息时填写上面目录里的 Q 编号；要引用的是这一轮里前面某人刚说的那条（目录里还没有），填 R 加它在本数组里的序号（R1 是第一条）；不引用就省略，禁止只抄原文猜作者\",\"emote\":\"（可选）想发的表情关键词\",\"voice\":\"（可选）填 true 表示这条作为语音消息发（会显示成语音气泡+转文字）——手上腾不出手打字、这段话打字太长、或者情绪上来了想让人听见声音时就这么发，不必等人问；发多发少按这个人自己的习惯来" + VOICE_PAUSE_MARK + voiceSoundHint() + "\",\"voiceEmo\":\"（可选，voice=true 时）这条语音的真实语气：happy/sad/angry/fearful/disgusted/surprised/neutral 之一，按说话人此刻真实情绪选，不看字面\"" + gCallField + gPatField + "" + gStickField + "" + gDmField + thoughtField + impressionField + "}；某成员想撤掉自己说过的一句，那条加 \"recall\":true 和 \"recallReason\":\"为什么撤\"：text 照原话抄前面几轮自己已经发出去的那句，就撤那一句；写的是这一轮新的话，会先正常显示一秒再变成已撤回——真人在群里撤回多半是小事：打错字、发漏了半句、手滑发重了、群里说重了想换个说法、话本来是要私发的发错了地方；「后悔、说漏嘴」只是其中一种。撤完通常紧跟一条改好的。几十条里偶尔一次；发红包 {\"name\":\"成员名\",\"redpacket\":{\"total\":金额数字,\"count\":份数,\"message\":\"祝福语\",\"to\":\"（可选）只给某一个人时填 Ta 的名字——专属红包，别人领不了，金额不拆；谁都能抢就省略这一栏\"}}——有好事想请客、群里谁生日或有喜事、哄人、认输赔罪、节日、或者纯粹想热闹一下的时候就发，**不必等人开口要**；钱是真的从这个人钱包里扣的，所以数目要跟 Ta 的处境对得上，手头紧的人发小的、或者干脆不发。群里要拿主意、要挑一个、要看看大家怎么想时，谁都可以自己发起一张投票：那条加 \"pollNew\":{\"title\":\"投票题目\",\"options\":[\"选项1\",\"选项2\"],\"anon\":true或false}（至少两个选项；anon 为匿名投票）。发起的人照自己的性子决定发不发、发什么，同一条里的 text 照常说话。谁自己有件事想先让大家批（想买个东西、想请假、想换工作……照这个人会有的事），可以在那条加 \"askNew\":{\"what\":\"想干嘛\",\"reason\":\"理由\",\"amount\":要花的钱数（不花钱写 0）}，大家投准或驳，过半就准，准了钱从这个人钱包出；没有就不加。name 必须逐字等于成员名单中的一个名字；用户名字绝不能出现在 name。";
+      const system = groupBans({ echo: false, drama: !!gsFor(groupId).drama }) + "\n\n" + groupOnlineRuntime + "\n\n" + dir + commonTurn + gSameRoomHint + gBdayHint + gWhereHint + gTimeHint + gTopicHint + onlineRerollHint(rgOpts && rgOpts.rerollAvoid) + gNoticeHint + gDirHint + gEmoteHint + gSelfieHint + gDmHint + thoughtHint + npcStateHint + gBusyHint + gOfflineHint + gBiHint + gTfHint + gInviteHint + gPollHint + gRoleHint + gTitleHint + gLuckyHint + gWhisperHint + gKickInviteHint + (_gSchedNames.length ? "\n【改安排】" + _gSchedNames.map(n => "「" + n + "」").join("、") + "有今天的安排（写在各自那段里）。这一轮谁真的定下了从现在起要做的事跟自己的安排不一样，就在他自己那条发言对象里加 " + SCHED_NOW_SPEC + "只改他本人的；定下的是以后的事，就加 " + SCHED_LATER_SPEC + "同样只填他本人的；各人填各人的，没写安排的人不填。" : "") + gIdRule + "\n\n【成员】\n" + memberDesc + sameNameNote(members) + gGrowthHint + gMeBlock + gWishHint + gOnMeHint + gRelRule + (relLines ? "\n" + relLines : "") + (gWorld ? "\n\n【世界书】\n" + gWorld : "") + interop + preJoin + "\n\n【近期群聊】\n" + hist + rotateSpeakersNote(members, groupChatsRef.current[groupId]) + gQuoteCatalogText + gDramaTail + gSayHint + "\n\n【输出】只输出 JSON 数组，按发言先后顺序。普通发言 {\"name\":\"成员名\",\"text\":\"内容" + gBiTextSpec + "\",\"quoteId\":\"（可选）正式引用旧消息时填写上面目录里的 Q 编号；要引用的是这一轮里前面某人刚说的那条（目录里还没有），填 R 加它在本数组里的序号（R1 是第一条）；不引用就省略，禁止只抄原文猜作者\",\"emote\":\"（可选）想发的表情关键词\",\"voice\":\"（可选）填 true 表示这条作为语音消息发（会显示成语音气泡+转文字）——手上腾不出手打字、这段话打字太长、或者情绪上来了想让人听见声音时就这么发，不必等人问；发多发少按这个人自己的习惯来" + VOICE_PAUSE_MARK + voiceSoundHint() + "\",\"voiceEmo\":\"（可选，voice=true 时）这条语音的真实语气：happy/sad/angry/fearful/disgusted/surprised/neutral 之一，按说话人此刻真实情绪选，不看字面\"" + gCallField + gPatField + "" + gStickField + "" + gDmField + thoughtField + impressionField + "}；某成员想撤掉自己说过的一句，那条加 \"recall\":true 和 \"recallReason\":\"为什么撤\"：text 照原话抄前面几轮自己已经发出去的那句，就撤那一句；写的是这一轮新的话，会先正常显示一秒再变成已撤回——真人在群里撤回多半是小事：打错字、发漏了半句、手滑发重了、群里说重了想换个说法、话本来是要私发的发错了地方；「后悔、说漏嘴」只是其中一种。撤完通常紧跟一条改好的。几十条里偶尔一次；发红包 {\"name\":\"成员名\",\"redpacket\":{\"total\":金额数字,\"count\":份数,\"message\":\"祝福语\",\"to\":\"（可选）只给某一个人时填 Ta 的名字——专属红包，别人领不了，金额不拆；谁都能抢就省略这一栏\"}}——有好事想请客、群里谁生日或有喜事、哄人、认输赔罪、节日、或者纯粹想热闹一下的时候就发，**不必等人开口要**；钱是真的从这个人钱包里扣的，所以数目要跟 Ta 的处境对得上，手头紧的人发小的、或者干脆不发。群里要拿主意、要挑一个、要看看大家怎么想时，谁都可以自己发起一张投票：那条加 \"pollNew\":{\"title\":\"投票题目\",\"options\":[\"选项1\",\"选项2\"],\"anon\":true或false}（至少两个选项；anon 为匿名投票）。发起的人照自己的性子决定发不发、发什么，同一条里的 text 照常说话。谁自己有件事想先让大家批（想买个东西、想请假、想换工作……照这个人会有的事），可以在那条加 \"askNew\":{\"what\":\"想干嘛\",\"reason\":\"理由\",\"amount\":要花的钱数（不花钱写 0）}，大家投准或驳，过半就准，准了钱从这个人钱包出；没有就不加。name 必须逐字等于成员名单中的一个名字；用户名字绝不能出现在 name。";
       // 触发用户内容：自上一条角色发言以来我说的话/旁白
       let tail = [];
       for (let i = gchat.length - 1; i >= 0; i--) {
@@ -16488,6 +16490,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
           if (spk) _gspoke.add(spk.id);
           // 群里当场改了安排 → 写回他本人今天的日程（同单聊那个口子；没开时间感知、没今日日程的，applySchedChange 自己不动）
           if (spk && !spk.npc && item.schedNow && typeof item.schedNow === "object" && timeAwareFor(spk.id) && !groupClosed(groupId)) applySchedChange(spk.id, item.schedNow);
+          if (spk && !spk.npc && item.schedLater && timeAwareFor(spk.id) && !groupClosed(groupId)) applySchedLater(spk.id, normSchedLater(item.schedLater));
           if (i > 0) await new Promise(r => setTimeout(r, 780));
           checkAutoCall();
           // 邀约的表态：只认被约到、还没回过的那几个；答应了就落一张回执在TA名下（跟单聊同一张）
@@ -18949,7 +18952,11 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     return r && r.kind === "world" && K.schedMapOn(r.world) ? { world: r.world, home: r.node } : null; };
   const schedMapRule = c => { const m = schedMapOf(c); return m ? window.MapKit.schedMapBlock(m.world, m.home) : ""; };
   const schedSnap = (c, seqs) => { const m = schedMapOf(c); return m && Array.isArray(seqs) ? seqs.map(x => window.MapKit.snapSeqToMap(m.world, x, m.home)) : seqs; };
-  const saveSchedDay = (charId, dayKey, plan) => setSchedules(mem => {
+  // 这一天之前聊天里说定过事、那会儿还没排（x_schedPins）：排出来存下时一起插进去
+  const saveSchedDay = (charId, dayKey, plan0) => { let plan = plan0;
+    try { const pins = plan && Array.isArray(plan.seqs) && plan.seqs.length ? schedPinsTake(charId, dayKey) : [];
+      pins.forEach(pin => { const seqs = schedPinIn(plan.seqs, pin); if (seqs) plan = { ...plan, seqs }; }); } catch (e) {}
+    return setSchedules(mem => {
     const disk = (typeof loadJSON === "function" && loadJSON("x_schedules", {})) || {};
     const p = { ...disk, ...mem };
     const cur = { ...(disk[charId] || {}), ...(mem[charId] || {}) };
@@ -18957,10 +18964,52 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     schedulesRef.current = n;
     saveJSON("x_schedules", n);
     return n;
-  });
+  }); };
   // 聊天/线下这一轮当场改了安排（schedNow 字段）→ 写回今天那份日程。一处收着，两条路都走这儿。
   //   没排今天的日程就不凭空造一份；写过之后记上 selfRevCheck，免得「临时起意」再把它改走。
   //   群聊、群线下暂不接：一拍里好几个人各有各的日程，先把单人两条路走通。
+  // 以后的安排（她 2026-11-04「做吧」）：TA 这一轮说定了今天晚些时候、明天、以后的事。
+  //   日子由这里照 TA 那只钟换算（不让模型算日期）；那天排过就插进那个时间，撞上的那段让位、原样挂在底下；
+  //   还没排就记进 x_schedPins，等排那一天时 saveSchedDay 顺手补上。插进去的那格标 agreed（日历上写「聊天里定的」）
+  const schedLaterDay = (c, said) => {
+    const t = String(said || "").trim(), today = schedLocalDayKey(c), d0 = schedParseKey(today);
+    if (!t || !d0) return null;
+    const DOW = "日一二三四五六天";
+    let off = /大后天/.test(t) ? 3 : /后天/.test(t) ? 2 : /明|次日|第二天/.test(t) ? 1 : /今天|今晚|今早|今儿|待会|一会|晚点|晚些/.test(t) ? 0 : null;
+    if (off == null) { const m = /(下)?(?:周|星期|礼拜)([一二三四五六日天])/.exec(t);
+      // 「周五」＝这周还没过的那个周五（今天就是周五算今天）；「下周五」＝下一个周一开始那一周的周五
+      if (m) { const w = DOW.indexOf(m[2]) % 7, cur = d0.getDay(), mon = x => (x + 6) % 7; off = m[1] ? (7 - mon(cur)) + mon(w) : (w - cur + 7) % 7; } }
+    if (off == null) { const m = /(\d{1,2})\s*[月\/.-]\s*(\d{1,2})/.exec(t) || (/^(\d{4})-(\d{1,2})-(\d{1,2})$/.test(t) ? [0].concat(t.split("-").slice(1)) : null);
+      if (m) for (let k = 0; k <= 60; k++) { const d = schedParseKey(schedShiftDayKey(today, k)); if (d && d.getMonth() + 1 === +m[1] && d.getDate() === +m[2]) { off = k; break; } } }
+    return off == null || off < 0 || off > 60 ? null : schedShiftDayKey(today, off);
+  };
+  const schedPinIn = (seqs, pin) => {
+    const min = t => { const m = /(\d{1,2}):(\d{2})/.exec(String(t || "")); return m ? (+m[1]) * 60 + (+m[2]) : null; };
+    const st = min(pin.time); if (st == null) return null;
+    const out = schedSpliceNow(seqs || [], st, { title: pin.title, location: pin.location, until: pin.until, reason: pin.reason || "聊天里说定的" });
+    return out ? out.map(s => s.deviation && s.title === String(pin.title).trim().slice(0, 300) && min(s.time) === st ? { ...s, deviation: { ...s.deviation, agreed: true } } : s) : null;
+  };
+  const schedPinsTake = (charId, dayKey) => { const all = loadJSON("x_schedPins", {}) || {}, mine = all[charId] || {}, list = Array.isArray(mine[dayKey]) ? mine[dayKey] : [];
+    if (!list.length) return []; const rest = { ...mine }; delete rest[dayKey]; saveJSON("x_schedPins", { ...all, [charId]: rest }); return list; };
+  const applySchedLater = (charId, list) => {
+    try {
+      const c = characters.find(x => x && x.id === charId); if (!c || !Array.isArray(list) || !list.length) return;
+      const today = schedLocalDayKey(c), nowMin = charLocalMin(c);
+      list.forEach(pin => {
+        const key = schedLaterDay(c, pin.day); if (!key) return;
+        const m = /(\d{1,2}):(\d{2})/.exec(String(pin.time || "")); if (!m) return;
+        if (key === today && (+m[1]) * 60 + (+m[2]) <= nowMin) return;   // 今天已经过去的点不算「以后」，那是 schedNow 的事
+        const plan = (schedulesRef.current[charId] || {})[key];
+        if (plan && Array.isArray(plan.seqs) && plan.seqs.length) {
+          const seqs = schedPinIn(plan.seqs, pin);
+          if (seqs) { saveSchedDay(charId, key, { ...plan, seqs }); schedMirrorPeers(c, key, seqs); }
+        } else {
+          const all = loadJSON("x_schedPins", {}) || {}, mine = all[charId] || {};
+          saveJSON("x_schedPins", { ...all, [charId]: { ...mine, [key]: (mine[key] || []).filter(x => x.title !== pin.title).concat([{ time: pin.time, until: pin.until || "", title: String(pin.title).slice(0, 300), location: String(pin.location || "").slice(0, 200), reason: String(pin.reason || "").slice(0, 600) }]).slice(-6) } });
+        }
+      });
+    } catch (e) {}
+  };
   const SCHED_LATER_RE = /明天|明早|明晚|明日|明儿|后天|大后天|下周|下星期|下礼拜|下个月|下月|改天|过两天|过几天|周末再|下次/;
   const applySchedChange = (charId, change) => {
     try {
