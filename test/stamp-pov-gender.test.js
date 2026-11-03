@@ -84,3 +84,6 @@ test("IF、生日、纪念日写卡不带衣柜那段（会叫他只穿衣柜里
   assert.match(src, /\{ carryLog: "" \}/);
   assert.ok(!/stampCtx\(char, \[c\]\)[\s\S]{0,40}const stampInner/.test(src));
 });
+test("限时池写卡：分镜的 outfit 是整套过节的，季节常服和小配件不算", () => {
+  assert.match(src, /这一身是从外套、上衣到下装整套为过节换的；平时那身加一个头饰、一件小配件不算。人设里按季节、按场合写的常穿衣服这张都不用。/);
+});
