@@ -30526,6 +30526,19 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   // 播放器此刻自认在不在放（她 2026-10-23「一起听回来还是不能继续自动播放」）：iOS 切后台把声音挂起时常常【不发 pause】，
   //   interruptedRef 就没被记上——回来一看播放器还写着在放、声音却停了，也算被打断
   const playingRef = useRef(false); playingRef.current = !!(player && player.playing);
+  // 播着却没声（她 2026-11-04：「出去了回到 app 音乐就没有声音了，播放暂停都没用」）：iOS 切后台把声音通道掐了，
+  //   这个 <audio> 自认在放、进度却不走，同一个元素再 play/pause 都出不来声。看一眼进度：1.5 秒没动就在原位置重装这首再放
+  const kickStuckAudio = () => {
+    const el = audioElRef.current; if (!el || el.paused || !el.getAttribute("src")) return;
+    const t0 = el.currentTime;
+    setTimeout(() => {
+      if (!el || el.paused || document.visibilityState === "hidden" || el.readyState < 2 && el.networkState === 2) return;   // 正在缓冲不算卡
+      if (Math.abs(el.currentTime - t0) > 0.2) return;
+      try { const pos = t0, src = el.getAttribute("src");
+        const seek = () => { el.removeEventListener("loadedmetadata", seek); try { el.currentTime = pos; } catch (e) {} const pr = el.play(); if (pr && pr.catch) pr.catch(() => {}); };
+        el.addEventListener("loadedmetadata", seek); el.src = src; el.load(); } catch (e) {}
+    }, 1500);
+  };
   useEffect(() => {
     let armed = false;
     // 回到前台那一刻 iOS 不让直接出声（要有一下手指）：直接放被拒了，就等她在屏幕上随便点一下再接着放
@@ -30537,9 +30550,9 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       if (!el || !el.getAttribute("src") || !el.paused || document.visibilityState === "hidden") return;
       if (!interruptedRef.current && !(playingRef.current && !userPauseRef.current)) return;
       interruptedRef.current = true;
-      const pr = el.play(); if (pr && pr.then) pr.then(() => { interruptedRef.current = false; setPlayer(p => ({ ...p, playing: true })); }).catch(() => { if (!fromTap) arm(); });
+      const pr = el.play(); if (pr && pr.then) pr.then(() => { interruptedRef.current = false; setPlayer(p => ({ ...p, playing: true })); kickStuckAudio(); }).catch(() => { if (!fromTap) arm(); });
     };
-    const vis = () => { if (document.visibilityState === "visible") setTimeout(() => resume(false), 400); };
+    const vis = () => { if (document.visibilityState === "visible") { setTimeout(() => resume(false), 400); setTimeout(kickStuckAudio, 900); } };
     const onFocus = () => resume(false);
     document.addEventListener("visibilitychange", vis); window.addEventListener("focus", onFocus);
     const md = navigator.mediaDevices; if (md && md.addEventListener) md.addEventListener("devicechange", onFocus);
@@ -30557,7 +30570,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       || (L.songs && L.songs[0] && L.songs[0].id)
       || null;
     if (!player.songId) { if (restoredId) playSong(restoredId, savedQueue.length ? savedQueue : undefined); return; }
-    if (el.paused) { if (!el.getAttribute("src")) return playSong(restoredId || player.songId, savedQueue.length ? savedQueue : L.nowQueue); el.play(); setPlayer(p => ({ ...p, playing: true })); }
+    if (el.paused) { if (!el.getAttribute("src")) return playSong(restoredId || player.songId, savedQueue.length ? savedQueue : L.nowQueue); el.play(); setPlayer(p => ({ ...p, playing: true })); kickStuckAudio(); }
     else { userPauseRef.current = true; el.pause(); setPlayer(p => ({ ...p, playing: false })); }
   };
   // 队列优先用 nowQueue（播放歌单/播放搜索结果时设的），否则全库；上一首/下一首在队列里循环。
