@@ -10842,8 +10842,22 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       () => {
         const src = Object.assign({}, c);
         delete src.id; delete src.npc; delete src.npcOf; delete src.host; delete src.hostId;
-        pC(p => [...p, CharacterPronoun.newCharacter(Object.assign(src, { id: "char_" + Date.now(), name: name }))]);
+        const newId = "char_" + Date.now();
+        pC(p => [...p, CharacterPronoun.newCharacter(Object.assign(src, { id: newId, name: name }))]);
         toast("克隆好了：" + name + "，点开改吧");
+        // 关系也带过去（群友 2026-11-03 许愿：「克隆了一份新的角色，但是关系不能导过去，要重新弄」）：
+        //   原来那位身上连着的每一条线（跟别的角色、跟我），给新的这位照样连一份；原来那位的不动。问一句再带。
+        const own = Object.keys(rels || {}).filter(k => { const [a, b] = String(k).split("->"); return (a === c.id || b === c.id) && a !== b; });
+        if (own.length) {
+          const whoOf = id => id === "me" ? "你" : (((characters || []).find(x => x && x.id === id) || {}).name || "某人");
+          const others = [...new Set(own.map(k => { const [a, b] = k.split("->"); return whoOf(a === c.id ? b : a); }))];
+          requestAppConfirm("关系也一起带过去吗？",
+            "「" + (c.name || "原来那位") + "」身上连着 " + own.length + " 条关系（" + others.slice(0, 6).join("、") + (others.length > 6 ? "等" : "") + "）。带过去就给「" + name + "」照样连一份，写的内容一样；原来那位的不动。之后在「关系」里还能改。",
+            () => {
+              own.forEach(k => { const [a, b] = k.split("->"), r = rels[k] || {}; const nk = (a === c.id ? newId : a) + "->" + (b === c.id ? newId : b); if (!rels[nk]) saveRel(nk, String(r.label || ""), r.note || ""); });
+              toast("关系带过去了：" + own.length + " 条");
+            }, "带过去", null, { danger: false });
+        }
       }, "克隆一份", null, { danger: false });
   };
   const delChar = id => {
