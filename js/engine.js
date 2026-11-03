@@ -2929,9 +2929,13 @@ function splitLongBubble(s, allowComma) {
   const LONG = 22, MIN = 8, TAIL_MIN = 6, MAX_CHUNKS = 4;
   const glue = (a, seg, i) => { if (i % 2 === 0) a.push(seg); else a[a.length - 1] += seg; return a; };
   let out = [s];
+  // 颜文字收尾也是一句的结尾（她 2026-11-04：「兴奋呢 (〃^▽^〃) 大考官呢 今天工位上…」被切在「大考官呢」后面）：
+  //   括号里全是符号（没有汉字、字母、数字）的那一小串，后面空一格再接中文，就在它后面断，跟句号一样
+  const KAO_END = /(?<=[（(][^（）()\u4e00-\u9fffA-Za-z0-9]{2,14}[）)][^\s\u4e00-\u9fffA-Za-z0-9]{0,3})\s+(?=[\u4e00-\u9fff])/;
+  if (s.length > LONG && KAO_END.test(s)) out = s.split(new RegExp(KAO_END.source, "g")).map(x => x.trim()).filter(Boolean);
   if (s.length > LONG && /[。！？!?]/.test(s.slice(0, -1))) {
     // 连着的句尾标点中间夹空格也算一个句尾（她 2026-10-28：法语「cheveux ? !」把「!」单切成了一泡）
-    out = s.split(/((?:\s*[。！？!?])+)/).reduce(glue, []).map(x => x.trim()).filter(Boolean);
+    out = out.reduce((acc, part) => acc.concat(part.split(/((?:\s*[。！？!?])+)/).reduce(glue, []).map(x => x.trim()).filter(Boolean)), []);
   }
   if (allowComma === false) return bubbleGlueOrphans(out).map(bubbleRestore);
   // 逗号和【中文后面的空格】是同一刀（她 2026-10-24：「要不要提到公共的跟标点符号一起，不要新开形状」）：
