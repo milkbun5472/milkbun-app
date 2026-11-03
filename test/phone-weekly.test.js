@@ -59,7 +59,7 @@ test("跑的时候看得见正在刷谁、刷到第几个", () => {
   assert.match(phone, /weekAt && weekAt\.id === c\.id \? "正在刷新……"/, "轮到谁了，那一行上看不出来");
   assert.match(phone, /weekAt\.i \+ "\/" \+ weekAt\.n/, "没说刷到第几个");
   // 每人刷完各弹一次会把最后那句「都刷完了」冲掉
-  assert.match(app, /if \(!weekly\) toast\(ok === keys\.length/, "例行刷新时每个角色还各弹一次");
+  assert.match(app, /if \(!weekly\) toast\(phoneAllStopRef\.current \? "停下了：[^"]*" \+ ok \+ "[^"]*" : ok === keys\.length/, "例行刷新时每个角色还各弹一次");
   assert.match(app, /return \{ ok: ok, total: keys\.length \};/, "没把成没成回给上一层,缺了几个 app 只能咽下去");
 });
 

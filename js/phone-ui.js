@@ -5067,6 +5067,7 @@ function PhoneCarry({
   onSel,
   onGenApp,
   onGenAll,
+  onStopAll,
   profile,
   actualWechatFor,
   actualMomentsFor,
@@ -6196,7 +6197,8 @@ function PhoneCarry({
     // 改成一条通栏细条，省下来的一百来像素刚好够图标露出来。
     if (key === "refresh") return h("button", {
       key,
-      onClick: () => { clearSeen(char.id); onGenAll(char); }, disabled: !!busyKey,
+      // 正在全刷（手动的、每周补刷翻到这个人的都算）：同一颗键变「停下」
+      onClick: () => { if (isAllRun && onStopAll) { onStopAll(); return; } clearSeen(char.id); onGenAll(char); }, disabled: !!busyKey && !(isAllRun && onStopAll),
       className: "flex items-center justify-center active:opacity-70 disabled:opacity-50",
       style: {
         gridColumn: "span 1", minHeight: 46, gap: 7, borderRadius: 16,
@@ -6205,7 +6207,7 @@ function PhoneCarry({
       }
     }, h(IRefresh, { size: 15, color: t.fog }), h("span", {
       style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.sub }
-    }, isAllRun ? (allNowKey && PHONE_LABEL[allNowKey] ? "正在翻…" + PHONE_LABEL[allNowKey] : "正在翻…") : "刷新全部"));
+    }, isAllRun ? (allNowKey && PHONE_LABEL[allNowKey] ? "正在翻…" + PHONE_LABEL[allNowKey] : "正在翻…") + (onStopAll ? " · 点这里停下" : "") : "刷新全部"));
     // 「看TA玩」跟「刷新全部」并排：它们是同一层的两面——一个是我翻TA的手机，
     // 一个是TA自己在刷、我在旁边看。所以摆成一对，一人一半。
     if (key === "watch") return h("button", {

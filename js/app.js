@@ -23576,7 +23576,9 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       }));
     }
   }); };
-  const genPhoneAll = async (char, weekly) => { return withPhoneWork(async () => {
+  // 刷新全部停在半路（她 2026-11-04：「刷了两个不想让他刷了咋办」）：点了就不再往下翻，正在翻的那一样翻完存下
+  const phoneAllStopRef = useRef(false);
+  const genPhoneAll = async (char, weekly) => { phoneAllStopRef.current = false; return withPhoneWork(async () => {
     if (!active) {
       toast("请先到设置配置 API");
       return;
@@ -23606,6 +23608,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       // 每周那一刷，每换一个 app 回头看一眼（她 2026-11-01 群友：「关了，api 也删了，依旧在刷新中」）：
       //   开关关了、线路删了，就停在这儿，不把这个人剩下的十几次跑完
       if (weekly && (!autoRefreshOn("phone", char.id) || !bgActiveRef.current)) break;
+      if (phoneAllStopRef.current) break;   // 每周补刷正在翻这个人时点「停下」，也停这个人这一趟
       try {
         setGen(g => ({ ...g, phoneApp: "__all__:" + key }));
         const avoid = phoneRoundDigest(fresh, key);
@@ -23630,7 +23633,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       const n = { ...p, [char.id]: Date.now() };
       phoneLastAllRef.current = n; saveJSON("x_phoneLastAll", n); return n;
     });
-    if (!weekly) toast(ok === keys.length ? "已生成全部" : "完成 " + ok + "/" + keys.length + " 个，可单独重试");
+    if (!weekly) toast(phoneAllStopRef.current ? "停下了：刷好了 " + ok + " 个，剩下的照旧是原来那份" : ok === keys.length ? "已生成全部" : "完成 " + ok + "/" + keys.length + " 个，可单独重试");
+    phoneAllStopRef.current = false;
     return { ok: ok, total: keys.length };
   }); };
 
@@ -34529,6 +34533,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     onSel: setSelPhone,
     onGenApp: genPhoneApp,
     onGenAll: genPhoneAll,
+    onStopAll: () => { phoneAllStopRef.current = true; toast("翻完这一样就停"); },
     // 手机里的「我」是 TA 认的那张面具（群里属数 2026-10-06：「查手机时看见的微信聊天里也是主面具的欸」）
     profile: selPhone ? profileFor(selPhone) : profile,
     actualWechatFor: phoneWechatActual,
