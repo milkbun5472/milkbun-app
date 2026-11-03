@@ -17673,6 +17673,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       + "写到她的时候，你俩的关系走到哪一步就写到哪一步，还没在一起就不写恋人之间的事，最近在别扭就别写得甜。衣服从你自己的衣柜里挑。"
       + (card.kind === "mybday" ? "这一张是【她的生日】前后，你们俩之间的一刻：她在场，R 也写你们俩在一起的那一瞬间。照你们现在的关系来，还没在一起就不写恋人之间的事。为她的生日，你们俩的打扮都是特意的，不从衣柜里挑。shot 画的是你们两个人。" : "")
       + (card.kind === "anniv" ? stampAnnivLine(card, char) : "")
+      // 她 2026-11-04：特别版的那身——人设里按季节、按场合写的常服被当成这张的衣服（万圣夜同一个坑）
+      + (card.kind === "bday" || card.kind === "mybday" || card.kind === "anniv" ? "人设里按季节、按场合写的常穿衣服这张都不用；shot 里的 outfit 写的是为这一天特意准备的整套，平时那身加个配饰不算。" : "")
       + (card.kind === "bday" ? "这一张是你生日前后的一刻。衣服这次不从你衣柜里挑：生日卡是专门为这一天设计的限定造型——一眼看得出是特意的，比你平时隆重、细节多，面料、配饰、搭配都有讲究，同时还是你会穿、配你这个人的样子；隆重不等于西装，照那天在做的事配。shot 的景别拉开到看得见那天的场合和生日的氛围。" : "");
   };
   const STAMP_RARITY_SPEC = {
@@ -17709,6 +17711,12 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   const stampLimFit = card => "这一张不穿平时的衣服：穿过「" + (card.theme || "") + "」的那一身，一眼看得出是在过这个节。"
     + "是从外套、上衣到下装整套换成这一身，不是平时那身衣服上加一个头饰、一件小配件；参考照里他穿的那件外套和上衣这张都不出现。"
     + (stampLim(card).themeLook ? stampLim(card).themeLook : "");
+  // 生日、她的生日、纪念日卡（她 2026-11-04「要为这一天准备的特别版」）：跟限时池同一格服装锁，图像端最认这一格；
+  //   不锁的话画图那头会把人设里的常穿衣服当设定、照抄参考照那身。who＝锁的是谁（他／她：两个人那几张她也特意打扮）
+  const STAMP_DAY_KINDS = { bday: "他的生日", mybday: "她的生日", anniv: "你们的纪念日" };
+  const stampDayFit = (card, who) => card.limited ? stampLimFit(card) : STAMP_DAY_KINDS[card.kind]
+    ? "这一张不穿平时的衣服：是为「" + (card.kind === "anniv" && card.annivName ? card.annivName : STAMP_DAY_KINDS[card.kind]) + "」这一天特意准备的那一身，一眼看得出是特意的，细节、面料、配饰都有讲究，又是" + (who || "他") + "自己会穿的样子。"
+      + "是从外套、上衣到下装整套换成这一身，不是平时那身衣服上加一个配饰；参考照里" + (who || "他") + "穿的那件外套和上衣这张都不出现。" : "";
   const StampsCoreSafe = () => (window.StampsCore ? window.StampsCore.load() : { cards: [] });
   // 聊天里那张小卡要的东西（不带整段正文，正文在 content 里给他读）
   const stampShareOf = card => { const tx = card.text || {}; return { id: card.id, name: tx.name || "", rarity: card.rarity, kind: card.kind, theme: card.theme || "", line: tx.line || tx.thought || "", face: card.sendFace || card.face || card.faceAlt || "" }; };
@@ -17907,12 +17915,12 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     setX({ drawing: true, drawingTs: Date.now(), drawingBoot: (window.__stampBoot = window.__stampBoot || Date.now()), drawErr: "" });
     try {
       const st = statesRef.current[char.id] || {}, duo = !!x.duo, lover = spaceLover((couplesRef.current || {})[char.id]);
-      const meP = duo ? Object.assign({}, photoMe("她", char.id), { outfit: "", closet: "" }) : null;
+      const meP = duo ? Object.assign({}, photoMe("她", char.id), { outfit: card.kind === "mybday" || card.kind === "anniv" ? stampDayFit(card, "她") : "", closet: "" }) : null;
       const paint = String(((StampsCoreSafe().opt || {}).paint) || "").trim();
       let scene = "一张横版的乙游番外 CG：「" + (x.title || "") + "」。平时会裁成竖的、只显示正中间那一块当卡面，所以主要的人和动作放在画面正中间那三分之一，左右两边是场景和氛围。这一下：" + (x.shot || String(x.text).slice(-300)) + "\n景别拉开到看得见这一刻在哪、什么光，不是一张脸部近照。"
         + (duo ? "画面里是你们两个人。" + (lover ? "你们是恋人，距离和手就是恋人的样子。" : "你们之间是什么关系就是什么距离，不画成恋人。") : "画面里只画你一个人。") + "\n画面里不要任何文字。";
       if (card.kind === "if") scene += "\n这张是 IF「" + (card.theme || "") + "」" + (stampLim(card).themeLine ? "：" + String(stampLim(card).themeLine).slice(0, 300) : "") + "。" + (stampLim(card).themeLook || "") + "衣服、场景和光照这个主题来。他的长相照他本人，主题只换衣服、场景和道具。";
-      const base = Object.assign({}, char, { photoOutfit: card.limited ? stampLimFit(card) : "" });
+      const base = Object.assign({}, char, { photoOutfit: stampDayFit(card, "他") });
       const prompt = buildPhotoPrompt(paint === "real" ? Object.assign({}, base, { photoStyle: "realistic" }) : base, scene, Object.assign({}, st, { wearing: "", wearingUpdatedAt: 0 }),
         Object.assign(duo ? { kind: "duo", me: meP, notLover: !lover } : { kind: "other" }, { shotLine: stampCam() + "这张番外 CG 里他的脸一定要看得见：正脸或者侧脸，不拍背影、不拍后脑勺；两个人在一起时，镜头在他们对面或者斜对面，不从他身后越肩拍。" }, { closet: "" }, paint && paint !== "real" ? { paint } : {}));
       const refs = [char.refPhoto, duo && meP && meP.refPhoto].filter(Boolean);
@@ -17994,7 +18002,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         + "他的长相照他本人：发色、发型、瞳色、五官和身材都不变，主题只换衣服、场景和道具。" : "";
       scene += keepLook;
       const freeFit = card.kind === "if" || card.kind === "bday" || card.kind === "mybday" || card.kind === "anniv";   // 这几种衣服不走衣柜（先定义：下面她那份也要用）
-      const meP = duo ? Object.assign({}, photoMe("她", char.id), freeFit ? { outfit: "", closet: "" } : {}) : null;   // IF 双人：她也照主题穿，不从她衣柜里挑
+      const meP = duo ? Object.assign({}, photoMe("她", char.id), freeFit ? { outfit: card.kind === "mybday" || card.kind === "anniv" ? stampDayFit(card, "她") : "", closet: "" } : {}) : null;   // IF 双人：她也照主题穿，不从她衣柜里挑；她的生日、纪念日她那身也是特意的
       if (duo && !(meP && meP.refPhoto)) toast("你还没传自己的参考照（在你自己的资料里传一张），这张只能照文字画你", 6000);
       // 画风：卡池设置里挑的（空＝跟着这个人自己的设定；real＝写实照片；别的就是画风名）
       const paint = String(((StampsCoreSafe().opt || {}).paint) || "").trim();
@@ -18004,7 +18012,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       if (card.kind === "bday") scene += "\n这是他的生日限定卡面：画面里要看得出是他的生日——那天的场合、在哪儿、光和身边的东西带着生日的氛围，景别拉开到看得见这些，不是在普通背景前的一张近照。"
         + "他穿一身专门为这一天设计的造型，不照平时衣柜里那几身——一眼看得出是特意的，细节多，面料、配饰、搭配都有讲究；隆重不等于西装，照这一天他在做的事和他这个人来配。分镜里写的衣服跟这一条对不上时，照这一条。";
       // 限时池那一期对衣服有要求的（万圣夜要变装），把要求放进「锁死的那身」那一格：图像端最认这一格，放在场景里会被人设、参考照里的常服盖掉（她 2026-11-03）
-      const limFit = card.limited ? stampLimFit(card) : "";
+      const limFit = stampDayFit(card, "他");
       const base = freeFit ? Object.assign({}, char, { photoOutfit: limFit }) : char;
       const prompt = buildPhotoPrompt(paint === "real" ? Object.assign({}, base, { photoStyle: "realistic" }) : base, scene,
         freeFit ? Object.assign({}, st, { wearing: "", wearingUpdatedAt: 0 }) : st,

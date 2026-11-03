@@ -55,7 +55,9 @@ test("限时池卡名看得出是这一期", () => { assert.match(src, /"卡名�
 test("限时池分镜里的衣服看得出在过节", () => { assert.match(src, /shot 里的 outfit 写你过这个节穿的那一身/); });
 test("限时池画卡面时，衣服那一格写死要过节的那一身", () => {
   assert.match(src, /const stampLimFit = card => "这一张不穿平时的衣服：穿过「"/);
-  assert.ok((src.match(/card\.limited \? stampLimFit\(card\) : ""/g) || []).length >= 2, "两处画卡面都走同一份");
+  assert.match(src, /const stampDayFit = \(card, who\) => card\.limited \? stampLimFit\(card\) : STAMP_DAY_KINDS\[card\.kind\]/);
+  assert.match(src, /const limFit = stampDayFit\(card, "他"\);/);
+  assert.match(src, /photoOutfit: stampDayFit\(card, "他"\) \}\);/);
   assert.match(src, /不是平时那身衣服上加一个头饰、一件小配件；参考照里他穿的那件外套和上衣这张都不出现/);
 });
 test("限时池去重只跟同一期比，不一样指事不一样、节照过；主题排在写卡先后最前", () => {
@@ -90,4 +92,14 @@ test("限时池写卡：分镜的 outfit 是整套过节的，季节常服和小
 test("限时池写卡：扮成具体的角色或怪物，照他挑，gist 记扮相、不重样", () => {
   assert.match(src, /这一身是扮成一个具体的角色或怪物：一眼看得出扮的是谁、是什么/);
   assert.match(src, /"gist 里写上这张扮的是什么；你已经有的「" \+ card\.theme \+ "」卡里扮过的，这张扮别的。"/);
+});
+test("生日、她的生日、纪念日卡：画图走服装锁，她那身也锁；写卡时季节常服不算", () => {
+  const body = src.slice(src.indexOf("const STAMP_DAY_KINDS"), src.indexOf("const StampsCoreSafe"));
+  const f = new Function("stampLimFit", body + "return stampDayFit;")(() => "LIM");
+  assert.equal(f({ limited: "h" }), "LIM");
+  assert.match(f({ kind: "bday" }, "他"), /为「他的生日」这一天特意准备的那一身[\s\S]*参考照里他穿的那件外套和上衣这张都不出现/);
+  assert.match(f({ kind: "anniv", annivName: "在一起一周年" }, "她"), /为「在一起一周年」这一天[\s\S]*参考照里她穿/);
+  assert.equal(f({ kind: "daily" }), "");
+  assert.equal((src.match(/outfit: card\.kind === "mybday" \|\| card\.kind === "anniv" \? stampDayFit\(card, "她"\) : ""/g) || []).length, 2);
+  assert.match(src, /人设里按季节、按场合写的常穿衣服这张都不用；shot 里的 outfit 写的是为这一天特意准备的整套/);
 });
