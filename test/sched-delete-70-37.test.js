@@ -80,7 +80,7 @@ test("整周那段跟「AI 排剩下这几天」写的是同一段日子", () =>
 });
 
 test("两个入口都接上了，而且都先问一句再删", () => {
-  assert.match(comp, /onGenWeek, schedWeekKeys, onDelSchedDay, onDelSchedWeek, onDelSchedSeq, onEditSchedSeq \}\)/, "Calendar 没收这几个参数");
+  assert.match(comp, /onGenWeek, schedWeekKeys, onDelSchedDay(: rawDelSchedDay)?, onDelSchedWeek, onDelSchedSeq(: rawDelSchedSeq)?, onEditSchedSeq(: rawEditSchedSeq)? \}\)/, "Calendar 没收这几个参数");
   // 整周那颗在 FAB 里，按钮上要写清删几天
   assert.match(comp, /"🗑　删掉 AI 排的这 " \+ have \+ " 天"/);
   // 单天那颗在块详情里，只对 AI 排的块出现（手填的那种走原来的编辑/删除）
@@ -155,7 +155,7 @@ test("凌晨那条「昨晚睡过来的」不给单段删——它不是今天 s
 });
 
 test("三个粒度三个入口，都先问一句", () => {
-  assert.match(comp, /onDelSchedDay, onDelSchedWeek, onDelSchedSeq, onEditSchedSeq \}\)/);
+  assert.match(comp, /onDelSchedDay(: rawDelSchedDay)?, onDelSchedWeek, onDelSchedSeq(: rawDelSchedSeq)?, onEditSchedSeq(: rawEditSchedSeq)? \}\)/);
   assert.match(comp, /"只删这一段"/);
   assert.equal((comp.match(/requestAppConfirm\("(删掉 |只删掉「)/g) || []).length, 3, "单段/整天/整周都要先问一句");
   assert.match(app, /const delSchedSeq = \(charId, dayKey, seqNo\) => \{/);

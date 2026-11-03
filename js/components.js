@@ -4863,8 +4863,8 @@ function ClassImportSheet({ ownerName, onParse, onSave, onClose }) {
             onClick: () => { const n = onSave(rows.filter(r => String(r.title || "").trim()), termStart, termEnd); window.__toast && window.__toast(n ? "存好了 " + n + " 节课" : "没存进去（学期日期对不上？）"); if (n) onClose(); },
             className: "active:opacity-70 disabled:opacity-40", style: { flex: 2, padding: "12px 0", borderRadius: 12, border: "none", background: t.ink, color: t.bg2, fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))" } }, "存进日历")))));
 }
-function Calendar({ characters, calendar, calEvents, schedules, profile, period, busy, genWeekBusy, initialView, onBack, onSaveEvent, onCopyMaskSched, onParseTimetable, onSaveClasses, onDelEvent, onGenMonth, onGenMyWeek, myWeekBusy, myMasks, maskKeyOf, onSavePeriod, onRecordPeriod, onSaveTimed, onDelTimed, onGenWeek, schedWeekKeys, onDelSchedDay, onDelSchedWeek, onDelSchedSeq, onEditSchedSeq }) {
-  schedules = window.CharDayLink ? window.CharDayLink.publicSchedules(schedules) : schedules;
+function Calendar({ characters, calendar, calEvents, schedules: rawSchedules, profile, period, busy, genWeekBusy, initialView, onBack, onSaveEvent, onCopyMaskSched, onParseTimetable, onSaveClasses, onDelEvent, onGenMonth, onGenMyWeek, myWeekBusy, myMasks, maskKeyOf, onSavePeriod, onRecordPeriod, onSaveTimed, onDelTimed, onGenWeek, schedWeekKeys, onDelSchedDay: rawDelSchedDay, onDelSchedWeek, onDelSchedSeq: rawDelSchedSeq, onEditSchedSeq: rawEditSchedSeq }) {
+  rawSchedules = window.CharDayLink ? window.CharDayLink.publicSchedules(rawSchedules) : rawSchedules;
   const t = useTheme();
   // 从聊天页「看 TA 的日程」进来时直接落在那个人身上（原来那个入口指向已退场的行程 app）
   const [view, setView] = useState(initialView || "mine");
@@ -4877,6 +4877,22 @@ function Calendar({ characters, calendar, calEvents, schedules, profile, period,
     ? ((typeof schedNowDate === "function" && window.ScheduleClock && window.ScheduleClock.planFollows(_viewChar) ? schedNowDate(_viewChar) : null) || _vcNow(_viewChar.id) || new Date())
     : (_vcNow(null) || new Date());
   const todayKey = calPadKey(today.getFullYear(), today.getMonth(), today.getDate());
+  // 钟开着、但「日程照这只钟的日子排」关着（她 2026-11-03 转群友：「排过的点进去空的」）：
+  //   日程是按【现实】的日子存的，这一页却翻到钟上的那天（11-01 那一版让红线和今天跟钟走）——两边差着十几年，自然是空的。
+  //   照开关那句说明来：「钟只改日子的叫法」。这一页的每一天挂的是对应那天现实日子的日程，删、改也回到现实那天去。
+  const _nameShift = (() => {
+    if (!_viewChar || !window.ScheduleClock || window.ScheduleClock.planFollows(_viewChar) || !_vcNow(_viewChar.id)) return 0;
+    const real = window.ScheduleClock.planDay(_viewChar, Date.now(), -new Date().getTimezoneOffset());
+    const ms = k => { const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(k || "")); return m ? Date.UTC(+m[1], +m[2] - 1, +m[3]) : NaN; };
+    const d = Math.round((ms(real) - ms(todayKey)) / 86400000);
+    return Number.isFinite(d) ? d : 0;
+  })();
+  const toRealDk = dk => _nameShift && typeof schedShiftDayKey === "function" ? schedShiftDayKey(dk, _nameShift) : dk;
+  const schedules = !_nameShift || !rawSchedules || !rawSchedules[view] || typeof schedShiftDayKey !== "function" ? rawSchedules
+    : { ...rawSchedules, [view]: Object.fromEntries(Object.entries(rawSchedules[view]).map(([k, v]) => [schedShiftDayKey(k, -_nameShift), v])) };
+  const onDelSchedDay = rawDelSchedDay && ((c, dk, ...r) => rawDelSchedDay(c, toRealDk(dk), ...r));
+  const onDelSchedSeq = rawDelSchedSeq && ((c, dk, ...r) => rawDelSchedSeq(c, toRealDk(dk), ...r));
+  const onEditSchedSeq = rawEditSchedSeq && ((c, dk, ...r) => rawEditSchedSeq(c, toRealDk(dk), ...r));
   const cal = calendar || { world: {}, chars: {}, mine: {} };
   const per = period || { cycleLen: 28, periodLen: 5, starts: [], visibleTo: null };
   const [ym, setYm] = useState({ y: today.getFullYear(), m: today.getMonth() });
