@@ -37,7 +37,7 @@ test("整段都是叙述时，只给一段 prose——不然正文会被白白�
 // 引号判据只该有一处：念台词和上重音必须是同一个判断
 test("引号那套判据只有一份，components 没有自己再写一个正则", () => {
   assert.match(eng, /function speechSpans\(text\) \{/, "engine 里没有那一份");
-  assert.match(eng, /return speechSpans\(text\)\.map\(x => x\.inner\)\.join\("\\n"\);/, "extractSpeech 没有改成复用 spans");
+  assert.match(eng, /return speechSpans\(text\)\.map\(x => sayDropZh\(x\.inner\)\)\.join\("\\n"\);/, "extractSpeech 没有改成复用 spans");
   const split = grab(comp, "function offSplit(", "function offBody(");
   assert.match(split, /typeof speechSpans === "function" \? speechSpans\(s\) : \[\]/, "没用共享那一份");
   assert.ok(!/「\[\^」\]|『|“\(\[\^”\]/.test(split), "components 里又抄了一份引号正则");
@@ -72,4 +72,9 @@ test("台词用说话人自己的颜色，我用强调色", () => {
   // 旁白里夹着的台词也一样标出来
   const narr = grab(comp, "  if (isNarr) {", "  return h(\"div\", { className: \"my-2.5\", \"data-wk\": \"offmsg\"");
   assert.match(narr, /offSplit\(nText\)\.map/, "长旁白里引的那句话没标出来");
+});
+test("线下念台词：外语后面括号里的中文译文不念（括号没合上也算），纯中文括号照念", () => {
+  assert.equal(SP.extractSpeech("他笑了一声。「야 아까 그 뒷말 도로 집어 넣어（呀刚才那句找补给我收回去）」"), "야 아까 그 뒷말 도로 집어 넣어");
+  assert.equal(SP.extractSpeech("「오빠 방패 대는 순간（哥哥挡箭牌的那一刻」）"), "오빠 방패 대는 순간");
+  assert.equal(SP.extractSpeech("「你好（笑）」"), "你好（笑）");
 });

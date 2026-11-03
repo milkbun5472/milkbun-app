@@ -7549,7 +7549,17 @@ function speechSpans(text) {
 }
 function extractSpeech(text) {
   // 剥掉嵌套残留的引号字符（如「TA喊『快跑』」外层会连内层『』一起吃进来），别念出括号
-  return speechSpans(text).map(x => x.inner).join("\n");
+  // 台词里「外语（中文）」括号那句是译文，不念（群友 2026-11-04：线下语音把括号里的翻译也念出来了）
+  return speechSpans(text).map(x => sayDropZh(x.inner)).join("\n");
+}
+// 念的时候：一句外语后面跟着「（中文）」，括号里那句是译文，不念。线上 sayTextOf、线下 extractSpeech 共用这一份
+function sayDropZh(line) {
+  const s = String(line || ""), FOREIGN = /[\u3040-\u30ff\uac00-\ud7af\u0400-\u04ffA-Za-z\u00c0-\u024f]/;
+  const bi = typeof splitBilingual === "function" ? splitBilingual(s.trim(), false) : null;
+  if (bi && bi.text) return bi.text;
+  // 括号没合上也算（台词引号先收了口：「외국어（中文」）
+  const pm = s.trim().match(/^([\s\S]*?\S)\s*[（(]([^（）()]+)[）)]?\s*$/);
+  return pm && FOREIGN.test(pm[1]) && /[\u4e00-\u9fff]/.test(pm[2]) && !FOREIGN.test(pm[2]) ? pm[1] : s;
 }
 // 按台词内容粗判语气 → MiniMax emotion 参数（本地零成本兜底——首选是消息自带的作者标注 m.emo，见 v48.31）。
 // v48.31 扩了词表；仍然只是猜字面，猜不出潜台词，所以只当兜底。
@@ -7629,12 +7639,9 @@ function sayTextOf(m) {
   let lines = raw.split(/\n+/);
   try { if (typeof joinBilingualLines === "function") lines = joinBilingualLines(lines, false, { pairNext: true }) || lines; } catch (e) {}
   const out = lines.map(x => {
-    const line = String(x || "").trim(), bi = splitBilingual(line, false);
-    if (bi) return bi.text;
     // 念的时候「外语（中文）」括号里那句也不念：界面上（）可能是动作不敢劈，可点读时外语后面跟一句中文就是译文
-    const pm = line.match(/^([\s\S]*?\S)\s*[（(]([^（）()]+)[）)]\s*$/);
-    if (pm && FOREIGN.test(pm[1]) && /[\u4e00-\u9fff]/.test(pm[2]) && !FOREIGN.test(pm[2])) return pm[1];
-    return line;
+    const line = String(x || "").trim(), bi = splitBilingual(line, false);
+    return bi ? bi.text : sayDropZh(line);
   }).filter(x => String(x).trim());
   return out.join("\n");
 }
