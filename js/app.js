@@ -1083,7 +1083,7 @@ function App() {
     if (wxShareCfg().cardFrom === "world") {
       const r = myRealm(charId);
       if (r && r.kind === "world" && typeof WorldWeather !== "undefined") {
-        const ww = WorldWeather.dayOf(r.world.id + "|" + (r.node || ""), r.terrain, new Date());
+        const ww = WorldWeather.dayOf(r.world.id + "|" + (r.node || ""), r.terrain, worldWxNow(charId));
         const place = String(r.node || r.world.name || "").slice(0, 16);
         return { w: ww, place, line: weatherLine(ww) };
       }

@@ -3374,7 +3374,7 @@ function watchWeatherCurrent(place, receive) {
       if (!entry.active || document.hidden) return;
       const serial = ++entry.serial, source = weatherSourcePlace(place);
       const cached = source.real ? (typeof weatherCached === "function" ? weatherCached(source.lat, source.lng) : null)
-        : (typeof WorldWeather !== "undefined" ? WorldWeather.dayOf(source.seed, source.terrain, new Date()) : null);
+        : (typeof WorldWeather !== "undefined" ? WorldWeather.dayOf(source.seed, source.terrain, worldWxNow(null)) : null);
       publish(weatherCurrentSnapshot(source, cached));
       if (!source.real || typeof weatherFor !== "function") return;
       const w = await weatherFor(source.lat, source.lng, { maxAge: 15 * 60000 });
@@ -3415,7 +3415,7 @@ function WeatherWidget({ userGeo, characters, worlds, onOpen }) {
   const loadFx = function (p) {
     if (!p) return;
     if (!p.real) {
-      const now = new Date();
+      const now = worldWxNow(null);   // 架空世界跟着钟走：今天、现在、逐小时都照钟上的那一刻
       setFx({ hourly: WorldWeather.hours(p.seed, p.terrain, now, 24), daily: WorldWeather.forecast(p.seed, p.terrain, now, 7) });
       return;
     }

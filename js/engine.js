@@ -11322,7 +11322,7 @@ async function fetchLocalEnv() {
       ? window.MapKit.userRealm(loadJSON("x_prefs", {}), loadJSON("x_geo", null), loadJSON("x_worlds", [])) : null;
     if (rl && rl.kind === "world") {
       out.location = rl.label;
-      const w = (typeof WorldWeather !== "undefined" && rl.node) ? WorldWeather.dayOf(rl.world.id + "|" + rl.node, rl.terrain, new Date()) : null;
+      const w = (typeof WorldWeather !== "undefined" && rl.node) ? WorldWeather.dayOf(rl.world.id + "|" + rl.node, rl.terrain, worldWxNow(null)) : null;
       if (w) out.weather = wmoToText(wxNowCode(w)) + " " + Math.round(w.t) + "°C";
       return out;
     }
@@ -12094,6 +12094,9 @@ function vclockMapBy(c0, ts) {
   return Number(c.base) + (t - Number(c.at || 0)) * (isFinite(sp) && sp >= 0 ? sp : 1);
 }
 function vclockNow(id) { return new Date(vclockMap(Date.now(), id)); }
+// 架空世界的天气照哪一天算（她 2026-11-04 转群友：「天气里还是显示现实时间，我虚拟时间设的是周五中午」）：
+//   跟着钟走——给了人就照那个人认的那只钟，没给就照主面具那只；钟关着就是现实
+function worldWxNow(id) { try { return new Date(vclockMap(Date.now(), id == null ? null : id)); } catch (e) { return new Date(); } }
 // 年份怎么叫：有年号就「天启3年」，没有就「2026年」
 function vclockYear(y, c) {
   const era = c && c.era && String(c.era.name || "").trim();
