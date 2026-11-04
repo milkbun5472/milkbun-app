@@ -107,7 +107,7 @@ test("群聊：跨天后第一条是旁白/卡片，日期条也得在", () => {
   assert.ok(i > 0);
   const seg = comp.slice(i, i + 1600);
   assert.match(seg, /row\.props\["data-wk"\] === "msg"/, "普通气泡自己画，别画两条");
-  assert.match(seg, /_st\.show && _st\.day\) _dayLine = h\(GStampLine/, "只补跨天那一档");
+  assert.match(seg, /if \(_st\.show\) _dayLine = h\(GStampLine/, "旁白卡片行也补时间条：跨天和隔半小时都补");
   assert.match(seg, /_rows\.unshift\(_dayLine\)/);
 });
 

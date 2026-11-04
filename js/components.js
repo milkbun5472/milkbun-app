@@ -20953,12 +20953,13 @@ function GroupThread({
     const _m = messages[i];
     // 旁白、卡片、表情、转账这些行走的是上面的 early-return，不画时间条。
     // 跨天后第一条恰好是它们时，那条「昨天／几月几日」就整条丢了（她 2026-10-28：过了一天中间没有灰字）。
-    // 只补跨天那一档；同一天隔半小时的小时刻仍只跟着普通气泡走。
+    // 同一天隔半小时的那一档也补：旁白先落、气泡跟着到时，气泡是跟旁白比的间隔，
+    // 中间隔的十几个小时就整条吞掉了（群里 2026-11-04：10:05 到 21:09 中间没有时间）。
     let _dayLine = null;
     if (row && _m && !(row.props && row.props["data-wk"] === "msg") && i >= winStart) {
       const _st = window.ChatStamp.decide(window.ChatStamp.prevTimed(messages, i), _m, { minGap: 30 * 60 * 1000,
         map: typeof vclockMap === "function" ? (ts => vclockMap(ts, group && group.id ? "g:" + group.id : null)) : undefined });
-      if (_st.show && _st.day) _dayLine = h(GStampLine, { key: "gday" + i, st: _st, t });
+      if (_st.show) _dayLine = h(GStampLine, { key: "gday" + i, st: _st, t });
     }
     row = cardPressRow(row, _m, i, { selMode, startPress, endPress, toggleSel });
     const _rows = (_m && _m.reasoning && _m.role !== "user") ? [h(ReasoningBlock, { key: "grz" + i, m: _m, off: showReason === false }), row] : [row];
