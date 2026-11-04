@@ -13566,7 +13566,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       // 每轮任务尾部保留轻提醒，不依赖卡龄或轮数，继续遵守房间读写权限。
       const _gazeNudgeHint = (roomReads("innerLife") && window.ChatRooms.canWrite(room, "gaze") && !_body && !char.npc && window.Gaze && window.Gaze.nudge) ? window.Gaze.nudge("对方", charId) : "";
       // 锁屏（她 2026-10-13）：只在【她刚发来一张图】或【他上一轮刚发了照片】时提一句，别的时候一个字都不提
-      const _lockSrc = (() => {
+      let _lockSrc = (() => {
         if (sideRoom || char.npc) return null;
         if (_seenMsg && _seenMsg.imageRef) return { ref: _seenMsg.imageRef, desc: String(_seenMsg.desc || _seenMsg.content || "她发来的那张").slice(0, 120), from: "her" };
         const all = (chatsRef.current[chatKey] || []).filter(m => m && !m.recalled);
@@ -13596,6 +13596,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         }
         return null;
       })();
+      // 摆给他的那张已经是他的锁屏了：不再提（不然他上一轮拍的那张一直在最近六条里，每一轮都被问一遍、又换一遍）
+      if (_lockSrc && !_lockSrc.alts && lockIsAlready(charId, _lockSrc)) _lockSrc = null;
       const _lockNow = (() => { try { const lk = (loadJSON("x_phoneLooks", {}) || {})[charId] || {}; return lk.lockWallpaper ? String(lk.lockDesc || "一张图") : ""; } catch (e) { return ""; } })();
       const _lockHint = _lockSrc ? "\n\n【锁屏·只这一轮】" + (_lockSrc.alts
           ? "她最近发来了 " + _lockSrc.alts.length + " 张图，按发的先后：" + _lockSrc.alts.map((a, i) => "第" + (i + 1) + "张" + (a.ts ? "（" + fmtStampAI(a.ts) + "）" : "") + (a.desc ? "「" + a.desc + "」" : "")).join("、") + "。看清她要你换的是哪一张（截图里带着壁纸的，要换的通常是那张壁纸本身），填 \"lockscreen\": 第几张的数字"
@@ -28784,8 +28786,13 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   const photoSeenField = canAvatar => ",\"photoSeen\":{\"note\":\"一句话记下画面上有什么\"" + (canAvatar ? ",\"avatar\":false" : "") + "}";
   // 落地：把那句话写回那条消息；要换头像就换，并留住换之前那张
   // 他把一张图设成自己手机的锁屏：写进查手机那一格（x_phoneLooks.lockWallpaper，跟手动换的是同一格），聊天里落一行小灰字
+  // 锁屏换的是哪一张：她发的认 imageRef，他拍的认 imgKey／url
+  const lockSrcId = src => String((src && (src.ref || src.key || src.url)) || "");
+  const lockIsAlready = (charId, src) => { try { const lk = (loadJSON("x_phoneLooks", {}) || {})[charId] || {}; const id = lockSrcId(src); return !!id && (lk.lockFrom === id || lk.lockWallpaper === id); } catch (e) { return false; } };
   const setCharLockscreen = async (charId, src, chatKey, turnId) => {
     try {
+      // 已经是这张了就不再换一遍、不再落那行灰字（她 2026-11-04：连着两轮都显示他把锁屏换了）
+      if (lockIsAlready(charId, src)) return;
       let ref = src.ref || "";
       if (!ref) {
         let b = src.key && typeof idbImgGet === "function" ? await idbImgGet(src.key).catch(() => null) : null;
@@ -28796,7 +28803,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       }
       if (!ref) return;
       const all = loadJSON("x_phoneLooks", {}) || {};
-      all[charId] = { ...(all[charId] || {}), lockWallpaper: ref, lockDesc: src.desc || (src.from === "her" ? "她发来的一张图" : "自己的一张照片"), lockTs: Date.now() };
+      all[charId] = { ...(all[charId] || {}), lockWallpaper: ref, lockFrom: lockSrcId(src), lockDesc: src.desc || (src.from === "her" ? "她发来的一张图" : "自己的一张照片"), lockTs: Date.now() };
       saveJSON("x_phoneLooks", all);
       const ch = characters.find(c => c.id === charId);
       pChat(chatKey, p => [...p, { role: "assistant", kind: "locknote", ts: Date.now(), turnId, content: "〔" + ((ch && (ch.remark || ch.name)) || "TA") + " 把手机锁屏换成了" + (src.from === "her" ? "你发的这张" : "这张") + "〕" }]);
