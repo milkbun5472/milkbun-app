@@ -73,8 +73,20 @@
   //   不封顶（她：「有些人就是话多」），提示词里也不写数（写了它就照着凑）。
   const GAME_SAY_FREE = "照你平时说话的样子，想说几句就几句，一句一条；没什么想说的可以不说。";
   function sayList(v) { return (Array.isArray(v) ? v : [v]).map(function (x) { return String(x == null ? "" : x).trim(); }).filter(Boolean); }
+  // 双语（群里 2026-11-04：「日文角色玩游戏只有一条日文、没有译文」）：这一局上桌的人里开着「外语消息自带中译」的，
+  //   规矩挂在 gameVoiceRules 这一处——所有小游戏的提示词都从它起头，一处接上全部游戏。入局时把名单记进 GAME_BI
+  let GAME_BI = [];
+  function gameBiRules() {
+    return GAME_BI.length && typeof bilingualRule === "function" ? "\n" + GAME_BI.map(function (c) { return bilingualRule(c.name, typeof hanLangOf === "function" && hanLangOf(c)); }).join("\n")
+      + "\n小游戏里也照这个：台词、吐槽、发言里的外语写成「原文 | 中文」；词、答案、牌、坐标这些规则字段照原样写，不加竖线。\n" : "";
+  }
+  // 台词显示：「原文 | 中文」劈开，原文是气泡、中文挂成随消息来的译文（走 TransText 那一条公共正文路）；念出来只念原文
+  function gameSaid(text) {
+    const b = typeof splitBilingual === "function" ? splitBilingual(String(text == null ? "" : text), false) : null;
+    return { node: b && b.zh && typeof TransText === "function" ? h(TransText, { text: b.text, zhReady: b.zh, inline: true }) : (b ? b.text : text), speak: b ? b.text : text };
+  }
   function gameVoiceRules() {
-    return AC + VOICE_RULE + SKILL_RULE + [
+    return AC + VOICE_RULE + SKILL_RULE + gameBiRules() + [
       typeof REGISTER_FOLLOWS_SCENE !== "undefined" ? REGISTER_FOLLOWS_SCENE : "",
       typeof ECHO_QUESTION_BAN !== "undefined" ? ECHO_QUESTION_BAN : "",
       typeof STOCK_REPLY_BAN !== "undefined" ? STOCK_REPLY_BAN : "",
@@ -494,6 +506,7 @@
       const selected = (session.config && session.config.charIds) || [];
       // 所有游戏引擎都会读取角色 persona。入局时按每个真人角色分别筛一次世界书，
       // 再作为本局设定并入副本；NPC 与没入局的人拿不到，原档案也不会被改写。
+      GAME_BI = (props.characters || []).filter(function (c) { return selected.indexOf(c.id) >= 0 && typeof window !== "undefined" && window.__charBiOn && window.__charBiOn(c.id); });
       const routedCharacters = (props.characters || []).map(function (c) {
         if (selected.indexOf(c.id) < 0) return c;
         const lore = props.worldbookFor ? props.worldbookFor(c.id, (session.game && session.game.zh) || "小游戏") : props.worldbook;
@@ -1486,7 +1499,7 @@
             pAvatar(p, 30),
             h("div", { style: { flex: 1 } },
               h("div", { "data-wk": "gamemsgname", style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginBottom: 2 } }, it.name + (it.mine ? "(你)" : "")),
-              h("div", { "data-wk": "gamebubble", "data-me": it.mine ? "1" : "0", style: { display: "inline-block", fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", lineHeight: 1.5, color: t.ink, background: it.mine ? (t.tint + "1c") : t.bg2, borderRadius: 10, padding: "7px 11px" } }, it.text), it.mine ? null : h(GameVoiceDot, { p: p, text: it.text, k: "gv" + i })));
+              h("div", { "data-wk": "gamebubble", "data-me": it.mine ? "1" : "0", style: { display: "inline-block", fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", lineHeight: 1.5, color: t.ink, background: it.mine ? (t.tint + "1c") : t.bg2, borderRadius: 10, padding: "7px 11px" } }, it.mine ? it.text : gameSaid(it.text).node), it.mine ? null : h(GameVoiceDot, { p: p, text: gameSaid(it.text).speak, k: "gv" + i })));
         }
         if (it.type === "vote") return h("div", { "data-wk": "gamelogline", "data-kind": it.type, key: i, style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.sub, margin: "3px 0", lineHeight: 1.5 } }, "· " + it.name + (it.target ? " → 投 " + it.target : " → 弃票") + (it.reason && it.target ? "：" + it.reason : ""));
         if (it.type === "chat") return h("div", { "data-wk": "gamelogline", "data-kind": it.type, "data-me": it.mine ? "1" : "0", key: i, style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", fontStyle: "italic", color: it.mine ? t.tint : t.fog, margin: "3px 0 3px 14px", lineHeight: 1.55 } }, it.name + "：" + it.text);
@@ -2613,7 +2626,7 @@
         if (it.type === "out") return h("div", { "data-wk": "gamelogline", "data-kind": it.type, key: i, style: { textAlign: "center", margin: "8px 0", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: "#c0553f" } }, it.text);
         if (it.type === "speech") { const p = pByName(it.name); return h("div", { "data-wk": "gamemsg", "data-kind": it.type, "data-me": it.mine ? "1" : "0", key: i, style: { display: "flex", gap: 8, margin: "8px 0" } }, pAvatar(p, 30),
           h("div", { style: { flex: 1 } }, h("div", { "data-wk": "gamemsgname", style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginBottom: 2 } }, it.name + (it.mine ? "(你)" : "")),
-            h("div", { "data-wk": "gamebubble", "data-me": it.mine ? "1" : "0", style: { display: "inline-block", fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", lineHeight: 1.55, color: t.ink, background: it.mine ? (t.tint + "1c") : t.bg2, borderRadius: 10, padding: "7px 11px" } }, it.text), it.mine ? null : h(GameVoiceDot, { p: p, text: it.text, k: "gv" + i }))); }
+            h("div", { "data-wk": "gamebubble", "data-me": it.mine ? "1" : "0", style: { display: "inline-block", fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", lineHeight: 1.55, color: t.ink, background: it.mine ? (t.tint + "1c") : t.bg2, borderRadius: 10, padding: "7px 11px" } }, it.mine ? it.text : gameSaid(it.text).node), it.mine ? null : h(GameVoiceDot, { p: p, text: gameSaid(it.text).speak, k: "gv" + i }))); }
         if (it.type === "vote") return h("div", { "data-wk": "gamelogline", "data-kind": it.type, key: i, style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.sub, margin: "3px 0", lineHeight: 1.5 } }, "· " + it.name + (it.target ? " → 投 " + it.target : " → 弃票") + (it.reason && it.target ? "：" + it.reason : ""));
         // 台下起哄：斜体细字，不做成气泡——它不是正式发言（shortLog 也不收它）
         if (it.type === "chat") return h("div", { "data-wk": "gamelogline", "data-kind": it.type, "data-me": it.mine ? "1" : "0", key: i, style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", fontStyle: "italic", color: it.mine ? t.tint : t.fog, margin: "3px 0 3px 14px", lineHeight: 1.55 } }, it.name + "：" + it.text);
@@ -3413,7 +3426,7 @@
           return h("div", { "data-wk": "gamemsg", "data-kind": it.type, "data-me": it.mine ? "1" : "0", key: i, style: { display: "flex", gap: 8, margin: "8px 0 2px" } }, pAvatar(p, 28),
             h("div", { style: { flex: 1 } },
               h("div", { "data-wk": "gamemsgname", style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginBottom: 2 } }, it.name + (it.mine ? "(你)" : "")),
-              it.text ? h("div", { "data-wk": "gamebubble", "data-me": it.mine ? "1" : "0", style: { display: "inline-block", fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", lineHeight: 1.5, color: t.ink, background: it.mine ? (t.tint + "1c") : t.bg2, borderRadius: 10, padding: "7px 11px" } }, it.text) : null, it.text && !it.mine ? h(GameVoiceDot, { p: p, text: it.text, k: "gv" + i }) : null,
+              it.text ? h("div", { "data-wk": "gamebubble", "data-me": it.mine ? "1" : "0", style: { display: "inline-block", fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", lineHeight: 1.5, color: t.ink, background: it.mine ? (t.tint + "1c") : t.bg2, borderRadius: 10, padding: "7px 11px" } }, it.mine ? it.text : gameSaid(it.text).node) : null, it.text && !it.mine ? h(GameVoiceDot, { p: p, text: gameSaid(it.text).speak, k: "gv" + i }) : null,
               it.question ? h("div", { "data-wk": "gamebubble", "data-part": "question", style: { display: "inline-block", fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", lineHeight: 1.5, color: t.ink, background: t.bg2, borderRadius: 10, padding: "7px 11px" } }, it.question) : null));
         }
         if (it.type === "a") {
@@ -4009,7 +4022,7 @@
         if (it.type === "chat") { const p = pByName(it.name); return h("div", { "data-wk": "gamemsg", "data-kind": it.type, "data-me": it.mine ? "1" : "0", key: i, style: { display: "flex", gap: 7, margin: "5px 0", alignItems: "flex-start", flexDirection: it.mine ? "row-reverse" : "row" } }, pAvatar(p, 24),
           h("div", { style: { maxWidth: "78%" } },
             h("div", { "data-wk": "gamemsgname", style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, marginBottom: 1, textAlign: it.mine ? "right" : "left" } }, it.name + (it.mine ? "(你)" : "")),
-            h("div", { "data-wk": "gamebubble", "data-me": it.mine ? "1" : "0", style: { display: "inline-block", fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", lineHeight: 1.55, color: t.ink, background: it.mine ? (t.tint + "1c") : t.bg2, borderRadius: 11, padding: "6px 10px" } }, it.text), it.mine ? null : h(GameVoiceDot, { p: p, text: it.text, k: "gv" + i }))); }
+            h("div", { "data-wk": "gamebubble", "data-me": it.mine ? "1" : "0", style: { display: "inline-block", fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", lineHeight: 1.55, color: t.ink, background: it.mine ? (t.tint + "1c") : t.bg2, borderRadius: 11, padding: "6px 10px" } }, it.mine ? it.text : gameSaid(it.text).node), it.mine ? null : h(GameVoiceDot, { p: p, text: gameSaid(it.text).speak, k: "gv" + i }))); }
         if (it.type === "star") {
           const p = pByName(it.name);
           return h("div", { "data-wk": "gamestar", key: i, style: { border: "1.5px solid " + t.tint, background: t.tint + "10", borderRadius: 14, padding: "12px 14px", margin: "12px 18px" } },
@@ -6657,7 +6670,7 @@
           pAvatar(c ? { char: c, name: l.name } : { name: l.name }, 28),
           h("div", { style: { minWidth: 0, maxWidth: "78%", display: "flex", flexDirection: "column", alignItems: "flex-start" } },
             props.names ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, margin: "0 0 2px 2px" } }, l.name) : null,
-            h("div", { style: bub(false) }, l.text, c ? h(GameVoiceDot, { p: { char: c }, k: (props.k || "gt") + i + "_" + l.at, text: l.text }) : null)));
+            h("div", { style: bub(false) }, gameSaid(l.text).node, c ? h(GameVoiceDot, { p: { char: c }, k: (props.k || "gt") + i + "_" + l.at, text: gameSaid(l.text).speak }) : null)));
       }) : h("div", { style: { alignSelf: "center", margin: "auto 0", fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.fog } }, props.empty || ""),
       props.busy ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.fog, paddingLeft: 36 } }, "…") : null,
       flow ? h("div", { ref: endRef }) : null);

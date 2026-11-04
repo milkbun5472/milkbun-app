@@ -48,8 +48,8 @@ test("查手机里有星测：接真数据、不生成；日子取 TA 上次真�
 });
 test("今日签：手动抽和自动发同一份提示词；能转发回聊天；自动默认关", () => {
   const app = read("app.js"), astro = (read("astro-core.js") + "\n" + read("astro.js")), pol = read("auto-refresh-policy.js"), comp = read("components.js");
-  assert.match(astro, /function signInstruction\(meName, facts\)/);
-  assert.match(app, /window\.Astro\.signInstruction\(userName\(profile\), facts\)/);
+  assert.match(astro, /function signInstruction\(meName, facts, char\)/);
+  assert.match(app, /window\.Astro\.signInstruction\(userName\(profile\), facts, c\)/);
   assert.match(app, /kind: "astroshare"/); assert.match(comp, /if \(kind === "astroshare"\) return window\.AstroSignCard/);
   assert.match(pol, /id: "astroSign"[^}]*globalDefault: false, charDefault: false/);
 });

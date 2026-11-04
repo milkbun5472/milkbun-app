@@ -20,7 +20,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v89.067";
+const APP_VERSION = "v89.068";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -17741,7 +17741,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     return said.length ? "【你平时跟她说话的样子】下面是你最近亲口打给她的话。剧情里你开口的口气、句子长短、用词、语气词和标点习惯都照这个来，你做事的分寸也照你平时；别换成这一类人设常见的说话方式，也别把这些原话搬进剧情：\n" + said.join("\n") + "\n\n" : "";
   };
   // 他聊天里开着「外语消息自带中译」：写卡也照同一条规矩，外语台词和心里话写成「原文 | 中文」（群里 2026-10-26：卡面剧情也要翻译）
-  const stampBi = char => { const s0 = settingsFor(char.id) || {}; return s0.bilingual && !s0.engineerEyes && typeof bilingualRule === "function" ? bilingualRule(char.name, typeof hanLangOf === "function" && hanLangOf(char)) + "这条在卡里也照样：台词、心里那句、他视角里的话是外语的，都写成「原文 | 中文」；旁白照常用中文写。\n\n" : ""; };
+  const stampBi = char => { return window.__charBiOn(char.id) && typeof bilingualRule === "function" ? bilingualRule(char.name, typeof hanLangOf === "function" && hanLangOf(char)) + "这条在卡里也照样：台词、心里那句、他视角里的话是外语的，都写成「原文 | 中文」；旁白照常用中文写。\n\n" : ""; };
   // 写卡的公共底子：跟线下、同人文同一套叙事规矩；排序也写明——人对了比戏好看要紧
   const STAMP_CORE = () => (typeof narrativeCore === "function" ? narrativeCore({ intimate: true }) + "\n\n" : "")
     + "写卡的先后：先是你这个人对不对，再是跟你的世界、你们现在的关系对不对，再是写的是不是一件具体的事，再是跟别的卡是不是不一样，最后才是好不好看。戏剧效果跟你会怎么做对不上时，照你会怎么做；没有冲突、没有告白、没有高潮也可以。\n\n";
@@ -20381,10 +20381,10 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     for (const c of liveChars) {
       if (!autoRefreshOn("astroSign", c.id) || settingsFor(c.id).engineerEyes) continue;
       await window.AutoGate.run("astroSign|" + c.id, today, async () => {
-        const d = await runProbe(apiFor(c.id), ctxFor(c), { voice: true, tag: "astro", instruction: window.Astro.signInstruction(userName(profile), facts) + "\n这张是你自己想起来、主动抽了发给她的。" + (typeof probeVoiceTail === "function" ? probeVoiceTail() : ""),
+        const d = await runProbe(apiFor(c.id), ctxFor(c), { voice: true, tag: "astro", instruction: window.Astro.signInstruction(userName(profile), facts, c) + "\n这张是你自己想起来、主动抽了发给她的。" + (typeof probeVoiceTail === "function" ? probeVoiceTail() : ""),
           schemaHint: window.Astro.SIGN_SCHEMA, maxTokens: 65000 });
         if (!d || !String(d.title || d.text || "").trim()) return false;
-        const sg = { title: String(d.title || "").trim().slice(0, 12), text: String(d.text || "").trim().slice(0, 120), by: c.remark || c.name, ts: Date.now() };
+        const sg = window.Astro.signCardOf(d, c.remark || c.name);
         pChat(c.id, p => [...p, { role: "char", kind: "astroshare", content: "〔给你抽了一张今日签〕「" + sg.title + "」：" + sg.text, ts: Date.now(), astro: sg }]);
         return true;
       });
@@ -20526,7 +20526,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   // 查手机也跟着这个人的「双语」走（她 2026-10-31「补上吧」）：开着的话，他手机里写出来的外语一处一处带上中文，
   //   写成「原文 | 中文」——画的那一层（PTX → TransText）本来就会把竖线劈开、挂成「随消息提供」的译文，不用另写显示。
   //   同一次生成顺手带，不多花调用；没开就一个字都不加。
-  const phoneBiLine = char => { const st = settingsFor(char && char.id) || {}; return st.bilingual && !st.engineerEyes
+  const phoneBiLine = char => { return char && window.__charBiOn(char.id)
     ? "\n【双语】这部手机里凡是【不是中文】的正文（消息、帖子、标题、便签、评论这些），每一处都写成「原文 | 中文」：竖线左边照常写原文，右边是它的中文意思，整处只用这一根竖线；本来就是中文的照常写，不加。" : ""; };
   const phoneBi = (char, spec) => spec && typeof spec.instruction === "string" ? { ...spec, instruction: spec.instruction + phoneBiLine(char) } : spec;
   const phoneCtx = char => Object.assign({}, ctxFor(char), {
@@ -27781,6 +27781,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   // 给模型的那句「你们是什么」：恋人照旧；别的关系说清不是恋人（各处 instruction 开头都问它，别再手写「你们是恋人」）
   // 这个人开着「外语消息自带中译」吗：TransText 认「这段是谁写的」时问这一句（论坛、朋友圈、日记、查手机……）
   window.__charBilingual = id => !!(settingsFor(id) || {}).bilingual;
+  // 这个人这一刻要不要「外语带中译」：开着双语、又不是工程师眼——今日签、小游戏、查手机、写卡都问这一句
+  window.__charBiOn = id => { const st = settingsFor(id) || {}; return !!st.bilingual && !st.engineerEyes; };
   const relSay = c => {
     const rk = spaceRelKey((couplesRef.current || {})[c && c.id]), r = spaceRel(rk);
     const cp = (couplesRef.current || {})[c && c.id], role = spaceRoleLine(cp, (meOf(c && c.id) || {}).name || "她");
