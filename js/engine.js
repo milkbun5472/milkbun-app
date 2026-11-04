@@ -114,6 +114,12 @@ async function nativeProviderFetch(url, init) {
   };
 }
 async function fetchModelList(p) {
+  // 拉模型列表原来是裸 fetch：连不上时界面上就只有一句英文「Failed to fetch」，
+  //   跟上面那段解释走的是两条路（群友 2026-11-03 截到的就是这一句）。改走同一段话。
+  try { return await fetchModelListRaw(p); }
+  catch (e) { if (isNetFail(e)) throw new Error(netFailMsg(e)); throw e; }
+}
+async function fetchModelListRaw(p) {
   const base = normalizedOpenAIBase(p.baseUrl);
   const fmt = detectFormat(p);
   if (fmt === "gemini") {
@@ -502,6 +508,20 @@ async function ensureLoreVecs(entries, opts) {
   });
 })();
 // 带超时的 fetch：超时/卡死时中断并抛出可读错误，避免无限转圈
+// 「Load failed」「Failed to fetch」是浏览器对【这一枪压根没打出去／没回来】的通用说法：
+//   连 HTTP 状态码都没有，所以它本身什么都没说。能说清的只有「有哪几种」，不能断定是哪一种——
+//   原来这儿一口咬定「写得太长被网关掐断」，于是群里好几个人对着「最低字数」调了半天，
+//   而真正的那位是跨域预检（群友 2026-11-03：时好时坏、换个浏览器就连上了）。
+//   这一处公开出去，拉模型列表那几处也用同一段话（施工规则/one-public-mechanism.md）。
+function isNetFail(e) { return /load failed|failed to fetch|network\s*error|networkerror/i.test(String((e && e.message) || e)); }
+function netFailMsg(e) {
+  return "连接中断了（Load failed）。这一枪没打出去、或者没回来，连状态码都没有，常见的是这三种："
+    + "① 这次要写得太长、久久没有首字节，被网关当成死连接掐断（把线下的「最低字数」调低一些分两次写）；"
+    + "② 线路那头偶尔抽风，浏览器把这次跨域预检的失败记了一会儿，于是接下来每一次都立刻失败——"
+    + "这种时好时坏，隔十几分钟到两小时自己就好了，也可以换一条线路或换个中转地址；"
+    + "③ 网不通、梯子刚断、或者手机浏览器把这个地址拦了。先重试一次：同样的设置常常第二次就过。"
+    + "原始报错：" + String((e && e.message) || e).slice(0, 80);
+}
 async function fetchT(url, options, ms) {
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), ms || 120000);
@@ -509,12 +529,7 @@ async function fetchT(url, options, ms) {
     return await fetch(url, { ...options, signal: ctrl.signal });
   } catch (e) {
     if (e && e.name === "AbortError") throw new Error("请求超时，请重试（模型或网络太慢）");
-    // 「Load failed」是 Safari 对底层连接断掉的通用说法，本身什么都没说。
-    // 最常见的成因就是长请求久久没有首字节被网关掐断——她 2026-08-22 把线下最低字数
-    // 设到 1500 就撞上了。把话说清楚，省得她以为是自己设错了参数。
-    if (/load failed|failed to fetch|network\s*error|networkerror/i.test(String((e && e.message) || e))) {
-      throw new Error("连接中断了（Load failed）。多半是这次要写得太长、久久没有首字节，被网关当成死连接掐断。可以：把线下的「最低字数」调低一些分两次写、或者重试一次——同样的设置有时第二次就过。原始报错：" + String((e && e.message) || e).slice(0, 80));
-    }
+    if (isNetFail(e)) throw new Error(netFailMsg(e));
     throw e;
   } finally {
     clearTimeout(timer);
