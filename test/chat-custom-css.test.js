@@ -96,7 +96,7 @@ test("头像框 / 挂件：TA 和她各一套，编进排版那层 CSS，门牌�
   assert.match(css, /\[data-me="0"\] \[data-wk="row"\] > \[data-wk="avatar"\]::after,\[data-wk="cardrow"\]\[data-me="0"\] > \[data-wk="avatar"\]::after\{[^}]*left:-20%;top:-20%;width:140%;height:140%;background:url\("iv_a"\)/);   // 卡片行的头像也套同一个框（2026-10-27）
   assert.match(css, /\[data-me="0"\][^{]*::before\{[^}]*left:-12%;top:-12%;[^}]*url\("iv_b"\)/);
   assert.match(css, /\[data-me="1"\][^{]*::after\{[^}]*url\("iv_c"\)/);
-  assert.match(comp, /isU && dsp\.myAvatar && h\("span", \{ "data-wk": "avatar"/, "她那颗没包挂点壳，框会被头像的圆角裁掉");
+  assert.match(comp, /isU && dsp\.myAvatar && h\("span", \{ (?:onClick: meTap, )?"data-wk": "avatar"/, "她那颗没包挂点壳，框会被头像的圆角裁掉");
   assert.match(app, /window\.ThemeStudio\.resolveCSSImages\(window\.ThemeStudio\.scopeCSS\(c, scope\)\)/);
 });
 

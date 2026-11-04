@@ -20,7 +20,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v89.094";
+const APP_VERSION = "v89.095";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -3268,6 +3268,10 @@ function App() {
   const sumRoute = fallback => (routePicked(bgApiId) && bgActiveRef.current) || fallback || null;
   // 线下可以单独挑一条（聊天设置「线下见面单独走」）：挑了走那条，没挑照旧——专线优先，再落回全局线下线路
   const offlineApiFor = id => pickRoute((chatSettings[id] || {}).offlineApiId || (chatSettings[id] || {}).apiId, offlineActive);
+  // 群也能单独挑一条（她 2026-11-04「群聊能设专线吗」→「做吧」）：群设置里挑了走那条，没挑照旧全局线上／线下。
+  //   一次替全群说话，所以看的是群自己的这一格，不看各人专线
+  const groupApiFor = gid => pickRoute(gsFor(gid).apiId, active);
+  const groupOfflineApiFor = gid => pickRoute(gsFor(gid).offlineApiId || gsFor(gid).apiId, offlineActive);
   // 本体文本不是机械活：有角色专线走专线，否则仍由线上主池本人落笔，绝不交给 cheap_required 代写。
   const bgApiFor = id => apiFor(id);
   // 心上那两枪（发呆、盘一盘）走哪条（群友 2026-10-09：「后台心上好像走的线上 api，不是配的后台 api」）：
@@ -10239,7 +10243,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       const _gMe = meOfGroup(group.id) || {};
       const _gDuo = _gShooters.filter(c => c.refPhoto && _gMe.refPhoto);
       const _gGroupOk = _gShooters.filter(c => c.refPhoto).length + (_gMe.refPhoto ? 1 : 0) >= 2;
-      const beats = await generateOfflineGroup(offlineActive, { ...gCtx, clockId: "g:" + group.id }, { ...effectiveSess, sayZhNames: (gCtx.members || []).filter(c => c && !c.npc && (settingsFor(c.id) || {}).bilingual).map(c => (typeof memberLabel === "function" ? memberLabel(gCtx.members, c) : c.name)), signal: _abort.signal, msgs: _gWindow, imageDataUrls: gOffImageDataUrls,
+      const beats = await generateOfflineGroup(groupOfflineApiFor(group.id), { ...gCtx, clockId: "g:" + group.id }, { ...effectiveSess, sayZhNames: (gCtx.members || []).filter(c => c && !c.npc && (settingsFor(c.id) || {}).bilingual).map(c => (typeof memberLabel === "function" ? memberLabel(gCtx.members, c) : c.name)), signal: _abort.signal, msgs: _gWindow, imageDataUrls: gOffImageDataUrls,
         photoMembers: _gShooters.map(c => c.name), photoDuoMembers: _gDuo.map(c => c.name), photoMe: _gShooters.length > 0 && canShootMe("g:" + group.id), photoGroupOk: _gGroupOk, priorSummary: effectiveSess.summary || "", narr: osNarr("g_" + group.id), taste: effectiveSess.taste || osTaste("g_" + group.id), lengthMode: osFor("g_" + group.id).lengthMode || "natural", looseOld: osFor("g_" + group.id).looseOld, writeMode: osFor("g_" + group.id).writeMode === "novel" ? "novel" : "beats", maxTokens: osFor("g_" + group.id).maxTokens || 3200, minWords: osFor("g_" + group.id).minWords, rerollAvoid: effectiveSess.rerollAvoid || "" });
       if (beats && !(effectiveSess && effectiveSess.rerollAvoid) && typeof stampGain === "function") stampGain("beat");   // 邮票册：群线下一拍
       if (_abort.signal.aborted) return;             // 她点叉断掉了：回来的这几拍不落地
@@ -10449,7 +10453,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       // 世界书走和正戏同一个筛选引擎（v48.20）：之前塞的是 deriveWorldbook 全量拼接（无视 scope/关键词），
       // 一条正戏根本不会注入的全局词条就能让群 OOC 永远被 Gemini 拦（正戏通/单聊OOC通/群OOC拦 的诡异组合）
       const oocLore = loreText(loreRef.current, { charIds: members.map(c => c.id), scope: "chat", text: histText });
-      const res = await oocAskGroup(offlineActive, { members, profile, rels, chars: characters, worldbook: oocLore, historyText: histText, directives: directives[groupId] || [], oocMsgs: sess.msgs || [] }, text.trim());
+      const res = await oocAskGroup(groupOfflineApiFor(groupId), { members, profile, rels, chars: characters, worldbook: oocLore, historyText: histText, directives: directives[groupId] || [], oocMsgs: sess.msgs || [] }, text.trim());
       if (!res.refused && (res.directive || (res.replaced || []).length)) addDirective(groupId, res.directive, res.replaced);
       pushGOffMsg(groupId, { id: "ooca_" + Date.now(), role: "assistant", kind: "ooc", content: res.reply + oocReplacedNote(res) + (res.directive && !res.refused ? "\n\n〔已记为群规矩：" + res.directive + "〕" : "") + (res.refused ? "\n\n〔这条我没照做——会破坏群里某位的人设〕" : ""), ts: Date.now() });
     } catch (e) {
@@ -16336,7 +16340,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       checkAutoCall();
       // ⚠️原来抽成一支是为了「查出漏了才重打一次」，那一套已经撤掉（v69.03）。
       //   留着这一支是因为它把一长串调用参数收在一处，比内联回去清楚。
-      const _gShoot = uc => callAI(active, system + mcpToolHint(_gMcpT), [{
+      const _gShoot = uc => callAI(groupApiFor(groupId), system + mcpToolHint(_gMcpT), [{
         role: "user",
         content: uc,
         ...(groupImageDataUrls.length ? { imageDataUrls: groupImageDataUrls } : {})
@@ -16930,7 +16934,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       const histText = (groupChatsRef.current[groupId] || []).filter(m => !isOocMsg(m) && m.content && contextAllowsMessage(m)).slice(-20).map(m => m.role === "narration" ? "【旁白】" + m.content : (m.role === "user" ? userName(profile) : m.senderName || "某人") + "：" + m.content).join("\n");
       // 世界书走和正戏同一个筛选引擎（v48.20，理由同群线下 OOC 处注释）
       const oocLore = loreText(loreRef.current, { charIds: members.map(c => c.id), scope: "chat", text: histText });
-      const res = await oocAskGroup(active, { members, profile, rels, chars: characters, worldbook: oocLore, historyText: histText, directives: directives[groupId] || [], oocMsgs: groupChatsRef.current[groupId] || [] }, text.trim());
+      const res = await oocAskGroup(groupApiFor(groupId), { members, profile, rels, chars: characters, worldbook: oocLore, historyText: histText, directives: directives[groupId] || [], oocMsgs: groupChatsRef.current[groupId] || [] }, text.trim());
       if (!res.refused && (res.directive || (res.replaced || []).length)) addDirective(groupId, res.directive, res.replaced); // 群准则复用 directives[groupId]，注入 replyGroup
       pGChat(groupId, p => [...p, { role: "assistant", kind: "ooc", content: res.reply + oocReplacedNote(res) + (res.directive && !res.refused ? "\n\n〔已记为群规矩：" + res.directive + "〕" : "") + (res.refused ? "\n\n〔这条我没照做——会破坏群里某位的人设〕" : ""), ts: Date.now() }]);
     } catch (e) {
@@ -17219,7 +17223,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       const voteMsgs = poll.ask && poll.ask.imageRef
         ? await expandMessageImages([{ role: "user", content: voteAsk0.content + "\n（请示附了一张图，已随本轮视觉输入附上，看着图投）", _imageRefs: [poll.ask.imageRef] }], 1)
         : [voteAsk0];
-      const raw = await callAI(active, system, voteMsgs, {
+      const raw = await callAI(groupApiFor(groupId), system, voteMsgs, {
         use: "chat", logLabel: "群投票", logWho: (group && group.name) || "",   // 投票是她在群里发起的，算她按下去的那一下
         maxTokens: 65000
       });
@@ -22664,7 +22668,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
           + gcGrowth
           + wishLine(wishFor(), uName, { group: true, gift: false })
           + "\n\n这是一个多人" + modeZh + "，用户" + uName + "和以下角色都在通话里。角色们用口语化短句自然对话，会顺着彼此和用户的话接梗、插话、跑题，像真的多人语音那样。每个角色想多说几句就多给几条，把话说完。" + (typeof THOUGHT_EACH_OWN === "string" ? "thought 的写法：" + THOUGHT_MEANING_CHAR + THOUGHT_VOICE + THOUGHT_EACH_OWN : "") + (callerIsChar && callerName ? "\n【谁发起的这通电话】是【" + callerName + "】主动拨给 " + uName + " 的、Ta 接了——" + callerName + " 清楚是自己打过去的，别搞反成 " + uName + " 打来的、别问『不是你打给我的吗』。" : "") + "\n\n【在场角色】\n" + memberDesc + sameNameNote(people) + (profile && (profile.name || profile.persona) ? "\n\n【和大家通话的人 · 「" + userName(profile) + "」的设定】\n" + (profile.persona || "（未填写）") : "") + "\n\n【角色间关系】\n" + relLines + (cur.groupId ? groupNoticeBlock(gsFor(cur.groupId).notice) : "") + (cDirs.length ? "\n\n【用户立下的群规矩（高优先·务必遵守）】\n" + cDirs.map((x, ii) => (ii + 1) + ". " + x.trim()).join("\n") : "") + (cMem && cMem.trim() ? "\n\n【记忆库·相关条目（自然记得，别生硬复述）】\n" + cMem.trim() : "") + (cWorld ? "\n\n【世界书】\n" + cWorld : "") + gcHistBlock + gcTime + gcPrivBlock + "\n\n【挂断】谁真的要结束这通电话，就在自己那一条上加 \"hangup\":\"心里为什么挂\"——填了这通电话就到此为止，绝大多数回合谁都不该填。\n\n【状态卡】跟群里平时聊天一样：谁开口就在TA自己那一条上带上 mood（此刻中文心情词）和 thought（TA心里那一句，第一人称、TA自己的话）。\n\n【输出】只输出 JSON 数组，按发言先后：[{\"name\":\"角色名\",\"text\":\"这句话\",\"action\":\"此刻动作神态\",\"mood\":\"心情词\",\"thought\":\"心里那句\"}]，text 不要带名字前缀，一次 3~" + Math.min(30, Math.max(7, people.length * 3)) + " 条，name 必须是在场角色之一。";
-        const raw = await callAI(active, sys + callBiHint + callVoiceHint + cameraHint, window.CallCamera.withFrame(hist, cameraFrame), { use: "call", logLabel: "群通话", maxTokens: 65000 });
+        const raw = await callAI(groupApiFor(groupId), sys + callBiHint + callVoiceHint + cameraHint, window.CallCamera.withFrame(hist, cameraFrame), { use: "call", logLabel: "群通话", maxTokens: 65000 });
         const arr = extractJSON(raw);
         if (Array.isArray(arr)) {
           for (let i = 0; i < arr.length; i++) {
@@ -34380,6 +34384,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     character: activeChar, cut: peekCut[activeChar.id], byName: (((characters || []).find(x => x.id === peekCut[activeChar.id].by) || {}).name) || "",
     onBack: leaveCutPage, onRestore: () => peekRestore(activeChar.id)
   });else if (screen === "thread" && activeChar) body = mkThread();else if (screen === "gthread" && activeGroup) body = h(GroupThread, {
+    apiProfiles: apiProfiles,
     // 换一个群就是一块新的聊天屏（跟单聊 key 一样）：不然从 A 群点弹窗进 B 群，还停在 A 群翻到的那个高度、也不重新钉底
     key: "g::" + activeGroup.id,
     onShootMe: (scene, third) => shootMeGroup(activeGroup.id, scene, third),

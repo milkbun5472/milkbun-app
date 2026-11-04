@@ -20159,6 +20159,7 @@ function SelfMeAngle({ third, onPick, t }) {
       h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, marginTop: 1 } }, d))));
 }
 function GroupThread({
+  apiProfiles,     // 群设置里挑这个群单独走哪条线路
   onShootMe,      // 生成我的自拍（群友 2026-11-04 许愿）：(scene, third)
   onSuggestName,
   onDrawTitles,
@@ -21081,6 +21082,7 @@ function GroupThread({
     h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", letterSpacing: "0.12em", color: t.fog, marginTop: 14, marginBottom: 4 } }, "TA 为什么撤回"),
     h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", lineHeight: 1.7, color: t.sub, fontStyle: "italic" } }, gRecallView.reason || "（没说）")),
   fwdView && h(ChatForwardSheet, { m: fwdView, onClose: () => setFwdView(null) }), sheet === "settings" && h(GroupSettingsSheet, {
+    apiProfiles: apiProfiles,
     onSetNotice: onSetNotice,
     onSuggestName: onSuggestName,
     onDrawTitles: onDrawTitles,
@@ -21616,9 +21618,12 @@ function luckyCardMeta(lucky, who) {
   return { state: lk.word ? "「" + lk.word + "」点亮 " + (lk.lit || 0) + "/" + units.length : picking ? "6 张卡等你翻" : "还没抽" + (book.length ? " · 收了 " + book.length + " 个" : ""),
     note: who + "一起养一个词：每聊满 " + per + " 条点亮一个字，文字、语音、表情包、照片都算；一天最多算 " + cap + " 条。一整天没说话，会熄掉一个字。点满收进收藏本，再抽下一张。" };
 }
-function GroupSettingsSheet({ onSuggestName, onDrawTitles, lucky, onDrawLucky, onPickLucky, gs, group, characters, allChars, rels, msgCount, directives, onRemoveDirective, onSetDirectiveTurns, onSave, onSummarize, onAddMember, onKickMember, onSetPresence, onDelete, onClearChat, onClose, onSetNotice }) {
+function GroupSettingsSheet({ apiProfiles, onSuggestName, onDrawTitles, lucky, onDrawLucky, onPickLucky, gs, group, characters, allChars, rels, msgCount, directives, onRemoveDirective, onSetDirectiveTurns, onSave, onSummarize, onAddMember, onKickMember, onSetPresence, onDelete, onClearChat, onClose, onSetNotice }) {
   const t = useTheme();
   const [interop, setInterop] = useState(!!gs.memoryInterop);
+  // 这个群单独走哪条线路（她 2026-11-04）：没挑＝跟全局线上／线下
+  const [gApiId, setGApiId] = useState(gs.apiId || null);
+  const [gOffApiId, setGOffApiId] = useState(gs.offlineApiId || null);
   const [privN, setPrivN] = useState(gs.privateCtxN || 0);
   // 没设过按 20（跟 app 那头读的同一个数）；显式设过 0 的照旧显示 0
   const [preJoinN, setPreJoinN] = useState(gs.preJoinN == null ? 20 : Number(gs.preJoinN) || 0);
@@ -21755,7 +21760,7 @@ function GroupSettingsSheet({ onSuggestName, onDrawTitles, lucky, onDrawLucky, o
   //   跟单聊设置同一个形状：portal 出去铺满、紧凑顶栏、正文自己滚。
   return ReactDOM.createPortal(h("div", { "data-wk": "gsetpage", "data-page": "1", ref: pageShellPin, className: "h-full flex flex-col", style: pageShellStyle(240, { background: t.bg }) },
     h(Head, { bg: "transparent", zh: "群聊设置", sub: group && group.name ? group.name : undefined, onBack: onClose,
-      right: h("button", { onClick: () => { onSave({ actLong: gActLong, keepRerolls: gKeepRerolls, memoryInterop: interop, privateCtxN: privN, preJoinN: preJoinN, ctxN: ctxN, sumThresh: sumThresh, sumBuffer: sumBuffer, selfP: selfP, userP: userP, describeMe: describeMe, showMyAvatar: showMyAvatar, showMyName: showMyName, showTime: showTime, timeSec: timeSec, showRead: showRead, chatBg: chatBg, chatBgFx: chatBgFx, autoChat: autoChat, autoChatMin: autoChatMin, autoChatRounds: autoChatRounds, autoChatMaxMsg: autoChatMaxMsg, autoChatResetHours: autoChatResetHours, drama: gDrama, defaultOffline: gDefaultOffline, actDesc: gActDesc, actPerson: gActPerson, userPerson: gUserPerson, name: gName, titles: Object.fromEntries(Object.entries(gTitles).map(([k, v]) => [k, String(v || "").trim().slice(0, 12)]).filter(x => x[1])), owner: gOwner, admins: gAdmins.filter(x => x !== gOwner), mutes: gMutes, avatarImage: gAvatar, myAvatar: gMyAv || "", maskId: gMask, layout: gLayout, customCSS: gCss }); onClose(); } }, h(ICheck, { size: 19, color: t.ink })) }),
+      right: h("button", { onClick: () => { onSave({ apiId: gApiId, offlineApiId: gOffApiId, actLong: gActLong, keepRerolls: gKeepRerolls, memoryInterop: interop, privateCtxN: privN, preJoinN: preJoinN, ctxN: ctxN, sumThresh: sumThresh, sumBuffer: sumBuffer, selfP: selfP, userP: userP, describeMe: describeMe, showMyAvatar: showMyAvatar, showMyName: showMyName, showTime: showTime, timeSec: timeSec, showRead: showRead, chatBg: chatBg, chatBgFx: chatBgFx, autoChat: autoChat, autoChatMin: autoChatMin, autoChatRounds: autoChatRounds, autoChatMaxMsg: autoChatMaxMsg, autoChatResetHours: autoChatResetHours, drama: gDrama, defaultOffline: gDefaultOffline, actDesc: gActDesc, actPerson: gActPerson, userPerson: gUserPerson, name: gName, titles: Object.fromEntries(Object.entries(gTitles).map(([k, v]) => [k, String(v || "").trim().slice(0, 12)]).filter(x => x[1])), owner: gOwner, admins: gAdmins.filter(x => x !== gOwner), mutes: gMutes, avatarImage: gAvatar, myAvatar: gMyAv || "", maskId: gMask, layout: gLayout, customCSS: gCss }); onClose(); } }, h(ICheck, { size: 19, color: t.ink })) }),
     h("div", { className: "flex-1 min-h-0 overflow-y-auto px-5 pt-3", style: { paddingBottom: "calc(env(safe-area-inset-bottom) + 28px)" } },
 
     // ⚠️原来一整条从上滚到底，什么都挨着（她 2026-09-30：「看起来有点乱，分成一个个框」）——
@@ -21923,6 +21928,18 @@ function GroupSettingsSheet({ onSuggestName, onDrawTitles, lucky, onDrawLucky, o
             style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", padding: "6px 16px", minHeight: 32, border: "none", background: on ? t.ink : "transparent", color: on ? t.bg2 : t.fog } }, o[1]);
         }))) : null
     ),
+    (apiProfiles && apiProfiles.length > 1) ? gCard({ title: "API 线路 · 只管这个群", char: "线", tint: "#6f8fae", state: (() => { const nm = id => { const p = apiProfiles.find(x => x.id === id); return p ? (p.name || p.model || "未命名") : ""; }; return (nm(gApiId) || "跟随全局") + (gOffApiId ? " · 线下 " + nm(gOffApiId) : ""); })() }, null,
+      h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.6, paddingTop: 10 } }, "群里一轮是一次替全群说话，所以只看这个群挑的这一条，不看各人的专线。管群聊、群出戏、群投票、群通话。"),
+      h("div", { className: "flex flex-wrap", style: { gap: 6, marginTop: 8 } },
+        [{ v: null, t: "跟随全局" }].concat(apiProfiles.map(p => ({ v: p.id, t: p.name || p.model || "未命名" }))).map(o =>
+          h("button", { key: "g" + String(o.v), "data-wk": "gsroute", "data-on": gApiId === o.v ? "1" : "0", onClick: () => setGApiId(o.v), className: "active:opacity-70",
+            style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", padding: "6px 12px", borderRadius: 999, background: gApiId === o.v ? t.ink : "transparent", color: gApiId === o.v ? t.bg2 : t.fog, border: "1px solid " + (gApiId === o.v ? t.ink : t.line) } }, o.t))),
+      h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))", color: t.sub, marginTop: 16 } }, "群线下单独走"),
+      h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.6, marginTop: 2 } }, "只管这个群的群线下。选「跟上面一样」：上面挑了就走上面那条，没挑走全局线下。"),
+      h("div", { className: "flex flex-wrap", style: { gap: 6, marginTop: 8 } },
+        [{ v: null, t: "跟上面一样" }].concat(apiProfiles.map(p => ({ v: p.id, t: p.name || p.model || "未命名" }))).map(o =>
+          h("button", { key: "go" + String(o.v), "data-wk": "gsrouteoff", "data-on": gOffApiId === o.v ? "1" : "0", onClick: () => setGOffApiId(o.v), className: "active:opacity-70",
+            style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", padding: "6px 12px", borderRadius: 999, background: gOffApiId === o.v ? t.ink : "transparent", color: gOffApiId === o.v ? t.bg2 : t.fog, border: "1px solid " + (gOffApiId === o.v ? t.ink : t.line) } }, o.t)))) : null,
     gCard({ title: "这个群长什么样", char: "衣", tint: "#9b7bc4", state: (chatBg ? "有背景图 · " : "") + "已读 " + gOnOff(showRead) + " · 时间戳 " + gOnOff(showTime) }, null,
     h("div", { className: "flex items-center justify-between pt-5" },
       h("div", { className: "pr-3" },
