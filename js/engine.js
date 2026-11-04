@@ -12119,7 +12119,12 @@ function fmtStampAI(ts, id) {
   if (d.toDateString() === now.toDateString()) return "今天" + fmtClock(d);
   const yd = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1);
   if (d.toDateString() === yd.toDateString()) return "昨天" + fmtClock(d);
-  return (d.getMonth() + 1) + "/" + d.getDate() + " " + fmtClock(d);
+  // 隔了几天直接写在戳上：模型自己拿日期做减法会把五天前说成「前天」（她 2026-11-04）
+  const days = Math.round((new Date(now.getFullYear(), now.getMonth(), now.getDate()) - new Date(d.getFullYear(), d.getMonth(), d.getDate())) / 864e5);
+  if (days === 2) return "前天" + fmtClock(d);
+  const md = (d.getMonth() + 1) + "/" + d.getDate();
+  if (days > 2) return md + "（周" + "日一二三四五六"[d.getDay()] + "，" + days + "天前）" + fmtClock(d);
+  return md + " " + fmtClock(d);
 }
 // ── 定位这一层（坐标是唯一的真身，标签一律从坐标现拼）─────────────────
 // 她 2026-09-22 转来的那条：有人把位置手改到东京，结果显示成「东京 · 江苏 · 中国」，
