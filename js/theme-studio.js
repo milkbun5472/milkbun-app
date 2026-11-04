@@ -521,7 +521,7 @@
         ["setsearchhits", "搜索结果那一列"],
         ["setsearchhit", "搜到的一行（在哪一页 › 哪一节 › 那一截原文）"],
         ["fwdmode", "转发面板顶上「合并转发／逐条转发」那两颗；data-on＝1 是选中的"],
-        ["tiesaffhint", "关系编辑里标签下面那行「好感：…」提示"], ["fwdpick", "转发面板里能勾的每一行（人或群）；data-on＝1 是勾上的"], ["fwdsend", "转发面板底下「发送给 N 个」那颗"],
+        ["tiesaffhint", "关系编辑里标签下面那行「好感：…」提示"], ["studioreshoot", "照相馆大图里「照原样重拍一张」"], ["fwdpick", "转发面板里能勾的每一行（人或群）；data-on＝1 是勾上的"], ["fwdsend", "转发面板底下「发送给 N 个」那颗"],
         ["rpenvelope", "点开红包那张大红封／领完那一页（data-stage＝closed 还没拆，open 拆开了）"],
         ["rpopenbtn", "大红封正中那颗「開」"],
         ["rpamount", "拆开后那一页的金额"],
