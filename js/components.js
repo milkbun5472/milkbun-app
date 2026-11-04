@@ -19393,6 +19393,8 @@ function DoodleEditor({ src, charId, onClose }) {
         btn("撤销", () => { marks.current.pop(); setN(v => v + 1); }),
         btn("清空", () => { marks.current = []; setN(v => v + 1); }))));
 }
+// 这一趟打开 App 的时刻：拍照中卡着时，比它早开始的才是断了的（页面被杀过、重开过）
+const PHOTO_PAGE_BOOT = Date.now();
 function SelfieBubble({ m }) {
   const t = useTheme();
   const [url, setUrl] = useState(null);
@@ -19423,7 +19425,15 @@ function SelfieBubble({ m }) {
     // 卡「拍照中」超 6 分钟 = 生成时页面被 iOS 杀了/断线，别永远转下去
     // 重拍的老照片按「这次开始拍」算，不按当初发出来的时间（她 2026-10-03：重拍了却不显示在重新生成）
     const since = m.pendingSince || m.ts;
-    if (since && Date.now() - since > 360000) return note("图没等回来（可能切了后台断线），让 TA 重拍一张吧");
+    // ⚠️页面一直开着时不是断线（群友 2026-11-04：没离开过聊天也说「切了后台」）：带参考照那一枪要等满 5 分钟，没成还会换个写法再来一次，
+    //   慢站子整趟过 6 分钟很平常。所以分开看：这一趟打开 App 之后才开始拍的，写「还在等站子」，满 15 分钟才算没等回来；
+    //   开始拍在这次打开之前（页面被杀过、重开过），那一张肯定断了
+    const live = since && since >= PHOTO_PAGE_BOOT;
+    if (since && (!live ? Date.now() - since > 360000 : Date.now() - since > 900000))
+      return note(live ? "站子等了 15 分钟还没把图给回来，让 TA 重拍一张吧（或者换一条快点的生图线路）" : "图没等回来（拍的时候 App 被关掉或重开了），让 TA 重拍一张吧");
+    if (live && Date.now() - since > 360000) return h("div", { style: Object.assign({}, box, { padding: "20px 24px", display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }) },
+      h("div", { style: { fontSize: "calc(22px * var(--app-fs, 1))" } }, "📷"),
+      h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, textAlign: "center", lineHeight: 1.5 } }, "还在等站子（已经 " + Math.round((Date.now() - since) / 60000) + " 分钟），慢的线路带参考照要好几分钟"));
     return h("div", { style: Object.assign({}, box, { padding: "24px 30px", display: "flex", flexDirection: "column", alignItems: "center", gap: 7 }) },
       h("div", { style: { fontSize: "calc(22px * var(--app-fs, 1))" } }, "📷"),
       h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog } }, "拍照中…"));
