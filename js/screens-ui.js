@@ -1618,7 +1618,7 @@ function RelComposer({ comp, setComp, characters, profile, draftProfile, maskPic
       style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", padding: "4px 10px", borderRadius: 999, border: "1px solid " + t.line, color: t.sub }
     }, p))),
     // 连着「我」的那条才牵动好感：照现在填的标签当场说一句
-    (c.pair || []).includes("me") && relAffHint(c.label) ? h("div", { "data-wk": "tiesaffhint", style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.6, marginBottom: 10 } }, "好感：" + relAffHint(c.label)) : null,
+    (c.tab === "me" || (c.pair || []).includes("me")) && relAffHint(c.label) ? h("div", { "data-wk": "tiesaffhint", style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.6, marginBottom: 10 } }, "好感：" + relAffHint(c.label)) : null,
     // 让 TA 写（她 2026-09-15：「如果我想把他连 b 我得自己写了」）。
     // ⚠️写完落进输入框【给她改】，不是直接存——生成的东西一律先过她的眼睛。
     // ⚠️不是配角专用：主角色之间同样可以先拟一版（一层写在两处的事今天已经踩过）。
