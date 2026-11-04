@@ -15741,7 +15741,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       let _glast = 0;
       for (let i = _graw.length - 1, seenOld = false; i >= 0; i--) {
         const mm = _graw[i];
-        if (!seenOld && (mm.role === "user" || mm.role === "narration")) continue; // 跳过本轮触发的新消息
+        if (!seenOld && (mm.role === "user" || mm.role === "narration" || mm.byHer)) continue; // 跳过本轮触发的新消息（旁观群「替谁说」那条也是她这轮刚发的）
         // 「谁把谁拉进了群聊」这种系统行不算有人说过话：隔了半天拉个新人，间隔被它清零，成员接着中午那段演（群里 2026-11-04）
         if (mm.role === "system") continue;
         seenOld = true;

@@ -7,3 +7,7 @@ test("算 _glast 时跳过系统行", () => {
   assert.match(seg, /if \(mm\.role === "system"\) continue;/);
   assert.ok(seg.indexOf('mm.role === "system"') < seg.indexOf("seenOld = true"));
 });
+test("「替谁说」那条算本轮触发，不清零间隔", () => {
+  const seg = a.slice(a.indexOf("let _glast = 0;"), a.indexOf("const _ggap ="));
+  assert.match(seg, /mm\.role === "narration" \|\| mm\.byHer\)\) continue;/);
+});
