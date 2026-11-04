@@ -8357,11 +8357,23 @@ function joinBilingualLines(lines, hanLang, opts) {
     const HAN = /[\u4e00-\u9fff]/;
     // 「[表情] 可怜」「[图片]…」这类是发东西的标记，不是中译（她 2026-10-13 截图：日文下面那泡表情被当成了译文）
     const MARK = /^\s*[\[【〔]\s*(表情|图片|照片|语音|贴纸|转账|红包|位置|链接|视频|文件)/;
+    // ⚠️TA 这一轮是【中外夹着说】而不是「一句外语一句中译」时，下一行那句中文是他真说的话，
+    //   不是译文（群友 2026-11-03 截图：「Lisa你真的找死是不是？！」「Tu te fous…」「我数三下」
+    //   「把那两个字给我咽回去」——法语那泡的译文被配成了「我数三下」，整句意思全错）。
+    //   判据是【配完还剩不剩落单的中文】：真·双语那一轮每句外语后面都跟着自己的中译，配完一句不剩；
+    //   夹着说的那一轮会剩下几句自说自话的中文。剩了就整轮都不替他配——落单的外语那泡交给后面
+    //   translateToZh 去真翻一次，宁可多花一次接口，也不把隔壁那句话按在他头上。
+    //   发东西的标记（[表情]…）和括号里的旁白不算落单：它们本来就不是在说话。
+    const NARR = /^\s*[（(*＊「『]/;
+    const pairOne = (line, next) => next != null && line.indexOf("|") < 0 && next.indexOf("|") < 0
+      && (/[\u3040-\u30ff]/.test(line) || (FOREIGN.test(line) && !HAN.test(line))) && HAN.test(next) && !FOREIGN.test(next) && !MARK.test(next);   // 日文带汉字也算外语：有假名就认
+    const taken = new Set();
+    for (let k = 0; k < joined.length; k++) if (!taken.has(k) && pairOne(joined[k], joined[k + 1])) { taken.add(k); taken.add(k + 1); }
+    const orphanZh = joined.some((x, k) => !taken.has(k) && x.indexOf("|") < 0 && HAN.test(x) && !FOREIGN.test(x) && !MARK.test(x) && !NARR.test(x));
     const out0 = [];
     for (let k = 0; k < joined.length; k++) {
       const line = joined[k], next = joined[k + 1];
-      if (next != null && line.indexOf("|") < 0 && next.indexOf("|") < 0
-        && (/[\u3040-\u30ff]/.test(line) || (FOREIGN.test(line) && !HAN.test(line))) && HAN.test(next) && !FOREIGN.test(next) && !MARK.test(next)) {   // 日文带汉字也算外语：有假名就认
+      if (!orphanZh && pairOne(line, next)) {
         out0.push(line.trim() + " | " + next.trim()); k++;
       } else out0.push(line);
     }

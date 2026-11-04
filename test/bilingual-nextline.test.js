@@ -27,3 +27,28 @@ test("双语开关没开：不合、不补（她不想要这个功能）", () =>
 test("单聊只在开着双语时让下一行中文接回去", () => {
   assert.match(app, /joinBilingualLines\(words, hanLangOf\(char\), \{ pairNext: _bilingualOn \}\)/);
 });
+
+// 中外夹着说那一轮（群友 2026-11-03 截图）：法语那泡的译文被配成了下一句中文「我数三下」。
+// 配完还剩落单的中文＝TA 在夹着说，不是「一句外语一句中译」，整轮都不许替他配。
+test("夹着说：配完还剩落单中文的，一句都不接", () => {
+  assert.deepEqual(join2([
+    "Lisa你真的找死是不是？！",
+    "Tu te fous vraiment de moi jusqu'au bout là ?!",
+    "我数三下",
+    "把那两个字给我咽回去",
+  ], false), [
+    "Lisa你真的找死是不是？！",
+    "Tu te fous vraiment de moi jusqu'au bout là ?!",
+    "我数三下",
+    "把那两个字给我咽回去",
+  ]);
+  // 外语在最前面、后面跟着两句自说自话的中文：同样不接
+  assert.deepEqual(join2(["Ça va pas la tête ?", "我数三下", "快点"], false),
+    ["Ça va pas la tête ?", "我数三下", "快点"]);
+});
+test("括号旁白和发东西的标记不算落单，正经双语照接", () => {
+  assert.deepEqual(join2(["（他皱了皱眉）", "Ты уже спишь?", "你睡了吗?"], false),
+    ["（他皱了皱眉）", "Ты уже спишь? | 你睡了吗?"]);
+  assert.deepEqual(join2(["Ты уже спишь?", "你睡了吗?", "[表情] 可怜"], false),
+    ["Ты уже спишь? | 你睡了吗?", "[表情] 可怜"]);
+});
