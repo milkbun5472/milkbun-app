@@ -205,9 +205,9 @@
       setBusy(key);
       try {
         const prev = signs[key];
-        const d = await runProbe(p, ctx, { voice: true, tag: "astro", instruction: signInstruction(meName, facts) + (prev ? "\n〔重抽〕上一张写的是「" + prev.title + "：" + prev.text + "」，这张换一个。" : "") + voiceTail(), schemaHint: SIGN_SCHEMA, maxTokens: 65000 });
+        const d = await runProbe(p, ctx, { voice: true, tag: "astro", instruction: signInstruction(meName, facts, c) + (prev ? "\n〔重抽〕上一张写的是「" + prev.title + "：" + prev.text + "」，这张换一个。" : "") + voiceTail(), schemaHint: SIGN_SCHEMA, maxTokens: 65000 });
         if (!d || !String(d.title || d.text || "").trim()) throw new Error("TA 这回没抽出来，再点一次");
-        const next = Object.assign({}, signs, { [key]: { title: String(d.title || "").trim().slice(0, 12), text: String(d.text || "").trim().slice(0, 120), by: c.remark || c.name, ts: Date.now() } });
+        const next = Object.assign({}, signs, { [key]: g.Astro.signCardOf(d, c.remark || c.name) });
         const ks = Object.keys(next).sort((a, b) => (next[b].ts || 0) - (next[a].ts || 0)); ks.slice(60).forEach(k => delete next[k]);
         setSigns(next); saveJSON(SIGN_KEY, next);
       } catch (e) { props.toast && props.toast("没抽成：" + String((e && e.message) || e).slice(0, 120)); }
