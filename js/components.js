@@ -13375,7 +13375,8 @@ function CallScreen({
         let poll = null;
         try {
           // 上一轮提前合成的正是这一条就直接拿（多半已经好了）；不是就现合成
-          const task = (ahead && ahead.key === idx) ? ahead.task : synth(m.content, spk2.voiceId);
+          // 念原文、不念译文（群友 2026-11-04：打电话时语音合成还是会念中文）：跟气泡底下「听一下」同一个 sayTextOf
+          const task = (ahead && ahead.key === idx) ? ahead.task : synth(sayTextOf(m), spk2.voiceId);
           ahead = null;
           const abuf = await task;
           if (!valid()) break;
@@ -13388,7 +13389,7 @@ function CallScreen({
             if (ahead || !valid() || !ttsReady()) return;
             const nx = nextSpeakable(st.played);
             if (!nx) return;
-            ahead = { key: nx.i, task: synth(nx.m.content, nx.spk.voiceId) };
+            ahead = { key: nx.i, task: synth(sayTextOf(nx.m), nx.spk.voiceId) };
             if (poll) { clearInterval(poll); poll = null; }
           };
           tryAhead();
@@ -13728,7 +13729,7 @@ function CallScreen({
         if (meP) { recResume(); return; }
         const epoch = audioRef.current.epoch;
         lv.current.speaking = true; lv.current.busy++; recPause();
-        tp.toggle(messageKey, m.content, spk.voiceId, undefined, () => {
+        tp.toggle(messageKey, sayTextOf(m), spk.voiceId, undefined, () => {
           if (audioRef.current.epoch !== epoch || !audioRef.current.mounted) return;
           lv.current.speaking = false; lv.current.busy = 0; recResume();
         });
