@@ -519,6 +519,7 @@
     const isYanqiu = partner && (props.digitalIds || []).indexOf(partner.id) >= 0;
     const [noteSheet, setNoteSheet] = useState(null); // 划线后「记一条给言秋」的输入层 {anchor,val}
     const [bookOpen, setBookOpen] = useState(false);  // 批注册
+    const [tocOpen, setTocOpen] = useState(false);    // 目录
     const [setOpen, setSetOpen] = useState(false);    // 「设定」那一小块（批几条 / 覆盖几页）默认收着
     const [pulling, setPulling] = useState(false);
     const [full, setFull] = useState(false);
@@ -1006,6 +1007,7 @@
     const footer = h("div", { className: "shrink-0", style: { borderTop: "1px solid " + t.line, padding: "8px 14px", display: "flex", alignItems: "center", gap: 8 } },
       h("button", { onClick: function () { gotoPage(pageIdx - 1); }, disabled: pageIdx <= 0, style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: pageIdx <= 0 ? t.line : t.sub, padding: "6px 8px" }, "data-wk": "readreaderbtn", "data-part": "7" }, "‹ 上一页"),
       h("div", { style: { flex: 1, textAlign: "center", fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog } }, (pageIdx + 1) + " / " + totalPages,
+        h("button", { onClick: function () { setTocOpen(true); }, style: { marginLeft: 10, fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.sub, border: "1px solid " + t.line, borderRadius: 999, padding: "3px 10px", minHeight: 26 }, "data-wk": "readtocbtn" }, "目录"),
         h("button", { onClick: function () { setFull(function (v) { return !v; }); }, style: { marginLeft: 10, fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.sub, border: "1px solid " + t.line, borderRadius: 999, padding: "3px 10px", minHeight: 26 }, "data-wk": "readfull" }, full ? "退出全屏" : "全屏")),
       h("button", { onClick: function () { gotoPage(pageIdx + 1); }, disabled: pageIdx >= totalPages - 1, style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: pageIdx >= totalPages - 1 ? t.line : t.sub, padding: "6px 8px" }, "data-wk": "readreaderbtn", "data-part": "8" }, "下一页 ›"));
 
@@ -1052,7 +1054,9 @@
       bookOpen ? h(AnnoBook, { book: book, pages: pages || [], t: t, chOf: chOf,
         partner: partner, busy: ending, onRemember: rememberBook, onDropRow: dropAnnoRow,
         onGoto: function (pg) { setBookOpen(false); gotoPage(pg); },
-        onClose: function () { setBookOpen(false); } }) : null
+        onClose: function () { setBookOpen(false); } }) : null,
+      tocOpen ? h(ReadToc, { book: book, pages: pages || [], cur: pageIdx, t: t,
+        onGoto: function (pg) { setTocOpen(false); gotoPage(pg); }, onClose: function () { setTocOpen(false); } }) : null
     );
   }
 
@@ -1067,6 +1071,48 @@
   // ⚠️不是又一个通用列表：左边那一列页码是【可以点的】，点了就翻到那一页；
   //   而且它把三种来路（TA的批注 / TA的讲解 / 你自己记的）摆在同一条时间线上，
   //   因为你俩本来就是在同一页上一起写的。
+  // ---- 目录（群里 2026-11-04：「和 char 一起看小说可以选目录吗，好像只能一页一页翻」）----
+  // 从正文里认章节标题：一段短短的、以「第X章／回／节／卷」「序章」「楔子」「番外」「Chapter N」这类开头的就是一章。
+  //   认不出章节的书（散文、没写章名的）就按页列，每 10 页一格；顶上还能直接填页码跳。整页，不做半窗。
+  const TOC_RE = /^(第\s*[零〇一二三四五六七八九十百千万两\d]+\s*[章回节卷集篇部幕话]|序章|序言|序幕|楔子|引子|尾声|终章|番外|后记|前言|chapter\s*[\divxlc]+|prologue|epilogue)/i;
+  function tocOf(pages) {
+    const out = [];
+    (pages || []).forEach(function (paras, pg) {
+      (paras || []).forEach(function (p) { const s = String(p || "").trim(); if (s.length <= 40 && TOC_RE.test(s)) out.push({ page: pg, title: s }); });
+    });
+    return out;
+  }
+  function ReadToc(props) {
+    const t = props.t, pages = props.pages || [], total = Math.max(1, pages.length);
+    const [jump, setJump] = useState("");
+    const chapters = tocOf(pages);
+    const rows = chapters.length ? chapters : (function () { const r = []; for (let i = 0; i < total; i += 10) r.push({ page: i, title: "第 " + (i + 1) + " 页", sub: String(((pages[i] || [])[0]) || "").slice(0, 28) }); return r; })();
+    // 现在读到的是哪一章：页码不超过当前页的最后一章
+    let curRow = -1; rows.forEach(function (r, i) { if (r.page <= props.cur) curRow = i; });
+    const go = function () { const n = parseInt(jump, 10); if (n >= 1) props.onGoto(Math.min(total, n) - 1); };
+    return h("div", { className: "h-full flex flex-col",
+      style: Object.assign({ position: "fixed", inset: 0, zIndex: 60 },
+        typeof pageSkin === "function" ? pageSkin("paper", t, { strength: .9 }) : { background: t.bg }), "data-wk": "readtoc" },
+      h(Head, { zh: "目录", sub: props.book && props.book.title, bg: "transparent", onBack: props.onClose }),
+      h("div", { className: "shrink-0", style: { display: "flex", alignItems: "center", gap: 8, padding: "4px 16px 12px", borderBottom: "1px solid " + t.line } },
+        h("span", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.sub } }, "跳到第"),
+        h("input", { value: jump, inputMode: "numeric", onChange: function (e) { setJump(e.target.value.replace(/\D/g, "").slice(0, 6)); }, onKeyDown: function (e) { if (e.key === "Enter") go(); },
+          placeholder: String(props.cur + 1), style: { width: 72, fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.ink, background: "transparent", border: "1px solid " + t.line, borderRadius: 8, padding: "6px 8px", textAlign: "center" } }),
+        h("span", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.sub } }, "页 / 共 " + total),
+        h("button", { onClick: go, className: "active:opacity-70", style: { marginLeft: "auto", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: "#fff", background: t.tint, borderRadius: 999, padding: "6px 14px" }, "data-wk": "readtocgo" }, "去")),
+      h("div", { className: "flex-1 min-h-0 overflow-y-auto", style: { padding: "6px 16px 30px" } },
+        chapters.length ? null : h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, margin: "6px 2px 8px" } }, "这本书里没认出章节标题，先按页列"),
+        rows.map(function (r, i) {
+          const on = i === curRow;
+          return h("button", { key: i, onClick: function () { props.onGoto(r.page); }, className: "w-full text-left active:opacity-60", "data-wk": "readtocrow", "data-on": on ? "1" : "0",
+            style: { display: "flex", alignItems: "baseline", gap: 10, padding: "12px 2px", borderTop: i ? "1px solid " + t.line : "none" } },
+            h("div", { style: { flex: 1, minWidth: 0 } },
+              h("div", { style: { fontFamily: F_BODY, fontSize: "calc(14.5px * var(--app-fs, 1))", color: on ? t.tint : t.ink, lineHeight: 1.5, wordBreak: "break-word" } }, r.title),
+              r.sub ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, r.sub) : null),
+            h("div", { style: { flexShrink: 0, fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: on ? t.tint : t.fog } }, (on ? "读到这儿 · " : "") + "第 " + (r.page + 1) + " 页"));
+        })));
+  }
+
   function AnnoBook(props) {
     const t = props.t, book = props.book, pages = props.pages || [];
     // 长按删掉一条（她 2026-09-20：「一起读批注删除不了」）。

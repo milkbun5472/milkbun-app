@@ -6132,6 +6132,11 @@ function PhotoStudio({ partner, myCloset, charCloset, shots, busy, fitBusy, canS
           // 所以聊天历史里自带上下文，以后她说「上次那张」TA接得上
           h("button", { onClick: () => onShare(big), className: "w-full active:opacity-70", style: { marginTop: 16, borderRadius: 14, padding: "12px 0", background: "#6d4d8f", color: "#fff", fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))" } },
             "发给 " + (partner.remark || partner.name)),
+          // 照原样重拍（她 2026-11-04 转群友：图黑了也不能重拍）：同一句场景、同两身衣服、同一个画风，再拍一张新的，这张留着自己删
+          h("button", { "data-wk": "studioreshoot", onClick: () => { const sc = String(big.scene || "").replace(/^《[^》]*》里的我们 · /, ""); setBig(null);
+              onShoot({ scene: sc, mine: big.mine || "", theirs: big.theirs || "", ...(big.theme ? { theme: big.theme } : {}), ...(big.grid ? { grid: true } : {}), ...(big.paint ? { paint: big.paint } : {}) }); },
+            disabled: !!busy, className: "w-full active:opacity-70 disabled:opacity-40", style: { marginTop: 8, borderRadius: 14, padding: "10px 0", background: "transparent", border: "1px solid #6d4d8f", color: "#6d4d8f", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))" } },
+            "照原样重拍一张"),
           onDelete ? h("button", { onClick: () => { onDelete(big); setBig(null); }, className: "w-full active:opacity-70", style: { marginTop: 8, borderRadius: 14, padding: "10px 0", background: "transparent", border: "1px solid " + t.line, color: t.fog, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))" } },
             "删掉这张") : null)
       : h("div", { className: "flex-1 min-h-0 overflow-y-auto px-4 pb-10" },
