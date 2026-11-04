@@ -487,6 +487,16 @@ async function imgOutBlob(out) {
     im.onload = () => { try { const c = document.createElement("canvas"); c.width = im.naturalWidth; c.height = im.naturalHeight; c.getContext("2d").drawImage(im, 0, 0); c.toBlob(b => res(b && b.size ? b : null), "image/png"); } catch (e) { res(null); } };
     im.onerror = () => res(null); im.src = out.url; setTimeout(() => res(null), 30000); });
 }
+// 站子只回一个图片链接（她 2026-11-04 转群友：照相馆照片变成一块黑、也不能重拍）：那种链接多半过一阵就失效，
+//   存下链接的那张过几天就只剩深色底。生图这一步统一兜：拿到链接当场下载成图交下去，后面十几处都照「有图」走、存进本机
+(function wrapSelfieBlob() {
+  try {
+    if (typeof window === "undefined" || typeof window.generateSelfieImage !== "function" || window.generateSelfieImage.__blobbed) return;
+    const raw = window.generateSelfieImage;
+    const wrapped = async function () { const out = await raw.apply(this, arguments); if (out && !out.blob && out.url) { try { const b = await imgOutBlob(out); if (b && b.size) return Object.assign({}, out, { blob: b }); } catch (e) {} } return out; };
+    wrapped.__blobbed = true; window.generateSelfieImage = wrapped;
+  } catch (e) {}
+})();
 function App() {
   const isStandalone = typeof window !== "undefined" && (window.navigator.standalone === true || window.matchMedia("(display-mode: standalone)").matches);
   const [now, setNow] = useState(new Date());
