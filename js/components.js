@@ -16948,7 +16948,8 @@ function DraftInput({ placeholder, inputStyle, inputProps, onSubmit, after, keep
   const [sug, setSug] = useState({ hits: [], at: 0 });
   useEffect(() => {
     if (!onEmote) return;
-    if (!draft.trim()) { setSug(x => x.hits.length ? { hits: [], at: 0 } : x); return; }
+    // 表情包页里关了「打字时联想表情包」就一张都不冒
+    if (!draft.trim() || loadJSON("x_emoteSuggestOff", false)) { setSug(x => x.hits.length ? { hits: [], at: 0 } : x); return; }
     const tm = setTimeout(() => {
       const hits = emoteHits(emotePacks, draft);
       let at = 0; try { if (hits.length && ref.current) at = Math.max(0, (window.innerHeight || 0) - ref.current.getBoundingClientRect().top + 8); } catch (e) {}

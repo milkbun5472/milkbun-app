@@ -12219,6 +12219,8 @@ const tiltById = id => { const k = qhash(String(id || "")); return ((k.charCodeA
 function EmoteMatrix({ packs, characters, onBack, onAddPack, onUpdatePack, onDeletePack, onToggleChar, onImport, onAddImages, onMakeSet, onUncaptionPack, setBusy, onCaptionPack, onRenameEmote, onDeleteEmotes, onMoveEmotes, myFaces }) {
   const [setPick, setSetPick] = useState(false);
   const [setCaption, setSetCaption] = useState(true);   // 画出来的每张底下印上名字
+  // 打字联想（她 2026-11-04）：输入框里打字时底下冒一排对得上名字的表情包。默认开，关了存 x_emoteSuggestOff
+  const [sugOn, setSugOn] = useState(() => !loadJSON("x_emoteSuggestOff", false));
   const t = useTheme();
   const list = packs || [];
   const [moveCopy, setMoveCopy] = useState(false);
@@ -12269,6 +12271,11 @@ function EmoteMatrix({ packs, characters, onBack, onAddPack, onUpdatePack, onDel
   return h("div", { "data-wk": "emopage", className: "h-full flex flex-col", style: RELEASE_PAPER(t) },
     h(Head, { zh: "表情包", sub: list.length ? list.length + " 版 · 共 " + total + " 张" : null, bg: "transparent", onBack: onBack }),
     h("div", { "data-wk": "emoscroll", className: "flex-1 min-h-0 overflow-y-auto px-6 pb-10" },
+      h("div", { "data-wk": "emosuggestrow", className: "flex items-center justify-between", style: { marginTop: 14, gap: 12 } },
+        h("div", { className: "min-w-0" },
+          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.ink } }, "打字时联想表情包"),
+          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginTop: 2 } }, "聊天里打的字对得上某张表情包的名字，输入框上面冒出一排，点一下就发")),
+        h(Toggle, { on: sugOn, wk: "emosuggesttoggle", onChange: v => { const on = typeof v === "boolean" ? v : !sugOn; setSugOn(on); saveJSON("x_emoteSuggestOff", !on); } })),
       // 让 TA 出一套自己的表情包（她 2026-10-13）：挑人 → 一次生图九张，存进「TA 的表情」那一组
       onMakeSet ? h("div", { "data-wk": "emomakeset", style: { marginTop: 14 } },
         h("button", { onClick: () => setSetPick(v => !v), disabled: !!setBusy, className: "w-full active:opacity-70 disabled:opacity-50",
