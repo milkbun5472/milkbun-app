@@ -32884,7 +32884,9 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       // 补过的那条起点记在同一本账上：不记的话，下次开机那条路会看见「这条起点没补过」，
       // 于是把这中间相处掉下去的那一点又抬回来（一层写在两处，账也得是同一本）。
       if (after !== before) { const _b = loadJSON("x_affBase", {}); _b[cid] = after; saveJSON("x_affBase", _b); }
-      if (after !== before) setAffinities(ap => {
+      // 表里没有的标签（「同学」）只是没起点，不是起点 50：不往上抬（她 2026-11-04：从零开始清成 0 再改成同学，又被抬回 50）
+      const _hasStart = Object.keys(REL_AFF).some(k => [n["me->" + cid], n[cid + "->me"]].some(r0 => r0 && String(r0.label || "").includes(k)));
+      if (after !== before && _hasStart) setAffinities(ap => {
         const cur = ap[cid];
         const next = affRebase(before, after, cur);
         if (next == null) return ap;

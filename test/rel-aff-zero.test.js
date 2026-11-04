@@ -19,3 +19,7 @@ test("关系编辑：预设多一个「从零开始」，标签下面照起点�
   assert.match(app, /window\.__relAff = \{ table: REL_AFF, zero: REL_AFF_ZERO \}/);
   assert.match(ui, /\(c\.tab === "me" \|\| \(c\.pair \|\| \[\]\)\.includes\("me"\)\) && relAffHint\(c\.label\)/, "「我和角色」那一栏认 tab，不认 pair");
 });
+test("表里没有的标签不往上抬：清零后改成「同学」还是 0", () => {
+  assert.match(app, /const _hasStart = Object\.keys\(REL_AFF\)\.some\(/);
+  assert.match(app, /if \(after !== before && _hasStart\) setAffinities\(/);
+});
