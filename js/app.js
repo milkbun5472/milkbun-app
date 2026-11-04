@@ -16582,7 +16582,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
             //   ん？／なに？／|……／嗯？／什么？ 五泡，竖线落单、中文自己成泡（她 2026-09-29 截图）。
             //   单聊一直是先劈竖线再拆泡，群里这一步跟上。
             const _gLines = _gCard ? [_gCard]
-              : (gBiOn || !window.GroupIdentityGuard) ? String(item.text || "").split(/\n+/) : window.GroupIdentityGuard.splitBubbles(item.text);
+              : (gBiOn || !window.GroupIdentityGuard) ? String(item.text || "").replace(/\\r\\n|\\n/g, "\n").split(/\n+/) : window.GroupIdentityGuard.splitBubbles(String(item.text || "").replace(/\\r\\n|\\n/g, "\n"));   // 字面的「\n」也是换行（同单聊 splitCardsAndLines）
             const rawLines = !_gCard && typeof bubbleGlueBrokenLines === "function" ? bubbleGlueBrokenLines(_gLines.map(x => String(x).trim()).filter(Boolean)) : _gLines;   // 半句话断成两泡的粘回去，跟单聊同一支
             // 模型不打换行时 splitBubbles 等于没拆，所以再过一道和单聊同一个的长气泡兜底
             const gAllowComma = !isBody(spk.id);

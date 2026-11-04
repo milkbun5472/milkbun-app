@@ -2901,7 +2901,10 @@ function bubbleGlueBrokenLines(list) {
   return out;
 }
 function splitCardsAndLines(s) {
-  const str = String(s == null ? "" : s);
+  // 模型写成了字面的「\n」两个字符（群友 2026-11-04：看着是一行一行的，却挤在一个气泡里）：显示那头 showClean 会把它换成真换行，
+  //   拆泡这头原来认不出、整段一泡。拆之前先换成真换行；HTML 卡片原样不动
+  let str = String(s == null ? "" : s);
+  if (str.indexOf("\\n") >= 0 && !htmlCardOf(str)) str = str.replace(/\\r\\n|\\n/g, "\n");
   const whole = htmlCardOf(str);
   if (whole) return [whole];
   // 前面先说了一句话、后面才跟着整块 HTML：话归话、卡归卡，两边都不丢。
