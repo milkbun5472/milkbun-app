@@ -498,7 +498,16 @@ function CastForm({
 // ============================================================
 // TIES (directed)
 // ============================================================
-const REL_PRESETS = ["恋人", "暧昧", "朋友", "挚友", "家人", "兄妹", "同事", "上下级", "师生", "对手", "陌生人", "前任", "单向暗恋", "青梅竹马"];
+const REL_PRESETS = ["恋人", "暧昧", "朋友", "挚友", "家人", "兄妹", "同事", "上下级", "师生", "对手", "陌生人", "前任", "单向暗恋", "青梅竹马", "从零开始"];
+// 你和 TA 这条关系对好感的影响（她 2026-11-04「关系预设标签里放几个提醒各种的变化」）：起点表用 app 那一份（window.__relAff），这里只照着说
+function relAffHint(label) {
+  const T = (typeof window !== "undefined" && window.__relAff) || null, l = String(label || "");
+  if (!T) return "";
+  if (T.zero && T.zero.test(l)) return "改上这个标签，好感清成 0，之后照聊天重新涨；聊天和记忆不动。";
+  let best = null; Object.keys(T.table || {}).forEach(k => { if (l.includes(k) && (best == null || T.table[k] > best)) best = T.table[k]; });
+  if (best != null) return "好感起点 " + best + "：现在比 " + best + " 低就抬到 " + best + "，已经更高的不动。";
+  return l.trim() ? "这个标签不在起点表里，好感照旧不动。" : "";
+}
 // ============================================================
 // 关系网（v60.47：一人一页，她 2026-09-02：「我是想每个角色都有自己的页面，
 // 我的汇总页可以不要」＋「有些字段太长了看不完还会插入别的」）
@@ -1608,6 +1617,8 @@ function RelComposer({ comp, setComp, characters, profile, draftProfile, maskPic
       key: p, onClick: () => set({ label: p }),
       style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", padding: "4px 10px", borderRadius: 999, border: "1px solid " + t.line, color: t.sub }
     }, p))),
+    // 连着「我」的那条才牵动好感：照现在填的标签当场说一句
+    (c.pair || []).includes("me") && relAffHint(c.label) ? h("div", { "data-wk": "tiesaffhint", style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.6, marginBottom: 10 } }, "好感：" + relAffHint(c.label)) : null,
     // 让 TA 写（她 2026-09-15：「如果我想把他连 b 我得自己写了」）。
     // ⚠️写完落进输入框【给她改】，不是直接存——生成的东西一律先过她的眼睛。
     // ⚠️不是配角专用：主角色之间同样可以先拟一版（一层写在两处的事今天已经踩过）。
