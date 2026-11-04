@@ -109,13 +109,13 @@ test("实际 saveRel 写入与通知，新建/已聊/降级/重复保存/角色�
     // x_affBase 是「这条起点已经补过了」那本账（v67.34）：saveRel 也要记一笔，
     // 不然下次开机那条路会当成没补过，把中间相处掉下去的那点又抬回来。
     const box = {};
-    const saveRel = new Function("setRels", "setAffinities", "saveJSON", "loadJSON", "baseAffIn", "affRebase", "setTimeout", "toast",
+    const saveRel = new Function("setRels", "setAffinities", "saveJSON", "loadJSON", "baseAffIn", "affRebase", "setTimeout", "toast", "REL_AFF_ZERO", "setAff",
       saveSrc + "\nreturn saveRel;")(
       update => { rels = update(rels); }, update => { aff = update(aff); },
       (key, value) => { writes.push({ key, value }); box[key] = value; },
       (key, dflt) => (box[key] === undefined ? dflt : box[key]),
       f.baseAffIn, f.affRebase,
-      fn => fn(), text => notices.push(text));
+      fn => fn(), text => notices.push(text), /从零开始|重新开始/, () => {});
     saveRel("me->c1", label, "设定");
     assert.deepEqual(rels["me->c1"], { label, note: "设定" });
     assert.equal(aff.c1, expected);

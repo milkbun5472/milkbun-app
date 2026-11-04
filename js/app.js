@@ -3763,7 +3763,10 @@ function App() {
     if (inc) setAff(charId, current => current + inc);
   };
   // 基础好感：没手动设过时，按你和 TA 的关系推一个基线，而不是一律 50
-  const REL_AFF = { 恋人: 80, 挚爱: 82, 爱人: 80, 暧昧: 70, 挚友: 74, 好友: 66, 朋友: 60, 家人: 72, 亲人: 70, 青梅竹马: 68, 兄妹: 62, 兄弟: 62, 姐妹: 62, 同事: 52, 上下级: 50, 师生: 55, 对手: 34, 宿敌: 28, 前任: 44, 陌生人: 42, 暗恋: 58 };
+  // 情侣的各种叫法都算恋人（她 2026-11-04「改吧」）
+  // 「从零开始」「重新开始」（她 2026-11-04：「关系填啥可以变成 0」）：起点是 0；改成这个标签的那一刻好感清零，之后照聊天重新涨
+  const REL_AFF_ZERO = /从零开始|重新开始/;
+  const REL_AFF = { 从零开始: 0, 重新开始: 0, 恋人: 80, 挚爱: 82, 爱人: 80, 情侣: 80, 男朋友: 80, 女朋友: 80, 男友: 80, 女友: 80, 老公: 80, 老婆: 80, 夫妻: 80, 丈夫: 80, 妻子: 80, 未婚夫: 80, 未婚妻: 80, 暧昧: 70, 挚友: 74, 好友: 66, 朋友: 60, 家人: 72, 亲人: 70, 青梅竹马: 68, 兄妹: 62, 兄弟: 62, 姐妹: 62, 同事: 52, 上下级: 50, 师生: 55, 对手: 34, 宿敌: 28, 前任: 44, 陌生人: 42, 暗恋: 58 };
   // 改关系时对比编辑前后的两份关系，确认是否提高了设定起点。
   const baseAffIn = (relsMap, charId) => {
     const R = relsMap || {};
@@ -32874,6 +32877,9 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     const cid = m && m[1];
     if (cid) {
       const before = baseAffIn(p, cid), after = baseAffIn(n, cid);
+      // 刚改成「从零开始」这一类：好感清成 0（两头哪一条写了都算），账也记上，开机那条路不再往回补
+      const _zero = k => [k["me->" + cid], k[cid + "->me"]].some(r0 => r0 && REL_AFF_ZERO.test(r0.label || ""));
+      if (_zero(n) && !_zero(p)) { const _b = loadJSON("x_affBase", {}); _b[cid] = after; saveJSON("x_affBase", _b); setAff(cid, 0); return n; }
       // 补过的那条起点记在同一本账上：不记的话，下次开机那条路会看见「这条起点没补过」，
       // 于是把这中间相处掉下去的那一点又抬回来（一层写在两处，账也得是同一本）。
       if (after !== before) { const _b = loadJSON("x_affBase", {}); _b[cid] = after; saveJSON("x_affBase", _b); }

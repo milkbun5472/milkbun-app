@@ -120,7 +120,7 @@ test("改了她的数就要说一声（回执是个承诺）", () => {
 });
 
 test("saveRel 和开机记的是【同一本账】", () => {
-  assert.equal((A.match(/saveJSON\("x_affBase"/g) || []).length, 2, "两条路都要记");
+  assert.equal((A.match(/saveJSON\("x_affBase"/g) || []).length, 3, "两条路都要记（外加改成「从零开始」那一笔）");
   assert.match(A, /if \(after !== before\) \{ const _b = loadJSON\("x_affBase", \{\}\); _b\[cid\] = after; saveJSON\("x_affBase", _b\); \}/);
 });
 
