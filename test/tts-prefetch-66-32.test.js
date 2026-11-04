@@ -19,7 +19,7 @@ test("下一条的合成排在这一条【开播之前】，跑在播放的那�
   assert.match(loop, /const synth = \(text, voiceId\) => \{[\s\S]{0,400}?await ttsSpeak\(text, voiceId\)[\s\S]{0,200}?decodeAudioData/,
     "解码没一起提前做——那也是一段实打实的空档");
   // 命中预取就直接拿，没命中才现合成
-  assert.match(loop, /const task = \(ahead && ahead\.key === idx\) \? ahead\.task : synth\(m\.content, spk2\.voiceId\);/,
+  assert.match(loop, /const task = \(ahead && ahead\.key === idx\) \? ahead\.task : synth\(sayTextOf\(m\), spk2\.voiceId\);/,
     "预取好了却没用上");
   // 顺序：预取必须排在 srcN.start 之前
   assert.ok(loop.indexOf("if (!ahead && ttsReady()) poll = setInterval(tryAhead, 300);") < loop.indexOf("srcN.start(0)"),
