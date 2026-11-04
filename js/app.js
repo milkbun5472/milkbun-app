@@ -7455,21 +7455,18 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       // 能往回看更远】：全给原文时六拍就把限额占满了，摘完能装下二十拍的对话。
       // 再往前由本场滚动摘要和记忆库兜底。
       const OFF_BEATS = Math.max(1, Number(memCfgRef.current.offBeats ?? 40));
-      // 【短期窗覆盖天数】这根拉条一直是摆设（她 2026-08-28 问「记忆库这些拉条是摆设吗」）：
-      // recentDays 只出现在默认值、滑条和滑条底下那句说明里，从来没有一行代码读过它，
-      // 而那句说明写的是「最近这些天说的话一定带进上下文（消死区）」——一天都没兑现过。
-      // 现在它是【地板】：落在这几天里的【聊天记录】既不受 ctxN 条数限制，也不被字符预算挤掉。
-      // 只保聊天不保线下——线下描写正是要防的那个挤占方，让它跟着地板一起免检就白改了。
-      // 时间线是从新往旧走的，地板内的消息必然排在最前，所以预算判据里加一个 inFloor 就够。
-      const recentDays = Math.max(0, Number(memCfgRef.current.recentDays ?? 3));
-      const floorTs = recentDays ? Date.now() - recentDays * 86400000 : 0;
-      // 地板也不是无底洞。v61.79 跟本机保留线（CHAT_KEEP_LOCAL=1000）对齐：
-      // 原来卡在 300，等于「短期窗覆盖天数」这根拉条最多也只能捞回三百条——
-      // 本机明明留着一千条，那七百条谁也够不着。
-      const FLOOR_MAX = 1000;
-      const onlineWindow = floorTs
-        ? online.filter((m, k) => k >= online.length - ctxN || (m.ts || 0) >= floorTs).slice(-Math.max(ctxN, FLOOR_MAX))
-        : online.slice(-ctxN);
+      // 【短期窗覆盖天数】原来一直是摆设（她 2026-08-28 问「记忆库这些拉条是摆设吗」）：
+      // recentDays 只出现在默认值、滑条和滑条底下那句说明里，从来没有一行代码读过它。
+      // 当时的解法是把它做成【免检地板】：落在这几天里的聊天记录既不受 ctxN 条数限制，
+      // 也不被字符预算挤掉，最多捞回 1000 条（v61.79 跟本机保留线 CHAT_KEEP_LOCAL 对齐）。
+      // ⚠️2026-11-04 收回免检（跟上面 _ctxWant 同一个病，群友一次对话 20 万 token）：
+      //   聊得密的人三天内就能攒上千条，于是这两根拉条谁也拦不住它——
+      //   「条数」和「字符预算」在这一路上【只能往上加、永远压不下来】，
+      //   等于没有任何一个用户调得动的上限。窗口本来就是从新往旧取，
+      //   最近几天的话必然排在最前、先吃预算；额度够就全在，不够就该让位，
+      //   而不是把额度自己撑大。更早的由自动抽取+摘要和记忆库兜底。
+      //   recentDays 仍然管着上面那条【线下】：收了线的那一场，过了这几天就不再带。
+      const onlineWindow = online.slice(-ctxN);
       const offSlice = offline.slice(-OFF_BEATS);
       const all = onlineWindow.concat(offSlice).sort((a, b) => (a.ts || 0) - (b.ts || 0));
       if (!all.length) return "";
@@ -7566,13 +7563,12 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
           : speaker + ": " + body + (dateAnchor ? " " + dateAnchor : "")
             + (m.byUser ? bySomeoneElseMark(uName, m.senderName || char.name) : "");
         const cost = line.length + 1;
-        const inFloor = !isOff && floorTs && (m.ts || 0) >= floorTs; // 这几天的聊天记录一定带进去
         // 线下那份装满了，就【整段停】，两边都不再收（群里 2026-10-25：「再往前的拍好像只有我说的话，没有 char 的话」）：
         //   原来是一条一条地看装不装得下——TA一拍几百字装不下被跳过，她那句十几个字装得下照收，
         //   于是更早的线下只剩她一个人在说话，TA 那边整段消失。线上的照样继续往回找。
         if (isOff && offFull) continue;
         if (isOff && usedOff && usedOff + cost > offCap) { offFull = true; continue; }
-        if (!inFloor && used + cost > budget && lines.length) break; // 总预算仍以召回设置那根拉条为准
+        if (used + cost > budget && lines.length) break; // 总预算以召回设置那根拉条为准，不再给「这几天」开免检口
         used += cost;
         if (isOff) usedOff += cost;
         // thinOnline：线上那几十条的【原文】已经作为 messages 发过一遍了，这儿不再抄第二遍。
@@ -12390,15 +12386,21 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     // 浏览器侧表现为整条 Load failed（2026-08-12 全天她在旅途中完全失联的根因）。
     // 在函数寿命问题根治(流式/直连)之前，言秋线维持小窗口+短输出保命。
     // 带多少条照聊天设置里「记忆上下文条数」来（她 2026-10-31 定：「1」——拉条说了算）：
-    //   原来这里写死 80 条／1.4 万字，拉条拉到 300 也只带 80，「短期窗覆盖天数」那几天也照样被截。
-    //   现在：至少 80（没动过拉条的人跟原来一样），拉高了就照拉条；最近那几天的聊天也一起算进来（最多 1000 条）；
-    //   字数上限跟着条数放宽。代价是拉得越高每次越贵、越慢，拉条底下写着。
+    //   原来这里写死 80 条／1.4 万字，拉条拉到 300 也只带 80。
+    //   现在：至少 80（没动过拉条的人跟原来一样），拉高了就照拉条，字数上限跟着条数放宽。
+    //   代价是拉得越高每次越贵、越慢，拉条底下写着。
+    //   （2026-11-04 收回了「最近那几天的聊天也一起算进来」那一项：见下面 _ctxWant 里的理由。）
     const _ctxWant = (() => {
       const n = Math.max(0, Number(settingsFor(charId).ctxN ?? 50));
-      const days = Math.max(0, Number((memCfgRef.current || {}).recentDays ?? 3));
-      const since = days ? Date.now() - days * 86400000 : Infinity;
-      const inFloor = days ? modelHistory.filter(m => m && (m.ts || 0) >= since).length : 0;
-      return Math.min(1000, Math.max(80, n, inFloor));
+      const want = Math.max(80, n);
+      // ⚠️「短期窗覆盖天数」不再往上撑这个数（2026-11-04，群友一次对话 20 万 token）：
+      //   原来是 Math.max(80, n, 这几天的条数)。聊得密的人三天内攒上千条，那一项自己
+      //   就顶到 1000 条上限，字数跟着 1000×260＝26 万字——约 20 万 token，是旧版
+      //   （写死 1.4 万字）的四五倍，而人一个拉条都没动过，所以怎么看设置都「一样」。
+      //   这一行的本意一直是【拉条说了算】(2026-10-31)：按天只该在拉条额度【之内】
+      //   优先装最近几天的话，不该把额度自己撑大。窗口本来就是从最新往回取，
+      //   额度之内的那几天照旧全在；要带得更远，把拉条拉高（底下写着越高越贵）。
+      return Math.min(1000, want);
     })();
     const _historyBudget = _engineerChat
       ? { maxChars: 7000, maxMessages: 48 }
