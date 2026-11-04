@@ -41,3 +41,12 @@ test("门那一页：答案单独一块、能单独复制，群主没设就不�
   assert.match(door, /\$\("copyAns"\)\.onclick = copier\("ans",/, "答案没有自己的复制键");
   assert.ok(!/autumn-drawer|qiuqiu-machine/.test(door), "门那一页不许出现秋秋的地址");
 });
+
+// 查一个连挂十几次的号时，这一行什么都看不出来（她 2026-11-04）
+test("验证记录：模型抄出来的那句话摆出来，站子和模型不许被截掉", () => {
+  assert.match(V, /"模型抄出来的：" \+ r\.seen/, "没把模型抄出来的那句话摆出来");
+  assert.ok(V.includes("r.seen ?"), "没过才有那句话，这儿应当按有没有来显示");
+  const row = V.slice(V.indexOf('"nestverifyrow"'));
+  const line = row.slice(row.indexOf("when(r.at)") - 400, row.indexOf("when(r.at)"));
+  assert.ok(!/className: "truncate"/.test(line), "带站子和模型那一行又被 truncate 截掉了");
+});
