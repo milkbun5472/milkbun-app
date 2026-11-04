@@ -172,9 +172,13 @@ test("她自己在线下打的字不占「最近三拍」的名额", () => {
   assert.match(app, /if \(isOff && m\.role !== "user"\) offSeen\+\+;/);
 });
 
-// ---- 短期窗覆盖天数：这根拉条以前是纯摆设 ----
-// 她 2026-08-28 问「记忆库这些拉条是摆设吗」。recentDays 只出现在默认值、滑条和滑条
+// ---- 短期窗覆盖天数 ----
+// 她 2026-08-28 问「记忆库这些拉条是摆设吗」：recentDays 只出现在默认值、滑条和滑条
 // 底下那句「最近这些天说的话一定带进上下文（消死区）」里，从来没有一行代码读过它。
+// 当时的解法是把它做成【免检地板】——落在这几天的聊天记录既不受 ctxN 限制、也不被
+// 字符预算挤掉，最多 1000 条。2026-11-04 收回免检：聊得密的人三天内就能攒上千条，
+// 于是两根拉条谁也拦不住它（一次对话 20 万 token）。现在它只管【线下】那一场的新鲜度，
+// 聊天记录一律在 ctxN 和字符预算之内按从新往旧取。
 const DAY = 86400000;
 const spread = (n, prefix, agoDays, now) =>
   Array.from({ length: n }, (_, k) => ({
@@ -182,22 +186,23 @@ const spread = (n, prefix, agoDays, now) =>
     ts: now - agoDays * DAY + k * Math.floor((agoDays * DAY) / (n + 1))
   }));
 
-test("recentDays 必须真的被读到，不是只躺在默认值和滑条里", () => {
+test("recentDays 仍被读到（线下新鲜度），但不再给聊天记录开免检口", () => {
   assert.match(app, /Number\(memCfgRef\.current\.recentDays \?\? 3\)/, "没人读它就等于没写");
-  assert.match(app, /const floorTs = recentDays \? Date\.now\(\) - recentDays \* 86400000 : 0;/);
-  assert.match(app, /if \(!inFloor && used \+ cost > budget && lines\.length\) break;/, "地板要能顶住字符预算");
+  assert.match(app, /if \(used \+ cost > budget && lines\.length\) break;/, "字符预算又被绕过去了");
+  assert.ok(!/!inFloor && used \+ cost > budget/.test(app), "免检口又回来了");
+  assert.ok(!/const FLOOR_MAX/.test(app), "按天那条又自己撑额度了");
 });
 
-test("落在这几天里的聊天记录，既不受 ctxN 条数限制、也不被预算挤掉", () => {
+test("这几天的聊天记录也一样受 ctxN 和字符预算管——拉条压得下来", () => {
   const now = Date.now();
   const recentMsgs = spread(200, "新", 6, now);
   const oldMsgs = spread(300, "老", 20, now).map(m => ({ ...m, ts: now - 20 * DAY + (m.ts % 1000) }));
   const all = oldMsgs.concat(recentMsgs).sort((a, b) => a.ts - b.ts);
-  const off = recent(all, [], 1000, 50, 0);   // 地板关：ctxN 说了算
-  const on7 = recent(all, [], 1000, 50, 7);   // 地板 7 天
-  assert.equal(off.lines.length, 50, "地板关掉时仍按 ctxN 走");
-  assert.equal(on7.lines.filter(l => l.indexOf(": 新") > 0).length, 200, "最近六天的两百条没全带进来");
-  assert.ok(on7.used > 1000, "地板没顶住字符预算，被 1000 字截了");
+  const off = recent(all, [], 1000, 50, 0);
+  const on7 = recent(all, [], 1000, 50, 7);   // 天数拉到 7 也不该把额度撑大
+  assert.equal(off.lines.length, 50, "没按 ctxN 走");
+  assert.equal(on7.lines.length, off.lines.length, "天数又把条数额度撑大了");
+  assert.ok(on7.used <= 1000 + 400, "天数又把字符预算撑大了：" + on7.used);
 });
 
 test("地板只保聊天记录，不保线下描写——线下仍受自己那份限额", () => {
@@ -211,13 +216,15 @@ test("地板只保聊天记录，不保线下描写——线下仍受自己那�
   assert.ok(r.usedOff <= Math.min(Math.round(8000 * 0.3), 3000), "线下跟着地板一起免检了：" + r.usedOff);
 });
 
-// v61.79 地板从 300 抬到 1000，跟本机保留线 CHAT_KEEP_LOCAL 对齐：
-// 本机明明留着一千条，地板卡在 300 的话有七百条谁也够不着。
-test("地板不是无底洞：几天里聊了一千五百条，取最近一千条", () => {
+// v61.79 曾把地板从 300 抬到 1000，跟本机保留线 CHAT_KEEP_LOCAL 对齐。
+// 2026-11-04 连地板本身一起收回：本机留一千条是【翻得到】，不是【每轮都发出去】。
+// 想让 TA 往回读得更远，拉「记忆上下文条数」那根（它才是明码标价的那个）。
+test("几天里聊了一千五百条，也只按 ctxN 取，不会自己涨到一千", () => {
   const now = Date.now();
   const chatty = spread(1500, "多", 2, now);
-  assert.equal(recent(chatty, [], 1000, 50, 7).lines.length, 1000);
-  assert.match(app, /const FLOOR_MAX = 1000;/);
+  assert.equal(recent(chatty, [], 1000, 50, 7).lines.length, 50);
+  // 拉条拉高要真的带得更多，字符预算也得跟着给够（两根各管各的）
+  assert.equal(recent(chatty, [], 60000, 300, 7).lines.length, 300, "拉条拉高了却没带更多");
 });
 
 // 她 2026-08-28 问：「一次线下只跑了六轮没到摘要门槛，回到线上是怎么喂进去的？」
