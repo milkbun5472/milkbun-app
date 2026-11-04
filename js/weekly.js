@@ -1044,7 +1044,7 @@
   // 只给头版/媒体腔用：内部洗牌，避免模型总把「第一个创建的角色」写头一篇（采访版不走这里，保持 per-char）
   function personasFor(charsWithMat, userName) {
     const blocks = shuffled(charsWithMat).map(function (c) {
-      return "【" + c.name + "】" + (c.persona || "（暂无设定）").trim().slice(0, 240);
+      return "【" + c.name + "】" + (c.persona || "（暂无设定）").trim().slice(0, 240) + (typeof charLangLine === "function" ? charLangLine(c) : "");
     });
     blocks.push("【" + (userName || "我") + "】被报道的当事人之一（用户本人）。");
     return blocks.join("\n\n");

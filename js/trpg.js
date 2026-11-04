@@ -1217,7 +1217,7 @@
 
     // 人设给全文、封顶 6000(四处一样喂·落地要求4:截断出来的空白由训练先验补上,
     // 那就是霸总;跑团一队至多 1+4 人,谁都不该被砍)
-    const personaOf = ch => String((ch && (ch.persona || ch.name)) || "").slice(0, 6000);
+    const personaOf = ch => String((ch && (ch.persona || ch.name)) || "").slice(0, 6000) + (ch ? (typeof charLangLine === "function" ? charLangLine(ch) : "") : "");
     // 出团建卡:整队从选定的小分队里出——数值是组建队伍时掷定的,这里只是取卡;
     // 旧伤(scar)带上,专长带上,命运点按气运现算;出过团的标 veteran
     const buildParty = squad => (squad.members || []).map(m => ({ key: m.key, name: m.key === "user" ? uName : m.name, hp: 100, maxHp: 100, stats: Object.assign({}, m.stats), fate: fateOf(m.stats.luck), effects: (m.scars || []).map(e => Object.assign({}, e)), feats: (m.feats || []).map(f => Object.assign({}, f)), veteran: (m.runs || 0) > 0, runs: m.runs || 0 }));

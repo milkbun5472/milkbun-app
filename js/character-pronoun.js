@@ -30,7 +30,13 @@
     const gender = String(character && character.gender || "").trim().toLowerCase();
     return female.has(gender) ? "（女）" : male.has(gender) ? "（男）" : "";
   }
-  const api = { ta, replace, text, newCharacter, genderNote };
+  // 给模型的一行「这个人是男是女」：只认明确存了男/女的（空性别的老角色、TA 都不写，交给人设）。
+  // 提示词里一律写 Ta/他，不写这一行模型就默认成男的（群里 2026-11-04：梦境、聊天里女角色被写成「他」）
+  function selfLine(character) {
+    const gender = String(character && character.gender || "").trim().toLowerCase();
+    return female.has(gender) ? "【性别】女。说到这个人一律用「她」。" : male.has(gender) ? "【性别】男。说到这个人一律用「他」。" : "";
+  }
+  const api = { ta, replace, text, newCharacter, genderNote, selfLine };
   root.CharacterPronoun = api;
   root.PhonePronoun = api; // 兼容已有调用；判断和替换算法仍只有这一份。
   root.characterText = text;

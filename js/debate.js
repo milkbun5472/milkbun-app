@@ -180,7 +180,7 @@
   // ---- 模型：从这几个人跟她最近的事里现编几道题（她 2026-10-09：抽题）----
   //   读的是跟「注入最近聊天」同一份 recentChatSnippet，只在擂台这一次调用里用，什么都不写回。
   async function drawTopics(active, chars, uName) {
-    const blocks = chars.map(c => "「" + c.name + "」" + personaFor(c.persona, chars.length).slice(0, 1200)
+    const blocks = chars.map(c => "「" + c.name + "」" + personaFor(c.persona, chars.length).slice(0, 1200) + (typeof charLangLine === "function" ? charLangLine(c) : "")
       + (recentChatSnippet(c.id, uName, c.name) ? "\n（TA跟 " + uName + " 最近的聊天）\n" + recentChatSnippet(c.id, uName, c.name) : "")).join("\n\n");
     const sys = AC() + CB() + "下面是要上擂台的几个人，和他们跟 " + uName + " 最近聊过的东西。给这一场现编 3 道吵得起来的题。\n"
       + "判据：题从【这几个人和 " + uName + " 之间真发生过、真在意的事】里长出来——最近聊天里的一件事、两人之间没说开的一个分歧、某个人的习惯或选择；"
@@ -193,7 +193,7 @@
 
   // ---- 模型：按人设给每个角色分配立场 + 给我几个可选立场 ----
   async function assignStances(active, worldbook, topic, chars, isFree, crowdN) {
-    const roster = chars.map((c, i) => "角色" + (i + 1) + "「" + c.name + "」的人设：" + personaFor(c.persona, chars.length)).join("\n\n");
+    const roster = chars.map((c, i) => "角色" + (i + 1) + "「" + c.name + "」的人设：" + personaFor(c.persona, chars.length) + (typeof charLangLine === "function" ? charLangLine(c) : "")).join("\n\n");
     const sys = AC() + CB() +
       "下面有一道辩题和几个人物。请【严格根据每个人的人设】判断 Ta 在这道题上最可能真心站的立场——性格、经历、价值观决定态度，别随便分正反。\n\n" +
       "【辩题】" + topic +
@@ -263,7 +263,7 @@
     const J = o.judge && !o.judge.me ? o.judge : null;
     const meJudge = !!(o.judge && o.judge.me);
     const rosterBlocks = chars.map(function (c, i) {
-      return "【第" + (i + 1) + "位 · " + c.name + "】\n· 立场：" + (c.stance || "自行把握") + "\n· 人设：" + personaFor(String(c.persona || "").replace(/\s+/g, " "), chars.length) +
+      return "【第" + (i + 1) + "位 · " + c.name + "】\n· 立场：" + (c.stance || "自行把握") + "\n· 人设：" + personaFor(String(c.persona || "").replace(/\s+/g, " "), chars.length) + (typeof charLangLine === "function" ? charLangLine(c) : "") +
         (c.npcOf ? "\n· TA是" + (c.npcOf === "她" ? uName : "「" + c.npcOf + "」") + "身边的人" + (c.knowsUser === false ? "，本来不认识 " + uName + "，今天是头一回跟她打交道——别装熟" : "") : "") +
         (c.injection ? "\n· （Ta 和 " + uName + " 最近的聊天，仅用来拿捏关系/近况/语气，别照搬别复述）\n" + c.injection : "");
     }).join("\n\n");

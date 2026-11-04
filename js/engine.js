@@ -9121,7 +9121,13 @@ function groupBackgroundSegments(c, background, uName, opts) {
 // 常用语言（群友 2026-10-09：「建人物时能不能选这个人的常用语言，韩语就选韩语，日语就选日语」）：
 //   人物卷宗里选的那一项，留空＝中文、一个字都不发。只说「主要说什么」，什么时候冒别的话交给人设。
 //   单聊走 bundle（buildBundle 人设后面），群里、通话、直播的人设串挨着 groupPersonaText 接上——同一个函数，一处说法。
+// 人设后面挂的那一截「这个人自己的硬事实」：性别、平时说什么话。单聊人设、群里每个成员、线下、通话、直播、同堂……
+//   凡是把一个人的人设递给模型的地方都接着它，所以性别就放在这一处（群里 2026-11-04：梦境、聊天里女角色被写成「他」）
 function charLangLine(c) {
+  const g = typeof CharacterPronoun !== "undefined" && CharacterPronoun.selfLine ? CharacterPronoun.selfLine(c) : "";
+  return (g ? "\n" + g.replace("这个人", (c && c.name) || "这个人") : "") + charSpeechLine(c);
+}
+function charSpeechLine(c) {
   const l = String((c && c.lang) || "").trim();
   if (!l || /^(中文|汉语|普通话|chinese|zh)$/i.test(l)) return "";
   // 只管说出口的话（群里 2026-10-11：设了粤语，线下的旁白、动作描写也全写成了粤语）——

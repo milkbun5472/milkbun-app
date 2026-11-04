@@ -353,7 +353,7 @@
     parts.push(CHARCARD_RULE);
     parts.push(USER_SLOT_PROTECT);
     parts.push(RETEACH_RULE);
-    parts.push("【角色人设】\n" + (char.persona || "（暂无设定）"));
+    parts.push("【角色人设】\n" + (char.persona || "（暂无设定）") + (typeof charLangLine === "function" ? charLangLine(char) : ""));
     // 一起学也认「外语消息自带中译」（群里 2026-10-18：日男老师说日文，叫他自己加中文，翻没几条就不见了）——
     //   跟单聊同一段规矩：每一泡外语写成「原文 | 中文」，屏幕上原文照常、中文挂进「译」
     if (typeof window !== "undefined" && window.__charBilingual && window.__charBilingual(char.id) && typeof bilingualRule === "function")
@@ -850,7 +850,7 @@
     const taken = (cur.flashcards || []).map(function (c) { return c.front; });
     const sys = CB() + "你是「" + (teacher && teacher.name || "老师") + "」，在教她『" + cur.subject + "』。" +
       "现在给她做一摞闪卡，让她自己翻着背：正面是要她回想的那一面，背面是答案。" +
-      "\n【角色人设】\n" + (teacher && teacher.persona || "（暂无）") +
+      "\n【角色人设】\n" + (teacher && teacher.persona || "（暂无）") + (typeof charLangLine === "function" ? charLangLine(teacher) : "") +
       (worldbook ? "\n【世界书】\n" + worldbook : "") +
       "\n\n【这门课真的教过的要点】（pointId 只能从这里挑）\n" + points.map(function (p) {
         return "· " + p.id + "｜" + p.label + (p.note ? "｜" + p.note : "") + (p.unit ? "｜小节：" + p.unit : "") + (p.vocab.length ? "｜词汇：" + p.vocab.join("、") : "");
@@ -1112,7 +1112,7 @@
       "例如程序员/工程师教编程，母语者或语言老师教该语言，某领域从业者、学者、爱好者教该领域，都算能教，不要求 TA 是顶尖专家。" +
       "只有当 TA 跟这门学问明显八竿子打不着、人设里完全没有相关线索时，才 canTeach=false。拿不准时倾向 true。" +
       "只输出 JSON：{\"canTeach\":true或false,\"level\":\"入门/进阶/精通/无\",\"posture\":\"若不会，一句话态度\"}";
-    const u = "【要学的】" + subject + "\n【角色人设】" + (char.persona || "（空）") + (worldbook ? "\n【世界书】" + worldbook : "");
+    const u = "【要学的】" + subject + "\n【角色人设】" + (char.persona || "（空）") + (typeof charLangLine === "function" ? charLangLine(char) : "") + (worldbook ? "\n【世界书】" + worldbook : "");
     try {
       // ⚠️原来判不出来（调用失败、输出被截、JSON 没认出来）一律当「教不了」——人设写得越长越容易撞上，
       //   于是一个通篇写着「极度精通考研英语」的老师被判成教不了英文（群友 2026-10-08）。
@@ -1223,7 +1223,7 @@
       "请按你的人设留一张简短、真诚的课后小纸条，但所有学习判断必须依据真实作答证据，不能因为你讲过就夸用户学会，也不要学校成绩单腔。" +
       "只输出 JSON：{\"achieved\":\"今天真正做到的一件事\",\"strength\":\"有证据的一个优点，没有就坦白写仍在起步\"," +
       "\"weak\":\"还没稳的具体点，没有则写下一步挑战\",\"next\":\"下次开场先做什么\",\"note\":\"你以角色口吻留的一两句小纸条\"}。";
-    const u = "【角色人设】\n" + (char && char.persona || "（暂无）") + "\n\n" + progressText(outline.units || [], progress) +
+    const u = "【角色人设】\n" + (char && char.persona || "（暂无）") + (typeof charLangLine === "function" ? charLangLine(char) : "") + "\n\n" + progressText(outline.units || [], progress) +
       "\n\n【本节真实对话】\n" + conv;
     const raw = await callAI(active, sys, [{ role: "user", content: u }], { maxTokens: TOK.small });
     const d = extractJSON(raw) || {};
@@ -1374,7 +1374,7 @@
     const book = mistakeBookItems(cur).filter(function (x) { return ids.includes(String(x.pointId)); }).slice(0, 8);
     const sys = CB() + "你是「" + (teacher && teacher.name || "老师") + "」，在教她『" + cur.subject + "』。" +
       "现在给她出一套单元测：闭卷、没有提示、她一个人做完再看成绩。" +
-      "\n【角色人设】\n" + (teacher && teacher.persona || "（暂无）") +
+      "\n【角色人设】\n" + (teacher && teacher.persona || "（暂无）") + (typeof charLangLine === "function" ? charLangLine(teacher) : "") +
       (worldbook ? "\n【世界书】\n" + worldbook : "") +
       "\n\n【这个单元：" + unit.title + "】（point_id 只能从这里挑）\n" + points.map(function (p) {
         return "· " + p.id + "｜" + p.label + (p.note ? "｜" + p.note : "");
@@ -1697,7 +1697,7 @@
     const dates = planDates(ask.deadline, ask.offDays);
     if (!dates.length) throw new Error("死线得在今天或以后，而且不能每天都不排");
     const sys = CB() + "你是「" + (teacher && teacher.name || "老师") + "」，在教她『" + (cur.subject || cur.title || "这门课") + "』。" +
-      "\n【角色人设】\n" + (teacher && teacher.persona || "（暂无）") +
+      "\n【角色人设】\n" + (teacher && teacher.persona || "（暂无）") + (typeof charLangLine === "function" ? charLangLine(teacher) : "") +
       (worldbook ? "\n【世界书】\n" + worldbook : "") +
       "\n\n她请你帮她排学习计划。\n【要学完的】" + String(ask.amount || "").slice(0, 400) +
       "\n【死线】" + ask.deadline + "（今天 " + todayK + "）" +
@@ -1719,7 +1719,7 @@
   async function genWeeklyNote(active, cur, report, teacher, worldbook) {
     const causeTxt = Object.keys(report.causes).map(function (k) { return MISTAKE_CAUSE[k].zh + " " + report.causes[k] + " 道"; }).join("、");
     const sys = CB() + "你是「" + (teacher && teacher.name || "老师") + "」，在教她『" + cur.subject + "』。" +
-      "\n【角色人设】\n" + (teacher && teacher.persona || "（暂无）") +
+      "\n【角色人设】\n" + (teacher && teacher.persona || "（暂无）") + (typeof charLangLine === "function" ? charLangLine(teacher) : "") +
       (worldbook ? "\n【世界书】\n" + worldbook : "") +
       "\n\n【她这一周】学了 " + report.days + " 天" + (report.minutes ? "，一共大约 " + minutesText(report.minutes) : "") + "；做了 " + report.reviewed + " 次复习" +
       (report.learned.length ? "；新会了：" + report.learned.join("、") : "；这周没有新会的点") +
@@ -2498,7 +2498,7 @@
       try {
         const ok = log.filter(function (l) { return l.ok; }).length;
         const missed = log.filter(function (l) { return !l.ok; }).map(function (l) { const it = items.find(function (y) { return y.key === l.key; }); return it ? String(it.prompt || "").slice(0, 40) : ""; }).filter(Boolean);
-        const sys = CB() + "你是「" + (teacher && teacher.name || "老师") + "」，在教她『" + cur0.subject + "』。\n【角色人设】\n" + (teacher && teacher.persona || "（暂无）") +
+        const sys = CB() + "你是「" + (teacher && teacher.name || "老师") + "」，在教她『" + cur0.subject + "』。\n【角色人设】\n" + (teacher && teacher.persona || "（暂无）") + (typeof charLangLine === "function" ? charLangLine(teacher) : "") +
           "\n\n她刚自己刷完一摞到点的复习：" + log.length + " 张，记住了 " + ok + " 张。" + (missed.length ? "\n没过的：\n" + missed.map(function (m) { return "· " + m; }).join("\n") : "") +
           "\n\n用你自己说话的样子跟她说一两句，只输出这一两句。";
         const api = props.bgActive || props.active;

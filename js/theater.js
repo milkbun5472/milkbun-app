@@ -416,7 +416,7 @@
         const frame = kw.trim() ? "" : "\n\n【本局取景框(骰子已经掷好,五项共同取景，门槛按难度落实,不许挑拣也不许换)】\n题材:" + pick(POOL_GENRE) + "\n两人关系的底座:" + pick(POOL_BOND) + "\n把两人绑在一起的张力性质:" + pick(POOL_TENSION) + "\n整条线的基调:" + pick(POOL_TONE) + "\n本轮目标要跨的门槛属于这一类:" + pick(POOL_GATE);
         // 演过的线一并喂进去:模型看不见上一局,不给它就会反复抽到同一个众数
         const prior = lines.slice(0, 10).map(l => l.title + "(" + String(l.setting || "").slice(0, 30) + ")").join(";");
-        const user = "【角色人设】\n" + (char.persona || char.name) + "\n\n【关键词(可空,空则按取景框来)】" + (kw.trim() || "无") + frame + (DIFF[diff].goal ? "\n\n【难度要求】" + DIFF[diff].goal : "") + (prior ? "\n\n【已经演过的线(务必避开,换皮重来也算重复)】" + prior : "") + "\n\n【对方名字】" + uName;
+        const user = "【角色人设】\n" + (char.persona || char.name) + (typeof charLangLine === "function" ? charLangLine(char) : "") + "\n\n【关键词(可空,空则按取景框来)】" + (kw.trim() || "无") + frame + (DIFF[diff].goal ? "\n\n【难度要求】" + DIFF[diff].goal : "") + (prior ? "\n\n【已经演过的线(务必避开,换皮重来也算重复)】" + prior : "") + "\n\n【对方名字】" + uName;
         const raw = await callAI(props.active, sys + "\n\n" + user, [{ role: "user", content: "开始。" }], { maxTokens: 65000, timeout: 150000 });
         const KEYS = ["title", "charRole", "userRole", "world", "hook", "charOutfit", "userOutfit", "goal", "opening"];
         let p = parseSettingPayload(raw, KEYS) || await reformatSetting(raw, SHAPE_SETTING, KEYS);
@@ -452,7 +452,7 @@
         const sys = settingStyle() + DIFF[diff].goal + "\n" + "基于下面这套【固定的身份与世界】开一局全新的:身份、世界观、两人的长期关系保持不变,生成一个【全新的当下处境】以及配套的开场与本轮目标。"
           + newSituation(true, past)
           + "\nhook:此刻正在发生什么(1-3句,这一局专属)。\nopening:第二人称『你』写给 " + uName + " 的开场正文(5-9句),把 Ta 放进这个新处境里一个正在进行、可以回应的时刻,不替 Ta 做任何决定。\ngoal:" + GOAL_RULE + "\n只输出 JSON:" + SHAPE_PRESET + "";
-        const user = "【角色人设】\n" + (char.persona || char.name) + "\n\n【固定的身份与世界】\nTa 的身份:" + ps.charRole + "\n" + uName + " 的身份:" + ps.userRole + "\n世界与长期张力:" + (ps.world || ps.setting);
+        const user = "【角色人设】\n" + (char.persona || char.name) + (typeof charLangLine === "function" ? charLangLine(char) : "") + "\n\n【固定的身份与世界】\nTa 的身份:" + ps.charRole + "\n" + uName + " 的身份:" + ps.userRole + "\n世界与长期张力:" + (ps.world || ps.setting);
         const raw = await callAI(props.active, sys + "\n\n" + user, [{ role: "user", content: "开始。" }], { maxTokens: 65000, timeout: 150000 });
         const KEYS = ["hook", "charOutfit", "userOutfit", "goal", "opening"];
         let p = parseSettingPayload(raw, KEYS) || await reformatSetting(raw, SHAPE_PRESET, KEYS);
@@ -481,7 +481,7 @@
           + (cd.rarity === "SSR" ? "开场接在这段剧情的结局之后。" : "开场接在这件事之后。")
           + "\n" + CARD_CONFLICT + "先从卡里找它自己留下的那个还没解决的口子（藏着没说的话、没做完的事、悬着的选择），当这一条线的第一件挡在面前的事。"
           + "\n" + DIFF[diff].goal + "\ngoal:" + GOAL_RULE + "\nopening 是写给 " + uName + " 的开场正文(第二人称『你』,5-9句),接住卡里最后那一刻往下走一步,留出自然接话或行动的空间,绝不替 " + uName + " 做决定。\n只输出 JSON:" + SHAPE_SETTING;
-        const user = "【角色人设】\n" + (char.persona || char.name) + "\n\n【这张邮票卡】\n" + cd.text;
+        const user = "【角色人设】\n" + (char.persona || char.name) + (typeof charLangLine === "function" ? charLangLine(char) : "") + "\n\n【这张邮票卡】\n" + cd.text;
         const raw = await callAI(props.active, sys + "\n\n" + user, [{ role: "user", content: "开始。" }], { maxTokens: 65000, timeout: 150000 });
         const KEYS = ["title", "charRole", "userRole", "world", "hook", "charOutfit", "userOutfit", "goal", "opening"];
         let p = parseSettingPayload(raw, KEYS) || await reformatSetting(raw, SHAPE_SETTING, KEYS);
@@ -677,7 +677,7 @@
       try {
         const char = charOf(line);
         const sys = settingStyle() + diffOf(line).goal + "\n" + "基于下面这套【固定的 if 线设定】重开一局:设定一个字不许改,只生成新的开场与本轮目标。opening:第二人称『你』写给 " + uName + " 的开场正文(5-9句),把 Ta 放进一个可以回应的具体时刻。goal:" + GOAL_RULE + "只输出 JSON:{\"goal\":\"一句话目标\",\"opening\":\"开场正文\"}";
-        const user = "【角色人设】\n" + (char.persona || char.name) + "\n\n【固定设定】\nTa 的身份:" + line.charRole + "\n" + uName + " 的身份:" + line.userRole + "\n世界与张力:" + line.setting;
+        const user = "【角色人设】\n" + (char.persona || char.name) + (typeof charLangLine === "function" ? charLangLine(char) : "") + "\n\n【固定设定】\nTa 的身份:" + line.charRole + "\n" + uName + " 的身份:" + line.userRole + "\n世界与张力:" + line.setting;
         const raw = await callAI(props.active, sys + "\n\n" + user, [{ role: "user", content: "开始。" }], { maxTokens: 65000, timeout: 150000 });
         const p = parseSettingPayload(raw, ["goal", "opening"]) || await reformatSetting(raw, "{\"goal\":\"一句话目标\",\"opening\":\"开场正文\"}", ["goal", "opening"]);
         if (!p || !p.goal) throw new Error("重开没生成出目标" + rawHint(raw));

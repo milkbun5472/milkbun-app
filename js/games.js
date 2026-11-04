@@ -100,7 +100,9 @@
     if (!c) return "";
     const seen = new Set(), out = [];
     [c.persona, c.personality, c.tagline, c.background].forEach(function (x) { const v = String(x || "").trim(); if (v && !seen.has(v) && !out.some(function (o) { return o.indexOf(v) >= 0; })) { seen.add(v); out.push(v); } });
-    return out.join("\n");
+    // 性别跟人设一起走（群里 2026-11-04），各游戏读 .persona 就都带上了
+    const g = window.CharacterPronoun && window.CharacterPronoun.selfLine ? window.CharacterPronoun.selfLine(c) : "";
+    return out.join("\n") + (g ? "\n" + g.replace("这个人", c.name || "这个人") : "");
   }
   // 这一座是谁（她 2026-10-22「故事接龙大家说的话都一样」）：UNO、骗子骰、故事接龙、德扑、抽鬼牌、21 点
   //   原来只写一句「保持你本人的声纹和性格」，却从没告诉模型「你」是谁、人设是什么——全桌只能一个腔调。
