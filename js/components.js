@@ -11710,9 +11710,12 @@ function ChatThread({
     const _last = messages[messages.length - 1];
     if (!_last || _last.role === "user" || (nb.chased && nb.chased.current)) turnTopRef.current = null;
     else if (turnTopRef.current == null) turnTopRef.current = _prevH;
-    else {
+    else if (turnTopRef.current !== "passed") {
       const top = Math.max(0, turnTopRef.current - 56);
-      if (el.scrollHeight - el.clientHeight > top) { el.scrollTo({ top, behavior: "smooth" }); return; }
+      // 她自己已经往下翻过了这一轮开头（她 2026-11-04：「有新消息想往下滑就会拉回原位」）：不拽回去，
+      //   这一轮剩下的照常跟到底（记成 passed，她下一次发言才重新开一轮）
+      if (el.scrollTop > top + 24) turnTopRef.current = "passed";
+      else if (el.scrollHeight - el.clientHeight > top) { el.scrollTo({ top, behavior: "smooth" }); return; }
     }
     // ⚠️不能只滚一下（她 2026-10-12 截图：发完最后一泡压在输入栏底下）：刚加的那泡后面，输入框缩回一行、
     //   「已送达」那行、键盘收起都还在改高度，一枪平滑滚动停在旧的底上。照首次进入那样钉住一小会儿，她一动手就松开。
