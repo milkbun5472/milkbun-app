@@ -915,7 +915,14 @@
             h("div", { className: "flex-1 min-w-0" },
               h("div", { className: "truncate", style: { fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", color: r.pass ? t.ink : t.fog } },
                 (r.pass ? "✓ " : "✗ ") + (WHY[r.reason] || r.reason)),
-              h("div", { className: "truncate", style: small }, when(r.at) + (r.qq ? " · QQ " + r.qq : "") + (r.station ? " · " + r.station : "") + (r.model ? " · " + r.model : ""))),
+              // ⚠️这一行别再 truncate（她 2026-11-04 在查一个连挂十几次的号）：挂在哪个模型上
+              //   恰恰最能定位，而它排在最后，手机上一定被截掉，等于白记。换行写，占两行就两行。
+              h("div", { style: Object.assign({}, small, { whiteSpace: "normal", wordBreak: "break-all" }) },
+                when(r.at) + (r.qq ? " · QQ " + r.qq : "") + (r.station ? " · " + r.station : "") + (r.model ? " · " + r.model : "")),
+              // 没过的那一行：模型到底抄出来了什么。看一眼就知道是「模型没抄到数字」还是
+              //   「她写的是上一张的码」，不用去猜。过了的不记，14 天跟留底一起抹掉。
+              r.seen ? h("div", { style: Object.assign({}, small, { whiteSpace: "normal", wordBreak: "break-all", marginTop: 2, color: t.ink, opacity: .75 }) },
+                "模型抄出来的：" + r.seen) : null),
             r.shot ? pill(false, "看留底", () => openShot(r.id), "nestverifyshot") : null)),
           d.rows.length < d.total ? h("div", { style: { textAlign: "center", marginTop: 12 } }, pill(false, "再往下看", () => load(true), "nestverifymore")) : null)));
   }
