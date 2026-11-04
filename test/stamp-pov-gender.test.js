@@ -51,7 +51,7 @@ test("册子里正在重写的卡有标记", () => {
   const ui = fs.readFileSync(__dirname + "/../js/stamps.js", "utf8");
   assert.match(ui, /"data-wk": "stamprewriting"/);
 });
-test("限时池卡名看得出是这一期", () => { assert.match(src, /"卡名一看就知道是「" \+ card\.theme \+ "」这一期的卡。"/); });
+test("限时池卡名从那件事里起，看得出在过这个节", () => { assert.match(src, /"卡名从这张写的那件事里起，看得出是在过「" \+ card\.theme \+ "」/); });
 test("限时池分镜里的衣服看得出在过节", () => { assert.match(src, /shot 里的 outfit 写你过这个节穿的那一身/); });
 test("限时池画卡面时，衣服那一格写死要过节的那一身", () => {
   assert.match(src, /const stampLimFit = card => "这一张不穿平时的衣服：穿过「"/);
@@ -102,4 +102,13 @@ test("生日、她的生日、纪念日卡：画图走服装锁，她那身也�
   assert.equal(f({ kind: "daily" }), "");
   assert.equal((src.match(/outfit: card\.kind === "mybday" \|\| card\.kind === "anniv" \? stampDayFit\(card, "她"\) : ""/g) || []).length, 2);
   assert.match(src, /人设里按季节、按场合写的常穿衣服这张都不用；shot 里的 outfit 写的是为这一天特意准备的整套/);
+});
+test("卡名不挂这一期的前缀；已经挂了的存的时候、开机时摘掉", () => {
+  assert.match(src, /但不把「" \+ card\.theme \+ "」几个字挂在名字前面当前缀/);
+  assert.ok(!/卡名一看就知道是「/.test(src));
+  const i = src.indexOf("  const stampNameTidy"), j = src.indexOf("  // 已经起成", i);
+  const f = new Function(src.slice(i, j) + "return stampNameTidy;")();
+  assert.equal(f({ theme: "万圣夜", text: { name: "万圣夜·判官笔" } }).text.name, "判官笔");
+  assert.equal(f({ theme: "万圣夜", text: { name: "夜市分糖" } }).text.name, "夜市分糖");
+  assert.match(src, /stampNameTidy\(typeof patch === "function" \? patch\(c\) : \{ \.\.\.c, \.\.\.patch \}\)/);
 });

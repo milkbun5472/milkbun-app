@@ -17678,7 +17678,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         + "写的是「如果」的你，不是真发生的事。先想清楚你是哪个世界、哪个年代的人，" + mode + "衣服照这个主题来配，不用你衣柜里的。"
         + (stampLim(card).themeLook ? "分镜（shot）里写的那一身要照这一条：" + stampLim(card).themeLook : "")
         // 卡名一眼看得出是这一期（她 2026-11-03：沈屿白的万圣夜卡名跟万圣节没关系）
-        + "卡名一看就知道是「" + card.theme + "」这一期的卡。"
+        // 卡名（她 2026-11-04 截图：张张「万圣夜·判官笔」）：卡底下本来就标着这一期，名字不挂前缀，从这张写的那件事里起
+        + "卡名从这张写的那件事里起，看得出是在过「" + card.theme + "」，但不把「" + card.theme + "」几个字挂在名字前面当前缀，卡上本来就标着这一期。"
         // 分镜里那一身也要看得出在过这个节（她 2026-11-03：描述里穿的还是平时的衣服）
         + "shot 里的 outfit 写你过这个节穿的那一身，一眼看得出是在过「" + card.theme + "」，不是平时的衣服。"
         // 她 2026-11-04：分镜一直写常服——人设里按季节写的那几身被当成了这张该穿的，节日只落在一个小发箍上
@@ -17775,10 +17776,17 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     stampSaveCard(card.id, { canon: true, canonTs: Date.now() });
     toast("当真了");
   };
+  // 卡名挂着这一期的名字当前缀（「万圣夜·判官笔」）：摘掉，卡底下本来就标着
+  const stampNameTidy = c => { try { const th = c && c.theme && String(c.theme).trim(), nm = c && c.text && c.text.name; if (!th || !nm) return c;
+    const cut = String(nm).replace(new RegExp("^[「『]?" + th.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "[」』]?\\s*[·・•:：\\-—|｜]\\s*"), "").trim();
+    return cut && cut !== nm ? { ...c, text: { ...c.text, name: cut } } : c; } catch (e) { return c; } };
+  // 已经起成「万圣夜·××」的那些：开机扫一次摘掉
+  useEffect(() => { if (!loaded || !window.StampsCore) return; try { const st = window.StampsCore.load(); let ch = false;
+    st.cards = (st.cards || []).map(c => { const n = stampNameTidy(c); if (n !== c) ch = true; return n; }); if (ch) window.StampsCore.save(st); } catch (e) {} }, [loaded]);
   const stampSaveCard = (id, patch) => {
     if (!window.StampsCore) return;
     const st = window.StampsCore.load();
-    st.cards = st.cards.map(c => c.id === id ? (typeof patch === "function" ? patch(c) : { ...c, ...patch }) : c);
+    st.cards = st.cards.map(c => c.id === id ? stampNameTidy(typeof patch === "function" ? patch(c) : { ...c, ...patch }) : c);
     window.StampsCore.save(st);
   };
   // 一批卡：同一个人的 R、SR 一次写完；每张 SSR 单独一次
