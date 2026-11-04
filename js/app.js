@@ -25329,7 +25329,10 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       "清空");
   };
   // world：这一次写的是哪个世界的论坛（不传＝她现在逛的那个）。那个世界写了世界观，就整段压进网友的设定里。
-  const forumWorldCtx = (text, world) => ({ char: { name: "论坛网友", persona: "你在推演这个世界里形形色色的普通网友，不是某个特定角色，风格各异。" + forumLoreLine(world === undefined ? forumCurWorld() : world) }, chars: characters, rels, worldbook: loreForContext("social", [], text), profile, timeAware: prefs.timeAware });
+  // 网友嘴里提到的角色是男是女（她 2026-11-04 转群友：女角色在帖子里被写成「他」）：照档案性别标一行，一处给全论坛
+  const forumPronounLine = () => { try { const ls = (characters || []).filter(c => c && c.name && !c.npc).map(c => { const p = window.CharacterPronoun ? window.CharacterPronoun.ta(c) : ""; return p === "她" || p === "他" ? c.name + "（" + (p === "她" ? "女" : "男") + "，用「" + p + "」）" : ""; }).filter(Boolean);
+    return ls.length ? "\n【帖子和楼里提到这些人时的代词】" + ls.join("、") + "。没写在这儿的人照常写。" : ""; } catch (e) { return ""; } };
+  const forumWorldCtx = (text, world) => ({ char: { name: "论坛网友", persona: "你在推演这个世界里形形色色的普通网友，不是某个特定角色，风格各异。" + forumLoreLine(world === undefined ? forumCurWorld() : world) + forumPronounLine() }, chars: characters, rels, worldbook: loreForContext("social", [], text), profile, timeAware: prefs.timeAware });
   // 网名那两栏（她 2026-09-12：「以前名字跟TA发的内容没有关系很灵的。
   // 你去研究一下固定 npc 时代前」）。翻了 ce1e3ac「feat(forum): add recurring regulars」
   // 之前那一版，形状是这样的：
