@@ -82,7 +82,8 @@ test("照片指纹一处算，两处用", () => {
   assert.ok(ph.indexOf("function phonePhotoSig(") > 0, "指纹没有提成模块级函数");
   assert.match(view, /const sig = phonePhotoSig;/, "AlbumView 又自己写了一份指纹");
   assert.match(ph, /photoSig: phonePhotoSig/, "PhoneKit 没把指纹发出去，App 那边只能再抄一份");
-  assert.equal(phonePhotoSig({ id: "p1", caption: "雨" }), "p1", "有 id 时不该看内容");
+  // 2026-11-04 起有 id 也连同内容一起算：模型会给一整页写同一个 id，只认 id 画一张就盖掉所有
+  assert.notEqual(phonePhotoSig({ id: "p1", caption: "雨" }), phonePhotoSig({ id: "p1", caption: "雪" }));
   assert.equal(phonePhotoSig({ caption: "窗外那场雨", date: "2026-08-30", desc: "没关的窗" }),
     "窗外那场雨|2026-08-30|没关的窗");
   // 排序变了不该被当成另一张
