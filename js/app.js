@@ -15747,7 +15747,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         seenOld = true;
         if (mm.ts) { _glast = mm.ts; break; }
       }
-      const _ggap = _glast ? Date.now() - _glast : 0;
+      const _ggap = _glast ? (typeof vGap === "function" ? vGap(_glast, Date.now(), "g:" + groupId) : Date.now() - _glast) : 0;   // 按群挑的那只钟算，跟历史里的断档同一把尺
       const _crossDay = _glast && new Date(_glast).toDateString() !== new Date().toDateString();
       const _gClockNames = members.filter(c => !c.npc && timeAwareFor(c.id)).map(c => c.name);
       const gTimeHint = _gClockNames.length

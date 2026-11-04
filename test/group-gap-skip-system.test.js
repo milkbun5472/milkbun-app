@@ -11,3 +11,6 @@ test("「替谁说」那条算本轮触发，不清零间隔", () => {
   const seg = a.slice(a.indexOf("let _glast = 0;"), a.indexOf("const _ggap ="));
   assert.match(seg, /mm\.role === "narration" \|\| mm\.byHer\)\) continue;/);
 });
+test("断档按群的钟算", () => {
+  assert.match(a, /const _ggap = _glast \? \(typeof vGap === "function" \? vGap\(_glast, Date\.now\(\), "g:" \+ groupId\)/);
+});
