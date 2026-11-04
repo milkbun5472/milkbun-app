@@ -49,3 +49,26 @@ test("白屏卡和攻略都指得到这一页", () => {
   assert.ok(index.includes("rescue.html?log=1"), "开机白屏那张卡没给出错记录的入口");
   assert.ok(manual.includes("看出错记录") && manual.includes("?log=1"), "攻略里没写怎么看出错记录");
 });
+
+// 2026-11-04：出炉那一版把脚本装订成 js/bundle.js，救援页写死 app.js 导致它永远判
+// 「刷新没有完成」。核验必须认得出【两种首页】，而且指纹后面还缀着内容哈希。
+test("核验认得出 app.js 和 bundle.js 两种首页，正文判定容得下压缩", () => {
+  const TARGET = rescue.match(/TARGET="([\d.]+)"/)[1];
+  const src = rescue.slice(rescue.indexOf("(async function rescue("));
+  assert.ok(!/["']app\.js\?v=["']\s*\+/.test(src) && !src.includes('"app.js?v="'),
+    "还在写死 app.js，装订过的首页会被判成刷新失败");
+  const m = src.match(/indexText\.match\((\/[^\n]+?\/)\)/);
+  assert.ok(m, "没有从首页里认主脚本那一步");
+  const re = new RegExp(m[1].slice(1, -1));
+  for (const [tag, line] of [
+    ["源码", 'src="js/app.js?v=' + TARGET + '"'],
+    ["出炉", 'src="js/bundle.js?v=' + TARGET + '-807b4fa1dc783d69"'],
+  ]) {
+    const hit = line.match(re);
+    assert.ok(hit && hit[1].indexOf(TARGET) === 0, tag + "那种首页认不出来：" + line);
+  }
+  // 压过的正文没有空格：APP_VERSION="v89.065"
+  const body = src.slice(src.indexOf("appText"));
+  assert.ok(body.includes("APP_VERSION\\\\s*=\\\\s*") || body.includes('APP_VERSION\\s*=\\s*'),
+    "正文判定还在认死空格，minify 过的 bundle 会判失败");
+});

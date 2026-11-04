@@ -88,10 +88,17 @@ function showErrLog() {
     // 对【主屏幕实际启动的精确 URL】做 reload，并核验拿到的正文真是目标版本。
     const indexRes=await fetch("./index.html",{cache:"reload",headers:{"Cache-Control":"no-cache"}});
     const indexText=await indexRes.text();
-    if (!indexRes.ok || indexText.indexOf("app.js?v="+TARGET)<0) throw new Error("首页仍不是 v"+TARGET);
-    const appRes=await fetch("./js/app.js?v="+TARGET,{cache:"reload",headers:{"Cache-Control":"no-cache"}});
+    // ⚠️别写死 app.js（2026-11-04）：出炉那一版把一百多个脚本装订成了 js/bundle.js，
+    //   指纹也不止版本号（还缀着内容哈希）。原来这儿只认 "app.js?v=<版本>"，于是
+    //   公共版上【刷新明明成功了也永远判失败】，人只能对着「再试一次」一直点——
+    //   而这一页正是给只剩它能开的人用的。改成：从首页里认出主脚本那一行是哪个、
+    //   带的版本是不是这一版，再按它写的那个地址去核验正文。
+    const main=indexText.match(/js\/(?:bundle|app)\.js\?v=([^"']+)/);
+    if (!indexRes.ok || !main || main[1].indexOf(TARGET)!==0) throw new Error("首页仍不是 v"+TARGET);
+    const appRes=await fetch("./"+main[0],{cache:"reload",headers:{"Cache-Control":"no-cache"}});
     const appText=await appRes.text();
-    if (!appRes.ok || appText.indexOf('APP_VERSION = "v'+TARGET+'"')<0) throw new Error("程序文件仍不是 v"+TARGET);
+    // 出炉那一版压过，空格会被压掉：APP_VERSION="v89.065"。
+    if (!appRes.ok || !new RegExp('APP_VERSION\\s*=\\s*"v'+TARGET.replace(/\./g,"\\.")+'"').test(appText)) throw new Error("程序文件仍不是 v"+TARGET);
     if ("serviceWorker" in navigator) {
       const reg=await navigator.serviceWorker.register("./sw.js?v=8",{updateViaCache:"none"});
       await reg.update();
