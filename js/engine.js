@@ -114,6 +114,12 @@ async function nativeProviderFetch(url, init) {
   };
 }
 async function fetchModelList(p) {
+  // 拉模型列表原来是裸 fetch：连不上时界面上就只有一句英文「Failed to fetch」，
+  //   跟上面那段解释走的是两条路（群友 2026-11-03 截到的就是这一句）。改走同一段话。
+  try { return await fetchModelListRaw(p); }
+  catch (e) { if (isNetFail(e)) throw new Error(netFailMsg(e)); throw e; }
+}
+async function fetchModelListRaw(p) {
   const base = normalizedOpenAIBase(p.baseUrl);
   const fmt = detectFormat(p);
   if (fmt === "gemini") {
@@ -502,6 +508,20 @@ async function ensureLoreVecs(entries, opts) {
   });
 })();
 // 带超时的 fetch：超时/卡死时中断并抛出可读错误，避免无限转圈
+// 「Load failed」「Failed to fetch」是浏览器对【这一枪压根没打出去／没回来】的通用说法：
+//   连 HTTP 状态码都没有，所以它本身什么都没说。能说清的只有「有哪几种」，不能断定是哪一种——
+//   原来这儿一口咬定「写得太长被网关掐断」，于是群里好几个人对着「最低字数」调了半天，
+//   而真正的那位是跨域预检（群友 2026-11-03：时好时坏、换个浏览器就连上了）。
+//   这一处公开出去，拉模型列表那几处也用同一段话（施工规则/one-public-mechanism.md）。
+function isNetFail(e) { return /load failed|failed to fetch|network\s*error|networkerror/i.test(String((e && e.message) || e)); }
+function netFailMsg(e) {
+  return "连接中断了（Load failed）。这一枪没打出去、或者没回来，连状态码都没有，常见的是这三种："
+    + "① 这次要写得太长、久久没有首字节，被网关当成死连接掐断（把线下的「最低字数」调低一些分两次写）；"
+    + "② 线路那头偶尔抽风，浏览器把这次跨域预检的失败记了一会儿，于是接下来每一次都立刻失败——"
+    + "这种时好时坏，隔十几分钟到两小时自己就好了，也可以换一条线路或换个中转地址；"
+    + "③ 网不通、梯子刚断、或者手机浏览器把这个地址拦了。先重试一次：同样的设置常常第二次就过。"
+    + "原始报错：" + String((e && e.message) || e).slice(0, 80);
+}
 async function fetchT(url, options, ms) {
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), ms || 120000);
@@ -509,12 +529,7 @@ async function fetchT(url, options, ms) {
     return await fetch(url, { ...options, signal: ctrl.signal });
   } catch (e) {
     if (e && e.name === "AbortError") throw new Error("请求超时，请重试（模型或网络太慢）");
-    // 「Load failed」是 Safari 对底层连接断掉的通用说法，本身什么都没说。
-    // 最常见的成因就是长请求久久没有首字节被网关掐断——她 2026-08-22 把线下最低字数
-    // 设到 1500 就撞上了。把话说清楚，省得她以为是自己设错了参数。
-    if (/load failed|failed to fetch|network\s*error|networkerror/i.test(String((e && e.message) || e))) {
-      throw new Error("连接中断了（Load failed）。多半是这次要写得太长、久久没有首字节，被网关当成死连接掐断。可以：把线下的「最低字数」调低一些分两次写、或者重试一次——同样的设置有时第二次就过。原始报错：" + String((e && e.message) || e).slice(0, 80));
-    }
+    if (isNetFail(e)) throw new Error(netFailMsg(e));
     throw e;
   } finally {
     clearTimeout(timer);
@@ -8358,11 +8373,23 @@ function joinBilingualLines(lines, hanLang, opts) {
     const HAN = /[\u4e00-\u9fff]/;
     // 「[表情] 可怜」「[图片]…」这类是发东西的标记，不是中译（她 2026-10-13 截图：日文下面那泡表情被当成了译文）
     const MARK = /^\s*[\[【〔]\s*(表情|图片|照片|语音|贴纸|转账|红包|位置|链接|视频|文件)/;
+    // ⚠️TA 这一轮是【中外夹着说】而不是「一句外语一句中译」时，下一行那句中文是他真说的话，
+    //   不是译文（群友 2026-11-03 截图：「Lisa你真的找死是不是？！」「Tu te fous…」「我数三下」
+    //   「把那两个字给我咽回去」——法语那泡的译文被配成了「我数三下」，整句意思全错）。
+    //   判据是【配完还剩不剩落单的中文】：真·双语那一轮每句外语后面都跟着自己的中译，配完一句不剩；
+    //   夹着说的那一轮会剩下几句自说自话的中文。剩了就整轮都不替他配——落单的外语那泡交给后面
+    //   translateToZh 去真翻一次，宁可多花一次接口，也不把隔壁那句话按在他头上。
+    //   发东西的标记（[表情]…）和括号里的旁白不算落单：它们本来就不是在说话。
+    const NARR = /^\s*[（(*＊「『]/;
+    const pairOne = (line, next) => next != null && line.indexOf("|") < 0 && next.indexOf("|") < 0
+      && (/[\u3040-\u30ff]/.test(line) || (FOREIGN.test(line) && !HAN.test(line))) && HAN.test(next) && !FOREIGN.test(next) && !MARK.test(next);   // 日文带汉字也算外语：有假名就认
+    const taken = new Set();
+    for (let k = 0; k < joined.length; k++) if (!taken.has(k) && pairOne(joined[k], joined[k + 1])) { taken.add(k); taken.add(k + 1); }
+    const orphanZh = joined.some((x, k) => !taken.has(k) && x.indexOf("|") < 0 && HAN.test(x) && !FOREIGN.test(x) && !MARK.test(x) && !NARR.test(x));
     const out0 = [];
     for (let k = 0; k < joined.length; k++) {
       const line = joined[k], next = joined[k + 1];
-      if (next != null && line.indexOf("|") < 0 && next.indexOf("|") < 0
-        && (/[\u3040-\u30ff]/.test(line) || (FOREIGN.test(line) && !HAN.test(line))) && HAN.test(next) && !FOREIGN.test(next) && !MARK.test(next)) {   // 日文带汉字也算外语：有假名就认
+      if (!orphanZh && pairOne(line, next)) {
         out0.push(line.trim() + " | " + next.trim()); k++;
       } else out0.push(line);
     }
