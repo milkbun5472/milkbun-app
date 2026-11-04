@@ -94,6 +94,9 @@ function showErrLog() {
     //   而这一页正是给只剩它能开的人用的。改成：从首页里认出主脚本那一行是哪个、
     //   带的版本是不是这一版，再按它写的那个地址去核验正文。
     const main=indexText.match(/js\/(?:bundle|app)\.js\?v=([^"']+)/);
+    // 还没在这台设备上登过的话，拿回来的是进门页（没有任何主脚本那一行，几 KB 大小），
+    // 不是旧版首页。照着「首页仍不是 v…」报会把人支去一遍遍点刷新，其实只差登一次。
+    if (indexRes.ok && !main && indexText.length < 20000) throw new Error("这台设备还没登过（拿回来的是进门页）。先打开首页登一次，再回这一页");
     if (!indexRes.ok || !main || main[1].indexOf(TARGET)!==0) throw new Error("首页仍不是 v"+TARGET);
     const appRes=await fetch("./"+main[0],{cache:"reload",headers:{"Cache-Control":"no-cache"}});
     const appText=await appRes.text();
