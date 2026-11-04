@@ -1231,7 +1231,11 @@
     }).join("\n");
     const personaBlocks = c => c.party.filter(m => m.key !== "user").map(m => {
       const ch = charOf(m.key);
-      return "【队友人设·" + m.name + "(性格与声纹的根基,保持不变)】\n" + (ch ? personaOf(ch) : m.name);
+      // 他平时真说过的话（她 2026-11-04「跑团能不能跟小剧场一样能参考上聊天的语气」）：跟小剧场同一份，只借口气，不引用里面的事
+      //   写这一段的是守密人、一次替几个队友说话，所以说明点名写，只沿用那几十句原话
+      const said = ch && typeof props.voiceOf === "function" ? String(props.voiceOf(ch) || "").split("\n").slice(1).map(x => x.trim()).filter(Boolean) : [];
+      const voice = said.length ? "【" + m.name + "平时说话的样子(只借口气,不引用里面发生过的任何事)】下面是" + m.name + "最近亲口跟" + uName + "说过的话。团里" + m.name + "开口的口气、句子长短、用词、语气词和标点习惯照这个来，别换成这一类人设常见的说法，也别把这些原话搬进团里：\n" + said.join("\n") : "";
+      return "【队友人设·" + m.name + "(性格与声纹的根基,保持不变)】\n" + (ch ? personaOf(ch) : m.name) + (voice ? "\n" + voice.trim() : "");
     }).join("\n\n");
 
     // ---- 开团 ----

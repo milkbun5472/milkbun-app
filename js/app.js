@@ -35975,6 +35975,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     recordFor: gardenRecordFor,
     onBack: () => { setGardenEntryWorld(null); setScreen("home"); }
   });else if (screen === "trpg") body = h(window.TrpgApp, {
+    voiceOf: char => stampVoice(char),   // 他平时真说过的话（只借口气）：跟小剧场、邮票卡同一份
     // 跑团:守密人叙事沙箱,走线下创作线路;同小剧场先例——不传世界书/记忆/好感,
     // 平行时空天然隔离主线(四处一样喂·合法差异,理由见 trpg.js 头注)
     active: offlineActive,
