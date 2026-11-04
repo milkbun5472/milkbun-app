@@ -11263,6 +11263,15 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     if (!char) return;
     pGChat(groupId, p => [...p, { role: "user", kind: "pat", patTo: charId, content: "你拍了拍 " + (char.remark || char.name) + (char.patSig ? " " + char.patSig : ""), ts: Date.now() }]);
   };
+  // 拍拍自己（她 2026-11-04）：单聊后缀用她在这个人聊天设置里填的那半句（他拍她时也是这半句）
+  const patSelf = (charId, chatKey) => {
+    const char = characters.find(c => c.id === charId); if (!char) return;
+    const b = blocksRef.current[chatKey || charId] || {};
+    pChat(chatKey || charId, p => [...p, { role: "user", kind: "pat", patSelf: true, content: "你拍了拍自己" + (char.myPatSig ? " " + char.myPatSig : ""), ts: Date.now(), read: false, blocked: !!(b.iBlocked || b.theyBlocked) }]);
+  };
+  const patGroupSelf = groupId => {
+    pGChat(groupId, p => [...p, { role: "user", kind: "pat", patSelf: true, content: "你拍了拍自己", ts: Date.now() }]);
+  };
   const patChar = (charId, chatKey) => {
     const char = characters.find(c => c.id === charId);
     if (!char) return;
@@ -13760,6 +13769,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
             : m.kind === "file" ? "【" + uName + "发来一个文件「" + (m.name || "文件") + "」（" + (m.chars || 0) + " 字" + (m.cut ? "，下面只有前 " + String((m.text || "").length) + " 字" : "") + "）。下面是文件里的原文，不是 Ta 打给你的话；读了再接，读到什么说什么，不用逐段复述】\n" + (m.text || "")
             : m.kind === "namecard" ? "【" + uName + "把「" + (m.cardName || "某人") + "」的名片推给了你" + (m.cardTag ? "（名片上写着：" + m.cardTag + "）" : "")
               + "——像微信里「推荐给朋友」。认不认识这个人、想不想加、会不会好奇或者吃醋，照你自己的人设和你俩的关系来；你们之间本来有什么交集，就照那层交集说】"
+            : m.kind === "pat" && m.patSelf ? "【对方（之前）用微信「拍一拍」拍了拍【她自己】，不是拍你（屏幕上那一行：「" + String(m.content || "").replace(/^你拍了拍/, uName + " 拍了拍") + "」）（自己逗自己的小动作，不是一句话）——看见了要不要接、怎么接，照你的人设和当下心情】"
             : m.kind === "pat" ? "【对方（之前）用微信「拍一拍」戳了你一下（屏幕上那一行：「" + String(m.content || "").replace(/^你拍了拍\s*/, uName + " 拍了拍 ") + "」）（隔着屏幕逗你/求关注的小动作，不是一句话）——要不要理会、要不要提起，【完全看你的人设和当下心情】：爱闹/在意 Ta 的可以回拍、调侃、明知故问「戳我干嘛」；高冷、正忙、没在意的完全可以当没看见、根本不提也行。有反应就反应，自然就好】"
             : qpfx + m.content) + (roomClockOn ? vAnchor(m.content, m.ts, charId) : "")
             + (m.theirStick && (m.theirStick.emoji || m.theirStick.keyword) ? "\n【你往她这句上贴过一个 " + (m.theirStick.emoji || "表情包「" + m.theirStick.keyword + "」") + "；这是你做过的、真实发生过的事，不是谁说的话】" : "");
@@ -22026,6 +22036,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   const groupHistLineStk = m => { const b = groupHistLine(m); return b && String(b).trim() ? b + groupStickNote(m) : b; };
   const groupHistLine = m => m.kind === "pat" && m.role === "assistant"
     ? "【" + (m.senderName || "某人") + " 用「拍一拍」戳了 " + (m.patToName || "某人") + " 一下（隔着屏幕的小动作，不是一句话）】"
+    : m.kind === "pat" && m.patSelf
+    ? "【" + userName(profile) + " 用「拍一拍」拍了拍自己（屏幕上那一行：「" + String(m.content || "").replace(/^你/, userName(profile)) + "」，自己逗自己的小动作，不是一句话）】"
     : m.kind === "pat"
     ? "【" + userName(profile) + " 用「拍一拍」戳了 " + (((characters.find(c => c.id === m.patTo) || {}).name) || "某人") + " 一下：" + String(m.content || "").replace(/^你/, userName(profile)) + "（隔着屏幕的小动作，不是一句话）】"
     : m.dramaOn
@@ -33806,6 +33818,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     // 点名片：去那个人的通讯录页；返回回到这儿
     onOpenNameCard: id => { const c = (characters || []).find(x => x && x.id === id); if (!c) return; setContactBack(activeChar.id); setActiveChar(c); setScreen("contact"); },
     onPat: () => patChar(activeChar.id, window.ChatRooms ? window.ChatRooms.chatKey(activeChar.id, activeRoomId) : activeChar.id),
+    onPatSelf: () => patSelf(activeChar.id, window.ChatRooms ? window.ChatRooms.chatKey(activeChar.id, activeRoomId) : activeChar.id),
     onStartCall: m => callCharGated(activeChar, m),
     // 半窗：只在主聊天里有（小房间是另一条线，先不跟出去）；开了就回主屏，上面随便翻
     onHalfWin: activeRoomId === "main" ? () => { setHalfWin({ charId: activeChar.id }); setScreen("home"); } : null,
@@ -34377,6 +34390,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     openUnread: gOpenUnread && gOpenUnread.id === activeGroup.id ? gOpenUnread.n : 0,
     onOpenUnreadDone: () => setGOpenUnread(null),
     onPatMember: cid => patGroupMember(activeGroup.id, cid),
+    onPatSelf: () => patGroupSelf(activeGroup.id),
     // 群里谁的开关都算数——和请求那一头（gCtx.wantReasoning）同一条判据
     showReason: (activeGroup.memberIds || []).some(id => !!settingsFor(id).showReasoning),
     group: groups.find(g => g.id === activeGroup.id) || activeGroup,

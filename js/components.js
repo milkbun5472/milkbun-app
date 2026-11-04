@@ -11336,6 +11336,7 @@ function ChatThread({
   onRestoreOffline,
   onSendRich,
   onPat,
+  onPatSelf,
   onStartCall,
   onCallBack,
   onAskCouple,
@@ -11781,6 +11782,9 @@ function ChatThread({
   const avTapRef = useRef({ t: 0, timer: null });
   // 消息行左右TA那颗头像：气泡、表情包、卡片、正在输入共用这一份（挪到这一层，正在输入那行也够得着）
   const charAvEl = () => h("button", { onClick: avTap(onOpenState), className: "shrink-0 active:opacity-70", title: "查看 " + cName + " 的心声", "data-wk": "avatar" }, h(Avatar, { character: character, size: 40, radius: 10 }));
+  // 双击自己的头像＝拍拍自己（她 2026-11-04）：跟拍TA同一种 pat 消息，只是拍的是自己
+  const meTapRef = useRef(0);
+  const meTap = e => { if (e && e.stopPropagation) e.stopPropagation(); const now = Date.now(); if (now - meTapRef.current < 260) { meTapRef.current = 0; if (onPatSelf) onPatSelf(); return; } meTapRef.current = now; };
   const avTap = single => e => {
     if (e && e.stopPropagation) e.stopPropagation();
     const r = avTapRef.current, now = Date.now();
@@ -12063,7 +12067,7 @@ function ChatThread({
     //   新卡片要进聊天：在这儿套上头像，再把 kind 写进 CARD_PRESS_KINDS。
     // 消息行左右那颗头像：文字气泡、表情包、各种卡片全用这一份（她 2026-10-27：表情包那行的头像没套头像框、点了也开不了状态卡）。
     //   跟文字气泡那颗一模一样：TA 那颗是按钮（单击看状态、双击拍一拍），我这颗是一层 span；挂点都是 data-wk="avatar"
-    const meAvEl = () => dsp.myAvatar ? h("span", { "data-wk": "avatar", className: "shrink-0", style: { display: "inline-flex" } }, h(Avatar, { character: meAv, size: 40, radius: 10 })) : null;
+    const meAvEl = () => dsp.myAvatar ? h("span", { onClick: meTap, "data-wk": "avatar", className: "shrink-0", style: { display: "inline-flex" } }, h(Avatar, { character: meAv, size: 40, radius: 10 })) : null;
     const cardRow = (i, m, card) => {
       const isU = m.role === "user";
       // data-kind：卡片挂点 card 全 App 二十几处共用，靠外面这一行认出是哪一种卡（她 2026-10-13：改一处牵扯别处）
@@ -12511,7 +12515,7 @@ function ChatThread({
       }
     }, m.dir === "toChar" ? "转账" : "转账给你"))) : (isU && m.parenAct ? h(ParenActText, { text: m.content }) : h(TransText, { text: m.content, isU: isU, zhReady: m.zh }))), msgFoot(i, m, !selMode && !m.kind && last && subLine(m))),
     // 她自己那颗也包一层挂点壳：头像框/挂件要叠在壳上（头像本身裁成圆角，叠在里面会被裁掉）——跟 TA 那颗外面的按钮同一个位置
-    isU && dsp.myAvatar && h("span", { "data-wk": "avatar", className: "shrink-0", style: { display: "inline-flex" } }, h(Avatar, { character: meAv, size: 40, radius: 10 })), m.blocked && h(isU && bk.theyBlocked ? "button" : "div", {
+    isU && dsp.myAvatar && h("span", { onClick: meTap, "data-wk": "avatar", className: "shrink-0", style: { display: "inline-flex" } }, h(Avatar, { character: meAv, size: 40, radius: 10 })), m.blocked && h(isU && bk.theyBlocked ? "button" : "div", {
       onClick: (isU && bk.theyBlocked) ? () => setUnblockDraft(String(m.content || "")) : undefined,
       title: (isU && bk.theyBlocked) ? "点这里写一句话，求 TA 解除拉黑" : "拉黑中",
       "data-wk": "blockdot",
@@ -20204,6 +20208,7 @@ function GroupThread({
   onToggleSameRoom,
   onOpenMemberState,
   onPatMember,
+  onPatSelf,
   canPeekMember,
   onStartPoll,
   onStartAsk,   // 请示批条（2026-10-29）：长在投票卡身上，大家投准或驳
@@ -20432,7 +20437,9 @@ function GroupThread({
       background: mu ? "#8a8a8a" : r === "owner" ? "#d99a2b" : "#4a86c0", color: "#fff" } }, mu ? "禁" : r === "owner" ? "主" : "管");
   };
   // 群里我自己那颗：文字气泡、红包、卡片全用这一份（她 2026-10-27：卡片那行没挂头像挂点，头像框套不上）
-  const gMeAvEl = (size, radius) => gsp.showMyAvatar ? h("span", { "data-wk": "avatar", className: "shrink-0", style: { display: "inline-flex" } }, h(Avatar, { character: meAv, size: size, radius: radius })) : null;
+  const gMeTapRef = useRef(0);
+  const gMeTap = e => { if (e && e.stopPropagation) e.stopPropagation(); const now = Date.now(); if (now - gMeTapRef.current < 260) { gMeTapRef.current = 0; if (onPatSelf) onPatSelf(); return; } gMeTapRef.current = now; };
+  const gMeAvEl = (size, radius) => gsp.showMyAvatar ? h("span", { onClick: gMeTap, "data-wk": "avatar", className: "shrink-0", style: { display: "inline-flex" } }, h(Avatar, { character: meAv, size: size, radius: radius })) : null;
   const mAvatar = (character, size) => (canPeek && canPeek(character) && character && character.id)
     ? h("button", { "data-wk": "avatar", onClick: gAvTap(character.id, () => onOpenMemberState(character.id)), className: "active:opacity-60", style: { position: "relative", flexShrink: 0, lineHeight: 0, padding: 0, border: "none", background: "none" }, title: "看 " + (character.name || "") + " 的心声" }, h(Avatar, { character: character, size: size || 34, radius: 8 }), gAvBadge(character))
     // 包一层挂点壳：头像框/挂件叠在壳上（头像自己裁圆角，叠在里面会被裁掉）——跟单聊那颗同一个做法
