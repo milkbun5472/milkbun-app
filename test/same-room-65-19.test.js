@@ -220,7 +220,7 @@ test("群聊也接上了：谁变了谁那几泡前面出一行，没变的不�
   // ⚠️这儿原来钉的是整串参数表，群设置每加一项（v75.612 的「我在这个群里的头像」就是）
   //   就断一次——那正是 anchor-on-code.md 说的「不许钉整行参数表」。
   //   要守的是：存的时候动描那三项跟着一起存（漏一项＝开关点了不生效）。
-  const gSave = comp.slice(comp.indexOf("onSave({ actLong: gActLong"));
+  const gSave = comp.slice(comp.indexOf("actLong: gActLong, keepRerolls"));
   const gSaveArgs = gSave.slice(0, gSave.indexOf("});"));
   ["actDesc: gActDesc", "actPerson: gActPerson", "userPerson: gUserPerson"].forEach(k =>
     assert.ok(gSaveArgs.includes(k), "群设置存的时候漏了 " + k));
