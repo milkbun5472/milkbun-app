@@ -17894,7 +17894,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   const stampCtx = (char, cards) => { const x = ctxFor(char, { loreScope: "offline" }); return (cards || []).every(STAMP_FREE_FIT) ? Object.assign({}, x, { carryLog: "" }) : x; };
   // 写卡的 JSON 坏了多半是正文里带了没转义的英文引号或换行（她 2026-11-05：「解析失败：{"cards":[{"name":"月圆夜的狼爪"…」）：
   //   逐字走一遍，在字符串里碰到的引号后面不是 , } ] : 的，就当成正文里的引号转义掉；换行转成 \n
-  const stampLooseJSON = raw => {
+  const stampLooseJSON = (raw, noSplit) => {
     let t = String(raw || ""); const a = t.indexOf("{"), b = t.lastIndexOf("}"); if (a < 0 || b <= a) return null; t = t.slice(a, b + 1);
     let out = "", inStr = false;
     for (let i = 0; i < t.length; i++) {
@@ -17909,7 +17909,14 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       if (inStr && (ch === "\n" || ch === "\r")) { out += "\\n"; continue; }
       out += ch;
     }
-    try { return JSON.parse(out); } catch (e) { return null; }
+    try { return JSON.parse(out); } catch (e) {}
+    if (noSplit) return null;
+    // 还不行（多半是写到后面被截断，或者中间某一张写坏了）：按 {"name": 一张张切开，每张从后往前找能解开的那一截。
+    //   好的几张照收，坏的、没写完的那张不要——它没 name/正文，下一轮照常重写（她 2026-11-05：「生成没生成出来：解析失败」）
+    const one = seg => { for (let e = seg.lastIndexOf("}"); e > 0; e = seg.lastIndexOf("}", e - 1)) { const o2 = stampLooseJSON(seg.slice(0, e + 1), true); if (o2 && typeof o2 === "object" && !Array.isArray(o2) && o2.name) return o2; } return null; };
+    // ⚠️坏的那张留个空位：写回时是按第几张对第几张的，删掉它后面的就全错位了
+    const cards = String(raw || "").split(/(?=\{\s*"name"\s*:)/).slice(1).map(one);
+    return cards.some(Boolean) ? { cards } : null;
   };
   const stampWriteSmall = async (char, list) => {
     list.forEach(c => stampSaveCard(c.id, { writing: true, writingTs: Date.now(), queued: false, err: "" }));
