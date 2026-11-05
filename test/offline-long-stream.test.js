@@ -31,8 +31,10 @@ test("流式是安全替换：中转不支持会自动退回普通解析", () =>
 
 test("Load failed 要翻译成人话，并给出下一步", () => {
   assert.match(engine, /load failed\|failed to fetch\|network\\s\*error/i);
-  assert.match(engine, /多半是这次要写得太长、久久没有首字节，被网关当成死连接掐断/);
-  assert.match(engine, /把线下的「最低字数」调低一些分两次写、或者重试一次/, "得给她能动手的下一步");
+  // ⚠️别再钉整句文案（施工规则/anchor-on-code）：这段话后来被拆成三条原因重写过一次，
+  //   测试却还钉着旧的那一整句，于是红了很久也没人认领。现在只钉【这条原因在不在】。
+  assert.match(engine, /久久没有首字节，被网关当成死连接掐断/);
+  assert.match(engine, /最低字数.{0,12}调低/, "得给她能动手的下一步");
   // 超时那条原有的分支不许被挤掉
   assert.match(engine, /if \(e && e\.name === "AbortError"\) throw new Error\("请求超时/);
 });
@@ -62,7 +64,9 @@ test("只有真发得出流式的线路才算数", () => {
   assert.equal(canStream({ baseUrl: "https://api.xxx.com/v1" }), true, "普通 OpenAI 中转");
   assert.equal(canStream({ baseUrl: "https://api.xxx.com/v1", proxyRef: "DZZI" }), true, "保险柜 v55.64 起流式透传");
   assert.equal(canStream({ baseUrl: "https://api.anthropic.com" }), false, "言秋那条没实现 SSE");
-  assert.equal(canStream({ baseUrl: "https://generativelanguage.googleapis.com" }), false);
+  // v89.115：谷歌原生那条接上 :streamGenerateContent?alt=sse 了，所以这儿从 false 翻成 true。
+  //   （她 2026-11-05「为啥感觉比中转还慢」——慢的不是谷歌，是这条路原来只会一次性接口。）
+  assert.equal(canStream({ baseUrl: "https://generativelanguage.googleapis.com" }), true, "谷歌原生 SSE");
   assert.equal(canStream(null), false);
 });
 

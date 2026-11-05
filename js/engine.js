@@ -17,7 +17,10 @@ function routeCanStream(p) {
   // 云端密钥保险柜（llm-proxy）v55.64 起流式透传，不再整个缓冲，所以它也能流了。
   // ⚠️这要求 supabase/functions/llm-proxy 已经重新部署过；没部署的话最坏情况是
   // 跟以前一样攒到最后一起发，不会更糟。
-  return detectFormat(p) === "openai";
+  // gemini 原生那条 v89.115 起也会流了（:streamGenerateContent?alt=sse）。
+  // 在那之前它只能走一次性接口：总时长其实不输中转，但首字要等整条写完才出现，所以体感慢一倍。
+  const _f = detectFormat(p);
+  return _f === "openai" || _f === "gemini";
 }
 function detectFormat(u) {
   // ⚠️线路方言只认 baseUrl，绝不按 model/proxyRef 猜（2026-08-12 全天 Load failed 血案）：
@@ -538,6 +541,63 @@ async function fetchT(url, options, ms) {
 
 // 共用请求诊断：手动开启后抓单聊及既有线下入口的最终 body，不新增调用。
 // 不记录 headers / API key；图片正文替换成占位。仅驻 window 内存，刷新即清空。
+// ⚠️SSE 收流只许有这一份（施工规则/one-public-mechanism）：openai 和 gemini 两条方言共用
+//   同一条管道——静默超时、总时限、半行缓冲、取消 reader 都在这儿，方言只管读懂自己那一行。
+//   两边的分寸不一样，所以留了 hooks，不是抹平成一种：openai 那头的网关在收尾之后还可能
+//   补一个独立的 usage 尾包，要再等一秒（tail）；gemini 的流自己会 EOF，不用等。
+//   fetchT 只管到响应头，此后 reader.read() 原本裸奔——桥/网关半路断线不抛错时气泡永远转圈。
+//   静默超时=每收到一段数据就重置（桥每 15s 有心跳，90s 静默≈连丢 6 次心跳，判死）；
+//   总时限只防无限滴漏，给足长思考。
+async function pumpSSE(r, opts, consume, hooks) {
+  const reader = r.body.getReader(), decoder = new TextDecoder();
+  const stop = (hooks && hooks.stop) || (() => false);
+  const tail = (hooks && hooks.tail) || (() => null);
+  const cancelReader = () => { try { Promise.resolve(reader.cancel()).catch(() => {}); } catch (e) {} };
+  const SILENCE_MS = (opts && opts.streamSilenceMs) || 90000;
+  const TOTAL_MS = (opts && opts.streamTotalMs) || 600000;
+  const t0 = Date.now();
+  let pending = "";
+  while (true) {
+    // 协议结束不等于 TCP 断开。网关可能在说完之后仍保持连接，不能继续占住发送锁。
+    const grace = tail();
+    if (stop() || grace === 0) { cancelReader(); break; }
+    if (Date.now() - t0 > TOTAL_MS) {
+      cancelReader();
+      throw new Error("流式回复超过总时限（" + Math.round(TOTAL_MS / 60000) + " 分钟），已断开——请重试");
+    }
+    let silenceTimer;
+    let chunk;
+    try {
+      chunk = await Promise.race([
+        reader.read(),
+        new Promise((resolve, rej) => { silenceTimer = setTimeout(() => grace != null ? resolve({ done: true, finished: true }) : rej(new Error("__stream_silence__")), grace != null ? grace : SILENCE_MS); })
+      ]);
+    } catch (e) {
+      cancelReader();
+      if (String(e && e.message).indexOf("__stream_silence__") >= 0) throw new Error("流式回复中途静默超过 " + Math.round(SILENCE_MS / 1000) + " 秒（桥或网关可能断了），已断开——请重试");
+      throw e;
+    } finally { clearTimeout(silenceTimer); }
+    if (chunk.done) { if (chunk.finished) cancelReader(); break; }
+    pending += decoder.decode(chunk.value, { stream: true });
+    const lines = pending.split(/\r?\n/); pending = lines.pop() || "";
+    lines.forEach(consume);
+  }
+  if (pending) consume(pending);
+}
+// ⚠️用量回显只许在这一处落库（施工规则/one-public-mechanism）：anthropic / openai / gemini
+//   三条方言各自把自家的字段名翻成同一张表，推进 window.__usage、裁到 30 条、装 __cacheStat、
+//   回填调用记录那一行要的 _tok，都只在这儿做。各写一份的话，下次加一列就只改得动其中一处。
+//   ⚠️线路没回 usage 就不填 _tok——不编数（一个记错的数比一个诚实的空白有害得多）。
+function recordUsage(rec, opts, tok) {
+  try {
+    if (tok && opts) opts._tok = tok;
+    if (typeof window === "undefined") return rec;
+    (window.__usage = window.__usage || []).push(rec);
+    if (window.__usage.length > 30) window.__usage.shift();
+    if (!window.__cacheStat) window.__cacheStat = () => { const a = window.__usage || []; const s = a.reduce((o, r) => { o.cr += r.cr; o.cw += r.cw; o.in += r.in; o.hit += r.cr > 0 ? 1 : 0; return o; }, { cr: 0, cw: 0, in: 0, hit: 0 }); const _phs = new Set(a.map(r => r.ph).filter(x => x != null)); return "近" + a.length + "次调用：命中缓存 " + s.hit + " 次｜累计 读缓存(一折)" + s.cr + " 写缓存" + s.cw + " 新输入" + s.in + " tok｜前缀指纹 " + _phs.size + " 种(越少越稳)"; };
+  } catch (e) {}
+  return rec;
+}
 function captureWirePayload(fmt, url, body, opts, attempt) {
   if (typeof window === "undefined" || !window.__offlineWireCaptureEnabled || !opts || (opts.wireScope !== "offline" && opts.tag !== "聊天")) return;
   const scrub = (key, value) => {
@@ -1178,8 +1238,6 @@ async function callAIOnce(p, system, messages, opts) {
         historyBreakpoint: _hasAssistantBreakpoint,
         usageReported: _usageReported
       };
-      // 调用记录那一行要显示的 token（她 2026-10-09）：交回 callAI 那头记账。线路没回 usage 就不填，不编数
-      if (d.usage) opts._tok = { in: rec.in + rec.cr + rec.cw, out: rec.out, cr: rec.cr };
       // 前缀指纹（诊断「连着聊也不命中」，她 2026-07-13 抓的）：缓存的稳定前缀每轮该完全一样；
       // 指纹每轮都变=前缀被某处每轮污染了，那才是没命中的真因（而非有效期/线路）。plen=前缀字符数。
       // ⭐只诊断【主聊天(cacheHist)】那类调用：日记/交换日记等后台生成 prompt 完全不同，若也参与就会污染指纹种类，
@@ -1192,9 +1250,9 @@ async function callAIOnce(p, system, messages, opts) {
         // 前缀和上一次(同为缓存前缀的)聊天比：pfxSame=false 就是这轮前缀变了。一次性变=只 1 处 false；每轮 churn=处处 false。
         if (typeof window !== "undefined" && rec.ph != null) { rec.pfxSame = (window.__ljph != null ? window.__ljph === rec.ph : null); window.__ljph = rec.ph; }
       }
+      // 调用记录那一行要显示的 token（她 2026-10-09）：交回 callAI 那头记账。线路没回 usage 就不填，不编数
+      recordUsage(rec, opts, d.usage ? { in: rec.in + rec.cr + rec.cw, out: rec.out, cr: rec.cr } : null);
       if (typeof window !== "undefined") {
-        (window.__usage = window.__usage || []).push(rec); if (window.__usage.length > 30) window.__usage.shift();
-        if (!window.__cacheStat) window.__cacheStat = () => { const a = window.__usage || []; const s = a.reduce((o, r) => { o.cr += r.cr; o.cw += r.cw; o.in += r.in; o.hit += r.cr > 0 ? 1 : 0; return o; }, { cr: 0, cw: 0, in: 0, hit: 0 }); const _phs = new Set(a.map(r => r.ph).filter(x => x != null)); return "近" + a.length + "次 anthropic 调用：命中缓存 " + s.hit + " 次｜累计 读缓存(一折)" + s.cr + " 写缓存" + s.cw + " 新输入" + s.in + " tok｜前缀指纹 " + _phs.size + " 种(越少越稳)"; };
         if (rec.cr || rec.cw) console.log("[缓存] 读" + rec.cr + " 写" + rec.cw + " 新输入" + rec.in + " 输出" + rec.out + " tok 指纹" + (rec.ph || "-") + (rec.cr ? "（命中！读的部分只按一折收）" : "（首次/过期/前缀变了→写缓存，命中后 1 小时内读就省）"));
       }
     } catch (e) {}
@@ -1224,7 +1282,13 @@ async function callAIOnce(p, system, messages, opts) {
       role: m.role === "assistant" ? "model" : "user",
       parts: m._geminiParts || [{ text: m.content }]
     }));
-    const postGemini = async () => {
+    // 流式（她 2026-11-05「为啥感觉比中转还慢」）：慢的不是谷歌，是这条路原来只会一次性接口——
+    //   必须等整条写完才一起吐出来，于是前十几秒是纯黑屏，而中转站一秒就开始蹦字。
+    //   带工具时不走流式：functionCall 的参数在 SSE 里是一片片的 delta，要自己按 index 拼，
+    //   拼错就是调错工具——跟 openai 那条路同一个取舍。工具回合也照样走一次性接口。
+    const gWantStream = !!(opts && (opts.stream || opts.onDelta)) && !gTools && !(typeof streamOffFor === "function" && streamOffFor(p));
+    let _gStreamTried = false, _gStreamGot = false;
+    const postGemini = async (stream) => {
       const gBody = {
         system_instruction: {
           parts: [{
@@ -1241,9 +1305,11 @@ async function callAIOnce(p, system, messages, opts) {
         safetySettings: GEMINI_SAFETY_OFF
       };
       if (gTools) gBody.tools = gTools;
-      captureWirePayload("gemini", base + "/v1beta/models/" + model + ":generateContent", gBody, opts, "primary");
+      const gUrl = base + "/v1beta/models/" + model + (stream ? ":streamGenerateContent?alt=sse" : ":generateContent");
+      captureWirePayload("gemini", gUrl, gBody, opts, stream ? "stream" : "primary");
+      if (stream) _gStreamTried = true;
       // 走代理时函数按 ROUTES 里该引用名的 style 贴钥匙（google 原生线要 goog 头风格）
-      const r = viaProxy ? await viaProxy(base + "/v1beta/models/" + model + ":generateContent", gBody, {}) : await fetchT(base + "/v1beta/models/" + model + ":generateContent", {
+      const r = viaProxy ? await viaProxy(gUrl, gBody, {}) : await fetchT(gUrl, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -1251,9 +1317,48 @@ async function callAIOnce(p, system, messages, opts) {
         },
         body: JSON.stringify(gBody)
       }, reqTimeout);
-      return await readAIJSON(r);
+      // 报错时谷歌回的是普通 JSON（不是 event-stream），同一个响应直接按 JSON 读，不用再发一枪。
+      if (!(stream && /text\/event-stream/i.test((r.headers && r.headers.get("content-type")) || ""))) return await readAIJSON(r);
+      // 收完之后拼回跟一次性接口【一模一样】的形状，底下的 partsOf / 思考过滤 / 工具回合一个字都不用改。
+      const acc = [];
+      let gErr = null, gUsage = null, gModel = "", gFinish = "", gDone = false;
+      const consume = line => {
+        if (gDone || !line.startsWith("data:")) return;
+        const raw = line.slice(5).trim();
+        if (!raw) return;
+        if (raw === "[DONE]") { gDone = true; return; }
+        let ev; try { ev = JSON.parse(raw); } catch (e) { return; }
+        if (ev.error) { gErr = ev.error; gDone = true; return; }
+        if (ev.modelVersion && !gModel) gModel = String(ev.modelVersion);
+        if (ev.usageMetadata) gUsage = ev.usageMetadata;
+        const cand = ev.candidates && ev.candidates[0];
+        if (cand && cand.finishReason) gFinish = cand.finishReason;
+        ((cand && cand.content && cand.content.parts) || []).forEach(part => {
+          if (!part) return;
+          if (typeof part.text !== "string") { acc.push(part); return; }
+          // 思考和正文各攒各的：中间夹着的思考片段不能跟正文接成一段，否则底下那层过滤分不开。
+          const last = acc[acc.length - 1];
+          if (last && typeof last.text === "string" && !last.thought === !part.thought) last.text += part.text;
+          else acc.push(Object.assign({}, part));
+          if (!part.thought) {
+            _gStreamGot = true;
+            try { if (opts && typeof opts.onDelta === "function") opts.onDelta(part.text, acc.filter(x => !x.thought).map(x => x.text || "").join("")); } catch (e) {}
+          }
+        });
+      };
+      await pumpSSE(r, opts, consume, { stop: () => gDone });
+      if (gErr) return { error: gErr };
+      return { candidates: [{ content: { parts: acc }, finishReason: gFinish || "STOP" }], usageMetadata: gUsage || null, modelVersion: gModel };
     };
-    let d = await postGemini();
+    // 流式一发就被线路拒了（还没开始吐字）：退回一次给完再发一遍；这一遍成了就记住这条线路＋模型以后不走流式。
+    //   已经开始吐字之后才断的不重发——那种可能已经扣了钱。
+    let d;
+    if (gWantStream) {
+      try { d = await postGemini(true); } catch (e) { if (_gStreamGot) throw e; d = { error: { message: String((e && e.message) || e) } }; }
+      if (d && d.error && !_gStreamGot) { const d2 = await postGemini(false); if (!d2.error) { streamLearnOff(p); d = d2; } }
+    } else {
+      d = await postGemini(false);
+    }
     if (d.error) throw new Error(d.error.message || d.error.msg || (typeof d.error === "string" ? d.error : "站子报错：" + JSON.stringify(d.error).slice(0, 300)));
     const partsOf = x => x && x.candidates && x.candidates[0] && x.candidates[0].content && x.candidates[0].content.parts || [];
     let _calls = 1;
@@ -1281,6 +1386,21 @@ async function callAIOnce(p, system, messages, opts) {
       }
     }
     if (_meta) _meta.calls = _calls;
+    // 用量回显（她 2026-11-05 接官方直连时发现这条路的花费一直是空的）：谷歌把数字放在
+    //   usageMetadata 里，字段名跟另外两条方言各不相同，在这儿翻成同一张表交给 recordUsage。
+    //   promptTokenCount 本来就含着缓存命中那部分，不用再加；思考也是按输出收的，算进 out。
+    try {
+      const ug = d.usageMetadata || null;
+      const gIn = (ug && ug.promptTokenCount) || 0;
+      const gOut = ((ug && ug.candidatesTokenCount) || 0) + ((ug && ug.thoughtsTokenCount) || 0);
+      const gCr = (ug && ug.cachedContentTokenCount) || 0;
+      recordUsage({
+        t: Date.now(), model, ch: false,
+        in: gIn, out: gOut, cr: gCr, cw: 0,
+        bridge: !!p.proxyRef, cacheRequested: false, systemBreakpoint: false, historyBreakpoint: false,
+        usageReported: !!ug
+      }, opts, ug ? { in: gIn, out: gOut, cr: gCr } : null);
+    } catch (e) {}
     _served(d.modelVersion || d.model);
     const parts = partsOf(d);
     _putMeta(parts.filter(x => x && x.thought).map(x => x.text || "").join("\n"), "gemini:thought");
@@ -1315,9 +1435,7 @@ async function callAIOnce(p, system, messages, opts) {
       body: JSON.stringify(body)
     }, reqTimeout);
     if (wantStream && /text\/event-stream/i.test(r.headers.get("content-type") || "")) {
-      const reader = r.body.getReader(), decoder = new TextDecoder();
-      let pending = "", text = "", usage = null, error = null, sseModel = "", streamDone = false, finishAt = 0, finishReason = "stop";
-      const cancelReader = () => { try { Promise.resolve(reader.cancel()).catch(() => {}); } catch (e) {} };
+      let text = "", usage = null, error = null, sseModel = "", streamDone = false, finishAt = 0, finishReason = "stop";
       const consume = line => {
         if (streamDone || !line.startsWith("data:")) return;
         const raw = line.slice(5).trim();
@@ -1335,38 +1453,11 @@ async function callAIOnce(p, system, messages, opts) {
         if (event.usage) usage = event.usage;
         if (event.model && !sseModel) sseModel = String(event.model);
       };
-      // 流式超时分型(审计一刀·三审定):fetchT 只管到响应头,此后 reader.read() 原本裸奔——
-      // 桥/网关半路断线不抛错时气泡永远转圈。静默超时=每收到一段数据就重置(桥每 15s 有心跳,
-      // 90s 静默≈连丢 6 次心跳,判死);总时限只防无限滴漏,给足长思考。
-      const SILENCE_MS = (opts && opts.streamSilenceMs) || 90000;
-      const TOTAL_MS = (opts && opts.streamTotalMs) || 600000;
-      const t0 = Date.now();
-      while (true) {
-        // 协议结束不等于 TCP 断开。网关可能在 [DONE] 后仍保持连接，不能继续占住发送锁。
-        // 只有 finish_reason 的兼容线路，留一秒接独立 usage 尾包；心跳不能延长这段收尾。
-        if (streamDone || (finishAt && Date.now() - finishAt >= 1000)) { cancelReader(); break; }
-        if (Date.now() - t0 > TOTAL_MS) {
-          cancelReader();
-          throw new Error("流式回复超过总时限（" + Math.round(TOTAL_MS / 60000) + " 分钟），已断开——请重试");
-        }
-        let silenceTimer;
-        let chunk;
-        try {
-          chunk = await Promise.race([
-            reader.read(),
-            new Promise((resolve, rej) => { silenceTimer = setTimeout(() => finishAt ? resolve({ done: true, finished: true }) : rej(new Error("__stream_silence__")), finishAt ? Math.max(0, 1000 - (Date.now() - finishAt)) : SILENCE_MS); })
-          ]);
-        } catch (e) {
-          cancelReader();
-          if (String(e && e.message).indexOf("__stream_silence__") >= 0) throw new Error("流式回复中途静默超过 " + Math.round(SILENCE_MS / 1000) + " 秒（桥或网关可能断了），已断开——请重试");
-          throw e;
-        } finally { clearTimeout(silenceTimer); }
-        if (chunk.done) { if (chunk.finished) cancelReader(); break; }
-        pending += decoder.decode(chunk.value, { stream: true });
-        const lines = pending.split(/\r?\n/); pending = lines.pop() || "";
-        lines.forEach(consume);
-      }
-      if (pending) consume(pending);
+      // 只有 finish_reason 的兼容线路，留一秒接独立 usage 尾包；心跳不能延长这段收尾。
+      await pumpSSE(r, opts, consume, {
+        stop: () => streamDone,
+        tail: () => finishAt ? Math.max(0, 1000 - (Date.now() - finishAt)) : null
+      });
       return error ? { error } : { choices: [{ message: { content: text }, finish_reason: finishReason }], usage: usage || {}, model: sseModel };
     }
     return await readAIJSON(r);
@@ -1439,8 +1530,7 @@ async function callAIOnce(p, system, messages, opts) {
       usageReported: !!d.usage
     };
     // prompt_tokens 本来就含着缓存命中那部分，不用再加
-    if (d.usage) opts._tok = { in: rec2.in, out: rec2.out, cr: rec2.cr };
-    if (typeof window !== "undefined") { (window.__usage = window.__usage || []).push(rec2); if (window.__usage.length > 30) window.__usage.shift(); }
+    recordUsage(rec2, opts, d.usage ? { in: rec2.in, out: rec2.out, cr: rec2.cr } : null);
   } catch (e) {}
   _served(d.model);
   const choice = d.choices && d.choices[0];
