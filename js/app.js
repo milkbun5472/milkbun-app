@@ -16385,6 +16385,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       }
       // 以前这里没有 else：解析不出来就【什么都不发生】——她只会看到点了没反应，
       // 连一条失败提示都没有。现在明确报出来，并带上模型到底回了什么。
+      // 还不行就一条一条捞：坏的只丢那一条，前面好好的几句照发
+      if (!Array.isArray(arr) && typeof salvageGroupLines === "function") { const _sv = salvageGroupLines(raw); if (_sv.length) arr = _sv; }
       if (!Array.isArray(arr)) {
         const t = String(raw || "").replace(/\s+/g, " ").trim();
         throw new Error("模型没按 JSON 数组输出" + (t ? "（它回的是：" + t.slice(0, 200) + (t.length > 200 ? "…" : "") + "）" : "（上游什么都没回）"));

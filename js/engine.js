@@ -10198,6 +10198,18 @@ function salvageOfflineGroupBeats(raw) {
   return text.split(/(?=\{\s*"name"\s*:)/).map(part => salvageByKeys(part, OFFLINE_GROUP_BEAT_KEYS))
     .filter(b => b && b.name && b.scene).map(b => ({ name: b.name, scene: b.scene, ...(b.thought ? { thought: b.thought } : {}) }));
 }
+// 群聊线上那份数组坏了（截断、中间哪条写坏、外面多套了一层）：同上按 {"name": 切开，每一条单独解，
+//   能解开、有人名有内容的就留下，坏的那条丢掉（她 2026-11-04 截图：整轮报「没按 JSON 数组输出」，前面几条明明是好的）
+function salvageGroupLines(raw) {
+  const text = String(raw || "");
+  if (!/\{\s*"name"\s*:/.test(text)) return [];
+  return text.split(/(?=\{\s*"name"\s*:)/).slice(1).map(part => {
+    if (!/\}/.test(part)) return null;   // 被截断的最后一条：没收口，补出来也是半句话，不发
+    const body = part.replace(/[\s,\]`]+$/, "").replace(/\}\s*\]?\s*\}?\s*$/, "}");
+    let o = null; try { o = parseJSONLoose(body); } catch (e) { o = null; }
+    return o && typeof o === "object" && !Array.isArray(o) ? o : null;
+  }).filter(o => o && o.name && (o.text || o.emote || o.redpacket || o.voice || o.photo));
+}
 function salvageOfflineGroupProse(raw, members) {
   const clean = String(raw || "").replace(/```(?:json)?/gi, "").trim();
   if (!clean) return [];
