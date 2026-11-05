@@ -19293,6 +19293,11 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   // 本体模式的角色不排日程：TA是 AI 本人，没有一天要过——编出来的行程就是在替TA演一个人。
   //   言秋不在此列：TA那份是「存在时间线」，写的是TA在电脑那一端真在做的事。
   const noSchedFor = char => !!(char && settingsFor(char.id).bodyMode && !settingsFor(char.id).engineerEyes);
+  // 排日程时一直记着的那句（群友 2026-11-04：「许愿日程那里可以添一个常驻提示词吗？每次都要重打」）：
+  //   每个人一份，存 x_schedKeep；自动排、手动排、单天排都带上。只给方向，跟「许愿」一个分寸
+  const schedKeepOf = id => { try { return String(((loadJSON("x_schedKeep", {}) || {})[id]) || "").trim(); } catch (e) { return ""; } };
+  const schedKeepSet = (id, v) => { const m = loadJSON("x_schedKeep", {}) || {}; const t = String(v || "").trim().slice(0, 300); if (t) m[id] = t; else delete m[id]; saveJSON("x_schedKeep", m); };
+  const schedKeepLine = id => { const k = schedKeepOf(id); return k ? "\n【她一直希望你的日程里有的】" + k + "\n这是常年的方向，不是每天都要照单全做：哪天放得进、怎么放，照你这个人和那天的日子来。" : ""; };
   const genScheduleDay = async (char, dayKey) => {
     if (noSchedFor(char)) return false;
     if (typeof vclockUse === "function") vclockUse(char && char.id);
@@ -19347,7 +19352,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         //   模型会连那个世界一起抄走（王爷也开始在公寓里煮咖啡）。
         : characterText(char, "{\"load\":\"HIGH LOAD\",\"estTime\":22,\"seqs\":[{\"time\":\"这一段几点开始\",\"end\":\"几点结束\",\"busy\":\"这一段他顾不顾得上看手机：0 随时能看／1 偶尔瞄一眼／2 基本顾不上／3 完全碰不了（整数）\",\"title\":\"这一段他在做什么（这个身份的人真会做的具体事）\",\"location\":\"在哪儿（细到具体处所，贴着他那个世界）\",\"place\":\"这会儿他在哪个【大地方】：城／坊市／宅院这一级，要跟地图上认得出的地名对得上\",\"type\":\"从上面那几个词里挑最接近的\",\"deviation\":null},{\"time\":\"就寝那一段几点\",\"end\":\"24:00\",\"title\":\"临睡前在做什么\",\"location\":\"他睡的地方\",\"type\":\"sleep\",\"deviation\":null}]") + murmurSchema + "}";
       const rawPlan = await runProbe(bgActive, { ...ctxFor(char), worldbook: loreFor(char, "lifestyle") }, {
-        instruction: schedInstr + schedPeerBlock(char, [dayKey]) + schedMapRule(char) + "\n" + SCHED_WORLD_RULE + "\n" + SCHED_END_RULE + "\n" + SCHED_TENSE_RULE + window.CharDayLink.instruction(isDigital),
+        instruction: schedInstr + schedPeerBlock(char, [dayKey]) + schedMapRule(char) + schedKeepLine(char.id) + "\n" + SCHED_WORLD_RULE + "\n" + SCHED_END_RULE + "\n" + SCHED_TENSE_RULE + window.CharDayLink.instruction(isDigital),
         schemaHint: window.CharDayLink.schema(schedSchema, isDigital),
         maxTokens: 65000
       });
@@ -19463,7 +19468,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         + "\n【别复读已经办完的事】和用户之间【已经做过的经历、已兑现的约定】绝不要当成还没做、再排一遍。"
         // 两个人的日程要对得上：这条链本来就是 for 循环一个一个排，后排的看得见先排好的。
         // 一层只写一处——跟单天那边共用同一个 schedPeerBlock。
-        + schedPeerBlock(char, want) + schedMapRule(char)
+        + schedPeerBlock(char, want) + schedMapRule(char) + schedKeepLine(char.id)
         // 她给的方向（群友 2026-10-25）：跟重 Roll 带方向一个意思——给方向，不替他排
         + (opts && opts.wish ? "\n【她希望这几天的方向】" + String(opts.wish).slice(0, 200) + "\n照这个方向排；具体哪天几点做什么，还是照你自己这个人和你的日子来。跟你的人设、你们之间说好的事对不上的地方，以人设和说好的为准。" : "")
         + "\n" + SCHED_WORLD_RULE + "\n" + SCHED_END_RULE + "\n" + SCHED_TENSE_RULE + window.CharDayLink.instruction(isDigital);
@@ -36587,6 +36592,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     },
     // 删：单天一处、整周一处，都落到同一个 delSchedDays 上
     schedWeekKeys: schedWeekKeysFrom,
+    schedKeepOf: schedKeepOf, onSchedKeep: (c, v) => { schedKeepSet(c.id, v); toast(String(v || "").trim() ? "记下了，以后排 " + (c.remark || c.name) + " 的日程都带着" : "清掉了"); },
     onDelSchedSeq: (c, dayKey, seqNo) => {
       const n = delSchedSeq(c.id, dayKey, seqNo);
       if (n) toast("这一段删了");
