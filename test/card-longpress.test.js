@@ -2,7 +2,7 @@
 const test = require("node:test"), assert = require("node:assert/strict"), fs = require("node:fs"), path = require("node:path");
 const comp = fs.readFileSync(path.join(__dirname, "../js/components.js"), "utf8");
 test("单聊、群聊每一行都过同一个 cardPressRow；卡片长按弹同一份菜单、多选点一下就选中", () => {
-  assert.match(comp, /\.map\(_row => cardPressRow\(\(\(\{ m, i, part, last \}\) => \{/);
+  assert.match(comp, /\.map\(_row => soloStampWrap\(_row, \(\(\{ m, i, part, last \}\) => \{/);
   assert.match(comp, /row = cardPressRow\(row, _m, i, \{ selMode, startPress, endPress, toggleSel \}\);/);
   const fn = comp.slice(comp.indexOf("function cardPressRow("), comp.indexOf("function useCardPressMenu("));
   assert.match(fn, /onClickCapture: o\.selMode \?/);

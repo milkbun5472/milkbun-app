@@ -9,9 +9,15 @@ test("两边读的不是同一份日程，所以「此刻」那一句得先问�
   const now = cut("const schedNowFor = char =>", "// 结构化「此刻在做什么/在哪」");
   assert.match(now, /schedPlanOf\(char, plans\)/, "此刻那一路不再借别天了？那这条就得重写");
   assert.match(now, /const _asleepNow = \(\(\) => \{ try \{ return sleepPhaseOf\(char\) === "asleep"/);
-  assert.match(now, /if \(_asleepNow\) out \+= "\\n\\n此刻 Ta 在睡觉/);
+  assert.match(now, /if \(_asleepNow\) out \+= "\\n\\n此刻" \+ \(_hereHM \? "（你当地约 " \+ _hereHM \+ "）" : ""\) \+ " Ta 在睡觉/);
   assert.match(now, /\} else if \(cur\) out \+=|else if \(cur\) out \+=/, "睡着那一档要排在「正在做什么」前面");
 });
 test("关了时间感知的不受影响：走 sleepPhaseOf，不是直接问 charAwakeState", () => {
   assert.match(cut("const sleepPhaseOf = char =>", "const sleepToneOf"), /if \(!timeAwareFor\(char\.id\)\) return "awake";/);
+});
+
+test("睡着那两句写上 TA 当地几点（她 2026-11-04：早上快八点说成凌晨四点）", () => {
+  const a = require("fs").readFileSync(require("path").join(__dirname, "..", "js", "app.js"), "utf8");
+  assert.match(a, /const _hereHM = \(\(\) => \{ try \{ const d = new Date\(vclockNow\(char\.id\)\.getTime\(\) \+ \(typeof schedTzShiftMin === "function" \? schedTzShiftMin\(char\) : 0\) \* 60000\);/);
+  assert.match(a, /\(_hereHM \? "是你当地约 " \+ _hereHM \+ "，" : "是你当地的凌晨，"\)/);
 });

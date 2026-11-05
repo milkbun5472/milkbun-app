@@ -128,3 +128,9 @@ test("给了 map 就按换算后的时间判跨天、写文案", () => {
   const p2 = S.decide({ ts: NOW2 - 3600e3 }, { ts: NOW2 }, { now: NOW2, map: () => 0 });
   assert.equal(p2.show, false, "停住的钟：两条都在同一刻，不再隔出时刻");
 });
+test("单聊：旁白、卡片这些行前面也补中间那行时间（她 2026-11-04：前天那几句跟今天中间没有日期）", () => {
+  const c = require("fs").readFileSync(require("path").join(__dirname, "..", "js", "components.js"), "utf8");
+  assert.match(c, /const soloStampWrap = \(row, el\) => \{/);
+  assert.match(c, /if \(!el \|\| row\.part !== 0 \|\| \(el\.props && el\.props\["data-wk"\] === "msg"\)\) return out;/);
+  assert.match(c, /\}\)\.map\(_row => soloStampWrap\(_row, \(\(\{ m, i, part, last \}\) => \{/);
+});

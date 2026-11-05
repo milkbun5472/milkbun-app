@@ -11793,11 +11793,21 @@ function ChatThread({
     if (single) r.timer = setTimeout(single, 260);
   };
   const { startPress, endPress } = useLongPressMenu(setMenu, { onDoubleTap: onStickMsg ? (i => { const mm = messages[i]; if (!selMode && mm && mm.role === "assistant" && !mm.recalled) setStickAt(i); }) : null, onSwipeLeft: i => {
+
     const mm = messages[i];
     if (!mm || selMode || !menuItemsForKind(mm, false).some(g => g.indexOf("quote") >= 0) || !mm.content) return;
     setQuoted(String(mm.content));
   } });
-  useCardPressMenu(setMenu, selMode);
+  // 旁白、系统行、拍一拍、卡片这些行走的是早返回，不画中间那行时间。隔了一两天回来第一条恰好是它们时，
+  //   后面的气泡跟它比间隔，那条「前天／几月几日」就整条丢了（她 2026-11-04：16 点那几句是前天的，中间没有日期）。
+  //   跟群聊同一个补法：不是普通气泡的那一行，前面照公共判据补一条（GStampLine 同一个长相）
+  const soloStampWrap = (row, el) => {
+    const out = cardPressRow(el, row.m, row.i, { selMode, startPress, endPress, toggleSel });
+    if (!el || row.part !== 0 || (el.props && el.props["data-wk"] === "msg")) return out;
+    const st = window.ChatStamp.decide(window.ChatStamp.prevTimed(messages, row.i), row.m, { minGap: 180000,
+      map: typeof vclockMap === "function" && character ? (ts => vclockMap(ts, character.id)) : undefined });
+    return st.show ? h(React.Fragment, { key: "sst" + row.i }, h(GStampLine, { st, t }), out) : out;
+  };  useCardPressMenu(setMenu, selMode);
   const kbPadRef = useBrowserKbPad();
   return /*#__PURE__*/React.createElement("div", {
     className: "h-full flex flex-col",
@@ -12033,7 +12043,7 @@ function ChatThread({
         ...parts.map((p, k) => ({ m: { ...m, content: p }, i, part: k, last: k === parts.length - 1 }))];
     }
     return hasReasonRow(m) ? [{ m, i, part: -1, last: false }, { m, i, part: 0, last: true }] : [{ m, i, part: 0, last: true }];
-  }).map(_row => cardPressRow((({ m, i, part, last }) => {
+  }).map(_row => soloStampWrap(_row, (({ m, i, part, last }) => {
     // 居中那几行（系统行/撤回/沉默/拍一拍/旁白/通话小结）本来是【直接写在背景上】的字。
     // 素色背景上没事，一换壁纸就被图案打穿——她 2026-09-02 从记账卡起的疑，一路查下来
     // 这一类全中。跟顶栏同一个办法：设了壁纸就垫一层磨砂，没设壁纸时返回空对象、一个像素都不变。
@@ -12524,7 +12534,7 @@ function ChatThread({
       // 微信那颗红（她 2026-10-01）。原来是 t.accent——换个蓝主题，感叹号就成了蓝的，认不出是「发不出去」。
       style: { order: isU ? -1 : 1, width: 18, height: 18, borderRadius: 999, background: "#FA5151", color: "#fff", fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", cursor: (isU && bk.theyBlocked) ? "pointer" : "default" }
     }, "!")));
-  })(_row), _row.m, _row.i, { selMode, startPress, endPress, toggleSel })),
+  })(_row))),
   // 重 Roll 留下的几版：贴着 TA 最后那条气泡底下，左右翻
   !sending && !selMode && rerollNav && onRerollFlip ? h(RerollNav, { nav: rerollNav, onFlip: onRerollFlip }) : null, sending && h("div", {
     // 外面套一层 msg（她 2026-10-28：美化没跟上输入中）：头像框、挂件、藏头像那几条都写在

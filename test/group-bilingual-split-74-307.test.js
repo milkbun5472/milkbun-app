@@ -42,7 +42,7 @@ test("上一行自己已经是完整双语的不接", () => {
 });
 
 test("群里：双语开着只按换行切，劈完竖线才拆泡；单聊也接回另起一行的中译", () => {
-  assert.match(app, /: \(gBiOn \|\| !window\.GroupIdentityGuard\) \? String\(item\.text \|\| ""\)\.split\(\/\\n\+\/\) : window\.GroupIdentityGuard\.splitBubbles\(item\.text\);/);
+  assert.match(app, /: \(gBiOn \|\| !window\.GroupIdentityGuard\) \? String\(item\.text \|\| ""\)(?:\.replace\([^)]*\))?\.split\(\/\\n\+\/\) : window\.GroupIdentityGuard\.splitBubbles\((?:item\.text|String\(item\.text \|\| ""\)\.replace\([^)]*\))\);/);
   assert.match(app, /const gLines = \(gBiOn \? \(ls => joinBilingualLines\(ls, hanLangOf\(spk\)(, \{ pairNext: true \})?\)\) : \(x => x\)\)\(/);
   assert.match(app, /if \(_biParse\) words = joinBilingualLines\(words, hanLangOf\(char\)(, \{ pairNext: _bilingualOn \})?\);/);
 });

@@ -112,3 +112,10 @@ test("卡名不挂这一期的前缀；已经挂了的存的时候、开机时�
   assert.equal(f({ theme: "万圣夜", text: { name: "夜市分糖" } }).text.name, "夜市分糖");
   assert.match(src, /stampNameTidy\(typeof patch === "function" \? patch\(c\) : \{ \.\.\.c, \.\.\.patch \}\)/);
 });
+test("写卡 JSON 里正文带了英文引号也救得回来", () => {
+  const m = src.match(/const stampLooseJSON = raw => \{[\s\S]*?\n  \};/)[0];
+  const f = new Function(m.replace("const stampLooseJSON = ", "return ") )();
+  const got = f('{"cards":[{"name":"狼爪","narration":"他说"别动"\n笑了"}]}');
+  assert.strictEqual(got.cards[0].narration, '他说"别动"\n笑了');
+  assert.ok((src.match(/salvage: stampLooseJSON/g) || []).length >= 2);
+});

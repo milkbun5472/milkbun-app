@@ -4355,7 +4355,7 @@ function buildBundle(ctx, opts) {
   const memLibText = Array.isArray(ctx.memLib) ? formatMemLib(ctx.memLib) : (ctx.memLib || "");
   if (ctx.extMem && String(ctx.extMem).trim()) parts.push("【外置记忆库·这一轮搜到的（她在别处也用着这份记忆；跟上面的记忆是同一段人生，对不上时以聊天里发生的为准）】\n" + String(ctx.extMem).trim());
   if (memLibText && memLibText.trim()) parts.push("【记忆库·相关条目（你和 " + uName + " 之间沉淀的关键事实，请自然记住并保持一致）】\n" + memLibText.trim() + "\n⚠️这些是【背景】、不是要你照演一遍的剧本：记住它们只为【前后连贯】，绝不是要你去【复刻】里头那些具体的事——别因为记忆里做过某道菜、说过某句话、有过某个举动，就每次都重复同一道菜／同一句招牌话／同一个动作。生活是往前走的，这一刻该有这一刻新的、具体的内容；记忆用来「不忘」、不是用来「重演」。");
-  if (ctx.groupEcho && ctx.groupEcho.trim()) parts.push("【你也在这些群里·群里最近发生的事（真实发生过，你在场、都知道）】\n下面是你所在群聊最近的对话，你都亲历、记得。\n**关键：群记录里那个发言的「" + uName + "」，就是【此刻正在跟你单独聊天的这个人（TA）】——不是别的谁。** 所以 TA 刚在群里说过/做过的事（比如说要去上班、说了什么计划），你【当然知道】，现在跟 TA 单聊时要接得上，别自相矛盾（比如 TA 群里刚说去上班、你却在私聊里问 TA『醒啦睡得好吗』这种明显没在听的话）。聊到相关的自然想起、回应、调侃即可，但别没头没脑硬把群聊内容整段倒出来。\n" + ctx.groupEcho.trim());
+  if (ctx.groupEcho && ctx.groupEcho.trim()) parts.push("【你也在这些群里·群里最近发生的事（真实发生过，你在场、都知道）】\n下面是你所在群聊最近的对话，你都亲历、记得。\n**关键：群记录里那个发言的「" + uName + "」，就是【此刻正在跟你单独聊天的这个人（TA）】——不是别的谁。** 所以 TA 刚在群里说过/做过的事（比如说要去上班、说了什么计划），你【当然知道】，现在跟 TA 单聊时要接得上，别自相矛盾（比如 TA 群里刚说去上班、你却在私聊里问 TA『醒啦睡得好吗』这种明显没在听的话）。标着「她那时不在这个群里」的那几行，是她不在群里的时候说的，她看不到：那些事只有你们群里的人知道，她要是问起相关的事，是她从别处听说或随口一问，别当成她看过群聊记录。\n聊到相关的自然想起、回应、调侃即可，但别没头没脑硬把群聊内容整段倒出来。\n" + ctx.groupEcho.trim());
   if (ctx.groupOfflineEcho && ctx.groupOfflineEcho.trim()) parts.push("【你和大家最近的多人线下相处·带时间戳（真实发生过，你在场、都记得）】\n下面是你参加过的群线下（大家面对面相处）最近的片段，你亲历、记得。里头那个『" + uName + "』就是此刻跟你单聊的这个人。按方括号里的真实时间理解它和现在的先后顺序，聊到相关自然接得上、别自相矛盾（比如刚一起吃过饭、你却问 TA 吃了没）。\n" + ctx.groupOfflineEcho.trim());
   if (!ctx.notRoleplay && ctx.schedNow && ctx.schedNow.trim()) parts.push("【" + char.name + " 今天的行程 / 此刻在做什么】" + SCHEDULE_CONTEXT_RULE + "\n" + ctx.schedNow.trim());
   // 有一场没散的线下（按需注入：没有就零 token）——不然主动问候会把正在进行的线下当没开始
@@ -8338,6 +8338,9 @@ function splitBilingual(text, hanLang) {
   if (!orig || !zh) return null;
   if (!/[\u4e00-\u9fff]/.test(zh)) return null;
   if (orig === zh) return null;
+  // 竖线右边带假名＝那半截还是日文，不是中译（她 2026-11-04 截图：「うん、今起きたとこ」挂成了译文）——
+  //   原文照留、译文当没给，底下那颗「译」照常能现翻
+  if (/[\u3040-\u30ff]/.test(zh)) return { text: orig, zh: "" };
   // 本来就是中文、竖线后面只是把同一句括起来又写了一遍（群里 2026-10-31 截图：「【想要】 | (想要)」原样摆在气泡里）：
   //   双语开着，模型连中文那几句也照格式套了一遍。译文就是原文——摘掉竖线那半截，只留原文
   const bare = x => x.replace(/[\s【】\[\]（）()「」『』"“”'‘’]/g, "");
@@ -10194,6 +10197,18 @@ function salvageOfflineGroupBeats(raw) {
   if (!/"scene"\s*:/.test(text)) return [];
   return text.split(/(?=\{\s*"name"\s*:)/).map(part => salvageByKeys(part, OFFLINE_GROUP_BEAT_KEYS))
     .filter(b => b && b.name && b.scene).map(b => ({ name: b.name, scene: b.scene, ...(b.thought ? { thought: b.thought } : {}) }));
+}
+// 群聊线上那份数组坏了（截断、中间哪条写坏、外面多套了一层）：同上按 {"name": 切开，每一条单独解，
+//   能解开、有人名有内容的就留下，坏的那条丢掉（她 2026-11-04 截图：整轮报「没按 JSON 数组输出」，前面几条明明是好的）
+function salvageGroupLines(raw) {
+  const text = String(raw || "");
+  if (!/\{\s*"name"\s*:/.test(text)) return [];
+  return text.split(/(?=\{\s*"name"\s*:)/).slice(1).map(part => {
+    if (!/\}/.test(part)) return null;   // 被截断的最后一条：没收口，补出来也是半句话，不发
+    const body = part.replace(/[\s,\]`]+$/, "").replace(/\}\s*\]?\s*\}?\s*$/, "}");
+    let o = null; try { o = parseJSONLoose(body); } catch (e) { o = null; }
+    return o && typeof o === "object" && !Array.isArray(o) ? o : null;
+  }).filter(o => o && o.name && (o.text || o.emote || o.redpacket || o.voice || o.photo));
 }
 function salvageOfflineGroupProse(raw, members) {
   const clean = String(raw || "").replace(/```(?:json)?/gi, "").trim();
