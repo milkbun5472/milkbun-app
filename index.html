@@ -31,12 +31,17 @@
     这颗按钮碰不到它们（.claude/rules/never-say-delete-first.md）。 -->
 <script>
 (function () {
-  var bad = [], shown = false;
+  var bad = [], shown = false, jsErr = "";
   window.__assetFail = bad;
   // capture:true 是关键——资源加载失败不冒泡，不抓捕获阶段就一条都收不到
   window.addEventListener("error", function (e) {
     var el = e && e.target;
-    if (!el || el === window || !el.tagName) return;
+    // 脚本【拉下来了但跑炸了】：这种 error 的 target 就是 window，原来一律丢掉，
+    //   于是最后那条兜底也没的说。记一句，摆给她看。
+    if (!el || el === window || !el.tagName) {
+      if (e && e.message && !jsErr) jsErr = String(e.message).slice(0, 120);
+      return;
+    }
     var u = el.src || el.href;
     if (!u) return;
     // ⚠️只认自家的文件：谷歌字体在她们那边本来就常年连不上（这也是为什么字体是
@@ -96,6 +101,21 @@
     card("开机卡在读本机存档这一步", "手机这次没把「" + w.join("、") + "」打开，所以一直是白的。"
       + '<b>你的存档一个字都没少</b>：先点「重新加载」；不行就把 app 从后台划掉，或者重启手机再开。');
   }, 10000);
+  // 她 2026-11-05 转来的截图：封面在、天数在、一翻开就是一片白，上面两条都没响。
+  //   封面整张是这个 index.html 自己画的，不用一行 app 的代码——所以【看得见封面】
+  //   根本不代表 app 装上了。上面两条一条要「文件报过错」、一条要「app.js 已经在等存档」，
+  //   脚本压根没跑起来、或者在 app.js 开口之前就炸了，两条都不响，屏幕就永远白着。
+  //   所以最后再守一道：到点了 root 还是空的，不管什么原因都把话说出来。
+  setTimeout(function () {
+    var root = document.getElementById("root");
+    if (shown || (root && root.childElementCount > 0)) return;
+    var inapp = /QQ\/|QQBrowser|MicroMessenger|MQQBrowser/i.test(navigator.userAgent || "");
+    card("秋秋没装进来", (jsErr ? "出错了：" + jsErr + "。" : "")
+      + (inapp
+        ? "你是在 QQ 或微信里点开的，它们常把东西挡在外面。点右上角的「…」选「用浏览器打开」，再进一次。"
+        : "先点「重新加载」；还是白的就换自己的浏览器打开这个地址。")
+      + ' <b>你的存档一个字都没少</b>。');
+  }, 14000);
 })();
 </script>
 <link rel="preconnect" href="https://fonts.googleapis.com" />

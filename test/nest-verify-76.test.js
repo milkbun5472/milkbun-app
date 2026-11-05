@@ -64,3 +64,19 @@ test("门那一页：填了画图的模型，点之前就说清楚", () => {
   ["gemini-2.5-pro", "gpt-4o", "gpt-5", "claude-opus-4", "qwen-vl-max", "glm-4v", "doubao-vision-pro"]
     .forEach(x => assert.ok(!re.test(x), "能看图的被误挡了：" + x));
 });
+
+// ⚠️她 2026-11-05 群里连着两个人「填什么站子都是 503」：QQ 内置浏览器不让网页直连外部接口。
+//   报错只会说「这个站那头出错了」，谁都查不出是浏览器的事，得在她动手之前先点破。
+test("门那一页：在 QQ 里点开的，一进来就先说清楚", () => {
+  const door = fs.readFileSync(path.join(process.env.HOME, "yanqiu-den/qiuqiu-door/public/index.html"), "utf8");
+  assert.match(door, /id="inapp"/, "没有那条横幅");
+  const re = door.match(/if \((\/[^\n]+?\/i)\.test\(UA\)\)/);
+  assert.ok(re, "抠不出内置浏览器那条正则");
+  const r = new RegExp(re[1].slice(1, -2), "i");
+  ["Mozilla/5.0 (iPhone) QQ/8.9.0", "Mozilla/5.0 (Linux; Android) MQQBrowser/13.1",
+   "Mozilla/5.0 (iPhone) MicroMessenger/8.0.40"].forEach(ua =>
+    assert.ok(r.test(ua), "没认出内置浏览器：" + ua));
+  ["Mozilla/5.0 (iPhone) Safari/605.1.15", "Mozilla/5.0 (Macintosh) Chrome/131.0.0.0 Safari/537.36"].forEach(ua =>
+    assert.ok(!r.test(ua), "把正经浏览器也拦了：" + ua));
+  assert.ok(door.includes("用自己的浏览器打开再试"), "5xx 那条没把这个可能性带出来");
+});
