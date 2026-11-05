@@ -16668,7 +16668,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
             if (typeof moveDanglingLeads === "function") gBubbles = moveDanglingLeads(gBubbles);   // 「第一：」挪到下一泡开头，跟单聊同一条
             // 掉格式兜底（四处一样喂：跟单聊同一把刀、同一个模块）。群里没有逐人称谓设置，
             // 默认就是第二人称。
-            const _gGuard = window.BubbleActGuard ? window.BubbleActGuard.split(gBubbles, { selfNames: [spk && spk.name, spk && spk.remark], group: true }) : { words: gBubbles, acts: [] };
+            const _gGuard = window.BubbleActGuard ? window.BubbleActGuard.split(gBubbles, { selfNames: [spk && spk.name, spk && spk.remark], group: true, actOn: _gActDesc }) : { words: gBubbles, acts: [] };
             gBubbles = _gGuard.words;
             if (spk) { const seen = _saidOnce.get(spk.id) || new Set(); _saidOnce.set(spk.id, seen);
               gBubbles = gBubbles.filter(b => { const k = typeof b === "string" ? b.replace(/\s+/g, "") : ""; if (k.length < 8 || (typeof htmlCardOf === "function" && htmlCardOf(b))) return true; if (seen.has(k)) return false; seen.add(k); return true; }); }
