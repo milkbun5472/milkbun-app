@@ -14,3 +14,7 @@ test("译文那一行也剥停顿记号（她 2026-11-04：「亲爱的 <#0.5#> 
   assert.match(c, /if \(z && z\.indexOf\("<#"\) >= 0 && typeof stripPauseMarks === "function"\) z = stripPauseMarks\(z\);/);
   assert.match(c, /const _z0 = typeof stripPauseMarks === "function" && String\(r\.zh \|\| ""\)\.indexOf\("<#"\) >= 0 \? stripPauseMarks\(r\.zh\) : r\.zh;/);
 });
+test("劈双语那一处就把译文里的停顿记号剥掉，原文留着给语音", () => {
+  const e = require("fs").readFileSync(require("path").join(__dirname, "..", "js", "engine.js"), "utf8");
+  assert.match(e, /function splitBilingual\(text, hanLang\) \{\n\s*const r = splitBilingualRaw\(text, hanLang\);\n\s*if \(r && r\.zh && r\.zh\.indexOf\("<#"\) >= 0 && typeof stripPauseMarks === "function"\) r\.zh = stripPauseMarks\(r\.zh\)\.trim\(\);/);
+});
