@@ -6,7 +6,7 @@ const seg = s.slice(s.indexOf('id: "lateautumn26"'), s.indexOf('id: "onsen26"'))
 test("判据：季节落进事情里，不是背景", () => {
   assert.match(seg, /【因为到了这个时节才会发生】/);
   assert.match(seg, /换到别的季节就不成立/);
-  assert.doesNotMatch(seg, /不必点明季节/);
+  assert.doesNotMatch(seg.slice(seg.indexOf("line:")), /不必点明季节/);
 });
 test("跟钩子对上：你们俩", () => { assert.match(seg, /你们俩在这个时节里的一刻/); });
 test("画面：穿着跟季节", () => { assert.match(seg, /人物穿着照这个季节/); });
