@@ -23292,7 +23292,10 @@ function ChatSettings({
     else if (w) bg = "后台上一次看到的：" + w.why + "（" + ago(w.ts) + "）";
     if (!now && !bg) return null;
     return h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.ink, marginTop: 10, lineHeight: 1.7, padding: "8px 10px", borderRadius: 8, background: t.bg2 } },
-      now ? "照闸门推：" + now : null, now && bg ? h("br") : null, bg || null); };
+      now ? "照闸门推：" + now : null, now && bg ? h("br") : null, bg || null,
+      (() => { const sp = typeof window !== "undefined" && window.__dongnianSpentOf ? window.__dongnianSpentOf(character.id) : null;
+        if (!sp) return null; const d = new Date(sp.ts);
+        return h(React.Fragment, null, h("br"), "上一次想满：" + (d.getMonth() + 1) + " 月 " + d.getDate() + " 日 " + String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0") + " · " + sp.where); })()); };
   const renderDongnianWhy = () => {
     if (!dongnianWhy || !dongnianWhy.ts) return null;
     const d = new Date(dongnianWhy.ts);

@@ -8466,24 +8466,24 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
           const _cpNow = ((couplesRef.current || {})[cid] || {}).status === "together";
           // 想你时只发消息（聊天设置里的子开关）：开了就不走愿望板、情侣空间那两个出口
           const _altOut = _cpNow && settingsFor(cid).dongnianMsgOnly !== true;
-          if (activeOffScene) { offlineReply(cid); _drain(); }                    // 思念攒够 → 线下自己动一拍
+          if (activeOffScene) { offlineReply(cid); _drain(); pWhy(cid, "刚把想你花在了线下：那一场里他自己动了一拍"); dongnianSpent(cid, "线下那一场里自己动了一拍"); }                    // 思念攒够 → 线下自己动一拍
           // ⭐愿望板那一档【排在出口这一层，不是塞进「留东西」的三选一里】（v62.34）。
           //   她 2026-09-04 问的正是这个：给模型的选项越多，它越会塌到默认那一档上
           //   ——拾/半/画 就是这么几乎永远轮不上的。所以这一档由【代码】判，模型只写内容。
           //   闸是天然的：板上已经有TA钉着、还没了结的那条，就不再钉第二条。
           else if (_altOut && !charHasOpenWish(cid) && Math.random() < CHAR_WISH_P)
-            pinWishAsChar(c, jwStyle).then(_settle);
+            pinWishAsChar(c, jwStyle).then(ok => { _settle(ok); if (ok) { pWhy(cid, "刚把想你花在了愿望板上：钉了一条他的心愿，没发消息"); dongnianSpent(cid, "在愿望板上钉了一条心愿（没发消息）"); } });
           // ⭐思念的第三个出口（v58.85）：正式在一起的那一位，有时候不发消息，
           // 而是【在你俩的小空间里留下一样东西】，等她自己发现。
           // ⚠️花的还是【本来就要花的那一次】——这是出口换了，不是多开一条链。
           // 概率见 COUPLE_LEAVE_P：常发消息才是主线，留东西是偶尔的惊喜，天天留就成了另一种刷屏。
           else if (_altOut && Math.random() < COUPLE_LEAVE_P)
-            leaveInCoupleSpace(c, jwStyle).then(_settle);
+            leaveInCoupleSpace(c, jwStyle).then(ok => { _settle(ok); if (ok) { pWhy(cid, "刚把想你花在了情侣空间里：给你留了一样东西，没发消息"); dongnianSpent(cid, "在情侣空间里给你留了一样东西（没发消息）"); } });
           // ⚠️发消息这一路原来是「调了就泄」——不管 replyNow 有没有真送到（群友 2026-10-01：
           //   「憋到红条爆了也不发，然后自动退回粉色」）。模型回空、里面哪道闸没放行、接口报错，
           //   都会白白泄掉 0.28、还占着 25 分钟的闸。跟另外两个出口一样：送到了才泄，没送到把闸还回去。
           else replyNow(cid, "", null, { proactive: true, dongnian: jwStyle, backdateTs: _back > 0 && _back < Date.now() ? _back : 0 })
-            .then(r => _settle(r === true), () => _settle(false))
+            .then(r => { _settle(r === true); if (r === true) dongnianSpent(cid, "在私聊里给你发了消息"); }, () => _settle(false))
             .then(() => pWhy(cid, (dongnianFiredRef.current[cid] || 0) ? "刚发出去了" : "刚试着发了一次但没发成（模型回空或接口出错），25 分钟后再试"));
           return; // 一次一个，错峰（本轮不再顺带问候，下一轮 tick 再说）
         }
@@ -8517,6 +8517,10 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   const dongnianSeenSet = (cid, ts) => { const m = dongnianSeen(); m[cid] = ts; saveJSON("x_jiwenSeen", m); };
   // 归零的黑匣子：一场一条，只留最近那一次。存档键单开一份，别挤进 x_jiwen 那张表。
   // 主动消息这一轮卡在哪一道（她 2026-10-02：「为啥还是不说话」）：每个角色只留最近一条，「TA 是什么脾气」那页条子下面读
+  // 想满了以后花在了哪儿（她 2026-11-04：「刷新后直接思念退了不想我了」——其实是钉到愿望板上去了，私聊里看不见）：
+  //   每个人只留最近一次，存档里留着，状态卡和秋秋都读它
+  const dongnianSpent = (cid, where) => { try { const m = loadJSON("x_jiwenSpent", {}) || {}; m[cid] = { ts: Date.now(), where }; saveJSON("x_jiwenSpent", m); } catch (e) {} };
+  if (typeof window !== "undefined") window.__dongnianSpentOf = cid => { try { return (loadJSON("x_jiwenSpent", {}) || {})[cid] || null; } catch (e) { return null; } };
   const pWhy = (cid, why) => { try { (window.__proactiveWhy = window.__proactiveWhy || {})[cid] = { ts: Date.now(), why }; } catch (e) {} };
   // 打开「TA 是什么脾气」那一页时当场查一遍（她 2026-10-02：「看不到卡在哪儿」——等后台那一轮跑到，页面早看完了）：
   //   跟主动那一路同几道闸、同一个顺序；只读不改
@@ -8560,7 +8564,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         到想找你还要: v >= 0.35 ? "已经过了" : "照此刻的速度约 " + hm(mins(0.35)),
         到满还要: v >= 0.5 ? "已经满了" : "照此刻的速度约 " + hm(mins(0.5)),
         说明: "「还要多久」是按此刻的速度直线估的：想得越久涨得越快，实际多半更早；速度跟着TA此刻在干嘛、心情、性子、好感变（睡着时慢很多）；她一开口就归零重攒；关着 app 也照样攒，一次最多补 12 小时",
-        卡在哪: proactiveWhyNow(cid)
+        卡在哪: proactiveWhyNow(cid),
+        上一次想满花在了哪儿: (() => { const sp = window.__dongnianSpentOf(cid); return sp ? new Date(sp.ts).toLocaleString("zh-CN", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" }) + " " + sp.where : "（还没记过）"; })()
       };
     } catch (e) { return null; }
   };
