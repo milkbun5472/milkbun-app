@@ -43,7 +43,7 @@ test("「先认准他属于哪个世界」独立成一条，而且两处都发",
   // 单天那处 + 整周那处，一处都不许漏（一层写在两处）
   assert.equal((code.match(/SCHED_WORLD_RULE/g) || []).length, 2, "两条链没都吃到");
   // 2026-10-30 v77.015：中间多了一句架空地图的规矩
-  assert.match(code, /schedPeerBlock\(char, \[dayKey\]\) \+ schedMapRule\(char\) \+ "\\n" \+ SCHED_WORLD_RULE/);
+  assert.match(code, /schedPeerBlock\(char, \[dayKey\]\) \+ schedMapRule\(char\)(?: \+ schedKeepLine\(char\.id\))? \+ "\\n" \+ SCHED_WORLD_RULE/);
   assert.match(code, /\+ "\\n" \+ SCHED_WORLD_RULE \+ "\\n" \+ SCHED_END_RULE/);
 });
 

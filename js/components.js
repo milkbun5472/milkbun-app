@@ -4863,7 +4863,7 @@ function ClassImportSheet({ ownerName, onParse, onSave, onClose }) {
             onClick: () => { const n = onSave(rows.filter(r => String(r.title || "").trim()), termStart, termEnd); window.__toast && window.__toast(n ? "存好了 " + n + " 节课" : "没存进去（学期日期对不上？）"); if (n) onClose(); },
             className: "active:opacity-70 disabled:opacity-40", style: { flex: 2, padding: "12px 0", borderRadius: 12, border: "none", background: t.ink, color: t.bg2, fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))" } }, "存进日历")))));
 }
-function Calendar({ characters, calendar, calEvents, schedules: rawSchedules, profile, period, busy, genWeekBusy, initialView, onBack, onSaveEvent, onCopyMaskSched, onParseTimetable, onSaveClasses, onDelEvent, onGenMonth, onGenMyWeek, myWeekBusy, myMasks, maskKeyOf, onSavePeriod, onRecordPeriod, onSaveTimed, onDelTimed, onGenWeek, schedWeekKeys, onDelSchedDay: rawDelSchedDay, onDelSchedWeek, onDelSchedSeq: rawDelSchedSeq, onEditSchedSeq: rawEditSchedSeq }) {
+function Calendar({ schedKeepOf, onSchedKeep, characters, calendar, calEvents, schedules: rawSchedules, profile, period, busy, genWeekBusy, initialView, onBack, onSaveEvent, onCopyMaskSched, onParseTimetable, onSaveClasses, onDelEvent, onGenMonth, onGenMyWeek, myWeekBusy, myMasks, maskKeyOf, onSavePeriod, onRecordPeriod, onSaveTimed, onDelTimed, onGenWeek, schedWeekKeys, onDelSchedDay: rawDelSchedDay, onDelSchedWeek, onDelSchedSeq: rawDelSchedSeq, onEditSchedSeq: rawEditSchedSeq }) {
   rawSchedules = window.CharDayLink ? window.CharDayLink.publicSchedules(rawSchedules) : rawSchedules;
   const t = useTheme();
   // 从聊天页「看 TA 的日程」进来时直接落在那个人身上（原来那个入口指向已退场的行程 app）
@@ -5222,6 +5222,12 @@ function Calendar({ characters, calendar, calEvents, schedules: rawSchedules, pr
           const asked = requestAppPrompt("AI 排剩下这几天", characterText(curChar, "这几天想让 " + ((curChar && (curChar.remark || curChar.name)) || "他") + " 怎么过？可以不填，不填就他自己排。只给方向，具体怎么排还是他自己定。"), "",
             v => onGenWeek(curChar, String(v || "").trim()), "排", { multiline: true, maxLength: 200, placeholder: "比如：这周在赶稿，少出门；周三晚上约了我吃饭" });
           if (!asked) onGenWeek(curChar); }, disabled: genWeekBusy, className: "w-full text-left active:opacity-60 disabled:opacity-40", style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.ink, padding: "13px 16px", borderTop: "1px solid " + t.line } }, genWeekBusy ? "　　正在排…" : "✨　AI 排剩下这几天"),
+        // 排日程时一直记着（群友 2026-11-04）：许愿是这一次的，这一格是常驻的，自动排也带上
+        isCharView && schedKeepOf && onSchedKeep && h("button", { "data-wk": "calfabitem", "data-part": "keep", onClick: () => { setFab(false);
+          requestAppPrompt("排日程时一直记着", characterText(curChar, "以后每次给 " + ((curChar && (curChar.remark || curChar.name)) || "他") + " 排日程（自动排、手动排都算）都带着这句方向。只给方向，哪天放得进、怎么放还是他自己排。清空就不带了。"),
+            schedKeepOf(curChar.id), v => onSchedKeep(curChar, v), "存", { multiline: true, maxLength: 300, placeholder: "比如：每周留一晚跟我约会；见面前会先去看看地方；睡前给我打个电话" }); },
+          className: "w-full text-left active:opacity-60", style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.ink, padding: "13px 16px", borderTop: "1px solid " + t.line } },
+          "📌　排日程时一直记着" + (schedKeepOf(curChar.id) ? " · 已写" : "")),
         // 删掉这几天 AI 排的（她 2026-09-18）。算一下真有几天，按钮上写清删几天——
         // 「删除」两个字底下藏着多少东西，得让她在按之前就看见。
         isCharView && (() => {
@@ -23292,7 +23298,10 @@ function ChatSettings({
     else if (w) bg = "后台上一次看到的：" + w.why + "（" + ago(w.ts) + "）";
     if (!now && !bg) return null;
     return h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.ink, marginTop: 10, lineHeight: 1.7, padding: "8px 10px", borderRadius: 8, background: t.bg2 } },
-      now ? "照闸门推：" + now : null, now && bg ? h("br") : null, bg || null); };
+      now ? "照闸门推：" + now : null, now && bg ? h("br") : null, bg || null,
+      (() => { const sp = typeof window !== "undefined" && window.__dongnianSpentOf ? window.__dongnianSpentOf(character.id) : null;
+        if (!sp) return null; const d = new Date(sp.ts);
+        return h(React.Fragment, null, h("br"), "上一次想满：" + (d.getMonth() + 1) + " 月 " + d.getDate() + " 日 " + String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0") + " · " + sp.where); })()); };
   const renderDongnianWhy = () => {
     if (!dongnianWhy || !dongnianWhy.ts) return null;
     const d = new Date(dongnianWhy.ts);

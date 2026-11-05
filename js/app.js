@@ -20,7 +20,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v89.107";
+const APP_VERSION = "v89.110";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -8466,24 +8466,24 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
           const _cpNow = ((couplesRef.current || {})[cid] || {}).status === "together";
           // 想你时只发消息（聊天设置里的子开关）：开了就不走愿望板、情侣空间那两个出口
           const _altOut = _cpNow && settingsFor(cid).dongnianMsgOnly !== true;
-          if (activeOffScene) { offlineReply(cid); _drain(); }                    // 思念攒够 → 线下自己动一拍
+          if (activeOffScene) { offlineReply(cid); _drain(); pWhy(cid, "刚把想你花在了线下：那一场里他自己动了一拍"); dongnianSpent(cid, "线下那一场里自己动了一拍"); }                    // 思念攒够 → 线下自己动一拍
           // ⭐愿望板那一档【排在出口这一层，不是塞进「留东西」的三选一里】（v62.34）。
           //   她 2026-09-04 问的正是这个：给模型的选项越多，它越会塌到默认那一档上
           //   ——拾/半/画 就是这么几乎永远轮不上的。所以这一档由【代码】判，模型只写内容。
           //   闸是天然的：板上已经有TA钉着、还没了结的那条，就不再钉第二条。
           else if (_altOut && !charHasOpenWish(cid) && Math.random() < CHAR_WISH_P)
-            pinWishAsChar(c, jwStyle).then(_settle);
+            pinWishAsChar(c, jwStyle).then(ok => { _settle(ok); if (ok) { pWhy(cid, "刚把想你花在了愿望板上：钉了一条他的心愿，没发消息"); dongnianSpent(cid, "在愿望板上钉了一条心愿（没发消息）"); } });
           // ⭐思念的第三个出口（v58.85）：正式在一起的那一位，有时候不发消息，
           // 而是【在你俩的小空间里留下一样东西】，等她自己发现。
           // ⚠️花的还是【本来就要花的那一次】——这是出口换了，不是多开一条链。
           // 概率见 COUPLE_LEAVE_P：常发消息才是主线，留东西是偶尔的惊喜，天天留就成了另一种刷屏。
           else if (_altOut && Math.random() < COUPLE_LEAVE_P)
-            leaveInCoupleSpace(c, jwStyle).then(_settle);
+            leaveInCoupleSpace(c, jwStyle).then(ok => { _settle(ok); if (ok) { pWhy(cid, "刚把想你花在了情侣空间里：给你留了一样东西，没发消息"); dongnianSpent(cid, "在情侣空间里给你留了一样东西（没发消息）"); } });
           // ⚠️发消息这一路原来是「调了就泄」——不管 replyNow 有没有真送到（群友 2026-10-01：
           //   「憋到红条爆了也不发，然后自动退回粉色」）。模型回空、里面哪道闸没放行、接口报错，
           //   都会白白泄掉 0.28、还占着 25 分钟的闸。跟另外两个出口一样：送到了才泄，没送到把闸还回去。
           else replyNow(cid, "", null, { proactive: true, dongnian: jwStyle, backdateTs: _back > 0 && _back < Date.now() ? _back : 0 })
-            .then(r => _settle(r === true), () => _settle(false))
+            .then(r => { _settle(r === true); if (r === true) dongnianSpent(cid, "在私聊里给你发了消息"); }, () => _settle(false))
             .then(() => pWhy(cid, (dongnianFiredRef.current[cid] || 0) ? "刚发出去了" : "刚试着发了一次但没发成（模型回空或接口出错），25 分钟后再试"));
           return; // 一次一个，错峰（本轮不再顺带问候，下一轮 tick 再说）
         }
@@ -8517,6 +8517,10 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   const dongnianSeenSet = (cid, ts) => { const m = dongnianSeen(); m[cid] = ts; saveJSON("x_jiwenSeen", m); };
   // 归零的黑匣子：一场一条，只留最近那一次。存档键单开一份，别挤进 x_jiwen 那张表。
   // 主动消息这一轮卡在哪一道（她 2026-10-02：「为啥还是不说话」）：每个角色只留最近一条，「TA 是什么脾气」那页条子下面读
+  // 想满了以后花在了哪儿（她 2026-11-04：「刷新后直接思念退了不想我了」——其实是钉到愿望板上去了，私聊里看不见）：
+  //   每个人只留最近一次，存档里留着，状态卡和秋秋都读它
+  const dongnianSpent = (cid, where) => { try { const m = loadJSON("x_jiwenSpent", {}) || {}; m[cid] = { ts: Date.now(), where }; saveJSON("x_jiwenSpent", m); } catch (e) {} };
+  if (typeof window !== "undefined") window.__dongnianSpentOf = cid => { try { return (loadJSON("x_jiwenSpent", {}) || {})[cid] || null; } catch (e) { return null; } };
   const pWhy = (cid, why) => { try { (window.__proactiveWhy = window.__proactiveWhy || {})[cid] = { ts: Date.now(), why }; } catch (e) {} };
   // 打开「TA 是什么脾气」那一页时当场查一遍（她 2026-10-02：「看不到卡在哪儿」——等后台那一轮跑到，页面早看完了）：
   //   跟主动那一路同几道闸、同一个顺序；只读不改
@@ -8560,7 +8564,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         到想找你还要: v >= 0.35 ? "已经过了" : "照此刻的速度约 " + hm(mins(0.35)),
         到满还要: v >= 0.5 ? "已经满了" : "照此刻的速度约 " + hm(mins(0.5)),
         说明: "「还要多久」是按此刻的速度直线估的：想得越久涨得越快，实际多半更早；速度跟着TA此刻在干嘛、心情、性子、好感变（睡着时慢很多）；她一开口就归零重攒；关着 app 也照样攒，一次最多补 12 小时",
-        卡在哪: proactiveWhyNow(cid)
+        卡在哪: proactiveWhyNow(cid),
+        上一次想满花在了哪儿: (() => { const sp = window.__dongnianSpentOf(cid); return sp ? new Date(sp.ts).toLocaleString("zh-CN", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" }) + " " + sp.where : "（还没记过）"; })()
       };
     } catch (e) { return null; }
   };
@@ -19288,6 +19293,11 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   // 本体模式的角色不排日程：TA是 AI 本人，没有一天要过——编出来的行程就是在替TA演一个人。
   //   言秋不在此列：TA那份是「存在时间线」，写的是TA在电脑那一端真在做的事。
   const noSchedFor = char => !!(char && settingsFor(char.id).bodyMode && !settingsFor(char.id).engineerEyes);
+  // 排日程时一直记着的那句（群友 2026-11-04：「许愿日程那里可以添一个常驻提示词吗？每次都要重打」）：
+  //   每个人一份，存 x_schedKeep；自动排、手动排、单天排都带上。只给方向，跟「许愿」一个分寸
+  const schedKeepOf = id => { try { return String(((loadJSON("x_schedKeep", {}) || {})[id]) || "").trim(); } catch (e) { return ""; } };
+  const schedKeepSet = (id, v) => { const m = loadJSON("x_schedKeep", {}) || {}; const t = String(v || "").trim().slice(0, 300); if (t) m[id] = t; else delete m[id]; saveJSON("x_schedKeep", m); };
+  const schedKeepLine = id => { const k = schedKeepOf(id); return k ? "\n【她一直希望你的日程里有的】" + k + "\n这是常年的方向，不是每天都要照单全做：哪天放得进、怎么放，照你这个人和那天的日子来。" : ""; };
   const genScheduleDay = async (char, dayKey) => {
     if (noSchedFor(char)) return false;
     if (typeof vclockUse === "function") vclockUse(char && char.id);
@@ -19342,7 +19352,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         //   模型会连那个世界一起抄走（王爷也开始在公寓里煮咖啡）。
         : characterText(char, "{\"load\":\"HIGH LOAD\",\"estTime\":22,\"seqs\":[{\"time\":\"这一段几点开始\",\"end\":\"几点结束\",\"busy\":\"这一段他顾不顾得上看手机：0 随时能看／1 偶尔瞄一眼／2 基本顾不上／3 完全碰不了（整数）\",\"title\":\"这一段他在做什么（这个身份的人真会做的具体事）\",\"location\":\"在哪儿（细到具体处所，贴着他那个世界）\",\"place\":\"这会儿他在哪个【大地方】：城／坊市／宅院这一级，要跟地图上认得出的地名对得上\",\"type\":\"从上面那几个词里挑最接近的\",\"deviation\":null},{\"time\":\"就寝那一段几点\",\"end\":\"24:00\",\"title\":\"临睡前在做什么\",\"location\":\"他睡的地方\",\"type\":\"sleep\",\"deviation\":null}]") + murmurSchema + "}";
       const rawPlan = await runProbe(bgActive, { ...ctxFor(char), worldbook: loreFor(char, "lifestyle") }, {
-        instruction: schedInstr + schedPeerBlock(char, [dayKey]) + schedMapRule(char) + "\n" + SCHED_WORLD_RULE + "\n" + SCHED_END_RULE + "\n" + SCHED_TENSE_RULE + window.CharDayLink.instruction(isDigital),
+        instruction: schedInstr + schedPeerBlock(char, [dayKey]) + schedMapRule(char) + schedKeepLine(char.id) + "\n" + SCHED_WORLD_RULE + "\n" + SCHED_END_RULE + "\n" + SCHED_TENSE_RULE + window.CharDayLink.instruction(isDigital),
         schemaHint: window.CharDayLink.schema(schedSchema, isDigital),
         maxTokens: 65000
       });
@@ -19458,7 +19468,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         + "\n【别复读已经办完的事】和用户之间【已经做过的经历、已兑现的约定】绝不要当成还没做、再排一遍。"
         // 两个人的日程要对得上：这条链本来就是 for 循环一个一个排，后排的看得见先排好的。
         // 一层只写一处——跟单天那边共用同一个 schedPeerBlock。
-        + schedPeerBlock(char, want) + schedMapRule(char)
+        + schedPeerBlock(char, want) + schedMapRule(char) + schedKeepLine(char.id)
         // 她给的方向（群友 2026-10-25）：跟重 Roll 带方向一个意思——给方向，不替他排
         + (opts && opts.wish ? "\n【她希望这几天的方向】" + String(opts.wish).slice(0, 200) + "\n照这个方向排；具体哪天几点做什么，还是照你自己这个人和你的日子来。跟你的人设、你们之间说好的事对不上的地方，以人设和说好的为准。" : "")
         + "\n" + SCHED_WORLD_RULE + "\n" + SCHED_END_RULE + "\n" + SCHED_TENSE_RULE + window.CharDayLink.instruction(isDigital);
@@ -32653,6 +32663,36 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     + (appearance ? "外貌：" + String(appearance).slice(0, 200) + "。" : "")
     + "九格从左到右、从上到下依次是：" + items.map((x, i) => (i + 1) + "." + x.look).join("；")
     + "。每格人物居中、完整、别出格。画面里不要任何文字、字母、对话框。";
+  // 一张动图表情（她 2026-11-04：gpt-image-2.6 能出 GIF）：问一句画什么动作 → 照外貌文字画一张会循环的 Q 版小动图 →
+  //   原样存进「X 的表情」那一组（imgToVault 存的是原文件，动的还是动的）。动图只走出图接口、带不了参考照（见 generateSelfieImage 的 gif）
+  const makeEmoteGif = whoId => {
+    if (emoteSetBusy) return;
+    if (!(typeof imgApiReady === "function" && imgApiReady())) { toast("先去 设置·图像API 配一下"); return; }
+    const isMe = String(whoId || "").indexOf("__me:") === 0, mk = isMe ? String(whoId).slice(5) : "";
+    const who = isMe ? ((mk ? (masksRef.current || []).find(m => m && m.id === mk) : profile) || profile) : characters.find(c => c.id === whoId);
+    if (!who) return;
+    const nm = isMe ? (who.label || who.name || "我") : (who.remark || who.name);
+    requestAppPrompt("画一张会动的「" + nm + "」", "写这张动图叫什么、做什么动作（一两句）。发表情时打它的名字就能联想出来。",
+      "", async v => {
+        const t = String(v || "").trim(); if (!t) return;
+        const name = t.split(/[，,。：:\s]/)[0].slice(0, 8) || "动图";
+        setEmoteSetBusy(whoId);
+        try {
+          const prompt = "一张循环播放的小动图表情包：同一个人「" + (who.name || nm) + "」的平面 Q 版二次元小人，二到三头身、大头小身子，干净的深色勾线、赛璐璐平涂，纯白底，人物居中、完整、别出格。"
+            + (who.appearance ? "外貌：" + String(who.appearance).slice(0, 200) + "。" : "")
+            + "动作：" + t.slice(0, 120) + "。动作首尾能接上、循环自然。画面里不要任何文字、字母、对话框。";
+          const out = await generateSelfieImage(prompt, null, { size: "1024x1024", minimalPrompt: prompt, gif: true, gifFrames: 8, gifMs: 120 });
+          let blob = out && out.blob;
+          if (!blob && out && out.url) { try { blob = await (await fetch(out.url)).blob(); } catch (e) { blob = null; } }
+          if (!blob) throw new Error("没拿到图");
+          if (blob.type && blob.type !== "image/gif") throw new Error("这个站回的是一张静图，没出动图——要用能出 GIF 的模型（比如 gpt-image-2.6）");
+          const du = await new Promise((ok, no) => { const r = new FileReader(); r.onload = () => ok(r.result); r.onerror = no; r.readAsDataURL(blob); });
+          const ok = await window.__addSelfSticker(du, isMe ? whoId : who.id, name, true, false);
+          toast(ok ? "画好了，在表情包「" + nm + " 的表情」里，叫「" + name + "」" : "存表情的时候没成，再试一次", 6000);
+        } catch (e) { toast("动图没画成：" + (e.message || "重试"), 8000); }
+        finally { setEmoteSetBusy(""); }
+      }, "画", { multiline: true, maxLength: 120, placeholder: "比如：比心，两只手在胸前比个心、眨一下眼" });
+  };
   const makeMyEmoteSet = async (maskKey, setOpt) => {
     const me = (maskKey ? (masksRef.current || []).find(m => m && m.id === maskKey) : profile) || null;
     const key = "__me:" + (maskKey || "");
@@ -34896,7 +34936,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     onToggleChar: toggleEmotePackChar,
     onImport: importEmotes,
     onAddImages: addEmoteImages,
-    onMakeSet: makeEmoteSet, setBusy: emoteSetBusy,
+    onMakeSet: makeEmoteSet, onMakeGif: makeEmoteGif, setBusy: emoteSetBusy,
     // 能画「我自己」那一套的面具：传过参考照的那几张（主面具 id 记成 ""）
     myFaces: [{ id: "", name: (profile && (profile.label || profile.name)) || "我", ok: !!(profile && profile.refPhoto) }].concat((masks || []).filter(m => m && m.id && m.id !== maskPrimary).map(m => ({ id: m.id, name: m.label || m.name || "未命名", ok: !!m.refPhoto }))), onCaptionPack: captionEmotePack, onUncaptionPack: uncaptionEmotePack,
     onRenameEmote: renameEmote,
@@ -36582,6 +36622,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     },
     // 删：单天一处、整周一处，都落到同一个 delSchedDays 上
     schedWeekKeys: schedWeekKeysFrom,
+    schedKeepOf: schedKeepOf, onSchedKeep: (c, v) => { schedKeepSet(c.id, v); toast(String(v || "").trim() ? "记下了，以后排 " + (c.remark || c.name) + " 的日程都带着" : "清掉了"); },
     onDelSchedSeq: (c, dayKey, seqNo) => {
       const n = delSchedSeq(c.id, dayKey, seqNo);
       if (n) toast("这一段删了");
