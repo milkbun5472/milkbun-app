@@ -3,6 +3,9 @@ const fs = require('node:fs');
 exports.streamFixture = (chunks, options = {}) => {
   const src = fs.readFileSync('js/engine.js', 'utf8');
   const code = src.slice(src.indexOf('  const postOpenAI = async'), src.indexOf('  const _ntKey2 ='));
+  // v89.115 起收流那一段抽成了公共的 pumpSSE（施工规则/one-public-mechanism）。
+  // 照着【真的那一份】注进去，不另写一份桩——不然桩和代码会各自演化，测的就不是在跑的东西。
+  const pump = src.slice(src.indexOf('async function pumpSSE('), src.indexOf('// ⚠️用量回显只许在这一处落库'));
   let reads = 0, cancels = 0;
   const encoder = new TextEncoder();
   const reader = {
@@ -19,6 +22,7 @@ exports.streamFixture = (chunks, options = {}) => {
       // v74.873 起 postOpenAI 会问一句「这枪是不是走秋秋的礼物那条线」（engine.js giftHeaders）。
       //   这份桩只测流式收发，跟那条线无关，所以给个空的（施工规则/stub-from-the-writer）。
       giftHeaders=()=>({});
+    ${pump}
     ${code}; return postOpenAI(true);
   `)({ stream: true, streamSilenceMs: 30, ...options, ...opts }, async () => ({
     headers: { get: () => 'text/event-stream' }, body: { getReader: () => reader }

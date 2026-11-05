@@ -6438,7 +6438,7 @@ function CallLogCard() {
       !r.ok && r.err ? h("div", { style: Object.assign({}, small, { color: "#c25a4a", wordBreak: "break-all", userSelect: "text", WebkitUserSelect: "text", marginTop: 2 }) }, r.err) : null)),
     rows.length > show ? h("button", { "data-wk": "block", onClick: () => setShow(n => n + 40), className: "w-full active:opacity-60", style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.sub, background: "none", border: "none", padding: "14px 0", minHeight: 44 } }, "再往前看 40 条") : null);
 }
-// 缓存命中读数（手机看不了 console，就在设置里给个看得见的）：读 window.__usage(callAI anthropic 分支记的)
+// 缓存命中读数（手机看不了 console，就在设置里给个看得见的）：读 window.__usage(三条方言都从 engine.js 的 recordUsage 那一处落库)
 function CacheStatCard() {
   const t = useTheme();
   const [, setTick] = useState(0);
@@ -6462,7 +6462,7 @@ function CacheStatCard() {
       h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(16px * var(--app-fs, 1))", color: t.ink } }, "缓存命中 · anthropic(fable)线路"),
       h("button", { onClick: () => setTick(x => x + 1), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.tint } }, "🔄 刷新")),
     usage.length === 0
-      ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.6 } }, "还没有记录。去跟走这条线路的角色【1 小时内连发两三条】，再回这儿点「刷新」看命中。（只有走 anthropic/fable 的角色才有缓存，gemini 中转按次计费没有）")
+      ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.6 } }, "还没有记录。去跟走这条线路的角色【1 小时内连发两三条】，再回这儿点「刷新」看命中。（会报缓存的是 anthropic/fable 和谷歌官方直连这两种线路；中转站按次计费，不报）")
       : h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: s.hit > 0 || requested > 0 ? "#3c7a4a" : t.sub, lineHeight: 1.7 } },
           bridgeUsage.length
             ? "订阅桥近 " + bridgeUsage.length + " 次｜缓存请求 " + requested + " 次｜历史断点 " + historyMarked + " 次"
