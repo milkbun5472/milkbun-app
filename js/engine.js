@@ -8338,6 +8338,9 @@ function splitBilingual(text, hanLang) {
   if (!orig || !zh) return null;
   if (!/[\u4e00-\u9fff]/.test(zh)) return null;
   if (orig === zh) return null;
+  // 竖线右边带假名＝那半截还是日文，不是中译（她 2026-11-04 截图：「うん、今起きたとこ」挂成了译文）——
+  //   原文照留、译文当没给，底下那颗「译」照常能现翻
+  if (/[\u3040-\u30ff]/.test(zh)) return { text: orig, zh: "" };
   // 本来就是中文、竖线后面只是把同一句括起来又写了一遍（群里 2026-10-31 截图：「【想要】 | (想要)」原样摆在气泡里）：
   //   双语开着，模型连中文那几句也照格式套了一遍。译文就是原文——摘掉竖线那半截，只留原文
   const bare = x => x.replace(/[\s【】\[\]（）()「」『』"“”'‘’]/g, "");
