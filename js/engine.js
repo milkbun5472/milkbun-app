@@ -6254,6 +6254,12 @@ async function generateSelfieImage(prompt, refPhotoDataUrl, opts) {
   //   它好像是用第一个站点设置的模型来测试的」）。不给就照旧走主用那一站。
   const a = (opts && opts.api) ? Object.assign({}, IMG_API_DEFAULTS, opts.api) : loadImgApi();
   if (!imgApiReady(a)) throw new Error("没配置图像 API");
+  // 动图（她 2026-11-04：gpt-image-2.6 能直接出 GIF）：只有出图接口（/images/generations）收 output_format:"gif"，
+  //   改图接口（带参考照锁脸那扇门）和聊天接口都不行——所以动图一律不带参考照、只走出图接口，说不通就当场说清楚
+  if (opts && opts.gif) {
+    if (a.apiFormat === "chat" || a.apiFormat === "gemini" || a.apiFormat === "minimax" || a.apiFormat === "nai") throw new Error("动图只能走「出图接口」：去 设置 → 图像 API 把这个站的「请求方式」换成「出图接口」");
+    refPhotoDataUrl = null;
+  }
   // 手部那两大段只给 gpt-image 用（她 2026-10-03：别家模型发自拍，连出两张满纸手掌+乱码的「手部参考图」）。
   // 那段里夹着整句英文 correct hands / five fingers——读不太懂中文的模型（NAI、部分 Gemini 线路）
   // 只抓得住这几个英文词，于是整张图都画成了手。非 gpt-image 一律缩成一句。
@@ -6305,7 +6311,7 @@ async function generateSelfieImage(prompt, refPhotoDataUrl, opts) {
     if (!b64 && !url) { const mk = String(rawTxt).match(/data:image\/\w+;base64,[A-Za-z0-9+/=]+/i); if (mk) b64 = mk[0].replace(/^data:image\/\w+;base64,/i, ""); }
     // Gemini 原生形状 inline_data / inlineData：{ mime_type, data:"纯 base64" }，没有 data: 前缀
     if (!b64 && !url) { const mk = String(rawTxt).match(/"inline_?[dD]ata"\s*:\s*\{[^{}]*?"data"\s*:\s*"([A-Za-z0-9+/=\\n]{200,})"/); if (mk) b64 = mk[1].replace(/\\n/g, ""); }
-    if (!b64 && !url) { const mk = String(rawTxt).match(/https?:\/\/[^\s"')\]]+\.(?:png|jpe?g|webp)/i); if (mk) url = mk[0]; }
+    if (!b64 && !url) { const mk = String(rawTxt).match(/https?:\/\/[^\s"')\]]+\.(?:png|jpe?g|webp|gif)/i); if (mk) url = mk[0]; }
     if (b64) {
       // 验真：base64 得解得开、且开头是真图片的魔数（PNG/JPEG/WebP/GIF）——
       // 不然坏数据会被当成图存进图库，聊天里就是一个加载不出来的空白框、还不报错
@@ -6687,6 +6693,7 @@ async function generateSelfieImage(prompt, refPhotoDataUrl, opts) {
         // slim = 裸参数重试：有些中转不认 quality/response_format 这类可选参数，只发必填的
         const body = { model: a.model || "gpt-image-2", prompt: promptText, size, n: 1 };
         if (!slim) { if (!rfOff) body.response_format = "b64_json"; if (qualityOverride) body.quality = qualityOverride; }
+        if (opts && opts.gif) { body.output_format = "gif"; body.frame_count = Math.max(2, Math.min(16, Number(opts.gifFrames) || 8)); body.frame_duration_ms = Math.max(40, Math.min(1000, Number(opts.gifMs) || 120)); }
         const sendGen = () => fetch(root + "/images/generations", { method: "POST", headers: { "Content-Type": "application/json", Authorization: "Bearer " + a.apiKey }, body: JSON.stringify(body), signal: ctrl.signal });
         r = await sendGen();
         if (!rfOff && body.response_format && await rfRejected(r)) { delete body.response_format; r = await sendGen(); }
@@ -6695,7 +6702,7 @@ async function generateSelfieImage(prompt, refPhotoDataUrl, opts) {
       //   不是时好时坏，是这家只开了纯文字那扇门。直接说清楚往哪儿走，别甩一句 Not Found 给她猜
       if (!isNative && !chatFirst && useRef && refBlobs.length && r && r.status === 404)
         throw new Error("这个站的出图接口不收参考照（带照片的那扇门 /images/edits 回了 404 Not Found，纯文字那扇是通的）。把「请求方式」换成「聊天接口」再测一次；还不行就去问你用的那家，带参考图要走哪个接口，或者打开「这个站不锁脸」只发文字出图（长相不保证像）");
-      if (!isNative && !chatFirst && a.apiFormat !== "images" && !r.ok) {
+      if (!isNative && !chatFirst && a.apiFormat !== "images" && !r.ok && !(opts && opts.gif)) {   // 动图不退聊天接口：那边出不了动的，退了就静悄悄变成一张静图
         // 出图接口不通：404/405，或者回的错一看就是「这条路不对」（缺 contents/messages、不支持这个模型）→ 改走一次聊天接口
         const peek = r.status === 404 || r.status === 405 ? "" : await r.clone().text().catch(() => "");
         if (r.status === 404 || r.status === 405 || /contents is required|messages.{0,20}required|not support|unsupported|no available channel|无可用渠道|不支持/i.test(peek)) r = await chatFetch();

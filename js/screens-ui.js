@@ -12215,9 +12215,11 @@ const STICKER_PAPER = "#fbf8f0", STICKER_INK = "#2f2a22";
 //   ——按首位取的话整页贴纸会歪成同一个角度，等于没歪，而且不报任何错。
 const tiltById = id => { const k = qhash(String(id || "")); return ((k.charCodeAt(k.length - 1) % 5) - 2) * 1.1; };
 
-function EmoteMatrix({ packs, characters, onBack, onAddPack, onUpdatePack, onDeletePack, onToggleChar, onImport, onAddImages, onMakeSet, onUncaptionPack, setBusy, onCaptionPack, onRenameEmote, onDeleteEmotes, onMoveEmotes, myFaces }) {
+function EmoteMatrix({ onMakeGif, packs, characters, onBack, onAddPack, onUpdatePack, onDeletePack, onToggleChar, onImport, onAddImages, onMakeSet, onUncaptionPack, setBusy, onCaptionPack, onRenameEmote, onDeleteEmotes, onMoveEmotes, myFaces }) {
   const [setPick, setSetPick] = useState(false);
   const [setCaption, setSetCaption] = useState(true);   // 画出来的每张底下印上名字
+  // 一张动图（她 2026-11-04：gpt-image-2.6 能出 GIF）：不锁脸，照外貌文字画一张会动的
+  const [setGif, setSetGif] = useState(false);
   // 打字联想（她 2026-11-04）：输入框里打字时底下冒一排对得上名字的表情包。默认开，关了存 x_emoteSuggestOff
   const [sugOn, setSugOn] = useState(() => !loadJSON("x_emoteSuggestOff", false));
   const t = useTheme();
@@ -12280,21 +12282,26 @@ function EmoteMatrix({ packs, characters, onBack, onAddPack, onUpdatePack, onDel
         h("button", { onClick: () => setSetPick(v => !v), disabled: !!setBusy, className: "w-full active:opacity-70 disabled:opacity-50",
           style: { padding: "11px 0", borderRadius: 12, border: "1px dashed " + t.line, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.ink } },
           setBusy ? "在画了…（先挑表情，再画一张九宫格）" : "画一套表情包（TA 的，或你自己的）"),
-        setPick && !setBusy ? h("button", { "data-wk": "emosetcaption", "data-on": setCaption ? "1" : "0", onClick: () => setSetCaption(v => !v), className: "active:opacity-70",
+        setPick && !setBusy && onMakeGif ? h("div", { "data-wk": "emosetkind", className: "flex", style: { marginTop: 10, border: "1px solid " + t.line, borderRadius: 999, overflow: "hidden", width: "fit-content" } },
+          [[false, "九宫格（锁脸）"], [true, "一张动图"]].map(([v, zh]) => h("button", { key: String(v), "data-on": setGif === v ? "1" : "0", onClick: () => setSetGif(v), className: "active:opacity-70",
+            style: { minHeight: 34, padding: "0 14px", border: "none", fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", background: setGif === v ? t.ink : "transparent", color: setGif === v ? t.bg2 : t.sub } }, zh))) : null,
+        setPick && !setBusy && setGif ? h("div", { style: { marginTop: 8, fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.6 } },
+          "要能出动图的生图模型（比如 gpt-image-2.6），请求方式选「出图接口」。动图带不了参考照，照「外貌」那栏的字画，长相不保证像。") : null,
+        setPick && !setBusy && !setGif ? h("button", { "data-wk": "emosetcaption", "data-on": setCaption ? "1" : "0", onClick: () => setSetCaption(v => !v), className: "active:opacity-70",
           style: { marginTop: 10, display: "flex", alignItems: "center", gap: 8, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.sub } },
           h("span", { style: { width: 18, height: 18, borderRadius: 5, border: "1.5px solid " + t.ink, background: setCaption ? t.ink : "transparent", color: t.bg2, fontSize: "calc(12px * var(--app-fs, 1))", lineHeight: "15px", textAlign: "center" } }, setCaption ? "✓" : ""),
           "每张底下印上它的名字（看图就知道是什么意思）") : null,
         setPick && !setBusy ? h("div", { className: "flex flex-wrap", style: { gap: 8, marginTop: 10 } },
-          (characters || []).filter(c => c && c.refPhoto).map(c => h("button", { key: c.id, onClick: () => { setSetPick(false); onMakeSet(c.id, { caption: setCaption }); }, className: "active:opacity-70",
+          (characters || []).filter(c => c && (setGif || c.refPhoto)).map(c => h("button", { key: c.id, onClick: () => { setSetPick(false); if (setGif) onMakeGif(c.id); else onMakeSet(c.id, { caption: setCaption }); }, className: "active:opacity-70",
             style: { padding: "6px 12px", borderRadius: 999, border: "1px solid " + t.line, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.sub } }, c.remark || c.name)),
-          !(characters || []).some(c => c && c.refPhoto) ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog } }, "要先在人格档案馆给 TA 传一张参考照") : null) : null,
+          !setGif && !(characters || []).some(c => c && c.refPhoto) ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog } }, "要先在人格档案馆给 TA 传一张参考照") : null) : null,
         // 我自己的那一套（群友 2026-10-30「可以画小U自己的表情包」）：哪张面具传过参考照就能画哪张
         setPick && !setBusy && Array.isArray(myFaces) && myFaces.length ? h("div", { "data-wk": "emomyfaces", style: { marginTop: 12 } },
           h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, marginBottom: 6 } }, "或者画你自己的"),
           h("div", { className: "flex flex-wrap", style: { gap: 8 } },
-            myFaces.filter(f => f.ok).map(f => h("button", { key: "me_" + (f.id || "main"), "data-wk": "emomyface", onClick: () => { setSetPick(false); onMakeSet("__me:" + f.id, { caption: setCaption }); }, className: "active:opacity-70",
+            myFaces.filter(f => setGif || f.ok).map(f => h("button", { key: "me_" + (f.id || "main"), "data-wk": "emomyface", onClick: () => { setSetPick(false); if (setGif) onMakeGif("__me:" + f.id); else onMakeSet("__me:" + f.id, { caption: setCaption }); }, className: "active:opacity-70",
               style: { minHeight: 40, padding: "0 12px", borderRadius: 999, border: "1px solid " + t.line, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.sub } }, "我 · " + f.name)),
-            !myFaces.some(f => f.ok) ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog } }, "要先在「我的面具」里给面具传一张参考照") : null)) : null) : null,
+            !setGif && !myFaces.some(f => f.ok) ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog } }, "要先在「我的面具」里给面具传一张参考照") : null)) : null) : null,
       note("手里这几版", h("button", { "data-wk": "emoaddpack", onClick: () => onAddPack(), className: "shrink-0 active:opacity-60", style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: STICKER_INK, border: "1px solid rgba(0,0,0,.10)", borderRadius: 8, padding: "6px 12px", background: STICKER_PAPER, boxShadow: "0 2px 5px rgba(0,0,0,.10)" } }, "新开一版"), 6),
       // ── 一排「那一版贴纸的角」：选中那版翘起来、带 die-cut 白边；没选的缩下去、淡着 ──
       list.length > 0 && h("div", { "data-wk": "emopacks", className: "flex gap-3 overflow-x-auto", style: { paddingBottom: 6, marginBottom: 4 } },

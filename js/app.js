@@ -32663,6 +32663,36 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     + (appearance ? "外貌：" + String(appearance).slice(0, 200) + "。" : "")
     + "九格从左到右、从上到下依次是：" + items.map((x, i) => (i + 1) + "." + x.look).join("；")
     + "。每格人物居中、完整、别出格。画面里不要任何文字、字母、对话框。";
+  // 一张动图表情（她 2026-11-04：gpt-image-2.6 能出 GIF）：问一句画什么动作 → 照外貌文字画一张会循环的 Q 版小动图 →
+  //   原样存进「X 的表情」那一组（imgToVault 存的是原文件，动的还是动的）。动图只走出图接口、带不了参考照（见 generateSelfieImage 的 gif）
+  const makeEmoteGif = whoId => {
+    if (emoteSetBusy) return;
+    if (!(typeof imgApiReady === "function" && imgApiReady())) { toast("先去 设置·图像API 配一下"); return; }
+    const isMe = String(whoId || "").indexOf("__me:") === 0, mk = isMe ? String(whoId).slice(5) : "";
+    const who = isMe ? ((mk ? (masksRef.current || []).find(m => m && m.id === mk) : profile) || profile) : characters.find(c => c.id === whoId);
+    if (!who) return;
+    const nm = isMe ? (who.label || who.name || "我") : (who.remark || who.name);
+    requestAppPrompt("画一张会动的「" + nm + "」", "写这张动图叫什么、做什么动作（一两句）。发表情时打它的名字就能联想出来。",
+      "", async v => {
+        const t = String(v || "").trim(); if (!t) return;
+        const name = t.split(/[，,。：:\s]/)[0].slice(0, 8) || "动图";
+        setEmoteSetBusy(whoId);
+        try {
+          const prompt = "一张循环播放的小动图表情包：同一个人「" + (who.name || nm) + "」的平面 Q 版二次元小人，二到三头身、大头小身子，干净的深色勾线、赛璐璐平涂，纯白底，人物居中、完整、别出格。"
+            + (who.appearance ? "外貌：" + String(who.appearance).slice(0, 200) + "。" : "")
+            + "动作：" + t.slice(0, 120) + "。动作首尾能接上、循环自然。画面里不要任何文字、字母、对话框。";
+          const out = await generateSelfieImage(prompt, null, { size: "1024x1024", minimalPrompt: prompt, gif: true, gifFrames: 8, gifMs: 120 });
+          let blob = out && out.blob;
+          if (!blob && out && out.url) { try { blob = await (await fetch(out.url)).blob(); } catch (e) { blob = null; } }
+          if (!blob) throw new Error("没拿到图");
+          if (blob.type && blob.type !== "image/gif") throw new Error("这个站回的是一张静图，没出动图——要用能出 GIF 的模型（比如 gpt-image-2.6）");
+          const du = await new Promise((ok, no) => { const r = new FileReader(); r.onload = () => ok(r.result); r.onerror = no; r.readAsDataURL(blob); });
+          const ok = await window.__addSelfSticker(du, isMe ? whoId : who.id, name, true, false);
+          toast(ok ? "画好了，在表情包「" + nm + " 的表情」里，叫「" + name + "」" : "存表情的时候没成，再试一次", 6000);
+        } catch (e) { toast("动图没画成：" + (e.message || "重试"), 8000); }
+        finally { setEmoteSetBusy(""); }
+      }, "画", { multiline: true, maxLength: 120, placeholder: "比如：比心，两只手在胸前比个心、眨一下眼" });
+  };
   const makeMyEmoteSet = async (maskKey, setOpt) => {
     const me = (maskKey ? (masksRef.current || []).find(m => m && m.id === maskKey) : profile) || null;
     const key = "__me:" + (maskKey || "");
@@ -34906,7 +34936,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     onToggleChar: toggleEmotePackChar,
     onImport: importEmotes,
     onAddImages: addEmoteImages,
-    onMakeSet: makeEmoteSet, setBusy: emoteSetBusy,
+    onMakeSet: makeEmoteSet, onMakeGif: makeEmoteGif, setBusy: emoteSetBusy,
     // 能画「我自己」那一套的面具：传过参考照的那几张（主面具 id 记成 ""）
     myFaces: [{ id: "", name: (profile && (profile.label || profile.name)) || "我", ok: !!(profile && profile.refPhoto) }].concat((masks || []).filter(m => m && m.id && m.id !== maskPrimary).map(m => ({ id: m.id, name: m.label || m.name || "未命名", ok: !!m.refPhoto }))), onCaptionPack: captionEmotePack, onUncaptionPack: uncaptionEmotePack,
     onRenameEmote: renameEmote,
