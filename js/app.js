@@ -5318,12 +5318,14 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     //   只认今天这一份。于是今天的日程还没排出来那会儿，界面说睡着、喂给 TA 的却是昨天同一时刻的「正在上班」。
     //   收在这一处：以 sleepPhaseOf 为准（它还认「关了时间感知」那一档），睡着就说睡着，不拿另一天的事当此刻。
     const _asleepNow = (() => { try { return sleepPhaseOf(char) === "asleep"; } catch (e) { return false; } })();
-    if (_asleepNow) out += "\n\n此刻 Ta 在睡觉（按 Ta 自己的作息）。别说成醒着在做别的事。";
+    // 睡着那两句也写上 TA 当地几点（她 2026-11-04：TA 那边早上快八点还在睡，只写「在睡觉／凌晨」，TA 就说成「这边都快凌晨四点了」）
+    const _hereHM = (() => { try { const d = new Date(vclockNow(char.id).getTime() + (typeof schedTzShiftMin === "function" ? schedTzShiftMin(char) : 0) * 60000); return String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0"); } catch (e) { return ""; } })();
+    if (_asleepNow) out += "\n\n此刻" + (_hereHM ? "（你当地约 " + _hereHM + "）" : "") + " Ta 在睡觉（按 Ta 自己的作息）。别说成醒着在做别的事。";
     else if (cur) out += "\n\n此刻（你当地约 " + (cur._charTime || cur.time || "") + "）Ta 正在：" + cur.title + (cur.location ? "，在 " + cur.location : "") + (cur.deviation ? "（这段是临时改动：" + (cur.deviation.reason || "") + "）" : "");
     else {
       const cy = schedCarryNowFor(char);
       out += cy
-        ? "\n\n此刻是你当地的凌晨，今天第一项（" + cy.wake + "）还没到——你还在昨晚那一觉里" + (cy.location ? "，在 " + cy.location : "") + "。若这时候还在跟 Ta 说话，那就是没睡着/被吵醒/熬着没睡，按那个状态来，别当成一天已经开始了。"
+        ? "\n\n此刻" + (_hereHM ? "是你当地约 " + _hereHM + "，" : "是你当地的凌晨，") + "今天第一项（" + cy.wake + "）还没到——你还在昨晚那一觉里" + (cy.location ? "，在 " + cy.location : "") + "。若这时候还在跟 Ta 说话，那就是没睡着/被吵醒/熬着没睡，按那个状态来，别当成一天已经开始了。"
         : "\n\n此刻还没到今天第一项，Ta 大概刚开始一天 / 还没起。";
     }
     if (next) out += "\n待会儿：" + (next._charTime || next.time || "") + " " + next.title;
