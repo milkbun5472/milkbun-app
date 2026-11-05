@@ -885,6 +885,11 @@
       const rows = ctx.recentChatFor(row.id, SNAP_CHAT_N) || [];
       row.最近聊天 = rows.length ? rows : "（还没聊过）";
     });
+    // 想你想到哪儿了、还要多久满、主动消息卡在哪一道（她 2026-11-04）：只给这会儿在说的那几个人
+    if (typeof window !== "undefined" && typeof window.__longingInfo === "function") chars.forEach(row => {
+      if (!hot.has(row.id)) return;
+      const li = window.__longingInfo(row.id); if (li) row.思念 = li;
+    });
     chars.forEach(row => {
       const st = cs[row.id] || {};
       row.聊天窗排版 = st.layout ? JSON.stringify(st.layout).replace(/"(data:image[^"]{0,40})[^"]*"/g, '"$1…"') : "（原样）";

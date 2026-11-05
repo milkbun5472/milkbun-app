@@ -8538,6 +8538,30 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     return "都过了，下一轮检查（一两分钟内）就会来";
   };
   if (typeof window !== "undefined") window.__proactiveWhyNow = proactiveWhyNow;
+  // 秋秋看得见「TA 想你想到哪儿了、还要多久、卡在哪」（她 2026-11-04）：跟状态卡那根条读的是同一份，
+  //   涨多快照 connectionRateFn 那一路（LongingRate），只读不改。睡着、刚聊过这些会让它慢，所以「还要多久」只是按此刻的速度估。
+  const longingInfoFor = cid => {
+    try {
+      const c = (characters || []).find(x => x.id === cid); if (!c) return null;
+      const jw = (window.__dongnian && window.__dongnian[cid]) || null;
+      if (!jw) return { 现在: "还没算出来（开机十几秒后才跑第一轮；没私聊过的不算）", 卡在哪: proactiveWhyNow(cid) };
+      const v = Math.max(0, Number(jw.connection) || 0);
+      const arr = chatsRef.current[cid] || [];
+      const last = [...arr].reverse().find(m => m && m.content && !m.recalled) || null;
+      const rate = window.LongingRate ? window.LongingRate.compute({ charId: cid, lastMessage: last, temperament: dongnianTemperRef.current[cid] || null,
+        affinity: affOf(cid), moodLabel: (moodsRef.current[cid] || {}).label || "", seqType: schedNowTypeFor(c) }) : 0.0007;
+      const mins = th => v >= th ? 0 : Math.ceil((th - v) / Math.max(rate, 1e-6));
+      const hm = m => m >= 60 ? Math.floor(m / 60) + " 小时" + (m % 60 ? m % 60 + " 分" : "") : m + " 分钟";
+      return {
+        现在: (v >= 0.5 ? "忍不住了，随时会开口" : v >= 0.35 ? "已经想找你了，在等合适的时机" : v >= 0.2 ? "偶尔想起你" : "刚聊过，还不想你") + "（" + Math.min(100, Math.round(v / 0.5 * 100)) + "%）",
+        到想找你还要: v >= 0.35 ? "已经过了" : "照此刻的速度约 " + hm(mins(0.35)),
+        到满还要: v >= 0.5 ? "已经满了" : "照此刻的速度约 " + hm(mins(0.5)),
+        说明: "「还要多久」是按此刻的速度直线估的：想得越久涨得越快，实际多半更早；速度跟着TA此刻在干嘛、心情、性子、好感变（睡着时慢很多）；她一开口就归零重攒；关着 app 也照样攒，一次最多补 12 小时",
+        卡在哪: proactiveWhyNow(cid)
+      };
+    } catch (e) { return null; }
+  };
+  if (typeof window !== "undefined") window.__longingInfo = longingInfoFor;
   const dongnianWhyRef = useRef(null);
   const dongnianWhy = () => {
     if (!dongnianWhyRef.current) dongnianWhyRef.current = loadJSON("x_jiwenWhy", {}) || {};
