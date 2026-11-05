@@ -17860,11 +17860,30 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   //   跟「照这个节穿」打架，写出来全是常服（她 2026-11-04）。这几种就不带衣柜那段
   const STAMP_FREE_FIT = c => c && (c.kind === "if" || c.kind === "bday" || c.kind === "mybday" || c.kind === "anniv");
   const stampCtx = (char, cards) => { const x = ctxFor(char, { loreScope: "offline" }); return (cards || []).every(STAMP_FREE_FIT) ? Object.assign({}, x, { carryLog: "" }) : x; };
+  // 写卡的 JSON 坏了多半是正文里带了没转义的英文引号或换行（她 2026-11-05：「解析失败：{"cards":[{"name":"月圆夜的狼爪"…」）：
+  //   逐字走一遍，在字符串里碰到的引号后面不是 , } ] : 的，就当成正文里的引号转义掉；换行转成 \n
+  const stampLooseJSON = raw => {
+    let t = String(raw || ""); const a = t.indexOf("{"), b = t.lastIndexOf("}"); if (a < 0 || b <= a) return null; t = t.slice(a, b + 1);
+    let out = "", inStr = false;
+    for (let i = 0; i < t.length; i++) {
+      const ch = t[i];
+      if (inStr && ch === "\\") { out += ch + (t[i + 1] || ""); i++; continue; }
+      if (ch === '"') {
+        if (!inStr) { inStr = true; out += ch; continue; }
+        const nx = (t.slice(i + 1).match(/^\s*(.)/) || [])[1];
+        if (!nx || ",}]:".includes(nx)) { inStr = false; out += ch; } else out += '\\"';
+        continue;
+      }
+      if (inStr && (ch === "\n" || ch === "\r")) { out += "\\n"; continue; }
+      out += ch;
+    }
+    try { return JSON.parse(out); } catch (e) { return null; }
+  };
   const stampWriteSmall = async (char, list) => {
     list.forEach(c => stampSaveCard(c.id, { writing: true, writingTs: Date.now(), queued: false, err: "" }));
     try {
       const ser = stampSeriesOf(list), prev = stampPrev(char.id, list.map(c => c.id), ser && ser.series);
-      const d = await runProbe(offlineApiFor(char.id), stampCtx(char, list), {
+      const d = await runProbe(offlineApiFor(char.id), stampCtx(char, list), { salvage: stampLooseJSON,
         voice: true,
         instruction: STAMP_CORE() + stampVoice(char) + stampBi(char) + "她在「邮票册」里抽到了几张印着你的邮票，每张是你的一个样子。下面按顺序写这几张。\n"
           + list.map((c, i) => "第 " + (i + 1) + " 张：" + c.rarity + "。" + stampKindLine(c, char)).join("\n")
@@ -17890,7 +17909,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     stampSaveCard(c.id, { writing: true, writingTs: Date.now(), queued: false, err: "" });
     try {
       const ser = stampSeriesOf([c]), prev = stampPrev(char.id, [c.id], ser && ser.series), me = userName(meOf(char.id));
-      const d = await runProbe(offlineApiFor(char.id), stampCtx(char, [c]), {
+      const d = await runProbe(offlineApiFor(char.id), stampCtx(char, [c]), { salvage: stampLooseJSON,
         voice: true,
         instruction: STAMP_CORE() + stampVoice(char) + stampBi(char) + "她在「邮票册」里抽到了一张印着你的 SSR 邮票。" + stampKindLine(c, char)
           + "\nSSR 是一段完整的剧情，像乙游的卡面剧情：分几节，她在中间做选择，选的不同走的路不同。是什么样的故事，跟着你这个人、你的世界和你们现在的关系来，不一定是恋爱的事。"
@@ -17920,7 +17939,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
           + ((x.choices || []).length ? "\n  选项：" + x.choices.map(o => (o.text || "") + " → " + (o.go || "")).join("；") : "")).join("\n");
         let more = null;
         try {
-          more = await runProbe(offlineApiFor(char.id), stampCtx(char, [c]), { voice: true,
+          more = await runProbe(offlineApiFor(char.id), stampCtx(char, [c]), { salvage: stampLooseJSON, voice: true,
             instruction: STAMP_CORE() + stampVoice(char) + stampBi(char) + "你在写邮票册里那张 SSR「" + d.name + "」的剧情。" + stampKindLine(c, char)
               + "\n前面已经写好了这几节（每节只摘了结尾几句）：\n" + sofar
               + "\n\n接着把还缺的写完：" + miss.map(l => l === 10 || l === 30 ? "lv" + l + " 的两条岔路" : l === 40 ? "lv40 的两三个结局（end:true）" : l === 50 ? "lv50 的隐藏的路（hidden:true，也是一个结局）" : "lv" + l + " 那一节").join("、")
