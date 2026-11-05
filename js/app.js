@@ -20,7 +20,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v89.111";
+const APP_VERSION = "v89.116";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -17751,16 +17751,16 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       // 开池那天这条路上还有两样：节日时刻（timeAt）和分镜那一身（themeLook）——退回时把它们一起退回来，
       //   少了 themeLook 分镜就不穿节日那身，只剩背景摆南瓜（她 2026-11-02：卡池突然变得不像万圣节）
       // 写卡的先后里原来没有主题：人和主题一冲突，先丢的就是节日（她 2026-11-03）
-      if (card.limited) return pastLine + (card.timeAt ? stampTimeLine(card) : "") + "这一期的「" + card.theme + "」是硬条件，排在写卡先后的最前面：先保证这张是在过「" + card.theme + "」，再在这里面看你这个人对不对。这是一张【IF 卡】，主题是「" + card.theme + "」" + (stampLim(card).themeLine ? "：" + stampLim(card).themeLine : "。")
+      if (card.limited) return pastLine + (card.timeAt ? stampTimeLine(card) : "") + "这一期的「" + card.theme + "」是硬条件，排在写卡先后的最前面：先保证这张落在「" + card.theme + "」里，再在这里面看你这个人对不对。这是一张【IF 卡】，主题是「" + card.theme + "」" + (stampLim(card).themeLine ? "：" + stampLim(card).themeLine : "。")
         + "写的是「如果」的你，不是真发生的事。先想清楚你是哪个世界、哪个年代的人，" + mode + "衣服照这个主题来配，不用你衣柜里的。"
         + (stampLim(card).themeLook ? "分镜（shot）里写的那一身要照这一条：" + stampLim(card).themeLook : "")
         // 卡名一眼看得出是这一期（她 2026-11-03：沈屿白的万圣夜卡名跟万圣节没关系）
         // 卡名（她 2026-11-04 截图：张张「万圣夜·判官笔」）：卡底下本来就标着这一期，名字不挂前缀，从这张写的那件事里起
-        + "卡名从这张写的那件事里起，看得出是在过「" + card.theme + "」，但不把「" + card.theme + "」几个字挂在名字前面当前缀，卡上本来就标着这一期。"
+        + "卡名从这张写的那件事里起，看得出是「" + card.theme + "」这一期的，但不把「" + card.theme + "」几个字挂在名字前面当前缀，卡上本来就标着这一期。"
         // 分镜里那一身也要看得出在过这个节（她 2026-11-03：描述里穿的还是平时的衣服）
-        + "shot 里的 outfit 写你过这个节穿的那一身，一眼看得出是在过「" + card.theme + "」，不是平时的衣服。"
+        + "shot 里的 outfit 写你在这一期里穿的那一身，一眼看得出是在过「" + card.theme + "」，不是平时的衣服。"
         // 她 2026-11-04：分镜一直写常服——人设里按季节写的那几身被当成了这张该穿的，节日只落在一个小发箍上
-        + "这一身是从外套、上衣到下装整套为过节换的；平时那身加一个头饰、一件小配件不算。人设里按季节、按场合写的常穿衣服这张都不用。"
+        + "这一身是从外套、上衣到下装整套为这一期换的；平时那身加一个头饰、一件小配件不算。人设里按季节、按场合写的常穿衣服这张都不用。"
         // 她 2026-11-04：「都是风衣斗篷了，万圣节明明扮啥都可以」——只说整套换，模型就挑最保险的那一身
         + "这一身是扮成一个具体的角色或怪物：一眼看得出扮的是谁、是什么，不是一身只有气氛的衣服。扮什么照你这个人挑——你会觉得哪个好玩、会拿什么逗她、会不会故意扮得很烂。"
         + "gist 里写上这张扮的是什么；你已经有的「" + card.theme + "」卡里扮过的，这张扮别的。";
@@ -17770,7 +17770,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         // 限时池是节日、不是另一个世界：不换身份，还是他本人过这个节（她 2026-11-03：万圣夜把他写成了游乐园修机器的）
         + (card.limited ? "" : "主题跟你自己的世界本来就是同一种（时代、风格都对得上）的话，就别再写你原来的身份——世界不换，换的是你：要是你走了另一条路，在这个世界里会是谁。")
         // 限时池是一个节：这张就发生在过节的那一晚，他在过节（她 2026-11-03：沈屿白重写出来张张在修机器、穿工装，只是背景摆了南瓜）
-        + (card.limited ? "这一张发生在过这个节的时候，你在过这个节：在做只有这几天才会做的事，不是平常干活的一天摆上节日背景；穿的也是过这个节的人会穿的。" : "")
+        // 节日和主题期（深秋、温泉旅行）共用这一句，所以不说「过节」（她 2026-11-05 深秋那期）
+        + (card.limited ? "这一张就发生在这一期「" + card.theme + "」里：在做只有这个时候、这一期里才会做的事，不是平常干活的一天摆上主题背景；穿的也合这一期。" : "")
         + "衣服照这个主题来配，不用你衣柜里的。" + (stampLim(card).themeLook ? "分镜（shot）里写的那一身要照这一条：" + stampLim(card).themeLook : "");
     }
     return "这是一张【日常卡】：写你自己日子里真发生的一件事——不是你们已经发生过的事，也不是回忆。"
@@ -17813,7 +17814,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   const stampLim = card => { const L = card && card.limited && window.StampsCore && window.StampsCore.LIMITED; const x = L && L.find(e => e.id === card.limited); return x ? Object.assign({}, card, { themeLine: x.line || card.themeLine, themeLook: x.look || "" }) : card; };
   // 限时池画卡面那一格「锁死的那身」（两处画图共用）。光说「过节那一身」图像端会照参考照穿常服、再加一件小头饰交差
   //   （她 2026-11-04：沈屿白万圣夜卡还是那件黑羽绒服，头上多了只蜘蛛）——写明是整套换、小配件不算数
-  const stampLimFit = card => "这一张不穿平时的衣服：穿过「" + (card.theme || "") + "」的那一身，一眼看得出是在过这个节。"
+  const stampLimFit = card => "这一张不穿平时的衣服：穿合「" + (card.theme || "") + "」这一期的那一身，一眼看得出是这一期。"
     + "是从外套、上衣到下装整套换成这一身，不是平时那身衣服上加一个头饰、一件小配件；参考照里他穿的那件外套和上衣这张都不出现。"
     + (stampLim(card).themeLook ? stampLim(card).themeLook : "");
   // 生日、她的生日、纪念日卡（她 2026-11-04「要为这一天准备的特别版」）：跟限时池同一格服装锁，图像端最认这一格；
@@ -17894,7 +17895,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   const stampCtx = (char, cards) => { const x = ctxFor(char, { loreScope: "offline" }); return (cards || []).every(STAMP_FREE_FIT) ? Object.assign({}, x, { carryLog: "" }) : x; };
   // 写卡的 JSON 坏了多半是正文里带了没转义的英文引号或换行（她 2026-11-05：「解析失败：{"cards":[{"name":"月圆夜的狼爪"…」）：
   //   逐字走一遍，在字符串里碰到的引号后面不是 , } ] : 的，就当成正文里的引号转义掉；换行转成 \n
-  const stampLooseJSON = raw => {
+  const stampLooseJSON = (raw, noSplit) => {
     let t = String(raw || ""); const a = t.indexOf("{"), b = t.lastIndexOf("}"); if (a < 0 || b <= a) return null; t = t.slice(a, b + 1);
     let out = "", inStr = false;
     for (let i = 0; i < t.length; i++) {
@@ -17909,7 +17910,14 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       if (inStr && (ch === "\n" || ch === "\r")) { out += "\\n"; continue; }
       out += ch;
     }
-    try { return JSON.parse(out); } catch (e) { return null; }
+    try { return JSON.parse(out); } catch (e) {}
+    if (noSplit) return null;
+    // 还不行（多半是写到后面被截断，或者中间某一张写坏了）：按 {"name": 一张张切开，每张从后往前找能解开的那一截。
+    //   好的几张照收，坏的、没写完的那张不要——它没 name/正文，下一轮照常重写（她 2026-11-05：「生成没生成出来：解析失败」）
+    const one = seg => { for (let e = seg.lastIndexOf("}"); e > 0; e = seg.lastIndexOf("}", e - 1)) { const o2 = stampLooseJSON(seg.slice(0, e + 1), true); if (o2 && typeof o2 === "object" && !Array.isArray(o2) && o2.name) return o2; } return null; };
+    // ⚠️坏的那张留个空位：写回时是按第几张对第几张的，删掉它后面的就全错位了
+    const cards = String(raw || "").split(/(?=\{\s*"name"\s*:)/).slice(1).map(one);
+    return cards.some(Boolean) ? { cards } : null;
   };
   const stampWriteSmall = async (char, list) => {
     list.forEach(c => stampSaveCard(c.id, { writing: true, writingTs: Date.now(), queued: false, err: "" }));

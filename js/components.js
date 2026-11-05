@@ -14940,7 +14940,8 @@ function TransTextState({ text, isU, zhReady, ink, autoShow: autoShowAll = false
   const [open, setOpen] = useState(!!autoShow);
   const cached = lang && !zhReady && typeof transCacheGet === "function" ? transCacheGet(text) : null;
   // 缓存里早先翻回来的那份可能是繁体，摆出来前换成简体
-  const [zh, setZh] = useState(() => { let z = zhReady || (cached && cached.zh) || ""; if (z && typeof fixGarbledText === "function") z = fixGarbledText(z); return z && typeof toSimplified === "function" ? toSimplified(z) : z; });
+  // 译文那一行也剥掉念给语音听的停顿记号（她 2026-11-04 截图：「亲爱的 <#0.5#> 我已经…」）——原文那行 showClean 早剥了，这一行没跟上
+  const [zh, setZh] = useState(() => { let z = zhReady || (cached && cached.zh) || ""; if (z && z.indexOf("<#") >= 0 && typeof stripPauseMarks === "function") z = stripPauseMarks(z); if (z && typeof fixGarbledText === "function") z = fixGarbledText(z); return z && typeof toSimplified === "function" ? toSimplified(z) : z; });
   const [by, setBy] = useState(() => zhReady ? "随消息提供" : (cached && cached.by) || "");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
@@ -14951,7 +14952,7 @@ function TransTextState({ text, isU, zhReady, ink, autoShow: autoShowAll = false
     setBusy(true); setErr("");
     // 长消息走切块版：免费接口是 GET 带 query，整段太长会被截断或直接失败
     // 点「译」翻回来的也换成简体（群里 2026-10-11：「有时候翻译是繁体字」——免费接口翻粤语常回繁体，随消息来的那份上面已经换过）
-    try { const r = await translateLongToZh(text, lang, noModel ? { noModel: true } : undefined); const _z = typeof fixGarbledText === "function" ? fixGarbledText(r.zh) : r.zh; setZh(typeof toSimplified === "function" ? toSimplified(_z) : _z); setBy(r.by || ""); }
+    try { const r = await translateLongToZh(text, lang, noModel ? { noModel: true } : undefined); const _z0 = typeof stripPauseMarks === "function" && String(r.zh || "").indexOf("<#") >= 0 ? stripPauseMarks(r.zh) : r.zh; const _z = typeof fixGarbledText === "function" ? fixGarbledText(_z0) : _z0; setZh(typeof toSimplified === "function" ? toSimplified(_z) : _z); setBy(r.by || ""); }
     catch (x) { setErr(String((x && x.message) || x)); }
     finally { setBusy(false); }
   };

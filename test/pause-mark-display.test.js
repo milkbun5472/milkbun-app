@@ -9,3 +9,12 @@ test("通话气泡、线下正文显示前剥掉停顿记号", () => {
   assert.match(c, /function TransText\([^)]*\) \{\n  const \[autoShow\] = useOnlineTranslationAuto\(\);\n[\s\S]{0,400}if \(typeof text === "string" && typeof showClean === "function"\) text = showClean\(text, isU\);/);
   assert.match(c, /const segs = offSplit\(typeof stripPauseMarks === "function" \? stripPauseMarks\(text\) : text\);/);
 });
+test("译文那一行也剥停顿记号（她 2026-11-04：「亲爱的 <#0.5#> 我已经…」）", () => {
+  const c = require("fs").readFileSync(require("path").join(__dirname, "..", "js", "components.js"), "utf8");
+  assert.match(c, /if \(z && z\.indexOf\("<#"\) >= 0 && typeof stripPauseMarks === "function"\) z = stripPauseMarks\(z\);/);
+  assert.match(c, /const _z0 = typeof stripPauseMarks === "function" && String\(r\.zh \|\| ""\)\.indexOf\("<#"\) >= 0 \? stripPauseMarks\(r\.zh\) : r\.zh;/);
+});
+test("劈双语那一处就把译文里的停顿记号剥掉，原文留着给语音", () => {
+  const e = require("fs").readFileSync(require("path").join(__dirname, "..", "js", "engine.js"), "utf8");
+  assert.match(e, /return \{ text: orig, zh: zh\.indexOf\("<#"\) >= 0 && typeof stripPauseMarks === "function" \? stripPauseMarks\(zh\)\.trim\(\) : zh \};/);
+});

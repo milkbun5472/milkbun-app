@@ -50,8 +50,10 @@
       stamp: "落叶邮票", deco: "autumn",
       hook: "风一吹，叶子就落满了他走过的路。这个秋天，你想和他去哪儿？",
       // 只给判断，不列道具和情绪（她 2026-10-26 跟 GPT 那版一起磨的）：列出来的东西模型会张张往里凑
-      line: "主题是「深秋：一年快到头的那段日子」。先想清楚你是哪个世界、哪个年代、什么地方的人，你那儿这个时候真实有些什么变化，从这些变化里找故事，不把常见的秋日意象直接套进来。这个时节的某一天，你在过怎样的日子，发生了什么值得留在卡里的一刻。读的人要能从画面和故事里认出是深秋，但不必点明季节，也不借季节抒情；不预设情绪，也不强求故事一定有深意。",
-      look: "画面要看得出是那个季节、那一天的光，不靠堆道具。" },
+      // 她 2026-11-05 改：原来那句「不必点明季节」配上「不套秋日意象」，模型最省事的写法就是一张普通日常卡、顺口提一句天凉——
+      //   万圣夜那批跑偏就是这个形状。现在要季节落进事情里，并且照钩子用「你们俩」这层看
+      line: "主题是「深秋：一年快到头的那段日子」。先想清楚你是哪个世界、哪个年代、什么地方的人，你那儿这个时候真实有些什么变化。这一刻要是【因为到了这个时节才会发生】的事：季节是这件事的起因或条件，换到别的季节就不成立——不是一张平常日子的卡、背景里顺带天凉。写的是你们俩在这个时节里的一刻（一起，或者隔着距离牵着彼此）。不把常见的秋日意象直接套进来，不借季节抒情；不预设情绪，也不强求故事一定有深意。",
+      look: "画面要看得出是那个季节、那一天的光，不靠堆道具。人物穿着照这个季节、照这个人的世界来，是天冷下来时会穿的样子，不画夏装或跟季节对不上的常服。" },
     { id: "onsen26", series: "onsen", name: "温泉旅行", from: "2026-12-01T00:00:00+08:00", to: "2026-12-16T00:00:00+08:00",
       stamp: "汤屋邮票", deco: "onsen",
       hook: "雪落在屋檐上，热气从水面升起来。这一趟，他会带你去哪儿？",
@@ -122,6 +124,8 @@
     return got;
   }
   function activeLimited(now) { const t = now || Date.now(); return LIMITED.filter(L => t >= Date.parse(L.from) && t < Date.parse(L.to)); }
+  // 还没开的下一期（她 2026-11-05「把这个卡池连到测试模式里让我自己试试先」）：只给测试券开着时的卡池列表用，送券那一路不读它
+  function nextLimited(now) { const t = now || Date.now(); return LIMITED.filter(L => Date.parse(L.from) > t).sort((a, b) => Date.parse(a.from) - Date.parse(b.from))[0] || null; }
   // 生日池：生日前 14 天出现，生日后留 7 天。bday 是 "MM-DD"
   //   lockId（她 2026-10-26 防多刷）：给了就按「这个人这一年」锁住第一次开池的那天——同一年里改生日、改在一起的日子，池子不挪，改的日子明年才用上
   function bdayWindow(bday, now, lockId) {
@@ -253,7 +257,7 @@
   function ssrUnlocked(lv) { return { sections: Math.min(4, 1 + Math.floor(lv / 10)), ending: lv >= 40, hidden: lv >= 50 }; }
 
   g.StampsCore = { PRICE_ONE, PRICE_TEN, RATE, SOFT_FROM, HARD_AT, SR_EVERY, BDAY, CAP, FULL_COST, GIFT, GAIN, LIMITED,
-    bdTicketCount, EXTRA_INK, buyExtra, MELT_R, meltValue, melt, INK_PER_TEN, claimLetter, claimBdLetter, letterClaimed, cleanText, DUPE_INK, UNLOCK, levelUp, canBeg, markBeg, load, save, gain, grantOnOpen, activeLimited, bdayWindow, rollRarity, pay, levelCost, isGate, gateBlocked, ssrUnlocked };
+    bdTicketCount, EXTRA_INK, buyExtra, MELT_R, meltValue, melt, INK_PER_TEN, claimLetter, claimBdLetter, letterClaimed, cleanText, nextLimited, DUPE_INK, UNLOCK, levelUp, canBeg, markBeg, load, save, gain, grantOnOpen, activeLimited, bdayWindow, rollRarity, pay, levelCost, isGate, gateBlocked, ssrUnlocked };
   // 各处喊一声就记上
   g.stampGain = gain;
   // 别的玩法不一处处去挂：callAI 成功一枪（她按下去的、不是后台）会广播 ai-ok，这儿按它是干嘛的分进几档。

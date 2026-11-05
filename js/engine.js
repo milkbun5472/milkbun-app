@@ -8428,7 +8428,7 @@ function splitBilingual(text, hanLang) {
   // 全角竖线也是那根竖线（群友 2026-11-03：「加竖线为啥没被识别成翻译」——全角 ｜ 没认）。下面 joinBilingualLines 同一句
   const t = String(text == null ? "" : text).replace(/[｜│︱┃]/g, "|");
   const br = typeof bracketBilingual === "function" ? bracketBilingual(t) : null;
-  if (br) return br;
+  if (br) return br.zh && br.zh.indexOf("<#") >= 0 && typeof stripPauseMarks === "function" ? Object.assign({}, br, { zh: stripPauseMarks(br.zh).trim() }) : br;
   const i = t.indexOf("|");
   if (i <= 0 || i !== t.lastIndexOf("|")) return null;
   const orig = t.slice(0, i).trim(), zh = t.slice(i + 1).trim();
@@ -8444,7 +8444,9 @@ function splitBilingual(text, hanLang) {
   if (bare(orig) && bare(orig) === bare(zh)) return { text: orig, zh: "" };
   const foreign = /[\u3040-\u30ff\uac00-\ud7af\u1100-\u11ff\u3130-\u318f\u0400-\u04ffA-Za-z\u00c0-\u024f]/.test(orig);
   if (/[\u4e00-\u9fff]/.test(orig) && !foreign && !hanLang && !/[嘅咗唔啲喺嗰冇佢嚟咁乜嘢噉哋囉㗎嘞啱揾搵睇畀咩攰瞓諗谂嚿冚啩喎嗮晒噃咪嘥]/.test(orig)) return null;
-  return { text: orig, zh: zh };
+  // 译文那半截剥掉念给语音听的停顿记号（她 2026-11-04：「全部翻译的地方都弄了吧」）——原文留着，TTS 还要照它停。
+  //   劈双语只有这一处，所有译文（气泡、心声、通话字幕、线下、查手机……）都从这儿出来
+  return { text: orig, zh: zh.indexOf("<#") >= 0 && typeof stripPauseMarks === "function" ? stripPauseMarks(zh).trim() : zh };
 }
 // 模型把中译另起了一行（「ん？なに？」换行「|……嗯？什么？」）：拆泡是先按换行切的，
 //   竖线那一行就落单了——原文那泡没有译文，竖线连着中文自己成了一泡，中文还被再拆成好几泡
