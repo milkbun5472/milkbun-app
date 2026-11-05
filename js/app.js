@@ -9855,12 +9855,19 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     //   闭群不外流；正在说话的那个群（excludeGroup）自己有完整记录，不重复带
     if (surfaces.includes("group")) (groups || []).forEach(g => {
       if (!g || g.id === opts.excludeGroup || !gsFor(g.id).memoryInterop || !(g.memberIds || []).includes(charId)) return;
-      (groupChatsRef.current[g.id] || []).forEach(m => {
+      // 她那时候在不在群里（她 2026-11-04：「之前在群里后来退出变旁观，或者反过来呢」）：照那几行「退出了群聊／拉进了群聊」逐条算，
+      //   不是只看她现在在不在。没换过的群，就照现在的身份
+      const _gl = groupChatsRef.current[g.id] || [];
+      const _pres = m => m && m.role === "system" ? (m.presence || (/退出了群聊$/.test(String(m.content || "")) && String(m.content).indexOf(uName) === 0 ? "out" : /把.+拉进了群聊$/.test(String(m.content || "")) && String(m.content).indexOf("把" + uName + "拉进") >= 0 ? "in" : "")) : "";
+      const _first = _gl.map(_pres).find(Boolean);
+      let _inNow = _first ? _first === "out" : !groupSpectating(g);
+      _gl.forEach(m => {
+        const _p = _pres(m); if (_p) { _inNow = _p === "in"; return; }
         if (!m || m.recalled || !m.content || isOocMsg(m) || m.role === "system" || !contextAllowsMessage(m)) return;
         if (sinceMs && (m.ts || 0) < sinceMs) return;
         // 悄悄话只进说的人和被说的人那儿
         if (m.whisper && m.senderId !== charId && m.toId !== charId) return;
-        beats.push({ ts: m.ts || 0, surface: "群「" + g.name + "」" + (groupSpectating(g) ? "·她不在这个群里" : ""), who: m.whisper ? "【悄悄话】" + (m.senderName || "某人") + " 小声对 " + (m.toId === charId ? "你" : (m.toName || "某人")) : m.role === "user" ? uName : m.role === "narration" ? "【旁白】" : (m.senderName || "某人"), text: String(m.content) });
+        beats.push({ ts: m.ts || 0, surface: "群「" + g.name + "」" + (_inNow ? "" : "·她那时不在这个群里"), who: m.whisper ? "【悄悄话】" + (m.senderName || "某人") + " 小声对 " + (m.toId === charId ? "你" : (m.toName || "某人")) : m.role === "user" ? uName : m.role === "narration" ? "【旁白】" : (m.senderName || "某人"), text: String(m.content) });
       });
     });
     if (!beats.length) return "";
@@ -18169,7 +18176,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     setScreen("messages");
     toast("群聊已删除");
   };
-  const groupSysLine = (groupId, text) => pGChat(groupId, p => [...p, { role: "system", content: text, ts: Date.now() }]);
+  const groupSysLine = (groupId, text, extra) => pGChat(groupId, p => [...p, { role: "system", content: text, ts: Date.now(), ...(extra || {}) }]);
   // 旁观模式下，加/踢人归到群里某个现有成员名下
   const specActor = (groupId, memberIds) => {
     if (!gsFor(groupId).spectate) return null;
@@ -18204,10 +18211,10 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     if (inGroup) {
       const pool = (g.memberIds || []).map(id => characters.find(c => c.id === id)).filter(c => c && !c.npc);
       const actor = pool.length ? pool[Math.floor(Math.random() * pool.length)] : null;
-      groupSysLine(groupId, (actor ? actor.name : "有人") + "把" + me + "拉进了群聊");
+      groupSysLine(groupId, (actor ? actor.name : "有人") + "把" + me + "拉进了群聊", { presence: "in" });
       toast("你回到群里了");
     } else {
-      groupSysLine(groupId, me + "退出了群聊");
+      groupSysLine(groupId, me + "退出了群聊", { presence: "out" });
       toast("已退出，现在是旁观");
     }
   };
