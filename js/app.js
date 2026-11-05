@@ -3831,6 +3831,9 @@ function App() {
     });
     return touched ? { aff, applied, fixed } : null;
   };
+  // 算「上次说话」时不算数的那几种：系统行、邮票册寄来的信、每天替她抽的今日签（她 2026-11-04：今日签一来，主动那道 45 分钟的闸又从头数）。
+  //   都是到点自己落进来的，不是谁开口了。她转发回来的今日签是她发的，照算。主动那两处都问这一份
+  const autoPostNotTalk = m => !!m && (m.kind === "system" || m.kind === "stampletter" || m.kind === "stampbdletter" || (m.kind === "astroshare" && m.role === "char"));
   const affOf = charId => affinities[charId] != null ? affinities[charId] : baseAff(charId);
   // 钱写成字：界面、聊天正文、喂给模型那三处都从这儿过（js/money.js）。
   // ⚠️内部记账永远是人民币，这只是【出口】——把换算后的数写回存档就全错了。
@@ -8402,7 +8405,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
             if (composing) continue;
           }
           if (activeOff && !activeOffScene) continue; // 线下开着但还没开演：不发线上、也没得演，跳过
-          const ms = (chatsRef.current[cid] || []).filter(m => !m.recalled && !isOocMsg(m) && m.kind !== "system" && m.kind !== "stampletter" && m.kind !== "stampbdletter" && contextAllowsMessage(m));   // 邮票册寄来的信不算你们说过话（群里 2026-10-27：收了信他就半天不主动）
+          const ms = (chatsRef.current[cid] || []).filter(m => !m.recalled && !isOocMsg(m) && !autoPostNotTalk(m) && contextAllowsMessage(m));   // 邮票册寄来的信不算你们说过话（群里 2026-10-27：收了信他就半天不主动）
           if (!activeOffScene && !ms.length) continue;
           // ⭐dongnian 阶段二（v48.80/81）：有 dongnian 就【由心理动机决定开口】——思念漂到 contact 阈值才主动，时机全交给它（线上线下同一套门槛）；
           //   固定间隔滑块已去掉(v48.81 她点名)，这里只留防刷屏底线：有 dongnian=45min 底线(真时机 dongnian 说了算)，没 dongnian(引擎没载)兜底 3h。
@@ -8522,7 +8525,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     if (!autoRefreshOn("proactive", cid)) return "「允许 Ta 主动发消息」关着";
     if (currentlyTogetherWithChar(cid)) return "你们此刻在一起（共处一室或见面开着），想你会落成在一起时的动作，不发线上消息";
     if (laneBusy("c:" + cid)) return "TA 这会儿正在回别的（上一条还在写）";
-    const ms = (chatsRef.current[cid] || []).filter(m => !m.recalled && !isOocMsg(m) && m.kind !== "system" && m.kind !== "stampletter" && m.kind !== "stampbdletter");
+    const ms = (chatsRef.current[cid] || []).filter(m => !m.recalled && !isOocMsg(m) && !autoPostNotTalk(m));
     if (!ms.length) return "你们还没聊过天";
     const jw = (window.__dongnian && window.__dongnian[cid]) || null;
     const floorMin = proactiveFloorMin(cid, jw);
