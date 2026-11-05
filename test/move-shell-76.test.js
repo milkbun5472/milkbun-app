@@ -15,3 +15,13 @@ test("只有公共版旧地址、过了点才换整页；家里那版没有 QQ_M
   assert.match(app, /if \(_mv && _mv\.host === location\.hostname && Date\.now\(\) >= _mv\.at\) \{\n\s*body = h\(LazyGate, \{ key: "lazy-move", group: "screens",[^\n]*render: \(\) => h\(window\.MoveShell,/);
   assert.doesNotMatch(app, /QQ_MOVE\s*=/, "家里那份不许自己挂 QQ_MOVE");
 });
+// ⚠️她 2026-11-05 当场抓到：旧站的搬家页上明晃晃印着新门牌，还留着一颗按钮直接跳过去。
+//   换地址图的就是别人找不到，旧门上贴新门牌＝白搬。搬家页只准说「去群公告看」。
+test("搬家页既不写新地址、也不留跳过去的那颗键", () => {
+  const i = ui.indexOf("function MoveShell("), j = ui.indexOf("window.MoveShell = MoveShell;", i);
+  const body = ui.slice(i, j);
+  assert.doesNotMatch(body, /href|location\.href|window\.open|去新家/, "搬家页不许有任何跳转或「去新家」的键");
+  assert.match(body, /群公告/, "得告诉她们去群公告里找");
+  assert.doesNotMatch(ui, /autumn-drawer/, "公共版新地址一个字都不许写进 js");
+  assert.doesNotMatch(app, /autumn-drawer/, "公共版新地址一个字都不许写进 js");
+});

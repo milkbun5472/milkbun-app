@@ -50,3 +50,17 @@ test("验证记录：模型抄出来的那句话摆出来，站子和模型不�
   const line = row.slice(row.indexOf("when(r.at)") - 400, row.indexOf("when(r.at)"));
   assert.ok(!/className: "truncate"/.test(line), "带站子和模型那一行又被 truncate 截掉了");
 });
+
+// 画图的模型挡在门外（她 2026-11-04：有人填了 gpt-image-2.5，一个多小时挂了十几次）
+test("门那一页：填了画图的模型，点之前就说清楚", () => {
+  const door = fs.readFileSync(path.join(process.env.HOME, "yanqiu-den/qiuqiu-door/public/index.html"), "utf8");
+  assert.match(door, /var DRAW_MODEL = /, "没有那道闸");
+  assert.ok(door.includes("是画图的模型，它不会看图"), "没说清为什么不行");
+  const m = door.match(/var DRAW_MODEL = (\/.+?\/i);/);
+  assert.ok(m, "取不到那条正则");
+  const re = new RegExp(m[1].slice(1, -2), "i");
+  ["gpt-image-2.5", "dall-e-3", "flux.1-pro", "midjourney", "stable-diffusion-xl", "seedream-4.0", "nano-banana"]
+    .forEach(x => assert.ok(re.test(x), "画图的没挡住：" + x));
+  ["gemini-2.5-pro", "gpt-4o", "gpt-5", "claude-opus-4", "qwen-vl-max", "glm-4v", "doubao-vision-pro"]
+    .forEach(x => assert.ok(!re.test(x), "能看图的被误挡了：" + x));
+});

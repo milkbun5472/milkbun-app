@@ -9341,19 +9341,18 @@ async function evSha256Hex(s) {
 // 旧地址关门以后的搬家页（她 2026-10-28：「到点了就变成搬家页，只留注册登录云还有它教程和普通导出页」）。
 //   只在公共版的旧地址出现：window.QQ_MOVE 由公共版的 notice.js 挂（家里那版没有这个文件），
 //   app.js 看到旧地址过了点，就把整页换成这一张。云同步和导出用的就是「设置 → 数据」那两格本身，不另写一份。
-function MoveShell({ to, dataProps }) {
+// ⚠️这一页【绝不许写出新地址】（她 2026-11-05 当场抓到）：换地址图的就是别人找不到，
+//   旧门上贴着新门牌，等于白搬。新地址只在群公告里说，这里一个字都不提。
+function MoveShell({ dataProps }) {
   const t = useTheme();
-  const host = String(to || "").replace(/^https?:\/\//, "").replace(/\/$/, "");
   const p = (txt, k) => h("p", { key: k, style: { margin: "0 0 10px", fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", color: t.sub, lineHeight: 1.75 } }, txt);
   return h("div", { "data-wk": "moveshell", className: "h-full flex flex-col", style: configSheet(t) },
     h(Head, { zh: "秋秋搬家了", bg: "transparent" }),
     h("div", { className: "flex-1 min-h-0 overflow-y-auto px-4 pt-3 pb-8" },
       h("div", { "data-wk": "moveshellnote", style: { background: t.bg2, border: "1px solid " + t.line, borderRadius: 14, padding: "14px 14px 6px", marginBottom: 14 } },
-        p("噢！这里是秋秋的老房子，已经关门啦。新家在下面这个地址，进门的口令在群公告里。", 0),
+        p("噢！这里是秋秋的老房子，已经关门啦。新地址和进门的口令都在群公告里，自家人翻一下公告就能看到。", 0),
         p("你的东西还在这台手机上，没有丢。搬过去有两条路：登了云同步的，到新家登同一个账号，文字和图都会自己回来；没登的，先在下面点「导入与导出」，把文字那一份和图片的每一包都存好，再到新家导入。", 1),
-        to ? h("a", { "data-wk": "moveshellgo", href: to, className: "active:opacity-70",
-          style: { display: "block", textAlign: "center", margin: "6px 0 10px", padding: "11px 0", borderRadius: 999, background: t.ink, color: t.bg, fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", fontWeight: 600, textDecoration: "none" } },
-          "去新家 " + host) : null),
+        null),
       h(DataConfig, Object.assign({}, dataProps, { only: ["cloud", "backup"] }))));
 }
 // screens 这一组是用到才加载、公共版还会压缩改名：app.js 只认挂在 window 上的这一个

@@ -788,7 +788,7 @@
   }
 
   // ── 新地址的门（她 2026-10-28）：口令、要不要审核、进过门的设备名单；只有管理口令看得到 ──────
-  //   设备是在公共版新地址（autumn-drawer）门口输口令进来的，一台一行；停用＝那台几分钟内就打不开。
+  //   设备是在公共版新地址门口输口令进来的，一台一行；停用＝那台几分钟内就打不开。
   function GatePanel({ t, props, onClose }) {
     const [d, setD] = useState(null), [err, setErr] = useState(""), [q, setQ] = useState(""), [busy, setBusy] = useState("");
     const load = (qq, more) => api("/gate/list?q=" + encodeURIComponent(qq || "") + "&off=" + (more ? (d && d.devices.length) || 0 : 0))
