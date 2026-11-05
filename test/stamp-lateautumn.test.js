@@ -10,3 +10,9 @@ test("判据：季节落进事情里，不是背景", () => {
 });
 test("跟钩子对上：你们俩", () => { assert.match(seg, /你们俩在这个时节里的一刻/); });
 test("画面：穿着跟季节", () => { assert.match(seg, /人物穿着照这个季节/); });
+test("测试券开着时卡池列表多摆下一期；送券那一路不读它", () => {
+  const st = require("fs").readFileSync(require("path").join(__dirname, "..", "js", "stamps.js"), "utf8");
+  assert.match(s, /function nextLimited\(now\)/);
+  assert.match(st, /st\.opt && st\.opt\.testInf && C\(\)\.nextLimited \? C\(\)\.nextLimited\(Date\.now\(\)\)/);
+  assert.doesNotMatch(s.slice(s.indexOf("function grantOnOpen"), s.indexOf("function activeLimited")), /nextLimited/);
+});

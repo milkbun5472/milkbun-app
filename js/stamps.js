@@ -787,7 +787,8 @@
     useEffect(() => { const got = C().grantOnOpen(Date.now(), characters.map(c => { const w = c.birthday ? C().bdayWindow(c.birthday, Date.now(), c.id) : null; return w ? { id: c.id, name: c.remark || c.name, year: w.year } : null; }).filter(Boolean)
       .concat((props.myBdays || []).map(m => { const w = m.birthday ? C().bdayWindow(m.birthday, Date.now(), "me_" + m.id) : null; return w ? { id: "me_" + m.id, name: "你（" + (m.name || "你") + "）", year: w.year } : null; }).filter(Boolean)),
       (() => { const lp = ((C().load().opt || {}).limPick || []).filter(id => characters.some(c => c.id === id)); return lp.length || characters.length; })()); if (got.length) { setGotNote(got); setSt(C().load()); } }, []);
-    const lims = C().activeLimited(Date.now());
+    // 测试券开着：把下一期还没开的限定池也摆出来，先试味道（不送它的券，抽的时候走测试券）
+    const lims = C().activeLimited(Date.now()).concat((() => { const nx = st.opt && st.opt.testInf && C().nextLimited ? C().nextLimited(Date.now()) : null; return nx && !C().activeLimited(Date.now()).some(L => L.id === nx.id) ? [nx] : []; })());
     // 生日池：他生日前 14 天出现，生日后留 7 天；保底和求情按「这个人这一年」单独记
     const bds = characters.map(c => { const w = c.birthday ? C().bdayWindow(c.birthday, Date.now(), c.id) : null; return w ? { char: c, win: w, key: c.id + "_" + w.year } : null; }).filter(Boolean)
       // 她自己的生日池：每张面具一个，抽的是认这张面具的那几个人；卡都是你们俩的

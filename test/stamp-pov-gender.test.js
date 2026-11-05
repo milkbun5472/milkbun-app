@@ -51,10 +51,10 @@ test("册子里正在重写的卡有标记", () => {
   const ui = fs.readFileSync(__dirname + "/../js/stamps.js", "utf8");
   assert.match(ui, /"data-wk": "stamprewriting"/);
 });
-test("限时池卡名从那件事里起，看得出在过这个节", () => { assert.match(src, /"卡名从这张写的那件事里起，看得出是在过「" \+ card\.theme \+ "」/); });
-test("限时池分镜里的衣服看得出在过节", () => { assert.match(src, /shot 里的 outfit 写你过这个节穿的那一身/); });
+test("限时池卡名从那件事里起，看得出是这一期的", () => { assert.match(src, /"卡名从这张写的那件事里起，看得出是「" \+ card\.theme \+ "」这一期的/); });
+test("限时池分镜里的衣服合这一期", () => { assert.match(src, /shot 里的 outfit 写你在这一期里穿的那一身/); });
 test("限时池画卡面时，衣服那一格写死要过节的那一身", () => {
-  assert.match(src, /const stampLimFit = card => "这一张不穿平时的衣服：穿过「"/);
+  assert.match(src, /const stampLimFit = card => "这一张不穿平时的衣服：穿合「"/);
   assert.match(src, /const stampDayFit = \(card, who\) => card\.limited \? stampLimFit\(card\) : STAMP_DAY_KINDS\[card\.kind\]/);
   assert.match(src, /const limFit = stampDayFit\(card, "他"\);/);
   assert.match(src, /photoOutfit: stampDayFit\(card, "他"\) \}\);/);
@@ -87,7 +87,7 @@ test("IF、生日、纪念日写卡不带衣柜那段（会叫他只穿衣柜里
   assert.ok(!/stampCtx\(char, \[c\]\)[\s\S]{0,40}const stampInner/.test(src));
 });
 test("限时池写卡：分镜的 outfit 是整套过节的，季节常服和小配件不算", () => {
-  assert.match(src, /这一身是从外套、上衣到下装整套为过节换的；平时那身加一个头饰、一件小配件不算。人设里按季节、按场合写的常穿衣服这张都不用。/);
+  assert.match(src, /这一身是从外套、上衣到下装整套为这一期换的；平时那身加一个头饰、一件小配件不算。人设里按季节、按场合写的常穿衣服这张都不用。/);
 });
 test("限时池写卡：扮成具体的角色或怪物，照他挑，gist 记扮相、不重样", () => {
   assert.match(src, /这一身是扮成一个具体的角色或怪物：一眼看得出扮的是谁、是什么/);
