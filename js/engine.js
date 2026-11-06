@@ -7834,6 +7834,17 @@ function privateBracketFix(text) {
     .replace(/\s*〔\s*(?:(?:今天|昨天|前天)\s*|\d{1,2}\/\d{1,2}\s*)?\d{1,2}[:：]\d{2}\s*〕\s*/g, " ")
     .replace(/〔([^〔〕\n]{1,120})〕/g, "（$1）");
 }
+// 推演里 TA 亲口写的外语要带中译（她 2026-11-06「你倒是接公共别每一处自己写」）：同一轮顺手写，不额外花钱。
+//   朋友圈、匿名箱……要中译的地方都从这一份拿说法、字段和收法，别再各写一段。
+//   on：跟聊天设置那颗「双语」走（工程师之眼开着不要）；spec(what, extra)：拼进 instruction；field(key, what)：拼进 schemaHint；take(v)：收回来的值，null/空 → ""。
+const ProbeZh = {
+  on: (settings) => !!(settings && settings.bilingual && !settings.engineerEyes),
+  spec: (what, extra) => "\n\n【" + what + "要带中译】你用的不是中文的话，在 zh 里给出" + what + "的简体中文翻译："
+    + "只译正文、保留原话的语气和口吻，不要注音、不要解释、不要引号。" + (extra || "") + "本来就用中文写的，zh 填 null。",
+  field: (key, what) => ",\"" + key + "\":\"" + what + "的中译或null\"",
+  take: v => { const z = String(v == null ? "" : v).trim(); return z && z.toLowerCase() !== "null" ? z : ""; }
+};
+if (typeof window !== "undefined") window.ProbeZh = ProbeZh;
 function showClean(text, isU) {
   let s = String(text == null ? "" : text);
   if (!s) return s;

@@ -23591,6 +23591,9 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   //   树洞是「一屋子陌生人」，连线是「直播里接进来一个人」，两句话不一样，不许互相将就。
   const strangerBans = () => "\n\n" + ECHO_QUESTION_BAN + "\n\n" + REGISTER_FOLLOWS_SCENE
     + (window.ReplyPacing ? "\n\n" + window.ReplyPacing.reading() : "");
+  // 匿名箱的双语（她 2026-11-06）：走公共的 ProbeZh，跟朋友圈同一份
+  const anonBiOn = char => ProbeZh.on(settingsFor(char.id));
+  const anonBiSpec = ProbeZh.spec("这条回答", "skip 时写的那句 note 也一样，中译写在 noteZh。");
   const anonBans = () => strangerBans()
     + "\n\n【这是树洞，不是聊天】问你话的是一屋子跟你毫无关系的陌生人，不是你身边的人。"
     + "对他们说话的分寸、耐心和亲疏，跟你对熟人说话【本来就不一样】——想答就答，不想答就不答，"
@@ -23683,8 +23686,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
           + "· 你此刻的心情写在上面——烦的时候就短、就冲;松快的时候话会多一点。让它真的影响这几条,别每条都是同一个温度。\n"
           + "· 说人话:别端着解释道理、别写成箴言警句、别用『其实/本质上/无非是』这种给人上课的开场。\n"
           + "如果看完这些你心里冒出了「这人是不是我认识的某某」,把那个念头写进 guess(一句,可以猜错、可以猜得很离谱);没冒出来就留空。"
-          + anonBans(),
-        schemaHint: "{\"items\":[{\"answer\":\"回答(skip 为 true 时留空)\",\"skip\":false,\"note\":\"skip 为 true 时你当时的反应(一句,可空)\"}],\"guess\":\"你心里那句猜测(可空)\"}"
+          + anonBans() + (anonBiOn(char) ? anonBiSpec : ""),
+        schemaHint: "{\"items\":[{\"answer\":\"回答(skip 为 true 时留空)\",\"skip\":false,\"note\":\"skip 为 true 时你当时的反应(一句,可空)\"" + (anonBiOn(char) ? ProbeZh.field("zh", "回答") + ProbeZh.field("noteZh", "note") : "") + "}],\"guess\":\"你心里那句猜测(可空)\"}"
       });
       const items = (d && Array.isArray(d.items)) ? d.items : [];
       if (!items.length) throw new Error("没有生成内容");
@@ -23699,7 +23702,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         records: (c2.records || []).map(r => {
           const it = ansById[r.id];
           if (!it) return r;
-          return { ...r, pending: false, skip: !!it.skip, note: it.skip ? String(it.note || "") : "", a: it.skip ? "" : String(it.answer || ""), ansTs: now };
+          const _z = it.skip ? "" : ProbeZh.take(it.zh), _nz = it.skip ? ProbeZh.take(it.noteZh) : "";
+          return { ...r, pending: false, skip: !!it.skip, note: it.skip ? String(it.note || "") : "", a: it.skip ? "" : String(it.answer || ""), ansTs: now, ...(_z ? { zh: _z } : {}), ...(_nz ? { noteZh: _nz } : {}) };
         })
       }));
       const nSkip = items.filter(x => x && x.skip).length;
@@ -23723,8 +23727,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         voice: true,
         instruction: "有人匿名向你提问：「" + q + "」。你不知道问的其实是 " + ((profile && profile.name) || "用户") + "。\n"
           + "就当是手机上随手回一条匿名提问：想认真答就认真答，不想答就敷衍、顶回去或只接半句；"
-          + "长短随你此刻的心情，别写成一句端着的判词。",
-        schemaHint: "{\"answer\":\"回答\"}"
+          + "长短随你此刻的心情，别写成一句端着的判词。" + (anonBiOn(char) ? anonBiSpec : ""),
+        schemaHint: "{\"answer\":\"回答\"" + (anonBiOn(char) ? ProbeZh.field("zh", "回答") : "") + "}"
       });
       pAnon(char.id, cur => ({
         ...cur,
@@ -23732,6 +23736,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
           from: "me",
           q,
           a: d.answer,
+          ...(ProbeZh.take(d.zh) ? { zh: ProbeZh.take(d.zh) } : {}),
           ts: Date.now()
         }, ...(cur.records || [])].slice(0, 200) // v62.42 封顶
       }));
@@ -24621,21 +24626,15 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       // 角色自己的置顶（她 2026-10-27）：发的时候 TA 自己定要不要钉在主页最上面，最多钉三条，钉第四条就把最早钉的那条放回去
       const _momPinned = (momentsRef && momentsRef.current ? momentsRef.current : moments).filter(m => m && m.characterId === char.id && !m.mine && m.top);
       const _momPinSpec = ",\"pin\":\"（可选）想把这条钉在自己朋友圈主页最上面就填 true，别人点进你主页先看到它；不想就不填" + (_momPinned.length ? "。你现在已经钉着：" + _momPinned.slice(0, 3).map(m => "「" + String(m.content || "").slice(0, 24) + "」").join("") : "") + "\"";
-      const _momBi = !!(settingsFor(char.id) || {}).bilingual;
-      const _momBiSpec = _momBi
-        ? "\n\n【这条朋友圈要带中译】你用的不是中文的话，在 zh 里给出这条正文的简体中文翻译："
-          + "只译正文、保留原话的语气和口吻，不要注音、不要解释、不要引号。"
-          + "本来就用中文发的，zh 填 null。"
-          // 评论也一起译（她 2026-10-03：「朋友圈评论的外语能不能也翻译了」）——
-          //   在同一轮里要，不额外花钱；不要的话每条评论都得各自走一次免费接口。
-          + "下面那些评论里，不是中文的那几条也各自给一份中译，填在那条评论自己的 zh 里；中文的填 null。"
-        : "";
+      const _momBi = ProbeZh.on(settingsFor(char.id));
+      // 评论也一起译（她 2026-10-03：「朋友圈评论的外语能不能也翻译了」）——在同一轮里要，不额外花钱。说法走公共的 ProbeZh
+      const _momBiSpec = _momBi ? ProbeZh.spec("这条朋友圈正文", "下面那些评论里，不是中文的那几条也各自给一份中译，填在那条评论自己的 zh 里。") : "";
       const d = await runProbe(apiFor(char.id), leanWriteCtx(ctxFor(char)), { // 自动朋友圈=TA 的社交发言，跟随专线（v48.37）：专线用专线，否则照旧主模型；瘦身省贵线（v48.95，Codex 指出漏套 lean）
         voice: true,
         instruction: "完全代入「" + char.name + "」。你就是他，此刻拿着自己的手机在发一条朋友圈——不是在替他写一条，是你自己想发。" + _momAxes + "1-4句，不暴露隐藏剧情。优先从你真正参与的近期相处里自然长出内容，但不要逐句复述或把私密细节直接公开。那些相处每句都带着时间：这条是现在发的，隔了一夜、半天的事是那时候的事，回头提一句可以，今天别的事也一样能发。" + (_momImgOpen ? "**配不配图你自己定**：看这一条本身，也看你这个人平时发朋友圈的习惯——有的人几乎条条带图，有的人一年配不了几张，别为了配而配。" + _momImgHabit + "要配就在 image 里写一句这张图的画面描述（如「窗台上的多肉，逆光」「深夜便利店的关东煮」），再在 imageWho 里说清楚画面里有没有你：none＝画面里没有人（拍的是东西、吃的、风景）；part＝只拍到你的手、背影这类局部、看不见脸；self＝你本人入镜、看得见脸。不配图 image 填 null。" : "这一条只发文字，不配图，image 填 null。") + "再生成认识的其他角色对这条的 0-3 条评论。" + (peerNames.length ? "TA 已经建立关系的人有：" + peerNames.join("、") + "——这些是【优先】人选，谁真会关心这条谁才出现，不必都出现。" : "") + "评论者也【不限于】这些人：人设里合理存在、只是还没单独建卡的人（同学、舍友、同事、下属、邻居、旧友…）照样可以来评论，那正是朋友圈该有的样子；只要名字和口吻贴这个世界、这个身份就行，别让明显不搭的人冒出来。**绝对不要替用户本人（" + meName + "）生成任何评论或回复——用户会自己去评论。**" + (livedMaterial ? "\n\n【你最近亲历的共同相处（含私聊、群聊与线上/线下）】\n" + livedMaterial : "") + noRepeat + _momBiSpec,
         schemaHint: _momImgOpen
-          ? "{\"content\":\"朋友圈正文\",\"image\":\"配图描述或null\",\"imageWho\":\"none｜part｜self\",\"comments\":[{\"author\":\"评论者名\",\"text\":\"评论\"" + (_momBi ? ",\"zh\":\"这条评论的中译或null\"" : "") + "}]" + (_momBi ? ",\"zh\":\"正文的中译或null\"" : "") + _momPinSpec + "}"
-          : "{\"content\":\"朋友圈正文\",\"image\":null,\"comments\":[{\"author\":\"评论者名\",\"text\":\"评论\"" + (_momBi ? ",\"zh\":\"这条评论的中译或null\"" : "") + "}]" + (_momBi ? ",\"zh\":\"正文的中译或null\"" : "") + _momPinSpec + "}"
+          ? "{\"content\":\"朋友圈正文\",\"image\":\"配图描述或null\",\"imageWho\":\"none｜part｜self\",\"comments\":[{\"author\":\"评论者名\",\"text\":\"评论\"" + (_momBi ? ProbeZh.field("zh", "这条评论") : "") + "}]" + (_momBi ? ProbeZh.field("zh", "正文") : "") + _momPinSpec + "}"
+          : "{\"content\":\"朋友圈正文\",\"image\":null,\"comments\":[{\"author\":\"评论者名\",\"text\":\"评论\"" + (_momBi ? ProbeZh.field("zh", "这条评论") : "") + "}]" + (_momBi ? ProbeZh.field("zh", "正文") : "") + _momPinSpec + "}"
       });
       const content = String(d && d.content || "").trim();
       if (!content) throw new Error("模型没有返回朋友圈正文");
@@ -24652,7 +24651,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         image: newMomImage,
         ...(newMomImage && newMomWho ? { imageWho: newMomWho } : {}),
         // 模型随这一轮给回来的中译（没开/没给就不存这一格，气泡那颗「译」照旧能现翻）
-        ...(_momBi && d.zh && String(d.zh).toLowerCase() !== "null" && String(d.zh).trim() ? { zh: String(d.zh).trim() } : {}),
+        ...(_momBi && ProbeZh.take(d.zh) ? { zh: ProbeZh.take(d.zh) } : {}),
         ts: Date.now(),
         liked: false,
         likeCount: 0,
