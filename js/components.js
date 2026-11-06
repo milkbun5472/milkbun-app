@@ -1066,7 +1066,9 @@ const sysNoteKind = m => (m && (m.sub === "block" || /拉黑/.test(String(m.cont
 //   垫子判据跟单聊 plate 同一条：底下有聊天背景图或气泡皮肤底色，就铺一层白垫子，字跟着变深。
 // 她在旁白模式「我的动作」那一档写的（群友 2026-10-31：「经常用（）做动作，ai 总是容易和线上的搞混」）：
 //   靠右、一个小框，跟她的气泡一边；框是虚线还是实线，旁白栏「我的动作」那一档下面能换（x_actFrame）。
-function actFrameStyle() { try { return loadJSON("x_actFrame", "dashed") === "solid" ? "solid" : "dashed"; } catch (e) { return "dashed"; } }
+function actFrameStyle() { try { const v = loadJSON("x_actFrame", "none"); return v === "solid" || v === "dashed" ? v : "none"; } catch (e) { return "none"; } }
+// 整条就是一段（）动作、又是「算动作」发出去的那条：不画气泡，画成跟 TA 动描同一种灰字（群友 2026-11-06：「开了那个能不能显示成动描灰字」）
+const pureParenAct = m => !!(m && m.role === "user" && m.parenAct && !m.kind && !m.recalled && !m.replyTo && /^[（(][^（）()]*[）)]$/.test(String(m.content || "").trim()));
 function NarrLine({ i, m, text, selMode, selected, onBg, startPress, endPress, toggleSel, onDelete }) {
   const t = useTheme();
   if (m && m.who === "me") return h("div", {
@@ -1078,7 +1080,9 @@ function NarrLine({ i, m, text, selMode, selected, onBg, startPress, endPress, t
   }, (onDelete) ? h("button", { onClick: () => requestAppConfirm("删除这条动作？", "删除后不能恢复。", onDelete, "删除"), className: "active:opacity-50 shrink-0",
       style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.fog, opacity: 0.6, padding: "1px 2px" }, title: "删除" }, "✕") : null,
     h("span", { "data-wk": "myactink", style: { maxWidth: "78%", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", fontStyle: "italic", lineHeight: 1.65, color: selected ? t.ink : t.sub,
-      border: "1px " + actFrameStyle() + " " + t.line, borderRadius: 12, padding: "6px 12px", background: onBg ? narrPadBg() : "transparent" } }, text));
+      ...(actFrameStyle() === "none"
+        ? (onBg ? { background: narrPadBg(), backdropFilter: narrPadBlur(), WebkitBackdropFilter: narrPadBlur(), borderRadius: 10, padding: "5px 12px", color: selected ? t.ink : "#5a5550" } : { padding: "2px 2px", color: selected ? t.ink : t.fog, fontSize: "calc(12.5px * var(--app-fs, 1))" })
+        : { border: "1px " + actFrameStyle() + " " + t.line, borderRadius: 12, padding: "6px 12px", background: onBg ? narrPadBg() : "transparent" }) } }, text));
   return h("div", {
     "data-wk": "narr",
     "data-me": m.who === "char" ? "0" : "1",
@@ -12113,6 +12117,9 @@ function ChatThread({
     // ⚠️她 2026-09-09：「TA的居中不要那个叉，然后可以编辑重roll刷掉之类的
     //   而不完全只是像系统的字」——所以TA那一行【长按出菜单】，跟气泡一个待遇；
     //   那颗 ✕ 只留给她自己写的旁白（她一直是一点就删的，别给她换掉）。
+    if (pureParenAct(m)) return h(NarrLine, { key: i, i, m: { ...m, who: "me" }, selMode, selected: selIds.includes(i),
+      onBg: !!(dsp.chatBg || _wkBg), startPress, endPress, toggleSel,
+      onDelete: onDeleteMessages ? () => onDeleteMessages([i]) : null, text: m.content });
     if (m.kind === "narration" || m.role === "narration") return h(NarrLine, { key: i, i, m, selMode, selected: selIds.includes(i),
       onBg: !!(dsp.chatBg || _wkBg), startPress, endPress, toggleSel,
       onDelete: onDeleteMessages ? () => onDeleteMessages([i]) : null,
@@ -20709,6 +20716,9 @@ function GroupThread({
     // 居中那一行：她写的群旁白，和某个成员那一格动作（who:"char"，带 senderId）。
     // ⚠️跟单聊那一处同一个待遇（她 2026-09-09）：成员那一行长按出菜单、不挂 ✕；
     //   ✕ 只留给她自己写的旁白。谁做的要写出来——群里三个人，光一句动作认不出是谁。
+    if (pureParenAct(m)) return h(NarrLine, { key: i, i, m: { ...m, who: "me" }, selMode, selected: selIds.includes(i),
+      onBg: !!(gChatBg || _gWkBg), startPress, endPress, toggleSel,
+      onDelete: onDeleteMessages ? () => onDeleteMessages([i]) : null, text: m.content });
     if (m.role === "narration" || m.kind === "narration") return h(NarrLine, { key: i, i, m, selMode, selected: selIds.includes(i),
       onBg: !!(gChatBg || _gWkBg), startPress, endPress, toggleSel,
       onDelete: onDeleteMessages ? () => onDeleteMessages([i]) : null,
