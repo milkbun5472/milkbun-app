@@ -143,7 +143,8 @@
   // ---- 放慢 ----
   // 每一帧停留不到 minMs 的，抬到 minMs（她 2026-11-06「8 帧图速度太快了」）。只改每帧那两个字节的停留时间，
   //   不解码、不重压，画面一个像素不动。返回新的 Uint8Array；认不出是 GIF 就原样返回。
-  function retime(buf, minMs) {
+  // exact：每帧都改成 minMs（速度拉条用）；不传就是只把太快的抬上来
+  function retime(buf, minMs, exact) {
     const b = new Uint8Array(buf instanceof Uint8Array ? buf : new Uint8Array(buf));
     if (b.length < 13 || String.fromCharCode(b[0], b[1], b[2]) !== "GIF") return b;
     const want = Math.max(2, Math.round((Number(minMs) || 0) / 10));
@@ -155,7 +156,7 @@
       if (t === 0x3B) break;
       if (t === 0x21) {
         const label = b[p++];
-        if (label === 0xF9 && b[p] >= 4) { const d = b[p + 2] | (b[p + 3] << 8); if (d < want) { b[p + 2] = want & 255; b[p + 3] = (want >> 8) & 255; } }
+        if (label === 0xF9 && b[p] >= 4) { const d = b[p + 2] | (b[p + 3] << 8); if (exact ? d !== want : d < want) { b[p + 2] = want & 255; b[p + 3] = (want >> 8) & 255; } }
         skipSub(); continue;
       }
       if (t !== 0x2C) break;

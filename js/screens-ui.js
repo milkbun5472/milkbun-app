@@ -6741,6 +6741,8 @@ function ImageApiConfig({ toast }) {
           h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.5, marginTop: 2 } },
             "打开后，聊天里的自拍、线下照片、合照、照相馆、邮票卡面、剧场跑团插图都出成会动的小动图。要能出 GIF 的模型（比如 gpt-image-2.6），请求方式选「出图接口」；站子回静图就收静图。动图比静图贵、也慢。头像、背景、表情包九宫格照旧是静图。")),
         h("div", { className: "shrink-0" }, h(Toggle, { on: !!c.gifAll, onChange: () => set({ gifAll: !c.gifAll }) }))),
+      // 动图速度拉条（她 2026-11-06「搞个拉条自己选」「要要要不想重画」）：全 app 一个数；松手就把已经画好的动图也改成这个速度，不重画
+      h(GifSpeedRow, { t }),
       h("div", { "data-wk": "block", className: "flex items-center justify-between", style: { marginTop: 10, padding: "9px 12px", borderRadius: 10, background: t.bg2, border: "1px dashed " + t.line } },
         h("div", { style: { paddingRight: 10 } },
           h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.ink } }, "经典直通模式（排查问题用）"),
@@ -13506,4 +13508,32 @@ function MyCloset({ profile, data, busy, onGen, onAdd, onDrop, onPin, onBack, ma
                       style: { padding: "1px 8px", borderRadius: 999, border: "1px solid " + (on ? t.ink : t.line), background: on ? t.ink : "transparent", color: on ? t.bg : t.fog, fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))" } }, (on ? "✓ " : "") + m.name); })) : null)))))
         : h("div", { "data-wk": "closetempty", style: { border: "1px dashed " + t.line, borderRadius: 16, padding: "34px 16px", marginTop: 18, textAlign: "center", fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.9 } },
             "柜子还是空的。给几个词让它配四身，或者右上角自己挂一件。")));
+}
+
+// 动图速度：每帧停多久（0.06~0.4 秒）。松手才存、才去改已存的动图——拖的过程中不动图库
+function GifSpeedRow({ t }) {
+  const [ms, setMs] = useState(() => (typeof gifMsNow === "function" ? gifMsNow() : 150));
+  const [busy, setBusy] = useState(false);
+  const commit = async () => {
+    if (busy) return;
+    saveJSON("x_gifMs", ms);
+    if (typeof retimeStoredGifs !== "function") return;
+    setBusy(true);
+    try {
+      const n = await retimeStoredGifs(ms);
+      if (n) { window.__toast && window.__toast("已经画好的 " + n + " 张动图也改成这个速度了，马上刷新一下", 3000); setTimeout(() => location.reload(), 1600); }
+      else window.__toast && window.__toast("存好了，以后的动图按这个速度");
+    } finally { setBusy(false); }
+  };
+  const loop = (ms * 16 / 1000).toFixed(1);
+  return h("div", { "data-wk": "block", "data-part": "gifspeed", style: { marginTop: 10, padding: "9px 12px", borderRadius: 10, background: t.bg2, border: "1px solid " + t.line } },
+    h("div", { className: "flex items-center justify-between" },
+      h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.ink } }, "动图速度"),
+      h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.sub } }, busy ? "在改…" : "每帧 " + (ms / 1000).toFixed(2) + " 秒 · 一圈约 " + loop + " 秒")),
+    h("input", { "data-wk": "gifspeedrange", type: "range", min: 60, max: 400, step: 10, value: ms, disabled: busy,
+      onChange: e => setMs(Number(e.target.value)), onMouseUp: commit, onTouchEnd: commit, onKeyUp: commit,
+      style: { width: "100%", marginTop: 8, accentColor: t.tint } }),
+    h("div", { className: "flex justify-between", style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", color: t.fog } }, h("span", null, "快"), h("span", null, "慢")),
+    h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.5, marginTop: 4 } },
+      "所有动图都按这个速度（表情包、照片、邮票卡面），一张动图 16 帧。松手后已经画好的那些也跟着改，不重画、不花钱。"));
 }

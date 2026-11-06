@@ -32826,7 +32826,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       const items = await pickEmoteNine(char);
       if (items.length < 9) throw new Error(characterText(char, "他没挑够九个，再试一次"));
       const prompt = emoteSetPrompt(char.name, char.appearance, items, setOpt && setOpt.gif);
-      const out = await generateSelfieImage(prompt, [char.refPhoto], Object.assign({ size: "1024x1024", minimalPrompt: prompt, still: true }, setOpt && setOpt.gif ? { gif: true, gifFrames: 12, gifMs: 120 } : {}));
+      const out = await generateSelfieImage(prompt, [char.refPhoto], Object.assign({ size: "1024x1024", minimalPrompt: prompt, still: true }, setOpt && setOpt.gif ? { gif: true, gifFrames: GIF_FRAMES, gifMs: gifMsNow() } : {}));
       if (setOpt && setOpt.gif && out && out.blob && out.blob.type !== "image/gif") throw new Error("这个站回的是一张静图，没出动图——要用能出 GIF 的模型（比如 gpt-image-2.6）");
       let blob = out && out.blob;
       if (!blob && out && out.url) { try { blob = await (await fetch(out.url)).blob(); } catch (e) { blob = null; } }
@@ -32893,7 +32893,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
             + (who.appearance ? "外貌：" + String(who.appearance).slice(0, 200) + "。" : "")
             + "动作：" + t.slice(0, 120) + "。动作首尾能接上、循环自然。画面里不要任何文字、字母、对话框。";
           // 有参考照就带上锁脸（有的中转接得住带图的动图）；接不住 generateSelfieImage 自己退成纯文字动图
-          const out = await generateSelfieImage(prompt, who.refPhoto ? [who.refPhoto] : null, { size: "1024x1024", minimalPrompt: prompt, gif: true, gifFrames: 12, gifMs: 120 });
+          const out = await generateSelfieImage(prompt, who.refPhoto ? [who.refPhoto] : null, { size: "1024x1024", minimalPrompt: prompt, gif: true, gifFrames: GIF_FRAMES, gifMs: gifMsNow() });
           let blob = out && out.blob;
           if (!blob && out && out.url) { try { blob = await (await fetch(out.url)).blob(); } catch (e) { blob = null; } }
           if (!blob) throw new Error("没拿到图");
@@ -32935,7 +32935,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       const items = await pickMyEmoteNine(me, key, api);
       if (items.length < 9) throw new Error("没挑够九个，再试一次");
       const prompt = emoteSetPrompt(nm, me.appearance, items, setOpt && setOpt.gif);
-      const out = await generateSelfieImage(prompt, [me.refPhoto], Object.assign({ size: "1024x1024", minimalPrompt: prompt, still: true }, setOpt && setOpt.gif ? { gif: true, gifFrames: 12, gifMs: 120 } : {}));
+      const out = await generateSelfieImage(prompt, [me.refPhoto], Object.assign({ size: "1024x1024", minimalPrompt: prompt, still: true }, setOpt && setOpt.gif ? { gif: true, gifFrames: GIF_FRAMES, gifMs: gifMsNow() } : {}));
       if (setOpt && setOpt.gif && out && out.blob && out.blob.type !== "image/gif") throw new Error("这个站回的是一张静图，没出动图——要用能出 GIF 的模型（比如 gpt-image-2.6）");
       let blob = out && out.blob;
       if (!blob && out && out.url) { try { blob = await (await fetch(out.url)).blob(); } catch (e) { blob = null; } }
