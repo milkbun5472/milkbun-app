@@ -6321,6 +6321,12 @@ async function naiTagsFor(prompt) {
 // 动图速度（她 2026-11-06「搞个拉条自己选」）：每帧停多久，全 app 一个数，存 x_gifMs。帧数固定 16（顺不顺看帧数，快慢看这个）。
 //   新出的动图按它定速；拉条一改，已经存着的动图也就地改速（只改每帧停留那两个字节，不重画、不花钱）。
 const GIF_FRAMES = 16;
+const GIF_MOTION_RULE = "\n\n【动图规矩】这是一张循环播放的小动图，按下面这几条排帧："
+  + "① 一个动作：画面里每个人（九宫格就是每一格）整段只做一件事，从这一刻本来就在发生的事里挑，不另加情节、不换表情换姿势。"
+  + "② 不动的都不动：镜头、构图、背景、人的位置和大小、衣服、光线每一帧都一样，只有这个动作牵到的部分在动。"
+  + "③ 动作铺满所有帧：从第一帧到最后一帧平均往前走，每帧只比上一帧多一小步；不许好几帧停在同一个样子凑数，也不许突然跳一大步。"
+  + "④ 能循环：最后一帧自然接回第一帧，放起来看不出接缝。"
+  + "⑤ 不变形：脸、五官、发型、手每一帧都保持同一个样子，宁可动作幅度小一点。";
 const gifMsNow = () => { const v = Number(loadJSON("x_gifMs", 150)); return Math.max(60, Math.min(400, v || 150)); };
 async function generateSelfieImage(prompt, refPhotoDataUrl, opts) {
   const out = await generateSelfieImageRaw(prompt, refPhotoDataUrl, opts);
@@ -6401,6 +6407,9 @@ async function generateSelfieImageRaw(prompt, refPhotoDataUrl, opts) {
   // 动图（她 2026-11-04：gpt-image-2.6 能直接出 GIF）：只有出图接口（/images/generations）收 output_format:"gif"，
   //   聊天接口出不了动的；带参考照的改图接口官方没开，但有的中转接得住（群友 2026-11-06 图灵画境：「可以上传参考图生成，但是有概率失败」），
   //   所以带着参考照先试一次，不成外面那层再退成纯文字动图（见下面 gif 那一段）
+  // 动图规矩（她 2026-11-06「16 帧会画小动作充填帧数，要不要给动图单独写提示词」→「改吧」）：
+  //   只要这一次要的是动图，照片、表情包、卡面都在提示词后面接这一段，一处说法
+  if (opts && opts.gif && typeof prompt === "string" && prompt.indexOf("【动图规矩】") < 0) prompt += GIF_MOTION_RULE;
   if (opts && opts.gif) {
     if (a.apiFormat === "chat" || a.apiFormat === "gemini" || a.apiFormat === "minimax" || a.apiFormat === "nai") throw new Error("动图只能走「出图接口」：去 设置 → 图像 API 把这个站的「请求方式」换成「出图接口」");
   }

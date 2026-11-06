@@ -23,3 +23,8 @@ test("出图入口按拉条定速，帧数 16；拉条松手把存着的动图�
   assert.match(ui, /const n = await retimeStoredGifs\(ms\);/);
   assert.doesNotMatch(readFileSync(new URL("../js/app.js", import.meta.url), "utf8"), /gifFrames: (8|12),/);
 });
+test("要动图就在提示词后面接【动图规矩】，一处说法", () => {
+  const eng = readFileSync(new URL("../js/engine.js", import.meta.url), "utf8");
+  assert.match(eng, /if \(opts && opts\.gif && typeof prompt === "string" && prompt\.indexOf\("【动图规矩】"\) < 0\) prompt \+= GIF_MOTION_RULE;/);
+  assert.equal((eng.match(/【动图规矩】这是/g) || []).length, 1);
+});
