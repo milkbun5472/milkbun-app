@@ -12215,7 +12215,7 @@ const STICKER_PAPER = "#fbf8f0", STICKER_INK = "#2f2a22";
 //   ——按首位取的话整页贴纸会歪成同一个角度，等于没歪，而且不报任何错。
 const tiltById = id => { const k = qhash(String(id || "")); return ((k.charCodeAt(k.length - 1) % 5) - 2) * 1.1; };
 
-function EmoteMatrix({ onMakeGif, packs, characters, onBack, onAddPack, onUpdatePack, onDeletePack, onToggleChar, onImport, onAddImages, onMakeSet, onUncaptionPack, setBusy, onCaptionPack, onRenameEmote, onDeleteEmotes, onMoveEmotes, myFaces }) {
+function EmoteMatrix({ onExportPacks, onMakeGif, packs, characters, onBack, onAddPack, onUpdatePack, onDeletePack, onToggleChar, onImport, onAddImages, onMakeSet, onUncaptionPack, setBusy, onCaptionPack, onRenameEmote, onDeleteEmotes, onMoveEmotes, myFaces }) {
   const [setPick, setSetPick] = useState(false);
   const [setCaption, setSetCaption] = useState(true);   // 画出来的每张底下印上名字
   // 一张动图（她 2026-11-04：gpt-image-2.6 能出 GIF）：不锁脸，照外貌文字画一张会动的
@@ -12419,6 +12419,10 @@ function EmoteMatrix({ onMakeGif, packs, characters, onBack, onAddPack, onUpdate
           //   打的字自己看不见（v59.62 那一课）。底跟着主题走。
           h("textarea", { "data-wk": "emoimporttext", value: importText, onChange: e => setImportText(e.target.value), placeholder: "确保上面选中了要贴的那一版，在这里粘贴…", rows: 5, className: "w-full outline-none", style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.ink, background: t.bg2, border: "1px solid " + t.line, borderRadius: 14, padding: "14px", resize: "none", marginBottom: 16 } }),
           h("button", { "data-wk": "emoimportbtn", onClick: () => { if (importEmotesOk(importText)) { onImport(pack.id, importText); setImportText(""); } }, className: "w-full active:opacity-80", style: { fontFamily: F_DISPLAY, fontSize: "calc(17px * var(--app-fs, 1))", color: t.bg2, background: t.ink, borderRadius: 16, padding: "16px 0", marginBottom: 22 } }, "贴上去"),
+          // 只导出表情包（群友 2026-11-06：「我只想导出我的表情包」）：一个文件，图都装在里面；设置 → 数据 → 导入 认得它，只加表情包不碰别的
+          onExportPacks ? h("div", { "data-wk": "emoexport", className: "flex gap-3", style: { marginBottom: 12 } },
+            h("button", { "data-wk": "emoexportbtn", "data-part": "one", onClick: () => onExportPacks([pack.id]), className: "flex-1 active:opacity-70", style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.ink, border: "1px solid " + t.line, borderRadius: 14, padding: "12px 0" } }, "导出这一版"),
+            h("button", { "data-wk": "emoexportbtn", "data-part": "all", onClick: () => onExportPacks(list.map(x => x.id)), className: "flex-1 active:opacity-70", style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.ink, border: "1px solid " + t.line, borderRadius: 14, padding: "12px 0" } }, "导出全部表情包")) : null,
           h("button", { "data-wk": "emodelpack", onClick: () => requestAppConfirm("撕掉「" + pack.name + "」这一版？", "这一版上贴着的表情会一起没了。", () => onDeletePack(pack.id), "撕掉"), className: "w-full active:opacity-70", style: { fontFamily: F_DISPLAY, fontSize: "calc(16px * var(--app-fs, 1))", color: t.accent, border: "1px solid " + t.accent, borderRadius: 14, padding: "14px 0" } }, "撕掉这一版"))));
 }
 function importEmotesOk(text) { return /(https?:\/\/\S+)/.test(String(text || "")); }

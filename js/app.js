@@ -32531,6 +32531,52 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     }
     return out;
   };
+  // 只导出表情包（群友 2026-11-06「我只想导出我的表情包」）：图从图库里读出来装进文件，换台手机也带得走
+  const exportEmotePacks = async ids => {
+    const want = new Set(ids || []);
+    const src = (emotePacksRef.current || []).filter(pk => pk && want.has(pk.id));
+    if (!src.length) return;
+    toast("正在打包表情…");
+    let miss = 0, n = 0;
+    const packsOut = [];
+    for (const pk of src) {
+      const emotes = [];
+      for (const e of (pk.emotes || [])) {
+        let url = e.url;
+        if (typeof url === "string" && url.indexOf("iv_") === 0) {
+          const b = await imgVaultFetchBlob(url).catch(() => null);
+          if (!b) { miss++; continue; }
+          url = await blobToDataUrl(b);
+        }
+        if (!url) { miss++; continue; }
+        emotes.push({ keyword: e.keyword || "", url, ...(e.gif ? { gif: true } : {}) }); n++;
+      }
+      packsOut.push({ name: pk.name || "表情包", emotes });
+    }
+    const name = "emotes-" + (src.length === 1 ? String(src[0].name || "pack").replace(/[\\/:*?"<>|\s]+/g, "_").slice(0, 20) : "all") + "-" + new Date().toISOString().slice(0, 10) + ".json";
+    try {
+      const via = await saveTextFile(name, JSON.stringify({ __archive: 1, kind: "emotes", version: 1, exportedAt: Date.now(), packs: packsOut }), "application/json");
+      if (via === "cancel") { toast("取消了，什么都没存"); return; }
+      toast("导出了 " + n + " 个表情" + (miss ? "（有 " + miss + " 张图本机找不到，没带上）" : "") + savedWhere(via), 6000);
+    } catch (e) { toast("没导成：" + ((e && e.message) || e)); }
+  };
+  const importEmotePackFile = async parsed => {
+    let n = 0;
+    const add = [];
+    for (const pk of (parsed.packs || [])) {
+      const emotes = [];
+      for (const e of (pk && pk.emotes) || []) {
+        if (!e || !e.url) continue;
+        const url = await imgToVault(e.url);
+        emotes.push({ id: "em_" + Date.now() + "_" + Math.floor(Math.random() * 1e6), keyword: String(e.keyword || "").slice(0, 20), url, ...(e.gif ? { gif: true } : {}) }); n++;
+      }
+      if (emotes.length) add.push({ id: "ep_imp_" + Date.now() + "_" + Math.floor(Math.random() * 1e5), name: String((pk && pk.name) || "导入的表情"), global: true, mine: true, charIds: [], emotes });
+    }
+    if (!add.length) { toast("这个文件里没有表情"); return false; }
+    if (!commitEmotePacks([...(emotePacksRef.current || []), ...add])) return false;
+    toast("加进来 " + add.length + " 版、" + n + " 个表情，原来的都还在", 6000);
+    return true;
+  };
   const importEmotes = (packId, text) => {
     const items = parseEmoteImport(text);
     if (!items.length) { toast("没解析到「关键词 + 链接」，检查格式"); return 0; }
@@ -33605,6 +33651,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         reloadIn(800);
         return true;
       }
+      // 只有表情包的那种（kind:"emotes"）：加成新的几版，别的一样不碰
+      if (parsed.__archive && parsed.kind === "emotes") return await importEmotePackFile(parsed);
       // 只带了几个人的那种（kind:"chars"）：加进来，不整机覆盖
       if (parsed.__archive && parsed.kind === "chars" && parsed.data) {
         const okM = await mergeCharsPack(parsed);
@@ -34979,6 +35027,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     onDeletePack: deleteEmotePack,
     onToggleChar: toggleEmotePackChar,
     onImport: importEmotes,
+    onExportPacks: exportEmotePacks,
     onAddImages: addEmoteImages,
     onMakeSet: makeEmoteSet, onMakeGif: makeEmoteGif, setBusy: emoteSetBusy,
     // 能画「我自己」那一套的面具：传过参考照的那几张（主面具 id 记成 ""）
