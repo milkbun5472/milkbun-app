@@ -3057,7 +3057,7 @@ function SpaceDoor({ partner, home, busy, lit, carryNames, tone, eyebrow, put, t
     eyebrow("留灯", "今晚的，早上六点熄"), lights);
 }
 
-function Us({ characters, couples, onBack, myWallet, onJarMove, onJarGoal, onInvite, onSetRel, spaceBooks, spaceBookBusy, onBookAdd, onBookReply, onBookRemove, onBookTa, spaceHome, spaceHomeBusy, lightLit, carryNamesOf, onSpaceHome, onSpaceHomeTa, onUnlink, onSetSince, profile, profileFor, coupleProfile, coupleHome, onSaveCoupleHome, onSetCoupleImg, coupleQA, onAnswerQA, onEditQA, onRemoveQA, onRerollQA, onReplyQA, onEditQAReply, qaGen, coupleQATitle, onSaveQATitle, coupleQACustom, coupleQABooks, onSaveQABook, onSaveQACustom, coupleQACustomBooks, onSaveQACustomBooks, moodOf, coupleTimeline, onAddTimeline, onRemoveTimeline, onReadTimeline, onGenTimeline, tlGen, coupleAnniv, onAddAnniv, onRemoveAnniv, coupleLetters, coupleLetterCfg, onGenLetter, onAddMyLetter, onReplyLetter, onReadLetter, onRemoveLetter, onSaveLetterCfg, letterGen, coupleSweet, onCheckinSweet, coupleDrawer, onOpenDrawer, onDropDrawer, onEditDrawer, onForwardDrawer, coupleFirstsOf, myCloset, charClosetOf, studioShots, studioBusy, fitBusy, studioCanShoot, onGenDateFit, onStudioShoot, onRollStyles, onRollThemes, onShareShot, ifLines, ifBusy, ifBgBusy, onIfOpen, onIfAdvance, onIfBg, onIfShot, onIfBgPick, onIfEnd, onIfDrop, makeupOf, makeupSignalFor, makeupBusy, onMakeupOpen, onMakeupSay, onMakeupClose, gachaPts, gachaCards, gachaLuck, gachaBusy, onGachaPull, onGachaRedeem, onGachaShow, onGachaPin, onGachaDelete, onGachaTitle, onGachaShoot, onGachaCarve, land, onLanded, coupleExDiary, onAddExDiary, onReadExDiary, duoPhotosFor, onDeletePhoto, onUploadPhoto, couplePactsOf, onClosePact, onSetPactDue, onAddPact, onSealQA, onRevealQA, onPlanWish, wishPlanOf, coupleGarden, onGardenPlant, onGardenKeep, gardenGen, coupleTrips, onTripStart, onTripPlan, onTripBook, onTripBookPick, onTripBookPay, onTripDate, kinCardFrom, onTripDepart, onTripDone, tripGen, coupleRecall, onGenRecall, onReadRecall, onDelRecall, recallGen, onGenWish, charWishGen, outletLedger, outletKinds, capsuleProps, coupleDisc, onDiscAdd, onDiscRemove, onDiscNote, onDiscAuto, onDiscPlay, onDiscEnter, onDiscLeave, onDiscGen, discGen, discNextIdOf, discNowId, discPlaying, onPartnerView }) {
+function Us({ onPutDrawerMine, onReplyDrawerMine, drawerReplyBusy, characters, couples, onBack, myWallet, onJarMove, onJarGoal, onInvite, onSetRel, spaceBooks, spaceBookBusy, onBookAdd, onBookReply, onBookRemove, onBookTa, spaceHome, spaceHomeBusy, lightLit, carryNamesOf, onSpaceHome, onSpaceHomeTa, onUnlink, onSetSince, profile, profileFor, coupleProfile, coupleHome, onSaveCoupleHome, onSetCoupleImg, coupleQA, onAnswerQA, onEditQA, onRemoveQA, onRerollQA, onReplyQA, onEditQAReply, qaGen, coupleQATitle, onSaveQATitle, coupleQACustom, coupleQABooks, onSaveQABook, onSaveQACustom, coupleQACustomBooks, onSaveQACustomBooks, moodOf, coupleTimeline, onAddTimeline, onRemoveTimeline, onReadTimeline, onGenTimeline, tlGen, coupleAnniv, onAddAnniv, onRemoveAnniv, coupleLetters, coupleLetterCfg, onGenLetter, onAddMyLetter, onReplyLetter, onReadLetter, onRemoveLetter, onSaveLetterCfg, letterGen, coupleSweet, onCheckinSweet, coupleDrawer, onOpenDrawer, onDropDrawer, onEditDrawer, onForwardDrawer, coupleFirstsOf, myCloset, charClosetOf, studioShots, studioBusy, fitBusy, studioCanShoot, onGenDateFit, onStudioShoot, onRollStyles, onRollThemes, onShareShot, ifLines, ifBusy, ifBgBusy, onIfOpen, onIfAdvance, onIfBg, onIfShot, onIfBgPick, onIfEnd, onIfDrop, makeupOf, makeupSignalFor, makeupBusy, onMakeupOpen, onMakeupSay, onMakeupClose, gachaPts, gachaCards, gachaLuck, gachaBusy, onGachaPull, onGachaRedeem, onGachaShow, onGachaPin, onGachaDelete, onGachaTitle, onGachaShoot, onGachaCarve, land, onLanded, coupleExDiary, onAddExDiary, onReadExDiary, duoPhotosFor, onDeletePhoto, onUploadPhoto, couplePactsOf, onClosePact, onSetPactDue, onAddPact, onSealQA, onRevealQA, onPlanWish, wishPlanOf, coupleGarden, onGardenPlant, onGardenKeep, gardenGen, coupleTrips, onTripStart, onTripPlan, onTripBook, onTripBookPick, onTripBookPay, onTripDate, kinCardFrom, onTripDepart, onTripDone, tripGen, coupleRecall, onGenRecall, onReadRecall, onDelRecall, recallGen, onGenWish, charWishGen, outletLedger, outletKinds, capsuleProps, coupleDisc, onDiscAdd, onDiscRemove, onDiscNote, onDiscAuto, onDiscPlay, onDiscEnter, onDiscLeave, onDiscGen, discGen, discNextIdOf, discNowId, discPlaying, onPartnerView }) {
   const t = useTheme();
   const [view, setView] = useState(null); // null=名册 / charId=某段情侣详情
   const [sub, setSub] = useState(null); // 情侣空间子模块：null / 'qa'（后续加 timeline/mood/notes/letters）
@@ -3223,7 +3223,7 @@ function Us({ characters, couples, onBack, myWallet, onJarMove, onJarGoal, onInv
   }
   // 情侣空间子模块：惊喜抽屉
   if (partner && cp[view] && cp[view].status === "together" && sub === "drawer") {
-    return h(CoupleDrawer, { partner, items: coupleDrawer, onOpen: onOpenDrawer, onDrop: onDropDrawer, onEdit: onEditDrawer, onForward: onForwardDrawer ? x => onForwardDrawer(partner.id, x) : null,
+    return h(CoupleDrawer, { partner, items: coupleDrawer, onOpen: onOpenDrawer, onDrop: onDropDrawer, onPutMine: onPutDrawerMine ? v => onPutDrawerMine(partner.id, v) : null, onAskReply: onReplyDrawerMine ? id => onReplyDrawerMine(partner, id) : null, replyBusy: drawerReplyBusy, onEdit: onEditDrawer, onForward: onForwardDrawer ? x => onForwardDrawer(partner.id, x) : null,
       ledger: (outletLedger || {})[partner.id] || {}, kinds: outletKinds || [], onBack: () => setSub(null) });
   }
   // 情侣空间子模块：我们的唱片
@@ -5416,7 +5416,7 @@ const DRAWER_KIND = {
   // 那是路上拾的，这是TA一直带在身上的。
   drop:    { zh: "TA身上带的", ch: "带", band: "#6e7f8a" }
 };
-function CoupleDrawer({ partner, items, onOpen, onDrop, onEdit, onForward, ledger, kinds, onBack }) {
+function CoupleDrawer({ partner, items, onOpen, onDrop, onEdit, onForward, ledger, kinds, onBack, onPutMine, onAskReply, replyBusy }) {
   const t = useTheme();
   // 拿掉一样（她 2026-09-20：「抽屉里的能不能单个删除，有些不想要的」）。
   // ⚠️不做成长按：她 2026-09-19 为论坛删帖定过同一件事——「算了长按删除去掉不要了，就留叉」。
@@ -5489,9 +5489,32 @@ function CoupleDrawer({ partner, items, onOpen, onDrop, onEdit, onForward, ledge
                   (a ? (d <= 0 ? "今天" : d === 1 ? "昨天" : d + " 天前") : "还没有过")
                   + (mn ? "（你叫过 " + mn + " 次）" : "")));
             }))) : null),
+      // 我也放一张（群友 2026-11-06）：写一张小纸条放进去；TA 不会自己翻，点纸条底下「让他看看」才读、才回
+      onPutMine ? h("button", { "data-wk": "drawerputmine", onClick: () => requestAppPrompt("往抽屉里放一张", "写给" + nm + "的小纸条。放进去" + characterText(partner, "他") + "不会自己翻，点纸条底下的「让" + characterText(partner, "他") + "看看」才会看到、回你一张。", "", v => { if (String(v || "").trim()) onPutMine(v); }, "放进去"),
+        className: "w-full active:opacity-70", style: { marginTop: 14, padding: "11px 0", background: "rgba(255,253,246,.7)", border: "1px dashed rgba(150,120,70,.45)", borderRadius: 4,
+          fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: "#7a6338" } }, "＋ 我也放一张") : null,
       mine.length
         ? h("div", { style: { display: "flex", flexDirection: "column", gap: 13, marginTop: 16 } },
             mine.map((x, i) => {
+              // 我放的那张：摊开的，右上标「我放的」；底下是 TA 回的那张，或者「让他看看」
+              if (x.kind === "mine") return h("div", { key: x.id, "data-wk": "drawermine", style: { position: "relative", padding: "13px 15px 15px",
+                  background: "#f4f8ff", borderRadius: 2, boxShadow: "0 3px 9px rgba(72,84,110,.12)", transform: "rotate(" + (-tilt(i) / 2) + "deg)" } },
+                dropX(x),
+                h("div", { className: "flex items-center", style: { gap: 7, paddingRight: 22 } },
+                  h("div", { className: "flex-1 min-w-0", style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: "#7d8aa3" } }, "我放的"),
+                  h("span", { style: { fontFamily: F_BODY, fontSize: "calc(9.5px * var(--app-fs, 1))", color: "#a3adbf" } }, gachaWhen(x.ts))),
+                h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", lineHeight: 1.85, color: "#3f4a5e", marginTop: 6, whiteSpace: "pre-wrap" } }, x.text),
+                x.reply
+                  ? h("div", { "data-wk": "drawerminereply", style: { marginTop: 10, padding: "10px 12px 12px", background: "#fffdf6", borderRadius: 2, boxShadow: "0 2px 6px rgba(96,72,40,.12)", transform: "rotate(.6deg)" } },
+                      h("div", { className: "flex items-center justify-between", style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: "#a08b5d" } }, nm + " 回的", h("span", { style: { fontSize: "calc(9.5px * var(--app-fs, 1))", color: "#b9a785" } }, gachaWhen(x.replyTs))),
+                      h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", lineHeight: 1.85, color: "#5b4c3a", marginTop: 5, whiteSpace: "pre-wrap" } }, STX(x.reply)))
+                  : null,
+                h("div", { className: "flex justify-end", style: { marginTop: 6, gap: 12 } },
+                  onAskReply ? h("button", { "data-wk": "drawerminereplybtn", disabled: !!replyBusy, onClick: () => onAskReply(x.id), className: "active:opacity-60 disabled:opacity-40",
+                    style: { minHeight: 32, padding: "0 4px", background: "transparent", border: "none", fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: "#5d6f93" } },
+                    replyBusy === x.id ? characterText(partner, "他在看…") : x.reply ? characterText(partner, "让他再回一张") : characterText(partner, "让他看看")) : null,
+                  onEdit ? h("button", { onClick: () => requestAppPrompt("改这一张", "改完就照新的留着。", x.text || "", v => { if (String(v || "").trim()) onEdit(x.id, v); }, "改好了"),
+                    className: "active:opacity-60", style: { minHeight: 32, padding: "0 4px", background: "transparent", border: "none", fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: "rgba(93,111,147,.7)" } }, "改") : null));
               const k = DRAWER_KIND[x.kind] || DRAWER_KIND.thing;
               const sealed = !x.openedTs;
               if (sealed) {
