@@ -6619,7 +6619,7 @@ function ImageApiConfig({ toast }) {
       // 尺寸、等多久都跟聊天里拍照一样（群友 2026-10-12：「api 测试成功，线上生图一直失败」）。
       //   原来测试写死 1024×1024、等 3 分钟，聊天里却是这一站设的尺寸（默认竖 1024×1536）、等 2 分多钟——
       //   不收竖图的站、慢一点的站，测试过得去、聊天里次次失败，测试就成了假的。
-      const out = await generateSelfieImage(prompt, testRef, { singleShot: true,
+      const out = await generateSelfieImage(prompt, testRef, { singleShot: true, still: true,
         // 测的是【正在编辑的这一站】（含还没保存的改动），不是主用那一站
         api: Object.assign({}, c, { enabled: true }, typeof fieldOverride === "string" ? { refFieldMode: fieldOverride } : {}) });   // 测试不看「启用」开关：没开也能先试
       const src = out.dataUrl || out.url || (out.blob ? URL.createObjectURL(out.blob) : null);
@@ -6734,6 +6734,13 @@ function ImageApiConfig({ toast }) {
           h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.ink } }, "这个站不锁脸"),
           h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.5, marginTop: 2 } }, "有的站不收带图片的请求，带着参考照就报错。打开后这个站只发文字描述、一次请求，照样出图——只是长相不保证跟参考照一样。")),
         h("div", { className: "shrink-0" }, h(Toggle, { on: !!c.noRef, onChange: () => set({ noRef: !c.noRef }) }))),
+      // 出动图总开关（她 2026-11-06）：直接给人看的照片都按动图请求；要裁要拼的（头像、背景、表情包九宫格）照旧静图
+      h("div", { "data-wk": "block", "data-part": "gifall", className: "flex items-center justify-between", style: { marginTop: 10, padding: "9px 12px", borderRadius: 10, background: t.bg2, border: "1px solid " + t.line } },
+        h("div", { style: { paddingRight: 10, flex: 1, minWidth: 0 } },
+          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.ink } }, "出动图"),
+          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.5, marginTop: 2 } },
+            "打开后，聊天里的自拍、线下照片、合照、照相馆、邮票卡面、剧场跑团插图都出成会动的小动图。要能出 GIF 的模型（比如 gpt-image-2.6），请求方式选「出图接口」；站子回静图就收静图。动图比静图贵、也慢。头像、背景、表情包九宫格照旧是静图。")),
+        h("div", { className: "shrink-0" }, h(Toggle, { on: !!c.gifAll, onChange: () => set({ gifAll: !c.gifAll }) }))),
       h("div", { "data-wk": "block", className: "flex items-center justify-between", style: { marginTop: 10, padding: "9px 12px", borderRadius: 10, background: t.bg2, border: "1px dashed " + t.line } },
         h("div", { style: { paddingRight: 10 } },
           h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.ink } }, "经典直通模式（排查问题用）"),

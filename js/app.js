@@ -23277,7 +23277,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       const prompt = "一张手机社交主页的【横幅背景图】，宽幅、安静，是一个人自己挑来挂在匿名树洞主页上的图。\n"
         + "【这张图是】" + d.bgDesc + "\n"
         + "【硬性要求】不出现文字、水印、边框；画面里不要出现清晰正脸；画面必须是可公开展示的。";
-      const out = await generateSelfieImage(prompt, null, { size: "1536x1024" });
+      const out = await generateSelfieImage(prompt, null, { size: "1536x1024", still: true });
       if (!out || !out.blob) throw new Error("图没出来");
       const durl = await blobToDataUrl(out.blob);
       const ref = typeof imgToVault === "function" ? await imgToVault(durl) : durl;
@@ -26717,7 +26717,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     try {
       const prompt = (kind === "food" ? "一张外卖菜品的实拍照片：「" + name + "」" + (desc ? "（" + desc + "）" : "") + "。装在外卖盒或碗盘里，俯拍或四十五度，看着好吃。"
         : "一张网购商品的实拍照片：「" + name + "」" + (desc ? "（" + desc + "）" : "") + "。商品是画面主体，干净的背景，像购物 app 里的商品主图。") + "\n画面里不要任何文字、价签和水印。";
-      const out = await generateSelfieImage(prompt, null, { size: "1024x1024" });
+      const out = await generateSelfieImage(prompt, null, { size: "1024x1024", still: true });
       const blob = await imgOutBlob(out); if (!blob) throw new Error(out && out.url ? "站子画好了，但只给了一个图片链接、不让 app 下载下来（跨域）：换一条直接回图的线路，或在站子那边改成返回 base64" : "没拿到图");
       const key = "img_goods_" + Date.now().toString(36);
       await idbImgPut(key, blob);
@@ -29151,7 +29151,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       // 手指解剖、体态、服装、参考照），外挂一句「不要有人」压不住它，出来是人是景
       // 全看运气——她 2026-08-31 报的就是这个。空景走空景自己那条路。
       const scene = line.bgPrompt || line.premise || line.title;
-      const out = await generateSelfieImage(buildScenePrompt(char, scene, {}), null, {});
+      const out = await generateSelfieImage(buildScenePrompt(char, scene, {}), null, { still: true });
       if (!(out && (out.blob || out.url))) throw new Error("没拿到图");
       let bgKey = null, bgUrl = out.url || null;
       if (out.blob) { bgKey = "img_if_" + line.id; await idbImgPut(bgKey, out.blob); }
@@ -32827,7 +32827,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       const items = emoteSetItems(d);
       if (items.length < 9) throw new Error(characterText(char, "他没挑够九个，再试一次"));
       const prompt = emoteSetPrompt(char.name, char.appearance, items, setOpt && setOpt.gif);
-      const out = await generateSelfieImage(prompt, [char.refPhoto], Object.assign({ size: "1024x1024", minimalPrompt: prompt }, setOpt && setOpt.gif ? { gif: true, gifFrames: 8, gifMs: 140 } : {}));
+      const out = await generateSelfieImage(prompt, [char.refPhoto], Object.assign({ size: "1024x1024", minimalPrompt: prompt, still: true }, setOpt && setOpt.gif ? { gif: true, gifFrames: 8, gifMs: 140 } : {}));
       if (setOpt && setOpt.gif && out && out.blob && out.blob.type !== "image/gif") throw new Error("这个站回的是一张静图，没出动图——要用能出 GIF 的模型（比如 gpt-image-2.6）");
       let blob = out && out.blob;
       if (!blob && out && out.url) { try { blob = await (await fetch(out.url)).blob(); } catch (e) { blob = null; } }
@@ -32917,7 +32917,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       const items = emoteSetItems(d);
       if (items.length < 9) throw new Error("没挑够九个，再试一次");
       const prompt = emoteSetPrompt(nm, me.appearance, items, setOpt && setOpt.gif);
-      const out = await generateSelfieImage(prompt, [me.refPhoto], Object.assign({ size: "1024x1024", minimalPrompt: prompt }, setOpt && setOpt.gif ? { gif: true, gifFrames: 8, gifMs: 140 } : {}));
+      const out = await generateSelfieImage(prompt, [me.refPhoto], Object.assign({ size: "1024x1024", minimalPrompt: prompt, still: true }, setOpt && setOpt.gif ? { gif: true, gifFrames: 8, gifMs: 140 } : {}));
       if (setOpt && setOpt.gif && out && out.blob && out.blob.type !== "image/gif") throw new Error("这个站回的是一张静图，没出动图——要用能出 GIF 的模型（比如 gpt-image-2.6）");
       let blob = out && out.blob;
       if (!blob && out && out.url) { try { blob = await (await fetch(out.url)).blob(); } catch (e) { blob = null; } }
@@ -34478,7 +34478,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       try {
         const c = { name: draft.name, appearance: draft.appearance, photoOutfit: draft.photoOutfit, photoStyle: draft.photoStyle };
         const prompt = buildAvatarPrompt(c, { hasRef: !!draft.refPhoto });
-        const r = await generateSelfieImage(prompt, draft.refPhoto ? [draft.refPhoto] : null, { size: "1024x1024" });
+        const r = await generateSelfieImage(prompt, draft.refPhoto ? [draft.refPhoto] : null, { size: "1024x1024", still: true });
         const key = await imgResultToVault(r);
         if (!key) throw new Error("上游没有返回图片");
         toast("头像生成好了，记得点右上角保存");

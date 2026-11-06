@@ -5191,7 +5191,7 @@ const IMG_REF_FAIL_FALLBACK = false;
 //   true：锁脸那一枪失败就直接报错，不换字段、不软化重发、不退无参考照，上面那个 FALLBACK 也不生效。
 //   想恢复原来的降级阶梯就改回 false，只此一处。
 const IMG_ONE_SHOT = true;
-const IMG_API_DEFAULTS = { baseUrl: "", apiKey: "", model: "gpt-image-2", size: "1024x1536", quality: "medium", enabled: false, refFieldMode: "auto", apiFormat: "auto", noRef: false };
+const IMG_API_DEFAULTS = { baseUrl: "", apiKey: "", model: "gpt-image-2", size: "1024x1536", quality: "medium", enabled: false, refFieldMode: "auto", apiFormat: "auto", gifAll: false, noRef: false };
 function imgApiProfileId() { return "img_" + Date.now().toString(36) + "_" + Math.random().toString(36).slice(2, 7); }
 function normalizeImgApiProfile(p, index) {
   const out = Object.assign({}, IMG_API_DEFAULTS, p || {});
@@ -6321,6 +6321,11 @@ async function generateSelfieImage(prompt, refPhotoDataUrl, opts) {
     const a0 = (opts && opts.api) ? Object.assign({}, IMG_API_DEFAULTS, opts.api) : loadImgApi();
     const hasRef = (Array.isArray(refPhotoDataUrl) ? refPhotoDataUrl : [refPhotoDataUrl]).some(x => x && typeof x === "string");
     const inner = Object.assign({}, opts || {}, { api: a0, __inner: true });
+    // 出动图总开关（她 2026-11-06「其他生图也接上能生动图」「总开关吧，邮票册也开」）：设置·图像API 里开着，
+    //   直接给人看的那些照片（聊天自拍、线下照片、合照、照相馆、邮票卡面、剧场跑团插图……）一律按动图请求。
+    //   要裁、要压、要拼的那几处（头像、背景、表情包九宫格、视频首帧）调用时标了 still，不跟。
+    //   站子回静图就收静图，不报错、不为它多花一次请求。
+    if (a0.gifAll && !(opts && (opts.gif || opts.still)) && !["chat", "gemini", "minimax", "nai"].includes(a0.apiFormat)) Object.assign(inner, { gif: true, gifFrames: 8, gifMs: 140 });
     if (hasRef && a0.noRef) {
       const out = await generateSelfieImage(prompt, null, inner);
       if (out && typeof out === "object") out.degraded = "site-no-ref";

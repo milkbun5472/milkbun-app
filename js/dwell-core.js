@@ -150,7 +150,7 @@
       + (seen ? "【画面里要看得见这几块】" + seen + "。\n" : "")
       + "【硬性要求】不出现文字、不出现人物、不加边框；是一个真住得进去的空间，有生活痕迹，"
       + "不是样板间也不是效果图；安静、克制；画面必须是可公开展示的。";
-    const out = await generateSelfieImage(prompt, null);
+    const out = await generateSelfieImage(prompt, null, { still: true });
     if (!out || !out.blob) throw new Error("图没出来");
     const durl = await blobToDataUrl(out.blob);
     return typeof imgToVault === "function" ? await imgToVault(durl) : durl;
