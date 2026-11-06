@@ -28,3 +28,7 @@ test("要动图就在提示词后面接【动图规矩】，一处说法", () =>
   assert.match(eng, /if \(opts && opts\.gif && typeof prompt === "string" && prompt\.indexOf\("【动图规矩】"\) < 0\) prompt \+= GIF_MOTION_RULE;/);
   assert.equal((eng.match(/【动图规矩】这是/g) || []).length, 1);
 });
+test("结构认不全（截断的 GIF）就原样返回，不改一个字节", () => {
+  const cut = bytes.slice(0, bytes.length - 20);
+  assert.deepEqual(Array.from(G.retime(cut, 300, true)), Array.from(cut));
+});

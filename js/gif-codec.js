@@ -148,12 +148,15 @@
     const b = new Uint8Array(buf instanceof Uint8Array ? buf : new Uint8Array(buf));
     if (b.length < 13 || String.fromCharCode(b[0], b[1], b[2]) !== "GIF") return b;
     const want = Math.max(2, Math.round((Number(minMs) || 0) / 10));
-    let p = 13;
+    // 先在一份拷贝上改；要从头到尾完整走到结尾符（0x3B）才算认对了结构，认不全就原样返回、一个字节不碰
+    //   （她 2026-11-06 截图：动图底下多一条——宁可不改速度，也不能改到画面数据）
+    const orig = b.slice();
+    let p = 13, ended = false;
     if (b[10] & 0x80) p += 3 * (1 << ((b[10] & 7) + 1));
     const skipSub = () => { while (p < b.length) { const len = b[p++]; if (!len) break; p += len; } };
     while (p < b.length) {
       const t = b[p++];
-      if (t === 0x3B) break;
+      if (t === 0x3B) { ended = true; break; }
       if (t === 0x21) {
         const label = b[p++];
         if (label === 0xF9 && b[p] >= 4) { const d = b[p + 2] | (b[p + 3] << 8); if (exact ? d !== want : d < want) { b[p + 2] = want & 255; b[p + 3] = (want >> 8) & 255; } }
@@ -165,7 +168,7 @@
       p++;            // LZW 最小码长
       skipSub();
     }
-    return b;
+    return ended && p <= b.length ? b : orig;
   }
 
   return { decode, encode, retime };
