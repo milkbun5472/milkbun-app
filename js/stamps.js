@@ -93,10 +93,19 @@
       return () => { alive = false; }; }, [ref, near]);
     return [url, el, near];
   }
+  // 限定卡的标记（她 2026-11-06：「还是想要限时 if 特别一点」）：一圈这一期颜色的内框，左下角一条「限定」，大图上带这一期的名字
+  const LIM_MARK_TONE = { halloween: ["#2a1a2e", "#e8893a"] };
+  function LimMark({ card, big }) {
+    if (!card || !card.limited) return null;
+    const lim = ((C().LIMITED) || []).find(x => x.id === card.limited) || {}, tone = LIM_TONE[lim.deco] || LIM_MARK_TONE[lim.deco] || ["#3a2c22", "#d9a25a"];
+    return h("span", { "data-wk": "stamplimmark", style: { position: "absolute", inset: big ? 9 : 5, zIndex: 3, pointerEvents: "none", borderRadius: 2, boxShadow: "inset 0 0 0 " + (big ? 2 : 1.5) + "px " + tone[1] + ", inset 0 0 " + (big ? 14 : 8) + "px " + tone[1] + "55" } },
+      h("span", { style: { position: "absolute", right: big ? -2 : -1, top: big ? 14 : 16, padding: big ? "2px 7px 2px 9px" : "1px 4px 1px 5px", background: tone[0], color: tone[1], border: "1px solid " + tone[1], borderRight: "none", borderRadius: "999px 0 0 999px",
+        fontFamily: F_DISPLAY, fontSize: big ? "calc(10.5px * var(--app-fs, 1))" : "calc(8px * var(--app-fs, 1))", lineHeight: 1.3, letterSpacing: ".08em", whiteSpace: "nowrap" } }, big ? (card.theme || lim.name || "") + " 限定" : "限定"));
+  }
   function StampFace({ t, card, onClick, size, back }) { const [url, el, near] = useStampThumb(card && (card.cover || card.face));
     // 卡面动起来了的 SSR：册子里那一格也在动（滑到附近才放，没封面换过别的图时才用）
     const vurl = useStampVideo(card && !back ? coverVideo(card) : null, near);
-    return h("span", { ref: el, style: { display: "inline-block", lineHeight: 0, position: "relative" } }, h(Stamp, { t, card, face: url, onClick, size, back }),
+    return h("span", { ref: el, style: { display: "inline-block", lineHeight: 0, position: "relative" } }, h(Stamp, { t, card, face: url, onClick, size, back }), back ? null : h(LimMark, { card }),
       vurl ? loopVid(vurl, { left: 5, top: 5, width: "calc(100% - 10px)", height: "calc(100% - 10px)", borderRadius: 2 }) : null); }
 
   // 抽卡动画：信封落下 → 邮戳颜色预告 → 撕开一版
@@ -480,6 +489,7 @@
           h("div", { style: { position: "absolute", top: 0, left: "50%", width: 320, height: 380, marginLeft: -160, borderRadius: 999, background: "radial-gradient(closest-side, " + (card.rarity === "R" ? "rgba(47,42,34,.16)" : RC[card.rarity] + "44") + ", transparent)", animation: "stHalo 4s ease-in-out infinite", pointerEvents: "none" } }),
           h("div", { key: pop, style: { position: "relative", boxShadow: ring, animation: pop ? "stFloat .9s ease-out" : "none" } },
             h(Stamp, { t, card, face: url, size: 236 }),
+            h(LimMark, { card, big: true }),
             vMain ? loopVid(vMain, { left: 5, top: 5, width: "calc(100% - 10px)", height: "calc(100% - 10px)", borderRadius: 2 }) : null,
             // 满级 SSR 能戳：上面三分之一是头，中间是胸口，下面是手
             url ? h("div", { onClick: () => { if (Date.now() - swiped.current < 400) return; setFull(true); }, style: { position: "absolute", inset: 0, cursor: "zoom-in" } }) : null,
