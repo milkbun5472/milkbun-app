@@ -16994,7 +16994,8 @@ function DraftInput({ placeholder, inputStyle, inputProps, onSubmit, after, keep
   const fire = () => {
     const v = draft.trim(); if (!v) return;
     const el = ref.current, keep = el && (document.activeElement === el || Date.now() - blurAt.current < 600);
-    const reset = keep && (ANDROID || composing.current);
+    // 只在安卓上重开：iPhone 打中文时下划线还挂着也会算「在拼字」，失焦再聚焦键盘就跳一下（群友 2026-11-06：「给 char 发送成功键盘会跳一下，给秋秋发就不会」）
+    const reset = keep && ANDROID;
     composing.current = false;
     setDraft(""); onSubmit && onSubmit(v);
     if (reset) { try { el.blur(); } catch (e) {} setTimeout(() => { try { el.focus({ preventScroll: true }); } catch (e) {} }, 0); }
