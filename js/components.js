@@ -12117,9 +12117,10 @@ function ChatThread({
     // ⚠️她 2026-09-09：「TA的居中不要那个叉，然后可以编辑重roll刷掉之类的
     //   而不完全只是像系统的字」——所以TA那一行【长按出菜单】，跟气泡一个待遇；
     //   那颗 ✕ 只留给她自己写的旁白（她一直是一点就删的，别给她换掉）。
-    if (pureParenAct(m)) return h(NarrLine, { key: i, i, m: { ...m, who: "me" }, selMode, selected: selIds.includes(i),
+    // 跟 TA 的动描同一个样子（她 2026-11-06「为啥有叉还不是在中间，做成跟他的动描一样」）：居中、不带外面那对括号、没有叉，长按出菜单
+    if (pureParenAct(m)) return h(NarrLine, { key: i, i, m: { ...m, who: "mine" }, selMode, selected: selIds.includes(i),
       onBg: !!(dsp.chatBg || _wkBg), startPress, endPress, toggleSel,
-      onDelete: onDeleteMessages ? () => onDeleteMessages([i]) : null, text: m.content });
+      onDelete: null, text: String(m.content || "").trim().replace(/^[（(]\s*|\s*[）)]$/g, "") });
     if (m.kind === "narration" || m.role === "narration") return h(NarrLine, { key: i, i, m, selMode, selected: selIds.includes(i),
       onBg: !!(dsp.chatBg || _wkBg), startPress, endPress, toggleSel,
       onDelete: onDeleteMessages ? () => onDeleteMessages([i]) : null,
@@ -20726,9 +20727,10 @@ function GroupThread({
     // 居中那一行：她写的群旁白，和某个成员那一格动作（who:"char"，带 senderId）。
     // ⚠️跟单聊那一处同一个待遇（她 2026-09-09）：成员那一行长按出菜单、不挂 ✕；
     //   ✕ 只留给她自己写的旁白。谁做的要写出来——群里三个人，光一句动作认不出是谁。
-    if (pureParenAct(m)) return h(NarrLine, { key: i, i, m: { ...m, who: "me" }, selMode, selected: selIds.includes(i),
+    // 跟 TA 的动描同一个样子（她 2026-11-06「为啥有叉还不是在中间，做成跟他的动描一样」）：居中、不带外面那对括号、没有叉，长按出菜单
+    if (pureParenAct(m)) return h(NarrLine, { key: i, i, m: { ...m, who: "mine" }, selMode, selected: selIds.includes(i),
       onBg: !!(gChatBg || _gWkBg), startPress, endPress, toggleSel,
-      onDelete: onDeleteMessages ? () => onDeleteMessages([i]) : null, text: m.content });
+      onDelete: null, text: String(m.content || "").trim().replace(/^[（(]\s*|\s*[）)]$/g, "") });
     if (m.role === "narration" || m.kind === "narration") return h(NarrLine, { key: i, i, m, selMode, selected: selIds.includes(i),
       onBg: !!(gChatBg || _gWkBg), startPress, endPress, toggleSel,
       onDelete: onDeleteMessages ? () => onDeleteMessages([i]) : null,
