@@ -32727,10 +32727,37 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     }
     return outs.map(frames => { const bytes = window.GifCodec.encode({ width: S, height: S, frames }); let bin = ""; for (let i = 0; i < bytes.length; i += 32768) bin += String.fromCharCode.apply(null, bytes.subarray(i, i + 32768)); return "data:image/gif;base64," + btoa(bin); });
   };
+  // 真是九宫格吗（群友 2026-11-06 截图：模型画成了一整张大人像，硬切成九块，每块都是放大的一角）：
+  //   九宫格的格子之间有一道浅色缝。看 1/3、2/3 那四条线附近：找得到一条几乎全是浅色的直线才算有缝，四条里至少三条有缝才切。
+  const gridLike = (rgba, W, H) => {
+    const light = i => rgba[i + 3] < 40 || (rgba[i] > 225 && rgba[i + 1] > 225 && rgba[i + 2] > 225);
+    const lineOk = (vertical, at) => {
+      const span = vertical ? W : H, len = vertical ? H : W, band = Math.max(2, Math.round(span * 0.035));
+      let best = 0;
+      for (let d = -band; d <= band; d++) {
+        const p = Math.round(at * span) + d; if (p < 0 || p >= span) continue;
+        let ok = 0, n = 0;
+        for (let q = Math.round(len * 0.03); q < len * 0.97; q += 2) { n++; if (light(((vertical ? q * W + p : p * W + q)) * 4)) ok++; }
+        best = Math.max(best, n ? ok / n : 0);
+      }
+      return best >= 0.88;
+    };
+    return [lineOk(true, 1 / 3), lineOk(true, 2 / 3), lineOk(false, 1 / 3), lineOk(false, 2 / 3)].filter(Boolean).length >= 3;
+  };
   const GRID9 = Array.from({ length: 9 }, (_, k) => ({ sx: (k % 3) / 3 + 0.04 / 3, sy: Math.floor(k / 3) / 3 + 0.04 / 3, sw: (1 - 0.08) / 3, sh: (1 - 0.08) / 3 }));
+  // 没画成格子：整张存成一个，不切（切了就是九张放大的局部）
+  const emoteSetWhole = async (blob, ownerKey) => {
+    const url = await blobToDataUrl(blob);
+    toast("这次模型没画成九宫格（画成了一整张），整张存成了一个表情，没切。想要九张就再画一次", 9000);
+    return (await window.__addSelfSticker(url, ownerKey, "", true, false)) ? -1 : 0;   // -1：存成了整张，提示已经说过
+  };
   const emoteSetCut = async (blob, items, ownerKey, caption) => {
     let n = 0;
     if (blob.type === "image/gif") {
+      if (window.GifCodec) {
+        const g0 = window.GifCodec.decode(new Uint8Array(await blob.arrayBuffer()));
+        if (g0.frames.length && !gridLike(g0.frames[0].rgba, g0.width, g0.height)) return emoteSetWhole(blob, ownerKey, caption);
+      }
       const urls = await gifCells(blob, GRID9, items.map(x => x.name), caption);
       for (let k = 0; k < urls.length; k++) if (await window.__addSelfSticker(urls[k], ownerKey, items[k].name, true, caption)) n++;
       return n;
@@ -32738,6 +32765,9 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     const u = URL.createObjectURL(blob);
     const im = await new Promise((ok, no) => { const x = new Image(); x.onload = () => ok(x); x.onerror = no; x.src = u; });
     URL.revokeObjectURL(u);
+    { const W0 = Math.min(512, im.naturalWidth), H0 = Math.max(1, Math.round(W0 * im.naturalHeight / im.naturalWidth));
+      const cv0 = document.createElement("canvas"); cv0.width = W0; cv0.height = H0; const x0 = cv0.getContext("2d"); x0.drawImage(im, 0, 0, W0, H0);
+      if (!gridLike(x0.getImageData(0, 0, W0, H0).data, W0, H0)) return emoteSetWhole(blob, ownerKey, caption); }
     for (let k = 0; k < 9; k++) {
       const c = GRID9[k], cv = document.createElement("canvas"); cv.width = 384; cv.height = 384;
       const g2 = cv.getContext("2d");
@@ -32774,7 +32804,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       if (!blob && out && out.url) { try { blob = await (await fetch(out.url)).blob(); } catch (e) { blob = null; } }
       if (!blob) throw new Error("没拿到图");
       const n = await emoteSetCut(blob, items, char.id, !!(setOpt && setOpt.caption));
-      toast(n ? "画好了 " + n + " 张，在表情包「" + (char.remark || char.name) + " 的表情」里" : "存表情的时候没成，再试一次", 6000);
+      if (n !== -1) toast(n ? "画好了 " + n + " 张，在表情包「" + (char.remark || char.name) + " 的表情」里" : "存表情的时候没成，再试一次", 6000);
     } catch (e) { toast("表情包没画成：" + (e.message || "重试"), 8000); }
     finally { setEmoteSetBusy(""); }
   };
@@ -32863,7 +32893,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       if (!blob && out && out.url) { try { blob = await (await fetch(out.url)).blob(); } catch (e) { blob = null; } }
       if (!blob) throw new Error("没拿到图");
       const n = await emoteSetCut(blob, items, key, !!(setOpt && setOpt.caption));
-      toast(n ? "画好了 " + n + " 张，在表情包「" + (me.label || nm) + " 的表情」里" : "存表情的时候没成，再试一次", 6000);
+      if (n !== -1) toast(n ? "画好了 " + n + " 张，在表情包「" + (me.label || nm) + " 的表情」里" : "存表情的时候没成，再试一次", 6000);
     } catch (e) { toast("表情包没画成：" + (e.message || "重试"), 8000); }
     finally { setEmoteSetBusy(""); }
   };
