@@ -13434,7 +13434,15 @@ function CallScreen({
               ms: abuf.duration * 1000, at: Date.now(), index: idx });
             setAudioStatus("对方说话中…");
           });
-        } catch (e) { if (valid()) { setAudioStatus("自动播报失败（" + (e && e.name || "Error") + "），可点这句手动播放"); audioRef.current.enabled = false; setAudioReady(false); } break; }
+        } catch (e) {
+          if (!valid()) break;
+          // 只有声音本身被系统停了（没解锁、被别的 app 抢走）才关掉连播等她轻触；
+          //   某一句没合成出来（超时、线路抽风）跳过这一句接着念下一句（群友 2026-11-06：「连续播放开了但是播放不了，还是得一个一个点」）
+          const em = String((e && e.message) || ""), dead = (e && e.name) === "NotAllowedError" || em === "声音已暂停" || (st.ttsCtx && st.ttsCtx.state !== "running");
+          if (dead) { setAudioStatus("声音被系统停了，轻触通话页面接着播"); audioRef.current.enabled = false; setAudioReady(false); break; }
+          skipped = "有一句没合成出来（" + (em || (e && e.name) || "出错") + "），跳过了，可点那句手动播放";
+          continue;
+        }
         finally { if (poll) clearInterval(poll); if (audioRef.current.epoch === epoch) st.busy = Math.max(0, st.busy - 1); }
       }
       // 念完了就把中间那一句收掉——「不说话等我说的时候就啥也不显示」
