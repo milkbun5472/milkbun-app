@@ -1811,7 +1811,9 @@ function directedRelationLines(char, rels, chars, profile) {
   for (const o of chars) {
     if (o.id === char.id) continue;
     const r = rels[char.id + "->" + o.id];
-    if (r) lines.push("- " + char.name + " 眼中的 " + o.name + "：" + r.label + (r.note ? "（" + r.note + "）" : ""));
+    // 名字后面带上存好的性别（她 2026-11-06：心声里把他哥写成「她」——关系网只写了名字和「哥哥」，模型自己猜）
+    const gN = typeof CharacterPronoun !== "undefined" && CharacterPronoun.genderNote ? CharacterPronoun.genderNote(o) : "";
+    if (r) lines.push("- " + char.name + " 眼中的 " + o.name + gN + "：" + r.label + (r.note ? "（" + r.note + "）" : ""));
   }
   // 同姓不等于一家人（群里 2026-10-31：「只要是一个姓系统非说他们是亲戚，怎么强调都没用」）：
   //   只有真碰上同姓、又没写他们之间什么关系的时候才补这一行
