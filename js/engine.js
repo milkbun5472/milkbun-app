@@ -6312,7 +6312,16 @@ async function naiTagsFor(prompt) {
   return { prompt: tags, negative: String(d.negative || "").trim() };
 }
 
+// 动图一律放慢到每帧至少 GIF_MIN_MS（她 2026-11-06「8 帧图速度太快了」）：出图入口这一处收口，表情包、照片、卡面都跟着慢下来
+const GIF_MIN_MS = 260;
 async function generateSelfieImage(prompt, refPhotoDataUrl, opts) {
+  const out = await generateSelfieImageRaw(prompt, refPhotoDataUrl, opts);
+  if (out && out.blob && out.blob.type === "image/gif" && typeof GifCodec !== "undefined" && GifCodec.retime) {
+    try { out.blob = new Blob([GifCodec.retime(new Uint8Array(await out.blob.arrayBuffer()), GIF_MIN_MS)], { type: "image/gif" }); out.dataUrl = null; } catch (e) {}
+  }
+  return out;
+}
+async function generateSelfieImageRaw(prompt, refPhotoDataUrl, opts) {
   // 「这个站不锁脸」（她 2026-10-05）：有的站不收带图的请求，别的 app 只发文字能出、这里带着参考照就报错。
   //   站上打开了这个开关 → 从第一下就不带参考照，只发文字，一次请求，回什么收什么（标成 site-no-ref，界面上不另外标注）。
   //   不是「先带照片试、失败再不带补一次」——那是两笔钱，也破了「一张图只发一次请求」。

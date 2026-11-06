@@ -140,5 +140,32 @@
     return new Uint8Array(out);
   }
 
-  return { decode, encode };
+  // ---- 放慢 ----
+  // 每一帧停留不到 minMs 的，抬到 minMs（她 2026-11-06「8 帧图速度太快了」）。只改每帧那两个字节的停留时间，
+  //   不解码、不重压，画面一个像素不动。返回新的 Uint8Array；认不出是 GIF 就原样返回。
+  function retime(buf, minMs) {
+    const b = new Uint8Array(buf instanceof Uint8Array ? buf : new Uint8Array(buf));
+    if (b.length < 13 || String.fromCharCode(b[0], b[1], b[2]) !== "GIF") return b;
+    const want = Math.max(2, Math.round((Number(minMs) || 0) / 10));
+    let p = 13;
+    if (b[10] & 0x80) p += 3 * (1 << ((b[10] & 7) + 1));
+    const skipSub = () => { while (p < b.length) { const len = b[p++]; if (!len) break; p += len; } };
+    while (p < b.length) {
+      const t = b[p++];
+      if (t === 0x3B) break;
+      if (t === 0x21) {
+        const label = b[p++];
+        if (label === 0xF9 && b[p] >= 4) { const d = b[p + 2] | (b[p + 3] << 8); if (d < want) { b[p + 2] = want & 255; b[p + 3] = (want >> 8) & 255; } }
+        skipSub(); continue;
+      }
+      if (t !== 0x2C) break;
+      const ipk = b[p + 8]; p += 9;
+      if (ipk & 0x80) p += 3 * (1 << ((ipk & 7) + 1));
+      p++;            // LZW 最小码长
+      skipSub();
+    }
+    return b;
+  }
+
+  return { decode, encode, retime };
 });
