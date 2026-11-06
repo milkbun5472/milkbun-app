@@ -5490,31 +5490,38 @@ function CoupleDrawer({ partner, items, onOpen, onDrop, onEdit, onForward, ledge
                   + (mn ? "（你叫过 " + mn + " 次）" : "")));
             }))) : null),
       // 我也放一张（群友 2026-11-06）：写一张小纸条放进去；TA 不会自己翻，点纸条底下「让他看看」才读、才回
-      onPutMine ? h("button", { "data-wk": "drawerputmine", onClick: () => requestAppPrompt("往抽屉里放一张", "写给" + nm + "的小纸条。放进去" + characterText(partner, "他") + "不会自己翻，点纸条底下的「让" + characterText(partner, "他") + "看看」才会看到、回你一张。", "", v => { if (String(v || "").trim()) onPutMine(v); }, "放进去"),
+      onPutMine ? h("button", { "data-wk": "drawerputmine", onClick: () => requestAppPrompt("往抽屉里放一张", "写给" + nm + "的小纸条。放进去" + characterText(partner, "他") + "不会自己翻，点纸条底下的「让" + characterText(partner, "他") + "看看」才会看到、回你一张。", "", v => { if (String(v || "").trim()) onPutMine(v); }, "放进去", { multiline: true, placeholder: "想跟" + nm + "说、又不想在聊天里说的那几句" }),
         className: "w-full active:opacity-70", style: { marginTop: 14, padding: "11px 0", background: "rgba(255,253,246,.7)", border: "1px dashed rgba(150,120,70,.45)", borderRadius: 4,
           fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: "#7a6338" } }, "＋ 我也放一张") : null,
       mine.length
         ? h("div", { style: { display: "flex", flexDirection: "column", gap: 13, marginTop: 16 } },
             mine.map((x, i) => {
               // 我放的那张：摊开的，右上标「我放的」；底下是 TA 回的那张，或者「让他看看」
-              if (x.kind === "mine") return h("div", { key: x.id, "data-wk": "drawermine", style: { position: "relative", padding: "13px 15px 15px",
-                  background: "#f4f8ff", borderRadius: 2, boxShadow: "0 3px 9px rgba(72,84,110,.12)", transform: "rotate(" + (-tilt(i) / 2) + "deg)" } },
+              if (x.kind === "mine") return h("div", { key: x.id, "data-wk": "drawermine", style: { position: "relative", padding: "15px 16px 12px",
+                  // 她放的：一张淡玫瑰色的信笺，横线纸，左上角一截纸胶带——跟抽屉同一套暖纸色，一眼分得出是她那边的
+                  background: "#fbf1ec", backgroundImage: "repeating-linear-gradient(180deg,transparent 0 29px,rgba(176,120,104,.13) 29px 30px)",
+                  borderRadius: 2, boxShadow: "0 4px 11px rgba(120,72,56,.14)", transform: "rotate(" + (-tilt(i) / 2) + "deg)" } },
+                h("div", { "aria-hidden": "true", style: { position: "absolute", left: 18, top: -7, width: 54, height: 15, background: "rgba(214,170,150,.55)", transform: "rotate(-4deg)", boxShadow: "0 1px 2px rgba(120,72,56,.12)" } }),
                 dropX(x),
                 h("div", { className: "flex items-center", style: { gap: 7, paddingRight: 22 } },
-                  h("div", { className: "flex-1 min-w-0", style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: "#7d8aa3" } }, "我放的"),
-                  h("span", { style: { fontFamily: F_BODY, fontSize: "calc(9.5px * var(--app-fs, 1))", color: "#a3adbf" } }, gachaWhen(x.ts))),
-                h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", lineHeight: 1.85, color: "#3f4a5e", marginTop: 6, whiteSpace: "pre-wrap" } }, x.text),
+                  h("span", { "aria-hidden": "true", style: { width: 20, height: 20, borderRadius: 6, flexShrink: 0, background: "#c48a7a", color: "#fff",
+                    display: "flex", alignItems: "center", justifyContent: "center", fontFamily: F_DISPLAY, fontSize: "calc(11.5px * var(--app-fs, 1))" } }, "我"),
+                  h("div", { className: "flex-1 min-w-0", style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: "#a7776a" } }, "我放的"),
+                  h("span", { style: { fontFamily: F_BODY, fontSize: "calc(9.5px * var(--app-fs, 1))", color: "#bf9d92" } }, gachaWhen(x.ts))),
+                h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", lineHeight: "30px", color: "#5e4038", marginTop: 6, whiteSpace: "pre-wrap" } }, x.text),
                 x.reply
-                  ? h("div", { "data-wk": "drawerminereply", style: { marginTop: 10, padding: "10px 12px 12px", background: "#fffdf6", borderRadius: 2, boxShadow: "0 2px 6px rgba(96,72,40,.12)", transform: "rotate(.6deg)" } },
+                  ? h("div", { "data-wk": "drawerminereply", style: { position: "relative", marginTop: 12, marginLeft: 14, padding: "12px 13px 13px", background: "#fffdf6", borderRadius: 2, boxShadow: "0 3px 8px rgba(96,72,40,.14)", transform: "rotate(1deg)" } },
+                      // 回信夹在她那张上：一枚小回形针
+                      h("div", { "aria-hidden": "true", style: { position: "absolute", right: 16, top: -9, width: 9, height: 22, border: "1.5px solid rgba(140,120,96,.65)", borderRadius: 6 } }),
                       h("div", { className: "flex items-center justify-between", style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: "#a08b5d" } }, nm + " 回的", h("span", { style: { fontSize: "calc(9.5px * var(--app-fs, 1))", color: "#b9a785" } }, gachaWhen(x.replyTs))),
                       h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", lineHeight: 1.85, color: "#5b4c3a", marginTop: 5, whiteSpace: "pre-wrap" } }, STX(x.reply)))
                   : null,
                 h("div", { className: "flex justify-end", style: { marginTop: 6, gap: 12 } },
                   onAskReply ? h("button", { "data-wk": "drawerminereplybtn", disabled: !!replyBusy, onClick: () => onAskReply(x.id), className: "active:opacity-60 disabled:opacity-40",
-                    style: { minHeight: 32, padding: "0 4px", background: "transparent", border: "none", fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: "#5d6f93" } },
+                    style: { minHeight: 32, padding: "0 4px", background: "transparent", border: "none", fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: "#a0604f" } },
                     replyBusy === x.id ? characterText(partner, "他在看…") : x.reply ? characterText(partner, "让他再回一张") : characterText(partner, "让他看看")) : null,
-                  onEdit ? h("button", { onClick: () => requestAppPrompt("改这一张", "改完就照新的留着。", x.text || "", v => { if (String(v || "").trim()) onEdit(x.id, v); }, "改好了"),
-                    className: "active:opacity-60", style: { minHeight: 32, padding: "0 4px", background: "transparent", border: "none", fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: "rgba(93,111,147,.7)" } }, "改") : null));
+                  onEdit ? h("button", { onClick: () => requestAppPrompt("改这一张", "改完就照新的留着。", x.text || "", v => { if (String(v || "").trim()) onEdit(x.id, v); }, "改好了", { multiline: true }),
+                    className: "active:opacity-60", style: { minHeight: 32, padding: "0 4px", background: "transparent", border: "none", fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: "rgba(160,96,79,.7)" } }, "改") : null));
               const k = DRAWER_KIND[x.kind] || DRAWER_KIND.thing;
               const sealed = !x.openedTs;
               if (sealed) {
