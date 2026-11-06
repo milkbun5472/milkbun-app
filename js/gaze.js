@@ -572,7 +572,7 @@
               h("span", { style: { fontFamily: F_BODY, fontSize: "calc(9px * var(--app-fs, 1))", letterSpacing: 2, color: GOLD } }, KEYS[x.k]),
               x.now ? h("span", { style: { fontFamily: F_BODY, fontSize: "calc(8px * var(--app-fs, 1))", letterSpacing: 1, color: "#fff", background: GOLD, borderRadius: 999, padding: "1px 6px" } }, "现在") : null,
               h("span", { style: { marginLeft: "auto", fontFamily: F_BODY, fontSize: "calc(9px * var(--app-fs, 1))", color: "rgba(172,138,91,.7)" } }, x.ts ? gazeDay(x.ts, charId) : "")),
-            h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(13px * var(--app-fs, 1))", color: x.now ? INKSOFT : "rgba(92,82,68,.62)", lineHeight: 2, whiteSpace: "pre-wrap" } }, x.text)))
+            h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(13px * var(--app-fs, 1))", color: x.now ? INKSOFT : "rgba(92,82,68,.62)", lineHeight: 2, whiteSpace: "pre-wrap" } }, transShow(x.text))))
             : h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(13px * var(--app-fs, 1))", color: "rgba(92,82,68,.5)", lineHeight: 2 } }, say("他还没写过什么。")))),
       document.body);
     return h("div", { "data-wk": "gazepage", "data-side": side, style: { margin: "-4px -6px 0", padding: "18px 14px 26px", borderRadius: 18, background: "linear-gradient(168deg, #f8f2e6, #f6ecdf 46%, #f2e2d6 78%, " + BLUSH + "40)" } },

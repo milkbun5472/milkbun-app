@@ -1079,7 +1079,7 @@
               (last.choices || []).length ? h("button", { onClick: () => setVnWrite(false), style: { fontFamily: F_BODY, fontSize: fs(11), color: "rgba(255,255,255,.6)" } }, "看选项") : null)))
         : h("div", { "data-wk": "thrvnbox", onClick: tap, style: Object.assign({ margin: "0 12px calc(env(safe-area-inset-bottom) * 0.4 + 14px)", borderRadius: 14, background: "rgba(16,14,22,.82)", border: "1px solid rgba(255,255,255,.18)", padding: "14px 16px 30px", minHeight: 150, position: "relative", color: "#fff" }, hid) },
           who ? h("div", { style: { display: "inline-block", marginBottom: 6, padding: "2px 10px", borderRadius: 999, background: b.who === "he" ? "#B58C55" : "#6b6480", fontFamily: F_BODY, fontSize: fs(12) } }, who) : null,
-          h("div", { style: { fontFamily: F_BODY, fontSize: fs(15), lineHeight: 1.75, fontStyle: who ? "normal" : "italic", opacity: who ? 1 : .88, whiteSpace: "pre-wrap" } }, b.text),
+          h("div", { style: { fontFamily: F_BODY, fontSize: fs(15), lineHeight: 1.75, fontStyle: who ? "normal" : "italic", opacity: who ? 1 : .88, whiteSpace: "pre-wrap" } }, transShow(b.text)),
           line.ended && atEnd ? h("div", { style: { marginTop: 12, fontFamily: F_BODY, fontSize: fs(12), opacity: .7 } }, "—— 这条线已经谢幕 ——") : null,
           !atEnd ? h("div", { style: { position: "absolute", right: 14, bottom: 10, fontSize: fs(11), opacity: .5 } }, "点一下继续 ▾") : null),
         vnLog ? h("div", { "data-wk": "thrvnlogview", onClick: () => { if (logPick || Date.now() - logPickAt.current < 600) return; setVnLog(false); }, className: "fixed inset-0 flex flex-col", style: { zIndex: 2, background: "rgba(10,9,14,.9)", color: "#fff" } },
@@ -1092,7 +1092,7 @@
                   onPointerDown: () => { clearTimeout(logLp.current); logLp.current = setTimeout(() => { logPickAt.current = Date.now(); setLogPick(x); }, 500); }, onPointerUp: () => clearTimeout(logLp.current), onPointerLeave: () => clearTimeout(logLp.current),
                   style: { padding: "10px 0", borderBottom: "1px solid rgba(255,255,255,.08)", background: logPick === x ? "rgba(255,255,255,.08)" : "transparent" } },
                 w ? h("div", { style: { marginBottom: 3, fontFamily: F_BODY, fontSize: fs(11), color: x.who === "he" ? "#e3c48a" : "#c9c0e0" } }, w) : null,
-                h("div", { style: { fontFamily: F_BODY, fontSize: fs(14), lineHeight: 1.7, fontStyle: w ? "normal" : "italic", opacity: w ? 1 : .8, whiteSpace: "pre-wrap" } }, x.text)); }),
+                h("div", { style: { fontFamily: F_BODY, fontSize: fs(14), lineHeight: 1.7, fontStyle: w ? "normal" : "italic", opacity: w ? 1 : .8, whiteSpace: "pre-wrap" } }, transShow(x.text))); }),
             h("div", { style: { marginTop: 14, textAlign: "center", fontFamily: F_BODY, fontSize: fs(11), opacity: .45 } }, "长按某一句，可以从那里分支出另一条路")),
           logPick ? h("div", { "data-wk": "thrvnbranch", onClick: e => { e.stopPropagation(); if (Date.now() - logPickAt.current < 600) return; setLogPick(null); }, className: "fixed inset-0 flex items-end", style: { zIndex: 3, background: "rgba(0,0,0,.4)" } },
             h("div", { onClick: e => e.stopPropagation(), style: { width: "100%", padding: "14px 16px calc(env(safe-area-inset-bottom) + 14px)", background: "#1c1924", borderTop: "1px solid rgba(255,255,255,.15)" } },

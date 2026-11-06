@@ -948,7 +948,7 @@
             h("div", { style: { display: "flex", alignItems: "center", gap: 5, marginBottom: 3 } },
               h("span", { style: { fontFamily: F_DISPLAY, fontSize: "calc(15.5px * var(--app-fs, 1))", color: N.ink } }, e.charName),
               dot("td" + i, e.text, chOf(e.charId))),
-            h("div", { "data-wk": "tarotentrytext", style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", lineHeight: 1.8, color: N.ink } }, e.text)))));
+            h("div", { "data-wk": "tarotentrytext", style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", lineHeight: 1.8, color: N.ink } }, transShow(e.text))))));
     }
 
     // ---- reading / relation / forchar ----
@@ -1080,7 +1080,7 @@
             cardTile(x.card, "补牌", 100 + i * 10 + j, true, true),
             h("div", { style: { flex: 1, minWidth: 0 } },
               h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: N.tint, fontWeight: 700, marginBottom: 4 } }, cardLabel(x.card) + " · " + cardReference(x.card).keywords),
-              h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: N.ink, lineHeight: 1.65 } }, x.text)))),
+              h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: N.ink, lineHeight: 1.65 } }, transShow(x.text))))),
           supplements.length < 3 ? h("button", { "data-wk": "tarotsuppbtn", onClick: () => addSupplement(i, r.pos || (s.spread || [])[i] || "这个牌位"), disabled: suppBusy != null, className: "active:opacity-70", style: { marginTop: 9, fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: N.tint, border: "1px dashed rgba(184,145,80,.42)", borderRadius: 999, padding: "5px 10px" } }, suppBusy === i ? "正在补牌…" : "＋ 为这个牌位补一张") : null)) : null,
         // 占卜师综合收束：旧存档没有 readerSummary 时回退到原 summary。
         allRevealed && (s.readerSummary || s.summary) ? h("div", { "data-wk": "tarotsummary", style: { marginTop: 8, padding: "16px 17px", background: "linear-gradient(145deg,rgba(122,104,176,.14),rgba(184,145,80,.10))", border: "1px solid rgba(184,145,80,.26)", borderRadius: 13 } },
@@ -1096,7 +1096,7 @@
           h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: N.fog, lineHeight: 1.5, marginBottom: 11 } }, "追问只留在这次占卜里；转发进聊天后，才会进入聊天上下文。"),
           followups.length ? h("div", { style: { display: "flex", flexDirection: "column", gap: 8, marginBottom: 10 } }, followups.map(x => h("div", { "data-wk": "tarotbubble", "data-me": x.role === "user" ? "1" : "0",
             key: x.id, style: { alignSelf: x.role === "user" ? "flex-end" : "flex-start", maxWidth: "88%", padding: "9px 11px", borderRadius: 12, background: x.role === "user" ? "rgba(184,145,80,.13)" : N.bg2, border: "1px solid " + N.line, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", lineHeight: 1.65, color: N.ink, whiteSpace: "pre-wrap" }
-          }, x.content))) : null,
+          }, transShow(x.content)))) : null,
           h("div", { style: { display: "flex", gap: 8, alignItems: "flex-end" } },
             h("textarea", { "data-wk": "tarotinput", "data-part": "followup", value: followText, onChange: e => setFollowText(e.target.value), rows: 2, placeholder: "再问一句，或只是和 Ta 聊聊这副牌…", disabled: followBusy,
               style: { flex: 1, minWidth: 0, resize: "none", outline: "none", borderRadius: 11, border: "1px solid " + N.line, background: N.bg2, color: N.ink, padding: "9px 10px", fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", lineHeight: 1.5 } }),

@@ -112,7 +112,7 @@ function AskSlipCard({ m, asker, money, onDecide, onVote, onResend, meName, allo
       group ? row("表决", h("div", { style: { lineHeight: 1.7 } },
         h("div", null, h("span", { style: { color: SEAL, marginRight: 6 } }, "准 " + tl.yes.length), voters(tl.yes, false)),
         h("div", null, h("span", { style: { color: t.fog, marginRight: 6 } }, "驳 " + tl.no.length), voters(tl.no, false))), "v") : null,
-      !group && st !== "pending" && m.note ? row("批示", h("span", { style: { fontFamily: F_DISPLAY, fontStyle: "italic" } }, m.note), "n") : null,
+      !group && st !== "pending" && m.note ? row("批示", h("span", { style: { fontFamily: F_DISPLAY, fontStyle: "italic" } }, transShow(m.note)), "n") : null,
       !group && st === "approved" && m.cond ? row("条件", h("span", { "data-wk": "askslipcond", style: { color: SEAL } }, m.cond), "c") : null),
     // 落款
     h("div", { className: "flex justify-between", style: Object.assign({}, small, { borderTop: "1px solid " + t.line, paddingTop: 7, marginTop: 2 }) },

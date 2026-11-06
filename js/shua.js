@@ -384,7 +384,7 @@
             onMore ? h("button", { "data-wk": "shuamorecmt", onClick: onMore, disabled: !!moreBusy, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: B.accent, minHeight: 32, padding: "0 4px" } }, moreBusy ? "有人路过…" : "刷点评论") : null),
           arr(v.comments).map(c => h("div", { "data-wk": "shuacmt", "data-me": c.by === "me" ? "1" : "0", key: c.id, style: { padding: "9px 0", borderTop: "1px solid " + B.line } },
             h("div", { "data-wk": "shuacmtname", style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: c.by === "me" ? B.accent : c.by === "char" ? "#d89a2b" : B.dim } }, c.name + (c.isAuthor ? " · 作者" : "")),
-            h("div", { "data-wk": "shuacmttext", style: { fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", color: B.ink, marginTop: 3, lineHeight: 1.55 } }, c.text),
+            h("div", { "data-wk": "shuacmttext", style: { fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", color: B.ink, marginTop: 3, lineHeight: 1.55 } }, transShow(c.text)),
             // 楼中楼：回复挂在这一条底下
             arr(c.replies).length ? h("div", { style: { marginTop: 6, padding: "6px 10px", borderRadius: 8, background: B.bg } }, c.replies.map(r => h("div", { "data-wk": "shuareply", "data-me": r.by === "me" ? "1" : "0", key: r.id, style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", lineHeight: 1.5, color: B.ink, padding: "2px 0" } },
               h("span", { style: { color: r.by === "me" ? B.accent : r.by === "char" ? "#d89a2b" : B.dim } }, r.name + "："), r.text))) : null,

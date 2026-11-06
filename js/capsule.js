@@ -177,7 +177,7 @@
                   boxShadow: "0 7px 18px rgba(50,70,100,.10)",
                   backgroundImage: "repeating-linear-gradient(180deg,rgba(0,0,0,0) 0 26px,rgba(70,95,135,.13) 26px 27px)", backgroundPosition: "0 38px" } },
                   h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", letterSpacing: "0.15em", color: ACCENT, height: 20 } }, (cap.charName || "TA") + " 的回信"),
-                  h("div", { style: { fontFamily: "'Noto Serif SC',serif", fontSize: "calc(14.5px * var(--app-fs, 1))", lineHeight: "27px", color: "#33405a", whiteSpace: "pre-wrap" } }, cap.reply))
+                  h("div", { style: { fontFamily: "'Noto Serif SC',serif", fontSize: "calc(14.5px * var(--app-fs, 1))", lineHeight: "27px", color: "#33405a", whiteSpace: "pre-wrap" } }, transShow(cap.reply)))
               : h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.fog, textAlign: "center", padding: "14px 0" } },
                   busy === cap.id ? "TA 正在读信、写回信…" : h("button", { onClick: () => openCap({ ...cap, opened: false }), className: "active:opacity-70", style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: "#fff", background: ACCENT, border: "none", borderRadius: 999, padding: "8px 18px" } }, "让 TA 读信回信"))
           ) : null));

@@ -306,7 +306,7 @@
           h("div", { "data-wk": "block", style: { flex: 1, background: t.bg2, border: "1px solid " + t.line, borderRadius: 14, padding: "9px 12px" } },
             h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.sub, marginBottom: 2, display: "flex", alignItems: "center", gap: 6 } }, c.remark || c.name || cm.name,
               cm.auto ? h("span", { style: { fontFamily: F_BODY, fontSize: "calc(9.5px * var(--app-fs, 1))", color: ACCENT, border: "1px solid " + ACCENT + "55", borderRadius: 999, padding: "1px 7px" } }, "自己注意到 · 办完了") : null),
-            h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", color: t.ink, lineHeight: 1.5 } }, cm.text),
+            h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", color: t.ink, lineHeight: 1.5 } }, transShow(cm.text)),
             h("button", { onClick: () => props.onDel(i), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, marginTop: 4 }, "data-wk": "memocommentblockbtn", "data-part": "2" }, "删除")));
       })) : h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog } }, "还没有角色批注。"),
       pick && h(CommentPicker, { characters: props.characters, existing: comments.map(c => c.charId), busy: busy, onPick: doGen, onClose: () => !busy && setPick(false) }));

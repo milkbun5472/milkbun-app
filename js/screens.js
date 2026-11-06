@@ -13,10 +13,7 @@
 // 论坛、空间里那一段是哪个角色写的：包一层 TransWho，那个人开着「自带中译」就直接摆中文（components.js TransText）
 function STX(v) {
   // 已经是元素／数组（整页正文、一排按钮）就原样放过——String() 了就是一行「[object Object]」，还会挂上「译」（2026-10-17 群友截图）
-  if (v && typeof v === "object") return v;
-  const s = String(v == null ? "" : v);
-  if (!s) return s;
-  return typeof TransText === "function" ? h(TransText, { text: s, ink: "currentColor", inline: true }) : s;
+  return typeof transShow === "function" ? transShow(v) : v;   // 公共出口在 components.js
 }
 function cardFillNames(text, charName, userName) {
   return String(text || "")

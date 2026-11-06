@@ -2796,7 +2796,7 @@
               const it = pt.item;
               return h("div", { key: "d" + pt.id, style: { marginTop: 10, paddingTop: 10, borderTop: "1px dashed " + STUDY_SKIN.line } },
                 h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: STUDY_SKIN.ink, fontWeight: 600 } }, pt.label + " · " + (pt.level == null ? "还没测过" : LEVEL_NAME[pt.level])),
-                pt.note ? h("div", { style: small }, pt.note) : null,
+                pt.note ? h("div", { style: small }, transShow(pt.note)) : null,
                 it ? h("div", { style: small }, (it.wrongCount ? "错过 " + it.wrongCount + " 次 · " : "") + (it.hintedCount ? "靠提示 " + it.hintedCount + " 次 · " : "") + (function () { const r = reviewStageText(it); return "复习曲线走到 " + r.filled + "/" + r.total + " · " + r.when; })()) : null,
                 pt.mistakes.filter(function (m) { return !m.resolved; }).slice(-3).map(function (m, k) {
                   return h("div", { key: "m" + k, style: Object.assign({}, small, { color: STUDY_SKIN.red }) }, "错因：" + (m.note || "需要再练"));
@@ -4096,7 +4096,7 @@
               h("span", { style: { color: STUDY_SKIN.fog } }, x[0] + "："), x[1]);
           }),
           h("div", { style: { marginTop: 10, paddingTop: 9, borderTop: "1px solid " + STUDY_SKIN.line,
-            fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: accent, lineHeight: 1.7, whiteSpace: "pre-wrap" } }, n.note));
+            fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: accent, lineHeight: 1.7, whiteSpace: "pre-wrap" } }, transShow(n.note)));
       }
       if (m.role === "user") {
         return h("div", { key: m.id, className: "flex justify-end mb-2" },

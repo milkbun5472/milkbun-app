@@ -14,9 +14,11 @@ const comp = fs.readFileSync(path.join(root, "js/components.js"), "utf8");
 test("只包一层壳，不另起一套翻译", () => {
   assert.match(phone, /function PTX\(v\) \{/);
   // 只钉「包了 TransText 且把原文传进去」，别钉整串 props（anchor-on-code.md）
-  assert.match(phone, /typeof TransText === "function" \? h\(TransText, \{ text: s,[^}]*\}\) : s/);
+  // PTX 转调公共出口 transShow，TransText 包在那一处（2026-11-06「全抽成公共翻译」）
+  assert.match(phone, /transShow\(v\)/);
+  assert.match(comp, /function transShow\(v, zh\) \{[^]*?h\(TransText, \{ text: s,/);
   // 空字符串原样返回：别给空行挂一颗「译」键
-  assert.match(phone, /if \(!s\) return s;/);
+  assert.match(comp, /if \(!s\.trim\(\)\) return s;/);
   // TransText 得真是全局的（phone.js 拿得到）——照抄用法却没带定义，进页面就白屏
   assert.match(comp, /^function TransText\(/m);
 });
@@ -49,7 +51,7 @@ test("各 app 自己那几处正文也接了", () => {
 
 test("接上之后别把空值画成 undefined", () => {
   // PTX 里统一转成字符串再判空，所以 it.title 为 undefined 时返回的是 ""
-  assert.match(phone, /const s = String\(v == null \? "" : v\);/);
+  assert.match(comp, /const s = String\(v == null \? "" : v\);/);
   assert.ok(!/PTX\(\)/.test(phone));
 });
 

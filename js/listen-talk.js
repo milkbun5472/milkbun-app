@@ -157,7 +157,7 @@
         maxWidth: 150, padding: "7px 11px", borderRadius: 14, marginTop: 6, background: "rgba(255,255,255,.88)", color: "#2d2a26",
         boxShadow: "0 3px 10px rgba(30,28,24,.14)", fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", lineHeight: 1.5, wordBreak: "break-word",
         [side === "l" ? "borderTopRightRadius" : "borderTopLeftRadius"]: 4,
-        opacity: Math.max(0.25, 1 - Math.max(0, now - clockOf(r) - BUBBLE_MS * 0.6) / (BUBBLE_MS * 0.4)), transition: "opacity .6s" } }, r.content);
+        opacity: Math.max(0.25, 1 - Math.max(0, now - clockOf(r) - BUBBLE_MS * 0.6) / (BUBBLE_MS * 0.4)), transition: "opacity .6s" } }, transShow(r.content));
     const me = props.profile || {};
     const head = (who, isMe) => h("div", { "data-wk": "block", style: { width: 54, height: 54, borderRadius: 999, padding: 2, background: "rgba(255,255,255,.7)", boxShadow: "0 4px 12px rgba(30,28,24,.2)" } },
       isMe ? (me.avatarImage ? h("img", { src: typeof resolveImg === "function" ? resolveImg(me.avatarImage) : me.avatarImage, alt: "", style: { width: 50, height: 50, borderRadius: 999, objectFit: "cover" } })

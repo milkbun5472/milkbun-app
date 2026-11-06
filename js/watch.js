@@ -315,7 +315,7 @@
           h("span", null, m.content))),
         p.busy && h("div", { style: { padding: "5px 12px", borderRadius: 999, background: "rgba(22,20,27,.6)", color: "rgba(255,255,255,.7)", fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))" } }, "…")),
       // 台词：画面下方，躲开原生进度条
-      p.hasCues && p.line ? h("div", { style: { position: "absolute", left: 16, right: 16, bottom: "calc(env(safe-area-inset-bottom) + 64px)", textAlign: "center", color: "#fff", fontFamily: F_DISPLAY, fontSize: "calc(17px * var(--app-fs, 1))", lineHeight: 1.45, textShadow: "0 1px 3px #000, 0 0 8px rgba(0,0,0,.8)" } }, p.line) : null);
+      p.hasCues && p.line ? h("div", { style: { position: "absolute", left: 16, right: 16, bottom: "calc(env(safe-area-inset-bottom) + 64px)", textAlign: "center", color: "#fff", fontFamily: F_DISPLAY, fontSize: "calc(17px * var(--app-fs, 1))", lineHeight: 1.45, textShadow: "0 1px 3px #000, 0 0 8px rgba(0,0,0,.8)" } }, transShow(p.line)) : null);
   }
 
   // ---- 放映 ----
@@ -645,7 +645,7 @@
               h("div", { style: { maxWidth: "76%" } },
                 m.frame && m.frame !== "gone" ? h("img", { src: m.frame, alt: "截的那一帧", style: { display: "block", width: 160, borderRadius: 10, marginBottom: m.content ? 5 : 0, marginLeft: "auto", border: "2px solid rgba(255,255,255,.1)" } }) : null,
                 m.frame === "gone" ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: W.fog, textAlign: "right" } }, "（截过一帧）") : null,
-                m.content ? h("div", { "data-wk": "block", style: { padding: "8px 12px", borderRadius: mine ? "14px 4px 14px 14px" : "4px 14px 14px 14px", background: mine ? W.amber : W.card, color: mine ? W.amberInk : W.ink, fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", lineHeight: 1.6, whiteSpace: "pre-wrap", border: mine ? "none" : "1px solid " + W.line } }, m.content) : null,
+                m.content ? h("div", { "data-wk": "block", style: { padding: "8px 12px", borderRadius: mine ? "14px 4px 14px 14px" : "4px 14px 14px 14px", background: mine ? W.amber : W.card, color: mine ? W.amberInk : W.ink, fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", lineHeight: 1.6, whiteSpace: "pre-wrap", border: mine ? "none" : "1px solid " + W.line } }, transShow(m.content)) : null,
                 h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", color: W.fog, marginTop: 3, textAlign: mine ? "right" : "left" } }, clock(m.at))));
           }),
           busy && h("div", { className: "flex items-center gap-2", style: { margin: "8px 0", color: W.fog, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))" } }, h(Avatar, { character: partner, size: 28, radius: 14 }), (partner.remark || partner.name) + " 在想…")),

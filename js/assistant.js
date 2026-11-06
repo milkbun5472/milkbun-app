@@ -1761,7 +1761,7 @@
         h("span", { style: { color: t.fog, fontSize: "calc(13px * var(--app-fs, 1))" } }, open ? "收起" : "看看 ›")),
       open ? h("div", { style: { marginTop: 10 } },
         list.length ? list.map((m, i) => h("div", { "data-wk": "qqmemrow", key: m.id || i, style: { display: "flex", alignItems: "flex-start", gap: 6, padding: "7px 0", borderTop: i ? "1px solid " + t.line : "none" } },
-          h("div", { style: { flex: 1, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.ink, lineHeight: 1.6 } }, m.text),
+          h("div", { style: { flex: 1, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.ink, lineHeight: 1.6 } }, transShow(m.text)),
           h("button", { onClick: () => requestAppPrompt("改这一条", "", m.text, v => { const x = String(v || "").trim(); if (!x) return; save(list.map(y => y === m ? Object.assign({}, y, { text: x.slice(0, 80) }) : y)); }, "存"), style: Object.assign({ color: t.tint }, small) }, "改"),
           h("button", { onClick: () => save(list.filter(y => y !== m)), style: Object.assign({ color: t.accent }, small) }, "删"))) :
           h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog, padding: "4px 0" } }, "还没记过什么。跟" + props.name + "说说你用什么手机、喜欢什么样的，她会记下来。"),

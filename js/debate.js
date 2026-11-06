@@ -1344,7 +1344,7 @@
                 cp ? h(Avatar, { character: props.characters.find(x => x.id === cp.id) || { name: c.name }, size: 26, radius: 999 }) : h("div", { style: { width: 26 } }),
                 h("div", { style: { flex: 1 } },
                   h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", fontWeight: 700, color: cp ? cp.color : t.ink, marginBottom: 2 } }, c.name),
-                  h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", lineHeight: 1.6, color: t.ink } }, c.text)));
+                  h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", lineHeight: 1.6, color: t.ink } }, transShow(c.text))));
             })) : null) : null),
       // 底部操作
       ended ? (props.onCreate && (s.parts || []).length >= 2 ? h("div", { style: { position: "absolute", left: 0, right: 0, bottom: 0, padding: "10px 16px calc(10px + env(safe-area-inset-bottom) * 0.4)", background: "linear-gradient(to top," + t.bg + " 78%,transparent)" } },

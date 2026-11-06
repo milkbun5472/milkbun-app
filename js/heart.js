@@ -579,7 +579,7 @@
         },
           h("div", { className: "flex items-start gap-8", style: { justifyContent: "space-between" } },
             h("div", { style: { flex: 1, minWidth: 0 } },
-              h("div", { style: { fontFamily: "'Noto Serif SC',serif", fontSize: "calc(13.5px * var(--app-fs, 1))", color: t.ink, lineHeight: 1.6 } }, p.text),
+              h("div", { style: { fontFamily: "'Noto Serif SC',serif", fontSize: "calc(13.5px * var(--app-fs, 1))", color: t.ink, lineHeight: 1.6 } }, transShow(p.text)),
               p.poem ? h("div", { style: { fontFamily: "'Noto Serif SC',serif", fontStyle: "italic", fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.sub, marginTop: 6, lineHeight: 1.7, whiteSpace: "pre-wrap" } }, p.poem) : null,
               h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, marginTop: 5 } }, (p.from ? "由「" + p.from + "」长成 · " : "") + fmtDay(p.ts, char.id))),
             confirmId === p.id
@@ -685,7 +685,7 @@
             h("span", { style: { position: "absolute", left: -25, top: 0, width: 16, height: 16, borderRadius: 999,
               background: t.bg2, border: "1px solid " + skinAlpha(ACCENT, "66"), display: "flex", alignItems: "center", justifyContent: "center",
               fontFamily: F_DISPLAY, fontSize: "calc(9.5px * var(--app-fs, 1))", color: ACCENT } }, ev.icon),
-            h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.ink, lineHeight: 1.55 } }, ev.text),
+            h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.ink, lineHeight: 1.55 } }, transShow(ev.text)),
             h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", color: t.fog, marginTop: 1 } }, fmtDay(ev.ts, char.id))))) : null) : null;
       })(),
       // 季度自述（回头看，每 90 天一段）
@@ -695,7 +695,7 @@
         showMile ? h("div", { className: "space-y-2.5", style: { marginTop: 10 } }, b.milestones.map((m, i) => h("div", {
           key: i, style: { padding: "11px 13px", borderRadius: 10, background: ACCENT + "0e", border: "1px solid " + ACCENT + "38" }
         },
-          h("div", { style: { fontFamily: "'Noto Serif SC',serif", fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.ink, lineHeight: 1.75 } }, m.text),
+          h("div", { style: { fontFamily: "'Noto Serif SC',serif", fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.ink, lineHeight: 1.75 } }, transShow(m.text)),
           h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", color: t.fog, marginTop: 6 } }, fmtDay(m.ts, char.id) + " · 一季的回望")))) : null) : null,
       // 独白历史
       b.log.length > 1 ? h("div", { style: { marginTop: 18 } },
@@ -704,7 +704,7 @@
         showLog ? h("div", { className: "space-y-2.5", style: { marginTop: 10 } }, b.log.slice(1).map((l, i) => h("div", {
           key: i, style: { padding: "10px 12px", borderRadius: 10, background: t.bg, border: "1px solid " + t.line }
         },
-          h("div", { style: { fontFamily: "'Noto Serif SC',serif", fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.sub, lineHeight: 1.7 } }, l.text),
+          h("div", { style: { fontFamily: "'Noto Serif SC',serif", fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.sub, lineHeight: 1.7 } }, transShow(l.text)),
           h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", color: t.fog, marginTop: 5 } }, fmtDay(l.ts, char.id))))) : null) : null,
       h("div", { style: { marginTop: 16, fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.6 } },
         "左边那道竖标尺＝这条念想在 TA 心里的分量：被想起会往上长，太久不碰会落灰；一闪念一天内没被再想起会自己消散。每隔十来天 TA 会自己盘一盘：做到了的会长成 TA 的一部分，还留下一句话；想通了不要的就放下。「拿走」只是你悄悄抽走这张纸条，TA 不会知道。"))), document.body);

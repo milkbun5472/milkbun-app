@@ -3131,7 +3131,7 @@ function Forum({
       traces.length===0&&h(Empty,{text:"暂时没有更多公开足迹",sub:"以后用这个小号回帖，记录会继续出现在这里"}),
       traces.slice(0,80).map(x=>h("button",{key:x.id,onClick:()=>openPost(x.post),className:"w-full text-left px-4 py-3 active:opacity-70",style:{borderBottom:`1px solid ${t.line}`}},
         h("div",{className:"flex items-center gap-2"},tag(x.kind),h("span",{style:{fontFamily:F_BODY,fontSize:11,color:t.fog}},timeAgo(x.ts))),
-        h("div",{style:{fontFamily:F_BODY,fontSize:13.5,lineHeight:1.55,color:t.sub,marginTop:5}},x.text),
+        h("div",{style:{fontFamily:F_BODY,fontSize:13.5,lineHeight:1.55,color:t.sub,marginTop:5}},transShow(x.text)),
         h("div",{className:"truncate",style:{fontFamily:F_BODY,fontSize:11,color:t.fog,marginTop:4}},"来自《"+(x.post.title||"帖子")+"》"))));
   }
 
@@ -5656,7 +5656,7 @@ function ListenTogether({ profile, active, ctxFor, toast, onToChat, onListenStat
       h("div", { className: "flex items-center", style: { gap: 10 } }, sqAv(p, 38),
         h("div", { className: "min-w-0 flex-1" }, nameTag(p), h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, marginTop: 1 } }, agoOf(p.ts) + " · 分享单曲")),
         h("button", { "data-wk": "listendel", onClick: () => onDelSquare && onDelSquare(p.id), className: "active:opacity-60", style: { minHeight: 40, minWidth: 40, fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog } }, "删除")),
-      p.text ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.ink, lineHeight: 1.8, marginTop: 9, whiteSpace: "pre-wrap" } }, p.text) : null,
+      p.text ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.ink, lineHeight: 1.8, marginTop: 9, whiteSpace: "pre-wrap" } }, transShow(p.text)) : null,
       sleeveRow(p.song, () => onPlaySquare && onPlaySquare(p), () => openTalk(p.song, "square")),
       h("div", { className: "flex items-center", style: { gap: 14, marginTop: 6 } },
         h("span", { className: "flex items-center", style: { gap: 4, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog } }, ic("heart", t.fog, 16), likeTxt(p.likes) || "赞"),
@@ -9441,7 +9441,7 @@ function EventComposeSheet({ entries, characters, onClose, onCreated, toast, pre
         "🔴 有问题的条目，请返回处理：", h("br"), problems.join("；")) : null,
       h("div", { style: { maxHeight: "40vh", overflowY: "auto", marginBottom: 8 } }, (rows || []).map(r =>
         h("div", { key: r.id, className: "rounded-lg p-2.5 mb-1.5", style: { border: "1px solid " + t.line, background: t.bg2 } },
-          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.ink, lineHeight: 1.55 } }, r.text),
+          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.ink, lineHeight: 1.55 } }, transShow(r.text)),
           h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", color: t.fog, marginTop: 3 } },
             new Date(r.ts || 0).toLocaleDateString(), " · rev " + r.revision, (r.tags || []).length ? " · " + r.tags.join("/") : "", r.open ? " · ⏳未了结" : "", r.archived ? " · 🗂已归档" : "")))),
       h("div", { className: "flex", style: { gap: 8 } },
@@ -12041,7 +12041,7 @@ function CharWallet({ characters, charWallet, profile, selId, busyKey, hasApi, o
           h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(14.5px * var(--app-fs, 1))", color: t.ink, wordBreak: "break-word" } }, a.name),
           h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginTop: 2 } },
             [a.kind, a.tail ? "尾号 " + a.tail : "", a.primary ? "随身 · 流水走这儿" : ""].filter(Boolean).join(" · ")),
-          a.note ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.sub, marginTop: 5, lineHeight: 1.6, wordBreak: "break-word" } }, a.note) : null),
+          a.note ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.sub, marginTop: 5, lineHeight: 1.6, wordBreak: "break-word" } }, transShow(a.note)) : null),
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))", color: t.ink, flexShrink: 0, paddingTop: 1, whiteSpace: "nowrap" } }, fmtMoney(a.hold, char.id)))))
       ]) : null,
       // 欠账。只收【真的是钱】的——人情债不在这儿，它属于查手机那本账。
@@ -13490,7 +13490,7 @@ function MyCloset({ profile, data, busy, onGen, onAdd, onDrop, onPin, onBack, ma
                       border: "1px solid " + t.ink, borderRadius: 999, padding: "2px 9px" } }, pinned === pinText(x) ? "固定穿着" : "固定穿") : null,
                   h("button", { "data-wk": "closetsetdrop", onClick: () => onDrop(g.occasion, x.name), className: "active:opacity-60 shrink-0", "aria-label": "拿掉这身",
                     style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog } }, "拿掉")),
-                x.note ? h("div", { "data-wk": "closetsetnote", style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", lineHeight: 1.8, color: t.sub, marginTop: 6, wordBreak: "break-word" } }, x.note) : null,
+                x.note ? h("div", { "data-wk": "closetsetnote", style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", lineHeight: 1.8, color: t.sub, marginTop: 6, wordBreak: "break-word" } }, transShow(x.note)) : null,
                 // 这身也挂到别的面具（她 2026-10-19「衣柜选择衣服放哪个面具方便来回换」）：点一下挂上、再点拿走，原柜不动
                 (masks && masks.length > 1 && hasIn && onToggleMask) ? h("div", { "data-wk": "closetsetmasks", className: "flex flex-wrap items-center", style: { gap: 5, marginTop: 8 } },
                   h("span", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog } }, "也挂在"),

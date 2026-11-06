@@ -978,7 +978,7 @@
                   h("div", { style: { display: "flex", alignItems: "center", gap: 4, marginBottom: 3 } },
                     h("span", { style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", color: t.tint, letterSpacing: .3 } }, (ex.charName || "") + " · 讲解"),
                     (tp && typeof TtsDot === "function") ? h(TtsDot, { k: "rex" + pageIdx + "_" + i, text: ex.text, spk: exCh, tp: tp }) : null),
-                  h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", lineHeight: 1.72, color: t.ink } }, ex.text))) : null,
+                  h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", lineHeight: 1.72, color: t.ink } }, transShow(ex.text)))) : null,
               // 还没讲的段落：给个「讲讲这段」入口
               (!ex && explainOn && partner) ? h("button", { key: "one_" + i, onClick: function () { explainOne(i); }, disabled: busy, style: { margin: "-8px 0 14px", fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, opacity: busy ? .5 : 1 }, "data-wk": "readreaderbtn", "data-part": "6" }, "▸ 让 " + partner.name + " 讲讲这段") : null,
               // 批注卡片
@@ -999,7 +999,7 @@
                     h("div", { style: { display: "flex", alignItems: "center", gap: 4, marginBottom: 2 } },
                       h("span", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: isRead ? "#3f6ea8" : t.tint } }, a.charName + (isRead ? " · 亲读" : "")),
                       (tp && typeof TtsDot === "function") ? h(TtsDot, { k: "rann" + a.id, text: a.note, spk: ch, tp: tp }) : null),
-                    h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", lineHeight: 1.6, color: isRead ? t.ink : t.sub } }, a.note)));
+                    h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", lineHeight: 1.6, color: isRead ? t.ink : t.sub } }, transShow(a.note))));
               }));
           }));
 
@@ -1185,7 +1185,7 @@
                             h("div", { style: { display: "flex", alignItems: "center", gap: 5, marginBottom: 2 } },
                               ch ? h(Avatar, { character: ch, size: 14, radius: 5 }) : null,
                               h("span", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: tone } }, (r.name || "") + " · " + WHAT[r.kind])),
-                            h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", lineHeight: 1.72, color: t.ink } }, r.text));
+                            h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", lineHeight: 1.72, color: t.ink } }, transShow(r.text)));
                         }));
                     })));
               }))
@@ -1219,7 +1219,7 @@
         d.busy
           ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.fog, padding: "6px 2px" } }, (props.partner ? props.partner.name : "Ta") + " 在想怎么讲…")
           : h("div", null,
-              h("div", { style: { fontFamily: F_BODY, fontSize: "calc(14.5px * var(--app-fs, 1))", lineHeight: 1.78, color: t.ink, whiteSpace: "pre-wrap" } }, d.a),
+              h("div", { style: { fontFamily: F_BODY, fontSize: "calc(14.5px * var(--app-fs, 1))", lineHeight: 1.78, color: t.ink, whiteSpace: "pre-wrap" } }, transShow(d.a)),
               (tp && typeof TtsDot === "function" && d.a) ? h("div", { style: { marginTop: 4 } }, h(TtsDot, { k: "rsel", text: d.a, spk: props.partner, tp: tp })) : null)));
   }
 
@@ -1318,7 +1318,7 @@
             : props.chat.map(function (m, i) {
                 const mine = m.role === "user";
                 return h("div", { key: i, style: { display: "flex", alignItems: "flex-end", gap: 3, justifyContent: mine ? "flex-end" : "flex-start", marginBottom: 8 }, "data-wk": "readdiscusssheet", "data-part": "r2" },
-                  h("div", { "data-wk": "block", style: { maxWidth: "78%", padding: "8px 12px", borderRadius: 13, fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", lineHeight: 1.55, whiteSpace: "pre-wrap", background: mine ? t.tint : t.bg2, color: mine ? "#fff" : t.ink, border: mine ? "none" : "1px solid " + t.line } }, m.content),
+                  h("div", { "data-wk": "block", style: { maxWidth: "78%", padding: "8px 12px", borderRadius: 13, fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", lineHeight: 1.55, whiteSpace: "pre-wrap", background: mine ? t.tint : t.bg2, color: mine ? "#fff" : t.ink, border: mine ? "none" : "1px solid " + t.line } }, transShow(m.content)),
                   (!mine && tp && typeof TtsDot === "function") ? h(TtsDot, { k: "rdis" + i, text: m.content, spk: props.partner, tp: tp }) : null);
               }),
           props.busy ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog, padding: "2px 4px" } }, (props.partner ? props.partner.name : "Ta") + " 在想…") : null,

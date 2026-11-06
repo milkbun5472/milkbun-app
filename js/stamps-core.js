@@ -330,7 +330,7 @@
         h2("div", { style: { padding: "8px 10px 9px" } },
           h2("div", { style: { fontSize: fs(9.5), letterSpacing: ".2em", color: "#827C6F" } }, "邮票册" + (x.kind === "if" ? " · IF「" + (x.theme || "") + "」" : x.kind === "bday" ? " · 生日限定" : x.kind === "mybday" ? " · 你的生日" : "")),
           h2("div", { style: { marginTop: 2, fontFamily: "var(--f-display,'Fraunces',serif)", fontSize: fs(15), color: "#39382F" } }, "「" + (x.name || "") + "」"),
-          x.line ? h2("div", { style: { marginTop: 4, fontSize: fs(11.5), lineHeight: 1.6, color: "#827C6F", overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" } }, x.line) : null)));
+          x.line ? h2("div", { style: { marginTop: 4, fontSize: fs(11.5), lineHeight: 1.6, color: "#827C6F", overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" } }, transShow(x.line)) : null)));
   };
   // 主屏图标：一枚齿孔边的邮票
   g.GStamps = function (p) {

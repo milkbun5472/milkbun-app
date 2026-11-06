@@ -326,7 +326,7 @@
             const r = s.result[who], m = C.mission(s.missions[who]), guessed = who === "user" ? s.userGuess : s.aiGuess;
             return slip([
               h("div", { key: "n", style: { display: "flex", justifyContent: "space-between", alignItems: "baseline" } }, h("strong", { style: { fontSize: "calc(13px * var(--app-fs, 1))" } }, who === "user" ? "你" : char.remark || char.name), h("span", { style: { fontFamily: F_DISPLAY, fontSize: "calc(22px * var(--app-fs, 1))", color: "#a0603f" } }, r.score)),
-              h("div", { key: "m", style: { fontFamily: F_DISPLAY, fontSize: "calc(14px * var(--app-fs, 1))", lineHeight: 1.6, margin: "6px 0" } }, m.text),
+              h("div", { key: "m", style: { fontFamily: F_DISPLAY, fontSize: "calc(14px * var(--app-fs, 1))", lineHeight: 1.6, margin: "6px 0" } }, transShow(m.text)),
               h("div", { key: "st", style: { display: "inline-block", padding: "1px 7px", border: "1.5px solid " + (r.mission.done ? "#5d8b4c" : "#b0553f"), color: r.mission.done ? "#5d8b4c" : "#b0553f", borderRadius: 4, fontSize: "calc(11px * var(--app-fs, 1))", transform: "rotate(-6deg)" } }, r.mission.done ? "完成 +2" : "没完成"),
               h("div", { key: "e", style: { fontSize: "calc(10.5px * var(--app-fs, 1))", color: "#9a8f80", lineHeight: 1.5, marginTop: 6 } }, r.mission.evidence),
               h("div", { key: "g", style: { fontSize: "calc(11.5px * var(--app-fs, 1))", marginTop: 8, color: r.guess ? "#5d8b4c" : "#7a7064" } }, "猜：" + (C.mission(guessed) || { title: "没猜出来" }).title + (r.guess ? " ✓ +1" : " ✗")),

@@ -2191,7 +2191,7 @@
       txt: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.ink, lineHeight: 1.7, whiteSpace: "pre-wrap" } };
     const askSheet = ask && h("div", { onClick: () => setAsk(null), style: { position: "fixed", inset: 0, zIndex: 200, background: "rgba(30,28,24,.46)", display: "flex", alignItems: "center", justifyContent: "center", padding: "0 34px" } },
       h("div", { "data-wk": "block", onClick: e => e.stopPropagation(), style: { width: "100%", maxWidth: 320, background: t.bg2, borderRadius: 18, overflow: "hidden", boxShadow: "0 18px 44px rgba(20,18,15,.32)" } },
-        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.ink, lineHeight: 1.8, padding: "20px 20px 18px" } }, ask.text),
+        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.ink, lineHeight: 1.8, padding: "20px 20px 18px" } }, transShow(ask.text)),
         h("div", { style: { display: "flex", borderTop: "1px solid " + t.line } },
           h("button", { "data-wk": "block", onClick: () => setAsk(null), style: { flex: 1, padding: "13px 0", background: "none", border: "none", fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.sub } }, "取消"),
           h("button", { onClick: () => { const f = ask.onYes; setAsk(null); if (f) f(); }, style: { flex: 1, padding: "13px 0", background: "none", border: "none", borderLeft: "1px solid " + t.line, fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: "#a4442e" } }, ask.yes))));
@@ -2493,7 +2493,7 @@
         // 线索板·推测区:把线索拼成推论记下来;守密人只裁「值不值得验证」,不裁对错
         h("div", { style: Object.assign({}, S.lbl, { marginTop: 6 }) }, "你的推测"),
         (camp.guesses || []).map(g => h("div", { key: g.id, style: { marginBottom: 5, padding: "6px 8px", borderRadius: 8, border: "1px dashed " + t.line } },
-          h("div", { style: Object.assign({}, S.txt, { fontSize: "calc(12px * var(--app-fs, 1))" }) }, g.text),
+          h("div", { style: Object.assign({}, S.txt, { fontSize: "calc(12px * var(--app-fs, 1))" }) }, transShow(g.text)),
           h("div", { style: { display: "flex", alignItems: "center", gap: 8, marginTop: 3 } },
             g.verdict === "worth" ? h("span", { style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", color: "#5a7d5a" } }, "🧭 值得验证" + (g.note ? "·" + g.note : ""))
             : g.verdict === "shaky" ? h("span", { style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", color: t.fog } }, "〰 根基还不稳" + (g.note ? "·" + g.note : ""))
@@ -2640,7 +2640,7 @@
               ? h("div", { "data-wk": "trpgchatline", "data-me": "1", key: i, style: { textAlign: "right", margin: "6px 0" } }, h("span", { "data-wk": "trpgbubble", "data-me": "1", style: { display: "inline-block", maxWidth: "82%", textAlign: "left", padding: "7px 11px", borderRadius: 13, background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", lineHeight: 1.6, whiteSpace: "pre-wrap" } }, l.text))
               : h("div", { "data-wk": "trpgchatline", "data-me": "0", key: i, style: { margin: "6px 0" } },
                   h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", color: t.fog, marginBottom: 2 } }, l.name + (l.act ? " （" + l.act + "）" : "")),
-                  h("span", { style: { display: "inline-block", maxWidth: "82%", padding: "7px 11px", borderRadius: 13, background: t.bg, border: "1px solid " + t.line, color: t.ink, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", lineHeight: 1.6, whiteSpace: "pre-wrap" } }, l.text)))) : null)
+                  h("span", { style: { display: "inline-block", maxWidth: "82%", padding: "7px 11px", borderRadius: 13, background: t.bg, border: "1px solid " + t.line, color: t.ink, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", lineHeight: 1.6, whiteSpace: "pre-wrap" } }, transShow(l.text))))) : null)
         : m.role === "user"
         ? h("div", { "data-wk": "trpgmsg", "data-kind": "user", "data-me": "1", key: m.id, style: { margin: "10px 14px", textAlign: "right" } }, h("span", { "data-wk": "trpgbubble", "data-me": "1", style: { display: "inline-block", maxWidth: "82%", textAlign: "left", padding: "9px 13px", borderRadius: 15, background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", lineHeight: 1.7, whiteSpace: "pre-wrap" } }, m.content))
         : m.role === "roll"
@@ -2651,7 +2651,7 @@
         : m.role === "apart"
         ? h("div", { "data-wk": "trpgmsg", "data-kind": "apart", key: m.id, style: { margin: "10px 14px", padding: "10px 13px", borderRadius: 14, border: "1px dashed " + t.line, background: "rgba(255,255,255,.4)" } },
             h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", letterSpacing: 2, color: t.fog, marginBottom: 5 } }, "⑂ " + (m.who || []).join("、") + " 回来了 · 他们说"),
-            h("div", { style: S.txt }, m.content),
+            h("div", { style: S.txt }, transShow(m.content)),
             camp.ended && m.truth ? h("div", { style: { marginTop: 8, paddingTop: 8, borderTop: "1px dashed " + t.line } },
               h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", letterSpacing: 2, color: m.hidden ? "#a4442e" : t.fog, marginBottom: 4 } }, m.hidden ? "那边真正发生的(他们没全说)" : "那边真正发生的(他们说的是实话)"),
               h("div", { style: Object.assign({}, S.txt, { fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.sub }) }, m.truth)) : null)
@@ -2659,11 +2659,11 @@
         : m.role === "letter"
         ? h("div", { "data-wk": "trpgmsg", "data-kind": "letter", key: m.id, style: { margin: "10px 22px", padding: "12px 14px", background: t.bg2, border: "1px solid " + t.line, borderRadius: 4, boxShadow: "2px 3px 0 " + t.line, transform: "rotate(-.6deg)" } },
             h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", letterSpacing: 2, color: t.fog, marginBottom: 6 } }, "✉ 捎来的信"),
-            h("div", { style: Object.assign({}, S.txt, { fontSize: "calc(12.5px * var(--app-fs, 1))" }) }, m.content),
+            h("div", { style: Object.assign({}, S.txt, { fontSize: "calc(12.5px * var(--app-fs, 1))" }) }, transShow(m.content)),
             h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.sub, textAlign: "right", marginTop: 8 } }, "—— " + m.from))
         : h("div", { "data-wk": "trpgmsg", "data-kind": "gm", key: m.id, onPointerDown: () => pressMsg(m), onPointerUp: pressEnd, onPointerMove: pressEnd, onPointerLeave: pressEnd, onContextMenu: e => e.preventDefault(), style: { margin: "10px 14px" } },
             m.pov ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", letterSpacing: 2, color: t.fog, marginBottom: 4 } }, "👁 " + m.pov + " 的视角") : null,
-            h("div", { "data-wk": "trpgmsgtext", style: S.txt }, m.content),
+            h("div", { "data-wk": "trpgmsgtext", style: S.txt }, transShow(m.content)),
             // 数值角标:钉在造成它的这一拍正文脚下,红=掉血 绿=回血 墨=得 灰=失 金=线索
             m.chips && m.chips.length ? h("div", { style: { display: "flex", flexWrap: "wrap", gap: 5, marginTop: 6 } },
               m.chips.map((ch, i) => {
@@ -2847,7 +2847,7 @@
                   h("span", { style: { fontFamily: F_BODY, fontSize: "calc(9.5px * var(--app-fs, 1))", letterSpacing: 1.5, color: tone } }, APPROACH_ZH[c.approach] || "行动"),
                   camp.pov && c.willing != null ? h("span", { style: { fontFamily: F_BODY, fontSize: "calc(9.5px * var(--app-fs, 1))", color: c.willing ? "#5a7d5a" : "#a4442e" } }, c.willing ? "TA想这么做" : "TA不情愿") : null,
                   c.check ? h("span", { style: { marginLeft: "auto", fontFamily: F_BODY, fontSize: "calc(9.5px * var(--app-fs, 1))", color: t.fog } }, "🎲 " + STAT_ZH[c.check.stat] + (c.check.who ? "·" + c.check.who : "")) : null),
-                h("div", { "data-wk": "trpgchoicetext", style: { fontFamily: F_DISPLAY, fontSize: "calc(13.5px * var(--app-fs, 1))", lineHeight: 1.45 } }, c.text),
+                h("div", { "data-wk": "trpgchoicetext", style: { fontFamily: F_DISPLAY, fontSize: "calc(13.5px * var(--app-fs, 1))", lineHeight: 1.45 } }, transShow(c.text)),
                 (c.payoff || c.risk || c.need || c.use) ? h("div", { style: { marginTop: 5, fontFamily: F_BODY, fontSize: "calc(9.8px * var(--app-fs, 1))", lineHeight: 1.45, color: t.sub } },
                   c.payoff ? "得 · " + c.payoff : null,
                   c.payoff && (c.risk || c.need) ? "　" : null,

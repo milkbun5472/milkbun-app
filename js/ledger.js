@@ -1342,7 +1342,7 @@
             return h("div", { key: i, style: { display: "flex", gap: 10, marginBottom: 12 }, "data-wk": "ldgyearview" },
               ch ? h(Avatar, { character: ch, size: 34, radius: 10 }) : h("div", { style: { width: 34, height: 34, borderRadius: 10, background: sk.line, flexShrink: 0 } }),
               h("div", { style: { flex: 1, minWidth: 0 } }, h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: sk.sub, marginBottom: 3 } }, cm.charName),
-                h("div", { style: Object.assign({ padding: "9px 12px", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: sk.ink, lineHeight: 1.55 }, sk.card, { borderRadius: 14, borderTopLeftRadius: 4 }) }, cm.text))); }),
+                h("div", { style: Object.assign({ padding: "9px 12px", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: sk.ink, lineHeight: 1.55 }, sk.card, { borderRadius: 14, borderTopLeftRadius: 4 }) }, transShow(cm.text)))); }),
           h("button", { disabled: busy, onClick: async () => { setBusy(true); try { await props.onGenerate(year, ys); } finally { setBusy(false); } }, "data-ledger-yeargen": true, className: "w-full active:opacity-80",
             style: { minHeight: 44, borderRadius: 999, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", fontWeight: 700, color: sk.ink, background: "rgba(255,255,255,.55)", border: "1px solid rgba(160,150,220,.35)" }, "data-wk": "ldgyearviewbtn", "data-part": "3" },
             busy ? "TA 们在看…" : saved ? "再让 TA 们说说" : "让能看账本的 TA 们说说")) : null));
