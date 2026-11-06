@@ -15304,7 +15304,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       // 现在突然黑衬衫」。只取 6 小时内的——更早的场景早换了,拿它当锚反而错。
       const prevShot = (chatsRef.current[chatKey] || []).slice().reverse()
         // 拍她的（他帮她拍／她自拍）和拍他的各认各的上一张，不然没参考照时会把对方那张脸当锚
-        .find(m => m && m.kind === "selfie" && m.imgKey && (Date.now() - (Number(m.ts) || 0)) < 6 * 3600000 && ((m.photoKind === "me" || m.photoKind === "myself" || m.photoKind === "myshot") === meShot));
+        // 重拍的就是这一张：它画坏了才要重拍，不拿它自己当参考（她 2026-11-06）
+        .find(m => m && m.kind === "selfie" && m.imgKey && m.sid !== sid && (Date.now() - (Number(m.ts) || 0)) < 6 * 3600000 && ((m.photoKind === "me" || m.photoKind === "myself" || m.photoKind === "myshot") === meShot));
       // 人物原始参考照永远比上一张生成图可信。上一张一旦画错脸，重 roll 若继续
       // 把它塞回 edits，就会把错误当成新的身份锚并一代代繁殖。只有完全没有原始
       // 人物参考照时，才允许生成图临时承担服装/场景连贯参考。
