@@ -32873,20 +32873,23 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     const who = isMe ? ((mk ? (masksRef.current || []).find(m => m && m.id === mk) : profile) || profile) : characters.find(c => c.id === whoId);
     if (!who) return;
     const nm = isMe ? (who.label || who.name || "我") : (who.remark || who.name);
-    requestAppPrompt("画一张会动的「" + nm + "」", (isMe ? "" : "空着直接点「画」，就让" + nm + "自己挑一个。") + "写这张动图叫什么、做什么动作（一两句）。发表情时打它的名字就能联想出来。",
+    requestAppPrompt("画一张会动的「" + nm + "」", (isMe ? "空着直接点「画」，就照你这张面具的人设挑一个。" : "空着直接点「画」，就让" + nm + "自己挑一个。") + "写这张动图叫什么、做什么动作（一两句）。发表情时打它的名字就能联想出来。",
       "", async v => {
         let t = String(v || "").trim();
         // 懒得想（她 2026-11-06「还得我写描述懒得想」）：空着就让他照自己的性子挑一个——挑一次九个存着，下次空着接着用
-        if (!t && isMe) { toast("给自己画要写一句做什么动作"); return; }
         let name = t ? (t.split(/[，,。：:\s]/)[0].slice(0, 8) || "动图") : "";
         setEmoteSetBusy(whoId);
         try {
           if (!t) {
-            const bank = loadJSON("x_emoteGifIdeas", {}) || {};
-            let left = Array.isArray(bank[who.id]) ? bank[who.id] : [];
-            if (!left.length) left = (await pickEmoteNine(who)).filter(x => x && x.name && x.look);
-            if (!left.length) throw new Error(characterText(who, "他没挑出来，再点一次，或者自己写一句"));
-            const pick = left[0]; saveJSON("x_emoteGifIdeas", Object.assign({}, bank, { [who.id]: left.slice(1) }));
+            const bank = loadJSON("x_emoteGifIdeas", {}) || {}, bk = isMe ? whoId : who.id;
+            let left = Array.isArray(bank[bk]) ? bank[bk] : [];
+            if (!left.length) {
+              const api = bgActiveRef.current || active;
+              if (isMe && !api) throw new Error("请先到设置配置 API");
+              left = (isMe ? await pickMyEmoteNine(who, whoId, api) : await pickEmoteNine(who)).filter(x => x && x.name && x.look);
+            }
+            if (!left.length) throw new Error(isMe ? "没挑出来，再点一次，或者自己写一句" : characterText(who, "他没挑出来，再点一次，或者自己写一句"));
+            const pick = left[0]; saveJSON("x_emoteGifIdeas", Object.assign({}, bank, { [bk]: left.slice(1) }));
             t = pick.look; name = String(pick.name).slice(0, 8);
           }
           // 表情包是近景（她 2026-11-06：「为啥是全身照」）：画到胸口往上、头占大半，表情和手上的动作才看得清
@@ -32909,6 +32912,20 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         finally { setEmoteSetBusy(""); }
       }, "画", { multiline: true, maxLength: 120, placeholder: "比如：比心，两只手在胸前比个心、眨一下眼" });
   };
+  // 照她这张面具的人设挑九个（她 2026-11-06「我的不是有人设吗！」）：她那套九宫格和「一张动图空着不写」共用这一份
+  const pickMyEmoteNine = async (me, key, api) => {
+    const nm = me.name || "我";
+    const _pk = (emotePacksRef.current || []).find(x => x && x.fromCharFace === key);
+    const _have = ((_pk && _pk.emotes) || []).map(e => String(e.keyword || "").trim()).filter(Boolean);
+    const raw = await callAI(api, "你帮一个人挑她自己表情包里的九个表情。只输出 JSON。", [{ role: "user", content:
+      "这个人叫「" + nm + "」。" + (me.persona ? "她的人设：" + String(me.persona).slice(0, 600) + "\n" : "")
+      + (_have.length ? "她的表情包里已经有这些了（名字和意思都别再重复）：" + _have.slice(-60).join("、") + "\n" : "")
+      + "照她的性子挑九个最像她、她最常用的表情或小动作，各起一个 2~6 字的短名字（发表情时的关键词）；look＝这一张画什么（表情和动作，一句话）。九个各不一样。\n只输出这个形状的 JSON：{\"items\":[{\"name\":\"\",\"look\":\"\"}]}" }],
+      { maxTokens: 8000 });
+    const d = typeof extractJSON === "function" ? extractJSON(raw) : null;
+    const items = emoteSetItems(d);
+    return items;
+  };
   const makeMyEmoteSet = async (maskKey, setOpt) => {
     const me = (maskKey ? (masksRef.current || []).find(m => m && m.id === maskKey) : profile) || null;
     const key = "__me:" + (maskKey || "");
@@ -32920,15 +32937,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     setEmoteSetBusy(key);
     try {
       const nm = me.name || "我";
-      const _pk = (emotePacksRef.current || []).find(x => x && x.fromCharFace === key);
-      const _have = ((_pk && _pk.emotes) || []).map(e => String(e.keyword || "").trim()).filter(Boolean);
-      const raw = await callAI(api, "你帮一个人挑她自己表情包里的九个表情。只输出 JSON。", [{ role: "user", content:
-        "这个人叫「" + nm + "」。" + (me.persona ? "她的人设：" + String(me.persona).slice(0, 600) + "\n" : "")
-        + (_have.length ? "她的表情包里已经有这些了（名字和意思都别再重复）：" + _have.slice(-60).join("、") + "\n" : "")
-        + "照她的性子挑九个最像她、她最常用的表情或小动作，各起一个 2~6 字的短名字（发表情时的关键词）；look＝这一张画什么（表情和动作，一句话）。九个各不一样。\n只输出这个形状的 JSON：{\"items\":[{\"name\":\"\",\"look\":\"\"}]}" }],
-        { maxTokens: 8000 });
-      const d = typeof extractJSON === "function" ? extractJSON(raw) : null;
-      const items = emoteSetItems(d);
+      const items = await pickMyEmoteNine(me, key, api);
       if (items.length < 9) throw new Error("没挑够九个，再试一次");
       const prompt = emoteSetPrompt(nm, me.appearance, items, setOpt && setOpt.gif);
       const out = await generateSelfieImage(prompt, [me.refPhoto], Object.assign({ size: "1024x1024", minimalPrompt: prompt, still: true }, setOpt && setOpt.gif ? { gif: true, gifFrames: 8, gifMs: 140 } : {}));
