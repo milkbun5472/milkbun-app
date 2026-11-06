@@ -871,6 +871,18 @@ async function readAIJSON(r) {
   try { return JSON.parse(raw); }
   catch (e) { throw new Error("线路回的不是正常回复（HTTP " + r.status + "）：" + raw.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim().slice(0, 120)); }
 }
+// 动图的第一帧画成 PNG（视觉输入用）；拆不开就原样返回
+async function gifFirstFramePng(dataUrl) {
+  try {
+    if (typeof GifCodec === "undefined" || typeof document === "undefined") return dataUrl;
+    const bin = atob(String(dataUrl).split(",")[1] || ""), u8 = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i);
+    const g = GifCodec.decode(u8); if (!g.frames.length) return dataUrl;
+    const cv = document.createElement("canvas"); cv.width = g.width; cv.height = g.height;
+    cv.getContext("2d").putImageData(new ImageData(g.frames[0].rgba, g.width, g.height), 0, 0);
+    return cv.toDataURL("image/png");
+  } catch (e) { return dataUrl; }
+}
 async function callAI(p, system, messages, opts) {
   // opts.biFor：这一次写字的是谁（一个角色或几个）——开着双语的，system 末尾加上「原文 | 中文」那条（probeBiLine 那一份）
   if (opts && opts.biFor && typeof system === "string" && typeof probeBiLine === "function" && !/【双语】/.test(system)) {
@@ -939,6 +951,12 @@ async function callAI(p, system, messages, opts) {
   // 她点了气泡上那个叉（o.signal）：当场放手不等了。已经发出去的那一枪收不回来，回来的结果直接丢掉。
   const userAborted = () => !!(o.signal && o.signal.aborted);
   const abortErr = () => { const e = new Error("这一轮已经断掉了"); e.userAbort = true; return e; };
+  // 发给模型看的动图换成第一帧静图（她 2026-11-06 截图：Gemini 回「mime type is not supported: image/gif」）：
+  //   出动图以后聊天里的照片是 GIF，好几家视觉接口不收。所有聊天、群聊、线下都从这一处过
+  if (Array.isArray(messages) && messages.some(m => m && Array.isArray(m.imageDataUrls) && m.imageDataUrls.some(u => /^data:image\/gif/i.test(String(u || ""))))) {
+    messages = await Promise.all(messages.map(async m => !m || !Array.isArray(m.imageDataUrls) ? m
+      : { ...m, imageDataUrls: await Promise.all(m.imageDataUrls.map(u => /^data:image\/gif/i.test(String(u || "")) ? gifFirstFramePng(u) : u)) }));
+  }
   const once = () => !o.signal ? callAIOnce(p, system, messages, o) : userAborted() ? Promise.reject(abortErr())
     : Promise.race([callAIOnce(p, system, messages, o), new Promise((_, rej) => o.signal.addEventListener("abort", () => rej(abortErr()), { once: true }))]);
   try {
