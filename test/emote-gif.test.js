@@ -3,9 +3,11 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const R = f => require("fs").readFileSync(require("path").join(__dirname, "..", "js", f), "utf8");
 const e = R("engine.js"), a = R("app.js"), u = R("screens-ui.js");
-test("出图：动图只走出图接口、不带参考照，请求里带 output_format gif", () => {
+test("出图：动图走出图接口；带参考照先试、接不住退纯文字，两条路都带 output_format gif", () => {
   assert.match(e, /if \(opts && opts\.gif\) \{\n\s*if \(a\.apiFormat === "chat"/);
-  assert.match(e, /refPhotoDataUrl = null;/);
+  assert.match(e, /if \(hasRef && opts && opts\.gif\) \{/);
+  assert.match(e, /o2\.degraded = "gif-no-ref";/);
+  assert.match(e, /fd\.append\("output_format", "gif"\);/);
   assert.match(e, /body\.output_format = "gif"; body\.frame_count = /);
   assert.match(e, /!\(opts && opts\.gif\)\) \{   \/\/ 动图不退聊天接口/);
   assert.match(e, /webp\|gif\)\/i\);/);

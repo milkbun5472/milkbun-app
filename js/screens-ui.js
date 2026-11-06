@@ -12286,7 +12286,7 @@ function EmoteMatrix({ onMakeGif, packs, characters, onBack, onAddPack, onUpdate
           [[false, "九宫格（锁脸）"], [true, "一张动图"]].map(([v, zh]) => h("button", { key: String(v), "data-on": setGif === v ? "1" : "0", onClick: () => setSetGif(v), className: "active:opacity-70",
             style: { minHeight: 34, padding: "0 14px", border: "none", fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", background: setGif === v ? t.ink : "transparent", color: setGif === v ? t.bg2 : t.sub } }, zh))) : null,
         setPick && !setBusy && setGif ? h("div", { style: { marginTop: 8, fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.6 } },
-          "要能出动图的生图模型（比如 gpt-image-2.6），请求方式选「出图接口」。动图带不了参考照，照「外貌」那栏的字画，长相不保证像。") : null,
+          "要能出动图的生图模型（比如 gpt-image-2.6），请求方式选「出图接口」。传过参考照的会先带着照片锁脸画；站子接不住带图的动图，就自动改成照「外貌」那栏的字画，长相不保证像。") : null,
         setPick && !setBusy && !setGif ? h("button", { "data-wk": "emosetcaption", "data-on": setCaption ? "1" : "0", onClick: () => setSetCaption(v => !v), className: "active:opacity-70",
           style: { marginTop: 10, display: "flex", alignItems: "center", gap: 8, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.sub } },
           h("span", { style: { width: 18, height: 18, borderRadius: 5, border: "1.5px solid " + t.ink, background: setCaption ? t.ink : "transparent", color: t.bg2, fontSize: "calc(12px * var(--app-fs, 1))", lineHeight: "15px", textAlign: "center" } }, setCaption ? "✓" : ""),

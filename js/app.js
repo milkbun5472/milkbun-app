@@ -32694,16 +32694,18 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         setEmoteSetBusy(whoId);
         try {
           const prompt = "一张循环播放的小动图表情包：同一个人「" + (who.name || nm) + "」的平面 Q 版二次元小人，二到三头身、大头小身子，干净的深色勾线、赛璐璐平涂，纯白底，人物居中、完整、别出格。"
+            + (who.refPhoto ? "参考图只用来认这个人——长相、发型发色、标志性配饰照它，照片的写实质感和画风都不跟。" : "")
             + (who.appearance ? "外貌：" + String(who.appearance).slice(0, 200) + "。" : "")
             + "动作：" + t.slice(0, 120) + "。动作首尾能接上、循环自然。画面里不要任何文字、字母、对话框。";
-          const out = await generateSelfieImage(prompt, null, { size: "1024x1024", minimalPrompt: prompt, gif: true, gifFrames: 8, gifMs: 120 });
+          // 有参考照就带上锁脸（有的中转接得住带图的动图）；接不住 generateSelfieImage 自己退成纯文字动图
+          const out = await generateSelfieImage(prompt, who.refPhoto ? [who.refPhoto] : null, { size: "1024x1024", minimalPrompt: prompt, gif: true, gifFrames: 8, gifMs: 120 });
           let blob = out && out.blob;
           if (!blob && out && out.url) { try { blob = await (await fetch(out.url)).blob(); } catch (e) { blob = null; } }
           if (!blob) throw new Error("没拿到图");
           if (blob.type && blob.type !== "image/gif") throw new Error("这个站回的是一张静图，没出动图——要用能出 GIF 的模型（比如 gpt-image-2.6）");
           const du = await new Promise((ok, no) => { const r = new FileReader(); r.onload = () => ok(r.result); r.onerror = no; r.readAsDataURL(blob); });
           const ok = await window.__addSelfSticker(du, isMe ? whoId : who.id, name, true, false);
-          toast(ok ? "画好了，在表情包「" + nm + " 的表情」里，叫「" + name + "」" : "存表情的时候没成，再试一次", 6000);
+          toast(ok ? "画好了，在表情包「" + nm + " 的表情」里，叫「" + name + "」" + (out && out.degraded === "gif-no-ref" ? "（这个站带参考照没出成动图，这张是照外貌文字画的）" : "") : "存表情的时候没成，再试一次", 6000);
         } catch (e) { toast("动图没画成：" + (e.message || "重试"), 8000); }
         finally { setEmoteSetBusy(""); }
       }, "画", { multiline: true, maxLength: 120, placeholder: "比如：比心，两只手在胸前比个心、眨一下眼" });

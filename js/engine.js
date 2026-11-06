@@ -6326,6 +6326,15 @@ async function generateSelfieImage(prompt, refPhotoDataUrl, opts) {
       if (out && typeof out === "object") out.degraded = "site-no-ref";
       return out;
     }
+    // 动图带参考照：中转接得住就锁脸，接不住（报错，或者回来一张静图）退一次纯文字动图——这是动图独有的，
+    //   普通照片照旧「一张图只发一次请求」
+    if (hasRef && opts && opts.gif) {
+      try { const o1 = await generateSelfieImage(prompt, refPhotoDataUrl, inner); if (o1 && (!o1.blob || o1.blob.type === "image/gif")) return o1; } catch (e) {
+        if (/moderation|content[_ ]?policy|safety|sexual|nsfw/i.test(String((e && e.message) || e))) throw e; }
+      const o2 = await generateSelfieImage(prompt, null, inner);
+      if (o2 && typeof o2 === "object") o2.degraded = "gif-no-ref";
+      return o2;
+    }
     if (hasRef) {
       try { return await generateSelfieImage(prompt, refPhotoDataUrl, inner); }
       catch (e) {
@@ -6345,10 +6354,10 @@ async function generateSelfieImage(prompt, refPhotoDataUrl, opts) {
   const a = (opts && opts.api) ? Object.assign({}, IMG_API_DEFAULTS, opts.api) : loadImgApi();
   if (!imgApiReady(a)) throw new Error("没配置图像 API");
   // 动图（她 2026-11-04：gpt-image-2.6 能直接出 GIF）：只有出图接口（/images/generations）收 output_format:"gif"，
-  //   改图接口（带参考照锁脸那扇门）和聊天接口都不行——所以动图一律不带参考照、只走出图接口，说不通就当场说清楚
+  //   聊天接口出不了动的；带参考照的改图接口官方没开，但有的中转接得住（群友 2026-11-06 图灵画境：「可以上传参考图生成，但是有概率失败」），
+  //   所以带着参考照先试一次，不成外面那层再退成纯文字动图（见下面 gif 那一段）
   if (opts && opts.gif) {
     if (a.apiFormat === "chat" || a.apiFormat === "gemini" || a.apiFormat === "minimax" || a.apiFormat === "nai") throw new Error("动图只能走「出图接口」：去 设置 → 图像 API 把这个站的「请求方式」换成「出图接口」");
-    refPhotoDataUrl = null;
   }
   // 手部那两大段只给 gpt-image 用（她 2026-10-03：别家模型发自拍，连出两张满纸手掌+乱码的「手部参考图」）。
   // 那段里夹着整句英文 correct hands / five fingers——读不太懂中文的模型（NAI、部分 Gemini 线路）
@@ -6751,6 +6760,7 @@ async function generateSelfieImage(prompt, refPhotoDataUrl, opts) {
         const sendEdits = async noRf => {
         const fd = new FormData();
         fd.append("model", a.model || "gpt-image-2"); fd.append("prompt", promptText); fd.append("size", size); fd.append("n", "1"); if (!noRf) fd.append("response_format", "b64_json");
+        if (opts && opts.gif) { fd.append("output_format", "gif"); fd.append("frame_count", String(Math.max(2, Math.min(16, Number(opts.gifFrames) || 8)))); fd.append("frame_duration_ms", String(Math.max(40, Math.min(1000, Number(opts.gifMs) || 120)))); }
         if (qualityOverride) fd.append("quality", qualityOverride);
         // GPT Image 的编辑接口默认 input_fidelity=low：它可能只借人物类型/构图，重新捏一张脸。
         // 角色参考照的产品语义是身份锚，因此必须显式请求 high。
