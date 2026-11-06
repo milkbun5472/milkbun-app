@@ -9212,8 +9212,9 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       return true;
     } catch (e) {
       // 重拍没成：原来那张放回去，不能拍坏一次就把旧照片弄没了（群友 2026-10-09：「一重拍就会把照片删掉」）
+      //   描述留新的不退回（群友 2026-11-06：「修改描述没办法保存」「照这个重拍也是以前的描述」）：图没换成，改的字照样存着，下次 ↻ 照新的拍
       const keep = arg && arg.keep && (arg.keep.imgKey || arg.keep.imgUrl) ? arg.keep : null;
-      patch(keep ? { pending: false, failed: false, imgKey: keep.imgKey || null, imgUrl: keep.imgUrl || null, desc: keep.desc != null ? keep.desc : scene } : { pending: false, failed: true, failErr: String((e && e.message) || "").slice(0, 300) });
+      patch(keep ? { pending: false, failed: false, imgKey: keep.imgKey || null, imgUrl: keep.imgUrl || null, desc: scene } : { pending: false, failed: true, failErr: String((e && e.message) || "").slice(0, 300) });
       const em = String((e && e.message) || "");
       const isSafety = /safety|policy|内容政策|content policy|moderat|sensitive|blocked|rejected|违反/i.test(em);
       toast((keep ? "重拍没成，原来那张还在：" : "这张没拍成：") + (isSafety
@@ -9241,7 +9242,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     const scene = String(desc == null ? m.desc || "" : desc).trim();
     if (!scene) return true;
     // 先问拍不拍得了：先挂「拍照中」再发现拍不了，这一格就永远转圈了。
-    if (!offlinePhotoCan(char)) { toast("现在拍不了：去 设置·图像API 配好出图，再回来点重拍", 6000); return true; }
+    if (!offlinePhotoCan(char)) { if (desc != null) { const q0 = { desc: scene }; if (groupId) patchGOffMsg(groupId, m.sid, q0); else patchOffMsg(scopeKey, m.sid, q0); } toast("现在拍不了：去 设置·图像API 配好出图，再回来点重拍（改的描述已经存下了）", 6000); return true; }
     const q = { desc: scene, pending: true, failed: false, pendingSince: Date.now() };
     if (groupId) patchGOffMsg(groupId, m.sid, q); else patchOffMsg(scopeKey, m.sid, q);
     runOfflineShot({ char, scopeKey, groupId, kind: m.photoKind, scene, cast: m.cast, reuseSid: m.sid, keep: { imgKey: m.imgKey || null, imgUrl: m.imgUrl || null, desc: m.desc } });
