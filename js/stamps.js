@@ -96,8 +96,10 @@
   // 限定卡的标记（她 2026-11-06：「还是想要限时 if 特别一点」）：一圈这一期颜色的内框，左下角一条「限定」，大图上带这一期的名字
   const LIM_MARK_TONE = { halloween: ["#2a1a2e", "#e8893a"] };
   function LimMark({ card, big }) {
-    if (!card || !card.limited) return null;
-    const lim = ((C().LIMITED) || []).find(x => x.id === card.limited) || {}, tone = LIM_TONE[lim.deco] || LIM_MARK_TONE[lim.deco] || ["#3a2c22", "#d9a25a"];
+    // 生日、她的生日、纪念日也是限定的（她 2026-11-06：「生日纪念日都没有框耶」）
+    const DAY = { bday: "#b5485e", mybday: "#c9708e", anniv: "#c25a6e" };
+    if (!card || !(card.limited || DAY[card.kind])) return null;
+    const lim = card.limited ? ((C().LIMITED) || []).find(x => x.id === card.limited) || {} : {}, tone = card.limited ? (LIM_TONE[lim.deco] || LIM_MARK_TONE[lim.deco] || ["#3a2c22", "#d9a25a"]) : ["", DAY[card.kind]];
     // 她 2026-11-06：框太粗、不要「限定」那条——只留一圈细线
     return h("span", { "data-wk": "stamplimmark", style: { position: "absolute", inset: big ? 9 : 5, zIndex: 3, pointerEvents: "none", borderRadius: 2, boxShadow: "inset 0 0 0 " + (big ? 1 : 0.75) + "px " + tone[1] + "cc" } });
   }

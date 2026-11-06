@@ -125,6 +125,7 @@ test("限定卡在册子和卡页上都有限定标记", () => {
   const ui = fs.readFileSync(__dirname + "/../js/stamps.js", "utf8");
   assert.match(ui, /function LimMark\(\{ card, big \}\)/);
   assert.ok(!/" 限定"/.test(ui), "不要「限定」那条");
+  assert.match(ui, /const DAY = \{ bday: /);
   assert.match(ui, /h\(LimMark, \{ card, big: true \}\)/);
   assert.match(ui, /back \? null : h\(LimMark, \{ card \}\)/);
 });
