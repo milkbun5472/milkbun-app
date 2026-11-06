@@ -73,7 +73,20 @@
   // 册子里那一格只要小图（群里 2026-10-28：邮票多了刷着刷着全部消失）：原图 1024×1536，一屏几十张全解码，手机网页内存顶不住就把图全丢了。
   //   这里每张只解一次原图、缩成 300 宽的小图存进 IDB（th_ 开头），以后都用小图；还没滑到附近的先不加载
   const THUMB_MEM = new Map();
+  // 动图卡面（她 2026-11-06「邮票册能不能不点进去也能看到动图」）：缩成一张小动图，每一帧都缩，照样会动
+  const makeGifThumb = async blob => {
+    try {
+      if (typeof GifCodec === "undefined") return null;
+      const g = GifCodec.decode(new Uint8Array(await blob.arrayBuffer())); if (!g.frames.length) return null;
+      const w = Math.min(300, g.width), hh = Math.round(g.height * w / g.width);
+      const src = document.createElement("canvas"); src.width = g.width; src.height = g.height; const sg = src.getContext("2d");
+      const cv = document.createElement("canvas"); cv.width = w; cv.height = hh; const c2 = cv.getContext("2d");
+      const frames = g.frames.map(f => { sg.putImageData(new ImageData(f.rgba, g.width, g.height), 0, 0); c2.clearRect(0, 0, w, hh); c2.drawImage(src, 0, 0, w, hh); return { rgba: c2.getImageData(0, 0, w, hh).data, delay: f.delay }; });
+      return new Blob([GifCodec.encode({ width: w, height: hh, frames })], { type: "image/gif" });
+    } catch (e) { return null; }
+  };
   const makeThumb = async blob => {
+    if (blob && blob.type === "image/gif") return await makeGifThumb(blob);
     try { if (typeof createImageBitmap === "function") { const bm = await createImageBitmap(blob); const w = 300, hh = Math.round(bm.height * w / bm.width);
       const cv = document.createElement("canvas"); cv.width = w; cv.height = hh; cv.getContext("2d").drawImage(bm, 0, 0, w, hh); bm.close && bm.close();
       return await new Promise(r => cv.toBlob(r, "image/jpeg", .82)); } } catch (e) {}
@@ -84,7 +97,7 @@
     useEffect(() => { const n = el.current; if (!n || typeof IntersectionObserver !== "function") { setNear(true); return; }
       const io = new IntersectionObserver(es => { if (es.some(e => e.isIntersecting)) { setNear(true); io.disconnect(); } }, { rootMargin: "400px" }); io.observe(n); return () => io.disconnect(); }, []);
     useEffect(() => { if (!ref) { setUrl(null); return; } if (THUMB_MEM.has(ref)) { setUrl(THUMB_MEM.get(ref)); return; } if (!near) return; let alive = true;
-      (async () => { const tk = "th_" + ref; let b = null;
+      (async () => { const tk = "th2_" + ref; let b = null;   // th2_：动图也缩成动图以后换的键，老的 th_ 里动图只剩第一帧
         try { b = typeof idbImgGet === "function" ? await idbImgGet(tk) : null; } catch (e) {}
         if (!b || !b.size) { let src = null;
           try { src = String(ref).indexOf("iv_") === 0 ? (typeof imgVaultFetchBlob === "function" ? await imgVaultFetchBlob(ref) : null) : await idbImgGet(ref); } catch (e) {}
@@ -1115,7 +1128,7 @@
         h("div", { className: "flex", style: { gap: 8, marginTop: 8 } },
           h("button", { onClick: () => { const rs = album.filter(c => c.rarity === "R" && !c.writing).map(c => c.id); setMeltArm(false); setMeltSel(meltSel.length === rs.length ? [] : rs); }, style: { padding: "6px 12px", borderRadius: 999, border: "1px solid rgba(87,119,103,.4)", color: "#577767", fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))" } }, "这一页的 R 全选"),
           h("button", { onClick: () => { setMeltSel(null); setMeltArm(false); }, style: { padding: "6px 12px", fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: "rgba(47,42,34,.55)" } }, "取消"),
-          h("button", { "data-wk": "stampmeltgo", disabled: !picked.length, onClick: () => { if (!meltArm) { setMeltArm(true); return; } const r = C().melt(meltSel); (r.keys || []).forEach(k => { try { idbImgDel(k); idbImgDel("th_" + k); } catch (e) {} }); setMeltSel(null); setMeltArm(false); toast("熔了 " + r.n + " 张 R，得 " + r.ink + " 印泥"); },
+          h("button", { "data-wk": "stampmeltgo", disabled: !picked.length, onClick: () => { if (!meltArm) { setMeltArm(true); return; } const r = C().melt(meltSel); (r.keys || []).forEach(k => { try { idbImgDel(k); idbImgDel("th_" + k); idbImgDel("th2_" + k); } catch (e) {} }); setMeltSel(null); setMeltArm(false); toast("熔了 " + r.n + " 张 R，得 " + r.ink + " 印泥"); },
             className: "active:opacity-70 disabled:opacity-40", style: { marginLeft: "auto", padding: "6px 16px", borderRadius: 999, background: meltArm ? "#b23a2e" : "#285C4B", color: "#fff", fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))" } }, meltArm ? "再点一次：熔掉" : "熔掉"))); })() : null;
     const reOk = c => !!c.text && !c.writing;
     const reCalls = cs => { const by = {}; let n = 0; cs.forEach(c => { if (c.rarity === "SSR") n++; else by[c.charId] = (by[c.charId] || 0) + 1; }); Object.keys(by).forEach(k => { n += Math.ceil(by[k] / 10); }); return n; };
