@@ -6348,6 +6348,12 @@ const GIF_MOTION_RULE = "\n\n【动图】循环小动图，帧按时间顺序排
   + "③眼睛整段最多眨一次。"
   + "④镜头、构图、背景、光线固定；脸、五官、手、衣服、画风每帧一致。"
   + "⑤参考照只用来认人。";
+// 照片的动图：像实况照片，大部分画面停着，只有一处在动（她 2026-11-06：合照两个人都在换手势、闭眼）
+const GIF_PHOTO_RULE = "\n\n【动图】动态照片，帧按时间顺序排："
+  + "①人保持照片里的姿势和表情，眼睛每帧保持同一个状态。"
+  + "②整张只有一处在动：画面描述里写了动作，就是那个动作；没写，就是头发、衣角、光影、背景里的灯光这类小东西轻轻动。"
+  + "③镜头、构图、背景固定；脸、五官、手、衣服、画风每帧一致；最后一帧接回第一帧。"
+  + "④参考照只用来认人。";
 const gifMsNow = () => { const v = Number(loadJSON("x_gifMs", 150)); return Math.max(60, Math.min(400, v || 150)); };
 async function generateSelfieImage(prompt, refPhotoDataUrl, opts) {
   const out = await generateSelfieImageRaw(prompt, refPhotoDataUrl, opts);
@@ -6435,7 +6441,8 @@ async function generateSelfieImageRaw(prompt, refPhotoDataUrl, opts) {
   //   所以带着参考照先试一次，不成外面那层再退成纯文字动图（见下面 gif 那一段）
   // 动图规矩（她 2026-11-06「16 帧会画小动作充填帧数，要不要给动图单独写提示词」→「改吧」）：
   //   只要这一次要的是动图，照片、表情包、卡面都在提示词后面接这一段，一处说法
-  if (opts && opts.gif && typeof prompt === "string" && prompt.indexOf("【动图】循环") < 0) prompt = GIF_WORLD_HEAD + prompt + GIF_MOTION_RULE;
+  // 照片（总开关加上的动图）走「动态照片」那套：人不动、只一处在动；表情包这种自己要动图的走动作那套（她 2026-11-06 分开）
+  if (opts && opts.gif && typeof prompt === "string" && prompt.indexOf("【动图】") < 0) prompt = GIF_WORLD_HEAD + prompt + (opts.__gifAll ? GIF_PHOTO_RULE : GIF_MOTION_RULE);
   if (opts && opts.gif) {
     if (a.apiFormat === "chat" || a.apiFormat === "gemini" || a.apiFormat === "minimax" || a.apiFormat === "nai") throw new Error("动图只能走「出图接口」：去 设置 → 图像 API 把这个站的「请求方式」换成「出图接口」");
   }
