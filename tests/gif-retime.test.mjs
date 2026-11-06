@@ -26,8 +26,8 @@ test("出图入口按拉条定速，帧数 16；拉条松手把存着的动图�
 });
 test("要动图就在提示词后面接【动图规矩】，一处说法", () => {
   const eng = readFileSync(new URL("../js/engine.js", import.meta.url), "utf8");
-  assert.match(eng, /if \(opts && opts\.gif && typeof prompt === "string" && prompt\.indexOf\("【动图规矩】"\) < 0\) prompt = GIF_WORLD_HEAD \+ prompt \+ GIF_MOTION_RULE;/);
-  assert.equal((eng.match(/【动图规矩】这是/g) || []).length, 1);
+  assert.match(eng, /if \(opts && opts\.gif && typeof prompt === "string" && prompt\.indexOf\("【动图】循环"\) < 0\) prompt = GIF_WORLD_HEAD \+ prompt \+ GIF_MOTION_RULE;/);
+  assert.equal((eng.match(/【动图】循环小动图/g) || []).length, 1);
 });
 test("结构认不全（截断的 GIF）就原样返回，不改一个字节", () => {
   const cut = bytes.slice(0, bytes.length - 20);
@@ -48,12 +48,12 @@ test("有一帧底下没画满：所有帧裁到都画到的那块；都画满�
 test("动图提示词最前面先守住世界和发型（不点任何时代题材）", () => {
   const eng = readFileSync(new URL("../js/engine.js", import.meta.url), "utf8");
   assert.match(eng, /prompt = GIF_WORLD_HEAD \+ prompt \+ GIF_MOTION_RULE;/);
-  const head = eng.slice(eng.indexOf("const GIF_WORLD_HEAD"), eng.indexOf("const GIF_MOTION_RULE"));
-  assert.doesNotMatch(head, /古代|现代|古风|仙侠|科幻/);
+  assert.match(eng, /const GIF_WORLD_HEAD = "【先守住】/);
 });
-test("动图规矩：先规划完整动作、身体真的动、不靠眨眼抖动凑帧、参考照只认人、能循环；不再要求幅度小", () => {
+test("动图规矩：精简直说——完整动作、身体跟着动、幅度照现实、最多眨一次、参考照只认人", () => {
   const eng = readFileSync(new URL("../js/engine.js", import.meta.url), "utf8");
-  const r = eng.slice(eng.indexOf("const GIF_MOTION_RULE"), eng.indexOf("⑦ 不变形") + 80);
-  for (const k of ["开始、发展、做到位、收回", "不许只靠眨眼", "不夸张、不表演", "整段最多眨一次眼", "起步和收尾慢", "参考照只认人", "回到起始的姿势"]) assert.ok(r.includes(k), k);
-  assert.ok(!r.includes("幅度小一点"));
+  const r = eng.slice(eng.indexOf("const GIF_WORLD_HEAD"), eng.indexOf("⑤参考照只用来认人") + 20);
+  for (const k of ["开始、发展、做到位、收回到起始姿势", "幅度照现实", "眼睛整段最多眨一次", "参考照只用来认人", "镜头、构图、背景、光线固定"]) assert.ok(r.includes(k), k);
+  assert.ok(!/不许|但/.test(r), "又写回了「X，但不许 Y」");
+  assert.doesNotMatch(r, /古代|现代|古风|仙侠|科幻/);
 });
