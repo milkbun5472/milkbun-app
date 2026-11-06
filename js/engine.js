@@ -6449,6 +6449,12 @@ async function generateSelfieImageRaw(prompt, refPhotoDataUrl, opts) {
     // 连贯参考图可能是聊天自拍库的 img_ 键（与 iv_ 图库不是同一个仓），两边都要认
     try { if (rp.indexOf("iv_") === 0) return await imgVaultFetchBlob(rp); if (rp.indexOf("img_") === 0) return await idbImgGet(rp); return dataUrlToBlob(rp) || b64ToBlob(rp, "image/png"); } catch (e) { return null; }
   }))).filter(Boolean);
+  // 参考图是动图（上一张出的是 GIF、拿来当连贯参考）：换成第一帧 PNG，好几家改图接口不收 GIF
+  for (let i = 0; i < refBlobs.length; i++) {
+    if (refBlobs[i] && refBlobs[i].type === "image/gif" && typeof gifFirstFramePng === "function") {
+      try { const png = await gifFirstFramePng(await blobToDataUrl(refBlobs[i])); const b = dataUrlToBlob(png); if (b) refBlobs[i] = b; } catch (e) {}
+    }
+  }
   if (refs.length && refBlobs.length !== refs.length) throw new Error("有参考照读取失败；为避免生成陌生人，本次已停止。请重新选择参考照后再试");
   // 归一 base：用户可能把整段 endpoint(…/v1/images/generations) 都粘进来 → 削回域名根，统一补 /v1
   const base = normalizedOpenAIBase(a.baseUrl);

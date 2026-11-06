@@ -7,3 +7,6 @@ test("发给模型看的 GIF 先换成第一帧 PNG（callAI 入口一处）", (
   assert.ok(body.includes("? gifFirstFramePng(u) : u"));
   assert.match(eng, /async function gifFirstFramePng\(dataUrl\)/);
 });
+test("拿动图当生图参考：也先换成第一帧", () => {
+  assert.ok(eng.includes('refBlobs[i].type === "image/gif" && typeof gifFirstFramePng === "function"'));
+});
