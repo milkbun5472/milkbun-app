@@ -6325,7 +6325,12 @@ async function generateSelfieImage(prompt, refPhotoDataUrl, opts) {
     //   直接给人看的那些照片（聊天自拍、线下照片、合照、照相馆、邮票卡面、剧场跑团插图……）一律按动图请求。
     //   要裁、要压、要拼的那几处（头像、背景、表情包九宫格、视频首帧）调用时标了 still，不跟。
     //   站子回静图就收静图，不报错、不为它多花一次请求。
-    if (a0.gifAll && !(opts && (opts.gif || opts.still)) && !["chat", "gemini", "minimax", "nai"].includes(a0.apiFormat)) Object.assign(inner, { gif: true, gifFrames: 8, gifMs: 140 });
+    if (a0.gifAll && !(opts && (opts.gif || opts.still)) && !["chat", "gemini", "minimax", "nai"].includes(a0.apiFormat)) {
+      // 总开关加上的动图没出成（站子不收动图参数、带参考照的动图接不住……）：退回一张静图，照样锁脸——不能因为想要动的，连图都没了
+      const gi = Object.assign({}, inner, { gif: true, gifFrames: 8, gifMs: 140 });
+      try { return await generateSelfieImage(prompt, hasRef && a0.noRef ? null : refPhotoDataUrl, Object.assign({}, gi, { __gifAll: true })); }
+      catch (e) { if (/moderation|content[_ ]?policy|safety|sexual|nsfw/i.test(String((e && e.message) || e))) throw e; }
+    }
     if (hasRef && a0.noRef) {
       const out = await generateSelfieImage(prompt, null, inner);
       if (out && typeof out === "object") out.degraded = "site-no-ref";
@@ -6794,6 +6799,16 @@ async function generateSelfieImage(prompt, refPhotoDataUrl, opts) {
         };
         r = await sendEdits(rfOff);
         if (!rfOff && await rfRejected(r)) r = await sendEdits(true);
+        // 动图带参考照被打回「帧数须为整数」（群友 2026-11-06 邮票卡面）：multipart 里字段只能是字符串，
+        //   有的站按类型校验就不认。换成 JSON 发一次：参考照编成 data URL 放进 images，帧数、时长是真数字
+        if (opts && opts.gif && r && !r.ok && /frame|帧数|整数|integer/i.test(await r.clone().text().catch(() => ""))) {
+          const imgs = [];
+          for (const b of refBlobs) { try { imgs.push({ image_url: await blobToDataUrl(b) }); } catch (e) {} }
+          const jb = { model: a.model || "gpt-image-2", prompt: promptText, size, n: 1, images: imgs, input_fidelity: "high",
+            output_format: "gif", frame_count: Math.max(2, Math.min(16, Number(opts.gifFrames) || 8)), frame_duration_ms: Math.max(40, Math.min(1000, Number(opts.gifMs) || 120)) };
+          if (!rfOff) jb.response_format = "b64_json"; if (qualityOverride) jb.quality = qualityOverride;
+          r = await fetch(root + "/images/edits", { method: "POST", headers: { "Content-Type": "application/json", Authorization: "Bearer " + a.apiKey }, body: JSON.stringify(jb), signal: ctrl.signal });
+        }
       } else {
         // slim = 裸参数重试：有些中转不认 quality/response_format 这类可选参数，只发必填的
         const body = { model: a.model || "gpt-image-2", prompt: promptText, size, n: 1 };
