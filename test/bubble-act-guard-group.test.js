@@ -6,4 +6,4 @@ assert.deepEqual(G.split(words, { group: true, selfNames: ["萧成烨"] }).acts,
 assert.ok(G.split(["【线下场景】：我推开门", "一手按着袖口"], { group: true }).acts.length > 0, "挂了牌子的群里照样认");
 assert.ok(G.split(["【萧成烨 把刀收回鞘里", "转身出去】"], { group: true, selfNames: ["萧成烨"] }).acts.length > 0, "自己名字括起来的照样认");
 assert.ok(G.split(["我把脸颊在她怀里贴紧了蹭两下", "环在她后腰的手微微收紧"], {}).acts.length > 0, "单聊那种照旧挪");
-assert.match(fs.readFileSync("js/app.js", "utf8"), /BubbleActGuard\.split\(gBubbles, \{ selfNames: \[spk && spk\.name, spk && spk\.remark\], group: true \}\)/);
+assert.match(fs.readFileSync("js/app.js", "utf8"), /BubbleActGuard\.split\(gBubbles, \{ selfNames: \[spk && spk\.name, spk && spk\.remark\], group: true(?:, actOn: _gActDesc)? \}\)/);

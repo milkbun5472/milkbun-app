@@ -145,9 +145,9 @@ test("写：封闭群一个字都不回流主线", () => {
 
 test("实时私聊窗口仍归互通群，别和 preJoin 叠加", () => {
   // ⚠️v60.31 起取法抽成 memberPrivLines（群聊和群通话共用），门槛仍在调用处
-  assert.match(app, /const priv = opts.interop \? memberPrivLines\(c, opts.privateCtxN\) : ""/);
+  assert.match(app, /const priv = opts\.interop && _pn > 0 \? crossRecentFor\(c\.id, \{ surfaces: \["online", "offline", "group"\], onlineN: _pn, excludeGroup: opts\.groupId,/);
   assert.match(app, /const memberPrivLines = \(c, n\) => \(Number\(n\) > 0/, "条数为 0 就不该给");
-  assert.match(app, /const offBeats = opts.interop && Number\(opts.privateCtxN\) > 0/);
+  assert.match(app, /const offBeats = "";/);   // v89.117 起线下并进 priv 那条时间线
   // 带时间戳的那一份：她那句「在家等他」正是靠它才接得上
   assert.match(app, /memberPrivLines = \(c, n\) =>[\s\S]{0,400}aiStampFor\(c\.id, m\.ts\)/);
   // v73.05：没设过的群按 20 条算（原来默认 0 ＝闭群里一句真话都没有，只剩人设标签）

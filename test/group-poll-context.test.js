@@ -9,7 +9,7 @@ function setup() {
   const b={Date,Math,Number,Set,console:{warn(){}},groupProfileFor:()=>({name:'我'}),useRef:current=>({current}),fmtStampAI:()=>'',
     profile:{name:'用户'},characters:[{id:'a',name:'甲',persona:'甲设定'},{id:'b',name:'乙',persona:'乙设定'}],
     groups:[{id:'g',memberIds:['a','b']}],groupChatsRef:{current:{g:[]}},gsFor:()=>({ctxN:40,memoryInterop:false}),
-    active:{},groupMembers:g=>b.characters.filter(c=>g.memberIds.includes(c.id)),
+    active:{},groupApiFor:()=>({}),groupMembers:g=>b.characters.filter(c=>g.memberIds.includes(c.id)),
     isOocMsg:m=>m.kind==='ooc',contextAllowsMessage:m=>!m.failed,
     userName:p=>p.name,toast:s=>notices.push(s),setTimeout:(fn,ms)=>{if(ms===900)timers.push(fn);else fn()},
     pushGroupRich:(id,m)=>{b.groupChatsRef.current[id].push({...m,ts:Date.now()})},

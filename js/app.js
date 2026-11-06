@@ -20,7 +20,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v89.117";
+const APP_VERSION = "v89.119";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -9873,9 +9873,11 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     const cName = char ? char.name : "TA";
     const uName = (profile && profile.name) || "用户";
     const beats = [];
-    if (surfaces.includes("online")) (chatsRef.current[charId] || []).forEach(m => {
-      if (!m || m.recalled || !m.content || isOocMsg(m) || m.kind === "offlinelog" || m.role === "system" || !contextAllowsMessage(m)) return;
-      if (sinceMs && (m.ts || 0) < sinceMs) return;
+    // opts.onlineN：私聊按「最近几条」取、不看时间窗（群里那根「带入私聊条数」拉条）
+    const _onl = (chatsRef.current[charId] || []).filter(m => m && !m.recalled && m.content && !isOocMsg(m) && m.kind !== "offlinelog" && m.role !== "system" && contextAllowsMessage(m));
+    const _onlKeep = opts.onlineN != null ? new Set(_onl.slice(-Math.max(0, Number(opts.onlineN) || 0))) : null;
+    if (surfaces.includes("online")) _onl.forEach(m => {
+      if (_onlKeep ? !_onlKeep.has(m) : (sinceMs && (m.ts || 0) < sinceMs)) return;
       beats.push({ ts: m.ts || 0, surface: "线上私聊", who: m.role === "user" ? uName : cName, text: String(m.content) });
     });
     if (surfaces.includes("offline")) (offlinesRef.current[charId] || []).forEach(s => ((s && s.msgs) || []).forEach(m => {
@@ -16666,7 +16668,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
             if (typeof moveDanglingLeads === "function") gBubbles = moveDanglingLeads(gBubbles);   // 「第一：」挪到下一泡开头，跟单聊同一条
             // 掉格式兜底（四处一样喂：跟单聊同一把刀、同一个模块）。群里没有逐人称谓设置，
             // 默认就是第二人称。
-            const _gGuard = window.BubbleActGuard ? window.BubbleActGuard.split(gBubbles, { selfNames: [spk && spk.name, spk && spk.remark], group: true }) : { words: gBubbles, acts: [] };
+            const _gGuard = window.BubbleActGuard ? window.BubbleActGuard.split(gBubbles, { selfNames: [spk && spk.name, spk && spk.remark], group: true, actOn: _gActDesc }) : { words: gBubbles, acts: [] };
             gBubbles = _gGuard.words;
             if (spk) { const seen = _saidOnce.get(spk.id) || new Set(); _saidOnce.set(spk.id, seen);
               gBubbles = gBubbles.filter(b => { const k = typeof b === "string" ? b.replace(/\s+/g, "") : ""; if (k.length < 8 || (typeof htmlCardOf === "function" && htmlCardOf(b))) return true; if (seen.has(k)) return false; seen.add(k); return true; }); }
@@ -22199,8 +22201,13 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     const mem = memories[c.id];
     const gz = gazeFor(c.id);
     const onlyMine = formatMemLib((split.perChar || {})[String(c.id)] || []);
-    const priv = opts.interop ? memberPrivLines(c, opts.privateCtxN) : "";
-    const offBeats = opts.interop && Number(opts.privateCtxN) > 0 ? crossRecentFor(c.id, { surfaces: ["offline"] }) : "";
+    // 私聊、单人线下、他在别的互通群里聊的，合成一条按真实先后排的时间线（她 2026-11-05「别的记忆互通的群聊也要按顺序喂进来」）：
+    //   原来是三块各自成段，模型得自己对着时间戳拼先后。私聊照拉条取最近几条；线下和别的群照召回设置那根时间窗。
+    //   字数预算按拉条放宽：私聊每条约 200 字，再加跨情境那份预算
+    const _pn = Number(opts.privateCtxN) || 0;
+    const priv = opts.interop && _pn > 0 ? crossRecentFor(c.id, { surfaces: ["online", "offline", "group"], onlineN: _pn, excludeGroup: opts.groupId,
+      budget: (memCfgRef.current.crossBudget || 800) * 2 + _pn * 220 }) : "";
+    const offBeats = "";
     // 前几次线下跟实时私聊同一道闸：封闭群、私聊窗口关成 0 的不带
     const pastOff = opts.interop && Number(opts.privateCtxN) > 0 ? (() => { try {
       // 最新那场还在「跨情境回看时间窗」里的，上面 offBeats 已经带着它，这里从再往前那场数起（跟单聊同一个算法）
@@ -22210,13 +22217,13 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       const inCross = newest && (!newest.endTs || (win && Date.now() - newest.endTs <= win));
       return pastOfflineFor(c, inCross ? newest.id : null); } catch (e) { return ""; } })() : "";
     // 他在别的互通群里最近聊的（她 2026-10-27）：走 crossRecentFor 那一份——按时间窗＋字数预算（召回设置里那两根拉条），不按条数
-    const otherGroups = opts.interop ? crossRecentFor(c.id, { surfaces: ["group"], excludeGroup: opts.groupId }) : "";
+    const otherGroups = opts.interop && !priv ? crossRecentFor(c.id, { surfaces: ["group"], excludeGroup: opts.groupId }) : "";   // 私聊关成 0 时别的群照旧单独带
     // 旁观群（群友 2026-10-20）：她不在这个群里。原样摆出他跟她刚才的私聊/线下，模型会顺着那段接着跟她说下去，
     //   而不是在群里跟群里的人聊。照样给（这是他真知道的近况），只说清那是【别处的事】。
     const away = opts.spectate ? "（下面是 " + c.name + " 在别处跟用户的往来，用户不在这个群里；这是他心里知道的近况，不是这个群里正在进行的对话——群里该接的是群里的人。）\n" : "";
     return [mem && "长期记忆：" + mem, gz,
       onlyMine && onlyMine.trim() && "记忆库里【只有 " + c.name + " 知道】的事（别的成员并不知情，除非 TA 自己说出来）：\n" + onlyMine.trim(),
-      priv && away + "最近私聊（带时间，请和群聊记录一起按真实时间先后理解发生顺序）：\n" + priv,
+      priv && away + c.name + " 最近在别处的往来（私聊、单人线下、别的群，已按真实时间先后排好；方括号里是在哪儿。请和这个群的记录一起按时间理解先后）：\n" + priv,
       offBeats && (priv ? "" : away) + "最近单人线下（带时间，和上面私聊/群聊一起按真实先后理解）：\n" + offBeats,
       pastOff && c.name + " 跟用户前几次的线下见面（只有 " + c.name + " 知道，别的成员不知情，除非 TA 自己说出来）：\n" + pastOff,
       otherGroups && c.name + " 在别的群里最近聊的（那边的事 TA 知道；这个群里的人在不在那个群，照名单看，不在的就不知道）：\n" + otherGroups
