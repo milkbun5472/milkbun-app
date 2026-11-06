@@ -43,9 +43,9 @@ test("按角色各自封顶，还没拆的永远不挤，而且那个数不是�
 });
 
 test("放东西进抽屉只有一个口", () => {
-  // 心声掉落 / 专属掉落 / 悄悄话三处原来各写一遍 [新的, ...旧的].slice(...)
+  // 心声掉落 / 专属掉落 / 悄悄话三处原来各写一遍 [新的, ...旧的].slice(...)；2026-11-06 多了第四处「我放的」，同一个口
   assert.ok(!/slice\(0, DRAWER_CAP\)/.test(app), "还有地方自己裁，绕过了 drawerPush");
-  assert.strictEqual((app.match(/drawerPush\(\{/g) || []).length, 3, "三处放东西的口没有全接上");
+  assert.strictEqual((app.match(/drawerPush\(\{/g) || []).length, 4, "四处放东西的口没有全接上");
   assert.match(app, /const drawerPush = item => setCoupleDrawer\(p => \{\s*const n = drawerTrim\(\[item, \.\.\.p\]\);/,
     "公共那个口不是走 drawerTrim");
 });

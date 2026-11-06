@@ -20,7 +20,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v89.135";
+const APP_VERSION = "v89.136";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -28691,7 +28691,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       // ⚠️便签墙 v59.23 撤掉了，这一份只剩【存量】：只读，不再写。
       // 里程碑册要的是「第一张纸条是什么时候」，那件事发生过就该算数。
       notes: (coupleNotesRef.current || []).filter(x => x.characterId === cid),
-      drawer: (coupleDrawerRef.current || []).filter(x => x.characterId === cid),
+      drawer: (coupleDrawerRef.current || []).filter(x => x.characterId === cid && x.kind !== "mine"),   // 里程碑要的是 TA 放的第一样
       cards: (gachaCardsRef.current || []).filter(x => x.charId === cid),
       trips: (coupleTripsRef.current || []).filter(x => x && x.charId === cid)
     }, Date.now());
@@ -29875,6 +29875,44 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     drawerPush({ id: "dw_" + Date.now() + "_" + Math.floor(Math.random() * 1000), characterId: charId, kind: "whisper",
       title: "", text: t, ts: Date.now(), openedTs: null });
     return true;
+  };
+  // 我也往抽屉里放一张（群友 2026-11-06：「抽屉那里我也能给他留悄悄话，点一下回复他就能看到并给我回复」）：
+  //   放进去就是摊开的，标「我放的」；TA 不会自己来翻，她点「让他看看」那一下才读、才回一张贴在底下。
+  const drawerMine = (charId, text) => {
+    const t = String(text || "").trim();
+    if (!charId || !t) return false;
+    drawerPush({ id: "dw_" + Date.now() + "_" + Math.floor(Math.random() * 1000), characterId: charId, kind: "mine", from: "me",
+      title: "", text: t, ts: Date.now(), openedTs: Date.now() });
+    return true;
+  };
+  const [drawerReplyBusy, setDrawerReplyBusy] = useState("");
+  const replyDrawerMine = async (char, id) => {
+    const item = (coupleDrawerRef.current || []).find(x => x && x.id === id && x.kind === "mine");
+    if (!char || !item || drawerReplyBusy) return;
+    if (!active) { toast("请先到设置配置 API"); return; }
+    setDrawerReplyBusy(id);
+    try {
+      const uN = (profile && profile.name) || "她";
+      const d = await runProbe(apiFor(char.id), ctxFor(char), {
+        voice: true, tag: "drawer",
+        instruction: "你们已是恋人，有一个只有你俩才会去翻的抽屉。" + uN + " 往里放了一张给你的小纸条，你刚拉开抽屉看到：\n「" + String(item.text).slice(0, 600) + "」\n"
+          + "回她一张小纸条，放回抽屉里，贴在她那张底下。\n"
+          + "· 这是纸条不是聊天：长短跟她那张差不多，写得下几句就几句，不铺成长信。\n"
+          + "· 只接她这一张纸条说的事，别扯别的、别总结你俩的关系。\n"
+          + "· 语气照你的人设和此刻的心情走，上面最近的聊天你都知道，接得上就接。\n"
+          + "· 不要先把她的原话复述一遍再接，直接说你要说的。",
+        schemaHint: "{\"reply\":\"你回她的那张纸条\"}"
+      });
+      const r = String((d && d.reply) || "").trim();
+      if (!r) throw new Error("没写出来");
+      setCoupleDrawer(p => {
+        const n = p.map(x => x.id === id ? { ...x, reply: r, replyTs: Date.now() } : x);
+        coupleDrawerRef.current = n; saveJSON("x_coupleDrawer", n); return n;
+      });
+      coupleKeep(char.id, uN + "往抽屉里给" + char.name + "留了张纸条：「" + cSnip(item.text, 80) + "」；" + char.name + "回了一张：「" + cSnip(r, 80) + "」", "抽屉纸条");
+    } catch (e) {
+      toast("没回成：" + ((e && e.message) || e));
+    } finally { setDrawerReplyBusy(""); }
   };
   const openDrawerItem = id => setCoupleDrawer(p => {
     const n = p.map(x => x.id === id && !x.openedTs ? { ...x, openedTs: Date.now() } : x);
@@ -35356,6 +35394,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     onOpenDrawer: openDrawerItem,
     onDropDrawer: dropDrawerItem,
     onEditDrawer: editDrawerItem,
+    onPutDrawerMine: drawerMine, onReplyDrawerMine: replyDrawerMine, drawerReplyBusy,
     // 抽屉里拆开的那一样发给他（群友 2026-10-16：「他画的画好傻，想发给他打趣他一下」）：
     //   落成你发的一条消息、带上那张画，打开聊天；不叫他当场开口，等你自己说两句再让他回（跟别处转发同一个做法）
     onForwardDrawer: (charId, x) => {
