@@ -6339,6 +6339,10 @@ async function naiTagsFor(prompt) {
 // 动图速度（她 2026-11-06「搞个拉条自己选」）：每帧停多久，全 app 一个数，存 x_gifMs。帧数固定 16（顺不顺看帧数，快慢看这个）。
 //   新出的动图按它定速；拉条一改，已经存着的动图也就地改速（只改每帧停留那两个字节，不重画、不花钱）。
 const GIF_FRAMES = 16;
+// 动图的模型比静图弱，推不出画面该在哪个世界（她 2026-11-06：古风角色的动图被画进了别的世界、头发也短了）——
+//   只在动图时、放在最前面说一句：照 TA 自己的设定，不点任何一种时代题材
+const GIF_WORLD_HEAD = "【这一张先守住的两件事】①世界：画面里的建筑、陈设、器物、光源照下面人设和世界书写的那个世界来画；设定里没写到的部分也要跟那个世界对得上，不照你自己习惯的样子去补。"
+  + "②发型：发型、发色、发长照人设和参考照来，不跟着场景改。\n\n";
 const GIF_MOTION_RULE = "\n\n【动图规矩】这是一张循环播放的小动图，按下面这几条排帧："
   + "① 一个动作：画面里每个人（九宫格就是每一格）整段只做一件事，从这一刻本来就在发生的事里挑，不另加情节、不换表情换姿势。"
   + "② 不动的都不动：镜头、构图、背景、人的位置和大小、衣服、光线每一帧都一样，只有这个动作牵到的部分在动。"
@@ -6391,7 +6395,7 @@ async function generateSelfieImageRaw(prompt, refPhotoDataUrl, opts) {
       const gi = Object.assign({}, inner, { gif: true, gifFrames: GIF_FRAMES, gifMs: gifMsNow() });
       try { const o = await generateSelfieImage(prompt, hasRef && a0.noRef ? null : refPhotoDataUrl, Object.assign({}, gi, { __gifAll: true }));
         // 出成动的就说一声锁没锁脸（她 2026-11-06「也没提醒锁没锁脸」）：带着参考照发出去的才算锁
-        if (o && o.blob && o.blob.type === "image/gif" && typeof window !== "undefined" && window.__toast) window.__toast(hasRef && !a0.noRef ? "动图带着参考照画的（锁脸）" : hasRef ? "动图没带参考照（这个站开着「不锁脸」）" : "动图画好了", 4000);
+        if (o && o.blob && o.blob.type === "image/gif" && typeof window !== "undefined" && window.__toast) window.__toast(hasRef && !a0.noRef ? "动图画好了，参考照已经一起发过去（站子有没有照着画，看脸像不像）" : hasRef ? "动图没带参考照（这个站开着「不锁脸」）" : "动图画好了", 4000);
         return o; }
       catch (e) { if (/moderation|content[_ ]?policy|safety|sexual|nsfw/i.test(String((e && e.message) || e))) throw e; }
     }
@@ -6432,7 +6436,7 @@ async function generateSelfieImageRaw(prompt, refPhotoDataUrl, opts) {
   //   所以带着参考照先试一次，不成外面那层再退成纯文字动图（见下面 gif 那一段）
   // 动图规矩（她 2026-11-06「16 帧会画小动作充填帧数，要不要给动图单独写提示词」→「改吧」）：
   //   只要这一次要的是动图，照片、表情包、卡面都在提示词后面接这一段，一处说法
-  if (opts && opts.gif && typeof prompt === "string" && prompt.indexOf("【动图规矩】") < 0) prompt += GIF_MOTION_RULE;
+  if (opts && opts.gif && typeof prompt === "string" && prompt.indexOf("【动图规矩】") < 0) prompt = GIF_WORLD_HEAD + prompt + GIF_MOTION_RULE;
   if (opts && opts.gif) {
     if (a.apiFormat === "chat" || a.apiFormat === "gemini" || a.apiFormat === "minimax" || a.apiFormat === "nai") throw new Error("动图只能走「出图接口」：去 设置 → 图像 API 把这个站的「请求方式」换成「出图接口」");
   }

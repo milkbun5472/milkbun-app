@@ -26,7 +26,7 @@ test("出图入口按拉条定速，帧数 16；拉条松手把存着的动图�
 });
 test("要动图就在提示词后面接【动图规矩】，一处说法", () => {
   const eng = readFileSync(new URL("../js/engine.js", import.meta.url), "utf8");
-  assert.match(eng, /if \(opts && opts\.gif && typeof prompt === "string" && prompt\.indexOf\("【动图规矩】"\) < 0\) prompt \+= GIF_MOTION_RULE;/);
+  assert.match(eng, /if \(opts && opts\.gif && typeof prompt === "string" && prompt\.indexOf\("【动图规矩】"\) < 0\) prompt = GIF_WORLD_HEAD \+ prompt \+ GIF_MOTION_RULE;/);
   assert.equal((eng.match(/【动图规矩】这是/g) || []).length, 1);
 });
 test("结构认不全（截断的 GIF）就原样返回，不改一个字节", () => {
@@ -44,4 +44,10 @@ test("有一帧底下没画满：所有帧裁到都画到的那块；都画满�
   assert.ok(out, "该裁没裁");
   const g = G.decode(out);
   assert.equal(g.width, 20); assert.equal(g.height, 18);
+});
+test("动图提示词最前面先守住世界和发型（不点任何时代题材）", () => {
+  const eng = readFileSync(new URL("../js/engine.js", import.meta.url), "utf8");
+  assert.match(eng, /prompt = GIF_WORLD_HEAD \+ prompt \+ GIF_MOTION_RULE;/);
+  const head = eng.slice(eng.indexOf("const GIF_WORLD_HEAD"), eng.indexOf("const GIF_MOTION_RULE"));
+  assert.doesNotMatch(head, /古代|现代|古风|仙侠|科幻/);
 });
