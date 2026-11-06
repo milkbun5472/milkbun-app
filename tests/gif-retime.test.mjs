@@ -17,7 +17,8 @@ test("拉条用的 exact：每帧都改成这个数", () => {
 test("出图入口按拉条定速，帧数 16；拉条松手把存着的动图一起改", () => {
   const eng = readFileSync(new URL("../js/engine.js", import.meta.url), "utf8");
   const ui = readFileSync(new URL("../js/screens-ui.js", import.meta.url), "utf8");
-  assert.match(eng, /const GIF_FRAMES = 16;/);
+  assert.match(eng, /const gifFramesNow = \(\) => /);
+  assert.match(ui, /saveJSON\("x_gifFrames", fr\)/);
   assert.match(eng, /GifCodec\.retime\(u8, gifMsNow\(\), true\)/);
   assert.match(eng, /GifCodec\.trimUncovered\(u8\)/);
   assert.match(eng, /async function retimeStoredGifs\(ms\)/);

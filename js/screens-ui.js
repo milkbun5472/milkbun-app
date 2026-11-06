@@ -13513,6 +13513,8 @@ function MyCloset({ profile, data, busy, onGen, onAdd, onDrop, onPin, onBack, ma
 // 动图速度：每帧停多久（0.06~0.4 秒）。松手才存、才去改已存的动图——拖的过程中不动图库
 function GifSpeedRow({ t }) {
   const [ms, setMs] = useState(() => (typeof gifMsNow === "function" ? gifMsNow() : 150));
+  // 帧数（她 2026-11-06）：只管以后画的；已经画好的改不了帧数
+  const [fr, setFr] = useState(() => (typeof gifFramesNow === "function" ? gifFramesNow() : 16));
   const [busy, setBusy] = useState(false);
   const commit = async () => {
     if (busy) return;
@@ -13525,7 +13527,7 @@ function GifSpeedRow({ t }) {
       else window.__toast && window.__toast("存好了，以后的动图按这个速度");
     } finally { setBusy(false); }
   };
-  const loop = (ms * 16 / 1000).toFixed(1);
+  const loop = (ms * fr / 1000).toFixed(1);
   return h("div", { "data-wk": "block", "data-part": "gifspeed", style: { marginTop: 10, padding: "9px 12px", borderRadius: 10, background: t.bg2, border: "1px solid " + t.line } },
     h("div", { className: "flex items-center justify-between" },
       h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.ink } }, "动图速度"),
@@ -13534,6 +13536,13 @@ function GifSpeedRow({ t }) {
       onChange: e => setMs(Number(e.target.value)), onMouseUp: commit, onTouchEnd: commit, onKeyUp: commit,
       style: { width: "100%", marginTop: 8, accentColor: t.tint } }),
     h("div", { className: "flex justify-between", style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", color: t.fog } }, h("span", null, "快"), h("span", null, "慢")),
+    h("div", { className: "flex items-center justify-between", style: { marginTop: 10 } },
+      h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.ink } }, "动图帧数"),
+      h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.sub } }, fr + " 帧")),
+    h("input", { "data-wk": "gifframesrange", type: "range", min: 2, max: 16, step: 1, value: fr,
+      onChange: e => setFr(Number(e.target.value)), onMouseUp: () => saveJSON("x_gifFrames", fr), onTouchEnd: () => saveJSON("x_gifFrames", fr), onKeyUp: () => saveJSON("x_gifFrames", fr),
+      style: { width: "100%", marginTop: 8, accentColor: t.tint } }),
+    h("div", { className: "flex justify-between", style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", color: t.fog } }, h("span", null, "少（换姿势少）"), h("span", null, "多（动作细）")),
     h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.5, marginTop: 4 } },
-      "所有动图都按这个速度（表情包、照片、邮票卡面），一张动图 16 帧。松手后已经画好的那些也跟着改，不重画、不花钱。"));
+      "所有动图都按这两条来（表情包、照片、邮票卡面）。速度松手后，已经画好的那些也跟着改，不重画、不花钱；帧数只管以后画的。"));
 }

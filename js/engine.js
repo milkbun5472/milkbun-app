@@ -6338,7 +6338,8 @@ async function naiTagsFor(prompt) {
 // 动图一律放慢到每帧至少 GIF_MIN_MS（她 2026-11-06「8 帧图速度太快了」）：出图入口这一处收口，表情包、照片、卡面都跟着慢下来
 // 动图速度（她 2026-11-06「搞个拉条自己选」）：每帧停多久，全 app 一个数，存 x_gifMs。帧数固定 16（顺不顺看帧数，快慢看这个）。
 //   新出的动图按它定速；拉条一改，已经存着的动图也就地改速（只改每帧停留那两个字节，不重画、不花钱）。
-const GIF_FRAMES = 16;
+// 帧数也给她自己调（她 2026-11-06「搞个帧数拉条让我自己选」）：2~16，存 x_gifFrames，默认 16
+const gifFramesNow = () => { const v = Math.round(Number(loadJSON("x_gifFrames", 16))); return Math.max(2, Math.min(16, v || 16)); };
 // 动图只在这两段里说（她 2026-11-06：精简，直接说要什么，别写「X，但不许 Y」那种绕法）
 const GIF_WORLD_HEAD = "【先守住】画面里的建筑、陈设、器物、光源属于人设和世界书写的那个世界；发型、发色、发长照人设和参考照。\n\n";
 const GIF_MOTION_RULE = "\n\n【动图】循环小动图，帧按时间顺序排："
@@ -6374,7 +6375,7 @@ async function retimeStoredGifs(ms) {
   try { await run(await idbVaultEntries(), idbVaultPut); } catch (e) {}
   return n;
 }
-if (typeof window !== "undefined") { window.retimeStoredGifs = retimeStoredGifs; window.gifMsNow = gifMsNow; }
+if (typeof window !== "undefined") { window.retimeStoredGifs = retimeStoredGifs; window.gifMsNow = gifMsNow; window.gifFramesNow = gifFramesNow; }
 async function generateSelfieImageRaw(prompt, refPhotoDataUrl, opts) {
   // 「这个站不锁脸」（她 2026-10-05）：有的站不收带图的请求，别的 app 只发文字能出、这里带着参考照就报错。
   //   站上打开了这个开关 → 从第一下就不带参考照，只发文字，一次请求，回什么收什么（标成 site-no-ref，界面上不另外标注）。
@@ -6390,7 +6391,7 @@ async function generateSelfieImageRaw(prompt, refPhotoDataUrl, opts) {
     //   站子回静图就收静图，不报错、不为它多花一次请求。
     if (a0.gifAll && !(opts && (opts.gif || opts.still)) && !["chat", "gemini", "minimax", "nai"].includes(a0.apiFormat)) {
       // 总开关加上的动图没出成（站子不收动图参数、带参考照的动图接不住……）：退回一张静图，照样锁脸——不能因为想要动的，连图都没了
-      const gi = Object.assign({}, inner, { gif: true, gifFrames: GIF_FRAMES, gifMs: gifMsNow() });
+      const gi = Object.assign({}, inner, { gif: true, gifFrames: gifFramesNow(), gifMs: gifMsNow() });
       try { const o = await generateSelfieImage(prompt, hasRef && a0.noRef ? null : refPhotoDataUrl, Object.assign({}, gi, { __gifAll: true }));
         // 出成动的就说一声锁没锁脸（她 2026-11-06「也没提醒锁没锁脸」）：带着参考照发出去的才算锁
         if (o && o.blob && o.blob.type === "image/gif" && typeof window !== "undefined" && window.__toast) window.__toast(hasRef && !a0.noRef ? "动图画好了，参考照已经一起发过去（站子有没有照着画，看脸像不像）" : hasRef ? "动图没带参考照（这个站开着「不锁脸」）" : "动图画好了", 4000);
