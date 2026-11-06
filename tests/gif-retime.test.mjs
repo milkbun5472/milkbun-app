@@ -54,6 +54,6 @@ test("动图提示词最前面先守住世界和发型（不点任何时代题�
 test("动图规矩：先规划完整动作、身体真的动、不靠眨眼抖动凑帧、参考照只认人、能循环；不再要求幅度小", () => {
   const eng = readFileSync(new URL("../js/engine.js", import.meta.url), "utf8");
   const r = eng.slice(eng.indexOf("const GIF_MOTION_RULE"), eng.indexOf("⑦ 不变形") + 80);
-  for (const k of ["开始、发展、做到位、收回", "不许只靠眨眼", "起步和收尾慢", "参考照只认人", "回到起始的姿势"]) assert.ok(r.includes(k), k);
+  for (const k of ["开始、发展、做到位、收回", "不许只靠眨眼", "不夸张、不表演", "整段最多眨一次眼", "起步和收尾慢", "参考照只认人", "回到起始的姿势"]) assert.ok(r.includes(k), k);
   assert.ok(!r.includes("幅度小一点"));
 });
