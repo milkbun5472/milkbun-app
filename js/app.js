@@ -14364,7 +14364,12 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         const _pa = pendingAskOf(charId);
         if (_st && _pa && settleAsk(charId, _pa.aid, _st, char.remark || char.name, _av && typeof _av === "object" ? _av.note : "", _av && typeof _av === "object" ? _av.cond : "")) delivered = true;
       }
-      const quote = parsed.quote && String(parsed.quote).toLowerCase() !== "null" ? String(parsed.quote) : null;
+      // 引用要对得上聊天里真有的一句（群友 2026-11-06 截图：引了一句「只是抱」，前面根本没人说过）：
+      //   跟群聊同一个 GroupQuote.resolve——一字不差、或互相包含（≥4 字）才挂，取最近那条的原话；对不上就不挂
+      const _quoteRaw = parsed.quote && String(parsed.quote).toLowerCase() !== "null" ? String(parsed.quote) : null;
+      const quote = !_quoteRaw ? null : window.GroupQuote
+        ? window.GroupQuote.resolve({ quote: _quoteRaw }, window.GroupQuote.buildCatalog(chatsRef.current[chatKey] || [], userName(profile), 60)).replyTo
+        : _quoteRaw;
       const turnId = "t_" + Date.now();
       if (roomStudyOn && parsed.studyInvite && typeof parsed.studyInvite === "object") {
         const inv = parsed.studyInvite;
