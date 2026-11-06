@@ -6318,7 +6318,7 @@ async function naiTagsFor(prompt) {
 }
 
 // 动图一律放慢到每帧至少 GIF_MIN_MS（她 2026-11-06「8 帧图速度太快了」）：出图入口这一处收口，表情包、照片、卡面都跟着慢下来
-const GIF_MIN_MS = 180;   // 260 太慢一顿一顿（她 2026-11-06「又有点慢了不流畅」），8 帧夹中间
+const GIF_MIN_MS = 120;   // 12 帧 × 0.12 秒（她 2026-11-06：按次收费，帧多不多花钱）——260 太慢一顿一顿，帧多了才又慢又顺
 async function generateSelfieImage(prompt, refPhotoDataUrl, opts) {
   const out = await generateSelfieImageRaw(prompt, refPhotoDataUrl, opts);
   if (out && out.blob && out.blob.type === "image/gif" && typeof GifCodec !== "undefined" && GifCodec.retime) {
@@ -6341,7 +6341,7 @@ async function generateSelfieImageRaw(prompt, refPhotoDataUrl, opts) {
     //   站子回静图就收静图，不报错、不为它多花一次请求。
     if (a0.gifAll && !(opts && (opts.gif || opts.still)) && !["chat", "gemini", "minimax", "nai"].includes(a0.apiFormat)) {
       // 总开关加上的动图没出成（站子不收动图参数、带参考照的动图接不住……）：退回一张静图，照样锁脸——不能因为想要动的，连图都没了
-      const gi = Object.assign({}, inner, { gif: true, gifFrames: 8, gifMs: 140 });
+      const gi = Object.assign({}, inner, { gif: true, gifFrames: 12, gifMs: 120 });
       try { const o = await generateSelfieImage(prompt, hasRef && a0.noRef ? null : refPhotoDataUrl, Object.assign({}, gi, { __gifAll: true }));
         // 出成动的就说一声锁没锁脸（她 2026-11-06「也没提醒锁没锁脸」）：带着参考照发出去的才算锁
         if (o && o.blob && o.blob.type === "image/gif" && typeof window !== "undefined" && window.__toast) window.__toast(hasRef && !a0.noRef ? "动图带着参考照画的（锁脸）" : hasRef ? "动图没带参考照（这个站开着「不锁脸」）" : "动图画好了", 4000);
