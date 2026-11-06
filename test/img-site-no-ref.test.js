@@ -6,7 +6,7 @@ const scr = (fs.readFileSync(__dirname + "/../js/screens.js", "utf8") + "\n" + f
 const comp = fs.readFileSync(__dirname + "/../js/components.js", "utf8");
 const app = fs.readFileSync(__dirname + "/../js/app.js", "utf8");
 test("这个站不锁脸：开了就只发文字、一次请求、没开的站失败时告诉她可以开", () => {
-  const top = eng.slice(eng.indexOf("async function generateSelfieImageRaw("), eng.indexOf("async function generateSelfieImageRaw(") + 3200);
+  const top = eng.slice(eng.indexOf("async function generateSelfieImageRaw("), eng.indexOf("async function generateSelfieImageRaw(") + 5200);
   assert.ok(/if \(hasRef && a0\.noRef\) \{\s*const out = await generateSelfieImage\(prompt, null, inner\);/.test(top), "开了就不带参考照、只走一次");
   assert.ok(/out\.degraded = "site-no-ref"/.test(top));
   assert.ok(/打开「这个站不锁脸」/.test(top), "没开的站报错里带出路");
