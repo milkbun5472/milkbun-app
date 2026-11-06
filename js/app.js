@@ -32618,6 +32618,47 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     commitEmotePacks((emotePacksRef.current || []).map(x => x.id === packId ? { ...x, emotes: out } : x));
     toast(n ? "撤掉了 " + n + " 张的字" : "这一组印的字撤不回来（印的时候还没留原图）", 5000);
   };
+  // 一张图切成几块存进表情组：静图照旧切 PNG；GIF 用 GifCodec 一帧帧拆开、每帧切同一块、印字，再拼回一张张小 GIF（她 2026-11-06）
+  //   cells：[{ sx, sy, sw, sh }]（按原图比例 0~1），names：每块的名字，caption：底下印不印名字
+  const gifCells = async (blob, cells, names, caption) => {
+    if (!window.GifCodec) throw new Error("这台设备还没载入动图那部分，刷新一下再试");
+    const g = window.GifCodec.decode(new Uint8Array(await blob.arrayBuffer()));
+    const src = document.createElement("canvas"); src.width = g.width; src.height = g.height;
+    const sg = src.getContext("2d");
+    const S = 384, outs = cells.map(() => []);
+    for (const f of g.frames) {
+      sg.putImageData(new ImageData(f.rgba, g.width, g.height), 0, 0);
+      cells.forEach((c, k) => {
+        const cv = document.createElement("canvas"); cv.width = S; cv.height = S;
+        const g2 = cv.getContext("2d"); g2.fillStyle = "#fff"; g2.fillRect(0, 0, S, S);
+        g2.drawImage(src, c.sx * g.width, c.sy * g.height, c.sw * g.width, c.sh * g.height, 0, 0, S, S);
+        if (caption && names[k]) paintEmoteCaption(g2, names[k], S, S);
+        outs[k].push({ rgba: g2.getImageData(0, 0, S, S).data, delay: f.delay });
+      });
+    }
+    return outs.map(frames => { const bytes = window.GifCodec.encode({ width: S, height: S, frames }); let bin = ""; for (let i = 0; i < bytes.length; i += 32768) bin += String.fromCharCode.apply(null, bytes.subarray(i, i + 32768)); return "data:image/gif;base64," + btoa(bin); });
+  };
+  const GRID9 = Array.from({ length: 9 }, (_, k) => ({ sx: (k % 3) / 3 + 0.04 / 3, sy: Math.floor(k / 3) / 3 + 0.04 / 3, sw: (1 - 0.08) / 3, sh: (1 - 0.08) / 3 }));
+  const emoteSetCut = async (blob, items, ownerKey, caption) => {
+    let n = 0;
+    if (blob.type === "image/gif") {
+      const urls = await gifCells(blob, GRID9, items.map(x => x.name), caption);
+      for (let k = 0; k < urls.length; k++) if (await window.__addSelfSticker(urls[k], ownerKey, items[k].name, true, caption)) n++;
+      return n;
+    }
+    const u = URL.createObjectURL(blob);
+    const im = await new Promise((ok, no) => { const x = new Image(); x.onload = () => ok(x); x.onerror = no; x.src = u; });
+    URL.revokeObjectURL(u);
+    for (let k = 0; k < 9; k++) {
+      const c = GRID9[k], cv = document.createElement("canvas"); cv.width = 384; cv.height = 384;
+      const g2 = cv.getContext("2d");
+      g2.drawImage(im, c.sx * im.naturalWidth, c.sy * im.naturalHeight, c.sw * im.naturalWidth, c.sh * im.naturalHeight, 0, 0, 384, 384);
+      // 图上印字（她 2026-10-13：「不然我光看图忘记是什么意思」）：字是 app 写的，不让图像端写（会乱码）
+      if (caption) paintEmoteCaption(g2, items[k].name, 384, 384);
+      if (await window.__addSelfSticker(cv.toDataURL("image/png"), ownerKey, items[k].name, true, caption)) n++;
+    }
+    return n;
+  };
   const makeEmoteSet = async (charId, setOpt) => {
     if (String(charId || "").indexOf("__me:") === 0) return makeMyEmoteSet(String(charId).slice(5), setOpt);
     const char = characters.find(c => c.id === charId);
@@ -32637,24 +32678,13 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       // 重名的照样留着（她 2026-10-13：「重复的照样留着吧都花了钱的」）——去重只靠上面把已有的告诉他、降低概率
       const items = emoteSetItems(d);
       if (items.length < 9) throw new Error(characterText(char, "他没挑够九个，再试一次"));
-      const prompt = emoteSetPrompt(char.name, char.appearance, items);
-      const out = await generateSelfieImage(prompt, [char.refPhoto], { size: "1024x1024", minimalPrompt: prompt });
+      const prompt = emoteSetPrompt(char.name, char.appearance, items, setOpt && setOpt.gif);
+      const out = await generateSelfieImage(prompt, [char.refPhoto], Object.assign({ size: "1024x1024", minimalPrompt: prompt }, setOpt && setOpt.gif ? { gif: true, gifFrames: 8, gifMs: 140 } : {}));
+      if (setOpt && setOpt.gif && out && out.blob && out.blob.type !== "image/gif") throw new Error("这个站回的是一张静图，没出动图——要用能出 GIF 的模型（比如 gpt-image-2.6）");
       let blob = out && out.blob;
       if (!blob && out && out.url) { try { blob = await (await fetch(out.url)).blob(); } catch (e) { blob = null; } }
       if (!blob) throw new Error("没拿到图");
-      const u = URL.createObjectURL(blob);
-      const im = await new Promise((ok, no) => { const x = new Image(); x.onload = () => ok(x); x.onerror = no; x.src = u; });
-      URL.revokeObjectURL(u);
-      const cw = im.naturalWidth / 3, ch = im.naturalHeight / 3, ix = cw * 0.04, iy = ch * 0.04;
-      let n = 0;
-      for (let k = 0; k < 9; k++) {
-        const cv = document.createElement("canvas"); cv.width = 384; cv.height = 384;
-        const g2 = cv.getContext("2d");
-        g2.drawImage(im, (k % 3) * cw + ix, Math.floor(k / 3) * ch + iy, cw - ix * 2, ch - iy * 2, 0, 0, 384, 384);
-        // 图上印字（她 2026-10-13：「不然我光看图忘记是什么意思」）：字是 app 写的，不让图像端写（会乱码）
-        if (setOpt && setOpt.caption) paintEmoteCaption(g2, items[k].name, 384, 384);
-        if (await window.__addSelfSticker(cv.toDataURL("image/png"), char.id, items[k].name, true, !!(setOpt && setOpt.caption))) n++;
-      }
+      const n = await emoteSetCut(blob, items, char.id, !!(setOpt && setOpt.caption));
       toast(n ? "画好了 " + n + " 张，在表情包「" + (char.remark || char.name) + " 的表情」里" : "存表情的时候没成，再试一次", 6000);
     } catch (e) { toast("表情包没画成：" + (e.message || "重试"), 8000); }
     finally { setEmoteSetBusy(""); }
@@ -32672,7 +32702,10 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   };
   // 九宫格那张图的说法，角色和她自己共用这一份（她 2026-10-30：两套画风不一样——她传的是真人照，
   //   原来她那套也没说参考图只管长相，模型连照片的写实质感一起照搬了）。画风照这段字，参考图只认人。
-  const emoteSetPrompt = (name, appearance, items) => "一张 3×3 九宫格表情包贴纸图，九格一样大，格与格之间留明显的白色空隙，每格纯白底。"
+  // gif＝九宫格动图（她 2026-11-06「试试 a」）：一整张循环动图，九格各动各的，格子位置和白缝一帧都不能挪，回来按格切成九张
+  const emoteSetPrompt = (name, appearance, items, gif) => (gif
+      ? "一张 3×3 九宫格的循环小动图表情包，九格一样大，格与格之间留明显的白色空隙，每格纯白底；每一帧里九个格子的位置、大小和白缝都完全不动，只有格子里的小人在动，九格各演各的小动作，首尾接得上、一起循环。"
+      : "一张 3×3 九宫格表情包贴纸图，九格一样大，格与格之间留明显的白色空隙，每格纯白底。")
     + "每格都是同一个人「" + name + "」的平面 Q 版二次元小人：二到三头身、大头小身子、手脚短短圆圆，干净的深色勾线、赛璐璐平涂，大眼睛、脸颊淡淡腮红，像聊天软件里的表情贴纸。"
     + "画风只照这段描述来；参考图只用来认这个人——长相、发型发色、标志性配饰照它，照片本身的写实质感、光影、画风都不跟。"
     + (appearance ? "外貌：" + String(appearance).slice(0, 200) + "。" : "")
@@ -32680,7 +32713,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     + "。每格人物居中、完整、别出格。画面里不要任何文字、字母、对话框。";
   // 一张动图表情（她 2026-11-04：gpt-image-2.6 能出 GIF）：问一句画什么动作 → 照外貌文字画一张会循环的 Q 版小动图 →
   //   原样存进「X 的表情」那一组（imgToVault 存的是原文件，动的还是动的）。动图只走出图接口、带不了参考照（见 generateSelfieImage 的 gif）
-  const makeEmoteGif = whoId => {
+  const makeEmoteGif = (whoId, gOpt) => {
     if (emoteSetBusy) return;
     if (!(typeof imgApiReady === "function" && imgApiReady())) { toast("先去 设置·图像API 配一下"); return; }
     const isMe = String(whoId || "").indexOf("__me:") === 0, mk = isMe ? String(whoId).slice(5) : "";
@@ -32693,7 +32726,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         const name = t.split(/[，,。：:\s]/)[0].slice(0, 8) || "动图";
         setEmoteSetBusy(whoId);
         try {
-          const prompt = "一张循环播放的小动图表情包：同一个人「" + (who.name || nm) + "」的平面 Q 版二次元小人，二到三头身、大头小身子，干净的深色勾线、赛璐璐平涂，纯白底，人物居中、完整、别出格。"
+          // 表情包是近景（她 2026-11-06：「为啥是全身照」）：画到胸口往上、头占大半，表情和手上的动作才看得清
+          const prompt = "一张循环播放的小动图表情包：同一个人「" + (who.name || nm) + "」的平面 Q 版二次元小人，大头小身子，干净的深色勾线、赛璐璐平涂，纯白底。近景构图：只画到胸口往上，头占画面一大半，表情和手上的动作是主角，人物居中、别出格。"
             + (who.refPhoto ? "参考图只用来认这个人——长相、发型发色、标志性配饰照它，照片的写实质感和画风都不跟。" : "")
             + (who.appearance ? "外貌：" + String(who.appearance).slice(0, 200) + "。" : "")
             + "动作：" + t.slice(0, 120) + "。动作首尾能接上、循环自然。画面里不要任何文字、字母、对话框。";
@@ -32703,8 +32737,10 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
           if (!blob && out && out.url) { try { blob = await (await fetch(out.url)).blob(); } catch (e) { blob = null; } }
           if (!blob) throw new Error("没拿到图");
           if (blob.type && blob.type !== "image/gif") throw new Error("这个站回的是一张静图，没出动图——要用能出 GIF 的模型（比如 gpt-image-2.6）");
-          const du = await new Promise((ok, no) => { const r = new FileReader(); r.onload = () => ok(r.result); r.onerror = no; r.readAsDataURL(blob); });
-          const ok = await window.__addSelfSticker(du, isMe ? whoId : who.id, name, true, false);
+          // 统一缩成 384 的小 GIF，要印字就每一帧印上（跟静态那套同一个 paintEmoteCaption）
+          const cap = !!(gOpt && gOpt.caption);
+          const du = (await gifCells(blob, [{ sx: 0, sy: 0, sw: 1, sh: 1 }], [name], cap))[0];
+          const ok = await window.__addSelfSticker(du, isMe ? whoId : who.id, name, true, cap);
           toast(ok ? "画好了，在表情包「" + nm + " 的表情」里，叫「" + name + "」" + (out && out.degraded === "gif-no-ref" ? "（这个站带参考照没出成动图，这张是照外貌文字画的）" : "") : "存表情的时候没成，再试一次", 6000);
         } catch (e) { toast("动图没画成：" + (e.message || "重试"), 8000); }
         finally { setEmoteSetBusy(""); }
@@ -32731,23 +32767,13 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       const d = typeof extractJSON === "function" ? extractJSON(raw) : null;
       const items = emoteSetItems(d);
       if (items.length < 9) throw new Error("没挑够九个，再试一次");
-      const prompt = emoteSetPrompt(nm, me.appearance, items);
-      const out = await generateSelfieImage(prompt, [me.refPhoto], { size: "1024x1024", minimalPrompt: prompt });
+      const prompt = emoteSetPrompt(nm, me.appearance, items, setOpt && setOpt.gif);
+      const out = await generateSelfieImage(prompt, [me.refPhoto], Object.assign({ size: "1024x1024", minimalPrompt: prompt }, setOpt && setOpt.gif ? { gif: true, gifFrames: 8, gifMs: 140 } : {}));
+      if (setOpt && setOpt.gif && out && out.blob && out.blob.type !== "image/gif") throw new Error("这个站回的是一张静图，没出动图——要用能出 GIF 的模型（比如 gpt-image-2.6）");
       let blob = out && out.blob;
       if (!blob && out && out.url) { try { blob = await (await fetch(out.url)).blob(); } catch (e) { blob = null; } }
       if (!blob) throw new Error("没拿到图");
-      const u = URL.createObjectURL(blob);
-      const im = await new Promise((ok, no) => { const x = new Image(); x.onload = () => ok(x); x.onerror = no; x.src = u; });
-      URL.revokeObjectURL(u);
-      const cw = im.naturalWidth / 3, ch = im.naturalHeight / 3, ix = cw * 0.04, iy = ch * 0.04;
-      let n = 0;
-      for (let k = 0; k < 9; k++) {
-        const cv = document.createElement("canvas"); cv.width = 384; cv.height = 384;
-        const g2 = cv.getContext("2d");
-        g2.drawImage(im, (k % 3) * cw + ix, Math.floor(k / 3) * ch + iy, cw - ix * 2, ch - iy * 2, 0, 0, 384, 384);
-        if (setOpt && setOpt.caption) paintEmoteCaption(g2, items[k].name, 384, 384);
-        if (await window.__addSelfSticker(cv.toDataURL("image/png"), key, items[k].name, true, !!(setOpt && setOpt.caption))) n++;
-      }
+      const n = await emoteSetCut(blob, items, key, !!(setOpt && setOpt.caption));
       toast(n ? "画好了 " + n + " 张，在表情包「" + (me.label || nm) + " 的表情」里" : "存表情的时候没成，再试一次", 6000);
     } catch (e) { toast("表情包没画成：" + (e.message || "重试"), 8000); }
     finally { setEmoteSetBusy(""); }
