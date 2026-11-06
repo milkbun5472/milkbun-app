@@ -979,7 +979,7 @@
             bd ? h(React.Fragment, null, bd.char.remark || bd.char.name, h("span", { style: { fontSize: "0.62em", marginLeft: 4, opacity: .85 } }, bd.anniv ? "「" + bd.anniv.name + "」" : "的生日")) : pool === "char" ? (charTheme.trim() ? "「" + charTheme.trim() + "」" : charTime !== "now" ? timeZh(charTime) : "还没写主题") : cur.zh,
             bd ? h("span", { style: { marginLeft: 6, fontSize: "calc(16px * var(--app-fs, 1))", color: acc, verticalAlign: "super", textShadow: "0 0 10px " + acc + "" } }, "✦") : null),
           bd ? h("div", { style: { marginTop: 3, fontFamily: F_BODY, fontSize: "calc(9.5px * var(--app-fs, 1))", letterSpacing: ".3em", color: acc, opacity: .6 } }, ann ? "你们俩 · 一年一次" : "生日限定 · 一年一次") : null,
-          h("div", { "data-wk": "stampbannerhook", style: { marginTop: 12, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden", fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: "calc(12.5px * var(--app-fs, 1))", lineHeight: 1.5, color: "rgba(244,236,218,.88)", whiteSpace: "pre-line" } }, hook),
+          h("div", { "data-wk": "stampbannerhook", style: { marginTop: 12, fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: "calc(12.5px * var(--app-fs, 1))", lineHeight: 1.5, color: "rgba(244,236,218,.88)", whiteSpace: "pre-line" } }, hook),
           h("div", { style: { flex: 1, minHeight: 0, display: "flex", justifyContent: "center", alignItems: "center", paddingBottom: 0 } }, faceRow),
           h("div", { className: "flex items-end justify-between", style: { gap: 8 } },
           // 邮戳：常驻写「常驻」；限时写截止日和还剩多久，万圣夜那枚是南瓜色的限定戳
