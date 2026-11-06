@@ -163,7 +163,7 @@
           const relationship = (window.spaceLover ? window.spaceLover(cp) : cp && cp.status === "together") ? "你和她现实中已正式在一起，可以使用现实已有的恋人称谓" : cp && cp.status === "pending" && (!window.spaceRelKey || window.spaceRelKey(cp) === "lover") ? "你向她表达过关系意愿，但现实中尚未确认成为恋人" : "你和她现实中没有已确认的恋人关系";
           const allowedNames = [char.name, char.remark, props.profile && props.profile.name].filter(Boolean).map(String).filter((x, i, a) => a.indexOf(x) === i).join("、") || "无";
           const prevDreams = (theirs || []).filter(d => d && d.charId === char.id && d.key !== row.key && d.narrative);
-          const raw = await callAI(p, dreamGenSys(char, row, excerpts, { relationship, allowedNames }, prevDreams.slice(0, 6)), [{ role: "user", content: "开始做梦。" }], { maxTokens: 14400 });
+          const raw = await callAI(p, dreamGenSys(char, row, excerpts, { relationship, allowedNames }, prevDreams.slice(0, 6)), [{ role: "user", content: "开始做梦。" }], { biFor: char, maxTokens: 14400 });
           const gen = parseDreamJSON(raw);
           if (!gen) throw new Error("梦没成形，再试一次");
           // 开头跟前几场差不多：这场先不存，梦还在原处等下一次

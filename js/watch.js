@@ -112,7 +112,7 @@
       : mode === "auto-ask" ? "（她转过头来，想听你说两句看到这儿的想法）"
       : mode === "frame" ? ((text ? text + "\n" : "") + "（她把这一帧画面给你看）")
       : text;
-    const raw = await callAI(p.active, sys, [{ role: "user", content: msg, imageDataUrls: frameUrl ? [frameUrl] : undefined }], { maxTokens: 65000 });
+    const raw = await callAI(p.active, sys, [{ role: "user", content: msg, imageDataUrls: frameUrl ? [frameUrl] : undefined }], { biFor: char, maxTokens: 65000 });
     return parseSay(raw);
   }
   // 把最早那一截折进这部片子自己的记录。⚠️它不是记忆：折完还是只活在这张票上，出门只有「记住」那一条路（同一起读）

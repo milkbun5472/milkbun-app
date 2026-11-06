@@ -872,6 +872,11 @@ async function readAIJSON(r) {
   catch (e) { throw new Error("线路回的不是正常回复（HTTP " + r.status + "）：" + raw.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim().slice(0, 120)); }
 }
 async function callAI(p, system, messages, opts) {
+  // opts.biFor：这一次写字的是谁（一个角色或几个）——开着双语的，system 末尾加上「原文 | 中文」那条（probeBiLine 那一份）
+  if (opts && opts.biFor && typeof system === "string" && typeof probeBiLine === "function" && !/【双语】/.test(system)) {
+    const who = (Array.isArray(opts.biFor) ? opts.biFor : [opts.biFor]).filter(Boolean);
+    if (who.some(c => probeBiLine(c))) system += probeBiLine(who.find(c => probeBiLine(c))) + (who.length > 1 ? "（只对开着双语的" + who.filter(c => probeBiLine(c)).map(c => "「" + (c.name || "") + "」").join("") + "说的话这样写，别人照常写。）" : "");
+  }
   // 调用栈只在进门这一刻是全的（await 之后就丢了），所以先取下来
   let logFrom = (opts && opts.logFrom) || "";
   if (!logFrom && !(opts && (opts.logLabel || opts.use)) && typeof callerLabelOf === "function") { try { logFrom = callerLabelOf(new Error().stack); } catch (e) {} }
@@ -11259,6 +11264,19 @@ async function runProbe(p, ctx, probe) {
     throw e;
   }
 }
+// TA 亲口写的字自带中译（她 2026-11-06「写双语你看看所有有翻译的地方有没有都接上」）：
+//   跟聊天、查手机同一个写法——外语写成「原文 | 中文」，屏幕上 TransText/transShow/PTX 自己会拆开。
+//   接在 TA 写字的共用入口（runProbe 的 voice 那几种）和直接 callAI 的那几处（传 char 进来），一处说法，别每一处自己写。
+//   TA 没开双语、已经自己要了单独的 zh 字段（朋友圈那种）、或者这一段本来就写了【双语】的，都不再加。
+function probeBiLine(char, probe) {
+  if (!char || !char.id || typeof window === "undefined" || typeof window.__charBiOn !== "function" || !window.__charBiOn(char.id)) return "";
+  if (probe) {
+    if (!(probe.voice || probe.voiceThought || probe.voiceScene)) return "";
+    if (/【双语】/.test(String(probe.instruction || "")) || /"zh"|\\"zh\\"|noteZh/.test(String(probe.schemaHint || ""))) return "";
+  }
+  return "\n\n【双语】你这一次写的文字里，凡是【不是中文】的正文（回答、信、留言、评论、纸条、台词、心里话这些），每一处都写成「原文 | 中文」：竖线左边照常写原文，右边是它的简体中文意思，按你说话的口气翻、不是字典直译，一处只用一根竖线；本来就是中文的照常写，不加。名字、时间、选项代号这些不加。";
+}
+if (typeof window !== "undefined") window.probeBiLine = probeBiLine;
 async function runProbeInner(p, ctx, probe) {
   // 等多久、能不能中途掐断：调用方传 probe.timeout / probe.signal，原样交给 callAI——
   //   别在外面拿 Promise.race 自己赛跑（赛输了请求还在后台跑、照样计费）。2026-10-20 收
@@ -11282,7 +11300,7 @@ async function runProbeInner(p, ctx, probe) {
     ? "你就是「" + ((ctx.char && ctx.char.name) || "TA") + "」本人。下面是完整设定和实际已知的上下文。这次只写未说出口的内心片段，按任务输出合法 JSON。" : head;
   const sceneHead = probe.voiceScene
     ? "你就是「" + ((ctx.char && ctx.char.name) || "TA") + "」本人。按下方现场事实和完整设定，写真实说出口的话；当前说话对象由现场任务确定。输出严格按 JSON。" : head;
-  const system = (probe.voiceThought ? thoughtHead : probe.voiceScene ? sceneHead : head) + "\n\n" + buildBundle(ctx) + "\n\n【" + (probe.voice ? "这一次要写什么" : "推演任务") + "】\n" + probe.instruction + "\n\n【输出】只输出合法 JSON，无 markdown 无多余文字：\n" + probe.schemaHint;
+  const system = (probe.voiceThought ? thoughtHead : probe.voiceScene ? sceneHead : head) + "\n\n" + buildBundle(ctx) + "\n\n【" + (probe.voice ? "这一次要写什么" : "推演任务") + "】\n" + probe.instruction + probeBiLine(ctx.char, probe) + "\n\n【输出】只输出合法 JSON，无 markdown 无多余文字：\n" + probe.schemaHint;
   // 她 2026-08-29：「全部 token 放开」。天花板不是预付款——按次计费下给大不多花一分钱，
   // 给小了只会截断正文，思考型模型的推理也从这里扣。默认 2600 是历史遗留，
   // 好几个推演（相册 25 张、书架 30 本）都被它悄悄截过。

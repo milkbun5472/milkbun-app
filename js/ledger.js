@@ -547,7 +547,7 @@
           "· 各角色以第一人称盘点。需要第三人称时，使用条目里的「应用称呼」或姓名。严禁『看了一眼没说什么』这类空话。\n\n" +
           "【上月账单】\n" + statLines.join("\n") + "\n\n【要盘点的角色】\n" + block +
           "\n\n【输出】只输出 JSON，comments 与角色顺序一一对应、数量一致：{\"comments\":[{\"name\":\"角色名\",\"text\":\"这位角色的月度盘点\"}]}。别加解释、别加代码块。";
-        const raw = await callAI(props.active, sys, [{ role: "user", content: "开始盘点。" }], { maxTokens: 14000 });
+        const raw = await callAI(props.active, sys, [{ role: "user", content: "开始盘点。" }], { biFor: vis.map(id => props.characters.find(x => x.id === id)), maxTokens: 14000 });
         const pd = extractJSON(raw) || {};
         const arr = Array.isArray(pd.comments) ? pd.comments : [];
         const cmts = list.map((it, i) => { const byName = arr.find(r => r && String(r.name || "").trim() === it.name); const r = byName || arr[i]; const txt = r && (r.text || r.comment) ? String(r.text || r.comment).trim() : ""; return { charId: it.id, charName: it.name, text: txt, ts: Date.now() }; }).filter(x => x.text);
@@ -593,7 +593,7 @@
           "· 各角色以第一人称说。需要第三人称时，使用条目里的「应用称呼」或姓名。\n\n" +
           "【这一年】\n" + stat + "\n\n【要说话的角色】\n" + block +
           "\n\n【输出】只输出 JSON，comments 与角色顺序一一对应、数量一致：{\"comments\":[{\"name\":\"角色名\",\"text\":\"这位角色说的话\"}]}。别加解释、别加代码块。";
-        const raw = await callAI(props.active, sys, [{ role: "user", content: "开始。" }], { maxTokens: 14000 });
+        const raw = await callAI(props.active, sys, [{ role: "user", content: "开始。" }], { biFor: vis.map(id => props.characters.find(x => x.id === id)), maxTokens: 14000 });
         const pd = extractJSON(raw) || {}, arr = Array.isArray(pd.comments) ? pd.comments : [];
         const cmts = list.map((it, i) => { const r = arr.find(x => x && String(x.name || "").trim() === it.name) || arr[i]; const txt = r && (r.text || r.comment) ? String(r.text || r.comment).trim() : ""; return { charId: it.id, charName: it.name, text: txt, ts: Date.now() }; }).filter(x => x.text);
         if (!cmts.length) { props.toast && props.toast("TA 们这次没说出来，等会儿再试"); return; }

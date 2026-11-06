@@ -357,7 +357,7 @@
       "今天的塔罗牌是【同一张】：" + cardLabel(card) + "。请【分别以下面每位角色本人的口吻】，就【这同一张牌】给 " + uName + " 递一句今天的当日签——短，像随口说的一两句，结合这张牌（含正/逆位）与各自人设" + (list.some(it => it.mood) ? "（有此刻心情就顺带透一点，但别喧宾夺主，牌义才是主角）" : "") + "，别混淆、别串味、别把几个人写成同一个腔调、也别千篇一律。\n\n" +
       "【要解读这张牌的角色】\n" + block +
       "\n\n【输出】只输出 JSON，readings 数组和上面角色顺序【一一对应、数量一致】：{\"readings\":[{\"name\":\"角色名\",\"text\":\"这位角色对今天这张牌的当日签\"}...]}。别加解释、别加代码块。";
-    const raw = await callAI(active, sys, [{ role: "user", content: "开始发签。" }], { maxTokens: 65000 });
+    const raw = await callAI(active, sys, [{ role: "user", content: "开始发签。" }], { biFor: list, maxTokens: 65000 });
     const p = extractJSON(raw) || {};
     const arr = Array.isArray(p.readings) ? p.readings : [];
     // 优先按 name 对齐，兜底按顺序

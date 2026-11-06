@@ -23591,9 +23591,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   //   树洞是「一屋子陌生人」，连线是「直播里接进来一个人」，两句话不一样，不许互相将就。
   const strangerBans = () => "\n\n" + ECHO_QUESTION_BAN + "\n\n" + REGISTER_FOLLOWS_SCENE
     + (window.ReplyPacing ? "\n\n" + window.ReplyPacing.reading() : "");
-  // 匿名箱的双语（她 2026-11-06）：走公共的 ProbeZh，跟朋友圈同一份
-  const anonBiOn = char => ProbeZh.on(settingsFor(char.id));
-  const anonBiSpec = ProbeZh.spec("这条回答", "skip 时写的那句 note 也一样，中译写在 noteZh。");
+  // 匿名箱的双语（她 2026-11-06）：不另写——runProbe 的 voice 那一路自己会加「原文 | 中文」（probeBiLine）
   const anonBans = () => strangerBans()
     + "\n\n【这是树洞，不是聊天】问你话的是一屋子跟你毫无关系的陌生人，不是你身边的人。"
     + "对他们说话的分寸、耐心和亲疏，跟你对熟人说话【本来就不一样】——想答就答，不想答就不答，"
@@ -23686,8 +23684,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
           + "· 你此刻的心情写在上面——烦的时候就短、就冲;松快的时候话会多一点。让它真的影响这几条,别每条都是同一个温度。\n"
           + "· 说人话:别端着解释道理、别写成箴言警句、别用『其实/本质上/无非是』这种给人上课的开场。\n"
           + "如果看完这些你心里冒出了「这人是不是我认识的某某」,把那个念头写进 guess(一句,可以猜错、可以猜得很离谱);没冒出来就留空。"
-          + anonBans() + (anonBiOn(char) ? anonBiSpec : ""),
-        schemaHint: "{\"items\":[{\"answer\":\"回答(skip 为 true 时留空)\",\"skip\":false,\"note\":\"skip 为 true 时你当时的反应(一句,可空)\"" + (anonBiOn(char) ? ProbeZh.field("zh", "回答") + ProbeZh.field("noteZh", "note") : "") + "}],\"guess\":\"你心里那句猜测(可空)\"}"
+          + anonBans(),
+        schemaHint: "{\"items\":[{\"answer\":\"回答(skip 为 true 时留空)\",\"skip\":false,\"note\":\"skip 为 true 时你当时的反应(一句,可空)\"" + "}],\"guess\":\"你心里那句猜测(可空)\"}"
       });
       const items = (d && Array.isArray(d.items)) ? d.items : [];
       if (!items.length) throw new Error("没有生成内容");
@@ -23702,8 +23700,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         records: (c2.records || []).map(r => {
           const it = ansById[r.id];
           if (!it) return r;
-          const _z = it.skip ? "" : ProbeZh.take(it.zh), _nz = it.skip ? ProbeZh.take(it.noteZh) : "";
-          return { ...r, pending: false, skip: !!it.skip, note: it.skip ? String(it.note || "") : "", a: it.skip ? "" : String(it.answer || ""), ansTs: now, ...(_z ? { zh: _z } : {}), ...(_nz ? { noteZh: _nz } : {}) };
+          return { ...r, pending: false, skip: !!it.skip, note: it.skip ? String(it.note || "") : "", a: it.skip ? "" : String(it.answer || ""), ansTs: now };
         })
       }));
       const nSkip = items.filter(x => x && x.skip).length;
@@ -23727,8 +23724,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         voice: true,
         instruction: "有人匿名向你提问：「" + q + "」。你不知道问的其实是 " + ((profile && profile.name) || "用户") + "。\n"
           + "就当是手机上随手回一条匿名提问：想认真答就认真答，不想答就敷衍、顶回去或只接半句；"
-          + "长短随你此刻的心情，别写成一句端着的判词。" + (anonBiOn(char) ? anonBiSpec : ""),
-        schemaHint: "{\"answer\":\"回答\"" + (anonBiOn(char) ? ProbeZh.field("zh", "回答") : "") + "}"
+          + "长短随你此刻的心情，别写成一句端着的判词。",
+        schemaHint: "{\"answer\":\"回答\"}"
       });
       pAnon(char.id, cur => ({
         ...cur,
@@ -23736,7 +23733,6 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
           from: "me",
           q,
           a: d.answer,
-          ...(ProbeZh.take(d.zh) ? { zh: ProbeZh.take(d.zh) } : {}),
           ts: Date.now()
         }, ...(cur.records || [])].slice(0, 200) // v62.42 封顶
       }));

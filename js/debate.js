@@ -425,7 +425,7 @@
       if (J && !callOf(out)) { const m = txt.match(/"call"\s*:\s*"((?:[^"\\]|\\.)*)"/); if (m) { try { out.call = JSON.parse('"' + m[1] + '"'); } catch (e) { out.call = m[1]; } } }
       return out;
     };
-    const raw0 = await callAI(active, sys, [{ role: "user", content: "开始：按序让各角色接话，最后只摘一张未决争点卡。" }], { maxTokens: budget });
+    const raw0 = await callAI(active, sys, [{ role: "user", content: "开始：按序让各角色接话，最后只摘一张未决争点卡。" }], { biFor: chars, maxTokens: budget });
     let p = salvage(raw0, extractJSON(raw0) || {});
     if (missing(p)) {
       try {
@@ -433,7 +433,7 @@
         const lack = chars.filter(c => !(p.turns || []).some(x => x && String(x.name || "").trim() === c.name && sayOf(x))).map(c => c.name);
         const ask2 = "这一轮" + (have ? "已经写好的发言：\n" + have + "\n\n" : "") + "还缺：" + (lack.length ? lack.join("、") + " 这一轮的发言" : "") + (J && !callOf(p) ? (lack.length ? "，以及" : "") + "裁判 " + J.name + " 的判语" : "")
           + "。只补缺的这几样，已经写好的别重写。只输出 JSON：{\"turns\":[{\"name\":\"角色名\",\"say\":\"发言\",\"at\":\"主要回应谁\"}]" + (J ? ",\"call\":\"裁判判语\"" : "") + "}";
-        const raw2 = await callAI(active, sys, [{ role: "user", content: ask2 }], { maxTokens: budget });
+        const raw2 = await callAI(active, sys, [{ role: "user", content: ask2 }], { biFor: chars, maxTokens: budget });
         const p2 = salvage(raw2, extractJSON(raw2) || {});
         const add = (p2.turns || []).filter(x => x && sayOf(x) && lack.indexOf(String(x.name || "").trim()) >= 0);
         p = Object.assign({}, p, { turns: (p.turns || []).filter(x => x && sayOf(x)).concat(add) });
