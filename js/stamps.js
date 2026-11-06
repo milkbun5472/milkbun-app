@@ -98,9 +98,8 @@
   function LimMark({ card, big }) {
     if (!card || !card.limited) return null;
     const lim = ((C().LIMITED) || []).find(x => x.id === card.limited) || {}, tone = LIM_TONE[lim.deco] || LIM_MARK_TONE[lim.deco] || ["#3a2c22", "#d9a25a"];
-    return h("span", { "data-wk": "stamplimmark", style: { position: "absolute", inset: big ? 9 : 5, zIndex: 3, pointerEvents: "none", borderRadius: 2, boxShadow: "inset 0 0 0 " + (big ? 2 : 1.5) + "px " + tone[1] + ", inset 0 0 " + (big ? 14 : 8) + "px " + tone[1] + "55" } },
-      h("span", { style: { position: "absolute", right: big ? -2 : -1, top: big ? 14 : 16, padding: big ? "2px 7px 2px 9px" : "1px 4px 1px 5px", background: tone[0], color: tone[1], border: "1px solid " + tone[1], borderRight: "none", borderRadius: "999px 0 0 999px",
-        fontFamily: F_DISPLAY, fontSize: big ? "calc(10.5px * var(--app-fs, 1))" : "calc(8px * var(--app-fs, 1))", lineHeight: 1.3, letterSpacing: ".08em", whiteSpace: "nowrap" } }, big ? (card.theme || lim.name || "") + " 限定" : "限定"));
+    // 她 2026-11-06：框太粗、不要「限定」那条——只留一圈细线
+    return h("span", { "data-wk": "stamplimmark", style: { position: "absolute", inset: big ? 9 : 5, zIndex: 3, pointerEvents: "none", borderRadius: 2, boxShadow: "inset 0 0 0 " + (big ? 1 : 0.75) + "px " + tone[1] + "cc" } });
   }
   function StampFace({ t, card, onClick, size, back }) { const [url, el, near] = useStampThumb(card && (card.cover || card.face));
     // 卡面动起来了的 SSR：册子里那一格也在动（滑到附近才放，没封面换过别的图时才用）
