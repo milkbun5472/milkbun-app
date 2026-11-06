@@ -54,7 +54,7 @@ test("动图提示词最前面先守住世界和发型（不点任何时代题�
 test("动图规矩：精简直说——完整动作、身体跟着动、幅度照现实、最多眨一次、参考照只认人", () => {
   const eng = readFileSync(new URL("../js/engine.js", import.meta.url), "utf8");
   const r = eng.slice(eng.indexOf("const GIF_WORLD_HEAD"), eng.indexOf("⑤参考照只用来认人") + 20);
-  for (const k of ["开始、发展、做到位、收回到起始姿势", "幅度照现实", "眼睛整段最多眨一次", "参考照只用来认人", "镜头、构图、背景、光线固定"]) assert.ok(r.includes(k), k);
+  for (const k of ["所有帧都从画面描述里写的那个姿势出发", "由一个人做这个动作，其他人保持自己的姿势", "开始、发展、做到位、收回到起始姿势", "幅度照现实", "眼睛整段最多眨一次", "参考照只用来认人", "镜头、构图、背景、光线固定"]) assert.ok(r.includes(k), k);
   assert.ok(!/不许|但/.test(r), "又写回了「X，但不许 Y」");
   assert.doesNotMatch(r, /古代|现代|古风|仙侠|科幻/);
 });
