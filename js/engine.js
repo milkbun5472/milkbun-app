@@ -7824,7 +7824,16 @@ function showClean(text, isU) {
   if (s.indexOf("(") >= 0 && ttsHasSoundTag(s)) s = ttsMarkStrip(s);
   if (s.indexOf("\\n") >= 0) s = s.replace(/\\r\\n|\\n/g, "\n");
   if (s.indexOf("〔") >= 0) s = privateBracketFix(s).replace(/ {2,}/g, " ").trim();
+  if (s.indexOf("[") >= 0) s = stripCtxTagEcho(s);
   return s;
+}
+// 模型把 app 给它看的记录标签原样抄进了回话（群友 2026-11-06 截图：「热乎的垫垫肚子 [你给 Lisa 点了外卖：……（骑手在路上）]」）：
+//   那几种 [你给 X 点了外卖：…] [X 给你点了外卖：…] [送给你一份礼物：…] [已经实际发出…] 是写给模型看的旁注，不是话。
+//   只认这几种开头，别的方括号一个不碰；摘完整条空了就原样留着（宁可露也别吞成空气泡）。
+const CTX_TAG_ECHO_RE = /\s*\[(?:你给[^\]\n]{0,40}?(?:点了外卖|寄了|转账|送了)|[^\]\n]{0,24}?给你(?:点了外卖|寄了|转账|送了)|送给你一份礼物|你给对方寄了|已经实际发出|发来一张|语音消息，说的不是打的|当着全群的面)[^\]\n]*?(?:\([^)\n]*\)[^\]\n]*?|（[^）\n]*）[^\]\n]*?)*\]/g;
+function stripCtxTagEcho(s) {
+  const out = s.replace(CTX_TAG_ECHO_RE, "").replace(/ {2,}/g, " ").trim();
+  return out ? out : s;
 }
 function ttsHasPause(text) {
   const s = String(text == null ? "" : text);
