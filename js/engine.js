@@ -6349,7 +6349,12 @@ const gifMsNow = () => { const v = Number(loadJSON("x_gifMs", 150)); return Math
 async function generateSelfieImage(prompt, refPhotoDataUrl, opts) {
   const out = await generateSelfieImageRaw(prompt, refPhotoDataUrl, opts);
   if (out && out.blob && out.blob.type === "image/gif" && typeof GifCodec !== "undefined" && GifCodec.retime) {
-    try { out.blob = new Blob([GifCodec.retime(new Uint8Array(await out.blob.arrayBuffer()), gifMsNow(), true)], { type: "image/gif" }); out.dataUrl = null; } catch (e) {}
+    try {
+      let u8 = new Uint8Array(await out.blob.arrayBuffer());
+      // 有几帧没画满（底下露一条）：先裁齐再定速
+      try { const t = GifCodec.trimUncovered && GifCodec.trimUncovered(u8); if (t) u8 = t; } catch (e2) {}
+      out.blob = new Blob([GifCodec.retime(u8, gifMsNow(), true)], { type: "image/gif" }); out.dataUrl = null;
+    } catch (e) {}
   }
   return out;
 }

@@ -69,7 +69,7 @@
           const o = (y * W + X) * 4; canvas[o] = ct[ci * 3]; canvas[o + 1] = ct[ci * 3 + 1]; canvas[o + 2] = ct[ci * 3 + 2]; canvas[o + 3] = 255;
         }
       }
-      frames.push({ rgba: canvas.slice(), delay: gce.delay });
+      frames.push({ rgba: canvas.slice(), delay: gce.delay, rect: { x: ix, y: iy, w: iw, h: ih } });
       if (gce.disposal === 2) for (let y = iy; y < Math.min(H, iy + ih); y++) canvas.fill(0, (y * W + ix) * 4, (y * W + Math.min(W, ix + iw)) * 4);
       else if (gce.disposal === 3 && saved) canvas.set(saved);
       gce = { disposal: 0, delay: 100, trans: -1 };
@@ -171,5 +171,24 @@
     return ended && p <= b.length ? b : orig;
   }
 
-  return { decode, encode, retime };
+  // ---- 裁掉没画到的边 ----
+  // 有的站回的动图，几帧只画了画布的一部分（她 2026-11-06：「有几帧底下多一条」）——没画到的那几行露着上一帧剩下的东西。
+  //   每帧都画满的原样返回 null；不然把所有帧裁到「第一帧之后每帧都盖住」的那块，重新编码
+  function trimUncovered(buf) {
+    const g = decode(buf);
+    if (g.frames.length < 2) return null;
+    let x0 = 0, y0 = 0, x1 = g.width, y1 = g.height;
+    g.frames.forEach(f => { const r = f.rect; if (!r) return; x0 = Math.max(x0, r.x); y0 = Math.max(y0, r.y); x1 = Math.min(x1, r.x + r.w); y1 = Math.min(y1, r.y + r.h); });
+    if (x0 === 0 && y0 === 0 && x1 === g.width && y1 === g.height) return null;
+    const W = x1 - x0, H = y1 - y0;
+    if (W < g.width * 0.8 || H < g.height * 0.8) return null;   // 差得太多就不是「底下一条」，别乱裁
+    const frames = g.frames.map(f => {
+      const o = new Uint8ClampedArray(W * H * 4);
+      for (let y = 0; y < H; y++) o.set(f.rgba.subarray(((y + y0) * g.width + x0) * 4, ((y + y0) * g.width + x0 + W) * 4), y * W * 4);
+      return { rgba: o, delay: f.delay };
+    });
+    return encode({ width: W, height: H, frames });
+  }
+
+  return { decode, encode, retime, trimUncovered };
 });

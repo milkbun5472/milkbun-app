@@ -18,7 +18,8 @@ test("出图入口按拉条定速，帧数 16；拉条松手把存着的动图�
   const eng = readFileSync(new URL("../js/engine.js", import.meta.url), "utf8");
   const ui = readFileSync(new URL("../js/screens-ui.js", import.meta.url), "utf8");
   assert.match(eng, /const GIF_FRAMES = 16;/);
-  assert.match(eng, /GifCodec\.retime\(new Uint8Array\(await out\.blob\.arrayBuffer\(\)\), gifMsNow\(\), true\)/);
+  assert.match(eng, /GifCodec\.retime\(u8, gifMsNow\(\), true\)/);
+  assert.match(eng, /GifCodec\.trimUncovered\(u8\)/);
   assert.match(eng, /async function retimeStoredGifs\(ms\)/);
   assert.match(ui, /const n = await retimeStoredGifs\(ms\);/);
   assert.doesNotMatch(readFileSync(new URL("../js/app.js", import.meta.url), "utf8"), /gifFrames: (8|12),/);
@@ -31,4 +32,16 @@ test("要动图就在提示词后面接【动图规矩】，一处说法", () =>
 test("结构认不全（截断的 GIF）就原样返回，不改一个字节", () => {
   const cut = bytes.slice(0, bytes.length - 20);
   assert.deepEqual(Array.from(G.retime(cut, 300, true)), Array.from(cut));
+});
+test("有一帧底下没画满：所有帧裁到都画到的那块；都画满就不动", () => {
+  const W = 20, H = 20, f = v => { const a = new Uint8ClampedArray(W * H * 4); for (let i = 0; i < a.length; i += 4) { a[i] = v; a[i + 1] = v; a[i + 2] = v; a[i + 3] = 255; } return a; };
+  const full = G.encode({ width: W, height: H, frames: [{ rgba: f(10), delay: 100 }, { rgba: f(200), delay: 100 }] });
+  assert.equal(G.trimUncovered(full), null);
+  // 把第二帧的图像描述里的高改成 18：底下两行没画到
+  const b = full.slice(); let seen = 0;
+  for (let i = 0; i < b.length - 10; i++) if (b[i] === 0x2C && b[i + 1] === 0 && b[i + 2] === 0 && b[i + 3] === 0 && b[i + 4] === 0 && b[i + 5] === W && b[i + 7] === H) { if (++seen === 2) { b[i + 7] = 18; break; } }
+  const out = G.trimUncovered(b);
+  assert.ok(out, "该裁没裁");
+  const g = G.decode(out);
+  assert.equal(g.width, 20); assert.equal(g.height, 18);
 });
