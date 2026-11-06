@@ -14291,7 +14291,7 @@ function AnonBox({
       r.pending
         ? h("div", { "data-wk": "anona", "data-part": "pending", style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: A.fog, paddingLeft: 10, borderLeft: `2px dashed ${A.line}` } }, "还在箱子里，等 Ta 打开")
         : r.skip
-          ? h("div", { "data-wk": "anona", "data-part": "skip", style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: A.fog, paddingLeft: 10, borderLeft: `2px solid ${A.hot}66`, fontStyle: "italic" } }, r.note ? "（" + r.note + "）" : "（Ta 看见了，没答）")
+          ? h("div", { "data-wk": "anona", "data-part": "skip", style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: A.fog, paddingLeft: 10, borderLeft: `2px solid ${A.hot}66`, fontStyle: "italic" } }, r.note ? (typeof TransText === "function" ? h(TransText, { text: "（" + r.note + "）", zhReady: r.noteZh, ink: A.fog }) : "（" + r.note + "）") : "（Ta 看见了，没答）")
           : h("div", { "data-wk": "anona", style: { fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", lineHeight: 1.6, color: A.sub, paddingLeft: 10, borderLeft: `2px solid ${A.line}` } }, typeof TransText === "function" ? h(TransText, { text: r.a, zhReady: r.zh, ink: A.sub }) : r.a),
       // 追问：接着这一条再问一句，同样先放进箱子
       (!r.pending && !r.skip && r.a) ? h("button", { "data-wk": "anonbtn", "data-part": "followup",
