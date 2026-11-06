@@ -65,3 +65,8 @@ test("照片的动图走动态照片那套：人不动、只一处在动；表�
   assert.ok(!/不许|但/.test(r));
   assert.ok(!/眼/.test(r));
 });
+test("照片动图太宽就缩到 GIF_MAX_W（iPhone 解不开大动图）", () => {
+  const eng = readFileSync(new URL("../js/engine.js", import.meta.url), "utf8");
+  assert.match(eng, /const GIF_MAX_W = 720;/);
+  assert.match(eng, /const sm = gifShrink\(u8, GIF_MAX_W\); if \(sm\) u8 = sm;/);
+});

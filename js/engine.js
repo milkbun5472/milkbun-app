@@ -6354,6 +6354,19 @@ const GIF_PHOTO_RULE = "\n\n【动图】动态照片，帧按时间顺序排："
   + "③镜头、构图、背景固定；脸、五官、手、衣服、画风每帧一致；最后一帧接回第一帧。"
   + "④参考照只用来认人。";
 const gifMsNow = () => { const v = Number(loadJSON("x_gifMs", 150)); return Math.max(60, Math.min(400, v || 150)); };
+// 动图宽过 GIF_MAX_W 就整段缩小（逐帧画到小画布再编码）；不用缩、或者这里没有画布，返回 null
+const GIF_MAX_W = 720;
+function gifShrink(u8, maxW) {
+  if (typeof GifCodec === "undefined" || typeof document === "undefined") return null;
+  const g = GifCodec.decode(u8);
+  if (!g.frames.length || g.width <= maxW) return null;
+  const w = maxW, hh = Math.round(g.height * maxW / g.width);
+  const src = document.createElement("canvas"); src.width = g.width; src.height = g.height; const sg = src.getContext("2d");
+  const cv = document.createElement("canvas"); cv.width = w; cv.height = hh; const c2 = cv.getContext("2d");
+  c2.imageSmoothingQuality = "high";
+  const frames = g.frames.map(f => { sg.putImageData(new ImageData(f.rgba, g.width, g.height), 0, 0); c2.clearRect(0, 0, w, hh); c2.drawImage(src, 0, 0, w, hh); return { rgba: c2.getImageData(0, 0, w, hh).data, delay: f.delay }; });
+  return GifCodec.encode({ width: w, height: hh, frames });
+}
 async function generateSelfieImage(prompt, refPhotoDataUrl, opts) {
   const out = await generateSelfieImageRaw(prompt, refPhotoDataUrl, opts);
   if (out && out.blob && out.blob.type === "image/gif" && typeof GifCodec !== "undefined" && GifCodec.retime) {
@@ -6361,6 +6374,8 @@ async function generateSelfieImage(prompt, refPhotoDataUrl, opts) {
       let u8 = new Uint8Array(await out.blob.arrayBuffer());
       // 有几帧没画满（底下露一条）：先裁齐再定速
       try { const t = GifCodec.trimUncovered && GifCodec.trimUncovered(u8); if (t) u8 = t; } catch (e2) {}
+      // 太大就缩（她 2026-11-06：16 帧 × 1024×1536 的照片动图，iPhone 解不开，显示「图数据坏了」）
+      try { const sm = gifShrink(u8, GIF_MAX_W); if (sm) u8 = sm; } catch (e3) {}
       out.blob = new Blob([GifCodec.retime(u8, gifMsNow(), true)], { type: "image/gif" }); out.dataUrl = null;
     } catch (e) {}
   }
