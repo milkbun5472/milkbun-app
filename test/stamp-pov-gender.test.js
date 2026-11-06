@@ -121,3 +121,11 @@ test("写卡 JSON 里正文带了英文引号也救得回来", () => {
   assert.strictEqual(got.cards[0].narration, '他说"别动"\n笑了');
   assert.ok((src.match(/salvage: stampLooseJSON/g) || []).length >= 2);
 });
+test("限定卡在册子和卡页上都有限定标记", () => {
+  const ui = fs.readFileSync(__dirname + "/../js/stamps.js", "utf8");
+  assert.match(ui, /function LimMark\(\{ card, big \}\)/);
+  assert.ok(!/" 限定"/.test(ui), "不要「限定」那条");
+  assert.match(ui, /const DAY = \{ bday: /);
+  assert.match(ui, /h\(LimMark, \{ card, big: true \}\)/);
+  assert.match(ui, /back \? null : h\(LimMark, \{ card \}\)/);
+});
