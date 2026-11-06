@@ -32807,6 +32807,19 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     }
     return n;
   };
+  // 让他照自己的性子挑九个表情（名字 + 画什么）。九宫格和「一张动图空着不写」共用这一份
+  const pickEmoteNine = async char => {
+    // 去重（她 2026-10-13：「下一次生成会不会出现一样的」）：这一组里已经有的名字告诉他，挑新的
+    const _pk = (emotePacksRef.current || []).find(x => x && x.fromCharFace === char.id);
+    const _have = ((_pk && _pk.emotes) || []).map(e => String(e.keyword || "").trim()).filter(Boolean);
+    const d = await runProbe(apiFor(char.id), ctxFor(char), {
+      instruction: (_have.length ? "你的表情包里已经有这些了（名字和意思都别再重复，也别换个说法凑数）：" + _have.slice(-60).join("、") + "。\n" : "") + "你要出一套自己的表情包，九张。照你自己的性格和你们平时聊天的样子，挑九个你最常用、最像你的表情或小动作，各起一个短名字（2~6 字，就是发表情时的关键词，比如「翻白眼」「偷笑」「委屈」）；look＝这一张画什么（表情和动作，一句话）。九个要各不一样。",
+      schemaHint: "{\"items\":[{\"name\":\"\",\"look\":\"\"}]}",
+      maxTokens: 8000
+    });
+    // 重名的照样留着（她 2026-10-13：「重复的照样留着吧都花了钱的」）——去重只靠上面把已有的告诉他、降低概率
+    return emoteSetItems(d);
+  };
   const makeEmoteSet = async (charId, setOpt) => {
     if (String(charId || "").indexOf("__me:") === 0) return makeMyEmoteSet(String(charId).slice(5), setOpt);
     const char = characters.find(c => c.id === charId);
@@ -32815,16 +32828,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     if (!char.refPhoto) { toast("先在人格档案馆给 TA 传一张参考照，脸才锁得住"); return; }
     setEmoteSetBusy(charId);
     try {
-      // 去重（她 2026-10-13：「下一次生成会不会出现一样的」）：这一组里已经有的名字告诉他，挑新的
-      const _pk = (emotePacksRef.current || []).find(x => x && x.fromCharFace === charId);
-      const _have = ((_pk && _pk.emotes) || []).map(e => String(e.keyword || "").trim()).filter(Boolean);
-      const d = await runProbe(apiFor(char.id), ctxFor(char), {
-        instruction: (_have.length ? "你的表情包里已经有这些了（名字和意思都别再重复，也别换个说法凑数）：" + _have.slice(-60).join("、") + "。\n" : "") + "你要出一套自己的表情包，九张。照你自己的性格和你们平时聊天的样子，挑九个你最常用、最像你的表情或小动作，各起一个短名字（2~6 字，就是发表情时的关键词，比如「翻白眼」「偷笑」「委屈」）；look＝这一张画什么（表情和动作，一句话）。九个要各不一样。",
-        schemaHint: "{\"items\":[{\"name\":\"\",\"look\":\"\"}]}",
-        maxTokens: 8000
-      });
-      // 重名的照样留着（她 2026-10-13：「重复的照样留着吧都花了钱的」）——去重只靠上面把已有的告诉他、降低概率
-      const items = emoteSetItems(d);
+      const items = await pickEmoteNine(char);
       if (items.length < 9) throw new Error(characterText(char, "他没挑够九个，再试一次"));
       const prompt = emoteSetPrompt(char.name, char.appearance, items, setOpt && setOpt.gif);
       const out = await generateSelfieImage(prompt, [char.refPhoto], Object.assign({ size: "1024x1024", minimalPrompt: prompt, still: true }, setOpt && setOpt.gif ? { gif: true, gifFrames: 8, gifMs: 140 } : {}));
@@ -32869,12 +32873,22 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     const who = isMe ? ((mk ? (masksRef.current || []).find(m => m && m.id === mk) : profile) || profile) : characters.find(c => c.id === whoId);
     if (!who) return;
     const nm = isMe ? (who.label || who.name || "我") : (who.remark || who.name);
-    requestAppPrompt("画一张会动的「" + nm + "」", "写这张动图叫什么、做什么动作（一两句）。发表情时打它的名字就能联想出来。",
+    requestAppPrompt("画一张会动的「" + nm + "」", (isMe ? "" : "空着直接点「画」，就让" + nm + "自己挑一个。") + "写这张动图叫什么、做什么动作（一两句）。发表情时打它的名字就能联想出来。",
       "", async v => {
-        const t = String(v || "").trim(); if (!t) return;
-        const name = t.split(/[，,。：:\s]/)[0].slice(0, 8) || "动图";
+        let t = String(v || "").trim();
+        // 懒得想（她 2026-11-06「还得我写描述懒得想」）：空着就让他照自己的性子挑一个——挑一次九个存着，下次空着接着用
+        if (!t && isMe) { toast("给自己画要写一句做什么动作"); return; }
+        let name = t ? (t.split(/[，,。：:\s]/)[0].slice(0, 8) || "动图") : "";
         setEmoteSetBusy(whoId);
         try {
+          if (!t) {
+            const bank = loadJSON("x_emoteGifIdeas", {}) || {};
+            let left = Array.isArray(bank[who.id]) ? bank[who.id] : [];
+            if (!left.length) left = (await pickEmoteNine(who)).filter(x => x && x.name && x.look);
+            if (!left.length) throw new Error(characterText(who, "他没挑出来，再点一次，或者自己写一句"));
+            const pick = left[0]; saveJSON("x_emoteGifIdeas", Object.assign({}, bank, { [who.id]: left.slice(1) }));
+            t = pick.look; name = String(pick.name).slice(0, 8);
+          }
           // 表情包是近景（她 2026-11-06：「为啥是全身照」）：画到胸口往上、头占大半，表情和手上的动作才看得清
           const prompt = "一张循环播放的小动图表情包：同一个人「" + (who.name || nm) + "」的平面 Q 版二次元小人，大头小身子，干净的深色勾线、赛璐璐平涂，纯白底。近景构图：只画到胸口往上，头占画面一大半，表情和手上的动作是主角，人物居中、别出格。"
             + (who.refPhoto ? "参考图只用来认这个人——长相、发型发色、标志性配饰照它，照片的写实质感和画风都不跟。" : "")
