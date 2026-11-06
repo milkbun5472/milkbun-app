@@ -32745,6 +32745,30 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     return [lineOk(true, 1 / 3), lineOk(true, 2 / 3), lineOk(false, 1 / 3), lineOk(false, 2 / 3)].filter(Boolean).length >= 3;
   };
   const GRID9 = Array.from({ length: 9 }, (_, k) => ({ sx: (k % 3) / 3 + 0.04 / 3, sy: Math.floor(k / 3) / 3 + 0.04 / 3, sw: (1 - 0.08) / 3, sh: (1 - 0.08) / 3 }));
+  // 一帧帧比：跟上一段的代表帧差得多（缩到 32×32 比平均色差）就算新的一段；每段取中间那帧
+  const gifSegments = g => {
+    const small = rgba => { const o = new Float32Array(32 * 32 * 3); for (let y = 0; y < 32; y++) for (let x = 0; x < 32; x++) { const i = (Math.floor(y * g.height / 32) * g.width + Math.floor(x * g.width / 32)) * 4, j = (y * 32 + x) * 3; o[j] = rgba[i]; o[j + 1] = rgba[i + 1]; o[j + 2] = rgba[i + 2]; } return o; };
+    const diff = (a, b) => { let d = 0; for (let i = 0; i < a.length; i++) d += Math.abs(a[i] - b[i]); return d / a.length; };
+    const segs = []; let ref = null;
+    g.frames.forEach((f, i) => { const sm = small(f.rgba); if (!ref || diff(sm, ref) > 28) { segs.push([i]); ref = sm; } else segs[segs.length - 1].push(i); });
+    return segs.slice(0, 9).map(seg => seg[Math.floor(seg.length / 2)]);
+  };
+  const emoteSetFromFrames = async (g, picks, items, ownerKey, caption) => {
+    const src = document.createElement("canvas"); src.width = g.width; src.height = g.height;
+    const sg = src.getContext("2d"); let n = 0;
+    for (let k = 0; k < picks.length; k++) {
+      sg.putImageData(new ImageData(g.frames[picks[k]].rgba, g.width, g.height), 0, 0);
+      const S = 384, cv = document.createElement("canvas"); cv.width = S; cv.height = S;
+      const c2 = cv.getContext("2d"); c2.fillStyle = "#fff"; c2.fillRect(0, 0, S, S);
+      const sc = Math.min(S / g.width, S / g.height), w = g.width * sc, hh = g.height * sc;
+      c2.drawImage(src, (S - w) / 2, (S - hh) / 2, w, hh);
+      const nm = (items[k] && items[k].name) || "";
+      if (caption && nm) paintEmoteCaption(c2, nm, S, S);
+      if (await window.__addSelfSticker(cv.toDataURL("image/png"), ownerKey, nm, true, caption)) n++;
+    }
+    toast("这次模型画成了九个表情轮流放，没画成格子——按画面拆成了 " + n + " 张静图。名字是按顺序配的，对不上就在表情包页改名", 9000);
+    return n ? -1 : 0;
+  };
   // 没画成格子：整张存成一个，不切（切了就是九张放大的局部）
   const emoteSetWhole = async (blob, ownerKey) => {
     const url = await blobToDataUrl(blob);
@@ -32756,7 +32780,12 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     if (blob.type === "image/gif") {
       if (window.GifCodec) {
         const g0 = window.GifCodec.decode(new Uint8Array(await blob.arrayBuffer()));
-        if (g0.frames.length && !gridLike(g0.frames[0].rgba, g0.width, g0.height)) return emoteSetWhole(blob, ownerKey, caption);
+        if (g0.frames.length && !gridLike(g0.frames[0].rgba, g0.width, g0.height)) {
+          // 模型把「九宫格动图」画成了「每帧整张一个表情、轮流放」（群友 2026-11-06）：按画面一变就算下一个表情，拆成几张静图
+          const parts = gifSegments(g0);
+          if (parts.length >= 2) return emoteSetFromFrames(g0, parts, items, ownerKey, caption);
+          return emoteSetWhole(blob, ownerKey, caption);
+        }
       }
       const urls = await gifCells(blob, GRID9, items.map(x => x.name), caption);
       for (let k = 0; k < urls.length; k++) if (await window.__addSelfSticker(urls[k], ownerKey, items[k].name, true, caption)) n++;
@@ -32823,7 +32852,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   //   原来她那套也没说参考图只管长相，模型连照片的写实质感一起照搬了）。画风照这段字，参考图只认人。
   // gif＝九宫格动图（她 2026-11-06「试试 a」）：一整张循环动图，九格各动各的，格子位置和白缝一帧都不能挪，回来按格切成九张
   const emoteSetPrompt = (name, appearance, items, gif) => (gif
-      ? "一张 3×3 九宫格的循环小动图表情包，九格一样大，格与格之间留明显的白色空隙，每格纯白底；每一帧里九个格子的位置、大小和白缝都完全不动，只有格子里的小人在动，九格各演各的小动作，首尾接得上、一起循环。"
+      ? "【最要紧：这是一张九宫格动图，不是九个表情轮流放】每一帧画面上都同时画着全部九格，九个小人一直同时在场；不许一帧只画一个人、一个表情，然后一帧一帧换着放。"
+        + "一张 3×3 九宫格的循环小动图表情包，九格一样大，格与格之间留明显的白色空隙，每格纯白底；每一帧里九个格子的位置、大小和白缝都完全不动，只有格子里的小人在动，九格各演各的小动作，首尾接得上、一起循环。"
       : "一张 3×3 九宫格表情包贴纸图，九格一样大，格与格之间留明显的白色空隙，每格纯白底。")
     + "每格都是同一个人「" + name + "」的平面 Q 版二次元小人：二到三头身、大头小身子、手脚短短圆圆，干净的深色勾线、赛璐璐平涂，大眼睛、脸颊淡淡腮红，像聊天软件里的表情贴纸。"
     + "画风只照这段描述来；参考图只用来认这个人——长相、发型发色、标志性配饰照它，照片本身的写实质感、光影、画风都不跟。"
