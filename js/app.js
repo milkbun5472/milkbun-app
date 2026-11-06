@@ -29776,7 +29776,9 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       const firstRef = (opt && opt.cellRef) || (opt && opt.restyle && opt.restyle.ref) || null;
       const refs = firstRef ? [firstRef, char.refPhoto, profile.refPhoto] : [char.refPhoto, profile.refPhoto];
       if (wRefS && !firstRef) refs.push(wRefS.img);   // 地图上那个地点的场景图跟在两张脸后面
-      const out = await generateSelfieImage(prompt, refs, { minimalPrompt: RESTYLE_ONLY || (PAINT_LINE ? PAINT_LINE + "\n" : "") + buildMinimalPhotoPrompt(picked && fits ? Object.assign({}, char, { photoOutfit: fits }) : char, { kind: "duo", paint: PAINT || "" }), ...(opt && (opt.grid || opt.comic || (opt.restyle && opt.restyle.comic)) ? { size: "1024x1024" } : opt && /^\d+x\d+$/.test(String(opt.size || "")) ? { size: opt.size } : {}) });
+      // 拍立得、四格、封面海报拍完要印字拼格（画布一过就成静图）：这几种直接要静图，别白要一次动图（她 2026-11-06「合照馆接了动图吗」）
+      const _studioStill = !!(opt && (opt.polaroid || opt.comic || (opt.restyle && (opt.restyle.comic || opt.restyle.overlay)))) || !!coverPlan;
+      const out = await generateSelfieImage(prompt, refs, { still: _studioStill, minimalPrompt: RESTYLE_ONLY || (PAINT_LINE ? PAINT_LINE + "\n" : "") + buildMinimalPhotoPrompt(picked && fits ? Object.assign({}, char, { photoOutfit: fits }) : char, { kind: "duo", paint: PAINT || "" }), ...(opt && (opt.grid || opt.comic || (opt.restyle && opt.restyle.comic)) ? { size: "1024x1024" } : opt && /^\d+x\d+$/.test(String(opt.size || "")) ? { size: opt.size } : {}) });
       if (out && out.degraded && out.degraded !== "site-no-ref") toast("这张有点将就：" + out.degraded, 7000);
       let imgKey = null, imgUrl = null, pol = null, ovl = null;
       if (out && out.blob) {

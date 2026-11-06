@@ -18,3 +18,7 @@ test("带参考照的动图被嫌帧数不是整数：改发 JSON，帧数是真
   assert.match(eng, /if \(opts && opts\.gif && r && !r\.ok && \/frame\|帧数\|整数\|integer\/i\.test/);
   assert.match(eng, /images: imgs, input_fidelity: "high",\s*output_format: "gif", frame_count: Math\.max/);
 });
+test("照相馆：拍立得、四格、封面海报要静图（要印字拼格），普通合照跟总开关", () => {
+  assert.match(app, /const _studioStill = !!\(opt && \(opt\.polaroid \|\| opt\.comic \|\| \(opt\.restyle && \(opt\.restyle\.comic \|\| opt\.restyle\.overlay\)\)\)\) \|\| !!coverPlan;/);
+  assert.match(app, /generateSelfieImage\(prompt, refs, \{ still: _studioStill,/);
+});
