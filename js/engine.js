@@ -8480,7 +8480,10 @@ function translatableLang(text) {
   //   「他叫阿佢」这种名字里沾一个字、通篇简体的照旧不算）。
   { const _yue = count(/[嘅咗唔啲喺嗰冇佢嚟咁乜嘢噉哋囉㗎嘞啱揾搵睇畀咩攰瞓諗谂嚿冚啩喎嗮噃嘥]/g);
     const _trad = typeof toSimplified === "function" && toSimplified(t) !== t;
-    if (_yue >= 2 || (_yue >= 1 && _trad && t.replace(/\s/g, "").length <= 20)) return "粤语"; }
+    // 简体粤语短句一个字也算（她 2026-11-07 截图：「我要瞓啦」「记低咗」一整轮没有译键）：只认普通话里
+    //   几乎碰不到的那几个，外加夹在两个汉字中间的「唔」（「睁唔开」；句首「唔，」是普通话的嗯）和「点解」
+    const _strong = count(/[咗瞓嘅啲喺冇嚟嘢哋囉㗎攰諗谂冚嗮噃嘥睇畀]|点解|點解|(?<=[\u4e00-\u9fff])唔(?=[\u4e00-\u9fff])/g);
+    if (_yue >= 2 || (_strong >= 1 && t.replace(/\s/g, "").length <= 30) || (_yue >= 1 && _trad && t.replace(/\s/g, "").length <= 20)) return "粤语"; }
   return "";
 }
 // 长文（思考链）用的判定（群里 2026-10-08「英文 cot 木有显示翻译按钮，就出现过一次」）：
