@@ -8565,6 +8565,9 @@ function bilingualTurnHint(who) {
 //   这种人开着双语时左边全是汉字也算原文；不知道是谁说的，就再认一遍粤语专用字兜底。
 const HAN_LANG_RE = /粤|粵|广东|廣東|cantonese|上海|吴语|吳語|闽南|閩南|台语|台語|客家|潮汕|文言/i;
 function hanLangOf(c) { return HAN_LANG_RE.test(String((c && c.lang) || "")); }
+// 主语言设成粤语这类的角色：TA 发的每一句带汉字的都给「译」（她 2026-11-07「开了粤语作为主语言就应该给」），
+//   不再一句句猜像不像粤语——「仲要陪你数星星」单看认不出，可说这话的人说的就是粤语
+function hanLangHintOf(c) { if (!hanLangOf(c)) return ""; return /粤|粵|广东|廣東|cantonese/i.test(String(c.lang)) ? "粤语" : "外语"; }
 // 粤语这类角色漏了竖线时，这一泡该不该补中译（她 2026-10-11：「还是有时候不能出翻译」）：
 //   translatableLang 要两个粤语专用字才认，可「換就換，洗完澡…」一个都没有、只有繁体——对这种角色，
 //   有繁体或有一个粤语字就够了；通篇简体又没有粤语字的，才是TA在说普通话。

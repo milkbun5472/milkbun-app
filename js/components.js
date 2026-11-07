@@ -12546,7 +12546,7 @@ function ChatThread({
         fontSize: "calc(10.5px * var(--app-fs, 1))",
         opacity: 0.7
       }
-    }, m.dir === "toChar" ? "转账" : "转账给你"))) : (isU && m.parenAct ? h(ParenActText, { text: m.content }) : h(TransText, { text: m.content, isU: isU, zhReady: m.zh, langHint: m.lang }))), msgFoot(i, m, !selMode && !m.kind && last && subLine(m))),
+    }, m.dir === "toChar" ? "转账" : "转账给你"))) : (isU && m.parenAct ? h(ParenActText, { text: m.content }) : h(TransText, { text: m.content, isU: isU, zhReady: m.zh, langHint: m.lang || (!isU && typeof hanLangHintOf === "function" ? hanLangHintOf(character) : "") }))), msgFoot(i, m, !selMode && !m.kind && last && subLine(m))),
     // 她自己那颗也包一层挂点壳：头像框/挂件要叠在壳上（头像本身裁成圆角，叠在里面会被裁掉）——跟 TA 那颗外面的按钮同一个位置
     isU && dsp.myAvatar && h("span", { onClick: meTap, "data-wk": "avatar", className: "shrink-0", style: { display: "inline-flex" } }, h(Avatar, { character: meAv, size: 40, radius: 10 })), m.blocked && h(isU && bk.theyBlocked ? "button" : "div", {
       onClick: (isU && bk.theyBlocked) ? () => setUnblockDraft(String(m.content || "")) : undefined,
@@ -21016,7 +21016,7 @@ function GroupThread({
         WebkitUserSelect: "none",
         WebkitTouchCallout: "none"
       }, (cardLayout(m.content) || {}).bubble)
-    }, cardLayout(m.content) ? null : bubbleSticker(isU), msgStickEl(m, isU), m.recalled ? m.content : isU && m.parenAct ? h(ParenActText, { text: m.content }) : h(TransText, { text: m.content, isU: isU, zhReady: m.zh, langHint: m.lang })), msgFoot(i, m, !m.recalled && subLine(m))), isU && gsp.showMyAvatar && h("span", { "data-wk": "avatar", className: "shrink-0", style: { display: "inline-flex" } }, h(Avatar, { character: meAv, size: 34, radius: 8 }))));
+    }, cardLayout(m.content) ? null : bubbleSticker(isU), msgStickEl(m, isU), m.recalled ? m.content : isU && m.parenAct ? h(ParenActText, { text: m.content }) : h(TransText, { text: m.content, isU: isU, zhReady: m.zh, langHint: m.lang || (!isU && m.senderId && typeof hanLangHintOf === "function" ? hanLangHintOf(memberById(m.senderId)) : "") })), msgFoot(i, m, !m.recalled && subLine(m))), isU && gsp.showMyAvatar && h("span", { "data-wk": "avatar", className: "shrink-0", style: { display: "inline-flex" } }, h(Avatar, { character: meAv, size: 34, radius: 8 }))));
   }).flatMap((row, i) => {
     // 思考链画在这一组回复的上方（和单聊、线下同一个组件、同一个位置）。
     // 群聊一次调用写完所有人，所以它挂在这一轮最先冒出来的那条上（v56.75）。
