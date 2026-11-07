@@ -6653,11 +6653,23 @@ async function generateSelfieImageRaw(prompt, refPhotoDataUrl, opts) {
           if (/^https?:\/\//i.test(item)) return { url: item };
           return { b64_json: item };
         });
+        // 原样退回参考照（她 2026-11-07：「catsapi 生动图邮票册直接回了一张锁脸的参考图」）：
+        //   结果里跟发过去的参考照一字不差的那几张不算成品；有动图先拿动图
+        const pureOf = x => String(x || "").replace(/^data:image\/[^;]+;base64,/i, "").replace(/\s+/g, "");
+        const sentRefs = new Set(imageInputs.map(pureOf));
+        let picked = normalized.filter(it => !(it && it.b64_json && sentRefs.has(pureOf(it.b64_json))));
+        const gifFirst = picked.filter(it => it && it.b64_json && /^R0lGOD/.test(pureOf(it.b64_json)));
+        if (gifFirst.length) picked = gifFirst.concat(picked.filter(it => !gifFirst.includes(it)));
+        if (normalized.length && !picked.length) throw new Error("CatsAPI 没画新图，原样退回了参考照");
         let out;
-        try { out = await parseOut(poll, JSON.stringify({ data: normalized })); }
+        try { out = await parseOut(poll, JSON.stringify({ data: picked })); }
         catch (e) {
           const prefix = refBlobs.length ? "参考照已上传，但 CatsAPI 完成任务后没有返回可用图片" : "CatsAPI 完成任务后没有返回可用图片";
           throw new Error(prefix + " · GET " + pollUrl + " · " + String((e && e.message) || e));
+        }
+        if (out && out.blob && refBlobs.length) {
+          const same = async (x, y) => { if (!x || !y || x.size !== y.size) return false; const A = new Uint8Array(await x.arrayBuffer()), B = new Uint8Array(await y.arrayBuffer()); for (let i = 0; i < A.length; i++) if (A[i] !== B[i]) return false; return true; };
+          for (const rb of refBlobs) if (await same(out.blob, rb)) throw new Error("CatsAPI 没画新图，原样退回了参考照");
         }
         out.referenceCount = refBlobs.length;
         out.referenceBytes = refBlobs.reduce((n, b) => n + Number((b && b.size) || 0), 0);
