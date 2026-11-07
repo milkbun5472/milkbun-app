@@ -679,7 +679,11 @@
       if (!carried.length) return "";
       return "\n\n【从其他房间带回的交接｜是已经发生过的背景，不是对方刚发来的新消息】\n" + carried.map(function (x) {
         const body = String(x.frame || "") + String(x.summary || "");
-        return "·「" + (x.roomName || "侧房") + "」：" + (body.length > capCarry ? body.slice(0, capCarry) + "…" : body);
+        // 带上是哪天的事（她 2026-11-07：小号好几天前试探的，主聊天里TA当成今天）：用那段结束的时刻，跟聊天里一样写成「前天」「几天前」
+        const when = Number(x.toTs || x.ts || 0), fmt = typeof fmtStampAI === "function" ? fmtStampAI
+          : (typeof window !== "undefined" && typeof window.fmtStampAI === "function" ? window.fmtStampAI : null);
+        const whenTxt = when && fmt ? "（" + fmt(when, room.personId) + "）" : "";
+        return "·「" + (x.roomName || "侧房") + "」" + whenTxt + "：" + (body.length > capCarry ? body.slice(0, capCarry) + "…" : body);
       }).join("\n");
     }
     const lines = ["【当前房间】你和对方正在「" + room.name + "」里交谈。这是一条独立时间线，不要假装侧房里没发生过的对话已经发生。"];
