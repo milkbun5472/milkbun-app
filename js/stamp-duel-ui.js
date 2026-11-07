@@ -94,7 +94,7 @@
       h("div", { style: { height: 5, borderRadius: 3, marginTop: 3, background: "rgba(47,42,34,.12)", overflow: "hidden" } }, h("div", { style: { width: Math.max(0, 100 * hp / max) + "%", height: "100%", background: color, transition: "width .4s" } }))));
   const btn = (bg, fg, line) => ({ padding: "7px 14px", borderRadius: 4, background: bg, color: fg, border: line ? "1px solid " + line : "none", fontFamily: F, fontSize: fz(12.5) });
 
-  function StampDuelPage({ characters, cards, onBack, onRemember, closeOf, meName, toast, useThumb }) {
+  function StampDuelPage({ characters, cards, onBack, onRemember, closeOf, meName, toast, useThumb, onChat }) {
     const [foeId, setFoeId] = useState(() => { const has = (characters || []).find(c => (cards || []).some(x => x.charId === c.id)); return (has || (characters || [])[0] || {}).id; });
     const [blind, setBlind] = useState(false);
     const [st, setSt] = useState(null);
@@ -102,6 +102,7 @@
     const [handSel, setHandSel] = useState(-1), [boardSel, setBoardSel] = useState(-1);
     const [series, setSeries] = useState(null), [asking, setAsking] = useState(false);
     const [fx, setFx] = useState(null), [banner, setBanner] = useState(null), playing = useRef(0);
+    const [chatOpen, setChatOpen] = useState(false), [draft, setDraft] = useState(""), [chatBusy, setChatBusy] = useState(false);
     const seedRef = useRef(Date.now() >>> 0);
     const byId = useMemo(() => { const m = {}; (cards || []).forEach(c => { if (c && c.id) m[c.id] = c; }); return m; }, [cards]);
     const nameOf = id => { const c = (characters || []).find(x => x.id === id); return c ? (c.remark || c.name) : ""; };
@@ -186,6 +187,34 @@
     };
     const again = () => { D().addGame(series, st); start(); };
     const log = st.log.slice(-4);
+    // 边打边聊：记在这一局里（跟着存档走），她发一句才叫 TA 一次
+    st.chat = st.chat || [];
+    const boardLine = () => "第 " + st.turn + " 回合，信封耐久（满 " + D().ENVELOPE_HP + "）她 " + Math.max(0, me.hp) + "、你 " + Math.max(0, them.hp)
+      + "；她信封上有 " + me.board.filter(Boolean).length + " 张，你有 " + them.board.filter(Boolean).length + " 张"
+      + (over ? "；这一把已经打完，" + (over.winner === "me" ? "她赢了" : over.winner === "foe" ? "你赢了" : "打平") : "")
+      + "。最近发生的：" + st.log.slice(-6).map(l => (l.who === "foe" ? "你：" : l.who === "me" ? "她：" : "") + l.text).join("；");
+    const talk = async () => {
+      const text = draft.trim(); if (!text || chatBusy || !onChat) return;
+      st.chat.push({ who: "me", text }); setDraft(""); setChatOpen(true); setChatBusy(true); redraw();
+      try {
+        const hist = st.chat.slice(-9, -1).map(m => (m.who === "me" ? (meName || "她") : foeName) + "：" + m.text).join("\n");
+        const lines = await onChat(foeId, { text, board: boardLine(), history: hist });
+        (lines || []).forEach(x => st.chat.push({ who: "foe", text: x }));
+        if (!(lines || []).length) toast && toast(foeName + " 没接上话，再说一句试试");
+      } catch (e) { toast && toast("没聊成：" + ((e && e.message) || e)); }
+      finally { setChatBusy(false); redraw(); }
+    };
+    const chatBox = h("div", { key: "chat", "data-wk": "duelchat", className: "shrink-0 px-3", style: { paddingTop: 6, borderTop: "1px solid rgba(47,42,34,.12)", background: "rgba(251,246,234,.7)", fontFamily: F, color: INK } },
+      h("button", { onClick: () => setChatOpen(v => !v), className: "w-full text-left", style: { fontSize: fz(11.5), color: SUB, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } },
+        (chatOpen ? "▾ " : "▸ ") + (st.chat.length ? (st.chat[st.chat.length - 1].who === "me" ? "我：" : foeName + "：") + st.chat[st.chat.length - 1].text : "跟 " + foeName + " 说两句（发一句花一次调用）")),
+      chatOpen ? h("div", { style: { maxHeight: 150, overflowY: "auto", margin: "4px 0", display: "flex", flexDirection: "column", gap: 4 } },
+        st.chat.slice(-12).map((m, k) => h("div", { key: k, "data-wk": "duelchatmsg", "data-me": m.who === "me" ? "1" : "0", style: { alignSelf: m.who === "me" ? "flex-end" : "flex-start", maxWidth: "80%", padding: "4px 9px", borderRadius: 10,
+          background: m.who === "me" ? "rgba(79,122,102,.16)" : "#fff", fontSize: fz(12.5), lineHeight: 1.5 } }, m.text)),
+        chatBusy ? h("div", { style: { fontSize: fz(11), color: SUB } }, foeName + " 在打字…") : null) : null,
+      h("div", { className: "flex items-center", style: { gap: 6, padding: "4px 0 6px" } },
+        h("input", { "data-wk": "duelchatinput", value: draft, onChange: e => setDraft(e.target.value), onKeyDown: e => { if (e.key === "Enter") talk(); }, placeholder: "边打边说…",
+          style: { flex: 1, minWidth: 0, padding: "6px 10px", borderRadius: 999, border: "1px solid rgba(47,42,34,.25)", background: "#fff", fontSize: fz(12.5) } }),
+        h("button", { onClick: talk, disabled: chatBusy || !draft.trim(), className: "disabled:opacity-40", style: btn(INK, PAPER) }, "说")));
     const ev = st.events[st.turn];
     const intentText = [].concat((it.stamp || []).map(x => "给「" + x.name + "」盖章"), (it.place || []).map(x => "贴「" + x.name + "」" + x.role)).join("、") || "这回合不贴票";
 
@@ -217,6 +246,7 @@
             h("button", { onClick: () => { if (fail(D().tear(st, "me", boardSel))) { setBoardSel(-1); redraw(); } }, style: btn("transparent", INK, INK) }, "撕下"),
             h("span", { style: { color: SUB, fontSize: fz(11) } }, "点旁边空格＝挪过去（1 胶水）"))) : null,
         h("div", { "data-wk": "duellog", style: { marginTop: 10, fontSize: fz(11), color: SUB, lineHeight: 1.65 } }, log.map((l, k) => h("div", { key: k }, (l.who === "foe" ? foeName + "：" : l.who === "me" ? "我：" : "") + l.text + (l.line ? "「" + l.line + "」" : ""))))),
+      onChat ? chatBox : null,
       banner ? h("div", { key: "bn", "data-wk": "duelbanner", style: { position: "absolute", left: "50%", top: "46%", zIndex: 20, width: "82%", maxWidth: 320, padding: "12px 14px", borderRadius: 4, textAlign: "center",
         background: "rgba(251,246,234,.96)", border: "1.5px solid #c8962e", boxShadow: "0 8px 24px rgba(47,42,34,.3)", fontFamily: FD, color: INK, animation: "duelBanner 1.3s forwards", pointerEvents: "none" } },
         h("div", { style: { fontSize: fz(15), color: banner.who === "foe" ? RED : banner.who === "me" ? GREEN : "#c8962e" } }, banner.text),

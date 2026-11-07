@@ -36045,6 +36045,20 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     onPoke: stampPoke,
     // 邮票对局（她 2026-11-07）：打完点「记得」才进记忆；对面卡组里带上跟 TA 有关系的人（关系页里两头任一头写了的）
     onDuelRemember: (charId, line) => { try { addMemEntry({ text: line, tags: ["邮票对局", "邮票册"], charIds: [charId], knownBy: [charId], source: "stamps" }); toast("记下了"); } catch (e) {} },
+    // 对局时跟 TA 聊（她 2026-11-07「打的时候和角色聊天吧」）：她发一句才调一次，TA 照人设和眼下这一局接
+    onDuelChat: async (charId, d) => {
+      const char = liveChars.find(c => c.id === charId); if (!char) return [];
+      if (!active) { toast("请先到设置配置 API"); return []; }
+      const uN = userName(profile);
+      const r = await runProbe(apiFor(char.id), ctxFor(char), { voice: true, tag: "stampduel", maxTokens: 8000,
+        instruction: "你正和" + uN + "面对面用邮票册的卡打一局对局（两边各一个信封，往上贴卡、互相打信封，打空的输）。这一局是你们俩一起在玩的游戏，不是剧情里真的打架。\n"
+          + "眼下的局面：" + d.board + "\n"
+          + (d.history ? "这一局里你们刚才的几句：\n" + d.history + "\n" : "")
+          + uN + "刚跟你说：「" + String(d.text).slice(0, 400) + "」\n"
+          + "照你的人设、你们的关系和此刻的输赢接她这句，像边打牌边说话：几句短的就够，说到局面时只说上面写着的那些，别编没发生的。",
+        schemaHint: "{\"lines\":[\"一句\"]}" });
+      return (Array.isArray(r && r.lines) ? r.lines : [r && r.lines]).map(x => String(x || "").trim()).filter(Boolean).slice(0, 4);
+    },
     duelCloseOf: charId => liveChars.filter(c => c.id !== charId && (rels[charId + "->" + c.id] || rels[c.id + "->" + charId])).map(c => c.id),
     onInner: stampInner,
     onExtra: stampExtra,

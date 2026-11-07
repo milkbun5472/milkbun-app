@@ -32,3 +32,10 @@ test("没打完退出去留存档：开局页出「接着打／放弃」，打�
   assert.match(ui, /"data-wk": "duelresume"/);
   assert.match(ui, /setSeries\(null\); setSt\(null\); persist\(null\);/);
 });
+test("边打边聊：她发一句才叫一次 TA，带着眼下局面；聊天跟着这一局存", () => {
+  assert.match(st, /onChat: props\.onDuelChat/);
+  assert.match(app, /onDuelChat: async \(charId, d\) =>/);
+  assert.match(app, /tag: "stampduel", maxTokens: 8000/);
+  assert.match(ui, /const lines = await onChat\(foeId, \{ text, board: boardLine\(\), history: hist \}\)/);
+  assert.match(ui, /st\.chat = st\.chat \|\| \[\]/);
+});
