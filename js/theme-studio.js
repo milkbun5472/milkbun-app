@@ -548,6 +548,7 @@
         ["bdayletter", "生日零点那封信（信封卡）"],
         ["bdayplan", "生日暗中准备的封口信封"],
         ["offlogrestore", "「线下经过」卡上那颗「放回往期」"],
+        ["offlogundo", "「线下经过」卡上那颗「换回上一版总结」"],
         ["gunreadjump", "群聊顶上那颗「↑ N 条新消息」（点了跳到第一条没看的）"],
         ["gnewbelow", "群聊里你在上面看时，底下那颗「↓ N 条新消息」"], ["newbelow", "单聊里你在上面看时，底下那颗「↓ N 条新消息」"], ["chatcsslist", "设置·外观里「各聊天窗的 CSS」那一页"], ["chatcssclear", "那一页每一行的「清空」"], ["gachawho", "抽卡页「谁来扳拉杆」那一排"],
         ["quote", "消息引用块（带 data-me＝这条是谁发的；data-from＝引的是谁的话：me 你的、ta 对方的，想让引用跟着被引的人的气泡配色就按它写；输入框上面那条待发送的引用也是它，多带 data-draft=\"1\"）"], ["quotedraft", "输入框上面那一整条待发送的引用"], ["msgstick", "双击TA的气泡贴上去的那个表情（压在气泡右上角；贴的是 emoji 时带 data-emoji=\"1\"）"], ["msgstickoff", "面板最上面「拿掉贴着的那个」"], ["msgstickpick", "双击气泡后铺满屏的那层（点空白处关）"], ["msgstickbar", "双击气泡后浮在它上方的深色小条"], ["msgstickemoji", "小条上那几个快捷 emoji"], ["msgstickpanel", "小条点 ⌄ 展开的深色面板"], ["msgstickgroups", "面板顶上「快捷条显示」那排"], ["msgstickgroup", "「快捷条显示」里的一栏（data-on=1 是现在用的）"], ["msgstickgroupnew", "「＋ 新建一栏」"], ["msgstickgroupedit", "每栏标题旁的「编辑」"], ["msgstickedit", "新建／编辑一栏那块"], ["msgstickpacks", "面板最上面「贴表情包 ›」"], ["msgstickown", "面板底下「打一个别的 emoji」那一格"], ["quoteclear", "待发送引用右边那个 ×"], ["quoteicon", "引用块前面那个 ❝"], ["quotetext", "引用的那句原话"], ["voice", "语音消息整块"], ["voicebar", "语音条"],

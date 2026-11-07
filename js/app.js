@@ -10620,6 +10620,18 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     if (isG) pGOffline(ownerId, l => put(l)); else pOffline(ownerId, l => put(l));
     toast("放回往期了" + (raw.length >= TRANSCRIPT_KEEP_MAX - 20 ? "：这一场太长，卡上只留了后半截" : ""));
   };
+  // 换回上一版总结：卡、那一场的总结都换回去；这一趟重新总结记进记忆库的（同一场、resumTs 之后的）一起拿掉
+  const undoResummarizeOffline = (kind, ownerId, threadKey, msgIndex) => {
+    const isG = kind === "group";
+    const log = ((isG ? groupChatsRef.current[ownerId] : chatsRef.current[threadKey]) || [])[msgIndex];
+    if (!log || !log.prevSummary) return;
+    const prev = log.prevSummary, ofs = log.ofs, since = Number(log.resumTs || 0);
+    const back = m => { const { prevSummary, resumTs, ...rest } = m; return { ...rest, content: prev }; };
+    if (isG) { pGChat(ownerId, p => p.map((m, i) => i === msgIndex ? back(m) : m)); if (ofs) pGOffline(ownerId, list => list.map(x => x.id === ofs ? { ...x, summary: prev } : x)); }
+    else { pChat(threadKey, p => p.map((m, i) => i === msgIndex ? back(m) : m)); if (ofs) pOffline(ownerId, list => list.map(x => x.id === ofs ? { ...x, summary: prev } : x)); }
+    if (ofs && since) saveMemLib((memLibRef.current || []).filter(x => !(x && x.ofs === ofs && Number(x.ts || 0) >= since)));
+    toast("换回上一版了");
+  };
   const resummarizeOffline = async (kind, ownerId, threadKey, msgIndex) => {
     const isG = kind === "group";
     const log = ((isG ? groupChatsRef.current[ownerId] : chatsRef.current[threadKey]) || [])[msgIndex];
@@ -10642,6 +10654,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     const summary = (r && r.summary || "").trim();
     if (!summary) { toast(err ? "还是没成：" + err : "这一趟没给出总结"); return; }
     const details = (r.details || []), opens = (r.open || []);
+    // 留底（群友 2026-11-07：点到了，好好的总结重新总结成💩了）：上一版留在卡上，换回去时连这一趟记进记忆库的几条一起拿掉
+    const _resumTs = Date.now(), _prevSum = String((log && log.content) || "");
     if (isG) {
       // 记忆分区照旧：不互通的群，总结只留在本群这条会话里（和 endOffline 同一条闸）
       const interopOn = gsFor(ownerId).memoryInterop;
@@ -10651,14 +10665,14 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         details.forEach(dt => addMemEntry({ text: dt, tags: gTags(group, "线下", "细节"), knownBy: (group.memberIds || []).slice(), charIds: memOwners(group.memberIds), source: "auto", groupId: ownerId, ofs: sess.id }));
         opens.forEach(op => addMemEntry({ text: op, tags: gTags(group, "线下", "约定"), knownBy: (group.memberIds || []).slice(), charIds: memOwners(group.memberIds), source: "auto", open: true, groupId: ownerId, ofs: sess.id }));
       }
-      pGChat(ownerId, p => p.map((m, i) => i === msgIndex ? { ...m, content: summary, ofs: sess.id } : m));
+      pGChat(ownerId, p => p.map((m, i) => i === msgIndex ? { ...m, content: summary, ofs: sess.id, prevSummary: _prevSum, resumTs: _resumTs } : m));
       toast(interopOn ? "已补记入记忆库" : "已补上总结（记忆只留在本群）");
     } else {
       pOffline(ownerId, list => list.map(x => x.id === sess.id ? { ...x, summary: summary } : x));
       addMemEntry({ text: summary, tags: ["线下"], charIds: [ownerId], knownBy: [ownerId], source: "auto", ofs: sess.id });
       details.forEach(dt => addMemEntry({ text: dt, tags: ["线下", "细节"], charIds: [ownerId], knownBy: [ownerId], source: "auto", ofs: sess.id }));
       opens.forEach(op => addMemEntry({ text: op, tags: ["线下", "约定"], charIds: [ownerId], knownBy: [ownerId], source: "auto", open: true, ofs: sess.id }));
-      pChat(threadKey, p => p.map((m, i) => i === msgIndex ? { ...m, content: summary, ofs: sess.id } : m));
+      pChat(threadKey, p => p.map((m, i) => i === msgIndex ? { ...m, content: summary, ofs: sess.id, prevSummary: _prevSum, resumTs: _resumTs } : m));
       toast("已补记入记忆库");
     }
   };
@@ -34291,6 +34305,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     onOOC: text => oocReply(activeChar.id, text, blockChatKey(activeChar.id)),
     onRestoreOffline: i => restoreOfflineFromCard("char", activeChar.id, window.ChatRooms ? window.ChatRooms.chatKey(activeChar.id, activeRoomId) : activeChar.id, i),
     onResummarizeOffline: i => resummarizeOffline("char", activeChar.id, window.ChatRooms ? window.ChatRooms.chatKey(activeChar.id, activeRoomId) : activeChar.id, i),
+    onUndoResummarizeOffline: i => undoResummarizeOffline("char", activeChar.id, window.ChatRooms ? window.ChatRooms.chatKey(activeChar.id, activeRoomId) : activeChar.id, i),
     // 多选 / 首尾圈出一段 → 收进时刻（她 2026-10-03）
     onPinShike: indices => {
       const threadKey = window.ChatRooms ? window.ChatRooms.chatKey(activeChar.id, activeRoomId) : activeChar.id;
@@ -34773,6 +34788,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     })),
     onRestoreOffline: i => restoreOfflineFromCard("group", activeGroup.id, activeGroup.id, i),
     onResummarizeOffline: i => resummarizeOffline("group", activeGroup.id, activeGroup.id, i),
+    onUndoResummarizeOffline: i => undoResummarizeOffline("group", activeGroup.id, activeGroup.id, i),
     onDeleteMessages: indices => deleteGroupMsgs(activeGroup.id, indices),
     // 群聊也能存成长图（她 2026-10-23）：谁说的就画谁的头像和名字
     onLongShot: indices => {
