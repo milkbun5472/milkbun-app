@@ -700,7 +700,8 @@ function App() {
   const musicProvider = listen.musicProvider === "netease" || (!listen.musicProvider && neteaseApi) ? "netease" : "gd";
   const musicReady = musicProvider === "gd" || !!neteaseApi;
   const [neteaseCookie, setNeteaseCookie] = useState(""); // 可选：网易云账号 Cookie（MUSIC_U=…），填了能放 VIP
-  const musicRequest = (path, options) => MusicSource.request({ provider: musicProvider, base: neteaseApi, cookie: neteaseCookie }, path, options);
+  // 跟「验证登录」用同一份补好前缀的 Cookie（群友 2026-11-07：验证显示已登录，「我的」里歌单却是空的——只粘了值，拉歌单时没补 MUSIC_U=）
+  const musicRequest = (path, options) => MusicSource.request({ provider: musicProvider, base: neteaseApi, cookie: normCookie() || neteaseCookie }, path, options);
   const listenRef = useRef(listen); listenRef.current = listen;
   // 全局播放器：<audio> 挂在根节点 → 退出「一起听」界面也继续播（后台播放）
   const [player, setPlayer] = useState({ songId: null, playing: false, t: 0, dur: 0, loading: false, err: null });
