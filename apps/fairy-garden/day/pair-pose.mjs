@@ -11,12 +11,9 @@ export function pairSize(actor){
 export function pairSpacing(kind,a,b){
  const aa=pairSize(a),bb=pairSize(b),width=(aa.width+bb.width)/2;
  // Close seats bring the torsos together; keep room for the larger heads and sleeves.
- if(['shoulder','cuddle','sit-lean'].includes(kind))return Math.max(width+.10,aa.radius+bb.radius+.08);
- if(kind==='sit-hug')return aa.radius+bb.radius+.23;
+ if(['shoulder','cuddle','sit-lean','sit-hug','sit-hand','closer'].includes(kind))return Math.max(width+.10,aa.radius+bb.radius+.08);
  if(kind==='lie-hug')return width+.10;
  if(kind==='sit-pat')return aa.radius+bb.radius+.08;
- if(kind==='sit-hand')return aa.radius+bb.radius+.23;
- if(kind==='closer')return aa.radius+bb.radius+.28;
  if(kind==='arm-walk')return width+.19;
  if(kind==='cup')return width+.25;
  if(['hand','walk'].includes(kind))return width+.28;

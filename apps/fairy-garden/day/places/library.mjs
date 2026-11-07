@@ -1,4 +1,4 @@
-import {createRoomKit,roomObstacles,roomSeat} from './room-kit.mjs?v=fg-44ad4e1bf27bea55';
+import {createRoomKit,roomObstacles,roomSeat} from './room-kit.mjs?v=fg-780b1738a32d7ebb';
 
 const FLOOR=.08,SEAT=.45,DESK=.85;
 const COLORS={wood:'#bd9b73',darkWood:'#a88864',wall:'#e9e3d2',sage:'#829b8a',paper:'#f1e8d6',blue:'#8fa6b0',ink:'#697c71'};

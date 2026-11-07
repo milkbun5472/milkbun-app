@@ -1,16 +1,16 @@
 import * as T from 'three';
-import './social.js?v=fg-44ad4e1bf27bea55';
-import {findPath,walkable,segmentClear,floorHeight} from '../world.mjs?v=fg-44ad4e1bf27bea55';
-import {stepRoute} from '../locomotion.mjs?v=fg-44ad4e1bf27bea55';
-import {furniturePoint,furnitureSeat,HOME_PREP} from './home-catalog.mjs?v=fg-44ad4e1bf27bea55';
-import {pairProgress} from './motion-profile.mjs?v=fg-44ad4e1bf27bea55';
-import {dailyTaskAt} from './daily-workflow.mjs?v=fg-44ad4e1bf27bea55';
-import {createKitchenPair} from './kitchen-pair.mjs?v=fg-44ad4e1bf27bea55';
-import {INTIMATE,createIntimate} from './intimate.mjs?v=fg-44ad4e1bf27bea55';
-import {REST_PAIRS,sofaPairs,restPlans,restKindFor,createRestPair} from './rest-pair.mjs?v=fg-44ad4e1bf27bea55';
+import './social.js?v=fg-780b1738a32d7ebb';
+import {findPath,walkable,segmentClear,floorHeight} from '../world.mjs?v=fg-780b1738a32d7ebb';
+import {stepRoute} from '../locomotion.mjs?v=fg-780b1738a32d7ebb';
+import {furniturePoint,furnitureSeat,HOME_PREP} from './home-catalog.mjs?v=fg-780b1738a32d7ebb';
+import {pairProgress} from './motion-profile.mjs?v=fg-780b1738a32d7ebb';
+import {dailyTaskAt} from './daily-workflow.mjs?v=fg-780b1738a32d7ebb';
+import {createKitchenPair} from './kitchen-pair.mjs?v=fg-780b1738a32d7ebb';
+import {INTIMATE,createIntimate} from './intimate.mjs?v=fg-780b1738a32d7ebb';
+import {REST_PAIRS,sofaPairs,restPlans,restKindFor,createRestPair} from './rest-pair.mjs?v=fg-780b1738a32d7ebb';
 
 
-import {pairSize,headPoint,pairSpacing,pairContact,nearHand,bonePoint,shoulderPose,hugPose} from './pair-pose.mjs?v=fg-44ad4e1bf27bea55';
+import {pairSize,headPoint,pairSpacing,pairContact,nearHand,bonePoint,torsoPoint,shoulderPose,hugPose} from './pair-pose.mjs?v=fg-780b1738a32d7ebb';
 
 export const TOGETHER_LABELS=globalThis.CharDaySocial.labels;
 const mapId=m=>m.id||m.renderer;
@@ -184,12 +184,18 @@ export function createTogether({a,b,map,from,motion=()=>({}),pair=()=>({}),visib
    b.contactPose({lean:Math.sin(s.elapsed*.7+style('b').phase)*style('b').sway});
   }
   if(active&&!p.restKind&&s.kind==='cup'){
-   a.root.updateMatrixWorld(true);b.root.updateMatrixWorld(true);
-   const ap=a.root.getObjectByName('Right_hand').getWorldPosition(new T.Vector3()),bp=b.root.getObjectByName('Left_hand').getWorldPosition(new T.Vector3()),mid=ap.clone().add(bp).multiplyScalar(.5);mid.y+=.10;
-   contact(a,{right:mid},pa);contact(b,{left:mid},pb);
-   const giver=a.root.getObjectByName('Right_hand').getWorldPosition(new T.Vector3()),receiver=b.root.getObjectByName('Left_hand').getWorldPosition(new T.Vector3());
-   const exchange=Math.min(pa,pb);cup.visible=true;cup.position.copy(a.root.worldToLocal(giver.lerp(receiver,exchange>.97?Math.min(1,(s.elapsed-3)/2):0)));cup.rotation.y=-a.root.rotation.y;
-   cup.userData.holder=exchange>.97&&s.elapsed>=5?'me':'ta';
+   const giver=s.initiator==='a'?a:b,receiver=giver===a?b:a,who=giver===a?'ta':'me',other=who==='ta'?'me':'ta';
+   const giving=s.cupHands?.giver||nearHand(giver,receiver.root.position),contacts=[];
+   // Anchor the exchange to both torsos, not last frame's wrists: repeatedly
+   // adding a lift to smoothed wrists would make the cup climb toward the face.
+   const center=torsoPoint(giver,0,.62,.12).add(torsoPoint(receiver,0,.62,.12)).multiplyScalar(.5),across=new T.Vector3(giving==='left'?-1:1,0,0).applyQuaternion(giver.root.getWorldQuaternion(new T.Quaternion()));
+   const offered=center.clone().addScaledVector(across,.06),accepted=center.clone().addScaledVector(across,-.06),release=T.MathUtils.smoothstep(s.elapsed,4,5.5),exchange=T.MathUtils.smoothstep(s.elapsed,2,4);
+   const hands=s.cupHands||=( {giver:giving,receiver:nearHand(receiver,accepted)} );
+   const rest=torsoPoint(giver,hands.giver==='left'?-.72:.72,.28,.14);
+   contact(giver,{[hands.giver]:offered.lerp(rest,release)},giver===a?pa:pb,contacts);contact(receiver,{[hands.receiver]:accepted},receiver===a?pa:pb,contacts);
+   const grip=(actor,side)=>bonePoint(actor,side==='left'?'Left_hand':'Right_hand'),from=grip(giver,hands.giver).addScaledVector(across,-.06),to=grip(receiver,hands.receiver).addScaledVector(across,.06);
+   cup.visible=true;cup.position.copy(a.root.worldToLocal(from.lerp(to,exchange)));cup.rotation.y=giver.root.rotation.y-a.root.rotation.y;
+   cup.userData.holder=exchange>=1?other:who;s.contact={contacts,giver:who,receiver:other,holder:cup.userData.holder,release};
   }
   if(active&&!p.restKind&&s.kind==='hand'){
    a.root.updateMatrixWorld(true);b.root.updateMatrixWorld(true);const as=nearHand(a,b.root.position),bs=nearHand(b,a.root.position),mid=bonePoint(a,as==='left'?'Left_hand':'Right_hand').add(bonePoint(b,bs==='left'?'Left_hand':'Right_hand')).multiplyScalar(.5);

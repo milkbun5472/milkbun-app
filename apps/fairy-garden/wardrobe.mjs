@@ -1,4 +1,4 @@
-import {OUTFITS} from './outfits.mjs?v=fg-44ad4e1bf27bea55';
+import {OUTFITS} from './outfits.mjs?v=fg-780b1738a32d7ebb';
 export {OUTFITS};
 export const DEFAULT_SKIN='#f2cbb4';
 export const DEFAULT_LOOK={skin:DEFAULT_SKIN,hair:'korean',hairColor:'#6b4a33',cloth:'#d97a60'};

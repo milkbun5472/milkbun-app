@@ -41,7 +41,7 @@ const _taskCache = new WeakMap();
  * ```
  *
  * @augments Loader
- * @three_import import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js?v=fg-44ad4e1bf27bea55';
+ * @three_import import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js?v=fg-780b1738a32d7ebb';
  */
 class DRACOLoader extends Loader {
 
@@ -349,11 +349,11 @@ class DRACOLoader extends Loader {
 
 		if ( useJS ) {
 
-			librariesPending.push( this._loadLibrary( 'draco_decoder.js?v=fg-44ad4e1bf27bea55', 'text' ) );
+			librariesPending.push( this._loadLibrary( 'draco_decoder.js?v=fg-780b1738a32d7ebb', 'text' ) );
 
 		} else {
 
-			librariesPending.push( this._loadLibrary( 'draco_wasm_wrapper.js?v=fg-44ad4e1bf27bea55', 'text' ) );
+			librariesPending.push( this._loadLibrary( 'draco_wasm_wrapper.js?v=fg-780b1738a32d7ebb', 'text' ) );
 			librariesPending.push( this._loadLibrary( 'draco_decoder.wasm', 'arraybuffer' ) );
 
 		}
