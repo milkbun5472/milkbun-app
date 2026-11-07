@@ -27,7 +27,7 @@ test("出图入口按拉条定速，帧数 16；拉条松手把存着的动图�
 });
 test("要动图就在提示词后面接【动图规矩】，一处说法", () => {
   const eng = readFileSync(new URL("../js/engine.js", import.meta.url), "utf8");
-  assert.match(eng, /if \(opts && opts\.gif && typeof prompt === "string" && prompt\.indexOf\("【动图】"\) < 0\) prompt = GIF_WORLD_HEAD \+ prompt \+ \(opts\.__gifAll \? GIF_PHOTO_RULE : GIF_MOTION_RULE\);/);
+  assert.match(eng, /if \(opts && opts\.gif && typeof prompt === "string" && prompt\.indexOf\("【动图】"\) < 0\) prompt = GIF_WORLD_HEAD \+ prompt \+ \(opts\.__gifAll \? GIF_PHOTO_RULE : GIF_MOTION_RULE\)/);
   assert.equal((eng.match(/【动图】循环小动图/g) || []).length, 1);
 });
 test("结构认不全（截断的 GIF）就原样返回，不改一个字节", () => {
@@ -60,8 +60,8 @@ test("动图规矩：精简直说——完整动作、身体跟着动、幅度�
 });
 test("照片的动图走动态照片那套：人不动、只一处在动；表情包走动作那套", () => {
   const eng = readFileSync(new URL("../js/engine.js", import.meta.url), "utf8");
-  const r = eng.slice(eng.indexOf("const GIF_PHOTO_RULE"), eng.indexOf("④参考照只用来认人。\";", eng.indexOf("const GIF_PHOTO_RULE")) + 12);
-  for (const k of ["人保持照片里的姿势和表情", "整张只有一处在动", "最后一帧接回第一帧"]) assert.ok(r.includes(k), k);
+  const r = eng.slice(eng.indexOf("const GIF_PHOTO_RULE"), eng.indexOf("⑤参考照只用来认人。\";", eng.indexOf("const GIF_PHOTO_RULE")) + 12);
+  for (const k of ["人保持照片里的姿势和表情；描述里有【分镜】的", "整张只有一处在动", "最后一帧接回第一帧"]) assert.ok(r.includes(k), k);
   assert.ok(!/不许|但/.test(r));
   assert.ok(!/眼/.test(r));
 });
