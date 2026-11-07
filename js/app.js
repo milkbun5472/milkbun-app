@@ -14631,6 +14631,9 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
           role: "assistant",
           content: words[i],
           ...(_biZh.get(bilingualKey(words[i])) ? { zh: _biZh.get(bilingualKey(words[i])) } : {}),
+          // 补译没成也要留「译」（她 2026-11-07：「系系系 你日日都咁可爱」没有译键）：只有一个粤语字，
+          //   「译」那颗按的判据要两个才认，所以把这里认出来的语种记在消息上，气泡照它出键
+          ...(_yueFill[i] && !_biZh.get(bilingualKey(words[i])) && hanLangOf(char) && hanLineLang(words[i]) ? { lang: hanLineLang(words[i]) } : {}),
           replyTo: i === 0 && !recall ? quote : null,
           ts: _tsOf(i),
           turnId,
@@ -16777,6 +16780,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
                 senderName: spk.name,
                 content: gBubbles[j],
                 ...(gBiZh.get(bilingualKey(gBubbles[j])) ? { zh: gBiZh.get(bilingualKey(gBubbles[j])) } : {}),
+                ...(_gYueFill[j] && !gBiZh.get(bilingualKey(gBubbles[j])) ? { lang: hanLineLang(gBubbles[j]) } : {}),   // 补译没成也留「译」，同单聊
                 ..._gTakeReason(),
                 ...(j === 0 ? gResolvedQuote : { replyTo: null }),
                 thought: j === gBubbles.map(b => emoteSlotOf(b) == null).lastIndexOf(true) ? gThought : null,
