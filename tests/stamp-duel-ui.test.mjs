@@ -21,3 +21,8 @@ test("票上放卡面（走邮票册那份缩略图）、写是谁的卡；有�
   assert.match(ui, /ownerOf = id => id \? nameOf\(id\) \+ "的卡"/);
   assert.match(ui, /"data-wk": "duelundo", onClick: back1, disabled: !D\(\)\.canUndo\(st\)/);
 });
+test("明牌摊开对面手牌、标要贴；寄出后照这一回合的记录放特效，放完才能再寄", () => {
+  assert.match(ui, /!st\.blind && them\.hand\.length \? h\("div", \{ "data-wk": "duelfoehand"/);
+  assert.match(ui, /const evs = st\.log\.slice\(n0\)/);
+  assert.match(ui, /"data-wk": "duelsend", onClick: send, disabled: !!fx/);
+});
