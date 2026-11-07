@@ -495,7 +495,7 @@
         ["now", "顶栏底下那条此刻日程"], ["nowdot", "日程条前面那个小点"],
         ["bdaypin", "生日当天顶在最上面那条「信封可以拆了」"],
         ["row", "一整行消息（含头像）"], ["avatar", "头像"],
-        ["bubble", "气泡本体（data-me=\"1\" 是她的；data-kind＝text/voice/photo…；长按菜单里那一颗带 data-preview=\"1\"）"],
+        ["bubble", "气泡本体（data-me=\"1\" 是她的；data-kind＝text/voice/photo…；长按菜单里那一颗带 data-preview=\"1\"）"],["typingdots", "「正在输入」那一排三个点（整排）"],["typingdot", "三个点里的每一颗；data-i=0/1/2 是第几颗"],
         ["msg", "一条消息：data-me；data-first/data-last＝连发那一串的头/尾（\"1\"是）；data-kind；data-recent=\"1\" 刚进来（做入场动画）"],
         ["listenstay", "一起听选人底下「说的话只留在一起听里」那一格"], ["listenshare", "一起听「转给谁」整页外层"], ["listensharepage", "一起听「转给谁」选人页本体"], ["listensharelist", "一起听转发：选人列表"], ["listensharechar", "一起听转发：一个角色"], ["listensharerow", "一起听转发：选主聊天还是哪间房"],
         ["listenlog", "一起听播放页底下「刚才说的」"],

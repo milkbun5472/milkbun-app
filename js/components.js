@@ -1270,9 +1270,10 @@ function avatarSrcOf(character) {
 //   微信那屏是白底 5 圆角），抹平了反而两处都不像自己。
 function TypingDots({ color, size, gap }) {
   const d = size || 6;
-  return /*#__PURE__*/React.createElement("div", { className: "flex " + (gap || "gap-1") },
+  // 挂点（她 2026-11-07「输入中三个点要是想改成别的咋弄」）：typingdots 整排、typingdot 每一颗（data-i=0/1/2）
+  return /*#__PURE__*/React.createElement("div", { "data-wk": "typingdots", className: "flex " + (gap || "gap-1") },
     [0, 1, 2].map(i => /*#__PURE__*/React.createElement("span", {
-      key: i,
+      key: i, "data-wk": "typingdot", "data-i": String(i),
       className: "rounded-full animate-pulse",
       style: { width: d, height: d, background: color || "#999", animationDelay: i * 0.15 + "s" }
     })));
