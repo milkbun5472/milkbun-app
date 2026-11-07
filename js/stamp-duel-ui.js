@@ -107,11 +107,18 @@
     const nameOf = id => { const c = (characters || []).find(x => x.id === id); return c ? (c.remark || c.name) : ""; };
     const cardOf = id => byId[id] || null, ownerOf = id => id ? nameOf(id) + "的卡" : "";
     const foeName = nameOf(foeId) || "TA";
-    const redraw = () => bump(x => x + 1);
+    // 没打完退出去也留着（她 2026-11-07「没打完暂退能不能存档跟小游戏一样」）：每动一步就存一份，打完、放弃才清
+    const SAVE_KEY = "x_stampDuelSave";
+    const [saved, setSaved] = useState(() => { try { const v = typeof loadJSON === "function" ? loadJSON(SAVE_KEY, null) : null; return v && v.st && !v.st.over ? v : null; } catch (e) { return null; } });
+    const persist = (x, sr) => { try { if (typeof saveJSON !== "function") return; if (x && !x.over) saveJSON(SAVE_KEY, { st: x, series: sr || null, foeId, at: Date.now() }); else saveJSON(SAVE_KEY, null); } catch (e) {} };
+    const redraw = () => { persist(st, series); bump(x => x + 1); };
+    const resume = () => { if (!saved) return; setFoeId(saved.foeId); setSt(saved.st); setSeries(saved.series || D().newSeries()); setSaved(null); setHandSel(-1); setBoardSel(-1); };
+    const drop = () => { persist(null); setSaved(null); };
     const start = () => {
       const s = (seedRef.current = (seedRef.current * 1103515245 + 12345) >>> 0);
       const me = D().deckFrom(cards, s), them = D().foeDeckFrom(cards, foeId, closeOf ? closeOf(foeId) : [], s);
-      setSt(D().newDuel(me, them, s, { blind })); setHandSel(-1); setBoardSel(-1);
+      const nd = D().newDuel(me, them, s, { blind }); setSt(nd); setHandSel(-1); setBoardSel(-1); setSaved(null);
+      setTimeout(() => persist(nd, series), 0);
       setSeries(sr => sr || D().newSeries());
     };
     const fail = r => { if (r && !r.ok && r.why) toast && toast(r.why); return r && r.ok; };
@@ -122,6 +129,11 @@
       h(Head, { key: "hd", zh: "对局", bg: "transparent", ink: INK, onBack }),
       h("div", { key: "bd", className: "flex-1 min-h-0 overflow-y-auto px-5", style: { fontFamily: F, color: INK, paddingBottom: 24 } },
         h("div", { style: { fontSize: fz(12), color: SUB, lineHeight: 1.7, margin: "2px 0 14px" } }, "每局从你的收藏里随机抽 12 张。对面用 TA 自己的卡，加上跟 TA 有关系的人的卡；不够的用普通邮票补。不花调用。"),
+        saved ? h("div", { "data-wk": "duelresume", style: { marginBottom: 16, padding: "10px 12px", borderRadius: 4, border: "1px dashed " + RED, background: "rgba(178,58,46,.05)" } },
+          h("div", { style: { fontSize: fz(13), marginBottom: 8 } }, "上次那一把还没打完：对 " + (nameOf(saved.foeId) || "TA") + "，第 " + saved.st.turn + " 回合，信封 " + Math.max(0, saved.st.me.hp) + " : " + Math.max(0, saved.st.foe.hp)),
+          h("div", { className: "flex", style: { gap: 8 } },
+            h("button", { onClick: resume, className: "flex-1", style: btn(RED, "#fff") }, "接着打"),
+            h("button", { onClick: () => { if (typeof requestAppConfirm === "function") requestAppConfirm("放弃这一把？", "放弃了就接不回来了。", drop, "放弃"); else drop(); }, className: "flex-1", style: btn("transparent", INK, INK) }, "放弃"))) : null,
         h("div", { style: { fontFamily: FD, fontSize: fz(14), marginBottom: 8 } }, "跟谁打"),
         h("div", { className: "flex flex-wrap", style: { gap: 8, marginBottom: 18 } }, (characters || []).map(c => {
           const n = (cards || []).filter(x => x.charId === c.id).length, on = foeId === c.id;
@@ -170,7 +182,7 @@
     const finish = remember => {
       const sr = series && st.over ? D().addGame(series, st) : series;
       if (remember && onRemember && sr && sr.games.length) onRemember(foeId, D().memoryLine(sr, foeName, meName));
-      setAsking(false); setSeries(null); setSt(null);
+      setAsking(false); setSeries(null); setSt(null); persist(null);
     };
     const again = () => { D().addGame(series, st); start(); };
     const log = st.log.slice(-4);
@@ -179,7 +191,7 @@
 
     return shell([
       h(Head, { key: "hd", zh: "第 " + st.turn + " 回合", sub: "对 " + foeName + (st.blind ? " · 盲打" : ""), bg: "transparent", ink: INK,
-        onBack: () => { const quit = () => { setSt(null); setSeries(null); }; if (over) quit(); else if (typeof requestAppConfirm === "function") requestAppConfirm("退出这一把？", "还没打完，退出就不算了。", quit, "退出"); else quit(); } }),
+        onBack: () => { if (!over) { persist(st, series); setSaved({ st, series, foeId, at: Date.now() }); } else persist(null); setSt(null); setSeries(null); } }),
       h("div", { key: "bd", className: "flex-1 min-h-0 overflow-y-auto px-4", style: { fontFamily: F, color: INK, paddingBottom: 14 } },
         Seal(foeName, them.hp, D().ENVELOPE_HP, RED, series && series.games.length ? "第 " + (series.games.length + 1) + " 把" : ""),
         // 对面的下一步：像一张电报条（盲打时不给看）

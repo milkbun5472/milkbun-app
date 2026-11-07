@@ -26,3 +26,9 @@ test("明牌摊开对面手牌、标要贴；寄出后照这一回合的记录�
   assert.match(ui, /const evs = st\.log\.slice\(n0\)/);
   assert.match(ui, /"data-wk": "duelsend", onClick: send, disabled: !!fx/);
 });
+test("没打完退出去留存档：开局页出「接着打／放弃」，打完或放弃才清", () => {
+  assert.match(ui, /const SAVE_KEY = "x_stampDuelSave"/);
+  assert.match(ui, /if \(x && !x\.over\) saveJSON\(SAVE_KEY/);
+  assert.match(ui, /"data-wk": "duelresume"/);
+  assert.match(ui, /setSeries\(null\); setSt\(null\); persist\(null\);/);
+});
