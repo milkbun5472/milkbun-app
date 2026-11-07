@@ -3,10 +3,12 @@
 //   这一份只有规则：不碰界面、不调模型、不存档。卡从邮票册里来，数值全从卡上已有的东西算（稀有度、等级、卡种、
 //   卡编号、卡上的字），同一张卡永远算出同一个数——以前抽的卡不用再花一次调用。
 //
-//   打法：双方各一个 3×3 信封，第一排是前排（挨打），第三排是后排。每回合 3 邮资、抽 4 张，
-//   花面值把票贴上去；贴上的票每回合自己行动，攒满章就能花 1 邮资「盖章」放技能。
+//   胶水（她 2026-11-07：「邮资是抽卡用的道具」，对局里另起名）：每回合的行动点，贴票、挪票、盖章都花它。
+//   代码里的变量名还叫 postage，界面和日志里一律叫胶水。
+//   打法：双方各一个 3×3 信封，第一排是前排（挨打），第三排是后排。每回合 3 胶水、抽 4 张，
+//   花面值把票贴上去；贴上的票每回合自己行动，攒满章就能花 1 胶水「盖章」放技能。
 //   五种票：投递（打同一列对面最前面那张，列里空着就打信封）、火漆（厚、给自己封一层）、补票（回血、擦邮戳）、
-//   集邮（攒邮资、多抽）、邮戳（给对面盖戳）。
+//   集邮（攒胶水、多抽）、邮戳（给对面盖戳）。
 //   连张：同一个人两张相邻，行动时加力。整版：同一个人一整行或一整列。四方连：2×2 同一个人（或同一卡种）。
 //   撕下、挪票、留牌；每局几格地形；每隔几回合一条邮局公告（提前一回合预告）。对面下一步开回合亮出来（盲打时不给看）。
 (function (g) {
@@ -29,11 +31,11 @@
   const MARKS = {
     雨渍: { turns: 2, note: "攻击 -2" },
     退回: { turns: 1, note: "下一次行动跳过" },
-    欠资: { turns: 1, note: "对面下回合邮资 -1" },
+    受潮: { turns: 1, note: "对面下回合胶水 -1" },
     加急: { turns: 1, note: "下一次行动做两遍" }
   };
-  const MARK_OF_INK = ["雨渍", "退回", "欠资", "加急"];
-  const TERRAIN = { 邮筒: "贴着票时每回合多 1 邮资", 雨棚: "上面的票不会被盖邮戳", 破损: "这一格不能贴" };
+  const MARK_OF_INK = ["雨渍", "退回", "受潮", "加急"];
+  const TERRAIN = { 邮筒: "贴着票时每回合多 1 胶水", 雨棚: "上面的票不会被盖邮戳", 破损: "这一格不能贴" };
   const EVENTS = {
     涨价: "这回合贴票面值都 +1",
     大雨: "这回合所有攻击 -1",
@@ -153,7 +155,7 @@
     if (st.over || !s) return { ok: false, why: "没有这张" };
     if (slot < 0 || slot >= SLOTS || sd.board[slot]) return { ok: false, why: "这一格已经贴了" };
     if (sd.terrain[slot] === "破损") return { ok: false, why: "这一格破了，贴不上" };
-    const cost = faceNow(st, s); if (sd.postage < cost) return { ok: false, why: "邮资不够" };
+    const cost = faceNow(st, s); if (sd.postage < cost) return { ok: false, why: "胶水不够" };
     sd.postage -= cost; sd.hand.splice(handIdx, 1); sd.kept = sd.kept.filter(k => k !== handIdx).map(k => k > handIdx ? k - 1 : k);
     const u = Object.assign({}, s, { uid: ++st.uid, hp: s.maxHp, shield: 0, marks: {}, first: true, charge: 0 });
     if (u.kind === "bday") u.shield += 3;
@@ -184,7 +186,7 @@
     if (st.over || !u) return { ok: false, why: "这一格是空的" };
     if (!adj(from).includes(to) || sd.board[to]) return { ok: false, why: "只能挪到旁边的空格" };
     if (sd.terrain[to] === "破损") return { ok: false, why: "那一格破了" };
-    if (sd.postage < MOVE_COST) return { ok: false, why: "邮资不够" };
+    if (sd.postage < MOVE_COST) return { ok: false, why: "胶水不够" };
     sd.postage -= MOVE_COST; sd.board[to] = u; sd.board[from] = null;
     say(st, who, u.name + " 挪了位置", { kind: "move", from, to });
     checkCombos(st, who);
@@ -196,12 +198,12 @@
     if (sd.kept.length >= KEEP_MAX) return { ok: false, why: "最多留 " + KEEP_MAX + " 张" };
     sd.kept.push(handIdx); return { ok: true, kept: true };
   }
-  // 盖章：章攒满了，花 1 邮资放这张票的技能；R 简单、SR 强一点、SSR 是专属大招（名字就是卡名）
+  // 盖章：章攒满了，花 1 胶水放这张票的技能；R 简单、SR 强一点、SSR 是专属大招（名字就是卡名）
   function stamp(st, who, slot) {
     const sd = st[who], foeWho = other(who), foe = st[foeWho], u = sd.board[slot];
     if (st.over || !u) return { ok: false, why: "这一格是空的" };
     if (u.charge < u.need) return { ok: false, why: "章还没攒满" };
-    if (sd.postage < STAMP_COST) return { ok: false, why: "邮资不够" };
+    if (sd.postage < STAMP_COST) return { ok: false, why: "胶水不够" };
     sd.postage -= STAMP_COST; u.charge = 0;
     const p = powOf(st, u, sd, slot), tier = u.rarity;
     say(st, who, "盖章：" + u.name, { kind: "stamp", slot, line: tier === "SSR" ? u.lines.wake : "" });
@@ -291,10 +293,10 @@
         const dirty = sd.board.find(x => x && (x.marks.雨渍 || x.marks.退回)); if (dirty) { delete dirty.marks.雨渍; delete dirty.marks.退回; }
         say(st, who, u.name + " 补了一下", { kind: "heal", slot: i });
       }
-      else if (u.role === "集邮") { sd.bonusPostage += eventNow(st) === "集邮节" ? 2 : 1; say(st, who, u.name + " 攒了邮资", { kind: "gain", slot: i }); }
+      else if (u.role === "集邮") { sd.bonusPostage += eventNow(st) === "集邮节" ? 2 : 1; say(st, who, u.name + " 攒了胶水", { kind: "gain", slot: i }); }
       else if (u.role === "邮戳") {
         if (u.ink === "加急") { const k = adj(i).find(x => sd.board[x] && sd.board[x].role === "投递"); if (k != null) sd.board[k].marks.加急 = 1; }
-        else if (u.ink === "欠资") foe.owed = Math.min(2, foe.owed + 1);
+        else if (u.ink === "受潮") foe.owed = Math.min(2, foe.owed + 1);
         else if (j >= 0) mark(foe, j, u.ink); else hitEnvelope(st, foeWho, Math.ceil(p / 2), u.name);
         say(st, who, u.name + " 盖了「" + u.ink + "」", { kind: "ink", slot: i, ink: u.ink });
       }
@@ -351,16 +353,30 @@
     return st;
   }
 
-  // 打完要不要让 TA 记得（她选）：这里只给一句话，记不记、记到哪由调用处决定
-  function memoryLine(st, foeName, meName) {
-    const o = st && st.over; if (!o) return "";
+  // 连打几把（她 2026-11-07：「打完一把选结束还是继续下一把，结束了才选进不进聊天，玩三把再全部进记忆」）：
+  //   一把打完记进这一串；她点「结束」时才拿 memoryLine 出一句总的，记不记、记到哪由调用处决定
+  function newSeries() { return { games: [] }; }
+  function addGame(series, st) {
+    const o = st && st.over; if (!series || !o) return series;
+    series.games.push({ winner: o.winner, turn: o.turn, me: o.me, foe: o.foe, byCap: !!o.byCap });
+    return series;
+  }
+  // 给一串（或单独一把）出一句话
+  function memoryLine(x, foeName, meName) {
+    const games = x && Array.isArray(x.games) ? x.games : x && x.over ? [x.over] : [];
+    if (!games.length) return "";
     const who = foeName || "TA", me = meName || "她";
-    const res = o.winner === "draw" ? "打平了" : o.winner === "me" ? me + "赢了" : who + "赢了";
-    return who + "和" + me + "用邮票册的卡打了一局对局，" + res + "（" + o.turn + " 回合，信封剩 " + o.me + " : " + o.foe + "）。";
+    const win = games.filter(o => o.winner === "me").length, lose = games.filter(o => o.winner === "foe").length, draw = games.length - win - lose;
+    if (games.length === 1) {
+      const o = games[0], res = o.winner === "draw" ? "打平了" : o.winner === "me" ? me + "赢了" : who + "赢了";
+      return who + "和" + me + "用邮票册的卡打了一局对局，" + res + "（" + o.turn + " 回合，信封剩 " + o.me + " : " + o.foe + "）。";
+    }
+    const last = games[games.length - 1], lastRes = last.winner === "draw" ? "打平" : last.winner === "me" ? me + "赢" : who + "赢";
+    return who + "和" + me + "用邮票册的卡连打了 " + games.length + " 局对局，" + me + " " + win + " 胜 " + lose + " 负" + (draw ? " " + draw + " 平" : "") + "，最后一局" + lastRes + "。";
   }
 
   const API = { SIZE, SLOTS, ENVELOPE_HP, POSTAGE, DRAW, DECK_SIZE, TURN_CAP, KEEP_MAX, FACE, NEED, ROLES, MARKS, TERRAIN, EVENTS,
-    stampOf, deckFrom, foeDeckFrom, newDuel, place, tear, move, keep, stamp, endTurn, planFoe, combos, memoryLine, hashStr };
+    stampOf, deckFrom, foeDeckFrom, newDuel, place, tear, move, keep, stamp, endTurn, planFoe, combos, newSeries, addGame, memoryLine, hashStr };
   g.StampDuel = API;
   if (typeof module !== "undefined" && module.exports) module.exports = API;
 })(typeof window !== "undefined" ? window : globalThis);

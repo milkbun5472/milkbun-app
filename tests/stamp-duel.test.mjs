@@ -105,3 +105,10 @@ test("邮局公告提前一回合预告；整版觉醒", () => {
   [6, 7, 8].forEach(x => D.place(s2, "me", 0, x));
   assert.ok(s2.log.some(l => l.kind === "wake" && l.combo === "整版"));
 });
+test("连打几把：一串结束才出一句总的；对局里不叫邮资叫胶水", () => {
+  const sr = D.newSeries();
+  for (let s = 1; s <= 3; s++) { const st = D.newDuel(D.deckFrom(mine, s), D.deckFrom(mine, s + 50), s); while (!st.over) D.endTurn(st); D.addGame(sr, st); }
+  assert.equal(sr.games.length, 3);
+  assert.match(D.memoryLine(sr, "B", "她"), /连打了 3 局对局，她 \d+ 胜 \d+ 负/);
+  assert.ok(D.MARKS.受潮 && !D.MARKS.欠资);
+});
