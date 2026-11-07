@@ -6561,9 +6561,11 @@ async function generateSelfieImageRaw(prompt, refPhotoDataUrl, opts) {
       : /webp/i.test(String(blob && blob.type)) ? "webp"
       : /gif/i.test(String(blob && blob.type)) ? "gif" : "png";
     const imageInputs = await Promise.all(refBlobs.map(blobBase64));
-    const catsSize = /1536\s*x\s*1024/i.test(size) ? "1536x1024"
-      : /1024\s*x\s*1536/i.test(size) ? "1024x1536" : "1024x1024";
-    const catsQuality = /^(?:auto|low|medium|high)$/i.test(String(qualityOverride || ""))
+    // 照 ArtArt 接入说明（她 2026-11-07 贴来）：size 是宽高比（1:1 / 3:4 / 4:3 / 9:16 / 16:9 / 3:1 / 2:1），
+    //   分辨率另走 resolution；原来发的是 1536x1024 这种像素写法，不在它的可选值里
+    const catsSize = /1536\s*x\s*1024/i.test(size) ? "4:3"
+      : /1024\s*x\s*1536/i.test(size) ? "3:4" : "1:1";
+    const catsQuality = /^(?:auto|low|medium|high|xhigh|max)$/i.test(String(qualityOverride || ""))
       ? String(qualityOverride).toLowerCase() : "auto";
     // 这个型号报过字数上限的，记着（x_imgPromptCap = { 型号: 上限 }），以后发之前先截好，不再每次先被拒一回
     const capKey = String(a.model || "gptImage2");
@@ -6578,10 +6580,11 @@ async function generateSelfieImageRaw(prompt, refPhotoDataUrl, opts) {
       prompt: knownCap > 200 && String(prompt || "").length > knownCap ? trimTo(prompt, knownCap) : String(prompt || ""),
       task_type: "image",
       num_images: 1,
-      params: Object.assign({ size: catsSize, quality: catsQuality, rewritePrompt: false },
-        // 动图（她 2026-11-07「catsapi 为啥 2.6 生不了动图」）：原来这条路只发尺寸画质，从来没要过动图。
-        //   Cats 的文档没找到动图参数怎么写，先照 GPT 出图接口那三个名字放进 params；不认就照旧回静图
-        opts && opts.gif ? { output_format: "gif", frame_count: Math.max(2, Math.min(16, Number(opts.gifFrames) || 8)), frame_duration_ms: Math.max(40, Math.min(1000, Number(opts.gifMs) || 120)) } : {})
+      locale: "zh",
+      params: Object.assign({ size: catsSize, resolution: "1k", quality: catsQuality, rewritePrompt: false },
+        // 动图：说明里只有 output_format: "gif" 一项——帧数、每帧多久它定死（8 帧、200ms），尺寸自动。
+        //   没有帧数、速度参数可发；到手以后照拉条的速度重排一遍（generateSelfieImage 外层那步）
+        opts && opts.gif ? { output_format: "gif" } : {})
     };
     if (imageInputs.length) body.images = imageInputs.map((base64, i) => ({
       base64: base64,
