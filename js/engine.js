@@ -6574,7 +6574,10 @@ async function generateSelfieImageRaw(prompt, refPhotoDataUrl, opts) {
       prompt: knownCap > 200 && String(prompt || "").length > knownCap ? trimTo(prompt, knownCap) : String(prompt || ""),
       task_type: "image",
       num_images: 1,
-      params: { size: catsSize, quality: catsQuality, rewritePrompt: false }
+      params: Object.assign({ size: catsSize, quality: catsQuality, rewritePrompt: false },
+        // 动图（她 2026-11-07「catsapi 为啥 2.6 生不了动图」）：原来这条路只发尺寸画质，从来没要过动图。
+        //   Cats 的文档没找到动图参数怎么写，先照 GPT 出图接口那三个名字放进 params；不认就照旧回静图
+        opts && opts.gif ? { output_format: "gif", frame_count: Math.max(2, Math.min(16, Number(opts.gifFrames) || 8)), frame_duration_ms: Math.max(40, Math.min(1000, Number(opts.gifMs) || 120)) } : {})
     };
     if (imageInputs.length) body.images = imageInputs.map((base64, i) => ({
       base64: base64,
