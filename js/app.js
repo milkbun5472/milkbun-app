@@ -18131,7 +18131,11 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     ["平视", "从低处往上仰拍", "从高处往下俯拍", "贴近地面的低角度", ""],
     ["前景有东西虚着挡住一角，景深很浅", "侧逆光，轮廓边缘被光勾亮", "斜构图，画面带一点倾斜，动作顺着斜线走", "越过他的肩膀从身后拍，看得见他正看着的东西", "人在画面一侧，另一侧留给场景里的光和东西", "对称居中，四周的场景把人框住", ""]
   ];
-  const stampCam = () => {
+  // 分镜已经写了镜头的（她 2026-11-07「改吧」）：不再掷，掷出来的跟分镜打架——侧面中景配上「贴脸近景＋从身后拍」，
+  //   模型只能自己挑一个，动图更是退回最省事的正面站好
+  const stampCam = (shotHasCam) => {
+    if (shotHasCam) return "【这一张卡面的镜头】照分镜里写的机位和景别拍；参考图只决定这是谁，不决定角度。"
+      + "姿势是这一刻正在发生的动作：身体有方向、有重心变化，手在做事，不是站着或坐着对镜头摆好的样子。";
     stampCam.last = stampCam.last || [];
     const pick = STAMP_CAM_AXES.map((ax, k) => { let i = Math.floor(Math.random() * ax.length); if (i === stampCam.last[k]) i = (i + 1) % ax.length; stampCam.last[k] = i; return ax[i]; }).filter(Boolean);
     return "【这一张卡面的镜头】" + (pick.length ? pick.join("；") + "。没说到的那几样由你按这一刻定。" : "这一张的镜头交给你按这一刻来定，别回到最常见的半身近照。")
@@ -18180,7 +18184,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       const base = freeFit ? Object.assign({}, char, { photoOutfit: limFit }) : char;
       const prompt = buildPhotoPrompt(paint === "real" ? Object.assign({}, base, { photoStyle: "realistic" }) : base, scene,
         freeFit ? Object.assign({}, st, { wearing: "", wearingUpdatedAt: 0 }) : st,
-        Object.assign(duo ? { kind: "duo", me: meP, notLover: !lover, poseLine: "【两个人的姿势】两个人在一起做着这一刻的事，有互动、有动势，身体之间的距离照你们的关系，不是并排对着镜头站好。" } : { kind: "other" }, { shotLine: stampCam() }, { closet: freeFit ? "" : closetTextFor(char.id, 240) }, paint && paint !== "real" ? { paint } : {}));
+        Object.assign(duo ? { kind: "duo", me: meP, notLover: !lover, poseLine: "【两个人的姿势】两个人在一起做着这一刻的事，有互动、有动势，身体之间的距离照你们的关系，不是并排对着镜头站好。" } : { kind: "other" }, { shotLine: stampCam(!alt && /camera\s*[:：]|机位|镜头|景别/i.test(String(tx.shot || ""))) }, { closet: freeFit ? "" : closetTextFor(char.id, 240) }, paint && paint !== "real" ? { paint } : {}));
       const refs = [char.refPhoto, duo && meP && meP.refPhoto].filter(Boolean);
       const out = await generateSelfieImage(prompt, refs.length ? refs : null, { size: "1024x1536" });
       const blob = await imgOutBlob(out); if (!blob) throw new Error(out && out.url ? "站子画好了，但只给了一个图片链接、不让 app 下载下来（跨域）：换一条直接回图的线路，或在站子那边改成返回 base64" : "没拿到图");
