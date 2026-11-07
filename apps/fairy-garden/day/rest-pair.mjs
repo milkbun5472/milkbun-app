@@ -1,8 +1,8 @@
 import * as T from 'three';
-import {furniturePoint,furnitureSeat} from './home-catalog.mjs?v=fg-c5c7b8ffbb7a68b2';
-import {headPoint,bonePoint,nearHand,pairContact,torsoPoint,shoulderPose,pairSize} from './pair-pose.mjs?v=fg-c5c7b8ffbb7a68b2';
+import {furniturePoint,furnitureSeat} from './home-catalog.mjs?v=fg-780b1738a32d7ebb';
+import {headPoint,bonePoint,nearHand,pairContact,torsoPoint,shoulderPose,pairSize} from './pair-pose.mjs?v=fg-780b1738a32d7ebb';
 
-import './social.js?v=fg-c5c7b8ffbb7a68b2';
+import './social.js?v=fg-780b1738a32d7ebb';
 export const REST_PAIRS=globalThis.CharDaySocial.rest;
 const compatible=new Set(['look','cup','hand','pat','hug','shoulder','closer','cuddle']);
 const gap=(a,b)=>Math.hypot(a.x-b.x,a.z-b.z);
@@ -64,7 +64,7 @@ export function createRestPair({a,b}){
    pairContact(a,{[as]:point},pa,contacts);pairContact(b,{[bs]:point},pb,contacts);q.handsDistance=bonePoint(a,as==='left'?'Left_hand':'Right_hand').distanceTo(bonePoint(b,bs==='left'?'Left_hand':'Right_hand'));
   }else if(d.motion==='pat'){
    const difference=Math.max(0,headPoint(receiver,[0,0,0]).y-headPoint(giver,[0,0,0]).y),toward=receiver.root.worldToLocal(giver.root.position.clone()).x<0?-1:1;
-   giver.contactPose({tilt:.35*pg});receiver.contactPose({tilt:Math.min(.75,.45+difference)*pr,nod:Math.min(.85,.48+difference)*pr});
+   giver.contactPose({tilt:.14*pg});receiver.contactPose({tilt:Math.min(.50,.22+difference*.6)*pr,nod:Math.min(.65,.30+difference)*pr});
    const stroke=Math.sin(s.elapsed*.9)*.09,point=headPoint(receiver,[toward*.66,-.48+stroke,-.58]);pairContact(giver,{[nearHand(giver,point)]:point},pg,contacts);q.stroke=stroke;q.hairTarget=point.toArray();
   }else if(d.motion==='shoulder'){
    const side=nearHand(giver,receiver.root.position),point=torsoPoint(receiver,side==='left'?1:-1,1,-.015);pairContact(giver,{[side]:point},pg,contacts);

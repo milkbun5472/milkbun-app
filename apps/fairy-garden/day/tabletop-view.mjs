@@ -1,5 +1,5 @@
 import * as T from 'three';
-import {makeIngredient,makeTabletopPlate} from './ingredient-visual.mjs?v=fg-c5c7b8ffbb7a68b2';
+import {makeIngredient,makeTabletopPlate} from './ingredient-visual.mjs?v=fg-780b1738a32d7ebb';
 export function createTabletopView(parent,job){
  const K=globalThis.CharDayKitchen,Z=K.TABLE_ZONES,root=new T.Group();root.name='KitchenTabletop';parent.add(root);let itemRoot=new T.Group(),plateRoot=null,key='',targets=[],baseTargets=[],preview=null;
  root.add(itemRoot);
