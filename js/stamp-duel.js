@@ -149,8 +149,18 @@
     st.intent = planFoe(st);
   }
 
+  // 放错了能退（她 2026-11-07：「回合结束前放错了可以取消不扣胶水」）：她每做一步之前存一份，
+  //   「撤回」退回上一步（胶水、手牌、信封、对面挨的打都一起回去）；按「寄出」就清掉，寄出去的退不回来
+  const SNAP_KEYS = ["me", "foe", "log", "uid", "over"];
+  function snap(st) { st.undo = st.undo || []; st.undo.push(JSON.stringify(SNAP_KEYS.reduce((o, k) => (o[k] = st[k], o), {}))); }
+  function undo(st) {
+    if (!st.undo || !st.undo.length) return { ok: false, why: "没有可以撤回的" };
+    const o = JSON.parse(st.undo.pop()); SNAP_KEYS.forEach(k => { st[k] = o[k]; });
+    return { ok: true };
+  }
+  const canUndo = st => !!(st && st.undo && st.undo.length);
   // ── 她手上能做的事：贴、撕、挪、盖章、留牌 ─────────────────────────
-  function place(st, who, handIdx, slot) {
+  function placeRaw(st, who, handIdx, slot) {
     const sd = st[who], s = sd.hand[handIdx];
     if (st.over || !s) return { ok: false, why: "没有这张" };
     if (slot < 0 || slot >= SLOTS || sd.board[slot]) return { ok: false, why: "这一格已经贴了" };
@@ -166,7 +176,7 @@
     checkCombos(st, who);
     return { ok: true };
   }
-  function tear(st, who, slot) {
+  function tearRaw(st, who, slot) {
     const sd = st[who], u = sd.board[slot], foe = st[other(who)];
     if (st.over || !u) return { ok: false, why: "这一格是空的" };
     if (sd.torn >= tearCap(st)) return { ok: false, why: "这回合撕够了" };
@@ -181,7 +191,7 @@
     checkOver(st);
     return { ok: true };
   }
-  function move(st, who, from, to) {
+  function moveRaw(st, who, from, to) {
     const sd = st[who], u = sd.board[from];
     if (st.over || !u) return { ok: false, why: "这一格是空的" };
     if (!adj(from).includes(to) || sd.board[to]) return { ok: false, why: "只能挪到旁边的空格" };
@@ -192,14 +202,14 @@
     checkCombos(st, who);
     return { ok: true };
   }
-  function keep(st, who, handIdx) {
+  function keepRaw(st, who, handIdx) {
     const sd = st[who]; if (!sd.hand[handIdx]) return { ok: false, why: "没有这张" };
     if (sd.kept.includes(handIdx)) { sd.kept = sd.kept.filter(k => k !== handIdx); return { ok: true, kept: false }; }
     if (sd.kept.length >= KEEP_MAX) return { ok: false, why: "最多留 " + KEEP_MAX + " 张" };
     sd.kept.push(handIdx); return { ok: true, kept: true };
   }
   // 盖章：章攒满了，花 1 胶水放这张票的技能；R 简单、SR 强一点、SSR 是专属大招（名字就是卡名）
-  function stamp(st, who, slot) {
+  function stampRaw(st, who, slot) {
     const sd = st[who], foeWho = other(who), foe = st[foeWho], u = sd.board[slot];
     if (st.over || !u) return { ok: false, why: "这一格是空的" };
     if (u.charge < u.need) return { ok: false, why: "章还没攒满" };
@@ -330,7 +340,7 @@
         + adj(i).filter(j => board[j] && board[j].charId && board[j].charId === s.charId).length * 4
         + (sd.terrain[i] === "邮筒" ? 2 : 0) - row(i) * 0.1;
       const slot = free.sort((a, b) => score(b) - score(a))[0];
-      board[slot] = s; money -= cost; plan.push({ handIdx: k, slot, name: s.name, role: s.role, face: cost });
+      board[slot] = s; money -= cost; plan.push({ handIdx: k, slot, name: s.name, role: s.role, face: cost, cardId: s.cardId, charId: s.charId });
     }
     let toEnv = 0; const inks = [];
     board.forEach((u, i) => { if (!u) return; if (u.role === "投递" && targetIn(me, col(i)) < 0) toEnv += u.pow; if (u.role === "邮戳") inks.push(u.ink); });
@@ -339,13 +349,14 @@
   function runFoePlan(st) {
     const it = st.intent || {};
     for (const s of it.stamp || []) { stamp(st, "foe", s.slot); if (st.over) return; }
-    const picks = (it.place || []).map(p => ({ s: st.foe.hand[p.handIdx], slot: p.slot }));
-    for (const p of picks) { const k = st.foe.hand.indexOf(p.s); if (k >= 0) place(st, "foe", k, p.slot); if (st.over) return; }
+    // 按卡认（她撤回过的话手牌是存档里还原的新对象，认不得原来那个）
+    for (const p of it.place || []) { const k = st.foe.hand.findIndex(x => x && x.cardId === p.cardId); if (k >= 0) place(st, "foe", k, p.slot); if (st.over) return; }
   }
 
   // 她按「寄出」：她的票先动，然后对面照亮出来的那一步盖章、贴票、行动，再开下一回合
   function endTurn(st) {
     if (st.over) return st;
+    st.undo = [];
     resolveSide(st, "me");
     if (!st.over) { runFoePlan(st); if (!st.over) resolveSide(st, "foe"); }
     if (!st.over && st.turn >= TURN_CAP) st.over = { winner: st.me.hp === st.foe.hp ? "draw" : st.me.hp > st.foe.hp ? "me" : "foe", turn: st.turn, me: st.me.hp, foe: st.foe.hp, byCap: true };
@@ -375,8 +386,11 @@
     return who + "和" + me + "用邮票册的卡连打了 " + games.length + " 局对局，" + me + " " + win + " 胜 " + lose + " 负" + (draw ? " " + draw + " 平" : "") + "，最后一局" + lastRes + "。";
   }
 
+  // 她那边的动作先存一份再做；做不成就把那份扔掉（不留空撤回）
+  const mine = raw => (st, who, a, b) => { if (who !== "me") return raw(st, who, a, b); snap(st); const r = raw(st, who, a, b); if (!r || !r.ok) st.undo.pop(); return r; };
+  const place = mine(placeRaw), tear = mine(tearRaw), move = mine(moveRaw), keep = mine(keepRaw), stamp = mine(stampRaw);
   const API = { SIZE, SLOTS, ENVELOPE_HP, POSTAGE, DRAW, DECK_SIZE, TURN_CAP, KEEP_MAX, FACE, NEED, ROLES, MARKS, TERRAIN, EVENTS,
-    stampOf, deckFrom, foeDeckFrom, newDuel, place, tear, move, keep, stamp, endTurn, planFoe, combos, newSeries, addGame, memoryLine, hashStr };
+    stampOf, deckFrom, foeDeckFrom, newDuel, place, tear, move, keep, stamp, undo, canUndo, endTurn, planFoe, combos, newSeries, addGame, memoryLine, hashStr };
   g.StampDuel = API;
   if (typeof module !== "undefined" && module.exports) module.exports = API;
 })(typeof window !== "undefined" ? window : globalThis);

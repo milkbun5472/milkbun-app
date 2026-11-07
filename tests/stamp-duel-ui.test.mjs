@@ -16,3 +16,8 @@ test("邮票册右上「对局」进对局页；打完先选再来一把／结�
   assert.match(idx, /data-lazy="stamps" data-src="js\/stamp-duel-ui\.js/);
   for (const k of ["stampgoduel", "duelpage", "duelcell", "duelhand", "duelsend", "duelintent", "duelremember"]) assert.ok(ts.includes('"' + k + '"'), k);
 });
+test("票上放卡面（走邮票册那份缩略图）、写是谁的卡；有撤回键", () => {
+  assert.match(st, /useThumb: useStampThumb \}\);/);
+  assert.match(ui, /ownerOf = id => id \? nameOf\(id\) \+ "的卡"/);
+  assert.match(ui, /"data-wk": "duelundo", onClick: back1, disabled: !D\(\)\.canUndo\(st\)/);
+});

@@ -112,3 +112,18 @@ test("连打几把：一串结束才出一句总的；对局里不叫邮资叫�
   assert.match(D.memoryLine(sr, "B", "她"), /连打了 3 局对局，她 \d+ 胜 \d+ 负/);
   assert.ok(D.MARKS.受潮 && !D.MARKS.欠资);
 });
+test("放错了能撤回：胶水、手牌、信封都回去；寄出后就不能撤；撤回过对面照样照亮出来的那步走", () => {
+  const st = D.newDuel(D.deckFrom(mine, 21), D.foeDeckFrom(mine.concat(theirs), "b", ["a"], 21), 21);
+  st.me.terrain = st.me.terrain.map(() => "");
+  const pg = st.me.postage, n = st.me.hand.length;
+  assert.ok(D.place(st, "me", 0, 4).ok);
+  assert.ok(D.canUndo(st));
+  assert.ok(D.undo(st).ok);
+  assert.equal(st.me.postage, pg); assert.equal(st.me.hand.length, n); assert.equal(st.me.board[4], null);
+  assert.equal(D.undo(st).ok, false);
+  assert.equal(D.place(st, "me", 0, 4).ok, true); D.undo(st);
+  const plan = st.intent.place.map(p => p.slot);
+  D.endTurn(st);
+  assert.equal(D.canUndo(st), false);
+  for (const s of plan) assert.ok(st.foe.board[s] || st.log.some(l => l.kind === "fall" && l.who === "foe"));
+});
