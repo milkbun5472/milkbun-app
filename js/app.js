@@ -25198,9 +25198,17 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   }[b] || forumCustomVoice(b));
   // 她自己开的吧（x_forumBoards）没有写死的那一句：拿她写的简介拼。
   // ⚠️只给判据不给例句（prompt-no-content-samples）：说清「像泡在这个圈子里的人」，不替它编行话。
+  // 这个吧挂的世界书（群里 2026-11-07）：她开吧时勾的那几条，原样压进这个吧的设定，不看绑定、不看关键词
+  const forumBoardLore = b => {
+    const bd = typeof forumCustomBoards === "function" ? forumCustomBoards().find(x => x.name === b) : null;
+    const ids = bd && Array.isArray(bd.lore) ? bd.lore : [];
+    if (!ids.length) return "";
+    const es = (loreRef.current || []).filter(e => e && ids.includes(e.id) && String(e.payload || "").trim());
+    return es.length ? "\n【这个吧挂的世界书：这个吧里的帖子和楼层都照下面这些写】\n" + es.map(loreLine).join("\n\n") : "";
+  };
   const forumCustomVoice = b => {
     if (!b || typeof forumCustomBoards !== "function" || !forumCustomBoards().some(x => x.name === b)) return "";
-    const about = typeof forumBoardAbout === "function" ? forumBoardAbout(b) : "";
+    const about = (typeof forumBoardAbout === "function" ? forumBoardAbout(b) : "");
     return "「" + b + "」：" + (about ? "这个吧聊的是——" + about + "。" : "")
       + "来这儿的都是真泡在这个圈子里的人：有自己的行话、老梗、老面孔和吵不完的老话题，说话默认对方也懂；"
       + "不是路过的人在给外行介绍这个话题。"
@@ -25209,7 +25217,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         //   别处那几条「别把她和角色的事往网上发」「网友不认识她」是给普通吧的，在她亲手写了设定的吧里让位给简介
         + "简介是她给这个吧定的设定，说了算：简介里写到的人和关系（台上的角色、她、他们之间的事），在这个吧里就是大家都知道、天天在聊的，资料上面都有；"
         + "别处那些「别把她和角色的事往网上发」「网友不认识她」的规矩，碰上简介写到的人和事，在这个吧里照简介来。" : "")
-      + forumOwnerLine(b);
+      + forumOwnerLine(b) + forumBoardLore(b);
   };
   // 她给自己开的吧挑的吧主（群里 2026-10-31 许愿）：吧主是这个吧的管理员，大家都知道是谁；
   //   Ta 怎么当吧主照 Ta 自己的性子来，有事才出来，不是每帖都在。
