@@ -68,8 +68,8 @@ test("涂改段、贴纸段、真实位置与逐天补齐", () => {
   assert.match(engine, /【贴进来的东西 \/ pasted】/);
   assert.match(engine, /【此刻所在】/, "位置要跟随实时状态");
   // v58.41 起划掉不再是 CSS 下划线，是一道手画的墨杠（她要的笔触感）
-  assert.match(screens, /if \(p\.struck\) return h\("p"/, "划掉那一支没了");
-  assert.match(screens, /h\(InkStruck, \{ text: p\.text/, "划掉没用那道手画的杠");
+  assert.match(screens, /if \(p\.struck\) return h\("(p|div)"/, "划掉那一支没了");
+  assert.match(screens, /h\(InkStruck, \{ text: (p\.zh \? )?p\.text/, "划掉没用那道手画的杠");
   assert.ok(!/textDecoration: p\.struck/.test(screens), "又改回 CSS 下划线了");
   assert.match(screens, /if \(p\.pasted\) return h\("div"/, "贴纸要单独成块，不按正文排");
   assert.match(screens, /!x\.secret && !x\.struck && !x\.pasted/, "列表摘要要跳过这两类");

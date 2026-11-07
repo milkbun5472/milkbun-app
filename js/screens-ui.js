@@ -10928,7 +10928,7 @@ function InkStruck({ text, seed, lineH, rgb }) {
   }, text);
 }
 // 不肯说的那句：糊成一块墨，点一下像被水化开
-function InkSecret({ text, seed, rgb, ink }) {
+function InkSecret({ text, seed, rgb, ink, zh }) {
   const [open, setOpen] = useState(false);
   let x = 0; const str = String(seed || "0");
   for (let i = 0; i < str.length; i++) x = (x * 31 + str.charCodeAt(i)) >>> 0;
@@ -10952,7 +10952,7 @@ function InkSecret({ text, seed, rgb, ink }) {
       boxDecorationBreak: "clone", WebkitBoxDecorationBreak: "clone",
       padding: "0 2px", borderRadius: 3
     }
-  }, text);
+  }, text, open && zh ? h("span", { "data-wk": "diaryzh", style: { display: "block", fontSize: "calc(13.5px * var(--app-fs, 1))", lineHeight: 1.8, color: "rgba(" + rgb + ",.62)", marginTop: 4 } }, zh) : null);
 }
 // 每个角色一种纸：TA的本子长什么样，本来就该是TA的一部分
 const DIARY_PAPERS = ["paper", "lined", "grid", "cloth", "night", "wood"];
@@ -11017,10 +11017,14 @@ function DiaryEntryView({ entry, char, isMe, chars, onBack, onDelete, onComment,
           h("span", { "aria-hidden": "true", style: { position: "absolute", top: -8, left: "42%", width: 46, height: 15, background: "rgba(" + iRGB + ",.07)", border: "1px solid rgba(" + iRGB + ",.06)", transform: "rotate(-3deg)" } }),
           p.text);
         const body = { fontFamily: F_BODY, fontSize: "calc(16.5px * var(--app-fs, 1))", lineHeight: 2.05, color: t.ink, marginBottom: 20 };
-        if (p.struck) return h("p", { key: i, style: Object.assign({}, body, { color: "rgba(" + iRGB + ",.5)" }) },
-          h(InkStruck, { text: p.text, seed: (entry.id || "") + i, lineH: Math.round(16.5 * 2.05), rgb: iRGB }));
+        // 划掉的、涂黑的也带中文（群友 2026-11-07：「日记中的划线和黑块块部分也没有翻译」）：
+        //   写的时候交了中文就摆在底下（划掉的那句中文也划掉；黑块的中文点开才露）；没交就在原文上挂「译」
+        if (p.struck) return h("div", { key: i, style: { marginBottom: 20 } },
+          h("p", { style: Object.assign({}, body, { color: "rgba(" + iRGB + ",.5)", marginBottom: p.zh ? 6 : 0 }) },
+            h(InkStruck, { text: p.zh ? p.text : STX(p.text), seed: (entry.id || "") + i, lineH: Math.round(16.5 * 2.05), rgb: iRGB })),
+          p.zh ? h("p", { "data-wk": "diaryzh", style: { fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", lineHeight: 1.8, color: "rgba(" + iRGB + ",.45)", textDecoration: "line-through", borderLeft: "2px solid rgba(" + iRGB + ",.15)", paddingLeft: 10 } }, p.zh) : null);
         if (p.secret) return h("p", { key: i, style: body },
-          h(InkSecret, { text: p.text, seed: (entry.id || "") + i, rgb: iRGB, ink: t.ink }));
+          h(InkSecret, { text: p.zh ? p.text : STX(p.text), zh: p.zh, seed: (entry.id || "") + i, rgb: iRGB, ink: t.ink }));
         // 写的时候交了中文就直接摆在这一段底下，不用点「译」、不走免费翻译（她 2026-10-26）
         if (p.zh) return h("div", { key: i, "data-wk": "diaryzh", style: { marginBottom: 20 } },
           h("p", { style: Object.assign({}, body, { marginBottom: 6 }) }, STX(p.text)),
