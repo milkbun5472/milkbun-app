@@ -6428,7 +6428,9 @@ async function generateSelfieImageRaw(prompt, refPhotoDataUrl, opts) {
     // 动图带参考照：中转接得住就锁脸，接不住（报错，或者回来一张静图）退一次纯文字动图——这是动图独有的，
     //   普通照片照旧「一张图只发一次请求」
     if (hasRef && opts && opts.gif) {
-      try { const o1 = await generateSelfieImage(prompt, refPhotoDataUrl, inner); if (o1 && (!o1.blob || o1.blob.type === "image/gif")) return o1; } catch (e) {
+      try { const o1 = await generateSelfieImage(prompt, refPhotoDataUrl, inner); if (o1 && (!o1.blob || o1.blob.type === "image/gif")) return o1;
+        // CatsAPI 根本不出动图（她 2026-11-07「再试还是静图」）：回静图就收下这张锁脸的，别再花一次钱换一张不锁脸的静图
+        if (o1 && isCatsImageProvider(a0.baseUrl)) return o1; } catch (e) {
         if (/moderation|content[_ ]?policy|safety|sexual|nsfw/i.test(String((e && e.message) || e))) throw e; }
       const o2 = await generateSelfieImage(prompt, null, inner);
       if (o2 && typeof o2 === "object") o2.degraded = "gif-no-ref";

@@ -9,3 +9,6 @@ test("CatsAPI 原样退回参考照不算成品：先滤掉同字节的，再按
   assert.match(body, /parseOut\(poll, JSON\.stringify\(\{ data: picked \}\)\)/);
   assert.match(body, /for \(const rb of refBlobs\) if \(await same\(out\.blob, rb\)\) throw/);
 });
+test("CatsAPI 动图回成静图：直接收下锁脸的那张，不再补一次纯文字", () => {
+  assert.match(eng, /if \(o1 && isCatsImageProvider\(a0\.baseUrl\)\) return o1;/);
+});
