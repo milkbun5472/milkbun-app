@@ -871,7 +871,24 @@ async function readAIJSON(r) {
   try { return JSON.parse(raw); }
   catch (e) { throw new Error("线路回的不是正常回复（HTTP " + r.status + "）：" + raw.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim().slice(0, 120)); }
 }
+// 动图的第一帧画成 PNG（视觉输入用）；拆不开就原样返回
+async function gifFirstFramePng(dataUrl) {
+  try {
+    if (typeof GifCodec === "undefined" || typeof document === "undefined") return dataUrl;
+    const bin = atob(String(dataUrl).split(",")[1] || ""), u8 = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i);
+    const g = GifCodec.decode(u8); if (!g.frames.length) return dataUrl;
+    const cv = document.createElement("canvas"); cv.width = g.width; cv.height = g.height;
+    cv.getContext("2d").putImageData(new ImageData(g.frames[0].rgba, g.width, g.height), 0, 0);
+    return cv.toDataURL("image/png");
+  } catch (e) { return dataUrl; }
+}
 async function callAI(p, system, messages, opts) {
+  // opts.biFor：这一次写字的是谁（一个角色或几个）——开着双语的，system 末尾加上「原文 | 中文」那条（probeBiLine 那一份）
+  if (opts && opts.biFor && typeof system === "string" && typeof probeBiLine === "function" && !/【双语】/.test(system)) {
+    const who = (Array.isArray(opts.biFor) ? opts.biFor : [opts.biFor]).filter(Boolean);
+    if (who.some(c => probeBiLine(c))) system += probeBiLine(who.find(c => probeBiLine(c))) + (who.length > 1 ? "（只对开着双语的" + who.filter(c => probeBiLine(c)).map(c => "「" + (c.name || "") + "」").join("") + "说的话这样写，别人照常写。）" : "");
+  }
   // 调用栈只在进门这一刻是全的（await 之后就丢了），所以先取下来
   let logFrom = (opts && opts.logFrom) || "";
   if (!logFrom && !(opts && (opts.logLabel || opts.use)) && typeof callerLabelOf === "function") { try { logFrom = callerLabelOf(new Error().stack); } catch (e) {} }
@@ -934,6 +951,12 @@ async function callAI(p, system, messages, opts) {
   // 她点了气泡上那个叉（o.signal）：当场放手不等了。已经发出去的那一枪收不回来，回来的结果直接丢掉。
   const userAborted = () => !!(o.signal && o.signal.aborted);
   const abortErr = () => { const e = new Error("这一轮已经断掉了"); e.userAbort = true; return e; };
+  // 发给模型看的动图换成第一帧静图（她 2026-11-06 截图：Gemini 回「mime type is not supported: image/gif」）：
+  //   出动图以后聊天里的照片是 GIF，好几家视觉接口不收。所有聊天、群聊、线下都从这一处过
+  if (Array.isArray(messages) && messages.some(m => m && Array.isArray(m.imageDataUrls) && m.imageDataUrls.some(u => /^data:image\/gif/i.test(String(u || ""))))) {
+    messages = await Promise.all(messages.map(async m => !m || !Array.isArray(m.imageDataUrls) ? m
+      : { ...m, imageDataUrls: await Promise.all(m.imageDataUrls.map(u => /^data:image\/gif/i.test(String(u || "")) ? gifFirstFramePng(u) : u)) }));
+  }
   const once = () => !o.signal ? callAIOnce(p, system, messages, o) : userAborted() ? Promise.reject(abortErr())
     : Promise.race([callAIOnce(p, system, messages, o), new Promise((_, rej) => o.signal.addEventListener("abort", () => rej(abortErr()), { once: true }))]);
   try {
@@ -1788,7 +1811,9 @@ function directedRelationLines(char, rels, chars, profile) {
   for (const o of chars) {
     if (o.id === char.id) continue;
     const r = rels[char.id + "->" + o.id];
-    if (r) lines.push("- " + char.name + " 眼中的 " + o.name + "：" + r.label + (r.note ? "（" + r.note + "）" : ""));
+    // 名字后面带上存好的性别（她 2026-11-06：心声里把他哥写成「她」——关系网只写了名字和「哥哥」，模型自己猜）
+    const gN = typeof CharacterPronoun !== "undefined" && CharacterPronoun.genderNote ? CharacterPronoun.genderNote(o) : "";
+    if (r) lines.push("- " + char.name + " 眼中的 " + o.name + gN + "：" + r.label + (r.note ? "（" + r.note + "）" : ""));
   }
   // 同姓不等于一家人（群里 2026-10-31：「只要是一个姓系统非说他们是亲戚，怎么强调都没用」）：
   //   只有真碰上同姓、又没写他们之间什么关系的时候才补这一行
@@ -5191,7 +5216,7 @@ const IMG_REF_FAIL_FALLBACK = false;
 //   true：锁脸那一枪失败就直接报错，不换字段、不软化重发、不退无参考照，上面那个 FALLBACK 也不生效。
 //   想恢复原来的降级阶梯就改回 false，只此一处。
 const IMG_ONE_SHOT = true;
-const IMG_API_DEFAULTS = { baseUrl: "", apiKey: "", model: "gpt-image-2", size: "1024x1536", quality: "medium", enabled: false, refFieldMode: "auto", apiFormat: "auto", noRef: false };
+const IMG_API_DEFAULTS = { baseUrl: "", apiKey: "", model: "gpt-image-2", size: "1024x1536", quality: "medium", enabled: false, refFieldMode: "auto", apiFormat: "auto", gifAll: false, noRef: false };
 function imgApiProfileId() { return "img_" + Date.now().toString(36) + "_" + Math.random().toString(36).slice(2, 7); }
 function normalizeImgApiProfile(p, index) {
   const out = Object.assign({}, IMG_API_DEFAULTS, p || {});
@@ -6312,7 +6337,68 @@ async function naiTagsFor(prompt) {
   return { prompt: tags, negative: String(d.negative || "").trim() };
 }
 
+// 动图一律放慢到每帧至少 GIF_MIN_MS（她 2026-11-06「8 帧图速度太快了」）：出图入口这一处收口，表情包、照片、卡面都跟着慢下来
+// 动图速度（她 2026-11-06「搞个拉条自己选」）：每帧停多久，全 app 一个数，存 x_gifMs。帧数固定 16（顺不顺看帧数，快慢看这个）。
+//   新出的动图按它定速；拉条一改，已经存着的动图也就地改速（只改每帧停留那两个字节，不重画、不花钱）。
+// 帧数也给她自己调（她 2026-11-06「搞个帧数拉条让我自己选」）：2~16，存 x_gifFrames，默认 16
+const gifFramesNow = () => { const v = Math.round(Number(loadJSON("x_gifFrames", 16))); return Math.max(2, Math.min(16, v || 16)); };
+// 动图只在这两段里说（她 2026-11-06：精简，直接说要什么，别写「X，但不许 Y」那种绕法）
+const GIF_WORLD_HEAD = "【先守住】画面里的建筑、陈设、器物、光源属于人设和世界书写的那个世界；发型、发色、发长照人设和参考照。\n\n";
+const GIF_MOTION_RULE = "\n\n【动图】循环小动图，帧按时间顺序排："
+  + "①整段是同一个瞬间前后的连续动作，所有帧都从画面描述里写的那个姿势出发：做一个这一刻自然会发生的完整动作，开始、发展、做到位、收回到起始姿势，最后一帧接回第一帧。画面里有几个人时，由一个人做这个动作，其他人保持自己的姿势；九宫格就是每一格各做一个。"
+  + "②头、肩颈、手臂、身体跟着动作连贯地变，幅度照现实，起步和收尾慢、中间快。"
+  + "③镜头、构图、背景、光线固定；脸、五官、手、衣服、画风每帧一致。"
+  + "④参考照只用来认人。";
+// 照片的动图：像实况照片，大部分画面停着，只有一处在动（她 2026-11-06：合照两个人都在换手势、闭眼）
+const GIF_PHOTO_RULE = "\n\n【动图】动态照片，帧按时间顺序排："
+  + "①人保持照片里的姿势和表情。"
+  + "②整张只有一处在动：画面描述里写了动作，就是那个动作；没写，就是头发、衣角、光影、背景里的灯光这类小东西轻轻动。"
+  + "③镜头、构图、背景固定；脸、五官、手、衣服、画风每帧一致；最后一帧接回第一帧。"
+  + "④参考照只用来认人。";
+const gifMsNow = () => { const v = Number(loadJSON("x_gifMs", 150)); return Math.max(60, Math.min(400, v || 150)); };
+// 动图宽过 GIF_MAX_W 就整段缩小（逐帧画到小画布再编码）；不用缩、或者这里没有画布，返回 null
+const GIF_MAX_W = 720;
+function gifShrink(u8, maxW) {
+  if (typeof GifCodec === "undefined" || typeof document === "undefined") return null;
+  const g = GifCodec.decode(u8);
+  if (!g.frames.length || g.width <= maxW) return null;
+  const w = maxW, hh = Math.round(g.height * maxW / g.width);
+  const src = document.createElement("canvas"); src.width = g.width; src.height = g.height; const sg = src.getContext("2d");
+  const cv = document.createElement("canvas"); cv.width = w; cv.height = hh; const c2 = cv.getContext("2d");
+  c2.imageSmoothingQuality = "high";
+  const frames = g.frames.map(f => { sg.putImageData(new ImageData(f.rgba, g.width, g.height), 0, 0); c2.clearRect(0, 0, w, hh); c2.drawImage(src, 0, 0, w, hh); return { rgba: c2.getImageData(0, 0, w, hh).data, delay: f.delay }; });
+  return GifCodec.encode({ width: w, height: hh, frames });
+}
 async function generateSelfieImage(prompt, refPhotoDataUrl, opts) {
+  const out = await generateSelfieImageRaw(prompt, refPhotoDataUrl, opts);
+  if (out && out.blob && out.blob.type === "image/gif" && typeof GifCodec !== "undefined" && GifCodec.retime) {
+    try {
+      let u8 = new Uint8Array(await out.blob.arrayBuffer());
+      // 有几帧没画满（底下露一条）：先裁齐再定速
+      try { const t = GifCodec.trimUncovered && GifCodec.trimUncovered(u8); if (t) u8 = t; } catch (e2) {}
+      // 太大就缩（她 2026-11-06：16 帧 × 1024×1536 的照片动图，iPhone 解不开，显示「图数据坏了」）
+      try { const sm = gifShrink(u8, GIF_MAX_W); if (sm) u8 = sm; } catch (e3) {}
+      out.blob = new Blob([GifCodec.retime(u8, gifMsNow(), true)], { type: "image/gif" }); out.dataUrl = null;
+    } catch (e) {}
+  }
+  return out;
+}
+// 拉条改了：本机图库里存着的动图全部改成新速度。返回改了几张
+async function retimeStoredGifs(ms) {
+  if (typeof GifCodec === "undefined" || !GifCodec.retime) return 0;
+  let n = 0;
+  const run = async (rows, put) => {
+    for (const [k, b] of rows || []) {
+      if (!b || b.type !== "image/gif") continue;
+      try { const nb = new Blob([GifCodec.retime(new Uint8Array(await b.arrayBuffer()), ms, true)], { type: "image/gif" }); await put(k, nb); n++; } catch (e) {}
+    }
+  };
+  try { await run(await idbImgEntries(), idbImgPut); } catch (e) {}
+  try { await run(await idbVaultEntries(), idbVaultPut); } catch (e) {}
+  return n;
+}
+if (typeof window !== "undefined") { window.retimeStoredGifs = retimeStoredGifs; window.gifMsNow = gifMsNow; window.gifFramesNow = gifFramesNow; }
+async function generateSelfieImageRaw(prompt, refPhotoDataUrl, opts) {
   // 「这个站不锁脸」（她 2026-10-05）：有的站不收带图的请求，别的 app 只发文字能出、这里带着参考照就报错。
   //   站上打开了这个开关 → 从第一下就不带参考照，只发文字，一次请求，回什么收什么（标成 site-no-ref，界面上不另外标注）。
   //   不是「先带照片试、失败再不带补一次」——那是两笔钱，也破了「一张图只发一次请求」。
@@ -6321,6 +6407,19 @@ async function generateSelfieImage(prompt, refPhotoDataUrl, opts) {
     const a0 = (opts && opts.api) ? Object.assign({}, IMG_API_DEFAULTS, opts.api) : loadImgApi();
     const hasRef = (Array.isArray(refPhotoDataUrl) ? refPhotoDataUrl : [refPhotoDataUrl]).some(x => x && typeof x === "string");
     const inner = Object.assign({}, opts || {}, { api: a0, __inner: true });
+    // 出动图总开关（她 2026-11-06「其他生图也接上能生动图」「总开关吧，邮票册也开」）：设置·图像API 里开着，
+    //   直接给人看的那些照片（聊天自拍、线下照片、合照、照相馆、邮票卡面、剧场跑团插图……）一律按动图请求。
+    //   要裁、要压、要拼的那几处（头像、背景、表情包九宫格、视频首帧）调用时标了 still，不跟。
+    //   站子回静图就收静图，不报错、不为它多花一次请求。
+    if (a0.gifAll && !(opts && (opts.gif || opts.still)) && !["chat", "gemini", "minimax", "nai"].includes(a0.apiFormat)) {
+      // 总开关加上的动图没出成（站子不收动图参数、带参考照的动图接不住……）：退回一张静图，照样锁脸——不能因为想要动的，连图都没了
+      const gi = Object.assign({}, inner, { gif: true, gifFrames: gifFramesNow(), gifMs: gifMsNow() });
+      try { const o = await generateSelfieImage(prompt, hasRef && a0.noRef ? null : refPhotoDataUrl, Object.assign({}, gi, { __gifAll: true }));
+        // 出成动的就说一声锁没锁脸（她 2026-11-06「也没提醒锁没锁脸」）：带着参考照发出去的才算锁
+        if (o && o.blob && o.blob.type === "image/gif" && typeof window !== "undefined" && window.__toast) window.__toast(hasRef && !a0.noRef ? "动图画好了，参考照已经一起发过去（站子有没有照着画，看脸像不像）" : hasRef ? "动图没带参考照（这个站开着「不锁脸」）" : "动图画好了", 4000);
+        return o; }
+      catch (e) { if (/moderation|content[_ ]?policy|safety|sexual|nsfw/i.test(String((e && e.message) || e))) throw e; }
+    }
     if (hasRef && a0.noRef) {
       const out = await generateSelfieImage(prompt, null, inner);
       if (out && typeof out === "object") out.degraded = "site-no-ref";
@@ -6356,6 +6455,10 @@ async function generateSelfieImage(prompt, refPhotoDataUrl, opts) {
   // 动图（她 2026-11-04：gpt-image-2.6 能直接出 GIF）：只有出图接口（/images/generations）收 output_format:"gif"，
   //   聊天接口出不了动的；带参考照的改图接口官方没开，但有的中转接得住（群友 2026-11-06 图灵画境：「可以上传参考图生成，但是有概率失败」），
   //   所以带着参考照先试一次，不成外面那层再退成纯文字动图（见下面 gif 那一段）
+  // 动图规矩（她 2026-11-06「16 帧会画小动作充填帧数，要不要给动图单独写提示词」→「改吧」）：
+  //   只要这一次要的是动图，照片、表情包、卡面都在提示词后面接这一段，一处说法
+  // 照片（总开关加上的动图）走「动态照片」那套：人不动、只一处在动；表情包这种自己要动图的走动作那套（她 2026-11-06 分开）
+  if (opts && opts.gif && typeof prompt === "string" && prompt.indexOf("【动图】") < 0) prompt = GIF_WORLD_HEAD + prompt + (opts.__gifAll ? GIF_PHOTO_RULE : GIF_MOTION_RULE);
   if (opts && opts.gif) {
     if (a.apiFormat === "chat" || a.apiFormat === "gemini" || a.apiFormat === "minimax" || a.apiFormat === "nai") throw new Error("动图只能走「出图接口」：去 设置 → 图像 API 把这个站的「请求方式」换成「出图接口」");
   }
@@ -6377,6 +6480,12 @@ async function generateSelfieImage(prompt, refPhotoDataUrl, opts) {
     // 连贯参考图可能是聊天自拍库的 img_ 键（与 iv_ 图库不是同一个仓），两边都要认
     try { if (rp.indexOf("iv_") === 0) return await imgVaultFetchBlob(rp); if (rp.indexOf("img_") === 0) return await idbImgGet(rp); return dataUrlToBlob(rp) || b64ToBlob(rp, "image/png"); } catch (e) { return null; }
   }))).filter(Boolean);
+  // 参考图是动图（上一张出的是 GIF、拿来当连贯参考）：换成第一帧 PNG，好几家改图接口不收 GIF
+  for (let i = 0; i < refBlobs.length; i++) {
+    if (refBlobs[i] && refBlobs[i].type === "image/gif" && typeof gifFirstFramePng === "function") {
+      try { const png = await gifFirstFramePng(await blobToDataUrl(refBlobs[i])); const b = dataUrlToBlob(png); if (b) refBlobs[i] = b; } catch (e) {}
+    }
+  }
   if (refs.length && refBlobs.length !== refs.length) throw new Error("有参考照读取失败；为避免生成陌生人，本次已停止。请重新选择参考照后再试");
   // 归一 base：用户可能把整段 endpoint(…/v1/images/generations) 都粘进来 → 削回域名根，统一补 /v1
   const base = normalizedOpenAIBase(a.baseUrl);
@@ -6465,7 +6574,10 @@ async function generateSelfieImage(prompt, refPhotoDataUrl, opts) {
       prompt: knownCap > 200 && String(prompt || "").length > knownCap ? trimTo(prompt, knownCap) : String(prompt || ""),
       task_type: "image",
       num_images: 1,
-      params: { size: catsSize, quality: catsQuality, rewritePrompt: false }
+      params: Object.assign({ size: catsSize, quality: catsQuality, rewritePrompt: false },
+        // 动图（她 2026-11-07「catsapi 为啥 2.6 生不了动图」）：原来这条路只发尺寸画质，从来没要过动图。
+        //   Cats 的文档没找到动图参数怎么写，先照 GPT 出图接口那三个名字放进 params；不认就照旧回静图
+        opts && opts.gif ? { output_format: "gif", frame_count: Math.max(2, Math.min(16, Number(opts.gifFrames) || 8)), frame_duration_ms: Math.max(40, Math.min(1000, Number(opts.gifMs) || 120)) } : {})
     };
     if (imageInputs.length) body.images = imageInputs.map((base64, i) => ({
       base64: base64,
@@ -6789,6 +6901,16 @@ async function generateSelfieImage(prompt, refPhotoDataUrl, opts) {
         };
         r = await sendEdits(rfOff);
         if (!rfOff && await rfRejected(r)) r = await sendEdits(true);
+        // 动图带参考照被打回「帧数须为整数」（群友 2026-11-06 邮票卡面）：multipart 里字段只能是字符串，
+        //   有的站按类型校验就不认。换成 JSON 发一次：参考照编成 data URL 放进 images，帧数、时长是真数字
+        if (opts && opts.gif && r && !r.ok && /frame|帧数|整数|integer/i.test(await r.clone().text().catch(() => ""))) {
+          const imgs = [];
+          for (const b of refBlobs) { try { imgs.push({ image_url: await blobToDataUrl(b) }); } catch (e) {} }
+          const jb = { model: a.model || "gpt-image-2", prompt: promptText, size, n: 1, images: imgs, input_fidelity: "high",
+            output_format: "gif", frame_count: Math.max(2, Math.min(16, Number(opts.gifFrames) || 8)), frame_duration_ms: Math.max(40, Math.min(1000, Number(opts.gifMs) || 120)) };
+          if (!rfOff) jb.response_format = "b64_json"; if (qualityOverride) jb.quality = qualityOverride;
+          r = await fetch(root + "/images/edits", { method: "POST", headers: { "Content-Type": "application/json", Authorization: "Bearer " + a.apiKey }, body: JSON.stringify(jb), signal: ctrl.signal });
+        }
       } else {
         // slim = 裸参数重试：有些中转不认 quality/response_format 这类可选参数，只发必填的
         const body = { model: a.model || "gpt-image-2", prompt: promptText, size, n: 1 };
@@ -7814,6 +7936,17 @@ function privateBracketFix(text) {
     .replace(/\s*〔\s*(?:(?:今天|昨天|前天)\s*|\d{1,2}\/\d{1,2}\s*)?\d{1,2}[:：]\d{2}\s*〕\s*/g, " ")
     .replace(/〔([^〔〕\n]{1,120})〕/g, "（$1）");
 }
+// 推演里 TA 亲口写的外语要带中译（她 2026-11-06「你倒是接公共别每一处自己写」）：同一轮顺手写，不额外花钱。
+//   朋友圈、匿名箱……要中译的地方都从这一份拿说法、字段和收法，别再各写一段。
+//   on：跟聊天设置那颗「双语」走（工程师之眼开着不要）；spec(what, extra)：拼进 instruction；field(key, what)：拼进 schemaHint；take(v)：收回来的值，null/空 → ""。
+const ProbeZh = {
+  on: (settings) => !!(settings && settings.bilingual && !settings.engineerEyes),
+  spec: (what, extra) => "\n\n【" + what + "要带中译】你用的不是中文的话，在 zh 里给出" + what + "的简体中文翻译："
+    + "只译正文、保留原话的语气和口吻，不要注音、不要解释、不要引号。" + (extra || "") + "本来就用中文写的，zh 填 null。",
+  field: (key, what) => ",\"" + key + "\":\"" + what + "的中译或null\"",
+  take: v => { const z = String(v == null ? "" : v).trim(); return z && z.toLowerCase() !== "null" ? z : ""; }
+};
+if (typeof window !== "undefined") window.ProbeZh = ProbeZh;
 function showClean(text, isU) {
   let s = String(text == null ? "" : text);
   if (!s) return s;
@@ -7824,7 +7957,16 @@ function showClean(text, isU) {
   if (s.indexOf("(") >= 0 && ttsHasSoundTag(s)) s = ttsMarkStrip(s);
   if (s.indexOf("\\n") >= 0) s = s.replace(/\\r\\n|\\n/g, "\n");
   if (s.indexOf("〔") >= 0) s = privateBracketFix(s).replace(/ {2,}/g, " ").trim();
+  if (s.indexOf("[") >= 0) s = stripCtxTagEcho(s);
   return s;
+}
+// 模型把 app 给它看的记录标签原样抄进了回话（群友 2026-11-06 截图：「热乎的垫垫肚子 [你给 Lisa 点了外卖：……（骑手在路上）]」）：
+//   那几种 [你给 X 点了外卖：…] [X 给你点了外卖：…] [送给你一份礼物：…] [已经实际发出…] 是写给模型看的旁注，不是话。
+//   只认这几种开头，别的方括号一个不碰；摘完整条空了就原样留着（宁可露也别吞成空气泡）。
+const CTX_TAG_ECHO_RE = /\s*\[(?:你给[^\]\n]{0,40}?(?:点了外卖|寄了|转账|送了)|[^\]\n]{0,24}?给你(?:点了外卖|寄了|转账|送了)|送给你一份礼物|你给对方寄了|已经实际发出|发来一张|语音消息，说的不是打的|当着全群的面)[^\]\n]*?(?:\([^)\n]*\)[^\]\n]*?|（[^）\n]*）[^\]\n]*?)*\]/g;
+function stripCtxTagEcho(s) {
+  const out = s.replace(CTX_TAG_ECHO_RE, "").replace(/ {2,}/g, " ").trim();
+  return out ? out : s;
 }
 function ttsHasPause(text) {
   const s = String(text == null ? "" : text);
@@ -11210,6 +11352,19 @@ async function runProbe(p, ctx, probe) {
     throw e;
   }
 }
+// TA 亲口写的字自带中译（她 2026-11-06「写双语你看看所有有翻译的地方有没有都接上」）：
+//   跟聊天、查手机同一个写法——外语写成「原文 | 中文」，屏幕上 TransText/transShow/PTX 自己会拆开。
+//   接在 TA 写字的共用入口（runProbe 的 voice 那几种）和直接 callAI 的那几处（传 char 进来），一处说法，别每一处自己写。
+//   TA 没开双语、已经自己要了单独的 zh 字段（朋友圈那种）、或者这一段本来就写了【双语】的，都不再加。
+function probeBiLine(char, probe) {
+  if (!char || !char.id || typeof window === "undefined" || typeof window.__charBiOn !== "function" || !window.__charBiOn(char.id)) return "";
+  if (probe) {
+    if (!(probe.voice || probe.voiceThought || probe.voiceScene)) return "";
+    if (/【双语】/.test(String(probe.instruction || "")) || /"zh"|\\"zh\\"|noteZh/.test(String(probe.schemaHint || ""))) return "";
+  }
+  return "\n\n【双语】你这一次写的文字里，凡是【不是中文】的正文（回答、信、留言、评论、纸条、台词、心里话这些），每一处都写成「原文 | 中文」：竖线左边照常写原文，右边是它的简体中文意思，按你说话的口气翻、不是字典直译，一处只用一根竖线；本来就是中文的照常写，不加。名字、时间、选项代号这些不加。";
+}
+if (typeof window !== "undefined") window.probeBiLine = probeBiLine;
 async function runProbeInner(p, ctx, probe) {
   // 等多久、能不能中途掐断：调用方传 probe.timeout / probe.signal，原样交给 callAI——
   //   别在外面拿 Promise.race 自己赛跑（赛输了请求还在后台跑、照样计费）。2026-10-20 收
@@ -11233,7 +11388,7 @@ async function runProbeInner(p, ctx, probe) {
     ? "你就是「" + ((ctx.char && ctx.char.name) || "TA") + "」本人。下面是完整设定和实际已知的上下文。这次只写未说出口的内心片段，按任务输出合法 JSON。" : head;
   const sceneHead = probe.voiceScene
     ? "你就是「" + ((ctx.char && ctx.char.name) || "TA") + "」本人。按下方现场事实和完整设定，写真实说出口的话；当前说话对象由现场任务确定。输出严格按 JSON。" : head;
-  const system = (probe.voiceThought ? thoughtHead : probe.voiceScene ? sceneHead : head) + "\n\n" + buildBundle(ctx) + "\n\n【" + (probe.voice ? "这一次要写什么" : "推演任务") + "】\n" + probe.instruction + "\n\n【输出】只输出合法 JSON，无 markdown 无多余文字：\n" + probe.schemaHint;
+  const system = (probe.voiceThought ? thoughtHead : probe.voiceScene ? sceneHead : head) + "\n\n" + buildBundle(ctx) + "\n\n【" + (probe.voice ? "这一次要写什么" : "推演任务") + "】\n" + probe.instruction + probeBiLine(ctx.char, probe) + "\n\n【输出】只输出合法 JSON，无 markdown 无多余文字：\n" + probe.schemaHint;
   // 她 2026-08-29：「全部 token 放开」。天花板不是预付款——按次计费下给大不多花一分钱，
   // 给小了只会截断正文，思考型模型的推理也从这里扣。默认 2600 是历史遗留，
   // 好几个推演（相册 25 张、书架 30 本）都被它悄悄截过。

@@ -89,9 +89,11 @@ test("IF、生日、纪念日写卡不带衣柜那段（会叫他只穿衣柜里
 test("限时池写卡：分镜的 outfit 是整套过节的，季节常服和小配件不算", () => {
   assert.match(src, /这一身是从外套、上衣到下装整套为这一期换的；平时那身加一个头饰、一件小配件不算。人设里按季节、按场合写的常穿衣服这张都不用。/);
 });
-test("限时池写卡：扮成具体的角色或怪物，照他挑，gist 记扮相、不重样", () => {
-  assert.match(src, /这一身是扮成一个具体的角色或怪物：一眼看得出扮的是谁、是什么/);
-  assert.match(src, /"gist 里写上这张扮的是什么；你已经有的「" \+ card\.theme \+ "」卡里扮过的，这张扮别的。"/);
+test("变装只属于万圣夜；限时卡写这一期才有的那一刻", () => {
+  const core = fs.readFileSync(__dirname + "/../js/stamps-core.js", "utf8");
+  assert.match(core, /look: "这一身是扮成一个具体的角色或怪物/);
+  assert.ok(!/扮成一个具体的角色或怪物/.test(src), "公共那段不再要求变装");
+  assert.match(src, /写的是只有在「" \+ card\.theme \+ "」这一期才会发生的那一刻/);
 });
 test("生日、她的生日、纪念日卡：画图走服装锁，她那身也锁；写卡时季节常服不算", () => {
   const body = src.slice(src.indexOf("const STAMP_DAY_KINDS"), src.indexOf("const StampsCoreSafe"));
@@ -118,4 +120,12 @@ test("写卡 JSON 里正文带了英文引号也救得回来", () => {
   const got = f('{"cards":[{"name":"狼爪","narration":"他说"别动"\n笑了"}]}');
   assert.strictEqual(got.cards[0].narration, '他说"别动"\n笑了');
   assert.ok((src.match(/salvage: stampLooseJSON/g) || []).length >= 2);
+});
+test("限定卡在册子和卡页上都有限定标记", () => {
+  const ui = fs.readFileSync(__dirname + "/../js/stamps.js", "utf8");
+  assert.match(ui, /function LimMark\(\{ card, big \}\)/);
+  assert.ok(!/" 限定"/.test(ui), "不要「限定」那条");
+  assert.match(ui, /const DAY = \{ bday: /);
+  assert.match(ui, /h\(LimMark, \{ card, big: true \}\)/);
+  assert.match(ui, /back \? null : h\(LimMark, \{ card \}\)/);
 });

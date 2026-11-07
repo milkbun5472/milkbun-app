@@ -1,0 +1,72 @@
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { createRequire } from "node:module";
+const require = createRequire(import.meta.url);
+const G = require("../js/gif-codec.js");
+const frame = v => { const a = new Uint8ClampedArray(4 * 4 * 4); for (let i = 0; i < a.length; i += 4) { a[i] = v; a[i + 1] = v; a[i + 2] = v; a[i + 3] = 255; } return a; };
+const bytes = G.encode({ width: 4, height: 4, frames: [{ rgba: frame(10), delay: 120 }, { rgba: frame(200), delay: 500 }] });
+test("只抬太快的：慢的不动，画面不变", () => {
+  const g = G.decode(G.retime(bytes, 160)), g0 = G.decode(bytes);
+  assert.deepEqual(g.frames.map(f => f.delay), [160, 500]);
+  assert.deepEqual(Array.from(g.frames[0].rgba), Array.from(g0.frames[0].rgba));
+});
+test("拉条用的 exact：每帧都改成这个数", () => {
+  assert.deepEqual(G.decode(G.retime(bytes, 200, true)).frames.map(f => f.delay), [200, 200]);
+});
+test("出图入口按拉条定速，帧数 16；拉条松手把存着的动图一起改", () => {
+  const eng = readFileSync(new URL("../js/engine.js", import.meta.url), "utf8");
+  const ui = readFileSync(new URL("../js/screens-ui.js", import.meta.url), "utf8");
+  assert.match(eng, /const gifFramesNow = \(\) => /);
+  assert.match(ui, /saveJSON\("x_gifFrames", fr\)/);
+  assert.match(eng, /GifCodec\.retime\(u8, gifMsNow\(\), true\)/);
+  assert.match(eng, /GifCodec\.trimUncovered\(u8\)/);
+  assert.match(eng, /async function retimeStoredGifs\(ms\)/);
+  assert.match(ui, /const n = await retimeStoredGifs\(ms\);/);
+  assert.doesNotMatch(readFileSync(new URL("../js/app.js", import.meta.url), "utf8"), /gifFrames: (8|12),/);
+});
+test("要动图就在提示词后面接【动图规矩】，一处说法", () => {
+  const eng = readFileSync(new URL("../js/engine.js", import.meta.url), "utf8");
+  assert.match(eng, /if \(opts && opts\.gif && typeof prompt === "string" && prompt\.indexOf\("【动图】"\) < 0\) prompt = GIF_WORLD_HEAD \+ prompt \+ \(opts\.__gifAll \? GIF_PHOTO_RULE : GIF_MOTION_RULE\);/);
+  assert.equal((eng.match(/【动图】循环小动图/g) || []).length, 1);
+});
+test("结构认不全（截断的 GIF）就原样返回，不改一个字节", () => {
+  const cut = bytes.slice(0, bytes.length - 20);
+  assert.deepEqual(Array.from(G.retime(cut, 300, true)), Array.from(cut));
+});
+test("有一帧底下没画满：所有帧裁到都画到的那块；都画满就不动", () => {
+  const W = 20, H = 20, f = v => { const a = new Uint8ClampedArray(W * H * 4); for (let i = 0; i < a.length; i += 4) { a[i] = v; a[i + 1] = v; a[i + 2] = v; a[i + 3] = 255; } return a; };
+  const full = G.encode({ width: W, height: H, frames: [{ rgba: f(10), delay: 100 }, { rgba: f(200), delay: 100 }] });
+  assert.equal(G.trimUncovered(full), null);
+  // 把第二帧的图像描述里的高改成 18：底下两行没画到
+  const b = full.slice(); let seen = 0;
+  for (let i = 0; i < b.length - 10; i++) if (b[i] === 0x2C && b[i + 1] === 0 && b[i + 2] === 0 && b[i + 3] === 0 && b[i + 4] === 0 && b[i + 5] === W && b[i + 7] === H) { if (++seen === 2) { b[i + 7] = 18; break; } }
+  const out = G.trimUncovered(b);
+  assert.ok(out, "该裁没裁");
+  const g = G.decode(out);
+  assert.equal(g.width, 20); assert.equal(g.height, 18);
+});
+test("动图提示词最前面先守住世界和发型（不点任何时代题材）", () => {
+  const eng = readFileSync(new URL("../js/engine.js", import.meta.url), "utf8");
+  assert.match(eng, /const GIF_WORLD_HEAD = "【先守住】/);
+});
+test("动图规矩：精简直说——完整动作、身体跟着动、幅度照现实、最多眨一次、参考照只认人", () => {
+  const eng = readFileSync(new URL("../js/engine.js", import.meta.url), "utf8");
+  const r = eng.slice(eng.indexOf("const GIF_WORLD_HEAD"), eng.indexOf("④参考照只用来认人", eng.indexOf("const GIF_MOTION_RULE")) + 20);
+  for (const k of ["所有帧都从画面描述里写的那个姿势出发", "由一个人做这个动作，其他人保持自己的姿势", "开始、发展、做到位、收回到起始姿势", "幅度照现实", "参考照只用来认人", "镜头、构图、背景、光线固定"]) assert.ok(r.includes(k), k);
+  assert.ok(!/不许|但/.test(r), "又写回了「X，但不许 Y」");
+  assert.ok(!/眼/.test(r), "提了眼睛会画出怪异的眼睛轨迹");
+  assert.doesNotMatch(r, /古代|现代|古风|仙侠|科幻/);
+});
+test("照片的动图走动态照片那套：人不动、只一处在动；表情包走动作那套", () => {
+  const eng = readFileSync(new URL("../js/engine.js", import.meta.url), "utf8");
+  const r = eng.slice(eng.indexOf("const GIF_PHOTO_RULE"), eng.indexOf("④参考照只用来认人。\";", eng.indexOf("const GIF_PHOTO_RULE")) + 12);
+  for (const k of ["人保持照片里的姿势和表情", "整张只有一处在动", "最后一帧接回第一帧"]) assert.ok(r.includes(k), k);
+  assert.ok(!/不许|但/.test(r));
+  assert.ok(!/眼/.test(r));
+});
+test("照片动图太宽就缩到 GIF_MAX_W（iPhone 解不开大动图）", () => {
+  const eng = readFileSync(new URL("../js/engine.js", import.meta.url), "utf8");
+  assert.match(eng, /const GIF_MAX_W = 720;/);
+  assert.match(eng, /const sm = gifShrink\(u8, GIF_MAX_W\); if \(sm\) u8 = sm;/);
+});

@@ -20,7 +20,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v89.125";
+const APP_VERSION = "v89.175";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -14364,7 +14364,12 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         const _pa = pendingAskOf(charId);
         if (_st && _pa && settleAsk(charId, _pa.aid, _st, char.remark || char.name, _av && typeof _av === "object" ? _av.note : "", _av && typeof _av === "object" ? _av.cond : "")) delivered = true;
       }
-      const quote = parsed.quote && String(parsed.quote).toLowerCase() !== "null" ? String(parsed.quote) : null;
+      // 引用要对得上聊天里真有的一句（群友 2026-11-06 截图：引了一句「只是抱」，前面根本没人说过）：
+      //   跟群聊同一个 GroupQuote.resolve——一字不差、或互相包含（≥4 字）才挂，取最近那条的原话；对不上就不挂
+      const _quoteRaw = parsed.quote && String(parsed.quote).toLowerCase() !== "null" ? String(parsed.quote) : null;
+      const quote = !_quoteRaw ? null : window.GroupQuote
+        ? window.GroupQuote.resolve({ quote: _quoteRaw }, window.GroupQuote.buildCatalog(chatsRef.current[chatKey] || [], userName(profile), 60)).replyTo
+        : _quoteRaw;
       const turnId = "t_" + Date.now();
       if (roomStudyOn && parsed.studyInvite && typeof parsed.studyInvite === "object") {
         const inv = parsed.studyInvite;
@@ -15299,7 +15304,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       // 现在突然黑衬衫」。只取 6 小时内的——更早的场景早换了,拿它当锚反而错。
       const prevShot = (chatsRef.current[chatKey] || []).slice().reverse()
         // 拍她的（他帮她拍／她自拍）和拍他的各认各的上一张，不然没参考照时会把对方那张脸当锚
-        .find(m => m && m.kind === "selfie" && m.imgKey && (Date.now() - (Number(m.ts) || 0)) < 6 * 3600000 && ((m.photoKind === "me" || m.photoKind === "myself" || m.photoKind === "myshot") === meShot));
+        // 重拍的就是这一张：它画坏了才要重拍，不拿它自己当参考（她 2026-11-06）
+        .find(m => m && m.kind === "selfie" && m.imgKey && m.sid !== sid && (Date.now() - (Number(m.ts) || 0)) < 6 * 3600000 && ((m.photoKind === "me" || m.photoKind === "myself" || m.photoKind === "myshot") === meShot));
       // 人物原始参考照永远比上一张生成图可信。上一张一旦画错脸，重 roll 若继续
       // 把它塞回 edits，就会把错误当成新的身份锚并一代代繁殖。只有完全没有原始
       // 人物参考照时，才允许生成图临时承担服装/场景连贯参考。
@@ -17761,12 +17767,11 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         // 卡名（她 2026-11-04 截图：张张「万圣夜·判官笔」）：卡底下本来就标着这一期，名字不挂前缀，从这张写的那件事里起
         + "卡名从这张写的那件事里起，看得出是「" + card.theme + "」这一期的，但不把「" + card.theme + "」几个字挂在名字前面当前缀，卡上本来就标着这一期。"
         // 分镜里那一身也要看得出在过这个节（她 2026-11-03：描述里穿的还是平时的衣服）
-        + "shot 里的 outfit 写你在这一期里穿的那一身，一眼看得出是在过「" + card.theme + "」，不是平时的衣服。"
+        + "shot 里的 outfit 写你在这一期里穿的那一身，一眼看得出是「" + card.theme + "」这一期，不是平时的衣服；要不要变装看上面这一期自己的要求，没说就别写成戏服。"
         // 她 2026-11-04：分镜一直写常服——人设里按季节写的那几身被当成了这张该穿的，节日只落在一个小发箍上
         + "这一身是从外套、上衣到下装整套为这一期换的；平时那身加一个头饰、一件小配件不算。人设里按季节、按场合写的常穿衣服这张都不用。"
-        // 她 2026-11-04：「都是风衣斗篷了，万圣节明明扮啥都可以」——只说整套换，模型就挑最保险的那一身
-        + "这一身是扮成一个具体的角色或怪物：一眼看得出扮的是谁、是什么，不是一身只有气氛的衣服。扮什么照你这个人挑——你会觉得哪个好玩、会拿什么逗她、会不会故意扮得很烂。"
-        + "gist 里写上这张扮的是什么；你已经有的「" + card.theme + "」卡里扮过的，这张扮别的。";
+        // 限时卡要特别（她 2026-11-06）：这一刻只有这一期才有；变装那几句只放在万圣夜自己的 look 里，深秋这种不是节日的不会被写成扮吸血鬼
+        + "这是限定卡，要比日常卡特别：写的是只有在「" + card.theme + "」这一期才会发生的那一刻，换到平常哪一天都不成立；不是平常的一天换个背景、顺口提一句。";
       return pastLine + lens + (card.timeAt ? stampTimeLine(card) : "") + "这是一张【IF 卡】，主题是「" + card.theme + "」" + (stampLim(card).themeLine ? "：" + stampLim(card).themeLine : "。")
         + "写的是「如果」的你，不是真发生的事。先想清楚你是哪个世界、哪个年代的人，" + mode
         // 主题跟他自己的世界本来就是同一种（她 2026-10-26：西幻主题撞上本来就是西幻的人）：世界不换，换他这个人
@@ -23273,7 +23278,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       const prompt = "一张手机社交主页的【横幅背景图】，宽幅、安静，是一个人自己挑来挂在匿名树洞主页上的图。\n"
         + "【这张图是】" + d.bgDesc + "\n"
         + "【硬性要求】不出现文字、水印、边框；画面里不要出现清晰正脸；画面必须是可公开展示的。";
-      const out = await generateSelfieImage(prompt, null, { size: "1536x1024" });
+      const out = await generateSelfieImage(prompt, null, { size: "1536x1024", still: true });
       if (!out || !out.blob) throw new Error("图没出来");
       const durl = await blobToDataUrl(out.blob);
       const ref = typeof imgToVault === "function" ? await imgToVault(durl) : durl;
@@ -23587,6 +23592,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   //   树洞是「一屋子陌生人」，连线是「直播里接进来一个人」，两句话不一样，不许互相将就。
   const strangerBans = () => "\n\n" + ECHO_QUESTION_BAN + "\n\n" + REGISTER_FOLLOWS_SCENE
     + (window.ReplyPacing ? "\n\n" + window.ReplyPacing.reading() : "");
+  // 匿名箱的双语（她 2026-11-06）：不另写——runProbe 的 voice 那一路自己会加「原文 | 中文」（probeBiLine）
   const anonBans = () => strangerBans()
     + "\n\n【这是树洞，不是聊天】问你话的是一屋子跟你毫无关系的陌生人，不是你身边的人。"
     + "对他们说话的分寸、耐心和亲疏，跟你对熟人说话【本来就不一样】——想答就答，不想答就不答，"
@@ -23680,7 +23686,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
           + "· 说人话:别端着解释道理、别写成箴言警句、别用『其实/本质上/无非是』这种给人上课的开场。\n"
           + "如果看完这些你心里冒出了「这人是不是我认识的某某」,把那个念头写进 guess(一句,可以猜错、可以猜得很离谱);没冒出来就留空。"
           + anonBans(),
-        schemaHint: "{\"items\":[{\"answer\":\"回答(skip 为 true 时留空)\",\"skip\":false,\"note\":\"skip 为 true 时你当时的反应(一句,可空)\"}],\"guess\":\"你心里那句猜测(可空)\"}"
+        schemaHint: "{\"items\":[{\"answer\":\"回答(skip 为 true 时留空)\",\"skip\":false,\"note\":\"skip 为 true 时你当时的反应(一句,可空)\"" + "}],\"guess\":\"你心里那句猜测(可空)\"}"
       });
       const items = (d && Array.isArray(d.items)) ? d.items : [];
       if (!items.length) throw new Error("没有生成内容");
@@ -24617,21 +24623,15 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       // 角色自己的置顶（她 2026-10-27）：发的时候 TA 自己定要不要钉在主页最上面，最多钉三条，钉第四条就把最早钉的那条放回去
       const _momPinned = (momentsRef && momentsRef.current ? momentsRef.current : moments).filter(m => m && m.characterId === char.id && !m.mine && m.top);
       const _momPinSpec = ",\"pin\":\"（可选）想把这条钉在自己朋友圈主页最上面就填 true，别人点进你主页先看到它；不想就不填" + (_momPinned.length ? "。你现在已经钉着：" + _momPinned.slice(0, 3).map(m => "「" + String(m.content || "").slice(0, 24) + "」").join("") : "") + "\"";
-      const _momBi = !!(settingsFor(char.id) || {}).bilingual;
-      const _momBiSpec = _momBi
-        ? "\n\n【这条朋友圈要带中译】你用的不是中文的话，在 zh 里给出这条正文的简体中文翻译："
-          + "只译正文、保留原话的语气和口吻，不要注音、不要解释、不要引号。"
-          + "本来就用中文发的，zh 填 null。"
-          // 评论也一起译（她 2026-10-03：「朋友圈评论的外语能不能也翻译了」）——
-          //   在同一轮里要，不额外花钱；不要的话每条评论都得各自走一次免费接口。
-          + "下面那些评论里，不是中文的那几条也各自给一份中译，填在那条评论自己的 zh 里；中文的填 null。"
-        : "";
+      const _momBi = ProbeZh.on(settingsFor(char.id));
+      // 评论也一起译（她 2026-10-03：「朋友圈评论的外语能不能也翻译了」）——在同一轮里要，不额外花钱。说法走公共的 ProbeZh
+      const _momBiSpec = _momBi ? ProbeZh.spec("这条朋友圈正文", "下面那些评论里，不是中文的那几条也各自给一份中译，填在那条评论自己的 zh 里。") : "";
       const d = await runProbe(apiFor(char.id), leanWriteCtx(ctxFor(char)), { // 自动朋友圈=TA 的社交发言，跟随专线（v48.37）：专线用专线，否则照旧主模型；瘦身省贵线（v48.95，Codex 指出漏套 lean）
         voice: true,
         instruction: "完全代入「" + char.name + "」。你就是他，此刻拿着自己的手机在发一条朋友圈——不是在替他写一条，是你自己想发。" + _momAxes + "1-4句，不暴露隐藏剧情。优先从你真正参与的近期相处里自然长出内容，但不要逐句复述或把私密细节直接公开。那些相处每句都带着时间：这条是现在发的，隔了一夜、半天的事是那时候的事，回头提一句可以，今天别的事也一样能发。" + (_momImgOpen ? "**配不配图你自己定**：看这一条本身，也看你这个人平时发朋友圈的习惯——有的人几乎条条带图，有的人一年配不了几张，别为了配而配。" + _momImgHabit + "要配就在 image 里写一句这张图的画面描述（如「窗台上的多肉，逆光」「深夜便利店的关东煮」），再在 imageWho 里说清楚画面里有没有你：none＝画面里没有人（拍的是东西、吃的、风景）；part＝只拍到你的手、背影这类局部、看不见脸；self＝你本人入镜、看得见脸。不配图 image 填 null。" : "这一条只发文字，不配图，image 填 null。") + "再生成认识的其他角色对这条的 0-3 条评论。" + (peerNames.length ? "TA 已经建立关系的人有：" + peerNames.join("、") + "——这些是【优先】人选，谁真会关心这条谁才出现，不必都出现。" : "") + "评论者也【不限于】这些人：人设里合理存在、只是还没单独建卡的人（同学、舍友、同事、下属、邻居、旧友…）照样可以来评论，那正是朋友圈该有的样子；只要名字和口吻贴这个世界、这个身份就行，别让明显不搭的人冒出来。**绝对不要替用户本人（" + meName + "）生成任何评论或回复——用户会自己去评论。**" + (livedMaterial ? "\n\n【你最近亲历的共同相处（含私聊、群聊与线上/线下）】\n" + livedMaterial : "") + noRepeat + _momBiSpec,
         schemaHint: _momImgOpen
-          ? "{\"content\":\"朋友圈正文\",\"image\":\"配图描述或null\",\"imageWho\":\"none｜part｜self\",\"comments\":[{\"author\":\"评论者名\",\"text\":\"评论\"" + (_momBi ? ",\"zh\":\"这条评论的中译或null\"" : "") + "}]" + (_momBi ? ",\"zh\":\"正文的中译或null\"" : "") + _momPinSpec + "}"
-          : "{\"content\":\"朋友圈正文\",\"image\":null,\"comments\":[{\"author\":\"评论者名\",\"text\":\"评论\"" + (_momBi ? ",\"zh\":\"这条评论的中译或null\"" : "") + "}]" + (_momBi ? ",\"zh\":\"正文的中译或null\"" : "") + _momPinSpec + "}"
+          ? "{\"content\":\"朋友圈正文\",\"image\":\"配图描述或null\",\"imageWho\":\"none｜part｜self\",\"comments\":[{\"author\":\"评论者名\",\"text\":\"评论\"" + (_momBi ? ProbeZh.field("zh", "这条评论") : "") + "}]" + (_momBi ? ProbeZh.field("zh", "正文") : "") + _momPinSpec + "}"
+          : "{\"content\":\"朋友圈正文\",\"image\":null,\"comments\":[{\"author\":\"评论者名\",\"text\":\"评论\"" + (_momBi ? ProbeZh.field("zh", "这条评论") : "") + "}]" + (_momBi ? ProbeZh.field("zh", "正文") : "") + _momPinSpec + "}"
       });
       const content = String(d && d.content || "").trim();
       if (!content) throw new Error("模型没有返回朋友圈正文");
@@ -24648,7 +24648,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         image: newMomImage,
         ...(newMomImage && newMomWho ? { imageWho: newMomWho } : {}),
         // 模型随这一轮给回来的中译（没开/没给就不存这一格，气泡那颗「译」照旧能现翻）
-        ...(_momBi && d.zh && String(d.zh).toLowerCase() !== "null" && String(d.zh).trim() ? { zh: String(d.zh).trim() } : {}),
+        ...(_momBi && ProbeZh.take(d.zh) ? { zh: ProbeZh.take(d.zh) } : {}),
         ts: Date.now(),
         liked: false,
         likeCount: 0,
@@ -25198,9 +25198,17 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   }[b] || forumCustomVoice(b));
   // 她自己开的吧（x_forumBoards）没有写死的那一句：拿她写的简介拼。
   // ⚠️只给判据不给例句（prompt-no-content-samples）：说清「像泡在这个圈子里的人」，不替它编行话。
+  // 这个吧挂的世界书（群里 2026-11-07）：她开吧时勾的那几条，原样压进这个吧的设定，不看绑定、不看关键词
+  const forumBoardLore = b => {
+    const bd = typeof forumCustomBoards === "function" ? forumCustomBoards().find(x => x.name === b) : null;
+    const ids = bd && Array.isArray(bd.lore) ? bd.lore : [];
+    if (!ids.length) return "";
+    const es = (loreRef.current || []).filter(e => e && ids.includes(e.id) && String(e.payload || "").trim());
+    return es.length ? "\n【这个吧挂的世界书：这个吧里的帖子和楼层都照下面这些写】\n" + es.map(loreLine).join("\n\n") : "";
+  };
   const forumCustomVoice = b => {
     if (!b || typeof forumCustomBoards !== "function" || !forumCustomBoards().some(x => x.name === b)) return "";
-    const about = typeof forumBoardAbout === "function" ? forumBoardAbout(b) : "";
+    const about = (typeof forumBoardAbout === "function" ? forumBoardAbout(b) : "");
     return "「" + b + "」：" + (about ? "这个吧聊的是——" + about + "。" : "")
       + "来这儿的都是真泡在这个圈子里的人：有自己的行话、老梗、老面孔和吵不完的老话题，说话默认对方也懂；"
       + "不是路过的人在给外行介绍这个话题。"
@@ -25209,7 +25217,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         //   别处那几条「别把她和角色的事往网上发」「网友不认识她」是给普通吧的，在她亲手写了设定的吧里让位给简介
         + "简介是她给这个吧定的设定，说了算：简介里写到的人和关系（台上的角色、她、他们之间的事），在这个吧里就是大家都知道、天天在聊的，资料上面都有；"
         + "别处那些「别把她和角色的事往网上发」「网友不认识她」的规矩，碰上简介写到的人和事，在这个吧里照简介来。" : "")
-      + forumOwnerLine(b);
+      + forumOwnerLine(b) + forumBoardLore(b);
   };
   // 她给自己开的吧挑的吧主（群里 2026-10-31 许愿）：吧主是这个吧的管理员，大家都知道是谁；
   //   Ta 怎么当吧主照 Ta 自己的性子来，有事才出来，不是每帖都在。
@@ -26713,7 +26721,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     try {
       const prompt = (kind === "food" ? "一张外卖菜品的实拍照片：「" + name + "」" + (desc ? "（" + desc + "）" : "") + "。装在外卖盒或碗盘里，俯拍或四十五度，看着好吃。"
         : "一张网购商品的实拍照片：「" + name + "」" + (desc ? "（" + desc + "）" : "") + "。商品是画面主体，干净的背景，像购物 app 里的商品主图。") + "\n画面里不要任何文字、价签和水印。";
-      const out = await generateSelfieImage(prompt, null, { size: "1024x1024" });
+      const out = await generateSelfieImage(prompt, null, { size: "1024x1024", still: true });
       const blob = await imgOutBlob(out); if (!blob) throw new Error(out && out.url ? "站子画好了，但只给了一个图片链接、不让 app 下载下来（跨域）：换一条直接回图的线路，或在站子那边改成返回 base64" : "没拿到图");
       const key = "img_goods_" + Date.now().toString(36);
       await idbImgPut(key, blob);
@@ -28692,7 +28700,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       // ⚠️便签墙 v59.23 撤掉了，这一份只剩【存量】：只读，不再写。
       // 里程碑册要的是「第一张纸条是什么时候」，那件事发生过就该算数。
       notes: (coupleNotesRef.current || []).filter(x => x.characterId === cid),
-      drawer: (coupleDrawerRef.current || []).filter(x => x.characterId === cid),
+      drawer: (coupleDrawerRef.current || []).filter(x => x.characterId === cid && x.kind !== "mine"),   // 里程碑要的是 TA 放的第一样
       cards: (gachaCardsRef.current || []).filter(x => x.charId === cid),
       trips: (coupleTripsRef.current || []).filter(x => x && x.charId === cid)
     }, Date.now());
@@ -29147,7 +29155,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       // 手指解剖、体态、服装、参考照），外挂一句「不要有人」压不住它，出来是人是景
       // 全看运气——她 2026-08-31 报的就是这个。空景走空景自己那条路。
       const scene = line.bgPrompt || line.premise || line.title;
-      const out = await generateSelfieImage(buildScenePrompt(char, scene, {}), null, {});
+      const out = await generateSelfieImage(buildScenePrompt(char, scene, {}), null, { still: true });
       if (!(out && (out.blob || out.url))) throw new Error("没拿到图");
       let bgKey = null, bgUrl = out.url || null;
       if (out.blob) { bgKey = "img_if_" + line.id; await idbImgPut(bgKey, out.blob); }
@@ -29777,7 +29785,9 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       const firstRef = (opt && opt.cellRef) || (opt && opt.restyle && opt.restyle.ref) || null;
       const refs = firstRef ? [firstRef, char.refPhoto, profile.refPhoto] : [char.refPhoto, profile.refPhoto];
       if (wRefS && !firstRef) refs.push(wRefS.img);   // 地图上那个地点的场景图跟在两张脸后面
-      const out = await generateSelfieImage(prompt, refs, { minimalPrompt: RESTYLE_ONLY || (PAINT_LINE ? PAINT_LINE + "\n" : "") + buildMinimalPhotoPrompt(picked && fits ? Object.assign({}, char, { photoOutfit: fits }) : char, { kind: "duo", paint: PAINT || "" }), ...(opt && (opt.grid || opt.comic || (opt.restyle && opt.restyle.comic)) ? { size: "1024x1024" } : opt && /^\d+x\d+$/.test(String(opt.size || "")) ? { size: opt.size } : {}) });
+      // 拍立得、四格、封面海报拍完要印字拼格（画布一过就成静图）：这几种直接要静图，别白要一次动图（她 2026-11-06「合照馆接了动图吗」）
+      const _studioStill = !!(opt && (opt.polaroid || opt.comic || (opt.restyle && (opt.restyle.comic || opt.restyle.overlay)))) || !!coverPlan;
+      const out = await generateSelfieImage(prompt, refs, { still: _studioStill, minimalPrompt: RESTYLE_ONLY || (PAINT_LINE ? PAINT_LINE + "\n" : "") + buildMinimalPhotoPrompt(picked && fits ? Object.assign({}, char, { photoOutfit: fits }) : char, { kind: "duo", paint: PAINT || "" }), ...(opt && (opt.grid || opt.comic || (opt.restyle && opt.restyle.comic)) ? { size: "1024x1024" } : opt && /^\d+x\d+$/.test(String(opt.size || "")) ? { size: opt.size } : {}) });
       if (out && out.degraded && out.degraded !== "site-no-ref") toast("这张有点将就：" + out.degraded, 7000);
       let imgKey = null, imgUrl = null, pol = null, ovl = null;
       if (out && out.blob) {
@@ -29876,6 +29886,44 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     drawerPush({ id: "dw_" + Date.now() + "_" + Math.floor(Math.random() * 1000), characterId: charId, kind: "whisper",
       title: "", text: t, ts: Date.now(), openedTs: null });
     return true;
+  };
+  // 我也往抽屉里放一张（群友 2026-11-06：「抽屉那里我也能给他留悄悄话，点一下回复他就能看到并给我回复」）：
+  //   放进去就是摊开的，标「我放的」；TA 不会自己来翻，她点「让他看看」那一下才读、才回一张贴在底下。
+  const drawerMine = (charId, text) => {
+    const t = String(text || "").trim();
+    if (!charId || !t) return false;
+    drawerPush({ id: "dw_" + Date.now() + "_" + Math.floor(Math.random() * 1000), characterId: charId, kind: "mine", from: "me",
+      title: "", text: t, ts: Date.now(), openedTs: Date.now() });
+    return true;
+  };
+  const [drawerReplyBusy, setDrawerReplyBusy] = useState("");
+  const replyDrawerMine = async (char, id) => {
+    const item = (coupleDrawerRef.current || []).find(x => x && x.id === id && x.kind === "mine");
+    if (!char || !item || drawerReplyBusy) return;
+    if (!active) { toast("请先到设置配置 API"); return; }
+    setDrawerReplyBusy(id);
+    try {
+      const uN = (profile && profile.name) || "她";
+      const d = await runProbe(apiFor(char.id), ctxFor(char), {
+        voice: true, tag: "drawer",
+        instruction: "你们已是恋人，有一个只有你俩才会去翻的抽屉。" + uN + " 往里放了一张给你的小纸条，你刚拉开抽屉看到：\n「" + String(item.text).slice(0, 600) + "」\n"
+          + "回她一张小纸条，放回抽屉里，贴在她那张底下。\n"
+          + "· 这是纸条不是聊天：长短跟她那张差不多，写得下几句就几句，不铺成长信。\n"
+          + "· 只接她这一张纸条说的事，别扯别的、别总结你俩的关系。\n"
+          + "· 语气照你的人设和此刻的心情走，上面最近的聊天你都知道，接得上就接。\n"
+          + "· 不要先把她的原话复述一遍再接，直接说你要说的。",
+        schemaHint: "{\"reply\":\"你回她的那张纸条\"}"
+      });
+      const r = String((d && d.reply) || "").trim();
+      if (!r) throw new Error("没写出来");
+      setCoupleDrawer(p => {
+        const n = p.map(x => x.id === id ? { ...x, reply: r, replyTs: Date.now() } : x);
+        coupleDrawerRef.current = n; saveJSON("x_coupleDrawer", n); return n;
+      });
+      coupleKeep(char.id, uN + "往抽屉里给" + char.name + "留了张纸条：「" + cSnip(item.text, 80) + "」；" + char.name + "回了一张：「" + cSnip(r, 80) + "」", "抽屉纸条");
+    } catch (e) {
+      toast("没回成：" + ((e && e.message) || e));
+    } finally { setDrawerReplyBusy(""); }
   };
   const openDrawerItem = id => setCoupleDrawer(p => {
     const n = p.map(x => x.id === id && !x.openedTs ? { ...x, openedTs: Date.now() } : x);
@@ -32531,6 +32579,52 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     }
     return out;
   };
+  // 只导出表情包（群友 2026-11-06「我只想导出我的表情包」）：图从图库里读出来装进文件，换台手机也带得走
+  const exportEmotePacks = async ids => {
+    const want = new Set(ids || []);
+    const src = (emotePacksRef.current || []).filter(pk => pk && want.has(pk.id));
+    if (!src.length) return;
+    toast("正在打包表情…");
+    let miss = 0, n = 0;
+    const packsOut = [];
+    for (const pk of src) {
+      const emotes = [];
+      for (const e of (pk.emotes || [])) {
+        let url = e.url;
+        if (typeof url === "string" && url.indexOf("iv_") === 0) {
+          const b = await imgVaultFetchBlob(url).catch(() => null);
+          if (!b) { miss++; continue; }
+          url = await blobToDataUrl(b);
+        }
+        if (!url) { miss++; continue; }
+        emotes.push({ keyword: e.keyword || "", url, ...(e.gif ? { gif: true } : {}) }); n++;
+      }
+      packsOut.push({ name: pk.name || "表情包", emotes });
+    }
+    const name = "emotes-" + (src.length === 1 ? String(src[0].name || "pack").replace(/[\\/:*?"<>|\s]+/g, "_").slice(0, 20) : "all") + "-" + new Date().toISOString().slice(0, 10) + ".json";
+    try {
+      const via = await saveTextFile(name, JSON.stringify({ __archive: 1, kind: "emotes", version: 1, exportedAt: Date.now(), packs: packsOut }), "application/json");
+      if (via === "cancel") { toast("取消了，什么都没存"); return; }
+      toast("导出了 " + n + " 个表情" + (miss ? "（有 " + miss + " 张图本机找不到，没带上）" : "") + savedWhere(via), 6000);
+    } catch (e) { toast("没导成：" + ((e && e.message) || e)); }
+  };
+  const importEmotePackFile = async parsed => {
+    let n = 0;
+    const add = [];
+    for (const pk of (parsed.packs || [])) {
+      const emotes = [];
+      for (const e of (pk && pk.emotes) || []) {
+        if (!e || !e.url) continue;
+        const url = await imgToVault(e.url);
+        emotes.push({ id: "em_" + Date.now() + "_" + Math.floor(Math.random() * 1e6), keyword: String(e.keyword || "").slice(0, 20), url, ...(e.gif ? { gif: true } : {}) }); n++;
+      }
+      if (emotes.length) add.push({ id: "ep_imp_" + Date.now() + "_" + Math.floor(Math.random() * 1e5), name: String((pk && pk.name) || "导入的表情"), global: true, mine: true, charIds: [], emotes });
+    }
+    if (!add.length) { toast("这个文件里没有表情"); return false; }
+    if (!commitEmotePacks([...(emotePacksRef.current || []), ...add])) return false;
+    toast("加进来 " + add.length + " 版、" + n + " 个表情，原来的都还在", 6000);
+    return true;
+  };
   const importEmotes = (packId, text) => {
     const items = parseEmoteImport(text);
     if (!items.length) { toast("没解析到「关键词 + 链接」，检查格式"); return 0; }
@@ -32639,10 +32733,66 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     }
     return outs.map(frames => { const bytes = window.GifCodec.encode({ width: S, height: S, frames }); let bin = ""; for (let i = 0; i < bytes.length; i += 32768) bin += String.fromCharCode.apply(null, bytes.subarray(i, i + 32768)); return "data:image/gif;base64," + btoa(bin); });
   };
+  // 真是九宫格吗（群友 2026-11-06 截图：模型画成了一整张大人像，硬切成九块，每块都是放大的一角）：
+  //   九宫格的格子之间有一道浅色缝。看 1/3、2/3 那四条线附近：找得到一条几乎全是浅色的直线才算有缝，四条里至少三条有缝才切。
+  const gridLike = (rgba, W, H) => {
+    const light = i => rgba[i + 3] < 40 || (rgba[i] > 225 && rgba[i + 1] > 225 && rgba[i + 2] > 225);
+    const lineOk = (vertical, at) => {
+      const span = vertical ? W : H, len = vertical ? H : W, band = Math.max(2, Math.round(span * 0.035));
+      let best = 0;
+      for (let d = -band; d <= band; d++) {
+        const p = Math.round(at * span) + d; if (p < 0 || p >= span) continue;
+        let ok = 0, n = 0;
+        for (let q = Math.round(len * 0.03); q < len * 0.97; q += 2) { n++; if (light(((vertical ? q * W + p : p * W + q)) * 4)) ok++; }
+        best = Math.max(best, n ? ok / n : 0);
+      }
+      return best >= 0.88;
+    };
+    return [lineOk(true, 1 / 3), lineOk(true, 2 / 3), lineOk(false, 1 / 3), lineOk(false, 2 / 3)].filter(Boolean).length >= 3;
+  };
   const GRID9 = Array.from({ length: 9 }, (_, k) => ({ sx: (k % 3) / 3 + 0.04 / 3, sy: Math.floor(k / 3) / 3 + 0.04 / 3, sw: (1 - 0.08) / 3, sh: (1 - 0.08) / 3 }));
+  // 一帧帧比：跟上一段的代表帧差得多（缩到 32×32 比平均色差）就算新的一段；每段取中间那帧
+  const gifSegments = g => {
+    const small = rgba => { const o = new Float32Array(32 * 32 * 3); for (let y = 0; y < 32; y++) for (let x = 0; x < 32; x++) { const i = (Math.floor(y * g.height / 32) * g.width + Math.floor(x * g.width / 32)) * 4, j = (y * 32 + x) * 3; o[j] = rgba[i]; o[j + 1] = rgba[i + 1]; o[j + 2] = rgba[i + 2]; } return o; };
+    const diff = (a, b) => { let d = 0; for (let i = 0; i < a.length; i++) d += Math.abs(a[i] - b[i]); return d / a.length; };
+    const segs = []; let ref = null;
+    g.frames.forEach((f, i) => { const sm = small(f.rgba); if (!ref || diff(sm, ref) > 28) { segs.push([i]); ref = sm; } else segs[segs.length - 1].push(i); });
+    return segs.slice(0, 9).map(seg => seg[Math.floor(seg.length / 2)]);
+  };
+  const emoteSetFromFrames = async (g, picks, items, ownerKey, caption) => {
+    const src = document.createElement("canvas"); src.width = g.width; src.height = g.height;
+    const sg = src.getContext("2d"); let n = 0;
+    for (let k = 0; k < picks.length; k++) {
+      sg.putImageData(new ImageData(g.frames[picks[k]].rgba, g.width, g.height), 0, 0);
+      const S = 384, cv = document.createElement("canvas"); cv.width = S; cv.height = S;
+      const c2 = cv.getContext("2d"); c2.fillStyle = "#fff"; c2.fillRect(0, 0, S, S);
+      const sc = Math.min(S / g.width, S / g.height), w = g.width * sc, hh = g.height * sc;
+      c2.drawImage(src, (S - w) / 2, (S - hh) / 2, w, hh);
+      const nm = (items[k] && items[k].name) || "";
+      if (caption && nm) paintEmoteCaption(c2, nm, S, S);
+      if (await window.__addSelfSticker(cv.toDataURL("image/png"), ownerKey, nm, true, caption)) n++;
+    }
+    toast("这次模型画成了九个表情轮流放，没画成格子——按画面拆成了 " + n + " 张静图。名字是按顺序配的，对不上就在表情包页改名", 9000);
+    return n ? -1 : 0;
+  };
+  // 没画成格子：整张存成一个，不切（切了就是九张放大的局部）
+  const emoteSetWhole = async (blob, ownerKey) => {
+    const url = await blobToDataUrl(blob);
+    toast("这次模型没画成九宫格（画成了一整张），整张存成了一个表情，没切。想要九张就再画一次", 9000);
+    return (await window.__addSelfSticker(url, ownerKey, "", true, false)) ? -1 : 0;   // -1：存成了整张，提示已经说过
+  };
   const emoteSetCut = async (blob, items, ownerKey, caption) => {
     let n = 0;
     if (blob.type === "image/gif") {
+      if (window.GifCodec) {
+        const g0 = window.GifCodec.decode(new Uint8Array(await blob.arrayBuffer()));
+        if (g0.frames.length && !gridLike(g0.frames[0].rgba, g0.width, g0.height)) {
+          // 模型把「九宫格动图」画成了「每帧整张一个表情、轮流放」（群友 2026-11-06）：按画面一变就算下一个表情，拆成几张静图
+          const parts = gifSegments(g0);
+          if (parts.length >= 2) return emoteSetFromFrames(g0, parts, items, ownerKey, caption);
+          return emoteSetWhole(blob, ownerKey, caption);
+        }
+      }
       const urls = await gifCells(blob, GRID9, items.map(x => x.name), caption);
       for (let k = 0; k < urls.length; k++) if (await window.__addSelfSticker(urls[k], ownerKey, items[k].name, true, caption)) n++;
       return n;
@@ -32650,6 +32800,9 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     const u = URL.createObjectURL(blob);
     const im = await new Promise((ok, no) => { const x = new Image(); x.onload = () => ok(x); x.onerror = no; x.src = u; });
     URL.revokeObjectURL(u);
+    { const W0 = Math.min(512, im.naturalWidth), H0 = Math.max(1, Math.round(W0 * im.naturalHeight / im.naturalWidth));
+      const cv0 = document.createElement("canvas"); cv0.width = W0; cv0.height = H0; const x0 = cv0.getContext("2d"); x0.drawImage(im, 0, 0, W0, H0);
+      if (!gridLike(x0.getImageData(0, 0, W0, H0).data, W0, H0)) return emoteSetWhole(blob, ownerKey, caption); }
     for (let k = 0; k < 9; k++) {
       const c = GRID9[k], cv = document.createElement("canvas"); cv.width = 384; cv.height = 384;
       const g2 = cv.getContext("2d");
@@ -32660,6 +32813,19 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     }
     return n;
   };
+  // 让他照自己的性子挑九个表情（名字 + 画什么）。九宫格和「一张动图空着不写」共用这一份
+  const pickEmoteNine = async char => {
+    // 去重（她 2026-10-13：「下一次生成会不会出现一样的」）：这一组里已经有的名字告诉他，挑新的
+    const _pk = (emotePacksRef.current || []).find(x => x && x.fromCharFace === char.id);
+    const _have = ((_pk && _pk.emotes) || []).map(e => String(e.keyword || "").trim()).filter(Boolean);
+    const d = await runProbe(apiFor(char.id), ctxFor(char), {
+      instruction: (_have.length ? "你的表情包里已经有这些了（名字和意思都别再重复，也别换个说法凑数）：" + _have.slice(-60).join("、") + "。\n" : "") + "你要出一套自己的表情包，九张。照你自己的性格和你们平时聊天的样子，挑九个你最常用、最像你的表情或小动作，各起一个短名字（2~6 字，就是发表情时的关键词，比如「翻白眼」「偷笑」「委屈」）；look＝这一张画什么（表情和动作，一句话）。九个要各不一样。",
+      schemaHint: "{\"items\":[{\"name\":\"\",\"look\":\"\"}]}",
+      maxTokens: 8000
+    });
+    // 重名的照样留着（她 2026-10-13：「重复的照样留着吧都花了钱的」）——去重只靠上面把已有的告诉他、降低概率
+    return emoteSetItems(d);
+  };
   const makeEmoteSet = async (charId, setOpt) => {
     if (String(charId || "").indexOf("__me:") === 0) return makeMyEmoteSet(String(charId).slice(5), setOpt);
     const char = characters.find(c => c.id === charId);
@@ -32668,25 +32834,16 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     if (!char.refPhoto) { toast("先在人格档案馆给 TA 传一张参考照，脸才锁得住"); return; }
     setEmoteSetBusy(charId);
     try {
-      // 去重（她 2026-10-13：「下一次生成会不会出现一样的」）：这一组里已经有的名字告诉他，挑新的
-      const _pk = (emotePacksRef.current || []).find(x => x && x.fromCharFace === charId);
-      const _have = ((_pk && _pk.emotes) || []).map(e => String(e.keyword || "").trim()).filter(Boolean);
-      const d = await runProbe(apiFor(char.id), ctxFor(char), {
-        instruction: (_have.length ? "你的表情包里已经有这些了（名字和意思都别再重复，也别换个说法凑数）：" + _have.slice(-60).join("、") + "。\n" : "") + "你要出一套自己的表情包，九张。照你自己的性格和你们平时聊天的样子，挑九个你最常用、最像你的表情或小动作，各起一个短名字（2~6 字，就是发表情时的关键词，比如「翻白眼」「偷笑」「委屈」）；look＝这一张画什么（表情和动作，一句话）。九个要各不一样。",
-        schemaHint: "{\"items\":[{\"name\":\"\",\"look\":\"\"}]}",
-        maxTokens: 8000
-      });
-      // 重名的照样留着（她 2026-10-13：「重复的照样留着吧都花了钱的」）——去重只靠上面把已有的告诉他、降低概率
-      const items = emoteSetItems(d);
+      const items = await pickEmoteNine(char);
       if (items.length < 9) throw new Error(characterText(char, "他没挑够九个，再试一次"));
       const prompt = emoteSetPrompt(char.name, char.appearance, items, setOpt && setOpt.gif);
-      const out = await generateSelfieImage(prompt, [char.refPhoto], Object.assign({ size: "1024x1024", minimalPrompt: prompt }, setOpt && setOpt.gif ? { gif: true, gifFrames: 8, gifMs: 140 } : {}));
+      const out = await generateSelfieImage(prompt, [char.refPhoto], Object.assign({ size: "1024x1024", minimalPrompt: prompt, still: true }, setOpt && setOpt.gif ? { gif: true, gifFrames: gifFramesNow(), gifMs: gifMsNow() } : {}));
       if (setOpt && setOpt.gif && out && out.blob && out.blob.type !== "image/gif") throw new Error("这个站回的是一张静图，没出动图——要用能出 GIF 的模型（比如 gpt-image-2.6）");
       let blob = out && out.blob;
       if (!blob && out && out.url) { try { blob = await (await fetch(out.url)).blob(); } catch (e) { blob = null; } }
       if (!blob) throw new Error("没拿到图");
       const n = await emoteSetCut(blob, items, char.id, !!(setOpt && setOpt.caption));
-      toast(n ? "画好了 " + n + " 张，在表情包「" + (char.remark || char.name) + " 的表情」里" : "存表情的时候没成，再试一次", 6000);
+      if (n !== -1) toast(n ? "画好了 " + n + " 张，在表情包「" + (char.remark || char.name) + " 的表情」里" : "存表情的时候没成，再试一次", 6000);
     } catch (e) { toast("表情包没画成：" + (e.message || "重试"), 8000); }
     finally { setEmoteSetBusy(""); }
   };
@@ -32705,7 +32862,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   //   原来她那套也没说参考图只管长相，模型连照片的写实质感一起照搬了）。画风照这段字，参考图只认人。
   // gif＝九宫格动图（她 2026-11-06「试试 a」）：一整张循环动图，九格各动各的，格子位置和白缝一帧都不能挪，回来按格切成九张
   const emoteSetPrompt = (name, appearance, items, gif) => (gif
-      ? "一张 3×3 九宫格的循环小动图表情包，九格一样大，格与格之间留明显的白色空隙，每格纯白底；每一帧里九个格子的位置、大小和白缝都完全不动，只有格子里的小人在动，九格各演各的小动作，首尾接得上、一起循环。"
+      ? "【最要紧：这是一张九宫格动图，不是九个表情轮流放】每一帧画面上都同时画着全部九格，九个小人一直同时在场；不许一帧只画一个人、一个表情，然后一帧一帧换着放。"
+        + "一张 3×3 九宫格的循环小动图表情包，九格一样大，格与格之间留明显的白色空隙，每格纯白底；每一帧里九个格子的位置、大小和白缝都完全不动，只有格子里的小人在动，九格各演各的小动作，首尾接得上、一起循环。"
       : "一张 3×3 九宫格表情包贴纸图，九格一样大，格与格之间留明显的白色空隙，每格纯白底。")
     + "每格都是同一个人「" + name + "」的平面 Q 版二次元小人：二到三头身、大头小身子、手脚短短圆圆，干净的深色勾线、赛璐璐平涂，大眼睛、脸颊淡淡腮红，像聊天软件里的表情贴纸。"
     + "画风只照这段描述来；参考图只用来认这个人——长相、发型发色、标志性配饰照它，照片本身的写实质感、光影、画风都不跟。"
@@ -32721,19 +32879,32 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     const who = isMe ? ((mk ? (masksRef.current || []).find(m => m && m.id === mk) : profile) || profile) : characters.find(c => c.id === whoId);
     if (!who) return;
     const nm = isMe ? (who.label || who.name || "我") : (who.remark || who.name);
-    requestAppPrompt("画一张会动的「" + nm + "」", "写这张动图叫什么、做什么动作（一两句）。发表情时打它的名字就能联想出来。",
+    requestAppPrompt("画一张会动的「" + nm + "」", (isMe ? "空着直接点「画」，就照你这张面具的人设挑一个。" : "空着直接点「画」，就让" + nm + "自己挑一个。") + "写这张动图叫什么、做什么动作（一两句）。发表情时打它的名字就能联想出来。",
       "", async v => {
-        const t = String(v || "").trim(); if (!t) return;
-        const name = t.split(/[，,。：:\s]/)[0].slice(0, 8) || "动图";
+        let t = String(v || "").trim();
+        // 懒得想（她 2026-11-06「还得我写描述懒得想」）：空着就让他照自己的性子挑一个——挑一次九个存着，下次空着接着用
+        let name = t ? (t.split(/[，,。：:\s]/)[0].slice(0, 8) || "动图") : "";
         setEmoteSetBusy(whoId);
         try {
+          if (!t) {
+            const bank = loadJSON("x_emoteGifIdeas", {}) || {}, bk = isMe ? whoId : who.id;
+            let left = Array.isArray(bank[bk]) ? bank[bk] : [];
+            if (!left.length) {
+              const api = bgActiveRef.current || active;
+              if (isMe && !api) throw new Error("请先到设置配置 API");
+              left = (isMe ? await pickMyEmoteNine(who, whoId, api) : await pickEmoteNine(who)).filter(x => x && x.name && x.look);
+            }
+            if (!left.length) throw new Error(isMe ? "没挑出来，再点一次，或者自己写一句" : characterText(who, "他没挑出来，再点一次，或者自己写一句"));
+            const pick = left[0]; saveJSON("x_emoteGifIdeas", Object.assign({}, bank, { [bk]: left.slice(1) }));
+            t = pick.look; name = String(pick.name).slice(0, 8);
+          }
           // 表情包是近景（她 2026-11-06：「为啥是全身照」）：画到胸口往上、头占大半，表情和手上的动作才看得清
           const prompt = "一张循环播放的小动图表情包：同一个人「" + (who.name || nm) + "」的平面 Q 版二次元小人，大头小身子，干净的深色勾线、赛璐璐平涂，纯白底。近景构图：只画到胸口往上，头占画面一大半，表情和手上的动作是主角，人物居中、别出格。"
             + (who.refPhoto ? "参考图只用来认这个人——长相、发型发色、标志性配饰照它，照片的写实质感和画风都不跟。" : "")
             + (who.appearance ? "外貌：" + String(who.appearance).slice(0, 200) + "。" : "")
             + "动作：" + t.slice(0, 120) + "。动作首尾能接上、循环自然。画面里不要任何文字、字母、对话框。";
           // 有参考照就带上锁脸（有的中转接得住带图的动图）；接不住 generateSelfieImage 自己退成纯文字动图
-          const out = await generateSelfieImage(prompt, who.refPhoto ? [who.refPhoto] : null, { size: "1024x1024", minimalPrompt: prompt, gif: true, gifFrames: 8, gifMs: 120 });
+          const out = await generateSelfieImage(prompt, who.refPhoto ? [who.refPhoto] : null, { size: "1024x1024", minimalPrompt: prompt, gif: true, gifFrames: gifFramesNow(), gifMs: gifMsNow() });
           let blob = out && out.blob;
           if (!blob && out && out.url) { try { blob = await (await fetch(out.url)).blob(); } catch (e) { blob = null; } }
           if (!blob) throw new Error("没拿到图");
@@ -32747,6 +32918,20 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         finally { setEmoteSetBusy(""); }
       }, "画", { multiline: true, maxLength: 120, placeholder: "比如：比心，两只手在胸前比个心、眨一下眼" });
   };
+  // 照她这张面具的人设挑九个（她 2026-11-06「我的不是有人设吗！」）：她那套九宫格和「一张动图空着不写」共用这一份
+  const pickMyEmoteNine = async (me, key, api) => {
+    const nm = me.name || "我";
+    const _pk = (emotePacksRef.current || []).find(x => x && x.fromCharFace === key);
+    const _have = ((_pk && _pk.emotes) || []).map(e => String(e.keyword || "").trim()).filter(Boolean);
+    const raw = await callAI(api, "你帮一个人挑她自己表情包里的九个表情。只输出 JSON。", [{ role: "user", content:
+      "这个人叫「" + nm + "」。" + (me.persona ? "她的人设：" + String(me.persona).slice(0, 600) + "\n" : "")
+      + (_have.length ? "她的表情包里已经有这些了（名字和意思都别再重复）：" + _have.slice(-60).join("、") + "\n" : "")
+      + "照她的性子挑九个最像她、她最常用的表情或小动作，各起一个 2~6 字的短名字（发表情时的关键词）；look＝这一张画什么（表情和动作，一句话）。九个各不一样。\n只输出这个形状的 JSON：{\"items\":[{\"name\":\"\",\"look\":\"\"}]}" }],
+      { maxTokens: 8000 });
+    const d = typeof extractJSON === "function" ? extractJSON(raw) : null;
+    const items = emoteSetItems(d);
+    return items;
+  };
   const makeMyEmoteSet = async (maskKey, setOpt) => {
     const me = (maskKey ? (masksRef.current || []).find(m => m && m.id === maskKey) : profile) || null;
     const key = "__me:" + (maskKey || "");
@@ -32758,24 +32943,16 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     setEmoteSetBusy(key);
     try {
       const nm = me.name || "我";
-      const _pk = (emotePacksRef.current || []).find(x => x && x.fromCharFace === key);
-      const _have = ((_pk && _pk.emotes) || []).map(e => String(e.keyword || "").trim()).filter(Boolean);
-      const raw = await callAI(api, "你帮一个人挑她自己表情包里的九个表情。只输出 JSON。", [{ role: "user", content:
-        "这个人叫「" + nm + "」。" + (me.persona ? "她的人设：" + String(me.persona).slice(0, 600) + "\n" : "")
-        + (_have.length ? "她的表情包里已经有这些了（名字和意思都别再重复）：" + _have.slice(-60).join("、") + "\n" : "")
-        + "照她的性子挑九个最像她、她最常用的表情或小动作，各起一个 2~6 字的短名字（发表情时的关键词）；look＝这一张画什么（表情和动作，一句话）。九个各不一样。\n只输出这个形状的 JSON：{\"items\":[{\"name\":\"\",\"look\":\"\"}]}" }],
-        { maxTokens: 8000 });
-      const d = typeof extractJSON === "function" ? extractJSON(raw) : null;
-      const items = emoteSetItems(d);
+      const items = await pickMyEmoteNine(me, key, api);
       if (items.length < 9) throw new Error("没挑够九个，再试一次");
       const prompt = emoteSetPrompt(nm, me.appearance, items, setOpt && setOpt.gif);
-      const out = await generateSelfieImage(prompt, [me.refPhoto], Object.assign({ size: "1024x1024", minimalPrompt: prompt }, setOpt && setOpt.gif ? { gif: true, gifFrames: 8, gifMs: 140 } : {}));
+      const out = await generateSelfieImage(prompt, [me.refPhoto], Object.assign({ size: "1024x1024", minimalPrompt: prompt, still: true }, setOpt && setOpt.gif ? { gif: true, gifFrames: gifFramesNow(), gifMs: gifMsNow() } : {}));
       if (setOpt && setOpt.gif && out && out.blob && out.blob.type !== "image/gif") throw new Error("这个站回的是一张静图，没出动图——要用能出 GIF 的模型（比如 gpt-image-2.6）");
       let blob = out && out.blob;
       if (!blob && out && out.url) { try { blob = await (await fetch(out.url)).blob(); } catch (e) { blob = null; } }
       if (!blob) throw new Error("没拿到图");
       const n = await emoteSetCut(blob, items, key, !!(setOpt && setOpt.caption));
-      toast(n ? "画好了 " + n + " 张，在表情包「" + (me.label || nm) + " 的表情」里" : "存表情的时候没成，再试一次", 6000);
+      if (n !== -1) toast(n ? "画好了 " + n + " 张，在表情包「" + (me.label || nm) + " 的表情」里" : "存表情的时候没成，再试一次", 6000);
     } catch (e) { toast("表情包没画成：" + (e.message || "重试"), 8000); }
     finally { setEmoteSetBusy(""); }
   };
@@ -33605,6 +33782,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         reloadIn(800);
         return true;
       }
+      // 只有表情包的那种（kind:"emotes"）：加成新的几版，别的一样不碰
+      if (parsed.__archive && parsed.kind === "emotes") return await importEmotePackFile(parsed);
       // 只带了几个人的那种（kind:"chars"）：加进来，不整机覆盖
       if (parsed.__archive && parsed.kind === "chars" && parsed.data) {
         const okM = await mergeCharsPack(parsed);
@@ -34328,7 +34507,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       try {
         const c = { name: draft.name, appearance: draft.appearance, photoOutfit: draft.photoOutfit, photoStyle: draft.photoStyle };
         const prompt = buildAvatarPrompt(c, { hasRef: !!draft.refPhoto });
-        const r = await generateSelfieImage(prompt, draft.refPhoto ? [draft.refPhoto] : null, { size: "1024x1024" });
+        const r = await generateSelfieImage(prompt, draft.refPhoto ? [draft.refPhoto] : null, { size: "1024x1024", still: true });
         const key = await imgResultToVault(r);
         if (!key) throw new Error("上游没有返回图片");
         toast("头像生成好了，记得点右上角保存");
@@ -34979,6 +35158,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     onDeletePack: deleteEmotePack,
     onToggleChar: toggleEmotePackChar,
     onImport: importEmotes,
+    onExportPacks: exportEmotePacks,
     onAddImages: addEmoteImages,
     onMakeSet: makeEmoteSet, onMakeGif: makeEmoteGif, setBusy: emoteSetBusy,
     // 能画「我自己」那一套的面具：传过参考照的那几张（主面具 id 记成 ""）
@@ -35308,6 +35488,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     onOpenDrawer: openDrawerItem,
     onDropDrawer: dropDrawerItem,
     onEditDrawer: editDrawerItem,
+    onPutDrawerMine: drawerMine, onReplyDrawerMine: replyDrawerMine, drawerReplyBusy,
     // 抽屉里拆开的那一样发给他（群友 2026-10-16：「他画的画好傻，想发给他打趣他一下」）：
     //   落成你发的一条消息、带上那张画，打开聊天；不叫他当场开口，等你自己说两句再让他回（跟别处转发同一个做法）
     onForwardDrawer: (charId, x) => {

@@ -24,7 +24,7 @@ test("写一条只是放进箱子，一分钱不花", () => {
 });
 
 test("打开箱子：所有等着的一次递过去，答案按 id 对回去", () => {
-  const open = grab(app, "  const openAnonBox = async char => {", "  const genPhoneApp", 4200);
+  const open = grab(app, "  const openAnonBox = async char => {", "  const genPhoneApp", 5200);
   assert.match(open, /\(cur\.records \|\| \[\]\)\.filter\(r => r\.pending\)\.slice\(\)\.sort\(\(a, b\) => a\.ts - b\.ts\)/, "没有把全部待答的按时间排好一起递");
   assert.match(open, /pend\.forEach\(\(r, i\) => \{ ansById\[r\.id\] = items\[i\] \|\| null; \}\)/, "答案没按记录 id 对回去");
   assert.match(open, /if \(!it\) return r;/, "模型少答几条时，剩下的必须原样留在箱子里");
@@ -34,13 +34,13 @@ test("打开箱子：所有等着的一次递过去，答案按 id 对回去", (
 
 // ── ② 他可以不答 ────────────────────────────────────────────────────────
 test("他可以不答：提示词给了这条口子，界面也有这一档", () => {
-  const open = grab(app, "  const openAnonBox = async char => {", "  const genPhoneApp", 4200);
+  const open = grab(app, "  const openAnonBox = async char => {", "  const genPhoneApp", 5200);
   [["打开箱子", open], ["网友提问", net]].forEach(([name, seg]) => {
     assert.match(seg, /不是每条都得答/, name + " 那条路没给「可以不答」的口子");
     assert.match(seg, /skip/, name + " 的 schema 里没有 skip");
   });
   assert.match(box, /r\.skip[\s\S]{0,320}Ta 看见了，没答/, "界面上没有「看了不答」这一档");
-  assert.match(box, /r\.note \? "（" \+ r\.note \+ "）"/, "他当时的反应没显示出来");
+  assert.match(box, /r\.note \? transShow\("（" \+ r\.note \+ "）", r\.noteZh\)/, "他当时的反应没显示出来");   // 走公共翻译 transShow（2026-11-06）
 });
 
 // ── ⑦ 我也有马甲 ────────────────────────────────────────────────────────
@@ -48,7 +48,7 @@ test("我也有马甲：全院一份、递给他、他会猜这人是谁", () =>
   const me = grab(app, "  const genAnonMe = async () => {", "  const pAnon = (charId, updater)", 1800);
   assert.match(app, /localStorage\.getItem\("x_anonMe"\)/, "我的马甲没存盘");
   assert.match(me, /别人只看得见这两样/, "没说清这个马甲是干嘛的");
-  const open = grab(app, "  const openAnonBox = async char => {", "  const genPhoneApp", 4200);
+  const open = grab(app, "  const openAnonBox = async char => {", "  const genPhoneApp", 5200);
   assert.match(open, /全部来自【同一个匿名的人】/, "没告诉他这些是同一个人问的——那才有得猜");
   assert.match(open, /mask\.name/, "马甲没递给他");
   assert.match(open, /guess/, "他没有机会猜这人是谁");

@@ -69,7 +69,7 @@
           const o = (y * W + X) * 4; canvas[o] = ct[ci * 3]; canvas[o + 1] = ct[ci * 3 + 1]; canvas[o + 2] = ct[ci * 3 + 2]; canvas[o + 3] = 255;
         }
       }
-      frames.push({ rgba: canvas.slice(), delay: gce.delay });
+      frames.push({ rgba: canvas.slice(), delay: gce.delay, rect: { x: ix, y: iy, w: iw, h: ih } });
       if (gce.disposal === 2) for (let y = iy; y < Math.min(H, iy + ih); y++) canvas.fill(0, (y * W + ix) * 4, (y * W + Math.min(W, ix + iw)) * 4);
       else if (gce.disposal === 3 && saved) canvas.set(saved);
       gce = { disposal: 0, delay: 100, trans: -1 };
@@ -140,5 +140,55 @@
     return new Uint8Array(out);
   }
 
-  return { decode, encode };
+  // ---- 放慢 ----
+  // 每一帧停留不到 minMs 的，抬到 minMs（她 2026-11-06「8 帧图速度太快了」）。只改每帧那两个字节的停留时间，
+  //   不解码、不重压，画面一个像素不动。返回新的 Uint8Array；认不出是 GIF 就原样返回。
+  // exact：每帧都改成 minMs（速度拉条用）；不传就是只把太快的抬上来
+  function retime(buf, minMs, exact) {
+    const b = new Uint8Array(buf instanceof Uint8Array ? buf : new Uint8Array(buf));
+    if (b.length < 13 || String.fromCharCode(b[0], b[1], b[2]) !== "GIF") return b;
+    const want = Math.max(2, Math.round((Number(minMs) || 0) / 10));
+    // 先在一份拷贝上改；要从头到尾完整走到结尾符（0x3B）才算认对了结构，认不全就原样返回、一个字节不碰
+    //   （她 2026-11-06 截图：动图底下多一条——宁可不改速度，也不能改到画面数据）
+    const orig = b.slice();
+    let p = 13, ended = false;
+    if (b[10] & 0x80) p += 3 * (1 << ((b[10] & 7) + 1));
+    const skipSub = () => { while (p < b.length) { const len = b[p++]; if (!len) break; p += len; } };
+    while (p < b.length) {
+      const t = b[p++];
+      if (t === 0x3B) { ended = true; break; }
+      if (t === 0x21) {
+        const label = b[p++];
+        if (label === 0xF9 && b[p] >= 4) { const d = b[p + 2] | (b[p + 3] << 8); if (exact ? d !== want : d < want) { b[p + 2] = want & 255; b[p + 3] = (want >> 8) & 255; } }
+        skipSub(); continue;
+      }
+      if (t !== 0x2C) break;
+      const ipk = b[p + 8]; p += 9;
+      if (ipk & 0x80) p += 3 * (1 << ((ipk & 7) + 1));
+      p++;            // LZW 最小码长
+      skipSub();
+    }
+    return ended && p <= b.length ? b : orig;
+  }
+
+  // ---- 裁掉没画到的边 ----
+  // 有的站回的动图，几帧只画了画布的一部分（她 2026-11-06：「有几帧底下多一条」）——没画到的那几行露着上一帧剩下的东西。
+  //   每帧都画满的原样返回 null；不然把所有帧裁到「第一帧之后每帧都盖住」的那块，重新编码
+  function trimUncovered(buf) {
+    const g = decode(buf);
+    if (g.frames.length < 2) return null;
+    let x0 = 0, y0 = 0, x1 = g.width, y1 = g.height;
+    g.frames.forEach(f => { const r = f.rect; if (!r) return; x0 = Math.max(x0, r.x); y0 = Math.max(y0, r.y); x1 = Math.min(x1, r.x + r.w); y1 = Math.min(y1, r.y + r.h); });
+    if (x0 === 0 && y0 === 0 && x1 === g.width && y1 === g.height) return null;
+    const W = x1 - x0, H = y1 - y0;
+    if (W < g.width * 0.8 || H < g.height * 0.8) return null;   // 差得太多就不是「底下一条」，别乱裁
+    const frames = g.frames.map(f => {
+      const o = new Uint8ClampedArray(W * H * 4);
+      for (let y = 0; y < H; y++) o.set(f.rgba.subarray(((y + y0) * g.width + x0) * 4, ((y + y0) * g.width + x0 + W) * 4), y * W * 4);
+      return { rgba: o, delay: f.delay };
+    });
+    return encode({ width: W, height: H, frames });
+  }
+
+  return { decode, encode, retime, trimUncovered };
 });

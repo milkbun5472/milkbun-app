@@ -658,7 +658,7 @@
     return h("div", { "data-wk": "drmkeep", style: { marginTop: 14, padding: "12px 14px", borderRadius: 12, border: "1px dashed rgba(169,154,201,.45)", background: "rgba(169,154,201,.07)" } },
       h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", fontWeight: 700, letterSpacing: .5, color: ACC_LIT, marginBottom: 6 } }, "醒来手里攥着"),
       h("div", { "data-wk": "drmkeepname", style: { fontFamily: F_DISPLAY, fontSize: "calc(16px * var(--app-fs, 1))", color: t.ink } }, k.name),
-      k.note ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", lineHeight: 1.6, color: t.sub, marginTop: 3 } }, k.note) : null,
+      k.note ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", lineHeight: 1.6, color: t.sub, marginTop: 3 } }, transShow(k.note)) : null,
       k.taken
         ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, marginTop: 8 } }, "已经带出来了，在你的物品里。Ta 见了会眼熟，但不知道它从哪儿来。")
         : h("button", { "data-wk": "drmkeepbtn", onClick: props.onKeep, className: "active:opacity-70",
@@ -836,7 +836,7 @@
             cur.options.map((op, i) => h("button", { "data-wk": "drmoption",
               key: i, onClick: () => pick(i), className: "w-full active:opacity-70",
               style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", lineHeight: 1.5, textAlign: "left", color: t.ink, background: t.bg2, border: "1px solid " + t.line, borderRadius: 12, padding: "13px 15px" }
-            }, op.text)),
+            }, transShow(op.text))),
             // 熟不熟（v63.08）：告诉她这场梦里破绽有没有、有多明显；挣扎那一幕不适用（那三条是另一套）
             cur.struggle ? null : h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, textAlign: "center", paddingTop: 2 } }, FAMILIAR_LINE[Math.max(0, Math.min(2, s.familiarity || 0))]))
           : needRetry
@@ -856,7 +856,7 @@
             h("div", { style: { display: "flex", alignItems: "center", marginBottom: 8 } },
               h("span", { style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", fontWeight: 700, letterSpacing: 1, color: sc.struggle ? BAD_LIT : t.fog } }, sc.struggle ? "第 " + (i + 1) + " 幕 · 梦在挣扎" : "第 " + (i + 1) + " 幕"),
               (dtp && typeof TtsDot === "function") ? h(TtsDot, { k: "dr" + i, text: sc.text, spk: (props.characters || []).find(c => c.id === s.charId), tp: dtp }) : null),
-            h("div", { "data-wk": "drmscenetext", style: { fontFamily: F_BODY, fontSize: "calc(14.5px * var(--app-fs, 1))", lineHeight: 1.85, color: t.ink, whiteSpace: "pre-wrap" } }, sc.text),
+            h("div", { "data-wk": "drmscenetext", style: { fontFamily: F_BODY, fontSize: "calc(14.5px * var(--app-fs, 1))", lineHeight: 1.85, color: t.ink, whiteSpace: "pre-wrap" } }, transShow(sc.text)),
             (sc.cot && typeof CotReveal === "function") ? h(CotReveal, { cot: sc.cot }) : null,
             // 已做出的选择回显 + 回档
             decided

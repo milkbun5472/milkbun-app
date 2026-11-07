@@ -45,7 +45,9 @@
     { id: "halloween26", series: "halloween", name: "万圣夜", from: "2026-10-26T00:00:00+08:00", to: "2026-11-15T00:00:00+08:00",
       stamp: "南瓜灯邮票", deco: "halloween",
       hook: "今晚敲开他的门，会收到糖果，还是别的惊喜？",
-      line: "主题是万圣夜：南瓜灯、变装、糖果、讨糖、夜色里的派对和一点点吓人。先看这个人是哪个世界、哪个年代的人，再决定万圣夜怎么落到他身上。" },
+      line: "主题是万圣夜：南瓜灯、变装、糖果、讨糖、夜色里的派对和一点点吓人。先看这个人是哪个世界、哪个年代的人，再决定万圣夜怎么落到他身上。",
+      // 变装只属于万圣夜（她 2026-11-04「万圣节明明扮啥都可以」；11-06 深秋也被写成吸血鬼，才从公共那段挪到这里）
+      look: "这一身是扮成一个具体的角色或怪物：一眼看得出扮的是谁、是什么，不是一身只有气氛的衣服。扮什么照这个人挑——他会觉得哪个好玩、会拿什么逗她、会不会故意扮得很烂；gist 里写上这张扮的是什么，这一期前面扮过的，这张扮别的。" },
     { id: "lateautumn26", series: "lateautumn", name: "深秋", from: "2026-11-15T00:00:00+08:00", to: "2026-12-01T00:00:00+08:00",
       stamp: "落叶邮票", deco: "autumn",
       hook: "风一吹，叶子就落满了他走过的路。这个秋天，你想和他去哪儿？",
@@ -330,7 +332,7 @@
         h2("div", { style: { padding: "8px 10px 9px" } },
           h2("div", { style: { fontSize: fs(9.5), letterSpacing: ".2em", color: "#827C6F" } }, "邮票册" + (x.kind === "if" ? " · IF「" + (x.theme || "") + "」" : x.kind === "bday" ? " · 生日限定" : x.kind === "mybday" ? " · 你的生日" : "")),
           h2("div", { style: { marginTop: 2, fontFamily: "var(--f-display,'Fraunces',serif)", fontSize: fs(15), color: "#39382F" } }, "「" + (x.name || "") + "」"),
-          x.line ? h2("div", { style: { marginTop: 4, fontSize: fs(11.5), lineHeight: 1.6, color: "#827C6F", overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" } }, x.line) : null)));
+          x.line ? h2("div", { style: { marginTop: 4, fontSize: fs(11.5), lineHeight: 1.6, color: "#827C6F", overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" } }, transShow(x.line)) : null)));
   };
   // 主屏图标：一枚齿孔边的邮票
   g.GStamps = function (p) {

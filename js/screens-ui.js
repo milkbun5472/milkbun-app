@@ -2328,17 +2328,19 @@ function Forum({
     const rules = forumRulesFromText(newBoard && newBoard.rules);
     // 吧主（群里 2026-10-31 许愿）：{ kind: "char"|"npc", id }，不选就没有
     const owner = newBoard && newBoard.owner && newBoard.owner.id ? { kind: newBoard.owner.kind, id: newBoard.owner.id } : null;
+    // 挂的世界书（群里 2026-11-07 许愿：开吧时选世界书，每个吧想要不同的论坛体）：只存词条 id
+    const lore = Array.isArray(newBoard && newBoard.lore) ? newBoard.lore.filter(Boolean) : [];
     // 编辑已经开好的吧：吧名、简介、颜色都能改；改名时帖子跟着挪（onRenameBoard）
     if (newBoard && newBoard.editOf) {
       const from = newBoard.editOf;
       if (name !== from && forumBoardsAll().includes(name)) { toast && toast("已经有「" + name + "」了"); return; }
-      saveBoards(forumCustomBoards().map(b => b.name === from ? Object.assign({}, b, { name: name, about: about, rules: rules, owner: owner }, skin === undefined ? {} : { skin: skin }) : b));
+      saveBoards(forumCustomBoards().map(b => b.name === from ? Object.assign({}, b, { name: name, about: about, rules: rules, owner: owner, lore: lore }, skin === undefined ? {} : { skin: skin }) : b));
       if (name !== from && onRenameBoard) onRenameBoard(from, name);
       setNewBoard(null); setTab(name);
       return;
     }
     if (forumBoardsAll().includes(name)) { toast && toast("已经有「" + name + "」了"); setTab(name); setNewBoard(null); return; }
-    saveBoards(forumCustomBoards().concat([Object.assign({ name: name, about: about, rules: rules, owner: owner, createdAt: Date.now() }, skin === undefined ? {} : { skin: skin })]));
+    saveBoards(forumCustomBoards().concat([Object.assign({ name: name, about: about, rules: rules, owner: owner, lore: lore, createdAt: Date.now() }, skin === undefined ? {} : { skin: skin })]));
     setNewBoard(null); setTab(name); setPage(1);
   };
   // 拆吧：只拆这块牌子，帖子一条不删——它们不在吧表里了，就自然回到搜索页「别的吧」那一叠
@@ -3131,7 +3133,7 @@ function Forum({
       traces.length===0&&h(Empty,{text:"暂时没有更多公开足迹",sub:"以后用这个小号回帖，记录会继续出现在这里"}),
       traces.slice(0,80).map(x=>h("button",{key:x.id,onClick:()=>openPost(x.post),className:"w-full text-left px-4 py-3 active:opacity-70",style:{borderBottom:`1px solid ${t.line}`}},
         h("div",{className:"flex items-center gap-2"},tag(x.kind),h("span",{style:{fontFamily:F_BODY,fontSize:11,color:t.fog}},timeAgo(x.ts))),
-        h("div",{style:{fontFamily:F_BODY,fontSize:13.5,lineHeight:1.55,color:t.sub,marginTop:5}},x.text),
+        h("div",{style:{fontFamily:F_BODY,fontSize:13.5,lineHeight:1.55,color:t.sub,marginTop:5}},transShow(x.text)),
         h("div",{className:"truncate",style:{fontFamily:F_BODY,fontSize:11,color:t.fog,marginTop:4}},"来自《"+(x.post.title||"帖子")+"》"))));
   }
 
@@ -3448,7 +3450,7 @@ function Forum({
           h("span", { style: { flexShrink: 0, padding: "0 5px", borderRadius: 3, background: forumBoardSkin(tab)[1], color: forumBoardSkin(tab)[0], fontFamily: F_BODY, fontSize: "calc(9.5px * var(--app-fs, 1))", lineHeight: "15px" } }, myBoardNow && !myRules.length ? "简介" : "吧规"),
           h("span", { className: "truncate", style: { flex: 1, minWidth: 0, fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: FORUM_SKIN.fog } }, boardRules[0]),
           h("span", { style: { flexShrink: 0, fontFamily: F_BODY, fontSize: "calc(9.5px * var(--app-fs, 1))", color: FORUM_SKIN.line } }, rulesOpen ? "收起" : (myBoardNow && !myRules.length ? "展开" : "共 " + boardRules.length + " 条"))),
-        myBoardNow && h("button", { onClick: () => { const b = forumCustomBoards().find(x => x.name === tab) || {}; setNewBoard({ name: String(b.name || tab).replace(/吧$/, ""), about: b.about || "", rules: (Array.isArray(b.rules) ? b.rules : []).join("\n"), skin: forumCustomSkinIndex(b), owner: b.owner || null, editOf: tab }); }, className: "shrink-0 active:opacity-60", style: { padding: "0 7px", borderRadius: 3, border: "1px solid " + FORUM_SKIN.line, background: FORUM_SKIN.paper, fontFamily: F_BODY, fontSize: "calc(9.5px * var(--app-fs, 1))", lineHeight: "16px", color: FORUM_SKIN.fog, whiteSpace: "nowrap" } }, "编辑"),
+        myBoardNow && h("button", { onClick: () => { const b = forumCustomBoards().find(x => x.name === tab) || {}; setNewBoard({ name: String(b.name || tab).replace(/吧$/, ""), about: b.about || "", rules: (Array.isArray(b.rules) ? b.rules : []).join("\n"), skin: forumCustomSkinIndex(b), owner: b.owner || null, lore: Array.isArray(b.lore) ? b.lore : [], editOf: tab }); }, className: "shrink-0 active:opacity-60", style: { padding: "0 7px", borderRadius: 3, border: "1px solid " + FORUM_SKIN.line, background: FORUM_SKIN.paper, fontFamily: F_BODY, fontSize: "calc(9.5px * var(--app-fs, 1))", lineHeight: "16px", color: FORUM_SKIN.fog, whiteSpace: "nowrap" } }, "编辑"),
         myBoardNow && h("button", { onClick: () => dropBoard(tab), className: "shrink-0 active:opacity-60", style: { padding: "0 7px", borderRadius: 3, border: "1px solid " + FORUM_SKIN.line, background: FORUM_SKIN.paper, fontFamily: F_BODY, fontSize: "calc(9.5px * var(--app-fs, 1))", lineHeight: "16px", color: FORUM_SKIN.fog, whiteSpace: "nowrap" } }, "拆吧"),
         onClearBoard && h("button", { onClick: () => onClearBoard(tab), className: "shrink-0 active:opacity-60", style: { marginLeft: 2, padding: "0 7px", borderRadius: 3, border: "1px solid " + FORUM_SKIN.line, background: FORUM_SKIN.paper, fontFamily: F_BODY, fontSize: "calc(9.5px * var(--app-fs, 1))", lineHeight: "16px", color: FORUM_SKIN.fog, whiteSpace: "nowrap" } }, "清空本版")),
       rulesOpen && h("div", { "data-wk": "block", onClick: () => setRulesOpen(false), style: { position: "absolute", top: "100%", left: 10, right: 10, marginTop: 6, padding: "9px 12px", borderRadius: 7, background: FORUM_SKIN.paper, border: "1px solid " + FORUM_SKIN.line, boxShadow: "0 10px 24px rgba(39,49,38,.16)", animation: "qqIn .18s ease both" } },
@@ -3559,6 +3561,18 @@ function Forum({
         h("textarea", { "data-wk": "textarea", value: newBoard.rules || "", onChange: e => setNewBoard(Object.assign({}, newBoard, { rules: e.target.value })), rows: 3, placeholder: "吧规（可以不写）：一行一条，最多八条",
           className: "w-full outline-none px-3 py-2.5 rounded-lg", style: { marginTop: 8, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", lineHeight: 1.6, background: t.bg2, color: t.ink, border: "1px solid " + t.line, resize: "none" } }),
         h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: FORUM_SKIN.fog, lineHeight: 1.6, marginTop: 4 } }, "挂在这个吧的置顶；网友偶尔会拿它说事，发错地方也会有人提一句，不是每层楼都管人"),
+        // 挂世界书（群里 2026-11-07）：从世界书里勾几条，只给这个吧用（写帖、回帖都照它）；生图那一类不列
+        (() => { const all = (loadJSON("x_loreEntries", []) || []).filter(e => e && e.id && e.category !== "生图" && String(e.payload || "").trim());
+          if (!all.length) return null;
+          const picked = Array.isArray(newBoard.lore) ? newBoard.lore : [];
+          return h(React.Fragment, null,
+            h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: FORUM_SKIN.fog, marginTop: 12 } }, "挂世界书（可以不选，可以多选）"),
+            h("div", { "data-wk": "foboardlore", className: "flex flex-wrap overflow-y-auto", style: { gap: 6, marginTop: 6, maxHeight: 132 } },
+              all.map(e => { const on = picked.includes(e.id);
+                return h("button", { key: e.id, "data-on": on ? "1" : "0", onClick: () => setNewBoard(Object.assign({}, newBoard, { lore: on ? picked.filter(x => x !== e.id) : picked.concat([e.id]) })), className: "active:opacity-70",
+                  style: { minHeight: 40, padding: "0 12px", borderRadius: 999, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: on ? FORUM_SKIN.paper : FORUM_SKIN.sub, background: on ? FORUM_SKIN.accent : "transparent", border: "1px solid " + (on ? FORUM_SKIN.accent : FORUM_SKIN.line) } },
+                  String(e.title || String(e.payload).slice(0, 10)).slice(0, 14)); })),
+            h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: FORUM_SKIN.fog, lineHeight: 1.6, marginTop: 4 } }, "勾上的那几条只给这个吧用：在这个吧里发帖、回帖都照着写，不管它原来挂在谁身上、开没开。")); })(),
         // 吧主：不选 / 一个角色 / 一个熟面孔
         h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: FORUM_SKIN.fog, marginTop: 12 } }, "吧主（可以不选）"),
         h("div", { "data-wk": "foboardowner", className: "flex flex-wrap overflow-y-auto", style: { gap: 6, marginTop: 6, maxHeight: 132 } },
@@ -5656,7 +5670,7 @@ function ListenTogether({ profile, active, ctxFor, toast, onToChat, onListenStat
       h("div", { className: "flex items-center", style: { gap: 10 } }, sqAv(p, 38),
         h("div", { className: "min-w-0 flex-1" }, nameTag(p), h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, marginTop: 1 } }, agoOf(p.ts) + " · 分享单曲")),
         h("button", { "data-wk": "listendel", onClick: () => onDelSquare && onDelSquare(p.id), className: "active:opacity-60", style: { minHeight: 40, minWidth: 40, fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog } }, "删除")),
-      p.text ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.ink, lineHeight: 1.8, marginTop: 9, whiteSpace: "pre-wrap" } }, p.text) : null,
+      p.text ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.ink, lineHeight: 1.8, marginTop: 9, whiteSpace: "pre-wrap" } }, transShow(p.text)) : null,
       sleeveRow(p.song, () => onPlaySquare && onPlaySquare(p), () => openTalk(p.song, "square")),
       h("div", { className: "flex items-center", style: { gap: 14, marginTop: 6 } },
         h("span", { className: "flex items-center", style: { gap: 4, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog } }, ic("heart", t.fog, 16), likeTxt(p.likes) || "赞"),
@@ -6619,7 +6633,7 @@ function ImageApiConfig({ toast }) {
       // 尺寸、等多久都跟聊天里拍照一样（群友 2026-10-12：「api 测试成功，线上生图一直失败」）。
       //   原来测试写死 1024×1024、等 3 分钟，聊天里却是这一站设的尺寸（默认竖 1024×1536）、等 2 分多钟——
       //   不收竖图的站、慢一点的站，测试过得去、聊天里次次失败，测试就成了假的。
-      const out = await generateSelfieImage(prompt, testRef, { singleShot: true,
+      const out = await generateSelfieImage(prompt, testRef, { singleShot: true, still: true,
         // 测的是【正在编辑的这一站】（含还没保存的改动），不是主用那一站
         api: Object.assign({}, c, { enabled: true }, typeof fieldOverride === "string" ? { refFieldMode: fieldOverride } : {}) });   // 测试不看「启用」开关：没开也能先试
       const src = out.dataUrl || out.url || (out.blob ? URL.createObjectURL(out.blob) : null);
@@ -6734,6 +6748,15 @@ function ImageApiConfig({ toast }) {
           h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.ink } }, "这个站不锁脸"),
           h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.5, marginTop: 2 } }, "有的站不收带图片的请求，带着参考照就报错。打开后这个站只发文字描述、一次请求，照样出图——只是长相不保证跟参考照一样。")),
         h("div", { className: "shrink-0" }, h(Toggle, { on: !!c.noRef, onChange: () => set({ noRef: !c.noRef }) }))),
+      // 出动图总开关（她 2026-11-06）：直接给人看的照片都按动图请求；要裁要拼的（头像、背景、表情包九宫格）照旧静图
+      h("div", { "data-wk": "block", "data-part": "gifall", className: "flex items-center justify-between", style: { marginTop: 10, padding: "9px 12px", borderRadius: 10, background: t.bg2, border: "1px solid " + t.line } },
+        h("div", { style: { paddingRight: 10, flex: 1, minWidth: 0 } },
+          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.ink } }, "出动图"),
+          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.5, marginTop: 2 } },
+            "打开后，聊天里的自拍、线下照片、合照、照相馆、邮票卡面、剧场跑团插图都出成会动的小动图。要能出 GIF 的模型（比如 gpt-image-2.6），请求方式选「出图接口」；站子回静图就收静图。动图比静图贵、也慢。头像、背景、表情包九宫格照旧是静图。")),
+        h("div", { className: "shrink-0" }, h(Toggle, { on: !!c.gifAll, onChange: () => set({ gifAll: !c.gifAll }) }))),
+      // 动图速度拉条（她 2026-11-06「搞个拉条自己选」「要要要不想重画」）：全 app 一个数；松手就把已经画好的动图也改成这个速度，不重画
+      h(GifSpeedRow, { t }),
       h("div", { "data-wk": "block", className: "flex items-center justify-between", style: { marginTop: 10, padding: "9px 12px", borderRadius: 10, background: t.bg2, border: "1px dashed " + t.line } },
         h("div", { style: { paddingRight: 10 } },
           h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.ink } }, "经典直通模式（排查问题用）"),
@@ -9441,7 +9464,7 @@ function EventComposeSheet({ entries, characters, onClose, onCreated, toast, pre
         "🔴 有问题的条目，请返回处理：", h("br"), problems.join("；")) : null,
       h("div", { style: { maxHeight: "40vh", overflowY: "auto", marginBottom: 8 } }, (rows || []).map(r =>
         h("div", { key: r.id, className: "rounded-lg p-2.5 mb-1.5", style: { border: "1px solid " + t.line, background: t.bg2 } },
-          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.ink, lineHeight: 1.55 } }, r.text),
+          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.ink, lineHeight: 1.55 } }, transShow(r.text)),
           h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", color: t.fog, marginTop: 3 } },
             new Date(r.ts || 0).toLocaleDateString(), " · rev " + r.revision, (r.tags || []).length ? " · " + r.tags.join("/") : "", r.open ? " · ⏳未了结" : "", r.archived ? " · 🗂已归档" : "")))),
       h("div", { className: "flex", style: { gap: 8 } },
@@ -12041,7 +12064,7 @@ function CharWallet({ characters, charWallet, profile, selId, busyKey, hasApi, o
           h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(14.5px * var(--app-fs, 1))", color: t.ink, wordBreak: "break-word" } }, a.name),
           h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginTop: 2 } },
             [a.kind, a.tail ? "尾号 " + a.tail : "", a.primary ? "随身 · 流水走这儿" : ""].filter(Boolean).join(" · ")),
-          a.note ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.sub, marginTop: 5, lineHeight: 1.6, wordBreak: "break-word" } }, a.note) : null),
+          a.note ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.sub, marginTop: 5, lineHeight: 1.6, wordBreak: "break-word" } }, transShow(a.note)) : null),
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))", color: t.ink, flexShrink: 0, paddingTop: 1, whiteSpace: "nowrap" } }, fmtMoney(a.hold, char.id)))))
       ]) : null,
       // 欠账。只收【真的是钱】的——人情债不在这儿，它属于查手机那本账。
@@ -12215,7 +12238,7 @@ const STICKER_PAPER = "#fbf8f0", STICKER_INK = "#2f2a22";
 //   ——按首位取的话整页贴纸会歪成同一个角度，等于没歪，而且不报任何错。
 const tiltById = id => { const k = qhash(String(id || "")); return ((k.charCodeAt(k.length - 1) % 5) - 2) * 1.1; };
 
-function EmoteMatrix({ onMakeGif, packs, characters, onBack, onAddPack, onUpdatePack, onDeletePack, onToggleChar, onImport, onAddImages, onMakeSet, onUncaptionPack, setBusy, onCaptionPack, onRenameEmote, onDeleteEmotes, onMoveEmotes, myFaces }) {
+function EmoteMatrix({ onExportPacks, onMakeGif, packs, characters, onBack, onAddPack, onUpdatePack, onDeletePack, onToggleChar, onImport, onAddImages, onMakeSet, onUncaptionPack, setBusy, onCaptionPack, onRenameEmote, onDeleteEmotes, onMoveEmotes, myFaces }) {
   const [setPick, setSetPick] = useState(false);
   const [setCaption, setSetCaption] = useState(true);   // 画出来的每张底下印上名字
   // 一张动图（她 2026-11-04：gpt-image-2.6 能出 GIF）：不锁脸，照外貌文字画一张会动的
@@ -12419,6 +12442,10 @@ function EmoteMatrix({ onMakeGif, packs, characters, onBack, onAddPack, onUpdate
           //   打的字自己看不见（v59.62 那一课）。底跟着主题走。
           h("textarea", { "data-wk": "emoimporttext", value: importText, onChange: e => setImportText(e.target.value), placeholder: "确保上面选中了要贴的那一版，在这里粘贴…", rows: 5, className: "w-full outline-none", style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.ink, background: t.bg2, border: "1px solid " + t.line, borderRadius: 14, padding: "14px", resize: "none", marginBottom: 16 } }),
           h("button", { "data-wk": "emoimportbtn", onClick: () => { if (importEmotesOk(importText)) { onImport(pack.id, importText); setImportText(""); } }, className: "w-full active:opacity-80", style: { fontFamily: F_DISPLAY, fontSize: "calc(17px * var(--app-fs, 1))", color: t.bg2, background: t.ink, borderRadius: 16, padding: "16px 0", marginBottom: 22 } }, "贴上去"),
+          // 只导出表情包（群友 2026-11-06：「我只想导出我的表情包」）：一个文件，图都装在里面；设置 → 数据 → 导入 认得它，只加表情包不碰别的
+          onExportPacks ? h("div", { "data-wk": "emoexport", className: "flex gap-3", style: { marginBottom: 12 } },
+            h("button", { "data-wk": "emoexportbtn", "data-part": "one", onClick: () => onExportPacks([pack.id]), className: "flex-1 active:opacity-70", style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.ink, border: "1px solid " + t.line, borderRadius: 14, padding: "12px 0" } }, "导出这一版"),
+            h("button", { "data-wk": "emoexportbtn", "data-part": "all", onClick: () => onExportPacks(list.map(x => x.id)), className: "flex-1 active:opacity-70", style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.ink, border: "1px solid " + t.line, borderRadius: 14, padding: "12px 0" } }, "导出全部表情包")) : null,
           h("button", { "data-wk": "emodelpack", onClick: () => requestAppConfirm("撕掉「" + pack.name + "」这一版？", "这一版上贴着的表情会一起没了。", () => onDeletePack(pack.id), "撕掉"), className: "w-full active:opacity-70", style: { fontFamily: F_DISPLAY, fontSize: "calc(16px * var(--app-fs, 1))", color: t.accent, border: "1px solid " + t.accent, borderRadius: 14, padding: "14px 0" } }, "撕掉这一版"))));
 }
 function importEmotesOk(text) { return /(https?:\/\/\S+)/.test(String(text || "")); }
@@ -13486,7 +13513,7 @@ function MyCloset({ profile, data, busy, onGen, onAdd, onDrop, onPin, onBack, ma
                       border: "1px solid " + t.ink, borderRadius: 999, padding: "2px 9px" } }, pinned === pinText(x) ? "固定穿着" : "固定穿") : null,
                   h("button", { "data-wk": "closetsetdrop", onClick: () => onDrop(g.occasion, x.name), className: "active:opacity-60 shrink-0", "aria-label": "拿掉这身",
                     style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog } }, "拿掉")),
-                x.note ? h("div", { "data-wk": "closetsetnote", style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", lineHeight: 1.8, color: t.sub, marginTop: 6, wordBreak: "break-word" } }, x.note) : null,
+                x.note ? h("div", { "data-wk": "closetsetnote", style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", lineHeight: 1.8, color: t.sub, marginTop: 6, wordBreak: "break-word" } }, transShow(x.note)) : null,
                 // 这身也挂到别的面具（她 2026-10-19「衣柜选择衣服放哪个面具方便来回换」）：点一下挂上、再点拿走，原柜不动
                 (masks && masks.length > 1 && hasIn && onToggleMask) ? h("div", { "data-wk": "closetsetmasks", className: "flex flex-wrap items-center", style: { gap: 5, marginTop: 8 } },
                   h("span", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog } }, "也挂在"),
@@ -13495,4 +13522,41 @@ function MyCloset({ profile, data, busy, onGen, onAdd, onDrop, onPin, onBack, ma
                       style: { padding: "1px 8px", borderRadius: 999, border: "1px solid " + (on ? t.ink : t.line), background: on ? t.ink : "transparent", color: on ? t.bg : t.fog, fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))" } }, (on ? "✓ " : "") + m.name); })) : null)))))
         : h("div", { "data-wk": "closetempty", style: { border: "1px dashed " + t.line, borderRadius: 16, padding: "34px 16px", marginTop: 18, textAlign: "center", fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.9 } },
             "柜子还是空的。给几个词让它配四身，或者右上角自己挂一件。")));
+}
+
+// 动图速度：每帧停多久（0.06~0.4 秒）。松手才存、才去改已存的动图——拖的过程中不动图库
+function GifSpeedRow({ t }) {
+  const [ms, setMs] = useState(() => (typeof gifMsNow === "function" ? gifMsNow() : 150));
+  // 帧数（她 2026-11-06）：只管以后画的；已经画好的改不了帧数
+  const [fr, setFr] = useState(() => (typeof gifFramesNow === "function" ? gifFramesNow() : 16));
+  const [busy, setBusy] = useState(false);
+  const commit = async () => {
+    if (busy) return;
+    saveJSON("x_gifMs", ms);
+    if (typeof retimeStoredGifs !== "function") return;
+    setBusy(true);
+    try {
+      const n = await retimeStoredGifs(ms);
+      if (n) { window.__toast && window.__toast("已经画好的 " + n + " 张动图也改成这个速度了，马上刷新一下", 3000); setTimeout(() => location.reload(), 1600); }
+      else window.__toast && window.__toast("存好了，以后的动图按这个速度");
+    } finally { setBusy(false); }
+  };
+  const loop = (ms * fr / 1000).toFixed(1);
+  return h("div", { "data-wk": "block", "data-part": "gifspeed", style: { marginTop: 10, padding: "9px 12px", borderRadius: 10, background: t.bg2, border: "1px solid " + t.line } },
+    h("div", { className: "flex items-center justify-between" },
+      h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.ink } }, "动图速度"),
+      h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.sub } }, busy ? "在改…" : "每帧 " + (ms / 1000).toFixed(2) + " 秒 · 一圈约 " + loop + " 秒")),
+    h("input", { "data-wk": "gifspeedrange", type: "range", min: 60, max: 400, step: 10, value: ms, disabled: busy,
+      onChange: e => setMs(Number(e.target.value)), onMouseUp: commit, onTouchEnd: commit, onKeyUp: commit,
+      style: { width: "100%", marginTop: 8, accentColor: t.tint } }),
+    h("div", { className: "flex justify-between", style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", color: t.fog } }, h("span", null, "快"), h("span", null, "慢")),
+    h("div", { className: "flex items-center justify-between", style: { marginTop: 10 } },
+      h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.ink } }, "动图帧数"),
+      h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.sub } }, fr + " 帧")),
+    h("input", { "data-wk": "gifframesrange", type: "range", min: 2, max: 16, step: 1, value: fr,
+      onChange: e => setFr(Number(e.target.value)), onMouseUp: () => saveJSON("x_gifFrames", fr), onTouchEnd: () => saveJSON("x_gifFrames", fr), onKeyUp: () => saveJSON("x_gifFrames", fr),
+      style: { width: "100%", marginTop: 8, accentColor: t.tint } }),
+    h("div", { className: "flex justify-between", style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", color: t.fog } }, h("span", null, "少（换姿势少）"), h("span", null, "多（动作细）")),
+    h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.5, marginTop: 4 } },
+      "所有动图都按这两条来（表情包、照片、邮票卡面）。速度松手后，已经画好的那些也跟着改，不重画、不花钱；帧数只管以后画的。"));
 }

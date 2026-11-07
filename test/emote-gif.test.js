@@ -23,7 +23,7 @@ test("表情包页能切到「一张动图」「九宫格动图」", () => {
 });
 test("九宫格动图：一份切法，静图动图共用；动图走 GifCodec 一帧帧切、能印字", () => {
   assert.match(a, /const emoteSetCut = async \(blob, items, ownerKey, caption\) => \{/);
-  assert.match(a, /if \(blob\.type === "image\/gif"\) \{\n\s*const urls = await gifCells\(blob, GRID9/);
+  assert.match(a, /if \(blob\.type === "image\/gif"\) \{[^]*?const urls = await gifCells\(blob, GRID9/);   // 中间先过 gridLike（没画成格子不切）
   assert.equal((a.match(/const n = await emoteSetCut\(blob, items, /g) || []).length, 2);
   assert.match(a, /emoteSetPrompt\(char\.name, char\.appearance, items, setOpt && setOpt\.gif\)/);
   assert.match(a, /近景构图：只画到胸口往上/);

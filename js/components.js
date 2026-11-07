@@ -1066,7 +1066,9 @@ const sysNoteKind = m => (m && (m.sub === "block" || /拉黑/.test(String(m.cont
 //   垫子判据跟单聊 plate 同一条：底下有聊天背景图或气泡皮肤底色，就铺一层白垫子，字跟着变深。
 // 她在旁白模式「我的动作」那一档写的（群友 2026-10-31：「经常用（）做动作，ai 总是容易和线上的搞混」）：
 //   靠右、一个小框，跟她的气泡一边；框是虚线还是实线，旁白栏「我的动作」那一档下面能换（x_actFrame）。
-function actFrameStyle() { try { return loadJSON("x_actFrame", "dashed") === "solid" ? "solid" : "dashed"; } catch (e) { return "dashed"; } }
+function actFrameStyle() { try { const v = loadJSON("x_actFrame", "none"); return v === "solid" || v === "dashed" ? v : "none"; } catch (e) { return "none"; } }
+// 整条就是一段（）动作、又是「算动作」发出去的那条：不画气泡，画成跟 TA 动描同一种灰字（群友 2026-11-06：「开了那个能不能显示成动描灰字」）
+const pureParenAct = m => !!(m && m.role === "user" && m.parenAct && !m.kind && !m.recalled && !m.replyTo && /^[（(][^（）()]*[）)]$/.test(String(m.content || "").trim()));
 function NarrLine({ i, m, text, selMode, selected, onBg, startPress, endPress, toggleSel, onDelete }) {
   const t = useTheme();
   if (m && m.who === "me") return h("div", {
@@ -1078,7 +1080,9 @@ function NarrLine({ i, m, text, selMode, selected, onBg, startPress, endPress, t
   }, (onDelete) ? h("button", { onClick: () => requestAppConfirm("删除这条动作？", "删除后不能恢复。", onDelete, "删除"), className: "active:opacity-50 shrink-0",
       style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.fog, opacity: 0.6, padding: "1px 2px" }, title: "删除" }, "✕") : null,
     h("span", { "data-wk": "myactink", style: { maxWidth: "78%", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", fontStyle: "italic", lineHeight: 1.65, color: selected ? t.ink : t.sub,
-      border: "1px " + actFrameStyle() + " " + t.line, borderRadius: 12, padding: "6px 12px", background: onBg ? narrPadBg() : "transparent" } }, text));
+      ...(actFrameStyle() === "none"
+        ? (onBg ? { background: narrPadBg(), backdropFilter: narrPadBlur(), WebkitBackdropFilter: narrPadBlur(), borderRadius: 10, padding: "5px 12px", color: selected ? t.ink : "#5a5550" } : { padding: "2px 2px", color: selected ? t.ink : t.fog, fontSize: "calc(12.5px * var(--app-fs, 1))" })
+        : { border: "1px " + actFrameStyle() + " " + t.line, borderRadius: 12, padding: "6px 12px", background: onBg ? narrPadBg() : "transparent" }) } }, text));
   return h("div", {
     "data-wk": "narr",
     "data-me": m.who === "char" ? "0" : "1",
@@ -2145,7 +2149,7 @@ function ImageViewer({ items, at, onClose, actions, zoomable }) {
         padding: safeTop(12) + " 12px calc(12px + " + COMPOSER_PAD_BOTTOM + ")" } },
     h("img", { src: cur.src, alt: cur.caption || "", onClick: e => { if (zoomable) { stop(e); setFull(f => !f); } },
       style: full ? { maxWidth: "none", maxHeight: "none" } : { maxWidth: "100%", maxHeight: btns.length || cur.caption || n > 1 ? "74%" : "88%", objectFit: "contain" } }),
-    cur.caption ? h("div", { onClick: stop, style: { marginTop: 10, maxWidth: 420, color: "#ddd", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", lineHeight: 1.6, textAlign: "center", whiteSpace: "pre-wrap" } }, cur.caption) : null,
+    cur.caption ? h("div", { onClick: stop, style: { marginTop: 10, maxWidth: 420, color: "#ddd", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", lineHeight: 1.6, textAlign: "center", whiteSpace: "pre-wrap" } }, transShow(cur.caption)) : null,
     n > 1 ? h("div", { className: "flex items-center", style: { gap: 18, marginTop: 6, color: "#eee", fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))" } },
       navBtn("‹", -1, "上一张"), h("span", null, (i + 1) + " / " + n), navBtn("›", 1, "下一张")) : null,
     // 按钮那一排挂 imgviewerbtns；每颗按钮的挂点由调用的那一处写死传进来（wk），这里原样放上去（theme-hooks 的转交写法）
@@ -12113,6 +12117,10 @@ function ChatThread({
     // ⚠️她 2026-09-09：「TA的居中不要那个叉，然后可以编辑重roll刷掉之类的
     //   而不完全只是像系统的字」——所以TA那一行【长按出菜单】，跟气泡一个待遇；
     //   那颗 ✕ 只留给她自己写的旁白（她一直是一点就删的，别给她换掉）。
+    // 跟 TA 的动描同一个样子（她 2026-11-06「为啥有叉还不是在中间，做成跟他的动描一样」）：居中、不带外面那对括号、没有叉，长按出菜单
+    if (pureParenAct(m)) return h(NarrLine, { key: i, i, m: { ...m, who: "mine" }, selMode, selected: selIds.includes(i),
+      onBg: !!(dsp.chatBg || _wkBg), startPress, endPress, toggleSel,
+      onDelete: null, text: String(m.content || "").trim().replace(/^[（(]\s*|\s*[）)]$/g, "") });
     if (m.kind === "narration" || m.role === "narration") return h(NarrLine, { key: i, i, m, selMode, selected: selIds.includes(i),
       onBg: !!(dsp.chatBg || _wkBg), startPress, endPress, toggleSel,
       onDelete: onDeleteMessages ? () => onDeleteMessages([i]) : null,
@@ -14284,8 +14292,8 @@ function AnonBox({
       r.pending
         ? h("div", { "data-wk": "anona", "data-part": "pending", style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: A.fog, paddingLeft: 10, borderLeft: `2px dashed ${A.line}` } }, "还在箱子里，等 Ta 打开")
         : r.skip
-          ? h("div", { "data-wk": "anona", "data-part": "skip", style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: A.fog, paddingLeft: 10, borderLeft: `2px solid ${A.hot}66`, fontStyle: "italic" } }, r.note ? "（" + r.note + "）" : "（Ta 看见了，没答）")
-          : h("div", { "data-wk": "anona", style: { fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", lineHeight: 1.6, color: A.sub, paddingLeft: 10, borderLeft: `2px solid ${A.line}` } }, r.a),
+          ? h("div", { "data-wk": "anona", "data-part": "skip", style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: A.fog, paddingLeft: 10, borderLeft: `2px solid ${A.hot}66`, fontStyle: "italic" } }, r.note ? transShow("（" + r.note + "）", r.noteZh) : "（Ta 看见了，没答）")
+          : h("div", { "data-wk": "anona", style: { fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", lineHeight: 1.6, color: A.sub, paddingLeft: 10, borderLeft: `2px solid ${A.line}` } }, typeof TransText === "function" ? h(TransText, { text: r.a, zhReady: r.zh, ink: A.sub }) : r.a),
       // 追问：接着这一条再问一句，同样先放进箱子
       (!r.pending && !r.skip && r.a) ? h("button", { "data-wk": "anonbtn", "data-part": "followup",
         onClick: () => { setReplyTo(r.id); setQ(""); setAsking(true); if (scrollRef.current) scrollRef.current.scrollTo({ top: 0, behavior: "smooth" }); },
@@ -14772,6 +14780,16 @@ function ParenActText({ text }) {
   return h("span", { "data-wk": "parenact" }, String(text || "").split(PAREN_ACT_RE).map((seg, k) => PAREN_ACT_RE.test(seg) && /^[（(]/.test(seg)
     ? h("span", { key: k, "data-wk": "parenactseg", style: { fontStyle: "italic", opacity: 0.78 } }, seg) : seg));
 }
+// 公共的「角色写的字 → 带译文」出口（她 2026-11-06：「全抽成公共翻译」）：
+//   角色亲口写的字（回复、评论、批注、信、心声……）一律从这里出屏。外语自动带译文，中文原样；已经是元素的原样放过。
+//   zh：存好的那份中文（有就直接用、不再花调用）。PTX（查手机）和 screens.js 那份同名小函数都只是转调它。
+function transShow(v, zh) {
+  if (v && typeof v === "object") return v;
+  const s = String(v == null ? "" : v);
+  if (!s.trim()) return s;
+  return h(TransText, { text: s, zhReady: zh || undefined, ink: "currentColor", inline: true });
+}
+if (typeof window !== "undefined") window.transShow = transShow;
 function TransText({ text, isU, zhReady, ink, inline, long, size, noModel, langHint }) {
   const [autoShow] = useOnlineTranslationAuto();
   // <#0.4#> 这种停顿记号是念给语音听的，屏幕上一律不摆（群里 2026-10-10 截图：通话里漏了一串）。
@@ -15736,7 +15754,7 @@ function ChatForwardSheet({ m, onClose }) {
           it.name ? h("span", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog } }, it.name) : null,
           it.ts ? h("span", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.line } }, chatForwardTime(it.ts)) : null) : null,
         it.img ? h("img", { "data-wk": "fwdimg", src: typeof resolveImg === "function" ? resolveImg(it.img) : it.img, alt: "", style: { display: "block", maxWidth: "70%", maxHeight: 260, borderRadius: 10, objectFit: "cover", marginTop: 2 } })
-          : h("div", { style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", lineHeight: 1.65, color: t.ink, whiteSpace: "pre-wrap" } }, it.text)))));
+          : h("div", { style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", lineHeight: 1.65, color: t.ink, whiteSpace: "pre-wrap" } }, transShow(it.text))))));
 }
 // 聊天里能画成小卡的那几种分享（单聊、群聊都问这一张表）。时刻和番茄钟的卡住在各自的 app 文件里，
 //   那两个文件不一定比这里先加载，所以取的时候再去 window 上找。
@@ -15763,7 +15781,7 @@ function GameShareCard({ m, isU }) {
       res ? h("span", { style: { fontFamily: F_DISPLAY, fontSize: "calc(13px * var(--app-fs, 1))" } }, res) : null),
     h("div", { style: { padding: "11px 13px 12px" } },
       h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(17px * var(--app-fs, 1))", color: t.ink } }, "「" + (g.zh || "小游戏") + "」"),
-      g.text ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", lineHeight: 1.7, color: t.sub, marginTop: 6, paddingTop: 7, borderTop: "1px dashed " + t.line } }, g.text) : null,
+      g.text ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", lineHeight: 1.7, color: t.sub, marginTop: 6, paddingTop: 7, borderTop: "1px dashed " + t.line } }, transShow(g.text)) : null,
       // 彩头：盖一枚章，写清谁欠谁
       g.stake ? h("div", { style: { marginTop: 9, padding: "7px 10px", borderRadius: 10, border: "1.5px dashed " + (t.accent || t.tint), color: t.accent || t.tint } },
         h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", letterSpacing: 2, opacity: .85 } }, "彩头" + (g.owes === "ta" ? " · 你欠我的" : g.owes === "me" ? " · 我欠你的" : "")),
@@ -15831,7 +15849,7 @@ function ForumShareCard({ m, isU }) {
       h("div", { className: "px-3.5 pt-3 pb-3" },
         h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: "calc(9px * var(--app-fs, 1))", letterSpacing: "0.16em", color: t.fog } }, "贴吧 · " + (p.board || "")),
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))", lineHeight: 1.3, color: t.ink, marginTop: 5 } }, p.title || ""),
-        p.body && h("div", { className: "line-clamp-2", style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", lineHeight: 1.5, color: t.sub, marginTop: 4 } }, p.body),
+        p.body && h("div", { className: "line-clamp-2", style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", lineHeight: 1.5, color: t.sub, marginTop: 4 } }, transShow(p.body)),
         h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, marginTop: 6 } }, p.anon ? "匿名 · " + (p.authorName || "") : (p.authorName || "")))));
 }
 // 查手机偷看卡：她把TA手机里的一样东西摆到了TA面前。
@@ -15873,7 +15891,7 @@ function CarvedCard({ m, onOpen }) {
         overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, m.artist) : null,
       // B 面刻字：TA为什么送这一首。没写就不占那一行。
       m.note ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.sub, lineHeight: 1.6,
-        marginTop: 8, paddingTop: 8, borderTop: "1px dashed " + t.line, whiteSpace: "pre-wrap" } }, m.note) : null,
+        marginTop: 8, paddingTop: 8, borderTop: "1px dashed " + t.line, whiteSpace: "pre-wrap" } }, transShow(m.note)) : null,
       h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", color: t.fog, marginTop: 8 } }, "已经进了你俩的唱片架 ›")));
 }
 // 账本是玻璃皮时：TA 记的那笔是一张从电子钱包里吐出来的小票（她 2026-09-29 给的票纸、回形针、RECORDED 章）。
@@ -15981,7 +15999,7 @@ function RecordedCard({ m }) {
       m.kind === "impshare" ? "你写我的那张月度印象" : m.kind === "petshare" ? "拿给你看看它" : m.kind === "ledgershare" ? "拿给你看的这笔账" : isMemo ? "已记进备忘录" : isHealth ? "已记进健康" : "已记进账本"),
     h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(15.5px * var(--app-fs, 1))", color: t.ink, lineHeight: 1.3 } }, m.title || ""),
     m.sub ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.sub, marginTop: 3 } }, m.sub) : null,
-    m.note ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, marginTop: 4, lineHeight: 1.5 } }, m.note) : null);
+    m.note ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, marginTop: 4, lineHeight: 1.5 } }, transShow(m.note)) : null);
 }
 function ShopAskCard({ m }) {
   const t = useTheme();
@@ -16012,7 +16030,7 @@ function PhonePeekCard({ m, isU, character }) {
         h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: "calc(9px * var(--app-fs, 1))", letterSpacing: "0.16em", color: hid ? "#b6473c" : t.fog } },
           (p.tier === "given" ? characterText(character, "他给的") : characterText(character, "翻他") + (p.what || "手机")) + " · " + (p.label || "")),
         p.title && h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))", lineHeight: 1.3, color: t.ink, marginTop: 5 } }, p.title),
-        p.text && h("div", { className: "line-clamp-3", style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", lineHeight: 1.55, color: t.sub, marginTop: 4 } }, p.text),
+        p.text && h("div", { className: "line-clamp-3", style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", lineHeight: 1.55, color: t.sub, marginTop: 4 } }, transShow(p.text)),
         hid && h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: "#b6473c", marginTop: 7 } }, characterText(character, "这是他藏起来的")))));
 }
 // 同人文分享卡
@@ -16506,7 +16524,7 @@ function PeekSneakCard({ m, character, onPick }) {
     style: { minHeight: 38, borderRadius: 10, fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", background: solid ? t.ink : "transparent", color: solid ? t.bg2 : t.ink, border: solid ? "none" : "1px solid " + t.line } }, zh);
   return h("div", { className: "py-1 flex justify-center" },
     h("div", { "data-wk": "block", style: { width: 280, background: t.bg2, border: "1px solid " + t.line, borderRadius: 14, padding: "12px 14px", textAlign: "center" } },
-      h("div", { style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.ink, lineHeight: 1.6 } }, m.content),
+      h("div", { style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.ink, lineHeight: 1.6 } }, transShow(m.content)),
       h("div", { className: "flex gap-2", style: { marginTop: 10 } },
         btn("replay", "回放", false),
         st === "pending" ? btn("ask", "当面问", true) : null,
@@ -16911,7 +16929,7 @@ function TopicCardsSheet({ charId, onClose, onUse }) {
           style: Object.assign({ textAlign: "left" }, delSel ? { paddingLeft: 30, position: "relative" } : {}) },
           delSel ? h("span", { style: { position: "absolute", left: 0, top: 2, width: 20, height: 20, borderRadius: 999, border: "1.5px solid " + (delSel.includes(x.id) ? "#c0503f" : t.line), background: delSel.includes(x.id) ? "#c0503f" : "transparent", color: "#fff", fontSize: 12, display: "flex", alignItems: "center", justifyContent: "center" } }, delSel.includes(x.id) ? "✓" : "") : null,
           x.title && x.title !== x.text ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog, marginBottom: 3 } }, x.title) : null,
-          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(14.5px * var(--app-fs, 1))", color: t.ink, lineHeight: 1.65, whiteSpace: "pre-wrap", wordBreak: "break-word" } }, x.text)),
+          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(14.5px * var(--app-fs, 1))", color: t.ink, lineHeight: 1.65, whiteSpace: "pre-wrap", wordBreak: "break-word" } }, transShow(x.text))),
         h("div", { className: "flex flex-wrap", style: { gap: 6, marginTop: 8 } },
           h("button", { "data-wk": "topiccardshareto", onClick: () => { setSharing(x); setPick([]); }, className: "active:opacity-60", style: small }, "也给别人"),
           h("button", { "data-wk": "topiccardnest", onClick: () => toNest(x), className: "active:opacity-60", style: small }, "传到小窝"),
@@ -16994,7 +17012,8 @@ function DraftInput({ placeholder, inputStyle, inputProps, onSubmit, after, keep
   const fire = () => {
     const v = draft.trim(); if (!v) return;
     const el = ref.current, keep = el && (document.activeElement === el || Date.now() - blurAt.current < 600);
-    const reset = keep && (ANDROID || composing.current);
+    // 只在安卓上重开：iPhone 打中文时下划线还挂着也会算「在拼字」，失焦再聚焦键盘就跳一下（群友 2026-11-06：「给 char 发送成功键盘会跳一下，给秋秋发就不会」）
+    const reset = keep && ANDROID;
     composing.current = false;
     setDraft(""); onSubmit && onSubmit(v);
     if (reset) { try { el.blur(); } catch (e) {} setTimeout(() => { try { el.focus({ preventScroll: true }); } catch (e) {} }, 0); }
@@ -20708,6 +20727,10 @@ function GroupThread({
     // 居中那一行：她写的群旁白，和某个成员那一格动作（who:"char"，带 senderId）。
     // ⚠️跟单聊那一处同一个待遇（她 2026-09-09）：成员那一行长按出菜单、不挂 ✕；
     //   ✕ 只留给她自己写的旁白。谁做的要写出来——群里三个人，光一句动作认不出是谁。
+    // 跟 TA 的动描同一个样子（她 2026-11-06「为啥有叉还不是在中间，做成跟他的动描一样」）：居中、不带外面那对括号、没有叉，长按出菜单
+    if (pureParenAct(m)) return h(NarrLine, { key: i, i, m: { ...m, who: "mine" }, selMode, selected: selIds.includes(i),
+      onBg: !!(gChatBg || _gWkBg), startPress, endPress, toggleSel,
+      onDelete: null, text: String(m.content || "").trim().replace(/^[（(]\s*|\s*[）)]$/g, "") });
     if (m.role === "narration" || m.kind === "narration") return h(NarrLine, { key: i, i, m, selMode, selected: selIds.includes(i),
       onBg: !!(gChatBg || _gWkBg), startPress, endPress, toggleSel,
       onDelete: onDeleteMessages ? () => onDeleteMessages([i]) : null,

@@ -73,7 +73,20 @@
   // 册子里那一格只要小图（群里 2026-10-28：邮票多了刷着刷着全部消失）：原图 1024×1536，一屏几十张全解码，手机网页内存顶不住就把图全丢了。
   //   这里每张只解一次原图、缩成 300 宽的小图存进 IDB（th_ 开头），以后都用小图；还没滑到附近的先不加载
   const THUMB_MEM = new Map();
+  // 动图卡面（她 2026-11-06「邮票册能不能不点进去也能看到动图」）：缩成一张小动图，每一帧都缩，照样会动
+  const makeGifThumb = async blob => {
+    try {
+      if (typeof GifCodec === "undefined") return null;
+      const g = GifCodec.decode(new Uint8Array(await blob.arrayBuffer())); if (!g.frames.length) return null;
+      const w = Math.min(300, g.width), hh = Math.round(g.height * w / g.width);
+      const src = document.createElement("canvas"); src.width = g.width; src.height = g.height; const sg = src.getContext("2d");
+      const cv = document.createElement("canvas"); cv.width = w; cv.height = hh; const c2 = cv.getContext("2d");
+      const frames = g.frames.map(f => { sg.putImageData(new ImageData(f.rgba, g.width, g.height), 0, 0); c2.clearRect(0, 0, w, hh); c2.drawImage(src, 0, 0, w, hh); return { rgba: c2.getImageData(0, 0, w, hh).data, delay: f.delay }; });
+      return new Blob([GifCodec.encode({ width: w, height: hh, frames })], { type: "image/gif" });
+    } catch (e) { return null; }
+  };
   const makeThumb = async blob => {
+    if (blob && blob.type === "image/gif") return await makeGifThumb(blob);
     try { if (typeof createImageBitmap === "function") { const bm = await createImageBitmap(blob); const w = 300, hh = Math.round(bm.height * w / bm.width);
       const cv = document.createElement("canvas"); cv.width = w; cv.height = hh; cv.getContext("2d").drawImage(bm, 0, 0, w, hh); bm.close && bm.close();
       return await new Promise(r => cv.toBlob(r, "image/jpeg", .82)); } } catch (e) {}
@@ -84,7 +97,7 @@
     useEffect(() => { const n = el.current; if (!n || typeof IntersectionObserver !== "function") { setNear(true); return; }
       const io = new IntersectionObserver(es => { if (es.some(e => e.isIntersecting)) { setNear(true); io.disconnect(); } }, { rootMargin: "400px" }); io.observe(n); return () => io.disconnect(); }, []);
     useEffect(() => { if (!ref) { setUrl(null); return; } if (THUMB_MEM.has(ref)) { setUrl(THUMB_MEM.get(ref)); return; } if (!near) return; let alive = true;
-      (async () => { const tk = "th_" + ref; let b = null;
+      (async () => { const tk = "th2_" + ref; let b = null;   // th2_：动图也缩成动图以后换的键，老的 th_ 里动图只剩第一帧
         try { b = typeof idbImgGet === "function" ? await idbImgGet(tk) : null; } catch (e) {}
         if (!b || !b.size) { let src = null;
           try { src = String(ref).indexOf("iv_") === 0 ? (typeof imgVaultFetchBlob === "function" ? await imgVaultFetchBlob(ref) : null) : await idbImgGet(ref); } catch (e) {}
@@ -93,10 +106,20 @@
       return () => { alive = false; }; }, [ref, near]);
     return [url, el, near];
   }
+  // 限定卡的标记（她 2026-11-06：「还是想要限时 if 特别一点」）：一圈这一期颜色的内框，左下角一条「限定」，大图上带这一期的名字
+  const LIM_MARK_TONE = { halloween: ["#2a1a2e", "#e8893a"] };
+  function LimMark({ card, big }) {
+    // 生日、她的生日、纪念日也是限定的（她 2026-11-06：「生日纪念日都没有框耶」）
+    const DAY = { bday: "#b5485e", mybday: "#c9708e", anniv: "#c25a6e" };
+    if (!card || !(card.limited || DAY[card.kind])) return null;
+    const lim = card.limited ? ((C().LIMITED) || []).find(x => x.id === card.limited) || {} : {}, tone = card.limited ? (LIM_TONE[lim.deco] || LIM_MARK_TONE[lim.deco] || ["#3a2c22", "#d9a25a"]) : ["", DAY[card.kind]];
+    // 她 2026-11-06：框太粗、不要「限定」那条——只留一圈细线
+    return h("span", { "data-wk": "stamplimmark", style: { position: "absolute", inset: 5, zIndex: 3, pointerEvents: "none", borderRadius: 2, boxShadow: "inset 0 0 0 0.5px " + tone[1] } });
+  }
   function StampFace({ t, card, onClick, size, back }) { const [url, el, near] = useStampThumb(card && (card.cover || card.face));
     // 卡面动起来了的 SSR：册子里那一格也在动（滑到附近才放，没封面换过别的图时才用）
     const vurl = useStampVideo(card && !back ? coverVideo(card) : null, near);
-    return h("span", { ref: el, style: { display: "inline-block", lineHeight: 0, position: "relative" } }, h(Stamp, { t, card, face: url, onClick, size, back }),
+    return h("span", { ref: el, style: { display: "inline-block", lineHeight: 0, position: "relative" } }, h(Stamp, { t, card, face: url, onClick, size, back }), back ? null : h(LimMark, { card }),
       vurl ? loopVid(vurl, { left: 5, top: 5, width: "calc(100% - 10px)", height: "calc(100% - 10px)", borderRadius: 2 }) : null); }
 
   // 抽卡动画：信封落下 → 邮戳颜色预告 → 撕开一版
@@ -480,6 +503,7 @@
           h("div", { style: { position: "absolute", top: 0, left: "50%", width: 320, height: 380, marginLeft: -160, borderRadius: 999, background: "radial-gradient(closest-side, " + (card.rarity === "R" ? "rgba(47,42,34,.16)" : RC[card.rarity] + "44") + ", transparent)", animation: "stHalo 4s ease-in-out infinite", pointerEvents: "none" } }),
           h("div", { key: pop, style: { position: "relative", boxShadow: ring, animation: pop ? "stFloat .9s ease-out" : "none" } },
             h(Stamp, { t, card, face: url, size: 236 }),
+            h(LimMark, { card, big: true }),
             vMain ? loopVid(vMain, { left: 5, top: 5, width: "calc(100% - 10px)", height: "calc(100% - 10px)", borderRadius: 2 }) : null,
             // 满级 SSR 能戳：上面三分之一是头，中间是胸口，下面是手
             url ? h("div", { onClick: () => { if (Date.now() - swiped.current < 400) return; setFull(true); }, style: { position: "absolute", inset: 0, cursor: "zoom-in" } }) : null,
@@ -979,7 +1003,7 @@
             bd ? h(React.Fragment, null, bd.char.remark || bd.char.name, h("span", { style: { fontSize: "0.62em", marginLeft: 4, opacity: .85 } }, bd.anniv ? "「" + bd.anniv.name + "」" : "的生日")) : pool === "char" ? (charTheme.trim() ? "「" + charTheme.trim() + "」" : charTime !== "now" ? timeZh(charTime) : "还没写主题") : cur.zh,
             bd ? h("span", { style: { marginLeft: 6, fontSize: "calc(16px * var(--app-fs, 1))", color: acc, verticalAlign: "super", textShadow: "0 0 10px " + acc + "" } }, "✦") : null),
           bd ? h("div", { style: { marginTop: 3, fontFamily: F_BODY, fontSize: "calc(9.5px * var(--app-fs, 1))", letterSpacing: ".3em", color: acc, opacity: .6 } }, ann ? "你们俩 · 一年一次" : "生日限定 · 一年一次") : null,
-          h("div", { "data-wk": "stampbannerhook", style: { marginTop: 12, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden", fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: "calc(12.5px * var(--app-fs, 1))", lineHeight: 1.5, color: "rgba(244,236,218,.88)", whiteSpace: "pre-line" } }, hook),
+          h("div", { "data-wk": "stampbannerhook", style: { marginTop: 12, fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: "calc(12.5px * var(--app-fs, 1))", lineHeight: 1.5, color: "rgba(244,236,218,.88)", whiteSpace: "pre-line" } }, hook),
           h("div", { style: { flex: 1, minHeight: 0, display: "flex", justifyContent: "center", alignItems: "center", paddingBottom: 0 } }, faceRow),
           h("div", { className: "flex items-end justify-between", style: { gap: 8 } },
           // 邮戳：常驻写「常驻」；限时写截止日和还剩多久，万圣夜那枚是南瓜色的限定戳
@@ -1104,7 +1128,7 @@
         h("div", { className: "flex", style: { gap: 8, marginTop: 8 } },
           h("button", { onClick: () => { const rs = album.filter(c => c.rarity === "R" && !c.writing).map(c => c.id); setMeltArm(false); setMeltSel(meltSel.length === rs.length ? [] : rs); }, style: { padding: "6px 12px", borderRadius: 999, border: "1px solid rgba(87,119,103,.4)", color: "#577767", fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))" } }, "这一页的 R 全选"),
           h("button", { onClick: () => { setMeltSel(null); setMeltArm(false); }, style: { padding: "6px 12px", fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: "rgba(47,42,34,.55)" } }, "取消"),
-          h("button", { "data-wk": "stampmeltgo", disabled: !picked.length, onClick: () => { if (!meltArm) { setMeltArm(true); return; } const r = C().melt(meltSel); (r.keys || []).forEach(k => { try { idbImgDel(k); idbImgDel("th_" + k); } catch (e) {} }); setMeltSel(null); setMeltArm(false); toast("熔了 " + r.n + " 张 R，得 " + r.ink + " 印泥"); },
+          h("button", { "data-wk": "stampmeltgo", disabled: !picked.length, onClick: () => { if (!meltArm) { setMeltArm(true); return; } const r = C().melt(meltSel); (r.keys || []).forEach(k => { try { idbImgDel(k); idbImgDel("th_" + k); idbImgDel("th2_" + k); } catch (e) {} }); setMeltSel(null); setMeltArm(false); toast("熔了 " + r.n + " 张 R，得 " + r.ink + " 印泥"); },
             className: "active:opacity-70 disabled:opacity-40", style: { marginLeft: "auto", padding: "6px 16px", borderRadius: 999, background: meltArm ? "#b23a2e" : "#285C4B", color: "#fff", fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))" } }, meltArm ? "再点一次：熔掉" : "熔掉"))); })() : null;
     const reOk = c => !!c.text && !c.writing;
     const reCalls = cs => { const by = {}; let n = 0; cs.forEach(c => { if (c.rarity === "SSR") n++; else by[c.charId] = (by[c.charId] || 0) + 1; }); Object.keys(by).forEach(k => { n += Math.ceil(by[k] / 10); }); return n; };
