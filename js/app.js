@@ -36043,6 +36043,9 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     onWrite: cards => stampWrite(cards),
     onDraw: (id, alt, mode) => stampDraw(id, alt, mode),
     onPoke: stampPoke,
+    // 邮票对局（她 2026-11-07）：打完点「记得」才进记忆；对面卡组里带上跟 TA 有关系的人（关系页里两头任一头写了的）
+    onDuelRemember: (charId, line) => { try { addMemEntry({ text: line, tags: ["邮票对局", "邮票册"], charIds: [charId], knownBy: [charId], source: "stamps" }); toast("记下了"); } catch (e) {} },
+    duelCloseOf: charId => liveChars.filter(c => c.id !== charId && (rels[charId + "->" + c.id] || rels[c.id + "->" + charId])).map(c => c.id),
     onInner: stampInner,
     onExtra: stampExtra,
     onExtraDraw: stampExtraDraw,

@@ -1141,6 +1141,8 @@
           h("button", { onClick: () => { setReSel(null); setReAllArm(false); }, style: { padding: "6px 12px", fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: "rgba(47,42,34,.55)" } }, "取消"),
           h("button", { "data-wk": "stamprego", disabled: !picked.length, onClick: () => { if (!reAllArm) { setReAllArm(true); return; } onWrite(picked); setReSel(null); setReAllArm(false); toast("在重写 " + picked.length + " 张"); },
             className: "active:opacity-70 disabled:opacity-40", style: { marginLeft: "auto", padding: "6px 16px", borderRadius: 999, background: reAllArm ? "#b23a2e" : "#285C4B", color: "#fff", fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))" } }, reAllArm ? "再点一次：重写" : "重写"))); })() : null;
+    if (tab === "duel" && window.StampDuelPage) return h(window.StampDuelPage, { characters, cards: (st.cards || []).filter(c => c && !c.writing), meName, toast,
+      onBack: () => setTab("pull"), onRemember: props.onDuelRemember, closeOf: props.duelCloseOf });
     if (tab === "album") return h("div", { "data-wk": "stampalbumpage", "data-page": "1", className: "h-full flex flex-col overflow-hidden", style: { background: "repeating-linear-gradient(180deg, transparent 0 116px, rgba(47,42,34,.07) 116px 117px, transparent 117px 120px), linear-gradient(#f1e9d8, #e9dfca)" } },
       // 融卡放右上角（她 2026-10-29）
       h(Head, { zh: "邮票册", sub: (st.cards || []).length + " 枚", bg: "transparent", ink: "#2f2a22", onBack: () => setTab("pull"),
@@ -1249,6 +1251,8 @@
     return h("div", { "data-wk": "stamppage", className: "h-full flex flex-col", style: { background: "repeating-linear-gradient(180deg, transparent 0 116px, rgba(47,42,34,.07) 116px 117px, transparent 117px 120px), linear-gradient(#f1e9d8, #e9dfca)" } },
       h(Head, { zh: "邮票册", bg: "transparent", ink: "#2f2a22", onBack,
         right: h("div", { className: "flex items-center", style: { gap: 4 } },
+          // 对局（她 2026-11-07）：拿收藏里的卡跟 TA 打，规则在 js/stamp-duel.js
+          window.StampDuelPage ? h("button", { "data-wk": "stampgoduel", onClick: () => setTab("duel"), className: "active:opacity-60", style: { padding: "6px 8px", color: "#2f2a22", fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))" } }, "对局") : null,
           h("button", { "data-wk": "stampgoalbum", onClick: () => setTab("album"), className: "active:opacity-60", style: { padding: "6px 8px", color: "#2f2a22", fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))" } }, "册子"),
           h("button", { "data-wk": "stampgocfg", onClick: () => setCfg(true), className: "active:opacity-60", style: { padding: "6px 8px", color: "#2f2a22", fontFamily: F_BODY, fontSize: "calc(16px * var(--app-fs, 1))" } }, "⋯")) }),
       h("div", { className: "flex justify-end flex-wrap px-4 shrink-0", style: { gap: 6 } },
