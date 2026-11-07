@@ -11777,20 +11777,23 @@ function ChatThread({
   //   判据只有三样，都是此刻看得见的：最后一条是她发的、还没回过；键盘收着（输入框没聚焦）；输入框是空的。
   //   她一点输入框、一打字，计时就作废；收起键盘再从头数。跟按叶子走同一个 reply("")——
   //   睡着／忙着晚点回那些闸照旧管，这里不另开一条路。一条消息只自动回一次。
+  const [fakeTyping, setFakeTyping] = useState(false);
   useEffect(() => {
-    if (!(autoReplySec > 0) || sending || selMode || chatMode === "ooc") return;
+    if (!(autoReplySec > 0) || sending || selMode || chatMode === "ooc") { setFakeTyping(false); return; }
     const last = messages && messages[messages.length - 1];
     lastMsgRef.current = last || null;
-    if (!last || last.role !== "user" || !last.ts || autoFiredRef.current >= last.ts) return;
+    if (!last || last.role !== "user" || !last.ts || autoFiredRef.current >= last.ts) { setFakeTyping(false); return; }
     const box = () => document.querySelector('[data-wk="chatinput"]');
     const busy = () => { const b = box(); return !!b && (document.activeElement === b || String(b.value || "").trim().length > 0); };
     let timer = 0;
-    const arm = () => { clearTimeout(timer); if (!busy()) timer = setTimeout(() => { const now0 = lastMsgRef.current; if (busy() || sending || autoFiredRef.current >= last.ts || !now0 || now0.role !== "user" || now0.ts !== last.ts) return; autoFiredRef.current = last.ts; reply(""); }, autoReplySec * 1000); };
+    // 数秒那几秒先亮「正在输入」（她 2026-11-07：「开启停手后自己会假装显示输入中，完全停了才调用」）：
+    //   只是画出来的，不花调用；她一点输入框计时作废，点点也跟着收
+    const arm = () => { clearTimeout(timer); if (busy()) { setFakeTyping(false); return; } setFakeTyping(true); timer = setTimeout(() => { setFakeTyping(false); const now0 = lastMsgRef.current; if (busy() || sending || autoFiredRef.current >= last.ts || !now0 || now0.role !== "user" || now0.ts !== last.ts) return; autoFiredRef.current = last.ts; reply(""); }, autoReplySec * 1000); };
     const b = box();
     const onAny = () => { clearTimeout(timer); setTimeout(arm, 0); };
     if (b) { b.addEventListener("focus", onAny); b.addEventListener("blur", onAny); b.addEventListener("input", onAny); }
     arm();
-    return () => { clearTimeout(timer); if (b) { b.removeEventListener("focus", onAny); b.removeEventListener("blur", onAny); b.removeEventListener("input", onAny); } };
+    return () => { clearTimeout(timer); setFakeTyping(false); if (b) { b.removeEventListener("focus", onAny); b.removeEventListener("blur", onAny); b.removeEventListener("input", onAny); } };
   }, [autoReplySec, sending, selMode, chatMode, messages && messages.length, messages && messages.length && messages[messages.length - 1].ts]);
   // 长按出菜单走公共那一份（滑动/滚动一动就取消；弹出后吞掉抬手那一下）
   // 左滑引用：只给菜单里本来就有「引用」的那几类消息（动作行、照片卡这些引用了也没意义）
@@ -12556,7 +12559,7 @@ function ChatThread({
     }, "!")));
   })(_row))),
   // 重 Roll 留下的几版：贴着 TA 最后那条气泡底下，左右翻
-  !sending && !selMode && rerollNav && onRerollFlip ? h(RerollNav, { nav: rerollNav, onFlip: onRerollFlip }) : null, sending && h("div", {
+  !sending && !selMode && rerollNav && onRerollFlip ? h(RerollNav, { nav: rerollNav, onFlip: onRerollFlip }) : null, (sending || fakeTyping) && h("div", {
     // 外面套一层 msg（她 2026-10-28：美化没跟上输入中）：头像框、挂件、藏头像那几条都写在
     //   [data-wk="msg"][data-me="0"] 底下，这一行不在 msg 里，头像就光秃秃的
     "data-wk": "msg", "data-me": "0", "data-kind": "typing"
@@ -12579,7 +12582,7 @@ function ChatThread({
       borderRadius: 14
     }
   }, /*#__PURE__*/React.createElement(TypingDots, { color: t.fog }))),
-  onStopGen && h(GenStopX, { onStop: onStopGen })))), selMode ? h("div", { "data-wk": "selbar", className: "shrink-0", style: { background: t.bg2, borderTop: `1px solid ${t.line}` } },
+  sending && onStopGen && h(GenStopX, { onStop: onStopGen })))), selMode ? h("div", { "data-wk": "selbar", className: "shrink-0", style: { background: t.bg2, borderTop: `1px solid ${t.line}` } },
   // 多选栏两行（她 2026-10-17「太多东西塞不下了」）：上面一行是取消／已选几条／补中间，下面一行是能做的事，平均摊开
   h("div", {
     className: "flex items-center justify-between px-4 pt-2.5 pb-1",
