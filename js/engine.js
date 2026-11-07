@@ -33,12 +33,14 @@ function detectFormat(u) {
   if (u.includes("generativelanguage") || u.includes("googleapis")) return "gemini";
   return "openai";
 }
+const CATS_HOSTS = ["catsapi.com", "artart.icu"];
 function isCatsImageProvider(value) {
   try {
     const u = new URL(String(value || ""));
     const host = String(u.hostname || "").toLowerCase();
-    return host === "catsapi.com" || host.endsWith(".catsapi.com");
-  } catch (e) { return /(?:^|\.)catsapi\.com(?=[:/]|$)/i.test(String(value || "")); }
+    // 换了新网址 artart.icu（她 2026-11-07「他们改链接了最近」）：新旧两个都认
+    return CATS_HOSTS.some(d => host === d || host.endsWith("." + d));
+  } catch (e) { return /(?:^|\.)(?:catsapi\.com|artart\.icu)(?=[:/]|$)/i.test(String(value || "")); }
 }
 // ⚠️接口地址只许在这一处清洗（她 2026-09-19 群里 nini 报：「我拉取的了模型/但是告诉我不行！」）。
 //   病根是【拉模型那条路洗了、真正发消息那条路没洗】：normalizedOpenAIBase 开头有 .trim()，

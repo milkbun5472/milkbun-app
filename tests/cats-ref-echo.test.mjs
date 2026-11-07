@@ -12,3 +12,6 @@ test("CatsAPI 原样退回参考照不算成品：先滤掉同字节的，再按
 test("CatsAPI 动图回成静图：直接收下锁脸的那张，不再补一次纯文字", () => {
   assert.match(eng, /if \(o1 && isCatsImageProvider\(a0\.baseUrl\)\) return o1;/);
 });
+test("CatsAPI 新网址 artart.icu 也认成 Cats", () => {
+  assert.match(eng, /const CATS_HOSTS = \["catsapi\.com", "artart\.icu"\];/);
+});
