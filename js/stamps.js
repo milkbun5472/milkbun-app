@@ -113,8 +113,8 @@
     const DAY = { bday: "#b5485e", mybday: "#c9708e", anniv: "#c25a6e" };
     if (!card || !(card.limited || DAY[card.kind])) return null;
     const lim = card.limited ? ((C().LIMITED) || []).find(x => x.id === card.limited) || {} : {}, tone = card.limited ? (LIM_TONE[lim.deco] || LIM_MARK_TONE[lim.deco] || ["#3a2c22", "#d9a25a"]) : ["", DAY[card.kind]];
-    // 她 2026-11-06：框太粗、不要「限定」那条——只留一圈细线
-    return h("span", { "data-wk": "stamplimmark", style: { position: "absolute", inset: 5, zIndex: 3, pointerEvents: "none", borderRadius: 2, boxShadow: "inset 0 0 0 0.5px " + tone[1] } });
+    // 她 2026-11-07「算了把框去掉吧好丑」：一圈细线也不要了。挂点留着（stamplimmark，透明），想自己画框的写 CSS 就能接上
+    return h("span", { "data-wk": "stamplimmark", "data-tone": tone[1], style: { position: "absolute", inset: 5, zIndex: 3, pointerEvents: "none", borderRadius: 2 } });
   }
   function StampFace({ t, card, onClick, size, back }) { const [url, el, near] = useStampThumb(card && (card.cover || card.face));
     // 卡面动起来了的 SSR：册子里那一格也在动（滑到附近才放，没封面换过别的图时才用）
