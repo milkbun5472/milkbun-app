@@ -64,6 +64,8 @@
   // 一张卡两种病：文件没拉下来（下面 show）／开机卡在读本机存档（再下面那个 10 秒）
   function card(title, body) {
     shown = true;
+    // 同一张卡可以换内容：下载那张先摆上，下完了还是空的再换成判词（见最下面那道）
+    try { var prev = document.querySelector('[data-boot-guard="1"]'); if (prev) prev.remove(); } catch (x) {}
     window.__bootGuardShown = true;   // engine.js 那条红条就别再叠一层了
     var d = document.createElement("div");
     d.setAttribute("data-boot-guard", "1");
@@ -106,15 +108,45 @@
   //   根本不代表 app 装上了。上面两条一条要「文件报过错」、一条要「app.js 已经在等存档」，
   //   脚本压根没跑起来、或者在 app.js 开口之前就炸了，两条都不响，屏幕就永远白着。
   //   所以最后再守一道：到点了 root 还是空的，不管什么原因都把话说出来。
-  setTimeout(function () {
+  // ⚠️她 2026-11-08 转来「好多人进去白屏」，截图就是下面这张卡，而且【没有「出错了」那半句】：
+  //   没有文件报错、没有 JS 报错、app.js 也没开口。还有一种可能这张卡一直没分清：
+  //   【它还在下载，没出事】。公共版是装订成一整份的，一次更新要重新下两三兆；
+  //   网慢的时候十四秒远远不够，这张卡却已经在劝人家换浏览器了——劝完重新加载，又从头下一遍。
+  //   所以到点先问一句「还有文件在路上吗」：有 → 摆一张「还在下载」的卡（照样给按钮，但别吓人），
+  //   每六秒再看一眼，最多等到一分钟；真下完了还是空的，才换成下面那句判词。
+  function stillLoading() {
+    try {
+      var done = {}, list = performance.getEntriesByType("resource") || [];
+      for (var i = 0; i < list.length; i++) if (list[i].responseEnd > 0) done[list[i].name] = 1;
+      var tags = document.querySelectorAll("script[src]"), n = 0;
+      for (var j = 0; j < tags.length; j++) if (tags[j].src && !done[tags[j].src]) n++;
+      return n;
+    } catch (x) { return 0; }
+  }
+  function verdict(waited) {
     var root = document.getElementById("root");
-    if (shown || (root && root.childElementCount > 0)) return;
+    if (root && root.childElementCount > 0) return;            // 装上了，收工
+    if (stillLoading() && waited < 60000) {
+      if (!window.__bootSlowShown) {
+        window.__bootSlowShown = true;
+        card("还在下载，没卡住", "这次更新换了新的一份，要重新下一遍（两三兆）。网慢的时候要等上一会儿，"
+          + "先别关掉、也别反复重新加载（一按就得从头下）。能连 Wi-Fi 会快很多。<b>你的存档一个字都没少</b>。");
+      }
+      setTimeout(function () { verdict(waited + 6000); }, 6000);
+      return;
+    }
+    if (shown && !window.__bootSlowShown) return;               // 前面那两条已经说过更准的话了
     var inapp = /QQ\/|QQBrowser|MicroMessenger|MQQBrowser/i.test(navigator.userAgent || "");
     card("秋秋没装进来", (jsErr ? "出错了：" + jsErr + "。" : "")
       + (inapp
         ? "你是在 QQ 或微信里点开的，它们常把东西挡在外面。点右上角的「…」选「用浏览器打开」，再进一次。"
         : "先点「重新加载」；还是白的就换自己的浏览器打开这个地址。")
       + ' <b>你的存档一个字都没少</b>。');
+  }
+  setTimeout(function () {
+    var root = document.getElementById("root");
+    if ((shown && !stillLoading()) || (root && root.childElementCount > 0)) return;
+    verdict(14000);
   }, 14000);
 })();
 </script>

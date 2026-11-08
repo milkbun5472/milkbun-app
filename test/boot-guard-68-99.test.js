@@ -152,8 +152,12 @@ test("app.js 开机把还在等的那几样记进 __bootWait，挂上界面后�
 // 或者在 app.js 开口之前就炸了，两条都不响，屏幕就永远白着。最后这一道不管原因只认结果。
 test("守到最后：到点 root 还是空的，不管什么原因都得开口", () => {
   assert.ok(html.includes('card("秋秋没装进来"'), "没有最后那一道");
-  const m = html.match(/setTimeout\(function \(\) \{\s*var root = document\.getElementById\("root"\);\s*if \(shown \|\| \(root && root\.childElementCount > 0\)\) return;[\s\S]*?\}, (\d+)\);/);
-  assert.ok(m, "最后那一道的形状不对：要只看 root 空不空，不许再挂别的前提");
+  // 2026-11-08 改：原来这里卡死「只看 root 空不空」。真出事了才发现它分不清
+  //   【装不进来】和【还在下载】——公共版装订成一整份，一次更新要重下两三兆，
+  //   十四秒不够的人被这张卡劝去换浏览器，一按重新加载又从头下。所以允许多一个前提：
+  //   还有文件在路上就先不下判词（见下一条）。root 空不空仍然是唯一的收工条件。
+  const m = html.match(/setTimeout\(function \(\) \{\s*var root = document\.getElementById\("root"\);\s*if \(\(shown && !stillLoading\(\)\) \|\| \(root && root\.childElementCount > 0\)\) return;[\s\S]*?\}, (\d+)\);/);
+  assert.ok(m, "最后那一道的形状不对：收工只看 root 空不空，别的前提只许是「还在下载」");
   assert.ok(Number(m[1]) >= 12000, "开口太早，网慢的人会被误伤：" + m[1]);
   // 前面两道各自的前提都还在，没被这一道顶掉
   assert.match(html, /if \(shown \|\| !bad\.length \|\|/, "「文件没拉下来」那一道被动了");
@@ -176,4 +180,24 @@ test("在 QQ／微信里打开的，给的办法不一样", () => {
   ["Mozilla/5.0 (iPhone) Safari/605.1.15", "Mozilla/5.0 (Macintosh) Chrome/131.0.0.0 Safari/537.36"]
     .forEach(ua => assert.ok(!r.test(ua), "误伤了正经浏览器：" + ua));
   assert.ok(html.includes("用浏览器打开"), "没教她怎么从内置浏览器里出来");
+});
+
+// 她 2026-11-08 转来「好多人进去白屏」，截图正是上面那张卡，而且没有「出错了」那半句：
+// 没有文件报错、没有 JS 报错、app.js 也没开口。那就还有一种它一直没分清的情况——它还在下载。
+test("还有文件在路上就别下判词：先说「还在下载」，等下完了再说", () => {
+  assert.match(html, /function stillLoading\(\) \{[\s\S]*?performance\.getEntriesByType\("resource"\)/,
+    "没有「还有文件在路上吗」这一问");
+  assert.match(html, /script\[src\]/, "要拿页面上的 script 跟下完的名单比，才知道还差几个");
+  assert.ok(html.includes('card("还在下载，没卡住"'), "缺那张不吓人的「还在下载」卡");
+  assert.match(html, /waited < 60000/, "没有等待上限：下不动的人会被永远吊着");
+  assert.match(html, /setTimeout\(function \(\) \{ verdict\(waited \+ 6000\); \}, 6000\)/,
+    "摆完「还在下载」要接着再看，不能摆上就不管了");
+  assert.ok(html.includes("别反复重新加载"), "这张卡的重点就是别按重新加载——一按就从头下");
+  const slow = html.slice(html.indexOf('card("还在下载，没卡住"'));
+  assert.ok(slow.slice(0, 400).includes("你的存档一个字都没少"), "这张卡也不能少这句");
+});
+
+// 同一张卡要能换内容：先摆「还在下载」，下完了还是空的再换成判词。
+test("卡片能换一张，不会叠成两张", () => {
+  assert.match(html, /querySelector\('\[data-boot-guard="1"\]'\)/, "新卡上来没把旧卡撤掉");
 });
