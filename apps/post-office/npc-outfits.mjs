@@ -1,12 +1,13 @@
 import * as T from 'three';
-import {NPC_COSTUMES} from './npc-appearance.mjs?v=fg-b149ac3dbf94ecd5';
-import {createNpcTailoring} from './npc-tailoring.mjs?v=fg-b149ac3dbf94ecd5';
+import {NPC_COSTUMES} from './npc-appearance.mjs?v=fg-c15673782bd5ef78';
+import {createNpcTailoring} from './npc-tailoring.mjs?v=fg-c15673782bd5ef78';
+import {CLOTH_WAIST,CLOTH_HEM} from './npc-fit.mjs?v=fg-c15673782bd5ef78';
 // Each identity is assembled from sewn, shaped pattern pieces. The front and
 // back are real cloth surfaces; only their weave and small prints are painted.
 export function makeNpcCostume(model,style='postcard'){
  const d=NPC_COSTUMES[style]||NPC_COSTUMES.postcard,k=createNpcTailoring(model,style),{loft,panel,line,ball,box,button,pocket,collar,sleeve,trousers,shoes,headBall,headLine,headMesh}=k;
  const cream='#ece0c9',stitch='#d7c6a7',brass='#b49a65';
- const torso=(name,color,{open=false,long=false,pattern='linen',loose=0}={})=>loft(name,[[long?.235:.335,.166+loose,.128+loose*.3],[.375,.153+loose,.119+loose],[.49,.161+loose,.126+loose],[.60,.175+loose,.122+loose],[.654,.161+loose,.103+loose],[.69,.075+loose*.6,.069+loose*.7]],color,{open:open?(y=>.17+Math.max(0,y-.49)*2.4):0,uv:[2,1.3],pattern});
+ const torso=(name,color,{open=false,long=false,pattern='linen',loose=0}={})=>k.fitted(name,color,{minY:long?.235:CLOTH_HEM,maxY:.704,maxArm:.42,open,offset:.004+(open?.003:0)+loose*.15,pattern,drapeFrom:CLOTH_WAIST});
  function blouse(color=cream,{pattern='linen',short=false,puff=false,arms=true}={}){torso('ShirtBody',color,{pattern});if(arms)for(const s of [-1,1])sleeve(s,color,{pattern,short,puff});}
  function placket(color,z=.139){box('ButtonPlacket',0,.495,z,.026,.31,.007,color,{radius:.003});for(const y of [.39,.46,.53,.60])button(0,y,z+.011,'#d5c5a3',.004);}
  function lapels(color){for(const side of [-1,1]){panel('NotchedLapel',[[side*.033,.683],[side*.105,.642],[side*.078,.604],[side*.118,.58],[side*.024,.536],[side*.044,.616]],color,{z:.109,bulge:.03,thickness:.005});line('LapelTopstitch',[[side*.05,.672,.125],[side*.092,.64,.135],[side*.065,.611,.148],[side*.096,.584,.151],[side*.039,.553,.154]],stitch,.001);}}
@@ -24,7 +25,7 @@ export function makeNpcCostume(model,style='postcard'){
  function spectacles(){for(const x of [-.065,.065]){const g=new T.TorusGeometry(.044,.0035,6,24);g.translate(x,.94,.179);headMesh('RoundSpectacles',g,'#827059','plain');}headLine('SpectacleBridge',[[-.02,.943,.181],[0,.95,.185],[.02,.943,.181]],'#827059',.002);for(const s of [-1,1])headLine('SpectacleTemple',[[s*.108,.943,.17],[s*.137,.947,.10],[s*.14,.935,.055]],'#827059',.002);}
  trousers(d.bottom,{roll:['student','painter','florist','child','postcard'].includes(style)});shoes(['student','child'].includes(style)?'#81745e':'#695849');
  if(style==='granny'){
-  blouse(cream,{arms:false});torso('KnittedCardigan',d.cloth,{open:true,pattern:'knit',loose:.006});for(const s of [-1,1])sleeve(s,d.cloth,{pattern:'knit',puff:true});collar(cream,{rounded:true});for(const y of [.41,.47,.53])button(.025,y,.15,'#d8c5a3',.005);for(const s of [-1,1])pocket('CardiganPatchPocket',s*.098,.413,.06,.055,d.cloth,null);loft('PleatedFloralSkirt',[[.135,.218,.159],[.16,.219,.159],[.27,.18,.144],[.375,.146,.121]],d.bottom,{pleat:.009,pattern:'flowers',uv:[2.7,1.7]});loft('SkirtHemBinding',[[.135,.22,.16],[.145,.222,.161]],'#c0a1a8',{uv:[3,.1]});spectacles();
+  blouse(cream,{arms:false});torso('KnittedCardigan',d.cloth,{open:true,pattern:'knit',loose:.006});for(const s of [-1,1])sleeve(s,d.cloth,{pattern:'knit',puff:true});collar(cream,{rounded:true});for(const y of [.41,.47,.53])button(.025,y,.15,'#d8c5a3',.005);for(const s of [-1,1])pocket('CardiganPatchPocket',s*.098,.413,.06,.055,d.cloth,null);loft('PleatedFloralSkirt',[[.135,.205,.15],[.16,.206,.15],[.27,.173,.137],[.375,.146,.112]],d.bottom,{pleat:.009,pattern:'flowers',uv:[2.7,1.7]});loft('SkirtHemBinding',[[.135,.207,.151],[.145,.208,.152]],'#c0a1a8',{uv:[3,.1]});spectacles();
  }else if(style==='student'){
   blouse(cream,{arms:false});jacket(d.cloth,{pockets:false});collar(cream);ribHem(d.bottom);for(const side of [-1,1])pocket('JacketWeltPocket',side*.09,.419,.064,.031,d.cloth,null);bag('#b9a17c');
  }else if(style==='painter'){

@@ -1,13 +1,13 @@
-import {makeNpcCostume} from './npc-outfits.mjs?v=fg-b149ac3dbf94ecd5';
-import {createShopFlow} from './flow.mjs?v=fg-b149ac3dbf94ecd5';
-import {createShopDecor} from './decor-view.mjs?v=fg-b149ac3dbf94ecd5';
+import {makeNpcCostume} from './npc-outfits.mjs?v=fg-c15673782bd5ef78';
+import {createShopFlow} from './flow.mjs?v=fg-c15673782bd5ef78';
+import {createShopDecor} from './decor-view.mjs?v=fg-c15673782bd5ef78';
 import * as T from 'three';
-import {createRoomKit} from '../fairy-garden/day/places/room-kit.mjs?v=fg-b149ac3dbf94ecd5';
-import {createWorldRenderer,disposeWorldRenderer} from '../fairy-garden/world-renderer.mjs?v=fg-b149ac3dbf94ecd5';
-import {createMapGesture} from '../fairy-garden/view-controls.mjs?v=fg-b149ac3dbf94ecd5';
-import {createTraveler,loadTravelerSource} from '../fairy-garden/traveler.mjs?v=fg-b149ac3dbf94ecd5';
-import {disposeMap} from '../fairy-garden/map-loader.mjs?v=fg-b149ac3dbf94ecd5';
-import {visibleBounds} from '../fairy-garden/photo-render.mjs?v=fg-b149ac3dbf94ecd5';
+import {createRoomKit} from '../fairy-garden/day/places/room-kit.mjs?v=fg-c15673782bd5ef78';
+import {createWorldRenderer,disposeWorldRenderer} from '../fairy-garden/world-renderer.mjs?v=fg-c15673782bd5ef78';
+import {createMapGesture} from '../fairy-garden/view-controls.mjs?v=fg-c15673782bd5ef78';
+import {createTraveler,loadTravelerSource} from '../fairy-garden/traveler.mjs?v=fg-c15673782bd5ef78';
+import {disposeMap} from '../fairy-garden/map-loader.mjs?v=fg-c15673782bd5ef78';
+import {visibleBounds} from '../fairy-garden/photo-render.mjs?v=fg-c15673782bd5ef78';
 export function createPostOfficeView(stage,{name,counter,thumbnail,select,monthly,onMeetEnd}={}){
  const renderer=createWorldRenderer(stage),scene=new T.Scene(),camera=new T.OrthographicCamera(-6,6,7,-7,.1,100),kit=createRoomKit();
  const {root,box,cylinder,sphere,ellipsoid,tube,group,sign,table,chair,bench,plant}=kit;

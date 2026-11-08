@@ -17,7 +17,8 @@ const TAP_HANDLERS = [
   // 偷翻「当面问」、TA要手机「不给」不在表里：她 2026-10-06 要这两处当场开口（wait-for-her.md 例外）
   ["const forwardTarotToChat = async (", "// ───────── 擂台"],          // 塔罗转发进聊天
   ["const sendAsk = (", "const settleAsk = ("],                         // 递请示
-  ["const settleAsk = (", "const dpMigRef = useRef"]                      // 她批TA的请示
+  ["const settleAsk = (", "const dpMigRef = useRef"],                     // 她批TA的请示
+  ["const answerFriendReq = (", "const toggleBlock = ("]                      // 她通过／拒绝删了的人发来的好友申请
 ];
 
 test("她点完卡片按钮，TA 不当场开口（不调 replyNow / runProbe / callAI）", () => {
