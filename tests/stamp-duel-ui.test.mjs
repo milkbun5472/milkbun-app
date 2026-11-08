@@ -254,3 +254,8 @@ test("小店页跟着现实时间：换日期新的一天、换时段换客人�
   assert.match(ui, /if \(sh\.phase === "open" && period !== "半夜" && sh\.period !== period\) \{ roll\(\);/);
   assert.match(ui, /"半夜不开门，早上 6 点再来"/);
 });
+test("小店忘了打烊：换日期时留条子、能补写那天晚上（他们自己关的店）、钱照算", () => {
+  assert.match(ui, /if \(sh\.date !== today && sh\.phase === "open"\) sh\.missed = \{/);
+  assert.match(ui, /mode: "shopclose", missed: true/);
+  assert.match(app, /她那天忘了来打烊，是店里上班的这几个人自己把店关了/);
+});

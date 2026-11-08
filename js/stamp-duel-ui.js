@@ -629,6 +629,8 @@
       sh.window = sh.window || []; sh.badge = sh.badge || {};
       // 跟着现实时间：换了日期就是新的一天（排班沿用）；开着门换了时段，上一段没招待的走掉、换一批新客人
       const today = dayKey(), period = D().shopPeriod(), saveQuiet = () => { try { saveJSON(SHOP_KEY, sh); } catch (e) {} };
+      // 忘了打烊（她 2026-11-08「忘记打烊咋办」）：换日期时前一天开着门没打烊，留一张条子，能补写那天晚上的打烊；钱照算
+      if (sh.date !== today && sh.phase === "open") sh.missed = { day: sh.day, staff: POSTS.filter(p => sh.roster[p]).map(p => (nameOf(sh.roster[p]) || "") + "在" + p).join("、"), first: POSTS.map(p => sh.roster[p]).filter(Boolean)[0], earned: sh.earned || 0, customers: (sh.customers || []).filter(c => c.done).map(c => c.visitor ? nameOf(c.charId) : c.name).join("、") };
       if (sh.date !== today) { if (sh.date) sh.day++; sh.date = today; sh.phase = "plan"; sh.customers = []; sh.earned = 0; sh.closing = null; sh.period = ""; if (!shopSt) setShop0(sh); saveQuiet(); }
       const mul = D().shopMul(sh, sh.roster, personaOf, cardOf), onDuty = POSTS.map(p => sh.roster[p]).filter(Boolean);
       const staffLine = () => POSTS.filter(p => sh.roster[p]).map(p => (nameOf(sh.roster[p]) || "") + "在" + p).join("、");
@@ -654,6 +656,14 @@
         h(Head, { key: "hd", zh: "邮局小店 · 第 " + sh.day + " 天 · " + period, bg: "transparent", ink: INK, onBack: () => setMode(""), right: guideBtn }),
         h("div", { key: "bd", "data-wk": "duelshop", className: "flex-1 min-h-0 overflow-y-auto px-4", style: { fontFamily: F, color: INK, paddingTop: 4, paddingBottom: 24 } },
           sh.day === 1 && sh.phase === "plan" && !sh.decor.length ? modeHero(C, "店", "邮局小店", "你开了一家小邮局。每天先排班：柜台、分拣、送信、看店四个岗，你的角色谁来上；排对擅长的岗收入多。开门接客：路人寄东西直接收钱，难缠的要打一局；没上班的角色也会来当客人，可以听他们跟店员碰上说两句。打烊时花一次调用，写今天在店里的所有人一小段（不管几个人上班都只花这一次）。钱拿去买装修，装修让收入变多，打烊那段也会写到。店里的事不进记忆。") : null,
+          sh.missed ? card("missed", [h("div", { key: "t", style: { fontFamily: FD, fontSize: fz(14), color: RED } }, "第 " + sh.missed.day + " 天忘了打烊"),
+            h("div", { key: "s", style: { fontSize: fz(11.5), color: SUB, margin: "3px 0 8px" } }, "那天收的 " + sh.missed.earned + " 枚照算。要补写那天晚上的打烊吗——你没来，是店里的人帮着关的门。"),
+            sh.missed.lines ? h("div", { key: "l" }, para(sh.missed.lines)) : null,
+            h("div", { key: "b", className: "flex", style: { gap: 8 } },
+              !sh.missed.lines ? h("button", { "data-wk": "duelshopmissed", disabled: !!shBusy || !onChat || !sh.missed.first, onClick: async () => { setShBusy("missed");
+                  try { const lines = await onChat(sh.missed.first, { mode: "shopclose", missed: true, day: sh.missed.day, decor: (sh.decor || []).join("、"), staff: sh.missed.staff, coins: sh.missed.earned, customers: sh.missed.customers }); if (lines && lines.length) { sh.missed = Object.assign({}, sh.missed, { lines }); setShop(sh); } }
+                  catch (e) { toast && toast("没成：" + ((e && e.message) || e)); } finally { setShBusy(""); } }, className: "flex-1 disabled:opacity-50", style: btn(C, "#fff") }, shBusy === "missed" ? "在写…" : "补写那天的打烊（花一次调用）") : null,
+              h("button", { onClick: () => { sh.missed = null; setShop(sh); }, className: "flex-1", style: btn("transparent", INK, "rgba(47,42,34,.3)") }, sh.missed.lines ? "收起来" : "算了"))], RED) : null,
           h("div", { className: "flex", style: { gap: 8, marginBottom: 12 } }, [["邮花", sh.coins], ["今天收入", sh.earned || 0], ["收入倍数", "×" + mul.toFixed(2)]].map(([k, v]) => h("div", { key: k, style: { flex: 1, padding: "6px 10px", borderRadius: 6, background: PAPER, boxShadow: "0 1px 4px rgba(47,42,34,.12)" } }, h("div", { style: { fontSize: fz(10), color: SUB } }, k), h("div", { style: { fontFamily: FD, fontSize: fz(16), color: C } }, v)))),
           sh.phase === "plan" ? card("plan", [h("div", { key: "t", style: { fontFamily: FD, fontSize: fz(15), marginBottom: 8 } }, "排班"),
             POSTS.map(p => h("div", { key: p, "data-wk": "duelshoppost", style: { marginBottom: 8 } }, h("div", { style: { fontSize: fz(12), marginBottom: 4 } }, p),
