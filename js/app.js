@@ -19759,8 +19759,9 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     schedRunRef.current = true;
     try {
       for (const j of jobs) {
+        // 日程一周才排一次：没成照旧隔两小时再试，最多三次（全局默认是一期一次）
         await window.AutoGate.run(j.gateKey, j.weekKey,
-          () => genScheduleWeek(j.c, { from: j.from, count: j.count, silent: true }));
+          () => genScheduleWeek(j.c, { from: j.from, count: j.count, silent: true }), { maxTries: 3 });
       }
     } finally {
       schedRunRef.current = false;
