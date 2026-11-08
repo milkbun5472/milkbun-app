@@ -26510,6 +26510,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   //   回不回、多久回，照你俩的关系定，不花调用：在一起的几分钟内就回；好感高的多半过一阵回；一般的看缘分；
   //   没回的过两天再掂量一次。闹别扭（和好间那个信号亮着）的时候他会取关你，缓过来了你还关注着他，就关回来。
   //   回关、取关都记进他的记忆，聊天里会自己提。
+  const FORUM_SULK_RE = /生气|愤怒|委屈|失望|冷漠|无语|讨厌|别扭|赌气|憋屈|憋火|憋气|不快|嫉妒|吃醋|不爽|恼火|气呼呼/;
   const forumBackSave = n => { forumBackRef.current = n; setForumBack(n); saveJSON("x_forumBack", n); };
   const forumBackDecide = charId => {
     const cur = (forumBackRef.current || {})[charId] || {};
@@ -26531,10 +26532,19 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       //   和好间那个信号故意放得松——三天没说话、旧的坏心情也亮——拿来取关就成了随机取关
       const _ms = typeof makeupSignalFor === "function" ? (makeupSignalFor(cid) || {}) : {};
       const sulky = !!_ms.on && _ms.kind === "mood";
-      if (b.on && sulky && !b.offWhy) {
-        all[cid] = { ...b, on: false, offWhy: "sulk", offAt: now }; changed = true;
-        toast(c.name + " 取消关注了你", 5000);
-        remember(cid, "在论坛上，因为跟" + (profile.name || "她") + "闹别扭，取消关注了她的号");
+      // 取关还要再严一档（群里 2026-11-08：「有时候莫名其妙就取关，也没闹别扭」）：
+      //   和好那个信号里「低落、孤独、烦躁」也算，那多半是他自己的事、不是冲她；也是三天内都作数。
+      //   取关只认冲着人的那几种心情、而且是半天内报的，这样的心情连着挂满两个钟头，才掷一次（一半一半），一回别扭只掷一次
+      const _md = (moods || {})[cid] || {}, _lb = String(_md.label || "");
+      const atHer = sulky && FORUM_SULK_RE.test(_lb) && Date.now() - (Number(_md.ts) || 0) <= 12 * 3600000;
+      if (b.on && !b.offWhy) {
+        if (!atHer) { if (b.sulkSince || b.sulkRolled) { all[cid] = { ...b, sulkSince: 0, sulkRolled: false }; changed = true; } }
+        else if (!b.sulkSince) { all[cid] = { ...b, sulkSince: now }; changed = true; }
+        else if (!b.sulkRolled && now - b.sulkSince >= 2 * 3600000) {
+          const off = Math.random() < 0.5;
+          all[cid] = off ? { ...b, on: false, offWhy: "sulk", offAt: now, sulkSince: 0, sulkRolled: false } : { ...b, sulkRolled: true }; changed = true;
+          if (off) { toast(c.name + " 取消关注了你", 5000); remember(cid, "在论坛上，因为跟" + (profile.name || "她") + "闹别扭，取消关注了她的号"); }
+        }
         continue;
       }
       if (b.offWhy === "sulk" && !sulky && iFollow) { all[cid] = { ...b, offWhy: null, pendingAt: now + (20 + Math.random() * 100) * 60000 }; changed = true; continue; }
