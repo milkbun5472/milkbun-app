@@ -16,7 +16,7 @@
   const name=(o,id)=>{const c=person(o,id);return c?c.remark||c.name||'店员':'';};
   const eligible=o=>arr(o.characters).filter(c=>arr(o.cards).some(k=>k&&k.charId===c.id&&k.text));
   function advance(s,o){const d=now(),date=dateKey(d),period=rules().shopPeriod(d),D=rules();
-   if(s.date!==date){if(s.date&&s.phase==='open')s.missed={day:s.day,staff:D.SHOP.POSTS.filter(p=>s.roster[p]).map(p=>name(o,s.roster[p])+'在'+p).join('、'),first:D.SHOP.POSTS.map(p=>s.roster[p]).find(Boolean),earned:s.earned,customers:s.customers.filter(c=>c.done).map(c=>c.visitor?name(o,c.charId):c.name).join('、')};if(s.date)s.day++;Object.assign(s,{date,phase:'plan',customers:[],earned:0,closing:[],period:'',requests:{}});}
+   if(s.date!==date){if(s.date&&s.phase==='open')s.missed={day:s.day,staffIds:D.SHOP.POSTS.map(p=>s.roster[p]).filter(Boolean),staff:D.SHOP.POSTS.filter(p=>s.roster[p]).map(p=>name(o,s.roster[p])+'在'+p).join('、'),first:D.SHOP.POSTS.map(p=>s.roster[p]).find(Boolean),earned:s.earned,customers:s.customers.filter(c=>c.done).map(c=>c.visitor?name(o,c.charId):c.name).join('、')};if(s.date)s.day++;Object.assign(s,{date,phase:'plan',customers:[],earned:0,closing:[],period:'',requests:{}});}
    if(s.phase==='open'&&period!=='半夜'&&s.period!==period){const people=eligible(o).map(c=>c.id),duty=Object.values(s.roster);s.customers=D.shopCustomers(s,people.filter(id=>!duty.includes(id)),seed(),people,period).map(cleanCustomer);s.period=period;s.requests={};}
    return s;
   }
@@ -60,9 +60,9 @@
      if(s.requests[key]?.state==='pending')throw Error('上次的结果还没确认，请先留在店里；可以只关门，不再生成。');
      const posts=rules().SHOP.POSTS,staff=posts.map(p=>s.roster[p]).filter(Boolean),post=posts.find(p=>s.roster[p]),staffId=s.roster[post];
      if(kind==='close'&&s.phase!=='open')throw Error('先开门接客，再打烊。');if(kind==='meet'&&(!c.visitor||!person(o,c.charId)||!staffId))throw Error('客人或店员已经不在店里。');if(kind==='missed'&&!s.missed)throw Error('没有待补写的打烊。');
-     const cardLine=id=>{const c=arr(o.cards).find(c=>c&&c.id===id);return c?'「'+(c.text?.name||'')+'」（'+name(o,c.charId)+'的卡'+(c.text?.line?'，'+c.text.line:'')+'）':'';};
-     const data=kind==='meet'?{mode:'shopmeet',day:s.day,decor:s.decor.join('、'),visitor:name(o,c.charId),visitorId:c.charId,staffId,staffName:name(o,staffId),post}:{mode:'shopclose',day:s.day,decor:s.decor.map(k=>k+((s.decorLv[k]||1)>1?'（翻新'+s.decorLv[k]+'级）':'')).join('、'),staff:posts.filter(p=>s.roster[p]).map(p=>name(o,s.roster[p])+'在'+p).join('、'),staffIds:staff,window:s.window.map(cardLine).join('；'),badges:posts.filter(p=>s.badge[p]).map(p=>name(o,s.roster[p])+'挂着'+cardLine(s.badge[p])).join('；'),coins:s.earned,customers:s.customers.filter(c=>c.done).map(c=>c.visitor?name(o,c.charId):c.name).join('、')};
-     if(kind==='missed')Object.assign(data,s.missed,{mode:'shopclose',missed:true,coins:s.missed.earned});
+     const cardLine=id=>{const c=arr(o.cards).find(c=>c&&c.id===id);return c?'「'+(c.text?.name||'')+'」（'+name(o,c.charId)+'的卡'+(c.text?.line?'，'+c.text.line:c.text?.gist?'，'+c.text.gist:'')+'）':'';};
+     const data=kind==='meet'?{mode:'shopmeet',day:s.day,decor:s.decor.join('、'),visitor:name(o,c.charId),visitorId:c.charId,staffId,staffName:name(o,staffId),post}:{mode:'shopclose',day:s.day,decor:s.decor.map(k=>k+((s.decorLv[k]||1)>1?'（翻新'+s.decorLv[k]+'级）':'')).join('、'),staff:posts.filter(p=>s.roster[p]).map(p=>name(o,s.roster[p])+'在'+p).join('、'),staffIds:staff,window:s.window.map(cardLine).join('；'),badges:posts.filter(p=>s.badge[p]).map(p=>name(o,s.roster[p])+'挂着'+cardLine(s.badge[p])).join('；'),coins:s.earned,customers:s.customers.filter(c=>c.done).map(c=>c.visitor?name(o,c.charId):c.name+(c.tough?(c.won?'（打赢了）':'（没打过）'):'')).join('、')};
+     if(kind==='missed')Object.assign(data,s.missed,{mode:'shopclose',missed:true,coins:s.missed.earned,staffIds:s.missed.staffIds||[s.missed.first]});
      request={data,charId:kind==='meet'?c.charId:kind==='missed'?s.missed.first:staff[0],staffId,visitorId:c?.charId,key,date:s.date,period:s.period,id:o.id};
      if(!request.charId||typeof o.onChat!=='function')throw Error('暂时没有能写这段话的角色或接口。');s.requests[key]={state:'pending',at:Date.now()};return {request};
     },o);
