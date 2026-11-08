@@ -325,3 +325,6 @@ test("小店按现实时间：时段划分、每段客人不一样（下午难�
   for (let d = 1; d <= 60; d++) for (const pd of ["上午", "下午", "傍晚"]) { const cs = D.shopCustomers({ day: d, decor: [] }, ["x", "y"], 5, ["x"], pd); if (t[pd] != null) t[pd] += cs.filter(c => c.tough).length; if (v[pd] != null) v[pd] += cs.filter(c => c.visitor).length; u += cs.filter(c => c.urgent).length; }
   assert.ok(t.下午 > t.上午); assert.ok(v.傍晚 > v.上午); assert.ok(u > 0);
 });
+test("小店同一时段的路人不重样", () => {
+  for (let d = 1; d <= 30; d++) { const n = D.shopCustomers({ day: d, decor: [] }, [], 9, [], "上午").filter(c => !c.wantChar && !c.visitor).map(c => c.name); assert.equal(new Set(n).size, n.length); }
+});

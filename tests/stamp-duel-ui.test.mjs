@@ -259,3 +259,9 @@ test("小店忘了打烊：换日期时留条子、能补写那天晚上（他�
   assert.match(ui, /mode: "shopclose", missed: true/);
   assert.match(app, /她那天忘了来打烊，是店里上班的这几个人自己把店关了/);
 });
+test("集邮社新页面统一样式：区块信纸、标题小票、数字格", () => {
+  assert.match(ui, /const secBox = \(c, extra\) =>/);
+  assert.match(ui, /const secTitle = \(c, glyph, title, note\) =>/);
+  assert.match(ui, /const statRow = \(list, c\) =>/);
+  assert.ok((ui.match(/statRow\(\[/g) || []).length >= 3);
+});

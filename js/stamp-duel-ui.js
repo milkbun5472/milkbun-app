@@ -146,6 +146,16 @@
   const FD = typeof F_DISPLAY !== "undefined" ? F_DISPLAY : F;
   // 邮票的齿孔边：跟邮票册那枚同一个画法
   const perf = bg => "radial-gradient(circle at 4px 4px, transparent 2.6px, " + bg + " 2.8px) -4px -4px / 7px 7px";
+  // 集邮社各页共用的区块（她 2026-11-08「这一批新界面弄好看点」）：一块信纸，顶上一条同色斜纹边；标题前斜贴一枚小票
+  const secBox = (c, extra) => Object.assign({ position: "relative", marginBottom: 12, padding: "16px 14px 12px", borderRadius: 6,
+    background: "repeating-linear-gradient(135deg, " + c + " 0 8px, transparent 8px 14px) top / 100% 5px no-repeat, linear-gradient(#fffdf8, #fbf5e8)", boxShadow: "0 2px 10px rgba(47,42,34,.12)", border: "1px solid rgba(47,42,34,.06)" }, extra || {});
+  const secTitle = (c, glyph, title, note) => h("div", { className: "flex items-center", style: { gap: 9, marginBottom: 9 } },
+    h("span", { style: { width: 24, height: 28, padding: 2, flexShrink: 0, background: perf(PAPER), transform: "rotate(-6deg)", filter: "drop-shadow(0 1px 2px rgba(47,42,34,.25))" } },
+      h("span", { style: { display: "flex", width: "100%", height: "100%", alignItems: "center", justifyContent: "center", background: c, color: "#fff", fontFamily: FD, fontSize: fz(11) } }, glyph)),
+    h("span", { style: { fontFamily: FD, fontSize: fz(15), color: INK } }, title), note ? h("span", { style: { marginLeft: "auto", fontSize: fz(11), color: SUB } }, note) : null);
+  // 顶上那一排数字格
+  const statRow = (list, c) => h("div", { className: "flex", style: { gap: 8, marginBottom: 12 } }, list.map(([k, v, c2]) => h("div", { key: k, style: { flex: 1, minWidth: 0, padding: "7px 10px 6px", borderRadius: 6, background: "linear-gradient(#fffdf8, #f6eedc)", boxShadow: "0 1px 5px rgba(47,42,34,.12)", borderBottom: "2px solid " + (c2 || c) } },
+    h("div", { style: { fontSize: fz(10), color: SUB, letterSpacing: ".1em" } }, k), h("div", { style: { fontFamily: FD, fontSize: fz(17), color: c2 || c, lineHeight: 1.3, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, v))));
   // 信封边上的航空条纹
   const AIRMAIL = "repeating-linear-gradient(135deg, #b23a2e 0 10px, " + PAPER + " 10px 16px, #3f6fb0 16px 26px, " + PAPER + " 26px 32px)";
   const noThumb = () => [null, { current: null }];
@@ -650,7 +660,7 @@
             window: sh.window.map(tkLine).filter(Boolean).join("；"), badges: POSTS.filter(p => sh.roster[p] && sh.badge[p]).map(p => (nameOf(sh.roster[p]) || "") + "挂着" + tkLine(sh.badge[p])).join("；"), coins: sh.earned, customers: sh.customers.filter(c => c.done).map(c => c.visitor ? nameOf(c.charId) : c.name + (c.tough ? (c.won ? "（打赢了）" : "（没打过）") : "")).join("、") });
           sh.closing = lines && lines.length ? lines : null; sh.phase = "closed"; setShop(sh); }
         catch (e) { toast && toast("没成：" + ((e && e.message) || e)); } finally { setShBusy(""); } };
-      const card = (key, kids, color) => h("div", { key, style: { marginBottom: 12, padding: "12px 14px", borderRadius: 6, background: "rgba(255,253,247,.92)", boxShadow: "0 2px 8px rgba(47,42,34,.1)", borderLeft: "4px solid " + (color || C) } }, kids);
+      const card = (key, kids, color) => h("div", { key, style: secBox(color || C) }, kids);
       const para = lines => lines.map((t, k) => h("p", { key: k, style: { fontFamily: FD, fontSize: fz(13.5), lineHeight: 1.85, margin: "0 0 8px", whiteSpace: "pre-wrap" } }, t));
       return shell([
         h(Head, { key: "hd", zh: "邮局小店 · 第 " + sh.day + " 天 · " + period, bg: "transparent", ink: INK, onBack: () => setMode(""), right: guideBtn }),
@@ -664,8 +674,8 @@
                   try { const lines = await onChat(sh.missed.first, { mode: "shopclose", missed: true, day: sh.missed.day, decor: (sh.decor || []).join("、"), staff: sh.missed.staff, coins: sh.missed.earned, customers: sh.missed.customers }); if (lines && lines.length) { sh.missed = Object.assign({}, sh.missed, { lines }); setShop(sh); } }
                   catch (e) { toast && toast("没成：" + ((e && e.message) || e)); } finally { setShBusy(""); } }, className: "flex-1 disabled:opacity-50", style: btn(C, "#fff") }, shBusy === "missed" ? "在写…" : "补写那天的打烊（花一次调用）") : null,
               h("button", { onClick: () => { sh.missed = null; setShop(sh); }, className: "flex-1", style: btn("transparent", INK, "rgba(47,42,34,.3)") }, sh.missed.lines ? "收起来" : "算了"))], RED) : null,
-          h("div", { className: "flex", style: { gap: 8, marginBottom: 12 } }, [["邮花", sh.coins], ["今天收入", sh.earned || 0], ["收入倍数", "×" + mul.toFixed(2)]].map(([k, v]) => h("div", { key: k, style: { flex: 1, padding: "6px 10px", borderRadius: 6, background: PAPER, boxShadow: "0 1px 4px rgba(47,42,34,.12)" } }, h("div", { style: { fontSize: fz(10), color: SUB } }, k), h("div", { style: { fontFamily: FD, fontSize: fz(16), color: C } }, v)))),
-          sh.phase === "plan" ? card("plan", [h("div", { key: "t", style: { fontFamily: FD, fontSize: fz(15), marginBottom: 8 } }, "排班"),
+          statRow([["邮花", sh.coins], ["今天收入", sh.earned || 0], ["收入倍数", "×" + mul.toFixed(2)]], C),
+          sh.phase === "plan" ? card("plan", [h("div", { key: "t" }, secTitle(C, "班", "排班", "第 " + sh.day + " 天")),
             POSTS.map(p => h("div", { key: p, "data-wk": "duelshoppost", style: { marginBottom: 8 } }, h("div", { style: { fontSize: fz(12), marginBottom: 4 } }, p),
               h("div", { className: "flex flex-wrap", style: { gap: 5 } }, [{ id: "" }].concat(ppl).map(c => { const on = (sh.roster[p] || "") === (c.id || ""), busy = c.id && Object.keys(sh.roster).some(q => q !== p && sh.roster[q] === c.id), apt = c.id && D().shopApt(personaOf(c.id), p);
                 return h("button", { key: c.id || "none", disabled: busy, onClick: () => { sh.roster = Object.assign({}, sh.roster, { [p]: c.id || "" }); sh.badge = Object.assign({}, sh.badge, { [p]: "" }); setShop(sh); }, className: "disabled:opacity-35", style: { padding: "2px 9px", borderRadius: 999, border: "1px solid " + (on ? C : "rgba(47,42,34,.22)"), color: on ? C : INK, background: on ? "rgba(138,106,42,.1)" : "transparent", fontSize: fz(11.5) } }, c.id ? (c.remark || c.name) + (apt ? " ✦" : "") : "空着"); })),
@@ -673,7 +683,7 @@
                 (cards || []).filter(k => k.charId === sh.roster[p] && k.text).slice(-6).reverse().map(k => { const on = sh.badge[p] === k.id; return h("button", { key: k.id, onClick: () => { sh.badge = Object.assign({}, sh.badge, { [p]: on ? "" : k.id }); setShop(sh); }, style: { padding: "1px 7px", borderRadius: 4, border: "1px solid " + (on ? "#3f6fb0" : "rgba(47,42,34,.2)"), color: on ? "#3f6fb0" : INK, background: on ? "rgba(63,111,176,.08)" : "transparent", fontSize: fz(11) } }, (k.text.name || "") + " · " + k.rarity); })) : null)),
             h("div", { key: "n", style: { fontSize: fz(11), color: SUB, marginBottom: 8 } }, "✦ 是 TA 擅长这个岗（看人设）。每排一个人收入 +15%，擅长的再 +10%，挂了工牌（TA 自己的卡）再 +10%。"),
             h("button", { key: "go", "data-wk": "duelshopopen", onClick: open, disabled: period === "半夜", className: "w-full disabled:opacity-45", style: Object.assign(btn(C, "#fff"), { padding: "11px 0", fontFamily: FD, fontSize: fz(15) }) }, period === "半夜" ? "半夜不开门，早上 6 点再来" : "开门 · " + period)]) : null,
-          sh.phase === "open" ? card("day", [h("div", { key: "t", style: { fontFamily: FD, fontSize: fz(15), marginBottom: 4 } }, period === "半夜" ? "半夜了，店门关着" : period + "的客人"),
+          sh.phase === "open" ? card("day", [h("div", { key: "t" }, secTitle(C, "客", period === "半夜" ? "半夜了，店门关着" : period + "的客人", period === "半夜" ? "" : sh.customers.filter(c => !c.done).length + " 位在等")),
             h("div", { key: "s", style: { fontSize: fz(11), color: SUB, marginBottom: 8 } }, period === "半夜" ? "早上 6 点再开门。今天还没打烊的话，可以在下面打个烊。" : "上班：" + staffLine() + "。" + ({ 上午: "12 点", 下午: "18 点", 傍晚: "半夜 12 点" }[period] || "") + "前没招待的客人会走；上午多寄信的路人，下午难缠的多，傍晚来坐坐的人多。"),
             (period === "半夜" ? [] : sh.customers).map(c => h("div", { key: c.id, "data-wk": "duelshopcustomer", style: { marginBottom: 8, padding: "8px 10px", borderRadius: 5, background: c.done ? "rgba(47,42,34,.05)" : "#fffdf7", border: "1px solid " + (c.tough ? "rgba(178,58,46,.35)" : c.visitor ? "rgba(154,106,74,.4)" : "rgba(47,42,34,.12)"), opacity: c.done ? .7 : 1 } },
               h("div", { className: "flex items-center", style: { gap: 8 } }, h("div", { className: "flex-1", style: { fontSize: fz(12.5) } }, h("b", { style: { fontFamily: FD, fontWeight: 400, color: c.tough ? RED : c.visitor ? "#9a6a4a" : c.wantChar ? "#3f6fb0" : INK } }, c.visitor ? nameOf(c.charId) + "（没上班，来店里坐坐）" : c.wantChar ? "点名的客人" : c.name), c.urgent ? h("span", { style: { marginLeft: 4, padding: "0 5px", borderRadius: 3, background: RED, color: "#fff", fontSize: fz(9.5) } }, "急件 ×2") : null, c.visitor ? "" : c.wantChar ? "：想要一张" + (nameOf(c.wantChar) || "TA") + "的明信片" + (winHas(c.wantChar) ? "（橱窗里有）" : "（橱窗里没有）") : "：" + c.want),
@@ -681,15 +691,15 @@
               c.visitor && !c.meet ? h("button", { "data-wk": "duelshopmeet", onClick: () => meet(c), disabled: !!shBusy, className: "disabled:opacity-50", style: Object.assign(btn("transparent", "#9a6a4a", "rgba(154,106,74,.5)"), { marginTop: 6, fontSize: fz(11.5) }) }, shBusy === c.id ? "在聊…" : "听 TA 跟店员说两句（花一次调用）") : null,
               c.meet && shMeet === c.id ? h("div", { style: { marginTop: 6 } }, para(c.meet)) : c.meet ? h("button", { onClick: () => setShMeet(c.id), style: { marginTop: 4, fontSize: fz(11), color: "#9a6a4a" } }, "再看一遍他们说的") : null)),
             h("button", { key: "cl", "data-wk": "duelshopclose", onClick: close, disabled: shBusy === "close", className: "w-full disabled:opacity-50", style: Object.assign(btn(INK, PAPER), { marginTop: 6, padding: "10px 0" }) }, shBusy === "close" ? "在打烊…" : "打烊（花一次调用，写今天店里的一段）")]) : null,
-          sh.phase === "closed" ? card("closed", [h("div", { key: "t", style: { fontFamily: FD, fontSize: fz(15), marginBottom: 6 } }, "第 " + sh.day + " 天 · 打烊了 · 收了 " + (sh.earned || 0) + " 枚"),
+          sh.phase === "closed" ? card("closed", [h("div", { key: "t" }, secTitle(INK, "烊", "打烊了", "第 " + sh.day + " 天 · 收了 " + (sh.earned || 0) + " 枚")),
             sh.closing ? h("div", { key: "c", "data-wk": "duelshopclosing" }, para(sh.closing)) : null,
             h("div", { key: "n", "data-wk": "duelshopnext", style: { marginTop: 6, fontSize: fz(12), color: SUB, textAlign: "center" } }, "明天早上 6 点以后再来开门。")]) : null,
-          card("window", [h("div", { key: "t", style: { fontFamily: FD, fontSize: fz(15), marginBottom: 4 } }, "橱窗 · " + sh.window.length + " / " + D().shopWinSlots(sh)),
+          card("window", [h("div", { key: "t" }, secTitle("#3f6fb0", "窗", "橱窗", sh.window.length + " / " + D().shopWinSlots(sh))),
             h("div", { key: "s", style: { fontSize: fz(11), color: SUB, marginBottom: 8 } }, "摆你抽到的卡。R +3%、SR +6%、SSR +10% 收入，等级高再多一点；点名要某人明信片的客人，橱窗里有那个人的卡才卖得出。买「整面墙的信格」多 2 格。点一张摆上／撤下。"),
             h("div", { key: "g", "data-wk": "duelshopwindow", style: { display: "grid", gridTemplateColumns: "repeat(5, minmax(0, 1fr))", gap: 5, maxHeight: 230, overflowY: "auto" } },
               (cards || []).filter(k => k.text).slice().sort((a, b) => (sh.window.includes(b.id) ? 1 : 0) - (sh.window.includes(a.id) ? 1 : 0) || ({ SSR: 3, SR: 2, R: 1 }[b.rarity] || 0) - ({ SSR: 3, SR: 2, R: 1 }[a.rarity] || 0)).slice(0, 40).map(k => { const on = sh.window.includes(k.id);
                 return h(Ticket, { key: k.id, u: D().stampOf(k), card: k, owner: ownerOf(k.charId), useThumb, small: true, sel: on, wk: "duelshopwincard", onTap: () => { if (on) sh.window = sh.window.filter(x => x !== k.id); else if (sh.window.length < D().shopWinSlots(sh)) sh.window = sh.window.concat(k.id); else { toast && toast("橱窗满了，先撤下一张"); return; } setShop(sh); } }); }))], "#3f6fb0"),
-          card("decor", [h("div", { key: "t", style: { fontFamily: FD, fontSize: fz(15), marginBottom: 4 } }, "装修"), h("div", { key: "s", style: { fontSize: fz(11), color: SUB, marginBottom: 8 } }, sh.decor.length ? "店里现在有：" + sh.decor.join("、") + "。买过的能翻新两次（★），每月还有两样限定。" : "店里还空着。买的东西会摆进店里，打烊那段会写到；每月有两样限定，买过的还能翻新。"),
+          card("decor", [h("div", { key: "t" }, secTitle("#5a7a4a", "装", "装修", (sh.decor || []).length + " 样")), h("div", { key: "s", style: { fontSize: fz(11), color: SUB, marginBottom: 8 } }, sh.decor.length ? "店里现在有：" + sh.decor.join("、") + "。买过的能翻新两次（★），每月还有两样限定。" : "店里还空着。买的东西会摆进店里，打烊那段会写到；每月有两样限定，买过的还能翻新。"),
             (() => { const mon = new Date().getMonth() + 1, list = D().SHOP.DECOR.map(d => d.k).concat(D().SHOP.MONTHLY[mon].map(x => x[0]), sh.decor.filter(k => !D().SHOP.DECOR.some(d => d.k === k) && !D().SHOP.MONTHLY[mon].some(x => x[0] === k)));
               return h("div", { key: "g", "data-wk": "duelshopdecors", style: { display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 6 } }, list.map(k => { const d = D().shopDecorOf(k), has = sh.decor.includes(k), lv = (sh.decorLv || {})[k] || 1, up = has ? D().shopUpPrice(sh, k) : 0, monthly = !!d.month, limited = monthly && d.month === mon;
                 const act = () => { const cost = has ? up : d.price; if (has && !up) return; if (sh.coins < cost) { toast && toast("邮花不够"); return; } sh.coins -= cost; if (has) sh.decorLv = Object.assign({}, sh.decorLv, { [k]: lv + 1 }); else sh.decor = sh.decor.concat(k); setShop(sh); };
@@ -762,15 +772,15 @@
             shown.report.lines.map((t2, k) => h("p", { key: k, style: { fontFamily: FD, fontSize: fz(13.5), lineHeight: 1.85, margin: "0 0 8px", whiteSpace: "pre-wrap" } }, t2)),
             shown.report.item ? h("div", { style: { marginTop: 6, padding: "8px 11px", borderLeft: "3px solid #9a6a4a", background: "rgba(154,106,74,.07)", fontSize: fz(12.5), lineHeight: 1.7 } }, h("b", { style: { fontFamily: FD, fontWeight: 400 } }, "带回来：" + shown.report.item.name), h("div", null, shown.report.item.story), shown.report.item.say ? h("div", { style: { fontFamily: FD, color: "#5a4030" } }, (nameOf(shown.report.who) || "TA") + "：「" + shown.report.item.say + "」") : null) : null,
             h("button", { onClick: () => setDpShow(""), style: Object.assign(btn("transparent", SUB, "rgba(47,42,34,.25)"), { marginTop: 8 }) }, "收起来")) : null,
-          active.length ? h("div", { style: { marginBottom: 14 } }, h("div", { style: { fontFamily: FD, fontSize: fz(14), marginBottom: 6 } }, "在外面 · " + active.length + " / 3"),
+          active.length ? h("div", { style: secBox(C) }, secTitle(C, "外", "在外面", active.length + " / 3 队"),
             active.map(t => { const l = left(t), cs = t.cardIds.map(fullCard).filter(Boolean);
               return h("div", { key: t.id, "data-wk": "dueldispatchteam", style: { marginBottom: 8, padding: "9px 12px", borderRadius: 6, background: PAPER, boxShadow: "0 1px 5px rgba(47,42,34,.12)", borderLeft: "4px solid " + C } },
                 h("div", { className: "flex items-center", style: { justifyContent: "space-between" } }, h("span", { style: { fontFamily: FD, fontSize: fz(14) } }, "去了「" + t.place + "」"), h("span", { style: { fontSize: fz(11.5), color: l ? SUB : GREEN } }, l ? "还要 " + fmt(l) : "回来了")),
                 h("div", { style: { fontSize: fz(11), color: SUB, margin: "2px 0 6px" } }, cs.map(c => (c.text && c.text.name) || "").join("、")),
                 l ? h("div", { style: { height: 4, borderRadius: 2, background: "rgba(47,42,34,.1)", overflow: "hidden" } }, h("div", { style: { width: Math.round(100 * (1 - l / (t.end - t.start))) + "%", height: "100%", background: C } }))
                   : h("button", { "data-wk": "dueldispatchback", onClick: () => back(t), disabled: !!dpBusy, className: "w-full disabled:opacity-50", style: btn(C, "#fff") }, dpBusy === t.id ? "在写见闻…" : "看见闻（花一次调用）")); })) : null,
-          active.length < 3 ? h("div", { "data-wk": "dueldispatchnew", style: { padding: "12px 14px", borderRadius: 6, background: "rgba(255,253,247,.9)", boxShadow: "0 2px 8px rgba(47,42,34,.1)" } },
-            h("div", { style: { fontFamily: FD, fontSize: fz(14), marginBottom: 6 } }, "派一队出去"),
+          active.length < 3 ? h("div", { "data-wk": "dueldispatchnew", style: secBox(C) },
+            secTitle(C, "派", "派一队出去", "还能派 " + (3 - active.length) + " 队"),
             h("div", { style: { fontSize: fz(11.5), color: SUB, marginBottom: 4 } }, "去哪"),
             h("div", { className: "flex flex-wrap", style: { gap: 6, marginBottom: 10 } }, DISPATCH_PLACES.map(pl => h("button", { key: pl, "data-wk": "dueldispatchplace", "data-on": dpPlace === pl ? "1" : "0", onClick: () => setDpPlace(pl), style: { padding: "2px 10px", borderRadius: 999, border: "1px solid " + (dpPlace === pl ? C : "rgba(47,42,34,.22)"), color: dpPlace === pl ? C : INK, background: dpPlace === pl ? "rgba(63,122,138,.08)" : "transparent", fontSize: fz(12) } }, pl))),
             h("div", { style: { fontSize: fz(11.5), color: SUB, marginBottom: 4 } }, "去多久"),
@@ -779,7 +789,7 @@
             h("div", { style: { display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: 6, maxHeight: 260, overflowY: "auto", marginBottom: 10 } }, (cards || []).filter(c => c.text).slice(-40).reverse().map(c => { const u = D().stampOf(c), on = dpPick.includes(c.id);
               return h(Ticket, { key: c.id, u, card: c, owner: ownerOf(c.charId), useThumb, small: true, sel: on, wk: "dueldispatchcard", onTap: () => setDpPick(p => on ? p.filter(x => x !== c.id) : p.concat(c.id).slice(-3)) }); })),
             h("button", { "data-wk": "dueldispatchgo", onClick: send, disabled: !dpPick.length, className: "w-full disabled:opacity-40", style: Object.assign(btn(C, "#fff"), { padding: "11px 0", fontFamily: FD, fontSize: fz(14) }) }, "派去「" + dpPlace + "」· " + dpHours + " 小时")) : null,
-          all.filter(t => t.report).length ? h("div", { style: { marginTop: 16 } }, h("div", { style: { fontFamily: FD, fontSize: fz(14), marginBottom: 6 } }, "见闻集"),
+          all.filter(t => t.report).length ? h("div", { style: secBox("#9a6a4a", { marginTop: 4 }) }, secTitle("#9a6a4a", "闻", "见闻集", all.filter(t => t.report).length + " 篇"),
             all.filter(t => t.report).slice().reverse().map(t => h("button", { key: t.id, onClick: () => setDpShow(t.id), className: "w-full text-left", style: { display: "block", marginBottom: 6, padding: "7px 11px", borderRadius: 5, background: "#fffdf7", border: "1px solid rgba(63,122,138,.25)", fontSize: fz(12.5) } }, (t.report.title || "这一趟") + " · " + t.place + " · " + new Date(t.report.ts).toLocaleDateString()))) : null)]);
     }
     if (!st && mode === "relay") {
@@ -833,7 +843,7 @@
           ppl.length ? h("div", { className: "flex flex-wrap", style: { gap: 6, marginBottom: 12 } }, ppl.map(c => { const on = c.id === who;
             return h("button", { key: c.id, "data-wk": "dueltrinketwho", "data-on": on ? "1" : "0", onClick: () => setTkWho(c.id), style: { padding: "3px 11px", borderRadius: 999, border: "1px solid " + (on ? "#9a6a4a" : "rgba(47,42,34,.22)"), background: on ? "rgba(154,106,74,.1)" : "transparent", color: on ? "#9a6a4a" : INK, fontSize: fz(12) } }, (c.remark || c.name) + (P[c.id] ? " · " + P[c.id] + " 个包裹" : "")); }))
             : h("div", { style: { fontSize: fz(12), color: SUB } }, "还没有包裹。挑个人陪你打几局就有了。"),
-          who ? h("div", { style: { display: "flex", alignItems: "center", gap: 10, marginBottom: 14, padding: "10px 12px", borderRadius: 6, background: PAPER, boxShadow: "0 2px 8px rgba(47,42,34,.1)" } },
+          who ? h("div", { style: secBox("#9a6a4a", { display: "flex", alignItems: "center", gap: 10 }) },
             h("div", { style: { width: 42, height: 42, borderRadius: 4, background: "repeating-linear-gradient(45deg, #c9a27a 0 6px, #b8906a 6px 12px)", position: "relative", flexShrink: 0 } }, h("div", { style: { position: "absolute", left: "50%", top: 0, bottom: 0, width: 6, marginLeft: -3, background: RED } }), h("div", { style: { position: "absolute", top: "50%", left: 0, right: 0, height: 6, marginTop: -3, background: RED } })),
             h("div", { className: "flex-1", style: { fontSize: fz(12.5) } }, (nameOf(who) || "TA") + " 留给你的包裹 · 还有 " + left + " 个没拆"),
             h("button", { "data-wk": "dueltrinketopen", onClick: open, disabled: tkBusy || !left || !onChat, className: "disabled:opacity-40", style: btn("#9a6a4a", "#fff") }, tkBusy ? "在拆…" : "拆一个")) : null,
@@ -859,11 +869,11 @@
             h("div", { style: { fontSize: fz(12), color: b.score ? "#b8862a" : SUB, marginBottom: 12 } }, (b.score ? "这周最高 " + b.score + " 分" : "这周还没巡查过") + (b.ever ? " · 历史最高 " + b.ever : "")),
             h("button", { "data-wk": "duelpatrolgo", onClick: () => { const deck = D().deckFrom(cards, (Date.now() >>> 0), D().DECK_SIZE, core); const n = D().patrolNew(deck, new Date(), patrolSalt(), !!coachId); n.ta = coachId || ""; n.deck = deck; setPatrol(n); }, className: "w-full", style: Object.assign(btn(COL, "#fff"), { padding: "12px 0", fontFamily: FD, fontSize: fz(15), letterSpacing: ".1em" }) }, p && p.done ? "这周的图再走一遍" : "出发巡查"))]); }
       const ICON = { tparcel: ["包", "#9a6a4a", "包裹"], twait: ["候", "#9a6a4a", "TA 等你"], tpostcard: ["信", "#9a6a4a", "明信片"], tscene: ["戏", "#9a6a4a", "小剧场"], tmemory: ["忆", "#9a6a4a", "回忆"], fight: ["✉", RED, "仗"], elite: ["✦", "#8a3a4a", "硬仗"], boss: ["♛", "#5a4f8a", "巡查长"], chest: ["宝", "#b8862a", "宝箱"], event: ["?", GREEN, "岔路"], rest: ["☕", "#4f6a8a", "驿站"], empty: ["·", SUB, "空"], start: ["起", INK, "起点"] };
-      const tile = (k, v) => h("div", { key: k, style: { flex: 1, padding: "5px 9px", borderRadius: 6, background: PAPER, boxShadow: "0 1px 4px rgba(47,42,34,.12)" } }, h("div", { style: { fontSize: fz(10), color: SUB } }, k), h("div", { style: { fontFamily: FD, fontSize: fz(16), color: COL } }, v));
+      const tile = null;
       return shell([
         h(Head, { key: "hd", zh: "邮区巡查 · " + p.theme, bg: "transparent", ink: INK, onBack: () => setMode(""), right: guideBtn }),
         h("div", { key: "bd", "data-wk": "duelpatrolmap", className: "flex-1 min-h-0 overflow-y-auto px-4", style: { fontFamily: F, color: INK, paddingTop: 4, paddingBottom: 20 } },
-          h("div", { className: "flex", style: { gap: 8, marginBottom: 12 } }, tile("步数", p.steps), tile("信封", Math.max(0, p.hp) + "/" + p.max), tile("巡查分", p.score)),
+          statRow([["步数", p.steps], ["信封", Math.max(0, p.hp) + "/" + p.max, RED], ["巡查分", p.score, "#b8862a"]], COL),
           h("div", { "data-wk": "duelpatrolgrid", style: { display: "grid", gridTemplateColumns: "repeat(" + N + ", minmax(0, 1fr))", gap: 6, padding: 8, borderRadius: 8, background: "repeating-linear-gradient(135deg, rgba(90,122,74,.08) 0 8px, transparent 8px 16px), " + PAPER, boxShadow: "inset 0 0 0 1px rgba(47,42,34,.12)" } },
             p.cells.map((cl, i) => { const here = p.pos[0] === cl.r && p.pos[1] === cl.c, can = D().patrolCan(p, cl.r, cl.c), ic = ICON[cl.type] || ICON.empty;
               return h("button", { key: i, "data-wk": "duelpatrolcell", "data-open": can ? "1" : "0", "data-type": cl.open ? cl.type : "", onClick: () => can && patrolGo(cl.r, cl.c), disabled: !can,
@@ -907,10 +917,7 @@
       return shell([
         h(Head, { key: "hd", zh: "邮局值班 · 第 " + sh.round + " / " + D().SHIFT.ROUNDS + " 轮", bg: "transparent", ink: INK, onBack: () => setMode(""), right: guideBtn }),
         h("div", { key: "bd", "data-wk": "duelshiftshop", className: "flex-1 min-h-0 overflow-y-auto px-4", style: { fontFamily: F, color: INK, paddingTop: 4, paddingBottom: 20 } },
-          h("div", { className: "flex items-center", style: { gap: 8, marginBottom: 10 } },
-            h("div", { style: { flex: 1, padding: "6px 10px", borderRadius: 6, background: PAPER, boxShadow: "0 1px 4px rgba(47,42,34,.12)" } }, h("div", { style: { fontSize: fz(10), color: SUB } }, "命"), h("div", { style: { fontFamily: FD, fontSize: fz(16), color: RED } }, "♥".repeat(sh.lives) + "♡".repeat(Math.max(0, D().SHIFT.LIVES - sh.lives)))),
-            h("div", { style: { flex: 1, padding: "6px 10px", borderRadius: 6, background: PAPER, boxShadow: "0 1px 4px rgba(47,42,34,.12)" } }, h("div", { style: { fontSize: fz(10), color: SUB } }, "邮花"), h("div", { "data-wk": "duelshiftcoins", style: { fontFamily: FD, fontSize: fz(16), color: "#b8862a" } }, sh.coins)),
-            h("div", { style: { flex: 1, padding: "6px 10px", borderRadius: 6, background: PAPER, boxShadow: "0 1px 4px rgba(47,42,34,.12)" } }, h("div", { style: { fontSize: fz(10), color: SUB } }, "卡组"), h("div", { style: { fontFamily: FD, fontSize: fz(16) } }, sh.bench.length + " / " + D().SHIFT.BENCH))),
+          statRow([["命", "♥".repeat(sh.lives) + "♡".repeat(Math.max(0, D().SHIFT.LIVES - sh.lives)), RED], ["邮花", sh.coins, "#b8862a"], ["卡组", sh.bench.length + " / " + D().SHIFT.BENCH]], "#4f6a8a"),
           h("div", { className: "flex items-center", style: { justifyContent: "space-between", margin: "4px 0 6px" } }, h("span", { style: { fontFamily: FD, fontSize: fz(14) } }, "柜台"), h("button", { "data-wk": "duelshiftroll", onClick: () => { if (!D().shiftRoll(sh, cards, true)) toast && toast("邮花不够"); else setShift(sh); }, style: btn("transparent", INK, "rgba(47,42,34,.3)") }, "刷新（" + D().SHIFT.REROLL + " 枚）")),
           h("div", { "data-wk": "duelshiftcounter", style: { display: "grid", gridTemplateColumns: "repeat(5, minmax(0, 1fr))", gap: 6, marginBottom: 14 } }, sh.shop.map((u, i) => h("div", { key: i, style: { position: "relative" } },
             h(Ticket, { u, card: cardOf(u.cardId), owner: ownerOf(u.charId), useThumb, small: true, wk: "duelshiftbuy", onTap: () => act(D().shiftBuy(sh, i)), onLong: () => openInfo(u, false) }),

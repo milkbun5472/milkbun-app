@@ -570,7 +570,8 @@
   function shopCustomers(shop, offDuty, seed, allChars, period) {
     const pi = Math.max(0, SHOP_PERIODS.findIndex(x => x[0] === period)), R = rng(((seed >>> 0) ^ (shop.day * 2654435761) ^ ((pi + 1) * 40503)) >>> 0);
     const n = 2 + Math.floor((shop.decor || []).length / 3) + (pi === 0 ? 1 : 0), toughP = [0.1, 0.35, 0.15][pi], out = [];
-    for (let k = 0; k < n; k++) { const tough = R() < toughP, x = (tough ? SHOP.TOUGH : SHOP.NPC)[Math.floor(R() * (tough ? SHOP.TOUGH : SHOP.NPC).length)], urgent = !tough && R() < 0.2;
+    const npc = shuffle(SHOP.NPC.slice(), R), tgh = shuffle(SHOP.TOUGH.slice(), R);   // 同一时段不重样
+    for (let k = 0; k < n; k++) { const tough = R() < toughP && tgh.length, x = tough ? tgh.pop() : npc.pop() || SHOP.NPC[0], urgent = !tough && R() < 0.2;
       out.push({ id: period + "c" + k, name: x[0], want: x[1], fee: x[2] * (urgent ? 2 : 1), tough, urgent }); }
     if ((allChars || []).length && R() < 0.6) out.splice(1, 0, { id: period + "p0", wantChar: allChars[Math.floor(R() * allChars.length)], fee: 15, want: "想要一张明信片" });
     const vMax = [0, 1, 2][pi];
