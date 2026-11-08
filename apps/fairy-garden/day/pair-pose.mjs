@@ -10,11 +10,10 @@ export function pairSize(actor){
 }
 export function pairSpacing(kind,a,b){
  const aa=pairSize(a),bb=pairSize(b),width=(aa.width+bb.width)/2;
- if(['shoulder','cuddle','sit-hug','sit-lean'].includes(kind))return aa.radius+bb.radius+.23;
+ // Close seats bring the torsos together; keep room for the larger heads and sleeves.
+ if(['shoulder','cuddle','sit-lean','sit-hug','sit-hand','closer'].includes(kind))return Math.max(width+.10,aa.radius+bb.radius+.08);
  if(kind==='lie-hug')return width+.10;
  if(kind==='sit-pat')return aa.radius+bb.radius+.08;
- if(kind==='sit-hand')return aa.radius+bb.radius+.23;
- if(kind==='closer')return aa.radius+bb.radius+.28;
  if(kind==='arm-walk')return width+.19;
  if(kind==='cup')return width+.25;
  if(['hand','walk'].includes(kind))return width+.28;
@@ -38,15 +37,31 @@ export function pairContact(actor,targets,progress,record=[]){
 export function shoulderPose(holder,leaner,progress,{embrace=false,holderProgress=progress,minimumHeadGap=0}={}){
  const toward=leaner.root.worldToLocal(holder.root.position.clone()).x<0?-1:1;
  holder.contactPose({lean:toward*.025*holderProgress});
- const shoulder=torsoPoint(holder,-toward*1.05,1,.13),cheek=headPoint(leaner,[toward*.75,-.75,.18]),pivot=bonePoint(leaner,'body')||leaner.root.localToWorld(new T.Vector3(0,.3,0)),local=leaner.root.worldToLocal(cheek.clone()),hip=leaner.root.worldToLocal(pivot.clone()),target=leaner.root.worldToLocal(shoulder.clone());
- let angle=.52,best=Infinity;
- for(let i=0;i<=65;i++){const t=i*.01,rotation=new T.Euler(.20,0,-toward*t),q=local.clone().sub(hip).applyEuler(rotation).add(hip),center=leaner.root.worldToLocal(headPoint(leaner,[0,0,0])).sub(hip).applyEuler(rotation).add(hip);if(minimumHeadGap&&leaner.root.localToWorld(center).distanceTo(headPoint(holder,[0,0,0]))<minimumHeadGap)continue;const error=q.distanceToSquared(target);if(error<best){best=error;angle=t;}}
- leaner.contactPose({lean:-toward*angle*progress,tilt:.20*progress});
+ const shoulder=torsoPoint(holder,-toward*1.05,1,.13),cheek=headPoint(leaner,[toward*.75,-.75,.18]);
+ const local=p=>leaner.root.worldToLocal(p.clone()),hip=local(bonePoint(leaner,'body')||leaner.root.localToWorld(new T.Vector3(0,.3,0))),neck=local(bonePoint(leaner,'neck')||headPoint(leaner,[0,-1,0])),head=local(headPoint(leaner,[0,0,0])),point=local(cheek),target=local(shoulder),otherHead=local(headPoint(holder,[0,0,0]));
+ const headGap=Math.max(minimumHeadGap,(pairSize(holder).radius+pairSize(leaner).radius)*.94),tilt=.16,nod=.16;
+ // Let the neck offer the cheek while the torso remains supported by the seat.
+ // Search bounded waist/neck angles in the same order used by upper-body.mjs.
+ let angle=0,neckAngle=0,best=Infinity;
+ for(let w=0;w<=10;w++)for(let n=0;n<=10;n++){
+  const waist=w*.03,neckLean=n*.045,waistQ=new T.Quaternion().setFromEuler(new T.Euler(tilt,0,-toward*waist)),neckQ=new T.Quaternion().setFromEuler(new T.Euler(nod,0,-toward*neckLean));
+  const posed=p=>p.clone().sub(neck).applyQuaternion(neckQ).add(neck).sub(hip).applyQuaternion(waistQ).add(hip);
+  if(posed(head).distanceTo(otherHead)<headGap)continue;
+  const score=posed(point).distanceToSquared(target)+waist*waist*.003;
+  if(score<best){best=score;angle=waist;neckAngle=neckLean;}
+ }
+ leaner.contactPose({lean:-toward*angle*progress,tilt:tilt*progress,neckLean:-toward*neckAngle*progress,nod:nod*progress});
  const contacts=[];
- if(embrace){const side=nearHand(holder,leaner.root.position),back=torsoPoint(leaner,-toward*.75,.97,-.025);pairContact(holder,{[side]:back},holderProgress,contacts);
+ // Explicit lap targets prevent the base arm smoothing from carrying the
+ // previous frame's waist roll into a progressively raised free arm.
+ for(const [actor,p]of [[holder,holderProgress],[leaner,progress]]){
+  pairContact(actor,{left:torsoPoint(actor,-.72,.28,.14),right:torsoPoint(actor,.72,.28,.14)},p,contacts);
+ }
+
+ if(embrace){const side=nearHand(holder,leaner.root.position),back=torsoPoint(leaner,toward*.75,.80,-.025);pairContact(holder,{[side]:back},holderProgress,contacts);
   // The leaning person's hands remain in their lap, with a light clasp on the wrapping wrist.
   const wrist=bonePoint(holder,side==='left'?'Left_hand':'Right_hand'),heldSide=nearHand(leaner,wrist);pairContact(leaner,{[heldSide]:wrist},progress,contacts);}
- return {contacts,shoulderDistance:headPoint(leaner,[toward*.75,-.75,.18]).distanceTo(shoulder),lean:angle};
+ return {contacts,shoulderDistance:headPoint(leaner,[toward*.75,-.75,.18]).distanceTo(shoulder),lean:angle,neckLean:neckAngle};
 }
 export function hugPose(a,b,pa,pb){
  const contacts=[];

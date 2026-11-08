@@ -6130,6 +6130,21 @@ function worldRefLine(i, label) {
   return "【第" + i + "张参考图=这个世界的一张风景照" + (label ? "：" + label : "") + "】只借它的环境：街道建筑、植物、色调、光线和天气的感觉，让画面一看就是同一座城；"
     + "它不是这个人，也不是这一格的构图——画里有人就仍照人物参考照，机位照这一格自己的描述。";
 }
+// 画面里有人、但不是哪个角色（群里 2026-11-08：片刻推荐里网友的视频画出来条条没有人）：
+//   没有角色卡就没有参考照、也不用锁谁的脸——画的是这条描述里那个普通人，照描述露脸或只露局部。
+//   原来没角色就一律走 buildScenePrompt 的「纯空景、一个人都没有」，路人博主出镜的视频也被画成空镜。
+function buildStrangerPrompt(sceneDesc, opts) {
+  opts = opts || {};
+  const body = !!opts.body;
+  const parts = [body
+    ? "生成一张【不露脸的局部照片】：画面里有人，但只出现手、背影、肩背这些身体局部，人的头部在画面之外。"
+    : "生成一张照片：画面里的人照下面的描述出镜，是一个普通人（不是明星、不是任何已知的角色），长相自然、有个人特点，不要网红脸。"];
+  parts.push("画风是【自然写实的实拍照片】：真实的环境光和自然投影、手机镜头的景深与轻微噪点，像短视频里的一帧。不要插画、不要 3D/CG 渲染、不要 AI 感很重的精修图。");
+  { const _sl = typeof imgLorePart !== "function" ? "" : imgLorePart([], sceneDesc); if (_sl) parts.push(_sl); }
+  parts.push("【画面】" + String(sceneDesc || "").trim());
+  parts.push("画面里不要出现文字、字幕、水印、logo、界面元素。");
+  return parts.join("\n");
+}
 function buildScenePrompt(char, sceneDesc, opts) {
   opts = opts || {};
   char = char || {};

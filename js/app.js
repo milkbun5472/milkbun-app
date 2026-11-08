@@ -20,7 +20,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v89.196";
+const APP_VERSION = "v89.244";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -12070,6 +12070,21 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   };
   // TA主动约她（她 2026-10-02 拍板）：跟她约TA是同一张卡，方向反过来。三天最多一回，还挂着一张没回的就不再约
   const charInviteOf = charId => [...(chatsRef.current[charId] || [])].reverse().find(m => m && m.kind === "dateask" && m.state === "pending" && Date.now() - (m.ts || 0) < 3 * 86400000);
+  // 他发的对局邀请还挂着（两天内、没点过）就不再发第二张
+  const pendingDuelAsk = charId => [...(chatsRef.current[charId] || [])].reverse().find(m => m && m.kind === "duelask" && m.state === "pending" && Date.now() - (m.ts || 0) < 2 * 86400000);
+  // 接了对局邀请 / 从聊天里点「打一把」：带着对手和彩头进邮票册的对局页
+  const goDuel = (charId, m) => {
+    if (m && m.id) pChat(charId, p => p.map(x => x.id === m.id ? { ...x, state: "accepted" } : x));
+    window.__stampsDuel = { foeId: charId, wager: (m && m.wager) || "" };
+    setScreen("stamps");
+  };
+  // 战报发进聊天（她 2026-11-08）：一张卡，内容就在卡上，TA 下一轮自然读得到（不替 TA 开口，等她）
+  const duelReport = (charId, r) => {
+    if (!charId || !r) return;
+    pChat(charId, p => [...p, { id: "drep_" + Date.now(), role: "user", kind: "duelreport", ...r, ts: Date.now(), read: true,
+      content: "[对局战报] " + r.line }]);
+    toast("发到聊天了");
+  };
   const dateAskReady = charId => { const a = loadJSON("x_dateAskLast", {}) || {}; return Date.now() - (a[charId] || 0) > 3 * 86400000; };
   // 她在TA那张邀约上点「好」或「改天」：卡上的字跟着改，TA下一轮从记录里就看得到她怎么回的；答应了这地方钉进你俩的城
   const answerDateAsk = (charId, m, yes) => {
@@ -13245,6 +13260,18 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         const _dp = window.DatePlaces ? window.DatePlaces.list(charId).slice(0, 8).map(x => "「" + x.name + "」").join("") : "";
         capState.push((_askedInvite ? "" : "你们有" + (_askDays >= 7 ? "一阵子" : "几天") + "没一起出去了，你心里有点想她、想见面。") + "dateAsk：你要是此刻正好想约她出来见一面，可以发一张邀约：dateAsk:{\"place\":\"地方\",\"note\":\"一句为什么（可空）\",\"when\":\"哪天几点，口语就行（可空）\",\"say\":\"你想对她说的那句\"}。"
           + (_dp ? "你俩城里钉过的地方：" + _dp + "，可以挑一个，也可以是你自己想带她去的。" : "") + (_askedInvite ? "她刚叫你发邀约：要发就一定填 dateAsk，卡片才会出现在她那边——只在旁白里写「发过去了」她是收不到的。" : "没这个心思就不填；") + "话照常写在 word 里。");
+      }
+      // TA 约她打一把邮票对局（她 2026-11-08「TA 主动约战」）：手上得有这个人的卡；三天最多一次；
+      //   上一把他输了（她在连胜）更想扳回来；她这句提到对局、打一把就一定给这一格
+      const _hasStampCards = (() => { try { return ((window.StampsCore && window.StampsCore.load().cards) || []).some(c => c && c.charId === charId && c.text); } catch (e) { return false; } })();
+      const _duelLast = (loadJSON("x_duelAskLast", {}) || {})[charId] || 0, _duelStat = (loadJSON("x_stampDuelStats", {}) || {})[charId] || null;
+      const _askedDuel = /对局|打一把|来一局|邮票.{0,4}(打|比)/.test(String(recentUserText || "").slice(-80));
+      const _duelP = _duelStat && _duelStat.streak > 0 ? 0.3 : 0.08;
+      if (!_peekTurn && !(room && !room.main) && !_body && _hasStampCards && !pendingDuelAsk(charId) && (_askedDuel || (Date.now() - _duelLast > 3 * 86400000 && !_harshNow && Math.random() < _duelP))) {
+        openCaps.push("duelAsk");
+        capState.push((_duelStat && _duelStat.streak > 0 ? "上次用邮票册的卡跟她打对局，你输了，心里还有点不服。" : "")
+          + "duelAsk：你要是此刻想跟她用邮票册的卡打一把对局（不服气、闲着想逗她、想跟她赌点什么都行），可以发一张对局邀请：duelAsk:{\"say\":\"你想对她说的话\",\"wager\":\"想赌的彩头（可空）\"}。"
+          + (_askedDuel ? "她刚提到要打一把：要约就一定填 duelAsk，卡片才会出现在她那边。" : "没这个心思就不填；") + "话照常写在 word 里。");
       }
       // 申请信（v74.732）：只给判据不给触发词——好感几分、聊了几天都不算数，算数的是他自己想不想。
       //   只在单聊线上：线下是叙事、没有卡片字段（转账、要手机也都只在线上）；群里不写——这种信是私下给的。
@@ -14870,6 +14897,13 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
           if (yes) pChat(charId, p => [...p, rsvpReceipt(inv, null, rsvpSay(parsed.dateReply))]);
           delivered = true;
         }
+      }
+      if (parsed.duelAsk && typeof parsed.duelAsk === "object" && !(room && !room.main) && !_peekTurn && !pendingDuelAsk(charId)) {
+        const say = String(parsed.duelAsk.say || "").trim().slice(0, 80), wager = String(parsed.duelAsk.wager || "").trim().slice(0, 40);
+        pChat(charId, p => [...p, { id: "dinv_" + Date.now(), role: "assistant", kind: "duelask", say, wager, state: "pending", ts: Date.now() + 3,
+          content: "[对局邀请] 约你用邮票册的卡打一把" + (wager ? "，赌「" + wager + "」" : "") + (say ? "——" + say : "") }]);
+        try { const a = loadJSON("x_duelAskLast", {}) || {}; a[charId] = Date.now(); saveJSON("x_duelAskLast", a); } catch (e) {}
+        delivered = true;
       }
       if (parsed.dateAsk && typeof parsed.dateAsk === "object" && !(room && !room.main) && !_peekTurn && (dateAskReady(charId) || (typeof recentUserText === "string" && /邀约|约会邀请|邀请函/.test(recentUserText.slice(-80)))) && !charInviteOf(charId)) {
         const da = parsed.dateAsk, nm = String(da.place || "").trim().slice(0, 24);
@@ -24703,7 +24737,9 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     const who = char || { name: "", persona: "" };
     const kind = whoSaid === "none" ? "view" : whoSaid === "part" ? "part" : whoSaid === "self" ? "" : noFaceKindFor(desc, who.name);
     const noFace = !char || !!kind || !(char.appearance || char.refPhoto);
+    // 没角色卡的人出镜（片刻里网友的视频）：画那个普通人，不走「一个人都没有」的空景
     const prompt = kind === "part" && char ? buildScenePrompt(char, desc, { body: true })
+      : !char && kind !== "view" && typeof buildStrangerPrompt === "function" ? buildStrangerPrompt(desc, { body: kind === "part" })
       : noFace ? buildScenePrompt(who, desc, { forText: false })
       : buildPhotoPrompt(char, desc, states[char.id] || {}, { kind: "selfie", closet: closetTextFor(char.id) });
     const refs = noFace ? [] : [char.refPhoto].filter(Boolean);
@@ -25932,8 +25968,12 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       // 吧里已经发过的帖（她 2026-10-26 去重）：给标题看，别再发同一个话题；出来以后再按字面筛一遍
       const boardPrev = (forumPostsRef.current || []).filter(x => x && x.board === board && x.title).sort((a, b) => Number(b.ts || 0) - Number(a.ts || 0));
       const seenLine = boardPrev.length ? "\n【这个吧里已经发过的帖】下面这些已经有人发过了，别再发同一个话题，换个说法也算发过：\n" + boardPrev.slice(0, 20).map(x => "· " + String(x.title || "").slice(0, 40)).join("\n") + "\n" : "";
+      // 她开吧时定的分寸：一次刷几条、楼主正文多少字（forumBoardGenOf，screens.js）
+      const _gen = typeof forumBoardGenOf === "function" ? forumBoardGenOf(board) : {};
+      const _gN = _gen.batch ? String(_gen.batch) : "3-5";
+      const _gLen = _gen.lenMin && _gen.lenMax ? " " + _gen.lenMin + "～" + _gen.lenMax + " 字" : _gen.lenMax ? " 不超过 " + _gen.lenMax + " 字" : _gen.lenMin ? " 至少 " + _gen.lenMin + " 字" : " 2-4 句";
       const d = await runProbeRetry(active, forumWorldCtx(board, genW), {
-        instruction: forumLoreLine(genW) + "\n" + forumBoardVoice(board) + forumNpcRule(board) + castLine + seenLine + forumFmtLine() + " 生成 3-5 条不同网友刚发的新主帖（items 数组务必 3-5 条，别只给 1-2 条）。每条都填 authorName 和 handle；是常驻熟面孔的再额外写一个 npcId。写 title（标题）、body（楼主正文 2-4 句）、replyCount（编一个几十到几千的回复数字，不必真实）。同一批至少有 1 个一次性路人，别所有帖一个腔调。" + FORUM_PHOTO_LINE + lately,
+        instruction: forumLoreLine(genW) + "\n" + forumBoardVoice(board) + forumNpcRule(board) + castLine + seenLine + forumFmtLine() + " 生成 " + _gN + " 条不同网友刚发的新主帖（items 数组就是 " + _gN + " 条）。每条都填 authorName 和 handle；是常驻熟面孔的再额外写一个 npcId。写 title（标题）、body（楼主正文" + _gLen + "）、replyCount（编一个几十到几千的回复数字，不必真实）。同一批至少有 1 个一次性路人，别所有帖一个腔调。" + FORUM_PHOTO_LINE + lately,
         schemaHint: "{\"items\":[{\"npcId\":\"npc_regular_xxx（熟面孔才填）\"," + FORUM_GUEST_FIELDS + ",\"title\":\"标题\",\"body\":\"正文\",\"replyCount\":128,\"refTitle\":\"接着哪个帖才填，原样照抄那个标题\"" + FORUM_PHOTO_FIELD + forumFmtField() + (cast ? ",\"cast\":\"只有配角那一条填 true\"" : "") + "}]}",
         maxTokens: FTOK.board
       });
@@ -34305,6 +34345,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     onLoveLetter: (m, yes) => answerLoveLetter(activeChar.id, m, yes),
     onSneak: (m, how) => answerSneak(activeChar.id, m, how),
     onDateGo: m => dateGo(activeChar.id, m),
+    onDuelGo: m => goDuel(activeChar.id, m && m.kind === "duelask" ? m : null),
     onBdayPlanOpen: m => openBdayPlan(activeChar, m),
     bdayToday: (() => { const bd = myBdayFor(activeChar.id); return !!bd && typeof daysUntilBirthday === "function" && daysUntilBirthday(bd, new Date(typeof vclockMap === "function" ? vclockMap(Date.now(), activeChar.id) : Date.now())) === 0; })(),
     onDateAnswer: (m, yes) => answerDateAsk(activeChar.id, m, yes),
@@ -36043,6 +36084,82 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     onWrite: cards => stampWrite(cards),
     onDraw: (id, alt, mode) => stampDraw(id, alt, mode),
     onPoke: stampPoke,
+    // 邮票对局（她 2026-11-07）：打完点「记得」才进记忆；对面卡组里带上跟 TA 有关系的人（关系页里两头任一头写了的）
+    onDuelReport: duelReport,
+    // 远信驿站那张明信片配一张照片（她 2026-11-08「可以」）：走朋友圈配图那一条（人在画面里就锁脸）
+    onRunPhoto: async (charId, desc) => { const c = liveChars.find(x => x.id === charId); if (!c) throw new Error("找不到这个人"); if (!imgApiReady()) throw new Error("先去 设置·图像API 配好再生图"); return await drawFromDesc(c, desc, "self"); },
+    onDuelRemember: (charId, line) => { try { addMemEntry({ text: line, tags: ["邮票对局", "邮票册"], charIds: [charId], knownBy: [charId], source: "stamps" }); toast("记下了"); } catch (e) {} },
+    // 对局时跟 TA 聊（她 2026-11-07「打的时候和角色聊天吧」）：她发一句才调一次，TA 照人设和眼下这一局接
+    onDuelChat: async (charId, d) => {
+      const char = liveChars.find(c => c.id === charId); if (!char) return [];
+      if (!active) { toast("请先到设置配置 API"); return []; }
+      const uN = userName(profile);
+      // 专属信物（她 2026-11-08「花调用生成角色专属信物，从人设和我们聊天里来」「一两句来历，下面写上他的口吻看这个信物」）：
+      //   材料是她挑的三样；效果只许从 d.fxList（三样材料的偏向）里挑，强弱代码定
+      if (d.mode === "keep") {
+        const fxList = (d.fxList || []).filter(Boolean); if (!fxList.length) return null;
+        const r = await runProbe(apiFor(char.id), ctxFor(char), { voice: true, tag: "stampkeep", maxTokens: 8000,
+          instruction: "你正和" + uN + "玩邮票册里的卡牌小游戏。她一路攒了几样材料：" + (d.mats || []).join("、") + "，交给你，请你用它们做一件只属于你们俩的信物，以后她打牌时带在身上。\n"
+            + "这件东西要从你的人设、或者你们真的聊过、你记得的事里来（上面的人设、记忆和聊天里有）；没发生过的事别编。材料是做它的料，可以拆开、拼起来、变个样子，不必照字面用。\n"
+            + "name：这件东西叫什么，是一样具体的物件，十五个字以内。\n"
+            + "story：它的来历，一两句：它是什么、跟你们哪件事有关。\n"
+            + "say：你拿着它、看着它时对她说的一句话，用你自己说话的样子。\n"
+            + "fx：从下面挑一个最贴这件东西的，只写前面的英文词：\n" + fxList.map(k => k + "：" + (d.fxZh && d.fxZh[k] || k)).join("\n"),
+          schemaHint: "{\"name\":\"\",\"story\":\"\",\"say\":\"\",\"fx\":\"\"}" });
+        const name = String((r && r.name) || "").trim().slice(0, 24); if (!name) return null;
+        const out = { name, story: String(r.story || "").trim().slice(0, 200), say: String(r.say || "").trim().slice(0, 160), fx: fxList.includes(r.fx) ? r.fx : fxList[0] };
+        try { addMemEntry({ text: char.name + "用" + uN + "攒的材料（" + (d.mats || []).join("、") + "）给她做了一件信物「" + name + "」：" + out.story.slice(0, 100), tags: ["邮票对局", "信物"], charIds: [char.id], knownBy: [char.id], source: "stamps" }); } catch (e) {}
+        return out;
+      }
+      const r = await runProbe(apiFor(char.id), ctxFor(char), { voice: true, tag: "stampduel", maxTokens: 8000,
+        instruction: (["road", "letter", "postcard", "note", "memory", "oneline", "ask", "answer", "future", "swap"].includes(d.mode)
+            // 远信（她 2026-11-08「路途也可以聊天」「终点要回信」）：她在邮票册里玩一趟送信的游戏，信是寄给你的，你一路陪着
+            ? (d.toId && d.toId !== char.id
+              // 陪她走的不是收信的人（她 2026-11-08「谁陪你走」）
+              ? "你正陪" + uN + "玩邮票册里的「远信」：她要寄一封信给" + (d.toName || "别人") + "，信得走一段邮路，你陪她走这一路，一路用邮票册的卡打过路上的麻烦和拦信的人，最后一站是" + (d.toName || "收信的人") + "。这是你们一起玩的游戏。\n"
+              : "你正陪" + uN + "玩邮票册里的「远信」：她要寄一封信给你，信得走一段邮路，一路用邮票册的卡打过路上的麻烦和拦信的人，最后一站是你。" + (d.withName ? "这一路是" + d.withName + "陪她走来的。" : "") + "这是你们俩一起玩的游戏。\n")
+            : "你正和" + uN + "面对面用邮票册的卡打一局对局（两边各一个信封，往上贴卡、互相打信封，打空的输）。这一局是你们俩一起在玩的游戏，不是剧情里真的打架。\n")
+          + "眼下的局面：" + d.board + "\n"
+          + (d.history ? "这一局里你们刚才的几句：\n" + d.history + "\n" : "")
+          // 三种：边打边聊 / 彩头兑现（她 2026-11-08「输了干嘛」）/ 赛后复盘
+          + (d.mode === "road"
+            ? uN + "在路上跟你说：「" + String(d.text).slice(0, 400) + "」\n照你的人设和你们的关系接她这句，像一起赶路时随口聊：几句短的就够；说到路上的事只说上面写着的，别编没发生的。信封里她写了什么，你还不知道——信送到才拆。"
+            : d.mode === "letter"
+            // 回信写什么全交给 TA（她 2026-11-08「全交给他」）：这一路带的卡里的那些时刻、你们真实聊过的和记得的事，都是料
+            ? "她赢了最后一站，信送到你手里了。现在你给她写一封回信。写什么你自己定：可以写她这一路带着的那几张卡里的时刻（下面列着每张卡的那一刻），可以写你们真的聊过、你记得的事（上面的聊天和记忆里有），也可以混着写，或者只写你看完信想说的。像一封真的手写信，有称呼、有落款，长短随你。lines 里一段一项。"
+              + (d.cards ? "\n她带着的卡和那一刻：\n" + d.cards : "")
+              // 她出发前写的那封（她 2026-11-08）：回信就是回这一封
+              + (d.myLetter ? "\n她寄给你的这封信，你刚拆开：\n「" + String(d.myLetter).slice(0, 2000) + "」\n你的回信是回她这一封的：她写到的事要接住。" : "\n她这封信是空着寄来的，信封里什么也没写。")
+            : d.mode === "postcard"
+            ? "她走到半路的驿站，收到你提前寄到那儿的一张明信片。写这张明信片：你此刻在等这封信的心情、想对路上的她说的话。明信片写得下几句就几句。lines 里一句一项。"
+            : d.mode === "note"
+            ? "她从卡组里挑了一张卡，让你在卡背面写几句。这张卡的那一刻：" + String(d.card || "").slice(0, 400) + "\n照你的人设写你回想那一刻时的话，像写在卡背面的便条，几句就够。lines 里一句一项。"
+            : d.mode === "memory"
+            ? "她往回忆邮筒里投了一枚邮花，吐出来一张你写的小卡。从你们真的聊过、你记得的事里挑一件（上面的聊天和记忆里有），写成一张短短的回忆卡：那件事，和你现在想起它的心情。别编没发生过的。lines 里一句一项。"
+            : d.mode === "oneline"
+            ? "她在一张只收一句话的卡片上写给你：「" + String(d.text).slice(0, 200) + "」\n你在卡片背面回她，短短的。lines 里一句一项。"
+            : d.mode === "ask"
+            ? "你想问她一个问题，写在卡片上寄给她。只写这一个问题，照你此刻真想知道的问，别像问卷。lines 里只放这一个问题。"
+            : d.mode === "answer"
+            ? "你问她：「" + String(d.question || "").slice(0, 200) + "」\n她回答：「" + String(d.text).slice(0, 300) + "」\n读完她的回答，在卡片背面回她几句。lines 里一句一项。"
+            : d.mode === "future"
+            ? "你们路过一家专收「寄给以后」的信的邮局。你写一封封起来的信，要等她下一次出发时才拆开。写给以后的她：你想她那时候记得什么、你那时候大概在想什么。有称呼、有落款。lines 里一段一项。"
+            : d.mode === "swap"
+            ? "你看上了她卡组里的一张卡，想要走留个纪念。这张卡的那一刻：" + String(d.card || "").slice(0, 400) + "\n跟她说你为什么想要这一张，几句就够。lines 里一句一项。"
+            : d.mode === "wager"
+            ? "开局前你们说好的彩头：「" + String(d.wager).slice(0, 200) + "」。这一把" + (d.winner === "foe" ? "你赢了，现在向她讨这个彩头" : d.winner === "me" ? "她赢了，现在你照约定兑现" : "打平了，你们商量这个彩头怎么算") + "。照你的人设和你们的关系把这件事做出来、说出来；能当场做的就当场做，做不到的就说清什么时候、怎么还。"
+            : d.mode === "review"
+            ? "这一把打完了。像打完牌回头聊这一局那样说几句：哪一步让你印象深、哪张票最烦人或最争气、下次想怎么打。只说上面写着的局面，别编没发生的。"
+            : uN + "刚跟你说：「" + String(d.text).slice(0, 400) + "」\n照你的人设、你们的关系和此刻的输赢接她这句，像边打牌边说话：几句短的就够，说到局面时只说上面写着的那些，别编没发生的。"),
+        schemaHint: "{\"lines\":[\"一句\"]}" });
+      const out = (Array.isArray(r && r.lines) ? r.lines : [r && r.lines]).map(x => String(x || "").trim()).filter(Boolean).slice(0, d.mode === "letter" || d.mode === "future" ? 12 : d.mode && d.mode !== "road" ? 6 : 4);
+      if (d.mode === "future" && out.length) { try { addMemEntry({ text: char.name + "在邮票册的「远信」里给" + uN + "写了一封「寄给以后」的信，封着，等她下一次出发才拆：" + out.join(" ").slice(0, 120), tags: ["邮票对局", "远信"], charIds: [char.id], knownBy: [char.id], source: "stamps" }); } catch (e) {} }
+      if (d.mode === "letter" && out.length) { try { addMemEntry({ text: uN + "在邮票册的「远信」里寄了一封信给" + char.name + "，一路送到了；" + char.name + "回了一封信：" + out.join(" ").slice(0, 160), tags: ["邮票对局", "远信", "回信"], charIds: [char.id], knownBy: [char.id], source: "stamps" }); } catch (e) {} }
+      // 彩头兑现了就记下来，以后 TA 还会拿出来说
+      if (d.mode === "wager" && out.length) { try { addMemEntry({ text: char.name + "和" + uN + "打邮票对局，赌了「" + String(d.wager).slice(0, 60) + "」，" + (d.winner === "foe" ? char.name + "赢了，向她讨了" : d.winner === "me" ? uN + "赢了，" + char.name + "兑现了" : "打平了") + "：" + out.join(" ").slice(0, 120), tags: ["邮票对局", "彩头"], charIds: [char.id], knownBy: [char.id], source: "stamps" }); } catch (e) {} }
+      return out;
+    },
+    duelCloseOf: charId => liveChars.filter(c => c.id !== charId && (rels[charId + "->" + c.id] || rels[c.id + "->" + charId])).map(c => c.id),
     onInner: stampInner,
     onExtra: stampExtra,
     onExtraDraw: stampExtraDraw,

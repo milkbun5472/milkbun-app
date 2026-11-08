@@ -1,7 +1,7 @@
-import {deskWorkSurfaces} from '../work-contacts.mjs?v=fg-c5c7b8ffbb7a68b2';
+import {deskWorkSurfaces} from '../work-contacts.mjs?v=fg-780b1738a32d7ebb';
 import * as T from 'three';
-import {createRoomKit,roomObstacles,roomSeat} from './room-kit.mjs?v=fg-c5c7b8ffbb7a68b2';
-import {computer,notebook,cabinet,board} from './work-room-kit.mjs?v=fg-c5c7b8ffbb7a68b2';
+import {createRoomKit,roomObstacles,roomSeat} from './room-kit.mjs?v=fg-780b1738a32d7ebb';
+import {computer,notebook,cabinet,board} from './work-room-kit.mjs?v=fg-780b1738a32d7ebb';
 const FLOOR=.08,SIZE={w:14,d:11};
 const furniture=[
  {id:'window-workstation',kind:'table',x:-4.6,z:-3.1,w:2.05,d:1.05,top:.85,color:'#d0c0a4'},

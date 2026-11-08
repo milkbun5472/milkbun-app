@@ -11374,6 +11374,7 @@ function ChatThread({
   onLoveLetterOpen, onLoveLetter,   // TA写的申请信：拆开／答应·再想想
   onSneak,       // 「你发现TA偷偷翻过你的手机」那张卡：回放／当面问／装没看见
   onDateGo,      // 约会回执上的「出发」：点开才进见面
+  onDuelGo,      // 邮票对局：他发的对局邀请「接受，开打」、战报上「再打一把」
   onBdayPlanOpen, // 生日暗中准备的信封：生日当天拆开进线下
   bdayToday,      // 今天是不是她（这张面具）的生日：是的话还封着的信封顶到聊天最上面（2026-10-29：刷上去找不着了）
   onDateAnswer,  // TA约她的那张卡：好／改天
@@ -12253,6 +12254,7 @@ function ChatThread({
       onOpen: m.role !== "user" && onOpenTakeout ? onOpenTakeout : null,
       avatar: charAvEl(),
       myAvatar: meAvEl() });
+    if (m.kind === "duelask" || m.kind === "duelreport") return h(DuelChatCard, { key: i, m: m, character: character, avatar: charAvEl(), onGo: onDuelGo ? () => onDuelGo(m) : null });
     if (m.kind === "dateinvite" || m.kind === "datereceipt" || m.kind === "dateask") return h(DateInviteCard, { key: i, m: m, character: character, onGo: () => onDateGo && onDateGo(m),
       onAnswer: m.kind === "dateask" && onDateAnswer ? yes => onDateAnswer(m, yes) : null,
       avatar: charAvEl(),
@@ -16459,6 +16461,34 @@ function DateArrivePop({ m, character, onGo, onLater }) {
 }
 // onGoMine：群里那张邀请是她自己发的，没有回执——人齐了由她点「出发」
 // kind "dateask"：TA主动约她（她 2026-10-02）。同一张卡，方向反过来：她在卡上点「好／改天」，答应了再点出发
+// 邮票对局在聊天里的两张卡（她 2026-11-08）：他发的「对局邀请」、她发的「对局战报」。
+//   一张明信片：顶上一道航空信条纹，左上一枚火漆章写是什么；点按钮带着对手（和彩头）进邮票册的对局页
+function DuelChatCard({ m, character, avatar, onGo }) {
+  const t = useTheme();
+  const ask = m.kind === "duelask", who = character.remark || character.name || "TA";
+  const RED = "#b23a2e", GREEN = "#4f7a66", INK = "#2f2a22", SUB = "rgba(47,42,34,.6)";
+  const AIR = "repeating-linear-gradient(135deg, #b23a2e 0 8px, #fbf6ea 8px 12px, #3f6fb0 12px 20px, #fbf6ea 20px 24px)";
+  const fz = n => "calc(" + n + "px * var(--app-fs, 1))";
+  const won = m.winner === "me", lost = m.winner === "foe";
+  const card = h("div", { "data-wk": "duelchatcard", "data-kind": m.kind, style: { width: 236, borderRadius: 6, overflow: "hidden", background: "#fbf6ea", boxShadow: "0 2px 8px rgba(47,42,34,.18)", fontFamily: F_BODY, color: INK } },
+    h("div", { style: { height: 6, background: AIR } }),
+    h("div", { style: { position: "relative", padding: "12px 13px 11px" } },
+      h("div", { style: { position: "absolute", right: 10, top: 9, width: 34, height: 34, borderRadius: 999, background: "radial-gradient(circle at 35% 30%, " + (ask ? RED : GREEN) + "cc, " + (ask ? RED : GREEN) + ")", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: fz(10), transform: "rotate(-8deg)", boxShadow: "0 1px 3px rgba(0,0,0,.25)" } }, ask ? "约战" : "战报"),
+      ask ? h(React.Fragment, null,
+          h("div", { style: { fontSize: fz(10.5), color: SUB, letterSpacing: ".15em" } }, "邮票对局 · 邀请"),
+          h("div", { style: { fontFamily: F_DISPLAY, fontSize: fz(15), margin: "3px 44px 6px 0", lineHeight: 1.4 } }, who + " 约你用邮票册的卡打一把"),
+          m.say ? h("div", { style: { fontSize: fz(12.5), lineHeight: 1.6, marginBottom: 6 } }, "「" + m.say + "」") : null,
+          m.wager ? h("div", { style: { fontSize: fz(11.5), color: RED, marginBottom: 6 } }, "赌：" + m.wager) : null)
+        : h(React.Fragment, null,
+          h("div", { style: { fontSize: fz(10.5), color: SUB, letterSpacing: ".15em" } }, "邮票对局 · 战报"),
+          h("div", { style: { fontFamily: F_DISPLAY, fontSize: fz(17), margin: "3px 44px 4px 0", color: won ? GREEN : lost ? RED : INK } }, won ? "我赢了 " + who : lost ? who + " 赢了" : "跟 " + who + " 打平了"),
+          h("div", { style: { fontSize: fz(11.5), color: SUB, lineHeight: 1.6 } }, (m.turn || "?") + " 回合 · 信封剩 " + (m.meHp != null ? m.meHp : "?") + " : " + (m.foeHp != null ? m.foeHp : "?") + (m.games > 1 ? " · 这一串 " + m.games + " 把" : "")),
+          m.mvp ? h("div", { style: { fontSize: fz(12), marginTop: 4 } }, "这把最争气：「" + m.mvp + "」") : null,
+          m.wager ? h("div", { style: { fontSize: fz(11.5), color: RED, marginTop: 2 } }, "彩头：" + m.wager) : null),
+      onGo ? h("button", { "data-wk": "duelchatgo", onClick: onGo, disabled: ask && m.state === "accepted", className: "w-full active:opacity-80 disabled:opacity-50",
+        style: { marginTop: 8, padding: "7px 0", borderRadius: 4, background: ask ? RED : INK, color: "#fff", fontSize: fz(12.5) } }, ask ? (m.state === "accepted" ? "已经接了" : "接受，开打") : "再打一把") : null));
+  return h("div", { "data-wk": "msg", "data-me": ask ? "0" : "1", className: "flex " + (ask ? "items-start gap-2" : "justify-end"), style: { margin: "6px 0" } }, ask ? avatar : null, card);
+}
 function DateInviteCard({ m, character, onGo, onGoMine, onAnswer, avatar, myAvatar }) {
   const t = useTheme();
   const [open, setOpen] = useState(false);
