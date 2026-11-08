@@ -54,5 +54,16 @@ test("岔路十六种，每个选项都有结果；同一趟不重样", () => {
   const run = RN.newRun({ cards, toId: "a", seed: 9 }); RN.takeStart(run, [0, 1, 2, 3, 4, 5]);
   const seen = new Set(); for (let k = 0; k < RN.EVENTS.length; k++) { run.step = k + 1; seen.add(RN.eventFor(run).key); }
   assert.equal(seen.size, RN.EVENTS.length);
-  for (const ev of RN.EVENTS) ev.opts.forEach((_, oi) => { const r = RN.newRun({ cards, toId: "a", seed: 9 }); RN.takeStart(r, [0, 1, 2, 3, 4, 5]); assert.ok(RN.doEvent(r, ev, oi, cards)); });
+  for (const ev of RN.EVENTS.filter(e => e.opts)) ev.opts.forEach((_, oi) => { const r = RN.newRun({ cards, toId: "a", seed: 9 }); RN.takeStart(r, [0, 1, 2, 3, 4, 5]); assert.ok(RN.doEvent(r, ev, oi, cards)); });
+});
+test("信的事件：七种都在岔路池里，各有奖励；回信带上卡组里每张卡的那一刻；寄给以后的信封着到下一趟", () => {
+  const kinds = RN.EVENTS.filter(e => e.letter).map(e => e.letter);
+  for (const k of ["postcard", "note", "memory", "oneline", "ask", "future", "swap"]) assert.ok(kinds.includes(k), k);
+  const run = RN.newRun({ cards, toId: "a", seed: 4 }); RN.takeStart(run, [0, 1, 2, 3, 4, 5]);
+  for (const k of kinds) assert.ok(RN.letterReward(run, k, 0) !== undefined);
+  const ui = readFileSync(new URL("../js/stamp-run-ui.js", import.meta.url), "utf8"), app = readFileSync(new URL("../js/app.js", import.meta.url), "utf8");
+  assert.match(ui, /mode: "letter", text: "", cards: run\.deck\.map\(cardStory\)/);
+  assert.match(ui, /sealed: ev\.letter === "future"/);
+  assert.match(ui, /x\.sealed \? Object\.assign\(\{\}, x, \{ sealed: false/);
+  for (const m of ["postcard", "note", "memory", "oneline", "ask", "answer", "future", "swap"]) assert.ok(app.includes('d.mode === "' + m + '"'), m);
 });

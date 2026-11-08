@@ -36087,7 +36087,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       if (!active) { toast("请先到设置配置 API"); return []; }
       const uN = userName(profile);
       const r = await runProbe(apiFor(char.id), ctxFor(char), { voice: true, tag: "stampduel", maxTokens: 8000,
-        instruction: (d.mode === "road" || d.mode === "letter"
+        instruction: (["road", "letter", "postcard", "note", "memory", "oneline", "ask", "answer", "future", "swap"].includes(d.mode)
             // 远信（她 2026-11-08「路途也可以聊天」「终点要回信」）：她在邮票册里玩一趟送信的游戏，信是寄给你的，你一路陪着
             ? "你正陪" + uN + "玩邮票册里的「远信」：她要寄一封信给你，信得走一段邮路，一路用邮票册的卡打过路上的麻烦和拦信的人，最后一站是你。这是你们俩一起玩的游戏。\n"
             : "你正和" + uN + "面对面用邮票册的卡打一局对局（两边各一个信封，往上贴卡、互相打信封，打空的输）。这一局是你们俩一起在玩的游戏，不是剧情里真的打架。\n")
@@ -36097,14 +36097,33 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
           + (d.mode === "road"
             ? uN + "在路上跟你说：「" + String(d.text).slice(0, 400) + "」\n照你的人设和你们的关系接她这句，像一起赶路时随口聊：几句短的就够；说到路上的事只说上面写着的，别编没发生的。"
             : d.mode === "letter"
-            ? "她赢了最后一站，信送到你手里了。现在你给她写一封回信：照你的人设、你们的关系写，可以提这一路上面写着的事（她带了谁的卡、走了哪些站、差点没送到），也可以只写你看完信想说的。像一封真的手写信，有称呼、有落款，长短随你。lines 里一段一项。"
+            // 回信写什么全交给 TA（她 2026-11-08「全交给他」）：这一路带的卡里的那些时刻、你们真实聊过的和记得的事，都是料
+            ? "她赢了最后一站，信送到你手里了。现在你给她写一封回信。写什么你自己定：可以写她这一路带着的那几张卡里的时刻（下面列着每张卡的那一刻），可以写你们真的聊过、你记得的事（上面的聊天和记忆里有），也可以混着写，或者只写你看完信想说的。像一封真的手写信，有称呼、有落款，长短随你。lines 里一段一项。"
+              + (d.cards ? "\n她带着的卡和那一刻：\n" + d.cards : "")
+            : d.mode === "postcard"
+            ? "她走到半路的驿站，收到你提前寄到那儿的一张明信片。写这张明信片：你此刻在等这封信的心情、想对路上的她说的话。明信片写得下几句就几句。lines 里一句一项。"
+            : d.mode === "note"
+            ? "她从卡组里挑了一张卡，让你在卡背面写几句。这张卡的那一刻：" + String(d.card || "").slice(0, 400) + "\n照你的人设写你回想那一刻时的话，像写在卡背面的便条，几句就够。lines 里一句一项。"
+            : d.mode === "memory"
+            ? "她往回忆邮筒里投了一枚邮花，吐出来一张你写的小卡。从你们真的聊过、你记得的事里挑一件（上面的聊天和记忆里有），写成一张短短的回忆卡：那件事，和你现在想起它的心情。别编没发生过的。lines 里一句一项。"
+            : d.mode === "oneline"
+            ? "她在一张只收一句话的卡片上写给你：「" + String(d.text).slice(0, 200) + "」\n你在卡片背面回她，短短的。lines 里一句一项。"
+            : d.mode === "ask"
+            ? "你想问她一个问题，写在卡片上寄给她。只写这一个问题，照你此刻真想知道的问，别像问卷。lines 里只放这一个问题。"
+            : d.mode === "answer"
+            ? "你问她：「" + String(d.question || "").slice(0, 200) + "」\n她回答：「" + String(d.text).slice(0, 300) + "」\n读完她的回答，在卡片背面回她几句。lines 里一句一项。"
+            : d.mode === "future"
+            ? "你们路过一家专收「寄给以后」的信的邮局。你写一封封起来的信，要等她下一次出发时才拆开。写给以后的她：你想她那时候记得什么、你那时候大概在想什么。有称呼、有落款。lines 里一段一项。"
+            : d.mode === "swap"
+            ? "你看上了她卡组里的一张卡，想要走留个纪念。这张卡的那一刻：" + String(d.card || "").slice(0, 400) + "\n跟她说你为什么想要这一张，几句就够。lines 里一句一项。"
             : d.mode === "wager"
             ? "开局前你们说好的彩头：「" + String(d.wager).slice(0, 200) + "」。这一把" + (d.winner === "foe" ? "你赢了，现在向她讨这个彩头" : d.winner === "me" ? "她赢了，现在你照约定兑现" : "打平了，你们商量这个彩头怎么算") + "。照你的人设和你们的关系把这件事做出来、说出来；能当场做的就当场做，做不到的就说清什么时候、怎么还。"
             : d.mode === "review"
             ? "这一把打完了。像打完牌回头聊这一局那样说几句：哪一步让你印象深、哪张票最烦人或最争气、下次想怎么打。只说上面写着的局面，别编没发生的。"
             : uN + "刚跟你说：「" + String(d.text).slice(0, 400) + "」\n照你的人设、你们的关系和此刻的输赢接她这句，像边打牌边说话：几句短的就够，说到局面时只说上面写着的那些，别编没发生的。"),
         schemaHint: "{\"lines\":[\"一句\"]}" });
-      const out = (Array.isArray(r && r.lines) ? r.lines : [r && r.lines]).map(x => String(x || "").trim()).filter(Boolean).slice(0, d.mode === "letter" ? 12 : d.mode && d.mode !== "road" ? 6 : 4);
+      const out = (Array.isArray(r && r.lines) ? r.lines : [r && r.lines]).map(x => String(x || "").trim()).filter(Boolean).slice(0, d.mode === "letter" || d.mode === "future" ? 12 : d.mode && d.mode !== "road" ? 6 : 4);
+      if (d.mode === "future" && out.length) { try { addMemEntry({ text: char.name + "在邮票册的「远信」里给" + uN + "写了一封「寄给以后」的信，封着，等她下一次出发才拆：" + out.join(" ").slice(0, 120), tags: ["邮票对局", "远信"], charIds: [char.id], knownBy: [char.id], source: "stamps" }); } catch (e) {} }
       if (d.mode === "letter" && out.length) { try { addMemEntry({ text: uN + "在邮票册的「远信」里寄了一封信给" + char.name + "，一路送到了；" + char.name + "回了一封信：" + out.join(" ").slice(0, 160), tags: ["邮票对局", "远信", "回信"], charIds: [char.id], knownBy: [char.id], source: "stamps" }); } catch (e) {} }
       // 彩头兑现了就记下来，以后 TA 还会拿出来说
       if (d.mode === "wager" && out.length) { try { addMemEntry({ text: char.name + "和" + uN + "打邮票对局，赌了「" + String(d.wager).slice(0, 60) + "」，" + (d.winner === "foe" ? char.name + "赢了，向她讨了" : d.winner === "me" ? uN + "赢了，" + char.name + "兑现了" : "打平了") + "：" + out.join(" ").slice(0, 120), tags: ["邮票对局", "彩头"], charIds: [char.id], knownBy: [char.id], source: "stamps" }); } catch (e) {} }

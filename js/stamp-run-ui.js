@@ -25,6 +25,8 @@
       h("div", { style: { fontSize: fz(10), color: SUB } }, "⚔" + s.pow + " ♥" + s.maxHp + " · " + s.trait + (sub ? " · " + sub : "")));
   }
 
+  // 信匣里每一种往来叫什么（她 2026-11-08）
+  const KIND_ZH = { letter: "回信", postcard: "明信片", note: "卡背面的便条", memory: "回忆卡", oneline: "一句话的回信", ask: "问答卡", future: "寄给以后的信", swap: "交换邮票时的话" };
   function StampRunPage(props) {
     const { characters, cards, onBack, meName, toast, closeOf, onChat } = props;
     const [run, setRun] = useState(() => { const v = load(SAVE, null); return v && v.run && !v.run.done ? v.run : null; });
@@ -34,6 +36,11 @@
     const [chat, setChat] = useState(() => (load(SAVE, null) || {}).chat || []), [draft, setDraft] = useState(""), [busy, setBusy] = useState(false), [chatOpen, setChatOpen] = useState(false);
     const [, bump] = useState(0);
     const letters = load(LETTERS, []);
+    // 一张卡的那一刻（写便条、回信时给 TA 看）
+    const cardStory = s => { const c = (cards || []).find(x => x.id === (s && s.cardId)), tx = (c && c.text) || {};
+      return "「" + ((s && s.name) || tx.name || "") + "」" + (s && s.charId && nameOf(s.charId) ? "（" + nameOf(s.charId) + "的卡）" : "") + "：" + [tx.gist, tx.narration, tx.open, tx.highlight, tx.thought ? "心里想：" + tx.thought : "", tx.line ? "说：" + tx.line : ""].filter(Boolean).join(" ").replace(/\s+/g, " ").slice(0, 220); };
+    // 收进信匣：寄给以后的那封封着，下一趟出发时才拆
+    const keepLetter = (kind, lines, extra) => { const L = load(LETTERS, []); L.push(Object.assign({ toId: run.toId, kind, text: (lines || []).join("\n"), ts: Date.now() }, extra || {})); save(LETTERS, L.slice(-120)); };
     const nameOf = id => { const c = (characters || []).find(x => x.id === id); return c ? (c.remark || c.name) : ""; };
     const toName = nameOf(run ? run.toId : toId) || "TA";
     const bondsOf = () => { const m = {}; (characters || []).forEach(c => { m[c.id] = D().bondOf([c.persona, c.description, c.desc, c.personality].filter(Boolean).join(" ")); }); return m; };
@@ -86,12 +93,14 @@
           h("div", { style: { fontSize: fz(11.5), color: SUB, marginBottom: 8 } }, "最多两个人：起手发的牌多从他们那儿来。不挑就随机。"),
           h("div", { className: "flex flex-wrap", style: { gap: 8, marginBottom: 20 } }, owned.map(c => { const on = core.includes(c.id); return h("button", { key: c.id, onClick: () => setCore(p => on ? p.filter(x => x !== c.id) : p.concat(c.id).slice(-2)),
             style: { padding: "5px 11px", borderRadius: 999, border: "1px solid " + (on ? GREEN : "rgba(47,42,34,.25)"), background: on ? "rgba(79,122,102,.12)" : "rgba(255,255,255,.4)", color: on ? GREEN : INK, fontSize: fz(12.5) } }, c.remark || c.name); })),
-          h("button", { "data-wk": "runstart", disabled: !toId, onClick: () => { const r = RN().newRun({ cards, toId, core }); setChat([]); setPickIdx([0, 1, 2, 3, 4, 5]); commit(r, { at: "pick" }, []); }, className: "w-full disabled:opacity-40", style: Object.assign(btn(RED, "#fff"), { padding: "12px 0", fontFamily: FD, fontSize: fz(15), letterSpacing: ".15em" }) }, "封好信，出发"),
+          h("button", { "data-wk": "runstart", disabled: !toId, onClick: () => { const L0 = load(LETTERS, []); if (L0.some(x => x.sealed)) save(LETTERS, L0.map(x => x.sealed ? Object.assign({}, x, { sealed: false, opened: Date.now() }) : x)); const r = RN().newRun({ cards, toId, core }); setChat([]); setPickIdx([0, 1, 2, 3, 4, 5]); commit(r, { at: "pick" }, []); }, className: "w-full disabled:opacity-40", style: Object.assign(btn(RED, "#fff"), { padding: "12px 0", fontFamily: FD, fontSize: fz(15), letterSpacing: ".15em" }) }, "封好信，出发"),
           letters.length ? h("div", { "data-wk": "runletters", style: { marginTop: 22 } },
-            h("div", { style: { fontFamily: FD, fontSize: fz(14), marginBottom: 8 } }, "收到的回信"),
-            letters.slice().reverse().slice(0, 10).map((L, k) => h("details", { key: k, style: { marginBottom: 8, padding: "8px 11px", borderRadius: 4, background: PAPER, border: "1px solid rgba(47,42,34,.12)" } },
-              h("summary", { style: { fontSize: fz(12.5), cursor: "pointer" } }, (nameOf(L.toId) || "TA") + " 的回信 · " + new Date(L.ts).toLocaleDateString()),
-              h("div", { style: { marginTop: 6, fontFamily: FD, fontSize: fz(13), lineHeight: 1.85, whiteSpace: "pre-wrap" } }, L.text)))) : null)]);
+            h("div", { style: { fontFamily: FD, fontSize: fz(14), marginBottom: 8 } }, "信匣"),
+            h("div", { style: { fontSize: fz(11.5), color: SUB, marginBottom: 8 } }, "一路上收到的明信片、便条、回信都在这儿。"),
+            letters.slice().reverse().slice(0, 40).map((L, k) => h("details", { key: k, "data-wk": "runletterbox", "data-kind": L.kind || "letter", style: { marginBottom: 8, padding: "8px 11px", borderRadius: 4, background: PAPER, border: "1px solid rgba(47,42,34,.12)", borderLeft: "3px solid " + (L.kind === "future" ? GOLD : L.kind && L.kind !== "letter" ? GREEN : RED) } },
+              h("summary", { style: { fontSize: fz(12.5), cursor: "pointer" } }, (nameOf(L.toId) || "TA") + " 的" + (KIND_ZH[L.kind || "letter"] || "信") + (L.title ? "：" + L.title : "") + " · " + new Date(L.ts).toLocaleDateString()),
+              L.sealed ? h("div", { style: { marginTop: 6, fontSize: fz(12.5), color: SUB } }, "🔒 封着的。下一趟出发时才拆得开。")
+                : h("div", { style: { marginTop: 6, fontFamily: FD, fontSize: fz(13), lineHeight: 1.85, whiteSpace: "pre-wrap" } }, (L.q ? "问：" + L.q + "\n答：" + (L.a || "") + "\n\n" : L.mine ? "你写：" + L.mine + "\n\n" : "") + L.text)))) : null)]);
     }
 
     // ── 挑起手卡组 ──
@@ -168,10 +177,49 @@
         h("div", { key: "g", style: { display: "grid", gridTemplateColumns: "1fr", gap: 6 } }, (res.offer || []).map((s, i) => h(Mini, { key: i, s, sub: nameOf(s.charId), onTap: () => { run.deck.push(s); commit(run, { at: "map" }); } }))),
         h("button", { key: "skip", onClick: () => commit(run, { at: "map" }), style: Object.assign(btn("transparent", INK, "rgba(47,42,34,.3)"), { marginTop: 10, width: "100%" }) }, "都不要，接着走")]);
     }
+    // ── 信的事件：叫 TA 写一张，写完给奖励、收进信匣 ──
+    const letterEvent = (ev, who) => {
+      const lv = view.lv || {}, set = p => commit(run, Object.assign({}, view, { lv: Object.assign({}, lv, p) }));
+      const call = async (mode, extra, after) => {
+        if (busy || !onChat) return; setBusy(true);
+        try {
+          const lines = await onChat(run.toId, Object.assign({ mode, text: "", board: RN().summary(run, nameOf), history: chat.slice(-6).map(m => (m.who === "me" ? (meName || "她") : toName) + "：" + m.text).join("\n") }, extra || {}));
+          if (!lines || !lines.length) { toast && toast(toName + " 没写出来，再点一次试试"); return; }
+          after(lines);
+        } catch (e) { toast && toast("没写成：" + ((e && e.message) || e)); }
+        finally { setBusy(false); }
+      };
+      const finish = (lines, i, extra) => { keepLetter(ev.letter, lines, Object.assign({ sealed: ev.letter === "future" }, extra || {})); const msg = RN().letterReward(run, ev.letter, i); commit(run, Object.assign({}, view, { lv: Object.assign({}, lv, { lines, done: msg }) })); };
+      const paper = (lines, sealed) => h("div", { key: "paper", "data-wk": "runpostcard", "data-kind": ev.letter, style: { position: "relative", margin: "4px 0 12px", padding: "16px 16px 14px", borderRadius: 4, background: PAPER, border: "1px solid rgba(47,42,34,.15)", boxShadow: "0 4px 14px rgba(47,42,34,.15)", fontFamily: FD, fontSize: fz(13.5), lineHeight: 1.9, whiteSpace: "pre-wrap", transform: "rotate(-.6deg)" } },
+        h("div", { style: { height: 5, margin: "-16px -16px 12px", background: AIR } }),
+        h("div", { style: { position: "absolute", right: 12, top: 14, width: 36, height: 36, borderRadius: 999, border: "1.5px dashed " + RED, color: RED, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: F, fontSize: fz(9.5), transform: "rotate(-10deg)" } }, KIND_ZH[ev.letter] ? KIND_ZH[ev.letter].slice(0, 2) : "信"),
+        sealed ? "🔒 封好了。下一趟出发时才拆得开。" : lines.join("\n"));
+      const btnBig = (label, fn, dis) => h("button", { key: "b" + label, "data-wk": "runlettergo", onClick: fn, disabled: busy || dis, className: "w-full disabled:opacity-50", style: Object.assign(btn(RED, "#fff"), { padding: "11px 0", marginBottom: 8 }) }, busy ? toName + " 在写…" : label);
+      const cost = ev.cost || 0;
+      const body = lv.done ? [paper(lv.lines, ev.letter === "future"), h("div", { key: "rw", style: { fontSize: fz(12.5), color: GREEN, marginBottom: 10 } }, lv.done), h("button", { key: "go", onClick: () => commit(run, { at: "map" }), className: "w-full", style: btn(INK, PAPER) }, "收好，接着走")]
+        : ev.letter === "postcard" ? [btnBig("翻过来看", () => call("postcard", {}, l => finish(l)))]
+        : ev.letter === "memory" ? [btnBig("投一枚邮花（" + cost + "）", () => { if (run.coins < cost) return toast && toast("邮花不够"); run.coins -= cost; call("memory", {}, l => finish(l)); })]
+        : ev.letter === "future" ? [btnBig("让 " + toName + " 写", () => call("future", {}, l => finish(l)))]
+        : ev.letter === "oneline" ? [h("textarea", { key: "in", value: draft, onChange: e => setDraft(e.target.value), placeholder: "写一句给 " + toName + "…", rows: 2, style: { width: "100%", padding: "8px 10px", borderRadius: 4, border: "1px solid rgba(47,42,34,.25)", background: "#fff", fontSize: fz(13), marginBottom: 8 } }),
+            btnBig("寄出去", () => { const t0 = draft.trim(); if (!t0) return; call("oneline", { text: t0 }, l => { setDraft(""); finish(l, 0, { mine: t0 }); }); }, !draft.trim())]
+        : ev.letter === "ask" ? (lv.q ? [paper([lv.q]), h("textarea", { key: "in", value: draft, onChange: e => setDraft(e.target.value), placeholder: "回答 " + toName + "…", rows: 3, style: { width: "100%", padding: "8px 10px", borderRadius: 4, border: "1px solid rgba(47,42,34,.25)", background: "#fff", fontSize: fz(13), marginBottom: 8 } }),
+              btnBig("把回答寄回去", () => { const a = draft.trim(); if (!a) return; call("answer", { text: a, question: lv.q }, l => { setDraft(""); finish(l, 0, { q: lv.q, a }); }); }, !draft.trim())]
+            : [btnBig("拆开卡片", () => call("ask", {}, l => set({ q: l.join(" ") })))])
+        : (ev.letter === "note" || ev.letter === "swap") ? [h("div", { key: "t", style: { fontSize: fz(12), color: SUB, marginBottom: 6 } }, ev.letter === "note" ? "挑一张，让 " + toName + " 在背面写几句：" : toName + " 想要走哪一张？你挑一张给 TA（送出去就不在卡组里了）："),
+            busy ? h("div", { key: "w", style: { fontSize: fz(12.5), color: SUB, margin: "10px 0" } }, toName + " 在写…") : null,
+            h("div", { key: "g", style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 } }, run.deck.map((s2, i) => h(Mini, { key: i, s: s2, sub: nameOf(s2.charId), onTap: () => { if (busy) return; if (ev.letter === "swap" && run.deck.length <= 4) return toast && toast("卡组只剩 4 张了"); call(ev.letter, { card: cardStory(s2) }, l => finish(l, i, { title: s2.name })); } })))]
+        : [];
+      return page("岔路 · " + who(ev.zh), [
+        h("div", { key: "say", style: { fontFamily: FD, fontSize: fz(14), lineHeight: 1.8, margin: "4px 0 6px" } }, who(ev.say)),
+        h("div", { key: "rwd", style: { fontSize: fz(11.5), color: SUB, marginBottom: 12 } }, "花一次调用 · 写完" + (ev.reward ? "：" + ev.reward : "")),
+        ...body,
+        !lv.done ? h("button", { key: "skip", onClick: () => commit(run, { at: "map" }), style: { marginTop: 6, fontSize: fz(11.5), color: SUB, textDecoration: "underline" } }, "不了，接着走") : null]);
+    };
     // ── 岔路 ──
     if (view.at === "event") {
       const ev = RN().EVENTS.find(e => e.key === view.ev) || RN().EVENTS[0];
       const who = t => String(t).replace(/同行的人|TA/g, toName);
+      if (ev.letter) return letterEvent(ev, who);
       return page("岔路 · " + who(ev.zh), [
         h("div", { key: "say", style: { fontFamily: FD, fontSize: fz(14), lineHeight: 1.8, margin: "4px 0 14px" } }, who(ev.say)),
         view.result ? h("div", { key: "res" }, h("div", { style: { padding: "9px 12px", borderRadius: 4, background: "#fff", fontSize: fz(13), marginBottom: 10 } }, view.result),
@@ -207,9 +255,9 @@
       const ask = async () => {
         if (!onChat || busy) return; setBusy(true);
         try {
-          const lines = await onChat(run.toId, { mode: "letter", text: "", board: RN().summary(run, nameOf), history: chat.slice(-8).map(m => (m.who === "me" ? (meName || "她") : toName) + "：" + m.text).join("\n") });
+          const lines = await onChat(run.toId, { mode: "letter", text: "", cards: run.deck.map(cardStory).join("\n"), board: RN().summary(run, nameOf), history: chat.slice(-8).map(m => (m.who === "me" ? (meName || "她") : toName) + "：" + m.text).join("\n") });
           const text = (lines || []).join("\n");
-          if (text) { const L = load(LETTERS, []); L.push({ toId: run.toId, text, ts: Date.now() }); save(LETTERS, L.slice(-50)); commit(Object.assign(run, { letter: text }), view); }
+          if (text) { keepLetter("letter", lines); commit(Object.assign(run, { letter: text }), view); }
         } catch (e) { toast && toast("回信没写成：" + ((e && e.message) || e)); }
         finally { setBusy(false); }
       };

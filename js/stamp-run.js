@@ -37,7 +37,16 @@
     { key: "dealer", zh: "集邮商人", say: "一个集邮商人盯上了你卡组里的一张票。", opts: [{ zh: "卖给他（随机卖掉一张，+45 邮花）", fx: "sell" }, { zh: "不卖", fx: "none" }] },
     { key: "restamp", zh: "盖歪的邮戳", say: "有张票的邮戳盖歪了，旁边的老邮差说能重盖。", opts: [{ zh: "花 20 邮花请他重盖（一张票升阶两次）", fx: "restamp", cost: 20 }, { zh: "歪就歪吧", fx: "none" }] },
     { key: "tired", zh: "同行的人走累了", say: "TA 说腿酸，走不动了。", opts: [{ zh: "背 TA 一段（信封 -10，拿一件信物）", fx: "carry" }, { zh: "一起慢慢走（信封 +6）", fx: "heal6" }] },
-    { key: "wind2", zh: "风里的信纸", say: "一阵风把一张信纸卷上了天。", opts: [{ zh: "追（一半捡回一张票，一半摔一跤信封 -6）", fx: "chase" }, { zh: "不追了", fx: "none" }] }
+    { key: "wind2", zh: "风里的信纸", say: "一阵风把一张信纸卷上了天。", opts: [{ zh: "追（一半捡回一张票，一半摔一跤信封 -6）", fx: "chase" }, { zh: "不追了", fx: "none" }] },
+    // 信的事件（她 2026-11-08「更想要他给我写信这种意象……有些事件可以花调用和他不同类别的互动」「不用控制次数」）：
+    //   letter 是这一种往来的样子，界面那层去叫 TA 写（花一次调用），写完给游戏奖励，信收进信匣
+    { key: "postcard", letter: "postcard", zh: "驿站寄来的明信片", say: "驿站的人递给你一张明信片，邮戳还是新的——是同行的人提前寄到这儿等你的。", reward: "信封 +8" },
+    { key: "note", letter: "note", zh: "夹在卡里的便条", say: "你翻卡组的时候，发现能在卡背面写字。挑一张，让同行的人在背面写几句。", reward: "那张票升阶" },
+    { key: "memory", letter: "memory", zh: "回忆邮筒", say: "一个旧邮筒，投一枚邮花进去，会吐出一张写着旧事的小卡。", reward: "信封 +10", cost: 10 },
+    { key: "oneline", letter: "oneline", zh: "写一句寄出去", say: "路边有个只收一句话的小邮筒。你写一句给同行的人，TA 会在背面回你。", reward: "+20 邮花" },
+    { key: "ask", letter: "ask", zh: "TA 寄来的问题", say: "同行的人塞给你一张卡片，上面只写了一个问题。", reward: "随机一张票升阶" },
+    { key: "future", letter: "future", zh: "寄给以后的信", say: "有家邮局专收「寄给以后」的信。同行的人说想写一封，封好，下一趟出发时才准你拆。", reward: "一件信物" },
+    { key: "swap", letter: "swap", zh: "交换邮票", say: "同行的人看上了你卡组里的一张票，想要走留个纪念。", reward: "送出那张票，换一件信物" }
   ];
   const PRICE = { card: 40, relic: 80, remove: 50, heal: 30 };
 
@@ -154,7 +163,8 @@
     const ev = pool[Math.floor(R0(run)() * pool.length)]; run.evSeen.push(ev.key); return ev;
   }
   function doEvent(run, ev, oi, cards) {
-    const op = ev.opts[oi]; if (!op) return "";
+    // 信的事件没有选项（要叫 TA 写，界面那层管）；规则这一层被直接叫到时只发奖励
+    const op = ev.opts && ev.opts[oi]; if (!op) return ev.letter ? letterReward(run, ev.letter, 0) || "收到了。" : "";
     const R = R0(run), upRand = () => { const i = Math.floor(R() * run.deck.length); upgrade(run, i); return run.deck[i] ? run.deck[i].name : ""; };
     switch (op.fx) {
       case "wet": run.hp = Math.max(1, run.hp - 6); return "「" + upRand() + "」修好了，还更结实了。";
@@ -210,7 +220,21 @@
       + (run.relics.length ? "；路上捡到的信物：" + run.relics.join("、") : "");
   }
 
-  const API = { ROWS, NODE, TROUBLES, EVENTS, PRICE, newRun, takeStart, reachable, enter, battleFor, afterBattle, addRelic, upgrade, eventFor, doEvent, shopFor, priceOf, buy, rest, summary, cardOffer };
+  // 信的事件写完以后的奖励（花了调用，不让白花）
+  function letterReward(run, kind, i) {
+    const R = R0(run);
+    if (kind === "postcard") { run.hp = Math.min(run.max, run.hp + 8); return "信封 +8。"; }
+    if (kind === "note") { upgrade(run, i); return "「" + (run.deck[i] || {}).name + "」升阶了。"; }
+    if (kind === "memory") { run.hp = Math.min(run.max, run.hp + 10); return "信封 +10。"; }
+    if (kind === "oneline") { run.coins += 20; return "+20 邮花。"; }
+    if (kind === "ask") { const j = Math.floor(R() * run.deck.length); upgrade(run, j); return "「" + (run.deck[j] || {}).name + "」升阶了。"; }
+    if (kind === "future" || kind === "swap") {
+      if (kind === "swap" && run.deck.length > 4 && run.deck[i]) run.deck.splice(i, 1);
+      const k = relicOffer(run, 1)[0]; addRelic(run, k); return k ? "拿到「" + k + "」：" + D().RELICS[k] + "。" : "";
+    }
+    return "";
+  }
+  const API = { letterReward, ROWS, NODE, TROUBLES, EVENTS, PRICE, newRun, takeStart, reachable, enter, battleFor, afterBattle, addRelic, upgrade, eventFor, doEvent, shopFor, priceOf, buy, rest, summary, cardOffer };
   g.StampRun = API;
   if (typeof module !== "undefined" && module.exports) module.exports = API;
 })(typeof window !== "undefined" ? window : globalThis);
