@@ -531,7 +531,7 @@
   function aimOf(st, sd, foe, i, u) {
     const p = powOf(st, u, sd, i), j = targetIn(foe, col(i));
     if (u.role === "投递") return { from: i, to: j, dmg: p, kind: j >= 0 ? "hit" : "env" };
-    if (u.role === "火漆") return j >= 0 ? { from: i, to: j, dmg: Math.floor(p / 2), kind: "hit" } : null;
+    if (u.role === "火漆") return j >= 0 && Math.floor(p / 2) > 0 ? { from: i, to: j, dmg: Math.floor(p / 2), kind: "hit" } : null;
     if (u.role === "邮戳" && u.ink !== "加急" && u.ink !== "受潮") return j >= 0 ? { from: i, to: j, kind: "ink", ink: u.ink } : { from: i, to: -1, dmg: Math.ceil(p / 2), kind: "env" };
     return null;
   }

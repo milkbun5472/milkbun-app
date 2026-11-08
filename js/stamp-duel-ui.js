@@ -147,14 +147,15 @@
   // 明牌时对面要打哪儿（她 2026-11-08「不止是文字说」→ 先画了虚线，她：「这一堆虚线看得出来个鬼」）：
   //   对面只打同一列，不用拉线——直接在要挨打的那格套红框、写「要挨 5」，打信封的合起来写在你信封底下；
   //   对面会出手的那张标「出手 ↓」，这回合才贴的那格写「要贴这儿」。选着手里一张票时空格写「贴这儿打谁」
-  function AimLayer({ host, foeAims, myPrev, tick }) {
+  function AimLayer({ host, foeAims, foeStamps, myPrev, tick }) {
     const [g, setG] = useState(null);
     useLayoutEffect(() => {
       const el = host.current; if (!el) return;
       const run = () => {
         const b = el.getBoundingClientRect(), box = (foe, i) => { const c = el.querySelector('[data-wk="duelboard"][data-foe="' + (foe ? 1 : 0) + '"] [data-slot="' + i + '"]'); if (!c) return null; const r = c.getBoundingClientRect(); return { x: r.left - b.left, y: r.top - b.top, w: r.width, h: r.height }; };
         const hit = {}, src = {}; let env = 0;
-        (foeAims || []).forEach(a => { src[a.from] = a.planned ? "要贴这儿" : "出手 ↓";
+        (foeStamps || []).forEach(x => { src[x.slot] = "要盖章"; });
+        (foeAims || []).forEach(a => { src[a.from] = src[a.from] === "要盖章" ? "盖章 ↓" : a.planned ? "要贴这儿" : "出手 ↓";
           if (a.kind === "env") env += a.dmg || 0; else { const t = hit[a.to] = hit[a.to] || { dmg: 0, inks: [] }; if (a.kind === "ink") t.inks.push(a.ink); else t.dmg += a.dmg || 0; } });
         const meB = el.querySelector('[data-wk="duelboard"][data-foe="0"]'), mr = meB && meB.getBoundingClientRect();
         setG({ w: b.width, h: b.height,
@@ -169,7 +170,7 @@
     if (!g) return null;
     const pill = (bg, txt) => h("span", { style: { display: "inline-block", padding: "0 6px", borderRadius: 999, background: bg, color: "#fff", fontFamily: FD, fontSize: fz(10.5), lineHeight: "18px", whiteSpace: "nowrap", boxShadow: "0 1px 3px rgba(0,0,0,.3)" } }, txt);
     return h("div", { "data-wk": "duelaims", style: { position: "absolute", left: 0, top: 0, width: g.w, height: g.h, pointerEvents: "none", zIndex: 4 } },
-      g.srcs.map((s2, k) => h("div", { key: "s" + k, style: { position: "absolute", left: s2.at.x, top: s2.at.y + s2.at.h - 9, width: s2.at.w, textAlign: "center" } }, pill(s2.txt === "出手 ↓" ? "rgba(178,58,46,.85)" : "rgba(47,42,34,.7)", s2.txt))),
+      g.srcs.map((s2, k) => h("div", { key: "s" + k, style: { position: "absolute", left: s2.at.x, top: s2.at.y + s2.at.h - 9, width: s2.at.w, textAlign: "center" } }, pill(/盖章/.test(s2.txt) ? "#b8862a" : s2.txt === "出手 ↓" ? "rgba(178,58,46,.85)" : "rgba(47,42,34,.7)", s2.txt))),
       g.tags.map((t, k) => h("div", { key: "t" + k, "data-wk": "duelwillhit", style: { position: "absolute", left: t.at.x - 2, top: t.at.y - 2, width: t.at.w + 4, height: t.at.h + 4, borderRadius: 5, border: "2px solid " + RED, animation: "duelPulse 1.4s ease-in-out infinite" } },
         h("div", { style: { position: "absolute", left: 0, right: 0, top: -9, textAlign: "center" } }, pill(RED, [t.t.dmg ? "要挨 " + t.t.dmg : "", t.t.inks.length ? "盖" + t.t.inks.join("、") : ""].filter(Boolean).join(" · "))))),
       g.env ? h("div", { key: "env", "data-wk": "duelwillhit", style: { position: "absolute", left: g.env.x, top: g.env.y - 9, transform: "translateX(-50%)" } }, pill(RED, "信封要挨 " + g.env.n)) : null,
@@ -551,7 +552,7 @@
         h(Envelope, { sd: them, foe: true, sel: -1, onTap: () => {}, cardOf, ownerOf, useThumb, fx, onLong: openInfo }),
         h("div", { className: "flex items-center", style: { gap: 8, margin: "10px 0", color: SUB, fontSize: fz(10.5) } }, h("div", { className: "flex-1", style: { borderTop: "1px dashed rgba(47,42,34,.3)" } }), fx && fx.from && fx.text ? h("span", { "data-wk": "duelcaption", style: { color: fx.from.who === "foe" ? RED : GREEN, fontFamily: FD, fontSize: fz(12.5) } }, (fx.from.who === "foe" ? foeName + "：" : "我：") + fx.text) : ev ? h("span", { style: { color: GREEN } }, "公告 · " + ev + "：" + D().EVENTS[ev]) : "前排对前排", h("div", { className: "flex-1", style: { borderTop: "1px dashed rgba(47,42,34,.3)" } })),
         h(Envelope, { sd: me, foe: false, sel: boardSel, onTap: meSlot, armed: handSel >= 0, cardOf, ownerOf, useThumb, fx, onLong: openInfo }),
-        !over && !fx ? h(AimLayer, { host: boardsEl, foeAims: st.blind ? [] : D().aims(st, "foe"), myPrev: handSel >= 0 ? me.board.map((u, i) => u ? null : Object.assign({ slot: i }, D().previewPlace(st, "me", handSel, i) || {})).filter(x => x && x.combo) : [],
+        !over && !fx ? h(AimLayer, { host: boardsEl, foeAims: st.blind ? [] : D().aims(st, "foe"), foeStamps: st.blind ? [] : (it.stamp || []), myPrev: handSel >= 0 ? me.board.map((u, i) => u ? null : Object.assign({ slot: i }, D().previewPlace(st, "me", handSel, i) || {})).filter(x => x && x.combo) : [],
           tick: st.turn + "|" + handSel + "|" + me.board.map(u => u ? u.uid : 0).join(",") + "|" + them.board.map(u => u ? u.uid : 0).join(",") + "|" + me.hand.length }) : null),
         Seal(meName || "我", me.hp, me.max || D().ENVELOPE_HP, GREEN),
         // 选中场上一张：盖章 / 撕下；点旁边空格＝挪过去
