@@ -46,10 +46,17 @@
     雨渍: { turns: 2, note: "攻击 -2" },
     退回: { turns: 1, note: "下一次行动跳过" },
     受潮: { turns: 1, note: "对面下回合胶水 -1" },
-    加急: { turns: 1, note: "下一次行动做两遍" }
+    加急: { turns: 1, note: "下一次行动做两遍" },
+    // 她 2026-11-08「盖戳只有下雨的是不是不够」：再加四种
+    折角: { turns: 2, note: "挨打多掉 2" },
+    欠资: { turns: 2, note: "每回合开头掉 2 血（不会掉到 0）" },
+    封口: { turns: 2, note: "盖不了章，章也不攒" },
+    挂号: { turns: 0, note: "给旁边一张自己的票加 3 层护（盖在自己人身上）" }
   };
-  const MARK_OF_INK = ["雨渍", "退回", "受潮", "加急"];
-  const TERRAIN = { 邮筒: "贴着票时每回合多 1 胶水", 雨棚: "上面的票不会被盖邮戳", 破损: "这一格不能贴" };
+  const MARK_OF_INK = ["雨渍", "退回", "受潮", "加急", "折角", "欠资", "封口", "挂号"];
+  const SELF_INK = { 加急: 1, 受潮: 1, 挂号: 1 };   // 不盖在对面票上的那几种
+  // 原来的「雨棚」改成通用的「护封」：上面的票什么戳都盖不上
+  const TERRAIN = { 邮筒: "贴着票时每回合多 1 胶水", 护封: "上面的票不会被盖邮戳（什么戳都不行）", 破损: "这一格不能贴" };
   const EVENTS = {
     涨价: "这回合贴票面值都 +1",
     大雨: "这回合所有攻击 -1",
@@ -191,7 +198,7 @@
 
   function terrainFor(seed) {
     const R = rng(seed), cells = shuffle([...Array(SLOTS).keys()], R), t = new Array(SLOTS).fill("");
-    t[cells[0]] = "邮筒"; t[cells[1]] = "雨棚"; if (R() < 0.6) t[cells[2]] = "破损";
+    t[cells[0]] = "邮筒"; t[cells[1]] = "护封"; if (R() < 0.6) t[cells[2]] = "破损";
     return t;
   }
   function side(deck, seed, hp, max) {
@@ -251,6 +258,7 @@
       if (br === "温柔") sd.board.forEach(u => { if (u) u.hp = Math.min(u.maxHp, u.hp + 2); });
       if (br === "默契") sd.board.forEach(u => { if (u && u.charge < u.need) u.charge++; });
     }
+    sd.board.forEach(u => { if (u && u.marks && u.marks.欠资) u.hp = Math.max(1, u.hp - 2); });
     // 护会散（她 2026-11-08「为啥他一直打掉我但是我打不掉他」：火漆每回合加护、从不掉，几回合就叠到十层，
     //   前排成了打不动的墙）：每回合开头先掉一半，再加这回合的
     sd.board.forEach(u => { if (u && u.shield && !(u.role === "火漆" && has(st, who, "不散的火漆"))) u.shield = Math.floor(u.shield / 2); });
@@ -463,6 +471,7 @@
   function stampRaw0(st, who, slot) {
     const sd = st[who], foeWho = other(who), foe = st[foeWho], u = sd.board[slot];
     if (st.over || !u) return { ok: false, why: "这一格是空的" };
+    if (u.marks && u.marks.封口) return { ok: false, why: "被盖了「封口」，这两回合盖不了章" };
     if (u.charge < u.need) return { ok: false, why: "章还没攒满" };
     if (sd.postage < STAMP_COST) return { ok: false, why: "胶水不够" };
     sd.postage -= STAMP_COST; u.charge = 0; st.stamping = true;
@@ -489,8 +498,8 @@
     else if (k === "翻信箱") drawCards(sd, Math.round(2 * x * (eventNow(st) === "集邮节" ? 2 : 1)), st.seed + st.turn * 13 + slot);
     else if (k === "截胶") { foe.owed = Math.min(3, foe.owed + (big ? 2 : 1)); sd.postage += 1; }
     else if (k === "充章") adj(slot).forEach(i => { const v = sd.board[i]; if (v) v.charge = Math.min(v.need, v.charge + (big ? 2 : 1)); });
-    else if (k === "盖一张") { if (j >= 0) mark(foe, j, u.ink === "加急" ? "退回" : u.ink, st); }
-    else if (k === "盖一列") foeCol.forEach(i => mark(foe, i, u.ink === "加急" ? "退回" : u.ink, st));
+    else if (k === "盖一张") { if (j >= 0) mark(foe, j, SELF_INK[u.ink] ? "退回" : u.ink, st); }
+    else if (k === "盖一列") foeCol.forEach(i => mark(foe, i, SELF_INK[u.ink] ? "退回" : u.ink, st));
     else if (k === "改寄") { if (j >= 0) { const back = [SIZE - 1, 1].map(r => r * SIZE + c).find(i => i > j && !foe.board[i] && foe.terrain[i] !== "破损"); if (back != null) { foe.board[back] = foe.board[j]; foe.board[j] = null; say(st, who, "把对面的「" + foe.board[back].name + "」挤到后面去了", { kind: "ink", slot: back, ink: "改寄" }); } else hitUnit(st, foeWho, j, p, u.name, u); } }
     else if (k === "封手") foe.bonusDraw -= big ? 2 : 1;
     checkOver(st);
@@ -500,7 +509,7 @@
   function mark(sd, i, m, st) {
     const u = sd.board[i]; if (!u || !MARKS[m]) return;
     if (m !== "加急") {
-      if (sd.terrain[i] === "雨棚" || u.trait === "沉默" || (m === "退回" && u.trait === "冷静")) return;
+      if (sd.terrain[i] === "护封" || sd.terrain[i] === "雨棚" || u.trait === "沉默" || (m === "退回" && u.trait === "冷静")) return;
       if (st && bondOn(st, sd, u) === "冷淡") return;
       if (st && sd === st.foe && st.bossRule === "冷淡") return;
     }
@@ -558,6 +567,7 @@
   function hitUnit(st, who, i, n, by, att) {
     const sd = st[who], u = sd.board[i]; if (!u || n <= 0) return;
     if (u.trait === "莽撞") n += 1;
+    if (u.marks && u.marks.折角) n += 2;
     // 讨伐的封条：封着只掉 1；邮戳或盖章打到就撕开，接下来两回合虚弱、挨打翻倍
     if (st.raid && sd === st.foe) {
       if (u.seal) { if ((att && att.role === "邮戳") || st.stamping) { u.seal = false; u.weak = 2; say(st, other(who), "「" + u.name + "」的封条撕开了，虚弱两回合", { kind: "ink", slot: i }); } else n = 1; }
@@ -601,6 +611,7 @@
       else if (u.role === "邮戳") {
         if (u.ink === "加急") { const k = adj(i).find(x => sd.board[x] && sd.board[x].role === "投递"); if (k != null) sd.board[k].marks.加急 = 1; }
         else if (u.ink === "受潮") foe.owed = Math.min(2, foe.owed + 1);
+        else if (u.ink === "挂号") { const k = adj(i).filter(x => sd.board[x]).sort((a, b) => sd.board[a].hp - sd.board[b].hp)[0]; if (k != null) sd.board[k].shield += 3; }
         else if (j >= 0) mark(foe, j, u.ink, st);
         side(Math.ceil(p * ROLE_HIT.邮戳));
         say(st, who, u.name + " 盖了「" + u.ink + "」", { kind: "ink", slot: i, ink: u.ink });
@@ -609,7 +620,7 @@
     }
     u.first = false;
     if (u.trait === "治愈" && sd.board[i] === u) u.hp = Math.min(u.maxHp, u.hp + 2);
-    if (u.charge < u.need) u.charge++;
+    if (u.charge < u.need && !u.marks.封口) u.charge++;
   }
   function tickMarks(sd) { sd.board.forEach(u => { if (!u) return; Object.keys(u.marks).forEach(m => { if (--u.marks[m] <= 0) delete u.marks[m]; }); }); }
   function resolveSide(st, who) { for (let i = 0; i < SLOTS && !st.over; i++) withActor(st, who, i, () => act(st, who, i)); tickMarks(st[who]); }
@@ -661,7 +672,7 @@
     const p = powOf(st, u, sd, i), j = targetIn(foe, col(i));
     if (u.role === "投递") return { from: i, to: j, dmg: p, kind: j >= 0 ? "hit" : "env" };
     const d = Math.ceil(p * (ROLE_HIT[u.role] || 0)); if (d <= 0) return null;
-    if (u.role === "邮戳" && j >= 0 && u.ink !== "加急" && u.ink !== "受潮") return { from: i, to: j, dmg: d, kind: "ink", ink: u.ink };
+    if (u.role === "邮戳" && j >= 0 && !SELF_INK[u.ink]) return { from: i, to: j, dmg: d, kind: "ink", ink: u.ink };
     return { from: i, to: j, dmg: d, kind: j >= 0 ? "hit" : "env" };
   }
   function aims(st, who) {
@@ -688,7 +699,7 @@
       else if (u.role === "集邮") out[i] = "攒胶水";
       else if (u.role === "补票") out[i] = "补血";
       else if (u.role === "火漆") out[i] = "加护";
-      else if (u.role === "邮戳") out[i] = u.ink === "加急" ? "给旁边加急" : u.ink === "受潮" ? "让对面受潮" : "";
+      else if (u.role === "邮戳") out[i] = u.ink === "加急" ? "给旁边加急" : u.ink === "受潮" ? "让对面受潮" : u.ink === "挂号" ? "给旁边挂号" : "";
     });
     return out;
   }

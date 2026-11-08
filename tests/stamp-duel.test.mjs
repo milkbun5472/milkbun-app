@@ -222,3 +222,11 @@ test("讨伐：总局打不死、记伤害、封条只掉 1、邮戳撕开后虚
   let sealed = 0; for (let t = 0; t < 6 && !st.over; t++) { sealed += st.foe.hand.filter(u => u.seal).length; D.endTurn(st); }
   assert.ok(sealed > 0);
 });
+test("戳多了四种、护封格挡所有戳：折角多掉、欠资掉血、封口盖不了章", () => {
+  ["折角", "欠资", "封口", "挂号"].forEach(k => assert.ok(D.MARKS[k], k));
+  assert.ok(D.TERRAIN.护封 && !D.TERRAIN.雨棚);
+  const mk = c => Array.from({ length: 12 }, (_, i) => Object.assign(D.stampOf({ id: c + i, rarity: "R", lv: 5, text: { name: "x" } }), { role: "火漆", charId: c }));
+  const st = D.newDuel(mk("a"), mk("b"), 4, {}); const f = st.me.terrain.findIndex(t => !t); D.place(st, "me", 0, f);
+  const u = st.me.board[f]; u.charge = u.need; u.marks.封口 = 2; st.me.postage = 5;
+  assert.equal(D.stamp(st, "me", f).ok, false);
+});
