@@ -1,12 +1,13 @@
 import * as T from 'three';
-import {NPC_COSTUMES} from './npc-appearance.mjs?v=fg-9dea4455abfcfc94';
-import {createNpcTailoring} from './npc-tailoring.mjs?v=fg-9dea4455abfcfc94';
+import {NPC_COSTUMES} from './npc-appearance.mjs?v=fg-c15673782bd5ef78';
+import {createNpcTailoring} from './npc-tailoring.mjs?v=fg-c15673782bd5ef78';
+import {CLOTH_WAIST,CLOTH_HEM} from './npc-fit.mjs?v=fg-c15673782bd5ef78';
 // Each identity is assembled from sewn, shaped pattern pieces. The front and
 // back are real cloth surfaces; only their weave and small prints are painted.
 export function makeNpcCostume(model,style='postcard'){
  const d=NPC_COSTUMES[style]||NPC_COSTUMES.postcard,k=createNpcTailoring(model,style),{loft,panel,line,ball,box,button,pocket,collar,sleeve,trousers,shoes,headBall,headLine,headMesh}=k;
  const cream='#ece0c9',stitch='#d7c6a7',brass='#b49a65';
- const torso=(name,color,{open=false,long=false,pattern='linen',loose=0}={})=>k.fitted(name,color,{minY:long?.235:.335,maxY:.704,maxArm:.42,open,offset:.004+(open?.003:0)+loose*.15,pattern});
+ const torso=(name,color,{open=false,long=false,pattern='linen',loose=0}={})=>k.fitted(name,color,{minY:long?.235:CLOTH_HEM,maxY:.704,maxArm:.42,open,offset:.004+(open?.003:0)+loose*.15,pattern,drapeFrom:CLOTH_WAIST});
  function blouse(color=cream,{pattern='linen',short=false,puff=false,arms=true}={}){torso('ShirtBody',color,{pattern});if(arms)for(const s of [-1,1])sleeve(s,color,{pattern,short,puff});}
  function placket(color,z=.139){box('ButtonPlacket',0,.495,z,.026,.31,.007,color,{radius:.003});for(const y of [.39,.46,.53,.60])button(0,y,z+.011,'#d5c5a3',.004);}
  function lapels(color){for(const side of [-1,1]){panel('NotchedLapel',[[side*.033,.683],[side*.105,.642],[side*.078,.604],[side*.118,.58],[side*.024,.536],[side*.044,.616]],color,{z:.109,bulge:.03,thickness:.005});line('LapelTopstitch',[[side*.05,.672,.125],[side*.092,.64,.135],[side*.065,.611,.148],[side*.096,.584,.151],[side*.039,.553,.154]],stitch,.001);}}

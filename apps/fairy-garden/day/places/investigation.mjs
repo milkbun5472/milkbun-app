@@ -1,6 +1,6 @@
-import {deskWorkSurfaces} from '../work-contacts.mjs?v=fg-9dea4455abfcfc94';
-import {createRoomKit,roomObstacles,roomSeat,finishRoom} from './room-kit.mjs?v=fg-9dea4455abfcfc94';
-import {computer,notebook,cabinet} from './work-room-kit.mjs?v=fg-9dea4455abfcfc94';
+import {deskWorkSurfaces} from '../work-contacts.mjs?v=fg-c15673782bd5ef78';
+import {createRoomKit,roomObstacles,roomSeat,finishRoom} from './room-kit.mjs?v=fg-c15673782bd5ef78';
+import {computer,notebook,cabinet} from './work-room-kit.mjs?v=fg-c15673782bd5ef78';
 const FLOOR=.08,SIZE={w:14,d:11};
 const furniture=[
  {id:'clue-wall',kind:'panel',x:-3.9,z:-5.18,w:4.9,d:.17,work:{clues:{x:.03,y:1.08,z:.12}}},
