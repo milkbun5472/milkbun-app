@@ -49,7 +49,7 @@ test("带谁上场、长按看底细、她自己那一下也慢放", () => {
 test("对局页里有人话版「怎么玩」：右上角随时点开，整页", () => {
   assert.match(ui, /const GUIDE = \[/);
   assert.match(ui, /if \(guide\) return shell\(/);
-  assert.ok((ui.match(/right: guideBtn/g) || []).length === 2);
+  assert.ok((ui.match(/right: guideBtn/g) || []).length >= 3);
   assert.match(ts, /"duelguide"/);
 });
 test("跟 TA 聊时带上两边信封上的票和卡上那句；长按不弹系统菜单", () => {
@@ -59,7 +59,7 @@ test("跟 TA 聊时带上两边信封上的票和卡上那句；长按不弹系�
 });
 test("新手教学关：开局页能进、九步教练条、不存档；对面会说话、有打法；能跳过动画", () => {
   assert.match(ui, /const TUT = \[/);
-  assert.match(ui, /"data-wk": "duelturorial", onClick: startTut/);
+  assert.match(ui, /modeCard\("duelturorial", GREEN, "新手教学关"/);
   assert.match(ui, /\(x && \(x\.tutorial \|\| x\.run\)\) \|\| runBattle\) return;/);
   assert.match(ui, /"data-wk": "duelsay"/);
   assert.match(ui, /"data-wk": "duelskip", onClick: skip/);
@@ -95,4 +95,9 @@ test("跟聊天连着：战报卡发进聊天、TA 发对局邀请、点卡带�
   // 战报卡点完不替 TA 开口（施工规则/wait-for-her.md）
   const i = app.indexOf("const duelReport = "), body = app.slice(i, i + 600);
   assert.doesNotMatch(body, /replyNow|runProbe|callAI/);
+});
+test("点对战先挑玩法：对局／远信／新手教学关，挑了对局再进设定；从聊天进来直接到对局", () => {
+  assert.match(ui, /if \(!st && !mode\) return shell\(/);
+  assert.match(ui, /useState\(\(\) => \(preset \|\| runBattle\) \? "duel" : ""\)/);
+  for (const k of ["duelmodeduel", "duelgorun", "duelturorial"]) assert.ok(ui.includes('"' + k + '"'), k);
 });

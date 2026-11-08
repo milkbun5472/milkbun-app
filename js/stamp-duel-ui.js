@@ -169,6 +169,8 @@
       if (Math.abs(el.scrollTop - keepY.current) > 4) el.scrollTop = keepY.current;
     });
     const [info, setInfo] = useState(null), [guide, setGuide] = useState(false);
+    // 先挑玩法（她 2026-11-08「点对战先出个选择界面：对局模式还是远信模式，再选设定」）；从聊天里点进来、远信里打仗的直接跳过
+    const [mode, setMode] = useState(() => (preset || runBattle) ? "duel" : "");
     const guideBtn = h("button", { "data-wk": "duelguidebtn", onClick: () => setGuide(true), className: "active:opacity-60", style: { padding: "4px 8px", color: INK, fontFamily: F, fontSize: fz(12.5) } }, "怎么玩");
     const openInfo = (u, foe, terrain) => { setInfo({ u, foe, terrain }); if (tutSeen && tutSeen.current) tutSeen.current.infoSeen = true; };
     const [core, setCore] = useState([]);
@@ -248,9 +250,24 @@
         GUIDE.map((sec, k) => h("div", { key: k, style: { marginBottom: 16 } },
           h("div", { style: { fontFamily: FD, fontSize: fz(15), marginBottom: 4, color: k === 0 ? RED : INK } }, sec[0]),
           sec.slice(1).map((line, j) => h("div", { key: j, style: { paddingLeft: 12, position: "relative" } }, h("span", { style: { position: "absolute", left: 0, color: SUB } }, "·"), line)))))]);
+    // ── 先挑玩法 ──
+    const modeCard = (wk, color, title, sub, desc, onTap) => h("button", { "data-wk": wk, onClick: onTap, className: "w-full text-left active:scale-[.99]",
+      style: { display: "block", marginBottom: 14, padding: 0, borderRadius: 6, overflow: "hidden", background: PAPER, boxShadow: "0 3px 10px rgba(47,42,34,.18)", border: "1px solid " + color + "55", color: INK } },
+      h("div", { style: { height: 6, background: AIRMAIL } }),
+      h("div", { style: { position: "relative", padding: "14px 16px 14px" } },
+        h("div", { style: { position: "absolute", right: 14, top: 12, width: 42, height: 42, borderRadius: 999, background: "radial-gradient(circle at 35% 30%, " + color + "cc, " + color + ")", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: FD, fontSize: fz(12), transform: "rotate(-8deg)", boxShadow: "0 2px 4px rgba(0,0,0,.25)" } }, sub),
+        h("div", { style: { fontFamily: FD, fontSize: fz(18), color, marginRight: 52 } }, title),
+        h("div", { style: { fontSize: fz(12), color: SUB, lineHeight: 1.7, marginTop: 4, marginRight: 40 } }, desc)));
+    if (!st && !mode) return shell([
+      h(Head, { key: "hd", zh: "对战", bg: "transparent", ink: INK, onBack, right: guideBtn }),
+      h("div", { key: "bd", "data-wk": "duelmodes", className: "flex-1 min-h-0 overflow-y-auto px-5", style: { fontFamily: F, color: INK, paddingTop: 6, paddingBottom: 24 } },
+        h("div", { style: { fontSize: fz(12), color: SUB, margin: "0 0 14px" } }, "拿邮票册里的卡来打。先挑一种玩法："),
+        modeCard("duelmodeduel", RED, "对局", "对局", "跟一个人面对面打一把：挑对手、带谁上场、彩头、难度、明牌还是盲打。能连打几把，打完让 TA 记得，或者把战报发进聊天。" + (saved ? "（有一把没打完，进去能接着打）" : ""), () => setMode("duel")),
+        onRun ? modeCard("duelgorun", "#b8862a", "远信", "远信", "给一个人寄封信，一路打过去：六站路线、路上的麻烦和拦信的人、邮局、驿站、信物。信封血不回满，送到了 TA 会写回信。", onRun) : null,
+        modeCard("duelturorial", GREEN, "新手教学关", "教学", "第一次玩先来这儿：一把练习局，一步步教贴票、寄出、盖章、长按看底细、四方连。随时能回来再玩，不花调用。", startTut))]);
     // ── 开局前：挑对手、明牌还是盲打 ──
     if (!st) return shell([
-      h(Head, { key: "hd", zh: "对局", bg: "transparent", ink: INK, onBack, right: guideBtn }),
+      h(Head, { key: "hd", zh: "对局", bg: "transparent", ink: INK, onBack: preset ? onBack : () => setMode(""), right: guideBtn }),
       h("div", { key: "bd", className: "flex-1 min-h-0 overflow-y-auto px-5", style: { fontFamily: F, color: INK, paddingBottom: 24 } },
         h("div", { style: { fontSize: fz(12), color: SUB, lineHeight: 1.7, margin: "2px 0 14px" } }, "每局从你的收藏里随机抽 12 张。对面用 TA 自己的卡，加上跟 TA 有关系的人的卡；不够的用普通邮票补。不花调用。"),
         saved ? h("div", { "data-wk": "duelresume", style: { marginBottom: 16, padding: "10px 12px", borderRadius: 4, border: "1px dashed " + RED, background: "rgba(178,58,46,.05)" } },
@@ -258,12 +275,6 @@
           h("div", { className: "flex", style: { gap: 8 } },
             h("button", { onClick: resume, className: "flex-1", style: btn(RED, "#fff") }, "接着打"),
             h("button", { onClick: () => { if (typeof requestAppConfirm === "function") requestAppConfirm("放弃这一把？", "放弃了就接不回来了。", drop, "放弃"); else drop(); }, className: "flex-1", style: btn("transparent", INK, INK) }, "放弃"))) : null,
-        onRun ? h("button", { "data-wk": "duelgorun", onClick: onRun, className: "w-full text-left active:opacity-80", style: { marginBottom: 10, padding: "10px 12px", borderRadius: 4, border: "1px solid " + RED, background: "rgba(178,58,46,.06)", color: INK } },
-          h("div", { style: { fontFamily: FD, fontSize: fz(14), color: RED } }, "远信 · 一趟送信的路"),
-          h("div", { style: { fontSize: fz(11.5), color: SUB, marginTop: 2 } }, "给一个人寄封信，一路打过去：选路线、捡信物、攒卡组，信封血不回满。送到了 TA 会写回信。")) : null,
-        h("button", { "data-wk": "duelturorial", onClick: startTut, className: "w-full text-left active:opacity-80", style: { marginBottom: 16, padding: "10px 12px", borderRadius: 4, border: "1px solid " + GREEN, background: "rgba(79,122,102,.08)", color: INK } },
-          h("div", { style: { fontFamily: FD, fontSize: fz(14), color: GREEN } }, "新手教学关"),
-          h("div", { style: { fontSize: fz(11.5), color: SUB, marginTop: 2 } }, "一把练习局，一步一步教你贴票、寄出、盖章、四方连。随时能回来再玩，不花调用、不进记忆。")),
         h("div", { style: { fontFamily: FD, fontSize: fz(14), marginBottom: 4 } }, "带谁上场"),
         h("div", { style: { fontSize: fz(11.5), color: SUB, marginBottom: 8 } }, "最多挑两个人：卡组三分之二从他们的卡里抽，好凑连张、四方连和羁绊。不挑就全随机。"),
         h("div", { className: "flex flex-wrap", style: { gap: 8, marginBottom: 18 } }, (characters || []).filter(c => (cards || []).some(x => x.charId === c.id)).map(c => {

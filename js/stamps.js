@@ -1257,7 +1257,7 @@
       h(Head, { zh: "邮票册", bg: "transparent", ink: "#2f2a22", onBack,
         right: h("div", { className: "flex items-center", style: { gap: 4 } },
           // 对局（她 2026-11-07）：拿收藏里的卡跟 TA 打，规则在 js/stamp-duel.js
-          h("button", { "data-wk": "stampgoduel", onClick: () => setTab("duel"), className: "active:opacity-60", style: { padding: "6px 8px", color: "#2f2a22", fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))" } }, "对局"),
+          h("button", { "data-wk": "stampgoduel", onClick: () => setTab("duel"), className: "active:opacity-60", style: { padding: "6px 8px", color: "#2f2a22", fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))" } }, "对战"),
           h("button", { "data-wk": "stampgoalbum", onClick: () => setTab("album"), className: "active:opacity-60", style: { padding: "6px 8px", color: "#2f2a22", fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))" } }, "册子"),
           h("button", { "data-wk": "stampgocfg", onClick: () => setCfg(true), className: "active:opacity-60", style: { padding: "6px 8px", color: "#2f2a22", fontFamily: F_BODY, fontSize: "calc(16px * var(--app-fs, 1))" } }, "⋯")) }),
       h("div", { className: "flex justify-end flex-wrap px-4 shrink-0", style: { gap: 6 } },
