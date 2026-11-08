@@ -311,3 +311,10 @@ test("小店接上卡：橱窗按稀有度加收入、信格多两格、工牌�
   assert.ok(D.shopMul({ decor: [], badge: { 柜台: "a" } }, { 柜台: "x" }, per) > D.shopMul({ decor: [] }, { 柜台: "x" }, per));
   const cs = D.shopCustomers({ day: 2, decor: [] }, [], 3, ["x", "y"]); assert.ok(cs.some(c => c.wantChar));
 });
+test("小店装修：每月两样限定、买过的能翻新到三级、翻新加成更多", () => {
+  for (let m = 1; m <= 12; m++) assert.equal(D.SHOP.MONTHLY[m].length, 2);
+  const per = () => "", s1 = { decor: ["暖黄的吊灯"], decorLv: {} }, s2 = { decor: ["暖黄的吊灯"], decorLv: { 暖黄的吊灯: 3 } };
+  assert.ok(D.shopMul(s2, {}, per) > D.shopMul(s1, {}, per));
+  assert.equal(D.shopUpPrice(s1, "暖黄的吊灯"), 120); assert.equal(D.shopUpPrice(s2, "暖黄的吊灯"), 0);
+  assert.ok(D.shopDecorOf("南瓜灯").month === 10);
+});

@@ -235,7 +235,7 @@ test("剧情闯关：挑人挑开头、一章一写、迎战、回故事挑路�
   assert.match(app, /if \(d\.mode === "storych" \|\| d\.mode === "storyend"\) \{/);
 });
 test("邮局小店页和游戏室改名：排班、开门、招待、打一局、打烊一天一次调用不进记忆", () => {
-  assert.match(ui, /zh: "游戏室"/);
+  assert.match(ui, /zh: "集邮社"/);
   assert.match(ui, /modeTile\("duelmodeshop"/);
   assert.match(ui, /onChat\(onDuty\[0\], \{ mode: "shopclose"/);
   assert.match(ui, /onChat\(c\.charId, \{ mode: "shopmeet"/);

@@ -1258,9 +1258,9 @@
         right: h("div", { className: "flex items-center", style: { gap: 4 } },
           // 对局（她 2026-11-07）：拿收藏里的卡跟 TA 打，规则在 js/stamp-duel.js
           // 对战入口做成一枚红邮票（她 2026-11-08「1 吧」：原来角上一行小字找不到）
-          h("button", { "data-wk": "stampgoduel", onClick: () => setTab("duel"), className: "active:scale-95", "aria-label": "游戏室", style: { marginRight: 4, padding: 3, background: "radial-gradient(circle at 3px 3px, transparent 2px, #fbf6ea 2.2px) -3px -3px / 6px 6px", transform: "rotate(-4deg)", filter: "drop-shadow(0 2px 3px rgba(47,42,34,.3))" } },
+          h("button", { "data-wk": "stampgoduel", onClick: () => setTab("duel"), className: "active:scale-95", "aria-label": "集邮社", style: { marginRight: 4, padding: 3, background: "radial-gradient(circle at 3px 3px, transparent 2px, #fbf6ea 2.2px) -3px -3px / 6px 6px", transform: "rotate(-4deg)", filter: "drop-shadow(0 2px 3px rgba(47,42,34,.3))" } },
             h("span", { style: { display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", width: 40, height: 34, background: "linear-gradient(160deg, #c4473a, #9c2e24)", color: "#fff", fontFamily: F_BODY, lineHeight: 1.1 } },
-              h("span", { style: { fontSize: "calc(13px * var(--app-fs, 1))", letterSpacing: ".1em" } }, "游戏"), h("span", { style: { fontSize: "calc(7.5px * var(--app-fs, 1))", opacity: .8 } }, "游戏室"))),
+              h("span", { style: { fontSize: "calc(13px * var(--app-fs, 1))", letterSpacing: ".1em" } }, "集邮"), h("span", { style: { fontSize: "calc(7.5px * var(--app-fs, 1))", opacity: .8 } }, "集邮社"))),
           h("button", { "data-wk": "stampgoalbum", onClick: () => setTab("album"), className: "active:opacity-60", style: { padding: "6px 8px", color: "#2f2a22", fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))" } }, "册子"),
           h("button", { "data-wk": "stampgocfg", onClick: () => setCfg(true), className: "active:opacity-60", style: { padding: "6px 8px", color: "#2f2a22", fontFamily: F_BODY, fontSize: "calc(16px * var(--app-fs, 1))" } }, "⋯")) }),
       h("div", { className: "flex justify-end flex-wrap px-4 shrink-0", style: { gap: 6 } },
