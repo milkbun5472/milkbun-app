@@ -1501,6 +1501,7 @@
 
     // 静默把本地存档推到云端（未登录=访客则不做；离线报错则忽略，下次变动再试）
     async autoPush() {
+      if (typeof window !== "undefined" && window.__qqFrozen) return;   // 停写的那一份不往云上推旧东西
       if (!client) return;
       if (!this.localMeaningful()) return; // 空壳绝不自动上云（手动推送在设置里另有确认）
       if (pushInFlight) { pushAgain = true; return pushInFlight; }
