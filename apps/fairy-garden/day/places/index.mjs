@@ -1,10 +1,10 @@
 import * as T from 'three';
-import {DAY_PLACES} from './maps.mjs?v=fg-b149ac3dbf94ecd5';
-import {PLACE_MODULES,placeModules} from './modules.mjs?v=fg-b149ac3dbf94ecd5';
+import {DAY_PLACES} from './maps.mjs?v=fg-9dea4455abfcfc94';
+import {PLACE_MODULES,placeModules} from './modules.mjs?v=fg-9dea4455abfcfc94';
 export {DAY_PLACES};
 export const DAY_FACTORIES=Object.fromEntries(Object.entries(PLACE_MODULES).map(([id,p])=>[id,async options=>{
  const mod=await placeModules.load(id),view=mod[p.create](options);
- const {applyProfessionalView}=await import('../professional-view.mjs?v=fg-b149ac3dbf94ecd5');
+ const {applyProfessionalView}=await import('../professional-view.mjs?v=fg-9dea4455abfcfc94');
  return applyProfessionalView(view,id,options);
 }]));
 // Registration needs only the light map data; geometry loads when a place is entered.

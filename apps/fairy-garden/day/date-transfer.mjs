@@ -1,5 +1,5 @@
-import {findPath,walkable,segmentClear,floorHeight} from '../world.mjs?v=fg-b149ac3dbf94ecd5';
-import {stepRoute} from '../locomotion.mjs?v=fg-b149ac3dbf94ecd5';
+import {findPath,walkable,segmentClear,floorHeight} from '../world.mjs?v=fg-9dea4455abfcfc94';
+import {stepRoute} from '../locomotion.mjs?v=fg-9dea4455abfcfc94';
 const gap=(a,b)=>Math.hypot(a.x-b.x,a.z-b.z);
 export function transferPlan(map,from){
  const id=map.id||map.renderer,a={...map.spawn},aRoute=findPath(from.a,a,id,[{...from.b,r:Math.min(.72,gap(from.a,from.b)*.85)}]);if(!aRoute)return null;
