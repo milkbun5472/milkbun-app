@@ -46,3 +46,9 @@ test("带谁上场、长按看底细、她自己那一下也慢放", () => {
   assert.match(ui, /"data-wk": "duelinfo"/);
   assert.match(ui, /const doMine = fn =>/);
 });
+test("对局页里有人话版「怎么玩」：右上角随时点开，整页", () => {
+  assert.match(ui, /const GUIDE = \[/);
+  assert.match(ui, /if \(guide\) return shell\(/);
+  assert.ok((ui.match(/right: guideBtn/g) || []).length === 2);
+  assert.match(ts, /"duelguide"/);
+});

@@ -11,6 +11,19 @@
   const RC = { R: "#5a5248", SR: "#3f6fb0", SSR: "#c8962e" };
   const ROLE_COLOR = { 投递: "#b23a2e", 火漆: "#8a3a4a", 补票: "#4f7a66", 集邮: "#3f6fb0", 邮戳: "#6a4f8a" };
   const ROLE_TIP = { 投递: "打同一列对面最前面那张，空着就打信封", 火漆: "厚，每回合给自己封一层", 补票: "给最残的那张回血、擦掉雨渍和退回", 集邮: "攒胶水、多抽牌", 邮戳: "给对面同一列盖戳" };
+  const GUIDE = [
+    ["一句话", "你和 TA 各有一个信封。轮流往自己信封上贴邮票，贴上的票会自己去打对面。谁的信封先被打空，谁就输。"],
+    ["每回合你做什么", "回合开始，你有 3 点胶水，手里摸到 4 张票。", "点手里一张，再点自己信封上的空格，就贴上去了。贴一张要花它的面值那么多胶水：R 是 1，SR 是 2，SSR 是 3。", "胶水花完、或者不想贴了，点「寄出」。你的票先动手，然后 TA 照着亮出来的那一步走。", "没用掉的牌回合结束就扔了。想留，选中它点「留到下回合」，最多留两张。", "放错了点「撤回」，一步一步退，胶水也退回来。点了「寄出」就退不回了。"],
+    ["五种票各干嘛", "投递：打人的。打同一列对面最前面那张，那一列空着就直接打信封。", "火漆：肉盾。血厚，每回合给自己封一层护。", "补票：奶妈。给最残的那张回血，顺手擦掉身上的戳。", "集邮：管钱的。下回合多给胶水、多摸牌。", "邮戳：捣乱的。给对面盖戳：雨渍让它变弱，退回让它停一回合，受潮让对面少胶水。", "票是哪一种，看卡上写了什么：写打架的多半是投递，写撑伞的多半是火漆。"],
+    ["站位：前排挨打，后排输出", "信封第一排是前排。对面打一列，从前排往后找，所以前面有人挡着，后排就挨不着。", "常见摆法：火漆放前排顶着，投递和邮戳放最后一排（后排它们攻击 +2）。", "对面哪一列空着，你那一列的投递就能直接打到 TA 的信封。"],
+    ["凑组合", "连张：同一个人的两张票挨着，攻击 +2。", "整版：同一个人的三张票排满一整行或一整列，觉醒一次，打对面信封、全员充章。", "四方连：四张同一个人（或同一种卡，比如都是生日卡）凑成 2×2，觉醒一次，打对面信封、全员加护。", "每种组合每个人一局只觉醒一次。想好凑哪个再贴。", "开局前在「带谁上场」挑一两个人，他们的卡就多，好凑。"],
+    ["盖章：每张票的大招", "票底下那排小点每回合亮一格，亮满变金色，就能盖章了。", "点那张票，再点「盖章」，花 1 胶水放它的技能。同一种票有四种技能，SSR 的更猛。", "所以每回合都要想：胶水拿去贴新票，还是去给老票盖章？"],
+    ["特质和羁绊", "每张票还有一个特质，是被动：比如「醉意」一半几率打双份、一半几率落空，「锋利」打票不管护盾，「倔强」第一次被打倒会硬撑着留一口气。", "每个人有一个羁绊，看人设来的：护短、好胜、温柔、冷淡、偏执，都不沾就是默契。同一个人的票在信封上有两张以上就生效。", "看不明白哪张票是干嘛的？长按它，什么都写着。对面的票也能长按。"],
+    ["别的小东西", "挪票：点自己一张票，再点旁边的空格，花 1 胶水挪过去，用来凑组合或补前排。", "撕票：点一张票点「撕下」，每回合能撕一张，撕的那一下会触发一次效果。信封贴满了也靠它腾地方。", "格子：邮筒格贴着票每回合多 1 胶水；雨棚格上的票不会被盖戳；破损格贴不上。", "邮局公告：每三回合一条全场规则（涨价、大雨、集邮节……），上一回合就会预告。"],
+    ["明牌还是盲打", "明牌：TA 下一步要贴什么、贴哪、打你多少，开回合就亮给你看，手里的牌也摊开。适合慢慢算。", "盲打：TA 照样提前想好了，只是不给你看。更刺激。"],
+    ["几个上手小招", "开头先贴集邮攒家底，或者先上便宜的火漆把前排顶住。", "看 TA 的下一步：TA 要往哪列贴投递，你就在那一列前面放火漆。", "SSR 别急着上，等胶水够了再贴，顺手凑连张。", "快输了别慌：补票的群补、火漆的加固都能拖回合。"],
+    ["打完以后", "选「再来一把」接着打，或者「结束」。结束时问要不要让 TA 记得，记的话这几把合成一句进 TA 的记忆。", "打到一半想走，直接返回就行，会存着。下次进来点「接着打」。", "手牌上面那条能跟 TA 聊天，你说一句 TA 回几句，发一句花一次调用。"]
+  ];
   const fz = n => "calc(" + n + "px * var(--app-fs, 1))";
   const F = typeof F_BODY !== "undefined" ? F_BODY : "inherit";
   const FD = typeof F_DISPLAY !== "undefined" ? F_DISPLAY : F;
@@ -115,7 +128,8 @@
     const [handSel, setHandSel] = useState(-1), [boardSel, setBoardSel] = useState(-1);
     const [series, setSeries] = useState(null), [asking, setAsking] = useState(false);
     const [fx, setFx] = useState(null), [banner, setBanner] = useState(null), playing = useRef(0);
-    const [info, setInfo] = useState(null);
+    const [info, setInfo] = useState(null), [guide, setGuide] = useState(false);
+    const guideBtn = h("button", { "data-wk": "duelguidebtn", onClick: () => setGuide(true), className: "active:opacity-60", style: { padding: "4px 8px", color: INK, fontFamily: F, fontSize: fz(12.5) } }, "怎么玩");
     const openInfo = (u, foe, terrain) => setInfo({ u, foe, terrain });
     const [core, setCore] = useState([]);
     // 每个人的羁绊看人设里的字（不花调用）
@@ -143,9 +157,16 @@
     const fail = r => { if (r && !r.ok && r.why) toast && toast(r.why); return r && r.ok; };
     const shell = (kids) => h("div", { "data-wk": "duelpage", className: "h-full flex flex-col", style: { position: "relative", background: "repeating-linear-gradient(0deg, transparent 0 27px, rgba(47,42,34,.05) 27px 28px), linear-gradient(#f3ebdb, #e8dcc4)" } }, [h("style", { key: "fxcss" }, FX_CSS)].concat(kids));
 
+    // 人话版攻略（她 2026-11-08「对战页面里也写一个人话版攻略」）：整页，右上「怎么玩」进来
+    if (guide) return shell([
+      h(Head, { key: "hd", zh: "怎么玩", bg: "transparent", ink: INK, onBack: () => setGuide(false) }),
+      h("div", { key: "bd", "data-wk": "duelguide", className: "flex-1 min-h-0 overflow-y-auto px-5", style: { fontFamily: F, color: INK, fontSize: fz(13), lineHeight: 1.85, paddingBottom: 28 } },
+        GUIDE.map((sec, k) => h("div", { key: k, style: { marginBottom: 16 } },
+          h("div", { style: { fontFamily: FD, fontSize: fz(15), marginBottom: 4, color: k === 0 ? RED : INK } }, sec[0]),
+          sec.slice(1).map((line, j) => h("div", { key: j, style: { paddingLeft: 12, position: "relative" } }, h("span", { style: { position: "absolute", left: 0, color: SUB } }, "·"), line)))))]);
     // ── 开局前：挑对手、明牌还是盲打 ──
     if (!st) return shell([
-      h(Head, { key: "hd", zh: "对局", bg: "transparent", ink: INK, onBack }),
+      h(Head, { key: "hd", zh: "对局", bg: "transparent", ink: INK, onBack, right: guideBtn }),
       h("div", { key: "bd", className: "flex-1 min-h-0 overflow-y-auto px-5", style: { fontFamily: F, color: INK, paddingBottom: 24 } },
         h("div", { style: { fontSize: fz(12), color: SUB, lineHeight: 1.7, margin: "2px 0 14px" } }, "每局从你的收藏里随机抽 12 张。对面用 TA 自己的卡，加上跟 TA 有关系的人的卡；不够的用普通邮票补。不花调用。"),
         saved ? h("div", { "data-wk": "duelresume", style: { marginBottom: 16, padding: "10px 12px", borderRadius: 4, border: "1px dashed " + RED, background: "rgba(178,58,46,.05)" } },
@@ -174,10 +195,8 @@
           style: Object.assign(btn(blind === v ? INK : "transparent", blind === v ? PAPER : INK, INK), { flex: 1 }) }, zh))),
         h("div", { style: { fontSize: fz(11.5), color: SUB, marginBottom: 20 } }, blind ? "TA 照样提前想好下一步，只是不给你看。" : "每回合开头就亮出 TA 要贴哪几张、贴在哪、要盖什么章。"),
         h("button", { "data-wk": "duelstart", onClick: start, disabled: !foeId, className: "w-full active:opacity-80 disabled:opacity-40", style: Object.assign(btn(RED, "#fff"), { padding: "12px 0", fontFamily: FD, fontSize: fz(15), letterSpacing: ".2em" }) }, "开局"),
-        h("div", { "data-wk": "duelrules", style: { marginTop: 20, padding: "10px 12px", borderRadius: 4, background: "rgba(255,255,255,.45)", fontSize: fz(11.5), color: SUB, lineHeight: 1.8 } },
-          "每回合 3 点胶水、抽 4 张。点手里一张、再点自己信封的空格贴上去，花面值那么多胶水。贴上的票每回合自己动；票底下的小点攒满变金色，点它再点「盖章」放技能（1 胶水）。放错了点「撤回」，胶水退回来。长按任何一张票，看它的特质、盖章技和羁绊。",
-          h("br"), "第一排是前排，挨打；前面有人挡着，后排就挨不到。同一个人两张挨着会加力，三张一整行／列、或四张凑成 2×2 会觉醒一次。",
-          h("br"), Object.keys(ROLE_TIP).map(k => k + "：" + ROLE_TIP[k]).join("；") + "。"))]);
+        h("button", { "data-wk": "duelrules", onClick: () => setGuide(true), className: "w-full text-left active:opacity-70", style: { marginTop: 20, padding: "10px 12px", borderRadius: 4, background: "rgba(255,255,255,.45)", fontSize: fz(12), color: SUB, lineHeight: 1.7 } },
+          "第一次玩？点这里看「怎么玩」——三分钟看懂。打的时候右上角也能随时点开。"))]);
 
     const me = st.me, them = st.foe, it = st.intent || {}, over = st.over;
     const meSlot = i => {
@@ -252,7 +271,7 @@
     const intentText = [].concat((it.stamp || []).map(x => "给「" + x.name + "」盖章"), (it.place || []).map(x => "贴「" + x.name + "」" + x.role)).join("、") || "这回合不贴票";
 
     return shell([
-      h(Head, { key: "hd", zh: "第 " + st.turn + " 回合", sub: "对 " + foeName + (st.blind ? " · 盲打" : ""), bg: "transparent", ink: INK,
+      h(Head, { key: "hd", zh: "第 " + st.turn + " 回合", sub: "对 " + foeName + (st.blind ? " · 盲打" : ""), bg: "transparent", ink: INK, right: guideBtn,
         onBack: () => { if (!over) { persist(st, series); setSaved({ st, series, foeId, at: Date.now() }); } else persist(null); setSt(null); setSeries(null); } }),
       h("div", { key: "bd", className: "flex-1 min-h-0 overflow-y-auto px-4", style: { fontFamily: F, color: INK, paddingBottom: 14 } },
         Seal(foeName, them.hp, D().ENVELOPE_HP, RED, series && series.games.length ? "第 " + (series.games.length + 1) + " 把" : ""),
