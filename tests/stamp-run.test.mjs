@@ -118,3 +118,9 @@ test("远信新路线：节日只在节日前后开、沙漠走一站扣血、�
   const dream = D.newDuel(deck, foe, 3, { theme: "梦里" }); assert.ok(dream.log.some(l => /梦里/.test(l.text)));
   const rain = D.newDuel(deck, foe, 3, { theme: "雨季" }); D.place(rain, "me", 0, rain.me.terrain.findIndex(t => !t)); D.endTurn(rain); assert.ok(rain.log.some(l => /打湿/.test(l.text)));
 });
+test("远信小票：两列等宽不撑出屏幕、左边放卡面缩略图", () => {
+  const ui = readFileSync(new URL("../js/stamp-run-ui.js", import.meta.url), "utf8");
+  assert.ok(!/gridTemplateColumns: "1fr 1fr"/.test(ui));
+  assert.match(ui, /curThumb = useThumb \|\| null; curCards = cards \|\| \[\];/);
+  assert.match(ui, /"data-wk": "runcardimg"/);
+});
