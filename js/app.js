@@ -20,7 +20,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v89.331";
+const APP_VERSION = "v89.333";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -12121,7 +12121,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
                 + (d.missed ? "写那天晚上他们自己关店的一小段：" : "现在打烊了。写打烊时店里的一小段：") + "今天上班的这几个人各自怎么样、彼此说了什么、谁累了、谁跟谁拌了两句或者帮了一把、有没有给她留什么话或东西；橱窗里的卡、挂着的工牌可以写进去（有人瞄了一眼自己那张、客人指着哪张问），写到卡上的那一刻要照上面写的。每个人照各自的人设说话做事，你写的时候把他们都写进去，不只写你自己；写正在发生的这一段，有动作有对话，别写成总结。"
               : (d.visitor || "一位客人") + "今天来店里寄东西，正好碰上在" + (d.post || "柜台") + "上班的" + (d.staffName || "店员") + "。\n写他们俩在店里碰上的这一小段：照两个人各自的人设和他们之间的关系，有对话，几段就够；" + uN + "在旁边。")
             + "\n当场参与者的身份与完整人设：\n"+cast
-            + "\nlines 按正文发生的顺序逐句保存，每项 text 是原文；speakerId 是说话人的角色 id，旁白留空。actorId 是这一句正在做动作的角色 id，targetId 是动作朝向的同场角色 id；只使用上面参与者的 id。action 可用 " + window.CharacterStoryActions.prompt + "；其他动作照写进正文，由场景做一般交谈表现。动作字段配合你写出的内容。" + (close?"\nnotes 是今天上班的每个人下班前在柜台留给" + uN + "的一张便条，一人一张：speakerId 写这个人的角色 id（" + (d.staffIds || []).join("、") + "），text 是他自己写的一两句，照他的人设和写字的样子，写今天店里他记得的一件小事或想跟她说的话。":""),
+            + "\nlines 按正文发生的顺序逐句保存，每项 text 是原文；speakerId 是说话人的角色 id，旁白留空。actorId 是这一句正在做动作的角色 id，targetId 是动作朝向的同场角色 id；只使用上面参与者的 id。先照故事本来的样子写完整正文；写完再沿原有语句给每一句挑一个最贴的动作标签，没有贴切的就用 talk。动作标签只告诉3D场景怎么演，不是写作要求；正文原有的情节、动作描写、句子和段落保持原样，不为使用动作添加情节或动作描写，也不拆碎句子。action 可用 " + window.CharacterStoryActions.prompt + "；其他动作照写进正文，由场景做一般交谈表现。动作字段配合你写出的内容。" + (close?"\nnotes 是今天上班的每个人下班前在柜台留给" + uN + "的一张便条，一人一张：speakerId 写这个人的角色 id（" + (d.staffIds || []).join("、") + "），text 是他自己写的一两句，照他的人设和写字的样子，写今天店里他记得的一件小事或想跟她说的话。":""),
           schemaHint: JSON.stringify({lines:[{speakerId:"角色id或空",actorId:"角色id或空",targetId:"角色id或空",action:"动作标识",text:"正文原句"}],...(close?{notes:[{speakerId:"角色id",text:"便条"}]}:{})}) });
         const notesOf = () => (Array.isArray(r && r.notes) ? r.notes : []).map(x => ({ speakerId: (d.staffIds || []).map(String).includes(String(x && x.speakerId)) ? String(x.speakerId) : null, text: String((x && x.text) || "").trim() })).filter(x => x.speakerId && x.text).slice(0, 4);
         const rowsOut = (Array.isArray(r && r.lines) ? r.lines : [r && r.lines]).map(x => typeof x==="string"?{speakerId:null,text:x}:{speakerId:x?.speakerId||null,actorId:x?.actorId||null,targetId:x?.targetId||null,action:x?.action||"talk",text:String(x?.text||"")}).filter(x=>x.text.trim());
@@ -25037,7 +25037,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       const target = replyTo ? byName(replyTo) : null;
       const inThread = canSee.filter(c => (mom.comments || []).some(cm => cm.author === (c.remark || c.name) || cm.author === c.name));
       const byAff = canSee.slice().sort((a, b) => (affinities[b.id] || 50) - (affinities[a.id] || 50));
-      const uniq = [...new Set([target, ...inThread, ...byAff].filter(Boolean))].slice(0, 5).concat(npcCrowd(canSee, 4), myNpcCrowd(2, mom));
+      const uniq = [...new Set([target, ...inThread, ...byAff].filter(Boolean))].slice(0, 5).concat(npcCrowd(canSee, 4, true), myNpcCrowd(2, mom));
       if (!uniq.length) return;
       primary = uniq[0];
       roster = uniq.map(c => c.remark || c.name);
@@ -25215,8 +25215,9 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   // 可见角色自动对我的朋友圈做真实反应：可能只赞/只评/已读不理/又赞又评，并会互相回复
   // 配角也来朋友圈（她 2026-10-13：「让配角参与感高一点吧」）：哪个角色刷得到，TA 的配角就跟着刷得到；
   //   每次随机挑几个，免得配角一多评论区全是配角
-  const npcCrowd = (hosts, max) => {
-    const pool = []; (hosts || []).forEach(hc => npcsOf(hc.id).forEach(n => { if (n && !pool.includes(n)) pool.push(n); }));
+  // knowsMe：她自己发的那条，只有标了「也认识我」的配角刷得到（群里 2026-11-08：标了「跟我不认识」的还来点赞评论）——不是微信好友就看不见
+  const npcCrowd = (hosts, max, knowsMe) => {
+    const pool = []; (hosts || []).forEach(hc => npcsOf(hc.id).forEach(n => { if (n && (!knowsMe || n.knowsUser) && !pool.includes(n)) pool.push(n); }));
     for (let k = pool.length - 1; k > 0; k--) { const j = Math.floor(Math.random() * (k + 1)); [pool[k], pool[j]] = [pool[j], pool[k]]; }
     return pool.slice(0, max == null ? 3 : max);
   };
@@ -25290,7 +25291,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     const canSeeMain = momLive().filter(c => momSeen(mom, c.id));
     if (!canSeeMain.length) return;
     // 她自己身边的配角（在谁身边＝我）也刷得到她的朋友圈（群里 2026-10-22：「只有他的 npc 跟我互动，我的 npc 都不跟我互动」）
-    const canSee = [...canSeeMain, ...npcCrowd(canSeeMain, 3), ...myNpcCrowd(2, mom)];
+    const canSee = [...canSeeMain, ...npcCrowd(canSeeMain, 3, true), ...myNpcCrowd(2, mom)];
     setGen(g => ({
       ...g,
       moment: true
@@ -25300,12 +25301,15 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       const lines = canSee.map(c => {
         if (c.npc) { const host = characters.find(x => x.id === String(c.ownerId)); return "- " + c.name + "：人设[" + (typeof groupPersonaText === "function" ? groupPersonaText(c.persona, 300) : String(c.persona || "").slice(0, 300)).replace(/\s+/g, " ") + "]" + (String(c.ownerId) === "me"
           ? "（我自己生活里的人" + ((rels[c.id + "->me"] || rels["me->" + c.id]) ? "，跟我是「" + (rels[c.id + "->me"] || rels["me->" + c.id]).label + "」" : (c.knowsUserNote ? "，跟我是「" + c.knowsUserNote + "」" : "")) + "，照我们俩的关系来说话）"
-          : "（「" + ((host && host.name) || "") + "」那边的人，跟我不算熟，偶尔路过点个赞或者插一句）") + charLangLine(c); }   // 设了常用语言的配角，朋友圈评论也照那种话说
+          : "（「" + ((host && host.name) || "") + "」那边的人，也认识我" + (c.knowsUserNote ? "，跟我是「" + c.knowsUserNote + "」" : "") + "，照这份交情来说话）") + charLangLine(c); }   // 设了常用语言的配角，朋友圈评论也照那种话说
         const aff = Math.round(affOf(c.id));
         const md = moods[c.id] && moods[c.id].label ? moods[c.id].label : "平静";
         const rel = rels[c.id + "->me"] ? rels[c.id + "->me"].label : "";
         // 人设原来只截 70 个字（她 2026-10-26：顾朝第一句评论 OOC，后来回她那句才像他）——配角都给 300，正主反而只有一句话的料
-        return "- " + c.name + "：人设[" + momPersonaBrief(c) + "] 好感度" + aff + "/100 心情" + md + (rel ? " 对我关系[" + rel + "]" : "") + ((mom.remind || []).includes(c.id) ? " 【她发的时候提醒了TA看】" : "");
+        // 刚跟她聊过什么（群里 2026-11-08：配图的地点私聊里早说过，评论里还在问）：同一份 crossRecentFor，每人只给一小截
+        let chat = ""; try { chat = crossRecentFor(c.id, { surfaces: ["online", "offline"], budget: 500 }); } catch (e) { chat = ""; }
+        return "- " + c.name + "：人设[" + momPersonaBrief(c) + "] 好感度" + aff + "/100 心情" + md + (rel ? " 对我关系[" + rel + "]" : "") + ((mom.remind || []).includes(c.id) ? " 【她发的时候提醒了TA看】" : "")
+          + (chat && chat.trim() ? "\n  TA跟我最近聊过的（TA都记得，评论接着这些说）：\n" + chat.trim().split("\n").map(l => "  " + l).join("\n") : "");
       }).join("\n");
       // 提醒谁看：点了名的人收到的是「她提醒你看」，不是自己刷到的——一定看见了，也知道是冲着自己来的
       const remindNames = (mom.remind || []).map(id => (liveChars.find(c => c.id === id) || {}).name).filter(Boolean);
