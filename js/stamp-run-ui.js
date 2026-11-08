@@ -21,13 +21,16 @@
   const ROLE_C = { 投递: "#b23a2e", 火漆: "#8a3a4a", 补票: "#4f7a66", 集邮: "#3f6fb0", 邮戳: "#6a4f8a" };
   const PERF = "radial-gradient(circle at 4px 4px, transparent 2.6px, #fbf6ea 2.8px) -4px -4px / 7px 7px";
   // 小票上放卡面（她 2026-11-08「能不能有图显示」）：缩略图走邮票册那份 useThumb（StampRunPage 每次渲染时把它和卡挂到这两个变量上）
-  let curThumb = null, curCards = [];
+  let curThumb = null, curCards = [], curInfo = null;
+  const noPress = (a, onTap) => ({ onClick: onTap });
   const noThumb = () => [null, { current: null }];
   function Mini({ s, on, onTap, sub }) {
     const rc = ROLE_C[s.role] || INK, card = s.cardId ? curCards.find(c => c && c.id === s.cardId) : null;
     const [url, el] = (curThumb || noThumb)(card ? (card.cover || card.face) : null);
-    return h("button", { ref: el, "data-wk": "runcard", "data-on": on ? "1" : "0", onClick: onTap, className: "active:scale-[.98] text-left",
-      style: { width: "100%", minWidth: 0, display: "block", padding: 4, background: PERF, border: "none", filter: on ? "drop-shadow(0 0 0 " + RED + ") drop-shadow(0 3px 6px rgba(178,58,46,.35))" : "drop-shadow(0 2px 3px rgba(47,42,34,.18))", fontFamily: F, color: INK, transform: on ? "translateY(-2px)" : "none", transition: "transform .15s" } },
+    // 长按看底细（跟对局那张同一份）；点一下照旧是选上／去掉
+    const show = curInfo, press = (window.StampLongPress || noPress)(show ? () => show(s) : null, onTap);
+    return h("button", Object.assign({ ref: el, "data-wk": "runcard", "data-on": on ? "1" : "0" }, press, { className: "active:scale-[.98] text-left",
+      style: { WebkitTouchCallout: "none", WebkitUserSelect: "none", userSelect: "none", width: "100%", minWidth: 0, display: "block", padding: 4, background: PERF, border: "none", filter: on ? "drop-shadow(0 0 0 " + RED + ") drop-shadow(0 3px 6px rgba(178,58,46,.35))" : "drop-shadow(0 2px 3px rgba(47,42,34,.18))", fontFamily: F, color: INK, transform: on ? "translateY(-2px)" : "none", transition: "transform .15s" } }),
       h("div", { style: { position: "relative", borderRadius: 2, overflow: "hidden", background: on ? "#fff4ef" : "#fffdf7", outline: "1px solid " + (on ? RED : (RC[s.rarity] || RC.R) + "66") } },
         h("div", { style: { height: 4, background: rc } }),
         h("div", { style: { display: "flex", alignItems: "stretch" } },
@@ -57,7 +60,8 @@
     const POSTMARKS = "x_stampRunPostmarks", LEVELK = "x_stampRunLevel", DEX = "x_stampRunDex";
     const unlocked = Math.max(1, Number(load(LEVELK, 1)) || 1);
     const [chat, setChat] = useState(() => (load(SAVE, null) || {}).chat || []), [draft, setDraft] = useState(""), [busy, setBusy] = useState(false), [chatOpen, setChatOpen] = useState(false);
-    const [, bump] = useState(0);
+    const [, bump] = useState(0), [peek, setPeek] = useState(null);
+    curInfo = window.StampInfoCard ? setPeek : null;
     const letters = load(LETTERS, []);
     // 一张卡的那一刻（写便条、回信时给 TA 看）
     const cardStory = s => { const c = (cards || []).find(x => x.id === (s && s.cardId)), tx = (c && c.text) || {};
@@ -79,7 +83,8 @@
     // 每动一步存一份
     const commit = (r, v, ch) => { const rr = r || run, vv = v || view; if (rr && rr.step) dexMerge(rr); save(SAVE, rr && !rr.done ? { run: rr, view: vv, chat: ch || chat } : null); setRun(rr ? Object.assign({}, rr) : rr); setView(vv); bump(x => x + 1); };
     // 主题路线换底色（她 2026-11-08）：信纸横线照旧，底下那层渐变跟着路走
-    const shell = kids => { const th = run && RN().THEMES[run.theme], pp = th ? th.paper : ["#f3ebdb", "#e8dcc4"];
+    const peekCard = () => peek && window.StampInfoCard ? h(window.StampInfoCard, { key: "peek", u: peek, foe: false, bonds: (run && run.bonds) || {}, cardOf: id => (cards || []).find(c => c && c.id === id), ownerOf: nameOf, nameOf, useThumb, onClose: () => setPeek(null) }) : null;
+    const shell = kids => { const th = run && RN().THEMES[run.theme], pp = th ? th.paper : ["#f3ebdb", "#e8dcc4"]; kids = [].concat(kids, peekCard());
       return h("div", { "data-wk": "runpage", "data-theme": run && run.theme || "", className: "h-full flex flex-col", style: { position: "relative", background: "repeating-linear-gradient(0deg, transparent 0 27px, rgba(47,42,34,.05) 27px 28px), linear-gradient(" + pp[0] + ", " + pp[1] + ")" } }, kids); };
     const personaOf = id => { const c = (characters || []).find(x => x.id === id) || {}; return [c.persona, c.description, c.desc, c.personality].filter(Boolean).join(" "); };
     // 顶上一条：信封血（一条细血条）、邮花、卡组、信物（小火漆，点了看说明）

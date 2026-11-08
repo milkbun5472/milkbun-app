@@ -124,3 +124,10 @@ test("远信小票：两列等宽不撑出屏幕、左边放卡面缩略图", ()
   assert.match(ui, /curThumb = useThumb \|\| null; curCards = cards \|\| \[\];/);
   assert.match(ui, /"data-wk": "runcardimg"/);
 });
+test("远信小票长按看底细：跟对局共用 StampInfoCard 和长按", () => {
+  const ui = readFileSync(new URL("../js/stamp-run-ui.js", import.meta.url), "utf8"), du = readFileSync(new URL("../js/stamp-duel-ui.js", import.meta.url), "utf8");
+  assert.match(du, /window\.StampInfoCard = StampInfo; window\.StampLongPress = useLongPress;/);
+  assert.match(du, /info \? h\(StampInfo, \{/);
+  assert.match(ui, /\(window\.StampLongPress \|\| noPress\)/);
+  assert.match(ui, /h\(window\.StampInfoCard, \{ key: "peek"/);
+});

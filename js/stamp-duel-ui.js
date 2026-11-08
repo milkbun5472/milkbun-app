@@ -185,6 +185,45 @@
   const btn = (bg, fg, line) => ({ padding: "7px 14px", borderRadius: 4, background: bg, color: fg, border: line ? "1px solid " + line : "none", fontFamily: F, fontSize: fz(12.5) });
 
   // runBattle（远信那一层递进来）：直接开这一场，不走开局页；打完只有「继续」，交回 runBattle.onDone
+  // 长按一张票的底细卡：对局和远信共用这一份（她 2026-11-08「选上路的时候长按也能看到卡面数值介绍那一堆」）
+  function StampInfo({ u, foe, terrain, live, bonds, cardOf, ownerOf, nameOf, useThumb, onClose }) {
+        const inf = D().unitInfo(u, bonds), col = RC[u.rarity] || RC.R, info = { foe, terrain }, setInfo = onClose;
+        cardOf = cardOf || (() => null); ownerOf = ownerOf || (() => ""); nameOf = nameOf || ownerOf;
+        // 底细卡（她 2026-11-08「这个页面也做好看点」）：像一张夹着邮票的明信片——左边斜贴着那枚票，右边写名字和面额；
+        //   下面一排数值像邮局的小标签，再往下一条条说明，最底下是卡上那句话
+        const stat = (k, v) => h("div", { style: { flex: 1, minWidth: 0, padding: "5px 0 4px", borderRadius: 3, background: "rgba(47,42,34,.05)", border: "1px solid rgba(47,42,34,.1)", textAlign: "center" } },
+          h("div", { style: { fontFamily: FD, fontSize: fz(17), lineHeight: 1.1 } }, v), h("div", { style: { fontSize: fz(9.5), color: SUB, letterSpacing: ".1em" } }, k));
+        const sec = (tag, c, title, body) => h("div", { style: { display: "flex", gap: 10, padding: "9px 0", borderTop: "1px dashed rgba(47,42,34,.16)" } },
+          h("div", { style: { width: 34, flexShrink: 0, paddingTop: 1 } }, h("div", { style: { width: 34, height: 34, borderRadius: 999, border: "1.5px solid " + c, color: c, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: FD, fontSize: fz(11), transform: "rotate(-8deg)", background: "rgba(255,255,255,.5)" } }, tag)),
+          h("div", { className: "min-w-0", style: { flex: 1 } }, title ? h("div", { style: { fontFamily: FD, fontSize: fz(13.5), color: c } }, title) : null, h("div", { style: { fontSize: fz(12), color: INK, lineHeight: 1.6 } }, body)));
+        return h("div", { "data-wk": "duelinfo", onClick: () => setInfo(null), style: { position: "absolute", inset: 0, zIndex: 30, background: "rgba(30,24,18,.5)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16 } },
+          h("div", { onClick: e => e.stopPropagation(), style: { position: "relative", width: "100%", maxWidth: 350, maxHeight: "86%", display: "flex", flexDirection: "column", borderRadius: 6, background: PAPER, fontFamily: F, color: INK, boxShadow: "0 14px 36px rgba(0,0,0,.35)", overflow: "hidden" } },
+            h("div", { style: { height: 7, flexShrink: 0, background: AIRMAIL } }),
+            h("button", { onClick: () => setInfo(null), "aria-label": "关掉", style: { position: "absolute", right: 8, top: 12, width: 28, height: 28, borderRadius: 999, color: SUB, fontSize: fz(16), zIndex: 2 } }, "✕"),
+            h("div", { style: { overflowY: "auto", padding: "14px 16px 12px" } },
+              h("div", { className: "flex", style: { gap: 14, alignItems: "flex-start" } },
+                h("div", { style: { width: 104, flexShrink: 0, transform: "rotate(-3deg)", marginTop: 4 } }, h(Ticket, { u, card: cardOf(u.cardId), owner: ownerOf(u.charId), useThumb, small: true, foe: info.foe })),
+                h("div", { className: "min-w-0", style: { flex: 1, paddingRight: 22 } },
+                  h("div", { style: { fontSize: fz(10), color: info.foe ? RED : GREEN, letterSpacing: ".15em" } }, info.foe ? "对面的票" : "我的票"),
+                  h("div", { style: { fontFamily: FD, fontSize: fz(18), lineHeight: 1.3, margin: "2px 0 6px" } }, u.name),
+                  h("div", { className: "flex flex-wrap", style: { gap: 5 } },
+                    h("span", { style: { padding: "1px 7px", borderRadius: 3, background: col, color: "#fff", fontSize: fz(10.5) } }, u.rarity),
+                    h("span", { style: { padding: "1px 7px", borderRadius: 3, background: ROLE_COLOR[u.role], color: "#fff", fontSize: fz(10.5) } }, u.role),
+                    h("span", { style: { padding: "1px 7px", borderRadius: 3, border: "1px solid rgba(47,42,34,.3)", fontSize: fz(10.5) } }, ownerOf(u.charId) || "通用票")),
+                  // 面额：右下角一个圆章
+                  h("div", { style: { marginTop: 10, display: "inline-flex", alignItems: "center", gap: 6, fontSize: fz(11), color: SUB } },
+                    h("span", { style: { width: 30, height: 30, borderRadius: 999, border: "2px solid " + col, color: col, display: "inline-flex", alignItems: "center", justifyContent: "center", fontFamily: FD, fontSize: fz(14) } }, u.face), "面值 · 贴它要的胶水"))),
+              h("div", { className: "flex", style: { gap: 6, margin: "14px 0 6px" } },
+                stat("攻击", u.pow), stat("血", (live ? Math.max(0, u.hp) + "/" : "") + u.maxHp), stat("护", u.shield || 0), stat("章", (u.charge != null ? u.charge + "/" : "") + u.need)),
+              sec("作用", ROLE_COLOR[u.role], u.role, ROLE_TIP[u.role]),
+              sec("特质", "#8a7a5a", inf.trait.zh, h("span", null, inf.trait.desc, h("div", { style: { color: SUB, fontSize: fz(10.5) } }, inf.trait.from))),
+              sec("盖章", "#b8862a", inf.skill.zh + (u.rarity === "SSR" ? " · " + inf.skill.base : ""), inf.skill.desc),
+              inf.bond ? sec("羁绊", GREEN, inf.bond.zh, inf.bond.desc + "。" + (nameOf(u.charId) || "这个人") + "的票在同一个信封上有两张以上时生效。") : null,
+              u.role === "邮戳" ? sec("戳", "#6a4f8a", "会盖「" + u.ink + "」", D().MARKS[u.ink].note) : null,
+              Object.keys(u.marks || {}).length ? sec("身上", RED, "挂着的戳", Object.keys(u.marks).map(m => m + "：" + D().MARKS[m].note).join("；")) : null,
+              info.terrain ? sec("格子", "#5a5248", info.terrain, D().TERRAIN[info.terrain]) : null,
+              u.lines && u.lines.enter ? h("div", { style: { marginTop: 6, padding: "10px 12px", borderRadius: 3, background: "rgba(47,42,34,.05)", borderLeft: "3px solid " + col, fontFamily: FD, fontSize: fz(12.5), color: "#5a4f40", lineHeight: 1.7 } }, "「" + u.lines.enter + "」") : null)));
+  }
   function StampDuelPage({ characters, cards, onBack, onRemember, closeOf, meName, toast, useThumb, onChat, onReport, preset, onRun, runBattle }) {
     const [foeId, setFoeId] = useState(() => { if (runBattle) return runBattle.foeId || ""; if (preset && preset.foeId) return preset.foeId; const has = (characters || []).find(c => (cards || []).some(x => x.charId === c.id)); return (has || (characters || [])[0] || {}).id; });
     const [blind, setBlind] = useState(false);
@@ -524,41 +563,7 @@
             h("span", { style: { color: SUB, fontSize: fz(11) } }, "点旁边空格＝挪过去（1 胶水）"))) : null,
         h("div", { "data-wk": "duellog", style: { marginTop: 10, fontSize: fz(11), color: SUB, lineHeight: 1.65 } }, log.map((l, k) => h("div", { key: k }, (l.who === "foe" ? foeName + "：" : l.who === "me" ? "我：" : "") + l.text + (l.line ? "「" + l.line + "」" : ""))))),
       onChat && !st.tutorial && foeId ? chatBox : null,
-      info ? (() => { const u = info.u, inf = D().unitInfo(u, st.bonds), sd = info.foe ? them : me, live = sd.board.some(x => x && x.uid && x.uid === u.uid), col = RC[u.rarity] || RC.R;
-        // 底细卡（她 2026-11-08「这个页面也做好看点」）：像一张夹着邮票的明信片——左边斜贴着那枚票，右边写名字和面额；
-        //   下面一排数值像邮局的小标签，再往下一条条说明，最底下是卡上那句话
-        const stat = (k, v) => h("div", { style: { flex: 1, minWidth: 0, padding: "5px 0 4px", borderRadius: 3, background: "rgba(47,42,34,.05)", border: "1px solid rgba(47,42,34,.1)", textAlign: "center" } },
-          h("div", { style: { fontFamily: FD, fontSize: fz(17), lineHeight: 1.1 } }, v), h("div", { style: { fontSize: fz(9.5), color: SUB, letterSpacing: ".1em" } }, k));
-        const sec = (tag, c, title, body) => h("div", { style: { display: "flex", gap: 10, padding: "9px 0", borderTop: "1px dashed rgba(47,42,34,.16)" } },
-          h("div", { style: { width: 34, flexShrink: 0, paddingTop: 1 } }, h("div", { style: { width: 34, height: 34, borderRadius: 999, border: "1.5px solid " + c, color: c, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: FD, fontSize: fz(11), transform: "rotate(-8deg)", background: "rgba(255,255,255,.5)" } }, tag)),
-          h("div", { className: "min-w-0", style: { flex: 1 } }, title ? h("div", { style: { fontFamily: FD, fontSize: fz(13.5), color: c } }, title) : null, h("div", { style: { fontSize: fz(12), color: INK, lineHeight: 1.6 } }, body)));
-        return h("div", { key: "info", "data-wk": "duelinfo", onClick: () => setInfo(null), style: { position: "absolute", inset: 0, zIndex: 30, background: "rgba(30,24,18,.5)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16 } },
-          h("div", { onClick: e => e.stopPropagation(), style: { position: "relative", width: "100%", maxWidth: 350, maxHeight: "86%", display: "flex", flexDirection: "column", borderRadius: 6, background: PAPER, fontFamily: F, color: INK, boxShadow: "0 14px 36px rgba(0,0,0,.35)", overflow: "hidden" } },
-            h("div", { style: { height: 7, flexShrink: 0, background: AIRMAIL } }),
-            h("button", { onClick: () => setInfo(null), "aria-label": "关掉", style: { position: "absolute", right: 8, top: 12, width: 28, height: 28, borderRadius: 999, color: SUB, fontSize: fz(16), zIndex: 2 } }, "✕"),
-            h("div", { style: { overflowY: "auto", padding: "14px 16px 12px" } },
-              h("div", { className: "flex", style: { gap: 14, alignItems: "flex-start" } },
-                h("div", { style: { width: 104, flexShrink: 0, transform: "rotate(-3deg)", marginTop: 4 } }, h(Ticket, { u, card: cardOf(u.cardId), owner: ownerOf(u.charId), useThumb, small: true, foe: info.foe })),
-                h("div", { className: "min-w-0", style: { flex: 1, paddingRight: 22 } },
-                  h("div", { style: { fontSize: fz(10), color: info.foe ? RED : GREEN, letterSpacing: ".15em" } }, info.foe ? "对面的票" : "我的票"),
-                  h("div", { style: { fontFamily: FD, fontSize: fz(18), lineHeight: 1.3, margin: "2px 0 6px" } }, u.name),
-                  h("div", { className: "flex flex-wrap", style: { gap: 5 } },
-                    h("span", { style: { padding: "1px 7px", borderRadius: 3, background: col, color: "#fff", fontSize: fz(10.5) } }, u.rarity),
-                    h("span", { style: { padding: "1px 7px", borderRadius: 3, background: ROLE_COLOR[u.role], color: "#fff", fontSize: fz(10.5) } }, u.role),
-                    h("span", { style: { padding: "1px 7px", borderRadius: 3, border: "1px solid rgba(47,42,34,.3)", fontSize: fz(10.5) } }, ownerOf(u.charId) || "通用票")),
-                  // 面额：右下角一个圆章
-                  h("div", { style: { marginTop: 10, display: "inline-flex", alignItems: "center", gap: 6, fontSize: fz(11), color: SUB } },
-                    h("span", { style: { width: 30, height: 30, borderRadius: 999, border: "2px solid " + col, color: col, display: "inline-flex", alignItems: "center", justifyContent: "center", fontFamily: FD, fontSize: fz(14) } }, u.face), "面值 · 贴它要的胶水"))),
-              h("div", { className: "flex", style: { gap: 6, margin: "14px 0 6px" } },
-                stat("攻击", u.pow), stat("血", (live ? Math.max(0, u.hp) + "/" : "") + u.maxHp), stat("护", u.shield || 0), stat("章", (u.charge != null ? u.charge + "/" : "") + u.need)),
-              sec("作用", ROLE_COLOR[u.role], u.role, ROLE_TIP[u.role]),
-              sec("特质", "#8a7a5a", inf.trait.zh, h("span", null, inf.trait.desc, h("div", { style: { color: SUB, fontSize: fz(10.5) } }, inf.trait.from))),
-              sec("盖章", "#b8862a", inf.skill.zh + (u.rarity === "SSR" ? " · " + inf.skill.base : ""), inf.skill.desc),
-              inf.bond ? sec("羁绊", GREEN, inf.bond.zh, inf.bond.desc + "。" + (nameOf(u.charId) || "这个人") + "的票在同一个信封上有两张以上时生效。") : null,
-              u.role === "邮戳" ? sec("戳", "#6a4f8a", "会盖「" + u.ink + "」", D().MARKS[u.ink].note) : null,
-              Object.keys(u.marks || {}).length ? sec("身上", RED, "挂着的戳", Object.keys(u.marks).map(m => m + "：" + D().MARKS[m].note).join("；")) : null,
-              info.terrain ? sec("格子", "#5a5248", info.terrain, D().TERRAIN[info.terrain]) : null,
-              u.lines && u.lines.enter ? h("div", { style: { marginTop: 6, padding: "10px 12px", borderRadius: 3, background: "rgba(47,42,34,.05)", borderLeft: "3px solid " + col, fontFamily: FD, fontSize: fz(12.5), color: "#5a4f40", lineHeight: 1.7 } }, "「" + u.lines.enter + "」") : null))); })() : null,
+      info ? h(StampInfo, { key: "info", u: info.u, foe: info.foe, terrain: info.terrain, live: (info.foe ? them : me).board.some(x => x && x.uid && x.uid === info.u.uid), bonds: st.bonds, cardOf, ownerOf, nameOf, useThumb, onClose: () => setInfo(null) }) : null,
       // 中间弹出的那块（她 2026-11-08「这种黄框也做好看点」）：像一封电报——上面一枚火漆封印写是什么事，
       //   中间大字是哪张票／哪条公告，台词另起一行像手写；觉醒是金色、盖章是红色、公告是绿色
       banner ? (() => {
@@ -638,4 +643,5 @@
             me.kept.includes(k) ? h("span", { style: { position: "absolute", left: "50%", top: -6, transform: "translateX(-50%)", padding: "0 5px", borderRadius: 3, background: GREEN, color: "#fff", fontSize: fz(8.5) } }, "留") : null))))]);
   }
   window.StampDuelPage = StampDuelPage;
+  window.StampInfoCard = StampInfo; window.StampLongPress = useLongPress;
 })();
