@@ -12514,6 +12514,11 @@ function vclockMainMap(ts) {
 }
 function vclockMapBy(c0, ts) {
   if (!c0) return Number(ts);
+  // 这只钟头一次拨出来之前的事，照现实的日子（群里 2026-11-08：日记和情侣空间的「第一次」，10 月 24 号之前的全变成了 24 号）：
+  //   11 月 1 号起开钟会记一段「之前是现实」；在那之前就开着的钟没有这一段，于是开钟以前的每条都拿这只钟去算——
+  //   钟停着（speed 0）或者拨在 24 号，以前的全挤到同一天。最早那一版钟是哪一刻拨的（at），早于它的就是现实
+  const h0 = Array.isArray(c0.hist) && c0.hist.length ? c0.hist[0] : c0;
+  if (h0 && !h0.real && Number(h0.at) > 0 && Number(ts) < Number(h0.at)) return Number(ts);
   const c = vclockSeg(c0, ts);
   if (c && c.real) return Number(ts);   // 那一段钟是关着的：照现实
   const sp = Number(c.speed);
