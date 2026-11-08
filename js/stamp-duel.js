@@ -174,7 +174,10 @@
   // core：她挑的「带谁」（她 2026-11-08：随机抽到四五个人凑不出组合技）——三分之二从这几个人的卡里抽，剩下随机
   function deckFrom(cards, seed, size, core) {
     const R = rng(seed), all = (cards || []).filter(Boolean), out = [], n = size || DECK_SIZE;
-    const set = new Set((core || []).map(String)), pool = all.filter(c => !set.has(String(c.charId))), corePool = all.filter(c => set.has(String(c.charId)));
+    // core 里可以夹 "card:<id>"：陪打的人点名要带的那张，一定进卡组（她 2026-11-08「TA 帮我挑卡组」）
+    const must = (core || []).map(String).filter(x => x.indexOf("card:") === 0).map(x => x.slice(5));
+    must.forEach(id => { const k = all.findIndex(c => String(c.id) === id); if (k >= 0 && out.length < n) out.push(all.splice(k, 1)[0]); });
+    const set = new Set((core || []).map(String).filter(x => x.indexOf("card:") !== 0)), pool = all.filter(c => !set.has(String(c.charId))), corePool = all.filter(c => set.has(String(c.charId)));
     const want = set.size ? Math.ceil(n * 2 / 3) : 0;
     while (out.length < want && corePool.length) out.push(corePool.splice(Math.floor(R() * corePool.length), 1)[0]);
     pool.push(...corePool);

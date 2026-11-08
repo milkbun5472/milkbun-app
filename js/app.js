@@ -12109,9 +12109,13 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
                 + (d.missed ? "写那天晚上他们自己关店的一小段：" : "现在打烊了。写打烊时店里的一小段：") + "今天上班的这几个人各自怎么样、彼此说了什么、谁累了、谁跟谁拌了两句或者帮了一把、有没有给她留什么话或东西；橱窗里的卡、挂着的工牌可以写进去（有人瞄了一眼自己那张、客人指着哪张问），写到卡上的那一刻要照上面写的。每个人照各自的人设说话做事，你写的时候把他们都写进去，不只写你自己；写正在发生的这一段，有动作有对话，别写成总结。"
               : (d.visitor || "一位客人") + "今天来店里寄东西，正好碰上在" + (d.post || "柜台") + "上班的" + (d.staffName || "店员") + "。\n写他们俩在店里碰上的这一小段：照两个人各自的人设和他们之间的关系，有对话，几段就够；" + uN + "在旁边。")
             + "\n当场参与者的身份与完整人设：\n"+cast
-            + (close?"\nlines 一段一项。":"\nlines 按对话顺序，每项写 speakerId（说话人的角色 id）和 text（原句）；旁白的 speakerId 留空。参与角色："+d.visitorId+"＝"+d.visitor+"；"+d.staffId+"＝"+d.staffName+"。"),
-          schemaHint: close?"{\"lines\":[\"一段\"]}":"{\"lines\":[{\"speakerId\":\"角色id\",\"text\":\"原句\"}]}" });
-        return (Array.isArray(r && r.lines) ? r.lines : [r && r.lines]).map(x => close?String(typeof x==="string"?x:x?.text||"").trim():typeof x==="string"?{speakerId:null,text:x}:{speakerId:x?.speakerId||null,text:String(x?.text||"")}).filter(x=>close?!!x:!!x.text).slice(0, 14);
+            + (close?"\nlines 一段一项。notes 是今天上班的每个人下班前在柜台留给" + uN + "的一张便条，一人一张：speakerId 写这个人的角色 id（" + (d.staffIds || []).join("、") + "），text 是他自己写的一两句，照他的人设和写字的样子，写今天店里他记得的一件小事或想跟她说的话。":"\nlines 按对话顺序，每项写 speakerId（说话人的角色 id）和 text（原句）；旁白的 speakerId 留空。参与角色："+d.visitorId+"＝"+d.visitor+"；"+d.staffId+"＝"+d.staffName+"。"),
+          schemaHint: close?"{\"lines\":[\"一段\"],\"notes\":[{\"speakerId\":\"角色id\",\"text\":\"便条\"}]}":"{\"lines\":[{\"speakerId\":\"角色id\",\"text\":\"原句\"}]}" });
+        // 店员便条（她 2026-11-08）：跟着打烊这一次调用一起写，挂在返回的数组上，不进记忆
+        const notesOf = () => (Array.isArray(r && r.notes) ? r.notes : []).map(x => ({ speakerId: (d.staffIds || []).map(String).includes(String(x && x.speakerId)) ? String(x.speakerId) : null, text: String((x && x.text) || "").trim() })).filter(x => x.speakerId && x.text).slice(0, 4);
+        const rowsOut = (Array.isArray(r && r.lines) ? r.lines : [r && r.lines]).map(x => close?String(typeof x==="string"?x:x?.text||"").trim():typeof x==="string"?{speakerId:null,text:x}:{speakerId:x?.speakerId||null,text:String(x?.text||"")}).filter(x=>close?!!x:!!x.text).slice(0, 14);
+        if (close) rowsOut.notes = notesOf();
+        return rowsOut;
   };
   const openStamps = target => window.StampNavigation.open(target, setScreen);
   const goDuel = (charId, m) => {
@@ -36343,6 +36347,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         const r = await runProbe(apiFor(char.id), ctxFor(char), { voice: true, tag: keep ? "stampkeep" : "stamptrinket", maxTokens: 8000,
           instruction: (keep
               ? "你正和" + uN + "玩邮票册里的卡牌小游戏。她一路攒了几样材料：" + (d.mats || []).join("、") + "，交给你，请你用它们做一件只属于你们俩的信物，以后她打牌时带在身上。材料是做它的料，可以拆开、拼起来、变个样子，不必照字面用。\n"
+              : d.pact ? "你和" + uN + "这周在邮票册的集邮社里约好了一件事：「" + d.pact + "」。她做到了。你给她留了一样跟你有关的小东西，夹着一封短信。story 写成这封短信，几句话，用你写信的样子；say 是你把它交给她时说的话。\n"
               : "你刚陪" + uN + "玩了一会儿邮票册里的卡牌小游戏，她拆开了你留给她的一个小包裹。包裹里是一样跟你有关的小东西。\n")
             + "这件东西要从你的人设、或者你们真的聊过、你记得的事里来（上面的人设、记忆和聊天里有）；没发生过的事别编。\n"
             + prevLine
@@ -36356,7 +36361,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         const name = String((r && r.name) || "").trim(); if (!name) return null;
         const out = { name, story: String(r.story || "").trim(), say: String(r.say || "").trim(), gist: String(r.gist || "").trim() };
         if (keep) out.fx = fxList.includes(r.fx) ? r.fx : fxList[0];
-        try { addMemEntry({ text: keep ? char.name + "用" + uN + "攒的材料（" + (d.mats || []).join("、") + "）给她做了一件信物「" + name + "」：" + out.story : char.name + "留给" + uN + "一样小东西「" + name + "」，她在邮票对战里拆开了：" + out.story, tags: ["邮票对局", keep ? "信物" : "小物"], charIds: [char.id], knownBy: [char.id], source: "stamps" }); } catch (e) {}
+        // 每周约定的信只留在集邮社（她 2026-11-08「不要这种会带入聊天的」）：不进记忆
+        if (!d.pact) try { addMemEntry({ text: keep ? char.name + "用" + uN + "攒的材料（" + (d.mats || []).join("、") + "）给她做了一件信物「" + name + "」：" + out.story : char.name + "留给" + uN + "一样小东西「" + name + "」，她在邮票对战里拆开了：" + out.story, tags: ["邮票对局", keep ? "信物" : "小物"], charIds: [char.id], knownBy: [char.id], source: "stamps" }); } catch (e) {}
         return out;
       }
       const r = await runProbe(apiFor(char.id), ctxFor(char), { voice: true, tag: "stampduel", maxTokens: 8000,

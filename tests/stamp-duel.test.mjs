@@ -328,3 +328,6 @@ test("小店按现实时间：时段划分、每段客人不一样（下午难�
 test("小店同一时段的路人不重样", () => {
   for (let d = 1; d <= 30; d++) { const n = D.shopCustomers({ day: d, decor: [] }, [], 9, [], "上午").filter(c => !c.wantChar && !c.visitor).map(c => c.name); assert.equal(new Set(n).size, n.length); }
 });
+test("陪打的人点名的那张（core 里夹 card:id）一定进卡组", () => {
+  for (let s = 1; s < 20; s++) assert.ok(D.deckFrom(mine, s, 12, ["a", "card:c4"]).some(u => u.cardId === "c4"));
+});
