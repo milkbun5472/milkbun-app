@@ -464,7 +464,7 @@
     const [shBusy, setShBusy] = useState(""), [shMeet, setShMeet] = useState(null), [winF, setWinF] = useState({ who: "", rar: "", q: "" }), [dpF, setDpF] = useState({ who: "", rar: "", q: "" }), [bgPost, setBgPost] = useState(""), [bgF, setBgF] = useState({ who: "", rar: "", q: "" });
     // 挑卡的筛选条（橱窗、派遣共用，她 2026-11-08「派遣那页挑卡也加个筛选」）：搜卡名、按人、按稀有度
     const cardFilterHit = (f,k) => window.StampShop.filterCards([k],f).length>0;
-    const cardFilterBar = (f,setF,wk) => h(window.StampShopFilters,{characters,cards,filter:f,onChange:setF,wk});
+    const cardFilterBar = (f,setF,wk,noWho) => h(window.StampShopFilters,{characters,cards,filter:f,onChange:setF,wk,noWho});
     const RANK = { SSR: 3, SR: 2, R: 1 }, cardSort = (a, b) => (RANK[b.rarity] || 0) - (RANK[a.rarity] || 0) || (Number(b.lv) || 0) - (Number(a.lv) || 0);
     const personaOf = id => { const c = (characters || []).find(x => x.id === id) || {}; return [c.persona, c.description, c.desc, c.personality].filter(Boolean).join(" "); };
     const RELAY_KEY = "x_stampRelay";
@@ -675,9 +675,9 @@
                 (() => { const mine = (cards || []).filter(k => k.charId === sh.roster[p] && k.text), cur = mine.find(k => k.id === sh.badge[p]);
                   return (cur ? [cur] : []).concat(mine.slice(-6).reverse().filter(k => k !== cur).slice(0, cur ? 4 : 5)); })().map(k => { const on = sh.badge[p] === k.id; return h("button", { key: k.id, onClick: () => shopAct("badge",{post:p,cardId:on?"":k.id}).catch(()=>{}), style: { padding: "1px 7px", borderRadius: 4, border: "1px solid " + (on ? "#3f6fb0" : "rgba(47,42,34,.2)"), color: on ? "#3f6fb0" : INK, background: on ? "rgba(63,111,176,.08)" : "transparent", fontSize: fz(11) } }, (k.text.name || "") + " · " + k.rarity); }),
                 (cards || []).filter(k => k.charId === sh.roster[p] && k.text).length > 5 ? h("button", { "data-wk": "duelshopbadgemore", onClick: () => { setBgPost(bgPost === p ? "" : p); setBgF({ who: "", rar: "", q: "" }); }, style: { padding: "1px 7px", borderRadius: 4, border: "1px dashed rgba(47,42,34,.35)", color: SUB, background: "transparent", fontSize: fz(11) } }, bgPost === p ? "收起" : "挑别的…") : null,
-                bgPost === p ? h("div", { "data-wk": "duelshopbadgepick", style: { width: "100%", marginTop: 4 } },
-                  cardFilterBar(bgF, setBgF, "duelshopbadgefilter"),
-                  h("div", { style: { display: "grid", gridTemplateColumns: "repeat(5, minmax(0, 1fr))", gap: 5, maxHeight: 260, overflowY: "auto" } },
+                bgPost === p ? h("div", { "data-wk": "duelshopbadgepick", style: { width: "100%", minWidth: 0, marginTop: 4 } },
+                  cardFilterBar(bgF, setBgF, "duelshopbadgefilter", true),
+                  h("div", { style: { display: "grid", gridTemplateColumns: "repeat(5, minmax(0, 1fr))", gap: 5, maxHeight: 210, overflowY: "auto" } },
                     window.StampShop.sortedCards(cards, sh.badge[p] ? [sh.badge[p]] : [], Object.assign({}, bgF, { who: sh.roster[p] })).filter(k => k.text).map(k => h(Ticket, { key: k.id, u: D().stampOf(k), card: k, owner: ownerOf(k.charId), useThumb, small: true, sel: sh.badge[p] === k.id, onTap: () => { shopAct("badge", { post: p, cardId: sh.badge[p] === k.id ? "" : k.id }).catch(() => {}); setBgPost(""); } })))) : null) : null)),
             h("div", { key: "n", style: { fontSize: fz(11), color: SUB, marginBottom: 8 } }, "✦ 是 TA 擅长这个岗（看人设）。每排一个人收入 +15%，擅长的再 +10%，挂了工牌（TA 自己的卡）再 +10%。"),
             h("button", { key: "go", "data-wk": "duelshopopen", onClick: open, disabled: period === "半夜", className: "w-full disabled:opacity-45", style: Object.assign(btn(C, "#fff"), { padding: "11px 0", fontFamily: FD, fontSize: fz(15) }) }, period === "半夜" ? "半夜不开门，早上 6 点再来" : "开门 · " + period)]) : null,

@@ -1,13 +1,13 @@
 (function(g){
  'use strict';const h=React.createElement,ink='#51483a',paper='#f8f0de';
  const button={minHeight:40,padding:'8px 12px',border:'1px solid #9f8e7144',borderRadius:8,background:'#fffaf0',color:ink,fontSize:13,textAlign:'left'};
- function StampShopFilters({characters=[],cards=[],filter={},onChange,wk='duelshopwinfilter'}){
+ function StampShopFilters({characters=[],cards=[],filter={},onChange,wk='duelshopwinfilter',noWho=false}){
   const people=characters.filter(c=>cards.some(k=>k&&k.charId===c.id));
   return h('div',{'data-wk':wk,style:{display:'grid',gap:7,marginBottom:12}},
-   h('input',{'aria-label':'搜卡名',value:filter.q||'',placeholder:'搜卡名…',onChange:e=>onChange({...filter,q:e.target.value}),style:{...button,width:'100%'}}),
-   h('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr',gap:7}},
-    h('select',{'aria-label':'按角色筛选',value:filter.who||'',onChange:e=>onChange({...filter,who:e.target.value}),style:button},h('option',{value:''},'全部角色'),people.map(c=>h('option',{key:c.id,value:c.id},c.remark||c.name))),
-    h('select',{'aria-label':'按稀有度筛选',value:filter.rar||'',onChange:e=>onChange({...filter,rar:e.target.value}),style:button},['','SSR','SR','R'].map(r=>h('option',{key:r,value:r},r||'全部稀有度')))));
+   h('input',{'aria-label':'搜卡名',value:filter.q||'',placeholder:'搜卡名…',onChange:e=>onChange({...filter,q:e.target.value}),style:{...button,width:'100%',minWidth:0,boxSizing:'border-box'}}),
+   h('div',{style:{display:'grid',gridTemplateColumns:noWho?'minmax(0,1fr)':'minmax(0,1fr) minmax(0,1fr)',gap:7}},
+    noWho?null:h('select',{'aria-label':'按角色筛选',value:filter.who||'',onChange:e=>onChange({...filter,who:e.target.value}),style:{...button,minWidth:0,boxSizing:'border-box'}},h('option',{value:''},'全部角色'),people.map(c=>h('option',{key:c.id,value:c.id},c.remark||c.name))),
+    h('select',{'aria-label':'按稀有度筛选',value:filter.rar||'',onChange:e=>onChange({...filter,rar:e.target.value}),style:{...button,minWidth:0,boxSizing:'border-box'}},['','SSR','SR','R'].map(r=>h('option',{key:r,value:r},r||'全部稀有度')))));
  }
  function ShopThumb({card}){const [url,setUrl]=React.useState(null);React.useEffect(()=>{let on=true;g.StampThumbnails?.url(card.cover||card.face).then(u=>{if(on)setUrl(u);}).catch(()=>{});return()=>{on=false;};},[card.id,card.cover,card.face]);return url?h('img',{src:url,alt:'',style:{width:42,height:56,objectFit:'cover',flexShrink:0}}):h('span',{'aria-hidden':true,style:{width:42,height:56,display:'grid',placeItems:'center',border:'1px dashed #a48c67',color:'#8a7355'}},'邮');}
  function StampShopPanel({target={},shop,characters=[],cards=[],onAction,onClose,onText,onReplay,busy,error}){
