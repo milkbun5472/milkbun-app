@@ -3945,11 +3945,10 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   // 穿着：不在代码里挡他换（她 2026-10-17「我就是不想挡着他换衣服 我只是嫌他该换不换」）。
   //   认下来的规矩照 putLiveField；cueText／force 留着给调用处，不再拿来拦。
   const putWearing = (patch, live, value, now) => putLiveField(patch, live, "wearing", value, now);
-  const clearWearingOnMove = (patch, live, hasWearing) => {
-    if (patch.place && live.place && !sameStateValue(patch.place, live.place) && !hasWearing) {
-      patch.wearing = null; patch.wearingUpdatedAt = 0;
-    }
-  };
+  // ⚠️换了地方不再把穿着清掉（群里 2026-11-08：同一场出门，外套灰的黑的来回换）。原来「换地方＝换场景，穿着转未知」，
+  //   出门在外一会儿店里一会儿街上，每挪一次衣服就被抹掉、下一拍再现编一身，编出来的跟上一身不一样，就成了来回换。
+  //   衣服跟着人走：真换了由模型那一拍写 wearing（线上出门／回家那条规矩照旧），18 小时时效兜着旧衣服不过夜。
+
   // 群文字、群线下、通话共用：无新心声清旧值，同轮已写的新心声不被后续空气泡抹掉。
   const thoughtTurnPatchFor = (cid, live, rawThought, now, seen) => {
     const thought = TVG.accept(rawThought);
@@ -4047,7 +4046,6 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       if (typeof value === "string" && value.trim() && value.trim().toLowerCase() !== "null") putLiveField(local, prev, key, value, ts);
     }
     putLiveCondition(local, prev, meta && meta.state ? meta.state.condition : undefined, ts);
-    clearWearingOnMove(local, prev, !!local.wearing);
     const newMood = meta && meta.mood || "";
     const moodPatch = newMood && newMood !== prev.mood ? { mood: newMood, moodTs: ts } : { mood: prev.mood || newMood, moodTs: prev.moodTs || (newMood ? ts : 0) };
     const next = clean
@@ -15196,9 +15194,6 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         else { st.action = null; st.actionUpdatedAt = 0; }
       }
       putLiveField(st, _live0, "place", parsed.place, stateNow);
-      // 换了地方＝换了场景:穿着降级为「不知道」。不是恢复旧值,也不是替TA编一套,
-      // 而是下一轮据当下场景重新确立(场景域字段的生命周期,Codex 2026-08-18)。
-      clearWearingOnMove(st, _live0, parsed.wearing);
       putLiveCondition(st, _live0, parsed.condition, stateNow, true);
       // 线上是「有新的才覆盖」(与线下的每轮自清相反)。给它加两道时效:自己的时间戳,
       // 以及连续 N 轮没有新心声就判过期——否则守卫拒一次就永远挂着旧念头。
@@ -22746,7 +22741,6 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
             if (v && v.toLowerCase() !== "null") putLiveField(st, liveState, k, v, now);
           });
           putLiveCondition(st, liveState, d.condition, now);
-          clearWearingOnMove(st, liveState, st.wearing);
           if (!cur.room) {
             Object.assign(st, thoughtTurnPatchFor(cid, liveState, d.thought, now, callThoughtDone));
           }
