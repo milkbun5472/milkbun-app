@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import vm from 'node:vm';
-import {projectShop,DECOR_BUILDERS} from '../apps/post-office/state.mjs';
+import {projectShop,DECOR_BUILDERS,npcLook} from '../apps/post-office/state.mjs';
 const read=p=>readFileSync(new URL('../'+p,import.meta.url),'utf8');
 const ctx={console};ctx.window=ctx;vm.runInNewContext(read('js/stamp-duel.js'),ctx);const rules=ctx.StampDuel;
 // Fields and default values copied from the actual SHOP_KEY/setShop writer in
@@ -52,4 +52,14 @@ test('shop uses one global writer, exposes no raw model or memory bridge, and us
  assert.match(read('scripts/build-fairy-garden.mjs'),/walk\('apps\/post-office'\)/);
  assert.match(read('art/train-carriage/view.mjs'),/createWorldRenderer/);
  assert.equal((read('js/app.js').match(/onOpenStamps: openStamps/g)||[]).length,2,'main-world and side-room hosts both wire the same public navigation');
+});
+
+test('all actual public customer identities use their own costume IDs, while staff and role visitors share companion looks and day defaults',()=>{
+ const actual=[...rules.SHOP.NPC,...rules.SHOP.TOUGH].map(x=>({name:x[0]})).concat([{name:'寄信的客人',wantChar:'a'}]);
+ const styles=actual.map(c=>npcLook(c));assert.equal(new Set(styles.map(x=>x.npcStyle)).size,11);assert.ok(styles.every(x=>!Object.hasOwn(x,'outfit')&&!Object.hasOwn(x,'wardrobe')));
+ const own={outfit:'jacket',hair:'curtains',hairColor:'#a25435',wardrobe:{jacket:{cloth:'#948571'}},dims:{height:1.17,build:1.08},eyeMode:'split',eyeLeft:'#638b7c',eyeRight:'#978047'};const chars=[{id:'a',name:'店员',ta:'他'},{id:'v',name:'来访角色',ta:'她'}];
+ const raw={...fixture(),roster:{柜台:'a'},phase:'open',period:'上午',customers:[{id:'上午v0',charId:'v',visitor:true},{id:'上午c0',name:rules.SHOP.NPC[0][0]}]};
+ const first=projectShop(raw,{...options,characters:chars,period:'上午',lookFor:()=>own});assert.deepEqual(first.staff[0].look,first.customers[0].look);assert.equal(first.customers[0].npcStyle,null);assert.equal(first.customers[1].npcStyle,'granny');assert.deepEqual(own.dims,{height:1.17,build:1.08});
+ const next=projectShop(raw,{...options,characters:chars,period:'上午',lookFor:()=>({...own,outfit:'tee',hairColor:'#444444'})});assert.equal(next.staff[0].look.outfit,'tee');assert.equal(next.customers[0].look.hairColor,'#444444');
+ const blank=projectShop(raw,{...options,characters:chars,period:'上午',lookFor:()=>({})});assert.equal(blank.staff[0].look.dims.height,1.10);assert.equal(blank.customers[0].look.dims.height,1.00);
 });

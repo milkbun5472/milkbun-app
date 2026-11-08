@@ -9,7 +9,7 @@
 // 接口密钥留在父页 callAI，不传进游戏画面。
 (function (root) {
   const { h, useState, useRef, useEffect, selectDialogs, localDialogs, replaceDialogs, worldCognition, WORLDS, SHOP_WORLD } = root.FairyCore;
-  const KEY = "x_fairyGarden", BUILD = "fg-6739bbf843fd9703", hosts = new WeakMap();
+  const KEY = "x_fairyGarden", BUILD = "fg-14dcba4c9a64c8fb", hosts = new WeakMap();
   root.FairyGardenHostFor = child => hosts.get(child) || null;
   // ⚠️「读回来是空」不等于「这儿本来就没有一档」。存档搬进 IDB 之后，文字仓没灌起来
   //   那一刻读到的也是空；这时候要是照着「没有」开一档新的，第一次保存就把她真正的
@@ -54,7 +54,7 @@
         name:SHOP_WORLD.name,
         previous:()=>root.StampShopScene||null,
         sync:async()=>{await root.LazyMods.load("stamps");return sync();},
-        read:()=>{const p=latest.current,now=new Date();return {shop:root.StampShop.read(),characters:(p.characters||[]).map(c=>({id:c.id,name:c.name,remark:c.remark,look:(p.lookFor||root.CompanionFace?.lookFor)?.(c)||{}})),cards:cards().filter(c=>c&&typeof c==='object').map(c=>({id:c.id,charId:c.charId,rarity:c.rarity,lv:c.lv,text:{name:c.text?.name},cover:c.cover,face:c.face})),period:root.StampDuel.shopPeriod(now),today:now.getFullYear()+"-"+(now.getMonth()+1)+"-"+now.getDate(),shopRules:root.StampDuel};},
+        read:()=>{const p=latest.current,now=new Date();return {shop:root.StampShop.read(),characters:(p.characters||[]).map(c=>({id:c.id,name:c.name,remark:c.remark,ta:root.CharacterPronoun?.ta(c)||'TA',look:(p.lookFor||root.CompanionFace?.lookFor)?.(c)||{}})),cards:cards().filter(c=>c&&typeof c==='object').map(c=>({id:c.id,charId:c.charId,rarity:c.rarity,lv:c.lv,text:{name:c.text?.name},cover:c.cover,face:c.face})),period:root.StampDuel.shopPeriod(now),today:now.getFullYear()+"-"+(now.getMonth()+1)+"-"+now.getDate(),shopRules:root.StampDuel};},
         thumbnail:async ref=>{await root.LazyMods.load("stamps");return root.StampThumbnails?.url(ref)||null;},
         counter:()=>latest.current.onOpenStamps?.({tab:"duel",mode:"shop",back:"fairy-shop"}),
         select:target=>{setError("");setPanel(target);},

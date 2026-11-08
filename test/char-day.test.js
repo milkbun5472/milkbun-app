@@ -62,7 +62,7 @@ test('示例单独提供全部基础动作，不调用writer或替角色排事�
 });
 test('主App接真实日程与已有陪伴样貌，日历使用现有角色入口并正确返回小世界',()=>{
   const route=cut(app,'  });else if (screen === "fairyGarden")','  });else if (screen === "trpg")'),calls=[];
-  const env={screen:'fairyGarden',window:{FairyGardenApp:'garden',CompanionFace:{lookFor:()=>({hairColor:'#111111',face:'happy'})}},moods:{c1:{label:'开心'}},h:(_,p)=>p,body:null,gardenEntryWorld:'day',gardenDayCharId:'c1',setGardenDayCharId:id=>calls.push(['select',id]),schedulesRef:{current:{c1:{today:123}}},CharacterPronoun:{ta:()=> '他'},loadJSON:()=>({looks:{c1:{hairColor:'#111111'}}}),setGardenEntryWorld:v=>calls.push(['world',v]),calReturnRef:{current:null},setSelSched:v=>calls.push(['sched',v]),setScreen:v=>calls.push(['screen',v]),characters:[],liveChars:[],offlineApiFor:()=>{},offlineActive:{},isBody:()=>false,settingsFor:()=>({}),profile:{},toast:()=>{},openGardenRoomFor:()=>{},neighborBundleFor:()=>{},gardenRecordFor:()=>{},buildBundle:()=>'',ctxFor:()=>({})};
+  const env={screen:'fairyGarden',openStamps:()=>{},stampShopChat:()=>{},window:{FairyGardenApp:'garden',CompanionFace:{lookFor:()=>({hairColor:'#111111',face:'happy'})}},moods:{c1:{label:'开心'}},h:(_,p)=>p,body:null,gardenEntryWorld:'day',gardenDayCharId:'c1',setGardenDayCharId:id=>calls.push(['select',id]),schedulesRef:{current:{c1:{today:123}}},CharacterPronoun:{ta:()=> '他'},loadJSON:()=>({looks:{c1:{hairColor:'#111111'}}}),setGardenEntryWorld:v=>calls.push(['world',v]),calReturnRef:{current:null},setSelSched:v=>calls.push(['sched',v]),setScreen:v=>calls.push(['screen',v]),characters:[],liveChars:[],offlineApiFor:()=>{},offlineActive:{},isBody:()=>false,settingsFor:()=>({}),profile:{},toast:()=>{},openGardenRoomFor:()=>{},neighborBundleFor:()=>{},gardenRecordFor:()=>{},buildBundle:()=>'',ctxFor:()=>({})};
   const p=new Function('env','with(env){'+route.replace('  });else if','  if')+'});return body;}')(env);
   assert.equal(p.day.onKitchenShare,undefined);
   assert.equal(p.day.plansFor({id:'c1'}).today,123);assert.equal(p.day.lookFor({id:'c1'}).hairColor,'#111111');p.day.onSchedule({id:'c1'});
@@ -70,7 +70,7 @@ test('主App接真实日程与已有陪伴样貌，日历使用现有角色入�
 });
 test('新世界入口独立于三游戏旅程，移动外壳沿公共Head和单滚动/底安全区',()=>{
   const source=(read('js/char-day-core.js')+'\n'+read('js/char-day.js')),host=(read('js/fairy-garden-core.js')+'\n'+read('js/fairy-garden.js')),html=read('index.html');
-  assert.match(host,/WORLDS\.concat\(\[DAY_WORLD, null\]\)/);assert.match(host,/world\?\.id === "day"/);
+  assert.match(host,/concat\(\[DAY_WORLD,\s*SHOP_WORLD,\s*null\]\)/);assert.match(host,/world\?\.id === "day"/);
   assert.match(source,/h\(Head,/);assert.match(source,/flex-1 min-h-0 overflow-y-auto/);assert.match(source,/safe-area-inset-bottom\) \* 0\.4/);
   assert.ok(html.indexOf('js/char-day.js')<html.indexOf('js/fairy-garden.js'));
   assert.doesNotMatch(source,/callAI\(|runProbe\(|localStorage\.setItem/);assert.match(source,/commitJSONDurable\("x_charDayHomes",next\)/);

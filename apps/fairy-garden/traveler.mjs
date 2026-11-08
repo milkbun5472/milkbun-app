@@ -1,24 +1,24 @@
-import {makeWeatherEffects} from './emotion-weather.mjs?v=fg-6739bbf843fd9703';
-import {makeEmotionHands,handStyle,handScaleOf} from './emotion-hands.mjs?v=fg-6739bbf843fd9703';
-import {makeEmotionFeatures,transientEmotionFace} from './emotion-features.mjs?v=fg-6739bbf843fd9703';
-import {settleEmotionGround} from './emotion-ground.mjs?v=fg-6739bbf843fd9703';
-import {attachRegionDye,dyeRegions} from './outfit-dye.mjs?v=fg-6739bbf843fd9703';
-import {reachHand,headSafeTarget} from './reach-hand.mjs?v=fg-6739bbf843fd9703';
-import {taskPose,makeTaskProps,workHandTargets,GUITAR_HOLD,GUITAR_STRUM} from './task-motion.mjs?v=fg-6739bbf843fd9703';
-import {dailyHandTargets} from './daily-motion.mjs?v=fg-6739bbf843fd9703';
-import {motionClock,motionPosture} from './day/motion-profile.mjs?v=fg-6739bbf843fd9703';
-import {emotionPose} from './emotion-pose.mjs?v=fg-6739bbf843fd9703';
-import {makeEmotionProps,phoneTapTarget} from './emotion-props.mjs?v=fg-6739bbf843fd9703';
-import {makeDollLife} from './doll-life.mjs?v=fg-6739bbf843fd9703';
-import {makeSeatedLegs,WORK_SEATED_HIP} from './seated-legs.mjs?v=fg-6739bbf843fd9703';
-import {makeUpperBody} from './upper-body.mjs?v=fg-6739bbf843fd9703';
-import {makeBentArms} from './bent-arms.mjs?v=fg-6739bbf843fd9703';
-import {makeHangingHair} from './hanging-hair.mjs?v=fg-6739bbf843fd9703';
-import {OUTFITS,mergeLook,outfitId,outfitColors,hairId,hairModeOf,DEFAULT_LOOK,COMPANION_LOOK,DEFAULT_EYE,eyesOf} from './wardrobe.mjs?v=fg-6739bbf843fd9703';
-import {makeSeatContact} from './seat-contact.mjs?v=fg-6739bbf843fd9703';
+import {makeWeatherEffects} from './emotion-weather.mjs?v=fg-14dcba4c9a64c8fb';
+import {makeEmotionHands,handStyle,handScaleOf} from './emotion-hands.mjs?v=fg-14dcba4c9a64c8fb';
+import {makeEmotionFeatures,transientEmotionFace} from './emotion-features.mjs?v=fg-14dcba4c9a64c8fb';
+import {settleEmotionGround} from './emotion-ground.mjs?v=fg-14dcba4c9a64c8fb';
+import {attachRegionDye,dyeRegions} from './outfit-dye.mjs?v=fg-14dcba4c9a64c8fb';
+import {reachHand,headSafeTarget} from './reach-hand.mjs?v=fg-14dcba4c9a64c8fb';
+import {taskPose,makeTaskProps,workHandTargets,GUITAR_HOLD,GUITAR_STRUM} from './task-motion.mjs?v=fg-14dcba4c9a64c8fb';
+import {dailyHandTargets} from './daily-motion.mjs?v=fg-14dcba4c9a64c8fb';
+import {motionClock,motionPosture} from './day/motion-profile.mjs?v=fg-14dcba4c9a64c8fb';
+import {emotionPose} from './emotion-pose.mjs?v=fg-14dcba4c9a64c8fb';
+import {makeEmotionProps,phoneTapTarget} from './emotion-props.mjs?v=fg-14dcba4c9a64c8fb';
+import {makeDollLife} from './doll-life.mjs?v=fg-14dcba4c9a64c8fb';
+import {makeSeatedLegs,WORK_SEATED_HIP} from './seated-legs.mjs?v=fg-14dcba4c9a64c8fb';
+import {makeUpperBody} from './upper-body.mjs?v=fg-14dcba4c9a64c8fb';
+import {makeBentArms} from './bent-arms.mjs?v=fg-14dcba4c9a64c8fb';
+import {makeHangingHair} from './hanging-hair.mjs?v=fg-14dcba4c9a64c8fb';
+import {OUTFITS,mergeLook,outfitId,outfitColors,hairId,hairModeOf,DEFAULT_LOOK,COMPANION_LOOK,DEFAULT_EYE,eyesOf} from './wardrobe.mjs?v=fg-14dcba4c9a64c8fb';
+import {makeSeatContact} from './seat-contact.mjs?v=fg-14dcba4c9a64c8fb';
 import * as T from 'three';
-import {GLTFLoader} from './vendor/GLTFLoader.js?v=fg-6739bbf843fd9703';
-import {DRACOLoader} from './vendor/DRACOLoader.js?v=fg-6739bbf843fd9703';
+import {GLTFLoader} from './vendor/GLTFLoader.js?v=fg-14dcba4c9a64c8fb';
+import {DRACOLoader} from './vendor/DRACOLoader.js?v=fg-14dcba4c9a64c8fb';
 // 衣服按需加载（她 2026-09-26）：doll.glb 只有身体、骨架和头发，每套衣服是 outfits/<id>.glb，
 // 穿到哪套才下哪套。同一套全页只下一次（下面这张表），每个小人再各克隆一份、按骨头名字接到自己的骨架上。
 // 文件由 art/fairy-garden/doll/split_outfits.py 从完整娃娃拆出来；版本指纹跟着本模块自己的 ?v=。
@@ -138,7 +138,7 @@ const FACE_TEX=new Map(),faceLoader=new T.TextureLoader();let FACE_BASE=new URL(
 export function setFaceBase(url){FACE_BASE=url;FACE_TEX.clear();}
 function faceTexture(id){if(!FACE_TEX.has(id)){let finish;const ready=new Promise(resolve=>{finish=resolve;});const t=faceLoader.load(FACE_BASE+id+'.webp',()=>finish(),undefined,()=>finish());t.userData.ready=ready;t.flipY=false;t.colorSpace=T.SRGBColorSpace;FACE_TEX.set(id,t);}return FACE_TEX.get(id);}
 const FACE_ID=/^[a-z]{2,16}$/;
-export function createTraveler(source,companion=false,look={}){
+export function createTraveler(source,companion=false,look={},appearance={}){
  let weatherEffects=null,disposed=false;
  const want=Object.assign({},companion?COMPANION:DEFAULT,look||{});
  let sleepFace=false,actionFace=null;
@@ -153,6 +153,7 @@ export function createTraveler(source,companion=false,look={}){
   //   后下载的衣服也走这里：它带着自己那副同名骨架，一样按名字换成这个人的骨头。
   if(o.isSkinnedMesh)o.bind(new T.Skeleton(o.skeleton.bones.map(b=>model.getObjectByName(b.name)),o.skeleton.boneInverses.map(m=>m.clone())),o.bindMatrix);});
  adopt(model);
+ const costume=appearance.costume?.(model,want)||null;
  // ⚠️clone(true) 只克隆节点，【材质仍然是同一份】：不给每个实例各一份，
  //   改一个人的发色，另一个人的头发会跟着一起变（美术脚本那头也踩过同一个坑）。
  const isHair=o=>/^hair[._]/i.test(o.name),hairName='hair_'+style;
@@ -211,8 +212,8 @@ export function createTraveler(source,companion=false,look={}){
  //   到了再穿；这期间又换了别的，以到货时最新的 want 为准。
  // 第一次：衣服和头发都到了才露面（免得闪一下光身子或秃头）；到不了（下载失败）也照样露面，别让人整个消失
  const reveal=()=>{const outfitOk=!!shown||!fetching.size,hairOk=typeof hairShown==='undefined'||!!hairShown||!hairFetching.size;model.visible=outfitOk&&hairOk;};
- const dress=look=>{const id=outfitId(look),colors=outfitColors(look);model.userData.outfit=id;
-  wear(id);const on=worn.has(id)?id:shown;shown=on;reveal();
+ const dress=look=>{const id=costume?.id||outfitId(look),colors=costume?{}:outfitColors(look);model.userData.outfit=id;
+  if(!costume)wear(id);const on=worn.has(id)?id:shown;shown=on;reveal();
   model.traverse(o=>{if(!o.isMesh)return;
    const covered=o.userData.skinCoverageUniforms;if(covered){const c=coverageByOutfit.get(on)||{};covered.feet.value=Math.max(c.feet??-1,OUTFITS[on]?.coveredLegsBelow??-1);covered.torso.value=c.torsoBelow??-1;covered.torsoAbove.value=c.torsoAbove??-1;covered.sleeve.value.fromArray(c.sleeve||[-1,0,0,0]);covered.axis.value.fromArray(c.armAxis||[.165,.655,.11,-.255]);}
    if(o.userData.skin)o.material.color.set(look.skin);
@@ -419,6 +420,6 @@ export function createTraveler(source,companion=false,look={}){
 // Scene callers share the compressed doll and decoder lifecycle.
 let travelerSource;
 export function loadTravelerSource(){
- if(!travelerSource)travelerSource=(async()=>{const draco=new DRACOLoader();draco.setDecoderPath(new URL('./vendor/draco/',import.meta.url).href);const loader=new GLTFLoader();loader.setDRACOLoader(draco);try{return(await loader.loadAsync(new URL('./doll.glb?v=fg-6739bbf843fd9703'+new URL(import.meta.url).search,import.meta.url).href)).scene;}finally{draco.dispose();}})().catch(e=>{travelerSource=null;throw e;});
+ if(!travelerSource)travelerSource=(async()=>{const draco=new DRACOLoader();draco.setDecoderPath(new URL('./vendor/draco/',import.meta.url).href);const loader=new GLTFLoader();loader.setDRACOLoader(draco);try{return(await loader.loadAsync(new URL('./doll.glb?v=fg-14dcba4c9a64c8fb'+new URL(import.meta.url).search,import.meta.url).href)).scene;}finally{draco.dispose();}})().catch(e=>{travelerSource=null;throw e;});
  return travelerSource;
 }
