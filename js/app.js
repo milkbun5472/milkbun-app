@@ -12070,6 +12070,21 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   };
   // TA主动约她（她 2026-10-02 拍板）：跟她约TA是同一张卡，方向反过来。三天最多一回，还挂着一张没回的就不再约
   const charInviteOf = charId => [...(chatsRef.current[charId] || [])].reverse().find(m => m && m.kind === "dateask" && m.state === "pending" && Date.now() - (m.ts || 0) < 3 * 86400000);
+  // 他发的对局邀请还挂着（两天内、没点过）就不再发第二张
+  const pendingDuelAsk = charId => [...(chatsRef.current[charId] || [])].reverse().find(m => m && m.kind === "duelask" && m.state === "pending" && Date.now() - (m.ts || 0) < 2 * 86400000);
+  // 接了对局邀请 / 从聊天里点「打一把」：带着对手和彩头进邮票册的对局页
+  const goDuel = (charId, m) => {
+    if (m && m.id) pChat(charId, p => p.map(x => x.id === m.id ? { ...x, state: "accepted" } : x));
+    window.__stampsDuel = { foeId: charId, wager: (m && m.wager) || "" };
+    setScreen("stamps");
+  };
+  // 战报发进聊天（她 2026-11-08）：一张卡，内容就在卡上，TA 下一轮自然读得到（不替 TA 开口，等她）
+  const duelReport = (charId, r) => {
+    if (!charId || !r) return;
+    pChat(charId, p => [...p, { id: "drep_" + Date.now(), role: "user", kind: "duelreport", ...r, ts: Date.now(), read: true,
+      content: "[对局战报] " + r.line }]);
+    toast("发到聊天了");
+  };
   const dateAskReady = charId => { const a = loadJSON("x_dateAskLast", {}) || {}; return Date.now() - (a[charId] || 0) > 3 * 86400000; };
   // 她在TA那张邀约上点「好」或「改天」：卡上的字跟着改，TA下一轮从记录里就看得到她怎么回的；答应了这地方钉进你俩的城
   const answerDateAsk = (charId, m, yes) => {
@@ -13245,6 +13260,18 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         const _dp = window.DatePlaces ? window.DatePlaces.list(charId).slice(0, 8).map(x => "「" + x.name + "」").join("") : "";
         capState.push((_askedInvite ? "" : "你们有" + (_askDays >= 7 ? "一阵子" : "几天") + "没一起出去了，你心里有点想她、想见面。") + "dateAsk：你要是此刻正好想约她出来见一面，可以发一张邀约：dateAsk:{\"place\":\"地方\",\"note\":\"一句为什么（可空）\",\"when\":\"哪天几点，口语就行（可空）\",\"say\":\"你想对她说的那句\"}。"
           + (_dp ? "你俩城里钉过的地方：" + _dp + "，可以挑一个，也可以是你自己想带她去的。" : "") + (_askedInvite ? "她刚叫你发邀约：要发就一定填 dateAsk，卡片才会出现在她那边——只在旁白里写「发过去了」她是收不到的。" : "没这个心思就不填；") + "话照常写在 word 里。");
+      }
+      // TA 约她打一把邮票对局（她 2026-11-08「TA 主动约战」）：手上得有这个人的卡；三天最多一次；
+      //   上一把他输了（她在连胜）更想扳回来；她这句提到对局、打一把就一定给这一格
+      const _hasStampCards = (() => { try { return ((window.StampsCore && window.StampsCore.load().cards) || []).some(c => c && c.charId === charId && c.text); } catch (e) { return false; } })();
+      const _duelLast = (loadJSON("x_duelAskLast", {}) || {})[charId] || 0, _duelStat = (loadJSON("x_stampDuelStats", {}) || {})[charId] || null;
+      const _askedDuel = /对局|打一把|来一局|邮票.{0,4}(打|比)/.test(String(recentUserText || "").slice(-80));
+      const _duelP = _duelStat && _duelStat.streak > 0 ? 0.3 : 0.08;
+      if (!_peekTurn && !(room && !room.main) && !_body && _hasStampCards && !pendingDuelAsk(charId) && (_askedDuel || (Date.now() - _duelLast > 3 * 86400000 && !_harshNow && Math.random() < _duelP))) {
+        openCaps.push("duelAsk");
+        capState.push((_duelStat && _duelStat.streak > 0 ? "上次用邮票册的卡跟她打对局，你输了，心里还有点不服。" : "")
+          + "duelAsk：你要是此刻想跟她用邮票册的卡打一把对局（不服气、闲着想逗她、想跟她赌点什么都行），可以发一张对局邀请：duelAsk:{\"say\":\"你想对她说的话\",\"wager\":\"想赌的彩头（可空）\"}。"
+          + (_askedDuel ? "她刚提到要打一把：要约就一定填 duelAsk，卡片才会出现在她那边。" : "没这个心思就不填；") + "话照常写在 word 里。");
       }
       // 申请信（v74.732）：只给判据不给触发词——好感几分、聊了几天都不算数，算数的是他自己想不想。
       //   只在单聊线上：线下是叙事、没有卡片字段（转账、要手机也都只在线上）；群里不写——这种信是私下给的。
@@ -14870,6 +14897,13 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
           if (yes) pChat(charId, p => [...p, rsvpReceipt(inv, null, rsvpSay(parsed.dateReply))]);
           delivered = true;
         }
+      }
+      if (parsed.duelAsk && typeof parsed.duelAsk === "object" && !(room && !room.main) && !_peekTurn && !pendingDuelAsk(charId)) {
+        const say = String(parsed.duelAsk.say || "").trim().slice(0, 80), wager = String(parsed.duelAsk.wager || "").trim().slice(0, 40);
+        pChat(charId, p => [...p, { id: "dinv_" + Date.now(), role: "assistant", kind: "duelask", say, wager, state: "pending", ts: Date.now() + 3,
+          content: "[对局邀请] 约你用邮票册的卡打一把" + (wager ? "，赌「" + wager + "」" : "") + (say ? "——" + say : "") }]);
+        try { const a = loadJSON("x_duelAskLast", {}) || {}; a[charId] = Date.now(); saveJSON("x_duelAskLast", a); } catch (e) {}
+        delivered = true;
       }
       if (parsed.dateAsk && typeof parsed.dateAsk === "object" && !(room && !room.main) && !_peekTurn && (dateAskReady(charId) || (typeof recentUserText === "string" && /邀约|约会邀请|邀请函/.test(recentUserText.slice(-80)))) && !charInviteOf(charId)) {
         const da = parsed.dateAsk, nm = String(da.place || "").trim().slice(0, 24);
@@ -34305,6 +34339,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     onLoveLetter: (m, yes) => answerLoveLetter(activeChar.id, m, yes),
     onSneak: (m, how) => answerSneak(activeChar.id, m, how),
     onDateGo: m => dateGo(activeChar.id, m),
+    onDuelGo: m => goDuel(activeChar.id, m && m.kind === "duelask" ? m : null),
     onBdayPlanOpen: m => openBdayPlan(activeChar, m),
     bdayToday: (() => { const bd = myBdayFor(activeChar.id); return !!bd && typeof daysUntilBirthday === "function" && daysUntilBirthday(bd, new Date(typeof vclockMap === "function" ? vclockMap(Date.now(), activeChar.id) : Date.now())) === 0; })(),
     onDateAnswer: (m, yes) => answerDateAsk(activeChar.id, m, yes),
@@ -36044,6 +36079,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     onDraw: (id, alt, mode) => stampDraw(id, alt, mode),
     onPoke: stampPoke,
     // 邮票对局（她 2026-11-07）：打完点「记得」才进记忆；对面卡组里带上跟 TA 有关系的人（关系页里两头任一头写了的）
+    onDuelReport: duelReport,
     onDuelRemember: (charId, line) => { try { addMemEntry({ text: line, tags: ["邮票对局", "邮票册"], charIds: [charId], knownBy: [charId], source: "stamps" }); toast("记下了"); } catch (e) {} },
     // 对局时跟 TA 聊（她 2026-11-07「打的时候和角色聊天吧」）：她发一句才调一次，TA 照人设和眼下这一局接
     onDuelChat: async (charId, d) => {

@@ -148,8 +148,8 @@
       h("div", { style: { height: 5, borderRadius: 3, marginTop: 3, background: "rgba(47,42,34,.12)", overflow: "hidden" } }, h("div", { style: { width: Math.max(0, 100 * hp / max) + "%", height: "100%", background: color, transition: "width .4s" } }))));
   const btn = (bg, fg, line) => ({ padding: "7px 14px", borderRadius: 4, background: bg, color: fg, border: line ? "1px solid " + line : "none", fontFamily: F, fontSize: fz(12.5) });
 
-  function StampDuelPage({ characters, cards, onBack, onRemember, closeOf, meName, toast, useThumb, onChat }) {
-    const [foeId, setFoeId] = useState(() => { const has = (characters || []).find(c => (cards || []).some(x => x.charId === c.id)); return (has || (characters || [])[0] || {}).id; });
+  function StampDuelPage({ characters, cards, onBack, onRemember, closeOf, meName, toast, useThumb, onChat, onReport, preset }) {
+    const [foeId, setFoeId] = useState(() => { if (preset && preset.foeId) return preset.foeId; const has = (characters || []).find(c => (cards || []).some(x => x.charId === c.id)); return (has || (characters || [])[0] || {}).id; });
     const [blind, setBlind] = useState(false);
     const [st, setSt] = useState(null);
     const [, bump] = useState(0);
@@ -204,7 +204,8 @@
       } };
       setSt(nd); setTut(0); setHandSel(-1); setBoardSel(-1); setSeries(null);
     };
-    const [wager, setWager] = useState(""), [wagerDraft, setWagerDraft] = useState("");
+    const [wager, setWager] = useState(() => preset && preset.wager ? (WAGERS.includes(preset.wager) ? preset.wager : "自己写") : ""), [wagerDraft, setWagerDraft] = useState(() => preset && preset.wager && !WAGERS.includes(preset.wager) ? preset.wager : "");
+    const [reported, setReported] = useState(false);
     const [handi, setHandi] = useState("none"), [hard, setHard] = useState(false), [useRule, setUseRule] = useState(false);
     const [after, setAfter] = useState({ wager: null, review: null, busy: "" });
     const [stats, setStats] = useState(() => { try { return (typeof loadJSON === "function" ? loadJSON(STATS_KEY, {}) : {}) || {}; } catch (e) { return {}; } });
@@ -231,7 +232,7 @@
       const hp = rule === "quick" ? 30 : D().ENVELOPE_HP;
       const nd = D().newDuel(me, them, s, { blind, bonds: bondsOf(), foeId, hard, rule, wager: wager === "自己写" ? wagerDraft.trim() : wager,
         meHp: handi === "meMore" ? hp + 20 : hp, foeHp: handi === "foeLess" ? hp - 20 : hp, cap: rule === "quick" ? 8 : undefined });
-      setAfter({ wager: null, review: null, busy: "" }); setSt(nd); setHandSel(-1); setBoardSel(-1); setSaved(null);
+      setAfter({ wager: null, review: null, busy: "" }); setReported(false); setSt(nd); setHandSel(-1); setBoardSel(-1); setSaved(null);
       setTimeout(() => persist(nd, series), 0);
       setSeries(sr => sr || D().newSeries());
     };
@@ -512,6 +513,16 @@
               after.review ? box(foeName + " 复盘", after.review)
                 : h("button", { "data-wk": "duelreview", onClick: () => ask("review"), disabled: !!after.busy, className: "w-full disabled:opacity-50", style: Object.assign(btn("transparent", SUB, "rgba(47,42,34,.25)"), { marginBottom: 8, fontSize: fz(11.5) }) }, after.busy === "review" ? foeName + " 在想…" : "听 " + foeName + " 复盘这一把（花一次调用）"));
           })() : null,
+          // 战报发进聊天（她 2026-11-08）
+          !st.tutorial && onReport ? h("button", { "data-wk": "duelreportgo", disabled: reported, onClick: () => {
+              const dealt = {}; st.log.forEach(l => { if ((l.kind === "hit" || l.kind === "hitEnv") && l.who === "me" && l.from && l.from.name) dealt[l.from.name] = (dealt[l.from.name] || 0) + (l.n || 0); });
+              const mvp = Object.keys(dealt).sort((a, b) => dealt[b] - dealt[a])[0] || "";
+              const games = (series ? series.games.length : 0) + 1;
+              const res = over.winner === "me" ? (meName || "她") + "赢了" : over.winner === "foe" ? foeName + "赢了" : "打平了";
+              onReport(foeId, { winner: over.winner, turn: over.turn, meHp: over.me, foeHp: over.foe, mvp, wager: st.wager || "", games,
+                line: "跟" + foeName + "用邮票册的卡打了一把，" + res + "（" + over.turn + " 回合，信封剩 " + over.me + " : " + over.foe + "）" + (mvp ? "，最争气的是「" + mvp + "」" : "") + (st.wager ? "，赌的是「" + st.wager + "」" : "") + "。" });
+              setReported(true);
+            }, className: "w-full disabled:opacity-50", style: Object.assign(btn("transparent", INK, "rgba(47,42,34,.35)"), { marginBottom: 8, fontSize: fz(12) }) }, reported ? "已经发到聊天了" : "把战报发到跟 " + foeName + " 的聊天里") : null,
           st.tutorial ? h("div", { className: "flex", style: { gap: 8 } },
               h("button", { onClick: startTut, className: "flex-1", style: btn(INK, PAPER) }, "再练一次"),
               h("button", { onClick: () => { setSt(null); setTut(-1); }, className: "flex-1", style: btn("transparent", INK, INK) }, "去正式对局"))

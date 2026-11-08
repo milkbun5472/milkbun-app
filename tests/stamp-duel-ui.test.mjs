@@ -83,3 +83,16 @@ test("滑到下面点寄出不跳回顶上：寄出、贴票、回放那一阵�
   assert.match(ui, /guard\.current = Date\.now\(\) \+ 15000;/);
   assert.match(ui, /key: "bd", ref: bodyEl/);
 });
+const cmp = readFileSync(new URL("../js/components.js", import.meta.url), "utf8");
+test("跟聊天连着：战报卡发进聊天、TA 发对局邀请、点卡带着对手和彩头进对局页", () => {
+  assert.match(app, /kind: "duelreport"/);
+  assert.match(app, /openCaps\.push\("duelAsk"\)/);
+  assert.match(app, /kind: "duelask", say, wager, state: "pending"/);
+  assert.match(app, /window\.__stampsDuel = \{ foeId: charId, wager:/);
+  assert.match(cmp, /if \(m\.kind === "duelask" \|\| m\.kind === "duelreport"\) return h\(DuelChatCard/);
+  assert.match(st, /const \[tab, setTab\] = useState\(duelPreset \? "duel" : "pull"\)/);
+  assert.match(ui, /"data-wk": "duelreportgo"/);
+  // 战报卡点完不替 TA 开口（施工规则/wait-for-her.md）
+  const i = app.indexOf("const duelReport = "), body = app.slice(i, i + 600);
+  assert.doesNotMatch(body, /replyNow|runProbe|callAI/);
+});
