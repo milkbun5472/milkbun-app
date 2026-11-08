@@ -166,3 +166,10 @@ test("对面照羁绊有打法；认不出字的特质照作用配；一把 60 �
   const st = D.newDuel(D.deckFrom(mine, 50), D.deckFrom(mine, 51), 50, { bonds: { b: "冷淡" }, foeId: "b" });
   assert.equal(st.intent.style, "冷淡"); assert.ok(st.intent.place.length <= 2);
 });
+test("记下是哪张票动的手；让子、认真模式、快局", () => {
+  const st = D.newDuel(D.deckFrom(mine, 60), D.deckFrom(mine, 61), 60, { meHp: 80, foeHp: 40, cap: 8, hard: true });
+  assert.equal(st.me.max, 80); assert.equal(st.foe.hp, 40); assert.equal(st.cap, 8);
+  while (!st.over) { for (let k = st.me.hand.length - 1; k >= 0; k--) { const f = st.me.board.findIndex((x, i) => !x && st.me.terrain[i] !== "破损"); if (f < 0) break; D.place(st, "me", k, f); } D.endTurn(st); }
+  assert.ok(st.over.turn <= 8);
+  assert.ok(st.log.some(l => (l.kind === "hit" || l.kind === "hitEnv") && l.from && l.from.name));
+});

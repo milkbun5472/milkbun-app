@@ -36054,10 +36054,17 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         instruction: "你正和" + uN + "面对面用邮票册的卡打一局对局（两边各一个信封，往上贴卡、互相打信封，打空的输）。这一局是你们俩一起在玩的游戏，不是剧情里真的打架。\n"
           + "眼下的局面：" + d.board + "\n"
           + (d.history ? "这一局里你们刚才的几句：\n" + d.history + "\n" : "")
-          + uN + "刚跟你说：「" + String(d.text).slice(0, 400) + "」\n"
-          + "照你的人设、你们的关系和此刻的输赢接她这句，像边打牌边说话：几句短的就够，说到局面时只说上面写着的那些，别编没发生的。",
+          // 三种：边打边聊 / 彩头兑现（她 2026-11-08「输了干嘛」）/ 赛后复盘
+          + (d.mode === "wager"
+            ? "开局前你们说好的彩头：「" + String(d.wager).slice(0, 200) + "」。这一把" + (d.winner === "foe" ? "你赢了，现在向她讨这个彩头" : d.winner === "me" ? "她赢了，现在你照约定兑现" : "打平了，你们商量这个彩头怎么算") + "。照你的人设和你们的关系把这件事做出来、说出来；能当场做的就当场做，做不到的就说清什么时候、怎么还。"
+            : d.mode === "review"
+            ? "这一把打完了。像打完牌回头聊这一局那样说几句：哪一步让你印象深、哪张票最烦人或最争气、下次想怎么打。只说上面写着的局面，别编没发生的。"
+            : uN + "刚跟你说：「" + String(d.text).slice(0, 400) + "」\n照你的人设、你们的关系和此刻的输赢接她这句，像边打牌边说话：几句短的就够，说到局面时只说上面写着的那些，别编没发生的。"),
         schemaHint: "{\"lines\":[\"一句\"]}" });
-      return (Array.isArray(r && r.lines) ? r.lines : [r && r.lines]).map(x => String(x || "").trim()).filter(Boolean).slice(0, 4);
+      const out = (Array.isArray(r && r.lines) ? r.lines : [r && r.lines]).map(x => String(x || "").trim()).filter(Boolean).slice(0, d.mode ? 6 : 4);
+      // 彩头兑现了就记下来，以后 TA 还会拿出来说
+      if (d.mode === "wager" && out.length) { try { addMemEntry({ text: char.name + "和" + uN + "打邮票对局，赌了「" + String(d.wager).slice(0, 60) + "」，" + (d.winner === "foe" ? char.name + "赢了，向她讨了" : d.winner === "me" ? uN + "赢了，" + char.name + "兑现了" : "打平了") + "：" + out.join(" ").slice(0, 120), tags: ["邮票对局", "彩头"], charIds: [char.id], knownBy: [char.id], source: "stamps" }); } catch (e) {} }
+      return out;
     },
     duelCloseOf: charId => liveChars.filter(c => c.id !== charId && (rels[charId + "->" + c.id] || rels[c.id + "->" + charId])).map(c => c.id),
     onInner: stampInner,

@@ -4,7 +4,7 @@
 //   打完一把选「再来一把」还是「结束」；结束时才问要不要让 TA 记得（几把合成一句）。
 (function () {
   "use strict";
-  const { useState, useRef, useMemo } = React;
+  const { useState, useRef, useMemo, useLayoutEffect } = React;
   const h = React.createElement;
   const D = () => window.StampDuel;
   const INK = "#2f2a22", SUB = "rgba(47,42,34,.6)", RED = "#b23a2e", GREEN = "#4f7a66", PAPER = "#fbf6ea";
@@ -24,6 +24,19 @@
     { say: "手里来了四张同一个人的票，胶水也给你添够了。把它们贴成 2×2 的一个方块，触发「四方连」觉醒。", enter: (st, x) => x.giveFour(), done: st => st.log.some(l => l.kind === "wake" && l.who === "me") },
     { say: "要领就这些。还有撕票、挪票、留牌、格子和邮局公告，打着打着会碰到，右上角「怎么玩」随时查。现在把这一把打完吧！", next: true, last: true }
   ];
+  // 彩头（她 2026-11-08「都可以」）：开局前约好输了干嘛，打完 TA 照约定兑现或来讨
+  const WAGERS = ["输的人回答一个真心话", "输的人给对方写一封信", "输的人喂对方吃一口", "输的人陪对方看一部片", "输的人叫一声好听的", "输的人答应对方一件小事"];
+  // 每周轮一个规则局
+  const RULES = {
+    mirror: { zh: "镜像局", desc: "两边用同一套卡组，只比谁摆得好" },
+    reverse: { zh: "反着来", desc: "你用 TA 的卡，TA 用你的" },
+    fancy: { zh: "华丽局", desc: "卡组只从 SR 和 SSR 里抽" },
+    quick: { zh: "快局", desc: "各 30 血，最多 8 回合" }
+  };
+  const ruleOfWeek = () => { const keys = Object.keys(RULES); return keys[Math.floor(Date.now() / 604800000) % keys.length]; };
+  // 快捷表情：一点就发，TA 拿卡上那句回你，不花调用
+  const EMOTES = ["哼", "再来", "手下留情", "好厉害", "等着瞧", "让我一下嘛"];
+  const STATS_KEY = "x_stampDuelStats";
   const GUIDE = [
     ["一句话", "你和 TA 各有一个信封。轮流往自己信封上贴邮票，贴上的票会自己去打对面。谁的信封先被打空，谁就输。"],
     ["每回合你做什么", "回合开始，你有 3 点胶水，手里摸到 4 张票。", "点手里一张，再点自己信封上的空格，就贴上去了。贴一张要花它的面值那么多胶水：R 是 1，SR 是 2，SSR 是 3。", "胶水花完、或者不想贴了，点「寄出」。你的票先动手，然后 TA 照着亮出来的那一步走。", "没用掉的牌回合结束就扔了。想留，选中它点「留到下回合」，最多留两张。", "放错了点「撤回」，一步一步退，胶水也退回来。点了「寄出」就退不回了。"],
@@ -70,14 +83,14 @@
       onClick: e => { if (fired.current) { fired.current = false; return; } onTap && onTap(e); }
     };
   }
-  function Ticket({ u, card, owner, useThumb, sel, onTap, small, foe, terrain, wk, fx, onLong }) {
+  function Ticket({ u, card, owner, useThumb, sel, onTap, small, foe, terrain, wk, fx, onLong, lift }) {
     const press = useLongPress(onLong, onTap);
     const [url, el] = (useThumb || noThumb)(card ? (card.cover || card.face) : null);
     const col = RC[u.rarity] || RC.R, marks = Object.keys(u.marks || {});
     const ready = u.charge != null && u.charge >= u.need;
     return h("button", { ref: el, "data-wk": wk || "duelcell", "data-rarity": u.rarity, "data-foe": foe ? "1" : "0", "data-sel": sel ? "1" : "0", ...press, className: "active:scale-95",
       style: { position: "relative", width: "100%", aspectRatio: small ? "3 / 4" : "1 / 1", padding: 4, border: "none", background: perf(PAPER), transition: "transform .15s", WebkitTouchCallout: "none", WebkitUserSelect: "none", userSelect: "none", touchAction: "manipulation",
-        transform: sel ? "translateY(-4px)" : "none", animation: fx ? (fx.kind === "hit" || fx.kind === "skip" ? "duelHit .45s" : fx.kind === "place" ? "duelPop .4s" : "none") : "none", filter: "drop-shadow(0 " + (sel ? 5 : 2) + "px " + (sel ? 6 : 3) + "px rgba(47,42,34," + (sel ? .35 : .22) + "))" } },
+        transform: lift ? "translateY(" + (foe ? 12 : -12) + "px) scale(1.16) rotate(" + (foe ? 3 : -3) + "deg)" : sel ? "translateY(-4px)" : "none", zIndex: lift ? 6 : "auto", transition: "transform .22s cubic-bezier(.2,.9,.3,1.3)", animation: fx ? (fx.kind === "hit" || fx.kind === "skip" ? "duelHit .45s" : fx.kind === "place" ? "duelPop .4s" : "none") : "none", filter: lift ? "drop-shadow(0 10px 12px rgba(47,42,34,.45)) drop-shadow(0 0 6px rgba(255,207,107,.9))" : "drop-shadow(0 " + (sel ? 5 : 2) + "px " + (sel ? 6 : 3) + "px rgba(47,42,34," + (sel ? .35 : .22) + "))" } },
       h("div", { style: { position: "relative", width: "100%", height: "100%", overflow: "hidden", borderRadius: 2, outline: sel ? "2px solid " + RED : "1px solid " + col + "88",
         background: url ? "#2a2520 center/cover no-repeat url(" + url + ")" : "linear-gradient(160deg, #efe6d2, #e2d6bd)" } },
         !url ? h("div", { style: { position: "absolute", inset: "18% 6% 30%", display: "flex", alignItems: "center", justifyContent: "center", textAlign: "center", fontFamily: FD, fontSize: fz(small ? 10 : 10.5), color: "#6a5f4e", lineHeight: 1.25, overflow: "hidden" } }, u.name) : null,
@@ -113,6 +126,8 @@
   // 一个信封：外圈航空条纹、里面 3×3；对面的倒过来摆，两边前排面对面
   function Envelope({ sd, foe, sel, onTap, armed, cardOf, ownerOf, useThumb, fx, onLong }) {
     const fxOf = i => fx && fx.side === (foe ? "foe" : "me") && (fx.slot === i || (fx.slots || []).includes(i)) ? fx : null;
+    // 动手的那张拿起来（她 2026-11-08「把卡拿起来，看得到是哪张打了哪张」）
+    const liftOf = i => !!(fx && fx.from && fx.from.who === (foe ? "foe" : "me") && fx.from.slot === i && fx.kind !== "place");
     const order = foe ? [6, 7, 8, 3, 4, 5, 0, 1, 2] : [0, 1, 2, 3, 4, 5, 6, 7, 8];
     return h("div", { "data-wk": "duelboard", "data-foe": foe ? "1" : "0", style: { padding: 5, borderRadius: 6, background: AIRMAIL, maxWidth: 300, margin: "0 auto", boxShadow: "0 2px 6px rgba(47,42,34,.18)", position: "relative",
       animation: fx && fx.kind === "hitEnv" && fx.side === (foe ? "foe" : "me") ? "duelHit .5s" : "none" } },
@@ -123,7 +138,7 @@
           order.map(i => { const u = sd.board[i];
             const f = fxOf(i);
             if (!u && f && f.kind === "fall") return h("div", { key: i, style: { position: "relative" } }, h(EmptySlot, { terrain: sd.terrain[i], onTap: () => onTap(i) }), h("span", { style: { position: "absolute", left: "50%", top: "30%", fontFamily: FD, fontSize: fz(12), color: RED, animation: "duelFloat .9s forwards", whiteSpace: "nowrap" } }, "掉了"));
-            return h("div", { key: i }, u ? h(Ticket, { u, card: cardOf(u.cardId), owner: ownerOf(u.charId), useThumb, sel: sel === i, onTap: () => onTap(i), onLong: onLong ? () => onLong(u, foe, sd.terrain[i]) : null, fx: f, foe, terrain: sd.terrain[i] })
+            return h("div", { key: i }, u ? h(Ticket, { u, card: cardOf(u.cardId), owner: ownerOf(u.charId), useThumb, sel: sel === i, onTap: () => onTap(i), onLong: onLong ? () => onLong(u, foe, sd.terrain[i]) : null, fx: f, lift: liftOf(i), foe, terrain: sd.terrain[i] })
               : h(EmptySlot, { terrain: sd.terrain[i], onTap: () => onTap(i), armed: armed && !foe })); }))));
   }
   const Seal = (label, hp, max, color, sub) => h("div", { "data-wk": "duelhp", className: "flex items-center", style: { gap: 8, fontFamily: F, color: INK, margin: "4px 2px" } },
@@ -142,6 +157,15 @@
     const [series, setSeries] = useState(null), [asking, setAsking] = useState(false);
     const [fx, setFx] = useState(null), [banner, setBanner] = useState(null), playing = useRef(0), [bubble, setBubble] = useState(null);
     const lastBubble = useRef(0);   // 钩子都放在这儿：下面有几处提前 return，钩子不许跟着条件走
+    // 滑到下面点寄出，页面别自己跳回顶上（她 2026-11-08）：记住她手指滑到的位置；
+    //   每次重画以后，位置要是变了、而她刚才没在滑，就放回去
+    //   只在「寄出、贴票、回放」这些我们自己引起重画的那一阵里看着（guard），平时她怎么滑都不管
+    const bodyEl = useRef(null), keepY = useRef(0), touchAt = useRef(0), guard = useRef(0);
+    const guarding = () => Date.now() < guard.current && Date.now() - touchAt.current > 1200;
+    useLayoutEffect(() => {
+      const el = bodyEl.current; if (!el || !guarding()) return;
+      if (Math.abs(el.scrollTop - keepY.current) > 4) el.scrollTop = keepY.current;
+    });
     const [info, setInfo] = useState(null), [guide, setGuide] = useState(false);
     const guideBtn = h("button", { "data-wk": "duelguidebtn", onClick: () => setGuide(true), className: "active:opacity-60", style: { padding: "4px 8px", color: INK, fontFamily: F, fontSize: fz(12.5) } }, "怎么玩");
     const openInfo = (u, foe, terrain) => { setInfo({ u, foe, terrain }); if (tutSeen && tutSeen.current) tutSeen.current.infoSeen = true; };
@@ -180,10 +204,34 @@
       } };
       setSt(nd); setTut(0); setHandSel(-1); setBoardSel(-1); setSeries(null);
     };
+    const [wager, setWager] = useState(""), [wagerDraft, setWagerDraft] = useState("");
+    const [handi, setHandi] = useState("none"), [hard, setHard] = useState(false), [useRule, setUseRule] = useState(false);
+    const [after, setAfter] = useState({ wager: null, review: null, busy: "" });
+    const [stats, setStats] = useState(() => { try { return (typeof loadJSON === "function" ? loadJSON(STATS_KEY, {}) : {}) || {}; } catch (e) { return {}; } });
+    // 战绩：一把打完记一次（谁赢、连胜、TA 最常贴哪张、谁打你最狠）
+    const record = x => {
+      if (!x || !x.over || x.tutorial || x.recorded) return; x.recorded = true;
+      setStats(prev => {
+        const all = Object.assign({}, prev), r = Object.assign({ w: 0, l: 0, d: 0, streak: 0, best: 0, used: {}, hurt: {} }, all[foeId] || {});
+        r.used = Object.assign({}, r.used); r.hurt = Object.assign({}, r.hurt);
+        if (x.over.winner === "me") { r.w++; r.streak = Math.max(0, r.streak) + 1; r.best = Math.max(r.best, r.streak); }
+        else if (x.over.winner === "foe") { r.l++; r.streak = Math.min(0, r.streak) - 1; } else r.d++;
+        x.log.forEach(l => { if (l.kind === "place" && l.who === "foe" && l.name) r.used[l.name] = (r.used[l.name] || 0) + 1;
+          if ((l.kind === "hit" || l.kind === "hitEnv") && l.who === "foe" && l.from && l.from.name) r.hurt[l.from.name] = (r.hurt[l.from.name] || 0) + (l.n || 0); });
+        all[foeId] = r; try { saveJSON(STATS_KEY, all); } catch (e) {} return all;
+      });
+    };
     const start = () => {
       const s = (seedRef.current = (seedRef.current * 1103515245 + 12345) >>> 0);
-      const me = D().deckFrom(cards, s, D().DECK_SIZE, core), them = D().foeDeckFrom(cards, foeId, closeOf ? closeOf(foeId) : [], s);
-      const nd = D().newDuel(me, them, s, { blind, bonds: bondsOf(), foeId }); setSt(nd); setHandSel(-1); setBoardSel(-1); setSaved(null);
+      const rule = useRule ? ruleOfWeek() : "";
+      const pool = rule === "fancy" ? (cards || []).filter(c => c.rarity !== "R") : cards;
+      let me = D().deckFrom(pool, s, D().DECK_SIZE, core), them = D().foeDeckFrom(pool, foeId, closeOf ? closeOf(foeId) : [], s);
+      if (rule === "mirror") them = me.map(x => Object.assign({}, x));
+      if (rule === "reverse") { const t = me; me = them; them = t; }
+      const hp = rule === "quick" ? 30 : D().ENVELOPE_HP;
+      const nd = D().newDuel(me, them, s, { blind, bonds: bondsOf(), foeId, hard, rule, wager: wager === "自己写" ? wagerDraft.trim() : wager,
+        meHp: handi === "meMore" ? hp + 20 : hp, foeHp: handi === "foeLess" ? hp - 20 : hp, cap: rule === "quick" ? 8 : undefined });
+      setAfter({ wager: null, review: null, busy: "" }); setSt(nd); setHandSel(-1); setBoardSel(-1); setSaved(null);
       setTimeout(() => persist(nd, series), 0);
       setSeries(sr => sr || D().newSeries());
     };
@@ -226,6 +274,29 @@
             h("span", { style: { width: 22, height: 22, borderRadius: 999, background: c.avatarImage || c.avatar ? "#ccc center/cover url(" + (typeof resolveImg === "function" ? resolveImg(c.avatarImage || c.avatar) : (c.avatarImage || c.avatar)) + ")" : "#d8ccb4" } }),
             (c.remark || c.name) + (n ? " · " + n : ""));
         })),
+        // 跟这个人的战绩
+        (() => { const r = stats[foeId]; if (!r || !(r.w + r.l + r.d)) return null;
+          const top = o => Object.keys(o || {}).sort((a, b) => o[b] - o[a])[0];
+          return h("div", { "data-wk": "duelstats", style: { marginBottom: 16, padding: "9px 12px", borderRadius: 4, background: "rgba(255,255,255,.5)", border: "1px solid rgba(47,42,34,.15)", fontSize: fz(12), lineHeight: 1.7 } },
+            h("div", { style: { fontFamily: FD, fontSize: fz(13) } }, "跟 " + foeName + "：" + r.w + " 胜 " + r.l + " 负" + (r.d ? " " + r.d + " 平" : "") + (r.streak > 1 ? " · 你正 " + r.streak + " 连胜" : r.streak < -1 ? " · 你连输 " + (-r.streak) + " 把了" : "")),
+            r.best > 1 ? h("div", { style: { color: SUB } }, "最长连胜 " + r.best) : null,
+            top(r.used) ? h("div", { style: { color: SUB } }, foeName + " 最常贴：「" + top(r.used) + "」") : null,
+            top(r.hurt) ? h("div", { style: { color: SUB } }, "打你最狠的宿敌卡：「" + top(r.hurt) + "」") : null); })(),
+        // 彩头
+        h("div", { style: { fontFamily: FD, fontSize: fz(14), marginBottom: 4 } }, "彩头"),
+        h("div", { style: { fontSize: fz(11.5), color: SUB, marginBottom: 8 } }, "约好输了干嘛。打完 TA 照约定兑现，或者来向你讨（兑现那一下花一次调用，会记进 TA 的记忆）。不选就是不赌。"),
+        h("div", { className: "flex flex-wrap", style: { gap: 6, marginBottom: wager === "自己写" ? 6 : 16 } }, ["", ...WAGERS, "自己写"].map(w => h("button", { key: w || "none", "data-wk": "duelwager", "data-on": wager === w ? "1" : "0", onClick: () => setWager(w),
+          style: { padding: "4px 10px", borderRadius: 999, border: "1px solid " + (wager === w ? RED : "rgba(47,42,34,.25)"), background: wager === w ? "rgba(178,58,46,.07)" : "rgba(255,255,255,.4)", color: wager === w ? RED : INK, fontSize: fz(12) } }, w || "不赌"))),
+        wager === "自己写" ? h("input", { value: wagerDraft, onChange: e => setWagerDraft(e.target.value), placeholder: "输的人要……", style: { width: "100%", marginBottom: 16, padding: "7px 10px", borderRadius: 4, border: "1px solid rgba(47,42,34,.25)", background: "#fff", fontSize: fz(12.5) } }) : null,
+        // 让子 / 认真 / 本周规则局
+        h("div", { style: { fontFamily: FD, fontSize: fz(14), marginBottom: 8 } }, "难度"),
+        h("div", { className: "flex flex-wrap", style: { gap: 6, marginBottom: 8 } }, [["none", "不让"], ["foeLess", "让 TA 少 20 血"], ["meMore", "我多 20 血"]].map(([k, zh]) => h("button", { key: k, "data-wk": "duelhandi", "data-on": handi === k ? "1" : "0", onClick: () => setHandi(k),
+          style: { padding: "4px 10px", borderRadius: 999, border: "1px solid " + (handi === k ? INK : "rgba(47,42,34,.25)"), background: handi === k ? INK : "transparent", color: handi === k ? PAPER : INK, fontSize: fz(12) } }, zh)),
+          h("button", { "data-wk": "duelhard", "data-on": hard ? "1" : "0", onClick: () => setHard(v => !v), style: { padding: "4px 10px", borderRadius: 999, border: "1px solid " + (hard ? RED : "rgba(47,42,34,.25)"), background: hard ? RED : "transparent", color: hard ? "#fff" : INK, fontSize: fz(12) } }, "认真模式")),
+        h("div", { style: { fontSize: fz(11.5), color: SUB, marginBottom: 12 } }, hard ? "认真模式：TA 每回合多 1 点胶水。" : "认真模式下 TA 每回合多 1 点胶水，难一点。"),
+        h("button", { "data-wk": "duelrule", "data-on": useRule ? "1" : "0", onClick: () => setUseRule(v => !v), className: "w-full text-left", style: { marginBottom: 18, padding: "8px 12px", borderRadius: 4, border: "1px " + (useRule ? "solid " + GREEN : "dashed rgba(47,42,34,.3)"), background: useRule ? "rgba(79,122,102,.08)" : "transparent", color: INK } },
+          h("div", { style: { fontFamily: FD, fontSize: fz(13), color: useRule ? GREEN : INK } }, (useRule ? "✓ " : "") + "本周规则局 · " + RULES[ruleOfWeek()].zh),
+          h("div", { style: { fontSize: fz(11.5), color: SUB } }, RULES[ruleOfWeek()].desc + "。每周换一个，点一下打开。")),
         h("div", { style: { fontFamily: FD, fontSize: fz(14), marginBottom: 8 } }, "看不看得见 TA 的下一步"),
         h("div", { className: "flex", style: { gap: 8, marginBottom: 6 } }, [[false, "明牌"], [true, "盲打"]].map(([v, zh]) => h("button", { key: zh, "data-wk": "duelblind", "data-on": blind === v ? "1" : "0", onClick: () => setBlind(v),
           style: Object.assign(btn(blind === v ? INK : "transparent", blind === v ? PAPER : INK, INK), { flex: 1 }) }, zh))),
@@ -252,10 +323,10 @@
       const run = ++playing.current; let k = 0;
       const step = () => {
         if (playing.current !== run) return;
-        if (k >= evs.length) { setFx(null); setBanner(null); playing.current = 0; redraw(); setTimeout(() => setBubble(b => (b && b.key === lastBubble.current ? null : b)), 2600); return; }
+        if (k >= evs.length) { guard.current = Date.now() + 800; setFx(null); setBanner(null); playing.current = 0; redraw(); setTimeout(() => setBubble(b => (b && b.key === lastBubble.current ? null : b)), 2600); return; }
         const l = evs[k++], side = l.kind === "hitEnv" ? (l.who === "me" ? "foe" : "me") : fxSide(l);
         const txt = l.kind === "hit" ? "-" + l.n : l.kind === "heal" ? "+" : l.kind === "gain" ? "+胶" : l.kind === "skip" ? (l.text.indexOf("退回") >= 0 ? "退回" : "落空") : "";
-        setFx({ kind: l.kind, side, slot: l.slot, slots: l.slots, n: l.n, ink: l.ink, txt });
+        setFx({ kind: l.kind, side, slot: l.slot, slots: l.slots, n: l.n, ink: l.ink, txt, from: l.from, text: l.text, who: l.who });
         // 他开口：他的票上场、被打掉、觉醒、盖章时说卡上那句；打掉她一张时说他卡上戳一戳时那句（她 2026-11-08 同意「像他」）
         const foeLine = l.who === "foe" && l.line ? l.line : (l.kind === "fall" && l.who === "me" ? (them.board.find(x => x && x.lines && x.lines.win) || {}).lines : null);
         const said = typeof foeLine === "string" ? foeLine : foeLine && foeLine.win;
@@ -267,10 +338,11 @@
       step();
     };
     // 她自己这一下（贴、挪、盖章、撕）也放：觉醒、盖章多半就在这时候
-    const doMine = fn => { const n0 = st.log.length; const ok = fail(fn()); if (ok) { setHandSel(-1); setBoardSel(-1); redraw(); play(n0); } return ok; };
+    const doMine = fn => { guard.current = Math.max(guard.current, Date.now() + 4000); const n0 = st.log.length; const ok = fail(fn()); if (ok) { setHandSel(-1); setBoardSel(-1); redraw(); play(n0); } return ok; };
     // 寄出：先结算完，再把这一回合的记录一条条放出来
     const send = () => {
       if (playing.current) return;
+      guard.current = Date.now() + 15000;
       const n0 = st.log.length; D().endTurn(st); setHandSel(-1); setBoardSel(-1); redraw(); play(n0);
     };
     const back1 = () => { if (fail(D().undo(st))) { setHandSel(-1); setBoardSel(-1); redraw(); } };
@@ -281,6 +353,7 @@
     };
     const again = () => { D().addGame(series, st); start(); };
     const log = st.log.slice(-4);
+    if (over && !playing.current) record(st);
     // 教练条：这一步做到了就往下走（进下一步时先跑它的 enter）
     const step = tut >= 0 ? TUT[tut] : null;
     const goStep = n => { if (n >= TUT.length) { setTut(-1); return; } const nx = TUT[n]; if (nx.enter) { nx.enter(st, tutSeen.current); redraw(); } setTut(n); };
@@ -291,7 +364,8 @@
       step.next ? h("div", { style: { textAlign: "right", marginTop: 4 } }, h("button", { "data-wk": "duelcoachnext", onClick: () => goStep(tut + 1), style: { padding: "3px 12px", borderRadius: 999, background: PAPER, color: GREEN, fontSize: fz(12) } }, step.last ? "好，开打" : "下一步")) : null) : null;
     // 边打边聊：记在这一局里（跟着存档走），她发一句才叫 TA 一次
     st.chat = st.chat || [];
-    const boardLine = () => "第 " + st.turn + " 回合，信封耐久（满 " + D().ENVELOPE_HP + "）她 " + Math.max(0, me.hp) + "、你 " + Math.max(0, them.hp)
+    const boardLine = () => "第 " + st.turn + " 回合，信封耐久她 " + Math.max(0, me.hp) + "/" + (me.max || D().ENVELOPE_HP) + "、你 " + Math.max(0, them.hp) + "/" + (them.max || D().ENVELOPE_HP) + ""
+      + (st.wager ? "；这一把赌的彩头：" + st.wager : "")
       + "；她信封上有 " + me.board.filter(Boolean).length + " 张，你有 " + them.board.filter(Boolean).length + " 张"
       + (over ? "；这一把已经打完，" + (over.winner === "me" ? "她赢了" : over.winner === "foe" ? "你赢了" : "打平") : "")
       // 两边信封上贴着的票和卡上那句话（她 2026-11-08「角色对战时也能看到自己卡的台词和我这边上场了的卡的台词」）
@@ -309,6 +383,13 @@
       } catch (e) { toast && toast("没聊成：" + ((e && e.message) || e)); }
       finally { setChatBusy(false); redraw(); }
     };
+    // 快捷表情：她点一下，TA 从自己场上（没有就手里）的票里挑一句卡上的话回她
+    const quick = e => {
+      st.chat.push({ who: "me", text: e });
+      const pool = them.board.filter(Boolean).concat(them.hand).map(u => u && u.lines && (u.lines.win || u.lines.enter || u.lines.wake)).filter(Boolean);
+      if (pool.length) st.chat.push({ who: "foe", text: pool[Math.floor(Math.random() * pool.length)] });
+      setChatOpen(true); redraw();
+    };
     const chatBox = h("div", { key: "chat", "data-wk": "duelchat", className: "shrink-0 px-3", style: { paddingTop: 6, borderTop: "1px solid rgba(47,42,34,.12)", background: "rgba(251,246,234,.7)", fontFamily: F, color: INK } },
       h("button", { onClick: () => setChatOpen(v => !v), className: "w-full text-left", style: { fontSize: fz(11.5), color: SUB, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } },
         (chatOpen ? "▾ " : "▸ ") + (st.chat.length ? (st.chat[st.chat.length - 1].who === "me" ? "我：" : foeName + "：") + st.chat[st.chat.length - 1].text : "跟 " + foeName + " 说两句（发一句花一次调用）")),
@@ -316,6 +397,7 @@
         st.chat.slice(-12).map((m, k) => h("div", { key: k, "data-wk": "duelchatmsg", "data-me": m.who === "me" ? "1" : "0", style: { alignSelf: m.who === "me" ? "flex-end" : "flex-start", maxWidth: "80%", padding: "4px 9px", borderRadius: 10,
           background: m.who === "me" ? "rgba(79,122,102,.16)" : "#fff", fontSize: fz(12.5), lineHeight: 1.5 } }, m.text)),
         chatBusy ? h("div", { style: { fontSize: fz(11), color: SUB } }, foeName + " 在打字…") : null) : null,
+      h("div", { "data-wk": "duelemotes", className: "flex overflow-x-auto", style: { gap: 5, paddingTop: 4 } }, EMOTES.map(e => h("button", { key: e, onClick: () => quick(e), style: { flexShrink: 0, padding: "2px 9px", borderRadius: 999, border: "1px solid rgba(47,42,34,.2)", background: "rgba(255,255,255,.6)", fontSize: fz(11.5), color: INK } }, e))),
       h("div", { className: "flex items-center", style: { gap: 6, padding: "4px 0 6px" } },
         h("input", { "data-wk": "duelchatinput", value: draft, onChange: e => setDraft(e.target.value), onKeyDown: e => { if (e.key === "Enter") talk(); }, placeholder: "边打边说…",
           style: { flex: 1, minWidth: 0, padding: "6px 10px", borderRadius: 999, border: "1px solid rgba(47,42,34,.25)", background: "#fff", fontSize: fz(12.5) } }),
@@ -326,9 +408,11 @@
     return shell([
       h(Head, { key: "hd", zh: "第 " + st.turn + " 回合", sub: "对 " + foeName + (st.blind ? " · 盲打" : ""), bg: "transparent", ink: INK, right: guideBtn,
         onBack: () => { if (st.tutorial) { setSt(null); setTut(-1); return; } if (!over) { persist(st, series); setSaved({ st, series, foeId, at: Date.now() }); } else persist(null); setSt(null); setSeries(null); } }),
-      h("div", { key: "bd", className: "flex-1 min-h-0 overflow-y-auto px-4", style: { fontFamily: F, color: INK, paddingBottom: 14 } },
+      h("div", { key: "bd", ref: bodyEl, className: "flex-1 min-h-0 overflow-y-auto px-4", style: { fontFamily: F, color: INK, paddingBottom: 14, overflowAnchor: "none" },
+          onTouchStart: () => { touchAt.current = Date.now(); }, onTouchMove: () => { touchAt.current = Date.now(); }, onTouchEnd: () => { touchAt.current = Date.now(); }, onWheel: () => { touchAt.current = Date.now(); },
+          onScroll: e => { if (!guarding()) keepY.current = e.currentTarget.scrollTop; else if (Math.abs(e.currentTarget.scrollTop - keepY.current) > 4) e.currentTarget.scrollTop = keepY.current; } },
         coach,
-        Seal(foeName, them.hp, D().ENVELOPE_HP, RED, series && series.games.length ? "第 " + (series.games.length + 1) + " 把" : ""),
+        Seal(foeName, them.hp, them.max || D().ENVELOPE_HP, RED, series && series.games.length ? "第 " + (series.games.length + 1) + " 把" : ""),
         bubble ? h("div", { key: "bb" + bubble.key, "data-wk": "duelsay", style: { position: "relative", margin: "4px 0 2px 34px", padding: "6px 11px", borderRadius: "4px 12px 12px 12px", background: "#fff", boxShadow: "0 2px 6px rgba(47,42,34,.15)", fontSize: fz(12.5), lineHeight: 1.55, color: INK, animation: "duelPop .3s" } },
           h("span", { style: { color: RED, fontFamily: FD, marginRight: 6 } }, foeName), bubble.text) : null,
         // 对面的下一步：像一张电报条（盲打时不给看）
@@ -344,9 +428,9 @@
               h(Ticket, { u: s2, card: cardOf(s2.cardId), owner: ownerOf(s2.charId), useThumb, small: true, foe: true, wk: "duelfoecard", onTap: () => openInfo(s2, true), onLong: () => openInfo(s2, true) }),
               go ? h("span", { style: { position: "absolute", left: "50%", top: -6, transform: "translateX(-50%)", padding: "0 4px", borderRadius: 3, background: RED, color: "#fff", fontSize: fz(8), whiteSpace: "nowrap" } }, "要贴") : null); })) : null),
         h(Envelope, { sd: them, foe: true, sel: -1, onTap: () => {}, cardOf, ownerOf, useThumb, fx, onLong: openInfo }),
-        h("div", { className: "flex items-center", style: { gap: 8, margin: "10px 0", color: SUB, fontSize: fz(10.5) } }, h("div", { className: "flex-1", style: { borderTop: "1px dashed rgba(47,42,34,.3)" } }), ev ? h("span", { style: { color: GREEN } }, "公告 · " + ev + "：" + D().EVENTS[ev]) : "前排对前排", h("div", { className: "flex-1", style: { borderTop: "1px dashed rgba(47,42,34,.3)" } })),
+        h("div", { className: "flex items-center", style: { gap: 8, margin: "10px 0", color: SUB, fontSize: fz(10.5) } }, h("div", { className: "flex-1", style: { borderTop: "1px dashed rgba(47,42,34,.3)" } }), fx && fx.from && fx.text ? h("span", { "data-wk": "duelcaption", style: { color: fx.from.who === "foe" ? RED : GREEN, fontFamily: FD, fontSize: fz(12.5) } }, (fx.from.who === "foe" ? foeName + "：" : "我：") + fx.text) : ev ? h("span", { style: { color: GREEN } }, "公告 · " + ev + "：" + D().EVENTS[ev]) : "前排对前排", h("div", { className: "flex-1", style: { borderTop: "1px dashed rgba(47,42,34,.3)" } })),
         h(Envelope, { sd: me, foe: false, sel: boardSel, onTap: meSlot, armed: handSel >= 0, cardOf, ownerOf, useThumb, fx, onLong: openInfo }),
-        Seal(meName || "我", me.hp, D().ENVELOPE_HP, GREEN),
+        Seal(meName || "我", me.hp, me.max || D().ENVELOPE_HP, GREEN),
         // 选中场上一张：盖章 / 撕下；点旁边空格＝挪过去
         selU ? h("div", { "data-wk": "duelactions", style: { marginTop: 8, padding: "8px 10px", borderRadius: 4, background: "rgba(255,255,255,.55)", fontSize: fz(12) } },
           h("div", { style: { marginBottom: 6 } }, h("b", null, selU.name), h("span", { style: { color: SUB } }, " · " + (ownerOf(selU.charId) || "通用票") + " · " + selU.role + "：" + ROLE_TIP[selU.role])),
@@ -413,6 +497,21 @@
       over ? h("div", { key: "ft", "data-wk": "duelover", className: "shrink-0 px-4", style: { paddingTop: 12, paddingBottom: "calc(12px + env(safe-area-inset-bottom) * 0.4)", fontFamily: F, color: INK, borderTop: "1px solid rgba(47,42,34,.18)", background: "rgba(251,246,234,.92)" } },
           h("div", { style: { fontFamily: FD, fontSize: fz(18), textAlign: "center", marginBottom: 2, color: over.winner === "me" ? GREEN : over.winner === "foe" ? RED : INK } }, over.winner === "me" ? "你赢了" : over.winner === "foe" ? foeName + " 赢了" : "打平了"),
           h("div", { style: { fontSize: fz(11), textAlign: "center", color: SUB, marginBottom: 10 } }, over.turn + " 回合 · 信封剩 " + over.me + " : " + over.foe + (over.byCap ? " · 打满回合比剩下的" : "")),
+          // 彩头兑现、赛后复盘（她 2026-11-08）：各点一次叫 TA 一次
+          !st.tutorial && onChat ? (() => {
+            const ask = async mode => {
+              if (after.busy) return; setAfter(a => Object.assign({}, a, { busy: mode }));
+              try { const lines = await onChat(foeId, { mode, wager: st.wager, winner: over.winner, board: boardLine(), history: st.chat.slice(-6).map(m => (m.who === "me" ? (meName || "她") : foeName) + "：" + m.text).join("\n") });
+                setAfter(a => Object.assign({}, a, { [mode]: lines && lines.length ? lines : ["（没接上话，再点一次试试）"], busy: "" })); }
+              catch (e) { toast && toast("没成：" + ((e && e.message) || e)); setAfter(a => Object.assign({}, a, { busy: "" })); }
+            };
+            const box = (title, lines) => h("div", { style: { margin: "0 0 8px", padding: "8px 11px", borderRadius: 4, background: "#fff", fontSize: fz(12.5), lineHeight: 1.65 } }, h("div", { style: { fontFamily: FD, fontSize: fz(11), color: SUB, marginBottom: 2 } }, title), lines.map((x, k) => h("div", { key: k }, x)));
+            return h("div", { "data-wk": "duelafter" },
+              st.wager ? (after.wager ? box("彩头 · " + st.wager, after.wager)
+                : h("button", { "data-wk": "duelwagergo", onClick: () => ask("wager"), disabled: !!after.busy, className: "w-full disabled:opacity-50", style: Object.assign(btn("rgba(178,58,46,.08)", RED, RED), { marginBottom: 8 }) }, after.busy === "wager" ? foeName + " 在想…" : (over.winner === "foe" ? foeName + " 来讨彩头：" : over.winner === "me" ? "让 " + foeName + " 兑现：" : "打平了，彩头怎么算：") + st.wager)) : null,
+              after.review ? box(foeName + " 复盘", after.review)
+                : h("button", { "data-wk": "duelreview", onClick: () => ask("review"), disabled: !!after.busy, className: "w-full disabled:opacity-50", style: Object.assign(btn("transparent", SUB, "rgba(47,42,34,.25)"), { marginBottom: 8, fontSize: fz(11.5) }) }, after.busy === "review" ? foeName + " 在想…" : "听 " + foeName + " 复盘这一把（花一次调用）"));
+          })() : null,
           st.tutorial ? h("div", { className: "flex", style: { gap: 8 } },
               h("button", { onClick: startTut, className: "flex-1", style: btn(INK, PAPER) }, "再练一次"),
               h("button", { onClick: () => { setSt(null); setTut(-1); }, className: "flex-1", style: btn("transparent", INK, INK) }, "去正式对局"))

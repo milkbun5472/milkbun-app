@@ -40,8 +40,8 @@ test("边打边聊：她发一句才叫一次 TA，带着眼下局面；聊天�
   assert.match(ui, /st\.chat = st\.chat \|\| \[\]/);
 });
 test("带谁上场、长按看底细、她自己那一下也慢放", () => {
-  assert.match(ui, /D\(\)\.deckFrom\(cards, s, D\(\)\.DECK_SIZE, core\)/);
-  assert.match(ui, /newDuel\(me, them, s, \{ blind, bonds: bondsOf\(\), foeId \}\)/);
+  assert.match(ui, /D\(\)\.deckFrom\(pool, s, D\(\)\.DECK_SIZE, core\)/);
+  assert.match(ui, /newDuel\(me, them, s, \{ blind, bonds: bondsOf\(\), foeId, hard, rule/);
   assert.match(ui, /function useLongPress\(onLong, onTap\)/);
   assert.match(ui, /"data-wk": "duelinfo"/);
   assert.match(ui, /const doMine = fn =>/);
@@ -66,4 +66,20 @@ test("新手教学关：开局页能进、九步教练条、不存档；对面�
   // 钩子不许放在提前 return 后面（React #310）
   const ret = ui.indexOf("if (guide) return shell(");
   assert.ok(ui.indexOf("const lastBubble = useRef(0)") < ret && ui.indexOf("const [tut, setTut] = useState(-1)") < ret);
+});
+test("彩头、复盘、战绩、难度、规则局、快捷表情、动手那张拿起来", () => {
+  assert.match(ui, /const WAGERS = \[/);
+  assert.match(ui, /onChat\(foeId, \{ mode, wager: st\.wager, winner: over\.winner/);
+  assert.match(app, /d\.mode === "wager"/);
+  assert.match(app, /tags: \["邮票对局", "彩头"\]/);
+  assert.match(ui, /const STATS_KEY = "x_stampDuelStats"/);
+  assert.match(ui, /meHp: handi === "meMore"/);
+  assert.match(ui, /const ruleOfWeek = \(\) =>/);
+  assert.match(ui, /const EMOTES = \[/);
+  assert.match(ui, /const liftOf = i =>/);
+});
+test("滑到下面点寄出不跳回顶上：寄出、贴票、回放那一阵守住她滑到的位置", () => {
+  assert.match(ui, /const bodyEl = useRef\(null\), keepY = useRef\(0\), touchAt = useRef\(0\), guard = useRef\(0\)/);
+  assert.match(ui, /guard\.current = Date\.now\(\) \+ 15000;/);
+  assert.match(ui, /key: "bd", ref: bodyEl/);
 });
