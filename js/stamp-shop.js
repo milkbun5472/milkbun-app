@@ -43,7 +43,7 @@
    }else if(action==='serve'||action==='fight'){
     const c=customer(s,o);if(c.done)return;if(s.phase!=='open'||D.shopPeriod(now())==='半夜')throw Error('店门已经关了。');if(action==='serve'&&c.tough)throw Error('这位客人要先打一局。');
     const mul=D.shopMul(s,s.roster,persona,cOf),has=c.wantChar?s.window.some(id=>cOf(id)?.charId===c.wantChar):true;
-    const fee=action==='fight'?(o.won?Math.round(c.fee*mul*2):0):has?Math.round(c.fee*mul):0;s.coins+=fee;s.earned+=fee;Object.assign(c,{done:true,got:fee,miss:!!c.wantChar&&!has,...(action==='fight'?{won:!!o.won}:{})});
+    const fee=action==='fight'?(o.won?Math.round(c.fee*mul*1.5):0):has?Math.round(c.fee*mul):0;s.coins+=fee;s.earned+=fee;Object.assign(c,{done:true,got:fee,miss:!!c.wantChar&&!has,...(action==='fight'?{won:!!o.won}:{})});
    }else if(action==='seenMeet'){const c=customer(s,o);c.meetSeen=true;}else if(action==='missedClear'){s.missed=null;}
    else throw Error('这个操作暂时不支持。');
   }
