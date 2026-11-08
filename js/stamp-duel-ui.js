@@ -104,6 +104,26 @@
       p.prog = Math.min(g.n, p.prog + v); if (p.prog >= g.n) p.done = true; sv(PACT_KEY, p); },
     open: () => { const p = Pact.now(); if (p) { p.opened = true; sv(PACT_KEY, p); } }
   };
+  // 谁能在聊天里提集邮社（她 2026-11-08）：按人两个开关，默认全关。
+  //   know：TA 聊天时知道一小段集邮社近况（不写记忆、每次现算；小包裹、信物也才进记忆）
+  //   invite：TA 偶尔在私聊里发邀请卡（对局、护信、死信、巡查、邮局）
+  const LINK_KEY = "x_stampChatLink";
+  const ChatLink = {
+    all: () => ld(LINK_KEY, {}) || {},
+    of: id => Object.assign({ know: false, invite: false }, ChatLink.all()[id] || {}),
+    set: (id, k, v) => { const a = ChatLink.all(); a[id] = Object.assign({ know: false, invite: false }, a[id] || {}, { [k]: !!v }); sv(LINK_KEY, a); },
+    // 只写跟 TA 本人有关的；没有的那行不出现
+    brief: id => {
+      if (!ChatLink.of(id).know) return "";
+      const out = [];
+      try { const p = ld(PACT_KEY, null); if (p && p.charId === id && p.week === Pact.week()) { const g = Pact.goalOf(p); out.push("这周你们约好：「" + g.zh(g.n) + "」，现在 " + p.prog + "／" + g.n + (p.done ? "，已经做到了" : "") + "。"); } } catch (e) {}
+      try { const sh = ld("x_stampShop", null), d = new Date(), today = d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate();
+        if (sh && sh.date === today && sh.phase !== "plan") { const post = Object.keys(sh.roster || {}).find(k => String(sh.roster[k]) === String(id)); out.push("她的邮局小店今天：" + (post ? "你在" + post + "上班" : "你今天没排班") + (sh.phase === "closed" ? "，已经打烊了" : "") + "。"); } } catch (e) {}
+      try { const r = (ld(STATS_KEY, {}) || {})[id]; if (r && r.last && Date.now() - r.last.at < 7 * 864e5) { const dd = Math.floor((Date.now() - r.last.at) / 864e5); out.push("最近一次跟你打对局：" + (dd ? dd + " 天前" : "今天") + "，" + (r.last.win === "me" ? "她赢了" : r.last.win === "foe" ? "你赢了" : "打平") + "。"); } } catch (e) {}
+      return out.length ? "【集邮社近况】这是她在邮票册「集邮社」里跟你们玩的小游戏，你知道这些。想提就自然地提，不提也行，别每次都绕回来。\n- " + out.join("\n- ") : "";
+    }
+  };
+  window.StampChatLink = ChatLink;
   window.StampRewards = Rewards;
   // TA 的小物（她 2026-11-08「陪同角色能收集到和他相关的东西，全部玩法都是」）：有人陪着打就掉 TA 的小包裹，
   //   攒着，在小物册里拆（花一次调用，TA 写一样跟你们有关的东西）；只是收藏，不加数值
@@ -392,7 +412,7 @@
     });
     const [info, setInfo] = useState(null), [guide, setGuide] = useState(false);
     // 先挑玩法（她 2026-11-08「点对战先出个选择界面：对局模式还是远信模式，再选设定」）；从聊天里点进来、远信里打仗的直接跳过
-    const [mode, setMode] = useState(() => (preset || runBattle) ? "duel" : initialMode === "shop" ? "shop" : "");
+    const [mode, setMode] = useState(() => (preset || runBattle) ? "duel" : initialMode === "siege" ? "siegepick" : ["shop", "puzzle", "patrol"].includes(initialMode) ? initialMode : "");
     const [voice, setVoice0] = useState(() => { try { return Object.assign({}, VOICE_DEF, (typeof loadJSON === "function" ? loadJSON(VOICE_KEY, {}) : {}) || {}); } catch (e) { return Object.assign({}, VOICE_DEF); } });
     const [voicePanel, setVoicePanel] = useState(false);
     const setVoice = patch => setVoice0(v => { const n = Object.assign({}, v, patch); try { saveJSON(VOICE_KEY, n); } catch (e) {} return n; });
@@ -597,6 +617,7 @@
         else if (x.over.winner === "foe") { r.l++; r.streak = Math.min(0, r.streak) - 1; } else r.d++;
         x.log.forEach(l => { if (l.kind === "place" && l.who === "foe" && l.name) r.used[l.name] = (r.used[l.name] || 0) + 1;
           if ((l.kind === "hit" || l.kind === "hitEnv") && l.who === "foe" && l.from && l.from.name) r.hurt[l.from.name] = (r.hurt[l.from.name] || 0) + (l.n || 0); });
+        r.last = { at: Date.now(), win: x.over.winner };
         all[foeId] = r; try { saveJSON(STATS_KEY, all); } catch (e) {} return all;
       });
     };
@@ -901,6 +922,23 @@
               h("span", { style: { width: 34, height: 34, borderRadius: 999, border: "2px solid " + GREEN, color: GREEN, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: FD, fontSize: fz(11), transform: "rotate(-8deg)" } }, (new Date().getMonth() + 1) + "." + new Date().getDate()),
               h("span", { className: "flex-1" }, h("div", { style: { fontFamily: FD, fontSize: fz(14) } }, "每日死信" + (today ? " · 今天解开了" : "")), h("div", { style: { fontSize: fz(11), color: SUB } }, "一天一题、每个人的都不一样" + (streak ? " · 连续 " + streak + " 天" : ""))), h("span", { style: { color: SUB } }, "›")); })())]);
     }
+    // 谁能在聊天里提集邮社（她 2026-11-08）：按人两个开关，默认全关
+    if (!st && mode === "chatlink") {
+      const sw = (on, fn, wk) => h("button", { "data-wk": wk, "data-on": on ? "1" : "0", role: "switch", "aria-checked": on, onClick: fn, style: { flexShrink: 0, width: 46, height: 26, borderRadius: 999, background: on ? GREEN : "rgba(47,42,34,.2)", position: "relative", transition: "background .2s" } },
+        h("span", { style: { position: "absolute", top: 3, left: on ? 23 : 3, width: 20, height: 20, borderRadius: 999, background: "#fff", transition: "left .2s", boxShadow: "0 1px 3px rgba(0,0,0,.25)" } }));
+      const rowOf = (c, k, label, note) => { const on = ChatLink.of(c.id)[k]; return h("div", { className: "flex items-center", style: { gap: 10, padding: "6px 0" } },
+        h("div", { className: "flex-1", style: { minWidth: 0 } }, h("div", { style: { fontSize: fz(12.5) } }, label), h("div", { style: { fontSize: fz(10.5), color: SUB, lineHeight: 1.5 } }, note)),
+        sw(on, () => { ChatLink.set(c.id, k, !on); tkBump(x => x + 1); }, "duelchatlink" + k)); };
+      return shell([
+        h(Head, { key: "hd", zh: "谁能在聊天里提", bg: "transparent", ink: INK, onBack: () => setMode("") }),
+        h("div", { key: "bd", "data-wk": "duelchatlink", className: "flex-1 min-h-0 overflow-y-auto px-4", style: { fontFamily: F, color: INK, paddingBottom: 24 } },
+          h("div", { style: { fontSize: fz(11.5), color: SUB, lineHeight: 1.7, margin: "6px 0 12px" } }, "默认谁都不提，集邮社里的事只留在集邮社。给谁打开，TA 在你们的私聊里才会知道、才会来约。你自己点「把战报发到聊天里」「发给他看」不受这里管；你在聊天里说要打一把，TA 也照样能发邀请。"),
+          (characters || []).filter(c => (cardsAll || []).some(k => k && k.charId === c.id)).map(c => h("div", { key: c.id, style: { marginBottom: 10, padding: "8px 12px", borderRadius: 6, background: "#fffdf7", boxShadow: "0 1px 4px rgba(47,42,34,.08)" } },
+            h("div", { style: { fontFamily: FD, fontSize: fz(14), marginBottom: 2 } }, c.remark || c.name),
+            rowOf(c, "know", "聊天时知道", "TA 知道这周你们的约定、今天店里有没有排 TA、最近跟 TA 打的那把；想提才提。拆 TA 的小包裹、做的信物也会记进 TA 的记忆。"),
+            rowOf(c, "invite", "会发邀请", "TA 偶尔在私聊里约你：打一把对局、守一回护信、解死信、去巡查、来邮局排班；几天最多一次，忙或睡着时不发。"))))
+      ]);
+    }
     if (!st && mode === "trinkets") {
       const P = Trinkets.parcels(), all = Trinkets.all();
       const ppl = (characters || []).filter(c => P[c.id] > 0 || all.some(t => t.charId === c.id));
@@ -1080,6 +1118,9 @@
         (() => { const P = Trinkets.parcels(), n = Object.values(P).reduce((a, b) => a + b, 0), m = Trinkets.all().length;
           return h("button", { key: "tk", "data-wk": "dueltrinketgo", onClick: () => setMode("trinkets"), className: "w-full flex items-center active:opacity-80", style: { gap: 10, marginBottom: 10, padding: "10px 14px", borderRadius: 6, background: "rgba(154,106,74,.1)", border: "1px solid rgba(154,106,74,.35)", color: INK } },
             h("span", { style: { fontFamily: FD, fontSize: fz(18), color: "#9a6a4a" } }, "物"), h("span", { className: "flex-1 text-left", style: { fontSize: fz(12) } }, h("b", { style: { fontFamily: FD, fontWeight: 400, color: "#9a6a4a" } }, "小物册"), " · 收了 " + m + " 样" + (n ? "，还有 " + n + " 个包裹没拆" : "")), h("span", { style: { color: SUB } }, "›")); })(),
+        (() => { const L = ChatLink.all(), n = Object.values(L).filter(x => x && (x.know || x.invite)).length;
+          return h("button", { key: "cl", "data-wk": "duelchatlinkgo", onClick: () => setMode("chatlink"), className: "w-full flex items-center active:opacity-80", style: { gap: 10, marginBottom: 10, padding: "10px 14px", borderRadius: 6, background: "rgba(63,111,176,.08)", border: "1px solid rgba(63,111,176,.3)", color: INK } },
+            h("span", { style: { fontFamily: FD, fontSize: fz(18), color: "#3f6fb0" } }, "聊"), h("span", { className: "flex-1 text-left", style: { fontSize: fz(12) } }, h("b", { style: { fontFamily: FD, fontWeight: 400, color: "#3f6fb0" } }, "谁能在聊天里提"), n ? " · 开了 " + n + " 个人" : " · 现在都不提"), h("span", { style: { color: SUB } }, "›")); })(),
         h("button", { key: "tut", "data-wk": "duelturorial", onClick: startTut, className: "w-full flex items-center active:opacity-80", style: { gap: 10, marginBottom: 14, padding: "10px 14px", borderRadius: 6, background: "rgba(79,122,102,.1)", border: "1px dashed " + GREEN, color: INK } },
           h("span", { style: { fontFamily: FD, fontSize: fz(18), color: GREEN } }, "教"), h("span", { className: "flex-1 text-left", style: { fontSize: fz(12) } }, h("b", { style: { fontFamily: FD, fontWeight: 400, color: GREEN } }, "新手教学关"), " · 第一次玩先来这儿，一步步教"), h("span", { style: { color: SUB } }, "›")),
         (() => { const p = Pact.now(); if (!p) return null; const g = Pact.goalOf(p), who = nameOf(p.charId) || "TA";

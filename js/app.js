@@ -12131,6 +12131,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   const openStamps = target => window.StampNavigation.open(target, setScreen);
   const goDuel = (charId, m) => {
     if (m && m.id) pChat(charId, p => p.map(x => x.id === m.id ? { ...x, state: "accepted" } : x));
+    if (m && m.mode) { openStamps({ tab: "duel", mode: m.mode }); return; }
     openStamps({ tab: "duel", preset: { foeId: charId, wager: (m && m.wager) || "" } });
   };
   // 战报发进聊天（她 2026-11-08）：一张卡，内容就在卡上，TA 下一轮自然读得到（不替 TA 开口，等她）
@@ -13323,12 +13324,16 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       const _duelLast = (loadJSON("x_duelAskLast", {}) || {})[charId] || 0, _duelStat = (loadJSON("x_stampDuelStats", {}) || {})[charId] || null;
       const _askedDuel = /对局|打一把|来一局|邮票.{0,4}(打|比)/.test(String(recentUserText || "").slice(-80));
       const _duelP = _duelStat && _duelStat.streak > 0 ? 0.3 : 0.08;
-      if (!_peekTurn && !(room && !room.main) && !_body && _hasStampCards && !pendingDuelAsk(charId) && (_askedDuel || (Date.now() - _duelLast > 3 * 86400000 && !_harshNow && Math.random() < _duelP))) {
+      // 她在集邮社「谁能在聊天里提」里给这个人开了才主动约；她自己说要打一把照样能发（她 2026-11-08）
+      const _stampLink = (window.StampChatLink && window.StampChatLink.of(charId)) || { know: false, invite: false };
+      if (!_peekTurn && !(room && !room.main) && !_body && _hasStampCards && !pendingDuelAsk(charId) && (_askedDuel || (_stampLink.invite && Date.now() - _duelLast > 3 * 86400000 && !_harshNow && Math.random() < _duelP))) {
         openCaps.push("duelAsk");
         capState.push((_duelStat && _duelStat.streak > 0 ? "上次用邮票册的卡跟她打对局，你输了，心里还有点不服。" : "")
-          + "duelAsk：你要是此刻想跟她用邮票册的卡打一把对局（不服气、闲着想逗她、想跟她赌点什么都行），可以发一张对局邀请：duelAsk:{\"say\":\"你想对她说的话\",\"wager\":\"想赌的彩头（可空）\"}。"
+          + "duelAsk：你要是此刻想跟她玩一把邮票册里的小游戏（不服气、闲着想逗她、想跟她赌点什么都行），可以发一张邀请：duelAsk:{\"say\":\"你想对她说的话\",\"wager\":\"想赌的彩头（可空）\",\"mode\":\"玩哪个（可空）\"}。mode 可填：对局、护信、死信、巡查、邮局（约她来店里排班）；不填就是对局。"
           + (_askedDuel ? "她刚提到要打一把：要约就一定填 duelAsk，卡片才会出现在她那边。" : "没这个心思就不填；") + "话照常写在 word 里。");
       }
+      // 集邮社近况（她开了「聊天时知道」才有）：每次现算，不写记忆
+      if (!_peekTurn && !(room && !room.main) && _stampLink.know) { const _sb = window.StampChatLink.brief(charId); if (_sb) capState.push(_sb); }
       // 申请信（v74.732）：只给判据不给触发词——好感几分、聊了几天都不算数，算数的是他自己想不想。
       //   只在单聊线上：线下是叙事、没有卡片字段（转账、要手机也都只在线上）；群里不写——这种信是私下给的。
       if (!_peekTurn && !(room && !room.main) && !_body && !(opts && opts.loveLetterAnswer) && loveLetterReady(charId)) {
@@ -14958,8 +14963,9 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       }
       if (parsed.duelAsk && typeof parsed.duelAsk === "object" && !(room && !room.main) && !_peekTurn && !pendingDuelAsk(charId)) {
         const say = String(parsed.duelAsk.say || "").trim().slice(0, 80), wager = String(parsed.duelAsk.wager || "").trim().slice(0, 40);
-        pChat(charId, p => [...p, { id: "dinv_" + Date.now(), role: "assistant", kind: "duelask", say, wager, state: "pending", ts: Date.now() + 3,
-          content: "[对局邀请] 约你用邮票册的卡打一把" + (wager ? "，赌「" + wager + "」" : "") + (say ? "——" + say : "") }]);
+        const _dm = { 护信: "siege", 死信: "puzzle", 巡查: "patrol", 邮局: "shop" }[String(parsed.duelAsk.mode || "").trim()] || "", _dmZh = { siege: "守一回护信", puzzle: "解一封死信", patrol: "去邮区巡查", shop: "来邮局排班" }[_dm];
+        pChat(charId, p => [...p, { id: "dinv_" + Date.now(), role: "assistant", kind: "duelask", say, wager, mode: _dm, state: "pending", ts: Date.now() + 3,
+          content: (_dm ? "[邀请] 约你" + _dmZh : "[对局邀请] 约你用邮票册的卡打一把") + (wager ? "，赌「" + wager + "」" : "") + (say ? "——" + say : "") }]);
         try { const a = loadJSON("x_duelAskLast", {}) || {}; a[charId] = Date.now(); saveJSON("x_duelAskLast", a); } catch (e) {}
         delivered = true;
       }
@@ -36404,7 +36410,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         const out = { name, story: String(r.story || "").trim(), say: String(r.say || "").trim(), gist: String(r.gist || "").trim() };
         if (keep) out.fx = fxList.includes(r.fx) ? r.fx : fxList[0];
         // 每周约定的信只留在集邮社（她 2026-11-08「不要这种会带入聊天的」）：不进记忆
-        if (!d.pact) try { addMemEntry({ text: keep ? char.name + "用" + uN + "攒的材料（" + (d.mats || []).join("、") + "）给她做了一件信物「" + name + "」：" + out.story : char.name + "留给" + uN + "一样小东西「" + name + "」，她在邮票对战里拆开了：" + out.story, tags: ["邮票对局", keep ? "信物" : "小物"], charIds: [char.id], knownBy: [char.id], source: "stamps" }); } catch (e) {}
+        // 小包裹、信物进不进记忆跟着「聊天时知道」（她 2026-11-08）
+        if (!d.pact && window.StampChatLink && window.StampChatLink.of(char.id).know) try { addMemEntry({ text: keep ? char.name + "用" + uN + "攒的材料（" + (d.mats || []).join("、") + "）给她做了一件信物「" + name + "」：" + out.story : char.name + "留给" + uN + "一样小东西「" + name + "」，她在邮票对战里拆开了：" + out.story, tags: ["邮票对局", keep ? "信物" : "小物"], charIds: [char.id], knownBy: [char.id], source: "stamps" }); } catch (e) {}
         return out;
       }
       const r = await runProbe(apiFor(char.id), ctxFor(char), { voice: true, tag: "stampduel", maxTokens: 8000,
