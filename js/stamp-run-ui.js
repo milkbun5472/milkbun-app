@@ -107,7 +107,7 @@
       const ch = chat.concat({ who: "me", text }); setChat(ch); setDraft(""); setBusy(true); setChatOpen(true);
       try {
         const hist = ch.slice(-9, -1).map(m => (m.who === "me" ? (meName || "她") : withName) + "：" + m.text).join("\n");
-        const lines = await onChat(withId, { mode: "road", text, toName, toId: run.toId, board: RN().summary(run, nameOf) + "；现在在第 " + ((run.pos ? run.pos.r : -1) + 2) + " 站前", history: hist });
+        const lines = await onChat(withId, { mode: "road", text, toName, toId: run.toId, board: boardNow(), history: hist });
         const ch2 = ch.concat((lines || []).map(x => ({ who: "foe", text: x }))); setChat(ch2); commit(run, view, ch2);
       } catch (e) { toast && toast("没聊成：" + ((e && e.message) || e)); }
       finally { setBusy(false); }
@@ -122,6 +122,20 @@
         h("input", { "data-wk": "runchatinput", value: draft, onChange: e => setDraft(e.target.value), onKeyDown: e => { if (e.key === "Enter") talk(); }, placeholder: "边走边说…",
           style: { flex: 1, minWidth: 0, padding: "6px 10px", borderRadius: 999, border: "1px solid rgba(47,42,34,.25)", background: "#fff", fontSize: fz(12.5) } }),
         h("button", { onClick: talk, disabled: busy || !draft.trim(), className: "disabled:opacity-40", style: btn(INK, PAPER) }, "说"))) : null;
+    // 她此刻在哪一页、面前摆着什么（她 2026-11-08：问「赢了选哪张进牌组」，TA 答成「先打哪张」——路上聊天只给了第几站）
+    const cardBrief = x => "「" + x.name + "」（" + x.rarity + " " + x.role + "，攻 " + x.pow + " 血 " + x.maxHp + "，" + (nameOf(x.charId) || "通用票") + "的卡）";
+    const sceneNow = () => {
+      if (!run) return ""; const v = view || {};
+      if (v.at === "reward") { const r = v.res || {}; return "她刚赢了这一站，拿到 " + (r.coins || 0) + " 枚邮花" + ((r.mats || []).length ? "、材料" + r.mats.join("、") : "") + "，现在正从这几张里挑一张加进卡组（只能挑一张）：" + (r.offer || []).map(cardBrief).join("；"); }
+      if (v.at === "event") { const ev = RN().EVENTS.find(e => e.key === v.ev); return ev ? "她停在岔路「" + ev.zh + "」：" + ev.say + (ev.opts ? "要在这几个里选一个：" + ev.opts.map(o => o.zh).join("／") : "") : ""; }
+      if (v.at === "shop") { const sh = v.shop || {}; return "她在邮局，手上 " + run.coins + " 枚邮花，正在看买什么：票 " + (sh.cards || []).map(cardBrief).join("、") + "；信物 " + (sh.relics || []).join("、") + "；也能花钱删一张票或补信封"; }
+      if (v.at === "rest") return "她在驿站歇脚，要选：歇一会儿回信封，还是挑一张票升阶";
+      if (v.at === "pick") return "她在出发前挑起手的票：发了 8 张挑 6 张";
+      if (v.at === "map") return "她在路线图上挑下一站去哪";
+      if (v.at === "end") return v.win ? "这一趟信已经送到了" : "这一趟信没送到，寄丢了";
+      return "";
+    };
+    const boardNow = () => RN().summary(run, nameOf) + "；现在在第 " + ((run.pos ? run.pos.r : -1) + 2) + " 站前" + (sceneNow() ? "。她此刻在做的事：" + sceneNow() + "（她跟你说的话多半跟眼前这件事有关）" : "") + "。她现在的卡组：" + run.deck.map(cardBrief).join("、");
     // 过一站时同行的人冒一句卡上的话（不花调用）
     const companionLine = () => { const ls = (cards || []).filter(c => c.charId === withId && c.text).map(c => c.text.line || c.text.thought).filter(Boolean); return ls.length ? ls[(run.step * 7) % ls.length] : ""; };
 
@@ -314,7 +328,7 @@
         if (busy || !onChat) return; setBusy(true);
         try {
           const writer = mode === "postcard" || mode === "future" ? run.toId : withId;
-          const lines = await onChat(writer, Object.assign({ mode, text: "", toName, toId: run.toId, withName: withId !== run.toId ? withName : "", board: RN().summary(run, nameOf), history: chat.slice(-6).map(m => (m.who === "me" ? (meName || "她") : toName) + "：" + m.text).join("\n") }, extra || {}));
+          const lines = await onChat(writer, Object.assign({ mode, text: "", toName, toId: run.toId, withName: withId !== run.toId ? withName : "", board: boardNow(), history: chat.slice(-6).map(m => (m.who === "me" ? (meName || "她") : toName) + "：" + m.text).join("\n") }, extra || {}));
           if (!lines || !lines.length) { toast && toast(wr + " 没写出来，再点一次试试"); return; }
           after(lines);
         } catch (e) { toast && toast("没写成：" + ((e && e.message) || e)); }

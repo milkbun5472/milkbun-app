@@ -131,3 +131,10 @@ test("远信小票长按看底细：跟对局共用 StampInfoCard 和长按", ()
   assert.match(ui, /\(window\.StampLongPress \|\| noPress\)/);
   assert.match(ui, /h\(window\.StampInfoCard, \{ key: "peek"/);
 });
+test("远信路上聊天带上她此刻在哪一页、面前摆着什么、卡组", () => {
+  const ui = readFileSync(new URL("../js/stamp-run-ui.js", import.meta.url), "utf8"), du = readFileSync(new URL("../js/stamp-duel-ui.js", import.meta.url), "utf8");
+  assert.match(ui, /const sceneNow = \(\) =>/);
+  assert.match(ui, /v\.at === "reward"/);
+  assert.equal((ui.match(/board: boardNow\(\)/g) || []).length, 2);
+  assert.match(du, /她手里的牌：/);
+});

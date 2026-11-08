@@ -628,6 +628,9 @@
       // 两边信封上贴着的票和卡上那句话（她 2026-11-08「角色对战时也能看到自己卡的台词和我这边上场了的卡的台词」）
       + "。你信封上贴着：" + (them.board.filter(Boolean).map(u => "「" + u.name + "」（" + (nameOf(u.charId) || "通用票") + "的卡" + (u.lines && u.lines.enter ? "，卡上那句：" + u.lines.enter : "") + "）").join("；") || "还没有")
       + "。她信封上贴着：" + (me.board.filter(Boolean).map(u => "「" + u.name + "」（" + (nameOf(u.charId) || "通用票") + "的卡" + (u.lines && u.lines.enter ? "，卡上那句：" + u.lines.enter : "") + "）").join("；") || "还没有")
+      // 她手里的牌、你下一步打算（她 2026-11-08「每一个聊天的地方都接上状态，不会答非所问」）
+      + "。她手里的牌：" + (me.hand.map(u => "「" + u.name + "」（" + u.role + "，面值 " + u.face + "）").join("、") || "没有") + "，还剩 " + me.postage + " 点胶水"
+      + (st.intent && !st.blind ? "。你这回合打算：" + [].concat((st.intent.stamp || []).map(x => "给「" + x.name + "」盖章"), (st.intent.place || []).map(x => "贴「" + x.name + "」")).join("、") : "")
       + "。最近发生的：" + st.log.slice(-6).map(l => (l.who === "foe" ? "你：" : l.who === "me" ? "她：" : "") + l.text).join("；");
     const talk = async () => {
       const text = draft.trim(); if (!text || chatBusy || !onChat) return;
