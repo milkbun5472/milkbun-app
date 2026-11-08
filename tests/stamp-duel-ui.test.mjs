@@ -36,7 +36,7 @@ test("边打边聊：她发一句才叫一次 TA，带着眼下局面；聊天�
   assert.match(st, /onChat: props\.onDuelChat/);
   assert.match(app, /onDuelChat: async \(charId, d\) =>/);
   assert.match(app, /tag: "stampduel", maxTokens: 8000/);
-  assert.match(ui, /const lines = await onChat\(foeId, \{ text, board: boardLine\(\), history: hist \}\)/);
+  assert.match(ui, /const lines = await onChat\(talkId, chal \? \{ mode: ask === "review" \? "coachreview" : "coach", text, board: coachBoard\(\), history: hist \} : \{ text, board: boardLine\(\), history: hist \}\)/);
   assert.match(ui, /st\.chat = st\.chat \|\| \[\]/);
 });
 test("带谁上场、长按看底细、她自己那一下也慢放", () => {
