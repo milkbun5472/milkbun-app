@@ -19950,6 +19950,7 @@ function GroupOfflineMode({
   const [gSetTab, setGSetTab] = useState("");
   const [gSec, setGSec] = useState("");
   const [sBg, setSBg] = useState(os.bg || "");
+  const [sFace, setSFace] = useState(os.font && typeof os.font === "object" ? os.font : { body: "", display: "" });   // 这一场群见面的字
   // 群线下没设过时的默认（v73.01 从 3200 抬到 12000）：3200 写七个人的戏不够，
   // 四段就满了——她那边早拉满所以没事，别人一次都没进过这页（engine 那头同一个数）。
   const [sMax, setSMax] = useState(os.maxTokens || 12000);
@@ -20082,11 +20083,16 @@ function GroupOfflineMode({
     h(Head, { zh: gSetTab ? (gSetPages.find(x => x.key === gSetTab) || {}).title || "线下设置" : "线下设置",
       bg: "transparent",
       onBack: () => { if (gSetTab) { setGSetTab(""); setGSec(""); } else setSetOpen(false); },
-      right: h("button", { onClick: () => { onSaveSettings && onSaveSettings({ hideThought: !sShowTh, noAutoShot: sNoShot, presetOn, presetId, maxTokens: sMax, minWords: sMinW, lengthMode: sLengthMode, looseOld: sLoose, writeMode: sWriteMode, memN: sMemN, onlineCtxN: sOnlineN, bg: sBg, describeMe: sDesc, tastePace: sTastePace, tasteFocus: sTasteFocus, tasteDensity: sTasteDensity }); onChangeStyle && onChangeStyle({ styleKey, presetOn, presetId, stylePrompt: (curStyle && curStyle.prompt) || "", taste: { pace: sTastePace, focus: sTasteFocus, density: sTasteDensity } }); setSetOpen(false); }, className: "active:opacity-60" }, h(ICheck, { size: 19, color: t.ink })) }),
+      right: h("button", { onClick: () => { onSaveSettings && onSaveSettings({ hideThought: !sShowTh, noAutoShot: sNoShot, presetOn, presetId, maxTokens: sMax, minWords: sMinW, lengthMode: sLengthMode, looseOld: sLoose, writeMode: sWriteMode, memN: sMemN, onlineCtxN: sOnlineN, bg: sBg, font: (window.FontChoice ? window.FontChoice.clean(sFace, ((window.ThemeStudio && window.ThemeStudio.current()) || {}).customFonts) : sFace), describeMe: sDesc, tastePace: sTastePace, tasteFocus: sTasteFocus, tasteDensity: sTasteDensity }); onChangeStyle && onChangeStyle({ styleKey, presetOn, presetId, stylePrompt: (curStyle && curStyle.prompt) || "", taste: { pace: sTastePace, focus: sTasteFocus, density: sTasteDensity } }); setSetOpen(false); }, className: "active:opacity-60" }, h(ICheck, { size: 19, color: t.ink })) }),
     h("div", { className: "flex-1 min-h-0 overflow-y-auto", style: { padding: "4px 18px 40px" } },
       !gSetTab && h(SettingCatalog, { pages: gSetPages, onOpen: k => { setGSetTab(k); setGSec(""); },
         note: "保存后下次开场生效" }),
       gShow("scene", "bg", "场景背景图",
+    h("div", { "data-wk": "offfontface", style: { marginBottom: 22 } },
+      h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))", color: t.sub, marginBottom: 4 } }, "这个群线下的字"),
+      h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.6 } },
+        "只换这个群见面这一层的字，群聊和别处不变；点右上角的勾存好才生效。想加别的字，去 设置 · 主题工作台 · 字体。"),
+      h(FontPickRows, { t, font: sFace, setFont: setSFace })),
     h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))", color: t.sub, marginBottom: 4 } }, "场景背景图"),
     h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog, marginBottom: 12, lineHeight: 1.6 } }, "从相册选一张图当这次多人线下的背景。"),
     h("div", { className: "flex items-center gap-3" },

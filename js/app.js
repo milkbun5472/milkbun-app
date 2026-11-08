@@ -20,7 +20,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v89.285";
+const APP_VERSION = "v89.291";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -2811,6 +2811,20 @@ function App() {
     } catch (e) { applyOfflineLook(""); }
   };
   useEffect(() => { paintOfflineLook(null); }, [offlineChar && offlineChar.id, offlineSettings, screen]);
+  // 群见面那一层的字（她 2026-11-08「做吧」）：跟单人线下同一套 FontChoice，限在这个群开着的那一层。群见面没有自己的 CSS 格，只挂字
+  useEffect(() => {
+    const on = !!offlineGroup, gid = on ? String(offlineGroup.id).replace(/[^A-Za-z0-9_:-]/g, "") : "";
+    document.documentElement.setAttribute("data-lisa-offgroup", gid);
+    let css = "";
+    if (on && window.FontChoice) {
+      const f = (offlineSettings["g_" + offlineGroup.id] || {}).font;
+      try { const _cf = ((window.ThemeStudio && window.ThemeStudio.current && window.ThemeStudio.current()) || {}).customFonts;
+        if (f) { window.FontChoice.ensure(f, _cf); css = window.FontChoice.cssVars(f, _cf, window.resolveImg, 'html[data-lisa-offgroup="' + gid + '"] [data-wk="offline"]'); } } catch (e) { css = ""; }
+    }
+    let el = document.getElementById("lisa-offgroup-font");
+    if (!el && css) { el = document.createElement("style"); el.id = "lisa-offgroup-font"; document.head.appendChild(el); }
+    if (el) el.textContent = css;
+  }, [offlineGroup && offlineGroup.id, offlineSettings]);
   useEffect(() => { window.__previewOfflineLook = draft => paintOfflineLook(draft); return () => { delete window.__previewOfflineLook; }; });
   useEffect(() => { window.__previewGroupLook = draft => paintGroupLook(draft); return () => { delete window.__previewGroupLook; }; });
   // 美化退一步／换回来（她 2026-10-05）：单聊、群聊、线下三层一个口子。本子在 engine.js 的 LookHist，
@@ -16555,6 +16569,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         //   ⚠️别再加回来：想知道拦了什么就写进诊断，不要弹到她眼前。
         phase = "落地发言";
         tickDirectives(groupId); // 临时规矩每回一轮少一轮，到 0 自动消失
+        const _gDrop = [];   // 这一轮模型写了、却没落进群里的那几条，为什么（群里 2026-11-08：「后台显示回复了但窗口看不到」——原来一声不吭全丢）
         const _gspoke = new Set(); // 群聊(含旁观模式，同一路径)也给开口成员计动态保底（她 2026-07-13 点名）
         // ⚠️**一个人一轮只摆一行动描**（她 2026-09-12：「不行啊宝宝还是一句一个动作」）。
         //   前面三版我一直在改措辞（v67.18 更新策略、v67.26 定义本身），一次都没治住。
@@ -16621,10 +16636,10 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
           }
           // 重名的群里按名字找到的永远是第一个（她 2026-09-22：「同名的头像会被第一个人覆盖」）
           const spk = pickMember(members, item.name);
-          if (!spk) continue;
+          if (!spk) { if (item && item.name) _gDrop.push("「" + String(item.name).slice(0, 12) + "」不是群里的人"); continue; }
           // 被禁言着的人发不出去（这一轮前面刚被禁言的也算）
-          if (groupMutedLeft(gsLive(groupId), spk.id) > 0) continue;
-          if ((gKickedRef.current[groupId] || []).includes(spk.id)) continue;   // 这一轮刚被踢出去的人发不出来
+          if (groupMutedLeft(gsLive(groupId), spk.id) > 0) { _gDrop.push(spk.name + " 在禁言"); continue; }
+          if ((gKickedRef.current[groupId] || []).includes(spk.id)) { _gDrop.push(spk.name + " 刚被踢出去"); continue; }   // 这一轮刚被踢出去的人发不出来
           if (autoRoomLeft() <= 0) break;   // 额度到顶：当场停手，剩下的一条都不落地
           // 打字体标点兜底（v54.81）：在这儿削一次，后面 text／语音／撤回几路共用同一份
           if (item.text && typeof stripTypingPeriod === "function" && !isBody(spk.id)) item.text = stripTypingPeriod(item.text);
@@ -17025,6 +17040,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         // 封闭群（没开记忆互通）是密封空间：记忆不进也不出，那就更不该驱动
         // 朋友圈/论坛/悄悄话这些【对外】的东西——动态素材本来就把群聊混在一起取，
         // 攒够 30 轮强制发一条，等于把闭群里的事发到朋友圈上（她 2026-08-24 抓到）。
+        // 一条都没落进来、又确实是丢掉的：说一声为什么，别让她以为没回
+        if (!_gspoke.size && _gDrop.length) toast("这一轮回了，但没能放进群里：" + [...new Set(_gDrop)].slice(0, 3).join("；") + "。名字对不上就重 roll 一次", 7000);
         if (!groupClosed(groupId)) _gspoke.forEach(id => tickAmbient(id, {}));
       }
     } catch (e) {
