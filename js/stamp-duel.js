@@ -25,8 +25,9 @@
   const envFor = deck => ENVELOPE_HP + Math.round(avgLv(deck) * 0.6);
   // 对面的等级照你的来（她 2026-11-08「参考我的牌面平均等级调整他们数值，不然我拿 1 级卡打 50 级」）：
   //   对面整副按比例换到你的平均等级 × mul，每张之间的高低照旧
-  function fairDeck(foeDeck, meDeck, mul) {
-    const fa = avgLv(foeDeck), want = avgLv(meDeck) * (mul || 1); if (!fa) return foeDeck;
+  //   want 直接给数字＝换到那个等级（守城、远信的固定难度档用）
+  function fairDeck(foeDeck, meDeck, mul, want0) {
+    const fa = avgLv(foeDeck), want = want0 || avgLv(meDeck) * (mul || 1); if (!fa) return foeDeck;
     return foeDeck.map(u => { if (!u) return u; const l0 = Number(u.lv) || 1, l1 = Math.max(1, Math.round(l0 * want / fa));
       return Object.assign({}, u, { lv: l1, pow: Math.max(1, u.pow + lvPow(l1) - lvPow(l0)), maxHp: Math.max(1, u.maxHp + lvHp(l1) - lvHp(l0)) }); });
   }
@@ -203,9 +204,10 @@
     const events = []; for (let t = EVENT_EVERY; t <= ((opts && opts.cap) || TURN_CAP); t += EVENT_EVERY) events[t] = EVENT_KEYS[Math.floor(R() * EVENT_KEYS.length)];
     // 让子、认真模式、快局（她 2026-11-08）：opts.meHp / opts.foeHp 改两边血，opts.cap 改最多几回合，opts.hard 对面每回合多 1 胶水
     const o = opts || {};
-    if (o.fair !== false && (foeDeck || []).length && (meDeck || []).length) foeDeck = fairDeck(foeDeck, meDeck, o.fairMul);
+    // 对局：对面照你的平均等级；守城、远信：照难度档定的等级（o.foeLv），练强了才打得过高档
+    if (o.fair !== false && (foeDeck || []).length && (meDeck || []).length) foeDeck = fairDeck(foeDeck, meDeck, o.fairMul, o.foeLv);
     const st = { turn: 0, me: side(meDeck, s, o.meHp || envFor(meDeck), o.meMax), relics: o.relics || [], amulet: !!o.amulet, bossRule: o.bossRule || "", theme: o.theme || "", siege: o.siege ? { waves: SIEGE_WAVES, cleared: 0 } : null, foe: side(foeDeck, s ^ 0xabcdef, o.foeHp || envFor(meDeck)), log: [], over: null, uid: 0, seed: s, cap: o.cap || TURN_CAP, hard: !!o.hard, rule: o.rule || "", wager: o.wager || "", blind: !!(opts && opts.blind), events, bonds: (opts && opts.bonds) || {}, foeId: (opts && opts.foeId) || "", style: (opts && opts.style) || "" };
-    st.meAvg = avgLv(meDeck);
+    st.meAvg = avgLv(meDeck); st.siegeLv = o.siegeLv || 0;
     if (st.siege) { st.foe.terrain = new Array(SLOTS).fill(""); st.foe.hp = st.foe.max = 999; st.cap = SIEGE_WAVES + 3; }
     startTurn(st);
     return st;
@@ -276,6 +278,8 @@
   // ── 守城（她 2026-11-08「先做守城」）：对面不是人，是一波一波压过来的麻烦 ──────────────
   //   敌人贴在对面后排，每回合往前走一格，走到前排才动手；守过第 10 波、场上清空就赢，信封打空就输。
   //   每守住三波，信封回 5、下回合多摸一张。规则跟对局是同一套（贴票、胶水、盖章、组合都照旧）
+  // 守城难度档：建议等级（她 2026-11-08「后面难度比我的卡都高我怎么赢」→ 固定档，卡练强了去打下一档）
+  const SIEGE_TIERS = [5, 15, 25, 35, 50];
   const SIEGE_WAVES = 10, SIEGE_GROW = 0.1, SIEGE_HP = 1.5, SIEGE_POW = 0.4, SIEGE_BREACH = 0;
   const SIEGE_FOES = [
     ["野猫", ["投递", "投递", "投递"], "莽撞"], ["暴雨", ["邮戳", "投递", "邮戳"], "夜行"], ["罢工的邮差", ["火漆", "投递", "火漆"], "倔强"],
@@ -286,7 +290,7 @@
     return Array.from({ length: Math.min(3, count) }, (_, k) => {
       const f = boss && k === 0 ? ["稽查队长", ["火漆"], "倔强"] : SIEGE_FOES[Math.floor(R() * SIEGE_FOES.length)], role = f[1][Math.floor(R() * f[1].length)];
       const rar = boss && k === 0 ? "SSR" : n >= 7 && R() < 0.4 ? "SR" : "R";
-      const u = stampOf({ id: "sg_" + n + "_" + k, rarity: rar, lv: Math.max(1, Math.round((st.meAvg || 10) * (0.5 + n * SIEGE_GROW))), text: { name: f[0] } });
+      const u = stampOf({ id: "sg_" + n + "_" + k, rarity: rar, lv: Math.max(1, Math.round((st.siegeLv || st.meAvg || 10) * (0.5 + n * SIEGE_GROW))), text: { name: f[0] } });
       return Object.assign(u, { role, trait: f[2], traitFrom: "", charId: "", name: f[0], face: 0, skill: Object.keys(SKILLS[role])[k % 4], pow: Math.max(1, u.pow + Math.floor(n * SIEGE_POW) - (n <= 2 ? 1 : 0)), maxHp: Math.round(u.maxHp * SIEGE_HP) });
     });
   }
@@ -666,7 +670,7 @@
   const mine = raw => (st, who, a, b) => { if (who !== "me") return raw(st, who, a, b); snap(st); const r = raw(st, who, a, b); if (!r || !r.ok) st.undo.pop(); return r; };
   const place = mine(placeRaw), tear = mine(tearRaw), move = mine(moveRaw), keep = mine(keepRaw), stamp = mine(stampRaw);
   const API = { RELICS, STYLE_ZH, TRAIT_FIT, TRAITS, SKILLS, BONDS, bondOf, unitInfo, SIZE, SLOTS, ENVELOPE_HP, POSTAGE, DRAW, DECK_SIZE, TURN_CAP, KEEP_MAX, FACE, NEED, ROLES, MARKS, TERRAIN, EVENTS,
-    stampOf, deckFrom, foeDeckFrom, newDuel, envFor, avgLv, fairDeck, aims, actsOf, previewPlace, place, tear, move, keep, stamp, undo, canUndo, endTurn, planFoe, combos, newSeries, addGame, memoryLine, hashStr };
+    stampOf, deckFrom, foeDeckFrom, SIEGE_TIERS, newDuel, envFor, avgLv, fairDeck, aims, actsOf, previewPlace, place, tear, move, keep, stamp, undo, canUndo, endTurn, planFoe, combos, newSeries, addGame, memoryLine, hashStr };
   g.StampDuel = API;
   if (typeof module !== "undefined" && module.exports) module.exports = API;
 })(typeof window !== "undefined" ? window : globalThis);

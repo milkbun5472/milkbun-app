@@ -123,6 +123,7 @@
   }
   const PRICE = { card: 40, relic: 80, remove: 50, heal: 30 };
   const LEVEL_MAX = 8;
+  const LEVEL_LV = [5, 10, 16, 22, 28, 35, 42, 50];   // 每一级邮路的建议等级
   // 终点 TA 的特别规则：照 TA 的羁绊（她 2026-11-08「终点不只是打一架」）
   const BOSS_RULES = {
     护短: "TA 的信封每回合回 2", 好胜: "TA 每回合多 1 点胶水", 偏执: "TA 每过一回合攻击 +1，越打越疯",
@@ -198,8 +199,9 @@
     const R = R0(run), seed = (run.seed ^ (run.step * 40503)) >>> 0;
     const th = THEMES[run.theme], troubles = TROUBLES.filter(t => !t.theme || t.theme === run.theme);
     // 对面照你卡组的平均等级来（她 2026-11-08）：越往后、等级越高、难站和终点越硬；信封跟着卡组等级变厚
-    const fm = (nd.type === "boss" ? 1.08 : nd.type === "elite" ? 0.98 : 0.72 + nd.r * 0.06) + (run.level - 1) * 0.04, ev = D().envFor(run.deck) / D().ENVELOPE_HP;
-    const base = { fairMul: fm, theme: run.theme || "", themeRuleZh: th ? th.rule + "：" + th.ruleZh : "", meHp: run.hp, meMax: run.max, relics: run.relics.slice(), amulet: run.relics.includes("护身符") && !run.amuletUsed };
+    // 对面的等级照邮路等级定（她 2026-11-08 改：固定难度档，卡练强了才打得过高级）：普通站略低、越往后越高，难站、终点再高一截
+    const lvB = LEVEL_LV[run.level - 1] || 5, flv = Math.max(1, Math.round(lvB * (nd.type === "boss" ? 1.15 : nd.type === "elite" ? 1.0 : 0.7 + nd.r * 0.06))), ev = (D().ENVELOPE_HP + lvB * 0.6) / D().ENVELOPE_HP;
+    const base = { foeLv: flv, theme: run.theme || "", themeRuleZh: th ? th.rule + "：" + th.ruleZh : "", meHp: run.hp, meMax: run.max, relics: run.relics.slice(), amulet: run.relics.includes("护身符") && !run.amuletUsed };
     if (nd.type === "fight") {
       const tr = pick(troubles, R), hp = 22 + nd.r * (run.theme === "山路" ? 9 : 6) + (run.level - 1) * 3;
       run.dexT = run.dexT || []; if (!run.dexT.includes(tr.key)) run.dexT.push(tr.key);
@@ -332,7 +334,7 @@
     }
     return "";
   }
-  const API = { THEMES, themeFor, themeOpen, festNow, festNext, LEVEL_MAX, BOSS_RULES, letterReward, ROWS, NODE, TROUBLES, EVENTS, PRICE, newRun, takeStart, reachable, enter, battleFor, afterBattle, addRelic, upgrade, eventFor, doEvent, shopFor, priceOf, buy, rest, summary, cardOffer };
+  const API = { LEVEL_LV, THEMES, themeFor, themeOpen, festNow, festNext, LEVEL_MAX, BOSS_RULES, letterReward, ROWS, NODE, TROUBLES, EVENTS, PRICE, newRun, takeStart, reachable, enter, battleFor, afterBattle, addRelic, upgrade, eventFor, doEvent, shopFor, priceOf, buy, rest, summary, cardOffer };
   g.StampRun = API;
   if (typeof module !== "undefined" && module.exports) module.exports = API;
 })(typeof window !== "undefined" ? window : globalThis);

@@ -122,7 +122,8 @@ test("念台词：开关、勾哪些时候和哪一边、两边气泡、排队�
 });
 test("守城入口和页面：挑玩法页一张卡、波数条、打完再守一次、不进对局存档和战绩", () => {
   assert.match(ui, /modeCard\("duelmodesiege"/);
-  assert.match(ui, /siege: true, bonds: bondsOf\(\)/);
+  assert.match(ui, /siege: true, siegeLv: D\(\)\.SIEGE_TIERS\[tier\], bonds: bondsOf\(\)/);
+  assert.match(ui, /"data-wk": "duelsiegetier"/);
   assert.match(ui, /"data-wk": "duelsiegewave"/);
   assert.match(ui, /x\.tutorial \|\| x\.run \|\| x\.siege/);
   assert.match(ui, /!st\.run && !st\.siege\) record\(st\)/);

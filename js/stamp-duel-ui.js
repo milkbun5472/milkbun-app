@@ -54,7 +54,7 @@
   const GUIDE = [
     ["一句话", "你和 TA 各有一个信封。轮流往自己信封上贴邮票，贴上的票会自己去打对面。谁的信封先被打空，谁就输。"],
     ["每回合你做什么", "回合开始，你有 3 点胶水，手里摸到 4 张票。", "点手里一张，再点自己信封上的空格，就贴上去了。贴一张要花它的面值那么多胶水：R 是 1，SR 是 2，SSR 是 3。", "胶水花完、或者不想贴了，点「寄出」。你的票先动手，然后 TA 照着亮出来的那一步走。", "没用掉的牌回合结束就扔了。想留，选中它点「留到下回合」，最多留两张。", "放错了点「撤回」，一步一步退，胶水也退回来。点了「寄出」就退不回了。"],
-    ["五种票各干嘛", "每种票寄出后都会打同一列对面最前面那张（那一列空着就打信封），区别是打几成、顺手还干什么：", "投递：打人的，打满，攻击也最高。", "火漆：肉盾。血厚，每回合给自己封一层护，再打一半。", "补票：奶妈。给最残的那张回血、擦掉身上的戳，再打四成。", "集邮：管钱的。下回合多给胶水、多摸牌，再打四成。", "邮戳：捣乱的。给对面盖戳（雨渍让它变弱，退回让它停一回合，受潮让对面少胶水），再打一半。", "对面的等级照你这副牌的平均等级来，不会出现 1 级打 50 级；卡升级以后攻击、血涨得比以前多，信封也跟着卡组等级变厚。", "票是哪一种，看卡上写了什么：写打架的多半是投递，写撑伞的多半是火漆。"],
+    ["五种票各干嘛", "每种票寄出后都会打同一列对面最前面那张（那一列空着就打信封），区别是打几成、顺手还干什么：", "投递：打人的，打满，攻击也最高。", "火漆：肉盾。血厚，每回合给自己封一层护，再打一半。", "补票：奶妈。给最残的那张回血、擦掉身上的戳，再打四成。", "集邮：管钱的。下回合多给胶水、多摸牌，再打四成。", "邮戳：捣乱的。给对面盖戳（雨渍让它变弱，退回让它停一回合，受潮让对面少胶水），再打一半。", "对局里对面的等级照你这副牌的平均等级来，不会出现 1 级打 50 级；守城、远信是固定难度档，写着建议等级，卡练强了去打高档；卡升级以后攻击、血涨得比以前多，信封也跟着卡组等级变厚。", "票是哪一种，看卡上写了什么：写打架的多半是投递，写撑伞的多半是火漆。"],
     ["站位：前排挨打，后排输出", "信封第一排是前排。对面打一列，从前排往后找，所以前面有人挡着，后排就挨不着。", "常见摆法：火漆放前排顶着，投递和邮戳放最后一排（后排它们攻击 +2）。", "对面哪一列空着，你那一列的投递就能直接打到 TA 的信封。"],
     ["凑组合", "连张：同一个人的两张票挨着，攻击 +2。", "整版：同一个人的三张票排满一整行或一整列，觉醒一次，打对面信封、全员充章。", "四方连：四张同一个人（或同一种卡，比如都是生日卡）凑成 2×2，觉醒一次，打对面信封、全员加护。", "每种组合每个人一局只觉醒一次。想好凑哪个再贴。", "开局前在「带谁上场」挑一两个人，他们的卡就多，好凑。"],
     ["盖章：每张票的大招", "票底下那排小点每回合亮一格，亮满变金色，就能盖章了。", "点那张票，再点「盖章」，花 1 胶水放它的技能。同一种票有四种技能，SSR 的更猛。", "所以每回合都要想：胶水拿去贴新票，还是去给老票盖章？"],
@@ -63,7 +63,7 @@
     ["明牌还是盲打", "明牌：TA 下一步要贴什么、贴哪、打你多少，开回合就亮给你看：两边每张票底下都写着它这回合干什么（打几、打信封几、攒胶水、加护……）；你要挨打的那格套红框写「要挨几」，你能打到的对面那格套绿框写「挨几」，打信封的合起来写在信封边上。手里的牌也摊开。适合慢慢算。", "选着手里一张票时，你这边空格里写着贴那儿会打谁、打多少，能凑组合的会亮出来。", "盲打：TA 照样提前想好了，只是不给你看。更刺激。"],
     ["几个上手小招", "开头先贴集邮攒家底，或者先上便宜的火漆把前排顶住。", "看 TA 的下一步：TA 要往哪列贴投递，你就在那一列前面放火漆。", "SSR 别急着上，等胶水够了再贴，顺手凑连张。", "快输了别慌：补票的群补、火漆的加固都能拖回合。"],
     ["远信：一路打过去", "从挑玩法页进「远信」：给一个人寄一封信，信要走一段邮路，最后一站是 TA 本人。", "信封血带着走：一场打完不回满，到驿站、岔路、邮局才回得来。", "路线：雪国、海边、旧城、夜车、花季、沙漠、雨季、山路、梦里、TA 的城市，节日那条只在节日前后开。每条一条棋盘规则，对局顶上写着。默认是 TA 照人设推荐的那条。"],
-    ["守城：一波一波守住", "从挑玩法页进「守城」：没有对手，卡组从你的邮票册里配，对面是一波一波压过来的麻烦。", "敌人贴在对面后排，一回合往前走一格；走到前排的会打你那一列，在前排站过一回合还没被打掉，下回合就闯过去撞你的信封（写着「要闯过去」）。", "守过第 10 波、场上清空就赢；信封打空就城破。每守住三波，信封回 5、下回合多摸一张。", "跟对局同一套：贴票、胶水、盖章、组合都照旧。你的票照样打同一列最前面那个，所以在敌人走到前排之前就能先打它。"],
+    ["守城：一波一波守住", "从挑玩法页进「守城」，先挑一档（五档，各写建议等级）：没有对手，卡组从你的邮票册里配，对面是一波一波压过来的麻烦。", "敌人贴在对面后排，一回合往前走一格；走到前排的会打你那一列，在前排站过一回合还没被打掉，下回合就闯过去撞你的信封（写着「要闯过去」）。", "守过第 10 波、场上清空就赢；信封打空就城破。每守住三波，信封回 5、下回合多摸一张。", "跟对局同一套：贴票、胶水、盖章、组合都照旧。你的票照样打同一列最前面那个，所以在敌人走到前排之前就能先打它。"],
     ["打完以后", "选「再来一把」接着打，或者「结束」。结束时问要不要让 TA 记得，记的话这几把合成一句进 TA 的记忆。", "打到一半想走，直接返回就行，会存着。下次进来点「接着打」。", "手牌上面那条能跟 TA 聊天，你说一句 TA 回几句，发一句花一次调用。"]
   ];
   const fz = n => "calc(" + n + "px * var(--app-fs, 1))";
@@ -304,13 +304,17 @@
     // 教学关用的票：照邮票册卡的样子造，名字直接写它是干嘛的
     const tutCard = (i, role, extra) => Object.assign(D().stampOf({ id: "tut_" + i, rarity: extra && extra.rarity || "R", lv: 10, text: { name: extra && extra.name || ("练习·" + role) } }), { role, trait: role === "火漆" ? "守护" : role === "投递" ? "锋利" : "冷静", traitFrom: "", skill: Object.keys(D().SKILLS[role])[0] }, extra || {});
     // 守城（她 2026-11-08「先做守城」）：不挑对手，卡组从邮票册里配，对面一波一波压过来
-    const startSiege = () => {
-      const s = (seedRef.current = (seedRef.current * 1103515245 + 12345) >>> 0);
-      const nd = D().newDuel(D().deckFrom(cards, s, D().DECK_SIZE, core), [], s, { siege: true, bonds: bondsOf() });
+    const [siegeTier, setSiegeTier] = useState(0);
+    const startSiege = tier0 => {
+      const tier = typeof tier0 === "number" ? tier0 : siegeTier, s = (seedRef.current = (seedRef.current * 1103515245 + 12345) >>> 0);
+      setSiegeTier(tier);
+      const nd = D().newDuel(D().deckFrom(cards, s, D().DECK_SIZE, core), [], s, { siege: true, siegeLv: D().SIEGE_TIERS[tier], bonds: bondsOf() }); nd.siegeTier = tier;
       setSt(nd); setMode("siege"); setHandSel(-1); setBoardSel(-1); setSiegeSaved(false);
     };
     const [siegeSaved, setSiegeSaved] = useState(false);
-    const siegeBest = () => { try { return (typeof loadJSON === "function" ? loadJSON(SIEGE_KEY, null) : null) || { waves: 0, wins: 0 }; } catch (e) { return { waves: 0, wins: 0 }; } };
+    // 最好成绩按档记：{ tiers: { 0: { waves, wins } } }
+    const siegeAll = () => { try { return (typeof loadJSON === "function" ? loadJSON(SIEGE_KEY, null) : null) || {}; } catch (e) { return {}; } };
+    const siegeBest = t => ((siegeAll().tiers || {})[t == null ? siegeTier : t]) || { waves: 0, wins: 0 };
     const startTut = () => {
       const meDeck = [tutCard(1, "火漆", { pow: 3, maxHp: 16 }), tutCard(2, "投递", { pow: 6 }), tutCard(3, "补票"), tutCard(4, "集邮"), tutCard(5, "邮戳")].concat(Array.from({ length: 7 }, (_, k) => tutCard(10 + k, ["投递", "火漆", "补票"][k % 3])));
       const foeDeck = Array.from({ length: 12 }, (_, k) => tutCard(50 + k, k % 2 ? "火漆" : "投递", { pow: 2, maxHp: 7, name: "陪练票" }));
@@ -397,12 +401,25 @@
         h("div", { style: { position: "absolute", right: 14, top: 12, width: 42, height: 42, borderRadius: 999, background: "radial-gradient(circle at 35% 30%, " + color + "cc, " + color + ")", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: FD, fontSize: fz(12), transform: "rotate(-8deg)", boxShadow: "0 2px 4px rgba(0,0,0,.25)" } }, sub),
         h("div", { style: { fontFamily: FD, fontSize: fz(18), color, marginRight: 52 } }, title),
         h("div", { style: { fontSize: fz(12), color: SUB, lineHeight: 1.7, marginTop: 4, marginRight: 40 } }, desc)));
+    // 守城挑档（她 2026-11-08「后面难度比我的卡都高我怎么赢」→ 固定难度档）
+    if (!st && mode === "siegepick") { const my = Math.round(D().avgLv(cards || []));
+      return shell([
+        h(Head, { key: "hd", zh: "守城", bg: "transparent", ink: INK, onBack: () => setMode(""), right: guideBtn }),
+        h("div", { key: "bd", "data-wk": "duelsiegepick", className: "flex-1 min-h-0 overflow-y-auto px-5", style: { fontFamily: F, color: INK, paddingTop: 6, paddingBottom: 24 } },
+          h("div", { style: { fontSize: fz(12), color: SUB, lineHeight: 1.7, margin: "0 0 12px" } }, "挑一档守。每档敌人的等级是定的，第 1 波比建议等级低一半，越往后越高，第 10 波高出三成。你这些卡平均 " + my + " 级：比建议低的档也能守，靠站位、组合和盖章；卡练强了再去打高档。"),
+          D().SIEGE_TIERS.map((lv, t) => { const b = siegeBest(t), easy = my >= lv, c = easy ? GREEN : my >= lv * 0.7 ? "#b8862a" : RED;
+            return h("button", { key: t, "data-wk": "duelsiegetier", onClick: () => startSiege(t), className: "w-full text-left active:scale-[.99]", style: { display: "flex", alignItems: "center", gap: 12, marginBottom: 10, padding: "12px 14px", borderRadius: 6, background: PAPER, boxShadow: "0 2px 8px rgba(47,42,34,.12)", borderLeft: "4px solid " + c, color: INK } },
+              h("div", { style: { fontFamily: FD, fontSize: fz(20), color: c, width: 30, textAlign: "center" } }, t + 1),
+              h("div", { className: "flex-1 min-w-0" },
+                h("div", { style: { fontFamily: FD, fontSize: fz(14) } }, "第 " + (t + 1) + " 档 · 建议 " + lv + " 级"),
+                h("div", { style: { fontSize: fz(11), color: SUB } }, (easy ? "你的卡够了" : my >= lv * 0.7 ? "差一点，要动脑子" : "比你高不少，硬仗") + (b.waves ? " · 最好守住 " + b.waves + " 波" + (b.wins ? "，守住过 " + b.wins + " 次" : "") : ""))));
+          }))]); }
     if (!st && !mode) return shell([
       h(Head, { key: "hd", zh: "对战", bg: "transparent", ink: INK, onBack, right: guideBtn }),
       h("div", { key: "bd", "data-wk": "duelmodes", className: "flex-1 min-h-0 overflow-y-auto px-5", style: { fontFamily: F, color: INK, paddingTop: 6, paddingBottom: 24 } },
         h("div", { style: { fontSize: fz(12), color: SUB, margin: "0 0 14px" } }, "拿邮票册里的卡来打。先挑一种玩法："),
         modeCard("duelmodeduel", RED, "对局", "对局", "跟一个人面对面打一把：挑对手、带谁上场、彩头、难度、明牌还是盲打。能连打几把，打完让 TA 记得，或者把战报发进聊天。" + (saved ? "（有一把没打完，进去能接着打）" : ""), () => setMode("duel")),
-        (() => { const b = siegeBest(); return modeCard("duelmodesiege", "#3f6fb0", "守城", "守城", "麻烦一波一波压过来：敌人贴在对面后排，一回合往前走一格，在前排站过一回合还没被打掉就闯过去撞你的信封。守过 10 波就赢，每守住三波信封回 5。规则跟对局一样，不花调用。" + (b.waves ? "（最好守住 " + b.waves + " 波" + (b.wins ? "，守住过 " + b.wins + " 次" : "") + "）" : ""), startSiege); })(),
+        modeCard("duelmodesiege", "#3f6fb0", "守城", "守城", "麻烦一波一波压过来：敌人贴在对面，一回合往前走一格，在前排站过一回合还没被打掉就闯过去撞你的信封。守过 10 波就赢，每守住三波信封回 5。分五档，每档敌人的等级是定的。不花调用。", () => setMode("siegepick")),
         onRun ? modeCard("duelgorun", "#b8862a", "远信", "远信", "给一个人寄封信，一路打过去：六站路线、路上的麻烦和拦信的人、邮局、驿站、信物。信封血不回满，送到了 TA 会写回信。", onRun) : null,
         modeCard("duelturorial", GREEN, "新手教学关", "教学", "第一次玩先来这儿：一把练习局，一步步教贴票、寄出、盖章、长按看底细、四方连。随时能回来再玩，不花调用。", startTut))]);
     // ── 开局前：挑对手、明牌还是盲打 ──
@@ -520,7 +537,7 @@
     const again = () => { D().addGame(series, st); start(); };
     const log = st.log.slice(-4);
     if (over && !playing.current && !st.run && !st.siege) record(st);
-    if (over && st.siege && !siegeSaved) { const b0 = siegeBest(), w = st.siege.cleared; try { saveJSON(SIEGE_KEY, { waves: Math.max(b0.waves || 0, w), wins: (b0.wins || 0) + (over.winner === "me" ? 1 : 0) }); } catch (e) {} setTimeout(() => setSiegeSaved(true), 0); }
+    if (over && st.siege && !siegeSaved) { const all = siegeAll(), t = st.siegeTier || 0, b0 = siegeBest(t), w = st.siege.cleared; all.tiers = Object.assign({}, all.tiers, { [t]: { waves: Math.max(b0.waves || 0, w), wins: (b0.wins || 0) + (over.winner === "me" ? 1 : 0) } }); try { saveJSON(SIEGE_KEY, all); } catch (e) {} setTimeout(() => setSiegeSaved(true), 0); }
     // 教练条：这一步做到了就往下走（进下一步时先跑它的 enter）
     const step = tut >= 0 ? TUT[tut] : null;
     const goStep = n => { if (n >= TUT.length) { setTut(-1); return; } const nx = TUT[n]; if (nx.enter) { nx.enter(st, tutSeen.current); redraw(); } setTut(n); };
@@ -573,8 +590,8 @@
     const intentText = [].concat((it.stamp || []).map(x => "给「" + x.name + "」盖章"), (it.place || []).map(x => "贴「" + x.name + "」" + x.role)).join("、") || "这回合不贴票";
 
     return shell([
-      h(Head, { key: "hd", zh: st.siege ? "守城 · 第 " + Math.min(st.turn, st.siege.waves) + " 波" : "第 " + st.turn + " 回合", sub: st.siege ? "" : "对 " + foeName + (st.blind ? " · 盲打" : ""), bg: "transparent", ink: INK, right: guideBtn,
-        onBack: () => { if (st.siege) { setSt(null); setMode(""); return; } if (st.run) { runBattle.onQuit && runBattle.onQuit(); return; } if (st.tutorial) { setSt(null); setTut(-1); return; } if (!over) { persist(st, series); setSaved({ st, series, foeId, at: Date.now() }); } else persist(null); setSt(null); setSeries(null); } }),
+      h(Head, { key: "hd", zh: st.siege ? "守城 " + ((st.siegeTier || 0) + 1) + " 档 · 第 " + Math.min(st.turn, st.siege.waves) + " 波" : "第 " + st.turn + " 回合", sub: st.siege ? "" : "对 " + foeName + (st.blind ? " · 盲打" : ""), bg: "transparent", ink: INK, right: guideBtn,
+        onBack: () => { if (st.siege) { setSt(null); setMode("siegepick"); return; } if (st.run) { runBattle.onQuit && runBattle.onQuit(); return; } if (st.tutorial) { setSt(null); setTut(-1); return; } if (!over) { persist(st, series); setSaved({ st, series, foeId, at: Date.now() }); } else persist(null); setSt(null); setSeries(null); } }),
       h("div", { key: "bd", ref: bodyEl, className: "flex-1 min-h-0 overflow-y-auto px-4", style: { fontFamily: F, color: INK, paddingBottom: 14, overflowAnchor: "none" },
           onTouchStart: () => { touchAt.current = Date.now(); }, onTouchMove: () => { touchAt.current = Date.now(); }, onTouchEnd: () => { touchAt.current = Date.now(); }, onWheel: () => { touchAt.current = Date.now(); },
           onScroll: e => { if (!guarding()) keepY.current = e.currentTarget.scrollTop; else if (Math.abs(e.currentTarget.scrollTop - keepY.current) > 4) e.currentTarget.scrollTop = keepY.current; } },
@@ -640,7 +657,7 @@
             h("div", { style: { fontFamily: FD, fontSize: fz(kind === "event" ? 15 : 18), color: c, lineHeight: 1.45 } }, head),
             banner.line ? h("div", { style: { margin: "8px auto 0", maxWidth: "92%", paddingTop: 8, borderTop: "1px solid " + c + "33", fontFamily: FD, fontStyle: "italic", fontSize: fz(12.5), color: "#5a4f40", lineHeight: 1.7 } }, "「" + banner.line + "」") : null)); })() : null,
       over ? h("div", { key: "ft", "data-wk": "duelover", className: "shrink-0 px-4", style: { paddingTop: 12, paddingBottom: "calc(12px + env(safe-area-inset-bottom) * 0.4)", fontFamily: F, color: INK, borderTop: "1px solid rgba(47,42,34,.18)", background: "rgba(251,246,234,.92)" } },
-          st.siege ? h("div", { key: "sgo", "data-wk": "duelsiegeover", style: { textAlign: "center", marginBottom: 10 } }, h("div", { style: { fontFamily: FD, fontSize: fz(18), color: over.winner === "me" ? GREEN : RED } }, over.winner === "me" ? "守住了" : "城破了"), h("div", { style: { fontSize: fz(11.5), color: SUB } }, "守住 " + st.siege.cleared + " / " + st.siege.waves + " 波 · 信封剩 " + Math.max(0, over.me) + " · 最好 " + Math.max(siegeBest().waves || 0, st.siege.cleared) + " 波")) : null,
+          st.siege ? h("div", { key: "sgo", "data-wk": "duelsiegeover", style: { textAlign: "center", marginBottom: 10 } }, h("div", { style: { fontFamily: FD, fontSize: fz(18), color: over.winner === "me" ? GREEN : RED } }, over.winner === "me" ? "守住了" : "城破了"), h("div", { style: { fontSize: fz(11.5), color: SUB } }, "第 " + ((st.siegeTier || 0) + 1) + " 档 · 守住 " + st.siege.cleared + " / " + st.siege.waves + " 波 · 信封剩 " + Math.max(0, over.me) + " · 这档最好 " + Math.max(siegeBest(st.siegeTier || 0).waves || 0, st.siege.cleared) + " 波")) : null,
           st.siege ? null : h("div", { style: { fontFamily: FD, fontSize: fz(18), textAlign: "center", marginBottom: 2, color: over.winner === "me" ? GREEN : over.winner === "foe" ? RED : INK } }, over.winner === "me" ? "你赢了" : over.winner === "foe" ? foeName + " 赢了" : "打平了"),
           st.siege ? null : h("div", { style: { fontSize: fz(11), textAlign: "center", color: SUB, marginBottom: 10 } }, over.turn + " 回合 · 信封剩 " + over.me + " : " + over.foe + (over.byCap ? " · 打满回合比剩下的" : "")),
           // 彩头兑现、赛后复盘（她 2026-11-08）：各点一次叫 TA 一次
@@ -673,8 +690,8 @@
               h("button", { onClick: startTut, className: "flex-1", style: btn(INK, PAPER) }, "再练一次"),
               h("button", { onClick: () => { setSt(null); setTut(-1); }, className: "flex-1", style: btn("transparent", INK, INK) }, "去正式对局"))
           : st.siege ? h("div", { className: "flex", style: { gap: 8 } },
-              h("button", { "data-wk": "duelsiegeagain", onClick: startSiege, className: "flex-1", style: btn(INK, PAPER) }, "再守一次"),
-              h("button", { onClick: () => { setSt(null); setMode(""); }, className: "flex-1", style: btn("transparent", INK, INK) }, "结束"))
+              h("button", { "data-wk": "duelsiegeagain", onClick: () => startSiege(st.siegeTier || 0), className: "flex-1", style: btn(INK, PAPER) }, "再守一次"),
+              h("button", { onClick: () => { setSt(null); setMode("siegepick"); }, className: "flex-1", style: btn("transparent", INK, INK) }, "换一档"))
           : asking ? h("div", null,
             h("div", { style: { fontSize: fz(12.5), textAlign: "center", marginBottom: 8 } }, "要让 " + foeName + " 记得这 " + ((series ? series.games.length : 0) + 1) + " 把吗？"),
             h("div", { className: "flex", style: { gap: 8 } },

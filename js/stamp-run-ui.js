@@ -150,9 +150,9 @@
                   k === rec ? h("span", { style: { position: "absolute", right: 6, top: 6, padding: "0 5px", borderRadius: 3, background: RED, color: "#fff", fontSize: fz(9) } }, "TA 推荐") : null); })));
           })(),
           h("div", { style: { fontFamily: FD, fontSize: fz(14), marginBottom: 4 } }, "邮路等级"),
-          h("div", { style: { fontSize: fz(11.5), color: SUB, marginBottom: 8 } }, "送到一次解锁下一级：每一级起手的信封少 4，路上更凶，终点更硬。"),
+          h("div", { style: { fontSize: fz(11.5), color: SUB, marginBottom: 8 } }, "送到一次解锁下一级。每一级对面的等级是定的（下面写着建议等级），卡练强了才好打高级；起手的信封也少 4。你这些卡平均 " + Math.round(D().avgLv(cards || [])) + " 级。"),
           h("div", { className: "flex flex-wrap", style: { gap: 6, marginBottom: 16 } }, Array.from({ length: unlocked }, (_, k) => k + 1).map(lv => h("button", { key: lv, "data-wk": "runlevel", "data-on": level === lv ? "1" : "0", onClick: () => setLevel(lv),
-            style: { width: 34, height: 34, borderRadius: 999, border: "1.5px solid " + (level === lv ? RED : "rgba(47,42,34,.25)"), background: level === lv ? RED : "transparent", color: level === lv ? "#fff" : INK, fontFamily: FD, fontSize: fz(13) } }, lv))),
+            style: { minWidth: 46, padding: "3px 6px", borderRadius: 8, border: "1.5px solid " + (level === lv ? RED : "rgba(47,42,34,.25)"), background: level === lv ? RED : "transparent", color: level === lv ? "#fff" : INK, fontFamily: FD, fontSize: fz(13), lineHeight: 1.2 } }, lv, h("div", { style: { fontFamily: F, fontSize: fz(9), opacity: .8 } }, "建议 " + RN().LEVEL_LV[lv - 1] + " 级")))),
           h("div", { style: { fontFamily: FD, fontSize: fz(14), marginBottom: 4 } }, "带谁上路"),
           h("div", { style: { fontSize: fz(11.5), color: SUB, marginBottom: 8 } }, "最多两个人：起手发的牌多从他们那儿来。不挑就随机。"),
           h("div", { className: "flex flex-wrap", style: { gap: 8, marginBottom: 20 } }, owned.map(c => { const on = core.includes(c.id); return h("button", { key: c.id, onClick: () => setCore(p => on ? p.filter(x => x !== c.id) : p.concat(c.id).slice(-2)),
