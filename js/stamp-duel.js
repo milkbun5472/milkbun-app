@@ -493,10 +493,12 @@
   // 随手的那一手：手牌按顺序往第一个空格贴，攒满的都盖
   function pzNaive(st0) { const st = pzClone(st0), hp0 = st.foe.hp; st.me.board.forEach((u, i) => { if (u && u.charge >= u.need) stampRaw(st, "me", i); });
     while (st.me.hand.length) { const f = st.me.board.findIndex((u, i) => !u && !blocked(st.me, i)); if (f < 0 || !placeRaw(st, "me", 0, f).ok) break; } resolveSide(st, "me"); return hp0 - st.foe.hp; }
-  function puzzleOf(lv) {
+  // 30 关以后接着出（她 2026-11-08「打完了咋办」）：难度到 30 关封顶，题照样每关不同；salt 给每日残局用（日期×各人随机数）
+  function puzzleOf(lv0, salt) {
+    const lv = Math.min(lv0, PUZZLE_MAX), key = ((lv0 * 7919) ^ ((salt >>> 0) || 0)) >>> 0;
     for (let t = 0; t < 40; t++) {
-      const R = rng(((lv * 7919) ^ (t * 104729) ^ 0x5a5a) >>> 0), ulv = 6 + lv * 2; pzPool = shuffle(PZ_NAMES.slice(), R);
-      const st = newDuel([pzUnit(R, ulv, "", 0, lv + "m")], [pzUnit(R, ulv, "火漆", 0, lv + "f")], ((lv * 31 + t) >>> 0) || 1, { fair: false, foeHp: 999, meHp: 30 });
+      const R = rng((key ^ (t * 104729) ^ 0x5a5a) >>> 0), ulv = 6 + lv * 2; pzPool = shuffle(PZ_NAMES.slice(), R);
+      const st = newDuel([pzUnit(R, ulv, "", 0, lv + "m")], [pzUnit(R, ulv, "火漆", 0, lv + "f")], ((key * 31 + t) >>> 0) || 1, { fair: false, foeHp: 999, meHp: 30 });
       st.events = []; st.me.hand = []; st.me.draw = []; st.me.discard = []; st.foe.hand = []; st.foe.draw = []; st.foe.discard = []; st.foe.board = new Array(SLOTS).fill(null); st.me.board = new Array(SLOTS).fill(null); st.log = [];
       const nFoe = Math.min(4, 1 + Math.floor(lv / 4)), fslots = shuffle([0, 1, 2, 3, 4, 5], R).slice(0, nFoe);
       fslots.forEach((i, k) => { const u = pzUnit(R, ulv, R() < 0.5 ? "火漆" : "投递", k, lv + "fb" + t); st.foe.board[i] = Object.assign(u, { uid: ++st.uid, hp: u.maxHp, shield: R() < 0.3 ? 2 : 0, marks: {}, first: false, charge: 0 }); });
@@ -506,10 +508,31 @@
       st.me.postage = 3 + Math.floor(lv / 8) + (lv >= 10 ? 1 : 0); st.me.kept = []; st.me.torn = 0;
       const sol = pzSolve(st); if (sol.best < 6) continue;
       if (pzNaive(Object.assign(pzClone(st), { foe: Object.assign(pzClone(st).foe, { hp: sol.best }) })) >= sol.best && t < 39) continue;
-      st.foe.hp = st.foe.max = sol.best; st.puzzle = { lv, best: sol.best, ways: sol.ways, total: sol.total, plan: sol.plan }; st.cap = 1; st.intent = planFoe(st);
+      st.foe.hp = st.foe.max = sol.best; st.puzzle = { lv: lv0, best: sol.best, ways: sol.ways, total: sol.total, plan: sol.plan }; st.cap = 1; st.intent = planFoe(st);
       return st;
     }
     return null;
+  }
+  // ── 接力（她 2026-11-08「和他一起的玩法，不太一样的」→ 接力）：你和 TA 轮流下同一块棋盘 ─────────
+  //   单数回合你下，双数回合 TA 下：TA 那回合照 TA 的性子（羁绊）出牌——护短先顶前排、好胜抢着贴投递、
+  //   冷淡一回合最多贴两张、温柔有人受伤先上补票、偏执有章就盖；跟对面那套打法同一个想法，只是换到你这边
+  function autoMe(st, style) {
+    const sd = st.me, foe = st.foe, acts = [];
+    const hurt = sd.board.some(u => u && u.hp < u.maxHp * 0.6);
+    sd.board.forEach((u, i) => { if (u && u.charge >= u.need && sd.postage >= STAMP_COST && (style !== "冷淡" || u.role === "投递")) { if (stampRaw(st, "me", i).ok) acts.push({ stamp: i, name: u.name }); } });
+    const threat = c => { let n = 0; for (let r = 0; r < SIZE; r++) { const u = foe.board[r * SIZE + c]; if (u) n += u.pow; } return n; };
+    const pri = s => (style === "护短" && s.role === "火漆" ? 4 : 0) + (style === "好胜" && s.role === "投递" ? 4 : 0) + (style === "温柔" && hurt && s.role === "补票" ? 5 : 0) + s.face;
+    let placed = 0;
+    for (let guard = 0; guard < 6; guard++) {
+      if (style === "冷淡" && placed >= 2) break;
+      const k = sd.hand.map((s2, k2) => ({ s: s2, k: k2 })).filter(x => faceNow(st, x.s) <= sd.postage).sort((a, b) => pri(b.s) - pri(a.s))[0]; if (!k) break;
+      const free = sd.board.map((u, i) => !u && !blocked(sd, i) ? i : -1).filter(i => i >= 0); if (!free.length) break;
+      const s0 = k.s, score = i => (s0.role === "火漆" ? threat(col(i)) * 2 + (row(i) === 0 ? 6 : 0) : 0) + ((s0.role === "投递" || s0.role === "邮戳") ? (row(i) === SIZE - 1 ? 5 : 0) + (targetIn(foe, col(i)) < 0 ? 4 : 0) : 0)
+        + adj(i).filter(j => sd.board[j] && sd.board[j].charId && sd.board[j].charId === s0.charId).length * 4 + (sd.terrain[i] === "邮筒" ? 2 : 0);
+      const slot = free.sort((a, b) => score(b) - score(a))[0];
+      if (!placeRaw(st, "me", k.k, slot).ok) break; placed++; acts.push({ place: slot, name: s0.name });
+    }
+    return acts;
   }
   const siegeIdle = (st, sd, i) => !!(st.siege && sd === st.foe && row(i) > 0);   // 守城：对面还没走到前排的不动手
 
@@ -952,7 +975,7 @@
   const mine = raw => (st, who, a, b) => { if (who !== "me") return raw(st, who, a, b); snap(st); const r = raw(st, who, a, b); if (!r || !r.ok) st.undo.pop(); return r; };
   const place = mine(placeRaw), tear = mine(tearRaw), move = mine(moveRaw), keep = mine(keepRaw), stamp = mine(stampRaw);
   const API = { RELICS, STYLE_ZH, TRAIT_FIT, TRAITS, SKILLS, BONDS, bondOf, unitInfo, SIZE, SLOTS, ENVELOPE_HP, POSTAGE, DRAW, DECK_SIZE, TURN_CAP, KEEP_MAX, FACE, NEED, ROLES, MARKS, TERRAIN, EVENTS,
-    stampOf, deckFrom, foeDeckFrom, PUZZLE_MAX, puzzleOf, pzSolve, PATROL, TA_CELLS, TA_PTS, patrolNew, patrolCan, patrolMove, patrolBattle, patrolAfter, weekNo, SHIFT, shiftNew, shiftRoll, shiftPrice, shiftBuy, shiftSell, shiftDeck, shiftBonds, shiftFoeLv, shiftAfter, EDICTS, EDICT_LV, edictDeck, RAID_TURNS, MATS, BASE_MATS, THEME_MAT, KEEP_FX, KEEP_MAX_SLOTS, keepFxOf, keepTier, matDrop, SIEGE_TIERS, newDuel, envFor, avgLv, fairDeck, aims, actsOf, previewPlace, place, tear, move, keep, stamp, undo, canUndo, endTurn, planFoe, combos, newSeries, addGame, memoryLine, hashStr };
+    stampOf, deckFrom, foeDeckFrom, autoMe, PUZZLE_MAX, puzzleOf, pzSolve, PATROL, TA_CELLS, TA_PTS, patrolNew, patrolCan, patrolMove, patrolBattle, patrolAfter, weekNo, SHIFT, shiftNew, shiftRoll, shiftPrice, shiftBuy, shiftSell, shiftDeck, shiftBonds, shiftFoeLv, shiftAfter, EDICTS, EDICT_LV, edictDeck, RAID_TURNS, MATS, BASE_MATS, THEME_MAT, KEEP_FX, KEEP_MAX_SLOTS, keepFxOf, keepTier, matDrop, SIEGE_TIERS, newDuel, envFor, avgLv, fairDeck, aims, actsOf, previewPlace, place, tear, move, keep, stamp, undo, canUndo, endTurn, planFoe, combos, newSeries, addGame, memoryLine, hashStr };
   g.StampDuel = API;
   if (typeof module !== "undefined" && module.exports) module.exports = API;
 })(typeof window !== "undefined" ? window : globalThis);

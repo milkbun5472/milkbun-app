@@ -288,3 +288,10 @@ test("残局：30 关都有解、最优那一手能一回合打空、随手的�
   }
   const a = D.puzzleOf(7), b = D.puzzleOf(7); assert.equal(JSON.stringify(a.me.hand.map(u => u.name)), JSON.stringify(b.me.hand.map(u => u.name)));
 });
+test("残局 30 关以后接着出、每日残局按各人随机数不同；接力 TA 那回合按性子自己贴票", () => {
+  const a = D.puzzleOf(45), b = D.puzzleOf(45, 7), c = D.puzzleOf(45, 8);
+  assert.ok(a && b && c); assert.notEqual(JSON.stringify(b.me.hand.map(u => u.name)), JSON.stringify(c.me.hand.map(u => u.name)));
+  const cards = Array.from({ length: 20 }, (_, i) => ({ id: "c" + i, charId: "a", rarity: "R", lv: 10, text: { name: "k" + i } }));
+  const st = D.newDuel(D.deckFrom(cards, 1, 12, ["a"]), D.edictDeck(1), 1, {});
+  const acts = D.autoMe(st, "冷淡"); assert.ok(acts.filter(x => x.place != null).length <= 2);
+});
