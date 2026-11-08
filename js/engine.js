@@ -236,7 +236,8 @@ function embApiReady() { const c = loadEmbApi(); return !!(c.enabled && c.baseUr
 // · 每条向量记录 {文本hash, 模型名}：改了文本或换了 embedding 模型自动检测重嵌，不拿两个语义空间硬比。
 // ============================================================
 function memVecHash(s) { let h = 5381; s = String(s || ""); for (let i = 0; i < s.length; i++) h = (h * 33 + s.charCodeAt(i)) >>> 0; return h.toString(36) + "_" + s.length; }
-function idbVecOpen() { return new Promise((res, rej) => { const r = indexedDB.open("x_memvec", 1); r.onupgradeneeded = () => { if (!r.result.objectStoreNames.contains("vec")) r.result.createObjectStore("vec"); }; r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); }); }
+function idbVecUp(db) { if (!db.objectStoreNames.contains("vec")) db.createObjectStore("vec"); }
+function idbVecOpen() { return idbKeep("x_memvec", 1, idbVecUp); }
 async function idbVecPut(k, val) { const db = await idbVecOpen(); return new Promise((res, rej) => { const tx = db.transaction("vec", "readwrite"); tx.objectStore("vec").put(val, k); tx.oncomplete = () => res(); tx.onerror = () => rej(tx.error); }); }
 async function idbVecDel(k) { const db = await idbVecOpen(); return new Promise(res => { const tx = db.transaction("vec", "readwrite"); tx.objectStore("vec").delete(k); tx.oncomplete = () => res(); tx.onerror = () => res(); }); }
 async function idbVecClear() { const db = await idbVecOpen(); return new Promise(res => { const tx = db.transaction("vec", "readwrite"); tx.objectStore("vec").clear(); tx.oncomplete = () => res(); tx.onerror = () => res(); }); }
@@ -423,7 +424,7 @@ function cosSim(a, b) {
 // 没预热/没开 embedding → 行为与旧版完全一致。正则词条不参与语义召回（正则是刻意的精确扳机）。
 // ============================================================
 function loreEntryEmbedText(e) { return (((e.title || "") + " " + ((e.keyword || "").split(/[,，、|]/).join(" ")) + " " + String(e.payload || "")).trim()).slice(0, 420); }
-function idbLoreVecOpen() { return new Promise((res, rej) => { const r = indexedDB.open("x_lorevec", 1); r.onupgradeneeded = () => { if (!r.result.objectStoreNames.contains("vec")) r.result.createObjectStore("vec"); }; r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); }); }
+function idbLoreVecOpen() { return idbKeep("x_lorevec", 1, idbVecUp); }
 async function idbLoreVecPut(k, val) { const db = await idbLoreVecOpen(); return new Promise((res, rej) => { const tx = db.transaction("vec", "readwrite"); tx.objectStore("vec").put(val, k); tx.oncomplete = () => res(); tx.onerror = () => rej(tx.error); }); }
 async function idbLoreVecDel(k) { const db = await idbLoreVecOpen(); return new Promise(res => { const tx = db.transaction("vec", "readwrite"); tx.objectStore("vec").delete(k); tx.oncomplete = () => res(); tx.onerror = () => res(); }); }
 async function idbLoreVecEntries() { const db = await idbLoreVecOpen(); return new Promise(res => { const tx = db.transaction("vec", "readonly"); const st = tx.objectStore("vec"); let ks = null, vs = null; const done = () => { if (ks && vs) res(ks.map((k, i) => [k, vs[i]])); }; const kq = st.getAllKeys(); const vq = st.getAll(); kq.onsuccess = () => { ks = kq.result || []; done(); }; vq.onsuccess = () => { vs = vq.result || []; done(); }; tx.onerror = () => res([]); }); }
@@ -815,11 +816,7 @@ function qqDeviceId() {
 const CallLog = (() => {
   const MAX = 300;
   let rows = [], loaded = null, saveT = null;
-  const open = () => new Promise((res, rej) => {
-    const r = indexedDB.open("x_calllog", 1);
-    r.onupgradeneeded = () => { if (!r.result.objectStoreNames.contains("log")) r.result.createObjectStore("log"); };
-    r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error);
-  });
+  const open = () => idbKeep("x_calllog", 1, db => { if (!db.objectStoreNames.contains("log")) db.createObjectStore("log"); });
   const load = () => loaded || (loaded = (typeof indexedDB === "undefined" ? Promise.resolve([]) : open().then(db => new Promise(res => {
     const q = db.transaction("log", "readonly").objectStore("log").get("rows");
     q.onsuccess = () => res(Array.isArray(q.result) ? q.result : []); q.onerror = () => res([]);
@@ -5281,7 +5278,7 @@ function b64ToBlob(b64, mime) {
   return new Blob([arr], { type: mime || "image/png" });
 }
 // ---- 自拍图存 IndexedDB（base64 大图不能进 localStorage/云同步）----
-function idbImgOpen() { return new Promise((res, rej) => { const r = indexedDB.open("x_selfies", 1); r.onupgradeneeded = () => { if (!r.result.objectStoreNames.contains("img")) r.result.createObjectStore("img"); }; r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); }); }
+function idbImgOpen() { return idbKeep("x_selfies", 1, db => { if (!db.objectStoreNames.contains("img")) db.createObjectStore("img"); }); }
 // 原生壳有一层 Application Support 文件保险仓。WKWebView 的 IndexedDB 偶发被 iOS
 // 清空时从这里自愈；普通 Safari/PWA 没这个 bridge，仍按原来的 IDB 路径工作。
 function nativeMediaHandler() { try { return window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.nativeMedia; } catch (e) { return null; } }
@@ -7298,7 +7295,7 @@ const TTS_VOICES = [
   { id: "audiobook_female_1", name: "温柔叙述·女" }, { id: "presenter_female", name: "女主播" }, { id: "lovely_girl", name: "俏皮女孩" }
 ];
 // ---- 音频缓存 IndexedDB（大二进制不进 localStorage/云同步）----
-function idbAudOpen() { return new Promise((res, rej) => { const r = indexedDB.open("x_tts", 1); r.onupgradeneeded = () => { if (!r.result.objectStoreNames.contains("aud")) r.result.createObjectStore("aud"); }; r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); }); }
+function idbAudOpen() { return idbKeep("x_tts", 1, db => { if (!db.objectStoreNames.contains("aud")) db.createObjectStore("aud"); }); }
 async function idbAudPut(k, blob) { const db = await idbAudOpen(); return new Promise((res, rej) => { const tx = db.transaction("aud", "readwrite"); tx.objectStore("aud").put(blob, k); tx.oncomplete = () => res(); tx.onerror = () => rej(tx.error); }); }
 async function idbAudGet(k) { const db = await idbAudOpen(); return new Promise((res, rej) => { const tx = db.transaction("aud", "readonly"); const rq = tx.objectStore("aud").get(k); rq.onsuccess = () => res(rq.result || null); rq.onerror = () => rej(rq.error); }); }
 function ttsCacheKey(voiceId, text) { let hsh = 5381; const s = voiceId + "|" + text; for (let i = 0; i < s.length; i++) hsh = (hsh * 33 + s.charCodeAt(i)) >>> 0; return "tts_" + voiceId + "_" + hsh.toString(36) + "_" + s.length; }
@@ -7308,15 +7305,18 @@ function ttsCacheKey(voiceId, text) { let hsh = 5381; const s = voiceId + "|" + 
 // localStorage 只留 iv_<hash> 引用键；渲染前用 resolveImg() 换成 objectURL（开机 hydrateImgVault 一次性把
 // 图库全读进内存缓存，Avatar 等同步组件可直接同步取用，不用每处改成异步）。此阶段纯新增、无处调用、零行为改动。
 // ============================================================
-function idbVaultOpen() { return new Promise((res, rej) => { const r = indexedDB.open("x_imgvault", 2); r.onupgradeneeded = () => { if (!r.result.objectStoreNames.contains("img")) r.result.createObjectStore("img"); if (!r.result.objectStoreNames.contains("album")) r.result.createObjectStore("album"); }; r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); }); }
-async function idbVaultPutOnly(k, blob) { const db = await idbVaultOpen(); return new Promise((res, rej) => { const tx = db.transaction("img", "readwrite"); tx.objectStore("img").put(blob, k); tx.oncomplete = () => res(); tx.onerror = () => rej(tx.error); }); }
+function idbVaultUp(db) { if (!db.objectStoreNames.contains("img")) db.createObjectStore("img"); if (!db.objectStoreNames.contains("album")) db.createObjectStore("album"); }
+function idbVaultOpen() { return idbKeep("x_imgvault", 2, idbVaultUp); }
+// 图库是最密的一条路（头像／壁纸／聊天图／朋友圈图全走它），读写一律走重试那一层
+function idbVaultWith(run) { return idbWith("x_imgvault", 2, idbVaultUp, run); }
+function idbVaultPutOnly(k, blob) { return idbVaultWith(db => new Promise((res, rej) => { const tx = db.transaction("img", "readwrite"); tx.objectStore("img").put(blob, k); tx.oncomplete = () => res(); tx.onabort = tx.onerror = () => rej(tx.error || new Error("vault put abort")); })); }
 // ⚠️三层里【原生壳那一层原来只有 selfies 有】（她 2026-09-09 让我查生图有没有上 VPS
 //   时挖出来的）：idbImgPut 写完本机还会 nativeMediaPut("selfies")，读不到时也回原生壳要；
 //   vault 这一头两样都没有——而 vault 才是大头（头像/参考照/壁纸/聊天图/朋友圈图/
 //   小剧场/跑团/同人封面全在这儿）。典型的「一层写在两处，第二处没跟上」：
 //   说好的三层，vault 一直只有两层。补齐，写和读都补。
 async function idbVaultPut(k, blob) { await idbVaultPutOnly(k, blob); await nativeMediaPut("vault", k, blob); mediaQueueAdd("vault", k); mediaDrain(4); }
-async function idbVaultGetOnly(k) { const db = await idbVaultOpen(); return new Promise((res, rej) => { const tx = db.transaction("img", "readonly"); const rq = tx.objectStore("img").get(k); rq.onsuccess = () => res(rq.result || null); rq.onerror = () => rej(rq.error); }); }
+function idbVaultGetOnly(k) { return idbVaultWith(db => new Promise((res, rej) => { const tx = db.transaction("img", "readonly"); const rq = tx.objectStore("img").get(k); rq.onsuccess = () => res(rq.result || null); tx.onabort = rq.onerror = () => rej(rq.error || new Error("vault get abort")); })); }
 async function idbVaultGet(k) { const own = await idbVaultGetOnly(k).catch(() => null); if (own) return own; const native = await nativeMediaGet("vault", k); if (native && native.size) { try { await idbVaultPutOnly(k, native); } catch (e) {} return native; } const far = await remoteMediaGet("vault", k); if (far && far.size) { try { await idbVaultPutOnly(k, far); } catch (e) {} return far; } return null; }
 async function idbVaultDel(k) { const db = await idbVaultOpen(); await new Promise(res => { const tx = db.transaction("img", "readwrite"); tx.objectStore("img").delete(k); tx.oncomplete = () => res(); tx.onerror = () => res(); }); await nativeMediaDel("vault", k); await remoteMediaDel("vault", k); }
 // 清空图库（导入 v2+ 备份前用：旧机器攒的孤儿 blob 不再带进新档，防止越导越大）
@@ -7454,7 +7454,7 @@ function durableTextNeedsLocalJournal(k) {
     && BIG.indexOf(k) < 0;
 }
 function _txtMirror() { const g = (typeof window !== "undefined") ? window : globalThis; if (!g.__txtMirror) g.__txtMirror = new Map(); return g.__txtMirror; }
-function idbTxtOpen() { return new Promise((res, rej) => { const r = indexedDB.open("x_txtvault", 1); r.onupgradeneeded = () => { if (!r.result.objectStoreNames.contains("txt")) r.result.createObjectStore("txt"); }; r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); }); }
+function idbTxtOpen() { return idbKeep("x_txtvault", 1, db => { if (!db.objectStoreNames.contains("txt")) db.createObjectStore("txt"); }); }
 // 大仓库这一下没开成／事务被系统掐断（切后台回来最常见）：再开一次重跑，两次都不成才算真失败。
 //   跟保险箱那层（walWith）是同一个形状、同一个病根；最吃紧的是开机 idbTxtAll 那一下——
 //   它失败一次，界面上就是一台空手机（群友 2026-11-02：「只剩第 28 天，人全没了」）。
@@ -12030,26 +12030,18 @@ function saveJSON(k, v) {
 // 关键消息路径(CC 回灌/灾后找回)必须 await saveJSONDurable——WAL 落盘且读回
 // 逐字核验通过才算 durable,才准提交云游标/清工单;配额满时 WAL 仍保底最新一版,
 // 开机由保险箱回收补回。WAL 只加保险不改动任何现有读写路径。
-let _walDB = null;
-function walOpen() {
-  return new Promise((res, rej) => {
-    if (_walDB) return res(_walDB);
-    const rq = indexedDB.open("lisa_wal_v1", 1);
-    rq.onupgradeneeded = () => { try { rq.result.createObjectStore("wal"); } catch (e) {} };
-    rq.onsuccess = () => { _walDB = rq.result; _walDB.onclose = () => { _walDB = null; }; res(_walDB); };
-    rq.onerror = () => rej(rq.error);
-  });
-}
+// 2026-11-08 搬到公共那一层（施工规则/one-public-mechanism.md）：下面这段「连接死在手里」
+//   的道理对每一个库都成立，原来只写在保险箱自己家里，别的库只能照着抄——结果一条都没抄。
+function walUp(db) { try { if (!db.objectStoreNames.contains("wal")) db.createObjectStore("wal"); } catch (e) {} }
+function walOpen() { return idbKeep("lisa_wal_v1", 1, walUp); }
 // 连接【死在手里】：iOS/安卓把 app 切后台再回来，系统常把这个 IndexedDB 连接掐断，
-//   而 onclose 不一定发得出来——握着的 _walDB 从此每一笔事务都报错，手机根本没满。
+//   而 onclose 不一定发得出来——握着的那一条从此每一笔事务都报错，手机根本没满。
 //   群友 2026-11-02 截到的「一直弹『刚才的聊天没存进手机』、存储还剩一大半」就是这一幕：
 //   不是偶尔卡一下，是坏了之后再也好不了，所以「下一次保存会补上」对她永远不成立。
 // 保险箱所有读写一律走这一层（施工规则/one-public-mechanism.md）：出错就把连接丢掉重开、
 //   再跑一次；两次都不成才算真失败，才往上报。以后新加的用法白得这一层。
-function walDrop() { try { if (_walDB) _walDB.close(); } catch (e) {} _walDB = null; }
-function walWith(run) {
-  return walOpen().then(run).catch(e => { walDrop(); return walOpen().then(run); });
-}
+function walDrop() { idbDrop("lisa_wal_v1", 1); }
+function walWith(run) { return idbWith("lisa_wal_v1", 1, walUp, run); }
 async function walPutVerified(key, str) {
   await walWith(db => new Promise((res, rej) => {
     const tx = db.transaction("wal", "readwrite");

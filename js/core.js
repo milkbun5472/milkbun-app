@@ -837,25 +837,60 @@ async function epubToText(buf) {
   return chapters.join("\n\n");
 }
 // ---- 大段正文放 IndexedDB 的一张表：key＝id，value＝全文字符串 ----
+// ============================================================
+// IndexedDB 连接公共一层（施工规则/one-public-mechanism.md）
+// ============================================================
+// 病根有两个，原来各处的 idbXxxOpen 两个都中：
+// 1) 【每次开一条新连接，而且从不关】。一张图一次 open，聊半小时翻几百张图就是几百条
+//    连在身上的连接；iOS 的 WKWebView 扛不住，到某个点之后 open 开始失败——
+//    表现正是群友 2026-11-08 截到的那一幕：好好的玩了半小时，一退出聊天，
+//    头像、壁纸、图标【整屏的图同时变成裂图】，而手机根本没满。
+// 2) 【连接死在手里】：切后台再回来，系统常把连接掐断，而 onclose 不一定发得出来，
+//    握着的那条从此每一笔事务都报错，再也好不了（保险箱那头 2026-11-02 已经踩过一次，
+//    当时只在 WAL 自己家里修了，就是这条规则说的「写在自己家里，别人只能照着抄」）。
+// 所以抽成这一层，WAL 也搬过来：一个库一条连接、存着复用；出错就把连接丢掉重开再跑一次，
+//   两次都不成才算真失败。⚠️自己会 db.close() 的（credential-vault、video-api）不许用这一层：
+//   它们关掉的正是这里存着的那一条。
+const _idbPool = {};
+function idbKeep(name, ver, upgrade) {
+  return new Promise((res, rej) => {
+    const k = name + "@" + ver;
+    if (_idbPool[k]) return res(_idbPool[k]);
+    const rq = indexedDB.open(name, ver);
+    rq.onupgradeneeded = () => { try { if (upgrade) upgrade(rq.result); } catch (e) {} };
+    rq.onsuccess = () => {
+      const db = rq.result;
+      _idbPool[k] = db;
+      const forget = () => { if (_idbPool[k] === db) delete _idbPool[k]; };
+      db.onclose = forget;
+      db.onversionchange = () => { try { db.close(); } catch (e) {} forget(); };
+      res(db);
+    };
+    rq.onerror = () => rej(rq.error);
+  });
+}
+function idbDrop(name, ver) {
+  const k = name + "@" + ver, db = _idbPool[k];
+  try { if (db) db.close(); } catch (e) {}
+  delete _idbPool[k];
+}
+// 一笔读写走这里：连接死了就丢掉重开再跑一次（只重一次，别把真失败拖成死循环）
+function idbWith(name, ver, upgrade, run) {
+  return idbKeep(name, ver, upgrade).then(run)
+    .catch(() => { idbDrop(name, ver); return idbKeep(name, ver, upgrade).then(run); });
+}
 // 原来只长在一起读里（一本书的正文）；一起学的课程资料是第二处，所以搬到这儿共用。
 // ⚠️不走 saveJSON 那一层：那一层开机会把整张表读进内存，整本书、整份讲义不该一直占着内存。
 function makeTextStore(dbName, storeName) {
-  // 连接只开一次、反复用（原来每读写一次就 indexedDB.open 一条新连接、从不关——
-  //   一起看放片子时一直在读，手机上连接一多，后面的删除/写入就卡着不回，得退出重进才动）。
-  let dbp = null;
-  const open = () => dbp || (dbp = new Promise((res, rej) => {
-    const r = indexedDB.open(dbName, 1);
-    r.onupgradeneeded = () => { if (!r.result.objectStoreNames.contains(storeName)) r.result.createObjectStore(storeName); };
-    r.onsuccess = () => { const db = r.result; db.onversionchange = () => { try { db.close(); } catch (e) {} dbp = null; }; db.onclose = () => { dbp = null; }; res(db); };
-    r.onerror = () => { dbp = null; rej(r.error); };
-  }));
-  const once = (mode, fn) => open().then(db => new Promise((res, rej) => {
+  // 连接的那一套（存着复用、死了丢掉重开）搬去上面的公共一层了（施工规则/one-public-mechanism.md）：
+  //   原来这儿、图库那儿、保险箱那儿各写了一份，于是 2026-11-08 群友那次「图全裂了」
+  //   只有这一处是好的，另外两处照旧每读一次开一条连接。
+  const up = db => { if (!db.objectStoreNames.contains(storeName)) db.createObjectStore(storeName); };
+  const run = (mode, fn) => idbWith(dbName, 1, up, db => new Promise((res, rej) => {
     const tx = db.transaction(storeName, mode), rq = fn(tx.objectStore(storeName));
     tx.oncomplete = () => res(rq && mode === "readonly" ? (rq.result || "") : undefined);
-    tx.onerror = () => rej(tx.error);
+    tx.onabort = tx.onerror = () => rej(tx.error || new Error("text store abort"));
   }));
-  // 缓存的连接被系统收走了（切后台久了会这样）：丢掉重开一次
-  const run = (mode, fn) => once(mode, fn).catch(e => { if (e && e.name === "InvalidStateError") { dbp = null; return once(mode, fn); } throw e; });
   return {
     put: (id, text) => run("readwrite", st => st.put(text, id)),
     get: id => run("readonly", st => st.get(id)),
