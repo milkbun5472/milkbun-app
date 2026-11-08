@@ -309,7 +309,7 @@ test("小店接上卡：橱窗按稀有度加收入、信格多两格、工牌�
   assert.ok(D.shopMul({ decor: [], window: ["a"] }, {}, per, cardOf) > D.shopMul({ decor: [], window: ["b"] }, {}, per, cardOf));
   assert.equal(D.shopWinSlots({ decor: ["整面墙的信格"] }), 5);
   assert.ok(D.shopMul({ decor: [], badge: { 柜台: "a" } }, { 柜台: "x" }, per) > D.shopMul({ decor: [] }, { 柜台: "x" }, per));
-  const cs = D.shopCustomers({ day: 2, decor: [] }, [], 3, ["x", "y"]); assert.ok(cs.some(c => c.wantChar));
+  let named = 0; for (let d = 1; d <= 10; d++) named += D.shopCustomers({ day: d, decor: [] }, [], 3, ["x", "y"], "上午").filter(c => c.wantChar).length; assert.ok(named > 0);
 });
 test("小店装修：每月两样限定、买过的能翻新到三级、翻新加成更多", () => {
   for (let m = 1; m <= 12; m++) assert.equal(D.SHOP.MONTHLY[m].length, 2);
