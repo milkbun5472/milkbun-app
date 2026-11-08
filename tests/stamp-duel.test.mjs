@@ -237,3 +237,11 @@ test("封缄令：难度条生效、分数加总、限 8 回合打不完算输",
   assert.equal(b.edictPts, 2 + 3 + 2 + 1); assert.equal(b.me.hp, a.me.hp - 15); assert.equal(b.me.postage, a.me.postage - 1); assert.equal(b.cap, 8);
   const f = b.me.terrain.findIndex(t => !t); D.place(b, "me", 0, f); assert.equal(D.tear(b, "me", f).ok, false);
 });
+test("技能调整：厚封改名、盖一张也打人、加盖和转寄、冷静戳只挂一回合；票的几样各自单独哈希", () => {
+  assert.ok(D.SKILLS.火漆.厚封 && !D.SKILLS.火漆.封口);
+  assert.ok(D.SKILLS.邮戳.加盖 && D.SKILLS.补票.转寄);
+  assert.match(D.SKILLS.邮戳.盖一张, /两倍/);
+  assert.equal(D.TRAITS.冷静.desc, "被盖的戳只挂一回合");
+  const c = {}; for (let i = 0; i < 800; i++) { const s = D.stampOf({ id: "st_" + i.toString(36) + "_ab" + (i * 7919).toString(36), rarity: "R", lv: 5, text: { name: "x" } }); c[s.skill] = (c[s.skill] || 0) + 1; }
+  assert.ok(Object.keys(c).length >= 20, Object.keys(c).length);
+});
