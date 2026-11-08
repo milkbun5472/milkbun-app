@@ -1,6 +1,6 @@
-import {HOME_COOK,furniturePoint} from './home-catalog.mjs?v=fg-c15673782bd5ef78';
-import {motionClock} from './motion-profile.mjs?v=fg-c15673782bd5ef78';
-import {homeHobbyTask} from './home-hobby-task.mjs?v=fg-c15673782bd5ef78';
+import {HOME_COOK,furniturePoint} from './home-catalog.mjs?v=fg-5888a014a76a037e';
+import {motionClock} from './motion-profile.mjs?v=fg-5888a014a76a037e';
+import {homeHobbyTask} from './home-hobby-task.mjs?v=fg-5888a014a76a037e';
 
 export const DAILY_MOTIONS={read:'read',tea:'drink',meal:'eat',cook:'cook',...Object.fromEntries(Object.keys(globalThis.CharDayHomeHobbies.activities).map(k=>[k,k]))};
 export const DAILY_LABELS={read:'翻书阅读',tea:'喝口水',meal:'用餐',cook:'锅边料理',...Object.fromEntries(Object.entries(globalThis.CharDayHomeHobbies.activities).map(([k,p])=>[k,p.label]))};

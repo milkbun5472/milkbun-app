@@ -683,8 +683,9 @@
               c.meet && shMeet === c.id ? h("div", { style: { marginTop: 6 } }, para(c.meet)) : c.meet ? h("button", { onClick: () => setShMeet(c.id), style: { marginTop: 4, fontSize: fz(11), color: "#9a6a4a" } }, "再看一遍他们说的") : null)),
             h("button", { key: "cl", "data-wk": "duelshopclose", onClick: close, disabled: shBusy === "close", className: "w-full disabled:opacity-50", style: Object.assign(btn(INK, PAPER), { marginTop: 6, padding: "10px 0" }) }, shBusy === "close" ? "在打烊…" : window.StampShop.hasResult("close")?"保存已写好的打烊（不再调用）":"打烊（花一次调用，写今天店里的一段）"), h("button",{key:"plain",onClick:()=>shopAct('closeLocal').catch(()=>{}),style:{...btn("transparent",INK),minHeight:40}},"只关门（不写故事）")]) : null,
           sh.phase === "closed" ? card("closed", [h("div", { key: "t" }, secTitle(INK, "烊", "打烊了", "第 " + sh.day + " 天 · 收了 " + (sh.earned || 0) + " 枚")),
-            sh.closing ? h("div", { key: "c", "data-wk": "duelshopclosing" }, para(sh.closing)) : null,
+            sh.closing ? h("div", { key: "c", "data-wk": "duelshopclosing" }, h(window.StampShopStories,{shop:sh,inlineCurrent:true})) : null,
             h("div", { key: "n", "data-wk": "duelshopnext", style: { marginTop: 6, fontSize: fz(12), color: SUB, textAlign: "center" } }, "明天早上 6 点以后再来开门。")]) : null,
+          sh.phase!=="closed"&&window.StampShop.history(sh).length?card("stories",[h("div",{key:"title"},secTitle(INK,"烊","打烊留底","按天保存")),h(window.StampShopStories,{key:"body",shop:sh})]):null,
           card("window", [h("div", { key: "t" }, secTitle("#3f6fb0", "窗", "橱窗", sh.window.length + " / " + D().shopWinSlots(sh))),
             h("div", { key: "s", style: { fontSize: fz(11), color: SUB, marginBottom: 8 } }, "摆你抽到的卡。R +3%、SR +6%、SSR +10% 收入，等级高再多一点；点名要某人明信片的客人，橱窗里有那个人的卡才卖得出。买「整面墙的信格」多 2 格。点一张摆上／撤下。"),
             // 卡多了找不到（她 2026-11-08）：按人、稀有度筛，搜卡名；已经摆上的永远在最前

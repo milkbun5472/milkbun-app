@@ -18,3 +18,25 @@ test('moving a clerk transfers the same badge and cannot displace another clerk'
 test('a failed initial clock save can recover, while another economic operation waits for the failed one',async()=>{const r=rig(null);r.fail(()=>true);await assert.rejects(r.shop.sync(r.opts),/保存/);r.fail(()=>false);await r.shop.sync(r.opts);assert.equal(r.saved.coins,20);r.fail(()=>true);await assert.rejects(r.shop.run('window',{...r.opts,cardId:'a1'}),/保存/);r.fail(()=>false);await assert.rejects(r.shop.run('window',{...r.opts,cardId:'b1'}),/重试/);await r.shop.run('window',{...r.opts,cardId:'a1'});await r.shop.run('window',{...r.opts,cardId:'b1'});assert.equal(r.saved.window.length,2);});
 
 test('malformed optional customer and missed-story fields are safe for either reader without losing unknown decoration data',async()=>{const r=rig({...plan(),decor:['旧木招牌','future-prop'],decorLv:{'旧木招牌':Infinity},customers:[null,{id:'c',name:{bad:1},want:{bad:1},fee:'bad',got:Infinity,meet:'bad'}],missed:{day:{},earned:'bad',lines:{}}});const s=r.shop.read();assert.equal(s.customers.length,1);assert.equal(s.customers[0].name,'');assert.equal(s.customers[0].fee,0);assert.equal(s.customers[0].want,'');assert.equal(s.customers[0].got,0);assert.equal(s.missed.lines,undefined);assert.ok(s.decor.includes('future-prop'));await r.shop.sync(r.opts);assert.ok(r.saved.decor.includes('future-prop'));});
+
+test('closing performance and text history retain the same full lines and cast across midnight without another call',async()=>{
+ const r=rig({...plan(),phase:'open',period:'上午'});let calls=0;
+ const lines=[{speakerId:'b',actorId:'b',targetId:'a',action:'help',text:'我把这摞信给你。'},{speakerId:null,actorId:'a',action:'letter',text:'他接过信。'},{speakerId:'outsider',actorId:'outsider',action:'bad',text:'保留这段旁白原文。'}];
+ await r.shop.run('close',{...r.opts,onChat:async()=>{calls++;return lines;}});
+ const saved=r.saved;assert.deepEqual(saved.closing,lines.map(x=>x.text));assert.equal(saved.closingTurns[0].speakerId,'b');assert.equal(saved.closingTurns[2].speakerId,null);assert.equal(saved.closingTurns[2].actorId,null);assert.equal(saved.closingHistory.length,1);
+ await r.shop.run('closeLocal',r.opts);assert.deepEqual(r.saved.closing,saved.closing);
+ r.date=new Date(2026,10,9,10);await r.shop.sync(r.opts);assert.deepEqual(r.saved.closing,[]);assert.equal(r.saved.closingHistory.length,1);assert.deepEqual(r.saved.closingHistory[0].lines,saved.closing);assert.deepEqual(r.saved.closingHistory[0].cast,saved.closeCast);assert.equal(calls,1);
+ await r.shop.sync(r.opts);assert.equal(r.saved.closingHistory.length,1);
+});
+test('legacy closing text and a completed missed-night story survive day reset and dismiss without truncation',async()=>{
+ const legacy=Array.from({length:20},(_,i)=>'原来的第'+i+'段。'),r=rig({...plan(),phase:'closed',closing:legacy,closeCast:{柜台:'a'},missed:{date:'2026-11-7',day:1,lines:['前一晚的留底。'],cast:{分拣:'b'}}});
+ r.date=new Date(2026,10,9,10);await r.shop.sync(r.opts);assert.equal(r.saved.closingHistory.length,2);assert.deepEqual(r.saved.closingHistory.find(x=>x.date==='2026-11-8').lines,legacy);await r.shop.run('missedClear',r.opts);assert.equal(r.saved.closingHistory.length,2);
+});
+
+test('a closing result arriving after midnight is retained under its original day without closing or replacing the new day',async()=>{
+ const r=rig({...plan(),phase:'open',period:'上午'});let done;const job=r.shop.run('close',{...r.opts,onChat:()=>new Promise(resolve=>done=resolve)});for(let i=0;i<10&&!done;i++)await new Promise(r=>setImmediate(r));assert.ok(done);r.date=new Date(2026,10,9,10);await r.shop.sync(r.opts);await r.shop.run('open',r.opts);const customers=r.saved.customers;done([{speakerId:'b',text:'昨夜留下的原话。'}]);await job;assert.equal(r.saved.date,'2026-11-9');assert.equal(r.saved.phase,'open');assert.deepEqual(r.saved.customers,customers);assert.deepEqual(r.saved.closing,[]);assert.equal(r.saved.closingHistory.find(s=>s.date==='2026-11-8').lines[0],'昨夜留下的原话。');
+});
+
+test('choosing only-close cancels a pending story even if its result arrives the next day',async()=>{
+ const r=rig({...plan(),phase:'open',period:'上午'});let done;const job=r.shop.run('close',{...r.opts,onChat:()=>new Promise(resolve=>done=resolve)});for(let i=0;i<10&&!done;i++)await new Promise(r=>setImmediate(r));await r.shop.run('closeLocal',r.opts);r.date=new Date(2026,10,9,10);await r.shop.sync(r.opts);done(['已取消的结果。']);await assert.rejects(job,/只关门/);assert.equal(r.saved.closingHistory.length,0);assert.deepEqual(r.saved.closing,[]);assert.equal(r.saved.phase,'plan');
+});

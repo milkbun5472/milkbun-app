@@ -9,7 +9,7 @@
 // 接口密钥留在父页 callAI，不传进游戏画面。
 (function (root) {
   const { h, useState, useRef, useEffect, selectDialogs, localDialogs, replaceDialogs, worldCognition, WORLDS, SHOP_WORLD } = root.FairyCore;
-  const KEY = "x_fairyGarden", BUILD = "fg-c15673782bd5ef78", hosts = new WeakMap();
+  const KEY = "x_fairyGarden", BUILD = "fg-5888a014a76a037e", hosts = new WeakMap();
   root.FairyGardenHostFor = child => hosts.get(child) || null;
   // ⚠️「读回来是空」不等于「这儿本来就没有一档」。存档搬进 IDB 之后，文字仓没灌起来
   //   那一刻读到的也是空；这时候要是照着「没有」开一档新的，第一次保存就把她真正的
@@ -43,8 +43,9 @@
     const d=current(),{clock,...game}=world;world=w==="pets"?{...game,clock:d.clock}:game;return write(key,{...d,activeWorld:w,journey: { ...(d.journey || {}), ...(journey || {}) }, worlds: { ...(d.worlds || {}), [w]: world }, world: w === "garden" ? world : d.world});
   }
   function ShopSession(props) {
-    const frame=useRef(null),latest=useRef(props),binder=useRef(null); latest.current=props;
-    const [loaded,setLoaded]=useState(false),[error,setError]=useState(""),[places,setPlaces]=useState(false),[panel,setPanel]=useState(null),[busy,setBusy]=useState(false),[shop,setShop]=useState(()=>root.StampShop.read()),[uiReady,setUiReady]=useState(false);
+    const frame=useRef(null),latest=useRef(props),binder=useRef(null),audio=useRef(null); latest.current=props;
+    const [loaded,setLoaded]=useState(false),[error,setError]=useState(""),[places,setPlaces]=useState(false),[panel,setPanel]=useState(null),[busy,setBusy]=useState(false),[shop,setShop]=useState(()=>root.StampShop.read()),[uiReady,setUiReady]=useState(false),[soundEnabled,setSoundEnabled]=useState(true);
+    if(!audio.current)audio.current=root.SceneSound?.create();
     const cards=()=>{const all=loadJSON("x_stamps",null)?.cards;return root.StampDispatch?.filter(Array.isArray(all)?all.filter(c=>c&&!c.writing):[])||[];};
     const options=()=>({characters:latest.current.characters||[],cards:cards(),onChat:latest.current.onShopChat});
     const sync=()=>root.StampShop.sync(options()).then(s=>{setShop(old=>JSON.stringify(old)===JSON.stringify(s)?old:s);return s;});
@@ -54,7 +55,8 @@
         name:SHOP_WORLD.name,
         previous:()=>root.StampShopScene||null,
         sync:async()=>{await root.LazyMods.load("stamps");return sync();},
-        read:()=>{const p=latest.current,now=new Date();return {shop:root.StampShop.read(),characters:(p.characters||[]).map(c=>({id:c.id,name:c.name,remark:c.remark,ta:root.CharacterPronoun?.ta(c)||'TA',look:(p.lookFor||root.CompanionFace?.lookFor)?.(c)||{}})),cards:cards().filter(c=>c&&typeof c==='object').map(c=>({id:c.id,charId:c.charId,rarity:c.rarity,lv:c.lv,text:{name:c.text?.name},cover:c.cover,face:c.face})),period:root.StampDuel.shopPeriod(now),today:now.getFullYear()+"-"+(now.getMonth()+1)+"-"+now.getDate(),shopRules:root.StampDuel};},
+        read:()=>{const p=latest.current,now=new Date(),shop=root.StampShop.read();return {shop,stories:root.StampShop.history(shop),time:root.GameClock.sample(null,now.getTime()),weatherSeed:root.StampShop.seed(),characters:(p.characters||[]).map(c=>({id:c.id,name:c.name,remark:c.remark,ta:root.CharacterPronoun?.ta(c)||'TA',look:(p.lookFor||root.CompanionFace?.lookFor)?.(c)||{}})),cards:cards().filter(c=>c&&typeof c==='object').map(c=>({id:c.id,charId:c.charId,rarity:c.rarity,lv:c.lv,text:{name:c.text?.name},cover:c.cover,face:c.face})),period:root.StampDuel.shopPeriod(now),today:now.getFullYear()+"-"+(now.getMonth()+1)+"-"+now.getDate(),shopRules:root.StampDuel};},
+        audioState:()=>audio.current?.inspect(),sound:event=>audio.current?.play(event.kind),unlockSound:()=>audio.current?.unlock(),pauseSound:value=>audio.current?.pause(value),
         thumbnail:async ref=>{await root.LazyMods.load("stamps");return root.StampThumbnails?.url(ref)||null;},
         counter:()=>latest.current.onOpenStamps?.({tab:"duel",mode:"shop",back:"fairy-shop"}),
         select:target=>{setError("");setPanel(target);},
@@ -63,11 +65,11 @@
         error:message=>{if(frame.current===node)setError(String(message));}
       });
     };
-    useEffect(()=>{let on=true;root.LazyMods.load("stamps").then(()=>{if(on){setUiReady(true);sync().then(setShop).catch(e=>setError(e.message));}}).catch(e=>setError(e.message));const changed=()=>{if(on)setShop(root.StampShop.read());};root.addEventListener('stamp-shop-change',changed);return()=>{on=false;root.removeEventListener('stamp-shop-change',changed);};},[]);
+    useEffect(()=>{let on=true;root.LazyMods.load("stamps").then(()=>{if(on){setUiReady(true);sync().then(setShop).catch(e=>setError(e.message));}}).catch(e=>setError(e.message));const changed=()=>{if(on)setShop(root.StampShop.read());};root.addEventListener('stamp-shop-change',changed);return()=>{on=false;root.removeEventListener('stamp-shop-change',changed);audio.current?.dispose();};},[]);
     useEffect(()=>{frame.current?.contentWindow.PostOfficeGame?.pause(places||!!panel);},[places,panel,loaded]);
     const act=async(type,args={})=>{if(busy)return;setBusy(true);setError("");const node=frame.current;
       try{await root.StampShop.run(type,{...options(),expected:root.StampShop.token(shop),...args});setShop(root.StampShop.read());
-        if(type==='close'||type==='closeLocal'){setPanel(null);node?.contentWindow.PostOfficeGame?.pause(false);await node?.contentWindow.PostOfficeGame?.startClosing();if(frame.current===node)setPanel({type:'story'});}
+        if(type==='close'||type==='closeLocal'){setPanel(null);node?.contentWindow.PostOfficeGame?.pause(false);if(frame.current===node)node?.contentWindow.PostOfficeGame?.startClosing(type==='close'?root.StampShop.history(root.StampShop.read()).find(s=>s.date===shop.date)?.key:null,type==='closeLocal').catch(e=>setError(e.message));}else if(type==='meet'||type==='serve'){setPanel(null);node?.contentWindow.PostOfficeGame?.pause(false);await node?.contentWindow.PostOfficeGame?.refresh();}
         else {if(type==='move')setPanel({type:'staff',post:args.to});else if(type==='assign'&&!args.charId&&panel?.post)setPanel(null);await node?.contentWindow.PostOfficeGame?.refresh();}
       }catch(e){setError(e.message);}finally{setBusy(false);}
     };
@@ -80,7 +82,7 @@
         h("button",{onClick:()=>frame.current?.contentWindow.PostOfficeGame?.resetView(),style:{minWidth:40,minHeight:40,fontSize:12}},"全景"),
         h("button",{disabled:!uiReady,onClick:()=>{setError("");setPanel({type:'menu'});},style:{...pickButtonStyle(),minHeight:40,padding:"5px 10px",fontSize:12}},"经营"),
         h("button",{onClick:()=>latest.current.onOpenStamps?.({tab:"duel",mode:"shop",back:"fairy-shop"}),style:{minHeight:40,padding:"5px",fontSize:12}},"去柜台")),
-      panel&&uiReady&&h(root.StampShopPanel,{key:JSON.stringify(panel),target:panel,shop,characters:props.characters||[],cards:cards(),busy,error,onAction:act,onClose:()=>{if(root.StampShop.failed()){setError("请先重试刚才未保存的操作。");return;}setPanel(null);setError("");},onText:()=>latest.current.onOpenStamps?.({tab:"duel",mode:"shop",back:"fairy-shop"}),onReplay:id=>frame.current?.contentWindow.PostOfficeGame?.playMeet(id)}),
+      panel&&uiReady&&h(root.StampShopPanel,{key:JSON.stringify(panel),target:panel,shop,characters:props.characters||[],cards:cards(),busy,error,onAction:act,onClose:()=>{if(root.StampShop.failed()){setError("请先重试刚才未保存的操作。");return;}setPanel(null);setError("");},onText:()=>latest.current.onOpenStamps?.({tab:"duel",mode:"shop",back:"fairy-shop"}),onReplay:id=>frame.current?.contentWindow.PostOfficeGame?.playMeet(id),onReplayClosing:id=>{setPanel(null);const game=frame.current?.contentWindow.PostOfficeGame;game?.pause(false);game?.startClosing(id).catch(e=>setError(e.message));},soundEnabled,onToggleSound:()=>{const next=!soundEnabled;setSoundEnabled(next);audio.current?.enable(next);}}),
       places&&h("section",{className:"absolute inset-0 flex flex-col",style:{background:G.paper,zIndex:40}},h(Head,{zh:"去别处",bg:"transparent",onBack:()=>setPlaces(false)}),h(RailwayChoices,{from:"shop",onChoose:to=>{setPlaces(false);props.onTravel(to);}})));
   }
   function WorldSession(props) {

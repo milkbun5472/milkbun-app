@@ -2456,6 +2456,23 @@ function msgAudioCtx() {
 try { window.addEventListener("pointerdown", () => { try { if (!_msgAudioCtx || _msgAudioCtx.state !== "running") msgAudioCtx(); } catch (e) {} }, true);
   document.addEventListener("visibilitychange", () => { try { if (document.visibilityState === "visible" && _msgAudioCtx && _msgAudioCtx.state !== "running") _msgAudioCtx.resume(); } catch (e) {} }); } catch (e) {}
 // 音量 0.1～3：1 以上是往上加的（群友 2026-10-26：开到大还是会被音乐盖住）。走一个压限器，开大了也不会破音
+function playSynthNotes(ctx,s,master,onDone=()=>{}) {
+  const voices=new Set();let finished=false;
+  const done=()=>{if(finished)return;finished=true;onDone();};
+  const track=(source,nodes)=>{voices.add(source);source.onended=()=>{voices.delete(source);for(const node of nodes)try{node.disconnect();}catch{}if(!voices.size)done();};};
+  const t0=ctx.currentTime+.01;
+  const tone=(f,at,len,f2)=>{
+    [[1,.8],[2,.25]].forEach(([mul,amp])=>{
+      const o=ctx.createOscillator(),g=ctx.createGain();o.type=s.wave||'sine';o.frequency.setValueAtTime(f*mul,t0+at);if(f2)o.frequency.exponentialRampToValueAtTime(f2*mul,t0+at+len);
+      g.gain.setValueAtTime(.0001,t0+at);g.gain.exponentialRampToValueAtTime(amp,t0+at+.008);g.gain.exponentialRampToValueAtTime(.0001,t0+at+len);o.connect(g);g.connect(master);track(o,[o,g]);o.start(t0+at);o.stop(t0+at+len+.02);
+    });
+  };
+  if(s.sweep)tone(s.sweep[0],0,s.sweep[2],s.sweep[1]);else (s.notes||[]).forEach(n=>tone(...n));
+  if(s.noise){const length=s.noise.duration||.12,buffer=ctx.createBuffer(1,Math.ceil(ctx.sampleRate*length),ctx.sampleRate),samples=buffer.getChannelData(0);for(let i=0;i<samples.length;i++)samples[i]=(Math.random()*2-1)*(1-i/samples.length)**2;
+    const source=ctx.createBufferSource(),filter=ctx.createBiquadFilter(),gain=ctx.createGain();source.buffer=buffer;filter.type=s.noise.type||'bandpass';filter.frequency.value=s.noise.frequency||900;filter.Q.value=.6;gain.gain.value=s.noise.gain||.4;source.connect(filter);filter.connect(gain);gain.connect(master);track(source,[source,filter,gain]);source.start(t0);source.stop(t0+length);
+  }
+  if(!voices.size)done();return ()=>{for(const voice of voices){try{voice.stop();voice.disconnect();}catch{}}voices.clear();done();};
+}
 function playMsgSound(id, vol) {
   const v = Math.max(0.1, Math.min(3, vol == null ? 1 : Number(vol)));
   if (!id) return;
@@ -2477,20 +2494,22 @@ function playMsgSound(id, vol) {
   }
   const s = MSG_SOUNDS.find(x => x.id === id);
   if (!s) return;
-  const t0 = ctx.currentTime + 0.01;
-  const tone = (f, at, len, f2) => {
-    // 基音再叠一个高八度的泛音：手机小喇叭放纯正弦很虚，带一点泛音听得清得多
-    [[1, 0.8], [2, 0.25]].forEach(([mul, amp]) => {
-      const o = ctx.createOscillator(), g = ctx.createGain();
-      o.type = s.wave || "sine"; o.frequency.setValueAtTime(f * mul, t0 + at);
-      if (f2) o.frequency.exponentialRampToValueAtTime(f2 * mul, t0 + at + len);
-      g.gain.setValueAtTime(0.0001, t0 + at); g.gain.exponentialRampToValueAtTime(amp, t0 + at + 0.008); g.gain.exponentialRampToValueAtTime(0.0001, t0 + at + len);
-      o.connect(g); g.connect(master); o.start(t0 + at); o.stop(t0 + at + len + 0.02);
-    });
-  };
-  if (s.sweep) tone(s.sweep[0], 0, s.sweep[2], s.sweep[1]); else s.notes.forEach(n => tone(n[0], n[1], n[2]));
+  return playSynthNotes(ctx,s,master,()=>{master.disconnect();out.disconnect();});
 }
 window.playMsgSound = playMsgSound;
+// Short scene effects share the notification audio context and synthesis path.
+// Each owner can mute/stop only its own sounds; notifications keep their settings.
+window.SceneSound={create:()=>{
+ const effects={door:{notes:[[1568,0,.32],[2093,.065,.39]],volume:.045},stamp:{notes:[[130,0,.065,65]],wave:'triangle',noise:{duration:.075,frequency:680,gain:.48},volume:.085},paper:{notes:[],noise:{duration:.19,frequency:1800,type:'highpass',gain:.32},volume:.065}};
+ let enabled=true,paused=false,disposed=false,unlocked=!!_msgAudioCtx&&_msgAudioCtx.state==='running';const stops=new Set(),played={};
+ const stop=()=>{for(const cancel of [...stops])cancel();stops.clear();};
+ const unlock=()=>{if(disposed||!enabled)return;const ctx=msgAudioCtx();unlocked=!!ctx;};
+ return {unlock,enable:value=>{enabled=!!value;if(enabled)unlock();else stop();},pause:value=>{paused=!!value;if(paused)stop();},dispose:()=>{disposed=true;stop();},play:kind=>{
+  try{const effect=effects[kind];if(!unlocked&&_msgAudioCtx?.state==='running')unlocked=true;if(disposed||paused||!enabled||!unlocked||document.hidden||!effect)return false;const ctx=_msgAudioCtx;if(!ctx||ctx.state!=='running')return false;
+  const gain=ctx.createGain();gain.gain.value=effect.volume;gain.connect(ctx.destination);let cancel;cancel=playSynthNotes(ctx,effect,gain,()=>{gain.disconnect();stops.delete(cancel);});stops.add(cancel);played[kind]=(played[kind]||0)+1;return true;}catch{return false;}
+ },inspect:()=>({enabled,paused,unlocked,disposed,playing:stops.size,played:{...played}})};
+}};
+
 // ── App 内消息提醒（她 2026-09-11）───────────────────────────────────
 // 她原话：「我发了消息然后退出聊天去别的玩法里玩，顶上也会有提醒，一个气泡出一条
 // 叠加在上面……过几秒就上翻消失，点击也可以快速到达聊天界面。群聊单聊旁观群都要。」
