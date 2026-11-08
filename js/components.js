@@ -2170,7 +2170,8 @@ function requestAppConfirm(title, body, onConfirm, confirmLabel, onCancel, opts)
   }
   // 她点了危险操作的「确定」（删除、清空……）：接下来几秒聊天变短是她自己要的，不留「找回」备份
   const _danger = !(opts && opts.danger === false);
-  const _go = _danger ? (...a) => { if (typeof chatShrinkOk === "function") chatShrinkOk(); return onConfirm(...a); } : onConfirm;
+  // 她点了「危险」那一下（删、清空、导入覆盖、从云端恢复……）：随之而来的变短是她要的，聊天和角色名单都不留「找回」
+  const _go = _danger ? (...a) => { if (typeof chatShrinkOk === "function") chatShrinkOk(); if (typeof charShrinkOk === "function") charShrinkOk(30000); return onConfirm(...a); } : onConfirm;
   open({ title: title || "确认操作？", body: body || "", onConfirm: _go, confirmLabel: confirmLabel || "确定",
     onCancel: typeof onCancel === "function" ? onCancel : null,
     cancelLabel: opts && opts.cancelLabel || "",
@@ -9289,7 +9290,14 @@ function Messages({
   const [composeOpen, setComposeOpen] = useState(false);
   const [groupMgr, setGroupMgr] = useState(false);
   const [groupList, setGroupList] = useState(false);   // 通讯录里的「群聊」入口
-  const [reqOpen, setReqOpen] = useState(false);       // 通讯录「新的朋友」：删了好友的人发来的申请
+  const [reqOpen, setReqOpen] = useState(false);
+  // 「不见的人」（2026-11-08）：角色名单被写少了、又不是她删的，少掉的人存在备份里，这儿一键放回来
+  const [lostN, setLostN] = useState(0);
+  useEffect(() => {
+    const chk = () => { if (window.__charLost) window.__charLost().then(a => setLostN((a || []).length)).catch(() => {}); };
+    chk(); window.addEventListener("qq-char-shrink", chk);
+    return () => window.removeEventListener("qq-char-shrink", chk);
+  }, [(allChars || characters || []).length]);       // 通讯录「新的朋友」：删了好友的人发来的申请
   const [npcBook, setNpcBook] = useState(false);       // 通讯录里的「配角」入口（她 2026-10-03）
   const [q, setQ] = useState("");                       // 聊天列表顶部搜索（她 2026-08-26）
   const TITLES = {
@@ -9529,6 +9537,12 @@ function Messages({
     // 「材质要从这个东西本身长出来」那条判据没错，错在我把它读成了「一定要像实物」。
     // 底色交给外壳那一层（mlpage）：这里再刷一遍平色，主题工作台改外壳的底就只改得到聊天那一栏
     return h("div", { className: "py-1", style: { position: "relative" } },
+      lostN ? entry("不见的人", lostN + " 位 · 点一下放回来", "#c25a4a",
+        [h("circle", { key: "a", cx: 11, cy: 11, r: 6.5 }), h("path", { key: "b", d: "M16 16l5 5" }), h("path", { key: "c", d: "M11 8v4l2 1.5" })],
+        () => requestAppConfirm("把不见的 " + lostN + " 位放回来？", "这几位不是你删的，是存角色名单时被写丢了。放回来以后，跟他们的聊天、记忆、关系线都会接上。", async () => {
+          const n = window.__charLostRestore ? await window.__charLostRestore() : 0; setLostN(0);
+          if (window.__toast) window.__toast(n ? "放回来了 " + n + " 位" : "他们已经都在了");
+        }, "放回来")) : null,
       (friendReqs || []).length ? entry("新的朋友", (friendReqs || []).filter(r => r.status === "pending").length ? (friendReqs || []).filter(r => r.status === "pending").length + " 条待处理" : "", "#e08a3d",
         [h("circle", { key: "a", cx: 10, cy: 8, r: 3.5 }), h("path", { key: "b", d: "M3 21v-1a5 5 0 015-5h4a5 5 0 015 5v1" }), h("path", { key: "c", d: "M19 8v6M16 11h6" })],
         () => setReqOpen(true)) : null,

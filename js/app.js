@@ -3375,6 +3375,15 @@ function App() {
   };
   // 聊天一下子变短时留的那份（engine.js noteChatShrink）：合并回来＝把备份里有、现在没有的那些按时间插回去，现有的一条不动
   useEffect(() => {
+    // 「不见的人」（2026-11-08）：备份里还不在名单上的那几个；放回来以后清掉这份备份
+    window.__charLost = async () => { try { const raw = await idbTxtGet("x_shrinkBak:x_characters"); const box = raw ? JSON.parse(raw) : null; const ids = new Set((charactersRef.current || []).map(c => c && c.id)); return box ? (box.lost || []).filter(c => c && c.id && !ids.has(c.id)) : []; } catch (e) { return []; } };
+    window.__charLostRestore = async () => {
+      const back = await window.__charLost();
+      if (back.length) pC(p => { const ids = new Set(p.map(c => c && c.id)); return p.concat(back.filter(c => !ids.has(c.id))); });
+      try { await idbTxtDel("x_shrinkBak:x_characters"); } catch (e) {}
+      return back.length;
+    };
+    window.__charLostDrop = async () => { try { await idbTxtDel("x_shrinkBak:x_characters"); } catch (e) {} };
     window.__shrinkRestore = async id => {
       let bak = null; try { bak = JSON.parse((await idbTxtGet("x_shrinkBak:x_chat:" + id)) || "null"); } catch (e) {}
       if (!bak || !bak.data) return 0;
@@ -10979,6 +10988,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     // 主角色删了，TA身边的人跟着删（她 2026-08-25 拍的）；顺手从所有群里摘掉，
     // 否则群成员列表里会留下一串找不到人的 id。
     const doomed = new Set([id, ...npcsOf(id).map(c => c.id)]);
+    if (typeof charShrinkOk === "function") charShrinkOk();   // 她亲手删的：不当成「不见了」
     pC(p => p.filter(c => !doomed.has(c.id)));
     setPromises(p => { const n = p.filter(x => x && !doomed.has(x.charId)); promisesRef.current = n; saveJSON("x_promises", n); return n; });
     setGroups(prev => {
@@ -18949,6 +18959,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   //   wipeChat＝连跟TA的私聊（线上＋线下）和TA的记忆一起清（她 2026-10-07 群友：「npc 聊天过后怎么删除」）
   const deleteNpc = (id, wipeChat) => {
     if (wipeChat) clearChat(id, true);
+    if (typeof charShrinkOk === "function") charShrinkOk();   // 她亲手删的配角
     pC(p => p.filter(c => c.id !== id));
     setGroups(prev => { const n = prev.map(g => ({ ...g, memberIds: (g.memberIds || []).filter(x => x !== id) })); saveJSON("x_groups", n); return n; });
     toast(wipeChat ? "已删除，聊天也清掉了" : "已删除");
