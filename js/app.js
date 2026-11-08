@@ -13477,17 +13477,16 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       if (_pairSplit) {
         openCaps.push("pairAvatar");
         capState.push("pairAvatar：" + uName + " 想让你俩一起换上一对头像（情头），她发来的是【一张图】，一对就并排在这一张里。"
-          + "左右并排的：左半边是第 1 张、右半边是第 2 张；上下排的：上半是第 1 张、下半是第 2 张。会照这个切成两张。"
-          + "要换就填 pairAvatar:{\"yours\":1 或 2}——yours 是你自己用哪一半，另一半换到 " + uName + " 那边。看图挑：通常男生那半给男生、女生那半给女生，或者按谁像谁。"
+          + "两个人并排的合照也算：一人一半切开，各拿一个人当头像。"
+          + "左右并排的（包括竖着拍、两个人肩并肩站的合照）：左半边是第 1 张、右半边是第 2 张；上下排的：上半是第 1 张、下半是第 2 张。会照这个切成两张。"
+          + "要换就填 pairAvatar:{\"yours\":1 或 2,\"cut\":\"lr\" 或 \"tb\"}——cut 是怎么切：lr＝左右切，tb＝上下切，照图里两个人（两只）是左右挨着还是上下排着来定；yours 是你自己用哪一半，另一半换到 " + uName + " 那边。看图挑：通常男生那半给男生、女生那半给女生，或者按谁像谁。"
           + "\n· 只换你们这个聊天窗里的头像，档案和 " + uName + " 的资料都不动。"
-          + "\n· 切开以后每一半里只该有一个人（或一只）：两个人挨在一起拍的合照，从中间一刀会把人劈开，那不是情头。"
           + "\n· 这张图要是根本不是一对、切开不像两个头像，就省略 pairAvatar，在话里说清楚。⚠️没填就等于没换，绝不许说「换好了」。");
       }
       if (_pairPick) {
         openCaps.push("pairAvatar");
         capState.push("pairAvatar：" + (_pairAuto
           ? uName + " 刚连着发来两张照片，没说要做什么，历史里标着【情头·第 1 张】【情头·第 2 张】。看图判断：两张是成套的一对头像（同一画风、两个人／两只配成一对），她多半是想你俩一起换上；不是一对、只是普通照片，就当没这一格。"
-          + "一对头像里【每一张只有一个人（或一只）】，各管一边；一张里同时有两个人的是你俩的合照，不是情头的一半——两张里有一张是合照，这两张就不是一对。"
           : uName + " 想让你俩一起换上一对头像（情头）。上面历史里 " + uName
           + " 发过的最近两张真实照片就是这一对，历史里那两张已经标着【情头·第 1 张】【情头·第 2 张】。")
           + "要换就填 pairAvatar:{\"yours\":1 或 2}——yours 是你自己用哪一张，另一张就换到 " + uName + " 那边。"
@@ -14709,7 +14708,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       if (_pairDone && parsed.photoSeen && typeof parsed.photoSeen === "object") parsed.photoSeen = { ...parsed.photoSeen, avatar: false };
       // 一张图切成一对：他挑了哪半，就切开两半各存一张，照一对来换
       if (_pairSplit && parsed.pairAvatar && typeof parsed.pairAvatar === "object" && (Number(parsed.pairAvatar.yours) === 1 || Number(parsed.pairAvatar.yours) === 2)) {
-        const _halves = await splitPairImage(_pairSplit.imageRef);
+        const _halves = await splitPairImage(_pairSplit.imageRef, parsed.pairAvatar.cut);
         if (_halves && applyPairAvatar(charId, [{ imageRef: _halves[0] }, { imageRef: _halves[1] }], parsed.pairAvatar.yours) && parsed.photoSeen && typeof parsed.photoSeen === "object") parsed.photoSeen = { ...parsed.photoSeen, avatar: false };
       }
       // 情头那一轮填错了格（她 2026-10-10：「给两张只换他自己的」）：没填 pairAvatar，却在单张那格 photoSeen.avatar=true。
@@ -28864,17 +28863,21 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     return got.length === 2 ? got : null;
   };
   // 一张图里并排的一对 → 切成两张方头像（宽图左右切、竖图上下切，各取中间那一块正方形）
-  const splitPairImage = async ref => {
+  // cut：他看图说的切法（lr 左右／tb 上下）。没说就按图的形状猜——竖着拍、两个人肩并肩的合照（她 2026-11-08）
+  //   原来竖图一律上下切，上半张是两个人的头、下半张是身子，切出来他那张里挤着两个人
+  const splitPairImage = async (ref, cut) => {
     try {
       const blob = typeof imgVaultFetchBlob === "function" ? await imgVaultFetchBlob(ref) : null;
       if (!blob) return null;
       const url = URL.createObjectURL(blob);
       const img = await new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = url; });
-      const W = img.naturalWidth, H = img.naturalHeight, wide = W >= H;
+      const W = img.naturalWidth, H = img.naturalHeight, wide = cut === "lr" ? true : cut === "tb" ? false : W >= H;
       const halves = [0, 1].map(k => {
         const sw = wide ? W / 2 : W, sh = wide ? H : H / 2, sx = wide ? k * W / 2 : 0, sy = wide ? 0 : k * H / 2, s = Math.min(sw, sh);
+        // 左右切一张竖图时，每半是瘦高一条：方块往上靠（脸在上面），不取正中间那一截身子
+        const up = wide && sh > s ? 0.25 : 0.5;
         const c = document.createElement("canvas"), out = Math.max(64, Math.min(640, Math.round(s)));
-        c.width = c.height = out; c.getContext("2d").drawImage(img, sx + (sw - s) / 2, sy + (sh - s) / 2, s, s, 0, 0, out, out);
+        c.width = c.height = out; c.getContext("2d").drawImage(img, sx + (sw - s) / 2, sy + (sh - s) * up, s, s, 0, 0, out, out);
         return c.toDataURL("image/jpeg", 0.9);
       });
       URL.revokeObjectURL(url);
