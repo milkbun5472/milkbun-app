@@ -36111,6 +36111,21 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       const uN = userName(profile);
       // 专属信物（她 2026-11-08「花调用生成角色专属信物，从人设和我们聊天里来」「一两句来历，下面写上他的口吻看这个信物」）：
       //   材料是她挑的三样；效果只许从 d.fxList（三样材料的偏向）里挑，强弱代码定
+      // 挑战陪打（她 2026-11-08「挑战类能跟他聊天，推荐怎么放或者评论战局」「做吧，可以选谁陪我打」）：
+      //   对面是游戏造的敌人，TA 在旁边陪她看；只按 d.board 写着的局面说
+      if (d.mode === "coach" || d.mode === "coachreview") {
+        const r = await runProbe(apiFor(char.id), ctxFor(char), { voice: true, tag: "stampcoach", maxTokens: 8000,
+          instruction: "你正陪" + uN + "玩邮票册里的卡牌小游戏，她一个人打关卡，你坐在旁边看。对面是游戏里代码造的敌人，不是你，也不是你认识的谁。\n"
+            + "眼下的局面：" + d.board + "\n"
+            + (d.history ? "刚才你们说的：\n" + d.history + "\n" : "")
+            + (d.mode === "coachreview"
+              ? "这一把打完了。照你的人设评评这一把：哪一步打得好、哪里可以换个打法、下回怎么试。只说上面写着的局面。"
+              : d.text ? uN + "问你：「" + String(d.text).slice(0, 300) + "」\n她问的多半是眼前这一步，先接这个。"
+              : uN + "让你帮她看看这一步。给一两条具体的建议：放哪张、放哪一格、先打谁、要不要盖章或换票。")
+            + "\n建议只按上面写着的票和局面说，别编不存在的票和没发生的事；用你自己说话的样子，几句短的就够。lines 里一句一项。",
+          schemaHint: "{\"lines\":[\"一句\"]}" });
+        return (Array.isArray(r && r.lines) ? r.lines : [r && r.lines]).map(x => String(x || "").trim()).filter(Boolean).slice(0, 5);
+      }
       if (d.mode === "keep") {
         const fxList = (d.fxList || []).filter(Boolean); if (!fxList.length) return null;
         const r = await runProbe(apiFor(char.id), ctxFor(char), { voice: true, tag: "stampkeep", maxTokens: 8000,

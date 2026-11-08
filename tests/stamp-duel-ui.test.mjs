@@ -169,3 +169,13 @@ test("邮局值班页：柜台、值班卡组、开打、回柜台，进度存�
   assert.match(ui, /"data-wk": "duelshiftnext"/);
   assert.match(ui, /x\.edict \|\| x\.shift/);
 });
+test("挑战陪打：挑谁陪、聊天找陪打的人、帮我看看、打完评一把、值班柜台问买哪张；局面全给", () => {
+  assert.match(ui, /"data-wk": "duelcoachpick"/);
+  assert.equal((ui.match(/coachPick\(\),/g) || []).length, 4);
+  assert.match(ui, /talkId = chal \? coachId : foeId/);
+  assert.match(ui, /mode: ask === "review" \? "coachreview" : "coach", text, board: coachBoard\(\)/);
+  assert.match(ui, /"data-wk": "duelcoachask"/);
+  assert.match(ui, /"data-wk": "duelshiftcoach"/);
+  assert.match(app, /if \(d\.mode === "coach" \|\| d\.mode === "coachreview"\) \{/);
+  assert.match(ts, /"duelcoachpick"/);
+});
