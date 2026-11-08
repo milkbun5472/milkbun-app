@@ -48,7 +48,7 @@ test("带谁上场、长按看底细、她自己那一下也慢放", () => {
 });
 test("对局页里有人话版「怎么玩」：右上角随时点开，整页", () => {
   assert.match(ui, /const GUIDE = \[/);
-  assert.match(ui, /if \(guide\) return shell\(/);
+  assert.match(ui, /if \(guide\) \{/);
   assert.ok((ui.match(/right: guideBtn/g) || []).length >= 3);
   assert.match(ts, /"duelguide"/);
 });
@@ -64,7 +64,7 @@ test("新手教学关：开局页能进、九步教练条、不存档；对面�
   assert.match(ui, /"data-wk": "duelsay"/);
   assert.match(ui, /"data-wk": "duelskip", onClick: skip/);
   // 钩子不许放在提前 return 后面（React #310）
-  const ret = ui.indexOf("if (guide) return shell(");
+  const ret = ui.indexOf("if (guide) {");
   assert.ok(ui.indexOf("const lastBubble = useRef(0)") < ret && ui.indexOf("const [tut, setTut] = useState(-1)") < ret);
 });
 test("彩头、复盘、战绩、难度、规则局、快捷表情、动手那张拿起来", () => {

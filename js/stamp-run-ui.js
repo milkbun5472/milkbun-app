@@ -130,11 +130,11 @@
             return h("div", { "data-wk": "runtheme", style: { marginBottom: 16 } },
               h("div", { style: { fontFamily: FD, fontSize: fz(14), marginBottom: 4 } }, "走哪条路"),
               h("div", { style: { fontSize: fz(11.5), color: SUB, marginBottom: 8 } }, "每条路的麻烦、岔路和一条棋盘规则都不一样，回信也会写到这一路。默认是 " + (nameOf(toId) || "TA") + " 推荐的那条，可以换。"),
-              h("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 } }, Object.keys(TH).map(k => { const on = cur === k, t = TH[k];
-                return h("button", { key: k, "data-wk": "runthemepick", "data-on": on ? "1" : "0", onClick: () => setThemePick(k), className: "text-left",
+              h("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 } }, Object.keys(TH).map(k => { const on = cur === k, t = TH[k], open = RN().themeOpen(k);
+                return h("button", { key: k, "data-wk": "runthemepick", "data-on": on ? "1" : "0", disabled: !open, onClick: () => setThemePick(k), className: "text-left disabled:opacity-45",
                   style: { position: "relative", padding: "8px 10px", borderRadius: 5, border: "1.5px solid " + (on ? t.ink : "rgba(47,42,34,.18)"), background: "linear-gradient(" + t.paper[0] + ", " + t.paper[1] + ")", color: t.ink } },
-                  h("div", { style: { fontFamily: FD, fontSize: fz(14) } }, k + (on ? " ✓" : "")),
-                  h("div", { style: { fontSize: fz(10.5), lineHeight: 1.5, opacity: .85 } }, t.rule + "：" + t.ruleZh),
+                  h("div", { style: { fontFamily: FD, fontSize: fz(14) } }, (k === "节日" && RN().festNow() ? RN().festNow() : k) + (on ? " ✓" : "")),
+                  h("div", { style: { fontSize: fz(10.5), lineHeight: 1.5, opacity: .85 } }, open ? t.rule + "：" + t.ruleZh : "节日前后才开，下一个是" + RN().festNext()),
                   k === rec ? h("span", { style: { position: "absolute", right: 6, top: 6, padding: "0 5px", borderRadius: 3, background: RED, color: "#fff", fontSize: fz(9) } }, "TA 推荐") : null); })));
           })(),
           h("div", { style: { fontFamily: FD, fontSize: fz(14), marginBottom: 4 } }, "邮路等级"),

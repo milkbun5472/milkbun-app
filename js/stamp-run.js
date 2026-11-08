@@ -26,6 +26,20 @@
     { key: "clerk", theme: "旧城", zh: "老邮局的规矩", say: "柜台后的老先生说，这种信封早就不收了。", roles: ["火漆", "邮戳", "集邮", "火漆"], trait: "倔强" },
     { key: "alley", theme: "旧城", zh: "绕不出去的巷子", say: "每条巷子都长得一样，门牌也对不上。", roles: ["集邮", "投递", "邮戳", "补票"], trait: "夜行" },
     { key: "conductor", theme: "夜车", zh: "查票的列车员", say: "「票呢？」列车员把手电照在你脸上。", roles: ["邮戳", "火漆", "邮戳", "投递"], trait: "冷静" },
+    { key: "bees", theme: "花季", zh: "一窝蜂", say: "花丛里嗡地一声，蜂全冲出来了。", roles: ["投递", "投递", "邮戳", "投递"], trait: "莽撞" },
+    { key: "pollen", theme: "花季", zh: "漫天花粉", say: "花粉糊了一脸，信封上全是黄的。", roles: ["邮戳", "邮戳", "集邮", "火漆"], trait: "余温" },
+    { key: "dune", theme: "沙漠", zh: "流沙", say: "脚下的沙往下陷，越挣扎陷得越深。", roles: ["火漆", "火漆", "邮戳", "投递"], trait: "倔强" },
+    { key: "sandstorm", theme: "沙漠", zh: "沙暴", say: "天一下子黄了，沙子往信封缝里钻。", roles: ["投递", "邮戳", "投递", "邮戳"], trait: "锋利" },
+    { key: "flood", theme: "雨季", zh: "积水的路口", say: "路口的水没过了脚踝，信得举过头顶。", roles: ["火漆", "邮戳", "火漆", "补票"], trait: "冷静" },
+    { key: "thunder", theme: "雨季", zh: "打雷", say: "一道雷劈在不远处，你下意识把信护在怀里。", roles: ["投递", "投递", "邮戳", "投递"], trait: "锋利" },
+    { key: "rockfall", theme: "山路", zh: "落石", say: "山上滚下来几块石头，正好堵住了路。", roles: ["火漆", "火漆", "火漆", "投递"], trait: "倔强" },
+    { key: "fog", theme: "山路", zh: "山雾", say: "雾大得看不见三步外。", roles: ["邮戳", "集邮", "邮戳", "投递"], trait: "夜行" },
+    { key: "crowd", theme: "节日", zh: "挤满人的街", say: "人挤人，信差点被挤掉。", roles: ["投递", "补票", "投递", "火漆"], trait: "黏人" },
+    { key: "firework", theme: "节日", zh: "炸响的烟花", say: "头顶的烟花一炸，吓得你手一抖。", roles: ["投递", "邮戳", "投递", "投递"], trait: "莽撞" },
+    { key: "clock", theme: "梦里", zh: "倒着走的钟", say: "钟在倒着走，你走过的路又回来了。", roles: ["集邮", "邮戳", "集邮", "火漆"], trait: "余温" },
+    { key: "shadow", theme: "梦里", zh: "没有脸的邮差", say: "一个没有脸的邮差伸手要你的信。", roles: ["邮戳", "投递", "火漆", "邮戳"], trait: "夜行" },
+    { key: "traffic", theme: "TA 的城市", zh: "晚高峰", say: "车一辆挨一辆，喇叭响成一片。", roles: ["火漆", "投递", "火漆", "补票"], trait: "倔强" },
+    { key: "wrongbldg", theme: "TA 的城市", zh: "长得一样的楼", say: "整片小区的楼长得一模一样，门牌也看不清。", roles: ["集邮", "邮戳", "投递", "邮戳"], trait: "冷静" },
     { key: "stopover", theme: "夜车", zh: "临时停车", say: "车停在荒郊，广播说要等很久。", roles: ["火漆", "火漆", "补票", "投递"], trait: "倔强" }
   ];
   const EVENTS = [
@@ -55,6 +69,20 @@
     { key: "renamed", theme: "旧城", zh: "改了名的街", say: "地址上的街名早就改了，得找人问路。", opts: [{ zh: "花 15 邮花问路（信封上限 +5）", fx: "address", cost: 15 }, { zh: "自己摸着找（信封 -5）", fx: "hurt5" }] },
     { key: "seatmate", theme: "夜车", zh: "邻座的乘客", say: "邻座的人睡不着，问你这封信要寄给谁。", opts: [{ zh: "跟他聊到天亮（信封 +10）", fx: "heal10" }, { zh: "他送你一样东西（拿一件信物，信封 -8）", fx: "pocket" }] },
     { key: "platform", theme: "夜车", zh: "凌晨的站台", say: "车在一个小站停了五分钟，站台上有个卖邮票的小摊。", opts: [{ zh: "下车买一张（-30 邮花，多一张票）", fx: "buycard", cost: 30 }, { zh: "留在车上（信封 +6）", fx: "heal6" }] },
+    { key: "florist", theme: "花季", zh: "路边的花店", say: "花店老板问你要不要在信里夹一枝花。", opts: [{ zh: "夹一枝（-15 邮花，TA 的一张票升阶）", fx: "upTAcost", cost: 15 }, { zh: "闻一闻就走（信封 +6）", fx: "heal6" }] },
+    { key: "petal", theme: "花季", zh: "夹在信里的花瓣", say: "风把一片花瓣吹进了信封里。", opts: [{ zh: "留着（信封上限 +5）", fx: "maxup5" }, { zh: "吹走它（+15 邮花）", fx: "coins15" }] },
+    { key: "oasis", theme: "沙漠", zh: "绿洲", say: "远处有一片绿，走近了真的有水。", opts: [{ zh: "喝个够（信封 +15）", fx: "heal15" }, { zh: "灌满水壶继续赶路（+20 邮花）", fx: "coins20" }] },
+    { key: "caravan", theme: "沙漠", zh: "驼队", say: "一支驼队停下来，问你要不要搭一段。", opts: [{ zh: "搭（-30 邮花，多一张票）", fx: "buycard", cost: 30 }, { zh: "自己走（随机一张票升阶）", fx: "up" }] },
+    { key: "umbrella", theme: "雨季", zh: "借来的伞", say: "有人把伞塞给你，自己冒雨跑了。", opts: [{ zh: "撑着走（信封 +10）", fx: "heal10" }, { zh: "追上去还给他（拿一件信物，信封 -8）", fx: "pocket" }] },
+    { key: "puddle", theme: "雨季", zh: "水坑里的倒影", say: "水坑里映着的不是你，是同行的人在笑。", opts: [{ zh: "多看一会儿（TA 的一张票升阶）", fx: "upTA" }, { zh: "踩过去（+15 邮花）", fx: "coins15" }] },
+    { key: "sunrise", theme: "山路", zh: "山顶的日出", say: "爬到一半，天边亮起来了。", opts: [{ zh: "停下来看完（信封 +12）", fx: "heal12" }, { zh: "趁亮赶路（随机一张票升阶）", fx: "up" }] },
+    { key: "fork", theme: "山路", zh: "走错的岔道", say: "走了半天才发现是条断头路。", opts: [{ zh: "原路回去（信封 -6，路上顺手修好一张票）", fx: "wet" }, { zh: "硬翻过去（信封 -10，拿一件信物）", fx: "carry" }] },
+    { key: "lantern", theme: "节日", zh: "猜灯谜", say: "街口挂着一排灯谜，猜中了有奖。", opts: [{ zh: "猜（一半拿信物，一半信封 -10）", fx: "bet" }, { zh: "看看热闹（+20 邮花）", fx: "coins20" }] },
+    { key: "feast", theme: "节日", zh: "一桌团圆饭", say: "路边一家人招呼你进来吃口饭。", opts: [{ zh: "吃一口（信封 +15）", fx: "heal15" }, { zh: "带点吃的上路（+15 邮花）", fx: "coins15" }] },
+    { key: "mirror", theme: "梦里", zh: "写着你名字的信", say: "地上有封信，收信人写的是你，字迹是同行的人的。", opts: [{ zh: "拆开（TA 的一张票升阶）", fx: "upTA" }, { zh: "留给醒来的自己（拿一件信物，信封 -8）", fx: "pocket" }] },
+    { key: "falling", theme: "梦里", zh: "一直往下掉", say: "脚下一空，你一直往下掉，掉进一堆邮票里。", opts: [{ zh: "抓一张（多一张票）", fx: "card" }, { zh: "闭眼等落地（信封 +8）", fx: "heal8" }] },
+    { key: "cafe", theme: "TA 的城市", zh: "TA 常去的那家店", say: "同行的人指着一家店说，以前常来这儿。", opts: [{ zh: "进去坐坐（信封 +10）", fx: "heal10" }, { zh: "记下来下次来（TA 的一张票升阶）", fx: "upTA" }] },
+    { key: "subway", theme: "TA 的城市", zh: "末班地铁", say: "末班车还有三分钟，跑过去也许赶得上。", opts: [{ zh: "跑（一半捡回一张票，一半摔一跤信封 -6）", fx: "chase" }, { zh: "慢慢走过去（+20 邮花）", fx: "coins20" }] },
     // 信的事件（她 2026-11-08「更想要他给我写信这种意象……有些事件可以花调用和他不同类别的互动」「不用控制次数」）：
     //   letter 是这一种往来的样子，界面那层去叫 TA 写（花一次调用），写完给游戏奖励，信收进信匣
     { key: "postcard", letter: "postcard", zh: "驿站寄来的明信片", say: "驿站的人递给你一张明信片，邮戳还是新的——是同行的人提前寄到这儿等你的。", reward: "信封 +8" },
@@ -71,14 +99,27 @@
     雪国: { key: "snow", say: "一路往北，雪越下越大。", rule: "冻住", ruleZh: "每回合你这边随机一格结冰，那一格贴不上票", paper: ["#f4f6f8", "#dfe6ec"], ink: "#3d5468", words: /雪|冬|寒|冰|北方|冷/ },
     海边: { key: "sea", say: "邮路沿着海走，风里都是盐。", rule: "潮汐", ruleZh: "每隔一回合涨一次潮，两边左右两列的票换位置", paper: ["#eef3f3", "#d4e1e2"], ink: "#2f5a63", words: /海|岛|港|船|潮|渔|沙滩/ },
     旧城: { key: "old", say: "这条路穿过一座老城，邮局还是几十年前的样子。", rule: "怀旧", ruleZh: "你起手挑的那几张老票攻击 +2", paper: ["#f3e9d2", "#e2d1ad"], ink: "#5a4426", words: /旧|老|古|城|回忆|过去|民国|书/ },
-    夜车: { key: "night", say: "信搭上了一趟夜车，窗外一站一站往后退。", rule: "到站", ruleZh: "路只有五站，中间每站都要打", paper: ["#dfe1ea", "#c3c8d8"], ink: "#2c3350", words: /夜|车|站|旅|月|失眠|远行/ }
+    夜车: { key: "night", say: "信搭上了一趟夜车，窗外一站一站往后退。", rule: "到站", ruleZh: "路只有五站，中间每站都要打", paper: ["#dfe1ea", "#c3c8d8"], ink: "#2c3350", words: /夜|车|站|旅|月|失眠|远行/ },
+    // 她 2026-11-08「这些主题都写」
+    花季: { key: "bloom", say: "路两边的花开得正好。", rule: "花落", ruleZh: "每回合你随机一张票回 2 血", paper: ["#f8eef0", "#ecd6db"], ink: "#7a3b4c", words: /花|春|樱|园|香/ },
+    沙漠: { key: "desert", say: "邮路穿过一片沙漠，水要省着喝。", rule: "缺水", ruleZh: "每过一站信封 -2；驿站多回 10", paper: ["#f5e8cf", "#e6cc9c"], ink: "#7a4f1e", words: /沙|漠|荒|旱|西域|驼/ },
+    雨季: { key: "rain", say: "这一路雨就没停过。", rule: "连阴雨", ruleZh: "从第二回合起，每回合你随机一张票被雨打湿（攻击 -2）；带着雨衣就不怕", paper: ["#e9edee", "#cfd8db"], ink: "#38505a", words: /雨|伞|梅|湿|阴/ },
+    山路: { key: "mountain", say: "路一直往上爬，越往上越难走，风景也越好。", rule: "越爬越高", ruleZh: "越往后的站对面越硬，打赢给的邮花也越多", paper: ["#ecf0e6", "#d3dcc6"], ink: "#3f5a35", words: /山|峰|林|登|寺|云/ },
+    节日: { key: "fest", say: "街上挂满了灯，过节的人都在往家赶。", rule: "过节", ruleZh: "邮局打对折，每打完一场多 10 邮花", paper: ["#f6ece4", "#e8cfc0"], ink: "#9a2f2a", words: /节|年|庆|灯|烟花/, when: true },
+    梦里: { key: "dream", say: "你好像睡着了，路是软的，钟在倒着走。", rule: "做梦", ruleZh: "每场开局，你和对面的牌组随机换两张", paper: ["#ece8f4", "#d5cde6"], ink: "#4f3f73", words: /梦|幻|星|睡|童话/ },
+    "TA 的城市": { key: "city", say: "信走进了 TA 住的那座城，TA 熟悉这里的每一条街。", rule: "熟门熟路", ruleZh: "邮筒格上贴着票，每回合再多 1 点胶水", paper: ["#eeebe6", "#d9d3ca"], ink: "#3d3a36", words: /城市|都市|街|公寓|东京|上海|北京|纽约|首尔|伦敦|巴黎/ }
   };
+  // 节日那条只在节日前后开（她：节日限定）：圣诞到元旦、春节前后、七夕、中秋
+  const FESTS = [["圣诞", 12, 15, 12, 31], ["新年", 1, 1, 1, 7], ["春节", 1, 20, 2, 20], ["情人节", 2, 7, 2, 15], ["七夕", 8, 1, 8, 31], ["中秋", 9, 10, 10, 8], ["万圣节", 10, 24, 11, 2]];
+  function festNow(d) { const t = d || new Date(), md = (t.getMonth() + 1) * 100 + t.getDate(); const f = FESTS.find(x => md >= x[1] * 100 + x[2] && md <= x[3] * 100 + x[4]); return f ? f[0] : ""; }
+  function festNext(d) { const t = d || new Date(), md = (t.getMonth() + 1) * 100 + t.getDate(); const f = FESTS.slice().sort((a, b) => a[1] * 100 + a[2] - b[1] * 100 - b[2]).find(x => x[1] * 100 + x[2] > md) || FESTS.find(x => x[0] === "新年"); return f[0] + "（" + f[1] + " 月 " + f[2] + " 日开）"; }
+  const themeOpen = (k, d) => !!THEMES[k] && (!THEMES[k].when || !!festNow(d));
   // 照 TA 的人设推荐一条：关键词数得最多的那条；一个都没有就按名字随一条
   function themeFor(text, id) {
     const t = String(text || ""); let best = "", n = 0;
     Object.keys(THEMES).forEach(k => { const m = (t.match(new RegExp(THEMES[k].words.source, "g")) || []).length; if (m > n) { n = m; best = k; } });
-    if (best) return best;
-    const ks = Object.keys(THEMES); let hsh = 0; String(id || "").split("").forEach(c => { hsh = (hsh * 31 + c.charCodeAt(0)) >>> 0; }); return ks[hsh % ks.length];
+    if (best && themeOpen(best)) return best;
+    const ks = Object.keys(THEMES).filter(k => themeOpen(k)); let hsh = 0; String(id || "").split("").forEach(c => { hsh = (hsh * 31 + c.charCodeAt(0)) >>> 0; }); return ks[hsh % ks.length];
   }
   const PRICE = { card: 40, relic: 80, remove: 50, heal: 30 };
   const LEVEL_MAX = 8;
@@ -120,9 +161,9 @@
     const offer = D().deckFrom(cards, seed ^ 0x77, 8, o.core || []);
     // 邮路等级（她 2026-11-08）：送到一次解锁下一级；每升一级起手血 -4、路上的麻烦和拦信的人更凶、终点更硬
     // 同行的人（withId）：可以不是收信的那个人；不填就是 TA 本人陪你走
-    const theme = THEMES[o.theme] ? o.theme : "";
+    const theme = themeOpen(o.theme, o.now) ? o.theme : "";
     const level = Math.max(1, Math.min(LEVEL_MAX, Number(o.level) || 1)), hp0 = START_HP - (level - 1) * 4;
-    return { seed, toId: o.toId, withId: o.withId || o.toId, level, step: 0, hp: hp0, max: hp0, deck: [], offer, relics: [], coins: 40, theme, map: makeMap(seed, theme), pos: null, picked: false, log: [], done: null, letter: "", seen: {} };
+    return { seed, toId: o.toId, withId: o.withId || o.toId, level, step: 0, hp: hp0, max: hp0, deck: [], offer, relics: [], coins: 40, theme, fest: theme === "节日" ? festNow(o.now) : "", map: makeMap(seed, theme), pos: null, picked: false, log: [], done: null, letter: "", seen: {} };
   }
   // 起手：从发的 8 张里挑 6 张
   function takeStart(run, idxs) {
@@ -136,6 +177,7 @@
     const r = run.pos ? run.pos.r + 1 : 0;
     if (!reachable(run).includes(k)) return null;
     run.pos = { r, k }; run.step++;
+    if (run.theme === "沙漠" && r > 0) run.hp = Math.max(1, run.hp - 2);
     const nd = run.map[r][k]; run.seen[r + ":" + k] = 1;
     run.log.push({ step: run.step, r, type: nd.type });
     return nd;
@@ -156,7 +198,7 @@
     const th = THEMES[run.theme], troubles = TROUBLES.filter(t => !t.theme || t.theme === run.theme);
     const base = { theme: run.theme || "", themeRuleZh: th ? th.rule + "：" + th.ruleZh : "", meHp: run.hp, meMax: run.max, relics: run.relics.slice(), amulet: run.relics.includes("护身符") && !run.amuletUsed };
     if (nd.type === "fight") {
-      const tr = pick(troubles, R), hp = 22 + nd.r * 6 + (run.level - 1) * 3;
+      const tr = pick(troubles, R), hp = 22 + nd.r * (run.theme === "山路" ? 9 : 6) + (run.level - 1) * 3;
       run.dexT = run.dexT || []; if (!run.dexT.includes(tr.key)) run.dexT.push(tr.key);
       return Object.assign(base, { foeName: tr.zh, say: tr.say, foeDeck: troubleDeck(run, tr), foeHp: hp, seed, foeId: "" });
     }
@@ -176,7 +218,7 @@
     if (st.over && st.over.winner !== "me") { run.done = { win: false, at: run.pos.r, by: nd.type }; return { lost: true }; }
     if (run.relics.includes("回执")) run.hp = Math.min(run.max, run.hp + 4);
     if (nd.type === "boss") { run.done = { win: true, at: run.pos.r }; return { won: true }; }
-    const R = R0(run), coins = (nd.type === "elite" ? 50 : 25) + Math.floor(R() * 10) + (run.relics.includes("存钱罐") ? 15 : 0);
+    const R = R0(run), coins = (nd.type === "elite" ? 50 : 25) + Math.floor(R() * 10) + (run.relics.includes("存钱罐") ? 15 : 0) + (run.theme === "山路" ? nd.r * 6 : 0) + (run.theme === "节日" ? 10 : 0);
     run.coins += coins;
     const offer = cardOffer(run, cards, 3);
     const relic = nd.type === "elite" ? relicOffer(run, 1)[0] : null;
@@ -227,6 +269,8 @@
       case "heal10": run.hp = Math.min(run.max, run.hp + 10); return "信封 +10。";
       case "hurt5coins": run.hp = Math.max(1, run.hp - 5); run.coins += 30; return "信封 -5，+30 邮花。";
       case "buycard": { if (run.coins < op.cost) return "邮花不够。"; run.coins -= op.cost; const c = cardOffer(run, cards, 1)[0]; if (c) run.deck.push(c); return c ? "买到一张「" + c.name + "」。" : ""; }
+      case "maxup5": run.max += 5; run.hp += 5; return "信封上限 +5。";
+      case "upTAcost": { if (run.coins < op.cost) return "邮花不够。"; run.coins -= op.cost; const idx = run.deck.map((s, i) => s.charId === run.toId ? i : -1).filter(i => i >= 0); const i = idx.length ? idx[Math.floor(R() * idx.length)] : Math.floor(R() * run.deck.length); upgrade(run, i); return "「" + (run.deck[i] || {}).name + "」升阶了。"; }
       case "heal6": run.hp = Math.min(run.max, run.hp + 6); return "信封回了 6。";
       case "coins20": run.coins += 20; return "+20 邮花。";
       case "coins15": run.coins += 15; return "+15 邮花。";
@@ -245,7 +289,7 @@
   }
   // 邮局：三张票、两件信物、删一张、回血
   function shopFor(run, cards) { return { cards: cardOffer(run, cards, 3), relics: relicOffer(run, 2), sold: {} }; }
-  const priceOf = (run, k) => Math.round(PRICE[k] * (run.relics.includes("优惠券") ? 0.75 : 1));
+  const priceOf = (run, k) => Math.round(PRICE[k] * (run.relics.includes("优惠券") ? 0.75 : 1) * (run.theme === "节日" ? 0.5 : 1));
   function buy(run, shop, what, i) {
     const cost = priceOf(run, what === "card" ? "card" : what === "relic" ? "relic" : what === "remove" ? "remove" : "heal");
     if (run.coins < cost) return { ok: false, why: "邮花不够" };
@@ -259,14 +303,14 @@
   }
   // 驿站：回三成血，或者升阶一张
   function rest(run, choice, i) {
-    if (choice === "heal") { run.hp = Math.min(run.max, run.hp + Math.round(run.max * 0.3) + (run.relics.includes("旅伴的伞") ? 10 : 0)); return "歇了一会儿，信封回来了些。"; }
+    if (choice === "heal") { run.hp = Math.min(run.max, run.hp + Math.round(run.max * 0.3) + (run.relics.includes("旅伴的伞") ? 10 : 0) + (run.theme === "沙漠" ? 10 : 0)); return "歇了一会儿，信封回来了些。"; }
     upgrade(run, i); return "「" + (run.deck[i] || {}).name + "」升阶了。";
   }
   // 给 TA 写回信、给路上聊天用的：这一趟的样子
   function summary(run, nameOf) {
     const nm = id => (nameOf && nameOf(id)) || "";
     const types = run.log.map(l => NODE[l.type] ? NODE[l.type].zh : l.type);
-    return (run.theme ? "走的是「" + run.theme + "」那条路（" + THEMES[run.theme].say + "）；" : "") + "一路走了 " + run.log.length + " 站（" + types.join("→") + "），信封还剩 " + run.hp + "/" + run.max
+    return (run.theme ? "走的是「" + run.theme + "」那条路（" + THEMES[run.theme].say + (run.fest ? "这几天正赶上" + run.fest : "") + "）；" : "") + "一路走了 " + run.log.length + " 站（" + types.join("→") + "），信封还剩 " + run.hp + "/" + run.max
       + "；带着的票：" + run.deck.map(s => "「" + s.name + "」" + (s.charId && nm(s.charId) ? "（" + nm(s.charId) + "的卡）" : "")).join("、")
       + (run.relics.length ? "；路上捡到的信物：" + run.relics.join("、") : "");
   }
@@ -285,7 +329,7 @@
     }
     return "";
   }
-  const API = { THEMES, themeFor, LEVEL_MAX, BOSS_RULES, letterReward, ROWS, NODE, TROUBLES, EVENTS, PRICE, newRun, takeStart, reachable, enter, battleFor, afterBattle, addRelic, upgrade, eventFor, doEvent, shopFor, priceOf, buy, rest, summary, cardOffer };
+  const API = { THEMES, themeFor, themeOpen, festNow, festNext, LEVEL_MAX, BOSS_RULES, letterReward, ROWS, NODE, TROUBLES, EVENTS, PRICE, newRun, takeStart, reachable, enter, battleFor, afterBattle, addRelic, upgrade, eventFor, doEvent, shopFor, priceOf, buy, rest, summary, cardOffer };
   g.StampRun = API;
   if (typeof module !== "undefined" && module.exports) module.exports = API;
 })(typeof window !== "undefined" ? window : globalThis);

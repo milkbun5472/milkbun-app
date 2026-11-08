@@ -48,6 +48,7 @@
     ["别的小东西", "挪票：点自己一张票，再点旁边的空格，花 1 胶水挪过去，用来凑组合或补前排。", "撕票：点一张票点「撕下」，每回合能撕一张，撕的那一下会触发一次效果。信封贴满了也靠它腾地方。", "格子：邮筒格贴着票每回合多 1 胶水；雨棚格上的票不会被盖戳；破损格贴不上。", "邮局公告：每三回合一条全场规则（涨价、大雨、集邮节……），上一回合就会预告。"],
     ["明牌还是盲打", "明牌：TA 下一步要贴什么、贴哪、打你多少，开回合就亮给你看，手里的牌也摊开。适合慢慢算。", "盲打：TA 照样提前想好了，只是不给你看。更刺激。"],
     ["几个上手小招", "开头先贴集邮攒家底，或者先上便宜的火漆把前排顶住。", "看 TA 的下一步：TA 要往哪列贴投递，你就在那一列前面放火漆。", "SSR 别急着上，等胶水够了再贴，顺手凑连张。", "快输了别慌：补票的群补、火漆的加固都能拖回合。"],
+    ["远信：一路打过去", "从挑玩法页进「远信」：给一个人寄一封信，信要走一段邮路，最后一站是 TA 本人。", "信封血带着走：一场打完不回满，到驿站、岔路、邮局才回得来。", "路线：雪国、海边、旧城、夜车、花季、沙漠、雨季、山路、梦里、TA 的城市，节日那条只在节日前后开。每条一条棋盘规则，对局顶上写着。默认是 TA 照人设推荐的那条。"],
     ["打完以后", "选「再来一把」接着打，或者「结束」。结束时问要不要让 TA 记得，记的话这几把合成一句进 TA 的记忆。", "打到一半想走，直接返回就行，会存着。下次进来点「接着打」。", "手牌上面那条能跟 TA 聊天，你说一句 TA 回几句，发一句花一次调用。"]
   ];
   const fz = n => "calc(" + n + "px * var(--app-fs, 1))";
@@ -244,12 +245,32 @@
     const shell = (kids) => h("div", { "data-wk": "duelpage", className: "h-full flex flex-col", style: { position: "relative", background: "repeating-linear-gradient(0deg, transparent 0 27px, rgba(47,42,34,.05) 27px 28px), linear-gradient(#f3ebdb, #e8dcc4)" } }, [h("style", { key: "fxcss" }, FX_CSS)].concat(kids));
 
     // 人话版攻略（她 2026-11-08「对战页面里也写一个人话版攻略」）：整页，右上「怎么玩」进来
-    if (guide) return shell([
-      h(Head, { key: "hd", zh: "怎么玩", bg: "transparent", ink: INK, onBack: () => setGuide(false) }),
-      h("div", { key: "bd", "data-wk": "duelguide", className: "flex-1 min-h-0 overflow-y-auto px-5", style: { fontFamily: F, color: INK, fontSize: fz(13), lineHeight: 1.85, paddingBottom: 28 } },
-        GUIDE.map((sec, k) => h("div", { key: k, style: { marginBottom: 16 } },
-          h("div", { style: { fontFamily: FD, fontSize: fz(15), marginBottom: 4, color: k === 0 ? RED : INK } }, sec[0]),
-          sec.slice(1).map((line, j) => h("div", { key: j, style: { paddingLeft: 12, position: "relative" } }, h("span", { style: { position: "absolute", left: 0, color: SUB } }, "·"), line)))))]);
+    if (guide) {
+      const chip = (txt, c) => h("span", { style: { display: "inline-block", padding: "0 6px", marginRight: 6, borderRadius: 3, background: c, color: "#fff", fontSize: fz(11.5), lineHeight: "20px", fontFamily: FD, verticalAlign: 1 } }, txt);
+      // 一行「投递：……」把冒号前那个词做成一枚小签，五种票照票上的颜色
+      const lineOf = (line, j) => { const m = /^([^：，。]{1,8})：(.+)$/.exec(line);
+        return h("div", { key: j, style: { padding: "7px 0", borderTop: j ? "1px dashed rgba(47,42,34,.14)" : "none" } },
+          m ? [chip(m[1], ROLE_COLOR[m[1]] || "rgba(47,42,34,.55)"), m[2]] : line); };
+      const goSec = k => { const el = typeof document !== "undefined" && document.querySelector('[data-wk="duelguidesec"][data-k="' + k + '"]'); el && el.scrollIntoView({ behavior: "smooth", block: "start" }); };
+      return shell([
+        h(Head, { key: "hd", zh: "怎么玩", bg: "transparent", ink: INK, onBack: () => setGuide(false) }),
+        h("div", { key: "bd", "data-wk": "duelguide", className: "flex-1 min-h-0 overflow-y-auto px-4", style: { fontFamily: F, color: INK, fontSize: fz(13), lineHeight: 1.8, paddingBottom: 28 } },
+          // 开头：一句话写在一个信封上
+          h("div", { style: { borderRadius: 6, overflow: "hidden", background: PAPER, boxShadow: "0 4px 14px rgba(47,42,34,.16)", margin: "4px 0 12px" } },
+            h("div", { style: { height: 7, background: AIRMAIL } }),
+            h("div", { style: { position: "relative", padding: "14px 16px 16px" } },
+              h("div", { style: { position: "absolute", right: 12, top: 10, width: 46, height: 54, background: perf(RED), display: "flex", alignItems: "center", justifyContent: "center", transform: "rotate(6deg)" } }, h("span", { style: { width: 38, height: 46, background: RED, color: "#fff", fontFamily: FD, fontSize: fz(12), display: "flex", alignItems: "center", justifyContent: "center" } }, "攻略")),
+              h("div", { style: { fontFamily: FD, fontSize: fz(17), color: RED, marginBottom: 6 } }, GUIDE[0][0]),
+              h("div", { style: { marginRight: 56, fontSize: fz(13.5) } }, GUIDE[0].slice(1).join("")))),
+          // 目录：一排小签，点了跳过去
+          h("div", { "data-wk": "duelguideindex", className: "flex flex-wrap", style: { gap: 6, marginBottom: 14 } },
+            GUIDE.slice(1).map((sec, k) => h("button", { key: k, onClick: () => goSec(k + 1), style: { padding: "2px 9px", borderRadius: 999, border: "1px solid rgba(47,42,34,.22)", background: "rgba(255,255,255,.5)", fontSize: fz(11.5), color: INK } }, (k + 1) + " · " + sec[0].replace(/[：:].*$/, "")))),
+          GUIDE.slice(1).map((sec, k) => h("div", { key: k, "data-wk": "duelguidesec", "data-k": k + 1, style: { position: "relative", marginBottom: 12, padding: "12px 14px 8px 14px", borderRadius: 5, background: "rgba(255,253,247,.92)", boxShadow: "0 2px 8px rgba(47,42,34,.10)", borderLeft: "3px solid " + (k % 2 ? "#3f6fb0" : RED), scrollMarginTop: 8 } },
+            h("div", { className: "flex items-center", style: { gap: 8, marginBottom: 4 } },
+              h("span", { style: { width: 26, height: 26, flexShrink: 0, borderRadius: 999, border: "1.5px solid " + (k % 2 ? "#3f6fb0" : RED), color: k % 2 ? "#3f6fb0" : RED, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: FD, fontSize: fz(12), transform: "rotate(-8deg)" } }, k + 1),
+              h("div", { style: { fontFamily: FD, fontSize: fz(15.5) } }, sec[0])),
+            sec.slice(1).map(lineOf))))]);
+    }
     // ── 先挑玩法 ──
     const modeCard = (wk, color, title, sub, desc, onTap) => h("button", { "data-wk": wk, onClick: onTap, className: "w-full text-left active:scale-[.99]",
       style: { display: "block", marginBottom: 14, padding: 0, borderRadius: 6, overflow: "hidden", background: PAPER, boxShadow: "0 3px 10px rgba(47,42,34,.18)", border: "1px solid " + color + "55", color: INK } },

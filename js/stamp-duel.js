@@ -205,6 +205,14 @@
       const free = sd.board.map((u, i) => !u && !sd.terrain[i] ? i : -1).filter(i => i >= 0);
       if (free.length) { const i = free[Math.floor(rng(st.seed + st.turn * 977)() * free.length)]; sd.terrain[i] = "冰封"; say(st, "me", "一格结冰了，这回合贴不上", { kind: "ink", slot: i }); }
     }
+    const mine = st.me.board.map((u, i) => u ? i : -1).filter(i => i >= 0), roll = rng(st.seed + st.turn * 131)();
+    if (st.theme === "花季" && mine.length) { const i = mine[Math.floor(roll * mine.length)], u = st.me.board[i]; u.hp = Math.min(u.maxHp, u.hp + 2); say(st, "me", "花落在「" + u.name + "」上，回了 2 血", { kind: "heal", slot: i }); }
+    if (st.theme === "雨季" && mine.length && st.turn > 1) { const i = mine[Math.floor(roll * mine.length)], u = st.me.board[i]; if (!(st.relics || []).includes("雨衣")) { u.marks.雨渍 = 1; say(st, "me", "雨打湿了「" + u.name + "」，这回合攻击 -2", { kind: "ink", slot: i }); } }
+    if (st.theme === "TA 的城市" && st.me.board.some((u, i) => u && st.me.terrain[i] === "邮筒")) st.me.postage += 1;
+    if (st.theme === "梦里" && st.turn === 1) {
+      const R2 = rng(st.seed ^ 0x5151); for (let k = 0; k < 2; k++) { const a = st.me.draw, b = st.foe.draw; if (!a.length || !b.length) break; const i = Math.floor(R2() * a.length), j = Math.floor(R2() * b.length), t = a[i]; a[i] = b[j]; b[j] = t; }
+      say(st, "me", "梦里两边的牌组换了两张");
+    }
     if (st.theme === "海边" && st.turn > 1 && st.turn % 2 === 1) {
       ["me", "foe"].forEach(w => { const b = st[w].board; for (let r = 0; r < SIZE; r++) { const a = r * SIZE, c = a + SIZE - 1, t = b[a]; b[a] = b[c]; b[c] = t; } });
       say(st, "me", "涨潮了：两边的左右两列换了位置");

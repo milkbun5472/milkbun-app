@@ -90,7 +90,7 @@ test("出发前写信：回信回这一封；没送到退件、下次能重寄�
   assert.match(ui, /h\("svg", \{ width: "100%", height: H/);
 });
 test("远信主题路线：四条都在、照人设推荐、夜车五站全是仗、麻烦和岔路跟着路走、规则进对局", () => {
-  assert.deepEqual(Object.keys(RN.THEMES), ["雪国", "海边", "旧城", "夜车"]);
+  ["雪国", "海边", "旧城", "夜车", "花季", "沙漠", "雨季", "山路", "节日", "梦里", "TA 的城市"].forEach(k => assert.ok(RN.THEMES[k], k));
   assert.equal(RN.themeFor("住在海边的小岛上", "x"), "海边");
   assert.ok(RN.THEMES[RN.themeFor("", "whoever")]);
   const night = RN.newRun({ cards, toId: "a", seed: 3, theme: "夜车" });
@@ -106,4 +106,15 @@ test("远信主题路线：四条都在、照人设推荐、夜车五站全是�
   const st = D.newDuel(snow.deck, b.foeDeck, 9, b);
   const ice = st.me.terrain.indexOf("冰封"); assert.ok(ice >= 0);
   assert.equal(D.place(st, "me", 0, ice).ok, false);
+});
+test("远信新路线：节日只在节日前后开、沙漠走一站扣血、山路越后越给钱、梦里换牌、雨季打湿、花季回血", () => {
+  assert.equal(RN.festNow(new Date(2026, 11, 20)), "圣诞"); assert.equal(RN.festNow(new Date(2026, 10, 8)), "");
+  assert.equal(RN.themeOpen("节日", new Date(2026, 10, 8)), false); assert.equal(RN.themeOpen("节日", new Date(2026, 11, 20)), true);
+  assert.equal(RN.newRun({ cards, toId: "a", theme: "节日", now: new Date(2026, 10, 8) }).theme, "");
+  assert.equal(RN.newRun({ cards, toId: "a", theme: "节日", now: new Date(2026, 11, 20) }).fest, "圣诞");
+  const ds = RN.newRun({ cards, toId: "a", seed: 4, theme: "沙漠" }); RN.takeStart(ds, [0, 1, 2, 3, 4, 5]); RN.enter(ds, 0); const h0 = ds.hp; RN.enter(ds, RN.reachable(ds)[0]); assert.equal(ds.hp, h0 - 2);
+  const deck = Array.from({ length: 12 }, (_, i) => Object.assign(D.stampOf({ id: "q" + i, rarity: "R", lv: 5, text: { name: "x" } }), { role: "火漆" }));
+  const foe = deck.map((x, i) => Object.assign({}, x, { id: "f" + i, name: "对面" + i }));
+  const dream = D.newDuel(deck, foe, 3, { theme: "梦里" }); assert.ok(dream.log.some(l => /梦里/.test(l.text)));
+  const rain = D.newDuel(deck, foe, 3, { theme: "雨季" }); D.place(rain, "me", 0, rain.me.terrain.findIndex(t => !t)); D.endTurn(rain); assert.ok(rain.log.some(l => /打湿/.test(l.text)));
 });
