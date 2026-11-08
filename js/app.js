@@ -20,7 +20,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v89.300";
+const APP_VERSION = "v89.301";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -11489,6 +11489,10 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       const _c = characters.find(c => c.id === charId);
       if (_c && sleepPhaseOf(_c) === "asleep") return false;
     }
+    if ((blocksRef.current[charId] || {}).deleted) {
+      if (opts && opts.proactive) return typeof bgJob === "function" ? bgJob("proactive", characters.find(c => c.id === charId), () => sendFriendReq(charId)) : sendFriendReq(charId);
+      toast("你已经删了 TA，先加回好友才能聊"); return false;
+    }
     if (opts && opts.proactive && !opts._bg && typeof bgJob === "function") return bgJob("proactive", characters.find(c => c.id === charId), () => replyNow(charId, extraText, mode, { ...opts, _bg: true }));
     const ok = await _replyTurn(charId, extraText, mode, opts);
     if (ok !== false) return ok;
@@ -18439,8 +18443,12 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     const cur = p[charId] || {};
     const merged = { ...cur, ...patch };
     const n = { ...p };
-    if (merged.iBlocked || merged.theyBlocked) n[charId] = merged;
-    else if (cur.iBlocked || cur.theyBlocked) {
+    if (merged.iBlocked || merged.theyBlocked || merged.deleted) n[charId] = merged;
+    else if (cur.deleted) {
+      // 删好友那一段刚结束（她通过了他的申请）：墓碑里留着他加了几次、有没有用小号、最后通过的是哪一条
+      const reqs = (cur.reqs || []).slice(-8);
+      n[charId] = { endedTs: Date.now(), sinceTs: Number(cur.deletedTs) || 0, by: "del", reqs };
+    } else if (cur.iBlocked || cur.theyBlocked) {
       // 刚刚解除的这一次：落墓碑
       n[charId] = { endedTs: Date.now(), sinceTs: Number(cur.blockedTs) || 0,
         by: cur.theyBlocked ? "char" : "me", reason: String(cur.reason || "").slice(0, 60) };
@@ -18464,6 +18472,17 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     const b = blocksRef.current[charId] || {};
     const now = Date.now();
     const gap = ts => { const h = Math.floor((now - Number(ts || 0)) / 3600000); return h < 1 ? "还不到一小时" : h < 48 ? "约 " + h + " 小时" : "约 " + Math.round(h / 24) + " 天"; };
+    // 删好友（她 2026-11-08 转群里许愿：删了以后他会一直来加，被拒了可能换小号）
+    const reqLine = rs => { const a = rs || []; if (!a.length) return ""; const no = a.filter(r => r.status === "no").length, alt = a.filter(r => r.alt).map(r => "「" + r.alt + "」");
+      return "你发过 " + a.length + " 次好友申请" + (no ? "，被她拒了 " + no + " 次" : "") + (alt.length ? "，其中用小号 " + [...new Set(alt)].join("、") + " 加过" : "") + "。"; };
+    if (b.deleted) return "【她把你删了好友】" + (b.deletedTs ? "到现在" + gap(b.deletedTs) + "。" : "")
+      + "你们现在不是好友，你发不了消息给她，只能发好友申请等她通过。" + reqLine(b.reqs);
+    if (b.by === "del" && b.endedTs && now - Number(b.endedTs) < BLOCK_TOMB_KEEP_MS) {
+      const last = (b.reqs || []).filter(r => r.status === "yes").slice(-1)[0];
+      return "【你们前不久刚加回好友】" + gap(b.endedTs) + "前" + (last ? "她通过了你的好友申请" + (last.alt ? "——通过的是你的小号「" + last.alt + "」，她点通过的时候未必知道是你" : "") : "她把你加了回来")
+        + (b.sinceTs ? "；在那之前你被她删了" + gap(b.sinceTs) : "") + "。" + reqLine(b.reqs)
+        + "这件事真的发生过，接着聊的时候记得；要不要提、怎么提，看你这个人。";
+    }
     if (b.iBlocked) return "【她把你拉黑了】" + (b.blockedTs ? "到现在" + gap(b.blockedTs) + "。" : "")
       + "你在这间私聊里发出去的消息 Ta 暂时收不到，而你知道自己被拉黑了。";
     if (b.theyBlocked) return "【你把 Ta 拉黑了】" + (b.blockedTs ? "到现在" + gap(b.blockedTs) + "。" : "")
@@ -18610,6 +18629,63 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     if (!room || room.id === "main") throw new Error("这间房间已不存在");
     const gated = roomContextFor(char, chatKey, room, { chat: true });
     return buildBundle(gated) + roomPromptFor(char.id, room);
+  };
+  // ── 删好友（她 2026-11-08）：删了以后他发不了消息；想她想满了（主动私聊那一路）改成发一条好友申请，
+  //   被拒了要不要换小号来加、换成什么样，照他这个人定。申请在 消息 → 通讯录 →「新的朋友」里
+  const toggleDeleteFriend = charId => {
+    const cur = blocksRef.current[charId] || {};
+    if (cur.deleted) { setBlockFor(charId, { deleted: false }); pChat(charId, p => [...p, { role: "system", kind: "system", content: "你把 TA 加回了好友", sub: "block", ts: Date.now() }]); toast("加回好友了"); return; }
+    setBlockFor(charId, { deleted: true, deletedTs: Date.now(), reqs: [] });
+    pChat(charId, p => [...p, { role: "system", kind: "system", content: "你删除了好友 TA", sub: "block", ts: Date.now() }]);
+    try { addMemEntry({ text: userName(profile) + "把我删了好友", tags: ["删好友"], charIds: [charId], knownBy: [charId], source: "auto" }); } catch (e) {}
+    toast("删掉了。TA 发不了消息，想你了会来加你");
+  };
+  const FRIEND_REQ_GAP = 4 * 3600e3;   // 两次申请至少隔这么久；有一条还没处理的就先等着
+  const sendFriendReq = async charId => {
+    const b = blocksRef.current[charId] || {};
+    const c = characters.find(x => x.id === charId);
+    if (!b.deleted || !c) return false;
+    if (!autoRefreshOn("proactive", charId)) return false;   // 主动私聊给他关着，就不来加
+    const reqs = b.reqs || [];
+    if (reqs.some(r => r.status === "pending")) return false;
+    const last = reqs[reqs.length - 1];
+    if (last && Date.now() - Number(last.ts || 0) < FRIEND_REQ_GAP) return false;
+    const uName = userName(profile);
+    const hist = reqs.map((r, i) => (i + 1) + ". " + (r.alt ? "用小号「" + r.alt + "」" : "用自己的号") + "，验证语「" + r.note + "」，她" + (r.status === "no" ? "拒了" : "还没处理")).join("\n");
+    try {
+      const d = await runProbe(apiFor(charId), ctxFor(c), { voice: true, tag: "friendreq",
+        instruction: "【此刻】" + uName + " 把你删了好友，你们现在不是好友，你发不了消息给她。你想她了，能做的是发一条好友申请：写一句验证语（她在「新的朋友」里看到的就是这一句），她点通过才能接着聊。"
+          + (hist ? "\n你之前发过的申请：\n" + hist : "")
+          + "\n用自己的号发，还是换一个小号（新网名，她一开始不一定认得出是你）来加，照你这个人和这几次的情形来定；这一次也可以不发。"
+          + "用小号的话 alt 写那个小号的网名，验证语也照小号的口吻写；用自己的号 alt 留空。",
+        schemaHint: "{\"send\":true,\"alt\":\"\",\"note\":\"验证语\"}", maxTokens: 8000 });
+      if (!d || d.send === false) return false;
+      const note = String(d.note || "").trim().slice(0, 60);
+      if (!note) return false;
+      const alt = String(d.alt || "").trim().slice(0, 16);
+      const req = { id: "fr_" + Date.now(), ts: Date.now(), note, alt: alt || "", status: "pending" };
+      setBlockFor(charId, { reqs: [...(blocksRef.current[charId] || {}).reqs || [], req].slice(-12) });
+      toast("新的朋友：" + (alt || c.remark || c.name) + " 请求添加你为好友", 6000);
+      return true;
+    } catch (e) { return false; }
+  };
+  const answerFriendReq = (charId, reqId, yes) => {
+    const b = blocksRef.current[charId] || {};
+    const req = (b.reqs || []).find(r => r.id === reqId);
+    if (!b.deleted || !req || req.status !== "pending") return;
+    const reqs = (b.reqs || []).map(r => r.id === reqId ? { ...r, status: yes ? "yes" : "no", at: Date.now() } : r);
+    const who = req.alt ? "小号「" + req.alt + "」" : "自己的号";
+    if (yes) {
+      setBlockFor(charId, { reqs });
+      setBlockFor(charId, { deleted: false });
+      pChat(charId, p => [...p, { role: "system", kind: "system", content: "你通过了" + (req.alt ? "「" + req.alt + "」（是 TA）" : " TA ") + "的好友申请", sub: "block", ts: Date.now() }]);
+      try { addMemEntry({ text: "被" + userName(profile) + "删了以后，用" + who + "发好友申请，她通过了", tags: ["删好友"], charIds: [charId], knownBy: [charId], source: "auto" }); } catch (e) {}
+      toast("加上了");
+    } else {
+      setBlockFor(charId, { reqs });
+      try { addMemEntry({ text: "被" + userName(profile) + "删了以后，用" + who + "发好友申请，被她拒了", tags: ["删好友"], charIds: [charId], knownBy: [charId], source: "auto" }); } catch (e) {}
+      toast("拒绝了");
+    }
   };
   const toggleBlock = (charId, chatKey = charId) => {
     const cur = blocksRef.current[chatKey] || {};
@@ -34106,6 +34182,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     onStopGen: stopBtnFor(_curLane),
     onBack: () => setScreen("messages"),
     onSend: txt => {
+      if ((blocksRef.current[activeChar.id] || {}).deleted) { toast("你已经删了 TA，先加回好友才能发消息"); return; }
       gachaEarn(activeChar.id, "chat");
       pushUser(activeChar.id, txt, window.ChatRooms ? window.ChatRooms.chatKey(activeChar.id, activeRoomId) : activeChar.id);
       // 书房直通（她 2026-09-25 拍板）：言秋房的话默认投去 CC 老窗口，回复走账本流回来。
@@ -34170,6 +34247,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     block: blocks[blockChatKey(activeChar.id)] || null,
     onSendUnblockReq: (plea, retryCid) => sendMyUnblockReq(activeChar.id, plea, blockChatKey(activeChar.id), retryCid),
     onUnblock: () => toggleBlock(activeChar.id, blockChatKey(activeChar.id)),
+    onReAdd: () => toggleDeleteFriend(activeChar.id),
     onRespondUnblock: (cid, accept) => respondUnblockFromChar(activeChar.id, cid, accept, blockChatKey(activeChar.id)),
     profile: profile,
     // 气泡旁边「我」的头像/名字：这个角色认的是哪张面具，就显示哪张（群里读者 2026-10-01：
@@ -34669,6 +34747,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     // 配角只有一张脸（她 2026-10-05 转群里：「和生成的 NPC 聊天，里面头像可以换，外面的不行」）：
     //   配角没有档案页，聊天里换的是 chatAvatar、通讯录这儿换的是 avatarImage，两张各管各的，
     //   而聊天里永远是 chatAvatar 赢——外面换了里面看不见。这儿换就两张一起换。
+    friendReqs: Object.keys(blocks || {}).flatMap(id => { const b = blocks[id] || {}; const c = characters.find(x => x.id === id); return b.deleted && c ? (b.reqs || []).map(r => ({ ...r, charId: id, char: c })) : []; }).sort((a, b) => b.ts - a.ts),
+    onFriendReq: (charId, reqId, yes) => answerFriendReq(charId, reqId, yes),
     onSaveNpcAvatar: (id, img) => { pC(p => p.map(c => c.id === id && c.npc ? { ...c, avatarImage: img || null, chatAvatar: null } : c)); toast(img ? "换好了" : "已清掉头像"); },
     groups: groups,
     chats: chats,
@@ -37871,6 +37951,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     onExportChat: withOff => exportChatText(activeChar, window.ChatRooms ? window.ChatRooms.chatKey(activeChar.id, activeRoomId) : activeChar.id, withOff),
     iBlocked: !!(blocks[blockChatKey(activeChar.id)] && blocks[blockChatKey(activeChar.id)].iBlocked),
     onToggleBlock: () => toggleBlock(activeChar.id, blockChatKey(activeChar.id)),
+    friendDeleted: !!(blocks[activeChar.id] && blocks[activeChar.id].deleted),
+    onToggleDelete: () => toggleDeleteFriend(activeChar.id),
     memLibCount: memLib.filter(e => !e.charIds || e.charIds.length === 0 || e.charIds.includes(activeChar.id)).length,
     onOpenMemLib: () => {
       setChatSettingsOpen(false);

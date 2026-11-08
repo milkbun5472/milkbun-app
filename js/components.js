@@ -9208,6 +9208,8 @@ function Messages({
   onCreateNpc,    // 配角页新建（她 2026-10-10）
   meName,
   onSaveNpcAvatar,
+  friendReqs,
+  onFriendReq,
   onSaveNpcBrief,
   onChatNpc,
   onDeleteNpc,
@@ -9268,6 +9270,7 @@ function Messages({
   const [composeOpen, setComposeOpen] = useState(false);
   const [groupMgr, setGroupMgr] = useState(false);
   const [groupList, setGroupList] = useState(false);   // 通讯录里的「群聊」入口
+  const [reqOpen, setReqOpen] = useState(false);       // 通讯录「新的朋友」：删了好友的人发来的申请
   const [npcBook, setNpcBook] = useState(false);       // 通讯录里的「配角」入口（她 2026-10-03）
   const [q, setQ] = useState("");                       // 聊天列表顶部搜索（她 2026-08-26）
   const TITLES = {
@@ -9507,6 +9510,9 @@ function Messages({
     // 「材质要从这个东西本身长出来」那条判据没错，错在我把它读成了「一定要像实物」。
     // 底色交给外壳那一层（mlpage）：这里再刷一遍平色，主题工作台改外壳的底就只改得到聊天那一栏
     return h("div", { className: "py-1", style: { position: "relative" } },
+      (friendReqs || []).length ? entry("新的朋友", (friendReqs || []).filter(r => r.status === "pending").length ? (friendReqs || []).filter(r => r.status === "pending").length + " 条待处理" : "", "#e08a3d",
+        [h("circle", { key: "a", cx: 10, cy: 8, r: 3.5 }), h("path", { key: "b", d: "M3 21v-1a5 5 0 015-5h4a5 5 0 015 5v1" }), h("path", { key: "c", d: "M19 8v6M16 11h6" })],
+        () => setReqOpen(true)) : null,
       entry("群聊", (groups || []).length ? (groups || []).length + " 个" : "", "#4cae4c",
         [h("circle", { key: "a", cx: 9, cy: 7, r: 3 }), h("path", { key: "b", d: "M15 21v-1a4 4 0 00-4-4H6a4 4 0 00-4 4v1" }), h("path", { key: "c", d: "M16 3.5a3 3 0 010 6" }), h("path", { key: "d", d: "M22 21v-1a4 4 0 00-3-3.8" })],
         () => setGroupList(true)),
@@ -9726,6 +9732,7 @@ function Messages({
               h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))", color: t.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, g.name),
               h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginTop: 1 } }, (g.memberIds || []).length + " 人")),
             h(IChevR, { size: 15, color: t.line })))))
+  , reqOpen && h(FriendReqPage, { t, reqs: friendReqs || [], onAnswer: onFriendReq, onClose: () => setReqOpen(false) })
   , npcBook && h(NpcBook, { npcs: npcAll, owners: allChars || characters, meName: meName, onCreate: onCreateNpc, onSaveAvatar: onSaveNpcAvatar, onSaveBrief: onSaveNpcBrief, onChat: onChatNpc, onPromote: onPromoteNpc, onDelete: onDeleteNpc, onSetMem: onSetNpcMem, onSetMoments: onSetNpcMoments, onSetGender: onSetNpcGender, onSetOwner: onSetNpcOwner, onClose: () => setNpcBook(false) })
   , rowMenu && h(Sheet, { onClose: () => setRowMenu(null) },
     h("div", { "data-wk": "mlrowmenu", className: "px-5 pb-6 pt-1" },
@@ -11389,6 +11396,7 @@ function ChatThread({
   block,
   onSendUnblockReq,
   onUnblock,
+  onReAdd,
   onRespondUnblock,
   profile,
   disp,
@@ -12024,6 +12032,16 @@ function ChatThread({
   // 拉黑提示条（她 2026-10-03：「拉黑的提示搞点挂点，顺便看看样式」）：
   //   原来是一整行居中的红字，读起来像报错。拆成「谁拉黑了谁」＋「现在能做什么」两层，
   //   她拉黑 TA 时右边直接给一颗「解除」（原来得钻进设置里找开关）。
+  // 删好友那一条（她 2026-11-08）：跟拉黑同一个样子，右边一颗「加回好友」
+  bk.deleted && !bk.iBlocked && !bk.theyBlocked && h("div", {
+    "data-wk": "blockbar", "data-who": "deleted",
+    style: { flexShrink: 0, display: "flex", alignItems: "center", gap: 10, background: "rgba(194,90,74,0.08)", borderBottom: "1px solid rgba(194,90,74,0.22)", padding: "8px 14px 8px 16px" }
+  },
+    h("div", { style: { flex: 1, minWidth: 0, lineHeight: 1.45 } },
+      h("div", { "data-wk": "blockbartitle", style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.accent, fontWeight: 600 } }, "你已删除 TA"),
+      h("div", { "data-wk": "blockbarhint", style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.sub } }, "你们发不了消息；TA 想你了会发好友申请，在 通讯录 →「新的朋友」里")),
+    onReAdd ? h("button", { "data-wk": "blockbarbtn", onClick: onReAdd, className: "active:opacity-60",
+      style: { flexShrink: 0, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.accent, border: "1px solid " + t.accent, borderRadius: 999, padding: "4px 12px", background: "transparent" } }, "加回好友") : null),
   (bk.iBlocked || bk.theyBlocked) && h("div", {
     "data-wk": "blockbar", "data-who": bk.theyBlocked ? "them" : "me",
     style: { flexShrink: 0, display: "flex", alignItems: "center", gap: 10, background: "rgba(194,90,74,0.08)", borderBottom: "1px solid rgba(194,90,74,0.22)", padding: "8px 14px 8px 16px" }
@@ -18119,6 +18137,24 @@ function FontPickRows({ t, font, setFont }) {
       })));
   return h("div", null, row("body", "正文"), row("display", "标题"));
 }
+// 「新的朋友」整页（她 2026-11-08）：删了好友的人发来的申请。小号来的那条只显示小号的名字和验证语，头像是空的——
+//   跟真微信一样，她点开之前不一定认得出是谁
+function FriendReqPage({ t, reqs, onAnswer, onClose }) {
+  return h("div", { "data-wk": "friendreqpage", className: "flex flex-col", style: { position: "fixed", inset: 0, zIndex: 60, background: t.bg } },
+    h(Head, { zh: "新的朋友", onBack: onClose }),
+    h("div", { className: "flex-1 min-h-0 overflow-y-auto", style: { padding: "4px 0 30px" } },
+      reqs.length ? reqs.map(r => h("div", { key: r.id, "data-wk": "friendreqrow", "data-status": r.status, className: "flex items-center gap-3", style: { padding: "12px 18px", borderBottom: "1px solid " + t.line } },
+        r.alt ? h(Avatar, { character: { name: r.alt }, size: 44, radius: 9 }) : h(Avatar, { character: r.char, size: 44, radius: 9 }),
+        h("div", { className: "flex-1 min-w-0" },
+          h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))", color: t.ink } }, r.alt || (r.char && (r.char.remark || r.char.name)) || "TA"),
+          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.sub, marginTop: 2, lineHeight: 1.5, wordBreak: "break-word" } }, r.note)),
+        r.status === "pending"
+          ? h("div", { className: "flex shrink-0", style: { gap: 6 } },
+              h("button", { "data-wk": "friendreqno", onClick: () => onAnswer(r.charId, r.id, false), className: "active:opacity-60", style: { minHeight: 34, padding: "0 12px", borderRadius: 8, border: "1px solid " + t.line, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.fog, background: "transparent" } }, "拒绝"),
+              h("button", { "data-wk": "friendreqyes", onClick: () => onAnswer(r.charId, r.id, true), className: "active:opacity-80", style: { minHeight: 34, padding: "0 12px", borderRadius: 8, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.bg2, background: t.ink } }, "通过"))
+          : h("div", { style: { flexShrink: 0, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog } }, r.status === "no" ? "已拒绝" : "已通过")))
+        : h("div", { style: { padding: 40, textAlign: "center", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.fog } }, "还没有人来加你")));
+}
 function StateCard({
   character, affinity, isNpc, mood, state, history, hideWearAction,
   onClose, gazeOn, uName, onGazeSeed, gazeSeedBusy, onGazeReview, gazeReviewBusy, roomName, onDelThought, onSetWearing, wearSets, tpl
@@ -23194,6 +23230,8 @@ function ChatSettings({
   onClearChat,
   iBlocked,
   onToggleBlock,
+  friendDeleted,
+  onToggleDelete,
   memLibCount,
   onOpenMemLib,
   onExtractMem,
@@ -24378,6 +24416,14 @@ function ChatSettings({
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))", color: t.sub } }, iBlocked ? "已拉黑 " + cNm : "拉黑 " + cNm),
         h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, marginTop: 2, lineHeight: 1.5 } }, iBlocked ? "点击解除拉黑。" : "拉黑后，按「回复」TA 会以被拉黑的方式反应（碎碎念/生气/申请解除），气泡旁带红色感叹号。")),
       h(Toggle, { on: !!iBlocked, onChange: onToggleBlock }))),
+  onToggleDelete && h("div", { className: "pt-6", "data-wk": "csdelfriend" },
+    h(Eyebrow, { style: { marginBottom: 6 } }, "删除好友"),
+    h("div", { className: "flex items-center justify-between" },
+      h("div", { className: "pr-3" },
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))", color: t.sub } }, friendDeleted ? "已删除 " + cNm : "删除 " + cNm),
+        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, marginTop: 2, lineHeight: 1.5 } },
+          friendDeleted ? "关掉就是加回好友。" : "删了以后你们都发不了消息，聊天记录留着。TA 想你了会发好友申请（通讯录 →「新的朋友」），被拒了说不定换个小号再来，看 TA 这个人。")),
+      h(Toggle, { on: !!friendDeleted, onChange: onToggleDelete }))),
   // 聊天一下子少了一大截时留下的那份（她 2026-10-31）：有才出现
   shrinkBak && h("div", { className: "pt-6", "data-wk": "csshrink" },
     h(Eyebrow, { style: { marginBottom: 6 } }, "找回被剪掉的聊天"),
