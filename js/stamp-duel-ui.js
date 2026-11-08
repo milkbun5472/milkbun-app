@@ -348,6 +348,11 @@
         const foeLine = l.who === "foe" && l.line ? l.line : (l.kind === "fall" && l.who === "me" ? (them.board.find(x => x && x.lines && x.lines.win) || {}).lines : null);
         const said = typeof foeLine === "string" ? foeLine : foeLine && foeLine.win;
         if (said) { const key = Math.random(); lastBubble.current = key; setBubble({ text: said, key }); }
+        // 远信终点：TA 的信封掉到一半时开一次口（她 2026-11-08「打到一半 TA 冒台词，像在拦你又舍不得拦」）
+        else if (runBattle && runBattle.boss && !st.halfSaid && them.hp <= (them.max || 40) / 2) {
+          st.halfSaid = 1; const pool = them.board.concat(them.hand).filter(Boolean).map(u => u.lines && (u.lines.wake || u.lines.enter)).filter(Boolean);
+          if (pool.length) { const key = Math.random(); lastBubble.current = key; setBubble({ text: pool[Math.floor(Math.random() * pool.length)], key }); }
+        }
         const big = l.kind === "wake" || l.kind === "stamp" || l.kind === "event";
         if (big) setBanner({ text: l.text, line: l.line || "", who: l.who, key: Math.random() }); else setBanner(null);
         setTimeout(step, l.kind === "wake" ? 2600 : big ? 1800 : l.kind === "place" ? 380 : 520);
@@ -436,6 +441,7 @@
         h("div", { "data-wk": "duelintent", style: { position: "relative", margin: "6px 0 10px", padding: "7px 10px 7px 46px", borderRadius: 3, border: "1px dashed rgba(47,42,34,.35)", background: "rgba(255,255,255,.5)", fontSize: fz(11.5), lineHeight: 1.6 } },
           h("span", { style: { position: "absolute", left: 7, top: 7, padding: "1px 4px", border: "1.5px solid " + RED, color: RED, borderRadius: 3, fontFamily: FD, fontSize: fz(10), transform: "rotate(-6deg)" } }, "下一步"),
           it.styleZh ? h("div", { style: { color: SUB, fontSize: fz(10.5) } }, foeName + " 的打法：" + it.styleZh) : null,
+          runBattle && runBattle.bossRuleZh ? h("div", { "data-wk": "duelbossrule", style: { color: RED, fontSize: fz(11) } }, "终点规则 · " + runBattle.bossRule + "：" + runBattle.bossRuleZh) : null,
           st.blind ? "盲打：TA 的下一步看不见。" : intentText + (it.toEnvelope ? "；空着的列会打你信封约 " + it.toEnvelope : "") + ((it.inks || []).length ? "；会盖：" + it.inks.join("、") : ""),
           it.nextEvent ? h("div", { style: { color: GREEN } }, "下回合公告：" + it.nextEvent + "——" + D().EVENTS[it.nextEvent]) : null,
           // 明牌：TA 手里那几张也摊开给她看，要贴的那几张标上「要贴」

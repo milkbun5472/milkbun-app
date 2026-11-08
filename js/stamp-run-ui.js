@@ -28,11 +28,14 @@
   // 信匣里每一种往来叫什么（她 2026-11-08）
   const KIND_ZH = { letter: "回信", postcard: "明信片", note: "卡背面的便条", memory: "回忆卡", oneline: "一句话的回信", ask: "问答卡", future: "寄给以后的信", swap: "交换邮票时的话" };
   function StampRunPage(props) {
-    const { characters, cards, onBack, meName, toast, closeOf, onChat } = props;
+    const { characters, cards, onBack, meName, toast, closeOf, onChat, onPhoto } = props;
     const [run, setRun] = useState(() => { const v = load(SAVE, null); return v && v.run && !v.run.done ? v.run : null; });
     const [view, setView] = useState(() => { const v = load(SAVE, null); return v && v.run && !v.run.done ? (v.view || { at: "map" }) : { at: "start" }; });
     const [toId, setToId] = useState(() => { const c = (characters || []).find(x => (cards || []).some(k => k.charId === x.id)); return c ? c.id : ""; });
     const [core, setCore] = useState([]), [pickIdx, setPickIdx] = useState([]);
+    const [withPick, setWithPick] = useState(""), [level, setLevel] = useState(1), [showDex, setShowDex] = useState(false);
+    const POSTMARKS = "x_stampRunPostmarks", LEVELK = "x_stampRunLevel", DEX = "x_stampRunDex";
+    const unlocked = Math.max(1, Number(load(LEVELK, 1)) || 1);
     const [chat, setChat] = useState(() => (load(SAVE, null) || {}).chat || []), [draft, setDraft] = useState(""), [busy, setBusy] = useState(false), [chatOpen, setChatOpen] = useState(false);
     const [, bump] = useState(0);
     const letters = load(LETTERS, []);
@@ -43,9 +46,18 @@
     const keepLetter = (kind, lines, extra) => { const L = load(LETTERS, []); L.push(Object.assign({ toId: run.toId, kind, text: (lines || []).join("\n"), ts: Date.now() }, extra || {})); save(LETTERS, L.slice(-120)); };
     const nameOf = id => { const c = (characters || []).find(x => x.id === id); return c ? (c.remark || c.name) : ""; };
     const toName = nameOf(run ? run.toId : toId) || "TA";
+    // 陪你走的人（她 2026-11-08「可以」）：路上聊天、过站冒的话、路上的信都是 TA；明信片和寄给以后的信照旧是收信的人写
+    const withId = run ? (run.withId || run.toId) : (withPick || toId), withName = nameOf(withId) || toName;
+    // 图鉴：碰到过的信物、岔路、路上的麻烦（每走一步合一次）
+    const dexMerge = r => { if (!r) return; const d = load(DEX, { relics: [], events: [], troubles: [] }), add = (k, xs) => { (xs || []).forEach(x => { if (x && !d[k].includes(x)) d[k].push(x); }); };
+      add("relics", r.relics); add("events", r.evSeen); add("troubles", r.dexT); save(DEX, d); };
+    // 一趟结束盖一枚纪念邮戳（送到的、退件的都留）；送到了解锁下一级
+    const postmark = (r, win) => { if (!r || r.marked) return; r.marked = true;
+      const P = load(POSTMARKS, []); P.push({ toId: r.toId, withId: r.withId, level: r.level || 1, win: !!win, ts: Date.now(), stations: r.log.length, chars: Array.from(new Set(r.deck.map(s => s.charId).filter(Boolean))) }); save(POSTMARKS, P.slice(-200));
+      if (win) save(LEVELK, Math.max(unlocked, Math.min(RN().LEVEL_MAX, (r.level || 1) + 1))); dexMerge(r); };
     const bondsOf = () => { const m = {}; (characters || []).forEach(c => { m[c.id] = D().bondOf([c.persona, c.description, c.desc, c.personality].filter(Boolean).join(" ")); }); return m; };
     // 每动一步存一份
-    const commit = (r, v, ch) => { const rr = r || run, vv = v || view; save(SAVE, rr && !rr.done ? { run: rr, view: vv, chat: ch || chat } : null); setRun(rr ? Object.assign({}, rr) : rr); setView(vv); bump(x => x + 1); };
+    const commit = (r, v, ch) => { const rr = r || run, vv = v || view; if (rr && rr.step) dexMerge(rr); save(SAVE, rr && !rr.done ? { run: rr, view: vv, chat: ch || chat } : null); setRun(rr ? Object.assign({}, rr) : rr); setView(vv); bump(x => x + 1); };
     const shell = kids => h("div", { "data-wk": "runpage", className: "h-full flex flex-col", style: { position: "relative", background: "repeating-linear-gradient(0deg, transparent 0 27px, rgba(47,42,34,.05) 27px 28px), linear-gradient(#f3ebdb, #e8dcc4)" } }, kids);
     const bar = () => run ? h("div", { "data-wk": "runbar", className: "flex items-center flex-wrap px-4", style: { gap: 10, padding: "4px 16px 8px", fontFamily: F, fontSize: fz(12), color: INK } },
       h("span", null, "✉ 信封 " + run.hp + "/" + run.max),
@@ -60,24 +72,24 @@
       const text = draft.trim(); if (!text || busy || !onChat || !run) return;
       const ch = chat.concat({ who: "me", text }); setChat(ch); setDraft(""); setBusy(true); setChatOpen(true);
       try {
-        const hist = ch.slice(-9, -1).map(m => (m.who === "me" ? (meName || "她") : toName) + "：" + m.text).join("\n");
-        const lines = await onChat(run.toId, { mode: "road", text, board: RN().summary(run, nameOf) + "；现在在第 " + ((run.pos ? run.pos.r : -1) + 2) + " 站前", history: hist });
+        const hist = ch.slice(-9, -1).map(m => (m.who === "me" ? (meName || "她") : withName) + "：" + m.text).join("\n");
+        const lines = await onChat(withId, { mode: "road", text, toName, toId: run.toId, board: RN().summary(run, nameOf) + "；现在在第 " + ((run.pos ? run.pos.r : -1) + 2) + " 站前", history: hist });
         const ch2 = ch.concat((lines || []).map(x => ({ who: "foe", text: x }))); setChat(ch2); commit(run, view, ch2);
       } catch (e) { toast && toast("没聊成：" + ((e && e.message) || e)); }
       finally { setBusy(false); }
     };
     const chatBox = () => run && onChat ? h("div", { key: "chat", "data-wk": "runchat", className: "shrink-0 px-3", style: { paddingTop: 6, paddingBottom: "calc(6px + env(safe-area-inset-bottom) * 0.4)", borderTop: "1px solid rgba(47,42,34,.12)", background: "rgba(251,246,234,.85)", fontFamily: F, color: INK } },
       h("button", { onClick: () => setChatOpen(v => !v), className: "w-full text-left", style: { fontSize: fz(11.5), color: SUB, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } },
-        (chatOpen ? "▾ " : "▸ ") + (chat.length ? (chat[chat.length - 1].who === "me" ? "我：" : toName + "：") + chat[chat.length - 1].text : "路上跟 " + toName + " 说两句（发一句花一次调用）")),
+        (chatOpen ? "▾ " : "▸ ") + (chat.length ? (chat[chat.length - 1].who === "me" ? "我：" : withName + "：") + chat[chat.length - 1].text : "路上跟 " + withName + " 说两句（发一句花一次调用）")),
       chatOpen ? h("div", { style: { maxHeight: 150, overflowY: "auto", margin: "4px 0", display: "flex", flexDirection: "column", gap: 4 } },
         chat.slice(-12).map((m, k) => h("div", { key: k, style: { alignSelf: m.who === "me" ? "flex-end" : "flex-start", maxWidth: "80%", padding: "4px 9px", borderRadius: 10, background: m.who === "me" ? "rgba(79,122,102,.16)" : "#fff", fontSize: fz(12.5), lineHeight: 1.5 } }, m.text)),
-        busy ? h("div", { style: { fontSize: fz(11), color: SUB } }, toName + " 在打字…") : null) : null,
+        busy ? h("div", { style: { fontSize: fz(11), color: SUB } }, withName + " 在打字…") : null) : null,
       h("div", { className: "flex items-center", style: { gap: 6, padding: "4px 0" } },
         h("input", { "data-wk": "runchatinput", value: draft, onChange: e => setDraft(e.target.value), onKeyDown: e => { if (e.key === "Enter") talk(); }, placeholder: "边走边说…",
           style: { flex: 1, minWidth: 0, padding: "6px 10px", borderRadius: 999, border: "1px solid rgba(47,42,34,.25)", background: "#fff", fontSize: fz(12.5) } }),
         h("button", { onClick: talk, disabled: busy || !draft.trim(), className: "disabled:opacity-40", style: btn(INK, PAPER) }, "说"))) : null;
     // 过一站时同行的人冒一句卡上的话（不花调用）
-    const companionLine = () => { const ls = (cards || []).filter(c => c.charId === run.toId && c.text).map(c => c.text.line || c.text.thought).filter(Boolean); return ls.length ? ls[(run.step * 7) % ls.length] : ""; };
+    const companionLine = () => { const ls = (cards || []).filter(c => c.charId === withId && c.text).map(c => c.text.line || c.text.thought).filter(Boolean); return ls.length ? ls[(run.step * 7) % ls.length] : ""; };
 
     // ── 开一趟 ──
     if (view.at === "start" || !run) {
@@ -89,18 +101,50 @@
           h("div", { style: { fontFamily: FD, fontSize: fz(14), marginBottom: 8 } }, "寄给谁"),
           h("div", { className: "flex flex-wrap", style: { gap: 8, marginBottom: 16 } }, owned.map(c => h("button", { key: c.id, "data-wk": "runto", "data-on": toId === c.id ? "1" : "0", onClick: () => setToId(c.id),
             style: { padding: "5px 12px", borderRadius: 999, border: "1px solid " + (toId === c.id ? RED : "rgba(47,42,34,.25)"), background: toId === c.id ? "rgba(178,58,46,.07)" : "rgba(255,255,255,.4)", color: toId === c.id ? RED : INK, fontSize: fz(12.5) } }, c.remark || c.name))),
+          h("div", { style: { fontFamily: FD, fontSize: fz(14), marginBottom: 4 } }, "谁陪你走"),
+          h("div", { style: { fontSize: fz(11.5), color: SUB, marginBottom: 8 } }, "路上跟你聊天、写便条的人。不挑就是收信的人自己陪你走；挑了别人，终点 TA 也会知道是谁陪你来的。"),
+          h("div", { className: "flex flex-wrap", style: { gap: 8, marginBottom: 16 } }, [{ id: "" }].concat(owned).map(c => { const on = (withPick || "") === (c.id || ""); return h("button", { key: c.id || "self", "data-wk": "runwith", "data-on": on ? "1" : "0", onClick: () => setWithPick(c.id || ""),
+            style: { padding: "5px 11px", borderRadius: 999, border: "1px solid " + (on ? GOLD : "rgba(47,42,34,.25)"), background: on ? "rgba(184,134,42,.1)" : "rgba(255,255,255,.4)", color: on ? GOLD : INK, fontSize: fz(12.5) } }, c.id ? (c.remark || c.name) : "收信的人自己"); })),
+          h("div", { style: { fontFamily: FD, fontSize: fz(14), marginBottom: 4 } }, "邮路等级"),
+          h("div", { style: { fontSize: fz(11.5), color: SUB, marginBottom: 8 } }, "送到一次解锁下一级：每一级起手的信封少 4，路上更凶，终点更硬。"),
+          h("div", { className: "flex flex-wrap", style: { gap: 6, marginBottom: 16 } }, Array.from({ length: unlocked }, (_, k) => k + 1).map(lv => h("button", { key: lv, "data-wk": "runlevel", "data-on": level === lv ? "1" : "0", onClick: () => setLevel(lv),
+            style: { width: 34, height: 34, borderRadius: 999, border: "1.5px solid " + (level === lv ? RED : "rgba(47,42,34,.25)"), background: level === lv ? RED : "transparent", color: level === lv ? "#fff" : INK, fontFamily: FD, fontSize: fz(13) } }, lv))),
           h("div", { style: { fontFamily: FD, fontSize: fz(14), marginBottom: 4 } }, "带谁上路"),
           h("div", { style: { fontSize: fz(11.5), color: SUB, marginBottom: 8 } }, "最多两个人：起手发的牌多从他们那儿来。不挑就随机。"),
           h("div", { className: "flex flex-wrap", style: { gap: 8, marginBottom: 20 } }, owned.map(c => { const on = core.includes(c.id); return h("button", { key: c.id, onClick: () => setCore(p => on ? p.filter(x => x !== c.id) : p.concat(c.id).slice(-2)),
             style: { padding: "5px 11px", borderRadius: 999, border: "1px solid " + (on ? GREEN : "rgba(47,42,34,.25)"), background: on ? "rgba(79,122,102,.12)" : "rgba(255,255,255,.4)", color: on ? GREEN : INK, fontSize: fz(12.5) } }, c.remark || c.name); })),
-          h("button", { "data-wk": "runstart", disabled: !toId, onClick: () => { const L0 = load(LETTERS, []); if (L0.some(x => x.sealed)) save(LETTERS, L0.map(x => x.sealed ? Object.assign({}, x, { sealed: false, opened: Date.now() }) : x)); const r = RN().newRun({ cards, toId, core }); setChat([]); setPickIdx([0, 1, 2, 3, 4, 5]); commit(r, { at: "pick" }, []); }, className: "w-full disabled:opacity-40", style: Object.assign(btn(RED, "#fff"), { padding: "12px 0", fontFamily: FD, fontSize: fz(15), letterSpacing: ".15em" }) }, "封好信，出发"),
+          h("button", { "data-wk": "runstart", disabled: !toId, onClick: () => { const L0 = load(LETTERS, []); if (L0.some(x => x.sealed)) save(LETTERS, L0.map(x => x.sealed ? Object.assign({}, x, { sealed: false, opened: Date.now() }) : x)); const r = Object.assign(RN().newRun({ cards, toId, core, withId: withPick || toId, level: Math.min(level, unlocked) }), { bonds: bondsOf() }); setChat([]); setPickIdx([0, 1, 2, 3, 4, 5]); commit(r, { at: "pick" }, []); }, className: "w-full disabled:opacity-40", style: Object.assign(btn(RED, "#fff"), { padding: "12px 0", fontFamily: FD, fontSize: fz(15), letterSpacing: ".15em" }) }, "封好信，出发"),
+          // 远信邮册：每一趟一枚纪念邮戳（她 2026-11-08）
+          (() => { const P = load(POSTMARKS, []); if (!P.length) return null;
+            return h("div", { "data-wk": "runpostmarks", style: { marginTop: 22 } },
+              h("div", { style: { fontFamily: FD, fontSize: fz(14), marginBottom: 4 } }, "远信邮册"),
+              h("div", { style: { fontSize: fz(11.5), color: SUB, marginBottom: 10 } }, "寄出去的每一封都盖一枚戳：送到了是红的，退件是灰的。共 " + P.length + " 枚，送到 " + P.filter(x => x.win).length + " 封。"),
+              h("div", { style: { display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10 } }, P.slice().reverse().slice(0, 30).map((m, k) => {
+                const c = m.win ? RED : "#8a8178", d = new Date(m.ts), tilt = ((m.ts / 1000) % 14) - 7;
+                return h("div", { key: k, "data-wk": "runpostmark", "data-win": m.win ? "1" : "0", style: { aspectRatio: "1 / 1", borderRadius: 999, border: "2px solid " + c, outline: "1px solid " + c, outlineOffset: -6, color: c, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", transform: "rotate(" + tilt + "deg)", fontFamily: F, background: "rgba(255,255,255,.35)", padding: 6, textAlign: "center" } },
+                  h("div", { style: { fontSize: fz(9), letterSpacing: ".1em" } }, (d.getMonth() + 1) + "." + d.getDate()),
+                  h("div", { style: { fontFamily: FD, fontSize: fz(13), lineHeight: 1.2, margin: "1px 0" } }, nameOf(m.toId) || "TA"),
+                  h("div", { style: { fontSize: fz(8.5) } }, (m.win ? "送达" : "退件") + " · " + (m.level || 1) + " 级"),
+                  m.withId && m.withId !== m.toId ? h("div", { style: { fontSize: fz(8) } }, nameOf(m.withId) + " 陪") : null);
+              }))); })(),
+          // 图鉴：信物、岔路、路上的麻烦，碰到过的才写出名字
+          (() => { const d = load(DEX, { relics: [], events: [], troubles: [] }); const R0 = Object.keys(D().RELICS), E0 = RN().EVENTS, T0 = RN().TROUBLES;
+            return h("div", { "data-wk": "rundex", style: { marginTop: 22 } },
+              h("button", { onClick: () => setShowDex(v => !v), className: "w-full text-left", style: { fontFamily: FD, fontSize: fz(14), color: INK } }, (showDex ? "▾ " : "▸ ") + "图鉴 · 信物 " + d.relics.length + "/" + R0.length + " · 岔路 " + d.events.length + "/" + E0.length + " · 麻烦 " + d.troubles.length + "/" + T0.length),
+              showDex ? h("div", { style: { marginTop: 8, fontSize: fz(12), lineHeight: 1.7 } },
+                h("div", { style: { color: SUB, marginBottom: 2 } }, "信物"),
+                h("div", { className: "flex flex-wrap", style: { gap: 5, marginBottom: 10 } }, R0.map(k => { const on = d.relics.includes(k); return h("button", { key: k, onClick: () => on && toast && toast(k + "：" + D().RELICS[k]), style: { padding: "1px 8px", borderRadius: 999, border: "1px " + (on ? "solid " + GOLD : "dashed rgba(47,42,34,.25)"), color: on ? GOLD : SUB } }, on ? k : "？？"); })),
+                h("div", { style: { color: SUB, marginBottom: 2 } }, "岔路"),
+                h("div", { className: "flex flex-wrap", style: { gap: 5, marginBottom: 10 } }, E0.map(e => { const on = d.events.includes(e.key); return h("span", { key: e.key, style: { padding: "1px 8px", borderRadius: 999, border: "1px " + (on ? "solid " + (e.letter ? RED : GREEN) : "dashed rgba(47,42,34,.25)"), color: on ? (e.letter ? RED : GREEN) : SUB } }, on ? e.zh.replace(/同行的人|TA/g, "TA") : "？？"); })),
+                h("div", { style: { color: SUB, marginBottom: 2 } }, "路上的麻烦"),
+                h("div", { className: "flex flex-wrap", style: { gap: 5 } }, T0.map(x => { const on = d.troubles.includes(x.key); return h("span", { key: x.key, style: { padding: "1px 8px", borderRadius: 999, border: "1px " + (on ? "solid " + INK : "dashed rgba(47,42,34,.25)"), color: on ? INK : SUB } }, on ? x.zh : "？？"); }))) : null); })(),
           letters.length ? h("div", { "data-wk": "runletters", style: { marginTop: 22 } },
             h("div", { style: { fontFamily: FD, fontSize: fz(14), marginBottom: 8 } }, "信匣"),
             h("div", { style: { fontSize: fz(11.5), color: SUB, marginBottom: 8 } }, "一路上收到的明信片、便条、回信都在这儿。"),
             letters.slice().reverse().slice(0, 40).map((L, k) => h("details", { key: k, "data-wk": "runletterbox", "data-kind": L.kind || "letter", style: { marginBottom: 8, padding: "8px 11px", borderRadius: 4, background: PAPER, border: "1px solid rgba(47,42,34,.12)", borderLeft: "3px solid " + (L.kind === "future" ? GOLD : L.kind && L.kind !== "letter" ? GREEN : RED) } },
               h("summary", { style: { fontSize: fz(12.5), cursor: "pointer" } }, (nameOf(L.toId) || "TA") + " 的" + (KIND_ZH[L.kind || "letter"] || "信") + (L.title ? "：" + L.title : "") + " · " + new Date(L.ts).toLocaleDateString()),
               L.sealed ? h("div", { style: { marginTop: 6, fontSize: fz(12.5), color: SUB } }, "🔒 封着的。下一趟出发时才拆得开。")
-                : h("div", { style: { marginTop: 6, fontFamily: FD, fontSize: fz(13), lineHeight: 1.85, whiteSpace: "pre-wrap" } }, (L.q ? "问：" + L.q + "\n答：" + (L.a || "") + "\n\n" : L.mine ? "你写：" + L.mine + "\n\n" : "") + L.text)))) : null)]);
+                : h("div", { style: { marginTop: 6, fontFamily: FD, fontSize: fz(13), lineHeight: 1.85, whiteSpace: "pre-wrap" } }, L.img ? h("img", { src: typeof resolveImg === "function" ? resolveImg(L.img) : L.img, style: { display: "block", width: "100%", borderRadius: 4, marginBottom: 8 } }) : null, (L.q ? "问：" + L.q + "\n答：" + (L.a || "") + "\n\n" : L.mine ? "你写：" + L.mine + "\n\n" : "") + L.text)))) : null)]);
     }
 
     // ── 挑起手卡组 ──
@@ -120,8 +164,8 @@
         onQuit: () => { if (typeof requestAppConfirm === "function") requestAppConfirm("先离开这一站？", "回到地图，下次进来这一站从头打。", () => commit(run, { at: "map", redo: view.nd }), "离开"); else commit(run, { at: "map", redo: view.nd }); },
         onDone: st => {
           const nd = run.map[run.pos.r][run.pos.k], res = RN().afterBattle(run, st, nd, cards);
-          if (res.won) return commit(run, { at: "end", win: true });
-          if (res.lost) return commit(run, { at: "end", win: false });
+          if (res.won) { postmark(run, true); return commit(run, { at: "end", win: true }); }
+          if (res.lost) { postmark(run, false); return commit(run, { at: "end", win: false }); }
           commit(run, { at: "reward", res });
         } }) }));
     }
@@ -179,12 +223,14 @@
     }
     // ── 信的事件：叫 TA 写一张，写完给奖励、收进信匣 ──
     const letterEvent = (ev, who) => {
+      const wr = ev.letter === "postcard" || ev.letter === "future" ? toName : withName;   // 这一张谁写
       const lv = view.lv || {}, set = p => commit(run, Object.assign({}, view, { lv: Object.assign({}, lv, p) }));
       const call = async (mode, extra, after) => {
         if (busy || !onChat) return; setBusy(true);
         try {
-          const lines = await onChat(run.toId, Object.assign({ mode, text: "", board: RN().summary(run, nameOf), history: chat.slice(-6).map(m => (m.who === "me" ? (meName || "她") : toName) + "：" + m.text).join("\n") }, extra || {}));
-          if (!lines || !lines.length) { toast && toast(toName + " 没写出来，再点一次试试"); return; }
+          const writer = mode === "postcard" || mode === "future" ? run.toId : withId;
+          const lines = await onChat(writer, Object.assign({ mode, text: "", toName, toId: run.toId, withName: withId !== run.toId ? withName : "", board: RN().summary(run, nameOf), history: chat.slice(-6).map(m => (m.who === "me" ? (meName || "她") : toName) + "：" + m.text).join("\n") }, extra || {}));
+          if (!lines || !lines.length) { toast && toast(wr + " 没写出来，再点一次试试"); return; }
           after(lines);
         } catch (e) { toast && toast("没写成：" + ((e && e.message) || e)); }
         finally { setBusy(false); }
@@ -194,19 +240,32 @@
         h("div", { style: { height: 5, margin: "-16px -16px 12px", background: AIR } }),
         h("div", { style: { position: "absolute", right: 12, top: 14, width: 36, height: 36, borderRadius: 999, border: "1.5px dashed " + RED, color: RED, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: F, fontSize: fz(9.5), transform: "rotate(-10deg)" } }, KIND_ZH[ev.letter] ? KIND_ZH[ev.letter].slice(0, 2) : "信"),
         sealed ? "🔒 封好了。下一趟出发时才拆得开。" : lines.join("\n"));
-      const btnBig = (label, fn, dis) => h("button", { key: "b" + label, "data-wk": "runlettergo", onClick: fn, disabled: busy || dis, className: "w-full disabled:opacity-50", style: Object.assign(btn(RED, "#fff"), { padding: "11px 0", marginBottom: 8 }) }, busy ? toName + " 在写…" : label);
+      const btnBig = (label, fn, dis) => h("button", { key: "b" + label, "data-wk": "runlettergo", onClick: fn, disabled: busy || dis, className: "w-full disabled:opacity-50", style: Object.assign(btn(RED, "#fff"), { padding: "11px 0", marginBottom: 8 }) }, busy ? wr + " 在写…" : label);
       const cost = ev.cost || 0;
-      const body = lv.done ? [paper(lv.lines, ev.letter === "future"), h("div", { key: "rw", style: { fontSize: fz(12.5), color: GREEN, marginBottom: 10 } }, lv.done), h("button", { key: "go", onClick: () => commit(run, { at: "map" }), className: "w-full", style: btn(INK, PAPER) }, "收好，接着走")]
+      // 明信片配照片（花一次生图）：照明信片上写的画一张 TA 在驿站等信的照片
+      const photo = async () => {
+        if (busy || !onPhoto) return; setBusy(true);
+        try { const ref = await onPhoto(run.toId, "在驿站等信的时候拍给她的一张照片，像寄来的明信片正面。明信片背面写着：" + (lv.lines || []).join(" ").slice(0, 200));
+          const L = load(LETTERS, []); for (let k = L.length - 1; k >= 0; k--) if (L[k].kind === "postcard" && L[k].toId === run.toId) { L[k] = Object.assign({}, L[k], { img: ref }); break; } save(LETTERS, L);
+          set({ img: ref }); }
+        catch (e) { toast && toast("照片没拍成：" + ((e && e.message) || e)); }
+        finally { setBusy(false); }
+      };
+      const imgUrl = r => typeof resolveImg === "function" ? resolveImg(r) : r;
+      const body = lv.done ? [lv.img ? h("img", { key: "img", "data-wk": "runpostcardimg", src: imgUrl(lv.img), style: { display: "block", width: "100%", borderRadius: 4, border: "6px solid #fff", boxShadow: "0 4px 14px rgba(47,42,34,.2)", marginBottom: 10, transform: "rotate(.8deg)" } }) : null,
+          paper(lv.lines, ev.letter === "future"),
+          ev.letter === "postcard" && onPhoto && !lv.img ? h("button", { key: "ph", "data-wk": "runpostcardphoto", onClick: photo, disabled: busy, className: "w-full disabled:opacity-50", style: Object.assign(btn("transparent", INK, "rgba(47,42,34,.35)"), { marginBottom: 8 }) }, busy ? "在拍…" : "翻到正面看看照片（花一次生图）") : null,
+          h("div", { key: "rw", style: { fontSize: fz(12.5), color: GREEN, marginBottom: 10 } }, lv.done), h("button", { key: "go", onClick: () => commit(run, { at: "map" }), className: "w-full", style: btn(INK, PAPER) }, "收好，接着走")]
         : ev.letter === "postcard" ? [btnBig("翻过来看", () => call("postcard", {}, l => finish(l)))]
         : ev.letter === "memory" ? [btnBig("投一枚邮花（" + cost + "）", () => { if (run.coins < cost) return toast && toast("邮花不够"); run.coins -= cost; call("memory", {}, l => finish(l)); })]
-        : ev.letter === "future" ? [btnBig("让 " + toName + " 写", () => call("future", {}, l => finish(l)))]
-        : ev.letter === "oneline" ? [h("textarea", { key: "in", value: draft, onChange: e => setDraft(e.target.value), placeholder: "写一句给 " + toName + "…", rows: 2, style: { width: "100%", padding: "8px 10px", borderRadius: 4, border: "1px solid rgba(47,42,34,.25)", background: "#fff", fontSize: fz(13), marginBottom: 8 } }),
+        : ev.letter === "future" ? [btnBig("让 " + wr + " 写", () => call("future", {}, l => finish(l)))]
+        : ev.letter === "oneline" ? [h("textarea", { key: "in", value: draft, onChange: e => setDraft(e.target.value), placeholder: "写一句给 " + wr + "…", rows: 2, style: { width: "100%", padding: "8px 10px", borderRadius: 4, border: "1px solid rgba(47,42,34,.25)", background: "#fff", fontSize: fz(13), marginBottom: 8 } }),
             btnBig("寄出去", () => { const t0 = draft.trim(); if (!t0) return; call("oneline", { text: t0 }, l => { setDraft(""); finish(l, 0, { mine: t0 }); }); }, !draft.trim())]
-        : ev.letter === "ask" ? (lv.q ? [paper([lv.q]), h("textarea", { key: "in", value: draft, onChange: e => setDraft(e.target.value), placeholder: "回答 " + toName + "…", rows: 3, style: { width: "100%", padding: "8px 10px", borderRadius: 4, border: "1px solid rgba(47,42,34,.25)", background: "#fff", fontSize: fz(13), marginBottom: 8 } }),
+        : ev.letter === "ask" ? (lv.q ? [paper([lv.q]), h("textarea", { key: "in", value: draft, onChange: e => setDraft(e.target.value), placeholder: "回答 " + wr + "…", rows: 3, style: { width: "100%", padding: "8px 10px", borderRadius: 4, border: "1px solid rgba(47,42,34,.25)", background: "#fff", fontSize: fz(13), marginBottom: 8 } }),
               btnBig("把回答寄回去", () => { const a = draft.trim(); if (!a) return; call("answer", { text: a, question: lv.q }, l => { setDraft(""); finish(l, 0, { q: lv.q, a }); }); }, !draft.trim())]
             : [btnBig("拆开卡片", () => call("ask", {}, l => set({ q: l.join(" ") })))])
-        : (ev.letter === "note" || ev.letter === "swap") ? [h("div", { key: "t", style: { fontSize: fz(12), color: SUB, marginBottom: 6 } }, ev.letter === "note" ? "挑一张，让 " + toName + " 在背面写几句：" : toName + " 想要走哪一张？你挑一张给 TA（送出去就不在卡组里了）："),
-            busy ? h("div", { key: "w", style: { fontSize: fz(12.5), color: SUB, margin: "10px 0" } }, toName + " 在写…") : null,
+        : (ev.letter === "note" || ev.letter === "swap") ? [h("div", { key: "t", style: { fontSize: fz(12), color: SUB, marginBottom: 6 } }, ev.letter === "note" ? "挑一张，让 " + wr + " 在背面写几句：" : wr + " 想要走哪一张？你挑一张给 TA（送出去就不在卡组里了）："),
+            busy ? h("div", { key: "w", style: { fontSize: fz(12.5), color: SUB, margin: "10px 0" } }, wr + " 在写…") : null,
             h("div", { key: "g", style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 } }, run.deck.map((s2, i) => h(Mini, { key: i, s: s2, sub: nameOf(s2.charId), onTap: () => { if (busy) return; if (ev.letter === "swap" && run.deck.length <= 4) return toast && toast("卡组只剩 4 张了"); call(ev.letter, { card: cardStory(s2) }, l => finish(l, i, { title: s2.name })); } })))]
         : [];
       return page("岔路 · " + who(ev.zh), [
@@ -218,7 +277,7 @@
     // ── 岔路 ──
     if (view.at === "event") {
       const ev = RN().EVENTS.find(e => e.key === view.ev) || RN().EVENTS[0];
-      const who = t => String(t).replace(/同行的人|TA/g, toName);
+      const who = t => String(t).replace(/同行的人|TA/g, ev.letter === "postcard" || ev.letter === "future" ? toName : withName);
       if (ev.letter) return letterEvent(ev, who);
       return page("岔路 · " + who(ev.zh), [
         h("div", { key: "say", style: { fontFamily: FD, fontSize: fz(14), lineHeight: 1.8, margin: "4px 0 14px" } }, who(ev.say)),
@@ -255,7 +314,7 @@
       const ask = async () => {
         if (!onChat || busy) return; setBusy(true);
         try {
-          const lines = await onChat(run.toId, { mode: "letter", text: "", cards: run.deck.map(cardStory).join("\n"), board: RN().summary(run, nameOf), history: chat.slice(-8).map(m => (m.who === "me" ? (meName || "她") : toName) + "：" + m.text).join("\n") });
+          const lines = await onChat(run.toId, { mode: "letter", text: "", withName: run.withId && run.withId !== run.toId ? withName : "", cards: run.deck.map(cardStory).join("\n"), board: RN().summary(run, nameOf), history: chat.slice(-8).map(m => (m.who === "me" ? (meName || "她") : toName) + "：" + m.text).join("\n") });
           const text = (lines || []).join("\n");
           if (text) { keepLetter("letter", lines); commit(Object.assign(run, { letter: text }), view); }
         } catch (e) { toast && toast("回信没写成：" + ((e && e.message) || e)); }

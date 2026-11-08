@@ -62,8 +62,21 @@ test("信的事件：七种都在岔路池里，各有奖励；回信带上卡�
   const run = RN.newRun({ cards, toId: "a", seed: 4 }); RN.takeStart(run, [0, 1, 2, 3, 4, 5]);
   for (const k of kinds) assert.ok(RN.letterReward(run, k, 0) !== undefined);
   const ui = readFileSync(new URL("../js/stamp-run-ui.js", import.meta.url), "utf8"), app = readFileSync(new URL("../js/app.js", import.meta.url), "utf8");
-  assert.match(ui, /mode: "letter", text: "", cards: run\.deck\.map\(cardStory\)/);
+  assert.match(ui, /mode: "letter", text: "", withName: [^,]+, cards: run\.deck\.map\(cardStory\)/);
   assert.match(ui, /sealed: ev\.letter === "future"/);
   assert.match(ui, /x\.sealed \? Object\.assign\(\{\}, x, \{ sealed: false/);
   for (const m of ["postcard", "note", "memory", "oneline", "ask", "answer", "future", "swap"]) assert.ok(app.includes('d.mode === "' + m + '"'), m);
+});
+test("邮路等级、陪你走的人、终点特别规则、邮册图鉴、明信片照片", () => {
+  const r = RN.newRun({ cards, toId: "a", withId: "b", level: 3, seed: 2 });
+  assert.equal(r.withId, "b"); assert.equal(r.level, 3); assert.equal(r.max, 52);
+  r.bonds = { a: "偏执" }; RN.takeStart(r, [0, 1, 2, 3, 4, 5]);
+  const boss = RN.battleFor(r, { type: "boss", r: 5, k: 0 }, cards, () => [], ["a", "b"]);
+  assert.equal(boss.bossRule, "偏执"); assert.ok(boss.bossRuleZh);
+  const st = D.newDuel(r.deck, boss.foeDeck, 3, boss); D.endTurn(st); assert.ok((st.rage || 0) >= 1);
+  const ui = readFileSync(new URL("../js/stamp-run-ui.js", import.meta.url), "utf8"), app = readFileSync(new URL("../js/app.js", import.meta.url), "utf8");
+  assert.match(ui, /const POSTMARKS = "x_stampRunPostmarks", LEVELK = "x_stampRunLevel", DEX = "x_stampRunDex"/);
+  assert.match(ui, /const writer = mode === "postcard" \|\| mode === "future" \? run\.toId : withId;/);
+  assert.match(app, /onRunPhoto: async \(charId, desc\) =>/);
+  assert.match(app, /d\.toId && d\.toId !== char\.id/);
 });

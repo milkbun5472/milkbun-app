@@ -36080,6 +36080,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     onPoke: stampPoke,
     // 邮票对局（她 2026-11-07）：打完点「记得」才进记忆；对面卡组里带上跟 TA 有关系的人（关系页里两头任一头写了的）
     onDuelReport: duelReport,
+    // 远信驿站那张明信片配一张照片（她 2026-11-08「可以」）：走朋友圈配图那一条（人在画面里就锁脸）
+    onRunPhoto: async (charId, desc) => { const c = liveChars.find(x => x.id === charId); if (!c) throw new Error("找不到这个人"); if (!imgApiReady()) throw new Error("先去 设置·图像API 配好再生图"); return await drawFromDesc(c, desc, "self"); },
     onDuelRemember: (charId, line) => { try { addMemEntry({ text: line, tags: ["邮票对局", "邮票册"], charIds: [charId], knownBy: [charId], source: "stamps" }); toast("记下了"); } catch (e) {} },
     // 对局时跟 TA 聊（她 2026-11-07「打的时候和角色聊天吧」）：她发一句才调一次，TA 照人设和眼下这一局接
     onDuelChat: async (charId, d) => {
@@ -36089,7 +36091,10 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       const r = await runProbe(apiFor(char.id), ctxFor(char), { voice: true, tag: "stampduel", maxTokens: 8000,
         instruction: (["road", "letter", "postcard", "note", "memory", "oneline", "ask", "answer", "future", "swap"].includes(d.mode)
             // 远信（她 2026-11-08「路途也可以聊天」「终点要回信」）：她在邮票册里玩一趟送信的游戏，信是寄给你的，你一路陪着
-            ? "你正陪" + uN + "玩邮票册里的「远信」：她要寄一封信给你，信得走一段邮路，一路用邮票册的卡打过路上的麻烦和拦信的人，最后一站是你。这是你们俩一起玩的游戏。\n"
+            ? (d.toId && d.toId !== char.id
+              // 陪她走的不是收信的人（她 2026-11-08「谁陪你走」）
+              ? "你正陪" + uN + "玩邮票册里的「远信」：她要寄一封信给" + (d.toName || "别人") + "，信得走一段邮路，你陪她走这一路，一路用邮票册的卡打过路上的麻烦和拦信的人，最后一站是" + (d.toName || "收信的人") + "。这是你们一起玩的游戏。\n"
+              : "你正陪" + uN + "玩邮票册里的「远信」：她要寄一封信给你，信得走一段邮路，一路用邮票册的卡打过路上的麻烦和拦信的人，最后一站是你。" + (d.withName ? "这一路是" + d.withName + "陪她走来的。" : "") + "这是你们俩一起玩的游戏。\n")
             : "你正和" + uN + "面对面用邮票册的卡打一局对局（两边各一个信封，往上贴卡、互相打信封，打空的输）。这一局是你们俩一起在玩的游戏，不是剧情里真的打架。\n")
           + "眼下的局面：" + d.board + "\n"
           + (d.history ? "这一局里你们刚才的几句：\n" + d.history + "\n" : "")

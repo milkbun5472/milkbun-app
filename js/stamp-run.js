@@ -49,6 +49,12 @@
     { key: "swap", letter: "swap", zh: "交换邮票", say: "同行的人看上了你卡组里的一张票，想要走留个纪念。", reward: "送出那张票，换一件信物" }
   ];
   const PRICE = { card: 40, relic: 80, remove: 50, heal: 30 };
+  const LEVEL_MAX = 8;
+  // 终点 TA 的特别规则：照 TA 的羁绊（她 2026-11-08「终点不只是打一架」）
+  const BOSS_RULES = {
+    护短: "TA 的信封每回合回 2", 好胜: "TA 每回合多 1 点胶水", 偏执: "TA 每过一回合攻击 +1，越打越疯",
+    冷淡: "TA 的票什么戳都盖不上", 温柔: "TA 的票每回合各回 2 血", 默契: "TA 的票每回合各多充 1 格章"
+  };
 
   function rng(seed) { let a = (seed >>> 0) || 1; return () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
   const pick = (arr, R) => arr[Math.floor(R() * arr.length)];
@@ -79,7 +85,10 @@
   function newRun(o) {
     const seed = (o.seed >>> 0) || (Date.now() >>> 0), cards = (o.cards || []).filter(c => c && c.text);
     const offer = D().deckFrom(cards, seed ^ 0x77, 8, o.core || []);
-    return { seed, toId: o.toId, step: 0, hp: START_HP, max: START_HP, deck: [], offer, relics: [], coins: 40, map: makeMap(seed), pos: null, picked: false, log: [], done: null, letter: "", seen: {} };
+    // 邮路等级（她 2026-11-08）：送到一次解锁下一级；每升一级起手血 -4、路上的麻烦和拦信的人更凶、终点更硬
+    // 同行的人（withId）：可以不是收信的那个人；不填就是 TA 本人陪你走
+    const level = Math.max(1, Math.min(LEVEL_MAX, Number(o.level) || 1)), hp0 = START_HP - (level - 1) * 4;
+    return { seed, toId: o.toId, withId: o.withId || o.toId, level, step: 0, hp: hp0, max: hp0, deck: [], offer, relics: [], coins: 40, map: makeMap(seed), pos: null, picked: false, log: [], done: null, letter: "", seen: {} };
   }
   // 起手：从发的 8 张里挑 6 张
   function takeStart(run, idxs) {
@@ -111,17 +120,19 @@
     const R = R0(run), seed = (run.seed ^ (run.step * 40503)) >>> 0;
     const base = { meHp: run.hp, meMax: run.max, relics: run.relics.slice(), amulet: run.relics.includes("护身符") && !run.amuletUsed };
     if (nd.type === "fight") {
-      const tr = pick(TROUBLES, R), hp = 22 + nd.r * 6;
+      const tr = pick(TROUBLES, R), hp = 22 + nd.r * 6 + (run.level - 1) * 3;
+      run.dexT = run.dexT || []; if (!run.dexT.includes(tr.key)) run.dexT.push(tr.key);
       return Object.assign(base, { foeName: tr.zh, say: tr.say, foeDeck: troubleDeck(run, tr), foeHp: hp, seed, foeId: "" });
     }
     if (nd.type === "elite") {
       const pool = (others || []).filter(id => id !== run.toId && (cards || []).some(c => c.charId === id));
       const who = pool.length ? pick(pool, R) : "";
       const deck = who ? D().foeDeckFrom(cards, who, closeOf ? closeOf(who) : [], seed) : troubleDeck(run, pick(TROUBLES, R));
-      return Object.assign(base, { foeId: who, foeDeck: deck, foeHp: 36 + nd.r * 4, seed, hard: true, elite: true });
+      return Object.assign(base, { foeId: who, foeDeck: deck, foeHp: 36 + nd.r * 4 + (run.level - 1) * 4, seed, hard: true, elite: true });
     }
     // 终点：TA 本人，用 TA 的卡，认真模式
-    return Object.assign(base, { foeId: run.toId, foeDeck: D().foeDeckFrom(cards, run.toId, closeOf ? closeOf(run.toId) : [], seed), foeHp: 55, seed, hard: true, boss: true });
+    const rule = (run.bonds && run.bonds[run.toId]) || "默契";
+    return Object.assign(base, { foeId: run.toId, foeDeck: D().foeDeckFrom(cards, run.toId, closeOf ? closeOf(run.toId) : [], seed), foeHp: 55 + (run.level - 1) * 5, seed, hard: true, boss: true, bossRule: rule, bossRuleZh: BOSS_RULES[rule] || "" });
   }
   // 打完一场：血带着走、给邮花、给三张挑一张（难站另给一件信物）
   function afterBattle(run, st, nd, cards) {
@@ -234,7 +245,7 @@
     }
     return "";
   }
-  const API = { letterReward, ROWS, NODE, TROUBLES, EVENTS, PRICE, newRun, takeStart, reachable, enter, battleFor, afterBattle, addRelic, upgrade, eventFor, doEvent, shopFor, priceOf, buy, rest, summary, cardOffer };
+  const API = { LEVEL_MAX, BOSS_RULES, letterReward, ROWS, NODE, TROUBLES, EVENTS, PRICE, newRun, takeStart, reachable, enter, battleFor, afterBattle, addRelic, upgrade, eventFor, doEvent, shopFor, priceOf, buy, rest, summary, cardOffer };
   g.StampRun = API;
   if (typeof module !== "undefined" && module.exports) module.exports = API;
 })(typeof window !== "undefined" ? window : globalThis);

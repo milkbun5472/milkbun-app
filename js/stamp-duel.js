@@ -190,7 +190,7 @@
     const events = []; for (let t = EVENT_EVERY; t <= ((opts && opts.cap) || TURN_CAP); t += EVENT_EVERY) events[t] = EVENT_KEYS[Math.floor(R() * EVENT_KEYS.length)];
     // 让子、认真模式、快局（她 2026-11-08）：opts.meHp / opts.foeHp 改两边血，opts.cap 改最多几回合，opts.hard 对面每回合多 1 胶水
     const o = opts || {};
-    const st = { turn: 0, me: side(meDeck, s, o.meHp, o.meMax), relics: o.relics || [], amulet: !!o.amulet, foe: side(foeDeck, s ^ 0xabcdef, o.foeHp), log: [], over: null, uid: 0, seed: s, cap: o.cap || TURN_CAP, hard: !!o.hard, rule: o.rule || "", wager: o.wager || "", blind: !!(opts && opts.blind), events, bonds: (opts && opts.bonds) || {}, foeId: (opts && opts.foeId) || "", style: (opts && opts.style) || "" };
+    const st = { turn: 0, me: side(meDeck, s, o.meHp, o.meMax), relics: o.relics || [], amulet: !!o.amulet, bossRule: o.bossRule || "", foe: side(foeDeck, s ^ 0xabcdef, o.foeHp), log: [], over: null, uid: 0, seed: s, cap: o.cap || TURN_CAP, hard: !!o.hard, rule: o.rule || "", wager: o.wager || "", blind: !!(opts && opts.blind), events, bonds: (opts && opts.bonds) || {}, foeId: (opts && opts.foeId) || "", style: (opts && opts.style) || "" };
     startTurn(st);
     return st;
   }
@@ -198,6 +198,15 @@
   const bondOn = (st, sd, u) => { const b = u && u.charId ? (st.bonds || {})[u.charId] : ""; return b && sd.board.filter(x => x && x.charId === u.charId).length >= 2 ? b : ""; };
   // 回合开头：守护、黏人、羁绊这些每回合一次的
   function turnStartEffects(st, sd, who) {
+    // 远信终点 TA 的特别规则（只管对面那一边）
+    if (who === "foe" && st.bossRule) {
+      const br = st.bossRule;
+      if (br === "护短") sd.hp = Math.min(sd.max || ENVELOPE_HP, sd.hp + 2);
+      if (br === "好胜") sd.postage += 1;
+      if (br === "偏执") st.rage = (st.rage || 0) + 1;
+      if (br === "温柔") sd.board.forEach(u => { if (u) u.hp = Math.min(u.maxHp, u.hp + 2); });
+      if (br === "默契") sd.board.forEach(u => { if (u && u.charge < u.need) u.charge++; });
+    }
     // 护会散（她 2026-11-08「为啥他一直打掉我但是我打不掉他」：火漆每回合加护、从不掉，几回合就叠到十层，
     //   前排成了打不动的墙）：每回合开头先掉一半，再加这回合的
     sd.board.forEach(u => { if (u && u.shield && !(u.role === "火漆" && has(st, who, "不散的火漆"))) u.shield = Math.floor(u.shield / 2); });
@@ -357,6 +366,7 @@
     if (m !== "加急") {
       if (sd.terrain[i] === "雨棚" || u.trait === "沉默" || (m === "退回" && u.trait === "冷静")) return;
       if (st && bondOn(st, sd, u) === "冷淡") return;
+      if (st && sd === st.foe && st.bossRule === "冷淡") return;
     }
     if (m === "雨渍" && sd === (st && st.me) && has(st, "me", "雨衣")) return;
     u.marks[m] = MARKS[m].turns + (st && sd === st.foe && has(st, "me", "锐利的戳") ? 1 : 0);
@@ -393,6 +403,7 @@
   function powOf(st, u, sd, i) {
     let p = u.pow + (u.marks.雨渍 ? -2 : 0) + (eventNow(st) === "大雨" ? -1 : 0);
     const who0 = u.side || (sd === st.me ? "me" : "foe");
+    if (who0 === "foe" && st.bossRule === "偏执") p += st.rage || 0;
     if (adj(i).some(j => sd.board[j] && u.charId && sd.board[j].charId === u.charId)) p += 2 + (has(st, who0, "连号") ? 2 : 0);          // 连张
     if (row(i) === SIZE - 1 && (u.role === "投递" || u.role === "邮戳") && has(st, who0, "望远镜")) p += 2;
     if (row(i) === SIZE - 1 && (u.role === "投递" || u.role === "邮戳")) p += 2;                          // 后排输出
