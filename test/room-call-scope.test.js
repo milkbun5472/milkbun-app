@@ -205,7 +205,7 @@ test('语音与视频实际发送的上下文携带本房拉黑，不携带主�
   }
 });
 
-test('侧房真实写入后四字段可读，重复不续期、换地点清旧衣且不串主线',()=>{
+test('侧房真实写入后四字段可读，重复不续期、换地点衣服跟着人走且不串主线',()=>{
   let now=100000;
   const key=Rooms.chatKey('c1','r1');
   const box={window:{ChatRooms:Rooms},TVG:realTVG(require('../js/thought-voice-guard')),Date:{now:()=>now},roomStatesRef:{current:{}},roomStateHistRef:{current:{}},statesRef:{current:{c1:{wearing:'主线衣服',wearingUpdatedAt:now}}},setRoomStates:()=>{},setRoomStateHist:()=>{},saveJSON:()=>{}};
@@ -220,7 +220,9 @@ test('侧房真实写入后四字段可读，重复不续期、换地点清旧�
   assert.equal(box.roomStatesRef.current[key].wearingUpdatedAt,100000);
   assert.equal(box.roomStatesRef.current[key].actionUpdatedAt,100000);
   box.write(key,null,{state:{action:'起身',place:'厨房',condition:' null '}});
-  assert.equal(box.read(key,'wearing'),'');
+  // 2026-11-08 起换了地方不再清穿着（同一场出门外套来回换）：衣服跟着人走，时效照旧
+  assert.equal(box.read(key,'wearing'),'外套');
+  assert.equal(box.read(key,'place'),'厨房');
   assert.equal(box.read(key,'condition'),'');
   assert.equal(box.roomStatesRef.current[key].actionUpdatedAt,now);
   assert.equal(box.read('c1','wearing'),'主线衣服');

@@ -24,8 +24,10 @@ const run = (results, opts) => {
   const calls = [];
   // quietNow：免打扰时段那道闸（v75.906，app.js 里就是一个读 x_quiet 的函数）；这儿不在免打扰里
   // 主动那一路先问睡没睡（v75.904）：PROACTIVE_SLEEP_OK 名单、characters、sleepPhaseOf 都是 app.js 里的；这儿人醒着
-  const box = new Function("_replyTurn", "quietNow", "PROACTIVE_SLEEP_OK", "characters", "sleepPhaseOf", wrap + "\nreturn replyNow;")(
-    async (cid, text, mode, o) => { calls.push({ text, o }); return results[calls.length - 1]; }, () => false, [], [{ id: "c1" }], () => "awake");
+  // 拉黑/删好友那道闸（blocksRef、bgJob、sendFriendReq、toast 也是 app.js 里的）；这儿没拉黑
+  const box = new Function("_replyTurn", "quietNow", "PROACTIVE_SLEEP_OK", "characters", "sleepPhaseOf", "blocksRef", "bgJob", "sendFriendReq", "toast", wrap + "\nreturn replyNow;")(
+    async (cid, text, mode, o) => { calls.push({ text, o }); return results[calls.length - 1]; }, () => false, [], [{ id: "c1" }], () => "awake",
+    { current: {} }, undefined, () => false, () => {});
   return box("c1", "她说的那句", null, opts).then(r => ({ r, calls }));
 };
 

@@ -11,11 +11,18 @@ const app = read("app.js");
 // 病根：切后台回来，系统把 IndexedDB 连接掐断而 onclose 不发——握着的 _walDB 从此每笔事务都报错，
 // 手机根本没满。一处处写重试必然漏，所以读写一律走 walWith。
 test("保险箱每个读写都走 walWith，出错丢连接重开再试一次", () => {
-  const w = engine.match(/function walWith\(run\) \{([\s\S]*?)\n\}/);
-  assert.ok(w, "walWith 要留着");
-  assert.match(w[1], /walDrop\(\)/, "出错必须把死连接丢掉");
-  assert.match(w[1], /walOpen\(\)\.then\(run\)[\s\S]*walOpen\(\)\.then\(run\)/, "丢掉之后要重开再跑一次");
-  assert.match(engine, /function walDrop\(\) \{[\s\S]*?_walDB = null;[\s\S]*?\n/, "walDrop 要把缓存的连接清掉");
+  // 2026-11-08 起「丢连接重开再试一次」搬到 core.js 的公共一层 idbWith；walWith 只是把保险箱那个库交给它
+  const core = read("core.js");
+  assert.match(engine, /function walWith\(run\) \{ return idbWith\("lisa_wal_v1", 1, walUp, run\); \}/, "walWith 要留着、走公共那一层");
+  const w = core.match(/function idbWith\(name, ver, upgrade, run\) \{([\s\S]*?)\n\}/);
+  assert.ok(w, "idbWith 要留着");
+  assert.match(w[1], /idbDrop\(name, ver\)/, "出错必须把死连接丢掉");
+  assert.match(w[1], /idbKeep\(name, ver, upgrade\)\.then\(run\)[\s\S]*idbKeep\(name, ver, upgrade\)\.then\(run\)/, "丢掉之后要重开再跑一次");
+  assert.match(core, /function idbDrop\(name, ver\) \{[\s\S]*?delete _idbPool\[k\];/, "idbDrop 要把缓存的连接清掉");
+  // walDrop / walOpen 这两个薄壳可有可无；留着的话必须转给公共那一层，不许自己另握一条连接
+  if (/function walDrop\(/.test(engine)) assert.match(engine, /function walDrop\(\) \{ idbDrop\("lisa_wal_v1", 1\); \}/, "walDrop 要把缓存的连接清掉");
+  if (/function walOpen\(/.test(engine)) assert.match(engine, /function walOpen\(\) \{ return idbKeep\("lisa_wal_v1", 1, walUp\); \}/);
+  assert.doesNotMatch(engine, /_walDB\b/, "保险箱不许再自己存一条连接");
   for (const fn of ["walPutVerified", "walGetRaw", "walKeys", "walDel", "walDelIf"]) {
     const body = engine.match(new RegExp("function " + fn + "\\([^)]*\\) \\{([\\s\\S]*?)\\n\\}"));
     assert.ok(body, fn + " 要留着");

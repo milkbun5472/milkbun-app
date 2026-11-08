@@ -11,7 +11,7 @@ const screens = (fs.readFileSync(path.join(root, "js/screens.js"), "utf8") + "\n
 const cloud = fs.readFileSync(path.join(root, "js/cloud.js"), "utf8");
 
 test("本机照片库有独立索引且不删除聊天像素", () => {
-  assert.match(engine, /indexedDB\.open\("x_imgvault", 2\)/);
+  assert.match(engine, /idbKeep\("x_imgvault", 2, idbVaultUp\)/);   // 打开走 idbKeep（保活重试那一层），库名和版本不变
   assert.match(engine, /createObjectStore\("album"\)/);
   assert.match(engine, /async function idbAlbumEntries/);
   assert.match(engine, /删除目录项不删像素/);
@@ -184,7 +184,7 @@ test("连贯参考图与配饰锁", () => {
   assert.match(eng, /构图、姿势、机位、表情必须换新的/, "连贯图不能被复制成同一张");
   assert.match(eng, /以人物参考图为准/, "连贯图与身份冲突时身份优先");
   assert.match(eng, /rp\.indexOf\("img_"\) === 0/, "聊天自拍库的键也要能当参考图");
-  assert.match(app, /kind === "selfie" && m\.imgKey && \(Date\.now\(\)/, "只取近期的自拍当锚");
+  assert.match(app, /kind === "selfie" && m\.imgKey && [^;]*?\(Date\.now\(\) - \(Number\(m\.ts\) \|\| 0\)\) < 6 \* 3600000/, "只取近期的自拍当锚");
   assert.match(app, /place: 3 \* 3600000/, "地点要有自己的时效");
   assert.match(app, /refs\.length === 0 && prevShot/, "有原始人物照时，线上不得让上一张错脸污染重 roll");
   assert.match(th, /prevPhoto && refList\.length === 0/, "有原始人物照时，小剧场也不得让上一张错脸污染下一拍");

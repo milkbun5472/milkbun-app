@@ -17,5 +17,6 @@ test("台词念出来：配了音色的真人角色台词旁一颗 ▶，跟通�
   assert.match(g, /function GameVoiceDot\(props\)/);
   assert.match(g, /h\(TtsDot, \{ k: props\.k, text: props\.text, spk: spk, tp: relay \}\)/);
   assert.match(g, /window\.__gameTtsStop !== tp\.stop/);
-  assert.ok((g.match(/h\(GameVoiceDot, \{ p: p, text: it\.text, k: "gv" \+ i \}\)/g) || []).length >= 4);
+  // 念的是 gameSaid 剥掉动作描写后的那句（.speak），不是原文
+  assert.ok((g.match(/h\(GameVoiceDot, \{ p: p, text: gameSaid\(it\.text(?:, p && p\.char)?\)\.speak, k: "gv" \+ i \}\)/g) || []).length >= 4);
 });

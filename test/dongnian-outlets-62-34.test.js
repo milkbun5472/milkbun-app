@@ -27,8 +27,9 @@ test("⚠️泄压排在出口【落地之后】——空返回不许把这一�
   const seg = app.slice(i - 900, i + 1900);
   assert.match(seg, /const _settle = ok => \{ if \(ok\) _drain\(\); else _giveBack\(\); \};/, "没落地时不还闸");
   assert.match(seg, /const _giveBack = \(\) => \{ dongnianFiredRef\.current\[cid\] = 0; \};/, "25 分钟闸没还回去");
-  assert.match(seg, /pinWishAsChar\(c, jwStyle\)\.then\(_settle\)/, "钉愿望那一路没结算");
-  assert.match(seg, /leaveInCoupleSpace\(c, jwStyle\)\.then\(_settle\)/, "留东西那一路没结算");
+  // .then 里后来还顺手记 pWhy，所以也认 `ok => { _settle(ok);`
+  assert.match(seg, /pinWishAsChar\(c, jwStyle\)\.then\((?:_settle\)|ok => \{ _settle\(ok\);)/, "钉愿望那一路没结算");
+  assert.match(seg, /leaveInCoupleSpace\(c, jwStyle\)\.then\((?:_settle\)|ok => \{ _settle\(ok\);)/, "留东西那一路没结算");
   // 取语气那一句里【不许】再顺手泄压
   assert.match(app, /if \(eng && jw\) jwStyle = \(eng\.getStyleGuidance\(\)/, "取语气那一句又顺手泄压了");
   assert.doesNotMatch(app, /jwStyle = \([\s\S]{0,90}eng\.applyDelta\(\{ connection: -0\.28 \}\); \}/, "又退回先泄后发了");
@@ -104,9 +105,10 @@ test("看得见：每一档上次是什么时候，「从来没有过」要写�
   assert.match(scr, /"他自己走过的那几档 · 上次"/, "抽屉页没有这一栏");
   assert.match(scr, /"还没有过"/, "没出现过的那几档不说话，等于还是看不见");
   assert.match(scr, /mn \? "（你叫过 " \+ mn \+ " 次）" : ""/, "她手动叫的次数没分开显示");
+  // onBack 后面后来又加了几格（onPutMine 等）
   // ⚠️v72.08 多了一格 onDrop（抽屉里的东西可以单个拿掉）。这条守的是【账传进来了】，
   //   不是签名一字不变——所以钉 ledger/kinds 这两格，别钉整行参数表（anchor-on-code.md）。
-  assert.match(scr, /function CoupleDrawer\(\{ partner, items, onOpen,[^}]*ledger, kinds, onBack \}\)/, "账没传进抽屉页");
+  assert.match(scr, /function CoupleDrawer\(\{ partner, items, onOpen,[^}]*ledger, kinds, onBack[,\s][^}]*\}\)/, "账没传进抽屉页");
   assert.match(app, /outletLedger: \(typeof outletLog === "function" \? outletLog\(\) : \{\}\)/, "账没往界面传");
 });
 

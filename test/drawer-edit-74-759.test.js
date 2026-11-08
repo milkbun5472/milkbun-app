@@ -14,7 +14,8 @@ test("写的那一头：只换这一条，悄悄话顺手清掉旧 title，落�
   assert.match(app, /onEditDrawer: editDrawerItem,/);
 });
 test("界面那一头：拆开的纸底下一颗「改一改」，封着的不给改", () => {
-  assert.match(scr, /onOpen: onOpenDrawer, onDrop: onDropDrawer, onEdit: onEditDrawer,/);
+  // 中间又插了 onPutMine/onAskReply 几格，只认同一次 h(CoupleDrawer, …) 里带着 onEdit
+  assert.match(scr, /h\(CoupleDrawer, \{[^\n]*onOpen: onOpenDrawer, onDrop: onDropDrawer,[^\n]*onEdit: onEditDrawer,/);
   assert.match(scr, /requestAppPrompt\("改这一张", "改完就照新的留着。", x\.text \|\| "",/);
   const i = scr.indexOf("if (sealed) {"), j = scr.indexOf("// 拆开的：摊平的那张纸", i);
   assert.ok(i > 0 && j > i);

@@ -12122,14 +12122,12 @@ function saveJSON(k, v) {
 // 2026-11-08 搬到公共那一层（施工规则/one-public-mechanism.md）：下面这段「连接死在手里」
 //   的道理对每一个库都成立，原来只写在保险箱自己家里，别的库只能照着抄——结果一条都没抄。
 function walUp(db) { try { if (!db.objectStoreNames.contains("wal")) db.createObjectStore("wal"); } catch (e) {} }
-function walOpen() { return idbKeep("lisa_wal_v1", 1, walUp); }
 // 连接【死在手里】：iOS/安卓把 app 切后台再回来，系统常把这个 IndexedDB 连接掐断，
 //   而 onclose 不一定发得出来——握着的那一条从此每一笔事务都报错，手机根本没满。
 //   群友 2026-11-02 截到的「一直弹『刚才的聊天没存进手机』、存储还剩一大半」就是这一幕：
 //   不是偶尔卡一下，是坏了之后再也好不了，所以「下一次保存会补上」对她永远不成立。
 // 保险箱所有读写一律走这一层（施工规则/one-public-mechanism.md）：出错就把连接丢掉重开、
 //   再跑一次；两次都不成才算真失败，才往上报。以后新加的用法白得这一层。
-function walDrop() { idbDrop("lisa_wal_v1", 1); }
 function walWith(run) { return idbWith("lisa_wal_v1", 1, walUp, run); }
 async function walPutVerified(key, str) {
   await walWith(db => new Promise((res, rej) => {

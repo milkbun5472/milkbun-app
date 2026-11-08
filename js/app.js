@@ -20,7 +20,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v89.327";
+const APP_VERSION = "v89.329";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -20013,6 +20013,12 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     saveJSON("x_diaries", n);
     return n;
   });
+  // 手动改这一篇的日子（她 2026-11-08）：改了重排，翻页顺序跟着日子走
+  const setDiaryEntryDate = (charId, entryId, ts) => setDiaries(p => {
+    const n = { ...p, [charId]: sortDiaryList((p[charId] || []).map(e => e.id === entryId ? { ...e, ts } : e)) };
+    diariesRef.current = n; saveJSON("x_diaries", n);
+    return n;
+  });
   // 看过了：把这几篇的 unread 去掉（日记里翻到、或者目录上「全部标为已读」）
   const markDiaryRead = (charId, ids) => setDiaries(p => {
     const want = new Set(ids || []);
@@ -28933,7 +28939,19 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       drawer: (coupleDrawerRef.current || []).filter(x => x.characterId === cid && x.kind !== "mine"),   // 里程碑要的是 TA 放的第一样
       cards: (gachaCardsRef.current || []).filter(x => x.charId === cid),
       trips: (coupleTripsRef.current || []).filter(x => x && x.charId === cid)
-    }, Date.now());
+    }, Date.now()).map(x => cp.firstsAt && cp.firstsAt[x.key] ? { ...x, ts: Number(cp.firstsAt[x.key]), fixed: true } : x)
+      .sort((a, b) => a.ts - b.ts);
+  };
+  // 「第一次们」手动改日子（她 2026-11-08）：推出来的那条不动，改的那天记在这对的 firstsAt 上，显示时盖过去。
+  //   在一起那天就是 since；「第 N 天」跟着 since 算，不单改
+  const setCoupleFirstAt = (cid, key, ts) => {
+    if (key === "since") { const d = new Date(ts); setCoupleSince(cid, d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate()); return; }
+    setCouples(p => {
+      const cur = p[cid]; if (!cur) return p;
+      const n = { ...p, [cid]: { ...cur, firstsAt: { ...(cur.firstsAt || {}), [key]: ts } } };
+      couplesRef.current = n; saveJSON("x_couples", n);
+      return n;
+    });
   };
   // 把照相馆拍的这张发到和TA的聊天里（她 2026-08-31：「照片馆生成的照片应该也自动有
   // description 吧，那我分享回去上下文不也直接有了吗」——对，desc 拍的时候就写好了：
@@ -35689,7 +35707,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     coupleSweet: coupleSweet,
     onCheckinSweet: checkinSweet,
     coupleDrawer: coupleDrawer,
-    coupleFirstsOf: coupleFirstsFor,
+    coupleFirstsOf: coupleFirstsFor, onSetFirstAt: setCoupleFirstAt,
     myCloset: myCloset,
     charClosetOf: cid => (carry || {})[cid] || null,
     studioShots: studio,
@@ -37132,6 +37150,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     onGen: genDiary,
     onBackfill: (id, opts) => backfillDiary(id, opts),  // opts.days=[ts] 只补那一天
     onDelEntry: delDiaryEntry,
+    onSetEntryDate: setDiaryEntryDate,
     onMarkRead: markDiaryRead,
     onSaveFields: saveDiaryFields,
     onPhotoDiary: genPhotoDiary, onDelPhotoDiary: delPhotoDiary, photoDiaryBusy: photoDiaryBusy,

@@ -14,7 +14,9 @@ test("安卓上发完先失焦再聚焦，让输入法重新开一段（安卓 E
   const src = require("fs").readFileSync(__dirname + "/../js/components.js", "utf8");
   const a = src.indexOf("function DraftInput("), body = src.slice(a, src.indexOf("function ReplyKey", a));
   assert.match(body, /const ANDROID = typeof navigator !== "undefined" && \/Android\/i\.test/);
-  assert.match(body, /const reset = keep && \(ANDROID \|\| composing\.current\);/);
+  // 2026-11-06 起只在安卓上重开（iPhone 拼字下划线也算 composing，失焦再聚焦键盘会跳）
+  assert.match(body, /const reset = keep && ANDROID;/);
+  assert.doesNotMatch(body, /const reset = keep && \(ANDROID \|\| composing\.current\)/);
   assert.match(body, /if \(reset\) \{ try \{ el\.blur\(\); \} catch \(e\) \{\} setTimeout\(\(\) => \{ try \{ el\.focus\(\{ preventScroll: true \}\); \} catch \(e\) \{\} \}, 0\); \}/);
   assert.match(body, /onCompositionStart: \(\) => \{ composing\.current = true; \}/);
 });

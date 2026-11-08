@@ -11047,7 +11047,7 @@ function diaryPreview(e) {
 // 正文落在纸上，划掉的有笔触、不肯说的糊成墨。
 // ⚠️不要再往回加英文眉标／条码／带框的元数据表——那套是照着别人的版式来的，
 //   她 2026-08-30 明说要我们自己的（「我就是不想要现在这版的底子」）。
-function DiaryEntryView({ entry, char, isMe, chars, onBack, onDelete, onComment, commenting, onPhotoDiary, onDelPhoto, photoBusy }) {
+function DiaryEntryView({ entry, char, isMe, chars, onBack, onDelete, onSetDate, onComment, commenting, onPhotoDiary, onDelPhoto, photoBusy }) {
   const t = useTheme();
   // 虚拟时间开着时，TA 那篇上的日子按 TA 那只钟（她 2026-10-11：「日记显示的日期要跟随虚拟时间」）
   const d = new Date(!isMe && char && typeof vclockMap === "function" ? vclockMap(entry.ts, char.id) : entry.ts);
@@ -11065,7 +11065,8 @@ function DiaryEntryView({ entry, char, isMe, chars, onBack, onDelete, onComment,
       right: h("button", { onClick: onDelete, "aria-label": "删掉", className: "active:opacity-50 flex items-center justify-center", style: { width: 34, height: 38 } }, h(ITrash, { size: 17, color: t.fog })) }),
     h("div", { className: "flex-1 min-h-0 overflow-y-auto px-7 pb-16" },
       h("div", { className: "flex items-baseline", style: { gap: 9, marginTop: 10 } },
-        h("span", { style: { fontFamily: F_DISPLAY, fontSize: "calc(27px * var(--app-fs, 1))", color: t.ink, lineHeight: 1.15 } }, dateStr),
+        h(DateTap, { ts: entry.ts, onPick: onSetDate, wk: "didatetap" },
+          h("span", { style: { fontFamily: F_DISPLAY, fontSize: "calc(27px * var(--app-fs, 1))", color: t.ink, lineHeight: 1.15 } }, dateStr)),
         h("span", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.fog } }, "周" + wd),
         h("span", { style: { flex: 1 } }),
         entry.timeStr ? h("span", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog } }, entry.timeStr) : null),
@@ -11292,7 +11293,7 @@ function DiaryCommentPickSheet({ characters, onConfirm, onClose }) {
     h("button", { onClick: () => { if (sel.length) onConfirm(sel); }, disabled: !sel.length, className: "w-full mt-5 active:opacity-70 disabled:opacity-40", style: { background: t.ink, color: t.bg2, borderRadius: 14, padding: "13px 0", fontFamily: F_BODY, fontSize: "calc(15px * var(--app-fs, 1))" } }, sel.length ? "让这 " + sel.length + " 位评论" : "先选角色"));
 }
 
-function Diary({ characters, diaries, profile, genBusy, commentingId, onBack, onGen, onBackfill, onDelEntry, onSaveFields, onAddMyEntry, onGenComments, onPhotoDiary, onDelPhotoDiary, photoDiaryBusy, onMarkRead, toast }) {
+function Diary({ characters, diaries, profile, genBusy, commentingId, onBack, onGen, onBackfill, onDelEntry, onSetEntryDate, onSaveFields, onAddMyEntry, onGenComments, onPhotoDiary, onDelPhotoDiary, photoDiaryBusy, onMarkRead, toast }) {
   const t = useTheme();
   // 「我」也是一个作者（No.00），放在最前
   const meAuthor = { id: "__me", name: profile.name || "我", avatarImage: profile.avatarImage, color: profile.color || t.accent, motto: profile.tagline || "", isMe: true };
@@ -11381,6 +11382,7 @@ function Diary({ characters, diaries, profile, genBusy, commentingId, onBack, on
         onComment: isMe ? () => setCommentPick(entry.id) : null,
         onBack: () => { setCurEntry(null); setView("entries"); },
         onDelete: () => { onDelEntry(curId, entry.id); setCurEntry(null); setView("entries"); },
+        onSetDate: onSetEntryDate ? ts => onSetEntryDate(curId, entry.id, ts) : null,
         onPhotoDiary: onPhotoDiary ? (en, wish) => onPhotoDiary(curId, en, wish) : null, onDelPhoto: onDelPhotoDiary ? en => onDelPhotoDiary(curId, en) : null, photoBusy: photoDiaryBusy === entry.id
       }));
     return h(Fragment, null,

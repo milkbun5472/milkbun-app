@@ -11242,7 +11242,7 @@ function RoomWorldBanner({ onEnter, onWatch }) {
     h("span", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.ink, marginRight: "auto" } }, "进入小世界"),
     onWatch ? h("button", { "data-wk": "petwatchopen", onClick: onWatch, className: "active:opacity-70",
       style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.ink, padding: "10px 8px", minHeight: 44, flexShrink: 0, background: "transparent", border: "none" } }, "看看宠物") : null,
-    (window.FairyWorlds || []).map(({id:world,label}) => h("button", {
+    (window.FairyWorlds || []).filter(w => w.id !== "shop").map(({id:world,label}) => h("button", {
       key: world, onClick: () => onEnter(world), className: "active:opacity-70",
       "aria-label": "进入" + label,
       style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.ink, padding: "10px 8px", minHeight: 44, flexShrink: 0, background: "transparent", border: "none" }
@@ -18149,6 +18149,23 @@ function StateTplEditor({ value, onChange }) {
 // 换字那几排（聊天窗「只给 TA 换字」、线下「这个人线下的字」共用，她 2026-11-08 许愿线下单独调字体）：
 //   第一档永远是「跟随全局」，不然改一次就退不回去了。名单问 FontChoice 要（内置那几支 + 她在主题工作台自己传的），这儿不另抄一份。
 //   每一支用它自己的字写自己的名字，跟工作台那边一样认得出。setFont 收一个 (prev => next) 或一个对象
+// 点一下改日期（她 2026-11-08「搞个手动改日期的吧」）：盖一层透明的系统日期框在字上，点字就弹系统的日期选。
+//   onPick 拿到的是改好的时间戳：日子换成挑的那天，几点几分照原来的
+function dateTapTs(ts, ymdStr) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(ymdStr || ""));
+  if (!m) return 0;
+  const o = new Date(Number(ts) || Date.now());
+  return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]), o.getHours(), o.getMinutes(), o.getSeconds()).getTime();
+}
+function DateTap({ ts, onPick, children, style, wk }) {
+  if (!onPick) return h("span", { style }, children);
+  const d = new Date(Number(ts) || Date.now()), p2 = n => String(n).padStart(2, "0");
+  const val = d.getFullYear() + "-" + p2(d.getMonth() + 1) + "-" + p2(d.getDate());
+  return h("label", { "data-wk": wk || "datetap", style: Object.assign({ position: "relative", display: "inline-block", overflow: "hidden" }, style || {}) },
+    children,
+    h("input", { type: "date", value: val, "aria-label": "改日期", onChange: e => { const n = dateTapTs(ts, e.target.value); if (n) onPick(n); },
+      style: { position: "absolute", inset: 0, opacity: 0, width: "100%", height: "100%" } }));
+}
 function FontPickRows({ t, font, setFont }) {
   const F = typeof window !== "undefined" && window.FontChoice;
   if (!F) return null;
@@ -18173,7 +18190,7 @@ function FontPickRows({ t, font, setFont }) {
 // 「新的朋友」整页（她 2026-11-08）：删了好友的人发来的申请。小号来的那条只显示小号的名字和验证语，头像是空的——
 //   跟真微信一样，她点开之前不一定认得出是谁
 function FriendReqPage({ t, reqs, onAnswer, onClose }) {
-  return h("div", { "data-wk": "friendreqpage", className: "flex flex-col", style: { position: "fixed", inset: 0, zIndex: 60, background: t.bg } },
+  return h("div", { "data-wk": "friendreqpage", className: "flex flex-col", style: { position: "fixed", inset: 0, zIndex: 80, background: t.bg } },
     h(Head, { zh: "新的朋友", onBack: onClose }),
     h("div", { className: "flex-1 min-h-0 overflow-y-auto", style: { padding: "4px 0 30px" } },
       reqs.length ? reqs.map(r => h("div", { key: r.id, "data-wk": "friendreqrow", "data-status": r.status, className: "flex items-center gap-3", style: { padding: "12px 18px", borderBottom: "1px solid " + t.line } },

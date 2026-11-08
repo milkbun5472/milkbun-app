@@ -46,7 +46,8 @@ test("进群记住几条没看，群里挂一颗跳到第一条没看的",()=>{
   assert2.equal(f({ role: "system", kind: "offlinelog" }), false);
   assert2.equal(f({ role: "narration", kind: "narration" }), false);
   assert2.equal(f({ role: "assistant", content: "x" }), true);
-  assert2.match(app2, /h\(GroupThread, \{\n[^\n]*\n    key: "g::" \+ activeGroup\.id,/);
+  // key 前面多了 apiProfiles 那一行，放宽到前几行之内
+  assert2.match(app2, /h\(GroupThread, \{\n(?:[^\n]*\n){1,4}    key: "g::" \+ activeGroup\.id,/);
 }
 require("node:test")("自己翻上去、第一条新消息露在屏幕上了，「↑ N 条新消息」就收起", () => {
   const assert = require("node:assert/strict"), c = require("fs").readFileSync(require("path").join(__dirname, "..", "js", "components.js"), "utf8");
