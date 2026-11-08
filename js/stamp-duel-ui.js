@@ -46,7 +46,7 @@
     ["盖章：每张票的大招", "票底下那排小点每回合亮一格，亮满变金色，就能盖章了。", "点那张票，再点「盖章」，花 1 胶水放它的技能。同一种票有四种技能，SSR 的更猛。", "所以每回合都要想：胶水拿去贴新票，还是去给老票盖章？"],
     ["特质和羁绊", "每张票还有一个特质，是被动：比如「醉意」一半几率打双份、一半几率落空，「锋利」打票不管护盾，「倔强」第一次被打倒会硬撑着留一口气。", "每个人有一个羁绊，看人设来的：护短、好胜、温柔、冷淡、偏执，都不沾就是默契。同一个人的票在信封上有两张以上就生效。", "看不明白哪张票是干嘛的？长按它，什么都写着。对面的票也能长按。"],
     ["别的小东西", "挪票：点自己一张票，再点旁边的空格，花 1 胶水挪过去，用来凑组合或补前排。", "撕票：点一张票点「撕下」，每回合能撕一张，撕的那一下会触发一次效果。信封贴满了也靠它腾地方。", "格子：邮筒格贴着票每回合多 1 胶水；雨棚格上的票不会被盖戳；破损格贴不上。", "邮局公告：每三回合一条全场规则（涨价、大雨、集邮节……），上一回合就会预告。"],
-    ["明牌还是盲打", "明牌：TA 下一步要贴什么、贴哪、打你多少，开回合就亮给你看：你这边要挨打的那格套一圈红框、写「要挨几」，打信封的合起来写在信封底下；TA 会出手的票标「出手 ↓」。手里的牌也摊开。适合慢慢算。", "选着手里一张票时，你这边空格里写着贴那儿会打谁、打多少，能凑组合的会亮出来。", "盲打：TA 照样提前想好了，只是不给你看。更刺激。"],
+    ["明牌还是盲打", "明牌：TA 下一步要贴什么、贴哪、打你多少，开回合就亮给你看：两边每张票底下都写着它这回合干什么（打几、打信封几、攒胶水、加护……）；你要挨打的那格套红框写「要挨几」，你能打到的对面那格套绿框写「挨几」，打信封的合起来写在信封边上。手里的牌也摊开。适合慢慢算。", "选着手里一张票时，你这边空格里写着贴那儿会打谁、打多少，能凑组合的会亮出来。", "盲打：TA 照样提前想好了，只是不给你看。更刺激。"],
     ["几个上手小招", "开头先贴集邮攒家底，或者先上便宜的火漆把前排顶住。", "看 TA 的下一步：TA 要往哪列贴投递，你就在那一列前面放火漆。", "SSR 别急着上，等胶水够了再贴，顺手凑连张。", "快输了别慌：补票的群补、火漆的加固都能拖回合。"],
     ["远信：一路打过去", "从挑玩法页进「远信」：给一个人寄一封信，信要走一段邮路，最后一站是 TA 本人。", "信封血带着走：一场打完不回满，到驿站、岔路、邮局才回得来。", "路线：雪国、海边、旧城、夜车、花季、沙漠、雨季、山路、梦里、TA 的城市，节日那条只在节日前后开。每条一条棋盘规则，对局顶上写着。默认是 TA 照人设推荐的那条。"],
     ["打完以后", "选「再来一把」接着打，或者「结束」。结束时问要不要让 TA 记得，记的话这几把合成一句进 TA 的记忆。", "打到一半想走，直接返回就行，会存着。下次进来点「接着打」。", "手牌上面那条能跟 TA 聊天，你说一句 TA 回几句，发一句花一次调用。"]
@@ -147,21 +147,26 @@
   // 明牌时对面要打哪儿（她 2026-11-08「不止是文字说」→ 先画了虚线，她：「这一堆虚线看得出来个鬼」）：
   //   对面只打同一列，不用拉线——直接在要挨打的那格套红框、写「要挨 5」，打信封的合起来写在你信封底下；
   //   对面会出手的那张标「出手 ↓」，这回合才贴的那格写「要贴这儿」。选着手里一张票时空格写「贴这儿打谁」
-  function AimLayer({ host, foeAims, foeStamps, myPrev, tick }) {
+  // 明牌时两边每张票这回合干什么（她 2026-11-08：先画虚线「看不出来个鬼」→ 改红框只标了挨打的那格 →
+  //   「看不到他另外两张卡打多少，或者我能打他多少」）：每张票底下一颗签写它要干嘛；
+  //   你这边要挨打的格子套红框写「要挨几」，你要打到的对面那格套绿框写「挨几」；打信封的合起来写在信封边上
+  function AimLayer({ host, foeAims, meAims, foeActs, meActs, foeStamps, myPrev, tick }) {
     const [g, setG] = useState(null);
     useLayoutEffect(() => {
       const el = host.current; if (!el) return;
       const run = () => {
         const b = el.getBoundingClientRect(), box = (foe, i) => { const c = el.querySelector('[data-wk="duelboard"][data-foe="' + (foe ? 1 : 0) + '"] [data-slot="' + i + '"]'); if (!c) return null; const r = c.getBoundingClientRect(); return { x: r.left - b.left, y: r.top - b.top, w: r.width, h: r.height }; };
-        const hit = {}, src = {}; let env = 0;
-        (foeStamps || []).forEach(x => { src[x.slot] = "要盖章"; });
-        (foeAims || []).forEach(a => { src[a.from] = src[a.from] === "要盖章" ? "盖章 ↓" : a.planned ? "要贴这儿" : "出手 ↓";
-          if (a.kind === "env") env += a.dmg || 0; else { const t = hit[a.to] = hit[a.to] || { dmg: 0, inks: [] }; if (a.kind === "ink") t.inks.push(a.ink); else t.dmg += a.dmg || 0; } });
-        const meB = el.querySelector('[data-wk="duelboard"][data-foe="0"]'), mr = meB && meB.getBoundingClientRect();
-        setG({ w: b.width, h: b.height,
-          tags: Object.keys(hit).map(k => ({ at: box(false, +k), t: hit[k] })).filter(x => x.at),
-          srcs: Object.keys(src).map(k => ({ at: box(true, +k), txt: src[k] })).filter(x => x.at),
-          env: env && mr ? { x: mr.left - b.left + mr.width / 2, y: mr.bottom - b.top, n: env } : null,
+        const sum = list => { const hit = {}; let env = 0; (list || []).forEach(a => { if (a.kind === "env") env += a.dmg || 0; else { const t = hit[a.to] = hit[a.to] || { dmg: 0, inks: [] }; if (a.kind === "ink") t.inks.push(a.ink); else t.dmg += a.dmg || 0; } }); return { hit, env }; };
+        const fa = sum(foeAims), ma = sum(meAims), stamped = {}; (foeStamps || []).forEach(x => { stamped[x.slot] = 1; });
+        const planned = {}; (foeAims || []).forEach(a => { if (a.planned) planned[a.from] = 1; });
+        const brd = foe => { const e = el.querySelector('[data-wk="duelboard"][data-foe="' + (foe ? 1 : 0) + '"]'); if (!e) return null; const r = e.getBoundingClientRect(); return { x: r.left - b.left + r.width / 2, top: r.top - b.top, bottom: r.bottom - b.top }; };
+        const mb = brd(false), fb = brd(true), tags = [], acts = [];
+        Object.keys(fa.hit).forEach(k => { const at = box(false, +k); if (at) tags.push({ at, t: fa.hit[k], c: RED, pre: "要挨 " }); });
+        Object.keys(ma.hit).forEach(k => { const at = box(true, +k); if (at) tags.push({ at, t: ma.hit[k], c: GREEN, pre: "挨 " }); });
+        Object.keys(foeActs || {}).forEach(k => { const at = box(true, +k), t = foeActs[k]; if (at && t) acts.push({ at, txt: (planned[k] ? "新贴·" : "") + (stamped[k] ? "盖章·" : "") + t, c: stamped[k] ? "#b8862a" : RED }); });
+        Object.keys(meActs || {}).forEach(k => { const at = box(false, +k), t = meActs[k]; if (at && t) acts.push({ at, txt: t, c: GREEN }); });
+        setG({ w: b.width, h: b.height, tags, acts,
+          envMe: fa.env && mb ? { x: mb.x, y: mb.bottom, n: fa.env } : null, envFoe: ma.env && fb ? { x: fb.x, y: fb.top, n: ma.env } : null,
           badges: (myPrev || []).map(pv => ({ at: box(false, pv.slot), pv })).filter(x => x.at) });
       };
       run(); const t = setTimeout(run, 120); window.addEventListener("resize", run);
@@ -170,10 +175,11 @@
     if (!g) return null;
     const pill = (bg, txt) => h("span", { style: { display: "inline-block", padding: "0 6px", borderRadius: 999, background: bg, color: "#fff", fontFamily: FD, fontSize: fz(10.5), lineHeight: "18px", whiteSpace: "nowrap", boxShadow: "0 1px 3px rgba(0,0,0,.3)" } }, txt);
     return h("div", { "data-wk": "duelaims", style: { position: "absolute", left: 0, top: 0, width: g.w, height: g.h, pointerEvents: "none", zIndex: 4 } },
-      g.srcs.map((s2, k) => h("div", { key: "s" + k, style: { position: "absolute", left: s2.at.x, top: s2.at.y + s2.at.h - 9, width: s2.at.w, textAlign: "center" } }, pill(/盖章/.test(s2.txt) ? "#b8862a" : s2.txt === "出手 ↓" ? "rgba(178,58,46,.85)" : "rgba(47,42,34,.7)", s2.txt))),
-      g.tags.map((t, k) => h("div", { key: "t" + k, "data-wk": "duelwillhit", style: { position: "absolute", left: t.at.x - 2, top: t.at.y - 2, width: t.at.w + 4, height: t.at.h + 4, borderRadius: 5, border: "2px solid " + RED, animation: "duelPulse 1.4s ease-in-out infinite" } },
-        h("div", { style: { position: "absolute", left: 0, right: 0, top: -9, textAlign: "center" } }, pill(RED, [t.t.dmg ? "要挨 " + t.t.dmg : "", t.t.inks.length ? "盖" + t.t.inks.join("、") : ""].filter(Boolean).join(" · "))))),
-      g.env ? h("div", { key: "env", "data-wk": "duelwillhit", style: { position: "absolute", left: g.env.x, top: g.env.y - 9, transform: "translateX(-50%)" } }, pill(RED, "信封要挨 " + g.env.n)) : null,
+      g.tags.map((t, k) => h("div", { key: "t" + k, "data-wk": "duelwillhit", style: { position: "absolute", left: t.at.x - 2, top: t.at.y - 2, width: t.at.w + 4, height: t.at.h + 4, borderRadius: 5, border: "2px solid " + t.c, animation: "duelPulse 1.4s ease-in-out infinite" } },
+        h("div", { style: { position: "absolute", left: 0, right: 0, top: -9, textAlign: "center" } }, pill(t.c, [t.t.dmg ? t.pre + t.t.dmg : "", t.t.inks.length ? "盖" + t.t.inks.join("、") : ""].filter(Boolean).join(" · "))))),
+      g.acts.map((a, k) => h("div", { key: "a" + k, "data-wk": "duelact", style: { position: "absolute", left: a.at.x, top: a.at.y + a.at.h - 9, width: a.at.w, textAlign: "center" } }, pill(a.c, a.txt))),
+      g.envMe ? h("div", { key: "em", "data-wk": "duelwillhit", style: { position: "absolute", left: g.envMe.x, top: g.envMe.y - 9, transform: "translateX(-50%)" } }, pill(RED, "你的信封要挨 " + g.envMe.n)) : null,
+      g.envFoe ? h("div", { key: "ef", "data-wk": "duelwillhit", style: { position: "absolute", left: g.envFoe.x, top: g.envFoe.y - 9, transform: "translateX(-50%)" } }, pill(GREEN, "TA 的信封要挨 " + g.envFoe.n)) : null,
       g.badges.map((bd, k) => { const pv = bd.pv, a = pv.aim, txt = !a ? "" : a.kind === "ink" ? "盖" + a.ink : a.kind === "env" ? "打信封 " + a.dmg : "打 " + a.dmg;
         return h("div", { key: "b" + k, "data-wk": "duelpreview", style: { position: "absolute", left: bd.at.x, top: bd.at.y + 4, width: bd.at.w, textAlign: "center", fontSize: fz(9.5), lineHeight: 1.3, color: GREEN, fontFamily: F } },
           txt ? h("div", null, txt) : null, pv.combo.length ? h("div", { style: { color: "#c8962e", fontFamily: FD } }, pv.combo.join("＋") + "！") : null); }));
@@ -552,7 +558,7 @@
         h(Envelope, { sd: them, foe: true, sel: -1, onTap: () => {}, cardOf, ownerOf, useThumb, fx, onLong: openInfo }),
         h("div", { className: "flex items-center", style: { gap: 8, margin: "10px 0", color: SUB, fontSize: fz(10.5) } }, h("div", { className: "flex-1", style: { borderTop: "1px dashed rgba(47,42,34,.3)" } }), fx && fx.from && fx.text ? h("span", { "data-wk": "duelcaption", style: { color: fx.from.who === "foe" ? RED : GREEN, fontFamily: FD, fontSize: fz(12.5) } }, (fx.from.who === "foe" ? foeName + "：" : "我：") + fx.text) : ev ? h("span", { style: { color: GREEN } }, "公告 · " + ev + "：" + D().EVENTS[ev]) : "前排对前排", h("div", { className: "flex-1", style: { borderTop: "1px dashed rgba(47,42,34,.3)" } })),
         h(Envelope, { sd: me, foe: false, sel: boardSel, onTap: meSlot, armed: handSel >= 0, cardOf, ownerOf, useThumb, fx, onLong: openInfo }),
-        !over && !fx ? h(AimLayer, { host: boardsEl, foeAims: st.blind ? [] : D().aims(st, "foe"), foeStamps: st.blind ? [] : (it.stamp || []), myPrev: handSel >= 0 ? me.board.map((u, i) => u ? null : Object.assign({ slot: i }, D().previewPlace(st, "me", handSel, i) || {})).filter(x => x && x.combo) : [],
+        !over && !fx ? h(AimLayer, { host: boardsEl, foeAims: st.blind ? [] : D().aims(st, "foe"), foeStamps: st.blind ? [] : (it.stamp || []), foeActs: st.blind ? {} : D().actsOf(st, "foe"), meAims: D().aims(st, "me"), meActs: D().actsOf(st, "me"), myPrev: handSel >= 0 ? me.board.map((u, i) => u ? null : Object.assign({ slot: i }, D().previewPlace(st, "me", handSel, i) || {})).filter(x => x && x.combo) : [],
           tick: st.turn + "|" + handSel + "|" + me.board.map(u => u ? u.uid : 0).join(",") + "|" + them.board.map(u => u ? u.uid : 0).join(",") + "|" + me.hand.length }) : null),
         Seal(meName || "我", me.hp, me.max || D().ENVELOPE_HP, GREEN),
         // 选中场上一张：盖章 / 撕下；点旁边空格＝挪过去
@@ -630,7 +636,7 @@
             let tip = "";
             if (hs) { const c = hs.face + (st.events[st.turn] === "涨价" ? 1 : 0); tip = me.postage >= c ? "「" + hs.name + "」" + hs.role + "，贴一张花 " + c + " 胶水 → 点上面亮着的空格；格子里写着贴那儿会打谁" : "「" + hs.name + "」要 " + c + " 胶水，你只剩 " + me.postage + "，这回合贴不了，可以「留到下回合」"; }
             else if (bu) tip = bu.charge >= bu.need ? "「" + bu.name + "」章攒满了，点「盖章」放大招" : "「" + bu.name + "」章 " + bu.charge + "/" + bu.need + "，攒满才能盖；点旁边空格能挪过去";
-            else if (me.hand.length) tip = "点一张手里的票，再点上面的空格贴上去；贴完点「寄出」，" + (st.blind ? "对面再动手" : "红框是对面这回合要打的格子");
+            else if (me.hand.length) tip = "点一张手里的票，再点上面的空格贴上去；贴完点「寄出」，" + (st.blind ? "对面再动手" : "每张票底下写着它这回合干什么，红框是你要挨打的、绿框是你能打到的");
             return tip ? h("div", { "data-wk": "dueltip", className: "px-3", style: { marginBottom: 5, fontSize: fz(11), color: GREEN, lineHeight: 1.5 } }, tip) : null; })(),
           h("div", { className: "flex items-center px-3", style: { gap: 8, marginBottom: 6, fontSize: fz(12) } },
             h("span", { "data-wk": "duelglue", className: "flex items-center", style: { gap: 3 } }, "胶水", Array.from({ length: Math.max(me.postage, 0) }, (_, k) => h("i", { key: k, style: { width: 8, height: 10, borderRadius: "50% 50% 50% 50% / 60% 60% 40% 40%", background: "#d9a441" } })), me.postage ? null : h("span", { style: { color: SUB } }, " 0")),

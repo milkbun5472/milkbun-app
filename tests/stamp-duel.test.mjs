@@ -181,3 +181,9 @@ test("明牌虚线：aims 算出对面每张会出手的票打哪儿，previewPl
   const pv = D.previewPlace(st, "me", 0, 4); assert.ok(pv && pv.aim && Array.isArray(pv.combo));
   assert.equal(JSON.stringify(st.foe.board) + JSON.stringify(st.me.board), before);
 });
+test("actsOf：两边每张上场的票都有一句这回合干什么", () => {
+  const mk = (r, c) => Array.from({ length: 12 }, (_, i) => Object.assign(D.stampOf({ id: c + i, rarity: "R", lv: 5, text: { name: "x" } }), { role: r, charId: c }));
+  const st = D.newDuel(mk("集邮", "a"), mk("投递", "b"), 5);
+  const f = st.me.terrain.findIndex(t => !t); D.place(st, "me", 0, f);
+  assert.equal(D.actsOf(st, "me")[f], "攒胶水");
+});

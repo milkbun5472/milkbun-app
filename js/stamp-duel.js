@@ -543,6 +543,19 @@
     finally { sd.board = keep; }
     return out;
   }
+  // 每张票这回合干什么，一句话（她 2026-11-08「看不到他另外两张卡打多少，或者我能打他多少」）
+  function actsOf(st, who) {
+    const sd = st[who], al = aims(st, who), out = {};
+    al.forEach(a => { out[a.from] = a.kind === "ink" ? "盖" + a.ink : a.kind === "env" ? "打信封 " + a.dmg : "打 " + a.dmg; });
+    sd.board.forEach((u, i) => { if (!u || out[i]) return;
+      if (u.marks && u.marks.退回) out[i] = "这回合不动";
+      else if (u.role === "集邮") out[i] = "攒胶水";
+      else if (u.role === "补票") out[i] = "补血";
+      else if (u.role === "火漆") out[i] = "加护";
+      else if (u.role === "邮戳") out[i] = u.ink === "加急" ? "给旁边加急" : u.ink === "受潮" ? "让对面受潮" : "";
+    });
+    return out;
+  }
   // 手里这张要是贴在 slot：会打谁、打多少、凑不凑得成组合
   function previewPlace(st, who, handIdx, slot) {
     const sd = st[who], s = sd.hand[handIdx]; if (!s || sd.board[slot] || blocked(sd, slot)) return null;
@@ -599,7 +612,7 @@
   const mine = raw => (st, who, a, b) => { if (who !== "me") return raw(st, who, a, b); snap(st); const r = raw(st, who, a, b); if (!r || !r.ok) st.undo.pop(); return r; };
   const place = mine(placeRaw), tear = mine(tearRaw), move = mine(moveRaw), keep = mine(keepRaw), stamp = mine(stampRaw);
   const API = { RELICS, STYLE_ZH, TRAIT_FIT, TRAITS, SKILLS, BONDS, bondOf, unitInfo, SIZE, SLOTS, ENVELOPE_HP, POSTAGE, DRAW, DECK_SIZE, TURN_CAP, KEEP_MAX, FACE, NEED, ROLES, MARKS, TERRAIN, EVENTS,
-    stampOf, deckFrom, foeDeckFrom, newDuel, aims, previewPlace, place, tear, move, keep, stamp, undo, canUndo, endTurn, planFoe, combos, newSeries, addGame, memoryLine, hashStr };
+    stampOf, deckFrom, foeDeckFrom, newDuel, aims, actsOf, previewPlace, place, tear, move, keep, stamp, undo, canUndo, endTurn, planFoe, combos, newSeries, addGame, memoryLine, hashStr };
   g.StampDuel = API;
   if (typeof module !== "undefined" && module.exports) module.exports = API;
 })(typeof window !== "undefined" ? window : globalThis);

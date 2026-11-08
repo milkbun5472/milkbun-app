@@ -108,3 +108,8 @@ test("明牌虚线和上手提示：对面要打哪儿画线、空格写贴这�
   assert.match(ui, /"data-wk": "dueltip"/);
   assert.match(ts, /"duelaims"/); assert.match(ts, /"dueltip"/);
 });
+test("明牌两边都标：每张票这回合干什么、你能打到的绿框", () => {
+  assert.match(ui, /meActs: D\(\)\.actsOf\(st, "me"\)/);
+  assert.match(ui, /"data-wk": "duelact"/);
+  assert.match(ui, /const Seal = \(label/);
+});
