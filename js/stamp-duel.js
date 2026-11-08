@@ -45,16 +45,15 @@
   const MARKS = {
     雨渍: { turns: 2, note: "攻击 -2" },
     退回: { turns: 1, note: "下一次行动跳过" },
-    受潮: { turns: 1, note: "对面下回合胶水 -1" },
+    延误: { turns: 1, note: "对面下回合胶水 -1" },   // 原来叫「受潮」，跟雨渍听着像一回事（她 2026-11-08），改名
     加急: { turns: 1, note: "下一次行动做两遍" },
     // 她 2026-11-08「盖戳只有下雨的是不是不够」：再加四种
     折角: { turns: 2, note: "挨打多掉 2" },
     撕口: { turns: 2, note: "每回合开头掉 2 血（不会掉到 0）" },
-    封口: { turns: 2, note: "盖不了章，章也不攒" },
-    挂号: { turns: 0, note: "给旁边一张自己的票加 3 层护（盖在自己人身上）" }
+    封口: { turns: 2, note: "盖不了章，章也不攒" }
   };
-  const MARK_OF_INK = ["雨渍", "退回", "受潮", "加急", "折角", "撕口", "封口", "挂号"];
-  const SELF_INK = { 加急: 1, 受潮: 1, 挂号: 1 };   // 不盖在对面票上的那几种
+  const MARK_OF_INK = ["雨渍", "退回", "延误", "加急", "折角", "撕口", "封口"];
+  const SELF_INK = { 加急: 1, 延误: 1 };   // 不盖在对面票上的那几种
   // 原来的「雨棚」改成通用的「护封」：上面的票什么戳都盖不上
   const TERRAIN = { 邮筒: "贴着票时每回合多 1 胶水", 护封: "上面的票不会被盖邮戳（什么戳都不行）", 破损: "这一格不能贴" };
   const EVENTS = {
@@ -159,7 +158,7 @@
     return {
       cardId: card && card.id, charId: (card && card.charId) || "", rarity: r, lv, kind, limited: !!(card && card.limited),
       name: clean(tx.name) || (r + " 票"), role, trait, traitFrom, skill, face: FACE[r], pow: Math.max(1, pow), maxHp: hp, need: Math.max(1, NEED[r] - (trait === "浪漫" ? 1 : 0)),
-      ink: MARK_OF_INK[(hsh >>> 16) % MARK_OF_INK.length],
+      ink: MARK_OF_INK[hashStr(String(card && card.id) + "|ink") % MARK_OF_INK.length],   // 单独再哈希一次，免得一批卡挤在同一种戳上
       lines: {
         enter: clean(tx.line || tx.thought || tx.narration).slice(0, 80),
         wake: clean(tx.highlight || tx.line || tx.open).slice(0, 80),
@@ -610,8 +609,7 @@
       else if (u.role === "集邮") { sd.bonusPostage += eventNow(st) === "集邮节" ? 2 : 1; say(st, who, u.name + " 攒了胶水", { kind: "gain", slot: i }); side(Math.ceil(p * ROLE_HIT.集邮)); }
       else if (u.role === "邮戳") {
         if (u.ink === "加急") { const k = adj(i).find(x => sd.board[x] && sd.board[x].role === "投递"); if (k != null) sd.board[k].marks.加急 = 1; }
-        else if (u.ink === "受潮") foe.owed = Math.min(2, foe.owed + 1);
-        else if (u.ink === "挂号") { const k = adj(i).filter(x => sd.board[x]).sort((a, b) => sd.board[a].hp - sd.board[b].hp)[0]; if (k != null) sd.board[k].shield += 3; }
+        else if (u.ink === "延误") foe.owed = Math.min(2, foe.owed + 1);
         else if (j >= 0) mark(foe, j, u.ink, st);
         side(Math.ceil(p * ROLE_HIT.邮戳));
         say(st, who, u.name + " 盖了「" + u.ink + "」", { kind: "ink", slot: i, ink: u.ink });
@@ -699,7 +697,7 @@
       else if (u.role === "集邮") out[i] = "攒胶水";
       else if (u.role === "补票") out[i] = "补血";
       else if (u.role === "火漆") out[i] = "加护";
-      else if (u.role === "邮戳") out[i] = u.ink === "加急" ? "给旁边加急" : u.ink === "受潮" ? "让对面受潮" : u.ink === "挂号" ? "给旁边挂号" : "";
+      else if (u.role === "邮戳") out[i] = u.ink === "加急" ? "给旁边加急" : u.ink === "延误" ? "让对面延误" : "";
     });
     return out;
   }

@@ -110,7 +110,7 @@ test("连打几把：一串结束才出一句总的；对局里不叫邮资叫�
   for (let s = 1; s <= 3; s++) { const st = D.newDuel(D.deckFrom(mine, s), D.deckFrom(mine, s + 50), s); while (!st.over) D.endTurn(st); D.addGame(sr, st); }
   assert.equal(sr.games.length, 3);
   assert.match(D.memoryLine(sr, "B", "她"), /连打了 3 局对局，她 \d+ 胜 \d+ 负/);
-  assert.ok(D.MARKS.受潮 && !D.MARKS.欠资);
+  assert.ok(D.MARKS.延误 && !D.MARKS.欠资 && !D.MARKS.挂号);
 });
 test("放错了能撤回：胶水、手牌、信封都回去；寄出后就不能撤；撤回过对面照样照亮出来的那步走", () => {
   const st = D.newDuel(D.deckFrom(mine, 21), D.foeDeckFrom(mine.concat(theirs), "b", ["a"], 21), 21);
@@ -223,7 +223,7 @@ test("讨伐：总局打不死、记伤害、封条只掉 1、邮戳撕开后虚
   assert.ok(sealed > 0);
 });
 test("戳多了四种、护封格挡所有戳：折角多掉、撕口掉血、封口盖不了章", () => {
-  ["折角", "撕口", "封口", "挂号"].forEach(k => assert.ok(D.MARKS[k], k));
+  ["折角", "撕口", "封口", "延误"].forEach(k => assert.ok(D.MARKS[k], k));
   assert.ok(D.TERRAIN.护封 && !D.TERRAIN.雨棚);
   const mk = c => Array.from({ length: 12 }, (_, i) => Object.assign(D.stampOf({ id: c + i, rarity: "R", lv: 5, text: { name: "x" } }), { role: "火漆", charId: c }));
   const st = D.newDuel(mk("a"), mk("b"), 4, {}); const f = st.me.terrain.findIndex(t => !t); D.place(st, "me", 0, f);
