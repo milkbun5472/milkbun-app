@@ -236,3 +236,10 @@ test("R 卡那句心里话写进了 line 也认回来", () => {
   const out = C.cleanText({ name: "a", narration: "n", line: "我在想你" }, "R");
   assert.strictEqual(out.thought, "我在想你");
 });
+test("SR 也能熔：一张 100，花过调用的 SR 不熔", () => {
+  const C = fresh();
+  assert.strictEqual(C.meltValue({ rarity: "SR", lv: 1 }), 100);
+  assert.strictEqual(C.meltValue({ rarity: "SR", lv: 1, faceAlt: "img_x" }), 0);
+  assert.strictEqual(C.meltValue({ rarity: "SR", lv: 1, extras: [{ text: "番外" }] }), 0);
+  assert.strictEqual(C.meltValue({ rarity: "SSR", lv: 1 }), 0);
+});
