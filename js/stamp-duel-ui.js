@@ -1155,7 +1155,7 @@
     // 把某一刻之后的记录一条条放出来（她 2026-11-08「四连觉醒出现太快看不到」：觉醒是贴票那一下触发的，原来只放寄出那一段）
     const skip = () => { playing.current = 0; setFx(null); setBanner(null); setCut(null); redraw(); };
     const play = n0 => {
-      const evs = st.log.slice(n0).filter(l => ["hit", "hitEnv", "fall", "heal", "gain", "ink", "wake", "stamp", "place", "skip", "event"].includes(l.kind));
+      const evs = st.log.slice(n0).filter(l => ["hit", "hitEnv", "fall", "heal", "gain", "ink", "wake", "stamp", "place", "skip", "event", "attack"].includes(l.kind));
       if (!evs.length) return;
       const run = ++playing.current; let k = 0;
       const step = () => {
@@ -1188,8 +1188,8 @@
           }
         }
         // SR / SSR 放大招、觉醒：整条横幅带着名字和台词从屏幕中间扫过去（她 2026-11-08「花里胡哨的特效」）
-        const cutIn = (l.kind === "stamp" || l.kind === "wake") && (l.rarity === "SR" || l.rarity === "SSR") && l.cutLine;
-        if (cutIn) setCut({ key: Math.random(), rarity: l.rarity, name: l.name || "", cardId: l.cardId, line: l.cutLine, who: l.who, char: l.char, sub: l.kind === "wake" ? (l.combo || "") + "觉醒" : "盖章 · " + (l.skill || "") });
+        const cutIn = (l.kind === "stamp" || l.kind === "wake" || l.kind === "attack") && (l.rarity === "SR" || l.rarity === "SSR") && l.cutLine;
+        if (cutIn) setCut({ key: Math.random(), rarity: l.rarity, name: l.name || "", cardId: l.cardId, line: l.cutLine, who: l.who, char: l.char, sub: l.kind === "wake" ? (l.combo || "") + "觉醒" : l.kind === "attack" ? "出手" : "盖章 · " + (l.skill || "") });
         const big = l.kind === "wake" || l.kind === "stamp" || l.kind === "event";
         if (big && !cutIn) setBanner({ text: l.text, line: l.line || "", who: l.who, key: Math.random() }); else setBanner(null);
         setTimeout(step, cutIn ? 2700 : l.kind === "wake" ? 2600 : big ? 1800 : l.kind === "place" ? 380 : 520);

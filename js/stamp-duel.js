@@ -860,6 +860,8 @@
     let times = u.marks.加急 ? 2 : 1;
     if (u.role === "投递" && u.first && has(st, who, "加急包")) times *= 2;
     if (u.trait === "醉意") { const r = rng((st.seed ^ (st.turn * 2654435761) ^ (u.uid * 40503)) >>> 0)(); if (r < 0.5) times *= 2; else { say(st, who, u.name + " 醉得没打着", { kind: "skip", slot: i }); u.first = false; if (u.charge < u.need) u.charge++; return; } }
+    // SR／SSR 每局第一次出手：给界面一条「出手」，扫一道带卡面的横幅（她 2026-11-08「SR 和 SSR 都加吧」）
+    if ((u.rarity === "SR" || u.rarity === "SSR") && !u.cutDone && u.cardId) { u.cutDone = 1; say(st, who, u.name + " 出手", { kind: "attack", slot: i, char: u.charId, rarity: u.rarity, name: u.name, cardId: u.cardId, cutLine: u.lines.enter || u.lines.wake || "" }); }
     for (let t = 0; t < times && sd.board[i] === u; t++) {
       const p = powOf(st, u, sd, i), j = targetIn(foe, col(i));
       // 每种票都打人（她 2026-11-08「每种卡都可以攻击吧不然太慢了」）：投递打满，别的打几成、再加自己的本事
