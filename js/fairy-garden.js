@@ -9,7 +9,7 @@
 // 接口密钥留在父页 callAI，不传进游戏画面。
 (function (root) {
   const { h, useState, useRef, useEffect, selectDialogs, localDialogs, replaceDialogs, worldCognition, WORLDS, SHOP_WORLD } = root.FairyCore;
-  const KEY = "x_fairyGarden", BUILD = "fg-fdbbcf1139f349e7", hosts = new WeakMap();
+  const KEY = "x_fairyGarden", BUILD = "fg-9983713c37f606aa", hosts = new WeakMap();
   root.FairyGardenHostFor = child => hosts.get(child) || null;
   // ⚠️「读回来是空」不等于「这儿本来就没有一档」。存档搬进 IDB 之后，文字仓没灌起来
   //   那一刻读到的也是空；这时候要是照着「没有」开一档新的，第一次保存就把她真正的
@@ -78,7 +78,7 @@
       h("div",{className:"flex-1 min-h-0",style:{position:"relative"}},h("iframe",{ref:binder.current,title:SHOP_WORLD.name+"游戏",src:"apps/post-office/index.html?v="+BUILD,style:{width:"100%",height:"100%",border:0,display:"block"}}),
         (!loaded||error&&!panel)&&h("div",{role:error?"alert":"status",style:{position:"absolute",inset:"40% 20px auto",textAlign:"center",fontSize:12}},error||"正在打开邮局…",error&&h('button',{onClick:()=>frame.current?.contentWindow.PostOfficeGame?.refresh(),style:{...pickButtonStyle(),minHeight:40,display:'block',margin:'10px auto'}},'重试读取'))),
       h("div",{className:"shrink-0",style:{padding:"5px 12px",paddingBottom:COMPOSER_PAD_BOTTOM,minHeight:56,borderTop:"1px solid "+G.line,display:"flex",alignItems:"center",gap:8}},
-        h("p",{style:{flex:1,fontSize:10,lineHeight:1.6}},"点店员、信格或摆件可以改。"),
+        h("p",{style:{flex:1,fontSize:10,lineHeight:1.6}},"单指转动，双指移/缩。"),
         h("button",{onClick:()=>frame.current?.contentWindow.PostOfficeGame?.resetView(),style:{minWidth:40,minHeight:40,fontSize:12}},"全景"),
         h("button",{disabled:!uiReady,onClick:()=>{setError("");setPanel({type:'menu'});},style:{...pickButtonStyle(),minHeight:40,padding:"5px 10px",fontSize:12}},"经营"),
         h("button",{onClick:()=>latest.current.onOpenStamps?.({tab:"duel",mode:"shop",back:"fairy-shop"}),style:{minHeight:40,padding:"5px",fontSize:12}},"去柜台")),

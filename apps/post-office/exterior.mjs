@@ -1,5 +1,5 @@
 import * as T from 'three';
-import {createRoomKit} from '../fairy-garden/day/places/room-kit.mjs?v=fg-fdbbcf1139f349e7';
+import {createRoomKit} from '../fairy-garden/day/places/room-kit.mjs?v=fg-9983713c37f606aa';
 // The neighboring street is local scene geometry; it never downloads a new model.
 export function createShopExterior(scene){
  const k=createRoomKit(),{root,box,cylinder,ellipsoid,group,sign}=k;root.name='PostOfficeStreet';scene.add(root);

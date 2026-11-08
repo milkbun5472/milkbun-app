@@ -36,6 +36,7 @@ const base=process.env.POST_OFFICE_URL||'http://127.0.0.1:18968',out=process.env
   const refresh=()=>f.evaluate(()=>PostOfficeGame.refresh());
   const menu=async()=>{await r.getByRole('button',{name:'经营',exact:true}).click();await r.locator('[data-part=shop-actions]').waitFor();};
   const panel=r.locator('[data-part=shop-actions]');const leave=()=>panel.getByRole('button',{name:'回到店里',exact:true}).click();
+  await require('../../test/post-office-rotation.browser.cjs')({p,r,f,panel,leave,out,result});
   await menu();await panel.getByRole('button',{name:'店员排班与工牌',exact:true}).click();await panel.getByLabel('送信排班').selectOption('');await p.waitForFunction(()=>loadJSON('x_stampShop',null).roster.送信==='');await panel.getByLabel('柜台排班').selectOption('c');await p.waitForFunction(()=>loadJSON('x_stampShop',null).roster.柜台==='c');
   await panel.getByRole('button',{name:'挂工牌',exact:true}).first().click();await panel.getByRole('button',{name:/晚风明信片/}).click();await p.waitForFunction(()=>loadJSON('x_stampShop',null).badge.柜台==='card3');await leave();await step();assert.equal((await f.evaluate(()=>PostOfficeGame.snapshot())).people.find(a=>a.id==='c').badge,'card3');
   // Physical clerk/letter-wall selection opens the corresponding host controls.
