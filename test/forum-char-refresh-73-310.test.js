@@ -13,7 +13,7 @@ test("一次刷新前三帖立刻出来（原来第三帖要等二十分钟，�
   assert.ok(m, "错峰表没了");
   const v = m[1].split(",").map(x => x.trim());
   assert.deepEqual(v.slice(0, 3), ["0", "0", "0"], "前三帖得同时到");
-  assert.match(app, /生成 3-5 条不同网友刚发的新主帖/, "一次至少要三条");
+  assert.match(app, /const _gN = _gen.batch \? String\(_gen.batch\) : "3-5";/, "没定条数时一次至少三条");
 });
 
 test("请角色来发帖：挑逛论坛的角色、言秋不算；在某个吧上按就发到这个吧", () => {
