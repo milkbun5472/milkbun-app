@@ -173,3 +173,11 @@ test("记下是哪张票动的手；让子、认真模式、快局", () => {
   assert.ok(st.over.turn <= 8);
   assert.ok(st.log.some(l => (l.kind === "hit" || l.kind === "hitEnv") && l.from && l.from.name));
 });
+test("明牌虚线：aims 算出对面每张会出手的票打哪儿，previewPlace 算贴这儿会打谁、凑不凑组合，都不改棋盘", async () => {
+  const D = globalThis.StampDuel || (await import("node:module")).createRequire(import.meta.url)("../js/stamp-duel.js");
+  const mk = (r, c) => Array.from({ length: 12 }, (_, i) => Object.assign(D.stampOf({ id: c + i, rarity: "R", lv: 5, text: { name: "x" } }), { role: r, charId: c }));
+  const st = D.newDuel(mk("投递", "a"), mk("投递", "b"), 3), before = JSON.stringify(st.foe.board) + JSON.stringify(st.me.board);
+  const a = D.aims(st, "foe"); assert.ok(a.length > 0); a.forEach(x => assert.ok(x.kind === "env" || x.to >= 0));
+  const pv = D.previewPlace(st, "me", 0, 4); assert.ok(pv && pv.aim && Array.isArray(pv.combo));
+  assert.equal(JSON.stringify(st.foe.board) + JSON.stringify(st.me.board), before);
+});

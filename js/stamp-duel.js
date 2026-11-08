@@ -526,6 +526,35 @@
     board.forEach((u, i) => { if (!u) return; if (u.role === "投递" && targetIn(me, col(i)) < 0) toEnv += u.pow; if (u.role === "邮戳") inks.push(u.ink); });
     return { place: plan, stamp: stamps, toEnvelope: toEnv, inks: inks.filter(x => x !== "加急"), nextEvent: eventNext(st), style, styleZh: STYLE_ZH[style] || "" };
   }
+  // 谁会打谁（她 2026-11-08「明牌的时候能不能也用虚线显示他要干啥」）：只算不动手，给界面画线
+  //   to=-1 是打信封；kind: hit 打票／env 打信封／ink 盖戳；planned=这张还在手里、下回合才贴上
+  function aimOf(st, sd, foe, i, u) {
+    const p = powOf(st, u, sd, i), j = targetIn(foe, col(i));
+    if (u.role === "投递") return { from: i, to: j, dmg: p, kind: j >= 0 ? "hit" : "env" };
+    if (u.role === "火漆") return j >= 0 ? { from: i, to: j, dmg: Math.floor(p / 2), kind: "hit" } : null;
+    if (u.role === "邮戳" && u.ink !== "加急" && u.ink !== "受潮") return j >= 0 ? { from: i, to: j, kind: "ink", ink: u.ink } : { from: i, to: -1, dmg: Math.ceil(p / 2), kind: "env" };
+    return null;
+  }
+  function aims(st, who) {
+    const sd = st[who], foe = st[other(who)], keep = sd.board, board = keep.slice(), planned = {};
+    if (who === "foe") ((st.intent || {}).place || []).forEach(pl => { const s = sd.hand.find(x => x && x.cardId === pl.cardId); if (s && !board[pl.slot]) { board[pl.slot] = Object.assign({}, s, { marks: {}, hp: s.maxHp, shield: 0, charge: 0 }); planned[pl.slot] = 1; } });
+    sd.board = board; const out = [];
+    try { board.forEach((u, i) => { if (!u || (u.marks && u.marks.退回)) return; const a = aimOf(st, sd, foe, i, u); if (a) out.push(Object.assign(a, planned[i] ? { planned: true } : {})); }); }
+    finally { sd.board = keep; }
+    return out;
+  }
+  // 手里这张要是贴在 slot：会打谁、打多少、凑不凑得成组合
+  function previewPlace(st, who, handIdx, slot) {
+    const sd = st[who], s = sd.hand[handIdx]; if (!s || sd.board[slot] || blocked(sd, slot)) return null;
+    const u = Object.assign({}, s, { marks: {}, hp: s.maxHp, shield: 0, charge: 0 }), keep = sd.board, board = keep.slice(); board[slot] = u; sd.board = board;
+    try {
+      const a = aimOf(st, sd, st[other(who)], slot, u), combo = [];
+      if (u.charId && adj(slot).some(j => board[j] && board[j].charId === u.charId)) combo.push("连张");
+      if (u.charId) { const r = row(slot), c = col(slot), same = k => board[k] && board[k].charId === u.charId;
+        if ([0, 1, 2].every(x => same(r * SIZE + x)) || [0, 1, 2].every(x => same(x * SIZE + c))) combo.push("整版"); }
+      return { aim: a, combo, cost: faceNow(st, s), afford: sd.postage >= faceNow(st, s) };
+    } finally { sd.board = keep; }
+  }
   function runFoePlan(st) {
     const it = st.intent || {};
     for (const s of it.stamp || []) { stamp(st, "foe", s.slot); if (st.over) return; }
@@ -570,7 +599,7 @@
   const mine = raw => (st, who, a, b) => { if (who !== "me") return raw(st, who, a, b); snap(st); const r = raw(st, who, a, b); if (!r || !r.ok) st.undo.pop(); return r; };
   const place = mine(placeRaw), tear = mine(tearRaw), move = mine(moveRaw), keep = mine(keepRaw), stamp = mine(stampRaw);
   const API = { RELICS, STYLE_ZH, TRAIT_FIT, TRAITS, SKILLS, BONDS, bondOf, unitInfo, SIZE, SLOTS, ENVELOPE_HP, POSTAGE, DRAW, DECK_SIZE, TURN_CAP, KEEP_MAX, FACE, NEED, ROLES, MARKS, TERRAIN, EVENTS,
-    stampOf, deckFrom, foeDeckFrom, newDuel, place, tear, move, keep, stamp, undo, canUndo, endTurn, planFoe, combos, newSeries, addGame, memoryLine, hashStr };
+    stampOf, deckFrom, foeDeckFrom, newDuel, aims, previewPlace, place, tear, move, keep, stamp, undo, canUndo, endTurn, planFoe, combos, newSeries, addGame, memoryLine, hashStr };
   g.StampDuel = API;
   if (typeof module !== "undefined" && module.exports) module.exports = API;
 })(typeof window !== "undefined" ? window : globalThis);

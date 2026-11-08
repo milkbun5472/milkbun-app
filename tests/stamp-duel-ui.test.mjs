@@ -101,3 +101,10 @@ test("点对战先挑玩法：对局／远信／新手教学关，挑了对局�
   assert.match(ui, /useState\(\(\) => \(preset \|\| runBattle\) \? "duel" : ""\)/);
   for (const k of ["duelmodeduel", "duelgorun", "duelturorial"]) assert.ok(ui.includes('"' + k + '"'), k);
 });
+test("明牌虚线和上手提示：对面要打哪儿画线、空格写贴这儿会打谁、手牌上一行现在能干嘛", () => {
+  assert.match(ui, /function AimLayer\(/);
+  assert.match(ui, /foeAims: st\.blind \? \[\] : D\(\)\.aims\(st, "foe"\)/);
+  assert.match(ui, /D\(\)\.previewPlace\(st, "me", handSel, i\)/);
+  assert.match(ui, /"data-wk": "dueltip"/);
+  assert.match(ts, /"duelaims"/); assert.match(ts, /"dueltip"/);
+});
