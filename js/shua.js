@@ -29,8 +29,16 @@
   // 评论区有后续（她 2026-10-08）：TA回了哪条网友评论、对方又回了什么，同一枪里写；有来有回的那一下记进TA的记忆，聊天里想起来自己会提
   const THREAD_ADD = ',"thread":{"name":"","reply":"","back":""}';
   const B_SHAPE_ADD = ',"title":"","intro":"","dur":"08:24","plays":0,"zone":"","dms":[""]';
-  const CHAR_SHAPE = '{"handle":"","scene":"","who":"self","caption":"","tags":[""],"likes":0,"comments":[{"name":"","text":""}]}';
-  const NPC_SHAPE = '{"videos":[{"author":"","scene":"","who":"none","caption":"","tags":[""],"likes":0,"comments":[{"name":"","text":""}]}]}';
+  // who：画面里出镜的是谁，画出来时照它定露不露人（群里 2026-11-08：推荐里每条画出来都没有人）——
+  //   原来格式里只写了一个 "none" 当示范，又没说这一格是什么，模型就条条照抄 none，全成了空镜
+  const WHO_FIELD = '"who":"self、part、none 填一个：self＝发视频的人自己露脸出镜（或镜头里拍的就是人），part＝只露手、背影这种局部，none＝空镜、镜头里没有人；照 scene 里拍的来"';
+  const CHAR_SHAPE = '{"handle":"","scene":"",' + WHO_FIELD + ',"caption":"","tags":[""],"likes":0,"comments":[{"name":"","text":""}]}';
+  const NPC_SHAPE = '{"videos":[{"author":"","scene":"",' + WHO_FIELD + ',"caption":"","tags":[""],"likes":0,"comments":[{"name":"","text":""}]}]}';
+  // 存之前收成三个字之一；填歪了的交给画图那头按画面自己认（drawFromDesc 的兜底）
+  // 画的时候用哪个：她自己发的照她点的那颗；刷出来的那些，"none" 不直接当真——
+  //   之前存下的条条都是照抄的 none，交给画面那几句自己认有没有人（scene 里写着没人的照样画空镜）
+  const drawWho = v => { const w = whoOf(v && v.who); return v && v.by !== "me" && w === "none" ? "" : w; };
+  const whoOf = w => { const x = S(w).trim().toLowerCase(); return x === "self" || x === "part" || x === "none" ? x : ""; };
   // 她小号发的视频，TA刷到了（她 2026-10-07 选的第 1 条）：认不认得出是她，全看TA对她的了解
   const SPOT_SHAPE = '{"spots":[{"name":"","comment":"","recognized":false,"why":""}]}';
   function spotSystem(v, alt, uName, chars, briefs) {
@@ -807,7 +815,7 @@
       setDrawing(v.id);
       try {
         const sc = String(scene2 || "").trim() || v.scene;
-        const ref = v.withCharId && props.drawDuo ? await props.drawDuo(v.withCharId, sc) : await props.draw(v.by === "char" ? v.charId : null, sc, v.who);
+        const ref = v.withCharId && props.drawDuo ? await props.drawDuo(v.withCharId, sc) : await props.draw(v.by === "char" ? v.charId : null, sc, drawWho(v));
         patchV(v.id, x => Object.assign({}, x, { img: ref }, sc !== v.scene ? { scene: sc } : {}));
       }
       catch (e) { toast("没画出来：" + ((e && e.message) || "")); }

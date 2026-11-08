@@ -24737,7 +24737,9 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     const who = char || { name: "", persona: "" };
     const kind = whoSaid === "none" ? "view" : whoSaid === "part" ? "part" : whoSaid === "self" ? "" : noFaceKindFor(desc, who.name);
     const noFace = !char || !!kind || !(char.appearance || char.refPhoto);
+    // 没角色卡的人出镜（片刻里网友的视频）：画那个普通人，不走「一个人都没有」的空景
     const prompt = kind === "part" && char ? buildScenePrompt(char, desc, { body: true })
+      : !char && kind !== "view" && typeof buildStrangerPrompt === "function" ? buildStrangerPrompt(desc, { body: kind === "part" })
       : noFace ? buildScenePrompt(who, desc, { forText: false })
       : buildPhotoPrompt(char, desc, states[char.id] || {}, { kind: "selfie", closet: closetTextFor(char.id) });
     const refs = noFace ? [] : [char.refPhoto].filter(Boolean);
