@@ -3,12 +3,11 @@ import {readFileSync,mkdtempSync,rmSync} from 'node:fs';import {tmpdir} from 'no
 import {writerCases,captureShopProbe,probeMessages,people} from './fixtures/post-office-prose.mjs';
 import {proseMetrics,runComparison,comparisonMarkdown} from '../scripts/checks/post-office-prose-ab.mjs';
 const source=readFileSync('js/app.js','utf8');
-const boundary='先照故事本来的样子写完整正文；写完再沿原有语句给每一句挑一个最贴的动作标签，没有贴切的就用 talk。动作标签只告诉3D场景怎么演，不是写作要求；正文原有的情节、动作描写、句子和段落保持原样，不为使用动作添加情节或动作描写，也不拆碎句子。';
-test('both actual writer requests use story-first labels while every other feature instruction remains identical',async()=>{
+test('both actual writer requests ask only for the story: no action list, schema keeps speaker and text',async()=>{
  const cases=await writerCases();assert.deepEqual(cases.map(x=>x.data.mode),['shopclose','shopmeet']);
- for(const fixture of cases){const before=await captureShopProbe(source.replace(boundary,''),fixture),after=await captureShopProbe(source,fixture);
-  assert.ok(after.probe.instruction.includes(boundary));assert.equal(after.probe.instruction.replace(boundary,''),before.probe.instruction);assert.equal(after.probe.schemaHint,before.probe.schemaHint);assert.equal(after.probe.maxTokens,65000);assert.equal(after.probe.voice,true);
-  const messages=await probeMessages(after);assert.equal(messages[0].role,'system');assert.equal(messages[1].content,'开始。');assert.equal(messages[0].content.split(boundary).length,2);for(const id of fixture.data.staffIds||[fixture.data.staffId,fixture.data.visitorId])assert.ok(messages[0].content.includes(people.find(p=>p.id===id).persona));
+ for(const fixture of cases){const after=await captureShopProbe(source,fixture);
+  assert.doesNotMatch(after.probe.instruction,/action|动作标签/);assert.doesNotMatch(after.probe.schemaHint,/action|actorId|targetId/);assert.equal(after.probe.maxTokens,65000);assert.equal(after.probe.voice,true);
+  const messages=await probeMessages(after);assert.equal(messages[0].role,'system');assert.equal(messages[1].content,'开始。');for(const id of fixture.data.staffIds||[fixture.data.staffId,fixture.data.visitorId])assert.ok(messages[0].content.includes(people.find(p=>p.id===id).persona));
  }
 });
 test('feature output keeps the exact original sentences, whitespace and paragraph breaks',async()=>{

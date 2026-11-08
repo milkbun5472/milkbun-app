@@ -25,9 +25,9 @@ test('consecutive speech has stable occasional nods and tilts confined to runtim
  const a=sample();assert.deepEqual(a,sample());assert.ok(a.includes('nod')&&a.includes('tilt')&&a.includes(null));
 });
 // Frozen from main b15a11427 before this work; only the permitted inventory is masked.
-test('the story prompt changes only its action inventory',()=>{
- const source=readFileSync('js/app.js','utf8'),a=source.indexOf('const stampShopChat ='),b=source.indexOf('const openStamps =',a);assert.ok(a>0&&b>a);const body=source.slice(a,b),boundary='先照故事本来的样子写完整正文；写完再沿原有语句给每一句挑一个最贴的动作标签，没有贴切的就用 talk。动作标签只告诉3D场景怎么演，不是写作要求；正文原有的情节、动作描写、句子和段落保持原样，不为使用动作添加情节或动作描写，也不拆碎句子。',normalize=s=>s.replace(boundary,'').replace(/action 可用 .*?；其他动作/,'action 可用 <ACTIONS>；其他动作');
- const expected=readFileSync(new URL('./fixtures/post-office-story-prompt.sha256',import.meta.url),'utf8').trim();assert.equal(createHash('sha256').update(normalize(body).trim()).digest('hex'),expected);
- assert.equal(body.split(boundary).length,2,'the story-first boundary appears exactly once');assert.doesNotMatch(globalThis.CharacterStoryActions.prompt,/尽量多用|每句都要有动作|多样一点/);
- assert.match(body,/action 可用 .*CharacterStoryActions\.prompt/);const list=globalThis.CharacterStoryActions.prompt;for(const action of STORY_ACTION_IDS)assert.match(list,new RegExp('\\b'+action+'（'));
+test('the story prompt carries no action vocabulary; the scene reads actions from the saved sentences',()=>{
+ const source=readFileSync('js/app.js','utf8'),a=source.indexOf('const stampShopChat ='),b=source.indexOf('const openStamps =',a);assert.ok(a>0&&b>a);const body=source.slice(a,b);
+ assert.doesNotMatch(body,/CharacterStoryActions|action 可用|actorId|targetId/);for(const id of STORY_ACTION_IDS)assert.doesNotMatch(body,new RegExp('\\b'+id+'（'));
+ const A=globalThis.CharacterStoryActions;assert.equal(A.infer('丙伸了个懒腰，骨头响了一声。'),'stretch');assert.equal(A.infer('乙经过长凳时拍了一下丙的肩。'),'pat');assert.equal(A.infer('甲走到吊灯下，拉了一下绳。'),'lamp');assert.equal(A.infer('今天一百八十七枚。'),'talk');
+ assert.deepEqual(A.mentioned('乙经过长凳时拍了一下丙的肩。',{a:'甲',b:'乙',c:'丙'}),['b','c']);
 });

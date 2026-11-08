@@ -5,7 +5,7 @@
  const finite=(v,f=0)=>Number.isFinite(Number(v))?Number(v):f;
  const dateKey=d=>d.getFullYear()+'-'+(d.getMonth()+1)+'-'+d.getDate();
  const STORY_ACTIONS=g.CharacterStoryActions.ids;
- const cleanTurns=(rows,allowed=null)=>arr(rows).map(x=>{const r=typeof x==='string'?{text:x}:obj(x),id=k=>typeof r[k]==='string'&&(!allowed||allowed.includes(r[k]))?r[k]:null;return {text:typeof r.text==='string'?r.text:'',speakerId:id('speakerId'),actorId:id('actorId')||id('speakerId'),targetId:id('targetId'),action:STORY_ACTIONS.includes(r.action)?r.action:'talk'};}).filter(x=>x.text.trim());
+ const cleanTurns=(rows,allowed=null,names=null)=>arr(rows).map(x=>{const r=typeof x==='string'?{text:x}:obj(x),id=k=>typeof r[k]==='string'&&(!allowed||allowed.includes(r[k]))?r[k]:null,text=typeof r.text==='string'?r.text:'';if(typeof r.action!=='string'){const A=g.CharacterStoryActions,who=A.mentioned(text,names).filter(x=>!allowed||allowed.includes(x)),speaker=id('speakerId'),actor=speaker||who[0]||null;const target=who.find(x=>x!==actor)||null;return {text,speakerId:speaker,actorId:actor,targetId:target,action:A.normalize(A.infer(text),!!target)};}return {text,speakerId:id('speakerId'),actorId:id('actorId')||id('speakerId'),targetId:id('targetId'),action:STORY_ACTIONS.includes(r.action)?r.action:'talk'};}).filter(x=>x.text.trim());
  const cleanNotes=(rows,allowed=null)=>arr(rows).filter(x=>x&&typeof x.text==='string').map(x=>({...x,speakerId:typeof x.speakerId==='string'&&(!allowed||allowed.includes(x.speakerId))?x.speakerId:null}));
  const cleanCast=raw=>Object.fromEntries(Object.entries(obj(raw)).filter(([,id])=>typeof id==='string'&&id));
  const storyKey=s=>s.date?'date:'+s.date:'day:'+s.day;
@@ -72,13 +72,13 @@
      const cardLine=id=>{const c=arr(o.cards).find(c=>c&&c.id===id);return c?'「'+(c.text?.name||'')+'」（'+name(o,c.charId)+'的卡'+(c.text?.line?'，'+c.text.line:c.text?.gist?'，'+c.text.gist:'')+'）':'';};
      const data=kind==='meet'?{mode:'shopmeet',day:s.day,decor:s.decor.join('、'),visitor:name(o,c.charId),visitorId:c.charId,staffId,staffName:name(o,staffId),post}:{mode:'shopclose',day:s.day,decor:s.decor.map(k=>k+((s.decorLv[k]||1)>1?'（翻新'+s.decorLv[k]+'级）':'')).join('、'),staff:posts.filter(p=>s.roster[p]).map(p=>name(o,s.roster[p])+'在'+p).join('、'),staffIds:staff,window:s.window.map(cardLine).join('；'),badges:posts.filter(p=>s.badge[p]).map(p=>name(o,s.roster[p])+'挂着'+cardLine(s.badge[p])).join('；'),coins:s.earned,customers:s.customers.filter(c=>c.done).map(c=>c.visitor?name(o,c.charId):c.name+(c.tough?(c.won?'（打赢了）':'（没打过）'):'')).join('、')};
      if(kind==='missed')Object.assign(data,s.missed,{mode:'shopclose',missed:true,coins:s.missed.earned,staffIds:s.missed.staffIds||[s.missed.first]});
-     request={data,cast:copy(kind==='missed'?s.missed.cast||{}:s.roster),storyDate:kind==='missed'?s.missed.date||'':s.date,storyDay:kind==='missed'?s.missed.day:s.day,allowed:[...new Set([...(data.staffIds||[]),data.visitorId,data.staffId].filter(Boolean))],charId:kind==='meet'?c.charId:kind==='missed'?s.missed.first:staff[0],staffId,visitorId:c?.charId,key,date:s.date,period:s.period,id:o.id};
+     request={data,cast:copy(kind==='missed'?s.missed.cast||{}:s.roster),storyDate:kind==='missed'?s.missed.date||'':s.date,storyDay:kind==='missed'?s.missed.day:s.day,allowed:[...new Set([...(data.staffIds||[]),data.visitorId,data.staffId].filter(Boolean))],names:Object.fromEntries([...new Set([...(data.staffIds||[]),data.visitorId,data.staffId].filter(Boolean))].map(id=>[id,name(o,id)])),charId:kind==='meet'?c.charId:kind==='missed'?s.missed.first:staff[0],staffId,visitorId:c?.charId,key,date:s.date,period:s.period,id:o.id};
      if(!request.charId||typeof o.onChat!=='function')throw Error('暂时没有能写这段话的角色或接口。');s.requests[key]={state:'pending',at:Date.now()};return {request};
     },o);
     if(prepare.done)return prepare.lines;
     if(!results.has(key)){
      request=prepare.request;
-     try{const value=await o.onChat(request.charId,request.data),rows=Array.isArray(value)?value:arr(value?.lines),turns=cleanTurns(rows,request.allowed);if(!turns.length)throw Error('没有写出文字，请稍后重试。');results.set(key,{...request,turns,lines:turns.map(x=>x.text),notes:cleanNotes(value&&value.notes,request.allowed)});}
+     try{const value=await o.onChat(request.charId,request.data),rows=Array.isArray(value)?value:arr(value?.lines),turns=cleanTurns(rows,request.allowed,request.names);if(!turns.length)throw Error('没有写出文字，请稍后重试。');results.set(key,{...request,turns,lines:turns.map(x=>x.text),notes:cleanNotes(value&&value.notes,request.allowed)});}
      catch(e){await transaction(s=>{if(s.requests[key])s.requests[key]={state:'failed'};},o).catch(()=>{});throw e;}
     }
     const result=results.get(key);
