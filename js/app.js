@@ -20,7 +20,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v89.295";
+const APP_VERSION = "v89.299";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -36176,7 +36176,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
             + "照你的人设和你们现在的关系来写，你就是故事里的你；写正在发生的事，有动作、有对话、有你们之间的那一下，别写成总结。前面她选了什么、打赢打输了，这一章要接得住。\n"
             + (end
               ? "现在写这段故事的结局：照前面五章走过来的路、她的选择、打赢打输，写一个合得上的结局，几段，收住。title 是结局的名字，lines 一段一项。"
-              : "现在写第 " + d.ch + " 章（共五章）：几段，写到遇上这一章拦路的对手为止。title 是这一章的名字；lines 一段一项；foe.name 是这一章拦路的对手叫什么（人、东西、天气都行，跟故事合得上），foe.say 是它出场时说的话或者它给人的感觉；choices 是这一章打完以后她能选的两三条路，每条一句话，选了会把故事带去不同的方向。"),
+              : "现在写第 " + d.ch + " 章（共五章）：几段，写到遇上这一章拦路的对手为止。title 是这一章的名字；lines 一段一项；foe.name 是这一章拦路的对手叫什么（人、东西、天气都行，跟故事合得上），foe.say 是它出场时说的话或者它给人的感觉；choices 是这一章打完以后她能选的两三条路，每条一句话，选了会把故事带去不同的方向；choices 是她这边要做的事，用她的口吻写：她自称「我」，你写作「你」。"),
           schemaHint: end ? "{\"title\":\"\",\"lines\":[\"一段\"]}" : "{\"title\":\"\",\"lines\":[\"一段\"],\"foe\":{\"name\":\"\",\"say\":\"\"},\"choices\":[\"一条路\"]}" });
         const lines = (Array.isArray(r && r.lines) ? r.lines : [r && r.lines]).map(x => String(x || "").trim()).filter(Boolean);
         if (!lines.length) return null;

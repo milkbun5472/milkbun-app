@@ -4103,7 +4103,7 @@ function loreImgText(entries, charIds, sceneText) {
 function imgLorePart(charIds, sceneText) {
   const g = typeof window !== "undefined" ? window : globalThis;
   const txt = g && typeof g.__loreImg === "function" ? String(g.__loreImg(charIds, sceneText) || "").trim() : "";
-  return txt ? "【画面设定（世界书·生图）】下面是这张图要遵守的画风和视觉设定；跟上面的身份锁冲突时以身份锁为准：\n" + txt : "";
+  return txt ? "【画面设定（世界书·生图）】下面是这张图要遵守的画风和视觉设定；跟这份要求里的身份锁、未成年安全锁冲突时，以那两样为准：\n" + txt : "";
 }
 function loreLine(e) {
   const body = String(e.payload).trim();
@@ -5895,6 +5895,11 @@ function buildPhotoPrompt(char, sceneDesc, st, opts) {
     if (ANIME_HINT.test([char.appearance, visualCanon, personaVisualSource].filter(Boolean).join("\n")))
       parts.push("【这个角色是二次元形象】设定里写明了是二次元——就算看不清参考图，也按二次元插画来画，别画成真人照片。");
   }
+  // 世界书·生图紧跟画风那一句（群里 2026-11-08：「加了提示词世界书，生出来还是 GPT 原生感，同一段在别处用有效」）：
+  //   原来它排在手、体态、身体锁、人设、身份锁那一长串后面，提示词一长就被稀释；画风、质感本来就该跟画风那句挨着说。
+  //   身份锁和未成年锁照旧在后面压着，跟它冲突时以那两样为准（那句写在 imgLorePart 里）
+  const _imgLore = typeof imgLorePart !== "function" ? "" : imgLorePart([char && char.id].concat((opts && opts.cast || []).map(c => c && c.id)).filter(Boolean), sceneDesc);
+  if (_imgLore) parts.push(_imgLore);
   // 外貌提前（她 2026-10-05：「要不要把外貌移前一点」）：原来单人照的外貌排在手、体态、身体锁、人设那一长串后面，
   //   提示词一长就被稀释。单人照挪到画风后面第一句；双人／多人照按名字对应参考图，仍在下面各自那一段里写。
   const soloLook = !(kind === "duo" || multi) && char.appearance && char.appearance.trim();
@@ -5924,9 +5929,7 @@ function buildPhotoPrompt(char, sceneDesc, st, opts) {
   const accessories = String(char.photoAccessories || "").trim();
   if (accessories) parts.push("【随身不摘的东西·每张都要有】" + (kind === "duo" || multi ? "「" + cName + "」" : "人物") + "身上始终带着：" + accessories + "。它们与换不换衣服无关,不因场景、季节或服装变化而消失或改动;戴的位置、数量、款式每张保持一致。");
   if (visualCanon) parts.push("【最高优先级·身份锁】" + visualCanon + "。年龄、性别、种族、体型与身体特征不得擅自补全、成熟化、女性化、男性化或随机改变。");
-  const _imgLore = typeof imgLorePart !== "function" ? "" : imgLorePart([char && char.id].concat((opts && opts.cast || []).map(c => c && c.id)).filter(Boolean), sceneDesc);
   if (isMinor) parts.push("【未成年人安全与解剖硬锁】这是儿童／未成年角色：必须呈现明确、自然、符合设定年龄的儿童身体比例和第二性征；穿着完整、姿态与镜头完全非性化，禁止成人化、性感化、胸部曲线、乳沟或夸张身体特征。" + (isBoy ? "该角色是男孩／男童：胸廓必须是自然平坦的男童胸廓，绝对不能生成女性乳房或胸部隆起。" : "") + "即使参考图或场景有歧义，也以儿童身份锁为准。");
-  if (_imgLore) parts.push(_imgLore);
   // —— 主体人物 ——
   // 合影点名单（v53.85）：opts.cast = [{name, appearance, outfit}]，顺序【必须】等于参考图顺序。
   // 给它就走多人分支，人数不写死——群合照是「在场角色 + 你」，以后「看看你俩合照」只是换一份名单，

@@ -23,10 +23,15 @@ test("画图只拿生图条目：常驻都带、关键词对画面描述、认�
   assert.equal(f.loreImgText(E, ["甲"], "海边散步"), "厚涂油画风\n海边要画灯塔\n只给甲");
 });
 
-test("两处拼画面要求都接上；排在身份锁和未成年锁后面", () => {
+// 2026-11-08 群里：「加了提示词世界书，生出来还是 GPT 原生感」——排在一长串锁后面被稀释，挪到画风那句紧后面；
+//   身份锁、未成年锁照旧都在，生图那段自己写明冲突时以它们为准
+test("两处拼画面要求都接上；人物照里紧跟画风那一句，身份锁、未成年锁照旧在", () => {
   const photo = s.slice(s.indexOf("function buildPhotoPrompt"), s.indexOf("function buildScenePrompt"));
-  assert.ok(photo.indexOf("if (_imgLore) parts.push(_imgLore)") > photo.indexOf("if (isMinor) parts.push"));
-  assert.ok(photo.indexOf("if (_imgLore) parts.push(_imgLore)") > photo.indexOf("if (visualCanon) parts.push"));
+  const at = photo.indexOf("if (_imgLore) parts.push(_imgLore)");
+  assert.ok(at > photo.indexOf("—— 写实总纲"));
+  assert.ok(at < photo.indexOf("const soloLook"));
+  assert.ok(photo.indexOf("if (isMinor) parts.push") > 0 && photo.indexOf("if (visualCanon) parts.push") > 0);
+  assert.match(s, /以那两样为准/);
   assert.match(s.slice(s.indexOf("function buildScenePrompt")), /imgLorePart\(\[char && char\.id\]\.filter/);
   const app = fs.readFileSync(path.join(__dirname, "..", "js", "app.js"), "utf8");
   assert.match(app, /window\.__loreImg = \(charIds, sceneText\) => loreImgText\(loreRef\.current, charIds, sceneText\)/);
