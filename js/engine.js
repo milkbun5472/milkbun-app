@@ -12463,8 +12463,9 @@ function vclockSeg(c, ts) {
 function vclockKeepHist(oldClocks, newClocks, now) {
   const out = { ...(newClocks || {}) }; now = now || Date.now();
   Object.keys(out).forEach(k => {
-    const o = oldClocks && oldClocks[k], n = out[k];
-    if (!o || !n) return;
+    // 原来没有这只钟（从没拨过，比如头一回点「先歇着」）也算「关着」：开钟这一下照样记一段「之前是现实」
+    const o = (oldClocks && oldClocks[k]) || { on: false }, n = out[k];
+    if (!n) return;
     // 开、关钟这一下也记一笔（她 2026-11-01：「从虚拟时间改到现实和 vice versa 不会有错吧」）：
     //   原来只有「开着→开着」才记，关钟以后以前虚拟那段统统按现实重算，开钟以后以前现实那段统统被算成虚拟的。
     //   关钟：把那一版虚拟钟记下来（之前的消息照旧是虚拟的日子）；开钟：把关着那段记成「现实」（real:true，原样）。
