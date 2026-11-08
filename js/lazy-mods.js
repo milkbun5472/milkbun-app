@@ -32,8 +32,20 @@
   //   原来是一份下完、跑完再下一份：小世界那组九份，网慢时就是九个来回排着队。现在等的是最慢那一份。
   //   执行用内联脚本（文本 + sourceURL，报错照样指得出是哪份文件）；下载走 fetch，跟闲时预下载、
   //   service worker、浏览器缓存是同一份。没有 fetch 的环境照旧一份份挂 src（退路）。
-  const fetchText = src => fetch(src, { credentials: "same-origin" })
-    .then(r => { if (!r.ok) throw new Error(String(r.status)); return r.text(); })
+  // ⚠️必须有超时（她 2026-11-08 群友：「进去了但是设置打不开」）：手机网一挂着不回话时，
+  //   fetch 既不成也不败，上面那层就永远停在「在打开……」，看起来就是这一页打不开、点了没反应。
+  //   25 秒没回话当断了算，自己重来一次（更新过后这几份是全新的地址，第一次本来就要现下）；
+  //   两次都不成才报错，让那一层能摆出「再试一次」。
+  const LAZY_TIMEOUT = 25000;
+  const fetchOnce = src => {
+    const ctl = typeof AbortController === "function" ? new AbortController() : null;
+    const tm = setTimeout(() => { try { ctl && ctl.abort(); } catch (e) {} }, LAZY_TIMEOUT);
+    return fetch(src, ctl ? { credentials: "same-origin", signal: ctl.signal } : { credentials: "same-origin" })
+      .then(r => { if (!r.ok) throw new Error(String(r.status)); return r.text(); })
+      .finally(() => clearTimeout(tm));
+  };
+  const fetchText = src => fetchOnce(src)
+    .catch(() => fetchOnce(src))
     .catch(() => { throw new Error("没下载下来：" + src.split("?")[0]); });
   const runText = (src, text) => {
     // sourceURL 只供调试，不能替内联脚本保住 import() 的相对基址。
