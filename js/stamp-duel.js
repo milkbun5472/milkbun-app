@@ -534,6 +534,29 @@
     }
     return acts;
   }
+  // ── 邮局小店（她 2026-11-08「店面可以做，不进记忆」「好多角色怎么弄」）──────────────────────
+  //   四个岗位排店员（一个角色也能开：一个人顶一个岗）；按人设关键词有擅长的岗位；客人多是路人，难缠的要打一局；
+  //   不上班的角色会来当客人。钱买装修，装修加收入、打烊那段也会写到
+  const SHOP = {
+    POSTS: ["柜台", "分拣", "送信", "看店"],
+    APT: { 柜台: /温柔|笑|耐心|礼貌|体贴|会说话/, 分拣: /细心|安静|书|整理|认真|一丝不苟/, 送信: /跑|运动|冲|骑|腿|活泼/, 看店: /懒|猫|睡|闲|发呆|慢/ },
+    DECOR: [
+      { k: "旧木招牌", price: 30, bonus: 0.05 }, { k: "一盆绿萝", price: 40, bonus: 0.05 }, { k: "暖黄的吊灯", price: 60, bonus: 0.08 }, { k: "靠窗的长凳", price: 80, bonus: 0.08 },
+      { k: "铜铃门帘", price: 100, bonus: 0.1 }, { k: "整面墙的信格", price: 150, bonus: 0.12 }, { k: "会走的老座钟", price: 200, bonus: 0.12 }, { k: "二楼的小阁楼", price: 320, bonus: 0.18 }
+    ],
+    NPC: [["寄信的老太太", "给孙子寄一包毛线袜", 8], ["赶时间的学生", "加急寄一份报名表", 10], ["沉默的画家", "寄一卷画", 12], ["迷路的旅人", "问路，顺手买几张明信片", 6], ["花店老板", "寄一盒压花", 9], ["邻居小孩", "给笔友寄信，钱不太够", 4], ["退休的邮差", "来坐坐，顺便寄张贺卡", 7]],
+    TOUGH: [["难缠的审查员", "说你家的邮戳不合规", 18], ["来砸场子的对家", "说要把客人都抢走", 22], ["吵着退款的客人", "坚持说信寄丢了", 16]]
+  };
+  const shopApt = (persona, post) => SHOP.APT[post] && SHOP.APT[post].test(String(persona || "")) ? 1 : 0;
+  // 今天的收入倍数：每排一个岗 +15%，排到擅长的岗再 +10%，装修各加一点
+  const shopMul = (shop, roster, personaOf) => 1 + Object.keys(roster || {}).filter(p => roster[p]).reduce((a, p) => a + 0.15 + 0.1 * shopApt(personaOf(roster[p]), p), 0) + (shop.decor || []).reduce((a, k) => a + ((SHOP.DECOR.find(d => d.k === k) || {}).bonus || 0), 0);
+  // 今天来的客人：路人 4 个起、装修多了人多；里面一两个难缠的；没上班的角色最多来两个
+  function shopCustomers(shop, offDuty, seed) {
+    const R = rng(((seed >>> 0) ^ (shop.day * 2654435761)) >>> 0), n = 4 + Math.floor((shop.decor || []).length / 2), out = [];
+    for (let k = 0; k < n; k++) { const tough = R() < 0.22, x = (tough ? SHOP.TOUGH : SHOP.NPC)[Math.floor(R() * (tough ? SHOP.TOUGH : SHOP.NPC).length)]; out.push({ id: "c" + k, name: x[0], want: x[1], fee: x[2], tough }); }
+    shuffle((offDuty || []).slice(), R).slice(0, Math.min(2, (offDuty || []).length)).forEach((id, k) => { if (R() < 0.75) out.splice(1 + k * 2, 0, { id: "v" + k, charId: id, fee: 12, visitor: true }); });
+    return out;
+  }
   const siegeIdle = (st, sd, i) => !!(st.siege && sd === st.foe && row(i) > 0);   // 守城：对面还没走到前排的不动手
 
   // ── 材料和专属信物（她 2026-11-08「打完或者某些路线掉落材料……花调用生成角色专属信物，从人设和我们聊天里来」）──
@@ -975,7 +998,7 @@
   const mine = raw => (st, who, a, b) => { if (who !== "me") return raw(st, who, a, b); snap(st); const r = raw(st, who, a, b); if (!r || !r.ok) st.undo.pop(); return r; };
   const place = mine(placeRaw), tear = mine(tearRaw), move = mine(moveRaw), keep = mine(keepRaw), stamp = mine(stampRaw);
   const API = { RELICS, STYLE_ZH, TRAIT_FIT, TRAITS, SKILLS, BONDS, bondOf, unitInfo, SIZE, SLOTS, ENVELOPE_HP, POSTAGE, DRAW, DECK_SIZE, TURN_CAP, KEEP_MAX, FACE, NEED, ROLES, MARKS, TERRAIN, EVENTS,
-    stampOf, deckFrom, foeDeckFrom, autoMe, PUZZLE_MAX, puzzleOf, pzSolve, PATROL, TA_CELLS, TA_PTS, patrolNew, patrolCan, patrolMove, patrolBattle, patrolAfter, weekNo, SHIFT, shiftNew, shiftRoll, shiftPrice, shiftBuy, shiftSell, shiftDeck, shiftBonds, shiftFoeLv, shiftAfter, EDICTS, EDICT_LV, edictDeck, RAID_TURNS, MATS, BASE_MATS, THEME_MAT, KEEP_FX, KEEP_MAX_SLOTS, keepFxOf, keepTier, matDrop, SIEGE_TIERS, newDuel, envFor, avgLv, fairDeck, aims, actsOf, previewPlace, place, tear, move, keep, stamp, undo, canUndo, endTurn, planFoe, combos, newSeries, addGame, memoryLine, hashStr };
+    stampOf, deckFrom, foeDeckFrom, SHOP, shopApt, shopMul, shopCustomers, autoMe, PUZZLE_MAX, puzzleOf, pzSolve, PATROL, TA_CELLS, TA_PTS, patrolNew, patrolCan, patrolMove, patrolBattle, patrolAfter, weekNo, SHIFT, shiftNew, shiftRoll, shiftPrice, shiftBuy, shiftSell, shiftDeck, shiftBonds, shiftFoeLv, shiftAfter, EDICTS, EDICT_LV, edictDeck, RAID_TURNS, MATS, BASE_MATS, THEME_MAT, KEEP_FX, KEEP_MAX_SLOTS, keepFxOf, keepTier, matDrop, SIEGE_TIERS, newDuel, envFor, avgLv, fairDeck, aims, actsOf, previewPlace, place, tear, move, keep, stamp, undo, canUndo, endTurn, planFoe, combos, newSeries, addGame, memoryLine, hashStr };
   g.StampDuel = API;
   if (typeof module !== "undefined" && module.exports) module.exports = API;
 })(typeof window !== "undefined" ? window : globalThis);

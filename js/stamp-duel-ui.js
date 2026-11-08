@@ -128,6 +128,7 @@
     ["远信：一路打过去", "从挑玩法页进「远信」：给一个人寄一封信，信要走一段邮路，最后一站是 TA 本人。", "信封血带着走：一场打完不回满，到驿站、岔路、邮局才回得来。", "路线：雪国、海边、旧城、夜车、花季、沙漠、雨季、山路、梦里、TA 的城市，节日那条只在节日前后开。每条一条棋盘规则，对局顶上写着。默认是 TA 照人设推荐的那条。"],
     ["守城：一波一波守住", "从挑玩法页进「守城」，先挑一档（五档，各写建议等级）：没有对手，卡组从你的邮票册里配，对面是一波一波压过来的麻烦。", "敌人贴在对面后排，一回合往前走一格；走到前排的会打你那一列，在前排站过一回合还没被打掉，下回合就闯过去撞你的信封（写着「要闯过去」）。", "守过第 10 波、场上清空就赢；信封打空就城破。每守住三波，信封回 5、下回合多摸一张。", "跟对局同一套：贴票、胶水、盖章、组合都照旧。你的票照样打同一列最前面那个，所以在敌人走到前排之前就能先打它。"],
     ["远信的信物", "远信路上打赢会掉材料（走主题路线掉那条路的，打赢终点掉「TA 的东西」），只在这一趟里用。", "路线图上点「做信物」：挑三样材料（能混着）、挑收信的人或陪你走的人，请 TA 做一件，花一次调用。TA 照自己的人设和你们聊过的事写名字、一两句来历、看着它说的一句话。", "效果从三样材料的偏向里挑，同一种偏向的越多越强，「TA 的东西」再加一档；做好当场就能带上，这一趟后面每一站都生效。一开始只能带一件，路上的「旧行李箱」能多开一格，最多三格。", "做过的信物都收进开头页的「信物册」。下一趟跟同一个人出发（TA 收信或陪你走），能在开头挑一件旧信物带上，占一格。"],
+    ["邮局小店", "挑玩法页「和 TA 一起」里的「邮局小店」：每天先排班（柜台、分拣、送信、看店），谁擅长哪个岗会标 ✦；一个角色也能开。", "开门接客：路人直接招待收钱，难缠的要打一局（赢了收双倍）；没上班的角色会来当客人，可以听 TA 跟店员说两句。打烊花一次调用，写今天店里所有上班的人一小段。钱买装修，收入变多。店里的事不进记忆。"],
     ["剧情闯关：一起走一段故事", "挑玩法页「和 TA 一起」里的「剧情闯关」：挑一个人、挑个开头（或者让 TA 起一个），一共五章。", "每章 TA 先写一段，写到遇上拦路的对手；你用卡跟它打一场，打完挑一条路往下走。打赢打输、选哪条路，后面的走向和结局都会跟着变。第五章打完 TA 写结局，整段收进故事集。每章花一次调用，结局一次。走到一半退出，下次接着。"],
     ["接力：你一回合、TA 一回合", "挑玩法页「和 TA 一起」里的「接力」：挑一个人，你们轮流下同一块棋盘打审查局，单数回合你下、双数回合 TA 下。", "TA 那回合照自己的性子出牌：护短的先顶前排，好胜的抢着贴投递，冷淡的一回合最多贴两张，温柔的有人受伤先上补票。信封是你们共用的，卡组多从 TA 的卡里来。能边打边跟 TA 说话，打完能听 TA 评一把。"],
     ["残局：找最好的一手", "挑玩法页进「残局」：30 关，一关一关开，人人题目一样；30 关全过了接着打「无限关」（难度封顶，记最远第几关）。另有「每日残局」：一天一题、每个人的都不一样，连着解有连续天数。每关棋盘、手牌、胶水都摆好了，只有这一回合，寄出时要把对面信封打空。", "对面信封正好是这一手最好能打出的伤害，所以得找到最好的放法：贴哪几张、贴哪格（连张、后排、组合）、先给谁盖章。随手往空格里贴的那种放法一定不够。", "卡住了点「提示」，一次给一步；「重来」把这一关摆回原样。"],
@@ -368,11 +369,11 @@
     const byId = useMemo(() => { const m = {}; (cards || []).forEach(c => { if (c && c.id) m[c.id] = c; }); return m; }, [cards]);
     const nameOf = id => { if (id === "tut_pair") return "小练"; const c = (characters || []).find(x => x.id === id); return c ? (c.remark || c.name) : ""; };
     const cardOf = id => byId[id] || null, ownerOf = id => id && nameOf(id) ? nameOf(id) + "的卡" : "";
-    let foeName = (st && st.story && st.story.foe) || (st && st.relay && "审查局") || (st && st.puzzle && "残局") || (st && st.patrol && (st.patrol === "boss" ? "巡查长" : "巡查站")) || (st && st.shift && "审查局") || (st && st.edict && "审查局") || (st && st.siege && "城外") || (st && st.raid && "邮政总局") || (runBattle && runBattle.foeName) || nameOf(runBattle ? runBattle.foeId : foeId) || "TA";
+    let foeName = (st && st.shopFight && st.shopFight.name) || (st && st.story && st.story.foe) || (st && st.relay && "审查局") || (st && st.puzzle && "残局") || (st && st.patrol && (st.patrol === "boss" ? "巡查长" : "巡查站")) || (st && st.shift && "审查局") || (st && st.edict && "审查局") || (st && st.siege && "城外") || (st && st.raid && "邮政总局") || (runBattle && runBattle.foeName) || nameOf(runBattle ? runBattle.foeId : foeId) || "TA";
     // 没打完退出去也留着（她 2026-11-07「没打完暂退能不能存档跟小游戏一样」）：每动一步就存一份，打完、放弃才清
     const SAVE_KEY = "x_stampDuelSave";
     const [saved, setSaved] = useState(() => { try { const v = typeof loadJSON === "function" ? loadJSON(SAVE_KEY, null) : null; return v && v.st && !v.st.over ? v : null; } catch (e) { return null; } });
-    const persist = (x, sr) => { try { if (typeof saveJSON !== "function" || (x && (x.tutorial || x.run || x.siege || x.raid || x.edict || x.shift || x.patrol || x.puzzle || x.relay || x.story)) || runBattle) return; if (x && !x.over) saveJSON(SAVE_KEY, { st: x, series: sr || null, foeId, at: Date.now() }); else saveJSON(SAVE_KEY, null); } catch (e) {} };
+    const persist = (x, sr) => { try { if (typeof saveJSON !== "function" || (x && (x.tutorial || x.run || x.siege || x.raid || x.edict || x.shift || x.patrol || x.puzzle || x.relay || x.story || x.shopFight)) || runBattle) return; if (x && !x.over) saveJSON(SAVE_KEY, { st: x, series: sr || null, foeId, at: Date.now() }); else saveJSON(SAVE_KEY, null); } catch (e) {} };
     const redraw = () => { persist(st, series); bump(x => x + 1); };
     const resume = () => { if (!saved) return; setFoeId(saved.foeId); setSt(saved.st); setSeries(saved.series || D().newSeries()); setSaved(null); setHandSel(-1); setBoardSel(-1); };
     const drop = () => { persist(null); setSaved(null); };
@@ -442,6 +443,12 @@
       const nd = D().newDuel(me, foeDeck, s, { foeLv: Math.max(3, Math.round(D().avgLv(me) * (0.85 + sv0.chapters.length * 0.06))), bonds: bondsOf() });
       nd.story = { foe: c.foe.name, charId: sv0.charId }; setSt(nd); setMode("story"); setHandSel(-1); setBoardSel(-1);
     };
+    // 邮局小店（她 2026-11-08）：排班→开门接客→打烊（一天一次调用写所有上班的人）→明天
+    const SHOP_KEY = "x_stampShop";
+    const [shopSt, setShop0] = useState(() => { try { return (typeof loadJSON === "function" ? loadJSON(SHOP_KEY, null) : null) || null; } catch (e) { return null; } });
+    const setShop = v => { setShop0(v ? Object.assign({}, v) : null); try { saveJSON(SHOP_KEY, v); } catch (e) {} };
+    const [shBusy, setShBusy] = useState(""), [shMeet, setShMeet] = useState(null);
+    const personaOf = id => { const c = (characters || []).find(x => x.id === id) || {}; return [c.persona, c.description, c.desc, c.personality].filter(Boolean).join(" "); };
     const RELAY_KEY = "x_stampRelay";
     const relayRec = () => { try { return (typeof loadJSON === "function" ? loadJSON(RELAY_KEY, null) : null) || {}; } catch (e) { return {}; } };
     const startRelay = () => {
@@ -590,7 +597,7 @@
       h("div", { style: { position: "relative", height: 124, padding: "10px 11px", overflow: "hidden", background: "linear-gradient(155deg, rgba(255,255,255,.14), rgba(0,0,0,.14)), " + color, color: "#fff", display: "flex", flexDirection: "column" } },
         h("div", { style: { position: "absolute", right: -6, top: -14, fontFamily: FD, fontSize: fz(78), lineHeight: 1, opacity: .16 } }, glyph),
         h("div", { style: { position: "absolute", inset: 4, border: "1px solid rgba(255,255,255,.35)", pointerEvents: "none" } }),
-        h("div", { style: { fontSize: fz(9.5), letterSpacing: ".2em", opacity: .85 } }, "邮票对战"),
+        h("div", { style: { fontSize: fz(9.5), letterSpacing: ".2em", opacity: .85 } }, "邮票游戏室"),
         h("div", { style: { fontFamily: FD, fontSize: fz(21), marginTop: 4, letterSpacing: ".06em" } }, title),
         h("div", { style: { fontSize: fz(11), lineHeight: 1.45, marginTop: 3, opacity: .92 } }, tag),
         h("div", { style: { flex: 1 } }),
@@ -616,6 +623,49 @@
         h("div", { style: { fontSize: fz(12), color: SUB, lineHeight: 1.7, marginTop: 4, marginRight: 40 } }, desc)));
     // 守城挑档（她 2026-11-08「后面难度比我的卡都高我怎么赢」→ 固定难度档）
     // 小物册（她 2026-11-08）：按人分页；上面写攒了几个没拆的包裹，点「拆一个」花一次调用
+    if (!st && mode === "shop") {
+      const C = "#8a6a2a", sh = shopSt || { day: 1, coins: 20, decor: [], roster: {}, customers: [], phase: "plan", closing: null, earned: 0 };
+      const ppl = (characters || []).filter(c => (cards || []).some(k => k.charId === c.id)), POSTS = D().SHOP.POSTS;
+      const mul = D().shopMul(sh, sh.roster, personaOf), onDuty = POSTS.map(p => sh.roster[p]).filter(Boolean);
+      const staffLine = () => POSTS.filter(p => sh.roster[p]).map(p => (nameOf(sh.roster[p]) || "") + "在" + p).join("、");
+      const open = () => { if (!onDuty.length) { toast && toast("至少排一个人上班"); return; } sh.customers = D().shopCustomers(sh, ppl.map(c => c.id).filter(id => !onDuty.includes(id)), patrolSalt()); sh.phase = "open"; sh.earned = 0; sh.closing = null; setShop(sh); };
+      const serve = c => { const fee = Math.round(c.fee * mul); sh.coins += fee; sh.earned += fee; c.done = true; c.got = fee; setShop(sh); };
+      const fight = c => { const s0 = (seedRef.current = (seedRef.current * 1103515245 + 12345) >>> 0), me = D().deckFrom(cards, s0, D().DECK_SIZE, onDuty), fd = D().edictDeck(s0).map((u, k) => Object.assign(u, { name: c.name + (k ? "·" + (k + 1) : "") }));
+        const nd = D().newDuel(me, fd, s0, { foeLv: Math.max(3, Math.round(D().avgLv(me) * 0.9)), cap: 8, bonds: bondsOf() }); nd.shopFight = { id: c.id, name: c.name, fee: c.fee }; setSt(nd); setMode("shop"); setHandSel(-1); setBoardSel(-1); };
+      const meet = async c => { if (shBusy || !onChat || !onDuty.length) return; const post = POSTS.find(p => sh.roster[p]) || "柜台", staff = sh.roster[post]; setShBusy(c.id);
+        try { const lines = await onChat(c.charId, { mode: "shopmeet", day: sh.day, decor: (sh.decor || []).join("、"), visitor: nameOf(c.charId), staffName: nameOf(staff), post }); if (lines && lines.length) { c.meet = lines; setShop(sh); setShMeet(c.id); } }
+        catch (e) { toast && toast("没成：" + ((e && e.message) || e)); } finally { setShBusy(""); } };
+      const close = async () => { if (shBusy || !onChat) { sh.phase = "closed"; setShop(sh); return; } setShBusy("close");
+        try { const lines = await onChat(onDuty[0], { mode: "shopclose", day: sh.day, decor: (sh.decor || []).join("、"), staff: staffLine(), coins: sh.earned, customers: sh.customers.filter(c => c.done).map(c => c.visitor ? nameOf(c.charId) : c.name + (c.tough ? (c.won ? "（打赢了）" : "（没打过）") : "")).join("、") });
+          sh.closing = lines && lines.length ? lines : null; sh.phase = "closed"; setShop(sh); }
+        catch (e) { toast && toast("没成：" + ((e && e.message) || e)); } finally { setShBusy(""); } };
+      const card = (key, kids, color) => h("div", { key, style: { marginBottom: 12, padding: "12px 14px", borderRadius: 6, background: "rgba(255,253,247,.92)", boxShadow: "0 2px 8px rgba(47,42,34,.1)", borderLeft: "4px solid " + (color || C) } }, kids);
+      const para = lines => lines.map((t, k) => h("p", { key: k, style: { fontFamily: FD, fontSize: fz(13.5), lineHeight: 1.85, margin: "0 0 8px", whiteSpace: "pre-wrap" } }, t));
+      return shell([
+        h(Head, { key: "hd", zh: "邮局小店 · 第 " + sh.day + " 天", bg: "transparent", ink: INK, onBack: () => setMode(""), right: guideBtn }),
+        h("div", { key: "bd", "data-wk": "duelshop", className: "flex-1 min-h-0 overflow-y-auto px-4", style: { fontFamily: F, color: INK, paddingTop: 4, paddingBottom: 24 } },
+          sh.day === 1 && sh.phase === "plan" && !sh.decor.length ? modeHero(C, "店", "邮局小店", "你开了一家小邮局。每天先排班：柜台、分拣、送信、看店四个岗，你的角色谁来上；排对擅长的岗收入多。开门接客：路人寄东西直接收钱，难缠的要打一局；没上班的角色也会来当客人，可以听他们跟店员碰上说两句。打烊时花一次调用，写今天在店里的所有人一小段（不管几个人上班都只花这一次）。钱拿去买装修，装修让收入变多，打烊那段也会写到。店里的事不进记忆。") : null,
+          h("div", { className: "flex", style: { gap: 8, marginBottom: 12 } }, [["邮花", sh.coins], ["今天收入", sh.earned || 0], ["收入倍数", "×" + mul.toFixed(2)]].map(([k, v]) => h("div", { key: k, style: { flex: 1, padding: "6px 10px", borderRadius: 6, background: PAPER, boxShadow: "0 1px 4px rgba(47,42,34,.12)" } }, h("div", { style: { fontSize: fz(10), color: SUB } }, k), h("div", { style: { fontFamily: FD, fontSize: fz(16), color: C } }, v)))),
+          sh.phase === "plan" ? card("plan", [h("div", { key: "t", style: { fontFamily: FD, fontSize: fz(15), marginBottom: 8 } }, "排班"),
+            POSTS.map(p => h("div", { key: p, "data-wk": "duelshoppost", style: { marginBottom: 8 } }, h("div", { style: { fontSize: fz(12), marginBottom: 4 } }, p),
+              h("div", { className: "flex flex-wrap", style: { gap: 5 } }, [{ id: "" }].concat(ppl).map(c => { const on = (sh.roster[p] || "") === (c.id || ""), busy = c.id && Object.keys(sh.roster).some(q => q !== p && sh.roster[q] === c.id), apt = c.id && D().shopApt(personaOf(c.id), p);
+                return h("button", { key: c.id || "none", disabled: busy, onClick: () => { sh.roster = Object.assign({}, sh.roster, { [p]: c.id || "" }); setShop(sh); }, className: "disabled:opacity-35", style: { padding: "2px 9px", borderRadius: 999, border: "1px solid " + (on ? C : "rgba(47,42,34,.22)"), color: on ? C : INK, background: on ? "rgba(138,106,42,.1)" : "transparent", fontSize: fz(11.5) } }, c.id ? (c.remark || c.name) + (apt ? " ✦" : "") : "空着"); })))),
+            h("div", { key: "n", style: { fontSize: fz(11), color: SUB, marginBottom: 8 } }, "✦ 是 TA 擅长这个岗（看人设）。每排一个人收入 +15%，擅长的再 +10%。"),
+            h("button", { key: "go", "data-wk": "duelshopopen", onClick: open, className: "w-full", style: Object.assign(btn(C, "#fff"), { padding: "11px 0", fontFamily: FD, fontSize: fz(15) }) }, "开门")]) : null,
+          sh.phase === "open" ? card("day", [h("div", { key: "t", style: { fontFamily: FD, fontSize: fz(15), marginBottom: 4 } }, "今天的客人"), h("div", { key: "s", style: { fontSize: fz(11), color: SUB, marginBottom: 8 } }, "上班：" + staffLine()),
+            sh.customers.map(c => h("div", { key: c.id, "data-wk": "duelshopcustomer", style: { marginBottom: 8, padding: "8px 10px", borderRadius: 5, background: c.done ? "rgba(47,42,34,.05)" : "#fffdf7", border: "1px solid " + (c.tough ? "rgba(178,58,46,.35)" : c.visitor ? "rgba(154,106,74,.4)" : "rgba(47,42,34,.12)"), opacity: c.done ? .7 : 1 } },
+              h("div", { className: "flex items-center", style: { gap: 8 } }, h("div", { className: "flex-1", style: { fontSize: fz(12.5) } }, h("b", { style: { fontFamily: FD, fontWeight: 400, color: c.tough ? RED : c.visitor ? "#9a6a4a" : INK } }, c.visitor ? nameOf(c.charId) + "（没上班，来店里坐坐）" : c.name), c.visitor ? "" : "：" + c.want),
+                c.done ? h("span", { style: { fontSize: fz(11), color: SUB } }, c.tough && !c.won ? "没打过" : "+" + (c.got || 0)) : c.tough ? h("button", { "data-wk": "duelshopfight", onClick: () => fight(c), style: btn(RED, "#fff") }, "打一局") : h("button", { "data-wk": "duelshopserve", onClick: () => serve(c), style: btn(C, "#fff") }, "招待")),
+              c.visitor && !c.meet ? h("button", { "data-wk": "duelshopmeet", onClick: () => meet(c), disabled: !!shBusy, className: "disabled:opacity-50", style: Object.assign(btn("transparent", "#9a6a4a", "rgba(154,106,74,.5)"), { marginTop: 6, fontSize: fz(11.5) }) }, shBusy === c.id ? "在聊…" : "听 TA 跟店员说两句（花一次调用）") : null,
+              c.meet && shMeet === c.id ? h("div", { style: { marginTop: 6 } }, para(c.meet)) : c.meet ? h("button", { onClick: () => setShMeet(c.id), style: { marginTop: 4, fontSize: fz(11), color: "#9a6a4a" } }, "再看一遍他们说的") : null)),
+            h("button", { key: "cl", "data-wk": "duelshopclose", onClick: close, disabled: shBusy === "close", className: "w-full disabled:opacity-50", style: Object.assign(btn(INK, PAPER), { marginTop: 6, padding: "10px 0" }) }, shBusy === "close" ? "在打烊…" : "打烊（花一次调用，写今天店里的一段）")]) : null,
+          sh.phase === "closed" ? card("closed", [h("div", { key: "t", style: { fontFamily: FD, fontSize: fz(15), marginBottom: 6 } }, "第 " + sh.day + " 天 · 打烊了 · 收了 " + (sh.earned || 0) + " 枚"),
+            sh.closing ? h("div", { key: "c", "data-wk": "duelshopclosing" }, para(sh.closing)) : null,
+            h("button", { key: "n", "data-wk": "duelshopnext", onClick: () => { sh.day++; sh.phase = "plan"; sh.customers = []; setShop(sh); }, className: "w-full", style: Object.assign(btn(C, "#fff"), { marginTop: 6, padding: "10px 0" }) }, "明天开门")]) : null,
+          card("decor", [h("div", { key: "t", style: { fontFamily: FD, fontSize: fz(15), marginBottom: 4 } }, "装修"), h("div", { key: "s", style: { fontSize: fz(11), color: SUB, marginBottom: 8 } }, sh.decor.length ? "店里现在有：" + sh.decor.join("、") : "店里还空着。买的东西会摆进店里，打烊那段会写到。"),
+            h("div", { key: "g", style: { display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 6 } }, D().SHOP.DECOR.map(d => { const has = sh.decor.includes(d.k);
+              return h("button", { key: d.k, "data-wk": "duelshopdecor", disabled: has, onClick: () => { if (sh.coins < d.price) { toast && toast("邮花不够"); return; } sh.coins -= d.price; sh.decor = sh.decor.concat(d.k); setShop(sh); }, className: "text-left disabled:opacity-60", style: { padding: "7px 9px", borderRadius: 5, border: "1px solid " + (has ? C : "rgba(47,42,34,.18)"), background: has ? "rgba(138,106,42,.08)" : "#fffdf7", color: INK, fontSize: fz(12) } }, d.k, h("div", { style: { fontSize: fz(10.5), color: SUB } }, has ? "已经摆上了" : d.price + " 枚 · 收入 +" + Math.round(d.bonus * 100) + "%")); }))], "#5a7a4a"))]);
+    }
     if (!st && mode === "story") {
       const sv0 = story, C = "#7a3b5a", stories = (() => { try { return (typeof loadJSON === "function" ? loadJSON(STORIES_KEY, []) : []) || []; } catch (e) { return []; } })();
       const para = (lines, k0) => lines.map((t, k) => h("p", { key: k0 + k, style: { fontFamily: FD, fontSize: fz(13.5), lineHeight: 1.85, margin: "0 0 9px", whiteSpace: "pre-wrap" } }, t));
@@ -892,15 +942,16 @@
                 h("div", { style: { fontSize: fz(11), color: SUB } }, (easy ? "你的卡够了" : my >= lv * 0.7 ? "差一点，要动脑子" : "比你高不少，硬仗") + (b.waves ? " · 最好守住 " + b.waves + " 波" + (b.wins ? "，守住过 " + b.wins + " 次" : "") : ""))));
           }))]); }
     if (!st && !mode) return shell([
-      h(Head, { key: "hd", zh: "对战", bg: "transparent", ink: INK, onBack, right: guideBtn }),
+      h(Head, { key: "hd", zh: "邮票游戏室", bg: "transparent", ink: INK, onBack, right: guideBtn }),
       h("div", { key: "bd", "data-wk": "duelmodes", className: "flex-1 min-h-0 overflow-y-auto px-5", style: { fontFamily: F, color: INK, paddingTop: 6, paddingBottom: 24 } },
-        h("div", { key: "intro", style: { fontSize: fz(12), color: SUB, margin: "0 0 10px" } }, "拿邮票册里的卡来打。挑一枚："),
+        h("div", { key: "intro", style: { fontSize: fz(12), color: SUB, margin: "0 0 10px" } }, "拿邮票册里的卡来玩。挑一枚："),
         h("div", { key: "sec1", style: { fontFamily: FD, fontSize: fz(13), color: INK, margin: "4px 2px 8px", letterSpacing: ".1em" } }, "和 TA 一起"),
         h("div", { key: "g1", "data-wk": "duelmodegrid", style: { display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 12, marginBottom: 16 } },
           modeTile("duelmodeduel", RED, "对", "对局", "跟一个人面对面打一把", saved ? "有一把没打完" : "", () => setMode("duel"), -1.5),
           onRun ? modeTile("duelgorun", "#b8862a", "远", "远信", "寄一封信，一路打过去", "", onRun, 1.2) : null,
           modeTile("duelmoderelay", "#a0522d", "接", "接力", "你一回合、TA 一回合", "", () => setMode("relay"), 1),
-          modeTile("duelmodestory", "#7a3b5a", "章", "剧情闯关", "一起走一段五章的故事", story ? "走到第 " + story.chapters.length + " 章" : "", () => setMode("story"), -1)),
+          modeTile("duelmodestory", "#7a3b5a", "章", "剧情闯关", "一起走一段五章的故事", story ? "走到第 " + story.chapters.length + " 章" : "", () => setMode("story"), -1),
+          modeTile("duelmodeshop", "#8a6a2a", "店", "邮局小店", "排班、接客、打烊", shopSt ? "开到第 " + shopSt.day + " 天" : "", () => setMode("shop"), 1.1)),
         h("div", { key: "sec2", style: { fontFamily: FD, fontSize: fz(13), color: INK, margin: "4px 2px 8px", letterSpacing: ".1em" } }, "挑战"),
         h("div", { key: "g2", "data-wk": "duelmodegrid", style: { display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 12, marginBottom: 16 } },
           (() => { const t = [0, 1, 2, 3, 4].filter(k => siegeBest(k).wins).pop(); return modeTile("duelmodesiege", "#3f6fb0", "守", "守城", "一波一波守住信封", t != null ? "守住过第 " + (t + 1) + " 档" : "", () => setMode("siegepick"), 1); })(),
@@ -1037,7 +1088,7 @@
     };
     const again = () => { D().addGame(series, st); start(); };
     const log = st.log.slice(-4);
-    if (over && !playing.current && !st.run && !st.siege && !st.raid && !st.edict && !st.shift && !st.patrol && !st.puzzle && !st.relay && !st.story) record(st);
+    if (over && !playing.current && !st.run && !st.siege && !st.raid && !st.edict && !st.shift && !st.patrol && !st.puzzle && !st.relay && !st.story && !st.shopFight) record(st);
     const chalNow = !!(st.siege || st.raid || st.edict || st.shift || st.patrol || st.puzzle || st.relay || st.story);
     // 接力：轮到 TA（双数回合）就自动替 TA 下，放完动画再交回给她
     const taTurn = !!(st.relay && !over && st.turn % 2 === 0);
@@ -1124,8 +1175,8 @@
     const intentText = [].concat((it.stamp || []).map(x => "给「" + x.name + "」盖章"), (it.place || []).map(x => "贴「" + x.name + "」" + x.role)).join("、") || "这回合不贴票";
 
     return shell([
-      h(Head, { key: "hd", zh: st.story ? "剧情闯关 · 对「" + st.story.foe + "」" : st.relay ? "接力 · 第 " + st.turn + " 回合 · " + (st.turn % 2 ? "你下" : (nameOf(st.relay.ta) || "TA") + " 下") : st.puzzle ? (st.puzzle.daily ? "每日残局 · " + st.puzzle.daily : "残局 · 第 " + st.puzzle.lv + " 关") : st.patrol ? "邮区巡查 · " + (st.patrol === "boss" ? "巡查长" : st.patrol === "elite" ? "硬仗" : "普通仗") + " · 第 " + st.turn + " 回合" : st.shift ? "邮局值班 · 第 " + (shift ? shift.round : 1) + " 轮 · 第 " + st.turn + " 回合" : st.edict ? "封缄令 · 危险 " + (st.edictPts || 0) + " · 第 " + st.turn + " 回合" : st.raid ? (st.raid.endless ? "无尽" : "讨伐") + " · 第 " + st.turn + " 回合" : st.siege ? "守城 " + ((st.siegeTier || 0) + 1) + " 档 · 第 " + Math.min(st.turn, st.siege.waves) + " 波" : "第 " + st.turn + " 回合", sub: st.siege ? "" : "对 " + foeName + (st.blind ? " · 盲打" : ""), bg: "transparent", ink: INK, right: guideBtn,
-        onBack: () => { if (st.story) { setSt(null); setMode("story"); return; } if (st.relay) { setSt(null); setMode("relay"); return; } if (st.puzzle) { setSt(null); setMode("puzzle"); return; } if (st.patrol) { if (typeof requestAppConfirm === "function") requestAppConfirm("先离开这一场？", "这一格算没打赢，信封照现在的血算。", () => { st.over = st.over || { winner: "foe", turn: st.turn, me: st.me.hp, foe: st.foe.hp }; patrolBack(); }, "离开"); else { st.over = st.over || { winner: "foe" }; patrolBack(); } return; } if (st.shift) { setSt(null); setMode("shift"); return; } if (st.edict) { setSt(null); setMode("edictpick"); return; } if (st.raid) { setSt(null); setMode("raidpick"); return; } if (st.siege) { setSt(null); setMode("siegepick"); return; } if (st.run) { runBattle.onQuit && runBattle.onQuit(); return; } if (st.tutorial) { setSt(null); setTut(-1); return; } if (!over) { persist(st, series); setSaved({ st, series, foeId, at: Date.now() }); } else persist(null); setSt(null); setSeries(null); } }),
+      h(Head, { key: "hd", zh: st.shopFight ? "邮局小店 · 对「" + st.shopFight.name + "」" : st.story ? "剧情闯关 · 对「" + st.story.foe + "」" : st.relay ? "接力 · 第 " + st.turn + " 回合 · " + (st.turn % 2 ? "你下" : (nameOf(st.relay.ta) || "TA") + " 下") : st.puzzle ? (st.puzzle.daily ? "每日残局 · " + st.puzzle.daily : "残局 · 第 " + st.puzzle.lv + " 关") : st.patrol ? "邮区巡查 · " + (st.patrol === "boss" ? "巡查长" : st.patrol === "elite" ? "硬仗" : "普通仗") + " · 第 " + st.turn + " 回合" : st.shift ? "邮局值班 · 第 " + (shift ? shift.round : 1) + " 轮 · 第 " + st.turn + " 回合" : st.edict ? "封缄令 · 危险 " + (st.edictPts || 0) + " · 第 " + st.turn + " 回合" : st.raid ? (st.raid.endless ? "无尽" : "讨伐") + " · 第 " + st.turn + " 回合" : st.siege ? "守城 " + ((st.siegeTier || 0) + 1) + " 档 · 第 " + Math.min(st.turn, st.siege.waves) + " 波" : "第 " + st.turn + " 回合", sub: st.siege ? "" : "对 " + foeName + (st.blind ? " · 盲打" : ""), bg: "transparent", ink: INK, right: guideBtn,
+        onBack: () => { if (st.shopFight) { setSt(null); setMode("shop"); return; } if (st.story) { setSt(null); setMode("story"); return; } if (st.relay) { setSt(null); setMode("relay"); return; } if (st.puzzle) { setSt(null); setMode("puzzle"); return; } if (st.patrol) { if (typeof requestAppConfirm === "function") requestAppConfirm("先离开这一场？", "这一格算没打赢，信封照现在的血算。", () => { st.over = st.over || { winner: "foe", turn: st.turn, me: st.me.hp, foe: st.foe.hp }; patrolBack(); }, "离开"); else { st.over = st.over || { winner: "foe" }; patrolBack(); } return; } if (st.shift) { setSt(null); setMode("shift"); return; } if (st.edict) { setSt(null); setMode("edictpick"); return; } if (st.raid) { setSt(null); setMode("raidpick"); return; } if (st.siege) { setSt(null); setMode("siegepick"); return; } if (st.run) { runBattle.onQuit && runBattle.onQuit(); return; } if (st.tutorial) { setSt(null); setTut(-1); return; } if (!over) { persist(st, series); setSaved({ st, series, foeId, at: Date.now() }); } else persist(null); setSt(null); setSeries(null); } }),
       h("div", { key: "bd", ref: bodyEl, className: "flex-1 min-h-0 overflow-y-auto px-4", style: { fontFamily: F, color: INK, paddingBottom: 14, overflowAnchor: "none" },
           onTouchStart: () => { touchAt.current = Date.now(); }, onTouchMove: () => { touchAt.current = Date.now(); }, onTouchEnd: () => { touchAt.current = Date.now(); }, onWheel: () => { touchAt.current = Date.now(); },
           onScroll: e => { if (!guarding()) keepY.current = e.currentTarget.scrollTop; else if (Math.abs(e.currentTarget.scrollTop - keepY.current) > 4) e.currentTarget.scrollTop = keepY.current; } },
@@ -1240,6 +1291,7 @@
           : st.tutorial ? h("div", { className: "flex", style: { gap: 8 } },
               h("button", { onClick: startTut, className: "flex-1", style: btn(INK, PAPER) }, "再练一次"),
               h("button", { onClick: () => { setSt(null); setTut(-1); }, className: "flex-1", style: btn("transparent", INK, INK) }, "去正式对局"))
+          : st.shopFight ? h("button", { "data-wk": "duelshopback", onClick: () => { const sh = shopSt; if (sh) { const c = sh.customers.find(x => x.id === st.shopFight.id); if (c) { c.done = true; c.won = over.winner === "me"; c.got = c.won ? Math.round(c.fee * 2 * D().shopMul(sh, sh.roster, personaOf)) : 0; sh.coins += c.got; sh.earned = (sh.earned || 0) + c.got; } setShop(sh); } setSt(null); setMode("shop"); }, className: "w-full", style: Object.assign(btn(over.winner === "me" ? GREEN : INK, "#fff"), { padding: "10px 0", fontFamily: FD, fontSize: fz(14) }) }, over.winner === "me" ? "打发走了，回店里（收双倍）" : "没打过，回店里")
           : st.story ? h("button", { "data-wk": "duelstoryback", onClick: () => { const sv0 = story; if (sv0) { sv0.chapters[sv0.chapters.length - 1].won = over.winner === "me"; setStory(sv0); } setSt(null); setMode("story"); }, className: "w-full", style: Object.assign(btn(over.winner === "me" ? GREEN : INK, "#fff"), { padding: "10px 0", fontFamily: FD, fontSize: fz(14) }) }, "回到故事")
           : st.relay ? h("div", { className: "flex", style: { gap: 8 } },
               h("button", { "data-wk": "duelrelayagain", onClick: startRelay, className: "flex-1", style: btn(INK, PAPER) }, "再接力一局"),

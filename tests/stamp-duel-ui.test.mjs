@@ -60,7 +60,7 @@ test("跟 TA 聊时带上两边信封上的票和卡上那句；长按不弹系�
 test("新手教学关：开局页能进、九步教练条、不存档；对面会说话、有打法；能跳过动画", () => {
   assert.match(ui, /const TUT = \[/);
   assert.match(ui, /"data-wk": "duelturorial", onClick: startTut/);
-  assert.match(ui, /\(x && \(x\.tutorial \|\| x\.run \|\| x\.siege \|\| x\.raid \|\| x\.edict \|\| x\.shift \|\| x\.patrol \|\| x\.puzzle \|\| x\.relay \|\| x\.story\)\) \|\| runBattle\) return;/);
+  assert.match(ui, /\(x && \(x\.tutorial \|\| x\.run \|\| x\.siege \|\| x\.raid \|\| x\.edict \|\| x\.shift \|\| x\.patrol \|\| x\.puzzle \|\| x\.relay \|\| x\.story \|\| x\.shopFight\)\) \|\| runBattle\) return;/);
   assert.match(ui, /"data-wk": "duelsay"/);
   assert.match(ui, /"data-wk": "duelskip", onClick: skip/);
   // 钩子不许放在提前 return 后面（React #310）
@@ -126,7 +126,7 @@ test("守城入口和页面：挑玩法页一张卡、波数条、打完再守�
   assert.match(ui, /"data-wk": "duelsiegetier"/);
   assert.match(ui, /"data-wk": "duelsiegewave"/);
   assert.match(ui, /x\.tutorial \|\| x\.run \|\| x\.siege/);
-  assert.match(ui, /!st\.run && !st\.siege && !st\.raid && !st\.edict && !st\.shift && !st\.patrol && !st\.puzzle && !st\.relay && !st\.story\) record\(st\)/);
+  assert.match(ui, /!st\.run && !st\.siege && !st\.raid && !st\.edict && !st\.shift && !st\.patrol && !st\.puzzle && !st\.relay && !st\.story && !st\.shopFight\) record\(st\)/);
 });
 test("信物只在远信：对局页没有材料与信物入口，远信路线图能做信物、带进这一站", () => {
   const ru = readFileSync(new URL("../js/stamp-run-ui.js", import.meta.url), "utf8"), rn = readFileSync(new URL("../js/stamp-run.js", import.meta.url), "utf8");
@@ -233,4 +233,12 @@ test("剧情闯关：挑人挑开头、一章一写、迎战、回故事挑路�
   assert.match(ui, /"data-wk": "duelstoryfight"/);
   assert.match(ui, /"data-wk": "duelstoryback"/);
   assert.match(app, /if \(d\.mode === "storych" \|\| d\.mode === "storyend"\) \{/);
+});
+test("邮局小店页和游戏室改名：排班、开门、招待、打一局、打烊一天一次调用不进记忆", () => {
+  assert.match(ui, /zh: "邮票游戏室"/);
+  assert.match(ui, /modeTile\("duelmodeshop"/);
+  assert.match(ui, /onChat\(onDuty\[0\], \{ mode: "shopclose"/);
+  assert.match(ui, /onChat\(c\.charId, \{ mode: "shopmeet"/);
+  const i = app.indexOf('if (d.mode === "shopclose" || d.mode === "shopmeet")'), j = app.indexOf('if (d.mode === "storych"', i);
+  assert.ok(i > 0 && j > i && !/addMemEntry/.test(app.slice(i, j)));
 });

@@ -36124,6 +36124,19 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       //   材料是她挑的三样；效果只许从 d.fxList（三样材料的偏向）里挑，强弱代码定
       // 挑战陪打（她 2026-11-08「挑战类能跟他聊天，推荐怎么放或者评论战局」「做吧，可以选谁陪我打」）：
       //   对面是游戏造的敌人，TA 在旁边陪她看；只按 d.board 写着的局面说
+      // 邮局小店（她 2026-11-08「店面可以做，不进记忆」）：打烊时写今天在店里的所有人一小段；角色客人上门碰上店员写一段对话。都不写进记忆
+      if (d.mode === "shopclose" || d.mode === "shopmeet") {
+        const close = d.mode === "shopclose";
+        const r = await runProbe(apiFor(char.id), ctxFor(char), { voice: true, tag: "stampshop", maxTokens: 8000,
+          instruction: "这是" + uN + "在邮票册里开的一家小邮局（游戏里的店，第 " + (d.day || 1) + " 天）。店里现在的样子：" + (d.decor || "刚开张，还空着") + "。\n"
+            + (close
+              ? "今天上班的：" + (d.staff || "") + "。今天来过的客人：" + (d.customers || "没什么人") + "。今天收了 " + (d.coins || 0) + " 枚邮花。\n"
+                + "现在打烊了。写打烊时店里的一小段：今天上班的这几个人各自怎么样、彼此说了什么、谁累了、谁跟谁拌了两句或者帮了一把、有没有给她留什么话或东西。每个人照各自的人设说话做事，你写的时候把他们都写进去，不只写你自己；写正在发生的这一段，有动作有对话，别写成总结。"
+              : (d.visitor || "一位客人") + "今天来店里寄东西，正好碰上在" + (d.post || "柜台") + "上班的" + (d.staffName || "店员") + "。\n写他们俩在店里碰上的这一小段：照两个人各自的人设和他们之间的关系，有对话，几段就够；" + uN + "在旁边。")
+            + "\nlines 一段一项。",
+          schemaHint: "{\"lines\":[\"一段\"]}" });
+        return (Array.isArray(r && r.lines) ? r.lines : [r && r.lines]).map(x => String(x || "").trim()).filter(Boolean).slice(0, 14);
+      }
       // 剧情闯关（她 2026-11-08「1 和 3 都可以」）：TA 一章一章写一段故事，每章引出一场仗，章末给她两三个选项；第五章打完写结局
       if (d.mode === "storych" || d.mode === "storyend") {
         const end = d.mode === "storyend";

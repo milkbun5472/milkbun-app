@@ -295,3 +295,11 @@ test("残局 30 关以后接着出、每日残局按各人随机数不同；接�
   const st = D.newDuel(D.deckFrom(cards, 1, 12, ["a"]), D.edictDeck(1), 1, {});
   const acts = D.autoMe(st, "冷淡"); assert.ok(acts.filter(x => x.place != null).length <= 2);
 });
+test("邮局小店：排的岗越多、擅长、装修，收入倍数越高；客人里有难缠的、没上班的角色会来", () => {
+  const per = id => id === "a" ? "她很温柔，总是笑" : "";
+  const shop = { day: 3, decor: [] };
+  assert.ok(D.shopMul(shop, { 柜台: "a" }, per) > D.shopMul(shop, { 柜台: "b" }, per));
+  assert.ok(D.shopMul({ day: 1, decor: ["旧木招牌"] }, {}, per) > D.shopMul({ day: 1, decor: [] }, {}, per));
+  let tough = 0, vis = 0; for (let d = 1; d <= 30; d++) { const cs = D.shopCustomers({ day: d, decor: [] }, ["x", "y"], 7); tough += cs.filter(c => c.tough).length; vis += cs.filter(c => c.visitor).length; }
+  assert.ok(tough > 0 && vis > 0);
+});
