@@ -359,6 +359,42 @@
       const u = stampOf({ id: "ed_" + seed + "_" + i, rarity: rar, lv: EDICT_LV, text: { name: "审查局·" + f[0] } });
       return Object.assign(u, { role, trait: f[2], traitFrom: "", charId: "", skill: Object.keys(SKILLS[role])[i % 4] }); });
   }
+  // ── 邮局值班（她 2026-11-08「继续下一个玩法」：照保全派驻那样，每轮之间用钱买票凑阵容）─────────
+  //   开局没票、10 枚邮花；柜台每轮摆 5 张你邮票册里的票，买进值班卡组；同一张买两份合成「＋」；
+  //   同一个人凑满 3 张，这个人的票攻击 +1；买好跟这一轮的审查局打一局，输了掉一条命；撑满 8 轮算完成
+  const SHIFT = { ROUNDS: 8, LIVES: 3, START: 10, INCOME: 5, PRICE: { R: 2, SR: 3, SSR: 5 }, REROLL: 1, BENCH: 12, SHOP: 5, PLUS_MAX: 2 };
+  function shiftNew(seed) { return { seed: (seed >>> 0) || 1, round: 1, lives: SHIFT.LIVES, coins: SHIFT.START, bench: [], shop: [], rolls: 0, done: null, log: [] }; }
+  function shiftRoll(sh, cards, paid) {
+    if (paid) { if (sh.coins < SHIFT.REROLL) return false; sh.coins -= SHIFT.REROLL; }
+    const pool = (cards || []).filter(c => c && c.text), R = rng((sh.seed ^ (sh.round * 7349) ^ (++sh.rolls * 104723)) >>> 0);
+    sh.shop = Array.from({ length: Math.min(SHIFT.SHOP, pool.length) }, () => stampOf(pool[Math.floor(R() * pool.length)]));
+    return true;
+  }
+  const shiftPrice = u => SHIFT.PRICE[u.rarity] || 2;
+  function shiftBuy(sh, i) {
+    const u = sh.shop[i]; if (!u) return { ok: false, why: "这一格空了" };
+    const cost = shiftPrice(u); if (sh.coins < cost) return { ok: false, why: "邮花不够" };
+    const same = sh.bench.find(b => b.cardId && b.cardId === u.cardId && (b.plus || 0) < SHIFT.PLUS_MAX);
+    if (!same && sh.bench.length >= SHIFT.BENCH) return { ok: false, why: "值班卡组满了（" + SHIFT.BENCH + " 张），先卖一张" };
+    sh.coins -= cost; sh.shop.splice(i, 1);
+    if (same) { same.plus = (same.plus || 0) + 1; same.pow += 2; same.maxHp += 3; same.name = same.name.replace(/＋+$/, "") + "＋".repeat(same.plus); return { ok: true, merged: same.name }; }
+    sh.bench.push(Object.assign({}, u)); return { ok: true };
+  }
+  function shiftSell(sh, i) { const u = sh.bench[i]; if (!u) return 0; const back = Math.max(1, Math.floor(shiftPrice(u) * (1 + (u.plus || 0)) / 2)); sh.bench.splice(i, 1); sh.coins += back; return back; }
+  // 这一轮带进对局的卡组：同一个人满 3 张的，攻击 +1
+  function shiftDeck(sh) {
+    const n = {}; sh.bench.forEach(u => { if (u.charId) n[u.charId] = (n[u.charId] || 0) + 1; });
+    return sh.bench.map(u => Object.assign({}, u, n[u.charId] >= 3 ? { pow: u.pow + 1 } : {}));
+  }
+  const shiftBonds = sh => { const n = {}; sh.bench.forEach(u => { if (u.charId) n[u.charId] = (n[u.charId] || 0) + 1; }); return n; };
+  const shiftFoeLv = sh => Math.max(3, Math.round(avgLv(sh.bench) * (0.75 + 0.06 * sh.round)));
+  function shiftAfter(sh, win) {
+    if (win) sh.coins += 1; else sh.lives--;
+    sh.log.push({ round: sh.round, win: !!win });
+    if (sh.lives <= 0) { sh.done = { win: false, round: sh.round }; return sh; }
+    if (sh.round >= SHIFT.ROUNDS) { sh.done = { win: true, round: sh.round }; return sh; }
+    sh.round++; sh.coins += SHIFT.INCOME + Math.min(3, Math.floor(sh.coins / 5)); sh.rolls = 0; return sh;
+  }
   const siegeIdle = (st, sd, i) => !!(st.siege && sd === st.foe && row(i) > 0);   // 守城：对面还没走到前排的不动手
 
   // ── 材料和专属信物（她 2026-11-08「打完或者某些路线掉落材料……花调用生成角色专属信物，从人设和我们聊天里来」）──
@@ -799,7 +835,7 @@
   const mine = raw => (st, who, a, b) => { if (who !== "me") return raw(st, who, a, b); snap(st); const r = raw(st, who, a, b); if (!r || !r.ok) st.undo.pop(); return r; };
   const place = mine(placeRaw), tear = mine(tearRaw), move = mine(moveRaw), keep = mine(keepRaw), stamp = mine(stampRaw);
   const API = { RELICS, STYLE_ZH, TRAIT_FIT, TRAITS, SKILLS, BONDS, bondOf, unitInfo, SIZE, SLOTS, ENVELOPE_HP, POSTAGE, DRAW, DECK_SIZE, TURN_CAP, KEEP_MAX, FACE, NEED, ROLES, MARKS, TERRAIN, EVENTS,
-    stampOf, deckFrom, foeDeckFrom, EDICTS, EDICT_LV, edictDeck, RAID_TURNS, MATS, BASE_MATS, THEME_MAT, KEEP_FX, KEEP_MAX_SLOTS, keepFxOf, keepTier, matDrop, SIEGE_TIERS, newDuel, envFor, avgLv, fairDeck, aims, actsOf, previewPlace, place, tear, move, keep, stamp, undo, canUndo, endTurn, planFoe, combos, newSeries, addGame, memoryLine, hashStr };
+    stampOf, deckFrom, foeDeckFrom, SHIFT, shiftNew, shiftRoll, shiftPrice, shiftBuy, shiftSell, shiftDeck, shiftBonds, shiftFoeLv, shiftAfter, EDICTS, EDICT_LV, edictDeck, RAID_TURNS, MATS, BASE_MATS, THEME_MAT, KEEP_FX, KEEP_MAX_SLOTS, keepFxOf, keepTier, matDrop, SIEGE_TIERS, newDuel, envFor, avgLv, fairDeck, aims, actsOf, previewPlace, place, tear, move, keep, stamp, undo, canUndo, endTurn, planFoe, combos, newSeries, addGame, memoryLine, hashStr };
   g.StampDuel = API;
   if (typeof module !== "undefined" && module.exports) module.exports = API;
 })(typeof window !== "undefined" ? window : globalThis);

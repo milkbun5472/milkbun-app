@@ -245,3 +245,15 @@ test("技能调整：厚封改名、盖一张也打人、加盖和转寄、冷�
   const c = {}; for (let i = 0; i < 800; i++) { const s = D.stampOf({ id: "st_" + i.toString(36) + "_ab" + (i * 7919).toString(36), rarity: "R", lv: 5, text: { name: "x" } }); c[s.skill] = (c[s.skill] || 0) + 1; }
   assert.ok(Object.keys(c).length >= 20, Object.keys(c).length);
 });
+test("邮局值班：买票扣钱、同一张两份合成＋、凑三张加攻击、卖掉退一半、三条命或满八轮结束", () => {
+  const cards = [{ id: "x1", charId: "a", rarity: "R", lv: 10, text: { name: "x" } }];
+  const sh = D.shiftNew(5); D.shiftRoll(sh, cards);
+  assert.equal(sh.shop.length, 1); const c0 = sh.coins;
+  assert.ok(D.shiftBuy(sh, 0).ok); assert.equal(sh.coins, c0 - 2); assert.equal(sh.bench.length, 1);
+  D.shiftRoll(sh, cards); const r = D.shiftBuy(sh, 0); assert.ok(r.merged); assert.equal(sh.bench.length, 1); assert.equal(sh.bench[0].plus, 1);
+  sh.bench.push(Object.assign({}, sh.bench[0], { cardId: "y" }), Object.assign({}, sh.bench[0], { cardId: "z" }));
+  assert.equal(D.shiftDeck(sh)[0].pow, sh.bench[0].pow + 1);
+  const back = D.shiftSell(sh, 2); assert.ok(back >= 1);
+  for (let i = 0; i < 3; i++) D.shiftAfter(sh, false); assert.equal(sh.done.win, false);
+  const s2 = D.shiftNew(1); for (let i = 0; i < 8; i++) D.shiftAfter(s2, true); assert.equal(s2.done.win, true);
+});
