@@ -187,3 +187,16 @@ test("actsOf：两边每张上场的票都有一句这回合干什么", () => {
   const f = st.me.terrain.findIndex(t => !t); D.place(st, "me", 0, f);
   assert.equal(D.actsOf(st, "me")[f], "攒胶水");
 });
+test("守城：十波、敌人往前走、前排站一回合就闯过去、守住或城破都会结束", () => {
+  const cards = Array.from({ length: 30 }, (_, i) => ({ id: "c" + i, charId: ["a", "b"][i % 2], rarity: ["R", "R", "SR", "SSR"][i % 4], lv: 1 + i * 2, text: { name: "k" + i } }));
+  let wins = 0, losses = 0;
+  for (let n = 1; n <= 20; n++) {
+    const st = D.newDuel(D.deckFrom(cards, n, D.DECK_SIZE, []), [], n, { siege: true });
+    assert.equal(st.siege.waves, 10); assert.ok(st.foe.hand.length >= 1);
+    while (!st.over) { for (let k = st.me.hand.length - 1; k >= 0; k--) { const f = [0, 1, 2, 3, 4, 5, 6, 7, 8].find(i => !st.me.board[i] && !st.me.terrain[i]); if (f != null) D.place(st, "me", k, f); } D.endTurn(st); assert.ok(st.turn <= st.cap); }
+    if (st.over.winner === "me") wins++; else losses++;
+    assert.ok(st.siege.cleared <= 10);
+    assert.ok(st.log.some(l => /往前走/.test(l.text)));
+  }
+  assert.ok(wins > 0 && losses > 0, wins + "/" + losses);
+});

@@ -190,7 +190,8 @@
     const events = []; for (let t = EVENT_EVERY; t <= ((opts && opts.cap) || TURN_CAP); t += EVENT_EVERY) events[t] = EVENT_KEYS[Math.floor(R() * EVENT_KEYS.length)];
     // 让子、认真模式、快局（她 2026-11-08）：opts.meHp / opts.foeHp 改两边血，opts.cap 改最多几回合，opts.hard 对面每回合多 1 胶水
     const o = opts || {};
-    const st = { turn: 0, me: side(meDeck, s, o.meHp, o.meMax), relics: o.relics || [], amulet: !!o.amulet, bossRule: o.bossRule || "", theme: o.theme || "", foe: side(foeDeck, s ^ 0xabcdef, o.foeHp), log: [], over: null, uid: 0, seed: s, cap: o.cap || TURN_CAP, hard: !!o.hard, rule: o.rule || "", wager: o.wager || "", blind: !!(opts && opts.blind), events, bonds: (opts && opts.bonds) || {}, foeId: (opts && opts.foeId) || "", style: (opts && opts.style) || "" };
+    const st = { turn: 0, me: side(meDeck, s, o.meHp, o.meMax), relics: o.relics || [], amulet: !!o.amulet, bossRule: o.bossRule || "", theme: o.theme || "", siege: o.siege ? { waves: SIEGE_WAVES, cleared: 0 } : null, foe: side(foeDeck, s ^ 0xabcdef, o.foeHp), log: [], over: null, uid: 0, seed: s, cap: o.cap || TURN_CAP, hard: !!o.hard, rule: o.rule || "", wager: o.wager || "", blind: !!(opts && opts.blind), events, bonds: (opts && opts.bonds) || {}, foeId: (opts && opts.foeId) || "", style: (opts && opts.style) || "" };
+    if (st.siege) { st.foe.terrain = new Array(SLOTS).fill(""); st.foe.hp = st.foe.max = 999; st.cap = SIEGE_WAVES + 3; }
     startTurn(st);
     return st;
   }
@@ -257,6 +258,31 @@
     厚信封: "信封耐久上限 +10", 回执: "每打完一场，信封回 4", 存钱罐: "每打完一场多 15 枚邮花", 优惠券: "邮局里东西便宜四分之一", 旅伴的伞: "驿站多回 10"
   };
 
+  // ── 守城（她 2026-11-08「先做守城」）：对面不是人，是一波一波压过来的麻烦 ──────────────
+  //   敌人贴在对面后排，每回合往前走一格，走到前排才动手；守过第 10 波、场上清空就赢，信封打空就输。
+  //   每守住三波，信封回 5、下回合多摸一张。规则跟对局是同一套（贴票、胶水、盖章、组合都照旧）
+  const SIEGE_WAVES = 10, SIEGE_GROW = 5, SIEGE_HP = 1.4, SIEGE_POW = 0.4, SIEGE_BREACH = 0;
+  const SIEGE_FOES = [
+    ["野猫", ["投递", "投递", "投递"], "莽撞"], ["暴雨", ["邮戳", "投递", "邮戳"], "夜行"], ["罢工的邮差", ["火漆", "投递", "火漆"], "倔强"],
+    ["审查员", ["邮戳", "火漆", "邮戳"], "冷静"], ["大风", ["投递", "邮戳", "投递"], "锋利"], ["迷路的信", ["集邮", "投递", "补票"], "余温"]
+  ];
+  function siegeWave(st, n) {
+    const R = rng((st.seed ^ (n * 7919)) >>> 0), boss = n === SIEGE_WAVES, count = boss ? 3 : n <= 2 ? 1 : n <= 5 ? 2 : 3;
+    return Array.from({ length: Math.min(3, count) }, (_, k) => {
+      const f = boss && k === 0 ? ["稽查队长", ["火漆"], "倔强"] : SIEGE_FOES[Math.floor(R() * SIEGE_FOES.length)], role = f[1][Math.floor(R() * f[1].length)];
+      const rar = boss && k === 0 ? "SSR" : n >= 7 && R() < 0.4 ? "SR" : "R";
+      const u = stampOf({ id: "sg_" + n + "_" + k, rarity: rar, lv: 4 + n * SIEGE_GROW, text: { name: f[0] } });
+      return Object.assign(u, { role, trait: f[2], traitFrom: "", charId: "", name: f[0], face: 0, skill: Object.keys(SKILLS[role])[k % 4], pow: Math.max(1, u.pow + Math.floor(n * SIEGE_POW) - (n <= 2 ? 1 : 0)), maxHp: Math.round(u.maxHp * SIEGE_HP) });
+    });
+  }
+  function siegeTurn(st) {
+    const sg = st.siege, foe = st.foe;
+    foe.hand = []; foe.draw = []; foe.discard = []; foe.postage = 99;
+    if (st.turn <= sg.waves) { foe.hand = siegeWave(st, st.turn); say(st, "foe", "第 " + st.turn + " 波来了：" + foe.hand.map(u => u.name).join("、"), { kind: "event", ev: "" }); }
+    if (st.turn > 1 && (st.turn - 1) % 3 === 0 && st.turn - 1 <= sg.waves) { st.me.hp = Math.min(st.me.max || ENVELOPE_HP, st.me.hp + 5); st.me.bonusDraw += 1; say(st, "me", "守住了第 " + (st.turn - 1) + " 波：信封 +5，下回合多摸一张", { kind: "heal" }); }
+  }
+  const siegeIdle = (st, sd, i) => !!(st.siege && sd === st.foe && row(i) > 0);   // 守城：对面还没走到前排的不动手
+
   function drawCards(sd, n, seed) {
     for (let k = 0; k < n; k++) {
       if (!sd.draw.length) { if (!sd.discard.length) break; sd.draw = shuffle(sd.discard.splice(0), rng(seed + k)); }
@@ -277,6 +303,7 @@
       sd.bonusPostage = 0; sd.bonusDraw = 0; sd.owed = 0; sd.torn = 0;
       turnStartEffects(st, sd, who);
     }
+    if (st.siege) siegeTurn(st);
     if (eventNow(st)) say(st, "", "邮局公告：" + eventNow(st) + "——" + EVENTS[eventNow(st)], { kind: "event", ev: eventNow(st) });
     st.intent = planFoe(st);
   }
@@ -457,6 +484,9 @@
   }
   function act(st, who, i) {
     const sd = st[who], foeWho = other(who), foe = st[foeWho], u = sd.board[i]; if (!u) return;
+    if (siegeIdle(st, sd, i)) { const j = i - SIZE; if (j >= 0 && !sd.board[j]) { sd.board[j] = u; sd.board[i] = null; say(st, who, u.name + " 往前走了一格", { kind: "skip", slot: j }); } return; }
+    // 守城：在前排站过一回合还没被打掉的，下一回合就闯过去，撞你的信封
+    if (st.siege && sd === st.foe) { if (u.atGate) { hitEnvelope(st, "me", u.pow + SIEGE_BREACH, u.name + " 闯过去了"); sd.board[i] = null; checkOver(st); return; } u.atGate = 1; }
     if (u.marks.退回) { say(st, who, u.name + " 被退回，这回合不动", { kind: "skip", slot: i }); return; }
     let times = u.marks.加急 ? 2 : 1;
     if (u.role === "投递" && u.first && has(st, who, "加急包")) times *= 2;
@@ -519,7 +549,7 @@
         + ((s.role === "投递" || s.role === "邮戳") ? (row(i) === SIZE - 1 && board[col(i)] ? 5 : 0) + (targetIn(me, col(i)) < 0 ? 3 : 0) : 0)
         + adj(i).filter(j => board[j] && board[j].charId && board[j].charId === s.charId).length * 4
         + (sd.terrain[i] === "邮筒" ? 2 : 0) - row(i) * 0.1;
-      const slot = free.sort((a, b) => score(b) - score(a))[0];
+      const slot = st.siege ? (free.filter(i => row(i) === 1)[0] ?? free.sort((a, b) => row(b) - row(a))[0]) : free.sort((a, b) => score(b) - score(a))[0];
       board[slot] = s; money -= cost; placed++; plan.push({ handIdx: k, slot, name: s.name, role: s.role, face: cost, cardId: s.cardId, charId: s.charId });
     }
     let toEnv = 0; const inks = [];
@@ -529,6 +559,8 @@
   // 谁会打谁（她 2026-11-08「明牌的时候能不能也用虚线显示他要干啥」）：只算不动手，给界面画线
   //   to=-1 是打信封；kind: hit 打票／env 打信封／ink 盖戳；planned=这张还在手里、下回合才贴上
   function aimOf(st, sd, foe, i, u) {
+    if (siegeIdle(st, sd, i)) return null;
+    if (st.siege && sd === st.foe && u.atGate) return { from: i, to: -1, dmg: u.pow + SIEGE_BREACH, kind: "env", breach: true };
     const p = powOf(st, u, sd, i), j = targetIn(foe, col(i));
     if (u.role === "投递") return { from: i, to: j, dmg: p, kind: j >= 0 ? "hit" : "env" };
     if (u.role === "火漆") return j >= 0 && Math.floor(p / 2) > 0 ? { from: i, to: j, dmg: Math.floor(p / 2), kind: "hit" } : null;
@@ -546,9 +578,10 @@
   // 每张票这回合干什么，一句话（她 2026-11-08「看不到他另外两张卡打多少，或者我能打他多少」）
   function actsOf(st, who) {
     const sd = st[who], al = aims(st, who), out = {};
-    al.forEach(a => { out[a.from] = a.kind === "ink" ? "盖" + a.ink : a.kind === "env" ? "打信封 " + a.dmg : "打 " + a.dmg; });
+    al.forEach(a => { out[a.from] = a.breach ? "要闯过去 " + a.dmg : a.kind === "ink" ? "盖" + a.ink : a.kind === "env" ? "打信封 " + a.dmg : "打 " + a.dmg; });
     sd.board.forEach((u, i) => { if (!u || out[i]) return;
-      if (u.marks && u.marks.退回) out[i] = "这回合不动";
+      if (siegeIdle(st, sd, i)) out[i] = "往前走";
+      else if (u.marks && u.marks.退回) out[i] = "这回合不动";
       else if (u.role === "集邮") out[i] = "攒胶水";
       else if (u.role === "补票") out[i] = "补血";
       else if (u.role === "火漆") out[i] = "加护";
@@ -581,6 +614,8 @@
     st.undo = [];
     resolveSide(st, "me");
     if (!st.over) { runFoePlan(st); if (!st.over) resolveSide(st, "foe"); }
+    if (!st.over && st.siege) { const left = st.foe.board.some(Boolean); st.siege.cleared = Math.min(st.siege.waves, Math.max(st.siege.cleared, left ? st.turn - 1 : st.turn));
+      if ((st.turn >= st.siege.waves && !left) || st.turn >= st.cap) st.over = { winner: "me", turn: st.turn, me: st.me.hp, foe: 0, siege: true }; }
     if (!st.over && st.turn >= (st.cap || TURN_CAP)) st.over = { winner: st.me.hp === st.foe.hp ? "draw" : st.me.hp > st.foe.hp ? "me" : "foe", turn: st.turn, me: st.me.hp, foe: st.foe.hp, byCap: true };
     if (!st.over) startTurn(st);
     return st;

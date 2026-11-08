@@ -60,7 +60,7 @@ test("跟 TA 聊时带上两边信封上的票和卡上那句；长按不弹系�
 test("新手教学关：开局页能进、九步教练条、不存档；对面会说话、有打法；能跳过动画", () => {
   assert.match(ui, /const TUT = \[/);
   assert.match(ui, /modeCard\("duelturorial", GREEN, "新手教学关"/);
-  assert.match(ui, /\(x && \(x\.tutorial \|\| x\.run\)\) \|\| runBattle\) return;/);
+  assert.match(ui, /\(x && \(x\.tutorial \|\| x\.run \|\| x\.siege\)\) \|\| runBattle\) return;/);
   assert.match(ui, /"data-wk": "duelsay"/);
   assert.match(ui, /"data-wk": "duelskip", onClick: skip/);
   // 钩子不许放在提前 return 后面（React #310）
@@ -119,4 +119,11 @@ test("念台词：开关、勾哪些时候和哪一边、两边气泡、排队�
   assert.match(ui, /const want = l\.line && voice\[l\.kind\] && voice\[l\.who === "foe" \? "foe" : "me"\]/);
   assert.match(ui, /"data-wk": "duelvoiceon"/);
   assert.match(ts, /"duelvoicebtn"/);
+});
+test("守城入口和页面：挑玩法页一张卡、波数条、打完再守一次、不进对局存档和战绩", () => {
+  assert.match(ui, /modeCard\("duelmodesiege"/);
+  assert.match(ui, /siege: true, bonds: bondsOf\(\)/);
+  assert.match(ui, /"data-wk": "duelsiegewave"/);
+  assert.match(ui, /x\.tutorial \|\| x\.run \|\| x\.siege/);
+  assert.match(ui, /!st\.run && !st\.siege\) record\(st\)/);
 });
