@@ -20428,7 +20428,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     if (!todo.length) return;
     desireRunRef.current = true;
     // ⚠️发不出呆的时候 lastMuse 不会被写上，于是每次开 app 重来一遍。走公共闸。
-    try { for (const c of todo) await window.AutoGate.run("desire|" + c.id, today, () => desireMuseFor(c)); }
+    // 发呆一天一次，没成就等明天，不在当天反复重来（她 2026-11-08）
+    try { for (const c of todo) await window.AutoGate.run("desire|" + c.id, today, () => desireMuseFor(c), { maxTries: 1 }); }
     finally { desireRunRef.current = false; }
   };
   // P2 三节奏后两拍（v48.23）：盘一盘=每10天盘盒子（校准js钳±0.15/毕业出师那句入长出来的自我/枯萎），回头看=每90天季度自述。
@@ -20446,6 +20447,11 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         const box = HeartKit.boxOf(desiresRef.current, c.id);
         const r = HeartKit.tendDue(box, today);
         if (r.inited) { saveDesires(n => { n[c.id] = box; }); continue; }
+        // 一天只走一趟（她 2026-11-08：「心上也是吧，不要断了就重试」）：旁人／盘一盘／回头看失败了不记基准日，
+        //   原来下一次唤醒（开 App、切回前台、定时）就整趟重来，断一次重来一次。现在先占住今天，成不成都等明天；
+        //   今天的发呆（desireMuseAllToday）照旧走它自己那道闸
+        const _tk = "desire|tend|" + c.id;
+        if (window.AutoGate) { if (!window.AutoGate.due(_tk, today, { maxTries: 1 })) continue; window.AutoGate.claim(_tk, today); }
         // 旁人（每7天，P3）：旁观的便宜小模型摘录「我注意到…」纸条+不想碰的，喂 TA 下次发呆/盘点。
         // 只对 7 天内聊过的角色跑（没新对话没什么可观测）；和盘一盘/回头看互不排队，同天先观测再盘点（纸条正好当盘点材料）。
         if (HeartKit.observeDue(box, today)) {
