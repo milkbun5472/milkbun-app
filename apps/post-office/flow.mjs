@@ -1,6 +1,6 @@
-import {createStoryPlayback} from './playback.mjs?v=fg-9983713c37f606aa';
-import {createNavigator,segmentIntersectsRect} from '../fairy-garden/navigation.mjs?v=fg-9983713c37f606aa';
-import {stepRoute} from '../fairy-garden/locomotion.mjs?v=fg-9983713c37f606aa';
+import {createStoryPlayback} from './playback.mjs?v=fg-9c7c4a50b6db5fe8';
+import {createNavigator,segmentIntersectsRect} from '../fairy-garden/navigation.mjs?v=fg-9c7c4a50b6db5fe8';
+import {stepRoute} from '../fairy-garden/locomotion.mjs?v=fg-9c7c4a50b6db5fe8';
 export const ENTRY={x:3.32,z:4.7};
 export const SHOP_FURNITURE=[{id:'Counter',x:-1.45,z:1.15,w:3.93,d:1.04},{id:'SortTable',x:-2.25,z:-2.5,w:2.8,d:.85},{id:'WindowStool',x:3,z:-.6,w:.58,d:.6},{id:'DisplayShelves',x:-4.2,z:0,w:.45,d:6},{id:'Mailbags',x:4.05,z:2.45,w:.85,d:.55}];
 export const queuePoint=i=>({x:-1.45+(Math.floor(i/3)%6)*.84,z:2.2+(Math.floor(i/18)%2?2-i%3:i%3)*.85});
@@ -98,7 +98,7 @@ export function createShopFlow({onMeetEnd=()=>{},onEvent=()=>{}}={}){
     if(next.blocked||stopped){u.blocked=(u.blocked||0)+dt;if(u.blocked>.7){u.path=nav.find(u.position,u.goal,others.map(o=>({...o,r:Math.min(.6,Math.max(.1,Math.hypot(o.x-u.position.x,o.z-u.position.z)-.025))})))||[];u.blocked=0;}}
     u.arrived=!u.path.length&&Math.hypot(u.position.x-u.goal.x,u.position.z-u.goal.z)<.12;
    }
-   if(u.arrived&&u.phase==='leaving'){onEvent({kind:'door',id:u.key+':out'});units.delete(k);continue;}
+   if(u.phase==='leaving'&&Math.hypot(u.position.x-ENTRY.x,u.position.z-ENTRY.z)<.65){onEvent({kind:'door',id:u.key+':out'});units.delete(k);continue;}
    if(u.arrived&&u.kind==='guest'&&u.seat&&!u.performing&&u.phase!=='leaving'){u.seated=true;u.heading=0;}
    if(u.arrived&&u.kind==='staff'&&u.phase==='working'){u.seated=!!u.seatHeight;u.heading=u.yaw;}
   }

@@ -1,7 +1,7 @@
-import {realTime} from '../fairy-garden/real-clock.mjs?v=fg-9983713c37f606aa';
-import {townEnvironment} from '../pets/environment.mjs?v=fg-9983713c37f606aa';
-import {npcLook} from './npc-appearance.mjs?v=fg-9983713c37f606aa';
-import {seatLook} from '../fairy-garden/wardrobe.mjs?v=fg-9983713c37f606aa';
+import {realTime} from '../fairy-garden/real-clock.mjs?v=fg-9c7c4a50b6db5fe8';
+import {calendarEnvironment} from '../pets/environment.mjs?v=fg-9c7c4a50b6db5fe8';
+import {npcLook} from './npc-appearance.mjs?v=fg-9c7c4a50b6db5fe8';
+import {seatLook} from '../fairy-garden/wardrobe.mjs?v=fg-9c7c4a50b6db5fe8';
 export {npcLook};
 // Read-only projection. The writer and its clock remain StampDuel's text shop.
 export const POSTS=Object.freeze({
@@ -24,7 +24,7 @@ export function projectShop(raw,{characters=[],cards=[],lookFor=()=>({}),period=
   function staffFor(saved){const result=[];for(const post of shopRules?.SHOP.POSTS||Object.keys(POSTS)){const id=record(saved)[post],c=list(characters).find(c=>c&&String(c.id)===String(id));if(id==null||id===''||!c||!POSTS[post])continue;result.push({post,id:String(c.id),name:String(c.remark||c.name||'店员'),look:structuredClone(roleLook(c)),badge:cardOf(record(shop.badge)[post])||null,...POSTS[post],kind:'staff'});}return result;}
   const staff=closed?[]:staffFor(roster),storyOf=s=>({...s,staff:staffFor(record(s).cast)});
   const dateParts=String(today||shop.date||'2026-1-1').split('-').map(Number),fallback=new Date(dateParts[0]||2026,(dateParts[1]||1)-1,dateParts[2]||1,({上午:10,下午:15,傍晚:19,半夜:1}[period]||1));
-  const environment=townEnvironment(time||realTime(null,fallback.getTime()),weatherSeed);
+  const environment=calendarEnvironment(time||realTime(null,fallback.getTime()),weatherSeed);
   const decor=[...new Set(list(shop.decor).filter(k=>typeof k==='string'&&(DECOR_BUILDERS[k]||shopRules?.shopDecorOf(k))))].map(name=>({name,builder:DECOR_BUILDERS[name]||'monthly:'+name,level:Math.max(1,Math.min(3,Math.floor(Number(decorLv[name]))||1))}));
   const windowIds=[...new Set(list(shop.window).filter(x=>typeof x==='string'))].slice(0,shopRules?.shopWinSlots({decor:list(shop.decor)})||3);
   const windowCards=windowIds.map(id=>list(cards).find(c=>c&&c.id===id)).filter(Boolean).map(c=>({id:c.id,name:String(record(c.text).name||'一枚邮票'),image:typeof(c.cover||c.face)==='string'?(c.cover||c.face):''}));

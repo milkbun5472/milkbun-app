@@ -1,5 +1,5 @@
-import {projectShop} from './state.mjs?v=fg-9983713c37f606aa';
-import {createPostOfficeView} from './view.mjs?v=fg-9983713c37f606aa';
+import {projectShop} from './state.mjs?v=fg-9c7c4a50b6db5fe8';
+import {createPostOfficeView} from './view.mjs?v=fg-9c7c4a50b6db5fe8';
 const host=parent!==window?parent.FairyGardenHostFor?.(window):null,status=document.getElementById('status');
 let view=null,closed=false,paused=false,frame=0,timer=null,key='',pending=false,closing=false,failed=false,lastRender=0;
 async function refresh(){

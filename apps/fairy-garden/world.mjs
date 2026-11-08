@@ -1,11 +1,11 @@
-import {restorePuzzleMemory,restoreBack} from '../train/puzzle-memory.mjs?v=fg-9983713c37f606aa';
-import {validImage} from '../train/album.mjs?v=fg-9983713c37f606aa';
-import {KNOWN_OUTFITS,HAIR_MODES,restoreWardrobe} from './wardrobe.mjs?v=fg-9983713c37f606aa';
-import {brewError,brewResult} from './brewing.mjs?v=fg-9983713c37f606aa';
-import {restoreWorkshop,restoreWaterLights,activeWaterLights,gameMinute,waterLightError,releaseWaterLight,millError,startMill,collectMill,helpMill,MILL_RECIPES,millRemaining} from './workshop.mjs?v=fg-9983713c37f606aa';
-import './rules.js?v=fg-9983713c37f606aa';
-export const {COMPANION_DESTINATIONS,GIFT_FAMILIES,GIFT_STANCES,GIFT_ORDER,giftQuota,stanceByRank,WELL_CURIOS,WELL_TIDES,WELL_KITS,wellTide,wellContext,wellWeights,wellFind,VILLAGE_ZONES,villagePoint,migrateVillagePosition,START,TREES,NODES,MAPS,ACTIVITIES,SEASONS,DEPTH_MAX,DEPTH_BASE,depthNodes,seasonOf,weather,normalizePlan,hitInteraction,nearInteraction}=globalThis.FairyGardenRules;
-import {createNavigator} from './navigation.mjs?v=fg-9983713c37f606aa';
+import {restorePuzzleMemory,restoreBack} from '../train/puzzle-memory.mjs?v=fg-9c7c4a50b6db5fe8';
+import {validImage} from '../train/album.mjs?v=fg-9c7c4a50b6db5fe8';
+import {KNOWN_OUTFITS,HAIR_MODES,restoreWardrobe} from './wardrobe.mjs?v=fg-9c7c4a50b6db5fe8';
+import {brewError,brewResult} from './brewing.mjs?v=fg-9c7c4a50b6db5fe8';
+import {restoreWorkshop,restoreWaterLights,activeWaterLights,gameMinute,waterLightError,releaseWaterLight,millError,startMill,collectMill,helpMill,MILL_RECIPES,millRemaining} from './workshop.mjs?v=fg-9c7c4a50b6db5fe8';
+import './rules.js?v=fg-9c7c4a50b6db5fe8';
+export const {COMPANION_DESTINATIONS,GIFT_FAMILIES,GIFT_STANCES,GIFT_ORDER,giftQuota,stanceByRank,WELL_CURIOS,WELL_TIDES,WELL_KITS,wellTide,wellContext,wellWeights,wellFind,VILLAGE_ZONES,villagePoint,migrateVillagePosition,START,TREES,NODES,MAPS,ACTIVITIES,SEASONS,DEPTH_MAX,DEPTH_BASE,depthNodes,seasonOf,calendarSeason,weather,normalizePlan,hitInteraction,nearInteraction}=globalThis.FairyGardenRules;
+import {createNavigator} from './navigation.mjs?v=fg-9c7c4a50b6db5fe8';
 // Polygon water follows the same sampled shoreline as the exported lake mesh.
 const polygonBounds=new WeakMap();
 export function inPolygon(x,z,points,padding=0){let box=polygonBounds.get(points);if(!box){box={minX:Math.min(...points.map(p=>p.x)),maxX:Math.max(...points.map(p=>p.x)),minZ:Math.min(...points.map(p=>p.z)),maxZ:Math.max(...points.map(p=>p.z))};polygonBounds.set(points,box);}if(x<box.minX-padding||x>box.maxX+padding||z<box.minZ-padding||z>box.maxZ+padding)return false;
@@ -1475,7 +1475,7 @@ export function calendarMarks(s, birthday = 0){
 // 生日：人格档案馆里的公历月日换算成村里的一年（四季各十四天，一年五十六天）
 export function gameBirthday(month, day){
   const mo = count(month), d = count(day); if (mo < 1 || mo > 12 || d < 1 || d > 31) return 0;
-  const season = mo >= 3 && mo <= 5 ? 0 : mo >= 6 && mo <= 8 ? 1 : mo >= 9 && mo <= 11 ? 2 : 3;
+  const season = calendarSeason(mo);
   const start = [3, 6, 9, 12][season], within = ((mo - start + 12) % 12) * 31 + (d - 1);
   return season * 14 + Math.min(14, 1 + Math.floor(within / 93 * 14));
 }

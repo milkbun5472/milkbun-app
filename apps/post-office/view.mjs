@@ -1,16 +1,16 @@
-import {createShopExterior} from './exterior.mjs?v=fg-9983713c37f606aa';
-import {createDayEnvironment,prepareEnvironmentSurfaces} from '../fairy-garden/day/environment-view.mjs?v=fg-9983713c37f606aa';
-import {makeNpcCostume} from './npc-outfits.mjs?v=fg-9983713c37f606aa';
-import {createShopFlow} from './flow.mjs?v=fg-9983713c37f606aa';
-import {createShopDecor} from './decor-view.mjs?v=fg-9983713c37f606aa';
+import {createShopExterior} from './exterior.mjs?v=fg-9c7c4a50b6db5fe8';
+import {createDayEnvironment,prepareEnvironmentSurfaces} from '../fairy-garden/day/environment-view.mjs?v=fg-9c7c4a50b6db5fe8';
+import {makeNpcCostume} from './npc-outfits.mjs?v=fg-9c7c4a50b6db5fe8';
+import {createShopFlow} from './flow.mjs?v=fg-9c7c4a50b6db5fe8';
+import {createShopDecor} from './decor-view.mjs?v=fg-9c7c4a50b6db5fe8';
 import * as T from 'three';
-import {createRoomKit} from '../fairy-garden/day/places/room-kit.mjs?v=fg-9983713c37f606aa';
-import {createWorldRenderer,disposeWorldRenderer} from '../fairy-garden/world-renderer.mjs?v=fg-9983713c37f606aa';
-import {createMapGesture,createMapOrbit,orthographicCameraPose,orthographicPanDelta} from '../fairy-garden/view-controls.mjs?v=fg-9983713c37f606aa';
-import {splitRoomCutaway,createRoomCutaway} from '../fairy-garden/day/camera-view.mjs?v=fg-9983713c37f606aa';
-import {createTraveler,loadTravelerSource} from '../fairy-garden/traveler.mjs?v=fg-9983713c37f606aa';
-import {disposeMap} from '../fairy-garden/map-loader.mjs?v=fg-9983713c37f606aa';
-import {visibleBounds} from '../fairy-garden/photo-render.mjs?v=fg-9983713c37f606aa';
+import {createRoomKit} from '../fairy-garden/day/places/room-kit.mjs?v=fg-9c7c4a50b6db5fe8';
+import {createWorldRenderer,disposeWorldRenderer} from '../fairy-garden/world-renderer.mjs?v=fg-9c7c4a50b6db5fe8';
+import {createMapGesture,createMapOrbit,orthographicCameraPose,orthographicPanDelta} from '../fairy-garden/view-controls.mjs?v=fg-9c7c4a50b6db5fe8';
+import {splitRoomCutaway,createRoomCutaway} from '../fairy-garden/day/camera-view.mjs?v=fg-9c7c4a50b6db5fe8';
+import {createTraveler,loadTravelerSource} from '../fairy-garden/traveler.mjs?v=fg-9c7c4a50b6db5fe8';
+import {disposeMap} from '../fairy-garden/map-loader.mjs?v=fg-9c7c4a50b6db5fe8';
+import {visibleBounds} from '../fairy-garden/photo-render.mjs?v=fg-9c7c4a50b6db5fe8';
 export function createPostOfficeView(stage,{name,counter,thumbnail,select,monthly,onMeetEnd,onEvent}={}){
  const renderer=createWorldRenderer(stage),scene=new T.Scene(),camera=new T.OrthographicCamera(-6,6,7,-7,.1,100),kit=createRoomKit();
  const {root,box,cylinder,sphere,ellipsoid,tube,group,sign,table,chair,bench,plant}=kit;
@@ -68,7 +68,7 @@ export function createPostOfficeView(stage,{name,counter,thumbnail,select,monthl
  let lastTime=null,closeResolve=null,closePromise=null;
  let lastTap=null,projection=null,cardKey='',generation=0,closed=false,paused=false,zoom=1,pan={x:0,z:.35};
  const labels=document.getElementById('labels'),observers=[],narrator=document.createElement('span');narrator.className='shop-speech shop-narration';narrator.hidden=true;labels.append(narrator);
- const controls=document.createElement('div');controls.className='shop-performance';controls.hidden=true;const progress=document.createElement('span'),nextLine=document.createElement('button'),stopStory=document.createElement('button');nextLine.textContent='下一句';stopStory.textContent='结束演出';nextLine.onclick=()=>flow.nextBeat();stopStory.onclick=()=>flow.skipStory();controls.append(progress,nextLine,stopStory);const weatherLabel=document.createElement('span');weatherLabel.className='shop-weather';weatherLabel.title='与绒绒小镇共用季节和每日景观天气';stage.append(controls,weatherLabel);
+ const controls=document.createElement('div');controls.className='shop-performance';controls.hidden=true;const progress=document.createElement('span'),nextLine=document.createElement('button'),stopStory=document.createElement('button');nextLine.textContent='下一句';stopStory.textContent='结束演出';nextLine.onclick=()=>flow.nextBeat();stopStory.onclick=()=>flow.skipStory();controls.append(progress,nextLine,stopStory);const weatherLabel=document.createElement('span');weatherLabel.className='shop-weather';weatherLabel.title='按手机本地日期和钟点，每3小时按季节概率安排景观天气';stage.append(controls,weatherLabel);
  function render(){
   if(closed)return;const w=stage.clientWidth,h=stage.clientHeight;if(!w||!h)return;
   const spanX=Math.max(12.8,12.8*w/h),spanY=spanX*h/w;
@@ -94,11 +94,11 @@ export function createPostOfficeView(stage,{name,counter,thumbnail,select,monthl
  listen(canvas,'wheel',e=>{e.preventDefault();gesture.setZoom(zoom*Math.exp(-T.MathUtils.clamp(e.deltaY,-240,240)*.002));},{passive:false});
  async function sync(next){
   if(closed)return;projection=next;const ticket=++generation;
-  const light=next.lighting;exterior.sync(next.environment);weatherLabel.textContent=next.environment?next.environment.seasonName+' · '+next.environment.kind:'';scene.background.set(next.environment?.night?'#34434d':next.environment?.sky||'#e6dfcc');
+  const light=next.lighting;exterior.sync(next.environment);weatherLabel.textContent=next.environment?next.environment.seasonName+' · '+next.environment.phase+' '+next.environment.time+' · '+next.environment.kind:'';scene.background.set(next.environment?.night?'#34434d':next.environment?.sky||'#e6dfcc');
   hemi.intensity=light==='night'?.38:light==='evening'?1.25:2.4;sun.intensity=light==='night'?.12:light==='evening'?.75:2.8;
   sun.color.set(light==='evening'?'#ffc78e':'#fff0cf');closedSign.visible=closedDoor.visible=next.closed&&!flow.closing;
   decoration.sync(next);
-  lights.forEach((l,i)=>l.intensity=light==='evening'&&!next.closed&&next.decor.some(d=>d.builder==='lamp'&&d.level>i)?6:0);
+  lights.forEach((l,i)=>l.intensity=!next.closed&&next.decor.some(d=>d.builder==='lamp'&&d.level>i)?lampPower(next):0);
   const ck=JSON.stringify(next.cards);if(ck!==cardKey){cardKey=ck;disposeMap(cardRoot);cardRoot.clear();
    next.cards.forEach((card,i)=>{const x=-3.1+i*.79,frame=box('CardFrame:'+card.id,{x,y:2.25,z:-2.87,w:.68,h:.92,d:.055,color:'#dec99d'},cardRoot);
     const face=sign('Card:'+card.id,{text:card.name,x,y:2.25,z:-2.83,w:.59,h:.81,color:'#f4e8cf',ink:'#756146'},cardRoot);face.userData.cardId=card.id;
@@ -133,9 +133,10 @@ export function createPostOfficeView(stage,{name,counter,thumbnail,select,monthl
    a.avatar.animate(time,{moving:!!u.path.length,seated,seatPose:seated?'chair':null,height:seated?(u.performanceSeat?.53:u.kind==='staff'?u.seatHeight:.53):.08,gesture:seated?'sit':u.letter?'hold':'rest',task});
    a.letter.visible=!!u.letter;if(u.letter){a.letter.position.copy(a.avatar.root.worldToLocal(a.avatar.handPoint()));a.letter.rotation.set(-.15,.2,.25);}
   }
-  if(projection?.environment){const env=projection.environment;environment.update(env.minute,{source:'world',code:env.snow?73:env.rain?61:env.mist?45:env.kind==='阴天'?3:0},time);exterior.tick(time);}
-  if(flow.closing){lights.forEach((l,i)=>{const level=projection?.decor.find(d=>d.builder==='lamp')?.level||0;const progress=Math.max(0,Math.min(1,flow.lampProgress*level-i));l.intensity=projection?.lighting==='evening'&&i<level?6*(1-progress):0;});if(flow.closingDone){closedSign.visible=closedDoor.visible=true;if(closeResolve){closeResolve(true);closeResolve=null;}}}
+  if(projection?.environment){const env=projection.environment;environment.update(env.minute,{source:'world',code:env.snow?73:env.rain?61:env.mist?45:env.cloudy?3:0,wind:env.wind,lighting:env},time);exterior.tick(time);}
+  if(flow.closing){lights.forEach((l,i)=>{const level=projection?.decor.find(d=>d.builder==='lamp')?.level||0;const progress=Math.max(0,Math.min(1,flow.lampProgress*level-i));l.intensity=i<level?lampPower(projection)*(1-progress):0;});if(flow.closingDone){closedSign.visible=closedDoor.visible=true;if(closeResolve){closeResolve(true);closeResolve=null;}}}
  }
+ function lampPower(next){const e=next?.environment;return e?(e.phase==='傍晚'||e.night||e.light<.65?6:0):next?.lighting==='evening'?6:0;}
  function weatherSnapshot(){const state=environment.inspect(),weather=scene.getObjectByName('DayWeather'),roofs=root.userData.dayWeatherRoofs||[];let indoorParticles=0;if(weather?.visible)for(const mesh of weather.children){if(!mesh.visible)continue;const p=mesh.geometry.attributes.position,count=Math.min(p.count,mesh.geometry.drawRange.count);for(let i=0;i<count;i+=mesh.isLineSegments?2:1)if(p.getY(i)>0&&roofs.some(r=>p.getX(i)>r.min[0]&&p.getX(i)<r.max[0]&&p.getZ(i)>r.min[2]&&p.getZ(i)<r.max[2]))indoorParticles++;}return {...state,indoorParticles};}
  async function startClosing(story=projection?.closing){if(closePromise)return closePromise;closePromise=new Promise(resolve=>{closeResolve=resolve;});flow=createShopFlow({onEvent});flow.reconcile({...projection,ambient:false,closed:false,phase:'open',staff:Array.isArray(story?.staff)?story.staff:projection?.staff||[],customers:[]});flow.startClosing(story||{});await ensureActors();return closePromise;}
  function dispose(){if(closed)return;closed=true;generation++;observer.disconnect();for(const off of observers)off();for(const a of people.values()){a.label.remove();a.bubble.remove();}people.clear();narrator.remove();controls.remove();weatherLabel.remove();cutaway.restore();environment.close();closeResolve?.(false);closeResolve=null;disposeWorldRenderer(renderer,scene);}

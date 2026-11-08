@@ -64,9 +64,9 @@ test('all actual public customer identities use their own costume IDs, while sta
  const blank=projectShop(raw,{...options,characters:chars,period:'上午',lookFor:()=>({})});assert.equal(blank.staff[0].look.dims.height,1.10);assert.equal(blank.customers[0].look.dims.height,1.00);
 });
 
-test('outside weather uses the same seeded town calendar across all four seasons and keeps the shop clock',async()=>{
- const {realTime}=await import('../apps/fairy-garden/real-clock.mjs'),{townEnvironment}=await import('../apps/pets/environment.mjs');
- const seasons=new Set();for(const day of [4,18,32,46]){const at=new Date(2026,9,day,12,30).getTime(),time=realTime(null,at),expected=townEnvironment(time,1234),raw=fixture(),before=structuredClone(raw),s=projectShop(raw,{...options,period:'下午',time,weatherSeed:1234});seasons.add(s.environment.season);assert.equal(s.environment.kind,expected.kind);assert.equal(s.environment.date,time.date);assert.equal(s.environment.minute,750);assert.equal(s.lighting,'day');assert.deepEqual(raw,before);}assert.equal(seasons.size,4);
+test('outside follows local calendar months and clock without changing the shared shop save',async()=>{
+ const {realTime}=await import('../apps/fairy-garden/real-clock.mjs'),{calendarEnvironment}=await import('../apps/pets/environment.mjs');
+ const seasons=new Set();for(const month of [4,7,10,1]){const at=new Date(2026,month-1,8,12,30).getTime(),time=realTime(null,at),expected=calendarEnvironment(time,1234),raw=fixture(),before=structuredClone(raw),s=projectShop(raw,{...options,period:'下午',time,weatherSeed:1234});seasons.add(s.environment.season);assert.equal(s.environment.kind,expected.kind);assert.equal(s.environment.date,time.date);assert.equal(s.environment.minute,750);assert.equal(s.environment.source,'real-calendar');assert.equal(s.lighting,'day');assert.deepEqual(raw,before);}assert.equal(seasons.size,4);
 });
 test('a historical closing casts only its saved original clerks and uses their current companion appearance',()=>{
  const raw={...fixture(),phase:'closed',closing:['正文留底。'],closingTurns:[{speakerId:'b',text:'正文留底。'}],closeCast:{柜台:'b',分拣:'deleted'}};

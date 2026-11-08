@@ -1,5 +1,5 @@
 import * as T from 'three';
-import {environmentAt,precipitationRoofed} from './environment.mjs?v=fg-9983713c37f606aa';
+import {environmentAt,precipitationRoofed} from './environment.mjs?v=fg-9c7c4a50b6db5fe8';
 
 const vertexShader=`varying vec2 surface;void main(){surface=position.xy;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}`;
 const fragmentShader=`varying vec2 surface;uniform float time;uniform float rain;uniform float night;
@@ -62,13 +62,13 @@ export function createDayEnvironment({scene,renderer,hemi,sun,fill}){
   rain.visible=outside&&state.kind==='rain';snow.visible=outside&&state.kind==='snow';
   root.visible=rain.visible||snow.visible;
   if(root.visible){
-   const w=map.bounds?.w||18,d=map.bounds?.d||16,roofs=view?.root.userData.dayWeatherRoofs||[];
+   const w=map.bounds?.w||18,d=map.bounds?.d||16,roofs=view?.root.userData.dayWeatherRoofs||[],wind=weather?.source==='world'&&Number.isFinite(weather.wind)?Math.max(0,Math.min(4,weather.wind)):0;
    for(let i=0;i<count;i++){
     let x=((i*.61803398875)%1-.5)*w,z=((i*.41421356237)%1-.5)*d;
     if((map.renderer||map.id)==='dayStation')x=w/2+.9+(i%7)*.17;
-    const y=.25+((i*.137-time*(rain.visible?1.45:.17))%1+1)%1*5.4,sx=x+Math.sin(time+i)*.07;
-    const rainY=precipitationRoofed(roofs,{x,z},{x:x-.06,z:z-.015})?-10:y,snowY=precipitationRoofed(roofs,{x:sx,z})?-10:y;
-    rainPositions.set([x,rainY,z,x-.06,rainY-.23,z-.015],i*6);snowPositions.set([sx,snowY,z],i*3);
+    const y=.25+((i*.137-time*(rain.visible?1.45:.17))%1+1)%1*5.4,sx=x+Math.sin(time+i)*.07+Math.sin(time*.8+i)*wind*.22,slant=.06+wind*.06;
+    const rainY=precipitationRoofed(roofs,{x,z},{x:x-slant,z:z-.015})?-10:y,snowY=precipitationRoofed(roofs,{x:sx,z})?-10:y;
+    rainPositions.set([x,rainY,z,x-slant,rainY-.23,z-.015],i*6);snowPositions.set([sx,snowY,z],i*3);
    }
    rainGeometry.setDrawRange(0,count*2);snowGeometry.setDrawRange(0,count);rainGeometry.attributes.position.needsUpdate=true;snowGeometry.attributes.position.needsUpdate=true;
   }
