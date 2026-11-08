@@ -1143,8 +1143,11 @@
           h("button", { onClick: () => { setReSel(null); setReAllArm(false); }, style: { padding: "6px 12px", fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: "rgba(47,42,34,.55)" } }, "取消"),
           h("button", { "data-wk": "stamprego", disabled: !picked.length, onClick: () => { if (!reAllArm) { setReAllArm(true); return; } onWrite(picked); setReSel(null); setReAllArm(false); toast("在重写 " + picked.length + " 张"); },
             className: "active:opacity-70 disabled:opacity-40", style: { marginLeft: "auto", padding: "6px 16px", borderRadius: 999, background: reAllArm ? "#b23a2e" : "#285C4B", color: "#fff", fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))" } }, reAllArm ? "再点一次：重写" : "重写"))); })() : null;
+    // 远信（她 2026-11-08）：对局页「远信」进来
+    if (tab === "run" && window.StampRunPage) return h(window.StampRunPage, { characters, cards: (st.cards || []).filter(c => c && !c.writing), meName, toast,
+      onBack: () => setTab("duel"), onRemember: props.onDuelRemember, closeOf: props.duelCloseOf, onChat: props.onDuelChat, useThumb: useStampThumb });
     if (tab === "duel") return !window.StampDuelPage ? h("div", { className: "h-full flex flex-col", style: { background: "linear-gradient(#f1e9d8, #e9dfca)" } }, h(Head, { zh: "对局", bg: "transparent", ink: "#2f2a22", onBack: () => setTab("pull") }), h("div", { className: "px-6", style: { fontFamily: F_BODY, color: "#2f2a22", lineHeight: 1.8 } }, "对局这页还没下载下来。把 App 完全关掉再打开一次就好。")) : h(window.StampDuelPage, { characters, cards: (st.cards || []).filter(c => c && !c.writing), meName, toast,
-      onBack: () => setTab("pull"), onRemember: props.onDuelRemember, closeOf: props.duelCloseOf, onChat: props.onDuelChat, onReport: props.onDuelReport, preset: duelPreset, useThumb: useStampThumb });
+      onBack: () => setTab("pull"), onRemember: props.onDuelRemember, closeOf: props.duelCloseOf, onChat: props.onDuelChat, onReport: props.onDuelReport, preset: duelPreset, onRun: window.StampRunPage ? () => setTab("run") : null, useThumb: useStampThumb });
     if (tab === "album") return h("div", { "data-wk": "stampalbumpage", "data-page": "1", className: "h-full flex flex-col overflow-hidden", style: { background: "repeating-linear-gradient(180deg, transparent 0 116px, rgba(47,42,34,.07) 116px 117px, transparent 117px 120px), linear-gradient(#f1e9d8, #e9dfca)" } },
       // 融卡放右上角（她 2026-10-29）
       h(Head, { zh: "邮票册", sub: (st.cards || []).length + " 枚", bg: "transparent", ink: "#2f2a22", onBack: () => setTab("pull"),

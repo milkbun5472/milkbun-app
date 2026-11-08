@@ -36087,17 +36087,25 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       if (!active) { toast("请先到设置配置 API"); return []; }
       const uN = userName(profile);
       const r = await runProbe(apiFor(char.id), ctxFor(char), { voice: true, tag: "stampduel", maxTokens: 8000,
-        instruction: "你正和" + uN + "面对面用邮票册的卡打一局对局（两边各一个信封，往上贴卡、互相打信封，打空的输）。这一局是你们俩一起在玩的游戏，不是剧情里真的打架。\n"
+        instruction: (d.mode === "road" || d.mode === "letter"
+            // 远信（她 2026-11-08「路途也可以聊天」「终点要回信」）：她在邮票册里玩一趟送信的游戏，信是寄给你的，你一路陪着
+            ? "你正陪" + uN + "玩邮票册里的「远信」：她要寄一封信给你，信得走一段邮路，一路用邮票册的卡打过路上的麻烦和拦信的人，最后一站是你。这是你们俩一起玩的游戏。\n"
+            : "你正和" + uN + "面对面用邮票册的卡打一局对局（两边各一个信封，往上贴卡、互相打信封，打空的输）。这一局是你们俩一起在玩的游戏，不是剧情里真的打架。\n")
           + "眼下的局面：" + d.board + "\n"
           + (d.history ? "这一局里你们刚才的几句：\n" + d.history + "\n" : "")
           // 三种：边打边聊 / 彩头兑现（她 2026-11-08「输了干嘛」）/ 赛后复盘
-          + (d.mode === "wager"
+          + (d.mode === "road"
+            ? uN + "在路上跟你说：「" + String(d.text).slice(0, 400) + "」\n照你的人设和你们的关系接她这句，像一起赶路时随口聊：几句短的就够；说到路上的事只说上面写着的，别编没发生的。"
+            : d.mode === "letter"
+            ? "她赢了最后一站，信送到你手里了。现在你给她写一封回信：照你的人设、你们的关系写，可以提这一路上面写着的事（她带了谁的卡、走了哪些站、差点没送到），也可以只写你看完信想说的。像一封真的手写信，有称呼、有落款，长短随你。lines 里一段一项。"
+            : d.mode === "wager"
             ? "开局前你们说好的彩头：「" + String(d.wager).slice(0, 200) + "」。这一把" + (d.winner === "foe" ? "你赢了，现在向她讨这个彩头" : d.winner === "me" ? "她赢了，现在你照约定兑现" : "打平了，你们商量这个彩头怎么算") + "。照你的人设和你们的关系把这件事做出来、说出来；能当场做的就当场做，做不到的就说清什么时候、怎么还。"
             : d.mode === "review"
             ? "这一把打完了。像打完牌回头聊这一局那样说几句：哪一步让你印象深、哪张票最烦人或最争气、下次想怎么打。只说上面写着的局面，别编没发生的。"
             : uN + "刚跟你说：「" + String(d.text).slice(0, 400) + "」\n照你的人设、你们的关系和此刻的输赢接她这句，像边打牌边说话：几句短的就够，说到局面时只说上面写着的那些，别编没发生的。"),
         schemaHint: "{\"lines\":[\"一句\"]}" });
-      const out = (Array.isArray(r && r.lines) ? r.lines : [r && r.lines]).map(x => String(x || "").trim()).filter(Boolean).slice(0, d.mode ? 6 : 4);
+      const out = (Array.isArray(r && r.lines) ? r.lines : [r && r.lines]).map(x => String(x || "").trim()).filter(Boolean).slice(0, d.mode === "letter" ? 12 : d.mode && d.mode !== "road" ? 6 : 4);
+      if (d.mode === "letter" && out.length) { try { addMemEntry({ text: uN + "在邮票册的「远信」里寄了一封信给" + char.name + "，一路送到了；" + char.name + "回了一封信：" + out.join(" ").slice(0, 160), tags: ["邮票对局", "远信", "回信"], charIds: [char.id], knownBy: [char.id], source: "stamps" }); } catch (e) {} }
       // 彩头兑现了就记下来，以后 TA 还会拿出来说
       if (d.mode === "wager" && out.length) { try { addMemEntry({ text: char.name + "和" + uN + "打邮票对局，赌了「" + String(d.wager).slice(0, 60) + "」，" + (d.winner === "foe" ? char.name + "赢了，向她讨了" : d.winner === "me" ? uN + "赢了，" + char.name + "兑现了" : "打平了") + "：" + out.join(" ").slice(0, 120), tags: ["邮票对局", "彩头"], charIds: [char.id], knownBy: [char.id], source: "stamps" }); } catch (e) {} }
       return out;

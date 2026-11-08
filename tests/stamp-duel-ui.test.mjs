@@ -60,7 +60,7 @@ test("跟 TA 聊时带上两边信封上的票和卡上那句；长按不弹系�
 test("新手教学关：开局页能进、九步教练条、不存档；对面会说话、有打法；能跳过动画", () => {
   assert.match(ui, /const TUT = \[/);
   assert.match(ui, /"data-wk": "duelturorial", onClick: startTut/);
-  assert.match(ui, /\(x && x\.tutorial\)\) return;/);
+  assert.match(ui, /\(x && \(x\.tutorial \|\| x\.run\)\) \|\| runBattle\) return;/);
   assert.match(ui, /"data-wk": "duelsay"/);
   assert.match(ui, /"data-wk": "duelskip", onClick: skip/);
   // 钩子不许放在提前 return 后面（React #310）
