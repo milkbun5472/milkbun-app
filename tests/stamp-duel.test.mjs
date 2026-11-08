@@ -318,3 +318,10 @@ test("小店装修：每月两样限定、买过的能翻新到三级、翻新�
   assert.equal(D.shopUpPrice(s1, "暖黄的吊灯"), 120); assert.equal(D.shopUpPrice(s2, "暖黄的吊灯"), 0);
   assert.ok(D.shopDecorOf("南瓜灯").month === 10);
 });
+test("小店按现实时间：时段划分、每段客人不一样（下午难缠多、傍晚角色多）、有急件", () => {
+  assert.equal(D.shopPeriod(new Date(2026, 0, 1, 9)), "上午"); assert.equal(D.shopPeriod(new Date(2026, 0, 1, 14)), "下午");
+  assert.equal(D.shopPeriod(new Date(2026, 0, 1, 20)), "傍晚"); assert.equal(D.shopPeriod(new Date(2026, 0, 1, 3)), "半夜");
+  let t = { 上午: 0, 下午: 0 }, v = { 上午: 0, 傍晚: 0 }, u = 0;
+  for (let d = 1; d <= 60; d++) for (const pd of ["上午", "下午", "傍晚"]) { const cs = D.shopCustomers({ day: d, decor: [] }, ["x", "y"], 5, ["x"], pd); if (t[pd] != null) t[pd] += cs.filter(c => c.tough).length; if (v[pd] != null) v[pd] += cs.filter(c => c.visitor).length; u += cs.filter(c => c.urgent).length; }
+  assert.ok(t.下午 > t.上午); assert.ok(v.傍晚 > v.上午); assert.ok(u > 0);
+});

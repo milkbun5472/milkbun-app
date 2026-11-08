@@ -249,3 +249,8 @@ test("小店页：橱窗挑卡、工牌、点名客人橱窗有才卖、打烊�
   assert.match(ui, /window: sh\.window\.map\(tkLine\)/);
   assert.match(app, /橱窗里摆着她抽到的这几张卡/);
 });
+test("小店页跟着现实时间：换日期新的一天、换时段换客人、半夜不开门", () => {
+  assert.match(ui, /if \(sh\.date !== today\) \{ if \(sh\.date\) sh\.day\+\+;/);
+  assert.match(ui, /if \(sh\.phase === "open" && period !== "半夜" && sh\.period !== period\) \{ roll\(\);/);
+  assert.match(ui, /"半夜不开门，早上 6 点再来"/);
+});
