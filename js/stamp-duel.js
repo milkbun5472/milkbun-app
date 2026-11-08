@@ -310,7 +310,7 @@
     if (u.trait === "节俭") sd.postage += 1;
     if (u.trait === "机灵") drawCards(sd, 1, st.seed + st.turn * 17 + slot);
     sd.board[slot] = u;
-    say(st, who, u.name + " 贴上了", { kind: "place", slot, line: u.lines.enter });
+    say(st, who, u.name + " 贴上了", { kind: "place", slot, char: u.charId, line: u.lines.enter });
     checkCombos(st, who);
     return { ok: true };
   }
@@ -356,7 +356,7 @@
     if (sd.postage < STAMP_COST) return { ok: false, why: "胶水不够" };
     sd.postage -= STAMP_COST; u.charge = 0;
     const p0 = powOf(st, u, sd, slot), big = u.rarity === "SSR", p = big ? Math.ceil(p0 * 1.5) : p0, x = big ? 1.5 : 1;
-    say(st, who, "盖章：" + (big ? u.name : u.skill), { kind: "stamp", slot, line: big ? u.lines.wake : "", skill: u.skill });
+    say(st, who, "盖章：" + (big ? u.name : u.skill), { kind: "stamp", slot, char: u.charId, line: big ? u.lines.wake : "", skill: u.skill });
     const c = col(slot), foeCol = [0, 1, 2].map(r => r * SIZE + c).filter(i => foe.board[i]), j = targetIn(foe, c);
     const k = u.skill;
     if (k === "重击") { if (j >= 0) hitUnit(st, foeWho, j, p * 2, u.name, u); else hitEnvelope(st, foeWho, p + 2, u.name); }
@@ -416,7 +416,7 @@
       const lead = cb.us.slice().sort((a, b) => b.pow - a.pow)[0], sum = cb.us.reduce((a, u) => a + u.pow, 0);
       if (cb.type === "四方连") { cb.us.forEach(u => { u.shield += 3; }); hitEnvelope(st, other(who), Math.ceil(sum / 3), lead.name); }
       else { cb.us.forEach(u => { u.charge++; }); hitEnvelope(st, other(who), Math.ceil(sum / 4), lead.name); }
-      say(st, who, cb.type + "觉醒：" + lead.name, { kind: "wake", combo: cb.type, line: lead.lines.wake, slots: cb.ids });
+      say(st, who, cb.type + "觉醒：" + lead.name, { kind: "wake", char: lead.charId, combo: cb.type, line: lead.lines.wake, slots: cb.ids });
       if (checkOver(st)) return;
     }
   }
@@ -450,7 +450,7 @@
     if (u.hp <= 0 && u.trait === "倔强" && !u.stood) { u.hp = 1; u.stood = 1; say(st, who, u.name + " 硬撑着没倒", { kind: "heal", slot: i }); return; }
     if (u.hp <= 0) {
       if (has(st, who, "旧照片")) sd.hp = Math.min(sd.max || ENVELOPE_HP, sd.hp + 1);
-      sd.board[i] = null; sd.discard.push(stripUnit(u)); say(st, who, u.name + " 掉了", { kind: "fall", slot: i, line: u.lines.fall });
+      sd.board[i] = null; sd.discard.push(stripUnit(u)); say(st, who, u.name + " 掉了", { kind: "fall", slot: i, char: u.charId, line: u.lines.fall });
       if (u.trait === "余温") adj(i).forEach(j => { const v = sd.board[j]; if (v && v.charge < v.need) v.charge++; });
       if (att && att.trait === "热烈") hitEnvelope(st, who, 3, att.name);
     }

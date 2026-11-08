@@ -37,6 +37,19 @@
   // 快捷表情：一点就发，TA 拿卡上那句回你，不花调用
   const EMOTES = ["哼", "再来", "手下留情", "好厉害", "等着瞧", "让我一下嘛"];
   const STATS_KEY = "x_stampDuelStats";
+  // 念台词（她 2026-11-08「搞个开关播放语音，然后可以设置选哪些的台词战斗中可以读出来，战斗的时候会显示台词念出来」）
+  const VOICE_KEY = "x_stampDuelVoice";
+  const VOICE_KINDS = [["place", "贴上场"], ["stamp", "盖章"], ["wake", "觉醒"], ["fall", "被打掉"]];
+  const VOICE_DEF = { on: false, place: true, stamp: true, wake: true, fall: true, me: true, foe: true };
+  const ttsOk = () => typeof ttsSpeak === "function" && typeof ttsReady === "function" && typeof loadTtsApi === "function" && ttsReady(loadTtsApi());
+  // 一次只念一句：排着队念，排太长就丢掉旧的（动画快，别让声音拖到下一回合）
+  const voiceQ = { list: [], busy: false };
+  function speakQ(text, vid) {
+    voiceQ.list.push({ text, vid }); if (voiceQ.list.length > 2) voiceQ.list.splice(0, voiceQ.list.length - 2);
+    const next = () => { const it = voiceQ.list.shift(); if (!it) { voiceQ.busy = false; return; } voiceQ.busy = true;
+      ttsSpeak(it.text, it.vid).then(b => { const u = URL.createObjectURL(b), a = new Audio(u); a.onended = a.onerror = () => { URL.revokeObjectURL(u); next(); }; a.play().catch(() => next()); }).catch(() => next()); };
+    if (!voiceQ.busy) next();
+  }
   const GUIDE = [
     ["一句话", "你和 TA 各有一个信封。轮流往自己信封上贴邮票，贴上的票会自己去打对面。谁的信封先被打空，谁就输。"],
     ["每回合你做什么", "回合开始，你有 3 点胶水，手里摸到 4 张票。", "点手里一张，再点自己信封上的空格，就贴上去了。贴一张要花它的面值那么多胶水：R 是 1，SR 是 2，SSR 是 3。", "胶水花完、或者不想贴了，点「寄出」。你的票先动手，然后 TA 照着亮出来的那一步走。", "没用掉的牌回合结束就扔了。想留，选中它点「留到下回合」，最多留两张。", "放错了点「撤回」，一步一步退，胶水也退回来。点了「寄出」就退不回了。"],
@@ -254,7 +267,20 @@
     const [info, setInfo] = useState(null), [guide, setGuide] = useState(false);
     // 先挑玩法（她 2026-11-08「点对战先出个选择界面：对局模式还是远信模式，再选设定」）；从聊天里点进来、远信里打仗的直接跳过
     const [mode, setMode] = useState(() => (preset || runBattle) ? "duel" : "");
-    const guideBtn = h("button", { "data-wk": "duelguidebtn", onClick: () => setGuide(true), className: "active:opacity-60", style: { padding: "4px 8px", color: INK, fontFamily: F, fontSize: fz(12.5) } }, "怎么玩");
+    const [voice, setVoice0] = useState(() => { try { return Object.assign({}, VOICE_DEF, (typeof loadJSON === "function" ? loadJSON(VOICE_KEY, {}) : {}) || {}); } catch (e) { return Object.assign({}, VOICE_DEF); } });
+    const [voicePanel, setVoicePanel] = useState(false);
+    const setVoice = patch => setVoice0(v => { const n = Object.assign({}, v, patch); try { saveJSON(VOICE_KEY, n); } catch (e) {} return n; });
+    const voiceOf = id => { const c = (characters || []).find(x => x.id === id); return (c && c.voiceId) || (typeof ttsDefaultVoice === "function" ? ttsDefaultVoice(loadTtsApi()) : ""); };
+    const voiceBtn = h("button", { "data-wk": "duelvoicebtn", onClick: () => setVoicePanel(v => !v), className: "active:opacity-60", style: { padding: "4px 6px", color: voice.on ? RED : SUB, fontFamily: F, fontSize: fz(12.5) } }, voice.on ? "🔊" : "🔈");
+    const guideBtn0 = h("button", { "data-wk": "duelguidebtn", onClick: () => setGuide(true), className: "active:opacity-60", style: { padding: "4px 8px", color: INK, fontFamily: F, fontSize: fz(12.5) } }, "怎么玩");
+    const guideBtn = h("span", { className: "flex items-center" }, voiceBtn, guideBtn0);
+    const voicePanelEl = voicePanel ? h("div", { key: "vp", "data-wk": "duelvoice", style: { margin: "4px 0 8px", padding: "10px 12px", borderRadius: 5, background: "rgba(255,253,247,.95)", boxShadow: "0 2px 8px rgba(47,42,34,.12)", fontFamily: F, fontSize: fz(12), color: INK } },
+      h("label", { className: "flex items-center", style: { gap: 8, fontFamily: FD, fontSize: fz(14) } }, h("input", { type: "checkbox", "data-wk": "duelvoiceon", checked: !!voice.on, onChange: e => setVoice({ on: e.target.checked }) }), "打的时候念台词"),
+      h("div", { style: { color: SUB, fontSize: fz(11), margin: "4px 0 8px", lineHeight: 1.6 } }, ttsOk() ? "票上场、盖章、觉醒、被打掉时，卡上那句台词会冒出来，开着就用这个人的声音念（声音在角色档案里设，没设用默认的）。念过的存着，再念不花钱。" : "还没配语音：去「设置 → 语音」配好才念得出来。不开也会照样显示台词。"),
+      h("div", { style: { color: SUB, fontSize: fz(11), marginBottom: 4 } }, "念哪些时候的"),
+      h("div", { className: "flex flex-wrap", style: { gap: 6, marginBottom: 8 } }, VOICE_KINDS.map(([k, zh]) => h("button", { key: k, "data-wk": "duelvoicekind", "data-on": voice[k] ? "1" : "0", onClick: () => setVoice({ [k]: !voice[k] }), style: { padding: "2px 10px", borderRadius: 999, border: "1px solid " + (voice[k] ? RED : "rgba(47,42,34,.25)"), color: voice[k] ? RED : SUB, background: voice[k] ? "rgba(178,58,46,.07)" : "transparent" } }, zh))),
+      h("div", { style: { color: SUB, fontSize: fz(11), marginBottom: 4 } }, "念谁的票"),
+      h("div", { className: "flex flex-wrap", style: { gap: 6 } }, [["foe", "对面的"], ["me", "我这边的"]].map(([k, zh]) => h("button", { key: k, "data-wk": "duelvoiceside", "data-on": voice[k] ? "1" : "0", onClick: () => setVoice({ [k]: !voice[k] }), style: { padding: "2px 10px", borderRadius: 999, border: "1px solid " + (voice[k] ? GREEN : "rgba(47,42,34,.25)"), color: voice[k] ? GREEN : SUB, background: voice[k] ? "rgba(79,122,102,.08)" : "transparent" } }, zh)))) : null;
     const openInfo = (u, foe, terrain) => { setInfo({ u, foe, terrain }); if (tutSeen && tutSeen.current) tutSeen.current.infoSeen = true; };
     const [core, setCore] = useState([]);
     // 每个人的羁绊看人设里的字（不花调用）
@@ -450,7 +476,11 @@
         // 他开口：他的票上场、被打掉、觉醒、盖章时说卡上那句；打掉她一张时说他卡上戳一戳时那句（她 2026-11-08 同意「像他」）
         const foeLine = l.who === "foe" && l.line ? l.line : (l.kind === "fall" && l.who === "me" ? (them.board.find(x => x && x.lines && x.lines.win) || {}).lines : null);
         const said = typeof foeLine === "string" ? foeLine : foeLine && foeLine.win;
-        if (said) { const key = Math.random(); lastBubble.current = key; setBubble({ text: said, key }); }
+        // 这一下的台词要不要冒出来、念出来：照她在 🔊 里勾的（哪种时候、哪一边）
+        const want = l.line && voice[l.kind] && voice[l.who === "foe" ? "foe" : "me"];
+        if (want && voice.on && ttsOk()) speakQ(l.line, voiceOf(l.char));
+        if (want && l.who === "me") { const key = Math.random(); lastBubble.current = key; setBubble({ text: l.line, key, me: true, who: nameOf(l.char) || meName || "我" }); }
+        else if (said) { const key = Math.random(); lastBubble.current = key; setBubble({ text: said, key, who: l.char ? nameOf(l.char) : "" }); if (!want && voice.on && voice.foe && ttsOk() && foeLine && foeLine.win) speakQ(said, voiceOf(foeId)); }
         // 远信终点：TA 的信封掉到一半时开一次口（她 2026-11-08「打到一半 TA 冒台词，像在拦你又舍不得拦」）
         else if (runBattle && runBattle.boss && !st.halfSaid && them.hp <= (them.max || 40) / 2) {
           st.halfSaid = 1; const pool = them.board.concat(them.hand).filter(Boolean).map(u => u.lines && (u.lines.wake || u.lines.enter)).filter(Boolean);
@@ -538,8 +568,9 @@
           onScroll: e => { if (!guarding()) keepY.current = e.currentTarget.scrollTop; else if (Math.abs(e.currentTarget.scrollTop - keepY.current) > 4) e.currentTarget.scrollTop = keepY.current; } },
         coach,
         Seal(foeName, them.hp, them.max || D().ENVELOPE_HP, RED, series && series.games.length ? "第 " + (series.games.length + 1) + " 把" : ""),
-        bubble ? h("div", { key: "bb" + bubble.key, "data-wk": "duelsay", style: { position: "relative", margin: "4px 0 2px 34px", padding: "6px 11px", borderRadius: "4px 12px 12px 12px", background: "#fff", boxShadow: "0 2px 6px rgba(47,42,34,.15)", fontSize: fz(12.5), lineHeight: 1.55, color: INK, animation: "duelPop .3s" } },
-          h("span", { style: { color: RED, fontFamily: FD, marginRight: 6 } }, foeName), bubble.text) : null,
+        voicePanelEl,
+        bubble && !bubble.me ? h("div", { key: "bb" + bubble.key, "data-wk": "duelsay", style: { position: "relative", margin: "4px 0 2px 34px", padding: "6px 11px", borderRadius: "4px 12px 12px 12px", background: "#fff", boxShadow: "0 2px 6px rgba(47,42,34,.15)", fontSize: fz(12.5), lineHeight: 1.55, color: INK, animation: "duelPop .3s" } },
+          h("span", { style: { color: RED, fontFamily: FD, marginRight: 6 } }, bubble.who || foeName), bubble.text) : null,
         // 对面的下一步：像一张电报条（盲打时不给看）
         h("div", { "data-wk": "duelintent", style: { position: "relative", margin: "6px 0 10px", padding: "7px 10px 7px 46px", borderRadius: 3, border: "1px dashed rgba(47,42,34,.35)", background: "rgba(255,255,255,.5)", fontSize: fz(11.5), lineHeight: 1.6 } },
           h("span", { style: { position: "absolute", left: 7, top: 7, padding: "1px 4px", border: "1.5px solid " + RED, color: RED, borderRadius: 3, fontFamily: FD, fontSize: fz(10), transform: "rotate(-6deg)" } }, "下一步"),
@@ -561,6 +592,8 @@
         !over && !fx ? h(AimLayer, { host: boardsEl, foeAims: st.blind ? [] : D().aims(st, "foe"), foeStamps: st.blind ? [] : (it.stamp || []), foeActs: st.blind ? {} : D().actsOf(st, "foe"), meAims: D().aims(st, "me"), meActs: D().actsOf(st, "me"), myPrev: handSel >= 0 ? me.board.map((u, i) => u ? null : Object.assign({ slot: i }, D().previewPlace(st, "me", handSel, i) || {})).filter(x => x && x.combo) : [],
           tick: st.turn + "|" + handSel + "|" + me.board.map(u => u ? u.uid : 0).join(",") + "|" + them.board.map(u => u ? u.uid : 0).join(",") + "|" + me.hand.length }) : null),
         Seal(meName || "我", me.hp, me.max || D().ENVELOPE_HP, GREEN),
+        bubble && bubble.me ? h("div", { key: "bm" + bubble.key, "data-wk": "duelsay", "data-me": "1", style: { position: "relative", margin: "4px 34px 2px auto", maxWidth: "86%", width: "fit-content", padding: "6px 11px", borderRadius: "12px 4px 12px 12px", background: "#f1f7f3", boxShadow: "0 2px 6px rgba(47,42,34,.15)", fontSize: fz(12.5), lineHeight: 1.55, color: INK, animation: "duelPop .3s" } },
+          h("span", { style: { color: GREEN, fontFamily: FD, marginRight: 6 } }, bubble.who), bubble.text) : null,
         // 选中场上一张：盖章 / 撕下；点旁边空格＝挪过去
         selU ? h("div", { "data-wk": "duelactions", style: { marginTop: 8, padding: "8px 10px", borderRadius: 4, background: "rgba(255,255,255,.55)", fontSize: fz(12) } },
           h("div", { style: { marginBottom: 6 } }, h("b", null, selU.name), h("span", { style: { color: SUB } }, " · " + (ownerOf(selU.charId) || "通用票") + " · " + selU.role + "：" + ROLE_TIP[selU.role])),

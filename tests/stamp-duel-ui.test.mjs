@@ -113,3 +113,10 @@ test("明牌两边都标：每张票这回合干什么、你能打到的绿框",
   assert.match(ui, /"data-wk": "duelact"/);
   assert.match(ui, /const Seal = \(label/);
 });
+test("念台词：开关、勾哪些时候和哪一边、两边气泡、排队念", () => {
+  assert.match(ui, /const VOICE_KEY = "x_stampDuelVoice"/);
+  assert.match(ui, /function speakQ\(/);
+  assert.match(ui, /const want = l\.line && voice\[l\.kind\] && voice\[l\.who === "foe" \? "foe" : "me"\]/);
+  assert.match(ui, /"data-wk": "duelvoiceon"/);
+  assert.match(ts, /"duelvoicebtn"/);
+});
