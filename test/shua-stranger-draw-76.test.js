@@ -17,8 +17,11 @@ test("片刻格式里 who 讲清楚是什么，不再只摆一个 none 当示范
   assert.match(s, /const NPC_SHAPE = [^\n]*WHO_FIELD/);
   assert.match(s, /props\.draw\(v\.by === "char" \? v\.charId : null, sc, drawWho\(v\)\)/);
   const S = x => String(x == null ? "" : x);
-  const f = new Function("S", s.match(/const drawWho = [^\n]*/)[0] + "\n" + s.match(/const whoOf = [^\n]*/)[0] + "\nreturn drawWho;")(S);
+  const f = new Function("S", s.match(/const WHO_SURE_TS = [^\n]*/)[0] + "\n" + s.match(/const drawWho = [^\n]*/)[0] + "\n" + s.match(/const whoOf = [^\n]*/)[0] + "\nreturn drawWho;")(S);
   assert.equal(f({ by: "npc", who: "none" }), "");
   assert.equal(f({ by: "me", who: "none" }), "none");
   assert.equal(f({ by: "npc", who: "self" }), "self");
+  // 讲清楚以后刷出来的：标 none 就是空镜，不硬画人（她 2026-11-08：「也不要刻意去弄要写人」）
+  assert.equal(f({ by: "npc", who: "none", ts: Date.parse("2026-11-09") }), "none");
+  assert.doesNotMatch(s, /WHO_FIELD = [^\n]*self、part、none/);
 });
