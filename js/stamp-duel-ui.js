@@ -423,7 +423,20 @@
         setPatrol(p); setSt(nd); setMode("patrol"); setHandSel(-1); setBoardSel(-1); return;
       }
       if (p.log.length) toast && toast(p.log[p.log.length - 1]);
+      if (res.type === "tparcel" && p.ta) Trinkets.drop([p.ta], true, 0);
+      if (res.ask && p.ta) p.ask = { kind: res.type };
       if (p.done) patrolFinish(p); setPatrol(p);
+    };
+    // TA 的格子：要不要听（花一次调用）；听了的收在这一趟的 notes 里，地图上摊开看
+    const [paBusy, setPaBusy] = useState(false);
+    const patrolListen = async () => {
+      const p = patrol; if (!p || !p.ask || paBusy || !onChat) return; setPaBusy(true);
+      try {
+        const board = "这是第 " + p.week % 100 + " 周的「" + p.theme + "」邮区，走了 " + (D().PATROL.STEPS - p.steps) + " 步、还剩 " + p.steps + " 步，信封 " + p.hp + "/" + p.max + "，巡查分 " + p.score + "。一路上：" + p.log.slice(-6).join("；");
+        const lines = await onChat(p.ta, { mode: "patrolta", kind: p.ask.kind, board });
+        if (!lines || !lines.length) { toast && toast("没接上，再点一次试试"); return; }
+        p.notes = (p.notes || []).concat({ kind: p.ask.kind, lines, ts: Date.now() }); p.show = p.notes.length - 1; p.ask = null; setPatrol(p);
+      } catch (e) { toast && toast("没成：" + ((e && e.message) || e)); } finally { setPaBusy(false); }
     };
     const patrolBack = () => { const p = patrol; if (p && st && st.over) { D().patrolAfter(p, st.patrol, st.over.winner === "me", st.me.hp); if (p.done) patrolFinish(p); setPatrol(p); } setSt(null); setMode("patrol"); };
     const startRaid = m => {
@@ -581,15 +594,15 @@
         return shell([
           h(Head, { key: "hd", zh: "邮区巡查", bg: "transparent", ink: INK, onBack: () => setMode(""), right: guideBtn }),
           h("div", { key: "bd", "data-wk": "duelpatrolstart", className: "flex-1 min-h-0 overflow-y-auto px-5", style: { fontFamily: F, color: INK, paddingTop: 6, paddingBottom: 24 } },
-            modeHero(COL, "巡", "邮区巡查", "一张 5×5 的邮区地图，从最下面中间出发，只能走到上下左右挨着的格子，走到哪翻开到哪，一共 " + D().PATROL.STEPS + " 步。格子里有普通仗、硬仗、宝箱、岔路、驿站，最上面一排藏着巡查长。信封血一路带着；打赢、开宝箱、打倒巡查长加分。打输了不会结束，算败退：信封留 1 点、扣 2 步。步数用完、打倒巡查长或提前收工就结束。地图每周自动换一张，每个人的都不一样。不花调用。"),
+            modeHero(COL, "巡", "邮区巡查", "一张 5×5 的邮区地图，从最下面中间出发，只能走到上下左右挨着的格子，走到哪翻开到哪，一共 " + D().PATROL.STEPS + " 步。格子里有普通仗、硬仗、宝箱、岔路、驿站，最上面一排藏着巡查长；挑了陪你打的人，图上还会有 3 个 TA 的格子（包裹、TA 在等你、明信片、小剧场、回忆）。信封血一路带着；打赢、开宝箱、打倒巡查长加分。打输了不会结束，算败退：信封留 1 点、扣 2 步。步数用完、打倒巡查长或提前收工就结束。地图每周自动换一张，每个人的都不一样。不花调用。"),
             coachPick(),
             p && p.done ? h("div", { "data-wk": "duelpatroldone", style: { textAlign: "center", margin: "0 0 14px", padding: 14, borderRadius: 6, background: PAPER, boxShadow: "0 2px 8px rgba(47,42,34,.12)" } },
               h("div", { style: { fontFamily: FD, fontSize: fz(22), color: COL } }, p.score + " 分"),
               h("div", { style: { fontSize: fz(11.5), color: SUB } }, p.done.why === "boss" ? "打倒了巡查长" : p.done.why === "hp" ? "信封打空了" : "步数走完了"),
               (p.rewards || []).length ? h("div", { style: { marginTop: 8, fontSize: fz(11.5), color: "#7a5a1a", lineHeight: 1.6 } }, p.rewards.map((t, k) => h("div", { key: k }, t))) : null) : null,
             h("div", { style: { fontSize: fz(12), color: b.score ? "#b8862a" : SUB, marginBottom: 12 } }, (b.score ? "这周最高 " + b.score + " 分" : "这周还没巡查过") + (b.ever ? " · 历史最高 " + b.ever : "")),
-            h("button", { "data-wk": "duelpatrolgo", onClick: () => { const deck = D().deckFrom(cards, (Date.now() >>> 0), D().DECK_SIZE, core); const n = D().patrolNew(deck, new Date(), patrolSalt()); n.deck = deck; setPatrol(n); }, className: "w-full", style: Object.assign(btn(COL, "#fff"), { padding: "12px 0", fontFamily: FD, fontSize: fz(15), letterSpacing: ".1em" }) }, p && p.done ? "这周的图再走一遍" : "出发巡查"))]); }
-      const ICON = { fight: ["✉", RED, "仗"], elite: ["✦", "#8a3a4a", "硬仗"], boss: ["♛", "#5a4f8a", "巡查长"], chest: ["宝", "#b8862a", "宝箱"], event: ["?", GREEN, "岔路"], rest: ["☕", "#4f6a8a", "驿站"], empty: ["·", SUB, "空"], start: ["起", INK, "起点"] };
+            h("button", { "data-wk": "duelpatrolgo", onClick: () => { const deck = D().deckFrom(cards, (Date.now() >>> 0), D().DECK_SIZE, core); const n = D().patrolNew(deck, new Date(), patrolSalt(), !!coachId); n.ta = coachId || ""; n.deck = deck; setPatrol(n); }, className: "w-full", style: Object.assign(btn(COL, "#fff"), { padding: "12px 0", fontFamily: FD, fontSize: fz(15), letterSpacing: ".1em" }) }, p && p.done ? "这周的图再走一遍" : "出发巡查"))]); }
+      const ICON = { tparcel: ["包", "#9a6a4a", "包裹"], twait: ["候", "#9a6a4a", "TA 等你"], tpostcard: ["信", "#9a6a4a", "明信片"], tscene: ["戏", "#9a6a4a", "小剧场"], tmemory: ["忆", "#9a6a4a", "回忆"], fight: ["✉", RED, "仗"], elite: ["✦", "#8a3a4a", "硬仗"], boss: ["♛", "#5a4f8a", "巡查长"], chest: ["宝", "#b8862a", "宝箱"], event: ["?", GREEN, "岔路"], rest: ["☕", "#4f6a8a", "驿站"], empty: ["·", SUB, "空"], start: ["起", INK, "起点"] };
       const tile = (k, v) => h("div", { key: k, style: { flex: 1, padding: "5px 9px", borderRadius: 6, background: PAPER, boxShadow: "0 1px 4px rgba(47,42,34,.12)" } }, h("div", { style: { fontSize: fz(10), color: SUB } }, k), h("div", { style: { fontFamily: FD, fontSize: fz(16), color: COL } }, v));
       return shell([
         h(Head, { key: "hd", zh: "邮区巡查 · " + p.theme, bg: "transparent", ink: INK, onBack: () => setMode(""), right: guideBtn }),
@@ -601,7 +614,19 @@
                 style: { position: "relative", aspectRatio: "1 / 1", borderRadius: 4, border: here ? "2px solid " + RED : can ? "2px dashed " + COL : "1px solid rgba(47,42,34,.15)", background: !cl.open ? "repeating-linear-gradient(45deg, #d9cfb8 0 5px, #e4dbc6 5px 10px)" : cl.done && !here ? "rgba(47,42,34,.06)" : "#fffdf7",
                   color: ic[1], fontFamily: FD, fontSize: fz(18), display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", opacity: cl.done && !here && cl.type !== "start" ? .55 : 1, animation: can ? "duelPulse 1.6s ease-in-out infinite" : "none" } },
                 cl.open ? ic[0] : "", cl.open ? h("span", { style: { fontFamily: F, fontSize: fz(8.5), color: SUB, marginTop: 1 } }, here ? "你在这" : cl.done && cl.type !== "start" ? "✓" : ic[2]) : null); })),
-          h("div", { style: { fontSize: fz(11), color: SUB, margin: "8px 2px", lineHeight: 1.6 } }, "虚线框是能走的格子；斜纹是还没翻开的。普通仗 +" + D().PATROL.PTS.fight + "、硬仗 +" + D().PATROL.PTS.elite + "、宝箱 +" + D().PATROL.PTS.chest + "、巡查长 +" + D().PATROL.PTS.boss + "；驿站回 " + D().PATROL.HEAL + "。"),
+          h("div", { style: { fontSize: fz(11), color: SUB, margin: "8px 2px", lineHeight: 1.6 } }, (p.ta ? "棕色字的是 " + (nameOf(p.ta) || "TA") + " 的格子：包裹、等你（回 10、多 2 步）、明信片 +10、小剧场 +15、回忆 +15。" : "") + "虚线框是能走的格子；斜纹是还没翻开的。普通仗 +" + D().PATROL.PTS.fight + "、硬仗 +" + D().PATROL.PTS.elite + "、宝箱 +" + D().PATROL.PTS.chest + "、巡查长 +" + D().PATROL.PTS.boss + "；驿站回 " + D().PATROL.HEAL + "。"),
+          p.ask ? h("div", { "data-wk": "duelpatrolask", style: { margin: "10px 0", padding: "11px 13px", borderRadius: 6, background: "rgba(154,106,74,.1)", border: "1px solid rgba(154,106,74,.35)" } },
+            h("div", { style: { fontFamily: FD, fontSize: fz(14), color: "#9a6a4a" } }, (nameOf(p.ta) || "TA") + (p.ask.kind === "tpostcard" ? " 寄到这一格的明信片" : p.ask.kind === "tscene" ? " 在这一格" : " 想起一件事")),
+            h("div", { style: { fontSize: fz(11.5), color: SUB, margin: "3px 0 8px" } }, "分已经拿到了。要" + (p.ask.kind === "tpostcard" ? "翻过来看" : p.ask.kind === "tscene" ? "看这一小段" : "听 TA 讲") + "吗？花一次调用。"),
+            h("div", { className: "flex", style: { gap: 8 } },
+              h("button", { "data-wk": "duelpatrollisten", onClick: patrolListen, disabled: paBusy, className: "flex-1 disabled:opacity-50", style: btn("#9a6a4a", "#fff") }, paBusy ? (nameOf(p.ta) || "TA") + " 在写…" : "要"),
+              h("button", { onClick: () => { p.ask = null; setPatrol(p); }, className: "flex-1", style: btn("transparent", INK, "rgba(47,42,34,.3)") }, "跳过"))) : null,
+          p.show != null && (p.notes || [])[p.show] ? (() => { const n = p.notes[p.show];
+            return h("div", { "data-wk": "duelpatrolnote", style: { margin: "10px 0", padding: "14px 16px", borderRadius: 4, background: PAPER, boxShadow: "0 3px 10px rgba(47,42,34,.15)", borderTop: "4px solid #9a6a4a" } },
+              h("div", { style: { fontSize: fz(10.5), color: SUB, letterSpacing: ".15em", marginBottom: 6 } }, (nameOf(p.ta) || "TA") + " · " + (n.kind === "tpostcard" ? "明信片" : n.kind === "tscene" ? "小剧场" : "回忆")),
+              n.lines.map((t, k) => h("p", { key: k, style: { fontFamily: FD, fontSize: fz(13.5), lineHeight: 1.85, margin: "0 0 8px", whiteSpace: "pre-wrap" } }, t)),
+              h("button", { onClick: () => { p.show = null; setPatrol(p); }, style: btn("transparent", SUB, "rgba(47,42,34,.25)") }, "收起来")); })() : null,
+          (p.notes || []).length > 0 && p.show == null ? h("div", { className: "flex flex-wrap", style: { gap: 6, margin: "8px 0" } }, p.notes.map((n, k) => h("button", { key: k, onClick: () => { p.show = k; setPatrol(p); }, style: { padding: "2px 9px", borderRadius: 999, border: "1px solid rgba(154,106,74,.4)", color: "#9a6a4a", fontSize: fz(11) } }, (n.kind === "tpostcard" ? "明信片" : n.kind === "tscene" ? "小剧场" : "回忆") + " " + (k + 1)))) : null,
           p.log.length ? h("div", { "data-wk": "duelpatrollog", style: { fontSize: fz(11.5), color: INK, lineHeight: 1.7, padding: "6px 10px", borderRadius: 5, background: "rgba(255,253,247,.8)" } }, p.log.slice(-4).reverse().map((t, k) => h("div", { key: k, style: { opacity: k ? .6 : 1 } }, t))) : null,
           h("button", { "data-wk": "duelpatrolend", onClick: () => { if (typeof requestAppConfirm === "function") requestAppConfirm("结束这次巡查？", "按现在的 " + p.score + " 分算。", () => { p.done = { why: "steps" }; patrolFinish(p); setPatrol(p); }, "结束"); else { p.done = { why: "steps" }; patrolFinish(p); setPatrol(p); } }, className: "w-full", style: Object.assign(btn("transparent", SUB, "rgba(47,42,34,.3)"), { marginTop: 12 }) }, "提前收工"))]);
     }

@@ -269,3 +269,11 @@ test("邮区巡查：每人每周一张图、只能走挨着的、翻开四周�
   assert.ok(!p.done && p.hp === 1 && p.steps === 12);
   D.patrolAfter(p, "boss", true, 20); assert.equal(p.done.why, "boss");
 });
+test("巡查 TA 的格子：挑了陪打的人才放 3 个；包裹、等你、明信片／小剧场／回忆先给分再问要不要听", () => {
+  const deck = D.deckFrom([{ id: "a", charId: "a", rarity: "R", lv: 10, text: { name: "x" } }], 1, 12, []), now = new Date(2026, 10, 8);
+  assert.equal(D.patrolNew(deck, now, 9, false).cells.filter(c => D.TA_CELLS[c.type]).length, 0);
+  const p = D.patrolNew(deck, now, 9, true); assert.equal(p.cells.filter(c => D.TA_CELLS[c.type]).length, 3);
+  p.cells[3 * 5 + 2].type = "tmemory"; const s0 = p.score, r = D.patrolMove(p, 3, 2);
+  assert.ok(r.ask); assert.equal(p.score, s0 + D.TA_PTS.tmemory);
+  p.cells[2 * 5 + 2].type = "twait"; const st0 = p.steps; D.patrolMove(p, 2, 2); assert.equal(p.steps, st0 - 1 + 2);
+});

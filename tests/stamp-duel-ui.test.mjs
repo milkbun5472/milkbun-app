@@ -197,3 +197,9 @@ test("TA 的小物：有人陪就掉包裹、小物册拆、去重带着以前�
   assert.match(ru, /T\.drop\(\[run\.withId\], w, 0\)/);
   assert.match(ts, /"dueltrinketopen"/);
 });
+test("巡查 TA 的格子页面：带陪打的人开图、包裹进小物册、要不要听、明信片摊开", () => {
+  assert.match(ui, /D\(\)\.patrolNew\(deck, new Date\(\), patrolSalt\(\), !!coachId\)/);
+  assert.match(ui, /if \(res\.type === "tparcel" && p\.ta\) Trinkets\.drop\(\[p\.ta\], true, 0\)/);
+  assert.match(ui, /onChat\(p\.ta, \{ mode: "patrolta", kind: p\.ask\.kind, board \}\)/);
+  assert.match(app, /if \(d\.mode === "patrolta"\) \{/);
+});

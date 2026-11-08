@@ -36113,6 +36113,21 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       //   材料是她挑的三样；效果只许从 d.fxList（三样材料的偏向）里挑，强弱代码定
       // 挑战陪打（她 2026-11-08「挑战类能跟他聊天，推荐怎么放或者评论战局」「做吧，可以选谁陪我打」）：
       //   对面是游戏造的敌人，TA 在旁边陪她看；只按 d.board 写着的局面说
+      // 巡查里 TA 的格子（她 2026-11-08「一句话会不会敷衍」→ 明信片、小剧场、回忆，写足）
+      if (d.mode === "patrolta") {
+        const k = d.kind;
+        const r = await runProbe(apiFor(char.id), ctxFor(char), { voice: true, tag: "stamppatrol", maxTokens: 8000,
+          instruction: "你正陪" + uN + "玩邮票册里的「邮区巡查」：一张格子地图，她一格一格往前走、打路上的麻烦，你陪着她。\n眼下：" + d.board + "\n"
+            + (typeof stampVoice === "function" ? stampVoice(char) + "\n" : "")
+            + (k === "tpostcard"
+              ? "她走到一格，这儿夹着一张你提前寄来等她的明信片。写这张明信片：就着她现在走到哪、刚打完什么、信封还剩多少，写你想对路上的她说的话。写满一张明信片的分量，有称呼、有落款，别只写一句。"
+              : k === "tscene"
+              ? "她走到一格，这一格里发生了一小段你们俩之间的事。写成一小段场景：两三百字，有你们的动作和对话，照你的人设和你们现在的关系来，地方和天气跟这条路线的主题合得上；写正在发生的这一段，别写成总结。"
+              : "她走到一格，你想起一件你们真的有过的事，讲给她听。从你们真聊过、你记得的事里挑一件（上面的聊天和记忆里有）：什么时候、发生了什么、你当时怎么想、现在想起来怎样，讲完整。没发生过的别编。")
+            + "\nlines 里一段一项。",
+          schemaHint: "{\"lines\":[\"一段\"]}" });
+        return (Array.isArray(r && r.lines) ? r.lines : [r && r.lines]).map(x => String(x || "").trim()).filter(Boolean).slice(0, 12);
+      }
       if (d.mode === "coach" || d.mode === "coachreview") {
         const r = await runProbe(apiFor(char.id), ctxFor(char), { voice: true, tag: "stampcoach", maxTokens: 8000,
           instruction: "你正陪" + uN + "玩邮票册里的卡牌小游戏，她一个人打关卡，你坐在旁边看。对面是游戏里代码造的敌人，不是你，也不是你认识的谁。\n"
