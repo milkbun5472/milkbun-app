@@ -25966,8 +25966,12 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       // 吧里已经发过的帖（她 2026-10-26 去重）：给标题看，别再发同一个话题；出来以后再按字面筛一遍
       const boardPrev = (forumPostsRef.current || []).filter(x => x && x.board === board && x.title).sort((a, b) => Number(b.ts || 0) - Number(a.ts || 0));
       const seenLine = boardPrev.length ? "\n【这个吧里已经发过的帖】下面这些已经有人发过了，别再发同一个话题，换个说法也算发过：\n" + boardPrev.slice(0, 20).map(x => "· " + String(x.title || "").slice(0, 40)).join("\n") + "\n" : "";
+      // 她开吧时定的分寸：一次刷几条、楼主正文多少字（forumBoardGenOf，screens.js）
+      const _gen = typeof forumBoardGenOf === "function" ? forumBoardGenOf(board) : {};
+      const _gN = _gen.batch ? String(_gen.batch) : "3-5";
+      const _gLen = _gen.lenMin && _gen.lenMax ? " " + _gen.lenMin + "～" + _gen.lenMax + " 字" : _gen.lenMax ? " 不超过 " + _gen.lenMax + " 字" : _gen.lenMin ? " 至少 " + _gen.lenMin + " 字" : " 2-4 句";
       const d = await runProbeRetry(active, forumWorldCtx(board, genW), {
-        instruction: forumLoreLine(genW) + "\n" + forumBoardVoice(board) + forumNpcRule(board) + castLine + seenLine + forumFmtLine() + " 生成 3-5 条不同网友刚发的新主帖（items 数组务必 3-5 条，别只给 1-2 条）。每条都填 authorName 和 handle；是常驻熟面孔的再额外写一个 npcId。写 title（标题）、body（楼主正文 2-4 句）、replyCount（编一个几十到几千的回复数字，不必真实）。同一批至少有 1 个一次性路人，别所有帖一个腔调。" + FORUM_PHOTO_LINE + lately,
+        instruction: forumLoreLine(genW) + "\n" + forumBoardVoice(board) + forumNpcRule(board) + castLine + seenLine + forumFmtLine() + " 生成 " + _gN + " 条不同网友刚发的新主帖（items 数组就是 " + _gN + " 条）。每条都填 authorName 和 handle；是常驻熟面孔的再额外写一个 npcId。写 title（标题）、body（楼主正文" + _gLen + "）、replyCount（编一个几十到几千的回复数字，不必真实）。同一批至少有 1 个一次性路人，别所有帖一个腔调。" + FORUM_PHOTO_LINE + lately,
         schemaHint: "{\"items\":[{\"npcId\":\"npc_regular_xxx（熟面孔才填）\"," + FORUM_GUEST_FIELDS + ",\"title\":\"标题\",\"body\":\"正文\",\"replyCount\":128,\"refTitle\":\"接着哪个帖才填，原样照抄那个标题\"" + FORUM_PHOTO_FIELD + forumFmtField() + (cast ? ",\"cast\":\"只有配角那一条填 true\"" : "") + "}]}",
         maxTokens: FTOK.board
       });

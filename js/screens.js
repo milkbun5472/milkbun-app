@@ -740,6 +740,15 @@ function forumBoardOwnerName(name, chars) {
   if (o.kind === "char") { const c = (chars || []).find(x => x && x.id === o.id); return c ? c.name : ""; }
   const n = forumOwnerRegulars().find(x => x.id === o.id); return n ? n.name : "";
 }
+// 这个吧写帖的分寸（群里 2026-11-08 许愿：开吧时定楼主正文多少字、每次刷新出几条）：
+//   lenMin/lenMax 是楼主正文的字数区间，batch 是一次刷出几条新帖；没填的照默认（正文 2-4 句、一次 3-5 条）
+function forumBoardGenOf(name) {
+  const b = forumCustomBoards().find(x => x.name === name) || {};
+  const num = v => { const n = parseInt(v, 10); return n > 0 ? n : 0; };
+  let lo = num(b.lenMin), hi = num(b.lenMax);
+  if (lo && hi && lo > hi) { const x = lo; lo = hi; hi = x; }
+  return { lenMin: Math.min(lo, 3000), lenMax: Math.min(hi, 3000), batch: Math.min(num(b.batch), 10) };
+}
 function forumBoardAbout(name) { const b = forumCustomBoards().find(x => x.name === name); return b ? String(b.about || "").trim() : ""; }
 // FORUM_AV_EMOJI 已删（v56.12）：论坛头像不再画 emoji，改走 autoAvatarSrc。
 function forumHash(str) { let h = 2166136261; str = String(str || ""); for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 16777619); } return h >>> 0; }
