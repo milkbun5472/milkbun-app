@@ -1,7 +1,7 @@
 import * as T from 'three';
-import {emotionPose} from './emotion-pose.mjs?v=fg-780b1738a32d7ebb';
-import {dailyTaskPose} from './daily-motion.mjs?v=fg-780b1738a32d7ebb';
-import {pointToolAt} from './reach-hand.mjs?v=fg-780b1738a32d7ebb';
+import {emotionPose} from './emotion-pose.mjs?v=fg-7d8490d3228b9b43';
+import {dailyTaskPose} from './daily-motion.mjs?v=fg-7d8490d3228b9b43';
+import {pointToolAt} from './reach-hand.mjs?v=fg-7d8490d3228b9b43';
 
 export const GUITAR_HOLD=[0,.14,0],GUITAR_STRUM=[.15,-.13,.093];
 

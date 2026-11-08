@@ -8,8 +8,8 @@
 //   mainline（已经过这间房认知闸的主线底子）、record（这间房的记录与写回）。
 // 接口密钥留在父页 callAI，不传进游戏画面。
 (function (root) {
-  const { h, useState, useRef, useEffect, selectDialogs, localDialogs, replaceDialogs, worldCognition, WORLDS } = root.FairyCore;
-  const KEY = "x_fairyGarden", BUILD = "fg-780b1738a32d7ebb", hosts = new WeakMap();
+  const { h, useState, useRef, useEffect, selectDialogs, localDialogs, replaceDialogs, worldCognition, WORLDS, SHOP_WORLD } = root.FairyCore;
+  const KEY = "x_fairyGarden", BUILD = "fg-7d8490d3228b9b43", hosts = new WeakMap();
   root.FairyGardenHostFor = child => hosts.get(child) || null;
   // ⚠️「读回来是空」不等于「这儿本来就没有一档」。存档搬进 IDB 之后，文字仓没灌起来
   //   那一刻读到的也是空；这时候要是照着「没有」开一档新的，第一次保存就把她真正的
@@ -42,6 +42,38 @@
     if(!WORLDS.some(x=>x.id===w)||!world||!Number.isFinite(world.version)||!Number.isFinite(world.day)||typeof world.map!=="string")throw Error("世界进度异常，暂未覆盖旧存档。");
     const d=current(),{clock,...game}=world;world=w==="pets"?{...game,clock:d.clock}:game;return write(key,{...d,activeWorld:w,journey: { ...(d.journey || {}), ...(journey || {}) }, worlds: { ...(d.worlds || {}), [w]: world }, world: w === "garden" ? world : d.world});
   }
+  function ShopSession(props) {
+    const frame=useRef(null),latest=useRef(props),binder=useRef(null); latest.current=props;
+    const [loaded,setLoaded]=useState(false),[error,setError]=useState(""),[places,setPlaces]=useState(false);
+    if(!binder.current)binder.current=node=>{
+      const old=frame.current;
+      if(old&&old!==node){old.contentWindow?.PostOfficeGame?.dispose();hosts.delete(old.contentWindow);}
+      frame.current=node;if(!node)return;
+      hosts.set(node.contentWindow,{
+        name:SHOP_WORLD.name,
+        read:()=>{
+          const p=latest.current,now=new Date();
+          const characters=(p.characters||[]).map(c=>({id:c.id,name:c.name,remark:c.remark,look:(p.lookFor||root.CompanionFace?.lookFor)?.(c)||{}}));
+          const st=loadJSON("x_stamps",null);
+          return {shop:loadJSON("x_stampShop",null),characters,cards:Array.isArray(st?.cards)?st.cards.filter(c=>c&&typeof c==='object').map(c=>({id:c.id,text:{name:c.text?.name},cover:c.cover,face:c.face})):[],period:root.StampDuel.shopPeriod(now),today:now.getFullYear()+"-"+(now.getMonth()+1)+"-"+now.getDate(),shopRules:root.StampDuel};
+        },
+        thumbnail:async ref=>{await root.LazyMods.load("stamps");return root.StampThumbnails?.url(ref)||null;},
+        counter:()=>latest.current.onOpenStamps?.({tab:"duel",mode:"shop",back:"fairy-shop"}),
+        ready:()=>{if(frame.current===node){setLoaded(true);setError("");}},
+        error:message=>{if(frame.current===node)setError(String(message));}
+      });
+    };
+    useEffect(()=>{frame.current?.contentWindow.PostOfficeGame?.pause(places);},[places,loaded]);
+    return h("section",{"data-wk":"fairypage","data-part":"shop",className:"h-full flex flex-col",style:{background:G.paper,color:G.ink,position:"relative"}},
+      h(Head,{zh:SHOP_WORLD.name,bg:"transparent",onBack:props.onBack,right:h("button",{onClick:()=>setPlaces(true),style:{minHeight:40,padding:"0 8px",fontSize:12}},"去别处")}),
+      h("div",{className:"flex-1 min-h-0",style:{position:"relative"}},h("iframe",{ref:binder.current,title:SHOP_WORLD.name+"游戏",src:"apps/post-office/index.html?v="+BUILD,style:{width:"100%",height:"100%",border:0,display:"block"}}),
+        (!loaded||error)&&h("p",{role:error?"alert":"status",style:{position:"absolute",inset:"40% 20px auto",textAlign:"center",pointerEvents:"none"}},error||"正在打开邮局…")),
+      h("div",{className:"shrink-0",style:{padding:"5px 14px",paddingBottom:COMPOSER_PAD_BOTTOM,minHeight:56,borderTop:"1px solid "+G.line,display:"flex",alignItems:"center",gap:10}},
+        h("p",{style:{flex:1,fontSize:11,lineHeight:1.6}},"点柜台排班、接客；傍晚点灯，半夜打烊。"),
+        h("button",{onClick:()=>frame.current?.contentWindow.PostOfficeGame?.resetView(),style:{minWidth:40,minHeight:40,fontSize:12}},"全景"),
+        h("button",{onClick:()=>latest.current.onOpenStamps?.({tab:"duel",mode:"shop",back:"fairy-shop"}),style:{...pickButtonStyle(),minHeight:40,padding:"5px 10px",fontSize:12}},"去柜台")),
+      places&&h("section",{className:"absolute inset-0 flex flex-col",style:{background:G.paper,zIndex:30}},h(Head,{zh:"去别处",bg:"transparent",onBack:()=>setPlaces(false)}),h(RailwayChoices,{from:"shop",onChoose:to=>{setPlaces(false);props.onTravel(to);}})));
+  }
   function WorldSession(props) {
     const [place,setPlace]=useState(()=>{try{return props.entryWorld||read(props.storeKey||KEY).activeWorld||"garden";}catch{return "garden";}});
     const [ready,setReady]=useState(place!=="train"),[error,setError]=useState("");
@@ -73,12 +105,12 @@
           if(options.station){station=await Promise.all([import("../apps/pets/railway.mjs?v="+BUILD),import("../art/pet-career/world-navigation.mjs?v="+BUILD),fetch("art/pet-career/outside.json?v="+BUILD).then(r=>{if(!r.ok)throw Error("小镇车站暂时没能打开，请稍后再试。");return r.json();})]);if(!alive.current)return false;}
           // Re-read after the awaits: the town may have saved meanwhile, so arrive on the latest pets save.
           const d=read(key);if(d.id!==before.id)throw Error("存档已切换，请重新进入。");let pets=d.worlds?.pets;if(station){const [m,n,r]=station;pets=m.arrivePetStation(pets,n.createPetWorld(r),r.station);}write(key,{...d,activeWorld:"pets",worlds:{...(d.worlds||{}),...(pets?{pets}:{})}});
-        }else return false;
+        }else if(to!=="shop") return false;
         setReady(true);setPlace(to);return true;
       }catch(e){setError(e.message);props.toast(e.message);return false;}finally{switching.current=false;}
     };
     if(!ready)return h("div",{ "data-wk": "fairypage", "data-part": "worldsession",className:"h-full flex flex-col",style:{background:G.paper,color:G.ink}},h(Head,{zh:"远行列车",onBack:props.onBack}),h("p",{role:"status",style:{padding:20}},error||"正在准备旅程…"));
-    return h('div',{className:'h-full',style:{position:'relative'}},h(place==="pets"?PetSession:place==="train"?TrainSession:GardenSession,{...props,key:place,onTravel:travel,onStation:chooseStation}),stationChoice&&h(RailwayPage,{from:place,onClose:()=>finishChoice(null),onChoose:finishChoice}));
+    return h('div',{className:'h-full',style:{position:'relative'}},h(place==="shop"?ShopSession:place==="pets"?PetSession:place==="train"?TrainSession:GardenSession,{...props,key:place,onTravel:travel,onStation:chooseStation}),stationChoice&&h(RailwayPage,{from:place,onClose:()=>finishChoice(null),onChoose:finishChoice}));
   }
   // 旅行相框：点图看原样大图；「翻看背面」看日期、拼图纪念和两个人各留的那句话（2026-09-25）
   // 念出来（庭院和列车共用）：一句一句念，念完了才回来——游戏靠这个决定什么时候翻下一只气泡
@@ -90,7 +122,7 @@
   function RailwayChoices({from,onChoose}){
     return h('div',{ "data-wk": "fgrailway", 'data-railway-choices':true,className:'flex-1 min-h-0 overflow-y-auto',style:{padding:20,paddingBottom:COMPOSER_PAD_BOTTOM}},
       h('p',{style:{fontSize:13,lineHeight:1.8,marginBottom:20}},from==='train'?'选择下车的站点，继续这一档的日子。':'选好目的地，列车就会沿铁轨驶进站台。'),
-      h('div',{style:{display:'grid',gap:12}},...WORLDS.filter(w=>w.id!==from).map(w=>h('button',{ "data-wk": "fgrailwaydest", key:w.id,'data-railway-destination':w.id,'aria-label':'进入'+w.name,onClick:()=>onChoose(w.id),style:{...pickButtonStyle(),textAlign:'left',minHeight:72,padding:'14px 16px'}},h('strong',{style:{display:'block',fontSize:15,fontWeight:500}},'进入'+w.name),h('span',{style:{display:'block',fontSize:12,marginTop:5,color:G.soft}},w.id==='train'?'登上远行列车，留在车厢里看窗景':w.id==='pets'?'绒绒小镇车站 · 南边街道':'微光庭院南站 · 林边站台')))));
+      h('div',{style:{display:'grid',gap:12}},...WORLDS.filter(w=>w.id!==from).map(w=>h('button',{ "data-wk": "fgrailwaydest", key:w.id,'data-railway-destination':w.id,'aria-label':'进入'+w.name,onClick:()=>onChoose(w.id),style:{...pickButtonStyle(),textAlign:'left',minHeight:72,padding:'14px 16px'}},h('strong',{style:{display:'block',fontSize:15,fontWeight:500}},'进入'+w.name),h('span',{style:{display:'block',fontSize:12,marginTop:5,color:G.soft}},w.id==='train'?'登上远行列车，留在车厢里看窗景':w.id==='pets'?'绒绒小镇车站 · 南边街道':w.id==='shop'?'同一家邮局 · 所有角色共用':'微光庭院南站 · 林边站台')))));
   }
   function RailwayPage({from,onClose,onChoose}){
     return h('section',{'data-railway-page':from,className:'absolute inset-0 flex flex-col',style:{zIndex:30,background:G.paper,color:G.ink}},h(Head,{zh:from==='pets'?'绒绒小镇车站':'微光庭院南站',bg:'transparent',onBack:onClose}),h(RailwayChoices,{from,onChoose}));
@@ -1884,6 +1916,7 @@
         travelAlbum&&h(TravelAlbum,{onNote:(item,who,text)=>gardenBack(item.id,who,text),onAskNote:partner()?(async item=>{const c=partner(),p=propsRef.current,pm=await import('../apps/train/puzzle-memory.mjs?v='+BUILD);const line=await frameNote({active:p.apiFor?p.apiFor(c.id):p.active,character:c,profile:p.profile,mainline:mainlineNow(),item,lines:pm.puzzleMemoryLines(item.memory),history:doneHistory(current(),c.id).slice(-30)});await gardenBack(item.id,'companion',line);}):null,getArchive:current,onExchange:async()=>{const m=await import('../apps/train/photography.mjs?v='+BUILD);update(d=>({...d,worlds:{...(d.worlds||{}),train:m.exchangePhotos(d.worlds?.train||{})}}));},onClose:()=>setTravelAlbum(false),onCarry:item=>{const g=game();if(!g?.receiveTravelArt)throw Error('庭院还没准备好');g.receiveTravelArt(item);pullGarden();},onDelete:async id=>{const m=await import('../apps/train/album.mjs?v='+BUILD);update(d=>({...d,worlds:{...(d.worlds||{}),train:m.removeAlbumItem(d.worlds?.train||{},id)}}));}}),
         book && h("div", { "data-wk": "fgbook", style: { position: "absolute", inset: 0, paddingTop: headH, background: "#e9ecdd", overflowY: "auto", WebkitOverflowScrolling: "touch" } },
           h("button",{style:{...pickButtonStyle(),margin:"12px 16px",width:"calc(100% - 32px)"},onClick:()=>{try{flush();props.onTravel("pets");}catch(e){props.toast(e.message);}}},"进入绒绒小镇"),
+          h("button",{style:{...pickButtonStyle(),margin:"0 16px 12px",width:"calc(100% - 32px)"},onClick:()=>{try{flush();props.onTravel("shop");}catch(e){props.toast(e.message);}}},"进入"+SHOP_WORLD.name),
           // ⚠️这一册在现实里就是一本【索引册】，所以 tab 长成册子右边伸出来的一列索引签（施工规则/tabs-not-plain-pills.md）：
           //   竖排字、每张一个色、贴着页边往下排；选中那张是纸色、跟页面连成一片、往外拉出来一截，
           //   没选的往边上缩进去、暗着，像压在后面几页。七张竖着排也放得下，不会像横排那样把最后一张挤出屏幕。
@@ -2429,6 +2462,7 @@
     const refresh = () => setSaves(readSaves());
     // openId 存的是【整把钥匙】，不是 id：房间那种键拼不回来（见 readSaves 的注释）
     // The mainline schedule viewer has no journey archive and never boards the game railway.
+    if (world?.id === "shop") return h(ShopSession, {...props,onBack:()=>setWorld(null),onTravel:to=>setWorld(WORLDS.find(w=>w.id===to)||null)});
     if (world?.id === "day") return h(root.CharDayApp, { ...(props.day || {}), profile:props.profile,apiFor:props.apiFor,active:props.active,characters: props.characters, build: BUILD, appearanceSaves:readSaves().map(row=>({id:row.id,name:row.name,key:saveKeyOf(row)})), readAppearance:key=>{const saved=loadJSON(key,null)||{};return structuredClone(saved.journey?.look||worldOf(saved,"garden")?.look||null);}, onBack: () => setWorld(null) });
     if (openId) return h(WorldSession, Object.assign({}, props, {
       key: openId, storeKey: openId, startSolo: openSolo, entryWorld:world.id,
@@ -2453,7 +2487,7 @@
       h("p", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", lineHeight: 2, color: G.soft, margin: "10px 0" } }, stall));
     if (!world) {
       // 路上的站：先是已经能进的那几个世界，末尾留一个空圈——路还没走完。
-      const stops = WORLDS.concat([DAY_WORLD, null]);
+      const stops = WORLDS.filter(w=>w.id!=="shop").concat([DAY_WORLD, SHOP_WORLD, null]);
       const stop = (w, i) => {
         const left = i % 2 === 0;
         const label = h("div", { style: { flex: 1, minWidth: 0, textAlign: left ? "left" : "right" } },
@@ -2464,7 +2498,7 @@
             border: "1px solid " + G.line, background: "rgba(255,255,255,.55)",
             fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: G.deep } }, "可以进") : null);
         const inner = h("div", { className: "flex items-center", style: { gap: 13, flexDirection: left ? "row" : "row-reverse" } },
-          h("div", { style: { flexShrink: 0, lineHeight: 0 } }, w ? (w.id==="train"?worldTrain():w.id==="pets"?worldPet():w.id==="day"?worldDay():worldHouse()) : worldSoon()), label);
+          h("div", { style: { flexShrink: 0, lineHeight: 0 } }, w ? (w.id==="train"?worldTrain():w.id==="pets"?worldPet():w.id==="day"?worldDay():w.id==="shop"?h(root.GStamps,{size:86}):worldHouse()) : worldSoon()), label);
         return w
           ? h("button", { "data-wk": "fgworld", key: w.id, onClick: () => setWorld(w), className: "w-full text-left active:opacity-70",
               style: { padding: "4px 2px", background: "transparent", border: 0 } }, inner)
@@ -2477,7 +2511,7 @@
       });
       return shell("挑一个世界", props.onBack, h(React.Fragment, null,
         h("p", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", lineHeight: 1.9, color: G.soft, margin: "6px 0 22px" } },
-          "庭院、列车与绒绒小镇共用旅程。也可以去「TA的一天」，看看TA此刻的日程。"),
+          "庭院、列车与绒绒小镇共用旅程；「TA的一天」跟着TA的日程。「邮局小店」是大家共用的一家店。"),
         h("div", null, path)));
     }
 

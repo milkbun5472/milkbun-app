@@ -331,7 +331,7 @@
               info.terrain ? sec("格子", "#5a5248", info.terrain, D().TERRAIN[info.terrain]) : null,
               u.lines && u.lines.enter ? h("div", { style: { marginTop: 6, padding: "10px 12px", borderRadius: 3, background: "rgba(47,42,34,.05)", borderLeft: "3px solid " + col, fontFamily: FD, fontSize: fz(12.5), color: "#5a4f40", lineHeight: 1.7 } }, "「" + u.lines.enter + "」") : null)));
   }
-  function StampDuelPage({ characters, cards: cardsAll, onBack, onRemember, closeOf, meName, toast, useThumb, onChat, onReport, preset, onRun, runBattle }) {
+  function StampDuelPage({ characters, cards: cardsAll, onBack, onRemember, closeOf, meName, toast, useThumb, onChat, onReport, preset, onRun, runBattle, initialMode, onEntryBack }) {
     const cards = Dispatch.filter(cardsAll);   // 派遣在外的票这段时间不能上场
     const [dpPick, setDpPick] = useState([]), [dpPlace, setDpPlace] = useState("海边"), [dpHours, setDpHours] = useState(4), [dpBusy, setDpBusy] = useState(""), [dpShow, setDpShow] = useState(""), [, dpBump] = useState(0);
     const [foeId, setFoeId] = useState(() => { if (runBattle) return runBattle.foeId || ""; if (preset && preset.foeId) return preset.foeId; const has = (characters || []).find(c => (cards || []).some(x => x.charId === c.id)); return (has || (characters || [])[0] || {}).id; });
@@ -355,7 +355,7 @@
     });
     const [info, setInfo] = useState(null), [guide, setGuide] = useState(false);
     // 先挑玩法（她 2026-11-08「点对战先出个选择界面：对局模式还是远信模式，再选设定」）；从聊天里点进来、远信里打仗的直接跳过
-    const [mode, setMode] = useState(() => (preset || runBattle) ? "duel" : "");
+    const [mode, setMode] = useState(() => (preset || runBattle) ? "duel" : initialMode === "shop" ? "shop" : "");
     const [voice, setVoice0] = useState(() => { try { return Object.assign({}, VOICE_DEF, (typeof loadJSON === "function" ? loadJSON(VOICE_KEY, {}) : {}) || {}); } catch (e) { return Object.assign({}, VOICE_DEF); } });
     const [voicePanel, setVoicePanel] = useState(false);
     const setVoice = patch => setVoice0(v => { const n = Object.assign({}, v, patch); try { saveJSON(VOICE_KEY, n); } catch (e) {} return n; });
@@ -671,7 +671,7 @@
       const card = (key, kids, color) => h("div", { key, style: secBox(color || C) }, kids);
       const para = lines => lines.map((t, k) => h("p", { key: k, style: { fontFamily: FD, fontSize: fz(13.5), lineHeight: 1.85, margin: "0 0 8px", whiteSpace: "pre-wrap" } }, t));
       return shell([
-        h(Head, { key: "hd", zh: "邮局小店 · 第 " + sh.day + " 天 · " + period, bg: "transparent", ink: INK, onBack: () => setMode(""), right: guideBtn }),
+        h(Head, { key: "hd", zh: "邮局小店 · 第 " + sh.day + " 天 · " + period, bg: "transparent", ink: INK, onBack: onEntryBack || (() => setMode("")), right: guideBtn }),
         h("div", { key: "bd", "data-wk": "duelshop", className: "flex-1 min-h-0 overflow-y-auto px-4", style: { fontFamily: F, color: INK, paddingTop: 4, paddingBottom: 24 } },
           sh.day === 1 && sh.phase === "plan" && !sh.decor.length ? modeHero(C, "店", "邮局小店", "你开了一家小邮局。每天先排班：柜台、分拣、送信、看店四个岗，你的角色谁来上；排对擅长的岗收入多。开门接客：路人寄东西直接收钱，难缠的要打一局；没上班的角色也会来当客人，可以听他们跟店员碰上说两句。打烊时花一次调用，写今天在店里的所有人一小段（不管几个人上班都只花这一次）。钱拿去买装修，装修让收入变多，打烊那段也会写到。店里的事不进记忆。") : null,
           sh.missed ? card("missed", [h("div", { key: "t", style: { fontFamily: FD, fontSize: fz(14), color: RED } }, "第 " + sh.missed.day + " 天忘了打烊"),

@@ -88,9 +88,9 @@ test("跟聊天连着：战报卡发进聊天、TA 发对局邀请、点卡带�
   assert.match(app, /kind: "duelreport"/);
   assert.match(app, /openCaps\.push\("duelAsk"\)/);
   assert.match(app, /kind: "duelask", say, wager, state: "pending"/);
-  assert.match(app, /window\.__stampsDuel = \{ foeId: charId, wager:/);
+  assert.match(app, /openStamps\(\{ tab: "duel", preset: \{ foeId: charId, wager:/);
   assert.match(cmp, /if \(m\.kind === "duelask" \|\| m\.kind === "duelreport"\) return h\(DuelChatCard/);
-  assert.match(st, /const \[tab, setTab\] = useState\(duelPreset \? "duel" : "pull"\)/);
+  assert.match(st, /const \[tab, setTab\] = useState\(entry\.tab\)/);
   assert.match(ui, /"data-wk": "duelreportgo"/);
   // 战报卡点完不替 TA 开口（施工规则/wait-for-her.md）
   const i = app.indexOf("const duelReport = "), body = app.slice(i, i + 600);
@@ -98,7 +98,7 @@ test("跟聊天连着：战报卡发进聊天、TA 发对局邀请、点卡带�
 });
 test("点对战先挑玩法：对局／远信／新手教学关，挑了对局再进设定；从聊天进来直接到对局", () => {
   assert.match(ui, /if \(!st && !mode\) return shell\(/);
-  assert.match(ui, /useState\(\(\) => \(preset \|\| runBattle\) \? "duel" : ""\)/);
+  assert.match(ui, /useState\(\(\) => \(preset \|\| runBattle\) \? "duel" : initialMode === "shop" \? "shop" : ""\)/);
   for (const k of ["duelmodeduel", "duelgorun", "duelturorial"]) assert.ok(ui.includes('"' + k + '"'), k);
 });
 test("明牌虚线和上手提示：对面要打哪儿画线、空格写贴这儿会打谁、手牌上一行现在能干嘛", () => {

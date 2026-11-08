@@ -20,7 +20,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v89.282";
+const APP_VERSION = "v89.284";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -2803,7 +2803,11 @@ function App() {
       const css = raw ? window.ThemeStudio.resolveCSSImages(window.ThemeStudio.scopeCSS(raw, SENT)
         .split(SENT + " [data-wk=\"offline\"]").join(scope).split(SENT + " [data-wk='offline']").join(scope).split(SENT + " [data-wk=offline]").join(scope)
         .split(SENT).join(scope)) : "";
-      applyOfflineLook(css);
+      // 这个人线下的字（她 2026-11-08）：跟「只给 TA 换字」同一套 FontChoice，只是限在线下这一层
+      let fontCSS = "";
+      try { const _cf = ((window.ThemeStudio.current && window.ThemeStudio.current()) || {}).customFonts;
+        if (os0.font && window.FontChoice) { window.FontChoice.ensure(os0.font, _cf); fontCSS = window.FontChoice.cssVars(os0.font, _cf, window.resolveImg, scope); } } catch (e) { fontCSS = ""; }
+      applyOfflineLook([fontCSS, css].filter(Boolean).join("\n"));
     } catch (e) { applyOfflineLook(""); }
   };
   useEffect(() => { paintOfflineLook(null); }, [offlineChar && offlineChar.id, offlineSettings, screen]);
@@ -12073,10 +12077,10 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   // 他发的对局邀请还挂着（两天内、没点过）就不再发第二张
   const pendingDuelAsk = charId => [...(chatsRef.current[charId] || [])].reverse().find(m => m && m.kind === "duelask" && m.state === "pending" && Date.now() - (m.ts || 0) < 2 * 86400000);
   // 接了对局邀请 / 从聊天里点「打一把」：带着对手和彩头进邮票册的对局页
+  const openStamps = target => window.StampNavigation.open(target, setScreen);
   const goDuel = (charId, m) => {
     if (m && m.id) pChat(charId, p => p.map(x => x.id === m.id ? { ...x, state: "accepted" } : x));
-    window.__stampsDuel = { foeId: charId, wager: (m && m.wager) || "" };
-    setScreen("stamps");
+    openStamps({ tab: "duel", preset: { foeId: charId, wager: (m && m.wager) || "" } });
   };
   // 战报发进聊天（她 2026-11-08）：一张卡，内容就在卡上，TA 下一轮自然读得到（不替 TA 开口，等她）
   const duelReport = (charId, r) => {
@@ -34772,6 +34776,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     return {
       key: "garden::" + key,
       storeKey: "x_fairyGarden::" + key,
+      onOpenStamps: openStamps,
+      lookFor: c => window.CompanionFace.lookFor(c, moods),
       entryWorld: gardenRoomWorld || (["train","pets"].includes(room.from) && !loadJSON("x_fairyGarden::" + key,null)?.activeWorld ? room.from : undefined),
       lockPartnerId: activeChar.id,
       apiFor: offlineApiFor,
@@ -36101,6 +36107,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     apiFor: apiFor,
     onBack: () => setScreen("home")
   });else if (screen === "stamps") body = h(window.StampBookApp, {
+    onReturnToWorld: () => { setGardenEntryWorld("shop"); setScreen("fairyGarden"); },
     characters: liveChars,
     onSend: stampSend,
     onCanon: stampCanon,
@@ -36543,6 +36550,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     onBack: () => setScreen("home")
   });else if (screen === "fairyGarden") body = h(window.FairyGardenApp, {
     initialWorld: gardenEntryWorld,
+    onOpenStamps: openStamps,
+    lookFor: c => window.CompanionFace.lookFor(c, moods),
     day: {
       initialCharId: gardenDayCharId,
       onSelect: id => {
@@ -36652,11 +36661,11 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     profile: profile,
     // 言秋的座位:if 线对戏的「演」也走 CC 亲笔(同小游戏切座管道),超时才由模型顶
     isEngineer: (charId) => !!settingsFor(charId).engineerEyes,
-    onOpenCard: cardId => { window.__stampsOpen = cardId; setScreen("stamps"); },
+    onOpenCard: cardId => openStamps({ cardId }),
     voiceOf: char => stampVoice(char),   // 他平时真说过的话（只借口气）：跟邮票卡同一份
     toast: toast,
     onOpenStyleLab: goStyleLab,
-    onBack: () => { const r = window.__theaterReturn; window.__theaterReturn = null; if (r && r.cardId) { window.__stampsOpen = r.cardId; setScreen("stamps"); } else setScreen("home"); }   // 从邮票进来的，退出回到那张卡（她 2026-10-27）
+    onBack: () => { const r = window.__theaterReturn; window.__theaterReturn = null; if (r && r.cardId) { openStamps({ cardId: r.cardId }); } else setScreen("home"); }   // 从邮票进来的，退出回到那张卡（她 2026-10-27）
   });else if (screen === "stylelab") body = h(StyleLabApp, {
     // 文风预设台：一处生产，线下/小剧场/同人文三处消费。只在这里改预设本身，
     // 三处吃不吃各自有开关；开关关着＝行为和以前一模一样。
