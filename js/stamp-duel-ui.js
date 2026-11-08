@@ -214,6 +214,13 @@
       onClick: e => { if (fired.current) { fired.current = false; return; } onTap && onTap(e); }
     };
   }
+  // 大招横幅里那张整张放大的卡面（她 2026-11-08「要整个卡面和图放大」）
+  function CutFace({ card, useThumb, ssr }) {
+    const [url, el] = (useThumb || noThumb)(card ? (card.cover || card.face) : null);
+    const name = card && card.text && card.text.name || "";
+    return h("div", { ref: el, style: { width: "100%", aspectRatio: "3 / 4", padding: 5, background: perf(PAPER), boxShadow: ssr ? "0 0 0 2px #f0c86e, 0 0 26px rgba(255,210,120,.9)" : "0 0 0 2px #9fb4ea, 0 0 22px rgba(150,180,255,.85)" } },
+      h("div", { style: { width: "100%", height: "100%", background: url ? "#2a2520 center/cover no-repeat url(" + url + ")" : "linear-gradient(160deg, #efe6d2, #e2d6bd)", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: FD, fontSize: fz(15), color: "#6a5f4e", textAlign: "center", padding: 8 } }, url ? null : name));
+  }
   function Ticket({ u, card, owner, useThumb, sel, onTap, small, foe, terrain, wk, fx, onLong, lift }) {
     const press = useLongPress(onLong, onTap);
     const [url, el] = (useThumb || noThumb)(card ? (card.cover || card.face) : null);
@@ -1182,7 +1189,7 @@
         }
         // SR / SSR 放大招、觉醒：整条横幅带着名字和台词从屏幕中间扫过去（她 2026-11-08「花里胡哨的特效」）
         const cutIn = (l.kind === "stamp" || l.kind === "wake") && (l.rarity === "SR" || l.rarity === "SSR") && l.cutLine;
-        if (cutIn) setCut({ key: Math.random(), rarity: l.rarity, name: l.name || "", line: l.cutLine, who: l.who, char: l.char, sub: l.kind === "wake" ? (l.combo || "") + "觉醒" : "盖章 · " + (l.skill || "") });
+        if (cutIn) setCut({ key: Math.random(), rarity: l.rarity, name: l.name || "", cardId: l.cardId, line: l.cutLine, who: l.who, char: l.char, sub: l.kind === "wake" ? (l.combo || "") + "觉醒" : "盖章 · " + (l.skill || "") });
         const big = l.kind === "wake" || l.kind === "stamp" || l.kind === "event";
         if (big && !cutIn) setBanner({ text: l.text, line: l.line || "", who: l.who, key: Math.random() }); else setBanner(null);
         setTimeout(step, cutIn ? 2700 : l.kind === "wake" ? 2600 : big ? 1800 : l.kind === "place" ? 380 : 520);
@@ -1354,16 +1361,18 @@
       // 中间弹出的那块（她 2026-11-08「这种黄框也做好看点」）：像一封电报——上面一枚火漆封印写是什么事，
       //   中间大字是哪张票／哪条公告，台词另起一行像手写；觉醒是金色、盖章是红色、公告是绿色
       cut ? (() => {
-        const ssr = cut.rarity === "SSR", foe = cut.who === "foe";
+        const ssr = cut.rarity === "SSR", foe = cut.who === "foe"; const cutCard = cut.cardId ? (cardsAll || []).find(c => c && c.id === cut.cardId) : null;
         const bg = ssr ? "linear-gradient(100deg, rgba(120,72,10,.0) 0%, rgba(176,120,30,.92) 12%, rgba(240,200,110,.95) 50%, rgba(176,120,30,.92) 88%, rgba(120,72,10,0) 100%)"
           : "linear-gradient(100deg, rgba(40,60,120,0) 0%, rgba(63,90,160,.9) 12%, rgba(120,150,220,.92) 50%, rgba(63,90,160,.9) 88%, rgba(40,60,120,0) 100%)";
-        return h("div", { key: "cutw" + cut.key, style: { position: "absolute", inset: 0, zIndex: 25, overflow: "hidden", pointerEvents: "none" } }, h("div", { "data-wk": "duelcutin", "data-rarity": cut.rarity, style: { position: "absolute", left: "50%", top: "44%", zIndex: 25, width: "140%", padding: "16px 0 14px", background: bg, overflow: "hidden", pointerEvents: "none",
+        return h("div", { key: "cutw" + cut.key, style: { position: "absolute", inset: 0, zIndex: 25, overflow: "hidden", pointerEvents: "none" } }, h("div", { "data-wk": "duelcutin", "data-rarity": cut.rarity, style: { position: "absolute", left: "50%", top: "44%", zIndex: 25, width: "140%", padding: "22px 0 20px", background: bg, overflow: "visible", pointerEvents: "none",
             boxShadow: ssr ? "0 0 30px rgba(240,190,90,.6)" : "0 0 24px rgba(110,140,220,.5)", borderTop: "2px solid rgba(255,255,255,.7)", borderBottom: "2px solid rgba(255,255,255,.7)", animation: "duelSweep 2.5s cubic-bezier(.2,.8,.3,1) forwards" } },
           h("div", { style: { position: "absolute", top: 0, bottom: 0, width: "30%", background: "linear-gradient(90deg, transparent, rgba(255,255,255,.55), transparent)", animation: "duelShine 1.1s .25s ease-out" } }),
-          h("div", { style: { transform: "skewX(12deg)", textAlign: "center", color: "#fff", textShadow: ssr ? "0 0 10px rgba(255,220,140,.9), 0 2px 3px rgba(90,50,0,.6)" : "0 0 10px rgba(170,200,255,.9), 0 2px 3px rgba(20,30,80,.6)" } },
+h("div", { style: { transform: "skewX(12deg)", display: "flex", alignItems: "center", gap: 14, width: "62%", margin: "0 auto" } },
+            cutCard ? h("div", { style: { flexShrink: 0, width: "40%", maxWidth: 170, margin: "-46px 0", transform: "rotate(-5deg)", animation: "duelPop .5s ease-out" } }, h(CutFace, { card: cutCard, useThumb, ssr })) : null,
+                      h("div", { style: { flex: 1, minWidth: 0, textAlign: "center", color: "#fff", textShadow: ssr ? "0 0 10px rgba(255,220,140,.9), 0 2px 3px rgba(90,50,0,.6)" : "0 0 10px rgba(170,200,255,.9), 0 2px 3px rgba(20,30,80,.6)" } },
             h("div", { style: { fontSize: fz(11), letterSpacing: ".3em", opacity: .9 } }, (foe ? (foeName || "TA") + " 那边 · " : "") + cut.rarity + " · " + cut.sub),
             h("div", { style: { fontFamily: FD, fontSize: fz(ssr ? 30 : 25), lineHeight: 1.2, margin: "2px 0 4px", animation: "duelSweepTxt .9s ease-out both" } }, cut.name),
-            h("div", { style: { fontFamily: FD, fontStyle: "italic", fontSize: fz(14), maxWidth: "62%", margin: "0 auto", lineHeight: 1.5 } }, "「" + cut.line + "」"))));
+            h("div", { style: { fontFamily: FD, fontStyle: "italic", fontSize: fz(14), maxWidth: "100%", margin: "0 auto", lineHeight: 1.5 } }, "「" + cut.line + "」")))));
       })() : null,
       banner ? (() => {
         const kind = banner.text.indexOf("觉醒") >= 0 ? "wake" : banner.text.indexOf("公告") >= 0 ? "event" : "stamp";
