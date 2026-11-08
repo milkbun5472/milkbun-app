@@ -89,6 +89,8 @@
     const hint = who && typeof hanLangHintOf === "function" ? hanLangHintOf(who) : "";
     return { node: typeof TransText === "function" ? h(TransText, { text: raw, zhReady: b && b.zh ? b.zh : undefined, inline: true, langHint: hint || undefined }) : raw, speak: raw };
   }
+  // 一行里只有一截是 TA 写的（投票理由、发言…）：前半截照常，那一截走 gameSaid（她 2026-11-08「全部小游戏都加了翻译吗」）
+  const saidOf = (text, who) => gameSaid(text, who && who.char ? who.char : who).node;
   function gameVoiceRules() {
     return AC + VOICE_RULE + SKILL_RULE + gameBiRules() + [
       typeof REGISTER_FOLLOWS_SCENE !== "undefined" ? REGISTER_FOLLOWS_SCENE : "",
@@ -1507,8 +1509,8 @@
               h("div", { "data-wk": "gamemsgname", style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginBottom: 2 } }, it.name + (it.mine ? "(你)" : "")),
               h("div", { "data-wk": "gamebubble", "data-me": it.mine ? "1" : "0", style: { display: "inline-block", fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", lineHeight: 1.5, color: t.ink, background: it.mine ? (t.tint + "1c") : t.bg2, borderRadius: 10, padding: "7px 11px" } }, it.mine ? it.text : gameSaid(it.text, p && p.char).node), it.mine ? null : h(GameVoiceDot, { p: p, text: gameSaid(it.text, p && p.char).speak, k: "gv" + i })));
         }
-        if (it.type === "vote") return h("div", { "data-wk": "gamelogline", "data-kind": it.type, key: i, style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.sub, margin: "3px 0", lineHeight: 1.5 } }, "· " + it.name + (it.target ? " → 投 " + it.target : " → 弃票") + (it.reason && it.target ? "：" + it.reason : ""));
-        if (it.type === "chat") return h("div", { "data-wk": "gamelogline", "data-kind": it.type, "data-me": it.mine ? "1" : "0", key: i, style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", fontStyle: "italic", color: it.mine ? t.tint : t.fog, margin: "3px 0 3px 14px", lineHeight: 1.55 } }, it.name + "：" + it.text);
+        if (it.type === "vote") return h("div", { "data-wk": "gamelogline", "data-kind": it.type, key: i, style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.sub, margin: "3px 0", lineHeight: 1.5 } }, "· " + it.name + (it.target ? " → 投 " + it.target : " → 弃票"), it.reason && it.target ? "：" : null, it.reason && it.target ? saidOf(it.reason, pByName(it.name)) : null);
+        if (it.type === "chat") return h("div", { "data-wk": "gamelogline", "data-kind": it.type, "data-me": it.mine ? "1" : "0", key: i, style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", fontStyle: "italic", color: it.mine ? t.tint : t.fog, margin: "3px 0 3px 14px", lineHeight: 1.55 } }, it.name + "：", saidOf(it.text, pByName(it.name)));
         return null;
       }));
 
@@ -2633,9 +2635,9 @@
         if (it.type === "speech") { const p = pByName(it.name); return h("div", { "data-wk": "gamemsg", "data-kind": it.type, "data-me": it.mine ? "1" : "0", key: i, style: { display: "flex", gap: 8, margin: "8px 0" } }, pAvatar(p, 30),
           h("div", { style: { flex: 1 } }, h("div", { "data-wk": "gamemsgname", style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginBottom: 2 } }, it.name + (it.mine ? "(你)" : "")),
             h("div", { "data-wk": "gamebubble", "data-me": it.mine ? "1" : "0", style: { display: "inline-block", fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", lineHeight: 1.55, color: t.ink, background: it.mine ? (t.tint + "1c") : t.bg2, borderRadius: 10, padding: "7px 11px" } }, it.mine ? it.text : gameSaid(it.text, p && p.char).node), it.mine ? null : h(GameVoiceDot, { p: p, text: gameSaid(it.text, p && p.char).speak, k: "gv" + i }))); }
-        if (it.type === "vote") return h("div", { "data-wk": "gamelogline", "data-kind": it.type, key: i, style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.sub, margin: "3px 0", lineHeight: 1.5 } }, "· " + it.name + (it.target ? " → 投 " + it.target : " → 弃票") + (it.reason && it.target ? "：" + it.reason : ""));
+        if (it.type === "vote") return h("div", { "data-wk": "gamelogline", "data-kind": it.type, key: i, style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.sub, margin: "3px 0", lineHeight: 1.5 } }, "· " + it.name + (it.target ? " → 投 " + it.target : " → 弃票"), it.reason && it.target ? "：" : null, it.reason && it.target ? saidOf(it.reason, pByName(it.name)) : null);
         // 台下起哄：斜体细字，不做成气泡——它不是正式发言（shortLog 也不收它）
-        if (it.type === "chat") return h("div", { "data-wk": "gamelogline", "data-kind": it.type, "data-me": it.mine ? "1" : "0", key: i, style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", fontStyle: "italic", color: it.mine ? t.tint : t.fog, margin: "3px 0 3px 14px", lineHeight: 1.55 } }, it.name + "：" + it.text);
+        if (it.type === "chat") return h("div", { "data-wk": "gamelogline", "data-kind": it.type, "data-me": it.mine ? "1" : "0", key: i, style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", fontStyle: "italic", color: it.mine ? t.tint : t.fog, margin: "3px 0 3px 14px", lineHeight: 1.55 } }, it.name + "：", saidOf(it.text, pByName(it.name)));
         return null;
       }));
 
@@ -2732,8 +2734,8 @@
           mvpP ? pAvatar(mvpP, 40) : null,
           h("div", { style: { flex: 1, minWidth: 0 } },
             h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.tint, letterSpacing: 1, marginBottom: 2 } }, "★ 全场 MVP · " + mvp.name),
-            mvp.reason ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.sub, lineHeight: 1.55, marginBottom: 4 } }, mvp.reason) : null,
-            mvp.quote ? h("div", { style: { fontFamily: "'Noto Serif SC',serif", fontSize: "calc(13.5px * var(--app-fs, 1))", color: t.ink, lineHeight: 1.7, whiteSpace: "pre-line" } }, "「" + mvp.quote + "」")
+            mvp.reason ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.sub, lineHeight: 1.55, marginBottom: 4 } }, saidOf(mvp.reason, mvpP)) : null,
+            mvp.quote ? h("div", { style: { fontFamily: "'Noto Serif SC',serif", fontSize: "calc(13.5px * var(--app-fs, 1))", color: t.ink, lineHeight: 1.7, whiteSpace: "pre-line" } }, "「", saidOf(mvp.quote, mvpP), "」")
               : mvp.quotePending ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog } }, "感想留给言秋本人，等TA亲自写。") : null))
           : h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, textAlign: "center", marginBottom: 12 } }, api ? "评选全场 MVP 中…" : ""),
         h("div", { style: { display: "flex", gap: 10 } },
@@ -3442,7 +3444,7 @@
             h("span", { style: { color: "#fff", background: c, borderRadius: 999, padding: "1px 9px", fontWeight: 700, fontSize: "calc(12px * var(--app-fs, 1))" } }, it.verdict || "…"),
             it.note ? h("span", { style: { color: t.sub } }, transShow(it.note)) : null);
         }
-        if (it.type === "chat") return h("div", { key: i, style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", fontStyle: "italic", color: it.mine ? t.tint : t.fog, margin: "3px 0 3px 14px", lineHeight: 1.55 } }, it.name + "：" + it.text);
+        if (it.type === "chat") return h("div", { key: i, style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", fontStyle: "italic", color: it.mine ? t.tint : t.fog, margin: "3px 0 3px 14px", lineHeight: 1.55 } }, it.name + "：", saidOf(it.text, pByName(it.name)));
         return null;
       }));
 
@@ -4035,7 +4037,7 @@
             h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", letterSpacing: 2, color: t.tint, textAlign: "center", marginBottom: 7 } }, "今 晚 之 星"),
             h("div", { style: { display: "flex", alignItems: "center", justifyContent: "center", gap: 8, marginBottom: 6 } }, pAvatar(p, 30),
               h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(16px * var(--app-fs, 1))", color: t.ink } }, it.name + (it.isUser ? "(你)" : ""))),
-            it.reason ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.sub, lineHeight: 1.65, textAlign: "center" } }, it.reason) : null);
+            it.reason ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.sub, lineHeight: 1.65, textAlign: "center" } }, saidOf(it.reason, p)) : null);
         }
         if (it.type === "td") {
           const p = pByName(it.name);
@@ -4325,7 +4327,7 @@
     // 接话没回来（超时或报错）时留着那一批事件，点一下再请一次（她 2026-10-03：「过一会就会说角色接话失败之类的能不能搞个重试」）。
     //   账面不动，只补台词；用的是【此刻】的账面，不是当时那份。
     async function retryTalk(){if(!talkMiss||busy)return;const m=talkMiss;setTalkMiss(null);interactionQueue.current=m.batch.concat(interactionQueue.current);setBusy(true);try{await react(players,owners,null,true);}finally{setBusy(false);}}
-    const logView=h("div",{ "data-wk": "gamelog", "data-part": "monopoly", className:"flex-1 overflow-y-auto",style:{padding:"7px 14px",minHeight:110,borderTop:"1px solid "+t.line}},logs.slice(-22).map(function(x,i){return h("div",{ "data-wk": "gamelogline", key:i,style:{fontFamily:F_BODY,fontSize:x.type==="talk"?13:11.5,lineHeight:1.55,color:x.type==="talk"?t.ink:(x.type==="bad"?"#c0553f":t.sub),padding:x.type==="talk"?"6px 9px":"3px 5px",marginBottom:3,borderRadius:9,background:x.type==="talk"?t.bg2:"transparent"}},x.type==="talk"?h("b",{style:{color:t.tint}},x.name+"："):null,x.say);}),
+    const logView=h("div",{ "data-wk": "gamelog", "data-part": "monopoly", className:"flex-1 overflow-y-auto",style:{padding:"7px 14px",minHeight:110,borderTop:"1px solid "+t.line}},logs.slice(-22).map(function(x,i){return h("div",{ "data-wk": "gamelogline", key:i,style:{fontFamily:F_BODY,fontSize:x.type==="talk"?13:11.5,lineHeight:1.55,color:x.type==="talk"?t.ink:(x.type==="bad"?"#c0553f":t.sub),padding:x.type==="talk"?"6px 9px":"3px 5px",marginBottom:3,borderRadius:9,background:x.type==="talk"?t.bg2:"transparent"}},x.type==="talk"?h("b",{style:{color:t.tint}},x.name+"："):null,x.type==="talk"?saidOf(x.say,(typeof players!=="undefined"&&players||[]).find(function(p){return p.name===x.name;})):x.say);}),
       talkMiss&&!busy?h("button",{onClick:retryTalk,className:"active:opacity-70",style:{display:"block",margin:"4px auto 2px",padding:"7px 16px",borderRadius:999,border:"1px dashed "+t.line,background:t.bg2,color:t.tint,fontFamily:F_BODY,fontSize:12}},"角色没接上话 · 再试一次"):null);
     let action;if(phase==="result"){const ranking=players.slice().sort(function(a,b){return monoNetWorth(b,owners,levels)-monoNetWorth(a,owners,levels);});action=h("div",{style:{textAlign:"center"}},h("div",{style:{fontFamily:F_DISPLAY,fontSize:20,color:t.ink}},"🏆 "+(winner?winner.name:ranking[0].name)+" 赢下这座城"),h("div",{style:{fontFamily:F_BODY,fontSize:12,color:t.sub,margin:"8px 0 13px"}},ranking.map(function(p,i){return (i+1)+". "+p.name+" $"+monoNetWorth(p,owners,levels);}).join("　")),h("button",{onClick:props.onBack,style:{width:"100%",padding:12,borderRadius:12,background:t.ink,color:"#fff",fontFamily:F_BODY}},"回游戏中枢"),
       h(KeepMemBtn,{t:t,host:props,rep:function(){
@@ -4953,14 +4955,14 @@
         if (it.type === "phase") return h("div", { "data-wk": "gamelogline", "data-kind": it.type, key: i, style: { textAlign: "center", fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.tint, margin: "12px 0 4px", letterSpacing: .5 } }, "· " + it.text + " ·");
         if (it.type === "propose") return h("div", { "data-wk": "gamelogline", "data-kind": it.type, key: i, style: { margin: "6px 0" } },
           h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.ink } }, "👑 " + it.leader + (it.isUser ? "(你)" : "") + " 提议：" + it.team.join("、")),
-          it.reason ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.sub, marginTop: 2, lineHeight: 1.5 } }, "“" + it.reason + "”") : null);
+          it.reason ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.sub, marginTop: 2, lineHeight: 1.5 } }, "“", saidOf(it.reason, pByName(it.leader || it.name)), "”") : null);
         if (it.type === "talk") return h("div", { "data-wk": "gamelogline", "data-kind": it.type, "data-me": it.mine ? "1" : "0", key: i, style: { margin: "3px 0", fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.ink, lineHeight: 1.55 } },
-          h("span", { style: { fontWeight: 700, color: it.mine ? t.tint : t.sub } }, "💬 " + it.name + (it.mine ? "(你)" : "") + "："), it.say);
+          h("span", { style: { fontWeight: 700, color: it.mine ? t.tint : t.sub } }, "💬 " + it.name + (it.mine ? "(你)" : "") + "："), saidOf(it.say, pByName(it.name)));
         if (it.type === "votes") return h("div", { "data-wk": "gamelogline", "data-kind": it.type, key: i, style: { margin: "6px 0", background: t.bg2, borderRadius: 10, padding: "8px 11px" } },
           h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", fontWeight: 700, color: it.approved ? "#3f6d5a" : "#c0553f", marginBottom: 4 } }, (it.approved ? "✓ 通过" : "✗ 否决") + "（赞成 " + it.yes + " · 反对 " + it.no + "）"),
-          it.votes.map(function (v, k) { return h("div", { key: k, style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.sub, lineHeight: 1.5 } }, (v.approve ? "✔ " : "✘ ") + v.name + (v.mine ? "(你)" : "") + (v.reason ? "：" + v.reason : "")); }));
+          it.votes.map(function (v, k) { return h("div", { key: k, style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.sub, lineHeight: 1.5 } }, (v.approve ? "✔ " : "✘ ") + v.name + (v.mine ? "(你)" : ""), v.reason ? "：" : null, v.reason ? saidOf(v.reason, pByName(v.name)) : null); }));
         if (it.type === "questresult") return h("div", { key: i, style: { textAlign: "center", margin: "10px 0", fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))", color: it.success ? "#3f6d5a" : "#c0553f" } }, "任务 " + it.n + (it.success ? " 成功 ✓" : " 失败 ✗") + "　（" + it.fails + " 张失败票）");
-        if (it.type === "assassin") return h("div", { key: i, style: { textAlign: "center", margin: "10px 0", fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", color: t.ink, lineHeight: 1.6 } }, "🗡 刺客 " + it.by + " 指认梅林 → " + it.target + (it.reason ? "\n“" + it.reason + "”" : ""));
+        if (it.type === "assassin") return h("div", { key: i, style: { textAlign: "center", margin: "10px 0", fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", color: t.ink, lineHeight: 1.6 } }, "🗡 刺客 " + it.by + " 指认梅林 → " + it.target, it.reason ? h("div", null, "“", saidOf(it.reason, pByName(it.by)), "”") : null);
         return null;
       }));
 
@@ -5387,7 +5389,7 @@
     const next = function () {
       setSt(function (s) { const host = alt ? (s.r.host === "me" ? "ta" : "me") : s.r.host; return { r: mindNewRound(host, s.r.round + 1), score: s.score }; });
     };
-    useEffect(function () { if (r.status === "done") push({ sys: true, text: "揭晓：" + (r.host === "me" ? "你想的" : cName + " 想的") + "是「" + r.secret + "」 · " + (r.result ? r.result.why : "") }); }, [r.status]);
+    useEffect(function () { if (r.status === "done") push({ sys: true, text: "揭晓：" + (r.host === "me" ? "你想的" : cName + " 想的") + "是「" + r.secret + "」 · " + (r.result ? r.result.why : ""), sysWho: true }); }, [r.status]);
     const btn = function (label, on, primary, key) { return h("button", { key: key || label, "data-wk": "mindbtn", disabled: busy, onClick: on, className: "active:opacity-70", style: { flex: 1, minHeight: 40, borderRadius: 10, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", border: "1px solid " + (primary ? t.tint : t.line), background: primary ? t.tint : t.bg2, color: primary ? "#fff" : t.ink, opacity: busy ? .5 : 1 } }, label); };
     const lastQ = r.qs[r.qs.length - 1];
     return h("div", { "data-wk": "gameplay", "data-part": "mind", className: "h-full flex flex-col", style: gameTable("q25", t) },
@@ -5521,7 +5523,7 @@
           return h("div", { key: r.n, style: { display: "flex", flexWrap: "wrap", alignItems: "center", gap: 6, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.sub, padding: "4px 0", borderBottom: "1px solid " + t.line } },
             h("span", { style: { color: t.fog, width: 34, flexShrink: 0 } }, "第" + r.n), h("span", { style: { flex: 1, minWidth: 0 } }, r.pair[0] + " + " + r.pair[1] + " → 「" + r.mine + "」/「" + r.yours + "」"),
             h("span", { style: { color: L.counted(r) ? t.tint : t.fog, flexShrink: 0 } }, r.hit ? "+1" : r.manual ? "算+1" : "—"),
-            (r.talk || []).length ? h("div", { "data-wk": "lingxihisttalk", style: { flexBasis: "100%", paddingLeft: 40, color: t.fog, fontSize: "calc(11px * var(--app-fs, 1))", lineHeight: 1.6, whiteSpace: "pre-wrap" } }, L.talkText(r.talk, uName).replace(/(^|\n)你：/g, "$1" + cName + "：")) : null);
+            (r.talk || []).length ? h("div", { "data-wk": "lingxihisttalk", style: { flexBasis: "100%", paddingLeft: 40, color: t.fog, fontSize: "calc(11px * var(--app-fs, 1))", lineHeight: 1.6, whiteSpace: "pre-wrap" } }, saidOf(L.talkText(r.talk, uName).replace(/(^|\n)你：/g, "$1" + cName + "："), char)) : null);
         })) : null,
         err ? h("div", { style: { color: "#c0553f", fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", marginTop: 8 } }, err) : null,
         state.status === "done" ? h("div", { style: { marginTop: 14 } },
@@ -6668,7 +6670,7 @@
     return h("div", { "data-wk": "gametalk", ref: ref, style: { maxHeight: flow ? "none" : (props.maxHeight || 190), minHeight: flow ? 0 : 64, overflowY: flow ? "visible" : "auto", display: "flex", flexDirection: "column", gap: 8, padding: "4px 2px", marginBottom: 12 } },
       lines.length ? (flow ? lines : lines.slice(-30)).map(function (l, i) {
         if (l.node) return h("div", { key: i, style: { alignSelf: "stretch" } }, l.node);   // 夹在对话里的一张卡（约会每站的小票）
-        if (l.sys) return h("div", { key: i, style: { alignSelf: "center", fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog } }, l.text);
+        if (l.sys) return h("div", { key: i, style: { alignSelf: "center", fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog } }, l.sysWho ? saidOf(l.text, props.charOf ? props.charOf({}) : null) : l.text);
         if (l.me) return h("div", { key: i, "data-wk": "gametalkrow", "data-me": "1", style: { display: "flex", justifyContent: "flex-end", gap: 7, alignItems: "flex-start" } },
           h("div", { style: bub(true) }, l.text), pAvatar({ isUser: true, name: props.uName, char: props.me }, 28));
         const c = props.charOf(l);
@@ -7604,7 +7606,7 @@
           h("div", { style: { display: "flex", flexWrap: "wrap", gap: 6, marginTop: 10 } }, state.lines.map(function (l, i) {
             return h("span", { key: i, style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, padding: "2px 8px", borderRadius: 999, border: "1px solid " + t.line } }, (i + 1) + " · " + l.name + (l.used ? "" : " · 没用上「" + l.word + "」"));
           }))),
-        state.log.length ? h("div", { "data-wk": "gamelog", "data-part": "story", style: { marginTop: 10, background: t.bg2, borderRadius: 13, padding: "9px 12px" } }, state.log.slice(-6).map(function (x, i) { return h("div", { "data-wk": "gamelogline", key: i, style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.sub, lineHeight: 1.65 } }, x.text); })) : null,
+        state.log.length ? h("div", { "data-wk": "gamelog", "data-part": "story", style: { marginTop: 10, background: t.bg2, borderRadius: 13, padding: "9px 12px" } }, state.log.slice(-6).map(function (x, i) { return h("div", { "data-wk": "gamelogline", key: i, style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.sub, lineHeight: 1.65 } }, saidOf(x.text, (state.players || []).find(function (p) { return p.key === x.player; }))); })) : null,
         error ? h("div", { style: { color: "#c0553f", fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", marginTop: 8 } }, error, " ",
           h("button", { onClick: retry, style: { color: t.tint, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", textDecoration: "underline", background: "transparent" } }, "再请一次")) : null,
         state.status === "finished" ? h("div", { style: { marginTop: 14 } },
@@ -7702,7 +7704,7 @@
         h("div", { style: { marginTop: 5, maxWidth: 80, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", fontWeight: 600, color: t.ink, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, s.name),
         h("div", { "data-wk": "gamecardchips", style: { display: "flex", alignItems: "center", gap: 4, marginTop: 2, fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: s.hot ? "#c0553f" : t.fog, whiteSpace: "nowrap" } },
           s.chips != null ? h(ChipStack, { n: s.chips, unit: s.unit, size: 11 }) : s.cards != null ? h(CardBacks, { n: s.cards }) : null, s.sub),
-        bub ? h("div", { "data-wk": "gamecardbubble", key: "b" + bub, style: { position: "relative", marginTop: 6, maxWidth: 96, padding: "5px 8px", borderRadius: 11, background: t.bg2, border: "1px solid " + t.line, color: t.ink, fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", lineHeight: 1.4, boxShadow: "0 3px 10px rgba(20,16,10,.12)", animation: "gcardPop .25s ease-out both", wordBreak: "break-all" } }, bub) : null);
+        bub ? h("div", { "data-wk": "gamecardbubble", key: "b" + bub, style: { position: "relative", marginTop: 6, maxWidth: 96, padding: "5px 8px", borderRadius: 11, background: t.bg2, border: "1px solid " + t.line, color: t.ink, fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", lineHeight: 1.4, boxShadow: "0 3px 10px rgba(20,16,10,.12)", animation: "gcardPop .25s ease-out both", wordBreak: "break-all" } }, saidOf(bub, s)) : null);
     }));
   }
   // 牌桌的记录：桌上话用正文颜色，系统那几行淡一点；收着高度，桌子才是主角
@@ -7711,7 +7713,7 @@
     // column-reverse：最新那行永远贴在底下看得见，不用手动往下滚
     return h("div", { "data-wk": "gamelog", "data-part": props.part, style: { background: t.bg2, borderRadius: 13, padding: "9px 12px", maxHeight: 150, overflowY: "auto", display: "flex", flexDirection: "column-reverse" } },
       props.talking ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, marginTop: 4 } }, "他们边出牌边嘀咕…") : null,
-      props.log.slice(-12).reverse().map(function (x, i) { return h("div", { "data-wk": "gamelogline", "data-kind": x.kind, key: i, style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: x.kind === "sys" ? t.fog : x.kind === "chat" ? t.ink : t.sub, lineHeight: 1.6 } }, x.text); }));
+      props.log.slice(-12).reverse().map(function (x, i) { return h("div", { "data-wk": "gamelogline", "data-kind": x.kind, key: i, style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: x.kind === "sys" ? t.fog : x.kind === "chat" ? t.ink : t.sub, lineHeight: 1.6 } }, x.kind === "chat" ? saidOf(x.text, (props.seats || []).find(function (s) { return s.key === x.player; })) : x.text); }));
   }
   function cardTalk(state, n) { return state.log.slice(-(n || 8)).map(function (x) { return x.text; }).join("\n"); }
   // 桌上那块绒布（三样共用）
