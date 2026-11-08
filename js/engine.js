@@ -12463,8 +12463,9 @@ function vclockSeg(c, ts) {
 function vclockKeepHist(oldClocks, newClocks, now) {
   const out = { ...(newClocks || {}) }; now = now || Date.now();
   Object.keys(out).forEach(k => {
-    const o = oldClocks && oldClocks[k], n = out[k];
-    if (!o || !n) return;
+    // 原来没有这只钟（从没拨过，比如头一回点「先歇着」）也算「关着」：开钟这一下照样记一段「之前是现实」
+    const o = (oldClocks && oldClocks[k]) || { on: false }, n = out[k];
+    if (!n) return;
     // 开、关钟这一下也记一笔（她 2026-11-01：「从虚拟时间改到现实和 vice versa 不会有错吧」）：
     //   原来只有「开着→开着」才记，关钟以后以前虚拟那段统统按现实重算，开钟以后以前现实那段统统被算成虚拟的。
     //   关钟：把那一版虚拟钟记下来（之前的消息照旧是虚拟的日子）；开钟：把关着那段记成「现实」（real:true，原样）。
@@ -12514,6 +12515,11 @@ function vclockMainMap(ts) {
 }
 function vclockMapBy(c0, ts) {
   if (!c0) return Number(ts);
+  // 这只钟头一次拨出来之前的事，照现实的日子（群里 2026-11-08：日记和情侣空间的「第一次」，10 月 24 号之前的全变成了 24 号）：
+  //   11 月 1 号起开钟会记一段「之前是现实」；在那之前就开着的钟没有这一段，于是开钟以前的每条都拿这只钟去算——
+  //   钟停着（speed 0）或者拨在 24 号，以前的全挤到同一天。最早那一版钟是哪一刻拨的（at），早于它的就是现实
+  const h0 = Array.isArray(c0.hist) && c0.hist.length ? c0.hist[0] : c0;
+  if (h0 && !h0.real && Number(h0.at) > 0 && Number(ts) < Number(h0.at)) return Number(ts);
   const c = vclockSeg(c0, ts);
   if (c && c.real) return Number(ts);   // 那一段钟是关着的：照现实
   const sp = Number(c.speed);
