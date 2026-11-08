@@ -59,7 +59,7 @@ test("跟 TA 聊时带上两边信封上的票和卡上那句；长按不弹系�
 });
 test("新手教学关：开局页能进、九步教练条、不存档；对面会说话、有打法；能跳过动画", () => {
   assert.match(ui, /const TUT = \[/);
-  assert.match(ui, /modeCard\("duelturorial", GREEN, "新手教学关"/);
+  assert.match(ui, /"data-wk": "duelturorial", onClick: startTut/);
   assert.match(ui, /\(x && \(x\.tutorial \|\| x\.run \|\| x\.siege \|\| x\.raid \|\| x\.edict \|\| x\.shift\)\) \|\| runBattle\) return;/);
   assert.match(ui, /"data-wk": "duelsay"/);
   assert.match(ui, /"data-wk": "duelskip", onClick: skip/);
@@ -121,7 +121,7 @@ test("念台词：开关、勾哪些时候和哪一边、两边气泡、排队�
   assert.match(ts, /"duelvoicebtn"/);
 });
 test("守城入口和页面：挑玩法页一张卡、波数条、打完再守一次、不进对局存档和战绩", () => {
-  assert.match(ui, /modeCard\("duelmodesiege"/);
+  assert.match(ui, /modeTile\("duelmodesiege"/);
   assert.match(ui, /siege: true, siegeLv: D\(\)\.SIEGE_TIERS\[tier\], bonds: bondsOf\(\)/);
   assert.match(ui, /"data-wk": "duelsiegetier"/);
   assert.match(ui, /"data-wk": "duelsiegewave"/);
@@ -138,14 +138,14 @@ test("信物只在远信：对局页没有材料与信物入口，远信路线�
   assert.match(ts, /"runkeepmake"/);
 });
 test("讨伐入口和页面：挑模式、伤害分、最高分、不进存档和战绩", () => {
-  assert.match(ui, /modeCard\("duelmoderaid"/);
+  assert.match(ui, /modeTile\("duelmoderaid"/);
   assert.match(ui, /\{ raid: m, bonds: bondsOf\(\) \}/);
   assert.match(ui, /"data-wk": "duelraidscore"/);
   assert.match(ui, /x\.tutorial \|\| x\.run \|\| x\.siege \|\| x\.raid/);
   assert.match(ts, /"duelmoderaid"/);
 });
 test("封缄令页：勾难度、危险分、不进存档和战绩", () => {
-  assert.match(ui, /modeCard\("duelmodeedict"/);
+  assert.match(ui, /modeTile\("duelmodeedict"/);
   assert.match(ui, /edict: tags, fair: false/);
   assert.match(ui, /x\.raid \|\| x\.edict \|\| x\.shift/);
   assert.match(ts, /"duelediccgo"/);
@@ -164,7 +164,7 @@ test("奖励：每天第一次赢、里程碑只给一次、钱进邮票册；�
   assert.match(ru, /window\.StampRewards\.settle\(\{ win: true, run: true, level: run\.level \|\| 1 \}\)/);
 });
 test("邮局值班页：柜台、值班卡组、开打、回柜台，进度存着，不进对局存档", () => {
-  assert.match(ui, /modeCard\("duelmodeshift"/);
+  assert.match(ui, /modeTile\("duelmodeshift"/);
   assert.match(ui, /D\(\)\.shiftDeck\(sh\), D\(\)\.edictDeck\(s\), s, \{ foeLv: D\(\)\.shiftFoeLv\(sh\)/);
   assert.match(ui, /"data-wk": "duelshiftnext"/);
   assert.match(ui, /x\.edict \|\| x\.shift/);

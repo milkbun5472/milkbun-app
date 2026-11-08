@@ -473,6 +473,26 @@
             sec.slice(1).map(lineOf))))]);
     }
     // ── 先挑玩法 ──
+    // 挑玩法页做成一面邮票墙（她 2026-11-08「这些选择页面能不能做好看点」）：每种玩法一枚齿孔邮票，
+    //   大字是面额那样的一个字，下面玩法名和一句话，最底下一行战绩；说明长的放进各自那一页的封面头里
+    const modeTile = (wk, color, glyph, title, tag, rec, onTap, tilt) => h("button", { key: wk, "data-wk": wk, onClick: onTap, className: "text-left active:scale-[.97]",
+      style: { display: "block", padding: 5, background: perf(PAPER), border: "none", transform: "rotate(" + (tilt || 0) + "deg)", filter: "drop-shadow(0 3px 6px rgba(47,42,34,.22))", transition: "transform .15s" } },
+      h("div", { style: { position: "relative", height: 124, padding: "10px 11px", overflow: "hidden", background: "linear-gradient(155deg, rgba(255,255,255,.14), rgba(0,0,0,.14)), " + color, color: "#fff", display: "flex", flexDirection: "column" } },
+        h("div", { style: { position: "absolute", right: -6, top: -14, fontFamily: FD, fontSize: fz(78), lineHeight: 1, opacity: .16 } }, glyph),
+        h("div", { style: { position: "absolute", inset: 4, border: "1px solid rgba(255,255,255,.35)", pointerEvents: "none" } }),
+        h("div", { style: { fontSize: fz(9.5), letterSpacing: ".2em", opacity: .85 } }, "邮票对战"),
+        h("div", { style: { fontFamily: FD, fontSize: fz(21), marginTop: 4, letterSpacing: ".06em" } }, title),
+        h("div", { style: { fontSize: fz(11), lineHeight: 1.45, marginTop: 3, opacity: .92 } }, tag),
+        h("div", { style: { flex: 1 } }),
+        rec ? h("div", { style: { alignSelf: "flex-start", padding: "1px 7px", borderRadius: 999, background: "rgba(255,255,255,.22)", fontSize: fz(10) } }, rec) : null));
+    // 各玩法自己那一页的封面头：同色航空条、一枚斜贴的小票、玩法名和说明
+    const modeHero = (color, glyph, title, desc) => h("div", { key: "hero", "data-wk": "duelmodehero", style: { position: "relative", margin: "4px 0 14px", borderRadius: 6, overflow: "hidden", background: PAPER, boxShadow: "0 3px 10px rgba(47,42,34,.14)" } },
+      h("div", { style: { height: 6, background: "repeating-linear-gradient(135deg, " + color + " 0 10px, " + PAPER + " 10px 16px)" } }),
+      h("div", { style: { position: "relative", padding: "12px 14px 13px 76px", minHeight: 76 } },
+        h("div", { style: { position: "absolute", left: 12, top: 12, width: 50, height: 58, padding: 3, background: perf(PAPER), transform: "rotate(-6deg)", filter: "drop-shadow(0 2px 3px rgba(47,42,34,.25))" } },
+          h("div", { style: { width: "100%", height: "100%", background: color, color: "#fff", fontFamily: FD, fontSize: fz(24), display: "flex", alignItems: "center", justifyContent: "center" } }, glyph)),
+        h("div", { style: { fontFamily: FD, fontSize: fz(17), color } }, title),
+        h("div", { style: { fontSize: fz(11.5), color: SUB, lineHeight: 1.7, marginTop: 3 } }, desc)));
     const modeCard = (wk, color, title, sub, desc, onTap) => h("button", { "data-wk": wk, onClick: onTap, className: "w-full text-left active:scale-[.99]",
       style: { display: "block", marginBottom: 14, padding: 0, borderRadius: 6, overflow: "hidden", background: PAPER, boxShadow: "0 3px 10px rgba(47,42,34,.18)", border: "1px solid " + color + "55", color: INK } },
       h("div", { style: { height: 6, background: AIRMAIL } }),
@@ -492,7 +512,7 @@
               h("div", { style: { fontFamily: FD, fontSize: fz(20), color: sh.done.win ? GREEN : RED } }, sh.done.win ? "值完了 8 轮" : "撑到第 " + sh.done.round + " 轮"),
               h("div", { style: { fontSize: fz(11.5), color: SUB, marginTop: 4 } }, sh.log.map(l => l.win ? "胜" : "负").join(" · ")),
               (sh.rewards || []).length ? h("div", { style: { marginTop: 8, fontSize: fz(11.5), color: "#7a5a1a", lineHeight: 1.6 } }, sh.rewards.map((t, k) => h("div", { key: k }, t))) : null) : null,
-            h("div", { style: { fontSize: fz(12), color: SUB, lineHeight: 1.75, margin: "0 0 14px" } }, "开局手里没票，只有 " + D().SHIFT.START + " 枚邮花。每一轮先到柜台：柜台摆 5 张你邮票册里的票（R " + D().SHIFT.PRICE.R + "、SR " + D().SHIFT.PRICE.SR + "、SSR " + D().SHIFT.PRICE.SSR + " 枚），买进值班卡组；同一张买两份合成「＋」，最多「＋＋」；同一个人的票凑满 3 张，这个人的票攻击 +1。买好点「开打」跟这一轮的审查局打一局（最多 8 回合），输了掉一条命，一共 " + D().SHIFT.LIVES + " 条，撑满 " + D().SHIFT.ROUNDS + " 轮算完成。每轮收入 5 枚，手上每攒 5 枚多给 1 枚利息（最多 3）。不花调用。"),
+            modeHero("#4f6a8a", "值", "邮局值班", "开局手里没票，只有 " + D().SHIFT.START + " 枚邮花。每一轮先到柜台：柜台摆 5 张你邮票册里的票（R " + D().SHIFT.PRICE.R + "、SR " + D().SHIFT.PRICE.SR + "、SSR " + D().SHIFT.PRICE.SSR + " 枚），买进值班卡组；同一张买两份合成「＋」，最多「＋＋」；同一个人的票凑满 3 张，这个人的票攻击 +1。买好点「开打」跟这一轮的审查局打一局（最多 8 回合），输了掉一条命，一共 " + D().SHIFT.LIVES + " 条，撑满 " + D().SHIFT.ROUNDS + " 轮算完成。每轮收入 5 枚，手上每攒 5 枚多给 1 枚利息（最多 3）。不花调用。"),
             h("div", { style: { fontSize: fz(12), color: b.round ? "#b8862a" : SUB, marginBottom: 12 } }, b.round ? "最好撑到第 " + b.round + " 轮" + (b.done ? "，值完过 " + b.done + " 次" : "") : "还没值过班"),
             h("button", { "data-wk": "duelshiftgo", onClick: () => { const n = D().shiftNew((Date.now() ^ seedRef.current) >>> 0); D().shiftRoll(n, cards); setShift(n); }, className: "w-full", style: Object.assign(btn("#4f6a8a", "#fff"), { padding: "12px 0", fontFamily: FD, fontSize: fz(15), letterSpacing: ".1em" }) }, "开始值班"))]);
       }
@@ -522,7 +542,7 @@
       return shell([
         h(Head, { key: "hd", zh: "封缄令", bg: "transparent", ink: INK, onBack: () => setMode(""), right: guideBtn }),
         h("div", { key: "bd", "data-wk": "dueledictpick", className: "flex-1 min-h-0 overflow-y-auto px-5", style: { fontFamily: F, color: INK, paddingTop: 6, paddingBottom: 24 } },
-          h("div", { style: { fontSize: fz(12), color: SUB, lineHeight: 1.75, margin: "0 0 12px" } }, "对面是「审查局」，等级固定 " + D().EDICT_LV + " 级（你的卡平均 " + my + " 级）。下面每一条都是给自己加的难度，后面写着分：勾得越多越难，打赢了勾的分加起来就是这一把的「危险」，记最高的。一条不勾也能打，算 0 分。"),
+          modeHero("#5a4f8a", "封", "封缄令", "对面是「审查局」，等级固定 " + D().EDICT_LV + " 级（你的卡平均 " + my + " 级）。下面每一条都是给自己加的难度，后面写着分：勾得越多越难，打赢了勾的分加起来就是这一把的「危险」，记最高的。一条不勾也能打，算 0 分。"),
           h("div", { "data-wk": "duelediclist", style: { display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 8 } }, Object.keys(E).map(k => { const on = edictPick.includes(k);
             return h("button", { key: k, "data-wk": "duelediccheck", "data-on": on ? "1" : "0", onClick: () => setEdictPick(p => on ? p.filter(x => x !== k) : p.concat(k)), className: "text-left",
               style: { position: "relative", padding: "9px 10px 9px 12px", borderRadius: 5, background: on ? "rgba(138,58,74,.1)" : "rgba(255,253,247,.9)", border: "1.5px solid " + (on ? "#8a3a4a" : "rgba(47,42,34,.15)"), color: INK, fontSize: fz(12), lineHeight: 1.45, minHeight: 52 } },
@@ -541,7 +561,7 @@
       return shell([
         h(Head, { key: "hd", zh: "讨伐", bg: "transparent", ink: INK, onBack: () => setMode(""), right: guideBtn }),
         h("div", { key: "bd", "data-wk": "duelraidpick", className: "flex-1 min-h-0 overflow-y-auto px-5", style: { fontFamily: F, color: INK, paddingTop: 6, paddingBottom: 24 } },
-          h("div", { style: { fontSize: fz(12), color: SUB, lineHeight: 1.75, margin: "0 0 14px" } }, "对面是打不死的「邮政总局」，比的是你能打出多少伤害。总局每回合派人顶在前排，有的贴着「封条」：封着的时候怎么打都只掉 1，用邮戳打、或者盖章打到它，封条就撕开，接下来两回合虚弱、挨打翻倍。总局每回合还会盖一记大章砸你的信封，越往后越重。第 4、第 7 回合换阶段。"),
+          modeHero("#8a3a4a", "讨", "讨伐", "对面是打不死的「邮政总局」，比的是你能打出多少伤害。总局每回合派人顶在前排，有的贴着「封条」：封着的时候怎么打都只掉 1，用邮戳打、或者盖章打到它，封条就撕开，接下来两回合虚弱、挨打翻倍。总局每回合还会盖一记大章砸你的信封，越往后越重。第 4、第 7 回合换阶段。"),
           card("normal", "讨伐 · 8 回合", "打满 8 回合算总伤害。信封被砸空就提前结束，分照算。", RED),
           card("endless", "无尽", "不设回合数，一直打到你的信封空。8 回合以后大章越砸越重，看能撑几回合、打出多少。", "#6a4f8a"))]);
     }
@@ -549,7 +569,7 @@
       return shell([
         h(Head, { key: "hd", zh: "守城", bg: "transparent", ink: INK, onBack: () => setMode(""), right: guideBtn }),
         h("div", { key: "bd", "data-wk": "duelsiegepick", className: "flex-1 min-h-0 overflow-y-auto px-5", style: { fontFamily: F, color: INK, paddingTop: 6, paddingBottom: 24 } },
-          h("div", { style: { fontSize: fz(12), color: SUB, lineHeight: 1.7, margin: "0 0 12px" } }, "挑一档守。每档敌人的等级是定的，第 1 波比建议等级低一半，越往后越高，第 10 波高出三成。你这些卡平均 " + my + " 级：比建议低的档也能守，靠站位、组合和盖章；卡练强了再去打高档。"),
+          modeHero("#3f6fb0", "守", "守城", "挑一档守。每档敌人的等级是定的，第 1 波比建议等级低一半，越往后越高，第 10 波高出三成。你这些卡平均 " + my + " 级：比建议低的档也能守，靠站位、组合和盖章；卡练强了再去打高档。"),
           D().SIEGE_TIERS.map((lv, t) => { const b = siegeBest(t), easy = my >= lv, c = easy ? GREEN : my >= lv * 0.7 ? "#b8862a" : RED;
             return h("button", { key: t, "data-wk": "duelsiegetier", onClick: () => startSiege(t), className: "w-full text-left active:scale-[.99]", style: { display: "flex", alignItems: "center", gap: 12, marginBottom: 10, padding: "12px 14px", borderRadius: 6, background: PAPER, boxShadow: "0 2px 8px rgba(47,42,34,.12)", borderLeft: "4px solid " + c, color: INK } },
               h("div", { style: { fontFamily: FD, fontSize: fz(20), color: c, width: 30, textAlign: "center" } }, t + 1),
@@ -560,24 +580,30 @@
     if (!st && !mode) return shell([
       h(Head, { key: "hd", zh: "对战", bg: "transparent", ink: INK, onBack, right: guideBtn }),
       h("div", { key: "bd", "data-wk": "duelmodes", className: "flex-1 min-h-0 overflow-y-auto px-5", style: { fontFamily: F, color: INK, paddingTop: 6, paddingBottom: 24 } },
-        h("div", { style: { fontSize: fz(12), color: SUB, margin: "0 0 14px" } }, "拿邮票册里的卡来打。先挑一种玩法："),
-        modeCard("duelmodeduel", RED, "对局", "对局", "跟一个人面对面打一把：挑对手、带谁上场、彩头、难度、明牌还是盲打。能连打几把，打完让 TA 记得，或者把战报发进聊天。" + (saved ? "（有一把没打完，进去能接着打）" : ""), () => setMode("duel")),
-        modeCard("duelmodeshift", "#4f6a8a", "邮局值班", "值班", "开局没票，每一轮先在柜台用邮花买票、凑阵容，同一张买两份合成更强的，同一个人凑满三张加攻击；再跟这一轮的审查局打一局。三条命，撑满八轮算完成。" + (shift ? "（上次值到第 " + shift.round + " 轮，点进去接着）" : ""), () => setMode("shift")),
-        modeCard("duelmodeedict", "#5a4f8a", "封缄令", "封缄", "自己给自己加难度：对面攻击更高、你少胶水、不能撕票……每条有分，勾得越多越难。打赢了分加起来就是这一把的「危险」，冲最高。不花调用。", () => setMode("edictpick")),
-        modeCard("duelmoderaid", "#8a3a4a", "讨伐", "讨伐", "打不死的邮政总局，比打出多少伤害。有的敌人贴着封条，用邮戳或盖章撕开，它就虚弱两回合、挨打翻倍。分 8 回合冲分和无尽两种，不花调用。", () => setMode("raidpick")),
-        modeCard("duelmodesiege", "#3f6fb0", "守城", "守城", "麻烦一波一波压过来：敌人贴在对面，一回合往前走一格，在前排站过一回合还没被打掉就闯过去撞你的信封。守过 10 波就赢，每守住三波信封回 5。分五档，每档敌人的等级是定的。不花调用。", () => setMode("siegepick")),
-        onRun ? modeCard("duelgorun", "#b8862a", "远信", "远信", "给一个人寄封信，一路打过去：六站路线、路上的麻烦和拦信的人、邮局、驿站、信物。信封血不回满，送到了 TA 会写回信。", onRun) : null,
+        h("div", { key: "intro", style: { fontSize: fz(12), color: SUB, margin: "0 0 10px" } }, "拿邮票册里的卡来打。挑一枚："),
+        h("div", { key: "sec1", style: { fontFamily: FD, fontSize: fz(13), color: INK, margin: "4px 2px 8px", letterSpacing: ".1em" } }, "和 TA 一起"),
+        h("div", { key: "g1", "data-wk": "duelmodegrid", style: { display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 12, marginBottom: 16 } },
+          modeTile("duelmodeduel", RED, "对", "对局", "跟一个人面对面打一把", saved ? "有一把没打完" : "", () => setMode("duel"), -1.5),
+          onRun ? modeTile("duelgorun", "#b8862a", "远", "远信", "寄一封信，一路打过去", "", onRun, 1.2) : null),
+        h("div", { key: "sec2", style: { fontFamily: FD, fontSize: fz(13), color: INK, margin: "4px 2px 8px", letterSpacing: ".1em" } }, "挑战"),
+        h("div", { key: "g2", "data-wk": "duelmodegrid", style: { display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 12, marginBottom: 16 } },
+          (() => { const t = [0, 1, 2, 3, 4].filter(k => siegeBest(k).wins).pop(); return modeTile("duelmodesiege", "#3f6fb0", "守", "守城", "一波一波守住信封", t != null ? "守住过第 " + (t + 1) + " 档" : "", () => setMode("siegepick"), 1); })(),
+          (() => { const b = raidBest("normal"); return modeTile("duelmoderaid", "#8a3a4a", "讨", "讨伐", "打不死的总局，冲伤害", b.dealt ? "最高 " + b.dealt + " 伤害" : "", () => setMode("raidpick"), -1); })(),
+          (() => { const b = edictBest(); return modeTile("duelmodeedict", "#5a4f8a", "封", "封缄令", "自己加难度，冲危险分", b.pts ? "最高 危险 " + b.pts : "", () => setMode("edictpick"), -1.2); })(),
+          (() => { const b = shiftBestOf(); return modeTile("duelmodeshift", "#4f6a8a", "值", "邮局值班", "柜台买票，凑阵容", shift ? "值到第 " + shift.round + " 轮" : b.round ? "最好第 " + b.round + " 轮" : "", () => setMode("shift"), 1.4); })()),
+        h("button", { key: "tut", "data-wk": "duelturorial", onClick: startTut, className: "w-full flex items-center active:opacity-80", style: { gap: 10, marginBottom: 14, padding: "10px 14px", borderRadius: 6, background: "rgba(79,122,102,.1)", border: "1px dashed " + GREEN, color: INK } },
+          h("span", { style: { fontFamily: FD, fontSize: fz(18), color: GREEN } }, "教"), h("span", { className: "flex-1 text-left", style: { fontSize: fz(12) } }, h("b", { style: { fontFamily: FD, fontWeight: 400, color: GREEN } }, "新手教学关"), " · 第一次玩先来这儿，一步步教"), h("span", { style: { color: SUB } }, "›")),
         (() => { const g = Rewards.got().got || {}, n = MILESTONES.filter(m => g[m.id]).length;
           return h("details", { key: "ms", "data-wk": "duelmilestones", style: { marginBottom: 14, padding: "10px 14px", borderRadius: 6, background: "rgba(255,253,247,.9)", boxShadow: "0 2px 8px rgba(47,42,34,.10)" } },
             h("summary", { style: { fontFamily: FD, fontSize: fz(14), cursor: "pointer", color: INK } }, "战功邮戳 · " + n + " / " + MILESTONES.length),
             h("div", { style: { fontSize: fz(11), color: SUB, margin: "4px 0 8px", lineHeight: 1.6 } }, "每个第一次达成给一笔印泥和邮资，只给一次；每天第一次赢任何玩法另给 " + DAILY.ink + " 印泥、" + DAILY.postage + " 邮资。"),
             h("div", { className: "flex flex-wrap", style: { gap: 6 } }, MILESTONES.map(m => { const on = !!g[m.id]; return h("span", { key: m.id, "data-wk": "duelmilestone", "data-on": on ? "1" : "0", style: { padding: "2px 9px", borderRadius: 999, fontSize: fz(11), border: "1px " + (on ? "solid #b8862a" : "dashed rgba(47,42,34,.25)"), color: on ? "#b8862a" : SUB, background: on ? "rgba(184,134,42,.08)" : "transparent" } }, (on ? "✦ " : "") + m.zh + (on ? "" : " · " + m.ink)); }))); })(),
-        modeCard("duelturorial", GREEN, "新手教学关", "教学", "第一次玩先来这儿：一把练习局，一步步教贴票、寄出、盖章、长按看底细、四方连。随时能回来再玩，不花调用。", startTut))]);
+        null)]);
     // ── 开局前：挑对手、明牌还是盲打 ──
     if (!st) return shell([
       h(Head, { key: "hd", zh: "对局", bg: "transparent", ink: INK, onBack: preset ? onBack : () => setMode(""), right: guideBtn }),
       h("div", { key: "bd", className: "flex-1 min-h-0 overflow-y-auto px-5", style: { fontFamily: F, color: INK, paddingBottom: 24 } },
-        h("div", { style: { fontSize: fz(12), color: SUB, lineHeight: 1.7, margin: "2px 0 14px" } }, "每局从你的收藏里随机抽 12 张。对面用 TA 自己的卡，加上跟 TA 有关系的人的卡；不够的用普通邮票补。不花调用。"),
+        modeHero(RED, "对", "对局", "跟一个人面对面打一把。每局从你的收藏里随机抽 12 张。对面用 TA 自己的卡，加上跟 TA 有关系的人的卡；不够的用普通邮票补。不花调用。"),
         saved ? h("div", { "data-wk": "duelresume", style: { marginBottom: 16, padding: "10px 12px", borderRadius: 4, border: "1px dashed " + RED, background: "rgba(178,58,46,.05)" } },
           h("div", { style: { fontSize: fz(13), marginBottom: 8 } }, "上次那一把还没打完：对 " + (nameOf(saved.foeId) || "TA") + "，第 " + saved.st.turn + " 回合，信封 " + Math.max(0, saved.st.me.hp) + " : " + Math.max(0, saved.st.foe.hp)),
           h("div", { className: "flex", style: { gap: 8 } },
