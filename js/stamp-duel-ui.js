@@ -331,7 +331,7 @@
               info.terrain ? sec("格子", "#5a5248", info.terrain, D().TERRAIN[info.terrain]) : null,
               u.lines && u.lines.enter ? h("div", { style: { marginTop: 6, padding: "10px 12px", borderRadius: 3, background: "rgba(47,42,34,.05)", borderLeft: "3px solid " + col, fontFamily: FD, fontSize: fz(12.5), color: "#5a4f40", lineHeight: 1.7 } }, "「" + u.lines.enter + "」") : null)));
   }
-  function StampDuelPage({ characters, cards: cardsAll, onBack, onRemember, closeOf, meName, toast, useThumb, onChat, onReport, preset, onRun, runBattle, initialMode, onEntryBack }) {
+  function StampDuelPage({ characters, cards: cardsAll, onBack, onRemember, closeOf, meName, toast, useThumb, onChat, onReport, preset, onRun, runBattle, initialMode, onEntryBack, onShop3D }) {
     const cards = Dispatch.filter(cardsAll);   // 派遣在外的票这段时间不能上场
     const [dpPick, setDpPick] = useState([]), [dpPlace, setDpPlace] = useState("海边"), [dpHours, setDpHours] = useState(4), [dpBusy, setDpBusy] = useState(""), [dpShow, setDpShow] = useState(""), [, dpBump] = useState(0);
     const [foeId, setFoeId] = useState(() => { if (runBattle) return runBattle.foeId || ""; if (preset && preset.foeId) return preset.foeId; const has = (characters || []).find(c => (cards || []).some(x => x.charId === c.id)); return (has || (characters || [])[0] || {}).id; });
@@ -658,6 +658,8 @@
       return shell([
         h(Head, { key: "hd", zh: "邮局小店 · 第 " + sh.day + " 天 · " + period, bg: "transparent", ink: INK, onBack: onEntryBack || (() => setMode("")), right: guideBtn }),
         h("div", { key: "bd", "data-wk": "duelshop", className: "flex-1 min-h-0 overflow-y-auto px-4", style: { fontFamily: F, color: INK, paddingTop: 4, paddingBottom: 24 } },
+          // 文字店 → 3D 店（她 2026-11-08「没办法从文字进 3d」）：同一份存档，进去看店里的样子
+          onShop3D ? h("button", { key: "3d", "data-wk": "duelshop3d", onClick: onShop3D, className: "w-full", style: Object.assign(btn("rgba(79,122,102,.08)", GREEN, GREEN), { margin: "6px 0 10px", padding: "9px 0" }) }, "进小世界里的邮局看看（同一家店）") : null,
           sh.day === 1 && sh.phase === "plan" && !sh.decor.length ? modeHero(C, "店", "邮局小店", "你开了一家小邮局。每天先排班：柜台、分拣、送信、看店四个岗，你的角色谁来上；排对擅长的岗收入多。开门接客：路人寄东西直接收钱，难缠的要打一局；没上班的角色也会来当客人，可以听他们跟店员碰上说两句。打烊时花一次调用，写今天在店里的所有人一小段（不管几个人上班都只花这一次）。钱拿去买装修，装修让收入变多，打烊那段也会写到。店里的事不进记忆。") : null,
           sh.missed ? card("missed", [h("div", { key: "t", style: { fontFamily: FD, fontSize: fz(14), color: RED } }, "第 " + sh.missed.day + " 天忘了打烊"),
             h("div", { key: "s", style: { fontSize: fz(11.5), color: SUB, margin: "3px 0 8px" } }, "那天收的 " + sh.missed.earned + " 枚照算。要补写那天晚上的打烊吗——你没来，是店里的人帮着关的门。"),
