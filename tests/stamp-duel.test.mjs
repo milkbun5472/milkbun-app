@@ -303,3 +303,11 @@ test("邮局小店：排的岗越多、擅长、装修，收入倍数越高；�
   let tough = 0, vis = 0; for (let d = 1; d <= 30; d++) { const cs = D.shopCustomers({ day: d, decor: [] }, ["x", "y"], 7); tough += cs.filter(c => c.tough).length; vis += cs.filter(c => c.visitor).length; }
   assert.ok(tough > 0 && vis > 0);
 });
+test("小店接上卡：橱窗按稀有度加收入、信格多两格、工牌加成、点名要某人明信片的客人", () => {
+  const cards = { a: { id: "a", rarity: "SSR", lv: 30, charId: "x" }, b: { id: "b", rarity: "R", lv: 1, charId: "y" } }, cardOf = id => cards[id];
+  const per = () => "";
+  assert.ok(D.shopMul({ decor: [], window: ["a"] }, {}, per, cardOf) > D.shopMul({ decor: [], window: ["b"] }, {}, per, cardOf));
+  assert.equal(D.shopWinSlots({ decor: ["整面墙的信格"] }), 5);
+  assert.ok(D.shopMul({ decor: [], badge: { 柜台: "a" } }, { 柜台: "x" }, per) > D.shopMul({ decor: [] }, { 柜台: "x" }, per));
+  const cs = D.shopCustomers({ day: 2, decor: [] }, [], 3, ["x", "y"]); assert.ok(cs.some(c => c.wantChar));
+});

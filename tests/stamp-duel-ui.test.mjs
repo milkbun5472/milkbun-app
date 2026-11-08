@@ -235,10 +235,17 @@ test("剧情闯关：挑人挑开头、一章一写、迎战、回故事挑路�
   assert.match(app, /if \(d\.mode === "storych" \|\| d\.mode === "storyend"\) \{/);
 });
 test("邮局小店页和游戏室改名：排班、开门、招待、打一局、打烊一天一次调用不进记忆", () => {
-  assert.match(ui, /zh: "邮票游戏室"/);
+  assert.match(ui, /zh: "游戏室"/);
   assert.match(ui, /modeTile\("duelmodeshop"/);
   assert.match(ui, /onChat\(onDuty\[0\], \{ mode: "shopclose"/);
   assert.match(ui, /onChat\(c\.charId, \{ mode: "shopmeet"/);
   const i = app.indexOf('if (d.mode === "shopclose" || d.mode === "shopmeet")'), j = app.indexOf('if (d.mode === "storych"', i);
   assert.ok(i > 0 && j > i && !/addMemEntry/.test(app.slice(i, j)));
+});
+test("小店页：橱窗挑卡、工牌、点名客人橱窗有才卖、打烊带上橱窗和工牌的卡", () => {
+  assert.match(ui, /"data-wk": "duelshopwindow"/);
+  assert.match(ui, /"data-wk": "duelshopbadge"/);
+  assert.match(ui, /const fee = c\.wantChar && !winHas\(c\.wantChar\) \? 0/);
+  assert.match(ui, /window: sh\.window\.map\(tkLine\)/);
+  assert.match(app, /橱窗里摆着她抽到的这几张卡/);
 });
