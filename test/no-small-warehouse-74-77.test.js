@@ -67,7 +67,7 @@ test("文字库打不开时，写入不落盘", () => {
   const w = grab("function txtWrite(", "function saveJSON(");
   assert.match(w, /_txtGate\.done && !_txtGate\.ok\) \{ _txtMirror\(\)\.set\(k, s\); return true; \}/);
   // 读失败必须抛，不能当成空仓
-  assert.doesNotMatch(grab("async function idbTxtAll", "\n"), /res\(\[\]\)/);
+  assert.doesNotMatch(grab("function idbTxtAll()", "\n"), /res\(\[\]\)/);
 });
 
 test("批量清 localStorage 的地方裸删，不连 IDB 一起删", () => {

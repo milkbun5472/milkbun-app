@@ -42,16 +42,17 @@ test("要的是【落差】，不是让他复述一遍她写的", () => {
 // ⚠️这一条的全部意义在于【不多花钱】：App 里本来就有「思念出口」，这里只是多一个出口。
 test("不新开定时器、不多花一次调用——只是把思念的出口换了一个", () => {
   // v62.34：泄压挪到出口落地之后，所以这一行多了个 _drain()；签名也多了 manual 那一档
-  const fire = grab(app, "          if (activeOffScene) { offlineReply(cid); _drain(); }", "          return; // 一次一个，错峰");
+  const fire = grab(app, "          if (activeOffScene) { offlineReply(cid); _drain();",   // 后面又跟了 pWhy／dongnianSpent 记账
+    "          return; // 一次一个，错峰");
   // v61.35：那个 0.3 收成了模块级常量 COUPLE_LEAVE_P（现在是 0.45，她 2026-09-03 定的）
   // v74.777：_cpNow 换成 _altOut（在一起、且没开「想你时只发消息」）
-  assert.match(fire, /else if \(_altOut && Math\.random\(\) < COUPLE_LEAVE_P\)\n *leaveInCoupleSpace\(c, jwStyle\)\.then\(_settle\);/,
+  assert.match(fire, /else if \(_altOut && Math\.random\(\) < COUPLE_LEAVE_P\)\n *leaveInCoupleSpace\(c, jwStyle\)\.then\(ok => \{ _settle\(ok\);/,   // 回调里多记一笔 pWhy／dongnianSpent，仍是落地才泄
     "没接在思念那条现成的链上,或者不是 else 分支（那就是多花一次）");
   // v62.34：最后那一档包了个大括号（要在里面 _drain）；判据不变——发消息必须是【else】，
   // 排在留东西后面，不能跟它并列执行，否则一次动念烧两次调用。
   // 2026-10-01：发消息那一档也改成「送到了才泄」（.then(_settle)），大括号去掉了；判据仍是它排在 else 上
   assert.ok(fire.indexOf("else replyNow(cid") > fire.indexOf("leaveInCoupleSpace"), "留东西和发消息不是二选一——那就变成两次了");
-  assert.match(fire, /else replyNow\(cid[\s\S]*?\.then\(r => _settle\(r === true\), \(\) => _settle\(false\)\)/, "发消息那一档又变回「调了就泄」——没送到也白泄 0.28");
+  assert.match(fire, /else replyNow\(cid[\s\S]*?\.then\(r => \{ _settle\(r === true\);[^\n]*\}, \(\) => _settle\(false\)\)/, "发消息那一档又变回「调了就泄」——没送到也白泄 0.28");
   // 愿望那一档也得是同一条 if/else 上的一环（v62.34），不是另起一条链
   assert.ok(fire.indexOf("pinWishAsChar") > 0 && fire.indexOf("pinWishAsChar") < fire.indexOf("leaveInCoupleSpace"),
     "钉愿望那一档没排进这条 else 链里——那就是多花一次");

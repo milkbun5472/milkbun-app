@@ -32,5 +32,5 @@ test("「日程照这只钟的日子排」那句说明：别把现实那半说�
   assert.ok(!/一天排一份/.test(man), "攻略里还写着「一天排一份」");
   assert.match(comp, /关着就照现实的日子排。两边都是一次排一周/, "没说清两边都是一周一次");
   // 代码确实是一周一次：周日排下一周，缺今天就补到本周日
-  assert.match(app, /if \(dowMon === 6\) pick\("schedule\|" \+ c\.id \+ "\|next", nextMon, nextMon, 7\)/);
+  assert.match(app, /if \(dowMon === 6( && !have\[nextMon\])?\) pick\("schedule\|" \+ c\.id \+ "\|next", nextMon, nextMon, 7\)/);
 });

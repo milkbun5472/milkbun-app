@@ -82,6 +82,6 @@ test("⑥ 保存那颗 ✓ 还在，存的东西一样没少", () => {
   // v76.87x 又在它前面加了「显示心声」（hideThought）
   assert.match(SINGLE, /onSaveSettings\(\{ (hideThought: !sShowTh, )?(noAutoShot: sNoShot, )?presetOn, presetId, maxTokens: sMax, minWords: sMinW, lengthMode: sLengthMode, (looseOld: sLoose, )?memN: sMemN, onlineCtxN: sOnlineN, selfP: sSelf, userP: sUser, describeMe: sDesc/,
     "单人线下保存少存了字段");
-  assert.match(GROUP, /onSaveSettings\(\{ (hideThought: !sShowTh, )?(noAutoShot: sNoShot, )?presetOn, presetId, maxTokens: sMax, minWords: sMinW, lengthMode: sLengthMode, (looseOld: sLoose, )?writeMode: sWriteMode, memN: sMemN, onlineCtxN: sOnlineN, bg: sBg, describeMe: sDesc/,
+  assert.match(GROUP, /onSaveSettings\(\{ (hideThought: !sShowTh, )?(noAutoShot: sNoShot, )?presetOn, presetId, maxTokens: sMax, minWords: sMinW, lengthMode: sLengthMode, (looseOld: sLoose, )?writeMode: sWriteMode, memN: sMemN, onlineCtxN: sOnlineN, bg: sBg, (font: [^\n]*?, )?describeMe: sDesc/,
     "群线下保存少存了字段");
 });

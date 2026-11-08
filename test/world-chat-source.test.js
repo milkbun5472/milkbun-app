@@ -5,7 +5,7 @@ function between(s,a,b){const i=s.indexOf(a),j=s.indexOf(b,i);assert.ok(i>=0&&j>
 function fn(s,name){const i=s.indexOf('function '+name+'('),j=s.indexOf('\n}',i);assert.ok(i>=0&&j>i,name);return (s.slice(i-6,i)==='async '?'async ':'')+s.slice(i,j+2);}
 function setup(){
  const c={window:{},calls:[],extractJSON:JSON.parse};vm.createContext(c);
- vm.runInContext(between(host,'  const WORLDS =','  root.FairyWorlds=WORLDS')/* 2026-10-18 起 WORLDS 在 fairy-garden-core.js */+';window.FairyWorlds=WORLDS;',c);
+ vm.runInContext(between(host,'  const SHOP_WORLD =','  root.FairyWorlds=WORLDS')/* 2026-10-18 起 WORLDS 在 fairy-garden-core.js；邮局那档单拎成 SHOP_WORLD 再挂进 WORLDS */+';window.FairyWorlds=WORLDS;',c);
  vm.runInContext(between(engine,'function gameChatSource(','async function summarizeGroup('),c);
  c.callAI=async(p,sys,msg,opts)=>{c.calls.push({p,sys,msg,opts});return '[]';};
  for(const name of ['summarizeGroup','extractMemories','extractGroupMemories','summarizeChat','summarizeChatBlock'])vm.runInContext(fn(engine,name),c);
@@ -19,8 +19,9 @@ function setup(){
 }
 test('actual writer sources share the world catalog, leave verbatim content and archive ids intact, and never guess old sources',()=>{
  const c=setup(),rows=c.chats.room,before=JSON.stringify(rows);
- for(const m of rows.slice(0,9)){assert.equal(c.gameChatSource(m),'小世界 · '+c.window.FairyWorlds.find(w=>w.id===m.gameWorld).name);assert.ok(c.gameChatText(m).endsWith(m.content));assert.ok(!c.gameChatText(m).includes('archive-source'));}
- assert.equal(c.gameChatSource(rows[9]),'小世界 · 来源未记录');assert.equal(c.gameChatText(rows[10]),'普通聊天');assert.equal(c.gameChatSource({kind:'garden',gameWorld:'bad'}),'小世界 · 来源未记录');assert.equal(c.gameChatSource(null),'');assert.equal(c.gameChatSummaryContext([rows[10]]),'');assert.equal(JSON.stringify(rows),before);
+ const n=rows.length-2;/* 每个世界写 3 行，世界数随目录变（邮局小店加入后是 4 个）*/
+ for(const m of rows.slice(0,n)){assert.equal(c.gameChatSource(m),'小世界 · '+c.window.FairyWorlds.find(w=>w.id===m.gameWorld).name);assert.ok(c.gameChatText(m).endsWith(m.content));assert.ok(!c.gameChatText(m).includes('archive-source'));}
+ assert.equal(c.gameChatSource(rows[n]),'小世界 · 来源未记录');assert.equal(c.gameChatText(rows[n+1]),'普通聊天');assert.equal(c.gameChatSource({kind:'garden',gameWorld:'bad'}),'小世界 · 来源未记录');assert.equal(c.gameChatSource(null),'');assert.equal(c.gameChatSummaryContext([rows[n+1]]),'');assert.equal(JSON.stringify(rows),before);
  c.window.FairyWorlds.find(w=>w.id==='pets').name='改名测试';assert.equal(c.gameChatSource(rows[6]),'小世界 · 改名测试');
 });
 test('rolling, cumulative, group and memory summaries receive every source, preserve evidence ids, and work with actual context shape',async()=>{
@@ -49,5 +50,5 @@ test('actual phone copy action keeps source and waits for clipboard success/fail
  c.copyText=text=>{c.copied.push(text);return new Promise(r=>{resolveCopy=r;});};
  vm.runInContext(between(app,'  const handleMsgAction =','  const gsFor =')+';this.copyAction=handleMsgAction;',c);
  c.copyAction('copy',6,'room');assert.ok(c.copied[0].includes('【小世界 · 绒绒小镇】'));assert.equal(c.notices.length,0);resolveCopy(false);await Promise.resolve();assert.ok(c.notices[0].includes('复制不了'));
- c.copyAction('copy',10,'room');assert.equal(c.copied[1],'普通聊天');assert.equal(c.notices.length,1);resolveCopy(true);await Promise.resolve();assert.equal(c.notices[1],'已复制');
+ c.copyAction('copy',c.chats.room.length-1,'room');assert.equal(c.copied[1],'普通聊天');assert.equal(c.notices.length,1);resolveCopy(true);await Promise.resolve();assert.equal(c.notices[1],'已复制');
 });

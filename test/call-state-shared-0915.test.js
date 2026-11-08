@@ -30,8 +30,9 @@ test('通话新状态有字段时间戳，原样重复不续命，恢复身体�
  const f=fixture();f.put({wearing:'白衬衫',action:'坐着',place:'家',condition:'累',thought:'我有点想她。'});
  for(const k of ['wearing','action','place','condition'])assert.equal(f.box.fresh(f.states.a,k),f.states.a[k]);
  const ts=f.states.a.wearingUpdatedAt;f.tick();f.put({wearing:'白衬衫',action:'坐着'});assert.equal(f.states.a.wearingUpdatedAt,ts);
- f.put({place:'公司',condition:null});assert.equal(f.states.a.wearing,null);assert.equal(f.states.a.condition,null);
- assert.equal(f.states.a.wearingUpdatedAt,0);assert.equal(f.states.a.conditionUpdatedAt,0);
+ // 2026-11-08 起换地方不清穿着（衣服跟着人走），condition:null 照旧清
+ f.put({place:'公司',condition:null});assert.equal(f.states.a.wearing,'白衬衫');assert.equal(f.states.a.condition,null);
+ assert.equal(f.states.a.wearingUpdatedAt,ts);assert.equal(f.states.a.conditionUpdatedAt,0);
 });
 test('无有效心声清旧心声；同轮后续气泡不抹掉刚写的新心声',()=>{
  const f=fixture();f.states.a={thought:'上一轮心声',thoughtUpdatedAt:1};f.put({mood:'null'});

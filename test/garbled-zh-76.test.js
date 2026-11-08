@@ -18,5 +18,7 @@ test("正常文字一个字不动", () => {
 test("译文显示那一格三处都过这道清理（随消息带来的、缓存里的、现翻的）", () => {
   assert.match(comp, /if \(zhReady && typeof fixGarbledText === "function"\) zhReady = fixGarbledText\(zhReady\);/);
   assert.match(comp, /if \(z && typeof fixGarbledText === "function"\) z = fixGarbledText\(z\);/);
-  assert.match(comp, /const _z = typeof fixGarbledText === "function" \? fixGarbledText\(r\.zh\) : r\.zh;/);
+  // 现翻的那份先去掉停顿标记（_z0）再清乱码
+  assert.match(comp, /const _z = typeof fixGarbledText === "function" \? fixGarbledText\(_z0\) : _z0;/);
+  assert.match(comp, /const _z0 = [^;]*stripPauseMarks\(r\.zh\) : r\.zh;/);
 });

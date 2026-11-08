@@ -52,7 +52,8 @@ test("线下独有的那半句留着，但口径跟公共那份对得上", () =>
 });
 
 test("线上那两格一个字没改坏（它们本来就是对的）", () => {
-  assert.match(A, /thought: string，【每轮必须写，禁止 null、空串或省略】。\$\{THOUGHT_MEANING_CHAR\}/);
+  // 双语开关在说明前插一段 ${_biThoughtSpec}（开着才有字），后面仍取公共定义
+  assert.match(A, /thought: string，【每轮必须写，禁止 null、空串或省略】。(?:\$\{_biThoughtSpec\})?\$\{THOUGHT_MEANING_CHAR\}/);
   // v72.94：尾巴从「或在 word 中报备。」换成「这一格是它唯一的去处…」——
   // 这条守的是【线上那一行仍从公共定义取】，不钉尾巴的措辞
   assert.match(A, /action: string，每轮回复完成后\$\{ACT_MEANING\}/);
@@ -61,7 +62,7 @@ test("线上那两格一个字没改坏（它们本来就是对的）", () => {
 
 test("病历留在代码里，别让下一个人又把线下那份抄回去", () => {
   const i = engine.indexOf("const THOUGHT_MEANING = ");
-  const doc = engine.slice(Math.max(0, i - 2800), i);
+  const doc = engine.slice(Math.max(0, i - 3600), i); // 病历上方又长了几行注释，窗口放宽
   assert.match(doc, /线下那一份是它的一个【短拷贝】/);
   assert.match(doc, /同一个字段第三次了/);
   assert.match(doc, /2026-09-12/);

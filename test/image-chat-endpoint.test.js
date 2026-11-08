@@ -23,7 +23,8 @@ test("chat image brief says the prompt is not content to draw", () => {
   assert.match(eng, /exactly ONE single natural photograph[\s\S]{0,200}NOT content to draw/);
 });
 test("non gpt-image models don't get the long hand blocks", () => {
-  assert.match(eng, /if \(!\/gpt-image\|dall-\?e\/i\.test[\s\S]{0,200}【手脚必须解剖正确】\[\^【\]\*/);
+  // 后来动图也一起缩（|| opts.gif），条件外面多套了一层括号
+  assert.match(eng, /if \(\(?!\/gpt-image\|dall-\?e\/i\.test[\s\S]{0,200}【手脚必须解剖正确】\[\^【\]\*/);
 });
 test("NAI models get danbooru tags translated first", () => {
   assert.match(eng, /function isNaiImageModel\(model\)/);

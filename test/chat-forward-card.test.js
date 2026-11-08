@@ -15,7 +15,9 @@ function load() {
   const ctx = { React: { createElement: el }, console };
   vm.createContext(ctx);
   vm.runInContext('const h=React.createElement;const useTheme=()=>(' + JSON.stringify(t) + ');'
-    + 'const F_BODY="b",F_DISPLAY="d";function Sheet(p){return h("Sheet",p);}function PageSheet(p){return h("PageSheet",p);}\n' + seg, ctx);
+    + 'const F_BODY="b",F_DISPLAY="d";function Sheet(p){return h("Sheet",p);}function PageSheet(p){return h("PageSheet",p);}'
+    // 面板正文后来套了一层 transShow（译文开关）；这里只看原文，原样交回
+    + 'const transShow=v=>v;\n' + seg, ctx);
   return ctx;
 }
 

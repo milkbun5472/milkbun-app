@@ -15,7 +15,7 @@ const fs = require("node:fs");
 const src = (fs.readFileSync("js/screens.js", "utf8") + "\n" + fs.readFileSync("js/screens-ui.js", "utf8"));
 // 只看情侣空间那一段的【代码】，注释里出现这些字是在说明病情，不算犯规
 const seg = (() => {
-  const a = src.indexOf("function Us({ characters, couples,");
+  const a = src.indexOf("function Us({ ");   // 参数表前面陆续加了 onPutDrawerMine 等，只认函数名
   const b = src.indexOf("// —— 名册视图（默认，v60.55 重做）——", a);
   return src.slice(a, b).split("\n").map(l => l.split("//")[0]).join("\n");
 })();

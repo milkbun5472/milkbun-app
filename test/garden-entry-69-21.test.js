@@ -9,7 +9,8 @@ require('../apps/fairy-garden/clock.js');
 const core = fs.readFileSync(path.join(__dirname, '../js/fairy-garden-core.js'), 'utf8');
 const ui = fs.readFileSync(path.join(__dirname, '../js/fairy-garden.js'), 'utf8');
 const host = core + '\n' + ui;
-const shell = core.slice(core.indexOf('  const WORLDS = ['), core.indexOf('  // 页面那半要用的'))
+// 邮局小店（SHOP_WORLD）定义在 WORLDS 上面一行，一起切进来
+const shell = core.slice(core.indexOf('  const SHOP_WORLD = '), core.indexOf('  // 页面那半要用的'))
   + ui.slice(ui.indexOf('  const DAY_WORLD'), ui.indexOf('  root.FairyGardenApp ='));
 
 const build = store => {
@@ -29,8 +30,9 @@ const build = store => {
 // ⚠️许了三件谁都没在做的事，别人打开看见的就是三张空头支票。
 test('世界页：只列真进得去的，占位的一个都不许留', () => {
   const { WORLDS } = build({});
-  assert.equal(WORLDS.length, 3, '庭院、列车和宠物都有真实游戏入口');
-  assert.deepEqual(WORLDS.map(w=>w.id), ['garden','train','pets']);
+  // 邮局小店后来加进来了：也是真进得去的（apps/post-office）
+  assert.equal(WORLDS.length, 4, '庭院、列车、宠物和邮局都有真实游戏入口');
+  assert.deepEqual(WORLDS.map(w=>w.id), ['garden','train','pets','shop']);
   assert.ok(WORLDS[0].note, '连一句说明都没有');
   assert.doesNotMatch(host, /敬请期待/, '「敬请期待」那一档渲染要跟着那三行一起走');
   assert.doesNotMatch(host, /晨雾学院|潮汐集市|云上列车/);

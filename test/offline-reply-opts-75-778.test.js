@@ -7,7 +7,7 @@ const app = fs.readFileSync(path.join(__dirname, "../js/app.js"), "utf8");
 const comp = fs.readFileSync(path.join(__dirname, "../js/components.js"), "utf8");
 test("开关存在线下设置里，传给生成", () => {
   assert.match(comp, /const \[sOpts, setSOpts\] = useState\(!!os\.replyOpts\);/);
-  assert.match(comp, /fontSize: sFont, replyOpts: sOpts \}\);/);
+  assert.match(comp, /fontSize: sFont, (font: [^\n]*?, )?replyOpts: sOpts \}\);/);
   assert.match(app, /replyOpts: !!osFor\(charId\)\.replyOpts,/);
 });
 test("同一次生成里顺手写，三条，开了才写", () => {

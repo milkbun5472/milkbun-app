@@ -15,7 +15,7 @@ test("调用记录只在 callAI 这一个出口记：成功、重试成功、失
 });
 
 test("记录存自己的 IDB 小库，不进存档不上云", () => {
-  assert.match(eng, /indexedDB\.open\("x_calllog", 1\)/);
+  assert.match(eng, /idbKeep\("x_calllog", 1,/);   // 开库收进 core.js 的 idbKeep 公共池
   assert.ok(!/saveJSON\("x_callLog/.test(eng + app), "别塞进存档");
 });
 
@@ -62,7 +62,9 @@ test("tag 当用途：中文照用，英文翻成中文，认不出的不摆英�
 });
 
 test("每一行带上这次的输入／输出 token：线路回了才记，不编数", () => {
-  assert.equal((eng.match(/if \(d\.usage\) opts\._tok = /g) || []).length, 2, "anthropic 和 openai 两条都要交回 token");
+  // 用量落库收成一处 recordUsage：没回 usage 就传 null、不填 _tok
+  assert.match(eng, /function recordUsage\(rec, opts, tok\) \{\s*try \{\s*if \(tok && opts\) opts\._tok = tok;/);
+  assert.equal((eng.match(/recordUsage\(rec2?, opts, d\.usage \? \{/g) || []).length, 2, "anthropic 和 openai 两条都要交回 token");
   assert.match(eng, /tok: o\._tok \|\| null,/);
   assert.match(scr, /r\.tok \? h\("div", \{ "data-wk": "calllogtok"/);
 });
