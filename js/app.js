@@ -11856,7 +11856,9 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   //   跟她用别的面具聊的人加的是另一个「她」，刷不到这一条。原来 TA 想起朋友圈时连「部分可见」的名单都没看
   // 按面具发朋友圈（她 2026-10-11）：m.mask 是这条用哪张面具发的（主面具不记）。没挑「谁可以看」时，跟她用同一张面具聊的人刷得到
   // 她手机上被删了好友／拉黑的那位（x_peekCut）刷不到她的朋友圈，跟真微信一样（群友 2026-10-22：TA 果断删了人，朋友圈里那人还跟她互动得很好）
-  const momSeen = (m, charId) => !!m && !!m.mine && !((window.__peekCut || {})[charId]) && !(m.hiddenFrom || []).includes(String(charId)) && ((m.remind || []).includes(charId) || (m.visibleTo && m.visibleTo.length ? m.visibleTo.includes(charId) : maskKeyOf(charId) === String(m.mask || "")));
+  // 你们之间有一方删了好友（她删了他，或者他删了她）：朋友圈互相看不到（她 2026-11-08）
+  const friendCut = id => { const b = (blocksRef.current || {})[id] || {}; return !!(b.deleted || (b.theyBlocked && b.cut === "del")); };
+  const momSeen = (m, charId) => !!m && !!m.mine && !friendCut(charId) && !((window.__peekCut || {})[charId]) && !(m.hiddenFrom || []).includes(String(charId)) && ((m.remind || []).includes(charId) || (m.visibleTo && m.visibleTo.length ? m.visibleTo.includes(charId) : maskKeyOf(charId) === String(m.mask || "")));
   // 发朋友圈那页挑面具用：主面具一张 + 其余几张（跟论坛挑面具同一份名单）；发出来的那条显示用哪张的名字和头像
   window.__momentMasks = () => [{ id: "", name: profile.name || "主面具", avatarImage: profile.avatarImage, color: profile.color }]
     .concat((masks || []).filter(m => m && m.id && m.id !== maskPrimary).map(m => ({ id: m.id, name: String(m.name || "").trim() || "没起名的面具", avatarImage: m.avatarImage, color: m.color })));
@@ -12826,6 +12828,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       const _harsh = /滚|分手|去死|恶心|讨厌你|烦你|闭嘴|傻|蠢|骗子|渣男|渣女|贱|婊|操你|草你|艹|恨你|出轨|劈腿|备胎|玩玩而已|绿了|绿我/.test(recentUserText);
       const blockHint = (_moodNeg || aff < 70 || _landmine || _harsh)
         ? "\n【block 拉黑】仅当此刻用户踩中你雷点/说错话、让你以你的人设真的动了「拉黑」的念头，才 block:true 并在 blockreason 写一句原因——极罕见、要有充分理由；否则 block:false、blockreason:null。"
+          + "删好友是比拉黑更重的那一下：你们不再是好友，朋友圈互相看不到，她要回来得发好友申请等你通过。真到了那一步，block:true 之外再写 unfriend:true。"
         : "";
       // 时间流逝以「角色上次开口」为基准算间隔（用户回来连发几条也算得准，不会被自己刚发的消息归零）
       const localLastAsstTs = (function () { for (let i = history.length - 1; i >= 0; i--) { if (history[i].role === "assistant") return history[i].ts || 0; } return 0; })();
@@ -14874,8 +14877,10 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       if (parsed.block === true) {
         // 拉黑的【原因和时刻】必须留下来：解除判定要拿它当尺子，
         // 以前只存了个 true，判词只能空对空地"看你诚不诚恳"（她 2026-08-20 说太容易解除）
-        setBlockFor(chatKey, { theyBlocked: true, reason: String(parsed.blockreason || "").trim(), blockedTs: Date.now(), tries: 0 });
-        pChat(chatKey, p => [...p, { role: "system", kind: "system", content: "TA 把你拉黑了" + (parsed.blockreason ? "：" + parsed.blockreason : ""), sub: "block", ts: Date.now() }]);
+        // unfriend：他把她删了好友（她 2026-11-08）——拉黑那一套照用（她的消息送不到、点 ! 去求），只是求的是好友申请，朋友圈也互相看不到
+        const _cut = parsed.unfriend === true && !sideRoom;
+        setBlockFor(chatKey, { theyBlocked: true, cut: _cut ? "del" : "", reason: String(parsed.blockreason || "").trim(), blockedTs: Date.now(), tries: 0 });
+        pChat(chatKey, p => [...p, { role: "system", kind: "system", content: (_cut ? "TA 把你删了" : "TA 把你拉黑了") + (parsed.blockreason ? "：" + parsed.blockreason : ""), sub: "block", ts: Date.now() }]);
         delivered = true;
       }
       // TA 说要去补朋友圈评论 → 真的发到我最新那条朋友圈下
@@ -18451,7 +18456,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     } else if (cur.iBlocked || cur.theyBlocked) {
       // 刚刚解除的这一次：落墓碑
       n[charId] = { endedTs: Date.now(), sinceTs: Number(cur.blockedTs) || 0,
-        by: cur.theyBlocked ? "char" : "me", reason: String(cur.reason || "").slice(0, 60) };
+        by: cur.theyBlocked ? "char" : "me", cut: cur.theyBlocked && cur.cut === "del" ? "del" : "", reason: String(cur.reason || "").slice(0, 60) };
     } else if (cur.endedTs && Date.now() - Number(cur.endedTs) < BLOCK_TOMB_KEEP_MS) n[charId] = cur;
     else delete n[charId];
     saveJSON("x_blocks", n);
@@ -18485,6 +18490,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     }
     if (b.iBlocked) return "【她把你拉黑了】" + (b.blockedTs ? "到现在" + gap(b.blockedTs) + "。" : "")
       + "你在这间私聊里发出去的消息 Ta 暂时收不到，而你知道自己被拉黑了。";
+    if (b.theyBlocked && b.cut === "del") return "【你把 Ta 删了好友】" + (b.blockedTs ? "到现在" + gap(b.blockedTs) + "。" : "")
+      + (b.reason ? "当初是因为：" + b.reason + "。" : "") + "你们现在不是好友，朋友圈互相看不到；Ta 要回来，得发好友申请等你通过。";
     if (b.theyBlocked) return "【你把 Ta 拉黑了】" + (b.blockedTs ? "到现在" + gap(b.blockedTs) + "。" : "")
       + (b.reason ? "当初是因为：" + b.reason + "。" : "") + "Ta 发来的消息你能看见，但你们还没和好。";
     if (!b.endedTs || now - Number(b.endedTs) >= BLOCK_TOMB_KEEP_MS) return "";
@@ -18495,8 +18502,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       if (!from) return 0;
       return rows.filter(m => m && m.role === "assistant" && !m.recalled && (m.ts || 0) >= from && (m.ts || 0) <= to).length;
     })();
-    return "【你们前不久刚解除拉黑】" + gap(b.endedTs) + "前解的"
-      + (b.sinceTs ? "；在那之前" + (b.by === "char" ? "你把 Ta 拉黑了" : "Ta 把你拉黑了") + gap(b.sinceTs) : "")
+    return (b.cut === "del" ? "【你前不久通过了 Ta 的好友申请，你们又是好友了】" : "【你们前不久刚解除拉黑】") + gap(b.endedTs) + "前解的"
+      + (b.sinceTs ? "；在那之前" + (b.by === "char" ? (b.cut === "del" ? "你把 Ta 删了好友" : "你把 Ta 拉黑了") : "Ta 把你拉黑了") + gap(b.sinceTs) : "")
       + "。" + (b.by === "me" && unsent > 1 ? "那几天你一个人发了 " + unsent + " 条 Ta 收不到的消息——那些话你说过，Ta 现在也看得见了。" : "")
       + "**这件事真的发生过，别当没发生过、也别停在拉黑之前的状态**；但也别一开口就翻旧账，多数时候它只是你们之间刚过去的一道坎。";
   };
@@ -18634,7 +18641,12 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   //   被拒了要不要换小号来加、换成什么样，照他这个人定。申请在 消息 → 通讯录 →「新的朋友」里
   const toggleDeleteFriend = charId => {
     const cur = blocksRef.current[charId] || {};
-    if (cur.deleted) { setBlockFor(charId, { deleted: false }); pChat(charId, p => [...p, { role: "system", kind: "system", content: "你把 TA 加回了好友", sub: "block", ts: Date.now() }]); toast("加回好友了"); return; }
+    if (cur.deleted) {
+      setBlockFor(charId, { deleted: false });
+      pChat(charId, p => [...p, { role: "system", kind: "system", content: "你把 TA 加回了好友", sub: "block", ts: Date.now() }]);
+      try { addMemEntry({ text: userName(profile) + "删了我好友以后，又自己把我加了回来", tags: ["删好友"], charIds: [charId], knownBy: [charId], source: "auto" }); } catch (e) {}
+      toast("加回好友了"); return;
+    }
     setBlockFor(charId, { deleted: true, deletedTs: Date.now(), reqs: [] });
     pChat(charId, p => [...p, { role: "system", kind: "system", content: "你删除了好友 TA", sub: "block", ts: Date.now() }]);
     try { addMemEntry({ text: userName(profile) + "把我删了好友", tags: ["删好友"], charIds: [charId], knownBy: [charId], source: "auto" }); } catch (e) {}
@@ -18877,7 +18889,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     const hoursSince = bk.blockedTs ? Math.floor((Date.now() - Number(bk.blockedTs)) / 3600000) : null;
     // 重试：原来那张卡翻回「等待回应」，不另起一张；失败的那次不算求过（pastPleas 只看有回音的）
     if (retryCid) pChat(chatKey, p => p.map(m => m.cid === retryCid ? { ...m, status: "pending", retryTs: Date.now() } : m));
-    else pChat(chatKey, p => [...p, { role: "user", kind: "unblock_req", from: "me", cid, status: "pending", content: "[解除拉黑申请] " + (pleaText || ""), plea: pleaText || "", ts: Date.now(), read: true }]);
+    else pChat(chatKey, p => [...p, { role: "user", kind: "unblock_req", from: "me", cid, status: "pending", content: (bk.cut === "del" ? "[好友申请] " : "[解除拉黑申请] ") + (pleaText || ""), plea: pleaText || "", ts: Date.now(), read: true }]);
     const failCard = () => pChat(chatKey, p => p.map(m => m.cid === cid && m.status === "pending" ? { ...m, status: "failed" } : m));
     // 地板（v74.732，群里 2026-10-02 报「点了 20 多条解除申请，一直不同意」）：
     //   接不接受原来全交给模型，而它每次都看得见前面一长串「你拒了」，越拒越顺——这条路就成了死路。
@@ -18892,7 +18904,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       // 线上语域那一层（她 2026-10-20 小号房截图：他回她的解除申请全是一整段书面训话）——
       //   blockedReaction 早接上了 onlineRegisterLayer()，这条并排的链一直没跟上。
       //   情侣邀请 / 解除情侣 / 代付 / 亲属卡那几处「用即时通讯口吻回几句」同病，一起接上。
-      const head = blockBundleFor(char, chatKey) + "\n\n" + onlineRegisterLayer() + "\n\n【场景】你之前把用户拉黑了。现在用户发来一条『解除拉黑申请』，诉说内容：「" + (pleaText || "（没说什么）") + "」。"
+      const head = blockBundleFor(char, chatKey) + "\n\n" + onlineRegisterLayer() + "\n\n【场景】" + (bk.cut === "del" ? "你之前把用户删了好友。现在用户发来一条好友申请，验证语是：「" : "你之前把用户拉黑了。现在用户发来一条『解除拉黑申请』，诉说内容：「") + (pleaText || "（没说什么）") + "」。"
         + (bk.reason ? "\n【你当初为什么拉黑】" + bk.reason : "")
         + (hoursSince != null ? "\n【拉黑到现在过了】约 " + hoursSince + " 小时" : "")
         + "\n【这是 TA 第 " + tries + " 次来求你】" + (pastPleas.length > 1 ? "\n之前说过：\n" + pastPleas.slice(0, -1).join("\n") : "");
@@ -18916,7 +18928,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       const r = floor ? { ...r0, accept: true } : r0;
       pChat(chatKey, p => p.map(m => m.cid === cid ? { ...m, status: r.accept ? "accepted" : "declined" } : m));
       const says = r.say;
-      if (r.accept) { setBlockFor(chatKey, { theyBlocked: false }); toast("TA 接受了，解除拉黑"); }
+      if (r.accept) { setBlockFor(chatKey, { theyBlocked: false }); toast(bk.cut === "del" ? "TA 通过了你的好友申请" : "TA 接受了，解除拉黑"); }
       else { setBlockFor(chatKey, { tries: tries }); toast("TA 拒绝了，可继续尝试"); }
       // 回应挂在这次申请上：对它重 Roll 时认得出是「回申请」，不是一轮普通聊天
       queueUnblockSpeech(chatKey, says, 300, charId, false, { unblockOf: cid, turnId: "ub_" + cid });
@@ -34753,7 +34765,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     groups: groups,
     chats: chats,
     groupChats: groupChats,
-    moments: moments,
+    moments: moments.filter(m => !m.characterId || !friendCut(m.characterId)),   // 删了好友的那一方，朋友圈互相看不到
     profile: profile,
     unreadMap: unreadMap,
     offlineLastTs: (() => { const m = { ...offlineTsRef.current }; const scan = store => { Object.keys(store || {}).forEach(id => { let t = 0; (store[id] || []).forEach(s => { const ms = s.msgs || []; const lt = ms.length ? (ms[ms.length - 1].ts || 0) : 0; if (lt > t) t = lt; }); m[id] = t; }); }; scan(offlines); scan(groupOfflines); return m; })(), // 线下最后一条时间(每场取末条)，供聊天列表排序（线下冒泡也顶上来）。base=开机种子(兜懒加载没灌的)，state 扫描覆盖已打开的（含删空→0）
@@ -34810,7 +34822,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     character: momTarget && !momTarget.isMe ? characters.find(c => c.id === momTarget.id) : null,
     profile: profile,
     characters: liveChars,
-    moments: moments,
+    moments: moments.filter(m => !m.characterId || !friendCut(m.characterId)),   // 删了好友的那一方，朋友圈互相看不到
     cover: (momTarget && momTarget.isMe) ? momentsCover.me : (momTarget ? momentsCover[momTarget.id] : ""),
     // 朋友圈的签名和封面接【查手机·微信】那份（她 2026-09-03）。
     // 原来接的是匿名信箱的 bio——那是TA在树洞里挂的马甲，跟朋友圈根本不是一个身份，
