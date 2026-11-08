@@ -8,7 +8,7 @@
     consume() {
       const raw = g.__stampsOpen, legacy = g.__stampsDuel; g.__stampsOpen = null; g.__stampsDuel = null;
       const d = typeof raw === "string" ? { cardId: raw } : raw && typeof raw === "object" ? raw : {};
-      return { cardId: typeof d.cardId === "string" ? d.cardId : null, tab: ["pull", "album", "duel", "run"].includes(d.tab) ? d.tab : (legacy ? "duel" : "pull"), mode: d.mode === "shop" ? "shop" : "", preset: d.preset || legacy || null, back: d.back === "fairy-shop" ? d.back : null };
+      return { cardId: typeof d.cardId === "string" ? d.cardId : null, tab: ["pull", "album", "duel", "run"].includes(d.tab) ? d.tab : (legacy ? "duel" : "pull"), mode: ["shop", "siege", "puzzle", "patrol"].includes(d.mode) ? d.mode : "", preset: d.preset || legacy || null, back: d.back === "fairy-shop" ? d.back : null };
     }
   };
   const PRICE_ONE = 100, PRICE_TEN = 900;
