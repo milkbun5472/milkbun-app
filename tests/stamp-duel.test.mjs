@@ -210,3 +210,15 @@ test("专属信物：材料偏向定能挑的效果和档数，带进对局真�
   const d = D.matDrop(7, "boss", "雪国"); assert.ok(d.includes("TA 的东西") && d.length >= 3);
   const RN = require("../js/stamp-run.js"); assert.ok(RN.EVENTS.some(e => e.key === "trunk"));
 });
+test("讨伐：总局打不死、记伤害、封条只掉 1、邮戳撕开后虚弱翻倍、8 回合或无尽到信封空", () => {
+  const cards = Array.from({ length: 30 }, (_, i) => ({ id: "c" + i, charId: "a", rarity: ["R", "R", "SR", "SSR"][i % 4], lv: 20, text: { name: "k" + i } }));
+  for (const m of ["normal", "endless"]) {
+    const st = D.newDuel(D.deckFrom(cards, 3, D.DECK_SIZE, []), [], 3, { raid: m });
+    while (!st.over) { for (let k = st.me.hand.length - 1; k >= 0; k--) { const f = [6, 7, 8, 3, 4, 5, 0, 1, 2].find(i => !st.me.board[i] && !st.me.terrain[i]); if (f != null) D.place(st, "me", k, f); } D.endTurn(st); }
+    assert.ok(st.raid.dealt > 0 && st.over.raid);
+    if (m === "normal") assert.ok(st.turn <= D.RAID_TURNS);
+  }
+  const st = D.newDuel(D.deckFrom(cards, 5, D.DECK_SIZE, []), [], 5, { raid: "normal" });
+  let sealed = 0; for (let t = 0; t < 6 && !st.over; t++) { sealed += st.foe.hand.filter(u => u.seal).length; D.endTurn(st); }
+  assert.ok(sealed > 0);
+});

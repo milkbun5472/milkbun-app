@@ -311,7 +311,7 @@
           const rest = mats.slice(); kPick.forEach(m => { const i = rest.indexOf(m); if (i >= 0) rest.splice(i, 1); }); run.mats = rest;
           const k = Object.assign({ id: "kp_" + Date.now().toString(36), charId: who, mats: kPick.slice(), v: D().keepTier(kPick, r.fx), ts: Date.now(), on: onN < slots }, r);
           run.keeps = keeps.concat(k); if (window.StampKeeps) window.StampKeeps.add(Object.assign({ toId: run.toId }, k));
-          setKPick([]); setKOpen(k.id); toast && toast((nameOf(who) || "TA") + " 做好了「" + k.name + "」" + (k.on ? "，已经带上" : "，信物栏满了，要带得先放下一件")); commit(run, view);
+          setKPick([]); setKOpen(k.id); toast && toast((nameOf(who) || "TA") + " 做好了「" + k.name + "」" + (k.on ? "，已经带上" : "，信物栏满了，点「换上」就能换")); commit(run, view);
         } catch (e) { toast && toast("没成：" + ((e && e.message) || e)); } finally { setKBusy(false); }
       };
       const chip = (txt, onClick, sel, c, wk, extra) => h("button", Object.assign({ "data-wk": wk, "data-on": sel ? "1" : "0", onClick, style: { padding: "3px 10px", borderRadius: 999, border: "1px solid " + (sel ? c : "rgba(47,42,34,.22)"), background: sel ? c + "18" : "rgba(255,255,255,.55)", color: sel ? c : INK, fontSize: fz(12) } }, extra || {}), txt);
@@ -326,7 +326,7 @@
           fxs.length ? h("div", { key: "f", style: { fontSize: fz(11), color: SUB, marginBottom: 8, lineHeight: 1.6 } }, "可能做成：" + fxs.map(f => D().KEEP_FX[f].zh + " · " + D().KEEP_FX[f].say(D().keepTier(kPick, f))).join("；") + "。同一种偏向的材料越多越强，「TA 的东西」再加一档。") : null,
           h("button", { key: "go", "data-wk": "runkeepmake", onClick: make, disabled: kBusy || kPick.length !== 3 || !who || !onChat, className: "w-full disabled:opacity-40", style: Object.assign(btn(RED, "#fff"), { padding: "10px 0", fontFamily: FD, fontSize: fz(14) }) }, kBusy ? (nameOf(who) || "TA") + " 在做…" : "请 " + (nameOf(who) || "TA") + " 做（花一次调用）")], GREEN),
         Paper("keeps", "信物 · 带着 " + onN + " / " + slots, [
-          h("div", { key: "t", style: { fontSize: fz(11.5), color: SUB, marginBottom: 8, lineHeight: 1.6 } }, "带着的在后面每一站都生效；终点是做它的人，再强一档。路上的「旧行李箱」能多开一格，最多三格。"),
+          h("div", { key: "t", style: { fontSize: fz(11.5), color: SUB, marginBottom: 8, lineHeight: 1.6 } }, "带着的在后面每一站都生效；终点是做它的人，再强一档。栏满了点「换上」就把最早带上的那件换下来，随时能换。路上的「旧行李箱」能多开一格，最多三格。"),
           keeps.length ? keeps.slice().reverse().map(k => { const op = kOpen === k.id;
             return h("div", { key: k.id, "data-wk": "runkeep", style: { marginBottom: 8, borderRadius: 5, background: "#fffdf7", border: "1px solid " + (k.on ? GOLD : "rgba(47,42,34,.12)") } },
               h("div", { className: "flex items-center", style: { gap: 10, padding: "8px 10px" } },
@@ -334,7 +334,10 @@
                 h("button", { onClick: () => setKOpen(op ? "" : k.id), className: "flex-1 min-w-0 text-left" },
                   h("div", { style: { fontFamily: FD, fontSize: fz(14), whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, k.name),
                   h("div", { style: { fontSize: fz(10.5), color: SUB } }, (nameOf(k.charId) || "TA") + (k.carried ? " 以前做的，带来的" : " 做的") + " · " + D().KEEP_FX[k.fx].zh + " · " + D().KEEP_FX[k.fx].say(k.v))),
-                h("button", { "data-wk": "runkeeptoggle", onClick: () => { if (!k.on && onN >= slots) { toast && toast("信物栏满了，先放下一件"); return; } k.on = !k.on; commit(run, view); }, style: btn(k.on ? GOLD : "transparent", k.on ? "#fff" : INK, k.on ? null : "rgba(47,42,34,.3)") }, k.on ? "带着" : "带上")),
+                h("button", { "data-wk": "runkeeptoggle", onClick: () => {
+                  // 栏满了点「带上」就直接换（她 2026-11-08「只有一个位置但是做了好几个信物可以随时替换」）：放下最早带上的那件
+                  if (!k.on && onN >= slots) { const old = keeps.find(x => x.on); if (old) { old.on = false; toast && toast("换上「" + k.name + "」，放下了「" + old.name + "」"); } }
+                  k.on = !k.on; commit(run, view); }, style: btn(k.on ? GOLD : "transparent", k.on ? "#fff" : INK, k.on ? null : "rgba(47,42,34,.3)") }, k.on ? "带着" : onN >= slots ? "换上" : "带上")),
               op ? h("div", { style: { padding: "0 12px 10px 52px", fontSize: fz(12.5), lineHeight: 1.7 } }, k.story ? h("div", null, k.story) : null,
                 k.say ? h("div", { style: { marginTop: 6, padding: "6px 10px", borderLeft: "3px solid " + GOLD, background: "rgba(184,134,42,.07)", fontFamily: FD, color: "#5a4f40" } }, (nameOf(k.charId) || "TA") + "：「" + k.say + "」") : null) : null); })
             : h("div", { key: "e", style: { fontSize: fz(12), color: SUB } }, "这一趟还没做信物。")], GOLD),
