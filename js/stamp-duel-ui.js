@@ -1296,7 +1296,8 @@
           st.siege || st.raid || st.edict || st.puzzle ? null : h("div", { style: { fontFamily: FD, fontSize: fz(18), textAlign: "center", marginBottom: 2, color: over.winner === "me" ? GREEN : over.winner === "foe" ? RED : INK } }, over.winner === "me" ? "你赢了" : over.winner === "foe" ? foeName + " 赢了" : "打平了"),
           st.siege || st.raid || st.edict || st.puzzle ? null : h("div", { style: { fontSize: fz(11), textAlign: "center", color: SUB, marginBottom: 10 } }, over.turn + " 回合 · 信封剩 " + over.me + " : " + over.foe + (over.byCap ? " · 打满回合比剩下的" : "")),
           // 彩头兑现、赛后复盘（她 2026-11-08）：各点一次叫 TA 一次
-          !st.tutorial && !st.run && onChat ? (() => {
+          // 对面是路人／关卡 NPC（挑战类、剧情闯关、小店难缠客人）时没有人可以复盘、发战报（她 2026-11-08）
+          !st.tutorial && !st.run && !chal && !st.shopFight && onChat ? (() => {
             const ask = async mode => {
               if (after.busy) return; setAfter(a => Object.assign({}, a, { busy: mode }));
               try { const lines = await onChat(foeId, { mode, wager: st.wager, winner: over.winner, board: boardLine(), history: st.chat.slice(-6).map(m => (m.who === "me" ? (meName || "她") : foeName) + "：" + m.text).join("\n") });
@@ -1311,7 +1312,7 @@
                 : h("button", { "data-wk": "duelreview", onClick: () => ask("review"), disabled: !!after.busy, className: "w-full disabled:opacity-50", style: Object.assign(btn("transparent", SUB, "rgba(47,42,34,.25)"), { marginBottom: 8, fontSize: fz(11.5) }) }, after.busy === "review" ? foeName + " 在想…" : "听 " + foeName + " 复盘这一把（花一次调用）"));
           })() : null,
           // 战报发进聊天（她 2026-11-08）
-          !st.tutorial && !st.run && onReport ? h("button", { "data-wk": "duelreportgo", disabled: reported, onClick: () => {
+          !st.tutorial && !st.run && !chal && !st.shopFight && onReport ? h("button", { "data-wk": "duelreportgo", disabled: reported, onClick: () => {
               const dealt = {}; st.log.forEach(l => { if ((l.kind === "hit" || l.kind === "hitEnv") && l.who === "me" && l.from && l.from.name) dealt[l.from.name] = (dealt[l.from.name] || 0) + (l.n || 0); });
               const mvp = Object.keys(dealt).sort((a, b) => dealt[b] - dealt[a])[0] || "";
               const games = (series ? series.games.length : 0) + 1;
