@@ -138,3 +138,11 @@ test("远信路上聊天带上她此刻在哪一页、面前摆着什么、卡�
   assert.equal((ui.match(/board: boardNow\(\)/g) || []).length, 2);
   assert.match(du, /她手里的牌：/);
 });
+test("开局带一件旧信物：收信的人、陪你走的人做过的，带上就在这一趟里生效", () => {
+  const ui = readFileSync(new URL("../js/stamp-run-ui.js", import.meta.url), "utf8");
+  assert.match(ui, /"data-wk": "runcarry"/);
+  assert.match(ui, /\{ keeps: carryKeeps\(\) \}/);
+  const run = RN.newRun({ cards, toId: "a", seed: 3 }); run.keeps = [{ fx: "atk", v: 2, charId: "a", name: "x", on: true }]; RN.takeStart(run, [0, 1, 2, 3, 4, 5]);
+  const nd = RN.enter(run, 0), b = RN.battleFor(run, nd, cards, () => [], ["a"]);
+  assert.deepEqual(b.keeps.map(k => k.fx), ["atk"]);
+});
