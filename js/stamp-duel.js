@@ -49,11 +49,11 @@
     加急: { turns: 1, note: "下一次行动做两遍" },
     // 她 2026-11-08「盖戳只有下雨的是不是不够」：再加四种
     折角: { turns: 2, note: "挨打多掉 2" },
-    欠资: { turns: 2, note: "每回合开头掉 2 血（不会掉到 0）" },
+    撕口: { turns: 2, note: "每回合开头掉 2 血（不会掉到 0）" },
     封口: { turns: 2, note: "盖不了章，章也不攒" },
     挂号: { turns: 0, note: "给旁边一张自己的票加 3 层护（盖在自己人身上）" }
   };
-  const MARK_OF_INK = ["雨渍", "退回", "受潮", "加急", "折角", "欠资", "封口", "挂号"];
+  const MARK_OF_INK = ["雨渍", "退回", "受潮", "加急", "折角", "撕口", "封口", "挂号"];
   const SELF_INK = { 加急: 1, 受潮: 1, 挂号: 1 };   // 不盖在对面票上的那几种
   // 原来的「雨棚」改成通用的「护封」：上面的票什么戳都盖不上
   const TERRAIN = { 邮筒: "贴着票时每回合多 1 胶水", 护封: "上面的票不会被盖邮戳（什么戳都不行）", 破损: "这一格不能贴" };
@@ -258,7 +258,7 @@
       if (br === "温柔") sd.board.forEach(u => { if (u) u.hp = Math.min(u.maxHp, u.hp + 2); });
       if (br === "默契") sd.board.forEach(u => { if (u && u.charge < u.need) u.charge++; });
     }
-    sd.board.forEach(u => { if (u && u.marks && u.marks.欠资) u.hp = Math.max(1, u.hp - 2); });
+    sd.board.forEach(u => { if (u && u.marks && u.marks.撕口) u.hp = Math.max(1, u.hp - 2); });
     // 护会散（她 2026-11-08「为啥他一直打掉我但是我打不掉他」：火漆每回合加护、从不掉，几回合就叠到十层，
     //   前排成了打不动的墙）：每回合开头先掉一半，再加这回合的
     sd.board.forEach(u => { if (u && u.shield && !(u.role === "火漆" && has(st, who, "不散的火漆"))) u.shield = Math.floor(u.shield / 2); });
