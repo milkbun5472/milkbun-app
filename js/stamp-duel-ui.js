@@ -337,10 +337,25 @@
               Object.keys(u.marks || {}).length ? sec("身上", RED, "挂着的戳", Object.keys(u.marks).map(m => m + "：" + D().MARKS[m].note).join("；")) : null,
               info.terrain ? sec("格子", "#5a5248", info.terrain, D().TERRAIN[info.terrain]) : null,
               u.lines && u.lines.enter ? h("div", { style: { marginTop: 6, padding: "10px 12px", borderRadius: 3, background: "rgba(47,42,34,.05)", borderLeft: "3px solid " + col, fontFamily: FD, fontSize: fz(12.5), color: "#5a4f40", lineHeight: 1.7 } }, "「" + u.lines.enter + "」") : null))); })() : null,
-      banner ? h("div", { key: "bn" + banner.key, "data-wk": "duelbanner", style: { position: "absolute", left: "50%", top: "46%", zIndex: 20, width: "82%", maxWidth: 320, padding: "12px 14px", borderRadius: 4, textAlign: "center",
-        background: "rgba(251,246,234,.96)", border: "1.5px solid #c8962e", boxShadow: "0 8px 24px rgba(47,42,34,.3)", fontFamily: FD, color: INK, animation: "duelBanner " + (banner.text.indexOf("觉醒") >= 0 ? 2.6 : 1.8) + "s forwards", pointerEvents: "none" } },
-        h("div", { style: { fontSize: fz(15), color: banner.who === "foe" ? RED : banner.who === "me" ? GREEN : "#c8962e" } }, banner.text),
-        banner.line ? h("div", { style: { fontFamily: F, fontSize: fz(12), color: SUB, marginTop: 6, lineHeight: 1.6 } }, "「" + banner.line + "」") : null) : null,
+      // 中间弹出的那块（她 2026-11-08「这种黄框也做好看点」）：像一封电报——上面一枚火漆封印写是什么事，
+      //   中间大字是哪张票／哪条公告，台词另起一行像手写；觉醒是金色、盖章是红色、公告是绿色
+      banner ? (() => {
+        const kind = banner.text.indexOf("觉醒") >= 0 ? "wake" : banner.text.indexOf("公告") >= 0 ? "event" : "stamp";
+        const c = kind === "wake" ? "#b8862a" : kind === "event" ? GREEN : RED;
+        const tag = kind === "wake" ? "觉醒" : kind === "event" ? "公告" : "盖章";
+        const parts = String(banner.text).split(/[：:]/), head = parts.length > 1 ? parts.slice(1).join("：") : banner.text;
+        const sub = kind === "event" ? "" : banner.who === "foe" ? foeName + " 那边" : banner.who === "me" ? "你这边" : "";
+        return h("div", { key: "bn" + banner.key, "data-wk": "duelbanner", "data-kind": kind, style: { position: "absolute", left: "50%", top: "46%", zIndex: 20, width: "84%", maxWidth: 330, textAlign: "center",
+          animation: "duelBanner " + (kind === "wake" ? 2.6 : 1.8) + "s forwards", pointerEvents: "none", filter: "drop-shadow(0 10px 22px rgba(47,42,34,.35))" } },
+          h("div", { style: { position: "relative", padding: "26px 16px 14px", borderRadius: 4, background: PAPER, border: "1px solid " + c + "66" } },
+            h("div", { style: { position: "absolute", inset: 5, borderRadius: 2, border: "1px dashed " + c + "55", pointerEvents: "none" } }),
+            // 火漆封印
+            h("div", { style: { position: "absolute", left: "50%", top: -18, transform: "translateX(-50%) rotate(-6deg)", width: 40, height: 40, borderRadius: 999,
+              background: "radial-gradient(circle at 35% 30%, " + c + "cc, " + c + ")", boxShadow: "0 2px 4px rgba(0,0,0,.3), inset 0 -2px 3px rgba(0,0,0,.25)", color: "#fff",
+              display: "flex", alignItems: "center", justifyContent: "center", fontFamily: FD, fontSize: fz(11) } }, tag),
+            sub ? h("div", { style: { fontFamily: F, fontSize: fz(10.5), color: SUB, letterSpacing: ".2em", marginBottom: 2 } }, sub) : null,
+            h("div", { style: { fontFamily: FD, fontSize: fz(kind === "event" ? 15 : 18), color: c, lineHeight: 1.45 } }, head),
+            banner.line ? h("div", { style: { margin: "8px auto 0", maxWidth: "92%", paddingTop: 8, borderTop: "1px solid " + c + "33", fontFamily: FD, fontStyle: "italic", fontSize: fz(12.5), color: "#5a4f40", lineHeight: 1.7 } }, "「" + banner.line + "」") : null)); })() : null,
       over ? h("div", { key: "ft", "data-wk": "duelover", className: "shrink-0 px-4", style: { paddingTop: 12, paddingBottom: "calc(12px + env(safe-area-inset-bottom) * 0.4)", fontFamily: F, color: INK, borderTop: "1px solid rgba(47,42,34,.18)", background: "rgba(251,246,234,.92)" } },
           h("div", { style: { fontFamily: FD, fontSize: fz(18), textAlign: "center", marginBottom: 2, color: over.winner === "me" ? GREEN : over.winner === "foe" ? RED : INK } }, over.winner === "me" ? "你赢了" : over.winner === "foe" ? foeName + " 赢了" : "打平了"),
           h("div", { style: { fontSize: fz(11), textAlign: "center", color: SUB, marginBottom: 10 } }, over.turn + " 回合 · 信封剩 " + over.me + " : " + over.foe + (over.byCap ? " · 打满回合比剩下的" : "")),

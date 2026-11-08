@@ -189,6 +189,9 @@
   const bondOn = (st, sd, u) => { const b = u && u.charId ? (st.bonds || {})[u.charId] : ""; return b && sd.board.filter(x => x && x.charId === u.charId).length >= 2 ? b : ""; };
   // 回合开头：守护、黏人、羁绊这些每回合一次的
   function turnStartEffects(st, sd) {
+    // 护会散（她 2026-11-08「为啥他一直打掉我但是我打不掉他」：火漆每回合加护、从不掉，几回合就叠到十层，
+    //   前排成了打不动的墙）：每回合开头先掉一半，再加这回合的
+    sd.board.forEach(u => { if (u && u.shield) u.shield = Math.floor(u.shield / 2); });
     sd.board.forEach((u, i) => {
       if (!u) return;
       if (u.trait === "守护") adj(i).forEach(j => { if (sd.board[j]) sd.board[j].shield += 1; });

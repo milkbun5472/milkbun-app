@@ -150,3 +150,11 @@ test("特质生效：锋利无视护盾、倔强留一口气", () => {
   D.endTurn(st);
   assert.equal(st.foe.board[0] && st.foe.board[0].hp, 1);
 });
+test("护会散：每回合开头先掉一半，不会叠成打不动的墙", () => {
+  const st = D.newDuel(D.deckFrom(mine, 40), D.deckFrom(mine, 41), 40);
+  st.events = []; st.foe.board = Array(9).fill(null); st.me.board = Array(9).fill(null);
+  st.foe.board[0] = Object.assign(D.stampOf(mine[0]), { uid: 7, hp: 99, maxHp: 99, shield: 20, marks: {}, charge: 0, role: "补票", trait: "治愈" });
+  st.intent = { place: [], stamp: [] };
+  D.endTurn(st);
+  assert.ok(st.foe.board[0].shield <= 10);
+});
