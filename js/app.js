@@ -20,7 +20,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v89.260";
+const APP_VERSION = "v89.261";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -36126,19 +36126,30 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
           schemaHint: "{\"lines\":[\"一句\"]}" });
         return (Array.isArray(r && r.lines) ? r.lines : [r && r.lines]).map(x => String(x || "").trim()).filter(Boolean).slice(0, 5);
       }
-      if (d.mode === "keep") {
-        const fxList = (d.fxList || []).filter(Boolean); if (!fxList.length) return null;
-        const r = await runProbe(apiFor(char.id), ctxFor(char), { voice: true, tag: "stampkeep", maxTokens: 8000,
-          instruction: "你正和" + uN + "玩邮票册里的卡牌小游戏。她一路攒了几样材料：" + (d.mats || []).join("、") + "，交给你，请你用它们做一件只属于你们俩的信物，以后她打牌时带在身上。\n"
-            + "这件东西要从你的人设、或者你们真的聊过、你记得的事里来（上面的人设、记忆和聊天里有）；没发生过的事别编。材料是做它的料，可以拆开、拼起来、变个样子，不必照字面用。\n"
-            + "name：这件东西叫什么，是一样具体的物件，十五个字以内。\n"
+      // 远信信物（keep）和 TA 的小物（trinket）共用这一段（她 2026-11-08「去重参考卡面」「字数给够不要截断」）：
+      //   去重照写卡那样——把这个人做过的东西（名字、写的是什么、那句话）摆出来，叫 TA 别再是同一样东西、同一件事；
+      //   新的一件另存一句 gist 给以后比对用。名字、来历、那句话都不截
+      if (d.mode === "keep" || d.mode === "trinket") {
+        const keep = d.mode === "keep", fxList = (d.fxList || []).filter(Boolean); if (keep && !fxList.length) return null;
+        const prevAll = [].concat(loadJSON("x_stampKeeps", []) || [], loadJSON("x_stampTrinkets", []) || []).filter(k => k && k.charId === char.id).sort((a, b) => (a.ts || 0) - (b.ts || 0)).slice(-40);
+        const prevLine = prevAll.length ? "你以前给她做过、送过的东西（名字、写的是什么、你说的那句）：\n" + prevAll.map(k => "- 「" + k.name + "」" + (k.gist || k.story || "") + (k.say ? "；你说：" + k.say : "")).join("\n") + "\n这一件别再是同一样东西、同一件事，你说的那句也别再是这几句的样子。\n" : "";
+        const r = await runProbe(apiFor(char.id), ctxFor(char), { voice: true, tag: keep ? "stampkeep" : "stamptrinket", maxTokens: 8000,
+          instruction: (keep
+              ? "你正和" + uN + "玩邮票册里的卡牌小游戏。她一路攒了几样材料：" + (d.mats || []).join("、") + "，交给你，请你用它们做一件只属于你们俩的信物，以后她打牌时带在身上。材料是做它的料，可以拆开、拼起来、变个样子，不必照字面用。\n"
+              : "你刚陪" + uN + "玩了一会儿邮票册里的卡牌小游戏，她拆开了你留给她的一个小包裹。包裹里是一样跟你有关的小东西。\n")
+            + "这件东西要从你的人设、或者你们真的聊过、你记得的事里来（上面的人设、记忆和聊天里有）；没发生过的事别编。\n"
+            + prevLine
+            + (typeof stampVoice === "function" ? stampVoice(char) + "\n" : "")
+            + "name：这件东西叫什么，是一样具体的物件。\n"
             + "story：它的来历，一两句：它是什么、跟你们哪件事有关。\n"
-            + "say：你拿着它、看着它时对她说的一句话，用你自己说话的样子。\n"
-            + "fx：从下面挑一个最贴这件东西的，只写前面的英文词：\n" + fxList.map(k => k + "：" + (d.fxZh && d.fxZh[k] || k)).join("\n"),
-          schemaHint: "{\"name\":\"\",\"story\":\"\",\"say\":\"\",\"fx\":\"\"}" });
-        const name = String((r && r.name) || "").trim().slice(0, 24); if (!name) return null;
-        const out = { name, story: String(r.story || "").trim().slice(0, 200), say: String(r.say || "").trim().slice(0, 160), fx: fxList.includes(r.fx) ? r.fx : fxList[0] };
-        try { addMemEntry({ text: char.name + "用" + uN + "攒的材料（" + (d.mats || []).join("、") + "）给她做了一件信物「" + name + "」：" + out.story.slice(0, 100), tags: ["邮票对局", "信物"], charIds: [char.id], knownBy: [char.id], source: "stamps" }); } catch (e) {}
+            + "say：你拿着它、看着它时对她说的话，用你自己说话的样子。\n"
+            + "gist：一句话记下这件东西是什么、跟哪件事有关，给以后别重样用。\n"
+            + (keep ? "fx：从下面挑一个最贴这件东西的，只写前面的英文词：\n" + fxList.map(k => k + "：" + (d.fxZh && d.fxZh[k] || k)).join("\n") : ""),
+          schemaHint: keep ? "{\"name\":\"\",\"story\":\"\",\"say\":\"\",\"gist\":\"\",\"fx\":\"\"}" : "{\"name\":\"\",\"story\":\"\",\"say\":\"\",\"gist\":\"\"}" });
+        const name = String((r && r.name) || "").trim(); if (!name) return null;
+        const out = { name, story: String(r.story || "").trim(), say: String(r.say || "").trim(), gist: String(r.gist || "").trim() };
+        if (keep) out.fx = fxList.includes(r.fx) ? r.fx : fxList[0];
+        try { addMemEntry({ text: keep ? char.name + "用" + uN + "攒的材料（" + (d.mats || []).join("、") + "）给她做了一件信物「" + name + "」：" + out.story : char.name + "留给" + uN + "一样小东西「" + name + "」，她在邮票对战里拆开了：" + out.story, tags: ["邮票对局", keep ? "信物" : "小物"], charIds: [char.id], knownBy: [char.id], source: "stamps" }); } catch (e) {}
         return out;
       }
       const r = await runProbe(apiFor(char.id), ctxFor(char), { voice: true, tag: "stampduel", maxTokens: 8000,
