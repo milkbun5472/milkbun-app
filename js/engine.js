@@ -506,6 +506,10 @@ async function ensureLoreVecs(entries, opts) {
     const el = ev && ev.target;
     if (!el || el === window || !el.tagName) return;
     const u = el.src || el.href;
+    // blob: 地址失效（她 2026-11-08 群友的出错记录：30 条全是 blob，同一秒一起没）——
+    //   从 IndexedDB 取出来的 blob 背后是仓库里那份文件，连接一关、系统一回收，地址就作废了，
+    //   而内存缓存里还好端端挂着它，于是整屏的图同时变裂图、刷新也不回来。就地换一张新的。
+    if (u && String(u).indexOf("blob:") === 0) { try { imgBlobBroken(String(u)); } catch (e) {} }
     if (u) log("asset", "没加载成功：" + String(u).split("?")[0].split("/").pop(), String(u).slice(0, 180));
   }, true);
   window.addEventListener("unhandledrejection", ev => {
@@ -7774,6 +7778,18 @@ function _imgPullMiss(k) {
       clearTimeout(_imgPull.t); _imgPull.t = setTimeout(() => { try { window.dispatchEvent(new CustomEvent("img-vault-filled")); } catch (e) {} }, 300); }
     else _imgPull.failAt.set(k, Date.now());
   }).catch(() => _imgPull.failAt.set(k, Date.now())).finally(() => _imgPull.busy.delete(k));
+}
+// 一张图的 blob 地址作废了：把它从内存缓存里摘掉，回仓库重新取一张新的，取到了通知界面重画。
+//   ⚠️不许只摘不补：摘掉而不重取的话，界面只会从裂图变成空白。
+function imgBlobBroken(url) {
+  const c = _imgCache();
+  let key = null;
+  c.forEach((v, k) => { if (v === url) key = k; });
+  if (!key) return;
+  c.delete(key);
+  _imgPull.failAt.delete(key);
+  try { URL.revokeObjectURL(url); } catch (e) {}
+  _imgPullMiss(key);
 }
 function resolveImg(v) { if (!v || typeof v !== "string") return v; if (v.indexOf("iv_") === 0) { const u = _imgCache().get(v); if (!u) _imgPullMiss(v); return u || ""; } return v; }
 // 取图统一兜底(单11,2026-08-14):iOS IDB 写后立读偶发返 null(v47.36 案卷),但 imgToVault 存图时
