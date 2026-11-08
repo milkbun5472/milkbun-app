@@ -1,5 +1,5 @@
-import {createNavigator,segmentIntersectsRect} from '../fairy-garden/navigation.mjs?v=fg-14dcba4c9a64c8fb';
-import {stepRoute} from '../fairy-garden/locomotion.mjs?v=fg-14dcba4c9a64c8fb';
+import {createNavigator,segmentIntersectsRect} from '../fairy-garden/navigation.mjs?v=fg-b149ac3dbf94ecd5';
+import {stepRoute} from '../fairy-garden/locomotion.mjs?v=fg-b149ac3dbf94ecd5';
 export const ENTRY={x:3.32,z:4.7};
 export const SHOP_FURNITURE=[{id:'Counter',x:-1.45,z:1.15,w:3.93,d:1.04},{id:'SortTable',x:-2.25,z:-2.5,w:2.8,d:.85},{id:'WindowStool',x:3,z:-.6,w:.58,d:.6},{id:'DisplayShelves',x:-4.2,z:0,w:.45,d:6},{id:'Mailbags',x:4.05,z:2.45,w:.85,d:.55}];
 export const queuePoint=i=>({x:-1.45+(Math.floor(i/3)%6)*.84,z:2.2+(Math.floor(i/18)%2?2-i%3:i%3)*.85});

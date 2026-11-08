@@ -1,4 +1,4 @@
-import {createRoomKit,roomObstacles,roomSeat} from './room-kit.mjs?v=fg-14dcba4c9a64c8fb';
+import {createRoomKit,roomObstacles,roomSeat} from './room-kit.mjs?v=fg-b149ac3dbf94ecd5';
 const FLOOR=.08;
 const furniture=[
  {id:'produce-display',kind:'counter',x:-3.5,z:-2.55,w:2.4,d:1.05,top:.50,work:{produce:{x:.06,y:.64,z:.50}}},
