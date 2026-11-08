@@ -1197,9 +1197,10 @@
         st.chat.slice(-12).map((m, k) => h("div", { key: k, "data-wk": "duelchatmsg", "data-me": m.who === "me" ? "1" : "0", style: { alignSelf: m.who === "me" ? "flex-end" : "flex-start", maxWidth: "80%", padding: "4px 9px", borderRadius: 10,
           background: m.who === "me" ? "rgba(79,122,102,.16)" : "#fff", fontSize: fz(12.5), lineHeight: 1.5 } }, m.text)),
         chatBusy ? h("div", { style: { fontSize: fz(11), color: SUB } }, talkName + " 在打字…") : null) : null,
-      chal ? h("div", { className: "flex", style: { gap: 6, paddingTop: 4 } }, h("button", { "data-wk": "duelcoachask", onClick: () => talk(true), disabled: chatBusy, className: "disabled:opacity-40", style: { padding: "2px 10px", borderRadius: 999, border: "1px solid " + GREEN, color: GREEN, background: "rgba(79,122,102,.08)", fontSize: fz(11.5) } }, "帮我看看这一步")) :
+      // 收起时只留一行（她 2026-11-08「把屏幕都撑爆了」）：按钮和输入框都跟着展开才出现
+      !chatOpen ? null : chal ? h("div", { className: "flex", style: { gap: 6, paddingTop: 4 } }, h("button", { "data-wk": "duelcoachask", onClick: () => talk(true), disabled: chatBusy, className: "disabled:opacity-40", style: { padding: "2px 10px", borderRadius: 999, border: "1px solid " + GREEN, color: GREEN, background: "rgba(79,122,102,.08)", fontSize: fz(11.5) } }, "帮我看看这一步")) :
       h("div", { "data-wk": "duelemotes", className: "flex overflow-x-auto", style: { gap: 5, paddingTop: 4 } }, EMOTES.map(e => h("button", { key: e, onClick: () => quick(e), style: { flexShrink: 0, padding: "2px 9px", borderRadius: 999, border: "1px solid rgba(47,42,34,.2)", background: "rgba(255,255,255,.6)", fontSize: fz(11.5), color: INK } }, e))),
-      h("div", { className: "flex items-center", style: { gap: 6, padding: "4px 0 6px" } },
+      !chatOpen ? h("div", { style: { height: 6 } }) : h("div", { className: "flex items-center", style: { gap: 6, padding: "4px 0 6px" } },
         h("input", { "data-wk": "duelchatinput", value: draft, onChange: e => setDraft(e.target.value), onKeyDown: e => { if (e.key === "Enter") talk(); }, placeholder: chal ? "问 " + talkName + "：这张放哪？先打谁？" : "边打边说…",
           style: { flex: 1, minWidth: 0, padding: "6px 10px", borderRadius: 999, border: "1px solid rgba(47,42,34,.25)", background: "#fff", fontSize: fz(12.5) } }),
         h("button", { onClick: () => talk(), disabled: chatBusy || !draft.trim(), className: "disabled:opacity-40", style: btn(INK, PAPER) }, "说")));
@@ -1357,7 +1358,8 @@
             let tip = "";
             if (hs) { const c = hs.face + (st.events[st.turn] === "涨价" ? 1 : 0); tip = me.postage >= c ? "「" + hs.name + "」" + hs.role + "，贴一张花 " + c + " 胶水 → 点上面亮着的空格；格子里写着贴那儿会打谁" : "「" + hs.name + "」要 " + c + " 胶水，你只剩 " + me.postage + "，这回合贴不了，可以「留到下回合」"; }
             else if (bu) tip = bu.charge >= bu.need ? "「" + bu.name + "」章攒满了，点「盖章」放大招" : "「" + bu.name + "」章 " + bu.charge + "/" + bu.need + "，攒满才能盖；点旁边空格能挪过去";
-            else if (me.hand.length) tip = "点一张手里的票，再点上面的空格贴上去；贴完点「寄出」，" + (st.blind ? "对面再动手" : "每张票底下写着它这回合干什么，红框是你要挨打的、绿框是你能打到的");
+            // 通用那句只在第一回合说，之后不再占地方
+            else if (me.hand.length && st.turn <= 1) tip = "点一张手里的票，再点上面的空格贴上去；贴完点「寄出」，" + (st.blind ? "对面再动手" : "每张票底下写着它这回合干什么，红框是你要挨打的、绿框是你能打到的");
             return tip ? h("div", { "data-wk": "dueltip", className: "px-3", style: { marginBottom: 5, fontSize: fz(11), color: GREEN, lineHeight: 1.5 } }, tip) : null; })(),
           h("div", { className: "flex items-center px-3", style: { gap: 8, marginBottom: 6, fontSize: fz(12) } },
             h("span", { "data-wk": "duelglue", className: "flex items-center", style: { gap: 3 } }, "胶水", Array.from({ length: Math.max(me.postage, 0) }, (_, k) => h("i", { key: k, style: { width: 8, height: 10, borderRadius: "50% 50% 50% 50% / 60% 60% 40% 40%", background: "#d9a441" } })), me.postage ? null : h("span", { style: { color: SUB } }, " 0")),
