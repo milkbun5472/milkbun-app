@@ -36,3 +36,19 @@ test("有一方删了好友，朋友圈互相看不到", () => {
 test("她自己加回来，他记得", () => {
   assert.match(app, /删了我好友以后，又自己把我加了回来/);
 });
+// 她 2026-11-08「1234都可以」
+test("他删了她以后自己想回来：主动那一路改成他发申请，通过了就解开", () => {
+  assert.match(app, /if \(_bkD\.theyBlocked && _bkD\.cut === "del" && opts && opts\.proactive\) return [^\n]*sendFriendReq\(charId\)/);
+  assert.match(app, /const mine = !!\(b\.theyBlocked && b\.cut === "del"\);   \/\/ 他自己删的她/);
+  assert.match(app, /setBlockFor\(charId, mine \? \{ theyBlocked: false \} : \{ deleted: false \}\);/);
+});
+test("他手机上跟她那段最后一行灰字；她被删着还发，落一行朋友验证", () => {
+  const ph = fs.readFileSync(__dirname + "/../js/phone-ui.js", "utf8");
+  assert.match(app, /if \(friendCut\(char\.id\)\) \{ [^\n]*kind: "sysline"/);
+  assert.match(ph, /if \(m\.kind === "sysline"\) return h\("div"/);
+  assert.match(app, /sub: "frverify", content: "对方开启了朋友验证/);
+});
+test("她删他时把最后那几句留给他：他知道是因为什么", () => {
+  assert.match(app, /setBlockFor\(charId, \{ deleted: true, deletedTs: Date\.now\(\), reqs: \[\], lastWords \}\);/);
+  assert.match(app, /她删你之前，你们最后说的是：/);
+});

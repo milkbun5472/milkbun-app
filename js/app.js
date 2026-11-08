@@ -11489,7 +11489,9 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       const _c = characters.find(c => c.id === charId);
       if (_c && sleepPhaseOf(_c) === "asleep") return false;
     }
-    if ((blocksRef.current[charId] || {}).deleted) {
+    const _bkD = blocksRef.current[charId] || {};
+    if (_bkD.theyBlocked && _bkD.cut === "del" && opts && opts.proactive) return typeof bgJob === "function" ? bgJob("proactive", characters.find(c => c.id === charId), () => sendFriendReq(charId)) : sendFriendReq(charId);
+    if (_bkD.deleted) {
       if (opts && opts.proactive) return typeof bgJob === "function" ? bgJob("proactive", characters.find(c => c.id === charId), () => sendFriendReq(charId)) : sendFriendReq(charId);
       toast("你已经删了 TA，先加回好友才能聊"); return false;
     }
@@ -18481,7 +18483,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     const reqLine = rs => { const a = rs || []; if (!a.length) return ""; const no = a.filter(r => r.status === "no").length, alt = a.filter(r => r.alt).map(r => "「" + r.alt + "」");
       return "你发过 " + a.length + " 次好友申请" + (no ? "，被她拒了 " + no + " 次" : "") + (alt.length ? "，其中用小号 " + [...new Set(alt)].join("、") + " 加过" : "") + "。"; };
     if (b.deleted) return "【她把你删了好友】" + (b.deletedTs ? "到现在" + gap(b.deletedTs) + "。" : "")
-      + "你们现在不是好友，你发不了消息给她，只能发好友申请等她通过。" + reqLine(b.reqs);
+      + "你们现在不是好友，你发不了消息给她，只能发好友申请等她通过。" + reqLine(b.reqs)
+      + (b.lastWords ? "\n她删你之前，你们最后说的是：\n" + b.lastWords : "");
     if (b.by === "del" && b.endedTs && now - Number(b.endedTs) < BLOCK_TOMB_KEEP_MS) {
       const last = (b.reqs || []).filter(r => r.status === "yes").slice(-1)[0];
       return "【你们前不久刚加回好友】" + gap(b.endedTs) + "前" + (last ? "她通过了你的好友申请" + (last.alt ? "——通过的是你的小号「" + last.alt + "」，她点通过的时候未必知道是你" : "") : "她把你加了回来")
@@ -18647,7 +18650,11 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       try { addMemEntry({ text: userName(profile) + "删了我好友以后，又自己把我加了回来", tags: ["删好友"], charIds: [charId], knownBy: [charId], source: "auto" }); } catch (e) {}
       toast("加回好友了"); return;
     }
-    setBlockFor(charId, { deleted: true, deletedTs: Date.now(), reqs: [] });
+    // 删之前最后那几句（她 2026-11-08：「就是让他知道因为什么删了」）：她删的时候不写理由，这几句就是他能看到的来由
+    const _uN = userName(profile), _cN = (characters.find(x => x.id === charId) || {}).name || "你";
+    const lastWords = (chatsRef.current[charId] || []).filter(m => m && !m.recalled && (m.role === "user" || m.role === "assistant") && typeof m.content === "string" && m.content.trim() && !isOocMsg(m))
+      .slice(-6).map(m => (m.role === "user" ? _uN : _cN) + "：" + m.content.replace(/\s+/g, " ").slice(0, 60)).join("\n");
+    setBlockFor(charId, { deleted: true, deletedTs: Date.now(), reqs: [], lastWords });
     pChat(charId, p => [...p, { role: "system", kind: "system", content: "你删除了好友 TA", sub: "block", ts: Date.now() }]);
     try { addMemEntry({ text: userName(profile) + "把我删了好友", tags: ["删好友"], charIds: [charId], knownBy: [charId], source: "auto" }); } catch (e) {}
     toast("删掉了。TA 发不了消息，想你了会来加你");
@@ -18656,7 +18663,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   const sendFriendReq = async charId => {
     const b = blocksRef.current[charId] || {};
     const c = characters.find(x => x.id === charId);
-    if (!b.deleted || !c) return false;
+    const mine = !!(b.theyBlocked && b.cut === "del");   // 他自己删的她，现在想回来
+    if ((!b.deleted && !mine) || !c) return false;
     if (!autoRefreshOn("proactive", charId)) return false;   // 主动私聊给他关着，就不来加
     const reqs = b.reqs || [];
     if (reqs.some(r => r.status === "pending")) return false;
@@ -18666,15 +18674,18 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     const hist = reqs.map((r, i) => (i + 1) + ". " + (r.alt ? "用小号「" + r.alt + "」" : "用自己的号") + "，验证语「" + r.note + "」，她" + (r.status === "no" ? "拒了" : "还没处理")).join("\n");
     try {
       const d = await runProbe(apiFor(charId), ctxFor(c), { voice: true, tag: "friendreq",
-        instruction: "【此刻】" + uName + " 把你删了好友，你们现在不是好友，你发不了消息给她。你想她了，能做的是发一条好友申请：写一句验证语（她在「新的朋友」里看到的就是这一句），她点通过才能接着聊。"
-          + (hist ? "\n你之前发过的申请：\n" + hist : "")
-          + "\n用自己的号发，还是换一个小号（新网名，她一开始不一定认得出是你）来加，照你这个人和这几次的情形来定；这一次也可以不发。"
+        instruction: (mine
+            ? "【此刻】你之前把 " + uName + " 删了好友" + (b.reason ? "（当时是因为：" + b.reason + "）" : "") + "。现在你想回头加她吗？要加就发一条好友申请：写一句验证语（她在「新的朋友」里看到的就是这一句），她点通过才算加回来。"
+              + (hist ? "\n你之前发过的申请：\n" + hist : "") + "\n这一次加不加照你这个人来；不加就 send:false。"
+            : "【此刻】" + uName + " 把你删了好友，你们现在不是好友，你发不了消息给她。你想她了，能做的是发一条好友申请：写一句验证语（她在「新的朋友」里看到的就是这一句），她点通过才能接着聊。"
+              + (hist ? "\n你之前发过的申请：\n" + hist : "")
+              + "\n用自己的号发，还是换一个小号（新网名，她一开始不一定认得出是你）来加，照你这个人和这几次的情形来定；这一次也可以不发。")
           + "用小号的话 alt 写那个小号的网名，验证语也照小号的口吻写；用自己的号 alt 留空。",
         schemaHint: "{\"send\":true,\"alt\":\"\",\"note\":\"验证语\"}", maxTokens: 8000 });
       if (!d || d.send === false) return false;
       const note = String(d.note || "").trim().slice(0, 60);
       if (!note) return false;
-      const alt = String(d.alt || "").trim().slice(0, 16);
+      const alt = mine ? "" : String(d.alt || "").trim().slice(0, 16);
       const req = { id: "fr_" + Date.now(), ts: Date.now(), note, alt: alt || "", status: "pending" };
       setBlockFor(charId, { reqs: [...(blocksRef.current[charId] || {}).reqs || [], req].slice(-12) });
       toast("新的朋友：" + (alt || c.remark || c.name) + " 请求添加你为好友", 6000);
@@ -18684,18 +18695,19 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   const answerFriendReq = (charId, reqId, yes) => {
     const b = blocksRef.current[charId] || {};
     const req = (b.reqs || []).find(r => r.id === reqId);
-    if (!b.deleted || !req || req.status !== "pending") return;
+    const mine = !!(b.theyBlocked && b.cut === "del");
+    if ((!b.deleted && !mine) || !req || req.status !== "pending") return;
     const reqs = (b.reqs || []).map(r => r.id === reqId ? { ...r, status: yes ? "yes" : "no", at: Date.now() } : r);
     const who = req.alt ? "小号「" + req.alt + "」" : "自己的号";
     if (yes) {
       setBlockFor(charId, { reqs });
-      setBlockFor(charId, { deleted: false });
+      setBlockFor(charId, mine ? { theyBlocked: false } : { deleted: false });
       pChat(charId, p => [...p, { role: "system", kind: "system", content: "你通过了" + (req.alt ? "「" + req.alt + "」（是 TA）" : " TA ") + "的好友申请", sub: "block", ts: Date.now() }]);
-      try { addMemEntry({ text: "被" + userName(profile) + "删了以后，用" + who + "发好友申请，她通过了", tags: ["删好友"], charIds: [charId], knownBy: [charId], source: "auto" }); } catch (e) {}
+      try { addMemEntry({ text: (mine ? "删了" + userName(profile) + "以后，我自己回头" : "被" + userName(profile) + "删了以后，") + "用" + who + "发好友申请，她通过了", tags: ["删好友"], charIds: [charId], knownBy: [charId], source: "auto" }); } catch (e) {}
       toast("加上了");
     } else {
       setBlockFor(charId, { reqs });
-      try { addMemEntry({ text: "被" + userName(profile) + "删了以后，用" + who + "发好友申请，被她拒了", tags: ["删好友"], charIds: [charId], knownBy: [charId], source: "auto" }); } catch (e) {}
+      try { addMemEntry({ text: (mine ? "删了" + userName(profile) + "以后，我自己回头" : "被" + userName(profile) + "删了以后，") + "用" + who + "发好友申请，被她拒了", tags: ["删好友"], charIds: [charId], knownBy: [charId], source: "auto" }); } catch (e) {}
       toast("拒绝了");
     }
   };
@@ -20966,6 +20978,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     if (direct.length) {
       const messages = direct.map(m => ({ from: m.role === "user" ? meName : char.name, avatarImage: m.role === "user" ? profile.avatarImage : char.avatarImage, text: String(m.content || "[照片] " + (m.desc || "")), ts: m.ts || 0, ...(richOf(m) || {}) }));
       const last = messages[messages.length - 1];
+      // 删着好友（她 2026-11-08）：他手机上跟她那段的最后一行灰字，跟真微信一样
+      if (friendCut(char.id)) { const _b = blocksRef.current[char.id] || {}; messages.push({ kind: "sysline", from: "", text: _b.deleted ? "对方已将你删除" : "你已删除对方", ts: Date.now() }); }
       sessions.push({ id: "actual:private:" + char.id, type: "private", name: meName, avatarImage: char.myChatAvatar || profile.avatarImage, time: stamp(last.ts), last: last.text, ts: last.ts, messages });   // 情头给你的那张跟着进他手机
     }
     for (const group of groups) {
@@ -34195,6 +34209,9 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     onBack: () => setScreen("messages"),
     onSend: txt => {
       if ((blocksRef.current[activeChar.id] || {}).deleted) { toast("你已经删了 TA，先加回好友才能发消息"); return; }
+      { const _b = blocksRef.current[activeChar.id] || {};
+        if (_b.theyBlocked && _b.cut === "del" && !(chatsRef.current[activeChar.id] || []).some(m => m && m.sub === "frverify" && (m.ts || 0) >= (_b.blockedTs || 0)))
+          setTimeout(() => pChat(activeChar.id, p => [...p, { role: "system", kind: "system", sub: "frverify", content: "对方开启了朋友验证，你还不是 TA 的朋友。点消息旁的「!」发送好友申请。", ts: Date.now() }]), 50); }
       gachaEarn(activeChar.id, "chat");
       pushUser(activeChar.id, txt, window.ChatRooms ? window.ChatRooms.chatKey(activeChar.id, activeRoomId) : activeChar.id);
       // 书房直通（她 2026-09-25 拍板）：言秋房的话默认投去 CC 老窗口，回复走账本流回来。
@@ -34759,7 +34776,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     // 配角只有一张脸（她 2026-10-05 转群里：「和生成的 NPC 聊天，里面头像可以换，外面的不行」）：
     //   配角没有档案页，聊天里换的是 chatAvatar、通讯录这儿换的是 avatarImage，两张各管各的，
     //   而聊天里永远是 chatAvatar 赢——外面换了里面看不见。这儿换就两张一起换。
-    friendReqs: Object.keys(blocks || {}).flatMap(id => { const b = blocks[id] || {}; const c = characters.find(x => x.id === id); return b.deleted && c ? (b.reqs || []).map(r => ({ ...r, charId: id, char: c })) : []; }).sort((a, b) => b.ts - a.ts),
+    friendReqs: Object.keys(blocks || {}).flatMap(id => { const b = blocks[id] || {}; const c = characters.find(x => x.id === id); return (b.deleted || (b.theyBlocked && b.cut === "del")) && c ? (b.reqs || []).map(r => ({ ...r, charId: id, char: c })) : []; }).sort((a, b) => b.ts - a.ts),
     onFriendReq: (charId, reqId, yes) => answerFriendReq(charId, reqId, yes),
     onSaveNpcAvatar: (id, img) => { pC(p => p.map(c => c.id === id && c.npc ? { ...c, avatarImage: img || null, chatAvatar: null } : c)); toast(img ? "换好了" : "已清掉头像"); },
     groups: groups,
