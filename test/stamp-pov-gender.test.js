@@ -140,3 +140,8 @@ test("卡面图能收起不显示，图不删", () => {
   assert.match(ui, /"data-wk": "stamphideface"/);
   assert.match(ui, /const shownImg = k => k && !\(card\.hiddenImgs \|\| \[\]\)\.includes\(k\)/);
 });
+test("番外播放时背景能挑这张卡画过的任何一面", () => {
+  const ui = fs.readFileSync(__dirname + "/../js/stamps.js", "utf8");
+  assert.match(ui, /bgKey: "exBg_" \+ x\.id/);
+  assert.match(ui, /\["ex", "这段番外", x\.img\], \["main", "第一面", card\.face\]/);
+});

@@ -205,13 +205,14 @@
     const secs = (card.text && card.text.sections) || [];
     // 剧情背景能挑：第一面、满级他一个人、满级你们俩，画了哪几张就能换哪几张；挑了记在卡上
     const fx = Object.assign({ main: card.face }, card.faceAlt ? { [card.faceAltMode || "solo"]: card.faceAlt } : {}, card.faces || {});
-    const uMain = useIdbImgUrl(fx.main || null), uSolo = useIdbImgUrl(fx.solo || null), uDuo = useIdbImgUrl(fx.duo || null);
-    const opts = [["main", "第一面", uMain], ["solo", PT("他一个人"), uSolo], ["duo", "你们俩", uDuo]].filter(x => x[2]);
-    const [bg, setBg] = useState(card.storyBg || "main");
+    // 番外播放时（她 2026-11-09：番外背景只能挑番外自己那张和第一面）：卡上画过的每一面都能挑，挑了记在这段番外自己身上
+    const hidImgs = card.hiddenImgs || [];
+    const opts = (card.bgOpts || [["main", "第一面", fx.main], ["solo", PT("他一个人"), fx.solo], ["duo", "你们俩", fx.duo]]).filter(x => x[2] && !hidImgs.includes(x[2]));
+    const [bg, setBg] = useState(card.storyBg || (opts[0] && opts[0][0]) || "main");
     const curBg = opts.find(x => x[0] === bg) || opts[0];
-    const url = curBg ? curBg[2] : null;
+    const url = useIdbImgUrl(curBg ? curBg[2] : null);
     const nextBg = () => { if (opts.length < 2) return; const i = opts.findIndex(x => x === curBg), nx = opts[(i + 1) % opts.length][0]; setBg(nx);
-      const st0 = C().load(); st0.cards = st0.cards.map(c => c.id === card.id ? Object.assign({}, c, { storyBg: nx }) : c); C().save(st0); };
+      const key = card.bgKey || "storyBg", st0 = C().load(); st0.cards = st0.cards.map(c => c.id === card.id ? Object.assign({}, c, { [key]: nx }) : c); C().save(st0); };
     const [sid, setSid] = useState((start && secs.some(x => x.id === start) ? start : null) || (secs[0] && secs[0].id));   // 从回廊点哪一幕就从哪一幕开始
     const [i, setI] = useState(0);
     const [stOpt, setStOpt] = useState(() => C().load().opt || {});
@@ -766,7 +767,9 @@
             h("button", { onClick: close, className: "w-full active:opacity-70", style: { padding: "13px 0 4px", fontFamily: F_BODY, fontSize: fs(13), color: P5 } }, "取消"))); })() : null,
       exOpen && (card.extras || []).find(x => x.id === exOpen && x.text) ? (() => { const x = card.extras.find(e => e.id === exOpen);
         const beats = Array.isArray(x.beats) && x.beats.length ? x.beats : String(x.text).split(/\n+/).map(t0 => t0.trim()).filter(Boolean).map(t0 => ({ who: "narr", text: t0 }));
-        const pc = Object.assign({}, card, { face: x.img || card.face, faceAlt: null, faces: x.img ? { solo: card.face } : {}, storyBg: "main", storyAt: null, text: Object.assign({}, card.text, { name: x.title || "番外", sections: [{ id: "ex_" + x.id, lv: 1, title: x.title || "番外", beats, choices: [], end: true, extra: true }] }) });
+        const f2 = Object.assign({}, card.faceAlt ? { [card.faceAltMode || "solo"]: card.faceAlt } : {}, card.faces || {});
+        const bgOpts = [["ex", "这段番外", x.img], ["main", "第一面", card.face], ["solo", PT("他一个人"), f2.solo], ["duo", "你们俩", f2.duo]].concat((card.extras || []).filter(y => y.id !== x.id && y.img).map(y => ["ex:" + y.id, "番外「" + (y.title || "") + "」", y.img]));
+        const pc = Object.assign({}, card, { face: x.img || card.face, faceAlt: null, faces: x.img ? { solo: card.face } : {}, bgOpts, bgKey: "exBg_" + x.id, storyBg: card["exBg_" + x.id] || (x.img ? "ex" : "main"), storyAt: null, text: Object.assign({}, card.text, { name: x.title || "番外", sections: [{ id: "ex_" + x.id, lv: 1, title: x.title || "番外", beats, choices: [], end: true, extra: true }] }) });
         return h(StoryReader, { t, card: pc, char, meName, lv: 99, start: "ex_" + x.id, noResume: true, onSeen: () => {}, onClose: () => setExOpen(null) }); })() : null,
       story && tx ? h(StoryReader, { t, card, char, meName, lv, start: typeof story === "string" && story !== "his" ? story : null, inner: story === "his" ? tx.inner : null, onSeen: markSeen, onClose: () => setStory(false) }) : null);
   }
