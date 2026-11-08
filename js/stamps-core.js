@@ -3,6 +3,14 @@
 //   存档只有一把键 x_stamps，走 loadJSON / saveJSON（进 IDB，施工规则/no-small-warehouse.md）。
 (function (g) {
   "use strict";
+  g.StampNavigation = {
+    open(target, navigate) { g.__stampsOpen = typeof target === "string" ? { cardId: target } : { ...target }; g.__stampsDuel = null; navigate("stamps"); },
+    consume() {
+      const raw = g.__stampsOpen, legacy = g.__stampsDuel; g.__stampsOpen = null; g.__stampsDuel = null;
+      const d = typeof raw === "string" ? { cardId: raw } : raw && typeof raw === "object" ? raw : {};
+      return { cardId: typeof d.cardId === "string" ? d.cardId : null, tab: ["pull", "album", "duel", "run"].includes(d.tab) ? d.tab : (legacy ? "duel" : "pull"), mode: d.mode === "shop" ? "shop" : "", preset: d.preset || legacy || null, back: d.back === "fairy-shop" ? d.back : null };
+    }
+  };
   const PRICE_ONE = 100, PRICE_TEN = 900;
   const RATE = { SSR: 0.05, SR: 0.25 };          // 其余是 R
   const SOFT_FROM = 50, HARD_AT = 60;           // 第 50 抽起 SSR 概率往上加，第 60 抽必出

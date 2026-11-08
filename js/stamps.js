@@ -92,17 +92,30 @@
       return await new Promise(r => cv.toBlob(r, "image/jpeg", .82)); } } catch (e) {}
     return null;
   };
+  const THUMB_PENDING = new Map();
+  async function stampThumbUrl(ref) {
+    if (!ref) return null;
+    if (THUMB_MEM.has(ref)) return THUMB_MEM.get(ref);
+    if (THUMB_PENDING.has(ref)) return THUMB_PENDING.get(ref);
+    const job = (async () => {
+      const tk = "th2_" + ref; let b = null;
+      try { b = typeof idbImgGet === "function" ? await idbImgGet(tk) : null; } catch (e) {}
+      if (!b || !b.size) { let src = null;
+        try { src = String(ref).indexOf("iv_") === 0 ? (typeof imgVaultFetchBlob === "function" ? await imgVaultFetchBlob(ref) : null) : await idbImgGet(ref); } catch (e) {}
+        if (!src) return null; b = (await makeThumb(src)) || src;
+        if (b !== src && typeof idbImgPut === "function") idbImgPut(tk, b).catch(() => {});
+      }
+      const url = URL.createObjectURL(b); THUMB_MEM.set(ref, url); return url;
+    })();
+    THUMB_PENDING.set(ref, job); try { return await job; } finally { THUMB_PENDING.delete(ref); }
+  }
+  window.StampThumbnails = { url: stampThumbUrl };
   function useStampThumb(ref) {
     const [url, setUrl] = useState(() => (ref && THUMB_MEM.get(ref)) || null), [near, setNear] = useState(false), el = useRef(null);
     useEffect(() => { const n = el.current; if (!n || typeof IntersectionObserver !== "function") { setNear(true); return; }
       const io = new IntersectionObserver(es => { if (es.some(e => e.isIntersecting)) { setNear(true); io.disconnect(); } }, { rootMargin: "400px" }); io.observe(n); return () => io.disconnect(); }, []);
     useEffect(() => { if (!ref) { setUrl(null); return; } if (THUMB_MEM.has(ref)) { setUrl(THUMB_MEM.get(ref)); return; } if (!near) return; let alive = true;
-      (async () => { const tk = "th2_" + ref; let b = null;   // th2_：动图也缩成动图以后换的键，老的 th_ 里动图只剩第一帧
-        try { b = typeof idbImgGet === "function" ? await idbImgGet(tk) : null; } catch (e) {}
-        if (!b || !b.size) { let src = null;
-          try { src = String(ref).indexOf("iv_") === 0 ? (typeof imgVaultFetchBlob === "function" ? await imgVaultFetchBlob(ref) : null) : await idbImgGet(ref); } catch (e) {}
-          if (!src) return; b = (await makeThumb(src)) || src; if (b !== src && typeof idbImgPut === "function") idbImgPut(tk, b).catch(() => {}); }
-        if (!alive || !b) return; const u = URL.createObjectURL(b); THUMB_MEM.set(ref, u); setUrl(u); })();
+      stampThumbUrl(ref).then(u => { if (alive && u) setUrl(u); }).catch(() => {});
       return () => { alive = false; }; }, [ref, near]);
     return [url, el, near];
   }
@@ -777,14 +790,15 @@
     const { characters, onBack, onWrite, onDraw, toast, meName } = props;
     const [st, setSt] = useState(() => C().load());
     // 从聊天里点「接受，开打」「再打一把」进来：直接开对局页，带着对手和彩头
-    const [duelPreset] = useState(() => { const d = window.__stampsDuel; window.__stampsDuel = null; return d || null; });
-    const [tab, setTab] = useState(duelPreset ? "duel" : "pull");
+    const [entry] = useState(() => window.StampNavigation.consume());
+    const duelPreset = entry.preset;
+    const [tab, setTab] = useState(entry.tab);
     const [pool, setPool] = useState("mix");
     const [pick, setPick] = useState(() => (C().load().opt.mixPick) || null);   // 大混池勾的人
     const imgPick = useImgPick();   // 长按一枚进多选、存进相册（components.js 那份公共的）
     const [charId, setCharId] = useState((characters[0] || {}).id);
     const [show, setShow] = useState(null);
-    const [open, setOpen] = useState(() => { const o = window.__stampsOpen; window.__stampsOpen = null; return o || null; });   // 从小剧场退回来：直接打开那张卡
+    const [open, setOpen] = useState(entry.cardId);   // 从小剧场退回来：直接打开那张卡
     const [albumChar, setAlbumChar] = useState("all");
     const [albumRar, setAlbumRar] = useState("all");
     const [albumTheme, setAlbumTheme] = useState("all");   // 主题：日常 / 生日 / 你的生日 / IF 各主题
@@ -1147,7 +1161,7 @@
     if (tab === "run" && window.StampRunPage) return h(window.StampRunPage, { characters, cards: (st.cards || []).filter(c => c && !c.writing), meName, toast,
       onBack: () => setTab("duel"), onRemember: props.onDuelRemember, closeOf: props.duelCloseOf, onChat: props.onDuelChat, onPhoto: props.onRunPhoto, useThumb: useStampThumb });
     if (tab === "duel") return !window.StampDuelPage ? h("div", { className: "h-full flex flex-col", style: { background: "linear-gradient(#f1e9d8, #e9dfca)" } }, h(Head, { zh: "对局", bg: "transparent", ink: "#2f2a22", onBack: () => setTab("pull") }), h("div", { className: "px-6", style: { fontFamily: F_BODY, color: "#2f2a22", lineHeight: 1.8 } }, "对局这页还没下载下来。把 App 完全关掉再打开一次就好。")) : h(window.StampDuelPage, { characters, cards: (st.cards || []).filter(c => c && !c.writing), meName, toast,
-      onBack: () => setTab("pull"), onRemember: props.onDuelRemember, closeOf: props.duelCloseOf, onChat: props.onDuelChat, onReport: props.onDuelReport, preset: duelPreset, onRun: window.StampRunPage ? () => setTab("run") : null, useThumb: useStampThumb });
+      onBack: () => setTab("pull"), onRemember: props.onDuelRemember, closeOf: props.duelCloseOf, onChat: props.onDuelChat, onReport: props.onDuelReport, preset: duelPreset, initialMode: entry.mode, onEntryBack: entry.back ? () => props.onReturnToWorld?.(entry.back) : null, onRun: window.StampRunPage ? () => setTab("run") : null, useThumb: useStampThumb });
     if (tab === "album") return h("div", { "data-wk": "stampalbumpage", "data-page": "1", className: "h-full flex flex-col overflow-hidden", style: { background: "repeating-linear-gradient(180deg, transparent 0 116px, rgba(47,42,34,.07) 116px 117px, transparent 117px 120px), linear-gradient(#f1e9d8, #e9dfca)" } },
       // 融卡放右上角（她 2026-10-29）
       h(Head, { zh: "邮票册", sub: (st.cards || []).length + " 枚", bg: "transparent", ink: "#2f2a22", onBack: () => setTab("pull"),
