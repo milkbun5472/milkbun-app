@@ -32,11 +32,24 @@
   const fxSide = l => (l.kind === "hit" ? (l.who === "me" ? "foe" : "me") : l.who);
 
   // 一枚贴在信封上的票（或手里的一张）：卡面、稀有度、作用、名字、是谁的卡、攻击／血、章
-  function Ticket({ u, card, owner, useThumb, sel, onTap, small, foe, terrain, wk, fx }) {
+  // 长按看这张票的底细（她 2026-11-08「长按我的和对手的卡可以看到技能特质」）：按住半秒弹出，松手那一下不算点
+  function useLongPress(onLong, onTap) {
+    const tm = useRef(0), fired = useRef(false), xy = useRef(null);
+    const clear = () => { clearTimeout(tm.current); tm.current = 0; };
+    return {
+      onPointerDown: e => { fired.current = false; xy.current = [e.clientX, e.clientY]; clear(); if (onLong) tm.current = setTimeout(() => { fired.current = true; onLong(); }, 450); },
+      onPointerMove: e => { if (xy.current && Math.abs(e.clientX - xy.current[0]) + Math.abs(e.clientY - xy.current[1]) > 10) clear(); },
+      onPointerUp: clear, onPointerLeave: clear, onPointerCancel: clear,
+      onContextMenu: e => { e.preventDefault(); },
+      onClick: e => { if (fired.current) { fired.current = false; return; } onTap && onTap(e); }
+    };
+  }
+  function Ticket({ u, card, owner, useThumb, sel, onTap, small, foe, terrain, wk, fx, onLong }) {
+    const press = useLongPress(onLong, onTap);
     const [url, el] = (useThumb || noThumb)(card ? (card.cover || card.face) : null);
     const col = RC[u.rarity] || RC.R, marks = Object.keys(u.marks || {});
     const ready = u.charge != null && u.charge >= u.need;
-    return h("button", { ref: el, "data-wk": wk || "duelcell", "data-rarity": u.rarity, "data-foe": foe ? "1" : "0", "data-sel": sel ? "1" : "0", onClick: onTap, className: "active:scale-95",
+    return h("button", { ref: el, "data-wk": wk || "duelcell", "data-rarity": u.rarity, "data-foe": foe ? "1" : "0", "data-sel": sel ? "1" : "0", ...press, className: "active:scale-95",
       style: { position: "relative", width: "100%", aspectRatio: small ? "3 / 4" : "1 / 1", padding: 4, border: "none", background: perf(PAPER), transition: "transform .15s",
         transform: sel ? "translateY(-4px)" : "none", animation: fx ? (fx.kind === "hit" || fx.kind === "skip" ? "duelHit .45s" : fx.kind === "place" ? "duelPop .4s" : "none") : "none", filter: "drop-shadow(0 " + (sel ? 5 : 2) + "px " + (sel ? 6 : 3) + "px rgba(47,42,34," + (sel ? .35 : .22) + "))" } },
       h("div", { style: { position: "relative", width: "100%", height: "100%", overflow: "hidden", borderRadius: 2, outline: sel ? "2px solid " + RED : "1px solid " + col + "88",
@@ -72,7 +85,7 @@
       terrain || (armed ? "贴这里" : ""));
   }
   // 一个信封：外圈航空条纹、里面 3×3；对面的倒过来摆，两边前排面对面
-  function Envelope({ sd, foe, sel, onTap, armed, cardOf, ownerOf, useThumb, fx }) {
+  function Envelope({ sd, foe, sel, onTap, armed, cardOf, ownerOf, useThumb, fx, onLong }) {
     const fxOf = i => fx && fx.side === (foe ? "foe" : "me") && (fx.slot === i || (fx.slots || []).includes(i)) ? fx : null;
     const order = foe ? [6, 7, 8, 3, 4, 5, 0, 1, 2] : [0, 1, 2, 3, 4, 5, 6, 7, 8];
     return h("div", { "data-wk": "duelboard", "data-foe": foe ? "1" : "0", style: { padding: 5, borderRadius: 6, background: AIRMAIL, maxWidth: 300, margin: "0 auto", boxShadow: "0 2px 6px rgba(47,42,34,.18)", position: "relative",
@@ -84,7 +97,7 @@
           order.map(i => { const u = sd.board[i];
             const f = fxOf(i);
             if (!u && f && f.kind === "fall") return h("div", { key: i, style: { position: "relative" } }, h(EmptySlot, { terrain: sd.terrain[i], onTap: () => onTap(i) }), h("span", { style: { position: "absolute", left: "50%", top: "30%", fontFamily: FD, fontSize: fz(12), color: RED, animation: "duelFloat .9s forwards", whiteSpace: "nowrap" } }, "掉了"));
-            return h("div", { key: i }, u ? h(Ticket, { u, card: cardOf(u.cardId), owner: ownerOf(u.charId), useThumb, sel: sel === i, onTap: () => onTap(i), fx: f, foe, terrain: sd.terrain[i] })
+            return h("div", { key: i }, u ? h(Ticket, { u, card: cardOf(u.cardId), owner: ownerOf(u.charId), useThumb, sel: sel === i, onTap: () => onTap(i), onLong: onLong ? () => onLong(u, foe, sd.terrain[i]) : null, fx: f, foe, terrain: sd.terrain[i] })
               : h(EmptySlot, { terrain: sd.terrain[i], onTap: () => onTap(i), armed: armed && !foe })); }))));
   }
   const Seal = (label, hp, max, color, sub) => h("div", { "data-wk": "duelhp", className: "flex items-center", style: { gap: 8, fontFamily: F, color: INK, margin: "4px 2px" } },
@@ -102,6 +115,11 @@
     const [handSel, setHandSel] = useState(-1), [boardSel, setBoardSel] = useState(-1);
     const [series, setSeries] = useState(null), [asking, setAsking] = useState(false);
     const [fx, setFx] = useState(null), [banner, setBanner] = useState(null), playing = useRef(0);
+    const [info, setInfo] = useState(null);
+    const openInfo = (u, foe, terrain) => setInfo({ u, foe, terrain });
+    const [core, setCore] = useState([]);
+    // 每个人的羁绊看人设里的字（不花调用）
+    const bondsOf = () => { const m = {}; (characters || []).forEach(c => { m[c.id] = D().bondOf([c.persona, c.description, c.desc, c.personality, c.tags && [].concat(c.tags).join(" ")].filter(Boolean).join(" ")); }); return m; };
     const [chatOpen, setChatOpen] = useState(false), [draft, setDraft] = useState(""), [chatBusy, setChatBusy] = useState(false);
     const seedRef = useRef(Date.now() >>> 0);
     const byId = useMemo(() => { const m = {}; (cards || []).forEach(c => { if (c && c.id) m[c.id] = c; }); return m; }, [cards]);
@@ -117,8 +135,8 @@
     const drop = () => { persist(null); setSaved(null); };
     const start = () => {
       const s = (seedRef.current = (seedRef.current * 1103515245 + 12345) >>> 0);
-      const me = D().deckFrom(cards, s), them = D().foeDeckFrom(cards, foeId, closeOf ? closeOf(foeId) : [], s);
-      const nd = D().newDuel(me, them, s, { blind }); setSt(nd); setHandSel(-1); setBoardSel(-1); setSaved(null);
+      const me = D().deckFrom(cards, s, D().DECK_SIZE, core), them = D().foeDeckFrom(cards, foeId, closeOf ? closeOf(foeId) : [], s);
+      const nd = D().newDuel(me, them, s, { blind, bonds: bondsOf() }); setSt(nd); setHandSel(-1); setBoardSel(-1); setSaved(null);
       setTimeout(() => persist(nd, series), 0);
       setSeries(sr => sr || D().newSeries());
     };
@@ -135,6 +153,14 @@
           h("div", { className: "flex", style: { gap: 8 } },
             h("button", { onClick: resume, className: "flex-1", style: btn(RED, "#fff") }, "接着打"),
             h("button", { onClick: () => { if (typeof requestAppConfirm === "function") requestAppConfirm("放弃这一把？", "放弃了就接不回来了。", drop, "放弃"); else drop(); }, className: "flex-1", style: btn("transparent", INK, INK) }, "放弃"))) : null,
+        h("div", { style: { fontFamily: FD, fontSize: fz(14), marginBottom: 4 } }, "带谁上场"),
+        h("div", { style: { fontSize: fz(11.5), color: SUB, marginBottom: 8 } }, "最多挑两个人：卡组三分之二从他们的卡里抽，好凑连张、四方连和羁绊。不挑就全随机。"),
+        h("div", { className: "flex flex-wrap", style: { gap: 8, marginBottom: 18 } }, (characters || []).filter(c => (cards || []).some(x => x.charId === c.id)).map(c => {
+          const on = core.includes(c.id), n = (cards || []).filter(x => x.charId === c.id).length;
+          return h("button", { key: c.id, "data-wk": "duelcore", "data-on": on ? "1" : "0", onClick: () => setCore(p => on ? p.filter(x => x !== c.id) : p.concat(c.id).slice(-2)), className: "active:opacity-70",
+            style: { padding: "5px 11px", borderRadius: 999, border: "1px solid " + (on ? GREEN : "rgba(47,42,34,.25)"), background: on ? "rgba(79,122,102,.12)" : "rgba(255,255,255,.4)", color: on ? GREEN : INK, fontSize: fz(12.5) } },
+            (c.remark || c.name) + " · " + n + " 张");
+        })),
         h("div", { style: { fontFamily: FD, fontSize: fz(14), marginBottom: 8 } }, "跟谁打"),
         h("div", { className: "flex flex-wrap", style: { gap: 8, marginBottom: 18 } }, (characters || []).map(c => {
           const n = (cards || []).filter(x => x.charId === c.id).length, on = foeId === c.id;
@@ -149,35 +175,42 @@
         h("div", { style: { fontSize: fz(11.5), color: SUB, marginBottom: 20 } }, blind ? "TA 照样提前想好下一步，只是不给你看。" : "每回合开头就亮出 TA 要贴哪几张、贴在哪、要盖什么章。"),
         h("button", { "data-wk": "duelstart", onClick: start, disabled: !foeId, className: "w-full active:opacity-80 disabled:opacity-40", style: Object.assign(btn(RED, "#fff"), { padding: "12px 0", fontFamily: FD, fontSize: fz(15), letterSpacing: ".2em" }) }, "开局"),
         h("div", { "data-wk": "duelrules", style: { marginTop: 20, padding: "10px 12px", borderRadius: 4, background: "rgba(255,255,255,.45)", fontSize: fz(11.5), color: SUB, lineHeight: 1.8 } },
-          "每回合 3 点胶水、抽 4 张。点手里一张、再点自己信封的空格贴上去，花面值那么多胶水。贴上的票每回合自己动；票底下的小点攒满变金色，点它再点「盖章」放技能（1 胶水）。放错了点「撤回」，胶水退回来。",
+          "每回合 3 点胶水、抽 4 张。点手里一张、再点自己信封的空格贴上去，花面值那么多胶水。贴上的票每回合自己动；票底下的小点攒满变金色，点它再点「盖章」放技能（1 胶水）。放错了点「撤回」，胶水退回来。长按任何一张票，看它的特质、盖章技和羁绊。",
           h("br"), "第一排是前排，挨打；前面有人挡着，后排就挨不到。同一个人两张挨着会加力，三张一整行／列、或四张凑成 2×2 会觉醒一次。",
           h("br"), Object.keys(ROLE_TIP).map(k => k + "：" + ROLE_TIP[k]).join("；") + "。"))]);
 
     const me = st.me, them = st.foe, it = st.intent || {}, over = st.over;
     const meSlot = i => {
       if (over) return;
-      if (handSel >= 0) { if (fail(D().place(st, "me", handSel, i))) { setHandSel(-1); redraw(); } return; }
-      if (boardSel >= 0 && boardSel !== i && !me.board[i]) { if (fail(D().move(st, "me", boardSel, i))) { setBoardSel(-1); redraw(); } return; }
+      if (playing.current) return;
+      if (handSel >= 0) { doMine(() => D().place(st, "me", handSel, i)); return; }
+      if (boardSel >= 0 && boardSel !== i && !me.board[i]) { doMine(() => D().move(st, "me", boardSel, i)); return; }
       setBoardSel(me.board[i] ? (boardSel === i ? -1 : i) : -1);
     };
     const selU = boardSel >= 0 ? me.board[boardSel] : null;
-    // 寄出：先结算完，再把这一回合的记录一条条放出来
-    const send = () => {
-      if (playing.current) return;
-      const n0 = st.log.length; D().endTurn(st); setHandSel(-1); setBoardSel(-1); redraw();
+    // 把某一刻之后的记录一条条放出来（她 2026-11-08「四连觉醒出现太快看不到」：觉醒是贴票那一下触发的，原来只放寄出那一段）
+    const play = n0 => {
       const evs = st.log.slice(n0).filter(l => ["hit", "hitEnv", "fall", "heal", "gain", "ink", "wake", "stamp", "place", "skip", "event"].includes(l.kind));
+      if (!evs.length) return;
       const run = ++playing.current; let k = 0;
       const step = () => {
         if (playing.current !== run) return;
         if (k >= evs.length) { setFx(null); setBanner(null); playing.current = 0; redraw(); return; }
         const l = evs[k++], side = l.kind === "hitEnv" ? (l.who === "me" ? "foe" : "me") : fxSide(l);
-        const txt = l.kind === "hit" ? "-" + l.n : l.kind === "heal" ? "+" : l.kind === "gain" ? "+胶" : l.kind === "skip" ? "退回" : "";
+        const txt = l.kind === "hit" ? "-" + l.n : l.kind === "heal" ? "+" : l.kind === "gain" ? "+胶" : l.kind === "skip" ? (l.text.indexOf("退回") >= 0 ? "退回" : "落空") : "";
         setFx({ kind: l.kind, side, slot: l.slot, slots: l.slots, n: l.n, ink: l.ink, txt });
-        if (l.kind === "wake" || (l.kind === "stamp" && l.line) || l.kind === "event") setBanner({ text: l.text, line: l.line || "", who: l.who });
-        else setBanner(null);
-        setTimeout(step, l.kind === "wake" || l.kind === "event" || (l.kind === "stamp" && l.line) ? 1300 : l.kind === "place" ? 380 : 520);
+        const big = l.kind === "wake" || l.kind === "stamp" || l.kind === "event";
+        if (big) setBanner({ text: l.text, line: l.line || "", who: l.who, key: Math.random() }); else setBanner(null);
+        setTimeout(step, l.kind === "wake" ? 2600 : big ? 1800 : l.kind === "place" ? 380 : 520);
       };
       step();
+    };
+    // 她自己这一下（贴、挪、盖章、撕）也放：觉醒、盖章多半就在这时候
+    const doMine = fn => { const n0 = st.log.length; const ok = fail(fn()); if (ok) { setHandSel(-1); setBoardSel(-1); redraw(); play(n0); } return ok; };
+    // 寄出：先结算完，再把这一回合的记录一条条放出来
+    const send = () => {
+      if (playing.current) return;
+      const n0 = st.log.length; D().endTurn(st); setHandSel(-1); setBoardSel(-1); redraw(); play(n0);
     };
     const back1 = () => { if (fail(D().undo(st))) { setHandSel(-1); setBoardSel(-1); redraw(); } };
     const finish = remember => {
@@ -232,23 +265,42 @@
           !st.blind && them.hand.length ? h("div", { "data-wk": "duelfoehand", className: "flex", style: { gap: 6, marginTop: 6, overflowX: "auto", paddingTop: 6 } }, them.hand.map((s2, k) => {
             const go = (it.place || []).some(p => p.cardId === s2.cardId);
             return h("div", { key: s2.cardId + "_" + k, style: { flex: "0 0 52px", position: "relative", opacity: go ? 1 : 0.6 } },
-              h(Ticket, { u: s2, card: cardOf(s2.cardId), owner: ownerOf(s2.charId), useThumb, small: true, foe: true, wk: "duelfoecard", onTap: () => toast && toast(s2.name + " · " + (ownerOf(s2.charId) || "通用票") + " · " + s2.role + "：" + ROLE_TIP[s2.role]) }),
+              h(Ticket, { u: s2, card: cardOf(s2.cardId), owner: ownerOf(s2.charId), useThumb, small: true, foe: true, wk: "duelfoecard", onTap: () => openInfo(s2, true), onLong: () => openInfo(s2, true) }),
               go ? h("span", { style: { position: "absolute", left: "50%", top: -6, transform: "translateX(-50%)", padding: "0 4px", borderRadius: 3, background: RED, color: "#fff", fontSize: fz(8), whiteSpace: "nowrap" } }, "要贴") : null); })) : null),
-        h(Envelope, { sd: them, foe: true, sel: -1, onTap: () => {}, cardOf, ownerOf, useThumb, fx }),
+        h(Envelope, { sd: them, foe: true, sel: -1, onTap: () => {}, cardOf, ownerOf, useThumb, fx, onLong: openInfo }),
         h("div", { className: "flex items-center", style: { gap: 8, margin: "10px 0", color: SUB, fontSize: fz(10.5) } }, h("div", { className: "flex-1", style: { borderTop: "1px dashed rgba(47,42,34,.3)" } }), ev ? h("span", { style: { color: GREEN } }, "公告 · " + ev + "：" + D().EVENTS[ev]) : "前排对前排", h("div", { className: "flex-1", style: { borderTop: "1px dashed rgba(47,42,34,.3)" } })),
-        h(Envelope, { sd: me, foe: false, sel: boardSel, onTap: meSlot, armed: handSel >= 0, cardOf, ownerOf, useThumb, fx }),
+        h(Envelope, { sd: me, foe: false, sel: boardSel, onTap: meSlot, armed: handSel >= 0, cardOf, ownerOf, useThumb, fx, onLong: openInfo }),
         Seal(meName || "我", me.hp, D().ENVELOPE_HP, GREEN),
         // 选中场上一张：盖章 / 撕下；点旁边空格＝挪过去
         selU ? h("div", { "data-wk": "duelactions", style: { marginTop: 8, padding: "8px 10px", borderRadius: 4, background: "rgba(255,255,255,.55)", fontSize: fz(12) } },
           h("div", { style: { marginBottom: 6 } }, h("b", null, selU.name), h("span", { style: { color: SUB } }, " · " + (ownerOf(selU.charId) || "通用票") + " · " + selU.role + "：" + ROLE_TIP[selU.role])),
           h("div", { className: "flex items-center flex-wrap", style: { gap: 6 } },
-            h("button", { onClick: () => { if (fail(D().stamp(st, "me", boardSel))) { setBoardSel(-1); redraw(); } }, disabled: selU.charge < selU.need, className: "disabled:opacity-40", style: btn(RED, "#fff") }, "盖章（1 胶水）"),
-            h("button", { onClick: () => { if (fail(D().tear(st, "me", boardSel))) { setBoardSel(-1); redraw(); } }, style: btn("transparent", INK, INK) }, "撕下"),
+            h("button", { onClick: () => doMine(() => D().stamp(st, "me", boardSel)), disabled: selU.charge < selU.need, className: "disabled:opacity-40", style: btn(RED, "#fff") }, "盖章（1 胶水）"),
+            h("button", { onClick: () => doMine(() => D().tear(st, "me", boardSel)), style: btn("transparent", INK, INK) }, "撕下"),
             h("span", { style: { color: SUB, fontSize: fz(11) } }, "点旁边空格＝挪过去（1 胶水）"))) : null,
         h("div", { "data-wk": "duellog", style: { marginTop: 10, fontSize: fz(11), color: SUB, lineHeight: 1.65 } }, log.map((l, k) => h("div", { key: k }, (l.who === "foe" ? foeName + "：" : l.who === "me" ? "我：" : "") + l.text + (l.line ? "「" + l.line + "」" : ""))))),
       onChat ? chatBox : null,
-      banner ? h("div", { key: "bn", "data-wk": "duelbanner", style: { position: "absolute", left: "50%", top: "46%", zIndex: 20, width: "82%", maxWidth: 320, padding: "12px 14px", borderRadius: 4, textAlign: "center",
-        background: "rgba(251,246,234,.96)", border: "1.5px solid #c8962e", boxShadow: "0 8px 24px rgba(47,42,34,.3)", fontFamily: FD, color: INK, animation: "duelBanner 1.3s forwards", pointerEvents: "none" } },
+      info ? (() => { const u = info.u, inf = D().unitInfo(u, st.bonds), sd = info.foe ? them : me, live = sd.board.some(x => x && x.uid && x.uid === u.uid);
+        const row = (k, v, c) => h("div", { style: { marginTop: 7 } }, h("span", { style: { display: "inline-block", minWidth: 44, padding: "0 5px", marginRight: 6, borderRadius: 3, background: c, color: "#fff", fontSize: fz(10.5), textAlign: "center" } }, k), v);
+        return h("div", { key: "info", "data-wk": "duelinfo", onClick: () => setInfo(null), style: { position: "absolute", inset: 0, zIndex: 30, background: "rgba(30,24,18,.45)", display: "flex", alignItems: "center", justifyContent: "center", padding: 18 } },
+          h("div", { onClick: e => e.stopPropagation(), style: { width: "100%", maxWidth: 340, maxHeight: "80%", overflowY: "auto", padding: 14, borderRadius: 6, background: PAPER, fontFamily: F, color: INK, fontSize: fz(12.5), lineHeight: 1.6, boxShadow: "0 10px 30px rgba(0,0,0,.3)" } },
+            h("div", { className: "flex", style: { gap: 12 } },
+              h("div", { style: { width: 90, flexShrink: 0 } }, h(Ticket, { u, card: cardOf(u.cardId), owner: ownerOf(u.charId), useThumb, small: true, foe: info.foe })),
+              h("div", { className: "min-w-0" },
+                h("div", { style: { fontFamily: FD, fontSize: fz(15) } }, u.name),
+                h("div", { style: { color: SUB, fontSize: fz(11.5) } }, (ownerOf(u.charId) || "通用票") + " · " + u.rarity + " · 面值 " + u.face + (info.foe ? " · 对面的" : "")),
+                h("div", { style: { marginTop: 6 } }, "⚔ " + u.pow + "　♥ " + (live ? Math.max(0, u.hp) + "/" : "") + u.maxHp + (u.shield ? "　🛡 " + u.shield : "") + "　章 " + (u.charge != null ? u.charge + "/" : "") + u.need))),
+            row(u.role, ROLE_TIP[u.role], ROLE_COLOR[u.role]),
+            row("特质", h("span", null, h("b", null, inf.trait.zh), "：" + inf.trait.desc), "#8a7a5a"),
+            row("盖章", h("span", null, h("b", null, inf.skill.zh), (u.rarity === "SSR" ? "（" + inf.skill.base + "）" : "") + "：" + inf.skill.desc), "#c8962e"),
+            inf.bond ? row("羁绊", h("span", null, h("b", null, inf.bond.zh), "：" + inf.bond.desc + "（" + (nameOf(u.charId) || "这个人") + "的票在同一个信封上有两张以上时生效）"), GREEN) : null,
+            u.role === "邮戳" ? row("戳", "会盖「" + u.ink + "」：" + D().MARKS[u.ink].note, "#6a4f8a") : null,
+            Object.keys(u.marks || {}).length ? row("身上", Object.keys(u.marks).map(m => m + "（" + D().MARKS[m].note + "）").join("、"), RED) : null,
+            info.terrain ? row("格子", info.terrain + "：" + D().TERRAIN[info.terrain], "#5a5248") : null,
+            u.lines && u.lines.enter ? h("div", { style: { marginTop: 10, color: SUB, fontSize: fz(11.5) } }, "「" + u.lines.enter + "」") : null,
+            h("div", { style: { marginTop: 10, textAlign: "center", color: SUB, fontSize: fz(11) } }, "点空白处关掉"))); })() : null,
+      banner ? h("div", { key: "bn" + banner.key, "data-wk": "duelbanner", style: { position: "absolute", left: "50%", top: "46%", zIndex: 20, width: "82%", maxWidth: 320, padding: "12px 14px", borderRadius: 4, textAlign: "center",
+        background: "rgba(251,246,234,.96)", border: "1.5px solid #c8962e", boxShadow: "0 8px 24px rgba(47,42,34,.3)", fontFamily: FD, color: INK, animation: "duelBanner " + (banner.text.indexOf("觉醒") >= 0 ? 2.6 : 1.8) + "s forwards", pointerEvents: "none" } },
         h("div", { style: { fontSize: fz(15), color: banner.who === "foe" ? RED : banner.who === "me" ? GREEN : "#c8962e" } }, banner.text),
         banner.line ? h("div", { style: { fontFamily: F, fontSize: fz(12), color: SUB, marginTop: 6, lineHeight: 1.6 } }, "「" + banner.line + "」") : null) : null,
       over ? h("div", { key: "ft", "data-wk": "duelover", className: "shrink-0 px-4", style: { paddingTop: 12, paddingBottom: "calc(12px + env(safe-area-inset-bottom) * 0.4)", fontFamily: F, color: INK, borderTop: "1px solid rgba(47,42,34,.18)", background: "rgba(251,246,234,.92)" } },
@@ -270,7 +322,7 @@
             h("button", { "data-wk": "duelundo", onClick: back1, disabled: !D().canUndo(st), className: "disabled:opacity-30", style: btn("transparent", INK, INK) }, "撤回"),
             h("button", { "data-wk": "duelsend", onClick: send, disabled: !!fx, className: "disabled:opacity-50", style: Object.assign(btn(RED, "#fff"), { fontFamily: FD, letterSpacing: ".15em" }) }, "寄出")),
           h("div", { className: "flex overflow-x-auto px-3", style: { gap: 8, paddingTop: 6, paddingBottom: 2 } }, me.hand.map((s, k) => h("div", { key: s.cardId + "_" + k, style: { flex: "0 0 74px", opacity: me.postage < s.face ? 0.55 : 1, position: "relative" } },
-            h(Ticket, { u: s, card: cardOf(s.cardId), owner: ownerOf(s.charId), useThumb, small: true, sel: handSel === k, wk: "duelcard", onTap: () => { setBoardSel(-1); setHandSel(handSel === k ? -1 : k); } }),
+            h(Ticket, { u: s, card: cardOf(s.cardId), owner: ownerOf(s.charId), useThumb, small: true, sel: handSel === k, wk: "duelcard", onLong: () => openInfo(s, false), onTap: () => { setBoardSel(-1); setHandSel(handSel === k ? -1 : k); } }),
             me.kept.includes(k) ? h("span", { style: { position: "absolute", left: "50%", top: -6, transform: "translateX(-50%)", padding: "0 5px", borderRadius: 3, background: GREEN, color: "#fff", fontSize: fz(8.5) } }, "留") : null))))]);
   }
   window.StampDuelPage = StampDuelPage;

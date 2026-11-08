@@ -32,7 +32,7 @@ test("贴票花面值、邮资不够贴不上、一回合只能撕一张", () =>
   st.me.terrain = st.me.terrain.map(() => ""); st.events = [];
   const before = st.me.postage, s = st.me.hand[0];
   assert.ok(D.place(st, "me", 0, 4).ok);
-  assert.equal(st.me.postage, before - s.face);
+  assert.equal(st.me.postage, before - s.face + (s.trait === "节俭" ? 1 : 0));
   assert.equal(D.place(st, "me", 0, 4).ok, false);
   assert.ok(D.tear(st, "me", 4).ok);
   D.place(st, "me", 0, 0);
@@ -126,4 +126,27 @@ test("放错了能撤回：胶水、手牌、信封都回去；寄出后就不�
   D.endTurn(st);
   assert.equal(D.canUndo(st), false);
   for (const s of plan) assert.ok(st.foe.board[s] || st.log.some(l => l.kind === "fall" && l.who === "foe"));
+});
+test("技能组：每张票有特质和章，同一张卡永远一样；人设定羁绊；带谁时三分之二从这几个人里抽", () => {
+  const a = D.stampOf(mine[5]), b = D.stampOf(mine[5]);
+  assert.equal(a.trait, b.trait); assert.equal(a.skill, b.skill);
+  assert.ok(D.TRAITS[a.trait] && D.SKILLS[a.role][a.skill]);
+  assert.equal(D.stampOf({ id: "w", rarity: "R", text: { narration: "他喝醉了酒" } }).trait, "醉意");
+  assert.equal(D.bondOf("他护短又爱吃醋"), "护短");
+  assert.equal(D.bondOf("普通人"), "默契");
+  const deck = D.deckFrom(mine, 3, 12, ["a"]);
+  assert.ok(deck.filter(s => s.charId === "a").length >= 8);
+  const info = D.unitInfo(a, { [a.charId]: "好胜" });
+  assert.ok(info.trait.desc && info.skill.desc && info.bond.zh === "好胜");
+});
+test("特质生效：锋利无视护盾、倔强留一口气", () => {
+  const st = D.newDuel(D.deckFrom(mine, 30), D.deckFrom(mine, 31), 30);
+  st.events = [];
+  const mk = (o) => Object.assign(D.stampOf(mine[0]), { uid: Math.random(), hp: 10, maxHp: 10, shield: 0, marks: {}, charge: 0, first: false }, o);
+  st.foe.board = Array(9).fill(null); st.me.board = Array(9).fill(null);
+  st.me.board[0] = mk({ role: "投递", trait: "锋利", pow: 4 });
+  st.foe.board[0] = mk({ role: "火漆", trait: "倔强", hp: 3, shield: 50, pow: 0 });
+  st.intent = { place: [], stamp: [] };
+  D.endTurn(st);
+  assert.equal(st.foe.board[0] && st.foe.board[0].hp, 1);
 });

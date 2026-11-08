@@ -39,3 +39,10 @@ test("边打边聊：她发一句才叫一次 TA，带着眼下局面；聊天�
   assert.match(ui, /const lines = await onChat\(foeId, \{ text, board: boardLine\(\), history: hist \}\)/);
   assert.match(ui, /st\.chat = st\.chat \|\| \[\]/);
 });
+test("带谁上场、长按看底细、她自己那一下也慢放", () => {
+  assert.match(ui, /D\(\)\.deckFrom\(cards, s, D\(\)\.DECK_SIZE, core\)/);
+  assert.match(ui, /newDuel\(me, them, s, \{ blind, bonds: bondsOf\(\) \}\)/);
+  assert.match(ui, /function useLongPress\(onLong, onTap\)/);
+  assert.match(ui, /"data-wk": "duelinfo"/);
+  assert.match(ui, /const doMine = fn =>/);
+});

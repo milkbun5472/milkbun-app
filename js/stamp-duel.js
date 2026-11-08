@@ -14,7 +14,7 @@
 (function (g) {
   "use strict";
   const SIZE = 3, SLOTS = SIZE * SIZE;
-  const ENVELOPE_HP = 70, POSTAGE = 3, DRAW = 4, DECK_SIZE = 12, TURN_CAP = 20, POSTAGE_CAP = 7, KEEP_MAX = 2, MOVE_COST = 1, STAMP_COST = 1;
+  const ENVELOPE_HP = 80, POSTAGE = 3, DRAW = 4, DECK_SIZE = 12, TURN_CAP = 20, POSTAGE_CAP = 7, KEEP_MAX = 2, MOVE_COST = 1, STAMP_COST = 1;
   const FACE = { R: 1, SR: 2, SSR: 3 };
   const BASE = { R: { pow: 3, hp: 6 }, SR: { pow: 5, hp: 9 }, SSR: { pow: 7, hp: 13 } };
   const NEED = { R: 2, SR: 3, SSR: 3 };                       // 攒几回合能盖一次章
@@ -45,6 +45,64 @@
   };
   const EVENT_KEYS = Object.keys(EVENTS), EVENT_EVERY = 3;
 
+  // ── 技能组（她 2026-11-08「技能组也做，现在只是点点点有点无聊」）────────────────
+  //   每张票：一个被动「特质」（看卡上的字，认不出按编号）＋ 一个主动「章」（同一种票有四种，按编号分；SSR 效果加一半）。
+  //   每个人：一个「羁绊」（看人设里的字），同一个人的票在自己信封上有两张以上就生效。
+  const TRAITS = {
+    冷静: { re: /冷静|平静|淡定|镇定|冷/g, desc: "不会被盖「退回」" },
+    沉默: { re: /沉默|安静|不说话|不吭声|书/g, desc: "什么戳都盖不上它" },
+    莽撞: { re: /冲|撞|急|莽|跑/g, desc: "攻击 +2，挨打时多掉 1" },
+    守护: { re: /护|挡|守|等你|撑伞|伞/g, desc: "每回合开头给旁边的自己人加 1 层护" },
+    记仇: { re: /恨|仇|怒|狠|气/g, desc: "每挨一次打攻击 +1（最多 +4）" },
+    醉意: { re: /酒|醉|微醺/g, desc: "每次行动一半可能做双份，一半可能落空" },
+    夜行: { re: /夜|月|影|黑暗|凌晨/g, desc: "在后排时攻击再 +2" },
+    治愈: { re: /药|粥|汤|热水|包扎|医/g, desc: "每次行动完给自己回 2 血" },
+    节俭: { re: /攒|钱|账|算|省/g, desc: "贴上时退回 1 胶水" },
+    热烈: { re: /火|热|阳光|太阳|夏/g, desc: "打掉对面一张票时，对面信封再 -3" },
+    黏人: { re: /抱|靠|牵|黏|蹭/g, desc: "旁边有同一个人的票时，每回合多 2 层护" },
+    浪漫: { re: /花|星|雪|海|月光/g, desc: "盖章少攒一格" },
+    倔强: { re: /不肯|倔|硬撑|偏要|不认输/g, desc: "第一次被打到 0 血时留 1 血" },
+    机灵: { re: /笑|玩|逗|猫|狗|游戏/g, desc: "贴上时多抽 1 张" },
+    余温: { re: /回忆|旧|曾经|以前|照片/g, desc: "被打掉时，给旁边的自己人各充 1 格章" },
+    锋利: { re: /刀|剑|针|刺|锋/g, desc: "打票时无视护盾" }
+  };
+  const TRAIT_KEYS = Object.keys(TRAITS);
+  const SKILLS = {
+    投递: { 重击: "打同一列最前面那张两倍；列里空着就打信封", 贯穿: "同一列对面每一张都打一下", 直达: "越过所有票，直接打对面信封", 连打: "打同一列最前面那张两下（每下六成）" },
+    火漆: { 封口: "给自己封两倍攻击那么多层护", 封整排: "给这一整排每张加攻击那么多层护", 加固: "全场自己人各加 2 层护，自己再加攻击那么多", 回敬: "下次挨打时，把一半伤害还给对面信封" },
+    补票: { 补满: "把最残的那张补满", 群补: "全场自己人各回 4 血", 洗戳: "擦掉全场自己人身上的戳，各回 2 血", 拾回: "从用过的牌里捡回最强的一张到手里" },
+    集邮: { 进账: "马上多 2 点胶水", 翻信箱: "马上抽 2 张", 截胶: "对面下回合少 1 胶水，自己马上多 1", 充章: "旁边的自己人各充 1 格章" },
+    邮戳: { 盖一张: "给同一列对面最前面那张盖戳", 盖一列: "给同一列对面每一张都盖戳", 改寄: "把同一列对面最前面那张挤到后面的空格去", 封手: "对面下回合少抽 1 张" }
+  };
+  const BONDS = {
+    护短: { re: /护短|保护欲|占有|吃醋|不许别人/g, desc: "这个人的票每回合各加 1 层护" },
+    好胜: { re: /好胜|骄傲|不服|要强|争/g, desc: "这个人的票攻击各 +1" },
+    温柔: { re: /温柔|体贴|细心|照顾/g, desc: "这个人的票每回合各回 1 血" },
+    冷淡: { re: /冷淡|高冷|疏离|面无表情|话少/g, desc: "这个人的票不会被盖戳" },
+    偏执: { re: /偏执|病娇|疯|执念|控制/g, desc: "这个人的票攻击各 +2，但每回合各掉 1 血" },
+    默契: { re: /./g, desc: "这个人的票每回合各多充 1 格章" }
+  };
+  // 人设里的字 → 这个人的羁绊（几样都沾上数哪样多；都沾不上就是「默契」）
+  function bondOf(text) {
+    const t = String(text || ""); let best = "默契", n = 0;
+    for (const k of Object.keys(BONDS)) { if (k === "默契") continue; const m = (t.match(BONDS[k].re) || []).length; if (m > n) { n = m; best = k; } }
+    return best;
+  }
+  function traitOf(card, hsh) {
+    const tx = (card && card.text) || {};
+    const words = [tx.name, tx.gist, tx.line, tx.narration, tx.thought, tx.highlight, tx.open, tx.real].map(clean).join(" ");
+    let best = "", n = 0;
+    for (const k of TRAIT_KEYS) { const m = (words.match(TRAITS[k].re) || []).length; if (m > n) { n = m; best = k; } }
+    return best || TRAIT_KEYS[(hsh >>> 4) % TRAIT_KEYS.length];
+  }
+  // 给界面看的：这张票的特质、章、羁绊都是什么
+  function unitInfo(u, bonds) {
+    const sk = SKILLS[u.role] || {}, b = bonds && u.charId ? bonds[u.charId] : "";
+    return { trait: { zh: u.trait, desc: (TRAITS[u.trait] || {}).desc || "" },
+      skill: { zh: u.rarity === "SSR" ? u.name : u.skill, base: u.skill, desc: (sk[u.skill] || "") + (u.rarity === "SSR" ? "（SSR：效果加一半）" : "") },
+      bond: b ? { zh: b, desc: BONDS[b].desc } : null };
+  }
+
   function hashStr(s) { let h = 2166136261; s = String(s || ""); for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return h >>> 0; }
   function rng(seed) { let a = (seed >>> 0) || 1; return () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
   function pickWeighted(n, weights) { const sum = weights.reduce((a, b) => a + b, 0); let x = n % sum; for (let i = 0; i < weights.length; i++) { if (x < weights[i]) return i; x -= weights[i]; } return 0; }
@@ -70,10 +128,11 @@
     let pow = BASE[r].pow + Math.floor(lv / 10) + jit, hp = BASE[r].hp + Math.floor(lv / 5) + ((hsh >>> 12) % 3);
     if (role === "火漆") { pow = Math.max(1, pow - 2); hp += 4; }
     if (role === "投递") pow += 1;
+    const trait = traitOf(card, hsh), skillKeys = Object.keys(SKILLS[role]), skill = skillKeys[(hsh >>> 20) % skillKeys.length];
     const tx = (card && card.text) || {}, pk = (card && (card.pokes || card.pokesSolo || card.pokesDuo)) || {};
     return {
       cardId: card && card.id, charId: (card && card.charId) || "", rarity: r, lv, kind, limited: !!(card && card.limited),
-      name: clean(tx.name) || (r + " 票"), role, face: FACE[r], pow: Math.max(1, pow), maxHp: hp, need: NEED[r],
+      name: clean(tx.name) || (r + " 票"), role, trait, skill, face: FACE[r], pow: Math.max(1, pow), maxHp: hp, need: Math.max(1, NEED[r] - (trait === "浪漫" ? 1 : 0)),
       ink: MARK_OF_INK[(hsh >>> 16) % MARK_OF_INK.length],
       lines: {
         enter: clean(tx.line || tx.thought || tx.narration).slice(0, 80),
@@ -84,8 +143,13 @@
     };
   }
   function fillerCard(i, rarity) { return { id: "filler_" + i + "_" + rarity, rarity, lv: rarity === "R" ? 10 : 20, text: { name: rarity === "R" ? "普通邮票" : "纪念邮票" } }; }
-  function deckFrom(cards, seed, size) {
-    const R = rng(seed), pool = (cards || []).filter(Boolean).slice(), out = [], n = size || DECK_SIZE;
+  // core：她挑的「带谁」（她 2026-11-08：随机抽到四五个人凑不出组合技）——三分之二从这几个人的卡里抽，剩下随机
+  function deckFrom(cards, seed, size, core) {
+    const R = rng(seed), all = (cards || []).filter(Boolean), out = [], n = size || DECK_SIZE;
+    const set = new Set((core || []).map(String)), pool = all.filter(c => !set.has(String(c.charId))), corePool = all.filter(c => set.has(String(c.charId)));
+    const want = set.size ? Math.ceil(n * 2 / 3) : 0;
+    while (out.length < want && corePool.length) out.push(corePool.splice(Math.floor(R() * corePool.length), 1)[0]);
+    pool.push(...corePool);
     while (out.length < n && pool.length) out.push(pool.splice(Math.floor(R() * pool.length), 1)[0]);
     for (let i = 0; out.length < n; i++) out.push(fillerCard(i, i % 3 === 2 ? "SR" : "R"));
     return out.map(stampOf);
@@ -117,9 +181,24 @@
   function newDuel(meDeck, foeDeck, seed, opts) {
     const s = (seed >>> 0) || 1, R = rng(s ^ 0x2468);
     const events = []; for (let t = EVENT_EVERY; t <= TURN_CAP; t += EVENT_EVERY) events[t] = EVENT_KEYS[Math.floor(R() * EVENT_KEYS.length)];
-    const st = { turn: 0, me: side(meDeck, s), foe: side(foeDeck, s ^ 0xabcdef), log: [], over: null, uid: 0, seed: s, blind: !!(opts && opts.blind), events };
+    const st = { turn: 0, me: side(meDeck, s), foe: side(foeDeck, s ^ 0xabcdef), log: [], over: null, uid: 0, seed: s, blind: !!(opts && opts.blind), events, bonds: (opts && opts.bonds) || {} };
     startTurn(st);
     return st;
+  }
+  // 这一边信封上某个人的票有几张；两张以上羁绊生效
+  const bondOn = (st, sd, u) => { const b = u && u.charId ? (st.bonds || {})[u.charId] : ""; return b && sd.board.filter(x => x && x.charId === u.charId).length >= 2 ? b : ""; };
+  // 回合开头：守护、黏人、羁绊这些每回合一次的
+  function turnStartEffects(st, sd) {
+    sd.board.forEach((u, i) => {
+      if (!u) return;
+      if (u.trait === "守护") adj(i).forEach(j => { if (sd.board[j]) sd.board[j].shield += 1; });
+      if (u.trait === "黏人" && adj(i).some(j => sd.board[j] && u.charId && sd.board[j].charId === u.charId)) u.shield += 2;
+      const b = bondOn(st, sd, u);
+      if (b === "护短") u.shield += 1;
+      if (b === "温柔") u.hp = Math.min(u.maxHp, u.hp + 1);
+      if (b === "偏执") u.hp = Math.max(1, u.hp - 1);
+      if (b === "默契" && u.charge < u.need) u.charge++;
+    });
   }
   const eventNow = st => st.events[st.turn] || "";
   const eventNext = st => st.events[st.turn + 1] || "";
@@ -142,8 +221,9 @@
       sd.hand = stay; sd.kept = [];
       const box = sd.board.some((u, i) => u && sd.terrain[i] === "邮筒") ? 1 : 0;
       sd.postage = Math.max(0, Math.min(POSTAGE_CAP, POSTAGE + box + sd.bonusPostage - sd.owed));
-      drawCards(sd, DRAW + sd.bonusDraw + (eventNow(st) === "加班" ? 1 : 0), st.seed + st.turn * 31 + (who === "me" ? 0 : 7));
+      drawCards(sd, Math.max(1, DRAW + sd.bonusDraw + (eventNow(st) === "加班" ? 1 : 0)), st.seed + st.turn * 31 + (who === "me" ? 0 : 7));
       sd.bonusPostage = 0; sd.bonusDraw = 0; sd.owed = 0; sd.torn = 0;
+      turnStartEffects(st, sd);
     }
     if (eventNow(st)) say(st, "", "邮局公告：" + eventNow(st) + "——" + EVENTS[eventNow(st)], { kind: "event", ev: eventNow(st) });
     st.intent = planFoe(st);
@@ -171,6 +251,8 @@
     if (u.kind === "bday") u.shield += 3;
     if (u.kind === "anniv" || u.kind === "mybday") sd.bonusPostage += 1;
     if (u.role === "集邮") sd.bonusDraw += 1;
+    if (u.trait === "节俭") sd.postage += 1;
+    if (u.trait === "机灵") drawCards(sd, 1, st.seed + st.turn * 17 + slot);
     sd.board[slot] = u;
     say(st, who, u.name + " 贴上了", { kind: "place", slot, line: u.lines.enter });
     checkCombos(st, who);
@@ -186,7 +268,7 @@
     else if (u.role === "火漆") sd.board.forEach(x => { if (x) x.shield += 2 * k; });
     else if (u.role === "补票") sd.hp = Math.min(ENVELOPE_HP, sd.hp + 4 * k);
     else if (u.role === "集邮") sd.postage += 2 * k;
-    else if (u.role === "邮戳") foe.board.forEach((x, i) => { if (x && col(i) === col(slot)) mark(foe, i, u.ink); });
+    else if (u.role === "邮戳") foe.board.forEach((x, i) => { if (x && col(i) === col(slot)) mark(foe, i, u.ink, st); });
     say(st, who, u.name + " 被撕下", { kind: "tear", slot });
     checkOver(st);
     return { ok: true };
@@ -215,35 +297,42 @@
     if (u.charge < u.need) return { ok: false, why: "章还没攒满" };
     if (sd.postage < STAMP_COST) return { ok: false, why: "胶水不够" };
     sd.postage -= STAMP_COST; u.charge = 0;
-    const p = powOf(st, u, sd, slot), tier = u.rarity;
-    say(st, who, "盖章：" + u.name, { kind: "stamp", slot, line: tier === "SSR" ? u.lines.wake : "" });
-    const c = col(slot), foeCol = [0, 1, 2].map(r => r * SIZE + c).filter(i => foe.board[i]);
-    if (u.role === "投递") {
-      if (tier === "SSR") hitEnvelope(st, foeWho, p + 4, u.name);
-      else if (tier === "SR") foeCol.forEach(i => hitUnit(st, foeWho, i, p, u.name));
-      else { const j = targetIn(foe, c); if (j >= 0) hitUnit(st, foeWho, j, p * 2, u.name); else hitEnvelope(st, foeWho, p + 2, u.name); }
-    } else if (u.role === "火漆") {
-      const who2 = tier === "SSR" ? sd.board.map((x, i) => i) : tier === "SR" ? [0, 1, 2].map(k => row(slot) * SIZE + k) : [slot];
-      who2.forEach(i => { if (sd.board[i]) sd.board[i].shield += tier === "R" ? p * 2 : p; });
-    } else if (u.role === "补票") {
-      const all = sd.board.filter(Boolean);
-      if (tier === "SSR") all.forEach(x => { x.hp = x.maxHp; x.marks = {}; });
-      else if (tier === "SR") all.forEach(x => { x.hp = Math.min(x.maxHp, x.hp + 4); });
-      else { const w = all.sort((a, b) => a.hp / a.maxHp - b.hp / b.maxHp)[0]; if (w) w.hp = w.maxHp; }
-    } else if (u.role === "集邮") {
-      const k = eventNow(st) === "集邮节" ? 2 : 1;
-      if (tier !== "SR") sd.postage += 2 * k;
-      if (tier !== "R") drawCards(sd, 2 * k, st.seed + st.turn * 13 + slot);
-      if (tier === "SSR") adj(slot).forEach(i => { if (sd.board[i]) sd.board[i].charge++; });
-    } else if (u.role === "邮戳") {
-      const ts = tier === "SSR" ? foe.board.map((x, i) => i) : tier === "SR" ? foeCol : [targetIn(foe, c)];
-      ts.forEach(i => { if (i >= 0 && foe.board[i]) mark(foe, i, u.ink === "加急" ? "退回" : u.ink); });
-    }
+    const p0 = powOf(st, u, sd, slot), big = u.rarity === "SSR", p = big ? Math.ceil(p0 * 1.5) : p0, x = big ? 1.5 : 1;
+    say(st, who, "盖章：" + (big ? u.name : u.skill), { kind: "stamp", slot, line: big ? u.lines.wake : "", skill: u.skill });
+    const c = col(slot), foeCol = [0, 1, 2].map(r => r * SIZE + c).filter(i => foe.board[i]), j = targetIn(foe, c);
+    const k = u.skill;
+    if (k === "重击") { if (j >= 0) hitUnit(st, foeWho, j, p * 2, u.name, u); else hitEnvelope(st, foeWho, p + 2, u.name); }
+    else if (k === "贯穿") foeCol.forEach(i => hitUnit(st, foeWho, i, p, u.name, u));
+    else if (k === "直达") hitEnvelope(st, foeWho, p + 3, u.name);
+    else if (k === "连打") { for (let t = 0; t < 2; t++) { const jj = targetIn(foe, c); if (jj >= 0) hitUnit(st, foeWho, jj, Math.ceil(p * 0.6), u.name, u); else hitEnvelope(st, foeWho, Math.ceil(p * 0.6), u.name); } }
+    else if (k === "封口") u.shield += p * 2;
+    else if (k === "封整排") [0, 1, 2].forEach(q => { const v = sd.board[row(slot) * SIZE + q]; if (v) v.shield += p; });
+    else if (k === "加固") { sd.board.forEach(v => { if (v) v.shield += Math.round(2 * x); }); u.shield += p; }
+    else if (k === "回敬") { u.reflect = 1; u.shield += Math.ceil(p / 2); }
+    else if (k === "补满") { const w = sd.board.filter(Boolean).sort((a, b) => a.hp / a.maxHp - b.hp / b.maxHp)[0]; if (w) w.hp = w.maxHp; if (big) sd.hp = Math.min(ENVELOPE_HP, sd.hp + 4); }
+    else if (k === "群补") sd.board.forEach(v => { if (v) v.hp = Math.min(v.maxHp, v.hp + Math.round(4 * x)); });
+    else if (k === "洗戳") sd.board.forEach(v => { if (v) { v.marks = {}; v.hp = Math.min(v.maxHp, v.hp + Math.round(2 * x)); } });
+    else if (k === "拾回") { const pile = sd.discard.slice().sort((a, b) => b.pow + b.maxHp - a.pow - a.maxHp); const n = big ? 2 : 1; pile.slice(0, n).forEach(v => { sd.discard.splice(sd.discard.indexOf(v), 1); sd.hand.push(v); }); }
+    else if (k === "进账") sd.postage += Math.round(2 * x * (eventNow(st) === "集邮节" ? 2 : 1));
+    else if (k === "翻信箱") drawCards(sd, Math.round(2 * x * (eventNow(st) === "集邮节" ? 2 : 1)), st.seed + st.turn * 13 + slot);
+    else if (k === "截胶") { foe.owed = Math.min(3, foe.owed + (big ? 2 : 1)); sd.postage += 1; }
+    else if (k === "充章") adj(slot).forEach(i => { const v = sd.board[i]; if (v) v.charge = Math.min(v.need, v.charge + (big ? 2 : 1)); });
+    else if (k === "盖一张") { if (j >= 0) mark(foe, j, u.ink === "加急" ? "退回" : u.ink, st); }
+    else if (k === "盖一列") foeCol.forEach(i => mark(foe, i, u.ink === "加急" ? "退回" : u.ink, st));
+    else if (k === "改寄") { if (j >= 0) { const back = [SIZE - 1, 1].map(r => r * SIZE + c).find(i => i > j && !foe.board[i] && foe.terrain[i] !== "破损"); if (back != null) { foe.board[back] = foe.board[j]; foe.board[j] = null; say(st, who, "把对面的「" + foe.board[back].name + "」挤到后面去了", { kind: "ink", slot: back, ink: "改寄" }); } else hitUnit(st, foeWho, j, p, u.name, u); } }
+    else if (k === "封手") foe.bonusDraw -= big ? 2 : 1;
     checkOver(st);
     return { ok: true };
   }
-  const stripUnit = u => { const o = Object.assign({}, u); ["uid", "hp", "shield", "marks", "first", "charge"].forEach(k => delete o[k]); return o; };
-  function mark(sd, i, m) { const u = sd.board[i]; if (!u || !MARKS[m]) return; if (MARKS[m] !== MARKS.加急 && sd.terrain[i] === "雨棚") return; u.marks[m] = MARKS[m].turns; }
+  const stripUnit = u => { const o = Object.assign({}, u); ["uid", "hp", "shield", "marks", "first", "charge", "grudge", "reflect", "stood"].forEach(k => delete o[k]); return o; };
+  function mark(sd, i, m, st) {
+    const u = sd.board[i]; if (!u || !MARKS[m]) return;
+    if (m !== "加急") {
+      if (sd.terrain[i] === "雨棚" || u.trait === "沉默" || (m === "退回" && u.trait === "冷静")) return;
+      if (st && bondOn(st, sd, u) === "冷淡") return;
+    }
+    u.marks[m] = MARKS[m].turns;
+  }
 
   // ── 连招：四方连（2×2）、整版（一整行/列），各觉醒一次 ────────────
   function combos(board) {
@@ -277,26 +366,39 @@
     let p = u.pow + (u.marks.雨渍 ? -2 : 0) + (eventNow(st) === "大雨" ? -1 : 0);
     if (adj(i).some(j => sd.board[j] && u.charId && sd.board[j].charId === u.charId)) p += 2;          // 连张
     if (row(i) === SIZE - 1 && (u.role === "投递" || u.role === "邮戳")) p += 2;                          // 后排输出
+    if (u.trait === "莽撞") p += 2;
+    if (u.trait === "记仇") p += Math.min(4, u.grudge || 0);
+    if (u.trait === "夜行" && row(i) === SIZE - 1) p += 2;
+    const b = bondOn(st, sd, u); if (b === "好胜") p += 1; else if (b === "偏执") p += 2;
     if (u.first && u.kind === "if") p *= 2;                                                              // IF 卡第一次做双份
     return Math.max(0, p);
   }
   // 打同一列：从前排往后找第一张——后排只要前面有人就挨不着
   function targetIn(sd, c) { for (let r = 0; r < SIZE; r++) { const i = r * SIZE + c; if (sd.board[i]) return i; } return -1; }
   function hitEnvelope(st, who, n, by) { if (n <= 0) return; st[who].hp -= n; say(st, other(who), (by || "") + " 打到信封 " + n, { kind: "hitEnv", n }); }
-  function hitUnit(st, who, i, n, by) {
+  function hitUnit(st, who, i, n, by, att) {
     const sd = st[who], u = sd.board[i]; if (!u || n <= 0) return;
-    const blocked = Math.min(u.shield, n); u.shield -= blocked; u.hp -= (n - blocked);
+    if (u.trait === "莽撞") n += 1;
+    const blocked = att && att.trait === "锋利" ? 0 : Math.min(u.shield, n); u.shield -= blocked; u.hp -= (n - blocked);
+    if (u.trait === "记仇") u.grudge = (u.grudge || 0) + 1;
     say(st, other(who), by + " 打 " + u.name + " " + n, { kind: "hit", slot: i, n, blocked });
-    if (u.hp <= 0) { sd.board[i] = null; sd.discard.push(stripUnit(u)); say(st, who, u.name + " 掉了", { kind: "fall", slot: i, line: u.lines.fall }); }
+    if (u.reflect) { u.reflect = 0; hitEnvelope(st, other(who), Math.ceil(n / 2), u.name + " 回敬"); }
+    if (u.hp <= 0 && u.trait === "倔强" && !u.stood) { u.hp = 1; u.stood = 1; say(st, who, u.name + " 硬撑着没倒", { kind: "heal", slot: i }); return; }
+    if (u.hp <= 0) {
+      sd.board[i] = null; sd.discard.push(stripUnit(u)); say(st, who, u.name + " 掉了", { kind: "fall", slot: i, line: u.lines.fall });
+      if (u.trait === "余温") adj(i).forEach(j => { const v = sd.board[j]; if (v && v.charge < v.need) v.charge++; });
+      if (att && att.trait === "热烈") hitEnvelope(st, who, 3, att.name);
+    }
   }
   function act(st, who, i) {
     const sd = st[who], foeWho = other(who), foe = st[foeWho], u = sd.board[i]; if (!u) return;
     if (u.marks.退回) { say(st, who, u.name + " 被退回，这回合不动", { kind: "skip", slot: i }); return; }
-    const times = u.marks.加急 ? 2 : 1;
+    let times = u.marks.加急 ? 2 : 1;
+    if (u.trait === "醉意") { const r = rng((st.seed ^ (st.turn * 2654435761) ^ (u.uid * 40503)) >>> 0)(); if (r < 0.5) times *= 2; else { say(st, who, u.name + " 醉得没打着", { kind: "skip", slot: i }); u.first = false; if (u.charge < u.need) u.charge++; return; } }
     for (let t = 0; t < times && sd.board[i] === u; t++) {
       const p = powOf(st, u, sd, i), j = targetIn(foe, col(i));
-      if (u.role === "投递") { if (j >= 0) hitUnit(st, foeWho, j, p, u.name); else hitEnvelope(st, foeWho, p, u.name); }
-      else if (u.role === "火漆") { u.shield += Math.max(1, Math.ceil(p / 2)); if (j >= 0) hitUnit(st, foeWho, j, Math.floor(p / 2), u.name); }
+      if (u.role === "投递") { if (j >= 0) hitUnit(st, foeWho, j, p, u.name, u); else hitEnvelope(st, foeWho, p, u.name); }
+      else if (u.role === "火漆") { u.shield += Math.max(1, Math.ceil(p / 2)); if (j >= 0) hitUnit(st, foeWho, j, Math.floor(p / 2), u.name, u); }
       else if (u.role === "补票") {
         const hurt = sd.board.filter(x => x && x.hp < x.maxHp).sort((a, b) => a.hp / a.maxHp - b.hp / b.maxHp)[0];
         if (hurt) hurt.hp = Math.min(hurt.maxHp, hurt.hp + Math.max(2, Math.ceil(p / 2))); else sd.hp = Math.min(ENVELOPE_HP, sd.hp + 2);
@@ -307,12 +409,13 @@
       else if (u.role === "邮戳") {
         if (u.ink === "加急") { const k = adj(i).find(x => sd.board[x] && sd.board[x].role === "投递"); if (k != null) sd.board[k].marks.加急 = 1; }
         else if (u.ink === "受潮") foe.owed = Math.min(2, foe.owed + 1);
-        else if (j >= 0) mark(foe, j, u.ink); else hitEnvelope(st, foeWho, Math.ceil(p / 2), u.name);
+        else if (j >= 0) mark(foe, j, u.ink, st); else hitEnvelope(st, foeWho, Math.ceil(p / 2), u.name);
         say(st, who, u.name + " 盖了「" + u.ink + "」", { kind: "ink", slot: i, ink: u.ink });
       }
       if (checkOver(st)) return;
     }
     u.first = false;
+    if (u.trait === "治愈" && sd.board[i] === u) u.hp = Math.min(u.maxHp, u.hp + 2);
     if (u.charge < u.need) u.charge++;
   }
   function tickMarks(sd) { sd.board.forEach(u => { if (!u) return; Object.keys(u.marks).forEach(m => { if (--u.marks[m] <= 0) delete u.marks[m]; }); }); }
@@ -389,7 +492,7 @@
   // 她那边的动作先存一份再做；做不成就把那份扔掉（不留空撤回）
   const mine = raw => (st, who, a, b) => { if (who !== "me") return raw(st, who, a, b); snap(st); const r = raw(st, who, a, b); if (!r || !r.ok) st.undo.pop(); return r; };
   const place = mine(placeRaw), tear = mine(tearRaw), move = mine(moveRaw), keep = mine(keepRaw), stamp = mine(stampRaw);
-  const API = { SIZE, SLOTS, ENVELOPE_HP, POSTAGE, DRAW, DECK_SIZE, TURN_CAP, KEEP_MAX, FACE, NEED, ROLES, MARKS, TERRAIN, EVENTS,
+  const API = { TRAITS, SKILLS, BONDS, bondOf, unitInfo, SIZE, SLOTS, ENVELOPE_HP, POSTAGE, DRAW, DECK_SIZE, TURN_CAP, KEEP_MAX, FACE, NEED, ROLES, MARKS, TERRAIN, EVENTS,
     stampOf, deckFrom, foeDeckFrom, newDuel, place, tear, move, keep, stamp, undo, canUndo, endTurn, planFoe, combos, newSeries, addGame, memoryLine, hashStr };
   g.StampDuel = API;
   if (typeof module !== "undefined" && module.exports) module.exports = API;
