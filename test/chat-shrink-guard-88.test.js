@@ -29,6 +29,6 @@ test("所有写聊天的路都过 txtWrite：变短 10 条以上留一份、记�
 test("合并回来：只插回少掉的，现有的不动；设置里有备份才出现", () => {
   assert.match(app, /const back = old\.filter\(m => m && !have\.has\(sig\(m\)\)\)/);
   assert.match(comp, /shrinkBak && h\("div", \{ className: "pt-6", "data-wk": "csshrink" \}/);
-  assert.match(comp, /chatShrinkOk\(\); return onConfirm\(\.\.\.a\);/, "确认层点了危险操作就放过");
+  assert.match(comp, /chatShrinkOk\(\); (if \(typeof charShrinkOk === "function"\) charShrinkOk\(30000\); )?return onConfirm\(\.\.\.a\);/, "确认层点了危险操作就放过");
   assert.match(eng, /if \(String\(k\)\.indexOf\("x_shrinkBak:"\) === 0\)/, "开机不把备份灌进镜像，过期清掉");
 });

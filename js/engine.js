@@ -11931,8 +11931,36 @@ function noteChatShrink(k, prev, next) {
     console.warn("[chat shrink] " + k + " " + was + " → " + now, where);
   } catch (e) {}
 }
+// 角色名单一下子少了人（群里 2026-11-08：许咏安「配角不见了，通讯录里的人也不见了，我啥都没碰，正常聊天」——聊天记录还在）：
+//   名单和聊天分开存，名单被哪段代码拿一份旧的整份写回去，后来加的人就没了、他们的聊天还躺着。原因没当场抓到，照聊天变短那次的办法：
+//   不是她亲手删（删卷宗、删配角会先挂 __charShrinkOkUntil）的减少，把少掉的那几个人原样攒进 x_shrinkBak:x_characters，
+//   再记一笔是哪段代码写进来的（x_shrinkLog）。通讯录顶上会出「不见的人」，点一下放回来；下次就看得出是谁剪的
+function charShrinkOk(ms) { try { window.__charShrinkOkUntil = Date.now() + (ms || 8000); } catch (e) {} }
+function noteCharShrink(prev, next) {
+  try {
+    const a = JSON.parse(prev || "[]"), b = JSON.parse(next || "[]");
+    if (!Array.isArray(a) || !Array.isArray(b)) return;
+    const still = new Set(b.map(c => c && c.id).filter(Boolean));
+    const lost = a.filter(c => c && c.id && !still.has(c.id));
+    if (!lost.length) return;
+    const at = Date.now(), mine = typeof window !== "undefined" && Number(window.__charShrinkOkUntil || 0) > at;
+    const where = String((new Error().stack || "")).split("\n").slice(2, 7).map(x => x.trim().replace(/https?:\/\/[^/]+\//, "")).join(" ← ").slice(0, 400);
+    let log = []; try { log = JSON.parse(_txtMirror().get("x_shrinkLog") || "[]") || []; } catch (e) {}
+    log.push(mine ? { k: "x_characters", at, from: a.length, to: b.length, mine: 1 } : { k: "x_characters", at, from: a.length, to: b.length, where });
+    txtWrite("x_shrinkLog", JSON.stringify(log.slice(-40)));
+    if (mine) return;
+    console.warn("[char shrink] " + a.length + " → " + b.length, where);
+    idbTxtGet("x_shrinkBak:x_characters").then(old => {
+      let box = { at, where, lost: [] }; try { if (old) box = Object.assign(box, JSON.parse(old)); } catch (e) {}
+      const have = new Set((box.lost || []).map(c => c.id));
+      box.lost = (box.lost || []).concat(lost.filter(c => !have.has(c.id))).slice(-200); box.at = at; box.where = where;
+      return idbTxtPut("x_shrinkBak:x_characters", JSON.stringify(box));
+    }).catch(() => {}).then(() => { try { window.dispatchEvent(new Event("qq-char-shrink")); } catch (e) {} });
+  } catch (e) {}
+}
 function txtWrite(k, s) {
   s = String(s);
+  if (k === "x_characters") { const prev = _txtMirror().get(k); if (prev != null && prev !== s) noteCharShrink(String(prev), s); }
   if (/^x_g?chat:/.test(k)) { const prev = _txtMirror().get(k); if (prev != null && s.length < prev.length) noteChatShrink(k, String(prev), s); }
   if (_txtGate && !_txtGate.done) _txtEarlyWrites.add(k);
   // 文字库没灌起来（镜像是空的）：这时界面上看到的是一台「空手机」，它写下的默认值

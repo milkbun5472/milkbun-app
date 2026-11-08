@@ -20,7 +20,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v89.314";
+const APP_VERSION = "v89.322";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -3375,6 +3375,15 @@ function App() {
   };
   // 聊天一下子变短时留的那份（engine.js noteChatShrink）：合并回来＝把备份里有、现在没有的那些按时间插回去，现有的一条不动
   useEffect(() => {
+    // 「不见的人」（2026-11-08）：备份里还不在名单上的那几个；放回来以后清掉这份备份
+    window.__charLost = async () => { try { const raw = await idbTxtGet("x_shrinkBak:x_characters"); const box = raw ? JSON.parse(raw) : null; const ids = new Set((charactersRef.current || []).map(c => c && c.id)); return box ? (box.lost || []).filter(c => c && c.id && !ids.has(c.id)) : []; } catch (e) { return []; } };
+    window.__charLostRestore = async () => {
+      const back = await window.__charLost();
+      if (back.length) pC(p => { const ids = new Set(p.map(c => c && c.id)); return p.concat(back.filter(c => !ids.has(c.id))); });
+      try { await idbTxtDel("x_shrinkBak:x_characters"); } catch (e) {}
+      return back.length;
+    };
+    window.__charLostDrop = async () => { try { await idbTxtDel("x_shrinkBak:x_characters"); } catch (e) {} };
     window.__shrinkRestore = async id => {
       let bak = null; try { bak = JSON.parse((await idbTxtGet("x_shrinkBak:x_chat:" + id)) || "null"); } catch (e) {}
       if (!bak || !bak.data) return 0;
@@ -10979,6 +10988,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     // 主角色删了，TA身边的人跟着删（她 2026-08-25 拍的）；顺手从所有群里摘掉，
     // 否则群成员列表里会留下一串找不到人的 id。
     const doomed = new Set([id, ...npcsOf(id).map(c => c.id)]);
+    if (typeof charShrinkOk === "function") charShrinkOk();   // 她亲手删的：不当成「不见了」
     pC(p => p.filter(c => !doomed.has(c.id)));
     setPromises(p => { const n = p.filter(x => x && !doomed.has(x.charId)); promisesRef.current = n; saveJSON("x_promises", n); return n; });
     setGroups(prev => {
@@ -12109,11 +12119,10 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
                 + (d.missed ? "写那天晚上他们自己关店的一小段：" : "现在打烊了。写打烊时店里的一小段：") + "今天上班的这几个人各自怎么样、彼此说了什么、谁累了、谁跟谁拌了两句或者帮了一把、有没有给她留什么话或东西；橱窗里的卡、挂着的工牌可以写进去（有人瞄了一眼自己那张、客人指着哪张问），写到卡上的那一刻要照上面写的。每个人照各自的人设说话做事，你写的时候把他们都写进去，不只写你自己；写正在发生的这一段，有动作有对话，别写成总结。"
               : (d.visitor || "一位客人") + "今天来店里寄东西，正好碰上在" + (d.post || "柜台") + "上班的" + (d.staffName || "店员") + "。\n写他们俩在店里碰上的这一小段：照两个人各自的人设和他们之间的关系，有对话，几段就够；" + uN + "在旁边。")
             + "\n当场参与者的身份与完整人设：\n"+cast
-            + (close?"\nlines 一段一项。notes 是今天上班的每个人下班前在柜台留给" + uN + "的一张便条，一人一张：speakerId 写这个人的角色 id（" + (d.staffIds || []).join("、") + "），text 是他自己写的一两句，照他的人设和写字的样子，写今天店里他记得的一件小事或想跟她说的话。":"\nlines 按对话顺序，每项写 speakerId（说话人的角色 id）和 text（原句）；旁白的 speakerId 留空。参与角色："+d.visitorId+"＝"+d.visitor+"；"+d.staffId+"＝"+d.staffName+"。"),
-          schemaHint: close?"{\"lines\":[\"一段\"],\"notes\":[{\"speakerId\":\"角色id\",\"text\":\"便条\"}]}":"{\"lines\":[{\"speakerId\":\"角色id\",\"text\":\"原句\"}]}" });
-        // 店员便条（她 2026-11-08）：跟着打烊这一次调用一起写，挂在返回的数组上，不进记忆
+            + "\nlines 按正文发生的顺序逐句保存，每项 text 是原文；speakerId 是说话人的角色 id，旁白留空。actorId 是这一句正在做动作的角色 id，targetId 是动作朝向的同场角色 id；只使用上面参与者的 id。action 可用 talk（面对对方说话）、tidy（回岗位收拾）、letter（拿起信件）、look（走到橱窗看卡）、rest（到窗边歇脚）、help（走近另一位店员搭手）；其他动作照写进正文，由场景做一般交谈表现。动作字段配合你写出的内容。" + (close?"\nnotes 是今天上班的每个人下班前在柜台留给" + uN + "的一张便条，一人一张：speakerId 写这个人的角色 id（" + (d.staffIds || []).join("、") + "），text 是他自己写的一两句，照他的人设和写字的样子，写今天店里他记得的一件小事或想跟她说的话。":""),
+          schemaHint: JSON.stringify({lines:[{speakerId:"角色id或空",actorId:"角色id或空",targetId:"角色id或空",action:"动作标识",text:"正文原句"}],...(close?{notes:[{speakerId:"角色id",text:"便条"}]}:{})}) });
         const notesOf = () => (Array.isArray(r && r.notes) ? r.notes : []).map(x => ({ speakerId: (d.staffIds || []).map(String).includes(String(x && x.speakerId)) ? String(x.speakerId) : null, text: String((x && x.text) || "").trim() })).filter(x => x.speakerId && x.text).slice(0, 4);
-        const rowsOut = (Array.isArray(r && r.lines) ? r.lines : [r && r.lines]).map(x => close?String(typeof x==="string"?x:x?.text||"").trim():typeof x==="string"?{speakerId:null,text:x}:{speakerId:x?.speakerId||null,text:String(x?.text||"")}).filter(x=>close?!!x:!!x.text).slice(0, 14);
+        const rowsOut = (Array.isArray(r && r.lines) ? r.lines : [r && r.lines]).map(x => typeof x==="string"?{speakerId:null,text:x}:{speakerId:x?.speakerId||null,actorId:x?.actorId||null,targetId:x?.targetId||null,action:x?.action||"talk",text:String(x?.text||"")}).filter(x=>x.text.trim());
         if (close) rowsOut.notes = notesOf();
         return rowsOut;
   };
@@ -18950,6 +18959,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   //   wipeChat＝连跟TA的私聊（线上＋线下）和TA的记忆一起清（她 2026-10-07 群友：「npc 聊天过后怎么删除」）
   const deleteNpc = (id, wipeChat) => {
     if (wipeChat) clearChat(id, true);
+    if (typeof charShrinkOk === "function") charShrinkOk();   // 她亲手删的配角
     pC(p => p.filter(c => c.id !== id));
     setGroups(prev => { const n = prev.map(g => ({ ...g, memberIds: (g.memberIds || []).filter(x => x !== id) })); saveJSON("x_groups", n); return n; });
     toast(wipeChat ? "已删除，聊天也清掉了" : "已删除");
@@ -19745,23 +19755,25 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       // ⚠️这份闸原来是这儿手写的（成败都记、两小时冷却、封顶三次）。
       //   它写得是对的，但同一层规则活在好几处就是下次改的时候必漏一处——
       //   她 2026-09-06：「以后这种形状都开公共然后合在一起，不要照着已有的新开」。
-      //   所以搬进 AutoGate，参数一模一样（MAX_TRIES 3 / COOLDOWN 两小时）。
+      //   所以搬进 AutoGate；日程自己传 maxTries: 3（全局默认 2026-11-08 起是一期一次，日程一周一回，留着重试）。
       // ⚠️「排下周」和「补本周」各记各的格子（群里 2026-10-18「每次登录日程都更新，耗额度」）：
       //   原来共用 "schedule|角色" 一格，周日两件都要跑，一件记完 p=本周一、另一件一看「换周期了」就从头再来，
       //   失败次数互相清零——周日一失败，每次开 app 都重打，三次封顶形同虚设。
       const pick = (gateKey, weekKey, from, count) => {
-        if (!window.AutoGate.due(gateKey, weekKey)) return;
+        if (!window.AutoGate.due(gateKey, weekKey, { maxTries: 3 })) return;   // 跟下面 run 那一格同一个次数
         jobs.push({ c, from, count, weekKey, gateKey });
       };
-      if (dowMon === 6) pick("schedule|" + c.id + "|next", nextMon, nextMon, 7);   // 周日 0 点起排下一周
+      // 下一周已经排好了（她自己点过「AI 排」，或者前面成过）就不再排（她 2026-11-08：「我手动刷新排了他不会重新调用吧」）
+      if (dowMon === 6 && !have[nextMon]) pick("schedule|" + c.id + "|next", nextMon, nextMon, 7);   // 周日 0 点起排下一周
       if (!have[today]) pick("schedule|" + c.id, thisMon, today, 7 - dowMon);      // 引导：补到本周日为止
     });
     if (!jobs.length) return;
     schedRunRef.current = true;
     try {
       for (const j of jobs) {
+        // 日程一周才排一次：没成照旧隔两小时再试，最多三次（全局默认是一期一次）
         await window.AutoGate.run(j.gateKey, j.weekKey,
-          () => genScheduleWeek(j.c, { from: j.from, count: j.count, silent: true }));
+          () => genScheduleWeek(j.c, { from: j.from, count: j.count, silent: true }), { maxTries: 3 });
       }
     } finally {
       schedRunRef.current = false;
@@ -20144,8 +20156,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     // 否则同一天会被反复触发；跨到第二天时 dayKey 变化，锁自然失效。
     // ⚠️内存里那把锁一刷新就没了。补写失败时它留不下任何痕迹，于是【每刷新一次
     //   就把所有角色重打一遍】——她 2026-09-06 那 800 次调用有一大半是这么来的。
-    //   闸改走公共那一层（AutoGate）：成了这一天不再跑，没成也记一笔、隔两小时才重试、
-    //   最多试三次。判据是【日记真落盘了吗】，不是【没报错】。
+    //   闸改走公共那一层（AutoGate）：成了这一天不再跑，没成也记一笔，这一天不再重打（2026-11-08 起一期一次）；
+    //   第二天的目标是新的「昨天」，没写成的那天不回头补。判据是【日记真落盘了吗】，不是【没报错】。
     if (diaryRunRef.current === dayKey) return;
     diaryRunRef.current = dayKey;
     try {
@@ -20429,7 +20441,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     if (!todo.length) return;
     desireRunRef.current = true;
     // ⚠️发不出呆的时候 lastMuse 不会被写上，于是每次开 app 重来一遍。走公共闸。
-    try { for (const c of todo) await window.AutoGate.run("desire|" + c.id, today, () => desireMuseFor(c)); }
+    // 发呆一天一次，没成就等明天，不在当天反复重来（她 2026-11-08）
+    try { for (const c of todo) await window.AutoGate.run("desire|" + c.id, today, () => desireMuseFor(c), { maxTries: 1 }); }
     finally { desireRunRef.current = false; }
   };
   // P2 三节奏后两拍（v48.23）：盘一盘=每10天盘盒子（校准js钳±0.15/毕业出师那句入长出来的自我/枯萎），回头看=每90天季度自述。
@@ -20447,6 +20460,11 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         const box = HeartKit.boxOf(desiresRef.current, c.id);
         const r = HeartKit.tendDue(box, today);
         if (r.inited) { saveDesires(n => { n[c.id] = box; }); continue; }
+        // 一天只走一趟（她 2026-11-08：「心上也是吧，不要断了就重试」）：旁人／盘一盘／回头看失败了不记基准日，
+        //   原来下一次唤醒（开 App、切回前台、定时）就整趟重来，断一次重来一次。现在先占住今天，成不成都等明天；
+        //   今天的发呆（desireMuseAllToday）照旧走它自己那道闸
+        const _tk = "desire|tend|" + c.id;
+        if (window.AutoGate) { if (!window.AutoGate.due(_tk, today, { maxTries: 1 })) continue; window.AutoGate.claim(_tk, today); }
         // 旁人（每7天，P3）：旁观的便宜小模型摘录「我注意到…」纸条+不想碰的，喂 TA 下次发呆/盘点。
         // 只对 7 天内聊过的角色跑（没新对话没什么可观测）；和盘一盘/回头看互不排队，同天先观测再盘点（纸条正好当盘点材料）。
         if (HeartKit.observeDue(box, today)) {

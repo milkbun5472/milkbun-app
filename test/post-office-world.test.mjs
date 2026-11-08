@@ -63,3 +63,12 @@ test('all actual public customer identities use their own costume IDs, while sta
  const next=projectShop(raw,{...options,characters:chars,period:'上午',lookFor:()=>({...own,outfit:'tee',hairColor:'#444444'})});assert.equal(next.staff[0].look.outfit,'tee');assert.equal(next.customers[0].look.hairColor,'#444444');
  const blank=projectShop(raw,{...options,characters:chars,period:'上午',lookFor:()=>({})});assert.equal(blank.staff[0].look.dims.height,1.10);assert.equal(blank.customers[0].look.dims.height,1.00);
 });
+
+test('outside follows local calendar months and clock without changing the shared shop save',async()=>{
+ const {realTime}=await import('../apps/fairy-garden/real-clock.mjs'),{calendarEnvironment}=await import('../apps/pets/environment.mjs');
+ const seasons=new Set();for(const month of [4,7,10,1]){const at=new Date(2026,month-1,8,12,30).getTime(),time=realTime(null,at),expected=calendarEnvironment(time,1234),raw=fixture(),before=structuredClone(raw),s=projectShop(raw,{...options,period:'下午',time,weatherSeed:1234});seasons.add(s.environment.season);assert.equal(s.environment.kind,expected.kind);assert.equal(s.environment.date,time.date);assert.equal(s.environment.minute,750);assert.equal(s.environment.source,'real-calendar');assert.equal(s.lighting,'day');assert.deepEqual(raw,before);}assert.equal(seasons.size,4);
+});
+test('a historical closing casts only its saved original clerks and uses their current companion appearance',()=>{
+ const raw={...fixture(),phase:'closed',closing:['正文留底。'],closingTurns:[{speakerId:'b',text:'正文留底。'}],closeCast:{柜台:'b',分拣:'deleted'}};
+ const s=projectShop(raw,{...options,period:'傍晚',stories:[{key:'date:2026-11-7',date:'2026-11-7',lines:['上一晚原文。'],cast:{送信:'a',看店:'deleted'}}]});assert.deepEqual(s.closing.staff.map(c=>c.id),['b']);assert.deepEqual(s.stories[0].staff.map(c=>c.id),['a']);assert.equal(s.stories[0].staff[0].look.hairColor,'#b94747');assert.equal(s.staff.length,0);
+});

@@ -1,7 +1,7 @@
 import test from 'node:test';import assert from 'node:assert/strict';
 import {createShopFlow,shopNavigation,ENTRY,queuePoint} from '../apps/post-office/flow.mjs';
 const staff=[{kind:'staff',id:'a',name:'店员',post:'柜台',x:-1.45,z:.1,yaw:0,look:{}},{kind:'staff',id:'b',name:'看店',post:'看店',x:3,z:-.6,yaw:0,seatHeight:.53,look:{}}];
-const guest=(id,n={})=>({kind:'guest',id,key:'2026-11-8|上午|'+id,name:'客人',look:{},...n});const state=customers=>({staff,customers,decor:[{builder:'bench'}],closed:false,phase:'open'});
+const guest=(id,n={})=>({kind:'guest',id,key:'2026-11-8|上午|'+id,name:'客人',look:{},...n});const state=customers=>({staff,customers,decor:[{builder:'bench'}],closed:false,phase:'open',ambient:false});
 const step=(f,n=500)=>{for(let i=0;i<n;i++)f.step(.05);};
 test('all queue positions and work routes use the existing obstacle-aware navigator',()=>{const nav=shopNavigation();for(let i=0;i<15;i++){const to=queuePoint(i);assert.ok(nav.walkable(to.x,to.z));const path=nav.find(ENTRY,to);assert.ok(path?.length,'queue '+i);let from=ENTRY;for(const p of path){assert.ok(nav.clear(from,p));from=p;}}assert.ok(nav.find({x:3,z:.15},ENTRY)?.length);});
 test('customers enter, queue, leave after service and different days never share identity',()=>{const f=createShopFlow(),a=guest('c0'),b=guest('c1');f.reconcile(state([a,b]));step(f);let units=f.snapshot().units;assert.equal(units.filter(u=>u.key.startsWith('guest:')).length,2);assert.ok(units.filter(u=>u.key.startsWith('guest:')).every(u=>u.phase==='queuing'&&!u.walking));f.reconcile(state([{...a,done:true,got:20},b]));step(f);assert.ok(!f.units.has('guest:'+a.key));const tomorrow={...a,key:'2026-11-9|上午|c0'};f.reconcile(state([tomorrow]));step(f);assert.ok(f.units.has('guest:'+tomorrow.key));assert.ok(!f.units.has('guest:'+b.key));});
@@ -11,6 +11,14 @@ test('closing tidies, turns the lamps off and walks every original clerk through
 test('closing presentation ends independently of the next day and a former seated clerk stands after changing post',()=>{const f=createShopFlow();f.reconcile(state([]));f.startClosing();step(f,1200);assert.ok(f.closingDone);f.finishClosing();f.reconcile({...state([]),staff:[{...staff[0],id:'b'}]});step(f,200);assert.ok(f.units.has('staff:b'));assert.equal(f.units.get('staff:b').seated,false);});
 
 test('a full queue lets a served person out while everyone behind moves forward',()=>{const f=createShopFlow(),cs=Array.from({length:6},(_,i)=>guest('crowd'+i));f.reconcile(state(cs));step(f,1600);f.reconcile(state(cs.map((c,i)=>i===0?{...c,done:true,got:10}:c)));step(f,2400);assert.ok(!f.units.has('guest:'+cs[0].key),JSON.stringify(f.snapshot()));assert.ok(f.snapshot().units.filter(u=>u.key.startsWith('guest:')).every(u=>!u.walking),JSON.stringify(f.snapshot()));});
+
+test('simultaneous departures clear the outside doorway without everyone needing the same exact point',()=>{
+ const f=createShopFlow(),cs=[guest('c0'),guest('v0',{visitor:true}),guest('p0')];f.reconcile({...state(cs),staff:[staff[0]]});
+ // Actual scene-continuation positions from the crowded closing regression.
+ const positions=[{x:3.6,z:4.68},{x:3.06,z:4.86},{x:3.24,z:4.2438},{x:2.7,z:3.78}];
+ f.resume({units:f.snapshot().units.map((u,i)=>({...u,phase:'queuing',position:positions[i],seated:false}))});
+ f.reconcile({...state([]),staff:[],closed:true});step(f,1600);assert.equal(f.units.size,0,JSON.stringify(f.snapshot()));
+});
 
 // Text-page replacement can return before the former clerk has left that spot.
 test('a replaced clerk can step away from an overlapping new clerk without holding every incoming customer at the door',()=>{const f=createShopFlow();f.reconcile({...state([]),staff:[{...staff[0],id:'c',post:'送信',x:-1.414,z:.18}]});f.reconcile({...state([guest('v',{visitor:true,actorId:'d'})]),staff:[staff[0]]});step(f,1800);assert.ok(!f.units.has('staff:c'),JSON.stringify(f.snapshot()));assert.ok(f.units.get('guest:2026-11-8|上午|v').seated,JSON.stringify(f.snapshot()));});
