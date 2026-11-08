@@ -922,7 +922,9 @@
       const name = s.as === "mask" ? s.maskName : (s.meName || uName);
       props.pay(-amount, "直播打赏 · " + (s.host || "主播") + "「" + g + "」");
       // 主播只到手一半（平台抽成）
-      if (props.charPay && s.charId && !s.stranger) props.charPay(s.charId, toHost(amount), "直播收到打赏 · 「" + g + "」（平台抽走一半）");
+      // 收钱的是谁：自己的角色就是他；路人主播已经加成好友、进了档案馆的，钱进他转正后那个人的钱包（她 2026-11-08「弄弄这个互通」）
+      const payee = !s.stranger ? s.charId : (((stGet(s.charId) || {}).promoted) || "");
+      if (props.charPay && payee && typeof payee === "string") props.charPay(payee, toHost(amount), "直播收到打赏 · 「" + g + "」（平台抽走一半）");
       const before = fanLevel(s.fanTotal || 0), total = (s.fanTotal || 0) + amount, after = fanLevel(total);
       patch(curId, x => ({ ...x, fanTotal: total, fanLv: after, board: Object.assign({}, x.board, { [name]: ((x.board || {})[name] || 0) + amount }),
         lines: arr(x.lines).concat([{ kind: "gift", mine: true, name, gift: g, amount, ts: Date.now() }])
@@ -1019,6 +1021,9 @@
           dms: Object.assign({}, x.dms, { [key]: arr((x.dms || {})[key]).concat([{ from: "me", text: "（申请加你好友）", ts: Date.now() }]).concat(say ? [{ from: "st", text: say, ts: Date.now() + 1 }] : []) }) }));
         if (ok && props.promoteStranger) {
           const cid = props.promoteStranger(stGet(st.id), key, nm, fan);
+          // 以前在他直播间刷过的钱（大号、马甲加起来）：他到手的那一半，转正时一笔记进他钱包（她 2026-11-08）
+          const tipped = listRef.current.filter(s2 => s2.stranger && s2.charId === st.id).reduce((n, s2) => n + arr(s2.lines).filter(l => l.kind === "gift" && l.mine).reduce((m, l) => m + (Number(l.amount) || 0), 0), 0);
+          if (cid && typeof cid === "string" && tipped > 0 && props.charPay) props.charPay(cid, toHost(tipped), "以前在直播间收到的打赏 · 一共 ¥" + tipped + "（平台抽走一半）");
           stPatch(st.id, x => Object.assign({}, x, { promoted: cid || true, followed: true }));
         } else if (!ok) toast("他没同意");
       } catch (e) { toast("没问成：" + ((e && e.message) || "再试一次")); }
