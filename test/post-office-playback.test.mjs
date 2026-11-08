@@ -23,3 +23,7 @@ test('a waiting customer keeps the counter staffed and door/stamp sounds follow 
  const events=[],flow=createShopFlow({onEvent:e=>events.push(e)}),guest={kind:'guest',id:'c0',key:'2026-11-8|上午|c0',name:'路人',look:{},got:0};flow.reconcile({...state(true),customers:[guest]});step(flow,1000);const clerk=flow.units.get('staff:a');assert.equal(clerk.phase,'working');assert.deepEqual(clerk.position,clerk.home);assert.equal(events.filter(e=>e.kind==='door').length,1);
  const served={...guest,done:true,got:10};flow.reconcile({...state(true),customers:[served]});flow.reconcile({...state(true),customers:[served]});assert.equal(events.filter(e=>e.kind==='stamp').length,1);step(flow,1400);assert.equal(events.filter(e=>e.kind==='door').length,2);
 });
+
+test('a shop returning to planning cancels idle meetings and sends every clerk back to the assigned station',()=>{
+ const flow=createShopFlow();flow.reconcile(state(true));for(let i=0;i<2000&&!flow.snapshot().idlePair;i++)flow.step(.05);assert.ok(flow.snapshot().idlePair);flow.reconcile({...state(true),phase:'plan'});step(flow,1200);assert.equal(flow.snapshot().idlePair,null);assert.ok([...flow.units.values()].every(u=>u.phase==='working'&&u.arrived&&Math.hypot(u.position.x-u.home.x,u.position.z-u.home.z)<.12));
+});

@@ -1,22 +1,26 @@
 (function(g){
  'use strict';const h=React.createElement,ink='#51483a',paper='#f8f0de';
  const button={minHeight:40,padding:'8px 12px',border:'1px solid #9f8e7144',borderRadius:8,background:'#fffaf0',color:ink,fontSize:13,textAlign:'left'};
- function StampShopFilters({characters=[],cards=[],filter={},onChange,wk='duelshopwinfilter'}){
+ function StampShopFilters({characters=[],cards=[],filter={},onChange,wk='duelshopwinfilter',noWho=false,fit=[]}){
   const people=characters.filter(c=>cards.some(k=>k&&k.charId===c.id));
   return h('div',{'data-wk':wk,style:{display:'grid',gap:7,marginBottom:12}},
-   h('input',{'aria-label':'搜卡名',value:filter.q||'',placeholder:'搜卡名…',onChange:e=>onChange({...filter,q:e.target.value}),style:{...button,width:'100%'}}),
-   h('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr',gap:7}},
-    h('select',{'aria-label':'按角色筛选',value:filter.who||'',onChange:e=>onChange({...filter,who:e.target.value}),style:button},h('option',{value:''},'全部角色'),people.map(c=>h('option',{key:c.id,value:c.id},c.remark||c.name))),
-    h('select',{'aria-label':'按稀有度筛选',value:filter.rar||'',onChange:e=>onChange({...filter,rar:e.target.value}),style:button},['','SSR','SR','R'].map(r=>h('option',{key:r,value:r},r||'全部稀有度')))));
+   h('input',{'aria-label':'搜卡名',value:filter.q||'',placeholder:'搜卡名…',onChange:e=>onChange({...filter,q:e.target.value}),style:{...button,width:'100%',minWidth:0,boxSizing:'border-box'}}),
+   h('div',{style:{display:'grid',gridTemplateColumns:noWho?'minmax(0,1fr) minmax(0,1fr)':'repeat(3,minmax(0,1fr))',gap:7}},
+    noWho?null:h('select',{'aria-label':'按角色筛选',value:filter.who||'',onChange:e=>onChange({...filter,who:e.target.value}),style:{...button,minWidth:0,boxSizing:'border-box'}},h('option',{value:''},'全部角色'),people.map(c=>h('option',{key:c.id,value:c.id},c.remark||c.name))),
+    h('select',{'aria-label':'按稀有度筛选',value:filter.rar||'',onChange:e=>onChange({...filter,rar:e.target.value}),style:{...button,minWidth:0,boxSizing:'border-box'}},['','SSR','SR','R'].map(r=>h('option',{key:r,value:r},r||'全部稀有度'))),
+    h('select',{'aria-label':'按种类筛选',value:filter.role||'',onChange:e=>onChange({...filter,role:e.target.value}),style:{...button,minWidth:0,boxSizing:'border-box'}},['','投递','火漆','补票','集邮','邮戳'].map(r=>h('option',{key:r,value:r},r?(fit.includes(r)?r+' ✦':r):'全部种类')))));
  }
  function ShopThumb({card}){const [url,setUrl]=React.useState(null);React.useEffect(()=>{let on=true;g.StampThumbnails?.url(card.cover||card.face).then(u=>{if(on)setUrl(u);}).catch(()=>{});return()=>{on=false;};},[card.id,card.cover,card.face]);return url?h('img',{src:url,alt:'',style:{width:42,height:56,objectFit:'cover',flexShrink:0}}):h('span',{'aria-hidden':true,style:{width:42,height:56,display:'grid',placeItems:'center',border:'1px dashed #a48c67',color:'#8a7355'}},'邮');}
- function StampShopStories({shop,onReplay,reader=true,inlineCurrent=false}){
+ function StampShopNotes({notes=[],name=()=> '店员',font=F_BODY,size=12,titleSize=11}){
+  return notes.length?h('div',{'data-wk':'duelshopnotes',className:'flex flex-wrap',style:{gap:8,margin:'8px 0 4px'}},notes.map((n,i)=>h('div',{key:i,'data-wk':'duelshopnote',style:{flex:'1 1 140px',padding:'8px 10px',background:'#fffbe8',boxShadow:'0 2px 5px rgba(47,42,34,.12)',transform:'rotate('+(i%2?1.2:-1.2)+'deg)',fontSize:size,lineHeight:1.6}},h('div',{style:{fontFamily:font,fontSize:titleSize,color:'#9a6a4a',marginBottom:2}},(name(n.speakerId)||'店员')+' 留的'),n.text))):null;
+ }
+ function StampShopStories({shop,onReplay,reader=true,inlineCurrent=false,name=()=> '店员'}){
   const [expanded,setExpanded]=React.useState({});const records=g.StampShop.history(shop),body={fontSize:13,lineHeight:1.9,whiteSpace:'pre-wrap',margin:'8px 0'};
   if(!records.length)return h('p',{style:body},'写过的打烊会按天留在这里。只关门不会生成故事。');
   return h(inlineCurrent?React.Fragment:'div',inlineCurrent?null:{'data-shop-stories':true,style:{display:'grid',gap:12}},records.map(record=>{
    const id=record.key||('date:'+record.date),open=Object.hasOwn(expanded,id)?expanded[id]:record.date===shop.date&&shop.phase==='closed',title=(record.date||'第 '+record.day+' 天')+' · 打烊留底',play=onReplay&&h('button',{type:'button',onClick:()=>onReplay(record.key||('date:'+record.date)),style:button},'在店里重演这晚（不再调用）');
    if(inlineCurrent&&record.date===shop.date)return h(React.Fragment,{key:id},record.lines.map((line,i)=>h('p',{key:i,style:body},line)));
-   return reader?h('details',{key:record.key||title,open,onToggle:e=>{const value=e.currentTarget.open;setExpanded(old=>old[id]===value?old:{...old,[id]:value});},style:{padding:'10px 0',borderBottom:'1px solid #a28a6744'}},h('summary',{style:{minHeight:40,cursor:'pointer',fontSize:13}},title),open&&record.lines.map((line,i)=>h('p',{key:i,style:body},line)),open&&play):h('section',{key:record.key||title,style:{display:'grid',gap:8,padding:'10px 0',borderBottom:'1px solid #a28a6744'}},h('strong',{style:{fontSize:13}},title),play);
+   return reader?h('details',{key:record.key||title,open,onToggle:e=>{const value=e.currentTarget.open;setExpanded(old=>old[id]===value?old:{...old,[id]:value});},style:{padding:'10px 0',borderBottom:'1px solid #a28a6744'}},h('summary',{style:{minHeight:40,cursor:'pointer',fontSize:13}},title),open&&record.lines.map((line,i)=>h('p',{key:i,style:body},line)),open&&h(StampShopNotes,{notes:record.notes||[],name}),open&&play):h('section',{key:record.key||title,style:{display:'grid',gap:8,padding:'10px 0',borderBottom:'1px solid #a28a6744'}},h('strong',{style:{fontSize:13}},title),play);
   }));
  }
  function StampShopPanel({target={},shop,characters=[],cards=[],onAction,onClose,onText,onReplay,onReplayClosing,soundEnabled=true,onToggleSound,busy,error}){
@@ -39,12 +43,12 @@
    h('select',{'aria-label':p+'排班',value:shop.roster[p]||'',disabled:busy||shop.phase!=='plan',onChange:e=>action('assign',{post:p,charId:e.target.value,expectedId:shop.roster[p]||''}),style:button},h('option',{value:''},'今天休息 · 空着'),characters.filter(c=>cards.some(k=>k.charId===c.id&&k.text)).map(c=>h('option',{key:c.id,value:c.id,disabled:D.SHOP.POSTS.some(q=>q!==p&&shop.roster[q]===c.id)},name(c.id)))))));
   else if(page==='window'||page==='badge'){
    const selected=page==='window'?shop.window:[shop.badge[post]],available=page==='badge'?cards.filter(c=>c.charId===shop.roster[post]):cards;
-   content=h(React.Fragment,null,h('p',{style:{fontSize:12,lineHeight:1.8}},page==='window'?'点卡摆上或撤下（'+shop.window.length+' / '+D.shopWinSlots(shop)+'）。':post+' · '+name(shop.roster[post])+'的卡；点已挂的卡可以取下。'),h(StampShopFilters,{characters,cards:available,filter,onChange:value=>{setFilter(value);if(page==='window')windowFilter.current=value;}}),
-    h('div',{style:box},...g.StampShop.sortedCards(available,selected,filter).map(c=>row(h(React.Fragment,null,h(ShopThumb,{card:c}),h('span',null,(selected.includes(c.id)?'已选 · ':'')+(c.text?.name||'一枚邮票'),h('small',{style:{display:'block',marginTop:4}},name(c.charId)+' · '+c.rarity))),()=>action(page==='window'?'window':'badge',page==='window'?{cardId:c.id}:{post,cardId:shop.badge[post]===c.id?'':c.id}),false,{key:c.id,'aria-pressed':selected.includes(c.id),style:{display:'flex',alignItems:'center',gap:10,borderColor:selected.includes(c.id)?'#719285':'#9f8e7144'}}))));
+   content=h(React.Fragment,null,h('p',{style:{fontSize:12,lineHeight:1.8}},page==='window'?'点卡摆上或撤下（'+shop.window.length+' / '+D.shopWinSlots(shop)+'）。':post+' · '+name(shop.roster[post])+'的卡；点已挂的卡可以取下。R +6%、SR +10%、SSR +15%，✦ 是作用对上这个岗再 +5%。'),h(StampShopFilters,{characters,cards:available,filter,noWho:page!=='window',fit:page==='window'?[]:(D.SHOP_BADGE_FIT[post]||[]),onChange:value=>{setFilter(value);if(page==='window')windowFilter.current=value;}}),
+    h('div',{style:box},...g.StampShop.sortedCards(available,selected,filter).map(c=>row(h(React.Fragment,null,h(ShopThumb,{card:c}),h('span',null,(selected.includes(c.id)?'已选 · ':'')+(c.text?.name||'一枚邮票'),h('small',{style:{display:'block',marginTop:4}},name(c.charId)+' · '+c.rarity+(page!=='window'&&D.shopBadgeFit(post,c)?' · ✦':'')))),()=>action(page==='window'?'window':'badge',page==='window'?{cardId:c.id}:{post,cardId:shop.badge[post]===c.id?'':c.id}),false,{key:c.id,'aria-pressed':selected.includes(c.id),style:{display:'flex',alignItems:'center',gap:10,borderColor:selected.includes(c.id)?'#719285':'#9f8e7144'}}))));
   }else if(page==='decor'){
    const month=new Date().getMonth()+1,names=D.SHOP.DECOR.map(d=>d.k).concat((D.SHOP.MONTHLY[month]||[]).map(x=>x[0]),shop.decor),all=[...new Set(names)];
    content=h('div',{style:box},h('p',{style:{fontSize:12,lineHeight:1.8}},shop.coins+' 枚邮花。买过的限定摆件过月也留着；每件最多翻新到三级。'),all.map(k=>{const d=D.shopDecorOf(k);if(!d)return null;const has=shop.decor.includes(k),lv=shop.decorLv[k]||1,cost=has?D.shopUpPrice(shop,k):d.price;return row(k+' · '+(has?'等级'+lv+' · '+(cost?'翻新 '+cost+' 枚':'已到顶'):'买下 '+cost+' 枚'),()=>action('decor',{name:k}),has&&!cost,{key:k,style:target.name===k?{borderColor:'#719285'}:{}});}));
-  }else if(page==='story')content=h('div',{style:box},h('p',{style:{fontSize:12,lineHeight:1.8}},'重演直接在店里看，正文按天留在集邮社文字版。'),h(StampShopStories,{shop,onReplay:onReplayClosing,reader:false}),row('去文字版读留底',onText));
+  }else if(page==='story')content=h('div',{style:box},h('p',{style:{fontSize:12,lineHeight:1.8}},'重演直接在店里看，正文按天留在集邮社文字版。'),h(StampShopStories,{shop,onReplay:onReplayClosing,reader:false}),h(StampShopNotes,{notes:shop.notes||[],name}),row('去文字版读留底',onText));
   else if(page==='guest')content=h('div',{style:box},shop.customers.map(c=>h('section',{key:c.id,style:{...box,padding:12,border:'1px solid #a28a6744',borderRadius:8}},h('strong',null,(c.visitor?name(c.charId):c.name||'寄信的客人')+(c.done?' · 已招待':'')),c.visitor?c.meet?.length?h(React.Fragment,null,row('在店里重演这段对话（不再调用）',()=>{onClose();onReplay(c.id);}),row('去文字版读原话',onText)):row('听 TA 跟店员说两句（花一次调用）',()=>action('meet',{id:c.id})):c.tough?row('去文字版打一局',onText,c.done):row(c.wantChar?'招待这位明信片客人':'招待',()=>action('serve',{id:c.id}),c.done))));
   else content=h('div',{style:box},h('p',{style:{fontSize:12,lineHeight:1.8}},'第 '+shop.day+' 天 · '+g.StampDuel.shopPeriod()+' · '+shop.coins+' 枚邮花。店里改的东西和集邮社同步。'),h('p',{style:{fontSize:11,lineHeight:1.7}},'窗外与绒绒小镇共用季节和每日景观天气；声音可在下面开关。'),
    row('店员排班与工牌',()=>change('staff')),row('橱窗里的卡',()=>change('window')),row('装修与翻新',()=>change('decor')),row('今天的客人',()=>change('guest')),
@@ -55,5 +59,5 @@
    h('div',{ref:scroll,onScroll:e=>{positions.current[page]=e.currentTarget.scrollTop;},className:'flex-1 min-h-0 overflow-y-auto',style:{padding:'14px 16px',fontFamily:F_BODY}},error&&h('p',{role:'alert',style:{fontSize:12,color:'#a44d36'}},error),busy&&h('p',{role:'status',style:{fontSize:12}},'正在处理，请稍等…'),content),
    h('div',{className:'shrink-0',style:{minHeight:56,padding:'6px 16px',paddingBottom:COMPOSER_PAD_BOTTOM,display:'flex',alignItems:'center',borderTop:'1px solid #a28a6744'}},row('回到店里',onClose)));
  }
- g.StampShopStories=StampShopStories;g.StampShopFilters=StampShopFilters;g.StampShopPanel=StampShopPanel;
+ g.StampShopNotes=StampShopNotes;g.StampShopStories=StampShopStories;g.StampShopFilters=StampShopFilters;g.StampShopPanel=StampShopPanel;
 })(window);

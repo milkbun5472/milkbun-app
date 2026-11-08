@@ -25,6 +25,7 @@ export function createShopFlow({onMeetEnd=()=>{},onEvent=()=>{}}={}){
  function clearSpeech(){for(const u of units.values())u.bubble=null;}
  function cancelIdle(){if(idlePair){for(const id of idlePair.ids){const u=staffById(id);if(u&&u.phase.startsWith('idle'))returnHome(u);}idlePair=null;}for(const u of staff())if(u.phase.startsWith('idle'))returnHome(u);}
  function reconcile(next){
+  if(next.closed||next.phase!=='open')cancelIdle();
   data=next;nav=shopNavigation(next.decor.some(d=>d.builder==='bench'));const wanted=new Set();let qi=0,vi=0;
   for(const source of next.staff){const k=key(source);wanted.add(k);let u=units.get(k);
    if(!u){const home={x:source.x,z:source.seatHeight?.15:source.z};u={key:k,...source,kind:'staff',position:{...home},phase:'working',path:[],arrived:true,heading:source.yaw,goal:home,seated:!!source.seatHeight,nextIdle:clock+8+staff().length*3};units.set(k,u);}

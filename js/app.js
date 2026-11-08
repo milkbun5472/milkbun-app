@@ -20,7 +20,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v89.302";
+const APP_VERSION = "v89.314";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -3945,11 +3945,10 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   // 穿着：不在代码里挡他换（她 2026-10-17「我就是不想挡着他换衣服 我只是嫌他该换不换」）。
   //   认下来的规矩照 putLiveField；cueText／force 留着给调用处，不再拿来拦。
   const putWearing = (patch, live, value, now) => putLiveField(patch, live, "wearing", value, now);
-  const clearWearingOnMove = (patch, live, hasWearing) => {
-    if (patch.place && live.place && !sameStateValue(patch.place, live.place) && !hasWearing) {
-      patch.wearing = null; patch.wearingUpdatedAt = 0;
-    }
-  };
+  // ⚠️换了地方不再把穿着清掉（群里 2026-11-08：同一场出门，外套灰的黑的来回换）。原来「换地方＝换场景，穿着转未知」，
+  //   出门在外一会儿店里一会儿街上，每挪一次衣服就被抹掉、下一拍再现编一身，编出来的跟上一身不一样，就成了来回换。
+  //   衣服跟着人走：真换了由模型那一拍写 wearing（线上出门／回家那条规矩照旧），18 小时时效兜着旧衣服不过夜。
+
   // 群文字、群线下、通话共用：无新心声清旧值，同轮已写的新心声不被后续空气泡抹掉。
   const thoughtTurnPatchFor = (cid, live, rawThought, now, seen) => {
     const thought = TVG.accept(rawThought);
@@ -4047,7 +4046,6 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       if (typeof value === "string" && value.trim() && value.trim().toLowerCase() !== "null") putLiveField(local, prev, key, value, ts);
     }
     putLiveCondition(local, prev, meta && meta.state ? meta.state.condition : undefined, ts);
-    clearWearingOnMove(local, prev, !!local.wearing);
     const newMood = meta && meta.mood || "";
     const moodPatch = newMood && newMood !== prev.mood ? { mood: newMood, moodTs: ts } : { mood: prev.mood || newMood, moodTs: prev.moodTs || (newMood ? ts : 0) };
     const next = clean
@@ -11489,7 +11487,9 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       const _c = characters.find(c => c.id === charId);
       if (_c && sleepPhaseOf(_c) === "asleep") return false;
     }
-    if ((blocksRef.current[charId] || {}).deleted) {
+    const _bkD = blocksRef.current[charId] || {};
+    if (_bkD.theyBlocked && _bkD.cut === "del" && opts && opts.proactive) return typeof bgJob === "function" ? bgJob("proactive", characters.find(c => c.id === charId), () => sendFriendReq(charId)) : sendFriendReq(charId);
+    if (_bkD.deleted) {
       if (opts && opts.proactive) return typeof bgJob === "function" ? bgJob("proactive", characters.find(c => c.id === charId), () => sendFriendReq(charId)) : sendFriendReq(charId);
       toast("你已经删了 TA，先加回好友才能聊"); return false;
     }
@@ -11856,7 +11856,9 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   //   跟她用别的面具聊的人加的是另一个「她」，刷不到这一条。原来 TA 想起朋友圈时连「部分可见」的名单都没看
   // 按面具发朋友圈（她 2026-10-11）：m.mask 是这条用哪张面具发的（主面具不记）。没挑「谁可以看」时，跟她用同一张面具聊的人刷得到
   // 她手机上被删了好友／拉黑的那位（x_peekCut）刷不到她的朋友圈，跟真微信一样（群友 2026-10-22：TA 果断删了人，朋友圈里那人还跟她互动得很好）
-  const momSeen = (m, charId) => !!m && !!m.mine && !((window.__peekCut || {})[charId]) && !(m.hiddenFrom || []).includes(String(charId)) && ((m.remind || []).includes(charId) || (m.visibleTo && m.visibleTo.length ? m.visibleTo.includes(charId) : maskKeyOf(charId) === String(m.mask || "")));
+  // 你们之间有一方删了好友（她删了他，或者他删了她）：朋友圈互相看不到（她 2026-11-08）
+  const friendCut = id => { const b = (blocksRef.current || {})[id] || {}; return !!(b.deleted || (b.theyBlocked && b.cut === "del")); };
+  const momSeen = (m, charId) => !!m && !!m.mine && !friendCut(charId) && !((window.__peekCut || {})[charId]) && !(m.hiddenFrom || []).includes(String(charId)) && ((m.remind || []).includes(charId) || (m.visibleTo && m.visibleTo.length ? m.visibleTo.includes(charId) : maskKeyOf(charId) === String(m.mask || "")));
   // 发朋友圈那页挑面具用：主面具一张 + 其余几张（跟论坛挑面具同一份名单）；发出来的那条显示用哪张的名字和头像
   window.__momentMasks = () => [{ id: "", name: profile.name || "主面具", avatarImage: profile.avatarImage, color: profile.color }]
     .concat((masks || []).filter(m => m && m.id && m.id !== maskPrimary).map(m => ({ id: m.id, name: String(m.name || "").trim() || "没起名的面具", avatarImage: m.avatarImage, color: m.color })));
@@ -12107,9 +12109,12 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
                 + (d.missed ? "写那天晚上他们自己关店的一小段：" : "现在打烊了。写打烊时店里的一小段：") + "今天上班的这几个人各自怎么样、彼此说了什么、谁累了、谁跟谁拌了两句或者帮了一把、有没有给她留什么话或东西；橱窗里的卡、挂着的工牌可以写进去（有人瞄了一眼自己那张、客人指着哪张问），写到卡上的那一刻要照上面写的。每个人照各自的人设说话做事，你写的时候把他们都写进去，不只写你自己；写正在发生的这一段，有动作有对话，别写成总结。"
               : (d.visitor || "一位客人") + "今天来店里寄东西，正好碰上在" + (d.post || "柜台") + "上班的" + (d.staffName || "店员") + "。\n写他们俩在店里碰上的这一小段：照两个人各自的人设和他们之间的关系，有对话，几段就够；" + uN + "在旁边。")
             + "\n当场参与者的身份与完整人设：\n"+cast
-            + "\nlines 按正文发生的顺序逐句保存，每项 text 是原文；speakerId 是说话人的角色 id，旁白留空。actorId 是这一句正在做动作的角色 id，targetId 是动作朝向的同场角色 id；只使用上面参与者的 id。action 可用 talk（面对对方说话）、tidy（回岗位收拾）、letter（拿起信件）、look（走到橱窗看卡）、rest（到窗边歇脚）、help（走近另一位店员搭手）；其他动作照写进正文，由场景做一般交谈表现。动作字段配合你写出的内容。",
-          schemaHint: "{\"lines\":[{\"speakerId\":\"角色id或空\",\"actorId\":\"角色id或空\",\"targetId\":\"角色id或空\",\"action\":\"动作标识\",\"text\":\"正文原句\"}]}" });
-        return (Array.isArray(r && r.lines) ? r.lines : [r && r.lines]).map(x => typeof x==="string"?{speakerId:null,text:x}:{speakerId:x?.speakerId||null,actorId:x?.actorId||null,targetId:x?.targetId||null,action:x?.action||"talk",text:String(x?.text||"")}).filter(x=>x.text.trim());
+            + "\nlines 按正文发生的顺序逐句保存，每项 text 是原文；speakerId 是说话人的角色 id，旁白留空。actorId 是这一句正在做动作的角色 id，targetId 是动作朝向的同场角色 id；只使用上面参与者的 id。action 可用 talk（面对对方说话）、tidy（回岗位收拾）、letter（拿起信件）、look（走到橱窗看卡）、rest（到窗边歇脚）、help（走近另一位店员搭手）；其他动作照写进正文，由场景做一般交谈表现。动作字段配合你写出的内容。" + (close?"\nnotes 是今天上班的每个人下班前在柜台留给" + uN + "的一张便条，一人一张：speakerId 写这个人的角色 id（" + (d.staffIds || []).join("、") + "），text 是他自己写的一两句，照他的人设和写字的样子，写今天店里他记得的一件小事或想跟她说的话。":""),
+          schemaHint: JSON.stringify({lines:[{speakerId:"角色id或空",actorId:"角色id或空",targetId:"角色id或空",action:"动作标识",text:"正文原句"}],...(close?{notes:[{speakerId:"角色id",text:"便条"}]}:{})}) });
+        const notesOf = () => (Array.isArray(r && r.notes) ? r.notes : []).map(x => ({ speakerId: (d.staffIds || []).map(String).includes(String(x && x.speakerId)) ? String(x.speakerId) : null, text: String((x && x.text) || "").trim() })).filter(x => x.speakerId && x.text).slice(0, 4);
+        const rowsOut = (Array.isArray(r && r.lines) ? r.lines : [r && r.lines]).map(x => typeof x==="string"?{speakerId:null,text:x}:{speakerId:x?.speakerId||null,actorId:x?.actorId||null,targetId:x?.targetId||null,action:x?.action||"talk",text:String(x?.text||"")}).filter(x=>x.text.trim());
+        if (close) rowsOut.notes = notesOf();
+        return rowsOut;
   };
   const openStamps = target => window.StampNavigation.open(target, setScreen);
   const goDuel = (charId, m) => {
@@ -12826,6 +12831,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       const _harsh = /滚|分手|去死|恶心|讨厌你|烦你|闭嘴|傻|蠢|骗子|渣男|渣女|贱|婊|操你|草你|艹|恨你|出轨|劈腿|备胎|玩玩而已|绿了|绿我/.test(recentUserText);
       const blockHint = (_moodNeg || aff < 70 || _landmine || _harsh)
         ? "\n【block 拉黑】仅当此刻用户踩中你雷点/说错话、让你以你的人设真的动了「拉黑」的念头，才 block:true 并在 blockreason 写一句原因——极罕见、要有充分理由；否则 block:false、blockreason:null。"
+          + "删好友是比拉黑更重的那一下：你们不再是好友，朋友圈互相看不到，她要回来得发好友申请等你通过。真到了那一步，block:true 之外再写 unfriend:true。"
         : "";
       // 时间流逝以「角色上次开口」为基准算间隔（用户回来连发几条也算得准，不会被自己刚发的消息归零）
       const localLastAsstTs = (function () { for (let i = history.length - 1; i >= 0; i--) { if (history[i].role === "assistant") return history[i].ts || 0; } return 0; })();
@@ -14874,8 +14880,10 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       if (parsed.block === true) {
         // 拉黑的【原因和时刻】必须留下来：解除判定要拿它当尺子，
         // 以前只存了个 true，判词只能空对空地"看你诚不诚恳"（她 2026-08-20 说太容易解除）
-        setBlockFor(chatKey, { theyBlocked: true, reason: String(parsed.blockreason || "").trim(), blockedTs: Date.now(), tries: 0 });
-        pChat(chatKey, p => [...p, { role: "system", kind: "system", content: "TA 把你拉黑了" + (parsed.blockreason ? "：" + parsed.blockreason : ""), sub: "block", ts: Date.now() }]);
+        // unfriend：他把她删了好友（她 2026-11-08）——拉黑那一套照用（她的消息送不到、点 ! 去求），只是求的是好友申请，朋友圈也互相看不到
+        const _cut = parsed.unfriend === true && !sideRoom;
+        setBlockFor(chatKey, { theyBlocked: true, cut: _cut ? "del" : "", reason: String(parsed.blockreason || "").trim(), blockedTs: Date.now(), tries: 0 });
+        pChat(chatKey, p => [...p, { role: "system", kind: "system", content: (_cut ? "TA 把你删了" : "TA 把你拉黑了") + (parsed.blockreason ? "：" + parsed.blockreason : ""), sub: "block", ts: Date.now() }]);
         delivered = true;
       }
       // TA 说要去补朋友圈评论 → 真的发到我最新那条朋友圈下
@@ -15189,9 +15197,6 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         else { st.action = null; st.actionUpdatedAt = 0; }
       }
       putLiveField(st, _live0, "place", parsed.place, stateNow);
-      // 换了地方＝换了场景:穿着降级为「不知道」。不是恢复旧值,也不是替TA编一套,
-      // 而是下一轮据当下场景重新确立(场景域字段的生命周期,Codex 2026-08-18)。
-      clearWearingOnMove(st, _live0, parsed.wearing);
       putLiveCondition(st, _live0, parsed.condition, stateNow, true);
       // 线上是「有新的才覆盖」(与线下的每轮自清相反)。给它加两道时效:自己的时间戳,
       // 以及连续 N 轮没有新心声就判过期——否则守卫拒一次就永远挂着旧念头。
@@ -18451,7 +18456,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     } else if (cur.iBlocked || cur.theyBlocked) {
       // 刚刚解除的这一次：落墓碑
       n[charId] = { endedTs: Date.now(), sinceTs: Number(cur.blockedTs) || 0,
-        by: cur.theyBlocked ? "char" : "me", reason: String(cur.reason || "").slice(0, 60) };
+        by: cur.theyBlocked ? "char" : "me", cut: cur.theyBlocked && cur.cut === "del" ? "del" : "", reason: String(cur.reason || "").slice(0, 60) };
     } else if (cur.endedTs && Date.now() - Number(cur.endedTs) < BLOCK_TOMB_KEEP_MS) n[charId] = cur;
     else delete n[charId];
     saveJSON("x_blocks", n);
@@ -18476,7 +18481,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     const reqLine = rs => { const a = rs || []; if (!a.length) return ""; const no = a.filter(r => r.status === "no").length, alt = a.filter(r => r.alt).map(r => "「" + r.alt + "」");
       return "你发过 " + a.length + " 次好友申请" + (no ? "，被她拒了 " + no + " 次" : "") + (alt.length ? "，其中用小号 " + [...new Set(alt)].join("、") + " 加过" : "") + "。"; };
     if (b.deleted) return "【她把你删了好友】" + (b.deletedTs ? "到现在" + gap(b.deletedTs) + "。" : "")
-      + "你们现在不是好友，你发不了消息给她，只能发好友申请等她通过。" + reqLine(b.reqs);
+      + "你们现在不是好友，你发不了消息给她，只能发好友申请等她通过。" + reqLine(b.reqs)
+      + (b.lastWords ? "\n她删你之前，你们最后说的是：\n" + b.lastWords : "");
     if (b.by === "del" && b.endedTs && now - Number(b.endedTs) < BLOCK_TOMB_KEEP_MS) {
       const last = (b.reqs || []).filter(r => r.status === "yes").slice(-1)[0];
       return "【你们前不久刚加回好友】" + gap(b.endedTs) + "前" + (last ? "她通过了你的好友申请" + (last.alt ? "——通过的是你的小号「" + last.alt + "」，她点通过的时候未必知道是你" : "") : "她把你加了回来")
@@ -18485,6 +18491,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     }
     if (b.iBlocked) return "【她把你拉黑了】" + (b.blockedTs ? "到现在" + gap(b.blockedTs) + "。" : "")
       + "你在这间私聊里发出去的消息 Ta 暂时收不到，而你知道自己被拉黑了。";
+    if (b.theyBlocked && b.cut === "del") return "【你把 Ta 删了好友】" + (b.blockedTs ? "到现在" + gap(b.blockedTs) + "。" : "")
+      + (b.reason ? "当初是因为：" + b.reason + "。" : "") + "你们现在不是好友，朋友圈互相看不到；Ta 要回来，得发好友申请等你通过。";
     if (b.theyBlocked) return "【你把 Ta 拉黑了】" + (b.blockedTs ? "到现在" + gap(b.blockedTs) + "。" : "")
       + (b.reason ? "当初是因为：" + b.reason + "。" : "") + "Ta 发来的消息你能看见，但你们还没和好。";
     if (!b.endedTs || now - Number(b.endedTs) >= BLOCK_TOMB_KEEP_MS) return "";
@@ -18495,8 +18503,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       if (!from) return 0;
       return rows.filter(m => m && m.role === "assistant" && !m.recalled && (m.ts || 0) >= from && (m.ts || 0) <= to).length;
     })();
-    return "【你们前不久刚解除拉黑】" + gap(b.endedTs) + "前解的"
-      + (b.sinceTs ? "；在那之前" + (b.by === "char" ? "你把 Ta 拉黑了" : "Ta 把你拉黑了") + gap(b.sinceTs) : "")
+    return (b.cut === "del" ? "【你前不久通过了 Ta 的好友申请，你们又是好友了】" : "【你们前不久刚解除拉黑】") + gap(b.endedTs) + "前解的"
+      + (b.sinceTs ? "；在那之前" + (b.by === "char" ? (b.cut === "del" ? "你把 Ta 删了好友" : "你把 Ta 拉黑了") : "Ta 把你拉黑了") + gap(b.sinceTs) : "")
       + "。" + (b.by === "me" && unsent > 1 ? "那几天你一个人发了 " + unsent + " 条 Ta 收不到的消息——那些话你说过，Ta 现在也看得见了。" : "")
       + "**这件事真的发生过，别当没发生过、也别停在拉黑之前的状态**；但也别一开口就翻旧账，多数时候它只是你们之间刚过去的一道坎。";
   };
@@ -18634,8 +18642,17 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   //   被拒了要不要换小号来加、换成什么样，照他这个人定。申请在 消息 → 通讯录 →「新的朋友」里
   const toggleDeleteFriend = charId => {
     const cur = blocksRef.current[charId] || {};
-    if (cur.deleted) { setBlockFor(charId, { deleted: false }); pChat(charId, p => [...p, { role: "system", kind: "system", content: "你把 TA 加回了好友", sub: "block", ts: Date.now() }]); toast("加回好友了"); return; }
-    setBlockFor(charId, { deleted: true, deletedTs: Date.now(), reqs: [] });
+    if (cur.deleted) {
+      setBlockFor(charId, { deleted: false });
+      pChat(charId, p => [...p, { role: "system", kind: "system", content: "你把 TA 加回了好友", sub: "block", ts: Date.now() }]);
+      try { addMemEntry({ text: userName(profile) + "删了我好友以后，又自己把我加了回来", tags: ["删好友"], charIds: [charId], knownBy: [charId], source: "auto" }); } catch (e) {}
+      toast("加回好友了"); return;
+    }
+    // 删之前最后那几句（她 2026-11-08：「就是让他知道因为什么删了」）：她删的时候不写理由，这几句就是他能看到的来由
+    const _uN = userName(profile), _cN = (characters.find(x => x.id === charId) || {}).name || "你";
+    const lastWords = (chatsRef.current[charId] || []).filter(m => m && !m.recalled && (m.role === "user" || m.role === "assistant") && typeof m.content === "string" && m.content.trim() && !isOocMsg(m))
+      .slice(-6).map(m => (m.role === "user" ? _uN : _cN) + "：" + m.content.replace(/\s+/g, " ").slice(0, 60)).join("\n");
+    setBlockFor(charId, { deleted: true, deletedTs: Date.now(), reqs: [], lastWords });
     pChat(charId, p => [...p, { role: "system", kind: "system", content: "你删除了好友 TA", sub: "block", ts: Date.now() }]);
     try { addMemEntry({ text: userName(profile) + "把我删了好友", tags: ["删好友"], charIds: [charId], knownBy: [charId], source: "auto" }); } catch (e) {}
     toast("删掉了。TA 发不了消息，想你了会来加你");
@@ -18644,7 +18661,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   const sendFriendReq = async charId => {
     const b = blocksRef.current[charId] || {};
     const c = characters.find(x => x.id === charId);
-    if (!b.deleted || !c) return false;
+    const mine = !!(b.theyBlocked && b.cut === "del");   // 他自己删的她，现在想回来
+    if ((!b.deleted && !mine) || !c) return false;
     if (!autoRefreshOn("proactive", charId)) return false;   // 主动私聊给他关着，就不来加
     const reqs = b.reqs || [];
     if (reqs.some(r => r.status === "pending")) return false;
@@ -18654,15 +18672,18 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     const hist = reqs.map((r, i) => (i + 1) + ". " + (r.alt ? "用小号「" + r.alt + "」" : "用自己的号") + "，验证语「" + r.note + "」，她" + (r.status === "no" ? "拒了" : "还没处理")).join("\n");
     try {
       const d = await runProbe(apiFor(charId), ctxFor(c), { voice: true, tag: "friendreq",
-        instruction: "【此刻】" + uName + " 把你删了好友，你们现在不是好友，你发不了消息给她。你想她了，能做的是发一条好友申请：写一句验证语（她在「新的朋友」里看到的就是这一句），她点通过才能接着聊。"
-          + (hist ? "\n你之前发过的申请：\n" + hist : "")
-          + "\n用自己的号发，还是换一个小号（新网名，她一开始不一定认得出是你）来加，照你这个人和这几次的情形来定；这一次也可以不发。"
+        instruction: (mine
+            ? "【此刻】你之前把 " + uName + " 删了好友" + (b.reason ? "（当时是因为：" + b.reason + "）" : "") + "。现在你想回头加她吗？要加就发一条好友申请：写一句验证语（她在「新的朋友」里看到的就是这一句），她点通过才算加回来。"
+              + (hist ? "\n你之前发过的申请：\n" + hist : "") + "\n这一次加不加照你这个人来；不加就 send:false。"
+            : "【此刻】" + uName + " 把你删了好友，你们现在不是好友，你发不了消息给她。你想她了，能做的是发一条好友申请：写一句验证语（她在「新的朋友」里看到的就是这一句），她点通过才能接着聊。"
+              + (hist ? "\n你之前发过的申请：\n" + hist : "")
+              + "\n用自己的号发，还是换一个小号（新网名，她一开始不一定认得出是你）来加，照你这个人和这几次的情形来定；这一次也可以不发。")
           + "用小号的话 alt 写那个小号的网名，验证语也照小号的口吻写；用自己的号 alt 留空。",
         schemaHint: "{\"send\":true,\"alt\":\"\",\"note\":\"验证语\"}", maxTokens: 8000 });
       if (!d || d.send === false) return false;
       const note = String(d.note || "").trim().slice(0, 60);
       if (!note) return false;
-      const alt = String(d.alt || "").trim().slice(0, 16);
+      const alt = mine ? "" : String(d.alt || "").trim().slice(0, 16);
       const req = { id: "fr_" + Date.now(), ts: Date.now(), note, alt: alt || "", status: "pending" };
       setBlockFor(charId, { reqs: [...(blocksRef.current[charId] || {}).reqs || [], req].slice(-12) });
       toast("新的朋友：" + (alt || c.remark || c.name) + " 请求添加你为好友", 6000);
@@ -18672,18 +18693,19 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   const answerFriendReq = (charId, reqId, yes) => {
     const b = blocksRef.current[charId] || {};
     const req = (b.reqs || []).find(r => r.id === reqId);
-    if (!b.deleted || !req || req.status !== "pending") return;
+    const mine = !!(b.theyBlocked && b.cut === "del");
+    if ((!b.deleted && !mine) || !req || req.status !== "pending") return;
     const reqs = (b.reqs || []).map(r => r.id === reqId ? { ...r, status: yes ? "yes" : "no", at: Date.now() } : r);
     const who = req.alt ? "小号「" + req.alt + "」" : "自己的号";
     if (yes) {
       setBlockFor(charId, { reqs });
-      setBlockFor(charId, { deleted: false });
+      setBlockFor(charId, mine ? { theyBlocked: false } : { deleted: false });
       pChat(charId, p => [...p, { role: "system", kind: "system", content: "你通过了" + (req.alt ? "「" + req.alt + "」（是 TA）" : " TA ") + "的好友申请", sub: "block", ts: Date.now() }]);
-      try { addMemEntry({ text: "被" + userName(profile) + "删了以后，用" + who + "发好友申请，她通过了", tags: ["删好友"], charIds: [charId], knownBy: [charId], source: "auto" }); } catch (e) {}
+      try { addMemEntry({ text: (mine ? "删了" + userName(profile) + "以后，我自己回头" : "被" + userName(profile) + "删了以后，") + "用" + who + "发好友申请，她通过了", tags: ["删好友"], charIds: [charId], knownBy: [charId], source: "auto" }); } catch (e) {}
       toast("加上了");
     } else {
       setBlockFor(charId, { reqs });
-      try { addMemEntry({ text: "被" + userName(profile) + "删了以后，用" + who + "发好友申请，被她拒了", tags: ["删好友"], charIds: [charId], knownBy: [charId], source: "auto" }); } catch (e) {}
+      try { addMemEntry({ text: (mine ? "删了" + userName(profile) + "以后，我自己回头" : "被" + userName(profile) + "删了以后，") + "用" + who + "发好友申请，被她拒了", tags: ["删好友"], charIds: [charId], knownBy: [charId], source: "auto" }); } catch (e) {}
       toast("拒绝了");
     }
   };
@@ -18877,7 +18899,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     const hoursSince = bk.blockedTs ? Math.floor((Date.now() - Number(bk.blockedTs)) / 3600000) : null;
     // 重试：原来那张卡翻回「等待回应」，不另起一张；失败的那次不算求过（pastPleas 只看有回音的）
     if (retryCid) pChat(chatKey, p => p.map(m => m.cid === retryCid ? { ...m, status: "pending", retryTs: Date.now() } : m));
-    else pChat(chatKey, p => [...p, { role: "user", kind: "unblock_req", from: "me", cid, status: "pending", content: "[解除拉黑申请] " + (pleaText || ""), plea: pleaText || "", ts: Date.now(), read: true }]);
+    else pChat(chatKey, p => [...p, { role: "user", kind: "unblock_req", from: "me", cid, status: "pending", content: (bk.cut === "del" ? "[好友申请] " : "[解除拉黑申请] ") + (pleaText || ""), plea: pleaText || "", ts: Date.now(), read: true }]);
     const failCard = () => pChat(chatKey, p => p.map(m => m.cid === cid && m.status === "pending" ? { ...m, status: "failed" } : m));
     // 地板（v74.732，群里 2026-10-02 报「点了 20 多条解除申请，一直不同意」）：
     //   接不接受原来全交给模型，而它每次都看得见前面一长串「你拒了」，越拒越顺——这条路就成了死路。
@@ -18892,7 +18914,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       // 线上语域那一层（她 2026-10-20 小号房截图：他回她的解除申请全是一整段书面训话）——
       //   blockedReaction 早接上了 onlineRegisterLayer()，这条并排的链一直没跟上。
       //   情侣邀请 / 解除情侣 / 代付 / 亲属卡那几处「用即时通讯口吻回几句」同病，一起接上。
-      const head = blockBundleFor(char, chatKey) + "\n\n" + onlineRegisterLayer() + "\n\n【场景】你之前把用户拉黑了。现在用户发来一条『解除拉黑申请』，诉说内容：「" + (pleaText || "（没说什么）") + "」。"
+      const head = blockBundleFor(char, chatKey) + "\n\n" + onlineRegisterLayer() + "\n\n【场景】" + (bk.cut === "del" ? "你之前把用户删了好友。现在用户发来一条好友申请，验证语是：「" : "你之前把用户拉黑了。现在用户发来一条『解除拉黑申请』，诉说内容：「") + (pleaText || "（没说什么）") + "」。"
         + (bk.reason ? "\n【你当初为什么拉黑】" + bk.reason : "")
         + (hoursSince != null ? "\n【拉黑到现在过了】约 " + hoursSince + " 小时" : "")
         + "\n【这是 TA 第 " + tries + " 次来求你】" + (pastPleas.length > 1 ? "\n之前说过：\n" + pastPleas.slice(0, -1).join("\n") : "");
@@ -18916,7 +18938,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       const r = floor ? { ...r0, accept: true } : r0;
       pChat(chatKey, p => p.map(m => m.cid === cid ? { ...m, status: r.accept ? "accepted" : "declined" } : m));
       const says = r.say;
-      if (r.accept) { setBlockFor(chatKey, { theyBlocked: false }); toast("TA 接受了，解除拉黑"); }
+      if (r.accept) { setBlockFor(chatKey, { theyBlocked: false }); toast(bk.cut === "del" ? "TA 通过了你的好友申请" : "TA 接受了，解除拉黑"); }
       else { setBlockFor(chatKey, { tries: tries }); toast("TA 拒绝了，可继续尝试"); }
       // 回应挂在这次申请上：对它重 Roll 时认得出是「回申请」，不是一轮普通聊天
       queueUnblockSpeech(chatKey, says, 300, charId, false, { unblockOf: cid, turnId: "ub_" + cid });
@@ -20954,6 +20976,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     if (direct.length) {
       const messages = direct.map(m => ({ from: m.role === "user" ? meName : char.name, avatarImage: m.role === "user" ? profile.avatarImage : char.avatarImage, text: String(m.content || "[照片] " + (m.desc || "")), ts: m.ts || 0, ...(richOf(m) || {}) }));
       const last = messages[messages.length - 1];
+      // 删着好友（她 2026-11-08）：他手机上跟她那段的最后一行灰字，跟真微信一样
+      if (friendCut(char.id)) { const _b = blocksRef.current[char.id] || {}; messages.push({ kind: "sysline", from: "", text: _b.deleted ? "对方已将你删除" : "你已删除对方", ts: Date.now() }); }
       sessions.push({ id: "actual:private:" + char.id, type: "private", name: meName, avatarImage: char.myChatAvatar || profile.avatarImage, time: stamp(last.ts), last: last.text, ts: last.ts, messages });   // 情头给你的那张跟着进他手机
     }
     for (const group of groups) {
@@ -22720,7 +22744,6 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
             if (v && v.toLowerCase() !== "null") putLiveField(st, liveState, k, v, now);
           });
           putLiveCondition(st, liveState, d.condition, now);
-          clearWearingOnMove(st, liveState, st.wearing);
           if (!cur.room) {
             Object.assign(st, thoughtTurnPatchFor(cid, liveState, d.thought, now, callThoughtDone));
           }
@@ -34183,6 +34206,9 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     onBack: () => setScreen("messages"),
     onSend: txt => {
       if ((blocksRef.current[activeChar.id] || {}).deleted) { toast("你已经删了 TA，先加回好友才能发消息"); return; }
+      { const _b = blocksRef.current[activeChar.id] || {};
+        if (_b.theyBlocked && _b.cut === "del" && !(chatsRef.current[activeChar.id] || []).some(m => m && m.sub === "frverify" && (m.ts || 0) >= (_b.blockedTs || 0)))
+          setTimeout(() => pChat(activeChar.id, p => [...p, { role: "system", kind: "system", sub: "frverify", content: "对方开启了朋友验证，你还不是 TA 的朋友。点消息旁的「!」发送好友申请。", ts: Date.now() }]), 50); }
       gachaEarn(activeChar.id, "chat");
       pushUser(activeChar.id, txt, window.ChatRooms ? window.ChatRooms.chatKey(activeChar.id, activeRoomId) : activeChar.id);
       // 书房直通（她 2026-09-25 拍板）：言秋房的话默认投去 CC 老窗口，回复走账本流回来。
@@ -34747,13 +34773,13 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     // 配角只有一张脸（她 2026-10-05 转群里：「和生成的 NPC 聊天，里面头像可以换，外面的不行」）：
     //   配角没有档案页，聊天里换的是 chatAvatar、通讯录这儿换的是 avatarImage，两张各管各的，
     //   而聊天里永远是 chatAvatar 赢——外面换了里面看不见。这儿换就两张一起换。
-    friendReqs: Object.keys(blocks || {}).flatMap(id => { const b = blocks[id] || {}; const c = characters.find(x => x.id === id); return b.deleted && c ? (b.reqs || []).map(r => ({ ...r, charId: id, char: c })) : []; }).sort((a, b) => b.ts - a.ts),
+    friendReqs: Object.keys(blocks || {}).flatMap(id => { const b = blocks[id] || {}; const c = characters.find(x => x.id === id); return (b.deleted || (b.theyBlocked && b.cut === "del")) && c ? (b.reqs || []).map(r => ({ ...r, charId: id, char: c })) : []; }).sort((a, b) => b.ts - a.ts),
     onFriendReq: (charId, reqId, yes) => answerFriendReq(charId, reqId, yes),
     onSaveNpcAvatar: (id, img) => { pC(p => p.map(c => c.id === id && c.npc ? { ...c, avatarImage: img || null, chatAvatar: null } : c)); toast(img ? "换好了" : "已清掉头像"); },
     groups: groups,
     chats: chats,
     groupChats: groupChats,
-    moments: moments,
+    moments: moments.filter(m => !m.characterId || !friendCut(m.characterId)),   // 删了好友的那一方，朋友圈互相看不到
     profile: profile,
     unreadMap: unreadMap,
     offlineLastTs: (() => { const m = { ...offlineTsRef.current }; const scan = store => { Object.keys(store || {}).forEach(id => { let t = 0; (store[id] || []).forEach(s => { const ms = s.msgs || []; const lt = ms.length ? (ms[ms.length - 1].ts || 0) : 0; if (lt > t) t = lt; }); m[id] = t; }); }; scan(offlines); scan(groupOfflines); return m; })(), // 线下最后一条时间(每场取末条)，供聊天列表排序（线下冒泡也顶上来）。base=开机种子(兜懒加载没灌的)，state 扫描覆盖已打开的（含删空→0）
@@ -34810,7 +34836,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     character: momTarget && !momTarget.isMe ? characters.find(c => c.id === momTarget.id) : null,
     profile: profile,
     characters: liveChars,
-    moments: moments,
+    moments: moments.filter(m => !m.characterId || !friendCut(m.characterId)),   // 删了好友的那一方，朋友圈互相看不到
     cover: (momTarget && momTarget.isMe) ? momentsCover.me : (momTarget ? momentsCover[momTarget.id] : ""),
     // 朋友圈的签名和封面接【查手机·微信】那份（她 2026-09-03）。
     // 原来接的是匿名信箱的 bio——那是TA在树洞里挂的马甲，跟朋友圈根本不是一个身份，
@@ -36320,6 +36346,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         const r = await runProbe(apiFor(char.id), ctxFor(char), { voice: true, tag: keep ? "stampkeep" : "stamptrinket", maxTokens: 8000,
           instruction: (keep
               ? "你正和" + uN + "玩邮票册里的卡牌小游戏。她一路攒了几样材料：" + (d.mats || []).join("、") + "，交给你，请你用它们做一件只属于你们俩的信物，以后她打牌时带在身上。材料是做它的料，可以拆开、拼起来、变个样子，不必照字面用。\n"
+              : d.pact ? "你和" + uN + "这周在邮票册的集邮社里约好了一件事：「" + d.pact + "」。她做到了。你给她留了一样跟你有关的小东西，夹着一封短信。story 写成这封短信，几句话，用你写信的样子；say 是你把它交给她时说的话。\n"
               : "你刚陪" + uN + "玩了一会儿邮票册里的卡牌小游戏，她拆开了你留给她的一个小包裹。包裹里是一样跟你有关的小东西。\n")
             + "这件东西要从你的人设、或者你们真的聊过、你记得的事里来（上面的人设、记忆和聊天里有）；没发生过的事别编。\n"
             + prevLine
@@ -36333,7 +36360,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         const name = String((r && r.name) || "").trim(); if (!name) return null;
         const out = { name, story: String(r.story || "").trim(), say: String(r.say || "").trim(), gist: String(r.gist || "").trim() };
         if (keep) out.fx = fxList.includes(r.fx) ? r.fx : fxList[0];
-        try { addMemEntry({ text: keep ? char.name + "用" + uN + "攒的材料（" + (d.mats || []).join("、") + "）给她做了一件信物「" + name + "」：" + out.story : char.name + "留给" + uN + "一样小东西「" + name + "」，她在邮票对战里拆开了：" + out.story, tags: ["邮票对局", keep ? "信物" : "小物"], charIds: [char.id], knownBy: [char.id], source: "stamps" }); } catch (e) {}
+        // 每周约定的信只留在集邮社（她 2026-11-08「不要这种会带入聊天的」）：不进记忆
+        if (!d.pact) try { addMemEntry({ text: keep ? char.name + "用" + uN + "攒的材料（" + (d.mats || []).join("、") + "）给她做了一件信物「" + name + "」：" + out.story : char.name + "留给" + uN + "一样小东西「" + name + "」，她在邮票对战里拆开了：" + out.story, tags: ["邮票对局", keep ? "信物" : "小物"], charIds: [char.id], knownBy: [char.id], source: "stamps" }); } catch (e) {}
         return out;
       }
       const r = await runProbe(apiFor(char.id), ctxFor(char), { voice: true, tag: "stampduel", maxTokens: 8000,

@@ -1496,6 +1496,8 @@ function WeChatViewFull({ d, char, t, profile, onBack, onRefresh, refreshing, dr
         onClick: () => isGone(th.name) ? (onDissolve(char, th.name, true), bumpDel(x => x + 1))
           : requestAppConfirm("解散这个群？", "以 " + char.name + " 的名义解散「" + th.name + "」。聊天记录还在，这里随时能恢复；" + char.name + " 下次说话时会发现。", () => { onDissolve(char, th.name, false); bumpDel(x => x + 1); }, "解散") },
         isGone(th.name) ? "恢复" : "解散这个群")) : null,h("div", { ref: threadRef, "data-wk": "pdetail", "data-watch": "thread", className: "flex-1 min-h-0 overflow-y-auto px-3 py-4 space-y-4" }, arr(th.messages).concat(driveSent).map((m, i) => {
+    // 一行灰字（删好友那种）：不是谁说的话，居中摆着
+    if (m.kind === "sysline") return h("div", { key: "sl" + i, "data-wk": "psysline", style: { textAlign: "center", fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: "#9a9a9a" } }, m.text);
     const self = selfNames.has(m.from);
     // 表情包不套气泡：真微信里表情就是光秃秃一张图（走公共那份 EmoteBubble，
     // 跟主聊天同一颗——她 2026-09-15 要的「渲染成聊天真发了的表情包」）

@@ -69,6 +69,7 @@
     // x：这一把的结果 { win, siege, tier, edict, pts, raid, endless, dealt, turn, run, level }；返回这次拿到的几样
     settle: x => {
       const C = window.StampsCore; if (!C) return [];
+      try { Pact.add(x); } catch (e) {}
       const r = Rewards.got(), out = []; let ink = 0, post = 0;
       const today = new Date().toISOString().slice(0, 10);
       if (x.win && r.day !== today) { r.day = today; ink += DAILY.ink; post += DAILY.postage; out.push("今天第一次赢：" + DAILY.ink + " 印泥、" + DAILY.postage + " 邮资"); }
@@ -76,6 +77,32 @@
       if (ink || post) { try { const st = C.load(); st.ink += ink; st.postage += post; C.save(st); } catch (e) {} sv(REWARD_KEY, r); }
       return out;
     }
+  };
+  // 每周约定（她 2026-11-08「互动感强一点」）：每周陪打的那个人在集邮社首页提一个小目标，进度从各玩法打完的结果里攒；
+  //   做到了点一下，TA 写一封短信、留一样东西进小物册（花一次调用）。只在集邮社里，不进记忆、不进聊天
+  const PACT_KEY = "x_stampPact";
+  const PACT_GOALS = [
+    { id: "win", n: 6, zh: n => "这周一起赢 " + n + " 把（什么玩法都算）", add: x => x.win ? 1 : 0 },
+    { id: "puzzle", n: 4, zh: n => "这周解开 " + n + " 道残局", add: x => x.puzzle && x.win ? 1 : 0 },
+    { id: "siege", n: 2, zh: n => "守城守住 " + n + " 回", add: x => x.siege && x.win ? 1 : 0 },
+    { id: "raid", n: 400, zh: n => "讨伐一共打出 " + n + " 伤害", add: x => x.raid ? (x.dealt || 0) : 0 },
+    { id: "patrol", n: 40, zh: n => "巡查一共拿 " + n + " 分", add: x => x.patrol ? (x.pts || 0) : 0 },
+    { id: "shift", n: 8, zh: n => "邮局值班一共撑过 " + n + " 轮", add: x => x.shift ? (x.round || 0) : 0 }
+  ];
+  const Pact = {
+    week: () => Math.floor((Date.now() - new Date().getTimezoneOffset() * 6e4 - 3 * 864e5) / 6048e5),
+    // 这周的：换周就按这周陪打的人重新定一个；同一周里换陪打的人，约定还是原来那个人的
+    now: () => {
+      let p = ld(PACT_KEY, null); const w = Pact.week();
+      if (!p || p.week !== w) { const who = ld("x_stampCoach", "") || ""; if (!who) return null;
+        let hsh = 0; for (const ch of String(who) + "|" + w) hsh = (hsh * 31 + ch.charCodeAt(0)) >>> 0;
+        p = { week: w, charId: who, goal: PACT_GOALS[hsh % PACT_GOALS.length].id, prog: 0, done: false, opened: false }; sv(PACT_KEY, p); }
+      return p;
+    },
+    goalOf: p => PACT_GOALS.find(g => g.id === p.goal) || PACT_GOALS[0],
+    add: x => { const p = Pact.now(); if (!p || p.done) return; const g = Pact.goalOf(p), v = g.add(x || {}); if (!v) return;
+      p.prog = Math.min(g.n, p.prog + v); if (p.prog >= g.n) p.done = true; sv(PACT_KEY, p); },
+    open: () => { const p = Pact.now(); if (p) { p.opened = true; sv(PACT_KEY, p); } }
   };
   window.StampRewards = Rewards;
   // TA 的小物（她 2026-11-08「陪同角色能收集到和他相关的东西，全部玩法都是」）：有人陪着打就掉 TA 的小包裹，
@@ -116,7 +143,7 @@
   }
   const GUIDE = [
     ["一句话", "你和 TA 各有一个信封。轮流往自己信封上贴邮票，贴上的票会自己去打对面。谁的信封先被打空，谁就输。"],
-    ["每回合你做什么", "回合开始，你有 3 点胶水，手里摸到 4 张票。", "点手里一张，再点自己信封上的空格，就贴上去了。贴一张要花它的面值那么多胶水：R 是 1，SR 是 2，SSR 是 3。", "胶水花完、或者不想贴了，点「寄出」。你的票先动手，然后 TA 照着亮出来的那一步走。", "没用掉的牌回合结束就扔了。想留，选中它点「留到下回合」，最多留两张。", "放错了点「撤回」，一步一步退，胶水也退回来。点了「寄出」就退不回了。"],
+    ["每回合你做什么", "回合开始，你有 3 点胶水（第 4 回合起 4 点，第 7 回合起 5 点，对面也一样），手里摸到 4 张票。", "点手里一张，再点自己信封上的空格，就贴上去了。贴一张要花它的面值那么多胶水：R 是 1，SR 是 2，SSR 是 3。", "胶水花完、或者不想贴了，点「寄出」。你的票先动手，然后 TA 照着亮出来的那一步走。", "没用掉的牌回合结束就扔了。想留，选中它点「留到下回合」，最多留两张。", "放错了点「撤回」，一步一步退，胶水也退回来。点了「寄出」就退不回了。"],
     ["五种票各干嘛", "每种票寄出后都会打同一列对面最前面那张（那一列空着就打信封），区别是打几成、顺手还干什么：", "投递：打人的，打满，攻击也最高。", "火漆：肉盾。血厚，每回合给自己封一层护，再打一半。", "补票：奶妈。给最残的那张回血、擦掉身上的戳，再打四成。", "集邮：管钱的。下回合多给胶水、多摸牌，再打四成。", "邮戳：捣乱的。给对面盖戳，再打一半：雨渍攻击 -2，退回停一回合，折角挨打多掉 2，撕口每回合掉 2 血，封口盖不了章也不攒章，延误让对面下回合少 1 胶水；加急是盖给自己人的，让旁边的投递行动两遍。", "对局里对面的等级照你这副牌的平均等级来，不会出现 1 级打 50 级；守城、远信是固定难度档，写着建议等级，卡练强了去打高档；卡升级以后攻击、血涨得比以前多，信封也跟着卡组等级变厚。", "票是哪一种，看卡上写了什么：写打架的多半是投递，写撑伞的多半是火漆。"],
     ["站位：前排挨打，后排输出", "信封第一排是前排。对面打一列，从前排往后找，所以前面有人挡着，后排就挨不着。", "常见摆法：火漆放前排顶着，投递和邮戳放最后一排（后排它们攻击 +2）。", "对面哪一列空着，你那一列的投递就能直接打到 TA 的信封。"],
     ["凑组合", "连张：同一个人的两张票挨着，攻击 +2。", "整版：同一个人的三张票排满一整行或一整列，觉醒一次，打对面信封、全员充章。", "四方连：四张同一个人（或同一种卡，比如都是生日卡）凑成 2×2，觉醒一次，打对面信封、全员加护。", "每种组合每个人一局只觉醒一次。想好凑哪个再贴。", "开局前在「带谁上场」挑一两个人，他们的卡就多，好凑。"],
@@ -128,7 +155,7 @@
     ["远信：一路打过去", "从挑玩法页进「远信」：给一个人寄一封信，信要走一段邮路，最后一站是 TA 本人。", "信封血带着走：一场打完不回满，到驿站、岔路、邮局才回得来。", "路线：雪国、海边、旧城、夜车、花季、沙漠、雨季、山路、梦里、TA 的城市，节日那条只在节日前后开。每条一条棋盘规则，对局顶上写着。默认是 TA 照人设推荐的那条。"],
     ["守城：一波一波守住", "从挑玩法页进「守城」，先挑一档（五档，各写建议等级）：没有对手，卡组从你的邮票册里配，对面是一波一波压过来的麻烦。", "敌人贴在对面后排，一回合往前走一格；走到前排的会打你那一列，在前排站过一回合还没被打掉，下回合就闯过去撞你的信封（写着「要闯过去」）。", "守过第 10 波、场上清空就赢；信封打空就城破。每守住三波，信封回 5、下回合多摸一张。", "跟对局同一套：贴票、胶水、盖章、组合都照旧。你的票照样打同一列最前面那个，所以在敌人走到前排之前就能先打它。"],
     ["远信的信物", "远信路上打赢会掉材料（走主题路线掉那条路的，打赢终点掉「TA 的东西」），只在这一趟里用。", "路线图上点「做信物」：挑三样材料（能混着）、挑收信的人或陪你走的人，请 TA 做一件，花一次调用。TA 照自己的人设和你们聊过的事写名字、一两句来历、看着它说的一句话。", "效果从三样材料的偏向里挑，同一种偏向的越多越强，「TA 的东西」再加一档；做好当场就能带上，这一趟后面每一站都生效。一开始只能带一件，路上的「旧行李箱」能多开一格，最多三格。", "做过的信物都收进开头页的「信物册」。下一趟跟同一个人出发（TA 收信或陪你走），能在开头挑一件旧信物带上，占一格。"],
-    ["邮局小店", "挑玩法页「和 TA 一起」里的「邮局小店」：每天先排班（柜台、分拣、送信、看店），谁擅长哪个岗会标 ✦；一个角色也能开。", "开门接客：路人直接招待收钱，难缠的要打一局（赢了收双倍）；没上班的角色会来当客人，可以听 TA 跟店员说两句。打烊花一次调用，写今天店里所有上班的人一小段。钱买装修，收入变多。店里的事不进记忆。"],
+    ["邮局小店", "挑玩法页「和 TA 一起」里的「邮局小店」：每天先排班（柜台、分拣、送信、看店），谁擅长哪个岗会标 ✦；一个角色也能开。", "开门接客：路人直接招待收钱，难缠的要打一局（赢了收一倍半）；没上班的角色会来当客人，可以听 TA 跟店员说两句。打烊花一次调用，写今天店里所有上班的人一小段。钱买装修，收入变多。店里的事不进记忆。"],
     ["剧情闯关：一起走一段故事", "挑玩法页「和 TA 一起」里的「剧情闯关」：挑一个人、挑个开头（或者让 TA 起一个），一共五章。", "每章 TA 先写一段，写到遇上拦路的对手；你用卡跟它打一场，打完挑一条路往下走。打赢打输、选哪条路，后面的走向和结局都会跟着变。第五章打完 TA 写结局，整段收进故事集。每章花一次调用，结局一次。走到一半退出，下次接着。"],
     ["接力：你一回合、TA 一回合", "挑玩法页「和 TA 一起」里的「接力」：挑一个人，你们轮流下同一块棋盘打审查局，单数回合你下、双数回合 TA 下。", "TA 那回合照自己的性子出牌：护短的先顶前排，好胜的抢着贴投递，冷淡的一回合最多贴两张，温柔的有人受伤先上补票。信封是你们共用的，卡组多从 TA 的卡里来。能边打边跟 TA 说话，打完能听 TA 评一把。"],
     ["残局：找最好的一手", "挑玩法页进「残局」：30 关，一关一关开，人人题目一样；30 关全过了接着打「无限关」（难度封顶，记最远第几关）。另有「每日残局」：一天一题、每个人的都不一样，连着解有连续天数。每关棋盘、手牌、胶水都摆好了，只有这一回合，寄出时要把对面信封打空。", "对面信封正好是这一手最好能打出的伤害，所以得找到最好的放法：贴哪几张、贴哪格（连张、后排、组合）、先给谁盖章。随手往空格里贴的那种放法一定不够。", "卡住了点「提示」，一次给一步；「重来」把这一关摆回原样。"],
@@ -331,7 +358,7 @@
               info.terrain ? sec("格子", "#5a5248", info.terrain, D().TERRAIN[info.terrain]) : null,
               u.lines && u.lines.enter ? h("div", { style: { marginTop: 6, padding: "10px 12px", borderRadius: 3, background: "rgba(47,42,34,.05)", borderLeft: "3px solid " + col, fontFamily: FD, fontSize: fz(12.5), color: "#5a4f40", lineHeight: 1.7 } }, "「" + u.lines.enter + "」") : null)));
   }
-  function StampDuelPage({ characters, cards: cardsAll, onBack, onRemember, closeOf, meName, toast, useThumb, onChat, onReport, preset, onRun, runBattle, initialMode, onEntryBack }) {
+  function StampDuelPage({ characters, cards: cardsAll, onBack, onRemember, closeOf, meName, toast, useThumb, onChat, onReport, preset, onRun, runBattle, initialMode, onEntryBack, onShop3D }) {
     const cards = Dispatch.filter(cardsAll);   // 派遣在外的票这段时间不能上场
     const [dpPick, setDpPick] = useState([]), [dpPlace, setDpPlace] = useState("海边"), [dpHours, setDpHours] = useState(4), [dpBusy, setDpBusy] = useState(""), [dpShow, setDpShow] = useState(""), [, dpBump] = useState(0);
     const [foeId, setFoeId] = useState(() => { if (runBattle) return runBattle.foeId || ""; if (preset && preset.foeId) return preset.foeId; const has = (characters || []).find(c => (cards || []).some(x => x.charId === c.id)); return (has || (characters || [])[0] || {}).id; });
@@ -461,10 +488,10 @@
     const shopAct = async (action, options = {}) => { try { const out=await window.StampShop.run(action,{...shopOptions(),...options});setShop0(window.StampShop.read());return out;}catch(e){toast&&toast(e.message);throw e;} };
     React.useEffect(()=>{const sync=()=>setShop0(window.StampShop.read());window.addEventListener('stamp-shop-change',sync);return()=>window.removeEventListener('stamp-shop-change',sync);},[]);
     React.useEffect(()=>{if(mode!=='shop')return;const sync=()=>window.StampShop.sync(shopOptions()).then(setShop0).catch(e=>toast&&toast(e.message));sync();const id=setInterval(sync,2000);return()=>clearInterval(id);},[mode]);
-    const [shBusy, setShBusy] = useState(""), [shMeet, setShMeet] = useState(null), [winF, setWinF] = useState({ who: "", rar: "", q: "" }), [dpF, setDpF] = useState({ who: "", rar: "", q: "" });
+    const [shBusy, setShBusy] = useState(""), [shMeet, setShMeet] = useState(null), [winF, setWinF] = useState({ who: "", rar: "", q: "" }), [dpF, setDpF] = useState({ who: "", rar: "", q: "" }), [bgPost, setBgPost] = useState(""), [bgF, setBgF] = useState({ who: "", rar: "", q: "" });
     // 挑卡的筛选条（橱窗、派遣共用，她 2026-11-08「派遣那页挑卡也加个筛选」）：搜卡名、按人、按稀有度
     const cardFilterHit = (f,k) => window.StampShop.filterCards([k],f).length>0;
-    const cardFilterBar = (f,setF,wk) => h(window.StampShopFilters,{characters,cards,filter:f,onChange:setF,wk});
+    const cardFilterBar = (f,setF,wk,noWho,fit) => h(window.StampShopFilters,{characters,cards,filter:f,onChange:setF,wk,noWho,fit});
     const RANK = { SSR: 3, SR: 2, R: 1 }, cardSort = (a, b) => (RANK[b.rarity] || 0) - (RANK[a.rarity] || 0) || (Number(b.lv) || 0) - (Number(a.lv) || 0);
     const personaOf = id => { const c = (characters || []).find(x => x.id === id) || {}; return [c.persona, c.description, c.desc, c.personality].filter(Boolean).join(" "); };
     const RELAY_KEY = "x_stampRelay";
@@ -628,10 +655,26 @@
           h("div", { style: { width: "100%", height: "100%", background: color, color: "#fff", fontFamily: FD, fontSize: fz(24), display: "flex", alignItems: "center", justifyContent: "center" } }, glyph)),
         h("div", { style: { fontFamily: FD, fontSize: fz(17), color } }, title),
         h("div", { style: { fontSize: fz(11.5), color: SUB, lineHeight: 1.7, marginTop: 3 } }, desc)));
+    // 陪打的人帮你挑卡组（她 2026-11-08）：TA 自己 + 跟 TA 最近的一个人，再点名一张 TA 这周最想带的卡；不花调用
+    const taDeck = () => {
+      if (!coachId) return null;
+      const own = (cards || []).filter(k => k.charId === coachId && k.text);
+      if (!own.length) return null;
+      const rank = k => ({ SSR: 3, SR: 2, R: 1 }[k.rarity] || 0) * 100 + (Number(k.lv) || 1), top = own.slice().sort((a, b) => rank(b) - rank(a)).slice(0, 3);
+      const wk = Math.floor(Date.now() / 6048e5), fav = top[(wk + String(coachId).length) % top.length];
+      const near = ((closeOf ? closeOf(coachId) : []) || []).find(id => id !== coachId && (cards || []).some(k => k.charId === id));
+      const u = D().stampOf(fav);
+      return { core: [coachId].concat(near ? [near] : []).concat(["card:" + fav.id]), fav, near, line: u.lines.enter || u.lines.wake || "" };
+    };
+    const taDeckBox = () => { const t = taDeck(); if (!t) return null; const on = core.includes("card:" + t.fav.id);
+      return h("div", { "data-wk": "duelcoachdeck", style: { marginTop: 8, paddingTop: 8, borderTop: "1px dashed rgba(47,42,34,.15)", fontSize: fz(11.5), lineHeight: 1.6 } },
+        h("div", null, h("b", { style: { fontFamily: FD, fontWeight: 400, color: GREEN } }, nameOf(coachId) + " 想带"), "：TA 自己" + (t.near ? "和 " + nameOf(t.near) : "") + " 的卡，再加上「" + ((t.fav.text && t.fav.text.name) || "那张") + "」。"),
+        t.line ? h("div", { style: { color: SUB, fontStyle: "italic" } }, "「" + t.line + "」") : null,
+        h("button", { "data-wk": "duelcoachdeckgo", onClick: () => setCore(on ? [] : t.core), style: Object.assign(btn(on ? "rgba(79,122,102,.12)" : "transparent", GREEN, GREEN), { marginTop: 6, padding: "4px 12px", fontSize: fz(11.5) }) }, on ? "已经按 TA 的带了（点一下取消）" : "听 TA 的")); };
     const coachPick = () => onChat ? h("div", { key: "coach", "data-wk": "duelcoachpick", style: { margin: "-4px 0 14px", padding: "9px 12px", borderRadius: 6, background: "rgba(255,253,247,.85)", border: "1px solid rgba(47,42,34,.1)" } },
       h("div", { style: { fontSize: fz(12), color: INK, marginBottom: 6 } }, "谁陪你打", h("span", { style: { color: SUB, fontSize: fz(10.5), marginLeft: 6 } }, "打的时候能问 TA 怎么放、打完听 TA 评论；说一句花一次调用")),
       h("div", { className: "flex flex-wrap", style: { gap: 6 } }, [{ id: "" }].concat((characters || []).filter(c => (cards || []).some(k => k.charId === c.id))).map(c => { const on = (coachId || "") === (c.id || "");
-        return h("button", { key: c.id || "none", "data-wk": "duelcoachwho", "data-on": on ? "1" : "0", onClick: () => setCoach(c.id || ""), style: { padding: "3px 10px", borderRadius: 999, border: "1px solid " + (on ? GREEN : "rgba(47,42,34,.22)"), background: on ? "rgba(79,122,102,.1)" : "transparent", color: on ? GREEN : INK, fontSize: fz(12) } }, c.id ? (c.remark || c.name) : "不用人陪"); }))) : null;
+        return h("button", { key: c.id || "none", "data-wk": "duelcoachwho", "data-on": on ? "1" : "0", onClick: () => setCoach(c.id || ""), style: { padding: "3px 10px", borderRadius: 999, border: "1px solid " + (on ? GREEN : "rgba(47,42,34,.22)"), background: on ? "rgba(79,122,102,.1)" : "transparent", color: on ? GREEN : INK, fontSize: fz(12) } }, c.id ? (c.remark || c.name) : "不用人陪"); })), taDeckBox()) : null;
     const modeCard = (wk, color, title, sub, desc, onTap) => h("button", { "data-wk": wk, onClick: onTap, className: "w-full text-left active:scale-[.99]",
       style: { display: "block", marginBottom: 14, padding: 0, borderRadius: 6, overflow: "hidden", background: PAPER, boxShadow: "0 3px 10px rgba(47,42,34,.18)", border: "1px solid " + color + "55", color: INK } },
       h("div", { style: { height: 6, background: AIRMAIL } }),
@@ -658,6 +701,8 @@
       return shell([
         h(Head, { key: "hd", zh: "邮局小店 · 第 " + sh.day + " 天 · " + period, bg: "transparent", ink: INK, onBack: onEntryBack || (() => setMode("")), right: guideBtn }),
         h("div", { key: "bd", "data-wk": "duelshop", className: "flex-1 min-h-0 overflow-y-auto px-4", style: { fontFamily: F, color: INK, paddingTop: 4, paddingBottom: 24 } },
+          // 文字店 → 3D 店（她 2026-11-08「没办法从文字进 3d」）：同一份存档，进去看店里的样子
+          onShop3D ? h("button", { key: "3d", "data-wk": "duelshop3d", onClick: onShop3D, className: "w-full", style: Object.assign(btn("rgba(79,122,102,.08)", GREEN, GREEN), { margin: "6px 0 10px", padding: "9px 0" }) }, "进小世界里的邮局看看（同一家店）") : null,
           sh.day === 1 && sh.phase === "plan" && !sh.decor.length ? modeHero(C, "店", "邮局小店", "你开了一家小邮局。每天先排班：柜台、分拣、送信、看店四个岗，你的角色谁来上；排对擅长的岗收入多。开门接客：路人寄东西直接收钱，难缠的要打一局；没上班的角色也会来当客人，可以听他们跟店员碰上说两句。打烊时花一次调用，写今天在店里的所有人一小段（不管几个人上班都只花这一次）。钱拿去买装修，装修让收入变多，打烊那段也会写到。店里的事不进记忆。") : null,
           sh.missed ? card("missed", [h("div", { key: "t", style: { fontFamily: FD, fontSize: fz(14), color: RED } }, "第 " + sh.missed.day + " 天忘了打烊"),
             h("div", { key: "s", style: { fontSize: fz(11.5), color: SUB, margin: "3px 0 8px" } }, "那天收的 " + sh.missed.earned + " 枚照算。要补写那天晚上的打烊吗——你没来，是店里的人帮着关的门。"),
@@ -671,8 +716,16 @@
               h("div", { className: "flex flex-wrap", style: { gap: 5 } }, [{ id: "" }].concat(ppl).map(c => { const on = (sh.roster[p] || "") === (c.id || ""), busy = c.id && Object.keys(sh.roster).some(q => q !== p && sh.roster[q] === c.id), apt = c.id && D().shopApt(personaOf(c.id), p);
                 return h("button", { key: c.id || "none", disabled: busy, onClick: () => shopAct("assign",{post:p,charId:c.id||"",expectedId:sh.roster[p]||""}).catch(()=>{}), className: "disabled:opacity-35", style: { padding: "2px 9px", borderRadius: 999, border: "1px solid " + (on ? C : "rgba(47,42,34,.22)"), color: on ? C : INK, background: on ? "rgba(138,106,42,.1)" : "transparent", fontSize: fz(11.5) } }, c.id ? (c.remark || c.name) + (apt ? " ✦" : "") : "空着"); })),
               sh.roster[p] ? h("div", { "data-wk": "duelshopbadge", className: "flex items-center flex-wrap", style: { gap: 5, marginTop: 4, fontSize: fz(11) } }, h("span", { style: { color: SUB } }, "工牌："),
-                (cards || []).filter(k => k.charId === sh.roster[p] && k.text).slice(-6).reverse().map(k => { const on = sh.badge[p] === k.id; return h("button", { key: k.id, onClick: () => shopAct("badge",{post:p,cardId:on?"":k.id}).catch(()=>{}), style: { padding: "1px 7px", borderRadius: 4, border: "1px solid " + (on ? "#3f6fb0" : "rgba(47,42,34,.2)"), color: on ? "#3f6fb0" : INK, background: on ? "rgba(63,111,176,.08)" : "transparent", fontSize: fz(11) } }, (k.text.name || "") + " · " + k.rarity); })) : null)),
-            h("div", { key: "n", style: { fontSize: fz(11), color: SUB, marginBottom: 8 } }, "✦ 是 TA 擅长这个岗（看人设）。每排一个人收入 +15%，擅长的再 +10%，挂了工牌（TA 自己的卡）再 +10%。"),
+                // 原来只露最近 6 张，别的挑不到（她 2026-11-08）：挂着的那张排最前，再给「挑别的」翻全部
+                (() => { const mine = (cards || []).filter(k => k.charId === sh.roster[p] && k.text), cur = mine.find(k => k.id === sh.badge[p]);
+                  return (cur ? [cur] : []).concat(mine.slice(-6).reverse().filter(k => k !== cur).slice(0, cur ? 4 : 5)); })().map(k => { const on = sh.badge[p] === k.id; return h("button", { key: k.id, onClick: () => shopAct("badge",{post:p,cardId:on?"":k.id}).catch(()=>{}), style: { padding: "1px 7px", borderRadius: 4, border: "1px solid " + (on ? "#3f6fb0" : "rgba(47,42,34,.2)"), color: on ? "#3f6fb0" : INK, background: on ? "rgba(63,111,176,.08)" : "transparent", fontSize: fz(11) } }, (k.text.name || "") + " · " + k.rarity + (D().shopBadgeFit(p, k) ? " ✦" : "")); }),
+                (cards || []).filter(k => k.charId === sh.roster[p] && k.text).length > 5 ? h("button", { "data-wk": "duelshopbadgemore", onClick: () => { setBgPost(bgPost === p ? "" : p); setBgF({ who: "", rar: "", q: "" }); }, style: { padding: "1px 7px", borderRadius: 4, border: "1px dashed rgba(47,42,34,.35)", color: SUB, background: "transparent", fontSize: fz(11) } }, bgPost === p ? "收起" : "挑别的…") : null,
+                bgPost === p ? h("div", { "data-wk": "duelshopbadgepick", style: { width: "100%", minWidth: 0, marginTop: 4 } },
+                  h("div", { style: { fontSize: fz(10.5), color: SUB, margin: "2px 0 6px" } }, "工牌 R +6%、SR +10%、SSR +15%，等级高再多一点；✦ 是作用对上这个岗（" + D().SHOP_BADGE_FIT[p].join("／") + "），再 +5%。"),
+                  cardFilterBar(bgF, setBgF, "duelshopbadgefilter", true, D().SHOP_BADGE_FIT[p]),
+                  h("div", { style: { display: "grid", gridTemplateColumns: "repeat(5, minmax(0, 1fr))", gap: 5, maxHeight: 210, overflowY: "auto" } },
+                    window.StampShop.sortedCards(cards, sh.badge[p] ? [sh.badge[p]] : [], Object.assign({}, bgF, { who: sh.roster[p] })).filter(k => k.text).map(k => h("div", { key: k.id, style: { position: "relative" } }, D().shopBadgeFit(p, k) ? h("span", { style: { position: "absolute", zIndex: 2, right: 2, bottom: 2, padding: "0 4px", borderRadius: 6, background: "rgba(251,246,234,.92)", color: "#a0522d", fontSize: fz(11) } }, "✦") : null, h(Ticket, { key: k.id, u: D().stampOf(k), card: k, owner: ownerOf(k.charId), useThumb, small: true, sel: sh.badge[p] === k.id, onTap: () => { shopAct("badge", { post: p, cardId: sh.badge[p] === k.id ? "" : k.id }).catch(() => {}); setBgPost(""); } }))))) : null) : null)),
+            h("div", { key: "n", style: { fontSize: fz(11), color: SUB, marginBottom: 8 } }, "✦ 是 TA 擅长这个岗（看人设）。每排一个人收入 +15%，擅长的再 +10%，挂了工牌（TA 自己的卡）按稀有度再 +6%～15%，卡的作用对上岗位（✦）再 +5%。"),
             h("button", { key: "go", "data-wk": "duelshopopen", onClick: open, disabled: period === "半夜", className: "w-full disabled:opacity-45", style: Object.assign(btn(C, "#fff"), { padding: "11px 0", fontFamily: FD, fontSize: fz(15) }) }, period === "半夜" ? "半夜不开门，早上 6 点再来" : "开门 · " + period)]) : null,
           sh.phase === "open" ? card("day", [h("div", { key: "t" }, secTitle(C, "客", period === "半夜" ? "半夜了，店门关着" : period + "的客人", period === "半夜" ? "" : sh.customers.filter(c => !c.done).length + " 位在等")),
             h("div", { key: "s", style: { fontSize: fz(11), color: SUB, marginBottom: 8 } }, period === "半夜" ? "早上 6 点再开门。今天还没打烊的话，可以在下面打个烊。" : "上班：" + staffLine() + "。" + ({ 上午: "12 点", 下午: "18 点", 傍晚: "半夜 12 点" }[period] || "") + "前没招待的客人会走；上午多寄信的路人，下午难缠的多，傍晚来坐坐的人多。"),
@@ -683,9 +736,11 @@
               c.meet && shMeet === c.id ? h("div", { style: { marginTop: 6 } }, para(c.meet)) : c.meet ? h("button", { onClick: () => setShMeet(c.id), style: { marginTop: 4, fontSize: fz(11), color: "#9a6a4a" } }, "再看一遍他们说的") : null)),
             h("button", { key: "cl", "data-wk": "duelshopclose", onClick: close, disabled: shBusy === "close", className: "w-full disabled:opacity-50", style: Object.assign(btn(INK, PAPER), { marginTop: 6, padding: "10px 0" }) }, shBusy === "close" ? "在打烊…" : window.StampShop.hasResult("close")?"保存已写好的打烊（不再调用）":"打烊（花一次调用，写今天店里的一段）"), h("button",{key:"plain",onClick:()=>shopAct('closeLocal').catch(()=>{}),style:{...btn("transparent",INK),minHeight:40}},"只关门（不写故事）")]) : null,
           sh.phase === "closed" ? card("closed", [h("div", { key: "t" }, secTitle(INK, "烊", "打烊了", "第 " + sh.day + " 天 · 收了 " + (sh.earned || 0) + " 枚")),
-            sh.closing ? h("div", { key: "c", "data-wk": "duelshopclosing" }, h(window.StampShopStories,{shop:sh,inlineCurrent:true})) : null,
+            sh.closing ? h("div", { key: "c", "data-wk": "duelshopclosing" }, h(window.StampShopStories,{shop:sh,inlineCurrent:true,name:nameOf})) : null,
+            // 店员下班留的便条：一人一张，跟打烊那段一起写的
+            h(window.StampShopNotes,{key:"nt",notes:sh.notes||[],name:nameOf,font:FD,size:fz(12),titleSize:fz(11)}),
             h("div", { key: "n", "data-wk": "duelshopnext", style: { marginTop: 6, fontSize: fz(12), color: SUB, textAlign: "center" } }, "明天早上 6 点以后再来开门。")]) : null,
-          sh.phase!=="closed"&&window.StampShop.history(sh).length?card("stories",[h("div",{key:"title"},secTitle(INK,"烊","打烊留底","按天保存")),h(window.StampShopStories,{key:"body",shop:sh})]):null,
+          sh.phase!=="closed"&&window.StampShop.history(sh).length?card("stories",[h("div",{key:"title"},secTitle(INK,"烊","打烊留底","按天保存")),h(window.StampShopStories,{key:"body",shop:sh,name:nameOf})]):null,
           card("window", [h("div", { key: "t" }, secTitle("#3f6fb0", "窗", "橱窗", sh.window.length + " / " + D().shopWinSlots(sh))),
             h("div", { key: "s", style: { fontSize: fz(11), color: SUB, marginBottom: 8 } }, "摆你抽到的卡。R +3%、SR +6%、SSR +10% 收入，等级高再多一点；点名要某人明信片的客人，橱窗里有那个人的卡才卖得出。买「整面墙的信格」多 2 格。点一张摆上／撤下。"),
             // 卡多了找不到（她 2026-11-08）：按人、稀有度筛，搜卡名；已经摆上的永远在最前
@@ -1001,6 +1056,19 @@
             h("span", { style: { fontFamily: FD, fontSize: fz(18), color: "#9a6a4a" } }, "物"), h("span", { className: "flex-1 text-left", style: { fontSize: fz(12) } }, h("b", { style: { fontFamily: FD, fontWeight: 400, color: "#9a6a4a" } }, "小物册"), " · 收了 " + m + " 样" + (n ? "，还有 " + n + " 个包裹没拆" : "")), h("span", { style: { color: SUB } }, "›")); })(),
         h("button", { key: "tut", "data-wk": "duelturorial", onClick: startTut, className: "w-full flex items-center active:opacity-80", style: { gap: 10, marginBottom: 14, padding: "10px 14px", borderRadius: 6, background: "rgba(79,122,102,.1)", border: "1px dashed " + GREEN, color: INK } },
           h("span", { style: { fontFamily: FD, fontSize: fz(18), color: GREEN } }, "教"), h("span", { className: "flex-1 text-left", style: { fontSize: fz(12) } }, h("b", { style: { fontFamily: FD, fontWeight: 400, color: GREEN } }, "新手教学关"), " · 第一次玩先来这儿，一步步教"), h("span", { style: { color: SUB } }, "›")),
+        (() => { const p = Pact.now(); if (!p) return null; const g = Pact.goalOf(p), who = nameOf(p.charId) || "TA";
+          const write = async () => {
+            if (tkBusy || !onChat) return; setTkBusy(true);
+            try { const r = await onChat(p.charId, { mode: "trinket", pact: g.zh(g.n) });
+              if (!r || !r.name) { toast && toast("TA 还没写好，再点一次"); return; }
+              const t = Object.assign({ id: "tk_" + Date.now().toString(36), charId: p.charId, ts: Date.now(), from: "每周约定" }, r); Trinkets.add(t); Pact.open(); setTkWho(p.charId); setTkOpen(t.id); setMode("trinkets"); }
+            catch (e) { toast && toast("没成：" + ((e && e.message) || e)); } finally { setTkBusy(false); } };
+          return h("div", { key: "pact", "data-wk": "duelpact", "data-done": p.done ? "1" : "0", style: { marginBottom: 14, padding: "10px 14px", borderRadius: 6, background: p.done ? "rgba(79,122,102,.1)" : "rgba(255,253,247,.9)", border: "1px dashed " + (p.done ? GREEN : "rgba(47,42,34,.2)") } },
+            h("div", { style: { fontFamily: FD, fontSize: fz(14), color: INK } }, "这周和 " + who + " 的约定"),
+            h("div", { style: { fontSize: fz(12), margin: "3px 0 6px" } }, g.zh(g.n)),
+            h("div", { style: { height: 6, borderRadius: 3, background: "rgba(47,42,34,.1)", overflow: "hidden" } }, h("div", { style: { width: Math.round(100 * p.prog / g.n) + "%", height: "100%", background: GREEN } })),
+            h("div", { style: { fontSize: fz(10.5), color: SUB, marginTop: 4 } }, p.prog + " / " + g.n + (p.opened ? " · 信已经收进小物册了" : p.done ? "" : " · 做到了 TA 给你写封信，进小物册")),
+            p.done && !p.opened ? h("button", { "data-wk": "duelpactopen", onClick: write, disabled: tkBusy, className: "w-full disabled:opacity-50", style: Object.assign(btn(GREEN, "#fff"), { marginTop: 8 }) }, tkBusy ? who + " 在写…" : "做到了，拆 " + who + " 的信（花一次调用）") : null); })(),
         (() => { const g = Rewards.got().got || {}, n = MILESTONES.filter(m => g[m.id]).length;
           return h("details", { key: "ms", "data-wk": "duelmilestones", style: { marginBottom: 14, padding: "10px 14px", borderRadius: 6, background: "rgba(255,253,247,.9)", boxShadow: "0 2px 8px rgba(47,42,34,.10)" } },
             h("summary", { style: { fontFamily: FD, fontSize: fz(14), cursor: "pointer", color: INK } }, "战功邮戳 · " + n + " / " + MILESTONES.length),
@@ -1098,6 +1166,16 @@
         else if (runBattle && runBattle.boss && !st.halfSaid && them.hp <= (them.max || 40) / 2) {
           st.halfSaid = 1; const pool = them.board.concat(them.hand).filter(Boolean).map(u => u.lines && (u.lines.wake || u.lines.enter)).filter(Boolean);
           if (pool.length) { const key = Math.random(); lastBubble.current = key; setBubble({ text: pool[Math.floor(Math.random() * pool.length)], key }); }
+        }
+        // 挑战类陪打的人跟着出声（她 2026-11-08「互动感强一点」）：盖大招、觉醒、自家票被打掉、两边信封见底时
+        //   从 TA 自己卡上的话里挑一句，一回合最多一句，不花调用
+        else if (chal && coachId && !st.relay && st.coachSaid !== st.turn) {
+          const ev = l.who === "me" && (l.kind === "wake" || l.kind === "stamp") ? "wake" : l.kind === "fall" && l.who === "foe" ? "fall"
+            : st.me.hp <= (st.me.max || 40) * 0.3 && !st.lowMe ? "low" : st.foe.hp <= (st.foe.max || 40) * 0.3 && !st.lowFoe ? "near" : "";
+          if (ev) {
+            const pool = (cardsAll || []).filter(c => c && c.charId === coachId && c.text).map(c => D().stampOf(c).lines).map(x => ev === "wake" ? x.wake : ev === "fall" || ev === "low" ? x.fall : x.win || x.enter).filter(Boolean);
+            if (pool.length) { st.coachSaid = st.turn; if (ev === "low") st.lowMe = 1; if (ev === "near") st.lowFoe = 1; const key = Math.random(); lastBubble.current = key; setBubble({ text: pool[Math.floor(Math.random() * pool.length)], key, me: true, who: nameOf(coachId) || "TA" }); }
+          }
         }
         const big = l.kind === "wake" || l.kind === "stamp" || l.kind === "event";
         if (big) setBanner({ text: l.text, line: l.line || "", who: l.who, key: Math.random() }); else setBanner(null);

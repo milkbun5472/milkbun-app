@@ -2458,6 +2458,24 @@
       h("path", { d: "M32 38q2 2 4 0 M61 39q2 2 4 0", fill: "none", stroke: "#a48578", strokeWidth: 1.3 }),
       [10, 77].map(x => h("rect", { key: x, x: x, y: 53, width: 9, height: 18, rx: 4, fill: "#8aa48b", stroke: "#4f6953", strokeWidth: 1.6 })));
   }
+  // 邮局小店：沿庭院这几张的色和线——灰绿墙、米色窗、棕描边，门口一只信筒
+  function worldShop() {
+    return h("svg", { width: 96, height: 86, viewBox: "0 0 96 86", "aria-hidden": true, strokeLinecap: "round", strokeLinejoin: "round" },
+      h("ellipse", { cx: 48, cy: 78, rx: 40, ry: 4, fill: "#cfd9bf" }),
+      h("path", { d: "M14 30L48 10L82 30Z", fill: "#a18b74", stroke: "#796e62", strokeWidth: 2 }),
+      h("rect", { x: 17, y: 30, width: 62, height: 46, rx: 3, fill: "#8aa48b", stroke: "#4f6953", strokeWidth: 2 }),
+      h("path", { d: "M14 30h68l-3 9H17Z", fill: "#eee4c5", stroke: "#a1947f", strokeWidth: 1.6 }),
+      [22, 34, 46, 58, 70].map(x => h("path", { key: x, d: "M" + x + " 30l-1.5 9h6l1.5-9Z", fill: "#d5aca1" })),
+      h("rect", { x: 39, y: 15, width: 18, height: 11, rx: 2, fill: "#eee4c5", stroke: "#796e62", strokeWidth: 1.4 }),
+      h("path", { d: "M42 18.5l6 3.5 6-3.5", fill: "none", stroke: "#796e62", strokeWidth: 1.3 }),
+      h("rect", { x: 23, y: 45, width: 20, height: 16, rx: 2, fill: "#eee4c5", stroke: "#4f6953", strokeWidth: 1.6 }),
+      h("rect", { x: 28, y: 48, width: 10, height: 10, fill: "#fbf6ea", stroke: "#c8ad7c", strokeWidth: 1.2, strokeDasharray: "1.6 1.4" }),
+      h("path", { d: "M30.5 55.5l2.5-3.5 2 2.5 1.5-1.5", fill: "none", stroke: "#8aa48b", strokeWidth: 1.2 }),
+      h("path", { d: "M51 76V50q0-6 7-6t7 6v26", fill: "#a18b74", stroke: "#796e62", strokeWidth: 1.8 }),
+      h("circle", { cx: 61.5, cy: 62, r: 1.3, fill: "#e5c68e" }),
+      h("path", { d: "M84 76V60q0-5 4.5-5t4.5 5v16", fill: "#c97a6a", stroke: "#8f5448", strokeWidth: 1.6, transform: "translate(-8 0)" }),
+      h("path", { d: "M78.5 63h9", stroke: "#8f5448", strokeWidth: 1.6 }));
+  }
   root.FairyGardenApp = function FairyGardenApp(props) {
     const t = useTheme();
     // 庭院房那条路：房间就是世界也是存档，不用选
@@ -2509,7 +2527,7 @@
             border: "1px solid " + G.line, background: "rgba(255,255,255,.55)",
             fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: G.deep } }, "可以进") : null);
         const inner = h("div", { className: "flex items-center", style: { gap: 13, flexDirection: left ? "row" : "row-reverse" } },
-          h("div", { style: { flexShrink: 0, lineHeight: 0 } }, w ? (w.id==="train"?worldTrain():w.id==="pets"?worldPet():w.id==="day"?worldDay():w.id==="shop"?h(root.GStamps,{size:86}):worldHouse()) : worldSoon()), label);
+          h("div", { style: { flexShrink: 0, lineHeight: 0 } }, w ? (w.id==="train"?worldTrain():w.id==="pets"?worldPet():w.id==="day"?worldDay():w.id==="shop"?worldShop():worldHouse()) : worldSoon()), label);
         return w
           ? h("button", { "data-wk": "fgworld", key: w.id, onClick: () => setWorld(w), className: "w-full text-left active:opacity-70",
               style: { padding: "4px 2px", background: "transparent", border: 0 } }, inner)
