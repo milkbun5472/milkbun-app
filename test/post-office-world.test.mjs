@@ -10,13 +10,13 @@ const ctx={console};ctx.window=ctx;vm.runInNewContext(read('js/stamp-duel.js'),c
 const fixture=()=>({day:1,coins:20,decor:['旧木招牌','一盆绿萝','暖黄的吊灯','靠窗的长凳','铜铃门帘'],decorLv:{'一盆绿萝':2},roster:{柜台:'a',分拣:'b',送信:'c',看店:'d'},customers:[],phase:'plan',closing:null,earned:0,date:'2026-11-8',window:['card1','card2','card3'],badge:{}});
 const characters=['a','b','c','d'].map(id=>({id,name:'角色'+id})),cards=[1,2,3].map(n=>({id:'card'+n,charId:'a',rarity:'R',lv:1,text:{name:'卡片'+n},face:n===1?'iv_fake':''}));
 const options={characters,cards,lookFor:c=>({hairColor:c.id==='a'?'#b94747':'#354535',dims:{height:1.1}}),shopRules:rules,today:'2026-11-8'};
-test('fixture stays tied to the text-shop writer',()=>{
- const src=read('js/stamp-duel-ui.js'),a=src.indexOf('const SHOP_KEY ='),b=src.indexOf('const cardFilterHit',a);assert.ok(a>0&&b>a);
- assert.match(src.slice(a,b),/saveJSON\(SHOP_KEY, v\)/);
- assert.match(src,/shopSt \|\| \{ day: 1, coins: 20, decor: \[\], roster: \{\}, customers: \[\], phase: "plan", closing: null, earned: 0 \}/);
- assert.match(src,/sh\.window = sh\.window \|\| \[\]; sh\.badge = sh\.badge \|\| \{\}/);
+test('fixture stays tied to the shared text-shop writer',()=>{
+ const ctx={};ctx.window=ctx;vm.runInNewContext(read('js/stamp-shop.js'),ctx);const blank=ctx.StampShop.restore(null);
+ assert.equal(blank.day,1);assert.equal(blank.coins,20);assert.equal(blank.phase,'plan');assert.equal(blank.window.length,0);assert.equal(Object.keys(blank.badge).length,0);
+ assert.match(read('js/stamp-duel-ui.js'),/window\.StampShop\.run/);
+ assert.match(read('js/stamp-shop.js'),/commitJSONDurable\(KEY,value\)/);
  assert.deepEqual(Object.keys(fixture().roster),Array.from(rules.SHOP.POSTS));
- assert.deepEqual(Object.keys(DECOR_BUILDERS),Array.from(rules.SHOP.DECOR.slice(0,5),x=>x.k));
+ assert.deepEqual(Object.keys(DECOR_BUILDERS),Array.from(rules.SHOP.DECOR,x=>x.k));
 });
 test('shared clock drives day, evening, night and exact boundaries; saved period never drives light',()=>{
  const raw=fixture();raw.period='半夜';
@@ -45,9 +45,9 @@ test('one-shot navigation supports the shop, duel invitations, old card links an
  nav.open({tab:'duel',preset:{foeId:'a',wager:'写信'}},()=>{});assert.equal(nav.consume().preset.foeId,'a');
  g.__stampsOpen='card1';assert.equal(nav.consume().cardId,'card1');g.__stampsDuel={foeId:'old'};assert.equal(nav.consume().preset.foeId,'old');assert.equal(nav.consume().tab,'pull');
 });
-test('shop is globally read-only, has no chat/AI/storage bridge, and uses the common mobile shell',()=>{
+test('shop uses one global writer, exposes no raw model or memory bridge, and uses the common mobile shell',()=>{
  const s=read('js/fairy-garden.js'),a=s.indexOf('function ShopSession('),b=s.indexOf('function WorldSession(',a);assert.ok(a>0&&b>a);const host=s.slice(a,b);
- assert.match(host,/loadJSON\("x_stampShop",null\)/);assert.match(host,/\.shopPeriod\(now\)/);assert.match(host,/h\(Head/);assert.match(host,/paddingBottom:COMPOSER_PAD_BOTTOM/);assert.match(host,/minHeight:56/);assert.match(host,/flex-1 min-h-0/);assert.doesNotMatch(host,/saveJSON|addMemEntry|callAI|runProbe|storeKey|lockPartnerId/);
+ assert.match(host,/root\.StampShop\.read\(\)/);assert.match(host,/root\.StampShop\.run/);assert.match(host,/\.shopPeriod\(now\)/);assert.match(host,/h\(Head/);assert.match(host,/paddingBottom:COMPOSER_PAD_BOTTOM/);assert.match(host,/minHeight:56/);assert.match(host,/flex-1 min-h-0/);assert.doesNotMatch(host,/saveJSON|addMemEntry|callAI|runProbe|storeKey|lockPartnerId/);
  for(const path of ['apps/post-office/state.mjs','apps/post-office/game.mjs','apps/post-office/view.mjs'])assert.doesNotMatch(read(path),/localStorage|saveJSON|callAI|runProbe|addMemEntry|\.glb/);
  assert.match(read('scripts/build-fairy-garden.mjs'),/walk\('apps\/post-office'\)/);
  assert.match(read('art/train-carriage/view.mjs'),/createWorldRenderer/);

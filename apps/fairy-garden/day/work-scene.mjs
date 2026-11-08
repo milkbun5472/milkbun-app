@@ -1,4 +1,4 @@
-import {MIXER,mixerPoint} from './work-contacts.mjs?v=fg-7d8490d3228b9b43';
+import {MIXER,mixerPoint} from './work-contacts.mjs?v=fg-6739bbf843fd9703';
 // The scenery and traveler follow the same task. Reset movable props when work stops.
 export function updateWorkScene(root,task,moving,time,otherTasks=[]){
  if(!root)return;

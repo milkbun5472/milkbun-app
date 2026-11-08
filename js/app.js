@@ -12077,6 +12077,22 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   // 他发的对局邀请还挂着（两天内、没点过）就不再发第二张
   const pendingDuelAsk = charId => [...(chatsRef.current[charId] || [])].reverse().find(m => m && m.kind === "duelask" && m.state === "pending" && Date.now() - (m.ts || 0) < 2 * 86400000);
   // 接了对局邀请 / 从聊天里点「打一把」：带着对手和彩头进邮票册的对局页
+  const stampShopChat = async (charId,d) => {
+    const char=liveChars.find(c=>c.id===charId);if(!char)throw Error("找不到这位角色。");if(!active)throw Error("先到设置配置API。");const uN=userName(profile);
+    const cast=[...new Set([d.visitorId,d.staffId,...(d.staffIds||[])].filter(Boolean))].map(id=>liveChars.find(c=>c.id===id)).filter(Boolean).map(c=>c.id+" · "+(c.remark||c.name)+"\n"+[c.persona,c.description,c.desc,c.personality].filter(Boolean).join("\n")).join("\n\n");
+        const close = d.mode === "shopclose";
+        const r = await runProbe(apiFor(char.id), ctxFor(char), { voice: true, tag: "stampshop", maxTokens: 65000,
+          instruction: "这是" + uN + "在邮票册里开的一家小邮局（游戏里的店，第 " + (d.day || 1) + " 天）。店里现在的样子：" + (d.decor || "刚开张，还空着") + "。\n"
+            + (close
+              ? "今天上班的：" + (d.staff || "") + "。今天来过的客人：" + (d.customers || "没什么人") + "。今天收了 " + (d.coins || 0) + " 枚邮花。\n"
+                + (d.window ? "橱窗里摆着她抽到的这几张卡：" + d.window + "。\n" : "") + (d.missed ? "这是那天晚上的事：她那天忘了来打烊，是店里上班的这几个人自己把店关了，她不在场。\n" : "") + (d.badges ? "店员挂着当工牌的卡：" + d.badges + "。\n" : "")
+                + (d.missed ? "写那天晚上他们自己关店的一小段：" : "现在打烊了。写打烊时店里的一小段：") + "今天上班的这几个人各自怎么样、彼此说了什么、谁累了、谁跟谁拌了两句或者帮了一把、有没有给她留什么话或东西；橱窗里的卡、挂着的工牌可以写进去（有人瞄了一眼自己那张、客人指着哪张问），写到卡上的那一刻要照上面写的。每个人照各自的人设说话做事，你写的时候把他们都写进去，不只写你自己；写正在发生的这一段，有动作有对话，别写成总结。"
+              : (d.visitor || "一位客人") + "今天来店里寄东西，正好碰上在" + (d.post || "柜台") + "上班的" + (d.staffName || "店员") + "。\n写他们俩在店里碰上的这一小段：照两个人各自的人设和他们之间的关系，有对话，几段就够；" + uN + "在旁边。")
+            + "\n当场参与者的身份与完整人设：\n"+cast
+            + (close?"\nlines 一段一项。":"\nlines 按对话顺序，每项写 speakerId（说话人的角色 id）和 text（原句）；旁白的 speakerId 留空。参与角色："+d.visitorId+"＝"+d.visitor+"；"+d.staffId+"＝"+d.staffName+"。"),
+          schemaHint: close?"{\"lines\":[\"一段\"]}":"{\"lines\":[{\"speakerId\":\"角色id\",\"text\":\"原句\"}]}" });
+        return (Array.isArray(r && r.lines) ? r.lines : [r && r.lines]).map(x => close?String(typeof x==="string"?x:x?.text||"").trim():typeof x==="string"?{speakerId:null,text:x}:{speakerId:x?.speakerId||null,text:String(x?.text||"")}).filter(x=>close?!!x:!!x.text).slice(0, 14);
+  };
   const openStamps = target => window.StampNavigation.open(target, setScreen);
   const goDuel = (charId, m) => {
     if (m && m.id) pChat(charId, p => p.map(x => x.id === m.id ? { ...x, state: "accepted" } : x));
@@ -34777,6 +34793,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       key: "garden::" + key,
       storeKey: "x_fairyGarden::" + key,
       onOpenStamps: openStamps,
+      onShopChat: stampShopChat,
       lookFor: c => window.CompanionFace.lookFor(c, moods),
       entryWorld: gardenRoomWorld || (["train","pets"].includes(room.from) && !loadJSON("x_fairyGarden::" + key,null)?.activeWorld ? room.from : undefined),
       lockPartnerId: activeChar.id,
@@ -36131,20 +36148,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       //   材料是她挑的三样；效果只许从 d.fxList（三样材料的偏向）里挑，强弱代码定
       // 挑战陪打（她 2026-11-08「挑战类能跟他聊天，推荐怎么放或者评论战局」「做吧，可以选谁陪我打」）：
       //   对面是游戏造的敌人，TA 在旁边陪她看；只按 d.board 写着的局面说
-      // 邮局小店（她 2026-11-08「店面可以做，不进记忆」）：打烊时写今天在店里的所有人一小段；角色客人上门碰上店员写一段对话。都不写进记忆
-      if (d.mode === "shopclose" || d.mode === "shopmeet") {
-        const close = d.mode === "shopclose";
-        const r = await runProbe(apiFor(char.id), ctxFor(char), { voice: true, tag: "stampshop", maxTokens: 8000,
-          instruction: "这是" + uN + "在邮票册里开的一家小邮局（游戏里的店，第 " + (d.day || 1) + " 天）。店里现在的样子：" + (d.decor || "刚开张，还空着") + "。\n"
-            + (close
-              ? "今天上班的：" + (d.staff || "") + "。今天来过的客人：" + (d.customers || "没什么人") + "。今天收了 " + (d.coins || 0) + " 枚邮花。\n"
-                + (d.window ? "橱窗里摆着她抽到的这几张卡：" + d.window + "。\n" : "") + (d.missed ? "这是那天晚上的事：她那天忘了来打烊，是店里上班的这几个人自己把店关了，她不在场。\n" : "") + (d.badges ? "店员挂着当工牌的卡：" + d.badges + "。\n" : "")
-                + (d.missed ? "写那天晚上他们自己关店的一小段：" : "现在打烊了。写打烊时店里的一小段：") + "今天上班的这几个人各自怎么样、彼此说了什么、谁累了、谁跟谁拌了两句或者帮了一把、有没有给她留什么话或东西；橱窗里的卡、挂着的工牌可以写进去（有人瞄了一眼自己那张、客人指着哪张问），写到卡上的那一刻要照上面写的。每个人照各自的人设说话做事，你写的时候把他们都写进去，不只写你自己；写正在发生的这一段，有动作有对话，别写成总结。"
-              : (d.visitor || "一位客人") + "今天来店里寄东西，正好碰上在" + (d.post || "柜台") + "上班的" + (d.staffName || "店员") + "。\n写他们俩在店里碰上的这一小段：照两个人各自的人设和他们之间的关系，有对话，几段就够；" + uN + "在旁边。")
-            + "\nlines 一段一项。",
-          schemaHint: "{\"lines\":[\"一段\"]}" });
-        return (Array.isArray(r && r.lines) ? r.lines : [r && r.lines]).map(x => String(x || "").trim()).filter(Boolean).slice(0, 14);
-      }
+      if (d.mode === "shopclose" || d.mode === "shopmeet") return stampShopChat(charId,d);
       // 剧情闯关（她 2026-11-08「1 和 3 都可以」）：TA 一章一章写一段故事，每章引出一场仗，章末给她两三个选项；第五章打完写结局
       if (d.mode === "storych" || d.mode === "storyend") {
         const end = d.mode === "storyend";
@@ -36551,6 +36555,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   });else if (screen === "fairyGarden") body = h(window.FairyGardenApp, {
     initialWorld: gardenEntryWorld,
     onOpenStamps: openStamps,
+    onShopChat: stampShopChat,
     lookFor: c => window.CompanionFace.lookFor(c, moods),
     day: {
       initialCharId: gardenDayCharId,
