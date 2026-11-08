@@ -6425,7 +6425,15 @@ async function retimeStoredGifs(ms) {
   return n;
 }
 if (typeof window !== "undefined") { window.retimeStoredGifs = retimeStoredGifs; window.gifMsNow = gifMsNow; window.gifFramesNow = gifFramesNow; }
+// 动图里眼睛那一句（群里 2026-11-08：「动图有时候眼珠子会有很诡异的滑动轨迹」）：图像模型出 GIF 时，
+//   眼珠子会一帧一帧自己滑来滑去。所有动图（表情包、九宫格、总开关下的照片……）都从下面这一处出，就挂在这一处
+const GIF_EYES = "眼睛：每一帧视线都停在同一个方向，眼珠位置不动，只在动作里该眨眼的那一下自然眨眼；眼睛和视线不做额外的动画。";
+function withGifEyes(text, opts) {
+  const t = String(text == null ? "" : text);
+  return opts && opts.gif && t && t.indexOf(GIF_EYES) < 0 ? t + GIF_EYES : text;
+}
 async function generateSelfieImageRaw(prompt, refPhotoDataUrl, opts) {
+  if (opts && opts.gif) { prompt = withGifEyes(prompt, opts); if (opts.minimalPrompt) opts = Object.assign({}, opts, { minimalPrompt: withGifEyes(opts.minimalPrompt, opts) }); }
   // 「这个站不锁脸」（她 2026-10-05）：有的站不收带图的请求，别的 app 只发文字能出、这里带着参考照就报错。
   //   站上打开了这个开关 → 从第一下就不带参考照，只发文字，一次请求，回什么收什么（标成 site-no-ref，界面上不另外标注）。
   //   不是「先带照片试、失败再不带补一次」——那是两笔钱，也破了「一张图只发一次请求」。
