@@ -25037,7 +25037,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       const target = replyTo ? byName(replyTo) : null;
       const inThread = canSee.filter(c => (mom.comments || []).some(cm => cm.author === (c.remark || c.name) || cm.author === c.name));
       const byAff = canSee.slice().sort((a, b) => (affinities[b.id] || 50) - (affinities[a.id] || 50));
-      const uniq = [...new Set([target, ...inThread, ...byAff].filter(Boolean))].slice(0, 5).concat(npcCrowd(canSee, 4), myNpcCrowd(2, mom));
+      const uniq = [...new Set([target, ...inThread, ...byAff].filter(Boolean))].slice(0, 5).concat(npcCrowd(canSee, 4, true), myNpcCrowd(2, mom));
       if (!uniq.length) return;
       primary = uniq[0];
       roster = uniq.map(c => c.remark || c.name);
@@ -25215,8 +25215,9 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   // 可见角色自动对我的朋友圈做真实反应：可能只赞/只评/已读不理/又赞又评，并会互相回复
   // 配角也来朋友圈（她 2026-10-13：「让配角参与感高一点吧」）：哪个角色刷得到，TA 的配角就跟着刷得到；
   //   每次随机挑几个，免得配角一多评论区全是配角
-  const npcCrowd = (hosts, max) => {
-    const pool = []; (hosts || []).forEach(hc => npcsOf(hc.id).forEach(n => { if (n && !pool.includes(n)) pool.push(n); }));
+  // knowsMe：她自己发的那条，只有标了「也认识我」的配角刷得到（群里 2026-11-08：标了「跟我不认识」的还来点赞评论）——不是微信好友就看不见
+  const npcCrowd = (hosts, max, knowsMe) => {
+    const pool = []; (hosts || []).forEach(hc => npcsOf(hc.id).forEach(n => { if (n && (!knowsMe || n.knowsUser) && !pool.includes(n)) pool.push(n); }));
     for (let k = pool.length - 1; k > 0; k--) { const j = Math.floor(Math.random() * (k + 1)); [pool[k], pool[j]] = [pool[j], pool[k]]; }
     return pool.slice(0, max == null ? 3 : max);
   };
@@ -25290,7 +25291,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     const canSeeMain = momLive().filter(c => momSeen(mom, c.id));
     if (!canSeeMain.length) return;
     // 她自己身边的配角（在谁身边＝我）也刷得到她的朋友圈（群里 2026-10-22：「只有他的 npc 跟我互动，我的 npc 都不跟我互动」）
-    const canSee = [...canSeeMain, ...npcCrowd(canSeeMain, 3), ...myNpcCrowd(2, mom)];
+    const canSee = [...canSeeMain, ...npcCrowd(canSeeMain, 3, true), ...myNpcCrowd(2, mom)];
     setGen(g => ({
       ...g,
       moment: true
@@ -25300,12 +25301,15 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       const lines = canSee.map(c => {
         if (c.npc) { const host = characters.find(x => x.id === String(c.ownerId)); return "- " + c.name + "：人设[" + (typeof groupPersonaText === "function" ? groupPersonaText(c.persona, 300) : String(c.persona || "").slice(0, 300)).replace(/\s+/g, " ") + "]" + (String(c.ownerId) === "me"
           ? "（我自己生活里的人" + ((rels[c.id + "->me"] || rels["me->" + c.id]) ? "，跟我是「" + (rels[c.id + "->me"] || rels["me->" + c.id]).label + "」" : (c.knowsUserNote ? "，跟我是「" + c.knowsUserNote + "」" : "")) + "，照我们俩的关系来说话）"
-          : "（「" + ((host && host.name) || "") + "」那边的人，跟我不算熟，偶尔路过点个赞或者插一句）") + charLangLine(c); }   // 设了常用语言的配角，朋友圈评论也照那种话说
+          : "（「" + ((host && host.name) || "") + "」那边的人，也认识我" + (c.knowsUserNote ? "，跟我是「" + c.knowsUserNote + "」" : "") + "，照这份交情来说话）") + charLangLine(c); }   // 设了常用语言的配角，朋友圈评论也照那种话说
         const aff = Math.round(affOf(c.id));
         const md = moods[c.id] && moods[c.id].label ? moods[c.id].label : "平静";
         const rel = rels[c.id + "->me"] ? rels[c.id + "->me"].label : "";
         // 人设原来只截 70 个字（她 2026-10-26：顾朝第一句评论 OOC，后来回她那句才像他）——配角都给 300，正主反而只有一句话的料
-        return "- " + c.name + "：人设[" + momPersonaBrief(c) + "] 好感度" + aff + "/100 心情" + md + (rel ? " 对我关系[" + rel + "]" : "") + ((mom.remind || []).includes(c.id) ? " 【她发的时候提醒了TA看】" : "");
+        // 刚跟她聊过什么（群里 2026-11-08：配图的地点私聊里早说过，评论里还在问）：同一份 crossRecentFor，每人只给一小截
+        let chat = ""; try { chat = crossRecentFor(c.id, { surfaces: ["online", "offline"], budget: 500 }); } catch (e) { chat = ""; }
+        return "- " + c.name + "：人设[" + momPersonaBrief(c) + "] 好感度" + aff + "/100 心情" + md + (rel ? " 对我关系[" + rel + "]" : "") + ((mom.remind || []).includes(c.id) ? " 【她发的时候提醒了TA看】" : "")
+          + (chat && chat.trim() ? "\n  TA跟我最近聊过的（TA都记得，评论接着这些说）：\n" + chat.trim().split("\n").map(l => "  " + l).join("\n") : "");
       }).join("\n");
       // 提醒谁看：点了名的人收到的是「她提醒你看」，不是自己刷到的——一定看见了，也知道是冲着自己来的
       const remindNames = (mom.remind || []).map(id => (liveChars.find(c => c.id === id) || {}).name).filter(Boolean);
