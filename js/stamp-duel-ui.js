@@ -63,7 +63,7 @@
     const col = RC[u.rarity] || RC.R, marks = Object.keys(u.marks || {});
     const ready = u.charge != null && u.charge >= u.need;
     return h("button", { ref: el, "data-wk": wk || "duelcell", "data-rarity": u.rarity, "data-foe": foe ? "1" : "0", "data-sel": sel ? "1" : "0", ...press, className: "active:scale-95",
-      style: { position: "relative", width: "100%", aspectRatio: small ? "3 / 4" : "1 / 1", padding: 4, border: "none", background: perf(PAPER), transition: "transform .15s",
+      style: { position: "relative", width: "100%", aspectRatio: small ? "3 / 4" : "1 / 1", padding: 4, border: "none", background: perf(PAPER), transition: "transform .15s", WebkitTouchCallout: "none", WebkitUserSelect: "none", userSelect: "none", touchAction: "manipulation",
         transform: sel ? "translateY(-4px)" : "none", animation: fx ? (fx.kind === "hit" || fx.kind === "skip" ? "duelHit .45s" : fx.kind === "place" ? "duelPop .4s" : "none") : "none", filter: "drop-shadow(0 " + (sel ? 5 : 2) + "px " + (sel ? 6 : 3) + "px rgba(47,42,34," + (sel ? .35 : .22) + "))" } },
       h("div", { style: { position: "relative", width: "100%", height: "100%", overflow: "hidden", borderRadius: 2, outline: sel ? "2px solid " + RED : "1px solid " + col + "88",
         background: url ? "#2a2520 center/cover no-repeat url(" + url + ")" : "linear-gradient(160deg, #efe6d2, #e2d6bd)" } },
@@ -244,6 +244,9 @@
     const boardLine = () => "第 " + st.turn + " 回合，信封耐久（满 " + D().ENVELOPE_HP + "）她 " + Math.max(0, me.hp) + "、你 " + Math.max(0, them.hp)
       + "；她信封上有 " + me.board.filter(Boolean).length + " 张，你有 " + them.board.filter(Boolean).length + " 张"
       + (over ? "；这一把已经打完，" + (over.winner === "me" ? "她赢了" : over.winner === "foe" ? "你赢了" : "打平") : "")
+      // 两边信封上贴着的票和卡上那句话（她 2026-11-08「角色对战时也能看到自己卡的台词和我这边上场了的卡的台词」）
+      + "。你信封上贴着：" + (them.board.filter(Boolean).map(u => "「" + u.name + "」（" + (nameOf(u.charId) || "通用票") + "的卡" + (u.lines && u.lines.enter ? "，卡上那句：" + u.lines.enter : "") + "）").join("；") || "还没有")
+      + "。她信封上贴着：" + (me.board.filter(Boolean).map(u => "「" + u.name + "」（" + (nameOf(u.charId) || "通用票") + "的卡" + (u.lines && u.lines.enter ? "，卡上那句：" + u.lines.enter : "") + "）").join("；") || "还没有")
       + "。最近发生的：" + st.log.slice(-6).map(l => (l.who === "foe" ? "你：" : l.who === "me" ? "她：" : "") + l.text).join("；");
     const talk = async () => {
       const text = draft.trim(); if (!text || chatBusy || !onChat) return;
@@ -299,25 +302,41 @@
             h("span", { style: { color: SUB, fontSize: fz(11) } }, "点旁边空格＝挪过去（1 胶水）"))) : null,
         h("div", { "data-wk": "duellog", style: { marginTop: 10, fontSize: fz(11), color: SUB, lineHeight: 1.65 } }, log.map((l, k) => h("div", { key: k }, (l.who === "foe" ? foeName + "：" : l.who === "me" ? "我：" : "") + l.text + (l.line ? "「" + l.line + "」" : ""))))),
       onChat ? chatBox : null,
-      info ? (() => { const u = info.u, inf = D().unitInfo(u, st.bonds), sd = info.foe ? them : me, live = sd.board.some(x => x && x.uid && x.uid === u.uid);
-        const row = (k, v, c) => h("div", { style: { marginTop: 7 } }, h("span", { style: { display: "inline-block", minWidth: 44, padding: "0 5px", marginRight: 6, borderRadius: 3, background: c, color: "#fff", fontSize: fz(10.5), textAlign: "center" } }, k), v);
-        return h("div", { key: "info", "data-wk": "duelinfo", onClick: () => setInfo(null), style: { position: "absolute", inset: 0, zIndex: 30, background: "rgba(30,24,18,.45)", display: "flex", alignItems: "center", justifyContent: "center", padding: 18 } },
-          h("div", { onClick: e => e.stopPropagation(), style: { width: "100%", maxWidth: 340, maxHeight: "80%", overflowY: "auto", padding: 14, borderRadius: 6, background: PAPER, fontFamily: F, color: INK, fontSize: fz(12.5), lineHeight: 1.6, boxShadow: "0 10px 30px rgba(0,0,0,.3)" } },
-            h("div", { className: "flex", style: { gap: 12 } },
-              h("div", { style: { width: 90, flexShrink: 0 } }, h(Ticket, { u, card: cardOf(u.cardId), owner: ownerOf(u.charId), useThumb, small: true, foe: info.foe })),
-              h("div", { className: "min-w-0" },
-                h("div", { style: { fontFamily: FD, fontSize: fz(15) } }, u.name),
-                h("div", { style: { color: SUB, fontSize: fz(11.5) } }, (ownerOf(u.charId) || "通用票") + " · " + u.rarity + " · 面值 " + u.face + (info.foe ? " · 对面的" : "")),
-                h("div", { style: { marginTop: 6 } }, "⚔ " + u.pow + "　♥ " + (live ? Math.max(0, u.hp) + "/" : "") + u.maxHp + (u.shield ? "　🛡 " + u.shield : "") + "　章 " + (u.charge != null ? u.charge + "/" : "") + u.need))),
-            row(u.role, ROLE_TIP[u.role], ROLE_COLOR[u.role]),
-            row("特质", h("span", null, h("b", null, inf.trait.zh), "：" + inf.trait.desc), "#8a7a5a"),
-            row("盖章", h("span", null, h("b", null, inf.skill.zh), (u.rarity === "SSR" ? "（" + inf.skill.base + "）" : "") + "：" + inf.skill.desc), "#c8962e"),
-            inf.bond ? row("羁绊", h("span", null, h("b", null, inf.bond.zh), "：" + inf.bond.desc + "（" + (nameOf(u.charId) || "这个人") + "的票在同一个信封上有两张以上时生效）"), GREEN) : null,
-            u.role === "邮戳" ? row("戳", "会盖「" + u.ink + "」：" + D().MARKS[u.ink].note, "#6a4f8a") : null,
-            Object.keys(u.marks || {}).length ? row("身上", Object.keys(u.marks).map(m => m + "（" + D().MARKS[m].note + "）").join("、"), RED) : null,
-            info.terrain ? row("格子", info.terrain + "：" + D().TERRAIN[info.terrain], "#5a5248") : null,
-            u.lines && u.lines.enter ? h("div", { style: { marginTop: 10, color: SUB, fontSize: fz(11.5) } }, "「" + u.lines.enter + "」") : null,
-            h("div", { style: { marginTop: 10, textAlign: "center", color: SUB, fontSize: fz(11) } }, "点空白处关掉"))); })() : null,
+      info ? (() => { const u = info.u, inf = D().unitInfo(u, st.bonds), sd = info.foe ? them : me, live = sd.board.some(x => x && x.uid && x.uid === u.uid), col = RC[u.rarity] || RC.R;
+        // 底细卡（她 2026-11-08「这个页面也做好看点」）：像一张夹着邮票的明信片——左边斜贴着那枚票，右边写名字和面额；
+        //   下面一排数值像邮局的小标签，再往下一条条说明，最底下是卡上那句话
+        const stat = (k, v) => h("div", { style: { flex: 1, minWidth: 0, padding: "5px 0 4px", borderRadius: 3, background: "rgba(47,42,34,.05)", border: "1px solid rgba(47,42,34,.1)", textAlign: "center" } },
+          h("div", { style: { fontFamily: FD, fontSize: fz(17), lineHeight: 1.1 } }, v), h("div", { style: { fontSize: fz(9.5), color: SUB, letterSpacing: ".1em" } }, k));
+        const sec = (tag, c, title, body) => h("div", { style: { display: "flex", gap: 10, padding: "9px 0", borderTop: "1px dashed rgba(47,42,34,.16)" } },
+          h("div", { style: { width: 34, flexShrink: 0, paddingTop: 1 } }, h("div", { style: { width: 34, height: 34, borderRadius: 999, border: "1.5px solid " + c, color: c, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: FD, fontSize: fz(11), transform: "rotate(-8deg)", background: "rgba(255,255,255,.5)" } }, tag)),
+          h("div", { className: "min-w-0", style: { flex: 1 } }, title ? h("div", { style: { fontFamily: FD, fontSize: fz(13.5), color: c } }, title) : null, h("div", { style: { fontSize: fz(12), color: INK, lineHeight: 1.6 } }, body)));
+        return h("div", { key: "info", "data-wk": "duelinfo", onClick: () => setInfo(null), style: { position: "absolute", inset: 0, zIndex: 30, background: "rgba(30,24,18,.5)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16 } },
+          h("div", { onClick: e => e.stopPropagation(), style: { position: "relative", width: "100%", maxWidth: 350, maxHeight: "86%", display: "flex", flexDirection: "column", borderRadius: 6, background: PAPER, fontFamily: F, color: INK, boxShadow: "0 14px 36px rgba(0,0,0,.35)", overflow: "hidden" } },
+            h("div", { style: { height: 7, flexShrink: 0, background: AIRMAIL } }),
+            h("button", { onClick: () => setInfo(null), "aria-label": "关掉", style: { position: "absolute", right: 8, top: 12, width: 28, height: 28, borderRadius: 999, color: SUB, fontSize: fz(16), zIndex: 2 } }, "✕"),
+            h("div", { style: { overflowY: "auto", padding: "14px 16px 12px" } },
+              h("div", { className: "flex", style: { gap: 14, alignItems: "flex-start" } },
+                h("div", { style: { width: 104, flexShrink: 0, transform: "rotate(-3deg)", marginTop: 4 } }, h(Ticket, { u, card: cardOf(u.cardId), owner: ownerOf(u.charId), useThumb, small: true, foe: info.foe })),
+                h("div", { className: "min-w-0", style: { flex: 1, paddingRight: 22 } },
+                  h("div", { style: { fontSize: fz(10), color: info.foe ? RED : GREEN, letterSpacing: ".15em" } }, info.foe ? "对面的票" : "我的票"),
+                  h("div", { style: { fontFamily: FD, fontSize: fz(18), lineHeight: 1.3, margin: "2px 0 6px" } }, u.name),
+                  h("div", { className: "flex flex-wrap", style: { gap: 5 } },
+                    h("span", { style: { padding: "1px 7px", borderRadius: 3, background: col, color: "#fff", fontSize: fz(10.5) } }, u.rarity),
+                    h("span", { style: { padding: "1px 7px", borderRadius: 3, background: ROLE_COLOR[u.role], color: "#fff", fontSize: fz(10.5) } }, u.role),
+                    h("span", { style: { padding: "1px 7px", borderRadius: 3, border: "1px solid rgba(47,42,34,.3)", fontSize: fz(10.5) } }, ownerOf(u.charId) || "通用票")),
+                  // 面额：右下角一个圆章
+                  h("div", { style: { marginTop: 10, display: "inline-flex", alignItems: "center", gap: 6, fontSize: fz(11), color: SUB } },
+                    h("span", { style: { width: 30, height: 30, borderRadius: 999, border: "2px solid " + col, color: col, display: "inline-flex", alignItems: "center", justifyContent: "center", fontFamily: FD, fontSize: fz(14) } }, u.face), "面值 · 贴它要的胶水"))),
+              h("div", { className: "flex", style: { gap: 6, margin: "14px 0 6px" } },
+                stat("攻击", u.pow), stat("血", (live ? Math.max(0, u.hp) + "/" : "") + u.maxHp), stat("护", u.shield || 0), stat("章", (u.charge != null ? u.charge + "/" : "") + u.need)),
+              sec("作用", ROLE_COLOR[u.role], u.role, ROLE_TIP[u.role]),
+              sec("特质", "#8a7a5a", inf.trait.zh, inf.trait.desc),
+              sec("盖章", "#b8862a", inf.skill.zh + (u.rarity === "SSR" ? " · " + inf.skill.base : ""), inf.skill.desc),
+              inf.bond ? sec("羁绊", GREEN, inf.bond.zh, inf.bond.desc + "。" + (nameOf(u.charId) || "这个人") + "的票在同一个信封上有两张以上时生效。") : null,
+              u.role === "邮戳" ? sec("戳", "#6a4f8a", "会盖「" + u.ink + "」", D().MARKS[u.ink].note) : null,
+              Object.keys(u.marks || {}).length ? sec("身上", RED, "挂着的戳", Object.keys(u.marks).map(m => m + "：" + D().MARKS[m].note).join("；")) : null,
+              info.terrain ? sec("格子", "#5a5248", info.terrain, D().TERRAIN[info.terrain]) : null,
+              u.lines && u.lines.enter ? h("div", { style: { marginTop: 6, padding: "10px 12px", borderRadius: 3, background: "rgba(47,42,34,.05)", borderLeft: "3px solid " + col, fontFamily: FD, fontSize: fz(12.5), color: "#5a4f40", lineHeight: 1.7 } }, "「" + u.lines.enter + "」") : null))); })() : null,
       banner ? h("div", { key: "bn" + banner.key, "data-wk": "duelbanner", style: { position: "absolute", left: "50%", top: "46%", zIndex: 20, width: "82%", maxWidth: 320, padding: "12px 14px", borderRadius: 4, textAlign: "center",
         background: "rgba(251,246,234,.96)", border: "1.5px solid #c8962e", boxShadow: "0 8px 24px rgba(47,42,34,.3)", fontFamily: FD, color: INK, animation: "duelBanner " + (banner.text.indexOf("觉醒") >= 0 ? 2.6 : 1.8) + "s forwards", pointerEvents: "none" } },
         h("div", { style: { fontSize: fz(15), color: banner.who === "foe" ? RED : banner.who === "me" ? GREEN : "#c8962e" } }, banner.text),

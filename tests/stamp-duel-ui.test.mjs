@@ -52,3 +52,8 @@ test("对局页里有人话版「怎么玩」：右上角随时点开，整页",
   assert.ok((ui.match(/right: guideBtn/g) || []).length === 2);
   assert.match(ts, /"duelguide"/);
 });
+test("跟 TA 聊时带上两边信封上的票和卡上那句；长按不弹系统菜单", () => {
+  assert.match(ui, /"。你信封上贴着："/);
+  assert.match(ui, /"。她信封上贴着："/);
+  assert.match(ui, /WebkitTouchCallout: "none"/);
+});
