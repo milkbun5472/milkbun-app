@@ -181,7 +181,7 @@ test("挑战陪打：挑谁陪、聊天找陪打的人、帮我看看、打完�
 });
 test("邮区巡查页：邮票墙一枚、每人一个随机数、地图格、打完回地图、陪打也能用", () => {
   assert.match(ui, /modeTile\("duelmodepatrol"/);
-  assert.match(ui, /D\(\)\.patrolNew\(deck, new Date\(\), patrolSalt\(\)\)/);
+  assert.match(ui, /D\(\)\.patrolNew\(deck, new Date\(\), patrolSalt\(\), !!coachId\)/);
   assert.match(ui, /"data-wk": "duelpatrolcell"/);
   assert.match(ui, /"data-wk": "duelpatrolnext", onClick: patrolBack/);
   assert.match(ui, /st\.shift \|\| st\.patrol\)/);
