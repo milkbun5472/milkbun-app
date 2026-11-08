@@ -8945,9 +8945,23 @@ function StorageMeter({ onOffloadChats, onPruneOld }) {
     const ls = (typeof localStorageBytes === "function") ? localStorageBytes() : 0;
     const LIMIT = 5 * 1024 * 1024;
     const rows = storageBreakdown();
+    // 这份存档会不会被系统回收（她 2026-11-08 群友：安卓 Chrome 上导进去玩半小时就整份没了，
+    //   没有「仓库没打开」那条红横幅——仓库开着、里面是空的，正是浏览器把整站的数据清了）。
+    //   浏览器默认把网页存档当「满了可以扔」，只有钉住过才不扔。开机已经悄悄要过一次，
+    //   被拒了就一直是可回收，而原来谁也看不见这件事。
+    const fin = extra => {
+      const base = Object.assign({ ls: ls, lim: LIMIT, rows: rows }, extra || {});
+      if (navigator.storage && navigator.storage.persisted) {
+        navigator.storage.persisted().then(ok => setInfo(Object.assign(base, { pinned: !!ok }))).catch(() => setInfo(base));
+      } else setInfo(base);
+    };
     if (navigator.storage && navigator.storage.estimate) {
-      navigator.storage.estimate().then(est => setInfo({ ls: ls, lim: LIMIT, idbUsed: est.usage || 0, idbQuota: est.quota || 0, rows: rows })).catch(() => setInfo({ ls: ls, lim: LIMIT, rows: rows }));
-    } else setInfo({ ls: ls, lim: LIMIT, rows: rows });
+      navigator.storage.estimate().then(est => fin({ idbUsed: est.usage || 0, idbQuota: est.quota || 0 })).catch(() => fin(null));
+    } else fin(null);
+  };
+  const pin = () => {
+    if (!(navigator.storage && navigator.storage.persist)) return;
+    navigator.storage.persist().then(() => refresh()).catch(() => refresh());
   };
   useEffect(refresh, []);
   if (!info) return null;
@@ -8966,6 +8980,16 @@ function StorageMeter({ onOffloadChats, onPruneOld }) {
     h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginTop: 8, lineHeight: 1.6 } },
       near ? "⚠️ 快满了！点下面「看谁占地方」找出大头。图片(头像/壁纸/朋友圈/聊天图)已自动迁到 IndexedDB 图库、不占这 5MB；剩下占地方的多是文字（聊天记录/同人文/人设）。可删旧聊天、或导出备份后清理。满了新消息会存不进、可能丢。"
         : "这里只存文字（上限约 5MB）——图片已自动迁到浏览器图库、不占这里。占大头的是聊天记录和文本内容。快满时 app 会提前弹警告。"),
+    // 会不会被系统清掉（钉住过就不会）
+    info.pinned === undefined ? null : h("div", { style: { marginTop: 10, padding: "9px 10px", borderRadius: 9, background: info.pinned ? "transparent" : "#fdf1ee", border: "1px solid " + (info.pinned ? t.line : "#e0b3a6") } },
+      h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: info.pinned ? t.fog : "#8a4433", lineHeight: 1.6 } },
+        info.pinned
+          ? "✅ 这份存档已经钉住了：手机空间紧张时，系统不会拿它开刀。"
+          : "⚠️ 这份存档还没钉住。手机空间一紧，浏览器可能把它整份清掉——打开就是一台空手机，而且没有任何提示。"),
+      info.pinned ? null : h("button", { onClick: pin, className: "active:opacity-80",
+        style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: "#fff", background: "#b4573f", borderRadius: 8, padding: "7px 14px", marginTop: 8 } }, "钉住它"),
+      info.pinned ? null : h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: "#8a4433", marginTop: 6, lineHeight: 1.5 } },
+        "按一下就问浏览器要一次，成不成这里马上会变。要不到的话（安卓上常见），把这个网页「添加到主屏幕」当 app 用，一般就给了；在那之前请常导出备份。")),
     // 聊天云归档：把旧聊天挪去云端、释放本地（登录云同步才有；先确认云端存好才裁本地=零丢失）
     onOffloadChats ? h("button", {
       onClick: async () => { if (offloading) return; setOffloading(true); try { await onOffloadChats(); } finally { setOffloading(false); refresh(); } },
