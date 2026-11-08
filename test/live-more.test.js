@@ -32,7 +32,7 @@ test("粉丝团按累计打赏的钱分级", () => {
 
 test("平台抽成：直播主播到手一半，送的人全额出", () => {
   assert.match(live, /const LIVE_CUT = 0\.5;/);
-  assert.match(live, /props\.charPay\(s\.charId, toHost\(amount\)/, "看 TA 播时她打赏，TA 只拿一半");
+  assert.match(live, /props\.charPay\(payee, toHost\(amount\)/, "看 TA 播时她打赏，TA 只拿一半");
   assert.match(live, /props\.pay\(toHost\(g\.amount\)/, "她开播收礼，她只拿一半");
   assert.match(live, /props\.charPay\(gc\.id, -g\.amount/, "送礼的人全额出");
 });
@@ -121,7 +121,7 @@ test("路人主播：一次刷一批、关注上限 20、交情大号马甲分�
   assert.match(live, /VALUES_ZH\[st\.values\]/);
   assert.match(live, /Date\.now\(\) - prev\.ts < 3 \* 86400000 && myLv <= \(prev\.lv \|\| 0\)/);
   assert.match(live, /判据：把他的人设拿掉名字，换个主播还成立，就是写坏了/);
-  assert.match(live, /if \(props\.charPay && s\.charId && !s\.stranger\)/, "打赏路人主播不进任何角色钱包");
+  assert.match(live, /const payee = !s\.stranger \? s\.charId : \(\(\(stGet\(s\.charId\) \|\| \{\}\)\.promoted\) \|\| ""\);/, "打赏还没转正的路人主播不进任何角色钱包；转正了进他那个人的");
   assert.match(app, /promoteStranger: \(st, key, nm, fan\) =>/);
   assert.match(app, /createCharFromAssistant\(\{ name: st\.name/);
 });
