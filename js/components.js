@@ -18095,6 +18095,30 @@ function StateTplEditor({ value, onChange }) {
       glob ? h("button", { onClick: () => { if (typeof saveJSON === "function") saveJSON("x_stateTplGlobal", null); setGlob(false); if (window.__toast) window.__toast("全局那套清掉了"); },
         className: "active:opacity-70", style: { padding: "6px 12px", borderRadius: 999, border: "1px solid " + t.line, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog, background: "transparent" } }, "清掉全局那套") : null));
 }
+// 换字那几排（聊天窗「只给 TA 换字」、线下「这个人线下的字」共用，她 2026-11-08 许愿线下单独调字体）：
+//   第一档永远是「跟随全局」，不然改一次就退不回去了。名单问 FontChoice 要（内置那几支 + 她在主题工作台自己传的），这儿不另抄一份。
+//   每一支用它自己的字写自己的名字，跟工作台那边一样认得出。setFont 收一个 (prev => next) 或一个对象
+function FontPickRows({ t, font, setFont }) {
+  const F = typeof window !== "undefined" && window.FontChoice;
+  if (!F) return null;
+  const cur = font || {};
+  const cus = ((window.ThemeStudio && window.ThemeStudio.current()) || {}).customFonts || [];
+  const list = F.facesWith(cus);
+  const row = (kind, label) => h("div", { key: kind, style: { marginTop: 8 } },
+    h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginBottom: 5 } }, label),
+    h("div", { className: "flex flex-wrap", style: { gap: 6 } },
+      list.map(f => {
+        const on = String(cur[kind] || "") === f.key;
+        return h("button", {
+          key: (f.key || "_") + kind, "data-wk": "fontpick", "data-on": on ? "1" : "0",
+          onClick: () => setFont(Object.assign({}, cur, { [kind]: f.key })),
+          className: "active:opacity-70",
+          style: { fontFamily: f.stack || F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", padding: "6px 12px", borderRadius: 999, minHeight: 34,
+            background: on ? t.ink : "transparent", color: on ? t.bg2 : t.fog,
+            border: "1px solid " + (on ? t.ink : t.line) } }, f.key ? f.zh : "跟随全局");
+      })));
+  return h("div", null, row("body", "正文"), row("display", "标题"));
+}
 function StateCard({
   character, affinity, isNpc, mood, state, history, hideWearAction,
   onClose, gazeOn, uName, onGazeSeed, gazeSeedBusy, onGazeReview, gazeReviewBusy, roomName, onDelThought, onSetWearing, wearSets, tpl
@@ -18812,6 +18836,7 @@ function OfflineMode({
   const [sCss, setSCss] = useState(os.customCSS || "");
   // 正文字号（群友 2026-10-11：「线下能给单独角色调字的大小吗」）：0＝原样；只管这个人线下的正文和旁白
   const [sFont, setSFont] = useState(Number(os.fontSize) || 0);
+  const [sFace, setSFace] = useState(os.font && typeof os.font === "object" ? os.font : { body: "", display: "" });   // 这个人线下的字
   const [sNoShot, setSNoShot] = useState(!!os.noAutoShot);   // 关掉他顺手拍照（她 2026-10-17）
   const [sOpts, setSOpts] = useState(!!os.replyOpts);
   const [sShowTh, setSShowTh] = useState(os.hideThought !== true);   // 线下卡下面那行心声显不显示（群友 2026-10-30「想许愿能关闭心声，尤其是线下的」）：只管显示，TA 照常写、状态卡照常有   // 每一拍后给几个回应选项（群友 2026-10-16「懒人从选项里选，勤劳人关掉自己写」）
@@ -18850,7 +18875,7 @@ function OfflineMode({
     { key: "style", char: "风", title: "文风与好吃片段", tint: "#9b7bc4",
       state: () => (presetOn ? "吃着预设" : "没吃预设") + " · 片段 " + ((os.examples || []).length) + " 条" },
     { key: "look", char: "样", title: "这个人的线下长什么样", tint: "#b0708f",
-      state: () => (sFont ? "字号 " + sFont + " · " : "") + (sCss.trim() ? "写了 " + sCss.trim().length + " 字 CSS" : "还没写") + (sBg ? " · 有背景图" : "") },
+      state: () => (sFont ? "字号 " + sFont + " · " : "") + (sFace && (sFace.body || sFace.display) ? "换了字 · " : "") + (sCss.trim() ? "写了 " + sCss.trim().length + " 字 CSS" : "还没写") + (sBg ? " · 有背景图" : "") },
     { key: "debug", char: "诊", title: "上一轮到底发生了什么", tint: "#7a8fa8",
       state: () => registerTelemetry ? "有本轮记录" : "还没有本轮记录" }
   ];
@@ -18858,7 +18883,7 @@ function OfflineMode({
     h(Head, { zh: offSetTab ? (offSetPages.find(x => x.key === offSetTab) || {}).title || "线下设置" : "线下设置",
       bg: "transparent",
       onBack: () => { if (offSetTab) { setOffSetTab(""); setOffSec(""); } else setSetOpen(false); },
-      right: h("button", { onClick: () => { onSaveSettings({ hideThought: !sShowTh, noAutoShot: sNoShot, presetOn, presetId, maxTokens: sMax, minWords: sMinW, lengthMode: sLengthMode, looseOld: sLoose, memN: sMemN, onlineCtxN: sOnlineN, selfP: sSelf, userP: sUser, describeMe: sDesc, tastePace: sTastePace, tasteFocus: sTasteFocus, tasteDensity: sTasteDensity, bg: sBg, customCSS: sCss, fontSize: sFont, replyOpts: sOpts }); onChangeStyle && onChangeStyle({ styleKey, presetOn, presetId, stylePrompt: (curStyle && curStyle.prompt) || "", taste: { pace: sTastePace, focus: sTasteFocus, density: sTasteDensity } }); setSetOpen(false); } }, h(ICheck, { size: 19, color: t.ink })) }),
+      right: h("button", { onClick: () => { onSaveSettings({ hideThought: !sShowTh, noAutoShot: sNoShot, presetOn, presetId, maxTokens: sMax, minWords: sMinW, lengthMode: sLengthMode, looseOld: sLoose, memN: sMemN, onlineCtxN: sOnlineN, selfP: sSelf, userP: sUser, describeMe: sDesc, tastePace: sTastePace, tasteFocus: sTasteFocus, tasteDensity: sTasteDensity, bg: sBg, customCSS: sCss, fontSize: sFont, font: (window.FontChoice ? window.FontChoice.clean(sFace, ((window.ThemeStudio && window.ThemeStudio.current()) || {}).customFonts) : sFace), replyOpts: sOpts }); onChangeStyle && onChangeStyle({ styleKey, presetOn, presetId, stylePrompt: (curStyle && curStyle.prompt) || "", taste: { pace: sTastePace, focus: sTasteFocus, density: sTasteDensity } }); setSetOpen(false); } }, h(ICheck, { size: 19, color: t.ink })) }),
     h("div", { className: "flex-1 min-h-0 overflow-y-auto", style: { padding: "4px 18px 40px" } },
       !offSetTab && h(SettingCatalog, { pages: offSetPages, onOpen: k => { setOffSetTab(k); setOffSec(""); } }),
       offShow("scene", "bg", "场景背景图",
@@ -18944,6 +18969,12 @@ function OfflineMode({
           sFont ? h("button", { onClick: () => setSFont(0), className: "active:opacity-60", style: { minHeight: 32, padding: "0 6px", fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog } }, "原样") : null)),
       h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, marginBottom: 10, lineHeight: 1.55 } }, "只管这个人线下的正文和旁白，别人的线下、线上聊天都不变。"),
       h(Slider, { value: sFont || 14, min: 12, max: 22, step: 0.5, onChange: setSFont }))),
+      offShow("look", "face", "这个人线下的字",
+    h("div", { "data-wk": "offfontface", className: "pt-5" },
+      h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.sub } }, "这个人线下的字"),
+      h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, marginTop: 2, lineHeight: 1.6 } },
+        "只换这个人线下这一层的字（正文、旁白、名字），线上聊天和别人的线下不变；点右上角的勾存好才生效。想加别的字，去 设置 · 主题工作台 · 字体。"),
+      h(FontPickRows, { t, font: sFace, setFont: setSFace }))),
       offShow("look", "css", "只给这个人的线下写 CSS",
         h(ChatCssFields, { css: sCss, setCSS: setSCss,
           fileBase: (char && (char.remark || char.name)) || "TA",
@@ -23987,30 +24018,11 @@ function ChatSettings({
     // 跟上面那两格同一个形状：第一档永远是「跟随全局」，不然改一次就退不回去了。
     // 名单问 FontChoice 要（内置那十支 + 她在主题工作台自己传的），这儿不另抄一份。
     // 每一支仍旧【用它自己的字写自己的名字】，跟工作台那边一样认得出。
-    (() => {
-      const F = typeof window !== "undefined" && window.FontChoice;
-      if (!F) return null;
-      const cus = ((window.ThemeStudio && window.ThemeStudio.current()) || {}).customFonts || [];
-      const list = F.facesWith(cus);
-      const row = (kind, label) => h("div", { style: { marginTop: 8 } },
-        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginBottom: 5 } }, label),
-        h("div", { className: "flex flex-wrap", style: { gap: 6 } },
-          list.map(f => {
-            const on = String(font[kind] || "") === f.key;
-            return h("button", {
-              key: (f.key || "_") + kind,
-              onClick: () => setFont(p => Object.assign({}, p, { [kind]: f.key })),
-              className: "active:opacity-70",
-              style: { fontFamily: f.stack || F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", padding: "6px 12px", borderRadius: 999,
-                background: on ? t.ink : "transparent", color: on ? t.bg2 : t.fog,
-                border: "1px solid " + (on ? t.ink : t.line) } }, f.key ? f.zh : "跟随全局");
-          })));
-      return h("div", { className: "pt-5" },
-        h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.sub } }, "只给 TA 换字"),
-        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, marginTop: 2, lineHeight: 1.6 } },
-          "只在这个聊天窗里生效，别人的窗口不受影响。想加别的字，去 设置 · 主题工作台 · 字体。"),
-        row("body", "正文"), row("display", "标题"));
-    })()),
+    h("div", { className: "pt-5" },
+      h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.sub } }, "只给 TA 换字"),
+      h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, marginTop: 2, lineHeight: 1.6 } },
+        "只在这个聊天窗里生效，别人的窗口不受影响。想加别的字，去 设置 · 主题工作台 · 字体。"),
+      h(FontPickRows, { t, font, setFont }))),
   show("dress", { title: "排版 · 气泡怎么摆", ...sec("look-layout") },
     h(ChatLayoutFields, { layout: layout, setLayout: setLayout, taName: cNm, onPeek: peekLook })),
   show("dress", { title: "背景 · 聊天和通话", ...sec("look-bg") },

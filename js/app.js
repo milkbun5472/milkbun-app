@@ -2803,7 +2803,11 @@ function App() {
       const css = raw ? window.ThemeStudio.resolveCSSImages(window.ThemeStudio.scopeCSS(raw, SENT)
         .split(SENT + " [data-wk=\"offline\"]").join(scope).split(SENT + " [data-wk='offline']").join(scope).split(SENT + " [data-wk=offline]").join(scope)
         .split(SENT).join(scope)) : "";
-      applyOfflineLook(css);
+      // 这个人线下的字（她 2026-11-08）：跟「只给 TA 换字」同一套 FontChoice，只是限在线下这一层
+      let fontCSS = "";
+      try { const _cf = ((window.ThemeStudio.current && window.ThemeStudio.current()) || {}).customFonts;
+        if (os0.font && window.FontChoice) { window.FontChoice.ensure(os0.font, _cf); fontCSS = window.FontChoice.cssVars(os0.font, _cf, window.resolveImg, scope); } } catch (e) { fontCSS = ""; }
+      applyOfflineLook([fontCSS, css].filter(Boolean).join("\n"));
     } catch (e) { applyOfflineLook(""); }
   };
   useEffect(() => { paintOfflineLook(null); }, [offlineChar && offlineChar.id, offlineSettings, screen]);
