@@ -10,7 +10,7 @@
   const INK = "#2f2a22", SUB = "rgba(47,42,34,.6)", RED = "#b23a2e", GREEN = "#4f7a66", PAPER = "#fbf6ea";
   const RC = { R: "#5a5248", SR: "#3f6fb0", SSR: "#c8962e" };
   const ROLE_COLOR = { 投递: "#b23a2e", 火漆: "#8a3a4a", 补票: "#4f7a66", 集邮: "#3f6fb0", 邮戳: "#6a4f8a" };
-  const ROLE_TIP = { 投递: "打同一列对面最前面那张，空着就打信封", 火漆: "厚，每回合给自己封一层", 补票: "给最残的那张回血、擦掉雨渍和退回", 集邮: "攒胶水、多抽牌", 邮戳: "给对面同一列盖戳" };
+  const ROLE_TIP = { 投递: "打同一列对面最前面那张，空着就打信封；打得最狠", 火漆: "厚，每回合给自己封一层护，再打一半", 补票: "给最残的那张回血、擦掉雨渍和退回，再打四成", 集邮: "攒胶水、多抽牌，再打四成", 邮戳: "给对面同一列盖戳，再打一半" };
   // 新手教学关（她 2026-11-08「直接做一个新手指引关，可以随便回玩学习」）：一把写好的练习局，
   //   上面一块教练条一步一步说，要她动手的那几步等她做到了才往下走。不存档、不进记忆、不花调用
   const TUT = [
@@ -54,7 +54,7 @@
   const GUIDE = [
     ["一句话", "你和 TA 各有一个信封。轮流往自己信封上贴邮票，贴上的票会自己去打对面。谁的信封先被打空，谁就输。"],
     ["每回合你做什么", "回合开始，你有 3 点胶水，手里摸到 4 张票。", "点手里一张，再点自己信封上的空格，就贴上去了。贴一张要花它的面值那么多胶水：R 是 1，SR 是 2，SSR 是 3。", "胶水花完、或者不想贴了，点「寄出」。你的票先动手，然后 TA 照着亮出来的那一步走。", "没用掉的牌回合结束就扔了。想留，选中它点「留到下回合」，最多留两张。", "放错了点「撤回」，一步一步退，胶水也退回来。点了「寄出」就退不回了。"],
-    ["五种票各干嘛", "投递：打人的。打同一列对面最前面那张，那一列空着就直接打信封。", "火漆：肉盾。血厚，每回合给自己封一层护。", "补票：奶妈。给最残的那张回血，顺手擦掉身上的戳。", "集邮：管钱的。下回合多给胶水、多摸牌。", "邮戳：捣乱的。给对面盖戳：雨渍让它变弱，退回让它停一回合，受潮让对面少胶水。", "票是哪一种，看卡上写了什么：写打架的多半是投递，写撑伞的多半是火漆。"],
+    ["五种票各干嘛", "每种票寄出后都会打同一列对面最前面那张（那一列空着就打信封），区别是打几成、顺手还干什么：", "投递：打人的，打满，攻击也最高。", "火漆：肉盾。血厚，每回合给自己封一层护，再打一半。", "补票：奶妈。给最残的那张回血、擦掉身上的戳，再打四成。", "集邮：管钱的。下回合多给胶水、多摸牌，再打四成。", "邮戳：捣乱的。给对面盖戳（雨渍让它变弱，退回让它停一回合，受潮让对面少胶水），再打一半。", "对面的等级照你这副牌的平均等级来，不会出现 1 级打 50 级；卡升级以后攻击、血涨得比以前多，信封也跟着卡组等级变厚。", "票是哪一种，看卡上写了什么：写打架的多半是投递，写撑伞的多半是火漆。"],
     ["站位：前排挨打，后排输出", "信封第一排是前排。对面打一列，从前排往后找，所以前面有人挡着，后排就挨不着。", "常见摆法：火漆放前排顶着，投递和邮戳放最后一排（后排它们攻击 +2）。", "对面哪一列空着，你那一列的投递就能直接打到 TA 的信封。"],
     ["凑组合", "连张：同一个人的两张票挨着，攻击 +2。", "整版：同一个人的三张票排满一整行或一整列，觉醒一次，打对面信封、全员充章。", "四方连：四张同一个人（或同一种卡，比如都是生日卡）凑成 2×2，觉醒一次，打对面信封、全员加护。", "每种组合每个人一局只觉醒一次。想好凑哪个再贴。", "开局前在「带谁上场」挑一两个人，他们的卡就多，好凑。"],
     ["盖章：每张票的大招", "票底下那排小点每回合亮一格，亮满变金色，就能盖章了。", "点那张票，再点「盖章」，花 1 胶水放它的技能。同一种票有四种技能，SSR 的更猛。", "所以每回合都要想：胶水拿去贴新票，还是去给老票盖章？"],
@@ -171,7 +171,7 @@
       const el = host.current; if (!el) return;
       const run = () => {
         const b = el.getBoundingClientRect(), box = (foe, i) => { const c = el.querySelector('[data-wk="duelboard"][data-foe="' + (foe ? 1 : 0) + '"] [data-slot="' + i + '"]'); if (!c) return null; const r = c.getBoundingClientRect(); return { x: r.left - b.left, y: r.top - b.top, w: r.width, h: r.height }; };
-        const sum = list => { const hit = {}; let env = 0; (list || []).forEach(a => { if (a.kind === "env") env += a.dmg || 0; else { const t = hit[a.to] = hit[a.to] || { dmg: 0, inks: [] }; if (a.kind === "ink") t.inks.push(a.ink); else t.dmg += a.dmg || 0; } }); return { hit, env }; };
+        const sum = list => { const hit = {}; let env = 0; (list || []).forEach(a => { if (a.kind === "env") env += a.dmg || 0; else { const t = hit[a.to] = hit[a.to] || { dmg: 0, inks: [] }; if (a.kind === "ink") t.inks.push(a.ink); t.dmg += a.dmg || 0; } }); return { hit, env }; };
         const fa = sum(foeAims), ma = sum(meAims), stamped = {}; (foeStamps || []).forEach(x => { stamped[x.slot] = 1; });
         const planned = {}; (foeAims || []).forEach(a => { if (a.planned) planned[a.from] = 1; });
         const brd = foe => { const e = el.querySelector('[data-wk="duelboard"][data-foe="' + (foe ? 1 : 0) + '"]'); if (!e) return null; const r = e.getBoundingClientRect(); return { x: r.left - b.left + r.width / 2, top: r.top - b.top, bottom: r.bottom - b.top }; };
@@ -195,7 +195,7 @@
       g.acts.map((a, k) => h("div", { key: "a" + k, "data-wk": "duelact", style: { position: "absolute", left: a.at.x, top: a.at.y + a.at.h - 9, width: a.at.w, textAlign: "center" } }, pill(a.c, a.txt))),
       g.envMe ? h("div", { key: "em", "data-wk": "duelwillhit", style: { position: "absolute", left: g.envMe.x, top: g.envMe.y - 9, transform: "translateX(-50%)" } }, pill(RED, "你的信封要挨 " + g.envMe.n)) : null,
       g.envFoe ? h("div", { key: "ef", "data-wk": "duelwillhit", style: { position: "absolute", left: g.envFoe.x, top: g.envFoe.y - 9, transform: "translateX(-50%)" } }, pill(GREEN, "TA 的信封要挨 " + g.envFoe.n)) : null,
-      g.badges.map((bd, k) => { const pv = bd.pv, a = pv.aim, txt = !a ? "" : a.kind === "ink" ? "盖" + a.ink : a.kind === "env" ? "打信封 " + a.dmg : "打 " + a.dmg;
+      g.badges.map((bd, k) => { const pv = bd.pv, a = pv.aim, txt = !a ? "" : a.kind === "ink" ? "盖" + a.ink + "·打 " + a.dmg : a.kind === "env" ? "打信封 " + a.dmg : "打 " + a.dmg;
         return h("div", { key: "b" + k, "data-wk": "duelpreview", style: { position: "absolute", left: bd.at.x, top: bd.at.y + 4, width: bd.at.w, textAlign: "center", fontSize: fz(9.5), lineHeight: 1.3, color: GREEN, fontFamily: F } },
           txt ? h("div", null, txt) : null, pv.combo.length ? h("div", { style: { color: "#c8962e", fontFamily: FD } }, pv.combo.join("＋") + "！") : null); }));
   }
@@ -352,7 +352,7 @@
       let me = D().deckFrom(pool, s, D().DECK_SIZE, core), them = D().foeDeckFrom(pool, foeId, closeOf ? closeOf(foeId) : [], s);
       if (rule === "mirror") them = me.map(x => Object.assign({}, x));
       if (rule === "reverse") { const t = me; me = them; them = t; }
-      const hp = rule === "quick" ? 25 : D().ENVELOPE_HP;
+      const hp = rule === "quick" ? 25 : D().envFor(me);
       const nd = D().newDuel(me, them, s, { blind, bonds: bondsOf(), foeId, hard, rule, wager: wager === "自己写" ? wagerDraft.trim() : wager,
         meHp: handi === "meMore" ? hp + 12 : hp, foeHp: handi === "foeLess" ? hp - 12 : hp, cap: rule === "quick" ? 7 : undefined });
       setAfter({ wager: null, review: null, busy: "" }); setReported(false); setSt(nd); setHandSel(-1); setBoardSel(-1); setSaved(null);

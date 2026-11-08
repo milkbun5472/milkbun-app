@@ -185,7 +185,7 @@ test("actsOf：两边每张上场的票都有一句这回合干什么", () => {
   const mk = (r, c) => Array.from({ length: 12 }, (_, i) => Object.assign(D.stampOf({ id: c + i, rarity: "R", lv: 5, text: { name: "x" } }), { role: r, charId: c }));
   const st = D.newDuel(mk("集邮", "a"), mk("投递", "b"), 5);
   const f = st.me.terrain.findIndex(t => !t); D.place(st, "me", 0, f);
-  assert.equal(D.actsOf(st, "me")[f], "攒胶水");
+  assert.match(D.actsOf(st, "me")[f], /^攒胶水·打/);
 });
 test("守城：十波、敌人往前走、前排站一回合就闯过去、守住或城破都会结束", () => {
   const cards = Array.from({ length: 30 }, (_, i) => ({ id: "c" + i, charId: ["a", "b"][i % 2], rarity: ["R", "R", "SR", "SSR"][i % 4], lv: 1 + i * 2, text: { name: "k" + i } }));

@@ -169,7 +169,8 @@
   function takeStart(run, idxs) {
     const set = new Set(idxs); run.deck = run.offer.filter((_, i) => set.has(i)).slice(0, START_PICK);
     if (run.deck.length < 4) run.deck = run.offer.slice(0, START_PICK);
-    run.deck = run.deck.map(s => Object.assign({}, s, { old: true }));   // 起手的老票（旧城的怀旧看它）
+    run.deck = run.deck.map(s => Object.assign({}, s, { old: true }));
+    const add = Math.round(D().avgLv(run.deck) * 0.8); run.hp += add; run.max += add;   // 卡组等级高，信封也厚   // 起手的老票（旧城的怀旧看它）
     run.offer = null; run.picked = true; return run;
   }
   const reachable = run => !run.pos ? run.map[0].map(n => n.k) : (run.map[run.pos.r].find(n => n.k === run.pos.k).to || []);
@@ -196,21 +197,23 @@
   function battleFor(run, nd, cards, closeOf, others) {
     const R = R0(run), seed = (run.seed ^ (run.step * 40503)) >>> 0;
     const th = THEMES[run.theme], troubles = TROUBLES.filter(t => !t.theme || t.theme === run.theme);
-    const base = { theme: run.theme || "", themeRuleZh: th ? th.rule + "：" + th.ruleZh : "", meHp: run.hp, meMax: run.max, relics: run.relics.slice(), amulet: run.relics.includes("护身符") && !run.amuletUsed };
+    // 对面照你卡组的平均等级来（她 2026-11-08）：越往后、等级越高、难站和终点越硬；信封跟着卡组等级变厚
+    const fm = (nd.type === "boss" ? 1.08 : nd.type === "elite" ? 0.98 : 0.72 + nd.r * 0.06) + (run.level - 1) * 0.04, ev = D().envFor(run.deck) / D().ENVELOPE_HP;
+    const base = { fairMul: fm, theme: run.theme || "", themeRuleZh: th ? th.rule + "：" + th.ruleZh : "", meHp: run.hp, meMax: run.max, relics: run.relics.slice(), amulet: run.relics.includes("护身符") && !run.amuletUsed };
     if (nd.type === "fight") {
       const tr = pick(troubles, R), hp = 22 + nd.r * (run.theme === "山路" ? 9 : 6) + (run.level - 1) * 3;
       run.dexT = run.dexT || []; if (!run.dexT.includes(tr.key)) run.dexT.push(tr.key);
-      return Object.assign(base, { foeName: tr.zh, say: tr.say, foeDeck: troubleDeck(run, tr), foeHp: hp, seed, foeId: "" });
+      return Object.assign(base, { foeName: tr.zh, say: tr.say, foeDeck: troubleDeck(run, tr), foeHp: Math.round(hp * ev), seed, foeId: "" });
     }
     if (nd.type === "elite") {
       const pool = (others || []).filter(id => id !== run.toId && (cards || []).some(c => c.charId === id));
       const who = pool.length ? pick(pool, R) : "";
       const deck = who ? D().foeDeckFrom(cards, who, closeOf ? closeOf(who) : [], seed) : troubleDeck(run, pick(troubles, R));
-      return Object.assign(base, { foeId: who, foeDeck: deck, foeHp: 36 + nd.r * 4 + (run.level - 1) * 4, seed, hard: true, elite: true });
+      return Object.assign(base, { foeId: who, foeDeck: deck, foeHp: Math.round((36 + nd.r * 4 + (run.level - 1) * 4) * ev), seed, hard: true, elite: true });
     }
     // 终点：TA 本人，用 TA 的卡，认真模式
     const rule = (run.bonds && run.bonds[run.toId]) || "默契";
-    return Object.assign(base, { foeId: run.toId, foeDeck: D().foeDeckFrom(cards, run.toId, closeOf ? closeOf(run.toId) : [], seed), foeHp: 55 + (run.level - 1) * 5, seed, hard: true, boss: true, bossRule: rule, bossRuleZh: BOSS_RULES[rule] || "" });
+    return Object.assign(base, { foeId: run.toId, foeDeck: D().foeDeckFrom(cards, run.toId, closeOf ? closeOf(run.toId) : [], seed), foeHp: Math.round((55 + (run.level - 1) * 5) * ev), seed, hard: true, boss: true, bossRule: rule, bossRuleZh: BOSS_RULES[rule] || "" });
   }
   // 打完一场：血带着走、给邮花、给三张挑一张（难站另给一件信物）
   function afterBattle(run, st, nd, cards) {
