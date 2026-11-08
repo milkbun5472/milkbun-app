@@ -36124,6 +36124,25 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       //   材料是她挑的三样；效果只许从 d.fxList（三样材料的偏向）里挑，强弱代码定
       // 挑战陪打（她 2026-11-08「挑战类能跟他聊天，推荐怎么放或者评论战局」「做吧，可以选谁陪我打」）：
       //   对面是游戏造的敌人，TA 在旁边陪她看；只按 d.board 写着的局面说
+      // 剧情闯关（她 2026-11-08「1 和 3 都可以」）：TA 一章一章写一段故事，每章引出一场仗，章末给她两三个选项；第五章打完写结局
+      if (d.mode === "storych" || d.mode === "storyend") {
+        const end = d.mode === "storyend";
+        const r = await runProbe(apiFor(char.id), ctxFor(char), { voice: true, tag: "stampstory", maxTokens: 8000,
+          instruction: "你和" + uN + "在邮票册里玩「剧情闯关」：你们俩一起走一段故事，故事的引子是「" + (d.hook || "") + "」，一共五章；每章里会遇上一个拦路的对手，她用邮票册的卡跟它打一场（打仗是游戏，故事里写成你们怎么闯过去或没闯过去）。\n"
+            + (d.past ? "前面已经发生的：\n" + d.past + "\n" : "")
+            + (typeof stampVoice === "function" ? stampVoice(char) + "\n" : "")
+            + "照你的人设和你们现在的关系来写，你就是故事里的你；写正在发生的事，有动作、有对话、有你们之间的那一下，别写成总结。前面她选了什么、打赢打输了，这一章要接得住。\n"
+            + (end
+              ? "现在写这段故事的结局：照前面五章走过来的路、她的选择、打赢打输，写一个合得上的结局，几段，收住。title 是结局的名字，lines 一段一项。"
+              : "现在写第 " + d.ch + " 章（共五章）：几段，写到遇上这一章拦路的对手为止。title 是这一章的名字；lines 一段一项；foe.name 是这一章拦路的对手叫什么（人、东西、天气都行，跟故事合得上），foe.say 是它出场时说的话或者它给人的感觉；choices 是这一章打完以后她能选的两三条路，每条一句话，选了会把故事带去不同的方向。"),
+          schemaHint: end ? "{\"title\":\"\",\"lines\":[\"一段\"]}" : "{\"title\":\"\",\"lines\":[\"一段\"],\"foe\":{\"name\":\"\",\"say\":\"\"},\"choices\":[\"一条路\"]}" });
+        const lines = (Array.isArray(r && r.lines) ? r.lines : [r && r.lines]).map(x => String(x || "").trim()).filter(Boolean);
+        if (!lines.length) return null;
+        const out = { title: String((r && r.title) || "").trim(), lines };
+        if (!end) { out.foe = { name: String((r.foe && r.foe.name) || "拦路的人").trim(), say: String((r.foe && r.foe.say) || "").trim() }; out.choices = (Array.isArray(r.choices) ? r.choices : []).map(x => String(x || "").trim()).filter(Boolean).slice(0, 3); }
+        if (end) { try { addMemEntry({ text: char.name + "和" + uN + "在邮票册里一起走完了一段故事「" + (d.hook || "") + "」，结局是「" + out.title + "」：" + lines.join(" ").slice(0, 120), tags: ["邮票对局", "剧情闯关"], charIds: [char.id], knownBy: [char.id], source: "stamps" }); } catch (e) {} }
+        return out;
+      }
       // 派遣（她 2026-11-08「做吧」）：几张票被派去一个地方待了几个小时，回来时 TA 写一份见闻、带回一样小东西（进小物册，去重照小物）
       if (d.mode === "dispatch") {
         const prevAll = [].concat(loadJSON("x_stampKeeps", []) || [], loadJSON("x_stampTrinkets", []) || []).filter(k => k && k.charId === char.id).sort((a, b) => (a.ts || 0) - (b.ts || 0)).slice(-40);

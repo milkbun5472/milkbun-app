@@ -128,6 +128,7 @@
     ["远信：一路打过去", "从挑玩法页进「远信」：给一个人寄一封信，信要走一段邮路，最后一站是 TA 本人。", "信封血带着走：一场打完不回满，到驿站、岔路、邮局才回得来。", "路线：雪国、海边、旧城、夜车、花季、沙漠、雨季、山路、梦里、TA 的城市，节日那条只在节日前后开。每条一条棋盘规则，对局顶上写着。默认是 TA 照人设推荐的那条。"],
     ["守城：一波一波守住", "从挑玩法页进「守城」，先挑一档（五档，各写建议等级）：没有对手，卡组从你的邮票册里配，对面是一波一波压过来的麻烦。", "敌人贴在对面后排，一回合往前走一格；走到前排的会打你那一列，在前排站过一回合还没被打掉，下回合就闯过去撞你的信封（写着「要闯过去」）。", "守过第 10 波、场上清空就赢；信封打空就城破。每守住三波，信封回 5、下回合多摸一张。", "跟对局同一套：贴票、胶水、盖章、组合都照旧。你的票照样打同一列最前面那个，所以在敌人走到前排之前就能先打它。"],
     ["远信的信物", "远信路上打赢会掉材料（走主题路线掉那条路的，打赢终点掉「TA 的东西」），只在这一趟里用。", "路线图上点「做信物」：挑三样材料（能混着）、挑收信的人或陪你走的人，请 TA 做一件，花一次调用。TA 照自己的人设和你们聊过的事写名字、一两句来历、看着它说的一句话。", "效果从三样材料的偏向里挑，同一种偏向的越多越强，「TA 的东西」再加一档；做好当场就能带上，这一趟后面每一站都生效。一开始只能带一件，路上的「旧行李箱」能多开一格，最多三格。", "做过的信物都收进开头页的「信物册」。下一趟跟同一个人出发（TA 收信或陪你走），能在开头挑一件旧信物带上，占一格。"],
+    ["剧情闯关：一起走一段故事", "挑玩法页「和 TA 一起」里的「剧情闯关」：挑一个人、挑个开头（或者让 TA 起一个），一共五章。", "每章 TA 先写一段，写到遇上拦路的对手；你用卡跟它打一场，打完挑一条路往下走。打赢打输、选哪条路，后面的走向和结局都会跟着变。第五章打完 TA 写结局，整段收进故事集。每章花一次调用，结局一次。走到一半退出，下次接着。"],
     ["接力：你一回合、TA 一回合", "挑玩法页「和 TA 一起」里的「接力」：挑一个人，你们轮流下同一块棋盘打审查局，单数回合你下、双数回合 TA 下。", "TA 那回合照自己的性子出牌：护短的先顶前排，好胜的抢着贴投递，冷淡的一回合最多贴两张，温柔的有人受伤先上补票。信封是你们共用的，卡组多从 TA 的卡里来。能边打边跟 TA 说话，打完能听 TA 评一把。"],
     ["残局：找最好的一手", "挑玩法页进「残局」：30 关，一关一关开，人人题目一样；30 关全过了接着打「无限关」（难度封顶，记最远第几关）。另有「每日残局」：一天一题、每个人的都不一样，连着解有连续天数。每关棋盘、手牌、胶水都摆好了，只有这一回合，寄出时要把对面信封打空。", "对面信封正好是这一手最好能打出的伤害，所以得找到最好的放法：贴哪几张、贴哪格（连张、后排、组合）、先给谁盖章。随手往空格里贴的那种放法一定不够。", "卡住了点「提示」，一次给一步；「重来」把这一关摆回原样。"],
     ["邮区巡查：自己挑路", "挑玩法页进「邮区巡查」：一张 5×5 的地图，每周自动换一张、每个人的都不一样。从最下面中间出发，只能走到上下左右挨着的格子，走到哪翻开到哪，一共 14 步。", "格子：普通仗、硬仗、宝箱、岔路、驿站，最上面一排藏着巡查长。信封血一路带着，驿站回 15。打赢、开宝箱、打倒巡查长加分；打输了算败退：信封留 1 点、扣 2 步，接着走。步数用完、打倒巡查长或者提前收工就结束，这周记最高分。"],
@@ -367,11 +368,11 @@
     const byId = useMemo(() => { const m = {}; (cards || []).forEach(c => { if (c && c.id) m[c.id] = c; }); return m; }, [cards]);
     const nameOf = id => { if (id === "tut_pair") return "小练"; const c = (characters || []).find(x => x.id === id); return c ? (c.remark || c.name) : ""; };
     const cardOf = id => byId[id] || null, ownerOf = id => id && nameOf(id) ? nameOf(id) + "的卡" : "";
-    let foeName = (st && st.relay && "审查局") || (st && st.puzzle && "残局") || (st && st.patrol && (st.patrol === "boss" ? "巡查长" : "巡查站")) || (st && st.shift && "审查局") || (st && st.edict && "审查局") || (st && st.siege && "城外") || (st && st.raid && "邮政总局") || (runBattle && runBattle.foeName) || nameOf(runBattle ? runBattle.foeId : foeId) || "TA";
+    let foeName = (st && st.story && st.story.foe) || (st && st.relay && "审查局") || (st && st.puzzle && "残局") || (st && st.patrol && (st.patrol === "boss" ? "巡查长" : "巡查站")) || (st && st.shift && "审查局") || (st && st.edict && "审查局") || (st && st.siege && "城外") || (st && st.raid && "邮政总局") || (runBattle && runBattle.foeName) || nameOf(runBattle ? runBattle.foeId : foeId) || "TA";
     // 没打完退出去也留着（她 2026-11-07「没打完暂退能不能存档跟小游戏一样」）：每动一步就存一份，打完、放弃才清
     const SAVE_KEY = "x_stampDuelSave";
     const [saved, setSaved] = useState(() => { try { const v = typeof loadJSON === "function" ? loadJSON(SAVE_KEY, null) : null; return v && v.st && !v.st.over ? v : null; } catch (e) { return null; } });
-    const persist = (x, sr) => { try { if (typeof saveJSON !== "function" || (x && (x.tutorial || x.run || x.siege || x.raid || x.edict || x.shift || x.patrol || x.puzzle || x.relay)) || runBattle) return; if (x && !x.over) saveJSON(SAVE_KEY, { st: x, series: sr || null, foeId, at: Date.now() }); else saveJSON(SAVE_KEY, null); } catch (e) {} };
+    const persist = (x, sr) => { try { if (typeof saveJSON !== "function" || (x && (x.tutorial || x.run || x.siege || x.raid || x.edict || x.shift || x.patrol || x.puzzle || x.relay || x.story)) || runBattle) return; if (x && !x.over) saveJSON(SAVE_KEY, { st: x, series: sr || null, foeId, at: Date.now() }); else saveJSON(SAVE_KEY, null); } catch (e) {} };
     const redraw = () => { persist(st, series); bump(x => x + 1); };
     const resume = () => { if (!saved) return; setFoeId(saved.foeId); setSt(saved.st); setSeries(saved.series || D().newSeries()); setSaved(null); setHandSel(-1); setBoardSel(-1); };
     const drop = () => { persist(null); setSaved(null); };
@@ -419,6 +420,28 @@
     const pzStreak = () => { const d = pzDaily(); let n = 0; for (let k = 0; k < 400; k++) { const t = new Date(Date.now() - k * 86400000), key = t.getFullYear() + "-" + (t.getMonth() + 1) + "-" + t.getDate(); if (d[key]) n++; else if (k > 0) break; } return n; };
     const startPuzzle = (lv, daily) => { const nd = daily ? D().puzzleOf(22, ((dayNum() * 2654435761) ^ patrolSalt()) >>> 0) : D().puzzleOf(lv); if (!nd) { toast && toast("这一关没出好，换一关试试"); return; } if (daily) nd.puzzle.daily = dayKey(); setPzHint(0); setSt(nd); setMode("puzzle"); setHandSel(-1); setBoardSel(-1); };
     // 接力（她 2026-11-08）：你和 TA 轮流下同一块棋盘；单数回合你、双数回合 TA（照 TA 的性子出牌）
+    // 剧情闯关（她 2026-11-08）：五章，每章 TA 写一段→打一场→她选一条路；第五章打完写结局，收进故事集
+    const STORY_KEY = "x_stampStory", STORIES_KEY = "x_stampStories";
+    const STORY_HOOKS = ["一封寄错的信", "暴雪封路的邮局", "失踪的邮差", "最后一班夜车", "抽屉里的旧明信片", "让 TA 起一个"];
+    const [story, setStory0] = useState(() => { try { const v = typeof loadJSON === "function" ? loadJSON(STORY_KEY, null) : null; return v && !v.done ? v : null; } catch (e) { return null; } });
+    const setStory = v => { setStory0(v ? Object.assign({}, v) : null); try { saveJSON(STORY_KEY, v && !v.done ? v : null); } catch (e) {} };
+    const [sHook, setSHook] = useState(STORY_HOOKS[0]), [sBusy, setSBusy] = useState(false), [sOpen, setSOpen] = useState("");
+    const storyPast = sv0 => sv0.chapters.map((c, i) => "第 " + (i + 1) + " 章「" + c.title + "」：" + c.lines.join("").slice(0, 400) + "。拦路的是" + c.foe.name + (c.won == null ? "" : c.won ? "，她闯过去了" : "，她没闯过去") + (c.pick ? "；打完她选了：" + c.pick : "")).join("\n");
+    const storyNext = async sv0 => {
+      if (sBusy || !onChat) return; setSBusy(true);
+      try { const end = sv0.chapters.length >= 5, r = await onChat(sv0.charId, { mode: end ? "storyend" : "storych", hook: sv0.hook, ch: sv0.chapters.length + 1, past: storyPast(sv0) });
+        if (!r || !r.lines) { toast && toast("没写出来，再点一次试试"); return; }
+        if (end) { sv0.ending = r; sv0.done = true; setSOpen(sv0.id); try { const all = (typeof loadJSON === "function" ? loadJSON(STORIES_KEY, []) : []) || []; all.push(Object.assign({}, sv0, { ts: Date.now() })); saveJSON(STORIES_KEY, all.slice(-50)); } catch (e) {} }
+        else sv0.chapters.push(Object.assign({ won: null, pick: "" }, r));
+        setStory(sv0); }
+      catch (e) { toast && toast("没成：" + ((e && e.message) || e)); } finally { setSBusy(false); }
+    };
+    const storyFight = sv0 => {
+      const c = sv0.chapters[sv0.chapters.length - 1], s = (seedRef.current = (seedRef.current * 1103515245 + 12345) >>> 0), me = D().deckFrom(cards, s, D().DECK_SIZE, [sv0.charId]);
+      const foeDeck = D().edictDeck(s).map((u, k) => Object.assign(u, { name: c.foe.name + (k ? "·" + (k + 1) : "") }));
+      const nd = D().newDuel(me, foeDeck, s, { foeLv: Math.max(3, Math.round(D().avgLv(me) * (0.85 + sv0.chapters.length * 0.06))), bonds: bondsOf() });
+      nd.story = { foe: c.foe.name, charId: sv0.charId }; setSt(nd); setMode("story"); setHandSel(-1); setBoardSel(-1);
+    };
     const RELAY_KEY = "x_stampRelay";
     const relayRec = () => { try { return (typeof loadJSON === "function" ? loadJSON(RELAY_KEY, null) : null) || {}; } catch (e) { return {}; } };
     const startRelay = () => {
@@ -593,6 +616,40 @@
         h("div", { style: { fontSize: fz(12), color: SUB, lineHeight: 1.7, marginTop: 4, marginRight: 40 } }, desc)));
     // 守城挑档（她 2026-11-08「后面难度比我的卡都高我怎么赢」→ 固定难度档）
     // 小物册（她 2026-11-08）：按人分页；上面写攒了几个没拆的包裹，点「拆一个」花一次调用
+    if (!st && mode === "story") {
+      const sv0 = story, C = "#7a3b5a", stories = (() => { try { return (typeof loadJSON === "function" ? loadJSON(STORIES_KEY, []) : []) || []; } catch (e) { return []; } })();
+      const para = (lines, k0) => lines.map((t, k) => h("p", { key: k0 + k, style: { fontFamily: FD, fontSize: fz(13.5), lineHeight: 1.85, margin: "0 0 9px", whiteSpace: "pre-wrap" } }, t));
+      if (!sv0) return shell([
+        h(Head, { key: "hd", zh: "剧情闯关", bg: "transparent", ink: INK, onBack: () => setMode(""), right: guideBtn }),
+        h("div", { key: "bd", "data-wk": "duelstorystart", className: "flex-1 min-h-0 overflow-y-auto px-5", style: { fontFamily: F, color: INK, paddingTop: 6, paddingBottom: 24 } },
+          modeHero(C, "章", "剧情闯关", "跟一个人一起走一段五章的故事。每章 TA 先写一段，写到遇上拦路的对手，你用卡跟它打一场；打完挑一条路往下走。选的不一样、打赢打输，后面的走向和结局都不一样。走完收进故事集。每章花一次调用，结局再花一次。"),
+          coachPick(),
+          h("div", { style: { fontSize: fz(12), color: INK, margin: "0 0 6px" } }, "故事从哪儿开始"),
+          h("div", { className: "flex flex-wrap", style: { gap: 6, marginBottom: 14 } }, STORY_HOOKS.map(k => h("button", { key: k, "data-wk": "duelstoryhook", "data-on": sHook === k ? "1" : "0", onClick: () => setSHook(k), style: { padding: "3px 11px", borderRadius: 999, border: "1px solid " + (sHook === k ? C : "rgba(47,42,34,.22)"), color: sHook === k ? C : INK, background: sHook === k ? "rgba(122,59,90,.08)" : "transparent", fontSize: fz(12) } }, k))),
+          h("button", { "data-wk": "duelstorygo", disabled: !coachId || sBusy, onClick: () => storyNext({ id: "sy_" + Date.now().toString(36), charId: coachId, hook: sHook === "让 TA 起一个" ? "由你来起：照你们的关系想一个合适的开头" : sHook, chapters: [] }), className: "w-full disabled:opacity-40", style: Object.assign(btn(C, "#fff"), { padding: "12px 0", fontFamily: FD, fontSize: fz(15) }) }, sBusy ? (nameOf(coachId) || "TA") + " 在写第一章…" : coachId ? "跟 " + (nameOf(coachId) || "TA") + " 开始这段故事" : "先挑一个人"),
+          stories.length ? h("div", { "data-wk": "duelstorybook", style: { marginTop: 20 } }, h("div", { style: { fontFamily: FD, fontSize: fz(14), marginBottom: 6 } }, "故事集 · " + stories.length + " 段"),
+            stories.slice().reverse().map(x => { const op = sOpen === x.id;
+              return h("div", { key: x.id, style: { marginBottom: 8, borderRadius: 5, background: PAPER, border: "1px solid rgba(122,59,90,.25)", borderLeft: "3px solid " + C } },
+                h("button", { onClick: () => setSOpen(op ? "" : x.id), className: "w-full text-left", style: { padding: "9px 12px" } }, h("div", { style: { fontFamily: FD, fontSize: fz(14) } }, (x.ending && x.ending.title) || x.hook), h("div", { style: { fontSize: fz(10.5), color: SUB } }, (nameOf(x.charId) || "TA") + " · " + new Date(x.ts).toLocaleDateString())),
+                op ? h("div", { style: { padding: "0 14px 12px" } }, x.chapters.map((c, i) => h("div", { key: i }, h("div", { style: { fontFamily: FD, color: C, margin: "8px 0 4px" } }, "第 " + (i + 1) + " 章 · " + c.title), para(c.lines, "c" + i), c.pick ? h("div", { style: { fontSize: fz(11.5), color: SUB, marginBottom: 6 } }, (c.won ? "闯过去了" : "没闯过去") + " · 选了：" + c.pick) : null)),
+                  x.ending ? h("div", null, h("div", { style: { fontFamily: FD, color: C, margin: "10px 0 4px" } }, "结局 · " + x.ending.title), para(x.ending.lines, "e")) : null) : null); })) : null)]);
+      const cur = sv0.chapters[sv0.chapters.length - 1], n = sv0.chapters.length;
+      return shell([
+        h(Head, { key: "hd", zh: "剧情闯关 · 第 " + n + " / 5 章", bg: "transparent", ink: INK, onBack: () => setMode(""), right: guideBtn }),
+        h("div", { key: "bd", "data-wk": "duelstoryread", className: "flex-1 min-h-0 overflow-y-auto px-4", style: { fontFamily: F, color: INK, paddingTop: 4, paddingBottom: 24 } },
+          n > 1 ? h("details", { style: { marginBottom: 10, fontSize: fz(12), color: SUB } }, h("summary", null, "前面几章"), sv0.chapters.slice(0, -1).map((c, i) => h("div", { key: i, style: { marginTop: 6 } }, h("div", { style: { fontFamily: FD, color: C } }, "第 " + (i + 1) + " 章 · " + c.title), para(c.lines, "p" + i)))) : null,
+          h("div", { "data-wk": "duelstorychapter", style: { padding: "16px 16px 10px", borderRadius: 4, background: PAPER, boxShadow: "0 3px 10px rgba(47,42,34,.15)", borderTop: "4px solid " + C } },
+            h("div", { style: { fontSize: fz(10.5), color: SUB, letterSpacing: ".15em" } }, sv0.hook.indexOf("由你来起") === 0 ? (nameOf(sv0.charId) || "TA") + " 起的头" : "「" + sv0.hook + "」 · " + (nameOf(sv0.charId) || "TA")),
+            h("div", { style: { fontFamily: FD, fontSize: fz(17), color: C, margin: "4px 0 10px" } }, "第 " + n + " 章 · " + cur.title),
+            para(cur.lines, "cur"),
+            cur.foe.say ? h("div", { style: { margin: "4px 0 8px", padding: "7px 11px", borderLeft: "3px solid " + RED, background: "rgba(178,58,46,.06)", fontFamily: FD, fontSize: fz(13) } }, cur.foe.name + "：" + cur.foe.say) : null),
+          cur.won == null ? h("button", { "data-wk": "duelstoryfight", onClick: () => storyFight(sv0), className: "w-full", style: Object.assign(btn(RED, "#fff"), { marginTop: 14, padding: "12px 0", fontFamily: FD, fontSize: fz(15) }) }, "迎战「" + cur.foe.name + "」")
+          : h("div", { "data-wk": "duelstorychoose", style: { marginTop: 14 } },
+              h("div", { style: { fontFamily: FD, fontSize: fz(14), color: cur.won ? GREEN : RED, marginBottom: 8 } }, cur.won ? "闯过去了。接下来往哪儿走？" : "没闯过去……故事还得往下走。接下来往哪儿走？"),
+              (n >= 5 ? ["看结局"] : (cur.choices.length ? cur.choices : ["接着往下走"])).map((c, k) => h("button", { key: k, "data-wk": "duelstorypick", disabled: sBusy, onClick: () => { cur.pick = n >= 5 ? "" : c; storyNext(sv0); }, className: "w-full text-left disabled:opacity-50", style: { display: "block", marginBottom: 8, padding: "10px 13px", borderRadius: 6, background: "#fffdf7", border: "1px solid rgba(122,59,90,.35)", color: INK, fontSize: fz(13) } }, (n >= 5 ? "" : "→ ") + c)),
+              sBusy ? h("div", { style: { fontSize: fz(12), color: SUB } }, (nameOf(sv0.charId) || "TA") + " 在写…") : null),
+          h("button", { onClick: () => { if (typeof requestAppConfirm === "function") requestAppConfirm("不走这段故事了？", "写好的几章不会收进故事集。", () => setStory(null), "不走了"); else setStory(null); }, className: "w-full", style: Object.assign(btn("transparent", SUB, "rgba(47,42,34,.25)"), { marginTop: 18 }) }, "放下这段故事"))]);
+    }
     if (!st && mode === "dispatch") {
       const all = Dispatch.all(), active = all.filter(t => !t.report), now = Date.now(), C = "#3f7a8a";
       const fullCard = id => (cardsAll || []).find(c => c.id === id);
@@ -842,7 +899,8 @@
         h("div", { key: "g1", "data-wk": "duelmodegrid", style: { display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 12, marginBottom: 16 } },
           modeTile("duelmodeduel", RED, "对", "对局", "跟一个人面对面打一把", saved ? "有一把没打完" : "", () => setMode("duel"), -1.5),
           onRun ? modeTile("duelgorun", "#b8862a", "远", "远信", "寄一封信，一路打过去", "", onRun, 1.2) : null,
-          modeTile("duelmoderelay", "#a0522d", "接", "接力", "你一回合、TA 一回合", "", () => setMode("relay"), 1)),
+          modeTile("duelmoderelay", "#a0522d", "接", "接力", "你一回合、TA 一回合", "", () => setMode("relay"), 1),
+          modeTile("duelmodestory", "#7a3b5a", "章", "剧情闯关", "一起走一段五章的故事", story ? "走到第 " + story.chapters.length + " 章" : "", () => setMode("story"), -1)),
         h("div", { key: "sec2", style: { fontFamily: FD, fontSize: fz(13), color: INK, margin: "4px 2px 8px", letterSpacing: ".1em" } }, "挑战"),
         h("div", { key: "g2", "data-wk": "duelmodegrid", style: { display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 12, marginBottom: 16 } },
           (() => { const t = [0, 1, 2, 3, 4].filter(k => siegeBest(k).wins).pop(); return modeTile("duelmodesiege", "#3f6fb0", "守", "守城", "一波一波守住信封", t != null ? "守住过第 " + (t + 1) + " 档" : "", () => setMode("siegepick"), 1); })(),
@@ -979,8 +1037,8 @@
     };
     const again = () => { D().addGame(series, st); start(); };
     const log = st.log.slice(-4);
-    if (over && !playing.current && !st.run && !st.siege && !st.raid && !st.edict && !st.shift && !st.patrol && !st.puzzle && !st.relay) record(st);
-    const chalNow = !!(st.siege || st.raid || st.edict || st.shift || st.patrol || st.puzzle || st.relay);
+    if (over && !playing.current && !st.run && !st.siege && !st.raid && !st.edict && !st.shift && !st.patrol && !st.puzzle && !st.relay && !st.story) record(st);
+    const chalNow = !!(st.siege || st.raid || st.edict || st.shift || st.patrol || st.puzzle || st.relay || st.story);
     // 接力：轮到 TA（双数回合）就自动替 TA 下，放完动画再交回给她
     const taTurn = !!(st.relay && !over && st.turn % 2 === 0);
     if (taTurn && !playing.current && !st.relayRunning) { st.relayRunning = true;
@@ -1016,8 +1074,8 @@
       + (st.intent && !st.blind ? "。你这回合打算：" + [].concat((st.intent.stamp || []).map(x => "给「" + x.name + "」盖章"), (st.intent.place || []).map(x => "贴「" + x.name + "」")).join("、") : "")
       + "。最近发生的：" + st.log.slice(-6).map(l => (l.who === "foe" ? "你：" : l.who === "me" ? "她：" : "") + l.text).join("；");
     // 挑战（守城、讨伐、封缄令、值班）里聊天的是陪你打的人，不是对面
-    const chal = !!(st.siege || st.raid || st.edict || st.shift || st.patrol || st.puzzle || st.relay), talkId = chal ? coachId : foeId, talkName = chal ? (nameOf(coachId) || "TA") : foeName;
-    const chalName = st.relay ? "接力（你和她轮流下同一块棋盘打审查局：单数回合她下，双数回合你下；信封是你们俩共用的）" : st.puzzle ? "残局第 " + st.puzzle.lv + " 关（只有这一回合，寄出时要把对面信封 " + st.puzzle.best + " 点打空）" : st.patrol ? "邮区巡查" : st.siege ? "守城" : st.raid ? (st.raid.endless ? "讨伐·无尽" : "讨伐") : st.edict ? "封缄令" : st.shift ? "邮局值班" : "";
+    const chal = !!(st.siege || st.raid || st.edict || st.shift || st.patrol || st.puzzle || st.relay || st.story), talkId = st.story ? st.story.charId : chal ? coachId : foeId, talkName = chal ? (nameOf(coachId) || "TA") : foeName;
+    const chalName = st.story ? "剧情闯关（你们俩在走一段故事，这一章拦路的是「" + st.story.foe + "」）" : st.relay ? "接力（你和她轮流下同一块棋盘打审查局：单数回合她下，双数回合你下；信封是你们俩共用的）" : st.puzzle ? "残局第 " + st.puzzle.lv + " 关（只有这一回合，寄出时要把对面信封 " + st.puzzle.best + " 点打空）" : st.patrol ? "邮区巡查" : st.siege ? "守城" : st.raid ? (st.raid.endless ? "讨伐·无尽" : "讨伐") : st.edict ? "封缄令" : st.shift ? "邮局值班" : "";
     const coachBoard = () => "她在玩「" + chalName + "」，第 " + st.turn + " 回合"
       + (st.siege ? "，第 " + Math.min(st.turn, st.siege.waves) + " / " + st.siege.waves + " 波，已守住 " + st.siege.cleared + " 波" : "")
       + (st.raid ? "，已经打出 " + st.raid.dealt + " 伤害" + (st.raid.endless ? "（无尽，打到她信封空为止）" : "（打满 " + D().RAID_TURNS + " 回合算分）") : "")
@@ -1066,8 +1124,8 @@
     const intentText = [].concat((it.stamp || []).map(x => "给「" + x.name + "」盖章"), (it.place || []).map(x => "贴「" + x.name + "」" + x.role)).join("、") || "这回合不贴票";
 
     return shell([
-      h(Head, { key: "hd", zh: st.relay ? "接力 · 第 " + st.turn + " 回合 · " + (st.turn % 2 ? "你下" : (nameOf(st.relay.ta) || "TA") + " 下") : st.puzzle ? (st.puzzle.daily ? "每日残局 · " + st.puzzle.daily : "残局 · 第 " + st.puzzle.lv + " 关") : st.patrol ? "邮区巡查 · " + (st.patrol === "boss" ? "巡查长" : st.patrol === "elite" ? "硬仗" : "普通仗") + " · 第 " + st.turn + " 回合" : st.shift ? "邮局值班 · 第 " + (shift ? shift.round : 1) + " 轮 · 第 " + st.turn + " 回合" : st.edict ? "封缄令 · 危险 " + (st.edictPts || 0) + " · 第 " + st.turn + " 回合" : st.raid ? (st.raid.endless ? "无尽" : "讨伐") + " · 第 " + st.turn + " 回合" : st.siege ? "守城 " + ((st.siegeTier || 0) + 1) + " 档 · 第 " + Math.min(st.turn, st.siege.waves) + " 波" : "第 " + st.turn + " 回合", sub: st.siege ? "" : "对 " + foeName + (st.blind ? " · 盲打" : ""), bg: "transparent", ink: INK, right: guideBtn,
-        onBack: () => { if (st.relay) { setSt(null); setMode("relay"); return; } if (st.puzzle) { setSt(null); setMode("puzzle"); return; } if (st.patrol) { if (typeof requestAppConfirm === "function") requestAppConfirm("先离开这一场？", "这一格算没打赢，信封照现在的血算。", () => { st.over = st.over || { winner: "foe", turn: st.turn, me: st.me.hp, foe: st.foe.hp }; patrolBack(); }, "离开"); else { st.over = st.over || { winner: "foe" }; patrolBack(); } return; } if (st.shift) { setSt(null); setMode("shift"); return; } if (st.edict) { setSt(null); setMode("edictpick"); return; } if (st.raid) { setSt(null); setMode("raidpick"); return; } if (st.siege) { setSt(null); setMode("siegepick"); return; } if (st.run) { runBattle.onQuit && runBattle.onQuit(); return; } if (st.tutorial) { setSt(null); setTut(-1); return; } if (!over) { persist(st, series); setSaved({ st, series, foeId, at: Date.now() }); } else persist(null); setSt(null); setSeries(null); } }),
+      h(Head, { key: "hd", zh: st.story ? "剧情闯关 · 对「" + st.story.foe + "」" : st.relay ? "接力 · 第 " + st.turn + " 回合 · " + (st.turn % 2 ? "你下" : (nameOf(st.relay.ta) || "TA") + " 下") : st.puzzle ? (st.puzzle.daily ? "每日残局 · " + st.puzzle.daily : "残局 · 第 " + st.puzzle.lv + " 关") : st.patrol ? "邮区巡查 · " + (st.patrol === "boss" ? "巡查长" : st.patrol === "elite" ? "硬仗" : "普通仗") + " · 第 " + st.turn + " 回合" : st.shift ? "邮局值班 · 第 " + (shift ? shift.round : 1) + " 轮 · 第 " + st.turn + " 回合" : st.edict ? "封缄令 · 危险 " + (st.edictPts || 0) + " · 第 " + st.turn + " 回合" : st.raid ? (st.raid.endless ? "无尽" : "讨伐") + " · 第 " + st.turn + " 回合" : st.siege ? "守城 " + ((st.siegeTier || 0) + 1) + " 档 · 第 " + Math.min(st.turn, st.siege.waves) + " 波" : "第 " + st.turn + " 回合", sub: st.siege ? "" : "对 " + foeName + (st.blind ? " · 盲打" : ""), bg: "transparent", ink: INK, right: guideBtn,
+        onBack: () => { if (st.story) { setSt(null); setMode("story"); return; } if (st.relay) { setSt(null); setMode("relay"); return; } if (st.puzzle) { setSt(null); setMode("puzzle"); return; } if (st.patrol) { if (typeof requestAppConfirm === "function") requestAppConfirm("先离开这一场？", "这一格算没打赢，信封照现在的血算。", () => { st.over = st.over || { winner: "foe", turn: st.turn, me: st.me.hp, foe: st.foe.hp }; patrolBack(); }, "离开"); else { st.over = st.over || { winner: "foe" }; patrolBack(); } return; } if (st.shift) { setSt(null); setMode("shift"); return; } if (st.edict) { setSt(null); setMode("edictpick"); return; } if (st.raid) { setSt(null); setMode("raidpick"); return; } if (st.siege) { setSt(null); setMode("siegepick"); return; } if (st.run) { runBattle.onQuit && runBattle.onQuit(); return; } if (st.tutorial) { setSt(null); setTut(-1); return; } if (!over) { persist(st, series); setSaved({ st, series, foeId, at: Date.now() }); } else persist(null); setSt(null); setSeries(null); } }),
       h("div", { key: "bd", ref: bodyEl, className: "flex-1 min-h-0 overflow-y-auto px-4", style: { fontFamily: F, color: INK, paddingBottom: 14, overflowAnchor: "none" },
           onTouchStart: () => { touchAt.current = Date.now(); }, onTouchMove: () => { touchAt.current = Date.now(); }, onTouchEnd: () => { touchAt.current = Date.now(); }, onWheel: () => { touchAt.current = Date.now(); },
           onScroll: e => { if (!guarding()) keepY.current = e.currentTarget.scrollTop; else if (Math.abs(e.currentTarget.scrollTop - keepY.current) > 4) e.currentTarget.scrollTop = keepY.current; } },
@@ -1182,6 +1240,7 @@
           : st.tutorial ? h("div", { className: "flex", style: { gap: 8 } },
               h("button", { onClick: startTut, className: "flex-1", style: btn(INK, PAPER) }, "再练一次"),
               h("button", { onClick: () => { setSt(null); setTut(-1); }, className: "flex-1", style: btn("transparent", INK, INK) }, "去正式对局"))
+          : st.story ? h("button", { "data-wk": "duelstoryback", onClick: () => { const sv0 = story; if (sv0) { sv0.chapters[sv0.chapters.length - 1].won = over.winner === "me"; setStory(sv0); } setSt(null); setMode("story"); }, className: "w-full", style: Object.assign(btn(over.winner === "me" ? GREEN : INK, "#fff"), { padding: "10px 0", fontFamily: FD, fontSize: fz(14) }) }, "回到故事")
           : st.relay ? h("div", { className: "flex", style: { gap: 8 } },
               h("button", { "data-wk": "duelrelayagain", onClick: startRelay, className: "flex-1", style: btn(INK, PAPER) }, "再接力一局"),
               h("button", { onClick: () => { setSt(null); setMode("relay"); }, className: "flex-1", style: btn("transparent", INK, INK) }, "回去"))
