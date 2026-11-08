@@ -315,7 +315,7 @@ test("小店装修：每月两样限定、买过的能翻新到三级、翻新�
   for (let m = 1; m <= 12; m++) assert.equal(D.SHOP.MONTHLY[m].length, 2);
   const per = () => "", s1 = { decor: ["暖黄的吊灯"], decorLv: {} }, s2 = { decor: ["暖黄的吊灯"], decorLv: { 暖黄的吊灯: 3 } };
   assert.ok(D.shopMul(s2, {}, per) > D.shopMul(s1, {}, per));
-  assert.equal(D.shopUpPrice(s1, "暖黄的吊灯"), 360); assert.equal(D.shopUpPrice(s2, "暖黄的吊灯"), 0);
+  assert.equal(D.shopUpPrice(s1, "暖黄的吊灯"), 440); assert.equal(D.shopUpPrice(s2, "暖黄的吊灯"), 0);
   assert.ok(D.shopDecorOf("南瓜灯").month === 10);
 });
 test("小店按现实时间：时段划分、每段客人不一样（下午难缠多、傍晚角色多）、有急件", () => {

@@ -155,7 +155,7 @@
     ["远信：一路打过去", "从挑玩法页进「远信」：给一个人寄一封信，信要走一段邮路，最后一站是 TA 本人。", "信封血带着走：一场打完不回满，到驿站、岔路、邮局才回得来。", "路线：雪国、海边、旧城、夜车、花季、沙漠、雨季、山路、梦里、TA 的城市，节日那条只在节日前后开。每条一条棋盘规则，对局顶上写着。默认是 TA 照人设推荐的那条。"],
     ["护信：一波一波守住", "从挑玩法页进「护信」，先挑一档（五档，各写建议等级）：没有对手，卡组从你的邮票册里配，对面是一波一波压过来的麻烦。", "敌人贴在对面后排，一回合往前走一格；走到前排的会打你那一列，在前排站过一回合还没被打掉，下回合就闯过去撞你的信封（写着「要闯过去」）。", "守过第 10 波、场上清空就赢；信封打空就信丢了。每守住三波，信封回 5、下回合多摸一张。", "跟对局同一套：贴票、胶水、盖章、组合都照旧。你的票照样打同一列最前面那个，所以在敌人走到前排之前就能先打它。"],
     ["远信的信物", "远信路上打赢会掉材料（走主题路线掉那条路的，打赢终点掉「TA 的东西」），只在这一趟里用。", "路线图上点「做信物」：挑三样材料（能混着）、挑收信的人或陪你走的人，请 TA 做一件，花一次调用。TA 照自己的人设和你们聊过的事写名字、一两句来历、看着它说的一句话。", "效果从三样材料的偏向里挑，同一种偏向的越多越强，「TA 的东西」再加一档；做好当场就能带上，这一趟后面每一站都生效。一开始只能带一件，路上的「旧行李箱」能多开一格，最多三格。", "做过的信物都收进开头页的「信物册」。下一趟跟同一个人出发（TA 收信或陪你走），能在开头挑一件旧信物带上，占一格。"],
-    ["邮局小店", "挑玩法页「和 TA 一起」里的「邮局小店」：每天先排班（柜台、分拣、送信、看店），谁擅长哪个岗会标 ✦；一个角色也能开。", "开门接客：路人直接招待收钱，难缠的要打一局（赢了收一倍半）；没上班的角色会来当客人，可以听 TA 跟店员说两句。打烊花一次调用，写今天店里所有上班的人一小段。钱买装修，收入变多。店里的事不进记忆。"],
+    ["邮局小店", "挑玩法页「和 TA 一起」里的「邮局小店」：每天先排班（柜台、分拣、送信、看店），谁擅长哪个岗会标 ✦；一个角色也能开。", "开门接客：路人招待前看 TA 要什么，挑对岗位的人或橱窗里对的卡，多给 30%，难缠的要打一局（赢了收一倍半）；没上班的角色会来当客人，可以听 TA 跟店员说两句。打烊花一次调用，写今天店里所有上班的人一小段。钱买装修，收入变多。店里的事不进记忆。"],
     ["剧情闯关：一起走一段故事", "挑玩法页「和 TA 一起」里的「剧情闯关」：挑一个人、挑个开头（或者让 TA 起一个），一共五章。", "每章 TA 先写一段，写到遇上拦路的对手；你用卡跟它打一场，打完挑一条路往下走。打赢打输、选哪条路，后面的走向和结局都会跟着变。第五章打完 TA 写结局，整段收进故事集。每章花一次调用，结局一次。走到一半退出，下次接着。"],
     ["接力：你一回合、TA 一回合", "挑玩法页「和 TA 一起」里的「接力」：挑一个人，你们轮流下同一块棋盘打审查局，单数回合你下、双数回合 TA 下。", "TA 那回合照自己的性子出牌：护短的先顶前排，好胜的抢着贴投递，冷淡的一回合最多贴两张，温柔的有人受伤先上补票。信封是你们共用的，卡组多从 TA 的卡里来。能边打边跟 TA 说话，打完能听 TA 评一把。"],
     ["死信：找最好的一手", "挑玩法页进「死信」：30 关，一关一关开，人人题目一样；30 关全过了接着打「无限关」（难度封顶，记最远第几关）。另有「每日死信」：一天一题、每个人的都不一样，连着解有连续天数。每关棋盘、手牌、胶水都摆好了，只有这一回合，寄出时要把对面信封打空。", "对面信封正好是这一手最好能打出的伤害，所以得找到最好的放法：贴哪几张、贴哪格（连张、后排、组合）、先给谁盖章。随手往空格里贴的那种放法一定不够。", "卡住了点「提示」，一次给一步；「重来」把这一关摆回原样。"],
@@ -498,7 +498,7 @@
     const shopAct = async (action, options = {}) => { try { const out=await window.StampShop.run(action,{...shopOptions(),...options});setShop0(window.StampShop.read());return out;}catch(e){toast&&toast(e.message);throw e;} };
     React.useEffect(()=>{const sync=()=>setShop0(window.StampShop.read());window.addEventListener('stamp-shop-change',sync);return()=>window.removeEventListener('stamp-shop-change',sync);},[]);
     React.useEffect(()=>{if(mode!=='shop')return;const sync=()=>window.StampShop.sync(shopOptions()).then(setShop0).catch(e=>toast&&toast(e.message));sync();const id=setInterval(sync,2000);return()=>clearInterval(id);},[mode]);
-    const [shBusy, setShBusy] = useState(""), [shMeet, setShMeet] = useState(null), [winF, setWinF] = useState({ who: "", rar: "", q: "" }), [dpF, setDpF] = useState({ who: "", rar: "", q: "" }), [bgPost, setBgPost] = useState(""), [bgF, setBgF] = useState({ who: "", rar: "", q: "" });
+    const [svPick, setSvPick] = useState(""), [shBusy, setShBusy] = useState(""), [shMeet, setShMeet] = useState(null), [winF, setWinF] = useState({ who: "", rar: "", q: "" }), [dpF, setDpF] = useState({ who: "", rar: "", q: "" }), [bgPost, setBgPost] = useState(""), [bgF, setBgF] = useState({ who: "", rar: "", q: "" });
     // 挑卡的筛选条（橱窗、派遣共用，她 2026-11-08「派遣那页挑卡也加个筛选」）：搜卡名、按人、按稀有度
     const cardFilterHit = (f,k) => window.StampShop.filterCards([k],f).length>0;
     const cardFilterBar = (f,setF,wk,noWho,fit) => h(window.StampShopFilters,{characters,cards,filter:f,onChange:setF,wk,noWho,fit});
@@ -701,7 +701,20 @@
       const staffLine = () => POSTS.filter(p=>sh.roster[p]).map(p=>(nameOf(sh.roster[p])||'')+'在'+p).join('、');
       const open = () => shopAct('open').catch(()=>{});
       const winHas = id => sh.window.some(cid=>cardOf(cid)?.charId===id);
-      const serve = c => shopAct('serve',{id:c.id}).catch(()=>{});
+      // 招待先挑人或挑卡（她 2026-11-08）：只有一个人上班、橱窗空着，就直接招待
+      const serve = (c, pick) => {
+        if (pick) { setSvPick(""); shopAct('serve', Object.assign({ id: c.id }, pick)).catch(() => {}); return; }
+        const duty = POSTS.filter(p => sh.roster[p]);
+        if (c.visitor || (!c.need && !c.wantChar) || (c.need && c.need.post && duty.length <= 1) || ((c.need && c.need.card || c.wantChar) && !(sh.window || []).length)) { shopAct('serve', { id: c.id }).catch(() => {}); return; }
+        setSvPick(svPick === c.id ? "" : c.id);
+      };
+      const servePicker = c => { if (svPick !== c.id || c.done) return null;
+        const chip = (key, label, on) => h("button", { key, "data-wk": "duelshopservepick", onClick: on, style: { padding: "3px 10px", borderRadius: 999, border: "1px solid rgba(47,42,34,.25)", background: "#fff", fontSize: fz(11.5), color: INK } }, label);
+        return h("div", { "data-wk": "duelshopservepicks", className: "flex flex-wrap", style: { gap: 6, marginTop: 6 } },
+          h("span", { style: { width: "100%", fontSize: fz(10.5), color: SUB } }, c.need && c.need.post ? "交给谁接待？" : "从橱窗挑一张给 TA："),
+          c.need && c.need.post ? POSTS.filter(p => sh.roster[p]).map(p => chip(p, nameOf(sh.roster[p]) + " · " + p, () => serve(c, { staffId: sh.roster[p] })))
+            : (sh.window || []).map(id => (cards || []).find(k => k.id === id)).filter(Boolean).map(k => chip(k.id, ((k.text && k.text.name) || "一枚邮票") + " · " + k.rarity + " · " + D().stampOf(k).role, () => serve(c, { cardId: k.id }))));
+      };
       const fight = c => { const s0 = (seedRef.current = (seedRef.current * 1103515245 + 12345) >>> 0), me = D().deckFrom(cards, s0, D().DECK_SIZE, onDuty), fd = D().edictDeck(s0).map((u, k) => Object.assign(u, { name: c.name + (k ? "·" + (k + 1) : "") }));
         const nd = D().newDuel(me, fd, s0, { foeLv: Math.max(3, Math.round(D().avgLv(me) * 0.9)), cap: 8, bonds: bondsOf() }); nd.shopFight = { id: c.id, name: c.name, fee: c.fee, expected:window.StampShop.token(sh) }; setSt(nd); setMode("shop"); setHandSel(-1); setBoardSel(-1); };
       const meet = async c => {if(shBusy)return;setShBusy(c.id);try{await shopAct('meet',{id:c.id});setShMeet(c.id);}catch{}finally{setShBusy('');}};
@@ -742,6 +755,9 @@
             (period === "半夜" ? [] : sh.customers).map(c => h("div", { key: c.id, "data-wk": "duelshopcustomer", style: { marginBottom: 8, padding: "8px 10px", borderRadius: 5, background: c.done ? "rgba(47,42,34,.05)" : "#fffdf7", border: "1px solid " + (c.tough ? "rgba(178,58,46,.35)" : c.visitor ? "rgba(154,106,74,.4)" : "rgba(47,42,34,.12)"), opacity: c.done ? .7 : 1 } },
               h("div", { className: "flex items-center", style: { gap: 8 } }, h("div", { className: "flex-1", style: { fontSize: fz(12.5) } }, h("b", { style: { fontFamily: FD, fontWeight: 400, color: c.tough ? RED : c.visitor ? "#9a6a4a" : c.wantChar ? "#3f6fb0" : INK } }, c.visitor ? nameOf(c.charId) + "（没上班，来店里坐坐）" : c.wantChar ? "点名的客人" : c.name), c.urgent ? h("span", { style: { marginLeft: 4, padding: "0 5px", borderRadius: 3, background: RED, color: "#fff", fontSize: fz(9.5) } }, "急件 ×2") : null, c.visitor ? "" : c.wantChar ? "：想要一张" + (nameOf(c.wantChar) || "TA") + "的明信片" + (winHas(c.wantChar) ? "（橱窗里有）" : "（橱窗里没有）") : "：" + c.want),
                 c.done ? h("span", { style: { fontSize: fz(11), color: SUB } }, c.tough && !c.won ? "没打过" : c.miss ? "没有，走了" : "+" + (c.got || 0)) : c.tough ? h("button", { "data-wk": "duelshopfight", onClick: () => fight(c), style: btn(RED, "#fff") }, "打一局") : h("button", { "data-wk": "duelshopserve", onClick: () => serve(c), style: btn(c.wantChar && !winHas(c.wantChar) ? "transparent" : C, c.wantChar && !winHas(c.wantChar) ? SUB : "#fff", c.wantChar && !winHas(c.wantChar) ? "rgba(47,42,34,.3)" : null) }, c.wantChar ? (winHas(c.wantChar) ? "卖明信片" : "送客") : "招待")),
+              !c.done && c.need ? h("div", { "data-wk": "duelshopneed", style: { fontSize: fz(11), color: "#3f6fb0", marginTop: 3 } }, D().shopNeedZh(c.need)) : null,
+              c.done && c.match ? h("div", { style: { fontSize: fz(11), color: GREEN, marginTop: 3 } }, "对上了 ×1.3" + (c.thanks ? " · " + c.thanks : "")) : null,
+              servePicker(c),
               c.visitor && !c.meet ? h("button", { "data-wk": "duelshopmeet", onClick: () => meet(c), disabled: !!shBusy, className: "disabled:opacity-50", style: Object.assign(btn("transparent", "#9a6a4a", "rgba(154,106,74,.5)"), { marginTop: 6, fontSize: fz(11.5) }) }, shBusy === c.id ? "在聊…" : "听 TA 跟店员说两句（花一次调用）") : null,
               c.meet && shMeet === c.id ? h("div", { style: { marginTop: 6 } }, para(c.meet)) : c.meet ? h("button", { onClick: () => setShMeet(c.id), style: { marginTop: 4, fontSize: fz(11), color: "#9a6a4a" } }, "再看一遍他们说的") : null)),
             h("button", { key: "cl", "data-wk": "duelshopclose", onClick: close, disabled: shBusy === "close", className: "w-full disabled:opacity-50", style: Object.assign(btn(INK, PAPER), { marginTop: 6, padding: "10px 0" }) }, shBusy === "close" ? "在打烊…" : window.StampShop.hasResult("close")?"保存已写好的打烊（不再调用）":"打烊（花一次调用，写今天店里的一段）"), h("button",{key:"plain",onClick:()=>shopAct('closeLocal').catch(()=>{}),style:{...btn("transparent",INK),minHeight:40}},"只关门（不写故事）")]) : null,

@@ -52,7 +52,7 @@
    }else if(action==='serve'||action==='fight'){
     const c=customer(s,o);if(c.done)return;if(s.phase!=='open'||D.shopPeriod(now())==='半夜')throw Error('店门已经关了。');if(action==='serve'&&c.tough)throw Error('这位客人要先打一局。');
     const mul=D.shopMul(s,s.roster,persona,cOf),has=c.wantChar?s.window.some(id=>cOf(id)?.charId===c.wantChar):true;
-    const fee=action==='fight'?(o.won?Math.round(c.fee*mul*1.5):0):has?Math.round(c.fee*mul):0;s.coins+=fee;s.earned+=fee;Object.assign(c,{done:true,got:fee,miss:!!c.wantChar&&!has,...(action==='fight'?{won:!!o.won}:{})});
+    const onDuty=D.SHOP.POSTS.filter(p=>s.roster[p]),staffPost=o.staffId?onDuty.find(p=>String(s.roster[p])===String(o.staffId)):(onDuty.length===1?onDuty[0]:''),pick=o.cardId&&s.window.includes(o.cardId)?cOf(o.cardId):null;const match=action==='serve'&&!c.visitor&&(c.need?.post?staffPost===c.need.post:c.need?.card?D.shopCardFits(c.need,pick):c.wantChar?!!pick&&pick.charId===c.wantChar:false),apt=match&&staffPost&&D.shopApt(persona(s.roster[staffPost]),staffPost)?1.1:1;const fee=action==='fight'?(o.won?Math.round(c.fee*mul*1.5):0):has?Math.round(c.fee*mul*(match?1.3*apt:1)):0;s.coins+=fee;s.earned+=fee;const kind=c.need?.post||(c.need?.card||c.wantChar?'卡':''),pool=match&&D.SHOP_THANKS[kind]||[];Object.assign(c,{done:true,got:fee,miss:!!c.wantChar&&!has,...(action==='fight'?{won:!!o.won}:{}),...(action==='serve'&&!c.visitor?{match,by:staffPost?s.roster[staffPost]:'',cardGiven:pick?pick.id:'',thanks:pool.length?pool[(c.id.length+s.day)%pool.length]:''}:{})});
    }else if(action==='seenMeet'){const c=customer(s,o);c.meetSeen=true;}else if(action==='missedClear'){s.missed=null;}
    else throw Error('这个操作暂时不支持。');
   }

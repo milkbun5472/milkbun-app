@@ -545,16 +545,16 @@
   const SHOP = {
     POSTS: ["柜台", "分拣", "送信", "看店"],
     APT: { 柜台: /温柔|笑|耐心|礼貌|体贴|会说话/, 分拣: /细心|安静|书|整理|认真|一丝不苟/, 送信: /跑|运动|冲|骑|腿|活泼/, 看店: /懒|猫|睡|闲|发呆|慢/ },
-    // 价钱 ×3（她 2026-11-08「打赢一个客人 75、装修 30 就能买，太快」）
+    // 价钱 ×3（她 2026-11-08「打赢一个客人 75、装修 30 就能买，太快」），招待能对上需求以后再 ×1.2
     DECOR: [
-      { k: "旧木招牌", price: 90, bonus: 0.05 }, { k: "一盆绿萝", price: 120, bonus: 0.05 }, { k: "暖黄的吊灯", price: 180, bonus: 0.08 }, { k: "靠窗的长凳", price: 240, bonus: 0.08 },
-      { k: "铜铃门帘", price: 300, bonus: 0.1 }, { k: "整面墙的信格", price: 450, bonus: 0.12 }, { k: "会走的老座钟", price: 600, bonus: 0.12 }, { k: "二楼的小阁楼", price: 960, bonus: 0.18 }
+      { k: "旧木招牌", price: 110, bonus: 0.05 }, { k: "一盆绿萝", price: 140, bonus: 0.05 }, { k: "暖黄的吊灯", price: 220, bonus: 0.08 }, { k: "靠窗的长凳", price: 290, bonus: 0.08 },
+      { k: "铜铃门帘", price: 360, bonus: 0.1 }, { k: "整面墙的信格", price: 540, bonus: 0.12 }, { k: "会走的老座钟", price: 720, bonus: 0.12 }, { k: "二楼的小阁楼", price: 1150, bonus: 0.18 }
     ],
     // 每月限定两样（她 2026-11-08「装修只有八种弄完了咋办」）：当月才买得到，买了一直留着
-    MONTHLY: { 1: [["窗花", 180], ["一碗腊八粥的香味", 240]], 2: [["春联", 180], ["一串小灯笼", 270]], 3: [["一枝早樱", 210], ["风筝挂饰", 240]], 4: [["雨伞架", 180], ["一盆铃兰", 270]], 5: [["新茶的茶罐", 210], ["竹帘", 270]],
-      6: [["驱蚊香包", 180], ["玻璃风铃", 270]], 7: [["西瓜冰柜", 240], ["一把蒲扇", 180]], 8: [["萤火虫灯", 270], ["星空窗贴", 210]], 9: [["一盒月饼", 240], ["桂花枝", 210]], 10: [["南瓜灯", 240], ["一叠落叶书签", 180]],
-      11: [["围巾挂钩", 180], ["热可可的小炉", 270]], 12: [["小圣诞树", 270], ["一墙贺卡", 240]] },
-    NPC: [["寄信的老太太", "给孙子寄一包毛线袜", 8], ["赶时间的学生", "加急寄一份报名表", 10], ["沉默的画家", "寄一卷画", 12], ["迷路的旅人", "问路，顺手买几张明信片", 6], ["花店老板", "寄一盒压花", 9], ["邻居小孩", "给笔友寄信，钱不太够", 4], ["退休的邮差", "来坐坐，顺便寄张贺卡", 7]],
+    MONTHLY: { 1: [["窗花", 220], ["一碗腊八粥的香味", 290]], 2: [["春联", 220], ["一串小灯笼", 320]], 3: [["一枝早樱", 250], ["风筝挂饰", 290]], 4: [["雨伞架", 220], ["一盆铃兰", 320]], 5: [["新茶的茶罐", 250], ["竹帘", 320]],
+      6: [["驱蚊香包", 220], ["玻璃风铃", 320]], 7: [["西瓜冰柜", 290], ["一把蒲扇", 220]], 8: [["萤火虫灯", 320], ["星空窗贴", 250]], 9: [["一盒月饼", 290], ["桂花枝", 250]], 10: [["南瓜灯", 290], ["一叠落叶书签", 220]],
+      11: [["围巾挂钩", 220], ["热可可的小炉", 320]], 12: [["小圣诞树", 320], ["一墙贺卡", 290]] },
+    NPC: [["寄信的老太太", "给孙子寄一包毛线袜", 8, "送信"], ["赶时间的学生", "加急寄一份报名表", 10, "送信"], ["沉默的画家", "寄一卷画", 12, "分拣"], ["迷路的旅人", "问路，顺手买几张明信片", 6, "卡"], ["花店老板", "寄一盒压花", 9, "分拣"], ["邻居小孩", "给笔友寄信，钱不太够", 4, "柜台"], ["退休的邮差", "来坐坐，顺便寄张贺卡", 7, "柜台"]],
     TOUGH: [["难缠的审查员", "说你家的邮戳不合规", 18], ["来砸场子的对家", "说要把客人都抢走", 22], ["吵着退款的客人", "坚持说信寄丢了", 16]]
   };
   // 橱窗、工牌（她 2026-11-08「店面经营想能联动上抽到的卡」）：橱窗每张按稀有度、等级加收入；
@@ -572,6 +572,17 @@
   const SHOP_BADGE = { R: 0.06, SR: 0.1, SSR: 0.15 }, SHOP_BADGE_FIT = { 柜台: ["补票"], 分拣: ["邮戳"], 送信: ["投递"], 看店: ["火漆", "集邮"] };
   const shopBadgeFit = (post, card) => !!(card && (SHOP_BADGE_FIT[post] || []).includes(stampOf(card).role));
   const shopBadgeBonus = (post, card) => card ? (SHOP_BADGE[card.rarity] || 0.06) + Math.min(0.03, (Number(card.lv) || 1) / 1000) + (shopBadgeFit(post, card) ? 0.05 : 0) : 0;
+  // 客人的需求：post＝该交给哪个岗；card＝要哪种卡（role 种类／min 稀有度／who 某人的）
+  const SHOP_RANK = { R: 1, SR: 2, SSR: 3 };
+  const shopNeedZh = n => !n ? "" : n.post ? (n.post === "送信" ? "要寄出去" : n.post === "分拣" ? "东西多，要人帮着理" : "要在柜台算钱") + "（该交给" + n.post + "岗）"
+    : n.card && n.card.role ? "想挑一张「" + n.card.role + "」的卡" : n.card && n.card.min ? "想挑一张 " + n.card.min + " 以上的卡" : "";
+  const shopCardFits = (n, card) => !!(n && n.card && card && (n.card.role ? stampOf(card).role === n.card.role : n.card.min ? (SHOP_RANK[card.rarity] || 0) >= SHOP_RANK[n.card.min] : true));
+  const SHOP_THANKS = {
+    送信: ["「赶得上就好，谢谢你们。」", "「那就拜托了，一定要寄到啊。」", "「比我想的快多了。」"],
+    分拣: ["「这么一堆，理得真快。」", "「我自己弄了一晚上都没弄好。」", "「下回还来你们家。」"],
+    柜台: ["「算得清清楚楚，放心了。」", "「零钱也帮我凑好了，谢谢。」", "「你们这儿的人真耐心。」"],
+    卡: ["「就是这种！我找了好久。」", "「这张好看，送人正合适。」", "「你们橱窗里的卡挑得真好。」"]
+  };
   const shopMul = (shop, roster, personaOf, cardOf) => 1 + Object.keys(roster || {}).filter(p => roster[p]).reduce((a, p) => { const bid = (shop.badge || {})[p], bc = bid && cardOf ? cardOf(bid) : null; return a + 0.15 + 0.1 * shopApt(personaOf(roster[p]), p) + (bc ? shopBadgeBonus(p, bc) : bid ? 0.06 : 0); }, 0) + shopDecorBonus(shop) + (cardOf ? shopWinBonus(shop, cardOf) : 0);
   // 按现实时间开店（她 2026-11-08「按现实时间来吧」）：上午 6–12、下午 12–18、傍晚 18–24，半夜关门；
   //   每个时段一批客人：上午多寄信的路人、下午难缠的多、傍晚来坐坐的角色多；有的是急件（给双倍）；过了这个时段没招待的就走了
@@ -582,7 +593,9 @@
     const n = 2 + Math.floor((shop.decor || []).length / 3) + (pi === 0 ? 1 : 0), toughP = [0.1, 0.35, 0.15][pi], out = [];
     const npc = shuffle(SHOP.NPC.slice(), R), tgh = shuffle(SHOP.TOUGH.slice(), R);   // 同一时段不重样
     for (let k = 0; k < n; k++) { const tough = R() < toughP && tgh.length, x = tough ? tgh.pop() : npc.pop() || SHOP.NPC[0], urgent = !tough && R() < 0.2;
-      out.push({ id: period + "c" + k, name: x[0], want: x[1], fee: x[2] * (urgent ? 2 : 1), tough, urgent }); }
+      // 招待要对上需求（她 2026-11-08）：交给对的岗位，或者从橱窗挑一张对的卡
+      const need = tough ? null : x[3] === "卡" ? (R() < 0.5 ? { card: { role: ROLES[Math.floor(R() * ROLES.length)] } } : { card: { min: "SR" } }) : x[3] ? { post: x[3] } : null;
+      out.push({ id: period + "c" + k, name: x[0], want: x[1], fee: x[2] * (urgent ? 2 : 1), tough, urgent, need }); }
     if ((allChars || []).length && R() < 0.6) out.splice(1, 0, { id: period + "p0", wantChar: allChars[Math.floor(R() * allChars.length)], fee: 15, want: "想要一张明信片" });
     const vMax = [0, 1, 2][pi];
     shuffle((offDuty || []).slice(), R).slice(0, Math.min(vMax, (offDuty || []).length)).forEach((id, k) => { if (R() < (pi === 2 ? 0.85 : 0.5)) out.splice(1 + k * 2, 0, { id: period + "v" + k, charId: id, fee: 12, visitor: true }); });
@@ -1032,7 +1045,7 @@
   const mine = raw => (st, who, a, b) => { if (who !== "me") return raw(st, who, a, b); snap(st); const r = raw(st, who, a, b); if (!r || !r.ok) st.undo.pop(); return r; };
   const place = mine(placeRaw), tear = mine(tearRaw), move = mine(moveRaw), keep = mine(keepRaw), stamp = mine(stampRaw);
   const API = { RELICS, STYLE_ZH, TRAIT_FIT, TRAITS, SKILLS, BONDS, bondOf, unitInfo, SIZE, SLOTS, ENVELOPE_HP, POSTAGE, DRAW, DECK_SIZE, TURN_CAP, KEEP_MAX, FACE, NEED, ROLES, MARKS, TERRAIN, EVENTS,
-    stampOf, deckFrom, foeDeckFrom, shopDecorOf, shopUpPrice, SHOP, SHOP_PERIODS, shopPeriod, SHOP_WIN, shopWinSlots, shopWinBonus, shopApt, shopMul, SHOP_BADGE, SHOP_BADGE_FIT, shopBadgeFit, shopBadgeBonus, shopCustomers, autoMe, PUZZLE_MAX, puzzleOf, pzSolve, PATROL, TA_CELLS, TA_PTS, patrolNew, patrolCan, patrolMove, patrolBattle, patrolAfter, weekNo, SHIFT, shiftNew, shiftRoll, shiftPrice, shiftBuy, shiftSell, shiftDeck, shiftBonds, shiftFoeLv, shiftAfter, EDICTS, EDICT_LV, edictDeck, RAID_TURNS, MATS, BASE_MATS, THEME_MAT, KEEP_FX, KEEP_MAX_SLOTS, keepFxOf, keepTier, matDrop, SIEGE_TIERS, newDuel, envFor, avgLv, fairDeck, aims, actsOf, previewPlace, place, tear, move, keep, stamp, undo, canUndo, endTurn, planFoe, combos, newSeries, addGame, memoryLine, hashStr };
+    stampOf, deckFrom, foeDeckFrom, shopDecorOf, shopUpPrice, SHOP, SHOP_PERIODS, shopPeriod, SHOP_WIN, shopWinSlots, shopWinBonus, shopApt, shopMul, SHOP_BADGE, SHOP_BADGE_FIT, shopBadgeFit, shopBadgeBonus, shopNeedZh, shopCardFits, SHOP_THANKS, shopCustomers, autoMe, PUZZLE_MAX, puzzleOf, pzSolve, PATROL, TA_CELLS, TA_PTS, patrolNew, patrolCan, patrolMove, patrolBattle, patrolAfter, weekNo, SHIFT, shiftNew, shiftRoll, shiftPrice, shiftBuy, shiftSell, shiftDeck, shiftBonds, shiftFoeLv, shiftAfter, EDICTS, EDICT_LV, edictDeck, RAID_TURNS, MATS, BASE_MATS, THEME_MAT, KEEP_FX, KEEP_MAX_SLOTS, keepFxOf, keepTier, matDrop, SIEGE_TIERS, newDuel, envFor, avgLv, fairDeck, aims, actsOf, previewPlace, place, tear, move, keep, stamp, undo, canUndo, endTurn, planFoe, combos, newSeries, addGame, memoryLine, hashStr };
   g.StampDuel = API;
   if (typeof module !== "undefined" && module.exports) module.exports = API;
 })(typeof window !== "undefined" ? window : globalThis);
