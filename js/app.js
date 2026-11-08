@@ -19744,15 +19744,16 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       // ⚠️这份闸原来是这儿手写的（成败都记、两小时冷却、封顶三次）。
       //   它写得是对的，但同一层规则活在好几处就是下次改的时候必漏一处——
       //   她 2026-09-06：「以后这种形状都开公共然后合在一起，不要照着已有的新开」。
-      //   所以搬进 AutoGate，参数一模一样（MAX_TRIES 3 / COOLDOWN 两小时）。
+      //   所以搬进 AutoGate；日程自己传 maxTries: 3（全局默认 2026-11-08 起是一期一次，日程一周一回，留着重试）。
       // ⚠️「排下周」和「补本周」各记各的格子（群里 2026-10-18「每次登录日程都更新，耗额度」）：
       //   原来共用 "schedule|角色" 一格，周日两件都要跑，一件记完 p=本周一、另一件一看「换周期了」就从头再来，
       //   失败次数互相清零——周日一失败，每次开 app 都重打，三次封顶形同虚设。
       const pick = (gateKey, weekKey, from, count) => {
-        if (!window.AutoGate.due(gateKey, weekKey)) return;
+        if (!window.AutoGate.due(gateKey, weekKey, { maxTries: 3 })) return;   // 跟下面 run 那一格同一个次数
         jobs.push({ c, from, count, weekKey, gateKey });
       };
-      if (dowMon === 6) pick("schedule|" + c.id + "|next", nextMon, nextMon, 7);   // 周日 0 点起排下一周
+      // 下一周已经排好了（她自己点过「AI 排」，或者前面成过）就不再排（她 2026-11-08：「我手动刷新排了他不会重新调用吧」）
+      if (dowMon === 6 && !have[nextMon]) pick("schedule|" + c.id + "|next", nextMon, nextMon, 7);   // 周日 0 点起排下一周
       if (!have[today]) pick("schedule|" + c.id, thisMon, today, 7 - dowMon);      // 引导：补到本周日为止
     });
     if (!jobs.length) return;
@@ -20144,8 +20145,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     // 否则同一天会被反复触发；跨到第二天时 dayKey 变化，锁自然失效。
     // ⚠️内存里那把锁一刷新就没了。补写失败时它留不下任何痕迹，于是【每刷新一次
     //   就把所有角色重打一遍】——她 2026-09-06 那 800 次调用有一大半是这么来的。
-    //   闸改走公共那一层（AutoGate）：成了这一天不再跑，没成也记一笔、隔两小时才重试、
-    //   最多试三次。判据是【日记真落盘了吗】，不是【没报错】。
+    //   闸改走公共那一层（AutoGate）：成了这一天不再跑，没成也记一笔，这一天不再重打（2026-11-08 起一期一次）；
+    //   第二天的目标是新的「昨天」，没写成的那天不回头补。判据是【日记真落盘了吗】，不是【没报错】。
     if (diaryRunRef.current === dayKey) return;
     diaryRunRef.current = dayKey;
     try {
