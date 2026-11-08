@@ -270,6 +270,8 @@
         onQuit: () => { if (typeof requestAppConfirm === "function") requestAppConfirm("先离开这一站？", "回到地图，下次进来这一站从头打。", () => commit(run, { at: "map", redo: view.nd }), "离开"); else commit(run, { at: "map", redo: view.nd }); },
         onDone: st => {
           const nd = run.map[run.pos.r][run.pos.k], res = RN().afterBattle(run, st, nd, cards);
+          // TA 的小包裹（她 2026-11-08）：陪你走的人每赢一站掉一个（输了一半几率）；送到了，收信的人再多留一个
+          if (window.StampTrinkets) { const T = window.StampTrinkets, w = !res.lost; T.drop([run.withId], w, 0); if (res.won) T.drop([run.toId], true, 0); }
           if (res.mats && window.StampKeeps) { window.StampKeeps.addMats(res.mats); run.matsGot = (run.matsGot || []).concat(res.mats); }
           if (res.won) { postmark(run, true); if (window.StampRewards) { run.rewards = window.StampRewards.settle({ win: true, run: true, level: run.level || 1 }); (run.rewards || []).forEach(t => toast && toast(t)); } if (run.resendIdx != null) { const L = load(LETTERS, []); if (L[run.resendIdx]) { L[run.resendIdx] = Object.assign({}, L[run.resendIdx], { delivered: Date.now() }); save(LETTERS, L); } } return commit(run, { at: "end", win: true }); }
           if (res.lost) { postmark(run, false); if (run.myLetter && run.resendIdx == null) keepLetter("returned", [run.myLetter], { mine: true }); return commit(run, { at: "end", win: false }); }

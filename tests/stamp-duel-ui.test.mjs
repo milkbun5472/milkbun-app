@@ -186,3 +186,14 @@ test("邮区巡查页：邮票墙一枚、每人一个随机数、地图格、�
   assert.match(ui, /"data-wk": "duelpatrolnext", onClick: patrolBack/);
   assert.match(ui, /st\.shift \|\| st\.patrol\)/);
 });
+test("TA 的小物：有人陪就掉包裹、小物册拆、去重带着以前做过的、名字来历不截；远信也掉", () => {
+  assert.match(ui, /st\.parcels = Trinkets\.drop\(\[chalNow \? coachId : foeId\]/);
+  assert.match(ui, /onChat\(who, \{ mode: "trinket" \}\)/);
+  assert.match(ui, /"data-wk": "dueltrinketgo"/);
+  assert.match(app, /if \(d\.mode === "keep" \|\| d\.mode === "trinket"\) \{/);
+  assert.match(app, /loadJSON\("x_stampKeeps", \[\]\) \|\| \[\], loadJSON\("x_stampTrinkets", \[\]\)/);
+  assert.match(app, /const name = String\(\(r && r\.name\) \|\| ""\)\.trim\(\); if \(!name\) return null;/);
+  const ru = readFileSync(new URL("../js/stamp-run-ui.js", import.meta.url), "utf8");
+  assert.match(ru, /T\.drop\(\[run\.withId\], w, 0\)/);
+  assert.match(ts, /"dueltrinketopen"/);
+});
