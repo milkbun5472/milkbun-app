@@ -230,3 +230,10 @@ test("戳多了四种、护封格挡所有戳：折角多掉、撕口掉血、�
   const u = st.me.board[f]; u.charge = u.need; u.marks.封口 = 2; st.me.postage = 5;
   assert.equal(D.stamp(st, "me", f).ok, false);
 });
+test("封缄令：难度条生效、分数加总、限 8 回合打不完算输", () => {
+  const cards = Array.from({ length: 30 }, (_, i) => ({ id: "c" + i, charId: "a", rarity: "R", lv: 25, text: { name: "k" + i } }));
+  const a = D.newDuel(D.deckFrom(cards, 2, 12, []), D.edictDeck(2), 2, { edict: [], fair: false });
+  const b = D.newDuel(D.deckFrom(cards, 2, 12, []), D.edictDeck(2), 2, { edict: ["meEnv", "meGlue", "short", "noTear"], fair: false });
+  assert.equal(b.edictPts, 2 + 3 + 2 + 1); assert.equal(b.me.hp, a.me.hp - 15); assert.equal(b.me.postage, a.me.postage - 1); assert.equal(b.cap, 8);
+  const f = b.me.terrain.findIndex(t => !t); D.place(b, "me", 0, f); assert.equal(D.tear(b, "me", f).ok, false);
+});

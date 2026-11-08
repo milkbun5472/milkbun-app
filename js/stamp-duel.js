@@ -212,10 +212,18 @@
     const o = opts || {};
     // 对局：对面照你的平均等级；守城、远信：照难度档定的等级（o.foeLv），练强了才打得过高档
     if (o.fair !== false && (foeDeck || []).length && (meDeck || []).length) foeDeck = fairDeck(foeDeck, meDeck, o.fairMul, o.foeLv);
-    const st = { turn: 0, me: side(meDeck, s, o.meHp || envFor(meDeck), o.meMax), relics: o.relics || [], amulet: !!o.amulet, bossRule: o.bossRule || "", theme: o.theme || "", siege: o.siege ? { waves: SIEGE_WAVES, cleared: 0 } : null, raid: o.raid ? { endless: o.raid === "endless", turns: RAID_TURNS, dealt: 0 } : null, foe: side(foeDeck, s ^ 0xabcdef, o.foeHp || envFor(meDeck)), log: [], over: null, uid: 0, seed: s, cap: o.cap || TURN_CAP, hard: !!o.hard, rule: o.rule || "", wager: o.wager || "", blind: !!(opts && opts.blind), events, bonds: (opts && opts.bonds) || {}, foeId: (opts && opts.foeId) || "", style: (opts && opts.style) || "" };
+    const st = { turn: 0, me: side(meDeck, s, o.meHp || envFor(meDeck), o.meMax), relics: o.relics || [], amulet: !!o.amulet, bossRule: o.bossRule || "", theme: o.theme || "", siege: o.siege ? { waves: SIEGE_WAVES, cleared: 0 } : null, edict: Array.isArray(o.edict) ? o.edict.filter(k => EDICTS[k]) : null, raid: o.raid ? { endless: o.raid === "endless", turns: RAID_TURNS, dealt: 0 } : null, foe: side(foeDeck, s ^ 0xabcdef, o.foeHp || envFor(meDeck)), log: [], over: null, uid: 0, seed: s, cap: o.cap || TURN_CAP, hard: !!o.hard, rule: o.rule || "", wager: o.wager || "", blind: !!(opts && opts.blind), events, bonds: (opts && opts.bonds) || {}, foeId: (opts && opts.foeId) || "", style: (opts && opts.style) || "" };
     st.keeps = (o.keeps || []).filter(k => k && KEEP_FX[k.fx]).map(k => ({ fx: k.fx, v: Math.max(1, Math.min(4, k.v | 0)), charId: k.charId || "", name: k.name || "" }));
     { const e = keepV(st, "env"); if (e) { st.me.max = (st.me.max || st.me.hp) + e * 5; st.me.hp += e * 5; } }
     st.meAvg = avgLv(meDeck); st.siegeLv = o.siegeLv || 0;
+    if (st.edict) {
+      const E = k => st.edict.includes(k), fix = u => u && Object.assign(u, { pow: u.pow + (E("foeAtk") ? 2 : 0), maxHp: Math.round(u.maxHp * (E("foeHp") ? 1.4 : 1)) });
+      st.foe.draw.forEach(fix); st.foe.hand.forEach(fix);
+      if (E("foeEnv")) { st.foe.hp += 20; st.foe.max = (st.foe.max || st.foe.hp - 20) + 20; }
+      if (E("meEnv")) { st.me.hp = Math.max(10, st.me.hp - 15); st.me.max = Math.max(10, (st.me.max || st.me.hp + 15) - 15); }
+      if (E("foeGlue")) st.hard = true; if (E("blind")) st.blind = true; if (E("short")) st.cap = 8;
+      st.edictPts = st.edict.reduce((a, k) => a + EDICTS[k].pt, 0);
+    }
     if (st.raid) { st.foe.terrain = new Array(SLOTS).fill(""); st.foe.hp = st.foe.max = 99999; st.cap = st.raid.endless ? 99 : RAID_TURNS; st.raidLv = o.raidLv || Math.max(5, Math.round(st.meAvg || 10)); }
     if (st.siege) { st.foe.terrain = new Array(SLOTS).fill(""); st.foe.hp = st.foe.max = 999; st.cap = SIEGE_WAVES + 3; }
     startTurn(st);
@@ -333,6 +341,23 @@
     }
     if (st.turn === 4 || st.turn === 7) say(st, "foe", st.turn === 4 ? "总局换了一批人：第二阶段，封条更多了" : "总局拿出了大章：第三阶段", { kind: "event", ev: "" });
   }
+  // ── 封缄令（她 2026-11-08「做封缄合约吧，名字不要合约两个字」；照明日方舟危机合约）──────────
+  //   开局自己勾难度条，每条有分；打赢了，勾的分加起来就是这一把的「危险」。对面是代码造的「审查局」，等级固定
+  const EDICTS = {
+    foeAtk: { zh: "对面攻击 +2", pt: 2 }, foeHp: { zh: "对面票的血 +40%", pt: 2 }, foeGlue: { zh: "对面每回合多 1 胶水", pt: 2 },
+    foeShield: { zh: "对面贴上的票自带 3 层护", pt: 1 }, foeEnv: { zh: "对面信封 +20", pt: 2 },
+    meEnv: { zh: "你的信封 -15", pt: 2 }, meGlue: { zh: "你每回合少 1 胶水", pt: 3 }, meDraw: { zh: "你每回合少摸 1 张", pt: 3 },
+    noTear: { zh: "不能撕票", pt: 1 }, noMove: { zh: "不能挪票", pt: 1 }, noStamp: { zh: "前两回合盖不了章", pt: 2 },
+    short: { zh: "最多 8 回合，打不完算输", pt: 2 }, blind: { zh: "盲打（看不见对面下一步）", pt: 1 }
+  };
+  const EDICT_LV = 25;
+  const edictOn = (st, k) => !!(st.edict && st.edict.includes(k));
+  function edictDeck(seed) {
+    const R = rng(seed ^ 0x5eed);
+    return Array.from({ length: DECK_SIZE }, (_, i) => { const f = SIEGE_FOES[Math.floor(R() * SIEGE_FOES.length)], role = f[1][i % f[1].length], rar = R() < 0.15 ? "SSR" : R() < 0.4 ? "SR" : "R";
+      const u = stampOf({ id: "ed_" + seed + "_" + i, rarity: rar, lv: EDICT_LV, text: { name: "审查局·" + f[0] } });
+      return Object.assign(u, { role, trait: f[2], traitFrom: "", charId: "", skill: Object.keys(SKILLS[role])[i % 4] }); });
+  }
   const siegeIdle = (st, sd, i) => !!(st.siege && sd === st.foe && row(i) > 0);   // 守城：对面还没走到前排的不动手
 
   // ── 材料和专属信物（她 2026-11-08「打完或者某些路线掉落材料……花调用生成角色专属信物，从人设和我们聊天里来」）──
@@ -384,8 +409,8 @@
       sd.hand.forEach((s, k) => (keep.has(k) && stay.length < KEEP_MAX ? stay : sd.discard).push(s));
       sd.hand = stay; sd.kept = [];
       const box = sd.board.some((u, i) => u && sd.terrain[i] === "邮筒") ? 1 : 0;
-      sd.postage = Math.max(0, Math.min(POSTAGE_CAP, POSTAGE + box + sd.bonusPostage - sd.owed + (st.hard && who === "foe" ? 1 : 0) + (has(st, who, "胶水罐") ? 1 : 0) + (st.turn === 1 && has(st, who, "哨子") ? 2 : 0)));
-      drawCards(sd, Math.max(1, DRAW + sd.bonusDraw + (eventNow(st) === "加班" ? 1 : 0) + (has(st, who, "快手") ? 1 : 0)), st.seed + st.turn * 31 + (who === "me" ? 0 : 7));
+      sd.postage = Math.max(0, Math.max(0, Math.min(POSTAGE_CAP, POSTAGE + box + sd.bonusPostage - sd.owed + (st.hard && who === "foe" ? 1 : 0) + (has(st, who, "胶水罐") ? 1 : 0) + (st.turn === 1 && has(st, who, "哨子") ? 2 : 0))) - (who === "me" && edictOn(st, "meGlue") ? 1 : 0));
+      drawCards(sd, Math.max(1, DRAW - (who === "me" && edictOn(st, "meDraw") ? 1 : 0) + sd.bonusDraw + (eventNow(st) === "加班" ? 1 : 0) + (has(st, who, "快手") ? 1 : 0)), st.seed + st.turn * 31 + (who === "me" ? 0 : 7));
       sd.bonusPostage = 0; sd.bonusDraw = 0; sd.owed = 0; sd.torn = 0;
       turnStartEffects(st, sd, who);
     }
@@ -417,6 +442,7 @@
     if (has(st, who, "双面胶")) { u.maxHp += 2; u.hp += 2; }
     if (has(st, who, "封蜡")) u.shield += 2;
     if (has(st, who, "预热")) u.charge = 1;
+    if (who === "foe" && edictOn(st, "foeShield")) u.shield += 3;
     if (who === "me" && st.keeps && st.keeps.length) {
       const d = keepV(st, "def"), c = keepV(st, "stamp"), b = keepV(st, "bond", u);
       if (d) u.shield += d * 2; if (c) u.charge = Math.min(u.need, Math.max(u.charge, c)); if (b) { u.maxHp += b * 2; u.hp += b * 2; }
@@ -434,6 +460,7 @@
   }
   function tearRaw(st, who, slot) { return withActor(st, who, slot, () => tearRaw0(st, who, slot)); }
   function tearRaw0(st, who, slot) {
+    if (who === "me" && edictOn(st, "noTear")) return { ok: false, why: "封缄令：这一把不能撕票" };
     const sd = st[who], u = sd.board[slot], foe = st[other(who)];
     if (st.over || !u) return { ok: false, why: "这一格是空的" };
     if (sd.torn >= tearCap(st)) return { ok: false, why: "这回合撕够了" };
@@ -449,6 +476,7 @@
     return { ok: true };
   }
   function moveRaw(st, who, from, to) {
+    if (who === "me" && edictOn(st, "noMove")) return { ok: false, why: "封缄令：这一把不能挪票" };
     const sd = st[who], u = sd.board[from];
     if (st.over || !u) return { ok: false, why: "这一格是空的" };
     if (!adj(from).includes(to) || sd.board[to]) return { ok: false, why: "只能挪到旁边的空格" };
@@ -471,6 +499,7 @@
     const sd = st[who], foeWho = other(who), foe = st[foeWho], u = sd.board[slot];
     if (st.over || !u) return { ok: false, why: "这一格是空的" };
     if (u.marks && u.marks.封口) return { ok: false, why: "被盖了「封口」，这两回合盖不了章" };
+    if (who === "me" && edictOn(st, "noStamp") && st.turn <= 2) return { ok: false, why: "封缄令：前两回合盖不了章" };
     if (u.charge < u.need) return { ok: false, why: "章还没攒满" };
     if (sd.postage < STAMP_COST) return { ok: false, why: "胶水不够" };
     sd.postage -= STAMP_COST; u.charge = 0; st.stamping = true;
@@ -731,6 +760,7 @@
     if (st.over && st.raid) st.over.raid = true;
     if (!st.over && st.siege) { const left = st.foe.board.some(Boolean); st.siege.cleared = Math.min(st.siege.waves, Math.max(st.siege.cleared, left ? st.turn - 1 : st.turn));
       if ((st.turn >= st.siege.waves && !left) || st.turn >= st.cap) st.over = { winner: "me", turn: st.turn, me: st.me.hp, foe: 0, siege: true }; }
+    if (!st.over && st.edict && st.edict.includes("short") && st.turn >= st.cap) st.over = { winner: "foe", turn: st.turn, me: st.me.hp, foe: st.foe.hp, byCap: true };
     if (!st.over && st.turn >= (st.cap || TURN_CAP)) st.over = { winner: st.me.hp === st.foe.hp ? "draw" : st.me.hp > st.foe.hp ? "me" : "foe", turn: st.turn, me: st.me.hp, foe: st.foe.hp, byCap: true };
     if (!st.over) startTurn(st);
     return st;
@@ -762,7 +792,7 @@
   const mine = raw => (st, who, a, b) => { if (who !== "me") return raw(st, who, a, b); snap(st); const r = raw(st, who, a, b); if (!r || !r.ok) st.undo.pop(); return r; };
   const place = mine(placeRaw), tear = mine(tearRaw), move = mine(moveRaw), keep = mine(keepRaw), stamp = mine(stampRaw);
   const API = { RELICS, STYLE_ZH, TRAIT_FIT, TRAITS, SKILLS, BONDS, bondOf, unitInfo, SIZE, SLOTS, ENVELOPE_HP, POSTAGE, DRAW, DECK_SIZE, TURN_CAP, KEEP_MAX, FACE, NEED, ROLES, MARKS, TERRAIN, EVENTS,
-    stampOf, deckFrom, foeDeckFrom, RAID_TURNS, MATS, BASE_MATS, THEME_MAT, KEEP_FX, KEEP_MAX_SLOTS, keepFxOf, keepTier, matDrop, SIEGE_TIERS, newDuel, envFor, avgLv, fairDeck, aims, actsOf, previewPlace, place, tear, move, keep, stamp, undo, canUndo, endTurn, planFoe, combos, newSeries, addGame, memoryLine, hashStr };
+    stampOf, deckFrom, foeDeckFrom, EDICTS, EDICT_LV, edictDeck, RAID_TURNS, MATS, BASE_MATS, THEME_MAT, KEEP_FX, KEEP_MAX_SLOTS, keepFxOf, keepTier, matDrop, SIEGE_TIERS, newDuel, envFor, avgLv, fairDeck, aims, actsOf, previewPlace, place, tear, move, keep, stamp, undo, canUndo, endTurn, planFoe, combos, newSeries, addGame, memoryLine, hashStr };
   g.StampDuel = API;
   if (typeof module !== "undefined" && module.exports) module.exports = API;
 })(typeof window !== "undefined" ? window : globalThis);
