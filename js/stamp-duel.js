@@ -562,7 +562,11 @@
   const shopDecorOf = k => SHOP.DECOR.find(d => d.k === k) || (() => { for (const m in SHOP.MONTHLY) { const x = SHOP.MONTHLY[m].find(y => y[0] === k); if (x) return { k, price: x[1], bonus: 0.06, month: +m }; } return null; })();
   const shopDecorBonus = shop => (shop.decor || []).reduce((a, k) => { const d = shopDecorOf(k); return a + (d ? d.bonus * (1 + 0.5 * (((shop.decorLv || {})[k] || 1) - 1)) : 0); }, 0);
   const shopUpPrice = (shop, k) => { const d = shopDecorOf(k), lv = (shop.decorLv || {})[k] || 1; return lv >= 3 || !d ? 0 : d.price * Math.pow(2, lv); };
-  const shopMul = (shop, roster, personaOf, cardOf) => 1 + Object.keys(roster || {}).filter(p => roster[p]).reduce((a, p) => a + 0.15 + 0.1 * shopApt(personaOf(roster[p]), p) + ((shop.badge || {})[p] ? 0.1 : 0), 0) + shopDecorBonus(shop) + (cardOf ? shopWinBonus(shop, cardOf) : 0);
+  // 工牌（她 2026-11-08「工牌选哪张没作用」→ 两样都要）：按稀有度、等级加；卡的作用对上岗位再 +5%（✦）
+  const SHOP_BADGE = { R: 0.06, SR: 0.1, SSR: 0.15 }, SHOP_BADGE_FIT = { 柜台: ["补票"], 分拣: ["邮戳"], 送信: ["投递"], 看店: ["火漆", "集邮"] };
+  const shopBadgeFit = (post, card) => !!(card && (SHOP_BADGE_FIT[post] || []).includes(stampOf(card).role));
+  const shopBadgeBonus = (post, card) => card ? (SHOP_BADGE[card.rarity] || 0.06) + Math.min(0.03, (Number(card.lv) || 1) / 1000) + (shopBadgeFit(post, card) ? 0.05 : 0) : 0;
+  const shopMul = (shop, roster, personaOf, cardOf) => 1 + Object.keys(roster || {}).filter(p => roster[p]).reduce((a, p) => { const bid = (shop.badge || {})[p], bc = bid && cardOf ? cardOf(bid) : null; return a + 0.15 + 0.1 * shopApt(personaOf(roster[p]), p) + (bc ? shopBadgeBonus(p, bc) : bid ? 0.06 : 0); }, 0) + shopDecorBonus(shop) + (cardOf ? shopWinBonus(shop, cardOf) : 0);
   // 按现实时间开店（她 2026-11-08「按现实时间来吧」）：上午 6–12、下午 12–18、傍晚 18–24，半夜关门；
   //   每个时段一批客人：上午多寄信的路人、下午难缠的多、傍晚来坐坐的角色多；有的是急件（给双倍）；过了这个时段没招待的就走了
   const SHOP_PERIODS = [["上午", 6, 12], ["下午", 12, 18], ["傍晚", 18, 24]];
@@ -1020,7 +1024,7 @@
   const mine = raw => (st, who, a, b) => { if (who !== "me") return raw(st, who, a, b); snap(st); const r = raw(st, who, a, b); if (!r || !r.ok) st.undo.pop(); return r; };
   const place = mine(placeRaw), tear = mine(tearRaw), move = mine(moveRaw), keep = mine(keepRaw), stamp = mine(stampRaw);
   const API = { RELICS, STYLE_ZH, TRAIT_FIT, TRAITS, SKILLS, BONDS, bondOf, unitInfo, SIZE, SLOTS, ENVELOPE_HP, POSTAGE, DRAW, DECK_SIZE, TURN_CAP, KEEP_MAX, FACE, NEED, ROLES, MARKS, TERRAIN, EVENTS,
-    stampOf, deckFrom, foeDeckFrom, shopDecorOf, shopUpPrice, SHOP, SHOP_PERIODS, shopPeriod, SHOP_WIN, shopWinSlots, shopWinBonus, shopApt, shopMul, shopCustomers, autoMe, PUZZLE_MAX, puzzleOf, pzSolve, PATROL, TA_CELLS, TA_PTS, patrolNew, patrolCan, patrolMove, patrolBattle, patrolAfter, weekNo, SHIFT, shiftNew, shiftRoll, shiftPrice, shiftBuy, shiftSell, shiftDeck, shiftBonds, shiftFoeLv, shiftAfter, EDICTS, EDICT_LV, edictDeck, RAID_TURNS, MATS, BASE_MATS, THEME_MAT, KEEP_FX, KEEP_MAX_SLOTS, keepFxOf, keepTier, matDrop, SIEGE_TIERS, newDuel, envFor, avgLv, fairDeck, aims, actsOf, previewPlace, place, tear, move, keep, stamp, undo, canUndo, endTurn, planFoe, combos, newSeries, addGame, memoryLine, hashStr };
+    stampOf, deckFrom, foeDeckFrom, shopDecorOf, shopUpPrice, SHOP, SHOP_PERIODS, shopPeriod, SHOP_WIN, shopWinSlots, shopWinBonus, shopApt, shopMul, SHOP_BADGE, SHOP_BADGE_FIT, shopBadgeFit, shopBadgeBonus, shopCustomers, autoMe, PUZZLE_MAX, puzzleOf, pzSolve, PATROL, TA_CELLS, TA_PTS, patrolNew, patrolCan, patrolMove, patrolBattle, patrolAfter, weekNo, SHIFT, shiftNew, shiftRoll, shiftPrice, shiftBuy, shiftSell, shiftDeck, shiftBonds, shiftFoeLv, shiftAfter, EDICTS, EDICT_LV, edictDeck, RAID_TURNS, MATS, BASE_MATS, THEME_MAT, KEEP_FX, KEEP_MAX_SLOTS, keepFxOf, keepTier, matDrop, SIEGE_TIERS, newDuel, envFor, avgLv, fairDeck, aims, actsOf, previewPlace, place, tear, move, keep, stamp, undo, canUndo, endTurn, planFoe, combos, newSeries, addGame, memoryLine, hashStr };
   g.StampDuel = API;
   if (typeof module !== "undefined" && module.exports) module.exports = API;
 })(typeof window !== "undefined" ? window : globalThis);
