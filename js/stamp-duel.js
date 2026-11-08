@@ -738,7 +738,7 @@
   }
   function stampBody(st, who, slot, sd, foeWho, foe, u) {
     const p0 = powOf(st, u, sd, slot), big = u.rarity === "SSR", p = big ? Math.ceil(p0 * 1.5) : p0, x = big ? 1.5 : 1;
-    say(st, who, "盖章：" + (big ? u.name : u.skill), { kind: "stamp", slot, char: u.charId, line: big ? u.lines.wake : "", skill: u.skill });
+    say(st, who, "盖章：" + (big ? u.name : u.skill), { kind: "stamp", slot, char: u.charId, line: big ? u.lines.wake : "", skill: u.skill, rarity: u.rarity, name: u.name, cardId: u.cardId, cutLine: u.lines.wake || u.lines.enter || "" });
     const c = col(slot), foeCol = [0, 1, 2].map(r => r * SIZE + c).filter(i => foe.board[i]), j = targetIn(foe, c);
     const k = u.skill;
     if (k === "重击") { if (j >= 0) hitUnit(st, foeWho, j, p * 2, u.name, u); else hitEnvelope(st, foeWho, p + 2, u.name); }
@@ -804,7 +804,7 @@
       const lead = cb.us.slice().sort((a, b) => b.pow - a.pow)[0], sum = cb.us.reduce((a, u) => a + u.pow, 0);
       if (cb.type === "四方连") { cb.us.forEach(u => { u.shield += 3; }); hitEnvelope(st, other(who), Math.ceil(sum / 3), lead.name); }
       else { cb.us.forEach(u => { u.charge++; }); hitEnvelope(st, other(who), Math.ceil(sum / 4), lead.name); }
-      say(st, who, cb.type + "觉醒：" + lead.name, { kind: "wake", char: lead.charId, combo: cb.type, line: lead.lines.wake, slots: cb.ids });
+      say(st, who, cb.type + "觉醒：" + lead.name, { kind: "wake", char: lead.charId, combo: cb.type, line: lead.lines.wake, slots: cb.ids, rarity: lead.rarity, name: lead.name, cardId: lead.cardId, cutLine: lead.lines.wake || lead.lines.enter || "" });
       if (checkOver(st)) return;
     }
   }
