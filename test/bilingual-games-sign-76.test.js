@@ -9,9 +9,9 @@ test("小游戏：开着双语的人，规矩挂在 gameVoiceRules 这一处；�
   const g = read("js/games.js");
   assert.match(g, /return AC \+ VOICE_RULE \+ SKILL_RULE \+ gameBiRules\(\)/);
   assert.match(g, /GAME_BI = \(props\.characters \|\| \[\]\)\.filter\(/);
-  assert.match(g, /function gameSaid\(text\)/);
-  assert.ok((g.match(/gameSaid\(it\.text\)\.node/g) || []).length >= 4);
-  assert.match(g, /gameSaid\(l\.text\)\.node/);
+  assert.match(g, /function gameSaid\(text, who\)/);
+  assert.ok((g.match(/gameSaid\(it\.text, p && p\.char\)\.node/g) || []).length >= 4);
+  assert.match(g, /gameSaid\(l\.text, c\)\.node/);
 });
 test("今日签：手动、自动都把抽签的人递进提示词；存的时候不截掉译文；卡上劈开显示", () => {
   const core = read("js/astro-core.js"), app = read("js/app.js"), astro = read("js/astro.js");
