@@ -16,6 +16,8 @@
   const SIZE = 3, SLOTS = SIZE * SIZE;
   const ENVELOPE_HP = 40, POSTAGE = 3, DRAW = 4, DECK_SIZE = 12, TURN_CAP = 12, POSTAGE_CAP = 7, KEEP_MAX = 2, MOVE_COST = 1, STAMP_COST = 1;
   const FACE = { R: 1, SR: 2, SSR: 3 };
+  // 胶水随回合涨（她 2026-11-08 同意）：1–3 回合 3 点，4–6 回合 4 点，7 回合起 5 点；攒的上限 7 不动
+  const postageOf = turn => POSTAGE + (turn >= 7 ? 2 : turn >= 4 ? 1 : 0);
   const BASE = { R: { pow: 3, hp: 6 }, SR: { pow: 5, hp: 9 }, SSR: { pow: 7, hp: 13 } };
   const ROLE_HIT = { 火漆: 0.5, 补票: 0.4, 集邮: 0.4, 邮戳: 0.5 };
   // 等级给的数值（她 2026-11-08「升级数值也要提升才有爽感」）：原来十级才 +1 攻，现在六级 +1 攻、三级 +1 血
@@ -634,7 +636,7 @@
       sd.hand.forEach((s, k) => (keep.has(k) && stay.length < KEEP_MAX ? stay : sd.discard).push(s));
       sd.hand = stay; sd.kept = [];
       const box = sd.board.some((u, i) => u && sd.terrain[i] === "邮筒") ? 1 : 0;
-      sd.postage = Math.max(0, Math.max(0, Math.min(POSTAGE_CAP, POSTAGE + box + sd.bonusPostage - sd.owed + (st.hard && who === "foe" ? 1 : 0) + (has(st, who, "胶水罐") ? 1 : 0) + (st.turn === 1 && has(st, who, "哨子") ? 2 : 0))) - (who === "me" && edictOn(st, "meGlue") ? 1 : 0));
+      sd.postage = Math.max(0, Math.max(0, Math.min(POSTAGE_CAP, postageOf(st.turn) + box + sd.bonusPostage - sd.owed + (st.hard && who === "foe" ? 1 : 0) + (has(st, who, "胶水罐") ? 1 : 0) + (st.turn === 1 && has(st, who, "哨子") ? 2 : 0))) - (who === "me" && edictOn(st, "meGlue") ? 1 : 0));
       drawCards(sd, Math.max(1, DRAW - (who === "me" && edictOn(st, "meDraw") ? 1 : 0) + sd.bonusDraw + (eventNow(st) === "加班" ? 1 : 0) + (has(st, who, "快手") ? 1 : 0)), st.seed + st.turn * 31 + (who === "me" ? 0 : 7));
       sd.bonusPostage = 0; sd.bonusDraw = 0; sd.owed = 0; sd.torn = 0;
       turnStartEffects(st, sd, who);
