@@ -128,11 +128,12 @@ test("守城入口和页面：挑玩法页一张卡、波数条、打完再守�
   assert.match(ui, /x\.tutorial \|\| x\.run \|\| x\.siege/);
   assert.match(ui, /!st\.run && !st\.siege\) record\(st\)/);
 });
-test("材料与信物页：材料匣、做一件走 onChat keep、信物册、物品栏带进对局和守城", () => {
-  assert.match(ui, /modeCard\("duelmodekeeps"/);
-  assert.match(ui, /onChat\(who, \{ mode: "keep", mats: kPick, fxList: fxs, fxZh \}\)/);
-  assert.match(ui, /keeps: Keeps\.forBattle\(\[foeId\]\)/);
-  assert.match(ui, /keeps: Keeps\.forBattle\(\[\]\)/);
+test("信物只在远信：对局页没有材料与信物入口，远信路线图能做信物、带进这一站", () => {
+  const ru = readFileSync(new URL("../js/stamp-run-ui.js", import.meta.url), "utf8"), rn = readFileSync(new URL("../js/stamp-run.js", import.meta.url), "utf8");
+  assert.ok(!/duelmodekeeps/.test(ui)); assert.ok(!/keeps: Keeps\.forBattle/.test(ui));
+  assert.match(ru, /onChat\(who, \{ mode: "keep", mats: kPick, fxList: fxs, fxZh \}\)/);
+  assert.match(ru, /"data-wk": "runcraftgo"/);
+  assert.match(rn, /const keeps = \(run\.keeps \|\| \[\]\)\.filter\(k => k\.on\)/);
   assert.match(app, /if \(d\.mode === "keep"\) \{/);
-  assert.match(ts, /"duelkeepmake"/);
+  assert.match(ts, /"runkeepmake"/);
 });

@@ -61,6 +61,7 @@
     const unlocked = Math.max(1, Number(load(LEVELK, 1)) || 1);
     const [chat, setChat] = useState(() => (load(SAVE, null) || {}).chat || []), [draft, setDraft] = useState(""), [busy, setBusy] = useState(false), [chatOpen, setChatOpen] = useState(false);
     const [, bump] = useState(0), [peek, setPeek] = useState(null);
+    const [kPick, setKPick] = useState([]), [kWho, setKWho] = useState(""), [kBusy, setKBusy] = useState(false), [kOpen, setKOpen] = useState("");
     curInfo = window.StampInfoCard ? setPeek : null;
     const letters = load(LETTERS, []);
     // 一张卡的那一刻（写便条、回信时给 TA 看）
@@ -82,7 +83,7 @@
     const bondsOf = () => { const m = {}; (characters || []).forEach(c => { m[c.id] = D().bondOf([c.persona, c.description, c.desc, c.personality].filter(Boolean).join(" ")); }); return m; };
     // 每动一步存一份
     const commit = (r, v, ch) => { const rr = r || run, vv = v || view;
-      if (rr && rr.slotUp && !rr.slotSaved && window.StampKeeps) { rr.slotSaved = 1; const n = window.StampKeeps.addSlot(); toast && toast("信物栏现在能带 " + n + " 件"); } if (rr && rr.step) dexMerge(rr); save(SAVE, rr && !rr.done ? { run: rr, view: vv, chat: ch || chat } : null); setRun(rr ? Object.assign({}, rr) : rr); setView(vv); bump(x => x + 1); };
+      if (rr && rr.step) dexMerge(rr); save(SAVE, rr && !rr.done ? { run: rr, view: vv, chat: ch || chat } : null); setRun(rr ? Object.assign({}, rr) : rr); setView(vv); bump(x => x + 1); };
     // 主题路线换底色（她 2026-11-08）：信纸横线照旧，底下那层渐变跟着路走
     const peekCard = () => peek && window.StampInfoCard ? h(window.StampInfoCard, { key: "peek", u: peek, foe: false, bonds: (run && run.bonds) || {}, cardOf: id => (cards || []).find(c => c && c.id === id), ownerOf: nameOf, nameOf, useThumb, onClose: () => setPeek(null) }) : null;
     const shell = kids => { const th = run && RN().THEMES[run.theme], pp = th ? th.paper : ["#f3ebdb", "#e8dcc4"]; kids = [].concat(kids, peekCard());
@@ -197,6 +198,15 @@
                 h("div", { className: "flex flex-wrap", style: { gap: 5, marginBottom: 10 } }, E0.map(e => { const on = d.events.includes(e.key); return h("span", { key: e.key, style: { padding: "1px 8px", borderRadius: 999, border: "1px " + (on ? "solid " + (e.letter ? RED : GREEN) : "dashed rgba(47,42,34,.25)"), color: on ? (e.letter ? RED : GREEN) : SUB } }, on ? e.zh.replace(/同行的人|TA/g, "TA") : "？？"); })),
                 h("div", { style: { color: SUB, marginBottom: 2 } }, "路上的麻烦"),
                 h("div", { className: "flex flex-wrap", style: { gap: 5 } }, T0.map(x => { const on = d.troubles.includes(x.key); return h("span", { key: x.key, style: { padding: "1px 8px", borderRadius: 999, border: "1px " + (on ? "solid " + INK : "dashed rgba(47,42,34,.25)"), color: on ? INK : SUB } }, on ? x.zh : "？？"); }))) : null); })(),
+          // 信物册：远信里做过的信物收着翻看（效果只在做它的那一趟）
+          (() => { const K = window.StampKeeps ? window.StampKeeps.all() : []; if (!K.length) return null;
+            return h("details", { "data-wk": "runkeepbook", style: { marginTop: 22 } },
+              h("summary", { style: { fontFamily: FD, fontSize: fz(14), cursor: "pointer" } }, "信物册 · " + K.length + " 件"),
+              h("div", { style: { fontSize: fz(11.5), color: SUB, margin: "4px 0 8px" } }, "远信路上 TA 给你做过的东西。效果只在做它的那一趟里，这里收着翻看。"),
+              K.slice().reverse().slice(0, 60).map((k, i) => h("div", { key: i, style: { marginBottom: 8, padding: "8px 11px", borderRadius: 4, background: PAPER, borderLeft: "3px solid " + GOLD, fontSize: fz(12.5), lineHeight: 1.7 } },
+                h("div", { style: { fontFamily: FD, fontSize: fz(13.5) } }, k.name, h("span", { style: { marginLeft: 6, fontFamily: F, fontSize: fz(10.5), color: SUB } }, (nameOf(k.charId) || "TA") + " 做的 · " + new Date(k.ts).toLocaleDateString())),
+                k.story ? h("div", null, k.story) : null,
+                k.say ? h("div", { style: { marginTop: 4, fontFamily: FD, color: "#5a4f40" } }, (nameOf(k.charId) || "TA") + "：「" + k.say + "」") : null))); })(),
           letters.length ? h("div", { "data-wk": "runletters", style: { marginTop: 22 } },
             h("div", { style: { fontFamily: FD, fontSize: fz(14), marginBottom: 8 } }, "信匣"),
             h("div", { style: { fontSize: fz(11.5), color: SUB, marginBottom: 8 } }, "一路上收到的明信片、便条、回信都在这儿。"),
@@ -273,10 +283,56 @@
       chatBox()]);
 
     // ── 地图 ──
+    // ── 做信物（她 2026-11-08「在那一局里面就能合成和使用」「信物就是远信专属的」）：这一趟掉的材料，挑三样请 TA 当场做 ──
+    if (view.at === "craft") {
+      const mats = run.mats || [], keeps = run.keeps || [], slots = run.slots || 1, onN = keeps.filter(k => k.on).length;
+      const whoList = Array.from(new Set([run.toId, run.withId].filter(Boolean))), who = whoList.includes(kWho) ? kWho : whoList[0];
+      const cnt = {}; mats.forEach(m => { cnt[m] = (cnt[m] || 0) + 1; });
+      const left = m => (cnt[m] || 0) - kPick.filter(x => x === m).length, fxs = D().keepFxOf(kPick);
+      const make = async () => {
+        if (kBusy || kPick.length !== 3 || !who || !onChat) return; setKBusy(true);
+        try {
+          const fxZh = {}; fxs.forEach(f => { fxZh[f] = D().KEEP_FX[f].zh + "（" + D().KEEP_FX[f].say(D().keepTier(kPick, f)) + "）"; });
+          const r = await onChat(who, { mode: "keep", mats: kPick, fxList: fxs, fxZh });
+          if (!r || !r.name) { toast && toast("没做出来，再点一次试试"); return; }
+          const rest = mats.slice(); kPick.forEach(m => { const i = rest.indexOf(m); if (i >= 0) rest.splice(i, 1); }); run.mats = rest;
+          const k = Object.assign({ id: "kp_" + Date.now().toString(36), charId: who, mats: kPick.slice(), v: D().keepTier(kPick, r.fx), ts: Date.now(), on: onN < slots }, r);
+          run.keeps = keeps.concat(k); if (window.StampKeeps) window.StampKeeps.add(Object.assign({ toId: run.toId }, k));
+          setKPick([]); setKOpen(k.id); toast && toast((nameOf(who) || "TA") + " 做好了「" + k.name + "」" + (k.on ? "，已经带上" : "，信物栏满了，要带得先放下一件")); commit(run, view);
+        } catch (e) { toast && toast("没成：" + ((e && e.message) || e)); } finally { setKBusy(false); }
+      };
+      const chip = (txt, onClick, sel, c, wk, extra) => h("button", Object.assign({ "data-wk": wk, "data-on": sel ? "1" : "0", onClick, style: { padding: "3px 10px", borderRadius: 999, border: "1px solid " + (sel ? c : "rgba(47,42,34,.22)"), background: sel ? c + "18" : "rgba(255,255,255,.55)", color: sel ? c : INK, fontSize: fz(12) } }, extra || {}), txt);
+      return page("做信物", [
+        h("div", { key: "bk", "data-wk": "runcraft" },
+        Paper("mats", "这一趟的材料 · " + mats.length + " 样", [
+          h("div", { key: "t", style: { fontSize: fz(11.5), color: SUB, marginBottom: 8, lineHeight: 1.6 } }, "路上打赢掉的，只在这一趟里用。点三样（可以混着挑）。"),
+          h("div", { key: "m", className: "flex flex-wrap", style: { gap: 6 } }, Object.keys(cnt).length ? Object.keys(cnt).map(m => chip(m + " ×" + left(m), () => { if (left(m) > 0 && kPick.length < 3) setKPick(p => p.concat(m)); }, kPick.includes(m), RED, "runmat", { disabled: left(m) <= 0 && !kPick.includes(m) })) : h("span", { style: { fontSize: fz(12), color: SUB } }, "还没掉材料，先往前打几站。"))]),
+        Paper("make", "请谁做", [
+          h("div", { key: "w", className: "flex flex-wrap", style: { gap: 6, marginBottom: 8 } }, whoList.map(id => chip(nameOf(id) || "TA", () => setKWho(id), who === id, GREEN, "runkeepwho"))),
+          h("div", { key: "p", className: "flex flex-wrap", style: { gap: 6, marginBottom: 6 } }, [0, 1, 2].map(i => h("button", { key: i, "data-wk": "runkeeppick", onClick: () => setKPick(p => p.filter((_, j) => j !== i)), style: { minWidth: 70, padding: "6px 8px", borderRadius: 4, border: "1px dashed " + (kPick[i] ? RED : "rgba(47,42,34,.3)"), color: kPick[i] ? RED : SUB, fontSize: fz(12) } }, kPick[i] || "材料 " + (i + 1)))),
+          fxs.length ? h("div", { key: "f", style: { fontSize: fz(11), color: SUB, marginBottom: 8, lineHeight: 1.6 } }, "可能做成：" + fxs.map(f => D().KEEP_FX[f].zh + " · " + D().KEEP_FX[f].say(D().keepTier(kPick, f))).join("；") + "。同一种偏向的材料越多越强，「TA 的东西」再加一档。") : null,
+          h("button", { key: "go", "data-wk": "runkeepmake", onClick: make, disabled: kBusy || kPick.length !== 3 || !who || !onChat, className: "w-full disabled:opacity-40", style: Object.assign(btn(RED, "#fff"), { padding: "10px 0", fontFamily: FD, fontSize: fz(14) }) }, kBusy ? (nameOf(who) || "TA") + " 在做…" : "请 " + (nameOf(who) || "TA") + " 做（花一次调用）")], GREEN),
+        Paper("keeps", "信物 · 带着 " + onN + " / " + slots, [
+          h("div", { key: "t", style: { fontSize: fz(11.5), color: SUB, marginBottom: 8, lineHeight: 1.6 } }, "带着的在后面每一站都生效；终点是做它的人，再强一档。路上的「旧行李箱」能多开一格，最多三格。"),
+          keeps.length ? keeps.slice().reverse().map(k => { const op = kOpen === k.id;
+            return h("div", { key: k.id, "data-wk": "runkeep", style: { marginBottom: 8, borderRadius: 5, background: "#fffdf7", border: "1px solid " + (k.on ? GOLD : "rgba(47,42,34,.12)") } },
+              h("div", { className: "flex items-center", style: { gap: 10, padding: "8px 10px" } },
+                h("div", { style: { width: 32, height: 32, flexShrink: 0, borderRadius: 999, background: "radial-gradient(circle at 35% 30%, #c9a24a, #8f6b1e)", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: FD, fontSize: fz(13), transform: "rotate(-8deg)" } }, D().KEEP_FX[k.fx] ? D().KEEP_FX[k.fx].zh : "✦"),
+                h("button", { onClick: () => setKOpen(op ? "" : k.id), className: "flex-1 min-w-0 text-left" },
+                  h("div", { style: { fontFamily: FD, fontSize: fz(14), whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, k.name),
+                  h("div", { style: { fontSize: fz(10.5), color: SUB } }, (nameOf(k.charId) || "TA") + " 做的 · " + D().KEEP_FX[k.fx].zh + " · " + D().KEEP_FX[k.fx].say(k.v))),
+                h("button", { "data-wk": "runkeeptoggle", onClick: () => { if (!k.on && onN >= slots) { toast && toast("信物栏满了，先放下一件"); return; } k.on = !k.on; commit(run, view); }, style: btn(k.on ? GOLD : "transparent", k.on ? "#fff" : INK, k.on ? null : "rgba(47,42,34,.3)") }, k.on ? "带着" : "带上")),
+              op ? h("div", { style: { padding: "0 12px 10px 52px", fontSize: fz(12.5), lineHeight: 1.7 } }, k.story ? h("div", null, k.story) : null,
+                k.say ? h("div", { style: { marginTop: 6, padding: "6px 10px", borderLeft: "3px solid " + GOLD, background: "rgba(184,134,42,.07)", fontFamily: FD, color: "#5a4f40" } }, (nameOf(k.charId) || "TA") + "：「" + k.say + "」") : null) : null); })
+            : h("div", { key: "e", style: { fontSize: fz(12), color: SUB } }, "这一趟还没做信物。")], GOLD),
+        h("button", { key: "bk2", onClick: () => commit(run, { at: "map" }), className: "w-full", style: Object.assign(btn("transparent", INK, "rgba(47,42,34,.35)"), { padding: "10px 0" }) }, "回路线图"))]);
+    }
     if (view.at === "map") {
       const can = RN().reachable(run), cur = run.pos;
       const th = RN().THEMES[run.theme];
       return page(run.theme ? "远信 · " + run.theme : "远信 · 路线", [
+        h("button", { key: "cr", "data-wk": "runcraftgo", onClick: () => commit(run, { at: "craft" }), className: "w-full flex items-center", style: { gap: 8, marginBottom: 8, padding: "7px 12px", borderRadius: 6, background: "rgba(184,134,42,.1)", border: "1px solid rgba(184,134,42,.4)", color: INK, fontSize: fz(12) } },
+          h("span", { style: { fontFamily: FD, color: GOLD } }, "✦ 做信物"), h("span", { style: { color: SUB, flex: 1, textAlign: "left" } }, "材料 " + (run.mats || []).length + " 样 · 带着 " + (run.keeps || []).filter(k => k.on).length + " / " + (run.slots || 1) + " 件"), h("span", { style: { color: SUB } }, "›")),
         th ? h("div", { key: "th", "data-wk": "runthemeline", style: { fontSize: fz(11.5), color: th.ink, lineHeight: 1.6, marginBottom: 8 } }, th.say + "这一路的规则：" + th.rule + "——" + th.ruleZh + "。") : null,
         view.redo ? h("button", { key: "redo", onClick: redo, className: "w-full", style: Object.assign(btn(RED, "#fff"), { marginBottom: 10 }) }, "回到刚才那一站，重新打") : null,
         // 路线图：一排一站，站跟站之间画虚线；能去的那几站在动，走过的盖了戳，现在在哪儿压一个红邮戳
@@ -316,7 +372,7 @@
     if (view.at === "reward") {
       const res = view.res || {};
       return page("赢了这一站", [
-        Paper("got", "这一站拿到", h("div", { style: { fontSize: fz(13), lineHeight: 1.7 } }, "拿到 " + (res.coins || 0) + " 枚邮花。" + (res.relic ? "还捡到一件信物「" + res.relic + "」：" + D().RELICS[res.relic] + "。" : "") + ((res.mats || []).length ? "掉了材料：" + res.mats.join("、") + "（进了材料匣）。" : "")), GREEN),
+        Paper("got", "这一站拿到", h("div", { style: { fontSize: fz(13), lineHeight: 1.7 } }, "拿到 " + (res.coins || 0) + " 枚邮花。" + (res.relic ? "还捡到一件信物「" + res.relic + "」：" + D().RELICS[res.relic] + "。" : "") + ((res.mats || []).length ? "掉了材料：" + res.mats.join("、") + "（路线图上「做信物」能用）。" : "")), GREEN),
         Paper("pick", "挑一张加进卡组", h("div", { style: { display: "grid", gridTemplateColumns: "1fr", gap: 6 } }, (res.offer || []).map((s, i) => h(Mini, { key: i, s, sub: nameOf(s.charId), onTap: () => { run.deck.push(s); commit(run, { at: "map" }); } })))),
         h("button", { key: "skip", onClick: () => commit(run, { at: "map" }), style: Object.assign(btn("transparent", INK, "rgba(47,42,34,.3)"), { marginTop: 10, width: "100%" }) }, "都不要，接着走")]);
     }
