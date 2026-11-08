@@ -1,6 +1,6 @@
-import {createStoryPlayback} from './playback.mjs?v=fg-5888a014a76a037e';
-import {createNavigator,segmentIntersectsRect} from '../fairy-garden/navigation.mjs?v=fg-5888a014a76a037e';
-import {stepRoute} from '../fairy-garden/locomotion.mjs?v=fg-5888a014a76a037e';
+import {createStoryPlayback} from './playback.mjs?v=fg-fdbbcf1139f349e7';
+import {createNavigator,segmentIntersectsRect} from '../fairy-garden/navigation.mjs?v=fg-fdbbcf1139f349e7';
+import {stepRoute} from '../fairy-garden/locomotion.mjs?v=fg-fdbbcf1139f349e7';
 export const ENTRY={x:3.32,z:4.7};
 export const SHOP_FURNITURE=[{id:'Counter',x:-1.45,z:1.15,w:3.93,d:1.04},{id:'SortTable',x:-2.25,z:-2.5,w:2.8,d:.85},{id:'WindowStool',x:3,z:-.6,w:.58,d:.6},{id:'DisplayShelves',x:-4.2,z:0,w:.45,d:6},{id:'Mailbags',x:4.05,z:2.45,w:.85,d:.55}];
 export const queuePoint=i=>({x:-1.45+(Math.floor(i/3)%6)*.84,z:2.2+(Math.floor(i/18)%2?2-i%3:i%3)*.85});
@@ -106,7 +106,7 @@ export function createShopFlow({onMeetEnd=()=>{},onEvent=()=>{}}={}){
   if(playback){updateSpeech();const actor=actorById(playback.beat?.actorId||playback.beat?.speakerId);playback.step(dt,!actor||actor.arrived);}
   stepIdle(dt);
  }
- function resume(saved){for(const old of saved?.units||[]){const u=units.get(old.key);if(!u||!nav.walkable(old.position?.x,old.position?.z))continue;u.position={...old.position};u.seated=!!old.seated;u.phase=old.phase==='waiting-entry'?'queuing':old.phase;u.spawnAt=0;if(u.kind==='staff'&&u.phase.startsWith('idle'))returnHome(u);else go(u,old.goal||u.target||u.home||u.position);}}
+ function resume(saved){for(const old of saved?.units||[]){const u=units.get(old.key);if(!u||!nav.walkable(old.position?.x,old.position?.z))continue;u.position={...old.position};u.seated=!!old.seated;u.phase=old.phase==='waiting-entry'?'queuing':old.phase;u.spawnAt=0;if(u.kind==='staff'&&(u.phase.startsWith('idle')||['performing','tidying','tidy-return','meeting'].includes(u.phase)))returnHome(u);else go(u,old.goal||u.target||u.home||u.position);}}
  const performance=()=>playback?.beat?{kind:closing?'closing':'meet',index:playback.index,total:playback.total,text:playback.beat.text,speakerId:playback.beat.speakerId,actorId:playback.beat.actorId,action:playback.beat.action}:null;
  return {units,reconcile,resume,step,playMeet,startClosing,nextBeat:()=>playback?.next(),skipStory:()=>playback?.finish(),finishClosing:()=>{closing=null;playback=null;},get time(){return clock;},get closingDone(){return closing?.phase==='tidy'&&closing.time>1.45&&![...units.values()].some(u=>u.kind==='staff');},get lampProgress(){return closing?.phase==='tidy'?Math.min(1,closing.time/1.5):0;},get closing(){return !!closing;},get meeting(){return meeting;},get narration(){const beat=playback?.beat;return beat&&!actorById(beat.speakerId)?beat.text:'';},get performance(){return performance();},snapshot:()=>({clock,closing:!!closing,performance:performance(),idlePair:idlePair?.ids||null,meeting:meeting?{id:meeting.id,phase:meeting.phase,index:playback?.index||0}:null,units:[...units.values()].map(u=>({key:u.key,id:u.id,post:u.post,phase:u.phase,position:{...u.position},goal:u.goal,seated:!!u.seated,bubble:u.bubble||'',letter:!!u.letter,action:u.taskAction||'',walking:!!u.path.length}))})};
 }

@@ -1,5 +1,5 @@
 import * as T from 'three';
-import {disposeMap} from './map-loader.mjs?v=fg-5888a014a76a037e';
+import {disposeMap} from './map-loader.mjs?v=fg-fdbbcf1139f349e7';
 // Common WebGL setup and teardown for standalone worlds. Scene-specific lights,
 // camera and simulation stay with their world.
 export function createWorldRenderer(host,{pixelRatio=1.5,exposure=1.1,alpha=false,preserveDrawingBuffer=false}={}){

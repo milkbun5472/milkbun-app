@@ -1,15 +1,15 @@
-import {createShopExterior} from './exterior.mjs?v=fg-5888a014a76a037e';
-import {createDayEnvironment,prepareEnvironmentSurfaces} from '../fairy-garden/day/environment-view.mjs?v=fg-5888a014a76a037e';
-import {makeNpcCostume} from './npc-outfits.mjs?v=fg-5888a014a76a037e';
-import {createShopFlow} from './flow.mjs?v=fg-5888a014a76a037e';
-import {createShopDecor} from './decor-view.mjs?v=fg-5888a014a76a037e';
+import {createShopExterior} from './exterior.mjs?v=fg-fdbbcf1139f349e7';
+import {createDayEnvironment,prepareEnvironmentSurfaces} from '../fairy-garden/day/environment-view.mjs?v=fg-fdbbcf1139f349e7';
+import {makeNpcCostume} from './npc-outfits.mjs?v=fg-fdbbcf1139f349e7';
+import {createShopFlow} from './flow.mjs?v=fg-fdbbcf1139f349e7';
+import {createShopDecor} from './decor-view.mjs?v=fg-fdbbcf1139f349e7';
 import * as T from 'three';
-import {createRoomKit} from '../fairy-garden/day/places/room-kit.mjs?v=fg-5888a014a76a037e';
-import {createWorldRenderer,disposeWorldRenderer} from '../fairy-garden/world-renderer.mjs?v=fg-5888a014a76a037e';
-import {createMapGesture} from '../fairy-garden/view-controls.mjs?v=fg-5888a014a76a037e';
-import {createTraveler,loadTravelerSource} from '../fairy-garden/traveler.mjs?v=fg-5888a014a76a037e';
-import {disposeMap} from '../fairy-garden/map-loader.mjs?v=fg-5888a014a76a037e';
-import {visibleBounds} from '../fairy-garden/photo-render.mjs?v=fg-5888a014a76a037e';
+import {createRoomKit} from '../fairy-garden/day/places/room-kit.mjs?v=fg-fdbbcf1139f349e7';
+import {createWorldRenderer,disposeWorldRenderer} from '../fairy-garden/world-renderer.mjs?v=fg-fdbbcf1139f349e7';
+import {createMapGesture} from '../fairy-garden/view-controls.mjs?v=fg-fdbbcf1139f349e7';
+import {createTraveler,loadTravelerSource} from '../fairy-garden/traveler.mjs?v=fg-fdbbcf1139f349e7';
+import {disposeMap} from '../fairy-garden/map-loader.mjs?v=fg-fdbbcf1139f349e7';
+import {visibleBounds} from '../fairy-garden/photo-render.mjs?v=fg-fdbbcf1139f349e7';
 export function createPostOfficeView(stage,{name,counter,thumbnail,select,monthly,onMeetEnd,onEvent}={}){
  const renderer=createWorldRenderer(stage),scene=new T.Scene(),camera=new T.OrthographicCamera(-6,6,7,-7,.1,100),kit=createRoomKit();
  const {root,box,cylinder,sphere,ellipsoid,tube,group,sign,table,chair,bench,plant}=kit;

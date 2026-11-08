@@ -27,3 +27,7 @@ test('a waiting customer keeps the counter staffed and door/stamp sounds follow 
 test('a shop returning to planning cancels idle meetings and sends every clerk back to the assigned station',()=>{
  const flow=createShopFlow();flow.reconcile(state(true));for(let i=0;i<2000&&!flow.snapshot().idlePair;i++)flow.step(.05);assert.ok(flow.snapshot().idlePair);flow.reconcile({...state(true),phase:'plan'});step(flow,1200);assert.equal(flow.snapshot().idlePair,null);assert.ok([...flow.units.values()].every(u=>u.phase==='working'&&u.arrived&&Math.hypot(u.position.x-u.home.x,u.position.z-u.home.z)<.12));
 });
+
+test('returning from a text page during a performance cannot leave a live clerk stuck in a presentation-only phase',()=>{
+ const flow=createShopFlow();flow.reconcile(state());const saved=flow.snapshot();saved.units.forEach(u=>{u.phase='performing';u.position={x:.7,z:-.3};});flow.resume(saved);assert.ok([...flow.units.values()].every(u=>u.phase==='working'));step(flow,1500);assert.ok([...flow.units.values()].every(u=>u.arrived));
+});

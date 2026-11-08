@@ -246,7 +246,7 @@ test("现实日期、换批和半夜门禁收进公共层", () => {
   assert.match(shopCore,/s\.date!==date/);assert.match(shopCore,/period!=='半夜'&&s\.period!==period/);assert.match(shopCore,/D\.shopCustomers/);assert.match(shopCore,/半夜不开门/);
 });
 test("漏打烊的真实条子仍能补写，公共结果不重复请求", () => {
-  assert.match(shopCore,/s\.missed=\{day:s\.day/);assert.match(shopCore,/missed:true/);assert.match(app,/她那天忘了来打烊，是店里上班的这几个人自己把店关了/);
+  assert.match(shopCore,/s\.missed=\{[^}]*day:s\.day/);assert.match(shopCore,/missed:true/);assert.match(app,/她那天忘了来打烊，是店里上班的这几个人自己把店关了/);
 });
 test("集邮社新页面统一样式：区块信纸、标题小票、数字格", () => {
   assert.match(ui, /const secBox = \(c, extra\) =>/);
