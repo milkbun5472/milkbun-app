@@ -93,3 +93,7 @@
 浏览器：`scripts/checks/post-office-phase2-browser.cjs` 与共用扩展 `post-office-atmosphere.cjs` 验实际写入与文字往返、直接来访对话、打烊场内演出/补存/跨天留底/免费重演、闲时走动交接、声音静音与暂停、四季雨雪窗景、32件三等级、三手机宽度及手势；`scripts/checks/post-office-browser.cjs` 保留第一期空坏档/光照/删除角色/其他世界往返与释放回归。均使用干净浏览器和构造存档，阻止真实模型、记忆与外网。WebKit 旧执行器若不能写图片 Blob，仅构造图片键使用内存替身，文字档仍用真实 writer；Chrome 检查真实图片 IDB。未测试实体 iPhone。
 
 发版前 `node scripts/build-fairy-garden.mjs` 两次确认幂等，按根版本手册走正常 ship；资源图涵盖邮局和共用 traveler/renderer，不手工改运行缓存指纹。
+
+## 故事动作
+
+保存的 action 值和时长统一由公共 `fairy-garden/story-actions.js` 提供给 writer 与 ESM；存档结构不变。邮局只管地点与时序，`story-motion.mjs` 复用 traveler 的真实骨骼接触来处理拍肩/递接、扫帚与拉灯绳，旧信件摆放也迁入同一公共道具工厂。挥手/伸懒腰沿 doll-life，鞠躬/欢呼/抱臂/叹气沿 emotion-pose；新增笑与点头也在公共 emotion-pose。支持12项新动作；就近坐下只选真实空座。双人动作需同场目标，否则退回交谈；单次交接保留同一个 Three 对象，先伸手再换持有人。所有动作时钟、微动作、灯光和道具所有权只在演出内存，重演不改存档、不调用模型、不写记忆。正文提示仅替换 action 清单，其他字节以函数片段哈希回归。

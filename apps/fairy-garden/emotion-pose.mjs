@@ -4,6 +4,9 @@ const beat=(p,a,b,c,d)=>ease((p-a)/(b-a))*(1-ease((p-c)/(d-c)));
 export function emotionPose(face,p){
  const e=beat(p,0,.18,.76,1),late=beat(p,.42,.6,.78,1),q={left:[0,0,0],right:[0,0,0],tilt:0,roll:0,yaw:0,lift:0};
  switch(face){
+ case 'laugh': {
+  const shake=Math.sin(p*Math.PI*10)*beat(p,.16,.3,.65,.83);q.left=[-.25*e,0,-.15*e];q.right=[-.25*e,0,.15*e];q.headNod=-.12*e;q.tilt=-.04*e+.018*shake;q.roll=.018*shake;q.lift=.008*Math.abs(shake);break;}
+ case 'nod':q.headNod=.11*Math.sin(p*Math.PI*4)*e;break;
  case 'catchrain': {
   Object.assign(q,emotionPose('umbrella',p));
   q.left=[-.32*e,0,-.35*e];q.leftElbow=-1.65*e;q.leftHeadHold=e;

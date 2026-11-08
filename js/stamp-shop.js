@@ -4,7 +4,7 @@
  const KEY='x_stampShop',obj=x=>x&&typeof x==='object'&&!Array.isArray(x)?x:{},arr=x=>Array.isArray(x)?x:[],copy=x=>JSON.parse(JSON.stringify(x));
  const finite=(v,f=0)=>Number.isFinite(Number(v))?Number(v):f;
  const dateKey=d=>d.getFullYear()+'-'+(d.getMonth()+1)+'-'+d.getDate();
- const STORY_ACTIONS=Object.freeze(['talk','tidy','letter','look','rest','help']);
+ const STORY_ACTIONS=g.CharacterStoryActions.ids;
  const cleanTurns=(rows,allowed=null)=>arr(rows).map(x=>{const r=typeof x==='string'?{text:x}:obj(x),id=k=>typeof r[k]==='string'&&(!allowed||allowed.includes(r[k]))?r[k]:null;return {text:typeof r.text==='string'?r.text:'',speakerId:id('speakerId'),actorId:id('actorId')||id('speakerId'),targetId:id('targetId'),action:STORY_ACTIONS.includes(r.action)?r.action:'talk'};}).filter(x=>x.text.trim());
  const cleanNotes=(rows,allowed=null)=>arr(rows).filter(x=>x&&typeof x.text==='string').map(x=>({...x,speakerId:typeof x.speakerId==='string'&&(!allowed||allowed.includes(x.speakerId))?x.speakerId:null}));
  const cleanCast=raw=>Object.fromEntries(Object.entries(obj(raw)).filter(([,id])=>typeof id==='string'&&id));

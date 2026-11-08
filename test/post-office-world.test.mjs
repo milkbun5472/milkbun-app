@@ -11,7 +11,7 @@ const fixture=()=>({day:1,coins:20,decor:['旧木招牌','一盆绿萝','暖黄�
 const characters=['a','b','c','d'].map(id=>({id,name:'角色'+id})),cards=[1,2,3].map(n=>({id:'card'+n,charId:'a',rarity:'R',lv:1,text:{name:'卡片'+n},face:n===1?'iv_fake':''}));
 const options={characters,cards,lookFor:c=>({hairColor:c.id==='a'?'#b94747':'#354535',dims:{height:1.1}}),shopRules:rules,today:'2026-11-8'};
 test('fixture stays tied to the shared text-shop writer',()=>{
- const ctx={};ctx.window=ctx;vm.runInNewContext(read('js/stamp-shop.js'),ctx);const blank=ctx.StampShop.restore(null);
+ const ctx={};ctx.window=ctx;vm.runInNewContext(read('apps/fairy-garden/story-actions.js'),ctx);vm.runInNewContext(read('js/stamp-shop.js'),ctx);const blank=ctx.StampShop.restore(null);
  assert.equal(blank.day,1);assert.equal(blank.coins,20);assert.equal(blank.phase,'plan');assert.equal(blank.window.length,0);assert.equal(Object.keys(blank.badge).length,0);
  assert.match(read('js/stamp-duel-ui.js'),/window\.StampShop\.run/);
  assert.match(read('js/stamp-shop.js'),/commitJSONDurable\(KEY,value\)/);
