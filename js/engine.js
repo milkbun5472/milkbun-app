@@ -3038,6 +3038,12 @@ function splitCardsAndLines(s) {
 //   模型换行时把「第一：」写在了上一行末尾，照换行一切，「第一」就跟着前一句走了。
 //   一泡的结尾是「第一／第二…／首先／其次／再者／最后」（后面可带：，）、而且后面还有下一泡，就挪到下一泡开头。
 const DANGLING_LEAD = /^([\s\S]*?[^\s，,：:])[\s，,]*((?:第[一二三四五六七八九十]+|首先|其次|再者|再次|最后|其一|其二|其三|此外|况且|何况)[：:，,]?)\s*$/;
+const LEAD_NUMS = ["一", "二", "三", "四", "五", "六", "七", "八", "九", "十"];
+function listGoesOn(lead, before) {
+  const m = /^第([一二三四五六七八九十])/.exec(String(lead || ""));
+  const k = m ? LEAD_NUMS.indexOf(m[1]) : -1;
+  return k > 0 && String(before || "").indexOf("第" + LEAD_NUMS[k - 1]) >= 0;
+}
 function moveDanglingLeads(list) {
   const out = (Array.isArray(list) ? list : []).slice();
   for (let i = 0; i < out.length - 1; i++) {
@@ -3049,7 +3055,10 @@ function moveDanglingLeads(list) {
     //   （她 2026-11-02 截图：「轮不到你在这儿替裴照川充大方再者」——单聊气泡把句尾逗号去掉了）
     const sep = out[i].slice(m[1].length, out[i].length - m[2].length);
     const sure = /^(首先|其次|再者|再次|其[一二三]|此外|况且|何况)/.test(m[2]);
-    if (!sure && !/[\s，,]/.test(sep) && !/[：:]$/.test(m[2])) continue;
+    // 正在一条条列（群里 2026-11-08 截图：「站你旁边不丢人第二」「能找到你第三」）：前面这几泡里已经出现过上一个序号（说「第二」时前面有「第一」），
+    //   这个「第N」就是下一条的开头，前面没标点也挪
+    const seq = !sure && listGoesOn(m[2], out.slice(0, i).join("") + m[1]);
+    if (!sure && !seq && !/[\s，,]/.test(sep) && !/[：:]$/.test(m[2])) continue;
     const lead = m[2].replace(/[，,]$/, "：");
     out[i] = m[1].replace(/[，,：:\s]+$/, "");
     out[i + 1] = lead + (/[：:]$/.test(lead) ? "" : "，") + out[i + 1].replace(/^\s+/, "");

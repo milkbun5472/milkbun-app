@@ -33,3 +33,14 @@ test("单聊群聊都接上", () => {
   assert.deepEqual(mv(["你可真是到最后", "还嘴硬"]), ["你可真是到最后", "还嘴硬"], "最后：没标点不挪");
   assert.deepEqual(mv(["这是第一", "次"]), ["这是第一", "次"]);
 }
+
+// 群里 2026-11-08 截图：列五个理由，「站你旁边不丢人第二」「能找到你第三」——序号前面没标点，前面已经出现过上一个序号
+test("正在一条条列：前面有「第一」，句尾光秃秃的「第二」也挪到下一泡；单说「考了第二」不动", () => {
+  const fs = require("node:fs");
+  const s = fs.readFileSync(__dirname + "/../js/engine.js", "utf8");
+  const f = new Function(s.slice(s.indexOf("const DANGLING_LEAD"), s.indexOf("function splitLongBubble")) + ";return moveDanglingLeads;")();
+  const assert = require("node:assert/strict");
+  assert.deepEqual(f(["第一，我好看，站你旁边不丢人第二", "我认路，能找到你第三", "我嘴好用"]),
+    ["第一，我好看，站你旁边不丢人", "第二，我认路，能找到你", "第三，我嘴好用"]);
+  assert.deepEqual(f(["这次考试我考了第二", "还行吧"]), ["这次考试我考了第二", "还行吧"]);
+});
