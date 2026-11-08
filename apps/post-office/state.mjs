@@ -1,5 +1,5 @@
-import {npcLook} from './npc-appearance.mjs?v=fg-9dea4455abfcfc94';
-import {seatLook} from '../fairy-garden/wardrobe.mjs?v=fg-9dea4455abfcfc94';
+import {npcLook} from './npc-appearance.mjs?v=fg-c15673782bd5ef78';
+import {seatLook} from '../fairy-garden/wardrobe.mjs?v=fg-c15673782bd5ef78';
 export {npcLook};
 // Read-only projection. The writer and its clock remain StampDuel's text shop.
 export const POSTS=Object.freeze({

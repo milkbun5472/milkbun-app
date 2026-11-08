@@ -1,6 +1,6 @@
 import * as T from 'three';
-import {clipFitPolygon} from './npc-fit.mjs?v=fg-9dea4455abfcfc94';
-import {mergeGeometries} from '../fairy-garden/vendor/BufferGeometryUtils.js?v=fg-9dea4455abfcfc94';
+import {FIT_EPSILON,clipFitPolygon,CLOTH_WAIST,CLOTH_HEM,clothFall,drapeFitVertex,clothLevels} from './npc-fit.mjs?v=fg-c15673782bd5ef78';
+import {mergeGeometries} from '../fairy-garden/vendor/BufferGeometryUtils.js?v=fg-c15673782bd5ef78';
 // Shared pattern pieces for the public customers. Geometry belongs to the actor;
 // binding uses its original doll skeleton, never a character's wardrobe asset.
 export function createNpcTailoring(model,style){
@@ -33,17 +33,27 @@ export function createNpcTailoring(model,style){
  const profiles=new Map();
  const armOf=w=>w.reduce((sum,x,i)=>sum+(/Arm|Forearm/.test(bones[i]?.name||'')?x:0),0);
  function profile(y){const key=Math.round(Math.max(.335,Math.min(.685,y))*100);if(profiles.has(key))return profiles.get(key);const yy=key/100,pts=[];for(let i=0;i<p.count;i++){if(Math.abs(p.getY(i)-yy)>.012)continue;let arm=0;for(let j=0;j<4;j++)if(/Arm|Forearm/.test(bones[si.getComponent(i,j)]?.name||''))arm+=sw.getComponent(i,j);if(arm<.15)pts.push([p.getX(i),p.getZ(i)]);}const xs=pts.map(q=>q[0]),zs=pts.map(q=>q[1]),minX=Math.min(...xs),maxX=Math.max(...xs),minZ=Math.min(...zs),maxZ=Math.max(...zs),out=pts.length?{w:(maxX-minX)/2+.006,d:(maxZ-minZ)/2+.006,cx:(maxX+minX)/2,cz:(maxZ+minZ)/2}:{w:.13,d:.1,cx:0,cz:0};profiles.set(key,out);return out;}
- function fitDetail(x,y,z){if(y>.72||y<.09)return [x,y,z];const target=profile(y),ys=[.335,.375,.49,.6,.654,.69],ws=[.166,.153,.161,.175,.161,.075],ds=[.128,.119,.126,.122,.103,.069],yy=Math.max(ys[0],Math.min(ys.at(-1),y));let i=0;while(i<ys.length-2&&ys[i+1]<yy)i++;const t=(yy-ys[i])/(ys[i+1]-ys[i]),w=T.MathUtils.lerp(ws[i],ws[i+1],t),d=T.MathUtils.lerp(ds[i],ds[i+1],t);return [x*Math.min(1,target.w/w)+target.cx,y,z*Math.min(1,target.d/d)+target.cz];}
+ function fitDetail(x,y,z){
+  if(y>.72||y<.09)return [x,y,z];const target={...profile(y)};
+  if(y<CLOTH_WAIST&&y>.24){const waist=profile(CLOTH_WAIST),fall=clothFall(y),blend=T.MathUtils.smoothstep(y,.24,CLOTH_HEM);target.w=T.MathUtils.lerp(target.w,Math.max(target.w,waist.w+.01*fall),blend);target.d=T.MathUtils.lerp(target.d,Math.max(target.d,waist.d+.004*fall),blend);target.cz=T.MathUtils.lerp(target.cz,waist.cz,blend);}
+  const ys=[.335,.375,.49,.6,.654,.69],ws=[.166,.153,.161,.175,.161,.075],ds=[.128,.119,.126,.122,.103,.069],yy=Math.max(ys[0],Math.min(ys.at(-1),y));let i=0;while(i<ys.length-2&&ys[i+1]<yy)i++;const t=(yy-ys[i])/(ys[i+1]-ys[i]),w=T.MathUtils.lerp(ws[i],ws[i+1],t),d=T.MathUtils.lerp(ds[i],ds[i+1],t);return [x*Math.min(1,target.w/w)+target.cx,y,z*Math.min(1,target.d/d)+target.cz];
+ }
  let fitVertices=null;
- function fitted(name,color,{minY=-1,maxY=2,minArm=0,maxArm=1,side=0,open=false,offset=.004,pattern='linen'}={}){
+ function fitted(name,color,{minY=-1,maxY=2,minArm=0,maxArm=1,side=0,open=false,offset=.004,pattern='linen',drapeFrom=null}={}){
   const normal=src.attributes.normal,original=src.index,vertices=fitVertices||[];
   if(!fitVertices)for(let i=0;i<p.count;i++){const w=Array(bones.length).fill(0);for(let j=0;j<4;j++)w[si.getComponent(i,j)]+=sw.getComponent(i,j);vertices.push({p:[p.getX(i),p.getY(i),p.getZ(i)],n:[normal.getX(i),normal.getY(i),normal.getZ(i)],w});}fitVertices=vertices;
   const lerp=(a,b,t)=>({p:a.p.map((x,i)=>x+(b.p[i]-x)*t),n:a.n.map((x,i)=>x+(b.n[i]-x)*t),w:a.w.map((x,i)=>x+(b.w[i]-x)*t)});
-  const planes=[v=>v.p[1]-minY,v=>maxY-v.p[1]];if(minArm>0)planes.push(v=>armOf(v.w)-minArm);if(maxArm<1)planes.push(v=>maxArm-armOf(v.w));if(side)planes.push(v=>v.p[0]*side);if(open)planes.push(v=>Math.max(Math.abs(v.p[0])-(.013+Math.max(0,v.p[1]-.49)*.2),-v.p[2]));
+  const bottom=drapeFrom??minY,planes=[v=>v.p[1]-bottom,v=>maxY-v.p[1]];if(minArm>0)planes.push(v=>armOf(v.w)-minArm);if(maxArm<1)planes.push(v=>maxArm-armOf(v.w));if(side)planes.push(v=>v.p[0]*side);if(open)planes.push(v=>Math.max(Math.abs(v.p[0])-(.013+Math.max(0,v.p[1]-.49)*.2),-v.p[2]));
   const positions=[],normals=[],uv=[],indices=[],weights=[];
   function push(v){const n=new T.Vector3(...v.n).normalize(),q=new T.Vector3(...v.p).addScaledVector(n,offset);positions.push(...q.toArray());normals.push(...n.toArray());uv.push(Math.atan2(v.p[0],v.p[2])*Math.PI**-1+1,(v.p[1]-.1)*3);const skin=v.w.map((w,i)=>({w,i})).sort((a,b)=>b.w-a.w).slice(0,4),sum=skin.reduce((n,x)=>n+x.w,0)||1;for(const x of skin){indices.push(x.i);weights.push(x.w/sum);}}
-  for(let i=0;i<original.count;i+=3){let poly=[vertices[original.getX(i)],vertices[original.getX(i+1)],vertices[original.getX(i+2)]];for(const plane of planes){poly=clipFitPolygon(poly,plane,lerp);if(poly.length<3)break;}for(let j=1;j<poly.length-1;j++){push(poly[0]);push(poly[j]);push(poly[j+1]);}}
-  const g=new T.BufferGeometry();g.setAttribute('position',new T.Float32BufferAttribute(positions,3));g.setAttribute('normal',new T.Float32BufferAttribute(normals,3));g.setAttribute('uv',new T.Float32BufferAttribute(uv,2));g.setAttribute('skinIndex',new T.Uint16BufferAttribute(indices,4));g.setAttribute('skinWeight',new T.Float32BufferAttribute(weights,4));g.userData.bodyFitted=true;const m=mesh(name,g,color,pattern);m.userData.bodyFitted={minY,maxY,minArm,maxArm,offset};return m;
+  // A shirt hangs from the waist instead of tracing the pelvis and inner legs.
+  // Extend the exact cut edge, retaining its normals and weights at the join;
+  // the lower edge stays horizontal and follows only the body's waist motion.
+  const waist=drapeFrom==null?null:profile(drapeFrom),levels=waist?clothLevels(minY):[];
+  for(let i=0;i<original.count;i+=3){let poly=[vertices[original.getX(i)],vertices[original.getX(i+1)],vertices[original.getX(i+2)]];for(const plane of planes){poly=clipFitPolygon(poly,plane,lerp);if(poly.length<3)break;}for(let j=1;j<poly.length-1;j++){push(poly[0]);push(poly[j]);push(poly[j+1]);}
+   if(waist)for(let j=0;j<poly.length;j++){const a=poly[j],b=poly[(j+1)%poly.length];if(Math.abs(a.p[1]-bottom)>FIT_EPSILON||Math.abs(b.p[1]-bottom)>FIT_EPSILON)continue;for(let row=0;row<levels.length-1;row++){const y0=levels[row],y1=levels[row+1],a0=drapeFitVertex(a,y0,waist),b0=drapeFitVertex(b,y0,waist),a1=drapeFitVertex(a,y1,waist),b1=drapeFitVertex(b,y1,waist);push(b0);push(a0);push(a1);push(b0);push(a1);push(b1);}}
+  }
+  const g=new T.BufferGeometry();g.setAttribute('position',new T.Float32BufferAttribute(positions,3));g.setAttribute('normal',new T.Float32BufferAttribute(normals,3));g.setAttribute('uv',new T.Float32BufferAttribute(uv,2));g.setAttribute('skinIndex',new T.Uint16BufferAttribute(indices,4));g.setAttribute('skinWeight',new T.Float32BufferAttribute(weights,4));g.userData.bodyFitted=true;const m=mesh(name,g,color,pattern);m.userData.bodyFitted={minY,maxY,minArm,maxArm,offset,drapeFrom};return m;
  }
  function grid(rows,cols,point,uvScale=[1,1]){const pos=[],uv=[],index=[];for(let j=0;j<=rows;j++)for(let i=0;i<=cols;i++){pos.push(...point(i/cols,j/rows));uv.push(i/cols*uvScale[0],j/rows*uvScale[1]);}for(let j=0;j<rows;j++)for(let i=0;i<cols;i++){const a=j*(cols+1)+i,b=a+cols+1;index.push(a,b,a+1,b,b+1,a+1);}const g=new T.BufferGeometry();g.setAttribute('position',new T.Float32BufferAttribute(pos,3));g.setAttribute('uv',new T.Float32BufferAttribute(uv,2));g.setIndex(index);g.computeVertexNormals();return g;}
  function loft(name,sections,color,{open=0,pleat=0,pattern='linen',rig='body',thick=.003,uv=[2,1],x=0}={}){
