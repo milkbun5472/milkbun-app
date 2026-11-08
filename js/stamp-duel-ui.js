@@ -37,7 +37,27 @@
   // 快捷表情：一点就发，TA 拿卡上那句回你，不花调用
   const EMOTES = ["哼", "再来", "手下留情", "好厉害", "等着瞧", "让我一下嘛"];
   const STATS_KEY = "x_stampDuelStats";
-  const SIEGE_KEY = "x_stampSiegeBest";   // 守城最好成绩：{ waves, wins }
+  const SIEGE_KEY = "x_stampSiegeBest";
+  // 材料和专属信物（她 2026-11-08）：材料匣、信物册、物品栏（带几件）。对局、守城、远信共用这一份
+  const MAT_KEY = "x_stampMats", KEEP_KEY = "x_stampKeeps", KEEP_ON_KEY = "x_stampKeepOn", SLOT_KEY = "x_stampKeepSlots";
+  const ld = (k, d) => { try { const v = typeof loadJSON === "function" ? loadJSON(k, d) : d; return v == null ? d : v; } catch (e) { return d; } };
+  const sv = (k, v) => { try { saveJSON(k, v); } catch (e) {} };
+  const Keeps = {
+    mats: () => ld(MAT_KEY, {}),
+    addMats: list => { const m = Keeps.mats(); (list || []).forEach(x => { m[x] = (m[x] || 0) + 1; }); sv(MAT_KEY, m); return list || []; },
+    useMats: list => { const m = Keeps.mats(); for (const x of list) { if (!(m[x] > 0)) return false; m[x]--; } sv(MAT_KEY, m); return true; },
+    all: () => ld(KEEP_KEY, []),
+    add: k => { const a = Keeps.all(); a.push(k); sv(KEEP_KEY, a); },
+    slots: () => Math.max(1, Math.min(D().KEEP_MAX_SLOTS, ld(SLOT_KEY, 1) | 0)),
+    addSlot: () => { const n = Math.min(D().KEEP_MAX_SLOTS, Keeps.slots() + 1); sv(SLOT_KEY, n); return n; },
+    on: () => { const ids = ld(KEEP_ON_KEY, []), all = Keeps.all(); return ids.filter(id => all.some(k => k.id === id)).slice(0, Keeps.slots()); },
+    toggle: id => { let ids = Keeps.on(); ids = ids.includes(id) ? ids.filter(x => x !== id) : ids.concat(id).slice(-Keeps.slots()); sv(KEEP_ON_KEY, ids); return ids; },
+    // 这一局带进去的：跟这个人打、或这个人陪着，再加一档
+    forBattle: withIds => { const on = Keeps.on(), all = Keeps.all(), w = (withIds || []).filter(Boolean);
+      return on.map(id => all.find(k => k.id === id)).filter(Boolean).map(k => ({ fx: k.fx, v: k.v + (w.includes(k.charId) ? 1 : 0), charId: k.charId, name: k.name })); },
+    fxLine: (fx, v) => (D().KEEP_FX[fx] ? D().KEEP_FX[fx].zh + " · " + D().KEEP_FX[fx].say(v) : "")
+  };
+  window.StampKeeps = Keeps;   // 守城最好成绩：{ waves, wins }
   // 念台词（她 2026-11-08「搞个开关播放语音，然后可以设置选哪些的台词战斗中可以读出来，战斗的时候会显示台词念出来」）
   const VOICE_KEY = "x_stampDuelVoice";
   const VOICE_KINDS = [["place", "贴上场"], ["stamp", "盖章"], ["wake", "觉醒"], ["fall", "被打掉"]];
@@ -64,6 +84,7 @@
     ["几个上手小招", "开头先贴集邮攒家底，或者先上便宜的火漆把前排顶住。", "看 TA 的下一步：TA 要往哪列贴投递，你就在那一列前面放火漆。", "SSR 别急着上，等胶水够了再贴，顺手凑连张。", "快输了别慌：补票的群补、火漆的加固都能拖回合。"],
     ["远信：一路打过去", "从挑玩法页进「远信」：给一个人寄一封信，信要走一段邮路，最后一站是 TA 本人。", "信封血带着走：一场打完不回满，到驿站、岔路、邮局才回得来。", "路线：雪国、海边、旧城、夜车、花季、沙漠、雨季、山路、梦里、TA 的城市，节日那条只在节日前后开。每条一条棋盘规则，对局顶上写着。默认是 TA 照人设推荐的那条。"],
     ["守城：一波一波守住", "从挑玩法页进「守城」，先挑一档（五档，各写建议等级）：没有对手，卡组从你的邮票册里配，对面是一波一波压过来的麻烦。", "敌人贴在对面后排，一回合往前走一格；走到前排的会打你那一列，在前排站过一回合还没被打掉，下回合就闯过去撞你的信封（写着「要闯过去」）。", "守过第 10 波、场上清空就赢；信封打空就城破。每守住三波，信封回 5、下回合多摸一张。", "跟对局同一套：贴票、胶水、盖章、组合都照旧。你的票照样打同一列最前面那个，所以在敌人走到前排之前就能先打它。"],
+    ["材料与信物", "打赢对局、守城、远信都会掉材料，走主题路线会掉那条路的，打赢远信终点掉一样「TA 的东西」。", "在「材料与信物」挑三样（能混着）、挑一个人，请 TA 做一件专属信物：名字、一两句来历、TA 看着它说的一句话。花一次调用。", "效果从三样材料的偏向里挑：同一种偏向的越多越强，「TA 的东西」再加一档。数值是游戏定的。", "物品栏里带着的信物在对局、守城、远信都生效；跟做它的人打、或那个人陪你走远信，再强一档。物品栏一开始一格，远信路上的「旧行李箱」能多开一格，最多三格。"],
     ["打完以后", "选「再来一把」接着打，或者「结束」。结束时问要不要让 TA 记得，记的话这几把合成一句进 TA 的记忆。", "打到一半想走，直接返回就行，会存着。下次进来点「接着打」。", "手牌上面那条能跟 TA 聊天，你说一句 TA 回几句，发一句花一次调用。"]
   ];
   const fz = n => "calc(" + n + "px * var(--app-fs, 1))";
@@ -308,10 +329,11 @@
     const startSiege = tier0 => {
       const tier = typeof tier0 === "number" ? tier0 : siegeTier, s = (seedRef.current = (seedRef.current * 1103515245 + 12345) >>> 0);
       setSiegeTier(tier);
-      const nd = D().newDuel(D().deckFrom(cards, s, D().DECK_SIZE, core), [], s, { siege: true, siegeLv: D().SIEGE_TIERS[tier], bonds: bondsOf() }); nd.siegeTier = tier;
+      const nd = D().newDuel(D().deckFrom(cards, s, D().DECK_SIZE, core), [], s, { siege: true, siegeLv: D().SIEGE_TIERS[tier], bonds: bondsOf(), keeps: Keeps.forBattle([]) }); nd.siegeTier = tier;
       setSt(nd); setMode("siege"); setHandSel(-1); setBoardSel(-1); setSiegeSaved(false);
     };
     const [siegeSaved, setSiegeSaved] = useState(false);
+    const [kChar, setKChar] = useState(""), [kPick, setKPick] = useState([]), [kBusy, setKBusy] = useState(false), [kOpen, setKOpen] = useState(""), [, kBump] = useState(0);
     // 最好成绩按档记：{ tiers: { 0: { waves, wins } } }
     const siegeAll = () => { try { return (typeof loadJSON === "function" ? loadJSON(SIEGE_KEY, null) : null) || {}; } catch (e) { return {}; } };
     const siegeBest = t => ((siegeAll().tiers || {})[t == null ? siegeTier : t]) || { waves: 0, wins: 0 };
@@ -358,7 +380,7 @@
       if (rule === "reverse") { const t = me; me = them; them = t; }
       const hp = rule === "quick" ? 25 : D().envFor(me);
       const nd = D().newDuel(me, them, s, { blind, bonds: bondsOf(), foeId, hard, rule, wager: wager === "自己写" ? wagerDraft.trim() : wager,
-        meHp: handi === "meMore" ? hp + 12 : hp, foeHp: handi === "foeLess" ? hp - 12 : hp, cap: rule === "quick" ? 7 : undefined });
+        meHp: handi === "meMore" ? hp + 12 : hp, foeHp: handi === "foeLess" ? hp - 12 : hp, cap: rule === "quick" ? 7 : undefined, keeps: Keeps.forBattle([foeId]) });
       setAfter({ wager: null, review: null, busy: "" }); setReported(false); setSt(nd); setHandSel(-1); setBoardSel(-1); setSaved(null);
       setTimeout(() => persist(nd, series), 0);
       setSeries(sr => sr || D().newSeries());
@@ -401,6 +423,54 @@
         h("div", { style: { position: "absolute", right: 14, top: 12, width: 42, height: 42, borderRadius: 999, background: "radial-gradient(circle at 35% 30%, " + color + "cc, " + color + ")", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: FD, fontSize: fz(12), transform: "rotate(-8deg)", boxShadow: "0 2px 4px rgba(0,0,0,.25)" } }, sub),
         h("div", { style: { fontFamily: FD, fontSize: fz(18), color, marginRight: 52 } }, title),
         h("div", { style: { fontSize: fz(12), color: SUB, lineHeight: 1.7, marginTop: 4, marginRight: 40 } }, desc)));
+    // 材料与信物（她 2026-11-08「做吧」：三样材料混着、特殊节点解锁多带、来历一两句、下面写 TA 看着它说的话）
+    if (!st && mode === "keeps") {
+      const mats = Keeps.mats(), all = Keeps.all(), on = Keeps.on(), slots = Keeps.slots(), M = D().MATS;
+      const owned = (characters || []).filter(c => (cards || []).some(k => k.charId === c.id));
+      const who = kChar || (owned[0] || {}).id || "", fxs = D().keepFxOf(kPick);
+      const left = k => (mats[k] || 0) - kPick.filter(x => x === k).length;
+      const make = async () => {
+        if (kBusy || kPick.length !== 3 || !who || !onChat) return; setKBusy(true);
+        try {
+          const fxZh = {}; fxs.forEach(f => { fxZh[f] = D().KEEP_FX[f].zh + "（" + D().KEEP_FX[f].say(D().keepTier(kPick, f)) + "）"; });
+          const r = await onChat(who, { mode: "keep", mats: kPick, fxList: fxs, fxZh });
+          if (!r || !r.name) { toast && toast("没做出来，再点一次试试"); return; }
+          if (!Keeps.useMats(kPick)) { toast && toast("材料不够了"); return; }
+          const k = Object.assign({ id: "kp_" + Date.now().toString(36), charId: who, mats: kPick.slice(), v: D().keepTier(kPick, r.fx), ts: Date.now() }, r);
+          Keeps.add(k); if (Keeps.on().length < slots) Keeps.toggle(k.id);
+          setKPick([]); setKOpen(k.id); toast && toast((nameOf(who) || "TA") + " 做好了「" + k.name + "」");
+        } catch (e) { toast && toast("没成：" + ((e && e.message) || e)); } finally { setKBusy(false); kBump(x => x + 1); }
+      };
+      const chip = (txt, onClick, sel, c, wk, extra) => h("button", Object.assign({ "data-wk": wk, "data-on": sel ? "1" : "0", onClick, style: { padding: "3px 10px", borderRadius: 999, border: "1px solid " + (sel ? c : "rgba(47,42,34,.22)"), background: sel ? c + "18" : "rgba(255,255,255,.55)", color: sel ? c : INK, fontSize: fz(12) } }, extra || {}), txt);
+      const sec = (t, sub, kids) => h("div", { style: { marginBottom: 14, padding: "12px 14px", borderRadius: 6, background: "rgba(255,253,247,.92)", boxShadow: "0 2px 8px rgba(47,42,34,.10)" } },
+        h("div", { style: { fontFamily: FD, fontSize: fz(15) } }, t), sub ? h("div", { style: { fontSize: fz(11), color: SUB, margin: "2px 0 8px", lineHeight: 1.6 } }, sub) : null, kids);
+      return shell([
+        h(Head, { key: "hd", zh: "材料与信物", bg: "transparent", ink: INK, onBack: () => setMode(""), right: guideBtn }),
+        h("div", { key: "bd", "data-wk": "duelkeeps", className: "flex-1 min-h-0 overflow-y-auto px-4", style: { fontFamily: F, color: INK, paddingTop: 6, paddingBottom: 24 } },
+          sec("物品栏 · 带 " + on.length + " / " + slots + " 件", "带着的信物在对局、守城、远信里都生效；跟做它的那个人打、或那个人陪你走远信，再强一档。远信路上碰到「旧行李箱」能多开一格，最多三格。",
+            h("div", { "data-wk": "duelkeepon", className: "flex flex-wrap", style: { gap: 6 } }, on.length ? on.map(id => { const k = all.find(x => x.id === id); return chip("✦ " + k.name, () => { Keeps.toggle(id); kBump(x => x + 1); }, true, "#b8862a", "duelkeepslot"); }) : h("span", { style: { fontSize: fz(12), color: SUB } }, "还没带。下面信物册里点「带上」。"))),
+          sec("材料匣", "打赢对局、守城、远信都会掉材料，走主题路线会掉那条路的，打赢远信终点会掉一样「TA 的东西」。点材料挑三样（可以混着挑），交给一个人做信物。",
+            h("div", { "data-wk": "duelmats", className: "flex flex-wrap", style: { gap: 6 } }, Object.keys(M).filter(k => mats[k] > 0).length ? Object.keys(M).filter(k => mats[k] > 0).map(k =>
+              chip(k + " ×" + left(k), () => { if (left(k) > 0 && kPick.length < 3) setKPick(p => p.concat(k)); }, kPick.includes(k), RED, "duelmat", { disabled: left(k) <= 0 && !kPick.includes(k) })) : h("span", { style: { fontSize: fz(12), color: SUB } }, "还是空的，先去打几局。"))),
+          sec("做一件", "挑一个人、三样材料。TA 照自己的人设和你们聊过的事做一样东西，写来历和一句话；效果从这三样材料的偏向里挑，同一种偏向的材料越多越强，「TA 的东西」再加一档。花一次调用。",
+            [h("div", { key: "w", className: "flex flex-wrap", style: { gap: 6, marginBottom: 8 } }, owned.map(c => chip(c.remark || c.name, () => setKChar(c.id), who === c.id, GREEN, "duelkeepwho"))),
+             h("div", { key: "p", className: "flex items-center flex-wrap", style: { gap: 6, marginBottom: 6 } }, [0, 1, 2].map(i => h("button", { key: i, "data-wk": "duelkeeppick", onClick: () => setKPick(p => p.filter((_, j) => j !== i)), style: { minWidth: 70, padding: "6px 8px", borderRadius: 4, border: "1px dashed " + (kPick[i] ? RED : "rgba(47,42,34,.3)"), color: kPick[i] ? RED : SUB, fontSize: fz(12) } }, kPick[i] || "材料 " + (i + 1)))),
+             fxs.length ? h("div", { key: "f", style: { fontSize: fz(11), color: SUB, marginBottom: 8, lineHeight: 1.6 } }, "可能做成：" + fxs.map(f => Keeps.fxLine(f, D().keepTier(kPick, f))).join("；")) : null,
+             h("button", { key: "go", "data-wk": "duelkeepmake", onClick: make, disabled: kBusy || kPick.length !== 3 || !who || !onChat, className: "w-full disabled:opacity-40", style: Object.assign(btn(RED, "#fff"), { padding: "10px 0", fontFamily: FD, fontSize: fz(14) }) }, kBusy ? (nameOf(who) || "TA") + " 在做…" : "请 " + (nameOf(who) || "TA") + " 做（花一次调用）")]),
+          sec("信物册 · " + all.length + " 件", all.length ? "点一件看来历；「带上」放进物品栏。" : "", h("div", { "data-wk": "duelkeepbook" }, all.slice().reverse().map(k => { const op = kOpen === k.id, isOn = on.includes(k.id);
+            return h("div", { key: k.id, "data-wk": "duelkeep", style: { marginBottom: 8, borderRadius: 5, background: PAPER, border: "1px solid " + (isOn ? "#b8862a" : "rgba(47,42,34,.12)"), overflow: "hidden" } },
+              h("div", { className: "flex items-center", style: { gap: 10, padding: "8px 10px" } },
+                h("div", { style: { width: 34, height: 34, flexShrink: 0, borderRadius: 999, background: "radial-gradient(circle at 35% 30%, #c9a24a, #8f6b1e)", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: FD, fontSize: fz(13), transform: "rotate(-8deg)" } }, D().KEEP_FX[k.fx] ? D().KEEP_FX[k.fx].zh : "✦"),
+                h("button", { onClick: () => setKOpen(op ? "" : k.id), className: "flex-1 min-w-0 text-left" },
+                  h("div", { style: { fontFamily: FD, fontSize: fz(14), whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, k.name),
+                  h("div", { style: { fontSize: fz(10.5), color: SUB } }, (nameOf(k.charId) || "TA") + " 做的 · " + Keeps.fxLine(k.fx, k.v) + "（跟 TA 一起时再强一档）")),
+                h("button", { "data-wk": "duelkeeptoggle", onClick: () => { Keeps.toggle(k.id); kBump(x => x + 1); }, style: btn(isOn ? "#b8862a" : "transparent", isOn ? "#fff" : INK, isOn ? null : "rgba(47,42,34,.3)") }, isOn ? "带着" : "带上")),
+              op ? h("div", { style: { padding: "0 12px 10px 54px", fontSize: fz(12.5), lineHeight: 1.7 } },
+                k.story ? h("div", null, k.story) : null,
+                k.say ? h("div", { style: { marginTop: 6, padding: "6px 10px", borderLeft: "3px solid #b8862a", background: "rgba(184,134,42,.07)", fontFamily: FD, color: "#5a4f40" } }, (nameOf(k.charId) || "TA") + "：「" + k.say + "」") : null,
+                h("div", { style: { marginTop: 4, fontSize: fz(10.5), color: SUB } }, "用了：" + (k.mats || []).join("、"))) : null); })))
+        )]);
+    }
     // 守城挑档（她 2026-11-08「后面难度比我的卡都高我怎么赢」→ 固定难度档）
     if (!st && mode === "siegepick") { const my = Math.round(D().avgLv(cards || []));
       return shell([
@@ -419,6 +489,7 @@
       h("div", { key: "bd", "data-wk": "duelmodes", className: "flex-1 min-h-0 overflow-y-auto px-5", style: { fontFamily: F, color: INK, paddingTop: 6, paddingBottom: 24 } },
         h("div", { style: { fontSize: fz(12), color: SUB, margin: "0 0 14px" } }, "拿邮票册里的卡来打。先挑一种玩法："),
         modeCard("duelmodeduel", RED, "对局", "对局", "跟一个人面对面打一把：挑对手、带谁上场、彩头、难度、明牌还是盲打。能连打几把，打完让 TA 记得，或者把战报发进聊天。" + (saved ? "（有一把没打完，进去能接着打）" : ""), () => setMode("duel")),
+        modeCard("duelmodekeeps", "#b8862a", "材料与信物", "信物", "打赢掉的材料攒在这儿。挑三样交给一个人，TA 照自己的人设和你们聊过的事做一件专属信物，写来历和一句话；带着它打对局、守城、远信。", () => setMode("keeps")),
         modeCard("duelmodesiege", "#3f6fb0", "守城", "守城", "麻烦一波一波压过来：敌人贴在对面，一回合往前走一格，在前排站过一回合还没被打掉就闯过去撞你的信封。守过 10 波就赢，每守住三波信封回 5。分五档，每档敌人的等级是定的。不花调用。", () => setMode("siegepick")),
         onRun ? modeCard("duelgorun", "#b8862a", "远信", "远信", "给一个人寄封信，一路打过去：六站路线、路上的麻烦和拦信的人、邮局、驿站、信物。信封血不回满，送到了 TA 会写回信。", onRun) : null,
         modeCard("duelturorial", GREEN, "新手教学关", "教学", "第一次玩先来这儿：一把练习局，一步步教贴票、寄出、盖章、长按看底细、四方连。随时能回来再玩，不花调用。", startTut))]);
@@ -537,6 +608,8 @@
     const again = () => { D().addGame(series, st); start(); };
     const log = st.log.slice(-4);
     if (over && !playing.current && !st.run && !st.siege) record(st);
+    // 打完掉材料（远信的在远信那层掉）：对局赢了一样；守城每守住三波一样，档越高多掉
+    if (over && !playing.current && !st.run && !st.tutorial && !st.dropped) st.dropped = Keeps.addMats(st.siege ? D().matDrop(st.seed, "win", "", Math.floor(st.siege.cleared / 3) + (st.siegeTier || 0)) : over.winner === "me" ? D().matDrop(st.seed, "win") : []);
     if (over && st.siege && !siegeSaved) { const all = siegeAll(), t = st.siegeTier || 0, b0 = siegeBest(t), w = st.siege.cleared; all.tiers = Object.assign({}, all.tiers, { [t]: { waves: Math.max(b0.waves || 0, w), wins: (b0.wins || 0) + (over.winner === "me" ? 1 : 0) } }); try { saveJSON(SIEGE_KEY, all); } catch (e) {} setTimeout(() => setSiegeSaved(true), 0); }
     // 教练条：这一步做到了就往下走（进下一步时先跑它的 enter）
     const step = tut >= 0 ? TUT[tut] : null;
@@ -657,6 +730,7 @@
             h("div", { style: { fontFamily: FD, fontSize: fz(kind === "event" ? 15 : 18), color: c, lineHeight: 1.45 } }, head),
             banner.line ? h("div", { style: { margin: "8px auto 0", maxWidth: "92%", paddingTop: 8, borderTop: "1px solid " + c + "33", fontFamily: FD, fontStyle: "italic", fontSize: fz(12.5), color: "#5a4f40", lineHeight: 1.7 } }, "「" + banner.line + "」") : null)); })() : null,
       over ? h("div", { key: "ft", "data-wk": "duelover", className: "shrink-0 px-4", style: { paddingTop: 12, paddingBottom: "calc(12px + env(safe-area-inset-bottom) * 0.4)", fontFamily: F, color: INK, borderTop: "1px solid rgba(47,42,34,.18)", background: "rgba(251,246,234,.92)" } },
+          st.dropped && st.dropped.length ? h("div", { "data-wk": "dueldrop", style: { textAlign: "center", fontSize: fz(11.5), color: "#b8862a", marginBottom: 6 } }, "掉了材料：" + st.dropped.join("、") + "（在「材料与信物」里）") : null,
           st.siege ? h("div", { key: "sgo", "data-wk": "duelsiegeover", style: { textAlign: "center", marginBottom: 10 } }, h("div", { style: { fontFamily: FD, fontSize: fz(18), color: over.winner === "me" ? GREEN : RED } }, over.winner === "me" ? "守住了" : "城破了"), h("div", { style: { fontSize: fz(11.5), color: SUB } }, "第 " + ((st.siegeTier || 0) + 1) + " 档 · 守住 " + st.siege.cleared + " / " + st.siege.waves + " 波 · 信封剩 " + Math.max(0, over.me) + " · 这档最好 " + Math.max(siegeBest(st.siegeTier || 0).waves || 0, st.siege.cleared) + " 波")) : null,
           st.siege ? null : h("div", { style: { fontFamily: FD, fontSize: fz(18), textAlign: "center", marginBottom: 2, color: over.winner === "me" ? GREEN : over.winner === "foe" ? RED : INK } }, over.winner === "me" ? "你赢了" : over.winner === "foe" ? foeName + " 赢了" : "打平了"),
           st.siege ? null : h("div", { style: { fontSize: fz(11), textAlign: "center", color: SUB, marginBottom: 10 } }, over.turn + " 回合 · 信封剩 " + over.me + " : " + over.foe + (over.byCap ? " · 打满回合比剩下的" : "")),

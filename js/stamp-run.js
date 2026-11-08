@@ -60,6 +60,8 @@
     { key: "restamp", zh: "盖歪的邮戳", say: "有张票的邮戳盖歪了，旁边的老邮差说能重盖。", opts: [{ zh: "花 20 邮花请他重盖（一张票升阶两次）", fx: "restamp", cost: 20 }, { zh: "歪就歪吧", fx: "none" }] },
     { key: "tired", zh: "同行的人走累了", say: "TA 说腿酸，走不动了。", opts: [{ zh: "背 TA 一段（信封 -10，拿一件信物）", fx: "carry" }, { zh: "一起慢慢走（信封 +6）", fx: "heal6" }] },
     { key: "wind2", zh: "风里的信纸", say: "一阵风把一张信纸卷上了天。", opts: [{ zh: "追（一半捡回一张票，一半摔一跤信封 -6）", fx: "chase" }, { zh: "不追了", fx: "none" }] },
+    // 物品栏（她 2026-11-08「可以在特殊节点选择解锁物品栏多带几样」）：碰到就能多一格，最多三格
+    { key: "trunk", zh: "旧行李箱", say: "路边丢着一只旧行李箱，锁扣是坏的，里面空出一格正好放东西。", opts: [{ zh: "拎上它（信物栏多一格，最多三格；信封 -6）", fx: "slot" }, { zh: "不拿了（+20 邮花）", fx: "coins20" }] },
     // 主题路线上才有的岔路（用上面现成的效果）
     { key: "stove", theme: "雪国", zh: "借宿的炉火", say: "雪夜里有户人家亮着灯，主人招呼你进来烤火。", opts: [{ zh: "烤一晚（信封 +15）", fx: "heal15" }, { zh: "谢过就走（+20 邮花）", fx: "coins20" }] },
     { key: "prints", theme: "雪国", zh: "雪地上的脚印", say: "雪地上有一串脚印，往你要去的方向。", opts: [{ zh: "跟着走（随机一张票升阶）", fx: "up" }, { zh: "自己开路（信封 -5，+30 邮花）", fx: "hurt5coins" }] },
@@ -222,13 +224,15 @@
     run.hp = Math.max(0, st.me.hp); if (st.amuletUsed) run.amuletUsed = true;
     if (st.over && st.over.winner !== "me") { run.done = { win: false, at: run.pos.r, by: nd.type }; return { lost: true }; }
     if (run.relics.includes("回执")) run.hp = Math.min(run.max, run.hp + 4);
-    if (nd.type === "boss") { run.done = { win: true, at: run.pos.r }; return { won: true }; }
+    // 掉材料（她 2026-11-08）：普通站一样、难站两样、终点两样再加一样「TA 的东西」；走主题路线一半几率多掉一样那条路的
+    const mats = D().matDrop((run.seed ^ (run.step * 3301)) >>> 0, nd.type === "boss" ? "boss" : nd.type === "elite" ? "elite" : "win", run.theme);
+    if (nd.type === "boss") { run.done = { win: true, at: run.pos.r }; return { won: true, mats }; }
     const R = R0(run), coins = (nd.type === "elite" ? 50 : 25) + Math.floor(R() * 10) + (run.relics.includes("存钱罐") ? 15 : 0) + (run.theme === "山路" ? nd.r * 6 : 0) + (run.theme === "节日" ? 10 : 0);
     run.coins += coins;
     const offer = cardOffer(run, cards, 3);
     const relic = nd.type === "elite" ? relicOffer(run, 1)[0] : null;
     if (relic) run.relics.push(relic);
-    return { coins, offer, relic };
+    return { coins, offer, relic, mats };
   }
   function cardOffer(run, cards, n) {
     const have = new Set(run.deck.map(s => s.cardId)), pool = (cards || []).filter(c => c && c.text && !have.has(c.id));
@@ -274,6 +278,7 @@
       case "heal10": run.hp = Math.min(run.max, run.hp + 10); return "信封 +10。";
       case "hurt5coins": run.hp = Math.max(1, run.hp - 5); run.coins += 30; return "信封 -5，+30 邮花。";
       case "buycard": { if (run.coins < op.cost) return "邮花不够。"; run.coins -= op.cost; const c = cardOffer(run, cards, 1)[0]; if (c) run.deck.push(c); return c ? "买到一张「" + c.name + "」。" : ""; }
+      case "slot": run.hp = Math.max(1, run.hp - 6); run.slotUp = 1; return "信物栏多了一格，下回出发能多带一件。";
       case "maxup5": run.max += 5; run.hp += 5; return "信封上限 +5。";
       case "upTAcost": { if (run.coins < op.cost) return "邮花不够。"; run.coins -= op.cost; const idx = run.deck.map((s, i) => s.charId === run.toId ? i : -1).filter(i => i >= 0); const i = idx.length ? idx[Math.floor(R() * idx.length)] : Math.floor(R() * run.deck.length); upgrade(run, i); return "「" + (run.deck[i] || {}).name + "」升阶了。"; }
       case "heal6": run.hp = Math.min(run.max, run.hp + 6); return "信封回了 6。";

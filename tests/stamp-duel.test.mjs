@@ -200,3 +200,13 @@ test("守城：十波、敌人往前走、前排站一回合就闯过去、守�
   }
   assert.ok(wins > 0 && losses > 0, wins + "/" + losses);
 });
+test("专属信物：材料偏向定能挑的效果和档数，带进对局真的生效", () => {
+  assert.deepEqual(D.keepFxOf(["旧邮票", "旧邮票", "TA 的东西"]), ["atk"]);
+  assert.equal(D.keepTier(["旧邮票", "旧邮票", "TA 的东西"], "atk"), 3);
+  assert.equal(D.keepTier(["旧邮票", "火漆块", "干花"], "def"), 1);
+  const mk = c => Array.from({ length: 12 }, (_, i) => Object.assign(D.stampOf({ id: c + i, rarity: "R", lv: 5, text: { name: "x" } }), { role: "投递", charId: c }));
+  const a = D.newDuel(mk("a"), mk("b"), 4, {}), b = D.newDuel(mk("a"), mk("b"), 4, { keeps: [{ fx: "env", v: 2 }, { fx: "glue", v: 1 }] });
+  assert.equal(b.me.max, a.me.max + 10); assert.equal(b.me.postage, a.me.postage + 2);
+  const d = D.matDrop(7, "boss", "雪国"); assert.ok(d.includes("TA 的东西") && d.length >= 3);
+  const RN = require("../js/stamp-run.js"); assert.ok(RN.EVENTS.some(e => e.key === "trunk"));
+});

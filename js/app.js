@@ -36094,6 +36094,23 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       const char = liveChars.find(c => c.id === charId); if (!char) return [];
       if (!active) { toast("请先到设置配置 API"); return []; }
       const uN = userName(profile);
+      // 专属信物（她 2026-11-08「花调用生成角色专属信物，从人设和我们聊天里来」「一两句来历，下面写上他的口吻看这个信物」）：
+      //   材料是她挑的三样；效果只许从 d.fxList（三样材料的偏向）里挑，强弱代码定
+      if (d.mode === "keep") {
+        const fxList = (d.fxList || []).filter(Boolean); if (!fxList.length) return null;
+        const r = await runProbe(apiFor(char.id), ctxFor(char), { voice: true, tag: "stampkeep", maxTokens: 8000,
+          instruction: "你正和" + uN + "玩邮票册里的卡牌小游戏。她一路攒了几样材料：" + (d.mats || []).join("、") + "，交给你，请你用它们做一件只属于你们俩的信物，以后她打牌时带在身上。\n"
+            + "这件东西要从你的人设、或者你们真的聊过、你记得的事里来（上面的人设、记忆和聊天里有）；没发生过的事别编。材料是做它的料，可以拆开、拼起来、变个样子，不必照字面用。\n"
+            + "name：这件东西叫什么，是一样具体的物件，十五个字以内。\n"
+            + "story：它的来历，一两句：它是什么、跟你们哪件事有关。\n"
+            + "say：你拿着它、看着它时对她说的一句话，用你自己说话的样子。\n"
+            + "fx：从下面挑一个最贴这件东西的，只写前面的英文词：\n" + fxList.map(k => k + "：" + (d.fxZh && d.fxZh[k] || k)).join("\n"),
+          schemaHint: "{\"name\":\"\",\"story\":\"\",\"say\":\"\",\"fx\":\"\"}" });
+        const name = String((r && r.name) || "").trim().slice(0, 24); if (!name) return null;
+        const out = { name, story: String(r.story || "").trim().slice(0, 200), say: String(r.say || "").trim().slice(0, 160), fx: fxList.includes(r.fx) ? r.fx : fxList[0] };
+        try { addMemEntry({ text: char.name + "用" + uN + "攒的材料（" + (d.mats || []).join("、") + "）给她做了一件信物「" + name + "」：" + out.story.slice(0, 100), tags: ["邮票对局", "信物"], charIds: [char.id], knownBy: [char.id], source: "stamps" }); } catch (e) {}
+        return out;
+      }
       const r = await runProbe(apiFor(char.id), ctxFor(char), { voice: true, tag: "stampduel", maxTokens: 8000,
         instruction: (["road", "letter", "postcard", "note", "memory", "oneline", "ask", "answer", "future", "swap"].includes(d.mode)
             // 远信（她 2026-11-08「路途也可以聊天」「终点要回信」）：她在邮票册里玩一趟送信的游戏，信是寄给你的，你一路陪着

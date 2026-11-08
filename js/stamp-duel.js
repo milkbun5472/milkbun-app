@@ -207,6 +207,8 @@
     // 对局：对面照你的平均等级；守城、远信：照难度档定的等级（o.foeLv），练强了才打得过高档
     if (o.fair !== false && (foeDeck || []).length && (meDeck || []).length) foeDeck = fairDeck(foeDeck, meDeck, o.fairMul, o.foeLv);
     const st = { turn: 0, me: side(meDeck, s, o.meHp || envFor(meDeck), o.meMax), relics: o.relics || [], amulet: !!o.amulet, bossRule: o.bossRule || "", theme: o.theme || "", siege: o.siege ? { waves: SIEGE_WAVES, cleared: 0 } : null, foe: side(foeDeck, s ^ 0xabcdef, o.foeHp || envFor(meDeck)), log: [], over: null, uid: 0, seed: s, cap: o.cap || TURN_CAP, hard: !!o.hard, rule: o.rule || "", wager: o.wager || "", blind: !!(opts && opts.blind), events, bonds: (opts && opts.bonds) || {}, foeId: (opts && opts.foeId) || "", style: (opts && opts.style) || "" };
+    st.keeps = (o.keeps || []).filter(k => k && KEEP_FX[k.fx]).map(k => ({ fx: k.fx, v: Math.max(1, Math.min(4, k.v | 0)), charId: k.charId || "", name: k.name || "" }));
+    { const e = keepV(st, "env"); if (e) { st.me.max = (st.me.max || st.me.hp) + e * 5; st.me.hp += e * 5; } }
     st.meAvg = avgLv(meDeck); st.siegeLv = o.siegeLv || 0;
     if (st.siege) { st.foe.terrain = new Array(SLOTS).fill(""); st.foe.hp = st.foe.max = 999; st.cap = SIEGE_WAVES + 3; }
     startTurn(st);
@@ -238,6 +240,7 @@
   }
   function turnStartEffects(st, sd, who) {
     if (who === "me" && st.theme) themeEffects(st);
+    if (who === "me" && st.keeps) { const hv = keepV(st, "heal"); if (hv && st.turn > 1) sd.hp = Math.min(sd.max || ENVELOPE_HP, sd.hp + hv); if (st.turn === 1) { const g = keepV(st, "glue"); if (g) sd.postage += g + 1; } }
     // 远信终点 TA 的特别规则（只管对面那一边）
     if (who === "foe" && st.bossRule) {
       const br = st.bossRule;
@@ -302,6 +305,40 @@
   }
   const siegeIdle = (st, sd, i) => !!(st.siege && sd === st.foe && row(i) > 0);   // 守城：对面还没走到前排的不动手
 
+  // ── 材料和专属信物（她 2026-11-08「打完或者某些路线掉落材料……花调用生成角色专属信物，从人设和我们聊天里来」）──
+  //   材料是通用的，各有一个偏向；三样混着交给 TA，TA 照自己的人设和你们聊过的事做一件信物、写来历和一句话，
+  //   效果从下面这张表里挑（只能挑三样材料偏向里有的），强弱由代码按材料定，模型不编数字
+  const MATS = {
+    旧邮票: "atk", 火漆块: "def", 信纸: "env", 邮戳墨: "stamp", 丝带: "bond", 干花: "heal", 胶水瓶: "glue",
+    冻住的信: "def", 漂流瓶: "heal", 老照片: "bond", 车票根: "atk", 花瓣: "heal", 沙漏: "glue", 雨伞骨: "def", 山石: "env", 灯笼: "stamp", 梦的碎片: "stamp", 门牌: "bond",
+    "TA 的东西": ""
+  };
+  const BASE_MATS = ["旧邮票", "火漆块", "信纸", "邮戳墨", "丝带", "干花", "胶水瓶"];
+  const THEME_MAT = { 雪国: "冻住的信", 海边: "漂流瓶", 旧城: "老照片", 夜车: "车票根", 花季: "花瓣", 沙漠: "沙漏", 雨季: "雨伞骨", 山路: "山石", 节日: "灯笼", 梦里: "梦的碎片", "TA 的城市": "门牌" };
+  const KEEP_FX = {
+    atk: { zh: "锋", say: v => "你的票攻击 +" + v },
+    def: { zh: "护", say: v => "你贴上的票自带 " + v * 2 + " 层护" },
+    heal: { zh: "愈", say: v => "每回合开头信封回 " + v },
+    glue: { zh: "裕", say: v => "第一回合多 " + (v + 1) + " 点胶水" },
+    stamp: { zh: "印", say: v => "你贴上的票先带 " + v + " 格章" },
+    env: { zh: "厚", say: v => "信封上限 +" + v * 5 },
+    bond: { zh: "念", say: v => "这个人的票攻击 +" + (v + 1) + "、血 +" + v * 2 }
+  };
+  const KEEP_MAX_SLOTS = 3;
+  // 三样材料能挑哪些效果、挑了某个效果有几档：同偏向的越多越强，「TA 的东西」再加一档，最多三档
+  const keepFxOf = mats => Array.from(new Set((mats || []).map(m => MATS[m]).filter(Boolean)));
+  const keepTier = (mats, fx) => Math.min(3, Math.max(1, (mats || []).filter(m => MATS[m] === fx).length) + ((mats || []).includes("TA 的东西") ? 1 : 0));
+  // 这一局带着的信物：[{ fx, v, charId }]；跟这个人打、或这个人陪你走，再加一档（调用的那层算好传进来）
+  const keepV = (st, fx, u) => (st.keeps || []).reduce((a, k) => a + (k.fx === fx && (fx !== "bond" || (u && u.charId === k.charId)) ? k.v : 0), 0);
+  // 掉材料：kind=win/elite/boss/siege；theme 给主题材料
+  function matDrop(seed, kind, theme, n) {
+    const R = rng(seed >>> 0), out = [], k = n || (kind === "elite" ? 2 : kind === "boss" ? 2 : 1);
+    for (let i = 0; i < k; i++) out.push(BASE_MATS[Math.floor(R() * BASE_MATS.length)]);
+    if (theme && THEME_MAT[theme] && R() < 0.5) out.push(THEME_MAT[theme]);
+    if (kind === "boss") out.push("TA 的东西");
+    return out;
+  }
+
   function drawCards(sd, n, seed) {
     for (let k = 0; k < n; k++) {
       if (!sd.draw.length) { if (!sd.discard.length) break; sd.draw = shuffle(sd.discard.splice(0), rng(seed + k)); }
@@ -349,6 +386,10 @@
     if (has(st, who, "双面胶")) { u.maxHp += 2; u.hp += 2; }
     if (has(st, who, "封蜡")) u.shield += 2;
     if (has(st, who, "预热")) u.charge = 1;
+    if (who === "me" && st.keeps && st.keeps.length) {
+      const d = keepV(st, "def"), c = keepV(st, "stamp"), b = keepV(st, "bond", u);
+      if (d) u.shield += d * 2; if (c) u.charge = Math.min(u.need, Math.max(u.charge, c)); if (b) { u.maxHp += b * 2; u.hp += b * 2; }
+    }
     u.side = who;
     if (u.kind === "bday") u.shield += 3;
     if (u.kind === "anniv" || u.kind === "mybday") sd.bonusPostage += 1;
@@ -472,7 +513,8 @@
     let p = u.pow + (u.marks.雨渍 ? -2 : 0) + (eventNow(st) === "大雨" ? -1 : 0);
     const who0 = u.side || (sd === st.me ? "me" : "foe");
     if (who0 === "foe" && st.bossRule === "偏执") p += st.rage || 0;
-    if (who0 === "me" && st.theme === "旧城" && u.old) p += 2;                                    // 旧城：起手那几张老票更有劲
+    if (who0 === "me" && st.theme === "旧城" && u.old) p += 2;
+    if (who0 === "me" && st.keeps) { p += keepV(st, "atk"); const b = keepV(st, "bond", u); if (b) p += b + 1; }                                    // 旧城：起手那几张老票更有劲
     if (adj(i).some(j => sd.board[j] && u.charId && sd.board[j].charId === u.charId)) p += 2 + (has(st, who0, "连号") ? 2 : 0);          // 连张
     if (row(i) === SIZE - 1 && (u.role === "投递" || u.role === "邮戳") && has(st, who0, "望远镜")) p += 2;
     if (row(i) === SIZE - 1 && (u.role === "投递" || u.role === "邮戳")) p += 2;                          // 后排输出
@@ -670,7 +712,7 @@
   const mine = raw => (st, who, a, b) => { if (who !== "me") return raw(st, who, a, b); snap(st); const r = raw(st, who, a, b); if (!r || !r.ok) st.undo.pop(); return r; };
   const place = mine(placeRaw), tear = mine(tearRaw), move = mine(moveRaw), keep = mine(keepRaw), stamp = mine(stampRaw);
   const API = { RELICS, STYLE_ZH, TRAIT_FIT, TRAITS, SKILLS, BONDS, bondOf, unitInfo, SIZE, SLOTS, ENVELOPE_HP, POSTAGE, DRAW, DECK_SIZE, TURN_CAP, KEEP_MAX, FACE, NEED, ROLES, MARKS, TERRAIN, EVENTS,
-    stampOf, deckFrom, foeDeckFrom, SIEGE_TIERS, newDuel, envFor, avgLv, fairDeck, aims, actsOf, previewPlace, place, tear, move, keep, stamp, undo, canUndo, endTurn, planFoe, combos, newSeries, addGame, memoryLine, hashStr };
+    stampOf, deckFrom, foeDeckFrom, MATS, BASE_MATS, THEME_MAT, KEEP_FX, KEEP_MAX_SLOTS, keepFxOf, keepTier, matDrop, SIEGE_TIERS, newDuel, envFor, avgLv, fairDeck, aims, actsOf, previewPlace, place, tear, move, keep, stamp, undo, canUndo, endTurn, planFoe, combos, newSeries, addGame, memoryLine, hashStr };
   g.StampDuel = API;
   if (typeof module !== "undefined" && module.exports) module.exports = API;
 })(typeof window !== "undefined" ? window : globalThis);

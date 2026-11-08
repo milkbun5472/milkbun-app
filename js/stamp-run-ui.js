@@ -81,7 +81,8 @@
       if (win) save(LEVELK, Math.max(unlocked, Math.min(RN().LEVEL_MAX, (r.level || 1) + 1))); dexMerge(r); };
     const bondsOf = () => { const m = {}; (characters || []).forEach(c => { m[c.id] = D().bondOf([c.persona, c.description, c.desc, c.personality].filter(Boolean).join(" ")); }); return m; };
     // 每动一步存一份
-    const commit = (r, v, ch) => { const rr = r || run, vv = v || view; if (rr && rr.step) dexMerge(rr); save(SAVE, rr && !rr.done ? { run: rr, view: vv, chat: ch || chat } : null); setRun(rr ? Object.assign({}, rr) : rr); setView(vv); bump(x => x + 1); };
+    const commit = (r, v, ch) => { const rr = r || run, vv = v || view;
+      if (rr && rr.slotUp && !rr.slotSaved && window.StampKeeps) { rr.slotSaved = 1; const n = window.StampKeeps.addSlot(); toast && toast("信物栏现在能带 " + n + " 件"); } if (rr && rr.step) dexMerge(rr); save(SAVE, rr && !rr.done ? { run: rr, view: vv, chat: ch || chat } : null); setRun(rr ? Object.assign({}, rr) : rr); setView(vv); bump(x => x + 1); };
     // 主题路线换底色（她 2026-11-08）：信纸横线照旧，底下那层渐变跟着路走
     const peekCard = () => peek && window.StampInfoCard ? h(window.StampInfoCard, { key: "peek", u: peek, foe: false, bonds: (run && run.bonds) || {}, cardOf: id => (cards || []).find(c => c && c.id === id), ownerOf: nameOf, nameOf, useThumb, onClose: () => setPeek(null) }) : null;
     const shell = kids => { const th = run && RN().THEMES[run.theme], pp = th ? th.paper : ["#f3ebdb", "#e8dcc4"]; kids = [].concat(kids, peekCard());
@@ -226,10 +227,13 @@
       const b = view.b;
       return h(window.StampDuelPage, Object.assign({}, props, { key: "rb" + run.step, onBack, runBattle: Object.assign({}, b, {
         meDeck: run.deck.map(x => Object.assign({}, x)), bonds: bondsOf(),
+        // 物品栏里带着的专属信物（她 2026-11-08）：收信的人、陪你走的人做的再强一档
+        keeps: window.StampKeeps ? window.StampKeeps.forBattle([run.toId, run.withId]) : [],
         foeName: b.foeName || nameOf(b.foeId) || "拦路的人",
         onQuit: () => { if (typeof requestAppConfirm === "function") requestAppConfirm("先离开这一站？", "回到地图，下次进来这一站从头打。", () => commit(run, { at: "map", redo: view.nd }), "离开"); else commit(run, { at: "map", redo: view.nd }); },
         onDone: st => {
           const nd = run.map[run.pos.r][run.pos.k], res = RN().afterBattle(run, st, nd, cards);
+          if (res.mats && window.StampKeeps) { window.StampKeeps.addMats(res.mats); run.matsGot = (run.matsGot || []).concat(res.mats); }
           if (res.won) { postmark(run, true); if (run.resendIdx != null) { const L = load(LETTERS, []); if (L[run.resendIdx]) { L[run.resendIdx] = Object.assign({}, L[run.resendIdx], { delivered: Date.now() }); save(LETTERS, L); } } return commit(run, { at: "end", win: true }); }
           if (res.lost) { postmark(run, false); if (run.myLetter && run.resendIdx == null) keepLetter("returned", [run.myLetter], { mine: true }); return commit(run, { at: "end", win: false }); }
           commit(run, { at: "reward", res });
@@ -298,7 +302,7 @@
     if (view.at === "reward") {
       const res = view.res || {};
       return page("赢了这一站", [
-        Paper("got", "这一站拿到", h("div", { style: { fontSize: fz(13), lineHeight: 1.7 } }, "拿到 " + (res.coins || 0) + " 枚邮花。" + (res.relic ? "还捡到一件信物「" + res.relic + "」：" + D().RELICS[res.relic] + "。" : "")), GREEN),
+        Paper("got", "这一站拿到", h("div", { style: { fontSize: fz(13), lineHeight: 1.7 } }, "拿到 " + (res.coins || 0) + " 枚邮花。" + (res.relic ? "还捡到一件信物「" + res.relic + "」：" + D().RELICS[res.relic] + "。" : "") + ((res.mats || []).length ? "掉了材料：" + res.mats.join("、") + "（进了材料匣）。" : "")), GREEN),
         Paper("pick", "挑一张加进卡组", h("div", { style: { display: "grid", gridTemplateColumns: "1fr", gap: 6 } }, (res.offer || []).map((s, i) => h(Mini, { key: i, s, sub: nameOf(s.charId), onTap: () => { run.deck.push(s); commit(run, { at: "map" }); } })))),
         h("button", { key: "skip", onClick: () => commit(run, { at: "map" }), style: Object.assign(btn("transparent", INK, "rgba(47,42,34,.3)"), { marginTop: 10, width: "100%" }) }, "都不要，接着走")]);
     }

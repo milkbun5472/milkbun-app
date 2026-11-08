@@ -128,3 +128,11 @@ test("守城入口和页面：挑玩法页一张卡、波数条、打完再守�
   assert.match(ui, /x\.tutorial \|\| x\.run \|\| x\.siege/);
   assert.match(ui, /!st\.run && !st\.siege\) record\(st\)/);
 });
+test("材料与信物页：材料匣、做一件走 onChat keep、信物册、物品栏带进对局和守城", () => {
+  assert.match(ui, /modeCard\("duelmodekeeps"/);
+  assert.match(ui, /onChat\(who, \{ mode: "keep", mats: kPick, fxList: fxs, fxZh \}\)/);
+  assert.match(ui, /keeps: Keeps\.forBattle\(\[foeId\]\)/);
+  assert.match(ui, /keeps: Keeps\.forBattle\(\[\]\)/);
+  assert.match(app, /if \(d\.mode === "keep"\) \{/);
+  assert.match(ts, /"duelkeepmake"/);
+});
