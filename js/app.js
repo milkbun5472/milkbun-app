@@ -18119,10 +18119,10 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       const paint = String(((StampsCoreSafe().opt || {}).paint) || "").trim();
       let scene = "一张横版的乙游番外 CG：「" + (x.title || "") + "」。平时会裁成竖的、只显示正中间那一块当卡面，所以主要的人和动作放在画面正中间那三分之一，左右两边是场景和氛围。这一下：" + (x.shot || String(x.text).slice(-300)) + "\n景别拉开到看得见这一刻在哪、什么光，不是一张脸部近照。"
         + (duo ? "画面里是你们两个人。" + (lover ? "你们是恋人，距离和手就是恋人的样子。" : "你们之间是什么关系就是什么距离，不画成恋人。") : "画面里只画你一个人。") + "\n画面里不要任何文字。";
-      if (card.kind === "if") scene += "\n这张是 IF「" + (card.theme || "") + "」" + (stampLim(card).themeLine ? "：" + String(stampLim(card).themeLine).slice(0, 300) : "") + "。" + (stampLim(card).themeLook || "") + "衣服、场景和光照这个主题来。他的长相照他本人，主题只换衣服、场景和道具。";
+      if (card.kind === "if") scene += "\n这张是 IF「" + (card.theme || "") + "」" + (stampLim(card).themeLine ? "：" + String(stampLim(card).themeLine).slice(0, 300) : "") + "。" + (stampLim(card).themeLook || "") + "衣服、场景和光照这个主题来。他的长相照他本人，发型可以跟着主题来，主题换的是衣服、发型、场景和道具。";
       const base = Object.assign({}, char, { photoOutfit: stampDayFit(card, "他") });
       const prompt = buildPhotoPrompt(paint === "real" ? Object.assign({}, base, { photoStyle: "realistic" }) : base, scene, Object.assign({}, st, { wearing: "", wearingUpdatedAt: 0 }),
-        Object.assign(duo ? { kind: "duo", me: meP, notLover: !lover } : { kind: "other" }, { shotLine: stampCam() + "这张番外 CG 里他的脸一定要看得见：正脸或者侧脸，不拍背影、不拍后脑勺；两个人在一起时，镜头在他们对面或者斜对面，不从他身后越肩拍。" }, { closet: "" }, paint && paint !== "real" ? { paint } : {}));
+        Object.assign({ hairFree: card.kind === "if" }, duo ? { kind: "duo", me: meP, notLover: !lover } : { kind: "other" }, { shotLine: stampCam() + "这张番外 CG 里他的脸一定要看得见：正脸或者侧脸，不拍背影、不拍后脑勺；两个人在一起时，镜头在他们对面或者斜对面，不从他身后越肩拍。" }, { closet: "" }, paint && paint !== "real" ? { paint } : {}));
       const refs = [char.refPhoto, duo && meP && meP.refPhoto].filter(Boolean);
       const out = await generateSelfieImage(prompt, refs.length ? refs : null, { size: "1536x1024" });
       const blob = await imgOutBlob(out); if (!blob) throw new Error(out && out.url ? "站子画好了，但只给了一个图片链接、不让 app 下载下来（跨域）：换一条直接回图的线路，或在站子那边改成返回 base64" : "没拿到图");
@@ -18205,7 +18205,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       // IF 主题只换衣服、场景、道具；他的脸、发色、瞳色、身材照他本人，不为贴合主题改（她 2026-10-25：恶魔主题把金发画成了黑发）
       // IF 卡每一面都要看得出是哪个主题（她 2026-10-25：万圣夜的满级双人卡面画成了普通卧室）
       const keepLook = card.kind === "if" ? "\n这张是 IF「" + (card.theme || "") + "」" + (stampLim(card).themeLine ? "：" + String(stampLim(card).themeLine).slice(0, 500) : "") + "。" + (stampLim(card).themeLook ? stampLim(card).themeLook : "") + "衣服、场景、道具和光都照这个主题来，一眼看得出是这个主题" + (card.limited && stampLim(card).themeLook ? "；他穿什么以这一条为准，分镜里写的那身衣服不算" : "") + (duo ? "，画里两个人的打扮都是" : "") + "。"
-        + "他的长相照他本人：发色、发型、瞳色、五官和身材都不变，主题只换衣服、场景和道具。" : "";
+        + "他的长相照他本人：发色、瞳色、五官和身材都不变；发型可以跟着这个主题来（比如古风留长发、束发），主题换的是衣服、发型、场景和道具。" : "";
       scene += keepLook;
       const freeFit = card.kind === "if" || card.kind === "bday" || card.kind === "mybday" || card.kind === "anniv";   // 这几种衣服不走衣柜（先定义：下面她那份也要用）
       const meP = duo ? Object.assign({}, photoMe("她", char.id), freeFit ? { outfit: card.kind === "mybday" || card.kind === "anniv" ? stampDayFit(card, "她") : "", closet: "" } : {}) : null;   // IF 双人：她也照主题穿，不从她衣柜里挑；她的生日、纪念日她那身也是特意的
@@ -18222,7 +18222,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       const base = freeFit ? Object.assign({}, char, { photoOutfit: limFit }) : char;
       const prompt = buildPhotoPrompt(paint === "real" ? Object.assign({}, base, { photoStyle: "realistic" }) : base, scene,
         freeFit ? Object.assign({}, st, { wearing: "", wearingUpdatedAt: 0 }) : st,
-        Object.assign(duo ? { kind: "duo", me: meP, notLover: !lover, poseLine: "【两个人的姿势】两个人在一起做着这一刻的事，有互动、有动势，身体之间的距离照你们的关系，不是并排对着镜头站好。" } : { kind: "other" }, { shotLine: stampCam(!alt && /camera\s*[:：]|机位|镜头|景别/i.test(String(tx.shot || ""))) }, { closet: freeFit ? "" : closetTextFor(char.id, 240) }, paint && paint !== "real" ? { paint } : {}));
+        Object.assign({ hairFree: card.kind === "if" }, duo ? { kind: "duo", me: meP, notLover: !lover, poseLine: "【两个人的姿势】两个人在一起做着这一刻的事，有互动、有动势，身体之间的距离照你们的关系，不是并排对着镜头站好。" } : { kind: "other" }, { shotLine: stampCam(!alt && /camera\s*[:：]|机位|镜头|景别/i.test(String(tx.shot || ""))) }, { closet: freeFit ? "" : closetTextFor(char.id, 240) }, paint && paint !== "real" ? { paint } : {}));
       const refs = [char.refPhoto, duo && meP && meP.refPhoto].filter(Boolean);
       const out = await generateSelfieImage(prompt, refs.length ? refs : null, { size: "1024x1536" });
       const blob = await imgOutBlob(out); if (!blob) throw new Error(out && out.url ? "站子画好了，但只给了一个图片链接、不让 app 下载下来（跨域）：换一条直接回图的线路，或在站子那边改成返回 base64" : "没拿到图");

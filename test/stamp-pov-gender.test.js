@@ -129,3 +129,9 @@ test("限定卡在册子和卡页上都有限定标记", () => {
   assert.match(ui, /h\(LimMark, \{ card, big: true \}\)/);
   assert.match(ui, /back \? null : h\(LimMark, \{ card \}\)/);
 });
+test("IF 卡发型跟着主题走，发色五官照旧锁", () => {
+  const eng = fs.readFileSync(__dirname + "/../js/engine.js", "utf8");
+  assert.match(eng, /if \(opts && opts\.hairFree\) parts\.push\("【这一张的发型】/);
+  assert.strictEqual((src.match(/hairFree: card\.kind === "if"/g) || []).length, 2);
+  assert.ok(!/发色、发型、瞳色、五官和身材都不变/.test(src));
+});
