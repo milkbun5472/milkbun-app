@@ -134,7 +134,7 @@ test("信物只在远信：对局页没有材料与信物入口，远信路线�
   assert.match(ru, /onChat\(who, \{ mode: "keep", mats: kPick, fxList: fxs, fxZh \}\)/);
   assert.match(ru, /"data-wk": "runcraftgo"/);
   assert.match(rn, /const keeps = \(run\.keeps \|\| \[\]\)\.filter\(k => k\.on\)/);
-  assert.match(app, /if \(d\.mode === "keep"\) \{/);
+  assert.match(app, /if \(d\.mode === "keep" \|\| d\.mode === "trinket"\) \{/);
   assert.match(ts, /"runkeepmake"/);
 });
 test("讨伐入口和页面：挑模式、伤害分、最高分、不进存档和战绩", () => {
