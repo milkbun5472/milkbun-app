@@ -31,7 +31,7 @@
     mirror: { zh: "镜像局", desc: "两边用同一套卡组，只比谁摆得好" },
     reverse: { zh: "反着来", desc: "你用 TA 的卡，TA 用你的" },
     fancy: { zh: "华丽局", desc: "卡组只从 SR 和 SSR 里抽" },
-    quick: { zh: "快局", desc: "各 30 血，最多 8 回合" }
+    quick: { zh: "快局", desc: "各 25 血，最多 7 回合" }
   };
   const ruleOfWeek = () => { const keys = Object.keys(RULES); return keys[Math.floor(Date.now() / 604800000) % keys.length]; };
   // 快捷表情：一点就发，TA 拿卡上那句回你，不花调用
@@ -233,9 +233,9 @@
       let me = D().deckFrom(pool, s, D().DECK_SIZE, core), them = D().foeDeckFrom(pool, foeId, closeOf ? closeOf(foeId) : [], s);
       if (rule === "mirror") them = me.map(x => Object.assign({}, x));
       if (rule === "reverse") { const t = me; me = them; them = t; }
-      const hp = rule === "quick" ? 30 : D().ENVELOPE_HP;
+      const hp = rule === "quick" ? 25 : D().ENVELOPE_HP;
       const nd = D().newDuel(me, them, s, { blind, bonds: bondsOf(), foeId, hard, rule, wager: wager === "自己写" ? wagerDraft.trim() : wager,
-        meHp: handi === "meMore" ? hp + 20 : hp, foeHp: handi === "foeLess" ? hp - 20 : hp, cap: rule === "quick" ? 8 : undefined });
+        meHp: handi === "meMore" ? hp + 12 : hp, foeHp: handi === "foeLess" ? hp - 12 : hp, cap: rule === "quick" ? 7 : undefined });
       setAfter({ wager: null, review: null, busy: "" }); setReported(false); setSt(nd); setHandSel(-1); setBoardSel(-1); setSaved(null);
       setTimeout(() => persist(nd, series), 0);
       setSeries(sr => sr || D().newSeries());
@@ -307,7 +307,7 @@
         wager === "自己写" ? h("input", { value: wagerDraft, onChange: e => setWagerDraft(e.target.value), placeholder: "输的人要……", style: { width: "100%", marginBottom: 16, padding: "7px 10px", borderRadius: 4, border: "1px solid rgba(47,42,34,.25)", background: "#fff", fontSize: fz(12.5) } }) : null,
         // 让子 / 认真 / 本周规则局
         h("div", { style: { fontFamily: FD, fontSize: fz(14), marginBottom: 8 } }, "难度"),
-        h("div", { className: "flex flex-wrap", style: { gap: 6, marginBottom: 8 } }, [["none", "不让"], ["foeLess", "让 TA 少 20 血"], ["meMore", "我多 20 血"]].map(([k, zh]) => h("button", { key: k, "data-wk": "duelhandi", "data-on": handi === k ? "1" : "0", onClick: () => setHandi(k),
+        h("div", { className: "flex flex-wrap", style: { gap: 6, marginBottom: 8 } }, [["none", "不让"], ["foeLess", "让 TA 少 12 血"], ["meMore", "我多 12 血"]].map(([k, zh]) => h("button", { key: k, "data-wk": "duelhandi", "data-on": handi === k ? "1" : "0", onClick: () => setHandi(k),
           style: { padding: "4px 10px", borderRadius: 999, border: "1px solid " + (handi === k ? INK : "rgba(47,42,34,.25)"), background: handi === k ? INK : "transparent", color: handi === k ? PAPER : INK, fontSize: fz(12) } }, zh)),
           h("button", { "data-wk": "duelhard", "data-on": hard ? "1" : "0", onClick: () => setHard(v => !v), style: { padding: "4px 10px", borderRadius: 999, border: "1px solid " + (hard ? RED : "rgba(47,42,34,.25)"), background: hard ? RED : "transparent", color: hard ? "#fff" : INK, fontSize: fz(12) } }, "认真模式")),
         h("div", { style: { fontSize: fz(11.5), color: SUB, marginBottom: 12 } }, hard ? "认真模式：TA 每回合多 1 点胶水。" : "认真模式下 TA 每回合多 1 点胶水，难一点。"),

@@ -14,7 +14,7 @@
 (function (g) {
   "use strict";
   const SIZE = 3, SLOTS = SIZE * SIZE;
-  const ENVELOPE_HP = 60, POSTAGE = 3, DRAW = 4, DECK_SIZE = 12, TURN_CAP = 15, POSTAGE_CAP = 7, KEEP_MAX = 2, MOVE_COST = 1, STAMP_COST = 1;
+  const ENVELOPE_HP = 40, POSTAGE = 3, DRAW = 4, DECK_SIZE = 12, TURN_CAP = 12, POSTAGE_CAP = 7, KEEP_MAX = 2, MOVE_COST = 1, STAMP_COST = 1;
   const FACE = { R: 1, SR: 2, SSR: 3 };
   const BASE = { R: { pow: 3, hp: 6 }, SR: { pow: 5, hp: 9 }, SSR: { pow: 7, hp: 13 } };
   const NEED = { R: 2, SR: 3, SSR: 3 };                       // 攒几回合能盖一次章

@@ -49,3 +49,10 @@ test("界面：对局页进远信；打仗用对局页、打完交回；回信�
   assert.match(ui, /mode: "road"/); assert.match(ui, /mode: "letter"/);
   assert.match(app, /d\.mode === "letter"/);
 });
+test("岔路十六种，每个选项都有结果；同一趟不重样", () => {
+  assert.ok(RN.EVENTS.length >= 16);
+  const run = RN.newRun({ cards, toId: "a", seed: 9 }); RN.takeStart(run, [0, 1, 2, 3, 4, 5]);
+  const seen = new Set(); for (let k = 0; k < RN.EVENTS.length; k++) { run.step = k + 1; seen.add(RN.eventFor(run).key); }
+  assert.equal(seen.size, RN.EVENTS.length);
+  for (const ev of RN.EVENTS) ev.opts.forEach((_, oi) => { const r = RN.newRun({ cards, toId: "a", seed: 9 }); RN.takeStart(r, [0, 1, 2, 3, 4, 5]); assert.ok(RN.doEvent(r, ev, oi, cards)); });
+});

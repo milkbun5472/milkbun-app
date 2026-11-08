@@ -171,11 +171,12 @@
     // ── 岔路 ──
     if (view.at === "event") {
       const ev = RN().EVENTS.find(e => e.key === view.ev) || RN().EVENTS[0];
-      return page("岔路 · " + ev.zh, [
-        h("div", { key: "say", style: { fontFamily: FD, fontSize: fz(14), lineHeight: 1.8, margin: "4px 0 14px" } }, ev.say),
+      const who = t => String(t).replace(/同行的人|TA/g, toName);
+      return page("岔路 · " + who(ev.zh), [
+        h("div", { key: "say", style: { fontFamily: FD, fontSize: fz(14), lineHeight: 1.8, margin: "4px 0 14px" } }, who(ev.say)),
         view.result ? h("div", { key: "res" }, h("div", { style: { padding: "9px 12px", borderRadius: 4, background: "#fff", fontSize: fz(13), marginBottom: 10 } }, view.result),
             h("button", { onClick: () => commit(run, { at: "map" }), className: "w-full", style: btn(INK, PAPER) }, "接着走"))
-          : ev.opts.map((op, i) => h("button", { key: i, "data-wk": "runeventopt", onClick: () => { const msg = RN().doEvent(run, ev, i, cards); commit(run, Object.assign({}, view, { result: msg })); }, className: "w-full text-left", style: Object.assign(btn("#fff", INK, "rgba(47,42,34,.25)"), { marginBottom: 8, display: "block" }) }, op.zh))]);
+          : ev.opts.map((op, i) => h("button", { key: i, "data-wk": "runeventopt", onClick: () => { const msg = RN().doEvent(run, ev, i, cards); commit(run, Object.assign({}, view, { result: msg })); }, className: "w-full text-left", style: Object.assign(btn("#fff", INK, "rgba(47,42,34,.25)"), { marginBottom: 8, display: "block" }) }, who(op.zh)))]);
     }
     // ── 邮局 ──
     if (view.at === "shop") {

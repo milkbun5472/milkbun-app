@@ -26,7 +26,18 @@
     { key: "stranger", zh: "陌生人的信", say: "有封信掉在路上，寄信人写着你认识的名字。", opts: [{ zh: "替 TA 带上（多一张票）", fx: "card" }, { zh: "送回邮局（+30 邮花）", fx: "coins30" }] },
     { key: "pause", zh: "同行的人想歇一会儿", say: "TA 在路边坐下了，说就歇五分钟。", opts: [{ zh: "陪 TA 歇（信封 +12）", fx: "heal12" }, { zh: "拉着 TA 赶路（随机一张票升阶）", fx: "up" }] },
     { key: "bet", zh: "邮差的赌局", say: "一个邮差拦住你：「赌一把？赢了这个归你。」", opts: [{ zh: "赌（一半拿信物，一半信封 -10）", fx: "bet" }, { zh: "不赌", fx: "none" }] },
-    { key: "trade", zh: "换票的人", say: "有人想拿两张旧票换你一张。", opts: [{ zh: "换（删一张最弱的，拿两张新的）", fx: "trade" }, { zh: "不换", fx: "none" }] }
+    { key: "trade", zh: "换票的人", say: "有人想拿两张旧票换你一张。", opts: [{ zh: "换（删一张最弱的，拿两张新的）", fx: "trade" }, { zh: "不换", fx: "none" }] },
+    // 她 2026-11-08「随机事件能不能多出几种」
+    { key: "eaves", zh: "漏雨的屋檐", say: "雨忽然大了，路边有个漏雨的屋檐。", opts: [{ zh: "躲一会儿（信封 +8）", fx: "heal8" }, { zh: "冒雨赶路，顺路捡了几枚邮花（+20 邮花）", fx: "coins20" }] },
+    { key: "pocket", zh: "TA 的口袋", say: "同行的人在口袋里翻了半天，掏出一样东西塞给你。", opts: [{ zh: "收下（拿一件信物，为了找它多绕了路：信封 -8）", fx: "pocket" }, { zh: "让 TA 自己留着（信封 +6）", fx: "heal6" }] },
+    { key: "lostfound", zh: "失物招领处", say: "邮局门口摆着一箱没人认领的邮票。", opts: [{ zh: "认领一张（多一张票）", fx: "card" }, { zh: "把最弱的一张捐出去（+25 邮花）", fx: "donate" }] },
+    { key: "address", zh: "写错的地址", say: "你忽然发现信封上的地址写错了一个字。", opts: [{ zh: "花 15 邮花请人改好（信封上限 +5）", fx: "address", cost: 15 }, { zh: "将就着寄（信封 -5）", fx: "hurt5" }] },
+    { key: "photo", zh: "夹在信里的旧照片", say: "信封里滑出一张旧照片，你停下来看了很久。", opts: [{ zh: "多看一会儿（TA 的一张票升阶）", fx: "upTA" }, { zh: "收好接着走（+15 邮花）", fx: "coins15" }] },
+    { key: "lighthouse", zh: "夜里的灯塔", say: "天黑了。远处有座灯塔，也有一条没灯的近路。", opts: [{ zh: "往灯塔走（信封 +15，路上花了 20 邮花）", fx: "lighthouse" }, { zh: "抄近路（信封 -8，+40 邮花）", fx: "shortcut" }] },
+    { key: "dealer", zh: "集邮商人", say: "一个集邮商人盯上了你卡组里的一张票。", opts: [{ zh: "卖给他（随机卖掉一张，+45 邮花）", fx: "sell" }, { zh: "不卖", fx: "none" }] },
+    { key: "restamp", zh: "盖歪的邮戳", say: "有张票的邮戳盖歪了，旁边的老邮差说能重盖。", opts: [{ zh: "花 20 邮花请他重盖（一张票升阶两次）", fx: "restamp", cost: 20 }, { zh: "歪就歪吧", fx: "none" }] },
+    { key: "tired", zh: "同行的人走累了", say: "TA 说腿酸，走不动了。", opts: [{ zh: "背 TA 一段（信封 -10，拿一件信物）", fx: "carry" }, { zh: "一起慢慢走（信封 +6）", fx: "heal6" }] },
+    { key: "wind2", zh: "风里的信纸", say: "一阵风把一张信纸卷上了天。", opts: [{ zh: "追（一半捡回一张票，一半摔一跤信封 -6）", fx: "chase" }, { zh: "不追了", fx: "none" }] }
   ];
   const PRICE = { card: 40, relic: 80, remove: 50, heal: 30 };
 
@@ -136,7 +147,12 @@
     run.deck[i] = Object.assign({}, s, { pow: s.pow + 2, maxHp: s.maxHp + 3, need: Math.max(1, s.need - 1), up: (s.up || 0) + 1, name: s.name.replace(/＋+$/, "") + "＋".repeat((s.up || 0) + 1) });
   }
   // 岔路：选了哪一项、发生什么
-  function eventFor(run) { return EVENTS[Math.floor(R0(run)() * EVENTS.length)]; }
+  // 同一趟里不重样（她 2026-11-08 加了十种）：没碰过的先来，全碰过了再随便挑
+  function eventFor(run) {
+    run.evSeen = run.evSeen || [];
+    const fresh = EVENTS.filter(e => !run.evSeen.includes(e.key)), pool = fresh.length ? fresh : EVENTS;
+    const ev = pool[Math.floor(R0(run)() * pool.length)]; run.evSeen.push(ev.key); return ev;
+  }
   function doEvent(run, ev, oi, cards) {
     const op = ev.opts[oi]; if (!op) return "";
     const R = R0(run), upRand = () => { const i = Math.floor(R() * run.deck.length); upgrade(run, i); return run.deck[i] ? run.deck[i].name : ""; };
@@ -149,6 +165,20 @@
       case "up": return "「" + upRand() + "」升阶了。";
       case "bet": if (R() < 0.5) { const k = relicOffer(run, 1)[0]; addRelic(run, k); return "赢了，拿到「" + k + "」。"; } run.hp = Math.max(1, run.hp - 10); return "输了，信封 -10。";
       case "trade": { if (run.deck.length > 4) { const w = run.deck.reduce((a, s, i) => s.pow + s.maxHp < run.deck[a].pow + run.deck[a].maxHp ? i : a, 0); run.deck.splice(w, 1); } cardOffer(run, cards, 2).forEach(c => run.deck.push(c)); return "换来了两张新票。"; }
+      case "heal8": run.hp = Math.min(run.max, run.hp + 8); return "雨小了，信封回了 8。";
+      case "heal6": run.hp = Math.min(run.max, run.hp + 6); return "信封回了 6。";
+      case "coins20": run.coins += 20; return "+20 邮花。";
+      case "coins15": run.coins += 15; return "+15 邮花。";
+      case "pocket": case "carry": { run.hp = Math.max(1, run.hp - (op.fx === "carry" ? 10 : 8)); const k = relicOffer(run, 1)[0]; addRelic(run, k); return k ? "拿到「" + k + "」。" : "什么也没拿到。"; }
+      case "donate": { if (run.deck.length <= 4) return "卡组只剩 4 张了，留着吧。"; const w = run.deck.reduce((a, s, i) => s.pow + s.maxHp < run.deck[a].pow + run.deck[a].maxHp ? i : a, 0); const nm = run.deck[w].name; run.deck.splice(w, 1); run.coins += 25; return "捐出了「" + nm + "」，+25 邮花。"; }
+      case "address": if (run.coins < op.cost) return "邮花不够，只好将就着寄。"; run.coins -= op.cost; run.max += 5; run.hp += 5; return "地址改好了，信封上限 +5。";
+      case "hurt5": run.hp = Math.max(1, run.hp - 5); return "信封 -5。";
+      case "upTA": { const idx = run.deck.map((s, i) => s.charId === run.toId ? i : -1).filter(i => i >= 0); const i = idx.length ? idx[Math.floor(R() * idx.length)] : Math.floor(R() * run.deck.length); upgrade(run, i); return "「" + (run.deck[i] || {}).name + "」升阶了。"; }
+      case "lighthouse": run.hp = Math.min(run.max, run.hp + 15); run.coins = Math.max(0, run.coins - 20); return "灯塔下歇了一晚，信封 +15。";
+      case "shortcut": run.hp = Math.max(1, run.hp - 8); run.coins += 40; return "摸黑走过来了，信封 -8，+40 邮花。";
+      case "sell": { if (run.deck.length <= 4) return "卡组只剩 4 张了，不卖了。"; const i = Math.floor(R() * run.deck.length), nm = run.deck[i].name; run.deck.splice(i, 1); run.coins += 45; return "卖掉了「" + nm + "」，+45 邮花。"; }
+      case "restamp": { if (run.coins < op.cost) return "邮花不够。"; run.coins -= op.cost; const i = Math.floor(R() * run.deck.length); upgrade(run, i); upgrade(run, i); return "「" + (run.deck[i] || {}).name + "」升阶两次。"; }
+      case "chase": if (R() < 0.5) { const c = cardOffer(run, cards, 1)[0]; if (c) run.deck.push(c); return c ? "追回来了，还多了一张「" + c.name + "」。" : "追回来了。"; } run.hp = Math.max(1, run.hp - 6); return "摔了一跤，信封 -6。";
       default: return "你接着赶路。";
     }
   }
