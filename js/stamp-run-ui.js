@@ -46,7 +46,7 @@
     const [view, setView] = useState(() => { const v = load(SAVE, null); return v && v.run && !v.run.done ? (v.view || { at: "map" }) : { at: "start" }; });
     const [toId, setToId] = useState(() => { const c = (characters || []).find(x => (cards || []).some(k => k.charId === x.id)); return c ? c.id : ""; });
     const [core, setCore] = useState([]), [pickIdx, setPickIdx] = useState([]);
-    const [withPick, setWithPick] = useState(""), [level, setLevel] = useState(1), [showDex, setShowDex] = useState(false);
+    const [withPick, setWithPick] = useState(""), [level, setLevel] = useState(1), [showDex, setShowDex] = useState(false), [themePick, setThemePick] = useState("");
     const POSTMARKS = "x_stampRunPostmarks", LEVELK = "x_stampRunLevel", DEX = "x_stampRunDex";
     const unlocked = Math.max(1, Number(load(LEVELK, 1)) || 1);
     const [chat, setChat] = useState(() => (load(SAVE, null) || {}).chat || []), [draft, setDraft] = useState(""), [busy, setBusy] = useState(false), [chatOpen, setChatOpen] = useState(false);
@@ -71,7 +71,10 @@
     const bondsOf = () => { const m = {}; (characters || []).forEach(c => { m[c.id] = D().bondOf([c.persona, c.description, c.desc, c.personality].filter(Boolean).join(" ")); }); return m; };
     // 每动一步存一份
     const commit = (r, v, ch) => { const rr = r || run, vv = v || view; if (rr && rr.step) dexMerge(rr); save(SAVE, rr && !rr.done ? { run: rr, view: vv, chat: ch || chat } : null); setRun(rr ? Object.assign({}, rr) : rr); setView(vv); bump(x => x + 1); };
-    const shell = kids => h("div", { "data-wk": "runpage", className: "h-full flex flex-col", style: { position: "relative", background: "repeating-linear-gradient(0deg, transparent 0 27px, rgba(47,42,34,.05) 27px 28px), linear-gradient(#f3ebdb, #e8dcc4)" } }, kids);
+    // 主题路线换底色（她 2026-11-08）：信纸横线照旧，底下那层渐变跟着路走
+    const shell = kids => { const th = run && RN().THEMES[run.theme], pp = th ? th.paper : ["#f3ebdb", "#e8dcc4"];
+      return h("div", { "data-wk": "runpage", "data-theme": run && run.theme || "", className: "h-full flex flex-col", style: { position: "relative", background: "repeating-linear-gradient(0deg, transparent 0 27px, rgba(47,42,34,.05) 27px 28px), linear-gradient(" + pp[0] + ", " + pp[1] + ")" } }, kids); };
+    const personaOf = id => { const c = (characters || []).find(x => x.id === id) || {}; return [c.persona, c.description, c.desc, c.personality].filter(Boolean).join(" "); };
     // 顶上一条：信封血（一条细血条）、邮花、卡组、信物（小火漆，点了看说明）
     const bar = () => run ? h("div", { "data-wk": "runbar", className: "px-4", style: { padding: "2px 16px 10px", fontFamily: F, color: INK } },
       h("div", { className: "flex items-center", style: { gap: 8 } },
@@ -115,14 +118,25 @@
       return shell([
         h(Head, { key: "hd", zh: "远信", bg: "transparent", ink: INK, onBack }),
         h("div", { key: "bd", className: "flex-1 min-h-0 overflow-y-auto px-5", style: { fontFamily: F, color: INK, paddingBottom: 24 } },
-          h("div", { style: { fontSize: fz(12), color: SUB, lineHeight: 1.75, margin: "2px 0 14px" } }, "给一个人寄一封信。信要走六站：路上有暴雨、罢工的邮差、拦信的人，也有邮局和驿站。信封的血不会每场回满，打空了信就寄丢了。最后一站是 TA 本人——赢了，信送到，TA 会写一封回信给你。不花调用（路上聊天和回信除外）。"),
+          h("div", { style: { fontSize: fz(12), color: SUB, lineHeight: 1.75, margin: "2px 0 14px" } }, "给一个人寄一封信。信要走六站（夜车五站）：路上有暴雨、罢工的邮差、拦信的人，也有邮局和驿站。信封的血不会每场回满，打空了信就寄丢了。最后一站是 TA 本人——赢了，信送到，TA 会写一封回信给你。不花调用（路上聊天和回信除外）。"),
           h("div", { style: { fontFamily: FD, fontSize: fz(14), marginBottom: 8 } }, "寄给谁"),
-          h("div", { className: "flex flex-wrap", style: { gap: 8, marginBottom: 16 } }, owned.map(c => h("button", { key: c.id, "data-wk": "runto", "data-on": toId === c.id ? "1" : "0", onClick: () => setToId(c.id),
+          h("div", { className: "flex flex-wrap", style: { gap: 8, marginBottom: 16 } }, owned.map(c => h("button", { key: c.id, "data-wk": "runto", "data-on": toId === c.id ? "1" : "0", onClick: () => { setToId(c.id); setThemePick(""); },
             style: { padding: "5px 12px", borderRadius: 999, border: "1px solid " + (toId === c.id ? RED : "rgba(47,42,34,.25)"), background: toId === c.id ? "rgba(178,58,46,.07)" : "rgba(255,255,255,.4)", color: toId === c.id ? RED : INK, fontSize: fz(12.5) } }, c.remark || c.name))),
           h("div", { style: { fontFamily: FD, fontSize: fz(14), marginBottom: 4 } }, "谁陪你走"),
           h("div", { style: { fontSize: fz(11.5), color: SUB, marginBottom: 8 } }, "路上跟你聊天、写便条的人。不挑就是收信的人自己陪你走；挑了别人，终点 TA 也会知道是谁陪你来的。"),
           h("div", { className: "flex flex-wrap", style: { gap: 8, marginBottom: 16 } }, [{ id: "" }].concat(owned).map(c => { const on = (withPick || "") === (c.id || ""); return h("button", { key: c.id || "self", "data-wk": "runwith", "data-on": on ? "1" : "0", onClick: () => setWithPick(c.id || ""),
             style: { padding: "5px 11px", borderRadius: 999, border: "1px solid " + (on ? GOLD : "rgba(47,42,34,.25)"), background: on ? "rgba(184,134,42,.1)" : "rgba(255,255,255,.4)", color: on ? GOLD : INK, fontSize: fz(12.5) } }, c.id ? (c.remark || c.name) : "收信的人自己"); })),
+          (() => { const rec = toId ? RN().themeFor(personaOf(toId), toId) : "", cur = themePick || rec, TH = RN().THEMES;
+            return h("div", { "data-wk": "runtheme", style: { marginBottom: 16 } },
+              h("div", { style: { fontFamily: FD, fontSize: fz(14), marginBottom: 4 } }, "走哪条路"),
+              h("div", { style: { fontSize: fz(11.5), color: SUB, marginBottom: 8 } }, "每条路的麻烦、岔路和一条棋盘规则都不一样，回信也会写到这一路。默认是 " + (nameOf(toId) || "TA") + " 推荐的那条，可以换。"),
+              h("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 } }, Object.keys(TH).map(k => { const on = cur === k, t = TH[k];
+                return h("button", { key: k, "data-wk": "runthemepick", "data-on": on ? "1" : "0", onClick: () => setThemePick(k), className: "text-left",
+                  style: { position: "relative", padding: "8px 10px", borderRadius: 5, border: "1.5px solid " + (on ? t.ink : "rgba(47,42,34,.18)"), background: "linear-gradient(" + t.paper[0] + ", " + t.paper[1] + ")", color: t.ink } },
+                  h("div", { style: { fontFamily: FD, fontSize: fz(14) } }, k + (on ? " ✓" : "")),
+                  h("div", { style: { fontSize: fz(10.5), lineHeight: 1.5, opacity: .85 } }, t.rule + "：" + t.ruleZh),
+                  k === rec ? h("span", { style: { position: "absolute", right: 6, top: 6, padding: "0 5px", borderRadius: 3, background: RED, color: "#fff", fontSize: fz(9) } }, "TA 推荐") : null); })));
+          })(),
           h("div", { style: { fontFamily: FD, fontSize: fz(14), marginBottom: 4 } }, "邮路等级"),
           h("div", { style: { fontSize: fz(11.5), color: SUB, marginBottom: 8 } }, "送到一次解锁下一级：每一级起手的信封少 4，路上更凶，终点更硬。"),
           h("div", { className: "flex flex-wrap", style: { gap: 6, marginBottom: 16 } }, Array.from({ length: unlocked }, (_, k) => k + 1).map(lv => h("button", { key: lv, "data-wk": "runlevel", "data-on": level === lv ? "1" : "0", onClick: () => setLevel(lv),
@@ -131,7 +145,7 @@
           h("div", { style: { fontSize: fz(11.5), color: SUB, marginBottom: 8 } }, "最多两个人：起手发的牌多从他们那儿来。不挑就随机。"),
           h("div", { className: "flex flex-wrap", style: { gap: 8, marginBottom: 20 } }, owned.map(c => { const on = core.includes(c.id); return h("button", { key: c.id, onClick: () => setCore(p => on ? p.filter(x => x !== c.id) : p.concat(c.id).slice(-2)),
             style: { padding: "5px 11px", borderRadius: 999, border: "1px solid " + (on ? GREEN : "rgba(47,42,34,.25)"), background: on ? "rgba(79,122,102,.12)" : "rgba(255,255,255,.4)", color: on ? GREEN : INK, fontSize: fz(12.5) } }, c.remark || c.name); })),
-          h("button", { "data-wk": "runstart", disabled: !toId, onClick: () => { const L0 = load(LETTERS, []); if (L0.some(x => x.sealed)) save(LETTERS, L0.map(x => x.sealed ? Object.assign({}, x, { sealed: false, opened: Date.now() }) : x)); const r = Object.assign(RN().newRun({ cards, toId, core, withId: withPick || toId, level: Math.min(level, unlocked) }), { bonds: bondsOf() }); setChat([]); setPickIdx([0, 1, 2, 3, 4, 5]); setDraft(""); commit(r, { at: "write" }, []); }, className: "w-full disabled:opacity-40", style: Object.assign(btn(RED, "#fff"), { padding: "12px 0", fontFamily: FD, fontSize: fz(15), letterSpacing: ".15em" }) }, "封好信，出发"),
+          h("button", { "data-wk": "runstart", disabled: !toId, onClick: () => { const L0 = load(LETTERS, []); if (L0.some(x => x.sealed)) save(LETTERS, L0.map(x => x.sealed ? Object.assign({}, x, { sealed: false, opened: Date.now() }) : x)); const r = Object.assign(RN().newRun({ cards, toId, core, theme: themePick || RN().themeFor(personaOf(toId), toId), withId: withPick || toId, level: Math.min(level, unlocked) }), { bonds: bondsOf() }); setChat([]); setPickIdx([0, 1, 2, 3, 4, 5]); setDraft(""); commit(r, { at: "write" }, []); }, className: "w-full disabled:opacity-40", style: Object.assign(btn(RED, "#fff"), { padding: "12px 0", fontFamily: FD, fontSize: fz(15), letterSpacing: ".15em" }) }, "封好信，出发"),
           // 远信邮册：每一趟一枚纪念邮戳（她 2026-11-08）
           (() => { const P = load(POSTMARKS, []); if (!P.length) return null;
             return h("div", { "data-wk": "runpostmarks", style: { marginTop: 22 } },
@@ -231,7 +245,9 @@
     // ── 地图 ──
     if (view.at === "map") {
       const can = RN().reachable(run), cur = run.pos;
-      return page("远信 · 路线", [
+      const th = RN().THEMES[run.theme];
+      return page(run.theme ? "远信 · " + run.theme : "远信 · 路线", [
+        th ? h("div", { key: "th", "data-wk": "runthemeline", style: { fontSize: fz(11.5), color: th.ink, lineHeight: 1.6, marginBottom: 8 } }, th.say + "这一路的规则：" + th.rule + "——" + th.ruleZh + "。") : null,
         view.redo ? h("button", { key: "redo", onClick: redo, className: "w-full", style: Object.assign(btn(RED, "#fff"), { marginBottom: 10 }) }, "回到刚才那一站，重新打") : null,
         // 路线图：一排一站，站跟站之间画虚线；能去的那几站在动，走过的盖了戳，现在在哪儿压一个红邮戳
         (() => {

@@ -52,8 +52,8 @@ test("界面：对局页进远信；打仗用对局页、打完交回；回信�
 test("岔路十六种，每个选项都有结果；同一趟不重样", () => {
   assert.ok(RN.EVENTS.length >= 16);
   const run = RN.newRun({ cards, toId: "a", seed: 9 }); RN.takeStart(run, [0, 1, 2, 3, 4, 5]);
-  const seen = new Set(); for (let k = 0; k < RN.EVENTS.length; k++) { run.step = k + 1; seen.add(RN.eventFor(run).key); }
-  assert.equal(seen.size, RN.EVENTS.length);
+  const base = RN.EVENTS.filter(e => !e.theme), seen = new Set(); for (let k = 0; k < base.length; k++) { run.step = k + 1; seen.add(RN.eventFor(run).key); }
+  assert.equal(seen.size, base.length);
   for (const ev of RN.EVENTS.filter(e => e.opts)) ev.opts.forEach((_, oi) => { const r = RN.newRun({ cards, toId: "a", seed: 9 }); RN.takeStart(r, [0, 1, 2, 3, 4, 5]); assert.ok(RN.doEvent(r, ev, oi, cards)); });
 });
 test("信的事件：七种都在岔路池里，各有奖励；回信带上卡组里每张卡的那一刻；寄给以后的信封着到下一趟", () => {
@@ -88,4 +88,22 @@ test("出发前写信：回信回这一封；没送到退件、下次能重寄�
   assert.match(app, /她寄给你的这封信，你刚拆开/);
   assert.match(app, /信封里她写了什么，你还不知道/);
   assert.match(ui, /h\("svg", \{ width: "100%", height: H/);
+});
+test("远信主题路线：四条都在、照人设推荐、夜车五站全是仗、麻烦和岔路跟着路走、规则进对局", () => {
+  assert.deepEqual(Object.keys(RN.THEMES), ["雪国", "海边", "旧城", "夜车"]);
+  assert.equal(RN.themeFor("住在海边的小岛上", "x"), "海边");
+  assert.ok(RN.THEMES[RN.themeFor("", "whoever")]);
+  const night = RN.newRun({ cards, toId: "a", seed: 3, theme: "夜车" });
+  assert.equal(night.map.length, 5);
+  night.map.slice(1, -2).forEach(row => row.forEach(n => assert.ok(n.type === "fight" || n.type === "elite")));
+  const snow = RN.newRun({ cards, toId: "a", seed: 3, theme: "雪国" }); RN.takeStart(snow, [0, 1, 2, 3, 4, 5]);
+  assert.ok(snow.deck.every(s => s.old));
+  const nd = RN.enter(snow, 0), b = RN.battleFor(snow, nd, cards, () => [], ["a", "b"]);
+  assert.equal(b.theme, "雪国"); assert.match(b.themeRuleZh, /冻住/);
+  assert.ok(RN.TROUBLES.filter(t => t.theme === "雪国").some(t => t.zh === b.foeName) || !RN.TROUBLES.find(t => t.zh === b.foeName).theme);
+  for (let i = 0; i < 40; i++) { const e = RN.eventFor(snow); assert.ok(!e.theme || e.theme === "雪国"); }
+  assert.match(RN.summary(snow), /雪国/);
+  const st = D.newDuel(snow.deck, b.foeDeck, 9, b);
+  const ice = st.me.terrain.indexOf("冰封"); assert.ok(ice >= 0);
+  assert.equal(D.place(st, "me", 0, ice).ok, false);
 });

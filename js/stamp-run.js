@@ -5,7 +5,7 @@
 (function (g) {
   "use strict";
   const D = () => g.StampDuel;
-  const ROWS = 6;                       // 一段路几站（最后一站是 TA）
+  const ROWS0 = 6, ROWS = ROWS0;                       // 一段路几站（最后一站是 TA）
   const START_HP = 60, START_PICK = 6;  // 起手卡组几张
   const NODE = {
     fight: { zh: "普通站", icon: "✉" }, elite: { zh: "难站", icon: "✦" }, event: { zh: "岔路", icon: "?" },
@@ -18,7 +18,15 @@
     { key: "censor", zh: "审查局", say: "每封信都要盖章才能过。", roles: ["邮戳", "火漆", "邮戳", "集邮"], trait: "冷静" },
     { key: "cats", zh: "抢信的野猫", say: "一群猫扑上来叼信。", roles: ["投递", "投递", "投递", "补票"], trait: "莽撞" },
     { key: "lost", zh: "迷路的信", say: "一叠寄错地址的信缠住了你。", roles: ["集邮", "投递", "火漆", "邮戳"], trait: "余温" },
-    { key: "wind", zh: "一阵大风", say: "风把信往回吹。", roles: ["投递", "邮戳", "投递", "火漆"], trait: "锋利" }
+    { key: "wind", zh: "一阵大风", say: "风把信往回吹。", roles: ["投递", "邮戳", "投递", "火漆"], trait: "锋利" },
+    { key: "blizzard", theme: "雪国", zh: "暴风雪", say: "白茫茫一片，连路都看不见了。", roles: ["火漆", "邮戳", "火漆", "投递"], trait: "冷静" },
+    { key: "wolf", theme: "雪国", zh: "雪地里的狼", say: "几双眼睛在林子边上亮着。", roles: ["投递", "投递", "邮戳", "投递"], trait: "莽撞" },
+    { key: "tide", theme: "海边", zh: "涨上来的潮水", say: "潮水漫过了石阶，信差点被卷走。", roles: ["邮戳", "投递", "邮戳", "集邮"], trait: "余温" },
+    { key: "gull", theme: "海边", zh: "叼信的海鸥", say: "一群海鸥盯上了你手里的信。", roles: ["投递", "投递", "补票", "投递"], trait: "锋利" },
+    { key: "clerk", theme: "旧城", zh: "老邮局的规矩", say: "柜台后的老先生说，这种信封早就不收了。", roles: ["火漆", "邮戳", "集邮", "火漆"], trait: "倔强" },
+    { key: "alley", theme: "旧城", zh: "绕不出去的巷子", say: "每条巷子都长得一样，门牌也对不上。", roles: ["集邮", "投递", "邮戳", "补票"], trait: "夜行" },
+    { key: "conductor", theme: "夜车", zh: "查票的列车员", say: "「票呢？」列车员把手电照在你脸上。", roles: ["邮戳", "火漆", "邮戳", "投递"], trait: "冷静" },
+    { key: "stopover", theme: "夜车", zh: "临时停车", say: "车停在荒郊，广播说要等很久。", roles: ["火漆", "火漆", "补票", "投递"], trait: "倔强" }
   ];
   const EVENTS = [
     { key: "wet", zh: "一张被雨打湿的票", say: "路边躺着一张泡了水的邮票，还认得出是谁。", opts: [{ zh: "花点力气修好它（信封 -6，随机一张票升阶）", fx: "wet" }, { zh: "不管它", fx: "none" }] },
@@ -38,6 +46,15 @@
     { key: "restamp", zh: "盖歪的邮戳", say: "有张票的邮戳盖歪了，旁边的老邮差说能重盖。", opts: [{ zh: "花 20 邮花请他重盖（一张票升阶两次）", fx: "restamp", cost: 20 }, { zh: "歪就歪吧", fx: "none" }] },
     { key: "tired", zh: "同行的人走累了", say: "TA 说腿酸，走不动了。", opts: [{ zh: "背 TA 一段（信封 -10，拿一件信物）", fx: "carry" }, { zh: "一起慢慢走（信封 +6）", fx: "heal6" }] },
     { key: "wind2", zh: "风里的信纸", say: "一阵风把一张信纸卷上了天。", opts: [{ zh: "追（一半捡回一张票，一半摔一跤信封 -6）", fx: "chase" }, { zh: "不追了", fx: "none" }] },
+    // 主题路线上才有的岔路（用上面现成的效果）
+    { key: "stove", theme: "雪国", zh: "借宿的炉火", say: "雪夜里有户人家亮着灯，主人招呼你进来烤火。", opts: [{ zh: "烤一晚（信封 +15）", fx: "heal15" }, { zh: "谢过就走（+20 邮花）", fx: "coins20" }] },
+    { key: "prints", theme: "雪国", zh: "雪地上的脚印", say: "雪地上有一串脚印，往你要去的方向。", opts: [{ zh: "跟着走（随机一张票升阶）", fx: "up" }, { zh: "自己开路（信封 -5，+30 邮花）", fx: "hurt5coins" }] },
+    { key: "bottle", theme: "海边", zh: "漂流瓶", say: "浪把一个瓶子推到你脚边，里面卷着一张纸。", opts: [{ zh: "打开（多一张票）", fx: "card" }, { zh: "扔回海里（信封 +8）", fx: "heal8" }] },
+    { key: "soaked", theme: "海边", zh: "泡过水的旧邮票", say: "礁石缝里卡着一张泡过水的邮票，图案还看得清。", opts: [{ zh: "晾干带上（信封 -6，随机一张票升阶）", fx: "wet" }, { zh: "不管它", fx: "none" }] },
+    { key: "oldman", theme: "旧城", zh: "认识 TA 的老人", say: "一个老人看了一眼信封上的名字，说他认得这个人。", opts: [{ zh: "听他讲一会儿（TA 的一张票升阶）", fx: "upTA" }, { zh: "道谢赶路（+15 邮花）", fx: "coins15" }] },
+    { key: "renamed", theme: "旧城", zh: "改了名的街", say: "地址上的街名早就改了，得找人问路。", opts: [{ zh: "花 15 邮花问路（信封上限 +5）", fx: "address", cost: 15 }, { zh: "自己摸着找（信封 -5）", fx: "hurt5" }] },
+    { key: "seatmate", theme: "夜车", zh: "邻座的乘客", say: "邻座的人睡不着，问你这封信要寄给谁。", opts: [{ zh: "跟他聊到天亮（信封 +10）", fx: "heal10" }, { zh: "他送你一样东西（拿一件信物，信封 -8）", fx: "pocket" }] },
+    { key: "platform", theme: "夜车", zh: "凌晨的站台", say: "车在一个小站停了五分钟，站台上有个卖邮票的小摊。", opts: [{ zh: "下车买一张（-30 邮花，多一张票）", fx: "buycard", cost: 30 }, { zh: "留在车上（信封 +6）", fx: "heal6" }] },
     // 信的事件（她 2026-11-08「更想要他给我写信这种意象……有些事件可以花调用和他不同类别的互动」「不用控制次数」）：
     //   letter 是这一种往来的样子，界面那层去叫 TA 写（花一次调用），写完给游戏奖励，信收进信匣
     { key: "postcard", letter: "postcard", zh: "驿站寄来的明信片", say: "驿站的人递给你一张明信片，邮戳还是新的——是同行的人提前寄到这儿等你的。", reward: "信封 +8" },
@@ -48,6 +65,21 @@
     { key: "future", letter: "future", zh: "寄给以后的信", say: "有家邮局专收「寄给以后」的信。同行的人说想写一封，封好，下一趟出发时才准你拆。", reward: "一件信物" },
     { key: "swap", letter: "swap", zh: "交换邮票", say: "同行的人看上了你卡组里的一张票，想要走留个纪念。", reward: "送出那张票，换一件信物" }
   ];
+  // 主题路线（她 2026-11-08「四条都要 全开 让他推荐」）：换路上的麻烦、岔路、一条棋盘规则、信纸的颜色；
+  //   theme 字段挂在麻烦和岔路上，只在那条路上出现；没挂的哪条路都会碰到
+  const THEMES = {
+    雪国: { key: "snow", say: "一路往北，雪越下越大。", rule: "冻住", ruleZh: "每回合你这边随机一格结冰，那一格贴不上票", paper: ["#f4f6f8", "#dfe6ec"], ink: "#3d5468", words: /雪|冬|寒|冰|北方|冷/ },
+    海边: { key: "sea", say: "邮路沿着海走，风里都是盐。", rule: "潮汐", ruleZh: "每隔一回合涨一次潮，两边左右两列的票换位置", paper: ["#eef3f3", "#d4e1e2"], ink: "#2f5a63", words: /海|岛|港|船|潮|渔|沙滩/ },
+    旧城: { key: "old", say: "这条路穿过一座老城，邮局还是几十年前的样子。", rule: "怀旧", ruleZh: "你起手挑的那几张老票攻击 +2", paper: ["#f3e9d2", "#e2d1ad"], ink: "#5a4426", words: /旧|老|古|城|回忆|过去|民国|书/ },
+    夜车: { key: "night", say: "信搭上了一趟夜车，窗外一站一站往后退。", rule: "到站", ruleZh: "路只有五站，中间每站都要打", paper: ["#dfe1ea", "#c3c8d8"], ink: "#2c3350", words: /夜|车|站|旅|月|失眠|远行/ }
+  };
+  // 照 TA 的人设推荐一条：关键词数得最多的那条；一个都没有就按名字随一条
+  function themeFor(text, id) {
+    const t = String(text || ""); let best = "", n = 0;
+    Object.keys(THEMES).forEach(k => { const m = (t.match(new RegExp(THEMES[k].words.source, "g")) || []).length; if (m > n) { n = m; best = k; } });
+    if (best) return best;
+    const ks = Object.keys(THEMES); let hsh = 0; String(id || "").split("").forEach(c => { hsh = (hsh * 31 + c.charCodeAt(0)) >>> 0; }); return ks[hsh % ks.length];
+  }
   const PRICE = { card: 40, relic: 80, remove: 50, heal: 30 };
   const LEVEL_MAX = 8;
   // 终点 TA 的特别规则：照 TA 的羁绊（她 2026-11-08「终点不只是打一架」）
@@ -61,12 +93,13 @@
   const R0 = run => rng((run.seed ^ (run.step * 2654435761)) >>> 0);
 
   // 路线图：每排两三个站，连到下一排相邻的站；第一排都是普通站，最后一排是终点
-  function makeMap(seed) {
-    const R = rng(seed), rows = [];
+  function makeMap(seed, theme) {
+    const R = rng(seed), rows = [], ROWS = theme === "夜车" ? 5 : ROWS0;
     for (let r = 0; r < ROWS; r++) {
       const n = r === ROWS - 1 ? 1 : 2 + (R() < 0.5 ? 1 : 0), row = [];
       for (let k = 0; k < n; k++) {
         let t = r === 0 ? "fight" : r === ROWS - 1 ? "boss" : null;
+        if (!t && theme === "夜车") t = R() < 0.7 ? "fight" : "elite";   // 到站：中间每站都要打
         if (!t) { const x = R(); t = x < 0.42 ? "fight" : x < 0.56 ? "elite" : x < 0.74 ? "event" : x < 0.86 ? "shop" : "rest"; }
         if (r === ROWS - 2 && k === 0) t = "rest";      // 终点前一站一定有一个驿站
         row.push({ r, k, type: t });
@@ -87,13 +120,15 @@
     const offer = D().deckFrom(cards, seed ^ 0x77, 8, o.core || []);
     // 邮路等级（她 2026-11-08）：送到一次解锁下一级；每升一级起手血 -4、路上的麻烦和拦信的人更凶、终点更硬
     // 同行的人（withId）：可以不是收信的那个人；不填就是 TA 本人陪你走
+    const theme = THEMES[o.theme] ? o.theme : "";
     const level = Math.max(1, Math.min(LEVEL_MAX, Number(o.level) || 1)), hp0 = START_HP - (level - 1) * 4;
-    return { seed, toId: o.toId, withId: o.withId || o.toId, level, step: 0, hp: hp0, max: hp0, deck: [], offer, relics: [], coins: 40, map: makeMap(seed), pos: null, picked: false, log: [], done: null, letter: "", seen: {} };
+    return { seed, toId: o.toId, withId: o.withId || o.toId, level, step: 0, hp: hp0, max: hp0, deck: [], offer, relics: [], coins: 40, theme, map: makeMap(seed, theme), pos: null, picked: false, log: [], done: null, letter: "", seen: {} };
   }
   // 起手：从发的 8 张里挑 6 张
   function takeStart(run, idxs) {
     const set = new Set(idxs); run.deck = run.offer.filter((_, i) => set.has(i)).slice(0, START_PICK);
     if (run.deck.length < 4) run.deck = run.offer.slice(0, START_PICK);
+    run.deck = run.deck.map(s => Object.assign({}, s, { old: true }));   // 起手的老票（旧城的怀旧看它）
     run.offer = null; run.picked = true; return run;
   }
   const reachable = run => !run.pos ? run.map[0].map(n => n.k) : (run.map[run.pos.r].find(n => n.k === run.pos.k).to || []);
@@ -118,16 +153,17 @@
   // 这一站要打的那一场怎么开：给界面一份 newDuel 要的料
   function battleFor(run, nd, cards, closeOf, others) {
     const R = R0(run), seed = (run.seed ^ (run.step * 40503)) >>> 0;
-    const base = { meHp: run.hp, meMax: run.max, relics: run.relics.slice(), amulet: run.relics.includes("护身符") && !run.amuletUsed };
+    const th = THEMES[run.theme], troubles = TROUBLES.filter(t => !t.theme || t.theme === run.theme);
+    const base = { theme: run.theme || "", themeRuleZh: th ? th.rule + "：" + th.ruleZh : "", meHp: run.hp, meMax: run.max, relics: run.relics.slice(), amulet: run.relics.includes("护身符") && !run.amuletUsed };
     if (nd.type === "fight") {
-      const tr = pick(TROUBLES, R), hp = 22 + nd.r * 6 + (run.level - 1) * 3;
+      const tr = pick(troubles, R), hp = 22 + nd.r * 6 + (run.level - 1) * 3;
       run.dexT = run.dexT || []; if (!run.dexT.includes(tr.key)) run.dexT.push(tr.key);
       return Object.assign(base, { foeName: tr.zh, say: tr.say, foeDeck: troubleDeck(run, tr), foeHp: hp, seed, foeId: "" });
     }
     if (nd.type === "elite") {
       const pool = (others || []).filter(id => id !== run.toId && (cards || []).some(c => c.charId === id));
       const who = pool.length ? pick(pool, R) : "";
-      const deck = who ? D().foeDeckFrom(cards, who, closeOf ? closeOf(who) : [], seed) : troubleDeck(run, pick(TROUBLES, R));
+      const deck = who ? D().foeDeckFrom(cards, who, closeOf ? closeOf(who) : [], seed) : troubleDeck(run, pick(troubles, R));
       return Object.assign(base, { foeId: who, foeDeck: deck, foeHp: 36 + nd.r * 4 + (run.level - 1) * 4, seed, hard: true, elite: true });
     }
     // 终点：TA 本人，用 TA 的卡，认真模式
@@ -170,7 +206,7 @@
   // 同一趟里不重样（她 2026-11-08 加了十种）：没碰过的先来，全碰过了再随便挑
   function eventFor(run) {
     run.evSeen = run.evSeen || [];
-    const fresh = EVENTS.filter(e => !run.evSeen.includes(e.key)), pool = fresh.length ? fresh : EVENTS;
+    const all = EVENTS.filter(e => !e.theme || e.theme === run.theme), fresh = all.filter(e => !run.evSeen.includes(e.key)), pool = fresh.length ? fresh : all;
     const ev = pool[Math.floor(R0(run)() * pool.length)]; run.evSeen.push(ev.key); return ev;
   }
   function doEvent(run, ev, oi, cards) {
@@ -187,6 +223,10 @@
       case "bet": if (R() < 0.5) { const k = relicOffer(run, 1)[0]; addRelic(run, k); return "赢了，拿到「" + k + "」。"; } run.hp = Math.max(1, run.hp - 10); return "输了，信封 -10。";
       case "trade": { if (run.deck.length > 4) { const w = run.deck.reduce((a, s, i) => s.pow + s.maxHp < run.deck[a].pow + run.deck[a].maxHp ? i : a, 0); run.deck.splice(w, 1); } cardOffer(run, cards, 2).forEach(c => run.deck.push(c)); return "换来了两张新票。"; }
       case "heal8": run.hp = Math.min(run.max, run.hp + 8); return "雨小了，信封回了 8。";
+      case "heal15": run.hp = Math.min(run.max, run.hp + 15); return "信封 +15。";
+      case "heal10": run.hp = Math.min(run.max, run.hp + 10); return "信封 +10。";
+      case "hurt5coins": run.hp = Math.max(1, run.hp - 5); run.coins += 30; return "信封 -5，+30 邮花。";
+      case "buycard": { if (run.coins < op.cost) return "邮花不够。"; run.coins -= op.cost; const c = cardOffer(run, cards, 1)[0]; if (c) run.deck.push(c); return c ? "买到一张「" + c.name + "」。" : ""; }
       case "heal6": run.hp = Math.min(run.max, run.hp + 6); return "信封回了 6。";
       case "coins20": run.coins += 20; return "+20 邮花。";
       case "coins15": run.coins += 15; return "+15 邮花。";
@@ -226,7 +266,7 @@
   function summary(run, nameOf) {
     const nm = id => (nameOf && nameOf(id)) || "";
     const types = run.log.map(l => NODE[l.type] ? NODE[l.type].zh : l.type);
-    return "一路走了 " + run.log.length + " 站（" + types.join("→") + "），信封还剩 " + run.hp + "/" + run.max
+    return (run.theme ? "走的是「" + run.theme + "」那条路（" + THEMES[run.theme].say + "）；" : "") + "一路走了 " + run.log.length + " 站（" + types.join("→") + "），信封还剩 " + run.hp + "/" + run.max
       + "；带着的票：" + run.deck.map(s => "「" + s.name + "」" + (s.charId && nm(s.charId) ? "（" + nm(s.charId) + "的卡）" : "")).join("、")
       + (run.relics.length ? "；路上捡到的信物：" + run.relics.join("、") : "");
   }
@@ -245,7 +285,7 @@
     }
     return "";
   }
-  const API = { LEVEL_MAX, BOSS_RULES, letterReward, ROWS, NODE, TROUBLES, EVENTS, PRICE, newRun, takeStart, reachable, enter, battleFor, afterBattle, addRelic, upgrade, eventFor, doEvent, shopFor, priceOf, buy, rest, summary, cardOffer };
+  const API = { THEMES, themeFor, LEVEL_MAX, BOSS_RULES, letterReward, ROWS, NODE, TROUBLES, EVENTS, PRICE, newRun, takeStart, reachable, enter, battleFor, afterBattle, addRelic, upgrade, eventFor, doEvent, shopFor, priceOf, buy, rest, summary, cardOffer };
   g.StampRun = API;
   if (typeof module !== "undefined" && module.exports) module.exports = API;
 })(typeof window !== "undefined" ? window : globalThis);

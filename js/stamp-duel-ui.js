@@ -116,7 +116,7 @@
       terrain ? h("span", { style: { position: "absolute", left: "50%", bottom: -8, transform: "translateX(-50%)", padding: "0 4px", borderRadius: 3, background: PAPER, color: GREEN, fontFamily: F, fontSize: fz(8) } }, terrain) : null);
   }
   function EmptySlot({ terrain, onTap, armed }) {
-    const broken = terrain === "破损";
+    const broken = terrain === "破损" || terrain === "冰封";
     return h("button", { "data-wk": "duelcell", "data-empty": "1", onClick: onTap, className: "active:opacity-70",
       style: { position: "relative", width: "100%", aspectRatio: "1 / 1", borderRadius: 3, border: "1.5px dashed " + (armed && !broken ? RED : "rgba(47,42,34,.25)"),
         background: broken ? "repeating-linear-gradient(45deg, rgba(178,58,46,.10) 0 5px, transparent 5px 10px)" : armed ? "rgba(178,58,46,.05)" : "rgba(255,255,255,.28)",
@@ -441,6 +441,7 @@
         h("div", { "data-wk": "duelintent", style: { position: "relative", margin: "6px 0 10px", padding: "7px 10px 7px 46px", borderRadius: 3, border: "1px dashed rgba(47,42,34,.35)", background: "rgba(255,255,255,.5)", fontSize: fz(11.5), lineHeight: 1.6 } },
           h("span", { style: { position: "absolute", left: 7, top: 7, padding: "1px 4px", border: "1.5px solid " + RED, color: RED, borderRadius: 3, fontFamily: FD, fontSize: fz(10), transform: "rotate(-6deg)" } }, "下一步"),
           it.styleZh ? h("div", { style: { color: SUB, fontSize: fz(10.5) } }, foeName + " 的打法：" + it.styleZh) : null,
+          runBattle && runBattle.themeRuleZh ? h("div", { "data-wk": "duelthemerule", style: { color: GREEN, fontSize: fz(11) } }, runBattle.theme + " · " + runBattle.themeRuleZh) : null,
           runBattle && runBattle.bossRuleZh ? h("div", { "data-wk": "duelbossrule", style: { color: RED, fontSize: fz(11) } }, "终点规则 · " + runBattle.bossRule + "：" + runBattle.bossRuleZh) : null,
           st.blind ? "盲打：TA 的下一步看不见。" : intentText + (it.toEnvelope ? "；空着的列会打你信封约 " + it.toEnvelope : "") + ((it.inks || []).length ? "；会盖：" + it.inks.join("、") : ""),
           it.nextEvent ? h("div", { style: { color: GREEN } }, "下回合公告：" + it.nextEvent + "——" + D().EVENTS[it.nextEvent]) : null,

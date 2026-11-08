@@ -190,14 +190,28 @@
     const events = []; for (let t = EVENT_EVERY; t <= ((opts && opts.cap) || TURN_CAP); t += EVENT_EVERY) events[t] = EVENT_KEYS[Math.floor(R() * EVENT_KEYS.length)];
     // 让子、认真模式、快局（她 2026-11-08）：opts.meHp / opts.foeHp 改两边血，opts.cap 改最多几回合，opts.hard 对面每回合多 1 胶水
     const o = opts || {};
-    const st = { turn: 0, me: side(meDeck, s, o.meHp, o.meMax), relics: o.relics || [], amulet: !!o.amulet, bossRule: o.bossRule || "", foe: side(foeDeck, s ^ 0xabcdef, o.foeHp), log: [], over: null, uid: 0, seed: s, cap: o.cap || TURN_CAP, hard: !!o.hard, rule: o.rule || "", wager: o.wager || "", blind: !!(opts && opts.blind), events, bonds: (opts && opts.bonds) || {}, foeId: (opts && opts.foeId) || "", style: (opts && opts.style) || "" };
+    const st = { turn: 0, me: side(meDeck, s, o.meHp, o.meMax), relics: o.relics || [], amulet: !!o.amulet, bossRule: o.bossRule || "", theme: o.theme || "", foe: side(foeDeck, s ^ 0xabcdef, o.foeHp), log: [], over: null, uid: 0, seed: s, cap: o.cap || TURN_CAP, hard: !!o.hard, rule: o.rule || "", wager: o.wager || "", blind: !!(opts && opts.blind), events, bonds: (opts && opts.bonds) || {}, foeId: (opts && opts.foeId) || "", style: (opts && opts.style) || "" };
     startTurn(st);
     return st;
   }
   // 这一边信封上某个人的票有几张；两张以上羁绊生效
   const bondOn = (st, sd, u) => { const b = u && u.charId ? (st.bonds || {})[u.charId] : ""; return b && sd.board.filter(x => x && x.charId === u.charId).length >= 2 ? b : ""; };
   // 回合开头：守护、黏人、羁绊这些每回合一次的
+  // 远信主题路线的规则（她 2026-11-08「四条都要」）：雪国冻住一格、海边潮汐换列；旧城在 powOf 里
+  const blocked = (sd, i) => sd.terrain[i] === "破损" || sd.terrain[i] === "冰封";
+  function themeEffects(st) {
+    if (st.theme === "雪国") {
+      const sd = st.me; sd.terrain = sd.terrain.map(t => t === "冰封" ? "" : t);
+      const free = sd.board.map((u, i) => !u && !sd.terrain[i] ? i : -1).filter(i => i >= 0);
+      if (free.length) { const i = free[Math.floor(rng(st.seed + st.turn * 977)() * free.length)]; sd.terrain[i] = "冰封"; say(st, "me", "一格结冰了，这回合贴不上", { kind: "ink", slot: i }); }
+    }
+    if (st.theme === "海边" && st.turn > 1 && st.turn % 2 === 1) {
+      ["me", "foe"].forEach(w => { const b = st[w].board; for (let r = 0; r < SIZE; r++) { const a = r * SIZE, c = a + SIZE - 1, t = b[a]; b[a] = b[c]; b[c] = t; } });
+      say(st, "me", "涨潮了：两边的左右两列换了位置");
+    }
+  }
   function turnStartEffects(st, sd, who) {
+    if (who === "me" && st.theme) themeEffects(st);
     // 远信终点 TA 的特别规则（只管对面那一边）
     if (who === "foe" && st.bossRule) {
       const br = st.bossRule;
@@ -274,7 +288,7 @@
     const sd = st[who], s = sd.hand[handIdx];
     if (st.over || !s) return { ok: false, why: "没有这张" };
     if (slot < 0 || slot >= SLOTS || sd.board[slot]) return { ok: false, why: "这一格已经贴了" };
-    if (sd.terrain[slot] === "破损") return { ok: false, why: "这一格破了，贴不上" };
+    if (blocked(sd, slot)) return { ok: false, why: sd.terrain[slot] === "冰封" ? "这一格结冰了，贴不上" : "这一格破了，贴不上" };
     const cost = faceNow(st, s); if (sd.postage < cost) return { ok: false, why: "胶水不够" };
     sd.postage -= cost; sd.hand.splice(handIdx, 1); sd.kept = sd.kept.filter(k => k !== handIdx).map(k => k > handIdx ? k - 1 : k);
     const u = Object.assign({}, s, { uid: ++st.uid, hp: s.maxHp, shield: 0, marks: {}, first: true, charge: 0 });
@@ -312,7 +326,7 @@
     const sd = st[who], u = sd.board[from];
     if (st.over || !u) return { ok: false, why: "这一格是空的" };
     if (!adj(from).includes(to) || sd.board[to]) return { ok: false, why: "只能挪到旁边的空格" };
-    if (sd.terrain[to] === "破损") return { ok: false, why: "那一格破了" };
+    if (blocked(sd, to)) return { ok: false, why: "那一格贴不上" };
     if (sd.postage < MOVE_COST) return { ok: false, why: "胶水不够" };
     sd.postage -= MOVE_COST; sd.board[to] = u; sd.board[from] = null;
     say(st, who, u.name + " 挪了位置", { kind: "move", from, to });
@@ -404,6 +418,7 @@
     let p = u.pow + (u.marks.雨渍 ? -2 : 0) + (eventNow(st) === "大雨" ? -1 : 0);
     const who0 = u.side || (sd === st.me ? "me" : "foe");
     if (who0 === "foe" && st.bossRule === "偏执") p += st.rage || 0;
+    if (who0 === "me" && st.theme === "旧城" && u.old) p += 2;                                    // 旧城：起手那几张老票更有劲
     if (adj(i).some(j => sd.board[j] && u.charId && sd.board[j].charId === u.charId)) p += 2 + (has(st, who0, "连号") ? 2 : 0);          // 连张
     if (row(i) === SIZE - 1 && (u.role === "投递" || u.role === "邮戳") && has(st, who0, "望远镜")) p += 2;
     if (row(i) === SIZE - 1 && (u.role === "投递" || u.role === "邮戳")) p += 2;                          // 后排输出
@@ -490,7 +505,7 @@
     for (const { s, k } of hand) {
       if (style === "冷淡" && placed >= 2) break;
       const cost = faceNow(st, s); if (cost > money) continue;
-      const free = board.map((x, i) => x || sd.terrain[i] === "破损" ? -1 : i).filter(i => i >= 0); if (!free.length) break;
+      const free = board.map((x, i) => x || blocked(sd, i) ? -1 : i).filter(i => i >= 0); if (!free.length) break;
       const score = i => (s.role === "火漆" ? meThreat(col(i)) * 3 + (row(i) === 0 ? (style === "护短" ? 12 : 6) : 0) : 0)
         + (style === "好胜" && s.role === "投递" && targetIn(me, col(i)) < 0 ? 8 : 0)
         + ((s.role === "投递" || s.role === "邮戳") ? (row(i) === SIZE - 1 && board[col(i)] ? 5 : 0) + (targetIn(me, col(i)) < 0 ? 3 : 0) : 0)
