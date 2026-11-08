@@ -62,7 +62,7 @@ test("信的事件：七种都在岔路池里，各有奖励；回信带上卡�
   const run = RN.newRun({ cards, toId: "a", seed: 4 }); RN.takeStart(run, [0, 1, 2, 3, 4, 5]);
   for (const k of kinds) assert.ok(RN.letterReward(run, k, 0) !== undefined);
   const ui = readFileSync(new URL("../js/stamp-run-ui.js", import.meta.url), "utf8"), app = readFileSync(new URL("../js/app.js", import.meta.url), "utf8");
-  assert.match(ui, /mode: "letter", text: "", withName: [^,]+, cards: run\.deck\.map\(cardStory\)/);
+  assert.match(ui, /mode: "letter", text: "", myLetter: run\.myLetter \|\| "", withName: [^,]+, cards: run\.deck\.map\(cardStory\)/);
   assert.match(ui, /sealed: ev\.letter === "future"/);
   assert.match(ui, /x\.sealed \? Object\.assign\(\{\}, x, \{ sealed: false/);
   for (const m of ["postcard", "note", "memory", "oneline", "ask", "answer", "future", "swap"]) assert.ok(app.includes('d.mode === "' + m + '"'), m);
@@ -79,4 +79,13 @@ test("邮路等级、陪你走的人、终点特别规则、邮册图鉴、明�
   assert.match(ui, /const writer = mode === "postcard" \|\| mode === "future" \? run\.toId : withId;/);
   assert.match(app, /onRunPhoto: async \(charId, desc\) =>/);
   assert.match(app, /d\.toId && d\.toId !== char\.id/);
+});
+test("出发前写信：回信回这一封；没送到退件、下次能重寄；页面装修（齿孔小票、路线连线）", () => {
+  const ui = readFileSync(new URL("../js/stamp-run-ui.js", import.meta.url), "utf8"), app = readFileSync(new URL("../js/app.js", import.meta.url), "utf8");
+  assert.match(ui, /if \(view\.at === "write"\)/);
+  assert.match(ui, /keepLetter\("returned", \[run\.myLetter\]/);
+  assert.match(ui, /myLetter: run\.myLetter \|\| ""/);
+  assert.match(app, /她寄给你的这封信，你刚拆开/);
+  assert.match(app, /信封里她写了什么，你还不知道/);
+  assert.match(ui, /h\("svg", \{ width: "100%", height: H/);
 });

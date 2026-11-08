@@ -17,16 +17,29 @@
   const save = (k, v) => { try { typeof saveJSON === "function" && saveJSON(k, v); } catch (e) {} };
 
   // 一张小票（地图上的卡组、奖励三选一、邮局里）：卡名、作用、攻击血
+  // 页面装修（她 2026-11-08「页面能不能做好看点」）：小票做成一枚齿孔邮票，上头一条作用色带
+  const ROLE_C = { 投递: "#b23a2e", 火漆: "#8a3a4a", 补票: "#4f7a66", 集邮: "#3f6fb0", 邮戳: "#6a4f8a" };
+  const PERF = "radial-gradient(circle at 4px 4px, transparent 2.6px, #fbf6ea 2.8px) -4px -4px / 7px 7px";
   function Mini({ s, on, onTap, sub }) {
-    return h("button", { "data-wk": "runcard", "data-on": on ? "1" : "0", onClick: onTap, className: "active:opacity-80 text-left",
-      style: { width: "100%", padding: "7px 8px", borderRadius: 4, background: on ? "rgba(178,58,46,.08)" : "#fff", border: "1.5px solid " + (on ? RED : (RC[s.rarity] || RC.R) + "88"), fontFamily: F, color: INK } },
-      h("div", { style: { fontSize: fz(9.5), color: RC[s.rarity] || RC.R, fontWeight: 700 } }, s.rarity + " · " + s.role + " · 面值 " + s.face),
-      h("div", { style: { fontSize: fz(12), lineHeight: 1.3, margin: "2px 0", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, s.name),
-      h("div", { style: { fontSize: fz(10), color: SUB } }, "⚔" + s.pow + " ♥" + s.maxHp + " · " + s.trait + (sub ? " · " + sub : "")));
+    const rc = ROLE_C[s.role] || INK;
+    return h("button", { "data-wk": "runcard", "data-on": on ? "1" : "0", onClick: onTap, className: "active:scale-[.98] text-left",
+      style: { width: "100%", padding: 4, background: PERF, border: "none", filter: on ? "drop-shadow(0 0 0 " + RED + ") drop-shadow(0 3px 6px rgba(178,58,46,.35))" : "drop-shadow(0 2px 3px rgba(47,42,34,.18))", fontFamily: F, color: INK, transform: on ? "translateY(-2px)" : "none", transition: "transform .15s" } },
+      h("div", { style: { position: "relative", borderRadius: 2, overflow: "hidden", background: on ? "#fff4ef" : "#fffdf7", outline: "1px solid " + (on ? RED : (RC[s.rarity] || RC.R) + "66") } },
+        h("div", { style: { height: 4, background: rc } }),
+        h("div", { style: { padding: "6px 8px 7px" } },
+          h("div", { className: "flex items-center", style: { gap: 5, fontSize: fz(9.5) } },
+            h("span", { style: { padding: "0 4px", borderRadius: 2, background: RC[s.rarity] || RC.R, color: "#fff", fontWeight: 700 } }, s.rarity),
+            h("span", { style: { color: rc } }, s.role),
+            h("span", { style: { marginLeft: "auto", fontFamily: FD, fontSize: fz(13), color: RC[s.rarity] || RC.R } }, s.face)),
+          h("div", { style: { fontFamily: FD, fontSize: fz(12.5), lineHeight: 1.3, margin: "3px 0 2px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, s.name),
+          h("div", { style: { fontSize: fz(10), color: SUB, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, "⚔" + s.pow + " ♥" + s.maxHp + " · " + s.trait + (sub ? " · " + sub : "")))));
   }
-
+  // 一块信纸：页面里的段落都放在这上面
+  const Paper = (key, title, kids, accent) => h("div", { key, "data-wk": "runpaper", style: { position: "relative", margin: "0 0 14px", borderRadius: 6, background: PAPER, boxShadow: "0 3px 10px rgba(47,42,34,.12)", border: "1px solid rgba(47,42,34,.08)", overflow: "hidden" } },
+    h("div", { style: { height: 4, background: accent || AIR } }),
+    h("div", { style: { padding: "12px 14px 14px" } }, title ? h("div", { style: { fontFamily: FD, fontSize: fz(14.5), marginBottom: 8, color: INK } }, title) : null, kids));
   // 信匣里每一种往来叫什么（她 2026-11-08）
-  const KIND_ZH = { letter: "回信", postcard: "明信片", note: "卡背面的便条", memory: "回忆卡", oneline: "一句话的回信", ask: "问答卡", future: "寄给以后的信", swap: "交换邮票时的话" };
+  const KIND_ZH = { returned: "退件", letter: "回信", postcard: "明信片", note: "卡背面的便条", memory: "回忆卡", oneline: "一句话的回信", ask: "问答卡", future: "寄给以后的信", swap: "交换邮票时的话" };
   function StampRunPage(props) {
     const { characters, cards, onBack, meName, toast, closeOf, onChat, onPhoto } = props;
     const [run, setRun] = useState(() => { const v = load(SAVE, null); return v && v.run && !v.run.done ? v.run : null; });
@@ -59,13 +72,18 @@
     // 每动一步存一份
     const commit = (r, v, ch) => { const rr = r || run, vv = v || view; if (rr && rr.step) dexMerge(rr); save(SAVE, rr && !rr.done ? { run: rr, view: vv, chat: ch || chat } : null); setRun(rr ? Object.assign({}, rr) : rr); setView(vv); bump(x => x + 1); };
     const shell = kids => h("div", { "data-wk": "runpage", className: "h-full flex flex-col", style: { position: "relative", background: "repeating-linear-gradient(0deg, transparent 0 27px, rgba(47,42,34,.05) 27px 28px), linear-gradient(#f3ebdb, #e8dcc4)" } }, kids);
-    const bar = () => run ? h("div", { "data-wk": "runbar", className: "flex items-center flex-wrap px-4", style: { gap: 10, padding: "4px 16px 8px", fontFamily: F, fontSize: fz(12), color: INK } },
-      h("span", null, "✉ 信封 " + run.hp + "/" + run.max),
-      h("span", null, "邮花 " + run.coins),
-      h("span", null, "卡组 " + run.deck.length + " 张"),
-      run.relics.length ? h("span", { style: { color: GOLD } }, "信物 " + run.relics.length) : null) : null;
-    const relicRow = () => run && run.relics.length ? h("div", { "data-wk": "runrelics", className: "flex flex-wrap px-4", style: { gap: 5, marginBottom: 8 } }, run.relics.map(k => h("button", { key: k, onClick: () => toast && toast(k + "：" + D().RELICS[k]),
-      style: { padding: "1px 8px", borderRadius: 999, border: "1px solid " + GOLD, color: GOLD, background: "rgba(184,134,42,.06)", fontSize: fz(11) } }, k))) : null;
+    // 顶上一条：信封血（一条细血条）、邮花、卡组、信物（小火漆，点了看说明）
+    const bar = () => run ? h("div", { "data-wk": "runbar", className: "px-4", style: { padding: "2px 16px 10px", fontFamily: F, color: INK } },
+      h("div", { className: "flex items-center", style: { gap: 8 } },
+        h("div", { style: { flex: 1, minWidth: 0, padding: "6px 10px", borderRadius: 6, background: "#fffdf7", boxShadow: "0 1px 4px rgba(47,42,34,.12)" } },
+          h("div", { className: "flex", style: { justifyContent: "space-between", fontSize: fz(11), color: SUB } }, h("span", null, "✉ 信封"), h("span", { style: { fontFamily: FD, color: INK } }, run.hp + " / " + run.max)),
+          h("div", { style: { height: 5, marginTop: 4, borderRadius: 3, background: "rgba(47,42,34,.1)", overflow: "hidden" } }, h("div", { style: { width: Math.max(0, 100 * run.hp / run.max) + "%", height: "100%", background: run.hp / run.max < 0.35 ? RED : GREEN, transition: "width .4s" } }))),
+        h("div", { style: { padding: "6px 10px", borderRadius: 6, background: "#fffdf7", boxShadow: "0 1px 4px rgba(47,42,34,.12)", textAlign: "center", minWidth: 56 } }, h("div", { style: { fontSize: fz(10), color: SUB } }, "邮花"), h("div", { style: { fontFamily: FD, fontSize: fz(14), color: GOLD } }, run.coins)),
+        h("div", { style: { padding: "6px 10px", borderRadius: 6, background: "#fffdf7", boxShadow: "0 1px 4px rgba(47,42,34,.12)", textAlign: "center", minWidth: 50 } }, h("div", { style: { fontSize: fz(10), color: SUB } }, "卡组"), h("div", { style: { fontFamily: FD, fontSize: fz(14) } }, run.deck.length))),
+      run.relics.length ? h("div", { "data-wk": "runrelics", className: "flex flex-wrap", style: { gap: 6, marginTop: 8 } }, run.relics.map(k => h("button", { key: k, onClick: () => toast && toast(k + "：" + D().RELICS[k]),
+        style: { display: "inline-flex", alignItems: "center", gap: 4, padding: "2px 9px 2px 3px", borderRadius: 999, background: "#fffdf7", border: "1px solid " + GOLD + "88", color: "#8a6420", fontSize: fz(11) } },
+        h("span", { style: { width: 16, height: 16, borderRadius: 999, background: "radial-gradient(circle at 35% 30%, #d9a441, #a8761f)", boxShadow: "inset 0 -1px 2px rgba(0,0,0,.25)" } }), k))) : null) : null;
+    const relicRow = () => null;
 
     // ── 路上聊天：跟同行的那个人（终点就是 TA）──
     const talk = async () => {
@@ -113,7 +131,7 @@
           h("div", { style: { fontSize: fz(11.5), color: SUB, marginBottom: 8 } }, "最多两个人：起手发的牌多从他们那儿来。不挑就随机。"),
           h("div", { className: "flex flex-wrap", style: { gap: 8, marginBottom: 20 } }, owned.map(c => { const on = core.includes(c.id); return h("button", { key: c.id, onClick: () => setCore(p => on ? p.filter(x => x !== c.id) : p.concat(c.id).slice(-2)),
             style: { padding: "5px 11px", borderRadius: 999, border: "1px solid " + (on ? GREEN : "rgba(47,42,34,.25)"), background: on ? "rgba(79,122,102,.12)" : "rgba(255,255,255,.4)", color: on ? GREEN : INK, fontSize: fz(12.5) } }, c.remark || c.name); })),
-          h("button", { "data-wk": "runstart", disabled: !toId, onClick: () => { const L0 = load(LETTERS, []); if (L0.some(x => x.sealed)) save(LETTERS, L0.map(x => x.sealed ? Object.assign({}, x, { sealed: false, opened: Date.now() }) : x)); const r = Object.assign(RN().newRun({ cards, toId, core, withId: withPick || toId, level: Math.min(level, unlocked) }), { bonds: bondsOf() }); setChat([]); setPickIdx([0, 1, 2, 3, 4, 5]); commit(r, { at: "pick" }, []); }, className: "w-full disabled:opacity-40", style: Object.assign(btn(RED, "#fff"), { padding: "12px 0", fontFamily: FD, fontSize: fz(15), letterSpacing: ".15em" }) }, "封好信，出发"),
+          h("button", { "data-wk": "runstart", disabled: !toId, onClick: () => { const L0 = load(LETTERS, []); if (L0.some(x => x.sealed)) save(LETTERS, L0.map(x => x.sealed ? Object.assign({}, x, { sealed: false, opened: Date.now() }) : x)); const r = Object.assign(RN().newRun({ cards, toId, core, withId: withPick || toId, level: Math.min(level, unlocked) }), { bonds: bondsOf() }); setChat([]); setPickIdx([0, 1, 2, 3, 4, 5]); setDraft(""); commit(r, { at: "write" }, []); }, className: "w-full disabled:opacity-40", style: Object.assign(btn(RED, "#fff"), { padding: "12px 0", fontFamily: FD, fontSize: fz(15), letterSpacing: ".15em" }) }, "封好信，出发"),
           // 远信邮册：每一趟一枚纪念邮戳（她 2026-11-08）
           (() => { const P = load(POSTMARKS, []); if (!P.length) return null;
             return h("div", { "data-wk": "runpostmarks", style: { marginTop: 22 } },
@@ -142,11 +160,33 @@
             h("div", { style: { fontFamily: FD, fontSize: fz(14), marginBottom: 8 } }, "信匣"),
             h("div", { style: { fontSize: fz(11.5), color: SUB, marginBottom: 8 } }, "一路上收到的明信片、便条、回信都在这儿。"),
             letters.slice().reverse().slice(0, 40).map((L, k) => h("details", { key: k, "data-wk": "runletterbox", "data-kind": L.kind || "letter", style: { marginBottom: 8, padding: "8px 11px", borderRadius: 4, background: PAPER, border: "1px solid rgba(47,42,34,.12)", borderLeft: "3px solid " + (L.kind === "future" ? GOLD : L.kind && L.kind !== "letter" ? GREEN : RED) } },
-              h("summary", { style: { fontSize: fz(12.5), cursor: "pointer" } }, (nameOf(L.toId) || "TA") + " 的" + (KIND_ZH[L.kind || "letter"] || "信") + (L.title ? "：" + L.title : "") + " · " + new Date(L.ts).toLocaleDateString()),
+              h("summary", { style: { fontSize: fz(12.5), cursor: "pointer" } }, L.kind === "returned" ? "你写给 " + (nameOf(L.toId) || "TA") + " 的信 · " + (L.delivered ? "后来重寄送到了" : "退件") : (nameOf(L.toId) || "TA") + " 的" + (KIND_ZH[L.kind || "letter"] || "信") + (L.title ? "：" + L.title : "") + " · " + new Date(L.ts).toLocaleDateString()),
               L.sealed ? h("div", { style: { marginTop: 6, fontSize: fz(12.5), color: SUB } }, "🔒 封着的。下一趟出发时才拆得开。")
                 : h("div", { style: { marginTop: 6, fontFamily: FD, fontSize: fz(13), lineHeight: 1.85, whiteSpace: "pre-wrap" } }, L.img ? h("img", { src: typeof resolveImg === "function" ? resolveImg(L.img) : L.img, style: { display: "block", width: "100%", borderRadius: 4, marginBottom: 8 } }) : null, (L.q ? "问：" + L.q + "\n答：" + (L.a || "") + "\n\n" : L.mine ? "你写：" + L.mine + "\n\n" : "") + L.text)))) : null)]);
     }
 
+    // ── 出发前写信（她 2026-11-08「我觉得可以」）：写的就是这封信；送到了 TA 拆开回你这一封，没送到退回信匣、下次能重寄 ──
+    if (view.at === "write") {
+      const back = load(LETTERS, []).map((L, i) => Object.assign({ i }, L)).filter(L => L.kind === "returned" && L.toId === run.toId && !L.delivered);
+      return shell([
+        h(Head, { key: "hd", zh: "写信", sub: "寄给 " + toName, bg: "transparent", ink: INK, onBack: () => commit(null, { at: "start" }) }),
+        h("div", { key: "bd", className: "flex-1 min-h-0 overflow-y-auto px-4", style: { fontFamily: F, color: INK, paddingBottom: 24 } },
+          h("div", { style: { fontSize: fz(12), color: SUB, lineHeight: 1.7, margin: "2px 0 12px" } }, "写你想对 " + toName + " 说的话，封进信封带上路。送到了 TA 才拆，回信就是回这一封；路上没送到，信会退回来，下次出发可以再寄。不写也行，空着寄。"),
+          back.length ? h("div", { "data-wk": "runresend", style: { marginBottom: 12 } },
+            h("div", { style: { fontSize: fz(12), color: RED, marginBottom: 6 } }, "上次没送到、退回来的信（点一下重寄这封）："),
+            back.slice(-5).reverse().map(L => h("button", { key: L.i, onClick: () => { setDraft(L.text || ""); commit(Object.assign(run, { resendIdx: L.i }), view); }, className: "w-full text-left",
+              style: { display: "block", marginBottom: 6, padding: "7px 10px", borderRadius: 4, background: run.resendIdx === L.i ? "rgba(178,58,46,.08)" : "#fffdf7", border: "1px " + (run.resendIdx === L.i ? "solid " + RED : "dashed rgba(47,42,34,.3)"), fontSize: fz(12), color: INK, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } },
+              "退件 · " + new Date(L.ts).toLocaleDateString() + "：" + String(L.text || "").slice(0, 40)))) : null,
+          h("div", { "data-wk": "runwrite", style: { position: "relative", borderRadius: 6, background: PAPER, boxShadow: "0 4px 14px rgba(47,42,34,.15)", overflow: "hidden" } },
+            h("div", { style: { height: 6, background: AIR } }),
+            h("div", { style: { padding: "12px 16px 14px" } },
+              h("div", { style: { fontFamily: FD, fontSize: fz(14), marginBottom: 6 } }, toName + "："),
+              h("textarea", { "data-wk": "runwriteinput", value: draft, onChange: e => { setDraft(e.target.value); if (typeof fitTextarea === "function") fitTextarea(e.target); }, rows: 9, placeholder: "想对 TA 说的话……",
+                style: { width: "100%", minHeight: 240, border: "none", outline: "none", resize: "none", fontFamily: FD, fontSize: fz(14), lineHeight: "30px", color: INK, padding: 0,
+                  background: "repeating-linear-gradient(180deg, transparent 0 29px, rgba(63,111,176,.2) 29px 30px)", backgroundAttachment: "local" } }),
+              h("div", { style: { textAlign: "right", fontFamily: FD, fontSize: fz(13), color: SUB } }, "—— " + (meName || "我")))),
+          h("button", { "data-wk": "runwritego", onClick: () => { commit(Object.assign(run, { myLetter: draft.trim().slice(0, 2000) }), { at: "pick" }); setDraft(""); }, className: "w-full", style: Object.assign(btn(RED, "#fff"), { marginTop: 14, padding: "12px 0", fontFamily: FD, fontSize: fz(15), letterSpacing: ".15em" }) }, draft.trim() ? "封好信，挑起手的票" : "空着寄，挑起手的票"))]);
+    }
     // ── 挑起手卡组 ──
     if (view.at === "pick") return shell([
       h(Head, { key: "hd", zh: "挑起手的票", bg: "transparent", ink: INK, onBack: () => commit(null, { at: "start" }) }),
@@ -164,8 +204,8 @@
         onQuit: () => { if (typeof requestAppConfirm === "function") requestAppConfirm("先离开这一站？", "回到地图，下次进来这一站从头打。", () => commit(run, { at: "map", redo: view.nd }), "离开"); else commit(run, { at: "map", redo: view.nd }); },
         onDone: st => {
           const nd = run.map[run.pos.r][run.pos.k], res = RN().afterBattle(run, st, nd, cards);
-          if (res.won) { postmark(run, true); return commit(run, { at: "end", win: true }); }
-          if (res.lost) { postmark(run, false); return commit(run, { at: "end", win: false }); }
+          if (res.won) { postmark(run, true); if (run.resendIdx != null) { const L = load(LETTERS, []); if (L[run.resendIdx]) { L[run.resendIdx] = Object.assign({}, L[run.resendIdx], { delivered: Date.now() }); save(LETTERS, L); } } return commit(run, { at: "end", win: true }); }
+          if (res.lost) { postmark(run, false); if (run.myLetter && run.resendIdx == null) keepLetter("returned", [run.myLetter], { mine: true }); return commit(run, { at: "end", win: false }); }
           commit(run, { at: "reward", res });
         } }) }));
     }
@@ -193,22 +233,36 @@
       const can = RN().reachable(run), cur = run.pos;
       return page("远信 · 路线", [
         view.redo ? h("button", { key: "redo", onClick: redo, className: "w-full", style: Object.assign(btn(RED, "#fff"), { marginBottom: 10 }) }, "回到刚才那一站，重新打") : null,
-        h("div", { key: "map", "data-wk": "runmap", style: { padding: 6, borderRadius: 6, background: AIR } },
-          h("div", { style: { padding: "12px 10px", borderRadius: 3, background: PAPER } },
-            run.map.map((row, r) => h("div", { key: r, className: "flex justify-around items-center", style: { margin: "6px 0", position: "relative" } },
-              h("span", { style: { position: "absolute", left: 0, fontSize: fz(9.5), color: SUB } }, "第" + (r + 1) + "站"),
-              row.map(nd => {
+        // 路线图：一排一站，站跟站之间画虚线；能去的那几站在动，走过的盖了戳，现在在哪儿压一个红邮戳
+        (() => {
+          const ROWH = 74, W = 300, rows = run.map, H = rows.length * ROWH + 10;
+          const xOf = (row, k) => (k + 1) * W / (row.length + 1), yOf = r => 18 + r * ROWH + 22;
+          const lines = [];
+          rows.forEach((row, r) => row.forEach(nd => (nd.to || []).forEach(k2 => { const nx = rows[r + 1] && rows[r + 1][k2]; if (!nx) return;
+            const walked = run.seen[r + ":" + nd.k] && run.seen[(r + 1) + ":" + k2], live = cur && cur.r === r && cur.k === nd.k;
+            lines.push(h("line", { key: r + "_" + nd.k + "_" + k2, x1: xOf(row, nd.k), y1: yOf(r) + 18, x2: xOf(rows[r + 1], k2), y2: yOf(r + 1) - 18, stroke: walked ? RED : live ? INK : "rgba(47,42,34,.25)", strokeWidth: walked || live ? 2 : 1.4, strokeDasharray: walked ? "0" : "4 4" })); })));
+          return h("div", { key: "map", "data-wk": "runmap", style: { padding: 6, borderRadius: 8, background: AIR, boxShadow: "0 4px 14px rgba(47,42,34,.18)" } },
+            h("style", null, "@keyframes runPulse{0%,100%{transform:translate(-50%,-50%) scale(1)}50%{transform:translate(-50%,-50%) scale(1.08)}}"),
+            h("div", { style: { position: "relative", borderRadius: 4, background: PAPER, height: H, maxWidth: W, margin: "0 auto", overflow: "hidden" } },
+              h("svg", { width: "100%", height: H, viewBox: "0 0 " + W + " " + H, preserveAspectRatio: "none", style: { position: "absolute", inset: 0 } }, lines),
+              rows.map((row, r) => row.map(nd => {
                 const here = cur && cur.r === r && cur.k === nd.k, open = !view.redo && ((!cur && r === 0) || (cur && r === cur.r + 1)) && can.includes(nd.k), seen = run.seen[r + ":" + nd.k];
-                const meta = RN().NODE[nd.type], col = nd.type === "boss" ? RED : nd.type === "elite" ? GOLD : nd.type === "shop" || nd.type === "rest" ? GREEN : INK;
-                return h("button", { key: nd.k, "data-wk": "runnode", "data-type": nd.type, "data-open": open ? "1" : "0", disabled: !open, onClick: () => go(nd.k),
-                  style: { width: 58, padding: "6px 0 4px", borderRadius: 6, textAlign: "center", fontFamily: F, background: here ? col : open ? "#fff" : "rgba(255,255,255,.35)", color: here ? "#fff" : col,
-                    border: "1.5px " + (open ? "solid" : "dashed") + " " + col + (open || here ? "" : "55"), opacity: !open && !here && !seen ? 0.55 : 1, boxShadow: open ? "0 2px 6px rgba(47,42,34,.2)" : "none", transform: open ? "translateY(-1px)" : "none" } },
-                  h("div", { style: { fontFamily: FD, fontSize: fz(16), lineHeight: 1.1 } }, nd.type === "boss" ? "♥" : meta.icon),
-                  h("div", { style: { fontSize: fz(9.5) } }, nd.type === "boss" ? toName : meta.zh));
-              }))))),
+                const meta = RN().NODE[nd.type], col = nd.type === "boss" ? RED : nd.type === "elite" ? GOLD : nd.type === "shop" || nd.type === "rest" ? GREEN : nd.type === "event" ? "#3f6fb0" : INK;
+                const big = nd.type === "boss";
+                return h("button", { key: r + "_" + nd.k, "data-wk": "runnode", "data-type": nd.type, "data-open": open ? "1" : "0", disabled: !open, onClick: () => go(nd.k),
+                  style: { position: "absolute", left: (100 * xOf(row, nd.k) / W) + "%", top: yOf(r), transform: "translate(-50%,-50%)", width: big ? 64 : 52, height: big ? 64 : 52, padding: 3, border: "none",
+                    background: PERF, filter: open ? "drop-shadow(0 3px 6px " + col + "66)" : "drop-shadow(0 1px 2px rgba(47,42,34,.2))", opacity: !open && !here && !seen && !big ? 0.55 : 1, animation: open ? "runPulse 1.6s ease-in-out infinite" : "none", zIndex: 2 } },
+                  h("div", { style: { width: "100%", height: "100%", borderRadius: 2, background: here ? col : seen ? "#efe7d6" : "#fffdf7", outline: "1.5px solid " + col + (open || here ? "" : "77"), color: here ? "#fff" : col, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", fontFamily: F } },
+                    h("div", { style: { fontFamily: FD, fontSize: fz(big ? 20 : 16), lineHeight: 1 } }, big ? "♥" : meta.icon),
+                    h("div", { style: { fontSize: fz(8.5), marginTop: 2, maxWidth: "100%", overflow: "hidden", whiteSpace: "nowrap", textOverflow: "ellipsis", padding: "0 2px" } }, big ? toName : meta.zh)),
+                  seen && !here ? h("span", { style: { position: "absolute", right: -4, top: -4, width: 16, height: 16, borderRadius: 999, background: RED, color: "#fff", fontSize: 9, display: "flex", alignItems: "center", justifyContent: "center" } }, "✓") : null,
+                  here ? h("span", { style: { position: "absolute", left: "50%", top: -14, transform: "translateX(-50%) rotate(-8deg)", padding: "0 5px", borderRadius: 3, border: "1.5px solid " + RED, background: PAPER, color: RED, fontSize: 9, whiteSpace: "nowrap" } }, "你在这") : null);
+              })),
+              rows.map((row, r) => h("span", { key: "lb" + r, style: { position: "absolute", left: 6, top: yOf(r) - 7, fontSize: 9, color: SUB } }, r === rows.length - 1 ? "终点" : "第" + (r + 1) + "站"))));
+        })(),
         h("div", { key: "tip", style: { fontSize: fz(11), color: SUB, marginTop: 8, lineHeight: 1.7 } }, "亮着的是下一站能去的。✉ 普通站打路上的麻烦；✦ 难站是别的角色来拦信，赢了掉信物；? 岔路；邮 邮局买东西；☕ 驿站歇脚；♥ 终点是 TA。"),
-        h("div", { key: "deck", style: { marginTop: 12 } }, h("div", { style: { fontFamily: FD, fontSize: fz(13), marginBottom: 6 } }, "带着的票"),
-          h("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 } }, run.deck.map((s, i) => h(Mini, { key: i, s, sub: nameOf(s.charId), onTap: () => toast && toast(s.name + "：" + s.role + " · 特质「" + s.trait + "」· 盖章「" + s.skill + "」") })))),
+        h("div", { key: "deck", style: { marginTop: 14 } }, h("div", { style: { fontFamily: FD, fontSize: fz(14), marginBottom: 8 } }, "带着的票 · " + run.deck.length + " 张"),
+          h("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 } }, run.deck.map((s, i) => h(Mini, { key: i, s, sub: nameOf(s.charId), onTap: () => toast && toast(s.name + "：" + s.role + " · 特质「" + s.trait + "」· 盖章「" + s.skill + "」") })))),
         h("button", { key: "quit", onClick: () => { const q = () => { save(SAVE, null); setRun(null); setView({ at: "start" }); }; typeof requestAppConfirm === "function" ? requestAppConfirm("放弃这一趟？", "信就不寄了，回到开头。", q, "放弃") : q(); }, style: { marginTop: 16, fontSize: fz(11.5), color: SUB, textDecoration: "underline" } }, "放弃这一趟")]);
     }
 
@@ -216,9 +270,8 @@
     if (view.at === "reward") {
       const res = view.res || {};
       return page("赢了这一站", [
-        h("div", { key: "t", style: { fontSize: fz(13), margin: "4px 0 10px" } }, "拿到 " + (res.coins || 0) + " 枚邮花。" + (res.relic ? "还捡到一件信物「" + res.relic + "」：" + D().RELICS[res.relic] + "。" : "")),
-        h("div", { key: "s", style: { fontFamily: FD, fontSize: fz(13), marginBottom: 6 } }, "挑一张加进卡组"),
-        h("div", { key: "g", style: { display: "grid", gridTemplateColumns: "1fr", gap: 6 } }, (res.offer || []).map((s, i) => h(Mini, { key: i, s, sub: nameOf(s.charId), onTap: () => { run.deck.push(s); commit(run, { at: "map" }); } }))),
+        Paper("got", "这一站拿到", h("div", { style: { fontSize: fz(13), lineHeight: 1.7 } }, "拿到 " + (res.coins || 0) + " 枚邮花。" + (res.relic ? "还捡到一件信物「" + res.relic + "」：" + D().RELICS[res.relic] + "。" : "")), GREEN),
+        Paper("pick", "挑一张加进卡组", h("div", { style: { display: "grid", gridTemplateColumns: "1fr", gap: 6 } }, (res.offer || []).map((s, i) => h(Mini, { key: i, s, sub: nameOf(s.charId), onTap: () => { run.deck.push(s); commit(run, { at: "map" }); } })))),
         h("button", { key: "skip", onClick: () => commit(run, { at: "map" }), style: Object.assign(btn("transparent", INK, "rgba(47,42,34,.3)"), { marginTop: 10, width: "100%" }) }, "都不要，接着走")]);
     }
     // ── 信的事件：叫 TA 写一张，写完给奖励、收进信匣 ──
@@ -269,7 +322,7 @@
             h("div", { key: "g", style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 } }, run.deck.map((s2, i) => h(Mini, { key: i, s: s2, sub: nameOf(s2.charId), onTap: () => { if (busy) return; if (ev.letter === "swap" && run.deck.length <= 4) return toast && toast("卡组只剩 4 张了"); call(ev.letter, { card: cardStory(s2) }, l => finish(l, i, { title: s2.name })); } })))]
         : [];
       return page("岔路 · " + who(ev.zh), [
-        h("div", { key: "say", style: { fontFamily: FD, fontSize: fz(14), lineHeight: 1.8, margin: "4px 0 6px" } }, who(ev.say)),
+        Paper("say", null, h("div", { style: { fontFamily: FD, fontSize: fz(14.5), lineHeight: 1.9 } }, who(ev.say)), RED),
         h("div", { key: "rwd", style: { fontSize: fz(11.5), color: SUB, marginBottom: 12 } }, "花一次调用 · 写完" + (ev.reward ? "：" + ev.reward : "")),
         ...body,
         !lv.done ? h("button", { key: "skip", onClick: () => commit(run, { at: "map" }), style: { marginTop: 6, fontSize: fz(11.5), color: SUB, textDecoration: "underline" } }, "不了，接着走") : null]);
@@ -280,7 +333,7 @@
       const who = t => String(t).replace(/同行的人|TA/g, ev.letter === "postcard" || ev.letter === "future" ? toName : withName);
       if (ev.letter) return letterEvent(ev, who);
       return page("岔路 · " + who(ev.zh), [
-        h("div", { key: "say", style: { fontFamily: FD, fontSize: fz(14), lineHeight: 1.8, margin: "4px 0 14px" } }, who(ev.say)),
+        Paper("say", null, h("div", { style: { fontFamily: FD, fontSize: fz(14.5), lineHeight: 1.9 } }, who(ev.say)), "#3f6fb0"),
         view.result ? h("div", { key: "res" }, h("div", { style: { padding: "9px 12px", borderRadius: 4, background: "#fff", fontSize: fz(13), marginBottom: 10 } }, view.result),
             h("button", { onClick: () => commit(run, { at: "map" }), className: "w-full", style: btn(INK, PAPER) }, "接着走"))
           : ev.opts.map((op, i) => h("button", { key: i, "data-wk": "runeventopt", onClick: () => { const msg = RN().doEvent(run, ev, i, cards); commit(run, Object.assign({}, view, { result: msg })); }, className: "w-full text-left", style: Object.assign(btn("#fff", INK, "rgba(47,42,34,.25)"), { marginBottom: 8, display: "block" }) }, who(op.zh)))]);
@@ -290,23 +343,24 @@
       const sh = view.shop, buy = (w, i) => { const r = RN().buy(run, sh, w, i); if (!r.ok) toast && toast(r.why); commit(run, Object.assign({}, view)); };
       const price = k => RN().priceOf(run, k);
       return page("邮局", [
-        h("div", { key: "a", style: { fontFamily: FD, fontSize: fz(13), margin: "4px 0 6px" } }, "买票（" + price("card") + " 邮花）"),
-        h("div", { key: "b", style: { display: "grid", gridTemplateColumns: "1fr", gap: 6 } }, sh.cards.map((s, i) => h(Mini, { key: i, s, on: sh.sold["card" + i], sub: sh.sold["card" + i] ? "已买" : nameOf(s.charId), onTap: () => buy("card", i) }))),
-        h("div", { key: "c", style: { fontFamily: FD, fontSize: fz(13), margin: "12px 0 6px" } }, "信物（" + price("relic") + " 邮花）"),
-        sh.relics.map((k, i) => h("button", { key: "r" + i, "data-wk": "runrelicbuy", onClick: () => buy("relic", i), disabled: !!sh.sold["relic" + i], className: "w-full text-left disabled:opacity-50", style: Object.assign(btn("#fff", INK, GOLD), { marginBottom: 6, display: "block" }) }, h("b", { style: { color: GOLD } }, k), "：" + D().RELICS[k] + (sh.sold["relic" + i] ? "（已买）" : ""))),
-        h("div", { key: "d", style: { fontFamily: FD, fontSize: fz(13), margin: "12px 0 6px" } }, "删一张票（" + price("remove") + " 邮花，点要删的那张）"),
-        h("div", { key: "e", style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 } }, run.deck.map((s, i) => h(Mini, { key: i, s, onTap: () => buy("remove", i) }))),
-        h("button", { key: "f", onClick: () => buy("heal", 0), className: "w-full", style: Object.assign(btn("#fff", GREEN, GREEN), { marginTop: 12 }) }, "补信封 +15（" + price("heal") + " 邮花）"),
-        h("button", { key: "g", onClick: () => commit(run, { at: "map" }), className: "w-full", style: Object.assign(btn(INK, PAPER), { marginTop: 10 }) }, "离开邮局")]);
+        Paper("cards", "买票 · 一张 " + price("card") + " 邮花", h("div", { style: { display: "grid", gridTemplateColumns: "1fr", gap: 8 } }, sh.cards.map((s, i) => h(Mini, { key: i, s, on: sh.sold["card" + i], sub: sh.sold["card" + i] ? "已买" : nameOf(s.charId), onTap: () => buy("card", i) }))), "#3f6fb0"),
+        Paper("relics", "信物 · 一件 " + price("relic") + " 邮花", sh.relics.map((k, i) => h("button", { key: "r" + i, "data-wk": "runrelicbuy", onClick: () => buy("relic", i), disabled: !!sh.sold["relic" + i], className: "w-full text-left disabled:opacity-50",
+          style: { display: "flex", alignItems: "center", gap: 10, marginBottom: 8, padding: "8px 10px", borderRadius: 6, background: "#fffdf7", border: "1px solid " + GOLD + "66", fontFamily: F, color: INK } },
+          h("span", { style: { width: 26, height: 26, flexShrink: 0, borderRadius: 999, background: "radial-gradient(circle at 35% 30%, #d9a441, #a8761f)", boxShadow: "inset 0 -2px 3px rgba(0,0,0,.25)" } }),
+          h("span", { style: { fontSize: fz(12.5), lineHeight: 1.5 } }, h("b", { style: { color: "#8a6420" } }, k), "：" + D().RELICS[k] + (sh.sold["relic" + i] ? "（已买）" : "")))), GOLD),
+        Paper("remove", "删一张票 · " + price("remove") + " 邮花", [h("div", { key: "t", style: { fontSize: fz(11.5), color: SUB, marginBottom: 8 } }, "点要删的那张。卡组最少留 4 张。"),
+          h("div", { key: "g", style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 } }, run.deck.map((s, i) => h(Mini, { key: i, s, onTap: () => buy("remove", i) })))], "#8a3a4a"),
+        h("button", { key: "f", onClick: () => buy("heal", 0), className: "w-full", style: Object.assign(btn("#fffdf7", GREEN, GREEN), { marginBottom: 10 }) }, "补信封 +15（" + price("heal") + " 邮花）"),
+        h("button", { key: "g", onClick: () => commit(run, { at: "map" }), className: "w-full", style: btn(INK, PAPER) }, "离开邮局")]);
     }
     // ── 驿站 ──
     if (view.at === "rest") {
       return page("驿站", [
-        view.result ? h("div", { key: "r" }, h("div", { style: { padding: "9px 12px", borderRadius: 4, background: "#fff", fontSize: fz(13), marginBottom: 10 } }, view.result), h("button", { onClick: () => commit(run, { at: "map" }), className: "w-full", style: btn(INK, PAPER) }, "接着走"))
-          : h("div", { key: "c" },
-            h("button", { "data-wk": "runrestheal", onClick: () => commit(run, Object.assign({}, view, { result: RN().rest(run, "heal") })), className: "w-full", style: Object.assign(btn(GREEN, "#fff"), { marginBottom: 10 }) }, "歇一会儿（信封回三成）"),
-            h("div", { style: { fontSize: fz(12), color: SUB, marginBottom: 6 } }, "或者挑一张升阶（攻击 +2、血 +3、章少攒一格）："),
-            h("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 } }, run.deck.map((s, i) => h(Mini, { key: i, s, onTap: () => commit(run, Object.assign({}, view, { result: RN().rest(run, "up", i) })) }))))]);
+        view.result ? Paper("r", null, [h("div", { key: "t", style: { fontFamily: FD, fontSize: fz(14), lineHeight: 1.8, marginBottom: 12 } }, view.result), h("button", { key: "b", onClick: () => commit(run, { at: "map" }), className: "w-full", style: btn(INK, PAPER) }, "接着走")], GREEN)
+          : [Paper("heal", "歇一会儿", [h("div", { key: "t", style: { fontSize: fz(12), color: SUB, marginBottom: 8 } }, "喝口热茶，信封回三成" + (run.relics.includes("旅伴的伞") ? "，再多回 10" : "") + "。"),
+              h("button", { key: "b", "data-wk": "runrestheal", onClick: () => commit(run, Object.assign({}, view, { result: RN().rest(run, "heal") })), className: "w-full", style: btn(GREEN, "#fff") }, "歇一会儿")], GREEN),
+            Paper("up", "或者给一张票升阶", [h("div", { key: "t", style: { fontSize: fz(11.5), color: SUB, marginBottom: 8 } }, "攻击 +2、血 +3、章少攒一格。点要升的那张。"),
+              h("div", { key: "g", style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 } }, run.deck.map((s, i) => h(Mini, { key: i, s, onTap: () => commit(run, Object.assign({}, view, { result: RN().rest(run, "up", i) })) })))], GOLD)]]);
     }
     // ── 终点：回信 / 寄丢 ──
     if (view.at === "end") {
@@ -314,7 +368,7 @@
       const ask = async () => {
         if (!onChat || busy) return; setBusy(true);
         try {
-          const lines = await onChat(run.toId, { mode: "letter", text: "", withName: run.withId && run.withId !== run.toId ? withName : "", cards: run.deck.map(cardStory).join("\n"), board: RN().summary(run, nameOf), history: chat.slice(-8).map(m => (m.who === "me" ? (meName || "她") : toName) + "：" + m.text).join("\n") });
+          const lines = await onChat(run.toId, { mode: "letter", text: "", myLetter: run.myLetter || "", withName: run.withId && run.withId !== run.toId ? withName : "", cards: run.deck.map(cardStory).join("\n"), board: RN().summary(run, nameOf), history: chat.slice(-8).map(m => (m.who === "me" ? (meName || "她") : toName) + "：" + m.text).join("\n") });
           const text = (lines || []).join("\n");
           if (text) { keepLetter("letter", lines); commit(Object.assign(run, { letter: text }), view); }
         } catch (e) { toast && toast("回信没写成：" + ((e && e.message) || e)); }
