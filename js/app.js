@@ -20,7 +20,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v89.329";
+const APP_VERSION = "v89.331";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -12121,7 +12121,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
                 + (d.missed ? "写那天晚上他们自己关店的一小段：" : "现在打烊了。写打烊时店里的一小段：") + "今天上班的这几个人各自怎么样、彼此说了什么、谁累了、谁跟谁拌了两句或者帮了一把、有没有给她留什么话或东西；橱窗里的卡、挂着的工牌可以写进去（有人瞄了一眼自己那张、客人指着哪张问），写到卡上的那一刻要照上面写的。每个人照各自的人设说话做事，你写的时候把他们都写进去，不只写你自己；写正在发生的这一段，有动作有对话，别写成总结。"
               : (d.visitor || "一位客人") + "今天来店里寄东西，正好碰上在" + (d.post || "柜台") + "上班的" + (d.staffName || "店员") + "。\n写他们俩在店里碰上的这一小段：照两个人各自的人设和他们之间的关系，有对话，几段就够；" + uN + "在旁边。")
             + "\n当场参与者的身份与完整人设：\n"+cast
-            + "\nlines 按正文发生的顺序逐句保存，每项 text 是原文；speakerId 是说话人的角色 id，旁白留空。actorId 是这一句正在做动作的角色 id，targetId 是动作朝向的同场角色 id；只使用上面参与者的 id。action 可用 talk（面对对方说话）、tidy（回岗位收拾）、letter（拿起信件）、look（走到橱窗看卡）、rest（到窗边歇脚）、help（走近另一位店员搭手）；其他动作照写进正文，由场景做一般交谈表现。动作字段配合你写出的内容。" + (close?"\nnotes 是今天上班的每个人下班前在柜台留给" + uN + "的一张便条，一人一张：speakerId 写这个人的角色 id（" + (d.staffIds || []).join("、") + "），text 是他自己写的一两句，照他的人设和写字的样子，写今天店里他记得的一件小事或想跟她说的话。":""),
+            + "\nlines 按正文发生的顺序逐句保存，每项 text 是原文；speakerId 是说话人的角色 id，旁白留空。actorId 是这一句正在做动作的角色 id，targetId 是动作朝向的同场角色 id；只使用上面参与者的 id。action 可用 " + window.CharacterStoryActions.prompt + "；其他动作照写进正文，由场景做一般交谈表现。动作字段配合你写出的内容。" + (close?"\nnotes 是今天上班的每个人下班前在柜台留给" + uN + "的一张便条，一人一张：speakerId 写这个人的角色 id（" + (d.staffIds || []).join("、") + "），text 是他自己写的一两句，照他的人设和写字的样子，写今天店里他记得的一件小事或想跟她说的话。":""),
           schemaHint: JSON.stringify({lines:[{speakerId:"角色id或空",actorId:"角色id或空",targetId:"角色id或空",action:"动作标识",text:"正文原句"}],...(close?{notes:[{speakerId:"角色id",text:"便条"}]}:{})}) });
         const notesOf = () => (Array.isArray(r && r.notes) ? r.notes : []).map(x => ({ speakerId: (d.staffIds || []).map(String).includes(String(x && x.speakerId)) ? String(x.speakerId) : null, text: String((x && x.text) || "").trim() })).filter(x => x.speakerId && x.text).slice(0, 4);
         const rowsOut = (Array.isArray(r && r.lines) ? r.lines : [r && r.lines]).map(x => typeof x==="string"?{speakerId:null,text:x}:{speakerId:x?.speakerId||null,actorId:x?.actorId||null,targetId:x?.targetId||null,action:x?.action||"talk",text:String(x?.text||"")}).filter(x=>x.text.trim());

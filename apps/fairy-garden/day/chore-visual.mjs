@@ -1,4 +1,4 @@
-import {createBathroomVisual} from './bathroom-visual.mjs?v=fg-9c7c4a50b6db5fe8';
+import {createBathroomVisual} from './bathroom-visual.mjs?v=fg-b87d2cd90819f098';
 import * as T from 'three';
 // Props and hands share the real placed surface; cancellation hides them in the same frame.
 export function createChoreVisual(avatar){

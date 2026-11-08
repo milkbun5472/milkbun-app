@@ -1,24 +1,24 @@
-import {makeWeatherEffects} from './emotion-weather.mjs?v=fg-9c7c4a50b6db5fe8';
-import {makeEmotionHands,handStyle,handScaleOf} from './emotion-hands.mjs?v=fg-9c7c4a50b6db5fe8';
-import {makeEmotionFeatures,transientEmotionFace} from './emotion-features.mjs?v=fg-9c7c4a50b6db5fe8';
-import {settleEmotionGround} from './emotion-ground.mjs?v=fg-9c7c4a50b6db5fe8';
-import {attachRegionDye,dyeRegions} from './outfit-dye.mjs?v=fg-9c7c4a50b6db5fe8';
-import {reachHand,headSafeTarget} from './reach-hand.mjs?v=fg-9c7c4a50b6db5fe8';
-import {taskPose,makeTaskProps,workHandTargets,GUITAR_HOLD,GUITAR_STRUM} from './task-motion.mjs?v=fg-9c7c4a50b6db5fe8';
-import {dailyHandTargets} from './daily-motion.mjs?v=fg-9c7c4a50b6db5fe8';
-import {motionClock,motionPosture} from './day/motion-profile.mjs?v=fg-9c7c4a50b6db5fe8';
-import {emotionPose} from './emotion-pose.mjs?v=fg-9c7c4a50b6db5fe8';
-import {makeEmotionProps,phoneTapTarget} from './emotion-props.mjs?v=fg-9c7c4a50b6db5fe8';
-import {makeDollLife} from './doll-life.mjs?v=fg-9c7c4a50b6db5fe8';
-import {makeSeatedLegs,WORK_SEATED_HIP} from './seated-legs.mjs?v=fg-9c7c4a50b6db5fe8';
-import {makeUpperBody} from './upper-body.mjs?v=fg-9c7c4a50b6db5fe8';
-import {makeBentArms} from './bent-arms.mjs?v=fg-9c7c4a50b6db5fe8';
-import {makeHangingHair} from './hanging-hair.mjs?v=fg-9c7c4a50b6db5fe8';
-import {OUTFITS,mergeLook,outfitId,outfitColors,hairId,hairModeOf,DEFAULT_LOOK,COMPANION_LOOK,DEFAULT_EYE,eyesOf} from './wardrobe.mjs?v=fg-9c7c4a50b6db5fe8';
-import {makeSeatContact} from './seat-contact.mjs?v=fg-9c7c4a50b6db5fe8';
+import {makeWeatherEffects} from './emotion-weather.mjs?v=fg-b87d2cd90819f098';
+import {makeEmotionHands,handStyle,handScaleOf} from './emotion-hands.mjs?v=fg-b87d2cd90819f098';
+import {makeEmotionFeatures,transientEmotionFace} from './emotion-features.mjs?v=fg-b87d2cd90819f098';
+import {settleEmotionGround} from './emotion-ground.mjs?v=fg-b87d2cd90819f098';
+import {attachRegionDye,dyeRegions} from './outfit-dye.mjs?v=fg-b87d2cd90819f098';
+import {reachHand,headSafeTarget} from './reach-hand.mjs?v=fg-b87d2cd90819f098';
+import {taskPose,makeTaskProps,workHandTargets,GUITAR_HOLD,GUITAR_STRUM} from './task-motion.mjs?v=fg-b87d2cd90819f098';
+import {dailyHandTargets} from './daily-motion.mjs?v=fg-b87d2cd90819f098';
+import {motionClock,motionPosture} from './day/motion-profile.mjs?v=fg-b87d2cd90819f098';
+import {emotionPose} from './emotion-pose.mjs?v=fg-b87d2cd90819f098';
+import {makeEmotionProps,phoneTapTarget} from './emotion-props.mjs?v=fg-b87d2cd90819f098';
+import {makeDollLife} from './doll-life.mjs?v=fg-b87d2cd90819f098';
+import {makeSeatedLegs,WORK_SEATED_HIP} from './seated-legs.mjs?v=fg-b87d2cd90819f098';
+import {makeUpperBody} from './upper-body.mjs?v=fg-b87d2cd90819f098';
+import {makeBentArms} from './bent-arms.mjs?v=fg-b87d2cd90819f098';
+import {makeHangingHair} from './hanging-hair.mjs?v=fg-b87d2cd90819f098';
+import {OUTFITS,mergeLook,outfitId,outfitColors,hairId,hairModeOf,DEFAULT_LOOK,COMPANION_LOOK,DEFAULT_EYE,eyesOf} from './wardrobe.mjs?v=fg-b87d2cd90819f098';
+import {makeSeatContact} from './seat-contact.mjs?v=fg-b87d2cd90819f098';
 import * as T from 'three';
-import {GLTFLoader} from './vendor/GLTFLoader.js?v=fg-9c7c4a50b6db5fe8';
-import {DRACOLoader} from './vendor/DRACOLoader.js?v=fg-9c7c4a50b6db5fe8';
+import {GLTFLoader} from './vendor/GLTFLoader.js?v=fg-b87d2cd90819f098';
+import {DRACOLoader} from './vendor/DRACOLoader.js?v=fg-b87d2cd90819f098';
 // 衣服按需加载（她 2026-09-26）：doll.glb 只有身体、骨架和头发，每套衣服是 outfits/<id>.glb，
 // 穿到哪套才下哪套。同一套全页只下一次（下面这张表），每个小人再各克隆一份、按骨头名字接到自己的骨架上。
 // 文件由 art/fairy-garden/doll/split_outfits.py 从完整娃娃拆出来；版本指纹跟着本模块自己的 ?v=。
@@ -392,10 +392,10 @@ export function createTraveler(source,companion=false,look={},appearance={}){
    if(task.daily){model.rotation.x+=actingPosture.tilt;model.rotation.z+=actingPosture.roll;model.rotation.y+=actingPosture.yaw;Object.assign(armPose,dailyHandTargets(model,chinHead,task,armPose));}
    Object.assign(armPose,workHandTargets(model,chinHead,task,armPose));
   }
-  if(!task&&emotion&&!moving&&!lying&&!seated&&gesture==='rest'){
+  if(!task&&emotion&&!moving&&!lying&&(!seated&&gesture==='rest'||seated&&['nod','tilt'].includes(emotion))){
    root.userData.emotion=emotion;const pose=emotionPose(emotion,progress);armPose=pose;
-   for(const {p,label} of rig){const a=label==='leftArm'?pose.left:label==='rightArm'?pose.right:label==='leftLeg'?pose.leftLeg:label==='rightLeg'?pose.rightLeg:null;if(a)p.rotation.set(...a);}
-   if(pose.ground)model.quaternion.setFromEuler(new T.Euler(pose.tilt,pose.yaw,pose.roll,'YXZ'));else model.rotation.set(pose.tilt,pose.yaw,pose.roll);root.position.y+=pose.lift;
+   if(seated)settleSeat();else{for(const {p,label} of rig){const a=label==='leftArm'?pose.left:label==='rightArm'?pose.right:label==='leftLeg'?pose.leftLeg:label==='rightLeg'?pose.rightLeg:null;if(a)p.rotation.set(...a);}
+   if(pose.ground)model.quaternion.setFromEuler(new T.Euler(pose.tilt,pose.yaw,pose.roll,'YXZ'));else model.rotation.set(pose.tilt,pose.yaw,pose.roll);root.position.y+=pose.lift;}
    if(pose.headRoll||pose.headNod||pose.headTurn)upperBody.apply({neckLean:pose.headRoll||0,nod:pose.headNod||0,neckTurn:pose.headTurn||0,headPivot:1});
   }
   if(motion&&!task&&!moving&&!lying){model.rotation.x+=actingPosture.tilt;model.rotation.z+=actingPosture.roll;model.rotation.y+=actingPosture.yaw;}
@@ -420,6 +420,6 @@ export function createTraveler(source,companion=false,look={},appearance={}){
 // Scene callers share the compressed doll and decoder lifecycle.
 let travelerSource;
 export function loadTravelerSource(){
- if(!travelerSource)travelerSource=(async()=>{const draco=new DRACOLoader();draco.setDecoderPath(new URL('./vendor/draco/',import.meta.url).href);const loader=new GLTFLoader();loader.setDRACOLoader(draco);try{return(await loader.loadAsync(new URL('./doll.glb?v=fg-9c7c4a50b6db5fe8'+new URL(import.meta.url).search,import.meta.url).href)).scene;}finally{draco.dispose();}})().catch(e=>{travelerSource=null;throw e;});
+ if(!travelerSource)travelerSource=(async()=>{const draco=new DRACOLoader();draco.setDecoderPath(new URL('./vendor/draco/',import.meta.url).href);const loader=new GLTFLoader();loader.setDRACOLoader(draco);try{return(await loader.loadAsync(new URL('./doll.glb?v=fg-b87d2cd90819f098'+new URL(import.meta.url).search,import.meta.url).href)).scene;}finally{draco.dispose();}})().catch(e=>{travelerSource=null;throw e;});
  return travelerSource;
 }
