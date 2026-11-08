@@ -11,6 +11,19 @@
   const RC = { R: "#5a5248", SR: "#3f6fb0", SSR: "#c8962e" };
   const ROLE_COLOR = { 投递: "#b23a2e", 火漆: "#8a3a4a", 补票: "#4f7a66", 集邮: "#3f6fb0", 邮戳: "#6a4f8a" };
   const ROLE_TIP = { 投递: "打同一列对面最前面那张，空着就打信封", 火漆: "厚，每回合给自己封一层", 补票: "给最残的那张回血、擦掉雨渍和退回", 集邮: "攒胶水、多抽牌", 邮戳: "给对面同一列盖戳" };
+  // 新手教学关（她 2026-11-08「直接做一个新手指引关，可以随便回玩学习」）：一把写好的练习局，
+  //   上面一块教练条一步一步说，要她动手的那几步等她做到了才往下走。不存档、不进记忆、不花调用
+  const TUT = [
+    { say: "下面是你的信封，上面是对面的。两边都往自己信封上贴邮票，贴上的票会自己去打对面。谁的信封耐久先被打空，谁输。", next: true },
+    { say: "手里有一张「火漆」票（右上角写着火漆）。点它，再点你信封最上面一排的一个空格，把它贴上去。火漆血厚，放前排挡着。", done: st => [0, 1, 2].some(i => st.me.board[i] && st.me.board[i].role === "火漆") },
+    { say: "再把「投递」贴到最下面一排。前面有火漆挡着，它挨不着打，在后排攻击还 +2。", done: st => [6, 7, 8].some(i => st.me.board[i] && st.me.board[i].role === "投递") },
+    { say: "胶水花完了（底下那几滴）。点「寄出」：你的票先动手，然后对面照它亮出来的那一步走。", done: st => st.turn >= 2 },
+    { say: "看上面那张写着「下一步」的条子：对面这回合要贴什么、贴在哪、会打你多少，都提前写着。它往哪一列放投递，你就在那一列前面挡着。", next: true },
+    { say: "你那张投递票底下的小点亮满了（我帮你攒的）。点它，再点「盖章」——花 1 胶水放它的技能。", enter: st => { const u = st.me.board.find(x => x && x.role === "投递"); if (u) u.charge = u.need; st.me.postage = Math.max(st.me.postage, 2); }, done: st => st.log.some(l => l.kind === "stamp" && l.who === "me") },
+    { say: "长按任何一张票（你的、对面的、手里的都行），能看它的特质、盖章技和羁绊。长按一张试试，看完点空白处关掉。", done: (st, x) => x.infoSeen },
+    { say: "手里来了四张同一个人的票，胶水也给你添够了。把它们贴成 2×2 的一个方块，触发「四方连」觉醒。", enter: (st, x) => x.giveFour(), done: st => st.log.some(l => l.kind === "wake" && l.who === "me") },
+    { say: "要领就这些。还有撕票、挪票、留牌、格子和邮局公告，打着打着会碰到，右上角「怎么玩」随时查。现在把这一把打完吧！", next: true, last: true }
+  ];
   const GUIDE = [
     ["一句话", "你和 TA 各有一个信封。轮流往自己信封上贴邮票，贴上的票会自己去打对面。谁的信封先被打空，谁就输。"],
     ["每回合你做什么", "回合开始，你有 3 点胶水，手里摸到 4 张票。", "点手里一张，再点自己信封上的空格，就贴上去了。贴一张要花它的面值那么多胶水：R 是 1，SR 是 2，SSR 是 3。", "胶水花完、或者不想贴了，点「寄出」。你的票先动手，然后 TA 照着亮出来的那一步走。", "没用掉的牌回合结束就扔了。想留，选中它点「留到下回合」，最多留两张。", "放错了点「撤回」，一步一步退，胶水也退回来。点了「寄出」就退不回了。"],
@@ -127,30 +140,50 @@
     const [, bump] = useState(0);
     const [handSel, setHandSel] = useState(-1), [boardSel, setBoardSel] = useState(-1);
     const [series, setSeries] = useState(null), [asking, setAsking] = useState(false);
-    const [fx, setFx] = useState(null), [banner, setBanner] = useState(null), playing = useRef(0);
+    const [fx, setFx] = useState(null), [banner, setBanner] = useState(null), playing = useRef(0), [bubble, setBubble] = useState(null);
+    const lastBubble = useRef(0);   // 钩子都放在这儿：下面有几处提前 return，钩子不许跟着条件走
     const [info, setInfo] = useState(null), [guide, setGuide] = useState(false);
     const guideBtn = h("button", { "data-wk": "duelguidebtn", onClick: () => setGuide(true), className: "active:opacity-60", style: { padding: "4px 8px", color: INK, fontFamily: F, fontSize: fz(12.5) } }, "怎么玩");
-    const openInfo = (u, foe, terrain) => setInfo({ u, foe, terrain });
+    const openInfo = (u, foe, terrain) => { setInfo({ u, foe, terrain }); if (tutSeen && tutSeen.current) tutSeen.current.infoSeen = true; };
     const [core, setCore] = useState([]);
     // 每个人的羁绊看人设里的字（不花调用）
     const bondsOf = () => { const m = {}; (characters || []).forEach(c => { m[c.id] = D().bondOf([c.persona, c.description, c.desc, c.personality, c.tags && [].concat(c.tags).join(" ")].filter(Boolean).join(" ")); }); return m; };
     const [chatOpen, setChatOpen] = useState(false), [draft, setDraft] = useState(""), [chatBusy, setChatBusy] = useState(false);
     const seedRef = useRef(Date.now() >>> 0);
     const byId = useMemo(() => { const m = {}; (cards || []).forEach(c => { if (c && c.id) m[c.id] = c; }); return m; }, [cards]);
-    const nameOf = id => { const c = (characters || []).find(x => x.id === id); return c ? (c.remark || c.name) : ""; };
-    const cardOf = id => byId[id] || null, ownerOf = id => id ? nameOf(id) + "的卡" : "";
-    const foeName = nameOf(foeId) || "TA";
+    const nameOf = id => { if (id === "tut_pair") return "小练"; const c = (characters || []).find(x => x.id === id); return c ? (c.remark || c.name) : ""; };
+    const cardOf = id => byId[id] || null, ownerOf = id => id && nameOf(id) ? nameOf(id) + "的卡" : "";
+    let foeName = nameOf(foeId) || "TA";
     // 没打完退出去也留着（她 2026-11-07「没打完暂退能不能存档跟小游戏一样」）：每动一步就存一份，打完、放弃才清
     const SAVE_KEY = "x_stampDuelSave";
     const [saved, setSaved] = useState(() => { try { const v = typeof loadJSON === "function" ? loadJSON(SAVE_KEY, null) : null; return v && v.st && !v.st.over ? v : null; } catch (e) { return null; } });
-    const persist = (x, sr) => { try { if (typeof saveJSON !== "function") return; if (x && !x.over) saveJSON(SAVE_KEY, { st: x, series: sr || null, foeId, at: Date.now() }); else saveJSON(SAVE_KEY, null); } catch (e) {} };
+    const persist = (x, sr) => { try { if (typeof saveJSON !== "function" || (x && x.tutorial)) return; if (x && !x.over) saveJSON(SAVE_KEY, { st: x, series: sr || null, foeId, at: Date.now() }); else saveJSON(SAVE_KEY, null); } catch (e) {} };
     const redraw = () => { persist(st, series); bump(x => x + 1); };
     const resume = () => { if (!saved) return; setFoeId(saved.foeId); setSt(saved.st); setSeries(saved.series || D().newSeries()); setSaved(null); setHandSel(-1); setBoardSel(-1); };
     const drop = () => { persist(null); setSaved(null); };
+    const [tut, setTut] = useState(-1), tutSeen = useRef({ infoSeen: false });
+    // 教学关用的票：照邮票册卡的样子造，名字直接写它是干嘛的
+    const tutCard = (i, role, extra) => Object.assign(D().stampOf({ id: "tut_" + i, rarity: extra && extra.rarity || "R", lv: 10, text: { name: extra && extra.name || ("练习·" + role) } }), { role, trait: role === "火漆" ? "守护" : role === "投递" ? "锋利" : "冷静", traitFrom: "", skill: Object.keys(D().SKILLS[role])[0] }, extra || {});
+    const startTut = () => {
+      const meDeck = [tutCard(1, "火漆", { pow: 3, maxHp: 16 }), tutCard(2, "投递", { pow: 6 }), tutCard(3, "补票"), tutCard(4, "集邮"), tutCard(5, "邮戳")].concat(Array.from({ length: 7 }, (_, k) => tutCard(10 + k, ["投递", "火漆", "补票"][k % 3])));
+      const foeDeck = Array.from({ length: 12 }, (_, k) => tutCard(50 + k, k % 2 ? "火漆" : "投递", { pow: 2, maxHp: 7, name: "陪练票" }));
+      const nd = D().newDuel(meDeck, foeDeck, 7, { foeId: "" });
+      nd.tutorial = true; nd.events = []; nd.me.terrain = nd.me.terrain.map(() => ""); nd.foe.terrain = nd.foe.terrain.map(() => "");
+      // 第一手固定：火漆和投递一定在手里，胶水够贴这两张
+      nd.me.hand = [meDeck[0], meDeck[1], meDeck[2], meDeck[3]]; nd.me.draw = nd.me.draw.filter(x => !nd.me.hand.includes(x)); nd.me.postage = 2;
+      nd.intent = D().planFoe(nd);
+      tutSeen.current = { infoSeen: false, giveFour: () => {
+        nd.me.hand = Array.from({ length: 4 }, (_, k) => tutCard(80 + k, "火漆", { charId: "tut_pair", name: "同一个人的票" }));
+        nd.me.postage = Math.max(nd.me.postage, 4);
+        // 腾出一块 2×2：最上两排右边两列
+        [1, 2, 4, 5].forEach(i => { if (nd.me.board[i]) { const v = nd.me.board[i]; const free = [0, 3, 6, 7, 8].find(j => !nd.me.board[j]); if (free != null) { nd.me.board[free] = v; nd.me.board[i] = null; } } });
+      } };
+      setSt(nd); setTut(0); setHandSel(-1); setBoardSel(-1); setSeries(null);
+    };
     const start = () => {
       const s = (seedRef.current = (seedRef.current * 1103515245 + 12345) >>> 0);
       const me = D().deckFrom(cards, s, D().DECK_SIZE, core), them = D().foeDeckFrom(cards, foeId, closeOf ? closeOf(foeId) : [], s);
-      const nd = D().newDuel(me, them, s, { blind, bonds: bondsOf() }); setSt(nd); setHandSel(-1); setBoardSel(-1); setSaved(null);
+      const nd = D().newDuel(me, them, s, { blind, bonds: bondsOf(), foeId }); setSt(nd); setHandSel(-1); setBoardSel(-1); setSaved(null);
       setTimeout(() => persist(nd, series), 0);
       setSeries(sr => sr || D().newSeries());
     };
@@ -174,6 +207,9 @@
           h("div", { className: "flex", style: { gap: 8 } },
             h("button", { onClick: resume, className: "flex-1", style: btn(RED, "#fff") }, "接着打"),
             h("button", { onClick: () => { if (typeof requestAppConfirm === "function") requestAppConfirm("放弃这一把？", "放弃了就接不回来了。", drop, "放弃"); else drop(); }, className: "flex-1", style: btn("transparent", INK, INK) }, "放弃"))) : null,
+        h("button", { "data-wk": "duelturorial", onClick: startTut, className: "w-full text-left active:opacity-80", style: { marginBottom: 16, padding: "10px 12px", borderRadius: 4, border: "1px solid " + GREEN, background: "rgba(79,122,102,.08)", color: INK } },
+          h("div", { style: { fontFamily: FD, fontSize: fz(14), color: GREEN } }, "新手教学关"),
+          h("div", { style: { fontSize: fz(11.5), color: SUB, marginTop: 2 } }, "一把练习局，一步一步教你贴票、寄出、盖章、四方连。随时能回来再玩，不花调用、不进记忆。")),
         h("div", { style: { fontFamily: FD, fontSize: fz(14), marginBottom: 4 } }, "带谁上场"),
         h("div", { style: { fontSize: fz(11.5), color: SUB, marginBottom: 8 } }, "最多挑两个人：卡组三分之二从他们的卡里抽，好凑连张、四方连和羁绊。不挑就全随机。"),
         h("div", { className: "flex flex-wrap", style: { gap: 8, marginBottom: 18 } }, (characters || []).filter(c => (cards || []).some(x => x.charId === c.id)).map(c => {
@@ -198,6 +234,7 @@
         h("button", { "data-wk": "duelrules", onClick: () => setGuide(true), className: "w-full text-left active:opacity-70", style: { marginTop: 20, padding: "10px 12px", borderRadius: 4, background: "rgba(255,255,255,.45)", fontSize: fz(12), color: SUB, lineHeight: 1.7 } },
           "第一次玩？点这里看「怎么玩」——三分钟看懂。打的时候右上角也能随时点开。"))]);
 
+    if (st.tutorial) foeName = "陪练";
     const me = st.me, them = st.foe, it = st.intent || {}, over = st.over;
     const meSlot = i => {
       if (over) return;
@@ -208,16 +245,21 @@
     };
     const selU = boardSel >= 0 ? me.board[boardSel] : null;
     // 把某一刻之后的记录一条条放出来（她 2026-11-08「四连觉醒出现太快看不到」：觉醒是贴票那一下触发的，原来只放寄出那一段）
+    const skip = () => { playing.current = 0; setFx(null); setBanner(null); redraw(); };
     const play = n0 => {
       const evs = st.log.slice(n0).filter(l => ["hit", "hitEnv", "fall", "heal", "gain", "ink", "wake", "stamp", "place", "skip", "event"].includes(l.kind));
       if (!evs.length) return;
       const run = ++playing.current; let k = 0;
       const step = () => {
         if (playing.current !== run) return;
-        if (k >= evs.length) { setFx(null); setBanner(null); playing.current = 0; redraw(); return; }
+        if (k >= evs.length) { setFx(null); setBanner(null); playing.current = 0; redraw(); setTimeout(() => setBubble(b => (b && b.key === lastBubble.current ? null : b)), 2600); return; }
         const l = evs[k++], side = l.kind === "hitEnv" ? (l.who === "me" ? "foe" : "me") : fxSide(l);
         const txt = l.kind === "hit" ? "-" + l.n : l.kind === "heal" ? "+" : l.kind === "gain" ? "+胶" : l.kind === "skip" ? (l.text.indexOf("退回") >= 0 ? "退回" : "落空") : "";
         setFx({ kind: l.kind, side, slot: l.slot, slots: l.slots, n: l.n, ink: l.ink, txt });
+        // 他开口：他的票上场、被打掉、觉醒、盖章时说卡上那句；打掉她一张时说他卡上戳一戳时那句（她 2026-11-08 同意「像他」）
+        const foeLine = l.who === "foe" && l.line ? l.line : (l.kind === "fall" && l.who === "me" ? (them.board.find(x => x && x.lines && x.lines.win) || {}).lines : null);
+        const said = typeof foeLine === "string" ? foeLine : foeLine && foeLine.win;
+        if (said) { const key = Math.random(); lastBubble.current = key; setBubble({ text: said, key }); }
         const big = l.kind === "wake" || l.kind === "stamp" || l.kind === "event";
         if (big) setBanner({ text: l.text, line: l.line || "", who: l.who, key: Math.random() }); else setBanner(null);
         setTimeout(step, l.kind === "wake" ? 2600 : big ? 1800 : l.kind === "place" ? 380 : 520);
@@ -239,6 +281,14 @@
     };
     const again = () => { D().addGame(series, st); start(); };
     const log = st.log.slice(-4);
+    // 教练条：这一步做到了就往下走（进下一步时先跑它的 enter）
+    const step = tut >= 0 ? TUT[tut] : null;
+    const goStep = n => { if (n >= TUT.length) { setTut(-1); return; } const nx = TUT[n]; if (nx.enter) { nx.enter(st, tutSeen.current); redraw(); } setTut(n); };
+    if (step && step.done && !playing.current && step.done(st, tutSeen.current)) setTimeout(() => setTut(t => { if (t !== tut) return t; const n = t + 1; if (n < TUT.length && TUT[n].enter) TUT[n].enter(st, tutSeen.current); bump(x => x + 1); return n < TUT.length ? n : -1; }), 600);
+    const coach = step ? h("div", { key: "coach", "data-wk": "duelcoach", style: { position: "sticky", top: 0, zIndex: 5, margin: "0 0 8px", padding: "9px 12px 9px 46px", borderRadius: 4, background: "rgba(79,122,102,.95)", color: "#fff", fontSize: fz(12.5), lineHeight: 1.65, boxShadow: "0 4px 12px rgba(47,42,34,.25)" } },
+      h("span", { style: { position: "absolute", left: 9, top: 9, width: 28, height: 28, borderRadius: 999, background: PAPER, color: GREEN, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: FD, fontSize: fz(11) } }, (tut + 1) + "/" + TUT.length),
+      step.say,
+      step.next ? h("div", { style: { textAlign: "right", marginTop: 4 } }, h("button", { "data-wk": "duelcoachnext", onClick: () => goStep(tut + 1), style: { padding: "3px 12px", borderRadius: 999, background: PAPER, color: GREEN, fontSize: fz(12) } }, step.last ? "好，开打" : "下一步")) : null) : null;
     // 边打边聊：记在这一局里（跟着存档走），她发一句才叫 TA 一次
     st.chat = st.chat || [];
     const boardLine = () => "第 " + st.turn + " 回合，信封耐久（满 " + D().ENVELOPE_HP + "）她 " + Math.max(0, me.hp) + "、你 " + Math.max(0, them.hp)
@@ -275,12 +325,16 @@
 
     return shell([
       h(Head, { key: "hd", zh: "第 " + st.turn + " 回合", sub: "对 " + foeName + (st.blind ? " · 盲打" : ""), bg: "transparent", ink: INK, right: guideBtn,
-        onBack: () => { if (!over) { persist(st, series); setSaved({ st, series, foeId, at: Date.now() }); } else persist(null); setSt(null); setSeries(null); } }),
+        onBack: () => { if (st.tutorial) { setSt(null); setTut(-1); return; } if (!over) { persist(st, series); setSaved({ st, series, foeId, at: Date.now() }); } else persist(null); setSt(null); setSeries(null); } }),
       h("div", { key: "bd", className: "flex-1 min-h-0 overflow-y-auto px-4", style: { fontFamily: F, color: INK, paddingBottom: 14 } },
+        coach,
         Seal(foeName, them.hp, D().ENVELOPE_HP, RED, series && series.games.length ? "第 " + (series.games.length + 1) + " 把" : ""),
+        bubble ? h("div", { key: "bb" + bubble.key, "data-wk": "duelsay", style: { position: "relative", margin: "4px 0 2px 34px", padding: "6px 11px", borderRadius: "4px 12px 12px 12px", background: "#fff", boxShadow: "0 2px 6px rgba(47,42,34,.15)", fontSize: fz(12.5), lineHeight: 1.55, color: INK, animation: "duelPop .3s" } },
+          h("span", { style: { color: RED, fontFamily: FD, marginRight: 6 } }, foeName), bubble.text) : null,
         // 对面的下一步：像一张电报条（盲打时不给看）
         h("div", { "data-wk": "duelintent", style: { position: "relative", margin: "6px 0 10px", padding: "7px 10px 7px 46px", borderRadius: 3, border: "1px dashed rgba(47,42,34,.35)", background: "rgba(255,255,255,.5)", fontSize: fz(11.5), lineHeight: 1.6 } },
           h("span", { style: { position: "absolute", left: 7, top: 7, padding: "1px 4px", border: "1.5px solid " + RED, color: RED, borderRadius: 3, fontFamily: FD, fontSize: fz(10), transform: "rotate(-6deg)" } }, "下一步"),
+          it.styleZh ? h("div", { style: { color: SUB, fontSize: fz(10.5) } }, foeName + " 的打法：" + it.styleZh) : null,
           st.blind ? "盲打：TA 的下一步看不见。" : intentText + (it.toEnvelope ? "；空着的列会打你信封约 " + it.toEnvelope : "") + ((it.inks || []).length ? "；会盖：" + it.inks.join("、") : ""),
           it.nextEvent ? h("div", { style: { color: GREEN } }, "下回合公告：" + it.nextEvent + "——" + D().EVENTS[it.nextEvent]) : null,
           // 明牌：TA 手里那几张也摊开给她看，要贴的那几张标上「要贴」
@@ -301,7 +355,7 @@
             h("button", { onClick: () => doMine(() => D().tear(st, "me", boardSel)), style: btn("transparent", INK, INK) }, "撕下"),
             h("span", { style: { color: SUB, fontSize: fz(11) } }, "点旁边空格＝挪过去（1 胶水）"))) : null,
         h("div", { "data-wk": "duellog", style: { marginTop: 10, fontSize: fz(11), color: SUB, lineHeight: 1.65 } }, log.map((l, k) => h("div", { key: k }, (l.who === "foe" ? foeName + "：" : l.who === "me" ? "我：" : "") + l.text + (l.line ? "「" + l.line + "」" : ""))))),
-      onChat ? chatBox : null,
+      onChat && !st.tutorial ? chatBox : null,
       info ? (() => { const u = info.u, inf = D().unitInfo(u, st.bonds), sd = info.foe ? them : me, live = sd.board.some(x => x && x.uid && x.uid === u.uid), col = RC[u.rarity] || RC.R;
         // 底细卡（她 2026-11-08「这个页面也做好看点」）：像一张夹着邮票的明信片——左边斜贴着那枚票，右边写名字和面额；
         //   下面一排数值像邮局的小标签，再往下一条条说明，最底下是卡上那句话
@@ -330,7 +384,7 @@
               h("div", { className: "flex", style: { gap: 6, margin: "14px 0 6px" } },
                 stat("攻击", u.pow), stat("血", (live ? Math.max(0, u.hp) + "/" : "") + u.maxHp), stat("护", u.shield || 0), stat("章", (u.charge != null ? u.charge + "/" : "") + u.need)),
               sec("作用", ROLE_COLOR[u.role], u.role, ROLE_TIP[u.role]),
-              sec("特质", "#8a7a5a", inf.trait.zh, inf.trait.desc),
+              sec("特质", "#8a7a5a", inf.trait.zh, h("span", null, inf.trait.desc, h("div", { style: { color: SUB, fontSize: fz(10.5) } }, inf.trait.from))),
               sec("盖章", "#b8862a", inf.skill.zh + (u.rarity === "SSR" ? " · " + inf.skill.base : ""), inf.skill.desc),
               inf.bond ? sec("羁绊", GREEN, inf.bond.zh, inf.bond.desc + "。" + (nameOf(u.charId) || "这个人") + "的票在同一个信封上有两张以上时生效。") : null,
               u.role === "邮戳" ? sec("戳", "#6a4f8a", "会盖「" + u.ink + "」", D().MARKS[u.ink].note) : null,
@@ -359,7 +413,10 @@
       over ? h("div", { key: "ft", "data-wk": "duelover", className: "shrink-0 px-4", style: { paddingTop: 12, paddingBottom: "calc(12px + env(safe-area-inset-bottom) * 0.4)", fontFamily: F, color: INK, borderTop: "1px solid rgba(47,42,34,.18)", background: "rgba(251,246,234,.92)" } },
           h("div", { style: { fontFamily: FD, fontSize: fz(18), textAlign: "center", marginBottom: 2, color: over.winner === "me" ? GREEN : over.winner === "foe" ? RED : INK } }, over.winner === "me" ? "你赢了" : over.winner === "foe" ? foeName + " 赢了" : "打平了"),
           h("div", { style: { fontSize: fz(11), textAlign: "center", color: SUB, marginBottom: 10 } }, over.turn + " 回合 · 信封剩 " + over.me + " : " + over.foe + (over.byCap ? " · 打满回合比剩下的" : "")),
-          asking ? h("div", null,
+          st.tutorial ? h("div", { className: "flex", style: { gap: 8 } },
+              h("button", { onClick: startTut, className: "flex-1", style: btn(INK, PAPER) }, "再练一次"),
+              h("button", { onClick: () => { setSt(null); setTut(-1); }, className: "flex-1", style: btn("transparent", INK, INK) }, "去正式对局"))
+          : asking ? h("div", null,
             h("div", { style: { fontSize: fz(12.5), textAlign: "center", marginBottom: 8 } }, "要让 " + foeName + " 记得这 " + ((series ? series.games.length : 0) + 1) + " 把吗？"),
             h("div", { className: "flex", style: { gap: 8 } },
               h("button", { "data-wk": "duelremember", onClick: () => finish(true), className: "flex-1", style: btn(INK, PAPER) }, "记得"),
@@ -373,6 +430,7 @@
             h("span", { className: "flex-1" }),
             handSel >= 0 ? h("button", { onClick: () => { fail(D().keep(st, "me", handSel)); redraw(); }, style: btn("transparent", INK, "rgba(47,42,34,.5)") }, me.kept.includes(handSel) ? "不留了" : "留到下回合") : null,
             h("button", { "data-wk": "duelundo", onClick: back1, disabled: !D().canUndo(st), className: "disabled:opacity-30", style: btn("transparent", INK, INK) }, "撤回"),
+            fx ? h("button", { "data-wk": "duelskip", onClick: skip, style: btn("transparent", INK, "rgba(47,42,34,.5)") }, "跳过动画") : null,
             h("button", { "data-wk": "duelsend", onClick: send, disabled: !!fx, className: "disabled:opacity-50", style: Object.assign(btn(RED, "#fff"), { fontFamily: FD, letterSpacing: ".15em" }) }, "寄出")),
           h("div", { className: "flex overflow-x-auto px-3", style: { gap: 8, paddingTop: 6, paddingBottom: 2 } }, me.hand.map((s, k) => h("div", { key: s.cardId + "_" + k, style: { flex: "0 0 74px", opacity: me.postage < s.face ? 0.55 : 1, position: "relative" } },
             h(Ticket, { u: s, card: cardOf(s.cardId), owner: ownerOf(s.charId), useThumb, small: true, sel: handSel === k, wk: "duelcard", onLong: () => openInfo(s, false), onTap: () => { setBoardSel(-1); setHandSel(handSel === k ? -1 : k); } }),

@@ -18,7 +18,7 @@ test("邮票册右上「对局」进对局页；打完先选再来一把／结�
 });
 test("票上放卡面（走邮票册那份缩略图）、写是谁的卡；有撤回键", () => {
   assert.match(st, /useThumb: useStampThumb \}\);/);
-  assert.match(ui, /ownerOf = id => id \? nameOf\(id\) \+ "的卡"/);
+  assert.match(ui, /ownerOf = id => id && nameOf\(id\) \? nameOf\(id\) \+ "的卡"/);
   assert.match(ui, /"data-wk": "duelundo", onClick: back1, disabled: !D\(\)\.canUndo\(st\)/);
 });
 test("明牌摊开对面手牌、标要贴；寄出后照这一回合的记录放特效，放完才能再寄", () => {
@@ -41,7 +41,7 @@ test("边打边聊：她发一句才叫一次 TA，带着眼下局面；聊天�
 });
 test("带谁上场、长按看底细、她自己那一下也慢放", () => {
   assert.match(ui, /D\(\)\.deckFrom\(cards, s, D\(\)\.DECK_SIZE, core\)/);
-  assert.match(ui, /newDuel\(me, them, s, \{ blind, bonds: bondsOf\(\) \}\)/);
+  assert.match(ui, /newDuel\(me, them, s, \{ blind, bonds: bondsOf\(\), foeId \}\)/);
   assert.match(ui, /function useLongPress\(onLong, onTap\)/);
   assert.match(ui, /"data-wk": "duelinfo"/);
   assert.match(ui, /const doMine = fn =>/);
@@ -56,4 +56,14 @@ test("跟 TA 聊时带上两边信封上的票和卡上那句；长按不弹系�
   assert.match(ui, /"。你信封上贴着："/);
   assert.match(ui, /"。她信封上贴着："/);
   assert.match(ui, /WebkitTouchCallout: "none"/);
+});
+test("新手教学关：开局页能进、九步教练条、不存档；对面会说话、有打法；能跳过动画", () => {
+  assert.match(ui, /const TUT = \[/);
+  assert.match(ui, /"data-wk": "duelturorial", onClick: startTut/);
+  assert.match(ui, /\(x && x\.tutorial\)\) return;/);
+  assert.match(ui, /"data-wk": "duelsay"/);
+  assert.match(ui, /"data-wk": "duelskip", onClick: skip/);
+  // 钩子不许放在提前 return 后面（React #310）
+  const ret = ui.indexOf("if (guide) return shell(");
+  assert.ok(ui.indexOf("const lastBubble = useRef(0)") < ret && ui.indexOf("const [tut, setTut] = useState(-1)") < ret);
 });

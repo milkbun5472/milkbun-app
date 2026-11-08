@@ -158,3 +158,11 @@ test("护会散：每回合开头先掉一半，不会叠成打不动的墙", ()
   D.endTurn(st);
   assert.ok(st.foe.board[0].shield <= 10);
 });
+test("对面照羁绊有打法；认不出字的特质照作用配；一把 60 血、最多 15 回合", () => {
+  assert.equal(D.ENVELOPE_HP, 60); assert.equal(D.TURN_CAP, 15);
+  const u = D.stampOf({ id: "zz", rarity: "R", text: { name: "无" } });
+  assert.ok(D.TRAIT_FIT[u.role].includes(u.trait)); assert.equal(u.traitFrom, "");
+  assert.match(D.unitInfo(D.stampOf({ id: "y", rarity: "R", text: { narration: "雨夜喝醉了酒" } })).trait.from, /从卡上的「/);
+  const st = D.newDuel(D.deckFrom(mine, 50), D.deckFrom(mine, 51), 50, { bonds: { b: "冷淡" }, foeId: "b" });
+  assert.equal(st.intent.style, "冷淡"); assert.ok(st.intent.place.length <= 2);
+});

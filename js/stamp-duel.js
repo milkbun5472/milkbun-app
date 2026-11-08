@@ -14,7 +14,7 @@
 (function (g) {
   "use strict";
   const SIZE = 3, SLOTS = SIZE * SIZE;
-  const ENVELOPE_HP = 80, POSTAGE = 3, DRAW = 4, DECK_SIZE = 12, TURN_CAP = 20, POSTAGE_CAP = 7, KEEP_MAX = 2, MOVE_COST = 1, STAMP_COST = 1;
+  const ENVELOPE_HP = 60, POSTAGE = 3, DRAW = 4, DECK_SIZE = 12, TURN_CAP = 15, POSTAGE_CAP = 7, KEEP_MAX = 2, MOVE_COST = 1, STAMP_COST = 1;
   const FACE = { R: 1, SR: 2, SSR: 3 };
   const BASE = { R: { pow: 3, hp: 6 }, SR: { pow: 5, hp: 9 }, SSR: { pow: 7, hp: 13 } };
   const NEED = { R: 2, SR: 3, SSR: 3 };                       // 攒几回合能盖一次章
@@ -88,17 +88,22 @@
     for (const k of Object.keys(BONDS)) { if (k === "默契") continue; const m = (t.match(BONDS[k].re) || []).length; if (m > n) { n = m; best = k; } }
     return best;
   }
-  function traitOf(card, hsh) {
+  // 卡上没认出字的，不再满池子乱发（她 2026-11-08：很温柔的卡拿到「记仇」）：从跟这种票合得来的几样里挑
+  const TRAIT_FIT = { 投递: ["莽撞", "锋利", "热烈", "记仇"], 火漆: ["守护", "倔强", "冷静", "黏人"], 补票: ["治愈", "余温", "守护", "浪漫"], 集邮: ["节俭", "机灵", "浪漫", "余温"], 邮戳: ["夜行", "沉默", "醉意", "冷静"] };
+  // 返回 [特质, 从卡上哪几个字来的]（认不出就是空）
+  function traitOf(card, hsh, role) {
     const tx = (card && card.text) || {};
     const words = [tx.name, tx.gist, tx.line, tx.narration, tx.thought, tx.highlight, tx.open, tx.real].map(clean).join(" ");
-    let best = "", n = 0;
-    for (const k of TRAIT_KEYS) { const m = (words.match(TRAITS[k].re) || []).length; if (m > n) { n = m; best = k; } }
-    return best || TRAIT_KEYS[(hsh >>> 4) % TRAIT_KEYS.length];
+    let best = "", n = 0, from = [];
+    for (const k of TRAIT_KEYS) { const m = words.match(TRAITS[k].re) || []; if (m.length > n) { n = m.length; best = k; from = m; } }
+    if (best) return [best, Array.from(new Set(from)).slice(0, 3).join("、")];
+    const fit = TRAIT_FIT[role] || TRAIT_KEYS;
+    return [fit[(hsh >>> 4) % fit.length], ""];
   }
   // 给界面看的：这张票的特质、章、羁绊都是什么
   function unitInfo(u, bonds) {
     const sk = SKILLS[u.role] || {}, b = bonds && u.charId ? bonds[u.charId] : "";
-    return { trait: { zh: u.trait, desc: (TRAITS[u.trait] || {}).desc || "" },
+    return { trait: { zh: u.trait, desc: (TRAITS[u.trait] || {}).desc || "", from: u.traitFrom ? "从卡上的「" + u.traitFrom + "」来的" : "卡上没认出特别的字，照它是" + u.role + "票配的" },
       skill: { zh: u.rarity === "SSR" ? u.name : u.skill, base: u.skill, desc: (sk[u.skill] || "") + (u.rarity === "SSR" ? "（SSR：效果加一半）" : "") },
       bond: b ? { zh: b, desc: BONDS[b].desc } : null };
   }
@@ -128,11 +133,11 @@
     let pow = BASE[r].pow + Math.floor(lv / 10) + jit, hp = BASE[r].hp + Math.floor(lv / 5) + ((hsh >>> 12) % 3);
     if (role === "火漆") { pow = Math.max(1, pow - 2); hp += 4; }
     if (role === "投递") pow += 1;
-    const trait = traitOf(card, hsh), skillKeys = Object.keys(SKILLS[role]), skill = skillKeys[(hsh >>> 20) % skillKeys.length];
+    const [trait, traitFrom] = traitOf(card, hsh, role), skillKeys = Object.keys(SKILLS[role]), skill = skillKeys[(hsh >>> 20) % skillKeys.length];
     const tx = (card && card.text) || {}, pk = (card && (card.pokes || card.pokesSolo || card.pokesDuo)) || {};
     return {
       cardId: card && card.id, charId: (card && card.charId) || "", rarity: r, lv, kind, limited: !!(card && card.limited),
-      name: clean(tx.name) || (r + " 票"), role, trait, skill, face: FACE[r], pow: Math.max(1, pow), maxHp: hp, need: Math.max(1, NEED[r] - (trait === "浪漫" ? 1 : 0)),
+      name: clean(tx.name) || (r + " 票"), role, trait, traitFrom, skill, face: FACE[r], pow: Math.max(1, pow), maxHp: hp, need: Math.max(1, NEED[r] - (trait === "浪漫" ? 1 : 0)),
       ink: MARK_OF_INK[(hsh >>> 16) % MARK_OF_INK.length],
       lines: {
         enter: clean(tx.line || tx.thought || tx.narration).slice(0, 80),
@@ -181,7 +186,7 @@
   function newDuel(meDeck, foeDeck, seed, opts) {
     const s = (seed >>> 0) || 1, R = rng(s ^ 0x2468);
     const events = []; for (let t = EVENT_EVERY; t <= TURN_CAP; t += EVENT_EVERY) events[t] = EVENT_KEYS[Math.floor(R() * EVENT_KEYS.length)];
-    const st = { turn: 0, me: side(meDeck, s), foe: side(foeDeck, s ^ 0xabcdef), log: [], over: null, uid: 0, seed: s, blind: !!(opts && opts.blind), events, bonds: (opts && opts.bonds) || {} };
+    const st = { turn: 0, me: side(meDeck, s), foe: side(foeDeck, s ^ 0xabcdef), log: [], over: null, uid: 0, seed: s, blind: !!(opts && opts.blind), events, bonds: (opts && opts.bonds) || {}, foeId: (opts && opts.foeId) || "", style: (opts && opts.style) || "" };
     startTurn(st);
     return st;
   }
@@ -431,26 +436,36 @@
   }
 
   // ── 对面怎么出：代码定，不花调用；开回合就算好（盲打时界面不给看）──────
+  // 对面的出牌性格（她 2026-11-08 同意：出牌也要像他）：照他的羁绊定——
+  //   护短先把前排顶满、好胜抢着往空列塞投递、偏执有章就盖不留后手、冷淡一回合最多贴两张慢慢攒、温柔自己人受伤先上补票
+  const STYLE_ZH = { 护短: "先护着自己人", 好胜: "一上来就抢攻", 偏执: "有章就盖，不留后手", 冷淡: "慢慢攒，不急", 温柔: "先照顾受伤的", 默契: "稳扎稳打" };
   function planFoe(st) {
     const sd = st.foe, me = st.me, plan = [], stamps = [], board = sd.board.slice();
     let money = sd.postage;
+    const style = st.style || (st.bonds || {})[st.foeId] || "默契";
+    const hurt = sd.board.some(u => u && u.hp < u.maxHp * 0.6);
     const meThreat = c => { let n = 0; for (let r = 0; r < SIZE; r++) { const u = me.board[r * SIZE + c]; if (u && (u.role === "投递" || u.role === "邮戳")) n += u.pow; } return n; };
     // 先盖攒满的章（投递、邮戳的大招最值）
-    sd.board.forEach((u, i) => { if (u && u.charge >= u.need && money >= STAMP_COST && (u.role === "投递" || u.role === "邮戳" || u.rarity === "SSR")) { money -= STAMP_COST; stamps.push({ slot: i, name: u.name, role: u.role }); } });
-    const hand = sd.hand.map((s, k) => ({ s, k })).sort((a, b) => b.s.face - a.s.face || b.s.pow - a.s.pow);
+    const wantStamp = u => style === "偏执" || u.role === "投递" || u.role === "邮戳" || u.rarity === "SSR" || (style === "温柔" && u.role === "补票" && hurt) || (style === "护短" && u.role === "火漆");
+    sd.board.forEach((u, i) => { if (u && u.charge >= u.need && money >= STAMP_COST && wantStamp(u)) { money -= STAMP_COST; stamps.push({ slot: i, name: u.name, role: u.role }); } });
+    const pri = s => (style === "护短" && s.role === "火漆" ? 3 : 0) + (style === "好胜" && s.role === "投递" ? 3 : 0) + (style === "温柔" && hurt && s.role === "补票" ? 4 : 0) + (style === "冷淡" && s.role === "集邮" ? 3 : 0);
+    const hand = sd.hand.map((s, k) => ({ s, k })).sort((a, b) => pri(b.s) - pri(a.s) || b.s.face - a.s.face || b.s.pow - a.s.pow);
+    let placed = 0;
     for (const { s, k } of hand) {
+      if (style === "冷淡" && placed >= 2) break;
       const cost = faceNow(st, s); if (cost > money) continue;
       const free = board.map((x, i) => x || sd.terrain[i] === "破损" ? -1 : i).filter(i => i >= 0); if (!free.length) break;
-      const score = i => (s.role === "火漆" ? meThreat(col(i)) * 3 + (row(i) === 0 ? 6 : 0) : 0)
+      const score = i => (s.role === "火漆" ? meThreat(col(i)) * 3 + (row(i) === 0 ? (style === "护短" ? 12 : 6) : 0) : 0)
+        + (style === "好胜" && s.role === "投递" && targetIn(me, col(i)) < 0 ? 8 : 0)
         + ((s.role === "投递" || s.role === "邮戳") ? (row(i) === SIZE - 1 && board[col(i)] ? 5 : 0) + (targetIn(me, col(i)) < 0 ? 3 : 0) : 0)
         + adj(i).filter(j => board[j] && board[j].charId && board[j].charId === s.charId).length * 4
         + (sd.terrain[i] === "邮筒" ? 2 : 0) - row(i) * 0.1;
       const slot = free.sort((a, b) => score(b) - score(a))[0];
-      board[slot] = s; money -= cost; plan.push({ handIdx: k, slot, name: s.name, role: s.role, face: cost, cardId: s.cardId, charId: s.charId });
+      board[slot] = s; money -= cost; placed++; plan.push({ handIdx: k, slot, name: s.name, role: s.role, face: cost, cardId: s.cardId, charId: s.charId });
     }
     let toEnv = 0; const inks = [];
     board.forEach((u, i) => { if (!u) return; if (u.role === "投递" && targetIn(me, col(i)) < 0) toEnv += u.pow; if (u.role === "邮戳") inks.push(u.ink); });
-    return { place: plan, stamp: stamps, toEnvelope: toEnv, inks, nextEvent: eventNext(st) };
+    return { place: plan, stamp: stamps, toEnvelope: toEnv, inks: inks.filter(x => x !== "加急"), nextEvent: eventNext(st), style, styleZh: STYLE_ZH[style] || "" };
   }
   function runFoePlan(st) {
     const it = st.intent || {};
@@ -495,7 +510,7 @@
   // 她那边的动作先存一份再做；做不成就把那份扔掉（不留空撤回）
   const mine = raw => (st, who, a, b) => { if (who !== "me") return raw(st, who, a, b); snap(st); const r = raw(st, who, a, b); if (!r || !r.ok) st.undo.pop(); return r; };
   const place = mine(placeRaw), tear = mine(tearRaw), move = mine(moveRaw), keep = mine(keepRaw), stamp = mine(stampRaw);
-  const API = { TRAITS, SKILLS, BONDS, bondOf, unitInfo, SIZE, SLOTS, ENVELOPE_HP, POSTAGE, DRAW, DECK_SIZE, TURN_CAP, KEEP_MAX, FACE, NEED, ROLES, MARKS, TERRAIN, EVENTS,
+  const API = { STYLE_ZH, TRAIT_FIT, TRAITS, SKILLS, BONDS, bondOf, unitInfo, SIZE, SLOTS, ENVELOPE_HP, POSTAGE, DRAW, DECK_SIZE, TURN_CAP, KEEP_MAX, FACE, NEED, ROLES, MARKS, TERRAIN, EVENTS,
     stampOf, deckFrom, foeDeckFrom, newDuel, place, tear, move, keep, stamp, undo, canUndo, endTurn, planFoe, combos, newSeries, addGame, memoryLine, hashStr };
   g.StampDuel = API;
   if (typeof module !== "undefined" && module.exports) module.exports = API;
