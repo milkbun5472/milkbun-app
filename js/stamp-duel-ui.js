@@ -48,7 +48,33 @@
     add: k => { const a = Keeps.all(); a.push(k); sv(KEEP_KEY, a.slice(-200)); },
     fxLine: (fx, v) => (D().KEEP_FX[fx] ? D().KEEP_FX[fx].zh + " · " + D().KEEP_FX[fx].say(v) : "")
   };
-  window.StampKeeps = Keeps;   // 守城最好成绩：{ waves, wins }
+  window.StampKeeps = Keeps;
+  // 打赢的奖励（她 2026-11-08「奖励可以 弄一下」）：每天第一次赢给一点；各玩法的里程碑第一次达成给一笔、盖一枚纪念戳。
+  //   印泥、邮资直接进邮票册那份（StampsCore），量控制在比抽卡、升级花得少
+  const REWARD_KEY = "x_stampDuelRewards";
+  const MILESTONES = [
+    ...[0, 1, 2, 3, 4].map(t => ({ id: "siege" + t, zh: "守住守城第 " + (t + 1) + " 档", ink: 150 * (t + 1), postage: 100, test: x => x.siege && x.win && x.tier === t })),
+    ...[5, 10, 15, 20].map((n, i) => ({ id: "edict" + n, zh: "封缄令危险 " + n, ink: [150, 300, 500, 800][i], postage: 100, test: x => x.edict && x.win && x.pts >= n })),
+    ...[200, 400, 700, 1000].map((n, i) => ({ id: "raid" + n, zh: "讨伐打出 " + n + " 伤害", ink: [150, 300, 500, 800][i], postage: 100, test: x => x.raid && !x.endless && x.dealt >= n })),
+    ...[10, 15, 20].map((n, i) => ({ id: "endless" + n, zh: "无尽撑过 " + n + " 回合", ink: [200, 400, 700][i], postage: 100, test: x => x.raid && x.endless && x.turn >= n })),
+    ...[1, 2, 3, 4, 5, 6, 7, 8].map(l => ({ id: "run" + l, zh: "远信 " + l + " 级送到", ink: 100 * l, postage: 100, test: x => x.run && x.win && x.level >= l }))
+  ];
+  const DAILY = { ink: 60, postage: 60 };
+  const Rewards = {
+    MILESTONES,
+    got: () => ld(REWARD_KEY, { got: {}, day: "" }),
+    // x：这一把的结果 { win, siege, tier, edict, pts, raid, endless, dealt, turn, run, level }；返回这次拿到的几样
+    settle: x => {
+      const C = window.StampsCore; if (!C) return [];
+      const r = Rewards.got(), out = []; let ink = 0, post = 0;
+      const today = new Date().toISOString().slice(0, 10);
+      if (x.win && r.day !== today) { r.day = today; ink += DAILY.ink; post += DAILY.postage; out.push("今天第一次赢：" + DAILY.ink + " 印泥、" + DAILY.postage + " 邮资"); }
+      MILESTONES.forEach(m => { if (!r.got[m.id] && m.test(x)) { r.got[m.id] = Date.now(); ink += m.ink; post += m.postage; out.push("✦ " + m.zh + "：" + m.ink + " 印泥、" + m.postage + " 邮资"); } });
+      if (ink || post) { try { const st = C.load(); st.ink += ink; st.postage += post; C.save(st); } catch (e) {} sv(REWARD_KEY, r); }
+      return out;
+    }
+  };
+  window.StampRewards = Rewards;   // 守城最好成绩：{ waves, wins }
   // 念台词（她 2026-11-08「搞个开关播放语音，然后可以设置选哪些的台词战斗中可以读出来，战斗的时候会显示台词念出来」）
   const VOICE_KEY = "x_stampDuelVoice";
   const VOICE_KINDS = [["place", "贴上场"], ["stamp", "盖章"], ["wake", "觉醒"], ["fall", "被打掉"]];
@@ -78,6 +104,7 @@
     ["远信的信物", "远信路上打赢会掉材料（走主题路线掉那条路的，打赢终点掉「TA 的东西」），只在这一趟里用。", "路线图上点「做信物」：挑三样材料（能混着）、挑收信的人或陪你走的人，请 TA 做一件，花一次调用。TA 照自己的人设和你们聊过的事写名字、一两句来历、看着它说的一句话。", "效果从三样材料的偏向里挑，同一种偏向的越多越强，「TA 的东西」再加一档；做好当场就能带上，这一趟后面每一站都生效。一开始只能带一件，路上的「旧行李箱」能多开一格，最多三格。", "做过的信物都收进开头页的「信物册」。下一趟跟同一个人出发（TA 收信或陪你走），能在开头挑一件旧信物带上，占一格。"],
     ["封缄令：自己加难度", "挑玩法页进「封缄令」：对面是等级固定的审查局。先勾难度条（对面攻击 +2、你少 1 胶水、不能撕票……），每条有分。", "打赢了，勾的分加起来就是这一把的「危险」，记最高的。打输不扣分。勾的那几条打的时候写在「下一步」那块上。"],
     ["讨伐：冲伤害", "挑玩法页进「讨伐」：对面是打不死的邮政总局，比你打出多少伤害（打人、打信封都算）。分「8 回合」和「无尽（打到你信封空）」两种，各记最高分。", "总局每回合派人顶在前排；第 4、第 7 回合换阶段，人更多、更硬。总局每回合还盖一记大章砸你的信封，明牌会算进「你的信封要挨」。", "封条：有的人贴着封条（签上写「封条·」），封着的时候怎么打都只掉 1。用邮戳打到它、或盖章打到它，封条撕开，接下来两回合虚弱（「虚弱·」）、挨打翻倍。先撕封条再集火最划算。"],
+    ["奖励", "每天第一次赢任何玩法给一点印泥和邮资；各玩法的里程碑（守城每一档、封缄令危险、讨伐伤害、无尽回合、远信等级）第一次达成另给一笔，只给一次。挑玩法页的「战功邮戳」能看拿过哪些。"],
     ["打完以后", "选「再来一把」接着打，或者「结束」。结束时问要不要让 TA 记得，记的话这几把合成一句进 TA 的记忆。", "打到一半想走，直接返回就行，会存着。下次进来点「接着打」。", "手牌上面那条能跟 TA 聊天，你说一句 TA 回几句，发一句花一次调用。"]
   ];
   const fz = n => "calc(" + n + "px * var(--app-fs, 1))";
@@ -483,6 +510,11 @@
         modeCard("duelmoderaid", "#8a3a4a", "讨伐", "讨伐", "打不死的邮政总局，比打出多少伤害。有的敌人贴着封条，用邮戳或盖章撕开，它就虚弱两回合、挨打翻倍。分 8 回合冲分和无尽两种，不花调用。", () => setMode("raidpick")),
         modeCard("duelmodesiege", "#3f6fb0", "守城", "守城", "麻烦一波一波压过来：敌人贴在对面，一回合往前走一格，在前排站过一回合还没被打掉就闯过去撞你的信封。守过 10 波就赢，每守住三波信封回 5。分五档，每档敌人的等级是定的。不花调用。", () => setMode("siegepick")),
         onRun ? modeCard("duelgorun", "#b8862a", "远信", "远信", "给一个人寄封信，一路打过去：六站路线、路上的麻烦和拦信的人、邮局、驿站、信物。信封血不回满，送到了 TA 会写回信。", onRun) : null,
+        (() => { const g = Rewards.got().got || {}, n = MILESTONES.filter(m => g[m.id]).length;
+          return h("details", { key: "ms", "data-wk": "duelmilestones", style: { marginBottom: 14, padding: "10px 14px", borderRadius: 6, background: "rgba(255,253,247,.9)", boxShadow: "0 2px 8px rgba(47,42,34,.10)" } },
+            h("summary", { style: { fontFamily: FD, fontSize: fz(14), cursor: "pointer", color: INK } }, "战功邮戳 · " + n + " / " + MILESTONES.length),
+            h("div", { style: { fontSize: fz(11), color: SUB, margin: "4px 0 8px", lineHeight: 1.6 } }, "每个第一次达成给一笔印泥和邮资，只给一次；每天第一次赢任何玩法另给 " + DAILY.ink + " 印泥、" + DAILY.postage + " 邮资。"),
+            h("div", { className: "flex flex-wrap", style: { gap: 6 } }, MILESTONES.map(m => { const on = !!g[m.id]; return h("span", { key: m.id, "data-wk": "duelmilestone", "data-on": on ? "1" : "0", style: { padding: "2px 9px", borderRadius: 999, fontSize: fz(11), border: "1px " + (on ? "solid #b8862a" : "dashed rgba(47,42,34,.25)"), color: on ? "#b8862a" : SUB, background: on ? "rgba(184,134,42,.08)" : "transparent" } }, (on ? "✦ " : "") + m.zh + (on ? "" : " · " + m.ink)); }))); })(),
         modeCard("duelturorial", GREEN, "新手教学关", "教学", "第一次玩先来这儿：一把练习局，一步步教贴票、寄出、盖章、长按看底细、四方连。随时能回来再玩，不花调用。", startTut))]);
     // ── 开局前：挑对手、明牌还是盲打 ──
     if (!st) return shell([
@@ -599,6 +631,7 @@
     const again = () => { D().addGame(series, st); start(); };
     const log = st.log.slice(-4);
     if (over && !playing.current && !st.run && !st.siege && !st.raid && !st.edict) record(st);
+    if (over && !playing.current && !st.run && !st.tutorial && !st.rewards) st.rewards = Rewards.settle({ win: over.winner === "me", siege: !!st.siege, tier: st.siegeTier || 0, edict: !!st.edict, pts: st.edictPts || 0, raid: !!st.raid, endless: !!(st.raid && st.raid.endless), dealt: st.raid ? st.raid.dealt : 0, turn: st.turn });
     if (over && st.edict && !edictSaved) { const b0 = edictBest(); st.edictPrev = b0.pts || 0; if (over.winner === "me" && (st.edictPts || 0) > (b0.pts || 0)) { try { saveJSON(EDICT_KEY, { pts: st.edictPts, tags: st.edict }); } catch (e) {} } setTimeout(() => setEdictSaved(true), 0); }
     if (over && st.raid && !raidSaved) { const m = st.raid.endless ? "endless" : "normal", b0 = raidBest(m); try { const all = (typeof loadJSON === "function" ? loadJSON(RAID_KEY, {}) : {}) || {}; if (st.raid.dealt > (b0.dealt || 0)) { all[m] = { dealt: st.raid.dealt, turn: st.turn }; saveJSON(RAID_KEY, all); } st.raid.prev = b0.dealt || 0; } catch (e) {} setTimeout(() => setRaidSaved(true), 0); }
     if (over && st.siege && !siegeSaved) { const all = siegeAll(), t = st.siegeTier || 0, b0 = siegeBest(t), w = st.siege.cleared; all.tiers = Object.assign({}, all.tiers, { [t]: { waves: Math.max(b0.waves || 0, w), wins: (b0.wins || 0) + (over.winner === "me" ? 1 : 0) } }); try { saveJSON(SIEGE_KEY, all); } catch (e) {} setTimeout(() => setSiegeSaved(true), 0); }
@@ -730,6 +763,7 @@
             h("div", { style: { fontFamily: FD, fontSize: fz(kind === "event" ? 15 : 18), color: c, lineHeight: 1.45 } }, head),
             banner.line ? h("div", { style: { margin: "8px auto 0", maxWidth: "92%", paddingTop: 8, borderTop: "1px solid " + c + "33", fontFamily: FD, fontStyle: "italic", fontSize: fz(12.5), color: "#5a4f40", lineHeight: 1.7 } }, "「" + banner.line + "」") : null)); })() : null,
       over ? h("div", { key: "ft", "data-wk": "duelover", className: "shrink-0 px-4", style: { paddingTop: 12, paddingBottom: "calc(12px + env(safe-area-inset-bottom) * 0.4)", fontFamily: F, color: INK, borderTop: "1px solid rgba(47,42,34,.18)", background: "rgba(251,246,234,.92)" } },
+          st.rewards && st.rewards.length ? h("div", { "data-wk": "duelreward", style: { margin: "0 0 8px", padding: "6px 10px", borderRadius: 5, background: "rgba(184,134,42,.1)", border: "1px solid rgba(184,134,42,.35)", fontSize: fz(11.5), lineHeight: 1.6, color: "#7a5a1a", textAlign: "center" } }, st.rewards.map((t, k) => h("div", { key: k }, t))) : null,
           st.edict ? h("div", { key: "edo", "data-wk": "duelediccover", style: { textAlign: "center", marginBottom: 10 } }, h("div", { style: { fontFamily: FD, fontSize: fz(20), color: over.winner === "me" ? "#5a4f8a" : RED } }, over.winner === "me" ? "通过 · 危险 " + (st.edictPts || 0) : "没过"), h("div", { style: { fontSize: fz(11.5), color: SUB } }, over.winner === "me" ? ((st.edictPts || 0) > (st.edictPrev || 0) ? "新纪录！" : "最高 危险 " + (st.edictPrev || 0)) : "少勾几条再试，或者换个打法")) : null,
           st.raid ? h("div", { key: "rdo", "data-wk": "duelraidover", style: { textAlign: "center", marginBottom: 10 } }, h("div", { style: { fontFamily: FD, fontSize: fz(22), color: "#8a3a4a" } }, st.raid.dealt + " 伤害"), h("div", { style: { fontSize: fz(11.5), color: SUB } }, (st.raid.endless ? "无尽 · 撑了 " + st.turn + " 回合" : over.winner === "me" ? "打满 8 回合" : "第 " + st.turn + " 回合信封被砸空了") + (st.raid.prev != null ? (st.raid.dealt > st.raid.prev ? " · 新纪录！" : " · 最高 " + st.raid.prev) : ""))) : null,
           st.siege ? h("div", { key: "sgo", "data-wk": "duelsiegeover", style: { textAlign: "center", marginBottom: 10 } }, h("div", { style: { fontFamily: FD, fontSize: fz(18), color: over.winner === "me" ? GREEN : RED } }, over.winner === "me" ? "守住了" : "城破了"), h("div", { style: { fontSize: fz(11.5), color: SUB } }, "第 " + ((st.siegeTier || 0) + 1) + " 档 · 守住 " + st.siege.cleared + " / " + st.siege.waves + " 波 · 信封剩 " + Math.max(0, over.me) + " · 这档最好 " + Math.max(siegeBest(st.siegeTier || 0).waves || 0, st.siege.cleared) + " 波")) : null,

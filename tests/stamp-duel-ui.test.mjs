@@ -150,3 +150,16 @@ test("封缄令页：勾难度、危险分、不进存档和战绩", () => {
   assert.match(ui, /x\.raid \|\| x\.edict/);
   assert.match(ts, /"duelediccgo"/);
 });
+test("奖励：每天第一次赢、里程碑只给一次、钱进邮票册；远信送到也结算", async () => {
+  const req = (await import("node:module")).createRequire(import.meta.url);
+  globalThis.window = globalThis; req("../js/stamp-duel.js");
+  globalThis.React = { createElement() {}, useState() {}, useRef() {}, useMemo() {}, useLayoutEffect() {}, useEffect() {} };
+  const m = {}; globalThis.loadJSON = (k, d) => k in m ? m[k] : d; globalThis.saveJSON = (k, v) => { m[k] = v; };
+  let S = { ink: 0, postage: 0 }; globalThis.StampsCore = { load: () => S, save: x => { S = x; } };
+  req("../js/stamp-duel-ui.js"); const R = globalThis.StampRewards;
+  assert.equal(R.settle({ win: true, siege: true, tier: 0 }).length, 2);
+  assert.equal(R.settle({ win: true, siege: true, tier: 0 }).length, 0);
+  assert.ok(S.ink > 0 && S.postage > 0);
+  const ru = readFileSync(new URL("../js/stamp-run-ui.js", import.meta.url), "utf8");
+  assert.match(ru, /window\.StampRewards\.settle\(\{ win: true, run: true, level: run\.level \|\| 1 \}\)/);
+});

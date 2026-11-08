@@ -271,7 +271,7 @@
         onDone: st => {
           const nd = run.map[run.pos.r][run.pos.k], res = RN().afterBattle(run, st, nd, cards);
           if (res.mats && window.StampKeeps) { window.StampKeeps.addMats(res.mats); run.matsGot = (run.matsGot || []).concat(res.mats); }
-          if (res.won) { postmark(run, true); if (run.resendIdx != null) { const L = load(LETTERS, []); if (L[run.resendIdx]) { L[run.resendIdx] = Object.assign({}, L[run.resendIdx], { delivered: Date.now() }); save(LETTERS, L); } } return commit(run, { at: "end", win: true }); }
+          if (res.won) { postmark(run, true); if (window.StampRewards) { run.rewards = window.StampRewards.settle({ win: true, run: true, level: run.level || 1 }); (run.rewards || []).forEach(t => toast && toast(t)); } if (run.resendIdx != null) { const L = load(LETTERS, []); if (L[run.resendIdx]) { L[run.resendIdx] = Object.assign({}, L[run.resendIdx], { delivered: Date.now() }); save(LETTERS, L); } } return commit(run, { at: "end", win: true }); }
           if (res.lost) { postmark(run, false); if (run.myLetter && run.resendIdx == null) keepLetter("returned", [run.myLetter], { mine: true }); return commit(run, { at: "end", win: false }); }
           commit(run, { at: "reward", res });
         } }) }));
@@ -496,6 +496,7 @@
         h(Head, { key: "hd", zh: win ? "信送到了" : "信寄丢了", bg: "transparent", ink: INK, onBack: () => { save(SAVE, null); setRun(null); setView({ at: "start" }); } }),
         h("div", { key: "bd", className: "flex-1 min-h-0 overflow-y-auto px-5", style: { fontFamily: F, color: INK, paddingBottom: 24 } },
           h("div", { style: { fontSize: fz(12.5), color: SUB, lineHeight: 1.8, margin: "6px 0 14px" } }, win ? "走完了 " + run.log.length + " 站，信封还剩 " + run.hp + "。" + toName + " 拆开了你的信。" : "走到第 " + ((run.done && run.done.at) + 1) + " 站，信封被打空了。这封信没能送到 " + toName + " 手里。"),
+          win && (run.rewards || []).length ? h("div", { "data-wk": "runreward", style: { margin: "0 0 12px", padding: "6px 10px", borderRadius: 5, background: "rgba(184,134,42,.1)", border: "1px solid rgba(184,134,42,.35)", fontSize: fz(11.5), lineHeight: 1.6, color: "#7a5a1a", textAlign: "center" } }, run.rewards.map((t, k) => h("div", { key: k }, t))) : null,
           win ? (run.letter ? h("div", { "data-wk": "runletter", style: { padding: "18px 18px 16px", borderRadius: 4, background: PAPER, border: "1px solid rgba(47,42,34,.15)", boxShadow: "0 4px 14px rgba(47,42,34,.15)", fontFamily: FD, fontSize: fz(13.5), lineHeight: 1.95, whiteSpace: "pre-wrap" } },
                 h("div", { style: { height: 5, margin: "-18px -18px 14px", background: AIR } }), run.letter)
               : h("button", { "data-wk": "runletterask", onClick: ask, disabled: busy, className: "w-full disabled:opacity-50", style: Object.assign(btn(RED, "#fff"), { padding: "12px 0", fontFamily: FD, fontSize: fz(14) }) }, busy ? toName + " 在写回信…" : "拆开 " + toName + " 的回信（花一次调用）")) : null,
