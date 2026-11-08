@@ -277,3 +277,14 @@ test("巡查 TA 的格子：挑了陪打的人才放 3 个；包裹、等你、�
   assert.ok(r.ask); assert.equal(p.score, s0 + D.TA_PTS.tmemory);
   p.cells[2 * 5 + 2].type = "twait"; const st0 = p.steps; D.patrolMove(p, 2, 2); assert.equal(p.steps, st0 - 1 + 2);
 });
+test("残局：30 关都有解、最优那一手能一回合打空、随手的放法不够、同一关名字不重", () => {
+  for (let lv = 1; lv <= D.PUZZLE_MAX; lv++) {
+    const st = D.puzzleOf(lv); assert.ok(st, "lv" + lv);
+    const names = [...st.me.hand, ...st.me.board, ...st.foe.board].filter(Boolean).map(u => u.name);
+    assert.equal(new Set(names).size, names.length);
+    const pl = st.puzzle.plan; pl.stamps.forEach(i => D.stamp(st, "me", i));
+    pl.place.forEach(p => { const k = st.me.hand.findIndex(u => u.cardId === p.cardId); D.place(st, "me", k, p.slot); });
+    D.endTurn(st); assert.equal(st.over.winner, "me", "lv" + lv);
+  }
+  const a = D.puzzleOf(7), b = D.puzzleOf(7); assert.equal(JSON.stringify(a.me.hand.map(u => u.name)), JSON.stringify(b.me.hand.map(u => u.name)));
+});

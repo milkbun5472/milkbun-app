@@ -57,6 +57,7 @@
     ...[5, 10, 15, 20].map((n, i) => ({ id: "edict" + n, zh: "封缄令危险 " + n, ink: [150, 300, 500, 800][i], postage: 100, test: x => x.edict && x.win && x.pts >= n })),
     ...[200, 400, 700, 1000].map((n, i) => ({ id: "raid" + n, zh: "讨伐打出 " + n + " 伤害", ink: [150, 300, 500, 800][i], postage: 100, test: x => x.raid && !x.endless && x.dealt >= n })),
     ...[10, 15, 20].map((n, i) => ({ id: "endless" + n, zh: "无尽撑过 " + n + " 回合", ink: [200, 400, 700][i], postage: 100, test: x => x.raid && x.endless && x.turn >= n })),
+    ...[10, 20, 30].map((n, i) => ({ id: "puzzle" + n, zh: "残局过 " + n + " 关", ink: [300, 500, 800][i], postage: 100, test: x => x.puzzle && x.solved >= n })),
     ...[100, 200, 300].map((n, i) => ({ id: "patrol" + n, zh: "邮区巡查 " + n + " 分", ink: [200, 400, 700][i], postage: 100, test: x => x.patrol && x.pts >= n })),
     ...[4, 8].map((n, i) => ({ id: "shift" + n, zh: "邮局值班撑到第 " + n + " 轮", ink: [300, 700][i], postage: 100, test: x => x.shift && x.round >= n })),
     ...[1, 2, 3, 4, 5, 6, 7, 8].map(l => ({ id: "run" + l, zh: "远信 " + l + " 级送到", ink: 100 * l, postage: 100, test: x => x.run && x.win && x.level >= l }))
@@ -117,6 +118,7 @@
     ["远信：一路打过去", "从挑玩法页进「远信」：给一个人寄一封信，信要走一段邮路，最后一站是 TA 本人。", "信封血带着走：一场打完不回满，到驿站、岔路、邮局才回得来。", "路线：雪国、海边、旧城、夜车、花季、沙漠、雨季、山路、梦里、TA 的城市，节日那条只在节日前后开。每条一条棋盘规则，对局顶上写着。默认是 TA 照人设推荐的那条。"],
     ["守城：一波一波守住", "从挑玩法页进「守城」，先挑一档（五档，各写建议等级）：没有对手，卡组从你的邮票册里配，对面是一波一波压过来的麻烦。", "敌人贴在对面后排，一回合往前走一格；走到前排的会打你那一列，在前排站过一回合还没被打掉，下回合就闯过去撞你的信封（写着「要闯过去」）。", "守过第 10 波、场上清空就赢；信封打空就城破。每守住三波，信封回 5、下回合多摸一张。", "跟对局同一套：贴票、胶水、盖章、组合都照旧。你的票照样打同一列最前面那个，所以在敌人走到前排之前就能先打它。"],
     ["远信的信物", "远信路上打赢会掉材料（走主题路线掉那条路的，打赢终点掉「TA 的东西」），只在这一趟里用。", "路线图上点「做信物」：挑三样材料（能混着）、挑收信的人或陪你走的人，请 TA 做一件，花一次调用。TA 照自己的人设和你们聊过的事写名字、一两句来历、看着它说的一句话。", "效果从三样材料的偏向里挑，同一种偏向的越多越强，「TA 的东西」再加一档；做好当场就能带上，这一趟后面每一站都生效。一开始只能带一件，路上的「旧行李箱」能多开一格，最多三格。", "做过的信物都收进开头页的「信物册」。下一趟跟同一个人出发（TA 收信或陪你走），能在开头挑一件旧信物带上，占一格。"],
+    ["残局：找最好的一手", "挑玩法页进「残局」：30 关，一关一关开，人人题目一样。每关棋盘、手牌、胶水都摆好了，只有这一回合，寄出时要把对面信封打空。", "对面信封正好是这一手最好能打出的伤害，所以得找到最好的放法：贴哪几张、贴哪格（连张、后排、组合）、先给谁盖章。随手往空格里贴的那种放法一定不够。", "卡住了点「提示」，一次给一步；「重来」把这一关摆回原样。"],
     ["邮区巡查：自己挑路", "挑玩法页进「邮区巡查」：一张 5×5 的地图，每周自动换一张、每个人的都不一样。从最下面中间出发，只能走到上下左右挨着的格子，走到哪翻开到哪，一共 14 步。", "格子：普通仗、硬仗、宝箱、岔路、驿站，最上面一排藏着巡查长。信封血一路带着，驿站回 15。打赢、开宝箱、打倒巡查长加分；打输了算败退：信封留 1 点、扣 2 步，接着走。步数用完、打倒巡查长或者提前收工就结束，这周记最高分。"],
     ["邮局值班：买票凑阵容", "挑玩法页进「邮局值班」：开局没票、10 枚邮花。每一轮先在柜台买票（R 2、SR 3、SSR 5 枚，刷新 1 枚），买进值班卡组。", "同一张票买两份合成「＋」（攻击 +2、血 +3），最多「＋＋」；同一个人的票凑满 3 张，这个人的票攻击 +1。点值班卡组里一张能卖，退一半。", "买好点「开打」跟这一轮的审查局打一局，最多 8 回合；输了掉一条命，一共三条，撑满八轮算完成。每轮收入 5 枚，手上每攒 5 枚多给 1 枚利息（最多 3）。中途退出，下次点进来接着值。"],
     ["封缄令：自己加难度", "挑玩法页进「封缄令」：对面是等级固定的审查局。先勾难度条（对面攻击 +2、你少 1 胶水、不能撕票……），每条有分。", "打赢了，勾的分加起来就是这一把的「危险」，记最高的。打输不扣分。勾的那几条打的时候写在「下一步」那块上。"],
@@ -352,11 +354,11 @@
     const byId = useMemo(() => { const m = {}; (cards || []).forEach(c => { if (c && c.id) m[c.id] = c; }); return m; }, [cards]);
     const nameOf = id => { if (id === "tut_pair") return "小练"; const c = (characters || []).find(x => x.id === id); return c ? (c.remark || c.name) : ""; };
     const cardOf = id => byId[id] || null, ownerOf = id => id && nameOf(id) ? nameOf(id) + "的卡" : "";
-    let foeName = (st && st.patrol && (st.patrol === "boss" ? "巡查长" : "巡查站")) || (st && st.shift && "审查局") || (st && st.edict && "审查局") || (st && st.siege && "城外") || (st && st.raid && "邮政总局") || (runBattle && runBattle.foeName) || nameOf(runBattle ? runBattle.foeId : foeId) || "TA";
+    let foeName = (st && st.puzzle && "残局") || (st && st.patrol && (st.patrol === "boss" ? "巡查长" : "巡查站")) || (st && st.shift && "审查局") || (st && st.edict && "审查局") || (st && st.siege && "城外") || (st && st.raid && "邮政总局") || (runBattle && runBattle.foeName) || nameOf(runBattle ? runBattle.foeId : foeId) || "TA";
     // 没打完退出去也留着（她 2026-11-07「没打完暂退能不能存档跟小游戏一样」）：每动一步就存一份，打完、放弃才清
     const SAVE_KEY = "x_stampDuelSave";
     const [saved, setSaved] = useState(() => { try { const v = typeof loadJSON === "function" ? loadJSON(SAVE_KEY, null) : null; return v && v.st && !v.st.over ? v : null; } catch (e) { return null; } });
-    const persist = (x, sr) => { try { if (typeof saveJSON !== "function" || (x && (x.tutorial || x.run || x.siege || x.raid || x.edict || x.shift || x.patrol)) || runBattle) return; if (x && !x.over) saveJSON(SAVE_KEY, { st: x, series: sr || null, foeId, at: Date.now() }); else saveJSON(SAVE_KEY, null); } catch (e) {} };
+    const persist = (x, sr) => { try { if (typeof saveJSON !== "function" || (x && (x.tutorial || x.run || x.siege || x.raid || x.edict || x.shift || x.patrol || x.puzzle)) || runBattle) return; if (x && !x.over) saveJSON(SAVE_KEY, { st: x, series: sr || null, foeId, at: Date.now() }); else saveJSON(SAVE_KEY, null); } catch (e) {} };
     const redraw = () => { persist(st, series); bump(x => x + 1); };
     const resume = () => { if (!saved) return; setFoeId(saved.foeId); setSt(saved.st); setSeries(saved.series || D().newSeries()); setSaved(null); setHandSel(-1); setBoardSel(-1); };
     const drop = () => { persist(null); setSaved(null); };
@@ -393,6 +395,11 @@
     const [coachTip, setCoachTip] = useState(null), [coachBusy, setCoachBusy] = useState(false);
     const [tkWho, setTkWho] = useState(""), [tkBusy, setTkBusy] = useState(false), [tkOpen, setTkOpen] = useState(""), [, tkBump] = useState(0);
     // 邮区巡查（她 2026-11-08）：每个人每周一张自己的地图；进度存着，这一周里能接着走
+    // 残局（她 2026-11-08）：30 关，一关一关开；过了记下来
+    const PZ_KEY = "x_stampPuzzle";
+    const pzDone = () => { try { return ((typeof loadJSON === "function" ? loadJSON(PZ_KEY, null) : null) || {}).solved || {}; } catch (e) { return {}; } };
+    const [pzHint, setPzHint] = useState(0);
+    const startPuzzle = lv => { const nd = D().puzzleOf(lv); if (!nd) { toast && toast("这一关没出好，换一关试试"); return; } setPzHint(0); setSt(nd); setMode("puzzle"); setHandSel(-1); setBoardSel(-1); };
     const PATROL_KEY = "x_stampPatrol", PATROL_BEST = "x_stampPatrolBest", PATROL_SALT = "x_stampPatrolSalt";
     const patrolSalt = () => { try { let v = typeof loadJSON === "function" ? loadJSON(PATROL_SALT, 0) : 0; if (!v) { v = (Math.random() * 4294967295) >>> 0 || 1; saveJSON(PATROL_SALT, v); } return v; } catch (e) { return 1; } };
     const [patrol, setPatrol0] = useState(() => { try { const v = typeof loadJSON === "function" ? loadJSON(PATROL_KEY, null) : null; return v && v.week === D().weekNo() ? v : null; } catch (e) { return null; } });
@@ -559,6 +566,18 @@
         h("div", { style: { fontSize: fz(12), color: SUB, lineHeight: 1.7, marginTop: 4, marginRight: 40 } }, desc)));
     // 守城挑档（她 2026-11-08「后面难度比我的卡都高我怎么赢」→ 固定难度档）
     // 小物册（她 2026-11-08）：按人分页；上面写攒了几个没拆的包裹，点「拆一个」花一次调用
+    if (!st && mode === "puzzle") {
+      const done = pzDone(), open = Math.min(D().PUZZLE_MAX, Object.keys(done).length + 1), C = "#6a5a3a";
+      return shell([
+        h(Head, { key: "hd", zh: "残局", bg: "transparent", ink: INK, onBack: () => setMode(""), right: guideBtn }),
+        h("div", { key: "bd", "data-wk": "duelpuzzles", className: "flex-1 min-h-0 overflow-y-auto px-5", style: { fontFamily: F, color: INK, paddingTop: 6, paddingBottom: 24 } },
+          modeHero(C, "残", "残局", "每一关棋盘、手牌、胶水都摆好了，只有这一回合：寄出时要把对面信封打空。对面信封正好是这一手最好能打出的伤害，得找到最好的放法——往哪格贴、贴哪几张、先给谁盖章。卡住了点「提示」。过一关开下一关，人人题目一样。不花调用。"),
+          coachPick(),
+          h("div", { style: { fontSize: fz(12), color: SUB, marginBottom: 10 } }, "过了 " + Object.keys(done).length + " / " + D().PUZZLE_MAX + " 关"),
+          h("div", { "data-wk": "duelpuzzlegrid", style: { display: "grid", gridTemplateColumns: "repeat(5, minmax(0, 1fr))", gap: 8 } }, Array.from({ length: D().PUZZLE_MAX }, (_, k) => k + 1).map(lv => { const ok = !!done[lv], can = lv <= open;
+            return h("button", { key: lv, "data-wk": "duelpuzzlelv", "data-ok": ok ? "1" : "0", disabled: !can, onClick: () => startPuzzle(lv), className: "disabled:opacity-35", style: { aspectRatio: "1 / 1", padding: 3, background: perf(PAPER), border: "none", filter: "drop-shadow(0 1px 2px rgba(47,42,34,.2))" } },
+              h("div", { style: { width: "100%", height: "100%", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", background: ok ? C : can ? "#fffdf7" : "#e8e0cf", color: ok ? "#fff" : INK, fontFamily: FD, fontSize: fz(16) } }, lv, h("span", { style: { fontFamily: F, fontSize: fz(8.5), opacity: .8 } }, ok ? "过了" : can ? "" : "🔒"))); })))]);
+    }
     if (!st && mode === "trinkets") {
       const P = Trinkets.parcels(), all = Trinkets.all();
       const ppl = (characters || []).filter(c => P[c.id] > 0 || all.some(t => t.charId === c.id));
@@ -729,6 +748,7 @@
           (() => { const t = [0, 1, 2, 3, 4].filter(k => siegeBest(k).wins).pop(); return modeTile("duelmodesiege", "#3f6fb0", "守", "守城", "一波一波守住信封", t != null ? "守住过第 " + (t + 1) + " 档" : "", () => setMode("siegepick"), 1); })(),
           (() => { const b = raidBest("normal"); return modeTile("duelmoderaid", "#8a3a4a", "讨", "讨伐", "打不死的总局，冲伤害", b.dealt ? "最高 " + b.dealt + " 伤害" : "", () => setMode("raidpick"), -1); })(),
           (() => { const b = edictBest(); return modeTile("duelmodeedict", "#5a4f8a", "封", "封缄令", "自己加难度，冲危险分", b.pts ? "最高 危险 " + b.pts : "", () => setMode("edictpick"), -1.2); })(),
+          (() => { const n = Object.keys(pzDone()).length; return modeTile("duelmodepuzzle", "#6a5a3a", "残", "残局", "一回合打空，找最好的一手", n ? "过了 " + n + " / " + D().PUZZLE_MAX + " 关" : "", () => setMode("puzzle"), 0.9); })(),
           (() => { const b = patrolBest(); return modeTile("duelmodepatrol", "#5a7a4a", "巡", "邮区巡查", "每周一张图，自己挑路走", patrol && !patrol.done ? "这周走到一半" : b.score ? "这周最高 " + b.score + " 分" : "", () => setMode("patrol"), -0.8); })(),
           (() => { const b = shiftBestOf(); return modeTile("duelmodeshift", "#4f6a8a", "值", "邮局值班", "柜台买票，凑阵容", shift ? "值到第 " + shift.round + " 轮" : b.round ? "最好第 " + b.round + " 轮" : "", () => setMode("shift"), 1.4); })()),
         (() => { const P = Trinkets.parcels(), n = Object.values(P).reduce((a, b) => a + b, 0), m = Trinkets.all().length;
@@ -856,10 +876,11 @@
     };
     const again = () => { D().addGame(series, st); start(); };
     const log = st.log.slice(-4);
-    if (over && !playing.current && !st.run && !st.siege && !st.raid && !st.edict && !st.shift && !st.patrol) record(st);
-    const chalNow = !!(st.siege || st.raid || st.edict || st.shift || st.patrol);
+    if (over && !playing.current && !st.run && !st.siege && !st.raid && !st.edict && !st.shift && !st.patrol && !st.puzzle) record(st);
+    const chalNow = !!(st.siege || st.raid || st.edict || st.shift || st.patrol || st.puzzle);
+    if (over && st.puzzle && over.winner === "me" && !st.pzSaved) { st.pzSaved = 1; try { const v = (typeof loadJSON === "function" ? loadJSON(PZ_KEY, null) : null) || {}; v.solved = Object.assign({}, v.solved, { [st.puzzle.lv]: Date.now() }); saveJSON(PZ_KEY, v); } catch (e) {} }
     if (over && !playing.current && !st.run && !st.tutorial && !st.parcels) st.parcels = Trinkets.drop([chalNow ? coachId : foeId], over.winner === "me", st.patrol === "boss" && over.winner === "me" ? 1 : 0);
-    if (over && !playing.current && !st.run && !st.tutorial && !st.rewards) st.rewards = Rewards.settle({ win: over.winner === "me", siege: !!st.siege, tier: st.siegeTier || 0, edict: !!st.edict, pts: st.edictPts || 0, raid: !!st.raid, endless: !!(st.raid && st.raid.endless), dealt: st.raid ? st.raid.dealt : 0, turn: st.turn });
+    if (over && !playing.current && !st.run && !st.tutorial && !st.rewards) st.rewards = Rewards.settle({ puzzle: !!st.puzzle, solved: st.puzzle ? Object.keys(pzDone()).length : 0, win: over.winner === "me", siege: !!st.siege, tier: st.siegeTier || 0, edict: !!st.edict, pts: st.edictPts || 0, raid: !!st.raid, endless: !!(st.raid && st.raid.endless), dealt: st.raid ? st.raid.dealt : 0, turn: st.turn });
     if (over && st.edict && !edictSaved) { const b0 = edictBest(); st.edictPrev = b0.pts || 0; if (over.winner === "me" && (st.edictPts || 0) > (b0.pts || 0)) { try { saveJSON(EDICT_KEY, { pts: st.edictPts, tags: st.edict }); } catch (e) {} } setTimeout(() => setEdictSaved(true), 0); }
     if (over && st.raid && !raidSaved) { const m = st.raid.endless ? "endless" : "normal", b0 = raidBest(m); try { const all = (typeof loadJSON === "function" ? loadJSON(RAID_KEY, {}) : {}) || {}; if (st.raid.dealt > (b0.dealt || 0)) { all[m] = { dealt: st.raid.dealt, turn: st.turn }; saveJSON(RAID_KEY, all); } st.raid.prev = b0.dealt || 0; } catch (e) {} setTimeout(() => setRaidSaved(true), 0); }
     if (over && st.siege && !siegeSaved) { const all = siegeAll(), t = st.siegeTier || 0, b0 = siegeBest(t), w = st.siege.cleared; all.tiers = Object.assign({}, all.tiers, { [t]: { waves: Math.max(b0.waves || 0, w), wins: (b0.wins || 0) + (over.winner === "me" ? 1 : 0) } }); try { saveJSON(SIEGE_KEY, all); } catch (e) {} setTimeout(() => setSiegeSaved(true), 0); }
@@ -885,8 +906,8 @@
       + (st.intent && !st.blind ? "。你这回合打算：" + [].concat((st.intent.stamp || []).map(x => "给「" + x.name + "」盖章"), (st.intent.place || []).map(x => "贴「" + x.name + "」")).join("、") : "")
       + "。最近发生的：" + st.log.slice(-6).map(l => (l.who === "foe" ? "你：" : l.who === "me" ? "她：" : "") + l.text).join("；");
     // 挑战（守城、讨伐、封缄令、值班）里聊天的是陪你打的人，不是对面
-    const chal = !!(st.siege || st.raid || st.edict || st.shift || st.patrol), talkId = chal ? coachId : foeId, talkName = chal ? (nameOf(coachId) || "TA") : foeName;
-    const chalName = st.patrol ? "邮区巡查" : st.siege ? "守城" : st.raid ? (st.raid.endless ? "讨伐·无尽" : "讨伐") : st.edict ? "封缄令" : st.shift ? "邮局值班" : "";
+    const chal = !!(st.siege || st.raid || st.edict || st.shift || st.patrol || st.puzzle), talkId = chal ? coachId : foeId, talkName = chal ? (nameOf(coachId) || "TA") : foeName;
+    const chalName = st.puzzle ? "残局第 " + st.puzzle.lv + " 关（只有这一回合，寄出时要把对面信封 " + st.puzzle.best + " 点打空）" : st.patrol ? "邮区巡查" : st.siege ? "守城" : st.raid ? (st.raid.endless ? "讨伐·无尽" : "讨伐") : st.edict ? "封缄令" : st.shift ? "邮局值班" : "";
     const coachBoard = () => "她在玩「" + chalName + "」，第 " + st.turn + " 回合"
       + (st.siege ? "，第 " + Math.min(st.turn, st.siege.waves) + " / " + st.siege.waves + " 波，已守住 " + st.siege.cleared + " 波" : "")
       + (st.raid ? "，已经打出 " + st.raid.dealt + " 伤害" + (st.raid.endless ? "（无尽，打到她信封空为止）" : "（打满 " + D().RAID_TURNS + " 回合算分）") : "")
@@ -935,8 +956,8 @@
     const intentText = [].concat((it.stamp || []).map(x => "给「" + x.name + "」盖章"), (it.place || []).map(x => "贴「" + x.name + "」" + x.role)).join("、") || "这回合不贴票";
 
     return shell([
-      h(Head, { key: "hd", zh: st.patrol ? "邮区巡查 · " + (st.patrol === "boss" ? "巡查长" : st.patrol === "elite" ? "硬仗" : "普通仗") + " · 第 " + st.turn + " 回合" : st.shift ? "邮局值班 · 第 " + (shift ? shift.round : 1) + " 轮 · 第 " + st.turn + " 回合" : st.edict ? "封缄令 · 危险 " + (st.edictPts || 0) + " · 第 " + st.turn + " 回合" : st.raid ? (st.raid.endless ? "无尽" : "讨伐") + " · 第 " + st.turn + " 回合" : st.siege ? "守城 " + ((st.siegeTier || 0) + 1) + " 档 · 第 " + Math.min(st.turn, st.siege.waves) + " 波" : "第 " + st.turn + " 回合", sub: st.siege ? "" : "对 " + foeName + (st.blind ? " · 盲打" : ""), bg: "transparent", ink: INK, right: guideBtn,
-        onBack: () => { if (st.patrol) { if (typeof requestAppConfirm === "function") requestAppConfirm("先离开这一场？", "这一格算没打赢，信封照现在的血算。", () => { st.over = st.over || { winner: "foe", turn: st.turn, me: st.me.hp, foe: st.foe.hp }; patrolBack(); }, "离开"); else { st.over = st.over || { winner: "foe" }; patrolBack(); } return; } if (st.shift) { setSt(null); setMode("shift"); return; } if (st.edict) { setSt(null); setMode("edictpick"); return; } if (st.raid) { setSt(null); setMode("raidpick"); return; } if (st.siege) { setSt(null); setMode("siegepick"); return; } if (st.run) { runBattle.onQuit && runBattle.onQuit(); return; } if (st.tutorial) { setSt(null); setTut(-1); return; } if (!over) { persist(st, series); setSaved({ st, series, foeId, at: Date.now() }); } else persist(null); setSt(null); setSeries(null); } }),
+      h(Head, { key: "hd", zh: st.puzzle ? "残局 · 第 " + st.puzzle.lv + " 关" : st.patrol ? "邮区巡查 · " + (st.patrol === "boss" ? "巡查长" : st.patrol === "elite" ? "硬仗" : "普通仗") + " · 第 " + st.turn + " 回合" : st.shift ? "邮局值班 · 第 " + (shift ? shift.round : 1) + " 轮 · 第 " + st.turn + " 回合" : st.edict ? "封缄令 · 危险 " + (st.edictPts || 0) + " · 第 " + st.turn + " 回合" : st.raid ? (st.raid.endless ? "无尽" : "讨伐") + " · 第 " + st.turn + " 回合" : st.siege ? "守城 " + ((st.siegeTier || 0) + 1) + " 档 · 第 " + Math.min(st.turn, st.siege.waves) + " 波" : "第 " + st.turn + " 回合", sub: st.siege ? "" : "对 " + foeName + (st.blind ? " · 盲打" : ""), bg: "transparent", ink: INK, right: guideBtn,
+        onBack: () => { if (st.puzzle) { setSt(null); setMode("puzzle"); return; } if (st.patrol) { if (typeof requestAppConfirm === "function") requestAppConfirm("先离开这一场？", "这一格算没打赢，信封照现在的血算。", () => { st.over = st.over || { winner: "foe", turn: st.turn, me: st.me.hp, foe: st.foe.hp }; patrolBack(); }, "离开"); else { st.over = st.over || { winner: "foe" }; patrolBack(); } return; } if (st.shift) { setSt(null); setMode("shift"); return; } if (st.edict) { setSt(null); setMode("edictpick"); return; } if (st.raid) { setSt(null); setMode("raidpick"); return; } if (st.siege) { setSt(null); setMode("siegepick"); return; } if (st.run) { runBattle.onQuit && runBattle.onQuit(); return; } if (st.tutorial) { setSt(null); setTut(-1); return; } if (!over) { persist(st, series); setSaved({ st, series, foeId, at: Date.now() }); } else persist(null); setSt(null); setSeries(null); } }),
       h("div", { key: "bd", ref: bodyEl, className: "flex-1 min-h-0 overflow-y-auto px-4", style: { fontFamily: F, color: INK, paddingBottom: 14, overflowAnchor: "none" },
           onTouchStart: () => { touchAt.current = Date.now(); }, onTouchMove: () => { touchAt.current = Date.now(); }, onTouchEnd: () => { touchAt.current = Date.now(); }, onWheel: () => { touchAt.current = Date.now(); },
           onScroll: e => { if (!guarding()) keepY.current = e.currentTarget.scrollTop; else if (Math.abs(e.currentTarget.scrollTop - keepY.current) > 4) e.currentTarget.scrollTop = keepY.current; } },
@@ -957,8 +978,13 @@
         // 对面的下一步：像一张电报条（盲打时不给看）
         h("div", { "data-wk": "duelintent", style: { position: "relative", margin: "6px 0 10px", padding: "7px 10px 7px 46px", borderRadius: 3, border: "1px dashed rgba(47,42,34,.35)", background: "rgba(255,255,255,.5)", fontSize: fz(11.5), lineHeight: 1.6 } },
           h("span", { style: { position: "absolute", left: 7, top: 7, padding: "1px 4px", border: "1.5px solid " + RED, color: RED, borderRadius: 3, fontFamily: FD, fontSize: fz(10), transform: "rotate(-6deg)" } }, "下一步"),
+          st.puzzle ? h("div", { "data-wk": "duelpuzzlegoal", style: { color: "#6a5a3a", fontSize: fz(11.5), fontFamily: FD } }, "目标：这一回合寄出时，把对面信封 " + st.puzzle.best + " 点打空。",
+            !over ? h("button", { "data-wk": "duelpuzzlehint", onClick: () => setPzHint(x => Math.min(x + 1, (st.puzzle.plan.stamps.length + st.puzzle.plan.place.length))), style: { marginLeft: 8, padding: "0 8px", borderRadius: 999, border: "1px solid #6a5a3a", color: "#6a5a3a", fontFamily: F, fontSize: fz(10.5) } }, pzHint ? "再提示一步" : "提示") : null,
+            !over ? h("button", { "data-wk": "duelpuzzlereset", onClick: () => startPuzzle(st.puzzle.lv), style: { marginLeft: 6, padding: "0 8px", borderRadius: 999, border: "1px solid rgba(47,42,34,.3)", color: SUB, fontFamily: F, fontSize: fz(10.5) } }, "重来") : null,
+            pzHint ? h("div", { style: { fontFamily: F, fontSize: fz(11), color: INK, marginTop: 3 } }, (() => { const pl = st.puzzle.plan, steps = pl.stamps.map(i => "给场上「" + ((st.me.board[i] || {}).name || "那张") + "」盖章").concat(pl.place.map(x => { const u = st.me.hand.find(h0 => h0.cardId === x.cardId) || st.me.board.find(b0 => b0 && b0.cardId === x.cardId) || {}; return "把「" + (u.name || "那张") + "」贴到第 " + (Math.floor(x.slot / 3) + 1) + " 排第 " + (x.slot % 3 + 1) + " 列"; }));
+              return steps.slice(0, pzHint).map((t, k) => (k + 1) + ". " + t).join("　"); })()) : null) : null,
           st.edict && st.edict.length ? h("div", { "data-wk": "duelediccline", style: { color: "#5a4f8a", fontSize: fz(10.5) } }, "封缄：" + st.edict.map(k => D().EDICTS[k].zh).join("、")) : null,
-          it.styleZh && !st.siege && !st.raid && !st.edict ? h("div", { style: { color: SUB, fontSize: fz(10.5) } }, foeName + " 的打法：" + it.styleZh) : null,
+          it.styleZh && !st.siege && !st.raid && !st.edict && !st.puzzle && !st.shift && !st.patrol ? h("div", { style: { color: SUB, fontSize: fz(10.5) } }, foeName + " 的打法：" + it.styleZh) : null,
           runBattle && runBattle.themeRuleZh ? h("div", { "data-wk": "duelthemerule", style: { color: GREEN, fontSize: fz(11) } }, runBattle.theme + " · " + runBattle.themeRuleZh) : null,
           runBattle && runBattle.bossRuleZh ? h("div", { "data-wk": "duelbossrule", style: { color: RED, fontSize: fz(11) } }, "终点规则 · " + runBattle.bossRule + "：" + runBattle.bossRuleZh) : null,
           st.blind ? "盲打：TA 的下一步看不见。" : intentText + (it.toEnvelope ? "；空着的列会打你信封约 " + it.toEnvelope : "") + ((it.inks || []).length ? "；会盖：" + it.inks.join("、") : ""),
@@ -1011,11 +1037,12 @@
           chal && coachId && onChat ? h("button", { "data-wk": "duelcoachreview", onClick: () => talk("review"), disabled: chatBusy, className: "w-full disabled:opacity-50", style: Object.assign(btn("transparent", GREEN, GREEN), { marginBottom: 8, fontSize: fz(12) }) }, chatBusy ? talkName + " 在想…" : "听 " + talkName + " 评评这一把") : null,
           st.parcels && st.parcels.length ? h("div", { "data-wk": "duelparcel", style: { textAlign: "center", fontSize: fz(11.5), color: GREEN, marginBottom: 6 } }, st.parcels.map(([id, n]) => (nameOf(id) || "TA") + " 留了 " + n + " 个小包裹").join("、") + "（在「小物册」里拆）") : null,
           st.rewards && st.rewards.length ? h("div", { "data-wk": "duelreward", style: { margin: "0 0 8px", padding: "6px 10px", borderRadius: 5, background: "rgba(184,134,42,.1)", border: "1px solid rgba(184,134,42,.35)", fontSize: fz(11.5), lineHeight: 1.6, color: "#7a5a1a", textAlign: "center" } }, st.rewards.map((t, k) => h("div", { key: k }, t))) : null,
+          st.puzzle ? h("div", { key: "pzo", "data-wk": "duelpuzzleover", style: { textAlign: "center", marginBottom: 10 } }, h("div", { style: { fontFamily: FD, fontSize: fz(20), color: over.winner === "me" ? GREEN : RED } }, over.winner === "me" ? "解开了 · 第 " + st.puzzle.lv + " 关" : "差一点"), h("div", { style: { fontSize: fz(11.5), color: SUB } }, over.winner === "me" ? "这一手有 " + st.puzzle.ways + " 种放法能打满" : "对面信封还剩 " + Math.max(0, st.foe.hp) + "，换个放法，或点「提示」")) : null,
           st.edict ? h("div", { key: "edo", "data-wk": "duelediccover", style: { textAlign: "center", marginBottom: 10 } }, h("div", { style: { fontFamily: FD, fontSize: fz(20), color: over.winner === "me" ? "#5a4f8a" : RED } }, over.winner === "me" ? "通过 · 危险 " + (st.edictPts || 0) : "没过"), h("div", { style: { fontSize: fz(11.5), color: SUB } }, over.winner === "me" ? ((st.edictPts || 0) > (st.edictPrev || 0) ? "新纪录！" : "最高 危险 " + (st.edictPrev || 0)) : "少勾几条再试，或者换个打法")) : null,
           st.raid ? h("div", { key: "rdo", "data-wk": "duelraidover", style: { textAlign: "center", marginBottom: 10 } }, h("div", { style: { fontFamily: FD, fontSize: fz(22), color: "#8a3a4a" } }, st.raid.dealt + " 伤害"), h("div", { style: { fontSize: fz(11.5), color: SUB } }, (st.raid.endless ? "无尽 · 撑了 " + st.turn + " 回合" : over.winner === "me" ? "打满 8 回合" : "第 " + st.turn + " 回合信封被砸空了") + (st.raid.prev != null ? (st.raid.dealt > st.raid.prev ? " · 新纪录！" : " · 最高 " + st.raid.prev) : ""))) : null,
           st.siege ? h("div", { key: "sgo", "data-wk": "duelsiegeover", style: { textAlign: "center", marginBottom: 10 } }, h("div", { style: { fontFamily: FD, fontSize: fz(18), color: over.winner === "me" ? GREEN : RED } }, over.winner === "me" ? "守住了" : "城破了"), h("div", { style: { fontSize: fz(11.5), color: SUB } }, "第 " + ((st.siegeTier || 0) + 1) + " 档 · 守住 " + st.siege.cleared + " / " + st.siege.waves + " 波 · 信封剩 " + Math.max(0, over.me) + " · 这档最好 " + Math.max(siegeBest(st.siegeTier || 0).waves || 0, st.siege.cleared) + " 波")) : null,
-          st.siege || st.raid || st.edict ? null : h("div", { style: { fontFamily: FD, fontSize: fz(18), textAlign: "center", marginBottom: 2, color: over.winner === "me" ? GREEN : over.winner === "foe" ? RED : INK } }, over.winner === "me" ? "你赢了" : over.winner === "foe" ? foeName + " 赢了" : "打平了"),
-          st.siege || st.raid || st.edict ? null : h("div", { style: { fontSize: fz(11), textAlign: "center", color: SUB, marginBottom: 10 } }, over.turn + " 回合 · 信封剩 " + over.me + " : " + over.foe + (over.byCap ? " · 打满回合比剩下的" : "")),
+          st.siege || st.raid || st.edict || st.puzzle ? null : h("div", { style: { fontFamily: FD, fontSize: fz(18), textAlign: "center", marginBottom: 2, color: over.winner === "me" ? GREEN : over.winner === "foe" ? RED : INK } }, over.winner === "me" ? "你赢了" : over.winner === "foe" ? foeName + " 赢了" : "打平了"),
+          st.siege || st.raid || st.edict || st.puzzle ? null : h("div", { style: { fontSize: fz(11), textAlign: "center", color: SUB, marginBottom: 10 } }, over.turn + " 回合 · 信封剩 " + over.me + " : " + over.foe + (over.byCap ? " · 打满回合比剩下的" : "")),
           // 彩头兑现、赛后复盘（她 2026-11-08）：各点一次叫 TA 一次
           !st.tutorial && !st.run && onChat ? (() => {
             const ask = async mode => {
@@ -1045,6 +1072,9 @@
           : st.tutorial ? h("div", { className: "flex", style: { gap: 8 } },
               h("button", { onClick: startTut, className: "flex-1", style: btn(INK, PAPER) }, "再练一次"),
               h("button", { onClick: () => { setSt(null); setTut(-1); }, className: "flex-1", style: btn("transparent", INK, INK) }, "去正式对局"))
+          : st.puzzle ? h("div", { className: "flex", style: { gap: 8 } },
+              over.winner === "me" && st.puzzle.lv < D().PUZZLE_MAX ? h("button", { "data-wk": "duelpuzzlenext", onClick: () => startPuzzle(st.puzzle.lv + 1), className: "flex-1", style: btn(GREEN, "#fff") }, "下一关") : h("button", { "data-wk": "duelpuzzleretry", onClick: () => startPuzzle(st.puzzle.lv), className: "flex-1", style: btn(INK, PAPER) }, over.winner === "me" ? "再玩一次" : "再试一次"),
+              h("button", { onClick: () => { setSt(null); setMode("puzzle"); }, className: "flex-1", style: btn("transparent", INK, INK) }, "回关卡"))
           : st.patrol ? h("button", { "data-wk": "duelpatrolnext", onClick: patrolBack, className: "w-full", style: Object.assign(btn(over.winner === "me" ? GREEN : INK, "#fff"), { padding: "10px 0", fontFamily: FD, fontSize: fz(14) }) }, over.winner === "me" ? "赢了，回地图" : "没打过，回地图")
           : st.shift ? h("button", { "data-wk": "duelshiftnext", onClick: () => shiftNext(over.winner === "me"), className: "w-full", style: Object.assign(btn(over.winner === "me" ? GREEN : INK, "#fff"), { padding: "10px 0", fontFamily: FD, fontSize: fz(14) }) }, over.winner === "me" ? "赢了，回柜台" : "输了，掉一条命，回柜台")
           : st.edict ? h("div", { className: "flex", style: { gap: 8 } },

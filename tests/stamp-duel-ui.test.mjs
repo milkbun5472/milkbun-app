@@ -60,7 +60,7 @@ test("跟 TA 聊时带上两边信封上的票和卡上那句；长按不弹系�
 test("新手教学关：开局页能进、九步教练条、不存档；对面会说话、有打法；能跳过动画", () => {
   assert.match(ui, /const TUT = \[/);
   assert.match(ui, /"data-wk": "duelturorial", onClick: startTut/);
-  assert.match(ui, /\(x && \(x\.tutorial \|\| x\.run \|\| x\.siege \|\| x\.raid \|\| x\.edict \|\| x\.shift \|\| x\.patrol\)\) \|\| runBattle\) return;/);
+  assert.match(ui, /\(x && \(x\.tutorial \|\| x\.run \|\| x\.siege \|\| x\.raid \|\| x\.edict \|\| x\.shift \|\| x\.patrol \|\| x\.puzzle\)\) \|\| runBattle\) return;/);
   assert.match(ui, /"data-wk": "duelsay"/);
   assert.match(ui, /"data-wk": "duelskip", onClick: skip/);
   // 钩子不许放在提前 return 后面（React #310）
@@ -126,7 +126,7 @@ test("守城入口和页面：挑玩法页一张卡、波数条、打完再守�
   assert.match(ui, /"data-wk": "duelsiegetier"/);
   assert.match(ui, /"data-wk": "duelsiegewave"/);
   assert.match(ui, /x\.tutorial \|\| x\.run \|\| x\.siege/);
-  assert.match(ui, /!st\.run && !st\.siege && !st\.raid && !st\.edict && !st\.shift && !st\.patrol\) record\(st\)/);
+  assert.match(ui, /!st\.run && !st\.siege && !st\.raid && !st\.edict && !st\.shift && !st\.patrol && !st\.puzzle\) record\(st\)/);
 });
 test("信物只在远信：对局页没有材料与信物入口，远信路线图能做信物、带进这一站", () => {
   const ru = readFileSync(new URL("../js/stamp-run-ui.js", import.meta.url), "utf8"), rn = readFileSync(new URL("../js/stamp-run.js", import.meta.url), "utf8");
@@ -147,7 +147,7 @@ test("讨伐入口和页面：挑模式、伤害分、最高分、不进存档�
 test("封缄令页：勾难度、危险分、不进存档和战绩", () => {
   assert.match(ui, /modeTile\("duelmodeedict"/);
   assert.match(ui, /edict: tags, fair: false/);
-  assert.match(ui, /x\.raid \|\| x\.edict \|\| x\.shift \|\| x\.patrol/);
+  assert.match(ui, /x\.raid \|\| x\.edict \|\| x\.shift \|\| x\.patrol \|\| x\.puzzle/);
   assert.match(ts, /"duelediccgo"/);
 });
 test("奖励：每天第一次赢、里程碑只给一次、钱进邮票册；远信送到也结算", async () => {
@@ -167,11 +167,11 @@ test("邮局值班页：柜台、值班卡组、开打、回柜台，进度存�
   assert.match(ui, /modeTile\("duelmodeshift"/);
   assert.match(ui, /D\(\)\.shiftDeck\(sh\), D\(\)\.edictDeck\(s\), s, \{ foeLv: D\(\)\.shiftFoeLv\(sh\)/);
   assert.match(ui, /"data-wk": "duelshiftnext"/);
-  assert.match(ui, /x\.edict \|\| x\.shift \|\| x\.patrol/);
+  assert.match(ui, /x\.edict \|\| x\.shift \|\| x\.patrol \|\| x\.puzzle/);
 });
 test("挑战陪打：挑谁陪、聊天找陪打的人、帮我看看、打完评一把、值班柜台问买哪张；局面全给", () => {
   assert.match(ui, /"data-wk": "duelcoachpick"/);
-  assert.equal((ui.match(/coachPick\(\),/g) || []).length, 5);
+  assert.equal((ui.match(/coachPick\(\),/g) || []).length, 6);
   assert.match(ui, /talkId = chal \? coachId : foeId/);
   assert.match(ui, /mode: ask === "review" \? "coachreview" : "coach", text, board: coachBoard\(\)/);
   assert.match(ui, /"data-wk": "duelcoachask"/);
@@ -184,7 +184,7 @@ test("邮区巡查页：邮票墙一枚、每人一个随机数、地图格、�
   assert.match(ui, /D\(\)\.patrolNew\(deck, new Date\(\), patrolSalt\(\), !!coachId\)/);
   assert.match(ui, /"data-wk": "duelpatrolcell"/);
   assert.match(ui, /"data-wk": "duelpatrolnext", onClick: patrolBack/);
-  assert.match(ui, /st\.shift \|\| st\.patrol\)/);
+  assert.match(ui, /st\.shift \|\| st\.patrol \|\| st\.puzzle\)/);
 });
 test("TA 的小物：有人陪就掉包裹、小物册拆、去重带着以前做过的、名字来历不截；远信也掉", () => {
   assert.match(ui, /st\.parcels = Trinkets\.drop\(\[chalNow \? coachId : foeId\]/);
@@ -202,4 +202,11 @@ test("巡查 TA 的格子页面：带陪打的人开图、包裹进小物册、�
   assert.match(ui, /if \(res\.type === "tparcel" && p\.ta\) Trinkets\.drop\(\[p\.ta\], true, 0\)/);
   assert.match(ui, /onChat\(p\.ta, \{ mode: "patrolta", kind: p\.ask\.kind, board \}\)/);
   assert.match(app, /if \(d\.mode === "patrolta"\) \{/);
+});
+test("残局页：关卡格一关一关开、提示一步一步、重来、过了记下、下一关", () => {
+  assert.match(ui, /modeTile\("duelmodepuzzle"/);
+  assert.match(ui, /const startPuzzle = lv => \{ const nd = D\(\)\.puzzleOf\(lv\)/);
+  assert.match(ui, /"data-wk": "duelpuzzlehint"/);
+  assert.match(ui, /"data-wk": "duelpuzzlenext", onClick: \(\) => startPuzzle\(st\.puzzle\.lv \+ 1\)/);
+  assert.match(ui, /x\.patrol \|\| x\.puzzle/);
 });
