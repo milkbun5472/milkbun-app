@@ -36,7 +36,7 @@ const base=process.env.POST_OFFICE_URL||'http://127.0.0.1:18968',out=process.env
   await p.waitForFunction(()=>document.querySelector('#post-office-test iframe')?.contentWindow.PostOfficeGame?.ready);
   let f=getFrame();await f.waitForFunction(()=>PostOfficeGame.snapshot().cards.some(c=>c.image));
   let snap=await f.evaluate(()=>PostOfficeGame.snapshot());assert.equal(snap.people.length,4);assert.equal(snap.decor.length,5);assert.equal(snap.cards.length,3);assert.equal(snap.lighting.lamp,0);assert.equal(snap.closedSign,false);assert.equal(snap.people[0].look.hairColor,'#a64138');assert.equal(snap.people[3].posture,'sit');
-  assert.equal(await p.evaluate(()=>JSON.stringify(loadJSON('x_stampShop',null))===shopInitial),true,'3D must not rewrite text shop');
+  assert.deepEqual(await p.evaluate(()=>loadJSON('x_stampShop',null).roster),await p.evaluate(()=>shopFixture.roster),'clock sync preserves assignments');
   for(const [width,height]of [[320,568],[390,844],[430,932]]){
    await p.setViewportSize({width,height});await p.waitForTimeout(150);
    assert.equal(await r.evaluate(el=>el.scrollWidth>innerWidth),false);
@@ -48,23 +48,23 @@ const base=process.env.POST_OFFICE_URL||'http://127.0.0.1:18968',out=process.env
   // Physical counter hit-testing, rather than invoking its handler.
   const hit=await f.evaluate(()=>PostOfficeGame.projectCounter()),fb=await r.locator('iframe').boundingBox();
   await p.mouse.click(fb.x+hit.x,fb.y+hit.y);await r.locator('[data-wk=duelshop]').waitFor({timeout:5000}).catch(async e=>{console.log('COUNTER',await f.evaluate(()=>PostOfficeGame.snapshot()),await r.innerText());throw e;});assert.equal(await r.locator('iframe').count(),0);
-  const posts=r.locator('[data-wk=duelshoppost]');assert.equal(await posts.count(),4);await posts.nth(2).getByRole('button',{name:'空着',exact:true}).click();await posts.first().getByRole('button',{name:'店员c',exact:true}).click();
+  const posts=r.locator('[data-wk=duelshoppost]');assert.equal(await posts.count(),4);await posts.nth(2).getByRole('button',{name:'空着',exact:true}).click();await p.waitForFunction(()=>loadJSON('x_stampShop',null).roster['送信']==='');await posts.first().getByRole('button',{name:'店员c',exact:true}).click();await p.waitForFunction(()=>loadJSON('x_stampShop',null).roster['柜台']==='c');
   assert.equal(await p.evaluate(()=>loadJSON('x_stampShop',null).roster['柜台']),'c');
-  await r.locator('[data-wk=head] button').first().click();await p.waitForFunction(()=>document.querySelector('#post-office-test iframe')?.contentWindow.PostOfficeGame?.ready);f=getFrame();
+  await r.locator('[data-wk=head] button').first().click();await p.waitForFunction(()=>document.querySelector('#post-office-test iframe')?.contentWindow.PostOfficeGame?.ready);f=getFrame();await f.evaluate(()=>{for(let i=0;i<1200;i++)PostOfficeGame.step(.05);});
   assert.equal((await f.evaluate(()=>PostOfficeGame.snapshot())).people.find(a=>a.post==='柜台').id,'c');result.textRoundTrip=true;
   await p.clock.setFixedTime(new Date('2026-11-08T18:00:00-06:00'));await f.evaluate(()=>PostOfficeGame.refresh());assert.equal((await f.evaluate(()=>PostOfficeGame.snapshot())).lighting.lamp,6);await p.screenshot({path:path.join(out,'evening.png')});
-  await p.clock.setFixedTime(new Date('2026-11-09T01:00:00-06:00'));await f.evaluate(()=>PostOfficeGame.refresh());snap=await f.evaluate(()=>PostOfficeGame.snapshot());assert.equal(snap.people.length,0);assert.equal(snap.closedSign,true);assert.equal(snap.lighting.lamp,0);await p.screenshot({path:path.join(out,'night.png')});result.clock=true;
+  await p.clock.setFixedTime(new Date('2026-11-09T01:00:00-06:00'));await f.evaluate(async()=>{await PostOfficeGame.refresh();for(let i=0;i<1200;i++)PostOfficeGame.step(.05);});snap=await f.evaluate(()=>PostOfficeGame.snapshot());assert.equal(snap.people.length,0);assert.equal(snap.closedSign,true);assert.equal(snap.lighting.lamp,0);await p.screenshot({path:path.join(out,'night.png')});result.clock=true;
   await p.clock.setFixedTime(new Date('2026-11-09T10:00:00-06:00'));
-  for(const value of [null,'bad',{roster:'bad',decor:12,window:{}},{roster:{柜台:'deleted'},window:['deleted']}]){await p.evaluate(v=>saveJSON('x_stampShop',v),value);await f.evaluate(()=>PostOfficeGame.refresh());snap=await f.evaluate(()=>PostOfficeGame.snapshot());assert.equal(snap.people.length,0);assert.equal(snap.cards.length,0);assert.equal(snap.decor.length,0);}
+  for(const value of [null,'bad',{roster:'bad',decor:12,window:{}},{roster:{柜台:'deleted'},window:['deleted']}]){await p.evaluate(v=>saveJSON('x_stampShop',v),value);await f.evaluate(async()=>{await PostOfficeGame.refresh();for(let i=0;i<1200;i++)PostOfficeGame.step(.05);});snap=await f.evaluate(()=>PostOfficeGame.snapshot());assert.equal(snap.people.length,0);assert.equal(snap.cards.length,0);assert.equal(snap.decor.length,0);}
   result.invalidSaves=true;
   // A purchase/roster change made through the shared writer is picked up in-place.
-  await p.evaluate(()=>saveJSON('x_stampShop',{...shopFixture,date:'2026-11-9',roster:{分拣:'b'},decor:['一盆绿萝']}));await f.evaluate(()=>PostOfficeGame.refresh());snap=await f.evaluate(()=>PostOfficeGame.snapshot());assert.equal(snap.people.length,1);assert.deepEqual(snap.decor,['plant']);
+  await p.evaluate(()=>saveJSON('x_stampShop',{...shopFixture,date:'2026-11-9',roster:{分拣:'b'},decor:['一盆绿萝']}));await f.evaluate(()=>PostOfficeGame.refresh());snap=await f.evaluate(()=>PostOfficeGame.snapshot());assert.equal(snap.people.length,1);assert.deepEqual(snap.decor,['一盆绿萝']);
   await r.getByRole('button',{name:'去别处',exact:true}).click();for(const name of ['进入微光庭院','进入远行列车','进入绒绒小镇'])assert.equal(await r.getByRole('button',{name,exact:true}).count(),1);
   // Switch away and return without writing a shop archive or leaking the renderer.
   await r.getByRole('button',{name:'进入远行列车',exact:true}).click();assert.equal(await r.locator('iframe').count(),0);await r.locator('[data-wk=head] button').first().click();await r.getByRole('button',{name:/邮局小店/}).click();await p.waitForFunction(()=>document.querySelector('#post-office-test iframe')?.contentWindow.PostOfficeGame?.ready);f=getFrame();
   const disposal=await f.evaluate(()=>{const game=PostOfficeGame;game.dispose();return {disposed:game.disposed,canvas:document.querySelectorAll('canvas').length};});assert.deepEqual(disposal,{disposed:true,canvas:0});
   result.imageFixture=await p.evaluate(()=>shopImageFixture);assert.deepEqual(await p.evaluate(()=>shopCalls),{ai:0,memory:0});assert.deepEqual(await p.evaluate(()=>loadJSON('x_fairyGarden',null)),await p.evaluate(()=>shopArchive));
-  assert.deepEqual(result.errors,[]);assert.ok(result.external.every(u=>u.startsWith('https://fonts.googleapis.com/')||u.startsWith('https://server.arcgisonline.com/')),'unexpected external request');assert.ok(result.models.every(url=>url.startsWith('/apps/fairy-garden/')));result.models=[...new Set(result.models)];
+  assert.deepEqual(result.errors,[]);assert.ok(result.external.every(u=>u.startsWith('https://fonts.googleapis.com/')||u.startsWith('https://server.arcgisonline.com/')),'unexpected external request');assert.ok(result.models.every(url=>url.startsWith(new URL(base).pathname.replace(/\/$/,'')+'/apps/fairy-garden/')));result.models=[...new Set(result.models)];
   await p.evaluate(async()=>{
    const w=await import('./apps/fairy-garden/world.mjs'),garden=w.setGuide({...w.freshState(),herbs:17},false);garden.companion.mode='wait';
    saveJSON('x_fairyGarden:shop-switch',{version:1,id:'shop-switch',partnerId:'a',world:garden,worlds:{garden,pets:{version:3,configured:true,profile:{species:'cat',name:'测试猫'},map:'outside',position:{x:0,z:0}}},journey:{},dialogs:{}});

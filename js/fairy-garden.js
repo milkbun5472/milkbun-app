@@ -9,7 +9,7 @@
 // 接口密钥留在父页 callAI，不传进游戏画面。
 (function (root) {
   const { h, useState, useRef, useEffect, selectDialogs, localDialogs, replaceDialogs, worldCognition, WORLDS, SHOP_WORLD } = root.FairyCore;
-  const KEY = "x_fairyGarden", BUILD = "fg-7d8490d3228b9b43", hosts = new WeakMap();
+  const KEY = "x_fairyGarden", BUILD = "fg-14dcba4c9a64c8fb", hosts = new WeakMap();
   root.FairyGardenHostFor = child => hosts.get(child) || null;
   // ⚠️「读回来是空」不等于「这儿本来就没有一档」。存档搬进 IDB 之后，文字仓没灌起来
   //   那一刻读到的也是空；这时候要是照着「没有」开一档新的，第一次保存就把她真正的
@@ -44,35 +44,44 @@
   }
   function ShopSession(props) {
     const frame=useRef(null),latest=useRef(props),binder=useRef(null); latest.current=props;
-    const [loaded,setLoaded]=useState(false),[error,setError]=useState(""),[places,setPlaces]=useState(false);
+    const [loaded,setLoaded]=useState(false),[error,setError]=useState(""),[places,setPlaces]=useState(false),[panel,setPanel]=useState(null),[busy,setBusy]=useState(false),[shop,setShop]=useState(()=>root.StampShop.read()),[uiReady,setUiReady]=useState(false);
+    const cards=()=>{const all=loadJSON("x_stamps",null)?.cards;return root.StampDispatch?.filter(Array.isArray(all)?all.filter(c=>c&&!c.writing):[])||[];};
+    const options=()=>({characters:latest.current.characters||[],cards:cards(),onChat:latest.current.onShopChat});
+    const sync=()=>root.StampShop.sync(options()).then(s=>{setShop(old=>JSON.stringify(old)===JSON.stringify(s)?old:s);return s;});
     if(!binder.current)binder.current=node=>{
-      const old=frame.current;
-      if(old&&old!==node){old.contentWindow?.PostOfficeGame?.dispose();hosts.delete(old.contentWindow);}
-      frame.current=node;if(!node)return;
+      const old=frame.current;if(old&&old!==node){const game=old.contentWindow?.PostOfficeGame;if(game?.ready)root.StampShopScene=game.snapshot();game?.dispose();hosts.delete(old.contentWindow);}frame.current=node;if(!node)return;
       hosts.set(node.contentWindow,{
         name:SHOP_WORLD.name,
-        read:()=>{
-          const p=latest.current,now=new Date();
-          const characters=(p.characters||[]).map(c=>({id:c.id,name:c.name,remark:c.remark,look:(p.lookFor||root.CompanionFace?.lookFor)?.(c)||{}}));
-          const st=loadJSON("x_stamps",null);
-          return {shop:loadJSON("x_stampShop",null),characters,cards:Array.isArray(st?.cards)?st.cards.filter(c=>c&&typeof c==='object').map(c=>({id:c.id,text:{name:c.text?.name},cover:c.cover,face:c.face})):[],period:root.StampDuel.shopPeriod(now),today:now.getFullYear()+"-"+(now.getMonth()+1)+"-"+now.getDate(),shopRules:root.StampDuel};
-        },
+        previous:()=>root.StampShopScene||null,
+        sync:async()=>{await root.LazyMods.load("stamps");return sync();},
+        read:()=>{const p=latest.current,now=new Date();return {shop:root.StampShop.read(),characters:(p.characters||[]).map(c=>({id:c.id,name:c.name,remark:c.remark,ta:root.CharacterPronoun?.ta(c)||'TA',look:(p.lookFor||root.CompanionFace?.lookFor)?.(c)||{}})),cards:cards().filter(c=>c&&typeof c==='object').map(c=>({id:c.id,charId:c.charId,rarity:c.rarity,lv:c.lv,text:{name:c.text?.name},cover:c.cover,face:c.face})),period:root.StampDuel.shopPeriod(now),today:now.getFullYear()+"-"+(now.getMonth()+1)+"-"+now.getDate(),shopRules:root.StampDuel};},
         thumbnail:async ref=>{await root.LazyMods.load("stamps");return root.StampThumbnails?.url(ref)||null;},
         counter:()=>latest.current.onOpenStamps?.({tab:"duel",mode:"shop",back:"fairy-shop"}),
+        select:target=>{setError("");setPanel(target);},
+        meetSeen:({id,key})=>root.StampShop.run("seenMeet",{...options(),id,expected:{date:key.split("|")[0],period:key.split("|")[1]}}).catch(e=>setError(e.message)),
         ready:()=>{if(frame.current===node){setLoaded(true);setError("");}},
         error:message=>{if(frame.current===node)setError(String(message));}
       });
     };
-    useEffect(()=>{frame.current?.contentWindow.PostOfficeGame?.pause(places);},[places,loaded]);
+    useEffect(()=>{let on=true;root.LazyMods.load("stamps").then(()=>{if(on){setUiReady(true);sync().then(setShop).catch(e=>setError(e.message));}}).catch(e=>setError(e.message));const changed=()=>{if(on)setShop(root.StampShop.read());};root.addEventListener('stamp-shop-change',changed);return()=>{on=false;root.removeEventListener('stamp-shop-change',changed);};},[]);
+    useEffect(()=>{frame.current?.contentWindow.PostOfficeGame?.pause(places||!!panel);},[places,panel,loaded]);
+    const act=async(type,args={})=>{if(busy)return;setBusy(true);setError("");const node=frame.current;
+      try{await root.StampShop.run(type,{...options(),expected:root.StampShop.token(shop),...args});setShop(root.StampShop.read());
+        if(type==='close'||type==='closeLocal'){setPanel(null);node?.contentWindow.PostOfficeGame?.pause(false);await node?.contentWindow.PostOfficeGame?.startClosing();if(frame.current===node)setPanel({type:'story'});}
+        else {if(type==='move')setPanel({type:'staff',post:args.to});else if(type==='assign'&&!args.charId&&panel?.post)setPanel(null);await node?.contentWindow.PostOfficeGame?.refresh();}
+      }catch(e){setError(e.message);}finally{setBusy(false);}
+    };
     return h("section",{"data-wk":"fairypage","data-part":"shop",className:"h-full flex flex-col",style:{background:G.paper,color:G.ink,position:"relative"}},
       h(Head,{zh:SHOP_WORLD.name,bg:"transparent",onBack:props.onBack,right:h("button",{onClick:()=>setPlaces(true),style:{minHeight:40,padding:"0 8px",fontSize:12}},"去别处")}),
       h("div",{className:"flex-1 min-h-0",style:{position:"relative"}},h("iframe",{ref:binder.current,title:SHOP_WORLD.name+"游戏",src:"apps/post-office/index.html?v="+BUILD,style:{width:"100%",height:"100%",border:0,display:"block"}}),
-        (!loaded||error)&&h("p",{role:error?"alert":"status",style:{position:"absolute",inset:"40% 20px auto",textAlign:"center",pointerEvents:"none"}},error||"正在打开邮局…")),
-      h("div",{className:"shrink-0",style:{padding:"5px 14px",paddingBottom:COMPOSER_PAD_BOTTOM,minHeight:56,borderTop:"1px solid "+G.line,display:"flex",alignItems:"center",gap:10}},
-        h("p",{style:{flex:1,fontSize:11,lineHeight:1.6}},"点柜台排班、接客；傍晚点灯，半夜打烊。"),
+        (!loaded||error&&!panel)&&h("div",{role:error?"alert":"status",style:{position:"absolute",inset:"40% 20px auto",textAlign:"center",fontSize:12}},error||"正在打开邮局…",error&&h('button',{onClick:()=>frame.current?.contentWindow.PostOfficeGame?.refresh(),style:{...pickButtonStyle(),minHeight:40,display:'block',margin:'10px auto'}},'重试读取'))),
+      h("div",{className:"shrink-0",style:{padding:"5px 12px",paddingBottom:COMPOSER_PAD_BOTTOM,minHeight:56,borderTop:"1px solid "+G.line,display:"flex",alignItems:"center",gap:8}},
+        h("p",{style:{flex:1,fontSize:10,lineHeight:1.6}},"点店员、信格或摆件可以改。"),
         h("button",{onClick:()=>frame.current?.contentWindow.PostOfficeGame?.resetView(),style:{minWidth:40,minHeight:40,fontSize:12}},"全景"),
-        h("button",{onClick:()=>latest.current.onOpenStamps?.({tab:"duel",mode:"shop",back:"fairy-shop"}),style:{...pickButtonStyle(),minHeight:40,padding:"5px 10px",fontSize:12}},"去柜台")),
-      places&&h("section",{className:"absolute inset-0 flex flex-col",style:{background:G.paper,zIndex:30}},h(Head,{zh:"去别处",bg:"transparent",onBack:()=>setPlaces(false)}),h(RailwayChoices,{from:"shop",onChoose:to=>{setPlaces(false);props.onTravel(to);}})));
+        h("button",{disabled:!uiReady,onClick:()=>{setError("");setPanel({type:'menu'});},style:{...pickButtonStyle(),minHeight:40,padding:"5px 10px",fontSize:12}},"经营"),
+        h("button",{onClick:()=>latest.current.onOpenStamps?.({tab:"duel",mode:"shop",back:"fairy-shop"}),style:{minHeight:40,padding:"5px",fontSize:12}},"去柜台")),
+      panel&&uiReady&&h(root.StampShopPanel,{key:JSON.stringify(panel),target:panel,shop,characters:props.characters||[],cards:cards(),busy,error,onAction:act,onClose:()=>{if(root.StampShop.failed()){setError("请先重试刚才未保存的操作。");return;}setPanel(null);setError("");},onText:()=>latest.current.onOpenStamps?.({tab:"duel",mode:"shop",back:"fairy-shop"}),onReplay:id=>frame.current?.contentWindow.PostOfficeGame?.playMeet(id)}),
+      places&&h("section",{className:"absolute inset-0 flex flex-col",style:{background:G.paper,zIndex:40}},h(Head,{zh:"去别处",bg:"transparent",onBack:()=>setPlaces(false)}),h(RailwayChoices,{from:"shop",onChoose:to=>{setPlaces(false);props.onTravel(to);}})));
   }
   function WorldSession(props) {
     const [place,setPlace]=useState(()=>{try{return props.entryWorld||read(props.storeKey||KEY).activeWorld||"garden";}catch{return "garden";}});

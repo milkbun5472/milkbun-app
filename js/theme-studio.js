@@ -373,7 +373,7 @@
   //   于是自己发明了 `.theme-xxx [data-page="xxx"]` 这种选择器，写完一点不生效
   //   （她 2026-09-06：「秋秋这个能改 css 是假的，应用了也不改」）。
   // 全 App 每一页都有的那几个（挂在共用组件上，所以九十来页一起有）
-  const WK_COMMON = Object.freeze([["imgviewer", "看大图那一层（全库共用：聊天照片、通话照片、时刻、小剧场、跑团、小世界、去处、小窝）"], ["imgviewerbtns", "看大图底下那一排按钮（存相册、删除这些；里面的 button 就是一颗颗按钮）"],
+  const WK_COMMON = Object.freeze([["fontpick", "公共字体选择入口"],["imgviewer", "看大图那一层（全库共用：聊天照片、通话照片、时刻、小剧场、跑团、小世界、去处、小窝）"], ["imgviewerbtns", "看大图底下那一排按钮（存相册、删除这些；里面的 button 就是一颗颗按钮）"],
     ["app", "这一页的底（最外那层）"],
     ["head", "顶栏整条"], ["headink", "顶栏的字与图标"],["bdaypin", "生日那天顶在聊天最上面那条「还没拆的信封」"],["maskknows", "面具设置里「谁认得这张」那一块"],["shoppaymask", "购物结算时「用哪张面具买」那一排"],["shoppaymaskitem", "那一排里的每张面具（data-on=\"1\" 是选中）"],["tkopaymask", "外卖结算时「用哪张面具点」那一排"],["tkopaymaskitem", "那一排里的每张面具（data-on=\"1\" 是选中）"],["walletpocket", "钱包页顶上「看哪张面具的钱」那一排"],["emomyfaces", "表情包页「画一套表情包」里「或者画你自己的」那一块"],["emomyface", "那一块里的每张面具"],["walletpocketitem", "那一排里的每张面具（data-on=\"1\" 是正在看的）"],["maskknowsitem", "那一块里的每个人（data-on=\"1\" 是认这张）"], ["headdim", "顶栏那行小副标题"], ["myvote", "擂台观战时你自己投票那一行"], ["lookundo", "美化「回到上一版／换回来」那一行"],
     ["eyebrow", "小标题眉标（那种间距拉开的小字）"],
@@ -1183,7 +1183,7 @@
   //   挂点表是从 WK_COMMON/WK_SCOPED 现拼的，代码里新挂的 data-wk 没进名单，测试 ai-brief-hooks 会红；
   //   可规矩、尺寸、现成写法是手写的——所以跟攻略一样立个戳：v 必须等于 APP_VERSION，
   //   这一版改了哪条写进 changed；这一版的改动碰不到样式，就在 none 写一句为什么。
-                                                                                                                                                                                                                                                                    const BRIEF_STAMP = {v: "v89.291",changed: "",none: "这一版没动美化挂点。"};
+                                                                                                                                                                                                                                                                    const BRIEF_STAMP = {v: "v89.293",changed: "",none: "这一版没动美化挂点。"};
   function aiBrief(page, css) {
     const grp = WK_SCOPED.filter(function (x) { return (x.pages || []).indexOf(page) >= 0; })[0];
     const line = function (r) { return '[data-wk="' + r[0] + '"]  ' + r[1]; };
@@ -1199,7 +1199,7 @@
       "7. 顶栏（chathead）和底栏（composer）自带刘海／底部横条的安全区，写在 padding-top／padding-bottom 里：别对它们写 padding 简写、别把 padding-top（底栏 padding-bottom）写成死数，不然顶栏会钻进状态栏底下跟时间叠在一起。要调就写 padding-top: calc(var(--app-safe-top) + 6px) !important，底栏用 var(--app-safe-bottom)。顶栏里用 position:absolute; top:50% 居中的名字、头像，要写 top: calc(50% + var(--app-safe-top) / 2)，不然比两边按钮高半截。顶栏别写死 height（刘海高低不一样，写死就有人被压扁或空出一截）；顶栏上的装饰图挂在 [data-wk=\"chathead\"] 自己的 ::before／::after 上，用 bottom 或百分比定位，别用 position: fixed，也别从屏幕顶写一个死的 top——换台手机它就飘走了。",
       "番茄钟：pomfocus 是专注整页，视频铺满外壳、标准 Head 透明；pompoke 是轻戳透明按钮，pomsubtitle 是底部模式字幕，pomtimer 是独立发条倒计时，pommore 是手动补新话与回看入口；字幕内有新话上一句/下一句按钮，长话只在字幕正文内滚动。人物脸部留空，字幕读完收起；保留按钮层级与 0.4 底安全区，不让字幕挡住计时。pomvideoeditor 是制作整页，pomvideostage 的 video 可调 object-fit；视频与语音独立。",
       "通话：callcamera 是用户真实摄像头小窗，不替换角色背景；保留开关和前后镜头切换触区至少 40px，与头像并排，窄屏不越屏。callcomposer 继续使用 0.4 底安全区，正文为唯一主滚动区。",
-      "小世界选择页[fgworld]沿左右交替的小路排列，插画是填色SVG；列车、小镇与TA的一天使用96×86的画布，庭院房子与占位圆圈使用112×112，邮局小店使用现有邮票图标。调整svg宽高时保持原viewBox的比例，颜色分别在填色与描边上；保留[fgbody]唯一滚动正文和公共透明Head。邮局3D沿用[fairypage][data-part=shop]，宿主Head、iframe场景和56px底栏；底栏仍只吃0.4倍安全区。",
+      "小世界选择页[fgworld]沿左右交替的小路排列，插画是填色SVG；列车、小镇与TA的一天使用96×86的画布，庭院房子与占位圆圈使用112×112，邮局小店使用现有邮票图标。调整svg宽高时保持原viewBox的比例，颜色分别在填色与描边上；保留[fgbody]唯一滚动正文和公共透明Head。邮局3D沿用[fairypage][data-part=shop]，宿主Head、iframe场景和56px底栏；底栏仍只吃0.4倍安全区。[fairypage][data-part=shop-actions]是经营纸页：透明公共Head、单滚动正文、56px加0.4底安全区返回栏，卡片筛选复用duelshopwinfilter，原生输入和选择器至少40px。点店员的岗位小菜单沿同一挂点在场景上方显示，换岗、工牌和休息采用两列40px按钮；长段文字与卡片选择展开整页，返回保留阅读位置。页面CSS能改纸页和按钮，iframe内三维摆件、工牌和对话气泡由场景绘制。",
       "TA的一天的[cdaypositionopen]在此刻安排卡和日程行中打开[cdaypositionpage]整页：公共透明Head、复用[cdaymenubody]唯一滚动正文、原56px与0.4底安全区保存栏。[cdaypositionscene]是44px原生场景下拉；[cdaypositionspot]两列44px按钮，aria-pressed表示手动选中；[cdaypositionauto]恢复自动匹配，自动模式不标记具体位置按钮。打开编辑页暂停原场景，返回日程保留列表滚动。\n" +
       "TA的一天界面沿奶油白纸面、鼠尾草绿控件和淡木色底光；[cdaypage]是皮肤外壳，原公共Head与56px/0.4安全区底栏保持。[cdayoutingmode]含两个同行小票[cdayoutingchoice]，data-part为solo/together、aria-checked标选中，并带勾与加厚底边；[cdaydestination]按真实地图目录两列排，每张含场景线条图标和地点名称。菜单行配柔色图标底，生活动作带图标；表单选择框仍用原生行为，字号至少16px，按钮触区44px，支持键盘焦点与减少动画。小家样式[cdaystylepage]与日程[cdaybook]分别保持唯一[cdaybody]滚动正文。\n" +
       "TA的一天生活菜单沿原[cdayinteraction]整页与[cdaymenubody]唯一滚动区，新增浴室分类；[cdaybathwho]选择我或TA，[cdaybathaction]是洗澡、洗手、厕所按钮，触区至少44px。浴室家具沿原配色和真实预览，不另建编辑页。\n" +

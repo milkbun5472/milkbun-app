@@ -234,30 +234,19 @@ test("剧情闯关：挑人挑开头、一章一写、迎战、回故事挑路�
   assert.match(ui, /"data-wk": "duelstoryback"/);
   assert.match(app, /if \(d\.mode === "storych" \|\| d\.mode === "storyend"\) \{/);
 });
-test("邮局小店页和游戏室改名：排班、开门、招待、打一局、打烊一天一次调用不进记忆", () => {
-  assert.match(ui, /zh: "集邮社"/);
-  assert.match(ui, /modeTile\("duelmodeshop"/);
-  assert.match(ui, /onChat\(onDuty\[0\], \{ mode: "shopclose"/);
-  assert.match(ui, /onChat\(c\.charId, \{ mode: "shopmeet"/);
-  const i = app.indexOf('if (d.mode === "shopclose" || d.mode === "shopmeet")'), j = app.indexOf('if (d.mode === "storych"', i);
-  assert.ok(i > 0 && j > i && !/addMemEntry/.test(app.slice(i, j)));
+const shopCore = readFileSync(new URL("../js/stamp-shop.js", import.meta.url), "utf8");
+test("邮局小店两个界面共用经营写入，主动故事沿原宿主且不进记忆", () => {
+  assert.match(ui, /zh: "集邮社"/);assert.match(ui, /window\.StampShop\.run/);assert.match(ui, /shopAct\('close'/);assert.match(ui,/shopAct\('meet'/);
+  const i=app.indexOf('const stampShopChat ='),j=app.indexOf('const openStamps =',i);assert.ok(i>0&&j>i);assert.doesNotMatch(app.slice(i,j),/addMemEntry/);
 });
-test("小店页：橱窗挑卡、工牌、点名客人橱窗有才卖、打烊带上橱窗和工牌的卡", () => {
-  assert.match(ui, /"data-wk": "duelshopwindow"/);
-  assert.match(ui, /"data-wk": "duelshopbadge"/);
-  assert.match(ui, /const fee = c\.wantChar && !winHas\(c\.wantChar\) \? 0/);
-  assert.match(ui, /window: sh\.window\.map\(tkLine\)/);
-  assert.match(app, /橱窗里摆着她抽到的这几张卡/);
+test("小店橱窗、工牌与点名客人都问同一公共规则", () => {
+  assert.match(ui,/"data-wk": "duelshopwindow"/);assert.match(ui,/"data-wk": "duelshopbadge"/);assert.match(shopCore,/c\.wantChar/);assert.match(shopCore,/D\.shopMul/);assert.match(shopCore,/s\.window\.map\(cardLine\)/);assert.match(app,/橱窗里摆着她抽到的这几张卡/);
 });
-test("小店页跟着现实时间：换日期新的一天、换时段换客人、半夜不开门", () => {
-  assert.match(ui, /if \(sh\.date !== today\) \{ if \(sh\.date\) sh\.day\+\+;/);
-  assert.match(ui, /if \(sh\.phase === "open" && period !== "半夜" && sh\.period !== period\) \{ roll\(\);/);
-  assert.match(ui, /"半夜不开门，早上 6 点再来"/);
+test("现实日期、换批和半夜门禁收进公共层", () => {
+  assert.match(shopCore,/s\.date!==date/);assert.match(shopCore,/period!=='半夜'&&s\.period!==period/);assert.match(shopCore,/D\.shopCustomers/);assert.match(shopCore,/半夜不开门/);
 });
-test("小店忘了打烊：换日期时留条子、能补写那天晚上（他们自己关的店）、钱照算", () => {
-  assert.match(ui, /if \(sh\.date !== today && sh\.phase === "open"\) sh\.missed = \{/);
-  assert.match(ui, /mode: "shopclose", missed: true/);
-  assert.match(app, /她那天忘了来打烊，是店里上班的这几个人自己把店关了/);
+test("漏打烊的真实条子仍能补写，公共结果不重复请求", () => {
+  assert.match(shopCore,/s\.missed=\{day:s\.day/);assert.match(shopCore,/missed:true/);assert.match(app,/她那天忘了来打烊，是店里上班的这几个人自己把店关了/);
 });
 test("集邮社新页面统一样式：区块信纸、标题小票、数字格", () => {
   assert.match(ui, /const secBox = \(c, extra\) =>/);
@@ -266,7 +255,7 @@ test("集邮社新页面统一样式：区块信纸、标题小票、数字格",
   assert.ok((ui.match(/statRow\(\[/g) || []).length >= 3);
 });
 test("橱窗和派遣挑卡共用一套筛选：搜卡名、按人和稀有度，选上的永远在前", () => {
-  assert.match(ui, /"data-wk": wk/);
-  assert.match(ui, /sh\.window\.includes\(k\.id\) \|\| cardFilterHit\(winF, k\)/);
+  assert.match(ui, /h\(window\.StampShopFilters/);
+  assert.match(ui, /window\.StampShop\.sortedCards/);
   assert.match(ui, /cardFilterBar\(dpF, setDpF, "dueldispatchfilter"\)/);
 });
