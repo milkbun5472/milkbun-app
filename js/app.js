@@ -20,7 +20,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v89.261";
+const APP_VERSION = "v89.264";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -13476,10 +13476,9 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       }
       if (_pairSplit) {
         openCaps.push("pairAvatar");
-        capState.push("pairAvatar：" + uName + " 想让你俩一起换上一对头像（情头），她发来的是【一张图】，一对就并排在这一张里。"
-          + "两个人并排的合照也算：一人一半切开，各拿一个人当头像。"
-          + "左右并排的（包括竖着拍、两个人肩并肩站的合照）：左半边是第 1 张、右半边是第 2 张；上下排的：上半是第 1 张、下半是第 2 张。会照这个切成两张。"
-          + "要换就填 pairAvatar:{\"yours\":1 或 2,\"cut\":\"lr\" 或 \"tb\"}——cut 是怎么切：lr＝左右切，tb＝上下切，照图里两个人（两只）是左右挨着还是上下排着来定；yours 是你自己用哪一半，另一半换到 " + uName + " 那边。看图挑：通常男生那半给男生、女生那半给女生，或者按谁像谁。"
+        capState.push("pairAvatar：" + uName + " 想让你俩一起换上一对头像（情头），她发来的是【一张图】，一对就在这一张里。"
+          + "两个人的合照、或者两张头像拼在一起的图都行：图里有两个人（两只），就各框出一张脸，app 照框把两个人分别取成头像，脸在正中。"
+          + "要换就填 pairAvatar:{\"yours\":1 或 2,\"faces\":[[左,上,宽,高],[左,上,宽,高]]}——faces 是两张脸各自的框，四个数都是占整张图的比例（0~1，从左上角量），框住那个人的头和脸；第一个框是第 1 张、第二个框是第 2 张；yours 是你自己用哪一张，另一张换到 " + uName + " 那边。看图挑：通常男生那半给男生、女生那半给女生，或者按谁像谁。"
           + "\n· 只换你们这个聊天窗里的头像，档案和 " + uName + " 的资料都不动。"
           + "\n· 这张图要是根本不是一对、切开不像两个头像，就省略 pairAvatar，在话里说清楚。⚠️没填就等于没换，绝不许说「换好了」。");
       }
@@ -14708,7 +14707,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       if (_pairDone && parsed.photoSeen && typeof parsed.photoSeen === "object") parsed.photoSeen = { ...parsed.photoSeen, avatar: false };
       // 一张图切成一对：他挑了哪半，就切开两半各存一张，照一对来换
       if (_pairSplit && parsed.pairAvatar && typeof parsed.pairAvatar === "object" && (Number(parsed.pairAvatar.yours) === 1 || Number(parsed.pairAvatar.yours) === 2)) {
-        const _halves = await splitPairImage(_pairSplit.imageRef, parsed.pairAvatar.cut);
+        const _halves = await splitPairImage(_pairSplit.imageRef, parsed.pairAvatar.faces);
         if (_halves && applyPairAvatar(charId, [{ imageRef: _halves[0] }, { imageRef: _halves[1] }], parsed.pairAvatar.yours) && parsed.photoSeen && typeof parsed.photoSeen === "object") parsed.photoSeen = { ...parsed.photoSeen, avatar: false };
       }
       // 情头那一轮填错了格（她 2026-10-10：「给两张只换他自己的」）：没填 pairAvatar，却在单张那格 photoSeen.avatar=true。
@@ -28863,21 +28862,33 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     return got.length === 2 ? got : null;
   };
   // 一张图里并排的一对 → 切成两张方头像（宽图左右切、竖图上下切，各取中间那一块正方形）
-  // cut：他看图说的切法（lr 左右／tb 上下）。没说就按图的形状猜——竖着拍、两个人肩并肩的合照（她 2026-11-08）
-  //   原来竖图一律上下切，上半张是两个人的头、下半张是身子，切出来他那张里挤着两个人
-  const splitPairImage = async (ref, cut) => {
+  // 一张图里的一对 → 两张方头像。faces：他看图框出来的两张脸（群里 2026-11-08：「有两个人就分开切、让两个人的脸都入镜」）——
+  //   [左, 上, 宽, 高]，都是 0~1 的比例，顺序就是第 1 张、第 2 张。照框取：以脸为中心、往外放一圈带上头发和肩，
+  //   不管两个人怎么站、照片横的竖的，脸都在头像正中。他没框（或框坏了）才按图的形状对半切：宽图左右、竖图上下
+  const faceBoxes = v => {
+    const ok = b => Array.isArray(b) && b.length === 4 && b.every(x => Number.isFinite(Number(x))) && Number(b[2]) > 0 && Number(b[3]) > 0;
+    return Array.isArray(v) && v.length === 2 && v.every(ok) ? v.map(b => b.map(x => Math.min(1, Math.max(0, Number(x))))) : null;
+  };
+  const splitPairImage = async (ref, faces) => {
     try {
       const blob = typeof imgVaultFetchBlob === "function" ? await imgVaultFetchBlob(ref) : null;
       if (!blob) return null;
       const url = URL.createObjectURL(blob);
       const img = await new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = url; });
-      const W = img.naturalWidth, H = img.naturalHeight, wide = cut === "lr" ? true : cut === "tb" ? false : W >= H;
-      const halves = [0, 1].map(k => {
+      const W = img.naturalWidth, H = img.naturalHeight, wide = W >= H, fb = faceBoxes(faces);
+      const squareOf = k => {
+        if (fb) {
+          const [l, t, w, hh] = fb[k], cx = (l + w / 2) * W, cy = (t + hh / 2) * H;
+          const s = Math.min(W, H, Math.max(32, Math.max(w * W, hh * H) * 2));
+          return [Math.min(W - s, Math.max(0, cx - s / 2)), Math.min(H - s, Math.max(0, cy - s / 2)), s];
+        }
         const sw = wide ? W / 2 : W, sh = wide ? H : H / 2, sx = wide ? k * W / 2 : 0, sy = wide ? 0 : k * H / 2, s = Math.min(sw, sh);
-        // 左右切一张竖图时，每半是瘦高一条：方块往上靠（脸在上面），不取正中间那一截身子
-        const up = wide && sh > s ? 0.25 : 0.5;
+        return [sx + (sw - s) / 2, sy + (sh - s) / 2, s];
+      };
+      const halves = [0, 1].map(k => {
+        const [x, y, s] = squareOf(k);
         const c = document.createElement("canvas"), out = Math.max(64, Math.min(640, Math.round(s)));
-        c.width = c.height = out; c.getContext("2d").drawImage(img, sx + (sw - s) / 2, sy + (sh - s) * up, s, s, 0, 0, out, out);
+        c.width = c.height = out; c.getContext("2d").drawImage(img, x, y, s, s, 0, 0, out, out);
         return c.toDataURL("image/jpeg", 0.9);
       });
       URL.revokeObjectURL(url);
