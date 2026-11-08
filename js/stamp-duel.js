@@ -395,6 +395,57 @@
     if (sh.round >= SHIFT.ROUNDS) { sh.done = { win: true, round: sh.round }; return sh; }
     sh.round++; sh.coins += SHIFT.INCOME + Math.min(3, Math.floor(sh.coins / 5)); sh.rolls = 0; return sh;
   }
+  // ── 邮区巡查（她 2026-11-08「继续做玩法」：照赛季探索那样，大地图自己挑方向翻格子）────────────
+  //   5×5，每周自动换一张、每个人各不一样（她 2026-11-08「不要每周我们自己弄，给代码每个人每周刷新出不同的」：
+  //   种子＝第几周 × 这台设备自己的随机数 salt），从最下面中间出发，只能走到上下左右相邻的格子，走到哪翻开到哪；
+  //   14 步；信封血一路带着；打赢、开宝箱、打倒巡查长加分；步数用完、信封空、或打倒巡查长就结束
+  const PATROL = { N: 5, STEPS: 14, PTS: { fight: 10, elite: 25, chest: 15, boss: 60 }, HEAL: 15 };
+  const PATROL_THEMES = ["雪国", "海边", "旧城", "夜车", "花季", "沙漠", "雨季", "山路", "梦里"];
+  const weekNo = d => { const t = d || new Date(), j = new Date(t.getFullYear(), 0, 1); return t.getFullYear() * 100 + Math.ceil(((t - j) / 86400000 + j.getDay() + 1) / 7); };
+  function patrolNew(deck, now, salt) {
+    const wk = weekNo(now), R = rng(((wk * 2654435761) ^ ((salt >>> 0) || 0)) >>> 0), N = PATROL.N, cells = [];
+    for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) {
+      let t = R() < 0.42 ? "fight" : R() < 0.5 ? "chest" : R() < 0.35 ? "event" : R() < 0.4 ? "rest" : R() < 0.35 ? "elite" : "empty";
+      cells.push({ r, c, type: t, open: false, done: false });
+    }
+    const at = (r, c) => cells[r * N + c];
+    const start = at(N - 1, Math.floor(N / 2)); start.type = "start"; start.open = true; start.done = true;
+    const bossC = Math.floor(R() * N); at(0, bossC).type = "boss";
+    const env = envFor(deck), p = { week: wk, theme: PATROL_THEMES[(wk + ((salt >>> 0) || 0)) % PATROL_THEMES.length], seed: ((wk * 7919) ^ ((salt >>> 0) || 0)) >>> 0, cells, pos: [N - 1, Math.floor(N / 2)], steps: PATROL.STEPS, hp: env + 10, max: env + 10, score: 0, log: [], done: null };
+    patrolPeek(p); return p;
+  }
+  // 站着的格子四周翻开（看得到是什么，没去过）
+  function patrolPeek(p) { const N = PATROL.N, [r, c] = p.pos; [[r - 1, c], [r + 1, c], [r, c - 1], [r, c + 1]].forEach(([a, b]) => { if (a >= 0 && b >= 0 && a < N && b < N) p.cells[a * N + b].open = true; }); }
+  const patrolCan = (p, r, c) => !p.done && p.steps > 0 && r >= 0 && c >= 0 && r < PATROL.N && c < PATROL.N && Math.abs(p.pos[0] - r) + Math.abs(p.pos[1] - c) === 1;
+  // 走一步；返回这一格要做什么：fight/elite/boss 要打一场（界面去开），别的当场结算
+  function patrolMove(p, r, c) {
+    if (!patrolCan(p, r, c)) return null;
+    const cell = p.cells[r * PATROL.N + c]; p.pos = [r, c]; p.steps--; cell.open = true; patrolPeek(p);
+    if (cell.done) { if (p.steps <= 0) p.done = { why: "steps" }; return { type: "walk" }; }
+    const R = rng((p.seed ^ (r * 131 + c * 17 + p.steps * 7)) >>> 0);
+    if (cell.type === "chest") { cell.done = true; p.score += PATROL.PTS.chest; p.log.push("开了宝箱 +" + PATROL.PTS.chest); }
+    else if (cell.type === "rest") { cell.done = true; p.hp = Math.min(p.max, p.hp + PATROL.HEAL); p.log.push("驿站歇脚，信封 +" + PATROL.HEAL); }
+    else if (cell.type === "event") { cell.done = true; const x = R(); if (x < 0.4) { p.steps += 2; p.log.push("抄了条近路，多 2 步"); } else if (x < 0.7) { p.hp = Math.min(p.max, p.hp + 6); p.score += 5; p.log.push("捡到一封迷路的信，信封 +6、+5 分"); } else { p.hp = Math.max(1, p.hp - 6); p.score += 12; p.log.push("冒雨抄近路，信封 -6、+12 分"); } }
+    else if (cell.type === "empty") { cell.done = true; p.log.push("这一格什么也没有"); }
+    if (["fight", "elite", "boss"].includes(cell.type)) return { type: cell.type, cell };
+    if (p.steps <= 0) p.done = { why: "steps" };
+    return { type: cell.type };
+  }
+  const patrolDepth = p => PATROL.N - 1 - p.pos[0];
+  // 这一格那一场怎么开（等级照你卡组、越往上越高；巡查长最硬）
+  function patrolBattle(p, deck, type) {
+    const mul = type === "boss" ? 1.15 : type === "elite" ? 1.0 : 0.72 + patrolDepth(p) * 0.06, s = (p.seed ^ (p.pos[0] * 97 + p.pos[1] * 13 + p.steps * 101)) >>> 0;
+    return { foeDeck: edictDeck(s), seed: s || 1, opts: { foeLv: Math.max(3, Math.round(avgLv(deck) * mul)), meHp: p.hp, meMax: p.max, foeHp: Math.round(envFor(deck) * (type === "boss" ? 1.1 : type === "elite" ? 0.8 : 0.55)), cap: 10, hard: type !== "fight" } };
+  }
+  function patrolAfter(p, type, win, hpLeft) {
+    const cell = p.cells[p.pos[0] * PATROL.N + p.pos[1]];
+    // 输了不直接结束（一场没打过整趟归零太狠）：败退——信封留 1 点、扣 2 步，这一格还在，能再来
+    p.hp = win ? Math.max(1, hpLeft) : Math.max(1, hpLeft);
+    if (!win) { p.steps = Math.max(0, p.steps - 2); p.log.push("没打过，败退：信封剩 " + p.hp + "，少 2 步"); }
+    if (win) { cell.done = true; p.score += PATROL.PTS[type] || 0; p.log.push((type === "boss" ? "打倒了巡查长" : type === "elite" ? "打赢一场硬仗" : "打赢一场") + " +" + (PATROL.PTS[type] || 0)); }
+    if (win && type === "boss") p.done = { why: "boss" }; else if (p.steps <= 0) p.done = { why: "steps" };
+    return p;
+  }
   const siegeIdle = (st, sd, i) => !!(st.siege && sd === st.foe && row(i) > 0);   // 守城：对面还没走到前排的不动手
 
   // ── 材料和专属信物（她 2026-11-08「打完或者某些路线掉落材料……花调用生成角色专属信物，从人设和我们聊天里来」）──
@@ -835,7 +886,7 @@
   const mine = raw => (st, who, a, b) => { if (who !== "me") return raw(st, who, a, b); snap(st); const r = raw(st, who, a, b); if (!r || !r.ok) st.undo.pop(); return r; };
   const place = mine(placeRaw), tear = mine(tearRaw), move = mine(moveRaw), keep = mine(keepRaw), stamp = mine(stampRaw);
   const API = { RELICS, STYLE_ZH, TRAIT_FIT, TRAITS, SKILLS, BONDS, bondOf, unitInfo, SIZE, SLOTS, ENVELOPE_HP, POSTAGE, DRAW, DECK_SIZE, TURN_CAP, KEEP_MAX, FACE, NEED, ROLES, MARKS, TERRAIN, EVENTS,
-    stampOf, deckFrom, foeDeckFrom, SHIFT, shiftNew, shiftRoll, shiftPrice, shiftBuy, shiftSell, shiftDeck, shiftBonds, shiftFoeLv, shiftAfter, EDICTS, EDICT_LV, edictDeck, RAID_TURNS, MATS, BASE_MATS, THEME_MAT, KEEP_FX, KEEP_MAX_SLOTS, keepFxOf, keepTier, matDrop, SIEGE_TIERS, newDuel, envFor, avgLv, fairDeck, aims, actsOf, previewPlace, place, tear, move, keep, stamp, undo, canUndo, endTurn, planFoe, combos, newSeries, addGame, memoryLine, hashStr };
+    stampOf, deckFrom, foeDeckFrom, PATROL, patrolNew, patrolCan, patrolMove, patrolBattle, patrolAfter, weekNo, SHIFT, shiftNew, shiftRoll, shiftPrice, shiftBuy, shiftSell, shiftDeck, shiftBonds, shiftFoeLv, shiftAfter, EDICTS, EDICT_LV, edictDeck, RAID_TURNS, MATS, BASE_MATS, THEME_MAT, KEEP_FX, KEEP_MAX_SLOTS, keepFxOf, keepTier, matDrop, SIEGE_TIERS, newDuel, envFor, avgLv, fairDeck, aims, actsOf, previewPlace, place, tear, move, keep, stamp, undo, canUndo, endTurn, planFoe, combos, newSeries, addGame, memoryLine, hashStr };
   g.StampDuel = API;
   if (typeof module !== "undefined" && module.exports) module.exports = API;
 })(typeof window !== "undefined" ? window : globalThis);

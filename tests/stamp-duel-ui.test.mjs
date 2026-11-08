@@ -60,7 +60,7 @@ test("跟 TA 聊时带上两边信封上的票和卡上那句；长按不弹系�
 test("新手教学关：开局页能进、九步教练条、不存档；对面会说话、有打法；能跳过动画", () => {
   assert.match(ui, /const TUT = \[/);
   assert.match(ui, /"data-wk": "duelturorial", onClick: startTut/);
-  assert.match(ui, /\(x && \(x\.tutorial \|\| x\.run \|\| x\.siege \|\| x\.raid \|\| x\.edict \|\| x\.shift\)\) \|\| runBattle\) return;/);
+  assert.match(ui, /\(x && \(x\.tutorial \|\| x\.run \|\| x\.siege \|\| x\.raid \|\| x\.edict \|\| x\.shift \|\| x\.patrol\)\) \|\| runBattle\) return;/);
   assert.match(ui, /"data-wk": "duelsay"/);
   assert.match(ui, /"data-wk": "duelskip", onClick: skip/);
   // 钩子不许放在提前 return 后面（React #310）
@@ -126,7 +126,7 @@ test("守城入口和页面：挑玩法页一张卡、波数条、打完再守�
   assert.match(ui, /"data-wk": "duelsiegetier"/);
   assert.match(ui, /"data-wk": "duelsiegewave"/);
   assert.match(ui, /x\.tutorial \|\| x\.run \|\| x\.siege/);
-  assert.match(ui, /!st\.run && !st\.siege && !st\.raid && !st\.edict && !st\.shift\) record\(st\)/);
+  assert.match(ui, /!st\.run && !st\.siege && !st\.raid && !st\.edict && !st\.shift && !st\.patrol\) record\(st\)/);
 });
 test("信物只在远信：对局页没有材料与信物入口，远信路线图能做信物、带进这一站", () => {
   const ru = readFileSync(new URL("../js/stamp-run-ui.js", import.meta.url), "utf8"), rn = readFileSync(new URL("../js/stamp-run.js", import.meta.url), "utf8");
@@ -147,7 +147,7 @@ test("讨伐入口和页面：挑模式、伤害分、最高分、不进存档�
 test("封缄令页：勾难度、危险分、不进存档和战绩", () => {
   assert.match(ui, /modeTile\("duelmodeedict"/);
   assert.match(ui, /edict: tags, fair: false/);
-  assert.match(ui, /x\.raid \|\| x\.edict \|\| x\.shift/);
+  assert.match(ui, /x\.raid \|\| x\.edict \|\| x\.shift \|\| x\.patrol/);
   assert.match(ts, /"duelediccgo"/);
 });
 test("奖励：每天第一次赢、里程碑只给一次、钱进邮票册；远信送到也结算", async () => {
@@ -167,15 +167,22 @@ test("邮局值班页：柜台、值班卡组、开打、回柜台，进度存�
   assert.match(ui, /modeTile\("duelmodeshift"/);
   assert.match(ui, /D\(\)\.shiftDeck\(sh\), D\(\)\.edictDeck\(s\), s, \{ foeLv: D\(\)\.shiftFoeLv\(sh\)/);
   assert.match(ui, /"data-wk": "duelshiftnext"/);
-  assert.match(ui, /x\.edict \|\| x\.shift/);
+  assert.match(ui, /x\.edict \|\| x\.shift \|\| x\.patrol/);
 });
 test("挑战陪打：挑谁陪、聊天找陪打的人、帮我看看、打完评一把、值班柜台问买哪张；局面全给", () => {
   assert.match(ui, /"data-wk": "duelcoachpick"/);
-  assert.equal((ui.match(/coachPick\(\),/g) || []).length, 4);
+  assert.equal((ui.match(/coachPick\(\),/g) || []).length, 5);
   assert.match(ui, /talkId = chal \? coachId : foeId/);
   assert.match(ui, /mode: ask === "review" \? "coachreview" : "coach", text, board: coachBoard\(\)/);
   assert.match(ui, /"data-wk": "duelcoachask"/);
   assert.match(ui, /"data-wk": "duelshiftcoach"/);
   assert.match(app, /if \(d\.mode === "coach" \|\| d\.mode === "coachreview"\) \{/);
   assert.match(ts, /"duelcoachpick"/);
+});
+test("邮区巡查页：邮票墙一枚、每人一个随机数、地图格、打完回地图、陪打也能用", () => {
+  assert.match(ui, /modeTile\("duelmodepatrol"/);
+  assert.match(ui, /D\(\)\.patrolNew\(deck, new Date\(\), patrolSalt\(\)\)/);
+  assert.match(ui, /"data-wk": "duelpatrolcell"/);
+  assert.match(ui, /"data-wk": "duelpatrolnext", onClick: patrolBack/);
+  assert.match(ui, /st\.shift \|\| st\.patrol\)/);
 });

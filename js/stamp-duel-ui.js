@@ -57,6 +57,7 @@
     ...[5, 10, 15, 20].map((n, i) => ({ id: "edict" + n, zh: "封缄令危险 " + n, ink: [150, 300, 500, 800][i], postage: 100, test: x => x.edict && x.win && x.pts >= n })),
     ...[200, 400, 700, 1000].map((n, i) => ({ id: "raid" + n, zh: "讨伐打出 " + n + " 伤害", ink: [150, 300, 500, 800][i], postage: 100, test: x => x.raid && !x.endless && x.dealt >= n })),
     ...[10, 15, 20].map((n, i) => ({ id: "endless" + n, zh: "无尽撑过 " + n + " 回合", ink: [200, 400, 700][i], postage: 100, test: x => x.raid && x.endless && x.turn >= n })),
+    ...[100, 200, 300].map((n, i) => ({ id: "patrol" + n, zh: "邮区巡查 " + n + " 分", ink: [200, 400, 700][i], postage: 100, test: x => x.patrol && x.pts >= n })),
     ...[4, 8].map((n, i) => ({ id: "shift" + n, zh: "邮局值班撑到第 " + n + " 轮", ink: [300, 700][i], postage: 100, test: x => x.shift && x.round >= n })),
     ...[1, 2, 3, 4, 5, 6, 7, 8].map(l => ({ id: "run" + l, zh: "远信 " + l + " 级送到", ink: 100 * l, postage: 100, test: x => x.run && x.win && x.level >= l }))
   ];
@@ -103,6 +104,7 @@
     ["远信：一路打过去", "从挑玩法页进「远信」：给一个人寄一封信，信要走一段邮路，最后一站是 TA 本人。", "信封血带着走：一场打完不回满，到驿站、岔路、邮局才回得来。", "路线：雪国、海边、旧城、夜车、花季、沙漠、雨季、山路、梦里、TA 的城市，节日那条只在节日前后开。每条一条棋盘规则，对局顶上写着。默认是 TA 照人设推荐的那条。"],
     ["守城：一波一波守住", "从挑玩法页进「守城」，先挑一档（五档，各写建议等级）：没有对手，卡组从你的邮票册里配，对面是一波一波压过来的麻烦。", "敌人贴在对面后排，一回合往前走一格；走到前排的会打你那一列，在前排站过一回合还没被打掉，下回合就闯过去撞你的信封（写着「要闯过去」）。", "守过第 10 波、场上清空就赢；信封打空就城破。每守住三波，信封回 5、下回合多摸一张。", "跟对局同一套：贴票、胶水、盖章、组合都照旧。你的票照样打同一列最前面那个，所以在敌人走到前排之前就能先打它。"],
     ["远信的信物", "远信路上打赢会掉材料（走主题路线掉那条路的，打赢终点掉「TA 的东西」），只在这一趟里用。", "路线图上点「做信物」：挑三样材料（能混着）、挑收信的人或陪你走的人，请 TA 做一件，花一次调用。TA 照自己的人设和你们聊过的事写名字、一两句来历、看着它说的一句话。", "效果从三样材料的偏向里挑，同一种偏向的越多越强，「TA 的东西」再加一档；做好当场就能带上，这一趟后面每一站都生效。一开始只能带一件，路上的「旧行李箱」能多开一格，最多三格。", "做过的信物都收进开头页的「信物册」。下一趟跟同一个人出发（TA 收信或陪你走），能在开头挑一件旧信物带上，占一格。"],
+    ["邮区巡查：自己挑路", "挑玩法页进「邮区巡查」：一张 5×5 的地图，每周自动换一张、每个人的都不一样。从最下面中间出发，只能走到上下左右挨着的格子，走到哪翻开到哪，一共 14 步。", "格子：普通仗、硬仗、宝箱、岔路、驿站，最上面一排藏着巡查长。信封血一路带着，驿站回 15。打赢、开宝箱、打倒巡查长加分；打输了算败退：信封留 1 点、扣 2 步，接着走。步数用完、打倒巡查长或者提前收工就结束，这周记最高分。"],
     ["邮局值班：买票凑阵容", "挑玩法页进「邮局值班」：开局没票、10 枚邮花。每一轮先在柜台买票（R 2、SR 3、SSR 5 枚，刷新 1 枚），买进值班卡组。", "同一张票买两份合成「＋」（攻击 +2、血 +3），最多「＋＋」；同一个人的票凑满 3 张，这个人的票攻击 +1。点值班卡组里一张能卖，退一半。", "买好点「开打」跟这一轮的审查局打一局，最多 8 回合；输了掉一条命，一共三条，撑满八轮算完成。每轮收入 5 枚，手上每攒 5 枚多给 1 枚利息（最多 3）。中途退出，下次点进来接着值。"],
     ["封缄令：自己加难度", "挑玩法页进「封缄令」：对面是等级固定的审查局。先勾难度条（对面攻击 +2、你少 1 胶水、不能撕票……），每条有分。", "打赢了，勾的分加起来就是这一把的「危险」，记最高的。打输不扣分。勾的那几条打的时候写在「下一步」那块上。"],
     ["讨伐：冲伤害", "挑玩法页进「讨伐」：对面是打不死的邮政总局，比你打出多少伤害（打人、打信封都算）。分「8 回合」和「无尽（打到你信封空）」两种，各记最高分。", "总局每回合派人顶在前排；第 4、第 7 回合换阶段，人更多、更硬。总局每回合还盖一记大章砸你的信封，明牌会算进「你的信封要挨」。", "封条：有的人贴着封条（签上写「封条·」），封着的时候怎么打都只掉 1。用邮戳打到它、或盖章打到它，封条撕开，接下来两回合虚弱（「虚弱·」）、挨打翻倍。先撕封条再集火最划算。"],
@@ -336,11 +338,11 @@
     const byId = useMemo(() => { const m = {}; (cards || []).forEach(c => { if (c && c.id) m[c.id] = c; }); return m; }, [cards]);
     const nameOf = id => { if (id === "tut_pair") return "小练"; const c = (characters || []).find(x => x.id === id); return c ? (c.remark || c.name) : ""; };
     const cardOf = id => byId[id] || null, ownerOf = id => id && nameOf(id) ? nameOf(id) + "的卡" : "";
-    let foeName = (st && st.shift && "审查局") || (st && st.edict && "审查局") || (st && st.siege && "城外") || (st && st.raid && "邮政总局") || (runBattle && runBattle.foeName) || nameOf(runBattle ? runBattle.foeId : foeId) || "TA";
+    let foeName = (st && st.patrol && (st.patrol === "boss" ? "巡查长" : "巡查站")) || (st && st.shift && "审查局") || (st && st.edict && "审查局") || (st && st.siege && "城外") || (st && st.raid && "邮政总局") || (runBattle && runBattle.foeName) || nameOf(runBattle ? runBattle.foeId : foeId) || "TA";
     // 没打完退出去也留着（她 2026-11-07「没打完暂退能不能存档跟小游戏一样」）：每动一步就存一份，打完、放弃才清
     const SAVE_KEY = "x_stampDuelSave";
     const [saved, setSaved] = useState(() => { try { const v = typeof loadJSON === "function" ? loadJSON(SAVE_KEY, null) : null; return v && v.st && !v.st.over ? v : null; } catch (e) { return null; } });
-    const persist = (x, sr) => { try { if (typeof saveJSON !== "function" || (x && (x.tutorial || x.run || x.siege || x.raid || x.edict || x.shift)) || runBattle) return; if (x && !x.over) saveJSON(SAVE_KEY, { st: x, series: sr || null, foeId, at: Date.now() }); else saveJSON(SAVE_KEY, null); } catch (e) {} };
+    const persist = (x, sr) => { try { if (typeof saveJSON !== "function" || (x && (x.tutorial || x.run || x.siege || x.raid || x.edict || x.shift || x.patrol)) || runBattle) return; if (x && !x.over) saveJSON(SAVE_KEY, { st: x, series: sr || null, foeId, at: Date.now() }); else saveJSON(SAVE_KEY, null); } catch (e) {} };
     const redraw = () => { persist(st, series); bump(x => x + 1); };
     const resume = () => { if (!saved) return; setFoeId(saved.foeId); setSt(saved.st); setSeries(saved.series || D().newSeries()); setSaved(null); setHandSel(-1); setBoardSel(-1); };
     const drop = () => { persist(null); setSaved(null); };
@@ -375,6 +377,13 @@
     const [coachId, setCoach0] = useState(() => { try { const v = typeof loadJSON === "function" ? loadJSON(COACH_KEY, null) : null; if (v != null) return v; } catch (e) {} const c = (characters || []).find(x => (cards || []).some(k => k.charId === x.id)); return c ? c.id : ""; });
     const setCoach = id => { setCoach0(id); try { saveJSON(COACH_KEY, id); } catch (e) {} };
     const [coachTip, setCoachTip] = useState(null), [coachBusy, setCoachBusy] = useState(false);
+    // 邮区巡查（她 2026-11-08）：每个人每周一张自己的地图；进度存着，这一周里能接着走
+    const PATROL_KEY = "x_stampPatrol", PATROL_BEST = "x_stampPatrolBest", PATROL_SALT = "x_stampPatrolSalt";
+    const patrolSalt = () => { try { let v = typeof loadJSON === "function" ? loadJSON(PATROL_SALT, 0) : 0; if (!v) { v = (Math.random() * 4294967295) >>> 0 || 1; saveJSON(PATROL_SALT, v); } return v; } catch (e) { return 1; } };
+    const [patrol, setPatrol0] = useState(() => { try { const v = typeof loadJSON === "function" ? loadJSON(PATROL_KEY, null) : null; return v && v.week === D().weekNo() ? v : null; } catch (e) { return null; } });
+    const setPatrol = v => { setPatrol0(v ? Object.assign({}, v) : null); try { saveJSON(PATROL_KEY, v || null); } catch (e) {} };
+    const patrolBest = () => { try { const v = (typeof loadJSON === "function" ? loadJSON(PATROL_BEST, null) : null) || {}; return { week: v.week === D().weekNo() ? v.week : 0, score: v.week === D().weekNo() ? v.score || 0 : 0, ever: v.ever || 0 }; } catch (e) { return { score: 0, ever: 0 }; } };
+    const patrolFinish = p => { const b = patrolBest(); try { saveJSON(PATROL_BEST, { week: D().weekNo(), score: Math.max(b.score || 0, p.score), ever: Math.max(b.ever || 0, p.score) }); } catch (e) {} p.rewards = Rewards.settle({ patrol: true, win: p.done && p.done.why === "boss", pts: p.score }); };
     const SHIFT_KEY = "x_stampShift", SHIFT_BEST = "x_stampShiftBest";
     const [shift, setShift0] = useState(() => { try { const v = typeof loadJSON === "function" ? loadJSON(SHIFT_KEY, null) : null; return v && !v.done ? v : null; } catch (e) { return null; } });
     const [shiftSel, setShiftSel] = useState(-1), [, shiftBump] = useState(0);
@@ -392,6 +401,16 @@
       else D().shiftRoll(sh, cards);
       setShift(sh); setShiftSel(-1); setCoachTip(null); setSt(null); setMode("shift");
     };
+    const patrolGo = (r, c) => {
+      const p = patrol; if (!p) return; const res = D().patrolMove(p, r, c); if (!res) return;
+      if (["fight", "elite", "boss"].includes(res.type)) {
+        const deck = p.deck, b = D().patrolBattle(p, deck, res.type), nd = D().newDuel(deck.map(x => Object.assign({}, x)), b.foeDeck, b.seed, Object.assign({ bonds: bondsOf() }, b.opts)); nd.patrol = res.type;
+        setPatrol(p); setSt(nd); setMode("patrol"); setHandSel(-1); setBoardSel(-1); return;
+      }
+      if (p.log.length) toast && toast(p.log[p.log.length - 1]);
+      if (p.done) patrolFinish(p); setPatrol(p);
+    };
+    const patrolBack = () => { const p = patrol; if (p && st && st.over) { D().patrolAfter(p, st.patrol, st.over.winner === "me", st.me.hp); if (p.done) patrolFinish(p); setPatrol(p); } setSt(null); setMode("patrol"); };
     const startRaid = m => {
       const s = (seedRef.current = (seedRef.current * 1103515245 + 12345) >>> 0);
       const nd = D().newDuel(D().deckFrom(cards, s, D().DECK_SIZE, core), [], s, { raid: m, bonds: bondsOf() });
@@ -511,6 +530,36 @@
         h("div", { style: { fontFamily: FD, fontSize: fz(18), color, marginRight: 52 } }, title),
         h("div", { style: { fontSize: fz(12), color: SUB, lineHeight: 1.7, marginTop: 4, marginRight: 40 } }, desc)));
     // 守城挑档（她 2026-11-08「后面难度比我的卡都高我怎么赢」→ 固定难度档）
+    if (!st && mode === "patrol") {
+      const p = patrol, N = D().PATROL.N, COL = "#5a7a4a";
+      if (!p || p.done) { const b = patrolBest();
+        return shell([
+          h(Head, { key: "hd", zh: "邮区巡查", bg: "transparent", ink: INK, onBack: () => setMode(""), right: guideBtn }),
+          h("div", { key: "bd", "data-wk": "duelpatrolstart", className: "flex-1 min-h-0 overflow-y-auto px-5", style: { fontFamily: F, color: INK, paddingTop: 6, paddingBottom: 24 } },
+            modeHero(COL, "巡", "邮区巡查", "一张 5×5 的邮区地图，从最下面中间出发，只能走到上下左右挨着的格子，走到哪翻开到哪，一共 " + D().PATROL.STEPS + " 步。格子里有普通仗、硬仗、宝箱、岔路、驿站，最上面一排藏着巡查长。信封血一路带着；打赢、开宝箱、打倒巡查长加分。打输了不会结束，算败退：信封留 1 点、扣 2 步。步数用完、打倒巡查长或提前收工就结束。地图每周自动换一张，每个人的都不一样。不花调用。"),
+            coachPick(),
+            p && p.done ? h("div", { "data-wk": "duelpatroldone", style: { textAlign: "center", margin: "0 0 14px", padding: 14, borderRadius: 6, background: PAPER, boxShadow: "0 2px 8px rgba(47,42,34,.12)" } },
+              h("div", { style: { fontFamily: FD, fontSize: fz(22), color: COL } }, p.score + " 分"),
+              h("div", { style: { fontSize: fz(11.5), color: SUB } }, p.done.why === "boss" ? "打倒了巡查长" : p.done.why === "hp" ? "信封打空了" : "步数走完了"),
+              (p.rewards || []).length ? h("div", { style: { marginTop: 8, fontSize: fz(11.5), color: "#7a5a1a", lineHeight: 1.6 } }, p.rewards.map((t, k) => h("div", { key: k }, t))) : null) : null,
+            h("div", { style: { fontSize: fz(12), color: b.score ? "#b8862a" : SUB, marginBottom: 12 } }, (b.score ? "这周最高 " + b.score + " 分" : "这周还没巡查过") + (b.ever ? " · 历史最高 " + b.ever : "")),
+            h("button", { "data-wk": "duelpatrolgo", onClick: () => { const deck = D().deckFrom(cards, (Date.now() >>> 0), D().DECK_SIZE, core); const n = D().patrolNew(deck, new Date(), patrolSalt()); n.deck = deck; setPatrol(n); }, className: "w-full", style: Object.assign(btn(COL, "#fff"), { padding: "12px 0", fontFamily: FD, fontSize: fz(15), letterSpacing: ".1em" }) }, p && p.done ? "这周的图再走一遍" : "出发巡查"))]); }
+      const ICON = { fight: ["✉", RED, "仗"], elite: ["✦", "#8a3a4a", "硬仗"], boss: ["♛", "#5a4f8a", "巡查长"], chest: ["宝", "#b8862a", "宝箱"], event: ["?", GREEN, "岔路"], rest: ["☕", "#4f6a8a", "驿站"], empty: ["·", SUB, "空"], start: ["起", INK, "起点"] };
+      const tile = (k, v) => h("div", { key: k, style: { flex: 1, padding: "5px 9px", borderRadius: 6, background: PAPER, boxShadow: "0 1px 4px rgba(47,42,34,.12)" } }, h("div", { style: { fontSize: fz(10), color: SUB } }, k), h("div", { style: { fontFamily: FD, fontSize: fz(16), color: COL } }, v));
+      return shell([
+        h(Head, { key: "hd", zh: "邮区巡查 · " + p.theme, bg: "transparent", ink: INK, onBack: () => setMode(""), right: guideBtn }),
+        h("div", { key: "bd", "data-wk": "duelpatrolmap", className: "flex-1 min-h-0 overflow-y-auto px-4", style: { fontFamily: F, color: INK, paddingTop: 4, paddingBottom: 20 } },
+          h("div", { className: "flex", style: { gap: 8, marginBottom: 12 } }, tile("步数", p.steps), tile("信封", Math.max(0, p.hp) + "/" + p.max), tile("巡查分", p.score)),
+          h("div", { "data-wk": "duelpatrolgrid", style: { display: "grid", gridTemplateColumns: "repeat(" + N + ", minmax(0, 1fr))", gap: 6, padding: 8, borderRadius: 8, background: "repeating-linear-gradient(135deg, rgba(90,122,74,.08) 0 8px, transparent 8px 16px), " + PAPER, boxShadow: "inset 0 0 0 1px rgba(47,42,34,.12)" } },
+            p.cells.map((cl, i) => { const here = p.pos[0] === cl.r && p.pos[1] === cl.c, can = D().patrolCan(p, cl.r, cl.c), ic = ICON[cl.type] || ICON.empty;
+              return h("button", { key: i, "data-wk": "duelpatrolcell", "data-open": can ? "1" : "0", "data-type": cl.open ? cl.type : "", onClick: () => can && patrolGo(cl.r, cl.c), disabled: !can,
+                style: { position: "relative", aspectRatio: "1 / 1", borderRadius: 4, border: here ? "2px solid " + RED : can ? "2px dashed " + COL : "1px solid rgba(47,42,34,.15)", background: !cl.open ? "repeating-linear-gradient(45deg, #d9cfb8 0 5px, #e4dbc6 5px 10px)" : cl.done && !here ? "rgba(47,42,34,.06)" : "#fffdf7",
+                  color: ic[1], fontFamily: FD, fontSize: fz(18), display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", opacity: cl.done && !here && cl.type !== "start" ? .55 : 1, animation: can ? "duelPulse 1.6s ease-in-out infinite" : "none" } },
+                cl.open ? ic[0] : "", cl.open ? h("span", { style: { fontFamily: F, fontSize: fz(8.5), color: SUB, marginTop: 1 } }, here ? "你在这" : cl.done && cl.type !== "start" ? "✓" : ic[2]) : null); })),
+          h("div", { style: { fontSize: fz(11), color: SUB, margin: "8px 2px", lineHeight: 1.6 } }, "虚线框是能走的格子；斜纹是还没翻开的。普通仗 +" + D().PATROL.PTS.fight + "、硬仗 +" + D().PATROL.PTS.elite + "、宝箱 +" + D().PATROL.PTS.chest + "、巡查长 +" + D().PATROL.PTS.boss + "；驿站回 " + D().PATROL.HEAL + "。"),
+          p.log.length ? h("div", { "data-wk": "duelpatrollog", style: { fontSize: fz(11.5), color: INK, lineHeight: 1.7, padding: "6px 10px", borderRadius: 5, background: "rgba(255,253,247,.8)" } }, p.log.slice(-4).reverse().map((t, k) => h("div", { key: k, style: { opacity: k ? .6 : 1 } }, t))) : null,
+          h("button", { "data-wk": "duelpatrolend", onClick: () => { if (typeof requestAppConfirm === "function") requestAppConfirm("结束这次巡查？", "按现在的 " + p.score + " 分算。", () => { p.done = { why: "steps" }; patrolFinish(p); setPatrol(p); }, "结束"); else { p.done = { why: "steps" }; patrolFinish(p); setPatrol(p); } }, className: "w-full", style: Object.assign(btn("transparent", SUB, "rgba(47,42,34,.3)"), { marginTop: 12 }) }, "提前收工"))]);
+    }
     if (!st && mode === "shift") {
       const sh = shift;
       if (!sh || sh.done) {
@@ -610,6 +659,7 @@
           (() => { const t = [0, 1, 2, 3, 4].filter(k => siegeBest(k).wins).pop(); return modeTile("duelmodesiege", "#3f6fb0", "守", "守城", "一波一波守住信封", t != null ? "守住过第 " + (t + 1) + " 档" : "", () => setMode("siegepick"), 1); })(),
           (() => { const b = raidBest("normal"); return modeTile("duelmoderaid", "#8a3a4a", "讨", "讨伐", "打不死的总局，冲伤害", b.dealt ? "最高 " + b.dealt + " 伤害" : "", () => setMode("raidpick"), -1); })(),
           (() => { const b = edictBest(); return modeTile("duelmodeedict", "#5a4f8a", "封", "封缄令", "自己加难度，冲危险分", b.pts ? "最高 危险 " + b.pts : "", () => setMode("edictpick"), -1.2); })(),
+          (() => { const b = patrolBest(); return modeTile("duelmodepatrol", "#5a7a4a", "巡", "邮区巡查", "每周一张图，自己挑路走", patrol && !patrol.done ? "这周走到一半" : b.score ? "这周最高 " + b.score + " 分" : "", () => setMode("patrol"), -0.8); })(),
           (() => { const b = shiftBestOf(); return modeTile("duelmodeshift", "#4f6a8a", "值", "邮局值班", "柜台买票，凑阵容", shift ? "值到第 " + shift.round + " 轮" : b.round ? "最好第 " + b.round + " 轮" : "", () => setMode("shift"), 1.4); })()),
         h("button", { key: "tut", "data-wk": "duelturorial", onClick: startTut, className: "w-full flex items-center active:opacity-80", style: { gap: 10, marginBottom: 14, padding: "10px 14px", borderRadius: 6, background: "rgba(79,122,102,.1)", border: "1px dashed " + GREEN, color: INK } },
           h("span", { style: { fontFamily: FD, fontSize: fz(18), color: GREEN } }, "教"), h("span", { className: "flex-1 text-left", style: { fontSize: fz(12) } }, h("b", { style: { fontFamily: FD, fontWeight: 400, color: GREEN } }, "新手教学关"), " · 第一次玩先来这儿，一步步教"), h("span", { style: { color: SUB } }, "›")),
@@ -733,7 +783,7 @@
     };
     const again = () => { D().addGame(series, st); start(); };
     const log = st.log.slice(-4);
-    if (over && !playing.current && !st.run && !st.siege && !st.raid && !st.edict && !st.shift) record(st);
+    if (over && !playing.current && !st.run && !st.siege && !st.raid && !st.edict && !st.shift && !st.patrol) record(st);
     if (over && !playing.current && !st.run && !st.tutorial && !st.rewards) st.rewards = Rewards.settle({ win: over.winner === "me", siege: !!st.siege, tier: st.siegeTier || 0, edict: !!st.edict, pts: st.edictPts || 0, raid: !!st.raid, endless: !!(st.raid && st.raid.endless), dealt: st.raid ? st.raid.dealt : 0, turn: st.turn });
     if (over && st.edict && !edictSaved) { const b0 = edictBest(); st.edictPrev = b0.pts || 0; if (over.winner === "me" && (st.edictPts || 0) > (b0.pts || 0)) { try { saveJSON(EDICT_KEY, { pts: st.edictPts, tags: st.edict }); } catch (e) {} } setTimeout(() => setEdictSaved(true), 0); }
     if (over && st.raid && !raidSaved) { const m = st.raid.endless ? "endless" : "normal", b0 = raidBest(m); try { const all = (typeof loadJSON === "function" ? loadJSON(RAID_KEY, {}) : {}) || {}; if (st.raid.dealt > (b0.dealt || 0)) { all[m] = { dealt: st.raid.dealt, turn: st.turn }; saveJSON(RAID_KEY, all); } st.raid.prev = b0.dealt || 0; } catch (e) {} setTimeout(() => setRaidSaved(true), 0); }
@@ -760,12 +810,13 @@
       + (st.intent && !st.blind ? "。你这回合打算：" + [].concat((st.intent.stamp || []).map(x => "给「" + x.name + "」盖章"), (st.intent.place || []).map(x => "贴「" + x.name + "」")).join("、") : "")
       + "。最近发生的：" + st.log.slice(-6).map(l => (l.who === "foe" ? "你：" : l.who === "me" ? "她：" : "") + l.text).join("；");
     // 挑战（守城、讨伐、封缄令、值班）里聊天的是陪你打的人，不是对面
-    const chal = !!(st.siege || st.raid || st.edict || st.shift), talkId = chal ? coachId : foeId, talkName = chal ? (nameOf(coachId) || "TA") : foeName;
-    const chalName = st.siege ? "守城" : st.raid ? (st.raid.endless ? "讨伐·无尽" : "讨伐") : st.edict ? "封缄令" : st.shift ? "邮局值班" : "";
+    const chal = !!(st.siege || st.raid || st.edict || st.shift || st.patrol), talkId = chal ? coachId : foeId, talkName = chal ? (nameOf(coachId) || "TA") : foeName;
+    const chalName = st.patrol ? "邮区巡查" : st.siege ? "守城" : st.raid ? (st.raid.endless ? "讨伐·无尽" : "讨伐") : st.edict ? "封缄令" : st.shift ? "邮局值班" : "";
     const coachBoard = () => "她在玩「" + chalName + "」，第 " + st.turn + " 回合"
       + (st.siege ? "，第 " + Math.min(st.turn, st.siege.waves) + " / " + st.siege.waves + " 波，已守住 " + st.siege.cleared + " 波" : "")
       + (st.raid ? "，已经打出 " + st.raid.dealt + " 伤害" + (st.raid.endless ? "（无尽，打到她信封空为止）" : "（打满 " + D().RAID_TURNS + " 回合算分）") : "")
       + (st.edict ? "，勾的难度：" + (st.edict.map(k => D().EDICTS[k].zh).join("、") || "没勾") + "（危险 " + (st.edictPts || 0) + "）" : "")
+      + (st.patrol && patrol ? "，这一格是" + (st.patrol === "boss" ? "巡查长" : st.patrol === "elite" ? "硬仗" : "普通仗") + "，巡查分 " + patrol.score + "，还剩 " + patrol.steps + " 步" : "")
       + (st.shift && shift ? "，值班第 " + shift.round + " 轮，还剩 " + shift.lives + " 条命" : "")
       + "。她的信封 " + Math.max(0, me.hp) + "/" + (me.max || D().ENVELOPE_HP) + (st.siege || st.raid ? "" : "，对面信封 " + Math.max(0, them.hp) + "/" + (them.max || D().ENVELOPE_HP))
       + "。对面（" + foeName + "，游戏里代码造的敌人，不是你）场上：" + (them.board.map((u, i) => u ? "「" + u.name + "」" + u.role + " 攻" + u.pow + " 血" + Math.max(0, u.hp) + (u.seal ? " 带封条" : "") + (u.weak ? " 虚弱" : "") + "（第" + (Math.floor(i / 3) + 1) + "排第" + (i % 3 + 1) + "列）" : "").filter(Boolean).join("；") || "空")
@@ -809,8 +860,8 @@
     const intentText = [].concat((it.stamp || []).map(x => "给「" + x.name + "」盖章"), (it.place || []).map(x => "贴「" + x.name + "」" + x.role)).join("、") || "这回合不贴票";
 
     return shell([
-      h(Head, { key: "hd", zh: st.shift ? "邮局值班 · 第 " + (shift ? shift.round : 1) + " 轮 · 第 " + st.turn + " 回合" : st.edict ? "封缄令 · 危险 " + (st.edictPts || 0) + " · 第 " + st.turn + " 回合" : st.raid ? (st.raid.endless ? "无尽" : "讨伐") + " · 第 " + st.turn + " 回合" : st.siege ? "守城 " + ((st.siegeTier || 0) + 1) + " 档 · 第 " + Math.min(st.turn, st.siege.waves) + " 波" : "第 " + st.turn + " 回合", sub: st.siege ? "" : "对 " + foeName + (st.blind ? " · 盲打" : ""), bg: "transparent", ink: INK, right: guideBtn,
-        onBack: () => { if (st.shift) { setSt(null); setMode("shift"); return; } if (st.edict) { setSt(null); setMode("edictpick"); return; } if (st.raid) { setSt(null); setMode("raidpick"); return; } if (st.siege) { setSt(null); setMode("siegepick"); return; } if (st.run) { runBattle.onQuit && runBattle.onQuit(); return; } if (st.tutorial) { setSt(null); setTut(-1); return; } if (!over) { persist(st, series); setSaved({ st, series, foeId, at: Date.now() }); } else persist(null); setSt(null); setSeries(null); } }),
+      h(Head, { key: "hd", zh: st.patrol ? "邮区巡查 · " + (st.patrol === "boss" ? "巡查长" : st.patrol === "elite" ? "硬仗" : "普通仗") + " · 第 " + st.turn + " 回合" : st.shift ? "邮局值班 · 第 " + (shift ? shift.round : 1) + " 轮 · 第 " + st.turn + " 回合" : st.edict ? "封缄令 · 危险 " + (st.edictPts || 0) + " · 第 " + st.turn + " 回合" : st.raid ? (st.raid.endless ? "无尽" : "讨伐") + " · 第 " + st.turn + " 回合" : st.siege ? "守城 " + ((st.siegeTier || 0) + 1) + " 档 · 第 " + Math.min(st.turn, st.siege.waves) + " 波" : "第 " + st.turn + " 回合", sub: st.siege ? "" : "对 " + foeName + (st.blind ? " · 盲打" : ""), bg: "transparent", ink: INK, right: guideBtn,
+        onBack: () => { if (st.patrol) { if (typeof requestAppConfirm === "function") requestAppConfirm("先离开这一场？", "这一格算没打赢，信封照现在的血算。", () => { st.over = st.over || { winner: "foe", turn: st.turn, me: st.me.hp, foe: st.foe.hp }; patrolBack(); }, "离开"); else { st.over = st.over || { winner: "foe" }; patrolBack(); } return; } if (st.shift) { setSt(null); setMode("shift"); return; } if (st.edict) { setSt(null); setMode("edictpick"); return; } if (st.raid) { setSt(null); setMode("raidpick"); return; } if (st.siege) { setSt(null); setMode("siegepick"); return; } if (st.run) { runBattle.onQuit && runBattle.onQuit(); return; } if (st.tutorial) { setSt(null); setTut(-1); return; } if (!over) { persist(st, series); setSaved({ st, series, foeId, at: Date.now() }); } else persist(null); setSt(null); setSeries(null); } }),
       h("div", { key: "bd", ref: bodyEl, className: "flex-1 min-h-0 overflow-y-auto px-4", style: { fontFamily: F, color: INK, paddingBottom: 14, overflowAnchor: "none" },
           onTouchStart: () => { touchAt.current = Date.now(); }, onTouchMove: () => { touchAt.current = Date.now(); }, onTouchEnd: () => { touchAt.current = Date.now(); }, onWheel: () => { touchAt.current = Date.now(); },
           onScroll: e => { if (!guarding()) keepY.current = e.currentTarget.scrollTop; else if (Math.abs(e.currentTarget.scrollTop - keepY.current) > 4) e.currentTarget.scrollTop = keepY.current; } },
@@ -918,6 +969,7 @@
           : st.tutorial ? h("div", { className: "flex", style: { gap: 8 } },
               h("button", { onClick: startTut, className: "flex-1", style: btn(INK, PAPER) }, "再练一次"),
               h("button", { onClick: () => { setSt(null); setTut(-1); }, className: "flex-1", style: btn("transparent", INK, INK) }, "去正式对局"))
+          : st.patrol ? h("button", { "data-wk": "duelpatrolnext", onClick: patrolBack, className: "w-full", style: Object.assign(btn(over.winner === "me" ? GREEN : INK, "#fff"), { padding: "10px 0", fontFamily: FD, fontSize: fz(14) }) }, over.winner === "me" ? "赢了，回地图" : "没打过，回地图")
           : st.shift ? h("button", { "data-wk": "duelshiftnext", onClick: () => shiftNext(over.winner === "me"), className: "w-full", style: Object.assign(btn(over.winner === "me" ? GREEN : INK, "#fff"), { padding: "10px 0", fontFamily: FD, fontSize: fz(14) }) }, over.winner === "me" ? "赢了，回柜台" : "输了，掉一条命，回柜台")
           : st.edict ? h("div", { className: "flex", style: { gap: 8 } },
               h("button", { "data-wk": "duelediccagain", onClick: () => startEdict(st.edict), className: "flex-1", style: btn(INK, PAPER) }, "同样的再来"),

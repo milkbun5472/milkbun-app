@@ -257,3 +257,15 @@ test("邮局值班：买票扣钱、同一张两份合成＋、凑三张加攻�
   for (let i = 0; i < 3; i++) D.shiftAfter(sh, false); assert.equal(sh.done.win, false);
   const s2 = D.shiftNew(1); for (let i = 0; i < 8; i++) D.shiftAfter(s2, true); assert.equal(s2.done.win, true);
 });
+test("邮区巡查：每人每周一张图、只能走挨着的、翻开四周、打输败退不结束、打倒巡查长结束", () => {
+  const deck = D.deckFrom([{ id: "a", charId: "a", rarity: "R", lv: 10, text: { name: "x" } }], 1, 12, []);
+  const now = new Date(2026, 10, 8), sig = p => p.cells.map(c => c.type).join(",");
+  assert.equal(sig(D.patrolNew(deck, now, 5)), sig(D.patrolNew(deck, now, 5)));
+  assert.notEqual(sig(D.patrolNew(deck, now, 5)), sig(D.patrolNew(deck, now, 6)));
+  const p = D.patrolNew(deck, now, 5);
+  assert.equal(D.patrolCan(p, 0, 0), false); assert.equal(D.patrolCan(p, 3, 2), true);
+  assert.ok(p.cells[3 * 5 + 2].open);
+  p.pos = [0, 0]; p.cells[0].type = "fight"; D.patrolAfter(p, "fight", false, 0);
+  assert.ok(!p.done && p.hp === 1 && p.steps === 12);
+  D.patrolAfter(p, "boss", true, 20); assert.equal(p.done.why, "boss");
+});
