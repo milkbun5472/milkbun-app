@@ -135,3 +135,8 @@ test("IF 卡发型跟着主题走，发色五官照旧锁", () => {
   assert.strictEqual((src.match(/hairFree: card\.kind === "if"/g) || []).length, 2);
   assert.ok(!/发色、发型、瞳色、五官和身材都不变/.test(src));
 });
+test("卡面图能收起不显示，图不删", () => {
+  const ui = fs.readFileSync(__dirname + "/../js/stamps.js", "utf8");
+  assert.match(ui, /"data-wk": "stamphideface"/);
+  assert.match(ui, /const shownImg = k => k && !\(card\.hiddenImgs \|\| \[\]\)\.includes\(k\)/);
+});

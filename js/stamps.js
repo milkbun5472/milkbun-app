@@ -129,7 +129,7 @@
     // 她 2026-11-07「算了把框去掉吧好丑」：一圈细线也不要了。挂点留着（stamplimmark，透明），想自己画框的写 CSS 就能接上
     return h("span", { "data-wk": "stamplimmark", "data-tone": tone[1], style: { position: "absolute", inset: 5, zIndex: 3, pointerEvents: "none", borderRadius: 2 } });
   }
-  function StampFace({ t, card, onClick, size, back }) { const [url, el, near] = useStampThumb(card && (card.cover || card.face));
+  function StampFace({ t, card, onClick, size, back }) { const ref0 = card && (card.cover || card.face), [url, el, near] = useStampThumb(ref0 && !(card.hiddenImgs || []).includes(ref0) ? ref0 : null);
     // 卡面动起来了的 SSR：册子里那一格也在动（滑到附近才放，没封面换过别的图时才用）
     const vurl = useStampVideo(card && !back ? coverVideo(card) : null, near);
     return h("span", { ref: el, style: { display: "inline-block", lineHeight: 0, position: "relative" } }, h(Stamp, { t, card, face: url, onClick, size, back }), back ? null : h(LimMark, { card }),
@@ -358,15 +358,18 @@
     const PT = t0 => typeof characterText === "function" ? characterText(char, t0) : t0;   // 卡页上的「他」跟着这个人的性别走（她 2026-10-30）
     // 满级两面都能画：他一个人（solo）、你们俩（duo）。旧卡只有 faceAlt＋faceAltMode，照它认
     const faces2 = Object.assign({}, card.faceAlt ? { [card.faceAltMode || "solo"]: card.faceAlt } : {}, card.faces || {});
-    const url1 = useIdbImgUrl(card.face), urlSolo = useIdbImgUrl(faces2.solo || null), urlDuo = useIdbImgUrl(faces2.duo || null);
+    // 不显示卡面图（群里 2026-11-09：「图反复都不满意，留着不好看，又不想删卡」）：按图的键收起，图不删；重画出新图自然就显示
+    const shownImg = k => k && !(card.hiddenImgs || []).includes(k) ? k : null;
+    const url1 = useIdbImgUrl(shownImg(card.face)), urlSolo = useIdbImgUrl(shownImg(faces2.solo) || null), urlDuo = useIdbImgUrl(shownImg(faces2.duo) || null);
     // 打开时停在她挑的封面那一面（她 2026-10-27：选了别的当封面，点进来还是第一面）
     const [side, setSide] = useState(() => { const cv = card.cover; if (!cv) return "main"; if (cv === faces2.solo) return "solo"; if (cv === faces2.duo) return "duo"; const ex = (card.extras || []).find(x => x.img === cv); return ex ? "ex:" + ex.id : "main"; });   // main 第一面 / solo / duo / ex:番外
     // 番外卡面（她 2026-10-27）：在卡面这边跟满级那几面一起挑、一起画；side 是 "ex:番外id"
     const headLine = String((card.text && (card.text.line || (card.rarity === "R" ? card.text.thought : ""))) || "").trim().replace(/^[「“"]+|[」”"]+$/g, "");
     const exSel = side.indexOf("ex:") === 0 ? (card.extras || []).find(x => "ex:" + x.id === side) || null : null;
-    const urlEx = useIdbImgUrl(exSel && exSel.img || null);
+    const urlEx = useIdbImgUrl(exSel && shownImg(exSel.img) || null);
     const exDrawing = !!(exSel && exSel.drawing && exSel.drawingBoot && exSel.drawingBoot === window.__stampBoot && Date.now() - (exSel.drawingTs || 0) < 8 * 60000);
-    const url = exSel ? (urlEx || url1) : side === "solo" && urlSolo ? urlSolo : side === "duo" && urlDuo ? urlDuo : url1;
+    const curImg = exSel ? exSel.img : side === "solo" ? faces2.solo : side === "duo" ? faces2.duo : card.face, curHidden = !!(curImg && (card.hiddenImgs || []).includes(curImg));
+    const url = curHidden ? null : exSel ? (urlEx || url1) : side === "solo" && urlSolo ? urlSolo : side === "duo" && urlDuo ? urlDuo : url1;
     const sideKey = exSel ? exSel.img : side === "solo" ? faces2.solo : side === "duo" ? faces2.duo : card.face;
     const [full, setFull] = useState(false), [fullWide, setFullWide] = useState(false), [rot, setRot] = useState(false);
     const vSlot = side === "main" ? card.video : (card.videos || {})[side];   // 这一面自己的那段
@@ -517,7 +520,7 @@
           h("div", { key: pop, style: { position: "relative", boxShadow: ring, animation: pop ? "stFloat .9s ease-out" : "none" } },
             h(Stamp, { t, card, face: url, size: 236 }),
             h(LimMark, { card, big: true }),
-            vMain ? loopVid(vMain, { left: 5, top: 5, width: "calc(100% - 10px)", height: "calc(100% - 10px)", borderRadius: 2 }) : null,
+            vMain && !curHidden ? loopVid(vMain, { left: 5, top: 5, width: "calc(100% - 10px)", height: "calc(100% - 10px)", borderRadius: 2 }) : null,
             // 满级 SSR 能戳：上面三分之一是头，中间是胸口，下面是手
             url ? h("div", { onClick: () => { if (Date.now() - swiped.current < 400) return; setFull(true); }, style: { position: "absolute", inset: 0, cursor: "zoom-in" } }) : null,
             pop ? h("div", { style: { position: "absolute", inset: 0, pointerEvents: "none", background: "linear-gradient(110deg, transparent 35%, rgba(255,240,200,.55) 50%, transparent 65%) 0 0 / 200% 100%", animation: "stShine .9s ease-out 1 forwards" } }) : null,
@@ -747,6 +750,9 @@
       moreOpen && tx ? (() => { const close = () => { setMoreOpen(false); setReArm(false); };
         const rows = [];
         if (card.face && !(exSel && !exSel.img)) rows.push([{ "data-wk": "stampredraw" }, (exSel ? exDrawing : drawing) ? "重画着…" : "↻ 照原来的描述重画这一面", "花一次生图", () => { close(); exSel ? onExtraDraw && onExtraDraw(card.id, exSel.id) : onDraw(card.id, side !== "main", side !== "main" ? side : undefined); }]);
+        if (curImg) rows.push([{ "data-wk": "stamphideface" }, curHidden ? "显示卡面图" : "不显示卡面图", curHidden ? "收起的图还在，点了就回来" : "这一面回到文字卡，图不删", () => { close();
+          const st0 = C().load(); st0.cards = st0.cards.map(c => c.id === card.id ? Object.assign({}, c, { hiddenImgs: curHidden ? (c.hiddenImgs || []).filter(k => k !== curImg) : (c.hiddenImgs || []).concat([curImg]) }) : c); C().save(st0);
+          toast(curHidden ? "卡面图回来了" : "这一面先不显示图了"); }]);
         rows.push([{ "data-wk": "stampshotedit" }, "✎ 改卡面描述", "不花调用，卡上的字不动", () => { close(); setShotDraft(String(tx.shot || "")); }]);
         rows.push([{ "data-wk": "stampreshot" }, reshotBusy ? "在重写卡面描述…" : "只重写卡面描述", "花一次调用，卡上的字不动", async () => { close(); if (!onReshot) return; setReshotBusy(true); try { const ok = await onReshot(card); toast(ok ? "卡面描述换好了，点重画就照新的画" : "没写出来，再试一次"); } catch (e) { toast("没写出来：" + String(e && e.message || e).slice(0, 40)); } setReshotBusy(false); }]);
         if (card.rarity === "SSR" && sideKey && window.VideoApi && !(card.videoBusy && vidRunning[card.id])) rows.push([{ "data-wk": "stampvideo" }, vSlot ? "↻ 重新让这一面动起来" : "▶ 让这一面动起来", "花一次视频生成", () => { close(); runStampVideo(card, toast, true, side, sideKey); }]);
