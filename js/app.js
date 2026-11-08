@@ -2294,11 +2294,13 @@ function App() {
       try {
         const isB64 = v => typeof v === "string" && v.slice(0, 5) === "data:";
         // 角色头像
+        // ⚠️只改图那两格，按 id 打到【现在】的名单上（2026-11-08 排查角色不见）：原来是把开头读到的那份整份写回去，
+        //   迁图要一张张等，等的这段时间里新建、改动的人会被那份旧名单盖掉
         const chars = loadJSON("x_characters", []);
-        let chChanged = false;
-        for (const ch of chars) { if (!ch) continue; for (const f of ["avatarImage", "refPhoto"]) { if (isB64(ch[f])) { ch[f] = await imgToVault(ch[f]); chChanged = true; } } }
+        const moved = {};
+        for (const ch of chars) { if (!ch || !ch.id) continue; for (const f of ["avatarImage", "refPhoto"]) { if (isB64(ch[f])) { (moved[ch.id] = moved[ch.id] || {})[f] = await imgToVault(ch[f]); } } }
         if (cancelled) return;
-        if (chChanged) { saveJSON("x_characters", chars); setCharacters(chars); }
+        if (Object.keys(moved).length) pC(p => p.map(c => c && moved[c.id] ? { ...c, ...moved[c.id] } : c));
         // 我的头像
         const prof = loadJSON("x_profile", {});
         if (prof) { let profChanged = false; for (const f of ["avatarImage", "refPhoto"]) { if (isB64(prof[f])) { prof[f] = await imgToVault(prof[f]); profChanged = true; } } if (profChanged && !cancelled) { saveJSON("x_profile", prof); setProfile(prof); } }

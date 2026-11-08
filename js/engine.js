@@ -11935,6 +11935,43 @@ function noteChatShrink(k, prev, next) {
 //   名单和聊天分开存，名单被哪段代码拿一份旧的整份写回去，后来加的人就没了、他们的聊天还躺着。原因没当场抓到，照聊天变短那次的办法：
 //   不是她亲手删（删卷宗、删配角会先挂 __charShrinkOkUntil）的减少，把少掉的那几个人原样攒进 x_shrinkBak:x_characters，
 //   再记一笔是哪段代码写进来的（x_shrinkLog）。通讯录顶上会出「不见的人」，点一下放回来；下次就看得出是谁剪的
+// ── 只许一份在写（群里 2026-11-08：许咏安「配角不见了、通讯录的人也不见了，我啥都没碰」，聊天都还在）──
+//   App 同时开着两份（桌面图标一份、浏览器一个标签；或者后台还挂着一份旧的），每份手里都有自己那份角色名单。
+//   旧的那份只要存一次任何东西（改个头像、记个状态），就把它手里那份【更旧的名单】整份写回去，新加的人就没了；
+//   聊天一人一份分开存，所以人没了、聊天还在。规矩：最新打开的那一份说了算，别的那几份当场停写，蒙一层说明，点了就在那边重新载入。
+const QQ_INSTANCE = Math.random().toString(36).slice(2) + Date.now().toString(36);
+function qqFrozen() { try { return !!(typeof window !== "undefined" && window.__qqFrozen); } catch (e) { return false; } }
+(function singleWriter() {
+  if (typeof window === "undefined" || typeof document === "undefined") return;
+  const freeze = () => {
+    if (window.__qqFrozen) return;
+    window.__qqFrozen = true;
+    const show = () => {
+      if (document.getElementById("qq-frozen")) return;
+      const d = document.createElement("div");
+      d.id = "qq-frozen";
+      d.setAttribute("style", "position:fixed;inset:0;z-index:2147483647;background:rgba(20,18,16,.82);color:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:32px;text-align:center;font:15px/1.7 system-ui,sans-serif");
+      d.innerHTML = "<div style='font-size:17px;margin-bottom:10px'>秋秋机在另一个窗口打开了</div><div style='opacity:.8;max-width:320px'>两边同时开着会互相盖掉对方存的东西，这里先停下，什么都不再保存。想在这里接着用，点下面这一下。</div><button style='margin-top:22px;padding:10px 22px;border-radius:999px;border:0;background:#fff;color:#222;font-size:15px'>在这里接着用</button>";
+      d.querySelector("button").onclick = () => { try { location.reload(); } catch (e) {} };
+      document.body.appendChild(d);
+    };
+    if (document.body) show(); else document.addEventListener("DOMContentLoaded", show);
+  };
+  const hello = { t: "qq-hello", id: QQ_INSTANCE, at: Date.now() };
+  try {
+    if (typeof BroadcastChannel === "function") {
+      const ch = new BroadcastChannel("qq-instance");
+      ch.onmessage = e => { const m = e && e.data; if (m && m.t === "qq-hello" && m.id !== QQ_INSTANCE) freeze(); };
+      ch.postMessage(hello);
+      window.__qqInstanceCh = ch;
+    }
+  } catch (e) {}
+  // 没有 BroadcastChannel 的老浏览器：借 localStorage 的 storage 事件（只在别的窗口写时才会响）
+  try {
+    window.addEventListener("storage", e => { if (e && e.key === "qq_instance" && e.newValue && e.newValue.indexOf(QQ_INSTANCE) < 0) freeze(); });
+    localStorage.setItem("qq_instance", QQ_INSTANCE + "@" + Date.now());
+  } catch (e) {}
+})();
 function charShrinkOk(ms) { try { window.__charShrinkOkUntil = Date.now() + (ms || 8000); } catch (e) {} }
 function noteCharShrink(prev, next) {
   try {
@@ -11959,6 +11996,7 @@ function noteCharShrink(prev, next) {
   } catch (e) {}
 }
 function txtWrite(k, s) {
+  if (typeof qqFrozen === "function" && qqFrozen()) return true;   // 别的窗口在写：这一份一个字都不落
   s = String(s);
   if (k === "x_characters") { const prev = _txtMirror().get(k); if (prev != null && prev !== s) noteCharShrink(String(prev), s); }
   if (/^x_g?chat:/.test(k)) { const prev = _txtMirror().get(k); if (prev != null && s.length < prev.length) noteChatShrink(k, String(prev), s); }
@@ -12014,6 +12052,7 @@ function txtWrite(k, s) {
     return true;
 }
 function saveJSON(k, v) {
+  if (typeof qqFrozen === "function" && qqFrozen()) return true;   // 别的窗口在写（见 singleWriter）
   let encoded = null, previous = null;
   try {
     txtEarlyTouch(k);
