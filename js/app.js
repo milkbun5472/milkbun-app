@@ -36124,6 +36124,23 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       //   材料是她挑的三样；效果只许从 d.fxList（三样材料的偏向）里挑，强弱代码定
       // 挑战陪打（她 2026-11-08「挑战类能跟他聊天，推荐怎么放或者评论战局」「做吧，可以选谁陪我打」）：
       //   对面是游戏造的敌人，TA 在旁边陪她看；只按 d.board 写着的局面说
+      // 派遣（她 2026-11-08「做吧」）：几张票被派去一个地方待了几个小时，回来时 TA 写一份见闻、带回一样小东西（进小物册，去重照小物）
+      if (d.mode === "dispatch") {
+        const prevAll = [].concat(loadJSON("x_stampKeeps", []) || [], loadJSON("x_stampTrinkets", []) || []).filter(k => k && k.charId === char.id).sort((a, b) => (a.ts || 0) - (b.ts || 0)).slice(-40);
+        const prevLine = prevAll.length ? "你以前给她带回来、做过的东西（名字、写的是什么）：\n" + prevAll.map(k => "- 「" + k.name + "」" + (k.gist || k.story || "")).join("\n") + "\n这次带回来的别再是同一样东西、同一件事。\n" : "";
+        const r = await runProbe(apiFor(char.id), ctxFor(char), { voice: true, tag: "stampdispatch", maxTokens: 8000,
+          instruction: "这是" + uN + "邮票册里的小游戏「派遣」：她把几张邮票派去「" + (d.place || "远方") + "」送信，在那儿待了 " + (d.hours || 1) + " 个小时，现在回来了。这几张票和票上那一刻：\n" + (d.cards || "") + "\n"
+            + (d.with ? "一起去的人：" + d.with + "。\n" : "")
+            + "你来写这一趟的见闻，给她看：在那儿遇到了什么、路上发生了什么、一起去的人各自怎么样，地方和天气要跟「" + (d.place || "") + "」合得上；照你的人设和你们的关系来写，用你自己说话的样子，写成几段完整的事，别写成总结。\n"
+            + prevLine + (typeof stampVoice === "function" ? stampVoice(char) + "\n" : "")
+            + "title：这一趟的题目。lines：见闻，一段一项。item：这一趟带回来给她的一样小东西：name 是一样具体的物件，story 一两句它的来历，say 是你把它给她时说的话，gist 一句话记下它是什么、跟哪件事有关。",
+          schemaHint: "{\"title\":\"\",\"lines\":[\"一段\"],\"item\":{\"name\":\"\",\"story\":\"\",\"say\":\"\",\"gist\":\"\"}}" });
+        const lines = (Array.isArray(r && r.lines) ? r.lines : [r && r.lines]).map(x => String(x || "").trim()).filter(Boolean);
+        if (!lines.length) return null;
+        const it = r.item && String(r.item.name || "").trim() ? { name: String(r.item.name).trim(), story: String(r.item.story || "").trim(), say: String(r.item.say || "").trim(), gist: String(r.item.gist || "").trim() } : null;
+        try { addMemEntry({ text: uN + "在邮票册里把几张票派去「" + (d.place || "") + "」，" + char.name + "写了这一趟的见闻「" + String(r.title || "").trim() + "」" + (it ? "，带回来一样「" + it.name + "」" : "") + "：" + lines.join(" ").slice(0, 120), tags: ["邮票对局", "派遣"], charIds: [char.id], knownBy: [char.id], source: "stamps" }); } catch (e) {}
+        return { title: String((r && r.title) || "").trim(), lines, item: it };
+      }
       // 巡查里 TA 的格子（她 2026-11-08「一句话会不会敷衍」→ 明信片、小剧场、回忆，写足）
       if (d.mode === "patrolta") {
         const k = d.kind;

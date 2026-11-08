@@ -50,7 +50,8 @@
   // 信匣里每一种往来叫什么（她 2026-11-08）
   const KIND_ZH = { returned: "退件", letter: "回信", postcard: "明信片", note: "卡背面的便条", memory: "回忆卡", oneline: "一句话的回信", ask: "问答卡", future: "寄给以后的信", swap: "交换邮票时的话" };
   function StampRunPage(props) {
-    const { characters, cards, onBack, meName, toast, closeOf, onChat, onPhoto, useThumb } = props;
+    const { characters, onBack, meName, toast, closeOf, onChat, onPhoto, useThumb } = props;
+    const cards = window.StampDispatch ? window.StampDispatch.filter(props.cards) : props.cards;   // 派遣在外的票这一趟用不了
     curThumb = useThumb || null; curCards = cards || [];
     const [run, setRun] = useState(() => { const v = load(SAVE, null); return v && v.run && !v.run.done ? v.run : null; });
     const [view, setView] = useState(() => { const v = load(SAVE, null); return v && v.run && !v.run.done ? (v.view || { at: "map" }) : { at: "start" }; });

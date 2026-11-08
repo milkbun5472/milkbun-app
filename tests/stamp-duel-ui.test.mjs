@@ -217,3 +217,13 @@ test("接力页：挑人、双数回合 TA 自动下、底下写 TA 在下；残
   assert.match(ui, /"data-wk": "duelpuzzleendless"/);
   assert.match(ui, /"data-wk": "duelpuzzledaily"/);
 });
+test("派遣：挑地方、时长、最多三张、最多三队；在外的票别处用不了；回来花一次调用写见闻、带回一样进小物册", () => {
+  assert.match(ui, /function StampDuelPage\(\{ characters, cards: cardsAll,/);
+  assert.match(ui, /const cards = Dispatch\.filter\(cardsAll\);/);
+  assert.match(ui, /onChat\(who, \{ mode: "dispatch", place: t\.place, hours: t\.hours/);
+  assert.match(ui, /if \(r\.item\) Trinkets\.add\(/);
+  assert.match(app, /if \(d\.mode === "dispatch"\) \{/);
+  const ru = readFileSync(new URL("../js/stamp-run-ui.js", import.meta.url), "utf8");
+  assert.match(ru, /window\.StampDispatch\.filter\(props\.cards\)/);
+  assert.match(ts, /"dueldispatchgo"/);
+});

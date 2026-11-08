@@ -90,7 +90,17 @@
     all: () => ld(TRINKET_KEY, []),
     add: t => { const a = Trinkets.all(); a.push(t); sv(TRINKET_KEY, a); }
   };
-  window.StampTrinkets = Trinkets;   // 守城最好成绩：{ waves, wins }
+  window.StampTrinkets = Trinkets;
+  // 派遣（她 2026-11-08）：最多三队在外面；派出去的票这段时间别处用不了
+  const DISPATCH_KEY = "x_stampDispatch";
+  const DISPATCH_PLACES = ["雪国", "海边", "旧城", "夜车", "花季", "沙漠", "雨季", "山路", "梦里"];
+  const Dispatch = {
+    all: () => ld(DISPATCH_KEY, []),
+    save: a => sv(DISPATCH_KEY, a.slice(-60)),
+    out: () => { const ids = new Set(); Dispatch.all().forEach(t => { if (!t.report) (t.cardIds || []).forEach(id => ids.add(id)); }); return ids; },
+    filter: cards => { const o = Dispatch.out(); return o.size ? (cards || []).filter(c => !o.has(c.id)) : cards; }
+  };
+  window.StampDispatch = Dispatch;   // 守城最好成绩：{ waves, wins }
   // 念台词（她 2026-11-08「搞个开关播放语音，然后可以设置选哪些的台词战斗中可以读出来，战斗的时候会显示台词念出来」）
   const VOICE_KEY = "x_stampDuelVoice";
   const VOICE_KINDS = [["place", "贴上场"], ["stamp", "盖章"], ["wake", "觉醒"], ["fall", "被打掉"]];
@@ -309,7 +319,9 @@
               info.terrain ? sec("格子", "#5a5248", info.terrain, D().TERRAIN[info.terrain]) : null,
               u.lines && u.lines.enter ? h("div", { style: { marginTop: 6, padding: "10px 12px", borderRadius: 3, background: "rgba(47,42,34,.05)", borderLeft: "3px solid " + col, fontFamily: FD, fontSize: fz(12.5), color: "#5a4f40", lineHeight: 1.7 } }, "「" + u.lines.enter + "」") : null)));
   }
-  function StampDuelPage({ characters, cards, onBack, onRemember, closeOf, meName, toast, useThumb, onChat, onReport, preset, onRun, runBattle }) {
+  function StampDuelPage({ characters, cards: cardsAll, onBack, onRemember, closeOf, meName, toast, useThumb, onChat, onReport, preset, onRun, runBattle }) {
+    const cards = Dispatch.filter(cardsAll);   // 派遣在外的票这段时间不能上场
+    const [dpPick, setDpPick] = useState([]), [dpPlace, setDpPlace] = useState("海边"), [dpHours, setDpHours] = useState(4), [dpBusy, setDpBusy] = useState(""), [dpShow, setDpShow] = useState(""), [, dpBump] = useState(0);
     const [foeId, setFoeId] = useState(() => { if (runBattle) return runBattle.foeId || ""; if (preset && preset.foeId) return preset.foeId; const has = (characters || []).find(c => (cards || []).some(x => x.charId === c.id)); return (has || (characters || [])[0] || {}).id; });
     const [blind, setBlind] = useState(false);
     const [st, setSt] = useState(() => { if (!runBattle) return null;
@@ -581,6 +593,57 @@
         h("div", { style: { fontSize: fz(12), color: SUB, lineHeight: 1.7, marginTop: 4, marginRight: 40 } }, desc)));
     // 守城挑档（她 2026-11-08「后面难度比我的卡都高我怎么赢」→ 固定难度档）
     // 小物册（她 2026-11-08）：按人分页；上面写攒了几个没拆的包裹，点「拆一个」花一次调用
+    if (!st && mode === "dispatch") {
+      const all = Dispatch.all(), active = all.filter(t => !t.report), now = Date.now(), C = "#3f7a8a";
+      const fullCard = id => (cardsAll || []).find(c => c.id === id);
+      const story = c => { const tx = (c && c.text) || {}; return "「" + (tx.name || "") + "」" + (c.charId && nameOf(c.charId) ? "（" + nameOf(c.charId) + "的卡）" : "") + "：" + [tx.gist, tx.narration, tx.open, tx.highlight, tx.line ? "说：" + tx.line : ""].filter(Boolean).join(" ").replace(/\s+/g, " ").slice(0, 220); };
+      const left = t => Math.max(0, t.end - now), fmt = ms => { const m = Math.ceil(ms / 60000); return m >= 60 ? Math.floor(m / 60) + " 小时 " + (m % 60) + " 分" : m + " 分"; };
+      const send = () => {
+        if (!dpPick.length) { toast && toast("先挑几张票"); return; } if (active.length >= 3) { toast && toast("最多三队在外面"); return; }
+        const t = { id: "dp_" + now.toString(36), cardIds: dpPick.slice(), place: dpPlace, hours: dpHours, start: now, end: now + dpHours * 3600000, report: null };
+        Dispatch.save(all.concat(t)); setDpPick([]); toast && toast("派去「" + dpPlace + "」了，" + dpHours + " 小时后回来"); dpBump(x => x + 1);
+      };
+      const back = async t => {
+        if (dpBusy || !onChat) return; const cs = t.cardIds.map(fullCard).filter(Boolean), cnt = {}; cs.forEach(c => { if (c.charId) cnt[c.charId] = (cnt[c.charId] || 0) + 1; });
+        const who = Object.keys(cnt).sort((a, b) => cnt[b] - cnt[a])[0] || (characters || [])[0] && characters[0].id; if (!who) return; setDpBusy(t.id);
+        try { const r = await onChat(who, { mode: "dispatch", place: t.place, hours: t.hours, cards: cs.map(story).join("\n"), with: Array.from(new Set(cs.map(c => nameOf(c.charId)).filter(Boolean))).join("、") });
+          if (!r || !r.lines) { toast && toast("没写出来，再点一次试试"); return; }
+          const a2 = Dispatch.all(), x = a2.find(y => y.id === t.id); if (x) { x.report = Object.assign({ who, ts: Date.now() }, r); Dispatch.save(a2); }
+          if (r.item) Trinkets.add(Object.assign({ id: "tk_" + Date.now().toString(36), charId: who, ts: Date.now(), from: "派遣·" + t.place }, r.item));
+          setDpShow(t.id); }
+        catch (e) { toast && toast("没成：" + ((e && e.message) || e)); } finally { setDpBusy(""); dpBump(x => x + 1); }
+      };
+      const shown = all.find(t => t.id === dpShow && t.report);
+      return shell([
+        h(Head, { key: "hd", zh: "派遣", bg: "transparent", ink: INK, onBack: () => setMode(""), right: guideBtn }),
+        h("div", { key: "bd", "data-wk": "dueldispatch", className: "flex-1 min-h-0 overflow-y-auto px-4", style: { fontFamily: F, color: INK, paddingTop: 4, paddingBottom: 24 } },
+          modeHero(C, "派", "派遣", "挑几张票派去一个地方送信，过几个小时回来，带回一份见闻和一样小东西（收进小物册）。派出去的票这段时间别处用不了；最多三队同时在外面。派的时候不花钱，回来看见闻花一次调用。"),
+          shown ? h("div", { "data-wk": "dueldispatchreport", style: { marginBottom: 14, padding: "14px 16px", borderRadius: 4, background: PAPER, boxShadow: "0 3px 10px rgba(47,42,34,.15)", borderTop: "4px solid " + C } },
+            h("div", { style: { fontSize: fz(10.5), color: SUB, letterSpacing: ".15em" } }, shown.place + " · " + shown.hours + " 小时 · " + (nameOf(shown.report.who) || "TA") + " 写的"),
+            h("div", { style: { fontFamily: FD, fontSize: fz(16), margin: "4px 0 8px", color: C } }, shown.report.title || "这一趟"),
+            shown.report.lines.map((t2, k) => h("p", { key: k, style: { fontFamily: FD, fontSize: fz(13.5), lineHeight: 1.85, margin: "0 0 8px", whiteSpace: "pre-wrap" } }, t2)),
+            shown.report.item ? h("div", { style: { marginTop: 6, padding: "8px 11px", borderLeft: "3px solid #9a6a4a", background: "rgba(154,106,74,.07)", fontSize: fz(12.5), lineHeight: 1.7 } }, h("b", { style: { fontFamily: FD, fontWeight: 400 } }, "带回来：" + shown.report.item.name), h("div", null, shown.report.item.story), shown.report.item.say ? h("div", { style: { fontFamily: FD, color: "#5a4030" } }, (nameOf(shown.report.who) || "TA") + "：「" + shown.report.item.say + "」") : null) : null,
+            h("button", { onClick: () => setDpShow(""), style: Object.assign(btn("transparent", SUB, "rgba(47,42,34,.25)"), { marginTop: 8 }) }, "收起来")) : null,
+          active.length ? h("div", { style: { marginBottom: 14 } }, h("div", { style: { fontFamily: FD, fontSize: fz(14), marginBottom: 6 } }, "在外面 · " + active.length + " / 3"),
+            active.map(t => { const l = left(t), cs = t.cardIds.map(fullCard).filter(Boolean);
+              return h("div", { key: t.id, "data-wk": "dueldispatchteam", style: { marginBottom: 8, padding: "9px 12px", borderRadius: 6, background: PAPER, boxShadow: "0 1px 5px rgba(47,42,34,.12)", borderLeft: "4px solid " + C } },
+                h("div", { className: "flex items-center", style: { justifyContent: "space-between" } }, h("span", { style: { fontFamily: FD, fontSize: fz(14) } }, "去了「" + t.place + "」"), h("span", { style: { fontSize: fz(11.5), color: l ? SUB : GREEN } }, l ? "还要 " + fmt(l) : "回来了")),
+                h("div", { style: { fontSize: fz(11), color: SUB, margin: "2px 0 6px" } }, cs.map(c => (c.text && c.text.name) || "").join("、")),
+                l ? h("div", { style: { height: 4, borderRadius: 2, background: "rgba(47,42,34,.1)", overflow: "hidden" } }, h("div", { style: { width: Math.round(100 * (1 - l / (t.end - t.start))) + "%", height: "100%", background: C } }))
+                  : h("button", { "data-wk": "dueldispatchback", onClick: () => back(t), disabled: !!dpBusy, className: "w-full disabled:opacity-50", style: btn(C, "#fff") }, dpBusy === t.id ? "在写见闻…" : "看见闻（花一次调用）")); })) : null,
+          active.length < 3 ? h("div", { "data-wk": "dueldispatchnew", style: { padding: "12px 14px", borderRadius: 6, background: "rgba(255,253,247,.9)", boxShadow: "0 2px 8px rgba(47,42,34,.1)" } },
+            h("div", { style: { fontFamily: FD, fontSize: fz(14), marginBottom: 6 } }, "派一队出去"),
+            h("div", { style: { fontSize: fz(11.5), color: SUB, marginBottom: 4 } }, "去哪"),
+            h("div", { className: "flex flex-wrap", style: { gap: 6, marginBottom: 10 } }, DISPATCH_PLACES.map(pl => h("button", { key: pl, "data-wk": "dueldispatchplace", "data-on": dpPlace === pl ? "1" : "0", onClick: () => setDpPlace(pl), style: { padding: "2px 10px", borderRadius: 999, border: "1px solid " + (dpPlace === pl ? C : "rgba(47,42,34,.22)"), color: dpPlace === pl ? C : INK, background: dpPlace === pl ? "rgba(63,122,138,.08)" : "transparent", fontSize: fz(12) } }, pl))),
+            h("div", { style: { fontSize: fz(11.5), color: SUB, marginBottom: 4 } }, "去多久"),
+            h("div", { className: "flex", style: { gap: 6, marginBottom: 10 } }, [1, 4, 8].map(hh => h("button", { key: hh, "data-wk": "dueldispatchhours", onClick: () => setDpHours(hh), style: { flex: 1, padding: "5px 0", borderRadius: 5, border: "1px solid " + (dpHours === hh ? C : "rgba(47,42,34,.22)"), color: dpHours === hh ? C : INK, fontSize: fz(12.5) } }, hh + " 小时"))),
+            h("div", { style: { fontSize: fz(11.5), color: SUB, marginBottom: 4 } }, "派谁（最多 3 张，点卡选上）"),
+            h("div", { style: { display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: 6, maxHeight: 260, overflowY: "auto", marginBottom: 10 } }, (cards || []).filter(c => c.text).slice(-40).reverse().map(c => { const u = D().stampOf(c), on = dpPick.includes(c.id);
+              return h(Ticket, { key: c.id, u, card: c, owner: ownerOf(c.charId), useThumb, small: true, sel: on, wk: "dueldispatchcard", onTap: () => setDpPick(p => on ? p.filter(x => x !== c.id) : p.concat(c.id).slice(-3)) }); })),
+            h("button", { "data-wk": "dueldispatchgo", onClick: send, disabled: !dpPick.length, className: "w-full disabled:opacity-40", style: Object.assign(btn(C, "#fff"), { padding: "11px 0", fontFamily: FD, fontSize: fz(14) }) }, "派去「" + dpPlace + "」· " + dpHours + " 小时")) : null,
+          all.filter(t => t.report).length ? h("div", { style: { marginTop: 16 } }, h("div", { style: { fontFamily: FD, fontSize: fz(14), marginBottom: 6 } }, "见闻集"),
+            all.filter(t => t.report).slice().reverse().map(t => h("button", { key: t.id, onClick: () => setDpShow(t.id), className: "w-full text-left", style: { display: "block", marginBottom: 6, padding: "7px 11px", borderRadius: 5, background: "#fffdf7", border: "1px solid rgba(63,122,138,.25)", fontSize: fz(12.5) } }, (t.report.title || "这一趟") + " · " + t.place + " · " + new Date(t.report.ts).toLocaleDateString()))) : null)]);
+    }
     if (!st && mode === "relay") {
       const rec = relayRec(), C = "#a0522d", sty = coachId ? (bondsOf()[coachId] || "默契") : "";
       return shell([
@@ -788,6 +851,9 @@
           (() => { const n = Object.keys(pzDone()).length; return modeTile("duelmodepuzzle", "#6a5a3a", "残", "残局", "一回合打空，找最好的一手", n ? "过了 " + n + " / " + D().PUZZLE_MAX + " 关" : "", () => setMode("puzzle"), 0.9); })(),
           (() => { const b = patrolBest(); return modeTile("duelmodepatrol", "#5a7a4a", "巡", "邮区巡查", "每周一张图，自己挑路走", patrol && !patrol.done ? "这周走到一半" : b.score ? "这周最高 " + b.score + " 分" : "", () => setMode("patrol"), -0.8); })(),
           (() => { const b = shiftBestOf(); return modeTile("duelmodeshift", "#4f6a8a", "值", "邮局值班", "柜台买票，凑阵容", shift ? "值到第 " + shift.round + " 轮" : b.round ? "最好第 " + b.round + " 轮" : "", () => setMode("shift"), 1.4); })()),
+        (() => { const a = Dispatch.all(), act = a.filter(t => !t.report), ready = act.filter(t => t.end <= Date.now()).length;
+          return h("button", { key: "dp", "data-wk": "dueldispatchgo0", onClick: () => setMode("dispatch"), className: "w-full flex items-center active:opacity-80", style: { gap: 10, marginBottom: 10, padding: "10px 14px", borderRadius: 6, background: "rgba(63,122,138,.1)", border: "1px solid rgba(63,122,138,.35)", color: INK } },
+            h("span", { style: { fontFamily: FD, fontSize: fz(18), color: "#3f7a8a" } }, "派"), h("span", { className: "flex-1 text-left", style: { fontSize: fz(12) } }, h("b", { style: { fontFamily: FD, fontWeight: 400, color: "#3f7a8a" } }, "派遣"), act.length ? " · 在外面 " + act.length + " 队" + (ready ? "，" + ready + " 队回来了" : "") : " · 派几张票出去送信，回来带见闻"), h("span", { style: { color: SUB } }, "›")); })(),
         (() => { const P = Trinkets.parcels(), n = Object.values(P).reduce((a, b) => a + b, 0), m = Trinkets.all().length;
           return h("button", { key: "tk", "data-wk": "dueltrinketgo", onClick: () => setMode("trinkets"), className: "w-full flex items-center active:opacity-80", style: { gap: 10, marginBottom: 10, padding: "10px 14px", borderRadius: 6, background: "rgba(154,106,74,.1)", border: "1px solid rgba(154,106,74,.35)", color: INK } },
             h("span", { style: { fontFamily: FD, fontSize: fz(18), color: "#9a6a4a" } }, "物"), h("span", { className: "flex-1 text-left", style: { fontSize: fz(12) } }, h("b", { style: { fontFamily: FD, fontWeight: 400, color: "#9a6a4a" } }, "小物册"), " · 收了 " + m + " 样" + (n ? "，还有 " + n + " 个包裹没拆" : "")), h("span", { style: { color: SUB } }, "›")); })(),
