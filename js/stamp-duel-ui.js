@@ -457,7 +457,7 @@
     const SHOP_KEY = "x_stampShop";
     const [shopSt, setShop0] = useState(() => { try { return (typeof loadJSON === "function" ? loadJSON(SHOP_KEY, null) : null) || null; } catch (e) { return null; } });
     const setShop = v => { setShop0(v ? Object.assign({}, v) : null); try { saveJSON(SHOP_KEY, v); } catch (e) {} };
-    const [shBusy, setShBusy] = useState(""), [shMeet, setShMeet] = useState(null);
+    const [shBusy, setShBusy] = useState(""), [shMeet, setShMeet] = useState(null), [winF, setWinF] = useState({ who: "", rar: "", q: "" });
     const personaOf = id => { const c = (characters || []).find(x => x.id === id) || {}; return [c.persona, c.description, c.desc, c.personality].filter(Boolean).join(" "); };
     const RELAY_KEY = "x_stampRelay";
     const relayRec = () => { try { return (typeof loadJSON === "function" ? loadJSON(RELAY_KEY, null) : null) || {}; } catch (e) { return {}; } };
@@ -696,8 +696,13 @@
             h("div", { key: "n", "data-wk": "duelshopnext", style: { marginTop: 6, fontSize: fz(12), color: SUB, textAlign: "center" } }, "明天早上 6 点以后再来开门。")]) : null,
           card("window", [h("div", { key: "t" }, secTitle("#3f6fb0", "窗", "橱窗", sh.window.length + " / " + D().shopWinSlots(sh))),
             h("div", { key: "s", style: { fontSize: fz(11), color: SUB, marginBottom: 8 } }, "摆你抽到的卡。R +3%、SR +6%、SSR +10% 收入，等级高再多一点；点名要某人明信片的客人，橱窗里有那个人的卡才卖得出。买「整面墙的信格」多 2 格。点一张摆上／撤下。"),
-            h("div", { key: "g", "data-wk": "duelshopwindow", style: { display: "grid", gridTemplateColumns: "repeat(5, minmax(0, 1fr))", gap: 5, maxHeight: 230, overflowY: "auto" } },
-              (cards || []).filter(k => k.text).slice().sort((a, b) => (sh.window.includes(b.id) ? 1 : 0) - (sh.window.includes(a.id) ? 1 : 0) || ({ SSR: 3, SR: 2, R: 1 }[b.rarity] || 0) - ({ SSR: 3, SR: 2, R: 1 }[a.rarity] || 0)).slice(0, 40).map(k => { const on = sh.window.includes(k.id);
+            // 卡多了找不到（她 2026-11-08）：按人、稀有度筛，搜卡名；已经摆上的永远在最前
+            h("div", { key: "f", "data-wk": "duelshopwinfilter", style: { marginBottom: 8 } },
+              h("input", { value: winF.q, onChange: e => setWinF(Object.assign({}, winF, { q: e.target.value })), placeholder: "搜卡名…", style: { width: "100%", padding: "5px 10px", borderRadius: 999, border: "1px solid rgba(47,42,34,.2)", background: "#fff", fontSize: fz(12), marginBottom: 6 } }),
+              h("div", { className: "flex flex-wrap", style: { gap: 5 } }, [{ id: "", n: "全部人" }].concat(ppl.map(c => ({ id: c.id, n: c.remark || c.name }))).map(c => h("button", { key: "w" + c.id, onClick: () => setWinF(Object.assign({}, winF, { who: c.id })), style: { padding: "1px 8px", borderRadius: 999, fontSize: fz(11), border: "1px solid " + (winF.who === c.id ? "#3f6fb0" : "rgba(47,42,34,.2)"), color: winF.who === c.id ? "#3f6fb0" : INK } }, c.n)),
+                ["", "SSR", "SR", "R"].map(r => h("button", { key: "r" + r, onClick: () => setWinF(Object.assign({}, winF, { rar: r })), style: { padding: "1px 8px", borderRadius: 999, fontSize: fz(11), border: "1px solid " + (winF.rar === r ? "#b8862a" : "rgba(47,42,34,.2)"), color: winF.rar === r ? "#b8862a" : INK } }, r || "全部稀有度")))),
+            h("div", { key: "g", "data-wk": "duelshopwindow", style: { display: "grid", gridTemplateColumns: "repeat(5, minmax(0, 1fr))", gap: 5, maxHeight: 300, overflowY: "auto" } },
+              (cards || []).filter(k => k.text && (sh.window.includes(k.id) || ((!winF.who || k.charId === winF.who) && (!winF.rar || k.rarity === winF.rar) && (!winF.q || String(k.text.name || "").includes(winF.q.trim()))))).slice().sort((a, b) => (sh.window.includes(b.id) ? 1 : 0) - (sh.window.includes(a.id) ? 1 : 0) || ({ SSR: 3, SR: 2, R: 1 }[b.rarity] || 0) - ({ SSR: 3, SR: 2, R: 1 }[a.rarity] || 0) || (Number(b.lv) || 0) - (Number(a.lv) || 0)).slice(0, winF.who || winF.rar || winF.q ? 300 : 60).map(k => { const on = sh.window.includes(k.id);
                 return h(Ticket, { key: k.id, u: D().stampOf(k), card: k, owner: ownerOf(k.charId), useThumb, small: true, sel: on, wk: "duelshopwincard", onTap: () => { if (on) sh.window = sh.window.filter(x => x !== k.id); else if (sh.window.length < D().shopWinSlots(sh)) sh.window = sh.window.concat(k.id); else { toast && toast("橱窗满了，先撤下一张"); return; } setShop(sh); } }); }))], "#3f6fb0"),
           card("decor", [h("div", { key: "t" }, secTitle("#5a7a4a", "装", "装修", (sh.decor || []).length + " 样")), h("div", { key: "s", style: { fontSize: fz(11), color: SUB, marginBottom: 8 } }, sh.decor.length ? "店里现在有：" + sh.decor.join("、") + "。买过的能翻新两次（★），每月还有两样限定。" : "店里还空着。买的东西会摆进店里，打烊那段会写到；每月有两样限定，买过的还能翻新。"),
             (() => { const mon = new Date().getMonth() + 1, list = D().SHOP.DECOR.map(d => d.k).concat(D().SHOP.MONTHLY[mon].map(x => x[0]), sh.decor.filter(k => !D().SHOP.DECOR.some(d => d.k === k) && !D().SHOP.MONTHLY[mon].some(x => x[0] === k)));

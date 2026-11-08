@@ -265,3 +265,7 @@ test("集邮社新页面统一样式：区块信纸、标题小票、数字格",
   assert.match(ui, /const statRow = \(list, c\) =>/);
   assert.ok((ui.match(/statRow\(\[/g) || []).length >= 3);
 });
+test("橱窗挑卡能搜卡名、按人和稀有度筛，摆上的永远在前", () => {
+  assert.match(ui, /"data-wk": "duelshopwinfilter"/);
+  assert.match(ui, /sh\.window\.includes\(k\.id\) \|\| \(\(!winF\.who \|\| k\.charId === winF\.who\)/);
+});
