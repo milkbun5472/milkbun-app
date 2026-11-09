@@ -110,7 +110,12 @@ test("每一种没备份成都留一笔，catch 不许再是空的", () => {
 
 // 「别天天弹窗」跟过期闸当初按【跨度】判是同一个道理：掉个网是常事。
 test("弹窗只留给【我们主动拦下的】那几种，掉网超时交给常驻横幅", () => {
-  assert.match(cloud, /const LOUD_BLOCK = \{ txt_vault: 1, stale: 1, apply_partial: 1, apply_threw: 1 \};/);
+  // ⚠️别钉整行字面量（施工规则/anchor-on-code.md）：每加一种拦法这一行就变，
+  //   2026-11-09 加「整类归零闸」时它就是这么红的。判据是【这几种在不在里头】。
+  const loudList = cloud.match(/const LOUD_BLOCK = \{[^}]*\}/);
+  assert.ok(loudList, "找不到 LOUD_BLOCK");
+  for (const r of ["txt_vault", "stale", "apply_partial", "apply_threw"])
+    assert.match(loudList[0], new RegExp(r + ": 1"), r + " 不该被从弹窗名单里拿掉");
   const blk = bare(slice(cloud, "const block = (reason, extra) =>", "pushInFlight = (async"));
   assert.match(blk, /const loud = LOUD_BLOCK\[reason\] \|\| this\.pushState\(\)\.overdue;/,
     "掉网也弹，或者一天没成功了还闷着——两头都不对");
