@@ -530,7 +530,7 @@
     const shopAct = async (action, options = {}) => { try { const out=await window.StampShop.run(action,{...shopOptions(),...options});setShop0(window.StampShop.read());return out;}catch(e){toast&&toast(e.message);throw e;} };
     React.useEffect(()=>{const sync=()=>setShop0(window.StampShop.read());window.addEventListener('stamp-shop-change',sync);return()=>window.removeEventListener('stamp-shop-change',sync);},[]);
     React.useEffect(()=>{if(mode!=='shop')return;const sync=()=>window.StampShop.sync(shopOptions()).then(setShop0).catch(e=>toast&&toast(e.message));sync();const id=setInterval(sync,2000);return()=>clearInterval(id);},[mode]);
-    const [dpWho, setDpWho] = useState({}), [svPick, setSvPick] = useState(""), [shBusy, setShBusy] = useState(""), [shMeet, setShMeet] = useState(null), [winF, setWinF] = useState({ who: "", rar: "", q: "" }), [dpF, setDpF] = useState({ who: "", rar: "", q: "" }), [bgPost, setBgPost] = useState(""), [bgF, setBgF] = useState({ who: "", rar: "", q: "" });
+    const [diaryM, setDiaryM] = useState(""), [dpWho, setDpWho] = useState({}), [svPick, setSvPick] = useState(""), [shBusy, setShBusy] = useState(""), [shMeet, setShMeet] = useState(null), [winF, setWinF] = useState({ who: "", rar: "", q: "" }), [dpF, setDpF] = useState({ who: "", rar: "", q: "" }), [bgPost, setBgPost] = useState(""), [bgF, setBgF] = useState({ who: "", rar: "", q: "" });
     // 挑卡的筛选条（橱窗、派遣共用，她 2026-11-08「派遣那页挑卡也加个筛选」）：搜卡名、按人、按稀有度
     const cardFilterHit = (f,k) => window.StampShop.filterCards([k],f).length>0;
     const cardFilterBar = (f,setF,wk,noWho,fit) => h(window.StampShopFilters,{characters,cards,filter:f,onChange:setF,wk,noWho,fit});
@@ -801,7 +801,9 @@
             // 店员下班留的便条：一人一张，跟打烊那段一起写的
             h(window.StampShopNotes,{key:"nt",notes:sh.notes||[],name:nameOf,font:FD,size:fz(12),titleSize:fz(11)}),
             h("div", { key: "n", "data-wk": "duelshopnext", style: { marginTop: 6, fontSize: fz(12), color: SUB, textAlign: "center" } }, "明天早上 6 点以后再来开门。")]) : null,
-          sh.phase!=="closed"&&window.StampShop.history(sh).length?card("stories",[h("div",{key:"title"},secTitle(INK,"烊","打烊留底","按天保存")),h(window.StampShopStories,{key:"body",shop:sh,name:nameOf})]):null,
+          // 店铺日记（她 2026-11-09）：打烊留底、来访对话按天收成一本
+          window.StampShop.diary(sh).length ? h("button", { key: "diary", "data-wk": "duelshopdiarygo", onClick: () => setMode("shopdiary"), className: "w-full flex items-center active:opacity-80", style: { gap: 10, marginBottom: 12, padding: "10px 14px", borderRadius: 6, background: "rgba(154,106,74,.1)", border: "1px solid rgba(154,106,74,.35)", color: INK } },
+            h("span", { style: { fontFamily: FD, fontSize: fz(18), color: "#9a6a4a" } }, "记"), h("span", { className: "flex-1 text-left", style: { fontSize: fz(12) } }, h("b", { style: { fontFamily: FD, fontWeight: 400, color: "#9a6a4a" } }, "店铺日记"), " · 记了 " + window.StampShop.diary(sh).length + " 天"), h("span", { style: { color: SUB } }, "›")) : null,
           card("window", [h("div", { key: "t" }, secTitle("#3f6fb0", "窗", "橱窗", sh.window.length + " / " + D().shopWinSlots(sh))),
             h("div", { key: "s", style: { fontSize: fz(11), color: SUB, marginBottom: 8 } }, "摆你抽到的卡。R +3%、SR +6%、SSR +10% 收入，等级高再多一点；点名要某人明信片的客人，橱窗里有那个人的卡才卖得出。买「整面墙的信格」多 2 格。点一张摆上／撤下。"),
             // 卡多了找不到（她 2026-11-08）：按人、稀有度筛，搜卡名；已经摆上的永远在最前
@@ -944,6 +946,32 @@
               h("span", { className: "flex-1" }, h("div", { style: { fontFamily: FD, fontSize: fz(14) } }, "每日死信" + (today ? " · 今天解开了" : "")), h("div", { style: { fontSize: fz(11), color: SUB } }, "一天一题、每个人的都不一样" + (streak ? " · 连续 " + streak + " 天" : ""))), h("span", { style: { color: SUB } }, "›")); })())]);
     }
     // 谁能在聊天里提集邮社（她 2026-11-08）：按人两个开关，默认全关
+    // 店铺日记：按月翻，一天一页（谁上班、收了多少、来过谁、打烊全文和便条、来访对话）
+    if (!st && mode === "shopdiary") {
+      const sh = window.StampShop.read(), days = window.StampShop.diary(sh);
+      const monthOf = d => { const [y, m] = String(d.date).split("-"); return y && m ? y + " 年 " + Number(m) + " 月" : "更早"; };
+      const months = Array.from(new Set(days.map(monthOf))), curM = months.includes(diaryM) ? diaryM : months[0];
+      const said = (turns, lines) => (Array.isArray(turns) && turns.length ? turns.map(t => (t.speakerId && nameOf(t.speakerId) ? nameOf(t.speakerId) + "：" : "") + t.text) : (lines || []));
+      const P = (t, k) => h("p", { key: k, style: { fontFamily: FD, fontSize: fz(13.5), lineHeight: 1.85, margin: "0 0 8px", whiteSpace: "pre-wrap" } }, BT(t));
+      const small = (k, t) => h("div", { key: k, style: { fontSize: fz(11.5), color: SUB, lineHeight: 1.7 } }, t);
+      return shell([
+        h(Head, { key: "hd", zh: "店铺日记", bg: "transparent", ink: INK, onBack: () => setMode("shop") }),
+        h("div", { key: "bd", "data-wk": "duelshopdiary", className: "flex-1 min-h-0 overflow-y-auto px-4", style: { fontFamily: F, color: INK, paddingBottom: 24 } },
+          months.length > 1 ? h("div", { "data-wk": "duelshopdiarymonths", className: "flex overflow-x-auto", style: { gap: 6, margin: "6px 0 12px" } }, months.map(m => h("button", { key: m, "data-on": m === curM ? "1" : "0", onClick: () => setDiaryM(m), style: { flexShrink: 0, padding: "4px 12px", borderRadius: 999, border: "1px solid " + (m === curM ? "#9a6a4a" : "rgba(47,42,34,.2)"), background: m === curM ? "rgba(154,106,74,.12)" : "transparent", color: m === curM ? "#9a6a4a" : INK, fontSize: fz(12) } }, m))) : null,
+          days.filter(d => monthOf(d) === curM).map(d => {
+            const st0 = d.story, today = d.today, cast = (st0 && st0.cast) || (today && today.cast) || {}, served = (st0 && st0.served) || (today && today.served) || [], earned = st0 && st0.earned != null ? st0.earned : today ? today.earned : null;
+            const staff = Object.keys(cast).filter(p => cast[p]).map(p => (nameOf(cast[p]) || "店员") + "在" + p);
+            return h("div", { key: d.date, "data-wk": "duelshopdiaryday", style: { marginBottom: 16, padding: "14px 16px 10px", borderRadius: 4, background: PAPER, boxShadow: "0 3px 10px rgba(47,42,34,.14)", border: "1px solid rgba(154,106,74,.25)" } },
+              h("div", { style: { display: "flex", alignItems: "baseline", gap: 8, marginBottom: 6, borderBottom: "1px dashed rgba(154,106,74,.35)", paddingBottom: 6 } }, h("span", { style: { fontFamily: FD, fontSize: fz(17), color: "#9a6a4a" } }, d.date), h("span", { style: { fontSize: fz(11), color: SUB } }, "第 " + d.day + " 天")),
+              staff.length ? small("s", "上班：" + staff.join("、")) : null,
+              earned != null ? small("e", "收了 " + earned + " 枚邮花") : null,
+              served.length ? small("c", "来过：" + served.map(c => (c.charId ? nameOf(c.charId) : c.name) + (c.tough ? (c.won ? "（打赢了）" : "（没打过）") : "")).join("、")) : null,
+              st0 ? h("div", { key: "st", style: { marginTop: 10 } }, h("div", { style: { fontFamily: FD, fontSize: fz(13), color: INK, marginBottom: 4 } }, "打烊"), said(st0.turns, st0.lines).map(P), h(window.StampShopNotes, { notes: st0.notes || [], name: nameOf, font: FD, size: fz(12), titleSize: fz(11) })) : null,
+              d.visits.map((v, k) => h("div", { key: "v" + k, style: { marginTop: 10 } }, h("div", { style: { fontFamily: FD, fontSize: fz(13), color: "#9a6a4a", marginBottom: 4 } }, (v.period ? v.period + " · " : "") + (nameOf(v.visitorId) || "客人") + " 来店里，碰上 " + (nameOf(v.staffId) || "店员")), said(v.turns, v.lines).map(P))),
+              !st0 && !d.visits.length ? small("x", "这天没写打烊。") : null);
+          }))
+      ]);
+    }
     if (!st && mode === "chatlink") {
       const sw = (on, fn, wk) => h("button", { "data-wk": wk, "data-on": on ? "1" : "0", role: "switch", "aria-checked": on, onClick: fn, style: { flexShrink: 0, width: 46, height: 26, borderRadius: 999, background: on ? GREEN : "rgba(47,42,34,.2)", position: "relative", transition: "background .2s" } },
         h("span", { style: { position: "absolute", top: 3, left: on ? 23 : 3, width: 20, height: 20, borderRadius: 999, background: "#fff", transition: "left .2s", boxShadow: "0 1px 3px rgba(0,0,0,.25)" } }));

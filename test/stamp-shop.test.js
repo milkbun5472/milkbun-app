@@ -52,3 +52,6 @@ test('the shared writer keeps all twelve additional action strings and original 
 test('招待对上需求：交给对的岗位多给，挑错照常付，留下道谢',async()=>{const cs=[{id:'上午c0',name:'学生',fee:10,need:{post:'柜台'}},{id:'上午c1',name:'学生',fee:10,need:{post:'柜台'}}];const r=rig({...plan(),phase:'open',period:'上午',customers:cs});
  await r.shop.run('serve',{...r.opts,id:'上午c0',staffId:'a'});const good=r.saved.customers[0];assert.ok(good.match);assert.ok(good.thanks);
  await r.shop.run('serve',{...r.opts,id:'上午c1',staffId:'b'});const bad=r.saved.customers[1];assert.equal(bad.match,false);assert.ok(good.got>bad.got&&bad.got>0);});
+test('店铺日记：打烊留底和来访对话按天并在一页，新的在前',()=>{const g={console,structuredClone};g.window=g;for(const p of ['apps/fairy-garden/story-actions.js','js/stamp-duel.js','js/stamp-shop.js'])vm.runInNewContext(fs.readFileSync(p,'utf8'),g);
+ const raw={day:2,date:'2026-11-9',phase:'plan',closingHistory:[{date:'2026-11-8',day:1,lines:['打烊了。'],earned:120}],visits:[{key:'k1',date:'2026-11-8',day:1,period:'傍晚',visitorId:'a',staffId:'b',lines:['你好。']},{key:'k2',date:'2026-11-9',day:2,lines:['又来了。']}]};
+ const days=g.StampShop.diary(raw);assert.equal(days.map(d=>d.date).join(','),'2026-11-9,2026-11-8');assert.equal(days[1].story.earned,120);assert.equal(days[1].visits.length,1);assert.equal(days[0].story,null);});
