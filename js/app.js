@@ -36347,6 +36347,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         const r = await runProbe(apiFor(char.id), ctxFor(char), { voice: true, tag: "stampdispatch", maxTokens: 8000,
           instruction: "这是" + uN + "邮票册里的小游戏「派遣」：她把几张邮票派去「" + (d.place || "远方") + "」送信，在那儿待了 " + (d.hours || 1) + " 个小时，现在回来了。这几张票和票上那一刻：\n" + (d.cards || "") + "\n"
             + (d.with ? "一起去的人：" + d.with + "。\n" : "")
+            + "这几张票里同一个人的，是这个人那几个时候的样子，不是几个不同的人：只有一个人的票，就写他自己这一趟；几个人的票，才写成几个人一起去。\n"
             + "你来写这一趟的见闻，给她看：在那儿遇到了什么、路上发生了什么、一起去的人各自怎么样，地方和天气要跟「" + (d.place || "") + "」合得上；照你的人设和你们的关系来写，用你自己说话的样子，写成几段完整的事，别写成总结。\n"
             + prevLine + (typeof stampVoice === "function" ? stampVoice(char) + "\n" : "")
             + "title：这一趟的题目。lines：见闻，一段一项。item：这一趟带回来给她的一样小东西：name 是一样具体的物件，story 一两句它的来历，say 是你把它给她时说的话，gist 一句话记下它是什么、跟哪件事有关。",
