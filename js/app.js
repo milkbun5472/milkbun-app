@@ -13049,7 +13049,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       //   可她发两张图本身就占两句，再催一句「你倒是换啊」，「情头」那句就掉出去了——于是走成单张：
       //   拿最后那张给他换上，她那边不动。放到 10 句；而且她提过情头的这一阵，单张那条不许替它换。
       const _pairAsked = !opts.proactive && askedRecently(history, PAIR_AVATAR_ASK_RE, 10);
-      const _pairPick = _pairAsked ? freshPhotoPairIn(chatsRef.current[charId] || [], ASK_PHOTO_LOOKBACK) : null;
+      const _pairAuto = !_pairAsked && !opts.proactive ? pairInLastTurn(chatsRef.current[charId] || []) : null;
+      const _pairPick = _pairAsked ? freshPhotoPairIn(chatsRef.current[charId] || [], ASK_PHOTO_LOOKBACK) : _pairAuto;
       // 一张图里并排的一对（她 2026-10-25「我发一张图然后他一分为二换成情头」）：要情头、往回只找得到一张，就把这一张当成一对，他挑哪半是自己的
       const _pairSplit = _pairAsked && !_pairPick ? (freshUserPhoto(charId) || freshPhotoIn(chatsRef.current[charId] || [], ASK_PHOTO_LOOKBACK)) : null;
       // 她要他帮【她自己】换头像（她 2026-10-22「能不能让他帮我换·我的头像，不是情头的时候」）：
@@ -13059,12 +13060,14 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         ? (freshUserPhoto(charId) || freshPhotoIn(chatsRef.current[charId] || [], ASK_PHOTO_LOOKBACK)) : null;
       // 她没开口、只是刚发来一张（她 2026-10-22「为啥不能我发图不说，他觉得适合我就直接换上，跟自己头像一样」）：
       //   跟他换自己头像同一个分寸——默认不换，只有他真觉得这张就该是她的头像才换
-      const _myAvatarAuto = (!_myAvatarPick && !_pairPick && !_pairAsked && !opts.proactive) ? freshUserPhoto(charId) : null;
+      const _myAvatarAuto = (!_myAvatarPick && (!_pairPick || _pairAuto) && !_pairAsked && !opts.proactive) ? freshUserPhoto(charId) : null;
       const _avatarMsg = _seenMsg || _askPick || _autoPick;
       // 情头那两张在历史里直接标上「第 1 张／第 2 张」（她 2026-10-02：TA说「鲨鱼归我」，结果自己换成了猫——
       //   原来只说「先发的是第 1 张」，可TA看到的历史里那两张图没有编号，只能猜，猜反了）
       const _pairNo = m => { if (_pairSplit && (m === _pairSplit || (m.imageRef && m.imageRef === _pairSplit.imageRef))) return "【情头·这一张就是一对】"; if (!_pairPick) return ""; const same = (a, b) => a && b && (a === b || (a.id && a.id === b.id) || (a.ts && a.ts === b.ts && a.imageRef === b.imageRef));
-        return same(m, _pairPick[0]) ? "【情头·第 1 张】" : same(m, _pairPick[1]) ? "【情头·第 2 张】" : ""; };
+        // 她没开口的那两张只标第几张，不先替他叫成「情头」（她 2026-11-09：「发两张图不代表是换情头」「让模型自己判定想不想换」）
+        const _pn = _pairAuto ? "【第 " : "【情头·第 ";
+        return same(m, _pairPick[0]) ? _pn + "1 张】" : same(m, _pairPick[1]) ? _pn + "2 张】" : ""; };
       // 她要换的是她自己的头像时，「换成你的头像」那一问整个不给，免得两格打架
       const _seenAvatarOk = !!(_avatarMsg && (avatarCoolOk(charId) || _askAvatar)) && !_myAvatarPick;
       // note 只跟【刚看见的那张】走；她翻旧账要换头像时不补记老照片的画面
@@ -13548,7 +13551,9 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       }
       if (_pairPick) {
         openCaps.push("pairAvatar");
-        capState.push("pairAvatar：" + (uName + " 想让你俩一起换上一对头像（情头）。上面历史里 " + uName
+        capState.push("pairAvatar：" + (_pairAuto
+          ? uName + " 刚连着发来两张照片，没说要做什么，历史里标着【第 1 张】【第 2 张】。这一格是让你俩拿这两张换成一对头像的；换不换是你自己的主意：看这两张是什么、你们正聊着什么、你自己想不想跟她用这一对。"
+          : uName + " 想让你俩一起换上一对头像（情头）。上面历史里 " + uName
           + " 发过的最近两张真实照片就是这一对，历史里那两张已经标着【情头·第 1 张】【情头·第 2 张】。")
           + "要换就填 pairAvatar:{\"yours\":1 或 2}——yours 是你自己用哪一张，另一张就换到 " + uName + " 那边。"
           + "看图挑：通常男生那张给男生、女生那张给女生，或者按两张图里谁像谁来。"
@@ -14774,7 +14779,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       }
       // 情头那一轮填错了格（她 2026-10-10：「给两张只换他自己的」）：没填 pairAvatar，却在单张那格 photoSeen.avatar=true。
       //   单张那格指的就是他挑的那张——认得出是这一对里的第几张，就照这一对补齐：他用那张，另一张换给她。
-      if (!_pairDone && _pairPick && _avatarMsg && parsed.photoSeen && typeof parsed.photoSeen === "object" && parsed.photoSeen.avatar === true) {
+      if (!_pairDone && _pairPick && !_pairAuto && _avatarMsg && parsed.photoSeen && typeof parsed.photoSeen === "object" && parsed.photoSeen.avatar === true) {
         const _k = _pairPick.findIndex(m => m === _avatarMsg || (m.imageRef && m.imageRef === _avatarMsg.imageRef));
         if (_k >= 0 && applyPairAvatar(charId, _pairPick, _k + 1)) parsed.photoSeen = { ...parsed.photoSeen, avatar: false };
       }
@@ -14784,7 +14789,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       if (_avatarMsg && parsed.photoSeen) applyPhotoSeen(charId, _avatarMsg, parsed.photoSeen, _seenAvatarOk,
         (same, note) => pChat(chatKey || charId, p => p.map(m => same(m) ? { ...m, seenNote: note } : m)));
       // 兜底：这一轮真给了换头像的能力，TA嘴上说「换好了」，字段却没填 true → 照TA说的换
-      if (!_pairDone && !_pairPick && !_pairAsked && _avatarMsg && _seenAvatarOk && !(parsed.photoSeen && parsed.photoSeen.avatar === true)
+      if (!_pairDone && (!_pairPick || _pairAuto) && !_pairAsked && _avatarMsg && _seenAvatarOk && !(parsed.photoSeen && parsed.photoSeen.avatar === true)
         && AVATAR_CLAIM_RE.test([].concat(parsed.word || []).join(" ")) && avatarTalkOk(parsed.word)) applyPhotoSeen(charId, _avatarMsg, { avatar: true }, true, () => {});
       if (parsed.photo && typeof parsed.photo === "object") {
         photoScene = String(parsed.photo.scene || parsed.photo.desc || "").trim();
@@ -29123,7 +29128,13 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   const MY_AVATAR_ASK_RE = /(帮我|给我|替我|我的|把我).{0,8}(换|设|当|改|用).{0,8}头像|(换|设|改).{0,4}我的头像|我的头像/;
   // 放宽（她 2026-11-02「必须要说情头才会换吗」）：「情侣」「一人一张」「这两张换上」这类说法也算
   const PAIR_AVATAR_ASK_RE = /情头|一对头像|情侣|一起换|我俩.{0,6}头像|我们.{0,6}头像|也帮我换|帮我也换|给我也换|一人一张|你一张我一张|配对|成对|(这|那)两张.{0,6}(换|头像|用)|两张.{0,4}头像|头像.{0,6}两张/;
-
+  // 她一句话没说、这一轮连着发了两张图：只交给他看图判断是不是一对（默认不换），不用她说出「情头」两个字
+  const pairInLastTurn = rows => {
+    const list = (Array.isArray(rows) ? rows : []).filter(m => m && !m.recalled);
+    const got = [];
+    for (let i = list.length - 1; i >= 0 && list[i].role === "user"; i--) if ((list[i].kind === "photo" || list[i].kind === "selfie") && list[i].imageRef) got.unshift(list[i]);
+    return got.length === 2 ? got : null;
+  };
   // 兜底：TA嘴上说换了、交回来的字段却没换 → 照TA说的换（跟约定那条「嘴上答应了就补上」同一个思路）
   // ⚠️她 2026-10-02：「为啥有时候又不行」——TA说的是「换成蓝鲨鱼了」「头像改好了」「用上了」这种，原来那张单子一个都认不出，
   //   于是TA以为换了、其实没换。放宽：换/改/设/用 + 好/上/成/过来，或者「头像」后面跟着换/改。只在这一轮真给了换头像能力时才看它
