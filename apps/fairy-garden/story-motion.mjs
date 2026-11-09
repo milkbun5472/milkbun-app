@@ -1,5 +1,5 @@
 import * as T from 'three';
-import {STORY_ACTIONS} from './story-actions.mjs?v=fg-63bd647e3b144271';
+import {STORY_ACTIONS} from './story-actions.mjs?v=fg-16914e0f39f01666';
 const ease=x=>{x=T.MathUtils.clamp(x,0,1);return x*x*(3-2*x);};
 const reach=p=>ease(p/.24)*ease((1-p)/.22);
 export function storyAnimation(action,progress){const d=STORY_ACTIONS[action]||{};return {gesture:d.gesture||'rest',emotion:d.emotion||null,progress};}

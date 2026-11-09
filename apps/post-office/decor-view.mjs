@@ -1,3 +1,4 @@
+import {SHOP_CUSHIONS} from './furniture.mjs?v=fg-16914e0f39f01666';
 import * as T from 'three';
 // Monthly names come from the text-shop catalogue. Small props occupy the shop's
 // left display shelves; all variants use generated geometry/text only.
@@ -11,7 +12,7 @@ export function createShopDecor(kit,existing,monthly){
  const lamps=[existing.lamp];for(let i=1;i<3;i++){const p=group('ExtraPendant:'+i);cylinder('Cord',{x:.8+i*.8,y:3.1,z:.1,r:.025,h:.9,color:'#79694f'},p);cylinder('Shade',{x:.8+i*.8,y:2.65,z:.1,r:.34,h:.16,color:'#d4b26e'},p);sphere('Bulb',{x:.8+i*.8,y:2.54,z:.1,r:.12,color:'#ffe4a3'},p);lamps.push(p);}
  const lampSet=group('LampSet');lamps.forEach(n=>lampSet.add(n));decor.set('暖黄的吊灯',{node:lampSet,level:l=>lamps.forEach((n,i)=>n.visible=i<l)});
  decor.get('一盆绿萝').level=l=>existing.plant.scale.setScalar(1+(l-1)*.12);
- const cushions=[];for(let i=0;i<2;i++){const p=box('BenchCushion',{x:2.2+i*.9,y:.58,z:-2.58,w:.75,h:.09,d:.48,color:i?'#d4bd8b':'#bd906d'});existing.bench.attach(p);cushions.push(p);}decor.get('靠窗的长凳').level=l=>cushions.forEach((n,i)=>n.visible=l>i+1);
+ const cushions=[];for(let i=0;i<2;i++){const p=box('BenchCushion',SHOP_CUSHIONS[i]);existing.bench.attach(p);cushions.push(p);}decor.get('靠窗的长凳').level=l=>cushions.forEach((n,i)=>n.visible=l>i+1);
  decor.get('铜铃门帘').level=l=>existing.bells.traverse(o=>{if(o.isMesh&&o.name==='CopperBell')o.scale.setScalar(1+(l-1)*.18);});
  const cubbies=group('ExtraCubbies');box('Backing',{x:.88,y:2,z:-3.24,w:.55,h:2.2,d:.15,color:'#927452'},cubbies);for(let i=0;i<6;i++)box('Shelf',{x:.88,y:1+i*.4,z:-3.1,w:.6,h:.045,d:.35,color:'#b49569'},cubbies);const cubbyTrim=box('CubbyGoldTrim',{x:.88,y:3.13,z:-3.05,w:.64,h:.05,d:.05,color:'#d9b661'},cubbies);add('整面墙的信格',cubbies,l=>{cubbies.traverse(o=>{if(o.isMesh&&o!==cubbyTrim)o.material.color.set(l>1?'#bd9b61':'#927452');});cubbyTrim.visible=l>=3;});
  const clock=group('OldClock');box('Cabinet',{x:.9,y:1.05,z:-2.95,w:.55,h:1.95,d:.4,color:'#85694d'},clock);cylinder('ClockFace',{x:.9,y:1.65,z:-2.72,r:.22,h:.04,rotation:[Math.PI/2,0,0],color:'#ede2c2'},clock);box('ClockHand',{x:.9,y:1.72,z:-2.685,w:.025,h:.15,d:.02,color:'#66513c'},clock);add('会走的老座钟',clock,l=>clock.scale.setScalar(1+(l-1)*.025));
