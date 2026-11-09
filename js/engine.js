@@ -8718,6 +8718,15 @@ function joinBilingualLines(lines, hanLang, opts) {
     const NARR = /^\s*[（(*＊「『]/;
     const pairOne = (line, next) => next != null && line.indexOf("|") < 0 && next.indexOf("|") < 0
       && (/[\u3040-\u30ff]/.test(line) || (FOREIGN.test(line) && !HAN.test(line))) && HAN.test(next) && !FOREIGN.test(next) && !MARK.test(next);   // 日文带汉字也算外语：有假名就认
+    // 中译写在括号里（她 2026-11-09 截图：「すごく可愛くて……見ているだけで胸がきゅってなっちゃいます（好可爱……光是看着，胸口就忍不住怦怦直跳）」
+    //   一行写完、括号里是中译，拆泡以后中文自己成了一泡，日文那几泡只剩「译」）。双语开着、括号前是外语、括号里是中文，
+    //   而且括号里够长（跟原文差不多长，不是「（笑）」那种动作）才认成中译。另起一行、整行包在括号里的中译也一样，括号去掉。
+    const parenZh = x => { const m = String(x).match(/^([\s\S]*?\S)\s*[（(]([^（）()]+)[）)]\s*$/); if (!m) return null;
+      const orig = m[1].trim(), zh = m[2].trim();
+      if (!(/[\u3040-\u30ff\uac00-\ud7af]/.test(orig) || (FOREIGN.test(orig) && !HAN.test(orig))) || !HAN.test(zh) || FOREIGN.test(zh)) return null;
+      return zh.replace(/[^\u4e00-\u9fff]/g, "").length >= Math.max(4, orig.replace(/[\s\p{P}]/gu, "").length * 0.3) ? orig + " | " + zh : null; };
+    for (let k = 0; k < joined.length; k++) { const pz = joined[k].indexOf("|") < 0 ? parenZh(joined[k]) : null; if (pz) joined[k] = pz; }
+    const unwrap = x => String(x).trim().replace(/^[（(]([^（）()]+)[）)]$/, "$1");
     const taken = new Set();
     for (let k = 0; k < joined.length; k++) if (!taken.has(k) && pairOne(joined[k], joined[k + 1])) { taken.add(k); taken.add(k + 1); }
     const orphanZh = joined.some((x, k) => !taken.has(k) && x.indexOf("|") < 0 && HAN.test(x) && !FOREIGN.test(x) && !MARK.test(x) && !NARR.test(x));
@@ -8725,7 +8734,7 @@ function joinBilingualLines(lines, hanLang, opts) {
     for (let k = 0; k < joined.length; k++) {
       const line = joined[k], next = joined[k + 1];
       if (!orphanZh && pairOne(line, next)) {
-        out0.push(line.trim() + " | " + next.trim()); k++;
+        out0.push(line.trim() + " | " + unwrap(next)); k++;
       } else out0.push(line);
     }
     // 开头漏出一段纯中文草稿（她 2026-10-31 截图：日语角色先冒三泡「…他愣了两秒才反应过来…」，后面才是正经的「原文 | 中译」）：
