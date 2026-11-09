@@ -116,6 +116,8 @@
     opts = opts || {};
     const st = {
       id: "mj" + Date.now().toString(36), status: "playing", hands: opts.hands || 4, handNo: 0, minFan: opts.minFan != null ? opts.minFan : 0,
+      // 她自己点牌墙摸牌（她 2026-11-09「打的时候没有大桌子给我们抽牌嘛」）：轮到她就停在 draw，等她点；别家照旧自动摸
+      handDraw: !!opts.handDraw,
       dealer: 0, roundWind: "E", log: [], players: players.slice(0, 4).map(p => Object.assign({}, p, { pts: 0, hand: [], melds: [], flowers: [], river: [] }))
     };
     startHand(st, rnd);
@@ -194,6 +196,12 @@
     st.phase = "claim";
     if (!Object.keys(pending).length) passAll(st);
   }
+  // 她点了牌墙：摸一张（花牌照样补），进入出牌
+  function drawTile(st, i) {
+    if (st.phase !== "draw" || st.turn !== i) throw new Error("还没轮到你摸");
+    if (!drawInto(st, i)) return exhaust(st);
+    st.phase = "discard";
+  }
   // 自己这一手：自摸／暗杠／加杠
   function selfAct(st, i, a) {
     const p = st.players[i];
@@ -232,6 +240,8 @@
   function passAll(st) {
     const nx = (st.claim.from + 1) % 4;
     st.claim = null;
+    if (!st.wall.length) return exhaust(st);
+    if (st.handDraw && st.players[nx].isUser) { st.turn = nx; st.phase = "draw"; return; }
     if (!drawInto(st, nx)) return exhaust(st);
     st.turn = nx; st.phase = "discard";
     st.players[nx].hand = sortTiles(st.players[nx].hand);
@@ -322,6 +332,6 @@
   }
 
   return { KINDS, FLOWERS, name, isHonor, isFlower, sortTiles, counts, canWin, isThirteen, decompose, fanOf, payOf, MAX_FAN,
-    newGame, startHand, seatWindOf, selfOptions, claimOptions, discard, selfAct, decide, nextHand,
+    newGame, startHand, seatWindOf, selfOptions, claimOptions, discard, selfAct, decide, nextHand, drawTile,
     botSelf, botClaim, botDiscard, publicView, WIND_ZH };
 });
