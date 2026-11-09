@@ -8678,8 +8678,8 @@
       ? h("div", { style: { position: "absolute", inset: w * 0.2, border: "2px solid " + ink, borderRadius: 2 } })
       : suited
         ? h("div", { style: { position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", lineHeight: 1 } },
-            h("span", { style: { fontFamily: F_DISPLAY, fontSize: w * 0.5, color: k[0] === "m" ? "#2b2622" : ink, fontWeight: 600 } }, face[0]),
-            h("span", { style: { fontFamily: F_DISPLAY, fontSize: w * 0.42, color: k[0] === "m" ? "#c2372b" : ink, marginTop: w * 0.06 } }, face[1]))
+            h("span", { style: { fontFamily: F_DISPLAY, fontSize: w * 0.5, color: props.red ? "#d62b1f" : k[0] === "m" ? "#2b2622" : ink, fontWeight: 600 } }, face[0]),
+            h("span", { style: { fontFamily: F_DISPLAY, fontSize: w * 0.42, color: props.red ? "#d62b1f" : k[0] === "m" ? "#c2372b" : ink, marginTop: w * 0.06 } }, face[1]))
         : h("div", { style: { position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: F_DISPLAY, fontSize: w * 0.62, color: ink, fontWeight: 600 } }, face);
     return h(props.onClick ? "button" : "div", { onClick: props.onClick, "data-wk": "gamemjtile", "data-k": k, "aria-label": face, "data-mjanim": props.anim ? "1" : undefined,
       style: Object.assign({}, base, props.joker ? { outline: "2px solid #e0b84a", outlineOffset: -1 } : null, { padding: 0, background: props.hot ? "linear-gradient(180deg,#fff8d8,#ffe9a3)" : "linear-gradient(180deg,#fffef8 0%,#f6f0e0 68%,#e8dfc6 100%)",
@@ -8818,6 +8818,8 @@
     const selfOpts = myTurn ? M.selfOptions(state, meI) : [];
     const myClaim = me && state.phase === "claim" && state.claim && state.claim.pending[meI] && !state.claim.decided[meI] ? state.claim.pending[meI] : null;
     const queLock = !!(myTurn && M.mustDiscardQue(state, meI));
+    // 日麻红 5：她手里那门的红 5 在的话，那门第一张 5 画成红的（牌是字串，红的那张记在 me.aka 上）
+    const isRed = function (k, j) { return !!(me && me.aka && k[1] === "5" && me.aka.indexOf(k[0]) >= 0 && myHand.indexOf(k) === j && !(drawn === k && myHand.indexOf(k) < 0)); };
     const riichiDim = function (k) { if (!riichiPick) return false; const ro = selfOpts.find(function (o) { return o.kind === "riichi"; }); return !ro || ro.ks.indexOf(k) < 0; };
     const tap = function (k, j) {
       if (!myTurn) return;
@@ -8860,6 +8862,7 @@
               return h("div", { key: "w" + wi, style: { borderTop: wi ? "1px dashed rgba(120,96,60,.35)" : "none", marginTop: wi ? 8 : 0, paddingTop: wi ? 8 : 0 } },
                 h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(17px * var(--app-fs, 1))", color: "#8a2a1f", paddingRight: 48 } }, wp.name + (w.zimo ? " 自摸" : " " + ronWord) + " · " + fanTxt(w.fan) + (w.fan.fan > w.fan.capped ? "（封顶 " + w.fan.capped + "）" : "")),
                 h("div", null, w.fan.items.map(function (x) { return x[0] + (x[1] ? " " + x[1] : ""); }).join(" · ")),
+                w.ura ? h("div", { style: { display: "flex", alignItems: "center", gap: 4, fontSize: "calc(11.5px * var(--app-fs, 1))", opacity: .85 } }, "里宝牌指示", w.ura.map(function (k, j) { return h(MjTile, { key: j, k: k, w: 16, anim: "mjShow .3s " + (0.3 + j * 0.1) + "s ease-out both" }); })) : null,
                 // 谁付了多少：各玩法规矩不一样（国标点和的多付、日麻庄家付双倍、立直棒归和的人），照实际那几笔写
                 h("div", { style: { opacity: .85 } }, (w.zimo ? "" : state.players[w.from].name + " 点炮。") + Object.keys(w.moves).filter(function (j) { return j !== "pot"; }).map(function (j) { return state.players[j].name + " 付 " + (-w.moves[j]); }).join("，") + (w.moves.pot ? "，立直棒 +" + w.moves.pot : "")),
                 // 赢家的整副牌：亮出来的那几组 + 手里的，一组一组隔开
@@ -8918,8 +8921,8 @@
           me.melds.map(function (m, j) { return h("div", { key: j + m.type, "data-mjanim": "1", style: { display: "flex", animation: "mjPop .38s cubic-bezier(.3,1.5,.5,1) both" } }, mjRow(m.tiles, 20)); })) : null,
         h("div", { "data-wk": "gamemjhand", style: { display: "flex", justifyContent: "center", alignItems: "flex-end", padding: "14px 4px 10px", margin: "0 -2px 8px", borderRadius: 8,
             background: "linear-gradient(180deg, rgba(0,0,0,0) 0%, rgba(0,0,0,0) 62%, #3a2616 62%, #2e1e11 100%)", boxShadow: "0 2px 0 rgba(255,220,170,.12)" } },
-          myHand.map(function (k, j) { return h("div", { key: j + k, style: { marginLeft: j ? 2 : 0 } }, h(MjTile, { k: k, w: handW, dim: (queLock && k[0] !== me.que) || riichiDim(k) || (me.riichi && myTurn), joker: k === VAR.joker, lift: sel === j, onClick: myTurn ? function () { tap(k, j); } : null })); }),
-          drawn ? h("div", { key: "drawn" + state.wall.length, style: { marginLeft: 7 } }, h(MjTile, { k: drawn, w: handW, dim: (queLock && drawn[0] !== me.que) || riichiDim(drawn), joker: drawn === VAR.joker, anim: sel === "d" ? null : "mjDrawIn .36s cubic-bezier(.3,1.3,.5,1) both", lift: sel === "d", onClick: function () { if (sel === "d") userAct(function (n) { M.discard(n, meI, drawn); }); else setSel("d"); } })) : null),
+          myHand.map(function (k, j) { return h("div", { key: j + k, style: { marginLeft: j ? 2 : 0 } }, h(MjTile, { k: k, w: handW, red: isRed(k, j), dim: (queLock && k[0] !== me.que) || riichiDim(k) || (me.riichi && myTurn), joker: k === VAR.joker, lift: sel === j, onClick: myTurn ? function () { tap(k, j); } : null })); }),
+          drawn ? h("div", { key: "drawn" + state.wall.length, style: { marginLeft: 7 } }, h(MjTile, { k: drawn, w: handW, red: !!(me.aka && drawn[1] === "5" && me.aka.indexOf(drawn[0]) >= 0 && myHand.indexOf(drawn) < 0), dim: (queLock && drawn[0] !== me.que) || riichiDim(drawn), joker: drawn === VAR.joker, anim: sel === "d" ? null : "mjDrawIn .36s cubic-bezier(.3,1.3,.5,1) both", lift: sel === "d", onClick: function () { if (sel === "d") userAct(function (n) { M.discard(n, meI, drawn); }); else setSel("d"); } })) : null),
         h(CardSay, { t: t, state: state, setState: setState, value: say, setValue: setSay, placeholder: "说一句", talking: talking,
           tone: { line: "rgba(255,230,190,.28)", bg: "rgba(0,0,0,.28)", ink: "#fff6dc", radius: 9, btn: "linear-gradient(180deg,#8a5a34,#6b4428)", btnInk: "#fff6dc" } }),
         h("div", { style: { display: "flex", flexWrap: "wrap", gap: 7, justifyContent: "center", minHeight: 40 } },

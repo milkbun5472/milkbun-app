@@ -151,3 +151,18 @@ for (const variant of ["taiwan", "guobiao", "riichi"]) {
 assert.match(games, /\{ key: "riichi", title: "日麻"/);
 assert.match(games, /"data-wk", "gamemjriichi"|"gamemjriichi"/);
 console.log("more variants ok");
+// 日麻补全：一发、里宝牌、赤宝牌都会出现；红 5 一门最多一张
+{
+  const seen = {};
+  for (let g = 0; g < 120; g++) {
+    const st = M.newGame([0, 1, 2, 3].map(i => ({ key: "p" + i, name: "P" + i })), { hands: 4, variant: "riichi" });
+    let guard = 0;
+    while (st.status === "playing" && guard++ < 6000) {
+      if (st.phase === "discard") { const a = M.botSelf(st, st.turn); if (a.kind === "discard") M.discard(st, st.turn, a.k); else M.selfAct(st, st.turn, a); }
+      else if (st.phase === "claim") { for (const j of Object.keys(st.claim.pending)) { if (st.claim && !st.claim.decided[j]) M.decide(st, +j, M.botClaim(st, +j)); if (!st.claim) break; } }
+      else { st.wins.forEach(w => w.fan.items.forEach(x => { seen[x[0]] = 1; })); ["m", "p", "s"].forEach(su => assert.ok(st.players.filter(p => p.aka.indexOf(su) >= 0).length <= 1)); M.nextHand(st); }
+    }
+  }
+  assert.ok(seen["一发"] && seen["里宝牌"] && seen["赤宝牌"], "三样都出现过");
+}
+console.log("riichi extras ok");

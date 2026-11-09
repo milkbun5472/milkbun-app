@@ -312,6 +312,7 @@
     const cand = [];
     const base = [];
     if (o.riichi) base.push(["立直", 1]);
+    if (o.ippatsu) base.push(["一发", 1]);
     if (closed && o.zimo) base.push(["门前清自摸和", 1]);
     if (o.lastTile) base.push([o.zimo ? "海底摸月" : "河底捞鱼", 1]);
     if (o.kongDraw) base.push(["岭上开花", 1]);
@@ -356,7 +357,11 @@
     const yakuHan = best.ym ? 13 * best.ym : best.its.reduce((n, y) => n + y[1], 0);
     if (!yakuHan) return { items: [], gate: 0 };
     const items = best.its.slice();
-    if (!best.ym) { const dk = doraKinds(st); const n = all.filter(k => dk.indexOf(k) >= 0).length; if (n) items.push(["宝牌", n]); }
+    if (!best.ym) {
+      const dk = doraKinds(st); const n = all.filter(k => dk.indexOf(k) >= 0).length; if (n) items.push(["宝牌", n]);
+      const aka = (p.aka || []).length + (!o.zimo && winTile && winTile[1] === "5" && st.lastRed === winTile[0] ? 1 : 0);
+      if (aka) items.push(["赤宝牌", aka]);
+    }
     return { items, gate: yakuHan, fu: best.fu || 30, yakuman: best.ym || 0 };
   }
   // 日麻点数：基本点 → 满贯／跳满／倍满／三倍满／役满
@@ -441,9 +446,12 @@
     if (v.joker) for (let n = 0; n < 4; n++) wall.push(v.joker);
     if (v.flowers) FLOWERS.forEach(k => wall.push(k));
     st.wall = shuffle(wall, rnd);
-    st.players.forEach(p => { p.hand = []; p.melds = []; p.flowers = []; p.river = []; p.out = false; p.que = null; p.riichi = false; });
-    // 日麻：翻一张宝牌指示牌（从牌墙另一头拿，不进人手）
-    st.doraInd = v.scoring === "jp" ? [st.wall.shift()] : [];
+    st.players.forEach(p => { p.hand = []; p.melds = []; p.flowers = []; p.river = []; p.out = false; p.que = null; p.riichi = false; p.ippatsu = false; p.aka = []; });
+    // 日麻：翻一张宝牌指示牌（从牌墙另一头拿，不进人手）；底下压一张里宝牌指示牌，立直的人和了才翻
+    //   赤宝牌：万筒索各有一张红 5。牌是字串分不出哪张红，所以记「红的那张在谁手里」：摸到 5 时照还剩几张算它是不是红的那张
+    st.akaWall = v.scoring === "jp" ? { m: true, p: true, s: true } : {}; st.lastRed = null;
+    st.doraInd = v.scoring === "jp" ? [akaTake(st, null, st.wall.shift())] : [];
+    st.uraInd = v.scoring === "jp" ? [akaTake(st, null, st.wall.shift())] : [];
     st.result = null; st.claim = null; st.last = null; st.flags = {}; st.wins = []; st.phase = null;
     for (let r = 0; r < SETS(st) * 3 + 1; r++) for (let s = 0; s < 4; s++) drawInto(st, (st.dealer + s) % 4);
     st.turn = st.dealer; st.phase = "discard";
@@ -538,11 +546,11 @@
     while (st.wall.length) {
       const k = st.wall.pop();
       if (isFlower(k)) { p.flowers.push(k); if (st.phase) st.log.push({ kind: "flower", player: p.key, text: p.name + " 补花 " + name(k) }); continue; }
-      p.hand.push(k); st.drawn = k; st.drawnBy = i; return k;
+      p.hand.push(k); st.drawn = k; st.drawnBy = i; akaTake(st, i, k); return k;
     }
     return null;
   }
-  function fanCtx(st, i, zimo) { return { zimo, seatWind: seatWindOf(st, i), roundWind: st.roundWind, seatNo: (i - st.dealer + 4) % 4 + 1, kongDraw: zimo && st.flags.kongDraw, lastTile: !st.wall.length, dealer: i === st.dealer, riichi: !!st.players[i].riichi }; }
+  function fanCtx(st, i, zimo) { return { zimo, seatWind: seatWindOf(st, i), roundWind: st.roundWind, seatNo: (i - st.dealer + 4) % 4 + 1, kongDraw: zimo && st.flags.kongDraw, lastTile: !st.wall.length, dealer: i === st.dealer, riichi: !!st.players[i].riichi, ippatsu: !!st.players[i].ippatsu }; }
   const gateOk = (st, f) => (f.gate != null ? f.gate : f.fan) >= st.minFan && f.fan >= 0;
   // 听哪几张（日麻立直、振听要用）
   function tenpaiWaits(st, hand, melds) { const c = counts(hand); return KINDS.filter((k, j) => (V(st).honors || j < 27) && c[j] < 4 && shapeOk(st, hand.concat([k]), melds || [])); }
@@ -598,8 +606,12 @@
     const p = st.players[i];
     if (mustDiscardQue(st, i) && k[0] !== p.que) throw new Error("手里还有缺的「" + SUIT_NAME[p.que] + "」，先打那门");
     if (p.riichi && !st.riichiNow && st.drawnBy === i && k !== st.drawn) throw new Error("立直以后只能打摸到的那张");
-    st.riichiNow = false;
+    const riichiDecl = !!st.riichiNow; st.riichiNow = false;
     take(p.hand, k); p.hand = sortTiles(p.hand); p.river.push(k); st.flags = {};
+    // 红 5：手里那门的 5 打掉了最后一张，红的那张跟着出去（有好几张时先打普通的，红的留着）
+    st.lastRed = null;
+    if (p.aka && k[1] === "5" && p.aka.indexOf(k[0]) >= 0 && p.hand.indexOf(k) < 0 && !p.melds.some(m => m.tiles.indexOf(k) >= 0)) { p.aka.splice(p.aka.indexOf(k[0]), 1); st.lastRed = k[0]; }
+    if (p.ippatsu && !riichiDecl) p.ippatsu = false;   // 立直以后自己又打了一张：一发过了
     st.last = { by: i, k };
     st.log.push({ kind: "discard", player: p.key, text: p.name + " 打 " + name(k) });
     const pending = {};
@@ -622,7 +634,7 @@
     if (a.kind === "zimo") return win(st, i, null, ok.fan, true);
     if (a.kind === "riichi") {
       if (ok.ks.indexOf(a.k) < 0) throw new Error("打这张就不听了");
-      p.riichi = true; p.pts -= 1000; st.pot = (st.pot || 0) + 1000; st.riichiNow = true;
+      p.riichi = true; p.ippatsu = true; p.pts -= 1000; st.pot = (st.pot || 0) + 1000; st.riichiNow = true;
       st.log.push({ kind: "riichi", player: p.key, text: p.name + " 立直！" });
       return discard(st, i, a.k);
     }
@@ -653,6 +665,8 @@
     if (j == null) return passAll(st);
     const a = cl.decided[j], p = st.players[j], k = cl.k, from = st.players[cl.from];
     from.river.pop();
+    st.players.forEach(q => { q.ippatsu = false; });   // 有人吃碰杠，一发就断了
+    if (st.lastRed && k[1] === "5" && k[0] === st.lastRed && p.aka) { p.aka.push(st.lastRed); st.lastRed = null; }
     if (a.kind === "chow") { a.use.forEach(x => take(p.hand, x)); p.melds.push({ type: "chow", tiles: sortTiles(a.use.concat([k])), from: cl.from }); st.log.push({ kind: "chow", player: p.key, text: p.name + " 吃 " + name(k) }); }
     else if (a.kind === "pong") { take(p.hand, k); take(p.hand, k); p.melds.push({ type: "pong", tiles: [k, k, k], from: cl.from }); st.log.push({ kind: "pong", player: p.key, from: from.key, text: p.name + " 碰 " + from.name + " 的 " + name(k) }); }
     else { take(p.hand, k); take(p.hand, k); take(p.hand, k); p.melds.push({ type: "kong", tiles: [k, k, k, k], from: cl.from }); st.log.push({ kind: "kong", player: p.key, from: from.key, text: p.name + " 杠 " + from.name + " 的 " + name(k) }); kongPay(st, j, "kong", cl.from); kanDora(st); }
@@ -679,6 +693,13 @@
     const from = zimo ? null : st.claim.from;
     if (k) p.hand.push(k);
     p.hand = sortTiles(p.hand);
+    // 立直和了：翻里宝牌，手里有几张就再加几番（只有和了的人才看，所以放到这一步才算）
+    let ura = null;
+    if (v.scoring === "jp" && p.riichi && !fan.yakuman) {
+      const uk = (st.uraInd || []).map(nextKind), n = p.hand.concat(...p.melds.map(m => m.tiles)).filter(x => uk.indexOf(x) >= 0).length;
+      ura = st.uraInd.slice();
+      if (n) { const han = fan.fan + n, b = jpBase(han, fan.fu, 0); fan = Object.assign({}, fan, { items: fan.items.concat([["里宝牌", n]]), fan: han, capped: han, base: b.base, label: b.label }); }
+    }
     let moves = v.scoring ? settle(st, i, zimo, from, fan) : null;
     if (!moves) {
       moves = {};
@@ -686,7 +707,7 @@
       else { const q = st.players[from]; q.pts -= pay; p.pts += pay; moves[from] = -pay; }
     }
     const got = Object.keys(moves).reduce((n, j) => n + (j === "pot" ? moves[j] : -moves[j]), 0);
-    const w = { winner: i, zimo, from, k: k || st.drawn, fan, pay: v.scoring ? got : pay, moves };
+    const w = { winner: i, zimo, from, k: k || st.drawn, fan, pay: v.scoring ? got : pay, moves, ura };
     st.wins.push(w);
     st.log.push({ kind: "win", player: p.key, text: p.name + (zimo ? " 自摸 " : (st.variant === "canton" ? " 食糊（" : " 胡（") + (zimo ? "" : st.players[from].name + " 点炮）")) + name(k || st.drawn) + " · " + (fan.label || fan.fan + " " + (v.unit || "番")) + "：" + fan.items.map(x => x[0]).join("、") });
     if (v.blood) p.out = true;
@@ -705,7 +726,20 @@
     st.result = first ? Object.assign({}, first, { wins: st.wins.slice() }) : { winner: null, wins: [] };
     st.claim = null; st.phase = "done";
   }
-  function kanDora(st) { if (V(st).scoring === "jp" && st.wall.length > 1) { st.doraInd.push(st.wall.shift()); st.log.push({ kind: "sys", text: "杠宝牌：翻开 " + name(st.doraInd[st.doraInd.length - 1]) }); } }
+  function kanDora(st) {
+    if (V(st).scoring === "jp" && st.wall.length > 2) {
+      st.doraInd.push(akaTake(st, null, st.wall.shift())); st.uraInd.push(akaTake(st, null, st.wall.shift()));
+      st.log.push({ kind: "sys", text: "杠宝牌：翻开 " + name(st.doraInd[st.doraInd.length - 1]) });
+    }
+    st.players.forEach(p => { p.ippatsu = false; });   // 有人开杠，一发就断了
+  }
+  // 从牌墙拿走一张 5：红的那张还在墙里的话，照「墙里还剩几张这种 5」算它是不是红的那张。i＝null 是翻宝牌指示牌拿走的
+  function akaTake(st, i, k) {
+    if (V(st).scoring !== "jp" || !k || k[1] !== "5" || !st.akaWall || !st.akaWall[k[0]]) return k;
+    const n = st.wall.filter(x => x === k).length + 1;
+    if (Math.random() < 1 / n) { st.akaWall[k[0]] = false; if (i != null) st.players[i].aka.push(k[0]); }
+    return k;
+  }
   // 日麻流局：没听的一共付 3000，听牌的平分
   function notenPay(st) {
     if (V(st).scoring !== "jp") return;
