@@ -20,7 +20,7 @@
 
 打开经营整页/后台时暂停，关闭继续。跨文字版往返只在 `window.StampShopScene` 暂存纯现场快照，没有新增落盘键；返回用最新存档续上已成交离店、已保存对话。刷新直接按持久事实恢复，不重发钱或生成。镜头不存档。
 
-`view.mjs` 用现有 Three、`createRoomKit`、`createTraveler`。列车/邮局共用 `world-renderer.mjs` 设置和释放；人物离场调用公共 traveler 的实例释放，保留共享模型/衣发/表情资源缓存。切世界释放 RAF、计时器、监听、观察器、场景与 WebGL 上下文。工牌通过公共 traveler.attachChest 贴合当前衣面的真实网格，随蒙皮、体型、换衣与身体动作一起移动；窄胸口会缩到能承托全部边角的大小，不借袖子当胸口。信封跟随手部挂点；缺图用卡名纸片。
+`view.mjs` 用现有 Three、`createRoomKit`、`createTraveler`。列车/邮局共用 `world-renderer.mjs` 设置和释放；人物离场调用公共 traveler 的实例释放，保留共享模型/衣发/表情资源缓存。切世界释放 RAF、计时器、监听、观察器、场景与 WebGL 上下文。工牌通过公共 traveler.attachChest 随当前衣服的蒙皮、体型、换衣与身体动作一起移动。牌面保持平整，按覆盖区域内真实衣料三角形的最外侧留出3mm间距，领口、褶皱及网格点之间的凸起也不能穿过牌面；窄胸口会缩到合适大小。信封跟随手部挂点；缺图用卡名纸片。
 
 ## 留底、窗外、闲时与声音
 
@@ -90,7 +90,7 @@
 
 纯测：`test/stamp-shop.test.js`（真实目录、注入 writer 的经营/失败/并发）、`test/post-office-flow.test.mjs`（路径/队列/会面/闭店）、`test/post-office-world.test.mjs`（公共 writer 投影及宿主桥）。
 
-浏览器：`scripts/checks/post-office-phase2-browser.cjs` 与共用扩展 `post-office-atmosphere.cjs` 验实际写入与文字往返、直接来访对话、打烊场内演出/补存/跨天留底/免费重演、闲时走动交接、声音静音与暂停、四季雨雪窗景、32件三等级、三手机宽度及手势；`POST_OFFICE_ONLY_FIT=1` 验七套现有衣服/两档体型、坐姿工牌贴合、三级长凳和三宽近景；`POST_OFFICE_ONLY_ZOOM=1` 专测三宽工牌近景、24倍缩放/平移/复位、同卡图更新，并复验整圈旋转；`scripts/checks/post-office-browser.cjs` 保留第一期空坏档/光照/删除角色/其他世界往返与释放回归。均使用干净浏览器和构造存档，阻止真实模型、记忆与外网。WebKit 旧执行器若不能写图片 Blob，仅构造图片键使用内存替身，文字档仍用真实 writer；Chrome 检查真实图片 IDB。未测试实体 iPhone。
+浏览器：`scripts/checks/post-office-phase2-browser.cjs` 与共用扩展 `post-office-atmosphere.cjs` 验实际写入与文字往返、直接来访对话、打烊场内演出/补存/跨天留底/免费重演、闲时走动交接、声音静音与暂停、四季雨雪窗景、32件三等级、三手机宽度及手势；`POST_OFFICE_ONLY_BADGE=1` 验挥手、鞠躬与递信时的平整工牌和原档不变；`POST_OFFICE_ONLY_FIT=1` 验七套现有衣服/两档体型、坐姿工牌贴合、三级长凳和三宽近景；`POST_OFFICE_ONLY_ZOOM=1` 专测三宽工牌近景、24倍缩放/平移/复位、同卡图更新，并复验整圈旋转；`scripts/checks/post-office-browser.cjs` 保留第一期空坏档/光照/删除角色/其他世界往返与释放回归。均使用干净浏览器和构造存档，阻止真实模型、记忆与外网。WebKit 旧执行器若不能写图片 Blob，仅构造图片键使用内存替身，文字档仍用真实 writer；Chrome 检查真实图片 IDB。未测试实体 iPhone。
 
 发版前 `node scripts/build-fairy-garden.mjs` 两次确认幂等，按根版本手册走正常 ship；资源图涵盖邮局和共用 traveler/renderer，不手工改运行缓存指纹。
 

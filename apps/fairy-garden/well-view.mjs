@@ -1,5 +1,5 @@
 import * as T from 'three';
-import {MAPS,wellContext,wellTide,WELL_CURIOS} from './world.mjs?v=fg-dbb1a66fa5e524fe';
+import {MAPS,wellContext,wellTide,WELL_CURIOS} from './world.mjs?v=fg-16914e0f39f01666';
 // Low-cost silhouettes make the tide legible even with effects reduced.
 export function makeWellSigns(parent,{mouth=false}={}){
  const root=new T.Group();root.name='井潮征兆';root.userData.seasonTint=false;parent.add(root);
