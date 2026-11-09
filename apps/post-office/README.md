@@ -1,10 +1,10 @@
 # 邮局小店
 
-小世界第五个入口，所有角色共用文字版的 `x_stampShop`。不经过角色/房间建档，不新开存档键、外貌档或模型资源，不写主聊天或记忆。手势沿公共 `createMapGesture` / `createMapOrbit`：单指360°旋转与俯仰，双指平移/缩放，「全景」恢复默认角度、位置与倍率。正交平移/视锥和外墙切开复用 TA 一天的公共机制；信格墙、橱窗卡与装修标为家具，旋转不会把它们当外墙藏掉。宿主公共 Head、iframe 场景、56px 与 0.4 底安全区底栏沿列车/庭院接法。
+小世界第五个入口，所有角色共用文字版的 `x_stampShop`。不经过角色/房间建档，不新开存档键、外貌档或模型资源，不写主聊天或记忆。手势沿公共 `createMapGesture` / `createMapOrbit`：单指360°旋转与俯仰，双指平移/缩放（0.65～24倍，可近看工牌），「全景」恢复默认角度、位置与倍率。正交平移/视锥和外墙切开复用 TA 一天的公共机制；信格墙、橱窗卡与装修标为家具，旋转不会把它们当外墙藏掉。宿主公共 Head、iframe 场景、56px 与 0.4 底安全区底栏沿列车/庭院接法。
 
 ## 共用经营与模型边界
 
-`js/stamp-shop.js` 是唯一经营控制层，文字版 `StampDuelPage` 和 3D `ShopSession` 都发送操作。价格、加成、卡容量、限定月份、客人批次继续来自 `StampDuel`。排班只在开门前，换岗不顶掉别人，工牌必须是本人可用卡。橱窗/工牌共用 `StampShopFilters`、`sortedCards` 和 `StampThumbnails`。
+`js/stamp-shop.js` 是唯一经营控制层，文字版 `StampDuelPage` 和 3D `ShopSession` 都发送操作。价格、加成、卡容量、限定月份、客人批次继续来自 `StampDuel`。排班只在开门前，换岗不顶掉别人，工牌必须是本人可用卡。橱窗/工牌共用 `StampShopFilters`、`sortedCards` 和 `StampThumbnails`。两种实体卡面在 view 中共用贴图装载与近看过滤，保留卡图色彩；同一工牌卡换封面或补画卡面后会即时刷新。
 
 控制器每次读最新档，按日期、时段、对象身份及 `rev` 校验并仅修改本次字段，通过 `commitJSONDurable` 串行落盘。失败保留旧档与现场，先重试同一操作；不接着扣钱或播放成功动作。现实日期/客人推进也走同一层，3D 停留期间会同步。半夜停止接客、撤人；跨日按原规则保留排班与漏打烊条子。空坏档、已删除角色/卡安全降级。
 
@@ -90,7 +90,7 @@
 
 纯测：`test/stamp-shop.test.js`（真实目录、注入 writer 的经营/失败/并发）、`test/post-office-flow.test.mjs`（路径/队列/会面/闭店）、`test/post-office-world.test.mjs`（公共 writer 投影及宿主桥）。
 
-浏览器：`scripts/checks/post-office-phase2-browser.cjs` 与共用扩展 `post-office-atmosphere.cjs` 验实际写入与文字往返、直接来访对话、打烊场内演出/补存/跨天留底/免费重演、闲时走动交接、声音静音与暂停、四季雨雪窗景、32件三等级、三手机宽度及手势；`scripts/checks/post-office-browser.cjs` 保留第一期空坏档/光照/删除角色/其他世界往返与释放回归。均使用干净浏览器和构造存档，阻止真实模型、记忆与外网。WebKit 旧执行器若不能写图片 Blob，仅构造图片键使用内存替身，文字档仍用真实 writer；Chrome 检查真实图片 IDB。未测试实体 iPhone。
+浏览器：`scripts/checks/post-office-phase2-browser.cjs` 与共用扩展 `post-office-atmosphere.cjs` 验实际写入与文字往返、直接来访对话、打烊场内演出/补存/跨天留底/免费重演、闲时走动交接、声音静音与暂停、四季雨雪窗景、32件三等级、三手机宽度及手势；`POST_OFFICE_ONLY_ZOOM=1` 专测三宽工牌近景、24倍缩放/平移/复位、同卡图更新，并复验整圈旋转；`scripts/checks/post-office-browser.cjs` 保留第一期空坏档/光照/删除角色/其他世界往返与释放回归。均使用干净浏览器和构造存档，阻止真实模型、记忆与外网。WebKit 旧执行器若不能写图片 Blob，仅构造图片键使用内存替身，文字档仍用真实 writer；Chrome 检查真实图片 IDB。未测试实体 iPhone。
 
 发版前 `node scripts/build-fairy-garden.mjs` 两次确认幂等，按根版本手册走正常 ship；资源图涵盖邮局和共用 traveler/renderer，不手工改运行缓存指纹。
 

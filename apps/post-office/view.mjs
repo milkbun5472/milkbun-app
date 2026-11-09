@@ -1,17 +1,17 @@
-import {storyAnimation,storyHandPoint,makeStoryLetter,applyStoryPair,createStoryTools} from '../fairy-garden/story-motion.mjs?v=fg-b87d2cd90819f098';
-import {createShopExterior} from './exterior.mjs?v=fg-b87d2cd90819f098';
-import {createDayEnvironment,prepareEnvironmentSurfaces} from '../fairy-garden/day/environment-view.mjs?v=fg-b87d2cd90819f098';
-import {makeNpcCostume} from './npc-outfits.mjs?v=fg-b87d2cd90819f098';
-import {createShopFlow} from './flow.mjs?v=fg-b87d2cd90819f098';
-import {createShopDecor} from './decor-view.mjs?v=fg-b87d2cd90819f098';
+import {storyAnimation,storyHandPoint,makeStoryLetter,applyStoryPair,createStoryTools} from '../fairy-garden/story-motion.mjs?v=fg-5886d33935856535';
+import {createShopExterior} from './exterior.mjs?v=fg-5886d33935856535';
+import {createDayEnvironment,prepareEnvironmentSurfaces} from '../fairy-garden/day/environment-view.mjs?v=fg-5886d33935856535';
+import {makeNpcCostume} from './npc-outfits.mjs?v=fg-5886d33935856535';
+import {createShopFlow} from './flow.mjs?v=fg-5886d33935856535';
+import {createShopDecor} from './decor-view.mjs?v=fg-5886d33935856535';
 import * as T from 'three';
-import {createRoomKit} from '../fairy-garden/day/places/room-kit.mjs?v=fg-b87d2cd90819f098';
-import {createWorldRenderer,disposeWorldRenderer} from '../fairy-garden/world-renderer.mjs?v=fg-b87d2cd90819f098';
-import {createMapGesture,createMapOrbit,orthographicCameraPose,orthographicPanDelta} from '../fairy-garden/view-controls.mjs?v=fg-b87d2cd90819f098';
-import {splitRoomCutaway,createRoomCutaway} from '../fairy-garden/day/camera-view.mjs?v=fg-b87d2cd90819f098';
-import {createTraveler,loadTravelerSource} from '../fairy-garden/traveler.mjs?v=fg-b87d2cd90819f098';
-import {disposeMap} from '../fairy-garden/map-loader.mjs?v=fg-b87d2cd90819f098';
-import {visibleBounds} from '../fairy-garden/photo-render.mjs?v=fg-b87d2cd90819f098';
+import {createRoomKit} from '../fairy-garden/day/places/room-kit.mjs?v=fg-5886d33935856535';
+import {createWorldRenderer,disposeWorldRenderer} from '../fairy-garden/world-renderer.mjs?v=fg-5886d33935856535';
+import {createMapGesture,createMapOrbit,orthographicCameraPose,orthographicPanDelta} from '../fairy-garden/view-controls.mjs?v=fg-5886d33935856535';
+import {splitRoomCutaway,createRoomCutaway} from '../fairy-garden/day/camera-view.mjs?v=fg-5886d33935856535';
+import {createTraveler,loadTravelerSource} from '../fairy-garden/traveler.mjs?v=fg-5886d33935856535';
+import {disposeMap} from '../fairy-garden/map-loader.mjs?v=fg-5886d33935856535';
+import {visibleBounds} from '../fairy-garden/photo-render.mjs?v=fg-5886d33935856535';
 export function createPostOfficeView(stage,{name,counter,thumbnail,select,monthly,onMeetEnd,onEvent}={}){
  const renderer=createWorldRenderer(stage),scene=new T.Scene(),camera=new T.OrthographicCamera(-6,6,7,-7,.1,100),kit=createRoomKit();
  const {root,box,cylinder,sphere,ellipsoid,tube,group,sign,table,chair,bench,plant}=kit;
@@ -82,7 +82,7 @@ export function createPostOfficeView(stage,{name,counter,thumbnail,select,monthl
  function resize(){if(closed)return;renderer.setSize(stage.clientWidth,stage.clientHeight);render();}
  const observer=new ResizeObserver(resize);observer.observe(stage);
  const listen=(target,name,fn,opts)=>{target.addEventListener(name,fn,opts);observers.push(()=>target.removeEventListener(name,fn,opts));};
- const gesture=createMapGesture({min:.65,max:2,initial:1,onZoom:v=>{zoom=v;render();},onRotate:(dx,dy)=>{orbit.rotate(dx,dy);render();},onPan:(dx,dy)=>{const a=new T.Raycaster(),b=new T.Raycaster();a.setFromCamera(new T.Vector2(0,0),camera);b.setFromCamera(new T.Vector2(dx/stage.clientWidth*2,-dy/stage.clientHeight*2),camera);const q=orthographicPanDelta(a.ray.origin,b.ray.origin,a.ray.direction);if(q){pan.x=T.MathUtils.clamp(pan.x+q.x,-4,4);pan.z=T.MathUtils.clamp(pan.z+q.z,-3,4);render();}},onTap:(x,y)=>{
+ const gesture=createMapGesture({min:.65,max:24,initial:1,onZoom:v=>{zoom=v;render();},onRotate:(dx,dy)=>{orbit.rotate(dx,dy);render();},onPan:(dx,dy)=>{const a=new T.Raycaster(),b=new T.Raycaster();a.setFromCamera(new T.Vector2(0,0),camera);b.setFromCamera(new T.Vector2(dx/stage.clientWidth*2,-dy/stage.clientHeight*2),camera);const q=orthographicPanDelta(a.ray.origin,b.ray.origin,a.ray.direction);if(q){pan.x=T.MathUtils.clamp(pan.x+q.x,-4,4);pan.z=T.MathUtils.clamp(pan.z+q.z,-3,4);render();}},onTap:(x,y)=>{
   if(paused||flow.closing)return;const rect=renderer.domElement.getBoundingClientRect(),ray=new T.Raycaster();ray.setFromCamera(new T.Vector2((x-rect.left)/rect.width*2-1,-(y-rect.top)/rect.height*2+1),camera);
   for(const a of people.values()){const u=flow.units.get(a.key);if(!u||u.phase==='waiting-entry'||u.phase==='leaving')continue;const point=a.avatar.root.position.clone().add(new T.Vector3(0,u.seated?1.0:1.4,0)).project(camera),dx=(point.x+1)*rect.width/2-(x-rect.left),dy=(1-point.y)*rect.height/2-(y-rect.top);if(Math.hypot(dx,dy)<23){select?.(u.kind==='staff'?{type:'staff',post:u.post}:{type:'guest',id:u.id});return;}}
   const item=decoration.hit(ray);if(item){select?.({type:'decor',name:item});return;}
@@ -103,7 +103,7 @@ export function createPostOfficeView(stage,{name,counter,thumbnail,select,monthl
   const ck=JSON.stringify(next.cards);if(ck!==cardKey){cardKey=ck;disposeMap(cardRoot);cardRoot.clear();
    next.cards.forEach((card,i)=>{const x=-3.1+i*.79,frame=box('CardFrame:'+card.id,{x,y:2.25,z:-2.87,w:.68,h:.92,d:.055,color:'#dec99d'},cardRoot);
     const face=sign('Card:'+card.id,{text:card.name,x,y:2.25,z:-2.83,w:.59,h:.81,color:'#f4e8cf',ink:'#756146'},cardRoot);face.userData.cardId=card.id;
-    if(card.image)Promise.resolve(thumbnail?.(card.image)).then(url=>{if(!url||closed||!face.parent)return;const tex=new T.TextureLoader().load(url,()=>{if(closed||!face.parent){tex.dispose();return;}tex.colorSpace=T.SRGBColorSpace;face.material.map?.dispose();face.material.map=tex;face.material.color.set('#ffffff');face.material.needsUpdate=true;render();},undefined,()=>tex.dispose());}).catch(()=>{});
+    if(card.image)loadCardImage(face,card.image,()=>!closed&&!!face.parent);
    });
   }
   if(!flow.closing)flow.reconcile(next);
@@ -120,9 +120,19 @@ export function createPostOfficeView(stage,{name,counter,thumbnail,select,monthl
   }
   await Promise.all(ready);
  }
- function syncBadge(a,u){const card=u.badge,key=card?.id||'';if(a.badgeKey===key&&a.badgeLook===a.lookKey)return;a.badgeKey=key;a.badgeLook=a.lookKey;if(a.badge){disposeMap(a.badge);a.badge.removeFromParent();a.badge=null;}if(!key)return;
+ // Window cards and worn badges use the same cached thumbnail and close-up filtering.
+ function loadCardImage(mesh,ref,current){
+  if(!ref)return;Promise.resolve(thumbnail?.(ref)).then(url=>{if(!url||!current())return;
+   const texture=new T.TextureLoader().load(url,()=>{if(!current()){texture.dispose();return;}texture.colorSpace=T.SRGBColorSpace;texture.anisotropy=Math.min(8,renderer.capabilities.getMaxAnisotropy());mesh.material.map?.dispose();mesh.material.map=texture;mesh.material.color.set('#ffffff');mesh.material.toneMapped=false;mesh.material.needsUpdate=true;render();},undefined,()=>texture.dispose());
+  }).catch(()=>{});
+ }
+ function badgeSnapshot(a){
+  const mesh=a.badge;if(!mesh)return null;mesh.updateWorldMatrix(true,false);const {width,height}=mesh.geometry.parameters,world=mesh.getWorldPosition(new T.Vector3()),points=[[-1,-1],[1,-1],[1,1],[-1,1]].map(([x,y])=>new T.Vector3(x*width/2,y*height/2,0).applyMatrix4(mesh.matrixWorld).project(camera));
+  return {image:!!mesh.material.map&&!mesh.material.map.isCanvasTexture,pixels:[mesh.material.map?.image?.width||0,mesh.material.map?.image?.height||0],world:world.toArray(),bounds:{left:(Math.min(...points.map(p=>p.x))+1)*stage.clientWidth/2,right:(Math.max(...points.map(p=>p.x))+1)*stage.clientWidth/2,top:(1-Math.max(...points.map(p=>p.y)))*stage.clientHeight/2,bottom:(1-Math.min(...points.map(p=>p.y)))*stage.clientHeight/2}};
+ }
+ function syncBadge(a,u){const card=u.badge,key=card?.id||'',artKey=JSON.stringify([key,card?.cover||card?.face||'',card?.text?.name||'']);if(a.badgeArtKey===artKey&&a.badgeLook===a.lookKey)return;a.badgeKey=key;a.badgeArtKey=artKey;a.badgeLook=a.lookKey;if(a.badge){disposeMap(a.badge);a.badge.removeFromParent();a.badge=null;}if(!key)return;
   const body=a.avatar.root.getObjectByName('body');if(!body)return;const cv=document.createElement('canvas');cv.width=128;cv.height=160;const ctx=cv.getContext('2d');ctx.fillStyle='#ead9b2';ctx.fillRect(0,0,128,160);ctx.fillStyle='#80694b';ctx.font='42px system-ui';ctx.textAlign='center';ctx.fillText(String(card.text?.name||'邮').slice(0,2),64,95,115);const fallback=new T.CanvasTexture(cv);fallback.colorSpace=T.SRGBColorSpace;const mesh=new T.Mesh(new T.PlaneGeometry(.13,.17),new T.MeshBasicMaterial({map:fallback,side:T.DoubleSide}));mesh.name='StaffBadge:'+key;mesh.position.set(.105,(a.avatar.root.getObjectByName('neck')?.position.y||.435)*.78,.20+Math.max(0,(Number(u.look?.dims?.build)||1)-1)*.12);body.add(mesh);a.badge=mesh;
-  Promise.resolve(thumbnail?.(card.cover||card.face)).then(url=>{if(!url||closed||a.badge!==mesh)return;const texture=new T.TextureLoader().load(url,()=>{if(closed||a.badge!==mesh){texture.dispose();return;}texture.colorSpace=T.SRGBColorSpace;mesh.material.map?.dispose();mesh.material.map=texture;mesh.material.color.set('#ffffff');mesh.material.needsUpdate=true;});}).catch(()=>{});
+  loadCardImage(mesh,card.cover||card.face,()=>!closed&&people.get(a.key)===a&&a.badge===mesh);
  }
  function tick(time,forced=null){if(closed||paused)return;const dt=forced==null?Math.min(.1,Math.max(0,time-(lastTime??time))):forced;lastTime=time;animationTime+=dt;flow.step(dt);
   for(const [key,a]of people){const u=flow.units.get(key);if(!u){a.label.remove();a.bubble.remove();a.avatar.dispose();people.delete(key);continue;}
@@ -157,6 +167,6 @@ export function createPostOfficeView(stage,{name,counter,thumbnail,select,monthl
  async function startClosing(story=projection?.closing){if(closePromise)return closePromise;closePromise=new Promise(resolve=>{closeResolve=resolve;});flow=createShopFlow({onEvent});flow.reconcile({...projection,ambient:false,closed:false,phase:'open',staff:Array.isArray(story?.staff)?story.staff:projection?.staff||[],customers:[]});flow.startClosing(story||{});await ensureActors();return closePromise;}
  function dispose(){if(closed)return;closed=true;generation++;observer.disconnect();for(const off of observers)off();for(const a of people.values()){a.label.remove();a.bubble.remove();}people.clear();narrator.remove();controls.remove();weatherLabel.remove();cutaway.restore();environment.close();closeResolve?.(false);closeResolve=null;disposeWorldRenderer(renderer,scene);}
  resize();
- return {scene,camera,renderer,sync,tick,render,dispose,startClosing,finishClosing:async next=>{flow.finishClosing();flow=liveFlow;closePromise=null;if(next?.closed)liveFlow.units.clear();if(next)projection=next;if(projection)await sync(projection);},resume:flow.resume,playMeet:flow.playMeet,pause:value=>{paused=!!value;lastTime=null;if(paused)gesture.cancel();},resetView:()=>{pan={x:0,z:.35};orbit.restore(homeOrbit);gesture.setZoom(1);},snapshot:()=>({lastTap,projection,storyTools:storyTools.inspect(),pairContact:pairReport,heldItems:[...heldLetters.values()].map(l=>({id:l.userData.itemId,uuid:l.uuid,owner:l.userData.owner,position:l.position.toArray()})),cameraView:{orbit:orbit.snapshot(),pan:{...pan},zoom,cutaway:cutaway.snapshot()},rendering:{calls:renderer.info.render.calls,triangles:renderer.info.render.triangles},exterior:exterior.snapshot(),weather:weatherSnapshot(),performance:flow.performance,flow:flow.snapshot(),people:[...people.values()].filter(a=>flow.units.has(a.key)).map(a=>{const u=flow.units.get(a.key);return {id:u.id,post:u.post,kind:u.kind,heading:u.heading,look:u.look,x:a.avatar.root.position.x,z:a.avatar.root.position.z,posture:a.avatar.root.userData.posture,phase:u.phase,action:u.taskAction||'',badge:a.badgeKey,letter:!!a.letter?.visible,storyMotion:u.storyMotion||null,storySkeleton:u.storyMotion||u.partnerMotion?{right:storyHandPoint(a.avatar).toArray(),left:storyHandPoint(a.avatar,'left').toArray(),rightShoulder:a.avatar.root.getObjectByName('rightArm')?.getWorldPosition(new T.Vector3()).toArray(),leftShoulder:a.avatar.root.getObjectByName('leftArm')?.getWorldPosition(new T.Vector3()).toArray(),bodyTilt:a.avatar.root.getObjectByName('TravelerVisual')?.rotation.x}:null,emotion:a.avatar.root.userData.emotion,dailyAction:a.avatar.root.userData.dailyAction,costume:a.avatar.root.getObjectByName('TravelerVisual')?.userData.outfit};}),decor:[...decoration.entries].filter(([,n])=>n.node.visible).map(([name])=>name),cards:cardRoot.children.filter(c=>c.userData.cardId).map(c=>({id:c.userData.cardId,image:!!c.material.map&&!c.material.map.isCanvasTexture})),lighting:{ambient:hemi.intensity,sun:sun.intensity,lamp:lights.reduce((sum,l)=>sum+l.intensity,0)},closedSign:closedSign.visible,disposed:closed}),projectCounter:()=>projectPoint(-1.45,.91,1.15),project:projectPoint};
+ return {scene,camera,renderer,sync,tick,render,dispose,startClosing,finishClosing:async next=>{flow.finishClosing();flow=liveFlow;closePromise=null;if(next?.closed)liveFlow.units.clear();if(next)projection=next;if(projection)await sync(projection);},resume:flow.resume,playMeet:flow.playMeet,pause:value=>{paused=!!value;lastTime=null;if(paused)gesture.cancel();},resetView:()=>{pan={x:0,z:.35};orbit.restore(homeOrbit);gesture.setZoom(1);},snapshot:()=>({lastTap,projection,storyTools:storyTools.inspect(),pairContact:pairReport,heldItems:[...heldLetters.values()].map(l=>({id:l.userData.itemId,uuid:l.uuid,owner:l.userData.owner,position:l.position.toArray()})),cameraView:{orbit:orbit.snapshot(),pan:{...pan},zoom,cutaway:cutaway.snapshot()},rendering:{calls:renderer.info.render.calls,triangles:renderer.info.render.triangles},exterior:exterior.snapshot(),weather:weatherSnapshot(),performance:flow.performance,flow:flow.snapshot(),people:[...people.values()].filter(a=>flow.units.has(a.key)).map(a=>{const u=flow.units.get(a.key);return {id:u.id,post:u.post,kind:u.kind,heading:u.heading,look:u.look,x:a.avatar.root.position.x,z:a.avatar.root.position.z,posture:a.avatar.root.userData.posture,phase:u.phase,action:u.taskAction||'',badge:a.badgeKey,badgeView:badgeSnapshot(a),letter:!!a.letter?.visible,storyMotion:u.storyMotion||null,storySkeleton:u.storyMotion||u.partnerMotion?{right:storyHandPoint(a.avatar).toArray(),left:storyHandPoint(a.avatar,'left').toArray(),rightShoulder:a.avatar.root.getObjectByName('rightArm')?.getWorldPosition(new T.Vector3()).toArray(),leftShoulder:a.avatar.root.getObjectByName('leftArm')?.getWorldPosition(new T.Vector3()).toArray(),bodyTilt:a.avatar.root.getObjectByName('TravelerVisual')?.rotation.x}:null,emotion:a.avatar.root.userData.emotion,dailyAction:a.avatar.root.userData.dailyAction,costume:a.avatar.root.getObjectByName('TravelerVisual')?.userData.outfit};}),decor:[...decoration.entries].filter(([,n])=>n.node.visible).map(([name])=>name),cards:cardRoot.children.filter(c=>c.userData.cardId).map(c=>({id:c.userData.cardId,image:!!c.material.map&&!c.material.map.isCanvasTexture})),lighting:{ambient:hemi.intensity,sun:sun.intensity,lamp:lights.reduce((sum,l)=>sum+l.intensity,0)},closedSign:closedSign.visible,disposed:closed}),projectCounter:()=>projectPoint(-1.45,.91,1.15),project:projectPoint};
  function projectPoint(x,y,z){const q=new T.Vector3(x,y,z).project(camera);return {x:(q.x+1)*stage.clientWidth/2,y:(1-q.y)*stage.clientHeight/2};}
 }
