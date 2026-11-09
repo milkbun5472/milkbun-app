@@ -1,14 +1,15 @@
-import {realTime} from '../fairy-garden/real-clock.mjs?v=fg-63bd647e3b144271';
-import {calendarEnvironment} from '../pets/environment.mjs?v=fg-63bd647e3b144271';
-import {npcLook} from './npc-appearance.mjs?v=fg-63bd647e3b144271';
-import {seatLook} from '../fairy-garden/wardrobe.mjs?v=fg-63bd647e3b144271';
+import {windowSeat,SHOP_CHAIR,SHOP_FLOOR} from './furniture.mjs?v=fg-dbb1a66fa5e524fe';
+import {realTime} from '../fairy-garden/real-clock.mjs?v=fg-dbb1a66fa5e524fe';
+import {calendarEnvironment} from '../pets/environment.mjs?v=fg-dbb1a66fa5e524fe';
+import {npcLook} from './npc-appearance.mjs?v=fg-dbb1a66fa5e524fe';
+import {seatLook} from '../fairy-garden/wardrobe.mjs?v=fg-dbb1a66fa5e524fe';
 export {npcLook};
 // Read-only projection. The writer and its clock remain StampDuel's text shop.
 export const POSTS=Object.freeze({
   柜台:{x:-1.45,z:.1,yaw:0,gesture:'rest'},
   分拣:{x:-2.25,z:-1.65,yaw:Math.PI,gesture:'rest'},
   送信:{x:3.25,z:3.55,yaw:-.35,gesture:'rest'},
-  看店:{x:3,z:-.6,yaw:0,gesture:'sit',seatHeight:.53}
+  看店:{x:SHOP_CHAIR.x,z:SHOP_CHAIR.z,yaw:0,gesture:'sit',seatHeight:SHOP_FLOOR+SHOP_CHAIR.seat,seat:windowSeat()}
 });
 export const DECOR_BUILDERS=Object.freeze({'旧木招牌':'sign','一盆绿萝':'plant','暖黄的吊灯':'lamp','靠窗的长凳':'bench','铜铃门帘':'bells','整面墙的信格':'cubbies','会走的老座钟':'clock','二楼的小阁楼':'loft'});
 const record=x=>x&&typeof x==='object'&&!Array.isArray(x)?x:{};

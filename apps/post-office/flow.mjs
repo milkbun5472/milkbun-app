@@ -1,13 +1,15 @@
-import {STORY_ACTIONS,normalizeStoryAction} from '../fairy-garden/story-actions.mjs?v=fg-63bd647e3b144271';
-import {createStoryPlayback} from './playback.mjs?v=fg-63bd647e3b144271';
-import {createNavigator,segmentIntersectsRect} from '../fairy-garden/navigation.mjs?v=fg-63bd647e3b144271';
-import {stepRoute} from '../fairy-garden/locomotion.mjs?v=fg-63bd647e3b144271';
+import {visitorSeat,windowSeat,SHOP_CHAIR,SHOP_BENCH} from './furniture.mjs?v=fg-dbb1a66fa5e524fe';
+import {STORY_ACTIONS,normalizeStoryAction} from '../fairy-garden/story-actions.mjs?v=fg-dbb1a66fa5e524fe';
+import {createStoryPlayback} from './playback.mjs?v=fg-dbb1a66fa5e524fe';
+import {createNavigator,segmentIntersectsRect} from '../fairy-garden/navigation.mjs?v=fg-dbb1a66fa5e524fe';
+import {stepRoute} from '../fairy-garden/locomotion.mjs?v=fg-dbb1a66fa5e524fe';
 export const ENTRY={x:3.32,z:4.7};
-export const SHOP_FURNITURE=[{id:'Counter',x:-1.45,z:1.15,w:3.93,d:1.04},{id:'SortTable',x:-2.25,z:-2.5,w:2.8,d:.85},{id:'WindowStool',x:3,z:-.6,w:.58,d:.6},{id:'DisplayShelves',x:-4.2,z:0,w:.45,d:6},{id:'Mailbags',x:4.05,z:2.45,w:.85,d:.55}];
+export const SHOP_FURNITURE=[{id:'Counter',x:-1.45,z:1.15,w:3.93,d:1.04},{id:'SortTable',x:-2.25,z:-2.5,w:2.8,d:.85},SHOP_CHAIR,{id:'DisplayShelves',x:-4.2,z:0,w:.45,d:6},{id:'Mailbags',x:4.05,z:2.45,w:.85,d:.55}];
 export const queuePoint=i=>({x:-1.45+(Math.floor(i/3)%6)*.84,z:2.2+(Math.floor(i/18)%2?2-i%3:i%3)*.85});
-export const visitorPoint=i=>({x:2.7+(i%2? .48:-.48),z:-1.7,seatX:2.7+(i%2?.48:-.48),seatZ:-2.6});
+export const visitorPoint=visitorSeat;
+export const unitSeat=u=>u.seated?(u.performanceSeat||u.seat||(u.kind==='staff'&&u.seatHeight?windowSeat():null)):null;
 export function shopNavigation(hasBench=true){
- const obstacles=SHOP_FURNITURE.concat(hasBench?[{id:'Bench',x:2.7,z:-2.6,w:2.25,d:.65}]:[]);
+ const obstacles=SHOP_FURNITURE.concat(hasBench?[SHOP_BENCH]:[]);
  const walkable=(x,z)=>x>=-4.25&&x<=4.45&&z>=-3.12&&z<=5.1&&!obstacles.some(o=>Math.abs(x-o.x)<o.w/2+.24&&Math.abs(z-o.z)<o.d/2+.24);
  const clear=(a,b,_m,avoid=[])=>walkable(b.x,b.z)&&!obstacles.some(o=>segmentIntersectsRect(a,b,o,.24))&&avoid.every(o=>{const dx=b.x-a.x,dz=b.z-a.z,t=Math.max(0,Math.min(1,((o.x-a.x)*dx+(o.z-a.z)*dz)/(dx*dx+dz*dz||1)));const nearest=Math.hypot(a.x+dx*t-o.x,a.z+dz*t-o.z),start=Math.hypot(a.x-o.x,a.z-o.z),end=Math.hypot(b.x-o.x,b.z-o.z);return nearest>=o.r||(start<o.r&&end>start+1e-6&&nearest>=start-1e-6);});
  const find=createNavigator({shop:{radius:6,walkRegions:[{polygon:[{x:-4.25,z:-3.12},{x:4.45,z:5.1}]}]}},walkable,clear,walkable,{step:.18});
@@ -36,7 +38,7 @@ export function createShopFlow({onMeetEnd=()=>{},onEvent=()=>{}}={}){
   }
   const customers=next.closed||next.phase!=='open'?[]:next.customers;
   for(const source of customers){const k=key(source);if(source.done){const u=units.get(k);if(u&&u.phase!=='leaving'){if(source.got>0&&!source.miss){onEvent({kind:'stamp',id:source.key});const clerk=staff().find(a=>a.post==='柜台');if(clerk){clerk.serviceUntil=clock+1.1;if(clerk.phase.startsWith('idle'))returnHome(clerk);}}depart(u,source.got>0&&!source.miss);}continue;}
-   wanted.add(k);let u=units.get(k);const seat=source.visitor&&next.decor.some(d=>d.builder==='bench')&&vi<2?visitorPoint(vi++):null,target=seat||queuePoint(qi++);
+   wanted.add(k);let u=units.get(k);const seat=source.visitor&&next.decor.some(d=>d.builder==='bench')&&vi<2?visitorPoint(vi++,next.decor.find(d=>d.builder==='bench')?.level):null,target=seat||queuePoint(qi++);
    if(!u){u={...source,key:k,position:{...ENTRY},phase:'waiting-entry',path:[],heading:Math.PI,spawnAt:clock+spawn*.8,goal:target};spawn++;units.set(k,u);}else Object.assign(u,source,{key:k});u.seat=seat;u.target={x:target.x,z:target.z};
    if(u.phase!=='waiting-entry'&&u.phase!=='leaving'&&!meetingMember(u)&&!u.performing&&!u.partnerMotion&&!u.seated&&Math.hypot((u.goal?.x||0)-target.x,(u.goal?.z||0)-target.z)>.1)go(u,target);
   }
@@ -44,7 +46,7 @@ export function createShopFlow({onMeetEnd=()=>{},onEvent=()=>{}}={}){
   if(!meeting&&!closing){const c=customers.find(c=>c.visitor&&c.meet?.length&&c.meetCast?.staffId&&!c.meetSeen&&!seen.has(c.key));if(c)playMeet(c.id);}
   spawn=0;
  }
- const visiblePosition=u=>u.seated?(u.performanceSeat||u.seat)?{x:(u.performanceSeat||u.seat).seatX,z:(u.performanceSeat||u.seat).seatZ}:u.kind==='staff'&&u.seatHeight?{x:u.x,z:u.z}:u.position:u.position;
+ const visiblePosition=u=>{const seat=unitSeat(u);return seat?{x:seat.seatX,z:seat.seatZ}:u.position;};
  function nearby(u,target,distance=.68,seatExit=null){target={...target,position:visiblePosition(target)};const offsets=[0,.18,.36].flatMap(extra=>{const d=distance+extra,q=d*Math.SQRT1_2;return [[d,0],[-d,0],[0,d],[0,-d],[q,q],[-q,q],[q,-q],[-q,-q]];});return offsets.map(([x,z])=>({x:target.position.x+x,z:target.position.z+z})).find(p=>nav.walkable(p.x,p.z)&&(!seatExit||Math.hypot(p.x-seatExit.x,p.z-seatExit.z)>.65)&&nav.find(u.position,p)?.length)||u.position;}
  function presentTarget(actor,id){const target=actorById(id);return target&&target!==actor&&!['leaving','waiting-entry'].includes(target.phase)?target:null;}
  function meetingPartner(actor){if(meeting?.phase!=='talk'||!meetingMember(actor))return null;return units.get(actor.key===meeting.staff?meeting.visitor:meeting.staff)||null;}
@@ -57,8 +59,8 @@ export function createShopFlow({onMeetEnd=()=>{},onEvent=()=>{}}={}){
   if(!sceneBeat)return;const a=units.get(sceneBeat.actor),b=units.get(sceneBeat.target);if(a){a.storyMotion=null;a.performing=false;a.taskAction=null;if(a.phase!=='leaving'&&['pat','hand','lamp','sweep'].includes(sceneBeat.action)&&Math.hypot(a.position.x-sceneBeat.start.x,a.position.z-sceneBeat.start.z)>.15)go(a,meetingMember(a)?sceneBeat.start:a.home||a.target||sceneBeat.start);if(sceneBeat.priorSeat&&Math.hypot(a.position.x-sceneBeat.start.x,a.position.z-sceneBeat.start.z)<.15)a.seated=true;}if(b)b.partnerMotion=null;sceneBeat=null;
  }
  function freeSeat(actor){
-  const seats=[...(data?.decor.some(d=>d.builder==='bench')?[0,1].map(visitorPoint).map(p=>({...p,height:.53,heading:0})):[]),{x:3,z:.15,seatX:3,seatZ:-.6,height:.45,heading:0}];
-  return seats.filter(p=>![...units.values()].some(u=>u!==actor&&u.phase!=='leaving'&&((u.seated&&Math.hypot(visiblePosition(u).x-p.seatX,visiblePosition(u).z-p.seatZ)<.65)||(u.performanceSeat&&Math.hypot(u.performanceSeat.seatX-p.seatX,u.performanceSeat.seatZ-p.seatZ)<.65)||(u.post==='看店'&&u.seated&&p.height===.45)))).sort((a,b)=>Math.hypot(actor.position.x-a.x,actor.position.z-a.z)-Math.hypot(actor.position.x-b.x,actor.position.z-b.z))[0]||null;
+  const seats=[...(data?.decor.some(d=>d.builder==='bench')?[0,1].map(i=>visitorPoint(i,data.decor.find(d=>d.builder==='bench')?.level)):[]),windowSeat()];
+  return seats.filter(p=>![...units.values()].some(u=>u!==actor&&u.phase!=='leaving'&&((u.seated&&Math.hypot(visiblePosition(u).x-p.seatX,visiblePosition(u).z-p.seatZ)<.65)||(u.performanceSeat&&Math.hypot(u.performanceSeat.seatX-p.seatX,u.performanceSeat.seatZ-p.seatZ)<.65)||(u.post==='看店'&&u.seated&&p.piece==='WindowStool')))).sort((a,b)=>Math.hypot(actor.position.x-a.x,actor.position.z-a.z)-Math.hypot(actor.position.x-b.x,actor.position.z-b.z))[0]||null;
  }
  function showBeat(beat){
   finishBeat();clearSpeech();const actor=actorById(beat.actorId||beat.speakerId),target=presentTarget(actor,beat.targetId);if(!actor)return;
@@ -70,7 +72,7 @@ export function createShopFlow({onMeetEnd=()=>{},onEvent=()=>{}}={}){
   actor.taskAction=action;actor.phase=closing?'performing':actor.phase;
   if(action==='tidy')go(actor,actor.home||actor.position);
   else if(action==='look')go(actor,{x:.15,z:-2.05});
-  else if(action==='rest'){seat=data?.decor.some(d=>d.builder==='bench')?visitorPoint(0):null;actor.performanceSeat=seat?{...seat,height:.53,heading:0}:null;go(actor,seat||{x:2.3,z:-1.2});}
+  else if(action==='rest'){seat=data?.decor.some(d=>d.builder==='bench')?visitorPoint(0,data.decor.find(d=>d.builder==='bench')?.level):null;actor.performanceSeat=seat;go(actor,seat||{x:2.3,z:-1.2});}
   else if(action==='sit'){actor.performanceSeat=seat;go(actor,seat);}
   else if(['help','pat','hand'].includes(action)&&target&&target!==actor){go(actor,nearby(actor,target,action==='pat'?.60:action==='hand'?.56:.68));if(action==='pat'||action==='hand')target.partnerMotion={action,actor:actor.key,progress:0};}
   else if(action==='sweep'&&!nav.walkable(actor.position.x+Math.sin(actor.heading||0)*.5,actor.position.z+Math.cos(actor.heading||0)*.5))go(actor,{x:1.08,z:1.98});
@@ -98,7 +100,7 @@ export function createShopFlow({onMeetEnd=()=>{},onEvent=()=>{}}={}){
    if(actor)facePair(actor,target||meetingPartner(actor));
    else if(meeting?.phase==='talk')facePair(units.get(meeting.staff),units.get(meeting.visitor));
   }
-  if(actor?.arrived&&['rest','sit'].includes(sceneBeat?.action)&&actor.performanceSeat){actor.seated=true;actor.seat=actor.performanceSeat;actor.heading=actor.performanceSeat.heading||0;}
+  if(actor?.arrived&&['rest','sit'].includes(sceneBeat?.action)&&actor.performanceSeat){actor.seated=true;actor.heading=actor.performanceSeat.heading||0;}
  }
  function playMeet(id){
   const c=data?.customers.find(c=>c.id===id),a=c&&staffById(c.meetCast?.staffId),b=c&&units.get('guest:'+c.key);if(!a||!b||b.phase==='leaving'||closing||meeting)return false;
