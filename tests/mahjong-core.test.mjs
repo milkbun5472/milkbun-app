@@ -99,6 +99,13 @@ for (const variant of ["sichuan", "hongzhong"]) {
 {
   // 四川定缺：她那家等她定；手里有缺的那门只能先打那门
   const st = M.newGame([{ key: "user", name: "我", isUser: true }, { key: "a", name: "a" }, { key: "b", name: "b" }, { key: "c", name: "c" }], { variant: "sichuan" });
+  // 换三张：先挑同一门的三张；挑了不同门的不行
+  assert.equal(st.phase, "swap");
+  const su = ["m", "p", "s"].find(x => st.players[0].hand.filter(k => k[0] === x).length >= 3);
+  const three = st.players[0].hand.filter(k => k[0] === su).slice(0, 3);
+  assert.throws(() => M.setSwap(st, 0, ["m1", "p1", "s1"].filter(() => true)), /同一门|没有/);
+  M.setSwap(st, 0, three);
+  assert.equal(st.swapGot[M.swapTarget(st, 0)].join(), three.join());
   assert.equal(st.phase, "que");
   assert.ok(st.players.slice(1).every(p => p.que));
   M.setQue(st, 0, "m");
@@ -112,4 +119,8 @@ assert.ok(M.sevenPairs(M.counts(["m1", "m1", "m2", "m2", "p3", "p3", "p4", "p4",
 assert.match(list, /key: "mahjong", emoji: "🀄", zh: "麻将", en: "Mahjong", min: 4, max: 4/);
 assert.match(games, /"data-wk": "gamemjvariant"/);
 assert.match(games, /variant: cfg\.mjVariant \|\| "canton"/);
+// 刮风下雨、查叫查花猪都是一家付一家收：上面那几十局四川分数守恒已经把它们算进去了；这里再钉住接线
+const coreSrc = readFileSync(new URL("../js/mahjong-core.js", import.meta.url), "utf8");
+assert.match(coreSrc, /kongPay\(st, i, "ckong"\)/); assert.match(coreSrc, /kongPay\(st, i, "akong"\)/); assert.match(coreSrc, /kongPay\(st, j, "kong", cl\.from\)/);
+assert.match(coreSrc, /settleExhaust\(st\);/);
 console.log("variants ok");

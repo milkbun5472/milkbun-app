@@ -732,7 +732,7 @@
     const [npcWant, setNpcWant] = useState(-1);      // 用户想要的 NPC 数；-1 = 跟随「补到最低」
     const [injectChat, setInjectChat] = useState(false);
     const [ccSeat, setCcSeat] = useState(true);      // UNO：工程师之眼角色是否由 CC 本人亲打
-    const [mjVariant, setMjVariant] = useState("canton"), [mjMinFan, setMjMinFan] = useState(0), [mjHands, setMjHands] = useState(4), [mjAutoDraw, setMjAutoDraw] = useState(false);   // 广东麻将：几番起糊、打几盘
+    const [mjVariant, setMjVariant] = useState("canton"), [mjSwap, setMjSwap] = useState(true), [mjMinFan, setMjMinFan] = useState(0), [mjHands, setMjHands] = useState(4), [mjAutoDraw, setMjAutoDraw] = useState(false);   // 广东麻将：几番起糊、打几盘
     const [unoRule, setUnoRule] = useState("official"); // official 官方不叠；stack 常见桌规 +2 叠加
     const [dateTheme, setDateTheme] = useState("plain"); // 各怀心思的约会：这一局是哪种约会（她 2026-10-14）
     const [gmkCasual, setGmkCasual] = useState({});
@@ -755,7 +755,7 @@
       const c = lastCfg; if (!c) return;
       const ok = (c.charIds || []).filter(function (id) { return chars.some(function (x) { return x.id === id; }); });
       setMode(c.mode || "normal"); setPicked(ok); setNpcFill(c.npcFill !== false); setNpcWant(typeof c.npcCount === "number" ? c.npcCount : -1);
-      setInjectChat(!!c.injectChat); setCcSeat(c.ccSeat !== false); if (c.unoRule) setUnoRule(c.unoRule); if (c.mjVariant) setMjVariant(c.mjVariant); if (c.mjMinFan != null) setMjMinFan(c.mjMinFan); if (c.mjHands) setMjHands(c.mjHands); setMjAutoDraw(!!c.mjAutoDraw); if (c.dateTheme) setDateTheme(c.dateTheme); if (c.gmkCasual) setGmkCasual(Object.assign({}, c.gmkCasual)); if (c.gmkBrain) setGmkBrain(c.gmkBrain); if (c.cardBrain) setCardBrain(c.cardBrain); if (c.bjDealer) setBjDealer(c.bjDealer); setPkTruth(!!c.pkTruth); if (c.drawBrain) setDrawBrain(c.drawBrain); if (c.q25Host) setQ25Host(c.q25Host); if (c.tetrisMode) setTetrisMode(c.tetrisMode); if (c.botSkill || c.tetrisSkill) setTetrisSkill(c.botSkill || c.tetrisSkill);
+      setInjectChat(!!c.injectChat); setCcSeat(c.ccSeat !== false); if (c.unoRule) setUnoRule(c.unoRule); if (c.mjVariant) setMjVariant(c.mjVariant); setMjSwap(c.mjSwap !== false); if (c.mjMinFan != null) setMjMinFan(c.mjMinFan); if (c.mjHands) setMjHands(c.mjHands); setMjAutoDraw(!!c.mjAutoDraw); if (c.dateTheme) setDateTheme(c.dateTheme); if (c.gmkCasual) setGmkCasual(Object.assign({}, c.gmkCasual)); if (c.gmkBrain) setGmkBrain(c.gmkBrain); if (c.cardBrain) setCardBrain(c.cardBrain); if (c.bjDealer) setBjDealer(c.bjDealer); setPkTruth(!!c.pkTruth); if (c.drawBrain) setDrawBrain(c.drawBrain); if (c.q25Host) setQ25Host(c.q25Host); if (c.tetrisMode) setTetrisMode(c.tetrisMode); if (c.botSkill || c.tetrisSkill) setTetrisSkill(c.botSkill || c.tetrisSkill);
       if (c.gods) setGodSel(c.gods.slice()); if (c.wolfRole !== undefined) setWolfRole(c.wolfRole); if (c.winMode) setWinMode(c.winMode); if (c.av) setAvOpts(Object.assign({}, c.av));
       setStake(c.stake || "");
     };
@@ -860,8 +860,9 @@
           mjVariant === "canton" ? h(Segmented, { t: t, value: String(mjMinFan), onChange: function (v) { setMjMinFan(+v); }, options: [{ key: "0", zh: "鸡糊也能食" }, { key: "1", zh: "一番起" }, { key: "3", zh: "三番起" }] }) : null,
           h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.ink, margin: "14px 0 8px" } }, "打几盘"),
           h(Segmented, { t: t, value: String(mjHands), onChange: function (v) { setMjHands(+v); }, options: [{ key: "4", zh: "四盘" }, { key: "8", zh: "八盘" }, { key: "16", zh: "一整局（16 盘）" }] }),
+          mjVariant === "sichuan" ? h("div", { style: { marginTop: 12 } }, h(ToggleRow, { t: t, label: "换三张", sub: "开着：每盘发完牌先挑同一门的三张，跟别家换（顺时针、逆时针或对家，每盘抽一个）。", on: mjSwap, onToggle: function () { setMjSwap(!mjSwap); } })) : null,
           h("div", { style: { marginTop: 12 } }, h(ToggleRow, { t: t, label: "自动摸牌", sub: "关着：轮到你时点桌子正中的牌墙自己摸。开着：轮到你就直接摸好。", on: mjAutoDraw, onToggle: function () { setMjAutoDraw(!mjAutoDraw); } })),
-          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, marginTop: 6, lineHeight: 1.6 } }, (mjVariant === "canton" ? "起糊番数不够的牌不能食也不能自摸。" : mjVariant === "sichuan" ? "四川：开局先定缺，缺的那门打完才能胡；七对也算；一炮可以几家一起胡；三家胡了或者摸完这一盘才散。" : "红中：红中顶任何牌（不能碰、不能杠）；七对也算；只能自摸，三家各付；一张红中都没用上的硬胡番数多一番。") + "别家都由本地牌手打，不花调用；角色在碰、杠、胡和一盘打完时开口。")) : null,
+          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, marginTop: 6, lineHeight: 1.6 } }, (mjVariant === "canton" ? "起糊番数不够的牌不能食也不能自摸。" : mjVariant === "sichuan" ? "四川：开局换三张、定缺，缺的那门打完才能胡；七对也算；一炮可以几家一起胡；三家胡了或者摸完这一盘才散。杠了当场收钱（刮风下雨）；摸完时手里还有缺的那门是花猪、赔满番，没听牌的赔给听牌的（查叫）。" : "红中：红中顶任何牌（不能碰、不能杠）；七对也算；只能自摸，三家各付；一张红中都没用上的硬胡番数多一番。") + "别家都由本地牌手打，不花调用；角色在碰、杠、胡和一盘打完时开口。")) : null,
         game.key === "uno" ? h("div", { style: { marginBottom: 20 } },
           h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.ink, marginBottom: 8 } }, "+2 规则"),
           h("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 9 } },
@@ -1016,7 +1017,7 @@
 
       // 底部开始
       h("div", { "data-wk": "gamestartbar", className: "shrink-0", style: { padding: "12px 18px calc(env(safe-area-inset-bottom) + 16px)", borderTop: "1px solid " + t.line } },
-        h("button", { "data-wk": "gamestart", onClick: function () { if (canStart) props.onStart({ mode: mode, charIds: picked.slice(), npcFill: npcFill, npcCount: needNpc, injectChat: injectChat, ccSeat: ccSeat, unoRule: game.key === "uno" ? unoRule : undefined, mjVariant: game.key === "mahjong" ? mjVariant : undefined, mjMinFan: game.key === "mahjong" ? mjMinFan : undefined, mjHands: game.key === "mahjong" ? mjHands : undefined, mjAutoDraw: game.key === "mahjong" ? mjAutoDraw : undefined, dateTheme: game.key === "date" ? dateTheme : undefined, gmkCasual: game.key === "gomoku" ? gmkCasual : undefined, gmkBrain: game.key === "gomoku" ? gmkBrain : undefined, boardTeach: ["chess", "xiangqi", "go", "jungle"].indexOf(game.key) >= 0 && !spectate ? boardTeach : undefined, goSize: game.key === "go" ? goSize : undefined, cardBrain: ["uno", "poker", "blackjack"].indexOf(game.key) >= 0 ? cardBrain : undefined, bjDealer: game.key === "blackjack" ? bjDealer : undefined, pkTruth: game.key === "poker" ? pkTruth : undefined, drawBrain: game.key === "draw" ? drawBrain : undefined, q25Host: game.key === "q25" ? q25Host : undefined, tetrisMode: game.key === "tetris" ? tetrisMode : undefined, tetrisSkill: game.key === "tetris" ? tetrisSkill : undefined, botSkill: BOT_SKILL_GAMES.indexOf(game.key) >= 0 ? tetrisSkill : undefined, total: total, gods: isWolfGame ? effGods.slice() : undefined, wolfRole: isWolfGame ? wolfRole : undefined, winMode: isWolfGame ? winMode : undefined, av: isAvalonGame ? avOpts : undefined, stake: stake.trim() || undefined }); },
+        h("button", { "data-wk": "gamestart", onClick: function () { if (canStart) props.onStart({ mode: mode, charIds: picked.slice(), npcFill: npcFill, npcCount: needNpc, injectChat: injectChat, ccSeat: ccSeat, unoRule: game.key === "uno" ? unoRule : undefined, mjVariant: game.key === "mahjong" ? mjVariant : undefined, mjSwap: game.key === "mahjong" ? mjSwap : undefined, mjMinFan: game.key === "mahjong" ? mjMinFan : undefined, mjHands: game.key === "mahjong" ? mjHands : undefined, mjAutoDraw: game.key === "mahjong" ? mjAutoDraw : undefined, dateTheme: game.key === "date" ? dateTheme : undefined, gmkCasual: game.key === "gomoku" ? gmkCasual : undefined, gmkBrain: game.key === "gomoku" ? gmkBrain : undefined, boardTeach: ["chess", "xiangqi", "go", "jungle"].indexOf(game.key) >= 0 && !spectate ? boardTeach : undefined, goSize: game.key === "go" ? goSize : undefined, cardBrain: ["uno", "poker", "blackjack"].indexOf(game.key) >= 0 ? cardBrain : undefined, bjDealer: game.key === "blackjack" ? bjDealer : undefined, pkTruth: game.key === "poker" ? pkTruth : undefined, drawBrain: game.key === "draw" ? drawBrain : undefined, q25Host: game.key === "q25" ? q25Host : undefined, tetrisMode: game.key === "tetris" ? tetrisMode : undefined, tetrisSkill: game.key === "tetris" ? tetrisSkill : undefined, botSkill: BOT_SKILL_GAMES.indexOf(game.key) >= 0 ? tetrisSkill : undefined, total: total, gods: isWolfGame ? effGods.slice() : undefined, wolfRole: isWolfGame ? wolfRole : undefined, winMode: isWolfGame ? winMode : undefined, av: isAvalonGame ? avOpts : undefined, stake: stake.trim() || undefined }); },
           disabled: !canStart, className: "w-full active:opacity-80",
           style: { fontFamily: F_BODY, fontSize: "calc(15px * var(--app-fs, 1))", fontWeight: 700, color: "#f3efe6", background: canStart ? t.ink : t.line, borderRadius: 13, padding: "13px" } },
           spectate ? "开始观战" : "开始游戏")));
@@ -8738,9 +8739,9 @@
     const t = props.t, cfg = props.config || {}, M = window.MahjongCore;
     const restored = props.savedState && props.savedState.state;
     const [state, setState] = useState(function () {
-      return restored && restored.status === "playing" ? restored : M.newGame(unoPlayers(props, 4), { variant: cfg.mjVariant || "canton", minFan: cfg.mjMinFan || 0, hands: cfg.mjHands || 4, handDraw: !cfg.mjAutoDraw });
+      return restored && restored.status === "playing" ? restored : M.newGame(unoPlayers(props, 4), { swap: cfg.mjSwap !== false, variant: cfg.mjVariant || "canton", minFan: cfg.mjMinFan || 0, hands: cfg.mjHands || 4, handDraw: !cfg.mjAutoDraw });
     });
-    const [sel, setSel] = useState(null), [error, setError] = useState(""), [say, setSay] = useState("");
+    const [sel, setSel] = useState(null), [error, setError] = useState(""), [say, setSay] = useState(""), [swapSel, setSwapSel] = useState([]);
     const spectate = cfg.mode === "spectate", soft = cfg.mode === "easy";
     const meI = state.players.findIndex(function (p) { return p.isUser; });
     // 哪种麻将（广东／四川血战／红中）：标题、说法、能不能吃、有没有定缺都跟着它
@@ -8862,9 +8863,28 @@
       state.status === "playing" && state.phase === "done" ? h("div", { "data-wk": "gameactions", "data-part": "mahjong", "data-kind": "next", className: "shrink-0", style: { background: "linear-gradient(180deg,#7d5636 0%,#62422a 45%,#4b3220 100%)", borderTop: "3px solid #3a2616", boxShadow: "inset 0 1px 0 rgba(255,220,170,.25)", padding: "12px 12px calc(env(safe-area-inset-bottom) * 0.4 + 12px)", textAlign: "center" } },
         h("button", { "data-wk": "gamemjnext", onClick: function () { act(function (n) { M.nextHand(n); }); }, style: { border: "1.5px solid #e0b84a", borderRadius: 10, padding: "11px 30px", color: "#fff6dc", background: "linear-gradient(180deg,#c2372b,#9c2a20)", boxShadow: "0 3px 0 #6d1d16, 0 6px 12px -6px rgba(0,0,0,.6)", letterSpacing: 2, fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))" } }, state.handNo >= state.hands ? "算总分" : "下一盘")) :
       // 她那一家：一条木头牌架，手牌立在架子上，亮出来的那几组和花摆在架子前沿
+      // 四川换三张：挑同一门的三张换出去（点一张抬起来；换了别门就从那张重新挑）
+      me && state.status === "playing" && state.phase === "swap" && !(state.swapPick || {})[meI] ? h("div", { "data-wk": "gameactions", "data-part": "mahjong", "data-kind": "swap", className: "shrink-0", style: { background: "linear-gradient(180deg,#7d5636 0%,#62422a 45%,#4b3220 100%)", borderTop: "3px solid #3a2616", boxShadow: "inset 0 1px 0 rgba(255,220,170,.25)", padding: "10px 10px calc(env(safe-area-inset-bottom) * 0.4 + 12px)" } },
+        h("div", { "data-wk": "gamemjhand", style: { display: "flex", justifyContent: "center", alignItems: "flex-end", padding: "14px 4px 10px", marginBottom: 8 } }, me.hand.map(function (k, j) {
+          const on = swapSel.indexOf(j) >= 0;
+          return h("div", { key: j + k, style: { marginLeft: j ? 2 : 0 } }, h(MjTile, { k: k, w: handW, lift: on, onClick: function () {
+            setSwapSel(function (cur) {
+              if (cur.indexOf(j) >= 0) return cur.filter(function (x) { return x !== j; });
+              const same = cur.filter(function (x) { return me.hand[x][0] === k[0]; });
+              return same.length < cur.length ? [j] : same.length >= 3 ? same.slice(1).concat([j]) : cur.concat([j]);
+            });
+          } }));
+        })),
+        h("div", { style: { textAlign: "center", fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: "rgba(255,240,215,.8)", marginBottom: 8 } }, "换三张：挑同一门的三张换出去 · 这一盘" + (M.SWAP_ZH[state.swapDir] || "")),
+        h("div", { style: { display: "flex", justifyContent: "center" } }, pill(swapSel.length === 3 ? "换出这三张" : "还要挑 " + (3 - swapSel.length) + " 张", function () {
+          if (swapSel.length !== 3) return;
+          const tiles = swapSel.map(function (x) { return me.hand[x]; });
+          act(function (x) { M.setSwap(x, meI, tiles); }); setSwapSel([]);
+        }, swapSel.length === 3 ? "#8a2a1f" : "#5a4a3c", "gamemjswap"))) :
       // 四川开局定缺：挑一门不要（数字是这门手里有几张，一般挑最少的那门）
       me && state.status === "playing" && state.phase === "que" && !me.que ? h("div", { "data-wk": "gameactions", "data-part": "mahjong", "data-kind": "que", className: "shrink-0", style: { background: "linear-gradient(180deg,#7d5636 0%,#62422a 45%,#4b3220 100%)", borderTop: "3px solid #3a2616", boxShadow: "inset 0 1px 0 rgba(255,220,170,.25)", padding: "10px 10px calc(env(safe-area-inset-bottom) * 0.4 + 12px)" } },
         h("div", { "data-wk": "gamemjhand", style: { display: "flex", justifyContent: "center", alignItems: "flex-end", padding: "12px 4px 10px", marginBottom: 8 } }, me.hand.map(function (k, j) { return h("div", { key: j + k, style: { marginLeft: j ? 2 : 0 } }, h(MjTile, { k: k, w: handW })); })),
+        (state.swapGot || {})[meI] ? h("div", { style: { display: "flex", alignItems: "center", justifyContent: "center", gap: 6, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: "#f3d27a", marginBottom: 6 } }, "换来的：", mjRow(state.swapGot[meI], 20)) : null,
         h("div", { style: { textAlign: "center", fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: "rgba(255,240,215,.8)", marginBottom: 8 } }, "定缺：挑一门不要。这一门要先全部打掉，手里有它就不能胡"),
         h("div", { style: { display: "flex", gap: 8, justifyContent: "center" } }, ["m", "p", "s"].map(function (su) {
           const n = me.hand.filter(function (k) { return k[0] === su; }).length;

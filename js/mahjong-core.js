@@ -213,6 +213,8 @@
       minFan: variant === "canton" && opts.minFan != null ? opts.minFan : 0,
       // 她自己点牌墙摸牌（她 2026-11-09「打的时候没有大桌子给我们抽牌嘛」）：轮到她就停在 draw，等她点；别家照旧自动摸
       handDraw: !!opts.handDraw,
+      // 四川换三张（她 2026-11-09「加吧」）：默认开
+      swap: variant === "sichuan" && opts.swap !== false,
       dealer: 0, roundWind: "E", log: [], players: players.slice(0, 4).map(p => Object.assign({}, p, { pts: 0, hand: [], melds: [], flowers: [], river: [] }))
     };
     startHand(st, rnd);
@@ -237,11 +239,79 @@
     drawInto(st, st.dealer);
     st.players.forEach(p => { p.hand = sortTiles(p.hand); });
     st.log.push({ kind: "sys", text: v.zh + " · 第 " + st.handNo + " / " + st.hands + " 盘 · " + st.players[st.dealer].name + " 坐庄" + (v.honors ? "（" + WIND_ZH[st.roundWind] + "圈）" : "") });
-    // 四川：先定缺。手机替别家定（留牌最少的那门）；她自己那家等她点
+    // 四川：先换三张（开着的话），再定缺。手机替别家挑；她自己那家等她点
     if (v.que) {
-      st.players.forEach((p, i) => { if (!p.isUser) setQue(st, i, autoQue(p)); });
-      if (st.players.some(p => p.isUser && !p.que)) st.phase = "que";
+      st.swapPick = {}; st.swapGot = {};
+      if (st.swap) {
+        st.swapDir = ["cw", "ccw", "across"][Math.floor(rnd() * 3)];
+        st.players.forEach((p, i) => { if (!p.isUser) st.swapPick[i] = autoSwap(st, i); });
+        st.log.push({ kind: "sys", text: "换三张：" + SWAP_ZH[st.swapDir] });
+        if (st.players.some(p => p.isUser)) { st.phase = "swap"; return; }
+        doSwap(st);
+      }
+      startQue(st);
     }
+  }
+  const SWAP_ZH = { cw: "顺时针换（给下家）", ccw: "逆时针换（给上家）", across: "跟对家换" };
+  function swapTarget(st, i) { return st.swapDir === "cw" ? (i + 1) % 4 : st.swapDir === "ccw" ? (i + 3) % 4 : (i + 2) % 4; }
+  // 换出去的三张：张数最少、但凑得出三张的那门里最没用的三张
+  function autoSwap(st, i) {
+    const p = st.players[i], c = counts(p.hand);
+    const by = SUITS.map(su => ({ su, tiles: p.hand.filter(k => k[0] === su) })).filter(x => x.tiles.length >= 3).sort((a, b) => a.tiles.length - b.tiles.length);
+    const pick = by[0].tiles.slice().sort((a, b) => tileWorth(c, idx(a), st, i) - tileWorth(c, idx(b), st, i));
+    return pick.slice(0, 3);
+  }
+  function setSwap(st, i, tiles) {
+    if (st.phase !== "swap") throw new Error("现在不是换牌的时候");
+    const p = st.players[i];
+    if (!Array.isArray(tiles) || tiles.length !== 3 || new Set(tiles.map(k => k[0])).size !== 1) throw new Error("挑同一门的三张");
+    const left = p.hand.slice(); tiles.forEach(k => take(left, k));
+    st.swapPick[i] = tiles.slice();
+    if (st.players.every((q, j) => st.swapPick[j])) { doSwap(st); startQue(st); }
+  }
+  function doSwap(st) {
+    st.players.forEach((p, i) => st.swapPick[i].forEach(k => take(p.hand, k)));
+    st.players.forEach((p, i) => { const to = swapTarget(st, i); st.players[to].hand.push(...st.swapPick[i]); st.swapGot[to] = st.swapPick[i].slice(); });
+    st.players.forEach(p => { p.hand = sortTiles(p.hand); });
+    st.log.push({ kind: "sys", text: "三张换好了" });
+  }
+  function startQue(st) {
+    st.phase = "discard";
+    st.players.forEach((p, i) => { if (!p.isUser) setQue(st, i, autoQue(p)); });
+    if (st.players.some(p => p.isUser && !p.que)) st.phase = "que";
+  }
+  // 刮风下雨：四川开杠当场收钱——暗杠（下雨）还在桌上的每家付 2，加杠（刮风）每家付 1，明杠点杠的那家付 2
+  function kongPay(st, i, type, from) {
+    if (st.variant !== "sichuan") return;
+    const p = st.players[i], payers = type === "kong" ? [from] : st.players.map((q, j) => j).filter(j => j !== i && !st.players[j].out);
+    const x = type === "akong" ? 1 : 2;
+    payers.forEach(j => { st.players[j].pts -= x; p.pts += x; });
+    st.log.push({ kind: "sys", text: (type === "ckong" ? "下雨" : "刮风") + "：" + payers.map(j => st.players[j].name).join("、") + " 各付 " + p.name + " " + x });
+  }
+  // 摸完了：查花猪（手里还留着缺的那门）、查叫（没听牌的赔给听牌的）——只算还在桌上的人
+  function readyBest(st, i) {
+    const p = st.players[i];
+    let best = -1;
+    KINDS.slice(0, 27).forEach(k => {
+      if (p.que && k[0] === p.que) return;
+      if (shapeOk(st, p.hand.concat([k]), p.melds) && queClear(st, p, k)) {
+        const f = fanOf(p, k, fanCtx(st, i, false), st);
+        if (f.capped > best) best = f.capped;
+      }
+    });
+    return best;
+  }
+  function settleExhaust(st) {
+    if (st.variant !== "sichuan") return;
+    const live = st.players.map((p, i) => i).filter(i => !st.players[i].out);
+    const pig = live.filter(i => !queClear(st, st.players[i]));
+    const ready = {}; live.forEach(i => { if (pig.indexOf(i) < 0) ready[i] = readyBest(st, i); });
+    const top = payOf(V(st).maxFan, st);
+    pig.forEach(i => live.filter(j => pig.indexOf(j) < 0).forEach(j => { st.players[i].pts -= top; st.players[j].pts += top; }));
+    if (pig.length) st.log.push({ kind: "sys", text: "查花猪：" + pig.map(i => st.players[i].name).join("、") + " 手里还有缺的那门，赔每家 " + top });
+    const tin = live.filter(i => ready[i] >= 0), notin = live.filter(i => pig.indexOf(i) < 0 && ready[i] < 0);
+    notin.forEach(i => tin.forEach(j => { const x = payOf(ready[j], st); st.players[i].pts -= x; st.players[j].pts += x; }));
+    if (tin.length && notin.length) st.log.push({ kind: "sys", text: "查叫：" + notin.map(i => st.players[i].name).join("、") + " 没听牌，赔给听牌的 " + tin.map(i => st.players[i].name).join("、") });
   }
   function autoQue(p) { const n = { m: 0, p: 0, s: 0 }; p.hand.forEach(k => { if (n[k[0]] != null) n[k[0]]++; }); return Object.keys(n).sort((a, b) => n[a] - n[b])[0]; }
   function setQue(st, i, suit) {
@@ -326,8 +396,8 @@
     const ok = selfOptions(st, i).find(o => o.kind === a.kind && (!o.k || o.k === a.k));
     if (!ok) throw new Error("现在不能这样");
     if (a.kind === "zimo") return win(st, i, null, ok.fan, true);
-    if (a.kind === "ckong") { for (let n = 0; n < 4; n++) take(p.hand, a.k); p.melds.push({ type: "ckong", tiles: [a.k, a.k, a.k, a.k] }); st.log.push({ kind: "kong", player: p.key, text: p.name + " 暗杠" }); }
-    if (a.kind === "akong") { take(p.hand, a.k); const m = p.melds.find(x => x.type === "pong" && x.tiles[0] === a.k); m.type = "kong"; m.tiles.push(a.k); st.log.push({ kind: "kong", player: p.key, text: p.name + " 加杠 " + name(a.k) }); }
+    if (a.kind === "ckong") { for (let n = 0; n < 4; n++) take(p.hand, a.k); p.melds.push({ type: "ckong", tiles: [a.k, a.k, a.k, a.k] }); st.log.push({ kind: "kong", player: p.key, text: p.name + " 暗杠" }); kongPay(st, i, "ckong"); }
+    if (a.kind === "akong") { take(p.hand, a.k); const m = p.melds.find(x => x.type === "pong" && x.tiles[0] === a.k); m.type = "kong"; m.tiles.push(a.k); st.log.push({ kind: "kong", player: p.key, text: p.name + " 加杠 " + name(a.k) }); kongPay(st, i, "akong"); }
     if (!drawInto(st, i)) return exhaust(st);
     p.hand = sortTiles(p.hand); st.flags = { kongDraw: true };
   }
@@ -355,7 +425,7 @@
     from.river.pop();
     if (a.kind === "chow") { a.use.forEach(x => take(p.hand, x)); p.melds.push({ type: "chow", tiles: sortTiles(a.use.concat([k])), from: cl.from }); st.log.push({ kind: "chow", player: p.key, text: p.name + " 吃 " + name(k) }); }
     else if (a.kind === "pong") { take(p.hand, k); take(p.hand, k); p.melds.push({ type: "pong", tiles: [k, k, k], from: cl.from }); st.log.push({ kind: "pong", player: p.key, from: from.key, text: p.name + " 碰 " + from.name + " 的 " + name(k) }); }
-    else { take(p.hand, k); take(p.hand, k); take(p.hand, k); p.melds.push({ type: "kong", tiles: [k, k, k, k], from: cl.from }); st.log.push({ kind: "kong", player: p.key, from: from.key, text: p.name + " 杠 " + from.name + " 的 " + name(k) }); }
+    else { take(p.hand, k); take(p.hand, k); take(p.hand, k); p.melds.push({ type: "kong", tiles: [k, k, k, k], from: cl.from }); st.log.push({ kind: "kong", player: p.key, from: from.key, text: p.name + " 杠 " + from.name + " 的 " + name(k) }); kongPay(st, j, "kong", cl.from); }
     st.claim = null; st.turn = j; st.phase = "discard"; st.flags = {}; st.drawnBy = null;
     if (a.kind === "kong") { if (!drawInto(st, j)) return exhaust(st); st.flags = { kongDraw: true }; }
     p.hand = sortTiles(p.hand);
@@ -403,6 +473,7 @@
   }
   function exhaust(st) {
     st.log.push({ kind: "sys", text: st.wins.length ? "摸完了，这一盘结束" : "摸完了，流局" });
+    settleExhaust(st);
     endHand(st);
   }
   // 下一盘：广东庄家糊了或流局就连庄，不然下家坐庄；四川／红中第一个糊的人下一盘坐庄。打满了算总分
@@ -493,6 +564,6 @@
   }
 
   return { KINDS, FLOWERS, VARIANTS, SUIT_NAME, name, isHonor, isFlower, sortTiles, counts, canWin, isThirteen, decompose, fitJ, sevenPairs, fanOf, payOf, MAX_FAN,
-    newGame, startHand, seatWindOf, selfOptions, claimOptions, discard, selfAct, decide, nextHand, drawTile, setQue, mustDiscardQue,
+    newGame, startHand, seatWindOf, selfOptions, claimOptions, discard, selfAct, decide, nextHand, drawTile, setQue, mustDiscardQue, setSwap, SWAP_ZH, swapTarget,
     botSelf, botClaim, botDiscard, publicView, WIND_ZH, variantOf: V };
 });
