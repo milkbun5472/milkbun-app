@@ -181,7 +181,7 @@
     ["凑组合", "连张：同一个人的两张票挨着，攻击 +2。", "整版：同一个人的三张票排满一整行或一整列，觉醒一次，打对面信封、全员充章。", "四方连：四张同一个人（或同一种卡，比如都是生日卡）凑成 2×2，觉醒一次，打对面信封、全员加护。", "每种组合每个人一局只觉醒一次。想好凑哪个再贴。", "开局前在「带谁上场」挑一两个人，他们的卡就多，好凑。"],
     ["盖章：每张票的大招", "票底下那排小点每回合亮一格，亮满变金色，就能盖章了。", "点那张票，再点「盖章」，花 1 胶水放它的技能。同一种票有四种技能，SSR 的更猛。", "所以每回合都要想：胶水拿去贴新票，还是去给老票盖章？"],
     ["特质和羁绊", "每张票还有一个特质，是被动：比如「醉意」一半几率打双份、一半几率落空，「锋利」打票不管护盾，「倔强」第一次被打倒会硬撑着留一口气。", "每个人有一个羁绊，看人设来的：护短、好胜、温柔、冷淡、偏执，都不沾就是默契。同一个人的票在信封上有两张以上就生效。", "看不明白哪张票是干嘛的？长按它，什么都写着。对面的票也能长按。"],
-    ["别的小东西", "挪票：点自己一张票，再点旁边的空格，花 1 胶水挪过去，用来凑组合或补前排。", "撕票：点一张票点「撕下」，每回合能撕一张，撕的那一下会触发一次效果。信封贴满了也靠它腾地方。", "格子：邮筒格贴着票每回合多 1 胶水；护封格上的票什么戳都盖不上；破损格贴不上。", "邮局公告：每三回合一条全场规则（涨价、大雨、集邮节……），上一回合就会预告。"],
+    ["别的小东西", "溢出：一下打死一张票，多出来的伤害一半落到同一列后面那张，这一列没票了就落到信封；补血补满了还多出来的，一半补到自家信封（补票、群补、洗戳才算）。", "挪票：点自己一张票，再点旁边的空格，花 1 胶水挪过去，用来凑组合或补前排。", "撕票：点一张票点「撕下」，每回合能撕一张，撕的那一下会触发一次效果。信封贴满了也靠它腾地方。", "格子：邮筒格贴着票每回合多 1 胶水；护封格上的票什么戳都盖不上；破损格贴不上。", "邮局公告：每三回合一条全场规则（涨价、大雨、集邮节……），上一回合就会预告。"],
     ["明牌还是盲打", "明牌：TA 下一步要贴什么、贴哪、打你多少，开回合就亮给你看：两边每张票底下都写着它这回合干什么（打几、打信封几、攒胶水、加护……）；你要挨打的那格套红框写「要挨几」，你能打到的对面那格套绿框写「挨几」，打信封的合起来写在信封边上。手里的牌也摊开。适合慢慢算。", "选着手里一张票时，你这边空格里写着贴那儿会打谁、打多少，能凑组合的会亮出来。", "盲打：TA 照样提前想好了，只是不给你看。更刺激。"],
     ["几个上手小招", "开头先贴集邮攒家底，或者先上便宜的火漆把前排顶住。", "看 TA 的下一步：TA 要往哪列贴投递，你就在那一列前面放火漆。", "SSR 别急着上，等胶水够了再贴，顺手凑连张。", "快输了别慌：补票的群补、火漆的加固都能拖回合。"],
     ["远信：一路打过去", "从挑玩法页进「远信」：给一个人寄一封信，信要走一段邮路，最后一站是 TA 本人。", "信封血带着走：一场打完不回满，到驿站、岔路、邮局才回得来。", "路线：雪国、海边、旧城、夜车、花季、沙漠、雨季、山路、梦里、TA 的城市，节日那条只在节日前后开。每条一条棋盘规则，对局顶上写着。默认是 TA 照人设推荐的那条。"],
@@ -190,7 +190,7 @@
     ["邮局小店", "挑玩法页「和 TA 一起」里的「邮局小店」：每天先排班（柜台、分拣、送信、看店），谁擅长哪个岗会标 ✦；一个角色也能开。", "开门接客：路人招待前看 TA 要什么，挑对岗位的人或橱窗里对的卡，多给 30%，难缠的要打一局（赢了收一倍半）；没上班的角色会来当客人，可以听 TA 跟店员说两句。打烊花一次调用，写今天店里所有上班的人一小段。钱买装修，收入变多。店里的事不进记忆。"],
     ["剧情闯关：一起走一段故事", "挑玩法页「和 TA 一起」里的「剧情闯关」：挑一个人、挑个开头（或者让 TA 起一个），一共五章。", "每章 TA 先写一段，写到遇上拦路的对手；你用卡跟它打一场，打完挑一条路往下走。打赢打输、选哪条路，后面的走向和结局都会跟着变。第五章打完 TA 写结局，整段收进故事集。每章花一次调用，结局一次。走到一半退出，下次接着。"],
     ["接力：你一回合、TA 一回合", "挑玩法页「和 TA 一起」里的「接力」：挑一个人，你们轮流下同一块棋盘打审查局，单数回合你下、双数回合 TA 下。", "TA 那回合照自己的性子出牌：护短的先顶前排，好胜的抢着贴投递，冷淡的一回合最多贴两张，温柔的有人受伤先上补票。信封是你们共用的，卡组多从 TA 的卡里来。能边打边跟 TA 说话，打完能听 TA 评一把。"],
-    ["死信：找最好的一手", "挑玩法页进「死信」：30 关，一关一关开，人人题目一样；30 关全过了接着打「无限关」（难度封顶，记最远第几关）。另有「每日死信」：一天一题、每个人的都不一样，连着解有连续天数。每关棋盘、手牌、胶水都摆好了，只有这一回合，寄出时要把对面信封打空。", "对面信封正好是这一手最好能打出的伤害，所以得找到最好的放法：贴哪几张、贴哪格（连张、后排、组合）、先给谁盖章。随手往空格里贴的那种放法一定不够。", "卡住了点「提示」，一次给一步；「重来」把这一关摆回原样。"],
+    ["死信：找最好的一手", "怎么算：每张票只打自己这一列、对面最靠前的那张（后排的票打的也是对面前排），这一列空了才打信封；寄出后按格子上的小圆号依次出手——前排从左到右，再中排、后排，所以同一列前面的先把对面那张打掉，后面的就打下一张或信封。目标后面写着「现在寄出能打多少」，摆一张看一眼；选着手里一张时空格上写着贴那儿会打谁、打多少。「有几种放法都能打满」是把所有放法都试过、正好打到最高的有几种（换个等效的格子也算一种）。", "挑玩法页进「死信」：30 关，一关一关开，人人题目一样；30 关全过了接着打「无限关」（难度封顶，记最远第几关）。另有「每日死信」：一天一题、每个人的都不一样，连着解有连续天数。每关棋盘、手牌、胶水都摆好了，只有这一回合，寄出时要把对面信封打空。", "对面信封正好是这一手最好能打出的伤害，所以得找到最好的放法：贴哪几张、贴哪格（连张、后排、组合）、先给谁盖章。随手往空格里贴的那种放法一定不够。", "卡住了点「提示」，一次给一步；「重来」把这一关摆回原样。"],
     ["邮区巡查：自己挑路", "挑玩法页进「邮区巡查」：一张 5×5 的地图，每周自动换一张、每个人的都不一样。从最下面中间出发，只能走到上下左右挨着的格子，走到哪翻开到哪，一共 14 步。", "格子：普通仗、硬仗、宝箱、岔路、驿站，最上面一排藏着巡查长。信封血一路带着，驿站回 15。打赢、开宝箱、打倒巡查长加分；打输了算败退：信封留 1 点、扣 2 步，接着走。步数用完、打倒巡查长或者提前收工就结束，这周记最高分。"],
     ["邮局值班：买票凑阵容", "挑玩法页进「邮局值班」：开局没票、10 枚邮花。每一轮先在柜台买票（R 2、SR 3、SSR 5 枚，刷新 1 枚），买进值班卡组。", "同一张票买两份合成「＋」（攻击 +2、血 +3），最多「＋＋」；同一个人的票凑满 3 张，这个人的票攻击 +1。点值班卡组里一张能卖，退一半。", "买好点「开打」跟这一轮的审查局打一局，最多 8 回合；输了掉一条命，一共三条，撑满八轮算完成。每轮收入 5 枚，手上每攒 5 枚多给 1 枚利息（最多 3）。中途退出，下次点进来接着值。"],
     ["封缄令：自己加难度", "挑玩法页进「封缄令」：对面是等级固定的审查局。先勾难度条（对面攻击 +2、你少 1 胶水、不能撕票……），每条有分。", "打赢了，勾的分加起来就是这一把的「危险」，记最高的。打输不扣分。勾的那几条打的时候写在「下一步」那块上。"],
@@ -319,7 +319,7 @@
   // 明牌时两边每张票这回合干什么（她 2026-11-08：先画虚线「看不出来个鬼」→ 改红框只标了挨打的那格 →
   //   「看不到他另外两张卡打多少，或者我能打他多少」）：每张票底下一颗签写它要干嘛；
   //   你这边要挨打的格子套红框写「要挨几」，你要打到的对面那格套绿框写「挨几」；打信封的合起来写在信封边上
-  function AimLayer({ host, foeAims, meAims, foeActs, meActs, foeStamps, myPrev, tick }) {
+  function AimLayer({ host, foeAims, meAims, foeActs, meActs, foeStamps, myPrev, tick, order }) {
     const [g, setG] = useState(null);
     useLayoutEffect(() => {
       const el = host.current; if (!el) return;
@@ -336,7 +336,9 @@
         Object.keys(meActs || {}).forEach(k => { const at = box(false, +k), t = meActs[k]; if (at && t) acts.push({ at, txt: t, c: GREEN }); });
         setG({ w: b.width, h: b.height, tags, acts,
           envMe: fa.env && mb ? { x: mb.x, y: mb.bottom, n: fa.env } : null, envFoe: ma.env && fb ? { x: fb.x, y: fb.top, n: ma.env } : null,
-          badges: (myPrev || []).map(pv => ({ at: box(false, pv.slot), pv })).filter(x => x.at) });
+          badges: (myPrev || []).map(pv => ({ at: box(false, pv.slot), pv })).filter(x => x.at),
+          // 死信：自己这边每张票的出手顺序（前排从左到右，再往后排）
+          order: order ? order.map((sl, k) => ({ at: box(false, sl), n: k + 1 })).filter(x => x.at) : [] });
       };
       run(); const t = setTimeout(run, 120); window.addEventListener("resize", run);
       return () => { clearTimeout(t); window.removeEventListener("resize", run); };
@@ -349,6 +351,7 @@
       g.acts.map((a, k) => h("div", { key: "a" + k, "data-wk": "duelact", style: { position: "absolute", left: a.at.x, top: a.at.y + a.at.h - 9, width: a.at.w, textAlign: "center" } }, pill(a.c, a.txt))),
       g.envMe ? h("div", { key: "em", "data-wk": "duelwillhit", style: { position: "absolute", left: g.envMe.x, top: g.envMe.y - 9, transform: "translateX(-50%)" } }, pill(RED, "你的信封要挨 " + g.envMe.n)) : null,
       g.envFoe ? h("div", { key: "ef", "data-wk": "duelwillhit", style: { position: "absolute", left: g.envFoe.x, top: g.envFoe.y - 9, transform: "translateX(-50%)" } }, pill(GREEN, "TA 的信封要挨 " + g.envFoe.n)) : null,
+      (g.order || []).map(o => h("div", { key: "o" + o.n, "data-wk": "duelorder", style: { position: "absolute", left: o.at.x - 6, top: o.at.y - 6, width: 18, height: 18, borderRadius: 99, background: "#6a5a3a", color: "#fff", fontFamily: FD, fontSize: fz(10.5), lineHeight: "18px", textAlign: "center", boxShadow: "0 1px 3px rgba(0,0,0,.3)" } }, o.n)),
       g.badges.map((bd, k) => { const pv = bd.pv, a = pv.aim, txt = !a ? "" : a.kind === "ink" ? "盖" + a.ink + "·打 " + a.dmg : a.kind === "env" ? "打信封 " + a.dmg : "打 " + a.dmg;
         return h("div", { key: "b" + k, "data-wk": "duelpreview", style: { position: "absolute", left: bd.at.x, top: bd.at.y + 4, width: bd.at.w, textAlign: "center", fontSize: fz(9.5), lineHeight: 1.3, color: GREEN, fontFamily: F } },
           txt ? h("div", null, txt) : null, pv.combo.length ? h("div", { style: { color: "#c8962e", fontFamily: FD } }, pv.combo.join("＋") + "！") : null); }));
@@ -1455,7 +1458,7 @@
         // 对面的下一步：像一张电报条（盲打时不给看）
         h("div", { "data-wk": "duelintent", style: { position: "relative", margin: "6px 0 10px", padding: "7px 10px 7px 46px", borderRadius: 3, border: "1px dashed rgba(47,42,34,.35)", background: "rgba(255,255,255,.5)", fontSize: fz(11.5), lineHeight: 1.6 } },
           h("span", { style: { position: "absolute", left: 7, top: 7, padding: "1px 4px", border: "1.5px solid " + RED, color: RED, borderRadius: 3, fontFamily: FD, fontSize: fz(10), transform: "rotate(-6deg)" } }, "下一步"),
-          st.puzzle ? h("div", { "data-wk": "duelpuzzlegoal", style: { color: "#6a5a3a", fontSize: fz(11.5), fontFamily: FD } }, "目标：这一回合寄出时，把对面信封 " + st.puzzle.best + " 点打空。",
+          st.puzzle ? h("div", { "data-wk": "duelpuzzlegoal", style: { color: "#6a5a3a", fontSize: fz(11.5), fontFamily: FD } }, "目标：这一回合寄出时，把对面信封 " + st.puzzle.best + " 点打空。", !over ? h("span", { "data-wk": "duelpuzzlesim", style: { marginLeft: 6, color: D().simSend(st) >= st.puzzle.best ? GREEN : SUB } }, "现在寄出能打 " + D().simSend(st) + "／" + st.puzzle.best) : null,
             !over ? h("button", { "data-wk": "duelpuzzlehint", onClick: () => setPzHint(x => Math.min(x + 1, (st.puzzle.plan.stamps.length + st.puzzle.plan.place.length))), style: { marginLeft: 8, padding: "0 8px", borderRadius: 999, border: "1px solid #6a5a3a", color: "#6a5a3a", fontFamily: F, fontSize: fz(10.5) } }, pzHint ? "再提示一步" : "提示") : null,
             !over ? h("button", { "data-wk": "duelpuzzlereset", onClick: () => startPuzzle(st.puzzle.lv, st.puzzle.daily), style: { marginLeft: 6, padding: "0 8px", borderRadius: 999, border: "1px solid rgba(47,42,34,.3)", color: SUB, fontFamily: F, fontSize: fz(10.5) } }, "重来") : null,
             pzHint ? h("div", { style: { fontFamily: F, fontSize: fz(11), color: INK, marginTop: 3 } }, (() => { const pl = st.puzzle.plan, steps = pl.stamps.map(i => "给场上「" + ((st.me.board[i] || {}).name || "那张") + "」盖章").concat(pl.place.map(x => { const u = st.me.hand.find(h0 => h0.cardId === x.cardId) || st.me.board.find(b0 => b0 && b0.cardId === x.cardId) || {}; return "把「" + (u.name || "那张") + "」贴到第 " + (Math.floor(x.slot / 3) + 1) + " 排第 " + (x.slot % 3 + 1) + " 列"; }));
@@ -1477,7 +1480,7 @@
         h("div", { className: "flex items-center", style: { gap: 8, margin: "10px 0", color: SUB, fontSize: fz(10.5) } }, h("div", { className: "flex-1", style: { borderTop: "1px dashed rgba(47,42,34,.3)" } }), fx && fx.from && fx.text ? h("span", { "data-wk": "duelcaption", style: { color: fx.from.who === "foe" ? RED : GREEN, fontFamily: FD, fontSize: fz(12.5) } }, (fx.from.who === "foe" ? foeName + "：" : "我：") + fx.text) : ev ? h("span", { style: { color: GREEN } }, "公告 · " + ev + "：" + D().EVENTS[ev]) : "前排对前排", h("div", { className: "flex-1", style: { borderTop: "1px dashed rgba(47,42,34,.3)" } })),
         h(Envelope, { sd: me, foe: false, sel: boardSel, onTap: meSlot, armed: handSel >= 0, cardOf, ownerOf, useThumb, fx, onLong: openInfo }),
         !over && !fx ? h(AimLayer, { host: boardsEl, foeAims: st.blind ? [] : D().aims(st, "foe"), foeStamps: st.blind ? [] : (it.stamp || []), foeActs: st.blind ? {} : D().actsOf(st, "foe"), meAims: D().aims(st, "me"), meActs: D().actsOf(st, "me"), myPrev: handSel >= 0 ? me.board.map((u, i) => u ? null : Object.assign({ slot: i }, D().previewPlace(st, "me", handSel, i) || {})).filter(x => x && x.combo) : [],
-          tick: st.turn + "|" + handSel + "|" + me.board.map(u => u ? u.uid : 0).join(",") + "|" + them.board.map(u => u ? u.uid : 0).join(",") + "|" + me.hand.length }) : null),
+          tick: st.turn + "|" + handSel + "|" + me.board.map(u => u ? u.uid : 0).join(",") + "|" + them.board.map(u => u ? u.uid : 0).join(",") + "|" + me.hand.length, order: st.puzzle ? me.board.map((u, i) => u ? i : -1).filter(i => i >= 0) : null }) : null),
         Seal(meName || "我", me.hp, me.max || D().ENVELOPE_HP, GREEN),
         bubble && bubble.me ? h("div", { key: "bm" + bubble.key, "data-wk": "duelsay", "data-me": "1", style: { position: "relative", margin: "4px 34px 2px auto", maxWidth: "86%", width: "fit-content", padding: "6px 11px", borderRadius: "12px 4px 12px 12px", background: "#f1f7f3", boxShadow: "0 2px 6px rgba(47,42,34,.15)", fontSize: fz(12.5), lineHeight: 1.55, color: INK, animation: "duelPop .3s" } },
           h("span", { style: { color: GREEN, fontFamily: FD, marginRight: 6 } }, bubble.who), BT(bubble.text)) : null,

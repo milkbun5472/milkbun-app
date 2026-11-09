@@ -331,3 +331,13 @@ test("小店同一时段的路人不重样", () => {
 test("陪打的人点名的那张（core 里夹 card:id）一定进卡组", () => {
   for (let s = 1; s < 20; s++) assert.ok(D.deckFrom(mine, s, 12, ["a", "card:c4"]).some(u => u.cardId === "c4"));
 });
+test("溢出一半：打死一张多出来的一半落到后面那张或信封；补满多出来的一半补信封", () => {
+  const st = D.newDuel(D.deckFrom(mine, 3, 12), D.deckFrom(theirs, 4, 12), 3, {});
+  const mk = hp => Object.assign(D.stampOf(mine[2]), { hp, maxHp: 20, shield: 0, marks: {} });
+  st.foe.board = Array(9).fill(null); st.foe.board[0] = mk(3); const env = st.foe.hp;
+  D.hitUnit(st, "foe", 0, 13, "测试");           // 多出 10，一半 5 落到信封
+  assert.equal(st.foe.board[0], null); assert.equal(st.foe.hp, env - 5);
+  st.foe.board[0] = mk(3); st.foe.board[3] = mk(20);
+  D.hitUnit(st, "foe", 0, 13, "测试"); assert.equal(st.foe.board[3].hp, 15);
+  const v = mk(18); st.me.hp = 30; D.healUnits(st.me, [v], 8); assert.equal(v.hp, 20); assert.equal(st.me.hp, 33);
+});
