@@ -349,3 +349,12 @@ test("小店一直玩下去：口碑不封顶、加成越来越慢；每周三�
   assert.equal(o1.length, 3); assert.ok(o9.reduce((a, o) => a + o.pay, 0) > o1.reduce((a, o) => a + o.pay, 0));
   assert.equal(D.shopSkillTitle("柜台", 0), "柜台见习"); assert.equal(D.shopSkillTitle("柜台", 15), "柜台老手"); assert.equal(D.shopSkillTitle("柜台", 90), "柜台一把手·4段");
 });
+test("招待：客人只说一句、开价看人（定死不能反复试）；稀客凑条件才来", () => {
+  const rich = { id: "x1", mood: "rich" }, poor = { id: "x2", mood: "poor" };
+  assert.equal(D.shopPrice(rich, "high").mul, 1.35); assert.equal(D.shopPrice(poor, "high").mul, 0); assert.ok(D.shopPrice(poor, "high").left);
+  assert.equal(D.shopPrice({ id: "x3", mood: "poor" }, "high", 3).mul, 1.35);
+  assert.equal(D.shopPrice({ id: "y", mood: "normal" }, "high").mul, D.shopPrice({ id: "y", mood: "normal" }, "high").mul);
+  assert.equal(D.shopPrice(rich, "low").mul, 0.8);
+  assert.ok(D.shopHint({ post: "分拣" }, "normal", () => 0).length > 4);
+  assert.ok(D.RARE_GUESTS.length >= 8 && D.RARE_GUESTS.every(g => g.tip));
+});

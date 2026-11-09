@@ -585,6 +585,45 @@
     柜台: ["「算得清清楚楚，放心了。」", "「零钱也帮我凑好了，谢谢。」", "「你们这儿的人真耐心。」"],
     卡: ["「就是这种！我找了好久。」", "「这张好看，送人正合适。」", "「你们橱窗里的卡挑得真好。」"]
   };
+  // ── 招待那一下要动脑（她 2026-11-09，参考《Good Pizza》《Recettear》）：客人不直说要什么，只说一句；开价看人 ──
+  const MOOD_RICH = /西装|教授|合同|加急|赶时间|新婚|摄影师|调音师|纪念邮票/, MOOD_POOR = /小孩|小男孩|学生|高中生|钱不够|零钱|笔友|生日卡/;
+  const shopMood = (txt, urgent) => urgent || MOOD_RICH.test(txt) ? "rich" : MOOD_POOR.test(txt) ? "poor" : "normal";
+  const MOOD_ZH = { rich: "看着挺急，钱包鼓鼓的", poor: "掏钱包的时候有点犹豫", normal: "" };
+  const HINT_POST = {
+    送信: ["这个今天能寄出去吗？那边等着呢。", "我想寄到很远的地方，越快越好。", "麻烦帮我送出去，路上别耽搁。", "要寄到外地，最好明早就到。"],
+    分拣: ["东西有点多，我自己也理不清楚……", "这一摞能不能帮我分一分，有寄本市的也有外地的。", "箱子挺沉的，里面零零碎碎好多样。", "攒了半年的信，想一次寄完。"],
+    柜台: ["先问问，寄这个要多少钱？", "我钱带得不太够，能不能先算一下？", "要几张邮票，怎么贴最划算？", "想买一整版，帮我挑挑面值。"]
+  };
+  const HINT_ROLE = { 投递: "要一张看着就很能打的卡", 火漆: "要一张看着靠得住、能护着人的卡", 补票: "要一张温柔点、会照顾人的卡", 集邮: "要一张看着会过日子、精打细算的卡", 邮戳: "要一张有点坏心眼、爱捉弄人的卡" };
+  function shopHint(need, mood, R) {
+    if (!need) return "";
+    const say = need.post ? HINT_POST[need.post][Math.floor(R() * HINT_POST[need.post].length)] : need.card && need.card.role ? "想送人，" + HINT_ROLE[need.card.role] + "。" : need.card && need.card.min ? "想要一张稀罕点的，送人拿得出手。" : "";
+    return say + (MOOD_ZH[mood] ? "（" + MOOD_ZH[mood] + "）" : "");
+  }
+  // 开价：便宜点 ×0.8 交情多一点；照价；收贵点 ×1.35——急的、熟客认，犹豫的会走，一般人一半一半（按客人定死，不能反复试）
+  function shopPrice(c, price, bond) {
+    if (price === "low") return { mul: 0.8, rep: 5, bond: 1, say: "客人笑着多说了几句谢谢" };
+    if (price !== "high") return { mul: 1, rep: 0, bond: 0, say: "" };
+    const ok = c.mood === "rich" || (bond || 0) >= 3 || (c.mood !== "poor" && hashStr(String(c.id) + "|price") % 2 === 0);
+    return ok ? { mul: 1.35, rep: 0, bond: 0, say: "客人没还价就付了" } : c.mood === "poor" ? { mul: 0, rep: -5, bond: 0, say: "客人摇摇头，东西没寄就走了", left: true } : { mul: 1, rep: -5, bond: 0, say: "客人嘀咕了一句太贵，还是照原价付了" };
+  }
+  // 稀客：条件凑上时每个时段 15% 来一位（一天最多一位），招待过收进熟客簿的「稀客」
+  const RARE_GUESTS = [
+    { id: "ghost", name: "穿旧制服的老邮差", want: "说要来寄一封五十年前没寄出去的信", fee: 40, need: { post: "送信" }, hint: "这封信……能帮我寄出去吗？晚了好多年了。", cond: { period: "傍晚", decor: "会走的老座钟" }, tip: "傍晚、店里有老座钟" },
+    { id: "rainman", name: "撑黑伞的寄信人", want: "每封信都用蜡封好", fee: 35, need: { post: "分拣" }, hint: "这几封要分开寄，一封都不能弄混。", cond: { decor: "铜铃门帘", day: 7 }, tip: "铜铃门帘挂上一周以后" },
+    { id: "kid", name: "举着玻璃罐的小女孩", want: "要把攒的硬币换成邮票", fee: 30, need: { post: "柜台" }, hint: "这些……够买几张邮票呀？", cond: { period: "上午", rep: 5 }, tip: "口碑 5 级以后的上午" },
+    { id: "collector", name: "戴单片眼镜的集邮家", want: "来看看橱窗里有没有好东西", fee: 60, need: { card: { min: "SSR" } }, hint: "听说你们橱窗里有好货？我只要最稀罕的。", cond: { rep: 10, windowSSR: true }, tip: "口碑 10 级、橱窗里摆着 SSR" },
+    { id: "snow", name: "满头是雪的旅人", want: "从很北的地方来，想寄一张明信片回家", fee: 45, need: { post: "送信" }, hint: "能寄到最北边吗？那边快过年了。", cond: { month: [12, 1, 2] }, tip: "冬天（12 到 2 月）" },
+    { id: "cat", name: "蹲在门口的三花猫", want: "叼来一片叶子放在柜台上", fee: 20, need: null, hint: "喵。", cond: { decor: "靠窗的长凳" }, tip: "店里有靠窗的长凳" },
+    { id: "author", name: "抱着稿子的作家", want: "要把新书稿寄给编辑", fee: 50, need: { post: "分拣" }, hint: "这摞稿子要按章节分好再寄……我自己都乱了。", cond: { period: "下午", decor: "整面墙的信格" }, tip: "下午、店里有整面墙的信格" },
+    { id: "bride", name: "穿婚纱跑进来的新娘", want: "要在婚礼开始前寄出一封信", fee: 70, need: { post: "送信" }, hint: "快快快！这封信一定要今天到！", cond: { rep: 15 }, tip: "口碑 15 级以后" }
+  ];
+  function shopRareFor(shop, period, R) {
+    const seen = (shop.rareDay && shop.rareDay === shop.date), lv = shopRepLv(shop), m = new Date().getMonth() + 1, decor = shop.decor || [];
+    if (seen || R() > 0.15) return null;
+    const ok = RARE_GUESTS.filter(g => { const c = g.cond; if (c.period && c.period !== period) return false; if (c.decor && !decor.includes(c.decor)) return false; if (c.rep && lv < c.rep) return false; if (c.month && !c.month.includes(m)) return false; if (c.day && (shop.day || 1) < c.day) return false; if (c.windowSSR && !(shop.windowRar || []).includes("SSR")) return false; return true; });
+    return ok.length ? ok[Math.floor(R() * ok.length)] : null;
+  }
   // ── 小店一直玩下去（她 2026-11-09「能一直玩下去不会结束」）：口碑、每周大单、熟客、店员熟练度，都不封顶 ──
   //   口碑只让店变大（客人、单子、收入），不碰战斗：难缠客人始终照她卡组的平均等级来（她：卡等级有上限）
   const shopRepNeed = lv => 60 + 20 * lv;
@@ -635,7 +674,10 @@
       const x = tough ? tgh.pop() : reg ? [reg.name, reg.want, reg.fee, reg.need] : R() < 0.35 ? (npc.pop() || SHOP.NPC[0]) : shopNewFace(R), urgent = !tough && R() < 0.2;
       // 招待要对上需求（她 2026-11-08）：交给对的岗位，或者从橱窗挑一张对的卡
       const need = tough ? null : x[3] === "卡" ? (R() < 0.5 ? { card: { role: ROLES[Math.floor(R() * ROLES.length)] } } : { card: { min: "SR" } }) : x[3] ? { post: x[3] } : null;
-      out.push({ id: period + "c" + k, name: x[0], want: x[1], fee: x[2] * (urgent ? 2 : 1), tough, urgent, need, ...(reg ? { regularId: reg.id, bond: reg.bond || 0 } : tough ? {} : { regularId: "r_" + hashStr(x[0]).toString(36) }) }); }
+      const mood = tough ? "" : shopMood(x[0] + x[1], urgent);
+      out.push({ id: period + "c" + k, name: x[0], want: x[1], fee: x[2] * (urgent ? 2 : 1), tough, urgent, need, mood, hint: tough ? "" : shopHint(need, mood, R), ...(reg ? { regularId: reg.id, bond: reg.bond || 0 } : tough ? {} : { regularId: "r_" + hashStr(x[0]).toString(36) }) }); }
+    // 稀客（她 2026-11-09，参考《猫咪后院》）：凑上条件才偶尔来，一天最多来一位
+    const rare = shopRareFor(shop, period, R); if (rare) out.splice(Math.floor(R() * (out.length + 1)), 0, { id: period + "x_" + rare.id, name: rare.name, want: rare.want, fee: rare.fee, need: rare.need, mood: "rich", hint: rare.hint, rareId: rare.id });
     if ((allChars || []).length && R() < 0.6) out.splice(1, 0, { id: period + "p0", wantChar: allChars[Math.floor(R() * allChars.length)], fee: 15, want: "想要一张明信片" });
     const vMax = [0, 1, 2][pi];
     shuffle((offDuty || []).slice(), R).slice(0, Math.min(vMax, (offDuty || []).length)).forEach((id, k) => { if (R() < (pi === 2 ? 0.85 : 0.5)) out.splice(1 + k * 2, 0, { id: period + "v" + k, charId: id, fee: 12, visitor: true }); });
@@ -1095,7 +1137,7 @@
   const mine = raw => (st, who, a, b) => { if (who !== "me") return raw(st, who, a, b); snap(st); const r = raw(st, who, a, b); if (!r || !r.ok) st.undo.pop(); return r; };
   const place = mine(placeRaw), tear = mine(tearRaw), move = mine(moveRaw), keep = mine(keepRaw), stamp = mine(stampRaw);
   const API = { RELICS, STYLE_ZH, TRAIT_FIT, TRAITS, SKILLS, BONDS, bondOf, unitInfo, SIZE, SLOTS, ENVELOPE_HP, POSTAGE, DRAW, DECK_SIZE, TURN_CAP, KEEP_MAX, FACE, NEED, ROLES, MARKS, TERRAIN, EVENTS,
-    stampOf, deckFrom, foeDeckFrom, shopDecorOf, shopUpPrice, SHOP, SHOP_PERIODS, shopPeriod, SHOP_WIN, shopWinSlots, shopWinBonus, shopApt, shopMul, SHOP_BADGE, SHOP_BADGE_FIT, shopBadgeFit, shopBadgeBonus, shopNeedZh, shopCardFits, SHOP_THANKS, hitUnit, healUnits, simSend, shopRepLv, shopRepLeft, shopRepBonus, shopSkillTitle, shopSkillOf, shopSkillBonus, shopOrders, shopOrderZh, shopRegStory, shopNewFace, shopCustomers, autoMe, PUZZLE_MAX, puzzleOf, pzSolve, PATROL, TA_CELLS, TA_PTS, patrolNew, patrolCan, patrolMove, patrolBattle, patrolAfter, weekNo, SHIFT, shiftNew, shiftRoll, shiftPrice, shiftBuy, shiftSell, shiftDeck, shiftBonds, shiftFoeLv, shiftAfter, EDICTS, EDICT_LV, edictDeck, RAID_TURNS, MATS, BASE_MATS, THEME_MAT, KEEP_FX, KEEP_MAX_SLOTS, keepFxOf, keepTier, matDrop, SIEGE_TIERS, newDuel, envFor, avgLv, fairDeck, aims, actsOf, previewPlace, place, tear, move, keep, stamp, undo, canUndo, endTurn, planFoe, combos, newSeries, addGame, memoryLine, hashStr };
+    stampOf, deckFrom, foeDeckFrom, shopDecorOf, shopUpPrice, SHOP, SHOP_PERIODS, shopPeriod, SHOP_WIN, shopWinSlots, shopWinBonus, shopApt, shopMul, SHOP_BADGE, SHOP_BADGE_FIT, shopBadgeFit, shopBadgeBonus, shopNeedZh, shopCardFits, SHOP_THANKS, hitUnit, healUnits, simSend, shopRepLv, shopRepLeft, shopRepBonus, shopSkillTitle, shopSkillOf, shopSkillBonus, shopOrders, shopOrderZh, shopRegStory, shopNewFace, shopPrice, shopHint, RARE_GUESTS, shopCustomers, autoMe, PUZZLE_MAX, puzzleOf, pzSolve, PATROL, TA_CELLS, TA_PTS, patrolNew, patrolCan, patrolMove, patrolBattle, patrolAfter, weekNo, SHIFT, shiftNew, shiftRoll, shiftPrice, shiftBuy, shiftSell, shiftDeck, shiftBonds, shiftFoeLv, shiftAfter, EDICTS, EDICT_LV, edictDeck, RAID_TURNS, MATS, BASE_MATS, THEME_MAT, KEEP_FX, KEEP_MAX_SLOTS, keepFxOf, keepTier, matDrop, SIEGE_TIERS, newDuel, envFor, avgLv, fairDeck, aims, actsOf, previewPlace, place, tear, move, keep, stamp, undo, canUndo, endTurn, planFoe, combos, newSeries, addGame, memoryLine, hashStr };
   g.StampDuel = API;
   if (typeof module !== "undefined" && module.exports) module.exports = API;
 })(typeof window !== "undefined" ? window : globalThis);
