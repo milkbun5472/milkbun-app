@@ -1326,12 +1326,12 @@
         }
         // 挑战类陪打的人跟着出声（她 2026-11-08「互动感强一点」）：盖大招、觉醒、自家票被打掉、两边信封见底时
         //   从 TA 自己卡上的话里挑一句，一回合最多一句，不花调用
-        else if (chal && coachId && !st.relay && st.coachSaid !== st.turn) {
+        else if (chal && mateId && !st.relay && st.coachSaid !== st.turn) {
           const ev = l.who === "me" && (l.kind === "wake" || l.kind === "stamp") ? "wake" : l.kind === "fall" && l.who === "foe" ? "fall"
             : st.me.hp <= (st.me.max || 40) * 0.3 && !st.lowMe ? "low" : st.foe.hp <= (st.foe.max || 40) * 0.3 && !st.lowFoe ? "near" : "";
           if (ev) {
-            const pool = (cardsAll || []).filter(c => c && c.charId === coachId && c.text).map(c => D().stampOf(c).lines).map(x => ev === "wake" ? x.wake : ev === "fall" || ev === "low" ? x.fall : x.win || x.enter).filter(Boolean);
-            if (pool.length) { st.coachSaid = st.turn; if (ev === "low") st.lowMe = 1; if (ev === "near") st.lowFoe = 1; const key = Math.random(); lastBubble.current = key; setBubble({ text: pool[Math.floor(Math.random() * pool.length)], key, me: true, who: nameOf(coachId) || "TA" }); }
+            const pool = (cardsAll || []).filter(c => c && c.charId === mateId && c.text).map(c => D().stampOf(c).lines).map(x => ev === "wake" ? x.wake : ev === "fall" || ev === "low" ? x.fall : x.win || x.enter).filter(Boolean);
+            if (pool.length) { st.coachSaid = st.turn; if (ev === "low") st.lowMe = 1; if (ev === "near") st.lowFoe = 1; const key = Math.random(); lastBubble.current = key; setBubble({ text: pool[Math.floor(Math.random() * pool.length)], key, me: true, who: nameOf(mateId) || "TA" }); }
           }
         }
         // SR / SSR 放大招、觉醒：整条横幅带着名字和台词从屏幕中间扫过去（她 2026-11-08「花里胡哨的特效」）
@@ -1396,7 +1396,9 @@
       + (st.intent && !st.blind ? "。你这回合打算：" + [].concat((st.intent.stamp || []).map(x => "给「" + x.name + "」盖章"), (st.intent.place || []).map(x => "贴「" + x.name + "」")).join("、") : "")
       + "。最近发生的：" + st.log.slice(-6).map(l => (l.who === "foe" ? "你：" : l.who === "me" ? "她：" : "") + l.text).join("；");
     // 挑战（守城、讨伐、封缄令、值班）里聊天的是陪你打的人，不是对面
-    const chal = !!(st.siege || st.raid || st.edict || st.shift || st.patrol || st.puzzle || st.relay || st.story), talkId = st.story ? st.story.charId : chal ? coachId : foeId, talkName = chal ? (nameOf(coachId) || "TA") : foeName;
+    // 这一局身边的人：剧情闯关是走这段故事的那位、接力是一起接力的那位，别的挑战是「谁陪你打」挑的
+    const mateId = st.story ? st.story.charId : st.relay ? st.relay.ta : coachId;
+    const chal = !!(st.siege || st.raid || st.edict || st.shift || st.patrol || st.puzzle || st.relay || st.story), talkId = chal ? mateId : foeId, talkName = chal ? (nameOf(mateId) || "TA") : foeName;
     const chalName = st.story ? "剧情闯关（你们俩在走一段故事，这一章拦路的是「" + st.story.foe + "」）" : st.relay ? "接力（你和她轮流下同一块棋盘打审查局：单数回合她下，双数回合你下；信封是你们俩共用的）" : st.puzzle ? "死信第 " + st.puzzle.lv + " 关（只有这一回合，寄出时要把对面信封 " + st.puzzle.best + " 点打空）" : st.patrol ? "邮区巡查" : st.siege ? "护信" : st.raid ? (st.raid.endless ? "积压件·无尽" : "积压件") : st.edict ? "封缄令" : st.shift ? "邮局值班" : "";
     const coachBoard = () => "她在玩「" + chalName + "」，第 " + st.turn + " 回合"
       + (st.siege ? "，第 " + Math.min(st.turn, st.siege.waves) + " / " + st.siege.waves + " 波，已守住 " + st.siege.cleared + " 波" : "")
@@ -1503,7 +1505,7 @@
             h("button", { onClick: () => doMine(() => D().tear(st, "me", boardSel)), style: btn("transparent", INK, INK) }, "撕下"),
             h("span", { style: { color: SUB, fontSize: fz(11) } }, "点旁边空格＝挪过去（1 胶水）"))) : null,
         h("div", { "data-wk": "duellog", style: { marginTop: 10, fontSize: fz(11), color: SUB, lineHeight: 1.65 } }, log.map((l, k) => h("div", { key: k }, (l.who === "foe" ? foeName + "：" : l.who === "me" ? "我：" : "") + l.text + (l.line ? "「" + l.line + "」" : ""))))),
-      onChat && !st.tutorial && (chal ? !!coachId : foeId) ? chatBox : null,
+      onChat && !st.tutorial && (chal ? !!mateId : foeId) ? chatBox : null,
       info ? h(StampInfo, { key: "info", u: info.u, foe: info.foe, terrain: info.terrain, live: (info.foe ? them : me).board.some(x => x && x.uid && x.uid === info.u.uid), bonds: st.bonds, cardOf, ownerOf, nameOf, useThumb, onClose: () => setInfo(null) }) : null,
       // 中间弹出的那块（她 2026-11-08「这种黄框也做好看点」）：像一封电报——上面一枚火漆封印写是什么事，
       //   中间大字是哪张票／哪条公告，台词另起一行像手写；觉醒是金色、盖章是红色、公告是绿色
@@ -1539,7 +1541,7 @@ h("div", { style: { transform: "skewX(12deg)", display: "flex", alignItems: "cen
             h("div", { style: { fontFamily: FD, fontSize: fz(kind === "event" ? 15 : 18), color: c, lineHeight: 1.45 } }, head),
             banner.line ? h("div", { style: { margin: "8px auto 0", maxWidth: "92%", paddingTop: 8, borderTop: "1px solid " + c + "33", fontFamily: FD, fontStyle: "italic", fontSize: fz(12.5), color: "#5a4f40", lineHeight: 1.7 } }, "「" + banner.line + "」") : null)); })() : null,
       over ? h("div", { key: "ft", "data-wk": "duelover", className: "shrink-0 px-4", style: { paddingTop: 12, paddingBottom: "calc(12px + env(safe-area-inset-bottom) * 0.4)", fontFamily: F, color: INK, borderTop: "1px solid rgba(47,42,34,.18)", background: "rgba(251,246,234,.92)" } },
-          chal && coachId && onChat ? h("button", { "data-wk": "duelcoachreview", onClick: () => talk("review"), disabled: chatBusy, className: "w-full disabled:opacity-50", style: Object.assign(btn("transparent", GREEN, GREEN), { marginBottom: 8, fontSize: fz(12) }) }, chatBusy ? talkName + " 在想…" : "听 " + talkName + " 评评这一把") : null,
+          chal && mateId && onChat ? h("button", { "data-wk": "duelcoachreview", onClick: () => talk("review"), disabled: chatBusy, className: "w-full disabled:opacity-50", style: Object.assign(btn("transparent", GREEN, GREEN), { marginBottom: 8, fontSize: fz(12) }) }, chatBusy ? talkName + " 在想…" : "听 " + talkName + " 评评这一把") : null,
           st.parcels && st.parcels.length ? h("div", { "data-wk": "duelparcel", style: { textAlign: "center", fontSize: fz(11.5), color: GREEN, marginBottom: 6 } }, st.parcels.map(([id, n]) => (nameOf(id) || "TA") + " 留了 " + n + " 个小包裹").join("、") + "（在「小物册」里拆）") : null,
           st.rewards && st.rewards.length ? h("div", { "data-wk": "duelreward", style: { margin: "0 0 8px", padding: "6px 10px", borderRadius: 5, background: "rgba(184,134,42,.1)", border: "1px solid rgba(184,134,42,.35)", fontSize: fz(11.5), lineHeight: 1.6, color: "#7a5a1a", textAlign: "center" } }, st.rewards.map((t, k) => h("div", { key: k }, t))) : null,
           st.puzzle ? h("div", { key: "pzo", "data-wk": "duelpuzzleover", style: { textAlign: "center", marginBottom: 10 } }, h("div", { style: { fontFamily: FD, fontSize: fz(20), color: over.winner === "me" ? GREEN : RED } }, over.winner === "me" ? (st.puzzle.daily ? "今天的死信解开了" : "解开了 · 第 " + st.puzzle.lv + " 关") : "差一点"), h("div", { style: { fontSize: fz(11.5), color: SUB } }, over.winner === "me" ? "这一手有 " + st.puzzle.ways + " 种放法能打满" : "对面信封还剩 " + Math.max(0, st.foe.hp) + "，换个放法，或点「提示」")) : null,
