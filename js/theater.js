@@ -261,6 +261,7 @@
     const [vnI, setVnI] = useState(-1), [vnWrite, setVnWrite] = useState(false), [vnLog, setVnLog] = useState(false), [vnHide, setVnHide] = useState(false);
     const vnLen = useRef(0), vnLp = useRef(0), vnLpOn = useRef(false);
     const [vnWide, setVnWide] = useState({});
+    const [vnAct, setVnAct] = useState(false);   // 新版「幕」：换目标、直接开下一幕、谢幕（她 2026-11-09：群里「再也演不完第一幕了」——原版面板里那几颗没搬过来）
     // 新版的语音、自动（她 2026-10-27）：跟邮票剧情同一套——开了语音他那句用他的音色念；开了自动一句一句往下走，轮到你就停
     const [vnPref, setVnPref] = useState(() => loadJSON("x_theaterVnPrefs", {}) || {});
     const vnToggle = k => setVnPref(p0 => { const n = Object.assign({}, p0, { [k]: !p0[k] }); saveJSON("x_theaterVnPrefs", n); return n; });
@@ -1052,7 +1053,8 @@
           h("button", { "data-wk": "thrvnauto", onClick: e => { e.stopPropagation(); vnToggle("auto"); }, style: pill(!!vnPref.auto) }, "自动"),
           h("button", { "data-wk": "thrvnlog", onClick: e => { e.stopPropagation(); setVnLog(true); }, style: pill(false) }, "记录"),
           h("button", { "data-wk": "thrpov", "data-pov": povOf(line), onClick: e => { e.stopPropagation(); update(list => list.map(l => l.id !== line.id ? l : { ...l, pov: povOf(l) === "he" ? "me" : "he" })); props.toast(povOf(line) === "he" ? "下一拍起用「我」写" : "下一拍起用「" + taOf(char) + "」写，像卡面剧情"); }, style: pill(false) }, povOf(line) === "he" ? taOf(char) : "我"),
-          h("button", { "data-wk": "thrvnclassic", onClick: e => { e.stopPropagation(); update(list => list.map(l => l.id !== line.id ? l : { ...l, vn: false })); }, style: pill(false) }, "原版")),
+          h("button", { "data-wk": "thrvnclassic", onClick: e => { e.stopPropagation(); update(list => list.map(l => l.id !== line.id ? l : { ...l, vn: false })); }, style: pill(false) }, "原版"),
+          h("button", { "data-wk": "thrvnact", onClick: e => { e.stopPropagation(); setVnAct(true); }, style: pill(false) }, "幕")),
         // 目标确认、失败确认：跟原版同一套
         round && (round.pending || round.pendingFail) && !line.ended ? h("div", { onClick: e => e.stopPropagation(), style: Object.assign({ margin: "6px 14px", padding: "10px 12px", borderRadius: 12, background: "rgba(255,248,233,.94)", fontFamily: F_BODY, fontSize: fs(12.5), color: "#39382F" }, hid) },
           round.pending ? "看起来这一幕的目标达成了" + (typeof round.pending === "string" ? "：" + round.pending : "") : "这一幕的目标好像走不通了" + (typeof round.pendingFail === "string" ? "：" + round.pendingFail : ""),
@@ -1061,6 +1063,13 @@
             h("button", { onClick: () => { if (round.pending) confirmGoal(true); else confirmFail(true); }, style: { padding: "4px 12px", borderRadius: 999, background: "#285C4B", color: "#fff", fontSize: fs(12) } }, round.pending ? "确认达成" : "确认走不通"))) : null,
         round && (round.goalDone || round.failed) && !round.pending && atEnd && !busy && !line.ended ? h("div", { className: "flex justify-center", onClick: e => e.stopPropagation(), style: Object.assign({ gap: 8, marginTop: 6 }, hid) },
           h("button", { "data-wk": "thrvnnext", onClick: () => genGoal("next"), style: pill(true) }, "开下一幕（AI 想目标）")) : null,
+        vnAct ? h("div", { "data-wk": "thrvnactsheet", onClick: e => { e.stopPropagation(); setVnAct(false); }, style: { position: "fixed", inset: 0, zIndex: 60, background: "rgba(0,0,0,.45)", display: "flex", alignItems: "flex-end" } },
+          h("div", { onClick: e => e.stopPropagation(), style: { width: "100%", background: "#FBF8F1", borderRadius: "16px 16px 0 0", padding: "8px 0 calc(env(safe-area-inset-bottom) + 10px)", fontFamily: F_BODY, color: "#2f2a22" } },
+            h("div", { style: { padding: "10px 20px 6px", fontSize: fs(12), color: "#827C6F" } }, "这一幕的目标：" + ((round && round.goal) || "")),
+            [["换个目标", "这一幕接着演，只换目标", () => genGoal("redo")], ["这一幕到这儿，开下一幕", "AI 想下一幕的目标", () => genGoal("next")], line.ended ? null : ["谢幕收线", "写一场终场戏，这条线完结（还能回看、重开）", endLine]]
+              .filter(Boolean).map(r => h("button", { key: r[0], disabled: busy, onClick: () => { setVnAct(false); r[2](); }, className: "w-full text-left active:opacity-70", style: { display: "block", padding: "12px 20px", borderTop: "1px solid rgba(47,42,34,.08)" } },
+                h("div", { style: { fontSize: fs(14) } }, r[0]), h("div", { style: { fontSize: fs(11), color: "#827C6F", marginTop: 2 } }, r[1]))),
+            h("button", { onClick: () => setVnAct(false), className: "w-full", style: { padding: "12px 0 4px", fontSize: fs(13), color: "#827C6F" } }, "取消"))) : null,
         // 中间：轮到她时的选项
         h("div", { className: "flex-1 flex flex-col items-center justify-center", onClick: tap, style: Object.assign({ padding: "0 28px", gap: 10 }, hid) },
           myTurn && !vnWrite ? [].concat((last.choices || []).map((c, k) => h("button", { key: "c" + k, "data-wk": "thrvnchoice", onClick: e => { e.stopPropagation(); pick(c); }, style: choiceBtn }, c)),
