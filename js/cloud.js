@@ -27,6 +27,28 @@
   const MARK = "cloud_pushed_at"; // 本机最后一次成功 push 的时间戳（无 x_ 前缀，不进存档）
   const STALE_GAP_MS = 24 * 3600 * 1000; // 云端比本机新出这么多 = 这台是过期设备，不许静默覆盖
   const PUSH_ERR = "cloud_push_err_v1";  // 上一次自动备份为什么没成（无 x_ 前缀，不进存档）
+  // 上一次成功推上去的那一份【有多少个对话】（无 x_ 前缀，不进存档、不上云）。
+  // 群友 2026-11-09：安卓把这个站点的 IndexedDB 整个回收了，localStorage 一个字没动——
+  //   角色名单还在（小，外头有副本），每个人的聊天和整座图库一条不剩（大，只住 IndexedDB）。
+  //   这台手机【有角色】，于是 localMeaningful() 放行、bootHadLocal 判「老设备、本地权威」，
+  //   开机顺手 autoPush，就把这份只剩壳的存档盖到云上，而 saves 是一行 upsert、没有历史。
+  //   「空的不许盖」只问有没有角色，「旧的不许盖新的」只问时间——【同一台机器、同一刻、
+  //   整整一类东西不见了】这一种，两道闸都看不见。所以第三道按【类】问。
+  const SHAPE_MARK = "cloud_save_shape_v1";
+  // 数的是「有话的对话有几个」。键名与判法照【写存档那一段】来（engine.js txtWrite 的
+  //   x_chat: / x_gchat:，内容是一串带 "role": 的消息），不照读的那一段编。
+  const saveShape = dump => {
+    let chats = 0;
+    try {
+      Object.keys(dump || {}).forEach(k => {
+        if (k.indexOf("x_chat:") !== 0 && k.indexOf("x_gchat:") !== 0) return;
+        if (String(dump[k] || "").indexOf('"role":') >= 0) chats++;
+      });
+    } catch (e) {}
+    return { chats };
+  };
+  const lastShape = () => { try { return JSON.parse(localStorage.getItem(SHAPE_MARK) || "null"); } catch (e) { return null; } };
+  const noteShape = shape => { try { localStorage.setItem(SHAPE_MARK, JSON.stringify(shape)); } catch (e) {} };
   const PUSH_TIMEOUT_MS = 45000;         // 在途 upsert 的硬超时：iOS 切后台时 socket 会被挂起
   const PUSH_WARN_MS = 24 * 3600 * 1000; // 离上次成功备份超过这么久，界面上必须变成红的
   // 本机最后一次把整份导出成文件（无 x_ 前缀，只记这台设备）。群友 2026-10-23：
@@ -53,7 +75,8 @@
     stale: "云端那份比这台设备新得多，怕把别处的改动抹掉",
     stale_unknown: "查不到云端那份有多新，不敢盖",
     timeout: "传了很久没有回音（网络被挂起）",
-    upsert: "云端拒绝了这次写入"
+    upsert: "云端拒绝了这次写入",
+    gutted: "这台手机上的聊天一条都不剩了，上一次备份时还有——先导出一份存好、弄清本机为什么空了，不敢拿它去盖云上那份"
   };
   const pushWhy = b => (b && (PUSH_WHY[b.reason] || b.reason)) || "";
   // 三个备份入口共用状态分类、时间口径和文字，页面只负责展示。
@@ -74,7 +97,7 @@
   };
   // 这几种是【我们主动拦下的】：这台机器的状态不对，推上去会伤到数据。值得当场打断她。
   // 其余（upsert 失败 / 超时 / 查不到云端）多半只是网络，记账就够，交给常驻横幅。
-  const LOUD_BLOCK = { txt_vault: 1, stale: 1, apply_partial: 1, apply_threw: 1 };
+  const LOUD_BLOCK = { txt_vault: 1, stale: 1, apply_partial: 1, apply_threw: 1, gutted: 1 };
   // 在途请求的硬超时。supabase 的 builder 是 thenable，Promise.race 吃得下；
   // 超时之后那条请求还挂在那儿，但**我们这一侧一定会往下走**——要治的正是
   // 「既不成功也不失败」把 pushInFlight 永远钉住那个病。
@@ -567,6 +590,7 @@
       catch (e) { throw new Error((e && e.message || "连不上云端") + "（这次要传 " + mb.toFixed(1) + " MB）"); }
       const error = res && res.error;
       if (error) { if (/fetch|load failed|network/i.test(error.message || "")) error.message = (error.message || "") + "（这次要传 " + mb.toFixed(1) + " MB）"; throw error; }
+      noteShape(saveShape(saveData));
       this.markSynced(ts);
     },
 
@@ -1562,6 +1586,12 @@
           if (verdict.stale) { block("stale", verdict); return; }
           const ts = new Date().toISOString();
           const saveData = await this.collectForSave(user.id);
+          // ── 闸五：整类归零闸 ───────────────────────────────────────
+          // 上一次推上去时明明有对话，这一次一个都不剩＝这台机器出了事，不是她删的。
+          // ⚠️只拦【自动】这条路。手动「推送到云端」她自己点过确认，照推不误——
+          //   这道闸管的是没人看着的时候。
+          const shape = saveShape(saveData), was = lastShape();
+          if (was && was.chats > 0 && shape.chats === 0) { block("gutted", { was: was.chats, now: 0 }); return; }
           // ⚠️在途 upsert 必须有硬超时。iOS 切后台时 socket 会被挂起，fetch 既不成功
           //   也不失败：pushInFlight 永不 resolve → 此后每一次 autoPush 都在开头
           //   `return pushInFlight`，**这个标签页从此再也不备份**，直到整页重载。
@@ -1569,6 +1599,7 @@
             client.from("saves").upsert({ user_id: user.id, data: saveData, updated_at: ts }),
             PUSH_TIMEOUT_MS);
           if (error) { block("upsert", { detail: String(error.message || error) }); return; }
+          noteShape(shape);
           this.markSynced(ts);
         } catch (e) {
           // 离线、超时、任何没预料到的错：一样要留痕。静默正是 9/3 的第一道哑火。
