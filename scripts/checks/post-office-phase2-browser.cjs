@@ -36,6 +36,9 @@ const base=process.env.POST_OFFICE_URL||'http://127.0.0.1:18968',out=process.env
   const refresh=()=>f.evaluate(()=>PostOfficeGame.refresh());
   const menu=async()=>{await r.getByRole('button',{name:'经营',exact:true}).click();await r.locator('[data-part=shop-actions]').waitFor();};
   const panel=r.locator('[data-part=shop-actions]');const leave=()=>panel.getByRole('button',{name:'回到店里',exact:true}).click();
+  if(process.env.POST_OFFICE_ONLY_ZOOM==='1'){
+   await require('../../test/post-office-zoom.browser.cjs')({p,r,f,refresh,out,result});await require('../../test/post-office-rotation.browser.cjs')({p,r,f,panel,leave,out,result});assert.deepEqual(await p.evaluate(()=>shopCalls),{ai:0,memory:0});assert.deepEqual(result.errors,[]);result.ok=true;fs.writeFileSync(path.join(out,'result.json'),JSON.stringify(result,null,2));console.log(JSON.stringify(result));return;
+  }
   if(process.env.POST_OFFICE_ONLY_ACTIONS==='1'){
    await require('../../test/post-office-actions.browser.cjs')({p,r,f,out,result});assert.deepEqual(await p.evaluate(()=>shopCalls),{ai:0,memory:0});assert.deepEqual(result.errors,[]);result.ok=true;fs.writeFileSync(path.join(out,'result.json'),JSON.stringify(result,null,2));console.log(JSON.stringify(result));return;
   }
