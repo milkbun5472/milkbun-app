@@ -243,3 +243,10 @@ test("SR 也能熔：一张 100，花过调用的 SR 不熔", () => {
   assert.strictEqual(C.meltValue({ rarity: "SR", lv: 1, extras: [{ text: "番外" }] }), 0);
   assert.strictEqual(C.meltValue({ rarity: "SSR", lv: 1 }), 0);
 });
+test("删掉没人认领的卡（SSR 也行），不给印泥", () => {
+  const C = fresh(), st = C.load(); st.ink = 0;
+  st.cards = [{ id: "a", rarity: "SSR", charId: "gone", face: "img_a", text: {} }, { id: "b", rarity: "R", charId: "c1", text: {} }]; C.save(st);
+  const r = C.dropCards(["a"]);
+  assert.equal(r.n, 1); assert.deepEqual(r.keys, ["img_a"]);
+  const s2 = C.load(); assert.equal(s2.ink, 0); assert.deepEqual(s2.cards.map(c => c.id), ["b"]);
+});

@@ -36300,6 +36300,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     apiFor: apiFor,
     onBack: () => setScreen("home")
   });else if (screen === "stamps") body = h(window.StampBookApp, {
+    // 认「这个人还在不在」用全部角色（配角也算），免得把还在的人的卡当成没人认领（她 2026-11-09）
+    allCharIds: characters.filter(Boolean).map(c => c.id),
     onReturnToWorld: () => { setGardenEntryWorld("shop"); setScreen("fairyGarden"); },
     characters: liveChars,
     onSend: stampSend,

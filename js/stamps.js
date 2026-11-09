@@ -824,7 +824,7 @@
     const albumY = useRef(0), albumIds = useRef([]);
     const [meltSel, setMeltSel] = useState(null), [meltArm, setMeltArm] = useState(false);
     // 多选重写写好的卡（她 2026-11-02）：同一个人的 R、SR 每十张一次调用，SSR 一张一次
-    const [reSel, setReSel] = useState(null), [reAllArm, setReAllArm] = useState(false);   // 熔 R 卡：null＝没在挑；数组＝挑中的   // 册子当前那一排（筛过的、照显示顺序），卡页左右滑照它走   // 册子翻到哪儿：点开一张看完回来，停在原来那儿（群里 2026-10-27：每次都跳回最上面）
+    const [reSel, setReSel] = useState(null), [reAllArm, setReAllArm] = useState(false); const [orphArm, setOrphArm] = useState(false);   // 熔 R 卡：null＝没在挑；数组＝挑中的   // 册子当前那一排（筛过的、照显示顺序），卡页左右滑照它走   // 册子翻到哪儿：点开一张看完回来，停在原来那儿（群里 2026-10-27：每次都跳回最上面）
     useEffect(() => { const f = () => setSt(C().load()); window.addEventListener("stamps-change", f); return () => window.removeEventListener("stamps-change", f); }, []);
     // 早先写的卡里带着「(R)」「(SR)」的，打开邮票册时洗一遍存回去（只动带标记或错栏的那几张）
     useEffect(() => { try { const st0 = C().load(); let n = 0;
@@ -1203,6 +1203,12 @@
               opts.map(o => chip(cur === o[0], o[1], () => set(o[0]), o[0]))) : null); })(),
         (() => { const ds = albumChar === "all" ? [] : weekDays(st, albumChar), wks = Math.floor(ds.length / 7);
           return albumChar !== "all" && ds.length ? h("button", { "data-wk": "stampweekbtn", "data-full": wks ? "1" : "0", onClick: () => setWeek(Math.ceil(ds.length / 7)), className: "w-full active:opacity-70", style: { marginTop: 10, minHeight: 40, borderRadius: 10, background: "#FFF8E9", border: "1px solid #577767", color: "#285C4B", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))" } }, (typeof characterText === "function" ? characterText(charOf(albumChar), "翻他的一周 · ") : "翻他的一周 · ") + (wks ? "攒满 " + wks + " 周" : "") + (ds.length % 7 ? (wks ? "，" : "") + "这一周 " + (ds.length % 7) + " / 7 天" : "")) : null; })(),
+        // 角色删了，卡还留着（群里 2026-11-09「我把其他角色删除后，他们的卡牌还在」）：认不出主人的卡能一起清掉，点两下才删
+        (() => { const ids = props.allCharIds || characters.map(c => c.id), lost = (st.cards || []).filter(c => c.charId && !ids.includes(c.charId));
+          return lost.length ? h("button", { "data-wk": "stamporphan", onClick: () => { if (!orphArm) { setOrphArm(true); setTimeout(() => setOrphArm(false), 4000); return; }
+              const r = C().dropCards(lost.map(c => c.id)); (r.keys || []).forEach(k => { try { idbImgDel(k); idbImgDel("th_" + k); } catch (e) {} }); setOrphArm(false); toast("清掉了 " + r.n + " 张"); },
+            className: "w-full active:opacity-70", style: { marginTop: 12, minHeight: 40, borderRadius: 10, border: "1px dashed " + (orphArm ? "#b23a2e" : "rgba(47,42,34,.35)"), color: orphArm ? "#b23a2e" : "rgba(47,42,34,.7)", fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))" } },
+            orphArm ? "再点一次：这 " + lost.length + " 张连卡面一起删掉，回不来" : "有 " + lost.length + " 张卡的角色已经删了 · 清掉这些卡") : null; })(),
         // 写失败的（或者写了三分钟还没回来的）一起重写：同一个人的 R、SR 还是并成一次调用，SSR 各一次
         (() => { const bad = (st.cards || []).filter(c => !c.text && (!c.writing || Date.now() - Number(c.writingTs || 0) > (c.queued ? 1800000 : 180000)));
           return bad.length ? h("button", { "data-wk": "stamprewriteall", onClick: () => { onWrite(bad); toast("在重写 " + bad.length + " 张"); }, className: "w-full active:opacity-70",
