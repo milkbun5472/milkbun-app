@@ -61,7 +61,7 @@
         counter:()=>latest.current.onOpenStamps?.({tab:"duel",mode:"shop",back:"fairy-shop"}),
         select:target=>{setError("");setPanel(target);},
         meetSeen:({id,key})=>root.StampShop.run("seenMeet",{...options(),id,expected:{date:key.split("|")[0],period:key.split("|")[1]}}).catch(e=>setError(e.message)),
-        ready:()=>{if(frame.current===node){setLoaded(true);setError("");}},
+        ready:()=>{if(frame.current===node){setLoaded(true);setError("");const rid=root.__shopReplayMeet;if(rid){root.__shopReplayMeet=null;setTimeout(()=>{if(frame.current===node)node.contentWindow.PostOfficeGame?.playMeet(rid);},400);}}},
         error:message=>{if(frame.current===node)setError(String(message));}
       });
     };
