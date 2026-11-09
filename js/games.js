@@ -8618,10 +8618,10 @@
     const face = M && k ? M.name(k) : "", suited = k && /^[mps]\d$/.test(k), flower = k && /^[fg]\d$/.test(k);
     const ink = flower ? "#b0507a" : (MJ_INK[suited ? k[0] : k] || "#2b2622");
     const base = { width: w, height: hh, borderRadius: Math.max(3, w * 0.16), flexShrink: 0, position: "relative", boxSizing: "border-box",
-      transform: props.lift ? "translateY(-10px)" : "none", transition: "transform .14s, box-shadow .14s", opacity: props.dim ? 0.55 : 1 };
+      transform: props.lift ? "translateY(-10px)" : "none", transition: "transform .14s, box-shadow .14s", animation: props.anim || undefined, opacity: props.dim ? 0.55 : 1 };
     // 真牌是象牙面、绿底背：立着的时候底下露一截另一面的颜色，像有厚度
     const d = Math.max(2, Math.round(w * 0.13));
-    if (props.back) return h("div", { style: Object.assign({}, base, { background: "linear-gradient(160deg,#4a9a74 0%,#2f7d5c 60%,#26684c 100%)", border: "1px solid rgba(0,0,0,.22)",
+    if (props.back) return h("div", { "data-mjanim": props.anim ? "1" : undefined, style: Object.assign({}, base, { background: "linear-gradient(160deg,#4a9a74 0%,#2f7d5c 60%,#26684c 100%)", border: "1px solid rgba(0,0,0,.22)",
       boxShadow: "0 " + d + "px 0 #efe8d6, 0 " + (d + 3) + "px 5px -2px rgba(0,0,0,.45), inset 0 1px 0 rgba(255,255,255,.25)" }) });
     const body = k === "P"
       ? h("div", { style: { position: "absolute", inset: w * 0.2, border: "2px solid " + ink, borderRadius: 2 } })
@@ -8630,7 +8630,7 @@
             h("span", { style: { fontFamily: F_DISPLAY, fontSize: w * 0.5, color: k[0] === "m" ? "#2b2622" : ink, fontWeight: 600 } }, face[0]),
             h("span", { style: { fontFamily: F_DISPLAY, fontSize: w * 0.42, color: k[0] === "m" ? "#c2372b" : ink, marginTop: w * 0.06 } }, face[1]))
         : h("div", { style: { position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: F_DISPLAY, fontSize: w * 0.62, color: ink, fontWeight: 600 } }, face);
-    return h(props.onClick ? "button" : "div", { onClick: props.onClick, "data-wk": "gamemjtile", "data-k": k, "aria-label": face,
+    return h(props.onClick ? "button" : "div", { onClick: props.onClick, "data-wk": "gamemjtile", "data-k": k, "aria-label": face, "data-mjanim": props.anim ? "1" : undefined,
       style: Object.assign({}, base, { padding: 0, background: props.hot ? "linear-gradient(180deg,#fff8d8,#ffe9a3)" : "linear-gradient(180deg,#fffef8 0%,#f6f0e0 68%,#e8dfc6 100%)",
         border: "1px solid " + (props.hot ? "#e0b84a" : "rgba(120,100,60,.38)"),
         boxShadow: "0 " + d + "px 0 #2f7d5c, 0 " + d + "px 0 1px rgba(0,0,0,.16), 0 " + (d + (props.lift ? 9 : 3)) + "px " + (props.lift ? 10 : 5) + "px -2px rgba(0,0,0," + (props.lift ? ".5" : ".42") + "), inset 0 1px 0 #fff" }) }, body);
@@ -8654,15 +8654,15 @@
         // 打过的牌：从牌墙外沿往外铺，最新那张亮一下
         // 跟真桌一样：一行六七张、跟牌墙一样宽，打多了往自己那边一行行加，不往两边铺进别家
         h("div", { style: { marginTop: wall / 2 + 5, width: wall + 2, display: "flex", flexWrap: "wrap", gap: 1, justifyContent: "flex-start", alignContent: "flex-start", minHeight: S * 0.12 } },
-          p.river.map(function (k, j) { return h(MjTile, { key: j, k: k, w: Math.floor((wall - 4) / 7) - 1, hot: lastFrom && j === p.river.length - 1 }); })),
+          p.river.map(function (k, j) { const newest = j === p.river.length - 1 && st.last && st.last.by === i; return h(MjTile, { key: j, k: k, w: Math.floor((wall - 4) / 7) - 1, hot: lastFrom && j === p.river.length - 1, anim: newest ? "mjToRiver .32s ease-out both" : null }); })),
         h("div", { style: { flex: 1 } }),
         // 亮出来的碰杠吃 + 花
         h("div", { style: { display: "flex", gap: 5, alignItems: "flex-end", marginBottom: 3, flexWrap: "wrap", justifyContent: "center", maxWidth: S * 0.8 } },
           p.flowers.length ? h("div", { style: { display: "flex" } }, mjRow(p.flowers, Math.round(S * 0.034))) : null,
-          p.melds.map(function (m, j) { return h("div", { key: j, style: { display: "flex" } }, m.type === "ckong" ? [0, 1, 2, 3].map(function (x) { return h("div", { key: x, style: { marginLeft: x ? 1 : 0 } }, h(MjTile, { back: x === 0 || x === 3, k: m.tiles[0], w: Math.round(S * 0.037) })); }) : mjRow(m.tiles, Math.round(S * 0.037))); })),
+          p.melds.map(function (m, j) { return h("div", { key: j + m.type, "data-mjanim": "1", style: { display: "flex", animation: "mjPop .38s cubic-bezier(.3,1.5,.5,1) both" } }, m.type === "ckong" ? [0, 1, 2, 3].map(function (x) { return h("div", { key: x, style: { marginLeft: x ? 1 : 0 } }, h(MjTile, { back: x === 0 || x === 3, k: m.tiles[0], w: Math.round(S * 0.037) })); }) : mjRow(m.tiles, Math.round(S * 0.037))); })),
         // 手里那一排：别家是立着的牌背（亮牌时翻过来）；她自己的手牌在桌子下面，这里不画
         p.isUser ? h("div", { style: { height: 6 } }) : h("div", { style: { display: "flex", gap: 1, marginBottom: 5, padding: "2px 4px", borderRadius: 4, boxShadow: isTurn ? "0 0 0 2px #f3d27a" : "none" } },
-          showHand ? mjRow(p.hand, Math.round(S * 0.042)) : p.hand.map(function (k, j) { return h(MjTile, { key: j, back: true, w: Math.round(S * 0.042) }); })));
+          showHand ? p.hand.map(function (k, j) { return h(MjTile, { key: "s" + j, k: k, w: Math.round(S * 0.042), anim: "mjShow .3s ease-out " + (j * 0.025) + "s both" }); }) : p.hand.map(function (k, j) { return h(MjTile, { key: j, back: true, w: Math.round(S * 0.042), anim: "mjBackIn .25s ease-out both" }); })));
     };
     const canDraw = props.canDraw;
     const backs = function (n, w) { const out = []; for (let j = 0; j < Math.min(n, 17); j++) out.push(h("div", { key: j, style: { width: w, height: w * 1.25, borderRadius: 1.5, background: "linear-gradient(160deg,#3f8f6a,#2b6e51)", boxShadow: "0 1.5px 0 #1f513b, inset 0 0 0 .5px rgba(255,255,255,.25)" } })); return out; };
@@ -8684,7 +8684,7 @@
           animation: canDraw ? "mjPulse 1.2s ease-in-out infinite" : "none", display: "flex", flexDirection: "column", justifyContent: "space-between", alignItems: "center", cursor: canDraw ? "pointer" : "default" } },
         h("div", { style: { display: "flex", gap: 1 } }, backs(ring, bw)),
         h("div", { style: { fontFamily: F_DISPLAY, color: "#f3ecd9", fontSize: 13, lineHeight: 1.25, textAlign: "center" } },
-          st.phase === "claim" && st.claim ? h("div", { style: { display: "flex", flexDirection: "column", alignItems: "center", gap: 2 } }, h(MjTile, { k: st.claim.k, w: Math.round(wall * 0.24), hot: true }), h("span", { style: { fontSize: 10, opacity: .85 } }, st.players[st.claim.from].name + " 打的")) :
+          st.phase === "claim" && st.claim ? h("div", { style: { display: "flex", flexDirection: "column", alignItems: "center", gap: 2 } }, h(MjTile, { key: "cl" + st.log.length, k: st.claim.k, w: Math.round(wall * 0.24), hot: true, anim: "mjPop .3s ease-out both" }), h("span", { style: { fontSize: 10, opacity: .85 } }, st.players[st.claim.from].name + " 打的")) :
           canDraw ? [h("div", { key: "a" }, "点这里"), h("div", { key: "b" }, "摸一张")] : [h("div", { key: "a", style: { fontSize: 18 } }, left), h("div", { key: "b", style: { fontSize: 10, opacity: .75 } }, "张牌墙")]),
         h("div", { style: { display: "flex", gap: 1 } }, backs(ring, bw))));
   }
@@ -8736,7 +8736,16 @@
     const canDraw = !!(me && state.status === "playing" && state.phase === "draw" && state.turn === meI);
     const tableS = Math.min(400, Math.max(280, (typeof window !== "undefined" ? window.innerWidth : 390) - 32));
     // 牌墙一闪一闪：等她点
-    if (typeof document !== "undefined" && !document.getElementById("mjPulseKf")) { const el = document.createElement("style"); el.id = "mjPulseKf"; el.textContent = "@keyframes mjPulse{0%,100%{box-shadow:0 0 0 0 rgba(243,210,122,.55)}50%{box-shadow:0 0 0 7px rgba(243,210,122,0)}}"; document.head.appendChild(el); }
+    if (typeof document !== "undefined" && !document.getElementById("mjPulseKf")) { const el = document.createElement("style"); el.id = "mjPulseKf"; el.textContent = "@keyframes mjPulse{0%,100%{box-shadow:0 0 0 0 rgba(243,210,122,.55)}50%{box-shadow:0 0 0 7px rgba(243,210,122,0)}}"
+      // 动画（她 2026-11-09「动画也加上」）：牌落进牌河、摸进手里、碰杠那组弹出来、结果纸条升上来盖章。都是一出现播一次，不占计时器
+      + "@keyframes mjToRiver{0%{transform:translateY(46px) scale(1.5);opacity:0}60%{opacity:1}100%{transform:none;opacity:1}}"
+      + "@keyframes mjDrawIn{0%{transform:translateY(-34px) rotate(-8deg);opacity:0}70%{transform:translateY(3px)}100%{transform:none;opacity:1}}"
+      + "@keyframes mjBackIn{0%{transform:translateY(10px);opacity:0}100%{transform:none;opacity:1}}"
+      + "@keyframes mjPop{0%{transform:scale(.4);opacity:0}70%{transform:scale(1.12)}100%{transform:none;opacity:1}}"
+      + "@keyframes mjRise{0%{transform:translateY(24px);opacity:0}100%{transform:none;opacity:1}}"
+      + "@keyframes mjStamp{0%{transform:scale(2.4) rotate(-14deg);opacity:0}60%{transform:scale(.92) rotate(10deg);opacity:1}100%{transform:rotate(8deg);opacity:.85}}"
+      + "@keyframes mjShow{0%{transform:scale(.6);opacity:0}100%{transform:none;opacity:1}}"
+      + "@media (prefers-reduced-motion: reduce){[data-mjanim]{animation:none!important}}"; document.head.appendChild(el); }
     const selfOpts = myTurn ? M.selfOptions(state, meI) : [];
     const myClaim = me && state.phase === "claim" && state.claim && state.claim.pending[meI] && !state.claim.decided[meI] ? state.claim.pending[meI] : null;
     const tap = function (k, j) {
@@ -8768,9 +8777,9 @@
         r ? feltBox([
 
           // 一盘的结果：一张米色纸条，右上角盖一枚红章
-          r ? h("div", { key: "res", "data-wk": "gamemjresult", style: { position: "relative", marginTop: 4, background: "linear-gradient(180deg,#fbf4e2,#f1e4c4)", color: "#4a3a26", borderRadius: 10, padding: "12px 14px", fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", lineHeight: 1.75, boxShadow: "0 6px 14px -8px rgba(0,0,0,.6)" } },
+          r ? h("div", { key: "res" + state.handNo, "data-wk": "gamemjresult", "data-mjanim": "1", style: { animation: "mjRise .4s ease-out both", position: "relative", marginTop: 4, background: "linear-gradient(180deg,#fbf4e2,#f1e4c4)", color: "#4a3a26", borderRadius: 10, padding: "12px 14px", fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", lineHeight: 1.75, boxShadow: "0 6px 14px -8px rgba(0,0,0,.6)" } },
             r.winner == null ? "摸完了，流局。庄家连庄。" : [
-              h("div", { key: "seal", style: { position: "absolute", right: 12, top: 10, width: 40, height: 40, border: "2px solid #c2372b", borderRadius: 6, color: "#c2372b", fontFamily: F_DISPLAY, fontSize: 24, display: "flex", alignItems: "center", justifyContent: "center", transform: "rotate(8deg)", opacity: .85 } }, r.zimo ? "摸" : "糊"),
+              h("div", { key: "seal", "data-mjanim": "1", style: { animation: "mjStamp .5s .25s cubic-bezier(.3,1.4,.5,1) both", position: "absolute", right: 12, top: 10, width: 40, height: 40, border: "2px solid #c2372b", borderRadius: 6, color: "#c2372b", fontFamily: F_DISPLAY, fontSize: 24, display: "flex", alignItems: "center", justifyContent: "center", transform: "rotate(8deg)", opacity: .85 } }, r.zimo ? "摸" : "糊"),
               h("div", { key: "a", style: { fontFamily: F_DISPLAY, fontSize: "calc(17px * var(--app-fs, 1))", color: "#8a2a1f" } }, state.players[r.winner].name + (r.zimo ? " 自摸" : " 食糊") + " · " + r.fan.fan + " 番" + (r.fan.fan > M.MAX_FAN ? "（满）" : "")),
               h("div", { key: "b" }, r.fan.items.map(function (x) { return x[0] + (x[1] ? " " + x[1] : ""); }).join(" · ")),
               h("div", { key: "c", style: { opacity: .85 } }, r.zimo ? "三家各付 " + Math.ceil(r.pay / 2) : state.players[r.from].name + " 出铳，付 " + r.pay),
@@ -8795,11 +8804,11 @@
       me && state.status === "playing" ? h("div", { "data-wk": "gameactions", "data-part": "mahjong", "data-kind": state.phase, className: "shrink-0", style: { background: "linear-gradient(180deg,#7d5636 0%,#62422a 45%,#4b3220 100%)", borderTop: "3px solid #3a2616", boxShadow: "inset 0 1px 0 rgba(255,220,170,.25)", padding: "8px 8px calc(env(safe-area-inset-bottom) * 0.4 + 10px)" } },
         me.melds.length || me.flowers.length ? h("div", { style: { display: "flex", flexWrap: "wrap", alignItems: "flex-end", gap: 7, justifyContent: "center", marginBottom: 4 } },
           me.flowers.length ? h("div", { style: { display: "flex" } }, mjRow(me.flowers, 18)) : null,
-          me.melds.map(function (m, j) { return h("div", { key: j, style: { display: "flex" } }, mjRow(m.tiles, 20)); })) : null,
+          me.melds.map(function (m, j) { return h("div", { key: j + m.type, "data-mjanim": "1", style: { display: "flex", animation: "mjPop .38s cubic-bezier(.3,1.5,.5,1) both" } }, mjRow(m.tiles, 20)); })) : null,
         h("div", { "data-wk": "gamemjhand", style: { display: "flex", justifyContent: "center", alignItems: "flex-end", padding: "14px 4px 10px", margin: "0 -2px 8px", borderRadius: 8,
             background: "linear-gradient(180deg, rgba(0,0,0,0) 0%, rgba(0,0,0,0) 62%, #3a2616 62%, #2e1e11 100%)", boxShadow: "0 2px 0 rgba(255,220,170,.12)" } },
           myHand.map(function (k, j) { return h("div", { key: j + k, style: { marginLeft: j ? 2 : 0 } }, h(MjTile, { k: k, w: handW, lift: sel === j, onClick: myTurn ? function () { tap(k, j); } : null })); }),
-          drawn ? h("div", { style: { marginLeft: 7 } }, h(MjTile, { k: drawn, w: handW, lift: sel === "d", onClick: function () { if (sel === "d") act(function (n) { M.discard(n, meI, drawn); }); else setSel("d"); } })) : null),
+          drawn ? h("div", { key: "drawn" + state.wall.length, style: { marginLeft: 7 } }, h(MjTile, { k: drawn, w: handW, anim: sel === "d" ? null : "mjDrawIn .36s cubic-bezier(.3,1.3,.5,1) both", lift: sel === "d", onClick: function () { if (sel === "d") act(function (n) { M.discard(n, meI, drawn); }); else setSel("d"); } })) : null),
         h("div", { style: { display: "flex", flexWrap: "wrap", gap: 7, justifyContent: "center", minHeight: 40 } },
           myClaim ? myClaim.map(function (o) {
             if (o.kind === "ron") return pill("食糊 " + o.fan.fan + " 番", function () { act(function (n) { M.decide(n, meI, { kind: "ron" }); }); }, "#c2372b", "gamemjron");

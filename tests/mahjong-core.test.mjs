@@ -45,3 +45,7 @@ assert.match(games, /function MjTable\(props\)/);
 assert.match(games, /"data-wk": "gamemjwall", onClick: canDraw \? props\.onDraw/);
 assert.match(games, /handDraw: !cfg\.mjAutoDraw/);
 console.log("mahjong table ok");
+assert.match(games, /@keyframes mjToRiver/);
+assert.match(games, /prefers-reduced-motion: reduce\)\{\[data-mjanim\]\{animation:none!important\}/);
+assert.match(games, /anim: sel === "d" \? null : "mjDrawIn/);
+console.log("mahjong anim ok");
