@@ -763,8 +763,8 @@
     else if (k === "加固") { sd.board.forEach(v => { if (v) v.shield += Math.round(2 * x); }); u.shield += p; }
     else if (k === "回敬") { u.reflect = 1; u.shield += Math.ceil(p / 2); }
     else if (k === "补满") { const w = sd.board.filter(Boolean).sort((a, b) => a.hp / a.maxHp - b.hp / b.maxHp)[0]; if (w) w.hp = w.maxHp; if (big) sd.hp = Math.min(sd.max || ENVELOPE_HP, sd.hp + 4); }
-    else if (k === "群补") sd.board.forEach(v => { if (v) v.hp = Math.min(v.maxHp, v.hp + Math.round(4 * x)); });
-    else if (k === "洗戳") sd.board.forEach(v => { if (v) { v.marks = {}; v.hp = Math.min(v.maxHp, v.hp + Math.round(2 * x)); } });
+    else if (k === "群补") healUnits(sd, sd.board, Math.round(4 * x));
+    else if (k === "洗戳") { sd.board.forEach(v => { if (v) v.marks = {}; }); healUnits(sd, sd.board, Math.round(2 * x)); }
     else if (k === "拾回") { const pile = sd.discard.slice().sort((a, b) => b.pow + b.maxHp - a.pow - a.maxHp); const n = big ? 2 : 1; pile.slice(0, n).forEach(v => { sd.discard.splice(sd.discard.indexOf(v), 1); sd.hand.push(v); }); }
     else if (k === "进账") sd.postage += Math.round(2 * x * (eventNow(st) === "集邮节" ? 2 : 1));
     else if (k === "翻信箱") drawCards(sd, Math.round(2 * x * (eventNow(st) === "集邮节" ? 2 : 1)), st.seed + st.turn * 13 + slot);
@@ -842,6 +842,13 @@
   // 打同一列：从前排往后找第一张——后排只要前面有人就挨不着
   function targetIn(sd, c) { for (let r = 0; r < SIZE; r++) { const i = r * SIZE + c; if (sd.board[i]) return i; } return -1; }
   function hitEnvelope(st, who, n, by) { if (n <= 0) return; if (st.raid && who === "foe") st.raid.dealt += n; st[who].hp -= n; say(st, other(who), (by ? "「" + by + "」" : "") + "打到信封 -" + n, { kind: "hitEnv", n }); }
+  // 回血溢出（她 2026-11-09「回血溢出也弄一下」）：补满了还多出来的，一半补到自家信封；只算主动的补（补票、群补、洗戳）
+  function healUnits(sd, list, n) {
+    let over = 0;
+    list.forEach(v => { if (!v) return; const got = Math.min(n, Math.max(0, v.maxHp - v.hp)); v.hp += got; over += n - got; });
+    const env = Math.floor(over / 2); if (env > 0) sd.hp = Math.min(sd.max || ENVELOPE_HP, sd.hp + env);
+    return env;
+  }
   function hitUnit(st, who, i, n, by, att) {
     const sd = st[who], u = sd.board[i]; if (!u || n <= 0) return;
     if (u.trait === "莽撞") n += 1;
@@ -852,7 +859,7 @@
       if (u.weak) n *= 2;
       st.raid.dealt += Math.max(0, Math.min(n, u.hp + u.shield));
     }
-    const blocked = att && att.trait === "锋利" ? 0 : Math.min(u.shield, n); u.shield -= blocked; u.hp -= (n - blocked);
+    const blocked = att && att.trait === "锋利" ? 0 : Math.min(u.shield, n), hp0 = u.hp; u.shield -= blocked; u.hp -= (n - blocked);
     if (u.trait === "记仇") u.grudge = (u.grudge || 0) + 1;
     say(st, other(who), "「" + by + "」打「" + u.name + "」 -" + n, { kind: "hit", slot: i, n, blocked });
     if (u.reflect) { u.reflect = 0; hitEnvelope(st, other(who), Math.ceil(n / 2), u.name + " 回敬"); }
@@ -862,6 +869,9 @@
       sd.board[i] = null; sd.discard.push(stripUnit(u)); say(st, who, u.name + " 掉了", { kind: "fall", slot: i, char: u.charId, line: u.lines.fall });
       if (u.trait === "余温") adj(i).forEach(j => { const v = sd.board[j]; if (v && v.charge < v.need) v.charge++; });
       if (att && att.trait === "热烈") hitEnvelope(st, who, 3, att.name);
+      // 溢出一半（她 2026-11-09）：打死以后多出来的伤害，一半落到同一列下一张，这一列没票了就落到信封
+      const spill = Math.floor(Math.max(0, n - blocked - hp0) / 2);
+      if (spill > 0) { const j = targetIn(sd, col(i)); if (j >= 0) hitUnit(st, who, j, spill, by + " 余劲", att); else hitEnvelope(st, who, spill, by + " 余劲"); }
     }
   }
   function act(st, who, i) {
@@ -883,7 +893,7 @@
       else if (u.role === "火漆") { u.shield += Math.max(1, Math.ceil(p / 2)); side(Math.ceil(p * ROLE_HIT.火漆)); }
       else if (u.role === "补票") {
         const hurt = sd.board.filter(x => x && x.hp < x.maxHp).sort((a, b) => a.hp / a.maxHp - b.hp / b.maxHp)[0];
-        if (hurt) hurt.hp = Math.min(hurt.maxHp, hurt.hp + Math.max(2, Math.ceil(p / 2))); else sd.hp = Math.min(sd.max || ENVELOPE_HP, sd.hp + 2);
+        if (hurt) healUnits(sd, [hurt], Math.max(2, Math.ceil(p / 2))); else sd.hp = Math.min(sd.max || ENVELOPE_HP, sd.hp + 2);
         const dirty = sd.board.find(x => x && (x.marks.雨渍 || x.marks.退回)); if (dirty) { delete dirty.marks.雨渍; delete dirty.marks.退回; }
         say(st, who, u.name + " 补了一下", { kind: "heal", slot: i }); side(Math.ceil(p * ROLE_HIT.补票));
       }
@@ -1045,7 +1055,7 @@
   const mine = raw => (st, who, a, b) => { if (who !== "me") return raw(st, who, a, b); snap(st); const r = raw(st, who, a, b); if (!r || !r.ok) st.undo.pop(); return r; };
   const place = mine(placeRaw), tear = mine(tearRaw), move = mine(moveRaw), keep = mine(keepRaw), stamp = mine(stampRaw);
   const API = { RELICS, STYLE_ZH, TRAIT_FIT, TRAITS, SKILLS, BONDS, bondOf, unitInfo, SIZE, SLOTS, ENVELOPE_HP, POSTAGE, DRAW, DECK_SIZE, TURN_CAP, KEEP_MAX, FACE, NEED, ROLES, MARKS, TERRAIN, EVENTS,
-    stampOf, deckFrom, foeDeckFrom, shopDecorOf, shopUpPrice, SHOP, SHOP_PERIODS, shopPeriod, SHOP_WIN, shopWinSlots, shopWinBonus, shopApt, shopMul, SHOP_BADGE, SHOP_BADGE_FIT, shopBadgeFit, shopBadgeBonus, shopNeedZh, shopCardFits, SHOP_THANKS, shopCustomers, autoMe, PUZZLE_MAX, puzzleOf, pzSolve, PATROL, TA_CELLS, TA_PTS, patrolNew, patrolCan, patrolMove, patrolBattle, patrolAfter, weekNo, SHIFT, shiftNew, shiftRoll, shiftPrice, shiftBuy, shiftSell, shiftDeck, shiftBonds, shiftFoeLv, shiftAfter, EDICTS, EDICT_LV, edictDeck, RAID_TURNS, MATS, BASE_MATS, THEME_MAT, KEEP_FX, KEEP_MAX_SLOTS, keepFxOf, keepTier, matDrop, SIEGE_TIERS, newDuel, envFor, avgLv, fairDeck, aims, actsOf, previewPlace, place, tear, move, keep, stamp, undo, canUndo, endTurn, planFoe, combos, newSeries, addGame, memoryLine, hashStr };
+    stampOf, deckFrom, foeDeckFrom, shopDecorOf, shopUpPrice, SHOP, SHOP_PERIODS, shopPeriod, SHOP_WIN, shopWinSlots, shopWinBonus, shopApt, shopMul, SHOP_BADGE, SHOP_BADGE_FIT, shopBadgeFit, shopBadgeBonus, shopNeedZh, shopCardFits, SHOP_THANKS, hitUnit, healUnits, shopCustomers, autoMe, PUZZLE_MAX, puzzleOf, pzSolve, PATROL, TA_CELLS, TA_PTS, patrolNew, patrolCan, patrolMove, patrolBattle, patrolAfter, weekNo, SHIFT, shiftNew, shiftRoll, shiftPrice, shiftBuy, shiftSell, shiftDeck, shiftBonds, shiftFoeLv, shiftAfter, EDICTS, EDICT_LV, edictDeck, RAID_TURNS, MATS, BASE_MATS, THEME_MAT, KEEP_FX, KEEP_MAX_SLOTS, keepFxOf, keepTier, matDrop, SIEGE_TIERS, newDuel, envFor, avgLv, fairDeck, aims, actsOf, previewPlace, place, tear, move, keep, stamp, undo, canUndo, endTurn, planFoe, combos, newSeries, addGame, memoryLine, hashStr };
   g.StampDuel = API;
   if (typeof module !== "undefined" && module.exports) module.exports = API;
 })(typeof window !== "undefined" ? window : globalThis);
