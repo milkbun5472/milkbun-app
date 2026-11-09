@@ -585,19 +585,57 @@
     柜台: ["「算得清清楚楚，放心了。」", "「零钱也帮我凑好了，谢谢。」", "「你们这儿的人真耐心。」"],
     卡: ["「就是这种！我找了好久。」", "「这张好看，送人正合适。」", "「你们橱窗里的卡挑得真好。」"]
   };
-  const shopMul = (shop, roster, personaOf, cardOf) => 1 + Object.keys(roster || {}).filter(p => roster[p]).reduce((a, p) => { const bid = (shop.badge || {})[p], bc = bid && cardOf ? cardOf(bid) : null; return a + 0.15 + 0.1 * shopApt(personaOf(roster[p]), p) + (bc ? shopBadgeBonus(p, bc) : bid ? 0.06 : 0); }, 0) + shopDecorBonus(shop) + (cardOf ? shopWinBonus(shop, cardOf) : 0);
+  // ── 小店一直玩下去（她 2026-11-09「能一直玩下去不会结束」）：口碑、每周大单、熟客、店员熟练度，都不封顶 ──
+  //   口碑只让店变大（客人、单子、收入），不碰战斗：难缠客人始终照她卡组的平均等级来（她：卡等级有上限）
+  const shopRepNeed = lv => 60 + 20 * lv;
+  const shopRepLv = shop => { let xp = Math.max(0, Number(shop && shop.rep) || 0), lv = 0; while (xp >= shopRepNeed(lv + 1)) { xp -= shopRepNeed(lv + 1); lv++; } return lv; };
+  const shopRepLeft = shop => { let xp = Math.max(0, Number(shop && shop.rep) || 0), lv = 0; while (xp >= shopRepNeed(lv + 1)) { xp -= shopRepNeed(lv + 1); lv++; } return { lv, xp, need: shopRepNeed(lv + 1) }; };
+  const shopRepBonus = lv => 0.12 * Math.log2(1 + lv / 4);           // 越往后涨得越慢，永远在涨
+  const shopRepCrowd = lv => Math.floor(Math.log2(1 + lv / 6));
+  // 熟练度：同一个人在同一个岗上开过几天门；称号一直往上，加成越往后越慢
+  const SKILL_TITLES = [[0, "见习"], [3, "上手"], [8, "熟手"], [15, "老手"], [30, "一把手"]];
+  const shopSkillTitle = (post, days) => { const d = Math.max(0, days || 0); if (d >= 30) { const n = 1 + Math.floor((d - 30) / 20); return post + "一把手" + (n > 1 ? "·" + n + "段" : ""); } let t = "见习"; SKILL_TITLES.forEach(([k, v]) => { if (d >= k) t = v; }); return post + t; };
+  const shopSkillBonus = days => 0.05 * Math.log2(1 + Math.max(0, days || 0) / 4);
+  const shopSkillOf = (shop, id, post) => ((shop && shop.skill) || {})[id + "|" + post] || 0;
+  // 新面孔：几个词库拼出来，够多就不会撞
+  const FACE_ADJ = ["戴草帽的", "穿雨靴的", "总迟到的", "背画板的", "拎鸟笼的", "说方言的", "戴圆眼镜的", "骑旧单车的", "围红围巾的", "牵柴犬的", "抱着猫的", "穿制服的", "拄拐杖的", "扎双马尾的", "提着保温桶的", "满身面粉的", "拿着地图的", "戴耳机的", "穿西装的", "晒得很黑的"];
+  const FACE_WHO = ["老太太", "高中生", "画家", "花匠", "面包师", "退休邮差", "小学老师", "调音师", "夜班护士", "书店店员", "渔夫", "修表匠", "摄影师", "教授", "快递员", "厨子", "邻居大叔", "留学生", "新婚的姑娘", "小男孩"];
+  const FACE_WANT = [["寄一包家乡的特产", 9, "送信"], ["加急寄一份合同", 12, "送信"], ["给远方的笔友寄信", 6, "送信"], ["寄一大箱旧书", 11, "分拣"], ["理一摞攒了半年的信", 8, "分拣"], ["寄一卷画和几封信", 10, "分拣"], ["问寄到国外要多少钱", 7, "柜台"], ["零钱不够，想先寄一半", 5, "柜台"], ["买一整版纪念邮票", 9, "柜台"], ["想挑一张好看的卡送人", 8, "卡"], ["给孩子挑一张生日卡", 7, "卡"]];
+  const shopNewFace = R => { const w = FACE_WANT[Math.floor(R() * FACE_WANT.length)]; return [FACE_ADJ[Math.floor(R() * FACE_ADJ.length)] + FACE_WHO[Math.floor(R() * FACE_WHO.length)], w[0], w[1], w[2]]; };
+  // 熟客的小事：交情每到一档冒一件，用完从头再来（换着人来，读着不重复）
+  const REG_STORIES = ["第一次跟店员聊起了家里的事", "说下回带点自己做的东西来", "寄出去的那封终于有了回信，特地来说一声", "带了一小盒点心，放在柜台上就走了", "说起年轻时也在邮局排过很长的队", "托店里帮忙保管一封信，说过几天来拿", "说最近忙，可能要隔一阵才来", "隔了一阵又来了，说还是这家店顺手", "给店员带了一句家乡的问候", "说这条街越来越热闹，多亏这家店", "问店员最近累不累", "把自家孩子的画夹在信里给店员看"];
+  const shopRegStory = n => REG_STORIES[(Math.max(1, n) - 1) % REG_STORIES.length];
+  // 每周三张大单：按口碑等级和这周的日子拼，做完下一周更大
+  const ORDER_KINDS = [
+    { k: "serve", zh: n => "这周招待 " + n + " 位客人", n: lv => 10 + lv * 2, pay: n => n * 6 },
+    { k: "match", zh: n => "这周对上客人需求 " + n + " 次", n: lv => 5 + lv, pay: n => n * 12 },
+    { k: "win", zh: n => "这周打赢 " + n + " 个难缠客人", n: lv => 1 + Math.floor(lv / 4), pay: n => n * 60 },
+    { k: "urgent", zh: n => "这周招待 " + n + " 位急件客人", n: lv => 2 + Math.floor(lv / 3), pay: n => n * 25 },
+    { k: "earn", zh: n => "这周收进 " + n + " 枚邮花", n: lv => 400 + lv * 80, pay: n => Math.round(n * 0.3) },
+    { k: "regular", zh: n => "这周招待熟客 " + n + " 次", n: lv => 3 + Math.floor(lv / 2), pay: n => n * 20 },
+    { k: "days", zh: n => "这周开门 " + n + " 天", n: lv => Math.min(7, 3 + Math.floor(lv / 5)), pay: n => n * 30 }
+  ];
+  function shopOrders(lv, week, salt) {
+    const R = rng((hashStr(String(week) + "|" + (salt || "")) ^ (lv * 2654435761)) >>> 0), ks = shuffle(ORDER_KINDS.slice(), R).slice(0, 3);
+    return ks.map((o, i) => { const n = o.n(lv); return { id: week + "_" + o.k, k: o.k, n, prog: 0, done: false, pay: o.pay(n), rep: 40 + lv * 5 }; });
+  }
+  const shopOrderZh = o => { const t = ORDER_KINDS.find(x => x.k === o.k); return t ? t.zh(o.n) : ""; };
+  const shopMul = (shop, roster, personaOf, cardOf) => 1 + shopRepBonus(shopRepLv(shop)) + Object.keys(roster || {}).filter(p => roster[p]).reduce((a, p) => { const bid = (shop.badge || {})[p], bc = bid && cardOf ? cardOf(bid) : null; return a + 0.15 + 0.1 * shopApt(personaOf(roster[p]), p) + shopSkillBonus(shopSkillOf(shop, roster[p], p)) + (bc ? shopBadgeBonus(p, bc) : bid ? 0.06 : 0); }, 0) + shopDecorBonus(shop) + (cardOf ? shopWinBonus(shop, cardOf) : 0);
   // 按现实时间开店（她 2026-11-08「按现实时间来吧」）：上午 6–12、下午 12–18、傍晚 18–24，半夜关门；
   //   每个时段一批客人：上午多寄信的路人、下午难缠的多、傍晚来坐坐的角色多；有的是急件（给双倍）；过了这个时段没招待的就走了
   const SHOP_PERIODS = [["上午", 6, 12], ["下午", 12, 18], ["傍晚", 18, 24]];
   const shopPeriod = d => { const hr = (d || new Date()).getHours(); const p = SHOP_PERIODS.find(x => hr >= x[1] && hr < x[2]); return p ? p[0] : "半夜"; };
   function shopCustomers(shop, offDuty, seed, allChars, period) {
     const pi = Math.max(0, SHOP_PERIODS.findIndex(x => x[0] === period)), R = rng(((seed >>> 0) ^ (shop.day * 2654435761) ^ ((pi + 1) * 40503)) >>> 0);
-    const n = 2 + Math.floor((shop.decor || []).length / 3) + (pi === 0 ? 1 : 0), toughP = [0.1, 0.35, 0.15][pi], out = [];
+    const n = 2 + Math.floor((shop.decor || []).length / 3) + (pi === 0 ? 1 : 0) + shopRepCrowd(shopRepLv(shop)), toughP = [0.1, 0.35, 0.15][pi], out = [];
     const npc = shuffle(SHOP.NPC.slice(), R), tgh = shuffle(SHOP.TOUGH.slice(), R);   // 同一时段不重样
-    for (let k = 0; k < n; k++) { const tough = R() < toughP && tgh.length, x = tough ? tgh.pop() : npc.pop() || SHOP.NPC[0], urgent = !tough && R() < 0.2;
+    // 熟客（她 2026-11-09「一直玩下去」）：一半的路人是来过的熟客；剩下的是代码拼出来的新面孔，招待过就成熟客
+    const regs = shuffle(Object.values(shop.regulars || {}).filter(r => r && !r.gone), R);
+    for (let k = 0; k < n; k++) { const tough = R() < toughP && tgh.length, reg = !tough && regs.length && R() < 0.5 ? regs.pop() : null;
+      const x = tough ? tgh.pop() : reg ? [reg.name, reg.want, reg.fee, reg.need] : R() < 0.35 ? (npc.pop() || SHOP.NPC[0]) : shopNewFace(R), urgent = !tough && R() < 0.2;
       // 招待要对上需求（她 2026-11-08）：交给对的岗位，或者从橱窗挑一张对的卡
       const need = tough ? null : x[3] === "卡" ? (R() < 0.5 ? { card: { role: ROLES[Math.floor(R() * ROLES.length)] } } : { card: { min: "SR" } }) : x[3] ? { post: x[3] } : null;
-      out.push({ id: period + "c" + k, name: x[0], want: x[1], fee: x[2] * (urgent ? 2 : 1), tough, urgent, need }); }
+      out.push({ id: period + "c" + k, name: x[0], want: x[1], fee: x[2] * (urgent ? 2 : 1), tough, urgent, need, ...(reg ? { regularId: reg.id, bond: reg.bond || 0 } : tough ? {} : { regularId: "r_" + hashStr(x[0]).toString(36) }) }); }
     if ((allChars || []).length && R() < 0.6) out.splice(1, 0, { id: period + "p0", wantChar: allChars[Math.floor(R() * allChars.length)], fee: 15, want: "想要一张明信片" });
     const vMax = [0, 1, 2][pi];
     shuffle((offDuty || []).slice(), R).slice(0, Math.min(vMax, (offDuty || []).length)).forEach((id, k) => { if (R() < (pi === 2 ? 0.85 : 0.5)) out.splice(1 + k * 2, 0, { id: period + "v" + k, charId: id, fee: 12, visitor: true }); });
@@ -1057,7 +1095,7 @@
   const mine = raw => (st, who, a, b) => { if (who !== "me") return raw(st, who, a, b); snap(st); const r = raw(st, who, a, b); if (!r || !r.ok) st.undo.pop(); return r; };
   const place = mine(placeRaw), tear = mine(tearRaw), move = mine(moveRaw), keep = mine(keepRaw), stamp = mine(stampRaw);
   const API = { RELICS, STYLE_ZH, TRAIT_FIT, TRAITS, SKILLS, BONDS, bondOf, unitInfo, SIZE, SLOTS, ENVELOPE_HP, POSTAGE, DRAW, DECK_SIZE, TURN_CAP, KEEP_MAX, FACE, NEED, ROLES, MARKS, TERRAIN, EVENTS,
-    stampOf, deckFrom, foeDeckFrom, shopDecorOf, shopUpPrice, SHOP, SHOP_PERIODS, shopPeriod, SHOP_WIN, shopWinSlots, shopWinBonus, shopApt, shopMul, SHOP_BADGE, SHOP_BADGE_FIT, shopBadgeFit, shopBadgeBonus, shopNeedZh, shopCardFits, SHOP_THANKS, hitUnit, healUnits, simSend, shopCustomers, autoMe, PUZZLE_MAX, puzzleOf, pzSolve, PATROL, TA_CELLS, TA_PTS, patrolNew, patrolCan, patrolMove, patrolBattle, patrolAfter, weekNo, SHIFT, shiftNew, shiftRoll, shiftPrice, shiftBuy, shiftSell, shiftDeck, shiftBonds, shiftFoeLv, shiftAfter, EDICTS, EDICT_LV, edictDeck, RAID_TURNS, MATS, BASE_MATS, THEME_MAT, KEEP_FX, KEEP_MAX_SLOTS, keepFxOf, keepTier, matDrop, SIEGE_TIERS, newDuel, envFor, avgLv, fairDeck, aims, actsOf, previewPlace, place, tear, move, keep, stamp, undo, canUndo, endTurn, planFoe, combos, newSeries, addGame, memoryLine, hashStr };
+    stampOf, deckFrom, foeDeckFrom, shopDecorOf, shopUpPrice, SHOP, SHOP_PERIODS, shopPeriod, SHOP_WIN, shopWinSlots, shopWinBonus, shopApt, shopMul, SHOP_BADGE, SHOP_BADGE_FIT, shopBadgeFit, shopBadgeBonus, shopNeedZh, shopCardFits, SHOP_THANKS, hitUnit, healUnits, simSend, shopRepLv, shopRepLeft, shopRepBonus, shopSkillTitle, shopSkillOf, shopSkillBonus, shopOrders, shopOrderZh, shopRegStory, shopNewFace, shopCustomers, autoMe, PUZZLE_MAX, puzzleOf, pzSolve, PATROL, TA_CELLS, TA_PTS, patrolNew, patrolCan, patrolMove, patrolBattle, patrolAfter, weekNo, SHIFT, shiftNew, shiftRoll, shiftPrice, shiftBuy, shiftSell, shiftDeck, shiftBonds, shiftFoeLv, shiftAfter, EDICTS, EDICT_LV, edictDeck, RAID_TURNS, MATS, BASE_MATS, THEME_MAT, KEEP_FX, KEEP_MAX_SLOTS, keepFxOf, keepTier, matDrop, SIEGE_TIERS, newDuel, envFor, avgLv, fairDeck, aims, actsOf, previewPlace, place, tear, move, keep, stamp, undo, canUndo, endTurn, planFoe, combos, newSeries, addGame, memoryLine, hashStr };
   g.StampDuel = API;
   if (typeof module !== "undefined" && module.exports) module.exports = API;
 })(typeof window !== "undefined" ? window : globalThis);

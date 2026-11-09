@@ -20,7 +20,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v89.393";
+const APP_VERSION = "v89.394";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -12145,6 +12145,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
             + (close
               ? "今天上班的：" + (d.staff || "") + "。今天来过的客人：" + (d.customers || "没什么人") + "。今天收了 " + (d.coins || 0) + " 枚邮花。\n"
                 + (d.window ? "橱窗里摆着她抽到的这几张卡：" + d.window + "。\n" : "") + (d.missed ? "这是那天晚上的事：她那天忘了来打烊，是店里上班的这几个人自己把店关了，她不在场。\n" : "") + (d.badges ? "店员挂着当工牌的卡：" + d.badges + "。\n" : "")
+                + (d.pairs ? "老搭档：" + d.pairs + "。\n" : "") + (d.regulars ? "今天来的熟客：" + d.regulars + "。\n" : "")
                 + (d.missed ? "写那天晚上他们自己关店的一小段：" : "现在打烊了。写打烊时店里的一小段：") + "今天上班的这几个人各自怎么样、彼此说了什么、谁累了、谁跟谁拌了两句或者帮了一把、有没有给她留什么话或东西；橱窗里的卡、挂着的工牌是店里的样子，你心里有数就行；不用每张都提，真跟今天的事有关才写一笔，写到卡上的那一刻要照上面写的。每个人照各自的人设说话做事，你写的时候把他们都写进去，不只写你自己；写正在发生的这一段，有动作有对话，别写成总结。"
               : (d.visitor || "一位客人") + "今天来店里寄东西，正好碰上在" + (d.post || "柜台") + "上班的" + (d.staffName || "店员") + "。\n写他们俩在店里碰上的这一小段：只写你们两个之间的事，照两个人各自的人设和你们俩之间的关系，有对话，几段就够。")
             + "\n当场参与者的身份与完整人设：\n"+cast
