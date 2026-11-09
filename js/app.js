@@ -4353,6 +4353,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
           const row = memoryRowFromCloud(r), local = localById.get(row.id);
           if (local && typeof local.hits === "number") row.hits = local.hits;
           if (local && typeof local.lastHit === "number") row.lastHit = local.lastHit;
+          if (local && Number(local.expiresTs) > 0) row.expiresTs = local.expiresTs; // 短期状况的时效只在本机，表里没这一栏
           return row;
         });
         memLibRef.current = authoritative;
@@ -5086,7 +5087,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         const entry = {
           id: uniqMemId(now, i), text: String(it.text).trim(), tags: Array.isArray(it.tags) ? it.tags : [], charIds: [charId], ts: now, source: "auto", pinned: false,
           v: clampInt(it.v, -5, 5, 0), a: clampInt(it.a, 0, 5, 1), open: !!it.open,
-          evidenceMessageIds: Array.isArray(it.evidence_message_ids) ? it.evidence_message_ids.map(String) : []
+          evidenceMessageIds: Array.isArray(it.evidence_message_ids) ? it.evidence_message_ids.map(String) : [],
+          ...memTtlPatch(it, now)
         };
         const ent = window.OpenLoopGate ? window.OpenLoopGate.normalize(entry) : entry;
         // 演以前的事那间房（她 2026-10-11）：贴「过去」、记那间房填的时候；以前的事没有「还没了结」这一说
@@ -10238,7 +10240,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       if (isDupMem(txt, owners, null, duplicateMeta) || isDupMem(txt, owners, batchSeen, duplicateMeta)) return;
       let entry = { id: uniqMemId(now, i), text: txt, tags: (Array.isArray(it.tags) ? it.tags : []).concat(tags),
         charIds: owners, knownBy: knownBy, ts: now, source: "auto", groupId: group.id,
-        v: clampInt(it.v, -5, 5, 0), a: clampInt(it.a, 0, 5, 1), open: !!it.open, evidenceMessageIds };
+        v: clampInt(it.v, -5, 5, 0), a: clampInt(it.a, 0, 5, 1), open: !!it.open, evidenceMessageIds, ...memTtlPatch(it, now) };
       // 批量直写不经过 addMemEntry，开环资格闸要在这儿自己过一遍
       if (window.OpenLoopGate) entry = window.OpenLoopGate.normalize(entry);
       batchSeen.push(entry); added.push(entry);

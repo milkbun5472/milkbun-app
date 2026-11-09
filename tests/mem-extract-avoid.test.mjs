@@ -46,3 +46,23 @@ test("齿轮页里点得到「找重复记忆」", () => {
   assert.match(ui, /onFindDuplicates: onScanDuplicates \? \(\) => setDuplicatePreview\(onScanDuplicates\(\)\) : null/);
   assert.match(ui, /"data-part": "memdup"/);
 });
+test("短期状况：过了时效分数压低、召回时注明多半过去了；置顶/未了不压", () => {
+  const now = Date.now(), d = 86400e3;
+  assert.equal(JSON.stringify(ctx.memTtlPatch({ ttl_days: 5 }, now)), JSON.stringify({ expiresTs: now + 5 * d }));
+  assert.equal(JSON.stringify(ctx.memTtlPatch({ ttl_days: null }, now)), "{}");
+  assert.equal(JSON.stringify(ctx.memTtlPatch({ ttl_days: 5, open: true }, now)), "{}");
+  assert.equal(JSON.stringify(ctx.memTtlPatch({ ttl_days: 400 }, now)), "{}");
+  const base = { id: "x", text: "小雨这周感冒了", ts: now - 10 * d };
+  const q = ctx.memTokens("感冒");
+  const fresh = ctx.explainMemEntry({ ...base }, q, now, null, "感冒");
+  const gone = ctx.explainMemEntry({ ...base, expiresTs: now - 3 * d }, q, now, null, "感冒");
+  const pin = ctx.explainMemEntry({ ...base, expiresTs: now - 3 * d, pinned: true }, q, now, null, "感冒");
+  assert.ok(gone.expired && gone.score < fresh.score * 0.5);
+  assert.equal(pin.expired, false);
+  assert.match(ctx.formatMemLib([{ ...base, expiresTs: now - 3 * d }]), /多半已经过去了/);
+  assert.doesNotMatch(ctx.formatMemLib([{ ...base }]), /多半已经过去了/);
+});
+test("单聊和群聊抽取都存时效；两个抽取提示都要 ttl_days", () => {
+  assert.equal((app.match(/memTtlPatch\(it, now\)/g) || []).length, 2);
+  assert.equal((src.match(/\*\*ttl_days\*\*/g) || []).length, 2);
+});

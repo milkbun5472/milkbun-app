@@ -10766,7 +10766,10 @@ function MemoryLib({
       const d = shortDateOf(e);
       const tags = (e.tags || []).slice(0, 2);
       const faded = isFading(e);
-      const states = [e.open ? "未了" : "", e.pinned ? "常驻" : "", faded ? "快淡了" : ""].filter(Boolean);
+      // 短期状况（生病、这周在考试这类）：没过期写「短期·到几号」，过了写「多半已过去」（不删，只是少想起）
+      const _exp = Number(e.expiresTs) > 0 && !e.pinned && !e.open ? new Date(Number(e.expiresTs)) : null;
+      const ttlState = _exp ? (Date.now() > _exp.getTime() ? "多半已过去" : "短期·到" + (_exp.getMonth() + 1) + "/" + _exp.getDate()) : "";
+      const states = [e.open ? "未了" : "", e.pinned ? "常驻" : "", ttlState, faded ? "快淡了" : ""].filter(Boolean);
       const accent = e.open ? "#b06a4f" : e.pinned ? t.tint : t.line;
       const trace = refineSrcCount(e);
       return h("button", {
@@ -10936,6 +10939,8 @@ function MemEntrySheet({
   const [open, setOpen] = useState(entry ? !!entry.open : false);
   const [vv, setVv] = useState(entry && typeof entry.v === "number" ? entry.v : 0);
   const [aa, setAa] = useState(entry && typeof entry.a === "number" ? entry.a : 1);
+  // 短期状况：模型抽的时候估了「大概管几天」的那种。关掉＝不是短期的，以后不按时间往下压
+  const [shortLived, setShortLived] = useState(!!(entry && Number(entry.expiresTs) > 0));
   const toggleChar = id => setCharIds(p => p.includes(id) ? p.filter(x => x !== id) : [...p, id]);
   const save = () => {
     const tt = text.trim();
@@ -10948,7 +10953,8 @@ function MemEntrySheet({
       pinned,
       open,
       v: vv,
-      a: aa
+      a: aa,
+      ...(entry && Number(entry.expiresTs) > 0 && !shortLived ? { expiresTs: 0 } : {})
     });
   };
   return h(PageSheet, {
@@ -11024,6 +11030,12 @@ function MemEntrySheet({
       h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.sub } }, "还没了结（约定 / 心结）"),
       h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginTop: 2, lineHeight: 1.5 } }, "标记后 TA 会更常惦记这件事；等兑现了 / 翻篇了，点掉它就不再念叨")),
     h(Toggle, { on: open, onChange: v => setOpen(v), color: "#b06a4f", wk: "memedswitch", part: "open" })),
+  entry && Number(entry.expiresTs) > 0 ? h("div", { "data-part": "memttl", className: "flex items-center justify-between pt-6" },
+    h("div", { style: { flex: 1, paddingRight: 12 } },
+      h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.sub } }, "一阵子的状况"),
+      h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginTop: 2, lineHeight: 1.5 } },
+        "抽的时候估计到 " + (new Date(Number(entry.expiresTs)).getMonth() + 1) + "/" + new Date(Number(entry.expiresTs)).getDate() + " 就多半不是这样了，过了以后少想起、想起时当成那时候的事。其实一直都成立就关掉")),
+    h(Toggle, { on: shortLived, onChange: v => setShortLived(v), wk: "memedswitch", part: "ttl" })) : null,
   // 情绪坐标（Ombre Brain·valence/arousal）：愉悦度 + 强度，影响被想起的权重
   (() => {
     const stepper = (label, val, lo, hi, onCh) => h("div", { className: "flex items-center justify-between", style: { padding: "8px 0" } },
