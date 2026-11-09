@@ -8936,6 +8936,41 @@ function LostCharacterRescue({ characters, onRescue, toast }) {
     rows && rows.length ? h("div", { style: { marginTop: 14, display: "flex", flexDirection: "column", gap: 12 } }, rows.map(card)) : null);
 }
 
+// 自动存一份到手机里（js/auto-backup.js）。
+// ⚠️这一节当面说清楚它【不含图片】（施工规则/explain-in-place.md）：自动那一路只写文字那一份，
+//   图太大、自动拼一份几百 MB 的字串会把页面撑崩（群里 2026-10-16 的血案）。
+//   不说清楚的话，人会以为图也带走了——那正是「悄悄少图」，比没有这个功能更坏。
+function AutoBackupSection({ toast }) {
+  const t = useTheme();
+  const [st, setSt] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const refresh = () => { try { window.AutoBackup && window.AutoBackup.state().then(setSt).catch(() => {}); } catch (e) {} };
+  useEffect(refresh, []);
+  if (!st) return null;
+  const row = (label, onClick, primary) => h("button", {
+    onClick: onClick, disabled: busy, className: "w-full py-2.5 active:opacity-70",
+    style: { marginTop: 8, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", borderRadius: 7,
+      color: primary ? t.bg2 : t.ink, background: primary ? t.ink : "transparent", border: primary ? "none" : "1px solid " + t.line }
+  }, label);
+  const note = txt => h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, marginTop: 6, lineHeight: 1.65 } }, txt);
+  const pick = () => { setBusy(true); window.AutoBackup.pick().then(() => { toast && toast("好了，以后它自己往那儿存"); }).catch(e => { toast && toast(String((e && e.message) || e)); }).finally(() => { setBusy(false); refresh(); }); };
+  return h("div", { "data-wk": "block", style: { marginTop: 14, padding: "12px 12px 14px", borderRadius: 10, background: t.bg2, border: "1px solid " + t.line } },
+    h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.ink } }, "自动存一份到手机里"),
+    !st.supported
+      ? note("这个浏览器没有这个功能（iPhone 上都没有）。只能自己记着点上面那颗「导出全部数据」，一周一次就够。")
+      : h(React.Fragment, null,
+          note("挑一个文件夹，以后每隔几个小时它自己往那儿存一份，不用你记着。存的是文字那一份：角色、聊天、记忆、手机、情侣空间。文件夹里留最近 " + st.keep + " 份，旧的自己退掉，你放在那儿的别的东西一个都不动。"),
+          // 「不含图」跟隔壁那条复制备份用同一种红（不许悄悄少图），灰字里的一句⚠️没人看得见
+          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", lineHeight: 1.7, color: "#c0503f", margin: "6px 2px 0" } },
+            "⚠️这一份不含图片和自拍——图太大，自动存会把页面撑崩。图要带走还是用上面的「导出全部数据」。"),
+          st.on ? note(st.lastAt ? "上一份：" + st.lastName + "（" + new Date(st.lastAt).toLocaleString() + "）" : "还没存过第一份") : null,
+          st.on && st.needGesture ? note("⚠️浏览器把那个文件夹的许可收回去了，点下面重新挑一次。") : null,
+          st.on && st.lastErr === "gutted" ? note("⚠️这台手机上的聊天一条都不剩了，而上一份里有——这一次没敢存，免得把文件夹里那几份好的挤掉。先弄清楚本机为什么空了。") : null,
+          st.on && st.lastErr && st.lastErr !== "gutted" ? note("上一次没存成：" + st.lastErr) : null,
+          row(st.on ? "换个文件夹" : "挑个文件夹，开始自动存", pick, !st.on),
+          st.on ? row("现在就存一份", () => { setBusy(true); window.AutoBackup.run(true).then(r => { toast && toast(r && r.ok ? "存好了：" + r.name : "这一次没存：" + ((r && (r.err || r.skip)) || "不知道")); }).catch(e => { toast && toast(String((e && e.message) || e)); }).finally(() => { setBusy(false); refresh(); }); }) : null,
+          st.on ? row("不要自动存了", () => { window.AutoBackup.forget().then(() => { toast && toast("停了，已经存下的文件还在那儿"); refresh(); }); }) : null));
+}
 function StorageMeter({ onOffloadChats, onPruneOld }) {
   const t = useTheme();
   const [info, setInfo] = useState(null);
@@ -9289,6 +9324,7 @@ function DataConfig({
   if (part === "backup") content = h("div", { style: { paddingTop: 8 } },
     h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", lineHeight: 1.65, color: t.fog } }, "数据主要保存在本机浏览器；重要操作前建议先导出一份 JSON。"),
     button("导出全部数据（.json）", onExport, true),
+    h(AutoBackupSection, { toast: toast }),
     // 只带几个人走（群友 2026-10-29：分开装了几份，想把人合到一份里）：勾人 → 存一份只有这几个人的文件；
     //   在另一份里「导入备份恢复」选它，会【合并】进去，原来的人和设置不动。
     onExportChars ? button(pickOpen ? "收起" : "只导出几个人（用来合并到另一份）", () => setPickOpen(!pickOpen)) : null,

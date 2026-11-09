@@ -20,7 +20,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v89.370";
+const APP_VERSION = "v89.372";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -33688,88 +33688,16 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   // ⚠️图是 base64 塞进 JSON 的，一份几十 MB 很常见；那么大一段往剪贴板或者
   //   textarea 里塞，手机上直接把页面撑崩（她 2026-09-22：「复制直接崩了」）。
   //   所以复制那条路只带文字，而且【当面说清楚没带图】——不是悄悄少图。
+  // ⚠️攒的那一段 2026-11-09 搬去了 js/backup-pack.js（施工规则/one-public-mechanism.md）：
+  //   自动落盘要用同一份，留在组件闭包里的话外面谁都够不着，只能照着再写一遍。
+  //   这儿只剩【界面那一半】：拒绝的时候当面说清楚，别的一个字都不多做。
   const buildExportPack = async (opts) => {
-    const noImages = !!(opts && opts.noImages);
-    const dump = {};
-    // ⚠️x_neteaseCookie 是账号凭据，界面上写着「只存这台设备」。
-    //   上云那一路（cloud.js 的 collect）早就排掉它了，导出这一路没跟上——
-    //   又是「一层写在两处，第二处没跟上」。备份文件会被发给别人、放进云盘，
-    //   网易云账号 cookie 一起出去。两处口径必须一样。
-    Object.keys(localStorage).filter(k => k.startsWith("x_") && k !== "x_neteaseCookie").forEach(k => {
-      dump[k] = localStorage.getItem(k);
-    });
-    // 已迁进 IDB 文字库的键(同人文)不在 localStorage，从内存镜像补进备份，否则导出会漏、换设备就丢。
-    try { if (window.__txtMirror) window.__txtMirror.forEach((v, k) => { if (v != null) dump[k] = v; }); } catch (e) {}
-    // ⭐阶段4：图片仓库也打进备份——头像/壁纸迁进 IndexedDB 后，localStorage 只剩 iv_ 引用键，
-    // 图本身在 vault 里、不随普通备份走；这里把 vault 里每张图 base64 化装进 JSON，换设备导入后图才不丢。
-    let vault = {}, vaultCount = 0;
-    try {
-      if (!noImages && typeof idbVaultEntries === "function" && typeof blobToDataUrl === "function") {
-        const entries = await idbVaultEntries();
-        for (const [k, b] of entries) { try { vault[k] = await blobToDataUrl(b); vaultCount++; } catch (e) {} }
-      }
-    } catch (e) {}
-    // ⭐备份 v3：自拍永远打包。以前现场问「要不要带自拍」，一次误点/漏点就会得到
-    // 只有图片门牌、没有像素的假完整备份；数据安全优先，备份可以大但不能悄悄缺图。
-    let selfies = {}, selfieCount = 0;
-    try {
-      if (!noImages && typeof idbImgEntries === "function" && typeof blobToDataUrl === "function") {
-        const sEntries = await idbImgEntries();
-        for (const [k, b] of sEntries) { try { selfies[k] = await blobToDataUrl(b); selfieCount++; } catch (e) {} }
-      }
-    } catch (e) {}
-    // 动态形象的视频（她 2026-10-05：「很多人都不用云端，就靠导入导出备份」）。
-    //   视频住在自己那个库里，不在 localStorage，原来导出只带走了门牌、视频本身留在旧手机上。
-    //   跟自拍一个口径：只要带图就一起带，备份可以大，但不能悄悄缺。
-    let videos = {}, videoCount = 0, videoWanted = 0;
-    try {
-      if (!noImages && window.VideoApi && window.VideoApi.allVideos) {
-        Object.values(window.VideoApi.motionAll()).forEach(m => Object.values(m || {}).forEach(x => { if (x && x.videoRef) videoWanted++; }));
-        for (const [k, b] of await window.VideoApi.allVideos()) { try { videos[k] = await blobToDataUrl(b); videoCount++; } catch (e) {} }
-      }
-    } catch (e) {}
-    // ⚠️图库读失败是【静默】的：idbVaultEntries 的 tx.onerror 直接 res([])，
-    //   于是「一张图都没有」和「一次没读出来」返回值一模一样，导出就写「含 0 张图片」。
-    //   把这份文件导回本机 → 下面 doImport 看见 vault 是真值 → idbVaultClear() →
-    //   **头像、壁纸、照片连同 album 目录一起清空**。这一路她不会收到任何警告。
-    //   所以在这儿做一次交叉核对：存档里明明引用着 iv_ 门牌，图库却一张都没读出来，
-    //   那就不是「没有图」，是「没读出来」——**拒绝导出**，绝不产出一份会清空图库的文件。
-    //   「先导出一份」是所有数据规矩的地基（never-say-delete-first.md），
-    //   地基本身能悄悄少图的话，那条规矩就是空的。
-    const ivRefs = new Set();
-    try { (JSON.stringify(dump).match(/iv_[A-Za-z0-9_-]+/g) || []).forEach(x => ivRefs.add(x)); } catch (e) {}
-    // ⚠️这道闸防的是【悄悄少图】。复制那条路是明说不带图的，不归它管。
-    if (!noImages && ivRefs.size > 0 && vaultCount === 0) {
-      toast("没有导出：存档里引用着 " + ivRefs.size + " 张图，图库却一张都读不出来——这是读失败，不是真没图。别关 app，先跟工程师说一声");
+    const pack = await window.BackupPack.build(opts);
+    if (pack && pack.refused === "img_vault_unreadable") {
+      toast("没有导出：存档里引用着 " + pack.refs + " 张图，图库却一张都读不出来——这是读失败，不是真没图。别关 app，先跟工程师说一声");
       return null;
     }
-    // album 目录（照片的说明、来源、照片桥索引）原来【从不进备份】，
-    // 而导入那一路 idbVaultClear() 会把它连同图一起清掉——只清不备，导一次少一次。
-    let album = [];
-    // 照片说明是跟着图一起回去的（导入那头就写在图库那一支里），不带图就别带它
-    try { if (!noImages && typeof idbAlbumEntries === "function") album = await idbAlbumEntries(); } catch (e) {}
-    const blob = new Blob([JSON.stringify({
-      __archive: 1,
-      version: 4,
-      exportedAt: Date.now(),
-      data: dump,
-      vault: vault,
-      selfies: selfies,
-      album: album,
-      videos: videos
-    }, null, 2)], {
-      type: "application/json"
-    });
-    const missing = (() => { let n = 0; ivRefs.forEach(k => { if (!(k in vault)) n++; }); return n; })();
-    const what = noImages
-      ? "（只有文字：角色、聊天、记忆、手机、情侣空间这些；⚠️不含图片和自拍）"
-      : "（含 " + vaultCount + " 张图片" + (selfieCount ? "、" + selfieCount + " 张自拍" : "")
-      + (album.length ? "、" + album.length + " 条照片说明" : "")
-      + (videoCount ? "、" + videoCount + " 段动态形象视频" : "")
-      + (videoWanted && !videoCount ? "；⚠️动态形象的视频没读出来，这份备份里没有视频" : "")
-      + (missing ? "；⚠️有 " + missing + " 张图只剩门牌、图本身找不到了" : "") + "）";
-    const name = "archive-backup-" + new Date().toISOString().slice(0, 10) + ".json";
-    return { name: name, text: await blob.text(), what: what };
+    return pack;
   };
   // ⚠️拆成两份（群里 2026-10-16：「备份不下来了，秋秋说可能是内存太大了」）：
   //   原来一份文件里连图带视频全转成 base64，图一多就是几百 MB 的一整串字，手机浏览器拼到一半就撑不住，
@@ -38457,6 +38385,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     //   接着建角色、导入、点云端恢复——那几下才是真把还活着的那份盖掉的时刻
     //   （群友 2026-11-02：只剩「来这儿第 28 天」，人全没了）。改成赖着不走、要自己点掉。
     try { const st = typeof txtVaultState === "function" ? txtVaultState() : null; if (st && st.done && !st.ok) showVaultDownBanner(st.err); } catch (e) {}
+    // 自动落盘：她挑过文件夹才会动，没挑就什么都不做。只读存档、只写那个文件夹。
+    try { if (window.AutoBackup) window.AutoBackup.start(); } catch (e) {}
     if (!window.__credentialVaultError) return;
     try { window.toast && window.toast("⚠️ 本机 API 凭证金库打不开：" + window.__credentialVaultError + "——各条线路的密钥要去「设置 · API」重新填一次"); } catch (e) {}
   }, 2500);
