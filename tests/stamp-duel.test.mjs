@@ -358,3 +358,15 @@ test("招待：客人只说一句、开价看人（定死不能反复试）；�
   assert.ok(D.shopHint({ post: "分拣" }, "normal", () => 0).length > 4);
   assert.ok(D.RARE_GUESTS.length >= 8 && D.RARE_GUESTS.every(g => g.tip));
 });
+test("客人小短句：20 个特征都有小动作、20 个身份都有道谢；客人那句话前面带上动作", () => {
+  assert.ok(D.FACE_ADJ.every(a => D.faceAct(a + "花匠")));
+  assert.ok(D.FACE_WHO.every(w => D.faceThanks("戴草帽的" + w, 0)));
+  const cs = D.shopCustomers({ day: 1, decor: [], regulars: {} }, [], 7, [], "上午").filter(c => !c.tough && /的/.test(c.name) && D.faceAct(c.name));
+  cs.forEach(c => assert.ok(c.hint.indexOf("（" + D.faceAct(c.name) + "）") === 0));
+});
+test("新面孔的特征跟身份合得上：不会拼出满身面粉的摄影师；拼错过的老熟客不再来", () => {
+  let x = 1; const R = () => (x = (x * 16807) % 2147483647) / 2147483647;
+  for (let i = 0; i < 2000; i++) { const n = D.shopNewFace(R)[0]; assert.ok(!/满身面粉的摄影师|拄拐杖的小男孩|扎双马尾的渔夫/.test(n), n); }
+  const shop = { day: 1, decor: [], regulars: { a: { id: "a", name: "满身面粉的摄影师", want: "寄", fee: 8, need: "送信", bond: 4 } } };
+  for (let k = 0; k < 20; k++) assert.ok(!D.shopCustomers(shop, [], k, [], "上午").some(c => c.name === "满身面粉的摄影师"));
+});

@@ -6899,6 +6899,14 @@ function noticeLine(t, line, k) {
 //   收起来之后不是没了，掉进下面的「秋秋的公告」里，什么时候想翻都在。
 //   记的是 qq_ 键，跟弹窗共用同一个：弹窗里按过「收到了」的，这儿不会再出现一次。
 const NOTICE_SEEN = "qq_noticeSeen";
+// 公告的跳转键：弹窗（公共版 notice.js）和「更新了什么」里的两张卡都走这一处（施工规则/one-public-mechanism）。
+//   n.go 是要去的那一屏；n.goTab 是那一屏里的哪一页（目前只有邮票册认：goTab:"duel" 直接落在集邮社）。
+function openNoticeGo(n) {
+  if (!n || !n.go) return;
+  try { if (n.goTab && n.go === "stamps") window.__stampsOpen = { tab: n.goTab }; } catch (e) {}
+  try { if (window.__openFromNotif) window.__openFromNotif(null, n.go); } catch (e) {}
+}
+if (typeof window !== "undefined") window.openNoticeGo = openNoticeGo;
 function noticeSeenIds() { try { return (localStorage.getItem(NOTICE_SEEN) || "").split(",").filter(Boolean); } catch (e) { return []; } }
 function markNoticeSeen(id) {
   try { const a = noticeSeenIds(); if (a.indexOf(id) < 0) a.push(id); localStorage.setItem(NOTICE_SEEN, a.slice(-20).join(",")); } catch (e) {}
@@ -6923,9 +6931,13 @@ function NoticeUnread() {
         n.d ? h("span", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, flexShrink: 0 } }, changelogDay(n.d)) : null),
       (n.lines || []).map((ln, k) => noticeLine(t, ln, k)),
       n.sign ? h("div", { style: { textAlign: "right", fontFamily: F_DISPLAY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.fog, marginBottom: 6 } }, n.sign) : null,
-      h("button", { "data-wk": "clnewok", onClick: () => { markNoticeSeen(n.id); setSeen(noticeSeenIds()); },
-        className: "w-full active:opacity-70",
-        style: { minHeight: 42, borderRadius: 3, border: "1px solid " + CFG_LINE(t), background: "transparent", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.sub } }, "知道了"))));
+      h("div", { className: "flex", style: { gap: 8 } },
+        n.go ? h("button", { "data-wk": "clnewgo", onClick: () => { markNoticeSeen(n.id); setSeen(noticeSeenIds()); openNoticeGo(n); },
+          className: "flex-1 active:opacity-70",
+          style: { minHeight: 42, borderRadius: 3, border: "1px solid " + t.ink, background: t.ink, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.bg2 } }, n.goLabel || "去看看") : null,
+        h("button", { "data-wk": "clnewok", onClick: () => { markNoticeSeen(n.id); setSeen(noticeSeenIds()); },
+          className: "flex-1 active:opacity-70",
+          style: { minHeight: 42, borderRadius: 3, border: "1px solid " + CFG_LINE(t), background: "transparent", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.sub } }, "知道了")))));
 }
 function NoticeArchive() {
   const t = useTheme();
@@ -6946,7 +6958,9 @@ function NoticeArchive() {
           n.d ? h("span", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, flexShrink: 0 } }, changelogDay(n.d)) : null),
         on ? h("div", { "data-wk": "clnoticebody", style: { padding: "2px 0 10px" } },
           (n.lines || []).map((ln, k) => noticeLine(t, ln, k)),
-          n.sign ? h("div", { style: { textAlign: "right", fontFamily: F_DISPLAY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.fog } }, n.sign) : null) : null);
+          n.sign ? h("div", { style: { textAlign: "right", fontFamily: F_DISPLAY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.fog } }, n.sign) : null,
+          n.go ? h("button", { "data-wk": "clnoticego", onClick: () => openNoticeGo(n), className: "w-full active:opacity-70",
+            style: { marginTop: 8, minHeight: 42, borderRadius: 3, border: "1px solid " + CFG_LINE(t), background: "transparent", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.ink } }, n.goLabel || "去看看") : null) : null);
     })) : null);
 }
 function ChangelogView({ list }) {

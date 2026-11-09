@@ -650,7 +650,23 @@
     return {style:who?.style||(fixed>=0?SHOP_NPC_STYLES[fixed]:tough>=0?SHOP_TOUGH_STYLES[tough]:'postcard'),feature:feature?.id||null,rareId:null,species:'person'};
   }
   const FACE_WANT = [["寄一包家乡的特产", 9, "送信"], ["加急寄一份合同", 12, "送信"], ["给远方的笔友寄信", 6, "送信"], ["寄一大箱旧书", 11, "分拣"], ["理一摞攒了半年的信", 8, "分拣"], ["寄一卷画和几封信", 10, "分拣"], ["问寄到国外要多少钱", 7, "柜台"], ["零钱不够，想先寄一半", 5, "柜台"], ["买一整版纪念邮票", 9, "柜台"], ["想挑一张好看的卡送人", 8, "卡"], ["给孩子挑一张生日卡", 7, "卡"]];
-  const shopNewFace = R => { const w = FACE_WANT[Math.floor(R() * FACE_WANT.length)]; return [FACE_ADJ[Math.floor(R() * FACE_ADJ.length)] + FACE_WHO[Math.floor(R() * FACE_WHO.length)], w[0], w[1], w[2]]; };
+  // 客人的小短句（她 2026-11-09「每个组合会说的小短句也要写」）：特征给一个小动作，身份给道谢的口气，拼起来 20×20 都成立
+  const FACE_ACT = { 戴草帽的: "摘下草帽扇了扇风", 穿雨靴的: "在门口跺了跺雨靴上的水", 总迟到的: "一进门先看了眼表", 背画板的: "把画板往身后挪了挪", 拎鸟笼的: "把鸟笼轻轻放在柜台边", 说方言的: "带着口音开口", 戴圆眼镜的: "推了推圆眼镜", 骑旧单车的: "把车铃挂件塞进口袋", 围红围巾的: "把红围巾往下拉了拉", 牵柴犬的: "柴犬在脚边转了一圈", 抱着猫的: "怀里的猫打了个哈欠", 穿制服的: "理了理制服的领口", 拄拐杖的: "拄着拐杖慢慢走到柜台前", 扎双马尾的: "双马尾一甩一甩地跑过来", 提着保温桶的: "把保温桶换到另一只手", 满身面粉的: "拍了拍袖子上的面粉", 拿着地图的: "把地图折了两折", 戴耳机的: "摘下一边耳机", 穿西装的: "边走边松了松领带", 晒得很黑的: "抹了把额头的汗" };
+  const WHO_THANKS = { 老太太: ["「好孩子，辛苦你们啦。」", "「下回给你们带点自己腌的咸菜。」"], 高中生: ["「谢谢！赶上了赶上了！」", "「下次还来！」"], 画家: ["「……谢谢。」他点了点头。", "「画寄到了，我会再来。」"], 花匠: ["「回头给你们带一盆。」", "「花等不起，谢谢你们这么快。」"], 面包师: ["「明早给你们留两个刚出炉的。」", "「麻烦啦，我得赶回去看炉子。」"], 退休邮差: ["「这活儿干得地道。」", "「跟我当年一个样，好好干。」"], 小学老师: ["「谢谢，孩子们会很开心的。」", "「你们真细心，跟我班上的班长似的。」"], 调音师: ["「准了，谢谢。」", "「你们这铃铛的音挺正。」"], 夜班护士: ["「谢谢，我得回去补个觉了。」", "「下了夜班还能赶上，真好。」"], 书店店员: ["「回头给你们推荐几本书。」", "「包得比我们店还整齐。」"], 渔夫: ["「改天给你们带条鱼。」", "「行，靠谱。」"], 修表匠: ["「分秒不差，好。」", "「你们这钟走得准，我放心。」"], 摄影师: ["「等等，这光好，让我拍一张店里。」", "「谢啦，下回来给你们拍张合影。」"], 教授: ["「效率不错。」", "「谢谢，帮了大忙。」"], 快递员: ["「同行，懂的，谢了。」", "「你们比我们站点还快。」"], 厨子: ["「下回来店里吃饭，算我的。」", "「火候正好，谢了。」"], 邻居大叔: ["「好嘞，回头请你们喝茶。」", "「这条街就数你们店实在。」"], 留学生: ["「谢谢你们，家里人会收到的。」", "「Thank you——我是说，谢谢！」"], 新婚的姑娘: ["「谢谢！这封对我们很重要。」", "「回头给你们送喜糖。」"], 小男孩: ["「谢谢哥哥姐姐！」", "「我下回还来！」"] };
+  const faceAct = name => { const k = Object.keys(FACE_ACT).find(x => String(name || "").indexOf(x) === 0); return k ? FACE_ACT[k] : ""; };
+  const faceThanks = (name, n) => { const k = Object.keys(WHO_THANKS).find(x => String(name || "").indexOf(x) >= 0); return k ? WHO_THANKS[k][(n || 0) % WHO_THANKS[k].length] : ""; };
+  // 特征跟身份要合得上（她 2026-11-09「满身面粉的摄影师吗」）：有讲究的特征只配这几种身份，没写的谁都能配
+  const FACE_FIT = {
+    满身面粉的: ["面包师", "厨子", "老太太"], 穿制服的: ["快递员", "夜班护士", "退休邮差", "高中生", "小学老师"], 穿西装的: ["教授", "调音师", "修表匠", "摄影师", "邻居大叔", "留学生"],
+    晒得很黑的: ["渔夫", "快递员", "花匠", "邻居大叔", "小男孩", "摄影师"], 拄拐杖的: ["老太太", "退休邮差", "教授", "修表匠", "邻居大叔"], 扎双马尾的: ["高中生", "留学生", "新婚的姑娘", "书店店员", "小学老师"],
+    背画板的: ["画家", "高中生", "留学生", "小学老师", "小男孩"], 骑旧单车的: ["快递员", "高中生", "邻居大叔", "面包师", "书店店员", "花匠", "退休邮差", "留学生"], 拎鸟笼的: ["老太太", "邻居大叔", "退休邮差", "修表匠"],
+    戴耳机的: ["高中生", "留学生", "快递员", "摄影师", "调音师", "书店店员"], 提着保温桶的: ["夜班护士", "老太太", "厨子", "邻居大叔", "快递员", "小学老师"], 总迟到的: ["高中生", "留学生", "教授", "快递员", "小男孩", "画家"],
+    戴草帽的: ["花匠", "渔夫", "邻居大叔", "老太太", "小男孩", "画家", "摄影师"], 穿雨靴的: ["渔夫", "花匠", "小男孩", "快递员", "老太太", "邻居大叔"], 牵柴犬的: ["老太太", "邻居大叔", "高中生", "新婚的姑娘", "书店店员", "教授", "小男孩"]
+  };
+  // 已经拼成怪组合的老熟客（改之前来的）不再来，等于搬走了
+  const faceSane = name => { const n = String(name || ""), adj = FACE_ADJ.find(a => n.indexOf(a) === 0), who = adj && n.slice(adj.length); return !adj || !FACE_WHO.includes(who) || faceFits(adj, who); };
+  const faceFits = (adj, who) => !FACE_FIT[adj] || FACE_FIT[adj].includes(who);
+  const shopNewFace = R => { const w = FACE_WANT[Math.floor(R() * FACE_WANT.length)], who = FACE_WHO[Math.floor(R() * FACE_WHO.length)], ok = FACE_ADJ.filter(a => faceFits(a, who)); return [ok[Math.floor(R() * ok.length)] + who, w[0], w[1], w[2]]; };
   // 熟客的小事：交情每到一档冒一件，用完从头再来（换着人来，读着不重复）
   const REG_STORIES = ["第一次跟店员聊起了家里的事", "说下回带点自己做的东西来", "寄出去的那封终于有了回信，特地来说一声", "带了一小盒点心，放在柜台上就走了", "说起年轻时也在邮局排过很长的队", "托店里帮忙保管一封信，说过几天来拿", "说最近忙，可能要隔一阵才来", "隔了一阵又来了，说还是这家店顺手", "给店员带了一句家乡的问候", "说这条街越来越热闹，多亏这家店", "问店员最近累不累", "把自家孩子的画夹在信里给店员看"];
   const shopRegStory = n => REG_STORIES[(Math.max(1, n) - 1) % REG_STORIES.length];
@@ -679,13 +695,13 @@
     const n = 2 + Math.floor((shop.decor || []).length / 3) + (pi === 0 ? 1 : 0) + shopRepCrowd(shopRepLv(shop)), toughP = [0.1, 0.35, 0.15][pi], out = [];
     const npc = shuffle(SHOP.NPC.slice(), R), tgh = shuffle(SHOP.TOUGH.slice(), R);   // 同一时段不重样
     // 熟客（她 2026-11-09「一直玩下去」）：一半的路人是来过的熟客；剩下的是代码拼出来的新面孔，招待过就成熟客
-    const regs = shuffle(Object.values(shop.regulars || {}).filter(r => r && !r.gone), R);
+    const regs = shuffle(Object.values(shop.regulars || {}).filter(r => r && !r.gone && faceSane(r.name)), R);
     for (let k = 0; k < n; k++) { const tough = R() < toughP && tgh.length, reg = !tough && regs.length && R() < 0.5 ? regs.pop() : null;
       const x = tough ? tgh.pop() : reg ? [reg.name, reg.want, reg.fee, reg.need] : R() < 0.35 ? (npc.pop() || SHOP.NPC[0]) : shopNewFace(R), urgent = !tough && R() < 0.2;
       // 招待要对上需求（她 2026-11-08）：交给对的岗位，或者从橱窗挑一张对的卡
       const need = tough ? null : x[3] === "卡" ? (R() < 0.5 ? { card: { role: ROLES[Math.floor(R() * ROLES.length)] } } : { card: { min: "SR" } }) : x[3] ? { post: x[3] } : null;
       const mood = tough ? "" : shopMood(x[0] + x[1], urgent);
-      out.push({ id: period + "c" + k, name: x[0], want: x[1], fee: x[2] * (urgent ? 2 : 1), tough, urgent, need, mood, hint: tough ? "" : shopHint(need, mood, R), ...(reg ? { regularId: reg.id, bond: reg.bond || 0 } : tough ? {} : { regularId: "r_" + hashStr(x[0]).toString(36) }) }); }
+      out.push({ id: period + "c" + k, name: x[0], want: x[1], fee: x[2] * (urgent ? 2 : 1), tough, urgent, need, mood, hint: tough ? "" : (faceAct(x[0]) ? "（" + faceAct(x[0]) + "）" : "") + shopHint(need, mood, R), ...(reg ? { regularId: reg.id, bond: reg.bond || 0 } : tough ? {} : { regularId: "r_" + hashStr(x[0]).toString(36) }) }); }
     // 稀客（她 2026-11-09，参考《猫咪后院》）：凑上条件才偶尔来，一天最多来一位
     const rare = shopRareFor(shop, period, R); if (rare) out.splice(Math.floor(R() * (out.length + 1)), 0, { id: period + "x_" + rare.id, name: rare.name, want: rare.want, fee: rare.fee, need: rare.need, mood: "rich", hint: rare.hint, rareId: rare.id });
     if ((allChars || []).length && R() < 0.6) out.splice(1, 0, { id: period + "p0", wantChar: allChars[Math.floor(R() * allChars.length)], fee: 15, want: "想要一张明信片" });
@@ -1147,7 +1163,7 @@
   const mine = raw => (st, who, a, b) => { if (who !== "me") return raw(st, who, a, b); snap(st); const r = raw(st, who, a, b); if (!r || !r.ok) st.undo.pop(); return r; };
   const place = mine(placeRaw), tear = mine(tearRaw), move = mine(moveRaw), keep = mine(keepRaw), stamp = mine(stampRaw);
   const API = { RELICS, STYLE_ZH, TRAIT_FIT, TRAITS, SKILLS, BONDS, bondOf, unitInfo, SIZE, SLOTS, ENVELOPE_HP, POSTAGE, DRAW, DECK_SIZE, TURN_CAP, KEEP_MAX, FACE, NEED, ROLES, MARKS, TERRAIN, EVENTS,
-    stampOf, deckFrom, foeDeckFrom, shopDecorOf, shopUpPrice, SHOP, SHOP_PERIODS, shopPeriod, SHOP_WIN, shopWinSlots, shopWinBonus, shopApt, shopMul, SHOP_BADGE, SHOP_BADGE_FIT, shopBadgeFit, shopBadgeBonus, shopNeedZh, shopCardFits, SHOP_THANKS, hitUnit, healUnits, simSend, shopRepLv, shopRepLeft, shopRepBonus, shopSkillTitle, shopSkillOf, shopSkillBonus, shopOrders, shopOrderZh, shopRegStory, shopNewFace, shopPrice, shopHint, FACE_ADJ, FACE_WHO, FACE_FEATURES, FACE_IDENTITIES, shopAppearance, RARE_GUESTS, shopCustomers, autoMe, PUZZLE_MAX, puzzleOf, pzSolve, PATROL, TA_CELLS, TA_PTS, patrolNew, patrolCan, patrolMove, patrolBattle, patrolAfter, weekNo, SHIFT, shiftNew, shiftRoll, shiftPrice, shiftBuy, shiftSell, shiftDeck, shiftBonds, shiftFoeLv, shiftAfter, EDICTS, EDICT_LV, edictDeck, RAID_TURNS, MATS, BASE_MATS, THEME_MAT, KEEP_FX, KEEP_MAX_SLOTS, keepFxOf, keepTier, matDrop, SIEGE_TIERS, newDuel, envFor, avgLv, fairDeck, aims, actsOf, previewPlace, place, tear, move, keep, stamp, undo, canUndo, endTurn, planFoe, combos, newSeries, addGame, memoryLine, hashStr };
+    stampOf, deckFrom, foeDeckFrom, shopDecorOf, shopUpPrice, SHOP, SHOP_PERIODS, shopPeriod, SHOP_WIN, shopWinSlots, shopWinBonus, shopApt, shopMul, SHOP_BADGE, SHOP_BADGE_FIT, shopBadgeFit, shopBadgeBonus, shopNeedZh, shopCardFits, SHOP_THANKS, hitUnit, healUnits, simSend, shopRepLv, shopRepLeft, shopRepBonus, shopSkillTitle, shopSkillOf, shopSkillBonus, shopOrders, shopOrderZh, shopRegStory, shopNewFace, shopPrice, shopHint, FACE_FEATURES,FACE_IDENTITIES,shopAppearance, RARE_GUESTS, faceAct, faceThanks, FACE_ADJ, FACE_WHO, faceFits, shopCustomers, autoMe, PUZZLE_MAX, puzzleOf, pzSolve, PATROL, TA_CELLS, TA_PTS, patrolNew, patrolCan, patrolMove, patrolBattle, patrolAfter, weekNo, SHIFT, shiftNew, shiftRoll, shiftPrice, shiftBuy, shiftSell, shiftDeck, shiftBonds, shiftFoeLv, shiftAfter, EDICTS, EDICT_LV, edictDeck, RAID_TURNS, MATS, BASE_MATS, THEME_MAT, KEEP_FX, KEEP_MAX_SLOTS, keepFxOf, keepTier, matDrop, SIEGE_TIERS, newDuel, envFor, avgLv, fairDeck, aims, actsOf, previewPlace, place, tear, move, keep, stamp, undo, canUndo, endTurn, planFoe, combos, newSeries, addGame, memoryLine, hashStr };
   g.StampDuel = API;
   if (typeof module !== "undefined" && module.exports) module.exports = API;
 })(typeof window !== "undefined" ? window : globalThis);
