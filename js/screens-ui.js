@@ -10833,6 +10833,7 @@ function MemoryLib({
     onDowngradeRoutineOpen: onDowngradeRoutineOpen,
     routineOpenCount: routineOpenCount,
     openTotal: openTotal,
+    onFindDuplicates: onScanDuplicates ? () => setDuplicatePreview(onScanDuplicates()) : null,
     cfg: cfg || {}, onSave: onSaveCfg, onClose: () => setCfgOpen(false)
   }), editing && h(MemEntrySheet, {
     entry: editing === "new" ? null : editing,
@@ -10850,7 +10851,7 @@ function MemoryLib({
   }));
 }
 // 召回设置：自动抽取开关 + top-k + 抽取间隔 + 短期窗天数（消死区）
-function MemCfgSheet({ cfg, onSave, onClose, onPurgeWithered, witheredCount, onDowngradeRoutineOpen, routineOpenCount, openTotal }) {
+function MemCfgSheet({ cfg, onSave, onClose, onPurgeWithered, witheredCount, onDowngradeRoutineOpen, routineOpenCount, openTotal, onFindDuplicates }) {
   const t = useTheme();
   const [c, setC] = useState(Object.assign({ topK: 5, autoExtract: false, extractInterval: 1, recentDays: 3, recentBudget: 8000, crossHours: 72, crossBudget: 800, offBeats: 40, offVerbatim: 3 }, cfg || {}));
   const [confirmPurge, setConfirmPurge] = useState(false);
@@ -10897,6 +10898,13 @@ function MemCfgSheet({ cfg, onSave, onClose, onPurgeWithered, witheredCount, onD
                 h("button", { onClick: () => { onPurgeWithered(); setConfirmPurge(false); onClose(); }, className: "flex-1 active:opacity-70", style: { fontFamily: F_DISPLAY, fontSize: "calc(14px * var(--app-fs, 1))", color: "#fff", background: t.accent, borderRadius: 10, padding: "10px 0" } }, "确认清理 " + witheredCount + " 条"))
             : h("button", { onClick: () => setConfirmPurge(true), className: "w-full active:opacity-70", style: { fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", color: t.accent, border: "1px solid " + t.line, borderRadius: 10, padding: "11px 0" } }, "🧹 清理落灰记忆（约 " + witheredCount + " 条）"))
         : h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog, textAlign: "center", padding: "8px 0" } }, "暂时没有落灰记忆，很干净 ✨")) : null,
+    // 找重复（她 2026-11-09）：原来那颗在「整理记忆库」里，那一页收起来以后就点不到了；挪到这儿。
+    //   只列出来给她勾，勾了才软归档（正文留着、能恢复），不点就什么都不变。
+    onFindDuplicates ? h("div", { "data-part": "memdup", style: { marginTop: 14, paddingTop: 14, borderTop: "1px dashed " + t.line } },
+      h(Eyebrow, { style: { marginBottom: 4 } }, "重复的记忆"),
+      h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.5, marginBottom: 8 } },
+        "找出说的是同一件事的几条，你勾了才收起多的那几条（收进归档，能恢复）。隔了很久的换句话重复标着「请复核」，要你自己看一眼。"),
+      h("button", { onClick: () => { onClose(); onFindDuplicates(); }, className: "w-full active:opacity-70", style: { fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", color: t.accent, border: "1px solid " + t.line, borderRadius: 10, padding: "11px 0" } }, "找重复记忆")) : null,
     false && h("div", { style: { marginTop: 14, paddingTop: 14, borderTop: "1px dashed " + t.line } },
       h(Eyebrow, { style: { marginBottom: 4 } }, "未了结开环"),
       h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.5 } },
