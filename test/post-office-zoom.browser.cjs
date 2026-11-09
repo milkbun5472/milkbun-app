@@ -4,19 +4,7 @@ module.exports=async function({p,r,f,refresh,out,result}){
  await p.waitForFunction(()=>document.querySelector('#post-office-test iframe')?.contentWindow.PostOfficeGame?.snapshot().people.find(x=>x.id==='a')?.badgeView?.image);
  await f.evaluate(()=>PostOfficeGame.pause(true));
  const original=await p.evaluate(()=>JSON.stringify(loadJSON('x_stampShop',null))),snapshot=()=>f.evaluate(()=>PostOfficeGame.snapshot()),reset=()=>r.getByRole('button',{name:'全景',exact:true}).click();
- const cdp=process.env.POST_OFFICE_BROWSER==='webkit'?null:await p.context().newCDPSession(p);
- async function pan(dx,dy){
-  const box=await r.locator('iframe').boundingBox(),x=box.x+box.width/2,y=box.y+box.height/2,gap=36;
-  if(cdp){
-   const send=(type,t)=>cdp.send('Input.dispatchTouchEvent',{type,touchPoints:type==='touchEnd'?[]:[{id:1,x:x-gap+dx*t,y:y+dy*t,radiusX:1,radiusY:1},{id:2,x:x+gap+dx*t,y:y+dy*t,radiusX:1,radiusY:1}]});
-   await send('touchStart',0);for(let i=1;i<=8;i++)await send('touchMove',i/8);await send('touchEnd',1);
-  }else await f.evaluate(({dx,dy})=>{
-   const c=document.querySelector('canvas'),x=c.clientWidth/2,y=c.clientHeight/2,send=(type,id,x,y)=>c.dispatchEvent(new PointerEvent(type,{pointerId:id,pointerType:'touch',clientX:x,clientY:y,bubbles:true}));
-   // Synthetic WebKit pointer input has no native capture registration. Gesture logic is unchanged.
-   const capture=c.setPointerCapture;c.setPointerCapture=()=>{};try{send('pointerdown',41,x-36,y);send('pointerdown',42,x+36,y);}finally{c.setPointerCapture=capture;}
-   for(let i=1;i<=8;i++){send('pointermove',41,x-36+dx*i/8,y+dy*i/8);send('pointermove',42,x+36+dx*i/8,y+dy*i/8);}send('pointerup',41,x-36+dx,y+dy);send('pointerup',42,x+36+dx,y+dy);
-  },{dx,dy});
- }
+ const {cdp,pan}=await require('./_post-office-camera.cjs')({p,r,f});
  async function centerBadge(){
   for(let i=0;i<18;i++){
    const s=await snapshot(),b=s.people.find(x=>x.id==='a').badgeView.bounds,box=await r.locator('iframe').boundingBox(),dx=box.width/2-(b.left+b.right)/2,dy=box.height/2-(b.top+b.bottom)/2;
