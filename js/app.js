@@ -12121,9 +12121,9 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
                 + (d.missed ? "写那天晚上他们自己关店的一小段：" : "现在打烊了。写打烊时店里的一小段：") + "今天上班的这几个人各自怎么样、彼此说了什么、谁累了、谁跟谁拌了两句或者帮了一把、有没有给她留什么话或东西；橱窗里的卡、挂着的工牌可以写进去（有人瞄了一眼自己那张、客人指着哪张问），写到卡上的那一刻要照上面写的。每个人照各自的人设说话做事，你写的时候把他们都写进去，不只写你自己；写正在发生的这一段，有动作有对话，别写成总结。"
               : (d.visitor || "一位客人") + "今天来店里寄东西，正好碰上在" + (d.post || "柜台") + "上班的" + (d.staffName || "店员") + "。\n写他们俩在店里碰上的这一小段：只写你们两个之间的事，照两个人各自的人设和你们俩之间的关系，有对话，几段就够。")
             + "\n当场参与者的身份与完整人设：\n"+cast
-            + "\nlines 按正文顺序一段一项：某个人说的一段话是一项，旁白一段是一项；text 是原文，speakerId 是说话人的角色 id（只用上面参与者的 id），旁白留空。" + (close?"\nnotes 是今天上班的每个人下班前在柜台留给" + uN + "的一张便条，一人一张：speakerId 写这个人的角色 id（" + (d.staffIds || []).join("、") + "），text 是他自己写的一两句，照他的人设和写字的样子，写今天店里他记得的一件小事或想跟她说的话。":""),
+            + "\nlines 按正文顺序一段一项：某个人说的一段话是一项，旁白一段是一项；text 是原文，speakerId 是说话人的角色 id（只用上面参与者的 id），旁白留空。" + (close?"\nnotes 是今天上班的每个人下班前在柜台留给" + uN + "的一张便条，一人一张，今天上班的 " + (d.staffIds || []).length + " 个人每人都要有、一个不漏：speakerId 写这个人的角色 id（" + (d.staffIds || []).map(id => { const c = liveChars.find(x => x.id === id); return id + "＝" + (c ? (c.remark || c.name) : id); }).join("、") + "），text 是他自己写的一两句，照他的人设和写字的样子，写今天店里他记得的一件小事或想跟她说的话。":""),
           schemaHint: JSON.stringify({lines:[{speakerId:"角色id或空",text:"正文原文"}],...(close?{notes:[{speakerId:"角色id",text:"便条"}]}:{})}) });
-        const notesOf = () => (Array.isArray(r && r.notes) ? r.notes : []).map(x => ({ speakerId: (d.staffIds || []).map(String).includes(String(x && x.speakerId)) ? String(x.speakerId) : null, text: String((x && x.text) || "").trim() })).filter(x => x.speakerId && x.text).slice(0, 4);
+        const notesOf = () => (Array.isArray(r && r.notes) ? r.notes : []).map(x => ({ speakerId: (d.staffIds || []).map(String).includes(String(x && x.speakerId)) ? String(x.speakerId) : null, text: String((x && x.text) || "").trim() })).filter((x, i, all) => x.speakerId && x.text && all.findIndex(y => y.speakerId === x.speakerId) === i).slice(0, 4);
         const rowsOut = (Array.isArray(r && r.lines) ? r.lines : [r && r.lines]).map(x => typeof x==="string"?{speakerId:null,text:x}:{speakerId:x?.speakerId||null,text:String(x?.text||"")}).filter(x=>x.text.trim());
         if (close) rowsOut.notes = notesOf();
         return rowsOut;
