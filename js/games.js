@@ -8618,8 +8618,11 @@
     const face = M && k ? M.name(k) : "", suited = k && /^[mps]\d$/.test(k), flower = k && /^[fg]\d$/.test(k);
     const ink = flower ? "#b0507a" : (MJ_INK[suited ? k[0] : k] || "#2b2622");
     const base = { width: w, height: hh, borderRadius: Math.max(3, w * 0.16), flexShrink: 0, position: "relative", boxSizing: "border-box",
-      transform: props.lift ? "translateY(-7px)" : "none", transition: "transform .12s", opacity: props.dim ? 0.55 : 1 };
-    if (props.back) return h("div", { style: Object.assign({}, base, { background: "linear-gradient(160deg,#3f8f6a,#2b6e51)", border: "1px solid rgba(0,0,0,.25)", boxShadow: "0 2px 0 #1f513b" }) });
+      transform: props.lift ? "translateY(-10px)" : "none", transition: "transform .14s, box-shadow .14s", opacity: props.dim ? 0.55 : 1 };
+    // 真牌是象牙面、绿底背：立着的时候底下露一截另一面的颜色，像有厚度
+    const d = Math.max(2, Math.round(w * 0.13));
+    if (props.back) return h("div", { style: Object.assign({}, base, { background: "linear-gradient(160deg,#4a9a74 0%,#2f7d5c 60%,#26684c 100%)", border: "1px solid rgba(0,0,0,.22)",
+      boxShadow: "0 " + d + "px 0 #efe8d6, 0 " + (d + 3) + "px 5px -2px rgba(0,0,0,.45), inset 0 1px 0 rgba(255,255,255,.25)" }) });
     const body = k === "P"
       ? h("div", { style: { position: "absolute", inset: w * 0.2, border: "2px solid " + ink, borderRadius: 2 } })
       : suited
@@ -8628,8 +8631,9 @@
             h("span", { style: { fontFamily: F_DISPLAY, fontSize: w * 0.42, color: k[0] === "m" ? "#c2372b" : ink, marginTop: w * 0.06 } }, face[1]))
         : h("div", { style: { position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: F_DISPLAY, fontSize: w * 0.62, color: ink, fontWeight: 600 } }, face);
     return h(props.onClick ? "button" : "div", { onClick: props.onClick, "data-wk": "gamemjtile", "data-k": k, "aria-label": face,
-      style: Object.assign({}, base, { padding: 0, background: props.hot ? "#fff3c4" : "linear-gradient(180deg,#fffdf6,#efe8d6)", border: "1px solid rgba(80,66,40,.35)",
-        boxShadow: "0 " + Math.max(2, w * 0.1) + "px 0 #c9bfa5, 0 3px 6px -3px rgba(0,0,0,.4)" }) }, body);
+      style: Object.assign({}, base, { padding: 0, background: props.hot ? "linear-gradient(180deg,#fff8d8,#ffe9a3)" : "linear-gradient(180deg,#fffef8 0%,#f6f0e0 68%,#e8dfc6 100%)",
+        border: "1px solid " + (props.hot ? "#e0b84a" : "rgba(120,100,60,.38)"),
+        boxShadow: "0 " + d + "px 0 #2f7d5c, 0 " + d + "px 0 1px rgba(0,0,0,.16), 0 " + (d + (props.lift ? 9 : 3)) + "px " + (props.lift ? 10 : 5) + "px -2px rgba(0,0,0," + (props.lift ? ".5" : ".42") + "), inset 0 1px 0 #fff" }) }, body);
   }
   function mjRow(tiles, w, gap) { return tiles.map(function (k, j) { return h("div", { key: j + k, style: { marginLeft: j ? (gap != null ? gap : 1) : 0 } }, h(MjTile, { k: k, w: w })); }); }
   // 一张方桌（她 2026-11-09「打的时候没有大桌子给我们抽牌嘛」）：她坐下边，对家在上，下家在右、上家在左（逆时针出牌）。
@@ -8740,13 +8744,19 @@
       if (sel === j) act(function (n) { M.discard(n, meI, k); });
       else setSel(j);
     };
-    const pill = function (label, fn, color, wk) { return h("button", { key: label, "data-wk": wk || "gamemjbtn", onClick: fn, style: { border: 0, borderRadius: 999, padding: "10px 14px", minHeight: 40, color: "#fff", background: color, fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))" } }, label); };
+    // 按钮像一枚枚印章牌：方角、底下压一道深色，食糊自摸是金边红章
+    const pill = function (label, fn, color, wk) {
+      const big = wk === "gamemjron" || wk === "gamemjzimo";
+      return h("button", { key: label, "data-wk": wk || "gamemjbtn", onClick: fn, className: "active:translate-y-px",
+        style: { border: big ? "1.5px solid #e0b84a" : "1px solid rgba(255,255,255,.18)", borderRadius: 9, padding: big ? "10px 18px" : "9px 15px", minHeight: 40, color: "#fff6dc", letterSpacing: 1,
+          background: "linear-gradient(180deg," + color + "," + color + "cc)", boxShadow: "0 3px 0 rgba(0,0,0,.45), 0 6px 10px -6px rgba(0,0,0,.6)", fontFamily: big ? F_DISPLAY : F_BODY, fontSize: big ? "calc(15px * var(--app-fs, 1))" : "calc(13.5px * var(--app-fs, 1))" } }, label);
+    };
     const r = state.result;
     // 她的手牌：刚摸的那张隔开放在最右
     let myHand = me ? me.hand.slice() : [], drawn = null;
     if (myTurn && state.drawnBy === meI && state.drawn && myHand.indexOf(state.drawn) >= 0) { myHand.splice(myHand.lastIndexOf(state.drawn), 1); drawn = state.drawn; }
     // 手牌宽度照屏幕宽算：十四张 + 刚摸那张隔开的那一截，窄屏也一行放得下
-    const handW = Math.max(19, Math.min(26, Math.floor(((typeof window !== "undefined" ? window.innerWidth : 390) - 34) / 14.6) - 2));
+    const handW = Math.max(20, Math.min(28, Math.floor(((typeof window !== "undefined" ? window.innerWidth : 390) - 26) / 14.5) - 2));
     return h("div", { "data-wk": "gameplay", "data-part": "mahjong", className: "h-full flex flex-col", style: gameTable("mahjong", t) },
       h(Head, { zh: "广东麻将", en: state.status === "finished" ? "打完了" : ("第 " + state.handNo + " / " + state.hands + " 盘 · " + W[state.roundWind] + "圈 · 牌墙 " + state.wall.length), onBack: props.onBack, bg: "transparent" }),
       h("div", { className: "flex-1 overflow-y-auto px-4 pb-3", style: { paddingTop: 10 } },
@@ -8757,9 +8767,11 @@
         h(MjTable, { state: state, meI: meI, spectate: spectate, size: tableS, canDraw: canDraw, onDraw: function () { act(function (n) { M.drawTile(n, meI); }); } }),
         r ? feltBox([
 
-          r ? h("div", { key: "res", "data-wk": "gamemjresult", style: { marginTop: 12, background: "rgba(0,0,0,.22)", borderRadius: 12, padding: "10px 12px", fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", lineHeight: 1.7 } },
+          // 一盘的结果：一张米色纸条，右上角盖一枚红章
+          r ? h("div", { key: "res", "data-wk": "gamemjresult", style: { position: "relative", marginTop: 4, background: "linear-gradient(180deg,#fbf4e2,#f1e4c4)", color: "#4a3a26", borderRadius: 10, padding: "12px 14px", fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", lineHeight: 1.75, boxShadow: "0 6px 14px -8px rgba(0,0,0,.6)" } },
             r.winner == null ? "摸完了，流局。庄家连庄。" : [
-              h("div", { key: "a", style: { fontFamily: F_DISPLAY, fontSize: "calc(16px * var(--app-fs, 1))", color: "#f3d27a" } }, state.players[r.winner].name + (r.zimo ? " 自摸" : " 食糊") + " · " + r.fan.fan + " 番" + (r.fan.fan > M.MAX_FAN ? "（满）" : "")),
+              h("div", { key: "seal", style: { position: "absolute", right: 12, top: 10, width: 40, height: 40, border: "2px solid #c2372b", borderRadius: 6, color: "#c2372b", fontFamily: F_DISPLAY, fontSize: 24, display: "flex", alignItems: "center", justifyContent: "center", transform: "rotate(8deg)", opacity: .85 } }, r.zimo ? "摸" : "糊"),
+              h("div", { key: "a", style: { fontFamily: F_DISPLAY, fontSize: "calc(17px * var(--app-fs, 1))", color: "#8a2a1f" } }, state.players[r.winner].name + (r.zimo ? " 自摸" : " 食糊") + " · " + r.fan.fan + " 番" + (r.fan.fan > M.MAX_FAN ? "（满）" : "")),
               h("div", { key: "b" }, r.fan.items.map(function (x) { return x[0] + (x[1] ? " " + x[1] : ""); }).join(" · ")),
               h("div", { key: "c", style: { opacity: .85 } }, r.zimo ? "三家各付 " + Math.ceil(r.pay / 2) : state.players[r.from].name + " 出铳，付 " + r.pay),
               // 赢家的整副牌：亮出来的那几组 + 手里的，一组一组隔开
@@ -8777,13 +8789,15 @@
             return { key: "mahjong", zh: "广东麻将", ids: realCharIds(state.players), wins: w && realCharIds(state.players).indexOf(w.key) >= 0 ? [w.key] : [], meWin: me ? !!(w && w.isUser) : null,
               text: "一起打了 " + state.handNo + " 盘广东麻将，" + ((w && (w.isUser ? "她" : w.name)) || "没人") + " 赢得最多。" + state.players.map(function (p) { return (p.isUser ? "她" : p.name) + " " + (p.pts > 0 ? "+" : "") + p.pts; }).join("，") + "。" };
           } })) : null),
-      state.status === "playing" && state.phase === "done" ? h("div", { "data-wk": "gameactions", "data-part": "mahjong", "data-kind": "next", className: "shrink-0", style: { borderTop: "1px solid " + t.line, padding: "11px 12px calc(env(safe-area-inset-bottom) * 0.4 + 10px)", textAlign: "center" } },
-        h("button", { "data-wk": "gamemjnext", onClick: function () { act(function (n) { M.nextHand(n); }); }, style: { border: 0, borderRadius: 999, padding: "11px 26px", color: "#fff", background: t.ink, fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))" } }, state.handNo >= state.hands ? "算总分" : "下一盘")) :
-      me && state.status === "playing" ? h("div", { "data-wk": "gameactions", "data-part": "mahjong", "data-kind": state.phase, className: "shrink-0", style: { borderTop: "1px solid " + t.line, padding: "8px 10px calc(env(safe-area-inset-bottom) * 0.4 + 10px)" } },
-        me.melds.length || me.flowers.length ? h("div", { style: { display: "flex", flexWrap: "wrap", alignItems: "center", gap: 6, justifyContent: "center", marginBottom: 6 } },
-          me.flowers.length ? h("span", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: "#b0507a" } }, "花 " + me.flowers.map(M.name).join("")) : null,
+      state.status === "playing" && state.phase === "done" ? h("div", { "data-wk": "gameactions", "data-part": "mahjong", "data-kind": "next", className: "shrink-0", style: { background: "linear-gradient(180deg,#7d5636 0%,#62422a 45%,#4b3220 100%)", borderTop: "3px solid #3a2616", boxShadow: "inset 0 1px 0 rgba(255,220,170,.25)", padding: "12px 12px calc(env(safe-area-inset-bottom) * 0.4 + 12px)", textAlign: "center" } },
+        h("button", { "data-wk": "gamemjnext", onClick: function () { act(function (n) { M.nextHand(n); }); }, style: { border: "1.5px solid #e0b84a", borderRadius: 10, padding: "11px 30px", color: "#fff6dc", background: "linear-gradient(180deg,#c2372b,#9c2a20)", boxShadow: "0 3px 0 #6d1d16, 0 6px 12px -6px rgba(0,0,0,.6)", letterSpacing: 2, fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))" } }, state.handNo >= state.hands ? "算总分" : "下一盘")) :
+      // 她那一家：一条木头牌架，手牌立在架子上，亮出来的那几组和花摆在架子前沿
+      me && state.status === "playing" ? h("div", { "data-wk": "gameactions", "data-part": "mahjong", "data-kind": state.phase, className: "shrink-0", style: { background: "linear-gradient(180deg,#7d5636 0%,#62422a 45%,#4b3220 100%)", borderTop: "3px solid #3a2616", boxShadow: "inset 0 1px 0 rgba(255,220,170,.25)", padding: "8px 8px calc(env(safe-area-inset-bottom) * 0.4 + 10px)" } },
+        me.melds.length || me.flowers.length ? h("div", { style: { display: "flex", flexWrap: "wrap", alignItems: "flex-end", gap: 7, justifyContent: "center", marginBottom: 4 } },
+          me.flowers.length ? h("div", { style: { display: "flex" } }, mjRow(me.flowers, 18)) : null,
           me.melds.map(function (m, j) { return h("div", { key: j, style: { display: "flex" } }, mjRow(m.tiles, 20)); })) : null,
-        h("div", { "data-wk": "gamemjhand", style: { display: "flex", justifyContent: "center", alignItems: "flex-end", padding: "10px 0 8px" } },
+        h("div", { "data-wk": "gamemjhand", style: { display: "flex", justifyContent: "center", alignItems: "flex-end", padding: "14px 4px 10px", margin: "0 -2px 8px", borderRadius: 8,
+            background: "linear-gradient(180deg, rgba(0,0,0,0) 0%, rgba(0,0,0,0) 62%, #3a2616 62%, #2e1e11 100%)", boxShadow: "0 2px 0 rgba(255,220,170,.12)" } },
           myHand.map(function (k, j) { return h("div", { key: j + k, style: { marginLeft: j ? 2 : 0 } }, h(MjTile, { k: k, w: handW, lift: sel === j, onClick: myTurn ? function () { tap(k, j); } : null })); }),
           drawn ? h("div", { style: { marginLeft: 7 } }, h(MjTile, { k: drawn, w: handW, lift: sel === "d", onClick: function () { if (sel === "d") act(function (n) { M.discard(n, meI, drawn); }); else setSel("d"); } })) : null),
         h("div", { style: { display: "flex", flexWrap: "wrap", gap: 7, justifyContent: "center", minHeight: 40 } },
@@ -8792,12 +8806,12 @@
             if (o.kind === "pong") return pill("碰", function () { act(function (n) { M.decide(n, meI, { kind: "pong" }); }); }, "#2f5d9a");
             if (o.kind === "kong") return pill("杠", function () { act(function (n) { M.decide(n, meI, { kind: "kong" }); }); }, "#2f5d9a");
             return pill("吃 " + o.use.map(M.name).join(""), function () { act(function (n) { M.decide(n, meI, { kind: "chow", use: o.use }); }); }, "#2f7a4a");
-          }).concat([pill("过", function () { act(function (n) { M.decide(n, meI, { kind: "pass" }); }); }, "#7a6f66", "gamemjpass")])
+          }).concat([pill("过", function () { act(function (n) { M.decide(n, meI, { kind: "pass" }); }); }, "#5a4a3c", "gamemjpass")])
           : myTurn ? selfOpts.map(function (o) {
             if (o.kind === "zimo") return pill("自摸 " + o.fan.fan + " 番", function () { act(function (n) { M.selfAct(n, meI, { kind: "zimo" }); }); }, "#c2372b", "gamemjzimo");
             return pill((o.kind === "ckong" ? "暗杠 " : "加杠 ") + M.name(o.k), function () { act(function (n) { M.selfAct(n, meI, { kind: o.kind, k: o.k }); }); }, "#2f5d9a");
-          }).concat([h("div", { key: "tip", style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, alignSelf: "center" } }, sel != null ? "再点一下打出去" : "点一张牌，再点一下打出")])
-          : h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog, alignSelf: "center" } }, state.phase === "claim" ? "等别家要不要…" : canDraw ? "轮到你了：点桌子正中的牌墙摸一张" : ((state.players[state.turn] || {}).name || "") + " 在出牌…"))) : null);
+          }).concat([h("div", { key: "tip", style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: "rgba(255,240,215,.72)", alignSelf: "center" } }, sel != null ? "再点一下打出去" : "点一张牌，再点一下打出")])
+          : h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: "rgba(255,240,215,.72)", alignSelf: "center" } }, state.phase === "claim" ? "等别家要不要…" : canDraw ? "轮到你了：点桌子正中的牌墙摸一张" : ((state.players[state.turn] || {}).name || "") + " 在出牌…"))) : null);
   }
   function DoudizhuGame(props) {
     const t = props.t, cfg = props.config || {};
