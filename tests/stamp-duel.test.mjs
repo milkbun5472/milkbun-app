@@ -370,3 +370,10 @@ test("新面孔的特征跟身份合得上：不会拼出满身面粉的摄影�
   const shop = { day: 1, decor: [], regulars: { a: { id: "a", name: "满身面粉的摄影师", want: "寄", fee: 8, need: "送信", bond: 4 } } };
   for (let k = 0; k < 20; k++) assert.ok(!D.shopCustomers(shop, [], k, [], "上午").some(c => c.name === "满身面粉的摄影师"));
 });
+test("贴之前的预览跟贴上去一样：IF 卡刚上场第一次打双份，预览也算进去", () => {
+  const st = D.newDuel(D.deckFrom(mine, 5, 12), D.deckFrom(theirs, 6, 12), 5, {});
+  const k = 0; st.me.hand[k] = Object.assign({}, st.me.hand[k], { kind: "if", role: "投递" }); st.me.postage = 9;
+  const slot = st.me.board.findIndex((u, i) => !u && D.previewPlace(st, "me", k, i));
+  const pv = D.previewPlace(st, "me", k, slot).aim.dmg; D.place(st, "me", k, slot);
+  const real = D.aims(st, "me").find(a => a.from === slot).dmg; assert.equal(pv, real);
+});

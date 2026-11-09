@@ -1078,7 +1078,7 @@
   }
   function aims0(st, who) {
     const sd = st[who], foe = st[other(who)], keep = sd.board, board = keep.slice(), planned = {};
-    if (who === "foe") ((st.intent || {}).place || []).forEach(pl => { const s = sd.hand.find(x => x && x.cardId === pl.cardId); if (s && !board[pl.slot]) { board[pl.slot] = Object.assign({}, s, { marks: {}, hp: s.maxHp, shield: 0, charge: 0 }); planned[pl.slot] = 1; } });
+    if (who === "foe") ((st.intent || {}).place || []).forEach(pl => { const s = sd.hand.find(x => x && x.cardId === pl.cardId); if (s && !board[pl.slot]) { board[pl.slot] = Object.assign({}, s, { marks: {}, hp: s.maxHp, shield: 0, charge: 0, first: true }); planned[pl.slot] = 1; } });
     sd.board = board; const out = [];
     try { board.forEach((u, i) => { if (!u || (u.marks && u.marks.退回)) return; const a = aimOf(st, sd, foe, i, u); if (a) out.push(Object.assign(a, planned[i] ? { planned: true } : {})); }); }
     finally { sd.board = keep; }
@@ -1103,7 +1103,7 @@
   // 手里这张要是贴在 slot：会打谁、打多少、凑不凑得成组合
   function previewPlace(st, who, handIdx, slot) {
     const sd = st[who], s = sd.hand[handIdx]; if (!s || sd.board[slot] || blocked(sd, slot)) return null;
-    const u = Object.assign({}, s, { marks: {}, hp: s.maxHp, shield: 0, charge: 0 }), keep = sd.board, board = keep.slice(); board[slot] = u; sd.board = board;
+    const u = Object.assign({}, s, { marks: {}, hp: s.maxHp, shield: 0, charge: 0, first: true }), keep = sd.board, board = keep.slice(); board[slot] = u; sd.board = board;
     try {
       const a = aimOf(st, sd, st[other(who)], slot, u), combo = [];
       if (u.charId && adj(slot).some(j => board[j] && board[j].charId === u.charId)) combo.push("连张");
