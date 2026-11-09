@@ -189,6 +189,7 @@
       can ? h("button", { "data-wk": "stamptrans", onClick: go, style: { marginLeft: 6, padding: "0 6px", borderRadius: 6, border: "1px solid currentColor", fontSize: "0.72em", opacity: .7, fontStyle: "normal", verticalAlign: "middle" } }, busy ? "…" : "译") : null,
       cn ? h("div", { "data-wk": "stampzh", style: { marginTop: 3, fontSize: "0.8em", fontStyle: "normal", opacity: .72, color: sub || color } }, cn) : null);
   }
+  window.StampBiText = BiText;   // 集邮社那几页也用这一个（她 2026-11-09「没做翻译键」）
   // 番外那一行底下的一排小按钮：插图（画了显示一张小缩略图，点开看大图）、发给他看、设成封面、重写（点两下，不扣券）
   function ExtraActs({ x, char, onSend, onRewrite }) {
     const PT = t0 => typeof characterText === "function" ? characterText(char, t0) : t0;   // 他／她／TA 跟着角色性别走（她 2026-10-30）   // 番外那一行底下：发给他看、重写（点两下，不扣券）。卡面在上面卡面那边画
