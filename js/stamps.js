@@ -129,7 +129,7 @@
     // 她 2026-11-07「算了把框去掉吧好丑」：一圈细线也不要了。挂点留着（stamplimmark，透明），想自己画框的写 CSS 就能接上
     return h("span", { "data-wk": "stamplimmark", "data-tone": tone[1], style: { position: "absolute", inset: 5, zIndex: 3, pointerEvents: "none", borderRadius: 2 } });
   }
-  function StampFace({ t, card, onClick, size, back }) { const [url, el, near] = useStampThumb(card && (card.cover || card.face));
+  function StampFace({ t, card, onClick, size, back }) { const ref0 = card && (card.cover || card.face), [url, el, near] = useStampThumb(ref0 && !(card.hiddenImgs || []).includes(ref0) ? ref0 : null);
     // 卡面动起来了的 SSR：册子里那一格也在动（滑到附近才放，没封面换过别的图时才用）
     const vurl = useStampVideo(card && !back ? coverVideo(card) : null, near);
     return h("span", { ref: el, style: { display: "inline-block", lineHeight: 0, position: "relative" } }, h(Stamp, { t, card, face: url, onClick, size, back }), back ? null : h(LimMark, { card }),
@@ -205,13 +205,14 @@
     const secs = (card.text && card.text.sections) || [];
     // 剧情背景能挑：第一面、满级他一个人、满级你们俩，画了哪几张就能换哪几张；挑了记在卡上
     const fx = Object.assign({ main: card.face }, card.faceAlt ? { [card.faceAltMode || "solo"]: card.faceAlt } : {}, card.faces || {});
-    const uMain = useIdbImgUrl(fx.main || null), uSolo = useIdbImgUrl(fx.solo || null), uDuo = useIdbImgUrl(fx.duo || null);
-    const opts = [["main", "第一面", uMain], ["solo", PT("他一个人"), uSolo], ["duo", "你们俩", uDuo]].filter(x => x[2]);
-    const [bg, setBg] = useState(card.storyBg || "main");
+    // 番外播放时（她 2026-11-09：番外背景只能挑番外自己那张和第一面）：卡上画过的每一面都能挑，挑了记在这段番外自己身上
+    const hidImgs = card.hiddenImgs || [];
+    const opts = (card.bgOpts || [["main", "第一面", fx.main], ["solo", PT("他一个人"), fx.solo], ["duo", "你们俩", fx.duo]]).filter(x => x[2] && !hidImgs.includes(x[2]));
+    const [bg, setBg] = useState(card.storyBg || (opts[0] && opts[0][0]) || "main");
     const curBg = opts.find(x => x[0] === bg) || opts[0];
-    const url = curBg ? curBg[2] : null;
+    const url = useIdbImgUrl(curBg ? curBg[2] : null);
     const nextBg = () => { if (opts.length < 2) return; const i = opts.findIndex(x => x === curBg), nx = opts[(i + 1) % opts.length][0]; setBg(nx);
-      const st0 = C().load(); st0.cards = st0.cards.map(c => c.id === card.id ? Object.assign({}, c, { storyBg: nx }) : c); C().save(st0); };
+      const key = card.bgKey || "storyBg", st0 = C().load(); st0.cards = st0.cards.map(c => c.id === card.id ? Object.assign({}, c, { [key]: nx }) : c); C().save(st0); };
     const [sid, setSid] = useState((start && secs.some(x => x.id === start) ? start : null) || (secs[0] && secs[0].id));   // 从回廊点哪一幕就从哪一幕开始
     const [i, setI] = useState(0);
     const [stOpt, setStOpt] = useState(() => C().load().opt || {});
@@ -358,15 +359,18 @@
     const PT = t0 => typeof characterText === "function" ? characterText(char, t0) : t0;   // 卡页上的「他」跟着这个人的性别走（她 2026-10-30）
     // 满级两面都能画：他一个人（solo）、你们俩（duo）。旧卡只有 faceAlt＋faceAltMode，照它认
     const faces2 = Object.assign({}, card.faceAlt ? { [card.faceAltMode || "solo"]: card.faceAlt } : {}, card.faces || {});
-    const url1 = useIdbImgUrl(card.face), urlSolo = useIdbImgUrl(faces2.solo || null), urlDuo = useIdbImgUrl(faces2.duo || null);
+    // 不显示卡面图（群里 2026-11-09：「图反复都不满意，留着不好看，又不想删卡」）：按图的键收起，图不删；重画出新图自然就显示
+    const shownImg = k => k && !(card.hiddenImgs || []).includes(k) ? k : null;
+    const url1 = useIdbImgUrl(shownImg(card.face)), urlSolo = useIdbImgUrl(shownImg(faces2.solo) || null), urlDuo = useIdbImgUrl(shownImg(faces2.duo) || null);
     // 打开时停在她挑的封面那一面（她 2026-10-27：选了别的当封面，点进来还是第一面）
     const [side, setSide] = useState(() => { const cv = card.cover; if (!cv) return "main"; if (cv === faces2.solo) return "solo"; if (cv === faces2.duo) return "duo"; const ex = (card.extras || []).find(x => x.img === cv); return ex ? "ex:" + ex.id : "main"; });   // main 第一面 / solo / duo / ex:番外
     // 番外卡面（她 2026-10-27）：在卡面这边跟满级那几面一起挑、一起画；side 是 "ex:番外id"
     const headLine = String((card.text && (card.text.line || (card.rarity === "R" ? card.text.thought : ""))) || "").trim().replace(/^[「“"]+|[」”"]+$/g, "");
     const exSel = side.indexOf("ex:") === 0 ? (card.extras || []).find(x => "ex:" + x.id === side) || null : null;
-    const urlEx = useIdbImgUrl(exSel && exSel.img || null);
+    const urlEx = useIdbImgUrl(exSel && shownImg(exSel.img) || null);
     const exDrawing = !!(exSel && exSel.drawing && exSel.drawingBoot && exSel.drawingBoot === window.__stampBoot && Date.now() - (exSel.drawingTs || 0) < 8 * 60000);
-    const url = exSel ? (urlEx || url1) : side === "solo" && urlSolo ? urlSolo : side === "duo" && urlDuo ? urlDuo : url1;
+    const curImg = exSel ? exSel.img : side === "solo" ? faces2.solo : side === "duo" ? faces2.duo : card.face, curHidden = !!(curImg && (card.hiddenImgs || []).includes(curImg));
+    const url = curHidden ? null : exSel ? (urlEx || url1) : side === "solo" && urlSolo ? urlSolo : side === "duo" && urlDuo ? urlDuo : url1;
     const sideKey = exSel ? exSel.img : side === "solo" ? faces2.solo : side === "duo" ? faces2.duo : card.face;
     const [full, setFull] = useState(false), [fullWide, setFullWide] = useState(false), [rot, setRot] = useState(false);
     const vSlot = side === "main" ? card.video : (card.videos || {})[side];   // 这一面自己的那段
@@ -517,7 +521,7 @@
           h("div", { key: pop, style: { position: "relative", boxShadow: ring, animation: pop ? "stFloat .9s ease-out" : "none" } },
             h(Stamp, { t, card, face: url, size: 236 }),
             h(LimMark, { card, big: true }),
-            vMain ? loopVid(vMain, { left: 5, top: 5, width: "calc(100% - 10px)", height: "calc(100% - 10px)", borderRadius: 2 }) : null,
+            vMain && !curHidden ? loopVid(vMain, { left: 5, top: 5, width: "calc(100% - 10px)", height: "calc(100% - 10px)", borderRadius: 2 }) : null,
             // 满级 SSR 能戳：上面三分之一是头，中间是胸口，下面是手
             url ? h("div", { onClick: () => { if (Date.now() - swiped.current < 400) return; setFull(true); }, style: { position: "absolute", inset: 0, cursor: "zoom-in" } }) : null,
             pop ? h("div", { style: { position: "absolute", inset: 0, pointerEvents: "none", background: "linear-gradient(110deg, transparent 35%, rgba(255,240,200,.55) 50%, transparent 65%) 0 0 / 200% 100%", animation: "stShine .9s ease-out 1 forwards" } }) : null,
@@ -747,6 +751,9 @@
       moreOpen && tx ? (() => { const close = () => { setMoreOpen(false); setReArm(false); };
         const rows = [];
         if (card.face && !(exSel && !exSel.img)) rows.push([{ "data-wk": "stampredraw" }, (exSel ? exDrawing : drawing) ? "重画着…" : "↻ 照原来的描述重画这一面", "花一次生图", () => { close(); exSel ? onExtraDraw && onExtraDraw(card.id, exSel.id) : onDraw(card.id, side !== "main", side !== "main" ? side : undefined); }]);
+        if (curImg) rows.push([{ "data-wk": "stamphideface" }, curHidden ? "显示卡面图" : "不显示卡面图", curHidden ? "收起的图还在，点了就回来" : "这一面回到文字卡，图不删", () => { close();
+          const st0 = C().load(); st0.cards = st0.cards.map(c => c.id === card.id ? Object.assign({}, c, { hiddenImgs: curHidden ? (c.hiddenImgs || []).filter(k => k !== curImg) : (c.hiddenImgs || []).concat([curImg]) }) : c); C().save(st0);
+          toast(curHidden ? "卡面图回来了" : "这一面先不显示图了"); }]);
         rows.push([{ "data-wk": "stampshotedit" }, "✎ 改卡面描述", "不花调用，卡上的字不动", () => { close(); setShotDraft(String(tx.shot || "")); }]);
         rows.push([{ "data-wk": "stampreshot" }, reshotBusy ? "在重写卡面描述…" : "只重写卡面描述", "花一次调用，卡上的字不动", async () => { close(); if (!onReshot) return; setReshotBusy(true); try { const ok = await onReshot(card); toast(ok ? "卡面描述换好了，点重画就照新的画" : "没写出来，再试一次"); } catch (e) { toast("没写出来：" + String(e && e.message || e).slice(0, 40)); } setReshotBusy(false); }]);
         if (card.rarity === "SSR" && sideKey && window.VideoApi && !(card.videoBusy && vidRunning[card.id])) rows.push([{ "data-wk": "stampvideo" }, vSlot ? "↻ 重新让这一面动起来" : "▶ 让这一面动起来", "花一次视频生成", () => { close(); runStampVideo(card, toast, true, side, sideKey); }]);
@@ -760,7 +767,9 @@
             h("button", { onClick: close, className: "w-full active:opacity-70", style: { padding: "13px 0 4px", fontFamily: F_BODY, fontSize: fs(13), color: P5 } }, "取消"))); })() : null,
       exOpen && (card.extras || []).find(x => x.id === exOpen && x.text) ? (() => { const x = card.extras.find(e => e.id === exOpen);
         const beats = Array.isArray(x.beats) && x.beats.length ? x.beats : String(x.text).split(/\n+/).map(t0 => t0.trim()).filter(Boolean).map(t0 => ({ who: "narr", text: t0 }));
-        const pc = Object.assign({}, card, { face: x.img || card.face, faceAlt: null, faces: x.img ? { solo: card.face } : {}, storyBg: "main", storyAt: null, text: Object.assign({}, card.text, { name: x.title || "番外", sections: [{ id: "ex_" + x.id, lv: 1, title: x.title || "番外", beats, choices: [], end: true, extra: true }] }) });
+        const f2 = Object.assign({}, card.faceAlt ? { [card.faceAltMode || "solo"]: card.faceAlt } : {}, card.faces || {});
+        const bgOpts = [["ex", "这段番外", x.img], ["main", "第一面", card.face], ["solo", PT("他一个人"), f2.solo], ["duo", "你们俩", f2.duo]].concat((card.extras || []).filter(y => y.id !== x.id && y.img).map(y => ["ex:" + y.id, "番外「" + (y.title || "") + "」", y.img]));
+        const pc = Object.assign({}, card, { face: x.img || card.face, faceAlt: null, faces: x.img ? { solo: card.face } : {}, bgOpts, bgKey: "exBg_" + x.id, storyBg: card["exBg_" + x.id] || (x.img ? "ex" : "main"), storyAt: null, text: Object.assign({}, card.text, { name: x.title || "番外", sections: [{ id: "ex_" + x.id, lv: 1, title: x.title || "番外", beats, choices: [], end: true, extra: true }] }) });
         return h(StoryReader, { t, card: pc, char, meName, lv: 99, start: "ex_" + x.id, noResume: true, onSeen: () => {}, onClose: () => setExOpen(null) }); })() : null,
       story && tx ? h(StoryReader, { t, card, char, meName, lv, start: typeof story === "string" && story !== "his" ? story : null, inner: story === "his" ? tx.inner : null, onSeen: markSeen, onClose: () => setStory(false) }) : null);
   }
