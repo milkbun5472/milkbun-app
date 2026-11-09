@@ -8795,28 +8795,50 @@ const STORAGE_KEY_LABELS = [
   ["x_stateHist", "心声·状态历史"], ["x_states", "当前状态"], ["x_desires", "心上"],
   ["x_lore", "世界书"], ["x_geo", "定位"], ["x_wx", "天气缓存"]
 ];
+// ⚠️2026-11-09 大修：这一页原来【两处都在说假话】，而它恰恰是出事那一刻她唯一能自己看的一页
+//   （群友 11-09 的存档出了事，我拿它当证据，判错了一回）。
+//   ① 「（文字金库）」那一支是死代码：判据写的是 localStorage.getItem(k) != null，
+//      而 Storage.prototype.getItem 早被转接层改写过——问一把住在 IDB 的键，它从内存镜像拿、
+//      返回有值，于是每一把金库键都被当成「localStorage 里已经有了」跳过。谁的机器上都没显示过「· IDB」。
+//   ② 住在金库里的大件压根没被列进来：上面那个循环按 localStorage.length 数，
+//      而 length/key(i) 没被转接，只数得到【真的在 localStorage 里】那几把。
+//      聊天记录、记忆库这些最大的，在谁的机器上都不出现。
+//   改法：两本账分开记。真 localStorage 走 lsRaw（绕过转接层，拿到的才是真值）；
+//   金库直接问镜像要，一把一把列出来，标「· IDB」。
 function storageBreakdown() {
-  const rows = {};
+  const ls = {}, vault = {};
+  const raw = k => { try { return (typeof lsRaw !== "undefined" ? lsRaw.get(k) : localStorage.getItem(k)) || ""; } catch (e) { return ""; } };
   const labelFor = k => {
     for (const [pfx, name] of STORAGE_KEY_LABELS) { if (k.indexOf(pfx) === 0) return name; }
     // 不带 x_ 的原来全挤成一行「系统/其他」（她 2026-10-11：4.99MB 占 97%，看不出是谁）——每把键单列
     return k.indexOf("x_") === 0 ? "其他·" + k.slice(2) : "系统·" + k.replace(/:.*$/, ":…");
   };
+  let lsBytes = 0, vaultBytes = 0, vaultKeys = 0;
   try {
     for (let i = 0; i < localStorage.length; i++) {
       const k = localStorage.key(i); if (!k) continue;
-      const bytes = (k.length + (localStorage.getItem(k) || "").length) * 2;
-      const label = labelFor(k);
-      rows[label] = (rows[label] || 0) + bytes;
+      const bytes = (k.length + raw(k).length) * 2;
+      lsBytes += bytes;
+      ls[labelFor(k)] = (ls[labelFor(k)] || 0) + bytes;
     }
-    // 大文本已搬进 IDB，不再出现在 localStorage；单列“文字金库”才能看见它们各自的体积。
+  } catch (e) {}
+  try {
     if (window.__txtMirror) window.__txtMirror.forEach((v, k) => {
-      if (v == null || localStorage.getItem(k) != null) return; // 迁移 journal 尚在时不重复统计
-      const label = labelFor(k) + "（文字金库）", bytes = (String(k).length + String(v).length) * 2;
-      rows[label] = (rows[label] || 0) + bytes;
+      if (v == null) return;
+      const bytes = (String(k).length + String(v).length) * 2;
+      vaultBytes += bytes; vaultKeys++;
+      const label = labelFor(k) + "（文字金库）";
+      vault[label] = (vault[label] || 0) + bytes;
     });
   } catch (e) {}
-  return Object.keys(rows).map(name => ({ name, bytes: rows[name] })).sort((a, b) => b.bytes - a.bytes);
+  // 显示的时候不再挂「（文字金库）」后缀——右边已经写着「· IDB」，挂两遍只会把行挤长。
+  //   内部的键还是带后缀的，两本账里同名的项目（比如都有「表情包」）不许合成一行。
+  const mk = (o, idb) => Object.keys(o).map(name => ({ name: name.replace("（文字金库）", ""), key: name, bytes: o[name], idb: idb })).sort((a, b) => b.bytes - a.bytes);
+  // ⚠️两边各留各的名额：原来一刀切前 14 条，金库那几条一进来就把 localStorage 整摞挤没了，
+  //   而「localStorage 那 5MB 谁占的」恰恰是这一页最早要答的问题。
+  const rows = mk(vault, true).slice(0, 10).concat(mk(ls, false).slice(0, 8));
+  rows.lsBytes = lsBytes; rows.vaultBytes = vaultBytes; rows.vaultKeys = vaultKeys;
+  return rows;
 }
 // ⚠️别把新组件放到「找回失联的角色」和 StorageMeter 之间（2026-11-09 差点出事）：
 //   出货版那一刀是从那段注释一路切到 function StorageMeter，夹在中间的东西会被整段摘掉，
@@ -9000,7 +9022,8 @@ function StorageMeter({ onOffloadChats, onPruneOld }) {
     let vault = null; try { vault = typeof txtVaultState === "function" ? txtVaultState() : null; } catch (e) {}
     const inShell = (() => { try { return !!(window.webkit && window.webkit.messageHandlers && (window.webkit.messageHandlers.nativeHttp || window.webkit.messageHandlers.nativeMedia)); } catch (e) { return false; } })();
     const fin = extra => {
-      const base = Object.assign({ ls: ls, lim: LIMIT, rows: rows, shell: inShell, vault: vault }, extra || {});
+      let hadData = false; try { hadData = !!(typeof lsRaw !== "undefined" ? lsRaw.get("qq_vaultHasData") : localStorage.getItem("qq_vaultHasData")); } catch (e) {}
+      const base = Object.assign({ ls: ls, lim: LIMIT, rows: rows, shell: inShell, vault: vault, hadData: hadData }, extra || {});
       if (!inShell && navigator.storage && navigator.storage.persisted) {
         navigator.storage.persisted().then(ok => setInfo(Object.assign(base, { pinned: !!ok }))).catch(() => setInfo(base));
       } else setInfo(base);
@@ -9026,7 +9049,9 @@ function StorageMeter({ onOffloadChats, onPruneOld }) {
   const mb = n => (n / 1048576).toFixed(1);
   const kb = n => n >= 102400 ? (n / 1048576).toFixed(2) + " MB" : Math.round(n / 1024) + " KB";
   const rows = info.rows || [];
-  const maxB = rows.length ? rows[0].bytes : 1;
+  // 两本账各按自己那一摞里最大的那条画条（混在一起画的话，localStorage 那几条全被金库压成一条线）
+  const maxIdb = Math.max(1, ...rows.filter(r => r.idb).map(r => r.bytes), 1);
+  const maxLs = Math.max(1, ...rows.filter(r => !r.idb).map(r => r.bytes), 1);
   return h("div", { "data-wk": "block", style: { marginBottom: 20, padding: "14px 15px", background: t.bg2, border: "1px solid " + (near ? "#c25a4a" : t.line), borderRadius: 12 } },
     h("div", { className: "flex items-center justify-between", style: { marginBottom: 8 } },
       h("span", { style: { fontFamily: F_DISPLAY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.ink } }, "本地存储占用"),
@@ -9072,13 +9097,29 @@ function StorageMeter({ onOffloadChats, onPruneOld }) {
     // 明细：谁占地方一眼看穿
     h("button", { onClick: () => { setDetail(d => !d); refresh(); }, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.tint, marginTop: 10 } }, detail ? "收起明细 ▴" : "看谁占地方 ▾"),
     detail ? h("div", { style: { marginTop: 8, display: "flex", flexDirection: "column", gap: 6 } },
-      rows.slice(0, 12).map(r => h("div", { key: r.name },
+      // ⚠️金库里一把键都没有：角色、聊天、记忆都住在那儿，正常绝不可能是空的。
+      //   仓库【打不开】那一种由上面那条常驻横幅说；这儿说的是另一种——仓库开着、里面被清光了
+      //   （浏览器把整站的数据回收掉最常见）。原来这一页在这种时候只是少列几行，看着跟没事一样。
+      // ⚠️还要问一句「这台机器到底存过东西没有」：全新装的人金库本来就是空的，
+      //   只看「空不空」会冲着新人乱喊（2026-11-09 真机上当场撞见）。
+      //   qq_vaultHasData 是她真填过线路/角色/群/世界/聊天时才记的那一笔（engine.js txtWrite），
+      //   用它当判据：存过、现在一把都不剩，才是出事了。
+      (info.vault && info.vault.done && info.vault.ok && rows.vaultKeys === 0 && info.hadData) ? h("div", {
+        style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", lineHeight: 1.7, color: "#fff", background: "#7f1d1d", borderRadius: 8, padding: "9px 10px" }
+      }, "⚠️ 文字金库里一把键都没有。角色、聊天、记忆都住在那儿，正常不会是空的——多半是浏览器把这个网站的数据整个回收了。别清缓存、别重装、别点从云端恢复；先把下面还剩的东西导出一份，再说别的。") : null,
+      rows.map(r => h("div", { key: r.key },
         h("div", { className: "flex items-center justify-between", style: { marginBottom: 2 } },
           h("span", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.ink } }, r.name),
-          h("span", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: r.name.indexOf("（文字金库）") < 0 && r.bytes >= 512000 ? "#c25a4a" : t.fog } }, kb(r.bytes) + (r.name.indexOf("（文字金库）") >= 0 ? " · IDB" : " · " + Math.round(r.bytes / info.ls * 100) + "%"))),
+          h("span", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: !r.idb && r.bytes >= 512000 ? "#c25a4a" : t.fog } },
+            kb(r.bytes) + (r.idb
+              ? " · IDB · " + Math.round(r.bytes / Math.max(1, rows.vaultBytes) * 100) + "%"
+              : " · " + Math.round(r.bytes / Math.max(1, rows.lsBytes) * 100) + "%"))),
         h("div", { style: { height: 3, borderRadius: 999, background: t.line, overflow: "hidden" } },
-          h("div", { style: { width: Math.max(2, Math.round(r.bytes / maxB * 100)) + "%", height: "100%", borderRadius: 999, background: r.name.indexOf("（文字金库）") >= 0 ? t.tint : (r.bytes >= 512000 ? "#c25a4a" : (r.bytes >= 204800 ? "#b89150" : t.tint)) } })))),
-      h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, marginTop: 4, lineHeight: 1.6 } }, "红=localStorage 大头(≥0.5MB)；标有「文字金库」的项目住在 IDB，不挤占 5MB。聊天记录最大又会一直涨——用上面「归档旧聊天到云端」最省地方。")) : null,
+          h("div", { style: { width: Math.max(2, Math.round(r.bytes / (r.idb ? maxIdb : maxLs) * 100)) + "%", height: "100%", borderRadius: 999, background: r.idb ? t.tint : (r.bytes >= 512000 ? "#c25a4a" : (r.bytes >= 204800 ? "#b89150" : t.tint)) } })))),
+      h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, marginTop: 4, lineHeight: 1.6 } },
+        "两本账分开记：标「· IDB」的住在文字金库（角色、聊天、记忆这些大件），一共 " + kb(rows.vaultBytes) + "，空间大得多、不挤占 5MB，百分比是它们各自占金库的比例；"
+        + "没标的住在 localStorage，一共 " + kb(rows.lsBytes) + "，那头只有 5MB，红=单项 ≥0.5MB。"
+        + "聊天记录最大又会一直涨——用上面「归档旧聊天到云端」最省地方。")) : null,
     info.idbQuota ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, marginTop: 6 } }, "音频 / 自拍 / 书正文另存在 IndexedDB（已用 " + mb(info.idbUsed) + " MB，空间大得多、不占这 5MB）") : null);
 }
 // TA 们拍的照片（群里 2026-10-18：「线下生的图找不到」「线上照片也没有」）：

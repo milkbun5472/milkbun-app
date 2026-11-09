@@ -145,3 +145,8 @@ test("番外播放时背景能挑这张卡画过的任何一面", () => {
   assert.match(ui, /bgKey: "exBg_" \+ x\.id/);
   assert.match(ui, /\["ex", "这段番外", x\.img\], \["main", "第一面", card\.face\]/);
 });
+test("小剧场新版能自己换目标、开下一幕、谢幕", () => {
+  const th = fs.readFileSync(__dirname + "/../js/theater.js", "utf8");
+  assert.match(th, /"data-wk": "thrvnact"/);
+  assert.match(th, /"谢幕收线", "写一场终场戏/);
+});

@@ -846,23 +846,27 @@
         game.key === "mahjong" ? h("div", { "data-wk": "gamemjrule", style: { marginBottom: 20 } },
           // 玩哪种：三种各一张小卡，写一句跟别的有什么不一样（她 2026-11-09「做一个麻将页面里面选吧」）
           h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.ink, marginBottom: 8 } }, "玩哪种"),
-          h("div", { "data-wk": "gamemjvariant", style: { display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginBottom: 14 } },
+          h("div", { "data-wk": "gamemjvariant", style: { display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginBottom: 14 } },   // 六种排两行
             [{ key: "canton", title: "广东", mark: "能吃·算番", desc: "136 张带花，吃碰杠都行，算番，起糊番数自己挑。" },
              { key: "sichuan", title: "四川", mark: "血战到底", desc: "只有万筒条，不能吃；定缺一门；一家胡了剩下的接着打。" },
-             { key: "hongzhong", title: "红中", mark: "癞子", desc: "四张红中能顶任何牌；不能吃，只能自摸。" }].map(function (o) {
+             { key: "hongzhong", title: "红中", mark: "癞子", desc: "四张红中能顶任何牌；不能吃，只能自摸。" },
+             { key: "riichi", title: "日麻", mark: "立直", desc: "要有役才能和；立直、宝牌、振听；点数制，起手 25000。" },
+             { key: "taiwan", title: "台湾", mark: "十六张", desc: "每人 16 张，五组一对；算台：庄家、门清自摸、花、刻子……" },
+             { key: "guobiao", title: "国标", mark: "8 番起和", desc: "比赛规则：常见三十来种番，够 8 番才能和，花牌另算。" }].map(function (o) {
               const on = mjVariant === o.key;
               return h("button", { key: o.key, "data-wk": "gamemjvar", "data-on": on ? "1" : "0", onClick: function () { setMjVariant(o.key); }, style: { textAlign: "left", borderRadius: 14, padding: "11px 10px", background: on ? t.tint + "16" : t.bg2, border: "1.5px solid " + (on ? t.tint : t.line) } },
                 h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))", color: t.ink } }, o.title),
                 h("div", { style: { display: "inline-block", margin: "5px 0 5px", padding: "2px 7px", borderRadius: 999, background: on ? t.tint : t.line, color: on ? "white" : t.sub, fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))" } }, o.mark),
                 h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.5 } }, o.desc));
             })),
-          mjVariant === "canton" ? h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.ink, marginBottom: 8 } }, "几番起糊") : null,
+          mjVariant === "canton" || mjVariant === "guobiao" ? h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.ink, marginBottom: 8 } }, mjVariant === "guobiao" ? "几番起和" : "几番起糊") : null,
           mjVariant === "canton" ? h(Segmented, { t: t, value: String(mjMinFan), onChange: function (v) { setMjMinFan(+v); }, options: [{ key: "0", zh: "鸡糊也能食" }, { key: "1", zh: "一番起" }, { key: "3", zh: "三番起" }] }) : null,
+          mjVariant === "guobiao" ? h(Segmented, { t: t, value: String([8, 4, 1].indexOf(mjMinFan) >= 0 && mjMinFan ? mjMinFan : 8), onChange: function (v) { setMjMinFan(+v); }, options: [{ key: "8", zh: "8 番（比赛）" }, { key: "4", zh: "4 番" }, { key: "1", zh: "1 番（随便和）" }] }) : null,
           h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.ink, margin: "14px 0 8px" } }, "打几盘"),
           h(Segmented, { t: t, value: String(mjHands), onChange: function (v) { setMjHands(+v); }, options: [{ key: "4", zh: "四盘" }, { key: "8", zh: "八盘" }, { key: "16", zh: "一整局（16 盘）" }] }),
           mjVariant === "sichuan" ? h("div", { style: { marginTop: 12 } }, h(ToggleRow, { t: t, label: "换三张", sub: "开着：每盘发完牌先挑同一门的三张，跟别家换（顺时针、逆时针或对家，每盘抽一个）。", on: mjSwap, onToggle: function () { setMjSwap(!mjSwap); } })) : null,
           h("div", { style: { marginTop: 12 } }, h(ToggleRow, { t: t, label: "自动摸牌", sub: "关着：轮到你时点桌子正中的牌墙自己摸。开着：轮到你就直接摸好。", on: mjAutoDraw, onToggle: function () { setMjAutoDraw(!mjAutoDraw); } })),
-          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, marginTop: 6, lineHeight: 1.6 } }, (mjVariant === "canton" ? "起糊番数不够的牌不能食也不能自摸。" : mjVariant === "sichuan" ? "四川：开局换三张、定缺，缺的那门打完才能胡；七对也算；一炮可以几家一起胡；三家胡了或者摸完这一盘才散。杠了当场收钱（刮风下雨）；摸完时手里还有缺的那门是花猪、赔满番，没听牌的赔给听牌的（查叫）。" : "红中：红中顶任何牌（不能碰、不能杠）；七对也算；只能自摸，三家各付；一张红中都没用上的硬胡番数多一番。") + "别家都由本地牌手打，不花调用；角色在碰、杠、胡和一盘打完时开口。")) : null,
+          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, marginTop: 6, lineHeight: 1.6 } }, (mjVariant === "riichi" ? "日麻：手里没有役（立直、门清自摸、断幺、役牌、平和……）就和不了，宝牌只加番不算役；听的牌自己打过就是振听，不能荣和、只能自摸；立直要门清、扣 1000 点，立直以后只能打摸到的那张。点数起手 25000。" : mjVariant === "taiwan" ? "台湾：每人 16 张，凑五组一对；算台（庄家 1、门清 1、自摸 1、门清自摸 3、正花、刻子、碰碰胡 4、混一色 4、清一色 8……），付「底 3 + 台数」。" : mjVariant === "guobiao" ? "国标：常见三十来种番（七对、清一色、碰碰和、全求人、平和、断幺、箭刻……），番不够不能和，花牌另算不进起和。点和的那家付「8 + 番」，另两家各付 8；自摸三家各付「8 + 番」。" : mjVariant === "canton" ? "起糊番数不够的牌不能食也不能自摸。" : mjVariant === "sichuan" ? "四川：开局换三张、定缺，缺的那门打完才能胡；七对也算；一炮可以几家一起胡；三家胡了或者摸完这一盘才散。杠了当场收钱（刮风下雨）；摸完时手里还有缺的那门是花猪、赔满番，没听牌的赔给听牌的（查叫）。" : "红中：红中顶任何牌（不能碰、不能杠）；七对也算；只能自摸，三家各付；一张红中都没用上的硬胡番数多一番。") + "别家都由本地牌手打，不花调用；角色在碰、杠、胡和一盘打完时开口。")) : null,
         game.key === "uno" ? h("div", { style: { marginBottom: 20 } },
           h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.ink, marginBottom: 8 } }, "+2 规则"),
           h("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 9 } },
@@ -8674,8 +8678,8 @@
       ? h("div", { style: { position: "absolute", inset: w * 0.2, border: "2px solid " + ink, borderRadius: 2 } })
       : suited
         ? h("div", { style: { position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", lineHeight: 1 } },
-            h("span", { style: { fontFamily: F_DISPLAY, fontSize: w * 0.5, color: k[0] === "m" ? "#2b2622" : ink, fontWeight: 600 } }, face[0]),
-            h("span", { style: { fontFamily: F_DISPLAY, fontSize: w * 0.42, color: k[0] === "m" ? "#c2372b" : ink, marginTop: w * 0.06 } }, face[1]))
+            h("span", { style: { fontFamily: F_DISPLAY, fontSize: w * 0.5, color: props.red ? "#d62b1f" : k[0] === "m" ? "#2b2622" : ink, fontWeight: 600 } }, face[0]),
+            h("span", { style: { fontFamily: F_DISPLAY, fontSize: w * 0.42, color: props.red ? "#d62b1f" : k[0] === "m" ? "#c2372b" : ink, marginTop: w * 0.06 } }, face[1]))
         : h("div", { style: { position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: F_DISPLAY, fontSize: w * 0.62, color: ink, fontWeight: 600 } }, face);
     return h(props.onClick ? "button" : "div", { onClick: props.onClick, "data-wk": "gamemjtile", "data-k": k, "aria-label": face, "data-mjanim": props.anim ? "1" : undefined,
       style: Object.assign({}, base, props.joker ? { outline: "2px solid #e0b84a", outlineOffset: -1 } : null, { padding: 0, background: props.hot ? "linear-gradient(180deg,#fff8d8,#ffe9a3)" : "linear-gradient(180deg,#fffef8 0%,#f6f0e0 68%,#e8dfc6 100%)",
@@ -8722,7 +8726,7 @@
         const rel = (i - me + 4) % 4, pos = [null, { right: 9, top: 9 }, { left: 9, top: 9 }, { left: 9, bottom: 9 }][rel];   // 放在那一边的角上，不压牌背
         const turn = st.status === "playing" && (st.phase === "discard" || st.phase === "draw") && st.turn === i;
         return rel === 0 ? null : h("div", { key: "w" + i, style: Object.assign({ position: "absolute", zIndex: 2, display: "block", maxWidth: 92, overflow: "hidden", textOverflow: "ellipsis", padding: "2px 6px", lineHeight: 1.3, borderRadius: 999, background: turn ? "#f3d27a" : "rgba(0,0,0,.35)", color: turn ? "#3b2b12" : "#f3ecd9", fontFamily: F_BODY, fontSize: 10.5, whiteSpace: "nowrap" }, p.out ? { background: "#c2372b", color: "#fff6dc" } : null, pos) },
-          (i === st.dealer ? "庄·" : "") + (M.variantOf(st).honors ? M.WIND_ZH[M.seatWindOf(st, i)] + " " : "") + p.name + (p.out ? " · 胡了" : p.que ? " · 缺" + M.SUIT_NAME[p.que] : ""));
+          (i === st.dealer ? "庄·" : "") + (M.variantOf(st).honors ? M.WIND_ZH[M.seatWindOf(st, i)] + " " : "") + p.name + (p.out ? " · 胡了" : p.riichi ? " · 立直" : p.que ? " · 缺" + M.SUIT_NAME[p.que] : ""));
       }),
       // 牌墙
       h("button", { "data-wk": "gamemjwall", onClick: canDraw ? props.onDraw : undefined, disabled: !canDraw, "aria-label": canDraw ? "点牌墙摸一张" : "牌墙",
@@ -8732,20 +8736,24 @@
         h("div", { style: { display: "flex", gap: 1 } }, backs(ring, bw)),
         h("div", { style: { fontFamily: F_DISPLAY, color: "#f3ecd9", fontSize: 13, lineHeight: 1.25, textAlign: "center" } },
           st.phase === "claim" && st.claim ? h("div", { style: { display: "flex", flexDirection: "column", alignItems: "center", gap: 2 } }, h(MjTile, { key: "cl" + st.log.length, k: st.claim.k, w: Math.round(wall * 0.24), hot: true, anim: "mjPop .3s ease-out both" }), h("span", { style: { fontSize: 10, opacity: .85 } }, st.players[st.claim.from].name + " 打的")) :
-          canDraw ? [h("div", { key: "a" }, "点这里"), h("div", { key: "b" }, "摸一张")] : [h("div", { key: "a", style: { fontSize: 18 } }, left), h("div", { key: "b", style: { fontSize: 10, opacity: .75 } }, "张牌墙")]),
+          canDraw ? [h("div", { key: "a" }, "点这里"), h("div", { key: "b" }, "摸一张")] : [h("div", { key: "a", style: { fontSize: 18 } }, left), h("div", { key: "b", style: { fontSize: 10, opacity: .75 } }, "张牌墙"),
+            // 日麻：宝牌指示牌、桌上的立直棒
+            (st.doraInd || []).length ? h("div", { key: "d", style: { display: "flex", alignItems: "center", justifyContent: "center", gap: 2, marginTop: 3, fontSize: 9.5 } }, "宝牌指示", st.doraInd.map(function (k, j) { return h(MjTile, { key: j, k: k, w: 13 }); })) : null,
+            st.pot ? h("div", { key: "p", style: { fontSize: 9.5, opacity: .85, marginTop: 2 } }, "立直棒 " + (st.pot / 1000) + " 根") : null]),
         h("div", { style: { display: "flex", gap: 1 } }, backs(ring, bw))));
   }
   function MahjongGame(props) {
     const t = props.t, cfg = props.config || {}, M = window.MahjongCore;
     const restored = props.savedState && props.savedState.state;
     const [state, setState] = useState(function () {
-      return restored && restored.status === "playing" ? restored : M.newGame(unoPlayers(props, 4), { swap: cfg.mjSwap !== false, variant: cfg.mjVariant || "canton", minFan: cfg.mjMinFan || 0, hands: cfg.mjHands || 4, handDraw: !cfg.mjAutoDraw });
+      return restored && restored.status === "playing" ? restored : M.newGame(unoPlayers(props, 4), { swap: cfg.mjSwap !== false, variant: cfg.mjVariant || "canton", minFan: cfg.mjVariant === "guobiao" ? ([8, 4, 1].indexOf(cfg.mjMinFan) >= 0 ? cfg.mjMinFan : 8) : (cfg.mjMinFan || 0), hands: cfg.mjHands || 4, handDraw: !cfg.mjAutoDraw });
     });
-    const [sel, setSel] = useState(null), [error, setError] = useState(""), [say, setSay] = useState(""), [swapSel, setSwapSel] = useState([]);
+    const [sel, setSel] = useState(null), [error, setError] = useState(""), [say, setSay] = useState(""), [swapSel, setSwapSel] = useState([]), [riichiPick, setRiichiPick] = useState(false);
     const spectate = cfg.mode === "spectate", soft = cfg.mode === "easy";
     const meI = state.players.findIndex(function (p) { return p.isUser; });
     // 哪种麻将（广东／四川血战／红中）：标题、说法、能不能吃、有没有定缺都跟着它
-    const VAR = M.variantOf(state), ronWord = state.variant === "canton" || !state.variant ? "食糊" : "胡";
+    const VAR = M.variantOf(state), ronWord = state.variant === "canton" || !state.variant ? "食糊" : state.variant === "riichi" ? "荣和" : state.variant === "guobiao" ? "和" : "胡";
+    const fanTxt = function (f) { return f.label || (f.fan + " " + (VAR.unit || "番")); };
     const me = meI >= 0 ? state.players[meI] : null;
     const clone = function () { return JSON.parse(JSON.stringify(state)); };
     function act(fn) { try { const n = clone(); fn(n); setState(n); setSel(null); setError(""); } catch (e) { setError(e.message); } }
@@ -8764,6 +8772,11 @@
       if (state.status !== "playing") return;
       if (state.phase === "draw" && state.turn === meI && cfg.mjAutoDraw) {
         const tm = setTimeout(function () { act(function (n) { M.drawTile(n, meI); }); }, 300);
+        return function () { clearTimeout(tm); };
+      }
+      // 她立直了：摸到的不能和、不能暗杠就自动打出去
+      if (state.phase === "discard" && state.turn === meI && me && me.riichi && state.drawnBy === meI && !M.selfOptions(state, meI).some(function (o) { return o.kind === "zimo" || o.kind === "ckong"; })) {
+        const tm = setTimeout(function () { act(function (n) { M.discard(n, meI, n.drawn); }); }, 700);
         return function () { clearTimeout(tm); };
       }
       if (state.phase === "discard" && state.turn !== meI) {
@@ -8805,9 +8818,14 @@
     const selfOpts = myTurn ? M.selfOptions(state, meI) : [];
     const myClaim = me && state.phase === "claim" && state.claim && state.claim.pending[meI] && !state.claim.decided[meI] ? state.claim.pending[meI] : null;
     const queLock = !!(myTurn && M.mustDiscardQue(state, meI));
+    // 日麻红 5：她手里那门的红 5 在的话，那门第一张 5 画成红的（牌是字串，红的那张记在 me.aka 上）
+    const isRed = function (k, j) { return !!(me && me.aka && k[1] === "5" && me.aka.indexOf(k[0]) >= 0 && myHand.indexOf(k) === j && !(drawn === k && myHand.indexOf(k) < 0)); };
+    const riichiDim = function (k) { if (!riichiPick) return false; const ro = selfOpts.find(function (o) { return o.kind === "riichi"; }); return !ro || ro.ks.indexOf(k) < 0; };
     const tap = function (k, j) {
       if (!myTurn) return;
       if (queLock && k[0] !== me.que) { setError("手里还有缺的「" + M.SUIT_NAME[me.que] + "」，先打那门"); return; }
+      // 立直：挑一张打出去还能听的（别的是灰的）；挑中就立直并打出
+      if (riichiPick) { const ro = selfOpts.find(function (o) { return o.kind === "riichi"; }); if (!ro || ro.ks.indexOf(k) < 0) { setError("打这张就不听了"); return; } setRiichiPick(false); userAct(function (n) { M.selfAct(n, meI, { kind: "riichi", k: k }); }); return; }
       if (sel === j) userAct(function (n) { M.discard(n, meI, k); });
       else setSel(j);
     };
@@ -8823,13 +8841,13 @@
     let myHand = me ? me.hand.slice() : [], drawn = null;
     if (myTurn && state.drawnBy === meI && state.drawn && myHand.indexOf(state.drawn) >= 0) { myHand.splice(myHand.lastIndexOf(state.drawn), 1); drawn = state.drawn; }
     // 手牌宽度照屏幕宽算：十四张 + 刚摸那张隔开的那一截，窄屏也一行放得下
-    const handW = Math.max(20, Math.min(28, Math.floor(((typeof window !== "undefined" ? window.innerWidth : 390) - 26) / 14.5) - 2));
+    const handW = Math.max(16, Math.min(28, Math.floor(((typeof window !== "undefined" ? window.innerWidth : 390) - 26) / ((me ? me.hand.length : 14) + 0.5)) - 2));   // 台湾十六张手里有 17 张，照张数缩
     return h("div", { "data-wk": "gameplay", "data-part": "mahjong", className: "h-full flex flex-col", style: gameTable("mahjong", t) },
       h(Head, { zh: VAR.zh, en: state.status === "finished" ? "打完了" : ("第 " + state.handNo + " / " + state.hands + " 盘 · " + (VAR.honors ? W[state.roundWind] + "圈 · " : "") + "牌墙 " + state.wall.length), onBack: props.onBack, bg: "transparent" }),
       h("div", { className: "flex-1 overflow-y-auto px-4 pb-3", style: { paddingTop: 10 } },
         h(CardSeats, { t: t, evalOf: { host: props, key: "mahjong", zh: VAR.zh }, log: state.log, seats: state.players.map(function (p, i) {
           return { key: p.key, name: p.name, dealer: i === state.dealer, badge: "庄", char: cardSeatChar(props, p), isUser: p.isUser,
-            on: state.status === "playing" && state.phase === "discard" && state.turn === i, hot: (r && (r.wins || []).some(function (w) { return w.winner === i; })) || !!p.out, sub: (p.out ? "胡了 · " : p.que ? "缺" + M.SUIT_NAME[p.que] + " · " : VAR.honors ? seatW(i) + "位 · " : "") + (p.pts > 0 ? "+" : "") + p.pts };
+            on: state.status === "playing" && state.phase === "discard" && state.turn === i, hot: (r && (r.wins || []).some(function (w) { return w.winner === i; })) || !!p.out, sub: (p.out ? "胡了 · " : p.riichi ? "立直 · " : p.que ? "缺" + M.SUIT_NAME[p.que] + " · " : VAR.honors ? seatW(i) + "位 · " : "") + (p.pts > 0 ? "+" : "") + p.pts };
         }) }),
         h(MjTable, { state: state, meI: meI, spectate: spectate, size: tableS, canDraw: canDraw, onDraw: function () { act(function (n) { M.drawTile(n, meI); }); } }),
         r ? feltBox([
@@ -8842,9 +8860,11 @@
             ].concat(r.wins.map(function (w, wi) {
               const wp = state.players[w.winner];
               return h("div", { key: "w" + wi, style: { borderTop: wi ? "1px dashed rgba(120,96,60,.35)" : "none", marginTop: wi ? 8 : 0, paddingTop: wi ? 8 : 0 } },
-                h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(17px * var(--app-fs, 1))", color: "#8a2a1f", paddingRight: 48 } }, wp.name + (w.zimo ? " 自摸" : " " + ronWord) + " · " + w.fan.fan + " 番" + (w.fan.fan > w.fan.capped ? "（封顶 " + w.fan.capped + "）" : "")),
+                h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(17px * var(--app-fs, 1))", color: "#8a2a1f", paddingRight: 48 } }, wp.name + (w.zimo ? " 自摸" : " " + ronWord) + " · " + fanTxt(w.fan) + (w.fan.fan > w.fan.capped ? "（封顶 " + w.fan.capped + "）" : "")),
                 h("div", null, w.fan.items.map(function (x) { return x[0] + (x[1] ? " " + x[1] : ""); }).join(" · ")),
-                h("div", { style: { opacity: .85 } }, w.zimo ? (Object.keys(w.moves).length === 3 && !VAR.blood && state.variant === "canton" ? "三家各付 " + Math.ceil(w.pay / 2) : Object.keys(w.moves).map(function (j) { return state.players[j].name; }).join("、") + " 各付 " + (-w.moves[Object.keys(w.moves)[0]])) : state.players[w.from].name + " 点炮，付 " + w.pay),
+                w.ura ? h("div", { style: { display: "flex", alignItems: "center", gap: 4, fontSize: "calc(11.5px * var(--app-fs, 1))", opacity: .85 } }, "里宝牌指示", w.ura.map(function (k, j) { return h(MjTile, { key: j, k: k, w: 16, anim: "mjShow .3s " + (0.3 + j * 0.1) + "s ease-out both" }); })) : null,
+                // 谁付了多少：各玩法规矩不一样（国标点和的多付、日麻庄家付双倍、立直棒归和的人），照实际那几笔写
+                h("div", { style: { opacity: .85 } }, (w.zimo ? "" : state.players[w.from].name + " 点炮。") + Object.keys(w.moves).filter(function (j) { return j !== "pot"; }).map(function (j) { return state.players[j].name + " 付 " + (-w.moves[j]); }).join("，") + (w.moves.pot ? "，立直棒 +" + w.moves.pot : "")),
                 // 赢家的整副牌：亮出来的那几组 + 手里的，一组一组隔开
                 h("div", { style: { display: "flex", flexWrap: "wrap", gap: 6, marginTop: 6 } },
                   wp.melds.map(function (m, j) { return h("div", { key: "m" + j, style: { display: "flex" } }, mjRow(m.tiles, 19)); })
@@ -8901,19 +8921,20 @@
           me.melds.map(function (m, j) { return h("div", { key: j + m.type, "data-mjanim": "1", style: { display: "flex", animation: "mjPop .38s cubic-bezier(.3,1.5,.5,1) both" } }, mjRow(m.tiles, 20)); })) : null,
         h("div", { "data-wk": "gamemjhand", style: { display: "flex", justifyContent: "center", alignItems: "flex-end", padding: "14px 4px 10px", margin: "0 -2px 8px", borderRadius: 8,
             background: "linear-gradient(180deg, rgba(0,0,0,0) 0%, rgba(0,0,0,0) 62%, #3a2616 62%, #2e1e11 100%)", boxShadow: "0 2px 0 rgba(255,220,170,.12)" } },
-          myHand.map(function (k, j) { return h("div", { key: j + k, style: { marginLeft: j ? 2 : 0 } }, h(MjTile, { k: k, w: handW, dim: queLock && k[0] !== me.que, joker: k === VAR.joker, lift: sel === j, onClick: myTurn ? function () { tap(k, j); } : null })); }),
-          drawn ? h("div", { key: "drawn" + state.wall.length, style: { marginLeft: 7 } }, h(MjTile, { k: drawn, w: handW, dim: queLock && drawn[0] !== me.que, joker: drawn === VAR.joker, anim: sel === "d" ? null : "mjDrawIn .36s cubic-bezier(.3,1.3,.5,1) both", lift: sel === "d", onClick: function () { if (sel === "d") userAct(function (n) { M.discard(n, meI, drawn); }); else setSel("d"); } })) : null),
+          myHand.map(function (k, j) { return h("div", { key: j + k, style: { marginLeft: j ? 2 : 0 } }, h(MjTile, { k: k, w: handW, red: isRed(k, j), dim: (queLock && k[0] !== me.que) || riichiDim(k) || (me.riichi && myTurn), joker: k === VAR.joker, lift: sel === j, onClick: myTurn ? function () { tap(k, j); } : null })); }),
+          drawn ? h("div", { key: "drawn" + state.wall.length, style: { marginLeft: 7 } }, h(MjTile, { k: drawn, w: handW, red: !!(me.aka && drawn[1] === "5" && me.aka.indexOf(drawn[0]) >= 0 && myHand.indexOf(drawn) < 0), dim: (queLock && drawn[0] !== me.que) || riichiDim(drawn), joker: drawn === VAR.joker, anim: sel === "d" ? null : "mjDrawIn .36s cubic-bezier(.3,1.3,.5,1) both", lift: sel === "d", onClick: function () { if (sel === "d") userAct(function (n) { M.discard(n, meI, drawn); }); else setSel("d"); } })) : null),
         h(CardSay, { t: t, state: state, setState: setState, value: say, setValue: setSay, placeholder: "说一句", talking: talking,
           tone: { line: "rgba(255,230,190,.28)", bg: "rgba(0,0,0,.28)", ink: "#fff6dc", radius: 9, btn: "linear-gradient(180deg,#8a5a34,#6b4428)", btnInk: "#fff6dc" } }),
         h("div", { style: { display: "flex", flexWrap: "wrap", gap: 7, justifyContent: "center", minHeight: 40 } },
           myClaim ? myClaim.map(function (o) {
-            if (o.kind === "ron") return pill(ronWord + " " + o.fan.fan + " 番", function () { userAct(function (n) { M.decide(n, meI, { kind: "ron" }); }); }, "#c2372b", "gamemjron");
+            if (o.kind === "ron") return pill(ronWord + " " + fanTxt(o.fan), function () { userAct(function (n) { M.decide(n, meI, { kind: "ron" }); }); }, "#c2372b", "gamemjron");
             if (o.kind === "pong") return pill("碰", function () { userAct(function (n) { M.decide(n, meI, { kind: "pong" }); }); }, "#2f5d9a");
             if (o.kind === "kong") return pill("杠", function () { userAct(function (n) { M.decide(n, meI, { kind: "kong" }); }); }, "#2f5d9a");
             return pill("吃 " + o.use.map(M.name).join(""), function () { userAct(function (n) { M.decide(n, meI, { kind: "chow", use: o.use }); }); }, "#2f7a4a");
           }).concat([pill("过", function () { userAct(function (n) { M.decide(n, meI, { kind: "pass" }); }); }, "#5a4a3c", "gamemjpass")])
           : myTurn ? selfOpts.map(function (o) {
-            if (o.kind === "zimo") return pill("自摸 " + o.fan.fan + " 番", function () { userAct(function (n) { M.selfAct(n, meI, { kind: "zimo" }); }); }, "#c2372b", "gamemjzimo");
+            if (o.kind === "riichi") return pill(riichiPick ? "取消立直" : "立直", function () { setRiichiPick(!riichiPick); setSel(null); }, riichiPick ? "#5a4a3c" : "#8a2a1f", "gamemjriichi");
+            if (o.kind === "zimo") return pill("自摸 " + fanTxt(o.fan), function () { userAct(function (n) { M.selfAct(n, meI, { kind: "zimo" }); }); }, "#c2372b", "gamemjzimo");
             return pill((o.kind === "ckong" ? "暗杠 " : "加杠 ") + M.name(o.k), function () { userAct(function (n) { M.selfAct(n, meI, { kind: o.kind, k: o.k }); }); }, "#2f5d9a");
           }).concat([h("div", { key: "tip", style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: "rgba(255,240,215,.72)", alignSelf: "center" } }, sel != null ? "再点一下打出去" : "点一张牌，再点一下打出")])
           : h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: "rgba(255,240,215,.72)", alignSelf: "center" } }, state.phase === "claim" ? "等别家要不要…" : canDraw ? "轮到你了：点桌子正中的牌墙摸一张" : ((state.players[state.turn] || {}).name || "") + " 在出牌…"))) : null);

@@ -256,7 +256,9 @@
   const MELT_R = 30;
   // SR 也能熔（她 2026-11-08）：一张 100；写过番外、画过满级面、动起来过的 SR 不熔——那些都花过调用
   const MELT_SR = 100;
-  const meltable = c => !!c && !c.writing && (c.rarity === "R" || (c.rarity === "SR" && !(c.extras || []).some(x => x && (x.text || x.img)) && !c.faceAlt && !Object.keys(c.faces || {}).length && !c.video && !Object.keys(c.videos || {}).length));
+  // 「在写」卡住超过三分钟（排队的半小时）就当没在写，没写好的卡也能熔（群里 2026-11-09：一堆「没写好」的熔不掉）
+  const busyNow = c => !!c.writing && Date.now() - Number(c.writingTs || 0) < (c.queued ? 1800000 : 180000);
+  const meltable = c => !!c && !busyNow(c) && (c.rarity === "R" || (c.rarity === "SR" && !(c.extras || []).some(x => x && (x.text || x.img)) && !c.faceAlt && !Object.keys(c.faces || {}).length && !c.video && !Object.keys(c.videos || {}).length));
   function meltValue(c) { if (!meltable(c)) return 0; let spent = 0; for (let l = 1; l < (c.lv || 1); l++) spent += levelCost(c.rarity, l); return (c.rarity === "SR" ? MELT_SR : MELT_R) + Math.floor(spent / 2); }
   function melt(ids) { const st = load(), set = new Set(ids || []), gone = st.cards.filter(c => set.has(c.id) && meltable(c));
     if (!gone.length) return { n: 0, ink: 0, keys: [] };
