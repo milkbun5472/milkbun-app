@@ -129,7 +129,7 @@
     // 她 2026-11-07「算了把框去掉吧好丑」：一圈细线也不要了。挂点留着（stamplimmark，透明），想自己画框的写 CSS 就能接上
     return h("span", { "data-wk": "stamplimmark", "data-tone": tone[1], style: { position: "absolute", inset: 5, zIndex: 3, pointerEvents: "none", borderRadius: 2 } });
   }
-  function StampFace({ t, card, onClick, size, back }) { const [url, el, near] = useStampThumb(card && (card.cover || card.face));
+  function StampFace({ t, card, onClick, size, back }) { const ref0 = card && (card.cover || card.face), [url, el, near] = useStampThumb(ref0 && !(card.hiddenImgs || []).includes(ref0) ? ref0 : null);
     // 卡面动起来了的 SSR：册子里那一格也在动（滑到附近才放，没封面换过别的图时才用）
     const vurl = useStampVideo(card && !back ? coverVideo(card) : null, near);
     return h("span", { ref: el, style: { display: "inline-block", lineHeight: 0, position: "relative" } }, h(Stamp, { t, card, face: url, onClick, size, back }), back ? null : h(LimMark, { card }),
@@ -189,6 +189,7 @@
       can ? h("button", { "data-wk": "stamptrans", onClick: go, style: { marginLeft: 6, padding: "0 6px", borderRadius: 6, border: "1px solid currentColor", fontSize: "0.72em", opacity: .7, fontStyle: "normal", verticalAlign: "middle" } }, busy ? "…" : "译") : null,
       cn ? h("div", { "data-wk": "stampzh", style: { marginTop: 3, fontSize: "0.8em", fontStyle: "normal", opacity: .72, color: sub || color } }, cn) : null);
   }
+  window.StampBiText = BiText;   // 集邮社那几页也用这一个（她 2026-11-09「没做翻译键」）
   // 番外那一行底下的一排小按钮：插图（画了显示一张小缩略图，点开看大图）、发给他看、设成封面、重写（点两下，不扣券）
   function ExtraActs({ x, char, onSend, onRewrite }) {
     const PT = t0 => typeof characterText === "function" ? characterText(char, t0) : t0;   // 他／她／TA 跟着角色性别走（她 2026-10-30）   // 番外那一行底下：发给他看、重写（点两下，不扣券）。卡面在上面卡面那边画
@@ -205,13 +206,14 @@
     const secs = (card.text && card.text.sections) || [];
     // 剧情背景能挑：第一面、满级他一个人、满级你们俩，画了哪几张就能换哪几张；挑了记在卡上
     const fx = Object.assign({ main: card.face }, card.faceAlt ? { [card.faceAltMode || "solo"]: card.faceAlt } : {}, card.faces || {});
-    const uMain = useIdbImgUrl(fx.main || null), uSolo = useIdbImgUrl(fx.solo || null), uDuo = useIdbImgUrl(fx.duo || null);
-    const opts = [["main", "第一面", uMain], ["solo", PT("他一个人"), uSolo], ["duo", "你们俩", uDuo]].filter(x => x[2]);
-    const [bg, setBg] = useState(card.storyBg || "main");
+    // 番外播放时（她 2026-11-09：番外背景只能挑番外自己那张和第一面）：卡上画过的每一面都能挑，挑了记在这段番外自己身上
+    const hidImgs = card.hiddenImgs || [];
+    const opts = (card.bgOpts || [["main", "第一面", fx.main], ["solo", PT("他一个人"), fx.solo], ["duo", "你们俩", fx.duo]]).filter(x => x[2] && !hidImgs.includes(x[2]));
+    const [bg, setBg] = useState(card.storyBg || (opts[0] && opts[0][0]) || "main");
     const curBg = opts.find(x => x[0] === bg) || opts[0];
-    const url = curBg ? curBg[2] : null;
+    const url = useIdbImgUrl(curBg ? curBg[2] : null);
     const nextBg = () => { if (opts.length < 2) return; const i = opts.findIndex(x => x === curBg), nx = opts[(i + 1) % opts.length][0]; setBg(nx);
-      const st0 = C().load(); st0.cards = st0.cards.map(c => c.id === card.id ? Object.assign({}, c, { storyBg: nx }) : c); C().save(st0); };
+      const key = card.bgKey || "storyBg", st0 = C().load(); st0.cards = st0.cards.map(c => c.id === card.id ? Object.assign({}, c, { [key]: nx }) : c); C().save(st0); };
     const [sid, setSid] = useState((start && secs.some(x => x.id === start) ? start : null) || (secs[0] && secs[0].id));   // 从回廊点哪一幕就从哪一幕开始
     const [i, setI] = useState(0);
     const [stOpt, setStOpt] = useState(() => C().load().opt || {});
@@ -358,15 +360,18 @@
     const PT = t0 => typeof characterText === "function" ? characterText(char, t0) : t0;   // 卡页上的「他」跟着这个人的性别走（她 2026-10-30）
     // 满级两面都能画：他一个人（solo）、你们俩（duo）。旧卡只有 faceAlt＋faceAltMode，照它认
     const faces2 = Object.assign({}, card.faceAlt ? { [card.faceAltMode || "solo"]: card.faceAlt } : {}, card.faces || {});
-    const url1 = useIdbImgUrl(card.face), urlSolo = useIdbImgUrl(faces2.solo || null), urlDuo = useIdbImgUrl(faces2.duo || null);
+    // 不显示卡面图（群里 2026-11-09：「图反复都不满意，留着不好看，又不想删卡」）：按图的键收起，图不删；重画出新图自然就显示
+    const shownImg = k => k && !(card.hiddenImgs || []).includes(k) ? k : null;
+    const url1 = useIdbImgUrl(shownImg(card.face)), urlSolo = useIdbImgUrl(shownImg(faces2.solo) || null), urlDuo = useIdbImgUrl(shownImg(faces2.duo) || null);
     // 打开时停在她挑的封面那一面（她 2026-10-27：选了别的当封面，点进来还是第一面）
     const [side, setSide] = useState(() => { const cv = card.cover; if (!cv) return "main"; if (cv === faces2.solo) return "solo"; if (cv === faces2.duo) return "duo"; const ex = (card.extras || []).find(x => x.img === cv); return ex ? "ex:" + ex.id : "main"; });   // main 第一面 / solo / duo / ex:番外
     // 番外卡面（她 2026-10-27）：在卡面这边跟满级那几面一起挑、一起画；side 是 "ex:番外id"
     const headLine = String((card.text && (card.text.line || (card.rarity === "R" ? card.text.thought : ""))) || "").trim().replace(/^[「“"]+|[」”"]+$/g, "");
     const exSel = side.indexOf("ex:") === 0 ? (card.extras || []).find(x => "ex:" + x.id === side) || null : null;
-    const urlEx = useIdbImgUrl(exSel && exSel.img || null);
+    const urlEx = useIdbImgUrl(exSel && shownImg(exSel.img) || null);
     const exDrawing = !!(exSel && exSel.drawing && exSel.drawingBoot && exSel.drawingBoot === window.__stampBoot && Date.now() - (exSel.drawingTs || 0) < 8 * 60000);
-    const url = exSel ? (urlEx || url1) : side === "solo" && urlSolo ? urlSolo : side === "duo" && urlDuo ? urlDuo : url1;
+    const curImg = exSel ? exSel.img : side === "solo" ? faces2.solo : side === "duo" ? faces2.duo : card.face, curHidden = !!(curImg && (card.hiddenImgs || []).includes(curImg));
+    const url = curHidden ? null : exSel ? (urlEx || url1) : side === "solo" && urlSolo ? urlSolo : side === "duo" && urlDuo ? urlDuo : url1;
     const sideKey = exSel ? exSel.img : side === "solo" ? faces2.solo : side === "duo" ? faces2.duo : card.face;
     const [full, setFull] = useState(false), [fullWide, setFullWide] = useState(false), [rot, setRot] = useState(false);
     const vSlot = side === "main" ? card.video : (card.videos || {})[side];   // 这一面自己的那段
@@ -517,7 +522,7 @@
           h("div", { key: pop, style: { position: "relative", boxShadow: ring, animation: pop ? "stFloat .9s ease-out" : "none" } },
             h(Stamp, { t, card, face: url, size: 236 }),
             h(LimMark, { card, big: true }),
-            vMain ? loopVid(vMain, { left: 5, top: 5, width: "calc(100% - 10px)", height: "calc(100% - 10px)", borderRadius: 2 }) : null,
+            vMain && !curHidden ? loopVid(vMain, { left: 5, top: 5, width: "calc(100% - 10px)", height: "calc(100% - 10px)", borderRadius: 2 }) : null,
             // 满级 SSR 能戳：上面三分之一是头，中间是胸口，下面是手
             url ? h("div", { onClick: () => { if (Date.now() - swiped.current < 400) return; setFull(true); }, style: { position: "absolute", inset: 0, cursor: "zoom-in" } }) : null,
             pop ? h("div", { style: { position: "absolute", inset: 0, pointerEvents: "none", background: "linear-gradient(110deg, transparent 35%, rgba(255,240,200,.55) 50%, transparent 65%) 0 0 / 200% 100%", animation: "stShine .9s ease-out 1 forwards" } }) : null,
@@ -747,6 +752,9 @@
       moreOpen && tx ? (() => { const close = () => { setMoreOpen(false); setReArm(false); };
         const rows = [];
         if (card.face && !(exSel && !exSel.img)) rows.push([{ "data-wk": "stampredraw" }, (exSel ? exDrawing : drawing) ? "重画着…" : "↻ 照原来的描述重画这一面", "花一次生图", () => { close(); exSel ? onExtraDraw && onExtraDraw(card.id, exSel.id) : onDraw(card.id, side !== "main", side !== "main" ? side : undefined); }]);
+        if (curImg) rows.push([{ "data-wk": "stamphideface" }, curHidden ? "显示卡面图" : "不显示卡面图", curHidden ? "收起的图还在，点了就回来" : "这一面回到文字卡，图不删", () => { close();
+          const st0 = C().load(); st0.cards = st0.cards.map(c => c.id === card.id ? Object.assign({}, c, { hiddenImgs: curHidden ? (c.hiddenImgs || []).filter(k => k !== curImg) : (c.hiddenImgs || []).concat([curImg]) }) : c); C().save(st0);
+          toast(curHidden ? "卡面图回来了" : "这一面先不显示图了"); }]);
         rows.push([{ "data-wk": "stampshotedit" }, "✎ 改卡面描述", "不花调用，卡上的字不动", () => { close(); setShotDraft(String(tx.shot || "")); }]);
         rows.push([{ "data-wk": "stampreshot" }, reshotBusy ? "在重写卡面描述…" : "只重写卡面描述", "花一次调用，卡上的字不动", async () => { close(); if (!onReshot) return; setReshotBusy(true); try { const ok = await onReshot(card); toast(ok ? "卡面描述换好了，点重画就照新的画" : "没写出来，再试一次"); } catch (e) { toast("没写出来：" + String(e && e.message || e).slice(0, 40)); } setReshotBusy(false); }]);
         if (card.rarity === "SSR" && sideKey && window.VideoApi && !(card.videoBusy && vidRunning[card.id])) rows.push([{ "data-wk": "stampvideo" }, vSlot ? "↻ 重新让这一面动起来" : "▶ 让这一面动起来", "花一次视频生成", () => { close(); runStampVideo(card, toast, true, side, sideKey); }]);
@@ -760,7 +768,9 @@
             h("button", { onClick: close, className: "w-full active:opacity-70", style: { padding: "13px 0 4px", fontFamily: F_BODY, fontSize: fs(13), color: P5 } }, "取消"))); })() : null,
       exOpen && (card.extras || []).find(x => x.id === exOpen && x.text) ? (() => { const x = card.extras.find(e => e.id === exOpen);
         const beats = Array.isArray(x.beats) && x.beats.length ? x.beats : String(x.text).split(/\n+/).map(t0 => t0.trim()).filter(Boolean).map(t0 => ({ who: "narr", text: t0 }));
-        const pc = Object.assign({}, card, { face: x.img || card.face, faceAlt: null, faces: x.img ? { solo: card.face } : {}, storyBg: "main", storyAt: null, text: Object.assign({}, card.text, { name: x.title || "番外", sections: [{ id: "ex_" + x.id, lv: 1, title: x.title || "番外", beats, choices: [], end: true, extra: true }] }) });
+        const f2 = Object.assign({}, card.faceAlt ? { [card.faceAltMode || "solo"]: card.faceAlt } : {}, card.faces || {});
+        const bgOpts = [["ex", "这段番外", x.img], ["main", "第一面", card.face], ["solo", PT("他一个人"), f2.solo], ["duo", "你们俩", f2.duo]].concat((card.extras || []).filter(y => y.id !== x.id && y.img).map(y => ["ex:" + y.id, "番外「" + (y.title || "") + "」", y.img]));
+        const pc = Object.assign({}, card, { face: x.img || card.face, faceAlt: null, faces: x.img ? { solo: card.face } : {}, bgOpts, bgKey: "exBg_" + x.id, storyBg: card["exBg_" + x.id] || (x.img ? "ex" : "main"), storyAt: null, text: Object.assign({}, card.text, { name: x.title || "番外", sections: [{ id: "ex_" + x.id, lv: 1, title: x.title || "番外", beats, choices: [], end: true, extra: true }] }) });
         return h(StoryReader, { t, card: pc, char, meName, lv: 99, start: "ex_" + x.id, noResume: true, onSeen: () => {}, onClose: () => setExOpen(null) }); })() : null,
       story && tx ? h(StoryReader, { t, card, char, meName, lv, start: typeof story === "string" && story !== "his" ? story : null, inner: story === "his" ? tx.inner : null, onSeen: markSeen, onClose: () => setStory(false) }) : null);
   }
@@ -814,7 +824,7 @@
     const albumY = useRef(0), albumIds = useRef([]);
     const [meltSel, setMeltSel] = useState(null), [meltArm, setMeltArm] = useState(false);
     // 多选重写写好的卡（她 2026-11-02）：同一个人的 R、SR 每十张一次调用，SSR 一张一次
-    const [reSel, setReSel] = useState(null), [reAllArm, setReAllArm] = useState(false);   // 熔 R 卡：null＝没在挑；数组＝挑中的   // 册子当前那一排（筛过的、照显示顺序），卡页左右滑照它走   // 册子翻到哪儿：点开一张看完回来，停在原来那儿（群里 2026-10-27：每次都跳回最上面）
+    const [reSel, setReSel] = useState(null), [reAllArm, setReAllArm] = useState(false); const [orphArm, setOrphArm] = useState(false);   // 熔 R 卡：null＝没在挑；数组＝挑中的   // 册子当前那一排（筛过的、照显示顺序），卡页左右滑照它走   // 册子翻到哪儿：点开一张看完回来，停在原来那儿（群里 2026-10-27：每次都跳回最上面）
     useEffect(() => { const f = () => setSt(C().load()); window.addEventListener("stamps-change", f); return () => window.removeEventListener("stamps-change", f); }, []);
     // 早先写的卡里带着「(R)」「(SR)」的，打开邮票册时洗一遍存回去（只动带标记或错栏的那几张）
     useEffect(() => { try { const st0 = C().load(); let n = 0;
@@ -1193,6 +1203,12 @@
               opts.map(o => chip(cur === o[0], o[1], () => set(o[0]), o[0]))) : null); })(),
         (() => { const ds = albumChar === "all" ? [] : weekDays(st, albumChar), wks = Math.floor(ds.length / 7);
           return albumChar !== "all" && ds.length ? h("button", { "data-wk": "stampweekbtn", "data-full": wks ? "1" : "0", onClick: () => setWeek(Math.ceil(ds.length / 7)), className: "w-full active:opacity-70", style: { marginTop: 10, minHeight: 40, borderRadius: 10, background: "#FFF8E9", border: "1px solid #577767", color: "#285C4B", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))" } }, (typeof characterText === "function" ? characterText(charOf(albumChar), "翻他的一周 · ") : "翻他的一周 · ") + (wks ? "攒满 " + wks + " 周" : "") + (ds.length % 7 ? (wks ? "，" : "") + "这一周 " + (ds.length % 7) + " / 7 天" : "")) : null; })(),
+        // 角色删了，卡还留着（群里 2026-11-09「我把其他角色删除后，他们的卡牌还在」）：认不出主人的卡能一起清掉，点两下才删
+        (() => { const ids = props.allCharIds || characters.map(c => c.id), lost = (st.cards || []).filter(c => c.charId && !ids.includes(c.charId));
+          return lost.length ? h("button", { "data-wk": "stamporphan", onClick: () => { if (!orphArm) { setOrphArm(true); setTimeout(() => setOrphArm(false), 4000); return; }
+              const r = C().dropCards(lost.map(c => c.id)); (r.keys || []).forEach(k => { try { idbImgDel(k); idbImgDel("th_" + k); } catch (e) {} }); setOrphArm(false); toast("清掉了 " + r.n + " 张"); },
+            className: "w-full active:opacity-70", style: { marginTop: 12, minHeight: 40, borderRadius: 10, border: "1px dashed " + (orphArm ? "#b23a2e" : "rgba(47,42,34,.35)"), color: orphArm ? "#b23a2e" : "rgba(47,42,34,.7)", fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))" } },
+            orphArm ? "再点一次：这 " + lost.length + " 张连卡面一起删掉，回不来" : "有 " + lost.length + " 张卡的角色已经删了 · 清掉这些卡") : null; })(),
         // 写失败的（或者写了三分钟还没回来的）一起重写：同一个人的 R、SR 还是并成一次调用，SSR 各一次
         (() => { const bad = (st.cards || []).filter(c => !c.text && (!c.writing || Date.now() - Number(c.writingTs || 0) > (c.queued ? 1800000 : 180000)));
           return bad.length ? h("button", { "data-wk": "stamprewriteall", onClick: () => { onWrite(bad); toast("在重写 " + bad.length + " 张"); }, className: "w-full active:opacity-70",

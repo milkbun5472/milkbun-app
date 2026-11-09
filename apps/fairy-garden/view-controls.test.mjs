@@ -35,7 +35,7 @@ test('orbit passes every direction, clamps height and restores a finite view',as
 });
 test('all orbit angles and zoom limits keep the ground inside the near/far frustum',async()=>{
  const T=await import('./vendor/three.module.js'),{orthographicCameraPose,MAP_ORBIT}=await import('./view-controls.mjs');
- for(const [w,h]of [[320,568],[844,390]])for(const yaw of [-Math.PI,-Math.PI/2,0,Math.PI/2,Math.PI])for(const pitch of [MAP_ORBIT.minPitch,MAP_ORBIT.pitch,MAP_ORBIT.maxPitch])for(const zoom of [.2,1,8]){
+ for(const [w,h]of [[320,568],[844,390]])for(const yaw of [-Math.PI,-Math.PI/2,0,Math.PI/2,Math.PI])for(const pitch of [MAP_ORBIT.minPitch,MAP_ORBIT.pitch,MAP_ORBIT.maxPitch])for(const zoom of [.2,1,8,24]){
   const span=14,c=new T.OrthographicCamera(-span*w/h/2,span*w/h/2,span/2,-span/2,.1,200),p=orthographicCameraPose({x:0,z:0},span,zoom,0,{yaw,pitch});c.zoom=zoom;c.far=p.far;c.position.set(p.position.x,p.position.y,p.position.z);c.lookAt(p.target.x,p.target.y,p.target.z);c.updateProjectionMatrix();c.updateMatrixWorld();
   for(const x of [-1,1])for(const y of [-1,1]){const v=new T.Vector3(x,y,0).unproject(c),dir=c.getWorldDirection(new T.Vector3()),t=-v.y/dir.y;v.addScaledVector(dir,t);const q=v.project(c);assert.ok(q.z>=-1&&q.z<=1,JSON.stringify({w,h,yaw,pitch,zoom,q}));}
  }

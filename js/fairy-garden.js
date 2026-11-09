@@ -9,7 +9,7 @@
 // 接口密钥留在父页 callAI，不传进游戏画面。
 (function (root) {
   const { h, useState, useRef, useEffect, selectDialogs, localDialogs, replaceDialogs, worldCognition, WORLDS, SHOP_WORLD } = root.FairyCore;
-  const KEY = "x_fairyGarden", BUILD = "fg-b87d2cd90819f098", hosts = new WeakMap();
+  const KEY = "x_fairyGarden", BUILD = "fg-16914e0f39f01666", hosts = new WeakMap();
   root.FairyGardenHostFor = child => hosts.get(child) || null;
   // ⚠️「读回来是空」不等于「这儿本来就没有一档」。存档搬进 IDB 之后，文字仓没灌起来
   //   那一刻读到的也是空；这时候要是照着「没有」开一档新的，第一次保存就把她真正的
@@ -55,13 +55,13 @@
         name:SHOP_WORLD.name,
         previous:()=>root.StampShopScene||null,
         sync:async()=>{await root.LazyMods.load("stamps");return sync();},
-        read:()=>{const p=latest.current,now=new Date(),shop=root.StampShop.read();return {shop,stories:root.StampShop.history(shop),time:root.GameClock.sample(null,now.getTime()),weatherSeed:root.StampShop.seed(),characters:(p.characters||[]).map(c=>({id:c.id,name:c.name,remark:c.remark,ta:root.CharacterPronoun?.ta(c)||'TA',look:(p.lookFor||root.CompanionFace?.lookFor)?.(c)||{}})),cards:cards().filter(c=>c&&typeof c==='object').map(c=>({id:c.id,charId:c.charId,rarity:c.rarity,lv:c.lv,text:{name:c.text?.name},cover:c.cover,face:c.face})),period:root.StampDuel.shopPeriod(now),today:now.getFullYear()+"-"+(now.getMonth()+1)+"-"+now.getDate(),shopRules:root.StampDuel};},
+        read:()=>{const p=latest.current,now=new Date(),shop=root.StampShop.read(),bi=t=>{const sp=typeof t==='string'&&typeof root.splitBilingual==='function'?root.splitBilingual(t):null;return sp?sp.text+'\n'+sp.zh:t;},biT=a=>Array.isArray(a)?a.map(x=>x&&typeof x==='object'?{...x,text:bi(x.text)}:bi(x)):a;return {shop:{...shop,customers:(shop.customers||[]).map(c=>({...c,meet:biT(c.meet),meetTurns:biT(c.meetTurns)}))},stories:root.StampShop.history(shop).map(r=>({...r,lines:biT(r.lines),turns:biT(r.turns)})),time:root.GameClock.sample(null,now.getTime()),weatherSeed:root.StampShop.seed(),characters:(p.characters||[]).map(c=>({id:c.id,name:c.name,remark:c.remark,ta:root.CharacterPronoun?.ta(c)||'TA',look:(p.lookFor||root.CompanionFace?.lookFor)?.(c)||{}})),cards:cards().filter(c=>c&&typeof c==='object').map(c=>({id:c.id,charId:c.charId,rarity:c.rarity,lv:c.lv,text:{name:c.text?.name},cover:c.cover,face:c.face})),period:root.StampDuel.shopPeriod(now),today:now.getFullYear()+"-"+(now.getMonth()+1)+"-"+now.getDate(),shopRules:root.StampDuel};},
         audioState:()=>audio.current?.inspect(),sound:event=>audio.current?.play(event.kind),unlockSound:()=>audio.current?.unlock(),pauseSound:value=>audio.current?.pause(value),
         thumbnail:async ref=>{await root.LazyMods.load("stamps");return root.StampThumbnails?.url(ref)||null;},
         counter:()=>latest.current.onOpenStamps?.({tab:"duel",mode:"shop",back:"fairy-shop"}),
         select:target=>{setError("");setPanel(target);},
         meetSeen:({id,key})=>root.StampShop.run("seenMeet",{...options(),id,expected:{date:key.split("|")[0],period:key.split("|")[1]}}).catch(e=>setError(e.message)),
-        ready:()=>{if(frame.current===node){setLoaded(true);setError("");}},
+        ready:()=>{if(frame.current===node){setLoaded(true);setError("");const rid=root.__shopReplayMeet;if(rid){root.__shopReplayMeet=null;setTimeout(()=>{if(frame.current===node)node.contentWindow.PostOfficeGame?.playMeet(rid);},400);}}},
         error:message=>{if(frame.current===node)setError(String(message));}
       });
     };

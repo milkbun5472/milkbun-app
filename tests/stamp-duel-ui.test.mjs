@@ -87,7 +87,7 @@ const cmp = readFileSync(new URL("../js/components.js", import.meta.url), "utf8"
 test("跟聊天连着：战报卡发进聊天、TA 发对局邀请、点卡带着对手和彩头进对局页", () => {
   assert.match(app, /kind: "duelreport"/);
   assert.match(app, /openCaps\.push\("duelAsk"\)/);
-  assert.match(app, /kind: "duelask", say, wager, state: "pending"/);
+  assert.match(app, /kind: "duelask", say, wager, mode: _dm, state: "pending"/);
   assert.match(app, /openStamps\(\{ tab: "duel", preset: \{ foeId: charId, wager:/);
   assert.match(cmp, /if \(m\.kind === "duelask" \|\| m\.kind === "duelreport"\) return h\(DuelChatCard/);
   assert.match(st, /const \[tab, setTab\] = useState\(entry\.tab\)/);
@@ -98,7 +98,7 @@ test("跟聊天连着：战报卡发进聊天、TA 发对局邀请、点卡带�
 });
 test("点对战先挑玩法：对局／远信／新手教学关，挑了对局再进设定；从聊天进来直接到对局", () => {
   assert.match(ui, /if \(!st && !mode\) return shell\(/);
-  assert.match(ui, /useState\(\(\) => \(preset \|\| runBattle\) \? "duel" : initialMode === "shop" \? "shop" : ""\)/);
+  assert.match(ui, /useState\(\(\) => \(preset \|\| runBattle\) \? "duel" : initialMode === "siege" \? "siegepick" : \["shop", "puzzle", "patrol"\]\.includes\(initialMode\) \? initialMode : ""\)/);
   for (const k of ["duelmodeduel", "duelgorun", "duelturorial"]) assert.ok(ui.includes('"' + k + '"'), k);
 });
 test("明牌虚线和上手提示：对面要打哪儿画线、空格写贴这儿会打谁、手牌上一行现在能干嘛", () => {
@@ -187,7 +187,7 @@ test("邮区巡查页：邮票墙一枚、每人一个随机数、地图格、�
   assert.match(ui, /st\.shift \|\| st\.patrol \|\| st\.puzzle \|\| st\.relay \|\| st\.story\)/);
 });
 test("TA 的小物：有人陪就掉包裹、小物册拆、去重带着以前做过的、名字来历不截；远信也掉", () => {
-  assert.match(ui, /st\.parcels = Trinkets\.drop\(\[chalNow \? coachId : foeId\]/);
+  assert.match(ui, /st\.parcels = Trinkets\.drop\(\[st\.shopFight \? .*: st\.story \? st\.story\.charId : chalNow \? coachId : foeId\]/);
   assert.match(ui, /onChat\(who, \{ mode: "trinket" \}\)/);
   assert.match(ui, /"data-wk": "dueltrinketgo"/);
   assert.match(app, /if \(d\.mode === "keep" \|\| d\.mode === "trinket"\) \{/);
@@ -258,4 +258,11 @@ test("橱窗和派遣挑卡共用一套筛选：搜卡名、按人和稀有度�
   assert.match(ui, /h\(window\.StampShopFilters/);
   assert.match(ui, /window\.StampShop\.sortedCards/);
   assert.match(ui, /cardFilterBar\(dpF, setDpF, "dueldispatchfilter"\)/);
+});
+
+test("谁能在聊天里提：默认全关；关着不给近况，开了只写跟 TA 有关的", () => {
+  assert.match(ui, /of: id => Object\.assign\(\{ know: false, invite: false \}/);
+  assert.match(ui, /if \(!ChatLink\.of\(id\)\.know\) return "";/);
+  assert.match(app, /_askedDuel \|\| \(_stampLink\.invite &&/);
+  assert.match(app, /window\.StampChatLink\.of\(char\.id\)\.know\) try \{ addMemEntry/);
 });

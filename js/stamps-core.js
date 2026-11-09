@@ -8,7 +8,7 @@
     consume() {
       const raw = g.__stampsOpen, legacy = g.__stampsDuel; g.__stampsOpen = null; g.__stampsDuel = null;
       const d = typeof raw === "string" ? { cardId: raw } : raw && typeof raw === "object" ? raw : {};
-      return { cardId: typeof d.cardId === "string" ? d.cardId : null, tab: ["pull", "album", "duel", "run"].includes(d.tab) ? d.tab : (legacy ? "duel" : "pull"), mode: d.mode === "shop" ? "shop" : "", preset: d.preset || legacy || null, back: d.back === "fairy-shop" ? d.back : null };
+      return { cardId: typeof d.cardId === "string" ? d.cardId : null, tab: ["pull", "album", "duel", "run"].includes(d.tab) ? d.tab : (legacy ? "duel" : "pull"), mode: ["shop", "siege", "puzzle", "patrol"].includes(d.mode) ? d.mode : "", preset: d.preset || legacy || null, back: d.back === "fairy-shop" ? d.back : null };
     }
   };
   const PRICE_ONE = 100, PRICE_TEN = 900;
@@ -263,6 +263,10 @@
     const ink = gone.reduce((a, c) => a + meltValue(c), 0), drop = new Set(gone.map(c => c.id));
     st.cards = st.cards.filter(c => !drop.has(c.id)); st.ink += ink; save(st);
     return { n: gone.length, ink, keys: gone.flatMap(c => [c.face, c.faceAlt].concat(Object.values(c.faces || {}))).filter(Boolean) }; }
+  // 删掉没人认领的卡（角色删了以后留下的，SSR 也一样）：只删调用处认定没人认领的那几张，不给印泥
+  function dropCards(ids) { const st = load(), set = new Set(ids || []), gone = st.cards.filter(c => set.has(c.id));
+    st.cards = st.cards.filter(c => !set.has(c.id)); save(st);
+    return { n: gone.length, keys: gone.flatMap(c => [c.face, c.faceAlt].concat(Object.values(c.faces || {}), (c.extras || []).map(x => x && x.img))).filter(Boolean) }; }
   function buyExtra() { const st = load(); if (st.ink < EXTRA_INK) return false; st.ink -= EXTRA_INK; st.extraTickets = (st.extraTickets || 0) + 1; save(st); return true; }
   function letterClaimed(id) { return !!((load().claimed || {})[id]); }
 
@@ -270,7 +274,7 @@
   function ssrUnlocked(lv) { return { sections: Math.min(4, 1 + Math.floor(lv / 10)), ending: lv >= 40, hidden: lv >= 50 }; }
 
   g.StampsCore = { PRICE_ONE, PRICE_TEN, RATE, SOFT_FROM, HARD_AT, SR_EVERY, BDAY, CAP, FULL_COST, GIFT, GAIN, LIMITED,
-    bdTicketCount, EXTRA_INK, buyExtra, MELT_R, MELT_SR, meltable, meltValue, melt, INK_PER_TEN, claimLetter, claimBdLetter, letterClaimed, cleanText, nextLimited, DUPE_INK, UNLOCK, levelUp, canBeg, markBeg, load, save, gain, grantOnOpen, activeLimited, bdayWindow, rollRarity, pay, levelCost, isGate, gateBlocked, ssrUnlocked };
+    bdTicketCount, EXTRA_INK, buyExtra, MELT_R, MELT_SR, meltable, meltValue, melt, dropCards, INK_PER_TEN, claimLetter, claimBdLetter, letterClaimed, cleanText, nextLimited, DUPE_INK, UNLOCK, levelUp, canBeg, markBeg, load, save, gain, grantOnOpen, activeLimited, bdayWindow, rollRarity, pay, levelCost, isGate, gateBlocked, ssrUnlocked };
   // 各处喊一声就记上
   g.stampGain = gain;
   // 别的玩法不一处处去挂：callAI 成功一枪（她按下去的、不是后台）会广播 ai-ok，这儿按它是干嘛的分进几档。

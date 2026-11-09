@@ -2,6 +2,7 @@
 //   规则在 js/stamp-run.js。存档一把键 x_stampRun（每走一步存一次），回信存 x_stampRunLetters。
 //   路上一直能跟同行的那个人聊（花调用，她发一句叫一次）。
 (function () {
+  const BT = t => window.StampBiText && typeof t === "string" && t ? React.createElement(window.StampBiText, { text: t }) : t;   // 外语那句：原文大字、中文小字、没带中文的一颗「译」
   "use strict";
   const { useState, useRef, useMemo } = React;
   const h = React.createElement;
@@ -121,7 +122,7 @@
       h("button", { onClick: () => setChatOpen(v => !v), className: "w-full text-left", style: { fontSize: fz(11.5), color: SUB, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } },
         (chatOpen ? "▾ " : "▸ ") + (chat.length ? (chat[chat.length - 1].who === "me" ? "我：" : withName + "：") + chat[chat.length - 1].text : "路上跟 " + withName + " 说两句（发一句花一次调用）")),
       chatOpen ? h("div", { style: { maxHeight: 150, overflowY: "auto", margin: "4px 0", display: "flex", flexDirection: "column", gap: 4 } },
-        chat.slice(-12).map((m, k) => h("div", { key: k, style: { alignSelf: m.who === "me" ? "flex-end" : "flex-start", maxWidth: "80%", padding: "4px 9px", borderRadius: 10, background: m.who === "me" ? "rgba(79,122,102,.16)" : "#fff", fontSize: fz(12.5), lineHeight: 1.5 } }, m.text)),
+        chat.slice(-12).map((m, k) => h("div", { key: k, style: { alignSelf: m.who === "me" ? "flex-end" : "flex-start", maxWidth: "80%", padding: "4px 9px", borderRadius: 10, background: m.who === "me" ? "rgba(79,122,102,.16)" : "#fff", fontSize: fz(12.5), lineHeight: 1.5 } }, BT(m.text))),
         busy ? h("div", { style: { fontSize: fz(11), color: SUB } }, withName + " 在打字…") : null) : null,
       h("div", { className: "flex items-center", style: { gap: 6, padding: "4px 0" } },
         h("input", { "data-wk": "runchatinput", value: draft, onChange: e => setDraft(e.target.value), onKeyDown: e => { if (e.key === "Enter") talk(); }, placeholder: "边走边说…",
@@ -220,14 +221,14 @@
               K.slice().reverse().slice(0, 60).map((k, i) => h("div", { key: i, style: { marginBottom: 8, padding: "8px 11px", borderRadius: 4, background: PAPER, borderLeft: "3px solid " + GOLD, fontSize: fz(12.5), lineHeight: 1.7 } },
                 h("div", { style: { fontFamily: FD, fontSize: fz(13.5) } }, k.name, h("span", { style: { marginLeft: 6, fontFamily: F, fontSize: fz(10.5), color: SUB } }, (nameOf(k.charId) || "TA") + " 做的 · " + new Date(k.ts).toLocaleDateString())),
                 k.story ? h("div", null, k.story) : null,
-                k.say ? h("div", { style: { marginTop: 4, fontFamily: FD, color: "#5a4f40" } }, (nameOf(k.charId) || "TA") + "：「" + k.say + "」") : null))); })(),
+                k.say ? h("div", { style: { marginTop: 4, fontFamily: FD, color: "#5a4f40" } }, (nameOf(k.charId) || "TA") + "：", BT(k.say)) : null))); })(),
           letters.length ? h("div", { "data-wk": "runletters", style: { marginTop: 22 } },
             h("div", { style: { fontFamily: FD, fontSize: fz(14), marginBottom: 8 } }, "信匣"),
             h("div", { style: { fontSize: fz(11.5), color: SUB, marginBottom: 8 } }, "一路上收到的明信片、便条、回信都在这儿。"),
             letters.slice().reverse().slice(0, 40).map((L, k) => h("details", { key: k, "data-wk": "runletterbox", "data-kind": L.kind || "letter", style: { marginBottom: 8, padding: "8px 11px", borderRadius: 4, background: PAPER, border: "1px solid rgba(47,42,34,.12)", borderLeft: "3px solid " + (L.kind === "future" ? GOLD : L.kind && L.kind !== "letter" ? GREEN : RED) } },
               h("summary", { style: { fontSize: fz(12.5), cursor: "pointer" } }, L.kind === "returned" ? "你写给 " + (nameOf(L.toId) || "TA") + " 的信 · " + (L.delivered ? "后来重寄送到了" : "退件") : (nameOf(L.toId) || "TA") + " 的" + (KIND_ZH[L.kind || "letter"] || "信") + (L.title ? "：" + L.title : "") + " · " + new Date(L.ts).toLocaleDateString()),
               L.sealed ? h("div", { style: { marginTop: 6, fontSize: fz(12.5), color: SUB } }, "🔒 封着的。下一趟出发时才拆得开。")
-                : h("div", { style: { marginTop: 6, fontFamily: FD, fontSize: fz(13), lineHeight: 1.85, whiteSpace: "pre-wrap" } }, L.img ? h("img", { src: typeof resolveImg === "function" ? resolveImg(L.img) : L.img, style: { display: "block", width: "100%", borderRadius: 4, marginBottom: 8 } }) : null, (L.q ? "问：" + L.q + "\n答：" + (L.a || "") + "\n\n" : L.mine ? "你写：" + L.mine + "\n\n" : "") + L.text)))) : null)]);
+                : h("div", { style: { marginTop: 6, fontFamily: FD, fontSize: fz(13), lineHeight: 1.85, whiteSpace: "pre-wrap" } }, L.img ? h("img", { src: typeof resolveImg === "function" ? resolveImg(L.img) : L.img, style: { display: "block", width: "100%", borderRadius: 4, marginBottom: 8 } }) : null, (L.q ? "问：" + L.q + "\n答：" + (L.a || "") + "\n\n" : L.mine ? "你写：" + L.mine + "\n\n" : ""), String(L.text || "").split("\n").map((x, i) => h("div", { key: i }, BT(x))))))) : null)]);
     }
 
     // ── 出发前写信（她 2026-11-08「我觉得可以」）：写的就是这封信；送到了 TA 拆开回你这一封，没送到退回信匣、下次能重寄 ──
@@ -342,7 +343,7 @@
                   if (!k.on && onN >= slots) { const old = keeps.find(x => x.on); if (old) { old.on = false; toast && toast("换上「" + k.name + "」，放下了「" + old.name + "」"); } }
                   k.on = !k.on; commit(run, view); }, style: btn(k.on ? GOLD : "transparent", k.on ? "#fff" : INK, k.on ? null : "rgba(47,42,34,.3)") }, k.on ? "带着" : onN >= slots ? "换上" : "带上")),
               op ? h("div", { style: { padding: "0 12px 10px 52px", fontSize: fz(12.5), lineHeight: 1.7 } }, k.story ? h("div", null, k.story) : null,
-                k.say ? h("div", { style: { marginTop: 6, padding: "6px 10px", borderLeft: "3px solid " + GOLD, background: "rgba(184,134,42,.07)", fontFamily: FD, color: "#5a4f40" } }, (nameOf(k.charId) || "TA") + "：「" + k.say + "」") : null) : null); })
+                k.say ? h("div", { style: { marginTop: 6, padding: "6px 10px", borderLeft: "3px solid " + GOLD, background: "rgba(184,134,42,.07)", fontFamily: FD, color: "#5a4f40" } }, (nameOf(k.charId) || "TA") + "：", BT(k.say)) : null) : null); })
             : h("div", { key: "e", style: { fontSize: fz(12), color: SUB } }, "这一趟还没做信物。")], GOLD),
         h("button", { key: "bk2", onClick: () => commit(run, { at: "map" }), className: "w-full", style: Object.assign(btn("transparent", INK, "rgba(47,42,34,.35)"), { padding: "10px 0" }) }, "回路线图"))]);
     }
@@ -413,7 +414,7 @@
       const paper = (lines, sealed) => h("div", { key: "paper", "data-wk": "runpostcard", "data-kind": ev.letter, style: { position: "relative", margin: "4px 0 12px", padding: "16px 16px 14px", borderRadius: 4, background: PAPER, border: "1px solid rgba(47,42,34,.15)", boxShadow: "0 4px 14px rgba(47,42,34,.15)", fontFamily: FD, fontSize: fz(13.5), lineHeight: 1.9, whiteSpace: "pre-wrap", transform: "rotate(-.6deg)" } },
         h("div", { style: { height: 5, margin: "-16px -16px 12px", background: AIR } }),
         h("div", { style: { position: "absolute", right: 12, top: 14, width: 36, height: 36, borderRadius: 999, border: "1.5px dashed " + RED, color: RED, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: F, fontSize: fz(9.5), transform: "rotate(-10deg)" } }, KIND_ZH[ev.letter] ? KIND_ZH[ev.letter].slice(0, 2) : "信"),
-        sealed ? "🔒 封好了。下一趟出发时才拆得开。" : lines.join("\n"));
+        sealed ? "🔒 封好了。下一趟出发时才拆得开。" : lines.map((x, i) => h("div", { key: i }, BT(x))));
       const btnBig = (label, fn, dis) => h("button", { key: "b" + label, "data-wk": "runlettergo", onClick: fn, disabled: busy || dis, className: "w-full disabled:opacity-50", style: Object.assign(btn(RED, "#fff"), { padding: "11px 0", marginBottom: 8 }) }, busy ? wr + " 在写…" : label);
       const cost = ev.cost || 0;
       // 明信片配照片（花一次生图）：照明信片上写的画一张 TA 在驿站等信的照片

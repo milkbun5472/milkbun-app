@@ -7,5 +7,15 @@
  };
  for(const action of Object.values(catalog))Object.freeze(action);Object.freeze(catalog);
  const normalize=(action,target=true)=>Object.hasOwn(catalog,action)&&(!catalog[action].target||target)?action:'talk';
- g.CharacterStoryActions=Object.freeze({catalog,prompt:Object.entries(catalog).map(([id,row])=>id+'（'+row.note+'）').join('、'),ids:Object.freeze(Object.keys(catalog)),normalize});
+
+ // 场景自己从原句认动作（她 2026-11-08 看了正文对比：给模型列动作清单会把伸懒腰、拉灯绳带进故事）。
+ //   模型只写故事；这里按原句里写到的动作挑一个演，认不出就 talk。排在前面的先认。
+ const CUES=[['hand',/递给|递过去|递到|塞给|塞到.{0,6}手里/],['pat',/拍了?(拍|一下)?.{0,6}(肩|背)/],['sweep',/扫帚|扫地|扫了扫/],['lamp',/拉.{0,4}(灯)?绳|关(了|掉)?灯|灯(灭|暗)/],
+  ['stretch',/伸了?个?懒腰/],['wave',/挥(了挥|挥)?手|摆了摆手/],['bow',/鞠(了个)?躬|欠了?欠?身/],['crossarms',/抱(着)?臂|抱着胳膊|环着手/],['cheer',/欢呼|举起(双)?手|跳了起来/],
+  ['sigh',/叹(了)?(口)?气/],['laugh',/笑出(了)?声|哈哈|笑得|笑了起来/],['sit',/坐(了)?下|坐到|坐在/],['rest',/歇(一会|口气|脚)|靠在窗/],['look',/橱窗/],['letter',/拿起.{0,6}信|信封|邮包|信袋/],
+  ['help',/搭(把)?手|帮.{0,3}(搬|拿|理|抬)/],['tidy',/收拾|码齐|码好|理好|整理|擦(了擦)?柜台/]];
+ const infer=text=>{const t=String(text||'');for(const [id,re] of CUES)if(re.test(t))return id;return 'talk';};
+ // 原句里提到的人：按出现先后，names 是 {id: 名字}
+ const mentioned=(text,names={})=>Object.entries(names||{}).filter(([,n])=>n&&String(text||'').includes(n)).sort((a,b)=>String(text).indexOf(a[1])-String(text).indexOf(b[1])).map(([id])=>id);
+ g.CharacterStoryActions=Object.freeze({catalog,infer,mentioned,prompt:Object.entries(catalog).map(([id,row])=>id+'（'+row.note+'）').join('、'),ids:Object.freeze(Object.keys(catalog)),normalize});
 })(globalThis);
