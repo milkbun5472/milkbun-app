@@ -24,7 +24,7 @@ const f = M.fanOf(pongs, "s7", { seatWind: "E", roundWind: "E" });
 assert.ok(f.items.some(x => x[0] === "对对糊") && f.items.some(x => x[0] === "中刻"));
 assert.equal(M.canWin(["m1", "m2", "m4"], []), false);
 const games = readFileSync(new URL("../js/games.js", import.meta.url), "utf8"), list = readFileSync(new URL("../js/games-list.js", import.meta.url), "utf8"), idx = readFileSync(new URL("../index.html", import.meta.url), "utf8");
-assert.match(list, /key: "mahjong", emoji: "🀄", zh: "广东麻将", en: "Cantonese Mahjong", min: 4, max: 4/);
+
 assert.match(games, /session\.game\.key === "mahjong" && window\.MahjongCore\) return h\(MahjongGame/);
 assert.match(idx, /js\/mahjong-core\.js\?v=/);
 assert.ok(idx.indexOf("mahjong-core.js") < idx.indexOf('data-src="js/games.js'));
@@ -79,3 +79,37 @@ assert.match(games, /M\.botSelf\(n, n\.turn, soft && meI >= 0, botSlip\(cfg\)\)/
 assert.match(games, /TET_SKILL\[botSkillOf\(cfg\)\]/);
 assert.match(games, /"data-wk": "gamebotskill"/);
 console.log("bot skill ok");
+// 四川血战到底、红中：整局本地牌手跑完、分数守恒；定缺、癞子、七对、一炮多响
+for (const variant of ["sichuan", "hongzhong"]) {
+  let multi = 0, hands = 0;
+  for (let g = 0; g < 40; g++) {
+    const st = M.newGame([0, 1, 2, 3].map(i => ({ key: "p" + i, name: "P" + i })), { hands: 4, variant });
+    let guard = 0;
+    while (st.status === "playing" && guard++ < 6000) {
+      if (st.phase === "discard") { const a = M.botSelf(st, st.turn); if (a.kind === "discard") M.discard(st, st.turn, a.k); else M.selfAct(st, st.turn, a); }
+      else if (st.phase === "claim") { for (const j of Object.keys(st.claim.pending)) { if (st.claim && !st.claim.decided[j]) M.decide(st, +j, M.botClaim(st, +j)); if (!st.claim) break; } }
+      else { hands++; if (st.wins.length > 1) multi++; st.wins.forEach(w => { if (variant === "hongzhong") assert.ok(w.zimo, "红中只能自摸"); }); M.nextHand(st); }
+    }
+    assert.ok(guard < 6000, variant + " 不卡死");
+    assert.equal(st.players.reduce((n, p) => n + p.pts, 0), 0, variant + " 分数守恒");
+    assert.ok(st.wall !== undefined);
+  }
+  if (variant === "sichuan") assert.ok(multi > 0, "血战到底：一盘能有几家胡");
+}
+{
+  // 四川定缺：她那家等她定；手里有缺的那门只能先打那门
+  const st = M.newGame([{ key: "user", name: "我", isUser: true }, { key: "a", name: "a" }, { key: "b", name: "b" }, { key: "c", name: "c" }], { variant: "sichuan" });
+  assert.equal(st.phase, "que");
+  assert.ok(st.players.slice(1).every(p => p.que));
+  M.setQue(st, 0, "m");
+  assert.equal(st.phase, "discard");
+  const me = st.players[0];
+  if (me.hand.some(k => k[0] === "m") && me.hand.some(k => k[0] !== "m")) assert.throws(() => M.discard(st, 0, me.hand.find(k => k[0] !== "m")), /先打那门/);
+  assert.equal(st.wall.length + st.players.reduce((n, p) => n + p.hand.length, 0), 108);
+}
+assert.ok(M.fitJ(M.counts(["m1", "m2", "m4", "p5", "p5", "p5", "s7", "s8", "s9", "m9", "m9"]), 4, 3, false), "红中顶缺张");
+assert.ok(M.sevenPairs(M.counts(["m1", "m1", "m2", "m2", "p3", "p3", "p4", "p4", "s5", "s5", "s6", "s6", "s7"]), 1), "七对癞子补单张");
+assert.match(list, /key: "mahjong", emoji: "🀄", zh: "麻将", en: "Mahjong", min: 4, max: 4/);
+assert.match(games, /"data-wk": "gamemjvariant"/);
+assert.match(games, /variant: cfg\.mjVariant \|\| "canton"/);
+console.log("variants ok");
