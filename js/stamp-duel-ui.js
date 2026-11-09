@@ -1312,13 +1312,16 @@
         const txt = l.kind === "hit" ? "-" + l.n : l.kind === "heal" ? "+" : l.kind === "gain" ? "+胶" : l.kind === "skip" ? (l.text.indexOf("退回") >= 0 ? "退回" : "落空") : "";
         setFx({ kind: l.kind, side, slot: l.slot, slots: l.slots, n: l.n, ink: l.ink, txt, from: l.from, text: l.text, who: l.who });
         // 他开口：他的票上场、被打掉、觉醒、盖章时说卡上那句；打掉她一张时说他卡上戳一戳时那句（她 2026-11-08 同意「像他」）
-        const foeLine = l.who === "foe" && l.line ? l.line : (l.kind === "fall" && l.who === "me" ? (them.board.find(x => x && x.lines && x.lines.win) || {}).lines : null);
+        // 说这句的是哪张票的主人（她 2026-11-09「整个集邮社检查同样的问题」）：打掉她一张时说话的是对面那张，不是她掉的那张；
+        //   声音也照那个人，不再一律用对局挑的对手（小店、剧情、挑战里对面是路人）
+        const winU = l.kind === "fall" && l.who === "me" ? them.board.find(x => x && x.lines && x.lines.win) : null;
+        const foeLine = l.who === "foe" && l.line ? l.line : (winU ? winU.lines : null), sayer = winU ? winU.charId : l.char;
         const said = typeof foeLine === "string" ? foeLine : foeLine && foeLine.win;
         // 这一下的台词要不要冒出来、念出来：照她在 🔊 里勾的（哪种时候、哪一边）
         const want = l.line && voice[l.kind] && voice[l.who === "foe" ? "foe" : "me"];
         if (want && voice.on && ttsOk()) speakQ(l.line, voiceOf(l.char));
         if (want && l.who === "me") { const key = Math.random(); lastBubble.current = key; setBubble({ text: l.line, key, me: true, who: nameOf(l.char) || meName || "我" }); }
-        else if (said) { const key = Math.random(); lastBubble.current = key; setBubble({ text: said, key, who: l.char ? nameOf(l.char) : "" }); if (!want && voice.on && voice.foe && ttsOk() && foeLine && foeLine.win) speakQ(said, voiceOf(foeId)); }
+        else if (said) { const key = Math.random(); lastBubble.current = key; setBubble({ text: said, key, who: sayer ? nameOf(sayer) : "" }); if (!want && voice.on && voice.foe && ttsOk() && foeLine && foeLine.win && sayer) speakQ(said, voiceOf(sayer)); }
         // 远信终点：TA 的信封掉到一半时开一次口（她 2026-11-08「打到一半 TA 冒台词，像在拦你又舍不得拦」）
         else if (runBattle && runBattle.boss && !st.halfSaid && them.hp <= (them.max || 40) / 2) {
           st.halfSaid = 1; const pool = them.board.concat(them.hand).filter(Boolean).map(u => u.lines && (u.lines.wake || u.lines.enter)).filter(Boolean);
