@@ -12795,6 +12795,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       const caughtHint = opts.peekCaught ? "\n\n【此刻】你刚才趁 " + uName + " 不注意偷偷翻了她的手机，被她发现了，她当面问你。"
         + (opts.peekCaught.thoughts && opts.peekCaught.thoughts.length ? "你当时心里想过：" + opts.peekCaught.thoughts.slice(0, 4).map(x => "「" + x + "」").join("") + "。" : "")
         + "认不认、怎么解释、反咬一口还是服软，全看你这个人。" : "";
+      const gardenMineHint = opts.gardenMine ? "\n\n【此刻】" + uName + " 刚在你们空间的窗台上自己种下了一盆" + opts.gardenMine.species + (opts.gardenMine.why ? "，她说：「" + opts.gardenMine.why + "」" : "") + "。你看到了；想接就接一句，怎么接看你这个人。" : "";
       const letterHint = opts.loveLetterAnswer === "yes" ? "\n\n【此刻】你写给 " + uName + " 的那封申请信，她拆开看了，答应了——" + spaceRel((couplesRef.current || {})[charId]).together + "。怎么接这一下，全看你这个人。"
         : opts.loveLetterAnswer === "no" ? "\n\n【此刻】你写给 " + uName + " 的那封申请信，她拆开看了，说再想想。失落、嘴硬、装没事、还是说等她——全看你这个人和你们现在的关系。" : "";
       const refuseHint = opts.phoneRefused ? "\n\n【此刻】你刚开口要看 " + uName + " 的手机，她没给。怎么想、追不追问、生不生气、还是算了，全看你这个人和你们现在的关系。" : "";
@@ -12831,7 +12832,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       const _bdTs = Number(opts.backdateTs) || 0;
       const backdateHint = _bdTs && _bdTs < Date.now() - 5 * 60000
         ? "\n\n【这条消息的发出时间】你是在「" + fmtStampAI(_bdTs) + "」那会儿发的这条（她那时没开着手机，现在才看到）。话里要是提到几点、刚刚在干嘛，都按那会儿说。" : "";
-      const dongnianHint = backdateHint + peekHint + letterHint + refuseHint + caughtHint + peekMemo + (opts.dongnian && String(opts.dongnian).trim() ? "\n\n【此刻你心里的真实状态（决定你【怎么】开口的语气和分寸，是内心底色不是台词——绝不许直接念出来）】\n" + String(opts.dongnian).trim() : "");
+      const dongnianHint = backdateHint + peekHint + gardenMineHint + letterHint + refuseHint + caughtHint + peekMemo + (opts.dongnian && String(opts.dongnian).trim() ? "\n\n【此刻你心里的真实状态（决定你【怎么】开口的语气和分寸，是内心底色不是台词——绝不许直接念出来）】\n" + String(opts.dongnian).trim() : "");
       const aff = roomReads("innerLife") ? Math.round(affOf(charId)) : 70;
       // 亲属卡按需注入：仅当用户最近在哭穷/张口要钱（而非每轮常驻），再由 TA 按人设+好感+心情决定给不给。已给过就完全不提。
       const recentUserText = history.filter(m => m.role === "user" && m.content).slice(-3).map(m => m.content).join("  ");
@@ -28722,25 +28723,72 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       const color = /^#[0-9a-fA-F]{6}$/.test(String(d.color || "").trim()) ? String(d.color).trim() : "#c98a9e";
       // 那句 why 不截（她 2026-09-24 截图：「就算哪天你」」半句断掉）——原来 slice(0, 80)，一句真话常常不止八十个字。
       const why = String((d && d.why) || "").replace(/\s+/g, " ").trim();
-      saveGarden(p => {
-        const old = p[char.id] || {};
-        return { ...p, [char.id]: { species: sp, why: why,
-          color: color, plantedTs: Date.now(), fed: 0, lastFedTs: Date.now(), bloomTs: 0, told: false,
-          kept: Array.isArray(old.kept) ? old.kept : [],
-          // ⚠️said 只进不出：干花册可能被她收走/清掉，avoid 单子不能跟着一起没
-          said: gardenPastOf(old).concat([{ species: sp, why: why }]).slice(-24) } };
-      });
-      coupleKeep(char.id, char.name + "在你们的空间里种下了一盆" + sp + (d && d.why ? characterText(char, "——他说「") + cSnip(d.why, 60) + "」" : ""), "花房");
+      plantPot(char, { species: sp, why, color, by: "char" });
     } catch (e) { toast("失败：" + (e.message || "重试")); }
     finally { setGardenGen(null); }
+  };
+  // 种下一盆：他挑的、她挑的走同一条（她 2026-11-09「我种的也进他记忆？跟他种的一样公共的」）——
+  //   存进花房、记进「挑过什么、说过什么」、凝一条记忆；她种的再留给他下一次开口时接一句（等她开口，不当场抢话）
+  const plantPot = (char, o) => {
+    const mine = o.by === "me", sp = String(o.species || "").trim().slice(0, 16), why = String(o.why || "").trim();
+    if (!sp) return;
+    saveGarden(p => {
+      const old = p[char.id] || {};
+      return { ...p, [char.id]: { species: sp, why: why, by: mine ? "me" : "char", drawOn: !!old.drawOn, imgStage: "",
+        color: o.color || "#c98a9e", plantedTs: Date.now(), fed: 0, lastFedTs: Date.now(), bloomTs: 0, told: false, img: null,
+        kept: Array.isArray(old.kept) ? old.kept : [],
+        // ⚠️said 只进不出：干花册可能被她收走/清掉，avoid 单子不能跟着一起没
+        said: gardenPastOf(old).concat([{ species: sp, why: why, by: mine ? "me" : "char" }]).slice(-24) } };
+    });
+    coupleKeep(char.id, mine
+      ? (((typeof profileFor === "function" ? profileFor(char.id) : null) || {}).name || "她") + "在你们的空间里种下了一盆" + sp + (why ? "——她说「" + cSnip(why, 60) + "」" : "")
+      : char.name + "在你们的空间里种下了一盆" + sp + (why ? characterText(char, "——他说「") + cSnip(why, 60) + "」" : ""), "花房");
+    if (mine) waitForHer(char.id, { gardenMine: { species: sp, why } });
+  };
+  // 画这盆花（她 2026-11-09 群友许愿）：照这盆长到哪一步画一张，存进花房；开花时自动画要另外打开（每画一次是一次生图）
+  const [gardenDrawing, setGardenDrawing] = useState("");
+  const drawGarden = async (charId, quiet) => {
+    const g = (coupleGardenRef.current || {})[charId];
+    if (!g || !g.species || gardenDrawing) return;
+    if (!(typeof imgApiReady === "function" && imgApiReady())) { if (!quiet) toast("先去 设置·图像API 配一下"); return; }
+    const st = window.GardenKit ? window.GardenKit.stageOf(g.fed) : null;
+    setGardenDrawing(charId);
+    try {
+      const look = !st ? "" : st.key === "bloom" ? "开得正好，花朵完全打开" : st.key === "seed" ? "刚埋下种子，土面上只冒出一点点嫩芽" : "还在长，" + (st.zh || "") + "的样子，还没开花";
+      const prompt = "一张实拍照片：窗台上一只小花盆，里面种着「" + g.species + "」，" + look + "。花的主色大约是 " + (g.color || "") + "。"
+        + "自然光，生活感，盆和植物是画面主体，背景虚化；画面里不要人，不要任何文字。";
+      const out = await generateSelfieImage(prompt, null, { size: "1024x1024", still: true });
+      const blob = await imgOutBlob(out); if (!blob) throw new Error("站子没给回能存的图");
+      const key = "img_garden_" + Date.now().toString(36);
+      await idbImgPut(key, blob);
+      saveGarden(p => p[charId] ? { ...p, [charId]: { ...p[charId], img: key, imgStage: st ? st.key : "" } } : p);
+      if (!quiet) toast("画好了");
+    } catch (e) { if (!quiet) toast("没画成：" + String(e && e.message || e).slice(0, 60)); }
+    finally { setGardenDrawing(""); }
+  };
+  const setGardenDraw = (charId, on) => saveGarden(p => ({ ...p, [charId]: { ...(p[charId] || {}), drawOn: !!on } }));
+  // 开了「开花时画一张」：开花那一刻（还没画过开花的样子）自己画一张，不吭声
+  useEffect(() => {
+    const all = coupleGarden || {};
+    const id = Object.keys(all).find(k => { const g = all[k]; return g && g.drawOn && g.species && g.bloomTs && g.imgStage !== "bloom"; });
+    if (id && !gardenDrawing) drawGarden(id, true);
+  }, [coupleGarden]);
+  // 她自己挑一种来种：名字必填，为什么可空；颜色照名字猜一个，不花调用
+  const gardenPlantMine = (char, species, why) => {
+    const sp = String(species || "").trim();
+    if (!sp) { toast("写一下种什么"); return; }
+    const hues = ["#c98a9e", "#d9a441", "#8a7fc9", "#d0705b", "#6f9fc9", "#e6c35c", "#b26f9c", "#7fae6a"];
+    let h0 = 0; for (const ch of sp) h0 = (h0 * 31 + ch.charCodeAt(0)) % 997;
+    plantPot(char, { species: sp, why, color: hues[h0 % hues.length], by: "me" });
+    toast("种下了：" + sp.slice(0, 16));
   };
   // 收一枚干花：这一茬进册子，盆空出来等TA再挑（零调用）
   const gardenKeep = charId => {
     const g = (coupleGardenRef.current || {})[charId];
     if (!g || !g.bloomTs) return;
-    saveGarden(p => ({ ...p, [charId]: { species: "", why: "", color: "", plantedTs: 0, fed: 0, lastFedTs: 0, bloomTs: 0, told: false,
+    saveGarden(p => ({ ...p, [charId]: { species: "", why: "", color: "", plantedTs: 0, fed: 0, lastFedTs: 0, bloomTs: 0, told: false, drawOn: !!g.drawOn, img: null, imgStage: "",
       said: gardenPastOf(g),
-      kept: [{ species: g.species, why: g.why, color: g.color, ts: Date.now() }, ...(Array.isArray(g.kept) ? g.kept : [])] } }));
+      kept: [{ species: g.species, why: g.why, color: g.color, by: g.by || "char", img: g.img || null, ts: Date.now() }, ...(Array.isArray(g.kept) ? g.kept : [])] } }));
     coupleKeep(charId, "你们一起养的那盆" + g.species + "开完了这一茬，压成干花收进了册子", "花房");
     toast("收好了一枚干花");
   };
@@ -35580,6 +35628,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     coupleTrips: coupleTrips,
     coupleGarden: coupleGarden,
     onGardenPlant: gardenPlantGen,
+    onGardenPlantMine: gardenPlantMine, onGardenDraw: drawGarden, onGardenDrawToggle: setGardenDraw, gardenDrawing: gardenDrawing,
     onGardenKeep: gardenKeep,
     gardenGen: gardenGen,
     onTripStart: tripStart,
