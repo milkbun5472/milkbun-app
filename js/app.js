@@ -17933,7 +17933,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   //   重写时不给这几张自己的旧版本；限时池只拿同一期比，节照样过
   const stampPrev = (charId, skip, series) => (StampsCoreSafe().cards || []).filter(c => c.charId === charId && c.text && !c.writing && !(skip || []).includes(c.id) && (!series || c.series === series))
     .slice(-30).map(c => "- " + (c.text.gist ? String(c.text.gist).slice(0, 50) : "（没记）") + (c.text.line ? "（卡上那句：" + String(c.text.line).slice(0, 30) + "）" : ""));
-  const stampPrevLine = (prev, theme) => prev.length ? "\n你已经写过的" + (theme ? "「" + theme + "」" : "") + "卡，只用来避开重复（里面的地名、人、东西不算你的设定）：\n" + prev.join("\n")
+  const stampPrevLine = (prev, theme) => prev.length ? "\n你已经写过的" + (theme ? "「" + theme + "」" : "") + "卡，只用来避开重复：\n" + prev.join("\n")
     + "\n新写的换一件事、换个走向，卡上那句也别说一样的话" + (theme ? "；这个节照样过，节日里的东西可以再出现" : "") + "。" : "";
   // 卡名重了（群里 2026-11-10：张张「马德里夜风」）：代码比，不靠提示词——同一个人已有的卡、这一批里前面的卡，名字一样就算没写好
   const stampNameTaken = (charId, selfId, name, batch) => { const n = String(name || "").trim(); if (!n) return false;

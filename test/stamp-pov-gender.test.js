@@ -105,7 +105,8 @@ test("写卡提示词：限时池主题排最前、写这一期才有的那一�
 });
 test("写卡提示词：同一批同样的要求只说一遍", () => { assert.match(src, /【写法" \+ \(k \+ 1\) \+ "】/); });
 test("去重：前面的卡不给卡名、gist 不记在哪；只用来避开重复", () => {
-  assert.match(src, /只用来避开重复（里面的地名、人、东西不算你的设定）/);
+  assert.match(src, /卡，只用来避开重复：/);
+  assert.ok(!/不算你的设定/.test(src), "不专门点地名：卡里写的本来就可能是设定里有的");
   assert.ok(!/这些卡名已经用过了/.test(src));
   assert.ok(!/写的是什么事、在哪、怎么收的尾/.test(src));
   assert.match(src, /const stampPrev = \(charId, skip, series\) =>[^\n]*\(!series \|\| c\.series === series\)/);
