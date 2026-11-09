@@ -26,7 +26,7 @@ export function extractShopFunction(source){
  const a=source.indexOf('const stampShopChat ='),b=source.indexOf('const openStamps =',a);if(a<0||b<=a)throw Error('Missing stampShopChat code anchors');return source.slice(a,b).trim();
 }
 export async function captureShopProbe(source,fixture,reply={lines:[]}){
- const g={console,liveChars:people,profile:{name:'玩家'},active:{},apiFor:()=>({}),ctxFor:id=>({char:people.find(c=>c.id===id),profile:{name:'玩家'}}),userName:p=>p.name};g.window=g;
+ const g={console,liveChars:people,profile:{name:'玩家'},active:{},apiFor:()=>({}),ctxFor:id=>({char:people.find(c=>c.id===id),profile:{name:'玩家'}}),userName:p=>p.name,meOf:()=>({name:'玩家'})};g.window=g;
  vm.runInNewContext(read('apps/fairy-garden/story-actions.js'),g);let captured;
  g.runProbe=async(_api,ctx,probe)=>(captured={ctx,probe}, structuredClone(reply));
  const fn=vm.runInNewContext('(()=>{'+extractShopFunction(source)+';return stampShopChat;})()',g);const rows=await fn(fixture.charId,structuredClone(fixture.data));if(!captured)throw Error('No probe captured');return {...structuredClone(captured),rows:structuredClone(rows)};
