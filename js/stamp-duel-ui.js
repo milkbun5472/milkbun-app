@@ -534,7 +534,7 @@
     const shopAct = async (action, options = {}) => { try { const out=await window.StampShop.run(action,{...shopOptions(),...options});setShop0(window.StampShop.read());return out;}catch(e){toast&&toast(e.message);throw e;} };
     React.useEffect(()=>{const sync=()=>setShop0(window.StampShop.read());window.addEventListener('stamp-shop-change',sync);return()=>window.removeEventListener('stamp-shop-change',sync);},[]);
     React.useEffect(()=>{if(mode!=='shop')return;const sync=()=>window.StampShop.sync(shopOptions()).then(setShop0).catch(e=>toast&&toast(e.message));sync();const id=setInterval(sync,2000);return()=>clearInterval(id);},[mode]);
-    const [diaryRegs, setDiaryRegs] = useState(false), [diaryD, setDiaryD] = useState(""), [diaryFlip, setDiaryFlip] = useState(""), diaryX = useRef(0), [dpWho, setDpWho] = useState({}), [svPick, setSvPick] = useState(""), [shBusy, setShBusy] = useState(""), [shMeet, setShMeet] = useState(null), [winF, setWinF] = useState({ who: "", rar: "", q: "" }), [dpF, setDpF] = useState({ who: "", rar: "", q: "" }), [bgPost, setBgPost] = useState(""), [bgF, setBgF] = useState({ who: "", rar: "", q: "" });
+    const [diaryRegs, setDiaryRegs] = useState(false), [diaryD, setDiaryD] = useState(""), [diaryFlip, setDiaryFlip] = useState(""), diaryX = useRef(0), [dpWho, setDpWho] = useState({}), [svPrice, setSvPrice] = useState("mid"), [svPick, setSvPick] = useState(""), [shBusy, setShBusy] = useState(""), [shMeet, setShMeet] = useState(null), [winF, setWinF] = useState({ who: "", rar: "", q: "" }), [dpF, setDpF] = useState({ who: "", rar: "", q: "" }), [bgPost, setBgPost] = useState(""), [bgF, setBgF] = useState({ who: "", rar: "", q: "" });
     // 挑卡的筛选条（橱窗、派遣共用，她 2026-11-08「派遣那页挑卡也加个筛选」）：搜卡名、按人、按稀有度
     const cardFilterHit = (f,k) => window.StampShop.filterCards([k],f).length>0;
     const cardFilterBar = (f,setF,wk,noWho,fit) => h(window.StampShopFilters,{characters,cards,filter:f,onChange:setF,wk,noWho,fit});
@@ -740,17 +740,30 @@
       const winHas = id => sh.window.some(cid=>cardOf(cid)?.charId===id);
       // 招待先挑人或挑卡（她 2026-11-08）：只有一个人上班、橱窗空着，就直接招待
       const serve = (c, pick) => {
-        if (pick) { setSvPick(""); shopAct('serve', Object.assign({ id: c.id }, pick)).catch(() => {}); return; }
-        const duty = POSTS.filter(p => sh.roster[p]);
-        if (c.visitor || (!c.need && !c.wantChar) || (c.need && c.need.post && duty.length <= 1) || ((c.need && c.need.card || c.wantChar) && !(sh.window || []).length)) { shopAct('serve', { id: c.id }).catch(() => {}); return; }
-        setSvPick(svPick === c.id ? "" : c.id);
+        if (pick) { setSvPick(""); shopAct('serve', Object.assign({ id: c.id, price: svPrice }, pick)).catch(() => {}); setSvPrice("mid"); return; }
+        if (c.visitor) { shopAct('serve', { id: c.id }).catch(() => {}); return; }
+        setSvPrice("mid"); setSvPick(svPick === c.id ? "" : c.id);
       };
+      // 招待：先开价（便宜点／照价／收贵点），再挑交给谁或从橱窗挑一张；不用挑的就直接「就这样招待」
+      // 一键全部招待：每位自动挑对的人或卡，对上算 ×1.15（自己挑是 ×1.3）；难缠客人、来坐坐的角色、稀客不在里面
+      const serveAll = async () => { if (shBusy) return; setShBusy("all"); try {
+        for (const c of sh.customers.filter(x => !x.done && !x.tough && !x.visitor && !x.rareId)) {
+          const win = (sh.window || []).map(id => (cards || []).find(k => k.id === id)).filter(Boolean);
+          const pick = c.need && c.need.post ? { staffId: sh.roster[c.need.post] || POSTS.map(p => sh.roster[p]).find(Boolean) } : c.wantChar ? { cardId: (win.find(k => k.charId === c.wantChar) || {}).id } : c.need && c.need.card ? { cardId: (win.find(k => D().shopCardFits(c.need, k)) || {}).id } : {};
+          await shopAct('serve', Object.assign({ id: c.id, auto: true, price: "mid" }, pick)).catch(() => {});
+        } } finally { setShBusy(""); } };
       const servePicker = c => { if (svPick !== c.id || c.done) return null;
-        const chip = (key, label, on) => h("button", { key, "data-wk": "duelshopservepick", onClick: on, style: { padding: "3px 10px", borderRadius: 999, border: "1px solid rgba(47,42,34,.25)", background: "#fff", fontSize: fz(11.5), color: INK } }, label);
-        return h("div", { "data-wk": "duelshopservepicks", className: "flex flex-wrap", style: { gap: 6, marginTop: 6 } },
-          h("span", { style: { width: "100%", fontSize: fz(10.5), color: SUB } }, c.need && c.need.post ? "交给谁接待？" : "从橱窗挑一张给 TA："),
-          c.need && c.need.post ? POSTS.filter(p => sh.roster[p]).map(p => chip(p, nameOf(sh.roster[p]) + " · " + p, () => serve(c, { staffId: sh.roster[p] })))
-            : (sh.window || []).map(id => (cards || []).find(k => k.id === id)).filter(Boolean).map(k => chip(k.id, ((k.text && k.text.name) || "一枚邮票") + " · " + k.rarity + " · " + D().stampOf(k).role, () => serve(c, { cardId: k.id }))));
+        const chip = (key, label, on, sel) => h("button", { key, "data-wk": "duelshopservepick", "data-on": sel ? "1" : "0", onClick: on, style: { padding: "3px 10px", borderRadius: 999, border: "1px solid " + (sel ? C : "rgba(47,42,34,.25)"), background: sel ? "rgba(79,122,102,.1)" : "#fff", fontSize: fz(11.5), color: sel ? C : INK } }, label);
+        const duty = POSTS.filter(p => sh.roster[p]), win = (sh.window || []).map(id => (cards || []).find(k => k.id === id)).filter(Boolean);
+        const askPost = c.need && c.need.post && duty.length > 1, askCard = (c.need && c.need.card || c.wantChar) && win.length;
+        return h("div", { "data-wk": "duelshopservepicks", style: { marginTop: 6 } },
+          h("div", { "data-wk": "duelshopprice", className: "flex flex-wrap items-center", style: { gap: 6, marginBottom: 6 } }, h("span", { style: { fontSize: fz(10.5), color: SUB } }, "开价："),
+            [["low", "便宜点"], ["mid", "照价"], ["high", "收贵点"]].map(([k, zh]) => chip(k, zh, () => setSvPrice(k), svPrice === k))),
+          h("div", { className: "flex flex-wrap", style: { gap: 6 } },
+            h("span", { style: { width: "100%", fontSize: fz(10.5), color: SUB } }, askPost ? "交给谁接待？" : askCard ? "从橱窗挑一张给 TA：" : ""),
+            askPost ? duty.map(p => chip(p, nameOf(sh.roster[p]) + " · " + p, () => serve(c, { staffId: sh.roster[p] })))
+              : askCard ? win.map(k => chip(k.id, ((k.text && k.text.name) || "一枚邮票") + " · " + k.rarity + " · " + D().stampOf(k).role, () => serve(c, { cardId: k.id })))
+              : chip("go", "就这样招待", () => serve(c, { staffId: duty.length === 1 ? sh.roster[duty[0]] : undefined }))));
       };
       const fight = c => { const s0 = (seedRef.current = (seedRef.current * 1103515245 + 12345) >>> 0), me = D().deckFrom(cards, s0, D().DECK_SIZE, onDuty), fd = D().edictDeck(s0).map((u, k) => Object.assign(u, { name: c.name + (k ? "·" + (k + 1) : "") }));
         const nd = D().newDuel(me, fd, s0, { foeLv: Math.max(3, Math.round(D().avgLv(me) * 0.9)), cap: 8, bonds: bondsOf() }); nd.shopFight = { id: c.id, name: c.name, fee: c.fee, expected:window.StampShop.token(sh), staff: onDuty.slice() }; setSt(nd); setMode("shop"); setHandSel(-1); setBoardSel(-1); };
@@ -789,11 +802,14 @@
             h("div", { key: "n", style: { fontSize: fz(11), color: SUB, marginBottom: 8 } }, "✦ 是 TA 擅长这个岗（看人设）。每排一个人收入 +15%，擅长的再 +10%，挂了工牌（TA 自己的卡）按稀有度再 +6%～15%，卡的作用对上岗位（✦）再 +5%。"),
             h("button", { key: "go", "data-wk": "duelshopopen", onClick: open, disabled: period === "半夜", className: "w-full disabled:opacity-45", style: Object.assign(btn(C, "#fff"), { padding: "11px 0", fontFamily: FD, fontSize: fz(15) }) }, period === "半夜" ? "半夜不开门，早上 6 点再来" : "开门 · " + period)]) : null,
           sh.phase === "open" ? card("day", [h("div", { key: "t" }, secTitle(C, "客", period === "半夜" ? "半夜了，店门关着" : period + "的客人", period === "半夜" ? "" : sh.customers.filter(c => !c.done).length + " 位在等")),
-            h("div", { key: "s", style: { fontSize: fz(11), color: SUB, marginBottom: 8 } }, period === "半夜" ? "早上 6 点再开门。今天还没打烊的话，可以在下面打个烊。" : "上班：" + staffLine() + "。" + ({ 上午: "12 点", 下午: "18 点", 傍晚: "半夜 12 点" }[period] || "") + "前没招待的客人会走；上午多寄信的路人，下午难缠的多，傍晚来坐坐的人多。"),
+            h("div", { key: "s", style: { fontSize: fz(11), color: SUB, marginBottom: 8 } }, period === "半夜" ? "早上 6 点再开门。今天还没打烊的话，可以在下面打个烊。" : "上班：" + staffLine() + "。" + ({ 上午: "12 点", 下午: "18 点", 傍晚: "半夜 12 点" }[period] || "") + "前你没招待的普通客人，店员会按原价招待掉（难缠客人没人打就走了）；上午多寄信的路人，下午难缠的多，傍晚来坐坐的人多。"),
+            period !== "半夜" && sh.customers.some(x => !x.done && !x.tough && !x.visitor && !x.rareId) ? h("button", { key: "all", "data-wk": "duelshopserveall", onClick: serveAll, disabled: !!shBusy, className: "w-full disabled:opacity-50", style: Object.assign(btn("transparent", C, C), { marginBottom: 8, padding: "7px 0", fontSize: fz(12) }) }, shBusy === "all" ? "在招待…" : "全部招待（自动挑，对上 ×1.15；自己挑是 ×1.3）") : null,
             (period === "半夜" ? [] : sh.customers).map(c => h("div", { key: c.id, "data-wk": "duelshopcustomer", style: { marginBottom: 8, padding: "8px 10px", borderRadius: 5, background: c.done ? "rgba(47,42,34,.05)" : "#fffdf7", border: "1px solid " + (c.tough ? "rgba(178,58,46,.35)" : c.visitor ? "rgba(154,106,74,.4)" : "rgba(47,42,34,.12)"), opacity: c.done ? .7 : 1 } },
-              h("div", { className: "flex items-center", style: { gap: 8 } }, h("div", { className: "flex-1", style: { fontSize: fz(12.5) } }, h("b", { style: { fontFamily: FD, fontWeight: 400, color: c.tough ? RED : c.visitor ? "#9a6a4a" : c.wantChar ? "#3f6fb0" : INK } }, c.visitor ? nameOf(c.charId) + "（没上班，来店里坐坐）" : c.wantChar ? "点名的客人" : c.name), c.regularId && sh.regulars && sh.regulars[c.regularId] && sh.regulars[c.regularId].bond ? h("span", { "data-wk": "duelshopregular", style: { marginLeft: 4, padding: "0 5px", borderRadius: 3, background: "rgba(154,106,74,.15)", color: "#9a6a4a", fontSize: fz(10) } }, "熟客 · 来过 " + sh.regulars[c.regularId].bond + " 回") : null, c.urgent ? h("span", { style: { marginLeft: 4, padding: "0 5px", borderRadius: 3, background: RED, color: "#fff", fontSize: fz(9.5) } }, "急件 ×2") : null, c.visitor ? "" : c.wantChar ? "：想要一张" + (nameOf(c.wantChar) || "TA") + "的明信片" + (winHas(c.wantChar) ? "（橱窗里有）" : "（橱窗里没有）") : "：" + c.want),
+              h("div", { className: "flex items-center", style: { gap: 8 } }, h("div", { className: "flex-1", style: { fontSize: fz(12.5) } }, h("b", { style: { fontFamily: FD, fontWeight: 400, color: c.tough ? RED : c.visitor ? "#9a6a4a" : c.wantChar ? "#3f6fb0" : INK } }, c.visitor ? nameOf(c.charId) + "（没上班，来店里坐坐）" : c.wantChar ? "点名的客人" : c.name), c.rareId ? h("span", { "data-wk": "duelshoprare", style: { marginLeft: 4, padding: "0 5px", borderRadius: 3, background: "linear-gradient(90deg,#d8b45a,#b8862a)", color: "#fff", fontSize: fz(10) } }, "稀客") : c.regularId && sh.regulars && sh.regulars[c.regularId] && sh.regulars[c.regularId].bond ? h("span", { "data-wk": "duelshopregular", style: { marginLeft: 4, padding: "0 5px", borderRadius: 3, background: "rgba(154,106,74,.15)", color: "#9a6a4a", fontSize: fz(10) } }, "熟客 · 来过 " + sh.regulars[c.regularId].bond + " 回") : null, c.urgent ? h("span", { style: { marginLeft: 4, padding: "0 5px", borderRadius: 3, background: RED, color: "#fff", fontSize: fz(9.5) } }, "急件 ×2") : null, c.visitor ? "" : c.wantChar ? "：想要一张" + (nameOf(c.wantChar) || "TA") + "的明信片" + (winHas(c.wantChar) ? "（橱窗里有）" : "（橱窗里没有）") : "：" + c.want),
                 c.done ? h("span", { style: { fontSize: fz(11), color: SUB } }, c.tough && !c.won ? "没打过" : c.miss ? "没有，走了" : "+" + (c.got || 0)) : c.tough ? h("button", { "data-wk": "duelshopfight", onClick: () => fight(c), style: btn(RED, "#fff") }, "打一局") : h("button", { "data-wk": "duelshopserve", onClick: () => serve(c), style: btn(c.wantChar && !winHas(c.wantChar) ? "transparent" : C, c.wantChar && !winHas(c.wantChar) ? SUB : "#fff", c.wantChar && !winHas(c.wantChar) ? "rgba(47,42,34,.3)" : null) }, c.wantChar ? (winHas(c.wantChar) ? "卖明信片" : "送客") : "招待")),
-              !c.done && c.need ? h("div", { "data-wk": "duelshopneed", style: { fontSize: fz(11), color: "#3f6fb0", marginTop: 3 } }, D().shopNeedZh(c.need)) : null,
+              !c.done && (c.hint || c.need) ? h("div", { "data-wk": "duelshopneed", style: { fontSize: fz(11.5), color: "#3f6fb0", marginTop: 3, fontStyle: c.hint ? "italic" : "normal" } }, c.hint ? "「" + c.hint + "」" : D().shopNeedZh(c.need)) : null,
+              c.done && c.need && c.hint ? h("div", { style: { fontSize: fz(10.5), color: SUB, marginTop: 2 } }, "原来是" + D().shopNeedZh(c.need)) : null,
+              c.done && c.priceSay ? h("div", { style: { fontSize: fz(11), color: c.left ? RED : "#9a6a4a", marginTop: 2 } }, c.priceSay) : null,
               c.done && c.match ? h("div", { style: { fontSize: fz(11), color: GREEN, marginTop: 3 } }, "对上了 ×1.3" + (c.thanks ? " · " + c.thanks : "")) : null,
               c.done && (c.story || c.gift) ? h("div", { style: { fontSize: fz(11), color: "#9a6a4a", marginTop: 3 } }, [c.story ? "这回 TA " + c.story : "", c.gift ? "还留下 " + c.gift + " 枚邮花当谢礼" : ""].filter(Boolean).join("，")) : null,
               servePicker(c),
@@ -984,6 +1000,12 @@
         // 熟客簿：来过的熟客，交情从高到低；每人的小事按日子记着
         diaryRegs ? h("div", { key: "rb", "data-wk": "duelshopregs", className: "flex-1 min-h-0 overflow-y-auto px-4", style: { fontFamily: F, color: INK, paddingBottom: 24 } },
           h("div", { style: { fontSize: fz(11.5), color: SUB, margin: "6px 0 12px", lineHeight: 1.7 } }, "招待过的路人会变成熟客，再来时认得出；交情每满 3 回冒一件小事，满 5 回留一笔谢礼。熟客多了，交情最浅的会搬走，空出位置给新面孔。"),
+          // 稀客：凑上条件才偶尔来；没见过的只给一句线索
+          h("div", { "data-wk": "duelshoprares", style: { marginBottom: 14 } }, h("div", { style: { fontFamily: FD, fontSize: fz(14), color: "#b8862a", margin: "2px 0 6px" } }, "稀客 · " + D().RARE_GUESTS.filter(g => (sh.rareSeen || {})[g.id]).length + " / " + D().RARE_GUESTS.length),
+            h("div", { style: { display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 8 } }, D().RARE_GUESTS.map(g => { const seen = (sh.rareSeen || {})[g.id];
+              return h("div", { key: g.id, "data-wk": "duelshoprareone", "data-seen": seen ? "1" : "0", style: { padding: "8px 10px", borderRadius: 4, background: seen ? "linear-gradient(160deg,#fff8e6,#f3e2b8)" : "rgba(47,42,34,.05)", border: "1px solid " + (seen ? "#d8b45a" : "rgba(47,42,34,.12)") } },
+                h("div", { style: { fontFamily: FD, fontSize: fz(13), color: seen ? INK : SUB } }, seen ? g.name : "？？？"),
+                h("div", { style: { fontSize: fz(10.5), color: SUB, marginTop: 2, lineHeight: 1.5 } }, seen ? g.want + " · 来过 " + seen.n + " 回" : "线索：" + g.tip)); }))),
           Object.values(sh.regulars || {}).sort((a, b) => (!!a.gone - !!b.gone) || (b.bond || 0) - (a.bond || 0)).map(r => h("div", { key: r.id, "data-wk": "duelshopreg", style: { marginBottom: 10, padding: "10px 12px", borderRadius: 4, background: PAPER, boxShadow: "0 2px 8px rgba(47,42,34,.12)", borderLeft: "3px solid " + (r.gone ? "rgba(47,42,34,.2)" : BROWN), opacity: r.gone ? .6 : 1 } },
             h("div", { className: "flex", style: { justifyContent: "space-between", alignItems: "baseline" } }, h("span", { style: { fontFamily: FD, fontSize: fz(15) } }, r.name), h("span", { style: { fontSize: fz(11), color: BROWN } }, r.gone ? "搬走了" : "来过 " + (r.bond || 0) + " 回")),
             h("div", { style: { fontSize: fz(11), color: SUB, marginTop: 2 } }, "常来" + (r.want || "寄东西") + (r.since ? " · " + r.since + " 第一次来" : "")),

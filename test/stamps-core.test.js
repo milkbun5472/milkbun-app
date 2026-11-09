@@ -255,3 +255,14 @@ test("卡在「在写」好久的卡也能熔", () => {
   assert.ok(C.meltable({ rarity: "SR", writing: true, writingTs: Date.now() - 10 * 60000 }));
   assert.ok(!C.meltable({ rarity: "SR", writing: true, writingTs: Date.now() }));
 });
+test("新人进门 17 张十连 + 14000 印泥；中间那段进门的补齐一次", () => {
+  const C = fresh();
+  let st = C.load(); st.ink = 0; st.tickets = 0; C.save(st);
+  C.grantOnOpen(Date.now(), [], 0); st = C.load();
+  assert.equal(st.tickets >= 17, true); assert.equal(st.ink >= 14000, true);
+  const C2 = fresh(); let s2 = C2.load(); s2.gifted = true; s2.seenLimited = { postage26: 1, ink26: 1, ink26b: 1, extra26: 1, extra30: 1 }; s2.tickets = 0; s2.ink = 0;
+  s2.cards = [{ id: "st_" + Date.parse("2026-11-01T00:00:00Z").toString(36) + "_abcde", rarity: "R", charId: "c" }]; C2.save(s2);
+  C2.grantOnOpen(Date.now(), [], 0); s2 = C2.load();
+  assert.equal(s2.tickets >= 2, true); assert.equal(s2.ink >= 12000, true);
+  const t0 = s2.ink; C2.grantOnOpen(Date.now(), [], 0); assert.equal(C2.load().ink, t0, "只补一次");
+});
