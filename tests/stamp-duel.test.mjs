@@ -341,3 +341,11 @@ test("溢出一半：打死一张多出来的一半落到后面那张或信封�
   D.hitUnit(st, "foe", 0, 13, "测试"); assert.equal(st.foe.board[3].hp, 15);
   const v = mk(18); st.me.hp = 30; D.healUnits(st.me, [v], 8); assert.equal(v.hp, 20); assert.equal(st.me.hp, 33);
 });
+test("小店一直玩下去：口碑不封顶、加成越来越慢；每周三张单子随口碑变大；熟练度称号无限往上", () => {
+  assert.equal(D.shopRepLv({ rep: 0 }), 0); assert.equal(D.shopRepLv({ rep: 80 }), 1);
+  assert.ok(D.shopRepLv({ rep: 1e6 }) > 100);
+  const b = [5, 10, 40, 45].map(D.shopRepBonus); assert.ok(b[1] - b[0] > b[3] - b[2]);
+  const o1 = D.shopOrders(1, "2026-11-09", "s"), o9 = D.shopOrders(30, "2026-11-09", "s");
+  assert.equal(o1.length, 3); assert.ok(o9.reduce((a, o) => a + o.pay, 0) > o1.reduce((a, o) => a + o.pay, 0));
+  assert.equal(D.shopSkillTitle("柜台", 0), "柜台见习"); assert.equal(D.shopSkillTitle("柜台", 15), "柜台老手"); assert.equal(D.shopSkillTitle("柜台", 90), "柜台一把手·4段");
+});
