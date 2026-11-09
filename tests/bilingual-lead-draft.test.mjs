@@ -8,8 +8,8 @@ assert.equal(j(["我在这儿", "いいね | 好啊", "どう | 怎么样"]).len
 assert.equal(j(["今天去吃了火锅超级辣的我都流眼泪了哈哈哈", "いいね | 好啊", "中间这句中文也留着因为不在开头那一截里面", "どう | 怎么样"]).length, 4);
 console.log("bilingual lead draft ok");
 // 中译写在括号里：句尾（中文）、或者另起一行整行（中文）——双语开着才认，「（笑）」这种短动作不认
-assert.deepEqual(j(["すごく可愛くて……見ているだけで胸がきゅってなっちゃいます（好可爱……光是看着，胸口就忍不住怦怦直跳）"]), ["すごく可愛くて……見ているだけで胸がきゅってなっちゃいます | 好可爱……光是看着，胸口就忍不住怦怦直跳"]);
-assert.deepEqual(j(["見ているだけで胸がきゅってなっちゃいます", "（好可爱……光是看着，胸口就忍不住怦怦直跳）"]), ["見ているだけで胸がきゅってなっちゃいます | 好可爱……光是看着，胸口就忍不住怦怦直跳"]);
-assert.deepEqual(j(["そうなの（笑）"]), ["そうなの（笑）"]);
-assert.deepEqual(ctx.joinBilingualLines(["すごく可愛くて（好可爱好可爱）"], false, {}), ["すごく可愛くて（好可爱好可爱）"]);
+assert.equal(JSON.stringify(j(["すごく可愛くて……見ているだけで胸がきゅってなっちゃいます（好可爱……光是看着，胸口就忍不住怦怦直跳）"])), JSON.stringify(["すごく可愛くて……見ているだけで胸がきゅってなっちゃいます | 好可爱……光是看着，胸口就忍不住怦怦直跳"]));
+assert.equal(JSON.stringify(j(["見ているだけで胸がきゅってなっちゃいます", "（好可爱……光是看着，胸口就忍不住怦怦直跳）"])), JSON.stringify(["見ているだけで胸がきゅってなっちゃいます | 好可爱……光是看着，胸口就忍不住怦怦直跳"]));
+assert.equal(JSON.stringify(j(["そうなの（笑）"])), JSON.stringify(["そうなの（笑）"]));
+assert.equal(JSON.stringify(ctx.joinBilingualLines(["すごく可愛くて（好可爱好可爱）"], false, {})), JSON.stringify(["すごく可愛くて（好可爱好可爱）"]));
 console.log("paren translation ok");
