@@ -49,3 +49,8 @@ assert.match(games, /@keyframes mjToRiver/);
 assert.match(games, /prefers-reduced-motion: reduce\)\{\[data-mjanim\]\{animation:none!important\}/);
 assert.match(games, /anim: sel === "d" \? null : "mjDrawIn/);
 console.log("mahjong anim ok");
+assert.match(games, /if \(!\(moved \|\| o\.force\) \|\| !\(o\.ready \|\| o\.force/);
+assert.match(games, /ready: hot \|\| userSpoke, force: userSpoke, every: spectate \? 16 : 28/);
+assert.match(games, /"data-wk": "gamemjsaybtn"/);
+assert.ok((games.match(/userAct\(function/g) || []).length >= 9);
+console.log("mahjong talk ok");

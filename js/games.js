@@ -7778,7 +7778,8 @@
     useEffect(function () {
       if (!o.on || talking || !props.active) return;
       const moved = cardMovesSince(state.log, mark.current);
-      if (!moved || !(o.ready || (o.every && moved >= o.every))) return;
+      // o.force：她刚开口说了话，没人出过牌也要接（麻将那桌用；别的桌不传，照旧）
+      if (!(moved || o.force) || !(o.ready || o.force || (o.every && moved >= o.every))) return;
       const seats = state.players.filter(function (p) { return !p.isUser && !p.engineer; });
       if (!seats.length) return;
       mark.current = state.log.length; setTalking(true);
@@ -8694,12 +8695,18 @@
     const [state, setState] = useState(function () {
       return restored && restored.status === "playing" ? restored : M.newGame(unoPlayers(props, 4), { minFan: cfg.mjMinFan || 0, hands: cfg.mjHands || 4, handDraw: !cfg.mjAutoDraw });
     });
-    const [sel, setSel] = useState(null), [error, setError] = useState("");
+    const [sel, setSel] = useState(null), [error, setError] = useState(""), [say, setSay] = useState("");
     const spectate = cfg.mode === "spectate", soft = cfg.mode === "easy";
     const meI = state.players.findIndex(function (p) { return p.isUser; });
     const me = meI >= 0 ? state.players[meI] : null;
     const clone = function () { return JSON.parse(JSON.stringify(state)); };
     function act(fn) { try { const n = clone(); fn(n); setState(n); setSel(null); setError(""); } catch (e) { setError(e.message); } }
+    // 她出手（打牌、碰杠吃、自摸食糊）时顺便说的那句先记进桌上，再出手；单独点「说」就只说话
+    function userAct(fn) {
+      const line = say.trim();
+      act(function (n) { if (line && me) n.log.push({ kind: "chat", player: "user", text: me.name + "：“" + line.slice(0, 120) + "”" }); if (fn) fn(n); });
+      if (line) setSay("");
+    }
     useEffect(function () {
       if (state.status === "finished") { clearGameSave("mahjong"); return; }
       saveGameSnap("mahjong", { config: cfg, state: state, label: "第 " + state.handNo + " 盘" });
@@ -8729,8 +8736,14 @@
     // 角色开口：碰杠食糊那一下、一盘打完。平时摸打不说话（一盘一百多张牌，张张开口太费）
     const lastLog = state.log[state.log.length - 1] || {};
     const hot = state.phase === "done" || state.status === "finished" || lastLog.kind === "win" || lastLog.kind === "kong" || (lastLog.kind === "pong" && (lastLog.player === "user" || lastLog.from === "user"));
-    const talking = useCardTableTalk(props, state, setState, { on: true, zh: "广东麻将", ready: hot, every: 0,
-      view: function () { return "第 " + state.handNo + " / " + state.hands + " 盘，" + (state.minFan ? state.minFan + " 番起糊" : "鸡糊也能食") + "\n" + M.publicView(state) + "\n最近：\n" + cardPublicLog(state); } });
+    // 她开口了：桌上的人接她的话，不用等谁出牌；平时打一阵（大约两圈）也会自己聊几句
+    const userSpoke = state.log.slice(state.talkAt || 0).some(function (x) { return x.kind === "chat" && x.player === "user"; });
+    const talking = useCardTableTalk(props, state, setState, { on: true, zh: "广东麻将", ready: hot || userSpoke, force: userSpoke, every: spectate ? 16 : 28,
+      view: function () {
+        const said = state.log.slice(state.talkAt || 0).filter(function (x) { return x.kind === "chat" && x.player === "user"; }).map(function (x) { return x.text; });
+        return "第 " + state.handNo + " / " + state.hands + " 盘，" + (state.minFan ? state.minFan + " 番起糊" : "鸡糊也能食") + "\n" + M.publicView(state) + "\n最近：\n" + cardPublicLog(state)
+          + (said.length ? "\n\n她刚在桌上说：" + said.join(" ") + "——这一轮先接她这句，想回的就回。" : "");
+      } });
     const W = M.WIND_ZH, seatW = function (i) { return W[M.seatWindOf(state, i)]; };
     const myTurn = me && state.status === "playing" && state.phase === "discard" && state.turn === meI;
     const canDraw = !!(me && state.status === "playing" && state.phase === "draw" && state.turn === meI);
@@ -8750,7 +8763,7 @@
     const myClaim = me && state.phase === "claim" && state.claim && state.claim.pending[meI] && !state.claim.decided[meI] ? state.claim.pending[meI] : null;
     const tap = function (k, j) {
       if (!myTurn) return;
-      if (sel === j) act(function (n) { M.discard(n, meI, k); });
+      if (sel === j) userAct(function (n) { M.discard(n, meI, k); });
       else setSel(j);
     };
     // 按钮像一枚枚印章牌：方角、底下压一道深色，食糊自摸是金边红章
@@ -8808,17 +8821,25 @@
         h("div", { "data-wk": "gamemjhand", style: { display: "flex", justifyContent: "center", alignItems: "flex-end", padding: "14px 4px 10px", margin: "0 -2px 8px", borderRadius: 8,
             background: "linear-gradient(180deg, rgba(0,0,0,0) 0%, rgba(0,0,0,0) 62%, #3a2616 62%, #2e1e11 100%)", boxShadow: "0 2px 0 rgba(255,220,170,.12)" } },
           myHand.map(function (k, j) { return h("div", { key: j + k, style: { marginLeft: j ? 2 : 0 } }, h(MjTile, { k: k, w: handW, lift: sel === j, onClick: myTurn ? function () { tap(k, j); } : null })); }),
-          drawn ? h("div", { key: "drawn" + state.wall.length, style: { marginLeft: 7 } }, h(MjTile, { k: drawn, w: handW, anim: sel === "d" ? null : "mjDrawIn .36s cubic-bezier(.3,1.3,.5,1) both", lift: sel === "d", onClick: function () { if (sel === "d") act(function (n) { M.discard(n, meI, drawn); }); else setSel("d"); } })) : null),
+          drawn ? h("div", { key: "drawn" + state.wall.length, style: { marginLeft: 7 } }, h(MjTile, { k: drawn, w: handW, anim: sel === "d" ? null : "mjDrawIn .36s cubic-bezier(.3,1.3,.5,1) both", lift: sel === "d", onClick: function () { if (sel === "d") userAct(function (n) { M.discard(n, meI, drawn); }); else setSel("d"); } })) : null),
+        // 说一句：打牌、碰杠的时候一起带上；也能单独点「说」，桌上的人会接
+        h("div", { "data-wk": "gamemjsay", style: { display: "flex", gap: 6, marginBottom: 8 } },
+          h("input", { "data-wk": "gameinput", "data-part": "talk", value: say, maxLength: 120, onChange: function (e) { setSay(e.target.value); },
+            onKeyDown: function (e) { if (e.key === "Enter" && say.trim() && !talking) { e.preventDefault(); userAct(null); } },
+            placeholder: talking ? "他们在说话…" : "说一句（出牌时一起带上，或者点「说」）",
+            style: { flex: 1, minWidth: 0, boxSizing: "border-box", border: "1px solid rgba(255,230,190,.25)", borderRadius: 9, padding: "9px 12px", background: "rgba(0,0,0,.28)", color: "#fff6dc", fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", outline: "none" } }),
+          h("button", { "data-wk": "gamemjsaybtn", onClick: function () { if (say.trim()) userAct(null); }, disabled: !say.trim() || talking,
+            style: { flexShrink: 0, border: "1px solid rgba(255,230,190,.3)", borderRadius: 9, padding: "0 14px", minHeight: 40, color: "#fff6dc", background: say.trim() && !talking ? "linear-gradient(180deg,#8a5a34,#6b4428)" : "rgba(0,0,0,.2)", fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))" } }, "说")),
         h("div", { style: { display: "flex", flexWrap: "wrap", gap: 7, justifyContent: "center", minHeight: 40 } },
           myClaim ? myClaim.map(function (o) {
-            if (o.kind === "ron") return pill("食糊 " + o.fan.fan + " 番", function () { act(function (n) { M.decide(n, meI, { kind: "ron" }); }); }, "#c2372b", "gamemjron");
-            if (o.kind === "pong") return pill("碰", function () { act(function (n) { M.decide(n, meI, { kind: "pong" }); }); }, "#2f5d9a");
-            if (o.kind === "kong") return pill("杠", function () { act(function (n) { M.decide(n, meI, { kind: "kong" }); }); }, "#2f5d9a");
-            return pill("吃 " + o.use.map(M.name).join(""), function () { act(function (n) { M.decide(n, meI, { kind: "chow", use: o.use }); }); }, "#2f7a4a");
-          }).concat([pill("过", function () { act(function (n) { M.decide(n, meI, { kind: "pass" }); }); }, "#5a4a3c", "gamemjpass")])
+            if (o.kind === "ron") return pill("食糊 " + o.fan.fan + " 番", function () { userAct(function (n) { M.decide(n, meI, { kind: "ron" }); }); }, "#c2372b", "gamemjron");
+            if (o.kind === "pong") return pill("碰", function () { userAct(function (n) { M.decide(n, meI, { kind: "pong" }); }); }, "#2f5d9a");
+            if (o.kind === "kong") return pill("杠", function () { userAct(function (n) { M.decide(n, meI, { kind: "kong" }); }); }, "#2f5d9a");
+            return pill("吃 " + o.use.map(M.name).join(""), function () { userAct(function (n) { M.decide(n, meI, { kind: "chow", use: o.use }); }); }, "#2f7a4a");
+          }).concat([pill("过", function () { userAct(function (n) { M.decide(n, meI, { kind: "pass" }); }); }, "#5a4a3c", "gamemjpass")])
           : myTurn ? selfOpts.map(function (o) {
-            if (o.kind === "zimo") return pill("自摸 " + o.fan.fan + " 番", function () { act(function (n) { M.selfAct(n, meI, { kind: "zimo" }); }); }, "#c2372b", "gamemjzimo");
-            return pill((o.kind === "ckong" ? "暗杠 " : "加杠 ") + M.name(o.k), function () { act(function (n) { M.selfAct(n, meI, { kind: o.kind, k: o.k }); }); }, "#2f5d9a");
+            if (o.kind === "zimo") return pill("自摸 " + o.fan.fan + " 番", function () { userAct(function (n) { M.selfAct(n, meI, { kind: "zimo" }); }); }, "#c2372b", "gamemjzimo");
+            return pill((o.kind === "ckong" ? "暗杠 " : "加杠 ") + M.name(o.k), function () { userAct(function (n) { M.selfAct(n, meI, { kind: o.kind, k: o.k }); }); }, "#2f5d9a");
           }).concat([h("div", { key: "tip", style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: "rgba(255,240,215,.72)", alignSelf: "center" } }, sel != null ? "再点一下打出去" : "点一张牌，再点一下打出")])
           : h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: "rgba(255,240,215,.72)", alignSelf: "center" } }, state.phase === "claim" ? "等别家要不要…" : canDraw ? "轮到你了：点桌子正中的牌墙摸一张" : ((state.players[state.turn] || {}).name || "") + " 在出牌…"))) : null);
   }
