@@ -476,13 +476,22 @@ function buildDefaultEmotes() {
   ];
   return defs.map((d, i) => ({ id: "em_def_" + i, keyword: d[0], url: face(d[1]) }));
 }
+// 这块数据浏览器到底解不解得开（她 2026-11-09：自拍气泡「图数据坏了，显示不出来」——存进去的那块不是图）
+//   没有 createImageBitmap 的老机子不验，照旧收下
+async function imgBlobOpens(b) {
+  if (!b || !b.size) return false;
+  if (typeof createImageBitmap !== "function") return true;
+  try { const bm = await Promise.race([createImageBitmap(b), new Promise((_, rej) => setTimeout(() => rej(new Error("timeout")), 15000))]); if (bm && bm.close) bm.close(); return true; }
+  catch (e) { return String(e && e.message) === "timeout"; }
+}
 // 站子只回一个图片链接时（app 里直接 fetch 被跨域挡了），再用 <img crossOrigin> 画到 canvas 上试一次；都拿不到就是 null
 //   （群里 2026-11-03：站子后台显示画好了，邮票卡面却是「没拿到图」）
 async function imgOutBlob(out) {
   if (!out) return null;
   if (out.blob) return out.blob;
   if (!out.url) return null;
-  try { const r = await fetch(out.url, { mode: "cors" }); if (r.ok) { const b = await r.blob(); if (b && b.size) return b; } } catch (e) {}
+  // 链接拿回来的得真是张图：有的站子链接打开是网页/JSON，存进去就成了「图数据坏了」
+  try { const r = await fetch(out.url, { mode: "cors" }); if (r.ok) { const b = await r.blob(); if (b && b.size && await imgBlobOpens(b)) return b; } } catch (e) {}
   return await new Promise(res => { const im = new Image(); im.crossOrigin = "anonymous";
     im.onload = () => { try { const c = document.createElement("canvas"); c.width = im.naturalWidth; c.height = im.naturalHeight; c.getContext("2d").drawImage(im, 0, 0); c.toBlob(b => res(b && b.size ? b : null), "image/png"); } catch (e) { res(null); } };
     im.onerror = () => res(null); im.src = out.url; setTimeout(() => res(null), 30000); });
@@ -493,7 +502,17 @@ async function imgOutBlob(out) {
   try {
     if (typeof window === "undefined" || typeof window.generateSelfieImage !== "function" || window.generateSelfieImage.__blobbed) return;
     const raw = window.generateSelfieImage;
-    const wrapped = async function () { const out = await raw.apply(this, arguments); if (out && !out.blob && out.url) { try { const b = await imgOutBlob(out); if (b && b.size) return Object.assign({}, out, { blob: b }); } catch (e) {} } return out; };
+    const wrapped = async function () {
+      let out = await raw.apply(this, arguments);
+      // 站子给回来的那块解不开：有链接就再从链接拿一次；还是解不开就按没拍成算，气泡上写原因、能重拍，不存一块坏数据
+      if (out && out.blob && !(await imgBlobOpens(out.blob))) {
+        const bad = out.blob.type || "未知格式";
+        out = Object.assign({}, out, { blob: null });
+        if (!out.url) throw new Error("站子回来的不是一张打得开的图（" + bad + "），换个生图模型或线路再拍");
+      }
+      if (out && !out.blob && out.url) { try { const b = await imgOutBlob(out); if (b && b.size) return Object.assign({}, out, { blob: b }); } catch (e) {} }
+      return out;
+    };
     wrapped.__blobbed = true; window.generateSelfieImage = wrapped;
   } catch (e) {}
 })();
