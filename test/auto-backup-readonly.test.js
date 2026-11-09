@@ -56,9 +56,18 @@ test("攒包只有一份：auto-backup 和设置页用的是同一个 BackupPack
   assert.match(read("backup-pack.js"), COLLECT, "公共那一份不见了");
 });
 
+// 出货版有一刀：从「找回失联的角色」那段注释一路切到 function StorageMeter（公共版没有那条路）。
+// 2026-11-09 这个组件一开始就插在那一刀里，打出来的公共包只剩调用点，一点「导入与导出」就 ReferenceError。
+test("组件不许落在出货版那一刀里", () => {
+  const ui = read("screens-ui.js");
+  const me = ui.indexOf("function AutoBackupSection"), cut = ui.indexOf("// 找回失联的角色（v61.63");
+  assert.ok(me > 0 && cut > 0, "锚断了");
+  assert.ok(me < cut, "AutoBackupSection 跑进「找回失联 → StorageMeter」那一刀里了，公共版会把它整段摘掉");
+});
+
 test("界面上当面说清楚它不含图", () => {
   const ui = read("screens-ui.js");
-  const seg = ui.slice(ui.indexOf("function AutoBackupSection"), ui.indexOf("function StorageMeter"));
+  const seg = ui.slice(ui.indexOf("function AutoBackupSection"), ui.indexOf("// 找回失联的角色（v61.63"));
   assert.ok(seg.length > 200, "抠不出 AutoBackupSection");
   assert.match(seg, /不含图片和自拍/, "不说清楚就是悄悄少图，比没有这个功能更坏");
   assert.match(seg, /iPhone/, "没有这个 API 的机器上要说明白，不能让人干等");
