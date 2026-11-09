@@ -5051,7 +5051,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     if (memExtractInflightRef.current[charId]) return 0;
     memExtractInflightRef.current[charId] = true;
     try {
-      const existing = memExtractAvoidList(memLibRef.current.filter(e => memShareChar([charId], e.charIds)), msgs.map(m => (m && m.content) || "").join("\n"), 40);
+      const existing = memExtractAvoidList(memLibRef.current.filter(e => memShareChar([charId], e.charIds)), msgs.map(m => (m && m.content) || "").join("\n"), 40, await memExtractQueryVec(msgs));
       // openEntries 保序，编号即下标+1；喂给模型的是带编号的文本
       const openEntries = memLibRef.current.filter(e => e.open && e.text && memShareChar([charId], e.charIds)).slice(0, 30); // 编号必须与 RepairGate 的 openEntries 严格同序
       const openList = openEntries.map(e => e.text);
@@ -5145,6 +5145,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     const mark = memExtractMarkRef.current[charId] || 0;
     const newCount = all.filter(m => (m.ts || 0) > mark).length;
     if (mark && newCount < 4) return;                         // 有书签且没攒够新消息就先不跑
+    if (!memExtractWorthy(all.filter(m => (m.ts || 0) > mark))) return; // 全是嗯嗯好的：不花这一次，书签不动
     const take = Math.min(120, Math.max(24, newCount + 4));   // 至少 24、覆盖全部新消息+重叠、封顶 120
     const msgs = all.slice(-take);
     try {
@@ -10262,12 +10263,13 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     const mark = memExtractMarkGOffRef.current[groupId] || 0;
     const newCount = all.filter(m => (m.ts || 0) > mark).length;
     if (mark && newCount < 4) return;
+    if (!memExtractWorthy(all.filter(m => (m.ts || 0) > mark))) return; // 全是嗯嗯好的：不花这一次，书签不动
     const take = Math.min(120, Math.max(24, newCount + 4));
     const win = all.slice(-take);
     const memberIds = (group.memberIds || []).slice();
     const members = memberIds.map(id => characters.find(c => c.id === id)).filter(Boolean);
     try {
-      const existing = memExtractAvoidList(memLibRef.current.filter(e => memShareChar(memberIds, e.charIds)), win.map(m => (m && m.content) || "").join("\n"), 40);
+      const existing = memExtractAvoidList(memLibRef.current.filter(e => memShareChar(memberIds, e.charIds)), win.map(m => (m && m.content) || "").join("\n"), 40, await memExtractQueryVec(win));
       const openEntries = memLibRef.current.filter(e => e.open && e.text && memShareChar(memberIds, e.charIds)).slice(0, 30);
       const rawItems = await extractGroupMemories(bgActiveRef.current, ctxForGroupOffline(group), win, members, { existing, openList: openEntries.map(e => e.text) });
       const items = (rawItems || []).map(it => window.MemoryExtractionGate && window.MemoryExtractionGate.normalizeEvidence ? window.MemoryExtractionGate.normalizeEvidence(it, win) : it);
@@ -18447,12 +18449,13 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     const mark = memExtractMarkGRef.current[groupId] || 0;
     const newCount = all.filter(m => (m.ts || 0) > mark).length;
     if (mark && newCount < 4) return;
+    if (!memExtractWorthy(all.filter(m => (m.ts || 0) > mark))) return; // 全是嗯嗯好的：不花这一次，书签不动
     const take = Math.min(120, Math.max(24, newCount + 4));
     const win = all.slice(-take);
     const memberIds = (group.memberIds || []).slice();
     const members = memberIds.map(id => characters.find(c => c.id === id)).filter(Boolean);
     try {
-      const existing = memExtractAvoidList(memLibRef.current.filter(e => memShareChar(memberIds, e.charIds)), win.map(m => (m && m.content) || "").join("\n"), 40);
+      const existing = memExtractAvoidList(memLibRef.current.filter(e => memShareChar(memberIds, e.charIds)), win.map(m => (m && m.content) || "").join("\n"), 40, await memExtractQueryVec(win));
       const openEntries = memLibRef.current.filter(e => e.open && e.text && memShareChar(memberIds, e.charIds)).slice(0, 30);
       const rawItems = await extractGroupMemories(bgActiveRef.current, { members, profile, rels, chars: characters }, win, members,
         { existing: existing, openList: openEntries.map(e => e.text) });

@@ -4697,7 +4697,32 @@ function memoryVisibleTo(e, charId) { return Array.isArray(e.knownBy)
 // 抽记忆前给模型看的「这些记过了」（她 2026-11-09）：原来只给最新 40 条，两个月前记过的事模型不知道，
 //   换个说法又记一遍。改成：最近的几条 + 跟这段对话最沾边的那些，一共不超过 n 条。
 //   只拿关键词打分（跟召回同一把尺子），不碰向量、不算「被想起」，不改任何条目。
-function memExtractAvoidList(rows, convText, n) {
+// 这一段新消息值不值得花一次调用去抽（她 2026-11-09：三轮全是嗯嗯好的也到点抽，模型多半回个空的）。
+//   只用代码看：去掉标点空格、短于 4 个字的气泡（嗯、好、哈哈、表情）不算；剩下的加起来不到 12 个字就先不抽，
+//   书签不动，下次攒够了连着一起抽，不会漏。
+function memExtractWorthy(msgs) {
+  let total = 0;
+  (msgs || []).forEach(m => {
+    const t = String((m && m.content) || "").replace(/\[[^\]]{0,12}\]/g, "").replace(/[\s，。、；：,.;:!！?？~～…「」『』"'“”‘’（）()【】\-—]/g, "");
+    if (t.length >= 4) total += t.length;
+  });
+  return total >= 12;
+}
+// 开了向量记忆的人：给「记过了」单子配一个查询向量。先找这几条消息召回时已经算好的（不花钱），
+//   都没有就把最后几条拼起来算一次（只花一次 embedding，不碰聊天模型）。没开向量就是 null，照旧只看关键词。
+async function memExtractQueryVec(msgs) {
+  try {
+    if (!embApiReady()) return null;
+    const list = (msgs || []).filter(m => m && m.content);
+    const mine = list.filter(m => m.role === "user").slice(-3).reverse();
+    for (const m of mine) { const v = getQueryVec(String(m.content)); if (v) return v; }
+    const tail = list.slice(-8).map(m => String(m.content)).join("\n");
+    if (!tail.trim()) return null;
+    await primeQueryVec(tail);
+    return getQueryVec(tail);
+  } catch (e) { return null; }
+}
+function memExtractAvoidList(rows, convText, n, qVec) {
   n = n || 40;
   const list = (rows || []).filter(e => e && e.text && !e.archived && (e.surfaceState || "active") === "active");
   if (list.length <= n) return list.map(e => e.text);
@@ -4705,8 +4730,9 @@ function memExtractAvoidList(rows, convText, n) {
   const recent = list.slice(0, recentN);
   const qTokens = memTokens(String(convText || "").slice(-6000));
   const now = Date.now();
-  const rel = list.slice(recentN).map(e => { const w = explainMemEntry(e, qTokens, now, null, ""); return { e, k: w.keyword, s: w.score }; })
-    .filter(x => x.k > 0).sort((a, b) => b.s - a.s).slice(0, n - recentN).map(x => x.e);
+  // 换了说法的（「怕黑」和「不敢一个人关灯」）没有共同的词，只有向量认得出来
+  const rel = list.slice(recentN).map(e => { const w = explainMemEntry(e, qTokens, now, qVec || null, ""); return { e, hit: w.overlap + w.tagHit > 0 || (w.vectorScored && w.cosine >= MEM_SEMANTIC_ASSOC), s: w.score }; })
+    .filter(x => x.hit).sort((a, b) => b.s - a.s).slice(0, n - recentN).map(x => x.e);
   const out = recent.concat(rel);
   if (out.length < n) list.slice(recentN).forEach(e => { if (out.length < n && out.indexOf(e) < 0) out.push(e); });
   return out.map(e => e.text);
