@@ -52,6 +52,8 @@
   // 打赢的奖励（她 2026-11-08「奖励可以 弄一下」）：每天第一次赢给一点；各玩法的里程碑第一次达成给一笔、盖一枚纪念戳。
   //   印泥、邮资直接进邮票册那份（StampsCore），量控制在比抽卡、升级花得少
   const REWARD_KEY = "x_stampDuelRewards";
+  // 「今天」按她手机上的日子算（她 2026-11-09「下午也打了」）：原来用 toISOString 是格林尼治的日子，北美傍晚就跨到第二天了
+  const localDay = (d = new Date()) => d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
   const MILESTONES = [
     ...[0, 1, 2, 3, 4].map(t => ({ id: "siege" + t, zh: "守住护信第 " + (t + 1) + " 档", ink: 150 * (t + 1), postage: 100, test: x => x.siege && x.win && x.tier === t })),
     ...[5, 10, 15, 20].map((n, i) => ({ id: "edict" + n, zh: "封缄令危险 " + n, ink: [150, 300, 500, 800][i], postage: 100, test: x => x.edict && x.win && x.pts >= n })),
@@ -71,7 +73,7 @@
       const C = window.StampsCore; if (!C) return [];
       try { Pact.add(x); } catch (e) {}
       const r = Rewards.got(), out = []; let ink = 0, post = 0;
-      const today = new Date().toISOString().slice(0, 10);
+      const today = localDay();
       if (x.win && r.day !== today) { r.day = today; ink += DAILY.ink; post += DAILY.postage; out.push("今天第一次赢：" + DAILY.ink + " 印泥、" + DAILY.postage + " 邮资"); }
       MILESTONES.forEach(m => { if (!r.got[m.id] && m.test(x)) { r.got[m.id] = Date.now(); ink += m.ink; post += m.postage; out.push("✦ " + m.zh + "：" + m.ink + " 印泥、" + m.postage + " 邮资"); } });
       if (ink || post) { try { const st = C.load(); st.ink += ink; st.postage += post; C.save(st); } catch (e) {} sv(REWARD_KEY, r); }
@@ -128,7 +130,7 @@
   const DISPATCH_PAY = { 1: 30, 4: 90, 8: 160 };
   const dispatchPay = hours => {
     const C = window.StampsCore; if (!C) return null;
-    const r = Rewards.got(), today = new Date().toISOString().slice(0, 10), first = r.dpDay !== today, n = (DISPATCH_PAY[hours] || 30) * (first ? 2 : 1);
+    const r = Rewards.got(), today = localDay(), first = r.dpDay !== today, n = (DISPATCH_PAY[hours] || 30) * (first ? 2 : 1);
     try { const st = C.load(); st.ink += n; st.postage += n; C.save(st); r.dpDay = today; sv(REWARD_KEY, r); } catch (e) { return null; }
     return { ink: n, postage: n, first };
   };
