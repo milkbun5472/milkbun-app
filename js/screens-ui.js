@@ -8959,7 +8959,10 @@ function AutoBackupSection({ toast }) {
     !st.supported
       ? note("这个浏览器没有这个功能（iPhone 上都没有）。只能自己记着点上面那颗「导出全部数据」，一周一次就够。")
       : h(React.Fragment, null,
-          note("挑一个文件夹，以后每隔几个小时它自己往那儿存一份，不用你记着。存的是文字那一份：角色、聊天、记忆、手机、情侣空间。⚠️不含图片和自拍——图太大，自动存会把页面撑崩；图要带走还是用上面的「导出全部数据」。文件夹里留最近 " + st.keep + " 份，旧的自己退掉，你放在那儿的别的东西一个都不动。"),
+          note("挑一个文件夹，以后每隔几个小时它自己往那儿存一份，不用你记着。存的是文字那一份：角色、聊天、记忆、手机、情侣空间。文件夹里留最近 " + st.keep + " 份，旧的自己退掉，你放在那儿的别的东西一个都不动。"),
+          // 「不含图」跟隔壁那条复制备份用同一种红（不许悄悄少图），灰字里的一句⚠️没人看得见
+          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", lineHeight: 1.7, color: "#c0503f", margin: "6px 2px 0" } },
+            "⚠️这一份不含图片和自拍——图太大，自动存会把页面撑崩。图要带走还是用上面的「导出全部数据」。"),
           st.on ? note(st.lastAt ? "上一份：" + st.lastName + "（" + new Date(st.lastAt).toLocaleString() + "）" : "还没存过第一份") : null,
           st.on && st.needGesture ? note("⚠️浏览器把那个文件夹的许可收回去了，点下面重新挑一次。") : null,
           st.on && st.lastErr === "gutted" ? note("⚠️这台手机上的聊天一条都不剩了，而上一份里有——这一次没敢存，免得把文件夹里那几份好的挤掉。先弄清楚本机为什么空了。") : null,
