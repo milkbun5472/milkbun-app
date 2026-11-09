@@ -1,15 +1,24 @@
-import {projectShop} from './state.mjs?v=fg-8471d3c70eba9722';
-import {createPostOfficeView} from './view.mjs?v=fg-8471d3c70eba9722';
+import {projectShop} from './state.mjs?v=fg-633977aef81920f3';
+import {createPostOfficeView} from './view.mjs?v=fg-633977aef81920f3';
 const host=parent!==window?parent.FairyGardenHostFor?.(window):null,status=document.getElementById('status');
-let view=null,closed=false,paused=false,frame=0,timer=null,key='',pending=false,closing=false,failed=false,lastRender=0;
-async function refresh(){
- if(closed||!host||pending||closing)return;pending=true;
- try{await host.sync?.();const data=host.read(),{shop,...options}=data,next=projectShop(shop,{...options,lookFor:c=>c.look});const k=JSON.stringify(next);
-  if(k!==key){if(!key){const previous=host.previous?.();if(previous?.projection){await view.sync(previous.projection);view.resume(previous.flow);}}await view.sync(next);if(closed)return;key=k;}
-  failed=false;view.pause(paused);status.textContent='';host.ready?.();
- }catch(e){failed=true;view?.pause(true);if(!closed){status.textContent='画面暂时没能打开，可返回后再试。';host.error?.(e.message);}}
- finally{pending=false;}
+let view=null,closed=false,paused=false,frame=0,timer=null,key='',pending=null,refreshAgain=false,closing=false,failed=false,lastRender=0;
+function refresh(){
+ if(closed||!host||closing)return Promise.resolve();
+ if(pending){refreshAgain=true;return pending;}
+ // Every explicit caller waits for the latest requested projection. A timer or
+ // text-page return during an older sync coalesces into one fresh read.
+ pending=(async()=>{
+  do{
+   refreshAgain=false;
+   try{await host.sync?.();const data=host.read(),{shop,...options}=data,next=projectShop(shop,{...options,lookFor:c=>c.look});const k=JSON.stringify(next);
+    if(k!==key){if(!key){const previous=host.previous?.();if(previous?.projection){await view.sync(previous.projection);view.resume(previous.flow);}}await view.sync(next);if(closed)return;key=k;}
+    failed=false;view.pause(paused);status.textContent='';host.ready?.();
+   }catch(e){failed=true;view?.pause(true);if(!closed){status.textContent='画面暂时没能打开，可返回后再试。';host.error?.(e.message);}}
+  }while(refreshAgain&&!closed&&!closing);
+ })().finally(()=>{pending=null;});
+ return pending;
 }
+
 function animate(now){if(closed)return;if(!paused&&!failed&&!document.hidden&&now-lastRender>32){lastRender=now;view?.tick(now/1000);view?.render();}frame=requestAnimationFrame(animate);}
 function dispose(){if(closed)return;closed=true;clearInterval(timer);cancelAnimationFrame(frame);host?.pauseSound?.(true);view?.dispose();}
 if(!host)status.textContent='请从秋秋机的小世界进入邮局小店。';

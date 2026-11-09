@@ -23,5 +23,5 @@ export function npcLook(c={},catalog=globalThis.StampDuel){
  const legacy=Object.entries(NPC_COSTUMES).find(([,v])=>v.label===name)?.[0]||'postcard';
  const npcStyle=resolved?.style||legacy,x=NPC_COSTUMES[npcStyle]||NPC_COSTUMES.postcard;
  const look={npcStyle,npcFeature:resolved?.feature||null,npcRare:resolved?.rareId||null,npcSpecies:resolved?.species||'person',hair:x.hair,hairColor:x.hairColor,face:c.tough?'irritated':'default'};
- if(x.dims)look.dims={...x.dims};if(look.npcFeature==='sun')look.skin='#c58c68';return look;
+ if(x.dims)look.dims={...x.dims};if(look.npcFeature==='sun')look.skin='#ad704d';return look;
 }
