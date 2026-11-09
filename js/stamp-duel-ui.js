@@ -526,7 +526,7 @@
     const shopAct = async (action, options = {}) => { try { const out=await window.StampShop.run(action,{...shopOptions(),...options});setShop0(window.StampShop.read());return out;}catch(e){toast&&toast(e.message);throw e;} };
     React.useEffect(()=>{const sync=()=>setShop0(window.StampShop.read());window.addEventListener('stamp-shop-change',sync);return()=>window.removeEventListener('stamp-shop-change',sync);},[]);
     React.useEffect(()=>{if(mode!=='shop')return;const sync=()=>window.StampShop.sync(shopOptions()).then(setShop0).catch(e=>toast&&toast(e.message));sync();const id=setInterval(sync,2000);return()=>clearInterval(id);},[mode]);
-    const [svPick, setSvPick] = useState(""), [shBusy, setShBusy] = useState(""), [shMeet, setShMeet] = useState(null), [winF, setWinF] = useState({ who: "", rar: "", q: "" }), [dpF, setDpF] = useState({ who: "", rar: "", q: "" }), [bgPost, setBgPost] = useState(""), [bgF, setBgF] = useState({ who: "", rar: "", q: "" });
+    const [dpWho, setDpWho] = useState({}), [svPick, setSvPick] = useState(""), [shBusy, setShBusy] = useState(""), [shMeet, setShMeet] = useState(null), [winF, setWinF] = useState({ who: "", rar: "", q: "" }), [dpF, setDpF] = useState({ who: "", rar: "", q: "" }), [bgPost, setBgPost] = useState(""), [bgF, setBgF] = useState({ who: "", rar: "", q: "" });
     // 挑卡的筛选条（橱窗、派遣共用，她 2026-11-08「派遣那页挑卡也加个筛选」）：搜卡名、按人、按稀有度
     const cardFilterHit = (f,k) => window.StampShop.filterCards([k],f).length>0;
     const cardFilterBar = (f,setF,wk,noWho,fit) => h(window.StampShopFilters,{characters,cards,filter:f,onChange:setF,wk,noWho,fit});
@@ -855,9 +855,11 @@
         const t = { id: "dp_" + now.toString(36), cardIds: dpPick.slice(), place: dpPlace, hours: dpHours, start: now, end: now + dpHours * 3600000, report: null };
         Dispatch.save(all.concat(t)); setDpPick([]); toast && toast("派去「" + dpPlace + "」了，" + dpHours + " 小时后回来"); dpBump(x => x + 1);
       };
+      // 谁来写见闻：默认票最多的那个人；队里有不同的人时可以点头像换（她 2026-11-09）
+      const teamOf = t => { const cnt = {}; t.cardIds.map(fullCard).filter(Boolean).forEach(c => { if (c.charId) cnt[c.charId] = (cnt[c.charId] || 0) + 1; }); return Object.keys(cnt).sort((a, b) => cnt[b] - cnt[a]); };
       const back = async t => {
-        if (dpBusy || !onChat) return; const cs = t.cardIds.map(fullCard).filter(Boolean), cnt = {}; cs.forEach(c => { if (c.charId) cnt[c.charId] = (cnt[c.charId] || 0) + 1; });
-        const who = Object.keys(cnt).sort((a, b) => cnt[b] - cnt[a])[0] || (characters || [])[0] && characters[0].id; if (!who) return; setDpBusy(t.id);
+        if (dpBusy || !onChat) return; const cs = t.cardIds.map(fullCard).filter(Boolean), team = teamOf(t);
+        const who = (dpWho[t.id] && team.includes(dpWho[t.id]) ? dpWho[t.id] : team[0]) || (characters || [])[0] && characters[0].id; if (!who) return; setDpBusy(t.id);
         try { const r = await onChat(who, { mode: "dispatch", place: t.place, hours: t.hours, cards: cs.map(story).join("\n"), with: Array.from(new Set(cs.map(c => nameOf(c.charId)).filter(Boolean))).join("、") });
           if (!r || !r.lines) { toast && toast("没写出来，再点一次试试"); return; }
           const pay = dispatchPay(t.hours);
@@ -884,7 +886,10 @@
                 h("div", { className: "flex items-center", style: { justifyContent: "space-between" } }, h("span", { style: { fontFamily: FD, fontSize: fz(14) } }, "去了「" + t.place + "」"), h("span", { style: { fontSize: fz(11.5), color: l ? SUB : GREEN } }, l ? "还要 " + fmt(l) : "回来了")),
                 h("div", { style: { fontSize: fz(11), color: SUB, margin: "2px 0 6px" } }, cs.map(c => (c.text && c.text.name) || "").join("、")),
                 l ? h("div", { style: { height: 4, borderRadius: 2, background: "rgba(47,42,34,.1)", overflow: "hidden" } }, h("div", { style: { width: Math.round(100 * (1 - l / (t.end - t.start))) + "%", height: "100%", background: C } }))
-                  : h("button", { "data-wk": "dueldispatchback", onClick: () => back(t), disabled: !!dpBusy, className: "w-full disabled:opacity-50", style: btn(C, "#fff") }, dpBusy === t.id ? "在写见闻…" : "看见闻（花一次调用）")); })) : null,
+                  : h("div", null, (() => { const team = teamOf(t); if (team.length < 2) return null; const cur = dpWho[t.id] && team.includes(dpWho[t.id]) ? dpWho[t.id] : team[0];
+                      return h("div", { "data-wk": "dueldispatchwho", className: "flex flex-wrap items-center", style: { gap: 6, marginBottom: 6 } }, h("span", { style: { fontSize: fz(11), color: SUB } }, "谁来写："),
+                        team.map(id => h("button", { key: id, "data-on": cur === id ? "1" : "0", onClick: () => setDpWho(m => Object.assign({}, m, { [t.id]: id })), style: { padding: "2px 10px", borderRadius: 999, border: "1px solid " + (cur === id ? C : "rgba(47,42,34,.22)"), background: cur === id ? "rgba(79,122,102,.1)" : "transparent", color: cur === id ? C : INK, fontSize: fz(11.5) } }, nameOf(id) || "TA"))); })(),
+                    h("button", { "data-wk": "dueldispatchback", onClick: () => back(t), disabled: !!dpBusy, className: "w-full disabled:opacity-50", style: btn(C, "#fff") }, dpBusy === t.id ? "在写见闻…" : "看见闻（花一次调用）"))); })) : null,
           active.length < 3 ? h("div", { "data-wk": "dueldispatchnew", style: secBox(C) },
             secTitle(C, "派", "派一队出去", "还能派 " + (3 - active.length) + " 队"),
             h("div", { style: { fontSize: fz(11.5), color: SUB, marginBottom: 4 } }, "去哪"),
