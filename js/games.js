@@ -755,7 +755,7 @@
       const c = lastCfg; if (!c) return;
       const ok = (c.charIds || []).filter(function (id) { return chars.some(function (x) { return x.id === id; }); });
       setMode(c.mode || "normal"); setPicked(ok); setNpcFill(c.npcFill !== false); setNpcWant(typeof c.npcCount === "number" ? c.npcCount : -1);
-      setInjectChat(!!c.injectChat); setCcSeat(c.ccSeat !== false); if (c.unoRule) setUnoRule(c.unoRule); if (c.mjMinFan != null) setMjMinFan(c.mjMinFan); if (c.mjHands) setMjHands(c.mjHands); setMjAutoDraw(!!c.mjAutoDraw); if (c.dateTheme) setDateTheme(c.dateTheme); if (c.gmkCasual) setGmkCasual(Object.assign({}, c.gmkCasual)); if (c.gmkBrain) setGmkBrain(c.gmkBrain); if (c.cardBrain) setCardBrain(c.cardBrain); if (c.bjDealer) setBjDealer(c.bjDealer); setPkTruth(!!c.pkTruth); if (c.drawBrain) setDrawBrain(c.drawBrain); if (c.q25Host) setQ25Host(c.q25Host); if (c.tetrisMode) setTetrisMode(c.tetrisMode); if (c.tetrisSkill) setTetrisSkill(c.tetrisSkill);
+      setInjectChat(!!c.injectChat); setCcSeat(c.ccSeat !== false); if (c.unoRule) setUnoRule(c.unoRule); if (c.mjMinFan != null) setMjMinFan(c.mjMinFan); if (c.mjHands) setMjHands(c.mjHands); setMjAutoDraw(!!c.mjAutoDraw); if (c.dateTheme) setDateTheme(c.dateTheme); if (c.gmkCasual) setGmkCasual(Object.assign({}, c.gmkCasual)); if (c.gmkBrain) setGmkBrain(c.gmkBrain); if (c.cardBrain) setCardBrain(c.cardBrain); if (c.bjDealer) setBjDealer(c.bjDealer); setPkTruth(!!c.pkTruth); if (c.drawBrain) setDrawBrain(c.drawBrain); if (c.q25Host) setQ25Host(c.q25Host); if (c.tetrisMode) setTetrisMode(c.tetrisMode); if (c.botSkill || c.tetrisSkill) setTetrisSkill(c.botSkill || c.tetrisSkill);
       if (c.gods) setGodSel(c.gods.slice()); if (c.wolfRole !== undefined) setWolfRole(c.wolfRole); if (c.winMode) setWinMode(c.winMode); if (c.av) setAvOpts(Object.assign({}, c.av));
       setStake(c.stake || "");
     };
@@ -836,6 +836,13 @@
                 h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.55, marginTop: 4 } }, desc));
             })),
           h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, marginTop: 6 } }, "TA 的态度会跟着变；除了「随便逛逛」，任务池还会多一张这种约会才有的任务。")) : null,
+        // 牌手水平（公共的一档）：手机替人出牌的那几桌都在这儿挑；俄罗斯方块那档还摆在它自己的模式下面（同一个值）
+        BOT_SKILL_GAMES.indexOf(game.key) >= 0 && game.key !== "tetris" && !(game.key === "uno" && cardBrain === "self") ? h("div", { "data-wk": "gamebotskill", style: { marginBottom: 20 } },
+          h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.ink, marginBottom: 8 } }, "牌手水平"),
+          h(Segmented, { t: t, value: tetrisSkill, onChange: setTetrisSkill, options: [{ key: "rookie", zh: "新手" }, { key: "normal", zh: "普通" }, { key: "pro", zh: "高手" }] }),
+          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, marginTop: 6, lineHeight: 1.6 } },
+            tetrisSkill === "rookie" ? "手机替他们出牌时常常出一张不那么好的，该碰该吃的也会看漏。" : tetrisSkill === "pro" ? "照最好的出，不失手。" : "大多照最好的出，偶尔失手。",
+            "管的是手机替人出的牌；角色说话照各自的人设。模式选「放水」时，他们对你还会再让一点。")) : null,
         game.key === "mahjong" ? h("div", { "data-wk": "gamemjrule", style: { marginBottom: 20 } },
           h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.ink, marginBottom: 8 } }, "几番起糊"),
           h(Segmented, { t: t, value: String(mjMinFan), onChange: function (v) { setMjMinFan(+v); }, options: [{ key: "0", zh: "鸡糊也能食" }, { key: "1", zh: "一番起" }, { key: "3", zh: "三番起" }] }),
@@ -997,7 +1004,7 @@
 
       // 底部开始
       h("div", { "data-wk": "gamestartbar", className: "shrink-0", style: { padding: "12px 18px calc(env(safe-area-inset-bottom) + 16px)", borderTop: "1px solid " + t.line } },
-        h("button", { "data-wk": "gamestart", onClick: function () { if (canStart) props.onStart({ mode: mode, charIds: picked.slice(), npcFill: npcFill, npcCount: needNpc, injectChat: injectChat, ccSeat: ccSeat, unoRule: game.key === "uno" ? unoRule : undefined, mjMinFan: game.key === "mahjong" ? mjMinFan : undefined, mjHands: game.key === "mahjong" ? mjHands : undefined, mjAutoDraw: game.key === "mahjong" ? mjAutoDraw : undefined, dateTheme: game.key === "date" ? dateTheme : undefined, gmkCasual: game.key === "gomoku" ? gmkCasual : undefined, gmkBrain: game.key === "gomoku" ? gmkBrain : undefined, boardTeach: ["chess", "xiangqi", "go", "jungle"].indexOf(game.key) >= 0 && !spectate ? boardTeach : undefined, goSize: game.key === "go" ? goSize : undefined, cardBrain: ["uno", "poker", "blackjack"].indexOf(game.key) >= 0 ? cardBrain : undefined, bjDealer: game.key === "blackjack" ? bjDealer : undefined, pkTruth: game.key === "poker" ? pkTruth : undefined, drawBrain: game.key === "draw" ? drawBrain : undefined, q25Host: game.key === "q25" ? q25Host : undefined, tetrisMode: game.key === "tetris" ? tetrisMode : undefined, tetrisSkill: game.key === "tetris" ? tetrisSkill : undefined, total: total, gods: isWolfGame ? effGods.slice() : undefined, wolfRole: isWolfGame ? wolfRole : undefined, winMode: isWolfGame ? winMode : undefined, av: isAvalonGame ? avOpts : undefined, stake: stake.trim() || undefined }); },
+        h("button", { "data-wk": "gamestart", onClick: function () { if (canStart) props.onStart({ mode: mode, charIds: picked.slice(), npcFill: npcFill, npcCount: needNpc, injectChat: injectChat, ccSeat: ccSeat, unoRule: game.key === "uno" ? unoRule : undefined, mjMinFan: game.key === "mahjong" ? mjMinFan : undefined, mjHands: game.key === "mahjong" ? mjHands : undefined, mjAutoDraw: game.key === "mahjong" ? mjAutoDraw : undefined, dateTheme: game.key === "date" ? dateTheme : undefined, gmkCasual: game.key === "gomoku" ? gmkCasual : undefined, gmkBrain: game.key === "gomoku" ? gmkBrain : undefined, boardTeach: ["chess", "xiangqi", "go", "jungle"].indexOf(game.key) >= 0 && !spectate ? boardTeach : undefined, goSize: game.key === "go" ? goSize : undefined, cardBrain: ["uno", "poker", "blackjack"].indexOf(game.key) >= 0 ? cardBrain : undefined, bjDealer: game.key === "blackjack" ? bjDealer : undefined, pkTruth: game.key === "poker" ? pkTruth : undefined, drawBrain: game.key === "draw" ? drawBrain : undefined, q25Host: game.key === "q25" ? q25Host : undefined, tetrisMode: game.key === "tetris" ? tetrisMode : undefined, tetrisSkill: game.key === "tetris" ? tetrisSkill : undefined, botSkill: BOT_SKILL_GAMES.indexOf(game.key) >= 0 ? tetrisSkill : undefined, total: total, gods: isWolfGame ? effGods.slice() : undefined, wolfRole: isWolfGame ? wolfRole : undefined, winMode: isWolfGame ? winMode : undefined, av: isAvalonGame ? avOpts : undefined, stake: stake.trim() || undefined }); },
           disabled: !canStart, className: "w-full active:opacity-80",
           style: { fontFamily: F_BODY, fontSize: "calc(15px * var(--app-fs, 1))", fontWeight: 700, color: "#f3efe6", background: canStart ? t.ink : t.line, borderRadius: 13, padding: "13px" } },
           spectate ? "开始观战" : "开始游戏")));
@@ -5193,7 +5200,13 @@
   }
   // 手机替一家出 UNO：罚牌能叠就叠；平时先出同色、下家快出完了就砸功能牌，万能牌留到最后；变色选手里最多的颜色
   function unoBestColor(hand) { const n = { R: 0, Y: 0, G: 0, B: 0 }; hand.forEach(function (c) { if (n[c.color] != null) n[c.color]++; }); return Object.keys(n).sort(function (a, b) { return n[b] - n[a]; })[0]; }
-  function unoLocalMove(state, rnd) {
+  // 牌手水平（她 2026-11-09「牌手水平也加上」）：手机替人出牌的那几桌共用一档——俄罗斯方块、UNO、斗地主、广东麻将。
+  //   新手常常出一张不那么好的、普通偶尔失手、高手照最好的出。存在 cfg.botSkill；俄罗斯方块以前存的 tetrisSkill 照认。
+  const BOT_SKILL = { rookie: { zh: "新手", slip: .4 }, normal: { zh: "普通", slip: .12 }, pro: { zh: "高手", slip: 0 } };
+  function botSkillOf(cfg) { const c = cfg || {}; return BOT_SKILL[c.botSkill] ? c.botSkill : BOT_SKILL[c.tetrisSkill] ? c.tetrisSkill : "normal"; }
+  function botSlip(cfg) { return BOT_SKILL[botSkillOf(cfg)].slip; }
+  const BOT_SKILL_GAMES = ["tetris", "uno", "doudizhu", "mahjong"];
+  function unoLocalMove(state, rnd, slip) {
     const r = rnd || Math.random, p = state.players[state.turn], top = state.discard[state.discard.length - 1];
     if (state.pendingDraw > 0) {
       const st = UnoCore.legalCodes(state), c = p.hand.find(function (x) { return st.indexOf(x.code) >= 0; });
@@ -5204,7 +5217,8 @@
     if (!cands.length) return { kind: state.drawnUid ? "pass" : "draw" };
     const L = state.players.length, next = state.players[((state.turn + state.direction) % L + L) % L];
     const score = function (c) { let s = r(); if (c.color === "W") s -= 4; if (c.color === state.color) s += 2; if (["D2", "S", "V", "W4"].indexOf(c.value) >= 0) s += next && next.hand.length <= 2 ? 6 : 1; return s; };
-    const c = cands.slice().sort(function (a, b) { return score(b) - score(a); })[0];
+    const ranked = cands.slice().sort(function (a, b) { return score(b) - score(a); });
+    const c = slip && ranked.length > 1 && r() < slip ? ranked[1 + Math.floor(r() * (ranked.length - 1))] : ranked[0];   // 失手：挑一张不是最好的
     return { kind: "play", uid: c.uid, color: unoBestColor(p.hand.filter(function (x) { return x.uid !== c.uid; })) || "R", uno: p.hand.length === 2 };
   }
   function unoPublic(state) {
@@ -5606,7 +5620,7 @@
   function TetrisGame(props) {
     const T = window.TetrisCore, t = props.t || {}, api = props.active, cfg = props.config || {};
     const versus = cfg.tetrisMode === "versus", coop = cfg.tetrisMode === "coop", easy = cfg.mode === "easy";
-    const sk = TET_SKILL[cfg.tetrisSkill] || TET_SKILL.normal;
+    const sk = TET_SKILL[botSkillOf(cfg)] || TET_SKILL.normal;
     const skill = easy ? sk.v * 0.75 : sk.v, aiMs = easy ? Math.round(sk.ms * 1.5) : sk.ms;
     const char = (props.characters || []).find(function (c) { return c.id === (cfg.charIds || [])[0]; }) || null;
     const pf = props.profile || {}, uName = pf.name || "你", cName = char ? (char.remark || char.name) : "TA";
@@ -7165,7 +7179,7 @@
       if (!current || current.isUser || state.status !== "playing" || busy || chatMode) return;
       const turnId = state.id + "#" + state.round + "#" + current.key + "#" + current.hand.length + "#" + (state.drawnUid || "-");
       if (running.current === turnId) return; running.current = turnId; setBusy(true); setError("");
-      if (cardLocal(cfg) && !current.engineer) { setTimeout(function () { try { const n = clone(); UnoCore.act(n, unoLocalMove(state)); setState(n); } catch (e) { setError(e.message); } running.current = ""; setBusy(false); }, 650); return; }
+      if (cardLocal(cfg) && !current.engineer) { setTimeout(function () { try { const n = clone(); UnoCore.act(n, unoLocalMove(state, null, botSlip(cfg))); setState(n); } catch (e) { setError(e.message); } running.current = ""; setBusy(false); }, 650); return; }
       const pendingStacks = state.pendingDraw > 0 ? UnoCore.legalCodes(state) : [];
       if (state.pendingDraw > 0 && !pendingStacks.length) {
         // 顶上是带记档的 +4 → 这一家可以质疑：接受还是赌一把由本人（模型 / CC）决定
@@ -8739,7 +8753,7 @@
       }
       if (state.phase === "discard" && state.turn !== meI) {
         const tm = setTimeout(function () {
-          act(function (n) { const a = M.botSelf(n, n.turn, soft && meI >= 0); if (a.kind === "discard") M.discard(n, n.turn, a.k); else M.selfAct(n, n.turn, a); });
+          act(function (n) { const a = M.botSelf(n, n.turn, soft && meI >= 0, botSlip(cfg)); if (a.kind === "discard") M.discard(n, n.turn, a.k); else M.selfAct(n, n.turn, a); });
         }, 650);
         return function () { clearTimeout(tm); };
       }
@@ -8747,7 +8761,7 @@
         const todo = Object.keys(state.claim.pending).map(Number).filter(function (j) { return j !== meI && !state.claim.decided[j]; });
         if (!todo.length) return;
         const tm = setTimeout(function () {
-          act(function (n) { todo.forEach(function (j) { if (n.claim) M.decide(n, j, M.botClaim(n, j, soft, n.claim.from === meI)); }); });
+          act(function (n) { todo.forEach(function (j) { if (n.claim) M.decide(n, j, M.botClaim(n, j, soft, n.claim.from === meI, botSlip(cfg))); }); });
         }, 380);
         return function () { clearTimeout(tm); };
       }
@@ -8875,8 +8889,8 @@
       setTimeout(function () {
         try {
           const n = clone();
-          if (state.phase === "bid") ddzBid(n, ddzNpcBid(state, state.bidTurn, softFor(state.bidTurn)));
-          else { try { ddzPlay(n, ddzNpcPlay(state, state.turn, softFor(state.turn))); } catch (e) { const n2 = clone(); ddzPlay(n2, ddzHint(state, state.turn)); setState(n2); running.current = ""; setBusy(false); return; } }
+          if (state.phase === "bid") ddzBid(n, ddzNpcBid(state, state.bidTurn, softFor(state.bidTurn) || Math.random() < botSlip(cfg)));
+          else { try { ddzPlay(n, ddzNpcPlay(state, state.turn, softFor(state.turn) || Math.random() < botSlip(cfg))); } catch (e) { const n2 = clone(); ddzPlay(n2, ddzHint(state, state.turn)); setState(n2); running.current = ""; setBusy(false); return; } }
           setState(n);
         } catch (e) { setError(e.message); }
         running.current = ""; setBusy(false);

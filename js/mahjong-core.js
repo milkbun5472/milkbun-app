@@ -289,25 +289,28 @@
     if (v === 0 || v === 8) w -= 0.6;
     return w;
   }
-  function botDiscard(st, i, soft) {
+  // slip：牌手水平（新手 .4／普通 .12／高手 0）——这么大的机会不打最没用那张，从最没用的三四张里随手拿一张
+  function botDiscard(st, i, soft, slip) {
     const p = st.players[i], c = counts(p.hand);
     const ranked = p.hand.map(k => ({ k, w: tileWorth(c, idx(k), st, i) })).sort((a, b) => a.w - b.w);
-    if (soft && ranked.length > 3 && Math.random() < 0.35) return ranked[Math.floor(Math.random() * 3)].k;
+    const miss = Math.max(soft ? 0.35 : 0, slip || 0);
+    if (miss && ranked.length > 3 && Math.random() < miss) return ranked[Math.floor(Math.random() * Math.min(4, ranked.length))].k;
     return ranked[0].k;
   }
   // 轮到自己：能自摸就摸，能杠就杠，不然打最没用的那张
-  function botSelf(st, i, soft) {
+  function botSelf(st, i, soft, slip) {
     const o = selfOptions(st, i);
     const z = o.find(x => x.kind === "zimo"); if (z) return { kind: "zimo" };
     const kg = o.find(x => x.kind === "ckong" || x.kind === "akong"); if (kg && !soft) return { kind: kg.kind, k: kg.k };
-    return { kind: "discard", k: botDiscard(st, i, soft) };
+    return { kind: "discard", k: botDiscard(st, i, soft, slip) };
   }
   // 别家打的：能糊就糊（放水的人对她打出来的那张不食）；字牌值钱的、或已经开了门的才碰；吃只在已经开门、而且吃完不拆对子时吃
-  function botClaim(st, i, soft, fromUser) {
+  function botClaim(st, i, soft, fromUser, slip) {
     const o = (st.claim && st.claim.pending[i]) || [];
     const p = st.players[i], k = st.claim && st.claim.k;
     if (o.some(x => x.kind === "ron") && !(soft && fromUser)) return { kind: "ron" };
     if (o.some(x => x.kind === "kong")) return { kind: "kong" };
+    if (slip && Math.random() < slip) return { kind: "pass" };   // 新手看漏：该碰该吃的没反应过来（能糊的照样糊）
     if (o.some(x => x.kind === "pong")) {
       const valued = isHonor(k) && (DRAGONS.indexOf(k) >= 0 || k === seatWindOf(st, i) || k === st.roundWind);
       const pairs = counts(p.hand).filter(n => n >= 2).length;

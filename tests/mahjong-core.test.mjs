@@ -57,3 +57,25 @@ assert.match(games, /if \(!\(moved \|\| said\.length\) \|\| !\(o\.ready \|\| sai
 assert.match(games, /ready: hot, every: spectate \? 16 : 28/);
 assert.ok((games.match(/userAct\(function/g) || []).length >= 9);
 console.log("mahjong talk ok");
+// 牌手水平（公共一档）：高手稳赢新手；四桌共用 botSlip，俄罗斯方块旧存档 tetrisSkill 照认
+{
+  const pts = [0, 0, 0, 0], slip = [0, 0.4, 0, 0.4];
+  for (let g = 0; g < 80; g++) {
+    const st = M.newGame([0, 1, 2, 3].map(i => ({ key: "p" + i, name: "P" + i })), { hands: 4 });
+    let guard = 0;
+    while (st.status === "playing" && guard++ < 4000) {
+      if (st.phase === "discard") { const a = M.botSelf(st, st.turn, false, slip[st.turn]); if (a.kind === "discard") M.discard(st, st.turn, a.k); else M.selfAct(st, st.turn, a); }
+      else if (st.phase === "claim") { for (const j of Object.keys(st.claim.pending)) { if (st.claim && !st.claim.decided[j]) M.decide(st, +j, M.botClaim(st, +j, false, false, slip[+j])); if (!st.claim) break; } }
+      else M.nextHand(st);
+    }
+    st.players.forEach((p, i) => { pts[i] += p.pts; });
+  }
+  assert.ok(pts[0] + pts[2] > pts[1] + pts[3], "高手赢新手");
+}
+assert.match(games, /const BOT_SKILL_GAMES = \["tetris", "uno", "doudizhu", "mahjong"\]/);
+assert.match(games, /unoLocalMove\(state, null, botSlip\(cfg\)\)/);
+assert.match(games, /ddzNpcPlay\(state, state\.turn, softFor\(state\.turn\) \|\| Math\.random\(\) < botSlip\(cfg\)\)/);
+assert.match(games, /M\.botSelf\(n, n\.turn, soft && meI >= 0, botSlip\(cfg\)\)/);
+assert.match(games, /TET_SKILL\[botSkillOf\(cfg\)\]/);
+assert.match(games, /"data-wk": "gamebotskill"/);
+console.log("bot skill ok");
