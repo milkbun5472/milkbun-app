@@ -948,28 +948,55 @@
     // 谁能在聊天里提集邮社（她 2026-11-08）：按人两个开关，默认全关
     // 店铺日记：按月翻，一天一页（谁上班、收了多少、来过谁、打烊全文和便条、来访对话）
     if (!st && mode === "shopdiary") {
+      // 店铺日记（她 2026-11-09「弄好看点」）：一本横线日记本——左边装订孔、顶上纸胶带、日期盖成邮戳，
+      //   谁上班是一排小名牌，收入是一枚圆章，打烊是正文，来访对话是夹进来的小信笺，便条贴在页尾
       const sh = window.StampShop.read(), days = window.StampShop.diary(sh);
       const monthOf = d => { const [y, m] = String(d.date).split("-"); return y && m ? y + " 年 " + Number(m) + " 月" : "更早"; };
       const months = Array.from(new Set(days.map(monthOf))), curM = months.includes(diaryM) ? diaryM : months[0];
-      const said = (turns, lines) => (Array.isArray(turns) && turns.length ? turns.map(t => (t.speakerId && nameOf(t.speakerId) ? nameOf(t.speakerId) + "：" : "") + t.text) : (lines || []));
-      const P = (t, k) => h("p", { key: k, style: { fontFamily: FD, fontSize: fz(13.5), lineHeight: 1.85, margin: "0 0 8px", whiteSpace: "pre-wrap" } }, BT(t));
-      const small = (k, t) => h("div", { key: k, style: { fontSize: fz(11.5), color: SUB, lineHeight: 1.7 } }, t);
+      const said = (turns, lines) => (Array.isArray(turns) && turns.length ? turns.map(t => ({ who: t.speakerId && nameOf(t.speakerId), text: t.text })) : (lines || []).map(t => ({ who: "", text: t })));
+      const BROWN = "#9a6a4a", RULE = "rgba(63,111,176,.13)", TAPE = ["rgba(214,170,120,.55)", "rgba(150,180,160,.55)", "rgba(190,150,170,.5)"];
+      const lineOf = (x, k) => h("p", { key: k, style: { fontFamily: FD, fontSize: fz(13.5), lineHeight: "28px", margin: 0, whiteSpace: "pre-wrap" } },
+        x.who ? h("span", { style: { color: BROWN, marginRight: 4 } }, x.who + "：") : null, BT(x.text));
+      const label = (t, color) => h("div", { style: { display: "flex", alignItems: "center", gap: 6, margin: "14px 0 4px", fontSize: fz(11), letterSpacing: ".2em", color: color || SUB } },
+        h("span", { style: { width: 14, height: 1, background: "currentColor", opacity: .5 } }), t, h("span", { style: { flex: 1, height: 1, background: "currentColor", opacity: .2 } }));
+      const wkDay = d => { const [y, m, dd] = String(d.date).split("-").map(Number); const t = new Date(y, m - 1, dd); return isNaN(t) ? "" : "周" + "日一二三四五六"[t.getDay()]; };
       return shell([
         h(Head, { key: "hd", zh: "店铺日记", bg: "transparent", ink: INK, onBack: () => setMode("shop") }),
-        h("div", { key: "bd", "data-wk": "duelshopdiary", className: "flex-1 min-h-0 overflow-y-auto px-4", style: { fontFamily: F, color: INK, paddingBottom: 24 } },
-          months.length > 1 ? h("div", { "data-wk": "duelshopdiarymonths", className: "flex overflow-x-auto", style: { gap: 6, margin: "6px 0 12px" } }, months.map(m => h("button", { key: m, "data-on": m === curM ? "1" : "0", onClick: () => setDiaryM(m), style: { flexShrink: 0, padding: "4px 12px", borderRadius: 999, border: "1px solid " + (m === curM ? "#9a6a4a" : "rgba(47,42,34,.2)"), background: m === curM ? "rgba(154,106,74,.12)" : "transparent", color: m === curM ? "#9a6a4a" : INK, fontSize: fz(12) } }, m))) : null,
-          days.filter(d => monthOf(d) === curM).map(d => {
+        h("div", { key: "bd", "data-wk": "duelshopdiary", className: "flex-1 min-h-0 overflow-y-auto px-4", style: { fontFamily: F, color: INK, paddingBottom: 28 } },
+          // 月份做成书签
+          months.length ? h("div", { "data-wk": "duelshopdiarymonths", className: "flex overflow-x-auto", style: { gap: 4, margin: "6px 0 0", paddingLeft: 26 } }, months.map(m => { const on = m === curM;
+            return h("button", { key: m, "data-on": on ? "1" : "0", onClick: () => setDiaryM(m), style: { flexShrink: 0, padding: on ? "7px 14px 9px" : "5px 12px 6px", marginTop: on ? 0 : 3, borderRadius: "6px 6px 0 0", background: on ? BROWN : "rgba(154,106,74,.16)", color: on ? "#fff8ec" : BROWN, fontFamily: FD, fontSize: fz(12.5), boxShadow: on ? "0 -2px 6px rgba(47,42,34,.12)" : "none" } }, m); })) : null,
+          days.filter(d => monthOf(d) === curM).map((d, di) => {
             const st0 = d.story, today = d.today, cast = (st0 && st0.cast) || (today && today.cast) || {}, served = (st0 && st0.served) || (today && today.served) || [], earned = st0 && st0.earned != null ? st0.earned : today ? today.earned : null;
-            const staff = Object.keys(cast).filter(p => cast[p]).map(p => (nameOf(cast[p]) || "店员") + "在" + p);
-            return h("div", { key: d.date, "data-wk": "duelshopdiaryday", style: { marginBottom: 16, padding: "14px 16px 10px", borderRadius: 4, background: PAPER, boxShadow: "0 3px 10px rgba(47,42,34,.14)", border: "1px solid rgba(154,106,74,.25)" } },
-              h("div", { style: { display: "flex", alignItems: "baseline", gap: 8, marginBottom: 6, borderBottom: "1px dashed rgba(154,106,74,.35)", paddingBottom: 6 } }, h("span", { style: { fontFamily: FD, fontSize: fz(17), color: "#9a6a4a" } }, d.date), h("span", { style: { fontSize: fz(11), color: SUB } }, "第 " + d.day + " 天")),
-              staff.length ? small("s", "上班：" + staff.join("、")) : null,
-              earned != null ? small("e", "收了 " + earned + " 枚邮花") : null,
-              served.length ? small("c", "来过：" + served.map(c => (c.charId ? nameOf(c.charId) : c.name) + (c.tough ? (c.won ? "（打赢了）" : "（没打过）") : "")).join("、")) : null,
-              st0 ? h("div", { key: "st", style: { marginTop: 10 } }, h("div", { style: { fontFamily: FD, fontSize: fz(13), color: INK, marginBottom: 4 } }, "打烊"), said(st0.turns, st0.lines).map(P), h(window.StampShopNotes, { notes: st0.notes || [], name: nameOf, font: FD, size: fz(12), titleSize: fz(11) })) : null,
-              d.visits.map((v, k) => h("div", { key: "v" + k, style: { marginTop: 10 } }, h("div", { style: { fontFamily: FD, fontSize: fz(13), color: "#9a6a4a", marginBottom: 4 } }, (v.period ? v.period + " · " : "") + (nameOf(v.visitorId) || "客人") + " 来店里，碰上 " + (nameOf(v.staffId) || "店员")), said(v.turns, v.lines).map(P))),
-              !st0 && !d.visits.length ? small("x", "这天没写打烊。") : null);
-          }))
+            const staff = Object.keys(cast).filter(p => cast[p]);
+            return h("div", { key: d.date, "data-wk": "duelshopdiaryday", style: { position: "relative", margin: di ? "22px 0 0" : "0", padding: "22px 16px 16px 34px", borderRadius: di ? 3 : "0 3px 3px 3px",
+                background: "linear-gradient(90deg, transparent 25px, rgba(178,58,46,.25) 25px 26px, transparent 26px), repeating-linear-gradient(" + PAPER + " 0 27px, " + RULE + " 27px 28px), " + PAPER,
+                backgroundPosition: "0 0, 0 14px, 0 0", boxShadow: "0 4px 14px rgba(47,42,34,.16), 0 1px 0 rgba(47,42,34,.06)" } },
+              // 装订孔
+              [0, 1, 2].map(k => h("span", { key: "h" + k, style: { position: "absolute", left: 8, top: 34 + k * 70, width: 10, height: 10, borderRadius: 99, background: "#e9dfca", boxShadow: "inset 0 1px 2px rgba(47,42,34,.35)" } })),
+              // 纸胶带
+              h("span", { style: { position: "absolute", top: -9, left: "42%", width: 74, height: 20, background: TAPE[di % 3], transform: "rotate(" + (di % 2 ? 3 : -4) + "deg)", boxShadow: "0 1px 2px rgba(47,42,34,.1)" } }),
+              // 日期邮戳 + 收入圆章
+              h("div", { style: { display: "flex", alignItems: "center", gap: 12, marginBottom: 4 } },
+                h("div", { style: { width: 62, height: 62, flexShrink: 0, borderRadius: 99, border: "2px solid " + BROWN, color: BROWN, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", transform: "rotate(-8deg)", fontFamily: FD, lineHeight: 1.1, boxShadow: "inset 0 0 0 3px " + PAPER + ", inset 0 0 0 4px rgba(154,106,74,.45)" } },
+                  h("span", { style: { fontSize: fz(9), letterSpacing: ".1em" } }, String(d.date).split("-").slice(0, 2).join(".")),
+                  h("span", { style: { fontSize: fz(20) } }, String(d.date).split("-")[2] || ""),
+                  h("span", { style: { fontSize: fz(9) } }, wkDay(d))),
+                h("div", { className: "flex-1", style: { minWidth: 0 } },
+                  h("div", { style: { fontFamily: FD, fontSize: fz(16), color: INK } }, "开店第 " + d.day + " 天"),
+                  served.length ? h("div", { style: { fontSize: fz(11), color: SUB, marginTop: 2 } }, "来过 " + served.length + " 位客人") : null),
+                earned != null ? h("div", { style: { flexShrink: 0, padding: "4px 9px", border: "1.5px dashed " + RED, color: RED, borderRadius: 4, transform: "rotate(4deg)", fontFamily: FD, fontSize: fz(12), textAlign: "center", lineHeight: 1.2 } }, h("div", { style: { fontSize: fz(9), letterSpacing: ".15em" } }, "收入"), earned + " 枚") : null),
+              staff.length ? h("div", { className: "flex flex-wrap", style: { gap: 5, marginTop: 6 } }, staff.map(p => h("span", { key: p, style: { padding: "1px 8px", borderRadius: 3, background: "rgba(79,122,102,.1)", border: "1px solid rgba(79,122,102,.3)", color: GREEN, fontSize: fz(11) } }, p + " · " + (nameOf(cast[p]) || "店员")))) : null,
+              served.length ? h("div", { style: { fontSize: fz(11.5), color: SUB, lineHeight: 1.7, marginTop: 6 } }, served.map(c => (c.charId ? nameOf(c.charId) : c.name) + (c.tough ? (c.won ? "（打赢了）" : "（没打过）") : "")).join(" · ")) : null,
+              st0 ? h("div", { key: "st" }, label("打烊", INK), said(st0.turns, st0.lines).map(lineOf), (st0.notes || []).length ? h("div", { style: { marginTop: 10 } }, h(window.StampShopNotes, { notes: st0.notes, name: nameOf, font: FD, size: fz(12), titleSize: fz(11) })) : null) : null,
+              d.visits.map((v, k) => h("div", { key: "v" + k },
+                label((v.period ? v.period + " · " : "") + "来访", BROWN),
+                h("div", { style: { position: "relative", padding: "10px 12px 10px 14px", margin: "4px 0 0", background: "#fffdf6", borderLeft: "3px solid " + BROWN, boxShadow: "0 2px 6px rgba(47,42,34,.1)", transform: "rotate(" + (k % 2 ? .4 : -.4) + "deg)" } },
+                  h("div", { style: { fontSize: fz(11), color: BROWN, marginBottom: 4, fontFamily: FD } }, (nameOf(v.visitorId) || "客人") + " 来店里，碰上 " + (nameOf(v.staffId) || "店员")),
+                  said(v.turns, v.lines).map(lineOf)))),
+              !st0 && !d.visits.length ? h("div", { style: { marginTop: 12, fontFamily: FD, fontSize: fz(12.5), color: SUB, fontStyle: "italic" } }, "这天没写打烊。") : null);
+          }),
+          days.length ? h("div", { style: { textAlign: "center", margin: "18px 0 0", fontSize: fz(11), color: SUB, letterSpacing: ".3em" } }, "· · ·") : h("div", { style: { marginTop: 30, textAlign: "center", color: SUB, fontSize: fz(12.5) } }, "还没有写过的日子。打烊写一段、或者听一回来访对话，就会记在这儿。"))
       ]);
     }
     if (!st && mode === "chatlink") {
