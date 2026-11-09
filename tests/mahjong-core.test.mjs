@@ -29,3 +29,19 @@ assert.match(games, /session\.game\.key === "mahjong" && window\.MahjongCore\) r
 assert.match(idx, /js\/mahjong-core\.js\?v=/);
 assert.ok(idx.indexOf("mahjong-core.js") < idx.indexOf('data-src="js/games.js'));
 console.log("mahjong ok");
+// 她点牌墙摸牌：轮到她停在 draw，点了才摸；桌子正中那块牌墙就是按钮
+{
+  const st = M.newGame([{ key: "user", name: "我", isUser: true }, { key: "a", name: "a" }, { key: "b", name: "b" }, { key: "c", name: "c" }], { handDraw: true });
+  let g = 0, draws = 0;
+  while (st.status === "playing" && g++ < 5000) {
+    if (st.phase === "draw") { assert.equal(st.turn, 0); M.drawTile(st, 0); draws++; }
+    else if (st.phase === "discard") { const a = M.botSelf(st, st.turn); if (a.kind === "discard") M.discard(st, st.turn, a.k); else M.selfAct(st, st.turn, a); }
+    else if (st.phase === "claim") { for (const j of Object.keys(st.claim.pending)) { if (st.claim && !st.claim.decided[j]) M.decide(st, +j, M.botClaim(st, +j)); if (!st.claim) break; } }
+    else M.nextHand(st);
+  }
+  assert.ok(draws > 5 && st.status === "finished");
+}
+assert.match(games, /function MjTable\(props\)/);
+assert.match(games, /"data-wk": "gamemjwall", onClick: canDraw \? props\.onDraw/);
+assert.match(games, /handDraw: !cfg\.mjAutoDraw/);
+console.log("mahjong table ok");
