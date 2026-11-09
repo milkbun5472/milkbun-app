@@ -1,8 +1,10 @@
-import {furnitureSeat} from '../fairy-garden/day/home-catalog.mjs?v=fg-16914e0f39f01666';
+import {furnitureSeat} from '../fairy-garden/day/home-catalog.mjs?v=fg-f1dad9727add9f99';
 
 // Scene facts only: the same chair/bench definitions feed geometry and TA's
 // shared furnitureSeat. The shop only adds an unobstructed walking approach.
 export const SHOP_FLOOR=.08;
+export const SHOP_COUNTER={x:-1.45,z:1.15,y:.84,w:3.93,h:.12,d:1.04,color:'#b48c62'};
+export const COUNTER_SURFACE=SHOP_COUNTER.y+SHOP_COUNTER.h/2;
 export const SHOP_CHAIR={id:'WindowStool',kind:'chair',x:3,z:-.6,w:.56,d:.6,seat:.45,color:'#899a7f'};
 export const SHOP_BENCH={id:'Decor:bench',kind:'bench',x:2.7,z:-2.6,w:2.25,d:.65,seat:.45,color:'#769084'};
 export const SHOP_CUSHIONS=[0,1].map(i=>({x:2.2+i*.9,y:.58,z:-2.58,w:.75,h:.09,d:.48,color:i?'#d4bd8b':'#bd906d'}));

@@ -1,10 +1,12 @@
 import * as T from 'three';
-import {NPC_COSTUMES} from './npc-appearance.mjs?v=fg-16914e0f39f01666';
-import {createNpcTailoring} from './npc-tailoring.mjs?v=fg-16914e0f39f01666';
-import {CLOTH_WAIST,CLOTH_HEM} from './npc-fit.mjs?v=fg-16914e0f39f01666';
+import {NPC_COSTUMES} from './npc-appearance.mjs?v=fg-f1dad9727add9f99';
+import {createNpcTailoring} from './npc-tailoring.mjs?v=fg-f1dad9727add9f99';
+import {addNpcFeatures} from './npc-features.mjs?v=fg-f1dad9727add9f99';
+import {CLOTH_WAIST,CLOTH_HEM} from './npc-fit.mjs?v=fg-f1dad9727add9f99';
 // Each identity is assembled from sewn, shaped pattern pieces. The front and
 // back are real cloth surfaces; only their weave and small prints are painted.
-export function makeNpcCostume(model,style='postcard'){
+export function makeNpcCostume(model,style='postcard',look={}){
+ const type=({rare_ghost:'postman',rare_rainman:'traveler',rare_kid:'child',rare_collector:'professor',rare_snow:'traveler'})[style]||style;
  const d=NPC_COSTUMES[style]||NPC_COSTUMES.postcard,k=createNpcTailoring(model,style),{loft,panel,line,ball,box,button,pocket,collar,sleeve,trousers,shoes,headBall,headLine,headMesh}=k;
  const cream='#ece0c9',stitch='#d7c6a7',brass='#b49a65';
  const torso=(name,color,{open=false,long=false,pattern='linen',loose=0}={})=>k.fitted(name,color,{minY:long?.235:CLOTH_HEM,maxY:.704,maxArm:.42,open,offset:.004+(open?.003:0)+loose*.15,pattern,drapeFrom:CLOTH_WAIST});
@@ -19,31 +21,66 @@ export function makeNpcCostume(model,style='postcard'){
   if(paint){for(const [x,y,c]of [[-.02,.53,'#ac7461'],[.102,.276,'#829c9a'],[-.11,.385,'#bea365']]){panel('SmallPaintMark',[[x-.008,y+.012],[x+.005,y+.009],[x+.012,y-.009],[x-.002,y-.015]],c,{z:.174,bulge:0,pattern:'plain',thickness:.0004});}pocket('BrushPocket',.015,.535,.052,.054,color,.174);for(let i=0;i<3;i++){const x=.001+i*.014;line('BrushHandle',[[x,.522,.19],[x-.009,.61+i*.009,.19]],'#8d704c',.0025);ball('BrushBristles',x-.01,.62+i*.009,.19,.0035,.009,.0035,['#806a53','#9a6f50','#7a8b76'][i]);}}
   if(flowers){for(const [x,y,c]of [[-.1,.34,'#d8a399'],[-.07,.355,'#e0c787'],[.085,.344,'#c8b1c5']]){line('EmbroideredStem',[[x+.009,y-.028,.189],[x,y,.19]],'#788d67',.0012);for(let a=0;a<5;a++)ball('StitchedFlower',x+Math.sin(a*1.256)*.006,y+Math.cos(a*1.256)*.006,.192,.0035,.0045,.0015,c);ball('FlowerCentre',x,y,.195,.0025,.0025,.001,'#d2b878');}}
  }
- function uniformHat(){headBall('PeakedCapCrown',0,1.205,-.009,.187,.065,.171,d.cloth);headBall('CapBand',0,1.167,0,.185,.019,.17,d.bottom);headBall('ShortLeatherPeak',0,1.148,.135,.171,.012,.11,d.bottom,'leather');headLine('HatPiping',Array.from({length:25},(_,i)=>{const a=i/24*Math.PI*2;return [Math.sin(a)*.183,1.177,Math.cos(a)*.169];}),d.trim,.0025);headBall('CapEmblem',0,1.18,.17,.014,.014,.004,brass,'plain');for(const s of [-1,1])headLine('PeakCord',[[s*.14,1.164,.105],[s*.08,1.159,.158],[0,1.16,.17]],d.trim,.002);}
- function beret(){headBall('WoolBeret',-.02,1.205,-.012,.207,.066,.18,d.trim,'knit');headLine('BeretRim',Array.from({length:25},(_,i)=>{const a=i/24*Math.PI*2;return [Math.sin(a)*.177-.018,1.17,Math.cos(a)*.153];}),d.bottom,.005);headLine('BeretStem',[[-.027,1.26,-.01],[-.024,1.277,-.006]],d.trim,.006);}
- function sunHat(){const brim=k.grid(4,40,(u,v)=>{const a=u*Math.PI*2,r=.14+v*.125;return [Math.sin(a)*r,1.154+.012*v*Math.sin(a*2)-.012*v*v,Math.cos(a)*r*.88];},[3,1]);headMesh('WovenSunHatBrim',brim,d.trim);headBall('SunHatCrown',0,1.205,-.01,.156,.078,.148,d.cloth);headLine('HatBand',Array.from({length:25},(_,i)=>{const a=i/24*Math.PI*2;return [Math.sin(a)*.155,1.18,Math.cos(a)*.147-.01];}),d.bottom,.009);headLine('BoundBrim',Array.from({length:41},(_,i)=>{const a=i/40*Math.PI*2;return [Math.sin(a)*.265,1.142+.012*Math.sin(a*2),Math.cos(a)*.233];}),d.cloth,.003);}
- function spectacles(){for(const x of [-.065,.065]){const g=new T.TorusGeometry(.044,.0035,6,24);g.translate(x,.94,.179);headMesh('RoundSpectacles',g,'#827059','plain');}headLine('SpectacleBridge',[[-.02,.943,.181],[0,.95,.185],[.02,.943,.181]],'#827059',.002);for(const s of [-1,1])headLine('SpectacleTemple',[[s*.108,.943,.17],[s*.137,.947,.10],[s*.14,.935,.055]],'#827059',.002);}
- trousers(d.bottom,{roll:['student','painter','florist','child','postcard'].includes(style)});shoes(['student','child'].includes(style)?'#81745e':'#695849');
- if(style==='granny'){
+ function uniformHat(){if(['strawHat','sun'].includes(look.npcFeature))return;headBall('PeakedCapCrown',0,1.205,-.009,.187,.065,.171,d.cloth);headBall('CapBand',0,1.167,0,.185,.019,.17,d.bottom);headBall('ShortLeatherPeak',0,1.148,.135,.171,.012,.11,d.bottom,'leather');headLine('HatPiping',Array.from({length:25},(_,i)=>{const a=i/24*Math.PI*2;return [Math.sin(a)*.183,1.177,Math.cos(a)*.169];}),d.trim,.0025);headBall('CapEmblem',0,1.18,.17,.014,.014,.004,brass,'plain');for(const s of [-1,1])headLine('PeakCord',[[s*.14,1.164,.105],[s*.08,1.159,.158],[0,1.16,.17]],d.trim,.002);}
+ function beret(){if(['strawHat','sun'].includes(look.npcFeature))return;headBall('WoolBeret',-.02,1.205,-.012,.207,.066,.18,d.trim,'knit');headLine('BeretRim',Array.from({length:25},(_,i)=>{const a=i/24*Math.PI*2;return [Math.sin(a)*.177-.018,1.17,Math.cos(a)*.153];}),d.bottom,.005);headLine('BeretStem',[[-.027,1.26,-.01],[-.024,1.277,-.006]],d.trim,.006);}
+ let sunMade=false;
+ function sunHat(){if(sunMade)return;sunMade=true;const hatTrim=['strawHat','sun'].includes(look.npcFeature)?'#d4bd8a':d.trim,hatCloth=['strawHat','sun'].includes(look.npcFeature)?'#bba071':d.cloth;const brim=k.grid(4,40,(u,v)=>{const a=u*Math.PI*2,r=.14+v*.125;return [Math.sin(a)*r,1.154+.012*v*Math.sin(a*2)-.012*v*v,Math.cos(a)*r*.88];},[3,1]);headMesh('WovenSunHatBrim',brim,hatTrim);headBall('SunHatCrown',0,1.205,-.01,.156,.078,.148,hatCloth);headLine('HatBand',Array.from({length:25},(_,i)=>{const a=i/24*Math.PI*2;return [Math.sin(a)*.155,1.18,Math.cos(a)*.147-.01];}),d.bottom,.009);headLine('BoundBrim',Array.from({length:41},(_,i)=>{const a=i/40*Math.PI*2;return [Math.sin(a)*.265,1.142+.012*Math.sin(a*2),Math.cos(a)*.233];}),hatCloth,.003);}
+ let glassesMade=false;
+ function spectacles(){if(glassesMade)return;glassesMade=true;for(const x of [-.065,.065]){const g=new T.TorusGeometry(.044,.0035,6,24);g.translate(x,.855,.179);headMesh('RoundSpectacles',g,'#827059','plain');}headLine('SpectacleBridge',[[-.02,.858,.181],[0,.865,.185],[.02,.858,.181]],'#827059',.002);for(const s of [-1,1])headLine('SpectacleTemple',[[s*.108,.858,.17],[s*.137,.862,.10],[s*.14,.85,.055]],'#827059',.002);}
+ trousers(d.bottom,{roll:['student','painter','florist','child','postcard'].includes(type)});shoes(['student','child'].includes(type)?'#81745e':'#695849');
+ if(type==='granny'){
   blouse(cream,{arms:false});torso('KnittedCardigan',d.cloth,{open:true,pattern:'knit',loose:.006});for(const s of [-1,1])sleeve(s,d.cloth,{pattern:'knit',puff:true});collar(cream,{rounded:true});for(const y of [.41,.47,.53])button(.025,y,.15,'#d8c5a3',.005);for(const s of [-1,1])pocket('CardiganPatchPocket',s*.098,.413,.06,.055,d.cloth,null);loft('PleatedFloralSkirt',[[.135,.205,.15],[.16,.206,.15],[.27,.173,.137],[.375,.146,.112]],d.bottom,{pleat:.009,pattern:'flowers',uv:[2.7,1.7]});loft('SkirtHemBinding',[[.135,.207,.151],[.145,.208,.152]],'#c0a1a8',{uv:[3,.1]});spectacles();
- }else if(style==='student'){
+ }else if(type==='student'){
   blouse(cream,{arms:false});jacket(d.cloth,{pockets:false});collar(cream);ribHem(d.bottom);for(const side of [-1,1])pocket('JacketWeltPocket',side*.09,.419,.064,.031,d.cloth,null);bag('#b9a17c');
- }else if(style==='painter'){
+ }else if(type==='painter'){
   blouse(d.cloth,{puff:true});collar(cream,{rounded:true});apron('#b29c77',{paint:true});beret();
- }else if(style==='traveler'){
+ }else if(type==='traveler'){
   blouse(cream,{arms:false});jacket(d.cloth,{long:true});collar(d.cloth);bag('#9c815c',{large:true,map:true});sunHat();
- }else if(style==='florist'){
+ }else if(type==='florist'){
   blouse(cream,{puff:true});collar(cream,{rounded:true});apron('#7f9981',{flowers:true});
- }else if(style==='child'){
+ }else if(type==='child'){
   blouse(d.cloth,{pattern:'stripes',puff:true});loft('SoftRibbedNeck',[[.68,.079,.073],[.694,.074,.069]],d.trim,{pattern:'knit',uv:[1,.18]});ribHem(d.cloth);pocket('SmallSweaterPocket',.087,.48,.065,.07,d.cloth,null);
- }else if(style==='postman'||style==='inspector'){
-  blouse(cream,{arms:false});torso('ServiceJacket',d.cloth,{long:style==='inspector',loose:.009});for(const s of [-1,1])sleeve(s,d.cloth);collar(d.cloth);placket(d.cloth,.15);for(const s of [-1,1])pocket('FlappedUniformPocket',s*.085,.545,.068,.067,d.cloth,null,{flap:true});for(const s of [-1,1])pocket('UniformHipPocket',s*.092,.37,.068,.055,d.cloth,null,{flap:true});uniformHat();
-  if(style==='postman'){bag('#b5986e',{large:true});spectacles();panel('EnvelopeBadge',[[-.092,.612],[-.064,.612],[-.064,.593],[-.092,.593]],'#d9c58f',{z:.125,bulge:0,pattern:'plain',thickness:.001});line('EnvelopeFold',[[-.091,.611,.13],[-.078,.602,.131],[-.065,.611,.13]],'#8c7953',.0008);}
+ }else if(type==='postman'||type==='inspector'){
+  blouse(cream,{arms:false});torso('ServiceJacket',d.cloth,{long:type==='inspector',loose:.009});for(const s of [-1,1])sleeve(s,d.cloth);collar(d.cloth);placket(d.cloth,.15);for(const s of [-1,1])pocket('FlappedUniformPocket',s*.085,.545,.068,.067,d.cloth,null,{flap:true});for(const s of [-1,1])pocket('UniformHipPocket',s*.092,.37,.068,.055,d.cloth,null,{flap:true});uniformHat();
+  if(type==='postman'){bag('#b5986e',{large:true});spectacles();panel('EnvelopeBadge',[[-.092,.612],[-.064,.612],[-.064,.593],[-.092,.593]],'#d9c58f',{z:.125,bulge:0,pattern:'plain',thickness:.001});line('EnvelopeFold',[[-.091,.611,.13],[-.078,.602,.131],[-.065,.611,.13]],'#8c7953',.0008);}
   else{loft('LeatherUniformBelt',[[.386,.177,.143],[.407,.176,.142]],'#605c50',{pattern:'leather',uv:[2,.1]});box('BeltBuckle',0,.398,.15,.032,.025,.005,brass,{pattern:'plain',radius:.003});panel('OfficerBadge',[[-.098,.612],[-.073,.612],[-.073,.59],[-.085,.582],[-.098,.59]],brass,{z:.128,bulge:0,pattern:'plain',thickness:.003});}
- }else if(style==='rival'){
+ }else if(type==='rival'){
   blouse(cream);torso('BurgundyWaistcoat',d.cloth,{open:true,loose:.006});lapels(d.cloth);for(const y of [.37,.43,.49])button(.031,y,.151,brass,.005);for(const s of [-1,1])pocket('WaistcoatWelt',s*.09,.415,.06,.027,d.cloth,null);line('PocketWatchChain',[[.049,.45,.166],[.063,.421,.169],[.091,.418,.168],[.111,.44,.163]],brass,.0018);collar(cream);
+ }else if(type==='baker'){
+  blouse(cream);collar(cream);apron(d.cloth);headBall('BakersCapBand',0,1.18,0,.18,.025,.16,cream);headBall('BakersSoftCap',-.025,1.225,0,.2,.075,.17,cream);for(const side of [-1,1])line('WheatEmbroidery',[[side*.09,.5,.186],[side*.085,.56,.185]],'#ded0a7',.002);
+ }else if(type==='teacher'){
+  blouse(cream,{arms:false});torso('TeachersCardigan',d.cloth,{open:true,pattern:'knit'});for(const side of [-1,1])sleeve(side,d.cloth,{pattern:'knit'});collar(cream,{rounded:true});loft('TeachersPleatedSkirt',[[.15,.215,.163],[.35,.177,.143],[.375,.176,.142]],d.bottom,{pleat:.005});pocket('ChalkPocket',-.085,.52,.07,.075,d.cloth);box('Ruler',-.09,.557,.14,.019,.1,.005,'#d1b57f');for(const y of [.535,.55,.565])line('RulerMark',[[-.096,y,.146],[-.087,y,.146]],'#8a7756',.0008);
+ }else if(type==='tuner'){
+  blouse(cream);torso('TuningWaistcoat',d.cloth,{open:true});collar(cream);for(const y of [.4,.46,.52])button(.028,y,.15,brass);box('BowTie',0,.647,.13,.07,.022,.017,d.bottom);for(const x of [.065,.085])line('TuningFork',[[x,.53,.145],[x,.59,.145]],'#b2aca0',.003);line('ForkHandle',[[.075,.49,.145],[.075,.55,.145]],'#b2aca0',.003);bag('#756657');
+ }else if(type==='nurse'){
+  blouse(d.cloth);torso('NursingDress',d.cloth,{long:true});collar(cream,{rounded:true});placket(cream);for(const side of [-1,1])pocket('NursePocket',side*.09,.41,.075,.065,cream);headBall('NurseCap',0,1.19,0,.17,.04,.14,cream);headBall('NurseCapCrossA',0,1.19,.14,.022,.007,.003,'#b96e68','plain');headBall('NurseCapCrossB',0,1.19,.142,.007,.022,.003,'#b96e68','plain');box('NurseWatchClip',-.1,.55,.14,.022,.03,.008,brass,{pattern:'plain'});
+ }else if(type==='bookseller'){
+  blouse(cream);collar(cream);apron(d.cloth);pocket('BookshopBadge',-.06,.575,.07,.027,d.trim,.18);for(let i=0;i<3;i++)box('PocketBook',.085,.36+i*.015,.19,.072,.012,.04,['#92755a','#889686','#a37165'][i],{radius:.001});
+ }else if(type==='fisher'){
+  blouse(cream,{arms:false});jacket(d.cloth,{long:true});collar(d.cloth);k.fitted('WaterproofWaders',d.bottom,{maxY:.28,maxArm:.2,offset:.011,pattern:'leather'});for(const side of [-1,1])line('WaderBinding',[[side*.09,.28,.09],[side*.13,.28,.0],[side*.09,.28,-.09]],d.trim,.006);headBall('FishingBeanie',0,1.2,-.01,.181,.056,.163,d.bottom,'knit');for(const side of [-1,1])pocket('FishingTacklePocket',side*.095,.4,.075,.07,d.bottom,null,{flap:true});
+ }else if(type==='watchmaker'){
+  blouse(d.trim,{short:true});collar(cream);apron(d.cloth);for(const x of [-.08,.04]){const g=new T.TorusGeometry(.018,.003,5,16);g.translate(x,.44,.187);k.mesh('WatchGear',g,brass,'plain');for(let i=0;i<8;i++)box('GearTooth',x+Math.sin(i*Math.PI/4)*.022,.44+Math.cos(i*Math.PI/4)*.022,.187,.008,.008,.005,brass,{pattern:'plain',radius:.001});}spectacles();
+ }else if(type==='photographer'){
+  blouse(cream,{short:true});torso('PhotographersVest',d.cloth,{open:true});collar(cream);for(const side of [-1,1])for(const y of [.42,.53])pocket('PhotoVestPocket',side*.095,y,.068,.073,d.cloth,null,{flap:true});box('CameraBody',0,.49,.185,.12,.075,.06,'#5a5b58',{pattern:'leather'});ball('CameraLens',0,.48,.233,.034,.034,.018,'#343e43',{pattern:'plain',metal:.25});line('CameraNeckStrap',[[-.06,.67,.07],[-.09,.58,.16],[-.045,.51,.2]],'#775f4f',.008);line('CameraOtherStrap',[[.06,.67,.07],[.09,.58,.16],[.045,.51,.2]],'#775f4f',.008);
+ }else if(type==='professor'){
+  blouse(cream);torso('TweedWaistcoat',d.cloth,{open:true,pattern:'check'});lapels(d.cloth);collar(cream);for(const y of [.39,.45,.51])button(.03,y,.15,brass);pocket('WatchPocket',.09,.43,.06,.025,d.cloth);line('AcademicWatchChain',[[.045,.45,.167],[.07,.419,.17],[.11,.432,.165]],brass,.002);if(style!=='rare_collector')spectacles();
+ }else if(type==='courier'){
+  blouse(d.cloth);collar(d.trim);placket(d.cloth);for(const side of [-1,1])pocket('CourierUtilityPocket',side*.09,.51,.07,.09,d.bottom,null,{flap:true});uniformHat();box('CourierDeliveryPatch',-.08,.61,.132,.06,.025,.003,d.trim);for(const side of [-1,1])pocket('CargoLegPocket',side*.13,.26,.055,.075,d.bottom,.08,{flap:true});bag('#9b7957');
+ }else if(type==='chef'){
+  blouse(d.cloth);collar(d.trim);for(const x of [-.038,.038])for(const y of [.4,.46,.52,.58])button(x,y,.15,'#79796d',.004);headBall('ChefsHatBand',0,1.17,0,.17,.028,.152,d.trim);for(let i=0;i<5;i++)headBall('ChefsPleatedToque',(i-2)*.048,1.245+Math.sin(i*.7)*.012,0,.063,.092,.145,d.trim);loft('ChefWaistApron',[[.22,.179,.14],[.4,.17,.14]],'#d0c3a7');
+ }else if(type==='neighbor'){
+  blouse(d.cloth,{pattern:'check',short:true});collar(cream);placket(d.cloth);pocket('NeighborsPocket',-.08,.54,.075,.08,d.cloth);loft('EverydayBelt',[[.345,.172,.132],[.36,.173,.133]],'#8e785b',{pattern:'leather'});for(const side of [-1,1])pocket('CasualHipPocket',side*.1,.3,.06,.06,d.bottom,.08);
+ }else if(type==='international'){
+  blouse(cream,{arms:false});jacket(d.cloth);collar(cream);for(const side of [-1,1])line('CollegeJacketStripe',[[side*.044,.55,.15],[side*.044,.39,.15]],d.trim,.006);panel('UniversityPatch',[[-.11,.61],[-.063,.61],[-.067,.562],[-.09,.55],[-.11,.565]],d.trim,{z:.13});bag('#8b775e',{large:true});
+ }else if(type==='newlywed'){
+  blouse(d.cloth,{puff:true});collar(d.trim,{rounded:true});loft('NewlywedPleatedSkirt',[[.15,.22,.16],[.35,.177,.143],[.375,.176,.142]],d.bottom,{pleat:.008});for(let i=0;i<5;i++)headBall('BridalFlower',.14+Math.sin(i*1.256)*.017,1.11+Math.cos(i*1.256)*.017,.04,.013,.013,.007,d.trim);headLine('BridalRibbon',[[.15,1.08,.04],[.17,1.01,.02],[.14,.96,.01]],d.cloth,.007);
+ }else if(type==='rare_author'){
+  blouse(d.cloth,{pattern:'knit'});loft('WoolNeckband',[[.68,.078,.074],[.70,.071,.067]],d.trim,{pattern:'knit'});ribHem(d.bottom);for(const side of [-1,1])pocket('WritersCardiganPocket',side*.09,.4,.07,.07,d.cloth);for(let i=0;i<4;i++)headLine('UnrulyHair',[[i*.035-.055,1.16,.03],[i*.035-.04,1.25,0],[i*.035-.01,1.22,-.04]],look.hairColor||'#5e4d40',.018);
+ }else if(type==='rare_bride'){
+  blouse(d.cloth,{short:true,puff:true});torso('WeddingBodice',d.cloth);loft('WeddingDressSkirt',[[.045,.30,.235],[.12,.28,.22],[.26,.21,.17],[.39,.177,.143]],d.cloth,{pleat:.004,uv:[4,2]});loft('LaceHem',[[.04,.306,.24],[.06,.307,.24]],d.trim,{pattern:'flowers'});loft('BridalWaistRibbon',[[.38,.158,.136],[.397,.159,.137]],'#deccb2');const veil=k.grid(10,16,(u,v)=>[(u-.5)*(.28+.22*Math.sqrt(v)),1.19-v*.59+.012*Math.sin(u*Math.PI*8)*v,-.10-v*.055+.014*Math.cos(u*Math.PI*6)*v]);const v=headMesh('WeddingVeil',veil,d.trim,'plain');v.material=v.material.clone();v.material.transparent=true;v.material.opacity=.42;v.material.depthWrite=false;for(let i=0;i<7;i++)headBall('WeddingFlowerCrown',(i-3)*.041,1.19,.035,.023,.019,.022,d.trim);
  }else{
-  blouse(d.cloth,{pattern:style==='refund'?'check':'linen'});collar(cream);placket(d.cloth);pocket('ShirtChestPocket',-.079,.538,.071,.072,d.cloth,null,{flap:style==='refund'});if(style==='postcard'){box('PocketPostcard',-.077,.568,.133,.046,.045,.003,'#e8dcc1',{pattern:'plain',radius:.001});for(const y of [.57,.578])line('PostcardWriting',[[-.094,y,.137],[-.066,y,.137]],'#95a29a',.0007);}
+  blouse(d.cloth,{pattern:type==='refund'?'check':'linen'});collar(cream);placket(d.cloth);pocket('ShirtChestPocket',-.079,.538,.071,.072,d.cloth,null,{flap:type==='refund'});if(type==='postcard'){box('PocketPostcard',-.077,.568,.133,.046,.045,.003,'#e8dcc1',{pattern:'plain',radius:.001});for(const y of [.57,.578])line('PostcardWriting',[[-.094,y,.137],[-.066,y,.137]],'#95a29a',.0007);}
  }
+ addNpcFeatures(k,d,look,{sunHat,spectacles,jacket,collar,strap});
  k.finish();return {id:k.id};
 }

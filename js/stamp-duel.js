@@ -637,8 +637,18 @@
   const shopSkillBonus = days => 0.05 * Math.log2(1 + Math.max(0, days || 0) / 4);
   const shopSkillOf = (shop, id, post) => ((shop && shop.skill) || {})[id + "|" + post] || 0;
   // 新面孔：几个词库拼出来，够多就不会撞
-  const FACE_ADJ = ["戴草帽的", "穿雨靴的", "总迟到的", "背画板的", "拎鸟笼的", "说方言的", "戴圆眼镜的", "骑旧单车的", "围红围巾的", "牵柴犬的", "抱着猫的", "穿制服的", "拄拐杖的", "扎双马尾的", "提着保温桶的", "满身面粉的", "拿着地图的", "戴耳机的", "穿西装的", "晒得很黑的"];
-  const FACE_WHO = ["老太太", "高中生", "画家", "花匠", "面包师", "退休邮差", "小学老师", "调音师", "夜班护士", "书店店员", "渔夫", "修表匠", "摄影师", "教授", "快递员", "厨子", "邻居大叔", "留学生", "新婚的姑娘", "小男孩"];
+  // One vocabulary supplies both the name generator and the 3D wardrobe.
+  const FACE_FEATURES = Object.freeze([['戴草帽的','strawHat'],['穿雨靴的','rainBoots'],['总迟到的','late'],['背画板的','drawingBoard'],['拎鸟笼的','birdcage'],['说方言的','clothBag'],['戴圆眼镜的','glasses'],['骑旧单车的','bicycle'],['围红围巾的','scarf'],['牵柴犬的','shiba'],['抱着猫的','heldCat'],['穿制服的','uniform'],['拄拐杖的','cane'],['扎双马尾的','pigtails'],['提着保温桶的','thermos'],['满身面粉的','flour'],['拿着地图的','map'],['戴耳机的','headphones'],['穿西装的','suit'],['晒得很黑的','sun']].map(([word,id])=>Object.freeze({word,id})));
+  const FACE_IDENTITIES = Object.freeze([['老太太','granny'],['高中生','student'],['画家','painter'],['花匠','florist'],['面包师','baker'],['退休邮差','postman'],['小学老师','teacher'],['调音师','tuner'],['夜班护士','nurse'],['书店店员','bookseller'],['渔夫','fisher'],['修表匠','watchmaker'],['摄影师','photographer'],['教授','professor'],['快递员','courier'],['厨子','chef'],['邻居大叔','neighbor'],['留学生','international'],['新婚的姑娘','newlywed'],['小男孩','child']].map(([word,style])=>Object.freeze({word,style})));
+  const FACE_ADJ = FACE_FEATURES.map(x=>x.word), FACE_WHO = FACE_IDENTITIES.map(x=>x.word);
+  const SHOP_NPC_STYLES = ['granny','student','painter','traveler','florist','child','postman'], SHOP_TOUGH_STYLES = ['inspector','rival','refund'];
+  function shopAppearance(customer) {
+    const c=customer||{},name=String(c.name||''),rare=RARE_GUESTS.find(r=>r.id===c.rareId);
+    if(rare)return {style:'rare_'+rare.id,feature:null,rareId:rare.id,species:rare.id==='cat'?'cat':'person'};
+    const who=FACE_IDENTITIES.find(w=>name.endsWith(w.word)),feature=FACE_FEATURES.find(f=>name.startsWith(f.word));
+    const fixed=SHOP.NPC.findIndex(n=>n[0]===name),tough=SHOP.TOUGH.findIndex(n=>n[0]===name);
+    return {style:who?.style||(fixed>=0?SHOP_NPC_STYLES[fixed]:tough>=0?SHOP_TOUGH_STYLES[tough]:'postcard'),feature:feature?.id||null,rareId:null,species:'person'};
+  }
   const FACE_WANT = [["寄一包家乡的特产", 9, "送信"], ["加急寄一份合同", 12, "送信"], ["给远方的笔友寄信", 6, "送信"], ["寄一大箱旧书", 11, "分拣"], ["理一摞攒了半年的信", 8, "分拣"], ["寄一卷画和几封信", 10, "分拣"], ["问寄到国外要多少钱", 7, "柜台"], ["零钱不够，想先寄一半", 5, "柜台"], ["买一整版纪念邮票", 9, "柜台"], ["想挑一张好看的卡送人", 8, "卡"], ["给孩子挑一张生日卡", 7, "卡"]];
   const shopNewFace = R => { const w = FACE_WANT[Math.floor(R() * FACE_WANT.length)]; return [FACE_ADJ[Math.floor(R() * FACE_ADJ.length)] + FACE_WHO[Math.floor(R() * FACE_WHO.length)], w[0], w[1], w[2]]; };
   // 熟客的小事：交情每到一档冒一件，用完从头再来（换着人来，读着不重复）
@@ -1137,7 +1147,7 @@
   const mine = raw => (st, who, a, b) => { if (who !== "me") return raw(st, who, a, b); snap(st); const r = raw(st, who, a, b); if (!r || !r.ok) st.undo.pop(); return r; };
   const place = mine(placeRaw), tear = mine(tearRaw), move = mine(moveRaw), keep = mine(keepRaw), stamp = mine(stampRaw);
   const API = { RELICS, STYLE_ZH, TRAIT_FIT, TRAITS, SKILLS, BONDS, bondOf, unitInfo, SIZE, SLOTS, ENVELOPE_HP, POSTAGE, DRAW, DECK_SIZE, TURN_CAP, KEEP_MAX, FACE, NEED, ROLES, MARKS, TERRAIN, EVENTS,
-    stampOf, deckFrom, foeDeckFrom, shopDecorOf, shopUpPrice, SHOP, SHOP_PERIODS, shopPeriod, SHOP_WIN, shopWinSlots, shopWinBonus, shopApt, shopMul, SHOP_BADGE, SHOP_BADGE_FIT, shopBadgeFit, shopBadgeBonus, shopNeedZh, shopCardFits, SHOP_THANKS, hitUnit, healUnits, simSend, shopRepLv, shopRepLeft, shopRepBonus, shopSkillTitle, shopSkillOf, shopSkillBonus, shopOrders, shopOrderZh, shopRegStory, shopNewFace, shopPrice, shopHint, RARE_GUESTS, shopCustomers, autoMe, PUZZLE_MAX, puzzleOf, pzSolve, PATROL, TA_CELLS, TA_PTS, patrolNew, patrolCan, patrolMove, patrolBattle, patrolAfter, weekNo, SHIFT, shiftNew, shiftRoll, shiftPrice, shiftBuy, shiftSell, shiftDeck, shiftBonds, shiftFoeLv, shiftAfter, EDICTS, EDICT_LV, edictDeck, RAID_TURNS, MATS, BASE_MATS, THEME_MAT, KEEP_FX, KEEP_MAX_SLOTS, keepFxOf, keepTier, matDrop, SIEGE_TIERS, newDuel, envFor, avgLv, fairDeck, aims, actsOf, previewPlace, place, tear, move, keep, stamp, undo, canUndo, endTurn, planFoe, combos, newSeries, addGame, memoryLine, hashStr };
+    stampOf, deckFrom, foeDeckFrom, shopDecorOf, shopUpPrice, SHOP, SHOP_PERIODS, shopPeriod, SHOP_WIN, shopWinSlots, shopWinBonus, shopApt, shopMul, SHOP_BADGE, SHOP_BADGE_FIT, shopBadgeFit, shopBadgeBonus, shopNeedZh, shopCardFits, SHOP_THANKS, hitUnit, healUnits, simSend, shopRepLv, shopRepLeft, shopRepBonus, shopSkillTitle, shopSkillOf, shopSkillBonus, shopOrders, shopOrderZh, shopRegStory, shopNewFace, shopPrice, shopHint, FACE_ADJ, FACE_WHO, FACE_FEATURES, FACE_IDENTITIES, shopAppearance, RARE_GUESTS, shopCustomers, autoMe, PUZZLE_MAX, puzzleOf, pzSolve, PATROL, TA_CELLS, TA_PTS, patrolNew, patrolCan, patrolMove, patrolBattle, patrolAfter, weekNo, SHIFT, shiftNew, shiftRoll, shiftPrice, shiftBuy, shiftSell, shiftDeck, shiftBonds, shiftFoeLv, shiftAfter, EDICTS, EDICT_LV, edictDeck, RAID_TURNS, MATS, BASE_MATS, THEME_MAT, KEEP_FX, KEEP_MAX_SLOTS, keepFxOf, keepTier, matDrop, SIEGE_TIERS, newDuel, envFor, avgLv, fairDeck, aims, actsOf, previewPlace, place, tear, move, keep, stamp, undo, canUndo, endTurn, planFoe, combos, newSeries, addGame, memoryLine, hashStr };
   g.StampDuel = API;
   if (typeof module !== "undefined" && module.exports) module.exports = API;
 })(typeof window !== "undefined" ? window : globalThis);
