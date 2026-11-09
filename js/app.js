@@ -5051,7 +5051,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     if (memExtractInflightRef.current[charId]) return 0;
     memExtractInflightRef.current[charId] = true;
     try {
-      const existing = memLibRef.current.filter(e => memShareChar([charId], e.charIds)).slice(0, 40).map(e => e.text).filter(Boolean);
+      const existing = memExtractAvoidList(memLibRef.current.filter(e => memShareChar([charId], e.charIds)), msgs.map(m => (m && m.content) || "").join("\n"), 40);
       // openEntries 保序，编号即下标+1；喂给模型的是带编号的文本
       const openEntries = memLibRef.current.filter(e => e.open && e.text && memShareChar([charId], e.charIds)).slice(0, 30); // 编号必须与 RepairGate 的 openEntries 严格同序
       const openList = openEntries.map(e => e.text);
@@ -10267,7 +10267,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     const memberIds = (group.memberIds || []).slice();
     const members = memberIds.map(id => characters.find(c => c.id === id)).filter(Boolean);
     try {
-      const existing = memLibRef.current.filter(e => memShareChar(memberIds, e.charIds)).slice(0, 40).map(e => e.text).filter(Boolean);
+      const existing = memExtractAvoidList(memLibRef.current.filter(e => memShareChar(memberIds, e.charIds)), win.map(m => (m && m.content) || "").join("\n"), 40);
       const openEntries = memLibRef.current.filter(e => e.open && e.text && memShareChar(memberIds, e.charIds)).slice(0, 30);
       const rawItems = await extractGroupMemories(bgActiveRef.current, ctxForGroupOffline(group), win, members, { existing, openList: openEntries.map(e => e.text) });
       const items = (rawItems || []).map(it => window.MemoryExtractionGate && window.MemoryExtractionGate.normalizeEvidence ? window.MemoryExtractionGate.normalizeEvidence(it, win) : it);
@@ -18452,7 +18452,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     const memberIds = (group.memberIds || []).slice();
     const members = memberIds.map(id => characters.find(c => c.id === id)).filter(Boolean);
     try {
-      const existing = memLibRef.current.filter(e => memShareChar(memberIds, e.charIds)).slice(0, 40).map(e => e.text).filter(Boolean);
+      const existing = memExtractAvoidList(memLibRef.current.filter(e => memShareChar(memberIds, e.charIds)), win.map(m => (m && m.content) || "").join("\n"), 40);
       const openEntries = memLibRef.current.filter(e => e.open && e.text && memShareChar(memberIds, e.charIds)).slice(0, 30);
       const rawItems = await extractGroupMemories(bgActiveRef.current, { members, profile, rels, chars: characters }, win, members,
         { existing: existing, openList: openEntries.map(e => e.text) });

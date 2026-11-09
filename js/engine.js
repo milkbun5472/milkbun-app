@@ -4694,6 +4694,23 @@ function copyMemoryRecallMeta(from, to) {
 function memoryVisibleTo(e, charId) { return Array.isArray(e.knownBy)
     ? e.knownBy.indexOf(charId) > -1
     : (!e.charIds || e.charIds.length === 0 || e.charIds.includes(charId)); }
+// 抽记忆前给模型看的「这些记过了」（她 2026-11-09）：原来只给最新 40 条，两个月前记过的事模型不知道，
+//   换个说法又记一遍。改成：最近的几条 + 跟这段对话最沾边的那些，一共不超过 n 条。
+//   只拿关键词打分（跟召回同一把尺子），不碰向量、不算「被想起」，不改任何条目。
+function memExtractAvoidList(rows, convText, n) {
+  n = n || 40;
+  const list = (rows || []).filter(e => e && e.text && !e.archived && (e.surfaceState || "active") === "active");
+  if (list.length <= n) return list.map(e => e.text);
+  const recentN = Math.min(12, n);
+  const recent = list.slice(0, recentN);
+  const qTokens = memTokens(String(convText || "").slice(-6000));
+  const now = Date.now();
+  const rel = list.slice(recentN).map(e => { const w = explainMemEntry(e, qTokens, now, null, ""); return { e, k: w.keyword, s: w.score }; })
+    .filter(x => x.k > 0).sort((a, b) => b.s - a.s).slice(0, n - recentN).map(x => x.e);
+  const out = recent.concat(rel);
+  if (out.length < n) list.slice(recentN).forEach(e => { if (out.length < n && out.indexOf(e) < 0) out.push(e); });
+  return out.map(e => e.text);
+}
 function retrieveMemories(lib, charId, queryText, opts = {}) {
   const limit = opts.limit || 6;
   const associationLimit = opts.associationLimit == null ? 1 : Math.max(0, Number(opts.associationLimit) || 0);
