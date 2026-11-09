@@ -250,3 +250,8 @@ test("删掉没人认领的卡（SSR 也行），不给印泥", () => {
   assert.equal(r.n, 1); assert.deepEqual(r.keys, ["img_a"]);
   const s2 = C.load(); assert.equal(s2.ink, 0); assert.deepEqual(s2.cards.map(c => c.id), ["b"]);
 });
+test("卡在「在写」好久的卡也能熔", () => {
+  const C = fresh();
+  assert.ok(C.meltable({ rarity: "SR", writing: true, writingTs: Date.now() - 10 * 60000 }));
+  assert.ok(!C.meltable({ rarity: "SR", writing: true, writingTs: Date.now() }));
+});
