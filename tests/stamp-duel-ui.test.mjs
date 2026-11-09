@@ -172,7 +172,7 @@ test("邮局值班页：柜台、值班卡组、开打、回柜台，进度存�
 test("挑战陪打：挑谁陪、聊天找陪打的人、帮我看看、打完评一把、值班柜台问买哪张；局面全给", () => {
   assert.match(ui, /"data-wk": "duelcoachpick"/);
   assert.equal((ui.match(/coachPick\(\),/g) || []).length, 8);
-  assert.match(ui, /talkId = st\.story \? st\.story\.charId : chal \? coachId : foeId/);
+  assert.match(ui, /mateId = st\.story \? st\.story\.charId : st\.relay \? st\.relay\.ta : coachId;[\s\S]*talkId = chal \? mateId : foeId, talkName = chal \? \(nameOf\(mateId\)/);
   assert.match(ui, /mode: ask === "review" \? "coachreview" : "coach", text, board: coachBoard\(\)/);
   assert.match(ui, /"data-wk": "duelcoachask"/);
   assert.match(ui, /"data-wk": "duelshiftcoach"/);
