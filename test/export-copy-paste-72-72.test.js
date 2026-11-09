@@ -48,7 +48,9 @@ test("复制那一份不带图，而且太大了要先说一声", () => {
   assert.match(app, /这么大就别走剪贴板了/, "真到天花板的时候没说清该走哪条路");
   assert.match(cp, /这么大就别走剪贴板了/, "太大的时候没当面说，她只会以为又坏了");
   // 不带图这件事必须写在脸上，不许悄悄少图
-  assert.match(app, /只有文字：角色、聊天、记忆、手机、情侣空间这些；⚠️不含图片和自拍/);
+  // ⚠️2026-11-09 这句话跟着攒包那一段搬去了 js/backup-pack.js（判据没变：不许悄悄少图）
+  const pack = require("node:fs").readFileSync(require("node:path").join(__dirname, "..", "js", "backup-pack.js"), "utf8");
+  assert.match(pack, /只有文字：角色、聊天、记忆、手机、情侣空间这些；⚠️不含图片和自拍/);
   assert.match(screens, /不含图片和自拍/, "界面上没说这一份没带图");
   // ⚠️最要命的一条：拿这份不含图的备份去恢复，绝不许把本机的图清空
   const imp = app.slice(app.indexOf("const doImportText = "), app.indexOf("// ---- routing ----"));
