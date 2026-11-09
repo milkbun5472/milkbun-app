@@ -223,6 +223,7 @@
   const FX_CSS = "@keyframes duelPulse{0%,100%{opacity:.95}50%{opacity:.45}}@keyframes duelHit{0%{transform:translateX(0)}20%{transform:translateX(-4px)}40%{transform:translateX(4px)}60%{transform:translateX(-3px)}100%{transform:translateX(0)}}"
     + "@keyframes duelFloat{0%{opacity:0;transform:translate(-50%,0) scale(.8)}20%{opacity:1;transform:translate(-50%,-6px) scale(1.15)}100%{opacity:0;transform:translate(-50%,-26px) scale(1)}}"
     + "@keyframes duelGlow{0%{box-shadow:0 0 0 0 rgba(255,207,107,.0)}40%{box-shadow:0 0 14px 5px rgba(255,207,107,.95)}100%{box-shadow:0 0 0 0 rgba(255,207,107,0)}}"
+    + "@keyframes diaryOlder{0%{transform:perspective(900px) rotateY(-35deg) translateX(30px);opacity:0}100%{transform:none;opacity:1}}@keyframes diaryNewer{0%{transform:perspective(900px) rotateY(35deg) translateX(-30px);opacity:0}100%{transform:none;opacity:1}}"
     + "@keyframes duelSweep{0%{transform:translate(-120%,-50%) skewX(-12deg);opacity:0}14%{transform:translate(-50%,-50%) skewX(-12deg);opacity:1}78%{transform:translate(-46%,-50%) skewX(-12deg);opacity:1}100%{transform:translate(130%,-50%) skewX(-12deg);opacity:0}}"
     + "@keyframes duelSweepTxt{0%{letter-spacing:.6em;opacity:0}20%{letter-spacing:.08em;opacity:1}100%{letter-spacing:.02em}}"
     + "@keyframes duelShine{0%{left:-40%}100%{left:140%}}"
@@ -533,7 +534,7 @@
     const shopAct = async (action, options = {}) => { try { const out=await window.StampShop.run(action,{...shopOptions(),...options});setShop0(window.StampShop.read());return out;}catch(e){toast&&toast(e.message);throw e;} };
     React.useEffect(()=>{const sync=()=>setShop0(window.StampShop.read());window.addEventListener('stamp-shop-change',sync);return()=>window.removeEventListener('stamp-shop-change',sync);},[]);
     React.useEffect(()=>{if(mode!=='shop')return;const sync=()=>window.StampShop.sync(shopOptions()).then(setShop0).catch(e=>toast&&toast(e.message));sync();const id=setInterval(sync,2000);return()=>clearInterval(id);},[mode]);
-    const [diaryM, setDiaryM] = useState(""), [dpWho, setDpWho] = useState({}), [svPick, setSvPick] = useState(""), [shBusy, setShBusy] = useState(""), [shMeet, setShMeet] = useState(null), [winF, setWinF] = useState({ who: "", rar: "", q: "" }), [dpF, setDpF] = useState({ who: "", rar: "", q: "" }), [bgPost, setBgPost] = useState(""), [bgF, setBgF] = useState({ who: "", rar: "", q: "" });
+    const [diaryD, setDiaryD] = useState(""), [diaryFlip, setDiaryFlip] = useState(""), diaryX = useRef(0), [dpWho, setDpWho] = useState({}), [svPick, setSvPick] = useState(""), [shBusy, setShBusy] = useState(""), [shMeet, setShMeet] = useState(null), [winF, setWinF] = useState({ who: "", rar: "", q: "" }), [dpF, setDpF] = useState({ who: "", rar: "", q: "" }), [bgPost, setBgPost] = useState(""), [bgF, setBgF] = useState({ who: "", rar: "", q: "" });
     // 挑卡的筛选条（橱窗、派遣共用，她 2026-11-08「派遣那页挑卡也加个筛选」）：搜卡名、按人、按稀有度
     const cardFilterHit = (f,k) => window.StampShop.filterCards([k],f).length>0;
     const cardFilterBar = (f,setF,wk,noWho,fit) => h(window.StampShopFilters,{characters,cards,filter:f,onChange:setF,wk,noWho,fit});
@@ -955,7 +956,10 @@
       //   谁上班是一排小名牌，收入是一枚圆章，打烊是正文，来访对话是夹进来的小信笺，便条贴在页尾
       const sh = window.StampShop.read(), days = window.StampShop.diary(sh);
       const monthOf = d => { const [y, m] = String(d.date).split("-"); return y && m ? y + " 年 " + Number(m) + " 月" : "更早"; };
-      const months = Array.from(new Set(days.map(monthOf))), curM = months.includes(diaryM) ? diaryM : months[0];
+      // 一天一页翻着看（她 2026-11-09「像日记一样翻页、可以选天看」）：diaryD 是正翻着的那天；换月翻到那月最新一天
+      const curDay = days.find(d => d.date === diaryD) || days[0], curM = curDay ? monthOf(curDay) : "", months = Array.from(new Set(days.map(monthOf)));
+      const at = days.indexOf(curDay), go = k => { const d = days[at + k]; if (d) { setDiaryFlip(k > 0 ? "older" : "newer"); setDiaryD(d.date); } };
+      const swipe = { onTouchStart: e => { diaryX.current = e.touches[0].clientX; }, onTouchEnd: e => { const dx = e.changedTouches[0].clientX - (diaryX.current || 0); if (Math.abs(dx) > 60) go(dx < 0 ? 1 : -1); } };
       const said = (turns, lines) => (Array.isArray(turns) && turns.length ? turns.map(t => ({ who: t.speakerId && nameOf(t.speakerId), text: t.text })) : (lines || []).map(t => ({ who: "", text: t })));
       const BROWN = "#9a6a4a", RULE = "rgba(63,111,176,.13)", TAPE = ["rgba(214,170,120,.55)", "rgba(150,180,160,.55)", "rgba(190,150,170,.5)"];
       const lineOf = (x, k) => h("p", { key: k, style: { fontFamily: FD, fontSize: fz(13.5), lineHeight: "28px", margin: 0, whiteSpace: "pre-wrap" } },
@@ -968,13 +972,17 @@
         h("div", { key: "bd", "data-wk": "duelshopdiary", className: "flex-1 min-h-0 overflow-y-auto px-4", style: { fontFamily: F, color: INK, paddingBottom: 28 } },
           // 月份做成书签
           months.length ? h("div", { "data-wk": "duelshopdiarymonths", className: "flex overflow-x-auto", style: { gap: 4, margin: "6px 0 0", paddingLeft: 26 } }, months.map(m => { const on = m === curM;
-            return h("button", { key: m, "data-on": on ? "1" : "0", onClick: () => setDiaryM(m), style: { flexShrink: 0, padding: on ? "7px 14px 9px" : "5px 12px 6px", marginTop: on ? 0 : 3, borderRadius: "6px 6px 0 0", background: on ? BROWN : "rgba(154,106,74,.16)", color: on ? "#fff8ec" : BROWN, fontFamily: FD, fontSize: fz(12.5), boxShadow: on ? "0 -2px 6px rgba(47,42,34,.12)" : "none" } }, m); })) : null,
-          days.filter(d => monthOf(d) === curM).map((d, di) => {
+            return h("button", { key: m, "data-on": on ? "1" : "0", onClick: () => { const d = days.find(x => monthOf(x) === m); if (d) { setDiaryFlip(""); setDiaryD(d.date); } }, style: { flexShrink: 0, padding: on ? "7px 14px 9px" : "5px 12px 6px", marginTop: on ? 0 : 3, borderRadius: "6px 6px 0 0", background: on ? BROWN : "rgba(154,106,74,.16)", color: on ? "#fff8ec" : BROWN, fontFamily: FD, fontSize: fz(12.5), boxShadow: on ? "0 -2px 6px rgba(47,42,34,.12)" : "none" } }, m); })) : null,
+          // 这个月的每一天：一排小日子，点哪天翻到哪天
+          curDay ? h("div", { "data-wk": "duelshopdiarydays", className: "flex overflow-x-auto", style: { gap: 6, padding: "8px 2px 10px 26px", background: "rgba(154,106,74,.08)" } }, days.filter(d => monthOf(d) === curM).slice().reverse().map(d => { const on = d === curDay, n = String(d.date).split("-")[2];
+            return h("button", { key: d.date, "data-on": on ? "1" : "0", onClick: () => { setDiaryFlip(days.indexOf(d) > at ? "older" : "newer"); setDiaryD(d.date); }, style: { flexShrink: 0, width: 34, height: 34, borderRadius: 99, border: "1.5px solid " + (on ? BROWN : "rgba(154,106,74,.35)"), background: on ? BROWN : PAPER, color: on ? "#fff8ec" : BROWN, fontFamily: FD, fontSize: fz(13), position: "relative" } }, n,
+              d.story ? h("span", { style: { position: "absolute", right: -1, top: -1, width: 7, height: 7, borderRadius: 99, background: on ? "#f0c86e" : RED } }) : null); })) : null,
+          [curDay].filter(Boolean).map((d, di) => {
             const st0 = d.story, today = d.today, cast = (st0 && st0.cast) || (today && today.cast) || {}, served = (st0 && st0.served) || (today && today.served) || [], earned = st0 && st0.earned != null ? st0.earned : today ? today.earned : null;
             const staff = Object.keys(cast).filter(p => cast[p]);
-            return h("div", { key: d.date, "data-wk": "duelshopdiaryday", style: { position: "relative", margin: di ? "22px 0 0" : "0", padding: "22px 16px 16px 34px", borderRadius: di ? 3 : "0 3px 3px 3px",
+            return h("div", Object.assign({ key: d.date, "data-wk": "duelshopdiaryday" }, swipe, { style: { animation: diaryFlip ? (diaryFlip === "older" ? "diaryOlder" : "diaryNewer") + " .38s ease-out" : "none", transformOrigin: diaryFlip === "older" ? "left center" : "right center", position: "relative", margin: di ? "22px 0 0" : "0", padding: "22px 16px 16px 34px", borderRadius: di ? 3 : "0 3px 3px 3px",
                 background: "linear-gradient(90deg, transparent 25px, rgba(178,58,46,.25) 25px 26px, transparent 26px), repeating-linear-gradient(" + PAPER + " 0 27px, " + RULE + " 27px 28px), " + PAPER,
-                backgroundPosition: "0 0, 0 14px, 0 0", boxShadow: "0 4px 14px rgba(47,42,34,.16), 0 1px 0 rgba(47,42,34,.06)" } },
+                backgroundPosition: "0 0, 0 14px, 0 0", boxShadow: "0 4px 14px rgba(47,42,34,.16), 0 1px 0 rgba(47,42,34,.06)" } }),
               // 装订孔
               [0, 1, 2].map(k => h("span", { key: "h" + k, style: { position: "absolute", left: 8, top: 34 + k * 70, width: 10, height: 10, borderRadius: 99, background: "#e9dfca", boxShadow: "inset 0 1px 2px rgba(47,42,34,.35)" } })),
               // 纸胶带
@@ -990,7 +998,7 @@
                   served.length ? h("div", { style: { fontSize: fz(11), color: SUB, marginTop: 2 } }, "来过 " + served.length + " 位客人") : null),
                 earned != null ? h("div", { style: { flexShrink: 0, padding: "4px 9px", border: "1.5px dashed " + RED, color: RED, borderRadius: 4, transform: "rotate(4deg)", fontFamily: FD, fontSize: fz(12), textAlign: "center", lineHeight: 1.2 } }, h("div", { style: { fontSize: fz(9), letterSpacing: ".15em" } }, "收入"), earned + " 枚") : null),
               staff.length ? h("div", { className: "flex flex-wrap", style: { gap: 5, marginTop: 6 } }, staff.map(p => h("span", { key: p, style: { padding: "1px 8px", borderRadius: 3, background: "rgba(79,122,102,.1)", border: "1px solid rgba(79,122,102,.3)", color: GREEN, fontSize: fz(11) } }, p + " · " + (nameOf(cast[p]) || "店员")))) : null,
-              served.length ? h("div", { style: { fontSize: fz(11.5), color: SUB, lineHeight: 1.7, marginTop: 6 } }, served.map(c => (c.charId ? nameOf(c.charId) : c.name) + (c.tough ? (c.won ? "（打赢了）" : "（没打过）") : "")).join(" · ")) : null,
+              served.length ? h("div", { style: { fontSize: fz(11.5), color: SUB, lineHeight: 1.7, marginTop: 6 } }, served.map(c => (c.charId ? nameOf(c.charId) : c.name || "点名要明信片的客人") + (c.tough ? (c.won ? "（打赢了）" : "（没打过）") : "")).join(" · ")) : null,
               st0 ? h("div", { key: "st" }, label("打烊", INK), said(st0.turns, st0.lines).map(lineOf), (st0.notes || []).length ? h("div", { style: { marginTop: 10 } }, h(window.StampShopNotes, { notes: st0.notes, name: nameOf, font: FD, size: fz(12), titleSize: fz(11) })) : null) : null,
               d.visits.map((v, k) => h("div", { key: "v" + k },
                 label((v.period ? v.period + " · " : "") + "来访", BROWN),
@@ -999,7 +1007,10 @@
                   said(v.turns, v.lines).map(lineOf)))),
               !st0 && !d.visits.length ? h("div", { style: { marginTop: 12, fontFamily: FD, fontSize: fz(12.5), color: SUB, fontStyle: "italic" } }, "这天没写打烊。") : null);
           }),
-          days.length ? h("div", { style: { textAlign: "center", margin: "18px 0 0", fontSize: fz(11), color: SUB, letterSpacing: ".3em" } }, "· · ·") : h("div", { style: { marginTop: 30, textAlign: "center", color: SUB, fontSize: fz(12.5) } }, "还没有写过的日子。打烊写一段、或者听一回来访对话，就会记在这儿。"))
+          days.length ? h("div", { "data-wk": "duelshopdiarynav", className: "flex items-center", style: { justifyContent: "space-between", margin: "14px 2px 0", fontFamily: FD } },
+            h("button", { onClick: () => go(-1), disabled: at <= 0, className: "disabled:opacity-30", style: { padding: "6px 12px", color: BROWN, fontSize: fz(13) } }, "‹ 后一天"),
+            h("span", { style: { fontSize: fz(11), color: SUB } }, (at + 1) + " / " + days.length),
+            h("button", { onClick: () => go(1), disabled: at >= days.length - 1, className: "disabled:opacity-30", style: { padding: "6px 12px", color: BROWN, fontSize: fz(13) } }, "前一天 ›")) : h("div", { style: { marginTop: 30, textAlign: "center", color: SUB, fontSize: fz(12.5) } }, "还没有写过的日子。打烊写一段、或者听一回来访对话，就会记在这儿。"))
       ]);
     }
     if (!st && mode === "chatlink") {
