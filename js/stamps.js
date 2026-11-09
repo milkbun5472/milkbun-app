@@ -1205,10 +1205,15 @@
           return albumChar !== "all" && ds.length ? h("button", { "data-wk": "stampweekbtn", "data-full": wks ? "1" : "0", onClick: () => setWeek(Math.ceil(ds.length / 7)), className: "w-full active:opacity-70", style: { marginTop: 10, minHeight: 40, borderRadius: 10, background: "#FFF8E9", border: "1px solid #577767", color: "#285C4B", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))" } }, (typeof characterText === "function" ? characterText(charOf(albumChar), "翻他的一周 · ") : "翻他的一周 · ") + (wks ? "攒满 " + wks + " 周" : "") + (ds.length % 7 ? (wks ? "，" : "") + "这一周 " + (ds.length % 7) + " / 7 天" : "")) : null; })(),
         // 角色删了，卡还留着（群里 2026-11-09「我把其他角色删除后，他们的卡牌还在」）：认不出主人的卡能一起清掉，点两下才删
         (() => { const ids = props.allCharIds || characters.map(c => c.id), lost = (st.cards || []).filter(c => c.charId && !ids.includes(c.charId));
-          return lost.length ? h("button", { "data-wk": "stamporphan", onClick: () => { if (!orphArm) { setOrphArm(true); setTimeout(() => setOrphArm(false), 4000); return; }
-              const r = C().dropCards(lost.map(c => c.id)); (r.keys || []).forEach(k => { try { idbImgDel(k); idbImgDel("th_" + k); } catch (e) {} }); setOrphArm(false); toast("清掉了 " + r.n + " 张"); },
-            className: "w-full active:opacity-70", style: { marginTop: 12, minHeight: 40, borderRadius: 10, border: "1px dashed " + (orphArm ? "#b23a2e" : "rgba(47,42,34,.35)"), color: orphArm ? "#b23a2e" : "rgba(47,42,34,.7)", fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))" } },
-            orphArm ? "再点一次：这 " + lost.length + " 张连卡面一起删掉，回不来" : "有 " + lost.length + " 张卡的角色已经删了 · 清掉这些卡") : null; })(),
+          // 她 2026-11-09「这个提醒可以收起来小一点」：一行小字，右边 × 收起；没人认领的张数变了才再冒出来
+          if (!lost.length || Number((st.opt || {}).orphanHide) === lost.length) return null;
+          const hide = () => { const st0 = C().load(); st0.opt = Object.assign({}, st0.opt, { orphanHide: lost.length }); C().save(st0); };
+          const go = () => { if (!orphArm) { setOrphArm(true); setTimeout(() => setOrphArm(false), 4000); return; }
+            const r = C().dropCards(lost.map(c => c.id)); (r.keys || []).forEach(k => { try { idbImgDel(k); idbImgDel("th_" + k); } catch (e) {} }); setOrphArm(false); toast("清掉了 " + r.n + " 张"); };
+          return h("div", { "data-wk": "stamporphan", className: "flex items-center", style: { marginTop: 10, gap: 8, fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: "rgba(47,42,34,.55)" } },
+            h("span", { style: { flex: 1, minWidth: 0 } }, lost.length + " 张卡的角色已经删了"),
+            h("button", { "data-wk": "stamporphango", onClick: go, className: "active:opacity-60", style: { color: orphArm ? "#b23a2e" : "#577767", textDecoration: "underline", whiteSpace: "nowrap" } }, orphArm ? "再点一次删掉，回不来" : "清掉"),
+            h("button", { "data-wk": "stamporphanhide", onClick: hide, "aria-label": "收起", className: "active:opacity-60", style: { padding: "0 4px", fontSize: "calc(13px * var(--app-fs, 1))", color: "rgba(47,42,34,.4)" } }, "×")); })(),
         // 写失败的（或者写了三分钟还没回来的）一起重写：同一个人的 R、SR 还是并成一次调用，SSR 各一次
         (() => { const bad = (st.cards || []).filter(c => !c.text && (!c.writing || Date.now() - Number(c.writingTs || 0) > (c.queued ? 1800000 : 180000)));
           return bad.length ? h("button", { "data-wk": "stamprewriteall", onClick: () => { onWrite(bad); toast("在重写 " + bad.length + " 张"); }, className: "w-full active:opacity-70",
