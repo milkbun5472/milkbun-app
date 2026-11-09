@@ -19,3 +19,7 @@ test("没开口的那一版：默认不换、他看图判断；他单张换自�
   assert.match(app, /刚连着发来两张照片，没说要做什么/);
   assert.match(app, /_pairPick && !_pairAuto && _avatarMsg/);
 });
+test("没开口的两张只标第几张，不先叫成情头；换不换是他自己的主意", () => {
+  assert.match(app, /const _pn = _pairAuto \? "【第 " : "【情头·第 ";/);
+  assert.doesNotMatch(app, /她多半是想你俩一起换上/);
+});

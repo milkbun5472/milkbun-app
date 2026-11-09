@@ -1002,17 +1002,17 @@
     if (!st && mode === "chatlink") {
       const sw = (on, fn, wk) => h("button", { "data-wk": wk, "data-on": on ? "1" : "0", role: "switch", "aria-checked": on, onClick: fn, style: { flexShrink: 0, width: 46, height: 26, borderRadius: 999, background: on ? GREEN : "rgba(47,42,34,.2)", position: "relative", transition: "background .2s" } },
         h("span", { style: { position: "absolute", top: 3, left: on ? 23 : 3, width: 20, height: 20, borderRadius: 999, background: "#fff", transition: "left .2s", boxShadow: "0 1px 3px rgba(0,0,0,.25)" } }));
-      const rowOf = (c, k, label, note) => { const on = ChatLink.of(c.id)[k]; return h("div", { className: "flex items-center", style: { gap: 10, padding: "6px 0" } },
+      const rowOf = (c, k, label, note, wk) => { const on = ChatLink.of(c.id)[k]; return h("div", { className: "flex items-center", style: { gap: 10, padding: "6px 0" } },
         h("div", { className: "flex-1", style: { minWidth: 0 } }, h("div", { style: { fontSize: fz(12.5) } }, label), h("div", { style: { fontSize: fz(10.5), color: SUB, lineHeight: 1.5 } }, note)),
-        sw(on, () => { ChatLink.set(c.id, k, !on); tkBump(x => x + 1); }, "duelchatlink" + k)); };
+        sw(on, () => { ChatLink.set(c.id, k, !on); tkBump(x => x + 1); }, wk)); };
       return shell([
         h(Head, { key: "hd", zh: "谁能在聊天里提", bg: "transparent", ink: INK, onBack: () => setMode("") }),
         h("div", { key: "bd", "data-wk": "duelchatlink", className: "flex-1 min-h-0 overflow-y-auto px-4", style: { fontFamily: F, color: INK, paddingBottom: 24 } },
           h("div", { style: { fontSize: fz(11.5), color: SUB, lineHeight: 1.7, margin: "6px 0 12px" } }, "默认谁都不提，集邮社里的事只留在集邮社。给谁打开，TA 在你们的私聊里才会知道、才会来约。你自己点「把战报发到聊天里」「发给他看」不受这里管；你在聊天里说要打一把，TA 也照样能发邀请。"),
           (characters || []).filter(c => (cardsAll || []).some(k => k && k.charId === c.id)).map(c => h("div", { key: c.id, style: { marginBottom: 10, padding: "8px 12px", borderRadius: 6, background: "#fffdf7", boxShadow: "0 1px 4px rgba(47,42,34,.08)" } },
             h("div", { style: { fontFamily: FD, fontSize: fz(14), marginBottom: 2 } }, c.remark || c.name),
-            rowOf(c, "know", "聊天时知道", "TA 知道这周你们的约定、今天店里有没有排 TA、最近跟 TA 打的那把；想提才提。拆 TA 的小包裹、做的信物也会记进 TA 的记忆。"),
-            rowOf(c, "invite", "会发邀请", "TA 偶尔在私聊里约你：打一把对局、守一回护信、解死信、去巡查、来邮局排班；几天最多一次，忙或睡着时不发。"))))
+            rowOf(c, "know", "聊天时知道", "TA 知道这周你们的约定、今天店里有没有排 TA、最近跟 TA 打的那把；想提才提。拆 TA 的小包裹、做的信物也会记进 TA 的记忆。", "duelchatlinkknow"),
+            rowOf(c, "invite", "会发邀请", "TA 偶尔在私聊里约你：打一把对局、守一回护信、解死信、去巡查、来邮局排班；几天最多一次，忙或睡着时不发。", "duelchatlinkinvite"))))
       ]);
     }
     if (!st && mode === "trinkets") {
