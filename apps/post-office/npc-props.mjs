@@ -1,16 +1,16 @@
 import * as T from 'three';
-import {createAnimalFigure} from '../fairy-garden/animal-figure.mjs?v=fg-f1dad9727add9f99';
-import {storyHandPoint} from '../fairy-garden/story-motion.mjs?v=fg-f1dad9727add9f99';
-import {mergeGeometries} from '../fairy-garden/vendor/BufferGeometryUtils.js?v=fg-f1dad9727add9f99';
+import {createAnimalFigure} from '../fairy-garden/animal-figure.mjs?v=fg-8471d3c70eba9722';
+import {storyHandPoint} from '../fairy-garden/story-motion.mjs?v=fg-8471d3c70eba9722';
+import {mergeGeometries} from '../fairy-garden/vendor/BufferGeometryUtils.js?v=fg-8471d3c70eba9722';
 
 export function makeNpcLeaf(){
  const shape=new T.Shape();shape.moveTo(0,0);shape.quadraticCurveTo(-.05,.055,0,.105);shape.quadraticCurveTo(.05,.055,0,0);const g=new T.ShapeGeometry(shape,12),m=new T.Mesh(g,new T.MeshStandardMaterial({color:'#8f9d65',roughness:.9,side:T.DoubleSide}));m.name='CatsLetterLeaf';return m;
 }
 export function applyNpcPresence(root,look){if(look.npcRare==='ghost')root.traverse(o=>{for(const m of Array.isArray(o.material)?o.material:o.material?[o.material]:[]){m.transparent=true;m.opacity=.56;m.depthWrite=false;m.needsUpdate=true;}});}
 export function settleNpcHeadwear(root,look={}){
- if(['strawHat','sun'].includes(look.npcFeature))root.traverse(o=>{if(o.isMesh&&o.userData.npcCostume&&/Hat|Cap|Beret|Toque|Piping|Peak|Emblem/.test(o.name)&&!/SunHat|BoundBrim/.test(o.name))o.visible=false;});
+ if(['strawHat','sun'].includes(look.npcFeature))root.traverse(o=>{if(o.isMesh&&!o.isSkinnedMesh&&o.userData.npcCostume&&/Hat|Cap|Beret|Toque|Piping|Peak|Emblem/.test(o.name)&&!/SunHat|BoundBrim/.test(o.name))o.visible=false;});
  root.updateMatrixWorld(true);const hair=new T.Box3(),hat=new T.Box3(),parts=[];let veil=null;
- root.traverse(o=>{if(!o.isMesh||!o.visible)return;if(/^hair_/.test(o.name))hair.union(new T.Box3().setFromObject(o,true));if(!o.userData.npcCostume)return;
+ root.traverse(o=>{if(!o.isMesh||!o.visible)return;if(/^hair_/.test(o.name))hair.union(new T.Box3().setFromObject(o,true));if(!o.userData.npcCostume||o.isSkinnedMesh)return;
   if(/WeddingVeil/.test(o.name)){veil=o;return;}if(/Hat|Cap|Beret|Toque|Brim|Piping|Peak|Emblem|FlowerCrown|SnowOnHair/.test(o.name)){parts.push(o);hat.union(new T.Box3().setFromObject(o,true));}
  });
  if(!hair.isEmpty())root.traverse(o=>{if(!o.isMesh||!o.userData.npcCostume||!o.name.includes('HeadphoneBand'))return;const before=new T.Box3().setFromObject(o,true),height=before.max.y-before.min.y,target=hair.max.y+.01;if(height>.01){o.scale.y*=T.MathUtils.clamp((target-before.min.y)/height,.5,1.5);root.updateMatrixWorld(true);const after=new T.Box3().setFromObject(o,true);o.position.y+=(before.min.y-after.min.y)/(o.parent.getWorldScale(new T.Vector3()).y||1);root.updateMatrixWorld(true);}});
@@ -55,7 +55,7 @@ export function createNpcProps(scene,avatar,look,{walkable=()=>true}={}){
  }
  // Batch rigid prop pieces by material; animals keep their articulated groups.
  root.updateMatrixWorld(true);for(const mat of materials.values()){const parts=root.children.filter(o=>o.isMesh&&o.material===mat);if(parts.length<2)continue;const gs=parts.map(m=>{const g=m.geometry.index?m.geometry.toNonIndexed():m.geometry.clone();g.applyMatrix4(m.matrix);return g;}),g=mergeGeometries(gs,false);if(g){const m=new T.Mesh(g,mat);root.add(m);geometries.add(g);parts.forEach(m=>m.removeFromParent());}gs.forEach(g=>g.dispose());}
- let dog=null;if(feature==='shiba'){dog=createAnimalFigure({species:'dog',coat:'shiba',scale:.68});scene.add(dog.root);animals.push(dog);}
+ let dog=null,leash=null;if(feature==='shiba'){dog=createAnimalFigure({species:'dog',coat:'shiba',scale:.68});scene.add(dog.root);animals.push(dog);const g=new T.BufferGeometry();g.setAttribute('position',new T.Float32BufferAttribute(new Float32Array(9),3));const m=new T.LineBasicMaterial({color:'#90765c'});leash=new T.Line(g,m);scene.add(leash);geometries.add(g);materials.set('leash',m);}
  let start=null,effect=null,effectGeometry=null;
  if(rare==='ghost'||rare==='snow'){
   effectGeometry=new T.BufferGeometry();effectGeometry.setAttribute('position',new T.Float32BufferAttribute(new Float32Array(18*3),3));const m=new T.PointsMaterial({color:rare==='ghost'?'#bec6b8':'#f5f2e8',size:rare==='ghost'?28:5,sizeAttenuation:false,transparent:true,opacity:.32,depthWrite:false});const cv=document.createElement('canvas');cv.width=cv.height=64;const c=cv.getContext('2d'),gradient=c.createRadialGradient(32,32,0,32,32,32);gradient.addColorStop(0,'#ffffffdd');gradient.addColorStop(1,'#ffffff00');c.fillStyle=gradient;c.fillRect(0,0,64,64);m.map=new T.CanvasTexture(cv);materials.set('entryEffect',m);effect=new T.Points(effectGeometry,m);scene.add(effect);geometries.add(effectGeometry);
@@ -71,7 +71,7 @@ export function createNpcProps(scene,avatar,look,{walkable=()=>true}={}){
     const right=target.clone().add(new T.Vector3(-Math.cos(heading)*.065,-.02,Math.sin(heading)*.065));avatar.contactPose({left,right:u.letter?null:right});root.position.copy(target);root.rotation.set(0,heading,0);
    }else{if(kind==='umbrella'){const pos=avatar.root.position;avatar.contactPose({left:new T.Vector3(pos.x-Math.cos(heading)*.20+Math.sin(heading)*.13,pos.y+.72,pos.z+Math.sin(heading)*.20+Math.cos(heading)*.13)});}root.position.copy(storyHandPoint(avatar,side));root.rotation.set(0,heading,Math.sin(time*3)*.025*(moving?1:0));if(kind==='cane')root.scale.y=Math.max(.5,(root.position.y-.08)/.57);}
   }
-  if(dog){const s=Math.sin(u.heading||0),c=Math.cos(u.heading||0),offsets=[[-.42,-.24],[.42,-.24],[0,-.58]],candidate=offsets.map(([x,z])=>({x:u.position.x+x*c+z*s,z:u.position.z-x*s+z*c})).find(p=>walkable(p.x,p.z))||u.position;dog.root.position.set(candidate.x,.08,candidate.z);dog.root.rotation.y=u.heading||0;dog.root.visible=u.phase!=='waiting-entry';}
+  if(dog){const s=Math.sin(u.heading||0),c=Math.cos(u.heading||0),offsets=[[-.42,-.24],[.42,-.24],[0,-.58]],candidate=offsets.map(([x,z])=>({x:u.position.x+x*c+z*s,z:u.position.z-x*s+z*c})).find(p=>walkable(p.x,p.z))||u.position;dog.root.position.set(candidate.x,.08,candidate.z);dog.root.rotation.y=u.heading||0;dog.root.visible=u.phase!=='waiting-entry';const hand=storyHandPoint(avatar,'left'),collar=dog.root.position.clone().add(new T.Vector3(s*.13,.22,c*.13)),mid=hand.clone().lerp(collar,.5);mid.y-=.07;leash.geometry.setFromPoints([hand,mid,collar]);leash.visible=dog.root.visible;}
  }
- return {update,inspect:()=>({feature,rare,kind,hand:currentHand,position:root.position.toArray(),animal:dog?'shiba':feature==='heldCat'?'cat':null,entranceEffect:!!effect?.visible}),dispose(){for(const animal of animals)animal.dispose();for(const g of geometries)g.dispose();for(const m of materials.values()){m.map?.dispose();m.dispose();}effect?.removeFromParent();root.removeFromParent();root.clear();}};
+ return {update,inspect:()=>({feature,rare,kind,hand:currentHand,position:root.position.toArray(),animal:dog?'shiba':feature==='heldCat'?'cat':null,entranceEffect:!!effect?.visible}),dispose(){for(const animal of animals)animal.dispose();for(const g of geometries)g.dispose();for(const m of materials.values()){m.map?.dispose();m.dispose();}effect?.removeFromParent();leash?.removeFromParent();root.removeFromParent();root.clear();}};
 }

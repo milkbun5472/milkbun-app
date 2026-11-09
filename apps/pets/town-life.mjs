@@ -1,13 +1,13 @@
-import {workroomFurniture} from './resident-workroom.mjs?v=fg-f1dad9727add9f99';
-import {localRoute,nextRandom} from './autonomy.mjs?v=fg-f1dad9727add9f99';
-import {clearActorSegment,createActorNavigation} from './actor-spacing.mjs?v=fg-f1dad9727add9f99';
-import {createHomeNavigation} from './home-navigation.mjs?v=fg-f1dad9727add9f99';
-import {createNavigator,segmentIntersectsRect} from '../fairy-garden/navigation.mjs?v=fg-f1dad9727add9f99';
+import {workroomFurniture} from './resident-workroom.mjs?v=fg-8471d3c70eba9722';
+import {localRoute,nextRandom} from './autonomy.mjs?v=fg-8471d3c70eba9722';
+import {clearActorSegment,createActorNavigation} from './actor-spacing.mjs?v=fg-8471d3c70eba9722';
+import {createHomeNavigation} from './home-navigation.mjs?v=fg-8471d3c70eba9722';
+import {createNavigator,segmentIntersectsRect} from '../fairy-garden/navigation.mjs?v=fg-8471d3c70eba9722';
 const point=p=>p&&Number.isFinite(p.x)&&Number.isFinite(p.z)?{x:p.x,z:p.z}:null;
 const bound=(v,a,b,d)=>Number.isFinite(v)?Math.max(a,Math.min(b,v)):d;
 export const TOWN_PLACES=['home','outside','cafe','store','alley','bakery','florist','workroom'];
-import {roomBounds,roomPoint,roomDoor} from './room-layout.mjs?v=fg-f1dad9727add9f99';
-export {roomDoor} from './room-layout.mjs?v=fg-f1dad9727add9f99';
+import {roomBounds,roomPoint,roomDoor} from './room-layout.mjs?v=fg-8471d3c70eba9722';
+export {roomDoor} from './room-layout.mjs?v=fg-8471d3c70eba9722';
 // Footprints come from the existing Blender furniture, converted from Z-up.
 const footprints={
 
