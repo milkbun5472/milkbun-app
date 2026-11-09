@@ -36337,7 +36337,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         if (!lines.length) return null;
         const out = { title: String((r && r.title) || "").trim(), lines };
         if (!end) { out.foe = { name: String((r.foe && r.foe.name) || "拦路的人").trim(), say: String((r.foe && r.foe.say) || "").trim() }; out.choices = (Array.isArray(r.choices) ? r.choices : []).map(x => String(x || "").trim()).filter(Boolean).slice(0, 3); }
-        if (end) { try { addMemEntry({ text: char.name + "和" + uN + "在邮票册里一起走完了一段故事「" + (d.hook || "") + "」，结局是「" + out.title + "」：" + lines.join(" ").slice(0, 120), tags: ["邮票对局", "剧情闯关"], charIds: [char.id], knownBy: [char.id], source: "stamps" }); } catch (e) {} }
+        if (end) { if (window.StampChatLink && window.StampChatLink.of(char.id).know) try { addMemEntry({ text: char.name + "和" + uN + "在邮票册里一起走完了一段故事「" + (d.hook || "") + "」，结局是「" + out.title + "」：" + lines.join(" ").slice(0, 120), tags: ["邮票对局", "剧情闯关"], charIds: [char.id], knownBy: [char.id], source: "stamps" }); } catch (e) {} }
         return out;
       }
       // 派遣（她 2026-11-08「做吧」）：几张票被派去一个地方待了几个小时，回来时 TA 写一份见闻、带回一样小东西（进小物册，去重照小物）
@@ -36354,7 +36354,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         const lines = (Array.isArray(r && r.lines) ? r.lines : [r && r.lines]).map(x => String(x || "").trim()).filter(Boolean);
         if (!lines.length) return null;
         const it = r.item && String(r.item.name || "").trim() ? { name: String(r.item.name).trim(), story: String(r.item.story || "").trim(), say: String(r.item.say || "").trim(), gist: String(r.item.gist || "").trim() } : null;
-        try { addMemEntry({ text: uN + "在邮票册里把几张票派去「" + (d.place || "") + "」，" + char.name + "写了这一趟的见闻「" + String(r.title || "").trim() + "」" + (it ? "，带回来一样「" + it.name + "」" : "") + "：" + lines.join(" ").slice(0, 120), tags: ["邮票对局", "派遣"], charIds: [char.id], knownBy: [char.id], source: "stamps" }); } catch (e) {}
+        if (window.StampChatLink && window.StampChatLink.of(char.id).know) try { addMemEntry({ text: uN + "在邮票册里把几张票派去「" + (d.place || "") + "」，" + char.name + "写了这一趟的见闻「" + String(r.title || "").trim() + "」" + (it ? "，带回来一样「" + it.name + "」" : "") + "：" + lines.join(" ").slice(0, 120), tags: ["邮票对局", "派遣"], charIds: [char.id], knownBy: [char.id], source: "stamps" }); } catch (e) {}
         return { title: String((r && r.title) || "").trim(), lines, item: it };
       }
       // 巡查里 TA 的格子（她 2026-11-08「一句话会不会敷衍」→ 明信片、小剧场、回忆，写足）
@@ -36456,10 +36456,10 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
             : uN + "刚跟你说：「" + String(d.text).slice(0, 400) + "」\n照你的人设、你们的关系和此刻的输赢接她这句，像边打牌边说话：几句短的就够，说到局面时只说上面写着的那些，别编没发生的。"),
         schemaHint: "{\"lines\":[\"一句\"]}" });
       const out = (Array.isArray(r && r.lines) ? r.lines : [r && r.lines]).map(x => String(x || "").trim()).filter(Boolean).slice(0, d.mode === "letter" || d.mode === "future" ? 12 : d.mode && d.mode !== "road" ? 6 : 4);
-      if (d.mode === "future" && out.length) { try { addMemEntry({ text: char.name + "在邮票册的「远信」里给" + uN + "写了一封「寄给以后」的信，封着，等她下一次出发才拆：" + out.join(" ").slice(0, 120), tags: ["邮票对局", "远信"], charIds: [char.id], knownBy: [char.id], source: "stamps" }); } catch (e) {} }
-      if (d.mode === "letter" && out.length) { try { addMemEntry({ text: uN + "在邮票册的「远信」里寄了一封信给" + char.name + "，一路送到了；" + char.name + "回了一封信：" + out.join(" ").slice(0, 160), tags: ["邮票对局", "远信", "回信"], charIds: [char.id], knownBy: [char.id], source: "stamps" }); } catch (e) {} }
+      if (d.mode === "future" && out.length) { if (window.StampChatLink && window.StampChatLink.of(char.id).know) try { addMemEntry({ text: char.name + "在邮票册的「远信」里给" + uN + "写了一封「寄给以后」的信，封着，等她下一次出发才拆：" + out.join(" ").slice(0, 120), tags: ["邮票对局", "远信"], charIds: [char.id], knownBy: [char.id], source: "stamps" }); } catch (e) {} }
+      if (d.mode === "letter" && out.length) { if (window.StampChatLink && window.StampChatLink.of(char.id).know) try { addMemEntry({ text: uN + "在邮票册的「远信」里寄了一封信给" + char.name + "，一路送到了；" + char.name + "回了一封信：" + out.join(" ").slice(0, 160), tags: ["邮票对局", "远信", "回信"], charIds: [char.id], knownBy: [char.id], source: "stamps" }); } catch (e) {} }
       // 彩头兑现了就记下来，以后 TA 还会拿出来说
-      if (d.mode === "wager" && out.length) { try { addMemEntry({ text: char.name + "和" + uN + "打邮票对局，赌了「" + String(d.wager).slice(0, 60) + "」，" + (d.winner === "foe" ? char.name + "赢了，向她讨了" : d.winner === "me" ? uN + "赢了，" + char.name + "兑现了" : "打平了") + "：" + out.join(" ").slice(0, 120), tags: ["邮票对局", "彩头"], charIds: [char.id], knownBy: [char.id], source: "stamps" }); } catch (e) {} }
+      if (d.mode === "wager" && out.length) { if (window.StampChatLink && window.StampChatLink.of(char.id).know) try { addMemEntry({ text: char.name + "和" + uN + "打邮票对局，赌了「" + String(d.wager).slice(0, 60) + "」，" + (d.winner === "foe" ? char.name + "赢了，向她讨了" : d.winner === "me" ? uN + "赢了，" + char.name + "兑现了" : "打平了") + "：" + out.join(" ").slice(0, 120), tags: ["邮票对局", "彩头"], charIds: [char.id], knownBy: [char.id], source: "stamps" }); } catch (e) {} }
       return out;
     },
     duelCloseOf: charId => liveChars.filter(c => c.id !== charId && (rels[charId + "->" + c.id] || rels[c.id + "->" + charId])).map(c => c.id),

@@ -124,6 +124,14 @@
     }
   };
   window.StampChatLink = ChatLink;
+  // 派遣回来给邮资和印泥（她 2026-11-09「为啥没有奖励」）：按派出去多久给，每天第一趟双份
+  const DISPATCH_PAY = { 1: 30, 4: 90, 8: 160 };
+  const dispatchPay = hours => {
+    const C = window.StampsCore; if (!C) return null;
+    const r = Rewards.got(), today = new Date().toISOString().slice(0, 10), first = r.dpDay !== today, n = (DISPATCH_PAY[hours] || 30) * (first ? 2 : 1);
+    try { const st = C.load(); st.ink += n; st.postage += n; C.save(st); r.dpDay = today; sv(REWARD_KEY, r); } catch (e) { return null; }
+    return { ink: n, postage: n, first };
+  };
   window.StampRewards = Rewards;
   // TA 的小物（她 2026-11-08「陪同角色能收集到和他相关的东西，全部玩法都是」）：有人陪着打就掉 TA 的小包裹，
   //   攒着，在小物册里拆（花一次调用，TA 写一样跟你们有关的东西）；只是收藏，不加数值
@@ -852,7 +860,8 @@
         const who = Object.keys(cnt).sort((a, b) => cnt[b] - cnt[a])[0] || (characters || [])[0] && characters[0].id; if (!who) return; setDpBusy(t.id);
         try { const r = await onChat(who, { mode: "dispatch", place: t.place, hours: t.hours, cards: cs.map(story).join("\n"), with: Array.from(new Set(cs.map(c => nameOf(c.charId)).filter(Boolean))).join("、") });
           if (!r || !r.lines) { toast && toast("没写出来，再点一次试试"); return; }
-          const a2 = Dispatch.all(), x = a2.find(y => y.id === t.id); if (x) { x.report = Object.assign({ who, ts: Date.now() }, r); Dispatch.save(a2); }
+          const pay = dispatchPay(t.hours);
+          const a2 = Dispatch.all(), x = a2.find(y => y.id === t.id); if (x) { x.report = Object.assign({ who, ts: Date.now(), pay }, r); Dispatch.save(a2); }
           if (r.item) Trinkets.add(Object.assign({ id: "tk_" + Date.now().toString(36), charId: who, ts: Date.now(), from: "派遣·" + t.place }, r.item));
           setDpShow(t.id); }
         catch (e) { toast && toast("没成：" + ((e && e.message) || e)); } finally { setDpBusy(""); dpBump(x => x + 1); }
@@ -861,9 +870,10 @@
       return shell([
         h(Head, { key: "hd", zh: "派遣", bg: "transparent", ink: INK, onBack: () => setMode(""), right: guideBtn }),
         h("div", { key: "bd", "data-wk": "dueldispatch", className: "flex-1 min-h-0 overflow-y-auto px-4", style: { fontFamily: F, color: INK, paddingTop: 4, paddingBottom: 24 } },
-          modeHero(C, "派", "派遣", "挑几张票派去一个地方送信，过几个小时回来，带回一份见闻和一样小东西（收进小物册）。派出去的票这段时间别处用不了；最多三队同时在外面。派的时候不花钱，回来看见闻花一次调用。"),
+          modeHero(C, "派", "派遣", "挑几张票派去一个地方送信，过几个小时回来，带回一份见闻、一样小东西（收进小物册）和一笔邮资、印泥（1 小时 30、4 小时 90、8 小时 160，每天第一趟双份）。派出去的票这段时间别处用不了；最多三队同时在外面。派的时候不花钱，回来看见闻花一次调用。"),
           shown ? h("div", { "data-wk": "dueldispatchreport", style: { marginBottom: 14, padding: "14px 16px", borderRadius: 4, background: PAPER, boxShadow: "0 3px 10px rgba(47,42,34,.15)", borderTop: "4px solid " + C } },
             h("div", { style: { fontSize: fz(10.5), color: SUB, letterSpacing: ".15em" } }, shown.place + " · " + shown.hours + " 小时 · " + (nameOf(shown.report.who) || "TA") + " 写的"),
+            shown.report.pay ? h("div", { "data-wk": "dueldispatchpay", style: { margin: "4px 0 2px", fontSize: fz(11.5), color: "#9a6a4a" } }, "这一趟带回 " + shown.report.pay.postage + " 邮资、" + shown.report.pay.ink + " 印泥" + (shown.report.pay.first ? "（今天第一趟，双份）" : "")) : null,
             h("div", { style: { fontFamily: FD, fontSize: fz(16), margin: "4px 0 8px", color: C } }, shown.report.title || "这一趟"),
             shown.report.lines.map((t2, k) => h("p", { key: k, style: { fontFamily: FD, fontSize: fz(13.5), lineHeight: 1.85, margin: "0 0 8px", whiteSpace: "pre-wrap" } }, t2)),
             shown.report.item ? h("div", { style: { marginTop: 6, padding: "8px 11px", borderLeft: "3px solid #9a6a4a", background: "rgba(154,106,74,.07)", fontSize: fz(12.5), lineHeight: 1.7 } }, h("b", { style: { fontFamily: FD, fontWeight: 400 } }, "带回来：" + shown.report.item.name), h("div", null, shown.report.item.story), shown.report.item.say ? h("div", { style: { fontFamily: FD, color: "#5a4030" } }, (nameOf(shown.report.who) || "TA") + "：「" + shown.report.item.say + "」") : null) : null,
