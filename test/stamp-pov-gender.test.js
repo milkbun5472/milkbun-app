@@ -150,3 +150,9 @@ test("小剧场新版能自己换目标、开下一幕、谢幕", () => {
   assert.match(th, /"data-wk": "thrvnact"/);
   assert.match(th, /"谢幕收线", "写一场终场戏/);
 });
+test("写卡时列出用过的卡名，不重名", () => {
+  const m = src.match(/const stampPrevLine = [\s\S]*?;\n/)[0].trim().replace(/;$/, "");
+  const f = new Function(m.replace("const stampPrevLine = ", "return ") + ";")();
+  const a = ["- 一件事"]; a.names = ["马德里夜风", "马德里夜风"];
+  assert.match(f(a, ""), /这些卡名已经用过了：马德里夜风。/);
+});

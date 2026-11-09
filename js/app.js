@@ -17948,9 +17948,12 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   // 带上印在卡上的那句台词（她 2026-10-26：同一期两张卡印了一模一样的一句）
   // 重写时不把这几张自己的旧版本摆给他看（她 2026-11-03：重写是照着旧的改，修南瓜改成了修管道）
   // 限时池只拿同一期的卡比（她 2026-11-03：抽多了，「别再写一样的」把南瓜也一起躲掉了，卡名分镜衣服全跑出万圣节）
-  const stampPrev = (charId, skip, series) => (StampsCoreSafe().cards || []).filter(c => c.charId === charId && c.text && !c.writing && !(skip || []).includes(c.id) && (!series || c.series === series)).slice(-30).map(c => "- " + (c.text.gist ? String(c.text.gist).slice(0, 60) : "（没记）") + (c.text.line ? "（卡上那句：" + String(c.text.line).slice(0, 40) + "）" : ""));
+  // 卡名去重（群里 2026-11-10：张张「马德里夜风」）：前面的卡名不跟着「写了什么」一起摆（会照着学），单独列一行「这些名字用过了」
+  const stampPrev = (charId, skip, series) => { const pool = (StampsCoreSafe().cards || []).filter(c => c.charId === charId && c.text && !c.writing && !(skip || []).includes(c.id));
+    const arr = pool.filter(c => !series || c.series === series).slice(-30).map(c => "- " + (c.text.gist ? String(c.text.gist).slice(0, 60) : "（没记）") + (c.text.line ? "（卡上那句：" + String(c.text.line).slice(0, 40) + "）" : ""));
+    arr.names = pool.slice(-40).map(c => String(c.text.name || "").trim()).filter(Boolean); return arr; };
   // 节日那一期：不一样指的是事不一样，节照样过（她 2026-11-03：「可以写很多次南瓜，但是每次的内容要不一样」）
-  const stampPrevLine = (prev, theme) => prev.length ? "\n你已经有的" + (theme ? "「" + theme + "」" : "") + "卡（写的是什么、卡上那句）：\n" + prev.join("\n") + "\n新写的别再是同一件事、同一种走向，卡上那句也别再说一样的话。"
+  const stampPrevLine = (prev, theme) => prev.length ? "\n你已经有的" + (theme ? "「" + theme + "」" : "") + "卡（写的是什么、卡上那句）：\n" + prev.join("\n") + "\n新写的别再是同一件事、同一种走向，卡上那句也别再说一样的话。" + (prev.names && prev.names.length ? "\n这些卡名已经用过了：" + [...new Set(prev.names)].join("、") + "。新卡的名字不跟它们重，也不是换一两个字、换个词序凑出来的近似名；这一次写的几张之间名字也各不一样。" : "")
     + (theme ? "这里的不一样是这个节里发生的事、角度、你们之间的那一下不一样——同样的节日元素可以再出现，节本身不变，卡名、分镜、衣服照样一眼是「" + theme + "」。" : "") : "";
   const stampSeriesOf = list => { const s0 = list.filter(c => c.limited).map(c => c.series || c.limited); return s0.length === list.length && s0.every(x => x === s0[0]) ? { series: s0[0], theme: list[0].theme } : null; };
   // 他平时真说过的话（她 2026-10-26：「剧情有点刻板印象，不像他平时说话」）：从跟她的聊天里取最近几十句他自己打的字，
