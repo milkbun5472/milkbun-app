@@ -27,7 +27,9 @@ function runGuard() {
   const win = {
     addEventListener: (k, fn, cap) => listeners.push({ k, fn, cap: !!cap }),
     location: { href: "https://x.test/index.html", origin: "https://x.test", reload: () => { win.__reloaded = true; } },
-    setTimeout: (fn, ms) => { timers.push(fn); return timers.length; },
+    // ⚠️按【时间先后】跑，不按注册先后（2026-11-05）：最后那道兜底是开头就挂上的，
+    //   照注册顺序跑会让它插到 2 秒那条前面去，测出来的顺序跟真浏览器正好相反。
+    setTimeout: (fn, ms) => { timers.push({ fn: fn, at: ms || 0, n: timers.length }); return timers.length; },
     document: {
       getElementById: id => (id === "root" ? rootEl : nodes.find(n => n.id === id) || null),
       createElement: () => { const n = { style: { cssText: "" }, setAttribute(k, v) { this[k === "data-boot-guard" ? "guard" : k] = v; }, set innerHTML(v) { this._html = v; const m = v.match(/id="(__bg_\w)"/g) || []; m.forEach(x => nodes.push({ id: x.slice(4, -1) })); }, get innerHTML() { return this._html; } }; return n; },
@@ -37,7 +39,8 @@ function runGuard() {
   };
   new Function("window", "document", "location", "setTimeout", "navigator", "caches", "URL", "Promise", src)
     (win, win.document, win.location, win.setTimeout, win.navigator, win.caches, URL, Promise);
-  return { win, listeners, nodes, rootEl, flush: () => timers.splice(0).forEach(f => f()) };
+  return { win, listeners, nodes, rootEl, flush: () => timers.splice(0)
+    .sort((a, b) => a.at - b.at || a.n - b.n).forEach(t => t.fn()) };
 }
 
 test("资源加载失败要抓【捕获阶段】——不抓就一条都收不到", () => {
@@ -68,7 +71,8 @@ test("谷歌字体连不上是常事，不许拿它吓唬人", () => {
   const g = runGuard();
   g.listeners.find(l => l.cap).fn({ target: { tagName: "LINK", href: "https://fonts.googleapis.com/css2?family=Fraunces" } });
   g.flush();
-  assert.equal(g.nodes.find(n => n.guard === "1"), undefined, "字体挂了整个 app 照样跑得起来，白屏从来不是它引起的");
+  assert.ok(!g.nodes.some(n => n.guard === "1" && /没加载进来/.test(n.innerHTML || "")),
+    "字体挂了整个 app 照样跑得起来，白屏从来不是它引起的");
   assert.deepEqual(g.win.__assetFail, []);
 });
 
@@ -105,4 +109,95 @@ test("谷歌字体不许挡渲染——国内连不上时它是挂着等超时�
     "rel=stylesheet 是阻塞渲染的：连不上就白屏，连白屏守卫那颗按钮都点不动");
   assert.match(line, /onload="this\.media='all'"/,
     "拉到了要翻成 all，不然连得上的人也用不上字体");
+});
+
+// 她 2026-11-01：「一直白屏」「重进几次、用梯子还是白屏」——文件都拉下来了，app 卡在等本机存档仓库打开
+test("开机卡在读本机存档：10 秒后说清卡在哪个仓库", () => {
+  const g = runGuard();
+  g.win.__bootWait = ["文字存档", "密钥库"];
+  g.flush();
+  const card = g.nodes.find(n => n.guard === "1");
+  assert.ok(card, "卡在 IndexedDB 时屏幕不能一直空着");
+  assert.match(card.innerHTML, /文字存档、密钥库/);
+  assert.match(card.innerHTML, /你的存档一个字都没少/);
+  assert.match(card.innerHTML, /重新加载/);
+  assert.equal(g.win.__bootStuckShown, true);
+});
+
+test("等齐了、或者界面已经出来了，就不弹「开机卡住」", () => {
+  // ⚠️这一条守的是【别弹「开机卡住」那张】。root 一直空着时最后那道兜底照样会说话，
+  //   那是对的（2026-11-05 补的），所以按卡片内容判，不是按「一张都没有」。
+  const g = runGuard();
+  g.win.__bootWait = [];
+  g.flush();
+  assert.ok(!g.nodes.some(n => n.guard === "1" && /开机卡在读本机存档/.test(n.innerHTML || "")));
+  const h = runGuard();
+  h.win.__bootWait = ["文字存档"];
+  h.rootEl.childElementCount = 2;
+  h.flush();
+  assert.equal(h.nodes.find(n => n.guard === "1"), undefined, "界面已经出来了就一张都不许弹");
+});
+
+test("app.js 开机把还在等的那几样记进 __bootWait，挂上界面后收卡", () => {
+  const app = fs.readFileSync(path.join(root, "js", "app.js"), "utf8");
+  assert.match(app, /const bootWait = window\.__bootWait = \[\];/);
+  assert.match(app, /track\("文字存档", txtP\)/);
+  assert.match(app, /track\("密钥库",/);
+  assert.match(app, /if \(window\.__bootStuckShown\) document\.querySelectorAll\("\[data-boot-guard\]"\)/);
+});
+
+// 她 2026-11-05 转来的截图：封面在、「来这儿·第 5 天」也在，一翻开就是一片白。
+// 封面整张是 index.html 自己画的，一行 app 的代码都不用——所以【看得见封面】不代表 app 装上了。
+// 上面两条兜底一条要「文件报过错」、一条要「app.js 已经在等存档」，脚本压根没跑起来、
+// 或者在 app.js 开口之前就炸了，两条都不响，屏幕就永远白着。最后这一道不管原因只认结果。
+test("守到最后：到点 root 还是空的，不管什么原因都得开口", () => {
+  assert.ok(html.includes('card("秋秋没装进来"'), "没有最后那一道");
+  // 2026-11-08 改：原来这里卡死「只看 root 空不空」。真出事了才发现它分不清
+  //   【装不进来】和【还在下载】——公共版装订成一整份，一次更新要重下两三兆，
+  //   十四秒不够的人被这张卡劝去换浏览器，一按重新加载又从头下。所以允许多一个前提：
+  //   还有文件在路上就先不下判词（见下一条）。root 空不空仍然是唯一的收工条件。
+  const m = html.match(/setTimeout\(function \(\) \{\s*var root = document\.getElementById\("root"\);\s*if \(\(shown && !stillLoading\(\)\) \|\| \(root && root\.childElementCount > 0\)\) return;[\s\S]*?\}, (\d+)\);/);
+  assert.ok(m, "最后那一道的形状不对：收工只看 root 空不空，别的前提只许是「还在下载」");
+  assert.ok(Number(m[1]) >= 12000, "开口太早，网慢的人会被误伤：" + m[1]);
+  // 前面两道各自的前提都还在，没被这一道顶掉
+  assert.match(html, /if \(shown \|\| !bad\.length \|\|/, "「文件没拉下来」那一道被动了");
+  assert.match(html, /if \(shown \|\| !w \|\| !w\.length \|\|/, "「卡在读存档」那一道被动了");
+  assert.ok(html.includes("你的存档一个字都没少"), "最吓人的是以为数据没了，这句不能少");
+});
+
+test("脚本跑炸了也要留下一句话，不是默默丢掉", () => {
+  assert.match(html, /if \(e && e\.message && !jsErr\) jsErr = String\(e\.message\)\.slice\(0, 120\);/,
+    "target 是 window 的那种 error 被原样丢了，最后一道就没的说");
+  assert.ok(html.includes('jsErr ? "出错了：" + jsErr'), "记下来了却没摆出来");
+});
+
+test("在 QQ／微信里打开的，给的办法不一样", () => {
+  const m = html.match(/var inapp = (\/[^\n]+?\/i)\.test\(navigator\.userAgent/);
+  assert.ok(m, "抠不出内置浏览器那条正则");
+  const r = new RegExp(m[1].slice(1, -2), "i");
+  ["Mozilla/5.0 (iPhone) QQ/8.9.0", "Mozilla/5.0 (Android) MQQBrowser/13.1",
+   "Mozilla/5.0 (iPhone) MicroMessenger/8.0.40"].forEach(ua => assert.ok(r.test(ua), "没认出：" + ua));
+  ["Mozilla/5.0 (iPhone) Safari/605.1.15", "Mozilla/5.0 (Macintosh) Chrome/131.0.0.0 Safari/537.36"]
+    .forEach(ua => assert.ok(!r.test(ua), "误伤了正经浏览器：" + ua));
+  assert.ok(html.includes("用浏览器打开"), "没教她怎么从内置浏览器里出来");
+});
+
+// 她 2026-11-08 转来「好多人进去白屏」，截图正是上面那张卡，而且没有「出错了」那半句：
+// 没有文件报错、没有 JS 报错、app.js 也没开口。那就还有一种它一直没分清的情况——它还在下载。
+test("还有文件在路上就别下判词：先说「还在下载」，等下完了再说", () => {
+  assert.match(html, /function stillLoading\(\) \{[\s\S]*?performance\.getEntriesByType\("resource"\)/,
+    "没有「还有文件在路上吗」这一问");
+  assert.match(html, /script\[src\]/, "要拿页面上的 script 跟下完的名单比，才知道还差几个");
+  assert.ok(html.includes('card("还在下载，没卡住"'), "缺那张不吓人的「还在下载」卡");
+  assert.match(html, /waited < 60000/, "没有等待上限：下不动的人会被永远吊着");
+  assert.match(html, /setTimeout\(function \(\) \{ verdict\(waited \+ 6000\); \}, 6000\)/,
+    "摆完「还在下载」要接着再看，不能摆上就不管了");
+  assert.ok(html.includes("别反复重新加载"), "这张卡的重点就是别按重新加载——一按就从头下");
+  const slow = html.slice(html.indexOf('card("还在下载，没卡住"'));
+  assert.ok(slow.slice(0, 400).includes("你的存档一个字都没少"), "这张卡也不能少这句");
+});
+
+// 同一张卡要能换内容：先摆「还在下载」，下完了还是空的再换成判词。
+test("卡片能换一张，不会叠成两张", () => {
+  assert.match(html, /querySelector\('\[data-boot-guard="1"\]'\)/, "新卡上来没把旧卡撤掉");
 });

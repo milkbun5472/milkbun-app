@@ -163,7 +163,7 @@
           const relationship = (window.spaceLover ? window.spaceLover(cp) : cp && cp.status === "together") ? "你和她现实中已正式在一起，可以使用现实已有的恋人称谓" : cp && cp.status === "pending" && (!window.spaceRelKey || window.spaceRelKey(cp) === "lover") ? "你向她表达过关系意愿，但现实中尚未确认成为恋人" : "你和她现实中没有已确认的恋人关系";
           const allowedNames = [char.name, char.remark, props.profile && props.profile.name].filter(Boolean).map(String).filter((x, i, a) => a.indexOf(x) === i).join("、") || "无";
           const prevDreams = (theirs || []).filter(d => d && d.charId === char.id && d.key !== row.key && d.narrative);
-          const raw = await callAI(p, dreamGenSys(char, row, excerpts, { relationship, allowedNames }, prevDreams.slice(0, 6)), [{ role: "user", content: "开始做梦。" }], { maxTokens: 14400 });
+          const raw = await callAI(p, dreamGenSys(char, row, excerpts, { relationship, allowedNames }, prevDreams.slice(0, 6)), [{ role: "user", content: "开始做梦。" }], { biFor: char, maxTokens: 14400 });
           const gen = parseDreamJSON(raw);
           if (!gen) throw new Error("梦没成形，再试一次");
           // 开头跟前几场差不多：这场先不存，梦还在原处等下一次
@@ -401,7 +401,7 @@
                   style: tap({ color: PSUB }) }, "删"))),
             // 正文：收起来时只露两行（她 2026-09-04：「一条很容易变很长翻好久才到下一条」）
             e.text ? h("div", { "data-wk": "djtext", style: Object.assign({ fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: pageColor("dreamjournal", "ink", "#2c2822"), lineHeight: 1.75, whiteSpace: "pre-wrap" },
-              openId === e.id ? null : { display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }) }, e.text) : null,
+              openId === e.id ? null : { display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }) }, transShow(e.text)) : null,
             // 展开/收起：解法有几条也写在这一行上，收着的时候看得出这条底下还有东西
             (e.text && e.text.length > 40) || (e.interpretations || []).length
               ? h("button", { "data-wk": "djexpand", onClick: () => setOpenId(openId === e.id ? null : e.id), className: "active:opacity-60",
@@ -413,7 +413,7 @@
                 style: tap({ padding: "0 15px", borderRadius: 999, border: "1px solid rgba(111,103,150,.32)", color: pageColor("dreamjournal", "ink", "#2c2822"), background: pageColor("dreamjournal", "bg2", "rgba(255,255,255,.62)") }) }, c.remark || c.name))) : null,
             openId === e.id ? (e.interpretations || []).map((it, i) => h("div", { "data-wk": "djreading", key: i, style: { marginTop: 9, background: pageColor("dreamjournal", "bg2", "rgba(111,103,150,.10)"), borderRadius: 2, padding: "9px 11px", borderLeft: "3px solid #6f6796" } },
               h("div", { "data-wk": "djreadingname", style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: pageColor("dreamjournal", "ink", "#7b7286"), marginBottom: 4 } }, it.name + " 的解法"),
-              h("div", { "data-wk": "djreadingtext", style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: pageColor("dreamjournal", "ink", "#2c2822"), lineHeight: 1.75, whiteSpace: "pre-wrap" } }, it.text),
+              h("div", { "data-wk": "djreadingtext", style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: pageColor("dreamjournal", "ink", "#2c2822"), lineHeight: 1.75, whiteSpace: "pre-wrap" } }, transShow(it.text)),
               // 梦签：单独一行，像从解梦正文里撕下来的那一条（v61.47 起单独一个字段；
               // 旧记录没有这一栏，不显示就是了）
               it.sign ? h("div", { "data-wk": "djreadingsign", style: { marginTop: 9, paddingTop: 8, borderTop: "1px dashed rgba(111,103,150,.35)",

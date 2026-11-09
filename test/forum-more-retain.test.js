@@ -26,6 +26,10 @@ function fixture() {
     forumPhotoOf: () => null,   // 配图（v74.025）：这份测的是放楼顺序，不带图
     // 世界线（v74.428）：写的那一头按帖子所在世界认角色、给世界观——这份测放楼顺序，全在默认世界
     forumInWorld: () => true, forumThreadWorld: () => "",
+    // 评论置顶（2026-11-02）：楼主角色回帖时那一栏；这份测放楼顺序，帖主不是角色，照写的那一头它什么都不做
+    forumPinFromModel: () => {},
+    // 楼的认法（2026-11-03）：照写的那一头取
+    ...new Function(app.slice(app.indexOf('  const FORUM_EMPTY_FLOOR'), app.indexOf('  const loadForumComments')) + ';return {FORUM_EMPTY_FLOOR, forumRawComments, isForumEmptyFloor};')(),
     runProbeRetry: () => { calls++; return new Promise((resolve, reject) => {finish=resolve; fail=reject;}); }
   };
   const code = new Function(...Object.keys(deps), ordering + writer + manual + '\nreturn {buildForumFloor,genMoreComments};')(...Object.values(deps));

@@ -353,7 +353,7 @@
     parts.push(CHARCARD_RULE);
     parts.push(USER_SLOT_PROTECT);
     parts.push(RETEACH_RULE);
-    parts.push("【角色人设】\n" + (char.persona || "（暂无设定）"));
+    parts.push("【角色人设】\n" + (char.persona || "（暂无设定）") + (typeof charLangLine === "function" ? charLangLine(char) : ""));
     // 一起学也认「外语消息自带中译」（群里 2026-10-18：日男老师说日文，叫他自己加中文，翻没几条就不见了）——
     //   跟单聊同一段规矩：每一泡外语写成「原文 | 中文」，屏幕上原文照常、中文挂进「译」
     if (typeof window !== "undefined" && window.__charBilingual && window.__charBilingual(char.id) && typeof bilingualRule === "function")
@@ -850,7 +850,7 @@
     const taken = (cur.flashcards || []).map(function (c) { return c.front; });
     const sys = CB() + "你是「" + (teacher && teacher.name || "老师") + "」，在教她『" + cur.subject + "』。" +
       "现在给她做一摞闪卡，让她自己翻着背：正面是要她回想的那一面，背面是答案。" +
-      "\n【角色人设】\n" + (teacher && teacher.persona || "（暂无）") +
+      "\n【角色人设】\n" + (teacher && teacher.persona || "（暂无）") + (typeof charLangLine === "function" ? charLangLine(teacher) : "") +
       (worldbook ? "\n【世界书】\n" + worldbook : "") +
       "\n\n【这门课真的教过的要点】（pointId 只能从这里挑）\n" + points.map(function (p) {
         return "· " + p.id + "｜" + p.label + (p.note ? "｜" + p.note : "") + (p.unit ? "｜小节：" + p.unit : "") + (p.vocab.length ? "｜词汇：" + p.vocab.join("、") : "");
@@ -1046,6 +1046,23 @@
     if (!String(text || "").trim()) throw new Error(isPdf ? "没读到文字——这份 PDF 可能是扫描图，拍的书页用课上的发图片" : "这个文件是空的");
     return { text: String(text), kind: isPdf ? "pdf" : "txt" };
   }
+  // 课上直接发文件（她 2026-11-04「一起学全部模式都搞可以上传文件吧」）：每个模式的输入栏共用这一份。
+  //   图照旧当图；文档读成字。有课程的（认真教、三人）收进这门课的「资料」，老师按需翻；
+  //   没课程的（一起研究、自习、你来教）把正文直接夹在这一条里，封顶 DOC_CAP 字。
+  const DOC_CAP = 12000;
+  const isImgFile = f => !!f && ((f.type && f.type.indexOf("image/") === 0) || /\.(png|jpe?g|gif|webp|heic|heif)$/i.test(f.name || ""));
+  async function studyDocEntry(file, typed, curId) {
+    const got = await readMaterialFile(file);
+    const name = String(file.name || "文件").replace(/\.(txt|md|markdown|pdf|docx|epub)$/i, "").slice(0, 60);
+    const t = String(got.text || "");
+    if (curId) {
+      await saveMaterialText(curId, name, got.kind, t);
+      return { content: (typed ? typed + "\n\n" : "") + "〔她传了一份资料《" + name + "》，已收进这门课的资料里〕", doc: name, docChars: t.length, typed: typed || "" };
+    }
+    return { content: (typed ? typed + "\n\n" : "") + "〔她传了一份文件《" + name + "》" + (t.length > DOC_CAP ? "，太长，只带了前 " + DOC_CAP + " 字" : "") + "，正文如下〕\n" + t.slice(0, DOC_CAP), doc: name, docChars: t.length, typed: typed || "" };
+  }
+  // 气泡上只露文件名和字数，正文不摊开
+  const docShow = (m, field) => m && m.doc ? (m.typed ? m.typed + "\n" : "") + "📄 《" + m.doc + "》 · " + m.docChars + " 字" : (m ? m[field] : "");
   async function addMaterial(curId, file, onProg) {
     const got = await readMaterialFile(file, onProg);
     return saveMaterialText(curId, String(file.name || "资料").replace(/\.(txt|md|markdown|pdf|docx|epub)$/i, ""), got.kind, got.text);
@@ -1112,7 +1129,7 @@
       "例如程序员/工程师教编程，母语者或语言老师教该语言，某领域从业者、学者、爱好者教该领域，都算能教，不要求 TA 是顶尖专家。" +
       "只有当 TA 跟这门学问明显八竿子打不着、人设里完全没有相关线索时，才 canTeach=false。拿不准时倾向 true。" +
       "只输出 JSON：{\"canTeach\":true或false,\"level\":\"入门/进阶/精通/无\",\"posture\":\"若不会，一句话态度\"}";
-    const u = "【要学的】" + subject + "\n【角色人设】" + (char.persona || "（空）") + (worldbook ? "\n【世界书】" + worldbook : "");
+    const u = "【要学的】" + subject + "\n【角色人设】" + (char.persona || "（空）") + (typeof charLangLine === "function" ? charLangLine(char) : "") + (worldbook ? "\n【世界书】" + worldbook : "");
     try {
       // ⚠️原来判不出来（调用失败、输出被截、JSON 没认出来）一律当「教不了」——人设写得越长越容易撞上，
       //   于是一个通篇写着「极度精通考研英语」的老师被判成教不了英文（群友 2026-10-08）。
@@ -1223,7 +1240,7 @@
       "请按你的人设留一张简短、真诚的课后小纸条，但所有学习判断必须依据真实作答证据，不能因为你讲过就夸用户学会，也不要学校成绩单腔。" +
       "只输出 JSON：{\"achieved\":\"今天真正做到的一件事\",\"strength\":\"有证据的一个优点，没有就坦白写仍在起步\"," +
       "\"weak\":\"还没稳的具体点，没有则写下一步挑战\",\"next\":\"下次开场先做什么\",\"note\":\"你以角色口吻留的一两句小纸条\"}。";
-    const u = "【角色人设】\n" + (char && char.persona || "（暂无）") + "\n\n" + progressText(outline.units || [], progress) +
+    const u = "【角色人设】\n" + (char && char.persona || "（暂无）") + (typeof charLangLine === "function" ? charLangLine(char) : "") + "\n\n" + progressText(outline.units || [], progress) +
       "\n\n【本节真实对话】\n" + conv;
     const raw = await callAI(active, sys, [{ role: "user", content: u }], { maxTokens: TOK.small });
     const d = extractJSON(raw) || {};
@@ -1374,7 +1391,7 @@
     const book = mistakeBookItems(cur).filter(function (x) { return ids.includes(String(x.pointId)); }).slice(0, 8);
     const sys = CB() + "你是「" + (teacher && teacher.name || "老师") + "」，在教她『" + cur.subject + "』。" +
       "现在给她出一套单元测：闭卷、没有提示、她一个人做完再看成绩。" +
-      "\n【角色人设】\n" + (teacher && teacher.persona || "（暂无）") +
+      "\n【角色人设】\n" + (teacher && teacher.persona || "（暂无）") + (typeof charLangLine === "function" ? charLangLine(teacher) : "") +
       (worldbook ? "\n【世界书】\n" + worldbook : "") +
       "\n\n【这个单元：" + unit.title + "】（point_id 只能从这里挑）\n" + points.map(function (p) {
         return "· " + p.id + "｜" + p.label + (p.note ? "｜" + p.note : "");
@@ -1697,7 +1714,7 @@
     const dates = planDates(ask.deadline, ask.offDays);
     if (!dates.length) throw new Error("死线得在今天或以后，而且不能每天都不排");
     const sys = CB() + "你是「" + (teacher && teacher.name || "老师") + "」，在教她『" + (cur.subject || cur.title || "这门课") + "』。" +
-      "\n【角色人设】\n" + (teacher && teacher.persona || "（暂无）") +
+      "\n【角色人设】\n" + (teacher && teacher.persona || "（暂无）") + (typeof charLangLine === "function" ? charLangLine(teacher) : "") +
       (worldbook ? "\n【世界书】\n" + worldbook : "") +
       "\n\n她请你帮她排学习计划。\n【要学完的】" + String(ask.amount || "").slice(0, 400) +
       "\n【死线】" + ask.deadline + "（今天 " + todayK + "）" +
@@ -1719,7 +1736,7 @@
   async function genWeeklyNote(active, cur, report, teacher, worldbook) {
     const causeTxt = Object.keys(report.causes).map(function (k) { return MISTAKE_CAUSE[k].zh + " " + report.causes[k] + " 道"; }).join("、");
     const sys = CB() + "你是「" + (teacher && teacher.name || "老师") + "」，在教她『" + cur.subject + "』。" +
-      "\n【角色人设】\n" + (teacher && teacher.persona || "（暂无）") +
+      "\n【角色人设】\n" + (teacher && teacher.persona || "（暂无）") + (typeof charLangLine === "function" ? charLangLine(teacher) : "") +
       (worldbook ? "\n【世界书】\n" + worldbook : "") +
       "\n\n【她这一周】学了 " + report.days + " 天" + (report.minutes ? "，一共大约 " + minutesText(report.minutes) : "") + "；做了 " + report.reviewed + " 次复习" +
       (report.learned.length ? "；新会了：" + report.learned.join("、") : "；这周没有新会的点") +
@@ -2498,7 +2515,7 @@
       try {
         const ok = log.filter(function (l) { return l.ok; }).length;
         const missed = log.filter(function (l) { return !l.ok; }).map(function (l) { const it = items.find(function (y) { return y.key === l.key; }); return it ? String(it.prompt || "").slice(0, 40) : ""; }).filter(Boolean);
-        const sys = CB() + "你是「" + (teacher && teacher.name || "老师") + "」，在教她『" + cur0.subject + "』。\n【角色人设】\n" + (teacher && teacher.persona || "（暂无）") +
+        const sys = CB() + "你是「" + (teacher && teacher.name || "老师") + "」，在教她『" + cur0.subject + "』。\n【角色人设】\n" + (teacher && teacher.persona || "（暂无）") + (typeof charLangLine === "function" ? charLangLine(teacher) : "") +
           "\n\n她刚自己刷完一摞到点的复习：" + log.length + " 张，记住了 " + ok + " 张。" + (missed.length ? "\n没过的：\n" + missed.map(function (m) { return "· " + m; }).join("\n") : "") +
           "\n\n用你自己说话的样子跟她说一两句，只输出这一两句。";
         const api = props.bgActive || props.active;
@@ -2779,7 +2796,7 @@
               const it = pt.item;
               return h("div", { key: "d" + pt.id, style: { marginTop: 10, paddingTop: 10, borderTop: "1px dashed " + STUDY_SKIN.line } },
                 h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: STUDY_SKIN.ink, fontWeight: 600 } }, pt.label + " · " + (pt.level == null ? "还没测过" : LEVEL_NAME[pt.level])),
-                pt.note ? h("div", { style: small }, pt.note) : null,
+                pt.note ? h("div", { style: small }, transShow(pt.note)) : null,
                 it ? h("div", { style: small }, (it.wrongCount ? "错过 " + it.wrongCount + " 次 · " : "") + (it.hintedCount ? "靠提示 " + it.hintedCount + " 次 · " : "") + (function () { const r = reviewStageText(it); return "复习曲线走到 " + r.filled + "/" + r.total + " · " + r.when; })()) : null,
                 pt.mistakes.filter(function (m) { return !m.resolved; }).slice(-3).map(function (m, k) {
                   return h("div", { key: "m" + k, style: Object.assign({}, small, { color: STUDY_SKIN.red }) }, "错因：" + (m.note || "需要再练"));
@@ -3672,6 +3689,12 @@
     const photoRef = useRef(null);
     async function sendPhoto(file) {
       if (!file) return;
+      if (!isImgFile(file)) {
+        try { const txt = input.trim(); const e = await studyDocEntry(file, txt, sess.curriculum_id && findCurriculum(sess.curriculum_id) ? sess.curriculum_id : null);
+          setInput(""); pushEntry(Object.assign({ id: "u_" + Date.now(), role: "user", ts: Date.now() }, e)); }
+        catch (err) { props.toast(String(err && err.message || "这份文件没读成")); }
+        return;
+      }
       try {
         const data = await resizeImageFile(file, 1600, 0.86);
         const ref = typeof imgToVault === "function" ? await imgToVault(data) : data;
@@ -4073,13 +4096,13 @@
               h("span", { style: { color: STUDY_SKIN.fog } }, x[0] + "："), x[1]);
           }),
           h("div", { style: { marginTop: 10, paddingTop: 9, borderTop: "1px solid " + STUDY_SKIN.line,
-            fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: accent, lineHeight: 1.7, whiteSpace: "pre-wrap" } }, n.note));
+            fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: accent, lineHeight: 1.7, whiteSpace: "pre-wrap" } }, transShow(n.note)));
       }
       if (m.role === "user") {
         return h("div", { key: m.id, className: "flex justify-end mb-2" },
           h("div", { style: { maxWidth: "78%", display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 5 } },
             m.imageRef ? h("img", { src: typeof resolveImg === "function" ? resolveImg(m.imageRef) : m.imageRef, alt: "你发的图", style: { display: "block", maxWidth: "100%", maxHeight: 260, borderRadius: 10, border: "1px solid " + STUDY_SKIN.line, objectFit: "contain", background: STUDY_SKIN.paper } }) : null,
-            (m.content || !m.imageRef) ? h("div", { "data-wk": "block", style: { background: accent, color: STUDY_SKIN.paper, borderRadius: "12px 12px 3px 12px", padding: "9px 12px", boxShadow: "0 4px 10px " + accent + "24", fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", lineHeight: 1.6, whiteSpace: "pre-wrap" } }, m.content) : null));
+            (m.content || !m.imageRef) ? h("div", { "data-wk": "block", style: { background: accent, color: STUDY_SKIN.paper, borderRadius: "12px 12px 3px 12px", padding: "9px 12px", boxShadow: "0 4px 10px " + accent + "24", fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", lineHeight: 1.6, whiteSpace: "pre-wrap" } }, docShow(m, "content")) : null));
       }
       const isTeacher = !teacher || m.speakerId === teacher.id;
       const char = chars.find(function (c) { return c.id === m.speakerId; });
@@ -4125,10 +4148,10 @@
           h("button", { "data-wk": "block", onClick: replyNow, disabled: busy, className: "flex-1 active:opacity-70", style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", background: busy ? STUDY_SKIN.line : accent, color: STUDY_SKIN.paper, borderRadius: "4px 10px 4px 4px", padding: "8px 0", opacity: busy ? 0.8 : 1 } },
             busy ? "生成中…" : (sess.mode === "nv1" ? "让 " + (teacher ? teacher.name : "老师") + " / 同学接话" : "让 " + (chars[0] ? chars[0].name : "对方") + " 回复"))) : null,
         h("div", { className: "px-4 pt-3 flex items-end gap-2", style: { paddingBottom: COMPOSER_PAD_BOTTOM } },
-          h("button", { onClick: function () { photoRef.current && photoRef.current.click(); }, "aria-label": "发图片", className: "shrink-0 active:opacity-70",
+          h("button", { onClick: function () { photoRef.current && photoRef.current.click(); }, "aria-label": "发图片或文件", className: "shrink-0 active:opacity-70",
             style: { width: 40, height: 40, display: "flex", alignItems: "center", justifyContent: "center", border: "1px solid " + STUDY_SKIN.line, borderRadius: "5px 12px 5px 5px", background: STUDY_SKIN.paper } },
             h(ICamera, { size: 18, color: accent })),
-          h("input", { "data-wk": "studyinput", ref: photoRef, type: "file", accept: "image/*", style: { display: "none" }, onChange: function (e) { const f = e.target.files && e.target.files[0]; e.target.value = ""; sendPhoto(f); } }),
+          h("input", { "data-wk": "studyinput", ref: photoRef, type: "file", accept: "image/*," + ANY_FILE, style: { display: "none" }, onChange: function (e) { const f = e.target.files && e.target.files[0]; e.target.value = ""; sendPhoto(f); } }),
           h("textarea", { "data-wk": "studyinput", value: input, onChange: function (e) { return setInput(e.target.value); }, rows: 1, placeholder: "写在这张课页上…", style: { flex: 1, resize: "none", fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: STUDY_SKIN.ink, background: STUDY_SKIN.paper2, border: "1px solid " + STUDY_SKIN.line, borderRadius: "5px 16px 16px 5px", padding: "9px 13px", maxHeight: 100 },
             onKeyDown: function (e) { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } } }),
           h("button", { "data-wk": "block", onClick: send, disabled: !input.trim(), className: "shrink-0 active:opacity-70", style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", background: accent, color: STUDY_SKIN.paper, borderRadius: "5px 14px 5px 5px", padding: "9px 16px", opacity: !input.trim() ? 0.5 : 1 } }, "写下"))));
@@ -4574,6 +4597,12 @@
     const send = function () { const t = input.trim(); if (!t || over) return; setInput(""); push([{ id: "u_" + Date.now(), role: "user", content: t, ts: Date.now() }]); queueReply(false); };
     const sendPhoto = async function (file) {
       if (!file || over) return;
+      if (!isImgFile(file)) {
+        try { const t = input.trim(); const e = await studyDocEntry(file, t, null); setInput("");
+          push([Object.assign({ id: "u_" + Date.now(), role: "user", ts: Date.now() }, e)]); queueReply(true); }
+        catch (err) { props.toast && props.toast(String(err && err.message || "这份文件没读成")); }
+        return;
+      }
       try {
         const data = await resizeImageFile(file, 1600, 0.86);
         const ref = typeof imgToVault === "function" ? await imgToVault(data) : data;
@@ -4622,12 +4651,12 @@
               !mine && chars.length > 1 ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: STUDY_SKIN.fog, margin: "0 0 2px 3px" } }, m.name) : null,
               m.imageRef ? h("img", { src: typeof resolveImg === "function" ? resolveImg(m.imageRef) : m.imageRef, alt: mine ? "你发的图" : "", style: { display: "block", maxWidth: 200, maxHeight: 240, borderRadius: 10, marginBottom: m.content ? 4 : 0, objectFit: "cover" } }) : null,
               m.content ? h("div", { style: { padding: "8px 12px", borderRadius: mine ? "14px 4px 14px 14px" : "4px 14px 14px 14px", background: mine ? skin.accent : STUDY_SKIN.paper, color: mine ? STUDY_SKIN.paper : STUDY_SKIN.ink,
-                border: mine ? "none" : "1px solid " + STUDY_SKIN.line, fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", lineHeight: 1.55, whiteSpace: "pre-wrap", wordBreak: "break-word" } }, m.content) : null));
+                border: mine ? "none" : "1px solid " + STUDY_SKIN.line, fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", lineHeight: 1.55, whiteSpace: "pre-wrap", wordBreak: "break-word" } }, docShow(m, "content")) : null));
         }),
         busy ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: STUDY_SKIN.fog, paddingLeft: 40 } }, "…") : null,
         over && sess.summary ? h("div", { "data-wk": "selfsummary", style: { marginTop: 8, padding: "10px 12px", borderRadius: 10, background: skin.soft, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: STUDY_SKIN.ink, lineHeight: 1.6 } }, "自习小结：" + sess.summary) : null),
       !over ? h("div", { className: "shrink-0 flex items-end", style: { gap: 8, padding: "9px 12px 0", paddingBottom: COMPOSER_PAD_BOTTOM, borderTop: "1px solid " + STUDY_SKIN.line, background: STUDY_SKIN.paper } },
-        h("input", { ref: photoRef, type: "file", accept: "image/*", style: { display: "none" }, onChange: function (e) { const f = e.target.files && e.target.files[0]; e.target.value = ""; sendPhoto(f); } }),
+        h("input", { ref: photoRef, type: "file", accept: "image/*," + ANY_FILE, style: { display: "none" }, onChange: function (e) { const f = e.target.files && e.target.files[0]; e.target.value = ""; sendPhoto(f); } }),
         h("button", { "data-wk": "selfphoto", onClick: function () { photoRef.current && photoRef.current.click(); }, className: "active:opacity-70", style: { flexShrink: 0, width: 40, height: 40, borderRadius: 999, border: "1px solid " + STUDY_SKIN.line, background: STUDY_SKIN.paper, color: STUDY_SKIN.sub, fontSize: 18 } }, "＋"),
         h("textarea", { "data-wk": "selfinput", value: input, rows: 1, onChange: function (e) { setInput(e.target.value); if (typeof fitTextarea === "function") fitTextarea(e.target, 120); },
           placeholder: "发进度、说一句…（安静也行）", style: { flex: 1, minWidth: 0, resize: "none", padding: "9px 12px", borderRadius: 12, border: "1px solid " + STUDY_SKIN.line, background: STUDY_SKIN.desk, fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: STUDY_SKIN.ink, outline: "none" } }),
@@ -4894,6 +4923,14 @@
     const nameOf = function (id) { return (stus.find(function (c) { return c.id === id; }) || stus[0]).name; };
     const save = function (fn) { const n = patchTb(s.id, fn); setS(n); return n; };
     const run = async function (label, fn) { if (busy) return; if (!props.active) { props.toast && props.toast("先去 设置·API 配一条线路"); return; } setBusy(label); try { await fn(); } catch (e) { props.toast && props.toast("出错了：" + ((e && e.message) || e)); } finally { setBusy(""); } };
+    // 你来教时发一份课件：正文收进这一条，学生下一轮照着读（不自动开口，等你讲）
+    const tbFileRef = useRef(null);
+    const sendTbFile = async function (file) {
+      if (!file || busy) return;
+      try { const e = await studyDocEntry(file, "", null);
+        save(function (x) { return { transcript: (x.transcript || []).concat([{ role: "user", text: e.content, doc: e.doc, docChars: e.docChars, typed: "", ts: Date.now() }]) }; }); }
+      catch (err) { props.toast && props.toast(String(err && err.message || "这份文件没读成")); }
+    };
     const send = function () {
       const v = draft.trim(); if (!v) return;
       setDraft("");
@@ -4923,7 +4960,7 @@
           h("div", { "data-wk": "tbmsg", "data-me": me ? "1" : "0", style: { padding: "8px 12px", borderRadius: me ? "14px 4px 14px 14px" : "4px 14px 14px 14px",
             background: me ? skin.accent : STUDY_SKIN.paper, color: me ? STUDY_SKIN.paper : STUDY_SKIN.ink, border: me ? "none" : "1px solid " + (m.hand ? skin.accent : STUDY_SKIN.line),
             fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", lineHeight: 1.6, whiteSpace: "pre-wrap", overflowWrap: "anywhere", cursor: isVoice(m.text) ? "pointer" : undefined },
-            onClick: isVoice(m.text) ? function () { playVoice(who, m.text); } : undefined }, voiceShow(m.text))));
+            onClick: isVoice(m.text) ? function () { playVoice(who, m.text); } : undefined }, m.doc ? docShow(m, "text") : voiceShow(m.text))));
     };
     const startQuiz = function (qs) { save(function () { return { quiz: qs.map(function (q) { return { q: q, ans: {} }; }) }; }); setStage("quiz"); };
     const answered = (s.quiz || []).some(function (x) { return stus.some(function (c) { return tbAns(x, c.id, s); }); });
@@ -5000,6 +5037,9 @@
         busy ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: STUDY_SKIN.fog, padding: "6px 4px" } }, busy) : null,
         h("div", { ref: endRef })),
       stage === "class" ? h("div", { className: "shrink-0 flex items-end gap-2 px-3", style: { paddingTop: 8, paddingBottom: "calc(env(safe-area-inset-bottom) * 0.6 + 10px)", borderTop: "1px solid " + STUDY_SKIN.line, background: studyPaperA(.92) } },
+        h("input", { ref: tbFileRef, type: "file", accept: ANY_FILE, style: { display: "none" }, onChange: function (e) { const f = e.target.files && e.target.files[0]; e.target.value = ""; sendTbFile(f); } }),
+        h("button", { "data-wk": "tbfile", "aria-label": "发一份课件", onClick: function () { tbFileRef.current && tbFileRef.current.click(); }, disabled: !!busy, className: "shrink-0 active:opacity-70 disabled:opacity-50",
+          style: { width: 40, height: 40, borderRadius: 999, border: "1px solid " + STUDY_SKIN.line, background: STUDY_SKIN.paper, color: skin.accent, fontFamily: F_BODY, fontSize: "calc(16px * var(--app-fs, 1))" } }, "📄"),
         h("textarea", { "data-wk": "studyinput", value: draft, onChange: function (e) { setDraft(e.target.value); }, rows: 1, placeholder: two ? "讲课、提问、点名「" + stus[1].name + "你来说」…" : "讲课、提问、点名让 TA 复述…",
           className: "flex-1 outline-none", style: { fontFamily: F_BODY, fontSize: "calc(14.5px * var(--app-fs, 1))", color: STUDY_SKIN.ink, background: STUDY_SKIN.paper, border: "1px solid " + STUDY_SKIN.line, borderRadius: 14, padding: "9px 12px", resize: "none", maxHeight: 120 } }),
         h("button", { onClick: send, disabled: !!busy, className: "active:opacity-70 disabled:opacity-50", style: { padding: "9px 14px", borderRadius: 14, background: skin.accent, color: STUDY_SKIN.paper, fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))" } }, "讲")) : null);

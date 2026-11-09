@@ -222,7 +222,7 @@
       "【要批注的角色】\n" + block +
       (worldbook && worldbook.trim() ? "\n\n【世界书（仅参考）】\n" + worldbook.trim().slice(0, 400) : "") +
       "\n\n【输出】只输出 JSON，comments 数组和上面角色顺序【一一对应、数量一致】：{\"comments\":[{\"name\":\"角色名\",\"text\":\"这位角色的一句话\"}...]}。别加解释、别加代码块。";
-    const raw = await callAI(active, sys, [{ role: "user", content: "开始批注。" }], { maxTokens: 14000 });
+    const raw = await callAI(active, sys, [{ role: "user", content: "开始批注。" }], { biFor: list, maxTokens: 14000 });
     const p = extractJSON(raw) || {};
     const arr = Array.isArray(p.comments) ? p.comments : (Array.isArray(p) ? p : []);
     return list.map((it, i) => {
@@ -306,7 +306,7 @@
           h("div", { "data-wk": "block", style: { flex: 1, background: t.bg2, border: "1px solid " + t.line, borderRadius: 14, padding: "9px 12px" } },
             h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.sub, marginBottom: 2, display: "flex", alignItems: "center", gap: 6 } }, c.remark || c.name || cm.name,
               cm.auto ? h("span", { style: { fontFamily: F_BODY, fontSize: "calc(9.5px * var(--app-fs, 1))", color: ACCENT, border: "1px solid " + ACCENT + "55", borderRadius: 999, padding: "1px 7px" } }, "自己注意到 · 办完了") : null),
-            h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", color: t.ink, lineHeight: 1.5 } }, cm.text),
+            h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", color: t.ink, lineHeight: 1.5 } }, transShow(cm.text)),
             h("button", { onClick: () => props.onDel(i), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, marginTop: 4 }, "data-wk": "memocommentblockbtn", "data-part": "2" }, "删除")));
       })) : h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog } }, "还没有角色批注。"),
       pick && h(CommentPicker, { characters: props.characters, existing: comments.map(c => c.charId), busy: busy, onPick: doGen, onClose: () => !busy && setPick(false) }));

@@ -66,12 +66,12 @@ test("言秋不吃逗号那一档", () => {
 // 两处必须是同一个函数——单聊有、群聊没有，正是 v56.27 之前那个形状
 test("单聊和群聊走的是同一个函数", () => {
   // v56.56 起两处都先过一道 splitBilingual（把「原文 | 中文」劈开），再交给同一个 splitLongBubble
-  assert.match(app, /splitLongBubble\(bi \? bi\.text : w, !_body\)/, "单聊线上");
-  assert.match(app, /splitLongBubble\(bi \? bi\.text : x, gAllowComma\)/, "群聊线上");
+  assert.match(app, /splitLongBubble\(bi \? bi\.text : w, bi \? false : _commaOk\)/, "单聊线上");   // 2026-11-01：带译文不按逗号拆；本体模式开了拆短泡也按逗号拆
+  assert.match(app, /splitLongBubble\(bi \? bi\.text : x, bi \? false : gAllowComma\)/, "群聊线上");
   assert.match(app, /const gAllowComma = !isBody\(spk\.id\)/, "群里也按发言人豁免言秋");
   // v76.455 通话里一大段也按句拆，用的还是这一个函数（第三处调用）——同一把刀，没另写一份
   assert.match(app, /o\.speech != null && typeof splitLongBubble === "function"[^\n]*splitLongBubble\(o\.speech\)/, "通话那一处");
-  assert.equal((app.match(/splitLongBubble\(/g) || []).length, 3, "只该有单聊、群聊、通话这三处调用");
+  assert.equal((app.match(/splitLongBubble\(/g) || []).length, 5, "单聊、群聊、通话 + 两道最后兜底");
 });
 
 // 她 2026-08-29 截图：一段算账的话被切成「现在现值是 150」「000 乘以 0.312」
@@ -120,4 +120,9 @@ test("〔今天 14:10〕这种带空格的时间标注在拆泡前就摘掉（�
   const i = app.indexOf("const stripAiStamp = w =>"), src = app.slice(i, app.indexOf(".trim();", i) + 8);
   const strip = new Function(src + "\nreturn stripAiStamp;")();
   assert.equal(strip("〔今天 14:10〕不然呢？"), "不然呢？");
+});
+
+test("只靠空格断句的长段最多切 6 泡（2026-11-01）；打了逗号的照旧最多 4", () => {
+  const r = splitLongBubble("要是一上来就冲你狂摇尾巴 显得我多没排面……结果现在好了 面子全被你剥干净了 连初吻带初夜全赔你名下了 你还在这啧啧啧 占了大便宜还卖乖的冷酷女人 不准啧了 勒紧你", true);
+  assert.ok(r.length >= 5 && r.length <= 6, JSON.stringify(r));
 });

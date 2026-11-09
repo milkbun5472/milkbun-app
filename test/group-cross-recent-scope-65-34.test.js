@@ -16,5 +16,5 @@ test("群聊跨情境近况只使用自己收到的 charId", () => {
 
 test("群线上和群线下都走同一个已修好的近况函数", () => {
   assert.match(app, /const lines = \[ownMem, crossRecentFor\(id\)\]/);
-  assert.match(app, /crossRecentFor\(c\.id, \{ surfaces: \["offline"\] \}\)/);
+  assert.match(app, /crossRecentFor\(c\.id, \{ surfaces: \["online", "offline", "group"\]/);
 });

@@ -10,7 +10,10 @@ test("items、裸数组、别的键名都认", () => {
   assert.equal(f({ emotes: nine }).length, 9);
 });
 test("两套都走这一份，她那套写明 JSON 形状", () => {
-  assert.equal((s.match(/const items = emoteSetItems\(d\);/g) || []).length, 2);
+  // 他那套的挑法收进 pickEmoteNine（一张动图空着不写也用它，2026-11-06），她那套照旧
+  assert.equal((s.match(/const items = emoteSetItems\(d\);/g) || []).length, 1);
+  assert.match(s, /return emoteSetItems\(d\);/);
+  assert.match(s, /const items = await pickEmoteNine\(char\);/);
   assert.match(s, /只输出这个形状的 JSON：\{\\"items\\"/);
 });
 test("九宫格的画图说法两套共用一份，参考图只认人", () => {

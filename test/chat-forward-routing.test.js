@@ -7,8 +7,10 @@ const app = fs.readFileSync(path.join(__dirname, "..", "js", "app.js"), "utf8");
 const components = fs.readFileSync(path.join(__dirname, "..", "js", "components.js"), "utf8");
 
 test("private and group threads both offer chat and group forwarding targets", () => {
-  assert.match(components, /doForward\(\{ type: "chat", id: c\.id \}\)/);
-  assert.match(components, /doForward\(\{ type: "group", id: g\.id \}\)/);
+  // 2026-11-04 起单聊、群聊共用 ForwardPickSheet，人和群都能勾，一次发给好几个
+  assert.match(components, /row\(\{ type: "chat", id: c\.id \}/);
+  assert.match(components, /row\(\{ type: "group", id: g\.id \}/);
+  assert.equal((components.match(/h\(ForwardPickSheet, \{/g) || []).length, 2);
   assert.match(components, /function GroupThread\([\s\S]*onForward/);
 });
 

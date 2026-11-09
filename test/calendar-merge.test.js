@@ -277,7 +277,7 @@ test("月视图铺满剩下的高度，不再被大标题挤扁", () => {
   assert.ok(!/pb-24/.test(seg));
   // 日期和农历都放大了
   assert.match(seg, /width: 36, height: 36/);
-  assert.match(seg, /fontSize: "calc\(19px \* var\(--app-fs, 1\)\)", color: isT/);
+  assert.match(seg, /fontSize: "calc\(19px \* var\(--app-fs, 1\)\)", fontWeight: isT \? 700 : undefined, color: isT/);
 });
 
 test("顶栏收成一行，不再有「日历 / CALENDAR」大标题", () => {

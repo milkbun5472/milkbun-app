@@ -51,3 +51,8 @@ test("天花板没动：一轮最多 ±1，那一步是故意的", () => {
   assert.match(app, /Math\.max\(-5, Math\.min\(5, d\)\) \* 0\.2 \* 1000/);
   assert.match(app, /内部存 3 位小数，显示时取整/);
 });
+require("node:test")("好感增减两边对称：往下的小事也算 -1，还在气头上不因一句软话往上加", () => {
+  const assert = require("node:assert/strict"), e = require("fs").readFileSync(require("path").join(__dirname, "..", "js", "engine.js"), "utf8");
+  assert.match(e, /往下是被敷衍、被冷落、被顶回来、心里别扭、正生着闷气，跟往上一样都算/);
+  assert.match(e, /还在气头上，就不因为对方一句软话往上加/);
+});

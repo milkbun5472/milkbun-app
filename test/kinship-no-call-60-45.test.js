@@ -9,7 +9,8 @@ const scr = (fs.readFileSync(path.join(root, "js/screens.js"), "utf8") + "\n" + 
 
 // 她 2026-09-02：「这个格式不对。而且本来买东西也不应该调用啊。
 //                 应该做成系统通知放聊天里然后等我按回复他才反应」。
-const pay = app.slice(app.indexOf("const payWithKinship ="), app.indexOf("const receiveUse ="));
+// 刷卡那几步（扣钱、记账、落通知）收进了 kinCharge，购物、转账、红包共用；从它数起
+const pay = app.slice(app.indexOf("const kinCharge ="), app.indexOf("const receiveUse ="));
 
 test("刷卡不调模型", () => {
   assert.ok(!/genKinshipComment/.test(app), "买个东西不该现调一次模型——她按次计费");

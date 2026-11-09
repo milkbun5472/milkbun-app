@@ -36,7 +36,7 @@ test("自发轮不许把「用户没说话」演成被冷落", () => {
 });
 
 test("拉黑时要把原因和时刻存下来，判定才有尺子", () => {
-  assert.match(app, /setBlockFor\(chatKey, \{ theyBlocked: true, reason: String\(parsed\.blockreason \|\| ""\)\.trim\(\), blockedTs: Date\.now\(\), tries: 0 \}\)/);
+  assert.match(app, /setBlockFor\(chatKey, \{ theyBlocked: true, cut: _cut \? "del" : "", reason: String\(parsed\.blockreason \|\| ""\)\.trim\(\), blockedTs: Date\.now\(\), tries: 0 \}\)/);
 });
 
 test("解除判定要拿到证据：原因、隔了多久、第几次、之前说过什么", () => {

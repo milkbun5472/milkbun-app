@@ -159,7 +159,7 @@
     //   思考型模型光想就把它吃光，于是返回空、界面上写「Ta 没讲出来，换一页再试」。
     //   而【那道 maxTokens 地板闸没抓到它】：闸的正则要求冒号后面紧跟数字，
     //   `maxTokens: Math.min(...)` 这种写法整行都匹配不上。闸自己有盲区的时候，全绿什么都不证明。
-    const raw = await callAI(active, sys, [{ role: "user", content: "写满 " + n + " 条，每行一条。" }], { maxTokens: 65000 });
+    const raw = await callAI(active, sys, [{ role: "user", content: "写满 " + n + " 条，每行一条。" }], { biFor: char, maxTokens: 65000 });
     // 先把「段N：」标记前都断行——兼容弱模型把多条挤在一行/一段的情况
     const norm = String(raw || "").replace(/```/g, "").replace(/\s*(段\s*\d+\s*[：:])/g, "\n$1");
     const lines = norm.split(/\n+/).map(function (s) { return s.trim(); }).filter(Boolean);
@@ -196,7 +196,7 @@
       (annText ? "\n\n【你刚在这页写下的批注】\n" + annText : "") +
       (hist ? "\n\n【你俩刚才的讨论】\n" + hist : "") +
       "\n\n【输出】只输出 JSON：{\"say\":[\"气泡1\",\"气泡2\"]}。像即时通讯那样拆成气泡：几条、每条多长照你平时跟她聊天的习惯来，聊到兴头上多说也行。别加名字前缀、别旁白括号、别 markdown。";
-    const raw = await callAI(active, sys, [{ role: "user", content: userMsg }], { maxTokens: 65000 });
+    const raw = await callAI(active, sys, [{ role: "user", content: userMsg }], { biFor: char, maxTokens: 65000 });
     const parsed = extractJSON(raw);
     const say = (parsed && Array.isArray(parsed.say)) ? parsed.say.filter(Boolean) : null;
     return say && say.length ? say : [String(raw || "").replace(/^\{|\}$/g, "").trim() || "……"];
@@ -254,7 +254,7 @@
       (talk || "") +
       "\n\n【本页正文（按段落编号）】\n" + numbered +
       "\n\n请给【每一段都写一条讲解】，从第 1 段到第 " + maxPara + " 段，一段都不能漏。\n【输出格式·务必严格遵守】先逐段输出，每行 `段<段号>：<讲解>`；最后单独一行 `梗概：<用一句话概括本页发生了什么，接前情往下>`（段号是上面正文里的方括号编号，一行一段，冒号后直接写讲解）。\n不要写 JSON、不要总起语、不要空行、别的话一句都别加。";
-    const raw = await callAI(active, sys, [{ role: "user", content: "逐段讲，从段1讲到段" + maxPara + "，最后给一句梗概。" }], { maxTokens: 65000 });
+    const raw = await callAI(active, sys, [{ role: "user", content: "逐段讲，从段1讲到段" + maxPara + "，最后给一句梗概。" }], { biFor: char, maxTokens: 65000 });
     const norm = String(raw || "").replace(/```/g, "").replace(/\s*(段\s*\d+\s*[：:])/g, "\n$1").replace(/\s*(梗概\s*[：:])/g, "\n$1");
     const lines = norm.split(/\n+/).map(function (s) { return s.trim(); }).filter(Boolean);
     const explains = [];
@@ -281,7 +281,7 @@
       (talk || "") +
       (context && String(context).trim() ? "\n\n【这句所在的上下文】\n" + String(context).slice(0, 600) : "") +
       "\n\n只输出讲解本身，别加前缀、别加引号、别写「好的」之类。";
-    const raw = await callAI(active, sys, [{ role: "user", content: "划线的是：「" + String(snippet).slice(0, 500) + "」\n讲讲这是什么意思。" }], { maxTokens: 65000 });
+    const raw = await callAI(active, sys, [{ role: "user", content: "划线的是：「" + String(snippet).slice(0, 500) + "」\n讲讲这是什么意思。" }], { biFor: char, maxTokens: 65000 });
     return String(raw || "").replace(/```/g, "").trim();
   }
 
@@ -519,6 +519,7 @@
     const isYanqiu = partner && (props.digitalIds || []).indexOf(partner.id) >= 0;
     const [noteSheet, setNoteSheet] = useState(null); // 划线后「记一条给言秋」的输入层 {anchor,val}
     const [bookOpen, setBookOpen] = useState(false);  // 批注册
+    const [tocOpen, setTocOpen] = useState(false);    // 目录
     const [setOpen, setSetOpen] = useState(false);    // 「设定」那一小块（批几条 / 覆盖几页）默认收着
     const [pulling, setPulling] = useState(false);
     const [full, setFull] = useState(false);
@@ -977,7 +978,7 @@
                   h("div", { style: { display: "flex", alignItems: "center", gap: 4, marginBottom: 3 } },
                     h("span", { style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", color: t.tint, letterSpacing: .3 } }, (ex.charName || "") + " · 讲解"),
                     (tp && typeof TtsDot === "function") ? h(TtsDot, { k: "rex" + pageIdx + "_" + i, text: ex.text, spk: exCh, tp: tp }) : null),
-                  h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", lineHeight: 1.72, color: t.ink } }, ex.text))) : null,
+                  h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", lineHeight: 1.72, color: t.ink } }, transShow(ex.text)))) : null,
               // 还没讲的段落：给个「讲讲这段」入口
               (!ex && explainOn && partner) ? h("button", { key: "one_" + i, onClick: function () { explainOne(i); }, disabled: busy, style: { margin: "-8px 0 14px", fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, opacity: busy ? .5 : 1 }, "data-wk": "readreaderbtn", "data-part": "6" }, "▸ 让 " + partner.name + " 讲讲这段") : null,
               // 批注卡片
@@ -998,7 +999,7 @@
                     h("div", { style: { display: "flex", alignItems: "center", gap: 4, marginBottom: 2 } },
                       h("span", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: isRead ? "#3f6ea8" : t.tint } }, a.charName + (isRead ? " · 亲读" : "")),
                       (tp && typeof TtsDot === "function") ? h(TtsDot, { k: "rann" + a.id, text: a.note, spk: ch, tp: tp }) : null),
-                    h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", lineHeight: 1.6, color: isRead ? t.ink : t.sub } }, a.note)));
+                    h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", lineHeight: 1.6, color: isRead ? t.ink : t.sub } }, transShow(a.note))));
               }));
           }));
 
@@ -1006,6 +1007,7 @@
     const footer = h("div", { className: "shrink-0", style: { borderTop: "1px solid " + t.line, padding: "8px 14px", display: "flex", alignItems: "center", gap: 8 } },
       h("button", { onClick: function () { gotoPage(pageIdx - 1); }, disabled: pageIdx <= 0, style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: pageIdx <= 0 ? t.line : t.sub, padding: "6px 8px" }, "data-wk": "readreaderbtn", "data-part": "7" }, "‹ 上一页"),
       h("div", { style: { flex: 1, textAlign: "center", fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog } }, (pageIdx + 1) + " / " + totalPages,
+        h("button", { onClick: function () { setTocOpen(true); }, style: { marginLeft: 10, fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.sub, border: "1px solid " + t.line, borderRadius: 999, padding: "3px 10px", minHeight: 26 }, "data-wk": "readtocbtn" }, "目录"),
         h("button", { onClick: function () { setFull(function (v) { return !v; }); }, style: { marginLeft: 10, fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.sub, border: "1px solid " + t.line, borderRadius: 999, padding: "3px 10px", minHeight: 26 }, "data-wk": "readfull" }, full ? "退出全屏" : "全屏")),
       h("button", { onClick: function () { gotoPage(pageIdx + 1); }, disabled: pageIdx >= totalPages - 1, style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: pageIdx >= totalPages - 1 ? t.line : t.sub, padding: "6px 8px" }, "data-wk": "readreaderbtn", "data-part": "8" }, "下一页 ›"));
 
@@ -1052,7 +1054,9 @@
       bookOpen ? h(AnnoBook, { book: book, pages: pages || [], t: t, chOf: chOf,
         partner: partner, busy: ending, onRemember: rememberBook, onDropRow: dropAnnoRow,
         onGoto: function (pg) { setBookOpen(false); gotoPage(pg); },
-        onClose: function () { setBookOpen(false); } }) : null
+        onClose: function () { setBookOpen(false); } }) : null,
+      tocOpen ? h(ReadToc, { book: book, pages: pages || [], cur: pageIdx, t: t,
+        onGoto: function (pg) { setTocOpen(false); gotoPage(pg); }, onClose: function () { setTocOpen(false); } }) : null
     );
   }
 
@@ -1067,6 +1071,48 @@
   // ⚠️不是又一个通用列表：左边那一列页码是【可以点的】，点了就翻到那一页；
   //   而且它把三种来路（TA的批注 / TA的讲解 / 你自己记的）摆在同一条时间线上，
   //   因为你俩本来就是在同一页上一起写的。
+  // ---- 目录（群里 2026-11-04：「和 char 一起看小说可以选目录吗，好像只能一页一页翻」）----
+  // 从正文里认章节标题：一段短短的、以「第X章／回／节／卷」「序章」「楔子」「番外」「Chapter N」这类开头的就是一章。
+  //   认不出章节的书（散文、没写章名的）就按页列，每 10 页一格；顶上还能直接填页码跳。整页，不做半窗。
+  const TOC_RE = /^(第\s*[零〇一二三四五六七八九十百千万两\d]+\s*[章回节卷集篇部幕话]|序章|序言|序幕|楔子|引子|尾声|终章|番外|后记|前言|chapter\s*[\divxlc]+|prologue|epilogue)/i;
+  function tocOf(pages) {
+    const out = [];
+    (pages || []).forEach(function (paras, pg) {
+      (paras || []).forEach(function (p) { const s = String(p || "").trim(); if (s.length <= 40 && TOC_RE.test(s)) out.push({ page: pg, title: s }); });
+    });
+    return out;
+  }
+  function ReadToc(props) {
+    const t = props.t, pages = props.pages || [], total = Math.max(1, pages.length);
+    const [jump, setJump] = useState("");
+    const chapters = tocOf(pages);
+    const rows = chapters.length ? chapters : (function () { const r = []; for (let i = 0; i < total; i += 10) r.push({ page: i, title: "第 " + (i + 1) + " 页", sub: String(((pages[i] || [])[0]) || "").slice(0, 28) }); return r; })();
+    // 现在读到的是哪一章：页码不超过当前页的最后一章
+    let curRow = -1; rows.forEach(function (r, i) { if (r.page <= props.cur) curRow = i; });
+    const go = function () { const n = parseInt(jump, 10); if (n >= 1) props.onGoto(Math.min(total, n) - 1); };
+    return h("div", { className: "h-full flex flex-col",
+      style: Object.assign({ position: "fixed", inset: 0, zIndex: 60 },
+        typeof pageSkin === "function" ? pageSkin("paper", t, { strength: .9 }) : { background: t.bg }), "data-wk": "readtoc" },
+      h(Head, { zh: "目录", sub: props.book && props.book.title, bg: "transparent", onBack: props.onClose }),
+      h("div", { className: "shrink-0", style: { display: "flex", alignItems: "center", gap: 8, padding: "4px 16px 12px", borderBottom: "1px solid " + t.line } },
+        h("span", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.sub } }, "跳到第"),
+        h("input", { value: jump, inputMode: "numeric", onChange: function (e) { setJump(e.target.value.replace(/\D/g, "").slice(0, 6)); }, onKeyDown: function (e) { if (e.key === "Enter") go(); },
+          placeholder: String(props.cur + 1), style: { width: 72, fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.ink, background: "transparent", border: "1px solid " + t.line, borderRadius: 8, padding: "6px 8px", textAlign: "center" } }),
+        h("span", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.sub } }, "页 / 共 " + total),
+        h("button", { onClick: go, className: "active:opacity-70", style: { marginLeft: "auto", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: "#fff", background: t.tint, borderRadius: 999, padding: "6px 14px" }, "data-wk": "readtocgo" }, "去")),
+      h("div", { className: "flex-1 min-h-0 overflow-y-auto", style: { padding: "6px 16px 30px" } },
+        chapters.length ? null : h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, margin: "6px 2px 8px" } }, "这本书里没认出章节标题，先按页列"),
+        rows.map(function (r, i) {
+          const on = i === curRow;
+          return h("button", { key: i, onClick: function () { props.onGoto(r.page); }, className: "w-full text-left active:opacity-60", "data-wk": "readtocrow", "data-on": on ? "1" : "0",
+            style: { display: "flex", alignItems: "baseline", gap: 10, padding: "12px 2px", borderTop: i ? "1px solid " + t.line : "none" } },
+            h("div", { style: { flex: 1, minWidth: 0 } },
+              h("div", { style: { fontFamily: F_BODY, fontSize: "calc(14.5px * var(--app-fs, 1))", color: on ? t.tint : t.ink, lineHeight: 1.5, wordBreak: "break-word" } }, r.title),
+              r.sub ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, r.sub) : null),
+            h("div", { style: { flexShrink: 0, fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: on ? t.tint : t.fog } }, (on ? "读到这儿 · " : "") + "第 " + (r.page + 1) + " 页"));
+        })));
+  }
+
   function AnnoBook(props) {
     const t = props.t, book = props.book, pages = props.pages || [];
     // 长按删掉一条（她 2026-09-20：「一起读批注删除不了」）。
@@ -1139,7 +1185,7 @@
                             h("div", { style: { display: "flex", alignItems: "center", gap: 5, marginBottom: 2 } },
                               ch ? h(Avatar, { character: ch, size: 14, radius: 5 }) : null,
                               h("span", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: tone } }, (r.name || "") + " · " + WHAT[r.kind])),
-                            h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", lineHeight: 1.72, color: t.ink } }, r.text));
+                            h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", lineHeight: 1.72, color: t.ink } }, transShow(r.text)));
                         }));
                     })));
               }))
@@ -1173,7 +1219,7 @@
         d.busy
           ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.fog, padding: "6px 2px" } }, (props.partner ? props.partner.name : "Ta") + " 在想怎么讲…")
           : h("div", null,
-              h("div", { style: { fontFamily: F_BODY, fontSize: "calc(14.5px * var(--app-fs, 1))", lineHeight: 1.78, color: t.ink, whiteSpace: "pre-wrap" } }, d.a),
+              h("div", { style: { fontFamily: F_BODY, fontSize: "calc(14.5px * var(--app-fs, 1))", lineHeight: 1.78, color: t.ink, whiteSpace: "pre-wrap" } }, transShow(d.a)),
               (tp && typeof TtsDot === "function" && d.a) ? h("div", { style: { marginTop: 4 } }, h(TtsDot, { k: "rsel", text: d.a, spk: props.partner, tp: tp })) : null)));
   }
 
@@ -1272,7 +1318,7 @@
             : props.chat.map(function (m, i) {
                 const mine = m.role === "user";
                 return h("div", { key: i, style: { display: "flex", alignItems: "flex-end", gap: 3, justifyContent: mine ? "flex-end" : "flex-start", marginBottom: 8 }, "data-wk": "readdiscusssheet", "data-part": "r2" },
-                  h("div", { "data-wk": "block", style: { maxWidth: "78%", padding: "8px 12px", borderRadius: 13, fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", lineHeight: 1.55, whiteSpace: "pre-wrap", background: mine ? t.tint : t.bg2, color: mine ? "#fff" : t.ink, border: mine ? "none" : "1px solid " + t.line } }, m.content),
+                  h("div", { "data-wk": "block", style: { maxWidth: "78%", padding: "8px 12px", borderRadius: 13, fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", lineHeight: 1.55, whiteSpace: "pre-wrap", background: mine ? t.tint : t.bg2, color: mine ? "#fff" : t.ink, border: mine ? "none" : "1px solid " + t.line } }, transShow(m.content)),
                   (!mine && tp && typeof TtsDot === "function") ? h(TtsDot, { k: "rdis" + i, text: m.content, spk: props.partner, tp: tp }) : null);
               }),
           props.busy ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog, padding: "2px 4px" } }, (props.partner ? props.partner.name : "Ta") + " 在想…") : null,

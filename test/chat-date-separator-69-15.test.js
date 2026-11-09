@@ -107,7 +107,7 @@ test("群聊：跨天后第一条是旁白/卡片，日期条也得在", () => {
   assert.ok(i > 0);
   const seg = comp.slice(i, i + 1600);
   assert.match(seg, /row\.props\["data-wk"\] === "msg"/, "普通气泡自己画，别画两条");
-  assert.match(seg, /_st\.show && _st\.day\) _dayLine = h\(GStampLine/, "只补跨天那一档");
+  assert.match(seg, /if \(_st\.show\) _dayLine = h\(GStampLine/, "旁白卡片行也补时间条：跨天和隔半小时都补");
   assert.match(seg, /_rows\.unshift\(_dayLine\)/);
 });
 
@@ -127,4 +127,10 @@ test("给了 map 就按换算后的时间判跨天、写文案", () => {
   assert.equal(r.text, "今天 04:16");
   const p2 = S.decide({ ts: NOW2 - 3600e3 }, { ts: NOW2 }, { now: NOW2, map: () => 0 });
   assert.equal(p2.show, false, "停住的钟：两条都在同一刻，不再隔出时刻");
+});
+test("单聊：旁白、卡片这些行前面也补中间那行时间（她 2026-11-04：前天那几句跟今天中间没有日期）", () => {
+  const c = require("fs").readFileSync(require("path").join(__dirname, "..", "js", "components.js"), "utf8");
+  assert.match(c, /const soloStampWrap = \(row, el\) => \{/);
+  assert.match(c, /if \(!el \|\| row\.part !== 0 \|\| \(el\.props && el\.props\["data-wk"\] === "msg"\)\) return out;/);
+  assert.match(c, /\}\)\.map\(_row => soloStampWrap\(_row, \(\(\{ m, i, part, last \}\) => \{/);
 });

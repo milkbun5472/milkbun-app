@@ -23,5 +23,5 @@ test("没头像的那几张（亲属卡八张、情书、要手机、代付、�
   assert.match(src, /if \(m\.kind === "loveletter"\) return cardRow\(i, m, h\(LoveLetterCard/);
   assert.match(src, /if \(m\.kind === "askphone"\) return cardRow\(i, m, h\(PhoneAskCard/);
   assert.match(src, /if \(m\.kind === "paylater"\) return cardRow\(i, m, h\(PayLaterCard/);
-  assert.match(src, /if \(m\.kind === "ledgershare"\) return cardRow\(i, m,/);
+  assert.match(src, /if \(m\.kind === "ledgershare" \|\| m\.kind === "petshare" \|\| m\.kind === "impshare"\) return cardRow\(i, m,/);   // 宠物卡同一张（2026-11-02）
 });

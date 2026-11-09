@@ -58,6 +58,16 @@
     return true;
   }
 
+  // 「我」写自己的舞台说明：我＋（副词）＋姿势／位置动词＋在…，后面还有至少两处「着」，十四个字往上，
+  //   没有说话的痕迹（问号叹号引号、句尾语气词、～）。「你们」可以有——看着你们是动作，不是对着谁说话。
+  const SELF_STAGE = /^我(?:正|还|就|也|又|半|斜|侧着身|翘着腿|懒懒地|随意地)?(?:坐|站|靠|倚|蹲|躺|趴|窝|歪|斜倚|盘腿坐|半躺|侧躺)(?:在|着)/;
+  function selfStage(value) {
+    const text = clean(value);
+    if (text.length < 14 || !SELF_STAGE.test(text)) return false;
+    if (SPEAKING.test(text) || /[~～]$|[吧呢啊嘛呀哦哈啦咯呗噢喔]$/.test(text)) return false;
+    return (text.match(/着/g) || []).length >= 2;
+  }
+
   function hasActEvidence(value) {
     return ACT_EVIDENCE.test(clean(value));
   }
@@ -85,13 +95,58 @@
     return { words, acts };
   }
 
+  // 【自己的名字 + 动作】（她 2026-11-01 截图：「【周树生 看着蛋糕上的英文耳朵瞬间热了一圈」「嘴硬地轻咳了一声】」两个白气泡）：
+  //   它照着喂给它的「【场景旁注｜某某 当时正在做的动作…】」学了个形状，用自己的名字写自己——那是描写，不是发出去的话。
+  //   【】开头紧跟TA自己的名字才认（证据是它亲手写的名字，不靠猜）；跨几个气泡的拼起来一起挪；】后面还有字的，那截照旧是气泡。
+  function pullSelfBracket(list, names) {
+    const ns = (names || []).map(clean).filter(x => x && x.length >= 1);
+    if (!ns.length) return null;
+    const startsSelf = w => { const m = /^[【\[]\s*(.+)$/.exec(w); return !!m && ns.some(n => m[1].indexOf(n) === 0); };
+    if (!list.some(startsSelf)) return null;
+    const words = [], acts = [];
+    let i = 0;
+    while (i < list.length) {
+      if (!startsSelf(list[i])) { words.push(list[i]); i++; continue; }
+      const parts = [];
+      let tail = "";
+      let j = i;
+      for (; j < list.length && j < i + 6; j++) {
+        const w = j === i ? list[j].replace(/^[【\[]\s*/, "") : list[j];
+        const k = w.search(/[】\]]/);
+        if (k >= 0) { parts.push(w.slice(0, k)); tail = w.slice(k + 1).trim(); break; }
+        parts.push(w);
+      }
+      if (j >= list.length || j >= i + 6) { words.push(list[i]); i++; continue; }   // 没合上：不是这种，原样留着
+      acts.push(parts.map(clean).filter(Boolean).join("，"));
+      if (tail) words.push(tail);
+      i = j + 1;
+    }
+    return { words, acts };
+  }
+
   function split(words, opts) {
     const list = (Array.isArray(words) ? words : []).map(clean).filter(Boolean);
     const o = opts || {};
     const nothing = { words: Array.isArray(words) ? words : [], acts: [] };
+    const self = pullSelfBracket(list, o.selfNames);
+    if (self && self.acts.length) {
+      const rest = self.words.length ? split(self.words, Object.assign({}, o, { selfNames: null })) : { words: [], acts: [] };
+      return { words: rest.words, acts: self.acts.concat(rest.acts) };
+    }
     // 挂了牌子的不看称谓设置：牌子本身就是证据，跟「她」对不对无关
     if (list.some(w => LABEL.test(w))) return pullLabeled(list);
     if (o.secondPerson === false) return nothing;
+    // 群里不猜（她 2026-11-03 截图：萧成烨说「程策当场就能给他扣进西营马厩」，「他扣」被认成贴身动作，两句台词一起成了动作行）：
+    //   这把刀的前提是「他／她＝对面那个人」，单聊才成立；群里他她是在场任何一个人，台词里谈论别人再正常不过。
+    //   挂了牌子的、用自己名字括起来的，上面已经认过了，那两种不靠猜。
+    // 例外：动描开着的群里，这个人用「我」写自己在哪儿、什么姿势、在干什么（她 2026-11-05 截图：
+    //   「我坐在沙发扶手旁，手里端着刚洗好的小番茄，笑眯眯看着你们」成了一个气泡）——这正是动描那一格的写法，
+    //   只是写错了格子。只认这一个窄形状：「我」开头、紧跟位置姿势、句里一串「着」、不像在说话。认不出照旧不动。
+    if (o.group) {
+      if (!o.actOn) return nothing;
+      const acts = list.filter(selfStage);
+      return acts.length ? { words: list.filter(w => !selfStage(w)), acts } : nothing;
+    }
     if (list.length < 2) return nothing;
     if (!list.every(couldBeAct)) return nothing;
     // 至少一半的行要有硬证据，不是「有一行就够」：一轮里夹一句写她身体的，
@@ -113,5 +168,5 @@
     return SECOND_PERSON.test(text) || SPEAKING.test(text) || TAIL_PARTICLE.test(text);
   }
 
-  return { split, couldBeAct, hasActEvidence, pullLabeled, spokenAction };
+  return { split, couldBeAct, hasActEvidence, pullLabeled, pullSelfBracket, spokenAction };
 });

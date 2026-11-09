@@ -241,6 +241,19 @@ function phoneTimeline(charData, live, nowTs) {
 // 一个月俸微薄的小官照样下单六百八十文的袍子，两边说的不是同一个人。
 // 这一块只是把钱包那份【读过来】发给它们，不生成任何东西。
 const PHONE_MONEY_KEYS = ["shopping", "takeout"];
+// 别的 app 也得知道TA现在的钱（群友 2026-10-31：人设穷学生，她转了 200 万，翻他手机还在哭穷；她：「有钱角色转了钱破产了也要反应出来」）：
+//   人设写的是TA的底子，钱这件事以眼下的数为准。只给数和判据，不替TA决定怎么面对——穷人暴富、富人破产、这个月花超了，同一句话都管得到。
+function phoneMoneyNowBlock(appKey, money) {
+  if (PHONE_MONEY_KEYS.indexOf(appKey) >= 0 || appKey === "wallet" || !money) return "";
+  const n = v => (v == null || !isFinite(Number(v))) ? null : Math.round(Number(v));
+  const bits = [];
+  if (n(money.balance) != null) bits.push("手头（可动用）约 " + n(money.balance) + (n(money.balance) < 0 ? "（已经透支）" : ""));
+  if (n(money.monthlyIncome)) bits.push("每月进账约 " + n(money.monthlyIncome));
+  if (!bits.length) return "";
+  return "\n\n【TA现在的钱】" + bits.join("；") + "。人设写的是TA原本的底子；钱这件事以眼下这个数为准。"
+    + "跟人设里的处境对不上的时候（多出一大笔、或者钱没了、或者比平时紧），手机里的东西照TA现在的处境来写，"
+    + "TA怎么面对这个落差、在意不在意、跟谁说不跟谁说，看TA这个人。";
+}
 function phoneMoneyBlock(appKey, money) {
   if (PHONE_MONEY_KEYS.indexOf(appKey) < 0 || !money) return "";
   const n = v => (v == null || !isFinite(Number(v))) ? null : Math.round(Number(v));
@@ -1288,9 +1301,11 @@ function PGlyph({
 // 否则同一张照片在下次刷新排序变化后会被误当成另一张。
 // ⚠️模块级函数，不是 AlbumView 里的局部量——App 那边画完真图要按同一个指纹
 //   把图挂回 x_phoneKeep 的那条记录上，两处必须是同一套算法。
+// 不只认 id（群友 2026-11-04：「查看对方手机相册时生成的照片会覆盖所有的」）：模型有时给一整页照片写同一个 id，
+//   只认 id 时画好一张，每一张都认成它。编号连同标题、日期、描述一起算，重了也分得开
 function phonePhotoSig(p) {
   p = p || {};
-  return p.id || (p.caption || "") + "|" + (p.date || p.time || "") + "|" + (p.desc || "");
+  return (p.id ? p.id + "#" : "") + (p.caption || "") + "|" + (p.date || p.time || "") + "|" + (p.desc || "");
 }
 // ── 两个「我收着的」分开住（她 2026-10-06 群友：「为什么我收藏的照片都没有了，我没有换设备呀」）──
 //   相册收藏原来跟动态那颗「收着」共用 x_phoneKeep 一把键，形状还不一样：
@@ -1751,17 +1766,17 @@ function phoneProbeSpec(key, char, rel, actualWechat, avoidLines, known, money, 
         + characterText(char, "account 账户：name（**他在这个平台上的昵称**，不是本名照抄）、uid（会员号，一串数字）、member（会员等级的名字，按平台在他世界里的叫法起，可以带点调侃）、style（一句话概括他的购物风格）、monthSpend（本月消费，数字）、monthOrders（本月订单数）——**这两个只是占位，界面会用钱包的真实流水覆盖它们，给个大致数就行，别为它们编细节**、points（积分）、persona（一句更狠的购物性格：他买东西时最像他自己的那个毛病）。\n")
         + "shipping 在途包裹 **2-3 件**：status（派送中/运输中/已揽收）、eta（如「今日 18:00 前」）、shop、title（商品全名带规格）、progress（0-100 整数）、carrier、tail（运单尾号）、amount（数字）。\n"
         + "cart 购物车 **4-6 件**：shop、title、spec（颜色/尺码/款式）、price（现价数字）、was（原价数字，可为 0）、promo（优惠标签，可空）、qty。购物车装的是【还没下决心的东西】。\n"
-        + characterText(char, "wish 想买清单 **4-6 件**：title、shop、price、why（**为什么想买，一句他自己的话**）。\n")
+        + characterText(char, "wish 想买清单 **4-6 件**：title、shop、price、why（**为什么想要、又为什么到现在还没下手，一句他自己的话**——两半都在这一句里）。\n")
         + characterText(char, "**why 这一栏是整个 app 里最重要的东西**：它要暴露他的私心、旧事和惦记的人。这一句得落在【只有他才有的那个由头】上——某个具体的人、一件他自己记着的旧事、或者他身上某个说不出口的毛病。判据很硬：**换个角色还照样成立的，就是写坏了**。「质量好」「性价比高」这种谁都能说的话不算。\n")
         + characterText(char, "orders 我的订单 **6-8 单**：**id（这一单的编号，同一单以后刷新也必须是同一个 id——钱包靠它认账，换了 id 会被当成新的一单再扣一次钱）**、shop、status（已收货/待收货/已取消）、time、title、items（1-3 件，各有 name、spec、qty、price）、ship（运费数字）、paid（实付数字）、tags（2 个左右：品类和付款方式各一个）、review（收货后他写的一句，很短很实在）、reason（**一句下单理由**，可以牵涉到人）、addr（送到哪）。\n")
         + "habit 购物习惯：budget（单笔预算区间）、buys（常买什么）、avoids（**绝不买什么**——这一条比常买更像人）、how（下单习惯，什么时候翻、还不还价）。\n"
         + "shops 常逛店铺 **3-4 家**：name、cat（品类）、why（一句为什么是这家，要具体到掌柜脾气、货色成色这种）。\n"
         + "coupons 优惠券 **2-3 张**：rule（如「满300减50」）、name、scope（哪家或哪类可用）、until（到期日）。\n"
-        + "viewed 最近浏览 **5-7 条**：title、shop、price、time。**看了没买的东西和购物车里的要错开**，那是另一层心思。\n"
+        + "viewed 最近浏览 **5-7 条**：title、shop、price、time、why（**看了又没买的那个原因，一句他自己的话**）。**看了没买的东西和购物车里的要错开**，那是另一层心思。\n"
         + characterText(char, "addrs 收货地址 **2-3 条**：label（地址别名）、tail（尾号）、detail（详细到门房怎么放的那种备注）、isDefault（只有一条 true）。**其中一条应当是「他常去的另一个地方」**，不是自己家。\n")
         + characterText(char, "gifts 相关往来 **3-5 条**：who（给谁买的，用他嘴里对那个人的叫法）、title、note（**一句只有他会写的备注**，如「嘴上说着不喜欢我吵，接了油纸包自己一口气吃了三块」）。\n")
         + characterText(char, "monthNote：本月购物概况，一段 60-110 字，账房口吻，别抒情。tail：最后一句他自己的念叨，一两句，可以很得意也可以很没出息。"),
-      schemaHint: characterText(char, "{\"account\":{\"name\":\"平台昵称\",\"uid\":\"1043827\",\"member\":\"会员等级的叫法\",\"style\":\"一句购物风格\",\"monthSpend\":3260.5,\"monthOrders\":8,\"points\":18420,\"persona\":\"一句购物性格\"},\"shipping\":[{\"status\":\"派送中\",\"eta\":\"今日 18:00 前\",\"shop\":\"店铺\",\"title\":\"商品全名\",\"progress\":78,\"carrier\":\"快递\",\"tail\":\"9042\",\"amount\":340}],\"cart\":[{\"shop\":\"店铺\",\"title\":\"商品\",\"spec\":\"规格\",\"price\":680,\"was\":880,\"promo\":\"跨店满减\",\"qty\":1}],\"wish\":[{\"title\":\"商品\",\"shop\":\"店铺\",\"price\":560,\"why\":\"一句他自己的话\"}],\"orders\":[{\"id\":\"这一单的编号，同一单永远不变\",\"shop\":\"店铺\",\"status\":\"已收货\",\"time\":\"8月28日 14:15\",\"title\":\"订单标题\",\"items\":[{\"name\":\"商品\",\"spec\":\"规格\",\"qty\":2,\"price\":48}],\"ship\":0,\"paid\":128,\"tags\":[\"食品特产\",\"微信支付\"],\"review\":\"收货一句\",\"reason\":\"下单理由\",\"addr\":\"送到哪\"}],\"habit\":{\"budget\":\"...\",\"buys\":\"...\",\"avoids\":\"...\",\"how\":\"...\"},\"shops\":[{\"name\":\"店铺\",\"cat\":\"品类\",\"why\":\"为什么是这家\"}],\"coupons\":[{\"rule\":\"满300减50\",\"name\":\"券名\",\"scope\":\"哪儿可用\",\"until\":\"8月31日\"}],\"viewed\":[{\"title\":\"商品\",\"shop\":\"店铺\",\"price\":680,\"time\":\"今天 21:15\"}],\"addrs\":[{\"label\":\"王府侧门\",\"tail\":\"4819\",\"detail\":\"详细地址与备注\",\"isDefault\":true}],\"gifts\":[{\"who\":\"给谁\",\"title\":\"东西\",\"note\":\"一句备注\"}],\"monthNote\":\"一段\",\"tail\":\"最后一句念叨\",\"retired\":{\"wish\":[\"买到手或不想要了的\"],\"shops\":[\"已经不去了的那家\"]}}")
+      schemaHint: characterText(char, "{\"account\":{\"name\":\"平台昵称\",\"uid\":\"1043827\",\"member\":\"会员等级的叫法\",\"style\":\"一句购物风格\",\"monthSpend\":3260.5,\"monthOrders\":8,\"points\":18420,\"persona\":\"一句购物性格\"},\"shipping\":[{\"status\":\"派送中\",\"eta\":\"今日 18:00 前\",\"shop\":\"店铺\",\"title\":\"商品全名\",\"progress\":78,\"carrier\":\"快递\",\"tail\":\"9042\",\"amount\":340}],\"cart\":[{\"shop\":\"店铺\",\"title\":\"商品\",\"spec\":\"规格\",\"price\":680,\"was\":880,\"promo\":\"跨店满减\",\"qty\":1}],\"wish\":[{\"title\":\"商品\",\"shop\":\"店铺\",\"price\":560,\"why\":\"想要它、又还没下手的原因\"}],\"orders\":[{\"id\":\"这一单的编号，同一单永远不变\",\"shop\":\"店铺\",\"status\":\"已收货\",\"time\":\"8月28日 14:15\",\"title\":\"订单标题\",\"items\":[{\"name\":\"商品\",\"spec\":\"规格\",\"qty\":2,\"price\":48}],\"ship\":0,\"paid\":128,\"tags\":[\"食品特产\",\"微信支付\"],\"review\":\"收货一句\",\"reason\":\"下单理由\",\"addr\":\"送到哪\"}],\"habit\":{\"budget\":\"...\",\"buys\":\"...\",\"avoids\":\"...\",\"how\":\"...\"},\"shops\":[{\"name\":\"店铺\",\"cat\":\"品类\",\"why\":\"为什么是这家\"}],\"coupons\":[{\"rule\":\"满300减50\",\"name\":\"券名\",\"scope\":\"哪儿可用\",\"until\":\"8月31日\"}],\"viewed\":[{\"title\":\"商品\",\"shop\":\"店铺\",\"price\":680,\"time\":\"今天 21:15\",\"why\":\"为什么看了没买\"}],\"addrs\":[{\"label\":\"王府侧门\",\"tail\":\"4819\",\"detail\":\"详细地址与备注\",\"isDefault\":true}],\"gifts\":[{\"who\":\"给谁\",\"title\":\"东西\",\"note\":\"一句备注\"}],\"monthNote\":\"一段\",\"tail\":\"最后一句念叨\",\"retired\":{\"wish\":[\"买到手或不想要了的\"],\"shops\":[\"已经不去了的那家\"]}}")
     },
     album: {
       instruction: "推演「" + char.name + "」手机相册里正好 25 张互不重复的照片。时间跨度要自然；date 必须写真实完整日期 YYYY-MM-DD HH:mm，必须带年份，禁止写周三、周五、昨天、最近等相对日期。每张分进且只分进五类之一：回忆(memory)、个人收藏(favorite)、最近保存(saved)、私密(private)、最近删除(deleted)，每类至少 4 张、不必平均。memory 是 TA 真正会反复翻看的重要瞬间，不是普通随手拍。caption 是很短的照片标题；desc 要具体写照片真正拍到了什么（人物、地点、构图、光线和细节），不能只写抽象心情；thought 单独写 TA 看到这张照片时真实、私人的想法。类别与内容要合理：私密不等于一律色情，最近删除也要写为什么舍不得或为什么删。",
@@ -1870,8 +1885,11 @@ function phoneProbeSpec(key, char, rel, actualWechat, avoidLines, known, money, 
     },
     latenight: {
       instruction: "推演「" + char.name + "」深夜独自看的小电影（**正好 10 条**）。尺度该多大就多大，不要含糊其辞、不要写成文艺片。\n"
-        + characterText(char, "每条：title（标题）、duration（如 00:18:42 / 01:45:20，符合这类片子的合理长度）、tags（2-4 个标签的字符串数组）、views（播放量）、thought（点开那一秒他在想什么，一句，赤裸、不修饰）。\n")
-        + characterText(char, "另给 me：uid（这种站子上他没有名字，只有一串数字或字母）、lastAt（上次是什么时候，如「前天 03:12」）、note（一句他自己都不愿承认的旁白）。\n")
+        + characterText(char, "每条：title（标题）、duration（如 00:18:42 / 01:45:20，符合这类片子的合理长度）、tags（2-4 个标签的字符串数组）、views（播放量）、thought（点开那一秒他脑子里转的，赤裸、不修饰；长短随这个念头本身：有的只是半句、骂一声就关了，有的会想下去两三句——从片子里那一处想到她的某件事，再想到别的。十条别一样长）。\n")
+        + characterText(char, "另给 me：uid（这种站子上他没有名字，只有一串数字或字母）、lastAt（上次是什么时候，如「前天 03:12」）、note（一两句他自己都不愿承认的旁白）。\n")
+        // 她 2026-11-02：「想法其实挺好的，就是八股」——一到想她，就报一个顶格结论（身子哪儿酥了、命给她）。
+        //   不限他想不想她，只管怎么想：落到她身上具体的那一处。只给判据，不给例句。
+        + characterText(char, "【thought 和 note 怎么写才是他】「赤裸」是不修饰、不装，不是把分量往大里报：身子哪一处一下子酥了软了、把命或一辈子交出去——这一族是谁对谁都能说的顶格结论，不是他此刻的念头。片子让他想到她，就写片子里哪一处、对上了她的哪件事、哪个样子、哪句话。判据：这一句里有没有一样只属于她、或者只属于这条片子的具体东西？没有，就是在念台词。\n")
         // 病：所有角色都往「强势占有」那一头写（她 2026-08-29 报）。那不是哪个词写坏了，
         // 是这一栏除了「一个角色 + 深夜看的片」几乎没给别的约束，剩下的空白由训练先验补上，
         // 而这个题材的先验就是支配。治法跟人设被截断那次一样：不是加禁令，是把维度铺开，
@@ -1896,8 +1914,9 @@ function phoneProbeSpec(key, char, rel, actualWechat, avoidLines, known, money, 
         + characterText(char, "inbox 收件箱 **8-12 封**：from（谁发的）、fromAddr、subject（主题）、time、kind（这封属于哪一类）、unread（true/false）、preview（列表里露出来的那一截）、body（正文，3-6 句，写成那类邮件真正的样子）、thought（他看完心里那句，一句，可空——大多数邮件他心里什么都没有，那就留空）。\n")
         + characterText(char, "sent 发出去的 **3-5 封**：to、subject、time、body（他写的正文）。\n")
         + characterText(char, "drafts 草稿 **1-3 封**：to、subject、body、savedAt（存了多久）——**草稿是这个 app 最有东西的一栏**：写了没发的那封，通常是他不敢发或者不知道怎么措辞的。\n\n")
-        + characterText(char, "【这一栏的全部意义是【落差】】邮件里的他是【对陌生人和上级说话】的样子：客气、绕、留余地、把话说死之前先铺三层。")
-        + characterText(char, "**这个腔调和他私下说话的差距，就是这个 app 要给出来的东西**——同一个人，一边是邮件里那套滴水不漏的说法，一边是他在便签里骂的那句。\n")
+        // 腔调不定死（她 2026-10-31：「邮件感觉有点正式」）：原来写死「客气、绕、滴水不漏」，什么人设都被拉成同一种公文腔
+        + characterText(char, "【邮件里是他对外的那一面】对外是什么样，看他这个人：有的人在这儿装得滴水不漏，有的人连正事都写得短、直、带着脾气，有的人根本懒得写。")
+        + characterText(char, "跟他私下说话差得多，就把这个落差写出来；差不多，就照他平时的样子写，别为了显得正式硬套一层公文腔。\n")
         + characterText(char, "【收件箱要杂】不是每封都重要：该有正事、有账单、有他懒得退订的推送、有群发的、有一封他一直没回的。**一直没回的那封最说明人。**\n")
         + "【不要和微信撞车】微信是熟人和随口，这儿是正式的往来。同一件事不要在两处各写一遍。",
       schemaHint: characterText(char, "{\"me\":{\"addr\":\"他的邮箱地址\",\"name\":\"发件人显示名\",\"sign\":\"签名档\"},\"inbox\":[{\"from\":\"谁发的\",\"fromAddr\":\"地址\",\"subject\":\"主题\",\"time\":\"今天 09:12\",\"kind\":\"哪一类\",\"unread\":true,\"preview\":\"列表里那一截\",\"body\":\"正文\",\"thought\":\"他心里那句\"}],\"sent\":[{\"to\":\"寄给谁\",\"subject\":\"主题\",\"time\":\"昨天 18:40\",\"body\":\"正文\"}],\"drafts\":[{\"to\":\"本来要寄给谁\",\"subject\":\"主题\",\"body\":\"正文\",\"savedAt\":\"存了多久\"}],\"retired\":{\"drafts\":[\"发出去或删掉的草稿主题\"]}}")
@@ -1924,7 +1943,8 @@ function phoneProbeSpec(key, char, rel, actualWechat, avoidLines, known, money, 
         + characterText(char, "   ⚠️theirs 那几条**不是他在讨债**——写成他自己惦记着的一件还没完的事，主语是他的在意，不是对方的亏欠。写成指责就是写坏了。三种都要有，别一边倒。\n")
         + characterText(char, "② policies（2-4 条）他给某个人兜的底，**写成保险条款那种腔调**：who 承保的是谁、name 险种名、scope 一句承保范围、terms 理赔条件（写成对方要做到什么，那句话里要看得出他的脾气）、clause 一句正文条款（承保人负责做什么）。\n")
         + characterText(char, "   条款体的用处是**逼他把说不出口的东西写成义务**——一个不肯说软话的人，在条款里反而什么都答应了。这层落差是这一栏的全部意义。")
-        + "兜底不等于情话：可以是护着一个晚辈、担着一个同伙的烂摊子、也可以是给自己留的那一条。\n"
+        + "兜底不等于情话：可以是护着一个晚辈、担着一个同伙的烂摊子、也可以是给自己留的那一条。\n"        // 她 2026-10-31：「为啥那么多命都给你」——上面那句「什么都答应了」把它往最大的承诺上推
+        + characterText(char, "   条款写的是他真会做到、也做得到的那一件事，具体到哪件事、做到哪一步；拿最大的词去撑分量的条款，换谁都写得出来，就是写坏了。\n")
         + characterText(char, "③ statements（4-6 条）他盖过章的定论，每条一句他会亲口说出来的话。who 这句是冲谁去的、text 那句话本身、heat 这句话的温度（一个字或两个字，从这句话的力道来定，别都用同一个）、")
         + characterText(char, "truth 这句话底下真正的意思——**他嘴上这么说，心里其实是什么**。\n")
         + characterText(char, "   ⚠️truth 不是把 text 换个说法再讲一遍，也不是替他解释这句话什么意思。它要说的是【那句话没说出来的那一半】：")
@@ -1960,7 +1980,7 @@ function phoneProbeSpec(key, char, rel, actualWechat, avoidLines, known, money, 
   // ⚠️不是「四处一样喂」的例外——那条讲的是同一层能力要在四个场合都给到；
   // 这一段是账本这一栏专属的取材facts，别的 app 本来就不看。
   const bondBlock = (key === "tally" && bond) ? bond : "";
-  const _full = spec.instruction + phoneOwnOnlyBlock(char.name) + bondBlock + angle + PHONE_WORLD_RULE + phoneMoneyBlock(key, money) + phoneIdentityBlock(key, known) + phoneEvolveBlock(key, known) + phoneRosterBlock(key, known) + phoneWatchDraftBlock(key, known) + phoneSelfAvoidBlock(key, known) + phoneQuoteAvoidBlock(key, known) + phoneAvoidBlock(avoidLines) + phoneLangBlock(lang) + (weekly ? PHONE_WEEKLY_HINT : "");
+  const _full = spec.instruction + phoneOwnOnlyBlock(char.name) + bondBlock + angle + PHONE_WORLD_RULE + phoneMoneyBlock(key, money) + phoneMoneyNowBlock(key, money) + phoneIdentityBlock(key, known) + phoneEvolveBlock(key, known) + phoneRosterBlock(key, known) + phoneWatchDraftBlock(key, known) + phoneSelfAvoidBlock(key, known) + phoneQuoteAvoidBlock(key, known) + phoneAvoidBlock(avoidLines) + phoneLangBlock(lang) + (weekly ? PHONE_WEEKLY_HINT : "");
   return { ...spec, maxTokens: PHONE_OUT_CEILING, instruction: _full };
 }
 // 纯函数导出给 node --test；浏览器里没有 module，原样跳过

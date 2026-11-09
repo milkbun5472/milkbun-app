@@ -33,8 +33,8 @@ test("接线：主屏有图标、路由进得去、脚本先于 app.js 加载", 
 test("走秋秋\u673a自己的前门：包里不许有 Worker 真地址、不许有她的名字", () => {
   // 2026-10-18 起地址写在 js/nest-watch.js（开机就加载，管理员提醒要用），nest.js 从那儿拿
   const watch = R("js/nest-watch.js");
-  // 公共版用自己站的前门（location.origin），家里那版用新地址的前门
-  assert.match(watch, /const NEST = \(g\.location && [^\n]*pages\\\.dev[^\n]*g\.location\.origin : "https:\/\/autumn-drawer\.pages\.dev"\) \+ "\/nest";/);
+  // 公共版用自己站的前门（location.origin）；家里那版借老地址那个站的前门（新地址一个字都不许写进 js）
+  assert.match(watch, /const NEST = \(g\.location && [^\n]*pages\\\.dev[^\n]*g\.location\.origin : "https:\/\/qiuqiu-machine\.pages\.dev"\) \+ "\/nest";/);
   [nest, watch].forEach(src => {
     assert.ok(!/workers\.dev/.test(src), "Worker 真地址进了包——里头带着账号名");
     assert.ok(!/lisa/i.test(src), "小窝里出现了她的名字");
@@ -107,8 +107,8 @@ test("人设：只带名字、简介、正文；导进来是新建一个角色",
   assert.deepEqual(Object.keys(out).sort(), ["kind", "name", "persona", "tagline"]);
   let made = null;
   N.importInto("persona", JSON.stringify(out), "沈", { onAddChar: o => { made = o; } });
-  assert.deepEqual(made, { name: "沈", tagline: "医生", persona: "正文" });
-  assert.match(app, /onAddChar: o => \{ createCharFromAssistant\(o\); \}/);
+  assert.deepEqual(made, { name: "沈", tagline: "医生", persona: "正文", lore: [], greeting: "", longMem: "", seeds: [] });
+  assert.match(app, /onAddChar: o => \{ importCharCard\(o\); \}/);
 });
 
 // 她 2026-10-08：「如果想要 css 应用在单一个聊天怎么弄」——CSS 导入先问放哪儿，能只放给一个人／一个群／一个人的线下

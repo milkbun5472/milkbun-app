@@ -86,7 +86,7 @@ test("例行刷新不许改她正在看的是谁，而且刷完得说一声", ()
   const i = app.indexOf("await genPhoneAll(due, true)");
   assert.ok(app.indexOf("toast((done === pending.length", i) > i, "提示要在整轮刷完之后才发");
   // 每个人刷完各弹一次会把这句冲掉,所以例行刷新时下面那层不许自己报
-  assert.match(app, /if \(!weekly\) toast\(ok === keys\.length/, "例行刷新时每个角色还各弹一次");
+  assert.match(app, /if \(!weekly\) toast\(phoneAllStopRef\.current \? "停下了：[^"]*" \+ ok \+ "[^"]*" : ok === keys\.length/, "例行刷新时每个角色还各弹一次");
 });
 
 test("主 app 的朋友圈走的是聊天轮数，跟查手机的每周刷新是两回事", () => {

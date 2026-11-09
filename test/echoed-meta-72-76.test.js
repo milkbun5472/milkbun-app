@@ -40,7 +40,8 @@ test("落进气泡之前真的过了这一道", () => {
 test("喂进去的记号改成了【】，并且自己说了别抄", () => {
   // v72.96：动作那一行整个搬去了旁白侧，assistant 这边只剩语音那条旁注。
   //   剥离器那一半照旧留着——老聊天记录里还躺着当年那句。
-  assert.match(app, /【这条你是用语音说的；这是旁注，正文里没有它】/, "语音那条旁注没跟着改");
+  // 2026-10-31：语音那条旁注也撤了（TA照着编出「【这条说的是外语；这是旁注…】」），assistant 那侧一个记号都不贴
+  assert.match(app, /const ac = stp \+ byU \+ \(m\.kind === "voice" \? m\.content/, "语音那条又贴回旁注了");
   assert.ok(!/const ac = stp \+ byU \+ \(\(m\.role === "narration"/.test(app), "动作行又被放回 assistant 那一侧了");
   assert.ok(!/"（这一条是你此刻做的动作／你那边的动静，不是你发出去的消息）"/.test(app), "旧的括号版还留着");
 });
@@ -54,7 +55,7 @@ test("语音标记后面夹着的旁注也摘掉", () => {
 
 test("语音栏那两路也过一遍", () => {
   assert.match(app, /(const|let) vt = stripEchoedMeta\(\(raw && \(raw\.t \|\| raw\.text\)\) \|\| ""\);/);   // v75.919 改成 let：剥完还要再拆一层 {"voice":…}
-  assert.match(app, /(?:const|let) vt = stripEchoedMeta\((?:stripAiStamp\()?item\.text\)?\);/);   // v76.119 起群里那路先剥〔今天19:44〕
+  assert.match(app, /(?:const|let) vt = stripEchoedMeta\(stripAiStamp\([^;]*item\.text[^;]*\)\);/);   // v76.119 起群里那路先剥〔今天19:44〕
 });
 
 // 群里 2026-10-20：一条语音里每句前面都抄了〔今天19:44〕
@@ -65,3 +66,8 @@ test("语音栏那两路也过一遍", () => {
   require("node:assert/strict").equal(strip("唔……能不大嘛〔今天19:44〕它现在全听你的〔今天19:44〕既然这么喜欢"), "唔……能不大嘛 它现在全听你的 既然这么喜欢");
   require("node:assert/strict").equal(strip("〔今天19:44〕你好"), "你好");
 }
+
+test("它照着改写的那种旁注（说的是外语／这是旁注／正文里没有它）也摘，跨两泡的也摘，后面的话留着", () => {
+  assert.match(app, /这条说的是\[\^；;】\]\{0,10\}\[；;\]\\s\*这是旁注/);
+  assert.match(app, /没发成的话\|这是旁注\|正文里没有它\|/);
+});

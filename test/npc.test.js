@@ -28,9 +28,10 @@ test("NPC 绝不许掉进任何会花钱的后台循环", () => {
     // 这两处是有意用全量的：清理孤儿数据要认得所有 id；npcsOf 本来就是找配角
     // playChars（v74.625）：一起玩那三处的选人名单——她自己点开、自己挑人才用，不是后台循环，不花钱
     // 评论区「谁是谁」（v75.4xx）：只是把评论区里出现的显示名对回角色，配角也会来评论，得认得；不调模型
+    // shopPeople（2026-10-31）：购物、外卖她自己点开挑收礼人的名单，配角只是能被挑，不进后台、不花钱
     // 心有灵犀的 lifeFor（2026-10-31）：只是把挂在 TA 身边的配角名字列进联想材料，本来就是找配角，不调模型
     .filter(x => !/x\.npc && String\(x\.ownerId\) === String\(charId\)/.test(x.l))
-    .filter(x => !/const valid = new Set/.test(x.l) && !/const npcsOf/.test(x.l) && !/const liveChars/.test(x.l) && !/const playChars/.test(x.l) && !/const shown = c\.remark \|\| c\.name; if \(names\.has/.test(x.l));
+    .filter(x => !/const valid = new Set/.test(x.l) && !/const npcsOf/.test(x.l) && !/const liveChars/.test(x.l) && !/const playChars/.test(x.l) && !/const shopPeople/.test(x.l) && !/const shown = c\.remark \|\| c\.name; if \(names\.has/.test(x.l));
   assert.deepEqual(stray.map(x => x.n), [],
     "这些行还在遍历全量 characters，必须走 liveChars：\n" + stray.map(x => x.n + ": " + x.l.trim().slice(0, 80)).join("\n"));
 });

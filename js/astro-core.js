@@ -468,9 +468,22 @@
   }
   // ── 今日签（第 3 条）：TA 替她抽一张签。手动（星测里点）和自动（TA 每天早上自己发）用同一份提示词 ──
   const SIGN_SCHEMA = "{\"title\":\"签名，四到八个字\",\"text\":\"写在签上的话，一两句\"}";
-  function signInstruction(meName, facts) {
+  // char：抽签的那个人。他开着「外语消息自带中译」的话，签名和签上的话也写成「原文 | 中文」（群里 2026-11-04：日文角色的签只有日文）
+  function signInstruction(meName, facts, char) {
+    const bi = char && typeof window !== "undefined" && window.__charBiOn && window.__charBiOn(char.id) && typeof bilingualRule === "function";
     return "你替" + meName + "抽一张今天的签。下面是按她的星座和今天的日子算出来的（不是你编的）：\n" + facts + "\n"
-      + "签上写什么、怎么写、当不当真，全由你这个人决定——可以照着运势写，也可以完全不信、写你自己想对她说的。title 是签名，text 是签上的话。";
+      + "签上写什么、怎么写、当不当真，全由你这个人决定——可以照着运势写，也可以完全不信、写你自己想对她说的。title 是签名，text 是签上的话。"
+      + (bi ? "\n" + bilingualRule(char.name, typeof hanLangOf === "function" && hanLangOf(char)) + "签上也照这个：title、text 是外语的话，各自写成「原文 | 中文」。" : "");
+  }
+  // 抽出来那张存成什么样（手动、自动两处共用）：带了中译的话字数照两半一起留，不截掉译文
+  function signCardOf(d, by) {
+    return { title: String(d.title || "").trim().slice(0, 40), text: String(d.text || "").trim().slice(0, 300), by: by, ts: Date.now() };
+  }
+  // 签上那一行：「原文 | 中文」劈开，中文小一号挂在底下
+  function signLine(v, style, zhSize) {
+    const b = typeof splitBilingual === "function" ? splitBilingual(String(v || ""), false) : null;
+    if (!b || !b.zh) return h("div", { style: style }, b ? b.text : v);
+    return h("div", { style: style }, b.text, h("div", { "data-wk": "astrosignzh", style: { fontSize: zhSize, opacity: 0.7, marginTop: 3, lineHeight: 1.6 } }, b.zh));
   }
   function todayFacts(profile, birth, dk) {
     const info = birthInfo((profile || {}).birthday); if (!info || info.sign < 0) return "";
@@ -486,8 +499,8 @@
       h("div", { style: { padding: "12px 14px 14px", textAlign: "center" } },
         h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", letterSpacing: 3, color: S.fog } }, "今日签 · " + (d.getMonth() + 1) + "." + d.getDate()),
         h("div", { style: { width: 1, height: 14, background: S.tint, margin: "8px auto 6px", opacity: 0.6 } }),
-        h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(20px * var(--app-fs, 1))", color: S.tint, lineHeight: 1.3 } }, a.title || "签"),
-        a.text ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: S.ink, lineHeight: 1.7, marginTop: 8, textAlign: "left" } }, a.text) : null,
+        signLine(a.title || "签", { fontFamily: F_DISPLAY, fontSize: "calc(20px * var(--app-fs, 1))", color: S.tint, lineHeight: 1.3 }, "calc(12px * var(--app-fs, 1))"),
+        a.text ? signLine(a.text, { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: S.ink, lineHeight: 1.7, marginTop: 8, textAlign: "left" }, "calc(11.5px * var(--app-fs, 1))") : null,
         a.by ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: S.fog, marginTop: 8, textAlign: "right" } }, "—— " + a.by + " 抽的") : null));
   }
   function signName(i) { return i >= 0 ? SIGNS[i][0] + "座" : "不知道什么星座"; }
@@ -572,7 +585,7 @@
         h(Panel, { S, title: "那天的运势" }, !dd ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: S.sub } }, "不知道 " + cName + " 的生日，这一页是空的")
           : h("div", null,
             h("div", { className: "flex items-baseline justify-between" }, h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(20px * var(--app-fs, 1))" } }, signName(ci.sign)), h(Stars, { n: dd.all, color: S.tint })),
-            h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", lineHeight: 1.7, marginTop: 6 } }, dd.line),
+            h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", lineHeight: 1.7, marginTop: 6 } }, transShow(dd.line)),
             h("div", { style: { display: "grid", gridTemplateColumns: "auto 1fr", gap: "6px 12px", marginTop: 10, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: S.sub, alignItems: "center" } },
               "爱情", h(Stars, { n: dd.love, color: S.accent }), "事业", h(Stars, { n: dd.work, color: S.accent }), "财运", h(Stars, { n: dd.money, color: S.accent })),
             h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: S.fog, marginTop: 8 } }, "幸运色 " + dd.color.name + " · 幸运数字 " + dd.number))),
@@ -607,7 +620,7 @@
       document.head.appendChild(st);
     }
   } catch (e) {}
-  g.Astro.signInstruction = signInstruction; g.Astro.todayFacts = todayFacts; g.Astro.SIGN_SCHEMA = SIGN_SCHEMA;
+  g.Astro.signInstruction = signInstruction; g.Astro.signCardOf = signCardOf; g.Astro.todayFacts = todayFacts; g.Astro.SIGN_SCHEMA = SIGN_SCHEMA;
   g.Astro.markSeen = markSeen; g.Astro.seenDay = seenDay;
   g.GAstro = function (p) {
     return h(Svg, p, h("circle", { cx: 12, cy: 12, r: 8.5 }), h("path", { d: "M12 5.5l1.3 3.9 4.1.1-3.3 2.4 1.2 3.9L12 13.5l-3.3 2.3 1.2-3.9-3.3-2.4 4.1-.1z" }));

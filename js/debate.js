@@ -180,7 +180,7 @@
   // ---- 模型：从这几个人跟她最近的事里现编几道题（她 2026-10-09：抽题）----
   //   读的是跟「注入最近聊天」同一份 recentChatSnippet，只在擂台这一次调用里用，什么都不写回。
   async function drawTopics(active, chars, uName) {
-    const blocks = chars.map(c => "「" + c.name + "」" + personaFor(c.persona, chars.length).slice(0, 1200)
+    const blocks = chars.map(c => "「" + c.name + "」" + personaFor(c.persona, chars.length).slice(0, 1200) + (typeof charLangLine === "function" ? charLangLine(c) : "")
       + (recentChatSnippet(c.id, uName, c.name) ? "\n（TA跟 " + uName + " 最近的聊天）\n" + recentChatSnippet(c.id, uName, c.name) : "")).join("\n\n");
     const sys = AC() + CB() + "下面是要上擂台的几个人，和他们跟 " + uName + " 最近聊过的东西。给这一场现编 3 道吵得起来的题。\n"
       + "判据：题从【这几个人和 " + uName + " 之间真发生过、真在意的事】里长出来——最近聊天里的一件事、两人之间没说开的一个分歧、某个人的习惯或选择；"
@@ -193,7 +193,7 @@
 
   // ---- 模型：按人设给每个角色分配立场 + 给我几个可选立场 ----
   async function assignStances(active, worldbook, topic, chars, isFree, crowdN) {
-    const roster = chars.map((c, i) => "角色" + (i + 1) + "「" + c.name + "」的人设：" + personaFor(c.persona, chars.length)).join("\n\n");
+    const roster = chars.map((c, i) => "角色" + (i + 1) + "「" + c.name + "」的人设：" + personaFor(c.persona, chars.length) + (typeof charLangLine === "function" ? charLangLine(c) : "")).join("\n\n");
     const sys = AC() + CB() +
       "下面有一道辩题和几个人物。请【严格根据每个人的人设】判断 Ta 在这道题上最可能真心站的立场——性格、经历、价值观决定态度，别随便分正反。\n\n" +
       "【辩题】" + topic +
@@ -263,7 +263,7 @@
     const J = o.judge && !o.judge.me ? o.judge : null;
     const meJudge = !!(o.judge && o.judge.me);
     const rosterBlocks = chars.map(function (c, i) {
-      return "【第" + (i + 1) + "位 · " + c.name + "】\n· 立场：" + (c.stance || "自行把握") + "\n· 人设：" + personaFor(String(c.persona || "").replace(/\s+/g, " "), chars.length) +
+      return "【第" + (i + 1) + "位 · " + c.name + "】\n· 立场：" + (c.stance || "自行把握") + "\n· 人设：" + personaFor(String(c.persona || "").replace(/\s+/g, " "), chars.length) + (typeof charLangLine === "function" ? charLangLine(c) : "") +
         (c.npcOf ? "\n· TA是" + (c.npcOf === "她" ? uName : "「" + c.npcOf + "」") + "身边的人" + (c.knowsUser === false ? "，本来不认识 " + uName + "，今天是头一回跟她打交道——别装熟" : "") : "") +
         (c.injection ? "\n· （Ta 和 " + uName + " 最近的聊天，仅用来拿捏关系/近况/语气，别照搬别复述）\n" + c.injection : "");
     }).join("\n\n");
@@ -425,7 +425,7 @@
       if (J && !callOf(out)) { const m = txt.match(/"call"\s*:\s*"((?:[^"\\]|\\.)*)"/); if (m) { try { out.call = JSON.parse('"' + m[1] + '"'); } catch (e) { out.call = m[1]; } } }
       return out;
     };
-    const raw0 = await callAI(active, sys, [{ role: "user", content: "开始：按序让各角色接话，最后只摘一张未决争点卡。" }], { maxTokens: budget });
+    const raw0 = await callAI(active, sys, [{ role: "user", content: "开始：按序让各角色接话，最后只摘一张未决争点卡。" }], { biFor: chars, maxTokens: budget });
     let p = salvage(raw0, extractJSON(raw0) || {});
     if (missing(p)) {
       try {
@@ -433,7 +433,7 @@
         const lack = chars.filter(c => !(p.turns || []).some(x => x && String(x.name || "").trim() === c.name && sayOf(x))).map(c => c.name);
         const ask2 = "这一轮" + (have ? "已经写好的发言：\n" + have + "\n\n" : "") + "还缺：" + (lack.length ? lack.join("、") + " 这一轮的发言" : "") + (J && !callOf(p) ? (lack.length ? "，以及" : "") + "裁判 " + J.name + " 的判语" : "")
           + "。只补缺的这几样，已经写好的别重写。只输出 JSON：{\"turns\":[{\"name\":\"角色名\",\"say\":\"发言\",\"at\":\"主要回应谁\"}]" + (J ? ",\"call\":\"裁判判语\"" : "") + "}";
-        const raw2 = await callAI(active, sys, [{ role: "user", content: ask2 }], { maxTokens: budget });
+        const raw2 = await callAI(active, sys, [{ role: "user", content: ask2 }], { biFor: chars, maxTokens: budget });
         const p2 = salvage(raw2, extractJSON(raw2) || {});
         const add = (p2.turns || []).filter(x => x && sayOf(x) && lack.indexOf(String(x.name || "").trim()) >= 0);
         p = Object.assign({}, p, { turns: (p.turns || []).filter(x => x && sayOf(x)).concat(add) });
@@ -1344,7 +1344,7 @@
                 cp ? h(Avatar, { character: props.characters.find(x => x.id === cp.id) || { name: c.name }, size: 26, radius: 999 }) : h("div", { style: { width: 26 } }),
                 h("div", { style: { flex: 1 } },
                   h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", fontWeight: 700, color: cp ? cp.color : t.ink, marginBottom: 2 } }, c.name),
-                  h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", lineHeight: 1.6, color: t.ink } }, c.text)));
+                  h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", lineHeight: 1.6, color: t.ink } }, transShow(c.text))));
             })) : null) : null),
       // 底部操作
       ended ? (props.onCreate && (s.parts || []).length >= 2 ? h("div", { style: { position: "absolute", left: 0, right: 0, bottom: 0, padding: "10px 16px calc(10px + env(safe-area-inset-bottom) * 0.4)", background: "linear-gradient(to top," + t.bg + " 78%,transparent)" } },

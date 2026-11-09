@@ -35,5 +35,6 @@ test("放映页：B 站那块表只改我们的表，不重载她那边的播放
   assert.match(src, /h\("iframe", \{ src: biliUrl,/);
   assert.match(src, /btn\("发张截图给 TA", \(\) => picRef\.current && picRef\.current\.click\(\)/, "网上的片子要能从相册发截图");
   assert.match(src, /: btn\("给 TA 看这一帧", showFrame/, "本地片子照旧直接截帧");
-  assert.equal((src.match(/sendPic\(full, thumb,/g) || []).length, 2, "截帧和相册两条路要走同一段 sendPic");
+  // 截帧那条缩略图截黑时拿大图顶上（sendPic(full, thumb === "black" ? full : thumb, ...)）
+  assert.equal((src.match(/sendPic\(full, thumb[, ]/g) || []).length, 2, "截帧和相册两条路要走同一段 sendPic");
 });

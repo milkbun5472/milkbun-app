@@ -84,13 +84,17 @@ test("装载器：一起下载、按顺序执行、只装一次、失败了能�
   new Function("window", "document", "globalThis", "fetch", R("js/lazy-mods.js"))(g, document, g, fetch);
   const L = g.LazyMods;
   await assert.rejects(L.load("g"), /没下载下来：js\/b\.js/);
-  assert.deepEqual(fetched, ["js/a.js?v=1", "js/b.js?v=1", "js/c.js?v=1"], "三份没有一起开始下载");
+  // 2026-11-08 起每份自己先重来一次（手机网抖一下很常见，更新过后这几份本来就是全新地址要现下），
+  //   所以 b 会出现两次；要紧的仍是【三份一起开始下载】，看前三次就够。
+  assert.deepEqual(fetched.slice(0, 3), ["js/a.js?v=1", "js/b.js?v=1", "js/c.js?v=1"], "三份没有一起开始下载");
+  assert.deepEqual(fetched.slice(3), ["js/b.js?v=1"], "没下成的那份没有自己重来一次");
+  const after = fetched.length;
   assert.deepEqual(ran, ["js/a.js"], "a 跑了，b 断了，c 不许越过 b 先跑");
   assert.equal(L.isLoaded("g"), false);
   failB = false; slowA = false;
   await L.load("g");
   assert.deepEqual(ran, ["js/a.js", "js/b.js", "js/c.js"], "重来时把已经跑过的 a 又跑了一遍，或者顺序乱了");
-  assert.deepEqual(fetched.slice(3), ["js/b.js?v=1", "js/c.js?v=1"], "重来时又去下了已经跑过的 a");
+  assert.deepEqual(fetched.slice(after), ["js/b.js?v=1", "js/c.js?v=1"], "重来时又去下了已经跑过的 a");
   assert.equal(L.isLoaded("g"), true);
   await L.load("g");
   assert.equal(ran.length, 3, "装好了还在重复装");
@@ -194,4 +198,15 @@ test("动态导入保留脚本原 src，失败重试不跳过、不重复前序�
  const g={addEventListener(){}};new Function('window','document','globalThis','fetch',R('js/lazy-mods.js'))(g,document,g,fetch);
  await assert.rejects(g.LazyMods.load('g'),/没下载下来/);assert.deepEqual(ran,['a']);assert.equal(tags[1].getAttribute('data-done'),undefined);
  fail=false;await g.LazyMods.load('g');assert.deepEqual(ran,['a','b','c']);assert.equal(g.LazyMods.isLoaded('g'),true);assert.deepEqual(fetched.slice(3),['js/b.js?v=1','js/c.js?v=1']);
+});
+
+// 她 2026-11-08 群友：「进去了但是设置打不开」。手机网挂着不回话时 fetch 既不成也不败，
+// 上面那层就永远停在「在打开……」——看起来就是这一页打不开、点了没反应。必须有超时。
+test("装载器：一直不回话的也要当断了算，不能永远挂着", async (t) => {
+  const fs2 = require("fs");
+  const src = fs2.readFileSync(__dirname + "/../js/lazy-mods.js", "utf8");
+  assert.match(src, /LAZY_TIMEOUT = \d+/, "没有超时");
+  assert.match(src, /AbortController/, "超时了没有真把这次下载掐掉");
+  const ms = Number(/LAZY_TIMEOUT = (\d+)/.exec(src)[1]);
+  assert.ok(ms >= 10000 && ms <= 60000, "超时时间不合适：" + ms);
 });

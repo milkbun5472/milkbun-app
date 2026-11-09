@@ -42,7 +42,7 @@ test("上一行自己已经是完整双语的不接", () => {
 });
 
 test("群里：双语开着只按换行切，劈完竖线才拆泡；单聊也接回另起一行的中译", () => {
-  assert.match(app, /: \(gBiOn \|\| !window\.GroupIdentityGuard\) \? String\(item\.text \|\| ""\)\.split\(\/\\n\+\/\) : window\.GroupIdentityGuard\.splitBubbles\(item\.text\);/);
+  assert.match(app, /: \(gBiOn \|\| !window\.GroupIdentityGuard\) \? String\(item\.text \|\| ""\)(?:\.replace\([^)]*\))?\.split\(\/\\n\+\/\) : window\.GroupIdentityGuard\.splitBubbles\((?:item\.text|String\(item\.text \|\| ""\)\.replace\([^)]*\))\);/);
   assert.match(app, /const gLines = \(gBiOn \? \(ls => joinBilingualLines\(ls, hanLangOf\(spk\)(, \{ pairNext: true \})?\)\) : \(x => x\)\)\(/);
   assert.match(app, /if \(_biParse\) words = joinBilingualLines\(words, hanLangOf\(char\)(, \{ pairNext: _bilingualOn \})?\);/);
 });
@@ -92,7 +92,7 @@ test("开关没开但自带译文：新消息照双语劈，旧记录画的时�
   assert.match(app, /const bi = _biParse \? splitBilingual\(w, hanLangOf\(char\)\) : null;/);
   assert.match(app, /const gBiOn = !!\(settingsFor\(spk\.id\) \|\| \{\}\)\.bilingual\s*\|\| /);
   const comp = fs.readFileSync(R("components.js"), "utf8");
-  assert.match(comp, /if \(!zhReady && !isU && typeof text === "string" && \(text\.indexOf\("\|"\) > 0 \|\| [^)]*\)\) && typeof splitBilingual === "function"\)/);
+  assert.match(comp, /if \(!zhReady && !isU && typeof text === "string" && \(\/\[\|｜│︱┃\]\/\.test\(text\.slice\(1\)\) \|\| [^)]*\)\) && typeof splitBilingual === "function"\)/);
   assert.deepEqual(E.splitBilingual("食咗藥算你聽話 | 吃了药算你听话", false), { text: "食咗藥算你聽話", zh: "吃了药算你听话" });
   assert.equal(E.splitBilingual("价格 3|5 元", false), null, "普通中文里的竖线不许劈");
 });

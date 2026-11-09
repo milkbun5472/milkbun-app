@@ -223,11 +223,30 @@ test("该是一段字的栏被写成对象时，洗成字（SR 开头、接着�
   assert.equal(r.narration, "他在等"); assert.deepEqual(r.before, { narration: "前一刻" });
 });
 
-test("熔 R 卡：一张 30 印泥，盖过的印退一半；只熔 R", () => {
+test("熔 R 卡：一张 30 印泥，盖过的印退一半；SSR 不熔", () => {
   const C = fresh(), st = C.load(); st.ink = 0;
-  st.cards = [{ id: "a", rarity: "R", lv: 1, text: {} }, { id: "b", rarity: "R", lv: 11, text: {} }, { id: "c", rarity: "SR", lv: 1, text: {} }]; C.save(st);
+  st.cards = [{ id: "a", rarity: "R", lv: 1, text: {} }, { id: "b", rarity: "R", lv: 11, text: {} }, { id: "c", rarity: "SSR", lv: 1, text: {} }]; C.save(st);
   let spent = 0; for (let l = 1; l < 11; l++) spent += C.levelCost("R", l);
   const r = C.melt(["a", "b", "c"]);
   assert.equal(r.n, 2); assert.equal(r.ink, 30 + 30 + Math.floor(spent / 2));
   const s2 = C.load(); assert.equal(s2.ink, r.ink); assert.deepEqual(s2.cards.map(c => c.id), ["c"]);
+});
+test("R 卡那句心里话写进了 line 也认回来", () => {
+  const C = fresh();
+  const out = C.cleanText({ name: "a", narration: "n", line: "我在想你" }, "R");
+  assert.strictEqual(out.thought, "我在想你");
+});
+test("SR 也能熔：一张 100，花过调用的 SR 不熔", () => {
+  const C = fresh();
+  assert.strictEqual(C.meltValue({ rarity: "SR", lv: 1 }), 100);
+  assert.strictEqual(C.meltValue({ rarity: "SR", lv: 1, faceAlt: "img_x" }), 0);
+  assert.strictEqual(C.meltValue({ rarity: "SR", lv: 1, extras: [{ text: "番外" }] }), 0);
+  assert.strictEqual(C.meltValue({ rarity: "SSR", lv: 1 }), 0);
+});
+test("删掉没人认领的卡（SSR 也行），不给印泥", () => {
+  const C = fresh(), st = C.load(); st.ink = 0;
+  st.cards = [{ id: "a", rarity: "SSR", charId: "gone", face: "img_a", text: {} }, { id: "b", rarity: "R", charId: "c1", text: {} }]; C.save(st);
+  const r = C.dropCards(["a"]);
+  assert.equal(r.n, 1); assert.deepEqual(r.keys, ["img_a"]);
+  const s2 = C.load(); assert.equal(s2.ink, 0); assert.deepEqual(s2.cards.map(c => c.id), ["b"]);
 });

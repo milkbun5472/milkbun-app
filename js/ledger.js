@@ -547,7 +547,7 @@
           "· 各角色以第一人称盘点。需要第三人称时，使用条目里的「应用称呼」或姓名。严禁『看了一眼没说什么』这类空话。\n\n" +
           "【上月账单】\n" + statLines.join("\n") + "\n\n【要盘点的角色】\n" + block +
           "\n\n【输出】只输出 JSON，comments 与角色顺序一一对应、数量一致：{\"comments\":[{\"name\":\"角色名\",\"text\":\"这位角色的月度盘点\"}]}。别加解释、别加代码块。";
-        const raw = await callAI(props.active, sys, [{ role: "user", content: "开始盘点。" }], { maxTokens: 14000 });
+        const raw = await callAI(props.active, sys, [{ role: "user", content: "开始盘点。" }], { biFor: vis.map(id => props.characters.find(x => x.id === id)), maxTokens: 14000 });
         const pd = extractJSON(raw) || {};
         const arr = Array.isArray(pd.comments) ? pd.comments : [];
         const cmts = list.map((it, i) => { const byName = arr.find(r => r && String(r.name || "").trim() === it.name); const r = byName || arr[i]; const txt = r && (r.text || r.comment) ? String(r.text || r.comment).trim() : ""; return { charId: it.id, charName: it.name, text: txt, ts: Date.now() }; }).filter(x => x.text);
@@ -593,7 +593,7 @@
           "· 各角色以第一人称说。需要第三人称时，使用条目里的「应用称呼」或姓名。\n\n" +
           "【这一年】\n" + stat + "\n\n【要说话的角色】\n" + block +
           "\n\n【输出】只输出 JSON，comments 与角色顺序一一对应、数量一致：{\"comments\":[{\"name\":\"角色名\",\"text\":\"这位角色说的话\"}]}。别加解释、别加代码块。";
-        const raw = await callAI(props.active, sys, [{ role: "user", content: "开始。" }], { maxTokens: 14000 });
+        const raw = await callAI(props.active, sys, [{ role: "user", content: "开始。" }], { biFor: vis.map(id => props.characters.find(x => x.id === id)), maxTokens: 14000 });
         const pd = extractJSON(raw) || {}, arr = Array.isArray(pd.comments) ? pd.comments : [];
         const cmts = list.map((it, i) => { const r = arr.find(x => x && String(x.name || "").trim() === it.name) || arr[i]; const txt = r && (r.text || r.comment) ? String(r.text || r.comment).trim() : ""; return { charId: it.id, charName: it.name, text: txt, ts: Date.now() }; }).filter(x => x.text);
         if (!cmts.length) { props.toast && props.toast("TA 们这次没说出来，等会儿再试"); return; }
@@ -1342,7 +1342,7 @@
             return h("div", { key: i, style: { display: "flex", gap: 10, marginBottom: 12 }, "data-wk": "ldgyearview" },
               ch ? h(Avatar, { character: ch, size: 34, radius: 10 }) : h("div", { style: { width: 34, height: 34, borderRadius: 10, background: sk.line, flexShrink: 0 } }),
               h("div", { style: { flex: 1, minWidth: 0 } }, h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: sk.sub, marginBottom: 3 } }, cm.charName),
-                h("div", { style: Object.assign({ padding: "9px 12px", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: sk.ink, lineHeight: 1.55 }, sk.card, { borderRadius: 14, borderTopLeftRadius: 4 }) }, cm.text))); }),
+                h("div", { style: Object.assign({ padding: "9px 12px", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: sk.ink, lineHeight: 1.55 }, sk.card, { borderRadius: 14, borderTopLeftRadius: 4 }) }, transShow(cm.text)))); }),
           h("button", { disabled: busy, onClick: async () => { setBusy(true); try { await props.onGenerate(year, ys); } finally { setBusy(false); } }, "data-ledger-yeargen": true, className: "w-full active:opacity-80",
             style: { minHeight: 44, borderRadius: 999, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", fontWeight: 700, color: sk.ink, background: "rgba(255,255,255,.55)", border: "1px solid rgba(160,150,220,.35)" }, "data-wk": "ldgyearviewbtn", "data-part": "3" },
             busy ? "TA 们在看…" : saved ? "再让 TA 们说说" : "让能看账本的 TA 们说说")) : null));

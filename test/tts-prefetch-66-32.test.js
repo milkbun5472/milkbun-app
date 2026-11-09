@@ -19,7 +19,7 @@ test("下一条的合成排在这一条【开播之前】，跑在播放的那�
   assert.match(loop, /const synth = \(text, voiceId\) => \{[\s\S]{0,400}?await ttsSpeak\(text, voiceId\)[\s\S]{0,200}?decodeAudioData/,
     "解码没一起提前做——那也是一段实打实的空档");
   // 命中预取就直接拿，没命中才现合成
-  assert.match(loop, /const task = \(ahead && ahead\.key === idx\) \? ahead\.task : synth\(m\.content, spk2\.voiceId\);/,
+  assert.match(loop, /const task = \(ahead && ahead\.key === idx\) \? ahead\.task : synth\(sayTextOf\(m\), spk2\.voiceId\);/,
     "预取好了却没用上");
   // 顺序：预取必须排在 srcN.start 之前
   assert.ok(loop.indexOf("if (!ahead && ttsReady()) poll = setInterval(tryAhead, 300);") < loop.indexOf("srcN.start(0)"),
@@ -45,7 +45,10 @@ test("气泡是一条条冒出来的，所以要盯着、不是只看一眼", ()
 test("预取那条没人 await 时不许变成未处理拒绝", () => {
   assert.match(loop, /task\.catch\(\(\) => \{\}\);/, "预取失败会炸成 unhandled rejection");
   // 但 await 的时候还是要能抛出来（照旧走原来那条失败提示）
-  assert.match(loop, /catch \(e\) \{ if \(valid\(\)\) \{ setAudioStatus\("自动播报失败（"/, "失败提示被改坏了");
+  // 2026-11-06 起失败分两种：声音被系统停了→提示并关连播；某一句没合成→记下提示、跳过这一句接着念
+  assert.match(loop, /catch \(e\) \{\s*if \(!valid\(\)\) break;/, "失败提示被改坏了");
+  assert.match(loop, /if \(dead\) \{ setAudioStatus\("声音被系统停了[^"]*"\);/, "失败提示被改坏了");
+  assert.match(loop, /skipped = "有一句没合成出来（"/, "失败提示被改坏了");
 });
 
 test("跳过的那几种照旧跳过（她自己的、动作行、没配音色的）", () => {

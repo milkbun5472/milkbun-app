@@ -1044,14 +1044,23 @@
   // 只给头版/媒体腔用：内部洗牌，避免模型总把「第一个创建的角色」写头一篇（采访版不走这里，保持 per-char）
   function personasFor(charsWithMat, userName) {
     const blocks = shuffled(charsWithMat).map(function (c) {
-      return "【" + c.name + "】" + (c.persona || "（暂无设定）").trim().slice(0, 240);
+      return "【" + c.name + "】" + (c.persona || "（暂无设定）").trim().slice(0, 240) + (typeof charLangLine === "function" ? charLangLine(c) : "");
     });
     blocks.push("【" + (userName || "我") + "】被报道的当事人之一（用户本人）。");
     return blocks.join("\n\n");
   }
 
   // 出整期：头版（全局）+ 采访版（每个有素材的角色一条，独立容错）+ 4 个媒体腔（全局）
-  async function generateIssue(active, characters, groups, userName, win, issueNumber, onProgress) {
+  // 半本（她 2026-11-08：「点开了不是一次性请求，想退出，没生成的请求不扣钱」）：
+  //   一版写完就落进 x_weekly_draft；退出周刊页就停在下一枪之前（已经发出去的那一枪照样等它回来、存下）；
+  //   下次再装订同一周，写好的那几版直接拿来用，只写还缺的。整本装订好才进书架，草稿随即清掉
+  const K_DRAFT = "x_weekly_draft";
+  const STOPPED = "__weekly_stopped__";
+  async function generateIssue(active, characters, groups, userName, win, issueNumber, onProgress, ctrl) {
+    ctrl = ctrl || {};
+    const D = ctrl.draft || {};
+    const keep = function (patch) { Object.assign(D, patch); if (ctrl.save) ctrl.save(D); };
+    const go = function () { if (ctrl.stopped && ctrl.stopped()) throw new Error(STOPPED); };
     const mat = weekMaterial(win, characters, groups, userName);
     const charsWithMat = (characters || []).filter(function (c) { return (mat.perChar[c.id] || []).length; });
     const globalText = matText(mat, null, WEEK_CHARS);
@@ -1068,36 +1077,48 @@
 
     // 头版（首页头条）——人物清单洗过再喂，别锚定创建顺序
     tick("头版头条");
-    let cover;
-    try {
-      const cv = await genCover(active, personasFor(charsWithMat, userName), globalText, empty);
-      cover = Object.assign({ id: uid("cv"), type: "cover" }, cv);
-    } catch (e) {
-      cover = { id: uid("cv"), type: "cover", headline: "本周风平浪静", lead: "（头版生成失败，请点右上角单独重刷。）", highlights: [], editorNote: "" };
+    let cover = D.cover || null;
+    if (!cover) {
+      go();
+      try {
+        const cv = await genCover(active, personasFor(charsWithMat, userName), globalText, empty);
+        cover = Object.assign({ id: uid("cv"), type: "cover" }, cv);
+        keep({ cover: cover });
+      } catch (e) {
+        if (e && e.message === STOPPED) throw e;
+        cover = { id: uid("cv"), type: "cover", headline: "本周风平浪静", lead: "（头版生成失败，请点右上角单独重刷。）", highlights: [], editorNote: "" };
+      }
     }
     done++;
 
     // 采访版
     const entries = [];
     // 全角色洗牌袋轮换；没素材者走人物近况访谈，没抽中的仍可手动补。
-    const pickIds = interviewPickFor(win.key, interviewPool.map(function (c) { return c.id; }), loadIssues(), win.start);
+    const pickIds = D.pickIds || interviewPickFor(win.key, interviewPool.map(function (c) { return c.id; }), loadIssues(), win.start);
+    if (!D.pickIds) keep({ pickIds: pickIds });
     const picked = pickIds.map(function (id) { return interviewPool.find(function (c) { return c.id === id; }); }).filter(Boolean);
     const interviewer = interviewerFor(weekVoices, loadIssues(), win.start);
+    const ivDone = Object.assign({}, D.interviews || {});
     for (const c of picked) {
       tick("采访 " + c.name);
+      if (ivDone[c.id]) { entries.push(ivDone[c.id]); done++; continue; }
+      go();
       try {
         const iv = await genInterview(active, c, matText(mat, c.id, CHAR_CHARS), userName, win.label, interviewer);
-        entries.push(Object.assign({ id: uid("iv"), charId: c.id, charName: c.name, auto: true }, iv));
-      } catch (e) { /* 单角色硬失败就跳过，不拖垮整期 */ }
+        const one = Object.assign({ id: uid("iv"), charId: c.id, charName: c.name, auto: true }, iv);
+        entries.push(one); ivDone[c.id] = one; keep({ interviews: ivDone });
+      } catch (e) { if (e && e.message === STOPPED) throw e; /* 单角色硬失败就跳过，不拖垮整期 */ }
       done++;
     }
     // 媒体腔（全局，每版 3~4 篇）
     const media = [];
-    let batch = {};
-    try {
+    let batch = D.batch || null;
+    if (!batch) try {
+      go();
       batch = await genMediaBatch(active, weekVoices, personasFor(charsWithMat, userName),
         blocks.length >= 2 ? (globalText.indexOf("【这一周的原文】") >= 0 ? globalText.slice(0, globalText.indexOf("【这一周的原文】")) : "") + blocksToText(blocks, WEEK_CHARS) : globalText, empty, blocks, win.key);
-    } catch (e) { batch = {}; }
+      keep({ batch: batch || {} });
+    } catch (e) { if (e && e.message === STOPPED) throw e; batch = {}; }
     // 批量那次已经在一个上下文里把事分完了；补洞的单版调用看不见别的版，
     // 所以必须把已被占掉的事显式喂给它，否则补出来的又是最扎眼的那件。
     const taken = [], takenBlocks = [];
@@ -1106,8 +1127,11 @@
       if (a.event || a.title) taken.push(a.event || a.title);
       if (a.block && takenBlocks.indexOf(a.block) < 0) takenBlocks.push(a.block);
     }); });
+    const mdDone = Object.assign({}, D.media || {});
     for (const v of weekVoices) {
       tick(v.name);
+      if (mdDone[v.id]) { media.push({ id: uid("md"), type: "media", voiceId: v.id, auto: true, articles: mdDone[v.id] }); done++; continue; }
+      if (!batch[v.id]) go();
       try {
         const articles = batch[v.id] || await genMedia(active, v, personasFor(charsWithMat, userName), globalText, empty, taken.slice(),
           { blocks: blocks, usedBlocks: takenBlocks.slice() });
@@ -1117,24 +1141,29 @@
           if (a.block && takenBlocks.indexOf(a.block) < 0) takenBlocks.push(a.block);
         });
         media.push({ id: uid("md"), type: "media", voiceId: v.id, auto: true, articles: articles });
+        if (!batch[v.id]) { mdDone[v.id] = articles; keep({ media: mdDone }); }
       } catch (e) {
+        if (e && e.message === STOPPED) throw e;
         media.push({ id: uid("md"), type: "media", voiceId: v.id, auto: true, articles: [{ title: v.name, body: "（本版生成失败，请点进去单独重刷。）" }] });
       }
       done++;
     }
     // 资料室:语录榜(逐字摘录)+ 数据版(本地统计,模型只配文)
     tick("资料室");
-    let desk = null;
-    try {
+    let desk = D.desk || null;
+    if (!desk) try {
+      go();
       const stats = weeklyStats(mat, characters, userName);
       // 语录/数据/更正/中缝/来信共用这一次调用:它们用的都是同一份 globalText,
       // 分成两次纯属浪费。整期调用数因此是 1(头版)+N(专访)+1(媒体腔批量)+1(资料室)。
       desk = await genDeskPage(active, globalText, stats, userName, personasFor(letterAuthors, userName), empty, letterAuthors);
-    } catch (e) { desk = null; }
+      if (desk) keep({ desk: desk });
+    } catch (e) { if (e && e.message === STOPPED) throw e; desk = null; }
     done++;
     const letters = (desk && desk.letters) || [];
     // 批量那次万一没给出来信,单独补一次,不让整块消失
     if (!letters.length && !empty) {
+      go();
       try { const L = await genLetters(active, personasFor(letterAuthors, userName), globalText, userName, empty, letterAuthors); L.forEach(function (x) { letters.push(x); }); } catch (e) {}
     }
     tick("装订成刊");
@@ -1154,6 +1183,14 @@
   const _gen = { busy: false, key: null, prog: null, promise: null, listeners: [] };
   function _emit() { _gen.listeners.slice().forEach(function (fn) { try { fn(); } catch (e) {} }); }
   function genSubscribe(fn) { _gen.listeners.push(fn); return function () { _gen.listeners = _gen.listeners.filter(function (x) { return x !== fn; }); }; }
+  // 退出周刊页：停在下一枪之前（发出去的那一枪不撤，回来了照样存）
+  // 这一周写了几版、存着没装订完的（她 2026-11-08：「下次接着写是要点进去继续，而不是每次重进 app 重试」）
+  function draftOf(key) {
+    const d = loadJSON(K_DRAFT, null);
+    if (!d || d.key !== key) return 0;
+    return (d.cover ? 1 : 0) + Object.keys(d.interviews || {}).length + Object.keys(d.media || {}).length + (d.batch && Object.keys(d.batch).length ? 1 : 0) + (d.desk ? 1 : 0);
+  }
+  function genStop() { if (_gen.busy) _gen.stop = true; }
   function genState() { return { busy: _gen.busy, key: _gen.key, prog: _gen.prog }; }
   function startGenerate(opts) {
     // opts: { active, characters, groups, userName, win, toast }
@@ -1164,8 +1201,13 @@
       try {
         const existing = loadIssues();
         const num = existing.reduce(function (m, i) { return Math.max(m, i.issueNumber || 0); }, 0) + 1;
+        const d0 = loadJSON(K_DRAFT, null);
+        const draft = d0 && d0.key === opts.win.key ? d0 : { key: opts.win.key };
+        _gen.stop = false;
         const issue = await generateIssue(opts.active, opts.characters || [], opts.groups || [], opts.userName, opts.win, num,
-          function (d, tot, l) { _gen.prog = { done: d, total: tot, label: l }; _emit(); });
+          function (d, tot, l) { _gen.prog = { done: d, total: tot, label: l }; _emit(); },
+          { draft: draft, save: function (x) { saveJSON(K_DRAFT, x); }, stopped: function () { return !!_gen.stop; } });
+        saveJSON(K_DRAFT, null);
         // 同周旧刊先剔除（重出本期=覆盖，不再留重复号）再落库
         const list = orderedIssues([issue].concat(loadIssues().filter(function (x) { return x.key !== issue.key; })));
         saveIssues(list);
@@ -1173,7 +1215,8 @@
         if (opts.toast) opts.toast("第 " + issueNo(issue, list) + " 期已出刊");
         return issue;
       } catch (e) {
-        _gen.busy = false; _gen.prog = null; _gen.promise = null; _emit();
+        _gen.busy = false; _gen.prog = null; _gen.promise = null; _gen.stop = false; _emit();
+        if (e && e.message === STOPPED) { if (opts.toast) opts.toast("周刊停在这里了，写好的几版留着，下次打开接着写"); return null; }
         if (opts.toast) opts.toast(String((e && e.message) || e));
         return null;
       }
@@ -1184,7 +1227,7 @@
   window.Weekly = {
     WEEKLY_REFRESH_HOUR: WEEKLY_REFRESH_HOUR, VOICES: VOICES, voiceOf: voiceOf,
     normalizeVoiceId: normalizeVoiceId, knownVoice: knownVoice, mediaHasContent: mediaHasContent,
-    genState: genState, genSubscribe: genSubscribe, startGenerate: startGenerate,
+    genState: genState, genSubscribe: genSubscribe, startGenerate: startGenerate, genStop: genStop, draftOf: draftOf,
     loadIssues: loadIssues, saveIssues: saveIssues, orderedIssues: orderedIssues, shelfIssues: shelfIssues, reportWindow: reportWindow, nextRefreshTime: nextRefreshTime, issueNo: issueNo,
     missedWindows: missedWindows,
     weekMaterial: weekMaterial, linesToText: linesToText, matText: matText, WEEK_CHARS: WEEK_CHARS, CHAR_CHARS: CHAR_CHARS, personasFor: personasFor,
@@ -2206,7 +2249,7 @@
                 h("div", { style: { borderTop: "1px solid " + L.tint, paddingTop: 8, fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", lineHeight: 1.55, color: L.muted } }, "多种媒体腔", h("br"), "各自一副骨架"))) : h("div", { style: { paddingTop: 30 } },
               h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(25px * var(--app-fs, 1))", lineHeight: 1.4 } }, props.busy ? "印刷机正在转。" : "这一周，还在等你装订。"),
               h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: L.muted, lineHeight: 1.7, marginTop: 13 } }, props.busy ? (props.progress || "编辑部正在排版……") : "把周一到周日真正发生过的事，交给不同版面重新讲一遍。")),
-            h("div", { style: { position: "absolute", right: 18, bottom: 17, fontFamily: F_BODY, fontSize: "calc(8px * var(--app-fs, 1))", letterSpacing: ".1em", color: L.tint } }, props.busy ? "付印中…" : hasIssue ? "点开来读 →" : "点一下发刊 →"))),
+            h("div", { style: { position: "absolute", right: 18, bottom: 17, fontFamily: F_BODY, fontSize: "calc(8px * var(--app-fs, 1))", letterSpacing: ".1em", color: L.tint } }, props.busy ? "付印中…" : hasIssue ? "点开来读 →" : props.draftN ? "写好了 " + props.draftN + " 版，点一下接着写 →" : "点一下发刊 →"))),
         h("div", { style: { marginTop: 28 } }, h(Countdown, { target: props.target, ink: L.muted, track: pageColor("weekly", "line", paletteAlpha(L.tint, "22")), fill: L.tint }))),
       h("div", { style: { display: "grid", gridTemplateColumns: hasIssue ? "1fr auto" : "1fr", gap: 10, alignItems: "center" } },
         h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", lineHeight: 1.6, color: L.muted } }, hasIssue ? "第 " + num + " 期已在桌上。点封面拿起来读。" : "每周一本；素材少也可以诚实地留白。"),
@@ -2232,12 +2275,16 @@
     const prog = busy ? gen.prog : null;
     const autoStartedRef = useRef("");
     useEffect(function () {
-      return window.Weekly.genSubscribe(function () { setIssues(loadIssues()); force(function (n) { return n + 1; }); });
+      const off = window.Weekly.genSubscribe(function () { setIssues(loadIssues()); force(function (n) { return n + 1; }); });
+      // 退出周刊就停（她 2026-11-08）：还没发出去的那几版不发、不花钱；写好的存在草稿里，下次打开接着写
+      return function () { off(); window.Weekly.genStop(); };
     }, []);
     useEffect(function () {
       // 周刊原先只有手动出刊。总闸默认关闭；用户明确开启后，进入新刊期第一次打开这里才补做，
       // 不用后台假闹钟，也不会因重渲染重复开印刷机。
       if (!props.autoEnabled || !props.active || currentIssue || gen.busy || autoStartedRef.current === win.key) return;
+      // 写了一半停下的：等她自己点「接着写」，不在每次打开时自己重来
+      if (window.Weekly.draftOf(win.key)) return;
       const participants = props.autoCharacters || [];
       if (!participants.length) return;
       autoStartedRef.current = win.key;
@@ -2304,7 +2351,7 @@
         h(NewsroomHome, {
           issue: currentIssue, issues: displayIssues, label: win.label, busy: busy,
           progress: prog ? (prog.total ? prog.label + " · " + prog.done + "/" + prog.total : prog.label) : "生成中…",
-          target: window.Weekly.nextRefreshTime(), onGenerate: doGenerate, onRefresh: doGenerate,
+          target: window.Weekly.nextRefreshTime(), onGenerate: doGenerate, onRefresh: doGenerate, draftN: currentIssue ? 0 : window.Weekly.draftOf(win.key),
           onRead: function () { setOpenId(currentIssue.id); setView("issue"); }
         })));
   }

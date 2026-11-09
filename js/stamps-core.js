@@ -3,6 +3,14 @@
 //   存档只有一把键 x_stamps，走 loadJSON / saveJSON（进 IDB，施工规则/no-small-warehouse.md）。
 (function (g) {
   "use strict";
+  g.StampNavigation = {
+    open(target, navigate) { g.__stampsOpen = typeof target === "string" ? { cardId: target } : { ...target }; g.__stampsDuel = null; navigate("stamps"); },
+    consume() {
+      const raw = g.__stampsOpen, legacy = g.__stampsDuel; g.__stampsOpen = null; g.__stampsDuel = null;
+      const d = typeof raw === "string" ? { cardId: raw } : raw && typeof raw === "object" ? raw : {};
+      return { cardId: typeof d.cardId === "string" ? d.cardId : null, tab: ["pull", "album", "duel", "run"].includes(d.tab) ? d.tab : (legacy ? "duel" : "pull"), mode: ["shop", "siege", "puzzle", "patrol"].includes(d.mode) ? d.mode : "", preset: d.preset || legacy || null, back: d.back === "fairy-shop" ? d.back : null };
+    }
+  };
   const PRICE_ONE = 100, PRICE_TEN = 900;
   const RATE = { SSR: 0.05, SR: 0.25 };          // 其余是 R
   const SOFT_FROM = 50, HARD_AT = 60;           // 第 50 抽起 SSR 概率往上加，第 60 抽必出
@@ -45,15 +53,17 @@
     { id: "halloween26", series: "halloween", name: "万圣夜", from: "2026-10-26T00:00:00+08:00", to: "2026-11-15T00:00:00+08:00",
       stamp: "南瓜灯邮票", deco: "halloween",
       hook: "今晚敲开他的门，会收到糖果，还是别的惊喜？",
-      // 改成只给判断（群里 2026-10-29：「怎么写出来全是灯」——原来列着南瓜灯那一串道具，模型张张往灯上凑）
-      line: "主题是「万圣夜」：一年里允许装成另一个人、允许被吓一跳的那一晚。先想清楚你是哪个世界、哪个年代的人，你那儿有没有这个节、过的是什么样子——没有这个节的世界，就是你们那儿最像它的那一晚。从这一晚里真实会发生的事找故事，不把常见的万圣节意象直接套进来。读的人要能认出是万圣夜前后，不必每张都点明；不预设情绪，也不强求故事一定有深意。",
-      look: "画面要看得出是万圣夜前后，不靠堆道具。" },
+      line: "主题是万圣夜：南瓜灯、变装、糖果、讨糖、夜色里的派对和一点点吓人。先看这个人是哪个世界、哪个年代的人，再决定万圣夜怎么落到他身上。",
+      // 变装只属于万圣夜（她 2026-11-04「万圣节明明扮啥都可以」；11-06 深秋也被写成吸血鬼，才从公共那段挪到这里）
+      look: "这一身是扮成一个具体的角色或怪物：一眼看得出扮的是谁、是什么，不是一身只有气氛的衣服。扮什么照这个人挑——他会觉得哪个好玩、会拿什么逗她、会不会故意扮得很烂；gist 里写上这张扮的是什么，这一期前面扮过的，这张扮别的。" },
     { id: "lateautumn26", series: "lateautumn", name: "深秋", from: "2026-11-15T00:00:00+08:00", to: "2026-12-01T00:00:00+08:00",
       stamp: "落叶邮票", deco: "autumn",
       hook: "风一吹，叶子就落满了他走过的路。这个秋天，你想和他去哪儿？",
       // 只给判断，不列道具和情绪（她 2026-10-26 跟 GPT 那版一起磨的）：列出来的东西模型会张张往里凑
-      line: "主题是「深秋：一年快到头的那段日子」。先想清楚你是哪个世界、哪个年代、什么地方的人，你那儿这个时候真实有些什么变化，从这些变化里找故事，不把常见的秋日意象直接套进来。这个时节的某一天，你在过怎样的日子，发生了什么值得留在卡里的一刻。读的人要能从画面和故事里认出是深秋，但不必点明季节，也不借季节抒情；不预设情绪，也不强求故事一定有深意。",
-      look: "画面要看得出是那个季节、那一天的光，不靠堆道具。" },
+      // 她 2026-11-05 改：原来那句「不必点明季节」配上「不套秋日意象」，模型最省事的写法就是一张普通日常卡、顺口提一句天凉——
+      //   万圣夜那批跑偏就是这个形状。现在要季节落进事情里，并且照钩子用「你们俩」这层看
+      line: "主题是「深秋：一年快到头的那段日子」。先想清楚你是哪个世界、哪个年代、什么地方的人，你那儿这个时候真实有些什么变化。这一刻要是【因为到了这个时节才会发生】的事：季节是这件事的起因或条件，换到别的季节就不成立——不是一张平常日子的卡、背景里顺带天凉。写的是你们俩在这个时节里的一刻（一起，或者隔着距离牵着彼此）。不把常见的秋日意象直接套进来，不借季节抒情；不预设情绪，也不强求故事一定有深意。",
+      look: "画面要看得出是那个季节、那一天的光，不靠堆道具。人物穿着照这个季节、照这个人的世界来，是天冷下来时会穿的样子，不画夏装或跟季节对不上的常服。" },
     { id: "onsen26", series: "onsen", name: "温泉旅行", from: "2026-12-01T00:00:00+08:00", to: "2026-12-16T00:00:00+08:00",
       stamp: "汤屋邮票", deco: "onsen",
       hook: "雪落在屋檐上，热气从水面升起来。这一趟，他会带你去哪儿？",
@@ -124,6 +134,8 @@
     return got;
   }
   function activeLimited(now) { const t = now || Date.now(); return LIMITED.filter(L => t >= Date.parse(L.from) && t < Date.parse(L.to)); }
+  // 还没开的下一期（她 2026-11-05「把这个卡池连到测试模式里让我自己试试先」）：只给测试券开着时的卡池列表用，送券那一路不读它
+  function nextLimited(now) { const t = now || Date.now(); return LIMITED.filter(L => Date.parse(L.from) > t).sort((a, b) => Date.parse(a.from) - Date.parse(b.from))[0] || null; }
   // 生日池：生日前 14 天出现，生日后留 7 天。bday 是 "MM-DD"
   //   lockId（她 2026-10-26 防多刷）：给了就按「这个人这一年」锁住第一次开池的那天——同一年里改生日、改在一起的日子，池子不挪，改的日子明年才用上
   function bdayWindow(bday, now, lockId) {
@@ -231,6 +243,8 @@
     if (!tx || typeof tx !== "object") return tx;
     const keep = KEEP[rarity], str = STR[rarity] || [], out = {};
     Object.keys(tx).forEach(k => { if (!keep || keep.includes(k)) out[k] = cleanDeep(str.includes(k) ? flat(tx[k]) : tx[k]); });
+    // R 卡面上那句心里话偶尔被写进了别的键（line、inner……），这里认回来（她 2026-11-03：「有时候 r 卡不写那句台词」）
+    if (rarity === "R" && !String(out.thought || "").trim()) { const alt = flat(tx.line || tx.inner || tx.quote || tx.words || ""); if (String(alt || "").trim()) out.thought = cleanDeep(alt); }
     if (rarity === "R") ["before", "after"].forEach(k => { const v = out[k]; if (typeof v === "string") out[k] = { narration: v }; else if (v && typeof v === "object") out[k] = { narration: flat(v.narration), thought: flat(v.thought) }; });
     return out;
   }
@@ -240,12 +254,19 @@
   function claimBdLetter(id, bdKey, n) { const st = load(); st.claimed = st.claimed || {}; if (st.claimed[id]) return false; st.claimed[id] = 1; if (bdKey) { st.bdTickets = st.bdTickets || {}; st.bdTickets[bdKey] = (st.bdTickets[bdKey] || 0) + (Number(n) || 0); } else st.tickets += Number(n) || 0; st.ink += (Number(n) || 0) * INK_PER_TEN; save(st); return true; }
   // 熔 R 卡（她 2026-10-29：「r 卡多选融了」）：一张 R 折 30 印泥，盖过的印再退一半。只熔 R，写着的不熔
   const MELT_R = 30;
-  function meltValue(c) { if (!c || c.rarity !== "R") return 0; let spent = 0; for (let l = 1; l < (c.lv || 1); l++) spent += levelCost("R", l); return MELT_R + Math.floor(spent / 2); }
-  function melt(ids) { const st = load(), set = new Set(ids || []), gone = st.cards.filter(c => set.has(c.id) && c.rarity === "R" && !c.writing);
+  // SR 也能熔（她 2026-11-08）：一张 100；写过番外、画过满级面、动起来过的 SR 不熔——那些都花过调用
+  const MELT_SR = 100;
+  const meltable = c => !!c && !c.writing && (c.rarity === "R" || (c.rarity === "SR" && !(c.extras || []).some(x => x && (x.text || x.img)) && !c.faceAlt && !Object.keys(c.faces || {}).length && !c.video && !Object.keys(c.videos || {}).length));
+  function meltValue(c) { if (!meltable(c)) return 0; let spent = 0; for (let l = 1; l < (c.lv || 1); l++) spent += levelCost(c.rarity, l); return (c.rarity === "SR" ? MELT_SR : MELT_R) + Math.floor(spent / 2); }
+  function melt(ids) { const st = load(), set = new Set(ids || []), gone = st.cards.filter(c => set.has(c.id) && meltable(c));
     if (!gone.length) return { n: 0, ink: 0, keys: [] };
     const ink = gone.reduce((a, c) => a + meltValue(c), 0), drop = new Set(gone.map(c => c.id));
     st.cards = st.cards.filter(c => !drop.has(c.id)); st.ink += ink; save(st);
     return { n: gone.length, ink, keys: gone.flatMap(c => [c.face, c.faceAlt].concat(Object.values(c.faces || {}))).filter(Boolean) }; }
+  // 删掉没人认领的卡（角色删了以后留下的，SSR 也一样）：只删调用处认定没人认领的那几张，不给印泥
+  function dropCards(ids) { const st = load(), set = new Set(ids || []), gone = st.cards.filter(c => set.has(c.id));
+    st.cards = st.cards.filter(c => !set.has(c.id)); save(st);
+    return { n: gone.length, keys: gone.flatMap(c => [c.face, c.faceAlt].concat(Object.values(c.faces || {}), (c.extras || []).map(x => x && x.img))).filter(Boolean) }; }
   function buyExtra() { const st = load(); if (st.ink < EXTRA_INK) return false; st.ink -= EXTRA_INK; st.extraTickets = (st.extraTickets || 0) + 1; save(st); return true; }
   function letterClaimed(id) { return !!((load().claimed || {})[id]); }
 
@@ -253,7 +274,7 @@
   function ssrUnlocked(lv) { return { sections: Math.min(4, 1 + Math.floor(lv / 10)), ending: lv >= 40, hidden: lv >= 50 }; }
 
   g.StampsCore = { PRICE_ONE, PRICE_TEN, RATE, SOFT_FROM, HARD_AT, SR_EVERY, BDAY, CAP, FULL_COST, GIFT, GAIN, LIMITED,
-    bdTicketCount, EXTRA_INK, buyExtra, MELT_R, meltValue, melt, INK_PER_TEN, claimLetter, claimBdLetter, letterClaimed, cleanText, DUPE_INK, UNLOCK, levelUp, canBeg, markBeg, load, save, gain, grantOnOpen, activeLimited, bdayWindow, rollRarity, pay, levelCost, isGate, gateBlocked, ssrUnlocked };
+    bdTicketCount, EXTRA_INK, buyExtra, MELT_R, MELT_SR, meltable, meltValue, melt, dropCards, INK_PER_TEN, claimLetter, claimBdLetter, letterClaimed, cleanText, nextLimited, DUPE_INK, UNLOCK, levelUp, canBeg, markBeg, load, save, gain, grantOnOpen, activeLimited, bdayWindow, rollRarity, pay, levelCost, isGate, gateBlocked, ssrUnlocked };
   // 各处喊一声就记上
   g.stampGain = gain;
   // 别的玩法不一处处去挂：callAI 成功一枪（她按下去的、不是后台）会广播 ai-ok，这儿按它是干嘛的分进几档。
@@ -326,7 +347,7 @@
         h2("div", { style: { padding: "8px 10px 9px" } },
           h2("div", { style: { fontSize: fs(9.5), letterSpacing: ".2em", color: "#827C6F" } }, "邮票册" + (x.kind === "if" ? " · IF「" + (x.theme || "") + "」" : x.kind === "bday" ? " · 生日限定" : x.kind === "mybday" ? " · 你的生日" : "")),
           h2("div", { style: { marginTop: 2, fontFamily: "var(--f-display,'Fraunces',serif)", fontSize: fs(15), color: "#39382F" } }, "「" + (x.name || "") + "」"),
-          x.line ? h2("div", { style: { marginTop: 4, fontSize: fs(11.5), lineHeight: 1.6, color: "#827C6F", overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" } }, x.line) : null)));
+          x.line ? h2("div", { style: { marginTop: 4, fontSize: fs(11.5), lineHeight: 1.6, color: "#827C6F", overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" } }, transShow(x.line)) : null)));
   };
   // 主屏图标：一枚齿孔边的邮票
   g.GStamps = function (p) {

@@ -28,7 +28,8 @@ test("线下那几层子页共用一份底，不是各写各的", () => {
 });
 
 test("日历铺纸，而且【故意】没铺方格", () => {
-  const i0 = code.indexOf("function Calendar({ characters");
+  // 参数表开头会变（v7x 加了 schedKeepOf 等），只认函数名
+  const i0 = code.indexOf("function Calendar({ ");
   assert.ok(i0 > 0, "找不到日历");
   const seg = code.slice(i0, code.indexOf("function CalWidget(", i0) > 0 ? code.indexOf("function CalWidget(", i0) : i0 + 40000);
   assert.match(seg, /pageSkin\("paper", t, \{ base: t\.bg2, strength: 1\.2 \}\)/);

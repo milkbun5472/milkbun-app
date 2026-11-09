@@ -108,7 +108,45 @@
       .map(m => ({ id: m.id, cat: m.cat, catZh: m.catZh, catHint: m.catHint, name: m.name, hint: m.hint, text: m.text }));
     return JSON.stringify({ modules: used, presets: [{ id: p.id, name: p.name, mods: (p.mods || []).slice(), free: p.free || "", freePos: p.freePos || "after" }] });
   }
+  // 人设连着卡里自带的世界书、开场白、长期记忆、记忆种子一起带（群友 2026-11-01：人设＋自带世界书一万多字，传上来只剩 600 字）
+  //   ⚠️只给【从文件读的角色卡】用：从 app 里挑的人设走 packPersona，长期记忆这些是 TA 的私事，一样不带
   const packPersona = c => JSON.stringify({ kind: "qq-persona", name: c.name || "", tagline: c.tagline || "", persona: c.persona || "" });
+  const packPersonaCard = c => {
+    const o = JSON.parse(packPersona(c));
+    const lore = JSON.parse(packLore(c.lore || [])).entries;
+    if (lore.length) o.lore = lore;
+    if (c.greeting) o.greeting = String(c.greeting);
+    if (c.longMem) o.longMem = String(c.longMem);
+    if ((c.seeds || []).length) o.seeds = c.seeds.map(x => ({ text: String(x.text || ""), pinned: !!x.pinned })).filter(x => x.text);
+    return JSON.stringify(o);
+  };
+  // 一份文件读成人设的几样；纯世界书 json 只给词条（跟人设一起选，就成了这个人自带的世界书）
+  function personaPart(text, name) {
+    const t = String(text || "").trim(), d = tryJSON(t);
+    const list = d && typeof loreEntriesFromJson === "function" && !(d.name || d.data || d.persona || d.description) ? loreEntriesFromJson(d) : null;
+    if (list && list.length) return { lore: list };
+    const c = typeof parseCharCard === "function" ? parseCharCard(t) : null;
+    // 这一份整篇都是世界书（单独存的那份设定）：整份当世界书，别当人设正文并进去
+    if (c && c.allLore && (c.lore || []).length) return { lore: c.lore };
+    return {
+      name: String((c && c.name) || (d && d.name) || "").slice(0, 20), tagline: (c && c.tagline) || (d && d.tagline) || "",
+      persona: String((c && c.persona) || (d && (d.persona || d.description)) || t), lore: (c && c.lore) || [],
+      greeting: (c && c.greeting) || "", longMem: (c && c.longMem) || "", seeds: (c && c.seeds) || [], file: stem(name)
+    };
+  }
+  function mergePersona(parts, fallbackName) {
+    const ps = parts.filter(x => x.persona);
+    const nm = ((ps.find(x => x.name) || {}).name || fallbackName || "").slice(0, 20);
+    const c = {
+      name: nm, tagline: (ps.find(x => x.tagline) || {}).tagline || "",
+      persona: ps.map((x, i) => i ? "【" + x.file + "】\n" + x.persona : x.persona).join("\n\n"),
+      lore: [].concat(...parts.map(x => x.lore || [])), greeting: (ps.find(x => x.greeting) || {}).greeting || "",
+      longMem: ps.map(x => x.longMem).filter(Boolean).join("\n\n"), seeds: [].concat(...ps.map(x => x.seeds || []))
+    };
+    if (!c.persona) throw new Error("只选到了世界书，人设那份也一起选上");
+    const extra = (c.lore.length ? "＋" + c.lore.length + " 条世界书" : "") + (c.greeting ? "＋开场白" : "") + (c.longMem ? "＋长期记忆" : "") + (c.seeds.length ? "＋" + c.seeds.length + " 条记忆种子" : "");
+    return { payload: packPersonaCard(c), title: nm, note: "人设「" + nm + "」，" + c.persona.length + " 字" + extra };
+  }
 
   // Word 会把 CSS 里的符号「改好看」：弯引号、长破折号、全角标点——原样贴进去整段失效。
   //   只换这几样，别的一个字不动。
@@ -129,6 +167,7 @@
     persona: ".json,.txt,.md,.docx,application/json,text/plain",
     doc: ".txt,.md,.docx,.json,text/plain"
   };
+  const MULTI_FILE = { persona: 1, doc: 1, lore: 1 };
   const stem = name => String(name || "").replace(/\.[a-z0-9]+$/i, "").trim().slice(0, 40);
   async function readAny(file) {
     if (/\.docx$/i.test(file.name || "")) {
@@ -167,11 +206,8 @@
     }
     if (kind === "doc") return { payload: t, title: base, note: t.length + " 字的文档" };
     if (kind === "persona") {
-      // 角色卡认法跟档案馆「导入角色卡」同一份（json 卡、带小标题的 txt 都认）；只取名字、简介、正文
-      const c = typeof parseCharCard === "function" ? parseCharCard(t) : null;
-      const nm = String((c && c.name) || (d && d.name) || base).slice(0, 20);
-      const persona = String((c && c.persona) || (d && (d.persona || d.description)) || t);
-      return { payload: packPersona({ name: nm, tagline: (c && c.tagline) || (d && d.tagline) || "", persona }), title: nm, note: "人设「" + nm + "」，" + persona.length + " 字" };
+      // 角色卡认法跟档案馆「导入角色卡」同一份（json 卡、带小标题的 txt 都认）
+      return mergePersona([personaPart(t, name)], base);
     }
     throw new Error("不认得的类别");
   }
@@ -209,7 +245,15 @@
       return "已放进预设台：" + r.presets + " 份预设" + (r.modules ? "、" + r.modules + " 个模块" : "");
     }
     if (kind === "persona") {
-      props.onAddChar(Object.assign({ name: String(d.name || title).slice(0, 20), tagline: String(d.tagline || "").slice(0, 40), persona: String(d.persona || d.description || "") },
+      // 包是上传那一刻打好的：早先传上来的那些，整本世界书原样躺在人设正文里（那时候还不会拆）。
+      //   导入这头再拆一遍——包里本来就带世界书的不动，没带的现场看看正文里有没有，有就拆出来。
+      let persona = String(d.persona || d.description || ""), lore = Array.isArray(d.lore) ? d.lore : [];
+      if (!lore.length && typeof parseCharCard === "function") {
+        const re = parseCharCard(persona);
+        if (!re.allLore && (re.lore || []).length) { lore = re.lore; persona = re.persona || persona; }
+      }
+      props.onAddChar(Object.assign({ name: String(d.name || title).slice(0, 20), tagline: String(d.tagline || "").slice(0, 40), persona: persona,
+        lore: lore, greeting: d.greeting || "", longMem: d.longMem || "", seeds: Array.isArray(d.seeds) ? d.seeds : [] },
         opts && opts.avatarImage ? { avatarImage: opts.avatarImage } : {}));
       return "";
     }
@@ -520,7 +564,7 @@
           const d = JSON.parse(it.payload);
           if (it.kind === "lore") preview = (d.entries || []).map(e => "【" + (e.title || "未命名") + "】" + String(e.payload || "").slice(0, 140)).join("\n\n");
           else if (it.kind === "style") preview = d.prompt;
-          else if (it.kind === "persona") preview = (d.tagline ? d.tagline + "\n\n" : "") + (d.persona || d.description || "");
+          else if (it.kind === "persona") preview = (d.tagline ? d.tagline + "\n\n" : "") + (d.persona || d.description || "") + ((d.lore || []).length ? "\n\n自带世界书 " + d.lore.length + " 条：" + d.lore.map(e => e.title || "未命名").join("、") : "");
           else if (it.kind === "preset") preview = (d.presets || []).map(p => p.name + "：" + (p.mods || []).length + " 个模块" + (p.free ? "，另有一段手写" : "")).join("\n") + ((d.modules || []).length ? "\n\n自带模块：" + d.modules.map(m => m.name).join("、") : "");
           else if (isChatLook) preview = "一整套聊天美化，里面有：" + Object.keys(d.look || {}).map(k => ({ skin: "皮肤", bubble: "气泡", font: "字体", chatBg: "背景", layout: "排版", customCSS: "CSS" })[k] || k).join("、") + "。\n导进来时选放给哪个人的聊天窗或哪个群。";
           else preview = "这是一份" + KZH[it.kind] + "包，导进来会先在主题工作台里预览，挑好要哪几样再换上。";
@@ -646,14 +690,14 @@
         : !top.length ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.fog } }, "还没人签过，第一句留给你。")
         : top.map(c => h("div", { key: c.id, "data-wk": "nestnote", style: { padding: "0 0 6px" } },
             h("div", { className: "flex justify-between", style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.sub || t.fog } }, c.deleted ? h("span", null, "（这一条擦掉了）") : who(c), h("span", { style: { color: t.fog } }, ago(c.created))),
-            c.deleted ? null : h("div", { style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.ink, wordBreak: "break-word", whiteSpace: "pre-wrap" } }, c.body),
+            c.deleted ? null : h("div", { style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.ink, wordBreak: "break-word", whiteSpace: "pre-wrap" } }, transShow(c.body)),
             h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog } }, tools(c)),
             kids(c.id).map(r => h("div", { key: r.id, "data-wk": "nestclip", style: { position: "relative", margin: "6px 0 4px 18px", padding: "6px 10px", lineHeight: 1.6,
                 background: "#faeeda", color: "#412402", transform: "rotate(" + tilt(r.id) * 0.6 + "deg)", boxShadow: "0 4px 8px -7px rgba(0,0,0,.4)" } },
               h("span", { "aria-hidden": true, style: { position: "absolute", top: -11, left: -9 } }, h(IClip, { size: 18, color: "#854f0b" })),
               h("div", { className: "flex justify-between", style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: "#633806" } },
                 h("span", null, who(r), r.to ? " → " + r.to : ""), h("span", null, ago(r.created))),
-              h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", wordBreak: "break-word", whiteSpace: "pre-wrap" } }, r.body),
+              h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", wordBreak: "break-word", whiteSpace: "pre-wrap" } }, transShow(r.body)),
               h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: "#854f0b" } }, tools(r))))))),
       // 写一句：没登录就是一颗「登录以后才能签」
       h("div", { "data-wk": "nestcompose", style: { marginTop: 12 } },
@@ -744,7 +788,7 @@
   }
 
   // ── 新地址的门（她 2026-10-28）：口令、要不要审核、进过门的设备名单；只有管理口令看得到 ──────
-  //   设备是在公共版新地址（autumn-drawer）门口输口令进来的，一台一行；停用＝那台几分钟内就打不开。
+  //   设备是在公共版新地址门口输口令进来的，一台一行；停用＝那台几分钟内就打不开。
   function GatePanel({ t, props, onClose }) {
     const [d, setD] = useState(null), [err, setErr] = useState(""), [q, setQ] = useState(""), [busy, setBusy] = useState("");
     const load = (qq, more) => api("/gate/list?q=" + encodeURIComponent(qq || "") + "&off=" + (more ? (d && d.devices.length) || 0 : 0))
@@ -817,6 +861,9 @@
       style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: on ? t.bg : t.ink, background: on ? t.ink : "transparent", border: "1px solid " + t.ink, borderRadius: 999, minHeight: 28, padding: "0 10px" } }, txt);
     const setLink = () => requestAppPrompt("QQ 群号或链接", "验过的人看到的就是这一条。填群号就行（她们复制去 QQ 里搜），也能填加群链接。留空＝暂时不给。", d && d.link || "", async v => {
       try { await api("/verify/conf", { method: "POST", body: { link: String(v || "").trim() } }); props.toast("存好了"); load(); } catch (e) { props.toast(e.message); } });
+    // 入群答案：QQ 那道入群问题的答案，过了门才给（门是群的闸，链接被转出去也答不上来）
+    const setAns = () => requestAppPrompt("入群问题的答案", "验过的人会在群号下面看到这一句，照抄去填 QQ 的入群问题。要跟你在 QQ 群设置里出的那道题对得上。留空＝只给群号。", d && d.answer || "", async v => {
+      try { await api("/verify/conf", { method: "POST", body: { answer: String(v || "").trim() } }); props.toast("存好了"); load(); } catch (e) { props.toast(e.message); } });
     const setOn = async on => {
       try { await api("/verify/conf", { method: "POST", body: { on } }); props.toast(on ? "开了：验证页能用了" : "关了：验证页会说「去群里找群主」"); load(); } catch (e) { props.toast(e.message); } };
     // 留底那张：点开才去取（一次一张，不随名单一起发下来）；看完能单张删，也能一键全清
@@ -850,6 +897,10 @@
               pill(false, d.link ? "换一个" : "设群号", setLink, "nestverifylink")),
             d.link ? h("div", { style: Object.assign({}, small, { marginTop: 4, wordBreak: "break-all" }) }, d.link) : null,
             h("div", { className: "flex items-center justify-between", style: { gap: 8, marginTop: 10 } },
+              h("div", { className: "min-w-0", style: { fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", color: t.ink } }, d.answer ? "入群答案已经设好" : "没设入群答案：只给群号"),
+              pill(false, d.answer ? "换一个" : "设答案", setAns, "nestverifyans")),
+            d.answer ? h("div", { style: Object.assign({}, small, { marginTop: 4, wordBreak: "break-all" }) }, transShow(d.answer)) : null,
+            h("div", { className: "flex items-center justify-between", style: { gap: 8, marginTop: 10 } },
               h("div", { style: small }, d.on ? "验证页开着" : "验证页关着：谁来都只看到「去群里找群主」"),
               pill(d.on, d.on ? "开着" : "打开", () => setOn(!d.on), "nestverifyon")),
             h("div", { style: Object.assign({}, small, { marginTop: 8 }) },
@@ -864,7 +915,14 @@
             h("div", { className: "flex-1 min-w-0" },
               h("div", { className: "truncate", style: { fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", color: r.pass ? t.ink : t.fog } },
                 (r.pass ? "✓ " : "✗ ") + (WHY[r.reason] || r.reason)),
-              h("div", { className: "truncate", style: small }, when(r.at) + (r.qq ? " · QQ " + r.qq : "") + (r.station ? " · " + r.station : "") + (r.model ? " · " + r.model : ""))),
+              // ⚠️这一行别再 truncate（她 2026-11-04 在查一个连挂十几次的号）：挂在哪个模型上
+              //   恰恰最能定位，而它排在最后，手机上一定被截掉，等于白记。换行写，占两行就两行。
+              h("div", { style: Object.assign({}, small, { whiteSpace: "normal", wordBreak: "break-all" }) },
+                when(r.at) + (r.qq ? " · QQ " + r.qq : "") + (r.station ? " · " + r.station : "") + (r.model ? " · " + r.model : "")),
+              // 没过的那一行：模型到底抄出来了什么。看一眼就知道是「模型没抄到数字」还是
+              //   「她写的是上一张的码」，不用去猜。过了的不记，14 天跟留底一起抹掉。
+              r.seen ? h("div", { style: Object.assign({}, small, { whiteSpace: "normal", wordBreak: "break-all", marginTop: 2, color: t.ink, opacity: .75 }) },
+                "模型抄出来的：" + r.seen) : null),
             r.shot ? pill(false, "看留底", () => openShot(r.id), "nestverifyshot") : null)),
           d.rows.length < d.total ? h("div", { style: { textAlign: "center", marginTop: 12 } }, pill(false, "再往下看", () => load(true), "nestverifymore")) : null)));
   }
@@ -1103,11 +1161,31 @@
       if (!rows || title || multi || kind === "theme" || kind === "css") return;
       const r = rows.find(x => x.id === chosen[0]); if (r) setTitle(String(r.name || "").slice(0, 40));
     }, [chosen.join(",")]);
+    // 人设、文档、世界书能一次选好几份（群友 2026-11-01：人设常拆成好几个 Word）：
+    //   人设／文档按选的顺序接成一整份，每份前面标上文件名；世界书每份各自的词条合在一起。
     const readFile = async e => {
-      const f = e.target.files && e.target.files[0]; e.target.value = ""; if (!f) return;
+      const fs0 = [...(e.target.files || [])]; e.target.value = ""; if (!fs0.length) return;
+      const fs = MULTI_FILE[kind] ? fs0.slice(0, 10) : fs0.slice(0, 1);
+      if (fs0.length > fs.length) props.toast(MULTI_FILE[kind] ? "一次最多 10 份，多的先没放" : "这一类一次传一份，先放了第一份");
       try {
-        const got = fromFile(kind, await readAny(f), f.name);
-        setFile(Object.assign({ name: f.name }, got)); setPick({}); setText("");
+        let got;
+        if (fs.length === 1) got = fromFile(kind, await readAny(fs[0]), fs[0].name);
+        else if (kind === "persona") {
+          const parts = [];
+          for (const f of fs) parts.push(personaPart(await readAny(f), f.name));
+          got = mergePersona(parts, stem(fs[0].name));
+          got.note = fs.length + " 份文件，" + got.note;
+        } else if (kind === "lore") {
+          const all = [];
+          for (const f of fs) all.push(...JSON.parse(fromFile("lore", await readAny(f), f.name).payload).entries);
+          got = { payload: packLore(all), title: stem(fs[0].name), note: fs.length + " 份文件，共 " + all.length + " 条词条" };
+        } else {
+          const parts = [];
+          for (const f of fs) { const s = String(await readAny(f) || "").trim(); if (s) parts.push(parts.length ? "【" + stem(f.name) + "】\n" + s : s); }
+          got = fromFile(kind, parts.join("\n\n"), fs[0].name);
+          got.note = fs.length + " 份文件接成一份，" + got.note;
+        }
+        setFile(Object.assign({ name: fs.length > 1 ? fs.map(f => f.name).join("、") : fs[0].name }, got)); setPick({}); setText("");
         if (!title && got.title) setTitle(got.title);
       } catch (err) { props.toast((err && err.message) || "这份文件读不出来"); }
     };
@@ -1190,11 +1268,11 @@
     const where = kind === "theme" ? "「设置 → 主题工作台」点「导出」存的 json（自己传的字体那一样别勾）"
       : kind === "look" ? "聊天设置里「整套美化」导出的 json，或「设置 → 聊天气泡」导出的 json（头像框、挂件、背景图都能带）"
       : kind === "css" ? ".css、.txt，或者老师给的 Word（.docx）；Word 改坏的引号和破折号会自动改回来"
-      : kind === "lore" ? "世界书 json，或者一份 txt／docx（整份当一条词条）"
+      : kind === "lore" ? "世界书 json，或者 txt／docx（每份当一条词条）；能一次选好几份"
       : kind === "style" ? "一份 txt／docx／md，整份就是这条文风"
       : kind === "preset" ? "文风台导出的预设 json"
-      : kind === "doc" ? "一份 txt／md／docx（Word 里的字会读出来），整份原样传上去"
-      : "角色卡 json，或者一份 txt／docx（名字、简介、人设照档案馆导入角色卡那样认）";
+      : kind === "doc" ? "txt／md／docx（Word 里的字会读出来），原样传上去；一次选好几份会按顺序接成一份"
+      : "角色卡 json，或者 txt／docx（照档案馆导入角色卡那样认，卡里自带的世界书、开场白一起带上）；人设拆成好几个 Word、或者另有一份世界书 json 的，一次全选上，接成这一个人";
     return h("div", { "data-wk": "nestupload", className: "h-full flex flex-col", style: shell(t) },
       h(Head, { zh: edit ? "改一改" : "传一个上去", onBack: onClose, bg: "transparent" }),
       edit ? null : h(Cubbies, { t, kind, noAll: true, onPick: setKind }),
@@ -1209,7 +1287,7 @@
               h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog, marginTop: 2, lineHeight: 1.5 } }, where))),
           h("div", { style: { marginTop: 12 } },
             h(Btn, { t, solid: !file, onClick: () => fileRef.current && fileRef.current.click(), wk: "nestfile" }, file ? "换一份" : "选文件"),
-            h("input", { ref: fileRef, type: "file", accept: ANY_FILE, style: { display: "none" }, onChange: readFile })),
+            h("input", { ref: fileRef, type: "file", accept: ANY_FILE, multiple: !!MULTI_FILE[kind], style: { display: "none" }, onChange: readFile })),
           file ? h("div", { "data-wk": "nestfilechip", style: { marginTop: 10, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.ink, padding: "8px 10px", borderRadius: 10, background: tint(k.color, "14") } },
             "已选 " + file.name + " · 读到" + file.note) : null),
         // ② 从 app 里直接挑（七类都能挑）；主题／美化／CSS 还能整份贴

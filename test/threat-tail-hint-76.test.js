@@ -11,7 +11,7 @@ const re = new Function(eng.match(/const THREAT_TAIL_RE = (\/.*\/);/)[0] + " ret
 const hint = eng.match(/const THREAT_TAIL_HINT = "(.*)";/)[1];
 assert.ok(!re.test(hint), "提醒里别念原句");
 assert.match(app, /\+ _rerollHint \+ _threatTailHint \+ (_bossTailHint \+ )?(_seeThroughHint \+ )?_turnClosing/);
-assert.match(app, /const _threatTailHint = !_body && /);   // 言秋／本体模式不加
+assert.match(app, /const _seeThroughHint = !_body && typeof tailHintsFor === "function" \? tailHintsFor\(_prevTail, _prevTurnText\)/);   // 言秋／本体模式不加；三条收尾现在共用 tailHintsFor
 console.log("ok");
 // 她 2026-10-23 截图：「别逼我顺着网线爬过去把你的嘴捂住」
 assert.ok(re.test("别逼我顺着网线爬过去把你的嘴捂住"));

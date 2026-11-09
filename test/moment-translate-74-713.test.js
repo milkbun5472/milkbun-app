@@ -25,27 +25,28 @@ const GEN = (() => {
 })();
 
 test("① 跟着聊天设置那一格走，不另开开关", () => {
-  assert.match(GEN, /const _momBi = !!\(settingsFor\(char\.id\) \|\| \{\}\)\.bilingual;/,
+  // 2026-11-06 起开关判断走公共的 ProbeZh.on（读的还是聊天设置那一格 bilingual）
+  assert.match(GEN, /const _momBi = ProbeZh\.on\(settingsFor\(char\.id\)\);/,
     "没读这个人聊天设置里的「外语中译」");
   assert.ok(!/x_momentAutoZh|x_momZh/.test(app), "又给朋友圈单开了一个翻译开关");
 });
 
 test("② 开着才要译文，而且是同一次调用里要", () => {
-  assert.match(GEN, /_momBi\s*\n?\s*\? "\\n\\n【这条朋友圈要带中译】/, "没把要译文那段挂上去");
+  assert.match(GEN, /_momBi \? ProbeZh\.spec\("这条朋友圈正文"/, "没把要译文那段挂上去");   // 说法在公共的 ProbeZh
   assert.match(GEN, /instruction:[\s\S]*_momBiSpec/, "那段没真发进 instruction");
   // 两支 schemaHint（配图开着/关着）都得有 zh，漏一支就是「某些角色永远没译文」
   // 2 → 4（她 2026-10-03 第二轮：「朋友圈评论的外语能不能也翻译了」）：
   //   两支 schemaHint（配图开着/关着）× 两处（正文的 zh + 每条评论自己的 zh）。
-  const hints = [...GEN.matchAll(/_momBi \? ",\\"zh\\":/g)];
+  const hints = [...GEN.matchAll(/_momBi \? ProbeZh\.field\("zh", /g)];
   assert.equal(hints.length, 4, "schemaHint 里 zh 只加了 " + hints.length + " 处（要正文 + 评论各两支）");
-  assert.match(GEN, /这条评论的中译或null/, "评论那一格没要译文");
+  assert.match(GEN, /ProbeZh\.field\("zh", "这条评论"\)/, "评论那一格没要译文");
   assert.match(GEN, /不是中文的那几条也各自给一份中译/, "没跟模型说评论也要译");
   assert.ok(!/"zh":\\"正文的中译/.test(GEN.replace(/_momBi \? [^:]*:/g, "")),
     "没开的时候也在要译文，等于白给模型加活");
 });
 
 test("③ 没给就不存那一格，存的也要是真有字的", () => {
-  assert.match(GEN, /_momBi && d\.zh && String\(d\.zh\)\.toLowerCase\(\) !== "null" && String\(d\.zh\)\.trim\(\)/,
+  assert.match(GEN, /_momBi && ProbeZh\.take\(d\.zh\)/,
     "模型填了字符串 \"null\" 或空白也会被当成译文存下来");
 });
 

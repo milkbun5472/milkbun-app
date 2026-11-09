@@ -13,7 +13,7 @@ test("动描一小段：ACT_MEANING 不动，开了才补一句", () => {
   assert.match(A, /actLong: !!s\.actLong,/);
   assert.match(C, /const \[actLong, setActLong\] = useState\(!!settings\.actLong\);/);
   assert.match(C, /const \[gActLong, setGActLong\] = useState\(!!gs\.actLong\);/);
-  assert.match(C, /onSave\(\{ actLong: gActLong,/);
+  assert.match(C, /onSave\(\{[^\n}]*\bactLong: gActLong,/);   // 字段顺序会变，只认 actLong 一起存
 });
 test("状态卡动作长了不撑爆：最多四行，点开看全", () => {
   assert.match(C, /function ClampText\(\{ text, lines, style \}\)/);

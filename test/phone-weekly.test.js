@@ -59,7 +59,7 @@ test("跑的时候看得见正在刷谁、刷到第几个", () => {
   assert.match(phone, /weekAt && weekAt\.id === c\.id \? "正在刷新……"/, "轮到谁了，那一行上看不出来");
   assert.match(phone, /weekAt\.i \+ "\/" \+ weekAt\.n/, "没说刷到第几个");
   // 每人刷完各弹一次会把最后那句「都刷完了」冲掉
-  assert.match(app, /if \(!weekly\) toast\(ok === keys\.length/, "例行刷新时每个角色还各弹一次");
+  assert.match(app, /if \(!weekly\) toast\(phoneAllStopRef\.current \? "停下了：[^"]*" \+ ok \+ "[^"]*" : ok === keys\.length/, "例行刷新时每个角色还各弹一次");
   assert.match(app, /return \{ ok: ok, total: keys\.length \};/, "没把成没成回给上一层,缺了几个 app 只能咽下去");
 });
 
@@ -92,3 +92,13 @@ test("没配 API、没开开关、这周刷过了，都不动", () => {
   assert.match(sweep[0], /window\.AutoGate\.due\("phone\|" \+ c\.id, wk, \{ maxTries: 1 \}\)/, "没看周次游标，这周刷过了还会再刷一遍");
   assert.match(sweep[0], /if \(!pending\.length\) return;/, "这一周谁都不欠的时候也往下走");
 });
+
+// 刷到一半关了开关、删了线路，就停（她 2026-11-01 群友：「关了，api 也删了，依旧在刷新中」）
+{
+  const assert = require("node:assert/strict");
+  const app = require("fs").readFileSync(require("path").join(__dirname, "..", "js", "app.js"), "utf8");
+  const all = app.slice(app.indexOf("const genPhoneAll = "), app.indexOf("const genPhoneAll = ") + 4000);
+  assert.match(all, /if \(weekly && \(!autoRefreshOn\("phone", char\.id\) \|\| !bgActiveRef\.current\)\) break;/);
+  assert.match(all, /runProbe\(weekly \? bgActiveRef\.current : bgActive,/, "每周那一刷读的是此刻的线路，不是开跑那一刻攥住的");
+  assert.match(app, /if \(!autoRefreshOn\("phone"\) \|\| !autoRefreshOn\("phone", due\.id\) \|\| !bgActiveRef\.current\) break;/);
+}

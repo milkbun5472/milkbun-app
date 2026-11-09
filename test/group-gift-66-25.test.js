@@ -19,7 +19,7 @@ test("挑人那一屏：选了群不是送给群，是换一屏挑群里的谁",
   // 第二屏只列这个群的成员，选中才带着 toId 结算
   const two = scr.slice(scr.indexOf('} else if (sheet && sheet.kind === "giftgroup") {'), scr.indexOf('} else if (sheet === "paylater") {'));
   assert.match(two, /\(\(grp && grp\.memberIds\) \|\| \[\]\)\.map\(id => \(characters \|\| \[\]\)\.find\(c => c\.id === id\)\)\.filter\(Boolean\)/, "没按这个群的成员来列");
-  assert.match(two, /onCheckout\(sel, "gift", \{ type: "group", id: gid, toId: c\.id \}\)/, "结算没带上收礼的是谁");
+  assert.match(two, /onCheckout\(sel, "gift", \{ type: "group", id: gid, toId: c\.id \}, \{ pick: pickN \}\)/, "结算没带上收礼的是谁");
   assert.match(two, /这个群里还没有成员/, "空群没有兜底，点进去是一片白");
 });
 

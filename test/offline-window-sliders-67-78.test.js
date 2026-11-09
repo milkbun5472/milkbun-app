@@ -106,3 +106,12 @@ test("拧一拧真的算数：回看几拍、几拍给原文，都跟着变", ()
   assert.ok(BUD - r.usedOff >= Math.round(BUD * 0.7) - 1,
     "线下把聊天的份额也占了：聊天只剩 " + (BUD - r.usedOff));
 });
+
+// 跨情境（群聊带进单聊那段）上限调高（她 2026-11-02：「他群聊也就取了一个小时前的，根本不够」）
+{
+  const assert = require("node:assert/strict");
+  const scr = require("fs").readFileSync(require("path").join(__dirname, "..", "js", "screens-ui.js"), "utf8");
+  const app = require("fs").readFileSync(require("path").join(__dirname, "..", "js", "app.js"), "utf8");
+  assert.match(scr, /slider\("跨情境每段字符预算", c\.crossBudget != null \? c\.crossBudget : 800, 200, 20000, 200, " 字",/);
+  assert.match(app, /b\.who \+ "：" \+ b\.text\.replace\(\/\\s\+\/g, " "\)\.slice\(0, 200\);/);
+}

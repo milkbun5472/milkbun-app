@@ -98,7 +98,8 @@ test("行内引用那几处传了 inline，不出卡片", () => {
   // v75.981 线下那两处先过 callShow 剥语气标记：text: callShow(l.content)
   const quoted = comp.match(/h\(TransText, \{ text: (?:callShow\()?l\.content\)?[^)]*inline: true \}\)/g) || [];
   assert.equal(quoted.length, 2, "线下引用那两处没标 inline");
-  assert.match(phone, /h\(TransText, \{ text: s, ink: "currentColor", inline: true \}\)/);
+  assert.match(comp, /h\(TransText, \{ text: s, zhReady: zh \|\| undefined, ink: "currentColor", inline: true \}\)/);   // 公共出口 transShow
+  assert.match(phone, /transShow\(v\)/);
 });
 
 // ⚠️真机抓到的：高度自己往上爬 258→260→262…（2026-09-20）

@@ -1117,7 +1117,7 @@
                 notes.map(function (r) {
                   return h("div", { key: r.id, style: { marginBottom: 6 }, "data-wk": "ficreader", "data-part": "r3" },
                     h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.tint, marginBottom: 3 } }, r.author, authorTag(t)),
-                    h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", lineHeight: 1.75, color: t.sub } }, r.content));
+                    h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", lineHeight: 1.75, color: t.sub } }, transShow(r.content)));
                 }));
             })(),
             // 记进房间 / 拿给TA看。⚠️**不自动发生**：她按一下才有
@@ -1215,13 +1215,13 @@
             h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: r.me ? t.accent : (r.isAuthor ? t.tint : t.fog), marginBottom: 3 } },
               penName(r, 12),
               r.isAuthor ? authorTag(t) : null, ficRegTag(r)),
-            h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", lineHeight: 1.6, color: t.ink } }, r.content),
+            h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", lineHeight: 1.6, color: t.ink } }, transShow(r.content)),
             r.art ? h("div", { style: { marginTop: 8, width: "72%", borderRadius: 4, overflow: "hidden" } }, h(FicImg, { k: r.art, onClick: setArtView })) : null,
             r.art && r.artChap != null ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, marginTop: 4 } }, "画的是第 " + (r.artChap + 1) + " 章") : null,
             (r.replies || []).map(function (rp) {
               return h("div", { key: rp.id, className: "mt-2 ml-3 pl-3", style: { borderLeft: "2px solid " + t.line }, "data-wk": "ficreader", "data-part": "r6" },
                 h("span", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: rp.me ? t.accent : (rp.isAuthor ? t.tint : t.fog) } }, penName(rp, 11.5), ficRegTag(rp), "：", rp.isAuthor ? authorTag(t) : null),
-                h("span", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.sub } }, rp.content));
+                h("span", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.sub } }, transShow(rp.content)));
             }),
             replyTo === r.id
               ? h("div", { className: "flex items-center gap-2 mt-2" },
@@ -1750,7 +1750,7 @@
     }
     function importStyleFile() {
       const inp = document.createElement("input");
-      inp.type = "file"; if (ANY_FILE) inp.accept = ANY_FILE;   // 安卓那边不写这个属性（见 core.js ANY_FILE）
+      inp.type = "file"; if (ANY_FILE) inp.accept = ANY_FILE;   // 见 core.js ANY_FILE
       inp.onchange = async function () {
         const file = inp.files && inp.files[0]; if (!file) return;
         setImporting(true);
@@ -2347,7 +2347,7 @@
             if (i > lastNarIdx && moreToReveal) return null;   // 那一拍还没读完，别提前剧透她的反应
             return h("div", { key: i, className: "flex justify-end my-4", "data-wk": "ficrpthread", "data-part": "r6" },
               h("div", { style: { maxWidth: "80%", transform: "rotate(-1.1deg)", borderLeft: "2px solid " + t.fog, paddingLeft: 9, paddingRight: 2 } },
-                h("div", { style: { fontFamily: "'Noto Serif SC',serif", fontStyle: "italic", fontSize: "calc(12.5px * var(--app-fs, 1))", lineHeight: 1.75, color: t.sub, whiteSpace: "pre-wrap" } }, e.text),
+                h("div", { style: { fontFamily: "'Noto Serif SC',serif", fontStyle: "italic", fontSize: "calc(12.5px * var(--app-fs, 1))", lineHeight: 1.75, color: t.sub, whiteSpace: "pre-wrap" } }, transShow(e.text)),
                 h("div", { style: { fontFamily: F_BODY, fontSize: "calc(9.5px * var(--app-fs, 1))", color: t.fog, marginTop: 3, textAlign: "right" } }, "—— " + authorName + (e.last ? " · 看完这一版" : " · 写在页边"))));
           }
           const paras = e.text.split(/\n{2,}/).map(function (x) { return x.trim(); }).filter(Boolean);

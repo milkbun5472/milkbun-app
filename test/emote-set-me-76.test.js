@@ -11,7 +11,7 @@ test("画我自己那一套：挑有参考照的面具 → 同一套九宫格 �
   assert.match(app, /generateSelfieImage\(prompt, \[me\.refPhoto\]/);
   assert.match(app, /charIds: charId && !_meM \? \[charId\] : _meM \?/, "她自己那组贴的是认这张面具的人，不是 charId");
   assert.match(app, /myFaces: \[\{ id: "", name:/);
-  assert.match(ui, /myFaces\.filter\(f => f\.ok\)\.map\(f => h\("button", \{ key: "me_" \+ \(f\.id \|\| "main"\), "data-wk": "emomyface", onClick: \(\) => \{ setSetPick\(false\); onMakeSet\("__me:" \+ f\.id/);
+  assert.match(ui, /myFaces\.filter\(f => (?:setGif \|\| )?f\.ok\)\.map\(f => h\("button", \{ key: "me_" \+ \(f\.id \|\| "main"\), "data-wk": "emomyface", onClick: \(\) => \{ setSetPick\(false\); (?:if \(setGif\) onMakeGif\("__me:" \+ f\.id(?:, \{ caption: setCaption \})?\); else )?onMakeSet\("__me:" \+ f\.id/);
   assert.match(ui, /"data-wk": "emomyface"[^\n]*\n[^\n]*minHeight: 40/);
 });
 

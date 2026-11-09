@@ -29,8 +29,18 @@
   // 评论区有后续（她 2026-10-08）：TA回了哪条网友评论、对方又回了什么，同一枪里写；有来有回的那一下记进TA的记忆，聊天里想起来自己会提
   const THREAD_ADD = ',"thread":{"name":"","reply":"","back":""}';
   const B_SHAPE_ADD = ',"title":"","intro":"","dur":"08:24","plays":0,"zone":"","dms":[""]';
-  const CHAR_SHAPE = '{"handle":"","scene":"","who":"self","caption":"","tags":[""],"likes":0,"comments":[{"name":"","text":""}]}';
-  const NPC_SHAPE = '{"videos":[{"author":"","scene":"","who":"none","caption":"","tags":[""],"likes":0,"comments":[{"name":"","text":""}]}]}';
+  // who：画面里出镜的是谁，画出来时照它定露不露人（群里 2026-11-08：推荐里每条画出来都没有人）——
+  //   原来格式里只写了一个 "none" 当示范，又没说这一格是什么，模型就条条照抄 none，全成了空镜
+  const WHO_FIELD = '"who":"照 scene 里实际拍到的标一个：none＝镜头里没有人，part＝只露手、背影这种局部，self＝有人露脸出镜。拍什么照你自己想发的来，这一格只是照实标"';
+  const CHAR_SHAPE = '{"handle":"","scene":"",' + WHO_FIELD + ',"caption":"","tags":[""],"likes":0,"comments":[{"name":"","text":""}]}';
+  const NPC_SHAPE = '{"videos":[{"author":"","scene":"",' + WHO_FIELD + ',"caption":"","tags":[""],"likes":0,"comments":[{"name":"","text":""}]}]}';
+  // 存之前收成三个字之一；填歪了的交给画图那头按画面自己认（drawFromDesc 的兜底）
+  // 画的时候用哪个：她自己发的照她点的那颗；刷出来的那些，"none" 不直接当真——
+  //   之前存下的条条都是照抄的 none，交给画面那几句自己认有没有人（scene 里写着没人的照样画空镜）；
+  //   这一格讲清楚以后刷出来的（WHO_SURE_TS 之后），模型标的 none 就照它画空镜；之前那批照抄的 none 才交给画面自己认
+  const WHO_SURE_TS = Date.parse("2026-11-08T04:00:00Z");
+  const drawWho = v => { const w = whoOf(v && v.who); return v && v.by !== "me" && w === "none" && !(Number(v.ts) > WHO_SURE_TS) ? "" : w; };
+  const whoOf = w => { const x = S(w).trim().toLowerCase(); return x === "self" || x === "part" || x === "none" ? x : ""; };
   // 她小号发的视频，TA刷到了（她 2026-10-07 选的第 1 条）：认不认得出是她，全看TA对她的了解
   const SPOT_SHAPE = '{"spots":[{"name":"","comment":"","recognized":false,"why":""}]}';
   function spotSystem(v, alt, uName, chars, briefs) {
@@ -384,7 +394,7 @@
             onMore ? h("button", { "data-wk": "shuamorecmt", onClick: onMore, disabled: !!moreBusy, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: B.accent, minHeight: 32, padding: "0 4px" } }, moreBusy ? "有人路过…" : "刷点评论") : null),
           arr(v.comments).map(c => h("div", { "data-wk": "shuacmt", "data-me": c.by === "me" ? "1" : "0", key: c.id, style: { padding: "9px 0", borderTop: "1px solid " + B.line } },
             h("div", { "data-wk": "shuacmtname", style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: c.by === "me" ? B.accent : c.by === "char" ? "#d89a2b" : B.dim } }, c.name + (c.isAuthor ? " · 作者" : "")),
-            h("div", { "data-wk": "shuacmttext", style: { fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", color: B.ink, marginTop: 3, lineHeight: 1.55 } }, c.text),
+            h("div", { "data-wk": "shuacmttext", style: { fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", color: B.ink, marginTop: 3, lineHeight: 1.55 } }, transShow(c.text)),
             // 楼中楼：回复挂在这一条底下
             arr(c.replies).length ? h("div", { style: { marginTop: 6, padding: "6px 10px", borderRadius: 8, background: B.bg } }, c.replies.map(r => h("div", { "data-wk": "shuareply", "data-me": r.by === "me" ? "1" : "0", key: r.id, style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", lineHeight: 1.5, color: B.ink, padding: "2px 0" } },
               h("span", { style: { color: r.by === "me" ? B.accent : r.by === "char" ? "#d89a2b" : B.dim } }, r.name + "："), r.text))) : null,
@@ -807,7 +817,7 @@
       setDrawing(v.id);
       try {
         const sc = String(scene2 || "").trim() || v.scene;
-        const ref = v.withCharId && props.drawDuo ? await props.drawDuo(v.withCharId, sc) : await props.draw(v.by === "char" ? v.charId : null, sc, v.who);
+        const ref = v.withCharId && props.drawDuo ? await props.drawDuo(v.withCharId, sc) : await props.draw(v.by === "char" ? v.charId : null, sc, drawWho(v));
         patchV(v.id, x => Object.assign({}, x, { img: ref }, sc !== v.scene ? { scene: sc } : {}));
       }
       catch (e) { toast("没画出来：" + ((e && e.message) || "")); }

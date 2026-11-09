@@ -205,9 +205,9 @@
       setBusy(key);
       try {
         const prev = signs[key];
-        const d = await runProbe(p, ctx, { voice: true, tag: "astro", instruction: signInstruction(meName, facts) + (prev ? "\n〔重抽〕上一张写的是「" + prev.title + "：" + prev.text + "」，这张换一个。" : "") + voiceTail(), schemaHint: SIGN_SCHEMA, maxTokens: 65000 });
+        const d = await runProbe(p, ctx, { voice: true, tag: "astro", instruction: signInstruction(meName, facts, c) + (prev ? "\n〔重抽〕上一张写的是「" + prev.title + "：" + prev.text + "」，这张换一个。" : "") + voiceTail(), schemaHint: SIGN_SCHEMA, maxTokens: 65000 });
         if (!d || !String(d.title || d.text || "").trim()) throw new Error("TA 这回没抽出来，再点一次");
-        const next = Object.assign({}, signs, { [key]: { title: String(d.title || "").trim().slice(0, 12), text: String(d.text || "").trim().slice(0, 120), by: c.remark || c.name, ts: Date.now() } });
+        const next = Object.assign({}, signs, { [key]: g.Astro.signCardOf(d, c.remark || c.name) });
         const ks = Object.keys(next).sort((a, b) => (next[b].ts || 0) - (next[a].ts || 0)); ks.slice(60).forEach(k => delete next[k]);
         setSigns(next); saveJSON(SIGN_KEY, next);
       } catch (e) { props.toast && props.toast("没抽成：" + String((e && e.message) || e).slice(0, 120)); }
@@ -249,7 +249,7 @@
         h("div", { className: "flex items-center gap-2", style: { marginBottom: 6 } },
           char && typeof Avatar !== "undefined" ? h(Avatar, { character: char, size: 22, radius: 7 }) : null,
           h("span", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: S.sub } }, (char ? (char.remark || char.name) : "TA") + " 看了看")),
-        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: S.ink, lineHeight: 1.7, whiteSpace: "pre-wrap", userSelect: "text", WebkitUserSelect: "text" } }, n.text)) : null;
+        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: S.ink, lineHeight: 1.7, whiteSpace: "pre-wrap", userSelect: "text", WebkitUserSelect: "text" } }, transShow(n.text))) : null;
     };
     const askBtn = (key, char, instruction, label) => char ? h("button", { onClick: () => ask(key, char, instruction), disabled: !!busy, className: "active:opacity-80 disabled:opacity-50",
       style: { marginTop: 10, width: "100%", minHeight: 44, display: "flex", alignItems: "center", justifyContent: "center", gap: 8, background: "transparent", border: "none",
@@ -293,7 +293,7 @@
           h("div", { className: "flex items-baseline justify-between", style: { marginTop: 4 } },
             h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(22px * var(--app-fs, 1))", color: S.ink } }, signName(meInfo.sign) + (meInfo.signApprox ? "（约）" : "")),
             h(Stars, { n: day.all, color: S.tint })),
-          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: S.ink, lineHeight: 1.7, marginTop: 8 } }, day.line),
+          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: S.ink, lineHeight: 1.7, marginTop: 8 } }, transShow(day.line)),
           tr && tr.hits.length > 1 ? h("div", { style: { marginTop: 8 } }, tr.hits.slice(1, 4).map((x, i) => h("div", { key: i, className: "flex items-center", style: { gap: 7, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: S.sub, lineHeight: 1.8 } },
             h(Spark, { size: 7, color: x.asp.tone < 0 ? S.accent : S.tint, op: 0.7 }), transitLine(x)))) : null,
           h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: S.fog, marginTop: 6 } }, tr ? "按今天天上的行星和你的星盘算" : "只按星座和日期算 · 填上带年份的生日和出生信息会按行运算"),
@@ -395,14 +395,14 @@
           h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: S.fog } }, "星座配对"),
           sm ? h("div", null,
             h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(16px * var(--app-fs, 1))", color: S.ink, marginTop: 2 } }, sm.aspect + " · " + sm.score),
-            h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: S.sub, lineHeight: 1.7, marginTop: 4 } }, sm.note))
+            h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: S.sub, lineHeight: 1.7, marginTop: 4 } }, transShow(sm.note)))
             : h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: S.sub, marginTop: 4 } }, "两个人的星座都知道了才能配")),
         h("div", { "data-wk": "astroshuku", style: { marginTop: 12, paddingTop: 12, borderTop: "1px dashed " + S.line } },
           h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: S.fog } }, "星宿关系（宿曜）"),
           sr ? h("div", null,
             h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(16px * var(--app-fs, 1))", color: S.ink, marginTop: 2 } }, (sr.pair === "命" ? "命命" : sr.pair) + (sr.distance ? " · " + sr.distance : "")),
             h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: S.sub, marginTop: 2 } }, sr.pair === "命" ? "同一个宿" : A.name + " 是 " + B.name + " 的「" + sr.theirs + "」，" + B.name + " 是 " + A.name + " 的「" + sr.mine + "」"),
-            h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: S.sub, lineHeight: 1.7, marginTop: 4 } }, sr.note))
+            h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: S.sub, lineHeight: 1.7, marginTop: 4 } }, transShow(sr.note)))
             : h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: S.sub, marginTop: 4 } }, "两个人的本命宿都算得出来才能看")),
         // 你俩的好日子（第 6 条）：接下来一个月里，行运对两个人都顺的那三天。日历上也会标出来，TA 也知道
         h("div", { "data-wk": "astrogood", style: { marginTop: 12, paddingTop: 12, borderTop: "1px dashed " + S.line } },

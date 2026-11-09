@@ -129,3 +129,13 @@ test("为什么不再「一轮变两次都放进来」，理由写在代码里",
   assert.match(doc, /2026-09-14/);
   assert.match(doc, /一次太少/, "得写明为什么从 1 抬到 2");
 });
+test("群里同一个人这一轮一字不差重复的那一泡只留第一次（短句、卡片不管）", () => {
+  const src = require("fs").readFileSync(require("path").join(__dirname, "..", "js", "app.js"), "utf8");
+  assert.match(src, /const _saidOnce = new Map\(\);/);
+  const m = src.match(/gBubbles = gBubbles\.filter\(b => \{ const k = [^\n]+/);
+  assert.ok(m, "去重那一道");
+  const seen = new Set(), htmlCardOf = () => false;
+  const f = eval("(gBubbles) => { " + m[0].replace(/ \}\s*$/, "") + " return gBubbles; }");
+  const L = "我靠在主卧床头，单手抽走你怀里亮着屏幕的手机扣在床头柜上";
+  assert.deepEqual(f([L, "不用多久", L, "四点半在南门等", L, "嗯", "嗯"]), [L, "不用多久", "四点半在南门等", "嗯", "嗯"]);
+});

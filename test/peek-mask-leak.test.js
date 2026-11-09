@@ -25,3 +25,28 @@ test("其他几样也照面具挡：论坛评论、一起听、备忘录、手�
   assert.match(A, /log: peekMaskView\(\) \? takeoutLog\.filter/);
   assert.match(A, /window\.__peekHide = null; window\.__peekMask = null;/);
 });
+test("翻手机录像里的朋友圈也按面具滤：别的面具的人、她别的面具发的、留下那帖底下他们的赞和评论都不在", () => {
+  const fs = require("fs"), src = fs.readFileSync(__dirname + "/../js/components.js", "utf8");
+  const a = src.indexOf("function peekMomentsView"), b = src.indexOf("function MomentsFeed");
+  const win = {};
+  const f = new Function("window", src.slice(a, b) + "return peekMomentsView;")(win);
+  const list = [
+    { id: 1, characterId: "a", likers: ["小乙"], comments: [{ author: "小乙", text: "x" }, { author: "小甲", text: "y" }] },
+    { id: 2, characterId: "b" }, { id: 3, mine: true, mask: "" }, { id: 4, mine: true, mask: "m2" }];
+  assert.equal(f(list), list, "没在翻手机时原样");
+  win.__peekHide = new Set(["b"]); win.__peekMask = { ids: new Set(["b"]), names: ["小乙"], mine: "" };
+  const out = f(list);
+  assert.deepEqual(out.map(m => m.id), [1, 3]);
+  assert.deepEqual(out[0].likers, []); assert.deepEqual(out[0].comments.map(c => c.author), ["小甲"]);
+  const app = fs.readFileSync(__dirname + "/../js/app.js", "utf8");
+  assert.match(src, /moments: peekMomentsView\(moments\),/);
+  assert.match(app, /filter\(x => x && !maskNames\.includes\(x\)\)/);
+  assert.match(app, /window\.__peekMask = Object\.assign\(peekMaskInfo\(mo\), \{ mine: maskKeyOf\(charId\) \}\)/);
+});
+test("上次翻过的记录也照这次的面具和藏人滤；朋友圈互动消息那条也走同一份", () => {
+  const fs = require("fs"), app = fs.readFileSync(__dirname + "/../js/app.js", "utf8"), cmp = fs.readFileSync(__dirname + "/../js/components.js", "utf8");
+  assert.match(app, /gone = peekMaskInfo\(maskIds\.concat\(\[\.\.\.userHide\]\)\)\.names/);
+  assert.match(app, /const who = \(L\.who \|\| \[\]\)\.filter\(ok\), taps = \(L\.taps \|\| \[\]\)\.filter\(ok\), th = \(L\.thoughts \|\| \[\]\)\.filter\(ok\)/);
+  assert.ok(!/L\.who\.join/.test(app), "不许再把上回的人名原样摆回去");
+  assert.match(cmp, /const momNews = \(peekMomentsView\(moments\) \|\| \[\]\)/);
+});

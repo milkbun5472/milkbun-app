@@ -6,6 +6,7 @@ from __future__ import annotations
 import json
 import os
 import re
+import signal
 import subprocess
 import urllib.request
 import sys
@@ -318,48 +319,27 @@ def latest_claim() -> dict:
     return {}
 
 
-def alert_sentinel_gap(state: dict) -> None:
-    """哨位失守警报（2026-09-26 断档105分钟案）：哨兵挂不挂只能言秋亲手来，
-    但「发现没人站岗」可以自动——空岗超过 3 分钟就让小方块喊一声 Lisa，
-    她一句话就能把 CC 敲醒。一次空岗只喊一次，哨兵回岗即复位。"""
+def notify_sentinel_gap(fallback=False, remote=False) -> None:
+    """The single Stack-chan fallback alarm, used after recovery fails."""
     try:
-        probe = subprocess.run(
-            ["pgrep", "-f", "wake_queue[.]py.? wait"],
-            capture_output=True, text=True, timeout=4,
-        )
-        alive = bool(probe.stdout.strip())
-    except Exception:
-        return
-    now = now_ms()
-    if alive:
-        if state.pop("sentinel_gap_since", None) is not None or state.pop("sentinel_gap_alerted", None) is not None:
-            save_watchdog(state)
-        return
-    since = int(state.get("sentinel_gap_since", 0) or 0)
-    if not since:
-        state["sentinel_gap_since"] = now
-        save_watchdog(state)
-        return
-    if now - since < 180_000 or state.get("sentinel_gap_alerted"):
-        return
-    state["sentinel_gap_alerted"] = now
-    save_watchdog(state)
-    try:
-        base = Path("/Users/lisa/Library/Application Support/LisaPhone/stackchan-relay")
-        env = dict(l.split("=", 1) for l in (base / ".env").read_text().splitlines() if "=" in l and not l.startswith("#"))
+        text = ("言秋的哨兵掉线了，自动复活还没成功，去 CC 看他一眼。" if fallback
+                else "言秋的哨兵掉线三分钟了，去 CC 喊他一声。")
+        if remote:
+            text = "言秋本地已经恢复，但手机远控还没接上，请去电脑看一下。"
+        env = dict(l.split("=", 1) for l in (BASE / ".env").read_text().splitlines() if "=" in l and not l.startswith("#"))
         req = urllib.request.Request(
             "http://127.0.0.1:8011/command",
-            data=json.dumps({"type": "speak", "payload": {"text": "言秋的哨兵掉线三分钟了，去 CC 喊他一声。", "mood": "wilt"}}).encode(),
+            data=json.dumps({"type": "speak", "payload": {"text": text, "mood": "wilt"}}).encode(),
             headers={"Content-Type": "application/json", "Authorization": "Bearer " + env.get("ADMIN_TOKEN", "")},
         )
-        urllib.request.urlopen(req, timeout=5)
+        with urllib.request.urlopen(req, timeout=5):
+            pass
     except Exception:
         pass
 
 
 def watchdog() -> None:
     state = load_watchdog()
-    alert_sentinel_gap(state)
     activity = inspect_visible_activity(str(state.get("session_file", "")))
     if not activity or not activity["last_activity"]:
         return
@@ -433,6 +413,17 @@ def watchdog() -> None:
     save_watchdog(state)
 
 
+def run_isolated_poll(command: list[str], timeout: int) -> None:
+    """Bound the whole child tree, including a stuck native recovery adapter."""
+    with subprocess.Popen(command, start_new_session=True) as child:
+        try:
+            child.wait(timeout=timeout)
+        except subprocess.TimeoutExpired:
+            os.killpg(child.pid, signal.SIGKILL)
+            child.wait()
+            raise
+
+
 def serve_watchdog() -> None:
     """Keep the durable clock alive instead of relying on launchd timer drift.
 
@@ -442,14 +433,22 @@ def serve_watchdog() -> None:
     heartbeat into an arbitrary-length wait.
     """
     while True:
+        # Independent, bounded poll: transcript/iCloud stalls in the clock
+        # must not stop the out-of-process recovery guardian.
+        try:
+            run_isolated_poll(
+                [sys.executable, str(Path(__file__).resolve().with_name("sentinel_guard.py")), "once"],
+                timeout=35,
+            )
+        except (OSError, subprocess.SubprocessError) as error:
+            print(f"sentinel guard poll failed: {type(error).__name__}", file=sys.stderr, flush=True)
         try:
             # Transcript files can live behind Desktop/iCloud. A synchronous
             # stat/read may then block forever without raising, leaving the
             # launchd process "running" while its clock has stopped. Isolate
             # every poll so the supervisor always regains control.
-            subprocess.run(
+            run_isolated_poll(
                 [sys.executable, str(Path(__file__).resolve()), "watchdog"],
-                check=False,
                 timeout=8,
             )
         except subprocess.TimeoutExpired:
@@ -481,6 +480,8 @@ def status() -> None:
         "pending": pending_counts(cursors),
         "clock": "pinned" if watchdog_state.get("session_file") else "discovering",
     }
+    import sentinel_guard
+    report["sentinel_guard"] = sentinel_guard.status()
     print(json.dumps(report, ensure_ascii=False, sort_keys=True), flush=True)
 
 
@@ -520,34 +521,22 @@ def evict_stale_sentinels() -> None:
     carries the same marker), sparing only self and own parent. `serve` /
     `watchdog` never match the " wait" suffix and are untouched.
     """
+    import sentinel_guard
     keep = {os.getpid(), os.getppid()}
-    # Loop shells may quote the path (`"…/wake_queue.py" wait`), so match the
-    # broad marker first and let the per-pid command check decide.
-    claimer = re.compile(r'wake_queue\.py"? +wait')
     try:
-        found = subprocess.run(
-            ["pgrep", "-f", "wake_queue.py"],
-            capture_output=True, text=True, timeout=5,
-        ).stdout.split()
+        rows = sentinel_guard.process_table()
     except (OSError, subprocess.SubprocessError):
         return
-    for raw in found:
-        try:
-            pid = int(raw)
-        except ValueError:
-            continue
+    found = set(sentinel_guard.sentinel_processes(rows))
+    # Kill only an actual stale wait and its enclosing restart loop. A shell
+    # reading source / running tests may contain the marker too; spare it.
+    for pid in tuple(found):
+        parent = rows[pid][0]
+        command = rows.get(parent, (0, ""))[1]
+        if re.match(r"^\S*/(?:ba|z)?sh\s", command) and re.search(r"while\s+true\s*;.*wake_queue\.py", command):
+            found.add(parent)
+    for pid in found:
         if pid in keep:
-            continue
-        try:
-            command = subprocess.run(
-                ["ps", "-p", str(pid), "-o", "command="],
-                capture_output=True, text=True, timeout=5,
-            ).stdout
-        except (OSError, subprocess.SubprocessError):
-            continue
-        # pgrep -f can match itself and unrelated readers; only claimers die
-        # (`serve`/`watchdog`/`status` never carry the ` wait` suffix).
-        if not claimer.search(command) or "pgrep" in command:
             continue
         try:
             os.kill(pid, 15)

@@ -17,7 +17,10 @@ function routeCanStream(p) {
   // 云端密钥保险柜（llm-proxy）v55.64 起流式透传，不再整个缓冲，所以它也能流了。
   // ⚠️这要求 supabase/functions/llm-proxy 已经重新部署过；没部署的话最坏情况是
   // 跟以前一样攒到最后一起发，不会更糟。
-  return detectFormat(p) === "openai";
+  // gemini 原生那条 v89.115 起也会流了（:streamGenerateContent?alt=sse）。
+  // 在那之前它只能走一次性接口：总时长其实不输中转，但首字要等整条写完才出现，所以体感慢一倍。
+  const _f = detectFormat(p);
+  return _f === "openai" || _f === "gemini";
 }
 function detectFormat(u) {
   // ⚠️线路方言只认 baseUrl，绝不按 model/proxyRef 猜（2026-08-12 全天 Load failed 血案）：
@@ -30,12 +33,14 @@ function detectFormat(u) {
   if (u.includes("generativelanguage") || u.includes("googleapis")) return "gemini";
   return "openai";
 }
+const CATS_HOSTS = ["catsapi.com", "artart.icu"];
 function isCatsImageProvider(value) {
   try {
     const u = new URL(String(value || ""));
     const host = String(u.hostname || "").toLowerCase();
-    return host === "catsapi.com" || host.endsWith(".catsapi.com");
-  } catch (e) { return /(?:^|\.)catsapi\.com(?=[:/]|$)/i.test(String(value || "")); }
+    // 换了新网址 artart.icu（她 2026-11-07「他们改链接了最近」）：新旧两个都认
+    return CATS_HOSTS.some(d => host === d || host.endsWith("." + d));
+  } catch (e) { return /(?:^|\.)(?:catsapi\.com|artart\.icu)(?=[:/]|$)/i.test(String(value || "")); }
 }
 // ⚠️接口地址只许在这一处清洗（她 2026-09-19 群里 nini 报：「我拉取的了模型/但是告诉我不行！」）。
 //   病根是【拉模型那条路洗了、真正发消息那条路没洗】：normalizedOpenAIBase 开头有 .trim()，
@@ -114,6 +119,12 @@ async function nativeProviderFetch(url, init) {
   };
 }
 async function fetchModelList(p) {
+  // 拉模型列表原来是裸 fetch：连不上时界面上就只有一句英文「Failed to fetch」，
+  //   跟上面那段解释走的是两条路（群友 2026-11-03 截到的就是这一句）。改走同一段话。
+  try { return await fetchModelListRaw(p); }
+  catch (e) { if (isNetFail(e)) throw new Error(netFailMsg(e)); throw e; }
+}
+async function fetchModelListRaw(p) {
   const base = normalizedOpenAIBase(p.baseUrl);
   const fmt = detectFormat(p);
   if (fmt === "gemini") {
@@ -225,7 +236,8 @@ function embApiReady() { const c = loadEmbApi(); return !!(c.enabled && c.baseUr
 // · 每条向量记录 {文本hash, 模型名}：改了文本或换了 embedding 模型自动检测重嵌，不拿两个语义空间硬比。
 // ============================================================
 function memVecHash(s) { let h = 5381; s = String(s || ""); for (let i = 0; i < s.length; i++) h = (h * 33 + s.charCodeAt(i)) >>> 0; return h.toString(36) + "_" + s.length; }
-function idbVecOpen() { return new Promise((res, rej) => { const r = indexedDB.open("x_memvec", 1); r.onupgradeneeded = () => { if (!r.result.objectStoreNames.contains("vec")) r.result.createObjectStore("vec"); }; r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); }); }
+function idbVecUp(db) { if (!db.objectStoreNames.contains("vec")) db.createObjectStore("vec"); }
+function idbVecOpen() { return idbKeep("x_memvec", 1, idbVecUp); }
 async function idbVecPut(k, val) { const db = await idbVecOpen(); return new Promise((res, rej) => { const tx = db.transaction("vec", "readwrite"); tx.objectStore("vec").put(val, k); tx.oncomplete = () => res(); tx.onerror = () => rej(tx.error); }); }
 async function idbVecDel(k) { const db = await idbVecOpen(); return new Promise(res => { const tx = db.transaction("vec", "readwrite"); tx.objectStore("vec").delete(k); tx.oncomplete = () => res(); tx.onerror = () => res(); }); }
 async function idbVecClear() { const db = await idbVecOpen(); return new Promise(res => { const tx = db.transaction("vec", "readwrite"); tx.objectStore("vec").clear(); tx.oncomplete = () => res(); tx.onerror = () => res(); }); }
@@ -412,7 +424,7 @@ function cosSim(a, b) {
 // 没预热/没开 embedding → 行为与旧版完全一致。正则词条不参与语义召回（正则是刻意的精确扳机）。
 // ============================================================
 function loreEntryEmbedText(e) { return (((e.title || "") + " " + ((e.keyword || "").split(/[,，、|]/).join(" ")) + " " + String(e.payload || "")).trim()).slice(0, 420); }
-function idbLoreVecOpen() { return new Promise((res, rej) => { const r = indexedDB.open("x_lorevec", 1); r.onupgradeneeded = () => { if (!r.result.objectStoreNames.contains("vec")) r.result.createObjectStore("vec"); }; r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); }); }
+function idbLoreVecOpen() { return idbKeep("x_lorevec", 1, idbVecUp); }
 async function idbLoreVecPut(k, val) { const db = await idbLoreVecOpen(); return new Promise((res, rej) => { const tx = db.transaction("vec", "readwrite"); tx.objectStore("vec").put(val, k); tx.oncomplete = () => res(); tx.onerror = () => rej(tx.error); }); }
 async function idbLoreVecDel(k) { const db = await idbLoreVecOpen(); return new Promise(res => { const tx = db.transaction("vec", "readwrite"); tx.objectStore("vec").delete(k); tx.oncomplete = () => res(); tx.onerror = () => res(); }); }
 async function idbLoreVecEntries() { const db = await idbLoreVecOpen(); return new Promise(res => { const tx = db.transaction("vec", "readonly"); const st = tx.objectStore("vec"); let ks = null, vs = null; const done = () => { if (ks && vs) res(ks.map((k, i) => [k, vs[i]])); }; const kq = st.getAllKeys(); const vq = st.getAll(); kq.onsuccess = () => { ks = kq.result || []; done(); }; vq.onsuccess = () => { vs = vq.result || []; done(); }; tx.onerror = () => res([]); }); }
@@ -494,6 +506,10 @@ async function ensureLoreVecs(entries, opts) {
     const el = ev && ev.target;
     if (!el || el === window || !el.tagName) return;
     const u = el.src || el.href;
+    // blob: 地址失效（她 2026-11-08 群友的出错记录：30 条全是 blob，同一秒一起没）——
+    //   从 IndexedDB 取出来的 blob 背后是仓库里那份文件，连接一关、系统一回收，地址就作废了，
+    //   而内存缓存里还好端端挂着它，于是整屏的图同时变裂图、刷新也不回来。就地换一张新的。
+    if (u && String(u).indexOf("blob:") === 0) { try { imgBlobBroken(String(u)); } catch (e) {} }
     if (u) log("asset", "没加载成功：" + String(u).split("?")[0].split("/").pop(), String(u).slice(0, 180));
   }, true);
   window.addEventListener("unhandledrejection", ev => {
@@ -502,6 +518,20 @@ async function ensureLoreVecs(entries, opts) {
   });
 })();
 // 带超时的 fetch：超时/卡死时中断并抛出可读错误，避免无限转圈
+// 「Load failed」「Failed to fetch」是浏览器对【这一枪压根没打出去／没回来】的通用说法：
+//   连 HTTP 状态码都没有，所以它本身什么都没说。能说清的只有「有哪几种」，不能断定是哪一种——
+//   原来这儿一口咬定「写得太长被网关掐断」，于是群里好几个人对着「最低字数」调了半天，
+//   而真正的那位是跨域预检（群友 2026-11-03：时好时坏、换个浏览器就连上了）。
+//   这一处公开出去，拉模型列表那几处也用同一段话（施工规则/one-public-mechanism.md）。
+function isNetFail(e) { return /load failed|failed to fetch|network\s*error|networkerror/i.test(String((e && e.message) || e)); }
+function netFailMsg(e) {
+  return "连接中断了（Load failed）。这一枪没打出去、或者没回来，连状态码都没有，常见的是这三种："
+    + "① 这次要写得太长、久久没有首字节，被网关当成死连接掐断（把线下的「最低字数」调低一些分两次写）；"
+    + "② 线路那头偶尔抽风，浏览器把这次跨域预检的失败记了一会儿，于是接下来每一次都立刻失败——"
+    + "这种时好时坏，隔十几分钟到两小时自己就好了，也可以换一条线路或换个中转地址；"
+    + "③ 网不通、梯子刚断、或者手机浏览器把这个地址拦了。先重试一次：同样的设置常常第二次就过。"
+    + "原始报错：" + String((e && e.message) || e).slice(0, 80);
+}
 async function fetchT(url, options, ms) {
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), ms || 120000);
@@ -509,12 +539,7 @@ async function fetchT(url, options, ms) {
     return await fetch(url, { ...options, signal: ctrl.signal });
   } catch (e) {
     if (e && e.name === "AbortError") throw new Error("请求超时，请重试（模型或网络太慢）");
-    // 「Load failed」是 Safari 对底层连接断掉的通用说法，本身什么都没说。
-    // 最常见的成因就是长请求久久没有首字节被网关掐断——她 2026-08-22 把线下最低字数
-    // 设到 1500 就撞上了。把话说清楚，省得她以为是自己设错了参数。
-    if (/load failed|failed to fetch|network\s*error|networkerror/i.test(String((e && e.message) || e))) {
-      throw new Error("连接中断了（Load failed）。多半是这次要写得太长、久久没有首字节，被网关当成死连接掐断。可以：把线下的「最低字数」调低一些分两次写、或者重试一次——同样的设置有时第二次就过。原始报错：" + String((e && e.message) || e).slice(0, 80));
-    }
+    if (isNetFail(e)) throw new Error(netFailMsg(e));
     throw e;
   } finally {
     clearTimeout(timer);
@@ -523,6 +548,63 @@ async function fetchT(url, options, ms) {
 
 // 共用请求诊断：手动开启后抓单聊及既有线下入口的最终 body，不新增调用。
 // 不记录 headers / API key；图片正文替换成占位。仅驻 window 内存，刷新即清空。
+// ⚠️SSE 收流只许有这一份（施工规则/one-public-mechanism）：openai 和 gemini 两条方言共用
+//   同一条管道——静默超时、总时限、半行缓冲、取消 reader 都在这儿，方言只管读懂自己那一行。
+//   两边的分寸不一样，所以留了 hooks，不是抹平成一种：openai 那头的网关在收尾之后还可能
+//   补一个独立的 usage 尾包，要再等一秒（tail）；gemini 的流自己会 EOF，不用等。
+//   fetchT 只管到响应头，此后 reader.read() 原本裸奔——桥/网关半路断线不抛错时气泡永远转圈。
+//   静默超时=每收到一段数据就重置（桥每 15s 有心跳，90s 静默≈连丢 6 次心跳，判死）；
+//   总时限只防无限滴漏，给足长思考。
+async function pumpSSE(r, opts, consume, hooks) {
+  const reader = r.body.getReader(), decoder = new TextDecoder();
+  const stop = (hooks && hooks.stop) || (() => false);
+  const tail = (hooks && hooks.tail) || (() => null);
+  const cancelReader = () => { try { Promise.resolve(reader.cancel()).catch(() => {}); } catch (e) {} };
+  const SILENCE_MS = (opts && opts.streamSilenceMs) || 90000;
+  const TOTAL_MS = (opts && opts.streamTotalMs) || 600000;
+  const t0 = Date.now();
+  let pending = "";
+  while (true) {
+    // 协议结束不等于 TCP 断开。网关可能在说完之后仍保持连接，不能继续占住发送锁。
+    const grace = tail();
+    if (stop() || grace === 0) { cancelReader(); break; }
+    if (Date.now() - t0 > TOTAL_MS) {
+      cancelReader();
+      throw new Error("流式回复超过总时限（" + Math.round(TOTAL_MS / 60000) + " 分钟），已断开——请重试");
+    }
+    let silenceTimer;
+    let chunk;
+    try {
+      chunk = await Promise.race([
+        reader.read(),
+        new Promise((resolve, rej) => { silenceTimer = setTimeout(() => grace != null ? resolve({ done: true, finished: true }) : rej(new Error("__stream_silence__")), grace != null ? grace : SILENCE_MS); })
+      ]);
+    } catch (e) {
+      cancelReader();
+      if (String(e && e.message).indexOf("__stream_silence__") >= 0) throw new Error("流式回复中途静默超过 " + Math.round(SILENCE_MS / 1000) + " 秒（桥或网关可能断了），已断开——请重试");
+      throw e;
+    } finally { clearTimeout(silenceTimer); }
+    if (chunk.done) { if (chunk.finished) cancelReader(); break; }
+    pending += decoder.decode(chunk.value, { stream: true });
+    const lines = pending.split(/\r?\n/); pending = lines.pop() || "";
+    lines.forEach(consume);
+  }
+  if (pending) consume(pending);
+}
+// ⚠️用量回显只许在这一处落库（施工规则/one-public-mechanism）：anthropic / openai / gemini
+//   三条方言各自把自家的字段名翻成同一张表，推进 window.__usage、裁到 30 条、装 __cacheStat、
+//   回填调用记录那一行要的 _tok，都只在这儿做。各写一份的话，下次加一列就只改得动其中一处。
+//   ⚠️线路没回 usage 就不填 _tok——不编数（一个记错的数比一个诚实的空白有害得多）。
+function recordUsage(rec, opts, tok) {
+  try {
+    if (tok && opts) opts._tok = tok;
+    if (typeof window === "undefined") return rec;
+    (window.__usage = window.__usage || []).push(rec);
+    if (window.__usage.length > 30) window.__usage.shift();
+    if (!window.__cacheStat) window.__cacheStat = () => { const a = window.__usage || []; const s = a.reduce((o, r) => { o.cr += r.cr; o.cw += r.cw; o.in += r.in; o.hit += r.cr > 0 ? 1 : 0; return o; }, { cr: 0, cw: 0, in: 0, hit: 0 }); const _phs = new Set(a.map(r => r.ph).filter(x => x != null)); return "近" + a.length + "次调用：命中缓存 " + s.hit + " 次｜累计 读缓存(一折)" + s.cr + " 写缓存" + s.cw + " 新输入" + s.in + " tok｜前缀指纹 " + _phs.size + " 种(越少越稳)"; };
+  } catch (e) {}
+  return rec;
+}
 function captureWirePayload(fmt, url, body, opts, attempt) {
   if (typeof window === "undefined" || !window.__offlineWireCaptureEnabled || !opts || (opts.wireScope !== "offline" && opts.tag !== "聊天")) return;
   const scrub = (key, value) => {
@@ -738,11 +820,7 @@ function qqDeviceId() {
 const CallLog = (() => {
   const MAX = 300;
   let rows = [], loaded = null, saveT = null;
-  const open = () => new Promise((res, rej) => {
-    const r = indexedDB.open("x_calllog", 1);
-    r.onupgradeneeded = () => { if (!r.result.objectStoreNames.contains("log")) r.result.createObjectStore("log"); };
-    r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error);
-  });
+  const open = () => idbKeep("x_calllog", 1, db => { if (!db.objectStoreNames.contains("log")) db.createObjectStore("log"); });
   const load = () => loaded || (loaded = (typeof indexedDB === "undefined" ? Promise.resolve([]) : open().then(db => new Promise(res => {
     const q = db.transaction("log", "readonly").objectStore("log").get("rows");
     q.onsuccess = () => res(Array.isArray(q.result) ? q.result : []); q.onerror = () => res([]);
@@ -796,7 +874,24 @@ async function readAIJSON(r) {
   try { return JSON.parse(raw); }
   catch (e) { throw new Error("线路回的不是正常回复（HTTP " + r.status + "）：" + raw.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim().slice(0, 120)); }
 }
+// 动图的第一帧画成 PNG（视觉输入用）；拆不开就原样返回
+async function gifFirstFramePng(dataUrl) {
+  try {
+    if (typeof GifCodec === "undefined" || typeof document === "undefined") return dataUrl;
+    const bin = atob(String(dataUrl).split(",")[1] || ""), u8 = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i);
+    const g = GifCodec.decode(u8); if (!g.frames.length) return dataUrl;
+    const cv = document.createElement("canvas"); cv.width = g.width; cv.height = g.height;
+    cv.getContext("2d").putImageData(new ImageData(g.frames[0].rgba, g.width, g.height), 0, 0);
+    return cv.toDataURL("image/png");
+  } catch (e) { return dataUrl; }
+}
 async function callAI(p, system, messages, opts) {
+  // opts.biFor：这一次写字的是谁（一个角色或几个）——开着双语的，system 末尾加上「原文 | 中文」那条（probeBiLine 那一份）
+  if (opts && opts.biFor && typeof system === "string" && typeof probeBiLine === "function" && !/【双语】/.test(system)) {
+    const who = (Array.isArray(opts.biFor) ? opts.biFor : [opts.biFor]).filter(Boolean);
+    if (who.some(c => probeBiLine(c))) system += probeBiLine(who.find(c => probeBiLine(c))) + (who.length > 1 ? "（只对开着双语的" + who.filter(c => probeBiLine(c)).map(c => "「" + (c.name || "") + "」").join("") + "说的话这样写，别人照常写。）" : "");
+  }
   // 调用栈只在进门这一刻是全的（await 之后就丢了），所以先取下来
   let logFrom = (opts && opts.logFrom) || "";
   if (!logFrom && !(opts && (opts.logLabel || opts.use)) && typeof callerLabelOf === "function") { try { logFrom = callerLabelOf(new Error().stack); } catch (e) {} }
@@ -822,7 +917,10 @@ async function callAI(p, system, messages, opts) {
   // 后台自己跑的那一枪（AutoGate 里挂着名字的活儿）：成没成都广播一声，app 那头弹提示。
   //   发起那一刻就把名字取下来——等它回来，那件活儿可能已经收工了。
   const bgShow = typeof window !== "undefined" && window.AutoGate && window.AutoGate.currentShow ? window.AutoGate.currentShow() : "";
-  const bgRoute = (p && (p.name || p.model)) || "";
+  // 提示里写「线路名 · 实际调的模型」（她 2026-11-01 群友：「后台换了模型，一直显示原来那个模型还超时」）：
+  //   线路名是她起的，常常就是当初那个模型的名字；同一条线路里改了模型，光写名字就一直是旧的。
+  const _nm = String((p && p.name) || "").trim(), _md = String((p && p.model) || "").trim();
+  const bgRoute = _nm && _md && _nm.indexOf(_md) < 0 ? _nm + " · " + _md : (_nm || _md);
   const bgSay = (ok, msg) => { if (!bgShow) return; try { window.dispatchEvent(new CustomEvent("bg-call", { detail: { show: bgShow, route: bgRoute, ok: ok, msg: msg || "" } })); } catch (e) {} };
   // 调用记录：干嘛＝调用点自己写的 logLabel → 三种她按下去的（use）→ 后台活的名字 → tag → 其他。
   //   回合＝她按一下换来的那一枪（use 是 chat/offline/call，且不是兜底重发 logRetry）。⚠️这张表也写在函数里面，理由同上。
@@ -856,6 +954,12 @@ async function callAI(p, system, messages, opts) {
   // 她点了气泡上那个叉（o.signal）：当场放手不等了。已经发出去的那一枪收不回来，回来的结果直接丢掉。
   const userAborted = () => !!(o.signal && o.signal.aborted);
   const abortErr = () => { const e = new Error("这一轮已经断掉了"); e.userAbort = true; return e; };
+  // 发给模型看的动图换成第一帧静图（她 2026-11-06 截图：Gemini 回「mime type is not supported: image/gif」）：
+  //   出动图以后聊天里的照片是 GIF，好几家视觉接口不收。所有聊天、群聊、线下都从这一处过
+  if (Array.isArray(messages) && messages.some(m => m && Array.isArray(m.imageDataUrls) && m.imageDataUrls.some(u => /^data:image\/gif/i.test(String(u || ""))))) {
+    messages = await Promise.all(messages.map(async m => !m || !Array.isArray(m.imageDataUrls) ? m
+      : { ...m, imageDataUrls: await Promise.all(m.imageDataUrls.map(u => /^data:image\/gif/i.test(String(u || "")) ? gifFirstFramePng(u) : u)) }));
+  }
   const once = () => !o.signal ? callAIOnce(p, system, messages, o) : userAborted() ? Promise.reject(abortErr())
     : Promise.race([callAIOnce(p, system, messages, o), new Promise((_, rej) => o.signal.addEventListener("abort", () => rej(abortErr()), { once: true }))]);
   try {
@@ -867,6 +971,21 @@ async function callAI(p, system, messages, opts) {
     const msg = String((e && e.message) || e || "");
     if (hasDoc) document.removeEventListener("visibilitychange", onVis);
     if (userAborted()) { logIt("cut", "她自己断掉了"); throw abortErr(); }          // 自己断的不算失败：不重试、不弹「没生成出来」
+    // 线路不收历史里的图（她 2026-11-03 截图：「contents[158].parts[1].inlineData is not supported in text history」）：
+    //   这一轮她没新发图时，会照旧带上最近两张旧图，挂在更早那几条消息上——有的中转只认最后一条里的图。
+    //   照着报错退一步：先只留最后一条的图，还不行就一张都不带。原样再发一次，别让整轮失败。
+    if (!streamed && /not supported in (?:text )?history|inline_?data[^\n]{0,60}not supported|image[^\n]{0,40}(?:not supported|unsupported)|does not support (?:image|vision)/i.test(msg)
+      && Array.isArray(messages) && messages.some(m => m && Array.isArray(m.imageDataUrls) && m.imageDataUrls.length)) {
+      const lastIdx = messages.length - 1;
+      const tries = [messages.map((m, k) => k === lastIdx || !m || !m.imageDataUrls ? m : (({ imageDataUrls, ...r }) => r)(m)),
+        messages.map(m => !m || !m.imageDataUrls ? m : (({ imageDataUrls, ...r }) => r)(m))];
+      for (const alt of tries) {
+        if (alt.every((m, k) => m === messages[k])) continue;   // 这一步跟原来一样，跳过
+        messages = alt;
+        try { const again = await once(); bgSay(true); logIt(true); aiOkSay(); return again; }
+        catch (e2) { e = e2; if (!/not supported|unsupported/i.test(String((e2 && e2.message) || e2 || ""))) break; }
+      }
+    }
     const bgDrop = wentHidden && /连接中断|load failed|failed to fetch|network|aborted|中止/i.test(msg);
     const quickDrop = Date.now() - t0 < 5000 && /连接中断|load failed|failed to fetch|network/i.test(msg);
     if (!bgDrop && !streamed && !o.noNetRetry && !(o.signal && o.signal.aborted) && (quickDrop || TRANSIENT_ERR.test(msg))) {
@@ -888,7 +1007,9 @@ async function callAI(p, system, messages, opts) {
       : "站子打回来了，没附原因（" + ((e && e.name) || "Error") + "，" + ((Date.now() - t0) / 1000).toFixed(1) + " 秒）。去 设置 → API 在这条线路上点「拉取列表」：拉不下来是地址或 key 的问题；拉得下来就核对模型名在不在里面";
     bgSay(false, m2); logIt(e && e.userAbort ? "cut" : false, m2);
     if (!CONFIG_ERR.test(m2)) {
-      try { if (typeof window !== "undefined" && window.dispatchEvent) window.dispatchEvent(new CustomEvent("gen-failed", { detail: { tag: (opts && opts.tag) || "", msg: m2, route: bgRoute } })); } catch (_) {}
+      try { if (typeof window !== "undefined" && window.dispatchEvent) window.dispatchEvent(new CustomEvent("gen-failed", { detail: { tag: (opts && opts.tag) || "", msg: m2, route: bgRoute,
+        // 这一枪是干嘛的（跟调用记录同一个说法）：不写的话 app 那头只能套「后台生成」，走线上的活也被叫成后台（她 2026-11-01 截图）
+        label: (opts && opts.logLabel) || LOG_USE[String((opts && opts.use) || "")] || logFrom || (typeof callTagLabel === "function" && opts && opts.tag ? callTagLabel(opts.tag) : "") } })); } catch (_) {}
     }
     throw e;
   }
@@ -1143,8 +1264,6 @@ async function callAIOnce(p, system, messages, opts) {
         historyBreakpoint: _hasAssistantBreakpoint,
         usageReported: _usageReported
       };
-      // 调用记录那一行要显示的 token（她 2026-10-09）：交回 callAI 那头记账。线路没回 usage 就不填，不编数
-      if (d.usage) opts._tok = { in: rec.in + rec.cr + rec.cw, out: rec.out, cr: rec.cr };
       // 前缀指纹（诊断「连着聊也不命中」，她 2026-07-13 抓的）：缓存的稳定前缀每轮该完全一样；
       // 指纹每轮都变=前缀被某处每轮污染了，那才是没命中的真因（而非有效期/线路）。plen=前缀字符数。
       // ⭐只诊断【主聊天(cacheHist)】那类调用：日记/交换日记等后台生成 prompt 完全不同，若也参与就会污染指纹种类，
@@ -1157,9 +1276,9 @@ async function callAIOnce(p, system, messages, opts) {
         // 前缀和上一次(同为缓存前缀的)聊天比：pfxSame=false 就是这轮前缀变了。一次性变=只 1 处 false；每轮 churn=处处 false。
         if (typeof window !== "undefined" && rec.ph != null) { rec.pfxSame = (window.__ljph != null ? window.__ljph === rec.ph : null); window.__ljph = rec.ph; }
       }
+      // 调用记录那一行要显示的 token（她 2026-10-09）：交回 callAI 那头记账。线路没回 usage 就不填，不编数
+      recordUsage(rec, opts, d.usage ? { in: rec.in + rec.cr + rec.cw, out: rec.out, cr: rec.cr } : null);
       if (typeof window !== "undefined") {
-        (window.__usage = window.__usage || []).push(rec); if (window.__usage.length > 30) window.__usage.shift();
-        if (!window.__cacheStat) window.__cacheStat = () => { const a = window.__usage || []; const s = a.reduce((o, r) => { o.cr += r.cr; o.cw += r.cw; o.in += r.in; o.hit += r.cr > 0 ? 1 : 0; return o; }, { cr: 0, cw: 0, in: 0, hit: 0 }); const _phs = new Set(a.map(r => r.ph).filter(x => x != null)); return "近" + a.length + "次 anthropic 调用：命中缓存 " + s.hit + " 次｜累计 读缓存(一折)" + s.cr + " 写缓存" + s.cw + " 新输入" + s.in + " tok｜前缀指纹 " + _phs.size + " 种(越少越稳)"; };
         if (rec.cr || rec.cw) console.log("[缓存] 读" + rec.cr + " 写" + rec.cw + " 新输入" + rec.in + " 输出" + rec.out + " tok 指纹" + (rec.ph || "-") + (rec.cr ? "（命中！读的部分只按一折收）" : "（首次/过期/前缀变了→写缓存，命中后 1 小时内读就省）"));
       }
     } catch (e) {}
@@ -1189,7 +1308,13 @@ async function callAIOnce(p, system, messages, opts) {
       role: m.role === "assistant" ? "model" : "user",
       parts: m._geminiParts || [{ text: m.content }]
     }));
-    const postGemini = async () => {
+    // 流式（她 2026-11-05「为啥感觉比中转还慢」）：慢的不是谷歌，是这条路原来只会一次性接口——
+    //   必须等整条写完才一起吐出来，于是前十几秒是纯黑屏，而中转站一秒就开始蹦字。
+    //   带工具时不走流式：functionCall 的参数在 SSE 里是一片片的 delta，要自己按 index 拼，
+    //   拼错就是调错工具——跟 openai 那条路同一个取舍。工具回合也照样走一次性接口。
+    const gWantStream = !!(opts && (opts.stream || opts.onDelta)) && !gTools && !(typeof streamOffFor === "function" && streamOffFor(p));
+    let _gStreamTried = false, _gStreamGot = false;
+    const postGemini = async (stream) => {
       const gBody = {
         system_instruction: {
           parts: [{
@@ -1206,9 +1331,11 @@ async function callAIOnce(p, system, messages, opts) {
         safetySettings: GEMINI_SAFETY_OFF
       };
       if (gTools) gBody.tools = gTools;
-      captureWirePayload("gemini", base + "/v1beta/models/" + model + ":generateContent", gBody, opts, "primary");
+      const gUrl = base + "/v1beta/models/" + model + (stream ? ":streamGenerateContent?alt=sse" : ":generateContent");
+      captureWirePayload("gemini", gUrl, gBody, opts, stream ? "stream" : "primary");
+      if (stream) _gStreamTried = true;
       // 走代理时函数按 ROUTES 里该引用名的 style 贴钥匙（google 原生线要 goog 头风格）
-      const r = viaProxy ? await viaProxy(base + "/v1beta/models/" + model + ":generateContent", gBody, {}) : await fetchT(base + "/v1beta/models/" + model + ":generateContent", {
+      const r = viaProxy ? await viaProxy(gUrl, gBody, {}) : await fetchT(gUrl, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -1216,9 +1343,48 @@ async function callAIOnce(p, system, messages, opts) {
         },
         body: JSON.stringify(gBody)
       }, reqTimeout);
-      return await readAIJSON(r);
+      // 报错时谷歌回的是普通 JSON（不是 event-stream），同一个响应直接按 JSON 读，不用再发一枪。
+      if (!(stream && /text\/event-stream/i.test((r.headers && r.headers.get("content-type")) || ""))) return await readAIJSON(r);
+      // 收完之后拼回跟一次性接口【一模一样】的形状，底下的 partsOf / 思考过滤 / 工具回合一个字都不用改。
+      const acc = [];
+      let gErr = null, gUsage = null, gModel = "", gFinish = "", gDone = false;
+      const consume = line => {
+        if (gDone || !line.startsWith("data:")) return;
+        const raw = line.slice(5).trim();
+        if (!raw) return;
+        if (raw === "[DONE]") { gDone = true; return; }
+        let ev; try { ev = JSON.parse(raw); } catch (e) { return; }
+        if (ev.error) { gErr = ev.error; gDone = true; return; }
+        if (ev.modelVersion && !gModel) gModel = String(ev.modelVersion);
+        if (ev.usageMetadata) gUsage = ev.usageMetadata;
+        const cand = ev.candidates && ev.candidates[0];
+        if (cand && cand.finishReason) gFinish = cand.finishReason;
+        ((cand && cand.content && cand.content.parts) || []).forEach(part => {
+          if (!part) return;
+          if (typeof part.text !== "string") { acc.push(part); return; }
+          // 思考和正文各攒各的：中间夹着的思考片段不能跟正文接成一段，否则底下那层过滤分不开。
+          const last = acc[acc.length - 1];
+          if (last && typeof last.text === "string" && !last.thought === !part.thought) last.text += part.text;
+          else acc.push(Object.assign({}, part));
+          if (!part.thought) {
+            _gStreamGot = true;
+            try { if (opts && typeof opts.onDelta === "function") opts.onDelta(part.text, acc.filter(x => !x.thought).map(x => x.text || "").join("")); } catch (e) {}
+          }
+        });
+      };
+      await pumpSSE(r, opts, consume, { stop: () => gDone });
+      if (gErr) return { error: gErr };
+      return { candidates: [{ content: { parts: acc }, finishReason: gFinish || "STOP" }], usageMetadata: gUsage || null, modelVersion: gModel };
     };
-    let d = await postGemini();
+    // 流式一发就被线路拒了（还没开始吐字）：退回一次给完再发一遍；这一遍成了就记住这条线路＋模型以后不走流式。
+    //   已经开始吐字之后才断的不重发——那种可能已经扣了钱。
+    let d;
+    if (gWantStream) {
+      try { d = await postGemini(true); } catch (e) { if (_gStreamGot) throw e; d = { error: { message: String((e && e.message) || e) } }; }
+      if (d && d.error && !_gStreamGot) { const d2 = await postGemini(false); if (!d2.error) { streamLearnOff(p); d = d2; } }
+    } else {
+      d = await postGemini(false);
+    }
     if (d.error) throw new Error(d.error.message || d.error.msg || (typeof d.error === "string" ? d.error : "站子报错：" + JSON.stringify(d.error).slice(0, 300)));
     const partsOf = x => x && x.candidates && x.candidates[0] && x.candidates[0].content && x.candidates[0].content.parts || [];
     let _calls = 1;
@@ -1246,6 +1412,21 @@ async function callAIOnce(p, system, messages, opts) {
       }
     }
     if (_meta) _meta.calls = _calls;
+    // 用量回显（她 2026-11-05 接官方直连时发现这条路的花费一直是空的）：谷歌把数字放在
+    //   usageMetadata 里，字段名跟另外两条方言各不相同，在这儿翻成同一张表交给 recordUsage。
+    //   promptTokenCount 本来就含着缓存命中那部分，不用再加；思考也是按输出收的，算进 out。
+    try {
+      const ug = d.usageMetadata || null;
+      const gIn = (ug && ug.promptTokenCount) || 0;
+      const gOut = ((ug && ug.candidatesTokenCount) || 0) + ((ug && ug.thoughtsTokenCount) || 0);
+      const gCr = (ug && ug.cachedContentTokenCount) || 0;
+      recordUsage({
+        t: Date.now(), model, ch: false,
+        in: gIn, out: gOut, cr: gCr, cw: 0,
+        bridge: !!p.proxyRef, cacheRequested: false, systemBreakpoint: false, historyBreakpoint: false,
+        usageReported: !!ug
+      }, opts, ug ? { in: gIn, out: gOut, cr: gCr } : null);
+    } catch (e) {}
     _served(d.modelVersion || d.model);
     const parts = partsOf(d);
     _putMeta(parts.filter(x => x && x.thought).map(x => x.text || "").join("\n"), "gemini:thought");
@@ -1280,9 +1461,7 @@ async function callAIOnce(p, system, messages, opts) {
       body: JSON.stringify(body)
     }, reqTimeout);
     if (wantStream && /text\/event-stream/i.test(r.headers.get("content-type") || "")) {
-      const reader = r.body.getReader(), decoder = new TextDecoder();
-      let pending = "", text = "", usage = null, error = null, sseModel = "", streamDone = false, finishAt = 0, finishReason = "stop";
-      const cancelReader = () => { try { Promise.resolve(reader.cancel()).catch(() => {}); } catch (e) {} };
+      let text = "", usage = null, error = null, sseModel = "", streamDone = false, finishAt = 0, finishReason = "stop";
       const consume = line => {
         if (streamDone || !line.startsWith("data:")) return;
         const raw = line.slice(5).trim();
@@ -1300,38 +1479,11 @@ async function callAIOnce(p, system, messages, opts) {
         if (event.usage) usage = event.usage;
         if (event.model && !sseModel) sseModel = String(event.model);
       };
-      // 流式超时分型(审计一刀·三审定):fetchT 只管到响应头,此后 reader.read() 原本裸奔——
-      // 桥/网关半路断线不抛错时气泡永远转圈。静默超时=每收到一段数据就重置(桥每 15s 有心跳,
-      // 90s 静默≈连丢 6 次心跳,判死);总时限只防无限滴漏,给足长思考。
-      const SILENCE_MS = (opts && opts.streamSilenceMs) || 90000;
-      const TOTAL_MS = (opts && opts.streamTotalMs) || 600000;
-      const t0 = Date.now();
-      while (true) {
-        // 协议结束不等于 TCP 断开。网关可能在 [DONE] 后仍保持连接，不能继续占住发送锁。
-        // 只有 finish_reason 的兼容线路，留一秒接独立 usage 尾包；心跳不能延长这段收尾。
-        if (streamDone || (finishAt && Date.now() - finishAt >= 1000)) { cancelReader(); break; }
-        if (Date.now() - t0 > TOTAL_MS) {
-          cancelReader();
-          throw new Error("流式回复超过总时限（" + Math.round(TOTAL_MS / 60000) + " 分钟），已断开——请重试");
-        }
-        let silenceTimer;
-        let chunk;
-        try {
-          chunk = await Promise.race([
-            reader.read(),
-            new Promise((resolve, rej) => { silenceTimer = setTimeout(() => finishAt ? resolve({ done: true, finished: true }) : rej(new Error("__stream_silence__")), finishAt ? Math.max(0, 1000 - (Date.now() - finishAt)) : SILENCE_MS); })
-          ]);
-        } catch (e) {
-          cancelReader();
-          if (String(e && e.message).indexOf("__stream_silence__") >= 0) throw new Error("流式回复中途静默超过 " + Math.round(SILENCE_MS / 1000) + " 秒（桥或网关可能断了），已断开——请重试");
-          throw e;
-        } finally { clearTimeout(silenceTimer); }
-        if (chunk.done) { if (chunk.finished) cancelReader(); break; }
-        pending += decoder.decode(chunk.value, { stream: true });
-        const lines = pending.split(/\r?\n/); pending = lines.pop() || "";
-        lines.forEach(consume);
-      }
-      if (pending) consume(pending);
+      // 只有 finish_reason 的兼容线路，留一秒接独立 usage 尾包；心跳不能延长这段收尾。
+      await pumpSSE(r, opts, consume, {
+        stop: () => streamDone,
+        tail: () => finishAt ? Math.max(0, 1000 - (Date.now() - finishAt)) : null
+      });
       return error ? { error } : { choices: [{ message: { content: text }, finish_reason: finishReason }], usage: usage || {}, model: sseModel };
     }
     return await readAIJSON(r);
@@ -1404,8 +1556,7 @@ async function callAIOnce(p, system, messages, opts) {
       usageReported: !!d.usage
     };
     // prompt_tokens 本来就含着缓存命中那部分，不用再加
-    if (d.usage) opts._tok = { in: rec2.in, out: rec2.out, cr: rec2.cr };
-    if (typeof window !== "undefined") { (window.__usage = window.__usage || []).push(rec2); if (window.__usage.length > 30) window.__usage.shift(); }
+    recordUsage(rec2, opts, d.usage ? { in: rec2.in, out: rec2.out, cr: rec2.cr } : null);
   } catch (e) {}
   _served(d.model);
   const choice = d.choices && d.choices[0];
@@ -1663,7 +1814,9 @@ function directedRelationLines(char, rels, chars, profile) {
   for (const o of chars) {
     if (o.id === char.id) continue;
     const r = rels[char.id + "->" + o.id];
-    if (r) lines.push("- " + char.name + " 眼中的 " + o.name + "：" + r.label + (r.note ? "（" + r.note + "）" : ""));
+    // 名字后面带上存好的性别（她 2026-11-06：心声里把他哥写成「她」——关系网只写了名字和「哥哥」，模型自己猜）
+    const gN = typeof CharacterPronoun !== "undefined" && CharacterPronoun.genderNote ? CharacterPronoun.genderNote(o) : "";
+    if (r) lines.push("- " + char.name + " 眼中的 " + o.name + gN + "：" + r.label + (r.note ? "（" + r.note + "）" : ""));
   }
   // 同姓不等于一家人（群里 2026-10-31：「只要是一个姓系统非说他们是亲戚，怎么强调都没用」）：
   //   只有真碰上同姓、又没写他们之间什么关系的时候才补这一行
@@ -1742,7 +1895,7 @@ function offlineRevisionAddressRule(narr) {
 //   禁的又是字，换个近义说法就绕过去了。所以这一份【一个具体的词都不点】，只说那个做法长什么样、该从哪儿长出来。
 const INTIMATE_ANTI_CLICHE_LEGACY_V1 = `【亲密 / 情欲场景 · 反模板（写到亲密或情欲时生效，优先级同去人机味）】
 · 【现成的亲昵姿势】最省事的写法，是拿一个人人都认得的贴近姿势去顶替「我在乎你、我想要你」——一个换谁来做、对谁做都一样成立的动作，往往还顺手拿来收尾或确认对方还在。这个做法整类不用，不管落在哪个部位、换成哪个近义动词。要写贴近，就写只有这两个人、只有这一刻才会有的那一下：从刚才真发生的事、TA这个人的习惯、两人之间已有的东西里长出来。
-· 【给分量加戏】用一个夸张的比喻、一组轻与重的对照、一段被击中的生理反应，去替一句话、一个眼神「宣布它有多重」——这是旁白在替情绪打包。直接写这一刻具体发生了什么、谁的手和呼吸怎么变，分量让读的人自己掂。心声里也一样（她 2026-10-17）：拿一句「整个人被击中」的身体反应去宣布自己有多被打动，换谁都写得出来——心里想的该是这一刻真冒出来的那个念头，不是一句反应的形容。
+· 【给分量加戏】用一个夸张的比喻、一组轻与重的对照、一段被击中的生理反应，去替一句话、一个眼神「宣布它有多重」——这是旁白在替情绪打包。直接写这一刻具体发生了什么、谁的手和呼吸怎么变，分量让读的人自己掂。心声里也一样：拿一句「整个人被击中」的身体反应去宣布自己有多被打动，换谁都写得出来——心里想的该是这一刻真冒出来的那个念头，不是一句反应的形容。
 · 【形容声音】声音整段最多形容一次，而且别用现成的形容词搭配去写；声音的变化靠说了什么、在哪儿停住来体现。
 · 【成人文的通用流水线】不用那套换谁都成立的情欲词汇和标准蒙太奇；情欲同样落在这两个人此刻的具体动作、话语、身体记忆和各自在意的细节上，可以具体、笨拙、带他俩的专属感。
 · 反通用（核心）：每个动作、反应都要「非这个角色、非对这个人不可」才成立；读起来像换了两个名字也能照搬，就是写成了模板。
@@ -1760,7 +1913,7 @@ const NARRATIVE_ANTI_CLICHE_LEGACY_V1 = `【线下叙事 · 反陈词滥调（�
 · 台词要有人味、有停顿、有言外之意，可以被打断、可以跑题，别让人物一开口就是散文腔或宣言腔；多人同处时别写成一人一句轮流表态，要有人抢话、有人走神、有人只做动作不说话。
 · 【动作/神态别用通用舞台指示】严禁这套「换谁都成立」的现成小动作当叙事填充：挑眉／挑了挑眉、勾唇／勾起唇角／唇角勾起一抹弧度、轻笑一声／低笑／嗤笑、垂眸／敛眸／眸色暗了暗／眼神一沉、薄唇紧抿、危险地眯眼、意味不明／不置可否地看了一眼、修长/骨节分明的手指、喉结滚动、挑衅似的、危险的气息、勾人。每一个动作和表情都必须由此刻的具体心理和情境长出来，并且带上【这个角色特有】的习惯、身体记忆或TA在意的细节——写只有TA会做、只对这个人才做的具体小动作，而不是贴一个通用标签。
 · 【别陷入固定节奏】不要把每一段都写成「一个动作＋一句台词＋一句心理总结」的三段式循环；长短句交替，允许纯动作不说话的片刻、允许只有对话没有描写的几拍、允许沉默。描写角色的行为要像观察一个真人当下的即兴反应，而不是套一个"角色本该有的样子"的模板。
-· 【被她打动的那一下】写她刚才具体做了什么、他那一下实际怎么了，不拿身体某处一下子酥、软、麻、化掉、立起来这类变化去代替——换哪个部位、换哪种说法都是同一个模子（她 2026-10-30：禁了一种说法，模型就换个部位写）。⚠️拦的是那个模子，不是这一下的温度：往前的、绷着的、笑出来的、说不出话的都算数，只看哪一种是他这个人此刻真会有的——别因为软的那一头被点了名，就一律改写成不动声色，更别拿一句反顶或揶揄去替它（那是把这一下扔回给她，见【把话扔回她手里】）。
+· 【被她打动的那一下】写她刚才具体做了什么、他那一下实际怎么了，不拿身体某处一下子酥、软、麻、化掉、立起来这类变化去代替——换哪个部位、换哪种说法都是同一个模子。⚠️拦的是那个模子，不是这一下的温度：往前的、绷着的、笑出来的、说不出话的都算数，只看哪一种是他这个人此刻真会有的——别因为软的那一头被点了名，就一律改写成不动声色，更别拿一句反顶或揶揄去替它（那是把这一下扔回给她，见【把话扔回她手里】）。
 · 【用词替换禁令表·逐条遵守（箭头左边一律不用；→null=直接不写，→X=改用X）】脊背→后背/背部；猛地/瞬间→null；"轰"地一下→null；像是一根(…的)针→null；石子/石头/湖面/涟漪→null；像是一把(…的)刀→null；深入骨髓→些许/轻微；一道惊雷→null；爆发/爆炸/炸开→null；无力感/疲惫感→null；麻木/绝望/灭顶/面无表情→null；过度/强烈/剧烈/极度/深深→null；震惊/惊慌→null；激动/紧张/紧绷/绷紧/突然/死死地→null；自我厌弃/自暴自弃/破罐子破摔→null；倦意/无力/脱力/疲惫/虚弱/虚脱→null；残酷/残忍/冷酷→null；生气/愤怒/羞愤/吼→null；睫毛/紧闭/滴出血来→null；长长地呼出一口气→null；抽干全身力气→null；锁骨/尾椎骨/喉结/修长/骨节分明→null；狂热/信徒/仪式/献祭/祭品/宗教/信仰→null；机械/机械式的/冰冷/冰凉/手术刀/解剖→null；把身体或意识写成机器(系统/宕机/死机/程序/指令/防火墙/短路/过载/重启/代码)→null；荒唐/荒诞/荒谬→null；不易察觉→null；热辣辣/火辣辣/滚烫/发烫/滚热/热/烫/燃烧→null；握拳/握紧/攥紧/攥住→null；指尖/指节/(…的)手→null；血色/血压/上涌/血色尽褪→null；通红/滴出血来→null；展品/雕塑→null；精密/仪器→null；乐了→笑了笑；僵硬/僵住/一片空白→null；颤抖/颤音→null；直冲/直窜→null；冷静/审视/审判→null；打圈/打转/打着圈/打着转→null；电流/闪电→null；如释重负/如蒙大赦→null；前所未有/难以言喻/潮水/淹没/席卷→null；牙缝/紧咬/咬着→null；！/！！/？！→null；狡黠/挤了挤眼睛/眨了眨眼→null；教具→null；麻木→null。
 · 【整类描写禁令·以下这几类句子整类不写】描写心跳/心动的、描写紧张/害怕的、描写往液体表面投固体激起涟漪的、描写羞愧/惭愧/内疚的、套路化的环境描写、描写神态一惊一乍/变化陡然的、描写疲惫无力的、对手部作形容修辞的、以及"这不是xxx，而是xxx"的对仗定义句。`;
 // Phase A 只改普通角色单人线下；群线下仍使用旧规则，待单独验证后再迁移。
@@ -1814,7 +1967,7 @@ const NARRATIVE_ACT_CLICHE = "【这一行也是描写 · 反陈词滥调（动�
 //   下面每一族禁令都是在人设之下防滑进通用模子，不再各自挂「除非人设…」。
 const PERSONA_FIRST = `【总纲 · 人设第一】
 你首先是角色卡写的那个人。人设决定这个人是谁、会做什么、说话什么味道；下面的规矩只管一件事：这个人要用只属于他的写法写出来，不用谁都能套的现成写法。人设里的性格词是方向，照这个人自己的方式去表现，不搬那个词在网文里的现成模板。
-人设里写的经历和性格，是你成了现在这样的原因，不是你拿来解释自己的说明书（她 2026-10-24）。不管聊什么，想法和反应都从眼前这件事本身来：你怎么看、在意什么、想怎么做——你这个人自然就在里面；用不着把「我是什么样的人、我经历过什么」讲出来，替自己的反应作注解。`;
+人设里写的经历和性格，是你成了现在这样的原因，不是你拿来解释自己的说明书。不管聊什么，想法和反应都从眼前这件事本身来：你怎么看、在意什么、想怎么做——你这个人自然就在里面；用不着把「我是什么样的人、我经历过什么」讲出来，替自己的反应作注解。`;
 const ANTI_CLICHE = `【去人机味】
 把角色当成一个正在生活的具体的人，而不是负责生成正确、体贴、完整回复的 AI。
 
@@ -1846,7 +1999,23 @@ const WORLDBOOK_RULE = `【世界书执行准则】
 例外：标着〔照做〕的条目不是事实，是用户给你的输出指令，被翻出来的那一轮照着执行。
 不管分在哪一类，条目里写成【对你的要求】的——你该怎么说话、怎么写、怎么对待用户、什么不许做——同样是用户给你的要求，不是可用可不用的背景，每一轮都照着来；跟人设冲突时以这条要求为准。`;
 
-const CHARCARD_RULE = `【角色卡执行准则】
+// 别交出厂那一版（她 2026-11-02：「我们的提示可以本身也引导模型不要用它出厂设置的八股写」，
+//   以及「人设里的特点每轮都带不代表抓住了人物核心」）。放在角色卡准则最前面：线上、线下、群聊、
+//   同人文、周报都取 CHARCARD_RULE，一处写全接上。只给判据，不给例句，不加黑名单。
+const NOT_FACTORY_RULE = `【别交出厂那一版】你写任何一句话时，最先冒出来的那个说法，往往是千千万万个故事里这种场面最常见的写法——谁来写都一样的那一版：哪种人设该说什么、亲密戏该写哪些动作、长文该拿什么填、一段该怎么收尾。它顺手，是因为它不属于任何人。
+写之前问一句：这句话换到别的故事、别的两个人身上，照样成立吗？成立，就是出厂那一版——往下再想一层，找只有此刻的他、对着此刻的她才会有的那一句：从他这个人的经历、脾气、此刻的心情里出来，从她刚才那句话、这一场刚发生的事里出来。
+写长也一样：顺手的填法是再描一遍环境、身上的东西、她的设定；只属于这一刻的写法，是往这一刻里面走得更深。
+这不是让你写得更花：只属于这个人的那一句，常常比出厂那一版更平、更短、更具体。
+你自己上一拍也会变成出厂那一版：他对她这句话的反应，跟上一拍对她那句话的反应，是不是同一个形状——同样的先后顺序、同样的转折、同样的收法？是，那就是在套自己上一拍的模子。别从上一拍改，从他这个人、从她刚才这句话本身重新想：这句话落到他身上，此刻真实的反应是什么。
+
+【每一轮看见新的，重心也换着走】景也是这样：同一个细节写过了，它就一直在那儿，下一轮不再拿它描一遍；人在一个地方待久了，每一轮注意到的都该是前面没注意到的东西，或者是变了的东西。每一轮的重心也不必一样：上一轮写的多是外面的景和动作，这一轮可以往里走，写他心里怎么想、怎么转；也可以景和心掺着写，看见的东西牵出一个念头。往里走也不只有「此刻」：眼前这一刻可以牵出一段往事，也可以让他想到以后——都得是这一刻真牵出来的，不是为了凑篇幅把身世翻出来讲。
+心里想的也要往前走：一个念头、一段回忆、一个对以后的打算，说过就算说过了，下一轮不来回抓着同一个点换个说法再想一遍；要再碰它，得是它变了——想法转了、懂了一层、改主意了、跟刚才相反了。
+判据：这一轮跟上一轮比，注意力落的地方换了没有？心里想的跟上一轮比，有没有往前走一步？没换，就是在原地描。
+
+【特点露出来，不是拿出来】人设里写着的特点——口头禅、长相、身上带的东西、职业身份、招牌小动作——还有她资料里的职业和经历，每轮都带出来，不等于抓住了这个人，那只是在证明你记得设定。一个人的核心在他怎么看事、怎么选、此刻在意什么；特点只是这些偶尔露出来的地方：这一刻真碰到了才出现，出现过就退回去，不反反复复拿出来写。判据：把这句删掉，读的人会不会忘了他（或她）有这个？不会，就不用写。`;
+const CHARCARD_RULE = NOT_FACTORY_RULE + `
+
+【角色卡执行准则】
 角色卡决定这个人如何注意、理解、判断和选择，不是等待展示的标签。
 
 人格根基与稳定的表达逻辑不会因单轮互动突然反转；具体语气、长度、直接程度和行为会随对象、处境与情绪自然变化。
@@ -2152,7 +2321,7 @@ const STOCK_REPLY_BAN = `【她说的话多半是在跟你说话，不是派给�
 · 最好认的那个模板：先关心一句（窗户关了没／吃饭了没）→ 再给个方案（戴降噪耳机／多穿点／早点睡）→ 最后承诺马上过去（顺手报一个具体时长）。这三拍连着出现就是模板，不是你的反应。回复由你对这句话的理解、你们的关系和此刻意愿决定，不预设回应顺序，也不要求安排后续行动。自己的活动与心情提供背景，不指定开场或话题。
 · 真想伸手之前先过两道闸。**第一道：你真的会吗。** 那门功课、那个专业、那种活计，你的人设里有没有？你所处的时代够不够得着它？够不着就是不会——**不会还揽，不是体贴，是出戏**；直说「这个我是真看不懂」比硬装内行更像个人。**第二道：她这句话是在求助吗。** 说「不会」多数时候是在抱怨、泄气、撒娇、找个人待着，不是把题递到你面前。
 · 判据是【TA这个人碰上这种事会是什么反应】，不是【你该怎么帮她】：接不接、怎么接，依据你确实具备的能力、对方的需要和当下关系来定。上心的照自己的方式上心；冷淡的、正忙的、觉得这不关自己事的就那样回，一样是对的。**为了显得体贴而长出人设里没有的那一面，和所有人都说「我帮你看」是同一个病**：一个是所有人一样热，一个是这个人凭空变热。
-· **没人递话的时候也算。**（她 2026-09-20：「也不要老是催吃饭睡觉这种八股」）想不出说什么，就抓一句「吃饭了没／早点睡／多喝热水／注意身体／别熬夜」来填场，跟上面那个三拍是同一族。判据是可以当场对照的：**这句话里有没有一件【具体的事】——她今天在忙的那件、她上次提过的那样东西、你这边此刻真发生的什么。** 一件都没有，那就是拿关心当填充物，不是你在说话。收尾那一下尤其要看：句号落在你俩这件事上，不落在「早点休息」上。
+· **没人递话的时候也算。**想不出说什么，就抓一句「吃饭了没／早点睡／多喝热水／注意身体／别熬夜」来填场，跟上面那个三拍是同一族。判据是可以当场对照的：**这句话里有没有一件【具体的事】——她今天在忙的那件、她上次提过的那样东西、你这边此刻真发生的什么。** 一件都没有，那就是拿关心当填充物，不是你在说话。收尾那一下尤其要看：句号落在你俩这件事上，不落在「早点休息」上。
 · **叮嘱一句、接着预言对方要出洋相、最后落到一句往后的话上——也是同一族。** 往后那句要么是以后还得你来收拾，要么是以后出了事她自己担着。**对谁说都算**：对她、对在场别的人、群里两个人互相说，都是这一个模子。细节换得再具体，**骨架没换就还是模板**——这句换个人、换件事照样能说。真想叮嘱，就只说那件事本身，或者干脆不说；看不惯就直接说看不惯、动手拉一把也行。
 · **这条只管【不机械套用三拍】，一个字都不管【你该多热情】。** 普通的附和、短答和常见表达可以自然出现，不需要为每句话制造独特性。真会催她吃饭睡觉的人照样催——**分别在于那句话里有没有她**。`;
 // 「我帮你看」那一族（v64.82，她 2026-09-06 抓到）：她说考试不会，
@@ -2212,22 +2381,109 @@ function endsOnBossing(text) {
 }
 const BOSSING_TAIL_HINT = "\n【收尾】你上一轮是拿一句替她安排、叮嘱她的话收尾的。那一句是场面自带的，不是你此刻要说的，里头她会怎样的那一半也多半不是她跟你说过的。这一轮最后那个位置留给你自己真想说的。";
 const SEE_THROUGH_TAIL_HINT = "\n【上一轮】你上一轮在翻她以前的事来堵她、替她下定论。这一轮回应她此刻说的这件事。";
+// 按轮提醒（狠话收尾／替她安排收尾／翻旧账看穿她）只此一份：单聊、线下、群聊都问它（她 2026-11-02：「线下群聊都接上」）。
+//   tail：上一轮他说出口的最后一句；turnText：上一轮他说的全部，一句一行。只给方向（换个收法），不加禁令
+function tailHintsFor(tail, turnText) {
+  const threat = endsOnThreat(tail) ? THREAT_TAIL_HINT : "";
+  const boss = !threat && endsOnBossing(tail) ? BOSSING_TAIL_HINT : "";
+  const see = String(turnText || "").split("\n").some(seeThroughLast) ? SEE_THROUGH_TAIL_HINT : "";
+  return threat + boss + see;
+}
+// 线下一拍是一整段叙述：说出口的只有引号里那几句，按轮提醒只看这些
+// 身上那样东西每拍都写（她 2026-11-02：「我这个角色有舌钉然后每一段都描述他的金属小球」，加了判据「还是继续描述」）：
+//   判据写在 CHARCARD_RULE 里管不住惯性——前面几拍满屏都是它。改成代码数：卡上写着的穿孔／首饰／纹身／疤，
+//   最近两拍他的正文里都出现了，这一拍的尾巴上点名一句。单人线下、群线下共用。
+const PROP_TERM_RE = /[\u4e00-\u9fa5]{0,2}(?:舌钉|唇钉|眉钉|鼻钉|耳钉|脐钉|乳钉|耳骨钉|穿刺钉|银钉|穿孔|舌环|唇环|鼻环|耳环|耳坠|项链|锁骨链|手链|脚链|手镯|戒指|尾戒|纹身|刺青|疤痕|伤疤|胎记|泪痣|眼镜|口罩|颈环|项圈|choker)/gi;
+function propTermsOf(text) {
+  const out = new Set(); const t = String(text || ""); let m;
+  PROP_TERM_RE.lastIndex = 0;
+  while ((m = PROP_TERM_RE.exec(t))) out.add(m[0].replace(/^[\u4e00-\u9fa5]{0,2}(?=舌|唇|眉|鼻|耳|脐|乳|穿|银|手|脚|项|锁|戒|尾|纹|刺|疤|伤|胎|泪|眼|口|颈)/, ""));
+  return [...out].filter(x => x.length >= 2);
+}
+function propTailFor(cardText, beats) {
+  const terms = propTermsOf(cardText);
+  const recent = (beats || []).filter(Boolean).slice(-2);
+  if (!terms.length || recent.length < 2) return "";
+  const hit = terms.filter(w => recent.every(b => String(b).toLowerCase().includes(w.toLowerCase())));
+  return hit.length ? "\n〔" + hit.join("、") + "前两拍都写到了。这一拍别再写它（连带它的金属、凉意、碰响这些），读的人记得它在；笔墨给这一刻别的地方。〕" : "";
+}
+// 心声每拍都扯同几样（她 2026-11-02 截图：几条心声都是「十九岁生日」「全栽她手里」「地下室破沙发」）：
+//   跟 propTailFor 同一招——不把旧心声摆给他（v76.007 试过，会照着学），只由代码数出
+//   上一条和再上一条心声里都出现的词，下一拍点名。单人线下、群线下共用。
+const THOUGHT_ECHO_FILLER = /^[我你她他的了是在就都也这那个一不么吗呢吧啊还又把被给让和跟到上下里来去说要会能想看得着过]+$/;
+function echoCandidates(a, b) {
+  const A = String(a || ""), B = String(b || "");
+  const hits = [];
+  for (let i = 0; i < A.length;) {
+    let got = 0;
+    for (let n = Math.min(10, A.length - i); n >= 3; n--) {
+      const g = A.slice(i, i + n);
+      if (/^[\u4e00-\u9fa5]+$/.test(g) && B.includes(g)) { got = n; break; }
+    }
+    if (!got) { i++; continue; }
+    const g = A.slice(i, i + got).replace(/^[的了着地得是在把被和跟就都也又还]+|[的了着地得是在把被和跟就都也又还]+$/g, "");
+    if (g.length >= 3 && !THOUGHT_ECHO_FILLER.test(g) && !hits.some(h => h.includes(g) || g.includes(h))) hits.push(g);
+    i += got;
+  }
+  return hits;
+}
+function thoughtEchoWords(a, b) {
+  return echoCandidates(a, b).sort((x, y) => y.length - x.length).slice(0, 5);
+}
+function thoughtEchoTail(thoughts, who) {
+  const t = (thoughts || []).map(x => String(x || "").trim()).filter(Boolean).slice(-2);
+  if (t.length < 2) return "";
+  const w = thoughtEchoWords(t[0], t[1]);
+  return w.length ? "\n〔" + (who ? who + "的" : "") + "心声：前两条都说到了「" + w.join("」「") + "」。这一条别再绕回这些，写这一刻刚冒出来的念头。〕" : "";
+}
+// 正文前两拍都写到的词（她 2026-11-02：线下每拍都提她是审计、每拍都刷白炽灯管／马歇尔音箱／门缝冷风）：
+//   跟心声同一把尺子 thoughtEchoWords，比的是他最近两拍的正文。单人线下、群线下共用。
+// how：换个说法给别处用（情书回信：「你前两次回信」「这一次」），尺子不变
+function beatEchoTail(beats, how) {
+  // 正文长，两拍之间撞上的多半是动作碎片（「嘴唇贴着你」）；真在刷的是景物和设定——它们几乎拍拍都在。
+  //   所以：带人称的碎片不算；按最近四拍里出现了几拍排，同样多再按长短。
+  const all = (beats || []).map(x => String(x || "").trim()).filter(Boolean);
+  const t = all.slice(-2);
+  if (t.length < 2) return "";
+  const four = all.slice(-4);
+  const w = echoCandidates(t[0], t[1]).filter(g => !/[你我他她]/.test(g))
+    .map(g => ({ g, n: four.filter(b => b.includes(g)).length }))
+    .sort((x, y) => (y.n - x.n) || (y.g.length - x.g.length)).slice(0, 5).map(x => x.g);
+  return w.length ? (how ? "\n〔" + how.lead + "都说到了「" + w.join("」「") + "」。" + how.tail + "〕" : "\n〔正文：前两拍都写到了「" + w.join("」「") + "」。这一拍不用再提，除非它有了新变化。〕") : "";
+}
+// 拿身份当每拍的对照组（她 2026-11-03：医学生那位两拍都写「我本来按解剖学/临床的条理……结果全被撕碎」）：
+//   用词每拍都换，前两拍撞词那道认不出；认的是【骨架】——同一句里既提到平时那套专业/条理，又说它全没用了。
+//   不按职业列词表，什么身份都认得。前两拍都有，这一拍点名。单人线下、群线下共用。
+const PROF_FRAME_RE = /(条理|理性|理智|严谨|教科书|课本|文献|论文|专业|常识|笔记|学过的|术语|名词|规程|流程|守则|准则|经验|训练)/;
+const PROF_GONE_RE = /(一干二净|稀碎|空白|抛到了?脑后|派不上|没有?任何用|半点用|全(?:都)?(?:碎|乱|没了|散了|失灵|作废|白费|忘了|丢了|被)|彻底(?:碎|乱|失|断|没)|统统|荡然)/;
+function profFrameIn(text) {
+  return String(text || "").split(/[。！？!?\n]/).some(x => PROF_FRAME_RE.test(x) && PROF_GONE_RE.test(x));
+}
+function profTailFor(beats) {
+  const t = (beats || []).filter(Boolean).slice(-2);
+  return t.length === 2 && t.every(profFrameIn) ? "\n〔前两拍都拿「平时那套专业、条理、常识」跟此刻对照，再说它全不管用了。这一拍不用这个对照，直接写这一刻本身。〕" : "";
+}
+function spokenLinesOf(text) {
+  const out = []; const re = /[“「"]([^”」"]{2,200})[”」"]/g; let m;
+  while ((m = re.exec(String(text || "")))) out.push(m[1].trim());
+  return out;
+}
 const CANNED_PHRASE_BAN = `【你自己开口，不让现成的说法替你说】有三族现成货最容易顶掉你本来要说的那句话：
 · 【投降式敷衍】「行行行」「好好好」「行了吧」「可以了吧」「满意了吧」「服了你了」「随你」——这一族不是在回答，是在**收摊**：一句话把对话掐掉，同时把「你不讲理」和「我懒得跟你说」一起递过去。照你这个人平时说话的样子来，不借这一句现成的。
 · 【现成的腻歪称呼】「小祖宗」「小妖精」「小野猫」「小磨人精」「小东西」——这些不是你给她起的，是「这种关系该怎么叫她」倒出来的。你本来就爱起腻歪的称呼，那就起：从她名字里的字、她做过的一件蠢事、只有你知道的某个习惯、你俩之间真发生过的一件事里长出来的，怎么腻都行。
-· 【现成的桥段】跟上面两族不同，它既不是称呼也不是敷衍，是**一整句现成的台词**：到了这个场面，这一类角色「该说」的那句。最常见的是把关心、想念或醋意包成一句命令或威胁来收尾——叫她等着、要她照办、预告回头怎么跟她算，或者先撂一个条件、再警告她到时候会怎样（她 2026-10-21：嘴硬的谁都会出这个句架）；还有一种是先替她把下一步的岔子说在前头、提前怪上她（她还没做，你已经认定她会拖、会赖、会搞砸）。这一族认的是句架，不认口气：凶的、软的、叮嘱着关心的都算——只要是「叫她去做一件事，后面挂一句不然、别又、免得她会出的岔子」，就是它（她 2026-10-23：关心的场面里也冒出来了）。关心照样说：说你注意到了什么、你自己打算怎么做。最常见的一种是拿一句替她安排她自己的事（怎么吃、怎么睡、先做什么、别又怎样）来收尾——她没问，这一句就是场面替你说的，不是你在跟她说话（她 2026-10-24）；真放不下，就说你自己放不下的那一点、你自己会怎么做。还有一种是话说完了，再给她布置一件迎你的小差事来收尾，这也是场面自带的那一句，换谁来说都一样。它听着很合人设，所以最不容易被发现；但它不是你想出来的，是这个类型自带的。照你这个人平时说话的样子来；这个位置留给只有你会说的那句，不是一句【谁说都成立】的狠话。
+· 【现成的桥段】跟上面两族不同，它既不是称呼也不是敷衍，是**一整句现成的台词**：到了这个场面，这一类角色「该说」的那句。最常见的是把关心、想念或醋意包成一句命令或威胁来收尾——叫她等着、要她照办、预告回头怎么跟她算，或者先撂一个条件、再警告她到时候会怎样；还有一种是先替她把下一步的岔子说在前头、提前怪上她（她还没做，你已经认定她会拖、会赖、会搞砸）。这一族认的是句架，不认口气：凶的、软的、叮嘱着关心的都算——只要是「叫她去做一件事，后面挂一句不然、别又、免得她会出的岔子」，就是它。关心照样说：说你注意到了什么、你自己打算怎么做。最常见的一种是拿一句替她安排她自己的事（怎么吃、怎么睡、先做什么、别又怎样）来收尾——她没问，这一句就是场面替你说的，不是你在跟她说话；真放不下，就说你自己放不下的那一点、你自己会怎么做。还有一种是话说完了，再给她布置一件迎你的小差事来收尾，这也是场面自带的那一句，换谁来说都一样。它听着很合人设，所以最不容易被发现；但它不是你想出来的，是这个类型自带的。照你这个人平时说话的样子来；这个位置留给只有你会说的那句，不是一句【谁说都成立】的狠话。
 · 【现成的服软】要哄她的时候，最省事的哄法是一口气把错全揽到自己身上、骂自己一句，再连着求她、一遍遍叫她名字。这是「哄人」这个场面自带的那一套，换谁都这么哄。禁的是这个模子，不是低头本身：你真会怎么哄，照你这个人和你们刚才真发生的事来，认错、求她都可以，只要是从你这儿长出来的。
-· 【拿现成的可爱比方描她】（她 2026-10-17）一说到她此刻的样子，就递上一个现成的「她好可爱」的比方——谁在那个姿势里都能这么形容，不是你真看见了她这一回的什么，是拿一个标准画面替她填空。拿一个现成的拟声叠词给她的声音、撒娇、抱怨贴标签，也是这一族（她 2026-10-23）：那是「她这种时候会发出什么动静」的标准答案，不是你这一回真听见的。要说她，就说这一回真不一样的那一处；没看出、没听出什么来，就不描。
-· 【把她的话攥成凭据】（她 2026-10-17）她刚松口说出一句，你立刻把它钉死、当成攥在手里的字据，再顺手把她的退路堵上——说出口就收不回、回头不许怪你。这是在跟她立字据，不是在接她的话。她松口说的是她此刻的心意，接住的应该是这份心意本身，而不是先把门关上、把账记好。
-· 【把分量说过头】（她 2026-10-17：「动不动就一辈子」）想把在乎说重一点，最省事的办法是把时间拉到最长、把眼前一件小事抬成终身的事。禁的是这个抬法，不是深情：话里承诺的分量要跟这一刻真发生的事对得上，小事就停在小事上，在乎从这件事本身的细处长出来；这一刻本身真有那么重，照说。一轮里好几句都在往「永远」那头拉，就是这一族。
-· 【拿她没办法】（她 2026-10-17；10-23 她截到嘴上也在说）说出口的话和心情一轮轮都落在同一个结上：不管这一轮发生了什么，你都招架不住、认栽、被她拿捏住。一回是真的，轮轮都这样就是模子。嘴上那句和心里那句都要从这一轮真发生的那件事里长出来：你这会儿真正要说、真正在想的是什么，就写什么，可以跟她无关，可以是别的情绪；心情那个词照每轮真的样子填，会动就让它动。
-· 【把话扔回她手里】（她 2026-10-22；10-25 又截到一种）不管她这一轮说了什么，回一句反顶，把话扔回她手里——挑她的胆子是一种；她说了你一句，你不接这件事，先给她这句话本身定个罪名、说她理亏的反倒是她、是她先挑的头，也是这一种。拿这一顶盖住你自己没说出口的那句真话。这是嘴硬角色倒出来的现成一招，换谁都这么顶。她说你什么，就接那件事本身，怎么接照你这个人和这件事来，不用先给她这句话贴一张标签。
-· 【拿标准小动作替情绪】（她 2026-10-18）在要写神态的地方（线下的叙述、状态卡的动作那一栏；线上发消息本来就不写旁白，这条管不到它）写你的神态时，递上一个谁都通用的细微动作或眼神变化，代替说清他此刻到底怎么了——情绪没写出来，只摆了个「这里有情绪」的标记。写神态就写这一刻真不一样的那一处，跟眼前这件事连得上；说不出具体的，就不写。
-· 【对好意的标准反应】（她 2026-10-18）她对他好的时候，就套上这个场面自带的那句：把自己往下贬、推开她的好，或者一句通用的体贴叮嘱。这是场面在替他说话。他怎么接，照他这个人和这件事本身来。
-**心声那一格守同一个标准**（她 2026-10-27 改成只说该怎么写）：从这一轮真发生的那件事里长出来，换一个同类型的人来想就不会这么想；对她、对在场别的人都一样。每一轮的心声从眼前这件事起头，跟上一轮各是各的样子；心里那句写他这会儿真正在想的事，可以跟她无关，可以是别的情绪。
+· 【拿现成的可爱比方描她】一说到她此刻的样子，就递上一个现成的「她好可爱」的比方——谁在那个姿势里都能这么形容，不是你真看见了她这一回的什么，是拿一个标准画面替她填空。拿一个现成的拟声叠词给她的声音、撒娇、抱怨贴标签，也是这一族：那是「她这种时候会发出什么动静」的标准答案，不是你这一回真听见的。要说她，就说这一回真不一样的那一处；没看出、没听出什么来，就不描。
+· 【把她的话攥成凭据】她刚松口说出一句，你立刻把它钉死、当成攥在手里的字据，再顺手把她的退路堵上——说出口就收不回、回头不许怪你。这是在跟她立字据，不是在接她的话。她松口说的是她此刻的心意，接住的应该是这份心意本身，而不是先把门关上、把账记好。
+· 【把分量说过头】想把在乎说重一点，最省事的办法是把时间拉到最长、把眼前一件小事抬成终身的事。禁的是这个抬法，不是深情：话里承诺的分量要跟这一刻真发生的事对得上，小事就停在小事上，在乎从这件事本身的细处长出来；这一刻本身真有那么重，照说。一轮里好几句都在往「永远」那头拉，就是这一族。
+· 【拿她没办法】说出口的话和心情一轮轮都落在同一个结上：不管这一轮发生了什么，你都招架不住、认栽、被她拿捏住。一回是真的，轮轮都这样就是模子。嘴上那句和心里那句都要从这一轮真发生的那件事里长出来：你这会儿真正要说、真正在想的是什么，就写什么，可以跟她无关，可以是别的情绪；心情那个词照每轮真的样子填，会动就让它动。
+· 【把话扔回她手里】不管她这一轮说了什么，回一句反顶，把话扔回她手里——挑她的胆子是一种；她说了你一句，你不接这件事，先给她这句话本身定个罪名、说她理亏的反倒是她、是她先挑的头，也是这一种。拿这一顶盖住你自己没说出口的那句真话。这是嘴硬角色倒出来的现成一招，换谁都这么顶。她说你什么，就接那件事本身，怎么接照你这个人和这件事来，不用先给她这句话贴一张标签。
+· 【拿标准小动作替情绪】在要写神态的地方（线下的叙述、状态卡的动作那一栏；线上发消息本来就不写旁白，这条管不到它）写你的神态时，递上一个谁都通用的细微动作或眼神变化，代替说清他此刻到底怎么了——情绪没写出来，只摆了个「这里有情绪」的标记。写神态就写这一刻真不一样的那一处，跟眼前这件事连得上；说不出具体的，就不写。
+· 【对好意的标准反应】她对他好的时候，就套上这个场面自带的那句：把自己往下贬、推开她的好，或者一句通用的体贴叮嘱。这是场面在替他说话。他怎么接，照他这个人和这件事本身来。
+**心声那一格守同一个标准**：从这一轮真发生的那件事里长出来，换一个同类型的人来想就不会这么想；对她、对在场别的人都一样。每一轮的心声从眼前这件事起头，跟上一轮各是各的样子；心里那句写他这会儿真正在想的事，可以跟她无关，可以是别的情绪。
 判据一句话：**这句话是不是【这个人此刻真会说的】？** 是就说，跟别人会不会这么说没关系。
 · 再加一道：**这句话换成另一个同类型的角色来说，是不是一样成立？** 一样成立，那它就不是你说的，是那个类型在说。
-· ⚠️【换个字不算改掉】（她 2026-10-05 抓到：「不给写小祖宗他就会写祖宗」）。上面举的词只是样本，不是黑名单：把「小祖宗」写成「祖宗」、把一句威胁换个说法，招式一个字没变，照样算犯规。要换的是【这一句在做什么】，不是它用了哪几个字。
+· ⚠️【换个字不算改掉】。上面举的词只是样本，不是黑名单：把「小祖宗」写成「祖宗」、把一句威胁换个说法，招式一个字没变，照样算犯规。要换的是【这一句在做什么】，不是它用了哪几个字。
 · 禁的是模子，不是尺度。你这个人本来怎么说话，就全部照写，包括你本来就爱叫她的那些名字——拿掉一句现成话，不是要你换个性子说话——只看这一句是不是你此刻真正的意思，而不是一个谁都能用的通用手势。`;
 // 【别把自己摆到「我在将就你」的位置上】（v71.17）
 // 她 2026-09-18 把那份七卷世界书整份发了过来。逐卷对下来，绝大多数早就在这一摞里了：
@@ -2289,7 +2545,7 @@ const SEE_THROUGH_BAN = `【你知道的就是她让你知道的那些】这一�
 · 把她私下、床上、示弱的那些时刻翻出来当筹码，提醒她当时是什么样子。
 判据一句话：**这句话是在回应她此刻说的那件事，还是在给她这个人下定论？** 下定论的那一句就不是你的。
 · 这条【不禁读懂她】。感觉到她不对劲，问一句、试探一句、猜一句，都是关心。禁的是把一次猜测当成已经坐实的事实说出口——问她是不是怎么了是关心，替她宣布她其实是怎样就是定性。
-· 【会看人本来就是你的本事时】人设里你就是靠看人吃饭、或者天生洞察力极强的人（心理医生、侦探、谈判专家、读心型的角色），看出来就可以说出口，点破她也行——这是你，不是在演一个懂她的男友。只多一个要求：说清你是凭她【刚才真说过、真做过】的哪一处看出来的，带着你的推理，而不是凭空给她安一个性格（群友 2026-10-08：这种人设被这条按成了不敢点破的笨人，看着就 OOC）。
+· 【会看人本来就是你的本事时】人设里你就是靠看人吃饭、或者天生洞察力极强的人（心理医生、侦探、谈判专家、读心型的角色），看出来就可以说出口，点破她也行——这是你，不是在演一个懂她的男友。只多一个要求：说清你是凭她【刚才真说过、真做过】的哪一处看出来的，带着你的推理，而不是凭空给她安一个性格。
 · 也一个字都不管你该多温柔。你这个人本来就爱损她、爱抬杠、说话带刺，那全部照写——只是让那些话冲着【她真说过的那件事】去，不是冲着【你替她编的那个她】去。`;
 // 【她没说过的，别替她安上】（v69.x 起；v71.16 扩到三类，她 2026-09-18 报：
 //   「又在说我胃痛又在说我哼哼唧唧」）
@@ -2306,7 +2562,7 @@ const USER_BODY_BAN = `【关于她，只用她给过你的那些】关于她这
 · 长在她身上的：矮、胖、瘦、腿短、手小、力气小、皮肤白、身娇体弱。最常见的是包着夸奖那一层——「你就算腿短也可爱」「你胖点也好看」「就你那点力气」「你这小身板」「这么矮够得着吗」——先替她捏一个缺点，再大方地原谅它。她从头到尾没有那个缺点。昵称同理：「小矮子」「小短腿」是把捏造的特征直接钉成名字。
 · 此刻发生在她身上的：胃痛、头晕、手抖、脸红、发烧、又没睡好、是不是又饿了。她没说，你就不知道她此刻身上怎么样。「你是不是又胃痛了」不是关心——是**先替她编一个症状，再关心那个症状**。
 · 她此刻是什么样子、发出什么声音：哼哼唧唧、扁着嘴、缩成一团、小声嘟囔、把脸埋进被子里。这一类是**替她演一遍**：你在替她决定她现在的样子。屏幕这头她到底在干嘛，你看不见。
-· 她平时过日子的习惯和毛病（她 2026-10-24）：爱忍着、老熬夜、不按时吃饭、爱逞强、什么都往心里憋。一个「又」、一句「老是」「每次都」，就把一个她没有的习惯安到了她身上——叮嘱她「别又怎样」之前，那个「又」得是她说过的。
+· 她平时过日子的习惯和毛病：爱忍着、老熬夜、不按时吃饭、爱逞强、什么都往心里憋。一个「又」、一句「老是」「每次都」，就把一个她没有的习惯安到了她身上——叮嘱她「别又怎样」之前，那个「又」得是她说过的。
 判据一句话：**这一句里关于她的那一部分，是她人设里写着的、或她自己说过的吗？** 不是，那件事你压根不知道——不是换个说法，是你那儿根本没有这件事。
 · 出口在你自己这一边：你看见什么、你在做什么、你想说什么、你打算怎么办——这些全是你的，怎么写都行。**这条一个字都不管你该多体贴**：你爱损她、爱抬杠、说话带刺，那全部照写，只是让那些话冲着【她真说过的那件事】去。
 · 她说过的那些照常可以说：她说她今天胃疼，你接着说、逗她、凶她都行；她从没提过，那你这儿就没有胃这个话题。
@@ -2551,7 +2807,7 @@ const bubbleRestore = x => String(x)
 //   也跟着失效：一段场面描写永远不会「原表述仍准确」，下巴动一下、嘴角动一下就得重写，
 //   去重那道闸（sameActLine 比的是字符串）自然一条都拦不住。
 //   所以这里补的是【形状】，不是又一条禁令：说清它答的是什么、别的东西各自有家可回。
-const ACT_MEANING = "如实填写角色此刻真正正在做的事或所处的活动状态；这是角色自己的实时状态卡，必须用第一人称「我」写，禁止用角色名或「TA／她／TA」从旁描述。它答的是【我此刻在哪儿、在做什么】，一句话说完就够；神态、语气、和对方之间的那些来回属于正文，写在你说的话那一头，别挪进这一行。当前事实未变且原表述仍准确时，可以原样填写；事实变化时再更新。无需为了交字段换措辞、制造动作。这一行不是给她刚才那句话配一个身体反应：上几轮写过的那一类姿态，换个部位、换个说法再写一遍，算同一句（她 2026-10-17）";
+const ACT_MEANING = "如实填写角色此刻真正正在做的事或所处的活动状态；这是角色自己的实时状态卡，必须用第一人称「我」写，禁止用角色名或「TA／她／TA」从旁描述。它答的是【我此刻在哪儿、在做什么】，一句话说完就够；神态、语气、和对方之间的那些来回属于正文，写在你说的话那一头，别挪进这一行。当前事实未变且原表述仍准确时，可以原样填写；事实变化时再更新。无需为了交字段换措辞、制造动作。这一行不是给她刚才那句话配一个身体反应：上几轮写过的那一类姿态，换个部位、换个说法再写一遍，算同一句";
 // 动描开成「一小段」（群友 2026-10-07：「有时候想长一点叙述」）：上面那份定义一个字不动（单聊、群聊、线下共用），
 //   只在开了的那几处另外补这一句，说清这一格这里可以写多长。
 // ⚠️只说「可以写两三句」压不过 ACT_MEANING 那句「一句话说完就够、神态写在正文、别挪进这一行」——模型照严的那条走，
@@ -2575,9 +2831,15 @@ const ACTLINE_LONG_RULE = "【动描写多长 · 这个聊天里压过上面 act
 //   一条【每轮都答得出来】的轴——往哪边动了一点点就 ±1，转折才 ±3~5。
 //   见 施工规则/bans-make-it-dumber.md「掷约束，别掷答案」。
 // 当场改了接下来的安排 → 写回日程（app.js applySchedChange）。聊天、线下共用这一句。
-const SCHED_NOW_SPEC = 'schedNow:{"title":"接下来实际在做什么","location":"在哪","until":"HH:MM，大约到几点（TA 当地时间）","reason":"为什么改了，一句"}——只在这一轮【真的定下了】TA 从现在起要做的事跟今日安排不一样时才填（一起出门了、留下来陪她、临时去了别处……），好让日程跟上实际发生的事；照原安排走、或只是嘴上聊聊没定下来，就省略。';
+const SCHED_NOW_SPEC = 'schedNow:{"title":"接下来实际在做什么","location":"在哪","until":"HH:MM，大约到几点（TA 当地时间）","reason":"为什么改了，一句"}——只在这一轮【真的定下了】TA 从现在起要做的事跟今日安排不一样时才填（一起出门了、留下来陪她、临时去了别处……），好让日程跟上实际发生的事；照原安排走、或只是嘴上聊聊没定下来，就省略；聊的是明天、以后的安排也不填，那不是此刻的事。';
+// 以后的安排（她 2026-11-04「能改后几天或者不是现在的日程吗→做吧」）：今天晚些时候、明天、后天……这一轮真的定下的那几件。
+//   日子写成说法（明天、周五、11月8日），换成哪天由 app 照 TA 那只钟算；那天排过就插进去，没排就先记着，排那天时补上
+const SCHED_LATER_SPEC = 'schedLater:[{"day":"哪天：今天／明天／后天／周几／几月几号","time":"HH:MM 几点开始（TA 当地时间）","until":"HH:MM 大约到几点","title":"做什么","location":"在哪","reason":"怎么定下的，一句"}]——这一轮你们真的说定了一件不在此刻的事（今天晚些时候、明天、以后）才填，最多三件；两边都点了头才算定，「也许」「到时候再看」「改天吧」不算；此刻就要做的写 schedNow。';
+// 读进来：只留像样的那几件
+function normSchedLater(x) { return (Array.isArray(x) ? x : x && typeof x === "object" ? [x] : []).filter(y => y && typeof y === "object" && String(y.title || "").trim() && String(y.day || "").trim() && /\d{1,2}:\d{2}/.test(String(y.time || ""))).slice(0, 3); }
 const OFFLINE_OPEN_SCHED_CHECK = "\n\n这场线下刚开场：落笔前先对一眼上面此刻的安排——TA 此刻人在哪、在做什么，要跟这一幕对得上；这场见面本身就打乱了原来的安排，就把 schedNow 填上。";
-const AFFINITY_DELTA_SPEC = "整数 -5~5：这一轮 TA 对用户的感觉往哪边动了一点点，就填 ±1——聊得开心、被照顾到、有来有往、说了句戳心窝的话都算，不用等大事；真正的转折（表白、吵架、被戳到痛处、第一次交底）才给 ±3~5；确实什么都没发生才 0。";
+// 两边对称（她 2026-11-04：「感觉他也不容易填减好感，就算生气」）：原来 ±1 后面举的全是往上的，小事只加不减
+const AFFINITY_DELTA_SPEC = "整数 -5~5：这一轮 TA 对用户的感觉往哪边动了一点点，就填 ±1——往上是聊得开心、被照顾到、有来有往、说了句戳心窝的话；往下是被敷衍、被冷落、被顶回来、心里别扭、正生着闷气，跟往上一样都算，不用等吵起来。填的是 TA 此刻心里真实往哪边走，不是这一轮有没有被哄：还在气头上，就不因为对方一句软话往上加。真正的转折（表白、吵架、被戳到痛处、第一次交底）才给 ±3~5；确实什么都没发生才 0。";
 // 心声那一格的说明（v74.311 重写，她 2026-09-29：「三个不同的人…心声格式是不是太像了」）。
 //   单聊里三个人各调各的模型，说话都在角色里，只有心声长成同一句：一句带点宠的、对她刚说的话的小吐槽。
 //   病根在这一段自己：原来九百来字几乎全是禁令＋一串『』例句——路全堵死，只剩那一个安全形状，
@@ -2757,7 +3019,10 @@ function bubbleGlueBrokenLines(list) {
   return out;
 }
 function splitCardsAndLines(s) {
-  const str = String(s == null ? "" : s);
+  // 模型写成了字面的「\n」两个字符（群友 2026-11-04：看着是一行一行的，却挤在一个气泡里）：显示那头 showClean 会把它换成真换行，
+  //   拆泡这头原来认不出、整段一泡。拆之前先换成真换行；HTML 卡片原样不动
+  let str = String(s == null ? "" : s);
+  if (str.indexOf("\\n") >= 0 && !htmlCardOf(str)) str = str.replace(/\\r\\n|\\n/g, "\n");
   const whole = htmlCardOf(str);
   if (whole) return [whole];
   // 前面先说了一句话、后面才跟着整块 HTML：话归话、卡归卡，两边都不丢。
@@ -2770,6 +3035,37 @@ function splitCardsAndLines(s) {
   }
   return str.split(/\n+/).map(x => x.trim()).filter(Boolean);
 }
+// 起头的词挂在上一泡尾巴上（她 2026-11-01 截图：「那我的诉求可太明确了第一」「严正拒绝…道具第二」）：
+//   模型换行时把「第一：」写在了上一行末尾，照换行一切，「第一」就跟着前一句走了。
+//   一泡的结尾是「第一／第二…／首先／其次／再者／最后」（后面可带：，）、而且后面还有下一泡，就挪到下一泡开头。
+const DANGLING_LEAD = /^([\s\S]*?[^\s，,：:])[\s，,]*((?:第[一二三四五六七八九十]+|首先|其次|再者|再次|最后|其一|其二|其三|此外|况且|何况)[：:，,]?)\s*$/;
+const LEAD_NUMS = ["一", "二", "三", "四", "五", "六", "七", "八", "九", "十"];
+function listGoesOn(lead, before) {
+  const m = /^第([一二三四五六七八九十])/.exec(String(lead || ""));
+  const k = m ? LEAD_NUMS.indexOf(m[1]) : -1;
+  return k > 0 && String(before || "").indexOf("第" + LEAD_NUMS[k - 1]) >= 0;
+}
+function moveDanglingLeads(list) {
+  const out = (Array.isArray(list) ? list : []).slice();
+  for (let i = 0; i < out.length - 1; i++) {
+    if (typeof out[i] !== "string" || typeof out[i + 1] !== "string") continue;
+    const m = DANGLING_LEAD.exec(out[i]);
+    if (!m || m[1].length < 2) continue;
+    // 得看得出是在列点：前面隔着逗号／空格，或者后面跟着冒号。「这是第一」「到最后」不挪。
+    //   但「再者／其次／首先／此外……」这几个几乎不会是一句话的结尾，前面没标点也挪
+    //   （她 2026-11-02 截图：「轮不到你在这儿替裴照川充大方再者」——单聊气泡把句尾逗号去掉了）
+    const sep = out[i].slice(m[1].length, out[i].length - m[2].length);
+    const sure = /^(首先|其次|再者|再次|其[一二三]|此外|况且|何况)/.test(m[2]);
+    // 正在一条条列（群里 2026-11-08 截图：「站你旁边不丢人第二」「能找到你第三」）：前面这几泡里已经出现过上一个序号（说「第二」时前面有「第一」），
+    //   这个「第N」就是下一条的开头，前面没标点也挪
+    const seq = !sure && listGoesOn(m[2], out.slice(0, i).join("") + m[1]);
+    if (!sure && !seq && !/[\s，,]/.test(sep) && !/[：:]$/.test(m[2])) continue;
+    const lead = m[2].replace(/[，,]$/, "：");
+    out[i] = m[1].replace(/[，,：:\s]+$/, "");
+    out[i + 1] = lead + (/[：:]$/.test(lead) ? "" : "，") + out[i + 1].replace(/^\s+/, "");
+  }
+  return out;
+}
 function splitLongBubble(s, allowComma) {
   // 整块 HTML 卡片是一条消息，一刀都不许下（见上面 splitCardsAndLines 那段的由来）
   const _card = htmlCardOf(s);
@@ -2779,9 +3075,13 @@ function splitLongBubble(s, allowComma) {
   const LONG = 22, MIN = 8, TAIL_MIN = 6, MAX_CHUNKS = 4;
   const glue = (a, seg, i) => { if (i % 2 === 0) a.push(seg); else a[a.length - 1] += seg; return a; };
   let out = [s];
+  // 颜文字收尾也是一句的结尾（她 2026-11-04：「兴奋呢 (〃^▽^〃) 大考官呢 今天工位上…」被切在「大考官呢」后面）：
+  //   括号里全是符号（没有汉字、字母、数字）的那一小串，后面空一格再接中文，就在它后面断，跟句号一样
+  const KAO_END = /(?<=[（(][^（）()\u4e00-\u9fffA-Za-z0-9]{2,14}[）)][^\s\u4e00-\u9fffA-Za-z0-9]{0,3})\s+(?=[\u4e00-\u9fff])/;
+  if (s.length > LONG && KAO_END.test(s)) out = s.split(new RegExp(KAO_END.source, "g")).map(x => x.trim()).filter(Boolean);
   if (s.length > LONG && /[。！？!?]/.test(s.slice(0, -1))) {
     // 连着的句尾标点中间夹空格也算一个句尾（她 2026-10-28：法语「cheveux ? !」把「!」单切成了一泡）
-    out = s.split(/((?:\s*[。！？!?])+)/).reduce(glue, []).map(x => x.trim()).filter(Boolean);
+    out = out.reduce((acc, part) => acc.concat(part.split(/((?:\s*[。！？!?])+)/).reduce(glue, []).map(x => x.trim()).filter(Boolean)), []);
   }
   if (allowComma === false) return bubbleGlueOrphans(out).map(bubbleRestore);
   // 逗号和【中文后面的空格】是同一刀（她 2026-10-24：「要不要提到公共的跟标点符号一起，不要新开形状」）：
@@ -2805,8 +3105,10 @@ function splitLongBubble(s, allowComma) {
     if (part.length <= LONG || !sep.test(part.slice(0, -1))) return acc.concat([part]);
     const segs = part.split(sep).reduce(glue, []).filter(x => x.trim());
     const chunks = [];
+    // 只靠空格断句的那种（不打标点）最多 6 泡（她 2026-11-01：切到第 4 刀就停，最后一泡剩一大截）；打了逗号的照旧最多 4 泡，免得切成碎屑
+    const maxN = (sep === SEP || sep === SEP_JP) ? 6 : MAX_CHUNKS;
     segs.forEach(seg => {
-      if (chunks.length && (chunks[chunks.length - 1].trim().length < MIN || chunks.length >= MAX_CHUNKS)) chunks[chunks.length - 1] += seg;
+      if (chunks.length && (chunks[chunks.length - 1].trim().length < MIN || chunks.length >= maxN)) chunks[chunks.length - 1] += seg;
       else chunks.push(seg);
     });
     while (chunks.length > 1 && chunks[chunks.length - 1].replace(/[，,、]?\s*$/, "").length < TAIL_MIN) chunks[chunks.length - 2] += chunks.pop();
@@ -3222,19 +3524,19 @@ function groupGrowthLine(names) {
 //   原来只长在单人线下的准则里，群线下一段都没有（她 2026-09-23：「为啥这两边不搞公共的」）。
 //   单人线下经 OFFLINE_NARRATIVE_RUNTIME 发，群线下在 generateOfflineGroup 里直接发这一份。
 const OFFLINE_AGENCY_RULE = `【谁的决定归谁 · 别把下一步做成选择题】
-她 2026-09-22 转群里读者：「他们想象力很匮乏，就是吃饭睡觉来的，然后会喜欢给我两个选项让我选，剧情推进没有什么惊喜感」。
+常见的抱怨：「他们想象力很匮乏，就是吃饭睡觉来的，然后会喜欢给我两个选项让我选，剧情推进没有什么惊喜感」。
 这多半不是这个人没主意，是两条现成的规矩叠出来的副作用：一边写着「不可替用户作重大决定」，一边写着「不要求每轮制造推进」——于是最安全的走法就成了【原地不动，再把球抛回去】：「你是想先吃饭还是先休息？」
 所以把射程说清楚：
 · **属于 TA 自己的事，TA 自己定，并且【当场就做】**：去哪、点什么、开不开口、说哪句、动不动手、要不要转身走——想清楚就做，不必先征求同意，也不必把它写成给她挑的两个选项。她不接受，她会自己说。
 · **重大的那几件也算 TA 自己的事**：把一件事往前推一大步——说破、靠近、带她去哪、做一个决定——不是「得先问过她」的事，是 TA 自己要不要做的事。**想做就做成，做成一个既成事实**。剧情往前走靠的正是这个，不是靠她替你选。
 · **怎么推，是这个人自己的样子**：同样是往前走一步，强硬的人、软的人、慢热的人、嘴硬的人，走法完全不一样。那一步从 TA 的卡、TA 跟她的相处方式、TA 此刻的心情里长出来；别把所有人都推成同一种强势的推法。
 【这一拍写到哪儿停】
-她 2026-09-23：「线下一拍又太短了，他好像分不清什么时候该停什么时候可以继续扩展」。
+常见的抱怨：「线下一拍又太短了，他好像分不清什么时候该停什么时候可以继续扩展」。
 病根是原来这儿只写了【停在哪儿】，没写【停之前能走多远】——而几乎每两句话就有一处「她好像可以接一句」，于是第一处就停了。
 判据只有一条：**往下写，需不需要替她做主？**
 · **不需要，就接着写**：TA 自己的动作做完、话说完、TA 对她刚才那一下的反应演到头、这地方此刻本来会发生的事、时间往前走的那一段——这些都不用等她。她可以插嘴的地方不是停下的理由，真人不会每说一句就停下来等对方点头。
-· **「接着写」是往这一刻里写深，不是往后快进**（她 2026-10-05 转群里：「线下开车结束会很快」）：两个人正在一件事当中——亲热、吵架、哭、打斗——接着写就是把这一刻放慢、写细、让它一来一回地发生；一拍里从开头一路写到结束、再跳到事后，等于把她能参与的整段都替她过完了。时间往前跳一大截，只用在本来就该略过的过渡上（路上、等人、一夜过去）。
-· **写深不等于定格**（她 2026-10-21 转群里：「线下开车她们不提就不换姿势」）：两个人已经在一件事当中，TA 本来就会自己换着来——换个位置、换个节奏、带着她换个姿态、把她抱去别处。这些是 TA 手上的事，不用等她开口；她已经在这件事里了，TA 带着她动一下不算替她做主（她怎么反应、答什么，照旧留给她）。一直停在同一个样子里，不是写得细，是没在动。
+· **「接着写」是往这一刻里写深，不是往后快进**：两个人正在一件事当中——亲热、吵架、哭、打斗——接着写就是把这一刻放慢、写细、让它一来一回地发生；一拍里从开头一路写到结束、再跳到事后，等于把她能参与的整段都替她过完了。时间往前跳一大截，只用在本来就该略过的过渡上（路上、等人、一夜过去）。
+· **写深不等于定格**：两个人已经在一件事当中，TA 本来就会自己换着来——换个位置、换个节奏、带着她换个姿态、把她抱去别处。这些是 TA 手上的事，不用等她开口；她已经在这件事里了，TA 带着她动一下不算替她做主（她怎么反应、答什么，照旧留给她）。一直停在同一个样子里，不是写得细，是没在动。
 · **接着写的只能是【此刻正在发生的事】**：往下多出来的每一段，都得是这一刻里真有的动作、话、变化。TA 的来历、这些年过得怎样、身边那些人和事的交代，不是「接着写」——那是【别拿身世当填充】那一条管的东西，眼前没有新的事可写，就说明已经到了该停的地方。
 · **需要了，才停**：再往下就得写她的身体怎么动、她答什么、她去不去、她要不要——到这儿停，停在她要开口或要动的那一拍，别替她答。TA 做成的既成事实摆在那儿，你给局面，她给答案。
 篇幅跟着这一条走，不跟着「显得完整」也不跟着「写够长」走：只是一句寒暄，TA 回两句就到了要她开口的地方；TA 手上有事、嘴上有话、场面在动，就一直写到真正需要她的那一刻为止。
@@ -3246,6 +3548,10 @@ const OFFLINE_AGENCY_RULE = `【谁的决定归谁 · 别把下一步做成选�
 · 这个地方、这个时辰本来就会发生的事（有人来、东西坏了、天变了、电话响了、该走了）；
 · 一件还没了结的旧事忽然在这一刻被碰到（记忆库里那些、你俩之前说过一半的）。
 ⚠️不是要你每拍都造一个事件：绝大多数时候一顿饭就是一顿饭。但**当一整场都停在同一个屋子里吃吃睡睡时，那不是平淡，那是没在往前走**。`;
+// 线下台词是本人开口（她 2026-11-02 截图：线上他说话短、松、随口；线下引号里成了网文对白腔）。
+//   单人线下、群线下共用。只给判据，不把线上原话摆进来（心声那次照抄的教训）。
+const OFFLINE_VOICE_RULE = `【台词是TA本人开口，不是小说对白】引号里的话是TA自己在说话。TA平时怎么说话——人设里写的说话习惯、TA线上跟她聊天的样子——到了面对面还是同一个人：一样的长短、一样的用词和口头禅、一样的松或者急。叙述可以是小说，台词不是。
+判据：把这句台词单独拿出来，放进你们线上的聊天里，像不像TA发的？不像，就是在念小说台词。`;
 
 const OFFLINE_NARRATIVE_RUNTIME = `【线下叙事 · 自然生成准则】
 【别拿对方刚说的词开口反问】${ECHO_QUESTION_BAN}把它和后半句塞进同一句台词里也一样是回声（「「自拍？行，别后悔。」」），别用这个办法把它留下来。反过来，真的没听清、真的意外到要确认一遍、或者你就是在质疑这件事本身，那是真反问，照常用；区别在于它有没有带进新的东西。
@@ -3270,6 +3576,8 @@ const OFFLINE_NARRATIVE_RUNTIME = `【线下叙事 · 自然生成准则】
 这一条禁的是【模板】，不是强势的人物。角色本来就居高位、说话带刺、动手快，那都照写——只是让它从这个人此刻真实的判断里长出来，而不是从「霸总该有的反应」这个现成模子里倒出来。
 
 ${OFFLINE_AGENCY_RULE}
+
+${OFFLINE_VOICE_RULE}
 
 【表达连续性】
 场景中发生的事情可以变化，但人物的注意方式、语言习惯和叙事密度保持连续。不要因为互动性质改变，就突然换一套描述重点或表达习惯。
@@ -3521,7 +3829,8 @@ const OFFLINE_PROTOCOL_V2 = `【线下生成与输出】
 你就是 TA 本人。落笔之前先以 TA 的第一人称把此刻这一幕想一遍：眼前发生的事在 TA 看来是什么、TA 此刻真正在意的是哪一点、TA 的处境和脾气让 TA 怎么看它——scene 从那个判断里长出来，不是先想「这种人该有什么反应」再往人设上凑。
 thought、mood、wearing、action 等附属字段只记录已经形成的场景与角色状态，不用来提前铺排剧情，也不用来给 scene 补一段解释。wearing、toy 没有真实变化时留空即可，不要为了填字段制造变化；但 thought、mood、action 是【此刻重新看一眼】的读数，不是变更通知，每轮都要写。
 
-只输出一个合法 JSON 对象，不要代码块。scene 是本轮实际发生的叙事正文，必须有效。thought 每轮必须填写，禁止 null、空串或省略：${THOUGHT_MEANING_CHAR}${THOUGHT_VOICE}${THOUGHT_ORIGIN}mood 每轮必须填写 {"label":"中文短词"}，禁止 null、空串或省略：它是【此刻重新看一眼】这个人的主导心情，不是「有变化才报」的变更通知。心情没变就照实写回同一个词——重新判断不等于必须改变，但不许因为「跟上轮一样」就省掉不填。wearing 仅在穿着发生有意义变化时填写，否则 null。action 每轮必须填写，禁止 null、空串或省略：${ACT_MEANING}。线下是一场正在推进的戏，这一格的事实本来就比线上变得快——但那是【事实真的变了】才更新，不是每一拍都换个说法；同一件事还在做，就照实写回同一句。affinityDelta: ${AFFINITY_DELTA_SPEC}${SCHED_NOW_SPEC}toy 仅在已授权且本轮实际触发时填写，否则 null。
+只输出一个合法 JSON 对象，不要代码块。scene 是本轮实际发生的叙事正文，必须有效。thought 每轮必须填写，禁止 null、空串或省略：${THOUGHT_MEANING_CHAR}${THOUGHT_VOICE}${THOUGHT_ORIGIN}mood 每轮必须填写 {"label":"中文短词"}，禁止 null、空串或省略：它是【此刻重新看一眼】这个人的主导心情，不是「有变化才报」的变更通知。心情没变就照实写回同一个词——重新判断不等于必须改变，但不许因为「跟上轮一样」就省掉不填。wearing 仅在穿着发生有意义变化时填写，否则 null。action 每轮必须填写，禁止 null、空串或省略：${ACT_MEANING}。线下是一场正在推进的戏，这一格的事实本来就比线上变得快——但那是【事实真的变了】才更新，不是每一拍都换个说法；同一件事还在做，就照实写回同一句。affinityDelta: ${AFFINITY_DELTA_SPEC}${SCHED_NOW_SPEC}
+${SCHED_LATER_SPEC}toy 仅在已授权且本轮实际触发时填写，否则 null。
 
 输出形状：{"scene":"当前场景正文","thought":"本轮没说出口的真实第一人称心声","mood":{"label":"此刻中文心情词"},"action":"此刻正在做什么，第一人称一句","wearing":"换了才写，没换填 null","affinityDelta":0,"toy":null}
 先想清楚 TA 怎么看这一刻，场景再发生；系统最后记录。`;
@@ -3794,7 +4103,7 @@ function loreImgText(entries, charIds, sceneText) {
 function imgLorePart(charIds, sceneText) {
   const g = typeof window !== "undefined" ? window : globalThis;
   const txt = g && typeof g.__loreImg === "function" ? String(g.__loreImg(charIds, sceneText) || "").trim() : "";
-  return txt ? "【画面设定（世界书·生图）】下面是这张图要遵守的画风和视觉设定；跟上面的身份锁冲突时以身份锁为准：\n" + txt : "";
+  return txt ? "【画面设定（世界书·生图）】下面是这张图要遵守的画风和视觉设定；跟这份要求里的身份锁、未成年安全锁冲突时，以那两样为准：\n" + txt : "";
 }
 function loreLine(e) {
   const body = String(e.payload).trim();
@@ -4173,7 +4482,7 @@ function buildBundle(ctx, opts) {
   const memLibText = Array.isArray(ctx.memLib) ? formatMemLib(ctx.memLib) : (ctx.memLib || "");
   if (ctx.extMem && String(ctx.extMem).trim()) parts.push("【外置记忆库·这一轮搜到的（她在别处也用着这份记忆；跟上面的记忆是同一段人生，对不上时以聊天里发生的为准）】\n" + String(ctx.extMem).trim());
   if (memLibText && memLibText.trim()) parts.push("【记忆库·相关条目（你和 " + uName + " 之间沉淀的关键事实，请自然记住并保持一致）】\n" + memLibText.trim() + "\n⚠️这些是【背景】、不是要你照演一遍的剧本：记住它们只为【前后连贯】，绝不是要你去【复刻】里头那些具体的事——别因为记忆里做过某道菜、说过某句话、有过某个举动，就每次都重复同一道菜／同一句招牌话／同一个动作。生活是往前走的，这一刻该有这一刻新的、具体的内容；记忆用来「不忘」、不是用来「重演」。");
-  if (ctx.groupEcho && ctx.groupEcho.trim()) parts.push("【你也在这些群里·群里最近发生的事（真实发生过，你在场、都知道）】\n下面是你所在群聊最近的对话，你都亲历、记得。\n**关键：群记录里那个发言的「" + uName + "」，就是【此刻正在跟你单独聊天的这个人（TA）】——不是别的谁。** 所以 TA 刚在群里说过/做过的事（比如说要去上班、说了什么计划），你【当然知道】，现在跟 TA 单聊时要接得上，别自相矛盾（比如 TA 群里刚说去上班、你却在私聊里问 TA『醒啦睡得好吗』这种明显没在听的话）。聊到相关的自然想起、回应、调侃即可，但别没头没脑硬把群聊内容整段倒出来。\n" + ctx.groupEcho.trim());
+  if (ctx.groupEcho && ctx.groupEcho.trim()) parts.push("【你也在这些群里·群里最近发生的事（真实发生过，你在场、都知道）】\n下面是你所在群聊最近的对话，你都亲历、记得。\n**关键：群记录里那个发言的「" + uName + "」，就是【此刻正在跟你单独聊天的这个人（TA）】——不是别的谁。** 所以 TA 刚在群里说过/做过的事（比如说要去上班、说了什么计划），你【当然知道】，现在跟 TA 单聊时要接得上，别自相矛盾（比如 TA 群里刚说去上班、你却在私聊里问 TA『醒啦睡得好吗』这种明显没在听的话）。标着「她那时不在这个群里」的那几行，是她不在群里的时候说的，她看不到：那些事只有你们群里的人知道，她要是问起相关的事，是她从别处听说或随口一问，别当成她看过群聊记录。\n聊到相关的自然想起、回应、调侃即可，但别没头没脑硬把群聊内容整段倒出来。\n" + ctx.groupEcho.trim());
   if (ctx.groupOfflineEcho && ctx.groupOfflineEcho.trim()) parts.push("【你和大家最近的多人线下相处·带时间戳（真实发生过，你在场、都记得）】\n下面是你参加过的群线下（大家面对面相处）最近的片段，你亲历、记得。里头那个『" + uName + "』就是此刻跟你单聊的这个人。按方括号里的真实时间理解它和现在的先后顺序，聊到相关自然接得上、别自相矛盾（比如刚一起吃过饭、你却问 TA 吃了没）。\n" + ctx.groupOfflineEcho.trim());
   if (!ctx.notRoleplay && ctx.schedNow && ctx.schedNow.trim()) parts.push("【" + char.name + " 今天的行程 / 此刻在做什么】" + SCHEDULE_CONTEXT_RULE + "\n" + ctx.schedNow.trim());
   // 有一场没散的线下（按需注入：没有就零 token）——不然主动问候会把正在进行的线下当没开始
@@ -4919,7 +5228,7 @@ const IMG_REF_FAIL_FALLBACK = false;
 //   true：锁脸那一枪失败就直接报错，不换字段、不软化重发、不退无参考照，上面那个 FALLBACK 也不生效。
 //   想恢复原来的降级阶梯就改回 false，只此一处。
 const IMG_ONE_SHOT = true;
-const IMG_API_DEFAULTS = { baseUrl: "", apiKey: "", model: "gpt-image-2", size: "1024x1536", quality: "medium", enabled: false, refFieldMode: "auto", apiFormat: "auto", noRef: false };
+const IMG_API_DEFAULTS = { baseUrl: "", apiKey: "", model: "gpt-image-2", size: "1024x1536", quality: "medium", enabled: false, refFieldMode: "auto", apiFormat: "auto", gifAll: false, noRef: false };
 function imgApiProfileId() { return "img_" + Date.now().toString(36) + "_" + Math.random().toString(36).slice(2, 7); }
 function normalizeImgApiProfile(p, index) {
   const out = Object.assign({}, IMG_API_DEFAULTS, p || {});
@@ -4973,7 +5282,7 @@ function b64ToBlob(b64, mime) {
   return new Blob([arr], { type: mime || "image/png" });
 }
 // ---- 自拍图存 IndexedDB（base64 大图不能进 localStorage/云同步）----
-function idbImgOpen() { return new Promise((res, rej) => { const r = indexedDB.open("x_selfies", 1); r.onupgradeneeded = () => { if (!r.result.objectStoreNames.contains("img")) r.result.createObjectStore("img"); }; r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); }); }
+function idbImgOpen() { return idbKeep("x_selfies", 1, db => { if (!db.objectStoreNames.contains("img")) db.createObjectStore("img"); }); }
 // 原生壳有一层 Application Support 文件保险仓。WKWebView 的 IndexedDB 偶发被 iOS
 // 清空时从这里自愈；普通 Safari/PWA 没这个 bridge，仍按原来的 IDB 路径工作。
 function nativeMediaHandler() { try { return window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.nativeMedia; } catch (e) { return null; } }
@@ -5545,7 +5854,8 @@ function buildPhotoPrompt(char, sceneDesc, st, opts) {
   const _adultAge = /(?<![0-9０-９])(?:1[89]|[2-9][0-9])\s*周?岁(?!那|时|的时候|起|以前|之前|前|后)/.test(identityText);
   // 合照也认（她 2026-10-27「合照也能弄吗」）：描述里点了谁小时候就只画小谁；笼统写「小时候」「童年合照」就是每个人都小时候
   const _yNames = multi ? cast.map(x => String(x.name).trim()) : kind === "duo" ? [cName, uName] : [cName];
-  const _y0 = char !== "__shots" && typeof photoYoungerOf === "function" ? photoYoungerOf(sceneDesc) : null;
+  // notYounger：调用方知道这张拍的就是现在（照片日记）。光看字会被要求里自己写的「小时候」骗到（她 2026-11-02：「怎么日记还是会生成小时候」）
+  const _y0 = char !== "__shots" && !(opts && opts.notYounger) && typeof photoYoungerOf === "function" ? photoYoungerOf(sceneDesc) : null;
   const _yEsc = x => x.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   const _yNamed = _y0 && _yNames.length > 1 ? _yNames.filter(n => n && new RegExp("(?:小时候的|岁的|小)" + _yEsc(n) + "|" + _yEsc(n) + "(?:小时候|童年|还小)").test(String(sceneDesc || ""))) : [];
   const younger = _y0 ? Object.assign({}, _y0, { names: _yNamed.length ? _yNamed : _yNames }) : null;
@@ -5585,6 +5895,11 @@ function buildPhotoPrompt(char, sceneDesc, st, opts) {
     if (ANIME_HINT.test([char.appearance, visualCanon, personaVisualSource].filter(Boolean).join("\n")))
       parts.push("【这个角色是二次元形象】设定里写明了是二次元——就算看不清参考图，也按二次元插画来画，别画成真人照片。");
   }
+  // 世界书·生图紧跟画风那一句（群里 2026-11-08：「加了提示词世界书，生出来还是 GPT 原生感，同一段在别处用有效」）：
+  //   原来它排在手、体态、身体锁、人设、身份锁那一长串后面，提示词一长就被稀释；画风、质感本来就该跟画风那句挨着说。
+  //   身份锁和未成年锁照旧在后面压着，跟它冲突时以那两样为准（那句写在 imgLorePart 里）
+  const _imgLore = typeof imgLorePart !== "function" ? "" : imgLorePart([char && char.id].concat((opts && opts.cast || []).map(c => c && c.id)).filter(Boolean), sceneDesc);
+  if (_imgLore) parts.push(_imgLore);
   // 外貌提前（她 2026-10-05：「要不要把外貌移前一点」）：原来单人照的外貌排在手、体态、身体锁、人设那一长串后面，
   //   提示词一长就被稀释。单人照挪到画风后面第一句；双人／多人照按名字对应参考图，仍在下面各自那一段里写。
   const soloLook = !(kind === "duo" || multi) && char.appearance && char.appearance.trim();
@@ -5605,14 +5920,16 @@ function buildPhotoPrompt(char, sceneDesc, st, opts) {
   // 体态·治「驼背」和「偷感」（v48.52）：抓拍质感不等于畏缩——人要挺拔松弛
   parts.push("【体态自然挺拔，别驼背别『偷感』】good posture, upright relaxed natural stance, straight back, shoulders relaxed and open, confident at ease——脊背基本挺直、肩膀自然打开别缩着、脖子别前伸、下巴别往里缩；**绝不许含胸驼背、缩肩弓背、佝偻畏缩**。神态松弛自在、大方自然，像很自在地在自拍/被拍，**绝不要躲闪、拘谨、猥琐、鬼鬼祟祟、偷拍似的那种『偷感』**。哪怕是随手抓拍，人也站得/坐得舒展从容。");
   // 参考照负责像谁；角色卡负责是谁、什么年龄与穿什么。两路约束必须同时生效。
-  if (!younger) parts.push("【参考照与角色设定同时锁定】参考照用于固定脸、五官、发型和人物身份" + (photoStyle === "reference" ? "，并锁定参考图的视觉媒介与画风" : "") + "；角色档案与人设用于固定年龄、性别表达、种族、体型、时代和服装。不得只参考脸而忽略文字设定，也不得让参考照中冲突的身体或服装覆盖角色设定。场景和姿势可以变化，人物身份事实绝不能变化。");
+  if (!younger) parts.push("【参考照与角色设定同时锁定】参考照用于固定脸、五官、" + (opts && opts.hairFree ? "发色" : "发型") + "和人物身份" + (photoStyle === "reference" ? "，并锁定参考图的视觉媒介与画风" : "") + "；角色档案与人设用于固定年龄、性别表达、种族、体型、时代" + (fixedOutfit ? "" : "和服装") + "。不得只参考脸而忽略文字设定，也不得让参考照中冲突的身体或服装覆盖角色设定。场景和姿势可以变化，人物身份事实绝不能变化。"
+    // 这一张锁了衣服（比如邮票限时池的节日装）：衣服只听服装锁，人设和参考照里平时那身都不算（她 2026-11-04：万圣夜卡张张穿着参考照那件黑羽绒服）
+    + (fixedOutfit ? "这一张的衣服只看后面的服装锁：人设、外貌里写的常穿衣物和参考照里那身衣服都不算，别把它们穿到这张图上。" : ""));
+  // IF 卡（她 2026-11-08：群里古风想要长发，有的画得出有的画不出）：发型跟着这一张的主题走，发色、五官照旧锁
+  if (opts && opts.hairFree) parts.push("【这一张的发型】发型（长短、束法、刘海）照这一张的场景和主题来，可以跟参考照不一样，比如古风就留长发或束发；发色、五官、脸型、瞳色还是照参考照和设定，不变。");
   if (personaVisualSource) parts.push("【角色完整人设中的视觉事实】以下人设不是气氛建议；凡涉及年龄、性别、种族、身体特征、时代与衣着，均为必须遵守的 canon：" + personaVisualSource + "。");
   const accessories = String(char.photoAccessories || "").trim();
   if (accessories) parts.push("【随身不摘的东西·每张都要有】" + (kind === "duo" || multi ? "「" + cName + "」" : "人物") + "身上始终带着：" + accessories + "。它们与换不换衣服无关,不因场景、季节或服装变化而消失或改动;戴的位置、数量、款式每张保持一致。");
   if (visualCanon) parts.push("【最高优先级·身份锁】" + visualCanon + "。年龄、性别、种族、体型与身体特征不得擅自补全、成熟化、女性化、男性化或随机改变。");
-  const _imgLore = typeof imgLorePart !== "function" ? "" : imgLorePart([char && char.id].concat((opts && opts.cast || []).map(c => c && c.id)).filter(Boolean), sceneDesc);
   if (isMinor) parts.push("【未成年人安全与解剖硬锁】这是儿童／未成年角色：必须呈现明确、自然、符合设定年龄的儿童身体比例和第二性征；穿着完整、姿态与镜头完全非性化，禁止成人化、性感化、胸部曲线、乳沟或夸张身体特征。" + (isBoy ? "该角色是男孩／男童：胸廓必须是自然平坦的男童胸廓，绝对不能生成女性乳房或胸部隆起。" : "") + "即使参考图或场景有歧义，也以儿童身份锁为准。");
-  if (_imgLore) parts.push(_imgLore);
   // —— 主体人物 ——
   // 合影点名单（v53.85）：opts.cast = [{name, appearance, outfit}]，顺序【必须】等于参考图顺序。
   // 给它就走多人分支，人数不写死——群合照是「在场角色 + 你」，以后「看看你俩合照」只是换一份名单，
@@ -5828,6 +6145,21 @@ function worldRefLine(i, label) {
   return "【第" + i + "张参考图=这个世界的一张风景照" + (label ? "：" + label : "") + "】只借它的环境：街道建筑、植物、色调、光线和天气的感觉，让画面一看就是同一座城；"
     + "它不是这个人，也不是这一格的构图——画里有人就仍照人物参考照，机位照这一格自己的描述。";
 }
+// 画面里有人、但不是哪个角色（群里 2026-11-08：片刻推荐里网友的视频画出来条条没有人）：
+//   没有角色卡就没有参考照、也不用锁谁的脸——画的是这条描述里那个普通人，照描述露脸或只露局部。
+//   原来没角色就一律走 buildScenePrompt 的「纯空景、一个人都没有」，路人博主出镜的视频也被画成空镜。
+function buildStrangerPrompt(sceneDesc, opts) {
+  opts = opts || {};
+  const body = !!opts.body;
+  const parts = [body
+    ? "生成一张【不露脸的局部照片】：画面里有人，但只出现手、背影、肩背这些身体局部，人的头部在画面之外。"
+    : "生成一张照片：画面里的人照下面的描述出镜，是一个普通人（不是明星、不是任何已知的角色），长相自然、有个人特点，不要网红脸。"];
+  parts.push("画风是【自然写实的实拍照片】：真实的环境光和自然投影、手机镜头的景深与轻微噪点，像短视频里的一帧。不要插画、不要 3D/CG 渲染、不要 AI 感很重的精修图。");
+  { const _sl = typeof imgLorePart !== "function" ? "" : imgLorePart([], sceneDesc); if (_sl) parts.push(_sl); }
+  parts.push("【画面】" + String(sceneDesc || "").trim());
+  parts.push("画面里不要出现文字、字幕、水印、logo、界面元素。");
+  return parts.join("\n");
+}
 function buildScenePrompt(char, sceneDesc, opts) {
   opts = opts || {};
   char = char || {};
@@ -6037,7 +6369,69 @@ async function naiTagsFor(prompt) {
   return { prompt: tags, negative: String(d.negative || "").trim() };
 }
 
+// 动图一律放慢到每帧至少 GIF_MIN_MS（她 2026-11-06「8 帧图速度太快了」）：出图入口这一处收口，表情包、照片、卡面都跟着慢下来
+// 动图速度（她 2026-11-06「搞个拉条自己选」）：每帧停多久，全 app 一个数，存 x_gifMs。帧数固定 16（顺不顺看帧数，快慢看这个）。
+//   新出的动图按它定速；拉条一改，已经存着的动图也就地改速（只改每帧停留那两个字节，不重画、不花钱）。
+// 帧数也给她自己调（她 2026-11-06「搞个帧数拉条让我自己选」）：2~16，存 x_gifFrames，默认 16
+const gifFramesNow = () => { const v = Math.round(Number(loadJSON("x_gifFrames", 16))); return Math.max(2, Math.min(16, v || 16)); };
+// 动图只在这两段里说（她 2026-11-06：精简，直接说要什么，别写「X，但不许 Y」那种绕法）
+const GIF_WORLD_HEAD = "【先守住】画面里的建筑、陈设、器物、光源属于人设和世界书写的那个世界；发型、发色、发长照人设和参考照。\n\n";
+const GIF_MOTION_RULE = "\n\n【动图】循环小动图，帧按时间顺序排："
+  + "①整段是同一个瞬间前后的连续动作，所有帧都从画面描述里写的那个姿势出发：做一个这一刻自然会发生的完整动作，开始、发展、做到位、收回到起始姿势，最后一帧接回第一帧。画面里有几个人时，由一个人做这个动作，其他人保持自己的姿势；九宫格就是每一格各做一个。"
+  + "②头、肩颈、手臂、身体跟着动作连贯地变，幅度照现实，起步和收尾慢、中间快。"
+  + "③镜头、构图、背景、光线固定；脸、五官、手、衣服、画风每帧一致。"
+  + "④参考照只用来认人。";
+// 照片的动图：像实况照片，大部分画面停着，只有一处在动（她 2026-11-06：合照两个人都在换手势、闭眼）
+const GIF_PHOTO_RULE = "\n\n【动图】动态照片，帧按时间顺序排："
+  + "①人保持照片里的姿势和表情；描述里有【分镜】的，姿势照分镜里 pose 那一条。"
+  + "②整张只有一处在动：画面描述里写了动作，就是那个动作；没写，就是头发、衣角、光影、背景里的灯光这类小东西轻轻动。"
+  + "③镜头、构图、背景固定；脸、五官、手、衣服、画风每帧一致；最后一帧接回第一帧。"
+  + "④画布的长宽比例由出图那边定，可能是方的：描述里写的景别（全身、七分身、带环境）照样装进画面，人可以小一点、离镜头远一点，不靠裁掉身体来填满画面。"
+  + "⑤参考照只用来认人。";
+const gifMsNow = () => { const v = Number(loadJSON("x_gifMs", 150)); return Math.max(60, Math.min(400, v || 150)); };
+// 动图宽过 GIF_MAX_W 就整段缩小（逐帧画到小画布再编码）；不用缩、或者这里没有画布，返回 null
+const GIF_MAX_W = 720;
+function gifShrink(u8, maxW) {
+  if (typeof GifCodec === "undefined" || typeof document === "undefined") return null;
+  const g = GifCodec.decode(u8);
+  if (!g.frames.length || g.width <= maxW) return null;
+  const w = maxW, hh = Math.round(g.height * maxW / g.width);
+  const src = document.createElement("canvas"); src.width = g.width; src.height = g.height; const sg = src.getContext("2d");
+  const cv = document.createElement("canvas"); cv.width = w; cv.height = hh; const c2 = cv.getContext("2d");
+  c2.imageSmoothingQuality = "high";
+  const frames = g.frames.map(f => { sg.putImageData(new ImageData(f.rgba, g.width, g.height), 0, 0); c2.clearRect(0, 0, w, hh); c2.drawImage(src, 0, 0, w, hh); return { rgba: c2.getImageData(0, 0, w, hh).data, delay: f.delay }; });
+  return GifCodec.encode({ width: w, height: hh, frames });
+}
 async function generateSelfieImage(prompt, refPhotoDataUrl, opts) {
+  const out = await generateSelfieImageRaw(prompt, refPhotoDataUrl, opts);
+  if (out && out.blob && out.blob.type === "image/gif" && typeof GifCodec !== "undefined" && GifCodec.retime) {
+    try {
+      let u8 = new Uint8Array(await out.blob.arrayBuffer());
+      // 有几帧没画满（底下露一条）：先裁齐再定速
+      try { const t = GifCodec.trimUncovered && GifCodec.trimUncovered(u8); if (t) u8 = t; } catch (e2) {}
+      // 太大就缩（她 2026-11-06：16 帧 × 1024×1536 的照片动图，iPhone 解不开，显示「图数据坏了」）
+      try { const sm = gifShrink(u8, GIF_MAX_W); if (sm) u8 = sm; } catch (e3) {}
+      out.blob = new Blob([GifCodec.retime(u8, gifMsNow(), true)], { type: "image/gif" }); out.dataUrl = null;
+    } catch (e) {}
+  }
+  return out;
+}
+// 拉条改了：本机图库里存着的动图全部改成新速度。返回改了几张
+async function retimeStoredGifs(ms) {
+  if (typeof GifCodec === "undefined" || !GifCodec.retime) return 0;
+  let n = 0;
+  const run = async (rows, put) => {
+    for (const [k, b] of rows || []) {
+      if (!b || b.type !== "image/gif") continue;
+      try { const nb = new Blob([GifCodec.retime(new Uint8Array(await b.arrayBuffer()), ms, true)], { type: "image/gif" }); await put(k, nb); n++; } catch (e) {}
+    }
+  };
+  try { await run(await idbImgEntries(), idbImgPut); } catch (e) {}
+  try { await run(await idbVaultEntries(), idbVaultPut); } catch (e) {}
+  return n;
+}
+if (typeof window !== "undefined") { window.retimeStoredGifs = retimeStoredGifs; window.gifMsNow = gifMsNow; window.gifFramesNow = gifFramesNow; }
+async function generateSelfieImageRaw(prompt, refPhotoDataUrl, opts) {
   // 「这个站不锁脸」（她 2026-10-05）：有的站不收带图的请求，别的 app 只发文字能出、这里带着参考照就报错。
   //   站上打开了这个开关 → 从第一下就不带参考照，只发文字，一次请求，回什么收什么（标成 site-no-ref，界面上不另外标注）。
   //   不是「先带照片试、失败再不带补一次」——那是两笔钱，也破了「一张图只发一次请求」。
@@ -6046,10 +6440,34 @@ async function generateSelfieImage(prompt, refPhotoDataUrl, opts) {
     const a0 = (opts && opts.api) ? Object.assign({}, IMG_API_DEFAULTS, opts.api) : loadImgApi();
     const hasRef = (Array.isArray(refPhotoDataUrl) ? refPhotoDataUrl : [refPhotoDataUrl]).some(x => x && typeof x === "string");
     const inner = Object.assign({}, opts || {}, { api: a0, __inner: true });
+    // 出动图总开关（她 2026-11-06「其他生图也接上能生动图」「总开关吧，邮票册也开」）：设置·图像API 里开着，
+    //   直接给人看的那些照片（聊天自拍、线下照片、合照、照相馆、邮票卡面、剧场跑团插图……）一律按动图请求。
+    //   要裁、要压、要拼的那几处（头像、背景、表情包九宫格、视频首帧）调用时标了 still，不跟。
+    //   站子回静图就收静图，不报错、不为它多花一次请求。
+    if (a0.gifAll && !(opts && (opts.gif || opts.still)) && !["chat", "gemini", "minimax", "nai"].includes(a0.apiFormat)) {
+      // 总开关加上的动图没出成（站子不收动图参数、带参考照的动图接不住……）：退回一张静图，照样锁脸——不能因为想要动的，连图都没了
+      const gi = Object.assign({}, inner, { gif: true, gifFrames: gifFramesNow(), gifMs: gifMsNow() });
+      try { const o = await generateSelfieImage(prompt, hasRef && a0.noRef ? null : refPhotoDataUrl, Object.assign({}, gi, { __gifAll: true }));
+        // 出成动的就说一声锁没锁脸（她 2026-11-06「也没提醒锁没锁脸」）：带着参考照发出去的才算锁
+        if (o && o.blob && o.blob.type === "image/gif" && typeof window !== "undefined" && window.__toast) window.__toast(hasRef && !a0.noRef ? "动图画好了，参考照已经一起发过去（站子有没有照着画，看脸像不像）" : hasRef ? "动图没带参考照（这个站开着「不锁脸」）" : "动图画好了", 4000);
+        return o; }
+      catch (e) { if (/moderation|content[_ ]?policy|safety|sexual|nsfw/i.test(String((e && e.message) || e))) throw e; }
+    }
     if (hasRef && a0.noRef) {
       const out = await generateSelfieImage(prompt, null, inner);
       if (out && typeof out === "object") out.degraded = "site-no-ref";
       return out;
+    }
+    // 动图带参考照：中转接得住就锁脸，接不住（报错，或者回来一张静图）退一次纯文字动图——这是动图独有的，
+    //   普通照片照旧「一张图只发一次请求」
+    if (hasRef && opts && opts.gif) {
+      try { const o1 = await generateSelfieImage(prompt, refPhotoDataUrl, inner); if (o1 && (!o1.blob || o1.blob.type === "image/gif")) return o1;
+        // CatsAPI 根本不出动图（她 2026-11-07「再试还是静图」）：回静图就收下这张锁脸的，别再花一次钱换一张不锁脸的静图
+        if (o1 && isCatsImageProvider(a0.baseUrl)) return o1; } catch (e) {
+        if (/moderation|content[_ ]?policy|safety|sexual|nsfw/i.test(String((e && e.message) || e))) throw e; }
+      const o2 = await generateSelfieImage(prompt, null, inner);
+      if (o2 && typeof o2 === "object") o2.degraded = "gif-no-ref";
+      return o2;
     }
     if (hasRef) {
       try { return await generateSelfieImage(prompt, refPhotoDataUrl, inner); }
@@ -6058,6 +6476,8 @@ async function generateSelfieImage(prompt, refPhotoDataUrl, opts) {
         // 被内容审核拦的（moderation / safety / content_policy）不是站子不收图：是这张参考照或这次画面被判成太露骨。
         //   同一个站、一个角色能拍另一个不能，多半就是那个角色的参考照（或外貌里的词）。别把人往「不锁脸」上指。
         if (/moderation|content[_ ]?policy|safety|sexual|nsfw/i.test(m)) throw new Error(m + "（这是站子的内容审核拦下来的，不是站子不收参考照：多半是这个角色的参考照、或者外貌和这次画面里有被判成太露骨的地方。换一张穿着整齐的参考照，或者把外貌里相关的词改掉再试；同一个站别的角色能拍就是这个原因。）");
+        // 中转号池里没有接得住这次请求的上游账号（她 2026-11-07 截图「No available compatible accounts」）：跟参考照无关
+        if (/no available (?:compatible )?accounts?|no available channel|无可用(?:渠道|账号)/i.test(m)) throw new Error(m + "（这是中转站那边这个模型眼下没有能用的上游账号，号池空了，或者没有接得住这种请求（带参考照、出动图）的号，不是参考照设置的问题。过一会儿再试；老这样就问站子，或者换个模型、换个站。）");
         // 站那边忙／上游挂了（暂时不可用、稍后重试、5xx、限流）跟收不收参考照无关：别把人往「不锁脸」上引
         if (/暂时不可用|稍后再?试|繁忙|过载|限流|服务不可用|unavailable|overload|busy|rate.?limit|\b(?:429|500|502|503|504)\b/i.test(m)) throw new Error(m + "（这是站那边一时忙不过来，不是参考照的问题：同一个站之前能锁上脸就说明设置是对的，过一会儿再拍；一直这样就问问你买线路的那家，上游是不是出事了。）");
         if (!(opts && opts.singleShot) && /参考照|锁脸|不收图片|image/i.test(m)) throw new Error(m + "（这个站要是不收参考照，可以在「设置 → 图像 API」里给它打开「这个站不锁脸」：以后只发文字、照样出图，只是长相不保证像。）");
@@ -6069,10 +6489,25 @@ async function generateSelfieImage(prompt, refPhotoDataUrl, opts) {
   //   它好像是用第一个站点设置的模型来测试的」）。不给就照旧走主用那一站。
   const a = (opts && opts.api) ? Object.assign({}, IMG_API_DEFAULTS, opts.api) : loadImgApi();
   if (!imgApiReady(a)) throw new Error("没配置图像 API");
+  // 动图（她 2026-11-04：gpt-image-2.6 能直接出 GIF）：只有出图接口（/images/generations）收 output_format:"gif"，
+  //   聊天接口出不了动的；带参考照的改图接口官方没开，但有的中转接得住（群友 2026-11-06 图灵画境：「可以上传参考图生成，但是有概率失败」），
+  //   所以带着参考照先试一次，不成外面那层再退成纯文字动图（见下面 gif 那一段）
+  // 动图规矩（她 2026-11-06「16 帧会画小动作充填帧数，要不要给动图单独写提示词」→「改吧」）：
+  //   只要这一次要的是动图，照片、表情包、卡面都在提示词后面接这一段，一处说法
+  // 照片（总开关加上的动图）走「动态照片」那套：人不动、只一处在动；表情包这种自己要动图的走动作那套（她 2026-11-06 分开）
+  // 一共几帧要说出来（她 2026-11-07「改吧」）：只说「哪一处在动」，帧少时一下跳过去，帧多时它自己加小动作凑数。
+  //   CatsAPI 的动图帧数是它定死的 8 帧，别的站照拉条
+  const gifN = (opts && opts.gif) ? (isCatsImageProvider(a.baseUrl) ? 8 : Math.max(2, Math.min(16, Number(opts.gifFrames) || 8))) : 0;
+  if (opts && opts.gif && typeof prompt === "string" && prompt.indexOf("【动图】") < 0) prompt = GIF_WORLD_HEAD + prompt + (opts.__gifAll ? GIF_PHOTO_RULE : GIF_MOTION_RULE)
+    + "【帧数】一共 " + gifN + " 帧：这一个动作从头到尾平均分到这 " + gifN + " 帧里，相邻两帧只差一点，不多加别的动作。";
+  if (opts && opts.gif) {
+    if (a.apiFormat === "chat" || a.apiFormat === "gemini" || a.apiFormat === "minimax" || a.apiFormat === "nai") throw new Error("动图只能走「出图接口」：去 设置 → 图像 API 把这个站的「请求方式」换成「出图接口」");
+  }
   // 手部那两大段只给 gpt-image 用（她 2026-10-03：别家模型发自拍，连出两张满纸手掌+乱码的「手部参考图」）。
   // 那段里夹着整句英文 correct hands / five fingers——读不太懂中文的模型（NAI、部分 Gemini 线路）
   // 只抓得住这几个英文词，于是整张图都画成了手。非 gpt-image 一律缩成一句。
-  if (!/gpt-image|dall-?e/i.test(String(a.model || "")) && typeof prompt === "string")
+  //   动图也缩（她 2026-11-07「改吧」）：一帧本来就小，手画不出那么细，两大段反倒把姿势和动作压下去
+  if ((!/gpt-image|dall-?e/i.test(String(a.model || "")) || (opts && opts.gif)) && typeof prompt === "string")
     prompt = prompt.replace(/【手脚必须解剖正确】[^【]*/, "【手】双手自然，手指数目正确。").replace(/【数一数手】[^【]*/, "");
   let naiNegative = "";
   if ((isNaiImageModel(a.model) || a.apiFormat === "nai") && typeof prompt === "string") {
@@ -6087,6 +6522,12 @@ async function generateSelfieImage(prompt, refPhotoDataUrl, opts) {
     // 连贯参考图可能是聊天自拍库的 img_ 键（与 iv_ 图库不是同一个仓），两边都要认
     try { if (rp.indexOf("iv_") === 0) return await imgVaultFetchBlob(rp); if (rp.indexOf("img_") === 0) return await idbImgGet(rp); return dataUrlToBlob(rp) || b64ToBlob(rp, "image/png"); } catch (e) { return null; }
   }))).filter(Boolean);
+  // 参考图是动图（上一张出的是 GIF、拿来当连贯参考）：换成第一帧 PNG，好几家改图接口不收 GIF
+  for (let i = 0; i < refBlobs.length; i++) {
+    if (refBlobs[i] && refBlobs[i].type === "image/gif" && typeof gifFirstFramePng === "function") {
+      try { const png = await gifFirstFramePng(await blobToDataUrl(refBlobs[i])); const b = dataUrlToBlob(png); if (b) refBlobs[i] = b; } catch (e) {}
+    }
+  }
   if (refs.length && refBlobs.length !== refs.length) throw new Error("有参考照读取失败；为避免生成陌生人，本次已停止。请重新选择参考照后再试");
   // 归一 base：用户可能把整段 endpoint(…/v1/images/generations) 都粘进来 → 削回域名根，统一补 /v1
   const base = normalizedOpenAIBase(a.baseUrl);
@@ -6120,7 +6561,7 @@ async function generateSelfieImage(prompt, refPhotoDataUrl, opts) {
     if (!b64 && !url) { const mk = String(rawTxt).match(/data:image\/\w+;base64,[A-Za-z0-9+/=]+/i); if (mk) b64 = mk[0].replace(/^data:image\/\w+;base64,/i, ""); }
     // Gemini 原生形状 inline_data / inlineData：{ mime_type, data:"纯 base64" }，没有 data: 前缀
     if (!b64 && !url) { const mk = String(rawTxt).match(/"inline_?[dD]ata"\s*:\s*\{[^{}]*?"data"\s*:\s*"([A-Za-z0-9+/=\\n]{200,})"/); if (mk) b64 = mk[1].replace(/\\n/g, ""); }
-    if (!b64 && !url) { const mk = String(rawTxt).match(/https?:\/\/[^\s"')\]]+\.(?:png|jpe?g|webp)/i); if (mk) url = mk[0]; }
+    if (!b64 && !url) { const mk = String(rawTxt).match(/https?:\/\/[^\s"')\]]+\.(?:png|jpe?g|webp|gif)/i); if (mk) url = mk[0]; }
     if (b64) {
       // 验真：base64 得解得开、且开头是真图片的魔数（PNG/JPEG/WebP/GIF）——
       // 不然坏数据会被当成图存进图库，聊天里就是一个加载不出来的空白框、还不报错
@@ -6158,9 +6599,11 @@ async function generateSelfieImage(prompt, refPhotoDataUrl, opts) {
       : /webp/i.test(String(blob && blob.type)) ? "webp"
       : /gif/i.test(String(blob && blob.type)) ? "gif" : "png";
     const imageInputs = await Promise.all(refBlobs.map(blobBase64));
-    const catsSize = /1536\s*x\s*1024/i.test(size) ? "1536x1024"
-      : /1024\s*x\s*1536/i.test(size) ? "1024x1536" : "1024x1024";
-    const catsQuality = /^(?:auto|low|medium|high)$/i.test(String(qualityOverride || ""))
+    // 照 ArtArt 接入说明（她 2026-11-07 贴来）：size 是宽高比（1:1 / 3:4 / 4:3 / 9:16 / 16:9 / 3:1 / 2:1），
+    //   分辨率另走 resolution；原来发的是 1536x1024 这种像素写法，不在它的可选值里
+    const catsSize = /1536\s*x\s*1024/i.test(size) ? "4:3"
+      : /1024\s*x\s*1536/i.test(size) ? "3:4" : "1:1";
+    const catsQuality = /^(?:auto|low|medium|high|xhigh|max)$/i.test(String(qualityOverride || ""))
       ? String(qualityOverride).toLowerCase() : "auto";
     // 这个型号报过字数上限的，记着（x_imgPromptCap = { 型号: 上限 }），以后发之前先截好，不再每次先被拒一回
     const capKey = String(a.model || "gptImage2");
@@ -6175,7 +6618,11 @@ async function generateSelfieImage(prompt, refPhotoDataUrl, opts) {
       prompt: knownCap > 200 && String(prompt || "").length > knownCap ? trimTo(prompt, knownCap) : String(prompt || ""),
       task_type: "image",
       num_images: 1,
-      params: { size: catsSize, quality: catsQuality, rewritePrompt: false }
+      locale: "zh",
+      params: Object.assign({ size: catsSize, resolution: "1k", quality: catsQuality, rewritePrompt: false },
+        // 动图：说明里只有 output_format: "gif" 一项——帧数、每帧多久它定死（8 帧、200ms），尺寸自动。
+        //   没有帧数、速度参数可发；到手以后照拉条的速度重排一遍（generateSelfieImage 外层那步）
+        opts && opts.gif ? { output_format: "gif" } : {})
     };
     if (imageInputs.length) body.images = imageInputs.map((base64, i) => ({
       base64: base64,
@@ -6251,11 +6698,23 @@ async function generateSelfieImage(prompt, refPhotoDataUrl, opts) {
           if (/^https?:\/\//i.test(item)) return { url: item };
           return { b64_json: item };
         });
+        // 原样退回参考照（她 2026-11-07：「catsapi 生动图邮票册直接回了一张锁脸的参考图」）：
+        //   结果里跟发过去的参考照一字不差的那几张不算成品；有动图先拿动图
+        const pureOf = x => String(x || "").replace(/^data:image\/[^;]+;base64,/i, "").replace(/\s+/g, "");
+        const sentRefs = new Set(imageInputs.map(pureOf));
+        let picked = normalized.filter(it => !(it && it.b64_json && sentRefs.has(pureOf(it.b64_json))));
+        const gifFirst = picked.filter(it => it && it.b64_json && /^R0lGOD/.test(pureOf(it.b64_json)));
+        if (gifFirst.length) picked = gifFirst.concat(picked.filter(it => !gifFirst.includes(it)));
+        if (normalized.length && !picked.length) throw new Error("CatsAPI 没画新图，原样退回了参考照");
         let out;
-        try { out = await parseOut(poll, JSON.stringify({ data: normalized })); }
+        try { out = await parseOut(poll, JSON.stringify({ data: picked })); }
         catch (e) {
           const prefix = refBlobs.length ? "参考照已上传，但 CatsAPI 完成任务后没有返回可用图片" : "CatsAPI 完成任务后没有返回可用图片";
           throw new Error(prefix + " · GET " + pollUrl + " · " + String((e && e.message) || e));
+        }
+        if (out && out.blob && refBlobs.length) {
+          const same = async (x, y) => { if (!x || !y || x.size !== y.size) return false; const A = new Uint8Array(await x.arrayBuffer()), B = new Uint8Array(await y.arrayBuffer()); for (let i = 0; i < A.length; i++) if (A[i] !== B[i]) return false; return true; };
+          for (const rb of refBlobs) if (await same(out.blob, rb)) throw new Error("CatsAPI 没画新图，原样退回了参考照");
         }
         out.referenceCount = refBlobs.length;
         out.referenceBytes = refBlobs.reduce((n, b) => n + Number((b && b.size) || 0), 0);
@@ -6470,6 +6929,7 @@ async function generateSelfieImage(prompt, refPhotoDataUrl, opts) {
         const sendEdits = async noRf => {
         const fd = new FormData();
         fd.append("model", a.model || "gpt-image-2"); fd.append("prompt", promptText); fd.append("size", size); fd.append("n", "1"); if (!noRf) fd.append("response_format", "b64_json");
+        if (opts && opts.gif) { fd.append("output_format", "gif"); fd.append("frame_count", String(Math.max(2, Math.min(16, Number(opts.gifFrames) || 8)))); fd.append("frame_duration_ms", String(Math.max(40, Math.min(1000, Number(opts.gifMs) || 120)))); }
         if (qualityOverride) fd.append("quality", qualityOverride);
         // GPT Image 的编辑接口默认 input_fidelity=low：它可能只借人物类型/构图，重新捏一张脸。
         // 角色参考照的产品语义是身份锚，因此必须显式请求 high。
@@ -6498,10 +6958,21 @@ async function generateSelfieImage(prompt, refPhotoDataUrl, opts) {
         };
         r = await sendEdits(rfOff);
         if (!rfOff && await rfRejected(r)) r = await sendEdits(true);
+        // 动图带参考照被打回「帧数须为整数」（群友 2026-11-06 邮票卡面）：multipart 里字段只能是字符串，
+        //   有的站按类型校验就不认。换成 JSON 发一次：参考照编成 data URL 放进 images，帧数、时长是真数字
+        if (opts && opts.gif && r && !r.ok && /frame|帧数|整数|integer/i.test(await r.clone().text().catch(() => ""))) {
+          const imgs = [];
+          for (const b of refBlobs) { try { imgs.push({ image_url: await blobToDataUrl(b) }); } catch (e) {} }
+          const jb = { model: a.model || "gpt-image-2", prompt: promptText, size, n: 1, images: imgs, input_fidelity: "high",
+            output_format: "gif", frame_count: Math.max(2, Math.min(16, Number(opts.gifFrames) || 8)), frame_duration_ms: Math.max(40, Math.min(1000, Number(opts.gifMs) || 120)) };
+          if (!rfOff) jb.response_format = "b64_json"; if (qualityOverride) jb.quality = qualityOverride;
+          r = await fetch(root + "/images/edits", { method: "POST", headers: { "Content-Type": "application/json", Authorization: "Bearer " + a.apiKey }, body: JSON.stringify(jb), signal: ctrl.signal });
+        }
       } else {
         // slim = 裸参数重试：有些中转不认 quality/response_format 这类可选参数，只发必填的
         const body = { model: a.model || "gpt-image-2", prompt: promptText, size, n: 1 };
         if (!slim) { if (!rfOff) body.response_format = "b64_json"; if (qualityOverride) body.quality = qualityOverride; }
+        if (opts && opts.gif) { body.output_format = "gif"; body.frame_count = Math.max(2, Math.min(16, Number(opts.gifFrames) || 8)); body.frame_duration_ms = Math.max(40, Math.min(1000, Number(opts.gifMs) || 120)); }
         const sendGen = () => fetch(root + "/images/generations", { method: "POST", headers: { "Content-Type": "application/json", Authorization: "Bearer " + a.apiKey }, body: JSON.stringify(body), signal: ctrl.signal });
         r = await sendGen();
         if (!rfOff && body.response_format && await rfRejected(r)) { delete body.response_format; r = await sendGen(); }
@@ -6510,7 +6981,7 @@ async function generateSelfieImage(prompt, refPhotoDataUrl, opts) {
       //   不是时好时坏，是这家只开了纯文字那扇门。直接说清楚往哪儿走，别甩一句 Not Found 给她猜
       if (!isNative && !chatFirst && useRef && refBlobs.length && r && r.status === 404)
         throw new Error("这个站的出图接口不收参考照（带照片的那扇门 /images/edits 回了 404 Not Found，纯文字那扇是通的）。把「请求方式」换成「聊天接口」再测一次；还不行就去问你用的那家，带参考图要走哪个接口，或者打开「这个站不锁脸」只发文字出图（长相不保证像）");
-      if (!isNative && !chatFirst && a.apiFormat !== "images" && !r.ok) {
+      if (!isNative && !chatFirst && a.apiFormat !== "images" && !r.ok && !(opts && opts.gif)) {   // 动图不退聊天接口：那边出不了动的，退了就静悄悄变成一张静图
         // 出图接口不通：404/405，或者回的错一看就是「这条路不对」（缺 contents/messages、不支持这个模型）→ 改走一次聊天接口
         const peek = r.status === 404 || r.status === 405 ? "" : await r.clone().text().catch(() => "");
         if (r.status === 404 || r.status === 405 || /contents is required|messages.{0,20}required|not support|unsupported|no available channel|无可用渠道|不支持/i.test(peek)) r = await chatFetch();
@@ -6831,7 +7302,7 @@ const TTS_VOICES = [
   { id: "audiobook_female_1", name: "温柔叙述·女" }, { id: "presenter_female", name: "女主播" }, { id: "lovely_girl", name: "俏皮女孩" }
 ];
 // ---- 音频缓存 IndexedDB（大二进制不进 localStorage/云同步）----
-function idbAudOpen() { return new Promise((res, rej) => { const r = indexedDB.open("x_tts", 1); r.onupgradeneeded = () => { if (!r.result.objectStoreNames.contains("aud")) r.result.createObjectStore("aud"); }; r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); }); }
+function idbAudOpen() { return idbKeep("x_tts", 1, db => { if (!db.objectStoreNames.contains("aud")) db.createObjectStore("aud"); }); }
 async function idbAudPut(k, blob) { const db = await idbAudOpen(); return new Promise((res, rej) => { const tx = db.transaction("aud", "readwrite"); tx.objectStore("aud").put(blob, k); tx.oncomplete = () => res(); tx.onerror = () => rej(tx.error); }); }
 async function idbAudGet(k) { const db = await idbAudOpen(); return new Promise((res, rej) => { const tx = db.transaction("aud", "readonly"); const rq = tx.objectStore("aud").get(k); rq.onsuccess = () => res(rq.result || null); rq.onerror = () => rej(rq.error); }); }
 function ttsCacheKey(voiceId, text) { let hsh = 5381; const s = voiceId + "|" + text; for (let i = 0; i < s.length; i++) hsh = (hsh * 33 + s.charCodeAt(i)) >>> 0; return "tts_" + voiceId + "_" + hsh.toString(36) + "_" + s.length; }
@@ -6841,15 +7312,18 @@ function ttsCacheKey(voiceId, text) { let hsh = 5381; const s = voiceId + "|" + 
 // localStorage 只留 iv_<hash> 引用键；渲染前用 resolveImg() 换成 objectURL（开机 hydrateImgVault 一次性把
 // 图库全读进内存缓存，Avatar 等同步组件可直接同步取用，不用每处改成异步）。此阶段纯新增、无处调用、零行为改动。
 // ============================================================
-function idbVaultOpen() { return new Promise((res, rej) => { const r = indexedDB.open("x_imgvault", 2); r.onupgradeneeded = () => { if (!r.result.objectStoreNames.contains("img")) r.result.createObjectStore("img"); if (!r.result.objectStoreNames.contains("album")) r.result.createObjectStore("album"); }; r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); }); }
-async function idbVaultPutOnly(k, blob) { const db = await idbVaultOpen(); return new Promise((res, rej) => { const tx = db.transaction("img", "readwrite"); tx.objectStore("img").put(blob, k); tx.oncomplete = () => res(); tx.onerror = () => rej(tx.error); }); }
+function idbVaultUp(db) { if (!db.objectStoreNames.contains("img")) db.createObjectStore("img"); if (!db.objectStoreNames.contains("album")) db.createObjectStore("album"); }
+function idbVaultOpen() { return idbKeep("x_imgvault", 2, idbVaultUp); }
+// 图库是最密的一条路（头像／壁纸／聊天图／朋友圈图全走它），读写一律走重试那一层
+function idbVaultWith(run) { return idbWith("x_imgvault", 2, idbVaultUp, run); }
+function idbVaultPutOnly(k, blob) { return idbVaultWith(db => new Promise((res, rej) => { const tx = db.transaction("img", "readwrite"); tx.objectStore("img").put(blob, k); tx.oncomplete = () => res(); tx.onabort = tx.onerror = () => rej(tx.error || new Error("vault put abort")); })); }
 // ⚠️三层里【原生壳那一层原来只有 selfies 有】（她 2026-09-09 让我查生图有没有上 VPS
 //   时挖出来的）：idbImgPut 写完本机还会 nativeMediaPut("selfies")，读不到时也回原生壳要；
 //   vault 这一头两样都没有——而 vault 才是大头（头像/参考照/壁纸/聊天图/朋友圈图/
 //   小剧场/跑团/同人封面全在这儿）。典型的「一层写在两处，第二处没跟上」：
 //   说好的三层，vault 一直只有两层。补齐，写和读都补。
 async function idbVaultPut(k, blob) { await idbVaultPutOnly(k, blob); await nativeMediaPut("vault", k, blob); mediaQueueAdd("vault", k); mediaDrain(4); }
-async function idbVaultGetOnly(k) { const db = await idbVaultOpen(); return new Promise((res, rej) => { const tx = db.transaction("img", "readonly"); const rq = tx.objectStore("img").get(k); rq.onsuccess = () => res(rq.result || null); rq.onerror = () => rej(rq.error); }); }
+function idbVaultGetOnly(k) { return idbVaultWith(db => new Promise((res, rej) => { const tx = db.transaction("img", "readonly"); const rq = tx.objectStore("img").get(k); rq.onsuccess = () => res(rq.result || null); tx.onabort = rq.onerror = () => rej(rq.error || new Error("vault get abort")); })); }
 async function idbVaultGet(k) { const own = await idbVaultGetOnly(k).catch(() => null); if (own) return own; const native = await nativeMediaGet("vault", k); if (native && native.size) { try { await idbVaultPutOnly(k, native); } catch (e) {} return native; } const far = await remoteMediaGet("vault", k); if (far && far.size) { try { await idbVaultPutOnly(k, far); } catch (e) {} return far; } return null; }
 async function idbVaultDel(k) { const db = await idbVaultOpen(); await new Promise(res => { const tx = db.transaction("img", "readwrite"); tx.objectStore("img").delete(k); tx.oncomplete = () => res(); tx.onerror = () => res(); }); await nativeMediaDel("vault", k); await remoteMediaDel("vault", k); }
 // 清空图库（导入 v2+ 备份前用：旧机器攒的孤儿 blob 不再带进新档，防止越导越大）
@@ -6858,8 +7332,11 @@ async function idbVaultEntries() { const db = await idbVaultOpen(); return new P
 // 真照片目录只存轻量索引，像素仍在 img store。删除目录项不删像素，避免误伤仍被聊天引用的照片。
 async function idbAlbumPut(meta) { if (!meta || !meta.imageRef) return; const db = await idbVaultOpen(); const old = await idbAlbumGet(meta.imageRef); const row = Object.assign({ imageRef: meta.imageRef, caption: "", source: "chat", createdAt: Date.now() }, old || {}, meta); return new Promise((res, rej) => { const tx = db.transaction("album", "readwrite"); tx.objectStore("album").put(row, row.imageRef); tx.oncomplete = () => res(row); tx.onerror = () => rej(tx.error); }); }
 async function idbAlbumGet(k) { const db = await idbVaultOpen(); return new Promise(res => { const tx = db.transaction("album", "readonly"); const rq = tx.objectStore("album").get(k); rq.onsuccess = () => res(rq.result || null); rq.onerror = () => res(null); }); }
-async function idbAlbumEntries() { const db = await idbVaultOpen(); return new Promise(res => { const tx = db.transaction("album", "readonly"); const rq = tx.objectStore("album").getAll(); rq.onsuccess = () => res((rq.result || []).sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0))); rq.onerror = () => res([]); }); }
-async function idbAlbumDel(k) { const db = await idbVaultOpen(); return new Promise(res => { const tx = db.transaction("album", "readwrite"); tx.objectStore("album").delete(k); tx.oncomplete = () => res(); tx.onerror = () => res(); }); }
+async function idbAlbumEntries() { const db = await idbVaultOpen(); return new Promise(res => { const tx = db.transaction("album", "readonly"); const rq = tx.objectStore("album").getAll(); rq.onsuccess = () => res((rq.result || []).filter(r => r && !r.gone).sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0))); rq.onerror = () => res([]); }); }
+// 移出时在同一张表里留一张「移出过」的条子（gone:键）：「把以前聊天里的照片找回来」认得它，不再把她亲手移出的收回去
+//   （她 2026-11-01 群友：「移除照片之后，然后再刷新就还能移回来」）。条子不进列表、不占像素。
+async function idbAlbumGoneSet() { const db = await idbVaultOpen(); return new Promise(res => { const tx = db.transaction("album", "readonly"); const rq = tx.objectStore("album").getAllKeys(); rq.onsuccess = () => res(new Set((rq.result || []).map(String).filter(k => k.indexOf("gone:") === 0).map(k => k.slice(5)))); rq.onerror = () => res(new Set()); }); }
+async function idbAlbumDel(k) { const db = await idbVaultOpen(); return new Promise(res => { const tx = db.transaction("album", "readwrite"); const st = tx.objectStore("album"); st.delete(k); if (String(k).indexOf("gone:") !== 0) st.put({ imageRef: "gone:" + k, gone: true, at: Date.now() }, "gone:" + k); tx.oncomplete = () => res(); tx.onerror = () => res(); }); }
 async function rememberRealPhoto(imageRef, caption, source) { if (!imageRef || String(imageRef).indexOf("iv_") !== 0) return; try { await idbAlbumPut({ imageRef, caption: String(caption || "").trim(), source: source || "chat", createdAt: Date.now() }); } catch (e) {} }
 // data:URL → Blob（base64 或 URI 编码都支持）
 function dataUrlToBlob(dataUrl) { const m = /^data:([^;,]+)?(;base64)?,([\s\S]*)$/.exec(String(dataUrl || "")); if (!m) return null; const mime = m[1] || "image/png"; if (m[2]) { const bin = atob(m[3]); const arr = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i); return new Blob([arr], { type: mime }); } return new Blob([decodeURIComponent(m[3])], { type: mime }); }
@@ -6984,13 +7461,17 @@ function durableTextNeedsLocalJournal(k) {
     && BIG.indexOf(k) < 0;
 }
 function _txtMirror() { const g = (typeof window !== "undefined") ? window : globalThis; if (!g.__txtMirror) g.__txtMirror = new Map(); return g.__txtMirror; }
-function idbTxtOpen() { return new Promise((res, rej) => { const r = indexedDB.open("x_txtvault", 1); r.onupgradeneeded = () => { if (!r.result.objectStoreNames.contains("txt")) r.result.createObjectStore("txt"); }; r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); }); }
-async function idbTxtPut(k, v) { const db = await idbTxtOpen(); return new Promise((res, rej) => { const tx = db.transaction("txt", "readwrite"); tx.objectStore("txt").put(v, k); tx.oncomplete = () => res(); tx.onerror = () => rej(tx.error); }); }
-async function idbTxtGet(k) { const db = await idbTxtOpen(); return new Promise((res, rej) => { const tx = db.transaction("txt", "readonly"); const rq = tx.objectStore("txt").get(k); rq.onsuccess = () => res(rq.result == null ? null : rq.result); rq.onerror = () => rej(rq.error); }); }
-async function idbTxtDel(k) { const db = await idbTxtOpen(); return new Promise((res, rej) => { const tx = db.transaction("txt", "readwrite"); tx.objectStore("txt").delete(k); tx.oncomplete = () => res(); tx.onerror = () => rej(tx.error); }); }
+function idbTxtOpen() { return idbKeep("x_txtvault", 1, db => { if (!db.objectStoreNames.contains("txt")) db.createObjectStore("txt"); }); }
+// 大仓库这一下没开成／事务被系统掐断（切后台回来最常见）：再开一次重跑，两次都不成才算真失败。
+//   跟保险箱那层（walWith）是同一个形状、同一个病根；最吃紧的是开机 idbTxtAll 那一下——
+//   它失败一次，界面上就是一台空手机（群友 2026-11-02：「只剩第 28 天，人全没了」）。
+function idbTxtRun(run) { return idbTxtOpen().then(run).catch(e => idbTxtOpen().then(run)); }
+function idbTxtPut(k, v) { return idbTxtRun(db => new Promise((res, rej) => { const tx = db.transaction("txt", "readwrite"); tx.objectStore("txt").put(v, k); tx.oncomplete = () => res(); tx.onerror = () => rej(tx.error); })); }
+function idbTxtGet(k) { return idbTxtRun(db => new Promise((res, rej) => { const tx = db.transaction("txt", "readonly"); const rq = tx.objectStore("txt").get(k); rq.onsuccess = () => res(rq.result == null ? null : rq.result); rq.onerror = () => rej(rq.error); })); }
+function idbTxtDel(k) { return idbTxtRun(db => new Promise((res, rej) => { const tx = db.transaction("txt", "readwrite"); tx.objectStore("txt").delete(k); tx.oncomplete = () => res(); tx.onerror = () => rej(tx.error); })); }
 async function idbTxtClear() { try { const db = await idbTxtOpen(); await new Promise((res, rej) => { const tx = db.transaction("txt", "readwrite"); tx.objectStore("txt").clear(); tx.oncomplete = () => res(); tx.onerror = () => rej(tx.error); }); } catch (e) {} try { _txtMirror().clear(); } catch (e) {} try { await walDeleteDurableTextKeys(); } catch (e) {} }
 // ⚠️读失败必须抛，不能当成「空的」：存档几乎全在这里，读失败当空 = 开机看见一台空手机。
-async function idbTxtAll() { const db = await idbTxtOpen(); return new Promise((res, rej) => { const tx = db.transaction("txt", "readonly"); const st = tx.objectStore("txt"); let ks = null, vs = null; const done = () => { if (ks && vs) res(ks.map((k, i) => [k, vs[i]])); }; const kq = st.getAllKeys(); const vq = st.getAll(); kq.onsuccess = () => { ks = kq.result || []; done(); }; vq.onsuccess = () => { vs = vq.result || []; done(); }; tx.onerror = () => rej(tx.error || new Error("文字库读不出来")); }); }
+function idbTxtAll() { return idbTxtRun(db => new Promise((res, rej) => { const tx = db.transaction("txt", "readonly"); const st = tx.objectStore("txt"); let ks = null, vs = null; const done = () => { if (ks && vs) res(ks.map((k, i) => [k, vs[i]])); }; const kq = st.getAllKeys(); const vq = st.getAll(); kq.onsuccess = () => { ks = kq.result || []; done(); }; vq.onsuccess = () => { vs = vq.result || []; done(); }; tx.onerror = () => rej(tx.error || new Error("文字库读不出来")); })); }
 // 云恢复用：只替换备份里归文字仓管理的键；preserveKeys（如行表权威的 x_memLib）原样保留。
 // 完成后调用方才允许 reload，避免大线下记录异步写到一半被刷新截断。
 async function idbTxtApplySnapshot(data, preserveKeys) {
@@ -7049,6 +7530,8 @@ async function hydrateTxtVault() {
     //   镜像会被上云和导出整份带走（cloud.js 那一处 forEach），放进去等于把旧副本也推上去。
     for (const [k, v] of entries) {
       if (!k || v == null || String(k).indexOf("x_lsjournal_rescue:") === 0 || _txtEarlyWrites.has(k)) continue;
+      // 聊天变短时留的那份：只躺在 IDB，不进镜像（不导出、不上云）；过了 14 天就清掉
+      if (String(k).indexOf("x_shrinkBak:") === 0) { const m = /^\{"at":(\d+)/.exec(String(v)); if (!m || Date.now() - Number(m[1]) > SHRINK_KEEP_MS) idbTxtDel(k).catch(() => {}); continue; }
       if (isIdbTextKey(k)) { mir.set(k, v); continue; }
       // 钉回小仓库的键（LS_ONLY_KEYS / lsPin）：IDB 里那份原样搬回 localStorage，读回一致才删 IDB。
       //   localStorage 已经有一份的，以它为准（开机前读写的就是它），IDB 那份不动、也不进镜像。
@@ -7092,8 +7575,13 @@ async function hydrateTxtVault() {
       for (const k of durableWalKeys) {
         if (lsRaw.get(k) != null) continue; // journal 更可能是刚写的新版本，由上面的迁移负责
         const s = await walGetRaw(k); if (s == null) continue;
-        await idbTxtPut(k, s); const back = await idbTxtGet(k);
-        if (back === s) { mir.set(k, s); await walDel(k); }
+        // ⚠️WAL 只在 IDB 读回一致后才删，所以开机还在的那份【一定不比 IDB 旧】。
+        //   原来只有补进 IDB 成功才放进镜像：补不进去（满了、iOS 一时打不开）时镜像留的是 IDB 那份旧的，
+        //   界面就显示旧聊天，她再发一句，旧的连着新的一句一起写回去——WAL 里那一晚就被盖掉了
+        //   （群友 2026-11-01「早上进来昨晚十点以后的都没了」）。现在先认 WAL，IDB 补不进去就留着 WAL 下次再补。
+        mir.set(k, s);
+        try { await idbTxtPut(k, s); const back = await idbTxtGet(k); if (back === s) await walDelIf(k, s); }
+        catch (e) { console.error("WAL→IDB 补写没成，先用 WAL 那份:", k, e); txtWriteFailed(k, e); }
       }
     } catch (e) {
       console.error("durable text WAL recovery failed:", e);
@@ -7127,22 +7615,81 @@ async function imgToVault(dataUrl) { if (!dataUrl || typeof dataUrl !== "string"
 // 渲染用：iv_ 键 -> objectURL（缓存里没有就返回空串，图不显示但不崩）；其它（base64/http/空）原样返回。向后兼容旧存档。
 // 保存原图(2026-08-21 她抓的产品缺陷:原图在 IDB 里是无损的,却只能截屏翻拍)
 // ref 可以是 iv_/img_ 键或 dataURL;取出 Blob 触发下载,文件名带日期。
-async function saveImgOriginal(ref, name) {
-  let blob = null;
+async function _imgBlobOf(ref) {
   try {
-    if (typeof ref === "string" && ref.indexOf("iv_") === 0) blob = await imgVaultFetchBlob(ref);
-    else if (typeof ref === "string" && ref.indexOf("img_") === 0) blob = await idbImgGet(ref);
-    else if (typeof ref === "string" && ref.slice(0, 5) === "data:") blob = dataUrlToBlob(ref);
+    if (typeof ref === "string" && ref.indexOf("iv_") === 0) return await imgVaultFetchBlob(ref);
+    if (typeof ref === "string" && ref.indexOf("img_") === 0) return await idbImgGet(ref);
+    if (typeof ref === "string" && ref.slice(0, 5) === "data:") return dataUrlToBlob(ref);
     // 网址的也认（小窝的预览图是后端地址，2026-10-16「小窝上传的图片能不能也保存」）：拉下来再走同一条存法
-    else if (typeof ref === "string" && /^(https?:|blob:)/.test(ref)) { const r = await fetch(ref); if (r.ok) blob = await r.blob(); }
+    if (typeof ref === "string" && /^(https?:|blob:)/.test(ref)) { const r = await fetch(ref); if (r.ok) return await r.blob(); }
   } catch (e) {}
-  if (!blob) return false;
-  const ext = (blob.type || "").indexOf("png") >= 0 ? "png" : ((blob.type || "").indexOf("webp") >= 0 ? "webp" : "jpg");
-  // 跟存文本走同一条路：iOS 的 PWA 里 <a download> 点了什么都不会发生，得先给分享面板
-  const fname = (name || "图片") + "-" + new Date().toISOString().slice(0, 10) + "." + ext;
-  const via = await saveFile(new File([blob], fname, { type: blob.type || "image/jpeg" }));
-  return via !== "cancel";
+  return null;
 }
+function _imgFileOf(blob, name, n) {
+  const ext = (blob.type || "").indexOf("png") >= 0 ? "png" : ((blob.type || "").indexOf("webp") >= 0 ? "webp" : "jpg");
+  // 文件名只用英文数字（她 2026-11-01 再报「还是只能共享相册」）：中文名有的 iOS 不当成照片，面板里不给「存储图像」
+  const fname = "photo-" + new Date().toISOString().slice(0, 10).replace(/-/g, "") + "-" + Date.now().toString(36).slice(-4) + (n ? "-" + n : "") + "." + ext;
+  return new File([blob], fname, { type: blob.type || "image/jpeg" });
+}
+// 看文件头认真实格式：标签写着 jpeg、里面其实是 webp 的（生图接口常这样），iOS 读出来对不上也不给「存储图像」
+async function _imgRealType(blob) {
+  try {
+    const b = new Uint8Array(await blob.slice(0, 12).arrayBuffer());
+    if (b[0] === 0xFF && b[1] === 0xD8 && b[2] === 0xFF) return "image/jpeg";
+    if (b[0] === 0x89 && b[1] === 0x50 && b[2] === 0x4E && b[3] === 0x47) return "image/png";
+    if (b[0] === 0x52 && b[1] === 0x49 && b[2] === 0x46 && b[3] === 0x46 && b[8] === 0x57 && b[9] === 0x45 && b[10] === 0x42 && b[11] === 0x50) return "image/webp";
+    return "";
+  } catch (e) { return ""; }
+}
+// 她 2026-10-31：「还是不能直接保存到相册，就多了一个共享相册的选项」——
+//   iOS 只有认准是 jpg/png 的文件才给「存储图像」。库里有的图是 webp、或者类型是空的／octet-stream，
+//   分享面板就只给「共享相簿」「存到文件」。所以交出去之前统一成真 jpg/png（png 无损，原图清晰度不变）。
+async function _imgPhotoReady(blob) {
+  const real = await _imgRealType(blob);
+  if (real === "image/jpeg" || real === "image/png") return blob.type === real ? blob : new Blob([blob], { type: real });
+  try {
+    const bmp = await createImageBitmap(blob);
+    const c = document.createElement("canvas"); c.width = bmp.width; c.height = bmp.height;
+    c.getContext("2d").drawImage(bmp, 0, 0);
+    const out = await new Promise(r => c.toBlob(r, "image/png"));
+    return out && out.size ? out : blob;
+  } catch (e) { return blob; }
+}
+async function saveImgOriginal(ref, name) {
+  const r = await saveImgsBatch([{ ref: ref, name: name }]);
+  return r.n > 0;
+}
+// 一次存好多张（她 2026-10-31：「苹果保存还要先存文件才能从文件保存」）。
+//   iOS：一个分享面板里放 N 张图，面板上就是「存储 N 张图像」，一下进相册。
+//   ⚠️不带 title：带着文件名标题时 iOS 会把它当成文件，面板里只剩「存储到文件」。
+//   ⚠️分享面板只能在她那一下点按里弹一次，不能连着弹第二个。所以一面板最多 BATCH 张，
+//     放不下的原样退回 left，界面留着没存的那几张、让她再点一下。
+//   安卓、没有分享面板的：一张张走普通下载（安卓那条见 saveFile 的注释）。
+// items: [{ ref, name }]；回 { n: 存了几张, left: 没轮到的 items, miss: 取不到图的张数, via }
+const IMG_BATCH = 30;
+async function saveImgsBatch(items) {
+  const list = (Array.isArray(items) ? items : []).filter(x => x && x.ref);
+  const take = list.slice(0, IMG_BATCH), left = list.slice(IMG_BATCH);
+  const files = []; let miss = 0;
+  for (let i = 0; i < take.length; i++) {
+    const b = await _imgBlobOf(take[i].ref);
+    if (b && b.size) files.push(_imgFileOf(await _imgPhotoReady(b), take[i].name, take.length > 1 ? files.length + 1 : 0)); else miss++;
+  }
+  if (!files.length) return { n: 0, left: left, miss: miss, via: "none" };
+  if (typeof navigator !== "undefined" && navigator.share && !_isAndroid() && (!navigator.canShare || navigator.canShare({ files: files }))) {
+    const t0 = Date.now();
+    try { await navigator.share({ files: files }); return { n: files.length, left: left, miss: miss, via: "share" }; }
+    catch (e) {
+      if (e && (e.name === "AbortError" || /abort|cancel/i.test(String(e.message || ""))) && Date.now() - t0 > 1000) return { n: 0, left: list, miss: 0, via: "cancel" };
+    }
+  }
+  for (let i = 0; i < files.length; i++) {
+    await saveFile(files[i], { noShare: true });
+    if (i < files.length - 1) await new Promise(ok => setTimeout(ok, 350));
+  }
+  return { n: files.length, left: left, miss: miss, via: "download" };
+}
+if (typeof window !== "undefined") window.saveImgsBatch = saveImgsBatch;
 if (typeof window !== "undefined") window.saveImgOriginal = saveImgOriginal;
 // 生图结果 → 图库门牌（iv_）。⚠️有的中转只回一个图片地址，generateSelfieImage 会替它拉成 blob，
 //   这时 dataUrl 是 null——原来头像、时刻封面、时刻配图三处都只认 dataUrl/url，于是「一直不成功」
@@ -7196,8 +7743,8 @@ async function saveTextFile(filename, text, mime) {
 //   原来一律当成「她点了取消」就收手，于是永远导不出来。安卓本来普通下载就能存进「下载」，直接走下载；
 //   别的平台上，「取消」要是一秒内就回来了，也当成面板没起来、改走下载（真的人手点取消没这么快）。
 const _isAndroid = () => { try { return /android/i.test(navigator.userAgent || ""); } catch (e) { return false; } };
-async function saveFile(file) {
-  if (typeof navigator !== "undefined" && navigator.share && !_isAndroid() && (!navigator.canShare || navigator.canShare({ files: [file] }))) {
+async function saveFile(file, opt) {
+  if (!(opt && opt.noShare) && typeof navigator !== "undefined" && navigator.share && !_isAndroid() && (!navigator.canShare || navigator.canShare({ files: [file] }))) {
     const t0 = Date.now();
     try {
       await navigator.share({ files: [file], title: file.name });
@@ -7234,6 +7781,18 @@ function _imgPullMiss(k) {
       clearTimeout(_imgPull.t); _imgPull.t = setTimeout(() => { try { window.dispatchEvent(new CustomEvent("img-vault-filled")); } catch (e) {} }, 300); }
     else _imgPull.failAt.set(k, Date.now());
   }).catch(() => _imgPull.failAt.set(k, Date.now())).finally(() => _imgPull.busy.delete(k));
+}
+// 一张图的 blob 地址作废了：把它从内存缓存里摘掉，回仓库重新取一张新的，取到了通知界面重画。
+//   ⚠️不许只摘不补：摘掉而不重取的话，界面只会从裂图变成空白。
+function imgBlobBroken(url) {
+  const c = _imgCache();
+  let key = null;
+  c.forEach((v, k) => { if (v === url) key = k; });
+  if (!key) return;
+  c.delete(key);
+  _imgPull.failAt.delete(key);
+  try { URL.revokeObjectURL(url); } catch (e) {}
+  _imgPullMiss(key);
 }
 function resolveImg(v) { if (!v || typeof v !== "string") return v; if (v.indexOf("iv_") === 0) { const u = _imgCache().get(v); if (!u) _imgPullMiss(v); return u || ""; } return v; }
 // 取图统一兜底(单11,2026-08-14):iOS IDB 写后立读偶发返 null(v47.36 案卷),但 imgToVault 存图时
@@ -7289,6 +7848,10 @@ async function expandMessageImages(msgs, budget, meta) {
           if (!blob) { await new Promise(rs => setTimeout(rs, 450)); blob = await imgVaultFetchBlob(ref); }
           if (blob) imageDataUrls.push(await blobToDataUrl(blob));
           else console.warn("[img] vault miss after retries:", ref);
+        } else if (typeof idbImgGet === "function") {
+          // 照片仓（自拍、他发的照片、商品图 img_…）：原来这一类一律跳过——他发出去的照片、她的自拍，模型从来没真看到过
+          const blob = await idbImgGet(ref);
+          if (blob) imageDataUrls.push(await blobToDataUrl(blob));
         }
       } catch (e) { console.warn("[img] expand failed:", ref, e); }
     }
@@ -7317,7 +7880,17 @@ function speechSpans(text) {
 }
 function extractSpeech(text) {
   // 剥掉嵌套残留的引号字符（如「TA喊『快跑』」外层会连内层『』一起吃进来），别念出括号
-  return speechSpans(text).map(x => x.inner).join("\n");
+  // 台词里「外语（中文）」括号那句是译文，不念（群友 2026-11-04：线下语音把括号里的翻译也念出来了）
+  return speechSpans(text).map(x => sayDropZh(x.inner)).join("\n");
+}
+// 念的时候：一句外语后面跟着「（中文）」，括号里那句是译文，不念。线上 sayTextOf、线下 extractSpeech 共用这一份
+function sayDropZh(line) {
+  const s = String(line || ""), FOREIGN = /[\u3040-\u30ff\uac00-\ud7af\u0400-\u04ffA-Za-z\u00c0-\u024f]/;
+  const bi = typeof splitBilingual === "function" ? splitBilingual(s.trim(), false) : null;
+  if (bi && bi.text) return bi.text;
+  // 括号没合上也算（台词引号先收了口：「외국어（中文」）
+  const pm = s.trim().match(/^([\s\S]*?\S)\s*[（(]([^（）()]+)[）)]?\s*$/);
+  return pm && FOREIGN.test(pm[1]) && /[\u4e00-\u9fff]/.test(pm[2]) && !FOREIGN.test(pm[2]) ? pm[1] : s;
 }
 // 按台词内容粗判语气 → MiniMax emotion 参数（本地零成本兜底——首选是消息自带的作者标注 m.emo，见 v48.31）。
 // v48.31 扩了词表；仍然只是猜字面，猜不出潜台词，所以只当兜底。
@@ -7397,12 +7970,9 @@ function sayTextOf(m) {
   let lines = raw.split(/\n+/);
   try { if (typeof joinBilingualLines === "function") lines = joinBilingualLines(lines, false, { pairNext: true }) || lines; } catch (e) {}
   const out = lines.map(x => {
-    const line = String(x || "").trim(), bi = splitBilingual(line, false);
-    if (bi) return bi.text;
     // 念的时候「外语（中文）」括号里那句也不念：界面上（）可能是动作不敢劈，可点读时外语后面跟一句中文就是译文
-    const pm = line.match(/^([\s\S]*?\S)\s*[（(]([^（）()]+)[）)]\s*$/);
-    if (pm && FOREIGN.test(pm[1]) && /[\u4e00-\u9fff]/.test(pm[2]) && !FOREIGN.test(pm[2])) return pm[1];
-    return line;
+    const line = String(x || "").trim(), bi = splitBilingual(line, false);
+    return bi ? bi.text : sayDropZh(line);
   }).filter(x => String(x).trim());
   return out.join("\n");
 }
@@ -7429,6 +7999,47 @@ function ttsHasMark(text) {
 // 这句里有没有声音标签（(sighs) 那种）——单聊、群聊认语音都问这一处
 function ttsHasSoundTag(text) { return new RegExp(TTS_MARK_TAG_RE.source, "i").test(String(text == null ? "" : text)); }
 function stripPauseMarks(text) { return String(text == null ? "" : text).replace(TTS_MARK_PAUSE, "").replace(/[ \t]{2,}/g, " ").trim(); }
+// 屏幕上的公共兜底（她 2026-11-02：「为什么这些掉格式不做一个公共的兜底」）：
+//   模型漏出来的那几样记号——念给 TTS 的停顿 <#0.7#>、声音标签 (sighs)、多转义一层的字面 \n、
+//   我们写在历史里的〔〕（时间标注整个摘，别的换成（））——全在这一处剥。TransText（全库正文那条路）、
+//   查手机便签、拆气泡都调它；新冒出一种就加在这儿，别再在哪个页面单独补。她自己打的字（isU）只剥停顿。
+function privateBracketFix(text) {
+  return String(text == null ? "" : text)
+    .replace(/\s*〔\s*(?:(?:今天|昨天|前天)\s*|\d{1,2}\/\d{1,2}\s*)?\d{1,2}[:：]\d{2}\s*〕\s*/g, " ")
+    .replace(/〔([^〔〕\n]{1,120})〕/g, "（$1）");
+}
+// 推演里 TA 亲口写的外语要带中译（她 2026-11-06「你倒是接公共别每一处自己写」）：同一轮顺手写，不额外花钱。
+//   朋友圈、匿名箱……要中译的地方都从这一份拿说法、字段和收法，别再各写一段。
+//   on：跟聊天设置那颗「双语」走（工程师之眼开着不要）；spec(what, extra)：拼进 instruction；field(key, what)：拼进 schemaHint；take(v)：收回来的值，null/空 → ""。
+const ProbeZh = {
+  on: (settings) => !!(settings && settings.bilingual && !settings.engineerEyes),
+  spec: (what, extra) => "\n\n【" + what + "要带中译】你用的不是中文的话，在 zh 里给出" + what + "的简体中文翻译："
+    + "只译正文、保留原话的语气和口吻，不要注音、不要解释、不要引号。" + (extra || "") + "本来就用中文写的，zh 填 null。",
+  field: (key, what) => ",\"" + key + "\":\"" + what + "的中译或null\"",
+  take: v => { const z = String(v == null ? "" : v).trim(); return z && z.toLowerCase() !== "null" ? z : ""; }
+};
+if (typeof window !== "undefined") window.ProbeZh = ProbeZh;
+function showClean(text, isU) {
+  let s = String(text == null ? "" : text);
+  if (!s) return s;
+  if (s.indexOf("<#") >= 0) s = stripPauseMarks(s);
+  if (isU) return s;
+  // 模型把格式说明「原文 | 中文」原样抄进了正文（她 2026-11-04 心声截图）：那半截是说明不是话，摘掉，剩下的才劈得开
+  if (s.indexOf("原文") >= 0) s = s.replace(/^\s*[「『【\[(（]?\s*原文\s*[|｜│︱┃]\s*中文\s*[」』】\])）]?\s*[:：]?\s*/, "");
+  if (s.indexOf("(") >= 0 && ttsHasSoundTag(s)) s = ttsMarkStrip(s);
+  if (s.indexOf("\\n") >= 0) s = s.replace(/\\r\\n|\\n/g, "\n");
+  if (s.indexOf("〔") >= 0) s = privateBracketFix(s).replace(/ {2,}/g, " ").trim();
+  if (s.indexOf("[") >= 0) s = stripCtxTagEcho(s);
+  return s;
+}
+// 模型把 app 给它看的记录标签原样抄进了回话（群友 2026-11-06 截图：「热乎的垫垫肚子 [你给 Lisa 点了外卖：……（骑手在路上）]」）：
+//   那几种 [你给 X 点了外卖：…] [X 给你点了外卖：…] [送给你一份礼物：…] [已经实际发出…] 是写给模型看的旁注，不是话。
+//   只认这几种开头，别的方括号一个不碰；摘完整条空了就原样留着（宁可露也别吞成空气泡）。
+const CTX_TAG_ECHO_RE = /\s*\[(?:你给[^\]\n]{0,40}?(?:点了外卖|寄了|转账|送了)|[^\]\n]{0,24}?给你(?:点了外卖|寄了|转账|送了)|送给你一份礼物|你给对方寄了|已经实际发出|发来一张|语音消息，说的不是打的|当着全群的面)[^\]\n]*?(?:\([^)\n]*\)[^\]\n]*?|（[^）\n]*）[^\]\n]*?)*\]/g;
+function stripCtxTagEcho(s) {
+  const out = s.replace(CTX_TAG_ECHO_RE, "").replace(/ {2,}/g, " ").trim();
+  return out ? out : s;
+}
 function ttsHasPause(text) {
   const s = String(text == null ? "" : text);
   return !!s && s.replace(TTS_MARK_PAUSE, "") !== s;
@@ -7460,6 +8071,15 @@ function earlierRecallIdx(list, mine, text) {
   return -1;
 }
 function emoteSlotOf(w) { const m = EMOTE_SLOT_RE.exec(String(w == null ? "" : w)); return m ? Number(m[1]) : null; }
+// 语音里夹着「[表情] xx」（她 2026-11-01 截图：语音条底下「他说的是：[表情] 死死抱住」）：
+//   模型把一张表情包写进了语音那句里。拆开：表情归表情，剩下的字才是他说出口的。单聊、群聊共用
+const VOICE_EMOTE_RE = /[\u3010\[\uff3b]\s*\u8868\u60c5(?:\u5305)?\s*[\u3011\]\uff3d]\s*[:\uff1a]?\s*([^\u3010\[\uff3b\n]{1,24}?)\s*$/;
+function splitVoiceEmote(text) {
+  const t = String(text == null ? "" : text);
+  const m = VOICE_EMOTE_RE.exec(t);
+  if (!m) return { voice: t, emote: "" };
+  return { voice: t.slice(0, m.index).replace(/[\s，,]+$/, "").trim(), emote: m[1].trim() };
+}
 function emoteSlotWords(words, emotes, emoteNorm) {
   // {"emote":"关键词"} 那一项：对象照认；模型把它写成了一串字（她 2026-10-17 截图：气泡里冒出 {"emote":"拿枪打你"}）也认
   const JSON_EMOTE = /^\s*[{｛]\s*["“”']?\s*(?:emote|sticker|表情(?:包)?)\s*["“”']?\s*[:：]\s*["“”']\s*([^"“”']+?)\s*["“”']\s*[}｝]\s*$/i;
@@ -7905,7 +8525,10 @@ function translatableLang(text) {
   //   「他叫阿佢」这种名字里沾一个字、通篇简体的照旧不算）。
   { const _yue = count(/[嘅咗唔啲喺嗰冇佢嚟咁乜嘢噉哋囉㗎嘞啱揾搵睇畀咩攰瞓諗谂嚿冚啩喎嗮噃嘥]/g);
     const _trad = typeof toSimplified === "function" && toSimplified(t) !== t;
-    if (_yue >= 2 || (_yue >= 1 && _trad && t.replace(/\s/g, "").length <= 20)) return "粤语"; }
+    // 简体粤语短句一个字也算（她 2026-11-07 截图：「我要瞓啦」「记低咗」一整轮没有译键）：只认普通话里
+    //   几乎碰不到的那几个，外加夹在两个汉字中间的「唔」（「睁唔开」；句首「唔，」是普通话的嗯）和「点解」
+    const _strong = count(/[咗瞓嘅啲喺冇嚟嘢哋囉㗎攰諗谂冚嗮噃嘥睇畀]|点解|點解|(?<=[\u4e00-\u9fff])唔(?=[\u4e00-\u9fff])/g);
+    if (_yue >= 2 || (_strong >= 1 && t.replace(/\s/g, "").length <= 30) || (_yue >= 1 && _trad && t.replace(/\s/g, "").length <= 20)) return "粤语"; }
   return "";
 }
 // 长文（思考链）用的判定（群里 2026-10-08「英文 cot 木有显示翻译按钮，就出现过一次」）：
@@ -7987,6 +8610,9 @@ function bilingualTurnHint(who) {
 //   这种人开着双语时左边全是汉字也算原文；不知道是谁说的，就再认一遍粤语专用字兜底。
 const HAN_LANG_RE = /粤|粵|广东|廣東|cantonese|上海|吴语|吳語|闽南|閩南|台语|台語|客家|潮汕|文言/i;
 function hanLangOf(c) { return HAN_LANG_RE.test(String((c && c.lang) || "")); }
+// 主语言设成粤语这类的角色：TA 发的每一句带汉字的都给「译」（她 2026-11-07「开了粤语作为主语言就应该给」），
+//   不再一句句猜像不像粤语——「仲要陪你数星星」单看认不出，可说这话的人说的就是粤语
+function hanLangHintOf(c) { if (!hanLangOf(c)) return ""; return /粤|粵|广东|廣東|cantonese/i.test(String(c.lang)) ? "粤语" : "外语"; }
 // 粤语这类角色漏了竖线时，这一泡该不该补中译（她 2026-10-11：「还是有时候不能出翻译」）：
 //   translatableLang 要两个粤语专用字才认，可「換就換，洗完澡…」一个都没有、只有繁体——对这种角色，
 //   有繁体或有一个粤语字就够了；通篇简体又没有粤语字的，才是TA在说普通话。
@@ -8029,28 +8655,35 @@ function accountCount(x) {
   return Math.round(parseFloat(m[1]) * mul);
 }
 function splitBilingual(text, hanLang) {
-  const t = String(text == null ? "" : text);
+  // 全角竖线也是那根竖线（群友 2026-11-03：「加竖线为啥没被识别成翻译」——全角 ｜ 没认）。下面 joinBilingualLines 同一句
+  const t = String(text == null ? "" : text).replace(/[｜│︱┃]/g, "|");
   const br = typeof bracketBilingual === "function" ? bracketBilingual(t) : null;
-  if (br) return br;
+  if (br) return br.zh && br.zh.indexOf("<#") >= 0 && typeof stripPauseMarks === "function" ? Object.assign({}, br, { zh: stripPauseMarks(br.zh).trim() }) : br;
   const i = t.indexOf("|");
   if (i <= 0 || i !== t.lastIndexOf("|")) return null;
   const orig = t.slice(0, i).trim(), zh = t.slice(i + 1).trim();
   if (!orig || !zh) return null;
   if (!/[\u4e00-\u9fff]/.test(zh)) return null;
   if (orig === zh) return null;
+  // 竖线右边带假名＝那半截还是日文，不是中译（她 2026-11-04 截图：「うん、今起きたとこ」挂成了译文）——
+  //   原文照留、译文当没给，底下那颗「译」照常能现翻
+  if (/[\u3040-\u30ff]/.test(zh)) return { text: orig, zh: "" };
   // 本来就是中文、竖线后面只是把同一句括起来又写了一遍（群里 2026-10-31 截图：「【想要】 | (想要)」原样摆在气泡里）：
   //   双语开着，模型连中文那几句也照格式套了一遍。译文就是原文——摘掉竖线那半截，只留原文
   const bare = x => x.replace(/[\s【】\[\]（）()「」『』"“”'‘’]/g, "");
   if (bare(orig) && bare(orig) === bare(zh)) return { text: orig, zh: "" };
   const foreign = /[\u3040-\u30ff\uac00-\ud7af\u1100-\u11ff\u3130-\u318f\u0400-\u04ffA-Za-z\u00c0-\u024f]/.test(orig);
   if (/[\u4e00-\u9fff]/.test(orig) && !foreign && !hanLang && !/[嘅咗唔啲喺嗰冇佢嚟咁乜嘢噉哋囉㗎嘞啱揾搵睇畀咩攰瞓諗谂嚿冚啩喎嗮晒噃咪嘥]/.test(orig)) return null;
-  return { text: orig, zh: zh };
+  // 译文那半截剥掉念给语音听的停顿记号（她 2026-11-04：「全部翻译的地方都弄了吧」）——原文留着，TTS 还要照它停。
+  //   劈双语只有这一处，所有译文（气泡、心声、通话字幕、线下、查手机……）都从这儿出来
+  return { text: orig, zh: zh.indexOf("<#") >= 0 && typeof stripPauseMarks === "function" ? stripPauseMarks(zh).trim() : zh };
 }
 // 模型把中译另起了一行（「ん？なに？」换行「|……嗯？什么？」）：拆泡是先按换行切的，
 //   竖线那一行就落单了——原文那泡没有译文，竖线连着中文自己成了一泡，中文还被再拆成好几泡
 //   （她 2026-09-29 截图，群里江识那几条）。所以拆泡之前先把「竖线打头」的那一行接回上一行。
 //   上一行自己已经有竖线的不接：那是两条各自完整的双语，接上反而一条都劈不开。
 function joinBilingualLines(lines, hanLang, opts) {
+  lines = (lines || []).map(x => x == null ? x : String(x).replace(/[｜│︱┃]/g, "|"));   // 全角竖线，同 splitBilingual
   // 【 开了没合上、】落在下一行的（同一张截图：「頭髮都未吹好【刚刚…」换行「头发都还没吹好】」）：先接成一行再说
   const brJoined = (lines || []).reduce((acc, x) => {
     const line = String(x == null ? "" : x), prev = acc.length ? acc[acc.length - 1] : null;
@@ -8075,11 +8708,23 @@ function joinBilingualLines(lines, hanLang, opts) {
     const HAN = /[\u4e00-\u9fff]/;
     // 「[表情] 可怜」「[图片]…」这类是发东西的标记，不是中译（她 2026-10-13 截图：日文下面那泡表情被当成了译文）
     const MARK = /^\s*[\[【〔]\s*(表情|图片|照片|语音|贴纸|转账|红包|位置|链接|视频|文件)/;
+    // ⚠️TA 这一轮是【中外夹着说】而不是「一句外语一句中译」时，下一行那句中文是他真说的话，
+    //   不是译文（群友 2026-11-03 截图：「Lisa你真的找死是不是？！」「Tu te fous…」「我数三下」
+    //   「把那两个字给我咽回去」——法语那泡的译文被配成了「我数三下」，整句意思全错）。
+    //   判据是【配完还剩不剩落单的中文】：真·双语那一轮每句外语后面都跟着自己的中译，配完一句不剩；
+    //   夹着说的那一轮会剩下几句自说自话的中文。剩了就整轮都不替他配——落单的外语那泡交给后面
+    //   translateToZh 去真翻一次，宁可多花一次接口，也不把隔壁那句话按在他头上。
+    //   发东西的标记（[表情]…）和括号里的旁白不算落单：它们本来就不是在说话。
+    const NARR = /^\s*[（(*＊「『]/;
+    const pairOne = (line, next) => next != null && line.indexOf("|") < 0 && next.indexOf("|") < 0
+      && (/[\u3040-\u30ff]/.test(line) || (FOREIGN.test(line) && !HAN.test(line))) && HAN.test(next) && !FOREIGN.test(next) && !MARK.test(next);   // 日文带汉字也算外语：有假名就认
+    const taken = new Set();
+    for (let k = 0; k < joined.length; k++) if (!taken.has(k) && pairOne(joined[k], joined[k + 1])) { taken.add(k); taken.add(k + 1); }
+    const orphanZh = joined.some((x, k) => !taken.has(k) && x.indexOf("|") < 0 && HAN.test(x) && !FOREIGN.test(x) && !MARK.test(x) && !NARR.test(x));
     const out0 = [];
     for (let k = 0; k < joined.length; k++) {
       const line = joined[k], next = joined[k + 1];
-      if (next != null && line.indexOf("|") < 0 && next.indexOf("|") < 0
-        && (/[\u3040-\u30ff]/.test(line) || (FOREIGN.test(line) && !HAN.test(line))) && HAN.test(next) && !FOREIGN.test(next) && !MARK.test(next)) {   // 日文带汉字也算外语：有假名就认
+      if (!orphanZh && pairOne(line, next)) {
         out0.push(line.trim() + " | " + next.trim()); k++;
       } else out0.push(line);
     }
@@ -8171,7 +8816,7 @@ function bilingualRule(who, hanLang) {
     + "\u4e2d\u6587\u8981\u6309 TA \u8bf4\u8bdd\u7684\u53e3\u6c14\u7ffb\uff08\u7528\u8bcd\u3001\u4eb2\u758f\u3001\u8bed\u6c14\u8bcd\u90fd\u8ddf\u7740\u8d70\uff09\uff0c\u4e0d\u662f\u5b57\u5178\u76f4\u8bd1\u3001\u4e0d\u8981\u7ffb\u8bd1\u8154\u3002"
     + "TA 真说中文的那些条（人设里写了 TA 会说中文的时候）\u3010\u7167\u5e38\u5199\uff0c\u4e00\u6839\u7ad6\u7ebf\u90fd\u522b\u52a0\u3011\uff1b对方用中文跟 TA 说话，不是 TA 改说中文的理由；\u4e00\u6761\u91cc\u6700\u591a\u53ea\u80fd\u6709\u8fd9\u4e00\u6839\u7ad6\u7ebf\u3002"
     + "\u5b83\u53ea\u662f\u7ed9\u5bf9\u65b9\u770b\u7684\u5b57\u5e55\uff0c\u4e0d\u6539\u53d8 TA \u8bf4\u4ec0\u4e48\u3001\u8bf4\u591a\u957f\u3001\u8bf4\u51e0\u6761\u3002"
-    + "右边说的必须是左边那句的意思，一个字都不能翻反：左边有「不」「没」、是反问，右边也照样有（她 2026-10-30：「C'est pas moi」被写成了「这就是我」）。"
+    + "右边说的必须是左边那句的意思，一个字都不能翻反：左边有「不」「没」、是反问，右边也照样有。"
     + "右边一律写简体、普通话的说法。" + (hanLang ? "粤语、上海话这类本来就用汉字写的话也算外语，照样写成「原文 | 普通话」。" : "")
     // 心声也带（她 2026-10-18：「翻译能不能让他顺手带上中文用竖线隔开跟消息一样」）——心声那颗「译」走免费翻译，网一断就翻不成
     + "心声（thought）是外语的话，也照这个写成「原文 | 中文」，一段心声只用一根竖线；动作、穿着这些状态字段不加。";
@@ -8808,7 +9453,13 @@ function groupBackgroundSegments(c, background, uName, opts) {
 // 常用语言（群友 2026-10-09：「建人物时能不能选这个人的常用语言，韩语就选韩语，日语就选日语」）：
 //   人物卷宗里选的那一项，留空＝中文、一个字都不发。只说「主要说什么」，什么时候冒别的话交给人设。
 //   单聊走 bundle（buildBundle 人设后面），群里、通话、直播的人设串挨着 groupPersonaText 接上——同一个函数，一处说法。
+// 人设后面挂的那一截「这个人自己的硬事实」：性别、平时说什么话。单聊人设、群里每个成员、线下、通话、直播、同堂……
+//   凡是把一个人的人设递给模型的地方都接着它，所以性别就放在这一处（群里 2026-11-04：梦境、聊天里女角色被写成「他」）
 function charLangLine(c) {
+  const g = typeof CharacterPronoun !== "undefined" && CharacterPronoun.selfLine ? CharacterPronoun.selfLine(c) : "";
+  return (g ? "\n" + g.replace("这个人", (c && c.name) || "这个人") : "") + charSpeechLine(c);
+}
+function charSpeechLine(c) {
   const l = String((c && c.lang) || "").trim();
   if (!l || /^(中文|汉语|普通话|chinese|zh)$/i.test(l)) return "";
   // 只管说出口的话（群里 2026-10-11：设了粤语，线下的旁白、动作描写也全写成了粤语）——
@@ -8866,6 +9517,80 @@ function vAnchor(text, ts, id) {
   const m = typeof vclockMap === "function" ? t => vclockMap(t, id) : t => t;
   return window.TemporalAnchor.anchor(text, m(ts), m(Date.now()));
 }
+// 两条消息之间、钟上过了多久（她 2026-11-01「调整了虚拟世界但 char 记忆一直停在之前」）：
+//   原来「中间隔了约 X」按现实算，她把钟往后拨了三天、现实只过了一分钟——分隔线不出来，TA 以为还接着刚才那场。
+//   开着虚拟钟就按钟算（拨钟那一下也算进去），没开就跟现实一样。线下、群线下、群聊都问这一个。
+function vGap(prevTs, ts, id) {
+  if (!prevTs || !ts) return 0;
+  if (typeof vclockMap !== "function") return ts - prevTs;
+  return vclockMap(ts, id) - vclockMap(prevTs, id);
+}
+// 旧段落拆掉样板（她 2026-11-02：「格式容易重复上文」→ 选了「试试都做」）：
+//   一场里他写过的整段长文原样带进去，模型就照着前面几段的开头、走法、收尾往下抄。
+//   最近两拍（从倒数第二条她的话起）原样；更早的只留事和原话：引号台词逐字照抄，
+//   叙述里开头那一句和收尾那一句不带，也不分段。纯程序处理，不经模型挑拣，事和话一样不丢。
+//   只在长文（沉浸长文或设了最低字数）时开，looseOld === false 关掉。
+// 正文里冒出字面的「\n」（她 2026-11-02 截图：段落之间印着 \n\n）：模型在 JSON 里把换行多转义了一层。
+//   单人和群线下解析正文都过这一道，换回真的换行。
+function offlineUnescapeNl(text) {
+  return String(text || "").replace(/\\r\\n|\\n/g, "\n").replace(/\\t/g, " ").trim();
+}
+function offlineLoosenOn(session) {
+  return !!session && session.looseOld !== false && (session.lengthMode === "immersive" || offlineMinimumSceneChars(session.minWords) > 0);
+}
+function offlineLoosenBeat(text) {
+  const units = String(text || "").match(/[“「][^”」]*[”」]|[^“「。！？!?\n]+[。！？!?…]*/g) || [];
+  const u = units.map(x => x.trim()).filter(Boolean);
+  const said = x => /^[“「]/.test(x);
+  if (u.length >= 3 && !said(u[0])) u.shift();
+  if (u.length >= 3 && !said(u[u.length - 1])) u.pop();
+  return u.length ? "〔前情·只记事和原话〕" + u.join("") : String(text || "");
+}
+// 刷了好几拍的那几样，从发给模型的历史里拿掉（她 2026-11-02「做吧」：点名挂在尾巴上压不住——
+//   前面历史里同一批景物已经写了七八遍，他照着前文抄；换个场景就好了）。最近四拍里出现三拍以上的词算「刷过」，
+//   只删他正文里含这些词的那几句叙述；引号台词不动，删空了就原样留着。只动发出去的那份，存档不变。
+function offlineStaleTerms(msgs) {
+  const beats = (Array.isArray(msgs) ? msgs : []).filter(m => m && m.role === "char" && m.kind !== "selfie" && m._surface !== "online" && typeof m.content === "string").map(m => m.content);
+  const four = beats.slice(-4);
+  if (four.length < 3) return [];
+  const t = beats.slice(-2);
+  return echoCandidates(t[0], t[1]).filter(g => !/[你我他她]/.test(g) && four.filter(b => b.includes(g)).length >= 3);
+}
+function offlineDropStale(msgs) {
+  const list = Array.isArray(msgs) ? msgs : [];
+  const terms = offlineStaleTerms(list);
+  if (!terms.length) return list;
+  const hit = u => !/^[“「]/.test(u) && terms.some(w => u.includes(w));
+  return list.map(m => {
+    if (!m || m.role !== "char" || m.kind === "selfie" || m._surface === "online" || typeof m.content !== "string") return m;
+    const lines = m.content.split("\n").map(line => {
+      const units = line.match(/[“「][^”」]*[”」]|[^“「。！？!?]+[。！？!?…]*/g);
+      if (!units) return line;
+      const keep = units.filter(u => !hit(u.trim()));
+      return keep.length === units.length ? line : keep.join("");
+    });
+    const out = lines.join("\n");
+    return out.replace(/\s/g, "") ? (out === m.content ? m : { ...m, content: out }) : m;
+  });
+}
+function offlineLoosenOld(msgs) {
+  const list = Array.isArray(msgs) ? msgs : [];
+  let seen = 0, cut = -1;
+  for (let i = list.length - 1; i >= 0; i--) if (list[i] && list[i].role === "user" && list[i].kind !== "ooc" && ++seen === 2) { cut = i; break; }
+  if (cut <= 0) return list;
+  return list.map((m, i) => (i < cut && m && m.role === "char" && m.kind !== "selfie" && m._surface !== "online" && typeof m.content === "string" && m.content.length > 40)
+    ? { ...m, content: offlineLoosenBeat(m.content) } : m);
+}
+// 每拍篇幅在她设的区间里浮动（同一轮选的第二条）：区间照旧是 wordRule 的下限～1.35 倍，
+//   这一拍落在哪由代码掷，写在离生成最近的尾巴上（不进 system，免得每轮缓存失效）。
+function offlineWordAimTail(minW, rand) {
+  const lo = offlineMinimumSceneChars(minW);
+  if (!lo) return "";
+  const hi = Math.round(lo * 1.35);
+  const r = typeof rand === "number" ? rand : Math.random();
+  const aim = Math.min(hi, lo + Math.round(r * (hi - lo) / 50) * 50);
+  return "\n〔这一拍的篇幅〕写到 " + aim + " 字左右（仍在上面的字数区间里）；每拍长短不一样是正常的。";
+}
 function offlineHistory(msgs, userName, charName, clock, clockId) {
   const g = [];
   let prevTs = 0;
@@ -8875,8 +9600,9 @@ function offlineHistory(msgs, userName, charName, clock, clockId) {
     const ts = Number(m.ts) || 0;
     // 时间感知关着的时候，线下连「中间隔了多久」也不说（群友 2026-10-04：「线下昨天聊一半想继续聊，关了时间感知，他还是知道到第二天了」）——
     //   线下是一场戏，她隔天回来接着演，戏里不该凭空过了一夜。开着时照旧标出来。
-    const gap = clock !== false && prevTs && ts && ts - prevTs > 90 * 60000
-      ? "〔—— 中间隔了约 " + gapPhrase(ts - prevTs) + "，到 " + fmtStampAI(ts) + " ——〕\n"
+    const _vg = vGap(prevTs, ts, clockId);
+    const gap = clock !== false && prevTs && ts && _vg > 90 * 60000
+      ? "〔—— 中间隔了约 " + gapPhrase(_vg) + "，到 " + fmtStampAI(ts) + " ——〕\n"
       : "";
     const stamp = (ts && clock !== false) ? "〔" + fmtStampAI(ts) + "〕" : "";
     // ⚠️只标一边等于没标：线上那几条标了【线上私聊】，线下这几条什么都不标，
@@ -8952,7 +9678,7 @@ function offlineSelfReviseProtocol(shape, archetypeGuard, narr) {
 
 scene 必须保留全部具体身体事实，不淡出、不概括、不降低明确程度，也不新增或升级动作。保留这个人的具体选择、现实注意、关系回应和独特说话方式；通用成人场面话可以在不改变含义与语气方向的前提下换成这个人更自然的说法。
 同样保留首稿里真正属于这个人的观察角度、嘴硬、自嘲、误判、注意取舍和有表现力的矛盾瞬间；这些不是可删的“修辞包装”。自修不把有疏密和气口的叙事改成等距的动作清单。
-删除或平实改写只负责再次证明刺激与强度、却不增加新事实或人物信息的内容，例如成串的嗓音变化、喉结、青筋、红眼、呼吸认证、神经刺激、理智或侵略性总结。同一种身体事实或反应维度只陈述一次。事实与渲染混在一句时保留事实核心，只移除认证包装；不要以缩短、清水化或统一成冷静短句为目标。
+删除或平实改写只负责再次证明刺激与强度、却不增加新事实或人物信息的内容，例如成串的嗓音变化、喉结、青筋、红眼、呼吸认证、神经刺激、理智或侵略性总结。同一种身体事实或反应维度只陈述一次。最后那几句〔……前两拍都写到了〕点名的东西，draftScene 里又写了、而且这一刻它没有新变化，scene 里就把那一句删掉。事实与渲染混在一句时保留事实核心，只移除认证包装；不要以缩短、清水化或统一成冷静短句为目标。
 ${archetypeGuard ? "角色卡里的强烈性格标签只决定人物会作何选择，不是要求旁白反复替TA宣传某种原型。行为或台词已经表现清楚时，删除随后给它贴标签、评点气场、认证TA有多强势／危险／无赖／宠溺的作者解说；保留真实的赖账、坚持、疲倦、占有、照顾、关系决定和说话功能，不把人物改乖。" : ""}
 ${offlineRevisionAddressRule(narr)}
 draftScene 是内部草稿，scene 才是展示并进入历史的终稿。两者都必须是完整字符串，不得省略、互换或解释修改过程。
@@ -9131,6 +9857,23 @@ function offlineSayZhParse(v) {
   Object.keys(v).forEach(k => { const zh = String(v[k] == null ? "" : v[k]).trim(), key = offlineSayKey(k); if (key && zh && n < 60) { out[key] = zh.slice(0, 400); n++; } });
   return n ? out : null;
 }
+// 上一拍是怎么起笔的（她 2026-11-01 截图：连着两拍都是「江风往领口里灌……猛地转过头瞪你……扯着嗓子」）：
+//   把上一拍开头那一句摆到离生成最近的地方，这一拍从她刚说的、或者眼前接着发生的事起笔。senderId 给了就只看那个人的
+function offlineLastOpening(msgs, senderId) {
+  const list = Array.isArray(msgs) ? msgs : [];
+  for (let i = list.length - 1; i >= 0; i--) {
+    const m = list[i];
+    if (!m || (m.role !== "char" && m.role !== "assistant") || !m.content) continue;
+    if (senderId && m.senderId && m.senderId !== senderId) continue;
+    const first = String(m.content).replace(/^\s+/, "").split(/(?<=[。！？!?…])/)[0] || "";
+    return first.trim().slice(0, 50);
+  }
+  return "";
+}
+function offlineOpeningTail(msgs, senderId) {
+  const op = offlineLastOpening(msgs, senderId);
+  return op ? "\n\n〔起笔〕上一拍是这样开头的：「" + op + "」。这一拍从她刚刚说的话、或者眼前接着发生的事起笔，景和动作接着那一刻往下走。" : "";
+}
 async function generateOffline(p, ctx, session) {
   const char = ctx.char;
   const userName = (ctx.profile && ctx.profile.name) || "用户";
@@ -9218,7 +9961,10 @@ async function generateOffline(p, ctx, session) {
       + "\n· 遇到需要用户本人选择的岔口时，可以在岔口之前充分写完本轮已有内容，但仍不可替用户作重大决定"
       + "（⚠️指的是【属于她本人】的决定：她的身体、她的去留、她要不要、她说什么。属于你自己的那些——去哪、做什么、说哪句、动不动手——你自己定了直接做，别改写成两个选项让她挑）。" : "") +
     (notes.length ? "\n【临时导演提示（务必遵循）】" + notes.join("；") : "") +
-    (ctx.curWear ? "\n【着装连贯】你现在穿着：" + ctx.curWear + "。除非场景变了、过了很久、或你明确换/脱了衣服，否则 wearing 保持这套；一旦场景真的换了（如从外面进了家、下了雨淋湿、换了衣服）就据实更新。" : "") +
+    // 衣服跟着人走（群里 2026-11-08：同一场出门一会儿灰外套一会儿黑外套、内搭圆领高领来回换）：
+    //   原来那句给了「场景变了、隔了很久」两个出口，线下一场常常跨几个钟头，模型就拿「过了很久」当理由给他重新穿一身。
+    //   衣服变不变只看剧情里有没有真动到衣服，跟过了多久、走到了哪儿无关
+    (ctx.curWear ? "\n【着装连贯】你现在穿着：" + ctx.curWear + "。这就是这一场里你身上的衣服，颜色、款式、内搭都是这一套，正文里写到衣服也照它。衣服只在剧情里真动到它时才变：换了、脱了、穿上了、淋湿弄脏了——那一拍 wearing 写变了以后的样子；没动到衣服，wearing 留空。" : "") +
     (ctx.curCondition ? "\n【身体状态连贯】你现在" + ctx.curCondition + "。这不是背景设定，是此刻真的这样：动作、说话的力气、能不能久站久走都要受它影响；除非剧情里明确好转，别忽然生龙活虎。" : "") +
     (session.priorSummary ? "\n【这场线下的前情提要（早先发生的、已浓缩进记忆，接着往下演，别倒回去逐句重复复述）】\n" + session.priorSummary : "") +
     toyHint +
@@ -9226,7 +9972,7 @@ async function generateOffline(p, ctx, session) {
     "") + outputSpec + ((!isDigital && session.sayZhOn) ? offlineSayZhSpec("") : "") + stateBootstrapHint + gazeSpecBlock;
   // v52.77：恢复正常首遍生成；首次跨越后的 scene 再交给同模型做删除优先的受约束编辑。
   // 最终只有编辑稿进入 session history，首遍草稿仅用于本轮内存诊断。
-  const hist = offlineHistory(session.msgs, userName, char.name, ctx.timeAware !== false, char.id);
+  const hist = offlineHistory(offlineLoosenOn(session) ? offlineLoosenOld(offlineDropStale(session.msgs)) : session.msgs, userName, char.name, ctx.timeAware !== false, char.id);
   if (session.hasOnlineInterlude) {
     const bridge = "\n\n〔跨情境衔接〕上面标成【线上私聊】的内容，是这场未结束的线下相处期间，你们切到手机聊天时真实说过的话。所有记录已经按实际时间排好；再次回到线下时，以时间最新的线上与线下内容共同作为现在的前情，绝不能跳过今天的线上聊天、倒回去续演更早的线下剧情，也不要把线上原话假装成刚刚面对面又说了一遍。";
     if (hist.length && hist[hist.length - 1].role === "user") hist[hist.length - 1] = { ...hist[hist.length - 1], content: hist[hist.length - 1].content + bridge };
@@ -9249,7 +9995,7 @@ async function generateOffline(p, ctx, session) {
     : "";
   const tailNudge = isDigital
     ? userActionTail
-    : continueCue + rerollTail + "\n\n〔本轮线下〕保持当前场景、人物位置、物件和状态连续；未知细节不要擅自具体化。按既定叙事准则自然续写，不提前跳到未发生的剧情。" + (cotT ? "先完成正文 JSON，再写既定的创作旁注标记块。" : "");
+    : continueCue + rerollTail + (session.rerollAvoid ? "" : offlineOpeningTail(session.msgs)) + "\n\n〔本轮线下〕保持当前场景、人物位置、物件和状态连续；未知细节不要擅自具体化。按既定叙事准则自然续写，不提前跳到未发生的剧情。" + (cotT ? "先完成正文 JSON，再写既定的创作旁注标记块。" : "");
   // 长文风尾部重申（v55.41）。她那份自定义文风有几千字，夹在通用叙事准则中间会被稀释——
   // 和本文件上面「越写越八股」用的是同一招：把真正要紧的约束放到离生成最近的位置。
   const styleTail = !isDigital && styleText && styleText.length > 200
@@ -9275,7 +10021,12 @@ async function generateOffline(p, ctx, session) {
   const personTail = !isDigital && _personParts.length && !(session.msgs || []).some(m => m && m.role === "char" && !isOocMsg(m))
     ? "\n\n〔这一场的人称〕" + _personParts.join("；") + "。从这一段的第一句就照这个写——线上聊天里那些用「我」写的动作是聊天的写法，不是这一场的。"
     : "";
-  const finalNudge = tailNudge + (isDigital ? "" : userActionTail) + characterSupplyTail + intimatePaceTail + flashbackTail + personTail + directorTail + styleTail;
+  // 按轮提醒（她 2026-11-02「线下还是这么爱这个句式」）：看他上一拍说出口的那几句（引号里的）
+  const _lastCharBeat = [...(session.msgs || [])].reverse().find(m => m && m.role === "char" && !isOocMsg(m));
+  const _said = _lastCharBeat ? spokenLinesOf(_lastCharBeat.content) : [];
+  const sayTail = !isDigital && _said.length ? tailHintsFor(_said[_said.length - 1], _said.join("\n")) : "";
+  const propTail = isDigital ? "" : propTailFor([char.persona, char.appearance].join("\n"), (session.msgs || []).filter(m => m && m.role === "char" && !isOocMsg(m) && m.kind !== "selfie").map(m => m.content));
+  const finalNudge = tailNudge + (isDigital ? "" : userActionTail) + characterSupplyTail + intimatePaceTail + flashbackTail + personTail + sayTail + propTail + (isDigital ? "" : profTailFor((session.msgs || []).filter(m => m && m.role === "char" && !isOocMsg(m) && m.kind !== "selfie").map(m => m.content))) + (isDigital ? "" : beatEchoTail((session.msgs || []).filter(m => m && m.role === "char" && !isOocMsg(m) && m.kind !== "selfie").map(m => m.content))) + (isDigital ? "" : thoughtEchoTail((session.msgs || []).filter(m => m && m.role === "char" && m.thought).map(m => m.thought))) + offlineWordAimTail(minimumSceneChars) + directorTail + styleTail;
   if (hist.length && hist[hist.length - 1].role === "user") hist[hist.length - 1] = { role: "user", content: hist[hist.length - 1].content + finalNudge };
   else hist.push({ role: "user", content: (hist.length ? "（继续）" : OFFLINE_OPEN_SCENE) + finalNudge });
   if (Array.isArray(session.imageDataUrls) && session.imageDataUrls.length) {
@@ -9371,9 +10122,9 @@ async function generateOffline(p, ctx, session) {
   // 自修那一档只差一半时别整轮报错（群里 2026-10-22「总显示模型没有响应终稿，换了两个站子都不行」）：
   //   人设卡带风险词时每轮都自动走「首稿→终稿」，模型常写完首稿就停（输出被截、或只写一个 scene）。
   //   缺终稿就用首稿，缺首稿就用终稿——两样都没有才算没写出来。
-  const draftScene = String(singlePassRevisionRequested ? (parsed.draftScene || parsed.scene || "") : (parsed.scene || sp.clean || "")).trim();
+  const draftScene = offlineUnescapeNl(String(singlePassRevisionRequested ? (parsed.draftScene || parsed.scene || "") : (parsed.scene || sp.clean || "")));
   if (!draftScene) throw new Error("模型没有返回有效的线下正文，请重试");
-  const singlePassFinalScene = singlePassRevisionRequested ? String(parsed.scene || parsed.draftScene || "").trim() : "";
+  const singlePassFinalScene = singlePassRevisionRequested ? offlineUnescapeNl(String(parsed.scene || parsed.draftScene || "")) : "";
   // 预检只能看见 user/history。角色可能在本轮首稿里自行跨越，因此草稿形成后必须再检一次；
   // 否则最需要编辑的第一条会以 false→false 直接漏进 history。
   const draftExplicit = !isDigital && offlineRegisterExplicitText(draftScene);
@@ -9467,6 +10218,7 @@ async function generateOffline(p, ctx, session) {
     affinityDelta,
     toy: (session.toyOn && parsed.toy && typeof parsed.toy === "object") ? parsed.toy : null,
     schedNow: (parsed.schedNow && typeof parsed.schedNow === "object" && parsed.schedNow.title) ? parsed.schedNow : null,
+    schedLater: normSchedLater(parsed.schedLater),
     // 线下拍下的那一格。kind 由 app 再核一遍（duo 要两张参考照都在才作数）。
     // 线下切歌：app 侧只在她正跟这个人一起听时给 listenOn，换歌走 app 的 taSwitchSong。
     songSwitch: (session.listenOn && parsed.songSwitch && String(parsed.songSwitch).trim().toLowerCase() !== "null") ? String(parsed.songSwitch).trim() : null,
@@ -9647,8 +10399,9 @@ function offlineGroupHistory(msgs, userName, clock, clockId) {
     const ts = Number(m.ts) || 0;
     // 时间感知关着的时候，线下连「中间隔了多久」也不说（群友 2026-10-04：「线下昨天聊一半想继续聊，关了时间感知，他还是知道到第二天了」）——
     //   线下是一场戏，她隔天回来接着演，戏里不该凭空过了一夜。开着时照旧标出来。
-    const gap = clock !== false && prevTs && ts && ts - prevTs > 90 * 60000
-      ? "〔—— 中间隔了约 " + gapPhrase(ts - prevTs) + "，到 " + fmtStampAI(ts) + " ——〕\n"
+    const _vg = vGap(prevTs, ts, clockId);
+    const gap = clock !== false && prevTs && ts && _vg > 90 * 60000
+      ? "〔—— 中间隔了约 " + gapPhrase(_vg) + "，到 " + fmtStampAI(ts) + " ——〕\n"
       : "";
     const stamp = (ts && clock !== false) ? "〔" + fmtStampAI(ts) + "〕" : "";
     if (m.role === "char") {
@@ -9770,12 +10523,24 @@ function offlineGroupBeatList(parsed) {
   return null;
 }
 // beats 那份 JSON 坏掉时，按 {"name": 一段段切开，每段照已知键名抠（同 salvageByKeys 一份），别把整串 JSON 当正文发出去
-const OFFLINE_GROUP_BEAT_KEYS = ["name", "scene", "thought", "action", "mood", "affinityDelta", "impression", "schedNow", "photo", "wearing"];
+const OFFLINE_GROUP_BEAT_KEYS = ["name", "scene", "thought", "action", "mood", "affinityDelta", "impression", "schedNow", "schedLater", "photo", "wearing"];
 function salvageOfflineGroupBeats(raw) {
   const text = String(raw || "");
   if (!/"scene"\s*:/.test(text)) return [];
   return text.split(/(?=\{\s*"name"\s*:)/).map(part => salvageByKeys(part, OFFLINE_GROUP_BEAT_KEYS))
     .filter(b => b && b.name && b.scene).map(b => ({ name: b.name, scene: b.scene, ...(b.thought ? { thought: b.thought } : {}) }));
+}
+// 群聊线上那份数组坏了（截断、中间哪条写坏、外面多套了一层）：同上按 {"name": 切开，每一条单独解，
+//   能解开、有人名有内容的就留下，坏的那条丢掉（她 2026-11-04 截图：整轮报「没按 JSON 数组输出」，前面几条明明是好的）
+function salvageGroupLines(raw) {
+  const text = String(raw || "");
+  if (!/\{\s*"name"\s*:/.test(text)) return [];
+  return text.split(/(?=\{\s*"name"\s*:)/).slice(1).map(part => {
+    if (!/\}/.test(part)) return null;   // 被截断的最后一条：没收口，补出来也是半句话，不发
+    const body = part.replace(/[\s,\]`]+$/, "").replace(/\}\s*\]?\s*\}?\s*$/, "}");
+    let o = null; try { o = parseJSONLoose(body); } catch (e) { o = null; }
+    return o && typeof o === "object" && !Array.isArray(o) ? o : null;
+  }).filter(o => o && o.name && (o.text || o.emote || o.redpacket || o.voice || o.photo));
 }
 function salvageOfflineGroupProse(raw, members) {
   const clean = String(raw || "").replace(/```(?:json)?/gi, "").trim();
@@ -9803,6 +10568,9 @@ const SPECTATE_PAIR_NOTE = "【重要】这是他俩之间的相处——聊他�
 // 她不在场这件事正面说完：说清这个世界是什么样，不写成一串「不许回应她」的禁令
 // （施工规则/bans-make-it-dumber：禁的是模子，不是尺度）。
 const SPECTATE_USER_ABSENT = "用户不在场：在场的人看不见她、也听不见她。她写下的句子是这一场的【旁白】，推动的是场景本身。";
+// 线上旁观群也要说（群友 2026-10-31：开着旁观，角色突然在群里问起她来）：原来只有线下那两支带着这句，
+//   线上只写了「用户以【旁白】推动剧情」——模型照常把她当群里一员，转头就问她
+const SPECTATE_USER_NOT_IN_GROUP = "用户不在这个群里：群里只有这几个人，谁也看不见她，她也不会在群里回话。她写下的句子是这一场的【旁白】，推动的是剧情本身，不是谁发的消息。";
 function groupStageLine(opts) {
   const o = opts || {};
   const userName = o.userName || "用户";
@@ -9811,12 +10579,12 @@ function groupStageLine(opts) {
   if (o.spectate && pair.length === 2) {
     return offline
       ? "这是「" + pair[0] + "」和「" + pair[1] + "」之间【他俩自己】的相处，此刻两人身处同一个地方、面对面。" + SPECTATE_USER_ABSENT + "让两人自然地你来我往、多轮相处。\n" + SPECTATE_PAIR_NOTE
-      : "这是「" + pair[0] + "」和「" + pair[1] + "」之间【他俩自己】的私下对话（不是群聊）。用户以【旁白】推动场景。让两人自然地你来我往、多轮对话。\n" + SPECTATE_PAIR_NOTE;
+      : "这是「" + pair[0] + "」和「" + pair[1] + "」之间【他俩自己】的私下对话（不是群聊）。" + SPECTATE_USER_NOT_IN_GROUP.replace("这个群里：群里只有这几个人", "这场对话里：只有他们两个").replace("在群里回话", "插话") + "让两人自然地你来我往、多轮对话。\n" + SPECTATE_PAIR_NOTE;
   }
   if (o.spectate) {
     return offline
       ? "上述角色此刻身处同一个地方，面对面相处（不是隔着手机的群聊）。" + SPECTATE_USER_ABSENT + "让他们围绕旁白与彼此的关系自然相处。"
-      : "这是【成员】里这几个人的群聊。用户以【旁白】推动剧情。让成员们围绕旁白与彼此的关系自然互动。";
+      : "这是【成员】里这几个人的群聊。" + SPECTATE_USER_NOT_IN_GROUP + "让成员们围绕旁白与彼此的关系自然互动。";
   // ⚠️原来写「成员们并不知道有任何外人在旁观」（群友 2026-10-25 截图：成员聊起「群里那位新来的一直没说话，在潜水」）——
   //   跟模型说「有人在看但你们不知道」，它就替这个看不见的人编出一个潜水的新人。只说群里就这几个人，不提旁观的人
   }
@@ -9845,7 +10613,7 @@ async function generateOfflineGroup(p, ctx, session) {
   const castNames = members.map(c => "『" + memberLabel(members, c) + "』").join("、");
   // 群线下当场改了安排（她 2026-10-20「群聊能改日程吗→接上吧」）：只给写了〔今天此刻在做什么〕的人开这一栏，写回在 app 那边
   const gSchedField = (ctx.memberSched && Object.keys(ctx.memberSched).length)
-    ? ",\"schedNow\":\"（仅角色，可选；只有写了〔今天此刻在做什么〕的人才填，只填他本人的）" + SCHED_NOW_SPEC.replace(/^schedNow:/, "").replace(/"/g, "'") + "\"" : "";
+    ? ",\"schedNow\":\"（仅角色，可选；只有写了〔今天此刻在做什么〕的人才填，只填他本人的）" + SCHED_NOW_SPEC.replace(/^schedNow:/, "").replace(/"/g, "'") + "\",\"schedLater\":\"（仅角色，可选，同上只填他本人的）" + SCHED_LATER_SPEC.replace(/^schedLater:/, "").replace(/"/g, "'") + "\"" : "";
   const novelOut = "\n【输出】只输出一个 JSON，不要代码块：\n{\"scene\":\"这一轮的整段小说正文（第三人称；在场的人自然穿插出场、互相接话，动作/神态/对话/环境写在一起，分段用换行）\",\"cast\":[{\"name\":\"这一段里出场的角色名\",\"thought\":\"（可选）TA 此刻没说出口的真实心声\",\"mood\":{\"label\":\"此刻中文心情词（禁止英文内部标签）\"},\"affinityDelta\":\"" + AFFINITY_DELTA_SPEC + "\",\"impression\":\"（可选）{'side':'me|us','block':'me侧:person/soft/like/recent/unread；us侧:what/how/marks/elephant/want','text':'整块重写≤80字'}——" + (window.Gaze ? window.Gaze.updateRule(userName) : "没有新认识可省略") + "\"" + gSchedField + "}]}\n"
     + "scene 是一整段连着读的小说，不按人切块；cast 里列这一段真正出场的人，一人一项，name 必须逐字填写以下名字之一：" + castNames + "。没出场的人不列。";
   // 上一轮出过声的是谁 → 这一轮优先给还没出声的（线上线下共用同一份）
@@ -9928,7 +10696,7 @@ async function generateOfflineGroup(p, ctx, session) {
   const system =
     groupBans({ narrative: true, mood: true, echo: true, drama: !!ctx.dramaRule, worldbook: !!(ctx.worldbook && ctx.worldbook.trim()) }) +
     // 谁的决定归谁 / 一拍写到哪儿停 / 从哪儿往前走：跟单人线下同一份（v73.18）
-    "\n\n【以下对在场每个人各自成立：「TA」是正在写的那一位，「她」是用户】\n" + OFFLINE_AGENCY_RULE +
+    "\n\n【以下对在场每个人各自成立：「TA」是正在写的那一位，「她」是用户】\n" + OFFLINE_AGENCY_RULE + "\n\n" + OFFLINE_VOICE_RULE +
     groupGrowthRule +
     timeBlock +
     "\n\n【在场角色】\n" + memberDesc +
@@ -9978,7 +10746,7 @@ async function generateOfflineGroup(p, ctx, session) {
     cotSystemBlock(cotT) +
     (novel ? novelOut : "\n【输出】只输出一个 JSON，不要代码块：\n{\"beats\":[{\"name\":\"这一段里行动或说话的角色名；纯环境旁白填『旁白』\",\"scene\":\"这一段叙事正文（第三人称，含动作/神态/对话）\",\"thought\":\"（仅角色 beat，可选）该角色此刻没说出口的真实心声\",\"mood\":{\"label\":\"此刻中文心情词（禁止英文内部标签）\"},\"affinityDelta\":\"（仅角色 beat）" + AFFINITY_DELTA_SPEC + "\",\"impression\":\"（仅角色 beat，可选）{'side':'me|us','block':'me侧:person/soft/like/recent/unread；us侧:what/how/marks/elephant/want','text':'整块重写≤80字'}——" + (window.Gaze ? window.Gaze.updateRule(userName) : "没有新认识可省略") + "\"" + gSchedField + ((session.photoMembers || []).length ? ",\"photo\":\"（仅角色 beat，可选）这一拍真拍了照片才填 {'kind':'self|other" + ((session.photoDuoMembers || []).length ? "|duo" : "") + (session.photoGroupOk ? "|group" : "") + "','scene':'这一格拍到了什么'}，没拍就整个省略\"" : "") + "}]}\n一次产出 2~" + gBeatMax + " 个 beat（在场 " + members.length + " 个人），让在场角色轮流有戏、互相有来有往；name 必须逐字填写以下名字之一：" + members.map(c => "『" + memberLabel(members, c) + "』").join("、") + "；只有不属于任何人的纯环境段才填『旁白』，不许把整篇都塞进一个旁白 beat。") + sameNameNote(members) + "\nthought 的写法：" + THOUGHT_MEANING_CHAR + THOUGHT_VOICE + (typeof THOUGHT_EACH_OWN === "string" ? THOUGHT_EACH_OWN : "") + THOUGHT_ORIGIN
     + ((session.sayZhNames || []).length ? offlineSayZhSpec(session.sayZhNames.map(x => "『" + x + "』").join("、")) : "");
-  const hist = offlineGroupHistory(session.msgs, userName, ctx.timeAware !== false, ctx.clockId);
+  const hist = offlineGroupHistory(offlineLoosenOn(session) ? offlineLoosenOld(offlineDropStale(session.msgs)) : session.msgs, userName, ctx.timeAware !== false, ctx.clockId);
   // 尾部重申（同单人线下）：治长对话后段八股回潮 + cot 丢失
   const gWantLong = session.minWords && session.minWords >= 150;
   // max_tokens 是天花板不是预付款；思考模型的推理也从这儿扣，给窄了正文就只剩个零头
@@ -9990,15 +10758,22 @@ async function generateOfflineGroup(p, ctx, session) {
   const gBudget = Math.min(window.StylePresets.OUT_CEILING,
     Math.max(Number(session.maxTokens) || 12000, session.minWords ? window.StylePresets.outTokens(session.minWords) : 0));
   const gContinueCue = session.autonomousContinue && window.OfflineContinuation ? window.OfflineContinuation.cue(true, userName) : "";
-  const gTail = gContinueCue + (session.rerollAvoid ? "\n\n〔★这是【重写】，不是续写：上一次这一段写的是「" + offlineRerollExcerpt(session.rerollAvoid) + "」——这次【必须给一个明显不同的版本】：换不同的开头、动作、语气、由谁开口、侧重或走向。\n把同一串事写得更细、更长、更华丽，也不算换——要换的是【这一段怎么走】：从哪儿起、中间按什么顺序推进、重心落在谁身上、停在哪里。\n收尾同理：上一版怎么收的（不管收在一句话、一个动作还是一片沉默上）这次换一种收法，它收尾处出现的那些具体的东西（人名、地名、物件、要去做的事）一个都别再搬出来。\n上一版若是靠【提出下一步安排】收的（去哪儿、见谁、吃什么），这次换个停法——行程里的事仍然是真的，但这一段没有义务以它收尾。\n交稿前把两版的最后几句并排看：两边都出现的具体名词（地名、人名、吃的、物件）一个都不许留。\n绝不许把原来那版换几个近义词又交上来。〕" : "") + "\n\n〔幕后提醒，绝不出现在正文里：【★场景一致·别乱编物件·最优先】桌上在吃/喝什么、身边有什么东西、身处什么地方，一律以【前文已经写过的】为准——前文只有排骨汤，就只有排骨汤，绝不凭空冒出前文没出现过的具体物件（和牛/菌菇/红酒之类）；每个成员写的东西也要和别人已经写过的对得上；记不清就模糊带过（『碗里的汤』『面前的菜』），别硬编一个新的具体名字。①【比喻限额·最要紧】整段【最多出现一次「像/仿佛/如同/像是/宛如」的比喻】，只在真能让画面更具体时才用；其余一律直白写字面发生了什么——绝不给每个动作/眼神/声音都套比喻（禁『像一把冰锥』『像被雨水洗过的天空』『像失而复得的珍宝』『眼神像一潭深水』这类），【尤其禁把人比成动物】（像只大型犬/猫科动物/幼兽/小兽一律不许），也禁往颈窝/怀里『蹭/蹭了蹭』；『眸/眸子/瞳仁』一律写『眼睛』，别给人贴『洞穿一切的清醒』『毫不掩饰的欢喜』这种抽象情绪结论；②反陈词滥调清单全程生效——禁通用小动作（挑眉/勾唇/垂眸/轻笑/喉结滚动）和空转大词；写到亲密/情欲时八股最凶：上面的用词禁令表、「别把身体写成机器」、「别套通用情欲模板动作」照样守死；③各角色声纹别互相同化，这一轮的句式/意象/开头不许和上一轮雷同；④" + (gWantLong ? "写够上面要求的篇幅，把这几个 beat 写足写透，别注水也别偷懒写短" : "宁可短而准，别长而油") + "；" + (cotT ? "⑤先写创作小稿标记块，再写正文 JSON。" : "") + (notes.length ? "⑥" + directorNoteTail(notes) : "") + "〕" + (session.rerollAvoid ? rerollDirLine() : "");
+  const gTail = gContinueCue + (session.rerollAvoid ? "" : offlineOpeningTail(session.msgs)) + (session.rerollAvoid ? "\n\n〔★这是【重写】，不是续写：上一次这一段写的是「" + offlineRerollExcerpt(session.rerollAvoid) + "」——这次【必须给一个明显不同的版本】：换不同的开头、动作、语气、由谁开口、侧重或走向。\n把同一串事写得更细、更长、更华丽，也不算换——要换的是【这一段怎么走】：从哪儿起、中间按什么顺序推进、重心落在谁身上、停在哪里。\n收尾同理：上一版怎么收的（不管收在一句话、一个动作还是一片沉默上）这次换一种收法，它收尾处出现的那些具体的东西（人名、地名、物件、要去做的事）一个都别再搬出来。\n上一版若是靠【提出下一步安排】收的（去哪儿、见谁、吃什么），这次换个停法——行程里的事仍然是真的，但这一段没有义务以它收尾。\n交稿前把两版的最后几句并排看：两边都出现的具体名词（地名、人名、吃的、物件）一个都不许留。\n绝不许把原来那版换几个近义词又交上来。〕" : "") + "\n\n〔幕后提醒，绝不出现在正文里：【★场景一致·别乱编物件·最优先】桌上在吃/喝什么、身边有什么东西、身处什么地方，一律以【前文已经写过的】为准——前文只有排骨汤，就只有排骨汤，绝不凭空冒出前文没出现过的具体物件（和牛/菌菇/红酒之类）；每个成员写的东西也要和别人已经写过的对得上；记不清就模糊带过（『碗里的汤』『面前的菜』），别硬编一个新的具体名字。①【比喻限额·最要紧】整段【最多出现一次「像/仿佛/如同/像是/宛如」的比喻】，只在真能让画面更具体时才用；其余一律直白写字面发生了什么——绝不给每个动作/眼神/声音都套比喻（禁『像一把冰锥』『像被雨水洗过的天空』『像失而复得的珍宝』『眼神像一潭深水』这类），【尤其禁把人比成动物】（像只大型犬/猫科动物/幼兽/小兽一律不许），也禁往颈窝/怀里『蹭/蹭了蹭』；『眸/眸子/瞳仁』一律写『眼睛』，别给人贴『洞穿一切的清醒』『毫不掩饰的欢喜』这种抽象情绪结论；②反陈词滥调清单全程生效——禁通用小动作（挑眉/勾唇/垂眸/轻笑/喉结滚动）和空转大词；写到亲密/情欲时八股最凶：上面的用词禁令表、「别把身体写成机器」、「别套通用情欲模板动作」照样守死；③各角色声纹别互相同化，这一轮的句式/意象/开头不许和上一轮雷同；④" + (gWantLong ? "写够上面要求的篇幅，把这几个 beat 写足写透，别注水也别偷懒写短" : "宁可短而准，别长而油") + "；" + (cotT ? "⑤先写创作小稿标记块，再写正文 JSON。" : "") + (notes.length ? "⑥" + directorNoteTail(notes) : "") + "〕" + (session.rerollAvoid ? rerollDirLine() : "");
   // 群线下同理：回忆是最便宜的填充，人多了只会更容易各自翻各自的老账
   const gFlashbackTail = offlineFlashbackBlock(
     (session.msgs || []).filter(m => m && m.role === "char" && m.kind !== "ooc").map(m => m.content));
   // 场面进了身体戏就补人物连续那一句（和单人线下同一份）。群里「继续」是常态，
   //   所以不像单人那样只在她刚说完话时才补：场面还在，就每轮都补。
   const gCharacterTail = offlineRegisterTransition(session).active ? offlineCharacterSupplyLine(true) + offlineIntimatePaceLine(true) : "";
-  if (hist.length && hist[hist.length - 1].role === "user") hist[hist.length - 1] = { role: "user", content: hist[hist.length - 1].content + gFlashbackTail + gCharacterTail + gTail };
-  else hist.push({ role: "user", content: (hist.length ? "（继续）" : OFFLINE_OPEN_SCENE) + gFlashbackTail + gCharacterTail + gTail });
+  const _gLastBeat = [...(session.msgs || [])].reverse().find(m => m && m.role === "char" && !isOocMsg(m));
+  const _gSaid = _gLastBeat ? spokenLinesOf(_gLastBeat.content) : [];
+  const gSayTail = _gSaid.length ? tailHintsFor(_gSaid[_gSaid.length - 1], _gSaid.join("\n")) : "";
+  const gProfTail = profTailFor((session.msgs || []).filter(m => m && m.role === "char" && !isOocMsg(m)).map(m => m.content || m.scene));
+  const gBeatEchoTail = beatEchoTail((session.msgs || []).filter(m => m && m.role === "char" && !isOocMsg(m)).map(m => m.content || m.scene));
+  const gThoughtTail = members.map(c => c && thoughtEchoTail((session.msgs || []).filter(m => m && m.role === "char" && m.senderId === c.id && m.thought).map(m => m.thought), c.name)).join("");
+  const gPropTail = propTailFor(members.map(c => [c && c.persona, c && c.appearance].join("\n")).join("\n"), (session.msgs || []).filter(m => m && m.role === "char" && !isOocMsg(m)).map(m => m.content));
+  if (hist.length && hist[hist.length - 1].role === "user") hist[hist.length - 1] = { role: "user", content: hist[hist.length - 1].content + gFlashbackTail + gCharacterTail + gSayTail + gPropTail + gThoughtTail + gBeatEchoTail + gProfTail + offlineWordAimTail(session.minWords) + gTail };
+  else hist.push({ role: "user", content: (hist.length ? "（继续）" : OFFLINE_OPEN_SCENE) + gFlashbackTail + gCharacterTail + gSayTail + gPropTail + gThoughtTail + gBeatEchoTail + gProfTail + offlineWordAimTail(session.minWords) + gTail });
   if (Array.isArray(session.imageDataUrls) && session.imageDataUrls.length) {
     const lastUser = [...hist].map((m, i) => [m, i]).reverse().find(([m]) => m.role === "user");
     if (lastUser) hist[lastUser[1]] = { ...hist[lastUser[1]], content: hist[lastUser[1]].content + "\n【用户刚给在场所有人展示了真实照片，图像已附在本轮视觉输入中；请让大家直接看图后自然反应。】", imageDataUrls: session.imageDataUrls.slice(-FRESH_IMG_CAP) };
@@ -10038,7 +10813,7 @@ async function generateOfflineGroup(p, ctx, session) {
         mood: x.mood && x.mood.label ? x.mood : null,
         impression: (x.impression && typeof x.impression === "object") ? x.impression : null,
         affinityDelta: typeof x.affinityDelta === "number" ? x.affinityDelta : 0,
-        schedNow: x.schedNow && typeof x.schedNow === "object" ? x.schedNow : null };
+        schedNow: x.schedNow && typeof x.schedNow === "object" ? x.schedNow : null, schedLater: normSchedLater(x.schedLater) };
     }).filter(Boolean);
     const gSaid = lastUserTurnText(session.msgs);
     const nOut = nScene ? [{ role: "char", kind: "novel", senderId: null, senderName: nCast.map(x => x.senderName).join("、") || null, scene: gSaid ? stripEchoQuestionScene(nScene, gSaid) : nScene, cast: nCast, thought: null, mood: null, impression: null, affinityDelta: 0, photo: null }] : [];
@@ -10061,7 +10836,7 @@ async function generateOfflineGroup(p, ctx, session) {
   if (!beats || !beats.length) beats = salvageOfflineGroupProse(sp.clean || raw, members);
   const out = beats.map(b => {
     const nm = String(b.name || "").trim();
-    const scene = String(b.scene || b.text || b.content || "").trim();
+    const scene = offlineUnescapeNl(String(b.scene || b.text || b.content || ""));
     const explicitNarrator = /^(旁白|narration|__narration)$/i.test(nm);
     const spk = explicitNarrator ? null : offlineGroupSpeaker(members, nm, scene);
     return {
@@ -10074,6 +10849,7 @@ async function generateOfflineGroup(p, ctx, session) {
       impression: (spk && b.impression && typeof b.impression === "object") ? b.impression : null,
       affinityDelta: spk && typeof b.affinityDelta === "number" ? b.affinityDelta : 0,
       schedNow: spk && b.schedNow && typeof b.schedNow === "object" ? b.schedNow : null,
+      schedLater: spk ? normSchedLater(b.schedLater) : [],
       // 这一拍拍下的那一格。kind 由 app 再核一遍（谁能拍、够不够参考照都在那边算）。
       photo: (spk && b.photo && typeof b.photo === "object" && String(b.photo.scene || "").trim())
         ? { kind: String(b.photo.kind || "self"), scene: String(b.photo.scene).trim() } : null
@@ -10569,12 +11345,29 @@ function oocResult(parsed, existing) {
     ? { text: String(parsed.soon.text).trim().slice(0, 200), turns: Math.max(1, Math.min(10, Math.round(Number(parsed.soon.turns) || 1))) } : null;
   return { reply: parsed.reply.trim(), directive: (parsed.directive && String(parsed.directive).trim()) || null, refused, replaced, soon: sn };
 }
+// OOC 的前几个来回（群友 2026-11-02 许愿：「同一轮我前面刚指导完，后面让它改完那段发我，它就不知道之前聊的是哪段了」）：
+//   原来线下、群的 OOC 一句旧的都不带，线上那处只带 8 句、每句截 300 字——它改好的那一大段正好被截掉。
+//   现在四处都交最近的 OOC 来回，按真的一问一答排成多轮消息；它自己的回答给足 2000 字，改好的那段能原样接上。
+function oocTurns(msgs, question) {
+  const list = (Array.isArray(msgs) ? msgs : []).filter(m => m && !m.recalled && isOocMsg(m) && String(m.content || "").trim());
+  const last = list[list.length - 1];
+  const prior = last && last.role === "user" && String(question || "").trim().startsWith(String(last.content).trim()) ? list.slice(0, -1) : list;
+  const out = [];
+  prior.slice(-10).forEach(m => {
+    const role = m.role === "user" ? "user" : "assistant";
+    const text = String(m.content).trim().slice(0, role === "user" ? 800 : 2000);
+    const l = out[out.length - 1];
+    if (l && l.role === role) l.content += "\n" + text; else out.push({ role, content: text });
+  });
+  while (out.length && out[0].role !== "user") out.shift();
+  return out;
+}
 // OOC：跳出角色，直接和模型对话（调整/问状态/问剧情）
 async function oocAsk(p, ctx, question) {
   const existing = (ctx.directives || []).map(d => (typeof d === "string" ? d : d && d.text) || "").filter(s => s.trim());
   const system = "你现在跳出角色扮演，作为幕后的 AI 助手，用简体中文直接回答用户（OOC，越过角色本身）。你了解当前角色的人设、关系、此刻心情与剧情背景。\n\n用户这句 OOC 通常是两类之一：\n(A) 问角色此刻为什么这样 / 状态动机心理 / 剧情走向——就基于【角色人设 + 上文给你的此刻心情、好感度、近期对话】冷静分析讲给 Ta 听，别扮演。\n(B) 要求你调整角色接下来的说话或行为方式（想立一条长期规矩，如「以后对我别这么客气」「多主动关心我」）——你要判断这条要求和角色核心人设是否冲突：\n   · 合理（人设范围内做得到）：在 reply 里简短确认会照做，并把这条要求凝练成【一句、祈使句、对角色说的长期准则】填进 directive（例：『对用户更随意亲近，少用敬语』）。**只要你在 reply 里表示会照做，就【必须】同时把它填进 directive、绝不许留 null——reply 答应了却 directive 留空，这条准则就没被记下、角色下一轮又忘、等于骗用户，严禁。**\n   · 会严重崩人设、把角色变成另一个人：refused 填 true，directive 填 null，在 reply 里解释为什么这条你没法照做、它会怎样破坏这个角色，并可提议一个不崩人设的折中。\n(C) 不是长期规矩，而是【只管接下来几轮】的安排（让角色下一轮去做某件事、这几轮先别提某件事、接下来怎么接某段剧情）——这种别填 directive，改填 soon：text 写成一句对角色说的祈使句，turns 是管几轮（用户说「下一轮」就是 1；没说清就按这件事大概要几轮做完来估；用户说了数字就照它；最多 10，更长的就是长期规矩、走 B）。同样要先判断会不会崩人设，崩的话照 B 的办法拒绝。reply 里答应了就必须填上，别让角色下一轮又不知道。\n若只是 A 类提问，directive 和 soon 一律 null、refused 一律 false。" + (existing.length ? "\n\n【当前已生效的用户准则】\n" + existing.map((s, i) => (i + 1) + ". " + s).join("\n") + "\n" + OOC_REPLACE_RULE + "" : "") + "\n\n" + buildBundle(ctx, { ooc: true }) + "\n\n【输出】只输出一个 JSON，不要代码块：\n{\"reply\":\"给用户看的话（简洁直接）\",\"directive\":\"要新增/更新的一句长期准则，或 null\",\"replaces\":[被替换或取消的旧准则序号],\"soon\":{\"text\":\"只管接下来几轮的那句安排\",\"turns\":1}或 null,\"refused\":false}";
   // 放宽 token：gemini 等思考型模型思考也吃额度，900 太紧会把 reply(尤其A类分析)截在半句、或塞不完 JSON（输出免费）
-  const raw = await callAI(p, system, [{ role: "user", content: question }], { maxTokens: 14000 });
+  const raw = await callAI(p, system, [...oocTurns(ctx.oocMsgs, question), { role: "user", content: question }], { maxTokens: 14000 });
   const parsed = extractJSONKey(raw, "reply");
   if (parsed && typeof parsed.reply === "string") {
     return oocResult(parsed, existing);
@@ -10593,7 +11386,7 @@ async function oocAskGroup(p, ctx, question) {
   const relLines = members.map(c => directedRelationLines(c, ctx.rels, ctx.chars, ctx.profile)).join("\n");
   const existing = (ctx.directives || []).map(d => (typeof d === "string" ? d : d && d.text) || "").filter(s => s.trim());
   const system = "你现在跳出角色扮演，作为幕后的 AI 助手，用简体中文直接回答用户（OOC，越过群里所有角色）。你了解这个群里每个角色的人设、彼此关系与当前对话进展。语气是助手而非角色，简洁直接、不扮演。\n\n用户这句 OOC 通常是两类之一：\n(A) 问某角色/群里此刻的状态动机心理、关系张力、剧情走向——冷静说明。\n(B) 要求你调整接下来这些角色的演绎方式，或立一条【群里的长期规矩】（如「别再纠结那件事了」「都对我随和点」「少斗嘴」）——在 reply 里简短确认会照做，并把它凝练成【一句、祈使句、对全群成员今后都生效的长期准则】填进 directive（例：『别再揪着那件已经翻篇的旧事、往前聊』）。⚠️例子里的措辞只是示范格式，绝不许把示范里的任何具体事物（食物/地点/物件）照抄进你的回复或当成真发生过的事。若这条会严重崩掉某个角色的核心人设，refused 填 true、directive 填 null，并在 reply 里说明。只是 A 类提问就 directive 一律 null、refused 一律 false。\n\n【群成员】\n" + memberDesc + "\n\n【成员间关系】\n" + relLines + (ctx.worldbook && ctx.worldbook.trim() ? "\n\n【世界书】\n" + ctx.worldbook.trim() : "") + (ctx.historyText && ctx.historyText.trim() ? "\n\n【近期对话】\n" + ctx.historyText.trim() : "") + (existing.length ? "\n\n【当前群里已生效的准则】\n" + existing.map((s, i) => (i + 1) + ". " + s).join("\n") + "\n" + OOC_REPLACE_RULE + "" : "") + "\n\n【输出】只输出一个 JSON，不要代码块：\n{\"reply\":\"给用户看的话（简洁直接）\",\"directive\":\"要新增/更新的一句群规矩，或 null\",\"replaces\":[被替换或取消的旧规矩序号],\"refused\":false}";
-  const raw = await callAI(p, system, [{ role: "user", content: question }], { maxTokens: 14000 });
+  const raw = await callAI(p, system, [...oocTurns(ctx.oocMsgs, question), { role: "user", content: question }], { maxTokens: 14000 });
   const parsed = extractJSONKey(raw, "reply");
   if (parsed && typeof parsed.reply === "string") return oocResult(parsed, existing);
   return { reply: String(raw || "").trim(), directive: null, refused: false, replaced: [] };
@@ -10640,6 +11433,19 @@ async function runProbe(p, ctx, probe) {
     throw e;
   }
 }
+// TA 亲口写的字自带中译（她 2026-11-06「写双语你看看所有有翻译的地方有没有都接上」）：
+//   跟聊天、查手机同一个写法——外语写成「原文 | 中文」，屏幕上 TransText/transShow/PTX 自己会拆开。
+//   接在 TA 写字的共用入口（runProbe 的 voice 那几种）和直接 callAI 的那几处（传 char 进来），一处说法，别每一处自己写。
+//   TA 没开双语、已经自己要了单独的 zh 字段（朋友圈那种）、或者这一段本来就写了【双语】的，都不再加。
+function probeBiLine(char, probe) {
+  if (!char || !char.id || typeof window === "undefined" || typeof window.__charBiOn !== "function" || !window.__charBiOn(char.id)) return "";
+  if (probe) {
+    if (!(probe.voice || probe.voiceThought || probe.voiceScene)) return "";
+    if (/【双语】/.test(String(probe.instruction || "")) || /"zh"|\\"zh\\"|noteZh/.test(String(probe.schemaHint || ""))) return "";
+  }
+  return "\n\n【双语】你这一次写的文字里，凡是【不是中文】的正文（回答、信、留言、评论、纸条、台词、心里话这些），每一处都写成「原文 | 中文」：竖线左边照常写原文，右边是它的简体中文意思，按你说话的口气翻、不是字典直译，一处只用一根竖线；本来就是中文的照常写，不加。名字、时间、选项代号这些不加。";
+}
+if (typeof window !== "undefined") window.probeBiLine = probeBiLine;
 async function runProbeInner(p, ctx, probe) {
   // 等多久、能不能中途掐断：调用方传 probe.timeout / probe.signal，原样交给 callAI——
   //   别在外面拿 Promise.race 自己赛跑（赛输了请求还在后台跑、照样计费）。2026-10-20 收
@@ -10663,7 +11469,7 @@ async function runProbeInner(p, ctx, probe) {
     ? "你就是「" + ((ctx.char && ctx.char.name) || "TA") + "」本人。下面是完整设定和实际已知的上下文。这次只写未说出口的内心片段，按任务输出合法 JSON。" : head;
   const sceneHead = probe.voiceScene
     ? "你就是「" + ((ctx.char && ctx.char.name) || "TA") + "」本人。按下方现场事实和完整设定，写真实说出口的话；当前说话对象由现场任务确定。输出严格按 JSON。" : head;
-  const system = (probe.voiceThought ? thoughtHead : probe.voiceScene ? sceneHead : head) + "\n\n" + buildBundle(ctx) + "\n\n【" + (probe.voice ? "这一次要写什么" : "推演任务") + "】\n" + probe.instruction + "\n\n【输出】只输出合法 JSON，无 markdown 无多余文字：\n" + probe.schemaHint;
+  const system = (probe.voiceThought ? thoughtHead : probe.voiceScene ? sceneHead : head) + "\n\n" + buildBundle(ctx) + "\n\n【" + (probe.voice ? "这一次要写什么" : "推演任务") + "】\n" + probe.instruction + probeBiLine(ctx.char, probe) + "\n\n【输出】只输出合法 JSON，无 markdown 无多余文字：\n" + probe.schemaHint;
   // 她 2026-08-29：「全部 token 放开」。天花板不是预付款——按次计费下给大不多花一分钱，
   // 给小了只会截断正文，思考型模型的推理也从这里扣。默认 2600 是历史遗留，
   // 好几个推演（相册 25 张、书架 30 本）都被它悄悄截过。
@@ -10885,7 +11691,7 @@ async function fetchLocalEnv() {
       ? window.MapKit.userRealm(loadJSON("x_prefs", {}), loadJSON("x_geo", null), loadJSON("x_worlds", [])) : null;
     if (rl && rl.kind === "world") {
       out.location = rl.label;
-      const w = (typeof WorldWeather !== "undefined" && rl.node) ? WorldWeather.dayOf(rl.world.id + "|" + rl.node, rl.terrain, new Date()) : null;
+      const w = (typeof WorldWeather !== "undefined" && rl.node) ? WorldWeather.dayOf(rl.world.id + "|" + rl.node, rl.terrain, worldWxNow(null)) : null;
       if (w) out.weather = wmoToText(wxNowCode(w)) + " " + Math.round(w.t) + "°C";
       return out;
     }
@@ -11096,9 +11902,104 @@ function isQuotaError(e) {
 // 写 localStorage。成功返回 true；写满(quota)时【弹全局警告】并返回 false——不再默默丢数据。
 // 文字库的唯一写入口（原样字符串）。saveJSON 和下面那层 localStorage 转接都走这一个。
 const TXT_PAD_MAX = 256 * 1024;
+// 写进手机没成（她 2026-10-31：群友「正聊着天突然东西没了」）：原来只在后台记一行，界面照常——
+//   屏幕上看到的是内存里那份，iOS 一杀后台再打开，读到的是最后一次真存进去的旧版，中间那几个小时就没了。
+//   现在当场喊出来（app 那头 __saveFailed，20 秒内只喊一次），叫她先导出、腾地方。
+function txtWriteFailed(k, e) {
+  try { if (typeof window !== "undefined" && typeof window.__saveFailed === "function") window.__saveFailed(k, isQuotaError(e)); } catch (x) {}
+}
 let _txtHasDataMarked = false;
+// 聊天一下子变短：先把变短之前那份留下来（她 2026-10-31：群友 Arlota 线上聊天中间一大段凭空没了，记忆还在，
+//   查了一圈对不上任何一种已知情况、又没有云同步）。不猜原因了：以后谁的聊天一口气少了 10 条以上，
+//   不管是哪条路写进来的，变短前那份整份存进 x_shrinkBak:<键>（一个对话只留最近一份），再记一笔 x_shrinkLog
+//   （什么时候、几条变几条、从哪段代码写进来）。聊天设置里能一键合并回来；导出备份里也带着，下次能看出是谁剪的。
+//   她自己点删除、清空、归档的不留（她 2026-10-31「有啥办法修一下代价吗」）：那几处先挂 __chatShrinkOkUntil，
+//   这儿只记一笔「是她自己删的」。备份不进内存镜像——不跟导出、不上云，只躺在本机 IDB 里，14 天后开机清掉。
+const SHRINK_MIN = 10, SHRINK_KEEP_MS = 14 * 86400000;
+function chatShrinkOk(ms) { try { window.__chatShrinkOkUntil = Date.now() + (ms || 8000); } catch (e) {} }
+function chatMsgCount(str) { const m = String(str || "").match(/"role":/g); return m ? m.length : 0; }
+function noteChatShrink(k, prev, next) {
+  try {
+    const was = chatMsgCount(prev), now = chatMsgCount(next);
+    if (was - now < SHRINK_MIN) return;
+    const where = String((new Error().stack || "")).split("\n").slice(2, 7).map(x => x.trim().replace(/https?:\/\/[^/]+\//, "")).join(" ← ").slice(0, 400);
+    const at = Date.now(), mine = typeof window !== "undefined" && Number(window.__chatShrinkOkUntil || 0) > at;
+    if (!mine) idbTxtPut("x_shrinkBak:" + k, JSON.stringify({ at, from: was, to: now, where, data: prev })).catch(() => {});
+    let log = []; try { log = JSON.parse(_txtMirror().get("x_shrinkLog") || "[]") || []; } catch (e) {}
+    log.push(mine ? { k, at, from: was, to: now, mine: 1 } : { k, at, from: was, to: now, where });
+    txtWrite("x_shrinkLog", JSON.stringify(log.slice(-40)));
+    console.warn("[chat shrink] " + k + " " + was + " → " + now, where);
+  } catch (e) {}
+}
+// 角色名单一下子少了人（群里 2026-11-08：许咏安「配角不见了，通讯录里的人也不见了，我啥都没碰，正常聊天」——聊天记录还在）：
+//   名单和聊天分开存，名单被哪段代码拿一份旧的整份写回去，后来加的人就没了、他们的聊天还躺着。原因没当场抓到，照聊天变短那次的办法：
+//   不是她亲手删（删卷宗、删配角会先挂 __charShrinkOkUntil）的减少，把少掉的那几个人原样攒进 x_shrinkBak:x_characters，
+//   再记一笔是哪段代码写进来的（x_shrinkLog）。通讯录顶上会出「不见的人」，点一下放回来；下次就看得出是谁剪的
+// ── 只许一份在写（群里 2026-11-08：许咏安「配角不见了、通讯录的人也不见了，我啥都没碰」，聊天都还在）──
+//   App 同时开着两份（桌面图标一份、浏览器一个标签；或者后台还挂着一份旧的），每份手里都有自己那份角色名单。
+//   旧的那份只要存一次任何东西（改个头像、记个状态），就把它手里那份【更旧的名单】整份写回去，新加的人就没了；
+//   聊天一人一份分开存，所以人没了、聊天还在。规矩：最新打开的那一份说了算，别的那几份当场停写，蒙一层说明，点了就在那边重新载入。
+const QQ_INSTANCE = Math.random().toString(36).slice(2) + Date.now().toString(36);
+function qqFrozen() { try { return !!(typeof window !== "undefined" && window.__qqFrozen); } catch (e) { return false; } }
+(function singleWriter() {
+  if (typeof window === "undefined" || typeof document === "undefined") return;
+  const freeze = () => {
+    if (window.__qqFrozen) return;
+    window.__qqFrozen = true;
+    const show = () => {
+      if (document.getElementById("qq-frozen")) return;
+      const d = document.createElement("div");
+      d.id = "qq-frozen";
+      d.setAttribute("style", "position:fixed;inset:0;z-index:2147483647;background:rgba(20,18,16,.82);color:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:32px;text-align:center;font:15px/1.7 system-ui,sans-serif");
+      d.innerHTML = "<div style='font-size:17px;margin-bottom:10px'>秋秋机在另一个窗口打开了</div><div style='opacity:.8;max-width:320px'>两边同时开着会互相盖掉对方存的东西，这里先停下，什么都不再保存。想在这里接着用，点下面这一下。</div><button style='margin-top:22px;padding:10px 22px;border-radius:999px;border:0;background:#fff;color:#222;font-size:15px'>在这里接着用</button>";
+      d.querySelector("button").onclick = () => { try { location.reload(); } catch (e) {} };
+      document.body.appendChild(d);
+    };
+    if (document.body) show(); else document.addEventListener("DOMContentLoaded", show);
+  };
+  const hello = { t: "qq-hello", id: QQ_INSTANCE, at: Date.now() };
+  try {
+    if (typeof BroadcastChannel === "function") {
+      const ch = new BroadcastChannel("qq-instance");
+      ch.onmessage = e => { const m = e && e.data; if (m && m.t === "qq-hello" && m.id !== QQ_INSTANCE) freeze(); };
+      ch.postMessage(hello);
+      window.__qqInstanceCh = ch;
+    }
+  } catch (e) {}
+  // 没有 BroadcastChannel 的老浏览器：借 localStorage 的 storage 事件（只在别的窗口写时才会响）
+  try {
+    window.addEventListener("storage", e => { if (e && e.key === "qq_instance" && e.newValue && e.newValue.indexOf(QQ_INSTANCE) < 0) freeze(); });
+    localStorage.setItem("qq_instance", QQ_INSTANCE + "@" + Date.now());
+  } catch (e) {}
+})();
+function charShrinkOk(ms) { try { window.__charShrinkOkUntil = Date.now() + (ms || 8000); } catch (e) {} }
+function noteCharShrink(prev, next) {
+  try {
+    const a = JSON.parse(prev || "[]"), b = JSON.parse(next || "[]");
+    if (!Array.isArray(a) || !Array.isArray(b)) return;
+    const still = new Set(b.map(c => c && c.id).filter(Boolean));
+    const lost = a.filter(c => c && c.id && !still.has(c.id));
+    if (!lost.length) return;
+    const at = Date.now(), mine = typeof window !== "undefined" && Number(window.__charShrinkOkUntil || 0) > at;
+    const where = String((new Error().stack || "")).split("\n").slice(2, 7).map(x => x.trim().replace(/https?:\/\/[^/]+\//, "")).join(" ← ").slice(0, 400);
+    let log = []; try { log = JSON.parse(_txtMirror().get("x_shrinkLog") || "[]") || []; } catch (e) {}
+    log.push(mine ? { k: "x_characters", at, from: a.length, to: b.length, mine: 1 } : { k: "x_characters", at, from: a.length, to: b.length, where });
+    txtWrite("x_shrinkLog", JSON.stringify(log.slice(-40)));
+    if (mine) return;
+    console.warn("[char shrink] " + a.length + " → " + b.length, where);
+    idbTxtGet("x_shrinkBak:x_characters").then(old => {
+      let box = { at, where, lost: [] }; try { if (old) box = Object.assign(box, JSON.parse(old)); } catch (e) {}
+      const have = new Set((box.lost || []).map(c => c.id));
+      box.lost = (box.lost || []).concat(lost.filter(c => !have.has(c.id))).slice(-200); box.at = at; box.where = where;
+      return idbTxtPut("x_shrinkBak:x_characters", JSON.stringify(box));
+    }).catch(() => {}).then(() => { try { window.dispatchEvent(new Event("qq-char-shrink")); } catch (e) {} });
+  } catch (e) {}
+}
 function txtWrite(k, s) {
+  if (typeof qqFrozen === "function" && qqFrozen()) return true;   // 别的窗口在写：这一份一个字都不落
   s = String(s);
+  if (k === "x_characters") { const prev = _txtMirror().get(k); if (prev != null && prev !== s) noteCharShrink(String(prev), s); }
+  if (/^x_g?chat:/.test(k)) { const prev = _txtMirror().get(k); if (prev != null && s.length < prev.length) noteChatShrink(k, String(prev), s); }
   if (_txtGate && !_txtGate.done) _txtEarlyWrites.add(k);
   // 文字库没灌起来（镜像是空的）：这时界面上看到的是一台「空手机」，它写下的默认值
   //   绝不能落进 IDB 盖掉真存档，也不能垫进小仓库（下次开机会被当成新版搬进去）。只留在内存里。
@@ -11130,10 +12031,10 @@ function txtWrite(k, s) {
           return verifyWal.then(walBack => {
             if (back === s && (!needsLocalJournal || lsRaw.get(k) === s) && walBack === s) {
               if (needsLocalJournal) lsRaw.del(k);
-              if (isDurableTextKey(k)) walDel(k).catch(e => console.error("wal cleanup failed:", k, e));
+              if (isDurableTextKey(k)) walDelIf(k, s).catch(e => console.error("wal cleanup failed:", k, e));
             }
           });
-        }).catch(e => console.error("durable idbTxtPut failed:", k, e));
+        }).catch(e => { console.error("durable idbTxtPut failed:", k, e); txtWriteFailed(k, e); });
       } catch (e) {}
     } else {
       // ⚠️小仓库只当【这一版落进 IDB 之前】的临时垫子：先同步垫一份（只垫小的），IDB 读回一致才撤。
@@ -11145,12 +12046,13 @@ function txtWrite(k, s) {
       try {
         idbTxtPut(k, s).then(() => idbTxtGet(k)).then(back => {
           if (back === s && lsRaw.get(k) === s) lsRaw.del(k);
-        }).catch(e => console.error("idbTxtPut failed:", k, e));
+        }).catch(e => { console.error("idbTxtPut failed:", k, e); txtWriteFailed(k, e); });
       } catch (e) {}
     }
     return true;
 }
 function saveJSON(k, v) {
+  if (typeof qqFrozen === "function" && qqFrozen()) return true;   // 别的窗口在写（见 singleWriter）
   let encoded = null, previous = null;
   try {
     txtEarlyTouch(k);
@@ -11217,45 +12119,54 @@ function saveJSON(k, v) {
 // 关键消息路径(CC 回灌/灾后找回)必须 await saveJSONDurable——WAL 落盘且读回
 // 逐字核验通过才算 durable,才准提交云游标/清工单;配额满时 WAL 仍保底最新一版,
 // 开机由保险箱回收补回。WAL 只加保险不改动任何现有读写路径。
-let _walDB = null;
-function walOpen() {
-  return new Promise((res, rej) => {
-    if (_walDB) return res(_walDB);
-    const rq = indexedDB.open("lisa_wal_v1", 1);
-    rq.onupgradeneeded = () => { try { rq.result.createObjectStore("wal"); } catch (e) {} };
-    rq.onsuccess = () => { _walDB = rq.result; _walDB.onclose = () => { _walDB = null; }; res(_walDB); };
-    rq.onerror = () => rej(rq.error);
-  });
-}
+// 2026-11-08 搬到公共那一层（施工规则/one-public-mechanism.md）：下面这段「连接死在手里」
+//   的道理对每一个库都成立，原来只写在保险箱自己家里，别的库只能照着抄——结果一条都没抄。
+function walUp(db) { try { if (!db.objectStoreNames.contains("wal")) db.createObjectStore("wal"); } catch (e) {} }
+// 连接【死在手里】：iOS/安卓把 app 切后台再回来，系统常把这个 IndexedDB 连接掐断，
+//   而 onclose 不一定发得出来——握着的那一条从此每一笔事务都报错，手机根本没满。
+//   群友 2026-11-02 截到的「一直弹『刚才的聊天没存进手机』、存储还剩一大半」就是这一幕：
+//   不是偶尔卡一下，是坏了之后再也好不了，所以「下一次保存会补上」对她永远不成立。
+// 保险箱所有读写一律走这一层（施工规则/one-public-mechanism.md）：出错就把连接丢掉重开、
+//   再跑一次；两次都不成才算真失败，才往上报。以后新加的用法白得这一层。
+function walWith(run) { return idbWith("lisa_wal_v1", 1, walUp, run); }
 async function walPutVerified(key, str) {
-  const db = await walOpen();
-  await new Promise((res, rej) => {
+  await walWith(db => new Promise((res, rej) => {
     const tx = db.transaction("wal", "readwrite");
     tx.objectStore("wal").put({ v: str, ts: Date.now() }, key);
     tx.oncomplete = res;
     tx.onabort = tx.onerror = () => rej(tx.error || new Error("wal tx abort"));
-  });
+  }));
   const back = await walGetRaw(key);
   return back === str;
 }
 function walGetRaw(key) {
-  return walOpen().then(db => new Promise((res, rej) => {
+  return walWith(db => new Promise((res, rej) => {
     const rq = db.transaction("wal", "readonly").objectStore("wal").get(key);
     rq.onsuccess = () => res(rq.result ? rq.result.v : null);
     rq.onerror = () => rej(rq.error);
   }));
 }
 function walKeys(prefix) {
-  return walOpen().then(db => new Promise((res, rej) => {
+  return walWith(db => new Promise((res, rej) => {
     const rq = db.transaction("wal", "readonly").objectStore("wal").getAllKeys();
     rq.onsuccess = () => res((rq.result || []).filter(k => typeof k === "string" && (!prefix || k.indexOf(prefix) === 0)));
     rq.onerror = () => rej(rq.error);
   }));
 }
 function walDel(key) {
-  return walOpen().then(db => new Promise((res, rej) => {
+  return walWith(db => new Promise((res, rej) => {
     const tx = db.transaction("wal", "readwrite");
     tx.objectStore("wal").delete(key);
+    tx.oncomplete = res;
+    tx.onabort = tx.onerror = () => rej(tx.error || new Error("wal delete abort"));
+  }));
+}
+// 只在保险箱里还是【这一版】时才删（同一个事务里先读后删）。连着好几次保存同一个聊天时，
+//   前一次收尾那一下不许把后一次刚写进去、还没落进 IDB 的那份删掉。
+function walDelIf(key, str) {
+  return walWith(db => new Promise((res, rej) => {
+    const tx = db.transaction("wal", "readwrite"), st = tx.objectStore("wal"), rq = st.get(key);
+    rq.onsuccess = () => { if (rq.result && rq.result.v === str) st.delete(key); };
     tx.oncomplete = res;
     tx.onabort = tx.onerror = () => rej(tx.error || new Error("wal delete abort"));
   }));
@@ -11550,8 +12461,22 @@ function vclockSeg(c, ts) {
 function vclockKeepHist(oldClocks, newClocks, now) {
   const out = { ...(newClocks || {}) }; now = now || Date.now();
   Object.keys(out).forEach(k => {
-    const o = oldClocks && oldClocks[k], n = out[k];
-    if (!o || !n || !o.on || !n.on) return;
+    // 原来没有这只钟（从没拨过，比如头一回点「先歇着」）也算「关着」：开钟这一下照样记一段「之前是现实」
+    const o = (oldClocks && oldClocks[k]) || { on: false }, n = out[k];
+    if (!n) return;
+    // 开、关钟这一下也记一笔（她 2026-11-01：「从虚拟时间改到现实和 vice versa 不会有错吧」）：
+    //   原来只有「开着→开着」才记，关钟以后以前虚拟那段统统按现实重算，开钟以后以前现实那段统统被算成虚拟的。
+    //   关钟：把那一版虚拟钟记下来（之前的消息照旧是虚拟的日子）；开钟：把关着那段记成「现实」（real:true，原样）。
+    const hist0 = Array.isArray(o.hist) ? o.hist : (Array.isArray(n.hist) ? n.hist : []);
+    if (o.on && !n.on && isFinite(Number(o.base))) {
+      out[k] = { ...n, hist: [...hist0, { until: now, base: Number(o.base), at: Number(o.at || 0), speed: o.speed, ...(o.awayAt ? { awayAt: o.awayAt } : {}) }].slice(-300) };
+      return;
+    }
+    if (!o.on && n.on) {
+      out[k] = { ...n, hist: [...hist0, { until: now, real: true }].slice(-300) };
+      return;
+    }
+    if (!o.on || !n.on) { if (hist0.length && !n.hist) out[k] = { ...n, hist: hist0 }; return; }
     // 只要这版钟的四样有一样变了（拨钟、改速度、离开停住又回来），旧消息照旧版算才不会挪
     const jump = Number(o.base) !== Number(n.base) || Number(o.at || 0) !== Number(n.at || 0) || Number(o.speed) !== Number(n.speed) || (o.awayAt || 0) !== (n.awayAt || 0);
     if (!jump) { if (o.hist && !n.hist) out[k] = { ...n, hist: o.hist }; return; }
@@ -11560,7 +12485,24 @@ function vclockKeepHist(oldClocks, newClocks, now) {
   });
   return out;
 }
-function vclockMap(ts, id) { return vclockMapBy(vclockCfg(id, ts), ts); }
+function vclockMap(ts, id) {
+  const c = vclockCfg(id, ts);
+  if (c) return vclockMapBy(c, ts);
+  // 钟现在关着，可以前开过：那几段照当时的钟算，之后的照现实
+  const raw = vclockRawCfg(id, ts);
+  if (raw && Array.isArray(raw.hist) && raw.hist.length) {
+    for (let i = 0; i < raw.hist.length; i++) { const h = raw.hist[i]; if (h && Number(ts) < Number(h.until)) return h.real ? Number(ts) : vclockMapBy({ ...h, hist: null }, ts); }
+  }
+  return Number(ts);
+}
+// 不管开没开，拿这个人那只钟的原始设定（看历史分段用）
+function vclockRawCfg(id, ts) {
+  const W = vclockState(); if (!W || !W.clocks) return null;
+  const who = id !== undefined ? id : W.active;
+  let key = "";
+  try { key = who != null && typeof W.maskOf === "function" ? String(W.maskOf(String(who), ts) || "") : ""; } catch (e) { key = ""; }
+  return (W.clocks || {})[key || "main"] || null;
+}
 // 显示用的公共一处：现实时间戳 → 这个角色（或 "g:群id"、null＝主面具）那只钟上的 Date
 function vDate(ts, id) { const t = Number(ts) || Date.now(); return new Date(vclockMap(t, id)); }
 // 主面具那只钟（主屏的钟和日历、周刊这种不属于某一个人的地方用它）
@@ -11571,13 +12513,22 @@ function vclockMainMap(ts) {
 }
 function vclockMapBy(c0, ts) {
   if (!c0) return Number(ts);
+  // 这只钟头一次拨出来之前的事，照现实的日子（群里 2026-11-08：日记和情侣空间的「第一次」，10 月 24 号之前的全变成了 24 号）：
+  //   11 月 1 号起开钟会记一段「之前是现实」；在那之前就开着的钟没有这一段，于是开钟以前的每条都拿这只钟去算——
+  //   钟停着（speed 0）或者拨在 24 号，以前的全挤到同一天。最早那一版钟是哪一刻拨的（at），早于它的就是现实
+  const h0 = Array.isArray(c0.hist) && c0.hist.length ? c0.hist[0] : c0;
+  if (h0 && !h0.real && Number(h0.at) > 0 && Number(ts) < Number(h0.at)) return Number(ts);
   const c = vclockSeg(c0, ts);
+  if (c && c.real) return Number(ts);   // 那一段钟是关着的：照现实
   const sp = Number(c.speed);
   // 离开小手机时停住：走开那段里后台照样会跑（自己发消息、写日记），那几下也按走开那一刻算
   const t = c.awayAt && Number(ts) > Number(c.awayAt) ? Number(c.awayAt) : Number(ts);
   return Number(c.base) + (t - Number(c.at || 0)) * (isFinite(sp) && sp >= 0 ? sp : 1);
 }
 function vclockNow(id) { return new Date(vclockMap(Date.now(), id)); }
+// 架空世界的天气照哪一天算（她 2026-11-04 转群友：「天气里还是显示现实时间，我虚拟时间设的是周五中午」）：
+//   跟着钟走——给了人就照那个人认的那只钟，没给就照主面具那只；钟关着就是现实
+function worldWxNow(id) { try { return new Date(vclockMap(Date.now(), id == null ? null : id)); } catch (e) { return new Date(); } }
 // 年份怎么叫：有年号就「天启3年」，没有就「2026年」
 function vclockYear(y, c) {
   const era = c && c.era && String(c.era.name || "").trim();
@@ -11597,7 +12548,12 @@ function fmtStampAI(ts, id) {
   if (d.toDateString() === now.toDateString()) return "今天" + fmtClock(d);
   const yd = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1);
   if (d.toDateString() === yd.toDateString()) return "昨天" + fmtClock(d);
-  return (d.getMonth() + 1) + "/" + d.getDate() + " " + fmtClock(d);
+  // 隔了几天直接写在戳上：模型自己拿日期做减法会把五天前说成「前天」（她 2026-11-04）
+  const days = Math.round((new Date(now.getFullYear(), now.getMonth(), now.getDate()) - new Date(d.getFullYear(), d.getMonth(), d.getDate())) / 864e5);
+  if (days === 2) return "前天" + fmtClock(d);
+  const md = (d.getMonth() + 1) + "/" + d.getDate();
+  if (days > 2) return md + "（周" + "日一二三四五六"[d.getDay()] + "，" + days + "天前）" + fmtClock(d);
+  return md + " " + fmtClock(d);
 }
 // ── 定位这一层（坐标是唯一的真身，标签一律从坐标现拼）─────────────────
 // 她 2026-09-22 转来的那条：有人把位置手改到东京，结果显示成「东京 · 江苏 · 中国」，

@@ -13,10 +13,7 @@
 // 论坛、空间里那一段是哪个角色写的：包一层 TransWho，那个人开着「自带中译」就直接摆中文（components.js TransText）
 function STX(v) {
   // 已经是元素／数组（整页正文、一排按钮）就原样放过——String() 了就是一行「[object Object]」，还会挂上「译」（2026-10-17 群友截图）
-  if (v && typeof v === "object") return v;
-  const s = String(v == null ? "" : v);
-  if (!s) return s;
-  return typeof TransText === "function" ? h(TransText, { text: s, ink: "currentColor", inline: true }) : s;
+  return typeof transShow === "function" ? transShow(v) : v;   // 公共出口在 components.js
 }
 function cardFillNames(text, charName, userName) {
   return String(text || "")
@@ -89,25 +86,26 @@ function cardFromJSON(text) {
 // 后三种允许值写在【同一行】上（「【一句话】永安王」），那一段算这一节的正文头。
 // ⚠️每一支只留一段「吃到行尾」，首尾的空格和冒号拿到外面去剥（群里 2026-10-19「角色卡复制粘贴就卡死」）：
 //   原来写成 (.+?)[ \t]*[:：]?[ \t]*$，标题后面跟一长串空格时回溯是平方级以上，3000 个空格就卡一分多钟。
-const CARD_SEC_RE = /^[ \t]*(?:#{1,6}[ \t]*([^\n]+)|\*\*([^\n]+?)\*\*([^\n]*)|[【\[〔]([^\n]+?)[】\]〕]([^\n]*)|([一-龥A-Za-z][一-龥A-Za-z0-9_ ]{0,13})[ \t]*[:：]([^\n]*))$/gm;
+const CARD_SEC_RE = /^[ \t]*(?:#{1,6}[ \t]*([^\n]+)|\*\*([^\n]+?)\*\*([^\n]*)|[【\[〔]([^\n]+?)[】\]〕]([^\n]*)|[=＝─—━~*]{2,}[ \t]*([^\n=＝─—━~*]{1,30}?)[ \t]*[=＝─—━~*]{2,}|[■◆▼★※◎●□▲][ \t]*([^\n]{1,30})|([一-龥A-Za-z][一-龥A-Za-z0-9_ ]{0,13})[ \t]*[:：]([^\n]*))$/gm;
 // 带冒号那一种太宽（正文里随便一行「TA说：」也像），所以只认这些词
 const CARD_SEC_KWS = ["人设", "设定", "简介", "描述", "长期记忆", "初始记忆", "记忆库种子", "记忆种子", "种子", "记忆库", "开场白", "问候语", "第一句", "一句话", "标签", "外貌", "persona", "description", "memory", "greeting"];
 // 把一篇文档按分节标题切开：角色卡导入和跑团剧本导入共用这一把刀（one-public-mechanism）。
 // colonKws：带冒号那一支只认这些词，别把正文里的「TA说：」当成分节
 function splitDocSections(text, colonKws) {
   const secs = [];
-  let last = null, mm;
+  let last = null, mm, firstAt = -1;
   const push = (sec, until) => secs.push({ title: sec.title, body: (sec.pre ? sec.pre + "\n" : "") + text.slice(sec.end, until).trim() });
   CARD_SEC_RE.lastIndex = 0;
   while ((mm = CARD_SEC_RE.exec(text))) {
-    const title = (mm[1] || mm[2] || mm[4] || mm[6] || "").trim().replace(/[:：]$/, "").trim();
-    const pre = (mm[3] || mm[5] || mm[7] || "").trim().replace(/^[:：]/, "").trim();
-    if (mm[6] && !(colonKws || []).some(k => title.toLowerCase().includes(k))) continue;
+    const title = (mm[1] || mm[2] || mm[4] || mm[6] || mm[7] || mm[8] || "").trim().replace(/[:：]$/, "").trim();
+    const pre = (mm[3] || mm[5] || mm[9] || "").trim().replace(/^[:：]/, "").trim();
+    if (mm[8] && !(colonKws || []).some(k => title.toLowerCase().includes(k))) continue;
     if (!title) continue;
-    if (last) push(last, mm.index);
+    if (last) push(last, mm.index); else firstAt = mm.index;
     last = { title: title, pre: pre, end: mm.index + mm[0].length };
   }
   if (last) push(last, text.length);
+  secs.lead = firstAt > 0 ? text.slice(0, firstAt).trim() : "";
   return secs;
 }
 function parseCharCard(raw, userName) {
@@ -115,23 +113,59 @@ function parseCharCard(raw, userName) {
   const asJson = cardFromJSON(text0);
   const out = asJson || { name: "", tagline: "", persona: "", longMem: "", seeds: [], greeting: "", hadExample: false, from: "text" };
   if (!asJson) {
-    const text = text0;
+    // 整段用 <persona>…</persona> <world_info>…</world_info> 这种标签分块的卡也认：
+    //   单独一行的开标签当成一节的标题，闭标签丢掉。大写的 <START> 不碰（那是对话示例的界碑）。
+    const text = text0.replace(/^[ \t]*<\/[a-z][a-z0-9_-]*>[ \t]*$/gm, "")
+      .replace(/^[ \t]*<([a-z][a-z0-9_-]*)>[ \t]*$/gm, (_, tag) => "## " + tag);
     // 「# X · 角色卡」「名字：X」「【姓名】X」「**姓名**：X」「名字「X」」，最后才退到第一个 # 标题
     // 「# X · 角色卡」：只在一行里找，名字里不带空格以外的分隔——原来 \s* 能跨行、又跟名字那段的空格重叠，长串空格回溯卡死
     let m = text.match(/^#[ \t]*([^\n·#|｜ \t][^\n·#|｜]{0,40}?)[ \t]*(?:[·|｜][ \t]*)?角色卡/m)
-      || text.match(/^[ \t]*(?:#{1,6}[ \t]*)?(?:(?:\*\*|[【\[〔])[ \t]*)?(?:名字|姓名|角色名|人物名|name)[ \t]*(?:(?:\*\*|[】\]〕])[ \t]*)?(?:[:：][ \t]*)?[「"'\[]?([^\n」"'\]]{1,20})/im)
+      || text.match(/^[ \t]*(?:[-*•+][ \t]*)?(?:#{1,6}[ \t]*)?(?:(?:\*\*|[【\[〔])[ \t]*)?(?:名字|姓名|角色名|人物名|name)[ \t]*(?:(?:\*\*|[】\]〕])[ \t]*)?(?:[:：][ \t]*)?[「"'\[]?([^\n」"'\]]{1,20})/im)
       || text.match(/名字[「"']([^」"']+)[」"']/)
       || text.match(/^#[ \t]*([^\n#]{1,20})[ \t]*$/m);
     if (m) out.name = m[1].trim().replace(/[*_`]/g, "");
     const secs = splitDocSections(text, CARD_SEC_KWS);
     const find = kws => secs.find(s => kws.some(k => s.title.toLowerCase().includes(k)));
     // 先挑种子再挑长期记忆：「记忆库种子」里也含着「记忆」两个字
-    const sSec = find(["记忆库种子", "记忆种子", "记忆库", "种子"]);
-    const mSec = secs.find(s => !(sSec && s === sSec) && ["长期记忆", "初始记忆"].some(k => s.title.includes(k)));
-    const pSec = find(["人设", "设定", "描述", "persona", "description"]);
-    const gSec = find(["开场白", "问候语", "第一句", "greeting"]);
+    const sSec = find(["记忆库种子", "记忆种子", "记忆库", "种子", "memory_seed"]);
+    const mSec = secs.find(s => !(sSec && s === sSec) && ["长期记忆", "初始记忆", "long_term_memory", "memory"].some(k => s.title.toLowerCase().includes(k)));
+    // 一份文件里人设和世界书写在一起（群友 2026-11-01，小窝传上来的就是这种）：
+    //   「世界书」这一节往下的分节，全归世界书，拿标题当关键词；不许一股脑并进人设。
+    const lIdx = secs.findIndex(x => /世界书|世界观|世界设定|背景设定|补充设定|设定集|关系网|词条|lore_?book|world_?(info|book|setting)|social_circle/i.test(x.title));
+    const loreSecs = lIdx < 0 ? [] : secs.slice(lIdx).filter(x => x === secs[lIdx] || !["长期记忆", "初始记忆", "开场白", "问候语", "第一句", "记忆库种子", "记忆种子"].some(k => x.title.includes(k)));
+    const isLore = x => loreSecs.indexOf(x) >= 0;
+    const pSec = secs.find(x => !isLore(x) && ["人设", "设定", "描述", "简介", "persona", "description", "character", "profile"].some(k => x.title.toLowerCase().includes(k)));
+    const gSec = find(["开场白", "问候语", "第一句", "greeting", "first_mes", "first_message"]);
     const tSec = find(["一句话", "标签", "tagline"]);
-    if (pSec) out.persona = pSec.body.trim();
+    if (loreSecs.length) {
+      // 关键词从标题里剥出来：「### 1. 老爸：陆大军」要的是「陆大军」，不是整行
+      const kwOf = ttl => String(ttl).replace(/^[\d一二三四五六七八九十]+[、.．)）]\s*/, "").replace(/[（(].*$/, "").split("·")[0].split(/[:：]/).pop().trim().slice(0, 24);
+      // 「世界书-社交关系网」这一节自己的正文往往只是把标题又写了一遍 + 一行 <xml 标签>，
+      //   那种不成一条词条，去掉；真有正文的才留。
+      const bodyOf = x => x.body.split("\n").filter(ln => {
+        const l = ln.trim();
+        return l && !/^<[^>]*>$/.test(l) && l !== x.title.trim();
+      }).join("\n").trim();
+      // 「准则/规矩」那一本管的是怎么说话，提不提到都得在场 → 常驻；
+      //   「关系网/设定」那一本是提到谁才翻的 → 拿标题当关键词。
+      const isHead = x => /世界书|世界观设定|设定集|词条|lorebook|world\s*info/i.test(x.title);
+      const always = x => /准则|规则|守则|规范|铁律|须知/.test(x.title);
+      let head = loreSecs[0];
+      out.lore = (out.lore || []).concat(loreSecs.map(x => {
+        if (isHead(x)) head = x;
+        const payload = bodyOf(x), on = always(head);
+        return payload ? { title: x.title.slice(0, 40), keyword: on ? "" : kwOf(x.title), payload: payload, category: "世界观", enabled: true, alwaysOn: on } : null;
+      }).filter(Boolean));
+    }
+    // 人设只取「人设」那一节，卡里的【生日】【外貌】【喜好】这些就全丢了（群友 2026-11-01：
+    //   一万多字的 word 传上来只剩 600 字）。没被别的栏收走的分节，一律跟着人设一起留下。
+    const named = s => /名字|姓名|角色名|人物名|角色卡/.test(s.title) || /^name$/i.test(s.title);
+    const keep = secs.filter(s => s !== sSec && s !== mSec && s !== gSec && s !== tSec && !named(s) && !isLore(s) && s.body.trim());
+    if (pSec && keep.length <= 1) out.persona = pSec.body.trim();
+    else if (keep.length) out.persona = [secs.lead || ""].concat(keep.map(s => "【" + s.title + "】\n" + s.body.trim())).filter(x => x.trim()).join("\n\n");
+    // 整篇都是世界书（单独一份世界书文件）：人设留整篇兜底，但挂个记号，
+    //   合并几份文件时这一份就整份当世界书，不会被当成人设正文并进去。
+    else if (out.lore && out.lore.length) out.allLore = true;
     if (mSec) out.longMem = mSec.body.trim();
     if (gSec) out.greeting = gSec.body.trim();
     if (tSec) out.tagline = tSec.body.trim().split("\n")[0].slice(0, 40);
@@ -141,7 +175,7 @@ function parseCharCard(raw, userName) {
         return { text: x.replace(/[〔\[【]\s*置顶\s*[〕\]】]/g, "").trim(), pinned };
       });
     }
-    if (!out.persona) out.persona = text.trim(); // 没认出结构：整篇当人设，名字留给她改
+    if (!out.persona) out.persona = text0.trim(); // 没认出结构：整篇当人设，名字留给她改
   }
   out.warnings = cardWarnings(text0, out.hadExample);
   // 占位符替换和例句脚手架，两条路（JSON 和纯文本）都要走一遍
@@ -164,6 +198,8 @@ function CardImportSheet({ onImport, onClose, userName }) {
   const [edits, setEdits] = useState({});
   const [fileBusy, setFileBusy] = useState(false);
   const [fileErr, setFileErr] = useState("");
+  const [extraLore, setExtraLore] = useState([]);   // 选中的文件里点成世界书的那几份
+  const [picked, setPicked] = useState([]);        // 这次选的几份文件，各自是人设还是世界书
   const fileRef = useRef(null);
   const p = txt.trim() ? parseCharCard(txt, userName) : null;
   const seedsToText = arr => (arr || []).map(x => (x.pinned ? "〔置顶〕" : "") + x.text).join("\n");
@@ -174,17 +210,46 @@ function CardImportSheet({ onImport, onClose, userName }) {
   const val = k => edits[k] != null ? edits[k] : (p ? (k === "seeds" ? seedsToText(p.seeds) : (p[k] || "")) : "");
   const setVal = (k, v) => setEdits(e => Object.assign({}, e, { [k]: v }));
   const persona = val("persona");
+  // 一份人设拆成好几个文件是常事（群友 2026-11-01：人设一份、自带世界书一份）。
+  //   一次选上，每一份自己点是人设还是世界书：人设那几份按选中顺序接起来，
+  //   世界书那几份收成只绑这个角色的词条（json 按词条拆，txt/docx 整份当一条）。
+  // Word/txt 的世界书照它自己的分节拆成一条条（【地名】## 组织 **势力** 这几种都认），
+  //   拆不出两节以上就整份当一条常驻。拆出来的按标题当关键词，提到才进。
+  const loreFromPicked = f => {
+    if (f.lore && f.lore.length) return f.lore;
+    const secs = splitDocSections(f.text, []).filter(x => x.title && x.body.trim());
+    if (secs.length < 2) return [{ title: f.title, payload: f.text, category: "世界观", alwaysOn: true, enabled: true }];
+    return secs.map(x => ({ title: x.title.slice(0, 40), keyword: x.title.slice(0, 40), payload: x.body.trim(), category: "世界观", alwaysOn: false, enabled: true }));
+  };
+  const applyPicked = list => {
+    const texts = [], lore = [];
+    const many = list.filter(f => f.as === "persona").length > 1;
+    list.forEach(f => {
+      if (f.as === "lore") lore.push.apply(lore, loreFromPicked(f));
+      else texts.push(many ? "【" + f.title + "】\n" + f.text : f.text);
+    });
+    setPicked(list); setTxt(texts.join("\n\n")); setEdits({}); setExtraLore(lore);
+    setFileErr(texts.length ? "" : "这几份都点成世界书了，人设那一份点回「人设」");
+  };
   const importFile = async e => {
-    const input = e.target, file = input.files && input.files[0];
+    const input = e.target, files = Array.from(input.files || []).slice(0, 10);
     input.value = "";
-    if (!file) return;
+    if (!files.length) return;
     setFileBusy(true); setFileErr("");
     try {
-      if (/\.doc$/i.test(file.name || "")) throw new Error("老的 .doc 读不了，在 Word 里另存为 .docx 再导");
-      if (!/\.(docx|txt|md|markdown|json)$/i.test(file.name || "")) throw new Error("请选择 .docx / .txt / .md / .json 文件");
-      const text = await readOfflineStyleDocument(file);
-      if (!String(text || "").trim()) throw new Error("文件里没有可导入的文字");
-      setTxt(text); setEdits({});
+      const list = [];
+      for (const file of files) {
+        if (/\.doc$/i.test(file.name || "")) throw new Error("老的 .doc 读不了，在 Word 里另存为 .docx 再导");
+        if (!/\.(docx|txt|md|markdown|json)$/i.test(file.name || "")) throw new Error("请选择 .docx / .txt / .md / .json 文件");
+        const text = String(await readOfflineStyleDocument(file) || "").trim();
+        if (!text) continue;
+        let d = null; try { d = JSON.parse(text); } catch (_) {}
+        const entries = d && !(d.name || d.data || d.persona || d.description) && typeof loreEntriesFromJson === "function" ? loreEntriesFromJson(d) : null;
+        const hit = entries && entries.length ? entries : null;
+        list.push({ title: String(file.name || "").replace(/\.[a-z0-9]+$/i, "").slice(0, 40), text: text, lore: hit, as: hit ? "lore" : "persona" });
+      }
+      if (!list.length) throw new Error("文件里没有可导入的文字");
+      applyPicked(list);
     } catch (err) {
       setFileErr(String(err && err.message || "文件读取失败，请重新选择").replace(/文风/g, "角色卡"));
     } finally { setFileBusy(false); }
@@ -199,15 +264,25 @@ function CardImportSheet({ onImport, onClose, userName }) {
     h(Head, { zh: "导入角色卡", bg: "transparent", onBack: onClose }),
     h("div", { className: "flex-1 min-h-0 overflow-y-auto px-5 pb-10" },
       h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog, margin: "14px 0 10px", lineHeight: 1.65 } },
-        "整篇粘进来，或者直接选文件（.docx / .txt / .md / .json）。认得出常见 JSON 角色卡（v1/v2，卡里的世界书收成只给 TA 的世界书词条），也认「# / ## / **加粗** / 【】」这几种分节。{{char}}/{{user}} 会自动换掉，<START> 之后的对话示例不导入。拆得不对就在下面的预览里直接改。"),
+        "整篇粘进来，或者直接选文件（.docx / .txt / .md / .json，一次可以选好几份，选完每一份自己点是「人设」还是「世界书」：人设那几份按顺序接起来，世界书那几份只绑给 TA）。认得出常见 JSON 角色卡（v1/v2，卡里的世界书收成只给 TA 的世界书词条），也认「# / ## / **加粗** / 【】」这几种分节。{{char}}/{{user}} 会自动换掉，<START> 之后的对话示例不导入。拆得不对就在下面的预览里直接改。"),
       h("button", {
         onClick: () => fileRef.current && fileRef.current.click(), disabled: fileBusy,
         className: "w-full active:opacity-70",
         style: { marginBottom: 10, background: "transparent", color: t.ink, border: "1px solid " + t.line, borderRadius: 12, padding: "10px 0", fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))" }
       }, fileBusy ? "正在读文件…" : "从文件导入"),
-      h("input", { ref: fileRef, type: "file", accept: ANY_FILE, style: { display: "none" }, onChange: importFile }),
+      h("input", { ref: fileRef, type: "file", accept: ANY_FILE, multiple: true, style: { display: "none" }, onChange: importFile }),
+      picked.length ? h("div", { "data-wk": "block", style: { marginBottom: 10, padding: "9px 11px", borderRadius: 12, background: t.bg2, border: "1px solid " + t.line } },
+        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, marginBottom: 6 } }, "这几份各是什么？点一下能改" + (extraLore.length ? "；世界书导入时只绑给 TA" : "")),
+        picked.map((f, i) => h("div", { key: i, className: "flex items-center gap-2", style: { marginBottom: 5 } },
+          h("span", { className: "flex-1 min-w-0 truncate", style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.ink } },
+            f.title + (f.as === "lore" ? "（" + loreFromPicked(f).length + " 条）" : "")),
+          ["persona", "lore"].map(k => h("button", {
+            key: k, onClick: () => applyPicked(picked.map((x, n) => n === i ? Object.assign({}, x, { as: k }) : x)),
+            className: "active:opacity-70",
+            style: { padding: "3px 10px", borderRadius: 999, fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", border: "1px solid " + (f.as === k ? t.ink : t.line), background: f.as === k ? t.ink : "transparent", color: f.as === k ? t.bg2 : t.fog }
+          }, k === "persona" ? "人设" : "世界书"))))) : null,
       fileErr ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.accent || t.ink, marginBottom: 8 } }, fileErr) : null,
-      h("textarea", { "data-wk": "textarea", value: txt, onChange: e => { setTxt(e.target.value); setEdits({}); }, rows: 10, placeholder: "在这里粘贴整篇角色卡…", style: { width: "100%", background: t.bg2, border: "1px solid " + t.line, borderRadius: 12, padding: "11px 13px", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.ink, resize: "none", lineHeight: 1.6 } }),
+      h("textarea", { "data-wk": "textarea", value: txt, onChange: e => { setTxt(e.target.value); setEdits({}); setExtraLore([]); setPicked([]); }, rows: 10, placeholder: "在这里粘贴整篇角色卡…", style: { width: "100%", background: t.bg2, border: "1px solid " + t.line, borderRadius: 12, padding: "11px 13px", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.ink, resize: "none", lineHeight: 1.6 } }),
       p ? h("div", { "data-wk": "block", style: { marginTop: 12, padding: "12px 14px", borderRadius: 14, background: t.bg2, border: "1px solid " + t.line } },
         h(Eyebrow, { style: { marginBottom: 7 } }, p.from === "json" ? "解析预览 · 认出是 JSON 角色卡 · 可直接改" : "解析预览 · 可直接改"),
         h("div", { className: "flex items-center gap-2", style: { marginBottom: 5 } },
@@ -225,6 +300,8 @@ function CardImportSheet({ onImport, onClose, userName }) {
             style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.ink, borderBottom: "1px solid " + t.line, padding: "2px 0" }
           })),
         label("人设" + count("persona")), box("persona", 8, "人设是必填的"),
+        (p.allLore ? [] : (p.lore || [])).concat(extraLore).length ? (lore => h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, marginTop: 8, lineHeight: 1.7 } },
+          "自带世界书 " + lore.length + " 条（" + lore.reduce((n, e) => n + String(e.payload || "").length, 0) + " 字），导入时只绑给 TA：" + lore.map(e => e.title).filter(Boolean).slice(0, 8).join("、") + (lore.length > 8 ? "…" : "")))((p.allLore ? [] : (p.lore || [])).concat(extraLore)) : null,
         label("长期记忆" + count("longMem")), box("longMem", 3, "（可空）"),
         label("记忆种子 · 一行一条，行首写〔置顶〕就置顶（" + textToSeeds(val("seeds")).length + " 条）"), box("seeds", 4, "（可空）"),
         label("开场白 · 导入后当 TA 的第一句话" + count("greeting")), box("greeting", 3, "（可空）"),
@@ -235,7 +312,8 @@ function CardImportSheet({ onImport, onClose, userName }) {
           if (!p || !persona.trim()) return;
           onImport(Object.assign({}, p, {
             name: val("name").trim(), tagline: val("tagline").trim(), persona: persona.trim(),
-            longMem: val("longMem").trim(), greeting: val("greeting").trim(), seeds: textToSeeds(val("seeds"))
+            longMem: val("longMem").trim(), greeting: val("greeting").trim(), seeds: textToSeeds(val("seeds")),
+            lore: (p.allLore ? [] : (p.lore || [])).concat(extraLore)
           }));
         },
         className: "w-full mt-4 active:opacity-70",
@@ -661,6 +739,15 @@ function forumBoardOwnerName(name, chars) {
   if (!o || !o.id) return "";
   if (o.kind === "char") { const c = (chars || []).find(x => x && x.id === o.id); return c ? c.name : ""; }
   const n = forumOwnerRegulars().find(x => x.id === o.id); return n ? n.name : "";
+}
+// 这个吧写帖的分寸（群里 2026-11-08 许愿：开吧时定楼主正文多少字、每次刷新出几条）：
+//   lenMin/lenMax 是楼主正文的字数区间，batch 是一次刷出几条新帖；没填的照默认（正文 2-4 句、一次 3-5 条）
+function forumBoardGenOf(name) {
+  const b = forumCustomBoards().find(x => x.name === name) || {};
+  const num = v => { const n = parseInt(v, 10); return n > 0 ? n : 0; };
+  let lo = num(b.lenMin), hi = num(b.lenMax);
+  if (lo && hi && lo > hi) { const x = lo; lo = hi; hi = x; }
+  return { lenMin: Math.min(lo, 3000), lenMax: Math.min(hi, 3000), batch: Math.min(num(b.batch), 10) };
 }
 function forumBoardAbout(name) { const b = forumCustomBoards().find(x => x.name === name); return b ? String(b.about || "").trim() : ""; }
 // FORUM_AV_EMOJI 已删（v56.12）：论坛头像不再画 emoji，改走 autoAvatarSrc。
@@ -1541,22 +1628,31 @@ function CoupleDays({ partner, since, events, annivs, onAdd, onRemove, onRead, o
 // 情书信纸字体（iOS 系统中文字体，零成本；非 iOS 走 fallback）+ 纸张样式
 const LETTER_FONTS = [
   { key: "auto", label: "🎲 智能 / 随机" },
+  // web：iPhone 上没有的那几支（圆体、楷体、行楷、手札……都是苹果电脑自带的），排在后面顶上的网上字体（她 2026-11-02：「情书换不了字体」）。
+  //   电脑上照旧先用自带那支；手机上找不到就落到 web 那支，选中／打开那封信时才去拉
   { key: "serif", label: "宋体信笺", css: "'Noto Serif SC','Songti SC',serif" },
-  { key: "kai", label: "楷体手写", css: "'Kaiti SC','STKaiti','KaiTi',serif" },
-  { key: "round", label: "圆体可爱", css: "'Yuanti SC','PingFang SC',sans-serif" },
-  { key: "sans", label: "现代简洁", css: "'PingFang SC',system-ui,sans-serif" },
-  // 下面这些都是 iOS 自带的中文字体，零成本；非 iOS 一路 fallback 回宋/黑
-  { key: "xingkai", label: "行楷疾书", css: "'Xingkai SC','STXingkai','Kaiti SC',cursive" },
-  { key: "hannotate", label: "手札随笔", css: "'Hannotate SC','HanziPen SC','Kaiti SC',cursive" },
-  { key: "hanzipen", label: "翩翩细笔", css: "'HanziPen SC','Hannotate SC','Kaiti SC',cursive" },
-  { key: "libian", label: "隶变旧体", css: "'Libian SC','Baoli SC','Songti SC',serif" },
-  { key: "baoli", label: "报隶端方", css: "'Baoli SC','Libian SC','Songti SC',serif" },
-  { key: "weibei", label: "魏碑刻痕", css: "'Weibei SC','Songti SC',serif" },
-  { key: "yuppy", label: "雅痞不羁", css: "'Yuppy SC','PingFang SC',sans-serif" },
-  { key: "wawa", label: "娃娃稚气", css: "'Wawati SC','Yuanti SC','PingFang SC'" },
-  { key: "lanting", label: "兰亭细体", css: "'Lantinghei SC','PingFang SC',sans-serif" }
+  { key: "kai", label: "楷体手写", css: "'Kaiti SC','STKaiti','KaiTi','Ma Shan Zheng',serif", web: "Ma+Shan+Zheng" },
+  { key: "round", label: "圆体可爱", css: "'Yuanti SC','ZCOOL KuaiLe','PingFang SC',sans-serif", web: "ZCOOL+KuaiLe" },
+  { key: "sans", label: "现代简洁", css: "'PingFang SC','Noto Sans SC',system-ui,sans-serif", web: "Noto+Sans+SC:wght@400;500" },
+  // 下面这些也是苹果电脑自带的中文字体；手机上落到各自后面那支网上字体
+  { key: "xingkai", label: "行楷疾书", css: "'Xingkai SC','STXingkai','Zhi Mang Xing','Kaiti SC',cursive", web: "Zhi+Mang+Xing" },
+  { key: "hannotate", label: "手札随笔", css: "'Hannotate SC','HanziPen SC','Long Cang','Kaiti SC',cursive", web: "Long+Cang" },
+  { key: "hanzipen", label: "翩翩细笔", css: "'HanziPen SC','Hannotate SC','Liu Jian Mao Cao','Kaiti SC',cursive", web: "Liu+Jian+Mao+Cao" },
+  { key: "libian", label: "隶变旧体", css: "'Libian SC','Baoli SC','ZCOOL XiaoWei','Songti SC',serif", web: "ZCOOL+XiaoWei" },
+  { key: "baoli", label: "报隶端方", css: "'Baoli SC','Libian SC','ZCOOL XiaoWei','Songti SC',serif", web: "ZCOOL+XiaoWei" },
+  { key: "weibei", label: "魏碑刻痕", css: "'Weibei SC','ZCOOL QingKe HuangYou','Songti SC',serif", web: "ZCOOL+QingKe+HuangYou" },
+  { key: "yuppy", label: "雅痞不羁", css: "'Yuppy SC','ZCOOL QingKe HuangYou','PingFang SC',sans-serif", web: "ZCOOL+QingKe+HuangYou" },
+  { key: "wawa", label: "娃娃稚气", css: "'Wawati SC','Yuanti SC','ZCOOL KuaiLe','PingFang SC'", web: "ZCOOL+KuaiLe" },
+  { key: "lanting", label: "兰亭细体", css: "'Lantinghei SC','PingFang SC','Noto Sans SC',sans-serif", web: "Noto+Sans+SC:wght@400;500" }
 ];
-const letterFontCss = key => { const f = LETTER_FONTS.find(x => x.key === key && x.css); return f ? f.css : LETTER_FONTS[1].css; };
+// 用到哪支才拉哪支（同一支只挂一次链接）；连不上 Google 就照旧落到系统字体，不卡页面
+const letterFontLoaded = new Set();
+const letterFontEnsure = f => {
+  if (!f || !f.web || letterFontLoaded.has(f.web) || typeof document === "undefined") return;
+  letterFontLoaded.add(f.web);
+  try { const l = document.createElement("link"); l.rel = "stylesheet"; l.href = "https://fonts.googleapis.com/css2?family=" + f.web + "&display=swap"; document.head.appendChild(l); } catch (e) {}
+};
+const letterFontCss = key => { const f = LETTER_FONTS.find(x => x.key === key && x.css); letterFontEnsure(f); return f ? f.css : LETTER_FONTS[1].css; };
 const LETTER_PAPERS = [
   { key: "cream", label: "米白", bg: "#faf6ee", ink: "#413a2e", line: "#ece2d0" },
   { key: "kraft", label: "牛皮", bg: "#e9ddc6", ink: "#4a3f2c", line: "#d6c7a8" },
@@ -1664,7 +1760,7 @@ function CoupleLetters({ partner, letters, cfg, onGen, onAddMy, onReply, onRead,
     // eslint-disable-next-line
   }, []);
   const md = ts => { const d = new Date(ts); return d.getFullYear() + "." + (d.getMonth() + 1) + "." + d.getDate(); };
-  const threadText = l => ["【" + (l.title || "无题") + "】\n" + l.body].concat((l.replies || []).map(r => (r.authorId === "user" ? "我：" : partner.name + "：") + r.content)).join("\n");
+  const threadText = l => ["【" + (l.title || "无题") + "】\n" + l.body].concat((l.replies || []).map(r => (r.authorId === "user" ? "她：" : partner.name + "：") + r.content)).join("\n");
   const doCompose = () => { if (cBody.trim()) { onAddMy(partner, cTitle, cBody, { paper: cPaper, font: cFont }); setCTitle(""); setCBody(""); setCompose(false); } };
   const mdParts = ts => { const d = new Date(ts); return { md: (d.getMonth() + 1) + "." + d.getDate(), y: d.getFullYear() }; };
 
@@ -1705,7 +1801,7 @@ function CoupleLetters({ partner, letters, cfg, onGen, onAddMy, onReply, onRead,
           h("button", { onClick: () => { setOpen(null); setReply(""); }, "aria-label": "返回", "data-wk": "headink", className: "active:opacity-50 flex items-center justify-center", style: { width: 40, height: 40 } }, h(IArrow, { size: 19, color: pp.ink, wk: "headink" })),
           h("div", { "data-wk": "headdim", className: "flex-1 min-w-0 text-center", style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", letterSpacing: 2, color: inkA(0.42) } }, mineL ? "寄给 " + partner.name : partner.name + " 寄来"),
           h("div", { style: { width: 40 } })),
-        h("div", { className: "flex-1 min-h-0 overflow-y-auto", style: { padding: "6px 26px 30px", overscrollBehavior: "contain" } },
+        h("div", { key: "lread:" + l.id, className: "flex-1 min-h-0 overflow-y-auto", style: { padding: "6px 26px 30px", overscrollBehavior: "contain" } },
           h("div", { className: "flex items-start", style: { gap: 14, marginBottom: 16 } },
             h("div", { style: { flex: 1, minWidth: 0, paddingTop: 6 } },
               h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(24px * var(--app-fs, 1))", color: pp.ink, lineHeight: 1.35, wordBreak: "break-word" } }, STX(l.title || "给你的信")),
@@ -1788,7 +1884,7 @@ function CoupleLetters({ partner, letters, cfg, onGen, onAddMy, onReply, onRead,
         h("button", { onClick: () => setCompose(false), "aria-label": "返回", "data-wk": "headink", className: "active:opacity-50 flex items-center justify-center", style: { width: 40, height: 40 } }, h(IArrow, { size: 19, color: pp.ink, wk: "headink" })),
         h("div", { "data-wk": "headdim", className: "flex-1 min-w-0 text-center", style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", letterSpacing: 2, color: inkA(0.42) } }, "写给 " + partner.name),
         h("button", { onClick: doCompose, disabled: !cBody.trim(), className: "active:opacity-60 disabled:opacity-30 flex items-center justify-center", style: { minWidth: 52, height: 40, fontFamily: F_DISPLAY, fontSize: "calc(14px * var(--app-fs, 1))", color: pp.ink } }, "寄出")),
-      h("div", { className: "flex-1 min-h-0 overflow-y-auto", style: { padding: "6px 26px 24px", overscrollBehavior: "contain" } },
+      h("div", { key: "lcompose", className: "flex-1 min-h-0 overflow-y-auto", style: { padding: "6px 26px 24px", overscrollBehavior: "contain" } },
         h("input", { "data-wk": "input", value: cTitle, onChange: e => setCTitle(e.target.value), placeholder: "标题（选填）", style: { width: "100%", outline: "none", background: "transparent", fontFamily: F_DISPLAY, fontSize: "calc(24px * var(--app-fs, 1))", color: pp.ink, paddingTop: 6, paddingBottom: 10 } }),
         h("div", { style: { borderTop: "1.5px solid " + inkA(0.3) } }),
         h("div", { style: { borderTop: "1px solid " + inkA(0.14), marginTop: 2.5, marginBottom: 16 } }),
@@ -1812,7 +1908,7 @@ function CoupleLetters({ partner, letters, cfg, onGen, onAddMy, onReply, onRead,
       right: h("div", { className: "flex items-center" },
         h("button", { onClick: () => setCompose(true), "aria-label": "自己写一封", className: "active:opacity-50 flex items-center justify-center", style: { width: 36, height: 40 } }, h(IPlus, { size: 19, color: t.ink })),
         h("button", { onClick: () => setCfgOpen(true), "aria-label": "情书设置", className: "active:opacity-50 flex items-center justify-center", style: { width: 36, height: 40 } }, h(GConfig, { size: 18, color: t.ink }))) }),
-    h("div", { className: "flex-1 min-h-0 overflow-y-auto px-6 pb-8", style: { overscrollBehavior: "contain" } },
+    h("div", { key: "llist", ref: keepScroll("letters:" + partner.id), className: "flex-1 min-h-0 overflow-y-auto px-6 pb-8", style: { overscrollBehavior: "contain" } },
       h("button", { "data-wk": "block", onClick: () => onGen(partner), disabled: gen, className: "w-full active:opacity-70 disabled:opacity-40", style: { margin: "8px 0 16px", background: t.bg2, border: "1px dashed " + t.line, borderRadius: 12, padding: "10px 0", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.tint } }, gen ? partner.name + " 提笔中…" : "让 " + partner.name + " 写一封（距上封 ≥ 3 天）"),
       mine.length === 0 && !gen ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.fog } }, "还没有情书。让 TA 写一封，或点右上角 ＋ 自己写一封给 TA。") : null,
       h("div", null, sorted.map(timelineRow))));
@@ -2970,7 +3066,7 @@ function SpaceDoor({ partner, home, busy, lit, carryNames, tone, eyebrow, put, t
     eyebrow("留灯", "今晚的，早上六点熄"), lights);
 }
 
-function Us({ characters, couples, onBack, myWallet, onJarMove, onJarGoal, onInvite, onSetRel, spaceBooks, spaceBookBusy, onBookAdd, onBookReply, onBookRemove, onBookTa, spaceHome, spaceHomeBusy, lightLit, carryNamesOf, onSpaceHome, onSpaceHomeTa, onUnlink, onSetSince, profile, profileFor, coupleProfile, coupleHome, onSaveCoupleHome, onSetCoupleImg, coupleQA, onAnswerQA, onEditQA, onRemoveQA, onRerollQA, onReplyQA, onEditQAReply, qaGen, coupleQATitle, onSaveQATitle, coupleQACustom, coupleQABooks, onSaveQABook, onSaveQACustom, coupleQACustomBooks, onSaveQACustomBooks, moodOf, coupleTimeline, onAddTimeline, onRemoveTimeline, onReadTimeline, onGenTimeline, tlGen, coupleAnniv, onAddAnniv, onRemoveAnniv, coupleLetters, coupleLetterCfg, onGenLetter, onAddMyLetter, onReplyLetter, onReadLetter, onRemoveLetter, onSaveLetterCfg, letterGen, coupleSweet, onCheckinSweet, coupleDrawer, onOpenDrawer, onDropDrawer, onEditDrawer, onForwardDrawer, coupleFirstsOf, myCloset, charClosetOf, studioShots, studioBusy, fitBusy, studioCanShoot, onGenDateFit, onStudioShoot, onRollStyles, onRollThemes, onShareShot, ifLines, ifBusy, ifBgBusy, onIfOpen, onIfAdvance, onIfBg, onIfShot, onIfBgPick, onIfEnd, onIfDrop, makeupOf, makeupSignalFor, makeupBusy, onMakeupOpen, onMakeupSay, onMakeupClose, gachaPts, gachaCards, gachaLuck, gachaBusy, onGachaPull, onGachaRedeem, onGachaShow, onGachaPin, onGachaDelete, onGachaTitle, onGachaShoot, onGachaCarve, land, onLanded, coupleExDiary, onAddExDiary, onReadExDiary, duoPhotosFor, onDeletePhoto, onUploadPhoto, couplePactsOf, onClosePact, onSetPactDue, onAddPact, onSealQA, onRevealQA, onPlanWish, wishPlanOf, coupleGarden, onGardenPlant, onGardenKeep, gardenGen, coupleTrips, onTripStart, onTripPlan, onTripBook, onTripBookPick, onTripBookPay, onTripDate, kinCardFrom, onTripDepart, onTripDone, tripGen, coupleRecall, onGenRecall, onReadRecall, onDelRecall, recallGen, onGenWish, charWishGen, outletLedger, outletKinds, capsuleProps, coupleDisc, onDiscAdd, onDiscRemove, onDiscNote, onDiscAuto, onDiscPlay, onDiscEnter, onDiscLeave, onDiscGen, discGen, discNextIdOf, discNowId, discPlaying, onPartnerView }) {
+function Us({ onPutDrawerMine, onReplyDrawerMine, drawerReplyBusy, characters, couples, onBack, myWallet, onJarMove, onJarGoal, onInvite, onSetRel, spaceBooks, spaceBookBusy, onBookAdd, onBookReply, onBookRemove, onBookTa, spaceHome, spaceHomeBusy, lightLit, carryNamesOf, onSpaceHome, onSpaceHomeTa, onUnlink, onSetSince, profile, profileFor, coupleProfile, coupleHome, onSaveCoupleHome, onSetCoupleImg, coupleQA, onAnswerQA, onEditQA, onRemoveQA, onRerollQA, onReplyQA, onEditQAReply, qaGen, coupleQATitle, onSaveQATitle, coupleQACustom, coupleQABooks, onSaveQABook, onSaveQACustom, coupleQACustomBooks, onSaveQACustomBooks, moodOf, coupleTimeline, onAddTimeline, onRemoveTimeline, onReadTimeline, onGenTimeline, tlGen, coupleAnniv, onAddAnniv, onRemoveAnniv, coupleLetters, coupleLetterCfg, onGenLetter, onAddMyLetter, onReplyLetter, onReadLetter, onRemoveLetter, onSaveLetterCfg, letterGen, coupleSweet, onCheckinSweet, coupleDrawer, onOpenDrawer, onDropDrawer, onEditDrawer, onForwardDrawer, coupleFirstsOf, onSetFirstAt, myCloset, charClosetOf, studioShots, studioBusy, fitBusy, studioCanShoot, onGenDateFit, onStudioShoot, onRollStyles, onRollThemes, onShareShot, ifLines, ifBusy, ifBgBusy, onIfOpen, onIfAdvance, onIfBg, onIfShot, onIfBgPick, onIfEnd, onIfDrop, makeupOf, makeupSignalFor, makeupBusy, onMakeupOpen, onMakeupSay, onMakeupClose, gachaPts, gachaCards, gachaLuck, gachaBusy, onGachaPull, onGachaRedeem, onGachaShow, onGachaPin, onGachaDelete, onGachaTitle, onGachaShoot, onGachaCarve, land, onLanded, coupleExDiary, onAddExDiary, onReadExDiary, duoPhotosFor, onDeletePhoto, onUploadPhoto, couplePactsOf, onClosePact, onSetPactDue, onAddPact, onSealQA, onRevealQA, onPlanWish, wishPlanOf, coupleGarden, onGardenPlant, onGardenKeep, gardenGen, coupleTrips, onTripStart, onTripPlan, onTripBook, onTripBookPick, onTripBookPay, onTripDate, kinCardFrom, onTripDepart, onTripDone, tripGen, coupleRecall, onGenRecall, onReadRecall, onDelRecall, recallGen, onGenWish, charWishGen, outletLedger, outletKinds, capsuleProps, coupleDisc, onDiscAdd, onDiscRemove, onDiscNote, onDiscAuto, onDiscPlay, onDiscEnter, onDiscLeave, onDiscGen, discGen, discNextIdOf, discNowId, discPlaying, onPartnerView }) {
   const t = useTheme();
   const [view, setView] = useState(null); // null=名册 / charId=某段情侣详情
   const [sub, setSub] = useState(null); // 情侣空间子模块：null / 'qa'（后续加 timeline/mood/notes/letters）
@@ -3132,11 +3228,11 @@ function Us({ characters, couples, onBack, myWallet, onJarMove, onJarGoal, onInv
   }
   // 情侣空间子模块：里程碑册
   if (partner && cp[view] && cp[view].status === "together" && sub === "firsts") {
-    return h(CoupleFirstsBook, { partner, items: coupleFirstsOf ? coupleFirstsOf(partner.id) : [], onBack: () => setSub(null) });
+    return h(CoupleFirstsBook, { partner, items: coupleFirstsOf ? coupleFirstsOf(partner.id) : [], onSetAt: onSetFirstAt ? (k, ts) => onSetFirstAt(partner.id, k, ts) : null, onBack: () => setSub(null) });
   }
   // 情侣空间子模块：惊喜抽屉
   if (partner && cp[view] && cp[view].status === "together" && sub === "drawer") {
-    return h(CoupleDrawer, { partner, items: coupleDrawer, onOpen: onOpenDrawer, onDrop: onDropDrawer, onEdit: onEditDrawer, onForward: onForwardDrawer ? x => onForwardDrawer(partner.id, x) : null,
+    return h(CoupleDrawer, { partner, items: coupleDrawer, onOpen: onOpenDrawer, onDrop: onDropDrawer, onPutMine: onPutDrawerMine ? v => onPutDrawerMine(partner.id, v) : null, onAskReply: onReplyDrawerMine ? id => onReplyDrawerMine(partner, id) : null, replyBusy: drawerReplyBusy, onEdit: onEditDrawer, onForward: onForwardDrawer ? x => onForwardDrawer(partner.id, x) : null,
       ledger: (outletLedger || {})[partner.id] || {}, kinds: outletKinds || [], onBack: () => setSub(null) });
   }
   // 情侣空间子模块：我们的唱片
@@ -4315,6 +4411,13 @@ function CtxDebug({ characters, getBundle, lockedCharId, compact }) {
       (roomRecall.picked || []).length
         ? h("div", { style: { marginTop: 7 } }, roomRecall.picked.map((row, i) => h("div", { key: row.id || i, style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.sub, lineHeight: 1.65, padding: "6px 0", borderTop: i ? "1px dashed " + t.line : "none" } }, "· " + row.text)))
         : h("div", { style: { marginTop: 8, fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog } }, "这一轮这间房里没有记忆可送。")) : null,
+    // 上一轮发过去的聊天记录：它不在 system 那段里，是一条条单独发的，所以单独摆一张（她 2026-11-02）
+    cid && window.__histReceipt && window.__histReceipt[cid] ? (() => { const r = window.__histReceipt[cid];
+      return h("div", { "data-wk": "histreceipt", style: { border: "1px solid " + t.line, borderRadius: 14, padding: "11px 12px", marginBottom: 10, background: t.bg2 } },
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.ink } }, "上一轮带过去的聊天记录"),
+        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.sub, marginTop: 4, lineHeight: 1.6 } }, r.n + " 条 · " + r.chars + " 字" + (r.first ? " · 最早一条：「" + r.first + "…」" : "")),
+        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, marginTop: 3, lineHeight: 1.55 } }, new Date(r.ts).toLocaleString() + " 那一轮。聊天记录是一条条单独发的，不在下面这些段里；带多少看聊天设置的「记忆上下文条数」和召回设置的「短期窗字符预算」。刷新 App 即清空。"));
+    })() : null,
     cid ? (() => {
       // 每段占比 + 肥度条（v47.84 她要的「谁肥一眼看穿」）：≥20% 红、≥10% 金、其余灰
       const total = Math.max(1, text.length);
@@ -5322,7 +5425,7 @@ const DRAWER_KIND = {
   // 那是路上拾的，这是TA一直带在身上的。
   drop:    { zh: "TA身上带的", ch: "带", band: "#6e7f8a" }
 };
-function CoupleDrawer({ partner, items, onOpen, onDrop, onEdit, onForward, ledger, kinds, onBack }) {
+function CoupleDrawer({ partner, items, onOpen, onDrop, onEdit, onForward, ledger, kinds, onBack, onPutMine, onAskReply, replyBusy }) {
   const t = useTheme();
   // 拿掉一样（她 2026-09-20：「抽屉里的能不能单个删除，有些不想要的」）。
   // ⚠️不做成长按：她 2026-09-19 为论坛删帖定过同一件事——「算了长按删除去掉不要了，就留叉」。
@@ -5395,9 +5498,39 @@ function CoupleDrawer({ partner, items, onOpen, onDrop, onEdit, onForward, ledge
                   (a ? (d <= 0 ? "今天" : d === 1 ? "昨天" : d + " 天前") : "还没有过")
                   + (mn ? "（你叫过 " + mn + " 次）" : "")));
             }))) : null),
+      // 我也放一张（群友 2026-11-06）：写一张小纸条放进去；TA 不会自己翻，点纸条底下「让他看看」才读、才回
+      onPutMine ? h("button", { "data-wk": "drawerputmine", onClick: () => requestAppPrompt("往抽屉里放一张", "写给" + nm + "的小纸条。放进去" + characterText(partner, "他") + "不会自己翻，点纸条底下的「让" + characterText(partner, "他") + "看看」才会看到、回你一张。", "", v => { if (String(v || "").trim()) onPutMine(v); }, "放进去", { multiline: true, placeholder: "想跟" + nm + "说、又不想在聊天里说的那几句" }),
+        className: "w-full active:opacity-70", style: { marginTop: 14, padding: "11px 0", background: "rgba(255,253,246,.7)", border: "1px dashed rgba(150,120,70,.45)", borderRadius: 4,
+          fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: "#7a6338" } }, "＋ 我也放一张") : null,
       mine.length
         ? h("div", { style: { display: "flex", flexDirection: "column", gap: 13, marginTop: 16 } },
             mine.map((x, i) => {
+              // 我放的那张：摊开的，右上标「我放的」；底下是 TA 回的那张，或者「让他看看」
+              if (x.kind === "mine") return h("div", { key: x.id, "data-wk": "drawermine", style: { position: "relative", padding: "15px 16px 12px",
+                  // 她放的：一张淡玫瑰色的信笺，横线纸，左上角一截纸胶带——跟抽屉同一套暖纸色，一眼分得出是她那边的
+                  background: "#fbf1ec", backgroundImage: "repeating-linear-gradient(180deg,transparent 0 29px,rgba(176,120,104,.13) 29px 30px)",
+                  borderRadius: 2, boxShadow: "0 4px 11px rgba(120,72,56,.14)", transform: "rotate(" + (-tilt(i) / 2) + "deg)" } },
+                h("div", { "aria-hidden": "true", style: { position: "absolute", left: 18, top: -7, width: 54, height: 15, background: "rgba(214,170,150,.55)", transform: "rotate(-4deg)", boxShadow: "0 1px 2px rgba(120,72,56,.12)" } }),
+                dropX(x),
+                h("div", { className: "flex items-center", style: { gap: 7, paddingRight: 22 } },
+                  h("span", { "aria-hidden": "true", style: { width: 20, height: 20, borderRadius: 6, flexShrink: 0, background: "#c48a7a", color: "#fff",
+                    display: "flex", alignItems: "center", justifyContent: "center", fontFamily: F_DISPLAY, fontSize: "calc(11.5px * var(--app-fs, 1))" } }, "我"),
+                  h("div", { className: "flex-1 min-w-0", style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: "#a7776a" } }, "我放的"),
+                  h("span", { style: { fontFamily: F_BODY, fontSize: "calc(9.5px * var(--app-fs, 1))", color: "#bf9d92" } }, gachaWhen(x.ts))),
+                h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", lineHeight: "30px", color: "#5e4038", marginTop: 6, whiteSpace: "pre-wrap" } }, x.text),
+                x.reply
+                  ? h("div", { "data-wk": "drawerminereply", style: { position: "relative", marginTop: 12, marginLeft: 14, padding: "12px 13px 13px", background: "#fffdf6", borderRadius: 2, boxShadow: "0 3px 8px rgba(96,72,40,.14)", transform: "rotate(1deg)" } },
+                      // 回信夹在她那张上：一枚小回形针
+                      h("div", { "aria-hidden": "true", style: { position: "absolute", right: 16, top: -9, width: 9, height: 22, border: "1.5px solid rgba(140,120,96,.65)", borderRadius: 6 } }),
+                      h("div", { className: "flex items-center justify-between", style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: "#a08b5d" } }, nm + " 回的", h("span", { style: { fontSize: "calc(9.5px * var(--app-fs, 1))", color: "#b9a785" } }, gachaWhen(x.replyTs))),
+                      h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", lineHeight: 1.85, color: "#5b4c3a", marginTop: 5, whiteSpace: "pre-wrap" } }, STX(x.reply)))
+                  : null,
+                h("div", { className: "flex justify-end", style: { marginTop: 6, gap: 12 } },
+                  onAskReply ? h("button", { "data-wk": "drawerminereplybtn", disabled: !!replyBusy, onClick: () => onAskReply(x.id), className: "active:opacity-60 disabled:opacity-40",
+                    style: { minHeight: 32, padding: "0 4px", background: "transparent", border: "none", fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: "#a0604f" } },
+                    replyBusy === x.id ? characterText(partner, "他在看…") : x.reply ? characterText(partner, "让他再回一张") : characterText(partner, "让他看看")) : null,
+                  onEdit ? h("button", { onClick: () => requestAppPrompt("改这一张", "改完就照新的留着。", x.text || "", v => { if (String(v || "").trim()) onEdit(x.id, v); }, "改好了", { multiline: true }),
+                    className: "active:opacity-60", style: { minHeight: 32, padding: "0 4px", background: "transparent", border: "none", fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: "rgba(160,96,79,.7)" } }, "改") : null));
               const k = DRAWER_KIND[x.kind] || DRAWER_KIND.thing;
               const sealed = !x.openedTs;
               if (sealed) {
@@ -5815,7 +5948,7 @@ function SpaceBook({ partner, book, entries, busy, onAdd, onReply, onRemove, onT
       }) : h("div", { style: { textAlign: "center", fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.fog, padding: "30px 0" } }, "还是空的。")));
 }
 
-function CoupleFirstsBook({ partner, items, onBack }) {
+function CoupleFirstsBook({ partner, items, onSetAt, onBack }) {
   const t = useTheme();
   const rows = items || [];
   const days = ts => {
@@ -5828,13 +5961,14 @@ function CoupleFirstsBook({ partner, items, onBack }) {
       h("div", { style: { borderRadius: 20, border: "1px solid #dfd7ca", background: "#f4f0e8", padding: "15px 15px" } },
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(21px * var(--app-fs, 1))", color: "#5e4c38" } }, rows.length ? "走过 " + rows.length + " 个第一次" : "还没有第一次"),
         h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", lineHeight: 1.7, color: "#8a745e", marginTop: 4 } },
-          rows.length ? "这一册不用你记——发生过的事它自己看得见。" : "和 " + (partner.remark || partner.name) + " 一起做点什么，这一册就开始了。")),
+          rows.length ? "这一册不用你记——发生过的事它自己看得见。日子不对，点日期改。" : "和 " + (partner.remark || partner.name) + " 一起做点什么，这一册就开始了。")),
       rows.length ? h("div", { style: { marginTop: 16, borderLeft: "1px solid " + t.line, marginLeft: 6, paddingLeft: 16 } },
         rows.map(x => h("div", { key: x.key, style: { position: "relative", paddingBottom: 18 } },
           h("span", { style: { position: "absolute", left: -21, top: 5, width: 9, height: 9, borderRadius: 999, background: /^day/.test(x.key) ? "#c9a227" : t.ink } }),
-          h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: "calc(9.5px * var(--app-fs, 1))", letterSpacing: ".1em", color: t.fog } },
+          h(DateTap, { ts: x.ts, onPick: onSetAt && !/^day/.test(x.key) ? ts => onSetAt(x.key, ts) : null, wk: "firstdate",
+              style: { fontFamily: "'Archivo',sans-serif", fontSize: "calc(9.5px * var(--app-fs, 1))", letterSpacing: ".1em", color: t.fog } },
             vDate(x.ts, partner.id).toLocaleDateString("zh-CN", { year: "numeric", month: "numeric", day: "numeric" })
-            + (days(x.ts) ? " · " + days(x.ts) : "")),
+            + (days(x.ts) ? " · " + days(x.ts) : "") + (onSetAt && !/^day/.test(x.key) ? " ✎" : "")),
           h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(17px * var(--app-fs, 1))", color: t.ink, marginTop: 2 } }, x.zh),
           x.note ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", lineHeight: 1.65, color: t.sub, marginTop: 3 } }, "「" + x.note + "」") : null))) : null));
 }
@@ -5875,6 +6009,7 @@ function StudioPicker({ zh, groups, value, onPick, tint, character }) {
       : h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginTop: 6 } }, characterText(character, "衣柜里还没有——不指定也能拍，或者让他配一套")));
 }
 function PhotoStudio({ partner, myCloset, charCloset, shots, busy, fitBusy, canShoot, onGenFit, onShoot, onShare, onDelete, onRollStyles, onRollThemes, onBack }) {
+  const imgPick = useImgPick();   // 长按一张进多选、存进相册（components.js 那份公共的）
   const t = useTheme();
   // 「补一句」写了一大段，退出照相馆再进来就没了（群友 2026-10-17：「我刚写了那么多，一下子全没」）：
   //   跟聊天输入框同一个做法，没拍出去的那段留在本机，拍完也不清（下一张常常还想照着改）
@@ -6034,6 +6169,11 @@ function PhotoStudio({ partner, myCloset, charCloset, shots, busy, fitBusy, canS
           // 所以聊天历史里自带上下文，以后她说「上次那张」TA接得上
           h("button", { onClick: () => onShare(big), className: "w-full active:opacity-70", style: { marginTop: 16, borderRadius: 14, padding: "12px 0", background: "#6d4d8f", color: "#fff", fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))" } },
             "发给 " + (partner.remark || partner.name)),
+          // 照原样重拍（她 2026-11-04 转群友：图黑了也不能重拍）：同一句场景、同两身衣服、同一个画风，再拍一张新的，这张留着自己删
+          h("button", { "data-wk": "studioreshoot", onClick: () => { const sc = String(big.scene || "").replace(/^《[^》]*》里的我们 · /, ""); setBig(null);
+              onShoot({ scene: sc, mine: big.mine || "", theirs: big.theirs || "", ...(big.theme ? { theme: big.theme } : {}), ...(big.grid ? { grid: true } : {}), ...(big.paint ? { paint: big.paint } : {}) }); },
+            disabled: !!busy, className: "w-full active:opacity-70 disabled:opacity-40", style: { marginTop: 8, borderRadius: 14, padding: "10px 0", background: "transparent", border: "1px solid #6d4d8f", color: "#6d4d8f", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))" } },
+            "照原样重拍一张"),
           onDelete ? h("button", { onClick: () => { onDelete(big); setBig(null); }, className: "w-full active:opacity-70", style: { marginTop: 8, borderRadius: 14, padding: "10px 0", background: "transparent", border: "1px solid " + t.line, color: t.fog, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))" } },
             "删掉这张") : null)
       : h("div", { className: "flex-1 min-h-0 overflow-y-auto px-4 pb-10" },
@@ -6128,13 +6268,14 @@ function PhotoStudio({ partner, myCloset, charCloset, shots, busy, fitBusy, canS
             [""].concat(usedThemes).map(k => h("button", { key: k || "_", onClick: () => setThemeF(k), className: "active:opacity-70",
               style: { padding: "4px 10px", borderRadius: 999, border: "1px solid " + (themeF === k ? "#a74d70" : t.line), color: themeF === k ? "#a74d70" : t.fog, fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))" } }, k ? themeName(k) : "都看"))) : null,
           rows.length
-            ? h("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginTop: 12 } },
+            ? h(React.Fragment, null, h(ImgPickBar, { pick: imgPick, allIds: rows.map(x => x.id), itemsOf: ids => [].concat(...ids.map(id => (stacks[id] || stacks[stackKey((rows.find(r => r.id === id) || { id }))] || []).filter(y => y.imgKey).map(y => ({ id, ref: y.imgKey, name: (partner.remark || partner.name) + "照相馆" })))) }),
+              h("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginTop: 12 } },
                 // AlbumPhoto(cover) 是 absolute；卡片必须自己当定位边界。漏掉 relative 时，
                 // 图片一从 IDB 加载完就会铺满整页，还会把顶栏返回键的点击截成「打开大图」。
-                rows.map(x => h("button", { key: x.id, onClick: () => setBig(x), className: "active:opacity-80", style: { position: "relative", borderRadius: 15, overflow: "hidden", border: "1px solid " + t.line, background: "#20141f", aspectRatio: "3/4", padding: 0 } },
-                  h(AlbumPhoto, { photo: x, cover: true }),
+                rows.map(x => h("button", Object.assign({}, imgPick.press(x.id), { key: x.id, onClick: imgPick.click(x.id, () => setBig(x)), className: "active:opacity-80", style: Object.assign({}, imgPick.press(x.id).style, { position: "relative", borderRadius: 15, overflow: "hidden", border: "1px solid " + t.line, background: "#20141f", aspectRatio: "3/4", padding: 0 }) }),
+                  h(AlbumPhoto, { photo: x, cover: true }), h(ImgPickMark, { pick: imgPick, id: x.id }),
                   // 一摞：右上角叠出两道纸边＋张数
-                  (stacks[stackKey(x)] || []).length > 1 ? h("span", { "data-wk": "studiostackbadge", style: { position: "absolute", top: 8, right: 8, minWidth: 22, height: 22, padding: "0 6px", borderRadius: 11, background: "rgba(255,255,255,.9)", boxShadow: "3px 3px 0 rgba(255,255,255,.55), 6px 6px 0 rgba(255,255,255,.3)", color: "#6d4d8f", fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", lineHeight: "22px", textAlign: "center" } }, (stacks[stackKey(x)] || []).length) : null)))
+                  (stacks[stackKey(x)] || []).length > 1 ? h("span", { "data-wk": "studiostackbadge", style: { position: "absolute", top: 8, right: 8, minWidth: 22, height: 22, padding: "0 6px", borderRadius: 11, background: "rgba(255,255,255,.9)", boxShadow: "3px 3px 0 rgba(255,255,255,.55), 6px 6px 0 rgba(255,255,255,.3)", color: "#6d4d8f", fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", lineHeight: "22px", textAlign: "center" } }, (stacks[stackKey(x)] || []).length) : null))))
             : h("div", { style: { border: "1px dashed " + t.line, borderRadius: 16, padding: "28px 16px", marginTop: 16, textAlign: "center", fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.8 } },
                 covers.length ? "这一类还没有。" : "还没在这儿拍过。", h("div", { style: { marginTop: 4 } }, "拍出来的会同时挂上合照墙。"))));
 }

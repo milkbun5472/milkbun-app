@@ -43,7 +43,12 @@
     if (!video || !video.videoWidth) return "";
     const w = Math.min(maxW, video.videoWidth), hh = Math.round(video.videoHeight * w / video.videoWidth);
     const c = document.createElement("canvas"); c.width = w; c.height = hh;
-    c.getContext("2d").drawImage(video, 0, 0, w, hh);
+    const g = c.getContext("2d"); g.drawImage(video, 0, 0, w, hh);
+    // 截出来一片黑（群友 2026-11-04：mp4 能放，给 TA 截的全是黑屏）：手机硬解的片子（多半是 HEVC／HDR），
+    //   画面在屏幕上，浏览器却读不出来。抽几十个点看，几乎全黑就当没截到，交给调用方再试一次或换路
+    try { const d = g.getImageData(0, 0, w, hh).data, step = Math.max(4, Math.floor(d.length / 4 / 400) * 4); let lit = 0, n = 0;
+      for (let k = 0; k < d.length; k += step) { n++; if (d[k] + d[k + 1] + d[k + 2] > 36) lit++; }
+      if (n && lit / n < 0.02) return "black"; } catch (e) {}
     try { return c.toDataURL("image/jpeg", 0.8); } catch (e) { return ""; }
   }
 
@@ -53,7 +58,9 @@
     const uName = (p.profile && p.profile.name) || "对方";
     // 她刚说的这一句（或刚截的这一帧）已经先落进了记录，它是这一轮要回的话，不是「说过的」——从记录里摘掉，免得发两遍
     const past = (film.talk || []).slice();
-    if ((mode === "reply" || mode === "frame") && past.length && past[past.length - 1].role === "user") past.pop();
+    // 分条说（群友 2026-11-04）：她连着说了好几句才让 TA 接，那几句都是这一轮要回的，一起摘掉
+    if (mode === "reply") { while (past.length && past[past.length - 1].role === "user" && !past[past.length - 1].frame) past.pop(); }
+    else if (mode === "frame" && past.length && past[past.length - 1].role === "user") past.pop();
     const talk = past.slice(-TALK_FEED).map(function (m) {
       return "[" + clock(m.at) + "] " + (m.role === "user" ? uName : char.name) + "：" + (m.frame ? "（截了一帧画面给你看）" : "") + String(m.content || "");
     }).join("\n");
@@ -105,7 +112,7 @@
       : mode === "auto-ask" ? "（她转过头来，想听你说两句看到这儿的想法）"
       : mode === "frame" ? ((text ? text + "\n" : "") + "（她把这一帧画面给你看）")
       : text;
-    const raw = await callAI(p.active, sys, [{ role: "user", content: msg, imageDataUrls: frameUrl ? [frameUrl] : undefined }], { maxTokens: 65000 });
+    const raw = await callAI(p.active, sys, [{ role: "user", content: msg, imageDataUrls: frameUrl ? [frameUrl] : undefined }], { biFor: char, maxTokens: 65000 });
     return parseSay(raw);
   }
   // 把最早那一截折进这部片子自己的记录。⚠️它不是记忆：折完还是只活在这张票上，出门只有「记住」那一条路（同一起读）
@@ -300,7 +307,7 @@
       h("button", { onClick: () => p.setSay(!p.say), style: Object.assign({}, pill, { position: "absolute", right: "calc(env(safe-area-inset-right) + 12px)", top: top }), "data-wk": "watchcinemalayerbtn", "data-part": "2" }, p.say ? "收起" : "说一句"),
       p.say && h("div", { className: "flex items-center gap-2", style: { position: "absolute", left: "calc(env(safe-area-inset-left) + 64px)", right: "calc(env(safe-area-inset-right) + 96px)", top: top, pointerEvents: "auto" } },
         h("input", { "data-wk": "input", value: p.txt, onChange: e => p.setTxt(e.target.value), onKeyDown: e => e.key === "Enter" && p.send(), placeholder: "小声说一句…", className: "flex-1 min-w-0 outline-none", style: { minHeight: 40, padding: "0 14px", borderRadius: 999, background: "rgba(0,0,0,.55)", border: "1px solid rgba(255,255,255,.25)", color: "#fff", fontFamily: F_BODY, fontSize: "calc(16px * var(--app-fs, 1))" }, "data-wk": "watchcinemalayerinput", "data-part": "小声说一句…" }),
-        btn("说", p.send, { primary: true, disabled: p.busy || !String(p.txt || "").trim() })),
+        btn(!String(p.txt || "").trim() && p.waiting ? "让 TA 接" : "说", p.send, { primary: true, disabled: p.busy || (!String(p.txt || "").trim() && !p.waiting) })),
       // TA 刚说的话：浮在右上，九秒后自己淡掉
       h("div", { style: { position: "absolute", right: "calc(env(safe-area-inset-right) + 14px)", top: "calc(env(safe-area-inset-top) + 62px)", display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6, maxWidth: "58%" } },
         fresh.map((m, i) => h("div", { key: (m.ts || 0) + ":" + i, className: "flex items-center gap-2", style: { padding: "6px 12px 6px 6px", borderRadius: 999, background: "rgba(22,20,27,.72)", color: "#fff", fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", lineHeight: 1.45, backdropFilter: "blur(6px)", opacity: Math.max(0.25, 1 - (Date.now() - (m.ts || 0)) / FLOAT_MS * 0.6) } },
@@ -308,7 +315,7 @@
           h("span", null, m.content))),
         p.busy && h("div", { style: { padding: "5px 12px", borderRadius: 999, background: "rgba(22,20,27,.6)", color: "rgba(255,255,255,.7)", fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))" } }, "…")),
       // 台词：画面下方，躲开原生进度条
-      p.hasCues && p.line ? h("div", { style: { position: "absolute", left: 16, right: 16, bottom: "calc(env(safe-area-inset-bottom) + 64px)", textAlign: "center", color: "#fff", fontFamily: F_DISPLAY, fontSize: "calc(17px * var(--app-fs, 1))", lineHeight: 1.45, textShadow: "0 1px 3px #000, 0 0 8px rgba(0,0,0,.8)" } }, p.line) : null);
+      p.hasCues && p.line ? h("div", { style: { position: "absolute", left: 16, right: 16, bottom: "calc(env(safe-area-inset-bottom) + 64px)", textAlign: "center", color: "#fff", fontFamily: F_DISPLAY, fontSize: "calc(17px * var(--app-fs, 1))", lineHeight: 1.45, textShadow: "0 1px 3px #000, 0 0 8px rgba(0,0,0,.8)" } }, transShow(p.line)) : null);
   }
 
   // ---- 放映 ----
@@ -496,19 +503,36 @@
       } catch (e) { props.toast && props.toast("没接上：" + ((e && e.message) || "重试一下")); }
       finally { busyRef.current = false; setBusy(false); }
     };
+    // 分条说（群友 2026-11-04 许愿，她选的是「连着说几句，说完再按一下让 TA 一起接」）：跟单聊一样——
+    //   框里有字，「说」只是把这一句落下；框空着、前面有她还没被接的话，同一颗键变成「让 TA 接」
+    const pendingLines = () => { const out = []; const ls = (loadFilms().find(f => f.id === id) || film || {}).talk || [];
+      for (let k = ls.length - 1; k >= 0 && ls[k].role === "user" && !ls[k].frame; k--) out.unshift(String(ls[k].content || "")); return out.filter(Boolean); };
     const send = () => {
-      const v = txt.trim(); if (!v || busy) return;
+      if (busy) return;
+      const v = txt.trim();
+      if (!v) { const pend = pendingLines(); if (pend.length) ask("reply", pend.join("\n")); return; }
       const at = vRef.current ? vRef.current.currentTime : 0;
       pushTalk([{ role: "user", content: v, at: at, ts: Date.now() }]); setTxt("");
-      ask("reply", v);
     };
     // 给 TA 看一张图：本地片子直接截这一帧；网上的片子截不到（浏览器不让），
     // 就让她用手机自己截屏、从相册选一张发过来（她 2026-09-26：「加吧宝宝」）。两条路后面是同一段。
-    const showFrame = () => {
+    const [frameBlack, setFrameBlack] = useState(false);
+    const showFrame = async () => {
       const v = vRef.current; if (!v || busy) return;
-      const full = grabFrame(v, 768), thumb = grabFrame(v, 240);
+      let full = grabFrame(v, 768);
+      // 一片黑：先让它把这一帧重新画一遍再截（停着的片子往后挪一丁点），有的手机这样就读得出来了
+      if (full === "black") {
+        await new Promise(res => { let done = false; const go = () => { if (!done) { done = true; res(); } };
+          try { if (v.paused) v.currentTime = Math.min((v.duration || 1e9) - 0.05, v.currentTime + 0.04); } catch (e) {}
+          if (typeof v.requestVideoFrameCallback === "function") v.requestVideoFrameCallback(go); setTimeout(go, 400); });
+        full = grabFrame(v, 768);
+      }
+      // 还是黑的：这片子浏览器读不出画面，改让她截屏发图（跟网上的片子同一条路）
+      //   ⚠️不替她点开相册：等过那一下，iPhone 就不认这是她亲手点的了，相册弹不出来。把这颗键换成「发张截图给 TA」
+      if (full === "black") { setFrameBlack(true); props.toast && props.toast("这个片子手机截不到画面（多半是手机硬解的格式）：截个屏，再点「发张截图给 TA」从相册挑那张", 6000); return; }
       if (!full) { props.toast && props.toast("这一帧截不下来"); return; }
-      sendPic(full, thumb, v.currentTime);
+      const thumb = grabFrame(v, 240);
+      sendPic(full, thumb === "black" ? full : thumb, v.currentTime);
     };
     const picRef = useRef(null);
     const onPickPic = async e => {
@@ -570,6 +594,7 @@
       right: partner && (film.talk || []).length ? h("button", { onClick: remember, className: "active:opacity-60", style: { minHeight: 40, padding: "0 6px", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: W.amber }, "data-wk": "watchscreeningbtn", "data-part": "1" }, "记住") : null });
     if (!partner) return shell(head, h("div", { className: "flex-1 min-h-0 overflow-y-auto" }, h(PickPartner, { characters: props.characters, onPick: cid => { patchFilm(id, () => ({ partnerId: cid })); refresh(); } })));
     const talk = film.talk || [];
+    const waiting = talk.length > 0 && talk[talk.length - 1].role === "user" && !talk[talk.length - 1].frame;   // 她还有话没被接
     return shell(head,
       h("div", { className: "flex-1 min-h-0 flex flex-col" },
         // 银幕
@@ -599,7 +624,7 @@
                 style: cinema
                   ? { display: playErr ? "none" : "block", position: "absolute", top: 0, left: 0, width: "100%", height: "100%", maxHeight: "none", objectFit: "contain", background: "#000" }
                   : { display: playErr ? "none" : "block", width: "100%", maxHeight: "42vh", background: "#000" } }),
-          cinema && h(CinemaLayer, { line: line, hasCues: !!cues.length, talk: film.talk || [], partner: partner, busy: busy, txt: txt, setTxt: setTxt, send: send, say: cinemaSay, setSay: setCinemaSay, onExit: exitCinema })),
+          cinema && h(CinemaLayer, { line: line, hasCues: !!cues.length, talk: film.talk || [], partner: partner, busy: busy, txt: txt, setTxt: setTxt, send: send, waiting: waiting, say: cinemaSay, setSay: setCinemaSay, onExit: exitCinema })),
         // B 站那块表：B 站不告诉我们放到哪，她在那边按播放/暂停时，这边也按一下
         online === "bilibili" && !cinema ? h("div", { className: "flex items-center gap-2", style: { flexShrink: 0, padding: "8px 12px", borderBottom: "1px solid " + W.line, background: "rgba(31,28,38,.9)" } },
           btn(clkRun ? "我暂停了" : "我开始放了", clkToggle, { primary: !clkRun, style: { fontSize: "calc(12.5px * var(--app-fs, 1))", padding: "0 12px" } }),
@@ -620,7 +645,7 @@
               h("div", { style: { maxWidth: "76%" } },
                 m.frame && m.frame !== "gone" ? h("img", { src: m.frame, alt: "截的那一帧", style: { display: "block", width: 160, borderRadius: 10, marginBottom: m.content ? 5 : 0, marginLeft: "auto", border: "2px solid rgba(255,255,255,.1)" } }) : null,
                 m.frame === "gone" ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: W.fog, textAlign: "right" } }, "（截过一帧）") : null,
-                m.content ? h("div", { "data-wk": "block", style: { padding: "8px 12px", borderRadius: mine ? "14px 4px 14px 14px" : "4px 14px 14px 14px", background: mine ? W.amber : W.card, color: mine ? W.amberInk : W.ink, fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", lineHeight: 1.6, whiteSpace: "pre-wrap", border: mine ? "none" : "1px solid " + W.line } }, m.content) : null,
+                m.content ? h("div", { "data-wk": "block", style: { padding: "8px 12px", borderRadius: mine ? "14px 4px 14px 14px" : "4px 14px 14px 14px", background: mine ? W.amber : W.card, color: mine ? W.amberInk : W.ink, fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", lineHeight: 1.6, whiteSpace: "pre-wrap", border: mine ? "none" : "1px solid " + W.line } }, transShow(m.content)) : null,
                 h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", color: W.fog, marginTop: 3, textAlign: mine ? "right" : "left" } }, clock(m.at))));
           }),
           busy && h("div", { className: "flex items-center gap-2", style: { margin: "8px 0", color: W.fog, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))" } }, h(Avatar, { character: partner, size: 28, radius: 14 }), (partner.remark || partner.name) + " 在想…")),
@@ -628,10 +653,11 @@
         //   跟聊天的加号面板一个意思，平时不占地方，要用才展开在输入框上面
         toolsOpen && h("div", { style: { flexShrink: 0, borderTop: "1px solid " + W.line, background: "rgba(31,28,38,.96)" } },
           h("div", { className: "flex items-center gap-2", style: { padding: "10px 12px 2px", overflowX: "auto" } },
-          online
-            ? [btn("发张截图给 TA", () => picRef.current && picRef.current.click(), { disabled: busy }),
-               h("input", { key: "pic", ref: picRef, type: "file", accept: "image/*", style: { display: "none" }, onChange: onPickPic, "data-wk": "watchscreeninginput", "data-part": "1" })]
+          online || frameBlack
+            ? btn("发张截图给 TA", () => picRef.current && picRef.current.click(), { disabled: busy })
             : btn("给 TA 看这一帧", showFrame, { disabled: busy || missing }),
+          // 挑图那个框两种片子都挂着：本地片子截出来一片黑时，也走它（截屏发图）
+          h("input", { key: "pic", ref: picRef, type: "file", accept: "image/*", style: { display: "none" }, onChange: onPickPic, "data-wk": "watchscreeninginput", "data-part": "1" }),
           btn("让 TA 说两句", () => ask("auto-ask"), { disabled: busy }),
           btn("影院模式", enterCinema, { disabled: missing || playErr }),
           h("button", { onClick: () => { const n = !auto; setAuto(n); saveJSON("x_watch_auto", n); if (window.__setAutoFromPage) window.__setAutoFromPage("watch", null, n); }, "aria-pressed": String(auto), className: "active:opacity-70", style: { minHeight: 40, padding: "0 12px", borderRadius: 999, flexShrink: 0, border: "1px dashed " + (auto ? W.amber : W.line), background: "none", color: auto ? W.amber : W.fog, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", whiteSpace: "nowrap" }, "data-wk": "watchscreeningbtn", "data-part": "2" }, auto ? "TA 会自己开口" : "TA 不主动说话")),
@@ -657,7 +683,7 @@
         h("div", { className: "flex items-center gap-2", style: { flexShrink: 0, borderTop: "1px solid " + W.line, background: "rgba(22,20,27,.92)", paddingTop: 10, paddingBottom: COMPOSER_PAD_BOTTOM, paddingLeft: "calc(12px + env(safe-area-inset-left))", paddingRight: "calc(12px + env(safe-area-inset-right))" } },
           h("button", { onClick: () => setToolsOpen(!toolsOpen), "aria-label": toolsOpen ? "收起" : "更多", "aria-expanded": String(toolsOpen), className: "active:opacity-60", style: { width: 40, height: 40, flexShrink: 0, borderRadius: "50%", border: "1px solid " + (toolsOpen ? W.amber : W.line), background: "none", color: toolsOpen ? W.amber : W.sub, fontSize: "calc(22px * var(--app-fs, 1))", lineHeight: 1, transform: toolsOpen ? "rotate(45deg)" : "none", transition: "transform .15s" }, "data-wk": "watchscreeningbtn", "data-part": "3" }, "+"),
           h("input", { "data-wk": "input", value: txt, onChange: e => setTxt(e.target.value), onKeyDown: e => e.key === "Enter" && send(), placeholder: "小声说一句…", className: "flex-1 min-w-0 outline-none", style: { minHeight: 40, padding: "0 14px", borderRadius: 999, background: W.card, border: "1px solid " + W.line, color: W.ink, fontFamily: F_BODY, fontSize: "calc(16px * var(--app-fs, 1))" }, "data-wk": "watchscreeninginput", "data-part": "小声说一句…" }),
-          btn("说", send, { primary: true, disabled: busy || !txt.trim() }))));
+          btn(!txt.trim() && waiting ? "让 TA 接" : "说", send, { primary: true, disabled: busy || (!txt.trim() && !waiting) }))));
   }
 
   // ---- 入口 ----

@@ -764,7 +764,7 @@
   // ── 桌面布局（她 2026-10-16：「我的 xx app 在哪儿，她可以说在第几页」）────────
   //   读的就是主屏自己存的那两份（x_homeLayout 每页摆了什么、x_homeFolders 每个文件夹里装了什么），名字照主屏那张表叫
   const HOME_WIDGET_ZH = { card: "名片组件", cal: "日历组件", music: "歌单组件", map: "地图组件", us: "情侣条组件", memo: "备忘组件", weather: "天气组件",
-    muyu: "木鱼组件", ledger: "账本组件", wheel: "转盘组件", recent: "最近组件", taday: "TA的一天组件" };
+    muyu: "木鱼组件", ledger: "账本组件", wheel: "转盘组件", recent: "最近组件", taday: "TA的一天组件", pets: "宠物组件" };
   function homeLayoutRows() {
     // 先问主屏此刻真画出来的那一份（含没存过时的默认布局），问不到才读盘
     const now = (typeof window !== "undefined" && typeof window.__homeNow === "function") ? window.__homeNow() : null;

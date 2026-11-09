@@ -174,6 +174,8 @@
     if (ses.voice) facts.push("这一场开着声音：你说的话（flow 里「主播」那几句）会用你的声音念出来，观众是听着的。写的时候照说话来写。" + (typeof VOICE_PAUSE_MARK === "string" ? VOICE_PAUSE_MARK : "") + (typeof voiceSoundHint === "function" ? voiceSoundHint() : ""));
     const base0 = "你在一个直播平台上有自己的直播间，此刻正在开播。你在平台上是个什么样的主播——主播名叫什么、平时播什么、粉丝是一群什么人、对着镜头和私下是不是一个样——都从你这个人身上长出来；设定里没写，就照你这个人真会怎么做来定。\n"
       + kind + topic + "\n"
+      // 自己的角色开播（群友 2026-11-04：线上让她猛猛打游戏，直播里说今天不打游戏要学习）：直播跟线上是同一天、同一个他
+      + (own ? "这一场跟你平时跟她聊天是同一天、同一个你：最近跟她聊过的计划、说过要做的事、在忙什么，播的时候照这个来；跟刚跟她说过的对不上，就得有个来由，她问起来你知道怎么回事。\n" : "")
       + "直播间里：" + who + "\n"
       // 太冲了（她 2026-10-08：「为啥这么超雄」）：每一拍都要出点动静，模型就一拍比一拍往上拱。给判据，不给禁令
       + "一场直播是几个小时的日常，大部分时候是平平常常的：聊着、做着手上的事、接接梗。情绪起伏得有来由（常客说了什么、真发生了什么），起多大照你这个人平时对观众是什么样；没来由的时候不往上拱，上一拍拱起来的也会落回去。\n"
@@ -192,15 +194,15 @@
     if (first) return base + "\n\n现在刚开播。" + (ses.needClub ? "你的粉丝团还没起名，顺手起好：" + CLUB_ASK + "。" : "") + "写：直播间标题 title、你的主播名 host、镜头里看得见的样子 scene（一两句）、几个常客 regulars（2~4 个，每人 name 是网名、who 一句话说清是什么人、lean 一句话说清对你什么态度，几个人别是同一种）、这一拍直播间里按先后发生的 flow（每一项 who 写「主播」或常客的网名，text 写那一句；你在回谁的弹幕，就把那条弹幕排在你那句前面；常客也可以没说话）、你此刻在镜头前做什么 act（一句，可以空）、滚过去的路人弹幕 noise（6~10 条，很短）、在线人数 viewers（数字）。";
     return base + "\n\n【常客】\n" + arr(ses.regulars).map(r => "· " + r.name + "：" + r.who + "；" + r.lean).join("\n")
       + "\n\n【刚才直播间里发生的】\n" + transcript(ses)
-      + "\n\n接着往下播。镜头里看得见的样子要是变了（换了地方、挪了镜头、换了衣服、灯变了），写一个新的 scene（一两句），没变就不写。写：这一拍直播间里按先后发生的 flow（每一项 who 写「主播」或常客的网名，text 写那一句；你在回谁的弹幕，就把那条弹幕排在你那句前面；常客也可以没说话）、你此刻在做什么 act（没变就照旧写）、新滚过去的路人弹幕 noise、在线人数 viewers、你要不要下播 end（true/false；真想下播才下）。";
+      + "\n\n接着往下播。镜头里看得见的样子要是变了（换了地方、挪了镜头、换了衣服、灯变了），写一个新的 scene（一两句），没变就不写。写：这一拍直播间里按先后发生的 flow（每一项 who 写「主播」或常客的网名，text 写那一句；你在回谁的弹幕，就把那条弹幕排在你那句前面；常客也可以没说话）、你此刻在做什么 act（没变就照旧写）、新滚过去的路人弹幕 noise、在线人数 viewers" + (ses.noSelfEnd ? "" : "、你要不要下播 end（true/false；真想下播才下）") + "。";
   }
   // 一拍里主播和常客的话排成一条时间线（她 2026-10-08：「主播的话在上面然后才轮到评论，但他是在回复评论，对不上」）
   const WATCH_SHAPE_FIRST = '{"title":"","host":"","scene":"","regulars":[{"name":"","who":"","lean":""}],"flow":[{"who":"常客网名","text":""},{"who":"主播","text":""}],"act":"","gifts":[],"noise":["",""],"viewers":0}';
-  const WATCH_SHAPE = '{"flow":[{"who":"常客网名","text":""},{"who":"主播","text":""}],"act":"","scene":"","gifts":[],"noise":["",""],"viewers":0,"end":false}';
+  const WATCH_SHAPE = '{"flow":[{"who":"常客网名","text":""},{"who":"主播","text":""}],"act":"","scene":"","gifts":[],"noise":["",""],"viewers":0}';
   // 这几样只在用得上的时候往形状里加，不然模型会觉得每拍都该填
   const watchShape = (ses, first) => (first ? WATCH_SHAPE_FIRST : WATCH_SHAPE).replace(/\}$/, ""
     + (first && ses.needClub ? "," + CLUB_SHAPE : "")
-    + (ses.linkAsk && !ses.linked ? ',"link":false' : "") + (!ses.mod ? ',"mod":false' : "")
+    + (!first && !ses.noSelfEnd ? ',"end":false' : "") + (ses.linkAsk && !ses.linked ? ',"link":false' : "") + (!ses.mod ? ',"mod":false' : "")
     + (ses.rival ? ',"rival":{"say":[""],"gift":0}' : "") + (ses.kind === "sell" ? ',"item":{"name":"","price":0}' : "") + "}");
 
   // ── 我来播 ──────────────────────────────────────────────
@@ -293,9 +295,10 @@
   function GlyphDot() { return h("span", { style: { display: "inline-block", width: 7, height: 7, borderRadius: 99, background: LIVE_RED, marginRight: 5, verticalAlign: "1px" } }); }
 
   // ── 直播间（两种共用一个房间）──────────────────────────
-  function LiveRoom({ ses, chars, profile, busy, onInvite, onDraw, drawing, onVoice, onSay, onGift, onEnd, onBack, readOnly, onShare, onLink, onUnlink, onBan, onSong, songs, onBuy, customGifts, onSaveCustom, onDropCustom, autoSec: props_autoSec, onAutoSec }) {
+  function LiveRoom({ noSelfEnd, onNoSelfEnd, ses, chars, profile, busy, onInvite, onDraw, drawing, onVoice, onSay, onGift, onEnd, onBack, readOnly, onShare, onLink, onUnlink, onBan, onUnban, onSong, songs, onBuy, customGifts, onSaveCustom, onDropCustom, autoSec: props_autoSec, onAutoSec }) {
     const [text, setText] = useState("");
     const [giftOpen, setGiftOpen] = useState(false);
+    const [clean, setClean] = useState(false);
     const [songOpen, setSongOpen] = useState(false);
     const [inviteOpen, setInviteOpen] = useState(false);
     const [titleOpen, setTitleOpen] = useState(false);
@@ -304,11 +307,16 @@
     const [auto, setAuto] = useState(false);
     // 隔多久走一拍（她 2026-10-08：「搞个隐蔽点的拉条，平时不会显示挡着屏幕」）：开着时按钮旁边一个小小的「25 秒」，点了才弹出拉条
     const [slider, setSlider] = useState(false);
-    const autoSec = Math.max(10, Math.min(120, Number(props_autoSec) || 25));
+    const autoSec = Math.max(10, Math.min(600, Number(props_autoSec) || 25));   // 上限放到 10 分钟（群友 2026-10-31：「往下播的时长可以拉高一点」）
     const AUTO_MS = autoSec * 1000;
     // 开了声音（她 2026-10-09）：只念角色主播的话；念完一句接下一句，自动往下播等这一拍念完再走
     const voiceHost = ses.mode === "watch" && ses.voice && !readOnly && !ses.endTs && !ses.stranger ? arr(chars).find(c => c.id === ses.charId) : null;
     const voiceC = canVoice(voiceHost) ? voiceHost : null;
+    const replayHost = ses.mode === "watch" && ses.voice && !ses.stranger ? arr(chars).find(c => c.id === ses.charId) : null;
+    const replayC = canVoice(replayHost) ? replayHost : null;
+    const replay = tx => { if (!replayC) return; try { stopVoice(); } catch (e) {}
+      const synth = typeof ttsMarkForSynth === "function" ? ttsMarkForSynth(tx) : tx;
+      ttsSpeak(synth, replayC.voiceId).then(blob => { const url = URL.createObjectURL(blob), a = new Audio(url); audioRef.current = a; a.onended = () => { try { URL.revokeObjectURL(url); } catch (e) {} }; a.play().catch(() => {}); }).catch(() => {}); };
     const [speaking, setSpeaking] = useState(false);
     useEffect(function () {
       if (!auto || busy || readOnly || ses.endTs) return;
@@ -400,6 +408,9 @@
         h("span", { "data-wk": "livemsgname", style: { color: isHost ? LIVE_RED : l.kind === "rival" ? "#7fd6c2" : mine ? "#9fd2ff" : l.kind === "crowd" ? "#b8b0c8" : "#d6c7ff", marginRight: 6 } }, (isHost ? "主播 " : l.kind === "rival" ? "对面 " : mine && l.linked ? "连麦 " : "") + l.name),
         mine && watching && ses.fanLv ? tag(ses.club ? (clubLv(ses.club, ses.fanLv) || ses.club.name) + " " + ses.fanLv : "粉丝团 " + ses.fanLv, "#f6c76b") : null,
         l.kind === "reg" && ses.mod && live && onBan && arr(ses.banned).indexOf(l.name) < 0 ? h("button", { "data-wk": "liveban", onClick: () => onBan(l.name), className: "active:opacity-60", style: { float: "right", fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: LIVE_DIM, minHeight: 24, padding: "0 4px" } }, "禁言") : null,
+        l.kind === "reg" && ses.mod && live && onUnban && arr(ses.banned).indexOf(l.name) >= 0 ? h("button", { "data-wk": "liveunban", onClick: () => onUnban(l.name), className: "active:opacity-60", style: { float: "right", fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: "#9fd2ff", minHeight: 28, padding: "0 4px" } }, "解禁") : null,
+        // 主播那句再听一遍（群友 2026-10-31）：开过声音的场次都能点，念过的走缓存不另花钱
+        isHost && replayC && l.text ? h("button", { "data-wk": "livereplay", onClick: () => replay(l.text), "aria-label": "再听一遍", className: "active:opacity-60", style: { float: "right", fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: LIVE_DIM, minHeight: 28, padding: "0 4px" } }, "▶ 再听") : null,
         l.act ? h("span", { style: { color: LIVE_DIM, marginRight: 4 } }, "（" + l.act + "）") : null,
         isHost ? capText(ses, l.text) : l.text);
     };
@@ -421,6 +432,10 @@
       style: { display: "block", minHeight: 44, padding: "0 14px", color: LIVE_INK, fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", borderBottom: "1px solid " + LIVE_LINE, opacity: dis ? .5 : 1 } }, label);
     // 画出来的那张铺在最底下（她 2026-10-08）
     const bgSrc = ses.img ? (typeof resolveImg === "function" ? resolveImg(ses.img) : ses.img) : "";
+    // 清屏（群里 2026-11-01「片刻直播可以清屏看大图，文字有点挡住了」）：只留画面，点一下回来
+    if (clean && bgSrc) return h("div", { "data-wk": "liveroom", "data-part": "clean", onClick: () => setClean(false), className: "h-full", style: { position: "relative", overflow: "hidden", background: "#000" } },
+      h("img", { "data-wk": "livebg", src: bgSrc, alt: "", style: { position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "contain", pointerEvents: "none" } }),
+      h("div", { "data-wk": "livecleanhint", style: { position: "absolute", left: 0, right: 0, bottom: "calc(env(safe-area-inset-bottom) + 18px)", textAlign: "center", fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: "rgba(255,255,255,.7)", textShadow: "0 1px 3px rgba(0,0,0,.6)" } }, "点一下回到直播间"));
     return h("div", { "data-wk": "liveroom", className: "h-full flex flex-col", style: { position: "relative", overflow: "hidden",
         background: "radial-gradient(130% 80% at 30% 18%,rgba(226,85,107,.42),rgba(80,60,120,.38) 50%,rgba(20,16,25,1) 100%)" } },
       bgSrc ? h("img", { "data-wk": "livebg", src: bgSrc, alt: "", style: { position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", pointerEvents: "none" } }) : null,
@@ -438,6 +453,7 @@
               h("div", { "data-wk": "livestagetitle", style: { fontFamily: F_DISPLAY, fontSize: "calc(13.5px * var(--app-fs, 1))", color: LIVE_INK, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, stageTitle),
               h("div", { "data-wk": "livestagesub", style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", color: LIVE_DIM, whiteSpace: "nowrap" } }, ses.endTs ? "已下播" : h(Fragment, null, h(GlyphDot), "直播中")))),
           h("div", { className: "flex-1" }),
+          bgSrc ? h("button", { "data-wk": "liveclean", onClick: () => setClean(true), "aria-label": "清屏看画面", className: "active:opacity-60 shrink-0", style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: LIVE_INK, padding: "4px 9px", borderRadius: 99, background: "rgba(0,0,0,.32)", minHeight: 28 } }, "清屏") : null,
           h("span", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: LIVE_INK, padding: "4px 9px", borderRadius: 99, background: "rgba(0,0,0,.32)", flexShrink: 0 } }, (Number(ses.viewers) || 0) + " 人"),
           (ses.endTs || readOnly) ? (onShare ? h("button", { "data-wk": "liveshare", onClick: onShare, className: "active:opacity-60 shrink-0", style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: LIVE_INK, padding: "0 6px", minHeight: 40 } }, "发给 TA") : null)
             : h("button", { onClick: onEnd, disabled: !!busy, className: "active:opacity-60 shrink-0", style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: LIVE_RED, padding: "0 6px", minHeight: 40 } }, watching ? "离开" : "下播")),
@@ -503,12 +519,13 @@
           watching && onInvite && !ses.buddy && live ? h("div", { "data-wk": "liveinvitebtn", key: "iv" }, moreItem("叫 TA 一起看", () => setInviteOpen(true))) : null,
           ses.kind === "sing" && onSong ? h("div", { "data-wk": "livesongbtn", key: "sg" }, moreItem("点歌", () => setSongOpen(true))) : null,
           live && onVoice && watching && !ses.stranger ? h("div", { "data-wk": "livevoicebtn", "data-on": ses.voice ? "1" : "0", key: "vo" }, moreItem("声音：" + (ses.voice ? "开着（再点关掉）" : canVoice(arr(chars).find(c => c.id === ses.charId)) ? "关着" : "关着（TA 没设声音或语音没配好）"), () => { if (ses.voice) stopVoice(); onVoice(!ses.voice); }, !ses.voice && !canVoice(arr(chars).find(c => c.id === ses.charId)))) : null,
+          live && watching && onNoSelfEnd ? h("div", { "data-wk": "liveselfend", "data-on": noSelfEnd ? "0" : "1", key: "se" }, moreItem("TA 自己会下播：" + (noSelfEnd ? "不会（只等你点下播）" : "会（播够了自己下）"), () => onNoSelfEnd(!noSelfEnd))) : null,
           live ? h("div", { "data-wk": "liveautobtn", "data-on": auto ? "1" : "0", key: "au" }, moreItem("自动往下播：" + (auto ? "开着（再点关掉）" : "关着"), () => setAuto(a => !a))) : null,
-          live && auto ? h("div", { "data-wk": "liveautosec", key: "as" }, moreItem("隔多久走一拍：" + autoSec + " 秒", () => setSlider(true))) : null,
+          live && auto ? h("div", { "data-wk": "liveautosec", key: "as" }, moreItem("隔多久走一拍：" + (autoSec >= 60 ? Math.floor(autoSec / 60) + " 分" + (autoSec % 60 ? autoSec % 60 + " 秒" : "") : autoSec + " 秒"), () => setSlider(true))) : null,
           onDraw ? h("div", { "data-wk": "livedrawbtn", key: "dr" }, moreItem(drawing ? "画着…" : ses.img ? "照现在的镜头重画" : "画出来", onDraw, drawing)) : null) : null,
         auto && slider ? h("div", { "data-wk": "liveautoslider", className: "flex items-center", style: { gap: 10, marginBottom: 6, padding: "0 4px" } },
           h("span", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: LIVE_DIM, flexShrink: 0 } }, "隔"),
-          h("input", { type: "range", min: 10, max: 120, step: 5, value: autoSec, onChange: e => onAutoSec && onAutoSec(Number(e.target.value)), onPointerUp: () => setTimeout(() => setSlider(false), 600), className: "live-range", style: { flex: 1 } }),
+          h("input", { type: "range", min: 10, max: 600, step: 10, value: autoSec, onChange: e => onAutoSec && onAutoSec(Number(e.target.value)), onPointerUp: () => setTimeout(() => setSlider(false), 600), className: "live-range", style: { flex: 1 } }),
           h("span", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: LIVE_INK, width: 44, textAlign: "right", flexShrink: 0 } }, autoSec + " 秒")) : null,
         // 自动往下播收进 ⋯（她 2026-10-08：「放外面有点丑，收起来」）；开着时 ⋯ 上亮一个小红点
         h("div", { className: "flex items-end", style: { gap: 8 } },
@@ -584,7 +601,7 @@
       h(Head, { zh: title, sub: "私信", bg: "transparent", ink: t.__pal ? t.ink : undefined, onBack }),
       h("div", { ref, className: "flex-1 min-h-0 overflow-y-auto px-4", style: { paddingTop: 8, paddingBottom: 10 } },
         msgs.length ? msgs.map((m, i) => h("div", { key: i, className: "flex", style: { justifyContent: m.from === "me" ? "flex-end" : "flex-start", margin: "6px 0" } },
-          h("div", { "data-wk": "block", style: { maxWidth: "78%", padding: "9px 12px", borderRadius: 14, background: m.from === "me" ? LIVE_RED : t.bg2, color: m.from === "me" ? "#fff" : t.ink, border: m.from === "me" ? "none" : "1px solid " + t.line, fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", lineHeight: 1.55 } }, m.text)))
+          h("div", { "data-wk": "block", style: { maxWidth: "78%", padding: "9px 12px", borderRadius: 14, background: m.from === "me" ? LIVE_RED : t.bg2, color: m.from === "me" ? "#fff" : t.ink, border: m.from === "me" ? "none" : "1px solid " + t.line, fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", lineHeight: 1.55 } }, m.from === "me" ? m.text : transShow(m.text))))
           : h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog, textAlign: "center", padding: "40px 0" } }, "跟他说第一句"),
         busy ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, padding: "6px 0" } }, "对方正在输入…") : null),
       h("div", { className: "shrink-0 px-3 flex items-end", style: { gap: 8, paddingTop: 8, paddingBottom: "calc(env(safe-area-inset-bottom) * 0.4 + 10px)", borderTop: "1px solid " + t.line } },
@@ -688,6 +705,7 @@
         patch(id, s0 => ({ ...s0, famPool: pool, famPairs: props.regularPairs ? props.regularPairs() : [] }));
         ses = get(id);
       }
+      { const ne = !!((props.liveCfg || {}).noSelfEnd); if (!!ses.noSelfEnd !== ne) { patch(id, s0 => ({ ...s0, noSelfEnd: ne })); ses = get(id); } }
       setBusy(true);
       try {
         const d = await (st
@@ -738,13 +756,14 @@
           lines: arr(s.lines).concat(add.map(l => Object.assign({}, l, { beat: (s.beat || 0) + 1 }))).slice(-LINES_CAP),
           noise: normNoise(d.noise), noiseSeed: (s.noiseSeed || 0) + 1,
           viewers: Math.max(1, Math.round(Number(d.viewers) || s.viewers || 1)),
-          endTs: (!first && d.end === true) ? Date.now() : s.endTs }));
+          // 主播自己下播是开关（群友 2026-10-31 想要不自己下播；她：「也有人喜欢主播自己下播，比较活人」）：默认照旧会，⋯ 里能关
+          endTs: (!first && d.end === true && !ses.noSelfEnd) ? Date.now() : s.endTs }));
         // 她这场说过话、熟面孔也开了口：记一次碰面（一场一人只记一次；马甲号不算到她大号头上）
+        if (!first && d.end === true && !ses.noSelfEnd) wrapUp(id);
         if (props.touchRegular && ses.as !== "mask" && arr(get(id).lines).some(l => l.kind === "me")) {
           const done = arr(get(id).famTouched), spoke = regs.filter(r => r.famId && flowLines.some(l => l.kind === "reg" && l.name === r.name) && done.indexOf(r.famId) < 0);
           if (spoke.length) { spoke.forEach(r => props.touchRegular(r.famId, "theirs", "")); patch(id, s0 => ({ ...s0, famTouched: done.concat(spoke.map(r => r.famId)) })); }
         }
-        if (!first && d.end === true) wrapUp(id);
       } catch (e) { toast("直播间没连上：" + ((e && e.message) || "再试一次")); }
       finally { setBusy(false); }
     };
@@ -877,6 +896,8 @@
     const meName = () => { const s = get(curId) || {}; return s.as === "mask" ? s.maskName : (s.meName || uName); };
     const unlink = () => addEvent(x => ({ ...x, linked: false, linkAsk: false }), meName() + " 下麦了", false);
     const ban = n => addEvent(x => ({ ...x, banned: arr(x.banned).concat([n]) }), n + " 被房管禁言了", false);
+    // 解禁（群友 2026-10-31：「成为房管后禁言 npc 也可以解除禁言」）
+    const unban = n => addEvent(x => ({ ...x, banned: arr(x.banned).filter(y => y !== n) }), n + " 被房管解除了禁言", false);
     // 画出来：照镜头里那一行（加上此刻在干嘛）画一张，存在这一场上；场景变了不自己换，想换再点
     const [drawingId, setDrawingId] = useState("");
     const drawStage = async () => {
@@ -901,7 +922,9 @@
       const name = s.as === "mask" ? s.maskName : (s.meName || uName);
       props.pay(-amount, "直播打赏 · " + (s.host || "主播") + "「" + g + "」");
       // 主播只到手一半（平台抽成）
-      if (props.charPay && s.charId && !s.stranger) props.charPay(s.charId, toHost(amount), "直播收到打赏 · 「" + g + "」（平台抽走一半）");
+      // 收钱的是谁：自己的角色就是他；路人主播已经加成好友、进了档案馆的，钱进他转正后那个人的钱包（她 2026-11-08「弄弄这个互通」）
+      const payee = !s.stranger ? s.charId : (((stGet(s.charId) || {}).promoted) || "");
+      if (props.charPay && payee && typeof payee === "string") props.charPay(payee, toHost(amount), "直播收到打赏 · 「" + g + "」（平台抽走一半）");
       const before = fanLevel(s.fanTotal || 0), total = (s.fanTotal || 0) + amount, after = fanLevel(total);
       patch(curId, x => ({ ...x, fanTotal: total, fanLv: after, board: Object.assign({}, x.board, { [name]: ((x.board || {})[name] || 0) + amount }),
         lines: arr(x.lines).concat([{ kind: "gift", mine: true, name, gift: g, amount, ts: Date.now() }])
@@ -998,6 +1021,9 @@
           dms: Object.assign({}, x.dms, { [key]: arr((x.dms || {})[key]).concat([{ from: "me", text: "（申请加你好友）", ts: Date.now() }]).concat(say ? [{ from: "st", text: say, ts: Date.now() + 1 }] : []) }) }));
         if (ok && props.promoteStranger) {
           const cid = props.promoteStranger(stGet(st.id), key, nm, fan);
+          // 以前在他直播间刷过的钱（大号、马甲加起来）：他到手的那一半，转正时一笔记进他钱包（她 2026-11-08）
+          const tipped = listRef.current.filter(s2 => s2.stranger && s2.charId === st.id).reduce((n, s2) => n + arr(s2.lines).filter(l => l.kind === "gift" && l.mine).reduce((m, l) => m + (Number(l.amount) || 0), 0), 0);
+          if (cid && typeof cid === "string" && tipped > 0 && props.charPay) props.charPay(cid, toHost(tipped), "以前在直播间收到的打赏 · 一共 ¥" + tipped + "（平台抽走一半）");
           stPatch(st.id, x => Object.assign({}, x, { promoted: cid || true, followed: true }));
         } else if (!ok) toast("他没同意");
       } catch (e) { toast("没问成：" + ((e && e.message) || "再试一次")); }
@@ -1026,10 +1052,12 @@
       return h(LiveRoom, { ses: cur, chars: characters, profile, busy, onSay: say, onGift: gift, onEnd: end,
         customGifts: (props.liveCfg || {}).gifts || [],
         autoSec: (props.liveCfg || {}).autoSec || 25,
+        noSelfEnd: !!(props.liveCfg || {}).noSelfEnd,
+        onNoSelfEnd: v => { if (props.onLiveCfg) props.onLiveCfg(Object.assign({}, props.liveCfg || {}, { noSelfEnd: !!v })); },
         onAutoSec: n => { if (props.onLiveCfg) props.onLiveCfg(Object.assign({}, props.liveCfg || {}, { autoSec: n })); },
         onSaveCustom: (n, a) => { const c0 = props.liveCfg || {}; if (props.onLiveCfg) props.onLiveCfg(Object.assign({}, c0, { gifts: arr(c0.gifts).filter(g => !(g.name === n && g.amount === a)).concat([{ name: n, amount: a }]).slice(-12) })); },
         onDropCustom: (n, a) => { const c0 = props.liveCfg || {}; if (props.onLiveCfg) props.onLiveCfg(Object.assign({}, c0, { gifts: arr(c0.gifts).filter(g => !(g.name === n && g.amount === a)) })); },
-        onVoice: v => patch(cur.id, x => ({ ...x, voice: !!v })), onInvite: cur.stranger ? invite : null, onDraw: props.draw ? drawStage : null, drawing: drawingId === cur.id, onLink: askLink, onUnlink: unlink, onBan: ban, onSong: props.songs ? pickSong : null, songs: props.songs ? props.songs() : [], onBuy: props.buy ? buy : null, onBack: () => { setView("home"); setCurId(null); },
+        onVoice: v => patch(cur.id, x => ({ ...x, voice: !!v })), onInvite: cur.stranger ? invite : null, onDraw: props.draw ? drawStage : null, drawing: drawingId === cur.id, onLink: askLink, onUnlink: unlink, onBan: ban, onUnban: unban, onSong: props.songs ? pickSong : null, songs: props.songs ? props.songs() : [], onBuy: props.buy ? buy : null, onBack: () => { setView("home"); setCurId(null); },
         onShare: props.onShare ? () => setView("share") : null });
     // 发给 TA：挑一个人。落进聊天的是一张回放卡，不让TA马上开口（等她说完按回复，wait-for-her）
     if (view === "share" && cur)

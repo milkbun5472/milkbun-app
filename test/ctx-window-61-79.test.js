@@ -19,18 +19,22 @@ const comp = fs.readFileSync("js/components.js", "utf8");
 test("ctxN 的上限跟本机保留线对齐，不然多留的那些够不着", () => {
   assert.match(app, /const CHAT_KEEP_LOCAL = 1000;/);
   // 单聊那根滑杆
-  const i = comp.indexOf("AI 回复时真正读到的就是这些条");
-  assert.ok(i > 0, "说明文案没了——那句话得挑明它是硬闸");
+  const i = comp.indexOf("TA 回你时会往回读这么多条聊天");   // 2026-10-31 改了说明（拉条说了算、最少 80）
+  assert.ok(i > 0, "说明文案没了");
   const near = comp.slice(i, i + 400);
   assert.match(near, /max: 1000/, "滑杆封在 300 的话，本机留的一千条有七百条永远进不去");
 });
 
-test("短期窗那块地板也跟着抬，不然拉条到不了它说的天数", () => {
-  assert.match(app, /const FLOOR_MAX = 1000;/);
+// 原来这儿钉的是「短期窗那块地板也跟着抬到 1000」。2026-11-04 那块地板整个收回了：
+// 它不看拉条、自己就能把一轮撑到 1000 条／26 万字（群友一次对话 20 万 token）。
+// 本机留一千条是【翻得到】，不是【每轮都发出去】；往回读多远由拉条明码标价。
+test("往回读多远只由拉条说了算，没有第二条暗地里撑额度的路", () => {
+  assert.ok(!/const FLOOR_MAX/.test(app), "按天那块免检地板又回来了");
+  assert.match(app, /const onlineWindow = online\.slice\(-ctxN\);/);
 });
 
 test("滑杆底下必须说清它是硬闸，别再让人以为归档会自己进来", () => {
-  const i = comp.indexOf("AI 回复时真正读到的就是这些条");
+  const i = comp.indexOf("TA 回你时会往回读这么多条聊天");
   const near = comp.slice(i, i + 300);
-  assert.match(near, /归档只供你翻看/);
+  assert.match(near, /只在归档里供你翻看/);
 });

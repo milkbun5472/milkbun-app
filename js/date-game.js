@@ -28,7 +28,7 @@
   function buildPrompt(props, char, state) {
     // 这局沿用小游戏沙盒：人设全文、世界书、可选最近聊天；没有主线状态写口。
     const pf = props.profile || {};
-    const ctx = props.rules + "\n【你本人】\n" + (char.name || "TA") + "\n" + (char.persona || "")
+    const ctx = props.rules + "\n【你本人】\n" + (char.name || "TA") + "\n" + (char.persona || "") + (typeof charLangLine === "function" ? charLangLine(char) : "")
       + "\n【一起玩的用户】\n" + (pf.name || "你") + "\n" + (pf.persona || pf.bio || "")
       + (state.config.injectChat && props.recentChatFor ? "\n【开局前最近聊天·只读背景】\n" + props.recentChatFor(char.id) : "");
     const game = "\n你正在玩独立的「各怀心思的约会」。你就是这名玩家，有自己的任务与性格，主动争取想去的地方；怎样藏心思、让步、讨价还价由你自己决定。\n"
@@ -71,7 +71,7 @@
     const pf = props.profile || {};
     const KIND = { menu: "吃东西（到了挑一样吃的）", photo: "合照（两人摆动作拍一张）", claw: "合力小游戏（一人管排一人管格）", gift: "挑东西（买一样或一对）", walk: "散步（边走边聊）", book: "翻书（一起看看书）", talk: "坐下来聊（看完东西或者待着聊天）" };
     const list = C.placesOf(state).map(id => { const b = C.PLACE_POOL.find(p => p.id === id); return "· " + id + "：" + KIND[b.kind] + "，默认叫「" + b.name + "」" + (b.options ? "，要配 3 样能挑的" + (b.kind === "menu" ? "（至少一样是甜的，tags 填 sweet）" : b.kind === "gift" ? "（至少一样是成对的，tags 填 pair）" : "") : ""); }).join("\n");
-    return "你在给一局约会小游戏备料。去约会的是「" + (char.name || "TA") + "」和「" + (pf.name || "对方") + "」。\n【" + (char.name || "TA") + "】\n" + (char.persona || "")
+    return "你在给一局约会小游戏备料。去约会的是「" + (char.name || "TA") + "」和「" + (pf.name || "对方") + "」。\n【" + (char.name || "TA") + "】\n" + (char.persona || "") + (typeof charLangLine === "function" ? charLangLine(char) : "")
       + "\n【" + (pf.name || "对方") + "】\n" + (pf.persona || pf.bio || "")
       + ((C.THEMES[state.theme] || {}).prompt ? "\n【这一次】" + C.THEMES[state.theme].zh : "")
       + "\n\n这局会去的六处，每处的玩法定好了，你只管它在这两个人的世界里长什么样：照他们所在的时代、城市、身份来起名（八个字以内）、写一句样子（二十字以内）、配一个 emoji 图标；要挑东西的那几处，配 3 样这里真会有的。\n" + list
@@ -326,7 +326,7 @@
             const r = s.result[who], m = C.mission(s.missions[who]), guessed = who === "user" ? s.userGuess : s.aiGuess;
             return slip([
               h("div", { key: "n", style: { display: "flex", justifyContent: "space-between", alignItems: "baseline" } }, h("strong", { style: { fontSize: "calc(13px * var(--app-fs, 1))" } }, who === "user" ? "你" : char.remark || char.name), h("span", { style: { fontFamily: F_DISPLAY, fontSize: "calc(22px * var(--app-fs, 1))", color: "#a0603f" } }, r.score)),
-              h("div", { key: "m", style: { fontFamily: F_DISPLAY, fontSize: "calc(14px * var(--app-fs, 1))", lineHeight: 1.6, margin: "6px 0" } }, m.text),
+              h("div", { key: "m", style: { fontFamily: F_DISPLAY, fontSize: "calc(14px * var(--app-fs, 1))", lineHeight: 1.6, margin: "6px 0" } }, transShow(m.text)),
               h("div", { key: "st", style: { display: "inline-block", padding: "1px 7px", border: "1.5px solid " + (r.mission.done ? "#5d8b4c" : "#b0553f"), color: r.mission.done ? "#5d8b4c" : "#b0553f", borderRadius: 4, fontSize: "calc(11px * var(--app-fs, 1))", transform: "rotate(-6deg)" } }, r.mission.done ? "完成 +2" : "没完成"),
               h("div", { key: "e", style: { fontSize: "calc(10.5px * var(--app-fs, 1))", color: "#9a8f80", lineHeight: 1.5, marginTop: 6 } }, r.mission.evidence),
               h("div", { key: "g", style: { fontSize: "calc(11.5px * var(--app-fs, 1))", marginTop: 8, color: r.guess ? "#5d8b4c" : "#7a7064" } }, "猜：" + (C.mission(guessed) || { title: "没猜出来" }).title + (r.guess ? " ✓ +1" : " ✗")),

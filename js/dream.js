@@ -210,7 +210,7 @@
       id: "dm_" + Date.now(),
       loopKey: row.key, nightKey: row.nightKey, fromLoop: true,
       recur: recur,
-      charId: c.id, charName: c.name, charPersona: c.persona || "",
+      charId: c.id, charName: c.name, charTa: typeof CharacterPronoun !== "undefined" ? CharacterPronoun.ta(c) : "", charPersona: c.persona || "",
       moodLine: (function () { const m = props.moodOf ? props.moodOf(c.id) : ""; return m ? String(m) : ""; })(),
       affLine: (function () { const a2 = props.affinityLineOf ? props.affinityLineOf(c.id) : ""; return a2 ? String(a2) : ""; })(),
       gazeText: (function () { try { return (window.Gaze && window.Gaze.text) ? String(window.Gaze.text(c.id, uName) || "").slice(0, 700) : ""; } catch (e) { return ""; } })(),
@@ -253,7 +253,9 @@
     // ⚠️心情和好感也要给：这场梦顺着 Ta【此刻】的状态铺，不是顺着一份静态设定。
     //   梦仍旧是平行沙盒——【读】主线状态，【写】一律不回（醒来什么都不留），
     //   这跟闭群那条规矩是同一条界线。
-    let s = "【做这场梦的人是「" + session.charName + "」】\n· 人设：" + (session.charPersona || "（暂无设定）").replace(/\s+/g, " ").slice(0, 6000) +
+    // 叫做梦那个人用哪个字（群里 2026-11-04：梦里女角色也被写成「他」）——提示词里一律写 Ta，模型就默认成了他
+    const taWord = w => w === "她" || w === "他" ? "\n· 称呼：叙事里提到 Ta 用「" + w + "」" : "";
+    let s = "【做这场梦的人是「" + session.charName + "」】" + taWord(session.charTa) + "\n· 人设：" + (session.charPersona || "（暂无设定）").replace(/\s+/g, " ").slice(0, 6000) +
       (session.moodLine ? "\n· 此刻心情：" + session.moodLine : "") +
       (session.affLine ? "\n· " + session.affLine : "") +
       (session.gazeText ? "\n\n【Ta 眼里的你（只读，别在梦里复述这张卡）】\n" + session.gazeText : "") +
@@ -263,7 +265,7 @@
       s += "\n\n【这场梦里还会出现这些人（" + session.charName + " 梦见的其他角色）】\n" +
         "他们要作为真正的角色进入梦境，不是背景板。梦怎么呈现他们——样子、态度、在梦里对你或对 " + session.charName + " 做什么——都要顺着「" + session.charName + "」此刻对他们的真实感觉长出来（爱慕会美化、忌惮会扭曲、愧疚会纠缠、思念会朦胧、憎恶会狰狞）。";
       guests.forEach((g, i) => {
-        s += "\n\n" + (i + 1) + ".「" + g.name + "」\n· 人设：" + (g.persona || "（暂无设定）").replace(/\s+/g, " ").slice(0, 500);
+        s += "\n\n" + (i + 1) + ".「" + g.name + "」" + taWord(g.ta).replace("Ta", "这个人") + "\n· 人设：" + (g.persona || "（暂无设定）").replace(/\s+/g, " ").slice(0, 500);
         if (g.relText) s += "\n· " + session.charName + " 此刻对 Ta 的看法/关系：" + g.relText;
         else s += "\n· （没有设定 " + session.charName + " 和 Ta 认识）——请你读两人的人设，合理判断此刻 " + session.charName + " 会怎么看待、怎么感觉 Ta，再据此把 Ta 编进梦里，别生硬。";
         if (g.voiceRef) s += "\n· Ta 近期的语气 / 近况（仅参考）：\n" + g.voiceRef;
@@ -585,11 +587,11 @@
           if (!g) return null;
           const r = rels[c.id + "->" + g.id];                 // 做梦人对客串的看法（有向）
           const relText = r && r.label ? (r.label + (r.note ? "（" + r.note + "）" : "")) : "";
-          return { id: g.id, name: g.name, persona: g.persona || "", relText: relText, voiceRef: injectChat ? recentChatSnippet(g.id, uName, g.name) : "" };
+          return { id: g.id, name: g.name, ta: typeof CharacterPronoun !== "undefined" ? CharacterPronoun.ta(g) : "", persona: g.persona || "", relText: relText, voiceRef: injectChat ? recentChatSnippet(g.id, uName, g.name) : "" };
         }).filter(Boolean);
         const session = {
           id: "dm_" + Date.now(),
-          charId: c.id, charName: c.name, charPersona: c.persona || "",
+          charId: c.id, charName: c.name, charTa: typeof CharacterPronoun !== "undefined" ? CharacterPronoun.ta(c) : "", charPersona: c.persona || "",
           // 此刻的状态：从 App 传进来的那份上下文里取（拿不到就留空，别整个坏掉）
           moodLine: (function () { const m = props.moodOf ? props.moodOf(c.id) : ""; return m ? String(m) : ""; })(),
           affLine: (function () { const a2 = props.affinityLineOf ? props.affinityLineOf(c.id) : ""; return a2 ? String(a2) : ""; })(),
@@ -656,7 +658,7 @@
     return h("div", { "data-wk": "drmkeep", style: { marginTop: 14, padding: "12px 14px", borderRadius: 12, border: "1px dashed rgba(169,154,201,.45)", background: "rgba(169,154,201,.07)" } },
       h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", fontWeight: 700, letterSpacing: .5, color: ACC_LIT, marginBottom: 6 } }, "醒来手里攥着"),
       h("div", { "data-wk": "drmkeepname", style: { fontFamily: F_DISPLAY, fontSize: "calc(16px * var(--app-fs, 1))", color: t.ink } }, k.name),
-      k.note ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", lineHeight: 1.6, color: t.sub, marginTop: 3 } }, k.note) : null,
+      k.note ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", lineHeight: 1.6, color: t.sub, marginTop: 3 } }, transShow(k.note)) : null,
       k.taken
         ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, marginTop: 8 } }, "已经带出来了，在你的物品里。Ta 见了会眼熟，但不知道它从哪儿来。")
         : h("button", { "data-wk": "drmkeepbtn", onClick: props.onKeep, className: "active:opacity-70",
@@ -834,7 +836,7 @@
             cur.options.map((op, i) => h("button", { "data-wk": "drmoption",
               key: i, onClick: () => pick(i), className: "w-full active:opacity-70",
               style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", lineHeight: 1.5, textAlign: "left", color: t.ink, background: t.bg2, border: "1px solid " + t.line, borderRadius: 12, padding: "13px 15px" }
-            }, op.text)),
+            }, transShow(op.text))),
             // 熟不熟（v63.08）：告诉她这场梦里破绽有没有、有多明显；挣扎那一幕不适用（那三条是另一套）
             cur.struggle ? null : h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, textAlign: "center", paddingTop: 2 } }, FAMILIAR_LINE[Math.max(0, Math.min(2, s.familiarity || 0))]))
           : needRetry
@@ -854,7 +856,7 @@
             h("div", { style: { display: "flex", alignItems: "center", marginBottom: 8 } },
               h("span", { style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", fontWeight: 700, letterSpacing: 1, color: sc.struggle ? BAD_LIT : t.fog } }, sc.struggle ? "第 " + (i + 1) + " 幕 · 梦在挣扎" : "第 " + (i + 1) + " 幕"),
               (dtp && typeof TtsDot === "function") ? h(TtsDot, { k: "dr" + i, text: sc.text, spk: (props.characters || []).find(c => c.id === s.charId), tp: dtp }) : null),
-            h("div", { "data-wk": "drmscenetext", style: { fontFamily: F_BODY, fontSize: "calc(14.5px * var(--app-fs, 1))", lineHeight: 1.85, color: t.ink, whiteSpace: "pre-wrap" } }, sc.text),
+            h("div", { "data-wk": "drmscenetext", style: { fontFamily: F_BODY, fontSize: "calc(14.5px * var(--app-fs, 1))", lineHeight: 1.85, color: t.ink, whiteSpace: "pre-wrap" } }, transShow(sc.text)),
             (sc.cot && typeof CotReveal === "function") ? h(CotReveal, { cot: sc.cot }) : null,
             // 已做出的选择回显 + 回档
             decided

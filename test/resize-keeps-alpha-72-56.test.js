@@ -57,7 +57,10 @@ test("贴纸那条不看脸色：不问有没有 alpha，一律 PNG", async () =
 test("缩图只有这一个核，两条路都从它长出来", () => {
   assert.match(engine, /function resizeImageAlpha\(file, maxDim = 360\) \{ return _resizeImageCore\(file, maxDim, 1, true\); \}/);
   assert.match(engine, /function resizeImageFile\(file, maxDim = 400, q = 0\.85\) \{ return _resizeImageCore\(file, maxDim, q, false\); \}/);
-  assert.equal((engine.match(/toDataURL\(/g) || []).length, 1, "又有第二处自己编码了");
+  // gifFirstFramePng 是把动图第一帧原尺寸拆成 PNG 给视觉输入用，不缩图，不算第二个核
+  const notGif = engine.replace(fn("gifFirstFramePng"), "");
+  assert.match(fn("gifFirstFramePng"), /cv\.toDataURL\("image\/png"\)/);
+  assert.equal((notGif.match(/toDataURL\(/g) || []).length, 1, "又有第二处自己编码了");
   assert.ok(!/fillStyle|fillRect/.test(fn("_resizeImageCore")), "铺了底色＝自己把透明去掉了");
 });
 

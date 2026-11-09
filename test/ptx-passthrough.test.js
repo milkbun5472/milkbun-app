@@ -6,7 +6,10 @@ const fs = require("fs"), path = require("path");
 const grab = (file, fn) => {
   const s = fs.readFileSync(path.join(__dirname, "..", "js", file), "utf8");
   const i = s.indexOf("function " + fn + "(v) {"), j = s.indexOf("\n}\n", i);
-  return new Function("h", "TransText", s.slice(i, j + 2) + "\nreturn " + fn + ";")((c, p) => ({ c, p }), function TransText() {});
+  // PTX／STX 现在都只转调 components.js 里那一个公共出口 transShow（2026-11-06「全抽成公共翻译」）
+  const c = fs.readFileSync(path.join(__dirname, "..", "js", "components.js"), "utf8");
+  const a = c.indexOf("function transShow(v, zh) {"), b = c.indexOf("\n}\n", a);
+  return new Function("h", "TransText", c.slice(a, b + 2) + s.slice(i, j + 2) + "\nreturn " + fn + ";")((c, p) => ({ c, p }), function TransText() {});
 };
 // 2026-10-18 起 PTX 跟着查手机页面那半在 phone-ui.js
 ["phone-ui.js:PTX", "screens.js:STX"].forEach(x => {

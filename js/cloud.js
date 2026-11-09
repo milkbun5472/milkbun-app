@@ -1501,6 +1501,7 @@
 
     // 静默把本地存档推到云端（未登录=访客则不做；离线报错则忽略，下次变动再试）
     async autoPush() {
+      if (typeof window !== "undefined" && window.__qqFrozen) return;   // 停写的那一份不往云上推旧东西
       if (!client) return;
       if (!this.localMeaningful()) return; // 空壳绝不自动上云（手动推送在设置里另有确认）
       if (pushInFlight) { pushAgain = true; return pushInFlight; }
@@ -1594,7 +1595,19 @@
         if (!user) return { applied: false };
         // 不阻塞旧云恢复，也不改任何数据写路；只提前备好停服后的新登录态。
         this.ensureVpsSession();
-        if (bootHadLocal) {
+        // ⚠️大仓库被系统清掉、localStorage 那几个小键还留着（安卓/苹果大版本更新最常见）：
+        //   qq_vaultHasData、x_theme、x_firstDayTs 都还在 → bootHadLocal 判 true，
+        //   于是这台【已经空了】的手机被当成老设备，既不自动恢复，也一声不吭——
+        //   用户看到的就是一台只剩「来这儿第 N 天」的空手机（群友 2026-11-02 截图）。
+        //   判据改成【大仓库里到底有没有东西】：灌起来了、而且一个角色都没有＝真·空设备，
+        //   走恢复那一支。⚠️仓库【没灌起来】时绝不走这一支：那是数据还在、只是读不出来，
+        //   拿云端那份盖下去就是 2026-09-04 那场事故（见 never-say-delete-first.md）。
+        let vaultEmpty = false;
+        try {
+          const st = typeof txtVaultReady === "function" ? await txtVaultReady(20000) : null;
+          vaultEmpty = !!(st && st.done && st.ok) && !this.localMeaningful();
+        } catch (e) { vaultEmpty = false; }
+        if (bootHadLocal && !vaultEmpty) {
           // 老设备/刷新回来：本地权威，顺手把本地推上云备份，绝不拉云覆盖
           this.autoPush();
           return { applied: false };

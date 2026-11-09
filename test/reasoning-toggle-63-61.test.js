@@ -29,6 +29,7 @@ test("画面上四处都拿到这个角色的开关", () => {
   ["function OfflineMode(", "function GroupOfflineMode(", "function GroupThread("].forEach(f => {
     const j = comp.indexOf(f);
     assert.ok(j > 0, f + " 没了");
-    assert.ok(comp.slice(j, comp.indexOf(")", j)).includes("showReason"), f + " 没收这个参数");
+    // 形参表里的注释可能带括号（GroupThread 的 onShootMe 说明写着 (scene, third)），收尾认解构的「}) {」
+    assert.ok(comp.slice(j, comp.indexOf("}) {", j)).includes("showReason"), f + " 没收这个参数");
   });
 });

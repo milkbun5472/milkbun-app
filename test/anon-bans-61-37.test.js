@@ -29,9 +29,9 @@ test("两条匿名路都接上了（陌生网友 / 她自己攒的那一箱）",
   const netizen = grab("const genNetizenQ = async char => {", "  // 我问的:先【放进箱子】");
   const box = grab("const openAnonBox = async char => {", "\n  const askAnon");
   assert.match(netizen, /\+ anonBans\(\),/, "陌生网友那一路没接");
-  assert.match(box, /\+ anonBans\(\),/, "她自己那一箱没接");
+  assert.match(box, /\+ anonBans\(\)( \+ \(anonBiOn\(char\) \? anonBiSpec : ""\))?,/, "她自己那一箱没接");   // 双语那段（ProbeZh）跟在后面
   // 定义那一行写的是 `const anonBans = () =>`，不含 "anonBans()"，所以这里数到的就是【用了几处】
-  assert.equal((app.match(/\+ anonBans\(\),/g) || []).length, 2, "接的处数变了，检查是不是又多了一条路没接");
+  assert.equal((app.match(/\+ anonBans\(\)[ ,]/g) || []).length, 2, "接的处数变了，检查是不是又多了一条路没接");
 });
 
 test("『可以反问回去』旁边要说清跟回声的区别", () => {

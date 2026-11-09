@@ -35,8 +35,8 @@ test("群线下把设置递给了引擎（存档键和单聊同名）", () => {
 });
 
 test("界面也是公共那一段，单聊和群聊各挂一次", () => {
-  assert.match(components, /function OfflineLengthModeSection\(\{ value, onChange \}\)/);
-  assert.equal((components.match(/h\(OfflineLengthModeSection, \{ value: sLengthMode, onChange: setSLengthMode \}\)/g) || []).length, 2, "单聊、群聊各挂一处");
+  assert.match(components, /function OfflineLengthModeSection\(\{ value, onChange(, loose, onLoose)? \}\)/);
+  assert.equal((components.match(/h\(OfflineLengthModeSection, \{ value: sLengthMode, onChange: setSLengthMode(, loose: sLoose, onLoose: setSLoose)? \}\)/g) || []).length, 2, "单聊、群聊各挂一处");
   assert.match(components, /\{ v: "natural", t: "自然长度" \}, \{ v: "immersive", t: "沉浸长文" \}/);
 });
 

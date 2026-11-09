@@ -7,3 +7,7 @@ test("译文就是原文（只差括号）就只留原文", () => {
   assert.deepEqual(f("【想要】 | (想要)", false), { text: "【想要】", zh: "" });
   assert.deepEqual(f("おやすみ | 晚安", false), { text: "おやすみ", zh: "晚安" });
 });
+test("竖线右边带假名不算中译（她 2026-11-04：日文挂成了译文）", () => {
+  const src = require("fs").readFileSync(require("path").join(__dirname, "..", "js", "engine.js"), "utf8");
+  assert.match(src, /if \(\/\[\\u3040-\\u30ff\]\/\.test\(zh\)\) return \{ text: orig, zh: "" \};/);
+});

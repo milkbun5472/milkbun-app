@@ -25,8 +25,11 @@ test("刚收线的那场线下照样算最近发生的事", () => {
   // 结束得还近才带——三周前那场不该压在今天的上下文里，那是记忆库的活
   assert.match(blk, /const offFloor = Math\.max\(0, Number\(memCfgRef\.current\.recentDays \?\? 3\)\) \* 86400000;/, "没有新鲜度这道闸");
   assert.match(blk, /!newest\.endTs \|\| \(offFloor && Date\.now\(\) - newest\.endTs <= offFloor\)/, "闸的判据不对");
-  // 跟聊天记录用同一根拉条，不另拍一个数
-  assert.match(app, /const recentDays = Math\.max\(0, Number\(memCfgRef\.current\.recentDays \?\? 3\)\);/, "两处各拍各的数了");
+  // 跟聊天记录用同一根拉条，不另拍一个数。
+  // （2026-11-04 起聊天记录那头不再有自己的 recentDays 地板——那块免检地板会把一轮
+  //   撑到上千条，收回了。所以这儿只钉「读的是 memCfgRef 里那一根」，上面 offFloor 已经钉过。）
+  assert.ok(!/recentDays \* 86400000/.test(app.replace(/Number\(memCfgRef\.current\.recentDays \?\? 3\)\) \* 86400000/g, "")),
+    "又在别处另起了一根按天的地板");
 });
 
 test("带进来了就得说清它已经散了", () => {

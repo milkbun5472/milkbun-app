@@ -47,5 +47,5 @@ assert.strictEqual(y.catList[0].name, "购物");
 // 入口和页面都接上了
 for (const re of [/grow\(8, "goal", "存钱目标"/, /grow\(9, "year", "年度回顾"/, /top\.k === "goals"\) over = h\(GoalsView/, /top\.k === "year"\) over = h\(YearView/,
   /"data-ledger-refund": true/, /"data-ledger-catlimit": c\.name/, /"data-ledger-converted": true/, /"data-ledger-setlimit": c\.name/, /"data-ledger-rate": c\.code/,
-  /callAI\(props\.active, sys, \[\{ role: "user", content: "开始。" \}\], \{ maxTokens: 14000 \}\)/]) assert.match(src, re);
+  /callAI\(props\.active, sys, \[\{ role: "user", content: "开始。" \}\], \{ (?:biFor: [^}]*?, )?maxTokens: 14000 \}\)/]) assert.match(src, re);
 console.log("ledger-more ok");

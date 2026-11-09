@@ -12,7 +12,7 @@ const src = (fs.readFileSync(path.join(__dirname, "..", "js", "screens.js"), "ut
 
 // 全库一起问。以前这条只管 screens.js，v63.01 起 Lisa 把别的文件也交过来了。
 // 例外分三类，每一类都写着理由——不是"看着顺眼就放过"：
-const OK_TECH = /^(GET|POST|PUT|DELETE|JSON|HTTP|HTTPS|UTF|API|URL|CSS|SVG|PNG|JPG|WEBP|IDB|LRU|TTS|SSE|MCP|ECDSA|HMAC|NFKC|RIFF|SSR|SR|UID|PWA|AI|OK|ID|TA|OOC)$/;
+const OK_TECH = /^(GET|POST|PUT|DELETE|JSON|HTTP|HTTPS|UTF|API|URL|CSS|SVG|PNG|JPG|WEBP|STOP|IDB|LRU|TTS|SSE|MCP|ECDSA|HMAC|NFKC|RIFF|SSR|SR|UID|PWA|AI|OK|ID|TA|OOC)$/;
 const ALLOW = {
   // Lisa 2026-09-28 明确要求逐项复制 IMG_0188.PNG；只放行图中实际的卡面/小票字样。
   // Lisa 2026-09-28 又放行一次：「英文可以破例」——Y2K 要有标志性的英文字标（每页顶上一个）
@@ -90,7 +90,7 @@ test("「英文 · 中文」夹着写的也算——中文那半已经把话说�
       const caps = x.match(/\b[A-Z]{3,}(?:[ ][A-Z]{2,})*\b/g) || [];
       caps.forEach(c => {
         // 技术名词 / 产品名 / 中文圈里就这么写的词 / 主屏装饰件上的印刷字
-        if (/^(DOCX|TXT|PDF|CSS|HTML|SSE|CORS|RPC|TTS|CLI|OCR|JSON|HTTP|API|URL|UTF|SVG|PNG|VAPID|MUSIC|LLM|MAX|IMG|LINE|OOC|ADMIT|EVIDENCE|ARCHIVED|PHOTO|BOOTH|WEEKEND|SMALL|STORY|CABINET|MOMENTS|SSR|VIP|VPS|START|MES|JSON|CODEX|LISA|MCP|NPC|ANTHROPIC|DZZI|WPS|ADMIT TWO)$/.test(c)) return;
+        if (/^(DOCX|TXT|PDF|GIF|CSS|HTML|SSE|CORS|RPC|TTS|CLI|OCR|JSON|HTTP|API|URL|UTF|SVG|PNG|VAPID|MUSIC|LLM|MAX|IMG|LINE|OOC|ADMIT|EVIDENCE|ARCHIVED|PHOTO|BOOTH|WEEKEND|SMALL|STORY|CABINET|MOMENTS|SSR|VIP|VPS|START|MES|JSON|CODEX|LISA|MCP|NPC|ANTHROPIC|DZZI|WPS|ADMIT TWO)$/.test(c)) return;
         bad.push("js/" + f + " → " + x.slice(0, 40));
       });
     });

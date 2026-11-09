@@ -42,8 +42,8 @@ test("两处线下：offlineHistory / offlineGroupHistory 都收 clock", () => {
   assert.match(eng, /function offlineHistory\(msgs, userName, charName, clock(, clockId)?\)/);
   assert.match(eng, /function offlineGroupHistory\(msgs, userName, clock(, clockId)?\)/);
   // 调用处真的把 ctx 那一层传下去了（声明了没人传＝白写，v55.95 那个形状）
-  assert.match(eng, /offlineHistory\(session\.msgs, userName, char\.name, ctx\.timeAware !== false[,)]/);
-  assert.match(eng, /offlineGroupHistory\(session\.msgs, userName, ctx\.timeAware !== false[,)]/);
+  assert.match(eng, /offlineHistory\((offlineLoosenOn\(session\) \? offlineLoosenOld\((offlineDropStale\()?session\.msgs\)?\) : )?session\.msgs, userName, char\.name, ctx\.timeAware !== false[,)]/);
+  assert.match(eng, /offlineGroupHistory\((offlineLoosenOn\(session\) \? offlineLoosenOld\((offlineDropStale\()?session\.msgs\)?\) : )?session\.msgs, userName, ctx\.timeAware !== false[,)]/);
   assert.equal((eng.match(/const stamp = \(ts && clock !== false\)/g) || []).length, 2);
   assert.equal((eng.match(/const dateAnchor = clock !== false \? vAnchor\(raw, m\.ts, clockId\)/g) || []).length, 2);   // 2026-10-31 起日期锚照那只虚拟钟
 });
@@ -51,12 +51,12 @@ test("两处线下：offlineHistory / offlineGroupHistory 都收 clock", () => {
 test("线下：时间感知关着连相对间隔也不标（2026-10-04 改）；线上群聊照旧", () => {
   // 原来留着「中间隔了约三小时」，怕线下断片；可群友关了时间感知隔天回来接着演，他照样知道过了一夜。
   //   线下是一场戏：关着就是戏里不过时间。开着时间感知照旧标间隔和时刻。
-  assert.equal((eng.match(/const gap = clock !== false && prevTs && ts && ts - prevTs > 90 \* 60000/g) || []).length, 2);
-  assert.match(app, /gapPhrase\(ts - _gprev\) \+ \(_gClockAny \? "，到 "/);
+  assert.equal((eng.match(/const gap = clock !== false && prevTs && ts && _vg > 90 \* 60000/g) || []).length, 2);   // 2026-11-01 间隔按虚拟钟算（vGap）
+  assert.match(app, /gapPhrase\(_gvg\) \+ \(_gClockAny \? "，到 "/);
 });
 
 test("线上也关：群聊不标间隔、线下挂着不算「隔了一阵」、刚结束的线下不说几小时前（2026-10-04）", () => {
-  assert.match(app, /if \(_gClockAny && _gprev && ts && ts - _gprev > 90 \* 60000\) _gparts\.push\(/);
+  assert.match(app, /if \(_gClockAny && _gprev && ts && _gvg > 90 \* 60000\) _gparts\.push\(/);
   assert.match(app, /if \(offlineTogetherNow\(charId\) \|\| !timeAwareFor\(charId\)\) \{/);
   assert.match(app, /\(timeAwareFor\(charId\) \? "约 " \+ \(hrs >= 24/);
 });

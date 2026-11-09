@@ -19,7 +19,10 @@
   "use strict";
   const KEY = "x_autoGate";
   const METER_KEY = "x_apiMeter";
-  const MAX_TRIES = 3;              // 同日程那一版
+  // 一期只试一次（她 2026-11-08：「不要断了就重试」「你看看别的自动的要不要也改改」）：
+  //   日记、钱包补账、今日签、月度印象这些，这一期没成就等下一期，不在同一期里隔两小时再打。
+  //   角色日程一周才排一次、空一周 NOW 条就没了，它自己传 maxTries: 3 留着重试
+  const MAX_TRIES = 1;
   const COOLDOWN_MS = 2 * 3600000;  // 同日程那一版：两小时
   const KEEP_ROWS = 240;            // 这本账只留最近这么多行
   const KEEP_DAYS = 30;             // 计数只留最近 30 天

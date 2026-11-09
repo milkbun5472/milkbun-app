@@ -7,12 +7,74 @@
   <style>
     body{font-family:-apple-system,BlinkMacSystemFont,"PingFang SC",sans-serif;background:#f7f3ed;color:#2e2925;margin:0;min-height:100vh;display:grid;place-items:center}
     main{width:min(84vw,420px);text-align:center}h1{font-size:22px}p{line-height:1.7;color:#756b63}button{border:0;border-radius:999px;padding:14px 24px;background:#24211f;color:#fff;font-size:16px}
+    #logbox{margin-top:26px;text-align:left}
+    #logbox h2{font-size:15px;margin:0 0 6px}
+    #logbox p{font-size:12px;margin:0 0 10px}
+    #logtext{white-space:pre-wrap;word-break:break-all;font:11px/1.6 ui-monospace,SFMono-Regular,Menlo,monospace;background:#fff;border:1px solid #e3dcd2;border-radius:10px;padding:10px;max-height:46vh;overflow:auto;color:#3c3732}
+    #copy{margin-top:10px;padding:10px 18px;font-size:14px}
+    #logopen{display:inline-block;margin-top:22px;font-size:12px;color:#8a7f74}
+    /* display:inline-block 会压过浏览器自带的 [hidden]{display:none}，摊开记录后那行入口得自己藏 */
+    #logopen[hidden]{display:none}
   </style>
 </head>
-<body><main><h1>正在安全刷新 ARCHIVE</h1><p id="status">只清理旧版程序缓存，不会删除聊天、图片、登录或本机资料。</p><button id="retry" hidden>再试一次</button></main>
+<body><main><h1>正在安全刷新 ARCHIVE</h1><p id="status">只清理旧版程序缓存，不会删除聊天、图片、登录或本机资料。</p><button id="retry" hidden>再试一次</button>
+<a id="logopen" href="?log=1">看出错记录</a>
+<section id="logbox" hidden>
+  <h2>出错记录</h2>
+  <p>这台手机最近记下来的出错（最多 30 条）。复制下来发群里，就能看出是卡在哪一步，不用猜。</p>
+  <pre id="logtext"></pre>
+  <button id="copy">复制全部</button>
+</section>
+</main>
 <script>
+  // 目标版本只写这一处。以前散在六个地方，其中两处还是转义过的正则（53\.26），
+  // 逐版 bump 的 sed 匹配不到字面量，于是它们悄悄停在旧版号上，救援页就永远校验失败。
+  const TARGET="89.363";
+// 出错记录看得见（2026-11-03 立）：x_errlog 一直在记，但只有 console 里敲
+//   __errlog() 才看得到——群友白屏的时候谁也进不了 console，于是每一例都只能靠猜。
+//   救援页是白屏时唯一还能打开的页面，所以记录就摊在这儿，还能一键复制发群里。
+// ⚠️这里只【读】localStorage，一个字都不写、不删：救援页上任何写动作都可能
+//   撞上「数据还在、只是这一次读不出来」那一幕（见 never-say-delete-first.md）。
+function errReport() {
+  let rows = [];
+  try { rows = JSON.parse(localStorage.getItem("x_errlog") || "[]"); } catch (e) { rows = ["读不出记录本身：" + (e && e.message)]; }
+  const head = ["出错记录 · " + new Date().toLocaleString("zh-CN"), "目标版本 v" + TARGET, navigator.userAgent, "共 " + rows.length + " 条"];
+  const body = rows.length
+    ? rows.map(r => "[" + (r && r.t ? new Date(r.t).toLocaleString("zh-CN") : "?") + "] " + ((r && r.k) || "?") + " " + ((r && r.m) || "") + (r && r.x ? " @" + r.x : ""))
+    : ["（这台手机上没记到任何出错。那白屏多半不是程序报错，而是文件没拉下来、或者卡在读本机存档这一步。）"];
+  return head.concat("", body).join("\n");
+}
+function showErrLog() {
+  const box = document.getElementById("logbox");
+  document.getElementById("logtext").textContent = errReport();
+  box.hidden = false;
+  document.getElementById("logopen").hidden = true;
+  document.getElementById("copy").onclick = function () {
+    const text = errReport(), btn = document.getElementById("copy");
+    const done = () => { btn.textContent = "已复制"; setTimeout(() => { btn.textContent = "复制全部"; }, 1600); };
+    // 安卓的老浏览器和非 https 入口都没有 clipboard，得留 execCommand 那条老路。
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(done, fallback);
+    } else fallback();
+    function fallback() {
+      const ta = document.createElement("textarea");
+      ta.value = text; ta.style.cssText = "position:fixed;top:0;left:0;opacity:0";
+      document.body.appendChild(ta); ta.select();
+      try { document.execCommand("copy"); done(); } catch (e) { btn.textContent = "复制不了，长按上面那块选中"; }
+      ta.remove();
+    }
+  };
+}
 (async function rescue(){
   const status=document.getElementById("status"), retry=document.getElementById("retry");
+  // ?log=1：只看记录，不刷新。刷新成功会在 0.9 秒后跳回首页，记录还没看完就没了。
+  if (/[?&]log=1/.test(location.search)) {
+    document.querySelector("h1").textContent="出错记录";
+    status.textContent="这一页没有动任何东西。看完记录可以直接关掉，或者点下面重新安全刷新。";
+    retry.textContent="重新安全刷新"; retry.hidden=false; retry.onclick=()=>location.replace("rescue.html");
+    showErrLog();
+    return;
+  }
   try {
     if ("serviceWorker" in navigator) {
       const registrations=await navigator.serviceWorker.getRegistrations();
@@ -24,15 +86,22 @@
     }
     // iOS 主屏幕 Web App 还可能握着 HTTP 磁盘缓存；只删 Cache Storage 不够。
     // 对【主屏幕实际启动的精确 URL】做 reload，并核验拿到的正文真是目标版本。
-    // 目标版本只写这一处。以前散在六个地方，其中两处还是转义过的正则（53\.26），
-    // 逐版 bump 的 sed 匹配不到字面量，于是它们悄悄停在旧版号上，救援页就永远校验失败。
-  const TARGET="88.828";
     const indexRes=await fetch("./index.html",{cache:"reload",headers:{"Cache-Control":"no-cache"}});
     const indexText=await indexRes.text();
-    if (!indexRes.ok || indexText.indexOf("app.js?v="+TARGET)<0) throw new Error("首页仍不是 v"+TARGET);
-    const appRes=await fetch("./js/app.js?v="+TARGET,{cache:"reload",headers:{"Cache-Control":"no-cache"}});
+    // ⚠️别写死 app.js（2026-11-04）：出炉那一版把一百多个脚本装订成了 js/bundle.js，
+    //   指纹也不止版本号（还缀着内容哈希）。原来这儿只认 "app.js?v=<版本>"，于是
+    //   公共版上【刷新明明成功了也永远判失败】，人只能对着「再试一次」一直点——
+    //   而这一页正是给只剩它能开的人用的。改成：从首页里认出主脚本那一行是哪个、
+    //   带的版本是不是这一版，再按它写的那个地址去核验正文。
+    const main=indexText.match(/js\/(?:bundle|app)\.js\?v=([^"']+)/);
+    // 还没在这台设备上登过的话，拿回来的是进门页（没有任何主脚本那一行，几 KB 大小），
+    // 不是旧版首页。照着「首页仍不是 v…」报会把人支去一遍遍点刷新，其实只差登一次。
+    if (indexRes.ok && !main && indexText.length < 20000) throw new Error("这台设备还没登过（拿回来的是进门页）。先打开首页登一次，再回这一页");
+    if (!indexRes.ok || !main || main[1].indexOf(TARGET)!==0) throw new Error("首页仍不是 v"+TARGET);
+    const appRes=await fetch("./"+main[0],{cache:"reload",headers:{"Cache-Control":"no-cache"}});
     const appText=await appRes.text();
-    if (!appRes.ok || appText.indexOf('APP_VERSION = "v'+TARGET+'"')<0) throw new Error("程序文件仍不是 v"+TARGET);
+    // 出炉那一版压过，空格会被压掉：APP_VERSION="v89.065"。
+    if (!appRes.ok || !new RegExp('APP_VERSION\\s*=\\s*"v'+TARGET.replace(/\./g,"\\.")+'"').test(appText)) throw new Error("程序文件仍不是 v"+TARGET);
     if ("serviceWorker" in navigator) {
       const reg=await navigator.serviceWorker.register("./sw.js?v=8",{updateViaCache:"none"});
       await reg.update();
@@ -42,6 +111,8 @@
   } catch (error) {
     status.textContent="刷新没有完成："+(error&&error.message?error.message:"未知错误")+"。请点下面再试。";
     retry.hidden=false; retry.onclick=()=>location.reload();
+    // 刷新本来就失败了，这时候最想看的就是记录——不用再点一下。
+    showErrLog();
   }
 })();
 </script></body></html>

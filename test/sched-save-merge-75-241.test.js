@@ -8,7 +8,7 @@ const path = require("node:path");
 const app = fs.readFileSync(path.resolve(__dirname, "..", "js/app.js"), "utf8");
 
 function load(disk) {
-  const i = app.indexOf("  const saveSchedDay = "), j = app.indexOf("\n  });", i);
+  const i = app.indexOf("  const saveSchedDay = "), j = app.indexOf("\n  }); };", i);
   assert.ok(i > 0 && j > i, "抠不出 saveSchedDay");
   const store = { x_schedules: disk };
   let state = {};
@@ -18,7 +18,7 @@ function load(disk) {
     setSchedules: fn => { state = fn(state); },
     schedulesRef: { current: {} }
   };
-  const fn = new Function(...Object.keys(box), app.slice(i, j + 6) + "\nreturn saveSchedDay;")(...Object.values(box));
+  const fn = new Function(...Object.keys(box), app.slice(i, j + 9) + "\nreturn saveSchedDay;")(...Object.values(box));
   return { fn, store };
 }
 

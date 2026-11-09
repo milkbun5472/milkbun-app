@@ -10,6 +10,13 @@
   // 演戏那几拍走 narrativeCore，白得；但【搭台】这几枪（开场正文、新处境）自己拼 sys，
   //   开场那 5-9 句正文也是正文——TA完全可能在开场第一句就点上。
   const CB = () => (typeof ContentBoundaries !== "undefined" && ContentBoundaries.prompt ? ContentBoundaries.prompt + "\n\n" : "");
+  // 人称（她 2026-11-09「小剧场要不要设置写他的人称是他还是我」）：每条线自己挑，默认照旧用「我」。
+  //   he＝像乙游卡面剧情，旁白里他写作「他」（女角色「她」）、她是「你」；me＝他用第一人称「我」。
+  const povOf = line => line && line.pov === "he" ? "he" : "me";
+  const taOf = char => (char && window.CharacterPronoun ? window.CharacterPronoun.ta(char) : "他") || "他";
+  const povRule = (line, char) => povOf(line) === "he"
+    ? "像乙游卡面剧情那样写:旁白里「" + char.name + "」写作『" + taOf(char) + "』,对方写作『你』(比如「" + taOf(char) + "转头看向你」);你仍完全代入「" + char.name + "」的心思和说话方式,对话用引号"
+    : "用第一人称『我』完全代入「" + char.name + "」,称对方为『你』,对话用引号";
   // 搭台共用人物与文风底座；不带演出用的第一人称、镜头规则或主线资料。
   const settingStyle = () => [CB(), ANTI_CLICHE, CHARCARD_RULE,
     "【设定写法】身份与世界用清楚的事实说明，开场用可观察的动作、对话与环境推进。不要用强度副词叠加性格标签，不替读者宣布人物多么聪明、冷静、精准或危险；这些特质只有人设支持时才通过具体表现成立。人物可以迟疑、热情、笨拙或平常，不统一写成掌控局面的强者。每句话提供新的处境信息，不用抽象评语、隐喻堆砌或悬念口号充数。规则不改变本次 JSON 字段与叙述人称。"].join("\n\n") + "\n\n";
@@ -416,7 +423,7 @@
         const frame = kw.trim() ? "" : "\n\n【本局取景框(骰子已经掷好,五项共同取景，门槛按难度落实,不许挑拣也不许换)】\n题材:" + pick(POOL_GENRE) + "\n两人关系的底座:" + pick(POOL_BOND) + "\n把两人绑在一起的张力性质:" + pick(POOL_TENSION) + "\n整条线的基调:" + pick(POOL_TONE) + "\n本轮目标要跨的门槛属于这一类:" + pick(POOL_GATE);
         // 演过的线一并喂进去:模型看不见上一局,不给它就会反复抽到同一个众数
         const prior = lines.slice(0, 10).map(l => l.title + "(" + String(l.setting || "").slice(0, 30) + ")").join(";");
-        const user = "【角色人设】\n" + (char.persona || char.name) + "\n\n【关键词(可空,空则按取景框来)】" + (kw.trim() || "无") + frame + (DIFF[diff].goal ? "\n\n【难度要求】" + DIFF[diff].goal : "") + (prior ? "\n\n【已经演过的线(务必避开,换皮重来也算重复)】" + prior : "") + "\n\n【对方名字】" + uName;
+        const user = "【角色人设】\n" + (char.persona || char.name) + (typeof charLangLine === "function" ? charLangLine(char) : "") + "\n\n【关键词(可空,空则按取景框来)】" + (kw.trim() || "无") + frame + (DIFF[diff].goal ? "\n\n【难度要求】" + DIFF[diff].goal : "") + (prior ? "\n\n【已经演过的线(务必避开,换皮重来也算重复)】" + prior : "") + "\n\n【对方名字】" + uName;
         const raw = await callAI(props.active, sys + "\n\n" + user, [{ role: "user", content: "开始。" }], { maxTokens: 65000, timeout: 150000 });
         const KEYS = ["title", "charRole", "userRole", "world", "hook", "charOutfit", "userOutfit", "goal", "opening"];
         let p = parseSettingPayload(raw, KEYS) || await reformatSetting(raw, SHAPE_SETTING, KEYS);
@@ -452,7 +459,7 @@
         const sys = settingStyle() + DIFF[diff].goal + "\n" + "基于下面这套【固定的身份与世界】开一局全新的:身份、世界观、两人的长期关系保持不变,生成一个【全新的当下处境】以及配套的开场与本轮目标。"
           + newSituation(true, past)
           + "\nhook:此刻正在发生什么(1-3句,这一局专属)。\nopening:第二人称『你』写给 " + uName + " 的开场正文(5-9句),把 Ta 放进这个新处境里一个正在进行、可以回应的时刻,不替 Ta 做任何决定。\ngoal:" + GOAL_RULE + "\n只输出 JSON:" + SHAPE_PRESET + "";
-        const user = "【角色人设】\n" + (char.persona || char.name) + "\n\n【固定的身份与世界】\nTa 的身份:" + ps.charRole + "\n" + uName + " 的身份:" + ps.userRole + "\n世界与长期张力:" + (ps.world || ps.setting);
+        const user = "【角色人设】\n" + (char.persona || char.name) + (typeof charLangLine === "function" ? charLangLine(char) : "") + "\n\n【固定的身份与世界】\nTa 的身份:" + ps.charRole + "\n" + uName + " 的身份:" + ps.userRole + "\n世界与长期张力:" + (ps.world || ps.setting);
         const raw = await callAI(props.active, sys + "\n\n" + user, [{ role: "user", content: "开始。" }], { maxTokens: 65000, timeout: 150000 });
         const KEYS = ["hook", "charOutfit", "userOutfit", "goal", "opening"];
         let p = parseSettingPayload(raw, KEYS) || await reformatSetting(raw, SHAPE_PRESET, KEYS);
@@ -481,7 +488,7 @@
           + (cd.rarity === "SSR" ? "开场接在这段剧情的结局之后。" : "开场接在这件事之后。")
           + "\n" + CARD_CONFLICT + "先从卡里找它自己留下的那个还没解决的口子（藏着没说的话、没做完的事、悬着的选择），当这一条线的第一件挡在面前的事。"
           + "\n" + DIFF[diff].goal + "\ngoal:" + GOAL_RULE + "\nopening 是写给 " + uName + " 的开场正文(第二人称『你』,5-9句),接住卡里最后那一刻往下走一步,留出自然接话或行动的空间,绝不替 " + uName + " 做决定。\n只输出 JSON:" + SHAPE_SETTING;
-        const user = "【角色人设】\n" + (char.persona || char.name) + "\n\n【这张邮票卡】\n" + cd.text;
+        const user = "【角色人设】\n" + (char.persona || char.name) + (typeof charLangLine === "function" ? charLangLine(char) : "") + "\n\n【这张邮票卡】\n" + cd.text;
         const raw = await callAI(props.active, sys + "\n\n" + user, [{ role: "user", content: "开始。" }], { maxTokens: 65000, timeout: 150000 });
         const KEYS = ["title", "charRole", "userRole", "world", "hook", "charOutfit", "userOutfit", "goal", "opening"];
         let p = parseSettingPayload(raw, KEYS) || await reformatSetting(raw, SHAPE_SETTING, KEYS);
@@ -557,7 +564,7 @@
           line.vn ? null : window.StylePresets.wordRule(window.StylePresets.clampWordFloor(line.minWords)),
           // 乙游风（她 2026-10-27）：每拍顺手给她两三个选项；她也能不选、自己写
           line.vn ? "【给 " + uName + " 的选项】JSON 里再加一个 choices：两三个此刻 " + uName + " 可能会做或说的事，各一句、短，用 Ta 自己的口吻（动作直接写，说的话加引号），彼此方向不一样。这只是摆给 Ta 挑的，不替 Ta 决定，正文里也不写 Ta 选了哪个。" : null,
-          "【输出】用第一人称『我』完全代入「" + char.name + "」,称对方为『你』,对话用引号,写成连续场景正文;篇幅由【场景需要】决定,不由角色话多话少决定——冷淡的人不等于短的段落。只输出 JSON:{\"scene\":\"场景正文\",\"goalReached\":false,\"goalFailed\":false,\"goalNote\":null" + (line.vn ? ",\"choices\":[\"给她挑的一句\",\"另一句\"]" : "") + "}(达成时 goalReached=true;不可逆失败时 goalFailed=true;goalNote 一句话指出达成或失败的瞬间)",
+          "【输出】" + povRule(line, char) + ",写成连续场景正文;篇幅由【场景需要】决定,不由角色话多话少决定——冷淡的人不等于短的段落。只输出 JSON:{\"scene\":\"场景正文\",\"goalReached\":false,\"goalFailed\":false,\"goalNote\":null" + (line.vn ? ",\"choices\":[\"给她挑的一句\",\"另一句\"]" : "") + "}(达成时 goalReached=true;不可逆失败时 goalFailed=true;goalNote 一句话指出达成或失败的瞬间)",
           // 跨进明确场景时,和主线线下走同一套「初稿→自编辑去认证句」——以前这套只焊在
           // 单聊线下里,小剧场拿不到,于是同样的内容在这边就滑回八股(Lisa 2026-08-18)
           selfRevise ? offlineSelfReviseProtocol("{\"draftScene\":\"内部完整首稿\",\"scene\":\"基于前一字段完成的最终正文\",\"goalReached\":false,\"goalFailed\":false,\"goalNote\":null" + (line.vn ? ",\"choices\":[\"给她挑的一句\",\"另一句\"]" : "") + "}") : null
@@ -573,7 +580,7 @@
           line.summary ? "【前情提要】\n" + line.summary : null,
           note.trim() ? "【临时导演提示(务必遵循,正文不提)】" + note.trim() : null,
           dice ? "【剧场骰子】本拍须自然引入一个意外(第三者/环境突变/时限/被撞破…),落在具体行动上并搅动局面。" : null,
-          "【纪律】只演你自己的一拍,绝不写" + uName + "的动作反应台词,写到需要 Ta 行动处就停;第一人称『我』,对话用引号,织成连贯段落。",
+          "【纪律】只演你自己的一拍,绝不写" + uName + "的动作反应台词,写到需要 Ta 行动处就停;" + (povOf(line) === "he" ? "旁白里你写作『" + taOf(char) + "』、Ta 写作『你』" : "第一人称『我』") + ",对话用引号,织成连贯段落。",
           "【输出】只输出 JSON:{\"scene\":\"场景正文\",\"goalReached\":false,\"goalFailed\":false,\"goalNote\":null" + (line.vn ? ",\"choices\":[\"给她挑的一句\",\"另一句\"]" : "") + "}"
         ].filter(Boolean).join("\n\n");
         const base = allMsgs(line).slice(sumDone(line)).filter(m => m.role !== "photo");
@@ -677,7 +684,7 @@
       try {
         const char = charOf(line);
         const sys = settingStyle() + diffOf(line).goal + "\n" + "基于下面这套【固定的 if 线设定】重开一局:设定一个字不许改,只生成新的开场与本轮目标。opening:第二人称『你』写给 " + uName + " 的开场正文(5-9句),把 Ta 放进一个可以回应的具体时刻。goal:" + GOAL_RULE + "只输出 JSON:{\"goal\":\"一句话目标\",\"opening\":\"开场正文\"}";
-        const user = "【角色人设】\n" + (char.persona || char.name) + "\n\n【固定设定】\nTa 的身份:" + line.charRole + "\n" + uName + " 的身份:" + line.userRole + "\n世界与张力:" + line.setting;
+        const user = "【角色人设】\n" + (char.persona || char.name) + (typeof charLangLine === "function" ? charLangLine(char) : "") + "\n\n【固定设定】\nTa 的身份:" + line.charRole + "\n" + uName + " 的身份:" + line.userRole + "\n世界与张力:" + line.setting;
         const raw = await callAI(props.active, sys + "\n\n" + user, [{ role: "user", content: "开始。" }], { maxTokens: 65000, timeout: 150000 });
         const p = parseSettingPayload(raw, ["goal", "opening"]) || await reformatSetting(raw, "{\"goal\":\"一句话目标\",\"opening\":\"开场正文\"}", ["goal", "opening"]);
         if (!p || !p.goal) throw new Error("重开没生成出目标" + rawHint(raw));
@@ -698,7 +705,7 @@
         const char = charOf(line);
         const recent = allMsgs(line).slice(-14).map(m => (m.role === "user" ? uName : char.name) + ":" + m.content).join("\n").slice(-3000);
         const spEnd = window.StylePresets.blockFor(line, "theater", { uName: uName, charName: char.name });
-        const sys = narrativeCore({ intimate: true }) + (spEnd ? "\n\n" + window.StylePresets.wrap(spEnd) : "") + "\n\n【谢幕】为这条 if 线写终场戏:用第一人称『我』代入「" + char.name + "」,顺着已发生的剧情把这条线收在一个有余味的落点——不强行大团圆、不总结陈词,最后一拍落在具体的动作或一句话上。只输出 JSON:{\"scene\":\"终场正文\",\"quote\":\"这条线留给她的一句话（一句，你的口吻，会印在谢幕卡上）\"}";
+        const sys = narrativeCore({ intimate: true }) + (spEnd ? "\n\n" + window.StylePresets.wrap(spEnd) : "") + "\n\n【谢幕】为这条 if 线写终场戏:" + povRule(line, char) + ",顺着已发生的剧情把这条线收在一个有余味的落点——不强行大团圆、不总结陈词,最后一拍落在具体的动作或一句话上。只输出 JSON:{\"scene\":\"终场正文\",\"quote\":\"这条线留给她的一句话（一句，你的口吻，会印在谢幕卡上）\"}";
         const user = "【设定】" + line.setting + "\n【各轮目标】" + line.rounds.map(r => r.goal + (r.goalDone ? "(✓)" : r.failed ? "(✗失败)" : "")).join(";") + "\n【最近剧情】\n" + recent;
         const raw = await callAI(props.active, sys, [{ role: "user", content: user }], { maxTokens: 10600, timeout: 150000 });
         const p = parseTheaterPayload(raw);
@@ -1044,6 +1051,7 @@
           h("button", { "data-wk": "thrvnvoice", onClick: e => { e.stopPropagation(); if (!vnPref.voice && !(typeof ttsReady === "function" && typeof loadTtsApi === "function" && ttsReady(loadTtsApi()))) { props.toast("要先在「设置」里配好语音"); return; } vnToggle("voice"); }, style: pill(!!vnPref.voice) }, "语音"),
           h("button", { "data-wk": "thrvnauto", onClick: e => { e.stopPropagation(); vnToggle("auto"); }, style: pill(!!vnPref.auto) }, "自动"),
           h("button", { "data-wk": "thrvnlog", onClick: e => { e.stopPropagation(); setVnLog(true); }, style: pill(false) }, "记录"),
+          h("button", { "data-wk": "thrpov", "data-pov": povOf(line), onClick: e => { e.stopPropagation(); update(list => list.map(l => l.id !== line.id ? l : { ...l, pov: povOf(l) === "he" ? "me" : "he" })); props.toast(povOf(line) === "he" ? "下一拍起用「我」写" : "下一拍起用「" + taOf(char) + "」写，像卡面剧情"); }, style: pill(false) }, povOf(line) === "he" ? taOf(char) : "我"),
           h("button", { "data-wk": "thrvnclassic", onClick: e => { e.stopPropagation(); update(list => list.map(l => l.id !== line.id ? l : { ...l, vn: false })); }, style: pill(false) }, "原版")),
         // 目标确认、失败确认：跟原版同一套
         round && (round.pending || round.pendingFail) && !line.ended ? h("div", { onClick: e => e.stopPropagation(), style: Object.assign({ margin: "6px 14px", padding: "10px 12px", borderRadius: 12, background: "rgba(255,248,233,.94)", fontFamily: F_BODY, fontSize: fs(12.5), color: "#39382F" }, hid) },
@@ -1079,7 +1087,7 @@
               (last.choices || []).length ? h("button", { onClick: () => setVnWrite(false), style: { fontFamily: F_BODY, fontSize: fs(11), color: "rgba(255,255,255,.6)" } }, "看选项") : null)))
         : h("div", { "data-wk": "thrvnbox", onClick: tap, style: Object.assign({ margin: "0 12px calc(env(safe-area-inset-bottom) * 0.4 + 14px)", borderRadius: 14, background: "rgba(16,14,22,.82)", border: "1px solid rgba(255,255,255,.18)", padding: "14px 16px 30px", minHeight: 150, position: "relative", color: "#fff" }, hid) },
           who ? h("div", { style: { display: "inline-block", marginBottom: 6, padding: "2px 10px", borderRadius: 999, background: b.who === "he" ? "#B58C55" : "#6b6480", fontFamily: F_BODY, fontSize: fs(12) } }, who) : null,
-          h("div", { style: { fontFamily: F_BODY, fontSize: fs(15), lineHeight: 1.75, fontStyle: who ? "normal" : "italic", opacity: who ? 1 : .88, whiteSpace: "pre-wrap" } }, b.text),
+          h("div", { style: { fontFamily: F_BODY, fontSize: fs(15), lineHeight: 1.75, fontStyle: who ? "normal" : "italic", opacity: who ? 1 : .88, whiteSpace: "pre-wrap" } }, transShow(b.text)),
           line.ended && atEnd ? h("div", { style: { marginTop: 12, fontFamily: F_BODY, fontSize: fs(12), opacity: .7 } }, "—— 这条线已经谢幕 ——") : null,
           !atEnd ? h("div", { style: { position: "absolute", right: 14, bottom: 10, fontSize: fs(11), opacity: .5 } }, "点一下继续 ▾") : null),
         vnLog ? h("div", { "data-wk": "thrvnlogview", onClick: () => { if (logPick || Date.now() - logPickAt.current < 600) return; setVnLog(false); }, className: "fixed inset-0 flex flex-col", style: { zIndex: 2, background: "rgba(10,9,14,.9)", color: "#fff" } },
@@ -1092,7 +1100,7 @@
                   onPointerDown: () => { clearTimeout(logLp.current); logLp.current = setTimeout(() => { logPickAt.current = Date.now(); setLogPick(x); }, 500); }, onPointerUp: () => clearTimeout(logLp.current), onPointerLeave: () => clearTimeout(logLp.current),
                   style: { padding: "10px 0", borderBottom: "1px solid rgba(255,255,255,.08)", background: logPick === x ? "rgba(255,255,255,.08)" : "transparent" } },
                 w ? h("div", { style: { marginBottom: 3, fontFamily: F_BODY, fontSize: fs(11), color: x.who === "he" ? "#e3c48a" : "#c9c0e0" } }, w) : null,
-                h("div", { style: { fontFamily: F_BODY, fontSize: fs(14), lineHeight: 1.7, fontStyle: w ? "normal" : "italic", opacity: w ? 1 : .8, whiteSpace: "pre-wrap" } }, x.text)); }),
+                h("div", { style: { fontFamily: F_BODY, fontSize: fs(14), lineHeight: 1.7, fontStyle: w ? "normal" : "italic", opacity: w ? 1 : .8, whiteSpace: "pre-wrap" } }, transShow(x.text))); }),
             h("div", { style: { marginTop: 14, textAlign: "center", fontFamily: F_BODY, fontSize: fs(11), opacity: .45 } }, "长按某一句，可以从那里分支出另一条路")),
           logPick ? h("div", { "data-wk": "thrvnbranch", onClick: e => { e.stopPropagation(); if (Date.now() - logPickAt.current < 600) return; setLogPick(null); }, className: "fixed inset-0 flex items-end", style: { zIndex: 3, background: "rgba(0,0,0,.4)" } },
             h("div", { onClick: e => e.stopPropagation(), style: { width: "100%", padding: "14px 16px calc(env(safe-area-inset-bottom) + 14px)", background: "#1c1924", borderTop: "1px solid rgba(255,255,255,.15)" } },
@@ -1346,6 +1354,7 @@
           h("span", { style: { flexShrink: 0, fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", letterSpacing: 1, color: round.failed ? "#a4442e" : t.fog } }, actName(line.rounds.length - 1) + (round.goalDone ? " ✓" : round.failed ? " ✗" : "")),
           h("span", { style: Object.assign({ flex: 1, minWidth: 0, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", lineHeight: 1.6, color: round.goalDone ? t.fog : t.ink, textDecoration: round.failed ? "line-through" : "none" }, goalOpen ? { whiteSpace: "pre-wrap" } : { whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }) }, round.goal),
           // 切到新版：放在目标条右边，一眼找得到（她 2026-10-27）
+          h("button", { "data-wk": "thrpov", "data-pov": povOf(line), onClick: e => { e.stopPropagation(); update(list => list.map(l => l.id !== line.id ? l : { ...l, pov: povOf(l) === "he" ? "me" : "he" })); props.toast(povOf(line) === "he" ? "下一拍起用「我」写" : "下一拍起用「" + taOf(char) + "」写，像卡面剧情"); }, style: Object.assign({}, S.btn(false), { flexShrink: 0, padding: "2px 10px", fontSize: "calc(11px * var(--app-fs, 1))" }) }, "人称：" + (povOf(line) === "he" ? taOf(char) : "我")),
           h("button", { "data-wk": "thrtonew", onClick: e => { e.stopPropagation(); vnLen.current = 0; update(list => list.map(l => l.id !== line.id ? l : { ...l, vn: true })); }, style: Object.assign({}, S.btn(false), { flexShrink: 0, padding: "2px 10px", fontSize: "calc(11px * var(--app-fs, 1))" }) }, "新版")) : null,
         panel, banner,
         h("div", { "data-wk": "thrfeed", ref: scrollRef, style: { flex: 1, overflowY: "auto", paddingBottom: 16 } }, flow,

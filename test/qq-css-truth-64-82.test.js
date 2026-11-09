@@ -60,6 +60,11 @@ test("清单上的每个钩子，源码里都真的挂着", () => {
     //   ——最后一个参数就是挂点，帮手里写着 "data-wk": wk。onClick 可能是多行回调，所以不按行找
     || new RegExp('(chip|btn)\\([\\s\\S]{0,800}?, "' + n + '"[,)]').test(src)
     // 第七种：走子棋公共页（v76.772）写的是 "data-wk": K + "talk"，K 是 useEngineBoard 那一桌的 key（chess / xiangqi / jungle）
+    // 第九种：邮票对局页（stamp-duel-ui.js）的 modeTile("duelmodeduel", …) 第一个参数、
+    //   cardFilterBar(f, setF, "dueldispatchfilter", …) 第三个参数——帮手里写着 "data-wk": wk（或转给 StampShopFilters 的 wk）
+    || new RegExp('modeTile\\("' + n + '"').test(src) || new RegExp('cardFilterBar\\([^\n)]*?, "' + n + '"').test(src)
+    // 第十种：对局页「跟聊天连起来」那两颗开关 rowOf(c, "know", 标题, 说明, "duelchatlinkknow")——最后一个参数转给 sw 的 "data-wk"
+    || new RegExp('rowOf\\(c, "[a-z]+", "[^"]*", "[^"]*", "' + n + '"\\)').test(src)
     || boardHooks.has(n);
   const missing = names.filter(n => !hung(n));
   assert.deepEqual(missing, [], "清单上有、源码里没挂：" + missing.join("、"));
