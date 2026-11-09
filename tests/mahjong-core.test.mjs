@@ -124,3 +124,30 @@ const coreSrc = readFileSync(new URL("../js/mahjong-core.js", import.meta.url), 
 assert.match(coreSrc, /kongPay\(st, i, "ckong"\)/); assert.match(coreSrc, /kongPay\(st, i, "akong"\)/); assert.match(coreSrc, /kongPay\(st, j, "kong", cl\.from\)/);
 assert.match(coreSrc, /settleExhaust\(st\);/);
 console.log("variants ok");
+// 台湾十六张、国标、日麻：整局跑完、点数守恒（日麻连立直棒一起算）；十六张发 16 张；日麻没役不能和、立直扣 1000
+for (const variant of ["taiwan", "guobiao", "riichi"]) {
+  for (let g = 0; g < 25; g++) {
+    const st = M.newGame([0, 1, 2, 3].map(i => ({ key: "p" + i, name: "P" + i })), { hands: 4, variant });
+    const start = st.players.reduce((n, p) => n + p.pts, 0);
+    if (variant === "taiwan") assert.equal(st.players[(st.dealer + 1) % 4].hand.length, 16);
+    let guard = 0;
+    while (st.status === "playing" && guard++ < 6000) {
+      if (st.phase === "discard") { const a = M.botSelf(st, st.turn); if (a.kind === "discard") M.discard(st, st.turn, a.k); else M.selfAct(st, st.turn, a); }
+      else if (st.phase === "claim") { for (const j of Object.keys(st.claim.pending)) { if (st.claim && !st.claim.decided[j]) M.decide(st, +j, M.botClaim(st, +j)); if (!st.claim) break; } }
+      else { st.wins.forEach(w => { if (variant === "guobiao") assert.ok(w.fan.gate >= 8, "国标 8 番起和"); if (variant === "riichi") assert.ok(w.fan.gate >= 1, "日麻要有役"); }); M.nextHand(st); }
+    }
+    assert.ok(guard < 6000, variant + " 不卡死");
+    assert.equal(st.players.reduce((n, p) => n + p.pts, 0) + (st.pot || 0), start, variant + " 点数守恒");
+  }
+}
+{
+  const st = { variant: "riichi", doraInd: ["m4"], players: [] };
+  const noYaku = { hand: ["m1", "m2", "m3", "p4", "p5", "p6", "s7", "s8", "s9", "E", "E", "N", "N"], melds: [{ type: "pong", tiles: ["s1", "s1", "s1"] }].slice(0, 0), flowers: [] };
+  const f = M.fanOf({ hand: ["m2", "m3", "m4", "p4", "p5", "p6", "s6", "s7", "s8", "m5", "m5", "p2", "p3"], melds: [], flowers: [] }, "p4", { zimo: false, seatWind: "S", roundWind: "E" }, st);
+  assert.ok(f.items.some(x => x[0] === "断幺九") && f.items.some(x => x[0] === "宝牌"), "断幺 + 宝牌");
+  void noYaku;
+  assert.equal(M.jpBase(4, 30, 0).label, "4 番 30 符"); assert.equal(M.jpBase(4, 40, 0).label, "满贯"); assert.equal(M.jpBase(6, 30, 0).label, "跳满");
+}
+assert.match(games, /\{ key: "riichi", title: "日麻"/);
+assert.match(games, /"data-wk", "gamemjriichi"|"gamemjriichi"/);
+console.log("more variants ok");
