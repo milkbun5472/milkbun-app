@@ -472,6 +472,8 @@
     return Object.assign(u, { role: role || u.role, charId: "pz" + (Math.floor(R() * 3)), skill: Object.keys(SKILLS[role || u.role])[Math.floor(R() * 4)] });
   }
   const pzClone = st => JSON.parse(JSON.stringify(st));
+  // 照现在场上的样子寄出去，这一下能打掉对面多少（她 2026-11-09 死信想不出怎么算 → 给个「现在寄出能打多少」）
+  function simSend(st0) { const st = pzClone(st0), hp0 = st.foe.hp; st.undo = []; try { resolveSide(st, "me"); } catch (e) { return 0; } return hp0 - st.foe.hp; }
   // 这一回合（只放手里的票、给攒满的票盖章）最多能打掉对面多少：遍历每张手牌放哪格或不放，再加盖不盖章
   function pzSolve(st0) {
     const me = st0.me, free = me.board.map((u, i) => !u && !blocked(me, i) ? i : -1).filter(i => i >= 0), hand = me.hand.length;
@@ -1055,7 +1057,7 @@
   const mine = raw => (st, who, a, b) => { if (who !== "me") return raw(st, who, a, b); snap(st); const r = raw(st, who, a, b); if (!r || !r.ok) st.undo.pop(); return r; };
   const place = mine(placeRaw), tear = mine(tearRaw), move = mine(moveRaw), keep = mine(keepRaw), stamp = mine(stampRaw);
   const API = { RELICS, STYLE_ZH, TRAIT_FIT, TRAITS, SKILLS, BONDS, bondOf, unitInfo, SIZE, SLOTS, ENVELOPE_HP, POSTAGE, DRAW, DECK_SIZE, TURN_CAP, KEEP_MAX, FACE, NEED, ROLES, MARKS, TERRAIN, EVENTS,
-    stampOf, deckFrom, foeDeckFrom, shopDecorOf, shopUpPrice, SHOP, SHOP_PERIODS, shopPeriod, SHOP_WIN, shopWinSlots, shopWinBonus, shopApt, shopMul, SHOP_BADGE, SHOP_BADGE_FIT, shopBadgeFit, shopBadgeBonus, shopNeedZh, shopCardFits, SHOP_THANKS, hitUnit, healUnits, shopCustomers, autoMe, PUZZLE_MAX, puzzleOf, pzSolve, PATROL, TA_CELLS, TA_PTS, patrolNew, patrolCan, patrolMove, patrolBattle, patrolAfter, weekNo, SHIFT, shiftNew, shiftRoll, shiftPrice, shiftBuy, shiftSell, shiftDeck, shiftBonds, shiftFoeLv, shiftAfter, EDICTS, EDICT_LV, edictDeck, RAID_TURNS, MATS, BASE_MATS, THEME_MAT, KEEP_FX, KEEP_MAX_SLOTS, keepFxOf, keepTier, matDrop, SIEGE_TIERS, newDuel, envFor, avgLv, fairDeck, aims, actsOf, previewPlace, place, tear, move, keep, stamp, undo, canUndo, endTurn, planFoe, combos, newSeries, addGame, memoryLine, hashStr };
+    stampOf, deckFrom, foeDeckFrom, shopDecorOf, shopUpPrice, SHOP, SHOP_PERIODS, shopPeriod, SHOP_WIN, shopWinSlots, shopWinBonus, shopApt, shopMul, SHOP_BADGE, SHOP_BADGE_FIT, shopBadgeFit, shopBadgeBonus, shopNeedZh, shopCardFits, SHOP_THANKS, hitUnit, healUnits, simSend, shopCustomers, autoMe, PUZZLE_MAX, puzzleOf, pzSolve, PATROL, TA_CELLS, TA_PTS, patrolNew, patrolCan, patrolMove, patrolBattle, patrolAfter, weekNo, SHIFT, shiftNew, shiftRoll, shiftPrice, shiftBuy, shiftSell, shiftDeck, shiftBonds, shiftFoeLv, shiftAfter, EDICTS, EDICT_LV, edictDeck, RAID_TURNS, MATS, BASE_MATS, THEME_MAT, KEEP_FX, KEEP_MAX_SLOTS, keepFxOf, keepTier, matDrop, SIEGE_TIERS, newDuel, envFor, avgLv, fairDeck, aims, actsOf, previewPlace, place, tear, move, keep, stamp, undo, canUndo, endTurn, planFoe, combos, newSeries, addGame, memoryLine, hashStr };
   g.StampDuel = API;
   if (typeof module !== "undefined" && module.exports) module.exports = API;
 })(typeof window !== "undefined" ? window : globalThis);
