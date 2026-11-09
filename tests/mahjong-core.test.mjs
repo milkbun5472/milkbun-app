@@ -49,8 +49,11 @@ assert.match(games, /@keyframes mjToRiver/);
 assert.match(games, /prefers-reduced-motion: reduce\)\{\[data-mjanim\]\{animation:none!important\}/);
 assert.match(games, /anim: sel === "d" \? null : "mjDrawIn/);
 console.log("mahjong anim ok");
-assert.match(games, /if \(!\(moved \|\| o\.force\) \|\| !\(o\.ready \|\| o\.force/);
-assert.match(games, /ready: hot \|\| userSpoke, force: userSpoke, every: spectate \? 16 : 28/);
-assert.match(games, /"data-wk": "gamemjsaybtn"/);
+// 说一句是公共的：每张牌桌都用 CardSay；她一开口，公共那层（useCardTableTalk）就让桌上接话
+assert.match(games, /function CardSay\(props\)/);
+assert.ok((games.match(/h\(CardSay, \{ t: t, state: state, setState: setState/g) || []).length >= 7, "七张牌桌都走 CardSay");
+assert.ok(!/"data-part": "talk", value: \w+, onChange: function \(e\) \{ \w+\(e\.target\.value\); \}, placeholder/.test(games), "没有各写各的输入格");
+assert.match(games, /if \(!\(moved \|\| said\.length\) \|\| !\(o\.ready \|\| said\.length/);
+assert.match(games, /ready: hot, every: spectate \? 16 : 28/);
 assert.ok((games.match(/userAct\(function/g) || []).length >= 9);
 console.log("mahjong talk ok");

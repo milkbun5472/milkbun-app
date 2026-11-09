@@ -7272,7 +7272,7 @@
           h("button", { onClick: function () { setChatMode(false); setError(""); }, disabled: chatBusy, style: { border: "1px solid " + t.line, borderRadius: 999, padding: "11px 10px", color: t.ink, background: t.bg2, fontFamily: F_BODY } }, "继续打牌"))) :
       state.status === "playing" && me ? h("div", { "data-wk": "gameactions", "data-part": "uno", "data-kind": "hand", className: "shrink-0", style: { borderTop: "1px solid " + t.line, padding: "10px 12px calc(env(safe-area-inset-bottom) + 12px)" } },
         h("div", { "data-wk": "gamehand", style: { display: "flex", overflowX: "auto", gap: 5, paddingBottom: 8 } }, current.hand.map(function (c) { return cardView(c, true); })),
-        h("input", { "data-wk": "gameinput", "data-part": "talk", value: tableTalk, onChange: function (e) { setTableTalk(e.target.value); }, placeholder: "这手牌顺便说一句（可空）", style: { width: "100%", boxSizing: "border-box", border: "1px solid " + t.line, borderRadius: 999, padding: "9px 13px", marginBottom: 8, background: t.bg2, color: t.ink, fontFamily: F_BODY, outline: "none" } }),
+        h(CardSay, { t: t, state: state, setState: setState, value: tableTalk, setValue: setTableTalk, placeholder: "这手牌顺便说一句", talking: talking, style: { width: "100%", boxSizing: "border-box", border: "1px solid " + t.line, borderRadius: 999, padding: "9px 13px", marginBottom: 8, background: t.bg2, color: t.ink, fontFamily: F_BODY, outline: "none" } }),
         h("div", { style: { display: "flex", alignItems: "center", justifyContent: "center", gap: 9 } },
           h("button", { onClick: function () { userAct({ kind: state.pendingDraw ? "draw" : (state.drawnUid ? "pass" : "draw") }); }, style: { border: "1px solid " + t.line, borderRadius: 999, padding: "9px 16px", color: t.ink, background: t.bg2 } }, state.pendingDraw ? ("接受 +" + state.pendingDraw) : state.drawnUid ? "不出" : "摸一张"),
           (state.pendingDraw && state.w4 && top && top.value === "W4") ? h("button", { onClick: function () { userAct({ kind: "challenge" }); }, style: { borderRadius: 999, padding: "9px 16px", color: "#fff", background: "#c0553f", border: "1px solid #c0553f" } }, "质疑这张 +4") : null,
@@ -7499,7 +7499,7 @@
           h("div", { style: { display: "flex", gap: 4, marginLeft: 6 } }, [2, 3, 4, 5, 6].map(function (f) {
             return h("button", { key: f, onClick: function () { setPick({ n: pick.n, f: f }); }, style: { padding: 2, borderRadius: 8, border: pick.f === f ? "2px solid " + t.tint : "2px solid transparent", background: "transparent" } }, h(Die, { v: f, size: 26 }));
           }))),
-        h("input", { "data-wk": "gameinput", "data-part": "talk", value: say, onChange: function (e) { setSay(e.target.value); }, placeholder: "顺便说一句（可空，想诈就诈）", style: { width: "100%", boxSizing: "border-box", border: "1px solid " + t.line, borderRadius: 999, padding: "9px 13px", marginBottom: 8, background: t.bg2, color: t.ink, fontFamily: F_BODY, outline: "none" } }),
+        h(CardSay, { t: t, state: state, setState: setState, value: say, setValue: setSay, placeholder: "顺便说一句（想诈就诈）", talking: false, style: { width: "100%", boxSizing: "border-box", border: "1px solid " + t.line, borderRadius: 999, padding: "9px 13px", marginBottom: 8, background: t.bg2, color: t.ink, fontFamily: F_BODY, outline: "none" } }),
         h("div", { style: { display: "grid", gridTemplateColumns: state.bid ? "1fr 1fr" : "1fr", gap: 8 } },
           h("button", { "data-wk": "gameliarbidbtn", onClick: function () { userAct({ kind: "bid", n: pick.n, f: pick.f }); }, disabled: !pickOk, style: { border: 0, borderRadius: 999, padding: "11px 10px", color: "#fff", background: pickOk ? t.tint : t.line, fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))" } }, "叫 " + pick.n + " 个 " + pick.f),
           state.bid ? h("button", { "data-wk": "gameliaropen", onClick: function () { userAct({ kind: "open" }); }, style: { border: 0, borderRadius: 999, padding: "11px 10px", color: "#fff", background: "#c0553f", fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))" } }, "开！") : null)) :
@@ -7744,6 +7744,24 @@
       boxShadow: "inset 0 0 0 3px rgba(230,255,235,.07), inset 0 10px 30px rgba(0,0,0,.35), 0 8px 18px rgba(10,30,20,.25)" } }, children);
   }
   function cardSeatChar(props, p) { return p.isUser ? { name: p.name, avatarImage: (props.profile || {}).avatarImage, color: (props.profile || {}).color } : (props.characters || []).find(function (c) { return String(c.id) === String(p.key); }); }
+  // 牌桌上「说一句」（2026-11-09 她：「做成跟别的小游戏一样公共的」）：一格输入 + 一颗「说」。
+  //   写着的那句照旧跟着下一次出手一起带上（各桌自己的出手按钮读 value）；点「说」或回车就单独说出去，
+  //   桌上的人马上接（useCardTableTalk 看见她开口就接，不等谁出牌）。各桌只传自己的 state/setState，别再各写一格输入。
+  function CardSay(props) {
+    const t = props.t, v = props.value || "", busy = !!props.talking, tone = props.tone || {};
+    const send = function () {
+      const line = v.trim(); if (!line || busy) return;
+      props.setState(function (prev) { const n = JSON.parse(JSON.stringify(prev)); const me = (n.players || []).find(function (p) { return p.isUser; }); if (me) addChat(n, me, line); return n; });
+      props.setValue("");
+    };
+    return h("div", { "data-wk": "gamesay", style: Object.assign({ display: "flex", gap: 6, marginBottom: 8 }, props.style && props.style.margin ? { margin: props.style.margin } : null) },
+      h("input", { "data-wk": "gameinput", "data-part": "talk", value: v, maxLength: 160, onChange: function (e) { props.setValue(e.target.value); },
+        onKeyDown: function (e) { if (e.key === "Enter" && !e.isComposing) { e.preventDefault(); send(); } },
+        placeholder: busy ? "他们在说话…" : (props.placeholder || "说一句") + "：出手时一起带上，或者点「说」",
+        style: { flex: 1, minWidth: 0, boxSizing: "border-box", border: "1px solid " + (tone.line || t.line), borderRadius: tone.radius || 999, padding: "9px 13px", background: tone.bg || t.bg2, color: tone.ink || t.ink, fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", outline: "none" } }),
+      h("button", { "data-wk": "gamesaybtn", onClick: send, disabled: !v.trim() || busy,
+        style: { flexShrink: 0, border: "1px solid " + (tone.line || t.line), borderRadius: tone.radius || 999, padding: "0 15px", minHeight: 40, color: v.trim() && !busy ? (tone.btnInk || "#fff") : (tone.ink || t.fog), background: v.trim() && !busy ? (tone.btn || t.tint) : "transparent", fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", opacity: v.trim() && !busy ? 1 : .6 } }, "说"));
+  }
   function addChat(n, p, say) { const s = String(say || "").trim(); if (s) n.log.push({ kind: "chat", player: p.key, text: p.name + "：“" + s.slice(0, 160) + "”" }); }
 
   // ---------------- 谁来出牌（她 2026-10-16「这些还有 uno 不能搞成每次调用全部人吗这样省钱」→ 选「开局页做个开关」）
@@ -7776,15 +7794,16 @@
     const [talking, setTalking] = useState(false);
     const mark = useRef(state.talkAt != null ? state.talkAt : 0);
     useEffect(function () {
-      if (!o.on || talking || !props.active) return;
+      if (!o.on || talking || !props.active) return;   // ⚠️依赖里有 state.log.length：她一开口 log 就变长，这里会再跑一遍
       const moved = cardMovesSince(state.log, mark.current);
-      // o.force：她刚开口说了话，没人出过牌也要接（麻将那桌用；别的桌不传，照旧）
-      if (!(moved || o.force) || !(o.ready || o.force || (o.every && moved >= o.every))) return;
+      // 她开口了（CardSay 单独说的、或者跟着出手带上的）：不用等谁出牌、不用等轮回她，桌上的人先接她这句
+      const said = state.log.slice(mark.current).filter(function (x) { return x.kind === "chat" && x.player === "user"; }).map(function (x) { return x.text; });
+      if (!(moved || said.length) || !(o.ready || said.length || (o.every && moved >= o.every))) return;
       const seats = state.players.filter(function (p) { return !p.isUser && !p.engineer; });
       if (!seats.length) return;
       mark.current = state.log.length; setTalking(true);
       const at = mark.current;
-      cardTableTalk(props.active, o.zh, seats, o.view()).then(function (rows) {
+      cardTableTalk(props.active, o.zh, seats, o.view() + (said.length ? "\n\n她刚在桌上说：" + said.join(" ") + "——这一轮先接她这句，想回的就回。" : "")).then(function (rows) {
         setState(function (prev) { const n = JSON.parse(JSON.stringify(prev)); rows.forEach(function (r) { n.log.push({ kind: "chat", player: r.p.key, text: r.p.name + "：“" + r.say + "”" }); }); n.talkAt = at; return n; });
       }).catch(function () {}).finally(function () { setTalking(false); });
     }, [o.on, o.ready, state.log.length, talking]);
@@ -8095,7 +8114,7 @@
           h("span", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.sub, flexShrink: 0 } }, "加到"),
           h("input", { type: "range", min: o.minRaiseTo, max: o.maxTo, step: 10, value: Math.min(o.maxTo, Math.max(o.minRaiseTo, raiseTo)), onChange: function (e) { setRaiseTo(Number(e.target.value)); }, style: { flex: 1 } }),
           h("span", { style: { fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))", color: t.ink, minWidth: 44, textAlign: "right" } }, Math.min(o.maxTo, Math.max(o.minRaiseTo, raiseTo)))) : null,
-        h("input", { "data-wk": "gameinput", "data-part": "talk", value: say, onChange: function (e) { setSay(e.target.value); }, placeholder: "顺便说一句（可空，想诈就诈）", style: { width: "100%", boxSizing: "border-box", border: "1px solid " + t.line, borderRadius: 999, padding: "9px 13px", marginBottom: 8, background: t.bg2, color: t.ink, fontFamily: F_BODY, outline: "none" } }),
+        h(CardSay, { t: t, state: state, setState: setState, value: say, setValue: setSay, placeholder: "顺便说一句（想诈就诈）", talking: talking, style: { width: "100%", boxSizing: "border-box", border: "1px solid " + t.line, borderRadius: 999, padding: "9px 13px", marginBottom: 8, background: t.bg2, color: t.ink, fontFamily: F_BODY, outline: "none" } }),
         h("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 6 } },
           btn("弃牌", function () { userAct({ kind: "fold" }); }, "#7a6f66", false, { wk: "gamepokerfold" }),
           btn(o.canCheck ? "过牌" : "跟 " + o.toCall, function () { userAct({ kind: o.canCheck ? "check" : "call" }); }, t.ink, false, { wk: "gamepokercall" }),
@@ -8222,7 +8241,7 @@
           } })) : null),
       me ? h("div", { "data-wk": "gameactions", "data-part": "oldmaid", "data-kind": "pick", className: "shrink-0", style: { borderTop: "1px solid " + t.line, padding: "10px 12px calc(env(safe-area-inset-bottom) + 12px)" } },
         h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.sub, marginBottom: 7, textAlign: "center" } }, hover >= 0 ? "再点一下第 " + (hover + 1) + " 张就抽走，或者换一张" : "点 " + (tg ? tg.name : "TA") + " 的一张牌（点一下先举起来，再点一下抽走）"),
-        h("input", { "data-wk": "gameinput", "data-part": "talk", value: say, onChange: function (e) { setSay(e.target.value); }, placeholder: "顺便说一句（可空）", style: { width: "100%", boxSizing: "border-box", border: "1px solid " + t.line, borderRadius: 999, padding: "9px 13px", background: t.bg2, color: t.ink, fontFamily: F_BODY, outline: "none" } })) :
+        h(CardSay, { t: t, state: state, setState: setState, value: say, setValue: setSay, placeholder: "顺便说一句", talking: talking, style: { width: "100%", boxSizing: "border-box", border: "1px solid " + t.line, borderRadius: 999, padding: "9px 13px", background: t.bg2, color: t.ink, fontFamily: F_BODY, outline: "none" } })) :
       busy ? h("div", { className: "shrink-0", style: { padding: "15px", textAlign: "center", color: t.fog, fontFamily: F_BODY } }, (current ? current.name : "TA") + " 的手悬在牌上…") : null);
   }
 
@@ -8369,7 +8388,7 @@
       state.status === "playing" && state.phase === "done" ? h("div", { "data-wk": "gameactions", "data-part": "blackjack", "data-kind": "next", className: "shrink-0", style: { borderTop: "1px solid " + t.line, padding: "11px 12px calc(env(safe-area-inset-bottom) + 12px)", textAlign: "center" } },
         h("button", { "data-wk": "gamebjnext", onClick: nextHand, style: { border: 0, borderRadius: 999, padding: "11px 26px", color: "#fff", background: t.ink, fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))" } }, state.hand >= BJ_HANDS ? "散场算账" : "发下一手")) :
       me ? h("div", { "data-wk": "gameactions", "data-part": "blackjack", "data-kind": "play", className: "shrink-0", style: { borderTop: "1px solid " + t.line, padding: "10px 12px calc(env(safe-area-inset-bottom) + 12px)" } },
-        h("input", { "data-wk": "gameinput", "data-part": "talk", value: say, onChange: function (e) { setSay(e.target.value); }, placeholder: "顺便说一句（可空）", style: { width: "100%", boxSizing: "border-box", border: "1px solid " + t.line, borderRadius: 999, padding: "9px 13px", marginBottom: 8, background: t.bg2, color: t.ink, fontFamily: F_BODY, outline: "none" } }),
+        h(CardSay, { t: t, state: state, setState: setState, value: say, setValue: setSay, placeholder: "顺便说一句", talking: talking, style: { width: "100%", boxSizing: "border-box", border: "1px solid " + t.line, borderRadius: 999, padding: "9px 13px", marginBottom: 8, background: t.bg2, color: t.ink, fontFamily: F_BODY, outline: "none" } }),
         h("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 } },
           btn("要牌", function () { userAct({ kind: "hit" }); }, t.tint, false, { wk: "gamebjhit" }),
           btn("停牌", function () { userAct({ kind: "stand" }); }, t.ink, false, { wk: "gamebjstand" }),
@@ -8704,7 +8723,7 @@
     // 她出手（打牌、碰杠吃、自摸食糊）时顺便说的那句先记进桌上，再出手；单独点「说」就只说话
     function userAct(fn) {
       const line = say.trim();
-      act(function (n) { if (line && me) n.log.push({ kind: "chat", player: "user", text: me.name + "：“" + line.slice(0, 120) + "”" }); if (fn) fn(n); });
+      act(function (n) { if (line) addChat(n, n.players[meI], line); if (fn) fn(n); });
       if (line) setSay("");
     }
     useEffect(function () {
@@ -8736,14 +8755,9 @@
     // 角色开口：碰杠食糊那一下、一盘打完。平时摸打不说话（一盘一百多张牌，张张开口太费）
     const lastLog = state.log[state.log.length - 1] || {};
     const hot = state.phase === "done" || state.status === "finished" || lastLog.kind === "win" || lastLog.kind === "kong" || (lastLog.kind === "pong" && (lastLog.player === "user" || lastLog.from === "user"));
-    // 她开口了：桌上的人接她的话，不用等谁出牌；平时打一阵（大约两圈）也会自己聊几句
-    const userSpoke = state.log.slice(state.talkAt || 0).some(function (x) { return x.kind === "chat" && x.player === "user"; });
-    const talking = useCardTableTalk(props, state, setState, { on: true, zh: "广东麻将", ready: hot || userSpoke, force: userSpoke, every: spectate ? 16 : 28,
-      view: function () {
-        const said = state.log.slice(state.talkAt || 0).filter(function (x) { return x.kind === "chat" && x.player === "user"; }).map(function (x) { return x.text; });
-        return "第 " + state.handNo + " / " + state.hands + " 盘，" + (state.minFan ? state.minFan + " 番起糊" : "鸡糊也能食") + "\n" + M.publicView(state) + "\n最近：\n" + cardPublicLog(state)
-          + (said.length ? "\n\n她刚在桌上说：" + said.join(" ") + "——这一轮先接她这句，想回的就回。" : "");
-      } });
+    // 她开口时桌上接话归公共那一层（useCardTableTalk）；这儿只管麻将自己的说话点：碰杠食糊、一盘打完、平时打两圈左右闲聊几句
+    const talking = useCardTableTalk(props, state, setState, { on: true, zh: "广东麻将", ready: hot, every: spectate ? 16 : 28,
+      view: function () { return "第 " + state.handNo + " / " + state.hands + " 盘，" + (state.minFan ? state.minFan + " 番起糊" : "鸡糊也能食") + "\n" + M.publicView(state) + "\n最近：\n" + cardPublicLog(state); } });
     const W = M.WIND_ZH, seatW = function (i) { return W[M.seatWindOf(state, i)]; };
     const myTurn = me && state.status === "playing" && state.phase === "discard" && state.turn === meI;
     const canDraw = !!(me && state.status === "playing" && state.phase === "draw" && state.turn === meI);
@@ -8822,14 +8836,8 @@
             background: "linear-gradient(180deg, rgba(0,0,0,0) 0%, rgba(0,0,0,0) 62%, #3a2616 62%, #2e1e11 100%)", boxShadow: "0 2px 0 rgba(255,220,170,.12)" } },
           myHand.map(function (k, j) { return h("div", { key: j + k, style: { marginLeft: j ? 2 : 0 } }, h(MjTile, { k: k, w: handW, lift: sel === j, onClick: myTurn ? function () { tap(k, j); } : null })); }),
           drawn ? h("div", { key: "drawn" + state.wall.length, style: { marginLeft: 7 } }, h(MjTile, { k: drawn, w: handW, anim: sel === "d" ? null : "mjDrawIn .36s cubic-bezier(.3,1.3,.5,1) both", lift: sel === "d", onClick: function () { if (sel === "d") userAct(function (n) { M.discard(n, meI, drawn); }); else setSel("d"); } })) : null),
-        // 说一句：打牌、碰杠的时候一起带上；也能单独点「说」，桌上的人会接
-        h("div", { "data-wk": "gamemjsay", style: { display: "flex", gap: 6, marginBottom: 8 } },
-          h("input", { "data-wk": "gameinput", "data-part": "talk", value: say, maxLength: 120, onChange: function (e) { setSay(e.target.value); },
-            onKeyDown: function (e) { if (e.key === "Enter" && say.trim() && !talking) { e.preventDefault(); userAct(null); } },
-            placeholder: talking ? "他们在说话…" : "说一句（出牌时一起带上，或者点「说」）",
-            style: { flex: 1, minWidth: 0, boxSizing: "border-box", border: "1px solid rgba(255,230,190,.25)", borderRadius: 9, padding: "9px 12px", background: "rgba(0,0,0,.28)", color: "#fff6dc", fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", outline: "none" } }),
-          h("button", { "data-wk": "gamemjsaybtn", onClick: function () { if (say.trim()) userAct(null); }, disabled: !say.trim() || talking,
-            style: { flexShrink: 0, border: "1px solid rgba(255,230,190,.3)", borderRadius: 9, padding: "0 14px", minHeight: 40, color: "#fff6dc", background: say.trim() && !talking ? "linear-gradient(180deg,#8a5a34,#6b4428)" : "rgba(0,0,0,.2)", fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))" } }, "说")),
+        h(CardSay, { t: t, state: state, setState: setState, value: say, setValue: setSay, placeholder: "说一句", talking: talking,
+          tone: { line: "rgba(255,230,190,.28)", bg: "rgba(0,0,0,.28)", ink: "#fff6dc", radius: 9, btn: "linear-gradient(180deg,#8a5a34,#6b4428)", btnInk: "#fff6dc" } }),
         h("div", { style: { display: "flex", flexWrap: "wrap", gap: 7, justifyContent: "center", minHeight: 40 } },
           myClaim ? myClaim.map(function (o) {
             if (o.kind === "ron") return pill("食糊 " + o.fan.fan + " 番", function () { userAct(function (n) { M.decide(n, meI, { kind: "ron" }); }); }, "#c2372b", "gamemjron");
@@ -8938,7 +8946,7 @@
         h("div", { "data-wk": "gameddzhand", style: { display: "flex", flexWrap: "wrap", rowGap: 6, padding: "10px 0 6px 10px", justifyContent: "center" } }, u.hand.map(function (c, j) {
           return h("div", { key: c.uid, style: { marginLeft: j ? -14 : 0 } }, h(PlayCard, { c: c, w: 38, lift: pick.indexOf(c.uid) >= 0, onClick: state.phase === "play" ? function () { toggle(c.uid); } : null }));
         })),
-        h("input", { "data-wk": "gameinput", "data-part": "talk", value: say, onChange: function (e) { setSay(e.target.value); }, placeholder: "顺便说一句（可空）", style: { width: "100%", boxSizing: "border-box", border: "1px solid " + t.line, borderRadius: 999, padding: "9px 13px", margin: "6px 0 8px", background: t.bg2, color: t.ink, fontFamily: F_BODY, outline: "none" } }),
+        h(CardSay, { t: t, state: state, setState: setState, value: say, setValue: setSay, placeholder: "顺便说一句", talking: talking, style: { width: "100%", boxSizing: "border-box", border: "1px solid " + t.line, borderRadius: 999, padding: "9px 13px", margin: "6px 0 8px", background: t.bg2, color: t.ink, fontFamily: F_BODY, outline: "none" } }),
         state.phase === "bid" ? h("div", { "data-wk": "gameddzbid", style: { display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 6 } },
           [0, 1, 2, 3].map(function (n) { return h("button", { key: n, onClick: function () { act(function (s) { ddzBid(s, n, say); }); }, disabled: n > 0 && n <= state.bid.n,
             style: { border: 0, borderRadius: 999, padding: "11px 6px", color: "#fff", background: n > 0 && n <= state.bid.n ? t.line : n ? t.tint : "#7a6f66", fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))" } }, n ? n + " 分" : "不叫"); })) :
