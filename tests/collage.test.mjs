@@ -30,3 +30,12 @@ test("自由度：背景、字体、贴纸都能换；按到谁认得出（贴�
   assert.match(src, /touchAction: "none"/);
   assert.match(src, /position: "sticky"/);
 });
+test("自己放：空白样式、自己加的照片和字、格子能删、两指捏合", () => {
+  assert.ok(C.ORDER.includes("blank") && C.TPL.blank.n === 0);
+  const boxes = [{ key: "s0", kind: "slot", x: 500, y: 500, w: 600, h: 600 }, { key: "f0", kind: "fphoto", x: 500, y: 500, w: 400, h: 400 }, { key: "f1", kind: "ftext", x: 500, y: 500, w: 200, h: 80 }];
+  assert.equal(C.hitTest(boxes, 500, 500).key, "f1");
+  assert.equal(C.hitTest(boxes.slice(0, 2), 500, 500).key, "f0");
+  assert.match(src, /if \(\(layout\.hidden \|\| \{\}\)\["s" \+ at\]\) return;/);
+  assert.match(src, /const pinchOf = \(\) =>/);
+  assert.match(src, /slider\("大小"/); assert.match(src, /slider\("角度"/);
+});
