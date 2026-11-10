@@ -179,7 +179,7 @@
     ["五种票各干嘛", "每种票寄出后都会打同一列对面最前面那张（那一列空着就打信封），区别是打几成、顺手还干什么：", "投递：打人的，打满，攻击也最高。", "火漆：肉盾。血厚，每回合给自己封一层护，再打一半。", "补票：奶妈。给最残的那张回血、擦掉身上的戳，再打四成。", "集邮：管钱的。下回合多给胶水、多摸牌，再打四成。", "邮戳：捣乱的。给对面盖戳，再打一半：雨渍攻击 -2，退回停一回合，折角挨打多掉 2，撕口每回合掉 2 血，封口盖不了章也不攒章，延误让对面下回合少 1 胶水；加急是盖给自己人的，让旁边的投递行动两遍。", "对局里对面的等级照你这副牌的平均等级来，不会出现 1 级打 50 级；护信、远信是固定难度档，写着建议等级，卡练强了去打高档；卡升级以后攻击、血涨得比以前多，信封也跟着卡组等级变厚。", "票是哪一种，看卡上写了什么：写打架的多半是投递，写撑伞的多半是火漆。"],
     ["站位：前排挨打，后排输出", "信封第一排是前排。对面打一列，从前排往后找，所以前面有人挡着，后排就挨不着。", "常见摆法：火漆放前排顶着，投递和邮戳放最后一排（后排它们攻击 +2）。", "对面哪一列空着，你那一列的投递就能直接打到 TA 的信封。"],
     ["凑组合", "连张：同一个人的两张票挨着，攻击 +2。", "整版：同一个人的三张票排满一整行或一整列，觉醒一次，打对面信封、全员充章。", "四方连：四张同一个人（或同一种卡，比如都是生日卡）凑成 2×2，觉醒一次，打对面信封、全员加护。", "每种组合每个人一局只觉醒一次。想好凑哪个再贴。", "开局前在「带谁上场」挑一两个人，他们的卡就多，好凑。"],
-    ["盖章：每张票的大招", "票底下那排小点每回合亮一格，亮满变金色，就能盖章了。", "点那张票，再点「盖章」，花 1 胶水放它的技能。同一种票有四种技能，SSR 的更猛。", "所以每回合都要想：胶水拿去贴新票，还是去给老票盖章？"],
+    ["盖章：每张票的大招", "票底下那排小点每回合亮一格，亮满变金色，就能盖章了。", "点那张票，再点「盖章」，花 1 胶水放它的技能；也可以长按它，底细卡里「章满了 · 按下去」直接盖。同一种票有四种技能，SSR 的更猛。", "所以每回合都要想：胶水拿去贴新票，还是去给老票盖章？"],
     ["特质和羁绊", "每张票还有一个特质，是被动：比如「醉意」一半几率打双份、一半几率落空，「锋利」打票不管护盾，「倔强」第一次被打倒会硬撑着留一口气。", "每个人有一个羁绊，看人设来的：护短、好胜、温柔、冷淡、偏执，都不沾就是默契。同一个人的票在信封上有两张以上就生效。", "看不明白哪张票是干嘛的？长按它，什么都写着。对面的票也能长按。"],
     ["别的小东西", "溢出：一下打死一张票，多出来的伤害一半落到同一列后面那张，这一列没票了就落到信封；补血补满了还多出来的，一半补到自家信封（补票、群补、洗戳才算）。", "挪票：点自己一张票，再点旁边的空格，花 1 胶水挪过去，用来凑组合或补前排。", "撕票：点一张票点「撕下」，每回合能撕一张，撕的那一下会触发一次效果。信封贴满了也靠它腾地方。", "格子：邮筒格贴着票每回合多 1 胶水；护封格上的票什么戳都盖不上；破损格贴不上。", "邮局公告：每三回合一条全场规则（涨价、大雨、集邮节……），上一回合就会预告。"],
     ["明牌还是盲打", "明牌：TA 下一步要贴什么、贴哪、打你多少，开回合就亮给你看：两边每张票底下都写着它这回合干什么（打几、打信封几、攒胶水、加护……）；你要挨打的那格套红框写「要挨几」，你能打到的对面那格套绿框写「挨几」，打信封的合起来写在信封边上。手里的牌也摊开。适合慢慢算。", "选着手里一张票时，你这边空格里写着贴那儿会打谁、打多少，能凑组合的会亮出来。", "盲打：TA 照样提前想好了，只是不给你看。更刺激。"],
@@ -366,7 +366,7 @@
 
   // runBattle（远信那一层递进来）：直接开这一场，不走开局页；打完只有「继续」，交回 runBattle.onDone
   // 长按一张票的底细卡：对局和远信共用这一份（她 2026-11-08「选上路的时候长按也能看到卡面数值介绍那一堆」）
-  function StampInfo({ u, foe, terrain, live, bonds, cardOf, ownerOf, nameOf, useThumb, onClose }) {
+  function StampInfo({ u, foe, terrain, live, bonds, cardOf, ownerOf, nameOf, useThumb, onClose, onStamp }) {
         const inf = D().unitInfo(u, bonds), col = RC[u.rarity] || RC.R, info = { foe, terrain }, setInfo = onClose;
         cardOf = cardOf || (() => null); ownerOf = ownerOf || (() => ""); nameOf = nameOf || ownerOf;
         // 底细卡（她 2026-11-08「这个页面也做好看点」）：像一张夹着邮票的明信片——左边斜贴着那枚票，右边写名字和面额；
@@ -397,7 +397,10 @@
                 stat("攻击", u.pow), stat("血", (live ? Math.max(0, u.hp) + "/" : "") + u.maxHp), stat("护", u.shield || 0), stat("章", (u.charge != null ? u.charge + "/" : "") + u.need)),
               sec("作用", ROLE_COLOR[u.role], u.role, ROLE_TIP[u.role]),
               sec("特质", "#8a7a5a", inf.trait.zh, h("span", null, inf.trait.desc, h("div", { style: { color: SUB, fontSize: fz(10.5) } }, inf.trait.from))),
-              sec("盖章", "#b8862a", inf.skill.zh + (u.rarity === "SSR" ? " · " + inf.skill.base : ""), inf.skill.desc),
+              sec("盖章", "#b8862a", inf.skill.zh + (u.rarity === "SSR" ? " · " + inf.skill.base : ""), h("span", null, inf.skill.desc,
+                // 长按里直接盖章（她 2026-11-10「不用每次下滑，戳满了有特效直接按下去」）：只在自己场上、攒满了、轮到她时出现
+                onStamp ? h("button", { "data-wk": "duelinfostamp", onClick: onStamp, style: { position: "relative", overflow: "hidden", display: "block", width: "100%", marginTop: 8, padding: "9px 0", borderRadius: 4, background: "linear-gradient(135deg,#d9a441,#b8862a)", color: "#fff", fontFamily: FD, fontSize: fz(14), letterSpacing: ".15em", animation: "duelGlow 1.6s ease-in-out infinite" } },
+                  h("span", { style: { position: "absolute", top: 0, bottom: 0, width: "30%", background: "linear-gradient(90deg,transparent,rgba(255,255,255,.55),transparent)", animation: "duelShine 1.8s linear infinite" } }), "章满了 · 按下去（1 胶水）") : null)),
               inf.bond ? sec("羁绊", GREEN, inf.bond.zh, inf.bond.desc + "。" + (nameOf(u.charId) || "这个人") + "的票在同一个信封上有两张以上时生效。") : null,
               u.role === "邮戳" ? sec("戳", "#6a4f8a", "会盖「" + u.ink + "」", (D().MARKS[u.ink] || {}).note || "") : null,
               Object.keys(u.marks || {}).length ? sec("身上", RED, "挂着的戳", Object.keys(u.marks).map(m => m + "：" + ((D().MARKS[m] || {}).note || "")).join("；")) : null,
@@ -1710,7 +1713,10 @@
             h("span", { style: { color: SUB, fontSize: fz(11) } }, "点旁边空格＝挪过去（1 胶水）"))) : null,
         h("div", { "data-wk": "duellog", style: { marginTop: 10, fontSize: fz(11), color: SUB, lineHeight: 1.65 } }, log.map((l, k) => h("div", { key: k }, (l.who === "foe" ? foeName + "：" : l.who === "me" ? "我：" : "") + l.text + (l.line ? "「" + l.line + "」" : ""))))),
       onChat && !st.tutorial && (chal ? !!mateId : foeId) ? chatBox : null,
-      info ? h(StampInfo, { key: "info", u: info.u, foe: info.foe, terrain: info.terrain, live: (info.foe ? them : me).board.some(x => x && x.uid && x.uid === info.u.uid), bonds: st.bonds, cardOf, ownerOf, nameOf, useThumb, onClose: () => setInfo(null) }) : null,
+      info ? (() => { const at = info.foe ? -1 : me.board.findIndex(x => x && x.uid && x.uid === info.u.uid), cu = at >= 0 ? me.board[at] : null;
+        const can = cu && !over && !taTurn && !st.puzzleLock && cu.charge >= cu.need;
+        return h(StampInfo, { key: "info", u: info.u, foe: info.foe, terrain: info.terrain, live: (info.foe ? them : me).board.some(x => x && x.uid && x.uid === info.u.uid), bonds: st.bonds, cardOf, ownerOf, nameOf, useThumb, onClose: () => setInfo(null),
+          onStamp: can ? () => { setInfo(null); doMine(() => D().stamp(st, "me", at)); } : null }); })() : null,
       // 中间弹出的那块（她 2026-11-08「这种黄框也做好看点」）：像一封电报——上面一枚火漆封印写是什么事，
       //   中间大字是哪张票／哪条公告，台词另起一行像手写；觉醒是金色、盖章是红色、公告是绿色
       cut ? (() => {
