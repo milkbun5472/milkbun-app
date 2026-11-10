@@ -10,3 +10,10 @@ test("状态卡新挂点：心情词、好感数字第二份、水位小扣、Ta
   assert.match(gaze, /!hasAny\(charId\) \? h\("div", \{ "data-wk": "gazeempty"/);
   for (const k of ["statemood", "stateaffval", "stateheartknob", "gazeempty"]) assert.ok(studio.includes('"' + k + '"'), k + " 要进主题工作台的挂点名单");
 });
+test("翻旧心声那一页的挂点", () => {
+  for (const k of ["statehist", "statehistbtn", "statehisthead", "statehistlist", "statehistitem", "statehistmood", "statehisttime", "statehisttext", "statehistmeta", "statehistact", "statehistwear", "statehistend"]) {
+    assert.ok(comp.includes('"data-wk": "' + k + '"'), k);
+    assert.ok(studio.includes('"' + k + '"'), k + " 要进挂点名单");
+  }
+  assert.match(comp, /"data-wk": "statehistbtn", "data-part": back \? "back" : "more"/);
+});

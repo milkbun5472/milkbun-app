@@ -571,7 +571,7 @@
         ["stateaff", "心声卡底下好感那一整行（心＋好感度那几个字）"],
         // 那颗心拆开（她 2026-10-05：「要可以改图案」）：换形状写在 stateheart 上的 --sc-heart-mask，四层一起变
         ["stateheart", "好感那颗心整颗（换图案：--sc-heart-mask: url(图)；颜色 --sc-heart-ink）"], ["stateheartline", "心的描边那一圈"],
-        ["stateheartbase", "心里没灌满的那块底"], ["stateheartfill", "心里灌进去的那块（水位）"], ["stateheartnum", "心中间那个好感数字"], ["stateheartknob", "水位那一头的小扣（默认藏着；底边跟水位走）"], ["stateaffval", "好感数字的第二份（在「好感度」那几个字旁边，默认藏着）"], ["statemood", "抬头里那个心情词（平静、开心……）"],
+        ["stateheartbase", "心里没灌满的那块底"], ["stateheartfill", "心里灌进去的那块（水位）"], ["stateheartnum", "心中间那个好感数字"], ["stateheartknob", "水位那一头的小扣（默认藏着；底边跟水位走）"], ["stateaffval", "好感数字的第二份（在「好感度」那几个字旁边，默认藏着）"], ["statemood", "抬头里那个心情词（平静、开心……）"], ["statehist", "翻旧心声那一整页"], ["statehistbtn", "「翻旧的」「← 回此刻」那颗（data-part＝more/back）"], ["statehisthead", "旧心声页抬头（标题＋清空）"], ["statehistlist", "旧心声那一串"], ["statehistitem", "每一条旧心声"], ["statehistmood", "那条的心情词"], ["statehisttime", "那条的时间"], ["statehisttext", "那条心声正文"], ["statehistmeta", "那条底下的动作·穿着"], ["statehistact", "动作单独一行（默认藏着）"], ["statehistwear", "穿着单独一行（默认藏着）"], ["statehistend", "翻到底那句「没有更早的了」（默认藏着）"],
         // 拉黑时气泡旁那颗红色感叹号（她 2026-10-01：「跟微信一样，然后加一个美化挂点」）
         ["blockdot", "拉黑中气泡旁那颗红色感叹号（data-me=\"1\" 是她那边的）"],
         // 重 Roll 留版那一行「‹ 2/3 ›」（她 2026-10-10）
