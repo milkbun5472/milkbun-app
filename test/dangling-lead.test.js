@@ -44,3 +44,11 @@ test("正在一条条列：前面有「第一」，句尾光秃秃的「第二�
     ["第一，我好看，站你旁边不丢人", "第二，我认路，能找到你", "第三，我嘴好用"]);
   assert.deepEqual(f(["这次考试我考了第二", "还行吧"]), ["这次考试我考了第二", "还行吧"]);
 });
+test("「还有／另外」挂在句尾也挪到下一泡；「我也还有」不挪", () => {
+  const eng2 = require("fs").readFileSync(__dirname + "/../js/engine.js", "utf8");
+  const g = n => { const i = eng2.indexOf(n); let d = 0; for (let k = eng2.indexOf("{", i); k < eng2.length; k++) { if (eng2[k] === "{") d++; else if (eng2[k] === "}" && !--d) return eng2.slice(i, k + 1); } };
+  const line = n => { const i = eng2.indexOf(n); return eng2.slice(i, eng2.indexOf(";\n", i) + 2); };
+  const mv = new Function(line("const DANGLING_LEAD") + line("const LEAD_NUMS") + g("function listGoesOn(") + g("function moveDanglingLeads(") + "; return moveDanglingLeads;")();
+  assert.deepEqual(mv(["别光顾着窝在沙发上抓手柄还有", "今晚晚饭你打算怎么解决"]), ["别光顾着窝在沙发上抓手柄", "还有，今晚晚饭你打算怎么解决"]);
+  assert.deepEqual(mv(["钱我也还有", "你别担心"]), ["钱我也还有", "你别担心"]);
+});
