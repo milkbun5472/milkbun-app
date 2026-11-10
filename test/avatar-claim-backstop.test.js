@@ -6,7 +6,8 @@ test("自起意往回看 20 条；嘴上说换了、字段没填 → 兜底照�
   assert.match(app, /const AUTO_AVATAR_LOOKBACK = 20;/);
   assert.ok(app.includes("freshPhotoIn(chatsRef.current[charId] || [], AUTO_AVATAR_LOOKBACK)"));
   // 2026-10-19 起兜底还要过 avatarTalkOk（说的是锁屏、或在反问「谁换成头像了」就不换）
-  assert.ok(app.includes("AVATAR_CLAIM_RE.test([].concat(parsed.word || []).join(\" \")) && avatarTalkOk(parsed.word)) applyPhotoSeen(charId, _avatarMsg, { avatar: true }, true"));
+  // 2026-11-11 起兜底也带上这一轮报的 kind、她有没有明说（不是人像／合照／宠物／画就不换）
+  assert.ok(app.includes("AVATAR_CLAIM_RE.test([].concat(parsed.word || []).join(\" \")) && avatarTalkOk(parsed.word)) applyPhotoSeen(charId, _avatarMsg, { avatar: true, kind: parsed.photoSeen && parsed.photoSeen.kind }, true, () => {}, _askAvatar)"));
   const re = /换好了|换上了|已经换了|头像换了|换成头像了|设成头像了|当头像了|换过来了/;
   assert.ok(re.test("好啦已经换了") && !re.test("我不想换"));
 });

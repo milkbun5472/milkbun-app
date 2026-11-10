@@ -20,7 +20,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v89.432";
+const APP_VERSION = "v89.448";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -775,6 +775,8 @@ function App() {
   const [coupleDrawer, setCoupleDrawer] = useState([]);
   // 情侣空间的落点：从别处直接送到【某个人的某一扇门】。只消费一次，Us 收到就还回来。
   const [usLand, setUsLand] = useState(null);
+  // 聊天里那张「去拼壁纸」卡：落到情侣空间 → 合照墙 → 拼一张壁纸，TA 先拼一张
+  useEffect(() => { window.__openCollage = id => { setUsLand({ view: id, sub: "album", collage: "draft" }); setScreen("us"); }; return () => { if (window.__openCollage) delete window.__openCollage; }; }, []);
   // 他给她起的那个称呼（抽卡 s_title）。⚠️它【会进提示词】，所以：
   // ① 抽出来只是候选，她点了「收下」才写进这儿；② 收下之后随时能改、能不要；
   // ③ 换掉的留一条旧的（印象卡那张改写之后「旧版进修订史」是同一个形状）。
@@ -12776,7 +12778,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       const caughtHint = opts.peekCaught ? "\n\n【此刻】你刚才趁 " + uName + " 不注意偷偷翻了她的手机，被她发现了，她当面问你。"
         + (opts.peekCaught.thoughts && opts.peekCaught.thoughts.length ? "你当时心里想过：" + opts.peekCaught.thoughts.slice(0, 4).map(x => "「" + x + "」").join("") + "。" : "")
         + "认不认、怎么解释、反咬一口还是服软，全看你这个人。" : "";
-      const collageHint = opts.collageDone ? "\n\n【此刻】" + uName + " 刚和你一起拼好一张手机壁纸，用的是你们的合照" + (opts.collageDone.words && opts.collageDone.words.length ? "，上面手写着：" + opts.collageDone.words.map(w => "「" + w + "」").join("") : "") + (opts.collageDone.split ? "。是一人一半的那种：她那半张她存走了，你那半张已经是你手机的锁屏" : "") + "。你看到了；想接就接一句，怎么接看你这个人。" : "";
+      const collageHint = opts.collageDone ? "\n\n【此刻】" + uName + " 刚和你一起拼好一张手机壁纸，用的是你们的合照" + (opts.collageDone.words && opts.collageDone.words.length ? "，上面手写着：" + opts.collageDone.words.map(w => "「" + w + "」").join("") : "") + (opts.collageDone.split ? "。是一人一半的那种：她那半张她存走了，你那半张已经是你手机的锁屏" : "") + "。" + (opts.collageDone.story && opts.collageDone.story.length ? "拼的时候你们俩是这么来回的（「你」是你）：\n" + opts.collageDone.story.join("\n") + "\n" : "") + "你看到了；想接就接一句，怎么接看你这个人。" : "";
       const gardenMineHint = opts.gardenMine ? "\n\n【此刻】" + uName + " 刚在你们空间的窗台上自己种下了一盆" + opts.gardenMine.species + (opts.gardenMine.why ? "，她说：「" + opts.gardenMine.why + "」" : "") + "。你看到了；想接就接一句，怎么接看你这个人。" : "";
       const letterHint = opts.loveLetterAnswer === "yes" ? "\n\n【此刻】你写给 " + uName + " 的那封申请信，她拆开看了，答应了——" + spaceRel((couplesRef.current || {})[charId]).together + "。怎么接这一下，全看你这个人。"
         : opts.loveLetterAnswer === "no" ? "\n\n【此刻】你写给 " + uName + " 的那封申请信，她拆开看了，说再想想。失落、嘴硬、装没事、还是说等她——全看你这个人和你们现在的关系。" : "";
@@ -13057,7 +13059,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       const seenHint = _seenMsg ? photoSeenHint(_seenAvatarOk, uName)
         : (_seenAvatarOk ? (_askAvatar ? photoSeenAskHint(uName) : photoSeenAutoHint(uName)) : "");
       const seenField = _seenMsg ? photoSeenField(_seenAvatarOk)
-        : (_seenAvatarOk ? ",\"photoSeen\":{\"avatar\":false}" : "");
+        : (_seenAvatarOk ? ",\"photoSeen\":{\"kind\":\"\",\"avatar\":false}" : "");
       // Protocol v2：能力格式在稳定 system 里只定义一次；每轮只报开放项与必要动态参数。
       const openCaps = ["silent", "quote", "语音（写进 word 原位）", "transfer", "redPacket", "location", "gift", "takeout", "recall", "momentComment", "call", "laterPromise", "pat", "patSig"];
       const capState = [];
@@ -14770,10 +14772,10 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       if (parsed.photoSeen && typeof parsed.photoSeen === "object" && parsed.photoSeen.avatar === true && (!avatarTalkOk(parsed.word) || (_pairAsked && !_pairPick)))
         parsed.photoSeen = { ...parsed.photoSeen, avatar: false };   // 话里换的是锁屏、或者在否认：头像不动
       if (_avatarMsg && parsed.photoSeen) applyPhotoSeen(charId, _avatarMsg, parsed.photoSeen, _seenAvatarOk,
-        (same, note) => pChat(chatKey || charId, p => p.map(m => same(m) ? { ...m, seenNote: note } : m)));
+        (same, note) => pChat(chatKey || charId, p => p.map(m => same(m) ? { ...m, seenNote: note } : m)), _askAvatar);
       // 兜底：这一轮真给了换头像的能力，TA嘴上说「换好了」，字段却没填 true → 照TA说的换
       if (!_pairDone && (!_pairPick || _pairAuto) && !_pairAsked && _avatarMsg && _seenAvatarOk && !(parsed.photoSeen && parsed.photoSeen.avatar === true)
-        && AVATAR_CLAIM_RE.test([].concat(parsed.word || []).join(" ")) && avatarTalkOk(parsed.word)) applyPhotoSeen(charId, _avatarMsg, { avatar: true }, true, () => {});
+        && AVATAR_CLAIM_RE.test([].concat(parsed.word || []).join(" ")) && avatarTalkOk(parsed.word)) applyPhotoSeen(charId, _avatarMsg, { avatar: true, kind: parsed.photoSeen && parsed.photoSeen.kind }, true, () => {}, _askAvatar);
       if (parsed.photo && typeof parsed.photo === "object") {
         photoScene = String(parsed.photo.scene || parsed.photo.desc || "").trim();
         photoKind = ["self", "other", "duo", "me", "view", "part", "none"].includes(String(parsed.photo.kind || "").toLowerCase()) ? String(parsed.photo.kind).toLowerCase() : "self";
@@ -17766,6 +17768,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   //   只在还没点亮第一个字之前能换；走的是同一个 onPickLucky，传 "again"
   const pickLucky = (groupId, i) => {
     if (i === "badge") { const sb = luckyOf(groupId); luckySave(groupId, { ...sb, hideBadge: !sb.hideBadge }); return; }   // 顶栏挂不挂（她 2026-10-27）
+    // 挂哪个（她 2026-11-11 转群友：「点满了竟然不能挂了」）：收藏本里点满的也能挂；传 { wear: 字 }，再点一次同一个就换回挂正在点的那个
+    if (i && typeof i === "object" && "wear" in i) { const sb = luckyOf(groupId); const w = String(i.wear || ""); luckySave(groupId, { ...sb, wear: sb.wear === w ? "" : w, hideBadge: false }); return; }
     if (i === "again") {
       const st0 = luckyOf(groupId);
       if (!st0.word || !(st0.picked >= 0) || (st0.lit || 0) > 0) return;
@@ -28774,7 +28778,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   // 她自己挑一种来种：名字必填，为什么可空；颜色照名字猜一个，不花调用
   // ── 拼一张壁纸（她 2026-11-10 转群友许愿）：排版和画都在 js/collage.js；这儿只有 TA 那一手和存下来 ──
   // TA 来摆：一次文字调用，挑哪几张、放哪格、写什么字，下标回来本机再核一遍
-  const collageArrange = async (charId, list, tpl, split) => {
+  const collageArrange = async (charId, list, tpl, split, hist) => {
     const char = characters.find(c => c.id === charId);
     const C = window.Collage, def = C && C.TPL[tpl];
     if (!char || !def || !list || !list.length) return null;
@@ -28791,8 +28795,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
           + (split ? "这是一人一半：前 " + def.n + " 格在 " + uName + " 那半张，后 " + def.n + " 格在你那半张（会换成你自己手机的锁屏）；手写的字也是前一半在她那张、后一半在你那张。" : "")
           + (def.caption ? "每张拍立得下面写一句很短的字（captions，十个字以内，可以留空）。" : "")
           + "再写最多 " + wn + " 句手写在壁纸上的字（words，每句十四个字以内，中文英文都行）。"
-          + "挑哪几张、写不写字、写什么，照你这个人来：话少的就少写，一句不写也行。why 用你平时说话的口气说一句为什么挑这几张。",
-        schemaHint: "{\"picks\":[编号],\"captions\":[\"\"],\"words\":[\"\"],\"why\":\"一句\"}",
+          + "挑哪几张、写不写字、写什么，照你这个人来：话少的就少写，一句不写也行。why 是你摆完想跟她说的话（为什么挑这几张、或者别的），想说什么就说什么，长短跟着你此刻的心情和你这个人平时说话的样子来。" + (hist ? "\n\n【这一回拼壁纸到现在，你们俩的来回（「她」是 " + uName + "，「你」是你）】\n" + hist + "\n接着这些往下：记得自己刚才动过什么、说过什么，别把上一句话再说一遍，她刚改的地方你看得见也可以接一句。" : ""),
+        schemaHint: "{\"picks\":[编号],\"captions\":[\"\"],\"words\":[\"\"],\"why\":\"你想跟她说的话\"}",
         maxTokens: 12000
       });
       const max = Math.min(list.length, 40), picks = [];
@@ -28800,8 +28804,76 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       for (let i = 0; picks.length < n && i < list.length; i++) if (picks.indexOf(i) < 0) picks.push(i);
       while (picks.length < n) picks.push(-1);
       const clip = (a, k, len) => (Array.isArray(a) ? a : []).slice(0, k).map(x => String(x == null ? "" : x).replace(/\s+/g, " ").trim().slice(0, len));
-      return { picks, captions: clip(d && d.captions, n, 16), words: clip(d && d.words, wn, 22), why: String((d && d.why) || "").trim().slice(0, 120) };
+      return { picks, captions: clip(d && d.captions, n, 16), words: clip(d && d.words, wn, 22), why: String((d && d.why) || "").trim() };
     } catch (e) { toast("没摆成：" + ((e && e.message) || "重试")); return null; }
+  };
+  // TA 看看现在这张、动几下：发一张缩小的图 + 每样东西的编号和位置；TA 回一句话和几步改动（改动在 collage.js 里落）
+  const collageLook = async (charId, img, desc, hist) => {
+    const char = characters.find(c => c.id === charId);
+    const route = apiFor(charId);
+    if (!char || !route) { toast("请先到设置配置 API"); return null; }
+    const uName = (profileFor(charId) || {}).name || "她";
+    try {
+      return await runProbe(route, ctxFor(char), {
+        voice: true, images: img ? [img] : [],
+        instruction: "你和 " + uName + " 在一起拼一张手机壁纸，她把现在的样子给你看" + (img ? "（图里就是）" : "") + "。下面是上面每样东西的编号、位置（占整张的左右%、上下%）、大小和角度：\n" + desc
+          + "\n\n你看一眼，照你这个人的性子动几下：可以挪（to:[左右%,上下%]）、放大缩小（size，100 是原样）、转（angle，度）、拿掉（remove:true），可以给照片换滤镜（filter）、给字换样式（style）、给胶带涂鸦和字换颜色（color），可以加贴纸、胶带涂鸦（shape）或者写一句字（add），也可以换背景、颜色、字体。"
+          + "想动多少动多少，觉得已经很好、一下都不想动也行。say 是你看着这张想跟她说的话，可以说你为什么这么动，想说什么就说什么，长短跟着你此刻的心情和你这个人平时说话的样子来。" + (hist ? "\n\n【这一回拼壁纸到现在，你们俩的来回（「她」是 " + uName + "，「你」是你）】\n" + hist + "\n接着这些往下：记得自己刚才动过什么、说过什么，别把上一句话再说一遍，她刚改的地方你看得见也可以接一句。" : ""),
+        schemaHint: "{\"say\":\"你想跟她说的话\",\"ops\":[{\"id\":\"编号\",\"to\":[50,50],\"size\":100,\"angle\":0,\"filter\":\"\",\"style\":\"\",\"color\":\"\",\"remove\":false}],\"add\":[{\"sticker\":\"贴纸或我的贴纸N\",\"shape\":\"或者胶带涂鸦的名字\",\"text\":\"或者一句字\",\"at\":[50,50],\"size\":100,\"angle\":0,\"color\":\"#2b2b2b\"}],\"bg\":\"\",\"bgColor\":\"\",\"bgInk\":\"\",\"font\":\"\"}",
+        maxTokens: 12000
+      });
+    } catch (e) { toast("没看成：" + ((e && e.message) || "重试")); return null; }
+  };
+  // 挑几样让 TA 选：几张小图 + 每张是什么；TA 挑一个、说为什么
+  const collageChoose = async (charId, kind, imgs, labels, hist) => {
+    const char = characters.find(c => c.id === charId);
+    const route = apiFor(charId);
+    if (!char || !route) { toast("请先到设置配置 API"); return null; }
+    const uName = (profileFor(charId) || {}).name || "她";
+    const what = kind === "photo" ? "哪张照片放进壁纸" : kind === "bg" ? "哪个当壁纸的底" : "哪颗贴纸贴上去";
+    try {
+      const d = await runProbe(route, ctxFor(char), {
+        voice: true, images: imgs || [],
+        instruction: uName + " 在拼你们的手机壁纸，拿了几样问你：" + what + "？\n" + (labels || []).join("\n")
+          + "\n\n照你自己的喜好挑一个（pick 写编号），why 是你挑完想跟她说的话，想说什么就说什么，长短跟着你此刻的心情和你这个人平时说话的样子来。" + (hist ? "\n\n【这一回拼壁纸到现在，你们俩的来回（「她」是 " + uName + "，「你」是你）】\n" + hist + "\n接着这些往下：记得自己刚才动过什么、说过什么，别把上一句话再说一遍，她刚改的地方你看得见也可以接一句。" : ""),
+        schemaHint: "{\"pick\":1,\"why\":\"你想跟她说的话\"}",
+        maxTokens: 12000
+      });
+      return { pick: Math.round(Number(d && d.pick)) || 0, why: String((d && d.why) || "").trim() };
+    } catch (e) { toast("没挑成：" + ((e && e.message) || "重试")); return null; }
+  };
+  // TA 先拼一张：从样式到贴纸都由TA挑，回一份完整的初稿
+  const collageDraft = async (charId, catalog, hist) => {
+    const char = characters.find(c => c.id === charId);
+    const route = apiFor(charId);
+    if (!char || !route) { toast("请先到设置配置 API"); return null; }
+    const uName = (profileFor(charId) || {}).name || "她";
+    try {
+      return await runProbe(route, ctxFor(char), {
+        voice: true,
+        instruction: "你和 " + uName + " 要拼一张手机壁纸，这次你先动手拼一张给她看。能用的东西：\n" + catalog
+          + "\n\n挑一个样式（tpl 写样式名），照片按格子顺序写编号（picks），拍立得样式可以给每张写一句底下的字（captions），再写几句手写在壁纸上的字（words，可以不写），背景、颜色（bgColor 底色 / bgInk 花纹色，#开头的颜色，可不填）、字体都由你定；"
+          + "add 里可以再加贴纸（sticker）、胶带涂鸦（shape）、一句字（text）、多一张照片（photo:编号），位置 at:[左右%,上下%]。照片里标着「你的」的是你自己的东西（你手机里存的、你画的），想放就放。"
+          + "照你这个人的眼光和你们之间的事来挑，不用面面俱到。say 是你拼完想跟她说的话，想说什么就说什么，长短跟着你此刻的心情和你这个人平时说话的样子来。" + (hist ? "\n\n【这一回拼壁纸到现在，你们俩的来回（「她」是 " + uName + "，「你」是你）】\n" + hist + "\n接着这些往下：记得自己刚才动过什么、说过什么，别把上一句话再说一遍，她刚改的地方你看得见也可以接一句。" : ""),
+        schemaHint: "{\"tpl\":\"样式名\",\"picks\":[编号],\"captions\":[\"\"],\"words\":[\"\"],\"bg\":\"背景名\",\"bgColor\":\"\",\"bgInk\":\"\",\"font\":\"字体名\",\"add\":[{\"sticker\":\"\",\"shape\":\"\",\"text\":\"\",\"photo\":null,\"at\":[50,50],\"size\":100,\"angle\":0,\"color\":\"\"}],\"say\":\"你想跟她说的话\"}",
+        maxTokens: 12000
+      });
+    } catch (e) { toast("没拼成：" + ((e && e.message) || "重试")); return null; }
+  };
+  // TA 自己的东西：手机相册里存下来的照片、抽屉里TA画的画——拼壁纸时跟合照一起摆出来
+  const collageHisThings = charId => {
+    const out = [];
+    try {
+      (coupleDrawer || []).filter(x => x && x.characterId === charId && x.kind === "draw" && x.svg).slice(0, 12)
+        .forEach(x => out.push({ imgUrl: "data:image/svg+xml;charset=utf-8," + encodeURIComponent(x.svg), desc: String(x.text || x.title || "画的一张").slice(0, 40), from: "你画的", ts: x.ts || 0 }));
+      const all = (window.PhoneKit && window.PhoneKit.keepLoad) ? window.PhoneKit.keepLoad() : loadJSON("x_phoneKeep", {});
+      const kept = ((window.PhoneKit && window.PhoneKit.keptPhotos) || (v => Array.isArray(v) ? v : []))((all || {})[charId]);
+      kept.filter(x => x && (x.imageRef || x.imageUrl)).slice(0, 20).forEach(x => {
+        const u = x.imageRef ? (typeof resolveImg === "function" ? resolveImg(x.imageRef) : "") : x.imageUrl;
+        if (u) out.push({ imgUrl: u, desc: String(x.caption || x.desc || x.scene || "手机里的一张").slice(0, 40), from: "你手机里的", ts: x.ts || 0 });
+      });
+    } catch (e) {}
+    return out;
   };
   // 存下来：挂合照墙、存到手机；一人一半那半张换成 TA 的锁屏（跟TA自己换锁屏是同一格）；TA 下一轮知道你们拼了一张
   const collageSave = async (charId, o) => {
@@ -28816,8 +28888,14 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       await setCharLockscreen(charId, { key: hisKey, desc: "和你一起拼的壁纸（一人一半里自己那半张）" }, charId, null);
     }
     try { if (typeof saveFile === "function") await saveFile(new File([o.mine], "我们的壁纸-" + Date.now() + ".jpg", { type: "image/jpeg" })); } catch (e) {}
+    // 记一条进TA的记忆（跟花房、情书同一条路）：之后主动找她、聊到相关的事，TA 想得起这张壁纸是怎么拼出来的
+    const uN = (profileFor(charId) || {}).name || "她";
+    const ws = (o.words || []).map(w => String(w || "").trim()).filter(Boolean);
+    const st = (o.story || []).filter(x => /^你：/.test(String(x))).slice(-2).map(x => String(x).replace(/^你：/, "").slice(0, 80));
+    coupleKeep(charId, uN + " 和 " + (char.remark || char.name) + " 一起拼了一张手机壁纸" + (ws.length ? "，上面手写着「" + ws.slice(0, 3).join("」「") + "」" : "")
+      + (o.his ? "；是一人一半的，" + (char.remark || char.name) + " 那半张换成了自己手机的锁屏" : "；挂在合照墙上了") + (st.length ? "。拼的时候 " + (char.remark || char.name) + " " + st.join("；") : ""), "壁纸");
     toast(o.his ? "存好了，" + (char.remark || char.name) + " 的锁屏也换上了" : "存好了，也挂上合照墙了");
-    waitForHer(charId, { collageDone: { split: !!o.his, words: (o.words || []).map(w => String(w || "").trim()).filter(Boolean).slice(0, 4) } });
+    waitForHer(charId, { collageDone: { split: !!o.his, words: (o.words || []).map(w => String(w || "").trim()).filter(Boolean).slice(0, 4), story: (o.story || []).map(x => String(x).slice(0, 400)).slice(-8) } });
   };
   const gardenPlantMine = (char, species, why) => {
     const sp = String(species || "").trim();
@@ -29241,9 +29319,15 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   };
   const AVATAR_CLAIM_RE = /换好了|换上了|已经换了|头像换了|换成头像了|设成头像了|当头像了|换过来了|(换|改|设|用)(好|上|成|过来)[^，。！？\n]{0,10}(了|啦|咯)|头像[^，。！？\n]{0,8}(换|改|设)(好|成|上)?(了|啦)|已经(换|改|设)/;
   // 没开口、也不是刚发的那张：只问换不换，不补记画面
+  // 换头像先报「这张是什么」（她 2026-11-11 转群友：「问他道题又换成头像了」——上课投影屏也挂上了）：
+  //   提示里早写着截图、东西一律 false，模型照样填 true。所以改成掷轴：先挑一类，代码只放这几类过；
+  //   她明说要换（_askAvatar）的不受这道闸
+  const PHOTO_KINDS = ["人像", "合照", "宠物", "画", "风景", "东西", "截图", "题目文字"];
+  const AVATAR_KINDS = ["人像", "合照", "宠物", "画"];
+  const kindLine = "\n· kind：这张画面主要是什么，从「" + PHOTO_KINDS.join("／") + "」里挑一个照实填。";
   const photoSeenAutoHint = uName =>
     "\n【photoSeen 换头像】上面历史里 " + uName + " 发过一张真实照片。要不要把它换成你自己的头像？**默认 false。**"
-    + "只有它是你愿意天天挂在名字旁边的那种才填 photoSeen:{\"avatar\":true}；你平时不爱换头像，就一直 false。";
+    + "只有它是你愿意天天挂在名字旁边的那种才填 photoSeen:{\"avatar\":true}；你平时不爱换头像，就一直 false。" + kindLine;
   // 她开口要的那一版：没有 note 那半边（不补记老照片的画面），只问换不换。
   // ⚠️仍然是【问】不是【命令】：她说了，他也可以不换——那是他这个人的事
   //   （施工规则/bans-make-it-dumber：给出口，不给判决）。但不许嘴上说换了、实际没换。
@@ -29261,9 +29345,9 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       ? "\n· avatar：要不要把这张换成你自己的头像。**默认 false。** 换头像是把这张挂在你自己名字旁边、往后每天都摆在那儿，"
         + "不是「这张拍得不错」。所以只有当它是【你愿意天天看着的那种】才填 true；"
         + "东西、吃的、风景、截图、随手拍的一律 false。你这个人平时会不会做这种事，也算在内——"
-        + "有的人从不换头像，那就永远 false。"
+        + "有的人从不换头像，那就永远 false。" + kindLine
       : "");
-  const photoSeenField = canAvatar => ",\"photoSeen\":{\"note\":\"一句话记下画面上有什么\"" + (canAvatar ? ",\"avatar\":false" : "") + "}";
+  const photoSeenField = canAvatar => ",\"photoSeen\":{\"note\":\"一句话记下画面上有什么\"" + (canAvatar ? ",\"kind\":\"\",\"avatar\":false" : "") + "}";
   // 落地：把那句话写回那条消息；要换头像就换，并留住换之前那张
   // 他把一张图设成自己手机的锁屏：写进查手机那一格（x_phoneLooks.lockWallpaper，跟手动换的是同一格），聊天里落一行小灰字
   // 锁屏换的是哪一张：她发的认 imageRef，他拍的认 imgKey／url
@@ -29289,7 +29373,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       pChat(chatKey, p => [...p, { role: "assistant", kind: "locknote", ts: Date.now(), turnId, content: "〔" + ((ch && (ch.remark || ch.name)) || "TA") + " 把手机锁屏换成了" + (src.from === "her" ? "你发的这张" : "这张") + "〕" }]);
     } catch (e) {}
   };
-  const applyPhotoSeen = (charId, msg, seen, canAvatar, patchNote) => {
+  const applyPhotoSeen = (charId, msg, seen, canAvatar, patchNote, asked) => {
     if (!msg || !seen || typeof seen !== "object") return;
     const note = String(seen.note || "").replace(/\s+/g, " ").trim().slice(0, 60);
     // ⚠️认那一条要认得准：聊天里好些消息【没有 id】，写成 m.id === msg.id 的话
@@ -29302,6 +29386,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     // 跟 runOfflineShot 里那个 300ms holdTimer 是同一个坑，照它的做法隔开。
     if (note) setTimeout(() => patchNote(same, note), 400);
     if (!canAvatar || seen.avatar !== true) return;
+    if (!asked && AVATAR_KINDS.indexOf(String(seen.kind || "").trim()) < 0) return;   // 不是人像、合照、宠物、画：不换
     const ch = characters.find(c => c.id === charId);
     if (!ch || !msg.imageRef) return;
     // 只换【聊天里用的那张】chatAvatar（群里读者 2026-09-30：「只换聊天界面的头像，不换人设档案」）。
@@ -34287,6 +34372,9 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
           setTimeout(() => pChat(activeChar.id, p => [...p, { role: "system", kind: "system", sub: "frverify", content: "对方开启了朋友验证，你还不是 TA 的朋友。点消息旁的「!」发送好友申请。", ts: Date.now() }]), 50); }
       gachaEarn(activeChar.id, "chat");
       pushUser(activeChar.id, txt, window.ChatRooms ? window.ChatRooms.chatKey(activeChar.id, activeRoomId) : activeChar.id);
+      // 聊天里说「拼张壁纸吧」（她 2026-11-10）：在一起的，底下落一张小卡，点了进拼壁纸、TA 先拼一张。不叫模型、只认字面
+      if (/(拼|做|弄|整).{0,4}(张|个|一张)?.{0,2}(情侣)?壁纸|壁纸.{0,4}(拼|一起)/.test(String(txt || "")) && ((couples || {})[activeChar.id] || {}).status === "together" && window.Collage)
+        setTimeout(() => pChat(activeChar.id, p => [...p, { role: "assistant", kind: "collageinvite", charId: activeChar.id, ts: Date.now(), content: "一起拼一张壁纸" }]), 300);
       // 书房直通（她 2026-09-25 拍板）：言秋房的话默认投去 CC 老窗口，回复走账本流回来。
       // 投递失败只提示不回滚——消息本来就该留在聊天里，她可以点「让TA回复」走直连兜底。
       if (window.CcLane && window.CcLane.routes(settingsFor(activeChar.id))) {
@@ -35622,7 +35710,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     // 只捞线上等于把最该上墙的那一半漏在外面。按时间从新到旧排。
     duoPhotosFor: duoPhotosOf,
     onDeletePhoto: confirmDeleteDuoPhoto,
-    onUploadPhoto: uploadCoupleShot, onCollageArrange: collageArrange, onCollageSave: collageSave,
+    onUploadPhoto: uploadCoupleShot, onCollageArrange: collageArrange, onCollageSave: collageSave, onCollageLook: collageLook, onCollageChoose: collageChoose, onCollageDraft: collageDraft, collageHisThings: collageHisThings,
     // 时光胶囊现在是情侣空间【里面】的一层（v62.41），不再是另一个屏。
     // characters / characterId / profile / onBack 由 Us 那头按当前这段关系补上。
     // onKeep：拆开之后往记忆库记一笔（v64.03）。走的是情侣空间那条现成的 coupleKeep，

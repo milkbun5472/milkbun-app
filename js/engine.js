@@ -11558,11 +11558,18 @@ async function runProbeInner(p, ctx, probe) {
   let raw;
   // tag 只为记账：probe 上写了就带下去，没写就落进「其它」（见 ApiMeter）
   const _tag = probe.tag || "";
+  // 要TA【看】几张图的（拼壁纸让TA看现在这张、挑几张里的哪一张）：probe.images 是 data URL，跟着这一句一起发。
+  //   不认图的线路会报错——那就去掉图、只凭文字再来一次（调用方的文字里本来就写清楚了每张是什么）
+  const _imgs = Array.isArray(probe.images) ? probe.images.filter(Boolean) : [];
+  const _start = () => [_imgs.length ? { role: "user", content: "开始。", imageDataUrls: _imgs } : { role: "user", content: "开始。" }];
   try {
-    raw = await callAI(p, system, [{ role: "user", content: "开始。" }], { maxTokens: want, tag: _tag, logFrom: probe.logFrom, ..._probeWait });
+    raw = await callAI(p, system, _start(), { maxTokens: want, tag: _tag, logFrom: probe.logFrom, ..._probeWait });
   } catch (e) {
-    if (!tooBig(e) || want <= 8000) throw e;
-    raw = await callAI(p, system, [{ role: "user", content: "开始。" }], { maxTokens: 8000, tag: _tag, logFrom: probe.logFrom, ..._probeWait });
+    if (_imgs.length && !tooBig(e) && !(e && e.name === "AbortError")) { _imgs.length = 0; raw = await callAI(p, system, _start(), { maxTokens: want, tag: _tag, logFrom: probe.logFrom, ..._probeWait }); }
+    else {
+      if (!tooBig(e) || want <= 8000) throw e;
+      raw = await callAI(p, system, _start(), { maxTokens: 8000, tag: _tag, logFrom: probe.logFrom, ..._probeWait });
+    }
   }
   let parsed = extractJSON(raw);
   // 她 2026-08-29 报「深夜台第一次解析失败了第二次好了」——这类失败多半是这一次
