@@ -17617,13 +17617,16 @@ function GeoCard({ m, isU, who, avatar, myAvatar }) {
   return h("div", {
     className: "py-1 flex items-start gap-2 " + (isU ? "justify-end" : "justify-start")
   }, !isU && avatar,
-    h("div", { style: { position: "relative", width: 214, marginTop: 7 } },
+    // 位置卡的挂点（她 2026-11-10：「位置没改样式」）：纸本身原来只挂着公用的 card，钉子、地名、底下那行都抓不住
+    h("div", { "data-wk": "geocard", "data-me": isU ? "1" : "0", style: { position: "relative", width: 214, marginTop: 7 } },
       // 图钉:钉帽压在纸的上沿外面,底下一小片影子——纸是被按上去的,不是画上去的
       h("div", {
+        "data-wk": "geopin",
         style: { position: "absolute", top: -7, left: 16, width: 15, height: 15, borderRadius: 999,
           background: t.tint, boxShadow: "0 2px 4px rgba(0,0,0,.28)", zIndex: 2 }
       }),
       h("div", {
+        "data-wk": "geopinstem",
         style: { position: "absolute", top: 5, left: 22.5, width: 2, height: 13, background: t.tint, opacity: .5, zIndex: 1 }
       }),
       h("div", {
@@ -17631,9 +17634,9 @@ function GeoCard({ m, isU, who, avatar, myAvatar }) {
         style: { background: t.bg2, border: "1px solid " + t.line, borderRadius: 3,
           padding: "18px 16px 13px", boxShadow: "0 4px 12px rgba(0,0,0,.09)" }
       },
-        h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(16.5px * var(--app-fs, 1))", lineHeight: 1.5, color: t.ink, wordBreak: "break-word" } }, m.name || "某处"),
-        h("div", { style: { height: 1, background: t.line, margin: "10px 0 7px" } }),
-        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog } },
+        h("div", { "data-wk": "geoname", style: { fontFamily: F_DISPLAY, fontSize: "calc(16.5px * var(--app-fs, 1))", lineHeight: 1.5, color: t.ink, wordBreak: "break-word" } }, m.name || "某处"),
+        h("div", { "data-wk": "georule", style: { height: 1, background: t.line, margin: "10px 0 7px" } }),
+        h("div", { "data-wk": "geofoot", style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog } },
           (isU ? "我在这儿" : (who || "TA") + " 在这儿") + " · " + clock))),
     isU && myAvatar);
 }

@@ -17,3 +17,9 @@ test("翻旧心声那一页的挂点", () => {
   }
   assert.match(comp, /"data-wk": "statehistbtn", "data-part": back \? "back" : "more"/);
 });
+test("位置卡挂点", () => {
+  for (const k of ["geocard", "geopin", "geopinstem", "geoname", "georule", "geofoot"]) {
+    assert.ok(comp.includes('"data-wk": "' + k + '"'), k);
+    assert.ok(studio.includes('"' + k + '"'), k + " 要进挂点名单");
+  }
+});
