@@ -46,6 +46,9 @@
     const frame=useRef(null),latest=useRef(props),binder=useRef(null),audio=useRef(null); latest.current=props;
     const [loaded,setLoaded]=useState(false),[error,setError]=useState(""),[places,setPlaces]=useState(false),[panel,setPanel]=useState(null),[busy,setBusy]=useState(false),[shop,setShop]=useState(()=>root.StampShop.read()),[uiReady,setUiReady]=useState(false),[soundEnabled,setSoundEnabled]=useState(true);
     if(!audio.current)audio.current=root.SceneSound?.create();
+    // 重演来访对话（她 2026-11-10「去看他们演，播放不出来」）：客人进门、走到位要几秒，原来只试一次就放弃了；
+    //   现在隔半秒再试，最多试 15 秒；客人已经走了就说一声，去店铺日记读原话
+    const replayMeet=id=>{let n=0;const tryOnce=()=>{const g=frame.current?.contentWindow?.PostOfficeGame;if(g){g.pause?.(false);if(g.playMeet(id))return;}if(++n<30)setTimeout(tryOnce,500);else setError("这位客人已经离开店里了，演不了；原话在文字版小店的「店铺日记」里。");};setTimeout(tryOnce,300);};
     const cards=()=>{const all=loadJSON("x_stamps",null)?.cards;return root.StampDispatch?.filter(Array.isArray(all)?all.filter(c=>c&&!c.writing):[])||[];};
     const options=()=>({characters:latest.current.characters||[],cards:cards(),onChat:latest.current.onShopChat});
     const sync=()=>root.StampShop.sync(options()).then(s=>{setShop(old=>JSON.stringify(old)===JSON.stringify(s)?old:s);return s;});
@@ -61,7 +64,7 @@
         counter:()=>latest.current.onOpenStamps?.({tab:"duel",mode:"shop",back:"fairy-shop"}),
         select:target=>{setError("");setPanel(target);},
         meetSeen:({id,key})=>root.StampShop.run("seenMeet",{...options(),id,expected:{date:key.split("|")[0],period:key.split("|")[1]}}).catch(e=>setError(e.message)),
-        ready:()=>{if(frame.current===node){setLoaded(true);setError("");const rid=root.__shopReplayMeet;if(rid){root.__shopReplayMeet=null;setTimeout(()=>{if(frame.current===node)node.contentWindow.PostOfficeGame?.playMeet(rid);},400);}}},
+        ready:()=>{if(frame.current===node){setLoaded(true);setError("");const rid=root.__shopReplayMeet;if(rid){root.__shopReplayMeet=null;replayMeet(rid);}}},
         error:message=>{if(frame.current===node)setError(String(message));}
       });
     };
@@ -82,7 +85,7 @@
         h("button",{onClick:()=>frame.current?.contentWindow.PostOfficeGame?.resetView(),style:{minWidth:40,minHeight:40,fontSize:12}},"全景"),
         h("button",{disabled:!uiReady,onClick:()=>{setError("");setPanel({type:'menu'});},style:{...pickButtonStyle(),minHeight:40,padding:"5px 10px",fontSize:12}},"经营"),
         h("button",{onClick:()=>latest.current.onOpenStamps?.({tab:"duel",mode:"shop",back:"fairy-shop"}),style:{minHeight:40,padding:"5px",fontSize:12}},"去柜台")),
-      panel&&uiReady&&h(root.StampShopPanel,{key:JSON.stringify(panel),target:panel,shop,characters:props.characters||[],cards:cards(),busy,error,onAction:act,onClose:()=>{if(root.StampShop.failed()){setError("请先重试刚才未保存的操作。");return;}setPanel(null);setError("");},onText:()=>latest.current.onOpenStamps?.({tab:"duel",mode:"shop",back:"fairy-shop"}),onReplay:id=>frame.current?.contentWindow.PostOfficeGame?.playMeet(id),onReplayClosing:id=>{setPanel(null);const game=frame.current?.contentWindow.PostOfficeGame;game?.pause(false);game?.startClosing(id).catch(e=>setError(e.message));},soundEnabled,onToggleSound:()=>{const next=!soundEnabled;setSoundEnabled(next);audio.current?.enable(next);}}),
+      panel&&uiReady&&h(root.StampShopPanel,{key:JSON.stringify(panel),target:panel,shop,characters:props.characters||[],cards:cards(),busy,error,onAction:act,onClose:()=>{if(root.StampShop.failed()){setError("请先重试刚才未保存的操作。");return;}setPanel(null);setError("");},onText:()=>latest.current.onOpenStamps?.({tab:"duel",mode:"shop",back:"fairy-shop"}),onReplay:id=>replayMeet(id),onReplayClosing:id=>{setPanel(null);const game=frame.current?.contentWindow.PostOfficeGame;game?.pause(false);game?.startClosing(id).catch(e=>setError(e.message));},soundEnabled,onToggleSound:()=>{const next=!soundEnabled;setSoundEnabled(next);audio.current?.enable(next);}}),
       places&&h("section",{className:"absolute inset-0 flex flex-col",style:{background:G.paper,zIndex:40}},h(Head,{zh:"去别处",bg:"transparent",onBack:()=>setPlaces(false)}),h(RailwayChoices,{from:"shop",onChoose:to=>{setPlaces(false);props.onTravel(to);}})));
   }
   function WorldSession(props) {
