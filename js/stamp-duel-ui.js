@@ -507,6 +507,8 @@
     // 剧情闯关（她 2026-11-08）：五章，每章 TA 写一段→打一场→她选一条路；第五章打完写结局，收进故事集
     const STORY_KEY = "x_stampStory", STORIES_KEY = "x_stampStories";
     const uniqStories = list => (list || []).filter((x, i, all) => x && all.map(y => y && y.id).lastIndexOf(x.id) === i);
+    // 以前「看结局」点两次会把同一段存两份（她 2026-11-10「为啥是两段明明只有一段」）：读的时候顺手把存档里重复的合掉
+    const cleanStories = () => { try { const raw = loadJSON(STORIES_KEY, []) || [], u = uniqStories(raw); if (u.length !== raw.length) saveJSON(STORIES_KEY, u); return u; } catch (e) { return []; } };
     const STORY_HOOKS = ["一封寄错的信", "暴雪封路的邮局", "失踪的邮差", "最后一班夜车", "抽屉里的旧明信片", "让 TA 起一个"];
     const [story, setStory0] = useState(() => { try { const v = typeof loadJSON === "function" ? loadJSON(STORY_KEY, null) : null; return v && !v.done ? v : null; } catch (e) { return null; } });
     const setStory = v => { setStory0(v ? Object.assign({}, v) : null); try { saveJSON(STORY_KEY, v && !v.done ? v : null); } catch (e) {} };
@@ -904,7 +906,7 @@
       ]);
     }
     if (!st && mode === "story") {
-      const sv0 = story, C = "#7a3b5a", stories = (() => { try { return (typeof loadJSON === "function" ? loadJSON(STORIES_KEY, []) : []) || []; } catch (e) { return []; } })();
+      const sv0 = story, C = "#7a3b5a", stories = cleanStories();
       const para = (lines, k0) => lines.map((t, k) => h("p", { key: k0 + k, style: { fontFamily: FD, fontSize: fz(13.5), lineHeight: 1.85, margin: "0 0 9px", whiteSpace: "pre-wrap" } }, BT(t)));
       if (!sv0) return shell([
         h(Head, { key: "hd", zh: "剧情闯关", bg: "transparent", ink: INK, onBack: () => setMode(""), right: guideBtn }),
