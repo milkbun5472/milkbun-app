@@ -457,7 +457,8 @@
     const SAVE_KEY = "x_stampDuelSave";
     const [saved, setSaved] = useState(() => { try { const v = typeof loadJSON === "function" ? loadJSON(SAVE_KEY, null) : null; return v && v.st && !v.st.over ? v : null; } catch (e) { return null; } });
     const persist = (x, sr) => { try { if (typeof saveJSON !== "function" || (x && (x.tutorial || x.run || x.siege || x.raid || x.edict || x.shift || x.patrol || x.puzzle || x.relay || x.story || x.shopFight)) || runBattle) return; if (x && !x.over) saveJSON(SAVE_KEY, { st: x, series: sr || null, foeId, at: Date.now() }); else saveJSON(SAVE_KEY, null); } catch (e) {} };
-    const redraw = () => { persist(st, series); bump(x => x + 1); };
+    const relayKeep = x => { try { if (typeof saveJSON === "function") saveJSON("x_stampRelaySave", x && x.relay && !x.over ? { st: x, at: Date.now() } : null); } catch (e) {} };   // 接力打一半退出能接着打（她 2026-11-10）
+    const redraw = () => { persist(st, series); if (st && st.relay) relayKeep(st); bump(x => x + 1); };
     const resume = () => { if (!saved) return; setFoeId(saved.foeId); setSt(saved.st); setSeries(saved.series || D().newSeries()); setSaved(null); setHandSel(-1); setBoardSel(-1); };
     const drop = () => { persist(null); setSaved(null); };
     const [tut, setTut] = useState(-1), tutSeen = useRef({ infoSeen: false });
@@ -556,7 +557,7 @@
       if (!coachId) { toast && toast("先挑一个人跟你接力"); return; }
       const s = (seedRef.current = (seedRef.current * 1103515245 + 12345) >>> 0), me = D().deckFrom(cards, s, D().DECK_SIZE, [coachId]);
       const nd = D().newDuel(me, D().edictDeck(s), s, { foeLv: Math.max(3, Math.round(D().avgLv(me) * 1.15)), foeHp: Math.round(D().envFor(me) * 1.8), hard: true, bonds: bondsOf() }); // 两人轮流下，对面信封厚一些、每回合多 1 胶水，不至于一回合打穿（她 2026-11-10）
-      nd.relay = { ta: coachId, style: bondsOf()[coachId] || "默契" }; setSt(nd); setMode("relay"); setHandSel(-1); setBoardSel(-1);
+      nd.relay = { ta: coachId, style: bondsOf()[coachId] || "默契" }; relayKeep(nd); setSt(nd); setMode("relay"); setHandSel(-1); setBoardSel(-1);
     };
     const PATROL_KEY = "x_stampPatrol", PATROL_BEST = "x_stampPatrolBest", PATROL_SALT = "x_stampPatrolSalt";
     const patrolSalt = () => window.StampShop.seed();
@@ -1039,6 +1040,9 @@
           coachPick(),
           coachId ? h("div", { style: { fontSize: fz(11.5), color: SUB, margin: "-6px 2px 12px" } }, (nameOf(coachId) || "TA") + " 的打法：" + (D().STYLE_ZH[sty] || "稳扎稳打")) : null,
           rec[coachId] ? h("div", { style: { fontSize: fz(12), color: "#b8862a", marginBottom: 10 } }, "跟 " + (nameOf(coachId) || "TA") + " 接力赢过 " + (rec[coachId].win || 0) + " 次、打过 " + (rec[coachId].n || 0) + " 次") : null,
+          (() => { let sv = null; try { sv = typeof loadJSON === "function" ? loadJSON("x_stampRelaySave", null) : null; } catch (e) {} if (!sv || !sv.st || !sv.st.relay) return null;
+            const x = sv.st; return h("button", { "data-wk": "duelrelayresume", onClick: () => { x.relayRunning = false; x.relaySending = false; setSt(x); setMode("relay"); setHandSel(-1); setBoardSel(-1); },
+              className: "w-full", style: Object.assign(btn("transparent", C, C), { padding: "10px 0", marginBottom: 8, fontFamily: FD, fontSize: fz(14) }) }, "接着跟 " + (nameOf(x.relay.ta) || "TA") + " 打上次那局（第 " + x.turn + " 回合 · 信封 " + Math.max(0, x.me.hp) + "：" + Math.max(0, x.foe.hp) + "）"); })(),
           h("button", { "data-wk": "duelrelaygo", disabled: !coachId, onClick: startRelay, className: "w-full disabled:opacity-40", style: Object.assign(btn(C, "#fff"), { padding: "12px 0", fontFamily: FD, fontSize: fz(15), letterSpacing: ".1em" }) }, coachId ? "跟 " + (nameOf(coachId) || "TA") + " 开始接力" : "先挑一个人"))]);
     }
     if (!st && mode === "puzzle") {
@@ -1583,7 +1587,7 @@
 
     return shell([
       h(Head, { key: "hd", zh: st.shopFight ? "邮局小店 · 对「" + st.shopFight.name + "」" : st.story ? "剧情闯关 · 对「" + st.story.foe + "」" : st.relay ? "接力 · 第 " + st.turn + " 回合 · " + (st.turn % 2 ? "你下" : (nameOf(st.relay.ta) || "TA") + " 下") : st.puzzle ? (st.puzzle.daily ? "每日死信 · " + st.puzzle.daily : "死信 · 第 " + st.puzzle.lv + " 关") : st.patrol ? "邮区巡查 · " + (st.patrol === "boss" ? "巡查长" : st.patrol === "elite" ? "硬仗" : "普通仗") + " · 第 " + st.turn + " 回合" : st.shift ? "邮局值班 · 第 " + (shift ? shift.round : 1) + " 轮 · 第 " + st.turn + " 回合" : st.edict ? "封缄令 · 危险 " + (st.edictPts || 0) + " · 第 " + st.turn + " 回合" : st.raid ? (st.raid.endless ? "无尽" : "积压件") + " · 第 " + st.turn + " 回合" : st.siege ? "护信 " + ((st.siegeTier || 0) + 1) + " 档 · 第 " + Math.min(st.turn, st.siege.waves) + " 波" : "第 " + st.turn + " 回合", sub: st.siege ? "" : "对 " + foeName + (st.blind ? " · 盲打" : ""), bg: "transparent", ink: INK, right: guideBtn,
-        onBack: () => { if (st.shopFight) { setSt(null); setMode("shop"); return; } if (st.story) { setSt(null); setMode("story"); return; } if (st.relay) { setSt(null); setMode("relay"); return; } if (st.puzzle) { setSt(null); setMode("puzzle"); return; } if (st.patrol) { if (typeof requestAppConfirm === "function") requestAppConfirm("先离开这一场？", "这一格算没打赢，信封照现在的血算。", () => { st.over = st.over || { winner: "foe", turn: st.turn, me: st.me.hp, foe: st.foe.hp }; patrolBack(); }, "离开"); else { st.over = st.over || { winner: "foe" }; patrolBack(); } return; } if (st.shift) { setSt(null); setMode("shift"); return; } if (st.edict) { setSt(null); setMode("edictpick"); return; } if (st.raid) { setSt(null); setMode("raidpick"); return; } if (st.siege) { setSt(null); setMode("siegepick"); return; } if (st.run) { runBattle.onQuit && runBattle.onQuit(); return; } if (st.tutorial) { setSt(null); setTut(-1); return; } if (!over) { persist(st, series); setSaved({ st, series, foeId, at: Date.now() }); } else persist(null); setSt(null); setSeries(null); } }),
+        onBack: () => { if (st.shopFight) { setSt(null); setMode("shop"); return; } if (st.story) { setSt(null); setMode("story"); return; } if (st.relay) { relayKeep(st); setSt(null); setMode("relay"); return; } if (st.puzzle) { setSt(null); setMode("puzzle"); return; } if (st.patrol) { if (typeof requestAppConfirm === "function") requestAppConfirm("先离开这一场？", "这一格算没打赢，信封照现在的血算。", () => { st.over = st.over || { winner: "foe", turn: st.turn, me: st.me.hp, foe: st.foe.hp }; patrolBack(); }, "离开"); else { st.over = st.over || { winner: "foe" }; patrolBack(); } return; } if (st.shift) { setSt(null); setMode("shift"); return; } if (st.edict) { setSt(null); setMode("edictpick"); return; } if (st.raid) { setSt(null); setMode("raidpick"); return; } if (st.siege) { setSt(null); setMode("siegepick"); return; } if (st.run) { runBattle.onQuit && runBattle.onQuit(); return; } if (st.tutorial) { setSt(null); setTut(-1); return; } if (!over) { persist(st, series); setSaved({ st, series, foeId, at: Date.now() }); } else persist(null); setSt(null); setSeries(null); } }),
       h("div", { key: "bd", ref: bodyEl, className: "flex-1 min-h-0 overflow-y-auto px-4", style: { fontFamily: F, color: INK, paddingBottom: 14, overflowAnchor: "none" },
           onTouchStart: () => { touchAt.current = Date.now(); }, onTouchMove: () => { touchAt.current = Date.now(); }, onTouchEnd: () => { touchAt.current = Date.now(); }, onWheel: () => { touchAt.current = Date.now(); },
           onScroll: e => { if (!guarding()) keepY.current = e.currentTarget.scrollTop; else if (Math.abs(e.currentTarget.scrollTop - keepY.current) > 4) e.currentTarget.scrollTop = keepY.current; } },
