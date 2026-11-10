@@ -17768,6 +17768,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   //   只在还没点亮第一个字之前能换；走的是同一个 onPickLucky，传 "again"
   const pickLucky = (groupId, i) => {
     if (i === "badge") { const sb = luckyOf(groupId); luckySave(groupId, { ...sb, hideBadge: !sb.hideBadge }); return; }   // 顶栏挂不挂（她 2026-10-27）
+    // 挂哪个（她 2026-11-11 转群友：「点满了竟然不能挂了」）：收藏本里点满的也能挂；传 { wear: 字 }，再点一次同一个就换回挂正在点的那个
+    if (i && typeof i === "object" && "wear" in i) { const sb = luckyOf(groupId); const w = String(i.wear || ""); luckySave(groupId, { ...sb, wear: sb.wear === w ? "" : w, hideBadge: false }); return; }
     if (i === "again") {
       const st0 = luckyOf(groupId);
       if (!st0.word || !(st0.picked >= 0) || (st0.lit || 0) > 0) return;

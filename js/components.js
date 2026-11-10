@@ -21804,7 +21804,7 @@ function LuckyCharsPanel({ lucky, onDrawLucky, onPickLucky, busy, setBusy }) {
           : h("button", { "data-wk": "gluckydraw", disabled: gLuckyBusy, onClick: async () => { if (gLuckyBusy) return; setGLuckyBusy(true); try { await onDrawLucky(); } finally { setGLuckyBusy(false); } }, className: "w-full active:opacity-70 disabled:opacity-60", style: { minHeight: 44, borderRadius: 12, border: "1.5px solid #d9902b", color: "#a8641a", background: "transparent", fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))" } },
               gLuckyBusy ? "洗牌中…要等十几秒" : (book.length ? "抽下一张" : "抽一张") + " · 花一次调用"),
           lk.word && lk.cards && lk.picked >= 0 ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginTop: 8 } }, "没翻的那几张：" + lk.cards.filter((_, i) => i !== lk.picked).join("、")) : null,
-          lk.word ? h("div", { "data-wk": "gluckybadgeset", className: "flex items-center justify-between", style: { marginTop: 10 } },
+          lk.word || book.length ? h("div", { "data-wk": "gluckybadgeset", className: "flex items-center justify-between", style: { marginTop: 10 } },
             h("span", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.sub } }, "挂在名字旁边"),
             h(Toggle, { on: !lk.hideBadge, onChange: () => onPickLucky && onPickLucky("badge") })) : null,
           // 还没点亮第一个字、也还有没翻过的：能换一张（不花调用）
@@ -21813,12 +21813,15 @@ function LuckyCharsPanel({ lucky, onDrawLucky, onPickLucky, busy, setBusy }) {
                 style: { marginTop: 8, minHeight: 40, borderRadius: 10, border: "1px dashed #d9902b", background: "transparent", color: "#a8641a", fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))" } },
                 "不喜欢这张，从剩下的再翻一张（不花调用）") : null,
           book.length ? h("div", { "data-wk": "gluckybook", className: "pt-4" },
-            h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog, marginBottom: 6 } }, "收藏本 · " + book.length + " 个"),
-            h("div", { className: "flex flex-wrap", style: { gap: 6 } }, book.slice().reverse().map((b, i) => h("span", { key: i, title: new Date(b.ts).toLocaleDateString(),
-              style: { padding: "4px 10px", borderRadius: 999, background: "#f6d38a44", color: "#a8641a", fontFamily: F_DISPLAY, fontSize: "calc(13px * var(--app-fs, 1))" } }, b.word)))) : null);
+            h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog, marginBottom: 6 } }, "收藏本 · " + book.length + " 个 · 点一个挂在名字旁边" + (lk.word ? "，再点一下换回正在点的「" + lk.word + "」" : "")),
+            h("div", { className: "flex flex-wrap", style: { gap: 6 } }, book.slice().reverse().map((b, i) => { const on = lk.wear === b.word && !lk.hideBadge;
+              return h("button", { key: i, "data-wk": "gluckywear", "data-on": on ? "1" : "0", title: new Date(b.ts).toLocaleDateString(), onClick: () => onPickLucky && onPickLucky({ wear: b.word }), className: "active:opacity-70",
+              style: { padding: "4px 10px", borderRadius: 999, background: on ? "#d9902b" : "#f6d38a44", color: on ? "#fff" : "#a8641a", border: "1.5px solid " + (on ? "#a8641a" : "transparent"), fontFamily: F_DISPLAY, fontSize: "calc(13px * var(--app-fs, 1))" } }, (on ? "✓ " : "") + b.word); }))) : null);
 }
 // 顶栏名字旁边那枚：点亮的字是实的，没点亮的是虚的；面板里关了「挂在名字旁边」就不挂（进度照算）
 function luckyBadge(t, lucky) {
+  // 挂的是收藏本里点满的那个：整个亮着；没挑就挂正在点的那个
+  if (lucky && lucky.wear && !lucky.hideBadge && (lucky.book || []).some(b => b && b.word === lucky.wear) && typeof luckyUnits === "function") lucky = { word: lucky.wear, lit: luckyUnits(lucky.wear).length };
   if (!lucky || !lucky.word || lucky.hideBadge || typeof luckyUnits !== "function") return null;
   return h("span", { "data-wk": "gluckybadge", title: "幸运字符", style: { flexShrink: 0, marginLeft: 4, padding: "0 6px", borderRadius: 999, border: "1px solid " + t.line, fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", letterSpacing: "0.05em" } },
     luckyUnits(lucky.word).map((ch, i) => h("span", { key: i, "data-on": i < (lucky.lit || 0) ? "1" : "0", style: { color: i < (lucky.lit || 0) ? "#d9902b" : t.fog, opacity: i < (lucky.lit || 0) ? 1 : 0.45, fontWeight: i < (lucky.lit || 0) ? 700 : 400 } }, ch)));
