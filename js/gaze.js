@@ -652,7 +652,7 @@
               whyOpen ? "收起原话" : "到底哪儿没成"),
             whyOpen ? h("div", { "data-wk": "block", style: { fontFamily: F_BODY, fontSize: "calc(9.5px * var(--app-fs, 1))", lineHeight: 1.75, color: "rgba(140,112,74,.85)", background: "rgba(172,138,91,.08)", borderRadius: 3, padding: "7px 9px", whiteSpace: "pre-wrap", wordBreak: "break-all" } }, rv.raw) : null) : null);
       })() : null,
-      !hasAny(charId) ? h("div", { style: { textAlign: "center", padding: "30px 10px" } },
+      !hasAny(charId) ? h("div", { "data-wk": "gazeempty", style: { position: "relative", textAlign: "center", padding: "30px 10px" } },
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(13.5px * var(--app-fs, 1))", color: INKSOFT, lineHeight: 2.2, marginBottom: 16 } }, "这里还是空的。", h("br"), "让 " + charName + " 第一次把心里的这些写下来?"),
         // 空卡为什么空,得在这儿说出来。原来这一页不管是「还没聊够」「替TA自动写过但失败了」
         // 还是「TA连着好几轮说写不出来」,长相都一模一样——她只能看到「死活不填」,查不出是哪一种。

@@ -17617,13 +17617,16 @@ function GeoCard({ m, isU, who, avatar, myAvatar }) {
   return h("div", {
     className: "py-1 flex items-start gap-2 " + (isU ? "justify-end" : "justify-start")
   }, !isU && avatar,
-    h("div", { style: { position: "relative", width: 214, marginTop: 7 } },
+    // 位置卡的挂点（她 2026-11-10：「位置没改样式」）：纸本身原来只挂着公用的 card，钉子、地名、底下那行都抓不住
+    h("div", { "data-wk": "geocard", "data-me": isU ? "1" : "0", style: { position: "relative", width: 214, marginTop: 7 } },
       // 图钉:钉帽压在纸的上沿外面,底下一小片影子——纸是被按上去的,不是画上去的
       h("div", {
+        "data-wk": "geopin",
         style: { position: "absolute", top: -7, left: 16, width: 15, height: 15, borderRadius: 999,
           background: t.tint, boxShadow: "0 2px 4px rgba(0,0,0,.28)", zIndex: 2 }
       }),
       h("div", {
+        "data-wk": "geopinstem",
         style: { position: "absolute", top: 5, left: 22.5, width: 2, height: 13, background: t.tint, opacity: .5, zIndex: 1 }
       }),
       h("div", {
@@ -17631,9 +17634,9 @@ function GeoCard({ m, isU, who, avatar, myAvatar }) {
         style: { background: t.bg2, border: "1px solid " + t.line, borderRadius: 3,
           padding: "18px 16px 13px", boxShadow: "0 4px 12px rgba(0,0,0,.09)" }
       },
-        h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(16.5px * var(--app-fs, 1))", lineHeight: 1.5, color: t.ink, wordBreak: "break-word" } }, m.name || "某处"),
-        h("div", { style: { height: 1, background: t.line, margin: "10px 0 7px" } }),
-        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog } },
+        h("div", { "data-wk": "geoname", style: { fontFamily: F_DISPLAY, fontSize: "calc(16.5px * var(--app-fs, 1))", lineHeight: 1.5, color: t.ink, wordBreak: "break-word" } }, m.name || "某处"),
+        h("div", { "data-wk": "georule", style: { height: 1, background: t.line, margin: "10px 0 7px" } }),
+        h("div", { "data-wk": "geofoot", style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog } },
           (isU ? "我在这儿" : (who || "TA") + " 在这儿") + " · " + clock))),
     isU && myAvatar);
 }
@@ -18238,7 +18241,7 @@ function StateCard({
       h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", marginTop: 2, lineHeight: 1.5, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: t.fog } },
         // ⚠️配角的心情也显示（她 2026-09-20：「心情想法穿着动作这四样放 npc 状态卡」）。
         //   原来这两处拿 isNpc 把心情那一行整个藏了；好感那颗心照旧不给配角（见下面的 scale）。
-        dm ? h("span", { style: { color: t.accent } }, dm.label) : null,
+        dm ? h("span", { "data-wk": "statemood", style: { color: t.accent } }, dm.label) : null,
         dm ? " · " : "",
         roomName && !dm ? "这间房还没有心情"
           : dm && dm.def ? "聊几句就会变"
@@ -18274,6 +18277,8 @@ function StateCard({
         h("div", { style: { position: "absolute", left: 0, right: 0, bottom: 0, height: "calc(var(--sc-heart-lvl) * 100%)", background: "var(--sc-heart-ink, var(--sc-heart-ink-auto))", opacity: .9,
           // 水面那一道亮边：不加的话就是块色，看不出是「灌到这儿」
           borderTop: lvl > 0 && lvl < 1 ? "1px solid rgba(255,255,255,.5)" : "none" } })),
+      // 水位那一头的小扣（默认藏着）：底边跟着水位走，主题把心换成横条时拿它当进度条末端那颗圆扣
+      h("span", { "data-wk": "stateheartknob", "aria-hidden": "true", style: { display: "none", position: "absolute", left: "50%", bottom: "calc(var(--sc-heart-lvl) * 100%)" } }),
       // 数字压在心中间：描一圈卡片底色，压在水位上也读得清
       h("span", { "data-wk": "stateheartnum", style: {
         position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center",
@@ -18282,6 +18287,8 @@ function StateCard({
       } }, aff)),
     h("div", { className: "flex-1 min-w-0" },
       label("好感度"),
+      // 好感数字的第二个挂点（她 2026-11-10 小白狗美化：心换成横条以后，数字想摆到右上角）：默认藏着，主题 display 出来自己摆
+      h("span", { "data-wk": "stateaffval", style: { display: "none" } }, aff),
       state && state.affinityLabel ? h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(16px * var(--app-fs, 1))", color: heartInk, marginTop: 6 } }, state.affinityLabel) : null,
       h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", color: t.fog, marginTop: 7, lineHeight: 1.6 } }, "跟着聊天自己更新，不额外花额度")));
   // ⚠️「翻旧的」原来钉在抬头上，可它翻的只有【此刻】这一栏；站在「Ta 眼里」按它，
@@ -18289,6 +18296,7 @@ function StateCard({
   //   一个键管不着眼下这一栏，就不该摆在管着两栏的抬头上——挪进此刻自己这一栏里。
   //   两头方向相反：此刻的底下是「底下还有旧的」，旧的那一叠顶上是「回此刻」。
   const histBtn = (back) => hist.length > 0 ? h("button", {
+    "data-wk": "statehistbtn", "data-part": back ? "back" : "more",
     onClick: () => setShowHist(!back), className: "w-full active:opacity-60",
     style: {
       fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: back ? t.accent : t.sub, background: "transparent",
@@ -18302,17 +18310,24 @@ function StateCard({
     style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, background: "transparent", border: "none", padding: "2px 0 2px 8px", minHeight: 24 } }, txt) : null;
   const askClear = () => requestAppConfirm("清空" + scTa + "的旧心声？", "只删这些心声，聊天记录、心情和好感都不动。", () => { onDelThought("all"); setShowHist(false); }, "清空");
   const body = showHist
-    ? h("div", { style: { padding: "13px 17px 18px" } },
+    // 翻旧的那一页的挂点（她 2026-11-10 小白狗美化：「状态卡历史也弄一下」）：整页、抬头、每一条、条里的心情/时间/正文/动作穿着，都能单独抓
+    ? h("div", { "data-wk": "statehist", style: { padding: "13px 17px 18px" } },
       histBtn(true),
-      h("div", { className: "flex items-center justify-between" }, label(scTa + "心里闪过的那些 · " + hist.length + " 条"), delBtn("清空", askClear, true)),
-      h("div", { style: { marginTop: 10 } }, hist.map((s2, i) => h("div", { key: i, style: { paddingBottom: 11, marginBottom: 11, borderBottom: i === hist.length - 1 ? "none" : "1px solid " + t.line } },
+      h("div", { "data-wk": "statehisthead", className: "flex items-center justify-between" }, label(scTa + "心里闪过的那些 · " + hist.length + " 条"), delBtn("清空", askClear, true)),
+      h("div", { "data-wk": "statehistlist", style: { marginTop: 10 } }, hist.map((s2, i) => h("div", { key: i, "data-wk": "statehistitem", style: { paddingBottom: 11, marginBottom: 11, borderBottom: i === hist.length - 1 ? "none" : "1px solid " + t.line } },
         h("div", { className: "flex items-center gap-2", style: { marginBottom: 4 } },
-          (window.MoodLabel ? window.MoodLabel.localize(s2.mood) : s2.mood) ? h("span", { style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", color: t.accent } }, window.MoodLabel ? window.MoodLabel.localize(s2.mood) : s2.mood) : null,
-          h("span", { style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", color: t.fog } }, s2.ts ? timeAgo(s2.ts) : ""),
+          (window.MoodLabel ? window.MoodLabel.localize(s2.mood) : s2.mood) ? h("span", { "data-wk": "statehistmood", style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", color: t.accent } }, window.MoodLabel ? window.MoodLabel.localize(s2.mood) : s2.mood) : null,
+          h("span", { "data-wk": "statehisttime", style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", color: t.fog } }, s2.ts ? timeAgo(s2.ts) : ""),
           h("span", { style: { flex: 1 } }),
           delBtn("删", () => { onDelThought(i); if (hist.length <= 1) setShowHist(false); })),
-        h("div", { style: { fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: "calc(13.5px * var(--app-fs, 1))", lineHeight: 1.65, color: t.ink, whiteSpace: "pre-line" } }, "“", h(TransText, { text: s2.thought || "", ink: t.ink, inline: true, size: 13.5, noModel: true }), "”"),
-        !hideWearAction && (s2.wearing || s2.action) ? h(ClampText, { lines: 2, text: [s2.action, s2.wearing].filter(Boolean).join(" · "), style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, marginTop: 4 } }) : null))))
+        h("div", { "data-wk": "statehisttext", style: { fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: "calc(13.5px * var(--app-fs, 1))", lineHeight: 1.65, color: t.ink, whiteSpace: "pre-line" } }, "“", h(TransText, { text: s2.thought || "", ink: t.ink, inline: true, size: 13.5, noModel: true }), "”"),
+        !hideWearAction && (s2.wearing || s2.action) ? h("div", { "data-wk": "statehistmeta" },
+          h(ClampText, { lines: 2, text: [s2.action, s2.wearing].filter(Boolean).join(" · "), style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, marginTop: 4 } }),
+          // 动作、穿着分开的两行（默认藏着）：主题想一行一样、各配个小图标时 display 出来，上面那行合着的就藏掉
+          s2.action ? h("div", { "data-wk": "statehistact", style: { display: "none" } }, s2.action) : null,
+          s2.wearing ? h("div", { "data-wk": "statehistwear", style: { display: "none" } }, s2.wearing) : null) : null))),
+      // 翻到底那一句（默认藏着）
+      h("div", { "data-wk": "statehistend", style: { display: "none" } }, "没有更早的了"))
     : h(Fragment, null,
       (!state || (!S(state.thought) && roomName)) ? h(Empty, { text: roomName ? (hist.length ? "这一轮没留下心声" : "这间房还没有心声") : "还没有状态", sub: roomName ? (hist.length ? "下一轮有了就会出现在这儿；之前的在下面「翻旧的」" : "在这里聊过或赴约后，会只为本房留下") : "和" + scTa + "聊几句，状态会自动生成" }) : null,
       // 看得见的：穿着和动作本来就是同一眼看到的东西，合成一段——
