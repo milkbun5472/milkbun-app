@@ -28791,8 +28791,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
           + (split ? "这是一人一半：前 " + def.n + " 格在 " + uName + " 那半张，后 " + def.n + " 格在你那半张（会换成你自己手机的锁屏）；手写的字也是前一半在她那张、后一半在你那张。" : "")
           + (def.caption ? "每张拍立得下面写一句很短的字（captions，十个字以内，可以留空）。" : "")
           + "再写最多 " + wn + " 句手写在壁纸上的字（words，每句十四个字以内，中文英文都行）。"
-          + "挑哪几张、写不写字、写什么，照你这个人来：话少的就少写，一句不写也行。why 用你平时说话的口气说一句为什么挑这几张。" + (hist ? "\n\n【这一回拼壁纸到现在，你们俩的来回（「她」是 " + uName + "，「你」是你）】\n" + hist + "\n接着这些往下：记得自己刚才动过什么、说过什么，别把上一句话再说一遍，她刚改的地方你看得见也可以接一句。" : ""),
-        schemaHint: "{\"picks\":[编号],\"captions\":[\"\"],\"words\":[\"\"],\"why\":\"一句\"}",
+          + "挑哪几张、写不写字、写什么，照你这个人来：话少的就少写，一句不写也行。why 是你摆完想跟她说的话（为什么挑这几张、或者别的），想说什么就说什么，长短跟着你此刻的心情和你这个人平时说话的样子来。" + (hist ? "\n\n【这一回拼壁纸到现在，你们俩的来回（「她」是 " + uName + "，「你」是你）】\n" + hist + "\n接着这些往下：记得自己刚才动过什么、说过什么，别把上一句话再说一遍，她刚改的地方你看得见也可以接一句。" : ""),
+        schemaHint: "{\"picks\":[编号],\"captions\":[\"\"],\"words\":[\"\"],\"why\":\"你想跟她说的话\"}",
         maxTokens: 12000
       });
       const max = Math.min(list.length, 40), picks = [];
@@ -28800,7 +28800,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       for (let i = 0; picks.length < n && i < list.length; i++) if (picks.indexOf(i) < 0) picks.push(i);
       while (picks.length < n) picks.push(-1);
       const clip = (a, k, len) => (Array.isArray(a) ? a : []).slice(0, k).map(x => String(x == null ? "" : x).replace(/\s+/g, " ").trim().slice(0, len));
-      return { picks, captions: clip(d && d.captions, n, 16), words: clip(d && d.words, wn, 22), why: String((d && d.why) || "").trim().slice(0, 120) };
+      return { picks, captions: clip(d && d.captions, n, 16), words: clip(d && d.words, wn, 22), why: String((d && d.why) || "").trim() };
     } catch (e) { toast("没摆成：" + ((e && e.message) || "重试")); return null; }
   };
   // TA 看看现在这张、动几下：发一张缩小的图 + 每样东西的编号和位置；TA 回一句话和几步改动（改动在 collage.js 里落）
@@ -28814,8 +28814,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         voice: true, images: img ? [img] : [],
         instruction: "你和 " + uName + " 在一起拼一张手机壁纸，她把现在的样子给你看" + (img ? "（图里就是）" : "") + "。下面是上面每样东西的编号、位置（占整张的左右%、上下%）、大小和角度：\n" + desc
           + "\n\n你看一眼，照你这个人的性子动几下：可以挪（to:[左右%,上下%]）、放大缩小（size，100 是原样）、转（angle，度）、拿掉（remove:true），可以加贴纸或者写一句字（add），也可以换背景、颜色、字体。"
-          + "想动多少动多少，觉得已经很好、一下都不想动也行。say 是你看着这张说的一句话，用你平时说话的口气，可以说你为什么这么动。" + (hist ? "\n\n【这一回拼壁纸到现在，你们俩的来回（「她」是 " + uName + "，「你」是你）】\n" + hist + "\n接着这些往下：记得自己刚才动过什么、说过什么，别把上一句话再说一遍，她刚改的地方你看得见也可以接一句。" : ""),
-        schemaHint: "{\"say\":\"一句\",\"ops\":[{\"id\":\"编号\",\"to\":[50,50],\"size\":100,\"angle\":0,\"remove\":false}],\"add\":[{\"sticker\":\"贴纸或我的贴纸N\",\"text\":\"或者一句字\",\"at\":[50,50],\"size\":100,\"angle\":0,\"color\":\"#2b2b2b\"}],\"bg\":\"\",\"bgColor\":\"\",\"bgInk\":\"\",\"font\":\"\"}",
+          + "想动多少动多少，觉得已经很好、一下都不想动也行。say 是你看着这张想跟她说的话，可以说你为什么这么动，想说什么就说什么，长短跟着你此刻的心情和你这个人平时说话的样子来。" + (hist ? "\n\n【这一回拼壁纸到现在，你们俩的来回（「她」是 " + uName + "，「你」是你）】\n" + hist + "\n接着这些往下：记得自己刚才动过什么、说过什么，别把上一句话再说一遍，她刚改的地方你看得见也可以接一句。" : ""),
+        schemaHint: "{\"say\":\"你想跟她说的话\",\"ops\":[{\"id\":\"编号\",\"to\":[50,50],\"size\":100,\"angle\":0,\"remove\":false}],\"add\":[{\"sticker\":\"贴纸或我的贴纸N\",\"text\":\"或者一句字\",\"at\":[50,50],\"size\":100,\"angle\":0,\"color\":\"#2b2b2b\"}],\"bg\":\"\",\"bgColor\":\"\",\"bgInk\":\"\",\"font\":\"\"}",
         maxTokens: 12000
       });
     } catch (e) { toast("没看成：" + ((e && e.message) || "重试")); return null; }
@@ -28831,11 +28831,11 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       const d = await runProbe(route, ctxFor(char), {
         voice: true, images: imgs || [],
         instruction: uName + " 在拼你们的手机壁纸，拿了几样问你：" + what + "？\n" + (labels || []).join("\n")
-          + "\n\n照你自己的喜好挑一个（pick 写编号），why 用你平时说话的口气说一句为什么。" + (hist ? "\n\n【这一回拼壁纸到现在，你们俩的来回（「她」是 " + uName + "，「你」是你）】\n" + hist + "\n接着这些往下：记得自己刚才动过什么、说过什么，别把上一句话再说一遍，她刚改的地方你看得见也可以接一句。" : ""),
-        schemaHint: "{\"pick\":1,\"why\":\"一句\"}",
+          + "\n\n照你自己的喜好挑一个（pick 写编号），why 是你挑完想跟她说的话，想说什么就说什么，长短跟着你此刻的心情和你这个人平时说话的样子来。" + (hist ? "\n\n【这一回拼壁纸到现在，你们俩的来回（「她」是 " + uName + "，「你」是你）】\n" + hist + "\n接着这些往下：记得自己刚才动过什么、说过什么，别把上一句话再说一遍，她刚改的地方你看得见也可以接一句。" : ""),
+        schemaHint: "{\"pick\":1,\"why\":\"你想跟她说的话\"}",
         maxTokens: 12000
       });
-      return { pick: Math.round(Number(d && d.pick)) || 0, why: String((d && d.why) || "").trim().slice(0, 140) };
+      return { pick: Math.round(Number(d && d.pick)) || 0, why: String((d && d.why) || "").trim() };
     } catch (e) { toast("没挑成：" + ((e && e.message) || "重试")); return null; }
   };
   // 存下来：挂合照墙、存到手机；一人一半那半张换成 TA 的锁屏（跟TA自己换锁屏是同一格）；TA 下一轮知道你们拼了一张
@@ -28852,7 +28852,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     }
     try { if (typeof saveFile === "function") await saveFile(new File([o.mine], "我们的壁纸-" + Date.now() + ".jpg", { type: "image/jpeg" })); } catch (e) {}
     toast(o.his ? "存好了，" + (char.remark || char.name) + " 的锁屏也换上了" : "存好了，也挂上合照墙了");
-    waitForHer(charId, { collageDone: { split: !!o.his, words: (o.words || []).map(w => String(w || "").trim()).filter(Boolean).slice(0, 4), story: (o.story || []).map(x => String(x).slice(0, 120)).slice(-8) } });
+    waitForHer(charId, { collageDone: { split: !!o.his, words: (o.words || []).map(w => String(w || "").trim()).filter(Boolean).slice(0, 4), story: (o.story || []).map(x => String(x).slice(0, 400)).slice(-8) } });
   };
   const gardenPlantMine = (char, species, why) => {
     const sp = String(species || "").trim();

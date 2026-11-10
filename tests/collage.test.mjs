@@ -71,3 +71,8 @@ test("这一回的来回：前后两版比出谁改了啥，叫TA时带上，存
   assert.match(app, /const collageArrange = async \(charId, list, tpl, split, hist\)/);
   assert.match(app, /拼的时候你们俩是这么来回的/);
 });
+test("TA 说的话不限字数：提示里不写「一句」，代码不截断；人设和去人机味走 voice 那一套", () => {
+  const seg = app.slice(app.indexOf("const collageArrange = async"), app.indexOf("const gardenPlantMine = "));
+  assert.doesNotMatch(seg, /说一句|"一句"|why: String\(\(d && d\.why\) \|\| ""\)\.trim\(\)\.slice/);
+  assert.equal((seg.match(/voice: true/g) || []).length, 3);
+});
