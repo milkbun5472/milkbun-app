@@ -159,6 +159,81 @@
     for (let k = 0; k < (split ? 2 : 1); k++) d.forEach(x => out.push({ ch: x[0], x: x[1] + k * W, y: x[2], size: x[3], color: x[4] || "#000" }));
     return out;
   };
+  // ── 照片滤镜（她 2026-11-10）：逐像素算一遍存起来，不靠 ctx.filter（老 iPhone 的 Safari 不认）──
+  const FILTERS = { "": "原图", bw: "黑白", vintage: "复古", film: "胶片", soft: "柔光" };
+  const FILTER_ORDER = ["", "bw", "vintage", "film", "soft"];
+  const _filtered = new WeakMap();
+  function filtered(img, f) {
+    if (!img || !f || !FILTERS[f]) return img;
+    let m = _filtered.get(img); if (!m) { m = {}; _filtered.set(img, m); }
+    if (m[f]) return m[f];
+    const k = Math.min(1, 1200 / Math.max(img.width, img.height)), c = document.createElement("canvas");
+    c.width = Math.max(1, Math.round(img.width * k)); c.height = Math.max(1, Math.round(img.height * k));
+    const x = c.getContext("2d"); x.drawImage(img, 0, 0, c.width, c.height);
+    try {
+      const d = x.getImageData(0, 0, c.width, c.height), a = d.data;
+      for (let i = 0; i < a.length; i += 4) {
+        let r = a[i], g = a[i + 1], b = a[i + 2]; const l = 0.299 * r + 0.587 * g + 0.114 * b;
+        if (f === "bw") { const v = (l - 128) * 1.12 + 128; r = g = b = v; }
+        else if (f === "vintage") { const sr = l * 1.07 + 22, sg = l * 0.93 + 14, sb = l * 0.72 + 4; r = sr * 0.75 + r * 0.25; g = sg * 0.75 + g * 0.25; b = sb * 0.75 + b * 0.25; r = r * 0.9 + 22; g = g * 0.9 + 18; b = b * 0.9 + 16; }
+        else if (f === "film") { r = (r - 128) * 1.15 + 136; g = (g - 128) * 1.1 + 128; b = (b - 128) * 1.05 + 116; const n = ((i * 2654435761) >>> 24) / 255 * 22 - 11; r += n; g += n; b += n; }
+        else if (f === "soft") { r = r * 0.82 + 52; g = g * 0.82 + 48; b = b * 0.82 + 50; }
+        a[i] = r < 0 ? 0 : r > 255 ? 255 : r; a[i + 1] = g < 0 ? 0 : g > 255 ? 255 : g; a[i + 2] = b < 0 ? 0 : b > 255 ? 255 : b;
+      }
+      x.putImageData(d, 0, 0);
+    } catch (e) { return img; }   // 跨域取不到像素：退回原图
+    m[f] = c; return c;
+  }
+  // ── 字的样式：描边、阴影、纸条、竖排 ──
+  const TSTYLES = { "": "普通", outline: "描边", shadow: "阴影", strip: "纸条", vertical: "竖排" };
+  const TSTYLE_ORDER = ["", "outline", "shadow", "strip", "vertical"];
+  // 在原点画一句字（已经 translate/rotate 好），返回占的宽高
+  function paintText(ctx, s, size, font, color, st, maxW) {
+    ctx.textAlign = "center"; ctx.textBaseline = "middle";
+    if (st === "vertical") {
+      const ch = Array.from(s), step = size * 1.05, h0 = ch.length * step;
+      ctx.font = size + "px " + font; ctx.fillStyle = color;
+      ch.forEach((c, i) => ctx.fillText(c, 0, -h0 / 2 + step * (i + 0.5)));
+      return { w: size * 1.2, h: h0 };
+    }
+    const tw = fitText(ctx, s, size, maxW || 960, font), fsz = parseFloat(ctx.font) || size;
+    if (st === "strip") {
+      const pw = tw + fsz * 0.9, ph = fsz * 1.35;
+      ctx.save(); ctx.shadowColor = "rgba(0,0,0,.18)"; ctx.shadowBlur = 10; ctx.shadowOffsetY = 4; ctx.fillStyle = "#fbf8f1";
+      ctx.fillRect(-pw / 2, -ph / 2, pw, ph); ctx.restore();
+    }
+    if (st === "outline") { ctx.lineJoin = "round"; ctx.lineWidth = Math.max(4, fsz * 0.16); ctx.strokeStyle = color === "#ffffff" ? "#2b2b2b" : "#ffffff"; ctx.strokeText(s, 0, 0); }
+    if (st === "shadow") { ctx.shadowColor = "rgba(0,0,0,.35)"; ctx.shadowBlur = fsz * 0.18; ctx.shadowOffsetX = fsz * 0.06; ctx.shadowOffsetY = fsz * 0.08; }
+    ctx.fillStyle = color; ctx.fillText(s, 0, 0);
+    ctx.shadowColor = "transparent";
+    return { w: tw + (st === "strip" ? fsz * 0.9 : 0), h: fsz * 1.4 };
+  }
+  // ── 胶带和手绘涂鸦：跟贴纸一样能拖能转，只是画出来的 ──
+  const SHAPES = { tape: "和纸胶带", circle: "手绘圈", arrow: "箭头", underline: "下划线", heartline: "爱心线", star: "星星线", wave: "波浪线" };
+  const SHAPE_ORDER = ["tape", "circle", "arrow", "underline", "heartline", "star", "wave"];
+  const SHAPE_COLORS = ["#e9b7c0", "#f3d27a", "#a9cbe0", "#b7d3a8", "#c9b6e4", "#2b2b2b", "#b23a48", "#ffffff"];
+  function paintShape(ctx, d, size) {
+    const c = d.color || (d.shape === "tape" ? "#e9b7c0" : "#2b2b2b");
+    ctx.strokeStyle = c; ctx.fillStyle = c; ctx.lineCap = "round"; ctx.lineJoin = "round"; ctx.lineWidth = Math.max(5, size * 0.07);
+    const S = size;
+    if (d.shape === "tape") {
+      const w = S * 2.4, h = S * 0.6, z = h / 6;
+      ctx.globalAlpha = 0.78; ctx.beginPath(); ctx.moveTo(-w / 2, -h / 2);
+      ctx.lineTo(w / 2, -h / 2); for (let i = 0; i < 6; i++) ctx.lineTo(w / 2 + (i % 2 ? 0 : -z), -h / 2 + z * (i + 1));
+      ctx.lineTo(-w / 2, h / 2); for (let i = 0; i < 6; i++) ctx.lineTo(-w / 2 + (i % 2 ? 0 : z), h / 2 - z * (i + 1));
+      ctx.closePath(); ctx.fill(); ctx.globalAlpha = 0.18; ctx.fillStyle = "#fff";
+      for (let x = -w / 2 + h * 0.3; x < w / 2; x += h * 0.6) ctx.fillRect(x, -h / 2, h * 0.18, h);
+      ctx.globalAlpha = 1; return { w, h };
+    }
+    ctx.beginPath();
+    if (d.shape === "circle") { ctx.ellipse(0, 0, S * 1.25, S * 0.75, -0.08, 0.15, Math.PI * 2 + 0.45); ctx.stroke(); return { w: S * 2.6, h: S * 1.7 }; }
+    if (d.shape === "arrow") { ctx.moveTo(-S, S * 0.25); ctx.quadraticCurveTo(-S * 0.1, -S * 0.5, S, -S * 0.1); ctx.stroke(); ctx.beginPath(); ctx.moveTo(S * 0.62, -S * 0.42); ctx.lineTo(S, -S * 0.1); ctx.lineTo(S * 0.6, S * 0.18); ctx.stroke(); return { w: S * 2.2, h: S * 1.2 }; }
+    if (d.shape === "underline") { ctx.moveTo(-S * 1.3, 0); ctx.bezierCurveTo(-S * 0.4, S * 0.12, S * 0.4, -S * 0.12, S * 1.3, S * 0.04); ctx.stroke(); return { w: S * 2.7, h: S * 0.5 }; }
+    if (d.shape === "heartline") { ctx.scale(S / 60, S / 60); ctx.lineWidth = Math.max(5, size * 0.07) * 60 / S; ctx.moveTo(0, 30); ctx.bezierCurveTo(-60, -10, -40, -60, 0, -30); ctx.bezierCurveTo(40, -60, 60, -10, 0, 30); ctx.stroke(); return { w: S * 1.9, h: S * 1.6 }; }
+    if (d.shape === "star") { for (let i = 0; i < 10; i++) { const rr = i % 2 ? S * 0.42 : S, a = -Math.PI / 2 + i * Math.PI / 5; ctx[i ? "lineTo" : "moveTo"](Math.cos(a) * rr, Math.sin(a) * rr); } ctx.closePath(); ctx.stroke(); return { w: S * 2.1, h: S * 2.1 }; }
+    if (d.shape === "wave") { ctx.moveTo(-S * 1.4, 0); for (let i = 1; i <= 8; i++) ctx.quadraticCurveTo(-S * 1.4 + S * 0.35 * (i - 0.5), i % 2 ? -S * 0.3 : S * 0.3, -S * 1.4 + S * 0.35 * i, 0); ctx.stroke(); return { w: S * 2.9, h: S * 0.8 }; }
+    return { w: S, h: S };
+  }
   // layout = { tpl, split, picks, captions, words, font, fontScale, bg, deco, adj }；imgs = 照片下标 → 已解码的图
   //   一人一半：左边一整张给她、右边一整张给 TA，格子各一套；接缝上一颗心，两张并排才拼得起来
   //   返回每样东西在画布上的位置（拖动时认是按到了谁）
@@ -174,7 +249,7 @@
       def.slots.forEach((sl, i) => {
         const at = k * def.n + i, p = (layout.picks || [])[at];
         if ((layout.hidden || {})["s" + at]) return;   // 这一格她删掉了
-        const bx = slot(ctx, layout.tpl, sl, p != null && p >= 0 ? imgs[p] : null, def.caption ? (layout.captions || [])[at] : "", ox, adjOf(layout, "s" + at), font, fs);
+        const bx = slot(ctx, layout.tpl, sl, p != null && p >= 0 ? filtered(imgs[p], (layout.filters || {})["s" + at]) : null, def.caption ? (layout.captions || [])[at] : "", ox, adjOf(layout, "s" + at), font, fs);
         boxes.push(Object.assign({ key: "s" + at, kind: "slot", idx: at }, bx));
       });
     }
@@ -184,31 +259,30 @@
         const at = k * def.words.length + i, s = String((layout.words || [])[at] || "").trim(); if (!s) return;
         const a = adjOf(layout, "w" + at), x = ox + wd.x + (a.dx || 0), y = wd.y + (a.dy || 0);
         ctx.save(); ctx.translate(x, y); ctx.rotate(((wd.r || 0) + (a.r || 0)) * Math.PI / 180);
-        ctx.fillStyle = layout.bg === "night" ? "#f3eee8" : wd.color; ctx.textAlign = "center"; ctx.textBaseline = "middle";
-        const size = wd.size * fs * (a.s || 1), tw = fitText(ctx, s, size, 960, font); ctx.fillText(s, 0, 0);
+        const size = wd.size * fs * (a.s || 1), dim = paintText(ctx, s, size, font, layout.bg === "night" ? "#f3eee8" : wd.color, (layout.tstyle || {})["w" + at], 960);
         ctx.restore();
-        boxes.push({ key: "w" + at, kind: "word", idx: at, x, y, w: tw + 40, h: size * 1.4 });
+        boxes.push({ key: "w" + at, kind: "word", idx: at, x, y, w: dim.w + 40, h: dim.h });
       });
     }
     // 她自己加的照片和字：按加进来的先后叠，后加的在上面
     (layout.free || []).forEach((f, i) => {
       if (f.type === "photo") {
-        const bx = slot(ctx, f.frame || "scrap", { x: f.x, y: f.y, w: f.w, h: f.h, round: 40 }, f.p != null && f.p >= 0 ? imgs[f.p] : null, f.cap || "", 0, { s: f.s, r: f.r }, font, fs);
+        const bx = slot(ctx, f.frame || "scrap", { x: f.x, y: f.y, w: f.w, h: f.h, round: 40 }, f.p != null && f.p >= 0 ? filtered(imgs[f.p], f.filter) : null, f.cap || "", 0, { s: f.s, r: f.r }, font, fs);
         boxes.push(Object.assign({ key: "f" + i, kind: "fphoto", idx: i }, bx));
       } else {
         const s = String(f.text || "").trim(); if (!s) return;
         const ff = (FONTS[f.font] || FONTS[layout.font] || FONTS.hand).css, size = (f.size || 70) * (f.s || 1);
         ctx.save(); ctx.translate(f.x, f.y); ctx.rotate((f.r || 0) * Math.PI / 180);
-        ctx.fillStyle = f.color || "#2b2b2b"; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.font = size + "px " + ff;
-        const tw = ctx.measureText(s).width; ctx.fillText(s, 0, 0); ctx.restore();
-        boxes.push({ key: "f" + i, kind: "ftext", idx: i, x: f.x, y: f.y, w: tw + 40, h: size * 1.4 });
+        const dim = paintText(ctx, s, size, ff, f.color || "#2b2b2b", f.tstyle, 4000); ctx.restore();
+        boxes.push({ key: "f" + i, kind: "ftext", idx: i, x: f.x, y: f.y, w: dim.w + 40, h: dim.h });
       }
     });
     (layout.deco || defaultDeco(layout.tpl, layout.split)).forEach((d, i) => {
       const size = d.size * (d.s || 1);
       ctx.save(); ctx.translate(d.x, d.y); ctx.rotate((d.r || 0) * Math.PI / 180);
       let bw = size * 1.2, bh = size * 1.2;
-      if (d.img) {   // 她自己传的贴纸：按原图比例，长边 = size×1.6
+      if (d.shape) { const dim = paintShape(ctx, d, size); bw = dim.w; bh = dim.h; }
+      else if (d.img) {   // 她自己传的贴纸：按原图比例，长边 = size×1.6
         const im = imgs[d.img];
         if (im) { const k = size * 1.6 / Math.max(im.width, im.height); bw = im.width * k; bh = im.height * k; ctx.drawImage(im, -bw / 2, -bh / 2, bw, bh); }
       } else { ctx.font = size + "px " + EMOJI_FONT; ctx.fillStyle = d.color || "#000"; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText(d.ch, 0, 0); }
@@ -254,6 +328,8 @@
     if ((a.bgColor || "") !== (b.bgColor || "") || (a.bgInk || "") !== (b.bgInk || "")) out.push("改了背景颜色");
     if (a.font !== b.font) out.push("字体换成了" + (FONTS[b.font] || {}).name);
     if ((a.fontScale || 1) !== (b.fontScale || 1)) out.push("字号调到了" + Math.round((b.fontScale || 1) * 100) + "%");
+    if (JSON.stringify(a.filters || {}) !== JSON.stringify(b.filters || {})) out.push("给照片换了滤镜");
+    if (JSON.stringify(a.tstyle || {}) !== JSON.stringify(b.tstyle || {})) out.push("改了字的样式");
     (b.picks || []).forEach((p, i) => { if ((a.picks || [])[i] !== p && i < (a.picks || []).length) out.push("第" + (i + 1) + "格换成了" + (nameOfPhoto(p) || "另一张照片")); });
     const txt = (x, k) => (x[k] || []).filter(Boolean).join("／");
     if (txt(a, "words") !== txt(b, "words")) out.push("手写字改成了「" + (txt(b, "words") || "（空）") + "」");
@@ -262,8 +338,8 @@
     if (hid(b) > hid(a)) out.push("拿掉了" + (hid(b) - hid(a)) + "格照片"); else if (hid(b) < hid(a)) out.push("把拿掉的格子放回来了");
     const da = a.deco || defaultDeco(a.tpl, a.split), db = b.deco || defaultDeco(b.tpl, b.split);
     if (a.tpl === b.tpl && !!a.split === !!b.split) {
-      if (db.length > da.length) out.push("加了贴纸 " + db.slice(da.length).map(nameOfDeco).join(" "));
-      if (db.length < da.length) out.push("拿掉了" + (da.length - db.length) + "颗贴纸");
+      if (db.length > da.length) out.push("加了 " + db.slice(da.length).map(nameOfDeco).join(" "));
+      if (db.length < da.length) out.push("拿掉了" + (da.length - db.length) + "样贴纸/胶带/涂鸦");
       const moved = db.slice(0, Math.min(da.length, db.length)).filter((d, i) => d.x !== da[i].x || d.y !== da[i].y || (d.s || 1) !== (da[i].s || 1) || (d.r || 0) !== (da[i].r || 0)).length;
       if (moved) out.push("挪/调了" + moved + "颗贴纸");
       const adjN = Object.keys(Object.assign({}, a.adj, b.adj)).filter(k => JSON.stringify((a.adj || {})[k] || {}) !== JSON.stringify((b.adj || {})[k] || {})).length;
@@ -517,6 +593,10 @@
       const deco = decoNow(l).concat([{ ch, x: W / 2 + (Math.random() * 200 - 100), y: H / 2 + (Math.random() * 300 - 150), size: 130, color: /[♥♡]/.test(ch) ? "#d0465c" : /[✿☆]/.test(ch) ? "#c9a227" : "#000" }]);
       setSel("d" + (deco.length - 1)); return Object.assign({}, l, { deco });
     });
+    const addShape = shape => setLayout(l => {
+      const deco = decoNow(l).concat([{ shape, x: W / 2 + (Math.random() * 200 - 100), y: H / 2 + (Math.random() * 300 - 150), size: 120, color: shape === "tape" ? SHAPE_COLORS[Math.floor(Math.random() * 5)] : (l.bg === "night" ? "#ffffff" : "#2b2b2b") }]);
+      setSel("d" + (deco.length - 1)); return Object.assign({}, l, { deco });
+    });
     const addImgSticker = key => setLayout(l => {
       const deco = decoNow(l).concat([{ img: key, x: W / 2 + (Math.random() * 200 - 100), y: H / 2 + (Math.random() * 300 - 150), size: 180 }]);
       setSel("d" + (deco.length - 1)); return Object.assign({}, l, { deco });
@@ -535,7 +615,7 @@
     const whatOf = b => {
       if (b.kind === "slot") { const p = list[(layout.picks || [])[b.idx]]; return "照片（样式自带的第" + (b.idx + 1) + "格）" + (p && p.desc ? "：" + String(p.desc).slice(0, 30) : ""); }
       if (b.kind === "word") return "手写字：「" + (layout.words || [])[b.idx] + "」";
-      if (b.kind === "deco") { const d = decoNow(layout)[b.idx] || {}; return d.img ? "贴纸：我的贴纸" + (myStks.indexOf(d.img) + 1) : "贴纸：" + d.ch; }
+      if (b.kind === "deco") { const d = decoNow(layout)[b.idx] || {}; return d.shape ? SHAPES[d.shape] + (d.color ? "（" + d.color + "）" : "") : d.img ? "贴纸：我的贴纸" + (myStks.indexOf(d.img) + 1) : "贴纸：" + d.ch; }
       const f = (layout.free || [])[b.idx] || {};
       if (b.kind === "fphoto") { const p = list[f.p]; return "照片（后加的）" + (p && p.desc ? "：" + String(p.desc).slice(0, 30) : ""); }
       return "字：「" + (f.text || "") + "」";
@@ -548,7 +628,9 @@
         + "\n字体：" + (FONTS[layout.font] || FONTS.hand).name + "\n上面的东西（编号｜是什么｜位置｜大小｜角度）：\n" + (rows.join("\n") || "（还什么都没放）")
         + "\n能用的背景：" + BG_ORDER.map(k => BGS[k].name).join("、") + (myBgs.length ? "、" + myBgs.map((_, i) => "我的底" + (i + 1)).join("、") : "")
         + "\n能加的贴纸：" + STICKERS.join(" ") + (myStks.length ? " " + myStks.map((_, i) => "我的贴纸" + (i + 1)).join(" ") : "")
-        + "\n能用的字体：" + FONT_ORDER.map(k => FONTS[k].name).join("、");
+        + "\n能用的字体：" + FONT_ORDER.map(k => FONTS[k].name).join("、")
+        + "\n能加的胶带和涂鸦：" + SHAPE_ORDER.map(k => SHAPES[k]).join("、") + "（可以给颜色）"
+        + "\n照片能换的滤镜：" + FILTER_ORDER.map(k => FILTERS[k]).join("、") + "；字能换的样式：" + TSTYLE_ORDER.map(k => TSTYLES[k]).join("、");
     };
     const [hisSay, setHisSay] = useState("");
     const beforeHim = useRef(null);
@@ -556,7 +638,7 @@
     const sessLog = useRef([]);
     const lastSeen = useRef(layout);   // 起点就是刚打开时那一版，第一次叫TA之前她动过的也算进去
     const photoName = i => { const p = list[i]; return p ? (p.desc ? "「" + String(p.desc).slice(0, 16) + "」那张" : "另一张照片") : ""; };
-    const decoName = d => d && d.img ? "我的贴纸" + (myStks.indexOf(d.img) + 1) : (d && d.ch) || "";
+    const decoName = d => d && d.shape ? SHAPES[d.shape] : d && d.img ? "我的贴纸" + (myStks.indexOf(d.img) + 1) : (d && d.ch) || "";
     const logLine = line => { if (line) { sessLog.current.push(line); if (sessLog.current.length > 24) sessLog.current = sessLog.current.slice(-24); } };
     // 叫TA之前：先把她这段时间动过的记一笔
     const noteHers = () => { const ch = changesOf(lastSeen.current, layout, photoName, decoName); if (ch.length) logLine("她：" + ch.join("，")); };
@@ -578,6 +660,12 @@
         if (Number.isFinite(Number(op.size))) v.s = clampS(Number(op.size) / 100);
         if (Number.isFinite(Number(op.angle))) v.r = Math.max(-180, Math.min(180, Number(op.angle)));
         if (Object.keys(v).length) l = setT(l, b, v);
+        // 滤镜、字样式、颜色：名字对得上才认
+        const fk = op.filter != null ? FILTER_ORDER.find(k => FILTERS[k] === String(op.filter).trim()) : undefined;
+        if (fk !== undefined) { if (b.kind === "slot") l = Object.assign({}, l, { filters: Object.assign({}, l.filters, { [b.key]: fk }) }); else if (b.kind === "fphoto") l = setT(l, b, { filter: fk }); }
+        const sk = op.style != null ? TSTYLE_ORDER.find(k => TSTYLES[k] === String(op.style).trim()) : undefined;
+        if (sk !== undefined) { if (b.kind === "word") l = Object.assign({}, l, { tstyle: Object.assign({}, l.tstyle, { [b.key]: sk }) }); else if (b.kind === "ftext") l = setT(l, b, { tstyle: sk }); }
+        if (/^#[0-9a-f]{6}$/i.test(op.color || "") && (b.kind === "deco" || b.kind === "ftext")) l = setT(l, b, { color: op.color });
       });
       ["deco", "free"].forEach(group => {
         const idxs = drops.filter(b => group === "deco" ? b.kind === "deco" : (b.kind === "fphoto" || b.kind === "ftext")).map(b => b.idx).sort((a, b) => b - a);
@@ -592,6 +680,8 @@
         if (!a) return;
         const pos = at(a.at), sz = Number.isFinite(Number(a.size)) ? clampS(Number(a.size) / 100) : 1, ang = Number(a.angle) || 0;
         if (a.text) { const f = (l.free || []).concat([{ type: "text", text: String(a.text).slice(0, 30), x: pos.x, y: pos.y, size: 76, s: sz, r: ang, color: /^#[0-9a-f]{6}$/i.test(a.color || "") ? a.color : (layout.bg === "night" ? "#ffffff" : "#2b2b2b"), font: FONT_ORDER.find(k => FONTS[k].name === a.font) }]); l = Object.assign({}, l, { free: f }); return; }
+        const shp = SHAPE_ORDER.find(k => SHAPES[k] === String(a.shape || "").trim());
+        if (shp) { l = Object.assign({}, l, { deco: decoNow(l).concat([{ shape: shp, x: pos.x, y: pos.y, size: 120 * sz, r: ang, color: /^#[0-9a-f]{6}$/i.test(a.color || "") ? a.color : (shp === "tape" ? "#e9b7c0" : "#2b2b2b") }]) }); return; }
         const st = String(a.sticker || "").trim(); if (!st) return;
         const m = st.match(/^我的贴纸(\d+)$/), item = m ? (myStks[Number(m[1]) - 1] ? { img: myStks[Number(m[1]) - 1], size: 180 } : null) : { ch: st.slice(0, 4), size: 130, color: /[♥♡]/.test(st) ? "#d0465c" : /[✿☆]/.test(st) ? "#c9a227" : "#000" };
         if (item) l = Object.assign({}, l, { deco: decoNow(l).concat([Object.assign({ x: pos.x, y: pos.y, s: sz, r: ang }, item)]) });
@@ -679,6 +769,8 @@
     const selName = selBox ? ({ slot: "第 " + (selBox.idx + 1) + " 格照片", word: "第 " + (selBox.idx + 1) + " 句字", deco: "这颗贴纸", fphoto: "你加的照片", ftext: "你加的字" })[selBox.kind] : "";
     const selFree = selBox && (selBox.kind === "fphoto" || selBox.kind === "ftext") ? (layout.free || [])[selBox.idx] : null;
     const setFree = v => setLayout(l => { const free = (l.free || []).slice(); free[selBox.idx] = Object.assign({}, free[selBox.idx], v); return Object.assign({}, l, { free }); });
+    const setFilterSel = k => { if (!selBox) return; if (selBox.kind === "fphoto") setFree({ filter: k }); else setLayout(l => Object.assign({}, l, { filters: Object.assign({}, l.filters, { [sel]: k }) })); };
+    const setTstyleSel = k => { if (!selBox) return; if (selBox.kind === "ftext") setFree({ tstyle: k }); else setLayout(l => Object.assign({}, l, { tstyle: Object.assign({}, l.tstyle, { [sel]: k }) })); };
     const slider = (label, val, min, max, step, onCh, fmt) => h("div", { className: "flex items-center", style: { gap: 10, marginBottom: 6 } },
       h("span", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog, width: 30, flexShrink: 0 } }, label),
       h("input", { type: "range", min, max, step, value: val, onChange: e => onCh(Number(e.target.value)), style: { flex: 1 }, "data-part": "collage-" + label }),
@@ -710,6 +802,18 @@
                 style: { width: 26, height: 26, borderRadius: 13, background: c, border: "2px solid " + ((selFree.color || "#2b2b2b") === c ? t.accent : t.line) } })),
               h("span", { style: { flex: 1 } }),
               FONT_ORDER.map(k => h("button", { key: k, onClick: () => setFree({ font: k }), style: { fontFamily: FONTS[k].css, fontSize: 13, padding: "2px 6px", borderRadius: 8, border: "1px solid " + ((selFree.font || layout.font) === k ? t.ink : t.line), color: t.ink } }, "字")))) : null,
+          // 照片：滤镜
+          selBox.kind === "slot" || selBox.kind === "fphoto" ? h("div", { "data-part": "collagefilter", className: "flex", style: { gap: 6, marginBottom: 8, overflowX: "auto" } },
+            FILTER_ORDER.map(k => { const cur = selBox.kind === "slot" ? (layout.filters || {})[sel] || "" : (selFree && selFree.filter) || ""; return h("button", { key: k || "none", onClick: () => setFilterSel(k), className: "shrink-0",
+              style: { padding: "6px 11px", borderRadius: 10, border: "1.5px solid " + (cur === k ? t.ink : t.line), fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.ink } }, FILTERS[k]); })) : null,
+          // 字：描边、阴影、纸条、竖排
+          selBox.kind === "word" || selBox.kind === "ftext" ? h("div", { "data-part": "collagetstyle", className: "flex", style: { gap: 6, marginBottom: 8, overflowX: "auto" } },
+            TSTYLE_ORDER.map(k => { const cur = selBox.kind === "word" ? (layout.tstyle || {})[sel] || "" : (selFree && selFree.tstyle) || ""; return h("button", { key: k || "none", onClick: () => setTstyleSel(k), className: "shrink-0",
+              style: { padding: "6px 11px", borderRadius: 10, border: "1.5px solid " + (cur === k ? t.ink : t.line), fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.ink } }, TSTYLES[k]); })) : null,
+          // 胶带、涂鸦：颜色
+          selBox.kind === "deco" && (decoNow(layout)[selBox.idx] || {}).shape ? h("div", { "data-part": "collageshapecolor", className: "flex", style: { gap: 6, marginBottom: 8 } },
+            SHAPE_COLORS.map(c => h("button", { key: c, onClick: () => setSel2({ color: c }), "aria-label": c,
+              style: { width: 26, height: 26, borderRadius: 13, background: c, border: "2px solid " + ((decoNow(layout)[selBox.idx] || {}).color === c ? t.accent : t.line) } }))) : null,
           selBox.kind === "fphoto" ? h("div", { className: "flex", style: { gap: 6, marginBottom: 8 } },
             Object.keys(FRAMES).map(k => h("button", { key: k, onClick: () => setFree({ frame: k }), className: "flex-1",
               style: { padding: "6px 0", borderRadius: 10, border: "1.5px solid " + ((selFree.frame || "scrap") === k ? t.ink : t.line), fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.ink } }, FRAMES[k]))) : null,
@@ -781,6 +885,10 @@
           h("button", { onClick: () => stkUp.current && stkUp.current.click(), className: "active:opacity-70",
             style: { aspectRatio: "1", borderRadius: 8, border: "1.5px dashed " + t.accent, color: t.accent, fontFamily: F_BODY, fontSize: 11, lineHeight: 1.3 } }, "＋", h("br"), "传贴纸"),
           myStks.map(k => h(MyStkThumb, { key: k, k, t, edit: stkEdit, onPick: () => addImgSticker(k), onDrop: () => dropStk(k) }))),
+        h("div", { style: lab }, "胶带和涂鸦（加上以后选中能换颜色）"),
+        h("div", { "data-part": "collageshapes", style: { display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 6 } },
+          SHAPE_ORDER.map(k => h("button", { key: k, onClick: () => addShape(k), className: "active:opacity-60",
+            style: { padding: "9px 0", borderRadius: 10, border: "1px solid " + t.line, background: t.bg2, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.ink } }, SHAPES[k]))),
         h("input", { ref: stkUp, "data-part": "collagestkfile", type: "file", accept: "image/*", style: { display: "none" }, onChange: e => { const f = e.target.files && e.target.files[0]; e.target.value = ""; uploadStk(f); } }),
         h("div", { style: lab }, "字体"),
         row(FONT_ORDER.map(k => chip(layout.font === k, FONTS[k].name, () => setLayout(l => Object.assign({}, l, { font: k })), { fontFamily: FONTS[k].css, fontSize: 15 }))),
@@ -806,5 +914,5 @@
         h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.6, marginTop: 8, textAlign: "center" } },
           "存到手机、也挂上合照墙；" + name + " 会看到你们拼了一张。照片和字都是 App 排的，不花生图。")));
   }
-  window.Collage = { TPL, ORDER, BGS, FONTS, STICKERS, draw, hitTest, slotCount, wordCount, defaultDeco, CollageMaker };
+  window.Collage = { FILTERS, TSTYLES, SHAPES, filtered, TPL, ORDER, BGS, FONTS, STICKERS, draw, hitTest, slotCount, wordCount, defaultDeco, CollageMaker };
 })();

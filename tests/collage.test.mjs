@@ -76,3 +76,10 @@ test("TA 说的话不限字数：提示里不写「一句」，代码不截断�
   assert.doesNotMatch(seg, /说一句|"一句"|why: String\(\(d && d\.why\) \|\| ""\)\.trim\(\)\.slice/);
   assert.equal((seg.match(/voice: true/g) || []).length, 3);
 });
+test("装饰：胶带涂鸦、照片滤镜（逐像素，不靠 ctx.filter）、字的样式；TA 也能用", () => {
+  assert.deepEqual(Object.keys(C.FILTERS), ["", "bw", "vintage", "film", "soft"]);
+  assert.ok(Object.keys(C.SHAPES).length >= 7 && Object.keys(C.TSTYLES).length >= 5);
+  assert.doesNotMatch(src, /ctx\.filter\s*=/);
+  assert.match(src, /getImageData\(0, 0, c\.width, c\.height\)/);
+  assert.match(app, /\\"filter\\":\\"\\",\\"style\\":\\"\\",\\"color\\":\\"\\"/);
+});
