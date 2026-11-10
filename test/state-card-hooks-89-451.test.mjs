@@ -30,4 +30,5 @@ test("卡片行也报连发首末，排版「头像只留第一条」管到卡�
 test("卡片行的已读挂点默认藏着", () => {
   assert.match(comp, /"data-wk": "cardmeta", "data-me": row\.m\.role === "user" \? "1" : "0", style: \{ display: "none" \}/);
   assert.ok(studio.includes('"cardmeta"'));
+  assert.match(comp, /!row\.m\.recalled && !MSG_RUN_BREAK\[row\.m\.kind\] \? subLine\(row\.m\)/);
 });

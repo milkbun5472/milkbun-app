@@ -11872,7 +11872,7 @@ function ChatThread({
     if (out && typeof out.type === "string") out = React.cloneElement(out, Object.assign({ "data-run": "1" }, msgRunAttrs(messages, row.i, 0, true, (a, b) => a.role === b.role)));
     // 卡片行底下的「已读／时间」（她 2026-11-10：粉色日记里一串最后是表情包就没了已读）：默认藏着，只给美化当挂点；
     //   别的美化和不开美化时照旧没有这一行
-    const _cmSub = out && typeof out.type === "string" && (row.m.role === "user" || row.m.role === "assistant") ? subLine(row.m) : "";
+    const _cmSub = out && typeof out.type === "string" && (row.m.role === "user" || row.m.role === "assistant") && !row.m.recalled && !MSG_RUN_BREAK[row.m.kind] ? subLine(row.m) : "";
     if (_cmSub) out = h(React.Fragment, { key: "cm" + row.i }, out, h("div", { key: "cmf", "data-wk": "cardmeta", "data-me": row.m.role === "user" ? "1" : "0", style: { display: "none" } }, _cmSub));
     const st = window.ChatStamp.decide(window.ChatStamp.prevTimed(messages, row.i), row.m, { minGap: 180000,
       map: typeof vclockMap === "function" && character ? (ts => vclockMap(ts, character.id)) : undefined });
