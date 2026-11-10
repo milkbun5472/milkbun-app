@@ -683,7 +683,9 @@
   const shopRepLv = shop => { let xp = Math.max(0, Number(shop && shop.rep) || 0), lv = 0; while (xp >= shopRepNeed(lv + 1)) { xp -= shopRepNeed(lv + 1); lv++; } return lv; };
   const shopRepLeft = shop => { let xp = Math.max(0, Number(shop && shop.rep) || 0), lv = 0; while (xp >= shopRepNeed(lv + 1)) { xp -= shopRepNeed(lv + 1); lv++; } return { lv, xp, need: shopRepNeed(lv + 1) }; };
   const shopRepBonus = lv => 0.12 * Math.log2(1 + lv / 4);           // 越往后涨得越慢，永远在涨
-  const shopRepCrowd = lv => Math.floor(Math.log2(1 + lv / 6));
+  const SHOP_CROWD_LV = [3, 8, 15, 25, 40, 60];   // 口碑到这几级各多来一位（她 2026-11-10：前面密、及时有反馈，后面慢慢拉开）
+  const shopRepCrowd = lv => SHOP_CROWD_LV.filter(x => (Number(lv) || 0) >= x).length;
+  const SHOP_CROWD_MAX = 10;   // 一个时段最多来 10 位（连稀客、来坐坐的角色一起算）
   // 熟练度：同一个人在同一个岗上开过几天门；称号一直往上，加成越往后越慢
   const SKILL_TITLES = [[0, "见习"], [3, "上手"], [8, "熟手"], [15, "老手"], [30, "一把手"]];
   const shopSkillTitle = (post, days) => { const d = Math.max(0, days || 0); if (d >= 30) { const n = 1 + Math.floor((d - 30) / 20); return post + "一把手" + (n > 1 ? "·" + n + "段" : ""); } let t = "见习"; SKILL_TITLES.forEach(([k, v]) => { if (d >= k) t = v; }); return post + t; };
@@ -761,7 +763,8 @@
     const vMax = [0, 1, 2][pi];
     shuffle((offDuty || []).slice(), R).slice(0, Math.min(vMax, (offDuty || []).length)).forEach((id, k) => { if (R() < (pi === 2 ? 0.85 : 0.5)) out.splice(1 + k * 2, 0, { id: period + "v" + k, charId: id, fee: 12, visitor: true }); });
     if (pi === 0 && (offDuty || []).length && R() < 0.3) out.push({ id: period + "v9", charId: offDuty[Math.floor(R() * offDuty.length)], fee: 12, visitor: true });
-    return out;
+    for (let k = out.length - 1; out.length > SHOP_CROWD_MAX && k >= 0; k--) if (!out[k].rareId && !out[k].visitor && !out[k].wantChar) out.splice(k, 1);
+    return out.slice(0, SHOP_CROWD_MAX);
   }
   const siegeIdle = (st, sd, i) => !!(st.siege && sd === st.foe && row(i) > 0);   // 守城：对面还没走到前排的不动手
 
