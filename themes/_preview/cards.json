@@ -1,0 +1,6 @@
+[{"role":"assistant","kind":"transfer","amount":52,"note":"买伞的钱","status":"pending","dir":"toMe","tid":"t1"},
+{"role":"user","kind":"transfer","amount":13.14,"note":"请你喝奶茶","status":"accepted","dir":"toChar","tid":"t2"},
+{"role":"assistant","kind":"transfer","packet":true,"amount":66,"note":"下雨天也要开心","status":"pending","dir":"toMe","tid":"t3"},
+{"role":"assistant","kind":"photo","desc":"楼下的伞和一只湿漉漉的小狗"},
+{"role":"assistant","kind":"voice","content":"快下来，我在门口","dur":4},
+{"role":"assistant","kind":"weathercard","wx":{"code":61,"t":18,"hi":21,"lo":15,"pp":80},"say":"今天带伞，别淋着"}]
