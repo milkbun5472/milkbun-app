@@ -7343,12 +7343,14 @@ async function earsTranscribe(wavBlob) {
 // 克隆音色库：克过的 voice_id 登记在本机（只是清单方便管理/指派，删掉不影响 MiniMax 账号里的音色）
 function loadVoiceLib() { try { const v = JSON.parse(localStorage.getItem("x_voiceLib") || "[]"); return Array.isArray(v) ? v : []; } catch (e) { return []; } }
 function saveVoiceLib(list) { return saveJSON("x_voiceLib", list || []); }
+// MiniMax 的 GroupId：填了就带在地址上，空着就不带（三处调用都走这一个）
+function mmGroupQ(a) { return a && a.groupId ? "?GroupId=" + encodeURIComponent(a.groupId) : ""; }
 function ttsReady(a) {
   a = a || loadTtsApi();
   if (!a.enabled) return false;
   if (a.provider === "elevenlabs") return !!a.elKey;
   if (a.provider === "fish") return !!a.fishKey;
-  return !!(a.groupId && a.apiKey);
+  return !!a.apiKey;   // GroupId 选填（群友 2026-11-10 拼车拿不到）：MiniMax 现在光凭密钥就认得是哪个账号，填了才带上
 }
 // MiniMax 系统预置音色（先用预置，克隆音色以后再接——克隆出的 voice_id 也能直接填）
 const TTS_VOICES = [
@@ -9236,7 +9238,7 @@ async function ttsSynth(text, voiceId, opts) {
   const to = setTimeout(() => ctrl.abort(), 60000);
   let r;
   try {
-    r = await fetch(base + "/v1/t2a_v2?GroupId=" + encodeURIComponent(a.groupId), {
+    r = await fetch(base + "/v1/t2a_v2" + mmGroupQ(a), {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: "Bearer " + a.apiKey },
       // language_boost 按句子语言自动选（v47.92）；synthTxt 可能是汉字转假名后的文本（v47.93 jpKana）
@@ -9318,12 +9320,12 @@ async function ttsCloneVoice(fileBlob, customVoiceId) {
   const fd = new FormData();
   fd.append("purpose", "voice_clone");
   fd.append("file", fileBlob, fileBlob.name || "voice.mp3");
-  const r1 = await fetch(base + "/v1/files/upload?GroupId=" + encodeURIComponent(a.groupId), { method: "POST", headers: { Authorization: "Bearer " + a.apiKey }, body: fd });
+  const r1 = await fetch(base + "/v1/files/upload" + mmGroupQ(a), { method: "POST", headers: { Authorization: "Bearer " + a.apiKey }, body: fd });
   let d1; try { d1 = JSON.parse(await r1.text()); } catch (e) { throw new Error("上传接口没返回 JSON"); }
   if (d1.base_resp && d1.base_resp.status_code !== 0) throw new Error("上传失败：" + (d1.base_resp.status_msg || d1.base_resp.status_code));
   const fileId = d1.file && (d1.file.file_id || d1.file.id);
   if (!fileId) throw new Error("上传没拿到 file_id。原始返回：" + JSON.stringify(d1).slice(0, 120));
-  const r2 = await fetch(base + "/v1/voice_clone?GroupId=" + encodeURIComponent(a.groupId), { method: "POST", headers: { "Content-Type": "application/json", Authorization: "Bearer " + a.apiKey }, body: JSON.stringify({ file_id: fileId, voice_id: vid }) });
+  const r2 = await fetch(base + "/v1/voice_clone" + mmGroupQ(a), { method: "POST", headers: { "Content-Type": "application/json", Authorization: "Bearer " + a.apiKey }, body: JSON.stringify({ file_id: fileId, voice_id: vid }) });
   let d2; try { d2 = JSON.parse(await r2.text()); } catch (e) { throw new Error("克隆接口没返回 JSON"); }
   if (d2.base_resp && d2.base_resp.status_code !== 0) throw new Error("克隆失败：" + (d2.base_resp.status_msg || d2.base_resp.status_code));
   return vid;
