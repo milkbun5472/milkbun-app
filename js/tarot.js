@@ -380,7 +380,6 @@
     const [histType, setHistType] = useState("all"); // 历史类型筛选
     const [histExp, setHistExp] = useState({});   // 各类别是否已展开全部
     const homeScrollRef = useRef(null);
-    const homeScrollTop = useRef(0);
     const lpTimer = useRef(null), lpFired = useRef(false);
     const [confirmDel, setConfirmDel] = useState(null); // 待确认删除的占卜 id
     // 房里TA提的那一卦点进来时带着的那一戳（v67.69）：进哪一档、算谁、该问什么
@@ -404,15 +403,7 @@
     const startLP = id => { lpFired.current = false; lpTimer.current = setTimeout(() => { lpFired.current = true; delSession(id); }, 550); };
     const cancelLP = () => { if (lpTimer.current) { clearTimeout(lpTimer.current); lpTimer.current = null; } };
     const confirmNode = confirmDel ? h(ConfirmDialog, { title: "撕掉这次占卜？", body: "删掉后就找不回来了。", confirmLabel: "撕掉", danger: true, onConfirm: () => doDel(confirmDel), onCancel: () => setConfirmDel(null) }) : null;
-    const openSession = id => {
-      if (homeScrollRef.current) homeScrollTop.current = homeScrollRef.current.scrollTop;
-      setView("s:" + id);
-    };
-    React.useEffect(() => {
-      if (view !== "home" || !homeScrollRef.current) return;
-      const top = homeScrollTop.current;
-      requestAnimationFrame(() => { if (homeScrollRef.current) homeScrollRef.current.scrollTop = top; });
-    }, [view]);
+    const openSession = id => setView("s:" + id); // 回来停在原处：首页挂 keepScroll("tarot:home")
 
     if (view.indexOf("mode:") === 0) {
       return h(Setup, {
@@ -487,7 +478,7 @@
       h("style", null, "@keyframes tarot-tw{0%,100%{opacity:1}50%{opacity:.28}}"),
       h(NightHead, { title: "塔罗", onBack: props.onBack }),
       // 底下那一截也是天：同一片碎星跟着内容一起往上走
-      h("div", { ref: homeScrollRef, className: "flex-1 min-h-0 overflow-y-auto px-5 pb-8", style: nightBody },
+      h("div", { ref: keepScroll("tarot:home", homeScrollRef), className: "flex-1 min-h-0 overflow-y-auto px-5 pb-8", style: nightBody },
         // ---- 夜空：四种问法是四颗星，亮度照她自己的存档来 ----
         h("div", { "data-wk": "tarotsky", style: { margin: "0 -20px 6px", position: "relative" } },
           h("svg", { viewBox: "0 0 " + SKY_W + " " + SKY_H, style: { width: "100%", height: "auto", display: "block" } },
