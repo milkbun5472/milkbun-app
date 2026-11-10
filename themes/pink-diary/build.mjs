@@ -23,7 +23,7 @@ const I_SEND = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><g
 const I_REPLY = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><g transform='translate(18 8) scale(.64)'>${X(BUNNY)}</g><path d='M58 52 h28 a8 8 0 0 1 8 8 v12 a8 8 0 0 1 -8 8 h-14 l-8 8 l1 -8 h-7 a8 8 0 0 1 -8 -8 v-12 a8 8 0 0 1 8 -8z' fill='#fff' stroke='${C.rose}' stroke-width='3'/><circle cx='66' cy='66' r='2.6' fill='${C.rose}'/><circle cx='74' cy='66' r='2.6' fill='${C.rose}'/><circle cx='82' cy='66' r='2.6' fill='${C.rose}'/></svg>`;
 const I_MORE = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><g transform='translate(8 38) scale(1)'>${X(HEART())}</g><g transform='translate(38 38) scale(1)'>${X(HEART(C.butter))}</g><g transform='translate(68 38) scale(1)'>${X(HEART(C.mint))}</g></svg>`;
 // 拍立得相框：头像嵌在白框里，顶上一对兔耳探出来，一截胶带
-const FRAME = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 120'><g transform='translate(22 -2) scale(.56)'><g stroke='${C.rose}' stroke-width='5' stroke-linejoin='round' fill='#fff'><path d='M32 52 C24 22 26 4 34 4 C42 4 44 24 42 50 Z'/><path d='M68 52 C76 22 74 4 66 4 C58 4 56 24 58 50 Z'/></g><path d='M34 44 C30 24 31 12 34 12 C37 12 38 26 38 42 Z M66 44 C70 24 69 12 66 12 C63 12 62 26 62 42 Z' fill='${C.blush}'/></g><path fill-rule='evenodd' d='M6 22 H94 V116 H6Z M14 30 V96 H86 V30Z' fill='#fff' stroke='${C.rose}' stroke-width='2.5' stroke-linejoin='round'/><g transform='translate(68 100) scale(.8)'>${X(HEART())}</g><g transform='translate(14 14) rotate(-14) scale(.5)'>${X(TAPE())}</g></svg>`;
+const FRAME = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 -10 100 130'><g transform='translate(14 -12) scale(.72)'><g stroke='${C.rose}' stroke-width='5' stroke-linejoin='round' fill='#fff'><path d='M32 52 C24 22 26 4 34 4 C42 4 44 24 42 50 Z'/><path d='M68 52 C76 22 74 4 66 4 C58 4 56 24 58 50 Z'/></g><path d='M34 44 C30 24 31 12 34 12 C37 12 38 26 38 42 Z M66 44 C70 24 69 12 66 12 C63 12 62 26 62 42 Z' fill='${C.blush}'/></g><path fill-rule='evenodd' d='M6 22 H94 V116 H6Z M14 30 V96 H86 V30Z' fill='#fff' stroke='${C.rose}' stroke-width='2.5' stroke-linejoin='round'/><g transform='translate(68 100) scale(.8)'>${X(HEART())}</g><g transform='translate(14 14) rotate(-14) scale(.5)'>${X(TAPE())}</g></svg>`;
 
 const layout = { bubble: "bubble", avatar: "first", name: true, gap: "loose", time: "show" };
 const bubble = {
@@ -94,6 +94,85 @@ button[data-wk="avatar"]::before,span[data-wk="avatar"]:not([data-halo])::before
 [data-wk="bubble"][data-kind="typing"]{background:transparent !important;border:none !important;box-shadow:none !important}
 [data-wk="bubble"][data-kind="typing"]::before,[data-wk="bubble"][data-kind="typing"]::after{content:none !important}
 [data-wk="typingdot"]{width:14px !important;height:13px !important;border-radius:0 !important;background:${svg(HEART())} center/contain no-repeat !important}
+
+/* ───── 第二批：卡片都变成贴进本子里的东西 ───── */
+/* 卡片行整体歪一点，像随手贴上去的 */
+[data-wk="cardrow"][data-me="0"] > div:not([data-wk="avatar"]){transform:rotate(-1.2deg) !important}
+[data-wk="cardrow"][data-me="1"] > div:not([data-wk="avatar"]){transform:rotate(1.2deg) !important}
+
+/* 转账：一张票根，两头锯齿，顶上一截薄荷胶带 */
+[data-wk="transfercard"]{background:#fff !important;border:1.5px solid ${C.margin} !important;border-radius:4px !important;box-shadow:2px 3px 0 rgba(138,90,95,.12) !important;position:relative !important;overflow:visible !important;transform:rotate(-1.5deg) !important}
+[data-wk="transfercard"]::before{content:"" !important;position:absolute !important;top:-9px !important;left:calc(50% - 30px) !important;width:60px !important;height:18px !important;background:${svg(TAPE())} center/100% 100% no-repeat !important;transform:rotate(-4deg) !important;z-index:2 !important}
+[data-wk="transferlabel"],[data-wk="transferfoot"],[data-wk="transfernote"]{color:${C.rose} !important}
+[data-wk="transferamount"],[data-wk="transfercur"]{color:${C.ink} !important}
+[data-wk="transferrule"]{border:none !important;height:2px !important;background:repeating-linear-gradient(90deg,${C.margin} 0 6px,transparent 6px 11px) !important}
+[data-wk="transfernotch"]{background:${C.paper} !important;border-color:${C.margin} !important}
+[data-wk="transferfoot"]{background:${C.paper2} !important;border-color:${C.line} !important}
+[data-wk="transferseal"]{border:2px solid #d9707e !important;color:#d9707e !important;border-radius:50% !important;background:#fff ${svg(HEART("#f2c4c8"))} center 5px/12px 11px no-repeat !important;padding-top:10px !important;box-shadow:none !important}
+[data-wk="transfercard"][data-status="pending"] [data-wk="transferseal"]{border-style:dashed !important;opacity:.7 !important}
+[data-wk="transferbtn"]{border-radius:999px !important}
+[data-wk="transferbtn"][data-part="take"]{background:${C.margin} !important;color:#fff !important;border-color:${C.margin} !important}
+[data-wk="transferbtn"][data-part="back"]{background:#fff !important;color:${C.rose} !important;border-color:${C.line} !important}
+
+/* 红包：留红，像一个夹在本子里的小红信封，火漆印是爱心 */
+[data-wk="rpcard"]{border-radius:6px !important;box-shadow:2px 3px 0 rgba(138,90,95,.15) !important;transform:rotate(1.5deg) !important;overflow:visible !important}
+[data-wk="rpseal"]{border:none !important;width:30px !important;height:30px !important;border-radius:50% !important;background:#f6e6c0 ${svg(HEART("#d9707e"))} center/16px 15px no-repeat !important;box-shadow:0 0 0 2px rgba(255,255,255,.5) !important}
+[data-wk="rpseal"] *{display:none !important}
+[data-wk="rpcard"]::after{content:"" !important;position:absolute !important;top:-8px !important;left:16px !important;width:46px !important;height:15px !important;background:${svg(TAPE(C.butter))} center/100% 100% no-repeat !important;transform:rotate(-6deg) !important}
+[data-wk="rpcard"][data-status="done"]{filter:saturate(.55) brightness(1.08) !important}
+[data-wk="rpenvelope"][data-stage="open"]{background:#fff !important;border:1.5px solid ${C.margin} !important}
+[data-wk="rpopenbtn"]{background:#f6e6c0 ${svg(HEART("#d9707e"))} center/40px 37px no-repeat !important;color:transparent !important}
+[data-wk="rpopenbtn"] *{opacity:0 !important}
+
+/* 照片：拍立得，两截胶带斜贴两角 */
+[data-wk="photocard"]{background:#fff !important;padding:8px 8px 26px !important;border-radius:2px !important;box-shadow:2px 4px 0 rgba(138,90,95,.12) !important;position:relative !important;overflow:visible !important;transform:rotate(-2deg) !important}
+[data-wk="photocard"]::before,[data-wk="photocard"]::after{content:"" !important;position:absolute !important;width:44px !important;height:15px !important;background:${svg(TAPE(C.margin))} center/100% 100% no-repeat !important;z-index:2 !important}
+[data-wk="photocard"]::before{top:-6px !important;left:-12px !important;transform:rotate(-38deg) !important}
+[data-wk="photocard"]::after{top:-6px !important;right:-12px !important;transform:rotate(38deg) !important}
+[data-wk="photoface"]{background:${C.paper} ${svg(BUNNY)} center 28%/54px 54px no-repeat !important;border:none !important;padding-top:72px !important}
+[data-wk="phototext"],[data-wk="photocap"],[data-wk="photohint"]{color:${C.rose} !important;font-style:italic !important}
+
+/* 语音：一张小便签，波形变粉 */
+[data-wk="voice"]{background:#fff !important;border:1.5px solid ${C.line} !important;border-radius:4px !important;color:${C.ink} !important;box-shadow:1px 2px 0 rgba(138,90,95,.1) !important;position:relative !important;overflow:visible !important}
+[data-wk="voice"]::before{content:"" !important;position:absolute !important;top:-7px !important;right:10px !important;width:34px !important;height:12px !important;background:${svg(TAPE(C.mint))} center/100% 100% no-repeat !important;transform:rotate(5deg) !important}
+[data-wk="voicebar"]{background:${C.margin} !important}
+
+/* 天气：剪下来的一角天空，字是玫瑰棕 */
+[data-wk="wxcard"]{border-radius:4px !important;border:1.5px solid ${C.line} !important;box-shadow:2px 3px 0 rgba(138,90,95,.12) !important;transform:rotate(-1deg) !important;overflow:visible !important;position:relative !important}
+[data-wk="wxcard"]::after{content:"" !important;position:absolute !important;top:-9px !important;right:20px !important;width:22px !important;height:22px !important;background:${svg(STAR())} center/contain no-repeat !important}
+[data-wk="wxcardsky"]{background:linear-gradient(170deg,#fbeef0,#f3dde1) !important;color:${C.ink} !important}
+[data-wk="wxcardsky"] *{color:${C.ink} !important}
+[data-wk="wxcardsky"] svg{stroke:${C.rose} !important;opacity:.8 !important}
+[data-wk="wxcardsay"]{background:#fff !important;color:${C.ink} !important}
+
+/* 位置：一枚回形针夹住的纸条 */
+[data-wk="geocard"] > [data-wk="card"]{background:#fff !important;border:1.5px solid ${C.line} !important;border-radius:3px !important;box-shadow:2px 3px 0 rgba(138,90,95,.12) !important}
+[data-wk="geopin"]{width:14px !important;height:34px !important;top:-14px !important;left:18px !important;border-radius:0 !important;box-shadow:none !important;background:${svg(CLIP)} center/contain no-repeat !important}
+[data-wk="geopinstem"]{display:none !important}
+[data-wk="geoname"]{color:${C.ink} !important}
+[data-wk="georule"]{background:${C.line} !important}
+[data-wk="geofoot"]{color:${C.rose} !important}
+
+/* 名片：一张小卡片，回形针 */
+[data-wk="namecard"]{background:#fff !important;border:1.5px solid ${C.line} !important;border-radius:4px !important;box-shadow:2px 3px 0 rgba(138,90,95,.12) !important;position:relative !important;overflow:visible !important}
+[data-wk="namecard"]::before{content:"" !important;position:absolute !important;top:-14px !important;right:22px !important;width:14px !important;height:34px !important;background:${svg(CLIP)} center/contain no-repeat !important}
+[data-wk="namecardname"]{color:${C.ink} !important}
+[data-wk="namecard"] > div:last-child{background:${C.paper2} !important;color:${C.rose} !important}
+
+/* 拍一拍、系统纸条、通话结束：页边的小批注 */
+[data-wk="note"][data-part="pat"],[data-wk="note"][data-part="call"]{display:inline-block !important;background:linear-gradient(transparent 30%,rgba(246,230,192,.9) 30%,rgba(246,230,192,.9) 88%,transparent 88%) !important;border:none !important;color:${C.rose} !important;font-style:italic !important;padding:0 8px !important;box-shadow:none !important}
+[data-wk="sysnote"]{background:#fff !important;border:1.5px dashed ${C.margin} !important;border-radius:3px !important;transform:rotate(-.6deg) !important}
+[data-wk="sysnotelabel"]{color:${C.rose} !important}
+[data-wk="sysnotetext"]{color:${C.ink} !important}
+[data-wk="callpill"] > [data-wk="block"]{background:#fff !important;border:1.5px solid ${C.line} !important;border-radius:3px !important}
+
+/* 动描：撕下来的一张便签，下沿锯齿 */
+[data-wk="narrink"]{background:${C.butter} !important;border:none !important;border-radius:0 !important;color:${C.ink} !important;padding:12px 16px 18px !important;position:relative !important;transform:rotate(-.8deg) !important;box-shadow:2px 3px 0 rgba(138,90,95,.1) !important;backdrop-filter:none !important;-webkit-backdrop-filter:none !important;-webkit-mask:linear-gradient(#000,#000) top/100% calc(100% - 6px) no-repeat,${svg(`<svg xmlns='http://www.w3.org/2000/svg' width='12' height='6'><path d='M0 0 H12 L6 6Z'/></svg>`)} bottom/12px 6px repeat-x !important}
+
+/* 头像相框：兔耳放大；顶栏那颗也套上 */
+[data-wk="chathead"] [data-wk="avatar"]{border-radius:2px !important}
+[data-wk="chathead"] button:has(> [data-wk="avatar"]){position:relative !important;overflow:visible !important}
+[data-wk="chathead"] button:has(> [data-wk="avatar"])::before{content:"" !important;position:absolute !important;width:44px !important;height:53px !important;left:-7px !important;top:calc(50% - 31px) !important;z-index:2 !important;background:${svg(FRAME)} center/contain no-repeat !important;pointer-events:none !important}
 `;
 
 const pack = { kind: "chat-look", v: 1, name: "粉色日记", look: { bubble, layout, customCSS: css.trim() }, assets: {} };
