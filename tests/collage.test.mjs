@@ -39,3 +39,10 @@ test("自己放：空白样式、自己加的照片和字、格子能删、两�
   assert.match(src, /const pinchOf = \(\) =>/);
   assert.match(src, /slider\("大小"/); assert.match(src, /slider\("角度"/);
 });
+test("底：花纹照旧、颜色自己挑；自己传的底存在图库里按前缀列出来", () => {
+  assert.match(src, /const MY_BG = "img_collagebg_"/);
+  assert.match(src, /base = \(layout && layout\.bgColor\) \|\| b\.base \|\| b\.from, ink = \(layout && layout\.bgInk\) \|\| inkOf\(b\)/);
+  assert.match(src, /idbImgKeys\(\)/);
+  assert.match(src, /type: "color"/);
+  assert.match(src, /"data-part": "collagemybg"/);
+});

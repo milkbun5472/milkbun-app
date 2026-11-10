@@ -60,22 +60,32 @@
   const TEXT_COLORS = ["#2b2b2b", "#5b3a24", "#b23a48", "#d0465c", "#4f6440", "#3b5b8a", "#ffffff"];
   const EMOJI_FONT = "'Apple Color Emoji','Segoe UI Emoji','Noto Color Emoji',sans-serif";
 
-  function bg(ctx, key, ox) {
-    const b = BGS[key] || BGS.cream;
+  // 自己传的底存在图库里，名字都以这个开头（不另开存储：列出来就是按这个前缀筛）
+  const MY_BG = "img_collagebg_";
+  const isMyBg = k => String(k || "").indexOf(MY_BG) === 0;
+  // 花纹那一层用什么颜色：样式自带的，或者她自己挑的（她 2026-11-10：「喜欢这个格子但是不想要这个颜色」）
+  const inkOf = b => b.line || b.dot || b.grid || b.to || "";
+  function bg(ctx, key, ox, layout, img) {
     ctx.save(); ctx.translate(ox, 0);
-    if (b.from) { const g = ctx.createLinearGradient(0, 0, 0, H); g.addColorStop(0, b.from); g.addColorStop(1, b.to); ctx.fillStyle = g; ctx.fillRect(0, 0, W, H); }
-    else { ctx.fillStyle = b.base; ctx.fillRect(0, 0, W, H); }
+    if (isMyBg(key)) {
+      ctx.fillStyle = "#eee"; ctx.fillRect(0, 0, W, H);
+      if (img) { ctx.save(); ctx.translate(W / 2, H / 2); cover(ctx, img, W, H); ctx.restore(); }
+      ctx.restore(); return;
+    }
+    const b = BGS[key] || BGS.cream, base = (layout && layout.bgColor) || b.base || b.from, ink = (layout && layout.bgInk) || inkOf(b);
+    if (b.from) { const g = ctx.createLinearGradient(0, 0, 0, H); g.addColorStop(0, base); g.addColorStop(1, ink); ctx.fillStyle = g; ctx.fillRect(0, 0, W, H); }
+    else { ctx.fillStyle = base; ctx.fillRect(0, 0, W, H); }
     if (b.line) {
-      ctx.globalAlpha = 0.16; ctx.fillStyle = b.line;
+      ctx.globalAlpha = 0.16; ctx.fillStyle = ink;
       for (let x = 0; x < W; x += 90) ctx.fillRect(x, 0, 34, H);
       for (let y = 0; y < H; y += 90) ctx.fillRect(0, y, W, 34);
       ctx.globalAlpha = 0.08; ctx.fillStyle = "#fff";
       for (let x = 45; x < W; x += 90) ctx.fillRect(x, 0, 6, H);
     } else if (b.dot) {
-      ctx.fillStyle = b.dot;
+      ctx.fillStyle = ink;
       for (let y = 40; y < H; y += 80) for (let x = (y / 80) % 2 ? 80 : 40; x < W; x += 80) { ctx.beginPath(); ctx.arc(x, y, 9, 0, 7); ctx.fill(); }
     } else if (b.grid) {
-      ctx.strokeStyle = b.grid; ctx.lineWidth = 2;
+      ctx.strokeStyle = ink; ctx.lineWidth = 2;
       for (let x = 0; x < W; x += 60) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke(); }
       for (let y = 0; y < H; y += 60) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke(); }
     } else if (!b.from) {
@@ -136,7 +146,8 @@
     const font = (FONTS[layout.font] || FONTS.hand).css, fs = Number(layout.fontScale) || 1;
     canvas.width = W * halves; canvas.height = H;
     const ctx = canvas.getContext("2d"), boxes = [];
-    for (let k = 0; k < halves; k++) bg(ctx, layout.bg || def.bg, k * W);
+    const bgKey = layout.bg || def.bg;
+    for (let k = 0; k < halves; k++) bg(ctx, bgKey, k * W, layout, imgs[bgKey]);
     for (let k = 0; k < halves; k++) {
       const ox = k * W;
       def.slots.forEach((sl, i) => {
@@ -207,6 +218,15 @@
     } catch (e) { return null; }
   }
 
+  // 「我的底」一格：点了用它；选中时角上一个 ✕ 能删
+  function MyBgThumb({ k, on, t, onPick, onDrop }) {
+    const [url, setUrl] = useState("");
+    useEffect(() => { let live = true, u = ""; idbImgGet(k).then(b => { if (live && b) { u = URL.createObjectURL(b); setUrl(u); } }).catch(() => {}); return () => { live = false; if (u) URL.revokeObjectURL(u); }; }, [k]);
+    return h("div", { className: "shrink-0", style: { position: "relative" } },
+      h("button", { onClick: onPick, className: "active:opacity-70", style: { width: 54, height: 72, borderRadius: 10, overflow: "hidden", padding: 0, border: "2px solid " + (on ? t.ink : t.line), background: "#eee" } },
+        url ? h("img", { src: url, alt: "", style: { width: "100%", height: "100%", objectFit: "cover", display: "block" } }) : null),
+      on ? h("button", { onClick: onDrop, "aria-label": "删掉这张底", style: { position: "absolute", top: -6, right: -6, width: 22, height: 22, borderRadius: 11, background: t.ink, color: t.bg2, fontSize: 12, lineHeight: "22px" } }, "✕") : null);
+  }
   function CollageMaker({ partner, photos, onBack, onArrange, onSave }) {
     const t = useTheme();
     const name = partner.remark || partner.name;
@@ -237,13 +257,36 @@
       boxes.current = draw(cv.current, layout, imgs.current, sel);
       if (sel && !had && boxes.current.some(x => x.key === sel)) bump(x => x + 1);
     });
+    // 她自己传的底：从图库按前缀列出来；选中哪张才解哪张
+    const [myBgs, setMyBgs] = useState([]);
+    const bgUp = useRef(null);
+    useEffect(() => { let live = true; (typeof idbImgKeys === "function" ? idbImgKeys() : Promise.resolve([])).then(ks => { if (live) setMyBgs(ks.filter(isMyBg).sort().reverse()); }).catch(() => {}); return () => { live = false; }; }, []);
+    useEffect(() => {
+      const k = layout.bg; if (!isMyBg(k) || k in imgs.current) return;
+      imgs.current[k] = null; let live = true;
+      loadImg({ imgKey: k }).then(img => { imgs.current[k] = img; if (live) bump(x => x + 1); });
+      return () => { live = false; };
+    }, [layout.bg]);
+    const uploadBg = async file => {
+      if (!file) return;
+      try {
+        const du = typeof resizeImageFile === "function" ? await resizeImageFile(file, 2400, 0.9) : await new Promise(ok => { const fr = new FileReader(); fr.onload = () => ok(fr.result); fr.readAsDataURL(file); });
+        const blob = await (await fetch(du)).blob(), key = MY_BG + Date.now();
+        await idbImgPut(key, blob);
+        setMyBgs(p => [key].concat(p)); setLayout(l => Object.assign({}, l, { bg: key, bgColor: "", bgInk: "" }));
+      } catch (e) { typeof toast === "function" && toast("这张没传上：" + ((e && e.message) || "换一张试试")); }
+    };
+    const dropBg = async key => {
+      try { await idbImgDel(key); } catch (e) {}
+      delete imgs.current[key]; setMyBgs(p => p.filter(x => x !== key)); setLayout(l => l.bg === key ? Object.assign({}, l, { bg: "" }) : l);
+    };
     const reshape = (patch) => setLayout(l => {
       const n = Object.assign({}, l, patch), need = slotCount(n), picks = (n.picks || []).slice(0, need);
       for (let i = picks.length; i < need; i++) { const free = list.findIndex((_, j) => picks.indexOf(j) < 0); picks.push(free); }
       return Object.assign(n, { picks });
     });
     // 换样式、开关一人一半：格子、贴纸回到那个样式的起点（格子都变了，旧的挪动对不上）；她自己加的照片和字留着
-    const restart = patch => { setSel(""); reshape(Object.assign({ adj: {}, deco: null, bg: "", hidden: {} }, patch)); };
+    const restart = patch => { setSel(""); reshape(Object.assign({ adj: {}, deco: null, bg: "", bgColor: "", bgInk: "", hidden: {} }, patch)); };
     const decoNow = l => l.deco || defaultDeco(l.tpl, l.split);
     const boxOf = key => (boxes.current || []).find(b => b.key === key);
     // 选中的那一样现在的位置、大小、角度——三种东西各存在各的地方，读写都走这一对
@@ -429,9 +472,31 @@
           busy === "arrange" ? name + " 在挑…" : "让 " + name + " 来摆") : null,
         why ? h("div", { style: { fontFamily: F_BODY, fontStyle: "italic", fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.sub, lineHeight: 1.7, marginTop: 10, textAlign: "center" } }, "「" + why + "」") : null,
         h("div", { style: lab }, "背景"),
-        row(BG_ORDER.map(k => chip((layout.bg || def.bg) === k, BGS[k].name, () => setLayout(l => Object.assign({}, l, { bg: k })),
+        row(BG_ORDER.map(k => chip((layout.bg || def.bg) === k, BGS[k].name, () => setLayout(l => Object.assign({}, l, { bg: k, bgColor: "", bgInk: "" })),
           { paddingLeft: 9, display: "flex", alignItems: "center", gap: 6 },
           h("span", { "aria-hidden": "true", style: { width: 14, height: 14, borderRadius: 4, border: "1px solid rgba(0,0,0,.12)", background: BGS[k].from ? "linear-gradient(" + BGS[k].from + "," + BGS[k].to + ")" : BGS[k].base } })))),
+        // 我的底：自己传的，存在图库里，下次进来还在
+        h("div", { "data-part": "collagemybg", className: "flex", style: { gap: 7, overflowX: "auto", marginTop: 8, paddingBottom: 2 } },
+          h("button", { onClick: () => bgUp.current && bgUp.current.click(), className: "active:opacity-70 shrink-0",
+            style: { width: 54, height: 72, borderRadius: 10, border: "1.5px dashed " + t.accent, color: t.accent, fontFamily: F_BODY, fontSize: 11, lineHeight: 1.4 } }, "＋", h("br"), "传一张底"),
+          myBgs.map(k => h(MyBgThumb, { key: k, k, on: layout.bg === k, t, onPick: () => setLayout(l => Object.assign({}, l, { bg: k })), onDrop: () => dropBg(k) }))),
+        h("input", { ref: bgUp, "data-part": "collagebgfile", type: "file", accept: "image/*", style: { display: "none" }, onChange: e => { const f = e.target.files && e.target.files[0]; e.target.value = ""; uploadBg(f); } }),
+        // 换颜色：花纹照旧，颜色自己挑
+        !isMyBg(layout.bg || def.bg) ? (() => {
+          const b = BGS[layout.bg || def.bg] || BGS.cream, base = layout.bgColor || b.base || b.from, ink = layout.bgInk || inkOf(b);
+          const SW = ["#c79f78", "#efc9cf", "#b9c7a7", "#f2eee6", "#c8d6e8", "#e8d9f0", "#f6e3a8", "#2c2b3a", "#ffffff", "#6b4228", "#b0596b", "#4f6440", "#3b5b8a", "#7a5c9e", "#d0465c", "#121218"];
+          const line = (label, val, onCh) => h("div", { className: "flex items-center", style: { gap: 6, marginTop: 8 } },
+            h("span", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog, width: 52, flexShrink: 0 } }, label),
+            h("div", { className: "flex", style: { gap: 5, overflowX: "auto", flex: 1, paddingBottom: 2 } },
+              SW.map(c => h("button", { key: c, onClick: () => onCh(c), "aria-label": c, className: "shrink-0",
+                style: { width: 24, height: 24, borderRadius: 12, background: c, border: "2px solid " + (String(val).toLowerCase() === c ? t.accent : t.line) } }))),
+            h("input", { type: "color", value: /^#[0-9a-f]{6}$/i.test(val) ? val : "#cccccc", onChange: e => onCh(e.target.value), "aria-label": label + "自己调",
+              style: { width: 34, height: 28, padding: 0, border: "1px solid " + t.line, borderRadius: 6, background: "transparent", flexShrink: 0 } }));
+          return h("div", { "data-part": "collagebgcolor" },
+            line(b.from ? "上半截" : "底色", base, c => setLayout(l => Object.assign({}, l, { bgColor: c }))),
+            (b.line || b.dot || b.grid || b.from) ? line(b.from ? "下半截" : "花纹色", ink, c => setLayout(l => Object.assign({}, l, { bgInk: c }))) : null,
+            (layout.bgColor || layout.bgInk) ? h("button", { onClick: () => setLayout(l => Object.assign({}, l, { bgColor: "", bgInk: "" })), style: { marginTop: 6, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog } }, "颜色换回原样") : null);
+        })() : null,
         h("div", { style: lab }, "贴纸（点一下加一颗，按住拖到想放的地方）"),
         h("div", { "data-part": "collagestickers", style: { display: "grid", gridTemplateColumns: "repeat(8, 1fr)", gap: 4 } },
           STICKERS.map(ch => h("button", { key: ch, onClick: () => addSticker(ch), className: "active:opacity-60",
