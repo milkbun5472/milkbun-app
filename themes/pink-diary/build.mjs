@@ -318,6 +318,39 @@ button[data-wk="avatar"]::before,span[data-wk="avatar"]:not([data-halo])::before
 [data-wk="offlogtext"]{color:${C.ink} !important;line-height:28px !important}
 [data-wk="offlogopen"],[data-wk="offlogredo"],[data-wk="offlogundo"],[data-wk="offlogrestore"]{color:${C.rose} !important;font-style:italic !important}
 [data-wk="offlogtranscript"]{border-top:1.5px dashed ${C.margin} !important;color:${C.rose} !important}
+
+/* 顶栏三颗心：按钮放宽，不再被裁 */
+[data-wk="chathead"] [data-wk="chatmore"]{width:44px !important;min-width:44px !important;height:30px !important;background-size:40px auto !important;overflow:visible !important}
+
+/* 加号面板：摊开的一页贴纸本，每个功能是一张圆贴纸 */
+[data-wk="chatpanel"]{background:${C.paper2} linear-gradient(${C.line} 1px,transparent 1px) 0 0/100% 28px !important;border-top:1.5px dashed ${C.margin} !important}
+[data-wk="chattoolicon"]{background:#fff !important;border:1.5px dashed ${C.margin} !important;border-radius:50% !important;box-shadow:2px 2px 0 rgba(138,90,95,.12) !important;transition:transform .12s !important}
+[data-wk="chattool"]:nth-child(3n+1) [data-wk="chattoolicon"]{transform:rotate(-6deg) !important}
+[data-wk="chattool"]:nth-child(3n+2) [data-wk="chattoolicon"]{transform:rotate(4deg) !important;background:#fdf1f2 !important}
+[data-wk="chattool"]:nth-child(3n) [data-wk="chattoolicon"]{transform:rotate(-2deg) !important;background:#f3faf6 !important}
+[data-wk="chattool"]:active [data-wk="chattoolicon"]{transform:scale(.88) !important}
+[data-wk="chattoolglyph"],[data-wk="chattoolglyph"] svg{stroke:${C.rose} !important;color:${C.rose} !important}
+[data-wk="chattoollabel"]{color:${C.rose} !important;font-style:italic !important}
+
+/* 引用：一张夹在输入框上的小纸条，回形针别着 */
+[data-wk="quotedraft"]{background:#fff !important;border:1.5px solid ${C.line} !important;border-left:3px solid ${C.margin} !important;border-radius:2px !important;position:relative !important;overflow:visible !important;transform:rotate(-.5deg) !important}
+[data-wk="quotedraft"]::before{content:"" !important;position:absolute !important;top:-12px !important;left:14px !important;width:12px !important;height:30px !important;background:${svg(CLIP)} center/contain no-repeat !important}
+[data-wk="quoteicon"]{color:${C.margin} !important}
+[data-wk="quotetext"]{color:${C.rose} !important;font-style:italic !important}
+[data-wk="quoteclear"]{color:${C.rose} !important}
+
+/* 拆开红包那一页：一张粉色信纸 */
+[data-wk="rpenvelope"][data-stage="open"]{background:${C.paper2} ${svg(PAGE)} repeat !important;background-size:390px 28px !important;border:1.5px solid ${C.margin} !important;border-radius:4px !important;box-shadow:0 14px 34px rgba(94,66,69,.25) !important}
+[data-wk="rpenvelope"][data-stage="open"] [data-wk="rparc"]{background:linear-gradient(175deg,#efb6c0,#d9808f) !important}
+[data-wk="rpenvelope"][data-stage="open"] [data-wk="rpfrom"]{color:${C.ink} !important;font-style:italic !important}
+[data-wk="rpenvelope"][data-stage="open"] [data-wk="rpwish"]{color:${C.rose} !important}
+[data-wk="rpavatar"]{border-radius:2px !important;box-shadow:0 0 0 4px #fff,0 0 0 5.5px ${C.margin} !important;transform:rotate(-3deg) !important}
+[data-wk="rpavatar"] *{border-radius:2px !important}
+[data-wk="rpamount"]{color:#d9707e !important;background:linear-gradient(transparent 60%,rgba(246,230,192,.9) 60%) !important;padding:0 6px !important}
+[data-wk="rpstatus"]{color:${C.rose} !important;font-style:italic !important}
+[data-wk="rpclose"]{background:#fff ${svg(HEART())} center/0 0 no-repeat !important;border:1.5px solid ${C.margin} !important;color:${C.rose} !important}
+[data-wk="rpenvelope"][data-stage="closed"]{border-radius:6px !important;border:2px solid #fff !important}
+[data-wk="rpenvelope"][data-stage="closed"] [data-wk="rpwish"],[data-wk="rpenvelope"][data-stage="closed"] [data-wk="rpfrom"]{color:#fff !important}
 `;
 
 const pack = { kind: "chat-look", v: 1, name: "粉色日记", look: { bubble, layout, customCSS: css.trim() }, assets: {} };
