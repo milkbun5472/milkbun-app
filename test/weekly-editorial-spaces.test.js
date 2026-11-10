@@ -30,8 +30,11 @@ test("本期工具是安全区内的完整页面，不再从底部弹出半屏",
 });
 
 test("合订本书架保留滚动位置，同一报道周只展示最完整的新稿", () => {
-  assert.match(weekly, /Shelf\.scrollTop = el\.scrollTop/);
-  assert.match(weekly, /if \(el && Number\.isFinite\(Shelf\.scrollTop\)\) el\.scrollTop = Shelf\.scrollTop/);
+  // 改挂公共的 keepScroll（core.js）
+  assert.match(weekly, /ref: keepScroll\("weekly:shelf", scrollRef\)/);
+  const core = fs.readFileSync(path.resolve(__dirname, "../js/core.js"), "utf8");
+  assert.match(core, /_keepScrollMem\[key\] = el\.scrollTop/);
+  assert.match(core, /el\.scrollTop = v;/);
   assert.match(weekly, /const byWeek = new Map\(\)/);
   assert.match(weekly, /sections\) \|\| \[\]\)\.length \* 10000000000000/);
   assert.match(weekly, /const displayIssues = shelfIssues\(issues\)/, "首页也必须使用书架同一份去重选择规则");

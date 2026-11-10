@@ -28793,7 +28793,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
           + "再写最多 " + wn + " 句手写在壁纸上的字（words，每句十四个字以内，中文英文都行）。"
           + "挑哪几张、写不写字、写什么，照你这个人来：话少的就少写，一句不写也行。why 用你平时说话的口气说一句为什么挑这几张。",
         schemaHint: "{\"picks\":[编号],\"captions\":[\"\"],\"words\":[\"\"],\"why\":\"一句\"}",
-        maxTokens: 4000
+        maxTokens: 12000
       });
       const max = Math.min(list.length, 40), picks = [];
       (Array.isArray(d && d.picks) ? d.picks : []).forEach(x => { const i = Math.round(Number(x)); if (i >= 0 && i < max && picks.indexOf(i) < 0 && picks.length < n) picks.push(i); });

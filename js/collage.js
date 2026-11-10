@@ -175,14 +175,14 @@
     const def = TPL[layout.tpl];
     const lab = { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog, margin: "16px 2px 8px" };
     const inp = { width: "100%", padding: "9px 11px", borderRadius: 10, border: "1px solid " + t.line, background: t.bg2, color: t.ink, fontFamily: F_BODY, fontSize: 16, marginBottom: 7 };
-    if (pickAt >= 0) return h("div", { "data-wk": "uspage", "data-part": "collagepick", className: "h-full flex flex-col", style: { background: t.bg } },
+    if (pickAt >= 0) return h("div", { "data-wk": "uspage", "data-part": "collagepick", className: "h-full flex flex-col", style: cpSkin(t, "page") },
       h(Head, { zh: "第 " + (pickAt + 1) + " 格放哪张", bg: "transparent", onBack: () => setPickAt(-1) }),
       h("div", { className: "flex-1 min-h-0 overflow-y-auto px-5 pb-10" },
         h("div", { style: { display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 6 } },
           list.map((p, i) => h("button", { key: i, onClick: () => { setLayout(l => { const picks = l.picks.slice(); picks[pickAt] = i; return Object.assign({}, l, { picks }); }); setPickAt(-1); },
             className: "active:opacity-80", style: { aspectRatio: "1", borderRadius: 10, overflow: "hidden", border: "2px solid " + (layout.picks[pickAt] === i ? t.accent : t.line), padding: 0 } },
             typeof AlbumPhoto === "function" ? h(AlbumPhoto, { photo: p }) : null)))));
-    return h("div", { "data-wk": "uspage", "data-part": "collage", className: "h-full flex flex-col", style: { background: t.bg } },
+    return h("div", { "data-wk": "uspage", "data-part": "collage", className: "h-full flex flex-col", style: cpSkin(t, "page") },
       h(Head, { zh: "拼一张壁纸", sub: name, bg: "transparent", onBack }),
       h("div", { ref: typeof keepScroll === "function" ? keepScroll("collage:" + partner.id) : null, className: "flex-1 min-h-0 overflow-y-auto px-5 pb-12" },
         // 样式：下划线页签（tabs-not-plain-pills）

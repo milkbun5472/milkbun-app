@@ -70,7 +70,12 @@ test("算出来的那几个上限也抬过了，别留一个 min(4000, …) 在�
   assert.match(app, /maxTokens: Math\.min\(20000, 8500 \+ batch\.length \* 60\)/);
   const groupReply = app.slice(app.indexOf('const replyGroup ='), app.indexOf('const oocGroup ='));
   assert.match(groupReply, /maxTokens: 65000/);
-  assert.match(eng, /maxTokens: Math\.min\(20000, 8800 \+ \(entries \|\| \[\]\)\.length \* 40\)/);
+  // 原来这儿查的是 refineMemories 那个 min(20000, 8800 + …)——那段「旧版月度精炼」2026-11 有意删了。
+  //   照样守住同一件事：engine 里任何算出来的上限，起步那一份都不许低于地板。
+  assert.ok(!/function refineMemories\(/.test(eng), "refineMemories 回来了——回来就得把它那个算出来的上限一起查");
+  for (const m of eng.matchAll(/maxTokens: Math\.min\(\s*(\d+)\s*,\s*(\d+)\s*\+/g)) {
+    assert.ok(Number(m[1]) >= 20000 && Number(m[2]) >= FLOOR, "engine 里有个算出来的上限掉下来了：" + m[0]);
+  }
   // ⚠️同人文这两处别冻公式的【长相】。规矩只说了「不许往下调」，
   // 而冻住字面量的话，往上抬也会红——v60.97 穿书那一次正是这样：
   // 开场那一拍现在除了正文还要带回这本书的骨架，抬上限是对的，测试却拦住了。

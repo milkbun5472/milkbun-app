@@ -42,7 +42,7 @@ test("摊开的是整段，不是又一层截断", () => {
   // 存进去的那份本来就是全的——v74.039 起写入那头也不截了（她截图：半句断在「就算哪天你」）
   assert.match(app, /const why = String\(\(d && d\.why\) \|\| ""\)\.replace\(\/\\s\+\/g, " "\)\.trim\(\);/,
     "写入那头又加了上限——读这头的期望要跟着看一眼");
-  assert.match(app, /kept: \[\{ species: g\.species, why: g\.why, color: g\.color, ts: Date\.now\(\) \}/,
+  assert.match(app, /kept: \[\{ species: g\.species, why: g\.why, color: g\.color, by: g\.by \|\| "char", img: g\.img \|\| null, ts: Date\.now\(\) \}/,
     "收进册子时 why 被动过——册子里就永远补不回来了");
 });
 

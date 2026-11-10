@@ -45,7 +45,8 @@ test("能力只在闸开着时给，落地时再过一遍闸；侧房、言秋�
 
 test("他记得自己写过信、她怎么回的", () => {
   assert.match(app, /\(m && m\.kind === "loveletter"\) \? _letterRow\(m\)/);
-  assert.match(app, /const dongnianHint = backdateHint \+ peekHint \+ letterHint \+ refuseHint/);
+  // 中间陆续插了别的提示（种花、拼壁纸、被抓包……），只认信那两段还在同一条链里、且信在前回信在后
+  assert.match(app, /const dongnianHint = backdateHint \+ peekHint \+ (?:\w+Hint \+ )*letterHint \+ refuseHint \+/);
 });
 
 test("卡：先封着、拆开才读到；读完再选；设置里有开关，默认开", () => {

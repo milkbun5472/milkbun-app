@@ -55,7 +55,10 @@ test("记忆库每一条都挂上它，而且不顶掉原来那个相对词锚",
 test("以前的事不挂日期戳，挂〔以前的事·那时候〕", () => {
   const i = engine.indexOf("function formatMemLib(entries) {");
   const seg = engine.slice(i, engine.indexOf("\n}", engine.indexOf("hasOpen", i)) + 2);
-  const fmt = new Function("window", seg + "\nreturn formatMemLib;")({ TemporalAnchor: { anchor: () => "", stamp: () => "〔记于 10月11日·今天〕" } });
+  // formatMemLib 现在会问 memExpired（短期状态过期注明），从源码原样抠出来一起跑
+  const ei = engine.indexOf("function memExpired(");
+  const memExpiredSrc = engine.slice(ei, engine.indexOf("\n}", ei) + 2);
+  const fmt = new Function("window", memExpiredSrc + "\n" + seg + "\nreturn formatMemLib;")({ TemporalAnchor: { anchor: () => "", stamp: () => "〔记于 10月11日·今天〕" } });
   const out = fmt([{ id: "a", text: "第一次一起看雪", tags: ["过去"], past: true, when: "三年前的冬天", ts: Date.now() }, { id: "b", text: "老戏骨", tags: ["抽卡", "过去"], ts: Date.now() }]);
   assert.match(out, /第一次一起看雪（过去） 〔以前的事·三年前的冬天〕/);
   assert.match(out, /老戏骨（抽卡、过去） 〔以前的事〕/);
