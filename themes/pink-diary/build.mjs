@@ -205,9 +205,9 @@ button[data-wk="avatar"]::before,span[data-wk="avatar"]:not([data-halo])::before
 [data-wk="statehead"] > [data-wk="avatar"]{border-radius:2px !important;box-shadow:0 0 0 4px #fff,0 0 0 5.5px ${C.margin},2px 4px 0 5px rgba(138,90,95,.12) !important;transform:rotate(-4deg) !important}
 [data-wk="statemood"]{display:inline-block !important;line-height:1.5 !important;background:linear-gradient(transparent 45%,rgba(242,196,200,.9) 45%,rgba(242,196,200,.9) 95%,transparent 95%) !important;color:${C.rose} !important;padding:0 6px !important;font-style:italic !important}
 /* 此刻 / Ta 眼里：页边的两张索引标签 */
-[data-wk="statecard"] div:has(> button[aria-pressed]){background:transparent !important;border:none !important;gap:8px !important;padding:8px 14px 0 !important}
-[data-wk="statecard"] button[aria-pressed]{background:${C.line} !important;color:${C.rose} !important;border:none !important;border-radius:10px 10px 0 0 !important;padding:6px 0 !important;font-style:italic !important}
-[data-wk="statecard"] button[aria-pressed="true"]{background:#fff !important;color:${C.ink} !important;box-shadow:0 -2px 0 ${C.margin} inset !important}
+[data-wk="statecard"] > div:has(> button[aria-pressed]){background:transparent !important;border:none !important;gap:8px !important;padding:8px 14px 0 !important}
+[data-wk="statecard"] > div > button[aria-pressed]{background:${C.line} !important;color:${C.rose} !important;border:none !important;border-radius:10px 10px 0 0 !important;padding:6px 0 !important;font-style:italic !important}
+[data-wk="statecard"] > div > button[aria-pressed="true"]{background:#fff !important;color:${C.ink} !important;box-shadow:0 -2px 0 ${C.margin} inset !important}
 /* 看得见的：一张拍立得贴在页上；心里想的：日记正文 */
 [data-wk="stateseen"]{background:#fff !important;margin:16px 18px 18px !important;padding:16px 16px 14px !important;border:1px solid ${C.line} !important;box-shadow:2px 4px 0 rgba(138,90,95,.12) !important;transform:rotate(-1.5deg) !important;position:relative !important}
 [data-wk="stateseen"] > span[aria-hidden]{display:none !important}
@@ -246,6 +246,7 @@ button[data-wk="avatar"]::before,span[data-wk="avatar"]:not([data-halo])::before
 [data-wk="gazecardname"]{color:${C.ink} !important}
 [data-wk="gazecardtext"]{color:${C.rose} !important}
 [data-wk="gazeempty"]{border:1.5px dashed ${C.margin} !important;border-radius:4px !important;padding-top:84px !important;position:relative !important}
+[data-wk="gazeempty"] button{background:${C.margin} !important;color:#fff !important;border-radius:4px !important;box-shadow:2px 2px 0 rgba(138,90,95,.2) !important}
 [data-wk="gazeempty"]::before{content:"" !important;position:absolute !important;top:16px !important;left:calc(50% - 30px) !important;width:60px !important;height:60px !important;background:${svg(BUNNY)} center/contain no-repeat !important;opacity:.7 !important;filter:grayscale(.3) !important}
 [data-wk="gazeletter"],[data-wk="gazehistory"]{background:${C.paper2} ${svg(PAGE)} repeat !important;background-size:390px 28px !important;border-radius:4px !important}
 
@@ -292,10 +293,10 @@ button[data-wk="avatar"]::before,span[data-wk="avatar"]:not([data-halo])::before
 [data-wk="statehead"] > div > div:first-child::after{content:" 的日记" !important;font-size:13px !important;color:${C.rose} !important}
 [data-wk="statehead"] > button{position:absolute !important;top:calc(var(--app-safe-top, 20px) + 16px) !important;right:-46px !important;background:#fff !important;border:1.5px solid ${C.margin} !important;color:${C.rose} !important}
 /* 此刻 / Ta 眼里：竖着贴在页面右边缘的两张索引标签 */
-[data-wk="statecard"] div:has(> button[aria-pressed]){position:absolute !important;right:-34px !important;top:calc(var(--app-safe-top, 20px) + 120px) !important;flex-direction:column !important;gap:6px !important;padding:0 !important;margin:0 !important;background:transparent !important;border:none !important;z-index:4 !important}
-[data-wk="statecard"] button[aria-pressed]{writing-mode:vertical-rl !important;text-orientation:upright !important;width:34px !important;flex:none !important;padding:14px 0 !important;border-radius:0 10px 10px 0 !important;background:${C.line} !important;color:${C.rose} !important;font-style:normal !important;letter-spacing:2px !important;box-shadow:2px 2px 0 rgba(138,90,95,.12) !important}
-[data-wk="statecard"] button[aria-pressed="true"]{background:#fff !important;color:${C.ink} !important;border:1.5px solid ${C.margin} !important;border-left:none !important}
-[data-wk="statecard"] button[aria-pressed]::before{content:none !important}
+[data-wk="statecard"] > div:has(> button[aria-pressed]){position:absolute !important;right:-34px !important;top:calc(var(--app-safe-top, 20px) + 120px) !important;flex-direction:column !important;gap:6px !important;padding:0 !important;margin:0 !important;background:transparent !important;border:none !important;z-index:4 !important}
+[data-wk="statecard"] > div > button[aria-pressed]{writing-mode:vertical-rl !important;text-orientation:upright !important;width:34px !important;flex:none !important;padding:14px 0 !important;border-radius:0 10px 10px 0 !important;background:${C.line} !important;color:${C.rose} !important;font-style:normal !important;letter-spacing:2px !important;box-shadow:2px 2px 0 rgba(138,90,95,.12) !important}
+[data-wk="statecard"] > div > button[aria-pressed="true"]{background:#fff !important;color:${C.ink} !important;border:1.5px solid ${C.margin} !important;border-left:none !important}
+[data-wk="statecard"] > div > button[aria-pressed]::before{content:none !important}
 /* 好感：从页顶垂下来的一条书签丝带，爱心在丝带末端 */
 [data-wk="stateaff"]{position:absolute !important;top:0 !important;right:22px !important;width:40px !important;height:calc(var(--app-safe-top, 20px) + 110px) !important;padding:0 !important;display:flex !important;flex-direction:column !important;justify-content:flex-end !important;align-items:center !important;background:linear-gradient(90deg,#d9808f,#efb6c0 50%,#d9808f) !important;border:none !important;clip-path:polygon(0 0,100% 0,100% 100%,50% calc(100% - 12px),0 100%) !important;z-index:3 !important}
 [data-wk="stateaff"] > div:last-child{display:none !important}
