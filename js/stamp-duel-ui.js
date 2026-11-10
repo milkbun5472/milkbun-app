@@ -1493,10 +1493,13 @@
     const chalNow = !!(st.siege || st.raid || st.edict || st.shift || st.patrol || st.puzzle || st.relay || st.story);
     // 接力：轮到 TA（双数回合）就自动替 TA 下，放完动画再交回给她
     const taTurn = !!(st.relay && !over && st.turn % 2 === 0);
-    if (taTurn && !playing.current && !st.relayRunning) { st.relayRunning = true;
+    if (taTurn && st.relayPlaced !== st.turn && !playing.current && !st.relayRunning) { st.relayRunning = true;
       setTimeout(() => { if (st.over) { st.relayRunning = false; return; } const n0 = st.log.length, acts = D().autoMe(st, st.relay.style);
         const mine = st.me.board.filter(u => u && u.charId === st.relay.ta && u.lines && u.lines.enter); if (acts.length && mine.length) { const key = Math.random(); lastBubble.current = key; setBubble({ text: mine[Math.floor(Math.random() * mine.length)].lines.enter, key, me: true, who: nameOf(st.relay.ta) || "TA" }); }
-        D().endTurn(st); st.relayRunning = false; setHandSel(-1); setBoardSel(-1); redraw(); play(n0); }, 900); }
+        // 先把 TA 贴票这一步单独放给她看，放完再寄出（她 2026-11-10「第二回合他打我看不到他摆卡」）
+        st.relayPlaced = st.turn; st.relayRunning = false; setHandSel(-1); setBoardSel(-1); redraw(); play(n0); }, 900); }
+    if (taTurn && st.relayPlaced === st.turn && !playing.current && !st.relaySending) { st.relaySending = true;
+      setTimeout(() => { st.relaySending = false; if (st.over || st.relayPlaced !== st.turn) return; const n0 = st.log.length; D().endTurn(st); redraw(); play(n0); }, 900); }
     if (over && st.relay && !st.relaySaved) { st.relaySaved = 1; try { const v = relayRec(), r0 = v[st.relay.ta] || { n: 0, win: 0 }; v[st.relay.ta] = { n: r0.n + 1, win: r0.win + (over.winner === "me" ? 1 : 0) }; saveJSON(RELAY_KEY, v); } catch (e) {} }
     if (over && st.puzzle && over.winner === "me" && !st.pzSaved) { st.pzSaved = 1; try { const v = (typeof loadJSON === "function" ? loadJSON(PZ_KEY, null) : null) || {}; if (st.puzzle.daily) v.daily = Object.assign({}, v.daily, { [st.puzzle.daily]: Date.now() }); else v.solved = Object.assign({}, v.solved, { [st.puzzle.lv]: Date.now() }); saveJSON(PZ_KEY, v); } catch (e) {} }
     if (over && !playing.current && !st.run && !st.tutorial && !st.parcels) st.parcels = Trinkets.drop([st.shopFight ? (st.shopFight.staff || [])[Math.floor(Math.random() * ((st.shopFight.staff || []).length || 1))] : st.story ? st.story.charId : chalNow ? coachId : foeId], over.winner === "me", st.patrol === "boss" && over.winner === "me" ? 1 : 0);
