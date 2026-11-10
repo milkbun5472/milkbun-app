@@ -40,6 +40,9 @@ const css = `
 [data-wk="chathead"]::after{content:"" !important;position:absolute !important;left:0 !important;right:0 !important;top:100% !important;height:16px !important;background:${svg(`<svg xmlns='http://www.w3.org/2000/svg' width='20' height='16' viewBox='0 0 20 16'><path d='M0 0 H20 V4 A5 5 0 0 1 10 4 A5 5 0 0 1 0 4Z' fill='${C.paper2}'/><path d='M0 4 A5 5 0 0 0 10 4 A5 5 0 0 0 20 4' fill='none' stroke='${C.margin}' stroke-width='1.4'/><circle cx='5' cy='5' r='1.3' fill='${C.margin}'/><circle cx='15' cy='5' r='1.3' fill='${C.margin}'/></svg>`)} repeat-x left top/20px 16px !important;pointer-events:none !important}
 [data-wk="headink"]{color:${C.ink} !important}
 [data-wk="headdim"]{color:${C.rose} !important;opacity:.7 !important}
+/* 顶栏收矮：小字那行藏掉，头像缩一号（上下留白不动，安全区照 app 的算） */
+[data-wk="headname"] > div:nth-child(2){display:none !important}
+[data-wk="chathead"] > button > [data-wk="avatar"],[data-wk="chathead"] [data-wk="avatar"]{width:30px !important;height:30px !important}
 [data-wk="chatback"] svg{stroke:${C.rose} !important}
 [data-wk="chatmore"],[data-wk="sameroom"]{background:${svg(I_MORE)} center/26px 26px no-repeat !important;border:none !important;box-shadow:none !important}
 [data-wk="chatmore"] *,[data-wk="sameroom"] *{opacity:0 !important}
