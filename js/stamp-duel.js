@@ -931,7 +931,7 @@
   }
 
   // ── 结算 ───────────────────────────────────────────────────────
-  function powOf(st, u, sd, i) {
+  function powOf(st, u, sd, i, toEnv) {
     let p = u.pow + (u.marks.雨渍 ? -2 : 0) + (eventNow(st) === "大雨" ? -1 : 0);
     const who0 = u.side || (sd === st.me ? "me" : "foe");
     if (who0 === "foe" && st.bossRule === "偏执") p += st.rage || 0;
@@ -944,7 +944,8 @@
     if (u.trait === "记仇") p += Math.min(4, u.grudge || 0);
     if (u.trait === "夜行" && row(i) === SIZE - 1) p += 2;
     const b = bondOn(st, sd, u); if (b === "好胜") p += 1; else if (b === "偏执") p += 2;
-    if (u.first && u.kind === "if") p *= 2;                                                              // IF 卡第一次做双份
+    // IF 卡第一下多打一份「本身的攻击」，只算打票、不算直接打信封（她 2026-11-10：万圣夜卡第一回合对面空着，翻倍叠上后排、连张，一回合把信封打空）
+    if (u.first && u.kind === "if" && !toEnv) p += u.pow;
     return Math.max(0, p);
   }
   // 打同一列：从前排往后找第一张——后排只要前面有人就挨不着
@@ -994,7 +995,7 @@
     // SR／SSR 每局第一次出手：给界面一条「出手」，扫一道带卡面的横幅（她 2026-11-08「SR 和 SSR 都加吧」）
     if ((u.rarity === "SR" || u.rarity === "SSR") && !u.cutDone && u.cardId) { u.cutDone = 1; say(st, who, u.name + " 出手", { kind: "attack", slot: i, char: u.charId, rarity: u.rarity, name: u.name, cardId: u.cardId, cutLine: u.lines.enter || u.lines.wake || "" }); }
     for (let t = 0; t < times && sd.board[i] === u; t++) {
-      const p = powOf(st, u, sd, i), j = targetIn(foe, col(i));
+      const j = targetIn(foe, col(i)), p = powOf(st, u, sd, i, j < 0);
       // 每种票都打人（她 2026-11-08「每种卡都可以攻击吧不然太慢了」）：投递打满，别的打几成、再加自己的本事
       const side = n => { if (n <= 0 || sd.board[i] !== u) return; const jj = targetIn(foe, col(i)); if (jj >= 0) hitUnit(st, foeWho, jj, n, u.name, u); else hitEnvelope(st, foeWho, n, u.name); };
       if (u.role === "投递") { if (j >= 0) hitUnit(st, foeWho, j, p, u.name, u); else hitEnvelope(st, foeWho, p, u.name); }
@@ -1066,7 +1067,7 @@
   function aimOf(st, sd, foe, i, u) {
     if (siegeIdle(st, sd, i)) return null;
     if (st.siege && sd === st.foe && u.atGate) return { from: i, to: -1, dmg: u.pow + SIEGE_BREACH, kind: "env", breach: true };
-    const p = powOf(st, u, sd, i), j = targetIn(foe, col(i));
+    const j = targetIn(foe, col(i)), p = powOf(st, u, sd, i, j < 0);
     if (u.role === "投递") return { from: i, to: j, dmg: p, kind: j >= 0 ? "hit" : "env" };
     const d = Math.ceil(p * (ROLE_HIT[u.role] || 0)); if (d <= 0) return null;
     if (u.role === "邮戳" && j >= 0 && !SELF_INK[u.ink]) return { from: i, to: j, dmg: d, kind: "ink", ink: u.ink };
