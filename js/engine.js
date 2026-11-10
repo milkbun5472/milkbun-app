@@ -2758,7 +2758,8 @@ const bubbleProtectNum = x => String(x).replace(/(\d)[，,](?=\d)/g, "$1" + BUBB
 // 否则会甩出一个巨大的气泡——引号是不想被切断，不是不想被切。
 // 英文直引号没有左右之分，don't、it's 里的撇号不能当开引号：要求开引号前面不是字母数字、
 // 收引号后面也不是。不用 lookbehind 是为了不挑运行环境（她是 iPhone PWA）。
-const BUBBLE_QPUNC = "。！？!?，,";
+// 空格也收（群里 2026-11-10 截图：「【晚自习下课别跑 在车棚等我】」在括号里那个空格处被切成两泡）——空格在拆泡里也是一刀
+const BUBBLE_QPUNC = "。！？!?，, ";
 const BUBBLE_QSEP0 = 0xe000;
 // ⚠️**括号也算一对**（她 2026-09-15 截图，第三次了）。她那几个角色把动作和小声话
 //   写在（……）里，于是「（……把手机还给我！快点按掉不准看！！）」被里头那个感叹号
@@ -2766,9 +2767,9 @@ const BUBBLE_QSEP0 = 0xe000;
 //   跟千分位、跟引号是同一个病：句读只在【裸露的】标点上成立，
 //   包在一对括号里的那些是括号内部的结构，不是句子边界。
 const BUBBLE_QPAIR = [/「([^」]{0,60})」/g, /『([^』]{0,60})』/g, /“([^”]{0,60})”/g, /‘([^’]{0,60})’/g,
-  /（([^（）]{0,60})）/g, /\(([^()]{0,60})\)/g];
+  /（([^（）]{0,60})）/g, /\(([^()]{0,60})\)/g, /【([^【】]{0,60})】/g, /《([^《》]{0,60})》/g, /〔([^〔〕]{0,60})〕/g];
 const BUBBLE_QFLAT = [/(^|[^A-Za-z0-9])"([^"]{0,60})"(?![A-Za-z0-9])/g, /(^|[^A-Za-z0-9])'([^']{0,60})'(?![A-Za-z0-9])/g];
-const bubbleHidePunc = x => String(x).replace(/[。！？!?，,]/g, c => String.fromCharCode(BUBBLE_QSEP0 + BUBBLE_QPUNC.indexOf(c)));
+const bubbleHidePunc = x => String(x).replace(/[。！？!?，, ]/g, c => String.fromCharCode(BUBBLE_QSEP0 + BUBBLE_QPUNC.indexOf(c)));
 function bubbleProtectQuote(x) {
   let t = String(x);
   // 链接也是一整个东西（她 2026-10-11：游戏房间链接在「?room=」那儿被切成两个气泡，前半截点不开、后半截不是链接）
@@ -2778,7 +2779,7 @@ function bubbleProtectQuote(x) {
   return t;
 }
 const bubbleRestore = x => String(x)
-  .replace(/[\ue000-\ue006]/g, c => BUBBLE_QPUNC.charAt(c.charCodeAt(0) - BUBBLE_QSEP0))
+  .replace(/[\ue000-\ue007]/g, c => BUBBLE_QPUNC.charAt(c.charCodeAt(0) - BUBBLE_QSEP0))
   .split(BUBBLE_NUMSEP).join(",");
 // ── 动描那道「没变就别刷屏」的闸（单聊和群聊共用）────────────────────
 // 两处都写着「提示词只降概率，代码才保证」，可比的是【字符串完全相等】——

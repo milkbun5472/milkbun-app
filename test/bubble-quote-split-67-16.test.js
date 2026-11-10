@@ -195,3 +195,12 @@ test("模型单交一条「!」：拆泡后的那道粘回去", () => {
   const g = new Function(engine.slice(j, k) + "\nreturn bubbleGlueBrokenLines;")();
   assert.deepEqual(g(["Mais c'est quoi cette coupe de cheveux ?", "!", "怎么一边白一边紫"]), ["Mais c'est quoi cette coupe de cheveux ? !", "怎么一边白一边紫"]);
 });
+
+// 群里 2026-11-10 截图：「我特么看到那句【晚自习下课别跑 在车棚等我】整个人都裂开了」在括号里的空格处切成两泡
+test("【】《》里的空格、标点都不下刀", () => {
+  for (const s of ["我特么看到那句【晚自习下课别跑 在车棚等我】整个人都裂开了", "你上次推荐的那本《夜里 我们去看海，好吗》我看完了真的很好"]) {
+    const out = splitLongBubble(s);
+    const q = s.match(/[【《][^】》]+[】》]/)[0];
+    assert.ok(out.some(x => x.includes(q)), JSON.stringify(out));
+  }
+});
