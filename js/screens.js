@@ -3292,8 +3292,8 @@ function Us({ onPutDrawerMine, onReplyDrawerMine, drawerReplyBusy, characters, c
   // 情侣空间子模块：合照墙
   if (partner && cp[view] && cp[view].status === "together" && sub === "album") {
     return h(CoupleAlbum, { partner, photos: duoPhotosFor ? duoPhotosFor(partner.id) : [], onBack: () => setSub(null), onDelete: onDeletePhoto ? p => onDeletePhoto(partner.id, p) : null, onUpload: onUploadPhoto ? (file, desc) => onUploadPhoto(partner.id, file, desc) : null,
-      onArrange: onCollageArrange ? (list, tpl, split) => onCollageArrange(partner.id, list, tpl, split) : null, onCollageSave: onCollageSave ? o => onCollageSave(partner.id, o) : null,
-      onLook: onCollageLook ? (img, desc) => onCollageLook(partner.id, img, desc) : null, onChoose: onCollageChoose ? (kind, imgs, labels) => onCollageChoose(partner.id, kind, imgs, labels) : null });
+      onArrange: onCollageArrange ? (list, tpl, split, hist) => onCollageArrange(partner.id, list, tpl, split, hist) : null, onCollageSave: onCollageSave ? o => onCollageSave(partner.id, o) : null,
+      onLook: onCollageLook ? (img, desc, hist) => onCollageLook(partner.id, img, desc, hist) : null, onChoose: onCollageChoose ? (kind, imgs, labels, hist) => onCollageChoose(partner.id, kind, imgs, labels, hist) : null });
   }
   // 情侣空间子模块：情书
   if (partner && cp[view] && cp[view].status === "together" && sub === "letters") {

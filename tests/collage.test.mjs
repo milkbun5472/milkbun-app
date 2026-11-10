@@ -14,7 +14,7 @@ test("三种样式，一人一半格子和字都翻倍", () => {
 test("接进合照墙；TA 来摆一次调用、存下来挂墙/换锁屏/TA 下一轮知道", () => {
   assert.match(idx, /js\/collage\.js\?v=/);
   assert.match(scr, /"data-part": "collageopen"/);
-  assert.match(scr, /onArrange: onCollageArrange \? \(list, tpl, split\) => onCollageArrange\(partner\.id, list, tpl, split\)/);
+  assert.match(scr, /onArrange: onCollageArrange \? \(list, tpl, split, hist\) => onCollageArrange\(partner\.id, list, tpl, split, hist\)/);
   assert.match(app, /const collageArrange = async \(charId, list, tpl, split\)/);
   assert.match(app, /await setCharLockscreen\(charId, \{ key: hisKey/);
   assert.match(app, /waitForHer\(charId, \{ collageDone:/);
@@ -62,4 +62,12 @@ test("让TA参与：看现在这张（带图）、挑几样里的一个；runPro
   assert.match(src, /const applyHis = res =>/);
   assert.match(src, /function ChoosePage\(/);
   assert.match(scr, /onLook: onCollageLook \?/);
+});
+test("这一回的来回：前后两版比出谁改了啥，叫TA时带上，存下来带去聊天", () => {
+  assert.match(src, /function changesOf\(a, b, nameOfPhoto, nameOfDeco\)/);
+  assert.match(src, /const lastSeen = useRef\(layout\);/);
+  assert.match(app, /const collageLook = async \(charId, img, desc, hist\)/);
+  assert.match(app, /const collageChoose = async \(charId, kind, imgs, labels, hist\)/);
+  assert.match(app, /const collageArrange = async \(charId, list, tpl, split, hist\)/);
+  assert.match(app, /拼的时候你们俩是这么来回的/);
 });

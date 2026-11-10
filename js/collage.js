@@ -243,9 +243,42 @@
     } catch (e) { return null; }
   }
 
+  // 这一回拼壁纸的来回（她 2026-11-10：「每次做壁纸都有这轮上下文，也知道每轮谁大概改了啥」）：
+  //   两次之间改了什么，用代码比一比前后两版说成几句大白话；不叫模型、不花钱
+  function changesOf(a, b, nameOfPhoto, nameOfDeco) {
+    if (!a || !b || a === b) return [];
+    const out = [], tplName = k => (TPL[k] || {}).name, bgName = k => isMyBg(k) ? "自己传的底" : (BGS[k] || {}).name;
+    if (a.tpl !== b.tpl) out.push("换成了「" + tplName(b.tpl) + "」样式");
+    if (!!a.split !== !!b.split) out.push(b.split ? "开了一人一半" : "关了一人一半");
+    if ((a.bg || "") !== (b.bg || "")) out.push("背景换成了" + (bgName(b.bg || (TPL[b.tpl] || {}).bg) || "原来那张"));
+    if ((a.bgColor || "") !== (b.bgColor || "") || (a.bgInk || "") !== (b.bgInk || "")) out.push("改了背景颜色");
+    if (a.font !== b.font) out.push("字体换成了" + (FONTS[b.font] || {}).name);
+    if ((a.fontScale || 1) !== (b.fontScale || 1)) out.push("字号调到了" + Math.round((b.fontScale || 1) * 100) + "%");
+    (b.picks || []).forEach((p, i) => { if ((a.picks || [])[i] !== p && i < (a.picks || []).length) out.push("第" + (i + 1) + "格换成了" + (nameOfPhoto(p) || "另一张照片")); });
+    const txt = (x, k) => (x[k] || []).filter(Boolean).join("／");
+    if (txt(a, "words") !== txt(b, "words")) out.push("手写字改成了「" + (txt(b, "words") || "（空）") + "」");
+    if (txt(a, "captions") !== txt(b, "captions")) out.push("拍立得下面的字改成了「" + (txt(b, "captions") || "（空）") + "」");
+    const hid = x => Object.keys(x.hidden || {}).length;
+    if (hid(b) > hid(a)) out.push("拿掉了" + (hid(b) - hid(a)) + "格照片"); else if (hid(b) < hid(a)) out.push("把拿掉的格子放回来了");
+    const da = a.deco || defaultDeco(a.tpl, a.split), db = b.deco || defaultDeco(b.tpl, b.split);
+    if (a.tpl === b.tpl && !!a.split === !!b.split) {
+      if (db.length > da.length) out.push("加了贴纸 " + db.slice(da.length).map(nameOfDeco).join(" "));
+      if (db.length < da.length) out.push("拿掉了" + (da.length - db.length) + "颗贴纸");
+      const moved = db.slice(0, Math.min(da.length, db.length)).filter((d, i) => d.x !== da[i].x || d.y !== da[i].y || (d.s || 1) !== (da[i].s || 1) || (d.r || 0) !== (da[i].r || 0)).length;
+      if (moved) out.push("挪/调了" + moved + "颗贴纸");
+      const adjN = Object.keys(Object.assign({}, a.adj, b.adj)).filter(k => JSON.stringify((a.adj || {})[k] || {}) !== JSON.stringify((b.adj || {})[k] || {})).length;
+      if (adjN) out.push("挪/调了" + adjN + "样照片或字");
+    }
+    const fa = a.free || [], fb = b.free || [];
+    if (fb.length > fa.length) fb.slice(fa.length).forEach(f => out.push(f.type === "photo" ? "自己加了一张照片" + (nameOfPhoto(f.p) ? "（" + nameOfPhoto(f.p) + "）" : "") : "写了一句「" + (f.text || "") + "」"));
+    if (fb.length < fa.length) out.push("拿掉了" + (fa.length - fb.length) + "样自己加的东西");
+    const fMoved = fb.slice(0, Math.min(fa.length, fb.length)).filter((f, i) => JSON.stringify(f) !== JSON.stringify(fa[i])).length;
+    if (fMoved) out.push("改/挪了" + fMoved + "样自己加的照片或字");
+    return out.slice(0, 8);
+  }
   // 挑几样让TA选：照片／底／贴纸，挑 2~6 样，TA 看着挑一个、说为什么；「用上它」就放进壁纸
   //   照片：选中了一格就换那一格，没选中就加一张自己放的
-  function ChoosePage({ t, name, list, myBgs, myStks, onBack, onChoose, onUse }) {
+  function ChoosePage({ t, name, list, myBgs, myStks, onBack, onChoose, onUse, history, onLog }) {
     const [kind, setKind] = useState("photo");
     const [picked, setPicked] = useState([]);
     const [busy, setBusy] = useState(false);
@@ -272,8 +305,8 @@
           if (u) imgsOut.push(u);
           labels.push((i + 1) + ". " + (o.photo ? "照片" + (o.photo.desc ? "：" + String(o.photo.desc).slice(0, 40) : "") : o.ch ? "贴纸 " + o.ch : o.label) + (u ? "（第" + imgsOut.length + "张图）" : ""));
         }
-        const r = await onChoose(kind, imgsOut, labels);
-        if (r) setRes(r);
+        const r = await onChoose(kind, imgsOut, labels, history ? history() : "");
+        if (r) { setRes(r); onLog && onLog("她拿了" + chosen.length + "样" + ({ photo: "照片", bg: "底", sticker: "贴纸" })[kind] + "问你（" + labels.map(x => x.replace(/（第\d+张图）/, "")).join("；") + "），你挑了第" + r.pick + "个：「" + (r.why || "") + "」"); }
       } finally { setBusy(false); }
     };
     const tabs = [["photo", "照片"], ["bg", "底"], ["sticker", "贴纸"]];
@@ -519,6 +552,17 @@
     };
     const [hisSay, setHisSay] = useState("");
     const beforeHim = useRef(null);
+    // 这一回的来回：她改了什么（跟TA上次看到的那版比）、TA做了什么说了什么。每次叫TA都带上
+    const sessLog = useRef([]);
+    const lastSeen = useRef(layout);   // 起点就是刚打开时那一版，第一次叫TA之前她动过的也算进去
+    const photoName = i => { const p = list[i]; return p ? (p.desc ? "「" + String(p.desc).slice(0, 16) + "」那张" : "另一张照片") : ""; };
+    const decoName = d => d && d.img ? "我的贴纸" + (myStks.indexOf(d.img) + 1) : (d && d.ch) || "";
+    const logLine = line => { if (line) { sessLog.current.push(line); if (sessLog.current.length > 24) sessLog.current = sessLog.current.slice(-24); } };
+    // 叫TA之前：先把她这段时间动过的记一笔
+    const noteHers = () => { const ch = changesOf(lastSeen.current, layout, photoName, decoName); if (ch.length) logLine("她：" + ch.join("，")); };
+    const history = () => { noteHers(); lastSeen.current = layout; return sessLog.current.join("\n"); };
+    // TA 动完：记TA做了什么、说了什么，并把「TA看到的那版」挪到TA改完之后
+    const noteHis = (before, after, say, lead) => { const ch = changesOf(before, after, photoName, decoName); logLine("你：" + (lead || "") + (ch.length ? ch.join("，") : "没动") + (say ? "，说「" + say + "」" : "")); lastSeen.current = after; };
     // TA 回来的改动落到画上：位置按百分比、大小按百分比、角度按度；删掉的最后按编号从大到小删，免得下标错位
     const applyHis = res => {
       const prev = layout; let l = layout;
@@ -564,18 +608,22 @@
       setBusy("look");
       try {
         const clean = document.createElement("canvas"); draw(clean, layout, imgs.current, "");
-        const res = await onLook(shot(clean, layout.split ? 760 : 420), describe());
-        if (res) { const moved = applyHis(res); setHisSay(String(res.say || "").trim() || (moved ? "" : "（看了看，没动）")); }
+        const hist = history();
+        const res = await onLook(shot(clean, layout.split ? 760 : 420), describe(), hist);
+        if (res) { const before = layout, moved = applyHis(res), say = String(res.say || "").trim(); setHisSay(say || (moved ? "" : "（看了看，没动）")); if (moved) hisPending.current = { before, say }; else noteHis(before, before, say, "看了看，"); }
       } finally { setBusy(""); }
     };
-    const undoHim = () => { if (beforeHim.current) { setLayout(beforeHim.current); beforeHim.current = null; setHisSay(""); } };
+    // TA 的改动是 setLayout 之后才真正落下的，等下一次渲染拿到新版再记
+    const hisPending = useRef(null);
+    useEffect(() => { const hp = hisPending.current; if (!hp) return; hisPending.current = null; noteHis(hp.before, layout, hp.say, hp.lead); }, [layout]);
+    const undoHim = () => { if (beforeHim.current) { setLayout(beforeHim.current); lastSeen.current = beforeHim.current; logLine("她：把你刚才动的撤回了"); beforeHim.current = null; setHisSay(""); } };
     const [choosing, setChoosing] = useState(false);
     const arrange = async () => {
       if (!onArrange || busy) return;
       setBusy("arrange");
       try {
-        const r = await onArrange(list, layout.tpl, layout.split);
-        if (r) { setLayout(l => Object.assign({}, l, { picks: r.picks, captions: r.captions, words: r.words })); setWhy(r.why || ""); }
+        const r = await onArrange(list, layout.tpl, layout.split, history());
+        if (r) { const before = layout; setLayout(l => Object.assign({}, l, { picks: r.picks, captions: r.captions, words: r.words })); setWhy(r.why || ""); hisPending.current = { before, say: r.why || "", lead: "重新摆了一版：" }; }
       } finally { setBusy(""); }
     };
     const save = async () => {
@@ -586,9 +634,10 @@
         const toBlob = c => new Promise(ok => c.toBlob(b => ok(b), "image/jpeg", 0.92));
         const half = k => { const c = document.createElement("canvas"); c.width = W; c.height = H; c.getContext("2d").drawImage(full, k * W, 0, W, H, 0, 0, W, H); return toBlob(c); };
         const used = (layout.picks || []).filter(p => p >= 0).map(p => list[p] && list[p].desc).filter(Boolean);
+        const story = history().split("\n").filter(Boolean).slice(-8);   // 怎么拼出来的：带去聊天，TA 之后提起来记得
         await onSave(layout.split
-          ? { mine: await half(0), his: await half(1), tpl: layout.tpl, words: layout.words, used }
-          : { mine: await toBlob(full), tpl: layout.tpl, words: layout.words, used });
+          ? { mine: await half(0), his: await half(1), tpl: layout.tpl, words: layout.words, used, story }
+          : { mine: await toBlob(full), tpl: layout.tpl, words: layout.words, used, story });
       } finally { setBusy(""); }
     };
     const def = TPL[layout.tpl];
@@ -600,7 +649,7 @@
     const row = kids => h("div", { className: "flex", style: { gap: 7, overflowX: "auto", paddingBottom: 2 } }, kids);
     const small = (label, onClick, on) => h("button", { key: label, onClick, disabled: on === false, className: "flex-1 active:opacity-70 disabled:opacity-30",
       style: { padding: "8px 0", borderRadius: 10, border: "1px solid " + t.line, color: t.ink, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))" } }, label);
-    if (choosing) return h(ChoosePage, { t, name, list, myBgs, myStks, onBack: () => setChoosing(false), onChoose,
+    if (choosing) return h(ChoosePage, { t, name, list, myBgs, myStks, onBack: () => setChoosing(false), onChoose, history, onLog: logLine,
       onUse: (kind, opt) => {
         setChoosing(false);
         if (kind === "photo") {

@@ -12776,7 +12776,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       const caughtHint = opts.peekCaught ? "\n\n【此刻】你刚才趁 " + uName + " 不注意偷偷翻了她的手机，被她发现了，她当面问你。"
         + (opts.peekCaught.thoughts && opts.peekCaught.thoughts.length ? "你当时心里想过：" + opts.peekCaught.thoughts.slice(0, 4).map(x => "「" + x + "」").join("") + "。" : "")
         + "认不认、怎么解释、反咬一口还是服软，全看你这个人。" : "";
-      const collageHint = opts.collageDone ? "\n\n【此刻】" + uName + " 刚和你一起拼好一张手机壁纸，用的是你们的合照" + (opts.collageDone.words && opts.collageDone.words.length ? "，上面手写着：" + opts.collageDone.words.map(w => "「" + w + "」").join("") : "") + (opts.collageDone.split ? "。是一人一半的那种：她那半张她存走了，你那半张已经是你手机的锁屏" : "") + "。你看到了；想接就接一句，怎么接看你这个人。" : "";
+      const collageHint = opts.collageDone ? "\n\n【此刻】" + uName + " 刚和你一起拼好一张手机壁纸，用的是你们的合照" + (opts.collageDone.words && opts.collageDone.words.length ? "，上面手写着：" + opts.collageDone.words.map(w => "「" + w + "」").join("") : "") + (opts.collageDone.split ? "。是一人一半的那种：她那半张她存走了，你那半张已经是你手机的锁屏" : "") + "。" + (opts.collageDone.story && opts.collageDone.story.length ? "拼的时候你们俩是这么来回的（「你」是你）：\n" + opts.collageDone.story.join("\n") + "\n" : "") + "你看到了；想接就接一句，怎么接看你这个人。" : "";
       const gardenMineHint = opts.gardenMine ? "\n\n【此刻】" + uName + " 刚在你们空间的窗台上自己种下了一盆" + opts.gardenMine.species + (opts.gardenMine.why ? "，她说：「" + opts.gardenMine.why + "」" : "") + "。你看到了；想接就接一句，怎么接看你这个人。" : "";
       const letterHint = opts.loveLetterAnswer === "yes" ? "\n\n【此刻】你写给 " + uName + " 的那封申请信，她拆开看了，答应了——" + spaceRel((couplesRef.current || {})[charId]).together + "。怎么接这一下，全看你这个人。"
         : opts.loveLetterAnswer === "no" ? "\n\n【此刻】你写给 " + uName + " 的那封申请信，她拆开看了，说再想想。失落、嘴硬、装没事、还是说等她——全看你这个人和你们现在的关系。" : "";
@@ -28774,7 +28774,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   // 她自己挑一种来种：名字必填，为什么可空；颜色照名字猜一个，不花调用
   // ── 拼一张壁纸（她 2026-11-10 转群友许愿）：排版和画都在 js/collage.js；这儿只有 TA 那一手和存下来 ──
   // TA 来摆：一次文字调用，挑哪几张、放哪格、写什么字，下标回来本机再核一遍
-  const collageArrange = async (charId, list, tpl, split) => {
+  const collageArrange = async (charId, list, tpl, split, hist) => {
     const char = characters.find(c => c.id === charId);
     const C = window.Collage, def = C && C.TPL[tpl];
     if (!char || !def || !list || !list.length) return null;
@@ -28791,7 +28791,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
           + (split ? "这是一人一半：前 " + def.n + " 格在 " + uName + " 那半张，后 " + def.n + " 格在你那半张（会换成你自己手机的锁屏）；手写的字也是前一半在她那张、后一半在你那张。" : "")
           + (def.caption ? "每张拍立得下面写一句很短的字（captions，十个字以内，可以留空）。" : "")
           + "再写最多 " + wn + " 句手写在壁纸上的字（words，每句十四个字以内，中文英文都行）。"
-          + "挑哪几张、写不写字、写什么，照你这个人来：话少的就少写，一句不写也行。why 用你平时说话的口气说一句为什么挑这几张。",
+          + "挑哪几张、写不写字、写什么，照你这个人来：话少的就少写，一句不写也行。why 用你平时说话的口气说一句为什么挑这几张。" + (hist ? "\n\n【这一回拼壁纸到现在，你们俩的来回（「她」是 " + uName + "，「你」是你）】\n" + hist + "\n接着这些往下：记得自己刚才动过什么、说过什么，别把上一句话再说一遍，她刚改的地方你看得见也可以接一句。" : ""),
         schemaHint: "{\"picks\":[编号],\"captions\":[\"\"],\"words\":[\"\"],\"why\":\"一句\"}",
         maxTokens: 12000
       });
@@ -28804,7 +28804,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     } catch (e) { toast("没摆成：" + ((e && e.message) || "重试")); return null; }
   };
   // TA 看看现在这张、动几下：发一张缩小的图 + 每样东西的编号和位置；TA 回一句话和几步改动（改动在 collage.js 里落）
-  const collageLook = async (charId, img, desc) => {
+  const collageLook = async (charId, img, desc, hist) => {
     const char = characters.find(c => c.id === charId);
     const route = apiFor(charId);
     if (!char || !route) { toast("请先到设置配置 API"); return null; }
@@ -28814,14 +28814,14 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         voice: true, images: img ? [img] : [],
         instruction: "你和 " + uName + " 在一起拼一张手机壁纸，她把现在的样子给你看" + (img ? "（图里就是）" : "") + "。下面是上面每样东西的编号、位置（占整张的左右%、上下%）、大小和角度：\n" + desc
           + "\n\n你看一眼，照你这个人的性子动几下：可以挪（to:[左右%,上下%]）、放大缩小（size，100 是原样）、转（angle，度）、拿掉（remove:true），可以加贴纸或者写一句字（add），也可以换背景、颜色、字体。"
-          + "想动多少动多少，觉得已经很好、一下都不想动也行。say 是你看着这张说的一句话，用你平时说话的口气，可以说你为什么这么动。",
+          + "想动多少动多少，觉得已经很好、一下都不想动也行。say 是你看着这张说的一句话，用你平时说话的口气，可以说你为什么这么动。" + (hist ? "\n\n【这一回拼壁纸到现在，你们俩的来回（「她」是 " + uName + "，「你」是你）】\n" + hist + "\n接着这些往下：记得自己刚才动过什么、说过什么，别把上一句话再说一遍，她刚改的地方你看得见也可以接一句。" : ""),
         schemaHint: "{\"say\":\"一句\",\"ops\":[{\"id\":\"编号\",\"to\":[50,50],\"size\":100,\"angle\":0,\"remove\":false}],\"add\":[{\"sticker\":\"贴纸或我的贴纸N\",\"text\":\"或者一句字\",\"at\":[50,50],\"size\":100,\"angle\":0,\"color\":\"#2b2b2b\"}],\"bg\":\"\",\"bgColor\":\"\",\"bgInk\":\"\",\"font\":\"\"}",
         maxTokens: 12000
       });
     } catch (e) { toast("没看成：" + ((e && e.message) || "重试")); return null; }
   };
   // 挑几样让 TA 选：几张小图 + 每张是什么；TA 挑一个、说为什么
-  const collageChoose = async (charId, kind, imgs, labels) => {
+  const collageChoose = async (charId, kind, imgs, labels, hist) => {
     const char = characters.find(c => c.id === charId);
     const route = apiFor(charId);
     if (!char || !route) { toast("请先到设置配置 API"); return null; }
@@ -28831,7 +28831,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       const d = await runProbe(route, ctxFor(char), {
         voice: true, images: imgs || [],
         instruction: uName + " 在拼你们的手机壁纸，拿了几样问你：" + what + "？\n" + (labels || []).join("\n")
-          + "\n\n照你自己的喜好挑一个（pick 写编号），why 用你平时说话的口气说一句为什么。",
+          + "\n\n照你自己的喜好挑一个（pick 写编号），why 用你平时说话的口气说一句为什么。" + (hist ? "\n\n【这一回拼壁纸到现在，你们俩的来回（「她」是 " + uName + "，「你」是你）】\n" + hist + "\n接着这些往下：记得自己刚才动过什么、说过什么，别把上一句话再说一遍，她刚改的地方你看得见也可以接一句。" : ""),
         schemaHint: "{\"pick\":1,\"why\":\"一句\"}",
         maxTokens: 12000
       });
@@ -28852,7 +28852,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     }
     try { if (typeof saveFile === "function") await saveFile(new File([o.mine], "我们的壁纸-" + Date.now() + ".jpg", { type: "image/jpeg" })); } catch (e) {}
     toast(o.his ? "存好了，" + (char.remark || char.name) + " 的锁屏也换上了" : "存好了，也挂上合照墙了");
-    waitForHer(charId, { collageDone: { split: !!o.his, words: (o.words || []).map(w => String(w || "").trim()).filter(Boolean).slice(0, 4) } });
+    waitForHer(charId, { collageDone: { split: !!o.his, words: (o.words || []).map(w => String(w || "").trim()).filter(Boolean).slice(0, 4), story: (o.story || []).map(x => String(x).slice(0, 120)).slice(-8) } });
   };
   const gardenPlantMine = (char, species, why) => {
     const sp = String(species || "").trim();
