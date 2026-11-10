@@ -32,3 +32,8 @@ test("卡片行的已读挂点默认藏着", () => {
   assert.ok(studio.includes('"cardmeta"'));
   assert.match(comp, /!row\.m\.recalled && !MSG_RUN_BREAK\[row\.m\.kind\] \? subLine\(row\.m\)/);
 });
+test("线下小结卡挂点；他的动描不断开一串", () => {
+  for (const k of ["offlogtitle", "offlogtext", "offlogopen", "offlogredo", "offlogtranscript"]) assert.ok(comp.includes('"data-wk": "' + k + '"'), k);
+  assert.match(comp, /"data-wk": "card", "data-part": "offlog"/);
+  assert.match(comp, /list\[k\]\.kind === "narration" && list\[k\]\.who === "char" && m\.role === "assistant"/);
+});

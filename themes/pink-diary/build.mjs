@@ -309,6 +309,15 @@ button[data-wk="avatar"]::before,span[data-wk="avatar"]:not([data-halo])::before
 [data-wk="stateheart"]{width:34px !important;height:34px !important;margin-bottom:16px !important}
 [data-wk="stateheartnum"]{font-size:12px !important;padding-top:2px !important;-webkit-text-stroke:2px #d9707e !important}
 [data-wk="stateheartline"]{background:#fff !important}
+
+/* 线下小结：一页夹进来的「那天的经过」，折角＋胶带 */
+[data-part="offlog"]{background:#fff !important;border:1.5px solid ${C.line} !important;border-radius:3px !important;box-shadow:2px 3px 0 rgba(138,90,95,.12) !important;position:relative !important;overflow:visible !important;transform:rotate(-.6deg) !important;padding-top:18px !important;background-image:linear-gradient(225deg,${C.paper} 14px,transparent 14px) !important}
+[data-part="offlog"]::before{content:"" !important;position:absolute !important;top:-8px !important;left:calc(50% - 30px) !important;width:60px !important;height:16px !important;background:${svg(TAPE(C.margin))} center/100% 100% no-repeat !important}
+[data-wk="offlogtitle"]{color:${C.rose} !important;font-style:italic !important;letter-spacing:.1em !important;font-family:inherit !important;font-size:12px !important}
+[data-wk="offlogtitle"]::before{content:"" !important;display:inline-block !important;width:12px !important;height:12px !important;margin-right:5px !important;vertical-align:-1px !important;background:${svg(STAR())} center/contain no-repeat !important}
+[data-wk="offlogtext"]{color:${C.ink} !important;line-height:28px !important}
+[data-wk="offlogopen"],[data-wk="offlogredo"],[data-wk="offlogundo"],[data-wk="offlogrestore"]{color:${C.rose} !important;font-style:italic !important}
+[data-wk="offlogtranscript"]{border-top:1.5px dashed ${C.margin} !important;color:${C.rose} !important}
 `;
 
 const pack = { kind: "chat-look", v: 1, name: "粉色日记", look: { bubble, layout, customCSS: css.trim() }, assets: {} };
