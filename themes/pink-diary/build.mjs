@@ -70,7 +70,11 @@ button[data-wk="avatar"]::before,span[data-wk="avatar"]:not([data-halo])::before
 [data-wk="row"].justify-end > div > [data-wk="name"]{text-align:right !important}
 [data-wk="row"] > div > [data-wk="meta"]{flex:0 0 100% !important;order:1 !important;justify-content:flex-start !important}
 [data-wk="row"].justify-end > div > [data-wk="meta"]{justify-content:flex-end !important}
-[data-wk="msg"][data-last="0"]:has(+ [data-wk="msg"]) [data-wk="meta"]{display:none !important}
+[data-wk="msg"][data-last="0"] [data-wk="meta"]{display:none !important}
+/* 一串最后是表情包、卡片：已读写在它底下（v89.457 起的 cardmeta 挂点） */
+[data-run][data-last="1"] + [data-wk="cardmeta"]{display:block !important;font-size:10.5px !important;color:${C.rose} !important;opacity:.65 !important;line-height:28px !important;padding:0 6px 0 60px !important}
+[data-run][data-last="1"] + [data-wk="cardmeta"][data-me="1"]{text-align:right !important;padding:0 60px 0 6px !important}
+[data-wk="cardmeta"]::before{content:"" !important;display:inline-block !important;width:9px !important;height:8px !important;margin-right:4px !important;background:${svg(HEART(C.mint))} center/contain no-repeat !important}
 [data-wk="name"]{display:block !important;color:${C.rose} !important;font-style:italic !important;letter-spacing:.08em !important;line-height:28px !important;height:28px !important;margin:0 !important;padding:0 !important}
 [data-wk="name"]::first-line{background:linear-gradient(transparent 22%,rgba(188,217,204,.8) 22%,rgba(188,217,204,.8) 85%,transparent 85%) !important}
 [data-wk="row"].justify-end > div > [data-wk="name"]::first-line{background:linear-gradient(transparent 22%,rgba(233,184,191,.85) 22%,rgba(233,184,191,.85) 85%,transparent 85%) !important}

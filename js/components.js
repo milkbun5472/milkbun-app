@@ -11870,6 +11870,10 @@ function ChatThread({
     // 表情包、转账、照片这些卡片行也报「是不是一串里的第一条／最后一条」（她 2026-11-10：排版选了头像只留第一条，连发的卡片头像还照常显示）——
     //   跟文字气泡同一份 msgRunAttrs，data-run 标出这是一条消息行，排版开关那几条规则就能一起管到
     if (out && typeof out.type === "string") out = React.cloneElement(out, Object.assign({ "data-run": "1" }, msgRunAttrs(messages, row.i, 0, true, (a, b) => a.role === b.role)));
+    // 卡片行底下的「已读／时间」（她 2026-11-10：粉色日记里一串最后是表情包就没了已读）：默认藏着，只给美化当挂点；
+    //   别的美化和不开美化时照旧没有这一行
+    const _cmSub = out && typeof out.type === "string" && (row.m.role === "user" || row.m.role === "assistant") ? subLine(row.m) : "";
+    if (_cmSub) out = h(React.Fragment, { key: "cm" + row.i }, out, h("div", { key: "cmf", "data-wk": "cardmeta", "data-me": row.m.role === "user" ? "1" : "0", style: { display: "none" } }, _cmSub));
     const st = window.ChatStamp.decide(window.ChatStamp.prevTimed(messages, row.i), row.m, { minGap: 180000,
       map: typeof vclockMap === "function" && character ? (ts => vclockMap(ts, character.id)) : undefined });
     return st.show ? h(React.Fragment, { key: "sst" + row.i }, h(GStampLine, { st, t }), out) : out;
