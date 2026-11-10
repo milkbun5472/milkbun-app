@@ -508,6 +508,13 @@
     const STORY_KEY = "x_stampStory", STORIES_KEY = "x_stampStories";
     const uniqStories = list => (list || []).filter((x, i, all) => x && all.map(y => y && y.id).lastIndexOf(x.id) === i);
     // 以前「看结局」点两次会把同一段存两份（她 2026-11-10「为啥是两段明明只有一段」）：读的时候顺手把存档里重复的合掉
+    // 故事书封面（她 2026-11-10「封面能不能选生图或自设封面、选颜色」）：存在这一段故事上 cover:{color, img}
+    const BOOK_COLORS = ["#8a4a68", "#4f6a8a", "#6a7a4a", "#8a6a3a", "#5a4f8a", "#3f7a8a", "#a0522d", "#2f2a22"];
+    const setStoryCover = (id, cover) => { try { const all = uniqStories(loadJSON(STORIES_KEY, []) || []); const x = all.find(y => y.id === id); if (x) { x.cover = cover; saveJSON(STORIES_KEY, all); } } catch (e) {} sbBump(n => n + 1); };
+    const bookBg = (x, k) => { const c = x.cover || {}, img = c.img && typeof resolveImg === "function" ? resolveImg(c.img) : "", col = c.color || BOOK_COLORS[k % 4];
+      return img ? "linear-gradient(180deg, rgba(0,0,0,.05), rgba(0,0,0,.55)), center/cover no-repeat url(" + img + ")" : "linear-gradient(160deg, " + col + ", " + col + "cc)"; };
+    const fileToCover = file => new Promise((res, rej) => { const fr = new FileReader(); fr.onload = () => { const im = new Image(); im.onload = () => { const k = Math.min(1, 900 / Math.max(im.width, im.height)), cv = document.createElement("canvas"); cv.width = Math.round(im.width * k); cv.height = Math.round(im.height * k); cv.getContext("2d").drawImage(im, 0, 0, cv.width, cv.height); res(cv.toDataURL("image/jpeg", .86)); }; im.onerror = rej; im.src = fr.result; }; fr.onerror = rej; fr.readAsDataURL(file); });
+    const blobToUrl = b => new Promise((res, rej) => { const fr = new FileReader(); fr.onload = () => res(fr.result); fr.onerror = rej; fr.readAsDataURL(b); });
     const cleanStories = () => { try { const raw = loadJSON(STORIES_KEY, []) || [], u = uniqStories(raw); if (u.length !== raw.length) saveJSON(STORIES_KEY, u); return u; } catch (e) { return []; } };
     const STORY_HOOKS = ["一封寄错的信", "暴雪封路的邮局", "失踪的邮差", "最后一班夜车", "抽屉里的旧明信片", "让 TA 起一个"];
     const [story, setStory0] = useState(() => { try { const v = typeof loadJSON === "function" ? loadJSON(STORY_KEY, null) : null; return v && !v.done ? v : null; } catch (e) { return null; } });
@@ -537,7 +544,7 @@
     const shopAct = async (action, options = {}) => { try { const out=await window.StampShop.run(action,{...shopOptions(),...options});setShop0(window.StampShop.read());return out;}catch(e){toast&&toast(e.message);throw e;} };
     React.useEffect(()=>{const sync=()=>setShop0(window.StampShop.read());window.addEventListener('stamp-shop-change',sync);return()=>window.removeEventListener('stamp-shop-change',sync);},[]);
     React.useEffect(()=>{if(mode!=='shop')return;const sync=()=>window.StampShop.sync(shopOptions()).then(setShop0).catch(e=>toast&&toast(e.message));sync();const id=setInterval(sync,2000);return()=>clearInterval(id);},[mode]);
-    const [sbOpen, setSbOpen] = useState(""), [sbWho, setSbWho] = useState(""), [sbPage, setSbPage] = useState(0), [sbFlip, setSbFlip] = useState(""), sbX = useRef(0), [diaryRegs, setDiaryRegs] = useState(false), [diaryD, setDiaryD] = useState(""), [diaryFlip, setDiaryFlip] = useState(""), diaryX = useRef(0), [dpWho, setDpWho] = useState({}), [svPrice, setSvPrice] = useState("mid"), [svPick, setSvPick] = useState(""), [shBusy, setShBusy] = useState(""), [shMeet, setShMeet] = useState(null), [winF, setWinF] = useState({ who: "", rar: "", q: "" }), [dpF, setDpF] = useState({ who: "", rar: "", q: "" }), [bgPost, setBgPost] = useState(""), [bgF, setBgF] = useState({ who: "", rar: "", q: "" });
+    const [sbCoverOpen, setSbCoverOpen] = useState(false), [sbCoverBusy, setSbCoverBusy] = useState(""), [, sbBump] = useState(0), [sbOpen, setSbOpen] = useState(""), [sbWho, setSbWho] = useState(""), [sbPage, setSbPage] = useState(0), [sbFlip, setSbFlip] = useState(""), sbX = useRef(0), [diaryRegs, setDiaryRegs] = useState(false), [diaryD, setDiaryD] = useState(""), [diaryFlip, setDiaryFlip] = useState(""), diaryX = useRef(0), [dpWho, setDpWho] = useState({}), [svPrice, setSvPrice] = useState("mid"), [svPick, setSvPick] = useState(""), [shBusy, setShBusy] = useState(""), [shMeet, setShMeet] = useState(null), [winF, setWinF] = useState({ who: "", rar: "", q: "" }), [dpF, setDpF] = useState({ who: "", rar: "", q: "" }), [bgPost, setBgPost] = useState(""), [bgF, setBgF] = useState({ who: "", rar: "", q: "" });
     // 挑卡的筛选条（橱窗、派遣共用，她 2026-11-08「派遣那页挑卡也加个筛选」）：搜卡名、按人、按稀有度
     const cardFilterHit = (f,k) => window.StampShop.filterCards([k],f).length>0;
     const cardFilterBar = (f,setF,wk,noWho,fit) => h(window.StampShopFilters,{characters,cards,filter:f,onChange:setF,wk,noWho,fit});
@@ -869,12 +876,12 @@
           h(Head, { key: "hd", zh: (book.ending && book.ending.title) || "故事集", bg: "transparent", ink: INK, onBack: () => setSbOpen("") }),
           h("div", { key: "bd", "data-wk": "duelstorybookread", className: "flex-1 min-h-0 overflow-y-auto px-4", style: { fontFamily: F, color: INK, paddingTop: 6, paddingBottom: 20 } },
             h("div", Object.assign({ key: book.id + at, "data-wk": "duelstorybookpage" }, swipe, { style: { minHeight: "60vh", position: "relative", padding: "26px 20px 20px 30px", borderRadius: "3px 8px 8px 3px", animation: sbFlip ? (sbFlip === "older" ? "diaryOlder" : "diaryNewer") + " .38s ease-out" : "none", transformOrigin: sbFlip === "older" ? "left center" : "right center",
-                background: "linear-gradient(90deg, rgba(122,59,90,.18) 0 6px, rgba(255,255,255,.4) 6px 10px, transparent 10px), " + PAPER, boxShadow: "0 6px 18px rgba(47,42,34,.18), inset 0 0 0 1px rgba(122,59,90,.12)" } }),
-              pg.kind === "cover" ? h("div", { style: { textAlign: "center", paddingTop: "12vh" } },
-                  h("div", { style: { fontSize: fz(11), letterSpacing: ".3em", color: SUB } }, "和 " + who + " 一起走的"),
-                  h("div", { style: { fontFamily: FD, fontSize: fz(24), color: C, margin: "14px 0", lineHeight: 1.4 } }, (book.ending && book.ending.title) || book.hook),
-                  h("div", { style: { width: 40, height: 2, background: C, opacity: .5, margin: "0 auto 14px" } }),
-                  h("div", { style: { fontSize: fz(12), color: SUB, lineHeight: 1.8 } }, (book.hook.indexOf("由你来起") === 0 ? who + " 起的头" : "从「" + book.hook + "」开始"), h("br"), date))
+                background: pg.kind === "cover" ? bookBg(book, all.indexOf(book)) : "linear-gradient(90deg, rgba(122,59,90,.18) 0 6px, rgba(255,255,255,.4) 6px 10px, transparent 10px), " + PAPER, color: pg.kind === "cover" ? "#fff8ec" : INK, boxShadow: "0 6px 18px rgba(47,42,34,.18), inset 0 0 0 1px rgba(122,59,90,.12)" } }),
+              pg.kind === "cover" ? h("div", { style: { textAlign: "center", paddingTop: book.cover && book.cover.img ? "30vh" : "12vh", textShadow: book.cover && book.cover.img ? "0 1px 4px rgba(0,0,0,.6)" : "none" } },
+                  h("div", { style: { fontSize: fz(11), letterSpacing: ".3em", opacity: .8 } }, "和 " + who + " 一起走的"),
+                  h("div", { style: { fontFamily: FD, fontSize: fz(24), margin: "14px 0", lineHeight: 1.4 } }, (book.ending && book.ending.title) || book.hook),
+                  h("div", { style: { width: 40, height: 2, background: "currentColor", opacity: .5, margin: "0 auto 14px" } }),
+                  h("div", { style: { fontSize: fz(12), opacity: .8, lineHeight: 1.8 } }, (book.hook.indexOf("由你来起") === 0 ? who + " 起的头" : "从「" + book.hook + "」开始"), h("br"), date))
               : pg.kind === "ch" ? h(React.Fragment, null,
                   h("div", { style: { fontSize: fz(11), color: SUB, letterSpacing: ".2em" } }, "第 " + (pg.i + 1) + " 章"),
                   h("div", { style: { fontFamily: FD, fontSize: fz(18), color: C, margin: "4px 0 14px" } }, pg.c.title || ""),
@@ -886,6 +893,24 @@
                   h("div", { style: { fontFamily: FD, fontSize: fz(19), color: C, margin: "4px 0 14px" } }, book.ending.title || ""),
                   (book.ending.lines || []).map(P),
                   h("div", { style: { textAlign: "center", marginTop: 16, color: C, letterSpacing: ".4em" } }, "— 完 —"))),
+            at === 0 ? h("div", { "data-wk": "duelstorycover", style: { marginTop: 12 } },
+              h("button", { onClick: () => setSbCoverOpen(v => !v), style: { color: C, fontFamily: FD, fontSize: fz(13), padding: "4px 2px" } }, sbCoverOpen ? "▾ 换封面" : "▸ 换封面"),
+              sbCoverOpen ? h("div", { style: { marginTop: 6, padding: "10px 12px", borderRadius: 6, background: "#fffdf7", border: "1px solid rgba(122,59,90,.2)" } },
+                h("div", { style: { fontSize: fz(11), color: SUB, marginBottom: 6 } }, "书皮颜色"),
+                h("div", { className: "flex flex-wrap", style: { gap: 8, marginBottom: 10 } }, BOOK_COLORS.map(col => h("button", { key: col, "data-wk": "duelstorycovercolor", onClick: () => setStoryCover(book.id, { color: col }), style: { width: 28, height: 28, borderRadius: 99, background: col, boxShadow: (book.cover && book.cover.color === col && !book.cover.img) ? "0 0 0 2px #fff, 0 0 0 4px " + col : "0 1px 3px rgba(0,0,0,.25)" } }))),
+                h("div", { className: "flex flex-wrap", style: { gap: 8 } },
+                  h("label", { "data-wk": "duelstorycoverup", style: Object.assign(btn("transparent", C, C), { padding: "6px 12px", fontSize: fz(12), cursor: "pointer" }) }, sbCoverBusy === "up" ? "在放…" : "用自己的图",
+                    h("input", { type: "file", accept: "image/*", style: { display: "none" }, onChange: async e => { const f = e.target.files && e.target.files[0]; e.target.value = ""; if (!f) return; setSbCoverBusy("up"); try { const d = await fileToCover(f), ref = typeof imgToVault === "function" ? await imgToVault(d) : d; setStoryCover(book.id, Object.assign({}, book.cover || {}, { img: ref })); } catch (er) { toast && toast("没放上去：" + ((er && er.message) || er)); } finally { setSbCoverBusy(""); } } })),
+                  h("button", { "data-wk": "duelstorycovergen", disabled: !!sbCoverBusy, onClick: async () => {
+                      if (typeof generateSelfieImage !== "function" || (typeof imgApiReady === "function" && !imgApiReady())) { toast && toast("要先在「设置 → 图像 API」配好生图"); return; }
+                      setSbCoverBusy("gen"); try {
+                        const prompt = "一本小说的封面插画，竖版，安静有氛围的场景，不画文字和书名，不画人脸特写。故事：" + ((book.ending && book.ending.title) || book.hook) + "。开头：" + String(((book.chapters[0] || {}).lines || []).join("").slice(0, 160)) + (book.ending ? "。结局：" + String((book.ending.lines || []).join("").slice(0, 160)) : "");
+                        const out = await generateSelfieImage(prompt, null, {}), d = out && (out.dataUrl || (out.blob ? await blobToUrl(out.blob) : null));
+                        if (!d) throw Error("没画出来");
+                        const ref = typeof imgToVault === "function" ? await imgToVault(d) : d; setStoryCover(book.id, Object.assign({}, book.cover || {}, { img: ref }));
+                      } catch (er) { toast && toast("没画成：" + ((er && er.message) || er)); } finally { setSbCoverBusy(""); } },
+                    className: "disabled:opacity-50", style: Object.assign(btn(C, "#fff"), { padding: "6px 12px", fontSize: fz(12) }) }, sbCoverBusy === "gen" ? "在画…" : "生一张（花一次生图）"),
+                  book.cover && (book.cover.img || book.cover.color) ? h("button", { onClick: () => setStoryCover(book.id, null), style: { padding: "6px 10px", fontSize: fz(12), color: SUB } }, "用回默认") : null)) : null) : null,
             h("div", { "data-wk": "duelstorybooknav", className: "flex items-center", style: { justifyContent: "space-between", margin: "12px 2px 0", fontFamily: FD } },
               h("button", { onClick: () => go(-1), disabled: at <= 0, className: "disabled:opacity-30", style: { padding: "6px 12px", color: C, fontSize: fz(13) } }, "‹ 上一页"),
               h("div", { className: "flex", style: { gap: 5 } }, pages.map((_, k) => h("button", { key: k, onClick: () => { setSbFlip(k > at ? "older" : "newer"); setSbPage(k); }, style: { width: k === at ? 16 : 7, height: 7, borderRadius: 99, background: k === at ? C : "rgba(122,59,90,.25)", transition: "width .2s" } }))),
@@ -899,7 +924,7 @@
           people.length > 1 ? h("div", { "data-wk": "duelstoryshelfwho", className: "flex overflow-x-auto", style: { gap: 6, marginBottom: 12 } }, [""].concat(people).map(id => { const on = sbWho === id;
             return h("button", { key: id || "all", "data-on": on ? "1" : "0", onClick: () => setSbWho(id), style: { flexShrink: 0, padding: "4px 12px", borderRadius: 999, border: "1px solid " + (on ? C : "rgba(47,42,34,.2)"), background: on ? "rgba(122,59,90,.12)" : "transparent", color: on ? C : INK, fontSize: fz(12) } }, id ? (nameOf(id) || "TA") + " · " + all.filter(x => x.charId === id).length : "全部 · " + all.length); })) : null,
           h("div", { style: { display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 10 } }, shown.map((x, k) => h("button", { key: x.id, "data-wk": "duelstoryshelfbook", onClick: () => { setSbFlip(""); setSbPage(0); setSbOpen(x.id); }, className: "text-left active:scale-[.98]",
-              style: { position: "relative", aspectRatio: "3 / 4", padding: "10px 8px 8px 13px", borderRadius: "3px 8px 8px 3px", color: "#fff8ec", background: ["linear-gradient(160deg,#8a4a68,#6a3150)", "linear-gradient(160deg,#4f6a8a,#344d6a)", "linear-gradient(160deg,#6a7a4a,#4d5c32)", "linear-gradient(160deg,#8a6a3a,#6a4d24)"][k % 4], boxShadow: "inset 6px 0 0 rgba(0,0,0,.18), 0 4px 10px rgba(47,42,34,.2)", display: "flex", flexDirection: "column" } },
+              style: { position: "relative", aspectRatio: "3 / 4", padding: "10px 8px 8px 13px", borderRadius: "3px 8px 8px 3px", color: "#fff8ec", background: bookBg(x, k), textShadow: x.cover && x.cover.img ? "0 1px 3px rgba(0,0,0,.6)" : "none", boxShadow: "inset 6px 0 0 rgba(0,0,0,.18), 0 4px 10px rgba(47,42,34,.2)", display: "flex", flexDirection: "column" } },
             h("div", { style: { fontSize: fz(10), letterSpacing: ".2em", opacity: .8 } }, nameOf(x.charId) || "TA"),
             h("div", { className: "flex-1", style: { fontFamily: FD, fontSize: fz(13), lineHeight: 1.4, marginTop: 6, overflow: "hidden" } }, (x.ending && x.ending.title) || x.hook),
             h("div", { style: { fontSize: fz(9.5), opacity: .75, lineHeight: 1.4 } }, (x.ending ? "有结局" : x.chapters.length + " 章") + (x.ts ? " · " + new Date(x.ts).toLocaleDateString() : ""))))))
