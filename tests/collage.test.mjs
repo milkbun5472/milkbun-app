@@ -59,7 +59,7 @@ test("让TA参与：看现在这张（带图）、挑几样里的一个；runPro
   assert.match(eng, /if \(_imgs\.length && !tooBig\(e\) && !\(e && e\.name === "AbortError"\)\) \{ _imgs\.length = 0;/);
   assert.match(app, /const collageLook = async \(charId, img, desc, hist\)/);
   assert.match(app, /const collageChoose = async \(charId, kind, imgs, labels, hist\)/);
-  assert.match(src, /const applyHis = res =>/);
+  assert.match(src, /const applyHis = \(res, base\) =>/);
   assert.match(src, /function ChoosePage\(/);
   assert.match(scr, /onLook: onCollageLook \?/);
 });
@@ -74,7 +74,7 @@ test("这一回的来回：前后两版比出谁改了啥，叫TA时带上，存
 test("TA 说的话不限字数：提示里不写「一句」，代码不截断；人设和去人机味走 voice 那一套", () => {
   const seg = app.slice(app.indexOf("const collageArrange = async"), app.indexOf("const gardenPlantMine = "));
   assert.doesNotMatch(seg, /说一句|"一句"|why: String\(\(d && d\.why\) \|\| ""\)\.trim\(\)\.slice/);
-  assert.equal((seg.match(/voice: true/g) || []).length, 3);
+  assert.equal((seg.match(/voice: true/g) || []).length, 4);
 });
 test("装饰：胶带涂鸦、照片滤镜（逐像素，不靠 ctx.filter）、字的样式；TA 也能用", () => {
   assert.deepEqual(Object.keys(C.FILTERS), ["", "bw", "vintage", "film", "soft"]);
