@@ -1,6 +1,6 @@
 import * as T from 'three';
-import {FIT_EPSILON,clipFitPolygon,CLOTH_WAIST,CLOTH_HEM,clothFall,drapeFitVertex,clothLevels} from './npc-fit.mjs?v=fg-8471d3c70eba9722';
-import {mergeGeometries} from '../fairy-garden/vendor/BufferGeometryUtils.js?v=fg-8471d3c70eba9722';
+import {FIT_EPSILON,clipFitPolygon,CLOTH_WAIST,CLOTH_HEM,clothFall,drapeFitVertex,clothLevels} from './npc-fit.mjs?v=fg-cde9b8759c1380df';
+import {mergeGeometries} from '../fairy-garden/vendor/BufferGeometryUtils.js?v=fg-cde9b8759c1380df';
 // Shared pattern pieces for the public customers. Geometry belongs to the actor;
 // binding uses its original doll skeleton, never a character's wardrobe asset.
 export function createNpcTailoring(model,style){
@@ -76,7 +76,13 @@ export function createNpcTailoring(model,style){
  function sleeve(side,color,{pattern='linen',short=false,cuff=true}={}){const y=short?.535:.455;const cover=fitted((side<0?'Left':'Right')+'FittedSleeve',color,{minY:y,maxY:.704,minArm:.3,side,offset:.006,pattern});cover.userData.skinCoverage={arms:[y,.704]};if(cuff)fitted('FineCuff',color,{minY:y,maxY:y+.014,minArm:.3,side,offset:.008,pattern:'knit'});}
  function trousers(color,{roll=false}={}){const m=fitted('FittedTrousers',color,{minY:.105,maxY:.36,maxArm:.15,offset:.0045});m.userData.skinCoverage={torsoBelow:.692,torsoAbove:.085,feet:.105};fitted(roll?'FineRolledHem':'FineTrouserHem',color,{minY:.105,maxY:roll?.122:.115,maxArm:.15,offset:.0065});}
  function shoes(color='#66564a'){fitted('FittedShoes',color,{maxY:.113,maxArm:.15,offset:.0055,pattern:'leather'});fitted('FineSole', '#8c7760',{maxY:.026,maxArm:.15,offset:.008,pattern:'plain'});}
- function headMesh(name,g,color,pattern='linen'){const m=new T.Mesh(g,material(color,pattern));m.name='NPCCostume:'+style+':'+name;m.userData={outfit:id,npcCostume:style};model.add(m);model.updateMatrixWorld(true);(model.getObjectByName('HeadAnchor')||model).attach(m);return m;}
+ let headTarget=null;
+ function headwear(kind,contactY,build){
+  const group=new T.Group();group.name='NPCHeadwear:'+kind;group.userData={npcHeadwear:kind};model.add(group);model.updateMatrixWorld(true);(model.getObjectByName('HeadAnchor')||model).attach(group);
+  const contact=new T.Object3D();contact.name='NPCHeadwearContact';contact.position.y=contactY;group.add(contact);
+  const previous=headTarget;headTarget=group;try{build();}finally{headTarget=previous;}return group;
+ }
+ function headMesh(name,g,color,pattern='linen'){const m=new T.Mesh(g,material(color,pattern));m.name='NPCCostume:'+style+':'+name;m.userData={outfit:id,npcCostume:style};model.add(m);model.updateMatrixWorld(true);(headTarget||model.getObjectByName('HeadAnchor')||model).attach(m);return m;}
  function headBall(name,x,y,z,rx,ry,rz,color,pattern='linen'){const g=new T.SphereGeometry(1,24,16);g.scale(rx,ry,rz);g.translate(x,y,z);return headMesh(name,g,color,pattern);}
  function headLine(name,points,color,r=.002){return headMesh(name,new T.TubeGeometry(new T.CatmullRomCurve3(points.map(p=>new T.Vector3(...p))),24,r,6,false),color,'plain');}
  function finish(){
@@ -86,5 +92,5 @@ export function createNpcTailoring(model,style){
   let batch=0;for(const [mat,parts]of groups){if(parts.length<2)continue;const geometries=parts.map(m=>m.geometry.index?m.geometry.toNonIndexed():m.geometry),g=mergeGeometries(geometries,true);if(!g)throw Error('Customer fabric pieces could not be joined.');const combined=new T.SkinnedMesh(g,mat);combined.name='NPCCostume:'+style+':SewnFabric:'+batch++;combined.userData={outfit:id,npcCostume:style,pieces:parts.map(m=>m.name),fitParts:parts.map(m=>m.userData.bodyFitted||null),...(parts.some(m=>m.userData.skinCoverage)?{skinCoverage:Object.assign({},...parts.map(m=>m.userData.skinCoverage||{}))}:{})};combined.bind(body.skeleton,body.bindMatrix);model.add(combined);parts.forEach(m=>{m.geometry.dispose();m.removeFromParent();});geometries.forEach(g=>g.dispose());}
  }
  function flour(){for(const material of materials.values()){const canvas=material.map?.image;if(!canvas?.getContext)continue;const ctx=canvas.getContext('2d');ctx.fillStyle='#f4edda';for(let i=0;i<18;i++){ctx.globalAlpha=.22+(i%3)*.1;ctx.beginPath();ctx.ellipse((i*73+31)%256,(i*47+19)%256,4+i%6,3+i%4,i,0,Math.PI*2);ctx.fill();}ctx.globalAlpha=1;material.map.needsUpdate=true;}}
- return {id,body,mesh,grid,loft,panel,line,ball,box,button,pocket,collar,sleeve,trousers,shoes,headMesh,headBall,headLine,finish,fitted,flour};
+ return {id,body,mesh,grid,loft,panel,line,ball,box,button,pocket,collar,sleeve,trousers,shoes,headMesh,headBall,headLine,headwear,finish,fitted,flour};
 }
