@@ -115,11 +115,6 @@ button[data-wk="avatar"]::before,span[data-wk="avatar"]:not([data-halo])::before
 [data-wk="transferbtn"][data-part="back"]{background:#fff !important;color:${C.rose} !important;border-color:${C.line} !important}
 
 /* 红包：留红，像一个夹在本子里的小红信封，火漆印是爱心 */
-[data-wk="rpcard"]{border-radius:6px !important;box-shadow:2px 3px 0 rgba(138,90,95,.15) !important;transform:rotate(1.5deg) !important;overflow:visible !important}
-[data-wk="rpseal"]{border:none !important;width:30px !important;height:30px !important;border-radius:50% !important;background:#f6e6c0 ${svg(HEART("#d9707e"))} center/16px 15px no-repeat !important;box-shadow:0 0 0 2px rgba(255,255,255,.5) !important}
-[data-wk="rpseal"] *{display:none !important}
-[data-wk="rpcard"]::after{content:"" !important;position:absolute !important;top:-8px !important;left:16px !important;width:46px !important;height:15px !important;background:${svg(TAPE(C.butter))} center/100% 100% no-repeat !important;transform:rotate(-6deg) !important}
-[data-wk="rpcard"][data-status="done"]{filter:saturate(.55) brightness(1.08) !important}
 [data-wk="rpenvelope"][data-stage="open"]{background:#fff !important;border:1.5px solid ${C.margin} !important}
 [data-wk="rpopenbtn"]{background:#f6e6c0 ${svg(HEART("#d9707e"))} center/40px 37px no-repeat !important;color:transparent !important}
 [data-wk="rpopenbtn"] *{opacity:0 !important}
@@ -129,21 +124,11 @@ button[data-wk="avatar"]::before,span[data-wk="avatar"]:not([data-halo])::before
 [data-wk="photocard"]::before,[data-wk="photocard"]::after{content:"" !important;position:absolute !important;width:44px !important;height:15px !important;background:${svg(TAPE(C.margin))} center/100% 100% no-repeat !important;z-index:2 !important}
 [data-wk="photocard"]::before{top:-6px !important;left:-12px !important;transform:rotate(-38deg) !important}
 [data-wk="photocard"]::after{top:-6px !important;right:-12px !important;transform:rotate(38deg) !important}
-[data-wk="photoface"]{background:${C.paper} ${svg(BUNNY)} center 28%/54px 54px no-repeat !important;border:none !important;padding-top:72px !important}
 [data-wk="phototext"],[data-wk="photocap"],[data-wk="photohint"]{color:${C.rose} !important;font-style:italic !important}
 
 /* 语音：一张小便签，波形变粉 */
-[data-wk="voice"]{background:#fff !important;border:1.5px solid ${C.line} !important;border-radius:4px !important;color:${C.ink} !important;box-shadow:1px 2px 0 rgba(138,90,95,.1) !important;position:relative !important;overflow:visible !important}
-[data-wk="voice"]::before{content:"" !important;position:absolute !important;top:-7px !important;right:10px !important;width:34px !important;height:12px !important;background:${svg(TAPE(C.mint))} center/100% 100% no-repeat !important;transform:rotate(5deg) !important}
-[data-wk="voicebar"]{background:${C.margin} !important}
 
 /* 天气：剪下来的一角天空，字是玫瑰棕 */
-[data-wk="wxcard"]{border-radius:4px !important;border:1.5px solid ${C.line} !important;box-shadow:2px 3px 0 rgba(138,90,95,.12) !important;transform:rotate(-1deg) !important;overflow:visible !important;position:relative !important}
-[data-wk="wxcard"]::after{content:"" !important;position:absolute !important;top:-9px !important;right:20px !important;width:22px !important;height:22px !important;background:${svg(STAR())} center/contain no-repeat !important}
-[data-wk="wxcardsky"]{background:linear-gradient(170deg,#fbeef0,#f3dde1) !important;color:${C.ink} !important}
-[data-wk="wxcardsky"] *{color:${C.ink} !important}
-[data-wk="wxcardsky"] svg{stroke:${C.rose} !important;opacity:.8 !important}
-[data-wk="wxcardsay"]{background:#fff !important;color:${C.ink} !important}
 
 /* 位置：一枚回形针夹住的纸条 */
 [data-wk="geocard"] > [data-wk="card"]{background:#fff !important;border:1.5px solid ${C.line} !important;border-radius:3px !important;box-shadow:2px 3px 0 rgba(138,90,95,.12) !important}
@@ -173,6 +158,44 @@ button[data-wk="avatar"]::before,span[data-wk="avatar"]:not([data-halo])::before
 [data-wk="chathead"] [data-wk="avatar"]{border-radius:2px !important}
 [data-wk="chathead"] button:has(> [data-wk="avatar"]){position:relative !important;overflow:visible !important}
 [data-wk="chathead"] button:has(> [data-wk="avatar"])::before{content:"" !important;position:absolute !important;width:44px !important;height:53px !important;left:-7px !important;top:calc(50% - 31px) !important;z-index:2 !important;background:${svg(FRAME)} center/contain no-repeat !important;pointer-events:none !important}
+
+/* 红包：粉色信封，封口一道虚线弧，扣子是奶黄爱心 */
+[data-wk="rpcard"]{background:linear-gradient(175deg,#efb6c0,#d9808f) !important;border:1.5px solid #c96f7f !important;border-radius:8px !important;box-shadow:2px 3px 0 rgba(138,90,95,.15) !important;transform:rotate(1deg) !important;overflow:visible !important;position:relative !important}
+[data-wk="rpcard"] *{color:#fff !important}
+[data-wk="rpflap"]{background:linear-gradient(180deg,rgba(255,255,255,.25),rgba(255,255,255,0)) !important;border-bottom:none !important}
+[data-wk="rpseal"]{border:none !important;width:34px !important;height:34px !important;border-radius:50% !important;top:50% !important;margin-top:-17px !important;background:#fbf0d6 ${svg(HEART("#d9707e"))} center/18px 17px no-repeat !important;box-shadow:0 0 0 3px rgba(255,255,255,.55) !important}
+[data-wk="rpseal"] *{display:none !important}
+[data-wk="rpcard"]::after{content:"" !important;position:absolute !important;top:-8px !important;left:18px !important;width:46px !important;height:15px !important;background:${svg(TAPE(C.butter))} center/100% 100% no-repeat !important;transform:rotate(-6deg) !important}
+[data-wk="rpcard"][data-status="done"]{background:linear-gradient(175deg,#f5d3d9,#e9b3bc) !important;border-color:#dba0aa !important}
+[data-wk="rpenvelope"][data-stage="closed"]{background:linear-gradient(175deg,#efb6c0,#d9808f) !important}
+[data-wk="rparc"]{background:#d27886 !important}
+
+/* 照片没图：还没贴上去的那一张——四角留着胶痕，中间手写「这里本来想贴」 */
+[data-wk="photoface"]{background:transparent !important;border:1.5px dashed ${C.margin} !important;border-radius:2px !important;position:relative !important;padding-top:26px !important;min-height:110px !important}
+[data-wk="photoface"]::before{content:"" !important;position:absolute !important;inset:-6px !important;pointer-events:none !important;background:${svg(TAPE("#e9d6c8"))} left top/26px 9px no-repeat,${svg(TAPE("#e9d6c8"))} right top/26px 9px no-repeat,${svg(TAPE("#e9d6c8"))} left bottom/26px 9px no-repeat,${svg(TAPE("#e9d6c8"))} right bottom/26px 9px no-repeat !important;opacity:.8 !important}
+[data-wk="phototext"]::before{content:"这里本来想贴：" !important;display:block !important;font-size:11px !important;color:${C.margin} !important;margin-bottom:4px !important;letter-spacing:.06em !important}
+[data-wk="photoface"] svg{display:none !important}
+
+/* 语音：一张小票，左边播放键，右边撕开的锯齿 */
+[data-wk="voice"][data-me]{background:#fff ${svg(`<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><circle cx='12' cy='12' r='11' fill='${C.margin}'/><path d='M9.5 7.5 L17 12 L9.5 16.5Z' fill='#fff'/></svg>`)} 10px center/24px 24px no-repeat !important;border:1.5px solid ${C.margin} !important;border-right:none !important;border-radius:4px 0 0 4px !important;color:${C.rose} !important;box-shadow:2px 2px 0 rgba(138,90,95,.1) !important;padding-left:44px !important;padding-right:20px !important;position:relative !important;overflow:visible !important;-webkit-mask:linear-gradient(#000,#000) left/calc(100% - 7px) 100% no-repeat,${svg(`<svg xmlns='http://www.w3.org/2000/svg' width='8' height='10'><path d='M0 0 H1 L8 5 L1 10 H0Z'/></svg>`)} right/8px 10px repeat-y !important}
+[data-wk="voice"][data-me]::before{content:"" !important;position:absolute !important;top:-7px !important;left:calc(50% - 18px) !important;width:36px !important;height:12px !important;background:${svg(TAPE(C.mint))} center/100% 100% no-repeat !important}
+[data-wk="voice"][data-me]::after{content:none !important}
+[data-wk="voice"][data-me] svg{display:none !important}
+[data-wk="voice"][data-me] > *{background:transparent !important;box-shadow:none !important;border:none !important}
+[data-wk="voicebar"]{background:${C.margin} !important;border-radius:2px !important}
+
+/* 天气：方格纸卡片，兔耳朵小云，薄荷雨点 */
+[data-wk="wxcard"]{background:#fff !important;border:1.5px solid ${C.margin} !important;border-radius:4px !important;box-shadow:2px 3px 0 rgba(138,90,95,.12) !important;transform:rotate(-1deg) !important;overflow:visible !important;position:relative !important}
+[data-wk="wxcard"]::after{content:"" !important;position:absolute !important;top:-11px !important;right:24px !important;width:24px !important;height:24px !important;background:${svg(STAR())} center/contain no-repeat !important}
+[data-wk="wxcardsky"]{background:linear-gradient(${C.line} 1px,transparent 1px) 0 0/14px 14px,linear-gradient(90deg,${C.line} 1px,transparent 1px) 0 0/14px 14px,#fff !important;color:${C.ink} !important}
+[data-wk="wxcardsky"] *{color:${C.ink} !important}
+[data-wk="wxcardsky"] > div > div:first-child{color:${C.rose} !important}
+[data-wk="wxcardsky"] svg{width:84px !important;height:76px !important;background:${svg(`<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 110'><g stroke='${C.rose}' stroke-width='3.5' stroke-linejoin='round' fill='#fff'><path d='M44 30 C40 12 44 4 48 4 C53 4 54 16 52 30Z'/><path d='M66 30 C70 12 66 4 62 4 C57 4 56 16 58 30Z'/><path d='M24 78 C10 78 6 60 20 56 C18 40 36 32 46 40 C52 24 78 24 82 42 C98 38 110 52 100 66 C108 74 100 82 92 78Z'/></g><path d='M46 28 C44 16 46 10 48 10 C50 10 50 20 50 28Z M64 28 C66 16 64 10 62 10 C60 10 60 20 60 28Z' fill='${C.blush}'/><circle cx='48' cy='60' r='3' fill='${C.ink}'/><circle cx='70' cy='60' r='3' fill='${C.ink}'/><ellipse cx='40' cy='68' rx='5' ry='3' fill='${C.blush}'/><ellipse cx='78' cy='68' rx='5' ry='3' fill='${C.blush}'/><path d='M55 66 q4 4 8 0' fill='none' stroke='${C.ink}' stroke-width='2.2' stroke-linecap='round'/><path d='M42 88 l-4 14 M60 88 l-4 14 M78 88 l-4 14' stroke='${C.mint}' stroke-width='5' stroke-linecap='round'/></svg>`)} center/contain no-repeat !important}
+[data-wk="wxcardsky"] svg *{display:none !important}
+[data-wk="wxcardrain"],[data-wk="wxcardsky"] span[style*="radius"]{background:#fff !important;border:1.5px solid ${C.margin} !important;color:${C.rose} !important}
+[data-wk="wxcardsay"]{background:#fff !important;color:${C.ink} !important;border-top:1.5px dashed ${C.margin} !important}
+[data-wk="wxcardsay"] > div:first-child{font-style:italic !important;color:${C.rose} !important}
+[data-wk="wxcardsay"] > div:first-child::after{content:"：" !important}
 `;
 
 const pack = { kind: "chat-look", v: 1, name: "粉色日记", look: { bubble, layout, customCSS: css.trim() }, assets: {} };
