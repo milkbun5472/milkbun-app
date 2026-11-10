@@ -288,8 +288,10 @@ button[data-wk="avatar"]::before,span[data-wk="avatar"]:not([data-halo])::before
 [data-wk="statecard"]{position:absolute !important;left:0 !important;top:0 !important;bottom:0 !important;width:86% !important;max-width:none !important;max-height:none !important;border-radius:0 22px 22px 0 !important;border-top:none !important;animation:pdPageIn .32s cubic-bezier(.2,.8,.2,1) both !important;padding-top:var(--app-safe-top, 20px) !important;box-shadow:inset 18px 0 0 -12px ${C.margin},8px 0 30px rgba(94,66,69,.3) !important}
 [data-wk="statecard"]::before{top:auto !important;bottom:14px !important;right:18px !important;transform:rotate(-6deg) !important;opacity:.9 !important}
 /* 页头：名字写成日记标题，底下一道双线 */
-[data-wk="statehead"]{padding:18px 70px 14px 40px !important;border-bottom:3px double ${C.margin} !important}
-[data-wk="statehead"] > div > div:first-child{font-style:italic !important;font-size:22px !important;color:${C.ink} !important}
+[data-wk="statehead"]{padding:18px 64px 14px 40px !important;border-bottom:3px double ${C.margin} !important}
+[data-wk="statehead"] > div{min-width:0 !important;flex:1 1 auto !important}
+[data-wk="statehead"] > div > div{white-space:normal !important;overflow:visible !important;text-overflow:clip !important}
+[data-wk="statehead"] > div > div:first-child{font-style:italic !important;font-size:22px !important;line-height:1.3 !important;color:${C.ink} !important}
 [data-wk="statehead"] > div > div:first-child::after{content:" 的日记" !important;font-size:13px !important;color:${C.rose} !important}
 [data-wk="statehead"] > button{position:absolute !important;top:calc(var(--app-safe-top, 20px) + 16px) !important;right:-46px !important;background:#fff !important;border:1.5px solid ${C.margin} !important;color:${C.rose} !important}
 /* 此刻 / Ta 眼里：竖着贴在页面右边缘的两张索引标签 */
