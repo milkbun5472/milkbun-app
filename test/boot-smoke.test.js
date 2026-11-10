@@ -22,8 +22,11 @@ function boot() {
   const ctx = {
     console: { log: noop, warn: noop, error: noop, info: noop }, Math, Date, JSON, Promise, Array, Object, String, Number,
     Boolean, RegExp, Error, Map, Set, WeakMap, WeakSet, Symbol, Proxy, Reflect, Intl, parseInt, parseFloat, isNaN, isFinite,
-    encodeURIComponent, decodeURIComponent, setTimeout, clearTimeout, setInterval, clearInterval, queueMicrotask,
-    structuredClone: x => JSON.parse(JSON.stringify(x)), requestAnimationFrame: f => setTimeout(f, 0), cancelAnimationFrame: noop,
+    // This smoke check exercises synchronous script loading and the first App()
+    // render. Deferred startup belongs to the boot-guard tests; real timers/RAF
+    // here would keep their mocked page alive after all assertions have passed.
+    encodeURIComponent, decodeURIComponent, setTimeout: noop, clearTimeout: noop, setInterval: noop, clearInterval: noop, queueMicrotask,
+    structuredClone: x => JSON.parse(JSON.stringify(x)), requestAnimationFrame: noop, cancelAnimationFrame: noop,
     document: Object.assign(stubEl(), { getElementById: () => null, createElement: stubEl, head: stubEl(), body: stubEl(),
       documentElement: stubEl(), visibilityState: "visible", cookie: "", readyState: "complete" }),
     localStorage: { _d: {}, getItem(k) { return this._d[k] == null ? null : this._d[k]; }, setItem(k, v) { this._d[k] = String(v); },

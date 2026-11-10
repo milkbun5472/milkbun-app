@@ -18,7 +18,7 @@
   const BDAY = { rate: 0.10, dayRate: 0.25, hard: 40, beg: 20 };   // 生日池：平时 10%、当天 25%、40 抽保底、20 抽起能求情
   const CAP = { R: 30, SR: 40, SSR: 50 };
   const FULL_COST = { R: 150, SR: 500, SSR: 1000 };    // 一张卡升满要的印泥（含过坎）。她 2026-10-26：不想熔卡、想把抽到的都看全——R、SR 便宜下来
-  const GIFT = { tickets: 15, ink: 2000 };
+  const GIFT = { tickets: 17, ink: 14000 };   // 她 2026-11-10：新人进门跟老用户当时拿到的一样（开幕 15＋2000、邮资补发 2＋2000、印泥补发 10000）
   const DUPE_INK = 500;
   const EXTRA_INK = 1500;                       // 1500 印泥换一张番外券（她 2026-10-27）                         // 限定 SSR 重复一张折多少印泥      // 上线礼：15 张十连券 + 2000 印泥
   // 互动给多少（邮资、印泥）。一次调用算一轮；文档那张表。
@@ -102,6 +102,11 @@
   // 第一次打开时到账；每开一期限时主题、每个生日池出现时各送一张十连券
   function grantOnOpen(now, birthdays, limCount) {
     const st = load(), got = [], wasOld = !!st.gifted;
+    // 中间那段进门的人（印泥补发上线以后才第一次打开）：当时只拿到 15＋2000，补发又只给老用户——按第一张卡的时间认出来，补齐差的那一截，一次
+    const ts36 = c => { const m = /^st_([0-9a-z]+)_/.exec(String(c && c.id || "")); return m ? parseInt(m[1], 36) : 0; };
+    if (st.gifted && !st.seenLimited.newbie26) { const first = Math.min(...st.cards.map(ts36).filter(Boolean), Infinity);
+      if (first !== Infinity && first > Date.parse("2026-10-26T18:41:00Z")) { st.tickets += GIFT.tickets - 15; st.ink += GIFT.ink - 2000; got.push("进门礼补齐：" + (GIFT.tickets - 15) + " 张十连券、" + (GIFT.ink - 2000) + " 印泥（你进门时送少了）"); } }
+    st.seenLimited.newbie26 = 1;
     if (!st.gifted) { st.gifted = true; st.tickets += GIFT.tickets; st.ink += GIFT.ink; got.push("开幕纪念：" + GIFT.tickets + " 张十连券、" + GIFT.ink + " 印泥"); }
     else if (!st.seenLimited[MAKEUP.id]) { st.tickets += MAKEUP.tickets; st.ink += MAKEUP.tickets * INK_PER_TEN; got.push("邮资改版补发：" + MAKEUP.tickets + " 张十连券、" + MAKEUP.tickets * INK_PER_TEN + " 印泥"); }
     st.seenLimited[MAKEUP.id] = 1;
@@ -256,7 +261,9 @@
   const MELT_R = 30;
   // SR 也能熔（她 2026-11-08）：一张 100；写过番外、画过满级面、动起来过的 SR 不熔——那些都花过调用
   const MELT_SR = 100;
-  const meltable = c => !!c && !c.writing && (c.rarity === "R" || (c.rarity === "SR" && !(c.extras || []).some(x => x && (x.text || x.img)) && !c.faceAlt && !Object.keys(c.faces || {}).length && !c.video && !Object.keys(c.videos || {}).length));
+  // 「在写」卡住超过三分钟（排队的半小时）就当没在写，没写好的卡也能熔（群里 2026-11-09：一堆「没写好」的熔不掉）
+  const busyNow = c => !!c.writing && Date.now() - Number(c.writingTs || 0) < (c.queued ? 1800000 : 180000);
+  const meltable = c => !!c && !busyNow(c) && (c.rarity === "R" || (c.rarity === "SR" && !(c.extras || []).some(x => x && (x.text || x.img)) && !c.faceAlt && !Object.keys(c.faces || {}).length && !c.video && !Object.keys(c.videos || {}).length));
   function meltValue(c) { if (!meltable(c)) return 0; let spent = 0; for (let l = 1; l < (c.lv || 1); l++) spent += levelCost(c.rarity, l); return (c.rarity === "SR" ? MELT_SR : MELT_R) + Math.floor(spent / 2); }
   function melt(ids) { const st = load(), set = new Set(ids || []), gone = st.cards.filter(c => set.has(c.id) && meltable(c));
     if (!gone.length) return { n: 0, ink: 0, keys: [] };

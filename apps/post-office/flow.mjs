@@ -1,8 +1,9 @@
-import {visitorSeat,windowSeat,SHOP_CHAIR,SHOP_BENCH} from './furniture.mjs?v=fg-16914e0f39f01666';
-import {STORY_ACTIONS,normalizeStoryAction} from '../fairy-garden/story-actions.mjs?v=fg-16914e0f39f01666';
-import {createStoryPlayback} from './playback.mjs?v=fg-16914e0f39f01666';
-import {createNavigator,segmentIntersectsRect} from '../fairy-garden/navigation.mjs?v=fg-16914e0f39f01666';
-import {stepRoute} from '../fairy-garden/locomotion.mjs?v=fg-16914e0f39f01666';
+import {CAT_APPROACH,isPostalCat,stepCatVisit} from './cat-visit.mjs?v=fg-cde9b8759c1380df';
+import {visitorSeat,windowSeat,SHOP_CHAIR,SHOP_BENCH} from './furniture.mjs?v=fg-cde9b8759c1380df';
+import {STORY_ACTIONS,normalizeStoryAction} from '../fairy-garden/story-actions.mjs?v=fg-cde9b8759c1380df';
+import {createStoryPlayback} from './playback.mjs?v=fg-cde9b8759c1380df';
+import {createNavigator,segmentIntersectsRect} from '../fairy-garden/navigation.mjs?v=fg-cde9b8759c1380df';
+import {stepRoute} from '../fairy-garden/locomotion.mjs?v=fg-cde9b8759c1380df';
 export const ENTRY={x:3.32,z:4.7};
 export const SHOP_FURNITURE=[{id:'Counter',x:-1.45,z:1.15,w:3.93,d:1.04},{id:'SortTable',x:-2.25,z:-2.5,w:2.8,d:.85},SHOP_CHAIR,{id:'DisplayShelves',x:-4.2,z:0,w:.45,d:6},{id:'Mailbags',x:4.05,z:2.45,w:.85,d:.55}];
 export const queuePoint=i=>({x:-1.45+(Math.floor(i/3)%6)*.84,z:2.2+(Math.floor(i/18)%2?2-i%3:i%3)*.85});
@@ -16,16 +17,16 @@ export function shopNavigation(hasBench=true){
  return {obstacles,walkable,clear,find:(a,b,avoid=[])=>find(a,b,'shop',avoid)};
 }
 export function createShopFlow({onMeetEnd=()=>{},onEvent=()=>{}}={}){
- const units=new Map(),seen=new Set();let nav=shopNavigation(),data=null,clock=0,closing=null,meeting=null,playback=null,spawn=0,idlePair=null,idleSerial=0,sceneBeat=null,lastTalk=null,storyLampOff=false,itemSerial=0;
+ const units=new Map(),seen=new Set(),seenCats=new Set();let nav=shopNavigation(),data=null,clock=0,closing=null,meeting=null,playback=null,spawn=0,idlePair=null,idleSerial=0,sceneBeat=null,lastTalk=null,storyLampOff=false,itemSerial=0;
  const key=s=>s.kind==='staff'?'staff:'+s.id:'guest:'+s.key;
  const staffById=id=>id==null?null:units.get('staff:'+id);
  const actorById=id=>staffById(id)||[...units.values()].find(u=>u.kind==='guest'&&u.actorId===id);
  const staff=()=>[...units.values()].filter(u=>u.kind==='staff'&&u.phase!=='leaving');
  const meetingMember=u=>!!u&&!!meeting&&(u.key===meeting.staff||u.key===meeting.visitor);
- const pending=()=>[...units.values()].some(u=>u.kind==='guest'&&!u.visitor&&u.phase!=='leaving');
+ const pending=()=>[...units.values()].some(u=>u.kind==='guest'&&!u.visitor&&!isPostalCat(u)&&u.phase!=='leaving');
  function go(u,target){u.goal={x:target.x,z:target.z};u.path=nav.find(u.position,u.goal)||[];u.arrived=Math.hypot(u.position.x-target.x,u.position.z-target.z)<.08;u.blocked=0;}
  function returnHome(u){u.phase='working';u.taskAction=null;u.bubble=null;u.letter=false;u.seated=false;u.performanceSeat=null;u.nextIdle=clock+15;go(u,u.home);}
- function depart(u,letter=false){if(u.phase==='leaving')return;u.phase='leaving';u.letter=letter;u.bubble=null;u.seated=false;go(u,ENTRY);}
+ function depart(u,letter=false){if(isPostalCat(u)&&u.phase.startsWith('cat-')){u.catLeaving=true;return;}if(u.phase==='leaving')return;u.phase='leaving';u.letter=isPostalCat(u)?false:letter;u.bubble=null;u.seated=false;go(u,ENTRY);}
  function clearSpeech(){for(const u of units.values())u.bubble=null;}
  function cancelIdle(){if(idlePair){for(const id of idlePair.ids){const u=staffById(id);if(u&&u.phase.startsWith('idle'))returnHome(u);}idlePair=null;}for(const u of staff())if(u.phase.startsWith('idle'))returnHome(u);}
  function reconcile(next){
@@ -37,10 +38,10 @@ export function createShopFlow({onMeetEnd=()=>{},onEvent=()=>{}}={}){
    u.home={x:source.x,z:source.seatHeight?.15:source.z};
   }
   const customers=next.closed||next.phase!=='open'?[]:next.customers;
-  for(const source of customers){const k=key(source);if(source.done){const u=units.get(k);if(u&&u.phase!=='leaving'){if(source.got>0&&!source.miss){onEvent({kind:'stamp',id:source.key});const clerk=staff().find(a=>a.post==='柜台');if(clerk){clerk.serviceUntil=clock+1.1;if(clerk.phase.startsWith('idle'))returnHome(clerk);}}depart(u,source.got>0&&!source.miss);}continue;}
-   wanted.add(k);let u=units.get(k);const seat=source.visitor&&next.decor.some(d=>d.builder==='bench')&&vi<2?visitorPoint(vi++,next.decor.find(d=>d.builder==='bench')?.level):null,target=seat||queuePoint(qi++);
+  for(const source of customers){const k=key(source);if(source.done){const u=units.get(k);if(isPostalCat(u)){u.catLeaving=true;wanted.add(k);continue;}if(u&&u.phase!=='leaving'){if(source.got>0&&!source.miss){onEvent({kind:'stamp',id:source.key});const clerk=staff().find(a=>a.post==='柜台');if(clerk){clerk.serviceUntil=clock+1.1;if(clerk.phase.startsWith('idle'))returnHome(clerk);}}depart(u,source.got>0&&!source.miss);}continue;}
+   wanted.add(k);let u=units.get(k);if(isPostalCat(source)&&seenCats.has(k)&&!u)continue;const seat=source.visitor&&next.decor.some(d=>d.builder==='bench')&&vi<2?visitorPoint(vi++,next.decor.find(d=>d.builder==='bench')?.level):null,target=isPostalCat(source)?CAT_APPROACH:seat||queuePoint(qi++);
    if(!u){u={...source,key:k,position:{...ENTRY},phase:'waiting-entry',path:[],heading:Math.PI,spawnAt:clock+spawn*.8,goal:target};spawn++;units.set(k,u);}else Object.assign(u,source,{key:k});u.seat=seat;u.target={x:target.x,z:target.z};
-   if(u.phase!=='waiting-entry'&&u.phase!=='leaving'&&!meetingMember(u)&&!u.performing&&!u.partnerMotion&&!u.seated&&Math.hypot((u.goal?.x||0)-target.x,(u.goal?.z||0)-target.z)>.1)go(u,target);
+   if(u.phase!=='waiting-entry'&&u.phase!=='leaving'&&!u.phase.startsWith('cat-')&&!meetingMember(u)&&!u.performing&&!u.partnerMotion&&!u.seated&&Math.hypot((u.goal?.x||0)-target.x,(u.goal?.z||0)-target.z)>.1)go(u,target);
   }
   for(const [k,u]of units)if(!wanted.has(k)&&u.phase!=='leaving')depart(u,false);
   if(!meeting&&!closing){const c=customers.find(c=>c.visitor&&c.meet?.length&&c.meetCast?.staffId&&!c.meetSeen&&!seen.has(c.key));if(c)playMeet(c.id);}
@@ -135,13 +136,14 @@ export function createShopFlow({onMeetEnd=()=>{},onEvent=()=>{}}={}){
   dt=Math.max(0,Math.min(.1,dt));clock+=dt;
   if(closing?.phase==='tidy'){closing.time+=dt;for(const u of staff()){if(u.phase==='tidy-return'&&u.arrived){u.phase='tidying';u.tidyTime=0;}if(u.phase==='tidying'){u.tidyTime+=dt;if(u.tidyTime>1.45)depart(u,false);}}}
   for(const [k,u]of units){
-   if(u.phase==='waiting-entry'){if(clock<u.spawnAt||[...units.values()].some(v=>v!==u&&(v.phase==='leaving'||v.phase!=='waiting-entry'&&Math.hypot(v.position.x-ENTRY.x,v.position.z-ENTRY.z)<.75)))continue;u.phase='queuing';onEvent({kind:'door',id:u.key+':in'});go(u,u.target);}
+   if(u.phase==='waiting-entry'){if(clock<u.spawnAt||[...units.values()].some(v=>v!==u&&(v.phase==='leaving'||v.phase!=='waiting-entry'&&Math.hypot(v.position.x-ENTRY.x,v.position.z-ENTRY.z)<.75)))continue;u.phase='queuing';u.enteredAt=clock;onEvent({kind:'door',id:u.key+':in'});go(u,u.target);}
    if(!u.path.length&&!u.arrived&&u.goal&&u.phase!=='waiting-entry'&&u.phase!=='tidying'){u.blocked=(u.blocked||0)+dt;if(u.blocked>.7){u.path=nav.find(u.position,u.goal,[...units.values()].filter(v=>v!==u&&v.phase!=='waiting-entry').map(v=>({...visiblePosition(v),r:.55})))||[];u.blocked=0;}}
-   if(u.path.length){const others=[...units.values()].filter(v=>v!==u&&v.phase!=='waiting-entry').map(v=>({...visiblePosition(v),r:.55})),next=stepRoute(u.position,u.path,dt,{walkSpeed:u.visitor?1.05:1.3,clear:(a,b)=>nav.clear(a,b,'shop')&&others.every(v=>Math.hypot(b.x-v.x,b.z-v.z)>=.55||Math.hypot(a.x-v.x,a.z-v.z)<Math.hypot(b.x-v.x,b.z-v.z))}),stopped=u.path.length&&Math.hypot(next.position.x-u.position.x,next.position.z-u.position.z)<1e-5;u.position=next.position;if(next.heading!=null)u.heading=next.heading;
+   if(u.path.length){const others=[...units.values()].filter(v=>v!==u&&v.phase!=='waiting-entry').map(v=>({...visiblePosition(v),r:.55})),next=stepRoute(u.position,u.path,dt,{walkSpeed:isPostalCat(u)?1.35:u.npcStyle==='rare_bride'?1.85:u.look?.npcFeature==='cane'?.8:u.visitor?1.05:1.3,clear:(a,b)=>nav.clear(a,b,'shop')&&others.every(v=>Math.hypot(b.x-v.x,b.z-v.z)>=.55||Math.hypot(a.x-v.x,a.z-v.z)<Math.hypot(b.x-v.x,b.z-v.z))}),stopped=u.path.length&&Math.hypot(next.position.x-u.position.x,next.position.z-u.position.z)<1e-5;u.position=next.position;if(next.heading!=null)u.heading=next.heading;
     if(next.blocked||stopped){u.blocked=(u.blocked||0)+dt;if(u.blocked>.7){u.path=nav.find(u.position,u.goal,others.map(o=>({...o,r:Math.min(.6,Math.max(.1,Math.hypot(o.x-u.position.x,o.z-u.position.z)-.025))})))||[];u.blocked=0;}}
     u.arrived=!u.path.length&&Math.hypot(u.position.x-u.goal.x,u.position.z-u.goal.z)<.12;
    }
-   if(u.phase==='leaving'&&Math.hypot(u.position.x-ENTRY.x,u.position.z-ENTRY.z)<.65){onEvent({kind:'door',id:u.key+':out'});units.delete(k);continue;}
+   stepCatVisit(u,dt,{go});
+   if(u.phase==='leaving'&&Math.hypot(u.position.x-ENTRY.x,u.position.z-ENTRY.z)<.65){onEvent({kind:'door',id:u.key+':out'});if(isPostalCat(u))seenCats.add(k);units.delete(k);continue;}
    if(u.arrived&&u.kind==='guest'&&u.seat&&!u.performing&&!(meeting?.phase==='talk'&&meetingMember(u))&&u.phase!=='leaving'){u.seated=true;u.heading=0;}
    if(u.arrived&&u.kind==='staff'&&u.phase==='working'){u.seated=!!u.seatHeight;u.heading=u.yaw;}
   }
@@ -149,7 +151,15 @@ export function createShopFlow({onMeetEnd=()=>{},onEvent=()=>{}}={}){
   if(playback){stepAction(dt);updateSpeech();const actor=actorById(playback.beat?.actorId||playback.beat?.speakerId);playback.step(dt,!actor||actor.arrived&&(!actor.storyMotion?.seconds||actor.storyMotion.progress>=1));}
   stepIdle(dt);
  }
- function resume(saved){for(const old of saved?.units||[]){const u=units.get(old.key);if(!u||!nav.walkable(old.position?.x,old.position?.z))continue;u.position={...old.position};u.seated=!!old.seated;u.phase=old.phase==='waiting-entry'?'queuing':old.phase;u.spawnAt=0;if(u.kind==='staff'&&(u.phase.startsWith('idle')||['performing','tidying','tidy-return','meeting'].includes(u.phase)))returnHome(u);else go(u,old.goal||u.target||u.home||u.position);}}
+ function resume(saved){
+  for(const key of saved?.seenCats||[]){seenCats.add(key);const u=units.get(key);if(isPostalCat(u))units.delete(key);}
+  for(const old of saved?.units||[]){const u=units.get(old.key);if(!u)continue;if(Number.isFinite(old.entryAge))u.enteredAt=clock-old.entryAge;
+   if(isPostalCat(u)&&old.phase?.startsWith('cat-')){Object.assign(u,{position:{...old.position},phase:old.phase,catHeight:old.catHeight||0,catTime:old.catTime||0,catFrom:old.catFrom||null,catLeafDropped:!!old.catLeafDropped,path:[],arrived:true});continue;}
+   if(!nav.walkable(old.position?.x,old.position?.z))continue;u.position={...old.position};if(isPostalCat(u)&&old.catLeafDropped)u.catLeafDropped=true;u.seated=!!old.seated;u.phase=old.phase==='waiting-entry'?'queuing':old.phase;u.spawnAt=0;
+   if(u.kind==='staff'&&(u.phase.startsWith('idle')||['performing','tidying','tidy-return','meeting'].includes(u.phase)))returnHome(u);else go(u,old.goal||u.target||u.home||u.position);
+  }
+ }
+
  const performance=()=>playback?.beat?{kind:closing?'closing':'meet',index:playback.index,total:playback.total,text:playback.beat.text,speakerId:playback.beat.speakerId,actorId:playback.beat.actorId,action:sceneBeat?.action||'talk',progress:units.get(sceneBeat?.actor)?.storyMotion?.progress||0,stage:units.get(sceneBeat?.actor)?.storyMotion?.stage||'hold'}:null;
- return {units,reconcile,resume,step,playMeet,startClosing,nextBeat:()=>playback?.next(),skipStory:()=>playback?.finish(),finishClosing:()=>{finishBeat();closing=null;playback=null;storyLampOff=false;},get time(){return clock;},get storyLampOff(){return storyLampOff;},get closingDone(){return closing?.phase==='tidy'&&closing.time>1.45&&![...units.values()].some(u=>u.kind==='staff');},get lampProgress(){return closing?.phase==='tidy'?Math.min(1,closing.time/1.5):0;},get closing(){return !!closing;},get meeting(){return meeting;},get narration(){const beat=playback?.beat;return beat&&!actorById(beat.speakerId)?beat.text:'';},get performance(){return performance();},snapshot:()=>({clock,closing:!!closing,performance:performance(),idlePair:idlePair?.ids||null,meeting:meeting?{id:meeting.id,phase:meeting.phase,index:playback?.index||0}:null,units:[...units.values()].map(u=>({key:u.key,id:u.id,post:u.post,phase:u.phase,position:{...u.position},goal:u.goal,seated:!!u.seated,bubble:u.bubble||'',letter:!!u.letter,letterId:u.letterId||null,storyMotion:u.storyMotion||null,partnerMotion:u.partnerMotion||null,action:u.taskAction||'',walking:!!u.path.length}))})};
+ return {units,reconcile,resume,step,playMeet,startClosing,nextBeat:()=>playback?.next(),skipStory:()=>playback?.finish(),finishClosing:()=>{finishBeat();closing=null;playback=null;storyLampOff=false;},get time(){return clock;},get storyLampOff(){return storyLampOff;},get closingDone(){return closing?.phase==='tidy'&&closing.time>1.45&&![...units.values()].some(u=>u.kind==='staff');},get lampProgress(){return closing?.phase==='tidy'?Math.min(1,closing.time/1.5):0;},get closing(){return !!closing;},get meeting(){return meeting;},get narration(){const beat=playback?.beat;return beat&&!actorById(beat.speakerId)?beat.text:'';},get performance(){return performance();},snapshot:()=>({clock,seenCats:[...seenCats],closing:!!closing,performance:performance(),idlePair:idlePair?.ids||null,meeting:meeting?{id:meeting.id,phase:meeting.phase,index:playback?.index||0}:null,units:[...units.values()].map(u=>({key:u.key,id:u.id,post:u.post,phase:u.phase,position:{...u.position},goal:u.goal,seated:!!u.seated,bubble:u.bubble||'',letter:!!u.letter,letterId:u.letterId||null,storyMotion:u.storyMotion||null,partnerMotion:u.partnerMotion||null,action:u.taskAction||'',walking:!!u.path.length,catLeafDropped:!!u.catLeafDropped,catHeight:u.catHeight||0,catTime:u.catTime||0,catFrom:u.catFrom||null,entryAge:Number.isFinite(u.enteredAt)?clock-u.enteredAt:null}))})};
 }

@@ -20,7 +20,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v89.363";
+const APP_VERSION = "v89.422";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -476,13 +476,22 @@ function buildDefaultEmotes() {
   ];
   return defs.map((d, i) => ({ id: "em_def_" + i, keyword: d[0], url: face(d[1]) }));
 }
+// 这块数据浏览器到底解不解得开（她 2026-11-09：自拍气泡「图数据坏了，显示不出来」——存进去的那块不是图）
+//   没有 createImageBitmap 的老机子不验，照旧收下
+async function imgBlobOpens(b) {
+  if (!b || !b.size) return false;
+  if (typeof createImageBitmap !== "function") return true;
+  try { const bm = await Promise.race([createImageBitmap(b), new Promise((_, rej) => setTimeout(() => rej(new Error("timeout")), 15000))]); if (bm && bm.close) bm.close(); return true; }
+  catch (e) { return String(e && e.message) === "timeout"; }
+}
 // 站子只回一个图片链接时（app 里直接 fetch 被跨域挡了），再用 <img crossOrigin> 画到 canvas 上试一次；都拿不到就是 null
 //   （群里 2026-11-03：站子后台显示画好了，邮票卡面却是「没拿到图」）
 async function imgOutBlob(out) {
   if (!out) return null;
   if (out.blob) return out.blob;
   if (!out.url) return null;
-  try { const r = await fetch(out.url, { mode: "cors" }); if (r.ok) { const b = await r.blob(); if (b && b.size) return b; } } catch (e) {}
+  // 链接拿回来的得真是张图：有的站子链接打开是网页/JSON，存进去就成了「图数据坏了」
+  try { const r = await fetch(out.url, { mode: "cors" }); if (r.ok) { const b = await r.blob(); if (b && b.size && await imgBlobOpens(b)) return b; } } catch (e) {}
   return await new Promise(res => { const im = new Image(); im.crossOrigin = "anonymous";
     im.onload = () => { try { const c = document.createElement("canvas"); c.width = im.naturalWidth; c.height = im.naturalHeight; c.getContext("2d").drawImage(im, 0, 0); c.toBlob(b => res(b && b.size ? b : null), "image/png"); } catch (e) { res(null); } };
     im.onerror = () => res(null); im.src = out.url; setTimeout(() => res(null), 30000); });
@@ -493,7 +502,17 @@ async function imgOutBlob(out) {
   try {
     if (typeof window === "undefined" || typeof window.generateSelfieImage !== "function" || window.generateSelfieImage.__blobbed) return;
     const raw = window.generateSelfieImage;
-    const wrapped = async function () { const out = await raw.apply(this, arguments); if (out && !out.blob && out.url) { try { const b = await imgOutBlob(out); if (b && b.size) return Object.assign({}, out, { blob: b }); } catch (e) {} } return out; };
+    const wrapped = async function () {
+      let out = await raw.apply(this, arguments);
+      // 站子给回来的那块解不开：有链接就再从链接拿一次；还是解不开就按没拍成算，气泡上写原因、能重拍，不存一块坏数据
+      if (out && out.blob && !(await imgBlobOpens(out.blob))) {
+        const bad = out.blob.type || "未知格式";
+        out = Object.assign({}, out, { blob: null });
+        if (!out.url) throw new Error("站子回来的不是一张打得开的图（" + bad + "），换个生图模型或线路再拍");
+      }
+      if (out && !out.blob && out.url) { try { const b = await imgOutBlob(out); if (b && b.size) return Object.assign({}, out, { blob: b }); } catch (e) {} }
+      return out;
+    };
     wrapped.__blobbed = true; window.generateSelfieImage = wrapped;
   } catch (e) {}
 })();
@@ -4334,6 +4353,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
           const row = memoryRowFromCloud(r), local = localById.get(row.id);
           if (local && typeof local.hits === "number") row.hits = local.hits;
           if (local && typeof local.lastHit === "number") row.lastHit = local.lastHit;
+          if (local && Number(local.expiresTs) > 0) row.expiresTs = local.expiresTs; // 短期状况的时效只在本机，表里没这一栏
           return row;
         });
         memLibRef.current = authoritative;
@@ -5032,7 +5052,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     if (memExtractInflightRef.current[charId]) return 0;
     memExtractInflightRef.current[charId] = true;
     try {
-      const existing = memLibRef.current.filter(e => memShareChar([charId], e.charIds)).slice(0, 40).map(e => e.text).filter(Boolean);
+      const existing = memExtractAvoidList(memLibRef.current.filter(e => memShareChar([charId], e.charIds)), msgs.map(m => (m && m.content) || "").join("\n"), 40, await memExtractQueryVec(msgs));
       // openEntries 保序，编号即下标+1；喂给模型的是带编号的文本
       const openEntries = memLibRef.current.filter(e => e.open && e.text && memShareChar([charId], e.charIds)).slice(0, 30); // 编号必须与 RepairGate 的 openEntries 严格同序
       const openList = openEntries.map(e => e.text);
@@ -5067,7 +5087,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         const entry = {
           id: uniqMemId(now, i), text: String(it.text).trim(), tags: Array.isArray(it.tags) ? it.tags : [], charIds: [charId], ts: now, source: "auto", pinned: false,
           v: clampInt(it.v, -5, 5, 0), a: clampInt(it.a, 0, 5, 1), open: !!it.open,
-          evidenceMessageIds: Array.isArray(it.evidence_message_ids) ? it.evidence_message_ids.map(String) : []
+          evidenceMessageIds: Array.isArray(it.evidence_message_ids) ? it.evidence_message_ids.map(String) : [],
+          ...memTtlPatch(it, now)
         };
         const ent = window.OpenLoopGate ? window.OpenLoopGate.normalize(entry) : entry;
         // 演以前的事那间房（她 2026-10-11）：贴「过去」、记那间房填的时候；以前的事没有「还没了结」这一说
@@ -5126,6 +5147,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     const mark = memExtractMarkRef.current[charId] || 0;
     const newCount = all.filter(m => (m.ts || 0) > mark).length;
     if (mark && newCount < 4) return;                         // 有书签且没攒够新消息就先不跑
+    if (!memExtractWorthy(all.filter(m => (m.ts || 0) > mark))) return; // 全是嗯嗯好的：不花这一次，书签不动
     const take = Math.min(120, Math.max(24, newCount + 4));   // 至少 24、覆盖全部新消息+重叠、封顶 120
     const msgs = all.slice(-take);
     try {
@@ -10218,7 +10240,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       if (isDupMem(txt, owners, null, duplicateMeta) || isDupMem(txt, owners, batchSeen, duplicateMeta)) return;
       let entry = { id: uniqMemId(now, i), text: txt, tags: (Array.isArray(it.tags) ? it.tags : []).concat(tags),
         charIds: owners, knownBy: knownBy, ts: now, source: "auto", groupId: group.id,
-        v: clampInt(it.v, -5, 5, 0), a: clampInt(it.a, 0, 5, 1), open: !!it.open, evidenceMessageIds };
+        v: clampInt(it.v, -5, 5, 0), a: clampInt(it.a, 0, 5, 1), open: !!it.open, evidenceMessageIds, ...memTtlPatch(it, now) };
       // 批量直写不经过 addMemEntry，开环资格闸要在这儿自己过一遍
       if (window.OpenLoopGate) entry = window.OpenLoopGate.normalize(entry);
       batchSeen.push(entry); added.push(entry);
@@ -10243,12 +10265,13 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     const mark = memExtractMarkGOffRef.current[groupId] || 0;
     const newCount = all.filter(m => (m.ts || 0) > mark).length;
     if (mark && newCount < 4) return;
+    if (!memExtractWorthy(all.filter(m => (m.ts || 0) > mark))) return; // 全是嗯嗯好的：不花这一次，书签不动
     const take = Math.min(120, Math.max(24, newCount + 4));
     const win = all.slice(-take);
     const memberIds = (group.memberIds || []).slice();
     const members = memberIds.map(id => characters.find(c => c.id === id)).filter(Boolean);
     try {
-      const existing = memLibRef.current.filter(e => memShareChar(memberIds, e.charIds)).slice(0, 40).map(e => e.text).filter(Boolean);
+      const existing = memExtractAvoidList(memLibRef.current.filter(e => memShareChar(memberIds, e.charIds)), win.map(m => (m && m.content) || "").join("\n"), 40, await memExtractQueryVec(win));
       const openEntries = memLibRef.current.filter(e => e.open && e.text && memShareChar(memberIds, e.charIds)).slice(0, 30);
       const rawItems = await extractGroupMemories(bgActiveRef.current, ctxForGroupOffline(group), win, members, { existing, openList: openEntries.map(e => e.text) });
       const items = (rawItems || []).map(it => window.MemoryExtractionGate && window.MemoryExtractionGate.normalizeEvidence ? window.MemoryExtractionGate.normalizeEvidence(it, win) : it);
@@ -12118,10 +12141,11 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     }).join("\n\n");
         const close = d.mode === "shopclose";
         const r = await runProbe(apiFor(char.id), ctxFor(char), { voice: true, tag: "stampshop", maxTokens: 65000,
-          instruction: "这是" + uN + "在邮票册里开的一家小邮局（游戏里的店，第 " + (d.day || 1) + " 天）。店里现在的样子：" + (d.decor || "刚开张，还空着") + "。\n"
+          instruction: "这是" + uN + "在邮票册里开的一家小邮局（游戏里的店，第 " + (d.day || 1) + " 天）。" + (d.clock ? "现在是" + (d.missed ? "那天晚上" : (d.period ? d.period + " " : "") + d.clock) + "，店是照现实的钟点开的，写到时间要对得上，别写已经过去的钟点。" : "") + "店里现在的样子：" + (d.decor || "刚开张，还空着") + "。\n"
             + (close
               ? "今天上班的：" + (d.staff || "") + "。今天来过的客人：" + (d.customers || "没什么人") + "。今天收了 " + (d.coins || 0) + " 枚邮花。\n"
                 + (d.window ? "橱窗里摆着她抽到的这几张卡：" + d.window + "。\n" : "") + (d.missed ? "这是那天晚上的事：她那天忘了来打烊，是店里上班的这几个人自己把店关了，她不在场。\n" : "") + (d.badges ? "店员挂着当工牌的卡：" + d.badges + "。\n" : "")
+                + (d.pairs ? "老搭档：" + d.pairs + "。\n" : "") + (d.regulars ? "今天来的熟客：" + d.regulars + "。\n" : "")
                 + (d.missed ? "写那天晚上他们自己关店的一小段：" : "现在打烊了。写打烊时店里的一小段：") + "今天上班的这几个人各自怎么样、彼此说了什么、谁累了、谁跟谁拌了两句或者帮了一把、有没有给她留什么话或东西；橱窗里的卡、挂着的工牌是店里的样子，你心里有数就行；不用每张都提，真跟今天的事有关才写一笔，写到卡上的那一刻要照上面写的。每个人照各自的人设说话做事，你写的时候把他们都写进去，不只写你自己；写正在发生的这一段，有动作有对话，别写成总结。"
               : (d.visitor || "一位客人") + "今天来店里寄东西，正好碰上在" + (d.post || "柜台") + "上班的" + (d.staffName || "店员") + "。\n写他们俩在店里碰上的这一小段：只写你们两个之间的事，照两个人各自的人设和你们俩之间的关系，有对话，几段就够。")
             + "\n当场参与者的身份与完整人设：\n"+cast
@@ -12795,6 +12819,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       const caughtHint = opts.peekCaught ? "\n\n【此刻】你刚才趁 " + uName + " 不注意偷偷翻了她的手机，被她发现了，她当面问你。"
         + (opts.peekCaught.thoughts && opts.peekCaught.thoughts.length ? "你当时心里想过：" + opts.peekCaught.thoughts.slice(0, 4).map(x => "「" + x + "」").join("") + "。" : "")
         + "认不认、怎么解释、反咬一口还是服软，全看你这个人。" : "";
+      const gardenMineHint = opts.gardenMine ? "\n\n【此刻】" + uName + " 刚在你们空间的窗台上自己种下了一盆" + opts.gardenMine.species + (opts.gardenMine.why ? "，她说：「" + opts.gardenMine.why + "」" : "") + "。你看到了；想接就接一句，怎么接看你这个人。" : "";
       const letterHint = opts.loveLetterAnswer === "yes" ? "\n\n【此刻】你写给 " + uName + " 的那封申请信，她拆开看了，答应了——" + spaceRel((couplesRef.current || {})[charId]).together + "。怎么接这一下，全看你这个人。"
         : opts.loveLetterAnswer === "no" ? "\n\n【此刻】你写给 " + uName + " 的那封申请信，她拆开看了，说再想想。失落、嘴硬、装没事、还是说等她——全看你这个人和你们现在的关系。" : "";
       const refuseHint = opts.phoneRefused ? "\n\n【此刻】你刚开口要看 " + uName + " 的手机，她没给。怎么想、追不追问、生不生气、还是算了，全看你这个人和你们现在的关系。" : "";
@@ -12831,7 +12856,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       const _bdTs = Number(opts.backdateTs) || 0;
       const backdateHint = _bdTs && _bdTs < Date.now() - 5 * 60000
         ? "\n\n【这条消息的发出时间】你是在「" + fmtStampAI(_bdTs) + "」那会儿发的这条（她那时没开着手机，现在才看到）。话里要是提到几点、刚刚在干嘛，都按那会儿说。" : "";
-      const dongnianHint = backdateHint + peekHint + letterHint + refuseHint + caughtHint + peekMemo + (opts.dongnian && String(opts.dongnian).trim() ? "\n\n【此刻你心里的真实状态（决定你【怎么】开口的语气和分寸，是内心底色不是台词——绝不许直接念出来）】\n" + String(opts.dongnian).trim() : "");
+      const dongnianHint = backdateHint + peekHint + gardenMineHint + letterHint + refuseHint + caughtHint + peekMemo + (opts.dongnian && String(opts.dongnian).trim() ? "\n\n【此刻你心里的真实状态（决定你【怎么】开口的语气和分寸，是内心底色不是台词——绝不许直接念出来）】\n" + String(opts.dongnian).trim() : "");
       const aff = roomReads("innerLife") ? Math.round(affOf(charId)) : 70;
       // 亲属卡按需注入：仅当用户最近在哭穷/张口要钱（而非每轮常驻），再由 TA 按人设+好感+心情决定给不给。已给过就完全不提。
       const recentUserText = history.filter(m => m.role === "user" && m.content).slice(-3).map(m => m.content).join("  ");
@@ -17851,7 +17876,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       .map(x => new Date(x.bdDay).getFullYear() + " 年「" + (x.text.name || "") + "」" + (x.text.gist ? "：" + String(x.text.gist).slice(0, 60) : "")).slice(-12);
     return "这一张是你们的「" + (card.annivName || "纪念日") + "」前后，你们俩之间的一刻" + (card.annivN > 0 ? "（第 " + card.annivN + " 年）" : "") + "：她在场，R 也写你们俩在一起的那一瞬间。"
       + "这一天对你们是什么分量，照你们这一年真实走到的样子来写——这一年一起经历过什么、现在是什么相处的温度，就从那儿长出这一刻；不必隆重，记得这一天的方式像你自己。"
-      + "打扮是为这一天的，不从衣柜里挑。shot 画的是你们两个人。"
+      + "shot 画的是你们两个人。"
       + (past.length ? "\n往年的这一天你们也过过，那时的卡：\n" + past.join("\n") + "\n今年写别的事；可以自然想起往年，但不必每张都提。" : "");
   };
   // SSR 剧情的旁白是给她读的（她 2026-10-27：旁白写成了「他转头看向她」）：乙游卡面那样，读的人是「你」
@@ -17867,6 +17892,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   };
   const stampTimeLine = card => card.timeAt === "custom" && card.timeText ? "这一张写的是【" + card.timeText + "】的你：先想清楚那个时候你在哪、过着什么日子、你们之间是什么关系（那时还没认识就不写你们之间的事；在以后就照你们现在真实的方向往前推，变化要从现在长出来）。世界、身份、性格都是你本人，这是「如果」的那个时间，不是你们真的发生过的事。"
     : card.timeAt && STAMP_TIME[card.timeAt] ? STAMP_TIME[card.timeAt] + "世界、身份、性格都是你本人，这是「如果」的那个时间，不是你们真的发生过的事。" : "";
+  // 衣服（她 2026-11-04 起几轮）：IF、限时、生日、纪念日都是为那一期／那一天整套换的一身。一句管所有，不再每种卡各补一句
+  const stampOutfit = what => "shot 里的 outfit 是为" + what + "整套换的一身，一眼看得出是" + what + "，不用衣柜和人设里平时、按季节写的常服；平时那身加个配饰不算。";
   const stampKindLine = (card, char) => {
     if (card.kind === "time") return "这是一张【时间卡】：" + stampTimeLine(card) + "衣服照那个时间的你会穿的来。";
     if (card.kind === "if") {
@@ -17877,56 +17904,40 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       const past = card.series ? (StampsCoreSafe().cards || []).filter(x => x.charId === char.id && x.series === card.series && x.limited !== card.limited && x.text && !x.dupe)
         .map(x => (x.limYear || "") + " 年「" + (x.text.name || "") + "」" + (x.text.gist ? "：" + String(x.text.gist).slice(0, 60) : "")).slice(-12) : [];
       const pastLine = past.length ? "\n往年的「" + card.theme + "」你也过过，那时的卡：\n" + past.join("\n") + "\n今年写别的事、别的走向；你们的关系要是变了，今年的「" + card.theme + "」也该跟那时不一样。可以自然想起往年，但不必每张都提。" : "";
-      // 限时主题都用「你们俩」这层来看（她 2026-10-27：「整体还是要放在我和他的关系」）；角色池她自己写的主题不加
-      const lens = card.limited ? "\n这一期的主题是你们俩的：在这样的世界、这样的日子里，你们之间是什么样——她在你这段日子里是什么位置、你们怎么遇见、怎么相处、为彼此做了什么或没说出口什么。R 是她不在场时你的一刻，但看得出这段日子里有她，不必每张都提她；SR、SSR 就是你们俩之间的事。关系照你们现在真实走到的那一步来，还没在一起就不写成恋人。" : "";
-      // 限时池（节日）照开池那天的写法原样写（她 2026-11-03：开池那批张张是万圣节，后来加的几句一叠就写成了他在干活）
-      // 开池那天这条路上还有两样：节日时刻（timeAt）和分镜那一身（themeLook）——退回时把它们一起退回来，
-      //   少了 themeLook 分镜就不穿节日那身，只剩背景摆南瓜（她 2026-11-02：卡池突然变得不像万圣节）
-      // 写卡的先后里原来没有主题：人和主题一冲突，先丢的就是节日（她 2026-11-03）
-      if (card.limited) return pastLine + (card.timeAt ? stampTimeLine(card) : "") + "这一期的「" + card.theme + "」是硬条件，排在写卡先后的最前面：先保证这张落在「" + card.theme + "」里，再在这里面看你这个人对不对。这是一张【IF 卡】，主题是「" + card.theme + "」" + (stampLim(card).themeLine ? "：" + stampLim(card).themeLine : "。")
-        + "写的是「如果」的你，不是真发生的事。先想清楚你是哪个世界、哪个年代的人，" + mode + "衣服照这个主题来配，不用你衣柜里的。"
-        + (stampLim(card).themeLook ? "分镜（shot）里写的那一身要照这一条：" + stampLim(card).themeLook : "")
-        // 卡名一眼看得出是这一期（她 2026-11-03：沈屿白的万圣夜卡名跟万圣节没关系）
-        // 卡名（她 2026-11-04 截图：张张「万圣夜·判官笔」）：卡底下本来就标着这一期，名字不挂前缀，从这张写的那件事里起
-        + "卡名从这张写的那件事里起，看得出是「" + card.theme + "」这一期的，但不把「" + card.theme + "」几个字挂在名字前面当前缀，卡上本来就标着这一期。"
-        // 分镜里那一身也要看得出在过这个节（她 2026-11-03：描述里穿的还是平时的衣服）
-        + "shot 里的 outfit 写你在这一期里穿的那一身，一眼看得出是「" + card.theme + "」这一期，不是平时的衣服；要不要变装看上面这一期自己的要求，没说就别写成戏服。"
-        // 她 2026-11-04：分镜一直写常服——人设里按季节写的那几身被当成了这张该穿的，节日只落在一个小发箍上
-        + "这一身是从外套、上衣到下装整套为这一期换的；平时那身加一个头饰、一件小配件不算。人设里按季节、按场合写的常穿衣服这张都不用。"
-        // 限时卡要特别（她 2026-11-06）：这一刻只有这一期才有；变装那几句只放在万圣夜自己的 look 里，深秋这种不是节日的不会被写成扮吸血鬼
-        + "这是限定卡，要比日常卡特别：写的是只有在「" + card.theme + "」这一期才会发生的那一刻，换到平常哪一天都不成立；不是平常的一天换个背景、顺口提一句。";
-      return pastLine + lens + (card.timeAt ? stampTimeLine(card) : "") + "这是一张【IF 卡】，主题是「" + card.theme + "」" + (stampLim(card).themeLine ? "：" + stampLim(card).themeLine : "。")
-        + "写的是「如果」的你，不是真发生的事。先想清楚你是哪个世界、哪个年代的人，" + mode
-        // 主题跟他自己的世界本来就是同一种（她 2026-10-26：西幻主题撞上本来就是西幻的人）：世界不换，换他这个人
-        // 限时池是节日、不是另一个世界：不换身份，还是他本人过这个节（她 2026-11-03：万圣夜把他写成了游乐园修机器的）
-        + (card.limited ? "" : "主题跟你自己的世界本来就是同一种（时代、风格都对得上）的话，就别再写你原来的身份——世界不换，换的是你：要是你走了另一条路，在这个世界里会是谁。")
-        // 限时池是一个节：这张就发生在过节的那一晚，他在过节（她 2026-11-03：沈屿白重写出来张张在修机器、穿工装，只是背景摆了南瓜）
-        // 节日和主题期（深秋、温泉旅行）共用这一句，所以不说「过节」（她 2026-11-05 深秋那期）
-        + (card.limited ? "这一张就发生在这一期「" + card.theme + "」里：在做只有这个时候、这一期里才会做的事，不是平常干活的一天摆上主题背景；穿的也合这一期。" : "")
-        + "衣服照这个主题来配，不用你衣柜里的。" + (stampLim(card).themeLook ? "分镜（shot）里写的那一身要照这一条：" + stampLim(card).themeLook : "");
+      const lim = stampLim(card), theme = card.theme;
+      const head = pastLine + (card.timeAt ? stampTimeLine(card) : "") + "这是一张【IF 卡】，主题是「" + theme + "」" + (lim.themeLine ? "：" + lim.themeLine : "。")
+        + "写的是「如果」的你，不是真发生的事。先想清楚你是哪个世界、哪个年代的人，" + mode;
+      // 限时池（她 2026-11-03～06）：主题排在最前；这一刻只有这一期才有；是他本人过这一期，不换身份；变装这类各期自己的要求写在那一期的 look 里
+      if (card.limited) return "这一期的「" + theme + "」是硬条件：先保证这张落在「" + theme + "」里，再在这里面看你这个人对不对。" + head
+        + "这是限定卡：写只有在这一期才会发生的那一刻，换到平常哪一天都不成立。" + stampOutfit("这一期「" + theme + "」") + (lim.themeLook || "")
+        + "卡名从这件事里起，看得出是这一期的，不把「" + theme + "」挂在前面当前缀。";
+      // 角色池主题跟他自己的世界本来就是同一种（她 2026-10-26：西幻主题撞上本来就是西幻的人）：世界不换，换他这个人
+      return head + "主题跟你自己的世界本来就是同一种（时代、风格都对得上）的话，就别再写你原来的身份——世界不换，换的是你：要是你走了另一条路，在这个世界里会是谁。"
+        + stampOutfit("这个主题") + (lim.themeLook || "");
     }
+    const day = STAMP_DAY_KINDS[card.kind];
     return "这是一张【日常卡】：写你自己日子里真发生的一件事——不是你们已经发生过的事，也不是回忆。"
       + "这件事从你自己的生活里来：你的活儿、你在意的东西、你身边的人、你的选择，或者一点意外；它可以跟她一点关系都没有，你不必时时惦记着她。"
-      + "写到她的时候，你俩的关系走到哪一步就写到哪一步，还没在一起就不写恋人之间的事，最近在别扭就别写得甜。衣服从你自己的衣柜里挑。"
-      + (card.kind === "mybday" ? "这一张是【她的生日】前后，你们俩之间的一刻：她在场，R 也写你们俩在一起的那一瞬间。照你们现在的关系来，还没在一起就不写恋人之间的事。为她的生日，你们俩的打扮都是特意的，不从衣柜里挑。shot 画的是你们两个人。" : "")
+      + "写到她的时候，你俩的关系走到哪一步就写到哪一步，还没在一起就不写恋人之间的事，最近在别扭就别写得甜。" + (day ? "" : "衣服从你自己的衣柜里挑。")
+      + (card.kind === "mybday" ? "这一张是【她的生日】前后，你们俩之间的一刻：她在场，R 也写你们俩在一起的那一瞬间。照你们现在的关系来，还没在一起就不写恋人之间的事。shot 画的是你们两个人，两个人都是为她生日特意的打扮。" : "")
       + (card.kind === "anniv" ? stampAnnivLine(card, char) : "")
-      // 她 2026-11-04：特别版的那身——人设里按季节、按场合写的常服被当成这张的衣服（万圣夜同一个坑）
-      + (card.kind === "bday" || card.kind === "mybday" || card.kind === "anniv" ? "人设里按季节、按场合写的常穿衣服这张都不用；shot 里的 outfit 写的是为这一天特意准备的整套，平时那身加个配饰不算。" : "")
-      + (card.kind === "bday" ? "这一张是你生日前后的一刻。衣服这次不从你衣柜里挑：生日卡是专门为这一天设计的限定造型——一眼看得出是特意的，比你平时隆重、细节多，面料、配饰、搭配都有讲究，同时还是你会穿、配你这个人的样子；隆重不等于西装，照那天在做的事配。shot 的景别拉开到看得见那天的场合和生日的氛围。" : "");
+      + (card.kind === "bday" ? "这一张是你生日前后的一刻。生日卡是专门为这一天设计的限定造型，比你平时隆重、细节多，同时还是你会穿、配你这个人的样子；隆重不等于西装，照那天在做的事配。shot 的景别拉开到看得见那天的场合和生日的氛围。" : "")
+      + (day ? stampOutfit(day) : "");
   };
   const STAMP_RARITY_SPEC = {
     R: "R 卡＝抓拍：她不在场时你的一个瞬间，重在你那会儿是什么状态，不必是一件完整的事。narration 一行交代是什么时候、你在干嘛；thought 是你心里的一句，你不知道会被她看到，印在卡面上，每张 R 都要有、不能空。"
       + "before、after 是这一刻的前一刻和后一刻，各自也有 narration 和 thought；real 是这一刻你心里真正的那一句；sound 是那一刻耳边的声音，一两句；back 是这枚邮票背面你随手写的一句，像寄明信片时背面那句。",
     SR: "SR 卡＝短篇：一件有前因后果的小事，五六百字，重在你怎么应对它——事情有变化、有个结果；她在不在场看这件事本身。open 是开头一小段；rest 接着写完；sequel 是过了一阵以后的一小段后续；hidden 是你藏着没说出口的一句；line 是印在卡面上的一句你的台词；his 是同一件事你自己记得的版本——你那时注意到、记住的东西，一小段；keepsake 是这件事留下的一样小东西（name 叫什么、desc 一两句它的样子和来历）。"
   };
-  // 去重按「写的是什么事」，不只按卡名：带上最近几十张的 gist
-  // 带上印在卡上的那句台词（她 2026-10-26：同一期两张卡印了一模一样的一句）
-  // 重写时不把这几张自己的旧版本摆给他看（她 2026-11-03：重写是照着旧的改，修南瓜改成了修管道）
-  // 限时池只拿同一期的卡比（她 2026-11-03：抽多了，「别再写一样的」把南瓜也一起躲掉了，卡名分镜衣服全跑出万圣节）
-  const stampPrev = (charId, skip, series) => (StampsCoreSafe().cards || []).filter(c => c.charId === charId && c.text && !c.writing && !(skip || []).includes(c.id) && (!series || c.series === series)).slice(-30).map(c => "- " + (c.text.gist ? String(c.text.gist).slice(0, 60) : "（没记）") + (c.text.line ? "（卡上那句：" + String(c.text.line).slice(0, 40) + "）" : ""));
-  // 节日那一期：不一样指的是事不一样，节照样过（她 2026-11-03：「可以写很多次南瓜，但是每次的内容要不一样」）
-  const stampPrevLine = (prev, theme) => prev.length ? "\n你已经有的" + (theme ? "「" + theme + "」" : "") + "卡（写的是什么、卡上那句）：\n" + prev.join("\n") + "\n新写的别再是同一件事、同一种走向，卡上那句也别再说一样的话。"
-    + (theme ? "这里的不一样是这个节里发生的事、角度、你们之间的那一下不一样——同样的节日元素可以再出现，节本身不变，卡名、分镜、衣服照样一眼是「" + theme + "」。" : "") : "";
+  // 去重（10-26 起几轮）：只给前面写过什么事、卡上那句，说清这只用来避开重复——卡名不给（会照着学），名字重了由下面的代码认
+  //   重写时不给这几张自己的旧版本；限时池只拿同一期比，节照样过
+  const stampPrev = (charId, skip, series) => (StampsCoreSafe().cards || []).filter(c => c.charId === charId && c.text && !c.writing && !(skip || []).includes(c.id) && (!series || c.series === series))
+    .slice(-30).map(c => "- " + (c.text.gist ? String(c.text.gist).slice(0, 50) : "（没记）") + (c.text.line ? "（卡上那句：" + String(c.text.line).slice(0, 30) + "）" : ""));
+  const stampPrevLine = (prev, theme) => prev.length ? "\n你已经写过的" + (theme ? "「" + theme + "」" : "") + "卡，只用来避开重复：\n" + prev.join("\n")
+    + "\n新写的换一件事、换个走向，卡上那句也别说一样的话" + (theme ? "；这个节照样过，节日里的东西可以再出现" : "") + "。" : "";
+  // 卡名重了（群里 2026-11-10：张张「马德里夜风」）：代码比，不靠提示词——同一个人已有的卡、这一批里前面的卡，名字一样就算没写好
+  const stampNameTaken = (charId, selfId, name, batch) => { const n = String(name || "").trim(); if (!n) return false;
+    return (batch || []).includes(n) || (StampsCoreSafe().cards || []).some(c => c.charId === charId && c.id !== selfId && c.text && String(c.text.name || "").trim() === n); };
   const stampSeriesOf = list => { const s0 = list.filter(c => c.limited).map(c => c.series || c.limited); return s0.length === list.length && s0.every(x => x === s0[0]) ? { series: s0[0], theme: list[0].theme } : null; };
   // 他平时真说过的话（她 2026-10-26：「剧情有点刻板印象，不像他平时说话」）：从跟她的聊天里取最近几十句他自己打的字，
   //   叫他照这个口气、长短、用词开口——不是让他复述这些话，是让他认出自己。没聊过就不给
@@ -18057,9 +18068,12 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       const d = await runProbe(offlineApiFor(char.id), stampCtx(char, list), { salvage: stampLooseJSON,
         voice: true,
         instruction: STAMP_CORE() + stampVoice(char) + stampBi(char) + "她在「邮票册」里抽到了几张印着你的邮票，每张是你的一个样子。下面按顺序写这几张。\n"
-          + list.map((c, i) => "第 " + (i + 1) + " 张：" + c.rarity + "。" + stampKindLine(c, char)).join("\n")
+          // 一批十张常常是同一种卡：同样的要求只说一遍，每张标它照哪一种（以前同一大段重复十遍）
+          + (() => { const kinds = [], idx = list.map(c => { const t = stampKindLine(c, char); let k = kinds.indexOf(t); if (k < 0) { kinds.push(t); k = kinds.length - 1; } return k; });
+              return (kinds.length === 1 ? kinds[0] + "\n" + list.map((c, i) => "第 " + (i + 1) + " 张：" + c.rarity).join("；") + "。"
+                : kinds.map((t, k) => "【写法" + (k + 1) + "】" + t).join("\n") + "\n" + list.map((c, i) => "第 " + (i + 1) + " 张：" + c.rarity + "，照【写法" + (idx[i] + 1) + "】").join("；") + "。"); })()
           + "\n" + (list.some(c => c.rarity === "R") ? STAMP_RARITY_SPEC.R + "\n" : "") + (list.some(c => c.rarity === "SR") ? STAMP_RARITY_SPEC.SR + "\n" : "")
-          + "每张都有 name（卡名，八个字以内）、gist（一句话记下这张写的是什么事、在哪、怎么收的尾，给以后去重用）和 shot。" + STAMP_SHOT_SPEC
+          + "每张都有 name（卡名，八个字以内）、gist（一句话记下这张写的是什么事、怎么收的尾，给以后去重用）和 shot。" + STAMP_SHOT_SPEC
           + stampPrevLine(prev, ser && ser.theme) + "\n这几张之间也是不同的事" + (ser ? "，但张张都在过「" + ser.theme + "」" : "") + "。"
           // 人称跟 SSR 剧情一样（她 2026-10-28：R 卡里写成了「你调完色，碰了碰她的下颌」）：卡是写给她读的
           + stampPov(char, "\n人称：卡上叙述的那几栏是写给她读的（每一栏还是照格式写成一段字），叙述里你是「他」、她是「你」，比如「他调完色，碰了碰你的下颌」；thought、real、hidden、line、back、his 是你自己心里或嘴上的话，用「我」。"),
@@ -18069,9 +18083,11 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         maxTokens: 65000
       });
       const arr = Array.isArray(d && d.cards) ? d.cards : [];
+      const seen = [];
       list.forEach((c, i) => {
         const x = arr[i];
-        if (x && x.name) stampSaveCard(c.id, { writing: false, err: "", text: window.StampsCore.cleanText(x, c.rarity) });
+        if (x && x.name && stampNameTaken(char.id, c.id, x.name, seen)) stampSaveCard(c.id, { writing: false, err: "卡名跟前面那张重了，点一下重写" });
+        else if (x && x.name) { seen.push(String(x.name).trim()); stampSaveCard(c.id, { writing: false, err: "", text: window.StampsCore.cleanText(x, c.rarity) }); }
         else stampSaveCard(c.id, { writing: false, err: "这一张没写出来，点一下重写" });
       });
     } catch (e) { list.forEach(c => stampSaveCard(c.id, { writing: false, err: "没写出来：" + String(e && e.message || e).slice(0, 60) })); }
@@ -18092,7 +18108,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
           + "一节中间也可以停下来让她选一两次（beats 里放一个 who:\"pick\"，options 两三个：text 是她说的话或做的事，beats 是你接着的那几句）——选的不同你的反应就不同，几句之后回到这一节的主线；节尾的 choices 两三个。"
           + "往前走靠的是发生的事、你的做法和你们之间自然的对话；你说多少话照你平时的样子，心里的东西让她从你做的事里看出来。每节都有点什么变了，不必每节都有大事。"
           + "两条岔路走下去，后面发生的事、你的处理、她知道的东西、你们之间的样子，至少有一样真的不一样。" + ((StampsCoreSafe().opt || {}).meQuiet ? "正文里她基本不开口：me 一节最多一句，能不写就不写；她的说话和决定都放进选项（pick 和节尾 choices）里。往前推的是你的话、你的动作和旁白。" : "她那句（me）照她平时的样子写，少一点。")
-          + "\nname 是卡名（八个字以内），line 是印在卡面上的一句你的台词。highlight 是剧情里你最想留住的那一刻，一两句画面。gist 一句话记下这张写的是什么事、在哪、怎么收的尾。name 从这段剧情里的事本身来起，不拿日子、节气、天气这些背景起名。allEndsLine 是她把每个结局都走过一遍以后，你想对她说的一句。" + STAMP_SHOT_SPEC
+          + "\nname 是卡名（八个字以内），line 是印在卡面上的一句你的台词。highlight 是剧情里你最想留住的那一刻，一两句画面。gist 一句话记下这张写的是什么事、怎么收的尾。name 从这段剧情里的事本身来起，不拿日子、节气、天气这些背景起名。allEndsLine 是她把每个结局都走过一遍以后，你想对她说的一句。" + STAMP_SHOT_SPEC
           + stampPrevLine(prev, ser && ser.theme),
         schemaHint: "{\"name\":\"\",\"line\":\"\",\"highlight\":\"\",\"gist\":\"\",\"allEndsLine\":\"\",\"shot\":\"\",\"sections\":[{\"id\":\"s1\",\"lv\":1,\"title\":\"\",\"beats\":[{\"who\":\"narr|he|me\",\"text\":\"\"},{\"who\":\"pick\",\"options\":[{\"text\":\"\",\"beats\":[{\"who\":\"he\",\"text\":\"\"}]}]}],\"choices\":[{\"text\":\"\",\"go\":\"s2a\"}],\"end\":false,\"hidden\":false}]}",
         maxTokens: 65000
@@ -18302,6 +18318,30 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         faces: Object.assign({}, c0.faceAlt ? { [c0.faceAltMode || "solo"]: c0.faceAlt } : {}, c0.faces || {}, { [duo ? "duo" : "solo"]: key }) }) : { drawing: false, face: key, drawErr: "" });
     } catch (e) { stampSaveCard(cardId, { drawing: false, drawErr: String(e && e.message || e).slice(0, 120), drawErrTs: Date.now() }); toast("卡面没画成：" + String(e && e.message || e).slice(0, 60)); }
   };
+  // 剧情闯关故事集的封面：照卡面双人那套画（带你们俩的参考照、照关系定距离），回一个 data URL（她 2026-11-10「要好看的双人图」）
+  window.StampStoryCover = async book => {
+    const char = characters.find(x => x.id === (book && book.charId));
+    if (!char) throw new Error("找不到这段故事是跟谁的");
+    if (!(typeof imgApiReady === "function" && imgApiReady())) throw new Error("先去 设置·图像API 配一下");
+    const lines = c => String(((c || {}).lines || []).join("")).replace(/\s+/g, " ");
+    const chs = book.chapters || [], title = (book.ending && book.ending.title) || book.title || book.hook || "";
+    const peak = book.ending ? lines(book.ending).slice(-260) : lines(chs[chs.length - 1]).slice(-260);
+    const lover = spaceLover((couplesRef.current || {})[char.id]);
+    const meP = photoMe("她", char.id);
+    if (!meP.refPhoto) toast("你还没传自己的参考照（在你自己的资料里传一张），这张只能照文字画你", 6000);
+    const scene = "一本书的封面插画，竖版，像一本精装小说的封面那样讲究：「" + title + "」。"
+      + "\n这段故事：" + String(book.hook || "").slice(0, 120) + "。开头：" + lines(chs[0]).slice(0, 160) + "。"
+      + "\n画的是这段故事里最打动人的那一刻：" + peak
+      + "\n画面里是你们两个人，" + (lover ? "你们是恋人，两个人之间的距离、眼神和手就是恋人的样子。" : "你们之间是什么关系就是什么距离，不画成恋人。")
+      + "\n构图像书封：两个人占画面中下部，上方留出一片干净的天空或墙面、光晕之类的留白；景别拉开到看得见这一刻的场景、季节和光，光线有层次，色调统一、照结局的心情定（圆满就暖，怅然就冷一点）。"
+      + "\n画面里不要任何文字、书名、标志和边框。";
+    const prompt = buildPhotoPrompt(char, scene, statesRef.current[char.id] || {}, { kind: "duo", me: meP, notLover: !lover, closet: closetTextFor(char.id, 240),
+      poseLine: "【两个人的姿势】两个人在一起做着这一刻的事，有互动、有动势，身体之间的距离照你们的关系，不是并排对着镜头站好。" });
+    const refs = [char.refPhoto, meP.refPhoto].filter(Boolean);
+    const out = await generateSelfieImage(prompt, refs.length ? refs : null, { size: "1024x1536" });
+    const blob = await imgOutBlob(out); if (!blob) throw new Error("没拿到图");
+    return await new Promise((res, rej) => { const fr = new FileReader(); fr.onload = () => res(fr.result); fr.onerror = rej; fr.readAsDataURL(blob); });
+  };
   const createGroup = (name, memberIds, spectate, roles) => {
     const g = {
       id: "g_" + Date.now(),
@@ -18427,12 +18467,13 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     const mark = memExtractMarkGRef.current[groupId] || 0;
     const newCount = all.filter(m => (m.ts || 0) > mark).length;
     if (mark && newCount < 4) return;
+    if (!memExtractWorthy(all.filter(m => (m.ts || 0) > mark))) return; // 全是嗯嗯好的：不花这一次，书签不动
     const take = Math.min(120, Math.max(24, newCount + 4));
     const win = all.slice(-take);
     const memberIds = (group.memberIds || []).slice();
     const members = memberIds.map(id => characters.find(c => c.id === id)).filter(Boolean);
     try {
-      const existing = memLibRef.current.filter(e => memShareChar(memberIds, e.charIds)).slice(0, 40).map(e => e.text).filter(Boolean);
+      const existing = memExtractAvoidList(memLibRef.current.filter(e => memShareChar(memberIds, e.charIds)), win.map(m => (m && m.content) || "").join("\n"), 40, await memExtractQueryVec(win));
       const openEntries = memLibRef.current.filter(e => e.open && e.text && memShareChar(memberIds, e.charIds)).slice(0, 30);
       const rawItems = await extractGroupMemories(bgActiveRef.current, { members, profile, rels, chars: characters }, win, members,
         { existing: existing, openList: openEntries.map(e => e.text) });
@@ -28722,25 +28763,72 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       const color = /^#[0-9a-fA-F]{6}$/.test(String(d.color || "").trim()) ? String(d.color).trim() : "#c98a9e";
       // 那句 why 不截（她 2026-09-24 截图：「就算哪天你」」半句断掉）——原来 slice(0, 80)，一句真话常常不止八十个字。
       const why = String((d && d.why) || "").replace(/\s+/g, " ").trim();
-      saveGarden(p => {
-        const old = p[char.id] || {};
-        return { ...p, [char.id]: { species: sp, why: why,
-          color: color, plantedTs: Date.now(), fed: 0, lastFedTs: Date.now(), bloomTs: 0, told: false,
-          kept: Array.isArray(old.kept) ? old.kept : [],
-          // ⚠️said 只进不出：干花册可能被她收走/清掉，avoid 单子不能跟着一起没
-          said: gardenPastOf(old).concat([{ species: sp, why: why }]).slice(-24) } };
-      });
-      coupleKeep(char.id, char.name + "在你们的空间里种下了一盆" + sp + (d && d.why ? characterText(char, "——他说「") + cSnip(d.why, 60) + "」" : ""), "花房");
+      plantPot(char, { species: sp, why, color, by: "char" });
     } catch (e) { toast("失败：" + (e.message || "重试")); }
     finally { setGardenGen(null); }
+  };
+  // 种下一盆：他挑的、她挑的走同一条（她 2026-11-09「我种的也进他记忆？跟他种的一样公共的」）——
+  //   存进花房、记进「挑过什么、说过什么」、凝一条记忆；她种的再留给他下一次开口时接一句（等她开口，不当场抢话）
+  const plantPot = (char, o) => {
+    const mine = o.by === "me", sp = String(o.species || "").trim().slice(0, 16), why = String(o.why || "").trim();
+    if (!sp) return;
+    saveGarden(p => {
+      const old = p[char.id] || {};
+      return { ...p, [char.id]: { species: sp, why: why, by: mine ? "me" : "char", drawOn: !!old.drawOn, imgStage: "",
+        color: o.color || "#c98a9e", plantedTs: Date.now(), fed: 0, lastFedTs: Date.now(), bloomTs: 0, told: false, img: null,
+        kept: Array.isArray(old.kept) ? old.kept : [],
+        // ⚠️said 只进不出：干花册可能被她收走/清掉，avoid 单子不能跟着一起没
+        said: gardenPastOf(old).concat([{ species: sp, why: why, by: mine ? "me" : "char" }]).slice(-24) } };
+    });
+    coupleKeep(char.id, mine
+      ? (((typeof profileFor === "function" ? profileFor(char.id) : null) || {}).name || "她") + "在你们的空间里种下了一盆" + sp + (why ? "——她说「" + cSnip(why, 60) + "」" : "")
+      : char.name + "在你们的空间里种下了一盆" + sp + (why ? characterText(char, "——他说「") + cSnip(why, 60) + "」" : ""), "花房");
+    if (mine) waitForHer(char.id, { gardenMine: { species: sp, why } });
+  };
+  // 画这盆花（她 2026-11-09 群友许愿）：照这盆长到哪一步画一张，存进花房；开花时自动画要另外打开（每画一次是一次生图）
+  const [gardenDrawing, setGardenDrawing] = useState("");
+  const drawGarden = async (charId, quiet) => {
+    const g = (coupleGardenRef.current || {})[charId];
+    if (!g || !g.species || gardenDrawing) return;
+    if (!(typeof imgApiReady === "function" && imgApiReady())) { if (!quiet) toast("先去 设置·图像API 配一下"); return; }
+    const st = window.GardenKit ? window.GardenKit.stageOf(g.fed) : null;
+    setGardenDrawing(charId);
+    try {
+      const look = !st ? "" : st.key === "bloom" ? "开得正好，花朵完全打开" : st.key === "seed" ? "刚埋下种子，土面上只冒出一点点嫩芽" : "还在长，" + (st.zh || "") + "的样子，还没开花";
+      const prompt = "一张实拍照片：窗台上一只小花盆，里面种着「" + g.species + "」，" + look + "。花的主色大约是 " + (g.color || "") + "。"
+        + "自然光，生活感，盆和植物是画面主体，背景虚化；画面里不要人，不要任何文字。";
+      const out = await generateSelfieImage(prompt, null, { size: "1024x1024", still: true });
+      const blob = await imgOutBlob(out); if (!blob) throw new Error("站子没给回能存的图");
+      const key = "img_garden_" + Date.now().toString(36);
+      await idbImgPut(key, blob);
+      saveGarden(p => p[charId] ? { ...p, [charId]: { ...p[charId], img: key, imgStage: st ? st.key : "" } } : p);
+      if (!quiet) toast("画好了");
+    } catch (e) { if (!quiet) toast("没画成：" + String(e && e.message || e).slice(0, 60)); }
+    finally { setGardenDrawing(""); }
+  };
+  const setGardenDraw = (charId, on) => saveGarden(p => ({ ...p, [charId]: { ...(p[charId] || {}), drawOn: !!on } }));
+  // 开了「开花时画一张」：开花那一刻（还没画过开花的样子）自己画一张，不吭声
+  useEffect(() => {
+    const all = coupleGarden || {};
+    const id = Object.keys(all).find(k => { const g = all[k]; return g && g.drawOn && g.species && g.bloomTs && g.imgStage !== "bloom"; });
+    if (id && !gardenDrawing) drawGarden(id, true);
+  }, [coupleGarden]);
+  // 她自己挑一种来种：名字必填，为什么可空；颜色照名字猜一个，不花调用
+  const gardenPlantMine = (char, species, why) => {
+    const sp = String(species || "").trim();
+    if (!sp) { toast("写一下种什么"); return; }
+    const hues = ["#c98a9e", "#d9a441", "#8a7fc9", "#d0705b", "#6f9fc9", "#e6c35c", "#b26f9c", "#7fae6a"];
+    let h0 = 0; for (const ch of sp) h0 = (h0 * 31 + ch.charCodeAt(0)) % 997;
+    plantPot(char, { species: sp, why, color: hues[h0 % hues.length], by: "me" });
+    toast("种下了：" + sp.slice(0, 16));
   };
   // 收一枚干花：这一茬进册子，盆空出来等TA再挑（零调用）
   const gardenKeep = charId => {
     const g = (coupleGardenRef.current || {})[charId];
     if (!g || !g.bloomTs) return;
-    saveGarden(p => ({ ...p, [charId]: { species: "", why: "", color: "", plantedTs: 0, fed: 0, lastFedTs: 0, bloomTs: 0, told: false,
+    saveGarden(p => ({ ...p, [charId]: { species: "", why: "", color: "", plantedTs: 0, fed: 0, lastFedTs: 0, bloomTs: 0, told: false, drawOn: !!g.drawOn, img: null, imgStage: "",
       said: gardenPastOf(g),
-      kept: [{ species: g.species, why: g.why, color: g.color, ts: Date.now() }, ...(Array.isArray(g.kept) ? g.kept : [])] } }));
+      kept: [{ species: g.species, why: g.why, color: g.color, by: g.by || "char", img: g.img || null, ts: Date.now() }, ...(Array.isArray(g.kept) ? g.kept : [])] } }));
     coupleKeep(charId, "你们一起养的那盆" + g.species + "开完了这一茬，压成干花收进了册子", "花房");
     toast("收好了一枚干花");
   };
@@ -33688,88 +33776,16 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   // ⚠️图是 base64 塞进 JSON 的，一份几十 MB 很常见；那么大一段往剪贴板或者
   //   textarea 里塞，手机上直接把页面撑崩（她 2026-09-22：「复制直接崩了」）。
   //   所以复制那条路只带文字，而且【当面说清楚没带图】——不是悄悄少图。
+  // ⚠️攒的那一段 2026-11-09 搬去了 js/backup-pack.js（施工规则/one-public-mechanism.md）：
+  //   自动落盘要用同一份，留在组件闭包里的话外面谁都够不着，只能照着再写一遍。
+  //   这儿只剩【界面那一半】：拒绝的时候当面说清楚，别的一个字都不多做。
   const buildExportPack = async (opts) => {
-    const noImages = !!(opts && opts.noImages);
-    const dump = {};
-    // ⚠️x_neteaseCookie 是账号凭据，界面上写着「只存这台设备」。
-    //   上云那一路（cloud.js 的 collect）早就排掉它了，导出这一路没跟上——
-    //   又是「一层写在两处，第二处没跟上」。备份文件会被发给别人、放进云盘，
-    //   网易云账号 cookie 一起出去。两处口径必须一样。
-    Object.keys(localStorage).filter(k => k.startsWith("x_") && k !== "x_neteaseCookie").forEach(k => {
-      dump[k] = localStorage.getItem(k);
-    });
-    // 已迁进 IDB 文字库的键(同人文)不在 localStorage，从内存镜像补进备份，否则导出会漏、换设备就丢。
-    try { if (window.__txtMirror) window.__txtMirror.forEach((v, k) => { if (v != null) dump[k] = v; }); } catch (e) {}
-    // ⭐阶段4：图片仓库也打进备份——头像/壁纸迁进 IndexedDB 后，localStorage 只剩 iv_ 引用键，
-    // 图本身在 vault 里、不随普通备份走；这里把 vault 里每张图 base64 化装进 JSON，换设备导入后图才不丢。
-    let vault = {}, vaultCount = 0;
-    try {
-      if (!noImages && typeof idbVaultEntries === "function" && typeof blobToDataUrl === "function") {
-        const entries = await idbVaultEntries();
-        for (const [k, b] of entries) { try { vault[k] = await blobToDataUrl(b); vaultCount++; } catch (e) {} }
-      }
-    } catch (e) {}
-    // ⭐备份 v3：自拍永远打包。以前现场问「要不要带自拍」，一次误点/漏点就会得到
-    // 只有图片门牌、没有像素的假完整备份；数据安全优先，备份可以大但不能悄悄缺图。
-    let selfies = {}, selfieCount = 0;
-    try {
-      if (!noImages && typeof idbImgEntries === "function" && typeof blobToDataUrl === "function") {
-        const sEntries = await idbImgEntries();
-        for (const [k, b] of sEntries) { try { selfies[k] = await blobToDataUrl(b); selfieCount++; } catch (e) {} }
-      }
-    } catch (e) {}
-    // 动态形象的视频（她 2026-10-05：「很多人都不用云端，就靠导入导出备份」）。
-    //   视频住在自己那个库里，不在 localStorage，原来导出只带走了门牌、视频本身留在旧手机上。
-    //   跟自拍一个口径：只要带图就一起带，备份可以大，但不能悄悄缺。
-    let videos = {}, videoCount = 0, videoWanted = 0;
-    try {
-      if (!noImages && window.VideoApi && window.VideoApi.allVideos) {
-        Object.values(window.VideoApi.motionAll()).forEach(m => Object.values(m || {}).forEach(x => { if (x && x.videoRef) videoWanted++; }));
-        for (const [k, b] of await window.VideoApi.allVideos()) { try { videos[k] = await blobToDataUrl(b); videoCount++; } catch (e) {} }
-      }
-    } catch (e) {}
-    // ⚠️图库读失败是【静默】的：idbVaultEntries 的 tx.onerror 直接 res([])，
-    //   于是「一张图都没有」和「一次没读出来」返回值一模一样，导出就写「含 0 张图片」。
-    //   把这份文件导回本机 → 下面 doImport 看见 vault 是真值 → idbVaultClear() →
-    //   **头像、壁纸、照片连同 album 目录一起清空**。这一路她不会收到任何警告。
-    //   所以在这儿做一次交叉核对：存档里明明引用着 iv_ 门牌，图库却一张都没读出来，
-    //   那就不是「没有图」，是「没读出来」——**拒绝导出**，绝不产出一份会清空图库的文件。
-    //   「先导出一份」是所有数据规矩的地基（never-say-delete-first.md），
-    //   地基本身能悄悄少图的话，那条规矩就是空的。
-    const ivRefs = new Set();
-    try { (JSON.stringify(dump).match(/iv_[A-Za-z0-9_-]+/g) || []).forEach(x => ivRefs.add(x)); } catch (e) {}
-    // ⚠️这道闸防的是【悄悄少图】。复制那条路是明说不带图的，不归它管。
-    if (!noImages && ivRefs.size > 0 && vaultCount === 0) {
-      toast("没有导出：存档里引用着 " + ivRefs.size + " 张图，图库却一张都读不出来——这是读失败，不是真没图。别关 app，先跟工程师说一声");
+    const pack = await window.BackupPack.build(opts);
+    if (pack && pack.refused === "img_vault_unreadable") {
+      toast("没有导出：存档里引用着 " + pack.refs + " 张图，图库却一张都读不出来——这是读失败，不是真没图。别关 app，先跟工程师说一声");
       return null;
     }
-    // album 目录（照片的说明、来源、照片桥索引）原来【从不进备份】，
-    // 而导入那一路 idbVaultClear() 会把它连同图一起清掉——只清不备，导一次少一次。
-    let album = [];
-    // 照片说明是跟着图一起回去的（导入那头就写在图库那一支里），不带图就别带它
-    try { if (!noImages && typeof idbAlbumEntries === "function") album = await idbAlbumEntries(); } catch (e) {}
-    const blob = new Blob([JSON.stringify({
-      __archive: 1,
-      version: 4,
-      exportedAt: Date.now(),
-      data: dump,
-      vault: vault,
-      selfies: selfies,
-      album: album,
-      videos: videos
-    }, null, 2)], {
-      type: "application/json"
-    });
-    const missing = (() => { let n = 0; ivRefs.forEach(k => { if (!(k in vault)) n++; }); return n; })();
-    const what = noImages
-      ? "（只有文字：角色、聊天、记忆、手机、情侣空间这些；⚠️不含图片和自拍）"
-      : "（含 " + vaultCount + " 张图片" + (selfieCount ? "、" + selfieCount + " 张自拍" : "")
-      + (album.length ? "、" + album.length + " 条照片说明" : "")
-      + (videoCount ? "、" + videoCount + " 段动态形象视频" : "")
-      + (videoWanted && !videoCount ? "；⚠️动态形象的视频没读出来，这份备份里没有视频" : "")
-      + (missing ? "；⚠️有 " + missing + " 张图只剩门牌、图本身找不到了" : "") + "）";
-    const name = "archive-backup-" + new Date().toISOString().slice(0, 10) + ".json";
-    return { name: name, text: await blob.text(), what: what };
+    return pack;
   };
   // ⚠️拆成两份（群里 2026-10-16：「备份不下来了，秋秋说可能是内存太大了」）：
   //   原来一份文件里连图带视频全转成 base64，图一多就是几百 MB 的一整串字，手机浏览器拼到一半就撑不住，
@@ -35652,6 +35668,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     coupleTrips: coupleTrips,
     coupleGarden: coupleGarden,
     onGardenPlant: gardenPlantGen,
+    onGardenPlantMine: gardenPlantMine, onGardenDraw: drawGarden, onGardenDrawToggle: setGardenDraw, gardenDrawing: gardenDrawing,
     onGardenKeep: gardenKeep,
     gardenGen: gardenGen,
     onTripStart: tripStart,
@@ -38457,6 +38474,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     //   接着建角色、导入、点云端恢复——那几下才是真把还活着的那份盖掉的时刻
     //   （群友 2026-11-02：只剩「来这儿第 28 天」，人全没了）。改成赖着不走、要自己点掉。
     try { const st = typeof txtVaultState === "function" ? txtVaultState() : null; if (st && st.done && !st.ok) showVaultDownBanner(st.err); } catch (e) {}
+    // 自动落盘：她挑过文件夹才会动，没挑就什么都不做。只读存档、只写那个文件夹。
+    try { if (window.AutoBackup) window.AutoBackup.start(); } catch (e) {}
     if (!window.__credentialVaultError) return;
     try { window.toast && window.toast("⚠️ 本机 API 凭证金库打不开：" + window.__credentialVaultError + "——各条线路的密钥要去「设置 · API」重新填一次"); } catch (e) {}
   }, 2500);

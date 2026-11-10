@@ -4,6 +4,7 @@
   "use strict";
 
   const WINDOW_MS = 72 * 60 * 60 * 1000;
+  const LONG_SIM = 0.82;
   const PLANNED = /计划|准备|打算|约好|说好|约定|答应|将会|之后要|明天要|今晚要/;
   const RESOLVED = /已经|已完成|完成了|兑现|解决|取消|失败|没去成|改成|改为|最终|结果是/;
 
@@ -82,6 +83,22 @@
         if (evaluate(sorted[i], sorted[k], sorted[i].ts).duplicate) join(String(sorted[i].id), String(sorted[k].id));
       }
     }
+    // 隔了很久的换句话重复（她 2026-11-09）：72 小时外也找，但门槛更高（字面相似 ≥ LONG_SIM），
+    //   数字、计划/完成这些进展照样放行；这一层只标「请复核」，不进「选高置信」。
+    const longPair = new Set();
+    const prepared = sorted.map(x => ({ x, g: grams(x.text), n: normalize(x.text).length, nums: numberSignature(x.text), ph: phase(x.text) }));
+    for (let i = 0; i < prepared.length; i++) {
+      const a = prepared[i];
+      if (a.n < 6) continue;
+      for (let k = 0; k < i; k++) {
+        const b = prepared[k];
+        if (rootOf(String(a.x.id)) === rootOf(String(b.x.id))) continue;
+        if (b.n < 6 || Math.min(a.n, b.n) / Math.max(a.n, b.n) < 0.6) continue;
+        if (a.nums !== b.nums || a.ph !== b.ph || !sameRole(a.x.charIds, b.x.charIds)) continue;
+        let shared = 0; a.g.forEach(t => { if (b.g.has(t)) shared++; });
+        if ((2 * shared) / (a.g.size + b.g.size) >= LONG_SIM) { join(String(a.x.id), String(b.x.id)); longPair.add(String(a.x.id)); longPair.add(String(b.x.id)); }
+      }
+    }
     const buckets = new Map();
     source.forEach(x => { const r = rootOf(String(x.id)); if (!buckets.has(r)) buckets.set(r, []); buckets.get(r).push(x); });
     return [...buckets.values()].filter(g => g.length > 1).map(g => {
@@ -92,7 +109,7 @@
       const keep = ordered[0], archive = ordered.slice(1);
       const allExact = archive.every(x => normalize(x.text) === normalize(keep.text));
       const scores = archive.map(x => evaluate(x, keep, x.ts)).filter(x => x.duplicate);
-      return { id: ordered.map(x => String(x.id)).sort().join("|"), keep, archive, matchKind: allExact ? "exact_all_time" : "near_72h", confidence: allExact || scores.some(x => x.reason === "near_text" && x.score >= 0.85) ? "high" : "review" };
+      return { id: ordered.map(x => String(x.id)).sort().join("|"), keep, archive, matchKind: allExact ? "exact_all_time" : (g.some(x => longPair.has(String(x.id))) ? "near_any_time" : "near_72h"), confidence: !allExact && g.some(x => longPair.has(String(x.id))) ? "review" : allExact || scores.some(x => x.reason === "near_text" && x.score >= 0.85) ? "high" : "review" };
     }).sort((a, b) => Number(b.keep.ts || 0) - Number(a.keep.ts || 0));
   }
 

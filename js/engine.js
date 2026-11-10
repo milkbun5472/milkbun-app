@@ -4612,6 +4612,17 @@ const MEM_SEMANTIC_ASSOC = 0.50;
 function memQueryNorm(text) {
   return String(text || "").toLowerCase().replace(/[\s，。、；：,.;:!！?？「」『』"'“”‘’（）()【】\-—]/g, "");
 }
+// 短期状态（她 2026-11-09）：抽记忆时模型填 ttl_days（生病、这周在考试这种过一阵就不成立的），
+//   记成 expiresTs。过了这个时候：不删、不藏，召回分压低，真被想起来时注明「多半已经过去了」。
+//   置顶的、还没了结的不按这个压；老记忆没有 expiresTs，照旧。
+function memTtlPatch(it, ts) {
+  const d = Math.round(Number(it && it.ttl_days));
+  if (!(d >= 1 && d <= 60) || (it && it.open)) return {};
+  return { expiresTs: Number(ts || Date.now()) + d * 86400000 };
+}
+function memExpired(e, now) {
+  return !!(e && Number(e.expiresTs) > 0 && (now || Date.now()) > Number(e.expiresTs) && !e.pinned && !e.open);
+}
 function explainMemEntry(entry, qTokens, now, qVec, queryText) {
   // 标签归一：原标签 + 别名族根一起进 token/命中，让「日常」「日常生活」「日常互动」互相认得
   const allTags = canonTags(entry.tags);
@@ -4648,7 +4659,8 @@ function explainMemEntry(entry, qTokens, now, qVec, queryText) {
   // 权重池（Ombre Brain 借鉴）：情绪强度 arousal 越高越难忘、未了结 open 的开环会一直惦记 → 更容易被想起
   const arousalW = (aRaw / 5) * 1.1;
   const openW = entry.open ? (0.7 + arousalW * 0.4) : 0;
-  const score = keyword * (0.45 + 0.55 * retention) + recency * 0.8 + arousalW + openW + (entry.pinned ? 100 : 0);
+  const expired = memExpired(entry, now);
+  const score = (keyword * (0.45 + 0.55 * retention) + recency * 0.8 + arousalW + openW) * (expired ? 0.4 : 1) + (entry.pinned ? 100 : 0);
   const qNorm = memQueryNorm(queryText), eNorm = memQueryNorm(entry.text);
   const directText = qNorm.length >= 2 && eNorm.length >= 2 && (eNorm.includes(qNorm) || (eNorm.length <= 80 && qNorm.includes(eNorm)));
   const lexicalDirect = directText || tagHit > 0 || overlap >= 1.4;
@@ -4657,7 +4669,7 @@ function explainMemEntry(entry, qTokens, now, qVec, queryText) {
   const lane = lexicalDirect || semanticDirect ? "main" : (semanticAssociation ? "association" : "none");
   return {
     score, lane, vectorScored, cosine, semantic, directText,
-    overlap, tagHit, keyword, retention, recency, arousal: arousalW, open: openW,
+    overlap, tagHit, keyword, retention, recency, arousal: arousalW, open: openW, expired,
     passesScore: score > MEM_SCORE_FLOOR
   };
 }
@@ -4694,6 +4706,49 @@ function copyMemoryRecallMeta(from, to) {
 function memoryVisibleTo(e, charId) { return Array.isArray(e.knownBy)
     ? e.knownBy.indexOf(charId) > -1
     : (!e.charIds || e.charIds.length === 0 || e.charIds.includes(charId)); }
+// 抽记忆前给模型看的「这些记过了」（她 2026-11-09）：原来只给最新 40 条，两个月前记过的事模型不知道，
+//   换个说法又记一遍。改成：最近的几条 + 跟这段对话最沾边的那些，一共不超过 n 条。
+//   只拿关键词打分（跟召回同一把尺子），不碰向量、不算「被想起」，不改任何条目。
+// 这一段新消息值不值得花一次调用去抽（她 2026-11-09：三轮全是嗯嗯好的也到点抽，模型多半回个空的）。
+//   只用代码看：去掉标点空格、短于 4 个字的气泡（嗯、好、哈哈、表情）不算；剩下的加起来不到 12 个字就先不抽，
+//   书签不动，下次攒够了连着一起抽，不会漏。
+function memExtractWorthy(msgs) {
+  let total = 0;
+  (msgs || []).forEach(m => {
+    const t = String((m && m.content) || "").replace(/\[[^\]]{0,12}\]/g, "").replace(/[\s，。、；：,.;:!！?？~～…「」『』"'“”‘’（）()【】\-—]/g, "");
+    if (t.length >= 4) total += t.length;
+  });
+  return total >= 12;
+}
+// 开了向量记忆的人：给「记过了」单子配一个查询向量。先找这几条消息召回时已经算好的（不花钱），
+//   都没有就把最后几条拼起来算一次（只花一次 embedding，不碰聊天模型）。没开向量就是 null，照旧只看关键词。
+async function memExtractQueryVec(msgs) {
+  try {
+    if (!embApiReady()) return null;
+    const list = (msgs || []).filter(m => m && m.content);
+    const mine = list.filter(m => m.role === "user").slice(-3).reverse();
+    for (const m of mine) { const v = getQueryVec(String(m.content)); if (v) return v; }
+    const tail = list.slice(-8).map(m => String(m.content)).join("\n");
+    if (!tail.trim()) return null;
+    await primeQueryVec(tail);
+    return getQueryVec(tail);
+  } catch (e) { return null; }
+}
+function memExtractAvoidList(rows, convText, n, qVec) {
+  n = n || 40;
+  const list = (rows || []).filter(e => e && e.text && !e.archived && (e.surfaceState || "active") === "active");
+  if (list.length <= n) return list.map(e => e.text);
+  const recentN = Math.min(12, n);
+  const recent = list.slice(0, recentN);
+  const qTokens = memTokens(String(convText || "").slice(-6000));
+  const now = Date.now();
+  // 换了说法的（「怕黑」和「不敢一个人关灯」）没有共同的词，只有向量认得出来
+  const rel = list.slice(recentN).map(e => { const w = explainMemEntry(e, qTokens, now, qVec || null, ""); return { e, hit: w.overlap + w.tagHit > 0 || (w.vectorScored && w.cosine >= MEM_SEMANTIC_ASSOC), s: w.score }; })
+    .filter(x => x.hit).sort((a, b) => b.s - a.s).slice(0, n - recentN).map(x => x.e);
+  const out = recent.concat(rel);
+  if (out.length < n) list.slice(recentN).forEach(e => { if (out.length < n && out.indexOf(e) < 0) out.push(e); });
+  return out.map(e => e.text);
+}
 function retrieveMemories(lib, charId, queryText, opts = {}) {
   const limit = opts.limit || 6;
   const associationLimit = opts.associationLimit == null ? 1 : Math.max(0, Number(opts.associationLimit) || 0);
@@ -4927,7 +4982,8 @@ function formatMemLib(entries) {
     const dateAnchor = window.TemporalAnchor ? window.TemporalAnchor.anchor(e.text, _vm(e.ts), _vm(Date.now())) : "";
     const dateStamp = window.TemporalAnchor && window.TemporalAnchor.stamp ? window.TemporalAnchor.stamp(_vm(e.ts), _vm(Date.now())) : "";
     const lane = recallMeta && recallMeta.kindById && recallMeta.kindById[String(e.id)] === "association" ? "〔顺带联想到〕" : "";
-    return "· " + lane + e.text + openMark + tags + (dateStamp ? " " + dateStamp : "") + (dateAnchor ? " " + dateAnchor : "");
+    const goneMark = memExpired(e) ? "〔那时候的状况·多半已经过去了〕" : "";
+    return "· " + lane + e.text + openMark + goneMark + tags + (dateStamp ? " " + dateStamp : "") + (dateAnchor ? " " + dateAnchor : "");
   }).join("\n");
   // ⭐开环别误读成爽约（她 2026-07-18 报的老 bug）：标〔还没了结〕的事，角色老自己脑补成"她说要来却放我鸽子"、几小时后主动消息+心声冲她生气。
   //   真相=她没"不来"、只是【还没来】，"今天"还没过完、软性的"我来找你"更不是签字的约会。给一句读法指引，四条注入路(主聊/线下/群/通话)全覆盖。
@@ -4940,8 +4996,9 @@ function formatMemLib(entries) {
       + "提起旧事要按它真正的时间说（「前几天」「上礼拜」「上个月」），绝不许把几天前的事说成今天刚发生的；"
       + "拿不准隔了多久就别硬安时间，含糊地说「之前」也比说错强。）"
     : "";
+  const goneNote = arr.some(e => memExpired(e)) ? "\n（标〔多半已经过去了〕的是当时一阵子的状况（生病、在考试这类）：别当成现在还这样；想起来可以问一句「好了没」「后来怎么样了」。）" : "";
   const pastNote = hasPast ? "\n（标〔以前的事〕的是你们早先的经历，不是最近发生的；后面写了时候的就按那个时候说，没写的说「以前」「那时候」就好。）" : "";
-  return body + stampNote + pastNote + (hasOpen ? "\n（⚠️标〔还没了结〕的是你还惦记、还没画句号的事：可以自然想起、期待、或轻声问一句「还来吗～」。但【绝不要】默认对方爽约、放你鸽子、故意不来——TA 多半只是忙，或时候还没到（比如「今天」还没过完；软性的「我来找你」也不是签了字的约会）。想 TA 就直说想，别把「还没兑现」当成「被辜负/被放鸽子」来生气赌气、翻脸算账。）" : "");
+  return body + stampNote + pastNote + goneNote + (hasOpen ? "\n（⚠️标〔还没了结〕的是你还惦记、还没画句号的事：可以自然想起、期待、或轻声问一句「还来吗～」。但【绝不要】默认对方爽约、放你鸽子、故意不来——TA 多半只是忙，或时候还没到（比如「今天」还没过完；软性的「我来找你」也不是签了字的约会）。想 TA 就直说想，别把「还没兑现」当成「被辜负/被放鸽子」来生气赌气、翻脸算账。）" : "");
 }
 // 月度精炼（SullyOS 借鉴）：把一批【已了结的旧记忆】浓缩成尽量少的「月度精炼摘要」，保住长期精华、丢琐碎。
 // 返回 [{text,tags,v,a}]。原件由调用方归档(archived)不删除。
@@ -5027,13 +5084,14 @@ async function extractMemories(p, ctx, msgs, opts = {}) {
     "· 一句话、具体可复用；**每条开头必须点明这条是关于谁的**，用真名写清主语：关于用户「" + uName + "」的、关于角色「" + charName + "」自己的、还是关于「他俩之间」的。例：『" + uName + " 下周要去比赛』『" + charName + " 小时候在乡下长大』『" + uName + " 和 " + charName + " 约好周末见面』。\n" +
     "· **绝对不许张冠李戴**：用户的经历/喜好/身份/计划，就记在用户「" + uName + "」名下，【不要写成角色自己的】；角色的就记在「" + charName + "」名下。分不清是谁的就别记这条。\n" +
     "· 同一件事【只记一条】，别把一件事拆成好几条重复的；忽略寒暄和没信息量的闲聊。为每条配 1~3 个中文标签。" + avoid + "\n" +
+"· **ttl_days**：这条是不是【本来就只管一阵子的状态】——生病、这几天在考试、这周出差、最近在减肥、今晚心情不好这类，过一阵多半就不是这样了，填一个大概还会成立几天（整数 1~60）；发生过的事、身份背景、喜好、约定、关系里的事一律填 null（它们不会因为时间过去就不成立）。拿不准就 null。\n" +
     "【质量分类 shadow：只供诊断，不决定本次是否入库】每条同时给：kind=fact|promise|relationship|insight|temperature；confidence=0~1；proposed_action=accept|candidate|reject。没有新事实的日常甜话只能是 temperature/candidate；明确承诺、关系转折、边界与里程碑（如『做我的吧』『我爱你』、明确约定）必须是 promise 或 relationship/accept，绝不能降成 temperature。kind=insight 只用于对话原话中同时出现【推导】和【理解发生转变】，且至少有两条独立逐字证据的综合洞察；普通观察、单一事实或只有因果没有认知转折，一律标 fact，不要冒充 insight。\n" +
     "【证据】每条给 evidence_message_ids 和 evidence_quotes，两数组一一对应且至少 1 项；ID 必须照抄上面的消息ID，quote 必须是该消息正文中逐字存在的短句。找不到就别造这条。\n" +
     "· 每条再标注情绪与状态：**v**=这件事的情绪愉悦度（整数 -5~5，负=难过/生气/难堪/委屈，0=中性事实，正=开心/温暖/心动）；**a**=情绪强度（整数 0~5，0=平淡的事实，5=强烈动情/激烈冲突/刻骨铭心）；**open**=是不是【还没了结且值得持续惦记的开环】。只有明确答应对方/共同约好而尚未兑现、没和好的争执、悬着的关系心事、在等的重要结果才是 true。单纯的未来时态和普通生活安排（今晚吃什么、待会洗澡、明天上班/健身/做饭）一律 false；它们可以是事实，但不是开环。\n" +
     (Array.isArray(opts.openList) && opts.openList.length
       ? "\n\n【当前还没了结的约定/心事（下面每条前有编号）】若下面对话显示某条确实【已经兑现/完成、问题得到实质解决、或双方明确决定不再继续】，就在输出数组里加一个 RepairGate 候选：{\"resolveOpen\":编号,\"repair_kind\":\"fulfilled|resolved|abandoned\",\"evidence_message_ids\":[\"消息ID\"],\"evidence_quotes\":[\"逐字短引文\"]}。只道歉、暂时安静、时间过去、情绪缓和都不算修复；证据 ID/原话规则与上面相同。候选还会由本机逐字核验，通过后才软关闭旧条；正文和审计记录永远保留。能确定哪几条就各加一个，没完成的别加：\n" + opts.openList.slice(0, 30).map((s, i) => (i + 1) + ". " + s).join("\n")
       : "") +
-    "【输出】只输出合法 JSON 数组，无 markdown：\n[{\"text\":\"一句话事实（开头带主语真名）\",\"tags\":[\"标签1\"],\"v\":0,\"a\":1,\"open\":false,\"kind\":\"fact\",\"confidence\":0.9,\"evidence_message_ids\":[\"消息ID\"],\"evidence_quotes\":[\"逐字短引文\"],\"proposed_action\":\"accept\"}]\n没有值得记的、或全都已记过，就输出 []。";
+    "【输出】只输出合法 JSON 数组，无 markdown：\n[{\"text\":\"一句话事实（开头带主语真名）\",\"tags\":[\"标签1\"],\"v\":0,\"a\":1,\"open\":false,\"ttl_days\":null,\"kind\":\"fact\",\"confidence\":0.9,\"evidence_message_ids\":[\"消息ID\"],\"evidence_quotes\":[\"逐字短引文\"],\"proposed_action\":\"accept\"}]\n没有值得记的、或全都已记过，就输出 []。";
   const raw = await callAI(p, system + gameChatSummaryContext(msgs) + "\n\n【对话】\n" + text, [{ role: "user", content: "整理这段记录。" }], { maxTokens: 65000 });
   const parsed = extractJSON(raw);
   // resolveOpen 没有 text；必须保留给 RepairGate 做逐字证据核验与软闭环。
@@ -5055,11 +5113,12 @@ async function extractGroupMemories(p, ctx, msgs, members, opts = {}) {
     "· 一句话、具体可复用；**开头用真名点明主语**（关于用户「" + uName + "」、关于某个角色自己、还是关于某两人之间）。\n" +
     "· **每条必须给 who**：一个数组，列出这条记忆【是关于谁的】，只能从这些名字里选：" + [uName].concat(roster).join("、") + "。关于两人之间就把两个名字都放进去。\n" +
     "· **绝对不许张冠李戴**：谁说的话、谁的经历，就记在谁名下；在场不代表相关，别把某人的事按到别人头上。分不清是谁的就别记这条。\n" +
+"· **ttl_days**：这条是不是【本来就只管一阵子的状态】——生病、这几天在考试、这周出差、最近在减肥、今晚心情不好这类，过一阵多半就不是这样了，填一个大概还会成立几天（整数 1~60）；发生过的事、身份背景、喜好、约定、关系里的事一律填 null（它们不会因为时间过去就不成立）。拿不准就 null。\n" +
     "· 同一件事只记一条，忽略寒暄闲聊；每条配 1~3 个中文标签。每条标注 v（情绪愉悦度 -5~5）、a（强度 0~5）、open。open=true 只用于明确答应对方/共同约好而尚未兑现、未解决的关系冲突、悬着的心事或重要结果；普通未来安排（吃饭、洗澡、上班、健身等）一律 false。" + avoid + "\n" +
     (Array.isArray(opts.openList) && opts.openList.length
       ? "\n【当前还没了结的约定/心事】若本段记录逐字证明某条已经兑现/实质解决/明确放弃，另加 RepairGate 候选：{\"resolveOpen\":编号,\"repair_kind\":\"fulfilled|resolved|abandoned\",\"evidence_message_ids\":[\"消息ID\"],\"evidence_quotes\":[\"逐字短引文\"]}。道歉、暂时安静、时间过去或情绪缓和不算解决。本机还会逐字核验，通过后只软关闭、绝不删旧条：\n" + opts.openList.slice(0, 30).map((s, i) => (i + 1) + ". " + s).join("\n") + "\n"
       : "") +
-    "【输出】只输出合法 JSON 数组，无 markdown：\n[{\"text\":\"一句话事实（带主语真名）\",\"who\":[\"名字\"],\"tags\":[\"标签\"],\"v\":0,\"a\":1,\"open\":false,\"evidence_message_ids\":[\"消息ID\"],\"evidence_quotes\":[\"逐字短引文\"]}]\n没有值得记的、或都已记过，就输出 []。";
+    "【输出】只输出合法 JSON 数组，无 markdown：\n[{\"text\":\"一句话事实（带主语真名）\",\"who\":[\"名字\"],\"tags\":[\"标签\"],\"v\":0,\"a\":1,\"open\":false,\"ttl_days\":null,\"evidence_message_ids\":[\"消息ID\"],\"evidence_quotes\":[\"逐字短引文\"]}]\n没有值得记的、或都已记过，就输出 []。";
   const raw = await callAI(p, system + gameChatSummaryContext(msgs) + "\n\n【多人线下记录】\n" + text, [{ role: "user", content: "整理这段记录。" }], { maxTokens: 65000 });
   const parsed = extractJSON(raw);
   return Array.isArray(parsed) ? parsed.filter(x => x && (x.text || x.resolveOpen != null)) : [];
@@ -8718,6 +8777,15 @@ function joinBilingualLines(lines, hanLang, opts) {
     const NARR = /^\s*[（(*＊「『]/;
     const pairOne = (line, next) => next != null && line.indexOf("|") < 0 && next.indexOf("|") < 0
       && (/[\u3040-\u30ff]/.test(line) || (FOREIGN.test(line) && !HAN.test(line))) && HAN.test(next) && !FOREIGN.test(next) && !MARK.test(next);   // 日文带汉字也算外语：有假名就认
+    // 中译写在括号里（她 2026-11-09 截图：「すごく可愛くて……見ているだけで胸がきゅってなっちゃいます（好可爱……光是看着，胸口就忍不住怦怦直跳）」
+    //   一行写完、括号里是中译，拆泡以后中文自己成了一泡，日文那几泡只剩「译」）。双语开着、括号前是外语、括号里是中文，
+    //   而且括号里够长（跟原文差不多长，不是「（笑）」那种动作）才认成中译。另起一行、整行包在括号里的中译也一样，括号去掉。
+    const parenZh = x => { const m = String(x).match(/^([\s\S]*?\S)\s*[（(]([^（）()]+)[）)]\s*$/); if (!m) return null;
+      const orig = m[1].trim(), zh = m[2].trim();
+      if (!(/[\u3040-\u30ff\uac00-\ud7af]/.test(orig) || (FOREIGN.test(orig) && !HAN.test(orig))) || !HAN.test(zh) || FOREIGN.test(zh)) return null;
+      return zh.replace(/[^\u4e00-\u9fff]/g, "").length >= Math.max(4, orig.replace(/[\s\p{P}]/gu, "").length * 0.3) ? orig + " | " + zh : null; };
+    for (let k = 0; k < joined.length; k++) { const pz = joined[k].indexOf("|") < 0 ? parenZh(joined[k]) : null; if (pz) joined[k] = pz; }
+    const unwrap = x => String(x).trim().replace(/^[（(]([^（）()]+)[）)]$/, "$1");
     const taken = new Set();
     for (let k = 0; k < joined.length; k++) if (!taken.has(k) && pairOne(joined[k], joined[k + 1])) { taken.add(k); taken.add(k + 1); }
     const orphanZh = joined.some((x, k) => !taken.has(k) && x.indexOf("|") < 0 && HAN.test(x) && !FOREIGN.test(x) && !MARK.test(x) && !NARR.test(x));
@@ -8725,7 +8793,7 @@ function joinBilingualLines(lines, hanLang, opts) {
     for (let k = 0; k < joined.length; k++) {
       const line = joined[k], next = joined[k + 1];
       if (!orphanZh && pairOne(line, next)) {
-        out0.push(line.trim() + " | " + next.trim()); k++;
+        out0.push(line.trim() + " | " + unwrap(next)); k++;
       } else out0.push(line);
     }
     // 开头漏出一段纯中文草稿（她 2026-10-31 截图：日语角色先冒三泡「…他愣了两秒才反应过来…」，后面才是正经的「原文 | 中译」）：

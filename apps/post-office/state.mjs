@@ -1,8 +1,8 @@
-import {windowSeat,SHOP_CHAIR,SHOP_FLOOR} from './furniture.mjs?v=fg-16914e0f39f01666';
-import {realTime} from '../fairy-garden/real-clock.mjs?v=fg-16914e0f39f01666';
-import {calendarEnvironment} from '../pets/environment.mjs?v=fg-16914e0f39f01666';
-import {npcLook} from './npc-appearance.mjs?v=fg-16914e0f39f01666';
-import {seatLook} from '../fairy-garden/wardrobe.mjs?v=fg-16914e0f39f01666';
+import {windowSeat,SHOP_CHAIR,SHOP_FLOOR} from './furniture.mjs?v=fg-cde9b8759c1380df';
+import {realTime} from '../fairy-garden/real-clock.mjs?v=fg-cde9b8759c1380df';
+import {calendarEnvironment} from '../pets/environment.mjs?v=fg-cde9b8759c1380df';
+import {npcLook} from './npc-appearance.mjs?v=fg-cde9b8759c1380df';
+import {seatLook} from '../fairy-garden/wardrobe.mjs?v=fg-cde9b8759c1380df';
 export {npcLook};
 // Read-only projection. The writer and its clock remain StampDuel's text shop.
 export const POSTS=Object.freeze({
@@ -31,7 +31,7 @@ export function projectShop(raw,{characters=[],cards=[],lookFor=()=>({}),period=
   const windowCards=windowIds.map(id=>list(cards).find(c=>c&&c.id===id)).filter(Boolean).map(c=>({id:c.id,name:String(record(c.text).name||'一枚邮票'),image:typeof(c.cover||c.face)==='string'?(c.cover||c.face):''}));
   const customers=list(shop.customers).filter(c=>c&&typeof c.id==='string').map(c=>{
     const ch=c.visitor&&list(characters).find(p=>p.id===c.charId);if(c.visitor&&!ch)return null;
-    const look=ch?roleLook(ch):npcLook(c);return {...c,key:[shop.date||today,shop.period,c.id].join('|'),kind:'guest',name:String(ch?.remark||ch?.name||c.name||'寄信的客人'),look:structuredClone(look),actorId:ch?.id||c.id,npcStyle:ch?null:look.npcStyle};
+    const look=ch?roleLook(ch):npcLook(c,shopRules);return {...c,key:[shop.date||today,shop.period,c.id].join('|'),kind:'guest',name:String(ch?.remark||ch?.name||c.name||'寄信的客人'),look:structuredClone(look),actorId:ch?.id||c.id,npcStyle:ch?null:look.npcStyle};
   }).filter(Boolean);
   const availableDecor=shopRules?[...shopRules.SHOP.DECOR,...(shopRules.SHOP.MONTHLY[new Date().getMonth()+1]||[]).map(x=>shopRules.shopDecorOf(x[0]))].filter(Boolean).map(d=>({name:d.k,price:d.price,builder:DECOR_BUILDERS[d.k]||'monthly:'+d.k})):[];
   return {period,phase,closed,date:shop.date,rev:shop.rev,ambient:true,environment,closing:storyOf({date:shop.date,day:shop.day,lines:list(shop.closing),turns:list(shop.closingTurns),cast:record(shop.closeCast)}),stories:list(stories).map(storyOf),customers,availableDecor,lighting:night?'night':period==='傍晚'?'evening':'day',staff,decor,cards:windowCards};

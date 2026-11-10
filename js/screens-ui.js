@@ -6899,6 +6899,14 @@ function noticeLine(t, line, k) {
 //   收起来之后不是没了，掉进下面的「秋秋的公告」里，什么时候想翻都在。
 //   记的是 qq_ 键，跟弹窗共用同一个：弹窗里按过「收到了」的，这儿不会再出现一次。
 const NOTICE_SEEN = "qq_noticeSeen";
+// 公告的跳转键：弹窗（公共版 notice.js）和「更新了什么」里的两张卡都走这一处（施工规则/one-public-mechanism）。
+//   n.go 是要去的那一屏；n.goTab 是那一屏里的哪一页（目前只有邮票册认：goTab:"duel" 直接落在集邮社）。
+function openNoticeGo(n) {
+  if (!n || !n.go) return;
+  try { if (n.goTab && n.go === "stamps") window.__stampsOpen = { tab: n.goTab }; } catch (e) {}
+  try { if (window.__openFromNotif) window.__openFromNotif(null, n.go); } catch (e) {}
+}
+if (typeof window !== "undefined") window.openNoticeGo = openNoticeGo;
 function noticeSeenIds() { try { return (localStorage.getItem(NOTICE_SEEN) || "").split(",").filter(Boolean); } catch (e) { return []; } }
 function markNoticeSeen(id) {
   try { const a = noticeSeenIds(); if (a.indexOf(id) < 0) a.push(id); localStorage.setItem(NOTICE_SEEN, a.slice(-20).join(",")); } catch (e) {}
@@ -6923,9 +6931,13 @@ function NoticeUnread() {
         n.d ? h("span", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, flexShrink: 0 } }, changelogDay(n.d)) : null),
       (n.lines || []).map((ln, k) => noticeLine(t, ln, k)),
       n.sign ? h("div", { style: { textAlign: "right", fontFamily: F_DISPLAY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.fog, marginBottom: 6 } }, n.sign) : null,
-      h("button", { "data-wk": "clnewok", onClick: () => { markNoticeSeen(n.id); setSeen(noticeSeenIds()); },
-        className: "w-full active:opacity-70",
-        style: { minHeight: 42, borderRadius: 3, border: "1px solid " + CFG_LINE(t), background: "transparent", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.sub } }, "知道了"))));
+      h("div", { className: "flex", style: { gap: 8 } },
+        n.go ? h("button", { "data-wk": "clnewgo", onClick: () => { markNoticeSeen(n.id); setSeen(noticeSeenIds()); openNoticeGo(n); },
+          className: "flex-1 active:opacity-70",
+          style: { minHeight: 42, borderRadius: 3, border: "1px solid " + t.ink, background: t.ink, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.bg2 } }, n.goLabel || "去看看") : null,
+        h("button", { "data-wk": "clnewok", onClick: () => { markNoticeSeen(n.id); setSeen(noticeSeenIds()); },
+          className: "flex-1 active:opacity-70",
+          style: { minHeight: 42, borderRadius: 3, border: "1px solid " + CFG_LINE(t), background: "transparent", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.sub } }, "知道了")))));
 }
 function NoticeArchive() {
   const t = useTheme();
@@ -6946,7 +6958,9 @@ function NoticeArchive() {
           n.d ? h("span", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, flexShrink: 0 } }, changelogDay(n.d)) : null),
         on ? h("div", { "data-wk": "clnoticebody", style: { padding: "2px 0 10px" } },
           (n.lines || []).map((ln, k) => noticeLine(t, ln, k)),
-          n.sign ? h("div", { style: { textAlign: "right", fontFamily: F_DISPLAY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.fog } }, n.sign) : null) : null);
+          n.sign ? h("div", { style: { textAlign: "right", fontFamily: F_DISPLAY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.fog } }, n.sign) : null,
+          n.go ? h("button", { "data-wk": "clnoticego", onClick: () => openNoticeGo(n), className: "w-full active:opacity-70",
+            style: { marginTop: 8, minHeight: 42, borderRadius: 3, border: "1px solid " + CFG_LINE(t), background: "transparent", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.ink } }, n.goLabel || "去看看") : null) : null);
     })) : null);
 }
 function ChangelogView({ list }) {
@@ -8795,29 +8809,90 @@ const STORAGE_KEY_LABELS = [
   ["x_stateHist", "心声·状态历史"], ["x_states", "当前状态"], ["x_desires", "心上"],
   ["x_lore", "世界书"], ["x_geo", "定位"], ["x_wx", "天气缓存"]
 ];
+// ⚠️2026-11-09 大修：这一页原来【两处都在说假话】，而它恰恰是出事那一刻她唯一能自己看的一页
+//   （群友 11-09 的存档出了事，我拿它当证据，判错了一回）。
+//   ① 「（文字金库）」那一支是死代码：判据写的是 localStorage.getItem(k) != null，
+//      而 Storage.prototype.getItem 早被转接层改写过——问一把住在 IDB 的键，它从内存镜像拿、
+//      返回有值，于是每一把金库键都被当成「localStorage 里已经有了」跳过。谁的机器上都没显示过「· IDB」。
+//   ② 住在金库里的大件压根没被列进来：上面那个循环按 localStorage.length 数，
+//      而 length/key(i) 没被转接，只数得到【真的在 localStorage 里】那几把。
+//      聊天记录、记忆库这些最大的，在谁的机器上都不出现。
+//   改法：两本账分开记。真 localStorage 走 lsRaw（绕过转接层，拿到的才是真值）；
+//   金库直接问镜像要，一把一把列出来，标「· IDB」。
 function storageBreakdown() {
-  const rows = {};
+  const ls = {}, vault = {};
+  const raw = k => { try { return (typeof lsRaw !== "undefined" ? lsRaw.get(k) : localStorage.getItem(k)) || ""; } catch (e) { return ""; } };
   const labelFor = k => {
     for (const [pfx, name] of STORAGE_KEY_LABELS) { if (k.indexOf(pfx) === 0) return name; }
     // 不带 x_ 的原来全挤成一行「系统/其他」（她 2026-10-11：4.99MB 占 97%，看不出是谁）——每把键单列
     return k.indexOf("x_") === 0 ? "其他·" + k.slice(2) : "系统·" + k.replace(/:.*$/, ":…");
   };
+  let lsBytes = 0, vaultBytes = 0, vaultKeys = 0;
   try {
     for (let i = 0; i < localStorage.length; i++) {
       const k = localStorage.key(i); if (!k) continue;
-      const bytes = (k.length + (localStorage.getItem(k) || "").length) * 2;
-      const label = labelFor(k);
-      rows[label] = (rows[label] || 0) + bytes;
+      const bytes = (k.length + raw(k).length) * 2;
+      lsBytes += bytes;
+      ls[labelFor(k)] = (ls[labelFor(k)] || 0) + bytes;
     }
-    // 大文本已搬进 IDB，不再出现在 localStorage；单列“文字金库”才能看见它们各自的体积。
+  } catch (e) {}
+  try {
     if (window.__txtMirror) window.__txtMirror.forEach((v, k) => {
-      if (v == null || localStorage.getItem(k) != null) return; // 迁移 journal 尚在时不重复统计
-      const label = labelFor(k) + "（文字金库）", bytes = (String(k).length + String(v).length) * 2;
-      rows[label] = (rows[label] || 0) + bytes;
+      if (v == null) return;
+      const bytes = (String(k).length + String(v).length) * 2;
+      vaultBytes += bytes; vaultKeys++;
+      const label = labelFor(k) + "（文字金库）";
+      vault[label] = (vault[label] || 0) + bytes;
     });
   } catch (e) {}
-  return Object.keys(rows).map(name => ({ name, bytes: rows[name] })).sort((a, b) => b.bytes - a.bytes);
+  // 显示的时候不再挂「（文字金库）」后缀——右边已经写着「· IDB」，挂两遍只会把行挤长。
+  //   内部的键还是带后缀的，两本账里同名的项目（比如都有「表情包」）不许合成一行。
+  const mk = (o, idb) => Object.keys(o).map(name => ({ name: name.replace("（文字金库）", ""), key: name, bytes: o[name], idb: idb })).sort((a, b) => b.bytes - a.bytes);
+  // ⚠️两边各留各的名额：原来一刀切前 14 条，金库那几条一进来就把 localStorage 整摞挤没了，
+  //   而「localStorage 那 5MB 谁占的」恰恰是这一页最早要答的问题。
+  const rows = mk(vault, true).slice(0, 10).concat(mk(ls, false).slice(0, 8));
+  rows.lsBytes = lsBytes; rows.vaultBytes = vaultBytes; rows.vaultKeys = vaultKeys;
+  return rows;
 }
+// ⚠️别把新组件放到「找回失联的角色」和 StorageMeter 之间（2026-11-09 差点出事）：
+//   出货版那一刀是从那段注释一路切到 function StorageMeter，夹在中间的东西会被整段摘掉，
+//   只剩调用点——公共版一点「导入与导出」就是 ReferenceError。摆在这一刀之前才安全。
+// 自动存一份到手机里（js/auto-backup.js）。
+// ⚠️这一节当面说清楚它【不含图片】（施工规则/explain-in-place.md）：自动那一路只写文字那一份，
+//   图太大、自动拼一份几百 MB 的字串会把页面撑崩（群里 2026-10-16 的血案）。
+//   不说清楚的话，人会以为图也带走了——那正是「悄悄少图」，比没有这个功能更坏。
+function AutoBackupSection({ toast }) {
+  const t = useTheme();
+  const [st, setSt] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const refresh = () => { try { window.AutoBackup && window.AutoBackup.state().then(setSt).catch(() => {}); } catch (e) {} };
+  useEffect(refresh, []);
+  if (!st) return null;
+  const row = (label, onClick, primary) => h("button", {
+    onClick: onClick, disabled: busy, className: "w-full py-2.5 active:opacity-70",
+    style: { marginTop: 8, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", borderRadius: 7,
+      color: primary ? t.bg2 : t.ink, background: primary ? t.ink : "transparent", border: primary ? "none" : "1px solid " + t.line }
+  }, label);
+  const note = txt => h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, marginTop: 6, lineHeight: 1.65 } }, txt);
+  const pick = () => { setBusy(true); window.AutoBackup.pick().then(() => { toast && toast("好了，以后它自己往那儿存"); }).catch(e => { toast && toast(String((e && e.message) || e)); }).finally(() => { setBusy(false); refresh(); }); };
+  return h("div", { "data-wk": "block", style: { marginTop: 14, padding: "12px 12px 14px", borderRadius: 10, background: t.bg2, border: "1px solid " + t.line } },
+    h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.ink } }, "自动存一份到手机里"),
+    !st.supported
+      ? note("这个浏览器没有这个功能（iPhone 上都没有）。只能自己记着点上面那颗「导出全部数据」，一周一次就够。")
+      : h(React.Fragment, null,
+          note("挑一个文件夹，以后每隔几个小时它自己往那儿存一份，不用你记着。存的是文字那一份：角色、聊天、记忆、手机、情侣空间。文件夹里留最近 " + st.keep + " 份，旧的自己退掉，你放在那儿的别的东西一个都不动。"),
+          // 「不含图」跟隔壁那条复制备份用同一种红（不许悄悄少图），灰字里的一句⚠️没人看得见
+          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", lineHeight: 1.7, color: "#c0503f", margin: "6px 2px 0" } },
+            "⚠️这一份不含图片和自拍——图太大，自动存会把页面撑崩。图要带走还是用上面的「导出全部数据」。"),
+          st.on ? note(st.lastAt ? "上一份：" + st.lastName + "（" + new Date(st.lastAt).toLocaleString() + "）" : "还没存过第一份") : null,
+          st.on && st.needGesture ? note("⚠️浏览器把那个文件夹的许可收回去了，点下面重新挑一次。") : null,
+          st.on && st.lastErr === "gutted" ? note("⚠️这台手机上的聊天一条都不剩了，而上一份里有——这一次没敢存，免得把文件夹里那几份好的挤掉。先弄清楚本机为什么空了。") : null,
+          st.on && st.lastErr && st.lastErr !== "gutted" ? note("上一次没存成：" + st.lastErr) : null,
+          row(st.on ? "换个文件夹" : "挑个文件夹，开始自动存", pick, !st.on),
+          st.on ? row("现在就存一份", () => { setBusy(true); window.AutoBackup.run(true).then(r => { toast && toast(r && r.ok ? "存好了：" + r.name : "这一次没存：" + ((r && (r.err || r.skip)) || "不知道")); }).catch(e => { toast && toast(String((e && e.message) || e)); }).finally(() => { setBusy(false); refresh(); }); }) : null,
+          st.on ? row("不要自动存了", () => { window.AutoBackup.forget().then(() => { toast && toast("停了，已经存下的文件还在那儿"); refresh(); }); }) : null));
+}
+
 // 找回失联的角色（v61.63，2026-09-04 事故之后加的）
 // ────────────────────────────────────────────────
 // 那天丢了三个角色。丢的其实只是【角色档案】——它住在 saves 那一份 blob 里，
@@ -8961,7 +9036,8 @@ function StorageMeter({ onOffloadChats, onPruneOld }) {
     let vault = null; try { vault = typeof txtVaultState === "function" ? txtVaultState() : null; } catch (e) {}
     const inShell = (() => { try { return !!(window.webkit && window.webkit.messageHandlers && (window.webkit.messageHandlers.nativeHttp || window.webkit.messageHandlers.nativeMedia)); } catch (e) { return false; } })();
     const fin = extra => {
-      const base = Object.assign({ ls: ls, lim: LIMIT, rows: rows, shell: inShell, vault: vault }, extra || {});
+      let hadData = false; try { hadData = !!(typeof lsRaw !== "undefined" ? lsRaw.get("qq_vaultHasData") : localStorage.getItem("qq_vaultHasData")); } catch (e) {}
+      const base = Object.assign({ ls: ls, lim: LIMIT, rows: rows, shell: inShell, vault: vault, hadData: hadData }, extra || {});
       if (!inShell && navigator.storage && navigator.storage.persisted) {
         navigator.storage.persisted().then(ok => setInfo(Object.assign(base, { pinned: !!ok }))).catch(() => setInfo(base));
       } else setInfo(base);
@@ -8987,7 +9063,9 @@ function StorageMeter({ onOffloadChats, onPruneOld }) {
   const mb = n => (n / 1048576).toFixed(1);
   const kb = n => n >= 102400 ? (n / 1048576).toFixed(2) + " MB" : Math.round(n / 1024) + " KB";
   const rows = info.rows || [];
-  const maxB = rows.length ? rows[0].bytes : 1;
+  // 两本账各按自己那一摞里最大的那条画条（混在一起画的话，localStorage 那几条全被金库压成一条线）
+  const maxIdb = Math.max(1, ...rows.filter(r => r.idb).map(r => r.bytes), 1);
+  const maxLs = Math.max(1, ...rows.filter(r => !r.idb).map(r => r.bytes), 1);
   return h("div", { "data-wk": "block", style: { marginBottom: 20, padding: "14px 15px", background: t.bg2, border: "1px solid " + (near ? "#c25a4a" : t.line), borderRadius: 12 } },
     h("div", { className: "flex items-center justify-between", style: { marginBottom: 8 } },
       h("span", { style: { fontFamily: F_DISPLAY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.ink } }, "本地存储占用"),
@@ -9033,13 +9111,29 @@ function StorageMeter({ onOffloadChats, onPruneOld }) {
     // 明细：谁占地方一眼看穿
     h("button", { onClick: () => { setDetail(d => !d); refresh(); }, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.tint, marginTop: 10 } }, detail ? "收起明细 ▴" : "看谁占地方 ▾"),
     detail ? h("div", { style: { marginTop: 8, display: "flex", flexDirection: "column", gap: 6 } },
-      rows.slice(0, 12).map(r => h("div", { key: r.name },
+      // ⚠️金库里一把键都没有：角色、聊天、记忆都住在那儿，正常绝不可能是空的。
+      //   仓库【打不开】那一种由上面那条常驻横幅说；这儿说的是另一种——仓库开着、里面被清光了
+      //   （浏览器把整站的数据回收掉最常见）。原来这一页在这种时候只是少列几行，看着跟没事一样。
+      // ⚠️还要问一句「这台机器到底存过东西没有」：全新装的人金库本来就是空的，
+      //   只看「空不空」会冲着新人乱喊（2026-11-09 真机上当场撞见）。
+      //   qq_vaultHasData 是她真填过线路/角色/群/世界/聊天时才记的那一笔（engine.js txtWrite），
+      //   用它当判据：存过、现在一把都不剩，才是出事了。
+      (info.vault && info.vault.done && info.vault.ok && rows.vaultKeys === 0 && info.hadData) ? h("div", {
+        style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", lineHeight: 1.7, color: "#fff", background: "#7f1d1d", borderRadius: 8, padding: "9px 10px" }
+      }, "⚠️ 文字金库里一把键都没有。角色、聊天、记忆都住在那儿，正常不会是空的——多半是浏览器把这个网站的数据整个回收了。别清缓存、别重装、别点从云端恢复；先把下面还剩的东西导出一份，再说别的。") : null,
+      rows.map(r => h("div", { key: r.key },
         h("div", { className: "flex items-center justify-between", style: { marginBottom: 2 } },
           h("span", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.ink } }, r.name),
-          h("span", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: r.name.indexOf("（文字金库）") < 0 && r.bytes >= 512000 ? "#c25a4a" : t.fog } }, kb(r.bytes) + (r.name.indexOf("（文字金库）") >= 0 ? " · IDB" : " · " + Math.round(r.bytes / info.ls * 100) + "%"))),
+          h("span", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: !r.idb && r.bytes >= 512000 ? "#c25a4a" : t.fog } },
+            kb(r.bytes) + (r.idb
+              ? " · IDB · " + Math.round(r.bytes / Math.max(1, rows.vaultBytes) * 100) + "%"
+              : " · " + Math.round(r.bytes / Math.max(1, rows.lsBytes) * 100) + "%"))),
         h("div", { style: { height: 3, borderRadius: 999, background: t.line, overflow: "hidden" } },
-          h("div", { style: { width: Math.max(2, Math.round(r.bytes / maxB * 100)) + "%", height: "100%", borderRadius: 999, background: r.name.indexOf("（文字金库）") >= 0 ? t.tint : (r.bytes >= 512000 ? "#c25a4a" : (r.bytes >= 204800 ? "#b89150" : t.tint)) } })))),
-      h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, marginTop: 4, lineHeight: 1.6 } }, "红=localStorage 大头(≥0.5MB)；标有「文字金库」的项目住在 IDB，不挤占 5MB。聊天记录最大又会一直涨——用上面「归档旧聊天到云端」最省地方。")) : null,
+          h("div", { style: { width: Math.max(2, Math.round(r.bytes / (r.idb ? maxIdb : maxLs) * 100)) + "%", height: "100%", borderRadius: 999, background: r.idb ? t.tint : (r.bytes >= 512000 ? "#c25a4a" : (r.bytes >= 204800 ? "#b89150" : t.tint)) } })))),
+      h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, marginTop: 4, lineHeight: 1.6 } },
+        "两本账分开记：标「· IDB」的住在文字金库（角色、聊天、记忆这些大件），一共 " + kb(rows.vaultBytes) + "，空间大得多、不挤占 5MB，百分比是它们各自占金库的比例；"
+        + "没标的住在 localStorage，一共 " + kb(rows.lsBytes) + "，那头只有 5MB，红=单项 ≥0.5MB。"
+        + "聊天记录最大又会一直涨——用上面「归档旧聊天到云端」最省地方。")) : null,
     info.idbQuota ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, marginTop: 6 } }, "音频 / 自拍 / 书正文另存在 IndexedDB（已用 " + mb(info.idbUsed) + " MB，空间大得多、不占这 5MB）") : null);
 }
 // TA 们拍的照片（群里 2026-10-18：「线下生的图找不到」「线上照片也没有」）：
@@ -9289,6 +9383,7 @@ function DataConfig({
   if (part === "backup") content = h("div", { style: { paddingTop: 8 } },
     h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", lineHeight: 1.65, color: t.fog } }, "数据主要保存在本机浏览器；重要操作前建议先导出一份 JSON。"),
     button("导出全部数据（.json）", onExport, true),
+    h(AutoBackupSection, { toast: toast }),
     // 只带几个人走（群友 2026-10-29：分开装了几份，想把人合到一份里）：勾人 → 存一份只有这几个人的文件；
     //   在另一份里「导入备份恢复」选它，会【合并】进去，原来的人和设置不动。
     onExportChars ? button(pickOpen ? "收起" : "只导出几个人（用来合并到另一份）", () => setPickOpen(!pickOpen)) : null,
@@ -10685,7 +10780,10 @@ function MemoryLib({
       const d = shortDateOf(e);
       const tags = (e.tags || []).slice(0, 2);
       const faded = isFading(e);
-      const states = [e.open ? "未了" : "", e.pinned ? "常驻" : "", faded ? "快淡了" : ""].filter(Boolean);
+      // 短期状况（生病、这周在考试这类）：没过期写「短期·到几号」，过了写「多半已过去」（不删，只是少想起）
+      const _exp = Number(e.expiresTs) > 0 && !e.pinned && !e.open ? new Date(Number(e.expiresTs)) : null;
+      const ttlState = _exp ? (Date.now() > _exp.getTime() ? "多半已过去" : "短期·到" + (_exp.getMonth() + 1) + "/" + _exp.getDate()) : "";
+      const states = [e.open ? "未了" : "", e.pinned ? "常驻" : "", ttlState, faded ? "快淡了" : ""].filter(Boolean);
       const accent = e.open ? "#b06a4f" : e.pinned ? t.tint : t.line;
       const trace = refineSrcCount(e);
       return h("button", {
@@ -10752,6 +10850,7 @@ function MemoryLib({
     onDowngradeRoutineOpen: onDowngradeRoutineOpen,
     routineOpenCount: routineOpenCount,
     openTotal: openTotal,
+    onFindDuplicates: onScanDuplicates ? () => setDuplicatePreview(onScanDuplicates()) : null,
     cfg: cfg || {}, onSave: onSaveCfg, onClose: () => setCfgOpen(false)
   }), editing && h(MemEntrySheet, {
     entry: editing === "new" ? null : editing,
@@ -10769,7 +10868,7 @@ function MemoryLib({
   }));
 }
 // 召回设置：自动抽取开关 + top-k + 抽取间隔 + 短期窗天数（消死区）
-function MemCfgSheet({ cfg, onSave, onClose, onPurgeWithered, witheredCount, onDowngradeRoutineOpen, routineOpenCount, openTotal }) {
+function MemCfgSheet({ cfg, onSave, onClose, onPurgeWithered, witheredCount, onDowngradeRoutineOpen, routineOpenCount, openTotal, onFindDuplicates }) {
   const t = useTheme();
   const [c, setC] = useState(Object.assign({ topK: 5, autoExtract: false, extractInterval: 1, recentDays: 3, recentBudget: 8000, crossHours: 72, crossBudget: 800, offBeats: 40, offVerbatim: 3 }, cfg || {}));
   const [confirmPurge, setConfirmPurge] = useState(false);
@@ -10816,6 +10915,13 @@ function MemCfgSheet({ cfg, onSave, onClose, onPurgeWithered, witheredCount, onD
                 h("button", { onClick: () => { onPurgeWithered(); setConfirmPurge(false); onClose(); }, className: "flex-1 active:opacity-70", style: { fontFamily: F_DISPLAY, fontSize: "calc(14px * var(--app-fs, 1))", color: "#fff", background: t.accent, borderRadius: 10, padding: "10px 0" } }, "确认清理 " + witheredCount + " 条"))
             : h("button", { onClick: () => setConfirmPurge(true), className: "w-full active:opacity-70", style: { fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", color: t.accent, border: "1px solid " + t.line, borderRadius: 10, padding: "11px 0" } }, "🧹 清理落灰记忆（约 " + witheredCount + " 条）"))
         : h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog, textAlign: "center", padding: "8px 0" } }, "暂时没有落灰记忆，很干净 ✨")) : null,
+    // 找重复（她 2026-11-09）：原来那颗在「整理记忆库」里，那一页收起来以后就点不到了；挪到这儿。
+    //   只列出来给她勾，勾了才软归档（正文留着、能恢复），不点就什么都不变。
+    onFindDuplicates ? h("div", { "data-part": "memdup", style: { marginTop: 14, paddingTop: 14, borderTop: "1px dashed " + t.line } },
+      h(Eyebrow, { style: { marginBottom: 4 } }, "重复的记忆"),
+      h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.5, marginBottom: 8 } },
+        "找出说的是同一件事的几条，你勾了才收起多的那几条（收进归档，能恢复）。隔了很久的换句话重复标着「请复核」，要你自己看一眼。"),
+      h("button", { onClick: () => { onClose(); onFindDuplicates(); }, className: "w-full active:opacity-70", style: { fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", color: t.accent, border: "1px solid " + t.line, borderRadius: 10, padding: "11px 0" } }, "找重复记忆")) : null,
     false && h("div", { style: { marginTop: 14, paddingTop: 14, borderTop: "1px dashed " + t.line } },
       h(Eyebrow, { style: { marginBottom: 4 } }, "未了结开环"),
       h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.5 } },
@@ -10847,6 +10953,8 @@ function MemEntrySheet({
   const [open, setOpen] = useState(entry ? !!entry.open : false);
   const [vv, setVv] = useState(entry && typeof entry.v === "number" ? entry.v : 0);
   const [aa, setAa] = useState(entry && typeof entry.a === "number" ? entry.a : 1);
+  // 短期状况：模型抽的时候估了「大概管几天」的那种。关掉＝不是短期的，以后不按时间往下压
+  const [shortLived, setShortLived] = useState(!!(entry && Number(entry.expiresTs) > 0));
   const toggleChar = id => setCharIds(p => p.includes(id) ? p.filter(x => x !== id) : [...p, id]);
   const save = () => {
     const tt = text.trim();
@@ -10859,7 +10967,8 @@ function MemEntrySheet({
       pinned,
       open,
       v: vv,
-      a: aa
+      a: aa,
+      ...(entry && Number(entry.expiresTs) > 0 && !shortLived ? { expiresTs: 0 } : {})
     });
   };
   return h(PageSheet, {
@@ -10935,6 +11044,12 @@ function MemEntrySheet({
       h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.sub } }, "还没了结（约定 / 心结）"),
       h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginTop: 2, lineHeight: 1.5 } }, "标记后 TA 会更常惦记这件事；等兑现了 / 翻篇了，点掉它就不再念叨")),
     h(Toggle, { on: open, onChange: v => setOpen(v), color: "#b06a4f", wk: "memedswitch", part: "open" })),
+  entry && Number(entry.expiresTs) > 0 ? h("div", { "data-part": "memttl", className: "flex items-center justify-between pt-6" },
+    h("div", { style: { flex: 1, paddingRight: 12 } },
+      h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.sub } }, "一阵子的状况"),
+      h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginTop: 2, lineHeight: 1.5 } },
+        "抽的时候估计到 " + (new Date(Number(entry.expiresTs)).getMonth() + 1) + "/" + new Date(Number(entry.expiresTs)).getDate() + " 就多半不是这样了，过了以后少想起、想起时当成那时候的事。其实一直都成立就关掉")),
+    h(Toggle, { on: shortLived, onChange: v => setShortLived(v), wk: "memedswitch", part: "ttl" })) : null,
   // 情绪坐标（Ombre Brain·valence/arousal）：愉悦度 + 强度，影响被想起的权重
   (() => {
     const stepper = (label, val, lo, hi, onCh) => h("div", { className: "flex items-center justify-between", style: { padding: "8px 0" } },

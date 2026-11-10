@@ -218,7 +218,7 @@
     const o = opts || {};
     // 对局：对面照你的平均等级；守城、远信：照难度档定的等级（o.foeLv），练强了才打得过高档
     if (o.fair !== false && (foeDeck || []).length && (meDeck || []).length) foeDeck = fairDeck(foeDeck, meDeck, o.fairMul, o.foeLv);
-    const st = { turn: 0, me: side(meDeck, s, o.meHp || envFor(meDeck), o.meMax), relics: o.relics || [], amulet: !!o.amulet, bossRule: o.bossRule || "", theme: o.theme || "", siege: o.siege ? { waves: SIEGE_WAVES, cleared: 0 } : null, edict: Array.isArray(o.edict) ? o.edict.filter(k => EDICTS[k]) : null, raid: o.raid ? { endless: o.raid === "endless", turns: RAID_TURNS, dealt: 0 } : null, foe: side(foeDeck, s ^ 0xabcdef, o.foeHp || envFor(meDeck)), log: [], over: null, uid: 0, seed: s, cap: o.cap || TURN_CAP, hard: !!o.hard, rule: o.rule || "", wager: o.wager || "", blind: !!(opts && opts.blind), events, bonds: (opts && opts.bonds) || {}, foeId: (opts && opts.foeId) || "", style: (opts && opts.style) || "" };
+    const st = { turn: 0, me: side(meDeck, s, o.meHp || envFor(meDeck), o.meMax), relics: o.relics || [], amulet: !!o.amulet, bossRule: o.bossRule || "", theme: o.theme || "", siege: o.siege ? Object.assign({ waves: SIEGE_WAVES, cleared: 0, boons: 0, tears: 0, placed: {}, minEnv: 0 }, o.siegeOpt || {}, o.siegeOpt && o.siegeOpt.endless ? { waves: 9999 } : {}) : null, edict: Array.isArray(o.edict) ? o.edict.filter(k => EDICTS[k]) : null, raid: o.raid ? { endless: o.raid === "endless", turns: RAID_TURNS, dealt: 0 } : null, foe: side(foeDeck, s ^ 0xabcdef, o.foeHp || envFor(meDeck)), log: [], over: null, uid: 0, seed: s, cap: o.cap || TURN_CAP, hard: !!o.hard, rule: o.rule || "", wager: o.wager || "", blind: !!(opts && opts.blind), events, bonds: (opts && opts.bonds) || {}, foeId: (opts && opts.foeId) || "", style: (opts && opts.style) || "" };
     st.keeps = (o.keeps || []).filter(k => k && KEEP_FX[k.fx]).map(k => ({ fx: k.fx, v: Math.max(1, Math.min(4, k.v | 0)), charId: k.charId || "", name: k.name || "" }));
     { const e = keepV(st, "env"); if (e) { st.me.max = (st.me.max || st.me.hp) + e * 5; st.me.hp += e * 5; } }
     st.meAvg = avgLv(meDeck); st.siegeLv = o.siegeLv || 0;
@@ -231,7 +231,7 @@
       st.edictPts = st.edict.reduce((a, k) => a + EDICTS[k].pt, 0);
     }
     if (st.raid) { st.foe.terrain = new Array(SLOTS).fill(""); st.foe.hp = st.foe.max = 99999; st.cap = st.raid.endless ? 99 : RAID_TURNS; st.raidLv = o.raidLv || Math.max(5, Math.round(st.meAvg || 10)); }
-    if (st.siege) { st.foe.terrain = new Array(SLOTS).fill(""); st.foe.hp = st.foe.max = 999; st.cap = SIEGE_WAVES + 3; }
+    if (st.siege) { st.foe.terrain = new Array(SLOTS).fill(""); st.foe.hp = st.foe.max = st.siege.endless ? 999999 : 999; st.cap = st.siege.endless ? 9999 : SIEGE_WAVES + 3; st.siege.minEnv = st.me.hp; }
     startTurn(st);
     return st;
   }
@@ -310,8 +310,45 @@
     ["野猫", ["投递", "投递", "投递"], "莽撞"], ["暴雨", ["邮戳", "投递", "邮戳"], "夜行"], ["罢工的邮差", ["火漆", "投递", "火漆"], "倔强"],
     ["审查员", ["邮戳", "火漆", "邮戳"], "冷静"], ["大风", ["投递", "邮戳", "投递"], "锋利"], ["迷路的信", ["集邮", "投递", "补票"], "余温"]
   ];
+  // 护信加料（她 2026-11-10「后期摆满了谁也打不死谁」「打完全部档就不想打了」→「都做吧」）：
+  //   褪色：票在板上待久了每回合掉血，两边都是，逼着换阵容；撕下一张票退 1 格胶水；
+  //   陪打的人每两波递三样挑一样（照 TA 的性子偏向哪几样）；急件信使走到门口撞信封一大块；
+  //   无尽：守满 10 波不停，一直往上叠；每周一条规则轮换
+  const SIEGE_FADE = 4, COURIER_HIT = 10;
+  const SIEGE_WEEK = [
+    { id: "rain", zh: "雨季", desc: "每回合开始，两边的火漆票各加 2 层护" },
+    { id: "rush", zh: "加急周", desc: "两边的投递票攻击各 +1" },
+    { id: "thrift", zh: "节俭周", desc: "撕下一张票退 2 格胶水" },
+    { id: "damp", zh: "潮气重", desc: "票在板上待 3 回合就开始褪色" },
+    { id: "sunny", zh: "晴天", desc: "每来一波，信封回 2" },
+    { id: "express", zh: "急件多", desc: "每 3 波就混进一个急件信使" }
+  ];
+  const siegeWeek = w => SIEGE_WEEK[((Number(w) || 0) % SIEGE_WEEK.length + SIEGE_WEEK.length) % SIEGE_WEEK.length];
+  const SIEGE_BOONS = {
+    shield: { zh: "全体加护", desc: "你板上的票各加 3 层护" }, heal: { zh: "全体补血", desc: "你板上的票各回 5 血" },
+    charge: { zh: "一起攒章", desc: "你板上的票各多充 1 格章" }, break: { zh: "拆一张", desc: "对面板上离你最近的一张直接拿掉" },
+    glue: { zh: "递胶水", desc: "这回合多 2 格胶水" }, env: { zh: "补信封", desc: "信封回 8" }
+  };
+  const BOON_FAV = { 护短: ["shield", "heal"], 好胜: ["charge", "break"], 温柔: ["heal", "env"], 冷淡: ["glue", "break"], 偏执: ["break", "charge"], 默契: ["charge", "glue"] };
+  function siegeOffer(st) {
+    const R = rng((st.seed ^ (st.turn * 131071)) >>> 0), fav = BOON_FAV[st.siege.style] || BOON_FAV.默契, first = fav[R() < 0.5 ? 0 : 1];
+    return [first].concat(shuffle(Object.keys(SIEGE_BOONS).filter(k => k !== first), R).slice(0, 2));
+  }
+  function siegeBoon(st, key) {
+    const sg = st.siege; if (!sg || !sg.offer || sg.offer.indexOf(key) < 0 || st.over) return { ok: false, why: "现在没有可挑的" };
+    const me = st.me, foe = st.foe, mine = me.board.filter(Boolean);
+    if (key === "shield") mine.forEach(u => { u.shield += 3; });
+    else if (key === "heal") healUnits(me, mine, 5);
+    else if (key === "charge") mine.forEach(u => { if (u.charge < u.need) u.charge++; });
+    else if (key === "break") { const i = foe.board.map((u, k) => u ? k : -1).filter(k => k >= 0).sort((a, b) => row(a) - row(b))[0]; if (i != null) { const u = foe.board[i]; foe.board[i] = null; say(st, "foe", u.name + " 被拆走了", { kind: "fall", slot: i }); } }
+    else if (key === "glue") me.postage += 2;
+    else if (key === "env") me.hp = Math.min(me.max || ENVELOPE_HP, me.hp + 8);
+    sg.offer = null; sg.boons++;
+    say(st, "me", "收下了「" + SIEGE_BOONS[key].zh + "」", { kind: "heal" });
+    return { ok: true };
+  }
   function siegeWave(st, n) {
-    const R = rng((st.seed ^ (n * 7919)) >>> 0), boss = n === SIEGE_WAVES, count = boss ? 3 : n <= 2 ? 1 : n <= 5 ? 2 : 3;
+    const R = rng((st.seed ^ (n * 7919)) >>> 0), boss = n % SIEGE_WAVES === 0, count = boss ? 3 : n <= 2 ? 1 : n <= 5 ? 2 : 3;
     return Array.from({ length: Math.min(3, count) }, (_, k) => {
       const f = boss && k === 0 ? ["稽查队长", ["火漆"], "倔强"] : SIEGE_FOES[Math.floor(R() * SIEGE_FOES.length)], role = f[1][Math.floor(R() * f[1].length)];
       const rar = boss && k === 0 ? "SSR" : n >= 7 && R() < 0.4 ? "SR" : "R";
@@ -319,10 +356,26 @@
       return Object.assign(u, { role, trait: f[2], traitFrom: "", charId: "", name: f[0], face: 0, skill: Object.keys(SKILLS[role])[k % 4], pow: Math.max(1, u.pow + Math.floor(n * SIEGE_POW) - (n <= 2 ? 1 : 0)), maxHp: Math.round(u.maxHp * SIEGE_HP) });
     });
   }
+  function siegeCourier(st, n) {
+    const u = stampOf({ id: "sgc_" + n, rarity: "R", lv: Math.max(1, Math.round((st.siegeLv || st.meAvg || 10) * (0.5 + n * SIEGE_GROW))), text: { name: "急件信使" } });
+    return Object.assign(u, { role: "投递", trait: "", traitFrom: "", charId: "", name: "急件信使", face: 0, skill: Object.keys(SKILLS.投递)[0], courier: true, maxHp: Math.max(4, Math.round(u.maxHp * 0.7)) });
+  }
   function siegeTurn(st) {
     const sg = st.siege, foe = st.foe;
     foe.hand = []; foe.draw = []; foe.discard = []; foe.postage = 99;
-    if (st.turn <= sg.waves) { foe.hand = siegeWave(st, st.turn); say(st, "foe", "第 " + st.turn + " 波来了：" + foe.hand.map(u => u.name).join("、"), { kind: "event", ev: "" }); }
+    if (st.turn <= sg.waves) { foe.hand = siegeWave(st, st.turn); say(st, "foe", "第 " + st.turn + " 波来了：" + foe.hand.map(u => u.name).join("、"), { kind: "event", ev: "" });
+      // 急件信使：直接落在对面最后一排，往前走，走到门口再一步就撞信封
+      const every = sg.week === "express" ? 3 : 4;
+      if (st.turn >= 4 && st.turn % every === 0 && st.turn % SIEGE_WAVES !== 0) { const free = [6, 7, 8].filter(i => !foe.board[i]);
+        if (free.length) { const c = siegeCourier(st, st.turn), i = free[Math.floor(rng(st.seed ^ st.turn)() * free.length)]; foe.board[i] = Object.assign(c, { uid: ++st.uid, hp: c.maxHp, shield: 0, marks: {}, first: true, charge: 0 }); say(st, "foe", "急件信使混进来了：走到门口会撞信封 " + (c.pow + COURIER_HIT), { kind: "event", ev: "", slot: i }); } }
+      if (sg.week === "sunny" && st.turn > 1) st.me.hp = Math.min(st.me.max || ENVELOPE_HP, st.me.hp + 2); }
+    // 褪色：在板上待满几回合，每回合掉血（越久掉越多），两边都算
+    const fadeAt = sg.week === "damp" ? 3 : SIEGE_FADE;
+    for (const who of ["me", "foe"]) { const sd = st[who]; sd.board.forEach((u, i) => { if (!u) return; u.age = (u.age || 0) + 1;
+      if (sg.week === "rain" && u.role === "火漆") u.shield += 2;
+      if (u.age > fadeAt) { const d = Math.ceil((u.age - fadeAt) / 2); u.hp -= d; if (u.hp <= 0) { sd.board[i] = null; sd.discard.push(stripUnit(u)); say(st, who, u.name + " 褪色掉了", { kind: "fall", slot: i, char: u.charId }); } else say(st, who, u.name + " 褪色 -" + d, { kind: "hit", slot: i, n: d, fade: true }); } }); }
+    sg.minEnv = Math.min(sg.minEnv || st.me.hp, st.me.hp);
+    sg.offer = sg.mate && st.turn > 1 && st.turn % 2 === 0 ? siegeOffer(st) : null;
     if (st.turn > 1 && (st.turn - 1) % 3 === 0 && st.turn - 1 <= sg.waves) { st.me.hp = Math.min(st.me.max || ENVELOPE_HP, st.me.hp + 5); st.me.bonusDraw += 1; say(st, "me", "守住了第 " + (st.turn - 1) + " 波：信封 +5，下回合多摸一张", { kind: "heal" }); }
   }
   // ── 讨伐（她 2026-11-08「做吧」：无期迷途的极限挑战 + 无尽试炼，加破核）──────────────
@@ -472,6 +525,8 @@
     return Object.assign(u, { role: role || u.role, charId: "pz" + (Math.floor(R() * 3)), skill: Object.keys(SKILLS[role || u.role])[Math.floor(R() * 4)] });
   }
   const pzClone = st => JSON.parse(JSON.stringify(st));
+  // 照现在场上的样子寄出去，这一下能打掉对面多少（她 2026-11-09 死信想不出怎么算 → 给个「现在寄出能打多少」）
+  function simSend(st0) { const st = pzClone(st0), hp0 = st.foe.hp; st.undo = []; try { resolveSide(st, "me"); } catch (e) { return 0; } return hp0 - st.foe.hp; }
   // 这一回合（只放手里的票、给攒满的票盖章）最多能打掉对面多少：遍历每张手牌放哪格或不放，再加盖不盖章
   function pzSolve(st0) {
     const me = st0.me, free = me.board.map((u, i) => !u && !blocked(me, i) ? i : -1).filter(i => i >= 0), hand = me.hand.length;
@@ -583,24 +638,132 @@
     柜台: ["「算得清清楚楚，放心了。」", "「零钱也帮我凑好了，谢谢。」", "「你们这儿的人真耐心。」"],
     卡: ["「就是这种！我找了好久。」", "「这张好看，送人正合适。」", "「你们橱窗里的卡挑得真好。」"]
   };
-  const shopMul = (shop, roster, personaOf, cardOf) => 1 + Object.keys(roster || {}).filter(p => roster[p]).reduce((a, p) => { const bid = (shop.badge || {})[p], bc = bid && cardOf ? cardOf(bid) : null; return a + 0.15 + 0.1 * shopApt(personaOf(roster[p]), p) + (bc ? shopBadgeBonus(p, bc) : bid ? 0.06 : 0); }, 0) + shopDecorBonus(shop) + (cardOf ? shopWinBonus(shop, cardOf) : 0);
+  // ── 招待那一下要动脑（她 2026-11-09，参考《Good Pizza》《Recettear》）：客人不直说要什么，只说一句；开价看人 ──
+  const MOOD_RICH = /西装|教授|合同|加急|赶时间|新婚|摄影师|调音师|纪念邮票/, MOOD_POOR = /小孩|小男孩|学生|高中生|钱不够|零钱|笔友|生日卡/;
+  const shopMood = (txt, urgent) => urgent || MOOD_RICH.test(txt) ? "rich" : MOOD_POOR.test(txt) ? "poor" : "normal";
+  const MOOD_ZH = { rich: "看着挺急，钱包鼓鼓的", poor: "掏钱包的时候有点犹豫", normal: "" };
+  const HINT_POST = {
+    送信: ["这个今天能寄出去吗？那边等着呢。", "我想寄到很远的地方，越快越好。", "麻烦帮我送出去，路上别耽搁。", "要寄到外地，最好明早就到。"],
+    分拣: ["东西有点多，我自己也理不清楚……", "这一摞能不能帮我分一分，有寄本市的也有外地的。", "箱子挺沉的，里面零零碎碎好多样。", "攒了半年的信，想一次寄完。"],
+    柜台: ["先问问，寄这个要多少钱？", "我钱带得不太够，能不能先算一下？", "要几张邮票，怎么贴最划算？", "想买一整版，帮我挑挑面值。"]
+  };
+  const HINT_ROLE = { 投递: "要一张看着就很能打的卡", 火漆: "要一张看着靠得住、能护着人的卡", 补票: "要一张温柔点、会照顾人的卡", 集邮: "要一张看着会过日子、精打细算的卡", 邮戳: "要一张有点坏心眼、爱捉弄人的卡" };
+  function shopHint(need, mood, R) {
+    if (!need) return "";
+    const say = need.post ? HINT_POST[need.post][Math.floor(R() * HINT_POST[need.post].length)] : need.card && need.card.role ? "想送人，" + HINT_ROLE[need.card.role] + "。" : need.card && need.card.min ? "想要一张稀罕点的，送人拿得出手。" : "";
+    return say + (MOOD_ZH[mood] ? "（" + MOOD_ZH[mood] + "）" : "");
+  }
+  // 开价：便宜点 ×0.8 交情多一点；照价；收贵点 ×1.35——急的、熟客认，犹豫的会走，一般人一半一半（按客人定死，不能反复试）
+  function shopPrice(c, price, bond) {
+    if (price === "low") return { mul: 0.8, rep: 5, bond: 1, say: "客人笑着多说了几句谢谢" };
+    if (price !== "high") return { mul: 1, rep: 0, bond: 0, say: "" };
+    const ok = c.mood === "rich" || (bond || 0) >= 3 || (c.mood !== "poor" && hashStr(String(c.id) + "|price") % 2 === 0);
+    return ok ? { mul: 1.35, rep: 0, bond: 0, say: "客人没还价就付了" } : c.mood === "poor" ? { mul: 0, rep: -5, bond: 0, say: "客人摇摇头，东西没寄就走了", left: true } : { mul: 1, rep: -5, bond: 0, say: "客人嘀咕了一句太贵，还是照原价付了" };
+  }
+  // 稀客：条件凑上时每个时段 15% 来一位（一天最多一位），招待过收进熟客簿的「稀客」
+  const RARE_GUESTS = [
+    { id: "ghost", name: "穿旧制服的老邮差", want: "说要来寄一封五十年前没寄出去的信", fee: 40, need: { post: "送信" }, hint: "这封信……能帮我寄出去吗？晚了好多年了。", cond: { period: "傍晚", decor: "会走的老座钟" }, tip: "傍晚、店里有老座钟" },
+    { id: "rainman", name: "撑黑伞的寄信人", want: "每封信都用蜡封好", fee: 35, need: { post: "分拣" }, hint: "这几封要分开寄，一封都不能弄混。", cond: { decor: "铜铃门帘", day: 7 }, tip: "铜铃门帘挂上一周以后" },
+    { id: "kid", name: "举着玻璃罐的小女孩", want: "要把攒的硬币换成邮票", fee: 30, need: { post: "柜台" }, hint: "这些……够买几张邮票呀？", cond: { period: "上午", rep: 5 }, tip: "口碑 5 级以后的上午" },
+    { id: "collector", name: "戴单片眼镜的集邮家", want: "来看看橱窗里有没有好东西", fee: 60, need: { card: { min: "SSR" } }, hint: "听说你们橱窗里有好货？我只要最稀罕的。", cond: { rep: 10, windowSSR: true }, tip: "口碑 10 级、橱窗里摆着 SSR" },
+    { id: "snow", name: "满头是雪的旅人", want: "从很北的地方来，想寄一张明信片回家", fee: 45, need: { post: "送信" }, hint: "能寄到最北边吗？那边快过年了。", cond: { month: [12, 1, 2] }, tip: "冬天（12 到 2 月）" },
+    { id: "cat", name: "蹲在门口的三花猫", want: "叼来一片叶子放在柜台上", fee: 20, need: null, hint: "喵。", cond: { decor: "靠窗的长凳" }, tip: "店里有靠窗的长凳" },
+    { id: "author", name: "抱着稿子的作家", want: "要把新书稿寄给编辑", fee: 50, need: { post: "分拣" }, hint: "这摞稿子要按章节分好再寄……我自己都乱了。", cond: { period: "下午", decor: "整面墙的信格" }, tip: "下午、店里有整面墙的信格" },
+    { id: "bride", name: "穿婚纱跑进来的新娘", want: "要在婚礼开始前寄出一封信", fee: 70, need: { post: "送信" }, hint: "快快快！这封信一定要今天到！", cond: { rep: 15 }, tip: "口碑 15 级以后" }
+  ];
+  function shopRareFor(shop, period, R) {
+    const seen = (shop.rareDay && shop.rareDay === shop.date), lv = shopRepLv(shop), m = new Date().getMonth() + 1, decor = shop.decor || [];
+    if (seen || R() > 0.15) return null;
+    const ok = RARE_GUESTS.filter(g => { const c = g.cond; if (c.period && c.period !== period) return false; if (c.decor && !decor.includes(c.decor)) return false; if (c.rep && lv < c.rep) return false; if (c.month && !c.month.includes(m)) return false; if (c.day && (shop.day || 1) < c.day) return false; if (c.windowSSR && !(shop.windowRar || []).includes("SSR")) return false; return true; });
+    return ok.length ? ok[Math.floor(R() * ok.length)] : null;
+  }
+  // ── 小店一直玩下去（她 2026-11-09「能一直玩下去不会结束」）：口碑、每周大单、熟客、店员熟练度，都不封顶 ──
+  //   口碑只让店变大（客人、单子、收入），不碰战斗：难缠客人始终照她卡组的平均等级来（她：卡等级有上限）
+  const shopRepNeed = lv => 60 + 20 * lv;
+  const shopRepLv = shop => { let xp = Math.max(0, Number(shop && shop.rep) || 0), lv = 0; while (xp >= shopRepNeed(lv + 1)) { xp -= shopRepNeed(lv + 1); lv++; } return lv; };
+  const shopRepLeft = shop => { let xp = Math.max(0, Number(shop && shop.rep) || 0), lv = 0; while (xp >= shopRepNeed(lv + 1)) { xp -= shopRepNeed(lv + 1); lv++; } return { lv, xp, need: shopRepNeed(lv + 1) }; };
+  const shopRepBonus = lv => 0.12 * Math.log2(1 + lv / 4);           // 越往后涨得越慢，永远在涨
+  const shopRepCrowd = lv => Math.floor((Number(lv) || 0) / 20);   // 口碑每 20 级多来一位（她 2026-11-10）
+  const SHOP_CROWD_MAX = 10;   // 一个时段最多来 10 位（连稀客、来坐坐的角色一起算）
+  // 熟练度：同一个人在同一个岗上开过几天门；称号一直往上，加成越往后越慢
+  const SKILL_TITLES = [[0, "见习"], [3, "上手"], [8, "熟手"], [15, "老手"], [30, "一把手"]];
+  const shopSkillTitle = (post, days) => { const d = Math.max(0, days || 0); if (d >= 30) { const n = 1 + Math.floor((d - 30) / 20); return post + "一把手" + (n > 1 ? "·" + n + "段" : ""); } let t = "见习"; SKILL_TITLES.forEach(([k, v]) => { if (d >= k) t = v; }); return post + t; };
+  const shopSkillBonus = days => 0.05 * Math.log2(1 + Math.max(0, days || 0) / 4);
+  const shopSkillOf = (shop, id, post) => ((shop && shop.skill) || {})[id + "|" + post] || 0;
+  // 新面孔：几个词库拼出来，够多就不会撞
+  // One vocabulary supplies both the name generator and the 3D wardrobe.
+  const FACE_FEATURES = Object.freeze([['戴草帽的','strawHat'],['穿雨靴的','rainBoots'],['总迟到的','late'],['背画板的','drawingBoard'],['拎鸟笼的','birdcage'],['说方言的','clothBag'],['戴圆眼镜的','glasses'],['骑旧单车的','bicycle'],['围红围巾的','scarf'],['牵柴犬的','shiba'],['抱着猫的','heldCat'],['穿制服的','uniform'],['拄拐杖的','cane'],['扎双马尾的','pigtails'],['提着保温桶的','thermos'],['满身面粉的','flour'],['拿着地图的','map'],['戴耳机的','headphones'],['穿西装的','suit'],['晒得很黑的','sun']].map(([word,id])=>Object.freeze({word,id})));
+  const FACE_IDENTITIES = Object.freeze([['老太太','granny'],['高中生','student'],['画家','painter'],['花匠','florist'],['面包师','baker'],['退休邮差','postman'],['小学老师','teacher'],['调音师','tuner'],['夜班护士','nurse'],['书店店员','bookseller'],['渔夫','fisher'],['修表匠','watchmaker'],['摄影师','photographer'],['教授','professor'],['快递员','courier'],['厨子','chef'],['邻居大叔','neighbor'],['留学生','international'],['新婚的姑娘','newlywed'],['小男孩','child']].map(([word,style])=>Object.freeze({word,style})));
+  const FACE_ADJ = FACE_FEATURES.map(x=>x.word), FACE_WHO = FACE_IDENTITIES.map(x=>x.word);
+  const SHOP_NPC_STYLES = ['granny','student','painter','traveler','florist','child','postman'], SHOP_TOUGH_STYLES = ['inspector','rival','refund'];
+  function shopAppearance(customer) {
+    const c=customer||{},name=String(c.name||''),rare=RARE_GUESTS.find(r=>r.id===c.rareId);
+    if(rare)return {style:'rare_'+rare.id,feature:null,rareId:rare.id,species:rare.id==='cat'?'cat':'person'};
+    const who=FACE_IDENTITIES.find(w=>name.endsWith(w.word)),feature=FACE_FEATURES.find(f=>name.startsWith(f.word));
+    const fixed=SHOP.NPC.findIndex(n=>n[0]===name),tough=SHOP.TOUGH.findIndex(n=>n[0]===name);
+    return {style:who?.style||(fixed>=0?SHOP_NPC_STYLES[fixed]:tough>=0?SHOP_TOUGH_STYLES[tough]:'postcard'),feature:feature?.id||null,rareId:null,species:'person'};
+  }
+  const FACE_WANT = [["寄一包家乡的特产", 9, "送信"], ["加急寄一份合同", 12, "送信"], ["给远方的笔友寄信", 6, "送信"], ["寄一大箱旧书", 11, "分拣"], ["理一摞攒了半年的信", 8, "分拣"], ["寄一卷画和几封信", 10, "分拣"], ["问寄到国外要多少钱", 7, "柜台"], ["零钱不够，想先寄一半", 5, "柜台"], ["买一整版纪念邮票", 9, "柜台"], ["想挑一张好看的卡送人", 8, "卡"], ["给孩子挑一张生日卡", 7, "卡"]];
+  // 客人的小短句（她 2026-11-09「每个组合会说的小短句也要写」）：特征给一个小动作，身份给道谢的口气，拼起来 20×20 都成立
+  const FACE_ACT = { 戴草帽的: "摘下草帽扇了扇风", 穿雨靴的: "在门口跺了跺雨靴上的水", 总迟到的: "一进门先看了眼表", 背画板的: "把画板往身后挪了挪", 拎鸟笼的: "把鸟笼轻轻放在柜台边", 说方言的: "带着口音开口", 戴圆眼镜的: "推了推圆眼镜", 骑旧单车的: "把车铃挂件塞进口袋", 围红围巾的: "把红围巾往下拉了拉", 牵柴犬的: "柴犬在脚边转了一圈", 抱着猫的: "怀里的猫打了个哈欠", 穿制服的: "理了理制服的领口", 拄拐杖的: "拄着拐杖慢慢走到柜台前", 扎双马尾的: "双马尾一甩一甩地跑过来", 提着保温桶的: "把保温桶换到另一只手", 满身面粉的: "拍了拍袖子上的面粉", 拿着地图的: "把地图折了两折", 戴耳机的: "摘下一边耳机", 穿西装的: "边走边松了松领带", 晒得很黑的: "抹了把额头的汗" };
+  const WHO_THANKS = { 老太太: ["「好孩子，辛苦你们啦。」", "「下回给你们带点自己腌的咸菜。」"], 高中生: ["「谢谢！赶上了赶上了！」", "「下次还来！」"], 画家: ["「……谢谢。」他点了点头。", "「画寄到了，我会再来。」"], 花匠: ["「回头给你们带一盆。」", "「花等不起，谢谢你们这么快。」"], 面包师: ["「明早给你们留两个刚出炉的。」", "「麻烦啦，我得赶回去看炉子。」"], 退休邮差: ["「这活儿干得地道。」", "「跟我当年一个样，好好干。」"], 小学老师: ["「谢谢，孩子们会很开心的。」", "「你们真细心，跟我班上的班长似的。」"], 调音师: ["「准了，谢谢。」", "「你们这铃铛的音挺正。」"], 夜班护士: ["「谢谢，我得回去补个觉了。」", "「下了夜班还能赶上，真好。」"], 书店店员: ["「回头给你们推荐几本书。」", "「包得比我们店还整齐。」"], 渔夫: ["「改天给你们带条鱼。」", "「行，靠谱。」"], 修表匠: ["「分秒不差，好。」", "「你们这钟走得准，我放心。」"], 摄影师: ["「等等，这光好，让我拍一张店里。」", "「谢啦，下回来给你们拍张合影。」"], 教授: ["「效率不错。」", "「谢谢，帮了大忙。」"], 快递员: ["「同行，懂的，谢了。」", "「你们比我们站点还快。」"], 厨子: ["「下回来店里吃饭，算我的。」", "「火候正好，谢了。」"], 邻居大叔: ["「好嘞，回头请你们喝茶。」", "「这条街就数你们店实在。」"], 留学生: ["「谢谢你们，家里人会收到的。」", "「Thank you——我是说，谢谢！」"], 新婚的姑娘: ["「谢谢！这封对我们很重要。」", "「回头给你们送喜糖。」"], 小男孩: ["「谢谢哥哥姐姐！」", "「我下回还来！」"] };
+  const faceAct = name => { const k = Object.keys(FACE_ACT).find(x => String(name || "").indexOf(x) === 0); return k ? FACE_ACT[k] : ""; };
+  const faceThanks = (name, n) => { const k = Object.keys(WHO_THANKS).find(x => String(name || "").indexOf(x) >= 0); return k ? WHO_THANKS[k][(n || 0) % WHO_THANKS[k].length] : ""; };
+  // 特征跟身份要合得上（她 2026-11-09「满身面粉的摄影师吗」）：有讲究的特征只配这几种身份，没写的谁都能配
+  const FACE_FIT = {
+    满身面粉的: ["面包师", "厨子", "老太太"], 穿制服的: ["快递员", "夜班护士", "退休邮差", "高中生", "小学老师"], 穿西装的: ["教授", "调音师", "修表匠", "摄影师", "邻居大叔", "留学生"],
+    晒得很黑的: ["渔夫", "快递员", "花匠", "邻居大叔", "小男孩", "摄影师"], 拄拐杖的: ["老太太", "退休邮差", "教授", "修表匠", "邻居大叔"], 扎双马尾的: ["高中生", "留学生", "新婚的姑娘", "书店店员", "小学老师"],
+    背画板的: ["画家", "高中生", "留学生", "小学老师", "小男孩"], 骑旧单车的: ["快递员", "高中生", "邻居大叔", "面包师", "书店店员", "花匠", "退休邮差", "留学生"], 拎鸟笼的: ["老太太", "邻居大叔", "退休邮差", "修表匠"],
+    戴耳机的: ["高中生", "留学生", "快递员", "摄影师", "调音师", "书店店员"], 提着保温桶的: ["夜班护士", "老太太", "厨子", "邻居大叔", "快递员", "小学老师"], 总迟到的: ["高中生", "留学生", "教授", "快递员", "小男孩", "画家"],
+    戴草帽的: ["花匠", "渔夫", "邻居大叔", "老太太", "小男孩", "画家", "摄影师"], 穿雨靴的: ["渔夫", "花匠", "小男孩", "快递员", "老太太", "邻居大叔"], 牵柴犬的: ["老太太", "邻居大叔", "高中生", "新婚的姑娘", "书店店员", "教授", "小男孩"]
+  };
+  // 已经拼成怪组合的老熟客（改之前来的）不再来，等于搬走了
+  const faceSane = name => { const n = String(name || ""), adj = FACE_ADJ.find(a => n.indexOf(a) === 0), who = adj && n.slice(adj.length); return !adj || !FACE_WHO.includes(who) || faceFits(adj, who); };
+  const faceFits = (adj, who) => !FACE_FIT[adj] || FACE_FIT[adj].includes(who);
+  const shopNewFace = R => { const w = FACE_WANT[Math.floor(R() * FACE_WANT.length)], who = FACE_WHO[Math.floor(R() * FACE_WHO.length)], ok = FACE_ADJ.filter(a => faceFits(a, who)); return [ok[Math.floor(R() * ok.length)] + who, w[0], w[1], w[2]]; };
+  // 熟客的小事：交情每到一档冒一件，用完从头再来（换着人来，读着不重复）
+  const REG_STORIES = ["第一次跟店员聊起了家里的事", "说下回带点自己做的东西来", "寄出去的那封终于有了回信，特地来说一声", "带了一小盒点心，放在柜台上就走了", "说起年轻时也在邮局排过很长的队", "托店里帮忙保管一封信，说过几天来拿", "说最近忙，可能要隔一阵才来", "隔了一阵又来了，说还是这家店顺手", "给店员带了一句家乡的问候", "说这条街越来越热闹，多亏这家店", "问店员最近累不累", "把自家孩子的画夹在信里给店员看"];
+  const shopRegStory = n => REG_STORIES[(Math.max(1, n) - 1) % REG_STORIES.length];
+  // 每周三张大单：按口碑等级和这周的日子拼，做完下一周更大
+  const ORDER_KINDS = [
+    { k: "serve", zh: n => "这周招待 " + n + " 位客人", n: lv => 10 + lv * 2, pay: n => n * 6 },
+    { k: "match", zh: n => "这周对上客人需求 " + n + " 次", n: lv => 5 + lv, pay: n => n * 12 },
+    { k: "win", zh: n => "这周打赢 " + n + " 个难缠客人", n: lv => 1 + Math.floor(lv / 4), pay: n => n * 60 },
+    { k: "urgent", zh: n => "这周招待 " + n + " 位急件客人", n: lv => 2 + Math.floor(lv / 3), pay: n => n * 25 },
+    { k: "earn", zh: n => "这周收进 " + n + " 枚邮花", n: lv => 400 + lv * 80, pay: n => Math.round(n * 0.3) },
+    { k: "regular", zh: n => "这周招待熟客 " + n + " 次", n: lv => 3 + Math.floor(lv / 2), pay: n => n * 20 },
+    { k: "days", zh: n => "这周开门 " + n + " 天", n: lv => Math.min(7, 3 + Math.floor(lv / 5)), pay: n => n * 30 }
+  ];
+  function shopOrders(lv, week, salt) {
+    const R = rng((hashStr(String(week) + "|" + (salt || "")) ^ (lv * 2654435761)) >>> 0), ks = shuffle(ORDER_KINDS.slice(), R).slice(0, 3);
+    return ks.map((o, i) => { const n = o.n(lv); return { id: week + "_" + o.k, k: o.k, n, prog: 0, done: false, pay: o.pay(n), rep: 40 + lv * 5 }; });
+  }
+  const shopOrderZh = o => { const t = ORDER_KINDS.find(x => x.k === o.k); return t ? t.zh(o.n) : ""; };
+  const shopMul = (shop, roster, personaOf, cardOf) => 1 + shopRepBonus(shopRepLv(shop)) + Object.keys(roster || {}).filter(p => roster[p]).reduce((a, p) => { const bid = (shop.badge || {})[p], bc = bid && cardOf ? cardOf(bid) : null; return a + 0.15 + 0.1 * shopApt(personaOf(roster[p]), p) + shopSkillBonus(shopSkillOf(shop, roster[p], p)) + (bc ? shopBadgeBonus(p, bc) : bid ? 0.06 : 0); }, 0) + shopDecorBonus(shop) + (cardOf ? shopWinBonus(shop, cardOf) : 0);
   // 按现实时间开店（她 2026-11-08「按现实时间来吧」）：上午 6–12、下午 12–18、傍晚 18–24，半夜关门；
   //   每个时段一批客人：上午多寄信的路人、下午难缠的多、傍晚来坐坐的角色多；有的是急件（给双倍）；过了这个时段没招待的就走了
   const SHOP_PERIODS = [["上午", 6, 12], ["下午", 12, 18], ["傍晚", 18, 24]];
   const shopPeriod = d => { const hr = (d || new Date()).getHours(); const p = SHOP_PERIODS.find(x => hr >= x[1] && hr < x[2]); return p ? p[0] : "半夜"; };
   function shopCustomers(shop, offDuty, seed, allChars, period) {
     const pi = Math.max(0, SHOP_PERIODS.findIndex(x => x[0] === period)), R = rng(((seed >>> 0) ^ (shop.day * 2654435761) ^ ((pi + 1) * 40503)) >>> 0);
-    const n = 2 + Math.floor((shop.decor || []).length / 3) + (pi === 0 ? 1 : 0), toughP = [0.1, 0.35, 0.15][pi], out = [];
+    const n = 2 + Math.floor((shop.decor || []).length / 3) + (pi === 0 ? 1 : 0) + shopRepCrowd(shopRepLv(shop)), toughP = [0.1, 0.35, 0.15][pi], out = [];
     const npc = shuffle(SHOP.NPC.slice(), R), tgh = shuffle(SHOP.TOUGH.slice(), R);   // 同一时段不重样
-    for (let k = 0; k < n; k++) { const tough = R() < toughP && tgh.length, x = tough ? tgh.pop() : npc.pop() || SHOP.NPC[0], urgent = !tough && R() < 0.2;
+    // 熟客（她 2026-11-09「一直玩下去」）：一半的路人是来过的熟客；剩下的是代码拼出来的新面孔，招待过就成熟客
+    const regs = shuffle(Object.values(shop.regulars || {}).filter(r => r && !r.gone && faceSane(r.name)), R);
+    for (let k = 0; k < n; k++) { const tough = R() < toughP && tgh.length, reg = !tough && regs.length && R() < 0.5 ? regs.pop() : null;
+      const x = tough ? tgh.pop() : reg ? [reg.name, reg.want, reg.fee, reg.need] : R() < 0.35 ? (npc.pop() || SHOP.NPC[0]) : shopNewFace(R), urgent = !tough && R() < 0.2;
       // 招待要对上需求（她 2026-11-08）：交给对的岗位，或者从橱窗挑一张对的卡
       const need = tough ? null : x[3] === "卡" ? (R() < 0.5 ? { card: { role: ROLES[Math.floor(R() * ROLES.length)] } } : { card: { min: "SR" } }) : x[3] ? { post: x[3] } : null;
-      out.push({ id: period + "c" + k, name: x[0], want: x[1], fee: x[2] * (urgent ? 2 : 1), tough, urgent, need }); }
+      const mood = tough ? "" : shopMood(x[0] + x[1], urgent);
+      out.push({ id: period + "c" + k, name: x[0], want: x[1], fee: x[2] * (urgent ? 2 : 1), tough, urgent, need, mood, hint: tough ? "" : (faceAct(x[0]) ? "（" + faceAct(x[0]) + "）" : "") + shopHint(need, mood, R), ...(reg ? { regularId: reg.id, bond: reg.bond || 0 } : tough ? {} : { regularId: "r_" + hashStr(x[0]).toString(36) }) }); }
+    // 稀客（她 2026-11-09，参考《猫咪后院》）：凑上条件才偶尔来，一天最多来一位
+    const rare = shopRareFor(shop, period, R); if (rare) out.splice(Math.floor(R() * (out.length + 1)), 0, { id: period + "x_" + rare.id, name: rare.name, want: rare.want, fee: rare.fee, need: rare.need, mood: "rich", hint: rare.hint, rareId: rare.id });
     if ((allChars || []).length && R() < 0.6) out.splice(1, 0, { id: period + "p0", wantChar: allChars[Math.floor(R() * allChars.length)], fee: 15, want: "想要一张明信片" });
     const vMax = [0, 1, 2][pi];
     shuffle((offDuty || []).slice(), R).slice(0, Math.min(vMax, (offDuty || []).length)).forEach((id, k) => { if (R() < (pi === 2 ? 0.85 : 0.5)) out.splice(1 + k * 2, 0, { id: period + "v" + k, charId: id, fee: 12, visitor: true }); });
     if (pi === 0 && (offDuty || []).length && R() < 0.3) out.push({ id: period + "v9", charId: offDuty[Math.floor(R() * offDuty.length)], fee: 12, visitor: true });
-    return out;
+    for (let k = out.length - 1; out.length > SHOP_CROWD_MAX && k >= 0; k--) if (!out[k].rareId && !out[k].visitor && !out[k].wantChar) out.splice(k, 1);
+    return out.slice(0, SHOP_CROWD_MAX);
   }
   const siegeIdle = (st, sd, i) => !!(st.siege && sd === st.foe && row(i) > 0);   // 守城：对面还没走到前排的不动手
 
@@ -683,6 +846,7 @@
     const cost = faceNow(st, s); if (sd.postage < cost) return { ok: false, why: "胶水不够" };
     sd.postage -= cost; sd.hand.splice(handIdx, 1); sd.kept = sd.kept.filter(k => k !== handIdx).map(k => k > handIdx ? k - 1 : k);
     const u = Object.assign({}, s, { uid: ++st.uid, hp: s.maxHp, shield: 0, marks: {}, first: true, charge: 0 });
+    if (st.siege && who === "me") { const pl = st.siege.placed = st.siege.placed || {}; pl[u.charId || "_"] = (pl[u.charId || "_"] || 0) + 1; }
     if (has(st, who, "双面胶")) { u.maxHp += 2; u.hp += 2; }
     if (has(st, who, "封蜡")) u.shield += 2;
     if (has(st, who, "预热")) u.charge = 1;
@@ -710,6 +874,7 @@
     if (sd.torn >= tearCap(st)) return { ok: false, why: "这回合撕够了" };
     sd.board[slot] = null; sd.discard.push(stripUnit(u)); sd.torn++;
     const k = u.limited ? 2 : 1;
+    if (st.siege && who === "me") { const g = st.siege.week === "thrift" ? 2 : 1; sd.postage += g; st.siege.tears++; say(st, who, "撕下来退了 " + g + " 格胶水", { kind: "gain", slot }); }
     if (u.role === "投递") hitEnvelope(st, other(who), u.pow * k, u.name + " 撕下");
     else if (u.role === "火漆") sd.board.forEach(x => { if (x) x.shield += 2 * k; });
     else if (u.role === "补票") sd.hp = Math.min(sd.max || ENVELOPE_HP, sd.hp + 4 * k);
@@ -763,8 +928,8 @@
     else if (k === "加固") { sd.board.forEach(v => { if (v) v.shield += Math.round(2 * x); }); u.shield += p; }
     else if (k === "回敬") { u.reflect = 1; u.shield += Math.ceil(p / 2); }
     else if (k === "补满") { const w = sd.board.filter(Boolean).sort((a, b) => a.hp / a.maxHp - b.hp / b.maxHp)[0]; if (w) w.hp = w.maxHp; if (big) sd.hp = Math.min(sd.max || ENVELOPE_HP, sd.hp + 4); }
-    else if (k === "群补") sd.board.forEach(v => { if (v) v.hp = Math.min(v.maxHp, v.hp + Math.round(4 * x)); });
-    else if (k === "洗戳") sd.board.forEach(v => { if (v) { v.marks = {}; v.hp = Math.min(v.maxHp, v.hp + Math.round(2 * x)); } });
+    else if (k === "群补") healUnits(sd, sd.board, Math.round(4 * x));
+    else if (k === "洗戳") { sd.board.forEach(v => { if (v) v.marks = {}; }); healUnits(sd, sd.board, Math.round(2 * x)); }
     else if (k === "拾回") { const pile = sd.discard.slice().sort((a, b) => b.pow + b.maxHp - a.pow - a.maxHp); const n = big ? 2 : 1; pile.slice(0, n).forEach(v => { sd.discard.splice(sd.discard.indexOf(v), 1); sd.hand.push(v); }); }
     else if (k === "进账") sd.postage += Math.round(2 * x * (eventNow(st) === "集邮节" ? 2 : 1));
     else if (k === "翻信箱") drawCards(sd, Math.round(2 * x * (eventNow(st) === "集邮节" ? 2 : 1)), st.seed + st.turn * 13 + slot);
@@ -783,7 +948,7 @@
     checkOver(st);
     return { ok: true };
   }
-  const stripUnit = u => { const o = Object.assign({}, u); ["uid", "hp", "shield", "marks", "first", "charge", "grudge", "reflect", "stood"].forEach(k => delete o[k]); return o; };
+  const stripUnit = u => { const o = Object.assign({}, u); ["uid", "hp", "shield", "marks", "first", "charge", "grudge", "reflect", "stood", "age"].forEach(k => delete o[k]); return o; };
   function mark(sd, i, m, st) {
     const u = sd.board[i]; if (!u || !MARKS[m]) return;
     if (m !== "加急") {
@@ -823,7 +988,7 @@
   }
 
   // ── 结算 ───────────────────────────────────────────────────────
-  function powOf(st, u, sd, i) {
+  function powOf(st, u, sd, i, toEnv) {
     let p = u.pow + (u.marks.雨渍 ? -2 : 0) + (eventNow(st) === "大雨" ? -1 : 0);
     const who0 = u.side || (sd === st.me ? "me" : "foe");
     if (who0 === "foe" && st.bossRule === "偏执") p += st.rage || 0;
@@ -836,12 +1001,21 @@
     if (u.trait === "记仇") p += Math.min(4, u.grudge || 0);
     if (u.trait === "夜行" && row(i) === SIZE - 1) p += 2;
     const b = bondOn(st, sd, u); if (b === "好胜") p += 1; else if (b === "偏执") p += 2;
-    if (u.first && u.kind === "if") p *= 2;                                                              // IF 卡第一次做双份
+    // IF 卡第一下多打一份「本身的攻击」，只算打票、不算直接打信封（她 2026-11-10：万圣夜卡第一回合对面空着，翻倍叠上后排、连张，一回合把信封打空）
+    if (u.first && u.kind === "if" && !toEnv) p += u.pow;
+    if (st.siege && st.siege.week === "rush" && u.role === "投递") p += 1;
     return Math.max(0, p);
   }
   // 打同一列：从前排往后找第一张——后排只要前面有人就挨不着
   function targetIn(sd, c) { for (let r = 0; r < SIZE; r++) { const i = r * SIZE + c; if (sd.board[i]) return i; } return -1; }
   function hitEnvelope(st, who, n, by) { if (n <= 0) return; if (st.raid && who === "foe") st.raid.dealt += n; st[who].hp -= n; say(st, other(who), (by ? "「" + by + "」" : "") + "打到信封 -" + n, { kind: "hitEnv", n }); }
+  // 回血溢出（她 2026-11-09「回血溢出也弄一下」）：补满了还多出来的，一半补到自家信封；只算主动的补（补票、群补、洗戳）
+  function healUnits(sd, list, n) {
+    let over = 0;
+    list.forEach(v => { if (!v) return; const got = Math.min(n, Math.max(0, v.maxHp - v.hp)); v.hp += got; over += n - got; });
+    const env = Math.floor(over / 2); if (env > 0) sd.hp = Math.min(sd.max || ENVELOPE_HP, sd.hp + env);
+    return env;
+  }
   function hitUnit(st, who, i, n, by, att) {
     const sd = st[who], u = sd.board[i]; if (!u || n <= 0) return;
     if (u.trait === "莽撞") n += 1;
@@ -852,7 +1026,7 @@
       if (u.weak) n *= 2;
       st.raid.dealt += Math.max(0, Math.min(n, u.hp + u.shield));
     }
-    const blocked = att && att.trait === "锋利" ? 0 : Math.min(u.shield, n); u.shield -= blocked; u.hp -= (n - blocked);
+    const blocked = att && att.trait === "锋利" ? 0 : Math.min(u.shield, n), hp0 = u.hp; u.shield -= blocked; u.hp -= (n - blocked);
     if (u.trait === "记仇") u.grudge = (u.grudge || 0) + 1;
     say(st, other(who), "「" + by + "」打「" + u.name + "」 -" + n, { kind: "hit", slot: i, n, blocked });
     if (u.reflect) { u.reflect = 0; hitEnvelope(st, other(who), Math.ceil(n / 2), u.name + " 回敬"); }
@@ -862,13 +1036,16 @@
       sd.board[i] = null; sd.discard.push(stripUnit(u)); say(st, who, u.name + " 掉了", { kind: "fall", slot: i, char: u.charId, line: u.lines.fall });
       if (u.trait === "余温") adj(i).forEach(j => { const v = sd.board[j]; if (v && v.charge < v.need) v.charge++; });
       if (att && att.trait === "热烈") hitEnvelope(st, who, 3, att.name);
+      // 溢出一半（她 2026-11-09）：打死以后多出来的伤害，一半落到同一列下一张，这一列没票了就落到信封
+      const spill = Math.floor(Math.max(0, n - blocked - hp0) / 2);
+      if (spill > 0) { const j = targetIn(sd, col(i)); if (j >= 0) hitUnit(st, who, j, spill, by + " 余劲", att); else hitEnvelope(st, who, spill, by + " 余劲"); }
     }
   }
   function act(st, who, i) {
     const sd = st[who], foeWho = other(who), foe = st[foeWho], u = sd.board[i]; if (!u) return;
     if (siegeIdle(st, sd, i)) { const j = i - SIZE; if (j >= 0 && !sd.board[j]) { sd.board[j] = u; sd.board[i] = null; say(st, who, u.name + " 往前走了一格", { kind: "skip", slot: j }); } return; }
     // 守城：在前排站过一回合还没被打掉的，下一回合就闯过去，撞你的信封
-    if (st.siege && sd === st.foe) { if (u.atGate) { hitEnvelope(st, "me", u.pow + SIEGE_BREACH, u.name + " 闯过去了"); sd.board[i] = null; checkOver(st); return; } u.atGate = 1; }
+    if (st.siege && sd === st.foe) { if (u.atGate) { hitEnvelope(st, "me", u.pow + SIEGE_BREACH + (u.courier ? COURIER_HIT : 0), u.name + " 闯过去了"); sd.board[i] = null; checkOver(st); return; } u.atGate = 1; }
     if (u.marks.退回) { say(st, who, u.name + " 被退回，这回合不动", { kind: "skip", slot: i }); return; }
     let times = u.marks.加急 ? 2 : 1;
     if (u.role === "投递" && u.first && has(st, who, "加急包")) times *= 2;
@@ -876,14 +1053,14 @@
     // SR／SSR 每局第一次出手：给界面一条「出手」，扫一道带卡面的横幅（她 2026-11-08「SR 和 SSR 都加吧」）
     if ((u.rarity === "SR" || u.rarity === "SSR") && !u.cutDone && u.cardId) { u.cutDone = 1; say(st, who, u.name + " 出手", { kind: "attack", slot: i, char: u.charId, rarity: u.rarity, name: u.name, cardId: u.cardId, cutLine: u.lines.enter || u.lines.wake || "" }); }
     for (let t = 0; t < times && sd.board[i] === u; t++) {
-      const p = powOf(st, u, sd, i), j = targetIn(foe, col(i));
+      const j = targetIn(foe, col(i)), p = powOf(st, u, sd, i, j < 0);
       // 每种票都打人（她 2026-11-08「每种卡都可以攻击吧不然太慢了」）：投递打满，别的打几成、再加自己的本事
       const side = n => { if (n <= 0 || sd.board[i] !== u) return; const jj = targetIn(foe, col(i)); if (jj >= 0) hitUnit(st, foeWho, jj, n, u.name, u); else hitEnvelope(st, foeWho, n, u.name); };
       if (u.role === "投递") { if (j >= 0) hitUnit(st, foeWho, j, p, u.name, u); else hitEnvelope(st, foeWho, p, u.name); }
       else if (u.role === "火漆") { u.shield += Math.max(1, Math.ceil(p / 2)); side(Math.ceil(p * ROLE_HIT.火漆)); }
       else if (u.role === "补票") {
         const hurt = sd.board.filter(x => x && x.hp < x.maxHp).sort((a, b) => a.hp / a.maxHp - b.hp / b.maxHp)[0];
-        if (hurt) hurt.hp = Math.min(hurt.maxHp, hurt.hp + Math.max(2, Math.ceil(p / 2))); else sd.hp = Math.min(sd.max || ENVELOPE_HP, sd.hp + 2);
+        if (hurt) healUnits(sd, [hurt], Math.max(2, Math.ceil(p / 2))); else sd.hp = Math.min(sd.max || ENVELOPE_HP, sd.hp + 2);
         const dirty = sd.board.find(x => x && (x.marks.雨渍 || x.marks.退回)); if (dirty) { delete dirty.marks.雨渍; delete dirty.marks.退回; }
         say(st, who, u.name + " 补了一下", { kind: "heal", slot: i }); side(Math.ceil(p * ROLE_HIT.补票));
       }
@@ -948,7 +1125,7 @@
   function aimOf(st, sd, foe, i, u) {
     if (siegeIdle(st, sd, i)) return null;
     if (st.siege && sd === st.foe && u.atGate) return { from: i, to: -1, dmg: u.pow + SIEGE_BREACH, kind: "env", breach: true };
-    const p = powOf(st, u, sd, i), j = targetIn(foe, col(i));
+    const j = targetIn(foe, col(i)), p = powOf(st, u, sd, i, j < 0);
     if (u.role === "投递") return { from: i, to: j, dmg: p, kind: j >= 0 ? "hit" : "env" };
     const d = Math.ceil(p * (ROLE_HIT[u.role] || 0)); if (d <= 0) return null;
     if (u.role === "邮戳" && j >= 0 && !SELF_INK[u.ink]) return { from: i, to: j, dmg: d, kind: "ink", ink: u.ink };
@@ -960,7 +1137,7 @@
   }
   function aims0(st, who) {
     const sd = st[who], foe = st[other(who)], keep = sd.board, board = keep.slice(), planned = {};
-    if (who === "foe") ((st.intent || {}).place || []).forEach(pl => { const s = sd.hand.find(x => x && x.cardId === pl.cardId); if (s && !board[pl.slot]) { board[pl.slot] = Object.assign({}, s, { marks: {}, hp: s.maxHp, shield: 0, charge: 0 }); planned[pl.slot] = 1; } });
+    if (who === "foe") ((st.intent || {}).place || []).forEach(pl => { const s = sd.hand.find(x => x && x.cardId === pl.cardId); if (s && !board[pl.slot]) { board[pl.slot] = Object.assign({}, s, { marks: {}, hp: s.maxHp, shield: 0, charge: 0, first: true }); planned[pl.slot] = 1; } });
     sd.board = board; const out = [];
     try { board.forEach((u, i) => { if (!u || (u.marks && u.marks.退回)) return; const a = aimOf(st, sd, foe, i, u); if (a) out.push(Object.assign(a, planned[i] ? { planned: true } : {})); }); }
     finally { sd.board = keep; }
@@ -985,7 +1162,7 @@
   // 手里这张要是贴在 slot：会打谁、打多少、凑不凑得成组合
   function previewPlace(st, who, handIdx, slot) {
     const sd = st[who], s = sd.hand[handIdx]; if (!s || sd.board[slot] || blocked(sd, slot)) return null;
-    const u = Object.assign({}, s, { marks: {}, hp: s.maxHp, shield: 0, charge: 0 }), keep = sd.board, board = keep.slice(); board[slot] = u; sd.board = board;
+    const u = Object.assign({}, s, { marks: {}, hp: s.maxHp, shield: 0, charge: 0, first: true }), keep = sd.board, board = keep.slice(); board[slot] = u; sd.board = board;
     try {
       const a = aimOf(st, sd, st[other(who)], slot, u), combo = [];
       if (u.charId && adj(slot).some(j => board[j] && board[j].charId === u.charId)) combo.push("连张");
@@ -1045,7 +1222,7 @@
   const mine = raw => (st, who, a, b) => { if (who !== "me") return raw(st, who, a, b); snap(st); const r = raw(st, who, a, b); if (!r || !r.ok) st.undo.pop(); return r; };
   const place = mine(placeRaw), tear = mine(tearRaw), move = mine(moveRaw), keep = mine(keepRaw), stamp = mine(stampRaw);
   const API = { RELICS, STYLE_ZH, TRAIT_FIT, TRAITS, SKILLS, BONDS, bondOf, unitInfo, SIZE, SLOTS, ENVELOPE_HP, POSTAGE, DRAW, DECK_SIZE, TURN_CAP, KEEP_MAX, FACE, NEED, ROLES, MARKS, TERRAIN, EVENTS,
-    stampOf, deckFrom, foeDeckFrom, shopDecorOf, shopUpPrice, SHOP, SHOP_PERIODS, shopPeriod, SHOP_WIN, shopWinSlots, shopWinBonus, shopApt, shopMul, SHOP_BADGE, SHOP_BADGE_FIT, shopBadgeFit, shopBadgeBonus, shopNeedZh, shopCardFits, SHOP_THANKS, shopCustomers, autoMe, PUZZLE_MAX, puzzleOf, pzSolve, PATROL, TA_CELLS, TA_PTS, patrolNew, patrolCan, patrolMove, patrolBattle, patrolAfter, weekNo, SHIFT, shiftNew, shiftRoll, shiftPrice, shiftBuy, shiftSell, shiftDeck, shiftBonds, shiftFoeLv, shiftAfter, EDICTS, EDICT_LV, edictDeck, RAID_TURNS, MATS, BASE_MATS, THEME_MAT, KEEP_FX, KEEP_MAX_SLOTS, keepFxOf, keepTier, matDrop, SIEGE_TIERS, newDuel, envFor, avgLv, fairDeck, aims, actsOf, previewPlace, place, tear, move, keep, stamp, undo, canUndo, endTurn, planFoe, combos, newSeries, addGame, memoryLine, hashStr };
+    stampOf, deckFrom, foeDeckFrom, shopDecorOf, shopUpPrice, SHOP, SHOP_PERIODS, shopPeriod, SHOP_WIN, shopWinSlots, shopWinBonus, shopApt, shopMul, SHOP_BADGE, SHOP_BADGE_FIT, shopBadgeFit, shopBadgeBonus, shopNeedZh, shopCardFits, SHOP_THANKS, hitUnit, healUnits, simSend, shopRepLv, shopRepLeft, shopRepBonus, shopSkillTitle, shopSkillOf, shopSkillBonus, shopOrders, shopOrderZh, shopRegStory, shopNewFace, shopPrice, shopHint, FACE_FEATURES,FACE_IDENTITIES,shopAppearance, RARE_GUESTS, faceAct, faceThanks, FACE_ADJ, FACE_WHO, faceFits, shopCustomers, autoMe, PUZZLE_MAX, puzzleOf, pzSolve, PATROL, TA_CELLS, TA_PTS, patrolNew, patrolCan, patrolMove, patrolBattle, patrolAfter, weekNo, SHIFT, shiftNew, shiftRoll, shiftPrice, shiftBuy, shiftSell, shiftDeck, shiftBonds, shiftFoeLv, shiftAfter, EDICTS, EDICT_LV, edictDeck, RAID_TURNS, MATS, BASE_MATS, THEME_MAT, KEEP_FX, KEEP_MAX_SLOTS, keepFxOf, keepTier, matDrop, SIEGE_TIERS, SIEGE_WEEK, siegeWeek, SIEGE_BOONS, siegeBoon, newDuel, envFor, avgLv, fairDeck, aims, actsOf, previewPlace, place, tear, move, keep, stamp, undo, canUndo, endTurn, planFoe, combos, newSeries, addGame, memoryLine, hashStr };
   g.StampDuel = API;
   if (typeof module !== "undefined" && module.exports) module.exports = API;
 })(typeof window !== "undefined" ? window : globalThis);

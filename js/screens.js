@@ -2619,8 +2619,12 @@ function GardenPlant({ g, size }) {
 
 // 花房整页（no-half-sheet）。规矩就三条：花是TA挑的；它吃你们真实的相处（不靠浇水按钮，
 // 没有任何数值进度条——长到哪儿看它自己）；开完一茬收一枚干花，盆空出来等下一种。
-function CoupleGarden({ partner, data, gen, onPlant, onKeep, onBack }) {
+function CoupleGarden({ partner, data, gen, onPlant, onKeep, onBack, onPlantMine, onDraw, onDrawToggle, drawing }) {
   const t = useTheme();
+  // 我也能种（她 2026-11-09）：我种的跟TA种的走同一条路——进TA记忆、TA会接一句、收进同一本干花册
+  const [mySp, setMySp] = useState("");
+  const [myWhy, setMyWhy] = useState("");
+  const img = src => (typeof resolveImg === "function" ? resolveImg(src) : src);
   // 干花册里点开一枚看全文（她 2026-09-18 转小红书群里读者 ! YOLO：
   //   「干花册里面看不到完整的详情文字，能不能点开能够弹出来，或者就是直接展示区更大一些」）
   // ⚠️不另开一个弹层：册子本来就是一册一册翻的，点开那一枚就地摊开最像它自己。
@@ -2641,13 +2645,24 @@ function CoupleGarden({ partner, data, gen, onPlant, onKeep, onBack }) {
           h("div", { style: { display: "flex", justifyContent: "center" } }, h(GardenPlant, { g: g, size: 150 })),
           h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(22px * var(--app-fs, 1))", color: "#43552f", marginTop: 10 } }, g.species),
           h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: "#7a8a62", marginTop: 4 } },
-            st.zh + " · " + fmtD(g.plantedTs) + " 种下"),
+            st.zh + " · " + fmtD(g.plantedTs) + (g.by === "me" ? " 你种下" : " " + partner.name + " 种下")),
+          g.img ? h("img", { "data-part": "gardenimg", src: img(g.img), alt: g.species, style: { width: "100%", borderRadius: 14, marginTop: 12, display: "block" } }) : null,
           g.why ? h("div", { style: { fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: "calc(13px * var(--app-fs, 1))", lineHeight: 1.7, color: "#93707c", marginTop: 10 } }, "「", (typeof TransText === "function" ? h(TransText, { text: g.why, inline: true }) : g.why), "」") : null),
         h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.8, textAlign: "center", marginTop: 12 } },
           doze ? "它在打盹——你们回来，它就接着长。" : "它吃你们真实的相处：聊过天、线下待过、打过卡，它就长一点。没有进度条——长到哪儿，看它自己。"),
         bloomed ? h("button", { onClick: onKeep, className: "w-full active:opacity-70",
           style: { marginTop: 14, background: t.ink, color: t.bg2, fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))", padding: "13px 0", borderRadius: 14 } },
-          "收一枚干花 · 让盆空出来") : null)
+          "收一枚干花 · 让盆空出来") : null,
+        h("div", { "data-part": "gardendraw", className: "flex items-center", style: { gap: 10, marginTop: 14, padding: "10px 12px", borderRadius: 14, border: "1px solid " + t.line } },
+          h("div", { className: "flex-1 min-w-0" },
+            h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.ink } }, "开花时画一张"),
+            h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, marginTop: 2 } }, "开了就用生图画一张这盆花，每次画都算一次生图")),
+          h("button", { onClick: () => onDrawToggle && onDrawToggle(!g.drawOn), "aria-pressed": g.drawOn ? "true" : "false",
+            style: { width: 44, height: 26, borderRadius: 13, background: g.drawOn ? t.ink : t.line, position: "relative", flexShrink: 0 } },
+            h("span", { style: { position: "absolute", top: 3, left: g.drawOn ? 21 : 3, width: 20, height: 20, borderRadius: 10, background: t.bg2, transition: "left .15s" } })),
+          h("button", { onClick: onDraw, disabled: drawing, className: "active:opacity-70 disabled:opacity-40",
+            style: { flexShrink: 0, padding: "6px 12px", borderRadius: 10, border: "1px solid " + t.line, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.ink } },
+            drawing ? "在画…" : (g.img ? "重画" : "现在画"))))
       : h(Fragment, null,
         h("div", { style: { marginTop: 16, borderRadius: 20, padding: "26px 18px", textAlign: "center", border: "1.5px dashed " + t.line } },
           h("div", { style: { display: "flex", justifyContent: "center" } }, h(GardenPlant, { g: {}, size: 110 })),
@@ -2655,14 +2670,25 @@ function CoupleGarden({ partner, data, gen, onPlant, onKeep, onBack }) {
             kept.length ? "盆空着。让 " + partner.name + " 再挑一种。" : "窗台上有一只空盆。种什么，让 " + partner.name + " 来挑。")),
         h("button", { onClick: onPlant, disabled: gen, className: "w-full active:opacity-70 disabled:opacity-40",
           style: { marginTop: 14, background: t.ink, color: t.bg2, fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))", padding: "13px 0", borderRadius: 14 } },
-          gen ? partner.name + " 挑着…" : "让 " + partner.name + " 挑一种花")),
+          gen ? partner.name + " 挑着…" : "让 " + partner.name + " 挑一种花"),
+        h("div", { "data-part": "gardenmine", style: { marginTop: 18, padding: "14px 14px 12px", borderRadius: 16, border: "1px solid " + t.line } },
+          h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.ink, marginBottom: 8 } }, "或者，我来种"),
+          h("input", { value: mySp, onChange: e => setMySp(e.target.value), placeholder: "种什么花", maxLength: 20,
+            style: { width: "100%", padding: "9px 11px", borderRadius: 10, border: "1px solid " + t.line, background: t.bg2, color: t.ink, fontFamily: F_BODY, fontSize: 16 } }),
+          h("input", { value: myWhy, onChange: e => setMyWhy(e.target.value), placeholder: "为什么是它（可不填）", maxLength: 80,
+            style: { width: "100%", marginTop: 8, padding: "9px 11px", borderRadius: 10, border: "1px solid " + t.line, background: t.bg2, color: t.ink, fontFamily: F_BODY, fontSize: 16 } }),
+          h("button", { onClick: () => { const sp = mySp.trim(); if (!sp || !onPlantMine) return; onPlantMine(sp, myWhy.trim()); setMySp(""); setMyWhy(""); },
+            disabled: !mySp.trim() || gen, className: "w-full active:opacity-70 disabled:opacity-40",
+            style: { marginTop: 10, padding: "11px 0", borderRadius: 12, border: "1px solid " + t.ink, color: t.ink, fontFamily: F_DISPLAY, fontSize: "calc(14px * var(--app-fs, 1))" } },
+            "种下"))),
       kept.length ? h("div", { style: { marginTop: 24 } },
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(16px * var(--app-fs, 1))", color: t.ink, marginBottom: 9 } }, "干花册"),
         kept.map((k, i) => {
           const on = openFlower === i;
           // 没有理由那一句的，点开也没有第二层，就别做成按钮（点了没反应比不能点更糟）
           const row = h("div", { className: "flex items-center", style: { gap: 11, padding: "11px 2px", borderBottom: on ? "none" : "1px solid " + t.line } },
-            h("span", { "aria-hidden": "true", style: { width: 11, height: 11, borderRadius: "50% 50% 50% 0", background: k.color || "#c98a9e", opacity: 0.8, flexShrink: 0, transform: "rotate(-45deg)" } }),
+            k.img ? h("img", { src: img(k.img), alt: "", style: { width: 34, height: 34, borderRadius: 8, objectFit: "cover", flexShrink: 0 } })
+              : h("span", { "aria-hidden": "true", style: { width: 11, height: 11, borderRadius: "50% 50% 50% 0", background: k.color || "#c98a9e", opacity: 0.8, flexShrink: 0, transform: "rotate(-45deg)" } }),
             h("div", { className: "flex-1 min-w-0 text-left" },
               h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.ink } }, k.species),
               // 收起时一行带省略号；点开时整段摊开（pre-wrap + break-word，长句不撑破册子）
@@ -2670,7 +2696,7 @@ function CoupleGarden({ partner, data, gen, onPlant, onKeep, onBack }) {
                 ? { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.sub, marginTop: 4, lineHeight: 1.85, whiteSpace: "pre-wrap", wordBreak: "break-word" }
                 : { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } },
                 "「", (on && typeof TransText === "function" ? h(TransText, { text: k.why, inline: true }) : k.why), "」") : null),
-            h("span", { style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", color: t.fog, flexShrink: 0 } }, fmtD(k.ts) + " 收"));
+            h("span", { style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", color: t.fog, flexShrink: 0 } }, (k.by === "me" ? "你种 · " : "") + fmtD(k.ts) + " 收"));
           if (!k.why) return h("div", { key: i }, row);
           return h("button", { key: i, onClick: () => setOpenFlower(on ? -1 : i),
             className: "w-full active:opacity-70",
@@ -3066,7 +3092,7 @@ function SpaceDoor({ partner, home, busy, lit, carryNames, tone, eyebrow, put, t
     eyebrow("留灯", "今晚的，早上六点熄"), lights);
 }
 
-function Us({ onPutDrawerMine, onReplyDrawerMine, drawerReplyBusy, characters, couples, onBack, myWallet, onJarMove, onJarGoal, onInvite, onSetRel, spaceBooks, spaceBookBusy, onBookAdd, onBookReply, onBookRemove, onBookTa, spaceHome, spaceHomeBusy, lightLit, carryNamesOf, onSpaceHome, onSpaceHomeTa, onUnlink, onSetSince, profile, profileFor, coupleProfile, coupleHome, onSaveCoupleHome, onSetCoupleImg, coupleQA, onAnswerQA, onEditQA, onRemoveQA, onRerollQA, onReplyQA, onEditQAReply, qaGen, coupleQATitle, onSaveQATitle, coupleQACustom, coupleQABooks, onSaveQABook, onSaveQACustom, coupleQACustomBooks, onSaveQACustomBooks, moodOf, coupleTimeline, onAddTimeline, onRemoveTimeline, onReadTimeline, onGenTimeline, tlGen, coupleAnniv, onAddAnniv, onRemoveAnniv, coupleLetters, coupleLetterCfg, onGenLetter, onAddMyLetter, onReplyLetter, onReadLetter, onRemoveLetter, onSaveLetterCfg, letterGen, coupleSweet, onCheckinSweet, coupleDrawer, onOpenDrawer, onDropDrawer, onEditDrawer, onForwardDrawer, coupleFirstsOf, onSetFirstAt, myCloset, charClosetOf, studioShots, studioBusy, fitBusy, studioCanShoot, onGenDateFit, onStudioShoot, onRollStyles, onRollThemes, onShareShot, ifLines, ifBusy, ifBgBusy, onIfOpen, onIfAdvance, onIfBg, onIfShot, onIfBgPick, onIfEnd, onIfDrop, makeupOf, makeupSignalFor, makeupBusy, onMakeupOpen, onMakeupSay, onMakeupClose, gachaPts, gachaCards, gachaLuck, gachaBusy, onGachaPull, onGachaRedeem, onGachaShow, onGachaPin, onGachaDelete, onGachaTitle, onGachaShoot, onGachaCarve, land, onLanded, coupleExDiary, onAddExDiary, onReadExDiary, duoPhotosFor, onDeletePhoto, onUploadPhoto, couplePactsOf, onClosePact, onSetPactDue, onAddPact, onSealQA, onRevealQA, onPlanWish, wishPlanOf, coupleGarden, onGardenPlant, onGardenKeep, gardenGen, coupleTrips, onTripStart, onTripPlan, onTripBook, onTripBookPick, onTripBookPay, onTripDate, kinCardFrom, onTripDepart, onTripDone, tripGen, coupleRecall, onGenRecall, onReadRecall, onDelRecall, recallGen, onGenWish, charWishGen, outletLedger, outletKinds, capsuleProps, coupleDisc, onDiscAdd, onDiscRemove, onDiscNote, onDiscAuto, onDiscPlay, onDiscEnter, onDiscLeave, onDiscGen, discGen, discNextIdOf, discNowId, discPlaying, onPartnerView }) {
+function Us({ onPutDrawerMine, onReplyDrawerMine, drawerReplyBusy, characters, couples, onBack, myWallet, onJarMove, onJarGoal, onInvite, onSetRel, spaceBooks, spaceBookBusy, onBookAdd, onBookReply, onBookRemove, onBookTa, spaceHome, spaceHomeBusy, lightLit, carryNamesOf, onSpaceHome, onSpaceHomeTa, onUnlink, onSetSince, profile, profileFor, coupleProfile, coupleHome, onSaveCoupleHome, onSetCoupleImg, coupleQA, onAnswerQA, onEditQA, onRemoveQA, onRerollQA, onReplyQA, onEditQAReply, qaGen, coupleQATitle, onSaveQATitle, coupleQACustom, coupleQABooks, onSaveQABook, onSaveQACustom, coupleQACustomBooks, onSaveQACustomBooks, moodOf, coupleTimeline, onAddTimeline, onRemoveTimeline, onReadTimeline, onGenTimeline, tlGen, coupleAnniv, onAddAnniv, onRemoveAnniv, coupleLetters, coupleLetterCfg, onGenLetter, onAddMyLetter, onReplyLetter, onReadLetter, onRemoveLetter, onSaveLetterCfg, letterGen, coupleSweet, onCheckinSweet, coupleDrawer, onOpenDrawer, onDropDrawer, onEditDrawer, onForwardDrawer, coupleFirstsOf, onSetFirstAt, myCloset, charClosetOf, studioShots, studioBusy, fitBusy, studioCanShoot, onGenDateFit, onStudioShoot, onRollStyles, onRollThemes, onShareShot, ifLines, ifBusy, ifBgBusy, onIfOpen, onIfAdvance, onIfBg, onIfShot, onIfBgPick, onIfEnd, onIfDrop, makeupOf, makeupSignalFor, makeupBusy, onMakeupOpen, onMakeupSay, onMakeupClose, gachaPts, gachaCards, gachaLuck, gachaBusy, onGachaPull, onGachaRedeem, onGachaShow, onGachaPin, onGachaDelete, onGachaTitle, onGachaShoot, onGachaCarve, land, onLanded, coupleExDiary, onAddExDiary, onReadExDiary, duoPhotosFor, onDeletePhoto, onUploadPhoto, couplePactsOf, onClosePact, onSetPactDue, onAddPact, onSealQA, onRevealQA, onPlanWish, wishPlanOf, coupleGarden, onGardenPlant, onGardenKeep, gardenGen, onGardenPlantMine, onGardenDraw, onGardenDrawToggle, gardenDrawing, coupleTrips, onTripStart, onTripPlan, onTripBook, onTripBookPick, onTripBookPay, onTripDate, kinCardFrom, onTripDepart, onTripDone, tripGen, coupleRecall, onGenRecall, onReadRecall, onDelRecall, recallGen, onGenWish, charWishGen, outletLedger, outletKinds, capsuleProps, coupleDisc, onDiscAdd, onDiscRemove, onDiscNote, onDiscAuto, onDiscPlay, onDiscEnter, onDiscLeave, onDiscGen, discGen, discNextIdOf, discNowId, discPlaying, onPartnerView }) {
   const t = useTheme();
   const [view, setView] = useState(null); // null=名册 / charId=某段情侣详情
   const [sub, setSub] = useState(null); // 情侣空间子模块：null / 'qa'（后续加 timeline/mood/notes/letters）
@@ -3099,6 +3125,14 @@ function Us({ onPutDrawerMine, onReplyDrawerMine, drawerReplyBusy, characters, c
   React.useLayoutEffect(() => {
     if (sub === null && bodyRef.current && subScrollRef.current > 0) bodyRef.current.scrollTop = subScrollRef.current;
   }, [sub]);
+  // 名册也记位置（她 2026-11-10：「下滑到下面的人的空间，退出来又回到最上面」）：
+  //   进某一段之前记下名册滚到哪儿，退回名册时放回去——跟上面子页那一套同一个做法
+  const rosterRef = useRef(null);
+  const rosterScrollRef = useRef(0);
+  const openView = id => { if (rosterRef.current) rosterScrollRef.current = rosterRef.current.scrollTop; setView(id); };
+  React.useLayoutEffect(() => {
+    if (view === null && rosterRef.current && rosterScrollRef.current > 0) rosterRef.current.scrollTop = rosterScrollRef.current;
+  }, [view]);
   const [pick, setPick] = useState(false);
   const [pickWho, setPickWho] = useState(null);   // 选好了人，正在挑这个空间是什么关系
   const [annOpen, setAnnOpen] = useState(false);
@@ -3303,6 +3337,8 @@ function Us({ onPutDrawerMine, onReplyDrawerMine, drawerReplyBusy, characters, c
   if (partner && cp[view] && cp[view].status === "together" && sub === "garden") {
     return h(CoupleGarden, { partner, data: (coupleGarden || {})[partner.id] || {}, gen: gardenGen === partner.id,
       onPlant: () => onGardenPlant && onGardenPlant(partner), onKeep: () => onGardenKeep && onGardenKeep(partner.id),
+      onPlantMine: (sp, why) => onGardenPlantMine && onGardenPlantMine(partner, sp, why), onDraw: () => onGardenDraw && onGardenDraw(partner.id),
+      onDrawToggle: on => onGardenDrawToggle && onGardenDrawToggle(partner.id, on), drawing: gardenDrawing === partner.id,
       onBack: () => setSub(null) });
   }
   // 情侣空间子模块：时光胶囊（v62.41）
@@ -4055,7 +4091,7 @@ function Us({ onPutDrawerMine, onReplyDrawerMine, drawerReplyBusy, characters, c
     h(Head, { zh: entries.some(e => window.spaceRelKey && window.spaceRelKey(e.st) !== "lover") ? "我们的空间" : "情侣", sub: entries.length ? entries.length + " 段 · 最久的走了 " + maxDays + " 天" : "",
       bg: "transparent", noLine: true, onBack,
       right: characters.length > 0 ? h("button", { onClick: () => setPick(true), className: "active:opacity-50 flex items-center justify-center", style: { width: 34, height: 38 } }, h(IHeart, { size: 19, color: t.ink })) : null }),
-    h("div", { className: "flex-1 min-h-0 overflow-y-auto px-6 pb-8" },
+    h("div", { ref: rosterRef, "data-part": "usroster", className: "flex-1 min-h-0 overflow-y-auto px-6 pb-8" },
       entries.length === 0
         ? h("div", { className: "pt-8" },
             h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", lineHeight: 1.8, color: t.fog } }, "还没有情侣关系。点右上角 ♥ 选一位角色发送邀请——邀请会出现在你和 TA 的聊天里，TA 会依据关系与好感决定接不接受。"),
@@ -4073,7 +4109,7 @@ function Us({ onPutDrawerMine, onReplyDrawerMine, drawerReplyBusy, characters, c
                   // 有新情书＝头像上一个红点，跟聊天列表的未读同一套语汇，不是粉药丸
                   tags.length ? h("span", { style: { position: "absolute", top: -2, right: -2, width: 10, height: 10,
                     borderRadius: 999, background: "#e0524a", boxShadow: "0 0 0 2px " + t.bg } }) : null),
-                h("button", { onClick: () => tog && setView(e.char.id), className: "flex-1 min-w-0 text-left active:opacity-75" },
+                h("button", { onClick: () => tog && openView(e.char.id), className: "flex-1 min-w-0 text-left active:opacity-75" },
                   h("div", { className: "flex items-baseline", style: { gap: 8 } },
                     h("div", { "data-wk": "usname", className: "truncate", style: { fontFamily: F_DISPLAY, fontSize: "calc(17px * var(--app-fs, 1))", color: t.ink } }, e.char.name),
                     // 不是恋人的那几行，名字边上一枚小火漆写着是什么空间

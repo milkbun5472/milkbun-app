@@ -331,3 +331,59 @@ test("小店同一时段的路人不重样", () => {
 test("陪打的人点名的那张（core 里夹 card:id）一定进卡组", () => {
   for (let s = 1; s < 20; s++) assert.ok(D.deckFrom(mine, s, 12, ["a", "card:c4"]).some(u => u.cardId === "c4"));
 });
+test("溢出一半：打死一张多出来的一半落到后面那张或信封；补满多出来的一半补信封", () => {
+  const st = D.newDuel(D.deckFrom(mine, 3, 12), D.deckFrom(theirs, 4, 12), 3, {});
+  const mk = hp => Object.assign(D.stampOf(mine[2]), { hp, maxHp: 20, shield: 0, marks: {} });
+  st.foe.board = Array(9).fill(null); st.foe.board[0] = mk(3); const env = st.foe.hp;
+  D.hitUnit(st, "foe", 0, 13, "测试");           // 多出 10，一半 5 落到信封
+  assert.equal(st.foe.board[0], null); assert.equal(st.foe.hp, env - 5);
+  st.foe.board[0] = mk(3); st.foe.board[3] = mk(20);
+  D.hitUnit(st, "foe", 0, 13, "测试"); assert.equal(st.foe.board[3].hp, 15);
+  const v = mk(18); st.me.hp = 30; D.healUnits(st.me, [v], 8); assert.equal(v.hp, 20); assert.equal(st.me.hp, 33);
+});
+test("小店一直玩下去：口碑不封顶、加成越来越慢；每周三张单子随口碑变大；熟练度称号无限往上", () => {
+  assert.equal(D.shopRepLv({ rep: 0 }), 0); assert.equal(D.shopRepLv({ rep: 80 }), 1);
+  assert.ok(D.shopRepLv({ rep: 1e6 }) > 100);
+  const b = [5, 10, 40, 45].map(D.shopRepBonus); assert.ok(b[1] - b[0] > b[3] - b[2]);
+  const o1 = D.shopOrders(1, "2026-11-09", "s"), o9 = D.shopOrders(30, "2026-11-09", "s");
+  assert.equal(o1.length, 3); assert.ok(o9.reduce((a, o) => a + o.pay, 0) > o1.reduce((a, o) => a + o.pay, 0));
+  assert.equal(D.shopSkillTitle("柜台", 0), "柜台见习"); assert.equal(D.shopSkillTitle("柜台", 15), "柜台老手"); assert.equal(D.shopSkillTitle("柜台", 90), "柜台一把手·4段");
+});
+test("招待：客人只说一句、开价看人（定死不能反复试）；稀客凑条件才来", () => {
+  const rich = { id: "x1", mood: "rich" }, poor = { id: "x2", mood: "poor" };
+  assert.equal(D.shopPrice(rich, "high").mul, 1.35); assert.equal(D.shopPrice(poor, "high").mul, 0); assert.ok(D.shopPrice(poor, "high").left);
+  assert.equal(D.shopPrice({ id: "x3", mood: "poor" }, "high", 3).mul, 1.35);
+  assert.equal(D.shopPrice({ id: "y", mood: "normal" }, "high").mul, D.shopPrice({ id: "y", mood: "normal" }, "high").mul);
+  assert.equal(D.shopPrice(rich, "low").mul, 0.8);
+  assert.ok(D.shopHint({ post: "分拣" }, "normal", () => 0).length > 4);
+  assert.ok(D.RARE_GUESTS.length >= 8 && D.RARE_GUESTS.every(g => g.tip));
+});
+test("客人小短句：20 个特征都有小动作、20 个身份都有道谢；客人那句话前面带上动作", () => {
+  assert.ok(D.FACE_ADJ.every(a => D.faceAct(a + "花匠")));
+  assert.ok(D.FACE_WHO.every(w => D.faceThanks("戴草帽的" + w, 0)));
+  const cs = D.shopCustomers({ day: 1, decor: [], regulars: {} }, [], 7, [], "上午").filter(c => !c.tough && /的/.test(c.name) && D.faceAct(c.name));
+  cs.forEach(c => assert.ok(c.hint.indexOf("（" + D.faceAct(c.name) + "）") === 0));
+});
+test("新面孔的特征跟身份合得上：不会拼出满身面粉的摄影师；拼错过的老熟客不再来", () => {
+  let x = 1; const R = () => (x = (x * 16807) % 2147483647) / 2147483647;
+  for (let i = 0; i < 2000; i++) { const n = D.shopNewFace(R)[0]; assert.ok(!/满身面粉的摄影师|拄拐杖的小男孩|扎双马尾的渔夫/.test(n), n); }
+  const shop = { day: 1, decor: [], regulars: { a: { id: "a", name: "满身面粉的摄影师", want: "寄", fee: 8, need: "送信", bond: 4 } } };
+  for (let k = 0; k < 20; k++) assert.ok(!D.shopCustomers(shop, [], k, [], "上午").some(c => c.name === "满身面粉的摄影师"));
+});
+test("贴之前的预览跟贴上去一样：IF 卡刚上场第一次打双份，预览也算进去", () => {
+  const st = D.newDuel(D.deckFrom(mine, 5, 12), D.deckFrom(theirs, 6, 12), 5, {});
+  const k = 0; st.me.hand[k] = Object.assign({}, st.me.hand[k], { kind: "if", role: "投递" }); st.me.postage = 9;
+  const slot = st.me.board.findIndex((u, i) => !u && D.previewPlace(st, "me", k, i));
+  const pv = D.previewPlace(st, "me", k, slot).aim.dmg; D.place(st, "me", k, slot);
+  const real = D.aims(st, "me").find(a => a.from === slot).dmg; assert.equal(pv, real);
+});
+test("护信：褪色、撕票退胶水、陪打三选一、无尽不会因为对面信封打空就结束", () => {
+  const me = D.deckFrom(mine, 7, D.DECK_SIZE, []);
+  const st = D.newDuel(me, [], 7, { siege: true, siegeLv: 5, siegeOpt: { endless: true, week: "thrift", mate: "a", style: "护短" } });
+  assert.equal(st.siege.waves, 9999); assert.ok(st.foe.hp > 99999);
+  const slot = st.me.board.findIndex((u, i) => !u && D.place(st, "me", 0, i).ok);
+  assert.ok(slot >= 0); const g0 = st.me.postage; assert.ok(D.tear(st, "me", slot).ok); assert.equal(st.me.postage - g0 >= 2, true); assert.equal(st.siege.tears, 1);
+  for (let t = 0; t < 8 && !st.over; t++) { if (st.siege.offer) { assert.equal(st.siege.offer.length, 3); assert.ok(["shield", "heal"].includes(st.siege.offer[0])); assert.ok(D.siegeBoon(st, st.siege.offer[0]).ok); } D.autoMe(st, "默契"); D.endTurn(st); }
+  assert.ok(st.siege.boons >= 1); assert.ok(st.log.some(l => /褪色/.test(l.text)));
+  assert.equal(D.siegeWeek(0).id, D.SIEGE_WEEK[0].id);
+});
