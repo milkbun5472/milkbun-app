@@ -4547,9 +4547,9 @@ function buildBundle(ctx, opts) {
   if (recentChat && recentChat.trim()) parts.push("【最近对话】\n" + recentChat.trim());
   // 数字生命只需要最近对话作为事实，不再额外下达「不许否认/必须圆过去」的表演式行为命令。
   if (!(opts && opts.ooc) && !ctx.notRoleplay && recentChat && recentChat.trim()) parts.push("【对话连贯·别否认自己说过的话】" + userName(profile) + " 这一句多半是【顺着你自己上一句、或你俩最近聊的】接下来的。回应前先认清【你自己刚说过什么、提过什么要求或建议】——绝不许把你自己说过的话/提过的要求当成对方凭空冒出来的，更别反问『什么X？』『我什么时候说的』来装不知道（那多半是你自己刚说的）。真记不清就顺着圆过去，别当场否认、打自己脸。同时把 Ta 这句里的人称对准：中文接话常省略主语，省掉的部分必须从【你上一句的结构】里继承，不许悄悄换人——比如你刚说『我去哪你都得跟着』，Ta 接『去厕所也要吗』，问的是【你去厕所时 Ta 要不要跟】，不是 Ta 自己要去厕所。回应前先想清这句里『你』『我』各指谁、谁做动作谁承受，以 Ta 的原话和你上一句的框架为准；主客一旦弄反，整条回复都会答非所问。");
-  // 珊瑚岛 Experience Gate shadow：只看每块的标题/来源类别/长度和真假宣称风险，原 bundle 一个字不改。
+  // Experience Gate shadow：只看每块的标题/来源类别/长度和真假宣称风险，原 bundle 一个字不改。
   try { window.ExperienceGateShadow && window.ExperienceGateShadow.observeBundle({ charId: char && char.id, parts }); } catch (e) {}
-  // Persona Hub 统一上下文预算 shadow：只留原 bundle 审计；按次计费渠道不裁实际 prompt。
+  // 统一上下文预算 shadow：只留原 bundle 审计；按次计费渠道不裁实际 prompt。
   try { window.ContextBudgetShadow && window.ContextBudgetShadow.observeBundle({ charId: char && char.id, parts }); } catch (e) {}
   // Memory v2 统一拼装收据：只记录各 lane 的长度与影子预算草案；parts 原样 join。
   try { window.MemoryV2Shadow && window.MemoryV2Shadow.observeComposition({ charId: char && char.id, parts }); } catch (e) {}
@@ -4656,7 +4656,7 @@ function explainMemEntry(entry, qTokens, now, qVec, queryText) {
   const retention = Math.max(0.25, Math.pow(0.5, idleDays / (21 * stability))); // 陈年老事仍想得起，只是不再抢戏
   // 时间新近度（也按 freshTs 算：昨天刚聊起的旧事＝很新鲜）
   const recency = Math.pow(0.5, idleDays / 30);
-  // 权重池（Ombre Brain 借鉴）：情绪强度 arousal 越高越难忘、未了结 open 的开环会一直惦记 → 更容易被想起
+  // 权重池：情绪强度 arousal 越高越难忘、未了结 open 的开环会一直惦记 → 更容易被想起
   const arousalW = (aRaw / 5) * 1.1;
   const openW = entry.open ? (0.7 + arousalW * 0.4) : 0;
   const expired = memExpired(entry, now);
@@ -4786,7 +4786,7 @@ function retrieveMemories(lib, charId, queryText, opts = {}) {
   let associations = associationPool.slice(0, associationLimit).map(x => x.e);
   let picked = pinned.concat(relevant, associations);
   let cooledIds = new Set();
-  // Tidal 两分辨率旁路（v49.29）：比较「事件印象 + 少量碎片」与现有精确碎片；永远不改 picked。
+  // 两分辨率旁路（v49.29）：比较「事件印象 + 少量碎片」与现有精确碎片；永远不改 picked。
   // 只在真实聊天触发，后台预取不记；模块异常/镜像离线全部吞掉。
   try {
     if (opts.touch !== false && opts.source === "chat" && window.TwoResolutionShadow) {
@@ -5000,7 +5000,7 @@ function formatMemLib(entries) {
   const pastNote = hasPast ? "\n（标〔以前的事〕的是你们早先的经历，不是最近发生的；后面写了时候的就按那个时候说，没写的说「以前」「那时候」就好。）" : "";
   return body + stampNote + pastNote + goneNote + (hasOpen ? "\n（⚠️标〔还没了结〕的是你还惦记、还没画句号的事：可以自然想起、期待、或轻声问一句「还来吗～」。但【绝不要】默认对方爽约、放你鸽子、故意不来——TA 多半只是忙，或时候还没到（比如「今天」还没过完；软性的「我来找你」也不是签了字的约会）。想 TA 就直说想，别把「还没兑现」当成「被辜负/被放鸽子」来生气赌气、翻脸算账。）" : "");
 }
-// 月度精炼（SullyOS 借鉴）：把一批【已了结的旧记忆】浓缩成尽量少的「月度精炼摘要」，保住长期精华、丢琐碎。
+// 月度精炼：把一批【已了结的旧记忆】浓缩成尽量少的「月度精炼摘要」，保住长期精华、丢琐碎。
 // 返回 [{text,tags,v,a}]。原件由调用方归档(archived)不删除。
 async function refineMemories(p, ctx, entries) {
   const uName = (ctx.profile && ctx.profile.name) || "用户";
@@ -6308,8 +6308,7 @@ function buildScenePrompt(char, sceneDesc, opts) {
 
 // ==== 自动头像（她 2026-08-25 定的 A+B）====
 // 论坛里的路人、常驻熟面孔、小号一直是 emoji 方块（FORUM_AV_EMOJI = 🐧🐸🐱…）。
-// 参考的那个小手机（jrsy）是硬编码 190 条外链图片、Math.random() 随机取一张——
-// 两点都不抄：外链白嫖别人的图床随时会挂，Math.random 让同一个人每次刷新换张脸。
+// 两件事不做：外链图床随时会挂，Math.random 会让同一个人每次刷新换张脸。
 // 这里改成【池子 + 按种子哈希稳定分配】：同一个 handle 永远同一张，重装也一样。
 //   A 档：没池子时，按种子程序化画一张 SVG（零请求、无限不重复、永不失效）
 //   B 档：她从相册批量塞图进 x_avatarPool，池子非空就优先用她自己的图
@@ -8648,8 +8647,7 @@ function setComposerLift(px) {
 }
 function setComposerAuto(on) { _composerAuto = on !== false; applyComposerLift(); return _composerAuto; }
 // 每轮再提醒一次（v56.77）：一条规则只在系统提示里声明一次，模型隔几轮就忘。
-// 这做法是从 mingruis-miya 看来的（AGPL，只读了它的提示词编排、没取用代码）——
-// 它把翻译规则发两遍：系统里一段硬性规则，每轮末尾再补一句短的。
+// 做法：翻译规则发两遍：系统里一段硬性规则，每轮末尾再补一句短的。
 // 短句只负责【提醒】，格式和边界仍以上面那段 bilingualRule 为准，别在这儿重写一遍。
 function bilingualTurnHint(who) {
   const w = who ? "\u300c" + who + "\u300d" : "\u4f60";
@@ -9782,7 +9780,7 @@ ${offlineRevisionAddressRule(narr)}
 // 不做任何"检测到露骨就降温"的启发式——那会在她真的在场景里、只回一句「继续」时误伤。
 // ⚠️「占有欲、吃醋、管束、下命令统统照旧、该多凶多凶」那一句（v53.84 加的）不是被删了，
 //   是改成【跟着人设走】了。立因：她 2026-10-04 拿来一组对照——同一个人设、同一个人玩，
-//   在别家 app 上是「这是什么小表情，怎么这么可爱。乖宝，吃晚饭了吗？」，
+//   在她期待的样子里是「这是什么小表情，怎么这么可爱。乖宝，吃晚饭了吗？」，
 //   在这儿变成拿豆浆要挟、倒计时掀被子、「谁治谁」。角色自己 OOC 时说得最准：
 //   「我把他【对外的那层壳】错误地用在了对你的互动里，甚至比对外还多了一层用爱绑架的味道。」
 //   原句无条件递给每个角色一张「管束、下命令、该多凶多凶」的通行证——
@@ -10024,7 +10022,7 @@ async function generateOffline(p, ctx, session) {
     (styleText ? "\n\n" + window.StylePresets.wrap(styleText) : "") +
     offlineTasteBlock(session.taste, false) +
     narrativeDirective(session.narr) +
-    // 字数规则和试写台共用一份（酒馆那套：下限＋上限＋自己数着写）。以前只给下限、
+    // 字数规则和试写台共用一份（下限＋上限＋自己数着写）。以前只给下限、
     // 没给上限、也没让它自己数，模型没有目标区间就写到哪算哪（她 2026-08-24）。
     (minimumSceneChars ? "\n" + window.StylePresets.wordRule(minimumSceneChars)
       + "\n· 遇到需要用户本人选择的岔口时，可以在岔口之前充分写完本轮已有内容，但仍不可替用户作重大决定"
@@ -10108,7 +10106,7 @@ async function generateOffline(p, ctx, session) {
   // 不能让 4000 tok 默认上限先把“最低 1500 字”截断。
   // ⭐max_tokens 是【天花板】不是预付款：给大了不多花一分钱，给小了才要命——
   // 思考模型的推理 token 也算在里面，压小了推理吃完，正文只剩两百来字
-  //（她 2026-08-24 拿酒馆对比出来的：Ako 预设里 openai_max_tokens 就是 65535）。
+  //（她 2026-08-24 发现的：常见预设里 openai_max_tokens 就是 65535）。
   // 控制篇幅的活儿交给上面【字数】里的上限，不是拿额度去掐。
   const minimumTokenBudget = minimumSceneChars
     ? window.StylePresets.outTokens(minimumSceneChars * (singlePassRevisionRequested ? 2 : 1))
@@ -10799,7 +10797,7 @@ async function generateOfflineGroup(p, ctx, session) {
     // 篇幅模式（她 2026-09-26：单聊有的给群聊也加上）。和单人线下同一份 offlineLengthGuide，
     // 摆的位置也一样：紧挨着字数规则，让「这一轮写多长」的几层话待在一起。
     "\n" + offlineLengthGuide(session.lengthMode === "immersive" ? "immersive" : "natural") +
-    // 和单人线下、试写台共用同一份【字数】规则（酒馆那套：下限＋上限＋自己数着写）
+    // 和单人线下、试写台共用同一份【字数】规则（下限＋上限＋自己数着写）
     (session.minWords ? "\n" + window.StylePresets.wordRule(session.minWords)
       + "\n· 这个字数是【整段所有 beat 加起来】的量，不是每个 beat 各写这么多。" : "") +
     (notes.length ? "\n【临时导演提示（务必遵循）】" + notes.join("；") : "") +

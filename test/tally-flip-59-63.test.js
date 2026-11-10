@@ -107,7 +107,7 @@ test("五栏各长各的样子，不是同一张白卡", () => {
   assert.match(face, /承保范围[\s\S]{0,40}理赔条件/, "保单上没有条目表");
 });
 
-// 参考的那个是「翻过去是一张机密档案」：黑底、朱字、大写 CLASSIFIED 水印、
+// 原来那版是「翻过去是一张机密档案」：黑底、朱字、大写 CLASSIFIED 水印、
 // 角上一行 TAP TO FLIP、顶上一行 FILE DATE。那一套骨架一个都不许抄。
 test("背面是同一张纸的背面，不是另一个东西", () => {
   ["CLASSIFIED", "TAP TO FLIP", "FILE DATE", "TOP SECRET"].forEach(bad =>

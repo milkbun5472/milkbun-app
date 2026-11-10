@@ -44,7 +44,7 @@
     return next.length === old.length || saveJSON(GAL_GONE_KEY, next);
   };
   const rid = pre => pre + Date.now() + "_" + Math.random().toString(36).slice(2, 6);
-  // 前情提要改成小账本(参考 liveware-tavern 的做法,自己实现):
+  // 前情提要改成小账本(结构化):
   // 一坨文字没法判断压缩有没有把东西压没了,也没法规定谁先被丢。
   const LEDGER_KEYS = ["timeline", "facts", "openThreads", "objects"];
   // 超长时的淘汰顺序:先丢流水与事实,【未了的线与物件最后才动】——
@@ -609,7 +609,7 @@
           if (raw != null && typeof raw === "object") raw = JSON.stringify(raw);
         }
         // max_tokens 是天花板不是预付款:思考模型的推理也从这儿扣,3200 会被推理吃光、
-        // 正文只剩个零头(她 2026-08-24 拿酒馆的 65535 对比出来的)。给大不多花钱。
+        // 正文只剩个零头(她 2026-08-24 发现常见预设给的是 65535)。给大不多花钱。
         // 创作小稿（v62.39 接上）：一次写一整场戏，正是它该在的地方。
         // ⚠️只挂在模型这一路。言秋座位那一路（CCSeat）是TA本人亲笔，扮演类的东西一律不发给TA。
         let cotOut = null, cotAsked = false;

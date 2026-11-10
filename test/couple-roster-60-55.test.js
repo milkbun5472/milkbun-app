@@ -9,7 +9,7 @@ const _i = scr.indexOf("// —— 名册视图（默认，v60.55 重做）——
 const us = scr.slice(_i, scr.indexOf("unlinkChar && onUnlink ? h(Sheet", _i));
 const card = comp.slice(comp.indexOf("function CoupleInviteCard"), comp.indexOf("// 解除拉黑申请卡片"));
 
-// 她 2026-09-02：「这个界面也修一修，当时也是参考了别人的。不一定要这种一个框一个框，
+// 她 2026-09-02：「这个界面也修一修。不一定要这种一个框一个框，
 //                 显示的文字也不一定要这些。还有情侣邀请卡也一起做好看点」。
 
 test("不再是一框一框", () => {

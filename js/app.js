@@ -4986,7 +4986,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     } catch (e) { toast("评估失败：" + ((e && e.message) || "重试")); }
     finally { setEmoBusy(false); }
   };
-  // 月度精炼（#1，SullyOS 借鉴）：把【已了结·非置顶·情绪弱·放了 60+ 天】的旧记忆按【关系分组】浓缩成月度摘要，
+  // 月度精炼：把【已了结·非置顶·情绪弱·放了 60+ 天】的旧记忆按【关系分组】浓缩成月度摘要，
   // 原件归档(archived)【不删除、可一键恢复】。你的未了约定(open)/置顶/动情大事(a≥3)一条不碰。
   const REFINE_OLD_DAYS = 60, REFINE_MIN = 8;
   // refineBatch 是旧本地字段，没有进共享行表；但精炼批次本来就固定为 rf_<摘要ts>。
@@ -5100,7 +5100,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       });
       // P1-1 shadow：传入内存做机械证据核验，只落类别/计数/hash；真实采纳仍走旧路，但抽取 prompt 已带证据闸，评审基线并非纯旧版。
       try { window.MemoryQualityShadow && window.MemoryQualityShadow.observeBatch({ charId, candidates: items, acceptedTexts: entries.map(e => e.text), messages: msgs }); } catch (e) {}
-      // InsightCapture shadow：复用本次已经产出的 insight 分类，不另叫 AI；只评估独立洞察四段结构是否够格。
+      // 独立洞察 shadow：复用本次已经产出的 insight 分类，不另叫 AI；只评估独立洞察四段结构是否够格。
       try { window.InsightCandidateShadow && window.InsightCandidateShadow.observeBatch({ charId, candidates: items, acceptedTexts: entries.map(e => e.text), messages: msgs }); } catch (e) {}
       // Memory v2 影子脊柱：把同一批候选路由为 episode/claim/state/hypothesis，
       // 统一核验逐字证据与分支有效性；只留收据，真实 entries 一个字不改。
@@ -10878,7 +10878,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     const _cardLore = (parsed.lore || []).map((e, i) => Object.assign({ id: "le_card_" + Date.now() + "_" + i, category: "世界观", regex: false, ensemble: false, ts: Date.now() + i,
       scope: { chat: true, subjects: false, lifestyle: false, diary: false, study: false, creative: false, social: false, debate: false } }, e, { charIds: [id] }));
     if (_cardLore.length) saveLore(_cardLore.concat(loreRef.current || []));
-    // 卡里的开场白（酒馆的 first_mes）落成 TA 的第一句话——原来直接丢了
+    // 卡里的开场白（first_mes）落成 TA 的第一句话——原来直接丢了
     if (parsed.greeting) pChat(id, () => [{ role: "assistant", content: parsed.greeting, ts: Date.now(), read: false }]);
     setCardImportOpen(false);
     toast("已导入「" + (parsed.name || "新角色") + "」：人设" + (parsed.longMem ? "＋长期记忆" : "") + ((parsed.seeds || []).length ? "＋" + parsed.seeds.length + " 条记忆种子" : "") + ((parsed.lore || []).length ? "＋" + parsed.lore.length + " 条世界书" : "") + (parsed.greeting ? "＋开场白" : "") + "，去人格档案馆点开补头像/线路吧");
@@ -32024,7 +32024,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       const label = (typeof SHOP_CATS !== "undefined" ? SHOP_CATS.find(c => c.key === cat) : null);
       const topic = keyword && keyword.trim() ? "用户搜索关键词「" + keyword.trim() + "」" : "「" + (label ? label.zh : cat) + "」分类";
       const d = await runProbe(bgActive, { char: { id: "__shop", name: "购物", persona: "" }, chars: characters, rels, profile, timeAware: false, worldbook: loreForContext("lifestyle", [], String(cat || "") + " " + String(keyword || "")) }, {
-        // ⚠️别再写「类似淘宝」：那是直接叫它去抄别人（她 2026-09-02 点名这一处是照着别人做的）。
+        // ⚠️别再写「类似淘宝」：那是直接叫它去模仿别的平台（她 2026-09-02 要的是我们自己的）。
         // ⚠️schemaHint 里的占位值必须是【说明】不是【样例内容】——
         //   原来写的是「川味经典红油抄手 / 地道成都风味」，那两句会被逐字照抄，
         //   刷出来的永远是同一族商品（见 施工规则/prompt-no-content-samples.md）。

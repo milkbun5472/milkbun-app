@@ -28,8 +28,8 @@ const V2 = JSON.stringify({
 });
 
 // 她 2026-08-30：「导入角色卡那个格式还是有点不对劲，经常导入了格式还是不对」。
-// 病根：一张酒馆 JSON 卡以前认不出来，会连大括号一起当人设塞进去。
-test("酒馆 v2 的 JSON 卡按字段拆开，不是整坨当人设", () => {
+// 病根：一张别处导出的 JSON 卡以前认不出来，会连大括号一起当人设塞进去。
+test("v2 的 JSON 卡按字段拆开，不是整坨当人设", () => {
   const p = parseCharCard(V2, "Lisa");
   assert.equal(p.from, "json");
   assert.equal(p.name, "裴照川");
@@ -39,7 +39,7 @@ test("酒馆 v2 的 JSON 卡按字段拆开，不是整坨当人设", () => {
   assert.match(p.persona, /刚从江南回京/, "scenario 丢了");
 });
 
-test("酒馆 v1 那种扁平 JSON 也认", () => {
+test("v1 那种扁平 JSON 也认", () => {
   const p = parseCharCard(JSON.stringify({ name: "阿屿", description: "海洋所读研。", personality: "温吞", first_mes: "……你也来看海？" }), "Lisa");
   assert.equal(p.from, "json");
   assert.equal(p.name, "阿屿");

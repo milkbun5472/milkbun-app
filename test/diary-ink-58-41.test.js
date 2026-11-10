@@ -6,12 +6,12 @@ const scr = (fs.readFileSync(path.join(__dirname, "..", "js", "screens.js"), "ut
 const grab = (a, b, why) => { const i = scr.indexOf(a), j = scr.indexOf(b, i); assert.ok(i >= 0 && j > i, "抠不出：" + why); return scr.slice(i, j); };
 const load = (a, b, ret) => new Function(grab(a, b, a) + "\nreturn " + ret + ";")();
 
-// 她 2026-08-30：「我就是不想要现在这版的底子，因为是参考了别人的，我想要一个我们自己的设计」
-test("借来的那套版式不许再冒出来", () => {
+// 她 2026-08-30：「我就是不想要现在这版的底子，我想要一个我们自己的设计」
+test("旧的那套版式不许再冒出来", () => {
   const dead = ["DiaryBarcode", "AUTHOR IDENTITY", "LAST SYNC", "TAP TO DECRYPT", "TAP THE BLURRED",
     "ENTRIES 收录", "ARCHETYPE:", "N° ", "diaryNoOf"];
   const back = dead.filter(k => scr.indexOf(k) >= 0);
-  assert.deepEqual(back, [], "这几样是照着别人版式来的，又回来了：" + back.join("、"));
+  assert.deepEqual(back, [], "这几样是旧版式，又回来了：" + back.join("、"));
   // 日记那几页的顶栏一律走紧凑标题栏（mobile-ui-layout.md），不许再顶「BACK / INDEX」大字
   const entry = grab("function DiaryEntryView(", "\nfunction fmtClockShort", "全文页");
   // v64.90 起走共用 Head（它本身就是那条紧凑栏）

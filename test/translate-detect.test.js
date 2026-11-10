@@ -7,9 +7,8 @@ const engine = fs.readFileSync(R("engine.js"), "utf8");
 const comp = fs.readFileSync(R("components.js"), "utf8");
 const detect = new Function(engine.slice(engine.indexOf("function _transStrip"), engine.indexOf("const TRANS_CACHE_KEY")) + "\nreturn translatableLang;")();
 
-// 她 2026-08-26 拿 jrsy-web 对比：「它聊天也是可以翻译的，感觉比我们翻译的好」。
-// 看完它的代码——用的是【同一个】Google 免费接口、同样的解析。差别只在【什么时候给译键】：
-// 它是长按菜单里永远有一个「翻译」，不做任何语种判断；我们是自动识别外语才挂译键。
+// 她 2026-08-26 要聊天里随时能翻译。
+// 原来是自动识别外语才挂译键；现在长按菜单里永远有一个「翻译」。
 // 她要的是「在旁边可以按」，所以不搬它的长按菜单，改成把识别放宽。
 test("汉字为主的日文也要认出来——那正是最需要翻的一类", () => {
   assert.equal(detect("今夜も残業"), "日文", "只有一个假名，旧的 ≥2 会漏掉");

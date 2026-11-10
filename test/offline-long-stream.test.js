@@ -90,8 +90,8 @@ test("借道保险柜时也允许流式", () => {
   assert.ok(!/wantStream = [^;]*proxyRef/.test(engine), "又把保险柜写进流式判据里了");
 });
 
-// v55.62：发不出流式时【不再压 max_tokens】。她拿酒馆对比出来的——
-// Ako 预设里 openai_max_tokens 就是 65535，一次调用照样写得又长又不截断。
+// v55.62：发不出流式时【不再压 max_tokens】。她对比出来的——
+// 常见预设里 openai_max_tokens 就是 65535，一次调用照样写得又长又不截断。
 // 关键在于：压额度并不缩短生成时间。一段 1500 字的正文，额度给 4200 还是 16000，
 // 模型吐字的秒数一样；压的只是「会不会被截断」。而思考模型的推理也从这份额度里扣，
 // 压到 4200 就是推理吃光、正文只剩两百来字，然后还得再花调用去补。
@@ -103,7 +103,7 @@ test("发不出流式也不许压 max_tokens——那不省时间，只会截断
   assert.ok(!/NO_STREAM_CAP/.test(engine), "旧的 4200 上限不许留着");
   assert.match(engine, /压额度并不缩短生成时间/, "为什么不压，得写在代码里");
   assert.match(engine, /max_tokens 是【天花板】不是预付款/);
-  // 天花板照酒馆的量给，思考模型才有地方放推理
+  // 天花板照常见预设的量给，思考模型才有地方放推理
   assert.match(engine, /Math\.max\(Number\(session\.maxTokens\) \|\| 4000, 8000, minimumTokenBudget\)/,
     "拉条默认 4000 配思考模型照样会截断，得有地板");
 });
