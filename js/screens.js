@@ -2626,12 +2626,20 @@ function GardenPlant({ g, size }) {
 
 // 花房整页（no-half-sheet）。规矩就三条：花是TA挑的；它吃你们真实的相处（不靠浇水按钮，
 // 没有任何数值进度条——长到哪儿看它自己）；开完一茬收一枚干花，盆空出来等下一种。
+// 花房画的那张存在本机图库（键是 img_garden_…），不是图床链接：得从图库里读出来才显示得了
+//   （群友 2026-11-11：「花房这里的生图似乎显示不出来」——原来直接拿那个键当图片地址用了）
+function GardenImg({ k, part, alt, style }) {
+  const isKey = /^img_/.test(String(k || ""));
+  const fromIdb = typeof useIdbImgUrl === "function" ? useIdbImgUrl(isKey ? k : null) : null;
+  const src = isKey ? fromIdb : (typeof resolveImg === "function" ? resolveImg(k) : k);
+  if (!src) return h("div", { "data-part": part, style: Object.assign({}, style, { aspectRatio: style && style.height ? undefined : "1", background: "rgba(0,0,0,.05)" }) });
+  return h("img", { "data-part": part, src, alt: alt || "", style });
+}
 function CoupleGarden({ partner, data, gen, onPlant, onKeep, onBack, onPlantMine, onDraw, onDrawToggle, drawing }) {
   const t = useTheme();
   // 我也能种（她 2026-11-09）：我种的跟TA种的走同一条路——进TA记忆、TA会接一句、收进同一本干花册
   const [mySp, setMySp] = useState("");
   const [myWhy, setMyWhy] = useState("");
-  const img = src => (typeof resolveImg === "function" ? resolveImg(src) : src);
   // 干花册里点开一枚看全文（她 2026-09-18 转小红书群里读者 ! YOLO：
   //   「干花册里面看不到完整的详情文字，能不能点开能够弹出来，或者就是直接展示区更大一些」）
   // ⚠️不另开一个弹层：册子本来就是一册一册翻的，点开那一枚就地摊开最像它自己。
@@ -2653,7 +2661,7 @@ function CoupleGarden({ partner, data, gen, onPlant, onKeep, onBack, onPlantMine
           h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(22px * var(--app-fs, 1))", color: "#43552f", marginTop: 10 } }, g.species),
           h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: "#7a8a62", marginTop: 4 } },
             st.zh + " · " + fmtD(g.plantedTs) + (g.by === "me" ? " 你种下" : " " + partner.name + " 种下")),
-          g.img ? h("img", { "data-part": "gardenimg", src: img(g.img), alt: g.species, style: { width: "100%", borderRadius: 14, marginTop: 12, display: "block" } }) : null,
+          g.img ? h(GardenImg, { k: g.img, part: "gardenimg", alt: g.species, style: { width: "100%", borderRadius: 14, marginTop: 12, display: "block" } }) : null,
           g.why ? h("div", { style: { fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: "calc(13px * var(--app-fs, 1))", lineHeight: 1.7, color: "#93707c", marginTop: 10 } }, "「", (typeof TransText === "function" ? h(TransText, { text: g.why, inline: true }) : g.why), "」") : null),
         h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.8, textAlign: "center", marginTop: 12 } },
           doze ? "它在打盹——你们回来，它就接着长。" : "它吃你们真实的相处：聊过天、线下待过、打过卡，它就长一点。没有进度条——长到哪儿，看它自己。"),
@@ -2694,7 +2702,7 @@ function CoupleGarden({ partner, data, gen, onPlant, onKeep, onBack, onPlantMine
           const on = openFlower === i;
           // 没有理由那一句的，点开也没有第二层，就别做成按钮（点了没反应比不能点更糟）
           const row = h("div", { className: "flex items-center", style: { gap: 11, padding: "11px 2px", borderBottom: on ? "none" : "1px solid " + t.line } },
-            k.img ? h("img", { src: img(k.img), alt: "", style: { width: 34, height: 34, borderRadius: 8, objectFit: "cover", flexShrink: 0 } })
+            k.img ? h(GardenImg, { k: k.img, alt: "", style: { width: 34, height: 34, borderRadius: 8, objectFit: "cover", flexShrink: 0 } })
               : h("span", { "aria-hidden": "true", style: { width: 11, height: 11, borderRadius: "50% 50% 50% 0", background: k.color || "#c98a9e", opacity: 0.8, flexShrink: 0, transform: "rotate(-45deg)" } }),
             h("div", { className: "flex-1 min-w-0 text-left" },
               h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.ink } }, k.species),
