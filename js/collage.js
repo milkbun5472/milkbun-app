@@ -56,7 +56,24 @@
     // 自己摆（她 2026-11-10：「可以选自己放」）：一张空纸，照片和字全由她加
     blank: { name: "自己摆", sub: "一张空纸，照片和字都由你放", n: 0, bg: "cream", slots: [], words: [], deco: [] }
   };
-  const ORDER = ["polaroid", "scrap", "lock", "blank"];
+  // 新样式（她 2026-11-10「都做吧」）：时间轴、日历、对话气泡、杂志剪报。frame 借前面三种的相框；overlay 是样式自己额外画的那一层
+  Object.assign(TPL, {
+    timeline: { name: "时间轴", sub: "一条线串起四张，旁边写着日子", n: 4, bg: "cream", frame: "scrap", overlay: "timeline",
+      slots: [{ x: 300, y: 560, w: 400, h: 400, r: -3 }, { x: 780, y: 1040, w: 400, h: 400, r: 3 }, { x: 300, y: 1520, w: 400, h: 400, r: -2 }, { x: 780, y: 2000, w: 400, h: 400, r: 2 }],
+      words: [{ x: 540, y: 190, size: 66, color: "#3b3b3b" }], deco: [] },
+    calendar: { name: "日历款", sub: "一张大照片配这个月的小日历", n: 1, bg: "cream", frame: "lock", overlay: "calendar",
+      slots: [{ x: 540, y: 920, w: 900, h: 960, round: 36 }],
+      words: [{ x: 540, y: 300, size: 70, color: "#3b3b3b" }], deco: [["♥", 900, 470, 70, "#d0465c"]] },
+    chat: { name: "对话气泡", sub: "两张照片，几句话做成聊天气泡", n: 2, bg: "mist", frame: "lock",
+      slots: [{ x: 320, y: 560, w: 460, h: 580, round: 30 }, { x: 760, y: 1880, w: 460, h: 580, round: 30 }],
+      words: [{ x: 640, y: 1000, size: 54, color: "#2b2b2b", style: "bubble-r" }, { x: 420, y: 1170, size: 54, color: "#2b2b2b", style: "bubble-l" },
+        { x: 620, y: 1340, size: 54, color: "#2b2b2b", style: "bubble-r" }, { x: 430, y: 1510, size: 54, color: "#2b2b2b", style: "bubble-l" }], deco: [] },
+    magazine: { name: "杂志剪报", sub: "剪下来的大字标题配三张照片", n: 3, bg: "grid", frame: "scrap",
+      slots: [{ x: 330, y: 820, w: 520, h: 640, r: -5 }, { x: 790, y: 1240, w: 440, h: 540, r: 6 }, { x: 420, y: 1820, w: 620, h: 460, r: -2 }],
+      words: [{ x: 540, y: 300, size: 124, color: "#2b2b2b", style: "ransom" }, { x: 760, y: 2200, size: 50, color: "#b23a48", r: -3 }],
+      deco: [["★", 920, 560, 90, "#c9a227"], ["✂", 140, 1450, 90, "#555"]] }
+  });
+  const ORDER = ["polaroid", "scrap", "lock", "timeline", "calendar", "chat", "magazine", "blank"];
   // 自己加的照片用哪种相框（借三种样式各自那一种）
   const FRAMES = { polaroid: "拍立得", scrap: "白边", lock: "圆角" };
   const TEXT_COLORS = ["#2b2b2b", "#5b3a24", "#b23a48", "#d0465c", "#4f6440", "#3b5b8a", "#ffffff"];
@@ -186,10 +203,30 @@
   }
   // ── 字的样式：描边、阴影、纸条、竖排 ──
   const TSTYLES = { "": "普通", outline: "描边", shadow: "阴影", strip: "纸条", vertical: "竖排" };
-  const TSTYLE_ORDER = ["", "outline", "shadow", "strip", "vertical"];
+  const TSTYLE_ORDER = ["", "outline", "shadow", "strip", "vertical", "bubble-l", "bubble-r", "ransom"];
+  Object.assign(TSTYLES, { "bubble-l": "左气泡", "bubble-r": "右气泡", ransom: "剪报字" });
   // 在原点画一句字（已经 translate/rotate 好），返回占的宽高
   function paintText(ctx, s, size, font, color, st, maxW) {
     ctx.textAlign = "center"; ctx.textBaseline = "middle";
+    if (st === "bubble-l" || st === "bubble-r") {   // 聊天气泡：左边白、右边绿，带个小尾巴
+      const tw = fitText(ctx, s, size, Math.min(maxW || 960, 760), font), fsz = parseFloat(ctx.font) || size, pw = tw + fsz * 1.2, ph = fsz * 1.7, right = st === "bubble-r";
+      ctx.save(); ctx.shadowColor = "rgba(0,0,0,.12)"; ctx.shadowBlur = 8; ctx.shadowOffsetY = 3; ctx.fillStyle = right ? "#95ec69" : "#ffffff";
+      roundRect(ctx, -pw / 2, -ph / 2, pw, ph, fsz * 0.45); ctx.fill(); ctx.shadowColor = "transparent";
+      ctx.beginPath(); const tx = right ? pw / 2 : -pw / 2, dir = right ? 1 : -1; ctx.moveTo(tx - dir * 4, -fsz * 0.25); ctx.lineTo(tx + dir * fsz * 0.35, 0); ctx.lineTo(tx - dir * 4, fsz * 0.25); ctx.fill(); ctx.restore();
+      ctx.fillStyle = "#1f1f1f"; ctx.fillText(s, 0, 0); return { w: pw, h: ph };
+    }
+    if (st === "ransom") {   // 剪报字：每个字剪在一小块不同颜色的纸上，歪一点
+      const ch = Array.from(s), pal = ["#fbf8f1", "#2b2b2b", "#f3d27a", "#e9b7c0", "#a9cbe0", "#ffffff"], fonts = [font, "'Noto Serif SC',serif", "'Archivo','PingFang SC',sans-serif"];
+      const step = size * 0.95, w0 = ch.length * step;
+      ch.forEach((c, i) => {
+        const bgc = pal[(i * 7 + c.charCodeAt(0)) % pal.length], cx = -w0 / 2 + step * (i + 0.5);
+        ctx.save(); ctx.translate(cx, ((i * 37) % 5 - 2) * size * 0.04); ctx.rotate((((i * 53) % 9) - 4) * Math.PI / 180);
+        ctx.fillStyle = bgc; ctx.fillRect(-size * 0.46, -size * 0.55, size * 0.92, size * 1.1);
+        ctx.fillStyle = bgc === "#2b2b2b" ? "#ffffff" : color; ctx.font = (i % 2 ? "700 " : "") + size * 0.8 + "px " + fonts[i % fonts.length]; ctx.fillText(c, 0, 0);
+        ctx.restore();
+      });
+      return { w: w0, h: size * 1.2 };
+    }
     if (st === "vertical") {
       const ch = Array.from(s), step = size * 1.05, h0 = ch.length * step;
       ctx.font = size + "px " + font; ctx.fillStyle = color;
@@ -237,19 +274,51 @@
   // layout = { tpl, split, picks, captions, words, font, fontScale, bg, deco, adj }；imgs = 照片下标 → 已解码的图
   //   一人一半：左边一整张给她、右边一整张给 TA，格子各一套；接缝上一颗心，两张并排才拼得起来
   //   返回每样东西在画布上的位置（拖动时认是按到了谁）
-  function draw(canvas, layout, imgs, sel) {
+  // 样式自己那一层：时间轴的线和日子、日历的格子
+  function overlay(ctx, def, ox, k, layout, meta, ink, font) {
+    ctx.save(); ctx.translate(ox, 0);
+    if (def.overlay === "timeline") {
+      ctx.strokeStyle = ink; ctx.globalAlpha = 0.55; ctx.lineWidth = 5; ctx.setLineDash([2, 16]); ctx.lineCap = "round";
+      ctx.beginPath(); ctx.moveTo(540, 330); ctx.lineTo(540, 2250); ctx.stroke(); ctx.setLineDash([]); ctx.globalAlpha = 1;
+      def.slots.forEach((sl, i) => {
+        const at = k * def.n + i, ts = (meta.dates || [])[at];
+        ctx.fillStyle = "#d0465c"; ctx.beginPath(); ctx.arc(540, sl.y, 16, 0, 7); ctx.fill();
+        if (ts) { const d = new Date(ts), txt = d.getFullYear() + "." + (d.getMonth() + 1) + "." + d.getDate();
+          ctx.fillStyle = ink; ctx.font = "44px " + font; ctx.textAlign = sl.x < 540 ? "left" : "right"; ctx.textBaseline = "middle"; ctx.fillText(txt, sl.x < 540 ? 580 : 500, sl.y); }
+      });
+    } else if (def.overlay === "calendar") {
+      const now = meta.now ? new Date(meta.now) : new Date(), y = now.getFullYear(), m = now.getMonth(), first = new Date(y, m, 1).getDay(), days = new Date(y, m + 1, 0).getDate();
+      const x0 = 120, y0 = 1600, cw = 120, ch = 96;
+      ctx.fillStyle = ink; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+      ctx.font = "600 52px " + font; ctx.fillText(y + " · " + (m + 1) + "月", 540, 1520);
+      ctx.font = "34px 'Archivo','PingFang SC',sans-serif"; ctx.globalAlpha = 0.6;
+      ["日", "一", "二", "三", "四", "五", "六"].forEach((w, i) => ctx.fillText(w, x0 + cw * i + cw / 2, y0));
+      ctx.globalAlpha = 1; ctx.font = "40px 'Archivo','PingFang SC',sans-serif";
+      for (let d = 1; d <= days; d++) {
+        const idx = first + d - 1, cx = x0 + cw * (idx % 7) + cw / 2, cy = y0 + ch * (Math.floor(idx / 7) + 1);
+        if (d === now.getDate()) { ctx.fillStyle = "#d0465c"; ctx.beginPath(); ctx.arc(cx, cy, 36, 0, 7); ctx.fill(); ctx.fillStyle = "#fff"; }
+        else ctx.fillStyle = ink;
+        ctx.fillText(String(d), cx, cy);
+      }
+    }
+    ctx.restore();
+  }
+  // meta：画不出来、得由外面给的东西（时间轴每格照片的日子、日历那个月）
+  function draw(canvas, layout, imgs, sel, meta) {
     const def = TPL[layout.tpl] || TPL.polaroid, halves = layout.split ? 2 : 1;
     const font = (FONTS[layout.font] || FONTS.hand).css, fs = Number(layout.fontScale) || 1;
     canvas.width = W * halves; canvas.height = H;
     const ctx = canvas.getContext("2d"), boxes = [];
     const bgKey = layout.bg || def.bg;
     for (let k = 0; k < halves; k++) bg(ctx, bgKey, k * W, layout, imgs[bgKey]);
+    const inkC = layout.bg === "night" ? "#f3eee8" : "#3b3b3b";
+    for (let k = 0; k < halves && def.overlay; k++) overlay(ctx, def, k * W, k, layout, meta || {}, inkC, font);
     for (let k = 0; k < halves; k++) {
       const ox = k * W;
       def.slots.forEach((sl, i) => {
         const at = k * def.n + i, p = (layout.picks || [])[at];
         if ((layout.hidden || {})["s" + at]) return;   // 这一格她删掉了
-        const bx = slot(ctx, layout.tpl, sl, p != null && p >= 0 ? filtered(imgs[p], (layout.filters || {})["s" + at]) : null, def.caption ? (layout.captions || [])[at] : "", ox, adjOf(layout, "s" + at), font, fs);
+        const bx = slot(ctx, def.frame || layout.tpl, sl, p != null && p >= 0 ? filtered(imgs[p], (layout.filters || {})["s" + at]) : null, def.caption ? (layout.captions || [])[at] : "", ox, adjOf(layout, "s" + at), font, fs);
         boxes.push(Object.assign({ key: "s" + at, kind: "slot", idx: at }, bx));
       });
     }
@@ -259,7 +328,7 @@
         const at = k * def.words.length + i, s = String((layout.words || [])[at] || "").trim(); if (!s) return;
         const a = adjOf(layout, "w" + at), x = ox + wd.x + (a.dx || 0), y = wd.y + (a.dy || 0);
         ctx.save(); ctx.translate(x, y); ctx.rotate(((wd.r || 0) + (a.r || 0)) * Math.PI / 180);
-        const size = wd.size * fs * (a.s || 1), dim = paintText(ctx, s, size, font, layout.bg === "night" ? "#f3eee8" : wd.color, (layout.tstyle || {})["w" + at], 960);
+        const size = wd.size * fs * (a.s || 1), dim = paintText(ctx, s, size, font, layout.bg === "night" && !wd.style ? "#f3eee8" : wd.color, (layout.tstyle || {})["w" + at] || wd.style, 960);
         ctx.restore();
         boxes.push({ key: "w" + at, kind: "word", idx: at, x, y, w: dim.w + 40, h: dim.h });
       });
@@ -464,11 +533,13 @@
       usedIdx.forEach(p => { if (p >= 0 && list[p] && !(p in imgs.current)) { imgs.current[p] = null; loadImg(list[p]).then(img => { imgs.current[p] = img; if (live) bump(x => x + 1); }); } });
       return () => { live = false; };
     }, [usedIdx.join(","), list.length]);
+    // 时间轴每格照片是哪天的、日历画哪个月（虚拟时间开着就按那只钟）
+    const metaOf = () => ({ dates: (layout.picks || []).map(p => (list[p] && list[p].ts) || 0), now: typeof vclockMap === "function" ? vclockMap(Date.now(), partner.id) : Date.now() });
     // 画完才知道每样东西在哪；刚加进来、刚选中的那一样，画完再刷一下，下面那排键才跟得上
     useEffect(() => {
       if (!cv.current) return;
       const had = !!(sel && (boxes.current || []).some(x => x.key === sel));
-      boxes.current = draw(cv.current, layout, imgs.current, sel);
+      boxes.current = draw(cv.current, layout, imgs.current, sel, metaOf());
       if (sel && !had && boxes.current.some(x => x.key === sel)) bump(x => x + 1);
     });
     // 她自己传的底：从图库按前缀列出来；选中哪张才解哪张
@@ -738,7 +809,7 @@
       if (!onLook || busy || !cv.current) return;
       setBusy("look");
       try {
-        const clean = document.createElement("canvas"); draw(clean, layout, imgs.current, "");
+        const clean = document.createElement("canvas"); draw(clean, layout, imgs.current, "", metaOf());
         const hist = history();
         const res = await onLook(shot(clean, layout.split ? 760 : 420), describe(), hist);
         if (res) { const before = layout, moved = applyHis(res), say = String(res.say || "").trim(); setHisSay(say || (moved ? "" : "（看了看，没动）")); if (moved) hisPending.current = { before, say }; else noteHis(before, before, say, "看了看，"); }
@@ -761,7 +832,7 @@
       if (!onSave || busy || !cv.current) return;
       setBusy("save");
       try {
-        const full = document.createElement("canvas"); draw(full, layout, imgs.current, "");
+        const full = document.createElement("canvas"); draw(full, layout, imgs.current, "", metaOf());
         const toBlob = c => new Promise(ok => c.toBlob(b => ok(b), "image/jpeg", 0.92));
         const half = k => { const c = document.createElement("canvas"); c.width = W; c.height = H; c.getContext("2d").drawImage(full, k * W, 0, W, H, 0, 0, W, H); return toBlob(c); };
         const used = (layout.picks || []).filter(p => p >= 0).map(p => list[p] && list[p].desc).filter(Boolean);
@@ -821,9 +892,9 @@
       h(Head, { zh: "拼一张壁纸", sub: name, bg: "transparent", onBack }),
       h("div", { ref: typeof keepScroll === "function" ? keepScroll("collage:" + partner.id) : null, className: "flex-1 min-h-0 overflow-y-auto px-5 pb-12" },
         // 样式：下划线页签（tabs-not-plain-pills）
-        h("div", { className: "flex", style: { borderBottom: "1px solid " + t.line, marginTop: 6 } },
-          ORDER.map(k => h("button", { key: k, "data-part": "collagetpl", onClick: () => restart({ tpl: k }), className: "flex-1 active:opacity-70",
-            style: { padding: "10px 0 9px", fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", color: layout.tpl === k ? t.ink : t.fog, borderBottom: "2px solid " + (layout.tpl === k ? t.ink : "transparent"), marginBottom: -1 } }, TPL[k].name))),
+        h("div", { className: "flex", style: { borderBottom: "1px solid " + t.line, marginTop: 6, overflowX: "auto" } },
+          ORDER.map(k => h("button", { key: k, "data-part": "collagetpl", onClick: () => restart({ tpl: k }), className: "shrink-0 active:opacity-70",
+            style: { padding: "10px 14px 9px", whiteSpace: "nowrap", fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", color: layout.tpl === k ? t.ink : t.fog, borderBottom: "2px solid " + (layout.tpl === k ? t.ink : "transparent"), marginBottom: -1 } }, TPL[k].name))),
         h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, textAlign: "center", margin: "8px 0 10px" } }, def.sub + " · 一根手指拖，两根手指捏合缩放、转"),
         // 预览钉在顶上：往下挑背景、字体、贴纸的时候还看得见它（高度按屏幕算，宽度跟着比例走）
         h("div", { "data-part": "collagestage", style: { position: "sticky", top: 0, zIndex: 2, display: "flex", justifyContent: "center", padding: "6px 0 8px", background: t.bg } },

@@ -6,7 +6,7 @@ const idx = readFileSync(new URL("../index.html", import.meta.url), "utf8");
 const ctx = { console, React: { createElement() {} }, window: {} }; vm.createContext(ctx); vm.runInContext(src, ctx);
 const C = ctx.window.Collage;
 test("三种样式，一人一半格子和字都翻倍", () => {
-  assert.deepEqual([...C.ORDER], ["polaroid", "scrap", "lock", "blank"]);
+  assert.deepEqual([...C.ORDER], ["polaroid", "scrap", "lock", "timeline", "calendar", "chat", "magazine", "blank"]);
   for (const k of C.ORDER) assert.equal(C.TPL[k].slots.length, C.TPL[k].n);
   assert.equal(C.slotCount({ tpl: "scrap", split: true }), 10);
   assert.equal(C.wordCount({ tpl: "lock", split: true }), 4);
@@ -103,4 +103,11 @@ test("聊天里说拼壁纸：落一张卡，点了进拼壁纸、TA 先拼一�
 test("存下来记一条进TA的记忆（跟花房同一条路），之后主动聊天、聊到相关的事想得起来", () => {
   const seg = app.slice(app.indexOf("const collageSave = async"), app.indexOf("const gardenPlantMine = "));
   assert.match(seg, /coupleKeep\(charId, uN \+ " 和 "/);
+});
+test("新样式：时间轴、日历款、对话气泡、杂志剪报；页签能横着滑", () => {
+  for (const k of ["timeline", "calendar", "chat", "magazine"]) { assert.ok(C.ORDER.includes(k), k); assert.equal(C.TPL[k].slots.length, C.TPL[k].n); }
+  assert.equal(C.ORDER[C.ORDER.length - 1], "blank");
+  assert.ok(["bubble-l", "bubble-r", "ransom"].every(k => C.TSTYLES[k]));
+  assert.match(src, /function overlay\(ctx, def, ox, k, layout, meta, ink, font\)/);
+  assert.match(src, /const metaOf = \(\) =>/);
 });
