@@ -4168,13 +4168,9 @@
     const entryHandledRef = useRef("");
     const [roomPickOpen, setRoomPickOpen] = useState(false);
     const [selfLink, setSelfLink] = useState("");   // 从课程里点「去自习室」时带上的那门课
-    const homeScrollRef = useRef(null), homeScrollTopRef = useRef(0);
-    const consoleScrollRef = useRef(null), consoleScrollTopRef = useRef(0);
+    // 首页各分栏、课程控制台点进去再回来停在原处：滚动框挂公共的 keepScroll（core.js），不再自己记数
+    const homeScrollRef = useRef(null), consoleScrollRef = useRef(null);
     function refresh() { setTick(function (x) { return x + 1; }); }
-    function rememberHome() { if (homeScrollRef.current) homeScrollTopRef.current = homeScrollRef.current.scrollTop; }
-    function restoreHome() { requestAnimationFrame(function () { requestAnimationFrame(function () { if (homeScrollRef.current) homeScrollRef.current.scrollTop = homeScrollTopRef.current; }); }); }
-    function rememberConsole() { if (consoleScrollRef.current) consoleScrollTopRef.current = consoleScrollRef.current.scrollTop; }
-    function restoreConsole() { requestAnimationFrame(function () { requestAnimationFrame(function () { if (consoleScrollRef.current) consoleScrollRef.current.scrollTop = consoleScrollTopRef.current; }); }); }
 
     useEffect(function () {
       const e = props.entry;
@@ -4201,7 +4197,7 @@
         initialSubject: props.entry && props.entry.mode === "propose" ? props.entry.subject : "",
         initialCharacterId: props.entry && props.entry.mode === "propose" ? props.entry.characterId : "",
         initialRoomId: props.entry && props.entry.mode === "propose" ? (props.entry.roomId || "") : "",
-        onBack: function () { setView("home"); restoreHome(); },
+        onBack: function () { setView("home"); },
         onCreated: function (cur) { setCurId(cur.id); setView("console"); }, // 落到控制台，自己开第一节
         // 认真教判定不够格→用户选「改为一起研究」：建 costudy session 直接进聊天
         onCostudyInstead: function (subject, charId) {
@@ -4223,31 +4219,31 @@
       if (!cur) { setView("home"); return null; }
       return h(NewSession, {
         curriculum: cur, active: props.active, bgActive: props.bgActive, characters: props.characters, worldbook: props.worldbook, worldbookFor: props.worldbookFor, profile: props.profile, toast: props.toast,
-        onBack: function () { setView("console"); restoreConsole(); },
+        onBack: function () { setView("console"); },
         onCreated: function (sess) { setOpenId(sess.id); setView("thread"); }
       });
     }
     // 我来教：她当老师，角色当学生
     const tbCtx = { worldbookFor: props.worldbookFor, relFor: props.relFor, directivesFor: props.directivesFor, studyRulesFor: props.studyRulesFor, profileFor: props.profileFor, besideFor: props.besideFor, uName: (props.profile && props.profile.name) || "老师" };
     if (view === "tbNew") return h(TbNew, { characters: props.characters, active: props.active, toast: props.toast, ctx: tbCtx,
-      onBack: function () { setView("home"); restoreHome(); }, onCreated: function (id) { setOpenId(id); setView("tbThread"); } });
+      onBack: function () { setView("home"); }, onCreated: function (id) { setOpenId(id); setView("tbThread"); } });
     if (view === "tbThread") return h(TbThread, { id: openId, characters: props.characters, active: props.active, bgActive: props.bgActive, toast: props.toast, ctx: tbCtx,
-      onBack: function () { refresh(); setView("home"); restoreHome(); } });
+      onBack: function () { refresh(); setView("home"); } });
     // 自习室（群友 2026-10-23）
     if (view === "newSelf") return h(NewSelfStudy, { characters: props.characters, toast: props.toast, initialLink: selfLink, roomId: (props.entry && props.entry.roomId) || null,
-      onBack: function () { if (selfLink.indexOf("cur:") === 0) { setView("console"); restoreConsole(); } else { setView("home"); restoreHome(); } },
+      onBack: function () { if (selfLink.indexOf("cur:") === 0) { setView("console"); } else { setView("home"); } },
       onCreated: function (sess) { setOpenId(sess.id); setView("selfRoom"); } });
     if (view === "selfRoom") {
       const sess = loadSessions().find(function (s) { return s.id === openId; });
       if (!sess) { setView("home"); return null; }
       return h(SelfStudyRoom, { session: sess, active: props.active, characters: props.characters, relFor: props.relFor, profile: props.profile, profileFor: props.profileFor, selfFor: props.selfFor, besideFor: props.besideFor,
         directivesFor: props.directivesFor, studyRulesFor: props.studyRulesFor, worldbook: props.worldbook, worldbookFor: props.worldbookFor, toast: props.toast,
-        onBack: function () { refresh(); setTab("self"); setView("home"); restoreHome(); } });
+        onBack: function () { refresh(); setTab("self"); setView("home"); } });
     }
     if (view === "newCostudy") {
       return h(NewCostudy, {
         characters: props.characters, toast: props.toast,
-        onBack: function () { setView("home"); restoreHome(); },
+        onBack: function () { setView("home"); },
         onCreated: function (d) {
           const chars = avatarsFor([d.charId], props.characters);
           const sess = {
@@ -4269,13 +4265,13 @@
         curriculum: cur, sessions: sessions, characters: props.characters,
         studyRulesFor: props.studyRulesFor, onSaveStudyRules: props.onSaveStudyRules,
         active: props.active, bgActive: props.bgActive, worldbook: props.worldbook, worldbookFor: props.worldbookFor,
-        scrollRef: consoleScrollRef,
+        scrollRef: keepScroll("study:console:" + (cur && cur.id), consoleScrollRef),
         onRefresh: refresh, toast: props.toast,
         // 从房里那条「在学」横幅直接落到这门课的：返回一下就回那间房，不先绕一趟一起学首页
-        onBack: function () { refresh(); if (fromRoomAt(cur.id)) return props.onBack(); setView("home"); restoreHome(); },
-        onOpenSession: function (id) { rememberConsole(); setOpenId(id); setView("thread"); },
-        onNewSession: function (c) { rememberConsole(); setCurId(c.id); setView("newSession"); },
-        onSelfStudy: function (c) { rememberConsole(); setCurId(c.id); setSelfLink("cur:" + c.id); setView("newSelf"); },
+        onBack: function () { refresh(); if (fromRoomAt(cur.id)) return props.onBack(); setView("home"); },
+        onOpenSession: function (id) { setOpenId(id); setView("thread"); },
+        onNewSession: function (c) { setCurId(c.id); setView("newSession"); },
+        onSelfStudy: function (c) { setCurId(c.id); setSelfLink("cur:" + c.id); setView("newSelf"); },
         onDelSession: function (id) {
           requestAppConfirm("移除这张课页？", "这张课页里的对话、题卡与学习证据会一起删除，无法恢复。", function () {
             saveSessions(loadSessions().filter(function (s) { return s.id !== id; }));
@@ -4289,7 +4285,7 @@
       if (!sess) { setView("home"); return null; }
       return h(StudyThread, {
         session: sess, active: props.active, bgActive: props.bgActive, characters: props.characters, profile: props.profile, worldbook: props.worldbook, worldbookFor: props.worldbookFor, selfFor: props.selfFor, profileFor: props.profileFor, besideFor: props.besideFor, relFor: props.relFor, directivesFor: props.directivesFor, studyRulesFor: props.studyRulesFor, toast: props.toast,
-        onBack: function () { refresh(); if (!sess.curriculum_id && fromRoomAt(sess.id)) return props.onBack(); setView(sess.curriculum_id ? "console" : "home"); if (sess.curriculum_id) { setCurId(sess.curriculum_id); restoreConsole(); } else restoreHome(); },
+        onBack: function () { refresh(); if (!sess.curriculum_id && fromRoomAt(sess.id)) return props.onBack(); setView(sess.curriculum_id ? "console" : "home"); if (sess.curriculum_id) { setCurId(sess.curriculum_id); } },
         onUpdated: function () { }
       });
     }
@@ -4298,23 +4294,23 @@
     const tabs = [["teach", "认真教"], ["costudy", "一起研究"], ["nv1", "一教一学"], ["tb", "我来教"], ["self", "自习室"]];
     let panel;
     if (tab === "tb") {
-      panel = h(TbList, { characters: props.characters, scrollRef: homeScrollRef,
-        onNew: function () { rememberHome(); setView("tbNew"); },
-        onOpen: function (id) { rememberHome(); setOpenId(id); setView("tbThread"); },
+      panel = h(TbList, { characters: props.characters, scrollRef: keepScroll("study:home:" + tab, homeScrollRef),
+        onNew: function () { setView("tbNew"); },
+        onOpen: function (id) { setOpenId(id); setView("tbThread"); },
         onDel: function (id) { requestAppConfirm("移除这节课？", "这节课的对话、笔记和小测都会一起删除，无法恢复。", function () { saveTb(loadTb().filter(function (x) { return x.id !== id; })); refresh(); }, "移除"); } });
     } else if (tab === "self") {
       panel = h(SelfStudyList, { sessions: sessions.filter(function (s) { return s.mode === "selfstudy"; }).sort(function (a, b) { return (b.updated_at || 0) - (a.updated_at || 0); }),
-        characters: props.characters, scrollRef: homeScrollRef,
-        onNew: function () { rememberHome(); setSelfLink(""); setView("newSelf"); },
-        onOpen: function (id) { rememberHome(); setOpenId(id); setView("selfRoom"); },
+        characters: props.characters, scrollRef: keepScroll("study:home:" + tab, homeScrollRef),
+        onNew: function () { setSelfLink(""); setView("newSelf"); },
+        onOpen: function (id) { setOpenId(id); setView("selfRoom"); },
         onDel: function (id) { requestAppConfirm("移除这条自习记录？", "这间自习室里的对话会删掉；已经挂到课上的自习小结和学习时长不受影响。", function () { saveSessions(loadSessions().filter(function (s) { return s.id !== id; })); refresh(); }, "移除"); } });
     } else if (tab === "costudy") {
       const cs = sessions.filter(function (s) { return !s.curriculum_id && s.mode !== "selfstudy"; })
         .sort(function (a, b) { return (b.updated_at || 0) - (a.updated_at || 0); });
       panel = h(CostudyList, {
-        sessions: cs, characters: props.characters, scrollRef: homeScrollRef,
-        onNew: function () { rememberHome(); setView("newCostudy"); },
-        onOpen: function (id) { rememberHome(); setOpenId(id); setView("thread"); },
+        sessions: cs, characters: props.characters, scrollRef: keepScroll("study:home:" + tab, homeScrollRef),
+        onNew: function () { setView("newCostudy"); },
+        onOpen: function (id) { setOpenId(id); setView("thread"); },
         onDel: function (id) {
           requestAppConfirm("删除这张研究纸？", "共同研究的全部记录会一起删除，无法恢复。", function () {
             saveSessions(loadSessions().filter(function (s) { return s.id !== id; }));
@@ -4326,9 +4322,9 @@
       const cs = curricula.filter(function (c) { return c.mode === tab; })
         .sort(function (a, b) { return (b.updated_at || 0) - (a.updated_at || 0); });
       panel = h(CurriculumList, {
-        mode: tab, curricula: cs, sessions: sessions, characters: props.characters, scrollRef: homeScrollRef,
-        onNew: function () { rememberHome(); setView("newCurriculum"); },
-        onOpen: function (id) { rememberHome(); setCurId(id); setView("console"); },
+        mode: tab, curricula: cs, sessions: sessions, characters: props.characters, scrollRef: keepScroll("study:home:" + tab, homeScrollRef),
+        onNew: function () { setView("newCurriculum"); },
+        onOpen: function (id) { setCurId(id); setView("console"); },
         onDel: function (id) {
           const target = loadCurricula().find(function (c) { return c.id === id; });
           const count = loadSessions().filter(function (s) { return s.curriculum_id === id; }).length;
@@ -4357,7 +4353,7 @@
       h("div", { className: "flex px-4 shrink-0", style: { gap: 5, alignItems: "flex-end", paddingTop: 7, borderBottom: "1px solid " + STUDY_SKIN.line } }, tabs.map(function (tb) {
         const on = tab === tb[0];
         const skin = studyModeSkin(tb[0]);
-        return h("button", { key: tb[0], "data-wk": "studytab", "data-on": on ? "1" : "0", "data-mode": tb[0], onClick: function () { setTab(tb[0]); homeScrollTopRef.current = 0; }, className: "flex-1 outline-none active:opacity-70",
+        return h("button", { key: tb[0], "data-wk": "studytab", "data-on": on ? "1" : "0", "data-mode": tb[0], onClick: function () { setTab(tb[0]); }, className: "flex-1 outline-none active:opacity-70",
           style: { minWidth: 0, minHeight: on ? 58 : 49, position: "relative", bottom: -1, marginTop: on ? 0 : 9, padding: "7px 3px 6px", fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", borderRadius: "12px 12px 0 0", background: on ? STUDY_SKIN.paper : skin.soft, color: on ? STUDY_SKIN.ink : STUDY_SKIN.sub, border: "1px solid " + (on ? STUDY_SKIN.line : skin.accent + "44"), borderTop: "4px solid " + skin.accent, borderBottomColor: on ? STUDY_SKIN.paper : skin.accent + "44", boxShadow: on ? "0 -5px 12px " + STUDY_SKIN.shadow : "none", opacity: on ? 1 : .84, transform: on ? "none" : "translateY(1px)", zIndex: on ? 2 : 1 } },
           h("span", { style: { display: "block", fontFamily: "'Archivo',sans-serif", fontSize: "calc(8px * var(--app-fs, 1))", letterSpacing: ".12em", color: skin.accent, marginBottom: 2 } }, skin.code), tb[1]);
       })),

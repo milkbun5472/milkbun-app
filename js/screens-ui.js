@@ -2415,7 +2415,6 @@ function Forum({
   const [followListOpen, setFollowListOpen] = useState(false);
   const [fanListOpen, setFanListOpen] = useState(false);   // 我的粉丝里哪些是角色（群友 2026-10-22）
   const feedScrollRef = useRef(null);
-  const feedScrollTopRef = useRef(0);
   const [forumNow, setForumNow] = useState(() => Date.now());
   const [forumLastSeen] = useState(() => {
     try { return Number(localStorage.getItem("x_forumLastSeen")) || Date.now(); } catch (e) { return Date.now(); }
@@ -2534,7 +2533,6 @@ function Forum({
   //   点进去一条标记都没有。
   const openCursorRef = useRef(0);
   const openPost = p => { setXhsPage(0);
-    if (feedScrollRef.current) feedScrollTopRef.current = feedScrollRef.current.scrollTop;
     openCursorRef.current = Number(forumReadCursors[p.id] || 0);
     setOpen(p); onLoadComments(p); markNoticesRead(forumNotices.filter(n => n.post.id === p.id).map(n => n.id));
     // 有新回复就直接跳到第一条新的（她 2026-10-12：「点开能不能跳到新的那里，每次还得下滑」）。
@@ -2552,10 +2550,7 @@ function Forum({
   const isFreshReply = r => !!r && r.authorType !== "me" && Number(r.ts || 0) > openCursorRef.current;
   const newTag = () => h("span", { style: { fontFamily: F_BODY, fontSize: "calc(9.5px * var(--app-fs, 1))", color: "#fff", background: FORUM_SKIN.accent, borderRadius: 999, padding: "1px 6px", marginLeft: 6, flexShrink: 0 } }, "新");
   const closePost = () => {
-    setOpen(null); setReplyTo(null);
-    requestAnimationFrame(() => requestAnimationFrame(() => {
-      if (feedScrollRef.current) feedScrollRef.current.scrollTop = feedScrollTopRef.current;
-    }));
+    setOpen(null); setReplyTo(null); // 回到原来滑到的地方：列表挂的是 keepScroll("forum:feed")
   };
   const openNotice = n => {
     markNoticesRead([n.id]); openPost(n.post);
@@ -3326,7 +3321,7 @@ function Forum({
     });
     const shown = arr.slice(0, page * PAGE);
     const arrived = arr.filter(p => Number(p.visibleAt || p.ts || 0) > forumLastSeen).length;
-    return h("div", { ref: feedScrollRef, className: "flex-1 min-h-0 overflow-y-auto", style: { paddingBottom: 14 } },
+    return h("div", { ref: keepScroll("forum:feed", feedScrollRef), className: "flex-1 min-h-0 overflow-y-auto", style: { paddingBottom: 14 } },
       // 角色发的新帖在哪个吧（她 2026-10-02 转群友：「首页论坛提示了数字2，点进去没有引导，得一个个吧去看」）
       forumNewCharPosts.length > 0 && h("div", { "data-wk": "block", className: "mx-4 mt-3", style: { borderRadius: 14, background: FORUM_SKIN.paper, border: "1px solid " + FORUM_SKIN.line, overflow: "hidden" } },
         // 一键已读跟标题挤在同一行（她 2026-10-16：「放上面一帖旁边，现在空白太多不好看」）：
@@ -4315,15 +4310,11 @@ function Takeout({ goodsImgOf, onDrawGoods, drawingGoods, payAs, wallet, orders,
   const [openLog, setOpenLog] = useState(null); // 「吃过的」点开看全的那一条
   const [now, setNow] = useState(Date.now());
   const listRef = useRef(null);
-  const listTop = useRef(0);
   useEffect(() => {
     const iv = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(iv);
   }, []);
-  // 从店里退回来，列表回到原来滑到的地方（mobile-ui-layout §3）
-  useEffect(() => {
-    if (!shop && listRef.current) listRef.current.scrollTop = listTop.current;
-  }, [shop, nav]);
+  // 从店里退回来，列表回到原来滑到的地方（mobile-ui-layout §3）：列表挂 keepScroll("takeout:list")
   const cards = Array.isArray(kinshipCards) ? kinshipCards : [];
   const shops = (feed && feed[slot]) || [];
   const mine = (orders || []).filter(o => o.kind === "takeout");
@@ -4334,7 +4325,7 @@ function Takeout({ goodsImgOf, onDrawGoods, drawingGoods, payAs, wallet, orders,
   const bagCount = bagItems.reduce((s, x) => s + x.qty, 0);
   const bagTotal = Math.round(bagItems.reduce((s, x) => s + x.price * x.qty, 0) * 100) / 100;
   const bump = (uid, dlt) => setQty(p => ({ ...p, [uid]: Math.max(0, Math.min(20, (p[uid] || 0) + dlt)) }));
-  const openShop = s => { if (listRef.current) listTop.current = listRef.current.scrollTop; setQty({}); setRemark(""); setSay(""); setAt(0); setShop(s); };
+  const openShop = s => { setQty({}); setRemark(""); setSay(""); setAt(0); setShop(s); };
   const leaveShop = () => { setShop(null); setQty({}); setPay(false); setPayMode(null); };
   const submit = (mode, target) => {
     const ok = onOrder({ shop: shop.name, items: bagItems, remark, note: mode === "forchar" ? say : "", at }, mode, target, { mask: payMask });
@@ -4498,7 +4489,7 @@ function Takeout({ goodsImgOf, onDrawGoods, drawingGoods, payAs, wallet, orders,
     accent: MTAKE.yellow, accentInk: MTAKE.ink, iconInk: MTAKE.yellowD, ink: MTAKE.ink, sub: MTAKE.sub, bg: MTAKE.card });
   const nearView = h("div", { "data-wk": "tkonear", className: "flex-1 flex flex-col min-h-0" }, topBar,
     h(TakeoutSlotRuler, { slot, onPick: setSlot, now }),
-    h("div", { "data-wk": "tkoshoplist", ref: listRef, className: "flex-1 min-h-0 overflow-y-auto px-2.5 py-2.5", style: { background: MTAKE.bg } },
+    h("div", { "data-wk": "tkoshoplist", ref: keepScroll("takeout:list", listRef), className: "flex-1 min-h-0 overflow-y-auto px-2.5 py-2.5", style: { background: MTAKE.bg } },
       shops.length === 0
         ? h("div", { "data-wk": "tkoempty", "data-part": "near", className: "text-center", style: { paddingTop: 80 } },
             h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", lineHeight: 1.9, color: MTAKE.dim, whiteSpace: "pre-line" } }, busy ? "正在看附近开着的店…" : "这个钟点还没刷过。\n看看附近有什么开着。"),

@@ -2162,16 +2162,12 @@
     const t = useTheme();
     const L = sectionLooks().contents;
     const visible = shelfIssues(props.issues);
+    // 翻开一本再回书架，停在原处：书架挂公共的 keepScroll（core.js）
     const scrollRef = useRef(null);
-    useEffect(function () {
-      const el = scrollRef.current;
-      if (el && Number.isFinite(Shelf.scrollTop)) el.scrollTop = Shelf.scrollTop;
-      return function () { if (el) Shelf.scrollTop = el.scrollTop; };
-    }, []);
     const bookColors = ["#683647", "#315b5d", "#966522", "#595374", "#805044"];
     return h("div", { "data-weekly-space": "archive", className: "h-full flex flex-col", style: pageBackground(L), "data-wk": "wklyshelf" },
       h(WeeklyHead, { zh: "合订本", en: "", look: L, onBack: props.onBack }),
-      h("div", { ref: scrollRef, className: "flex-1 min-h-0 overflow-y-auto", style: { padding: "20px 20px calc(env(safe-area-inset-bottom) + 34px)" } },
+      h("div", { ref: keepScroll("weekly:shelf", scrollRef), className: "flex-1 min-h-0 overflow-y-auto", style: { padding: "20px 20px calc(env(safe-area-inset-bottom) + 34px)" } },
         h("div", { style: { display: "grid", gridTemplateColumns: "1fr 90px", alignItems: "end", gap: 12, marginBottom: 22 } },
           h("div", null,
             h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: "calc(8px * var(--app-fs, 1))", letterSpacing: ".28em", color: L.muted } }, "合订本 · 从创刊号起"),
@@ -2214,7 +2210,6 @@
               h("button", { onClick: function () { props.onDelete(iss.id); }, className: "active:opacity-60", style: { position: "absolute", right: 42, top: 9, padding: "5px 7px", fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: L.muted }, "data-wk": "wklyshelfbtn", "data-part": "3" }, "移出书架"));
           })) : h(Empty, { text: "书架还是空的", sub: "出刊后会装订在这里" })));
   }
-  Shelf.scrollTop = 0;
 
   // 周刊入口不是一张说明页，而是一张正在装订的编辑部桌面。
   // 和「随身物=衣柜」「去处=门」一样，先给 app 一个可认的物件，再把动作长在物件上。

@@ -3117,22 +3117,13 @@ function Us({ onPutDrawerMine, onReplyDrawerMine, drawerReplyBusy, characters, c
   // 病：每个子页都是 `return h(XxxPage…)` 的早退，详情页整个卸载，滚动位置跟着没了。
   // 所以【所有开子页的地方一律走 openSub】，别再直接 openSub("…")——
   // 漏一处就是那一扇门回来会跳顶，而且看不出来（一层写在两处那个老形状）。
+  // 位置交给公共的 keepScroll（core.js）记：主页那个滚动框挂 keepScroll("us:" + 谁)，卸载再挂回来自己放回原处。
+  //   openSub 留着当唯一入口（别处还靠它切子页），只是不用再自己记数了。
   const bodyRef = useRef(null);
-  const subScrollRef = useRef(0);
-  // ⚠️子页切子页（愿望板→旅行）时主页没挂着、bodyRef 是 null——这时要【保留】记着的
-  // 位置，不能清成 0，不然从旅行一路退回主页就跳顶。所以只有真拿得到滚动位置才记。
-  const openSub = k => { if (bodyRef.current) subScrollRef.current = bodyRef.current.scrollTop; setSub(k); };
-  React.useLayoutEffect(() => {
-    if (sub === null && bodyRef.current && subScrollRef.current > 0) bodyRef.current.scrollTop = subScrollRef.current;
-  }, [sub]);
+  const openSub = k => setSub(k);
   // 名册也记位置（她 2026-11-10：「下滑到下面的人的空间，退出来又回到最上面」）：
   //   进某一段之前记下名册滚到哪儿，退回名册时放回去——跟上面子页那一套同一个做法
-  const rosterRef = useRef(null);
-  const rosterScrollRef = useRef(0);
-  const openView = id => { if (rosterRef.current) rosterScrollRef.current = rosterRef.current.scrollTop; setView(id); };
-  React.useLayoutEffect(() => {
-    if (view === null && rosterRef.current && rosterScrollRef.current > 0) rosterRef.current.scrollTop = rosterScrollRef.current;
-  }, [view]);
+  const openView = id => setView(id);
   const [pick, setPick] = useState(false);
   const [pickWho, setPickWho] = useState(null);   // 选好了人，正在挑这个空间是什么关系
   const [annOpen, setAnnOpen] = useState(false);
@@ -3551,7 +3542,7 @@ function Us({ onPutDrawerMine, onReplyDrawerMine, drawerReplyBusy, characters, c
         right: onSetCoupleImg
           ? h("button", { onClick: () => setCpEdit(true), "aria-label": "自定义封面", className: "active:opacity-60 flex items-center justify-center", style: { width: 40, height: 40 } }, h(IPencil, { size: 18, color: "#fff" }))
           : null }),
-      h("div", { ref: bodyRef, className: "flex-1 min-h-0 overflow-y-auto", style: { position: "relative", zIndex: 1, overscrollBehavior: "contain" } },
+      h("div", { ref: keepScroll("us:" + partner.id, bodyRef), className: "flex-1 min-h-0 overflow-y-auto", style: { position: "relative", zIndex: 1, overscrollBehavior: "contain" } },
         // 这一块只是留出封面的位置（背景在下面那一层，不跟着滚）
         h("div", { style: { position: "relative", height: 150 } },
           h("div", { "data-wk": "uspair", style: { position: "absolute", left: 22, bottom: -30, zIndex: 2, display: "flex", alignItems: "flex-end" } },
@@ -4091,7 +4082,7 @@ function Us({ onPutDrawerMine, onReplyDrawerMine, drawerReplyBusy, characters, c
     h(Head, { zh: entries.some(e => window.spaceRelKey && window.spaceRelKey(e.st) !== "lover") ? "我们的空间" : "情侣", sub: entries.length ? entries.length + " 段 · 最久的走了 " + maxDays + " 天" : "",
       bg: "transparent", noLine: true, onBack,
       right: characters.length > 0 ? h("button", { onClick: () => setPick(true), className: "active:opacity-50 flex items-center justify-center", style: { width: 34, height: 38 } }, h(IHeart, { size: 19, color: t.ink })) : null }),
-    h("div", { ref: rosterRef, "data-part": "usroster", className: "flex-1 min-h-0 overflow-y-auto px-6 pb-8" },
+    h("div", { ref: keepScroll("us:roster"), "data-part": "usroster", className: "flex-1 min-h-0 overflow-y-auto px-6 pb-8" },
       entries.length === 0
         ? h("div", { className: "pt-8" },
             h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", lineHeight: 1.8, color: t.fog } }, "还没有情侣关系。点右上角 ♥ 选一位角色发送邀请——邀请会出现在你和 TA 的聊天里，TA 会依据关系与好感决定接不接受。"),
