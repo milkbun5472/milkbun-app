@@ -555,7 +555,7 @@
     const startRelay = () => {
       if (!coachId) { toast && toast("先挑一个人跟你接力"); return; }
       const s = (seedRef.current = (seedRef.current * 1103515245 + 12345) >>> 0), me = D().deckFrom(cards, s, D().DECK_SIZE, [coachId]);
-      const nd = D().newDuel(me, D().edictDeck(s), s, { foeLv: Math.max(3, Math.round(D().avgLv(me) * 1.05)), bonds: bondsOf() });
+      const nd = D().newDuel(me, D().edictDeck(s), s, { foeLv: Math.max(3, Math.round(D().avgLv(me) * 1.15)), foeHp: Math.round(D().envFor(me) * 1.8), hard: true, bonds: bondsOf() }); // 两人轮流下，对面信封厚一些、每回合多 1 胶水，不至于一回合打穿（她 2026-11-10）
       nd.relay = { ta: coachId, style: bondsOf()[coachId] || "默契" }; setSt(nd); setMode("relay"); setHandSel(-1); setBoardSel(-1);
     };
     const PATROL_KEY = "x_stampPatrol", PATROL_BEST = "x_stampPatrolBest", PATROL_SALT = "x_stampPatrolSalt";
@@ -902,10 +902,9 @@
                   h("label", { "data-wk": "duelstorycoverup", style: Object.assign(btn("transparent", C, C), { padding: "6px 12px", fontSize: fz(12), cursor: "pointer" }) }, sbCoverBusy === "up" ? "在放…" : "用自己的图",
                     h("input", { type: "file", accept: "image/*", style: { display: "none" }, onChange: async e => { const f = e.target.files && e.target.files[0]; e.target.value = ""; if (!f) return; setSbCoverBusy("up"); try { const d = await fileToCover(f), ref = typeof imgToVault === "function" ? await imgToVault(d) : d; setStoryCover(book.id, Object.assign({}, book.cover || {}, { img: ref })); } catch (er) { toast && toast("没放上去：" + ((er && er.message) || er)); } finally { setSbCoverBusy(""); } } })),
                   h("button", { "data-wk": "duelstorycovergen", disabled: !!sbCoverBusy, onClick: async () => {
-                      if (typeof generateSelfieImage !== "function" || (typeof imgApiReady === "function" && !imgApiReady())) { toast && toast("要先在「设置 → 图像 API」配好生图"); return; }
                       setSbCoverBusy("gen"); try {
-                        const prompt = "一本小说的封面插画，竖版，安静有氛围的场景，不画文字和书名，不画人脸特写。故事：" + ((book.ending && book.ending.title) || book.hook) + "。开头：" + String(((book.chapters[0] || {}).lines || []).join("").slice(0, 160)) + (book.ending ? "。结局：" + String((book.ending.lines || []).join("").slice(0, 160)) : "");
-                        const out = await generateSelfieImage(prompt, null, {}), d = out && (out.dataUrl || (out.blob ? await blobToUrl(out.blob) : null));
+                        if (typeof window.StampStoryCover !== "function") throw Error("这里画不了");
+                        const d = await window.StampStoryCover(book);
                         if (!d) throw Error("没画出来");
                         const ref = typeof imgToVault === "function" ? await imgToVault(d) : d; setStoryCover(book.id, Object.assign({}, book.cover || {}, { img: ref }));
                       } catch (er) { toast && toast("没画成：" + ((er && er.message) || er)); } finally { setSbCoverBusy(""); } },
