@@ -3125,6 +3125,14 @@ function Us({ onPutDrawerMine, onReplyDrawerMine, drawerReplyBusy, characters, c
   React.useLayoutEffect(() => {
     if (sub === null && bodyRef.current && subScrollRef.current > 0) bodyRef.current.scrollTop = subScrollRef.current;
   }, [sub]);
+  // 名册也记位置（她 2026-11-10：「下滑到下面的人的空间，退出来又回到最上面」）：
+  //   进某一段之前记下名册滚到哪儿，退回名册时放回去——跟上面子页那一套同一个做法
+  const rosterRef = useRef(null);
+  const rosterScrollRef = useRef(0);
+  const openView = id => { if (rosterRef.current) rosterScrollRef.current = rosterRef.current.scrollTop; setView(id); };
+  React.useLayoutEffect(() => {
+    if (view === null && rosterRef.current && rosterScrollRef.current > 0) rosterRef.current.scrollTop = rosterScrollRef.current;
+  }, [view]);
   const [pick, setPick] = useState(false);
   const [pickWho, setPickWho] = useState(null);   // 选好了人，正在挑这个空间是什么关系
   const [annOpen, setAnnOpen] = useState(false);
@@ -4083,7 +4091,7 @@ function Us({ onPutDrawerMine, onReplyDrawerMine, drawerReplyBusy, characters, c
     h(Head, { zh: entries.some(e => window.spaceRelKey && window.spaceRelKey(e.st) !== "lover") ? "我们的空间" : "情侣", sub: entries.length ? entries.length + " 段 · 最久的走了 " + maxDays + " 天" : "",
       bg: "transparent", noLine: true, onBack,
       right: characters.length > 0 ? h("button", { onClick: () => setPick(true), className: "active:opacity-50 flex items-center justify-center", style: { width: 34, height: 38 } }, h(IHeart, { size: 19, color: t.ink })) : null }),
-    h("div", { className: "flex-1 min-h-0 overflow-y-auto px-6 pb-8" },
+    h("div", { ref: rosterRef, "data-part": "usroster", className: "flex-1 min-h-0 overflow-y-auto px-6 pb-8" },
       entries.length === 0
         ? h("div", { className: "pt-8" },
             h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", lineHeight: 1.8, color: t.fog } }, "还没有情侣关系。点右上角 ♥ 选一位角色发送邀请——邀请会出现在你和 TA 的聊天里，TA 会依据关系与好感决定接不接受。"),
@@ -4101,7 +4109,7 @@ function Us({ onPutDrawerMine, onReplyDrawerMine, drawerReplyBusy, characters, c
                   // 有新情书＝头像上一个红点，跟聊天列表的未读同一套语汇，不是粉药丸
                   tags.length ? h("span", { style: { position: "absolute", top: -2, right: -2, width: 10, height: 10,
                     borderRadius: 999, background: "#e0524a", boxShadow: "0 0 0 2px " + t.bg } }) : null),
-                h("button", { onClick: () => tog && setView(e.char.id), className: "flex-1 min-w-0 text-left active:opacity-75" },
+                h("button", { onClick: () => tog && openView(e.char.id), className: "flex-1 min-w-0 text-left active:opacity-75" },
                   h("div", { className: "flex items-baseline", style: { gap: 8 } },
                     h("div", { "data-wk": "usname", className: "truncate", style: { fontFamily: F_DISPLAY, fontSize: "calc(17px * var(--app-fs, 1))", color: t.ink } }, e.char.name),
                     // 不是恋人的那几行，名字边上一枚小火漆写着是什么空间
