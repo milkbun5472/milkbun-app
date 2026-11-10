@@ -281,6 +281,27 @@ button[data-wk="avatar"]::before,span[data-wk="avatar"]:not([data-halo])::before
 [data-wk="offcomposer"] button[title="给 Ta 看真实照片"] *{opacity:0 !important}
 [data-wk="offcomposer"] button:not([title]):not([data-wk]){background:${svg(I_SEND)} center/contain no-repeat !important;border:none !important;box-shadow:none !important}
 [data-wk="offcomposer"] button:not([title]):not([data-wk]) *{opacity:0 !important}
+
+/* ───── 状态卡改版：从左边翻出来的一整页日记 ───── */
+@keyframes pdPageIn{from{transform:translateX(-102%) rotate(-2deg)}to{transform:none}}
+[data-wk="statecard"]{position:absolute !important;left:0 !important;top:0 !important;bottom:0 !important;width:86% !important;max-width:none !important;max-height:none !important;border-radius:0 22px 22px 0 !important;border-top:none !important;animation:pdPageIn .32s cubic-bezier(.2,.8,.2,1) both !important;padding-top:var(--app-safe-top, 20px) !important;box-shadow:inset 18px 0 0 -12px ${C.margin},8px 0 30px rgba(94,66,69,.3) !important}
+[data-wk="statecard"]::before{top:auto !important;bottom:14px !important;right:18px !important;transform:rotate(-6deg) !important;opacity:.9 !important}
+/* 页头：名字写成日记标题，底下一道双线 */
+[data-wk="statehead"]{padding:18px 70px 14px 40px !important;border-bottom:3px double ${C.margin} !important}
+[data-wk="statehead"] > div > div:first-child{font-style:italic !important;font-size:22px !important;color:${C.ink} !important}
+[data-wk="statehead"] > div > div:first-child::after{content:" 的日记" !important;font-size:13px !important;color:${C.rose} !important}
+[data-wk="statehead"] > button{position:absolute !important;top:calc(var(--app-safe-top, 20px) + 16px) !important;right:-46px !important;background:#fff !important;border:1.5px solid ${C.margin} !important;color:${C.rose} !important}
+/* 此刻 / Ta 眼里：竖着贴在页面右边缘的两张索引标签 */
+[data-wk="statecard"] div:has(> button[aria-pressed]){position:absolute !important;right:-34px !important;top:calc(var(--app-safe-top, 20px) + 120px) !important;flex-direction:column !important;gap:6px !important;padding:0 !important;margin:0 !important;background:transparent !important;border:none !important;z-index:4 !important}
+[data-wk="statecard"] button[aria-pressed]{writing-mode:vertical-rl !important;text-orientation:upright !important;width:34px !important;flex:none !important;padding:14px 0 !important;border-radius:0 10px 10px 0 !important;background:${C.line} !important;color:${C.rose} !important;font-style:normal !important;letter-spacing:2px !important;box-shadow:2px 2px 0 rgba(138,90,95,.12) !important}
+[data-wk="statecard"] button[aria-pressed="true"]{background:#fff !important;color:${C.ink} !important;border:1.5px solid ${C.margin} !important;border-left:none !important}
+[data-wk="statecard"] button[aria-pressed]::before{content:none !important}
+/* 好感：从页顶垂下来的一条书签丝带，爱心在丝带末端 */
+[data-wk="stateaff"]{position:absolute !important;top:0 !important;right:22px !important;width:40px !important;height:calc(var(--app-safe-top, 20px) + 110px) !important;padding:0 !important;display:flex !important;flex-direction:column !important;justify-content:flex-end !important;align-items:center !important;background:linear-gradient(90deg,#d9808f,#efb6c0 50%,#d9808f) !important;border:none !important;clip-path:polygon(0 0,100% 0,100% 100%,50% calc(100% - 12px),0 100%) !important;z-index:3 !important}
+[data-wk="stateaff"] > div:last-child{display:none !important}
+[data-wk="stateheart"]{width:34px !important;height:34px !important;margin-bottom:16px !important}
+[data-wk="stateheartnum"]{font-size:12px !important;padding-top:2px !important;-webkit-text-stroke:2px #d9707e !important}
+[data-wk="stateheartline"]{background:#fff !important}
 `;
 
 const pack = { kind: "chat-look", v: 1, name: "粉色日记", look: { bubble, layout, customCSS: css.trim() }, assets: {} };
