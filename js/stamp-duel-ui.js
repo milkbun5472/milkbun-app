@@ -515,7 +515,7 @@
       if (sBusy || !onChat) return; setSBusy(true);
       try { const end = sv0.chapters.length >= 5, r = await onChat(sv0.charId, { mode: end ? "storyend" : "storych", hook: sv0.hook, ch: sv0.chapters.length + 1, past: storyPast(sv0) });
         if (!r || !r.lines) { toast && toast("没写出来，再点一次试试"); return; }
-        if (end) { sv0.ending = r; sv0.done = true; setSOpen(sv0.id); try { const all = (typeof loadJSON === "function" ? loadJSON(STORIES_KEY, []) : []) || []; all.push(Object.assign({}, sv0, { ts: Date.now() })); saveJSON(STORIES_KEY, all.slice(-50)); } catch (e) {} }
+        if (end) { sv0.ending = r; sv0.done = true; setSOpen(sv0.id); try { const all = (typeof loadJSON === "function" ? loadJSON(STORIES_KEY, []) : []) || []; const kept = all.filter(x => x && x.id !== sv0.id); kept.push(Object.assign({}, sv0, { ts: Date.now() })); saveJSON(STORIES_KEY, kept.slice(-50)); } catch (e) {} }
         else sv0.chapters.push(Object.assign({ won: null, pick: "" }, r));
         setStory(sv0); }
       catch (e) { toast && toast("没成：" + ((e && e.message) || e)); } finally { setSBusy(false); }
@@ -863,11 +863,22 @@
           h("div", { className: "flex flex-wrap", style: { gap: 6, marginBottom: 14 } }, STORY_HOOKS.map(k => h("button", { key: k, "data-wk": "duelstoryhook", "data-on": sHook === k ? "1" : "0", onClick: () => setSHook(k), style: { padding: "3px 11px", borderRadius: 999, border: "1px solid " + (sHook === k ? C : "rgba(47,42,34,.22)"), color: sHook === k ? C : INK, background: sHook === k ? "rgba(122,59,90,.08)" : "transparent", fontSize: fz(12) } }, k))),
           h("button", { "data-wk": "duelstorygo", disabled: !coachId || sBusy, onClick: () => storyNext({ id: "sy_" + Date.now().toString(36), charId: coachId, hook: sHook === "让 TA 起一个" ? "由你来起：照你们的关系想一个合适的开头" : sHook, chapters: [] }), className: "w-full disabled:opacity-40", style: Object.assign(btn(C, "#fff"), { padding: "12px 0", fontFamily: FD, fontSize: fz(15) }) }, sBusy ? (nameOf(coachId) || "TA") + " 在写第一章…" : coachId ? "跟 " + (nameOf(coachId) || "TA") + " 开始这段故事" : "先挑一个人"),
           stories.length ? h("div", { "data-wk": "duelstorybook", style: { marginTop: 20 } }, h("div", { style: { fontFamily: FD, fontSize: fz(14), marginBottom: 6 } }, "故事集 · " + stories.length + " 段"),
-            stories.slice().reverse().map(x => { const op = sOpen === x.id;
+            stories.filter((x, i, all) => x && all.map(y => y && y.id).lastIndexOf(x.id) === i).reverse().map(x => { const op = sOpen === x.id;
               return h("div", { key: x.id, style: { marginBottom: 8, borderRadius: 5, background: PAPER, border: "1px solid rgba(122,59,90,.25)", borderLeft: "3px solid " + C } },
                 h("button", { onClick: () => setSOpen(op ? "" : x.id), className: "w-full text-left", style: { padding: "9px 12px" } }, h("div", { style: { fontFamily: FD, fontSize: fz(14) } }, (x.ending && x.ending.title) || x.hook), h("div", { style: { fontSize: fz(10.5), color: SUB } }, (nameOf(x.charId) || "TA") + " · " + new Date(x.ts).toLocaleDateString())),
                 op ? h("div", { style: { padding: "0 14px 12px" } }, x.chapters.map((c, i) => h("div", { key: i }, h("div", { style: { fontFamily: FD, color: C, margin: "8px 0 4px" } }, "第 " + (i + 1) + " 章 · " + c.title), para(c.lines, "c" + i), c.pick ? h("div", { style: { fontSize: fz(11.5), color: SUB, marginBottom: 6 } }, (c.won ? "闯过去了" : "没闯过去") + " · 选了：" + c.pick) : null)),
                   x.ending ? h("div", null, h("div", { style: { fontFamily: FD, color: C, margin: "10px 0 4px" } }, "结局 · " + x.ending.title), para(x.ending.lines, "e")) : null) : null); })) : null)]);
+      // 走完了：直接给看结局（她 2026-11-09「看不了结局」：原来写完又回到第 5 章，「看结局」还在，再点又写一遍）
+      if (sv0.done && sv0.ending) return shell([
+        h(Head, { key: "hd", zh: "剧情闯关 · 结局", bg: "transparent", ink: INK, onBack: () => { setStory(null); setSOpen(sv0.id); }, right: guideBtn }),
+        h("div", { key: "bd", "data-wk": "duelstoryend", className: "flex-1 min-h-0 overflow-y-auto px-4", style: { fontFamily: F, color: INK, paddingTop: 4, paddingBottom: 24 } },
+          h("div", { style: { padding: "18px 16px 12px", borderRadius: 4, background: PAPER, boxShadow: "0 3px 10px rgba(47,42,34,.15)", borderTop: "4px solid " + C } },
+            h("div", { style: { fontSize: fz(10.5), color: SUB, letterSpacing: ".15em" } }, sv0.hook.indexOf("由你来起") === 0 ? (nameOf(sv0.charId) || "TA") + " 起的头" : "「" + sv0.hook + "」 · " + (nameOf(sv0.charId) || "TA")),
+            h("div", { style: { fontFamily: FD, fontSize: fz(18), color: C, margin: "4px 0 10px" } }, "结局 · " + (sv0.ending.title || "")),
+            para(sv0.ending.lines, "end")),
+          h("div", { style: { fontSize: fz(11.5), color: SUB, margin: "12px 2px", textAlign: "center" } }, "这段故事收进故事集了，五章和结局都在里面。"),
+          h("button", { "data-wk": "duelstoryendback", onClick: () => { setStory(null); setSOpen(sv0.id); }, className: "w-full", style: Object.assign(btn(C, "#fff"), { padding: "12px 0", fontFamily: FD, fontSize: fz(15) }) }, "回故事集"))
+      ]);
       const cur = sv0.chapters[sv0.chapters.length - 1], n = sv0.chapters.length;
       return shell([
         h(Head, { key: "hd", zh: "剧情闯关 · 第 " + n + " / 5 章", bg: "transparent", ink: INK, onBack: () => setMode(""), right: guideBtn }),
