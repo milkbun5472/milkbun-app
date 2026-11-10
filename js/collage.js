@@ -313,7 +313,12 @@
     try {
       let b = p.imgKey && typeof idbImgGet === "function" ? await idbImgGet(p.imgKey) : null;
       if (!b && p.imgUrl) b = await (await fetch(p.imgUrl)).blob();
-      return b && b.size ? await createImageBitmap(b) : null;
+      if (!(b && b.size)) return null;
+      try { return await createImageBitmap(b); }
+      catch (e) {   // TA 画的那种是 SVG，createImageBitmap 不认，走一张 <img>
+        const u = URL.createObjectURL(b), im = new Image(); im.src = u;
+        try { await im.decode(); return im; } catch (e2) { return null; }
+      }
     } catch (e) { return null; }
   }
 
@@ -435,10 +440,11 @@
         url ? h("img", { src: url, alt: "", style: { width: "100%", height: "100%", objectFit: "cover", display: "block" } }) : null),
       on ? h("button", { onClick: onDrop, "aria-label": "删掉这张底", style: { position: "absolute", top: -6, right: -6, width: 22, height: 22, borderRadius: 11, background: t.ink, color: t.bg2, fontSize: 12, lineHeight: "22px" } }, "✕") : null);
   }
-  function CollageMaker({ partner, photos, onBack, onArrange, onSave, onLook, onChoose }) {
+  function CollageMaker({ partner, photos, extra, onBack, onArrange, onSave, onLook, onChoose, onDraft }) {
     const t = useTheme();
     const name = partner.remark || partner.name;
-    const list = React.useMemo(() => (photos || []).slice().sort((a, b) => (b.ts || 0) - (a.ts || 0)), [photos]);
+    // 合照墙的照片在前，TA 自己的东西（手机里存的照片、抽屉里画的画）接在后面，标着是TA的
+    const list = React.useMemo(() => (photos || []).slice().sort((a, b) => (b.ts || 0) - (a.ts || 0)).concat((extra || []).map(x => Object.assign({ his: true }, x))), [photos, extra]);
     const [layout, setLayout] = useState(() => ({ tpl: "polaroid", split: false, picks: [0, 1, 2].map(i => i < list.length ? i : -1), captions: [], words: [], font: "hand", fontScale: 1, bg: "", deco: null, adj: {}, free: [], hidden: {} }));
     const [why, setWhy] = useState("");
     const [busy, setBusy] = useState(""); // "arrange" | "save"
@@ -620,6 +626,34 @@
       if (b.kind === "fphoto") { const p = list[f.p]; return "照片（后加的）" + (p && p.desc ? "：" + String(p.desc).slice(0, 30) : ""); }
       return "字：「" + (f.text || "") + "」";
     };
+    const photoMenu = () => list.slice(0, 40).map((p, i) => i + ". " + (p.his ? (p.from || "你的") + "：" : "") + (String(p.desc || "").replace(/\s+/g, " ").slice(0, 40) || "（没写画面）")).join("\n");
+    const catalog = () => "样式：" + ORDER.map(k => TPL[k].name + "（" + TPL[k].sub + "，" + TPL[k].n + "格）").join("、")
+      + "\n背景：" + BG_ORDER.map(k => BGS[k].name).join("、") + (myBgs.length ? "、" + myBgs.map((_, i) => "我的底" + (i + 1)).join("、") : "")
+      + "\n贴纸：" + STICKERS.join(" ") + (myStks.length ? " " + myStks.map((_, i) => "我的贴纸" + (i + 1)).join(" ") : "")
+      + "\n胶带和涂鸦：" + SHAPE_ORDER.map(k => SHAPES[k]).join("、") + "\n字体：" + FONT_ORDER.map(k => FONTS[k].name).join("、")
+      + "\n照片（编号. 是什么）：\n" + photoMenu();
+    // TA 先拼一张：样式、背景颜色、字体、照片、字、贴纸胶带都由TA定，落成一张新起的
+    const draft = async () => {
+      if (!onDraft || busy) return;
+      setBusy("arrange");
+      try {
+        const res = await onDraft(catalog(), history());
+        if (!res) return;
+        const tk = ORDER.find(k => TPL[k].name === String(res.tpl || "").trim()) || layout.tpl, d = TPL[tk];
+        const max = list.length, picks = [];
+        (Array.isArray(res.picks) ? res.picks : []).forEach(x => { const i = Math.round(Number(x)); if (i >= 0 && i < max && picks.indexOf(i) < 0 && picks.length < d.n) picks.push(i); });
+        // TA 没挑满的格子：先用你们的合照补，TA 自己的东西只在TA点名时才放
+        for (let i = 0; picks.length < d.n && i < max; i++) if (picks.indexOf(i) < 0 && !list[i].his) picks.push(i);
+        while (picks.length < d.n) picks.push(-1);
+        const clip = (a, k, len) => (Array.isArray(a) ? a : []).slice(0, k).map(x => String(x == null ? "" : x).replace(/\s+/g, " ").trim().slice(0, len));
+        const fresh = { tpl: tk, split: false, picks, captions: clip(res.captions, d.n, 16), words: clip(res.words, d.words.length, 22), font: FONT_ORDER.find(k => FONTS[k].name === String(res.font || "").trim()) || layout.font,
+          fontScale: 1, bg: "", bgColor: "", bgInk: "", deco: null, adj: {}, free: [], hidden: {}, filters: {}, tstyle: {} };
+        const before = layout;
+        applyHis({ add: res.add, bg: res.bg, bgColor: res.bgColor, bgInk: res.bgInk }, Object.assign({}, fresh, { deco: res.plainDeco ? [] : null }));
+        setWhy(""); const say = String(res.say || "").trim(); setHisSay(say);
+        hisPending.current = { before, say, lead: "先拼了一张：" };
+      } finally { setBusy(""); }
+    };
     const describe = () => {
       const bgKey = layout.bg || def.bg;
       const bgName = isMyBg(bgKey) ? "我的底" + (myBgs.indexOf(bgKey) + 1) : (BGS[bgKey] || {}).name;
@@ -628,6 +662,7 @@
         + "\n字体：" + (FONTS[layout.font] || FONTS.hand).name + "\n上面的东西（编号｜是什么｜位置｜大小｜角度）：\n" + (rows.join("\n") || "（还什么都没放）")
         + "\n能用的背景：" + BG_ORDER.map(k => BGS[k].name).join("、") + (myBgs.length ? "、" + myBgs.map((_, i) => "我的底" + (i + 1)).join("、") : "")
         + "\n能加的贴纸：" + STICKERS.join(" ") + (myStks.length ? " " + myStks.map((_, i) => "我的贴纸" + (i + 1)).join(" ") : "")
+        + "\n能放的照片（add 里写 photo:编号）：\n" + photoMenu()
         + "\n能用的字体：" + FONT_ORDER.map(k => FONTS[k].name).join("、")
         + "\n能加的胶带和涂鸦：" + SHAPE_ORDER.map(k => SHAPES[k]).join("、") + "（可以给颜色）"
         + "\n照片能换的滤镜：" + FILTER_ORDER.map(k => FILTERS[k]).join("、") + "；字能换的样式：" + TSTYLE_ORDER.map(k => TSTYLES[k]).join("、");
@@ -646,9 +681,10 @@
     // TA 动完：记TA做了什么、说了什么，并把「TA看到的那版」挪到TA改完之后
     const noteHis = (before, after, say, lead) => { const ch = changesOf(before, after, photoName, decoName); logLine("你：" + (lead || "") + (ch.length ? ch.join("，") : "没动") + (say ? "，说「" + say + "」" : "")); lastSeen.current = after; };
     // TA 回来的改动落到画上：位置按百分比、大小按百分比、角度按度；删掉的最后按编号从大到小删，免得下标错位
-    const applyHis = res => {
-      const prev = layout; let l = layout;
-      const cw = CW(), bxs = boxes.current || [], drops = [];
+    // base：从哪一版改起（TA 先拼一张时是一张新起的，不是她手上这版）
+    const applyHis = (res, base) => {
+      const prev = base || layout; let l = prev;
+      const cw = W * (l.split ? 2 : 1), bxs = base ? [] : (boxes.current || []), drops = [];
       (Array.isArray(res.ops) ? res.ops : []).slice(0, 16).forEach(op => {
         const b = op && bxs.find(x => x.key === String(op.id || "").trim()); if (!b) return;
         if (op.remove) { drops.push(b); return; }
@@ -680,6 +716,7 @@
         if (!a) return;
         const pos = at(a.at), sz = Number.isFinite(Number(a.size)) ? clampS(Number(a.size) / 100) : 1, ang = Number(a.angle) || 0;
         if (a.text) { const f = (l.free || []).concat([{ type: "text", text: String(a.text).slice(0, 30), x: pos.x, y: pos.y, size: 76, s: sz, r: ang, color: /^#[0-9a-f]{6}$/i.test(a.color || "") ? a.color : (layout.bg === "night" ? "#ffffff" : "#2b2b2b"), font: FONT_ORDER.find(k => FONTS[k].name === a.font) }]); l = Object.assign({}, l, { free: f }); return; }
+        if (a.photo != null && list[Math.round(Number(a.photo))]) { l = Object.assign({}, l, { free: (l.free || []).concat([{ type: "photo", p: Math.round(Number(a.photo)), x: pos.x, y: pos.y, w: 480, h: 600, s: sz, r: ang, frame: l.tpl === "blank" ? "scrap" : l.tpl }]) }); return; }
         const shp = SHAPE_ORDER.find(k => SHAPES[k] === String(a.shape || "").trim());
         if (shp) { l = Object.assign({}, l, { deco: decoNow(l).concat([{ shape: shp, x: pos.x, y: pos.y, size: 120 * sz, r: ang, color: /^#[0-9a-f]{6}$/i.test(a.color || "") ? a.color : (shp === "tape" ? "#e9b7c0" : "#2b2b2b") }]) }); return; }
         const st = String(a.sticker || "").trim(); if (!st) return;
@@ -690,6 +727,7 @@
       if (/^#[0-9a-f]{6}$/i.test(res.bgColor || "")) l = Object.assign({}, l, { bgColor: res.bgColor });
       if (/^#[0-9a-f]{6}$/i.test(res.bgInk || "")) l = Object.assign({}, l, { bgInk: res.bgInk });
       if (res.font) { const k = FONT_ORDER.find(x => FONTS[x].name === String(res.font).trim()); if (k) l = Object.assign({}, l, { font: k }); }
+      if (base) { beforeHim.current = layout; setSel(""); setLayout(l); return true; }
       if (l !== prev) { beforeHim.current = prev; setSel(""); setLayout(l); }
       return l !== prev;
     };
@@ -834,7 +872,10 @@
             h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.ink } }, "一人一半"),
             h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, marginTop: 2 } }, "左边那张给你，右边那张换成 " + name + " 手机的锁屏，并排才拼成一颗心")),
           typeof Toggle === "function" ? h(Toggle, { on: !!layout.split, onChange: v => restart({ split: !!v }), wk: "collage", part: "split" }) : null),
-        onArrange && def.n > 0 ? h("button", { onClick: arrange, disabled: !!busy || !list.length, "data-part": "collagearrange", className: "w-full active:opacity-70 disabled:opacity-40",
+        onDraft ? h("button", { onClick: draft, disabled: !!busy, "data-part": "collagedraft", className: "w-full active:opacity-70 disabled:opacity-40",
+          style: { marginTop: 14, padding: "12px 0", borderRadius: 12, border: "1px solid " + t.ink, color: t.ink, fontFamily: F_DISPLAY, fontSize: "calc(14.5px * var(--app-fs, 1))" } },
+          busy === "arrange" ? name + " 在拼…" : "让 " + name + " 先拼一张") : null,
+        !onDraft && onArrange && def.n > 0 ? h("button", { onClick: arrange, disabled: !!busy || !list.length, "data-part": "collagearrange", className: "w-full active:opacity-70 disabled:opacity-40",
           style: { marginTop: 14, padding: "12px 0", borderRadius: 12, border: "1px solid " + t.ink, color: t.ink, fontFamily: F_DISPLAY, fontSize: "calc(14.5px * var(--app-fs, 1))" } },
           busy === "arrange" ? name + " 在挑…" : "让 " + name + " 来摆") : null,
         why ? h("div", { style: { fontFamily: F_BODY, fontStyle: "italic", fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.sub, lineHeight: 1.7, marginTop: 10, textAlign: "center" } }, "「" + why + "」") : null,

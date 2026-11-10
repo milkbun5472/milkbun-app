@@ -83,3 +83,12 @@ test("装饰：胶带涂鸦、照片滤镜（逐像素，不靠 ctx.filter）、
   assert.match(src, /getImageData\(0, 0, c\.width, c\.height\)/);
   assert.match(app, /\\"filter\\":\\"\\",\\"style\\":\\"\\",\\"color\\":\\"\\"/);
 });
+test("TA 先拼一张；TA 自己的东西（手机里存的、抽屉里画的）也能上壁纸", () => {
+  assert.match(src, /const draft = async \(\) =>/);
+  assert.match(src, /"data-part": "collagedraft"/);
+  assert.match(src, /if \(a\.photo != null && list\[/);
+  assert.match(app, /const collageDraft = async \(charId, catalog, hist\)/);
+  assert.match(app, /const collageHisThings = charId =>/);
+  assert.match(app, /x\.kind === "draw" && x\.svg/);
+  assert.match(scr, /extra: collageHisThings \? collageHisThings\(partner\.id\) : \[\]/);
+});

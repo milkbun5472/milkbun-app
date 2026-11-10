@@ -28838,6 +28838,39 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       return { pick: Math.round(Number(d && d.pick)) || 0, why: String((d && d.why) || "").trim() };
     } catch (e) { toast("没挑成：" + ((e && e.message) || "重试")); return null; }
   };
+  // TA 先拼一张：从样式到贴纸都由TA挑，回一份完整的初稿
+  const collageDraft = async (charId, catalog, hist) => {
+    const char = characters.find(c => c.id === charId);
+    const route = apiFor(charId);
+    if (!char || !route) { toast("请先到设置配置 API"); return null; }
+    const uName = (profileFor(charId) || {}).name || "她";
+    try {
+      return await runProbe(route, ctxFor(char), {
+        voice: true,
+        instruction: "你和 " + uName + " 要拼一张手机壁纸，这次你先动手拼一张给她看。能用的东西：\n" + catalog
+          + "\n\n挑一个样式（tpl 写样式名），照片按格子顺序写编号（picks），拍立得样式可以给每张写一句底下的字（captions），再写几句手写在壁纸上的字（words，可以不写），背景、颜色（bgColor 底色 / bgInk 花纹色，#开头的颜色，可不填）、字体都由你定；"
+          + "add 里可以再加贴纸（sticker）、胶带涂鸦（shape）、一句字（text）、多一张照片（photo:编号），位置 at:[左右%,上下%]。照片里标着「你的」的是你自己的东西（你手机里存的、你画的），想放就放。"
+          + "照你这个人的眼光和你们之间的事来挑，不用面面俱到。say 是你拼完想跟她说的话，想说什么就说什么，长短跟着你此刻的心情和你这个人平时说话的样子来。" + (hist ? "\n\n【这一回拼壁纸到现在，你们俩的来回（「她」是 " + uName + "，「你」是你）】\n" + hist + "\n接着这些往下：记得自己刚才动过什么、说过什么，别把上一句话再说一遍，她刚改的地方你看得见也可以接一句。" : ""),
+        schemaHint: "{\"tpl\":\"样式名\",\"picks\":[编号],\"captions\":[\"\"],\"words\":[\"\"],\"bg\":\"背景名\",\"bgColor\":\"\",\"bgInk\":\"\",\"font\":\"字体名\",\"add\":[{\"sticker\":\"\",\"shape\":\"\",\"text\":\"\",\"photo\":null,\"at\":[50,50],\"size\":100,\"angle\":0,\"color\":\"\"}],\"say\":\"你想跟她说的话\"}",
+        maxTokens: 12000
+      });
+    } catch (e) { toast("没拼成：" + ((e && e.message) || "重试")); return null; }
+  };
+  // TA 自己的东西：手机相册里存下来的照片、抽屉里TA画的画——拼壁纸时跟合照一起摆出来
+  const collageHisThings = charId => {
+    const out = [];
+    try {
+      (coupleDrawer || []).filter(x => x && x.characterId === charId && x.kind === "draw" && x.svg).slice(0, 12)
+        .forEach(x => out.push({ imgUrl: "data:image/svg+xml;charset=utf-8," + encodeURIComponent(x.svg), desc: String(x.text || x.title || "画的一张").slice(0, 40), from: "你画的", ts: x.ts || 0 }));
+      const all = (window.PhoneKit && window.PhoneKit.keepLoad) ? window.PhoneKit.keepLoad() : loadJSON("x_phoneKeep", {});
+      const kept = ((window.PhoneKit && window.PhoneKit.keptPhotos) || (v => Array.isArray(v) ? v : []))((all || {})[charId]);
+      kept.filter(x => x && (x.imageRef || x.imageUrl)).slice(0, 20).forEach(x => {
+        const u = x.imageRef ? (typeof resolveImg === "function" ? resolveImg(x.imageRef) : "") : x.imageUrl;
+        if (u) out.push({ imgUrl: u, desc: String(x.caption || x.desc || x.scene || "手机里的一张").slice(0, 40), from: "你手机里的", ts: x.ts || 0 });
+      });
+    } catch (e) {}
+    return out;
+  };
   // 存下来：挂合照墙、存到手机；一人一半那半张换成 TA 的锁屏（跟TA自己换锁屏是同一格）；TA 下一轮知道你们拼了一张
   const collageSave = async (charId, o) => {
     const char = characters.find(c => c.id === charId);
@@ -35657,7 +35690,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     // 只捞线上等于把最该上墙的那一半漏在外面。按时间从新到旧排。
     duoPhotosFor: duoPhotosOf,
     onDeletePhoto: confirmDeleteDuoPhoto,
-    onUploadPhoto: uploadCoupleShot, onCollageArrange: collageArrange, onCollageSave: collageSave, onCollageLook: collageLook, onCollageChoose: collageChoose,
+    onUploadPhoto: uploadCoupleShot, onCollageArrange: collageArrange, onCollageSave: collageSave, onCollageLook: collageLook, onCollageChoose: collageChoose, onCollageDraft: collageDraft, collageHisThings: collageHisThings,
     // 时光胶囊现在是情侣空间【里面】的一层（v62.41），不再是另一个屏。
     // characters / characterId / profile / onBack 由 Us 那头按当前这段关系补上。
     // onKeep：拆开之后往记忆库记一笔（v64.03）。走的是情侣空间那条现成的 coupleKeep，
