@@ -20,3 +20,13 @@ test("接进合照墙；TA 来摆一次调用、存下来挂墙/换锁屏/TA 下
   assert.match(app, /waitForHer\(charId, \{ collageDone:/);
   assert.match(app, /gardenMineHint \+ collageHint \+ letterHint/);
 });
+test("自由度：背景、字体、贴纸都能换；按到谁认得出（贴纸在最上面）", () => {
+  assert.ok(Object.keys(C.BGS).length >= 6 && Object.keys(C.FONTS).length >= 4 && C.STICKERS.length >= 12);
+  assert.equal(C.defaultDeco("scrap", true).length, C.TPL.scrap.deco.length * 2);
+  const boxes = [{ key: "s0", kind: "slot", x: 500, y: 500, w: 600, h: 600 }, { key: "d0", kind: "deco", x: 520, y: 520, w: 100, h: 100 }, { key: "w0", kind: "word", x: 510, y: 510, w: 300, h: 80 }];
+  assert.equal(C.hitTest(boxes, 515, 515).key, "d0");
+  assert.equal(C.hitTest(boxes, 300, 300).key, "s0");
+  assert.equal(C.hitTest(boxes, 50, 50), null);
+  assert.match(src, /touchAction: "none"/);
+  assert.match(src, /position: "sticky"/);
+});
