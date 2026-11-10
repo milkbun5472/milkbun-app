@@ -20,7 +20,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v89.404";
+const APP_VERSION = "v89.420";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -12141,7 +12141,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     }).join("\n\n");
         const close = d.mode === "shopclose";
         const r = await runProbe(apiFor(char.id), ctxFor(char), { voice: true, tag: "stampshop", maxTokens: 65000,
-          instruction: "这是" + uN + "在邮票册里开的一家小邮局（游戏里的店，第 " + (d.day || 1) + " 天）。店里现在的样子：" + (d.decor || "刚开张，还空着") + "。\n"
+          instruction: "这是" + uN + "在邮票册里开的一家小邮局（游戏里的店，第 " + (d.day || 1) + " 天）。" + (d.clock ? "现在是" + (d.missed ? "那天晚上" : (d.period ? d.period + " " : "") + d.clock) + "，店是照现实的钟点开的，写到时间要对得上，别写已经过去的钟点。" : "") + "店里现在的样子：" + (d.decor || "刚开张，还空着") + "。\n"
             + (close
               ? "今天上班的：" + (d.staff || "") + "。今天来过的客人：" + (d.customers || "没什么人") + "。今天收了 " + (d.coins || 0) + " 枚邮花。\n"
                 + (d.window ? "橱窗里摆着她抽到的这几张卡：" + d.window + "。\n" : "") + (d.missed ? "这是那天晚上的事：她那天忘了来打烊，是店里上班的这几个人自己把店关了，她不在场。\n" : "") + (d.badges ? "店员挂着当工牌的卡：" + d.badges + "。\n" : "")
@@ -18317,6 +18317,30 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       stampSaveCard(cardId, alt ? c0 => ({ ...c0, drawing: false, drawErr: "", faceAlt: key, faceAltMode: duo ? "duo" : "solo",
         faces: Object.assign({}, c0.faceAlt ? { [c0.faceAltMode || "solo"]: c0.faceAlt } : {}, c0.faces || {}, { [duo ? "duo" : "solo"]: key }) }) : { drawing: false, face: key, drawErr: "" });
     } catch (e) { stampSaveCard(cardId, { drawing: false, drawErr: String(e && e.message || e).slice(0, 120), drawErrTs: Date.now() }); toast("卡面没画成：" + String(e && e.message || e).slice(0, 60)); }
+  };
+  // 剧情闯关故事集的封面：照卡面双人那套画（带你们俩的参考照、照关系定距离），回一个 data URL（她 2026-11-10「要好看的双人图」）
+  window.StampStoryCover = async book => {
+    const char = characters.find(x => x.id === (book && book.charId));
+    if (!char) throw new Error("找不到这段故事是跟谁的");
+    if (!(typeof imgApiReady === "function" && imgApiReady())) throw new Error("先去 设置·图像API 配一下");
+    const lines = c => String(((c || {}).lines || []).join("")).replace(/\s+/g, " ");
+    const chs = book.chapters || [], title = (book.ending && book.ending.title) || book.title || book.hook || "";
+    const peak = book.ending ? lines(book.ending).slice(-260) : lines(chs[chs.length - 1]).slice(-260);
+    const lover = spaceLover((couplesRef.current || {})[char.id]);
+    const meP = photoMe("她", char.id);
+    if (!meP.refPhoto) toast("你还没传自己的参考照（在你自己的资料里传一张），这张只能照文字画你", 6000);
+    const scene = "一本书的封面插画，竖版，像一本精装小说的封面那样讲究：「" + title + "」。"
+      + "\n这段故事：" + String(book.hook || "").slice(0, 120) + "。开头：" + lines(chs[0]).slice(0, 160) + "。"
+      + "\n画的是这段故事里最打动人的那一刻：" + peak
+      + "\n画面里是你们两个人，" + (lover ? "你们是恋人，两个人之间的距离、眼神和手就是恋人的样子。" : "你们之间是什么关系就是什么距离，不画成恋人。")
+      + "\n构图像书封：两个人占画面中下部，上方留出一片干净的天空或墙面、光晕之类的留白；景别拉开到看得见这一刻的场景、季节和光，光线有层次，色调统一、照结局的心情定（圆满就暖，怅然就冷一点）。"
+      + "\n画面里不要任何文字、书名、标志和边框。";
+    const prompt = buildPhotoPrompt(char, scene, statesRef.current[char.id] || {}, { kind: "duo", me: meP, notLover: !lover, closet: closetTextFor(char.id, 240),
+      poseLine: "【两个人的姿势】两个人在一起做着这一刻的事，有互动、有动势，身体之间的距离照你们的关系，不是并排对着镜头站好。" });
+    const refs = [char.refPhoto, meP.refPhoto].filter(Boolean);
+    const out = await generateSelfieImage(prompt, refs.length ? refs : null, { size: "1024x1536" });
+    const blob = await imgOutBlob(out); if (!blob) throw new Error("没拿到图");
+    return await new Promise((res, rej) => { const fr = new FileReader(); fr.onload = () => res(fr.result); fr.onerror = rej; fr.readAsDataURL(blob); });
   };
   const createGroup = (name, memberIds, spectate, roles) => {
     const g = {

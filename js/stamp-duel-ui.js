@@ -457,7 +457,8 @@
     const SAVE_KEY = "x_stampDuelSave";
     const [saved, setSaved] = useState(() => { try { const v = typeof loadJSON === "function" ? loadJSON(SAVE_KEY, null) : null; return v && v.st && !v.st.over ? v : null; } catch (e) { return null; } });
     const persist = (x, sr) => { try { if (typeof saveJSON !== "function" || (x && (x.tutorial || x.run || x.siege || x.raid || x.edict || x.shift || x.patrol || x.puzzle || x.relay || x.story || x.shopFight)) || runBattle) return; if (x && !x.over) saveJSON(SAVE_KEY, { st: x, series: sr || null, foeId, at: Date.now() }); else saveJSON(SAVE_KEY, null); } catch (e) {} };
-    const redraw = () => { persist(st, series); bump(x => x + 1); };
+    const relayKeep = x => { try { if (typeof saveJSON === "function") saveJSON("x_stampRelaySave", x && x.relay && !x.over ? { st: x, at: Date.now() } : null); } catch (e) {} };   // 接力打一半退出能接着打（她 2026-11-10）
+    const redraw = () => { persist(st, series); if (st && st.relay) relayKeep(st); bump(x => x + 1); };
     const resume = () => { if (!saved) return; setFoeId(saved.foeId); setSt(saved.st); setSeries(saved.series || D().newSeries()); setSaved(null); setHandSel(-1); setBoardSel(-1); };
     const drop = () => { persist(null); setSaved(null); };
     const [tut, setTut] = useState(-1), tutSeen = useRef({ infoSeen: false });
@@ -465,10 +466,22 @@
     const tutCard = (i, role, extra) => Object.assign(D().stampOf({ id: "tut_" + i, rarity: extra && extra.rarity || "R", lv: 10, text: { name: extra && extra.name || ("练习·" + role) } }), { role, trait: role === "火漆" ? "守护" : role === "投递" ? "锋利" : "冷静", traitFrom: "", skill: Object.keys(D().SKILLS[role])[0] }, extra || {});
     // 守城（她 2026-11-08「先做守城」）：不挑对手，卡组从邮票册里配，对面一波一波压过来
     const [siegeTier, setSiegeTier] = useState(0);
-    const startSiege = tier0 => {
+    // 陪打的人开局随口提一个小要求（她 2026-11-10「都做吧」）：照 TA 的性子挑；做到了 TA 说一句、给一点印泥邮资（每人每天一次）
+    const SIEGE_ASKS = {
+      env: { zh: "这局信封别掉到一半以下", ok: (st, won) => won && st.siege.minEnv >= (st.me.max || 40) / 2 },
+      mine: { zh: "用 3 张我的票守", ok: (st, won, mate) => won && ((st.siege.placed || {})[mate] || 0) >= 3 },
+      notear: { zh: "一张票都别撕", ok: (st, won) => won && !st.siege.tears },
+      solo: { zh: "我递的东西一样都别拿，自己守", ok: (st, won) => won && !st.siege.boons },
+      take: { zh: "我递的东西拿满 3 回", ok: (st, won) => won && st.siege.boons >= 3 }
+    };
+    const ASK_FAV = { 护短: ["env", "take"], 好胜: ["solo", "notear"], 温柔: ["env", "take"], 冷淡: ["solo", "notear"], 偏执: ["mine", "notear"], 默契: ["mine", "take"] };
+    const siegeAskFor = (mate, sty, salt) => { const fav = ASK_FAV[sty] || ASK_FAV.默契, all = Object.keys(SIEGE_ASKS); let h0 = 0; for (const ch of String(mate) + "|" + salt) h0 = (h0 * 31 + ch.charCodeAt(0)) >>> 0; return h0 % 3 ? fav[h0 % 2] : all[h0 % all.length]; };
+    const startSiege = (tier0, endless) => {
       const tier = typeof tier0 === "number" ? tier0 : siegeTier, s = (seedRef.current = (seedRef.current * 1103515245 + 12345) >>> 0);
-      setSiegeTier(tier);
-      const nd = D().newDuel(D().deckFrom(cards, s, D().DECK_SIZE, core), [], s, { siege: true, siegeLv: D().SIEGE_TIERS[tier], bonds: bondsOf() }); nd.siegeTier = tier;
+      if (!endless) setSiegeTier(tier);
+      const sty = coachId ? (bondsOf()[coachId] || "默契") : "", lv = endless ? Math.max(5, Math.round(D().avgLv(cards || []))) : D().SIEGE_TIERS[tier];
+      const nd = D().newDuel(D().deckFrom(cards, s, D().DECK_SIZE, core), [], s, { siege: true, siegeLv: lv, bonds: bondsOf(), siegeOpt: { endless: !!endless, week: D().siegeWeek(D().weekNo()).id, mate: coachId || "", style: sty } }); nd.siegeTier = endless ? -1 : tier;
+      if (coachId) nd.siegeAsk = siegeAskFor(coachId, sty, s);
       setSt(nd); setMode("siege"); setHandSel(-1); setBoardSel(-1); setSiegeSaved(false);
     };
     const [siegeSaved, setSiegeSaved] = useState(false);
@@ -506,6 +519,16 @@
     // 接力（她 2026-11-08）：你和 TA 轮流下同一块棋盘；单数回合你、双数回合 TA（照 TA 的性子出牌）
     // 剧情闯关（她 2026-11-08）：五章，每章 TA 写一段→打一场→她选一条路；第五章打完写结局，收进故事集
     const STORY_KEY = "x_stampStory", STORIES_KEY = "x_stampStories";
+    const uniqStories = list => (list || []).filter((x, i, all) => x && all.map(y => y && y.id).lastIndexOf(x.id) === i);
+    // 以前「看结局」点两次会把同一段存两份（她 2026-11-10「为啥是两段明明只有一段」）：读的时候顺手把存档里重复的合掉
+    // 故事书封面（她 2026-11-10「封面能不能选生图或自设封面、选颜色」）：存在这一段故事上 cover:{color, img}
+    const BOOK_COLORS = ["#8a4a68", "#4f6a8a", "#6a7a4a", "#8a6a3a", "#5a4f8a", "#3f7a8a", "#a0522d", "#2f2a22"];
+    const setStoryCover = (id, cover) => { try { const all = uniqStories(loadJSON(STORIES_KEY, []) || []); const x = all.find(y => y.id === id); if (x) { x.cover = cover; saveJSON(STORIES_KEY, all); } } catch (e) {} sbBump(n => n + 1); };
+    const bookBg = (x, k) => { const c = x.cover || {}, img = c.img && typeof resolveImg === "function" ? resolveImg(c.img) : "", col = c.color || BOOK_COLORS[k % 4];
+      return img ? "linear-gradient(180deg, rgba(0,0,0,.05), rgba(0,0,0,.55)), center/cover no-repeat url(" + img + ")" : "linear-gradient(160deg, " + col + ", " + col + "cc)"; };
+    const fileToCover = file => new Promise((res, rej) => { const fr = new FileReader(); fr.onload = () => { const im = new Image(); im.onload = () => { const k = Math.min(1, 900 / Math.max(im.width, im.height)), cv = document.createElement("canvas"); cv.width = Math.round(im.width * k); cv.height = Math.round(im.height * k); cv.getContext("2d").drawImage(im, 0, 0, cv.width, cv.height); res(cv.toDataURL("image/jpeg", .86)); }; im.onerror = rej; im.src = fr.result; }; fr.onerror = rej; fr.readAsDataURL(file); });
+    const blobToUrl = b => new Promise((res, rej) => { const fr = new FileReader(); fr.onload = () => res(fr.result); fr.onerror = rej; fr.readAsDataURL(b); });
+    const cleanStories = () => { try { const raw = loadJSON(STORIES_KEY, []) || [], u = uniqStories(raw); if (u.length !== raw.length) saveJSON(STORIES_KEY, u); return u; } catch (e) { return []; } };
     const STORY_HOOKS = ["一封寄错的信", "暴雪封路的邮局", "失踪的邮差", "最后一班夜车", "抽屉里的旧明信片", "让 TA 起一个"];
     const [story, setStory0] = useState(() => { try { const v = typeof loadJSON === "function" ? loadJSON(STORY_KEY, null) : null; return v && !v.done ? v : null; } catch (e) { return null; } });
     const setStory = v => { setStory0(v ? Object.assign({}, v) : null); try { saveJSON(STORY_KEY, v && !v.done ? v : null); } catch (e) {} };
@@ -515,7 +538,7 @@
       if (sBusy || !onChat) return; setSBusy(true);
       try { const end = sv0.chapters.length >= 5, r = await onChat(sv0.charId, { mode: end ? "storyend" : "storych", hook: sv0.hook, ch: sv0.chapters.length + 1, past: storyPast(sv0) });
         if (!r || !r.lines) { toast && toast("没写出来，再点一次试试"); return; }
-        if (end) { sv0.ending = r; sv0.done = true; setSOpen(sv0.id); try { const all = (typeof loadJSON === "function" ? loadJSON(STORIES_KEY, []) : []) || []; all.push(Object.assign({}, sv0, { ts: Date.now() })); saveJSON(STORIES_KEY, all.slice(-50)); } catch (e) {} }
+        if (end) { sv0.ending = r; sv0.done = true; setSOpen(sv0.id); try { const all = (typeof loadJSON === "function" ? loadJSON(STORIES_KEY, []) : []) || []; const kept = all.filter(x => x && x.id !== sv0.id); kept.push(Object.assign({}, sv0, { ts: Date.now() })); saveJSON(STORIES_KEY, kept.slice(-50)); } catch (e) {} }
         else sv0.chapters.push(Object.assign({ won: null, pick: "" }, r));
         setStory(sv0); }
       catch (e) { toast && toast("没成：" + ((e && e.message) || e)); } finally { setSBusy(false); }
@@ -534,7 +557,8 @@
     const shopAct = async (action, options = {}) => { try { const out=await window.StampShop.run(action,{...shopOptions(),...options});setShop0(window.StampShop.read());return out;}catch(e){toast&&toast(e.message);throw e;} };
     React.useEffect(()=>{const sync=()=>setShop0(window.StampShop.read());window.addEventListener('stamp-shop-change',sync);return()=>window.removeEventListener('stamp-shop-change',sync);},[]);
     React.useEffect(()=>{if(mode!=='shop')return;const sync=()=>window.StampShop.sync(shopOptions()).then(setShop0).catch(e=>toast&&toast(e.message));sync();const id=setInterval(sync,2000);return()=>clearInterval(id);},[mode]);
-    const [diaryRegs, setDiaryRegs] = useState(false), [diaryD, setDiaryD] = useState(""), [diaryFlip, setDiaryFlip] = useState(""), diaryX = useRef(0), [dpWho, setDpWho] = useState({}), [svPrice, setSvPrice] = useState("mid"), [svPick, setSvPick] = useState(""), [shBusy, setShBusy] = useState(""), [shMeet, setShMeet] = useState(null), [winF, setWinF] = useState({ who: "", rar: "", q: "" }), [dpF, setDpF] = useState({ who: "", rar: "", q: "" }), [bgPost, setBgPost] = useState(""), [bgF, setBgF] = useState({ who: "", rar: "", q: "" });
+    const [regTab, setRegTab] = useState("reg"), [regSort, setRegSort] = useState("bond"), [regQ, setRegQ] = useState(""), [regOpen, setRegOpen] = useState("");   // 熟客簿：熟客／稀客分页，排序、搜索，小事点开才展开（她 2026-11-10「多起来了不好翻」）
+    const [sbCoverOpen, setSbCoverOpen] = useState(false), [sbCoverBusy, setSbCoverBusy] = useState(""), [, sbBump] = useState(0), [sbOpen, setSbOpen] = useState(""), [sbWho, setSbWho] = useState(""), [sbPage, setSbPage] = useState(0), [sbFlip, setSbFlip] = useState(""), sbX = useRef(0), [diaryRegs, setDiaryRegs] = useState(false), [diaryD, setDiaryD] = useState(""), [diaryFlip, setDiaryFlip] = useState(""), diaryX = useRef(0), [dpWho, setDpWho] = useState({}), [svPrice, setSvPrice] = useState("mid"), [svPick, setSvPick] = useState(""), [shBusy, setShBusy] = useState(""), [shMeet, setShMeet] = useState(null), [winF, setWinF] = useState({ who: "", rar: "", q: "" }), [dpF, setDpF] = useState({ who: "", rar: "", q: "" }), [bgPost, setBgPost] = useState(""), [bgF, setBgF] = useState({ who: "", rar: "", q: "" });
     // 挑卡的筛选条（橱窗、派遣共用，她 2026-11-08「派遣那页挑卡也加个筛选」）：搜卡名、按人、按稀有度
     const cardFilterHit = (f,k) => window.StampShop.filterCards([k],f).length>0;
     const cardFilterBar = (f,setF,wk,noWho,fit) => h(window.StampShopFilters,{characters,cards,filter:f,onChange:setF,wk,noWho,fit});
@@ -545,8 +569,8 @@
     const startRelay = () => {
       if (!coachId) { toast && toast("先挑一个人跟你接力"); return; }
       const s = (seedRef.current = (seedRef.current * 1103515245 + 12345) >>> 0), me = D().deckFrom(cards, s, D().DECK_SIZE, [coachId]);
-      const nd = D().newDuel(me, D().edictDeck(s), s, { foeLv: Math.max(3, Math.round(D().avgLv(me) * 1.05)), bonds: bondsOf() });
-      nd.relay = { ta: coachId, style: bondsOf()[coachId] || "默契" }; setSt(nd); setMode("relay"); setHandSel(-1); setBoardSel(-1);
+      const nd = D().newDuel(me, D().edictDeck(s), s, { foeLv: Math.max(3, Math.round(D().avgLv(me) * 1.15)), foeHp: Math.round(D().envFor(me) * 1.8), hard: true, bonds: bondsOf() }); // 两人轮流下，对面信封厚一些、每回合多 1 胶水，不至于一回合打穿（她 2026-11-10）
+      nd.relay = { ta: coachId, style: bondsOf()[coachId] || "默契" }; relayKeep(nd); setSt(nd); setMode("relay"); setHandSel(-1); setBoardSel(-1);
     };
     const PATROL_KEY = "x_stampPatrol", PATROL_BEST = "x_stampPatrolBest", PATROL_SALT = "x_stampPatrolSalt";
     const patrolSalt = () => window.StampShop.seed();
@@ -816,7 +840,7 @@
               c.visitor && !c.meet ? h("button", { "data-wk": "duelshopmeet", onClick: () => meet(c), disabled: !!shBusy, className: "disabled:opacity-50", style: Object.assign(btn("transparent", "#9a6a4a", "rgba(154,106,74,.5)"), { marginTop: 6, fontSize: fz(11.5) }) }, shBusy === c.id ? "在聊…" : "听 TA 跟店员说两句（花一次调用）") : null,
               // 来访对话：每句前面标上是谁说的；看完能直接去小世界看他们演（她 2026-11-09）
               c.meet && shMeet === c.id ? h("div", { "data-wk": "duelshopmeettext", style: { marginTop: 6 } }, para((c.meetTurns && c.meetTurns.length ? c.meetTurns : c.meet.map(t => ({ text: t }))).map(t => (t.speakerId && nameOf(t.speakerId) ? nameOf(t.speakerId) + "：" : "") + t.text))) : c.meet ? h("button", { onClick: () => setShMeet(c.id), style: { marginTop: 4, fontSize: fz(11), color: "#9a6a4a" } }, "再看一遍他们说的") : null,
-              c.meet && onShop3D ? h("button", { "data-wk": "duelshopmeet3d", onClick: () => { window.__shopReplayMeet = c.id; onShop3D(); }, style: Object.assign(btn("transparent", GREEN, GREEN), { marginTop: 6, fontSize: fz(11.5), width: "100%" }) }, "去小世界看他们演这段（不再调用）") : null)),
+              c.meet && onShop3D && !c.done ? h("button", { "data-wk": "duelshopmeet3d", onClick: () => { window.__shopReplayMeet = c.id; onShop3D(); }, style: Object.assign(btn("transparent", GREEN, GREEN), { marginTop: 6, fontSize: fz(11.5), width: "100%" }) }, "去小世界看他们演这段（不再调用）") : null)),
             h("button", { key: "cl", "data-wk": "duelshopclose", onClick: close, disabled: shBusy === "close", className: "w-full disabled:opacity-50", style: Object.assign(btn(INK, PAPER), { marginTop: 6, padding: "10px 0" }) }, shBusy === "close" ? "在打烊…" : window.StampShop.hasResult("close")?"保存已写好的打烊（不再调用）":"打烊（花一次调用，写今天店里的一段）"), h("button",{key:"plain",onClick:()=>shopAct('closeLocal').catch(()=>{}),style:{...btn("transparent",INK),minHeight:40}},"只关门（不写故事）")]) : null,
           sh.phase === "closed" ? card("closed", [h("div", { key: "t" }, secTitle(INK, "烊", "打烊了", "第 " + sh.day + " 天 · 收了 " + (sh.earned || 0) + " 枚")),
             sh.closing ? h("div", { key: "c", "data-wk": "duelshopclosing" }, h(window.StampShopStories,{shop:sh,inlineCurrent:true,name:nameOf})) : null,
@@ -851,8 +875,76 @@
                   limited && !has ? h("span", { style: { position: "absolute", right: 4, top: 3, fontSize: fz(9), color: "#b23a2e" } }, mon + " 月限定") : null,
                   h("div", { style: { fontSize: fz(10.5), color: SUB } }, !has ? d.price + " 枚 · 收入 +" + Math.round(d.bonus * 100) + "%" : up ? "翻新 " + up + " 枚 · 加成多一半" : "翻新到头了")); })); })()], "#5a7a4a"))]);
     }
+    // 故事集：书架（按人筛）→ 点一本翻着读：封面、五章各一页、结局一页
+    if (!st && mode === "storybook") {
+      const C = "#7a3b5a", all = uniqStories((() => { try { return loadJSON(STORIES_KEY, []) || []; } catch (e) { return []; } })()).reverse();
+      const people = Array.from(new Set(all.map(x => x.charId))).filter(Boolean), shown = all.filter(x => !sbWho || x.charId === sbWho);
+      const P = (t, k) => h("p", { key: k, style: { fontFamily: FD, fontSize: fz(14), lineHeight: 1.95, margin: "0 0 10px", whiteSpace: "pre-wrap" } }, BT(t));
+      const book = all.find(x => x.id === sbOpen);
+      if (book) {
+        const pages = [{ kind: "cover" }].concat(book.chapters.map((c, i) => ({ kind: "ch", c, i }))).concat(book.ending ? [{ kind: "end" }] : []);
+        const at = Math.min(sbPage, pages.length - 1), pg = pages[at], go = k => { const n = at + k; if (n >= 0 && n < pages.length) { setSbFlip(k > 0 ? "older" : "newer"); setSbPage(n); } };
+        const swipe = { onTouchStart: e => { sbX.current = e.touches[0].clientX; }, onTouchEnd: e => { const dx = e.changedTouches[0].clientX - (sbX.current || 0); if (Math.abs(dx) > 60) go(dx < 0 ? 1 : -1); } };
+        const who = nameOf(book.charId) || "TA", date = book.ts ? new Date(book.ts).toLocaleDateString() : "";
+        return shell([
+          h(Head, { key: "hd", zh: (book.ending && book.ending.title) || "故事集", bg: "transparent", ink: INK, onBack: () => setSbOpen("") }),
+          h("div", { key: "bd", "data-wk": "duelstorybookread", className: "flex-1 min-h-0 overflow-y-auto px-4", style: { fontFamily: F, color: INK, paddingTop: 6, paddingBottom: 20 } },
+            h("div", Object.assign({ key: book.id + at, "data-wk": "duelstorybookpage" }, swipe, { style: { minHeight: "60vh", position: "relative", padding: "26px 20px 20px 30px", borderRadius: "3px 8px 8px 3px", animation: sbFlip ? (sbFlip === "older" ? "diaryOlder" : "diaryNewer") + " .38s ease-out" : "none", transformOrigin: sbFlip === "older" ? "left center" : "right center",
+                background: pg.kind === "cover" ? bookBg(book, all.indexOf(book)) : "linear-gradient(90deg, rgba(122,59,90,.18) 0 6px, rgba(255,255,255,.4) 6px 10px, transparent 10px), " + PAPER, color: pg.kind === "cover" ? "#fff8ec" : INK, boxShadow: "0 6px 18px rgba(47,42,34,.18), inset 0 0 0 1px rgba(122,59,90,.12)" } }),
+              pg.kind === "cover" ? h("div", { style: { textAlign: "center", paddingTop: book.cover && book.cover.img ? "30vh" : "12vh", textShadow: book.cover && book.cover.img ? "0 1px 4px rgba(0,0,0,.6)" : "none" } },
+                  h("div", { style: { fontSize: fz(11), letterSpacing: ".3em", opacity: .8 } }, "和 " + who + " 一起走的"),
+                  h("div", { style: { fontFamily: FD, fontSize: fz(24), margin: "14px 0", lineHeight: 1.4 } }, (book.ending && book.ending.title) || book.hook),
+                  h("div", { style: { width: 40, height: 2, background: "currentColor", opacity: .5, margin: "0 auto 14px" } }),
+                  h("div", { style: { fontSize: fz(12), opacity: .8, lineHeight: 1.8 } }, (book.hook.indexOf("由你来起") === 0 ? who + " 起的头" : "从「" + book.hook + "」开始"), h("br"), date))
+              : pg.kind === "ch" ? h(React.Fragment, null,
+                  h("div", { style: { fontSize: fz(11), color: SUB, letterSpacing: ".2em" } }, "第 " + (pg.i + 1) + " 章"),
+                  h("div", { style: { fontFamily: FD, fontSize: fz(18), color: C, margin: "4px 0 14px" } }, pg.c.title || ""),
+                  (pg.c.lines || []).map(P),
+                  pg.c.foe && pg.c.foe.name ? h("div", { style: { margin: "8px 0", padding: "7px 11px", borderLeft: "3px solid " + RED, background: "rgba(178,58,46,.06)", fontFamily: FD, fontSize: fz(13) } }, BT(pg.c.foe.name + (pg.c.foe.say ? "：" + pg.c.foe.say : ""))) : null,
+                  pg.c.won != null || pg.c.pick ? h("div", { style: { marginTop: 12, fontSize: fz(12), color: pg.c.won ? GREEN : RED } }, (pg.c.won ? "闯过去了" : pg.c.won === false ? "没闯过去" : "") + (pg.c.pick ? (pg.c.won != null ? "，" : "") + "选了「" + pg.c.pick + "」" : "")) : null)
+              : h(React.Fragment, null,
+                  h("div", { style: { fontSize: fz(11), color: SUB, letterSpacing: ".2em" } }, "结局"),
+                  h("div", { style: { fontFamily: FD, fontSize: fz(19), color: C, margin: "4px 0 14px" } }, book.ending.title || ""),
+                  (book.ending.lines || []).map(P),
+                  h("div", { style: { textAlign: "center", marginTop: 16, color: C, letterSpacing: ".4em" } }, "— 完 —"))),
+            at === 0 ? h("div", { "data-wk": "duelstorycover", style: { marginTop: 12 } },
+              h("button", { onClick: () => setSbCoverOpen(v => !v), style: { color: C, fontFamily: FD, fontSize: fz(13), padding: "4px 2px" } }, sbCoverOpen ? "▾ 换封面" : "▸ 换封面"),
+              sbCoverOpen ? h("div", { style: { marginTop: 6, padding: "10px 12px", borderRadius: 6, background: "#fffdf7", border: "1px solid rgba(122,59,90,.2)" } },
+                h("div", { style: { fontSize: fz(11), color: SUB, marginBottom: 6 } }, "书皮颜色"),
+                h("div", { className: "flex flex-wrap", style: { gap: 8, marginBottom: 10 } }, BOOK_COLORS.map(col => h("button", { key: col, "data-wk": "duelstorycovercolor", onClick: () => setStoryCover(book.id, { color: col }), style: { width: 28, height: 28, borderRadius: 99, background: col, boxShadow: (book.cover && book.cover.color === col && !book.cover.img) ? "0 0 0 2px #fff, 0 0 0 4px " + col : "0 1px 3px rgba(0,0,0,.25)" } }))),
+                h("div", { className: "flex flex-wrap", style: { gap: 8 } },
+                  h("label", { "data-wk": "duelstorycoverup", style: Object.assign(btn("transparent", C, C), { padding: "6px 12px", fontSize: fz(12), cursor: "pointer" }) }, sbCoverBusy === "up" ? "在放…" : "用自己的图",
+                    h("input", { type: "file", accept: "image/*", style: { display: "none" }, onChange: async e => { const f = e.target.files && e.target.files[0]; e.target.value = ""; if (!f) return; setSbCoverBusy("up"); try { const d = await fileToCover(f), ref = typeof imgToVault === "function" ? await imgToVault(d) : d; setStoryCover(book.id, Object.assign({}, book.cover || {}, { img: ref })); } catch (er) { toast && toast("没放上去：" + ((er && er.message) || er)); } finally { setSbCoverBusy(""); } } })),
+                  h("button", { "data-wk": "duelstorycovergen", disabled: !!sbCoverBusy, onClick: async () => {
+                      setSbCoverBusy("gen"); try {
+                        if (typeof window.StampStoryCover !== "function") throw Error("这里画不了");
+                        const d = await window.StampStoryCover(book);
+                        if (!d) throw Error("没画出来");
+                        const ref = typeof imgToVault === "function" ? await imgToVault(d) : d; setStoryCover(book.id, Object.assign({}, book.cover || {}, { img: ref }));
+                      } catch (er) { toast && toast("没画成：" + ((er && er.message) || er)); } finally { setSbCoverBusy(""); } },
+                    className: "disabled:opacity-50", style: Object.assign(btn(C, "#fff"), { padding: "6px 12px", fontSize: fz(12) }) }, sbCoverBusy === "gen" ? "在画…" : "生一张（花一次生图）"),
+                  book.cover && (book.cover.img || book.cover.color) ? h("button", { onClick: () => setStoryCover(book.id, null), style: { padding: "6px 10px", fontSize: fz(12), color: SUB } }, "用回默认") : null)) : null) : null,
+            h("div", { "data-wk": "duelstorybooknav", className: "flex items-center", style: { justifyContent: "space-between", margin: "12px 2px 0", fontFamily: FD } },
+              h("button", { onClick: () => go(-1), disabled: at <= 0, className: "disabled:opacity-30", style: { padding: "6px 12px", color: C, fontSize: fz(13) } }, "‹ 上一页"),
+              h("div", { className: "flex", style: { gap: 5 } }, pages.map((_, k) => h("button", { key: k, onClick: () => { setSbFlip(k > at ? "older" : "newer"); setSbPage(k); }, style: { width: k === at ? 16 : 7, height: 7, borderRadius: 99, background: k === at ? C : "rgba(122,59,90,.25)", transition: "width .2s" } }))),
+              h("button", { onClick: () => go(1), disabled: at >= pages.length - 1, className: "disabled:opacity-30", style: { padding: "6px 12px", color: C, fontSize: fz(13) } }, "下一页 ›")))
+        ]);
+      }
+      // 书架：一本一本立着，按人筛
+      return shell([
+        h(Head, { key: "hd", zh: "故事集", bg: "transparent", ink: INK, onBack: () => setMode("story") }),
+        h("div", { key: "bd", "data-wk": "duelstoryshelf", className: "flex-1 min-h-0 overflow-y-auto px-4", style: { fontFamily: F, color: INK, paddingTop: 6, paddingBottom: 24 } },
+          people.length > 1 ? h("div", { "data-wk": "duelstoryshelfwho", className: "flex overflow-x-auto", style: { gap: 6, marginBottom: 12 } }, [""].concat(people).map(id => { const on = sbWho === id;
+            return h("button", { key: id || "all", "data-on": on ? "1" : "0", onClick: () => setSbWho(id), style: { flexShrink: 0, padding: "4px 12px", borderRadius: 999, border: "1px solid " + (on ? C : "rgba(47,42,34,.2)"), background: on ? "rgba(122,59,90,.12)" : "transparent", color: on ? C : INK, fontSize: fz(12) } }, id ? (nameOf(id) || "TA") + " · " + all.filter(x => x.charId === id).length : "全部 · " + all.length); })) : null,
+          h("div", { style: { display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 10 } }, shown.map((x, k) => h("button", { key: x.id, "data-wk": "duelstoryshelfbook", onClick: () => { setSbFlip(""); setSbPage(0); setSbOpen(x.id); }, className: "text-left active:scale-[.98]",
+              style: { position: "relative", aspectRatio: "3 / 4", padding: "10px 8px 8px 13px", borderRadius: "3px 8px 8px 3px", color: "#fff8ec", background: bookBg(x, k), textShadow: x.cover && x.cover.img ? "0 1px 3px rgba(0,0,0,.6)" : "none", boxShadow: "inset 6px 0 0 rgba(0,0,0,.18), 0 4px 10px rgba(47,42,34,.2)", display: "flex", flexDirection: "column" } },
+            h("div", { style: { fontSize: fz(10), letterSpacing: ".2em", opacity: .8 } }, nameOf(x.charId) || "TA"),
+            h("div", { className: "flex-1", style: { fontFamily: FD, fontSize: fz(13), lineHeight: 1.4, marginTop: 6, overflow: "hidden" } }, (x.ending && x.ending.title) || x.hook),
+            h("div", { style: { fontSize: fz(9.5), opacity: .75, lineHeight: 1.4 } }, (x.ending ? "有结局" : x.chapters.length + " 章") + (x.ts ? " · " + new Date(x.ts).toLocaleDateString() : ""))))))
+      ]);
+    }
     if (!st && mode === "story") {
-      const sv0 = story, C = "#7a3b5a", stories = (() => { try { return (typeof loadJSON === "function" ? loadJSON(STORIES_KEY, []) : []) || []; } catch (e) { return []; } })();
+      const sv0 = story, C = "#7a3b5a", stories = cleanStories();
       const para = (lines, k0) => lines.map((t, k) => h("p", { key: k0 + k, style: { fontFamily: FD, fontSize: fz(13.5), lineHeight: 1.85, margin: "0 0 9px", whiteSpace: "pre-wrap" } }, BT(t)));
       if (!sv0) return shell([
         h(Head, { key: "hd", zh: "剧情闯关", bg: "transparent", ink: INK, onBack: () => setMode(""), right: guideBtn }),
@@ -862,12 +954,20 @@
           h("div", { style: { fontSize: fz(12), color: INK, margin: "0 0 6px" } }, "故事从哪儿开始"),
           h("div", { className: "flex flex-wrap", style: { gap: 6, marginBottom: 14 } }, STORY_HOOKS.map(k => h("button", { key: k, "data-wk": "duelstoryhook", "data-on": sHook === k ? "1" : "0", onClick: () => setSHook(k), style: { padding: "3px 11px", borderRadius: 999, border: "1px solid " + (sHook === k ? C : "rgba(47,42,34,.22)"), color: sHook === k ? C : INK, background: sHook === k ? "rgba(122,59,90,.08)" : "transparent", fontSize: fz(12) } }, k))),
           h("button", { "data-wk": "duelstorygo", disabled: !coachId || sBusy, onClick: () => storyNext({ id: "sy_" + Date.now().toString(36), charId: coachId, hook: sHook === "让 TA 起一个" ? "由你来起：照你们的关系想一个合适的开头" : sHook, chapters: [] }), className: "w-full disabled:opacity-40", style: Object.assign(btn(C, "#fff"), { padding: "12px 0", fontFamily: FD, fontSize: fz(15) }) }, sBusy ? (nameOf(coachId) || "TA") + " 在写第一章…" : coachId ? "跟 " + (nameOf(coachId) || "TA") + " 开始这段故事" : "先挑一个人"),
-          stories.length ? h("div", { "data-wk": "duelstorybook", style: { marginTop: 20 } }, h("div", { style: { fontFamily: FD, fontSize: fz(14), marginBottom: 6 } }, "故事集 · " + stories.length + " 段"),
-            stories.slice().reverse().map(x => { const op = sOpen === x.id;
-              return h("div", { key: x.id, style: { marginBottom: 8, borderRadius: 5, background: PAPER, border: "1px solid rgba(122,59,90,.25)", borderLeft: "3px solid " + C } },
-                h("button", { onClick: () => setSOpen(op ? "" : x.id), className: "w-full text-left", style: { padding: "9px 12px" } }, h("div", { style: { fontFamily: FD, fontSize: fz(14) } }, (x.ending && x.ending.title) || x.hook), h("div", { style: { fontSize: fz(10.5), color: SUB } }, (nameOf(x.charId) || "TA") + " · " + new Date(x.ts).toLocaleDateString())),
-                op ? h("div", { style: { padding: "0 14px 12px" } }, x.chapters.map((c, i) => h("div", { key: i }, h("div", { style: { fontFamily: FD, color: C, margin: "8px 0 4px" } }, "第 " + (i + 1) + " 章 · " + c.title), para(c.lines, "c" + i), c.pick ? h("div", { style: { fontSize: fz(11.5), color: SUB, marginBottom: 6 } }, (c.won ? "闯过去了" : "没闯过去") + " · 选了：" + c.pick) : null)),
-                  x.ending ? h("div", null, h("div", { style: { fontFamily: FD, color: C, margin: "10px 0 4px" } }, "结局 · " + x.ending.title), para(x.ending.lines, "e")) : null) : null); })) : null)]);
+          // 故事集做成一本书（她 2026-11-10「做一个本子好翻、不用疯狂下滑、按人筛选」）：这里只放入口
+          stories.length ? h("button", { "data-wk": "duelstorybook", onClick: () => { setSbOpen(""); setMode("storybook"); }, className: "w-full flex items-center active:opacity-80", style: { gap: 10, marginTop: 20, padding: "12px 14px", borderRadius: 6, background: "rgba(122,59,90,.08)", border: "1px solid rgba(122,59,90,.3)", color: INK } },
+            h("span", { style: { fontFamily: FD, fontSize: fz(20), color: C } }, "册"), h("span", { className: "flex-1 text-left", style: { fontSize: fz(12.5) } }, h("b", { style: { fontFamily: FD, fontWeight: 400, color: C } }, "故事集"), " · " + uniqStories(stories).length + " 段，翻着看"), h("span", { style: { color: SUB } }, "›")) : null)]);
+      // 走完了：直接给看结局（她 2026-11-09「看不了结局」：原来写完又回到第 5 章，「看结局」还在，再点又写一遍）
+      if (sv0.done && sv0.ending) return shell([
+        h(Head, { key: "hd", zh: "剧情闯关 · 结局", bg: "transparent", ink: INK, onBack: () => { setStory(null); setSbFlip(""); setSbPage(0); setSbOpen(sv0.id); setMode("storybook"); }, right: guideBtn }),
+        h("div", { key: "bd", "data-wk": "duelstoryend", className: "flex-1 min-h-0 overflow-y-auto px-4", style: { fontFamily: F, color: INK, paddingTop: 4, paddingBottom: 24 } },
+          h("div", { style: { padding: "18px 16px 12px", borderRadius: 4, background: PAPER, boxShadow: "0 3px 10px rgba(47,42,34,.15)", borderTop: "4px solid " + C } },
+            h("div", { style: { fontSize: fz(10.5), color: SUB, letterSpacing: ".15em" } }, sv0.hook.indexOf("由你来起") === 0 ? (nameOf(sv0.charId) || "TA") + " 起的头" : "「" + sv0.hook + "」 · " + (nameOf(sv0.charId) || "TA")),
+            h("div", { style: { fontFamily: FD, fontSize: fz(18), color: C, margin: "4px 0 10px" } }, "结局 · " + (sv0.ending.title || "")),
+            para(sv0.ending.lines, "end")),
+          h("div", { style: { fontSize: fz(11.5), color: SUB, margin: "12px 2px", textAlign: "center" } }, "这段故事收进故事集了，五章和结局都在里面。"),
+          h("button", { "data-wk": "duelstoryendback", onClick: () => { setStory(null); setSbFlip(""); setSbPage(0); setSbOpen(sv0.id); setMode("storybook"); }, className: "w-full", style: Object.assign(btn(C, "#fff"), { padding: "12px 0", fontFamily: FD, fontSize: fz(15) }) }, "回故事集"))
+      ]);
       const cur = sv0.chapters[sv0.chapters.length - 1], n = sv0.chapters.length;
       return shell([
         h(Head, { key: "hd", zh: "剧情闯关 · 第 " + n + " / 5 章", bg: "transparent", ink: INK, onBack: () => setMode(""), right: guideBtn }),
@@ -952,7 +1052,17 @@
           modeHero(C, "接", "接力", "你和 TA 轮流下同一块棋盘，一起打审查局：单数回合你下，双数回合 TA 下。TA 照自己的性子出牌——不一定是你想的那样，你得接住 TA 留下的局面。卡组多从 TA 的卡里来，信封是你们俩共用的一个。打的时候能跟 TA 说话。不说话不花调用。"),
           coachPick(),
           coachId ? h("div", { style: { fontSize: fz(11.5), color: SUB, margin: "-6px 2px 12px" } }, (nameOf(coachId) || "TA") + " 的打法：" + (D().STYLE_ZH[sty] || "稳扎稳打")) : null,
-          rec[coachId] ? h("div", { style: { fontSize: fz(12), color: "#b8862a", marginBottom: 10 } }, "跟 " + (nameOf(coachId) || "TA") + " 接力赢过 " + (rec[coachId].win || 0) + " 次、打过 " + (rec[coachId].n || 0) + " 次") : null,
+          rec[coachId] ? (() => { const r = rec[coachId], tapes = r.tapes || [], TAPE = ["#c0504d", "#e0a03a", "#4f7a66", "#3d6fa5", "#8a5aa0", "#d07a9a"];
+            return h("div", { "data-wk": "duelrelayrec", style: { marginBottom: 12 } },
+              h("div", { style: { fontSize: fz(12), color: "#b8862a", marginBottom: 6 } }, "跟 " + (nameOf(coachId) || "TA") + " 接力赢过 " + (r.win || 0) + " 次、打过 " + (r.n || 0) + " 次"),
+              r.fast ? h("div", { className: "flex", style: { gap: 6, marginBottom: 8 } }, [["最快", r.fast + " 回合"], ["最稳", "剩 " + r.env], ["连胜", (r.streak || 0) + " 场"]].map(([a, b]) =>
+                h("div", { key: a, className: "flex-1", style: { textAlign: "center", padding: "6px 0", borderRadius: 6, border: "1px solid rgba(160,82,45,.25)" } }, h("div", { style: { fontSize: fz(10.5), color: SUB } }, a), h("div", { style: { fontFamily: FD, fontSize: fz(14), color: "#a0522d" } }, b)))) : null,
+              // 接力棒：赢一局缠一圈胶带，点一圈看那局
+              tapes.length ? h("div", { "data-wk": "duelrelaybaton", className: "flex items-center", style: { height: 26, borderRadius: 13, background: "#e8dcc4", padding: "0 8px", gap: 0, overflow: "hidden", boxShadow: "inset 0 -3px 0 rgba(0,0,0,.08)" } },
+                tapes.map((x, k) => h("button", { key: k, onClick: () => toast && toast(x.d + " · " + x.t + " 回合赢 · 信封剩 " + x.e), style: { width: Math.max(4, Math.min(14, 280 / tapes.length)), height: 26, flexShrink: 0, background: TAPE[k % TAPE.length], borderRight: "1px solid rgba(255,255,255,.5)" } }))) : null); })() : null,
+          (() => { let sv = null; try { sv = typeof loadJSON === "function" ? loadJSON("x_stampRelaySave", null) : null; } catch (e) {} if (!sv || !sv.st || !sv.st.relay) return null;
+            const x = sv.st; return h("button", { "data-wk": "duelrelayresume", onClick: () => { x.relayRunning = false; x.relaySending = false; setSt(x); setMode("relay"); setHandSel(-1); setBoardSel(-1); },
+              className: "w-full", style: Object.assign(btn("transparent", C, C), { padding: "10px 0", marginBottom: 8, fontFamily: FD, fontSize: fz(14) }) }, "接着跟 " + (nameOf(x.relay.ta) || "TA") + " 打上次那局（第 " + x.turn + " 回合 · 信封 " + Math.max(0, x.me.hp) + "：" + Math.max(0, x.foe.hp) + "）"); })(),
           h("button", { "data-wk": "duelrelaygo", disabled: !coachId, onClick: startRelay, className: "w-full disabled:opacity-40", style: Object.assign(btn(C, "#fff"), { padding: "12px 0", fontFamily: FD, fontSize: fz(15), letterSpacing: ".1em" }) }, coachId ? "跟 " + (nameOf(coachId) || "TA") + " 开始接力" : "先挑一个人"))]);
     }
     if (!st && mode === "puzzle") {
@@ -1000,16 +1110,27 @@
         // 熟客簿：来过的熟客，交情从高到低；每人的小事按日子记着
         diaryRegs ? h("div", { key: "rb", "data-wk": "duelshopregs", className: "flex-1 min-h-0 overflow-y-auto px-4", style: { fontFamily: F, color: INK, paddingBottom: 24 } },
           h("div", { style: { fontSize: fz(11.5), color: SUB, margin: "6px 0 12px", lineHeight: 1.7 } }, "招待过的路人会变成熟客，再来时认得出；交情每满 3 回冒一件小事，满 5 回留一笔谢礼。熟客多了，交情最浅的会搬走，空出位置给新面孔。"),
-          // 稀客：凑上条件才偶尔来；没见过的只给一句线索
-          h("div", { "data-wk": "duelshoprares", style: { marginBottom: 14 } }, h("div", { style: { fontFamily: FD, fontSize: fz(14), color: "#b8862a", margin: "2px 0 6px" } }, "稀客 · " + D().RARE_GUESTS.filter(g => (sh.rareSeen || {})[g.id]).length + " / " + D().RARE_GUESTS.length),
+          (() => { const regs = Object.values(sh.regulars || {}), live = regs.filter(r => !r.gone), seenN = D().RARE_GUESTS.filter(g => (sh.rareSeen || {})[g.id]).length;
+            const tab = (k, t) => h("button", { key: k, "data-wk": "duelshopregtab", "data-on": regTab === k ? "1" : "0", onClick: () => setRegTab(k), className: "flex-1", style: { padding: "7px 0", fontFamily: FD, fontSize: fz(13), color: regTab === k ? "#fff" : BROWN, background: regTab === k ? BROWN : "transparent", borderRadius: 4 } }, t);
+            return h("div", { className: "flex", style: { gap: 4, padding: 3, borderRadius: 6, border: "1px solid rgba(154,106,74,.35)", marginBottom: 10, position: "sticky", top: 0, zIndex: 2, background: "#f7f0e2" } },
+              tab("reg", "熟客 " + live.length), tab("rare", "稀客 " + seenN + "/" + D().RARE_GUESTS.length), regs.length > live.length ? tab("gone", "搬走的 " + (regs.length - live.length)) : null); })(),
+          regTab === "rare" ? h("div", { "data-wk": "duelshoprares", style: { marginBottom: 14 } }, h("div", { style: { fontFamily: FD, fontSize: fz(14), color: "#b8862a", margin: "2px 0 6px" } }, "稀客 · " + D().RARE_GUESTS.filter(g => (sh.rareSeen || {})[g.id]).length + " / " + D().RARE_GUESTS.length),
             h("div", { style: { display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 8 } }, D().RARE_GUESTS.map(g => { const seen = (sh.rareSeen || {})[g.id];
               return h("div", { key: g.id, "data-wk": "duelshoprareone", "data-seen": seen ? "1" : "0", style: { padding: "8px 10px", borderRadius: 4, background: seen ? "linear-gradient(160deg,#fff8e6,#f3e2b8)" : "rgba(47,42,34,.05)", border: "1px solid " + (seen ? "#d8b45a" : "rgba(47,42,34,.12)") } },
                 h("div", { style: { fontFamily: FD, fontSize: fz(13), color: seen ? INK : SUB } }, seen ? g.name : "？？？"),
-                h("div", { style: { fontSize: fz(10.5), color: SUB, marginTop: 2, lineHeight: 1.5 } }, seen ? g.want + " · 来过 " + seen.n + " 回" : "线索：" + g.tip)); }))),
-          Object.values(sh.regulars || {}).sort((a, b) => (!!a.gone - !!b.gone) || (b.bond || 0) - (a.bond || 0)).map(r => h("div", { key: r.id, "data-wk": "duelshopreg", style: { marginBottom: 10, padding: "10px 12px", borderRadius: 4, background: PAPER, boxShadow: "0 2px 8px rgba(47,42,34,.12)", borderLeft: "3px solid " + (r.gone ? "rgba(47,42,34,.2)" : BROWN), opacity: r.gone ? .6 : 1 } },
-            h("div", { className: "flex", style: { justifyContent: "space-between", alignItems: "baseline" } }, h("span", { style: { fontFamily: FD, fontSize: fz(15) } }, r.name), h("span", { style: { fontSize: fz(11), color: BROWN } }, r.gone ? "搬走了" : "来过 " + (r.bond || 0) + " 回")),
-            h("div", { style: { fontSize: fz(11), color: SUB, marginTop: 2 } }, "常来" + (r.want || "寄东西") + (r.since ? " · " + r.since + " 第一次来" : "")),
-            (r.stories || []).length ? h("div", { style: { marginTop: 6 } }, r.stories.slice().reverse().map((x, k) => h("div", { key: k, style: { fontSize: fz(12), lineHeight: 1.7 } }, h("span", { style: { color: SUB, marginRight: 6, fontSize: fz(10.5) } }, x.date), x.text))) : null))) :
+                h("div", { style: { fontSize: fz(10.5), color: SUB, marginTop: 2, lineHeight: 1.5 } }, seen ? g.want + " · 来过 " + seen.n + " 回" : "线索：" + g.tip)); }))) : (() => {
+            const q = regQ.trim(), list = Object.values(sh.regulars || {}).filter(r => (regTab === "gone" ? !!r.gone : !r.gone) && (!q || String(r.name + (r.want || "")).indexOf(q) >= 0))
+              .sort((a, b) => regSort === "last" ? String(b.last || b.since || "").localeCompare(String(a.last || a.since || "")) : regSort === "new" ? String(b.since || "").localeCompare(String(a.since || "")) : (b.bond || 0) - (a.bond || 0));
+            return h("div", null,
+              h("div", { className: "flex items-center", style: { gap: 6, marginBottom: 10 } },
+                h("input", { "data-wk": "duelshopregsearch", value: regQ, onChange: e => setRegQ(e.target.value), placeholder: "找人：花匠、草帽…", className: "flex-1 min-w-0", style: { padding: "6px 10px", borderRadius: 4, border: "1px solid rgba(154,106,74,.35)", background: PAPER, fontSize: fz(12.5), color: INK } }),
+                [["bond", "交情"], ["last", "最近来"], ["new", "新认识"]].map(([k, t]) => h("button", { key: k, "data-wk": "duelshopregsort", onClick: () => setRegSort(k), style: { flexShrink: 0, padding: "5px 8px", borderRadius: 99, fontSize: fz(11.5), color: regSort === k ? "#fff" : BROWN, background: regSort === k ? BROWN : "transparent", border: "1px solid " + BROWN } }, t))),
+              list.length ? null : h("div", { style: { textAlign: "center", color: SUB, fontSize: fz(12), padding: "20px 0" } }, q ? "没找到「" + q + "」" : "还没有"),
+              list.map(r => { const open = regOpen === r.id, ss = r.stories || [];
+                return h("button", { key: r.id, "data-wk": "duelshopreg", onClick: () => setRegOpen(open ? "" : r.id), className: "w-full text-left", style: { display: "block", marginBottom: 8, padding: "9px 12px", borderRadius: 4, background: PAPER, boxShadow: "0 2px 8px rgba(47,42,34,.12)", borderLeft: "3px solid " + (r.gone ? "rgba(47,42,34,.2)" : BROWN) } },
+                  h("div", { className: "flex", style: { justifyContent: "space-between", alignItems: "baseline", gap: 8 } }, h("span", { style: { fontFamily: FD, fontSize: fz(14.5) } }, r.name), h("span", { style: { fontSize: fz(11), color: BROWN, flexShrink: 0 } }, (r.gone ? "搬走了 · " : "") + "来过 " + (r.bond || 0) + " 回" + (ss.length ? " · " + ss.length + " 件事" + (open ? " ▴" : " ▾") : ""))),
+                  h("div", { style: { fontSize: fz(11), color: SUB, marginTop: 2 } }, "常来" + (r.want || "寄东西") + (r.since ? " · " + r.since + " 第一次来" : "") + (r.last && r.last !== r.since ? " · 上回 " + r.last : "")),
+                  open && ss.length ? h("div", { style: { marginTop: 6 } }, ss.slice().reverse().map((x, k) => h("div", { key: k, style: { fontSize: fz(12), lineHeight: 1.7 } }, h("span", { style: { color: SUB, marginRight: 6, fontSize: fz(10.5) } }, x.date), x.text))) : null); })); })()) :
         h("div", { key: "bd", "data-wk": "duelshopdiary", className: "flex-1 min-h-0 overflow-y-auto px-4", style: { fontFamily: F, color: INK, paddingBottom: 28 } },
           // 月份做成书签
           months.length ? h("div", { "data-wk": "duelshopdiarymonths", className: "flex overflow-x-auto", style: { gap: 4, margin: "6px 0 0", paddingLeft: 26 } }, months.map(m => { const on = m === curM;
@@ -1217,12 +1338,20 @@
         h("div", { key: "bd", "data-wk": "duelsiegepick", className: "flex-1 min-h-0 overflow-y-auto px-5", style: { fontFamily: F, color: INK, paddingTop: 6, paddingBottom: 24 } },
           modeHero("#3f6fb0", "护", "护信", "挑一档守。每档敌人的等级是定的，第 1 波比建议等级低一半，越往后越高，第 10 波高出三成。你这些卡平均 " + my + " 级：比建议低的档也能守，靠站位、组合和盖章；卡练强了再去打高档。"),
           coachPick(),
+          (() => { const wk = D().siegeWeek(D().weekNo()); return h("div", { key: "wk", "data-wk": "duelsiegeweek", style: { margin: "0 0 12px", padding: "8px 12px", borderRadius: 6, border: "1px dashed rgba(63,111,176,.45)", fontSize: fz(12), color: "#3f6fb0" } },
+            h("span", { style: { fontFamily: FD, marginRight: 6 } }, "本周 · " + wk.zh), wk.desc, h("div", { style: { color: SUB, fontSize: fz(11), marginTop: 2 } }, "每周一换。票在板上待久了会褪色；撕票退胶水；有人陪的话，每两波 TA 递三样挑一样，开局还会提一个小要求。")); })(),
+          (() => { const e = siegeAll().endless || {}, mine = e[coachId || "_"] || 0, rows = Object.keys(e).filter(k => e[k]).sort((a, b) => e[b] - e[a]);
+            return h("button", { key: "end", "data-wk": "duelsiegeendless", onClick: () => startSiege(0, true), className: "w-full text-left active:scale-[.99]", style: { display: "block", marginBottom: 12, padding: "12px 14px", borderRadius: 6, background: "#3f6fb0", color: "#fff" } },
+              h("div", { style: { fontFamily: FD, fontSize: fz(15) } }, "无尽护信" + (coachId ? " · 跟 " + (nameOf(coachId) || "TA") : "")),
+              h("div", { style: { fontSize: fz(11), opacity: .9 } }, "从你的平均等级起，一波一波往上叠，守到信封空为止。" + (mine ? "这一组最好守过 " + mine + " 波。" : "")),
+              rows.length ? h("div", { style: { fontSize: fz(10.5), opacity: .85, marginTop: 4 } }, rows.slice(0, 6).map(k => (k === "_" ? "一个人" : nameOf(k) || "TA") + " " + e[k] + " 波").join(" · ")) : null); })(),
           D().SIEGE_TIERS.map((lv, t) => { const b = siegeBest(t), easy = my >= lv, c = easy ? GREEN : my >= lv * 0.7 ? "#b8862a" : RED;
             return h("button", { key: t, "data-wk": "duelsiegetier", onClick: () => startSiege(t), className: "w-full text-left active:scale-[.99]", style: { display: "flex", alignItems: "center", gap: 12, marginBottom: 10, padding: "12px 14px", borderRadius: 6, background: PAPER, boxShadow: "0 2px 8px rgba(47,42,34,.12)", borderLeft: "4px solid " + c, color: INK } },
               h("div", { style: { fontFamily: FD, fontSize: fz(20), color: c, width: 30, textAlign: "center" } }, t + 1),
               h("div", { className: "flex-1 min-w-0" },
                 h("div", { style: { fontFamily: FD, fontSize: fz(14) } }, "第 " + (t + 1) + " 档 · 建议 " + lv + " 级"),
-                h("div", { style: { fontSize: fz(11), color: SUB } }, (easy ? "你的卡够了" : my >= lv * 0.7 ? "差一点，要动脑子" : "比你高不少，硬仗") + (b.waves ? " · 最好守住 " + b.waves + " 波" + (b.wins ? "，守住过 " + b.wins + " 次" : "") : ""))));
+                h("div", { style: { fontSize: fz(11), color: SUB } }, (easy ? "你的卡够了" : my >= lv * 0.7 ? "差一点，要动脑子" : "比你高不少，硬仗") + (b.waves ? " · 最好守住 " + b.waves + " 波" + (b.wins ? "，守住过 " + b.wins + " 次" : "") : "")),
+                b.mates && Object.keys(b.mates).length ? h("div", { style: { fontSize: fz(10.5), color: "#3f6fb0" } }, "跟 " + Object.keys(b.mates).map(k => (nameOf(k) || "TA") + (b.mates[k] > 1 ? "×" + b.mates[k] : "")).join("、") + " 守住过") : null));
           }))]); }
     if (!st && !mode) return shell([
       h(Head, { key: "hd", zh: "集邮社", bg: "transparent", ink: INK, onBack, right: guideBtn }),
@@ -1407,17 +1536,41 @@
     const chalNow = !!(st.siege || st.raid || st.edict || st.shift || st.patrol || st.puzzle || st.relay || st.story);
     // 接力：轮到 TA（双数回合）就自动替 TA 下，放完动画再交回给她
     const taTurn = !!(st.relay && !over && st.turn % 2 === 0);
-    if (taTurn && !playing.current && !st.relayRunning) { st.relayRunning = true;
+    if (taTurn && st.relayPlaced !== st.turn && !playing.current && !st.relayRunning) { st.relayRunning = true;
       setTimeout(() => { if (st.over) { st.relayRunning = false; return; } const n0 = st.log.length, acts = D().autoMe(st, st.relay.style);
         const mine = st.me.board.filter(u => u && u.charId === st.relay.ta && u.lines && u.lines.enter); if (acts.length && mine.length) { const key = Math.random(); lastBubble.current = key; setBubble({ text: mine[Math.floor(Math.random() * mine.length)].lines.enter, key, me: true, who: nameOf(st.relay.ta) || "TA" }); }
-        D().endTurn(st); st.relayRunning = false; setHandSel(-1); setBoardSel(-1); redraw(); play(n0); }, 900); }
-    if (over && st.relay && !st.relaySaved) { st.relaySaved = 1; try { const v = relayRec(), r0 = v[st.relay.ta] || { n: 0, win: 0 }; v[st.relay.ta] = { n: r0.n + 1, win: r0.win + (over.winner === "me" ? 1 : 0) }; saveJSON(RELAY_KEY, v); } catch (e) {} }
+        // 先把 TA 贴票这一步单独放给她看，放完再寄出（她 2026-11-10「第二回合他打我看不到他摆卡」）
+        st.relayPlaced = st.turn; st.relayRunning = false; setHandSel(-1); setBoardSel(-1); redraw(); play(n0); }, 900); }
+    if (taTurn && st.relayPlaced === st.turn && !playing.current && !st.relaySending) { st.relaySending = true;
+      setTimeout(() => { st.relaySending = false; if (st.over || st.relayPlaced !== st.turn) return; const n0 = st.log.length; D().endTurn(st); redraw(); play(n0); }, 900); }
+    // 接力纪录（她 2026-11-10「13吧」）：每个人分开记最少几回合赢、赢时信封剩最多、最长连胜；赢一局接力棒上多缠一圈胶带
+    if (over && st.relay && !st.relaySaved) { st.relaySaved = 1; try { const v = relayRec(), r0 = v[st.relay.ta] || { n: 0, win: 0 }, won = over.winner === "me", r = Object.assign({ fast: 0, env: 0, streak: 0, cur: 0, tapes: [] }, r0, { n: r0.n + 1, win: r0.win + (won ? 1 : 0) });
+      const news = [];
+      if (won) { r.cur = (r.cur || 0) + 1;
+        if (!r.fast || over.turn < r.fast) { if (r.fast) news.push("最快：" + over.turn + " 回合就赢（原来 " + r.fast + "）"); r.fast = over.turn; }
+        if (over.me > (r.env || 0)) { if (r.env) news.push("赢得最稳：信封还剩 " + over.me + "（原来 " + r.env + "）"); r.env = over.me; }
+        if (r.cur > (r.streak || 0)) { if (r.streak) news.push("连胜 " + r.cur + " 场"); r.streak = r.cur; }
+        r.tapes = (r.tapes || []).concat([{ d: localDay(), t: over.turn, e: over.me }]).slice(-60);
+      } else r.cur = 0;
+      v[st.relay.ta] = r; saveJSON(RELAY_KEY, v);
+      if (news.length) { const pool = (cardsAll || []).filter(c => c && c.charId === st.relay.ta && c.text).map(c => D().stampOf(c).lines).map(x => x.win || x.wake || x.enter).filter(Boolean);
+        st.relayNew = { list: news, line: pool.length ? pool[Math.floor(Math.random() * pool.length)] : "" }; }
+    } catch (e) {} }
     if (over && st.puzzle && over.winner === "me" && !st.pzSaved) { st.pzSaved = 1; try { const v = (typeof loadJSON === "function" ? loadJSON(PZ_KEY, null) : null) || {}; if (st.puzzle.daily) v.daily = Object.assign({}, v.daily, { [st.puzzle.daily]: Date.now() }); else v.solved = Object.assign({}, v.solved, { [st.puzzle.lv]: Date.now() }); saveJSON(PZ_KEY, v); } catch (e) {} }
     if (over && !playing.current && !st.run && !st.tutorial && !st.parcels) st.parcels = Trinkets.drop([st.shopFight ? (st.shopFight.staff || [])[Math.floor(Math.random() * ((st.shopFight.staff || []).length || 1))] : st.story ? st.story.charId : chalNow ? coachId : foeId], over.winner === "me", st.patrol === "boss" && over.winner === "me" ? 1 : 0);
     if (over && !playing.current && !st.run && !st.tutorial && !st.rewards) st.rewards = Rewards.settle({ puzzle: !!st.puzzle, solved: st.puzzle ? Object.keys(pzDone()).length : 0, win: over.winner === "me", siege: !!st.siege, tier: st.siegeTier || 0, edict: !!st.edict, pts: st.edictPts || 0, raid: !!st.raid, endless: !!(st.raid && st.raid.endless), dealt: st.raid ? st.raid.dealt : 0, turn: st.turn });
     if (over && st.edict && !edictSaved) { const b0 = edictBest(); st.edictPrev = b0.pts || 0; if (over.winner === "me" && (st.edictPts || 0) > (b0.pts || 0)) { try { saveJSON(EDICT_KEY, { pts: st.edictPts, tags: st.edict }); } catch (e) {} } setTimeout(() => setEdictSaved(true), 0); }
     if (over && st.raid && !raidSaved) { const m = st.raid.endless ? "endless" : "normal", b0 = raidBest(m); try { const all = (typeof loadJSON === "function" ? loadJSON(RAID_KEY, {}) : {}) || {}; if (st.raid.dealt > (b0.dealt || 0)) { all[m] = { dealt: st.raid.dealt, turn: st.turn }; saveJSON(RAID_KEY, all); } st.raid.prev = b0.dealt || 0; } catch (e) {} setTimeout(() => setRaidSaved(true), 0); }
-    if (over && st.siege && !siegeSaved) { const all = siegeAll(), t = st.siegeTier || 0, b0 = siegeBest(t), w = st.siege.cleared; all.tiers = Object.assign({}, all.tiers, { [t]: { waves: Math.max(b0.waves || 0, w), wins: (b0.wins || 0) + (over.winner === "me" ? 1 : 0) } }); try { saveJSON(SIEGE_KEY, all); } catch (e) {} setTimeout(() => setSiegeSaved(true), 0); }
+    if (over && st.siege && !siegeSaved) { const all = siegeAll(), t = st.siegeTier, w = st.siege.cleared, won = over.winner === "me", mate = st.siege.mate || "";
+      if (t < 0) { const e0 = Object.assign({}, all.endless); st.siegePrev = e0[mate || "_"] || 0; e0[mate || "_"] = Math.max(st.siegePrev, w); all.endless = e0; }
+      else { const b0 = siegeBest(t), mates = Object.assign({}, b0.mates); if (won && mate) mates[mate] = (mates[mate] || 0) + 1;
+        all.tiers = Object.assign({}, all.tiers, { [t]: { waves: Math.max(b0.waves || 0, w), wins: (b0.wins || 0) + (won ? 1 : 0), mates } }); }
+      const ask = st.siegeAsk && SIEGE_ASKS[st.siegeAsk];
+      if (ask && ask.ok(st, t < 0 ? w >= 12 : won, mate)) { const day = localDay(), done = all.askDay && all.askDay.d === day ? all.askDay : { d: day, who: {} };
+        let gift = ""; if (!done.who[mate]) { done.who[mate] = 1; all.askDay = done; try { const C = window.StampsCore, cs = C.load(); cs.ink += 2; cs.postage += 3; C.save(cs); gift = "2 印泥、3 邮资"; } catch (e) {} }
+        const pool = (cardsAll || []).filter(c => c && c.charId === mate && c.text).map(c => D().stampOf(c).lines).map(x => x.win || x.enter).filter(Boolean);
+        st.siegeAskDone = { gift, line: pool.length ? pool[Math.floor(Math.random() * pool.length)] : "" }; }
+      try { saveJSON(SIEGE_KEY, all); } catch (e) {} setTimeout(() => setSiegeSaved(true), 0); }
     // 教练条：这一步做到了就往下走（进下一步时先跑它的 enter）
     const step = tut >= 0 ? TUT[tut] : null;
     const goStep = n => { if (n >= TUT.length) { setTut(-1); return; } const nx = TUT[n]; if (nx.enter) { nx.enter(st, tutSeen.current); redraw(); } setTut(n); };
@@ -1493,8 +1646,8 @@
     const intentText = [].concat((it.stamp || []).map(x => "给「" + x.name + "」盖章"), (it.place || []).map(x => "贴「" + x.name + "」" + x.role)).join("、") || "这回合不贴票";
 
     return shell([
-      h(Head, { key: "hd", zh: st.shopFight ? "邮局小店 · 对「" + st.shopFight.name + "」" : st.story ? "剧情闯关 · 对「" + st.story.foe + "」" : st.relay ? "接力 · 第 " + st.turn + " 回合 · " + (st.turn % 2 ? "你下" : (nameOf(st.relay.ta) || "TA") + " 下") : st.puzzle ? (st.puzzle.daily ? "每日死信 · " + st.puzzle.daily : "死信 · 第 " + st.puzzle.lv + " 关") : st.patrol ? "邮区巡查 · " + (st.patrol === "boss" ? "巡查长" : st.patrol === "elite" ? "硬仗" : "普通仗") + " · 第 " + st.turn + " 回合" : st.shift ? "邮局值班 · 第 " + (shift ? shift.round : 1) + " 轮 · 第 " + st.turn + " 回合" : st.edict ? "封缄令 · 危险 " + (st.edictPts || 0) + " · 第 " + st.turn + " 回合" : st.raid ? (st.raid.endless ? "无尽" : "积压件") + " · 第 " + st.turn + " 回合" : st.siege ? "护信 " + ((st.siegeTier || 0) + 1) + " 档 · 第 " + Math.min(st.turn, st.siege.waves) + " 波" : "第 " + st.turn + " 回合", sub: st.siege ? "" : "对 " + foeName + (st.blind ? " · 盲打" : ""), bg: "transparent", ink: INK, right: guideBtn,
-        onBack: () => { if (st.shopFight) { setSt(null); setMode("shop"); return; } if (st.story) { setSt(null); setMode("story"); return; } if (st.relay) { setSt(null); setMode("relay"); return; } if (st.puzzle) { setSt(null); setMode("puzzle"); return; } if (st.patrol) { if (typeof requestAppConfirm === "function") requestAppConfirm("先离开这一场？", "这一格算没打赢，信封照现在的血算。", () => { st.over = st.over || { winner: "foe", turn: st.turn, me: st.me.hp, foe: st.foe.hp }; patrolBack(); }, "离开"); else { st.over = st.over || { winner: "foe" }; patrolBack(); } return; } if (st.shift) { setSt(null); setMode("shift"); return; } if (st.edict) { setSt(null); setMode("edictpick"); return; } if (st.raid) { setSt(null); setMode("raidpick"); return; } if (st.siege) { setSt(null); setMode("siegepick"); return; } if (st.run) { runBattle.onQuit && runBattle.onQuit(); return; } if (st.tutorial) { setSt(null); setTut(-1); return; } if (!over) { persist(st, series); setSaved({ st, series, foeId, at: Date.now() }); } else persist(null); setSt(null); setSeries(null); } }),
+      h(Head, { key: "hd", zh: st.shopFight ? "邮局小店 · 对「" + st.shopFight.name + "」" : st.story ? "剧情闯关 · 对「" + st.story.foe + "」" : st.relay ? "接力 · 第 " + st.turn + " 回合 · " + (st.turn % 2 ? "你下" : (nameOf(st.relay.ta) || "TA") + " 下") : st.puzzle ? (st.puzzle.daily ? "每日死信 · " + st.puzzle.daily : "死信 · 第 " + st.puzzle.lv + " 关") : st.patrol ? "邮区巡查 · " + (st.patrol === "boss" ? "巡查长" : st.patrol === "elite" ? "硬仗" : "普通仗") + " · 第 " + st.turn + " 回合" : st.shift ? "邮局值班 · 第 " + (shift ? shift.round : 1) + " 轮 · 第 " + st.turn + " 回合" : st.edict ? "封缄令 · 危险 " + (st.edictPts || 0) + " · 第 " + st.turn + " 回合" : st.raid ? (st.raid.endless ? "无尽" : "积压件") + " · 第 " + st.turn + " 回合" : st.siege ? (st.siegeTier < 0 ? "无尽护信 · 第 " + st.turn + " 波" : "护信 " + ((st.siegeTier || 0) + 1) + " 档 · 第 " + Math.min(st.turn, st.siege.waves) + " 波") : "第 " + st.turn + " 回合", sub: st.siege ? "" : "对 " + foeName + (st.blind ? " · 盲打" : ""), bg: "transparent", ink: INK, right: guideBtn,
+        onBack: () => { if (st.shopFight) { setSt(null); setMode("shop"); return; } if (st.story) { setSt(null); setMode("story"); return; } if (st.relay) { relayKeep(st); setSt(null); setMode("relay"); return; } if (st.puzzle) { setSt(null); setMode("puzzle"); return; } if (st.patrol) { if (typeof requestAppConfirm === "function") requestAppConfirm("先离开这一场？", "这一格算没打赢，信封照现在的血算。", () => { st.over = st.over || { winner: "foe", turn: st.turn, me: st.me.hp, foe: st.foe.hp }; patrolBack(); }, "离开"); else { st.over = st.over || { winner: "foe" }; patrolBack(); } return; } if (st.shift) { setSt(null); setMode("shift"); return; } if (st.edict) { setSt(null); setMode("edictpick"); return; } if (st.raid) { setSt(null); setMode("raidpick"); return; } if (st.siege) { setSt(null); setMode("siegepick"); return; } if (st.run) { runBattle.onQuit && runBattle.onQuit(); return; } if (st.tutorial) { setSt(null); setTut(-1); return; } if (!over) { persist(st, series); setSaved({ st, series, foeId, at: Date.now() }); } else persist(null); setSt(null); setSeries(null); } }),
       h("div", { key: "bd", ref: bodyEl, className: "flex-1 min-h-0 overflow-y-auto px-4", style: { fontFamily: F, color: INK, paddingBottom: 14, overflowAnchor: "none" },
           onTouchStart: () => { touchAt.current = Date.now(); }, onTouchMove: () => { touchAt.current = Date.now(); }, onTouchEnd: () => { touchAt.current = Date.now(); }, onWheel: () => { touchAt.current = Date.now(); },
           onScroll: e => { if (!guarding()) keepY.current = e.currentTarget.scrollTop; else if (Math.abs(e.currentTarget.scrollTop - keepY.current) > 4) e.currentTarget.scrollTop = keepY.current; } },
@@ -1513,6 +1666,13 @@
         bubble && !bubble.me ? h("div", { key: "bb" + bubble.key, "data-wk": "duelsay", style: { position: "relative", margin: "4px 0 2px 34px", padding: "6px 11px", borderRadius: "4px 12px 12px 12px", background: "#fff", boxShadow: "0 2px 6px rgba(47,42,34,.15)", fontSize: fz(12.5), lineHeight: 1.55, color: INK, animation: "duelPop .3s" } },
           h("span", { style: { color: RED, fontFamily: FD, marginRight: 6 } }, bubble.who || foeName), BT(bubble.text)) : null,
         // 对面的下一步：像一张电报条（盲打时不给看）
+        st.siege && !over ? h("div", { key: "sgx", "data-wk": "duelsiegestrip", style: { margin: "4px 0 6px", fontSize: fz(11.5), color: "#3f6fb0" } },
+          h("div", null, "本周「" + D().siegeWeek(D().weekNo()).zh + "」：" + D().siegeWeek(D().weekNo()).desc + "。票在板上待久了会褪色掉血；撕下一张退胶水。"),
+          st.siegeAsk ? h("div", { style: { color: SUB } }, (nameOf(st.siege.mate) || "TA") + "：「" + SIEGE_ASKS[st.siegeAsk].zh + "」") : null,
+          st.siege.offer ? h("div", { "data-wk": "duelsiegeboon", style: { marginTop: 6, padding: "8px 10px", borderRadius: 6, background: "rgba(63,111,176,.08)", border: "1px solid rgba(63,111,176,.3)" } },
+            h("div", { style: { fontFamily: FD, fontSize: fz(12.5), color: INK, marginBottom: 6 } }, (nameOf(st.siege.mate) || "TA") + " 递过来三样，挑一样（这回合不挑就收回去）"),
+            h("div", { className: "flex", style: { gap: 6 } }, st.siege.offer.map(k => h("button", { key: k, "data-wk": "duelsiegeboonpick", onClick: () => { const n0 = st.log.length; if (fail(D().siegeBoon(st, k))) { redraw(); play(n0); } }, className: "flex-1", style: { padding: "6px 4px", borderRadius: 6, background: PAPER, border: "1px solid rgba(63,111,176,.4)", textAlign: "center" } },
+              h("div", { style: { fontFamily: FD, fontSize: fz(12.5), color: "#3f6fb0" } }, D().SIEGE_BOONS[k].zh), h("div", { style: { fontSize: fz(10), color: SUB } }, D().SIEGE_BOONS[k].desc))))) : null) : null,
         h("div", { "data-wk": "duelintent", style: { position: "relative", margin: "6px 0 10px", padding: "7px 10px 7px 46px", borderRadius: 3, border: "1px dashed rgba(47,42,34,.35)", background: "rgba(255,255,255,.5)", fontSize: fz(11.5), lineHeight: 1.6 } },
           h("span", { style: { position: "absolute", left: 7, top: 7, padding: "1px 4px", border: "1.5px solid " + RED, color: RED, borderRadius: 3, fontFamily: FD, fontSize: fz(10), transform: "rotate(-6deg)" } }, "下一步"),
           st.puzzle ? h("div", { "data-wk": "duelpuzzlegoal", style: { color: "#6a5a3a", fontSize: fz(11.5), fontFamily: FD } }, "目标：这一回合寄出时，把对面信封 " + st.puzzle.best + " 点打空。", !over ? h("span", { "data-wk": "duelpuzzlesim", style: { marginLeft: 6, color: D().simSend(st) >= st.puzzle.best ? GREEN : SUB } }, "现在寄出能打 " + D().simSend(st) + "／" + st.puzzle.best) : null,
@@ -1591,9 +1751,15 @@ h("div", { style: { transform: "skewX(12deg)", display: "flex", alignItems: "cen
           st.puzzle ? h("div", { key: "pzo", "data-wk": "duelpuzzleover", style: { textAlign: "center", marginBottom: 10 } }, h("div", { style: { fontFamily: FD, fontSize: fz(20), color: over.winner === "me" ? GREEN : RED } }, over.winner === "me" ? (st.puzzle.daily ? "今天的死信解开了" : "解开了 · 第 " + st.puzzle.lv + " 关") : "差一点"), h("div", { style: { fontSize: fz(11.5), color: SUB } }, over.winner === "me" ? "这一手有 " + st.puzzle.ways + " 种放法能打满" : "对面信封还剩 " + Math.max(0, st.foe.hp) + "，换个放法，或点「提示」")) : null,
           st.edict ? h("div", { key: "edo", "data-wk": "duelediccover", style: { textAlign: "center", marginBottom: 10 } }, h("div", { style: { fontFamily: FD, fontSize: fz(20), color: over.winner === "me" ? "#5a4f8a" : RED } }, over.winner === "me" ? "通过 · 危险 " + (st.edictPts || 0) : "没过"), h("div", { style: { fontSize: fz(11.5), color: SUB } }, over.winner === "me" ? ((st.edictPts || 0) > (st.edictPrev || 0) ? "新纪录！" : "最高 危险 " + (st.edictPrev || 0)) : "少勾几条再试，或者换个打法")) : null,
           st.raid ? h("div", { key: "rdo", "data-wk": "duelraidover", style: { textAlign: "center", marginBottom: 10 } }, h("div", { style: { fontFamily: FD, fontSize: fz(22), color: "#8a3a4a" } }, st.raid.dealt + " 伤害"), h("div", { style: { fontSize: fz(11.5), color: SUB } }, (st.raid.endless ? "无尽 · 撑了 " + st.turn + " 回合" : over.winner === "me" ? "打满 8 回合" : "第 " + st.turn + " 回合信封被砸空了") + (st.raid.prev != null ? (st.raid.dealt > st.raid.prev ? " · 新纪录！" : " · 最高 " + st.raid.prev) : ""))) : null,
-          st.siege ? h("div", { key: "sgo", "data-wk": "duelsiegeover", style: { textAlign: "center", marginBottom: 10 } }, h("div", { style: { fontFamily: FD, fontSize: fz(18), color: over.winner === "me" ? GREEN : RED } }, over.winner === "me" ? "守住了" : "信丢了"), h("div", { style: { fontSize: fz(11.5), color: SUB } }, "第 " + ((st.siegeTier || 0) + 1) + " 档 · 守住 " + st.siege.cleared + " / " + st.siege.waves + " 波 · 信封剩 " + Math.max(0, over.me) + " · 这档最好 " + Math.max(siegeBest(st.siegeTier || 0).waves || 0, st.siege.cleared) + " 波")) : null,
+          st.siege ? h("div", { key: "sgo", "data-wk": "duelsiegeover", style: { textAlign: "center", marginBottom: 10 } }, h("div", { style: { fontFamily: FD, fontSize: fz(18), color: over.winner === "me" ? GREEN : RED } }, over.winner === "me" ? "守住了" : "信丢了"), h("div", { style: { fontSize: fz(11.5), color: SUB } }, st.siegeTier < 0 ? "无尽 · 守过 " + st.siege.cleared + " 波" + (st.siegePrev != null ? (st.siege.cleared > st.siegePrev ? " · 新纪录（原来 " + st.siegePrev + "）" : " · 最好 " + st.siegePrev + " 波") : "") : "第 " + ((st.siegeTier || 0) + 1) + " 档 · 守住 " + st.siege.cleared + " / " + st.siege.waves + " 波 · 信封剩 " + Math.max(0, over.me) + " · 这档最好 " + Math.max(siegeBest(st.siegeTier || 0).waves || 0, st.siege.cleared) + " 波"),
+            st.siegeAsk ? h("div", { "data-wk": "duelsiegeask", style: { marginTop: 6, fontSize: fz(12), color: st.siegeAskDone ? GREEN : SUB } }, (nameOf(st.siege.mate) || "TA") + " 说的「" + SIEGE_ASKS[st.siegeAsk].zh + "」：" + (st.siegeAskDone ? "做到了" + (st.siegeAskDone.gift ? "，收到 " + st.siegeAskDone.gift : "（今天已经领过了）") : "没做到"),
+              st.siegeAskDone && st.siegeAskDone.line ? h("div", { style: { color: INK, marginTop: 2 } }, "「" + st.siegeAskDone.line + "」") : null) : null) : null,
           st.siege || st.raid || st.edict || st.puzzle ? null : h("div", { style: { fontFamily: FD, fontSize: fz(18), textAlign: "center", marginBottom: 2, color: over.winner === "me" ? GREEN : over.winner === "foe" ? RED : INK } }, over.winner === "me" ? "你赢了" : over.winner === "foe" ? foeName + " 赢了" : "打平了"),
           st.siege || st.raid || st.edict || st.puzzle ? null : h("div", { style: { fontSize: fz(11), textAlign: "center", color: SUB, marginBottom: 10 } }, over.turn + " 回合 · 信封剩 " + over.me + " : " + over.foe + (over.byCap ? " · 打满回合比剩下的" : "")),
+          st.relay && st.relayNew ? h("div", { key: "rln", "data-wk": "duelrelayrecord", style: { textAlign: "center", margin: "0 0 10px", padding: "8px 10px", borderRadius: 6, background: "rgba(160,82,45,.08)", color: "#a0522d" } },
+            h("div", { style: { fontFamily: FD, fontSize: fz(14), letterSpacing: ".1em" } }, "新纪录"),
+            st.relayNew.list.map((x, k) => h("div", { key: k, style: { fontSize: fz(12) } }, x)),
+            st.relayNew.line ? h("div", { style: { fontSize: fz(12), color: INK, marginTop: 4 } }, (nameOf(st.relay.ta) || "TA") + "：「" + st.relayNew.line + "」") : null) : null,
           // 彩头兑现、赛后复盘（她 2026-11-08）：各点一次叫 TA 一次
           // 对面是路人／关卡 NPC（挑战类、剧情闯关、小店难缠客人）时没有人可以复盘、发战报（她 2026-11-08）
           !st.tutorial && !st.run && !chal && !st.shopFight && onChat ? (() => {
@@ -1641,7 +1807,7 @@ h("div", { style: { transform: "skewX(12deg)", display: "flex", alignItems: "cen
               h("button", { "data-wk": "duelraidagain", onClick: () => startRaid(st.raid.endless ? "endless" : "normal"), className: "flex-1", style: btn(INK, PAPER) }, "再打一次"),
               h("button", { onClick: () => { setSt(null); setMode("raidpick"); }, className: "flex-1", style: btn("transparent", INK, INK) }, "回积压件"))
           : st.siege ? h("div", { className: "flex", style: { gap: 8 } },
-              h("button", { "data-wk": "duelsiegeagain", onClick: () => startSiege(st.siegeTier || 0), className: "flex-1", style: btn(INK, PAPER) }, "再守一次"),
+              h("button", { "data-wk": "duelsiegeagain", onClick: () => st.siegeTier < 0 ? startSiege(0, true) : startSiege(st.siegeTier || 0), className: "flex-1", style: btn(INK, PAPER) }, "再守一次"),
               h("button", { onClick: () => { setSt(null); setMode("siegepick"); }, className: "flex-1", style: btn("transparent", INK, INK) }, "换一档"))
           : asking ? h("div", null,
             h("div", { style: { fontSize: fz(12.5), textAlign: "center", marginBottom: 8 } }, "要让 " + foeName + " 记得这 " + ((series ? series.games.length : 0) + 1) + " 把吗？"),
