@@ -377,3 +377,13 @@ test("贴之前的预览跟贴上去一样：IF 卡刚上场第一次打双份�
   const pv = D.previewPlace(st, "me", k, slot).aim.dmg; D.place(st, "me", k, slot);
   const real = D.aims(st, "me").find(a => a.from === slot).dmg; assert.equal(pv, real);
 });
+test("护信：褪色、撕票退胶水、陪打三选一、无尽不会因为对面信封打空就结束", () => {
+  const me = D.deckFrom(mine, 7, D.DECK_SIZE, []);
+  const st = D.newDuel(me, [], 7, { siege: true, siegeLv: 5, siegeOpt: { endless: true, week: "thrift", mate: "a", style: "护短" } });
+  assert.equal(st.siege.waves, 9999); assert.ok(st.foe.hp > 99999);
+  const slot = st.me.board.findIndex((u, i) => !u && D.place(st, "me", 0, i).ok);
+  assert.ok(slot >= 0); const g0 = st.me.postage; assert.ok(D.tear(st, "me", slot).ok); assert.equal(st.me.postage - g0 >= 2, true); assert.equal(st.siege.tears, 1);
+  for (let t = 0; t < 8 && !st.over; t++) { if (st.siege.offer) { assert.equal(st.siege.offer.length, 3); assert.ok(["shield", "heal"].includes(st.siege.offer[0])); assert.ok(D.siegeBoon(st, st.siege.offer[0]).ok); } D.autoMe(st, "默契"); D.endTurn(st); }
+  assert.ok(st.siege.boons >= 1); assert.ok(st.log.some(l => /褪色/.test(l.text)));
+  assert.equal(D.siegeWeek(0).id, D.SIEGE_WEEK[0].id);
+});

@@ -466,10 +466,22 @@
     const tutCard = (i, role, extra) => Object.assign(D().stampOf({ id: "tut_" + i, rarity: extra && extra.rarity || "R", lv: 10, text: { name: extra && extra.name || ("练习·" + role) } }), { role, trait: role === "火漆" ? "守护" : role === "投递" ? "锋利" : "冷静", traitFrom: "", skill: Object.keys(D().SKILLS[role])[0] }, extra || {});
     // 守城（她 2026-11-08「先做守城」）：不挑对手，卡组从邮票册里配，对面一波一波压过来
     const [siegeTier, setSiegeTier] = useState(0);
-    const startSiege = tier0 => {
+    // 陪打的人开局随口提一个小要求（她 2026-11-10「都做吧」）：照 TA 的性子挑；做到了 TA 说一句、给一点印泥邮资（每人每天一次）
+    const SIEGE_ASKS = {
+      env: { zh: "这局信封别掉到一半以下", ok: (st, won) => won && st.siege.minEnv >= (st.me.max || 40) / 2 },
+      mine: { zh: "用 3 张我的票守", ok: (st, won, mate) => won && ((st.siege.placed || {})[mate] || 0) >= 3 },
+      notear: { zh: "一张票都别撕", ok: (st, won) => won && !st.siege.tears },
+      solo: { zh: "我递的东西一样都别拿，自己守", ok: (st, won) => won && !st.siege.boons },
+      take: { zh: "我递的东西拿满 3 回", ok: (st, won) => won && st.siege.boons >= 3 }
+    };
+    const ASK_FAV = { 护短: ["env", "take"], 好胜: ["solo", "notear"], 温柔: ["env", "take"], 冷淡: ["solo", "notear"], 偏执: ["mine", "notear"], 默契: ["mine", "take"] };
+    const siegeAskFor = (mate, sty, salt) => { const fav = ASK_FAV[sty] || ASK_FAV.默契, all = Object.keys(SIEGE_ASKS); let h0 = 0; for (const ch of String(mate) + "|" + salt) h0 = (h0 * 31 + ch.charCodeAt(0)) >>> 0; return h0 % 3 ? fav[h0 % 2] : all[h0 % all.length]; };
+    const startSiege = (tier0, endless) => {
       const tier = typeof tier0 === "number" ? tier0 : siegeTier, s = (seedRef.current = (seedRef.current * 1103515245 + 12345) >>> 0);
-      setSiegeTier(tier);
-      const nd = D().newDuel(D().deckFrom(cards, s, D().DECK_SIZE, core), [], s, { siege: true, siegeLv: D().SIEGE_TIERS[tier], bonds: bondsOf() }); nd.siegeTier = tier;
+      if (!endless) setSiegeTier(tier);
+      const sty = coachId ? (bondsOf()[coachId] || "默契") : "", lv = endless ? Math.max(5, Math.round(D().avgLv(cards || []))) : D().SIEGE_TIERS[tier];
+      const nd = D().newDuel(D().deckFrom(cards, s, D().DECK_SIZE, core), [], s, { siege: true, siegeLv: lv, bonds: bondsOf(), siegeOpt: { endless: !!endless, week: D().siegeWeek(D().weekNo()).id, mate: coachId || "", style: sty } }); nd.siegeTier = endless ? -1 : tier;
+      if (coachId) nd.siegeAsk = siegeAskFor(coachId, sty, s);
       setSt(nd); setMode("siege"); setHandSel(-1); setBoardSel(-1); setSiegeSaved(false);
     };
     const [siegeSaved, setSiegeSaved] = useState(false);
@@ -1314,12 +1326,20 @@
         h("div", { key: "bd", "data-wk": "duelsiegepick", className: "flex-1 min-h-0 overflow-y-auto px-5", style: { fontFamily: F, color: INK, paddingTop: 6, paddingBottom: 24 } },
           modeHero("#3f6fb0", "护", "护信", "挑一档守。每档敌人的等级是定的，第 1 波比建议等级低一半，越往后越高，第 10 波高出三成。你这些卡平均 " + my + " 级：比建议低的档也能守，靠站位、组合和盖章；卡练强了再去打高档。"),
           coachPick(),
+          (() => { const wk = D().siegeWeek(D().weekNo()); return h("div", { key: "wk", "data-wk": "duelsiegeweek", style: { margin: "0 0 12px", padding: "8px 12px", borderRadius: 6, border: "1px dashed rgba(63,111,176,.45)", fontSize: fz(12), color: "#3f6fb0" } },
+            h("span", { style: { fontFamily: FD, marginRight: 6 } }, "本周 · " + wk.zh), wk.desc, h("div", { style: { color: SUB, fontSize: fz(11), marginTop: 2 } }, "每周一换。票在板上待久了会褪色；撕票退胶水；有人陪的话，每两波 TA 递三样挑一样，开局还会提一个小要求。")); })(),
+          (() => { const e = siegeAll().endless || {}, mine = e[coachId || "_"] || 0, rows = Object.keys(e).filter(k => e[k]).sort((a, b) => e[b] - e[a]);
+            return h("button", { key: "end", "data-wk": "duelsiegeendless", onClick: () => startSiege(0, true), className: "w-full text-left active:scale-[.99]", style: { display: "block", marginBottom: 12, padding: "12px 14px", borderRadius: 6, background: "#3f6fb0", color: "#fff" } },
+              h("div", { style: { fontFamily: FD, fontSize: fz(15) } }, "无尽护信" + (coachId ? " · 跟 " + (nameOf(coachId) || "TA") : "")),
+              h("div", { style: { fontSize: fz(11), opacity: .9 } }, "从你的平均等级起，一波一波往上叠，守到信封空为止。" + (mine ? "这一组最好守过 " + mine + " 波。" : "")),
+              rows.length ? h("div", { style: { fontSize: fz(10.5), opacity: .85, marginTop: 4 } }, rows.slice(0, 6).map(k => (k === "_" ? "一个人" : nameOf(k) || "TA") + " " + e[k] + " 波").join(" · ")) : null); })(),
           D().SIEGE_TIERS.map((lv, t) => { const b = siegeBest(t), easy = my >= lv, c = easy ? GREEN : my >= lv * 0.7 ? "#b8862a" : RED;
             return h("button", { key: t, "data-wk": "duelsiegetier", onClick: () => startSiege(t), className: "w-full text-left active:scale-[.99]", style: { display: "flex", alignItems: "center", gap: 12, marginBottom: 10, padding: "12px 14px", borderRadius: 6, background: PAPER, boxShadow: "0 2px 8px rgba(47,42,34,.12)", borderLeft: "4px solid " + c, color: INK } },
               h("div", { style: { fontFamily: FD, fontSize: fz(20), color: c, width: 30, textAlign: "center" } }, t + 1),
               h("div", { className: "flex-1 min-w-0" },
                 h("div", { style: { fontFamily: FD, fontSize: fz(14) } }, "第 " + (t + 1) + " 档 · 建议 " + lv + " 级"),
-                h("div", { style: { fontSize: fz(11), color: SUB } }, (easy ? "你的卡够了" : my >= lv * 0.7 ? "差一点，要动脑子" : "比你高不少，硬仗") + (b.waves ? " · 最好守住 " + b.waves + " 波" + (b.wins ? "，守住过 " + b.wins + " 次" : "") : ""))));
+                h("div", { style: { fontSize: fz(11), color: SUB } }, (easy ? "你的卡够了" : my >= lv * 0.7 ? "差一点，要动脑子" : "比你高不少，硬仗") + (b.waves ? " · 最好守住 " + b.waves + " 波" + (b.wins ? "，守住过 " + b.wins + " 次" : "") : "")),
+                b.mates && Object.keys(b.mates).length ? h("div", { style: { fontSize: fz(10.5), color: "#3f6fb0" } }, "跟 " + Object.keys(b.mates).map(k => (nameOf(k) || "TA") + (b.mates[k] > 1 ? "×" + b.mates[k] : "")).join("、") + " 守住过") : null));
           }))]); }
     if (!st && !mode) return shell([
       h(Head, { key: "hd", zh: "集邮社", bg: "transparent", ink: INK, onBack, right: guideBtn }),
@@ -1529,7 +1549,16 @@
     if (over && !playing.current && !st.run && !st.tutorial && !st.rewards) st.rewards = Rewards.settle({ puzzle: !!st.puzzle, solved: st.puzzle ? Object.keys(pzDone()).length : 0, win: over.winner === "me", siege: !!st.siege, tier: st.siegeTier || 0, edict: !!st.edict, pts: st.edictPts || 0, raid: !!st.raid, endless: !!(st.raid && st.raid.endless), dealt: st.raid ? st.raid.dealt : 0, turn: st.turn });
     if (over && st.edict && !edictSaved) { const b0 = edictBest(); st.edictPrev = b0.pts || 0; if (over.winner === "me" && (st.edictPts || 0) > (b0.pts || 0)) { try { saveJSON(EDICT_KEY, { pts: st.edictPts, tags: st.edict }); } catch (e) {} } setTimeout(() => setEdictSaved(true), 0); }
     if (over && st.raid && !raidSaved) { const m = st.raid.endless ? "endless" : "normal", b0 = raidBest(m); try { const all = (typeof loadJSON === "function" ? loadJSON(RAID_KEY, {}) : {}) || {}; if (st.raid.dealt > (b0.dealt || 0)) { all[m] = { dealt: st.raid.dealt, turn: st.turn }; saveJSON(RAID_KEY, all); } st.raid.prev = b0.dealt || 0; } catch (e) {} setTimeout(() => setRaidSaved(true), 0); }
-    if (over && st.siege && !siegeSaved) { const all = siegeAll(), t = st.siegeTier || 0, b0 = siegeBest(t), w = st.siege.cleared; all.tiers = Object.assign({}, all.tiers, { [t]: { waves: Math.max(b0.waves || 0, w), wins: (b0.wins || 0) + (over.winner === "me" ? 1 : 0) } }); try { saveJSON(SIEGE_KEY, all); } catch (e) {} setTimeout(() => setSiegeSaved(true), 0); }
+    if (over && st.siege && !siegeSaved) { const all = siegeAll(), t = st.siegeTier, w = st.siege.cleared, won = over.winner === "me", mate = st.siege.mate || "";
+      if (t < 0) { const e0 = Object.assign({}, all.endless); st.siegePrev = e0[mate || "_"] || 0; e0[mate || "_"] = Math.max(st.siegePrev, w); all.endless = e0; }
+      else { const b0 = siegeBest(t), mates = Object.assign({}, b0.mates); if (won && mate) mates[mate] = (mates[mate] || 0) + 1;
+        all.tiers = Object.assign({}, all.tiers, { [t]: { waves: Math.max(b0.waves || 0, w), wins: (b0.wins || 0) + (won ? 1 : 0), mates } }); }
+      const ask = st.siegeAsk && SIEGE_ASKS[st.siegeAsk];
+      if (ask && ask.ok(st, t < 0 ? w >= 12 : won, mate)) { const day = localDay(), done = all.askDay && all.askDay.d === day ? all.askDay : { d: day, who: {} };
+        let gift = ""; if (!done.who[mate]) { done.who[mate] = 1; all.askDay = done; try { const C = window.StampsCore, cs = C.load(); cs.ink += 2; cs.postage += 3; C.save(cs); gift = "2 印泥、3 邮资"; } catch (e) {} }
+        const pool = (cardsAll || []).filter(c => c && c.charId === mate && c.text).map(c => D().stampOf(c).lines).map(x => x.win || x.enter).filter(Boolean);
+        st.siegeAskDone = { gift, line: pool.length ? pool[Math.floor(Math.random() * pool.length)] : "" }; }
+      try { saveJSON(SIEGE_KEY, all); } catch (e) {} setTimeout(() => setSiegeSaved(true), 0); }
     // 教练条：这一步做到了就往下走（进下一步时先跑它的 enter）
     const step = tut >= 0 ? TUT[tut] : null;
     const goStep = n => { if (n >= TUT.length) { setTut(-1); return; } const nx = TUT[n]; if (nx.enter) { nx.enter(st, tutSeen.current); redraw(); } setTut(n); };
@@ -1605,7 +1634,7 @@
     const intentText = [].concat((it.stamp || []).map(x => "给「" + x.name + "」盖章"), (it.place || []).map(x => "贴「" + x.name + "」" + x.role)).join("、") || "这回合不贴票";
 
     return shell([
-      h(Head, { key: "hd", zh: st.shopFight ? "邮局小店 · 对「" + st.shopFight.name + "」" : st.story ? "剧情闯关 · 对「" + st.story.foe + "」" : st.relay ? "接力 · 第 " + st.turn + " 回合 · " + (st.turn % 2 ? "你下" : (nameOf(st.relay.ta) || "TA") + " 下") : st.puzzle ? (st.puzzle.daily ? "每日死信 · " + st.puzzle.daily : "死信 · 第 " + st.puzzle.lv + " 关") : st.patrol ? "邮区巡查 · " + (st.patrol === "boss" ? "巡查长" : st.patrol === "elite" ? "硬仗" : "普通仗") + " · 第 " + st.turn + " 回合" : st.shift ? "邮局值班 · 第 " + (shift ? shift.round : 1) + " 轮 · 第 " + st.turn + " 回合" : st.edict ? "封缄令 · 危险 " + (st.edictPts || 0) + " · 第 " + st.turn + " 回合" : st.raid ? (st.raid.endless ? "无尽" : "积压件") + " · 第 " + st.turn + " 回合" : st.siege ? "护信 " + ((st.siegeTier || 0) + 1) + " 档 · 第 " + Math.min(st.turn, st.siege.waves) + " 波" : "第 " + st.turn + " 回合", sub: st.siege ? "" : "对 " + foeName + (st.blind ? " · 盲打" : ""), bg: "transparent", ink: INK, right: guideBtn,
+      h(Head, { key: "hd", zh: st.shopFight ? "邮局小店 · 对「" + st.shopFight.name + "」" : st.story ? "剧情闯关 · 对「" + st.story.foe + "」" : st.relay ? "接力 · 第 " + st.turn + " 回合 · " + (st.turn % 2 ? "你下" : (nameOf(st.relay.ta) || "TA") + " 下") : st.puzzle ? (st.puzzle.daily ? "每日死信 · " + st.puzzle.daily : "死信 · 第 " + st.puzzle.lv + " 关") : st.patrol ? "邮区巡查 · " + (st.patrol === "boss" ? "巡查长" : st.patrol === "elite" ? "硬仗" : "普通仗") + " · 第 " + st.turn + " 回合" : st.shift ? "邮局值班 · 第 " + (shift ? shift.round : 1) + " 轮 · 第 " + st.turn + " 回合" : st.edict ? "封缄令 · 危险 " + (st.edictPts || 0) + " · 第 " + st.turn + " 回合" : st.raid ? (st.raid.endless ? "无尽" : "积压件") + " · 第 " + st.turn + " 回合" : st.siege ? (st.siegeTier < 0 ? "无尽护信 · 第 " + st.turn + " 波" : "护信 " + ((st.siegeTier || 0) + 1) + " 档 · 第 " + Math.min(st.turn, st.siege.waves) + " 波") : "第 " + st.turn + " 回合", sub: st.siege ? "" : "对 " + foeName + (st.blind ? " · 盲打" : ""), bg: "transparent", ink: INK, right: guideBtn,
         onBack: () => { if (st.shopFight) { setSt(null); setMode("shop"); return; } if (st.story) { setSt(null); setMode("story"); return; } if (st.relay) { relayKeep(st); setSt(null); setMode("relay"); return; } if (st.puzzle) { setSt(null); setMode("puzzle"); return; } if (st.patrol) { if (typeof requestAppConfirm === "function") requestAppConfirm("先离开这一场？", "这一格算没打赢，信封照现在的血算。", () => { st.over = st.over || { winner: "foe", turn: st.turn, me: st.me.hp, foe: st.foe.hp }; patrolBack(); }, "离开"); else { st.over = st.over || { winner: "foe" }; patrolBack(); } return; } if (st.shift) { setSt(null); setMode("shift"); return; } if (st.edict) { setSt(null); setMode("edictpick"); return; } if (st.raid) { setSt(null); setMode("raidpick"); return; } if (st.siege) { setSt(null); setMode("siegepick"); return; } if (st.run) { runBattle.onQuit && runBattle.onQuit(); return; } if (st.tutorial) { setSt(null); setTut(-1); return; } if (!over) { persist(st, series); setSaved({ st, series, foeId, at: Date.now() }); } else persist(null); setSt(null); setSeries(null); } }),
       h("div", { key: "bd", ref: bodyEl, className: "flex-1 min-h-0 overflow-y-auto px-4", style: { fontFamily: F, color: INK, paddingBottom: 14, overflowAnchor: "none" },
           onTouchStart: () => { touchAt.current = Date.now(); }, onTouchMove: () => { touchAt.current = Date.now(); }, onTouchEnd: () => { touchAt.current = Date.now(); }, onWheel: () => { touchAt.current = Date.now(); },
@@ -1625,6 +1654,13 @@
         bubble && !bubble.me ? h("div", { key: "bb" + bubble.key, "data-wk": "duelsay", style: { position: "relative", margin: "4px 0 2px 34px", padding: "6px 11px", borderRadius: "4px 12px 12px 12px", background: "#fff", boxShadow: "0 2px 6px rgba(47,42,34,.15)", fontSize: fz(12.5), lineHeight: 1.55, color: INK, animation: "duelPop .3s" } },
           h("span", { style: { color: RED, fontFamily: FD, marginRight: 6 } }, bubble.who || foeName), BT(bubble.text)) : null,
         // 对面的下一步：像一张电报条（盲打时不给看）
+        st.siege && !over ? h("div", { key: "sgx", "data-wk": "duelsiegestrip", style: { margin: "4px 0 6px", fontSize: fz(11.5), color: "#3f6fb0" } },
+          h("div", null, "本周「" + D().siegeWeek(D().weekNo()).zh + "」：" + D().siegeWeek(D().weekNo()).desc + "。票在板上待久了会褪色掉血；撕下一张退胶水。"),
+          st.siegeAsk ? h("div", { style: { color: SUB } }, (nameOf(st.siege.mate) || "TA") + "：「" + SIEGE_ASKS[st.siegeAsk].zh + "」") : null,
+          st.siege.offer ? h("div", { "data-wk": "duelsiegeboon", style: { marginTop: 6, padding: "8px 10px", borderRadius: 6, background: "rgba(63,111,176,.08)", border: "1px solid rgba(63,111,176,.3)" } },
+            h("div", { style: { fontFamily: FD, fontSize: fz(12.5), color: INK, marginBottom: 6 } }, (nameOf(st.siege.mate) || "TA") + " 递过来三样，挑一样（这回合不挑就收回去）"),
+            h("div", { className: "flex", style: { gap: 6 } }, st.siege.offer.map(k => h("button", { key: k, "data-wk": "duelsiegeboonpick", onClick: () => { const n0 = st.log.length; if (fail(D().siegeBoon(st, k))) { redraw(); play(n0); } }, className: "flex-1", style: { padding: "6px 4px", borderRadius: 6, background: PAPER, border: "1px solid rgba(63,111,176,.4)", textAlign: "center" } },
+              h("div", { style: { fontFamily: FD, fontSize: fz(12.5), color: "#3f6fb0" } }, D().SIEGE_BOONS[k].zh), h("div", { style: { fontSize: fz(10), color: SUB } }, D().SIEGE_BOONS[k].desc))))) : null) : null,
         h("div", { "data-wk": "duelintent", style: { position: "relative", margin: "6px 0 10px", padding: "7px 10px 7px 46px", borderRadius: 3, border: "1px dashed rgba(47,42,34,.35)", background: "rgba(255,255,255,.5)", fontSize: fz(11.5), lineHeight: 1.6 } },
           h("span", { style: { position: "absolute", left: 7, top: 7, padding: "1px 4px", border: "1.5px solid " + RED, color: RED, borderRadius: 3, fontFamily: FD, fontSize: fz(10), transform: "rotate(-6deg)" } }, "下一步"),
           st.puzzle ? h("div", { "data-wk": "duelpuzzlegoal", style: { color: "#6a5a3a", fontSize: fz(11.5), fontFamily: FD } }, "目标：这一回合寄出时，把对面信封 " + st.puzzle.best + " 点打空。", !over ? h("span", { "data-wk": "duelpuzzlesim", style: { marginLeft: 6, color: D().simSend(st) >= st.puzzle.best ? GREEN : SUB } }, "现在寄出能打 " + D().simSend(st) + "／" + st.puzzle.best) : null,
@@ -1703,7 +1739,9 @@ h("div", { style: { transform: "skewX(12deg)", display: "flex", alignItems: "cen
           st.puzzle ? h("div", { key: "pzo", "data-wk": "duelpuzzleover", style: { textAlign: "center", marginBottom: 10 } }, h("div", { style: { fontFamily: FD, fontSize: fz(20), color: over.winner === "me" ? GREEN : RED } }, over.winner === "me" ? (st.puzzle.daily ? "今天的死信解开了" : "解开了 · 第 " + st.puzzle.lv + " 关") : "差一点"), h("div", { style: { fontSize: fz(11.5), color: SUB } }, over.winner === "me" ? "这一手有 " + st.puzzle.ways + " 种放法能打满" : "对面信封还剩 " + Math.max(0, st.foe.hp) + "，换个放法，或点「提示」")) : null,
           st.edict ? h("div", { key: "edo", "data-wk": "duelediccover", style: { textAlign: "center", marginBottom: 10 } }, h("div", { style: { fontFamily: FD, fontSize: fz(20), color: over.winner === "me" ? "#5a4f8a" : RED } }, over.winner === "me" ? "通过 · 危险 " + (st.edictPts || 0) : "没过"), h("div", { style: { fontSize: fz(11.5), color: SUB } }, over.winner === "me" ? ((st.edictPts || 0) > (st.edictPrev || 0) ? "新纪录！" : "最高 危险 " + (st.edictPrev || 0)) : "少勾几条再试，或者换个打法")) : null,
           st.raid ? h("div", { key: "rdo", "data-wk": "duelraidover", style: { textAlign: "center", marginBottom: 10 } }, h("div", { style: { fontFamily: FD, fontSize: fz(22), color: "#8a3a4a" } }, st.raid.dealt + " 伤害"), h("div", { style: { fontSize: fz(11.5), color: SUB } }, (st.raid.endless ? "无尽 · 撑了 " + st.turn + " 回合" : over.winner === "me" ? "打满 8 回合" : "第 " + st.turn + " 回合信封被砸空了") + (st.raid.prev != null ? (st.raid.dealt > st.raid.prev ? " · 新纪录！" : " · 最高 " + st.raid.prev) : ""))) : null,
-          st.siege ? h("div", { key: "sgo", "data-wk": "duelsiegeover", style: { textAlign: "center", marginBottom: 10 } }, h("div", { style: { fontFamily: FD, fontSize: fz(18), color: over.winner === "me" ? GREEN : RED } }, over.winner === "me" ? "守住了" : "信丢了"), h("div", { style: { fontSize: fz(11.5), color: SUB } }, "第 " + ((st.siegeTier || 0) + 1) + " 档 · 守住 " + st.siege.cleared + " / " + st.siege.waves + " 波 · 信封剩 " + Math.max(0, over.me) + " · 这档最好 " + Math.max(siegeBest(st.siegeTier || 0).waves || 0, st.siege.cleared) + " 波")) : null,
+          st.siege ? h("div", { key: "sgo", "data-wk": "duelsiegeover", style: { textAlign: "center", marginBottom: 10 } }, h("div", { style: { fontFamily: FD, fontSize: fz(18), color: over.winner === "me" ? GREEN : RED } }, over.winner === "me" ? "守住了" : "信丢了"), h("div", { style: { fontSize: fz(11.5), color: SUB } }, st.siegeTier < 0 ? "无尽 · 守过 " + st.siege.cleared + " 波" + (st.siegePrev != null ? (st.siege.cleared > st.siegePrev ? " · 新纪录（原来 " + st.siegePrev + "）" : " · 最好 " + st.siegePrev + " 波") : "") : "第 " + ((st.siegeTier || 0) + 1) + " 档 · 守住 " + st.siege.cleared + " / " + st.siege.waves + " 波 · 信封剩 " + Math.max(0, over.me) + " · 这档最好 " + Math.max(siegeBest(st.siegeTier || 0).waves || 0, st.siege.cleared) + " 波"),
+            st.siegeAsk ? h("div", { "data-wk": "duelsiegeask", style: { marginTop: 6, fontSize: fz(12), color: st.siegeAskDone ? GREEN : SUB } }, (nameOf(st.siege.mate) || "TA") + " 说的「" + SIEGE_ASKS[st.siegeAsk].zh + "」：" + (st.siegeAskDone ? "做到了" + (st.siegeAskDone.gift ? "，收到 " + st.siegeAskDone.gift : "（今天已经领过了）") : "没做到"),
+              st.siegeAskDone && st.siegeAskDone.line ? h("div", { style: { color: INK, marginTop: 2 } }, "「" + st.siegeAskDone.line + "」") : null) : null) : null,
           st.siege || st.raid || st.edict || st.puzzle ? null : h("div", { style: { fontFamily: FD, fontSize: fz(18), textAlign: "center", marginBottom: 2, color: over.winner === "me" ? GREEN : over.winner === "foe" ? RED : INK } }, over.winner === "me" ? "你赢了" : over.winner === "foe" ? foeName + " 赢了" : "打平了"),
           st.siege || st.raid || st.edict || st.puzzle ? null : h("div", { style: { fontSize: fz(11), textAlign: "center", color: SUB, marginBottom: 10 } }, over.turn + " 回合 · 信封剩 " + over.me + " : " + over.foe + (over.byCap ? " · 打满回合比剩下的" : "")),
           st.relay && st.relayNew ? h("div", { key: "rln", "data-wk": "duelrelayrecord", style: { textAlign: "center", margin: "0 0 10px", padding: "8px 10px", borderRadius: 6, background: "rgba(160,82,45,.08)", color: "#a0522d" } },
@@ -1757,7 +1795,7 @@ h("div", { style: { transform: "skewX(12deg)", display: "flex", alignItems: "cen
               h("button", { "data-wk": "duelraidagain", onClick: () => startRaid(st.raid.endless ? "endless" : "normal"), className: "flex-1", style: btn(INK, PAPER) }, "再打一次"),
               h("button", { onClick: () => { setSt(null); setMode("raidpick"); }, className: "flex-1", style: btn("transparent", INK, INK) }, "回积压件"))
           : st.siege ? h("div", { className: "flex", style: { gap: 8 } },
-              h("button", { "data-wk": "duelsiegeagain", onClick: () => startSiege(st.siegeTier || 0), className: "flex-1", style: btn(INK, PAPER) }, "再守一次"),
+              h("button", { "data-wk": "duelsiegeagain", onClick: () => st.siegeTier < 0 ? startSiege(0, true) : startSiege(st.siegeTier || 0), className: "flex-1", style: btn(INK, PAPER) }, "再守一次"),
               h("button", { onClick: () => { setSt(null); setMode("siegepick"); }, className: "flex-1", style: btn("transparent", INK, INK) }, "换一档"))
           : asking ? h("div", null,
             h("div", { style: { fontSize: fz(12.5), textAlign: "center", marginBottom: 8 } }, "要让 " + foeName + " 记得这 " + ((series ? series.games.length : 0) + 1) + " 把吗？"),
