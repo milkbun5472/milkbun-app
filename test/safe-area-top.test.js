@@ -33,7 +33,7 @@ test("主屏仍旧留着根节点那条空带，壁纸照旧铺在根节点上",
 });
 
 // 白带的成因：空带和顶栏是两个元素、两层 backdrop-filter，交界处必然留一道亮线。
-// 做法是照 ai-virtual-phone 的聊天页看来的：它压根没有那条空带，顶栏自己吃掉刘海。
+// 做法：压根没有那条空带，顶栏自己吃掉刘海。
 test("只留一把尺子 safeTop，别一处一处手写 calc", () => {
   assert.match(eng, /function safeTop\(px\)/, "safeTop 没了");
   assert.match(eng, /env\(safe-area-inset-top, 0px\)/, "要带 0px 兜底：非 PWA 打开时这个变量是空的");

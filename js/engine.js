@@ -8608,8 +8608,7 @@ function translatableLangLong(text) {
 // 元素、同一层底色/毛玻璃，中间没有交界，也就没有缝。
 // v56.61 试过「根节点垫一条空带、把它涂成顶栏的颜色」：不行。两个元素各挂一层
 // backdrop-filter，各自采样、各自在边缘钳位，交界处必然留一道亮线——那就是她看见的白带。
-// 做法是照 ai-virtual-phone 的聊天页看来的（AGPL，只读了它的 CSS 布局，没有取用代码）：
-// 它的消息区 absolute inset-0 铺满整屏、顶栏 absolute top:0 浮在上面自己吃掉刘海，
+// 做法：消息区 absolute inset-0 铺满整屏、顶栏 absolute top:0 浮在上面自己吃掉刘海，
 // 全程没有那条空带。
 // ⚠️主屏是唯一的例外，仍旧留着根节点那条空带：它和 Home 的 height:100vh 是配好的一对，
 //   动了就散架（v56.58 亲测，见 施工规则/home-screen-layout.md）。

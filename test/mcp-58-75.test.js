@@ -11,8 +11,7 @@ const grab = (src, a, b, cap) => {
   return src.slice(i, j);
 };
 
-// 她 2026-08-31 贴了 ai-virtual-phone 的说明：浏览器能直接连 MCP。对的——
-// Streamable HTTP 就是 HTTP + JSON-RPC。（照协议自己写，没抄那边的 AGPL 代码。）
+// 浏览器能直接连 MCP：Streamable HTTP 就是 HTTP + JSON-RPC。（照协议自己写。）
 test("两台服务器都叫 search 时，认得出该找谁", () => {
   const full = qualify({ id: "m_1" }, "search");
   assert.equal(full, "m_1__search");

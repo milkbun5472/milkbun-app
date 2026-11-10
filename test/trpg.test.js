@@ -10,8 +10,8 @@ const components = fs.readFileSync(path.join(root, "js/components.js"), "utf8");
 const { rollStats, personaNudge, gradeCheck, normChoices, applyTurnPayload, foldHist, findMember, shotSafeLines, mulberry32, hashStr, journeyLayout, jitterPts, itemsFix, fmtItem, hasItem, normRegions, mapBuild, mapAdjacent, findNode, decideOpposed, harmZh, growthRolls, normSceneMeta, normSiteActions } = (require("../js/trpg-core.js"), require("../js/trpg.js"));
 
 // ============================================================
-// 跑团(v57.13):参考 ai-virtual-phone 冒险玩法的【思路】自研。
-// 这里钉住的是当初决定「不照抄」的那几件事——参考项目的病:
+// 跑团(v57.13)。
+// 这里钉住的是当初定下要躲开的几件事:
 //   状态靠正则从散文里抠(漂移)、上下文用开局快照用到烂、
 //   章节两个计数器各记各的、模型自己编骰子结果。
 // ============================================================
@@ -459,7 +459,7 @@ test("威胁钟不锈死:连着两个掷过骰的拍没人碰就自己走一格;
   assert.equal(touched.camp.clocks[0].idle, undefined, "守密人碰过就清零");
 });
 
-// 探索态(v60.20,照 ai-virtual-phone 的两态循环):守密人不给选项=这一幕收了,屏上换成地点长出来的交互
+// 探索态(v60.20):守密人不给选项=这一幕收了,屏上换成地点长出来的交互
 test("探索态菜单:只列在这儿的活人、还能翻几次、开着的支线", () => {
   const { exploreMenu, pickSeed, regionOfNode } = (require("../js/trpg-core.js"), require("../js/trpg.js"));
   const c = Object.assign(camp0(), { pos: "驿站", searched: { 驿站: 2 },
