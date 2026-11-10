@@ -18238,7 +18238,7 @@ function StateCard({
       h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", marginTop: 2, lineHeight: 1.5, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: t.fog } },
         // ⚠️配角的心情也显示（她 2026-09-20：「心情想法穿着动作这四样放 npc 状态卡」）。
         //   原来这两处拿 isNpc 把心情那一行整个藏了；好感那颗心照旧不给配角（见下面的 scale）。
-        dm ? h("span", { style: { color: t.accent } }, dm.label) : null,
+        dm ? h("span", { "data-wk": "statemood", style: { color: t.accent } }, dm.label) : null,
         dm ? " · " : "",
         roomName && !dm ? "这间房还没有心情"
           : dm && dm.def ? "聊几句就会变"
@@ -18274,6 +18274,8 @@ function StateCard({
         h("div", { style: { position: "absolute", left: 0, right: 0, bottom: 0, height: "calc(var(--sc-heart-lvl) * 100%)", background: "var(--sc-heart-ink, var(--sc-heart-ink-auto))", opacity: .9,
           // 水面那一道亮边：不加的话就是块色，看不出是「灌到这儿」
           borderTop: lvl > 0 && lvl < 1 ? "1px solid rgba(255,255,255,.5)" : "none" } })),
+      // 水位那一头的小扣（默认藏着）：底边跟着水位走，主题把心换成横条时拿它当进度条末端那颗圆扣
+      h("span", { "data-wk": "stateheartknob", "aria-hidden": "true", style: { display: "none", position: "absolute", left: "50%", bottom: "calc(var(--sc-heart-lvl) * 100%)" } }),
       // 数字压在心中间：描一圈卡片底色，压在水位上也读得清
       h("span", { "data-wk": "stateheartnum", style: {
         position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center",
@@ -18282,6 +18284,8 @@ function StateCard({
       } }, aff)),
     h("div", { className: "flex-1 min-w-0" },
       label("好感度"),
+      // 好感数字的第二个挂点（她 2026-11-10 小白狗美化：心换成横条以后，数字想摆到右上角）：默认藏着，主题 display 出来自己摆
+      h("span", { "data-wk": "stateaffval", style: { display: "none" } }, aff),
       state && state.affinityLabel ? h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(16px * var(--app-fs, 1))", color: heartInk, marginTop: 6 } }, state.affinityLabel) : null,
       h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", color: t.fog, marginTop: 7, lineHeight: 1.6 } }, "跟着聊天自己更新，不额外花额度")));
   // ⚠️「翻旧的」原来钉在抬头上，可它翻的只有【此刻】这一栏；站在「Ta 眼里」按它，

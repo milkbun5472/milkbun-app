@@ -480,7 +480,7 @@
         ["chat", "聊天页整块背景"], ["body", "正文区背景"],
         // 「Ta 眼里」那页：聊天里点顶栏名字 → Ta 眼里（群友 2026-10-05：「这个和关于我/关于我们有挂点嘛」）
         ["gazepage","整页那张手记底（data-side=\"me\" 关于我 / \"us\" 关于我们）"],["gazetitle","右上角「关于我/关于我们」大字"],
-        ["gazetab","两条布书签（data-on=\"1\" 是选中的）"],["gazestatus","书签下面那行复看说明小字"],
+        ["gazetab","两条布书签（data-on=\"1\" 是选中的）"],["gazestatus","书签下面那行复看说明小字"],["gazeempty","一块都还没写时那一整块（这里还是空的＋让他写写看）"],
         ["gazecard","每一块便签（data-k＝me.person 这类块名；data-empty=\"1\" 还没写）"],["gazecardname","便签标题"],["gazecardtext","便签正文"],["gazecardtime","便签底下「N 天前写的」"],
         ["gazebtn","底下的按钮（data-kind＝review 再看一遍 / redo 整份重写 / history 从前那几版 / seed 第一次写）"],
         ["gazelock","信纸里「锁住这块」（data-on＝1 已锁）"],
@@ -571,7 +571,7 @@
         ["stateaff", "心声卡底下好感那一整行（心＋好感度那几个字）"],
         // 那颗心拆开（她 2026-10-05：「要可以改图案」）：换形状写在 stateheart 上的 --sc-heart-mask，四层一起变
         ["stateheart", "好感那颗心整颗（换图案：--sc-heart-mask: url(图)；颜色 --sc-heart-ink）"], ["stateheartline", "心的描边那一圈"],
-        ["stateheartbase", "心里没灌满的那块底"], ["stateheartfill", "心里灌进去的那块（水位）"], ["stateheartnum", "心中间那个好感数字"],
+        ["stateheartbase", "心里没灌满的那块底"], ["stateheartfill", "心里灌进去的那块（水位）"], ["stateheartnum", "心中间那个好感数字"], ["stateheartknob", "水位那一头的小扣（默认藏着；底边跟水位走）"], ["stateaffval", "好感数字的第二份（在「好感度」那几个字旁边，默认藏着）"], ["statemood", "抬头里那个心情词（平静、开心……）"],
         // 拉黑时气泡旁那颗红色感叹号（她 2026-10-01：「跟微信一样，然后加一个美化挂点」）
         ["blockdot", "拉黑中气泡旁那颗红色感叹号（data-me=\"1\" 是她那边的）"],
         // 重 Roll 留版那一行「‹ 2/3 ›」（她 2026-10-10）
