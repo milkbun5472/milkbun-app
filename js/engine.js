@@ -8061,11 +8061,19 @@ const ProbeZh = {
   take: v => { const z = String(v == null ? "" : v).trim(); return z && z.toLowerCase() !== "null" ? z : ""; }
 };
 if (typeof window !== "undefined") window.ProbeZh = ProbeZh;
+// 模型卡进循环、同一个字词连着刷几十遍（群友 2026-11-10 论坛截图：译文里「脚，脚，脚……」刷了一整屏）：
+//   连着 15 遍以上的收成 3 遍加省略号。正常的「哈哈哈哈」够不着这个数。模型交回来的字都从 showClean / translateToZh 过，这一处管全部
+function cutLoop(text) {
+  const s = String(text == null ? "" : text);
+  if (s.length < 30) return s;
+  return s.replace(/((.{1,6}?)[，,、。\s]{0,2})\1{14,}/gu, "$1$1$1……");
+}
 function showClean(text, isU) {
   let s = String(text == null ? "" : text);
   if (!s) return s;
   if (s.indexOf("<#") >= 0) s = stripPauseMarks(s);
   if (isU) return s;
+  if (s.length >= 30) s = cutLoop(s);
   // 模型把格式说明「原文 | 中文」原样抄进了正文（她 2026-11-04 心声截图）：那半截是说明不是话，摘掉，剩下的才劈得开
   if (s.indexOf("原文") >= 0) s = s.replace(/^\s*[「『【\[(（]?\s*原文\s*[|｜│︱┃]\s*中文\s*[」』】\])）]?\s*[:：]?\s*/, "");
   if (s.indexOf("(") >= 0 && ttsHasSoundTag(s)) s = ttsMarkStrip(s);
@@ -8700,7 +8708,8 @@ function splitBilingual(text, hanLang) {
   const br = typeof bracketBilingual === "function" ? bracketBilingual(t) : null;
   if (br) return br.zh && br.zh.indexOf("<#") >= 0 && typeof stripPauseMarks === "function" ? Object.assign({}, br, { zh: stripPauseMarks(br.zh).trim() }) : br;
   const i = t.indexOf("|");
-  if (i <= 0 || i !== t.lastIndexOf("|")) return null;
+  if (i <= 0) return null;
+  if (i !== t.lastIndexOf("|")) return splitBilingualMany(t);
   const orig = t.slice(0, i).trim(), zh = t.slice(i + 1).trim();
   if (!orig || !zh) return null;
   if (!/[\u4e00-\u9fff]/.test(zh)) return null;
@@ -8717,6 +8726,25 @@ function splitBilingual(text, hanLang) {
   // 译文那半截剥掉念给语音听的停顿记号（她 2026-11-04：「全部翻译的地方都弄了吧」）——原文留着，TTS 还要照它停。
   //   劈双语只有这一处，所有译文（气泡、心声、通话字幕、线下、查手机……）都从这儿出来
   return { text: orig, zh: zh.indexOf("<#") >= 0 && typeof stripPauseMarks === "function" ? stripPauseMarks(zh).trim() : zh };
+}
+// 一段里好几对「原文 | 中文」接着写（群友 2026-11-10 论坛截图：韩文帖子「…무죄임? ——|不过要是…也算无罪吧? ——…」）：
+//   两根竖线中间那截是【上一句的中译 + 下一句的原文】，拿最后一个汉字劈开。只认原文里一个汉字都没有的外语（韩、英、俄这些）；
+//   日文带汉字劈不准，照旧不劈、交给「译」现翻。每一对都对得上才算，对不上一对就整段不劈
+function splitBilingualMany(t) {
+  if (/[\u3040-\u30ff]/.test(t)) return null;
+  const segs = t.split("|"), HAN = /[\u4e00-\u9fff]/, FOREIGN = /[\uac00-\ud7af\u1100-\u11ff\u3130-\u318f\u0400-\u04ffA-Za-z\u00c0-\u024f]/;
+  const trim = x => String(x || "").replace(/^[\s—–\-~～]+|[\s—–\-~～]+$/g, "");
+  const orig = [trim(segs[0])], zh = [];
+  for (let k = 1; k < segs.length; k++) {
+    const seg = segs[k];
+    if (k === segs.length - 1) { zh.push(trim(seg)); break; }
+    let h = -1; for (let j = seg.length - 1; j >= 0; j--) if (HAN.test(seg[j])) { h = j; break; }
+    if (h < 0) return null;
+    let cut = h + 1; while (cut < seg.length && /[？?！!。，,…」』）)\]】"”]/.test(seg[cut])) cut++;
+    zh.push(trim(seg.slice(0, cut))); orig.push(trim(seg.slice(cut)));
+  }
+  if (orig.some(o => !o || HAN.test(o) || !FOREIGN.test(o)) || zh.some(z => !z || !HAN.test(z))) return null;
+  return { text: orig.join("\n"), zh: zh.join("\n") };
 }
 // 模型把中译另起了一行（「ん？なに？」换行「|……嗯？什么？」）：拆泡是先按换行切的，
 //   竖线那一行就落单了——原文那泡没有译文，竖线连着中文自己成了一泡，中文还被再拆成好几泡
@@ -9075,7 +9103,7 @@ async function translateToZh(text, lang, opts) {
   const names = ["Google", "微软", "MyMemory", "模型"];
   for (let i = 0; i < chain.length; i++) {
     try {
-      const zh = await chain[i].run();
+      const zh = cutLoop(await chain[i].run());
       if (!_looksChinese(zh)) throw new Error("翻出来的不是中文：" + String(zh).slice(0, 40));
       transCachePut(text, zh, chain[i].by);
       return { zh: zh, by: chain[i].by };

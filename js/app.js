@@ -20,7 +20,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v89.446";
+const APP_VERSION = "v89.449";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -13059,7 +13059,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       const seenHint = _seenMsg ? photoSeenHint(_seenAvatarOk, uName)
         : (_seenAvatarOk ? (_askAvatar ? photoSeenAskHint(uName) : photoSeenAutoHint(uName)) : "");
       const seenField = _seenMsg ? photoSeenField(_seenAvatarOk)
-        : (_seenAvatarOk ? ",\"photoSeen\":{\"avatar\":false}" : "");
+        : (_seenAvatarOk ? ",\"photoSeen\":{\"kind\":\"\",\"avatar\":false}" : "");
       // Protocol v2：能力格式在稳定 system 里只定义一次；每轮只报开放项与必要动态参数。
       const openCaps = ["silent", "quote", "语音（写进 word 原位）", "transfer", "redPacket", "location", "gift", "takeout", "recall", "momentComment", "call", "laterPromise", "pat", "patSig"];
       const capState = [];
@@ -14772,10 +14772,10 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       if (parsed.photoSeen && typeof parsed.photoSeen === "object" && parsed.photoSeen.avatar === true && (!avatarTalkOk(parsed.word) || (_pairAsked && !_pairPick)))
         parsed.photoSeen = { ...parsed.photoSeen, avatar: false };   // 话里换的是锁屏、或者在否认：头像不动
       if (_avatarMsg && parsed.photoSeen) applyPhotoSeen(charId, _avatarMsg, parsed.photoSeen, _seenAvatarOk,
-        (same, note) => pChat(chatKey || charId, p => p.map(m => same(m) ? { ...m, seenNote: note } : m)));
+        (same, note) => pChat(chatKey || charId, p => p.map(m => same(m) ? { ...m, seenNote: note } : m)), _askAvatar);
       // 兜底：这一轮真给了换头像的能力，TA嘴上说「换好了」，字段却没填 true → 照TA说的换
       if (!_pairDone && (!_pairPick || _pairAuto) && !_pairAsked && _avatarMsg && _seenAvatarOk && !(parsed.photoSeen && parsed.photoSeen.avatar === true)
-        && AVATAR_CLAIM_RE.test([].concat(parsed.word || []).join(" ")) && avatarTalkOk(parsed.word)) applyPhotoSeen(charId, _avatarMsg, { avatar: true }, true, () => {});
+        && AVATAR_CLAIM_RE.test([].concat(parsed.word || []).join(" ")) && avatarTalkOk(parsed.word)) applyPhotoSeen(charId, _avatarMsg, { avatar: true, kind: parsed.photoSeen && parsed.photoSeen.kind }, true, () => {}, _askAvatar);
       if (parsed.photo && typeof parsed.photo === "object") {
         photoScene = String(parsed.photo.scene || parsed.photo.desc || "").trim();
         photoKind = ["self", "other", "duo", "me", "view", "part", "none"].includes(String(parsed.photo.kind || "").toLowerCase()) ? String(parsed.photo.kind).toLowerCase() : "self";
@@ -29319,9 +29319,15 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   };
   const AVATAR_CLAIM_RE = /换好了|换上了|已经换了|头像换了|换成头像了|设成头像了|当头像了|换过来了|(换|改|设|用)(好|上|成|过来)[^，。！？\n]{0,10}(了|啦|咯)|头像[^，。！？\n]{0,8}(换|改|设)(好|成|上)?(了|啦)|已经(换|改|设)/;
   // 没开口、也不是刚发的那张：只问换不换，不补记画面
+  // 换头像先报「这张是什么」（她 2026-11-11 转群友：「问他道题又换成头像了」——上课投影屏也挂上了）：
+  //   提示里早写着截图、东西一律 false，模型照样填 true。所以改成掷轴：先挑一类，代码只放这几类过；
+  //   她明说要换（_askAvatar）的不受这道闸
+  const PHOTO_KINDS = ["人像", "合照", "宠物", "画", "风景", "东西", "截图", "题目文字"];
+  const AVATAR_KINDS = ["人像", "合照", "宠物", "画"];
+  const kindLine = "\n· kind：这张画面主要是什么，从「" + PHOTO_KINDS.join("／") + "」里挑一个照实填。";
   const photoSeenAutoHint = uName =>
     "\n【photoSeen 换头像】上面历史里 " + uName + " 发过一张真实照片。要不要把它换成你自己的头像？**默认 false。**"
-    + "只有它是你愿意天天挂在名字旁边的那种才填 photoSeen:{\"avatar\":true}；你平时不爱换头像，就一直 false。";
+    + "只有它是你愿意天天挂在名字旁边的那种才填 photoSeen:{\"avatar\":true}；你平时不爱换头像，就一直 false。" + kindLine;
   // 她开口要的那一版：没有 note 那半边（不补记老照片的画面），只问换不换。
   // ⚠️仍然是【问】不是【命令】：她说了，他也可以不换——那是他这个人的事
   //   （施工规则/bans-make-it-dumber：给出口，不给判决）。但不许嘴上说换了、实际没换。
@@ -29339,9 +29345,9 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       ? "\n· avatar：要不要把这张换成你自己的头像。**默认 false。** 换头像是把这张挂在你自己名字旁边、往后每天都摆在那儿，"
         + "不是「这张拍得不错」。所以只有当它是【你愿意天天看着的那种】才填 true；"
         + "东西、吃的、风景、截图、随手拍的一律 false。你这个人平时会不会做这种事，也算在内——"
-        + "有的人从不换头像，那就永远 false。"
+        + "有的人从不换头像，那就永远 false。" + kindLine
       : "");
-  const photoSeenField = canAvatar => ",\"photoSeen\":{\"note\":\"一句话记下画面上有什么\"" + (canAvatar ? ",\"avatar\":false" : "") + "}";
+  const photoSeenField = canAvatar => ",\"photoSeen\":{\"note\":\"一句话记下画面上有什么\"" + (canAvatar ? ",\"kind\":\"\",\"avatar\":false" : "") + "}";
   // 落地：把那句话写回那条消息；要换头像就换，并留住换之前那张
   // 他把一张图设成自己手机的锁屏：写进查手机那一格（x_phoneLooks.lockWallpaper，跟手动换的是同一格），聊天里落一行小灰字
   // 锁屏换的是哪一张：她发的认 imageRef，他拍的认 imgKey／url
@@ -29367,7 +29373,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       pChat(chatKey, p => [...p, { role: "assistant", kind: "locknote", ts: Date.now(), turnId, content: "〔" + ((ch && (ch.remark || ch.name)) || "TA") + " 把手机锁屏换成了" + (src.from === "her" ? "你发的这张" : "这张") + "〕" }]);
     } catch (e) {}
   };
-  const applyPhotoSeen = (charId, msg, seen, canAvatar, patchNote) => {
+  const applyPhotoSeen = (charId, msg, seen, canAvatar, patchNote, asked) => {
     if (!msg || !seen || typeof seen !== "object") return;
     const note = String(seen.note || "").replace(/\s+/g, " ").trim().slice(0, 60);
     // ⚠️认那一条要认得准：聊天里好些消息【没有 id】，写成 m.id === msg.id 的话
@@ -29380,6 +29386,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     // 跟 runOfflineShot 里那个 300ms holdTimer 是同一个坑，照它的做法隔开。
     if (note) setTimeout(() => patchNote(same, note), 400);
     if (!canAvatar || seen.avatar !== true) return;
+    if (!asked && AVATAR_KINDS.indexOf(String(seen.kind || "").trim()) < 0) return;   // 不是人像、合照、宠物、画：不换
     const ch = characters.find(c => c.id === charId);
     if (!ch || !msg.imageRef) return;
     // 只换【聊天里用的那张】chatAvatar（群里读者 2026-09-30：「只换聊天界面的头像，不换人设档案」）。

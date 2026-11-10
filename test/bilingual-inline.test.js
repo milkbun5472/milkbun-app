@@ -13,7 +13,7 @@ const grab = name => {
   return engine.slice(i, engine.indexOf("\n}\n", i) + 3);
 };
 const { splitBilingual, bilingualKey, bilingualRule } =
-  new Function(grab("splitBilingual") + grab("bilingualKey") + grab("bilingualRule") +
+  new Function(grab("splitBilingual(") + grab("splitBilingualMany") + grab("bilingualKey") + grab("bilingualRule") +
     "\nreturn { splitBilingual, bilingualKey, bilingualRule };")();
 
 // 她 2026-08-26：「让模型生成时额外生成翻译」。免费接口把

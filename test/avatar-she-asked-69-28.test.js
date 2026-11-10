@@ -64,7 +64,7 @@ test("她翻旧账要换头像时，不补记老照片的画面（note 只跟刚
   assert.match(seg, /const seenHint = _seenMsg \? photoSeenHint\(_seenAvatarOk, uName\)/);
   assert.match(seg, /: \(_seenAvatarOk \? \(_askAvatar \? photoSeenAskHint\(uName\) : photoSeenAutoHint\(uName\)\) : ""\);/);
   // 她开口那一档的字段里没有 note
-  assert.ok(seg.indexOf('(_seenAvatarOk ? ",\\"photoSeen\\":{\\"avatar\\":false}" : "")') > 0,
+  assert.ok(seg.indexOf('(_seenAvatarOk ? ",\\"photoSeen\\":{\\"kind\\":\\"\\",\\"avatar\\":false}" : "")') > 0,
     "她开口那一档的字段里不该有 note");
 });
 

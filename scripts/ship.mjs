@@ -128,10 +128,10 @@ for (let round = 1; round <= 4; round++) {
   //   一行都认不出来，于是「没有红灯」，带着红灯照推（2026-10-16 v75.828 就是这么带着两条红推上去的）。
   //   还有一种「什么都没跑」：这个脚本自己在一个测试里被调起来时（ship-worktree.test.mjs），继承来的 NODE_TEST_CONTEXT
   //   会让里面这次 node --test 以为自己嵌在别的测试里，直接跳过、一条都不跑。拿掉它，让这一次真的跑。
-  // ⚠️两个目录都要喂：测试分家住在 test/ 和 tests/ 两处，而这里原来只写了 test/*，
-  //   于是 tests/ 那十来份从来没进过发版的闸——2026-10-29 翻出来时三条红灯已经红了半个月，
-  //   没人看见，也拦不住任何东西。
-  const FULL_SUITE = "test/*.test.js test/*.test.mjs tests/*.test.js tests/*.test.mjs";
+  // ⚠️测试只住 test/ 一处（她 2026-11-11：tests/ 那 55 份全挪过来了）。以前分家住在 test/ 和 tests/，
+  //   这里只写了 test/*，tests/ 那些从来没进过发版的闸——2026-10-29 翻出来时三条红灯已经红了半个月。
+  //   新测试一律写进 test/，别再开第二个目录。
+  const FULL_SUITE = "test/*.test.js test/*.test.mjs";
   if (!only && !full) only = relatedTests();
   if (!only && !full) console.log("（没找到相关测试，退回全套）");
   console.log(only ? "跑这次相关的测试（" + only.split(" ").length + " 份）：" + only : "跑全套测试（并行）…");
@@ -161,7 +161,7 @@ die("连撞四轮没推上去，过一会儿再跑");
 //   版本号、?v= 指纹、STAMP 这些每次都改的文件不算「改过」——不然 index.html、app.js 一挂上，几乎全套都会被拉进来。
 function relatedTests() {
   const ls = d => { try { return sh("ls " + d).split("\n").filter(f => /\.test\.(m?js)$/.test(f)).map(f => d + "/" + f); } catch (e) { return []; } };
-  const all = ls("test").concat(ls("tests"));
+  const all = ls("test");
   const files = PRE_FILES;
   const pick = new Set(files.filter(f => all.includes(f)));
   const base = files.filter(f => !all.includes(f) && !/^(index\.html|manifest\.json|rescue\.html)$/.test(f))
