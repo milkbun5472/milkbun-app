@@ -5000,24 +5000,6 @@ function formatMemLib(entries) {
   const pastNote = hasPast ? "\n（标〔以前的事〕的是你们早先的经历，不是最近发生的；后面写了时候的就按那个时候说，没写的说「以前」「那时候」就好。）" : "";
   return body + stampNote + pastNote + goneNote + (hasOpen ? "\n（⚠️标〔还没了结〕的是你还惦记、还没画句号的事：可以自然想起、期待、或轻声问一句「还来吗～」。但【绝不要】默认对方爽约、放你鸽子、故意不来——TA 多半只是忙，或时候还没到（比如「今天」还没过完；软性的「我来找你」也不是签了字的约会）。想 TA 就直说想，别把「还没兑现」当成「被辜负/被放鸽子」来生气赌气、翻脸算账。）" : "");
 }
-// 月度精炼：把一批【已了结的旧记忆】浓缩成尽量少的「月度精炼摘要」，保住长期精华、丢琐碎。
-// 返回 [{text,tags,v,a}]。原件由调用方归档(archived)不删除。
-async function refineMemories(p, ctx, entries) {
-  const uName = (ctx.profile && ctx.profile.name) || "用户";
-  const cName = (ctx.char && ctx.char.name) || "角色";
-  const listText = (entries || []).map((e, i) => (i + 1) + ". " + String(e.text || "").replace(/\s+/g, " ").slice(0, 120)).join("\n");
-  const maxOut = Math.max(2, Math.min(5, Math.ceil((entries || []).length / 8)));
-  const system = "你是记忆整理助手。下面是「" + uName + "」和「" + cName + "」之间攒下的一批【已了结的旧记忆】，偏零碎、有重复。请把它们浓缩成【尽量少】的『月度精炼摘要』（最多 " + maxOut + " 条）。\n" +
-    "【原则】\n" +
-    "· 只保留会【长期影响你俩关系】的：稳定的偏好/习惯、身份与背景、达成过的重要约定或转折、反复出现的相处模式与默契。\n" +
-    "· 丢掉一次性的琐碎细节、寒暄、已经不重要的旧事、以及互相重复的内容。\n" +
-    "· 每条一句话、具体、第三人称，**开头点明是关于谁的**（关于「" + uName + "」／关于「" + cName + "」／关于他俩之间），绝不张冠李戴。为每条配 1~3 个中文标签。\n" +
-    "· 每条标 v（情绪愉悦度整数 -5~5）与 a（情绪强度整数 0~5，摘要通常给 1~2）。\n" +
-    "【输出】只输出 JSON 数组，别加解释/代码块：[{\"text\":\"…\",\"tags\":[\"…\"],\"v\":0,\"a\":1}]";
-  const raw = await callAI(p, system, [{ role: "user", content: listText }], { maxTokens: Math.min(20000, 8800 + (entries || []).length * 40) });
-  const arr = extractJSON(raw);
-  return Array.isArray(arr) ? arr.filter(o => o && o.text && String(o.text).trim()) : [];
-}
 // 微信式随机红包拆分：total(元)拆成 count 份，每份 >=0.01，和为 total
 function splitRedPacket(total, count) {
   let cents = Math.round(Number(total) * 100);

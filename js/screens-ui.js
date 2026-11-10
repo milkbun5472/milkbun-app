@@ -10293,7 +10293,6 @@ function MemoryLib({
   onArchiveRoutineGroups,
   onListRepairConflicts,
   onDecideRepairConflict,
-  onRefine,
   onRestoreArchived,
   onBulkImport,
   onAudit,
@@ -10402,7 +10401,6 @@ function MemoryLib({
   const refineBatchOf = e => e && e.refineBatch ? String(e.refineBatch)
     : (e && e.source === "monthly" && e.ts ? "rf_" + Number(e.ts) : null);
   const refineSrcCount = e => { const batch = refineBatchOf(e); return batch ? (entries || []).filter(x => x && x.archived && x.archivedBatch === batch).length : 0; };
-  // 可精炼旧记忆数（和 app.js isRefinable 同判定）：已了结/非置顶/情绪弱(a≤2)/放了 60+ 天/未归档；按当前筛选范围算
   // ⚠️「没绑角色＝所有角色可见」是有意的规则，但它没有【入口】：她没法一眼看出
   //   哪几条正在被所有人看见。她 2026-09-06 查出「陆衍手机里全是沈屿白的信息」，
   //   实测下来漏进去的正是这一类（绑给沈屿白的那条一个字都没漏）。
@@ -10411,7 +10409,6 @@ function MemoryLib({
   const inScope = e => filter === "all" ? true
     : filter === "__open__" ? isOpenToAll(e)
     : (isOpenToAll(e) || e.charIds.includes(filter));
-  const refinableCount = (entries || []).filter(e => { const now = Date.now(); return e && e.text && (e.surfaceState || "active") === "active" && !e.pinned && !e.open && !e.archived && e.source !== "monthly" && (e.a || 0) <= 2 && now - (e.ts || 0) >= 60 * 86400000 && inScope(e); }).length;
   const archived = (entries || []).filter(e => e && e.archived && inScope(e)).slice().sort((a, b) => (b.archivedTs || 0) - (a.archivedTs || 0));
   const superseded = (entries || []).filter(e => e && (e.surfaceState || "active") === "superseded" && inScope(e)).slice().sort((a, b) => (b.ts || 0) - (a.ts || 0));
   const qlc = q.trim().toLowerCase();
@@ -10555,9 +10552,8 @@ function MemoryLib({
       onBulkImport ? h("button", { onClick: () => { setManageOpen(false); setImportOpen(true); }, className: "rounded-xl py-2.5 active:opacity-60", style: { border: "1px solid " + t.line, color: t.ink, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))" } }, "导入长文") : null,
       focusChar && onExtract ? h("button", { onClick: onExtract, disabled: busy, className: "rounded-xl py-2.5 active:opacity-60 disabled:opacity-40", style: { border: "1px solid " + t.line, color: t.sub, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))" } }, busy ? "抽取中…" : "从当前对话提取") : null,
       importable && onImportOld ? h("button", { onClick: () => onImportOld(focusChar.id), disabled: busy, className: "rounded-xl py-2.5 active:opacity-60 disabled:opacity-40", style: { border: "1px solid " + t.line, color: t.sub, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))" } }, "导入旧长期记忆") : null,
-      onBackfillEmotion && unrated > 0 ? h("button", { onClick: onBackfillEmotion, disabled: emoBusy, className: "rounded-xl py-2.5 active:opacity-60 disabled:opacity-40", style: { border: "1px solid " + t.line, color: t.sub, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))" } }, emoBusy ? "评估中…" : "补旧记忆情绪 · " + unrated) : null,
-      onRefine && refinableCount >= 8 ? h("button", { onClick: () => onRefine(filter), disabled: emoBusy, className: "rounded-xl py-2.5 active:opacity-60 disabled:opacity-40", style: { border: "1px solid " + t.line, color: t.sub, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))" } }, emoBusy ? "精炼中…" : "旧版月度精炼 · " + refinableCount) : null),
-    h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.5, marginTop: 8 } }, "自动记忆平时不用照料；这里保留导入、旧库维护与参数调节。月度精炼不会自动运行。")),
+      onBackfillEmotion && unrated > 0 ? h("button", { onClick: onBackfillEmotion, disabled: emoBusy, className: "rounded-xl py-2.5 active:opacity-60 disabled:opacity-40", style: { border: "1px solid " + t.line, color: t.sub, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))" } }, emoBusy ? "评估中…" : "补旧记忆情绪 · " + unrated) : null),
+    h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.5, marginTop: 8 } }, "自动记忆平时不用照料；这里保留导入、旧库维护与参数调节。")),
   // ── 这一片重排（v64.26，她 2026-09-06：「这堆是不是没用了可以不要了」）──────
   // 原来十二颗一模一样的虚线药丸摞在一起，工具和仪表混在同一堆里。于是三样她真会用的
   // （清重复／收拢／清仓）和两样安全工具（结局冲突／核对云端）看着都像工程仪表，
