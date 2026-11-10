@@ -6158,7 +6158,7 @@ function TtsApiConfig({ toast, characters, onAssignVoice }) {
     finally { setCloning(false); }
   };
   const runTest = async () => {
-    if (!ttsReady(c)) { toast && toast(c.provider === "minimax" ? "先填 GroupId 和密钥" : "先填密钥"); return; }
+    if (!ttsReady(c)) { toast && toast("先填密钥"); return; }
     if (!ttsDefaultVoice(c)) { toast && toast("先填一个默认音色 ID 才能试听"); return; }
     const epoch = ++testEpoch.current;
     if (testAudRef.current) testAudRef.current.pause();
@@ -6186,7 +6186,7 @@ function TtsApiConfig({ toast, characters, onAssignVoice }) {
     finally { if (epoch === testEpoch.current) setTesting(false); }
   };
   const runMark = async () => {
-    if (!ttsReady(c)) { toast && toast("先填 GroupId 和密钥"); return; }
+    if (!ttsReady(c)) { toast && toast("先填密钥"); return; }
     const raw = String(markTxt || "").trim();
     if (!raw) { toast && toast("先写一句带标记的话"); return; }
     const aud = new Audio();
@@ -6241,7 +6241,7 @@ function TtsApiConfig({ toast, characters, onAssignVoice }) {
             h("button", { key: pair[1], onClick: () => set({ baseUrl: pair[1] }), className: "active:opacity-70",
               style: { flex: 1, fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", padding: "7px 2px", borderRadius: 8, background: t.bg2, border: "1px solid " + ((c.baseUrl || "").trim() === pair[1] ? t.tint : t.line), color: (c.baseUrl || "").trim() === pair[1] ? t.tint : t.sub } }, pair[0]))),
         h("input", { "data-wk": "input", value: c.baseUrl || "", onChange: e => set({ baseUrl: e.target.value }), placeholder: "https://api.minimax.io", style: inSt }))),
-      row("GroupId（MiniMax 控制台·账户信息里）", h("input", { "data-wk": "input", value: c.groupId || "", onChange: e => set({ groupId: e.target.value }), placeholder: "17xxxxxxxxxxxx", style: inSt })),
+      row("GroupId（选填；MiniMax 账户信息里，拼车拿不到就空着）", h("input", { "data-wk": "input", value: c.groupId || "", onChange: e => set({ groupId: e.target.value }), placeholder: "17xxxxxxxxxxxx", style: inSt })),
       row("密钥 API Key", h("input", { "data-wk": "input", value: c.apiKey || "", onChange: e => set({ apiKey: e.target.value }), placeholder: "eyJ…", type: "password", style: inSt })),
       // 模型：列表里放常见的几个，后面再给一格手填——MiniMax 出新模型比这儿改得快（群里 2026-10-02 问「只有 01 和 02 嘛」），
       //   官网文档上写的模型名原样填进来就能用，不用等这边加选项。

@@ -1,7 +1,7 @@
 // js/mcp.js —— MCP（Model Context Protocol）客户端。
 // 她 2026-08-31 指出浏览器是能当 MCP client 的——对的：Streamable HTTP 这一档传输
 // 就是 HTTP + JSON-RPC，网页发得出去。发不出去的只有 stdio 那种本地进程 MCP。
-// 按协议自己实现，没有看 ai-virtual-phone 的代码（那边是 AGPL，只借思路）。
+// 按协议自己实现。
 //
 // 两件事必须先说清楚，它们决定了这一层能不能用：
 //  ① 服务端要给 CORS 头。手机浏览器发的是跨域请求，服务端不放行就是 Load failed，

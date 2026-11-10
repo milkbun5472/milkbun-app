@@ -562,7 +562,6 @@ test("改动稿的下场记在存档里，退出再进来按钮不会又冒出�
 // ── 她 2026-09-03：「页面上下文和版本回滚也做了吧，
 //    还有秋秋的 app 图标也改成小肥鸟吧」──────────────────────────
 test("页面上下文：她说「这一页」「他」，有指代对象", () => {
-  // 借的是 ai-virtual-phone 那个想法（AGPL，只看不抄）。
   const line = A.api.pageLine({ screen: "thread", charName: "V" });
   assert.match(line, /她此刻在哪儿/);
   assert.match(line, /单聊/);
