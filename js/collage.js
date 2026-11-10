@@ -17,16 +17,18 @@
   const FONT_ORDER = ["hand", "brush", "serif", "sans"];
   // 背景纸：每种样式有自己默认的那张，也都能换成别的
   const BGS = {
-    plaid: { name: "棕格纹", base: "#c79f78", line: "#6b4228" },
-    pinkPlaid: { name: "粉格纹", base: "#efc9cf", line: "#b0596b" },
-    sagePlaid: { name: "绿格纹", base: "#b9c7a7", line: "#4f6440" },
+    // 粉格纹、绿格纹拿掉了（她 2026-11-10）：格纹的颜色本来就能自己换，三种颜色的格纹是同一种东西
+    plaid: { name: "格纹", base: "#c79f78", line: "#6b4228" },
+    stripes: { name: "条纹", base: "#f6f0e8", stripe: "#e7c6bd" },
+    hearts: { name: "小爱心", base: "#fbeef0", heart: "#e58a9b" },
+    kraft: { name: "牛皮纸", base: "#c9a77c", fiber: "#8a6a45" },
     cream: { name: "米白纸", base: "#f2eee6" },
     dots: { name: "波点", base: "#fbf3ee", dot: "#e7a9b4" },
     grid: { name: "方格本", base: "#fbfbf8", grid: "#d9dde6" },
     mist: { name: "雾灰渐变", from: "#efe9e1", to: "#cbc1b5" },
     night: { name: "夜色", from: "#2c2b3a", to: "#121218" }
   };
-  const BG_ORDER = ["plaid", "pinkPlaid", "sagePlaid", "cream", "dots", "grid", "mist", "night"];
+  const BG_ORDER = ["plaid", "stripes", "hearts", "kraft", "cream", "dots", "grid", "mist", "night"];
   const STICKERS = ["☕", "🕯️", "🎀", "🧸", "🌷", "🍓", "⭐", "💌", "🐱", "🐶", "🌙", "☁️", "🎧", "📷", "🍰", "🫧", "💐", "🎂", "♥", "♡", "✿", "☆"];
   // 每种样式：几格、每格在哪（中心 x/y、宽高、转角）、字写在哪。坐标都按一张 1080×2340 的手机竖屏算
   const TPL = {
@@ -63,8 +65,16 @@
   // 自己传的底存在图库里，名字都以这个开头（不另开存储：列出来就是按这个前缀筛）
   const MY_BG = "img_collagebg_";
   const isMyBg = k => String(k || "").indexOf(MY_BG) === 0;
+  const MY_STK = "img_collagestk_";   // 她自己传的贴纸，同一个图库、另一个前缀
+  // 贴纸要留住透明底：自己缩成 PNG（通用那个缩图会转成 JPG，透明的地方就成黑的了）
+  async function toPng(file, max) {
+    const bm = await createImageBitmap(file), k = Math.min(1, max / Math.max(bm.width, bm.height));
+    const c = document.createElement("canvas"); c.width = Math.round(bm.width * k); c.height = Math.round(bm.height * k);
+    c.getContext("2d").drawImage(bm, 0, 0, c.width, c.height);
+    return await new Promise(ok => c.toBlob(b => ok(b), "image/png"));
+  }
   // 花纹那一层用什么颜色：样式自带的，或者她自己挑的（她 2026-11-10：「喜欢这个格子但是不想要这个颜色」）
-  const inkOf = b => b.line || b.dot || b.grid || b.to || "";
+  const inkOf = b => b.line || b.dot || b.grid || b.stripe || b.heart || b.fiber || b.to || "";
   function bg(ctx, key, ox, layout, img) {
     ctx.save(); ctx.translate(ox, 0);
     if (isMyBg(key)) {
@@ -84,6 +94,17 @@
     } else if (b.dot) {
       ctx.fillStyle = ink;
       for (let y = 40; y < H; y += 80) for (let x = (y / 80) % 2 ? 80 : 40; x < W; x += 80) { ctx.beginPath(); ctx.arc(x, y, 9, 0, 7); ctx.fill(); }
+    } else if (b.stripe) {
+      ctx.fillStyle = ink; for (let x = 0; x < W; x += 120) ctx.fillRect(x, 0, 54, H);
+    } else if (b.heart) {
+      ctx.fillStyle = ink;
+      for (let y = 70; y < H; y += 150) for (let x = (Math.round(y / 150) % 2) ? 150 : 70; x < W; x += 160) {
+        ctx.save(); ctx.translate(x, y); ctx.scale(0.42, 0.42); ctx.beginPath(); ctx.moveTo(0, 30); ctx.bezierCurveTo(-60, -10, -40, -60, 0, -30); ctx.bezierCurveTo(40, -60, 60, -10, 0, 30); ctx.fill(); ctx.restore();
+      }
+    } else if (b.fiber) {
+      ctx.strokeStyle = ink; ctx.globalAlpha = 0.18; ctx.lineWidth = 2;
+      for (let i = 0; i < 700; i++) { const x = (i * 263) % W, y = (i * 571) % H, a = (i % 7) / 7 * Math.PI; ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + Math.cos(a) * 26, y + Math.sin(a) * 26); ctx.stroke(); }
+      ctx.globalAlpha = 1;
     } else if (b.grid) {
       ctx.strokeStyle = ink; ctx.lineWidth = 2;
       for (let x = 0; x < W; x += 60) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke(); }
@@ -186,9 +207,13 @@
     (layout.deco || defaultDeco(layout.tpl, layout.split)).forEach((d, i) => {
       const size = d.size * (d.s || 1);
       ctx.save(); ctx.translate(d.x, d.y); ctx.rotate((d.r || 0) * Math.PI / 180);
-      ctx.font = size + "px " + EMOJI_FONT; ctx.fillStyle = d.color || "#000"; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText(d.ch, 0, 0);
+      let bw = size * 1.2, bh = size * 1.2;
+      if (d.img) {   // 她自己传的贴纸：按原图比例，长边 = size×1.6
+        const im = imgs[d.img];
+        if (im) { const k = size * 1.6 / Math.max(im.width, im.height); bw = im.width * k; bh = im.height * k; ctx.drawImage(im, -bw / 2, -bh / 2, bw, bh); }
+      } else { ctx.font = size + "px " + EMOJI_FONT; ctx.fillStyle = d.color || "#000"; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText(d.ch, 0, 0); }
       ctx.restore();
-      boxes.push({ key: "d" + i, kind: "deco", idx: i, x: d.x, y: d.y, w: size * 1.2, h: size * 1.2 });
+      boxes.push({ key: "d" + i, kind: "deco", idx: i, x: d.x, y: d.y, w: bw, h: bh });
     });
     if (layout.split) {
       // 接缝上那颗心画成形状（不靠表情字体，哪台机器上都一样）
@@ -218,6 +243,15 @@
     } catch (e) { return null; }
   }
 
+  // 「我的贴纸」一格：点了加一颗；整理的时候角上一个 ✕ 能删
+  function MyStkThumb({ k, t, edit, onPick, onDrop }) {
+    const [url, setUrl] = useState("");
+    useEffect(() => { let live = true, u = ""; idbImgGet(k).then(b => { if (live && b) { u = URL.createObjectURL(b); setUrl(u); } }).catch(() => {}); return () => { live = false; if (u) URL.revokeObjectURL(u); }; }, [k]);
+    return h("div", { style: { position: "relative" } },
+      h("button", { onClick: edit ? onDrop : onPick, className: "active:opacity-70 w-full", style: { aspectRatio: "1", borderRadius: 8, border: "1px solid " + t.line, background: "repeating-conic-gradient(#eee 0 25%, #fff 0 50%) 0 0/12px 12px", padding: 4 } },
+        url ? h("img", { src: url, alt: "", style: { width: "100%", height: "100%", objectFit: "contain", display: "block" } }) : null),
+      edit ? h("span", { "aria-hidden": "true", style: { position: "absolute", top: -6, right: -6, width: 20, height: 20, borderRadius: 10, background: t.ink, color: t.bg2, fontSize: 11, lineHeight: "20px", textAlign: "center", pointerEvents: "none" } }, "✕") : null);
+  }
   // 「我的底」一格：点了用它；选中时角上一个 ✕ 能删
   function MyBgThumb({ k, on, t, onPick, onDrop }) {
     const [url, setUrl] = useState("");
@@ -275,6 +309,30 @@
         await idbImgPut(key, blob);
         setMyBgs(p => [key].concat(p)); setLayout(l => Object.assign({}, l, { bg: key, bgColor: "", bgInk: "" }));
       } catch (e) { typeof toast === "function" && toast("这张没传上：" + ((e && e.message) || "换一张试试")); }
+    };
+    // 她自己传的贴纸：同样存在图库里，按前缀列；画上去之前先解码
+    const [myStks, setMyStks] = useState([]);
+    const [stkEdit, setStkEdit] = useState(false);
+    const stkUp = useRef(null);
+    useEffect(() => { let live = true; (typeof idbImgKeys === "function" ? idbImgKeys() : Promise.resolve([])).then(ks => { if (live) setMyStks(ks.filter(k => String(k).indexOf(MY_STK) === 0).sort().reverse()); }).catch(() => {}); return () => { live = false; }; }, []);
+    const stkKeys = (layout.deco || []).map(d => d && d.img).filter(Boolean);
+    useEffect(() => {
+      let live = true;
+      stkKeys.forEach(k => { if (!(k in imgs.current)) { imgs.current[k] = null; loadImg({ imgKey: k }).then(img => { imgs.current[k] = img; if (live) bump(x => x + 1); }); } });
+      return () => { live = false; };
+    }, [stkKeys.join(",")]);
+    const uploadStk = async file => {
+      if (!file) return;
+      try {
+        const blob = await toPng(file, 700), key = MY_STK + Date.now();
+        await idbImgPut(key, blob);
+        setMyStks(p => [key].concat(p)); addImgSticker(key);
+      } catch (e) { typeof toast === "function" && toast("这张没传上：" + ((e && e.message) || "换一张试试")); }
+    };
+    const dropStk = async key => {
+      try { await idbImgDel(key); } catch (e) {}
+      setMyStks(p => p.filter(x => x !== key)); setSel("");
+      setLayout(l => l.deco ? Object.assign({}, l, { deco: l.deco.filter(d => d.img !== key) }) : l);
     };
     const dropBg = async key => {
       try { await idbImgDel(key); } catch (e) {}
@@ -359,6 +417,10 @@
     };
     const addSticker = ch => setLayout(l => {
       const deco = decoNow(l).concat([{ ch, x: W / 2 + (Math.random() * 200 - 100), y: H / 2 + (Math.random() * 300 - 150), size: 130, color: /[♥♡]/.test(ch) ? "#d0465c" : /[✿☆]/.test(ch) ? "#c9a227" : "#000" }]);
+      setSel("d" + (deco.length - 1)); return Object.assign({}, l, { deco });
+    });
+    const addImgSticker = key => setLayout(l => {
+      const deco = decoNow(l).concat([{ img: key, x: W / 2 + (Math.random() * 200 - 100), y: H / 2 + (Math.random() * 300 - 150), size: 180 }]);
       setSel("d" + (deco.length - 1)); return Object.assign({}, l, { deco });
     });
     // 自己加：一张照片、一句字，都先放在中间，选中，拖到想放的地方
@@ -494,13 +556,22 @@
               style: { width: 34, height: 28, padding: 0, border: "1px solid " + t.line, borderRadius: 6, background: "transparent", flexShrink: 0 } }));
           return h("div", { "data-part": "collagebgcolor" },
             line(b.from ? "上半截" : "底色", base, c => setLayout(l => Object.assign({}, l, { bgColor: c }))),
-            (b.line || b.dot || b.grid || b.from) ? line(b.from ? "下半截" : "花纹色", ink, c => setLayout(l => Object.assign({}, l, { bgInk: c }))) : null,
+            (inkOf(b)) ? line(b.from ? "下半截" : "花纹色", ink, c => setLayout(l => Object.assign({}, l, { bgInk: c }))) : null,
             (layout.bgColor || layout.bgInk) ? h("button", { onClick: () => setLayout(l => Object.assign({}, l, { bgColor: "", bgInk: "" })), style: { marginTop: 6, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog } }, "颜色换回原样") : null);
         })() : null,
         h("div", { style: lab }, "贴纸（点一下加一颗，按住拖到想放的地方）"),
         h("div", { "data-part": "collagestickers", style: { display: "grid", gridTemplateColumns: "repeat(8, 1fr)", gap: 4 } },
           STICKERS.map(ch => h("button", { key: ch, onClick: () => addSticker(ch), className: "active:opacity-60",
             style: { aspectRatio: "1", borderRadius: 8, border: "1px solid " + t.line, background: t.bg2, fontSize: 20, color: /[♥♡]/.test(ch) ? "#d0465c" : t.ink } }, ch))),
+        // 我的贴纸：自己传的图（透明底的 PNG 最好看），存在图库里，下次还在
+        h("div", { className: "flex items-center justify-between", style: { margin: "12px 2px 6px" } },
+          h("span", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog } }, "我的贴纸" + (myStks.length ? "（" + myStks.length + "）" : "")),
+          myStks.length ? h("button", { onClick: () => setStkEdit(v => !v), style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: stkEdit ? t.accent : t.fog } }, stkEdit ? "整理好了" : "整理") : null),
+        h("div", { "data-part": "collagemystk", style: { display: "grid", gridTemplateColumns: "repeat(6, 1fr)", gap: 6 } },
+          h("button", { onClick: () => stkUp.current && stkUp.current.click(), className: "active:opacity-70",
+            style: { aspectRatio: "1", borderRadius: 8, border: "1.5px dashed " + t.accent, color: t.accent, fontFamily: F_BODY, fontSize: 11, lineHeight: 1.3 } }, "＋", h("br"), "传贴纸"),
+          myStks.map(k => h(MyStkThumb, { key: k, k, t, edit: stkEdit, onPick: () => addImgSticker(k), onDrop: () => dropStk(k) }))),
+        h("input", { ref: stkUp, "data-part": "collagestkfile", type: "file", accept: "image/*", style: { display: "none" }, onChange: e => { const f = e.target.files && e.target.files[0]; e.target.value = ""; uploadStk(f); } }),
         h("div", { style: lab }, "字体"),
         row(FONT_ORDER.map(k => chip(layout.font === k, FONTS[k].name, () => setLayout(l => Object.assign({}, l, { font: k })), { fontFamily: FONTS[k].css, fontSize: 15 }))),
         h("div", { className: "flex items-center", style: { gap: 10, marginTop: 10 } },

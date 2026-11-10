@@ -46,3 +46,10 @@ test("底：花纹照旧、颜色自己挑；自己传的底存在图库里按�
   assert.match(src, /type: "color"/);
   assert.match(src, /"data-part": "collagemybg"/);
 });
+test("贴纸能传自己的图（PNG 留透明）；粉格绿格换成条纹、小爱心、牛皮纸", () => {
+  assert.ok(!("pinkPlaid" in C.BGS) && !("sagePlaid" in C.BGS));
+  for (const k of ["plaid", "stripes", "hearts", "kraft"]) assert.ok(C.BGS[k], k);
+  assert.match(src, /const MY_STK = "img_collagestk_"/);
+  assert.match(src, /c\.toBlob\(b => ok\(b\), "image\/png"\)/);
+  assert.match(src, /"data-part": "collagemystk"/);
+});
