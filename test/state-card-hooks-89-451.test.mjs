@@ -23,3 +23,7 @@ test("位置卡挂点", () => {
     assert.ok(studio.includes('"' + k + '"'), k + " 要进挂点名单");
   }
 });
+test("卡片行也报连发首末，排版「头像只留第一条」管到卡片行", () => {
+  assert.match(comp, /out = React\.cloneElement\(out, Object\.assign\(\{ "data-run": "1" \}, msgRunAttrs\(messages, row\.i, 0, true/);
+  assert.match(comp, /\[data-run\]\[data-first="0"\] button\[data-wk="avatar"\]/);
+});
