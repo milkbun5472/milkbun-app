@@ -24,7 +24,9 @@ test("哪格空着就退回「平时」，「平时」也空就是 null（画头
 });
 test("视频进「导出全部数据」，导入只增量写回", () => {
   const app = fs.readFileSync(path.join(__dirname, "../js/app.js"), "utf8");
-  assert.match(app, /videos: videos/, "备份里没带视频");
+  // 视频改走分包媒体导出：allVideos 的每一条都记成 src:"videos" 进包，包里有 videos 这一格
+  assert.match(app, /window\.VideoApi\.allVideos\(\)\)\.forEach\(\(\[k, b\]\) => rows\.push\(\{ src: "videos", k, b \}\)\)/, "备份里没带视频");
+  assert.match(app, /vault: \{\}, selfies: \{\}, videos: \{\}/, "媒体包里没有视频那一格");
   assert.match(app, /window\.VideoApi\.restoreVideo\(k, b\)/, "导入没写回视频");
 });
 test("番茄钟和视频通话都从同一本库取，播放首尾淡接", () => {

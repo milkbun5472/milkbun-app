@@ -362,7 +362,7 @@
         else addFree({ type: "photo", p: i, w: 480, h: 600, frame: layout.tpl === "blank" ? "scrap" : layout.tpl });
         setPickFor(null);
       };
-      return h("div", { "data-wk": "uspage", "data-part": "collagepick", className: "h-full flex flex-col", style: { background: t.bg } },
+      return h("div", { "data-wk": "uspage", "data-part": "collagepick", className: "h-full flex flex-col", style: cpSkin(t, "page") },
         h(Head, { zh: pickFor.kind === "new" ? "加哪一张" : "换成哪张", bg: "transparent", onBack: () => setPickFor(null) }),
         h("div", { className: "flex-1 min-h-0 overflow-y-auto px-5 pb-10" },
           h("div", { style: { display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 6 } },
@@ -378,7 +378,7 @@
       h("input", { type: "range", min, max, step, value: val, onChange: e => onCh(Number(e.target.value)), style: { flex: 1 }, "data-part": "collage-" + label }),
       h("span", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.sub, width: 44, textAlign: "right" } }, fmt(val)));
     const hiddenN = Object.keys(layout.hidden || {}).length;
-    return h("div", { "data-wk": "uspage", "data-part": "collage", className: "h-full flex flex-col", style: { background: t.bg } },
+    return h("div", { "data-wk": "uspage", "data-part": "collage", className: "h-full flex flex-col", style: cpSkin(t, "page") },
       h(Head, { zh: "拼一张壁纸", sub: name, bg: "transparent", onBack }),
       h("div", { ref: typeof keepScroll === "function" ? keepScroll("collage:" + partner.id) : null, className: "flex-1 min-h-0 overflow-y-auto px-5 pb-12" },
         // 样式：下划线页签（tabs-not-plain-pills）

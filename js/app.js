@@ -20,7 +20,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v89.430";
+const APP_VERSION = "v89.432";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -28793,7 +28793,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
           + "再写最多 " + wn + " 句手写在壁纸上的字（words，每句十四个字以内，中文英文都行）。"
           + "挑哪几张、写不写字、写什么，照你这个人来：话少的就少写，一句不写也行。why 用你平时说话的口气说一句为什么挑这几张。",
         schemaHint: "{\"picks\":[编号],\"captions\":[\"\"],\"words\":[\"\"],\"why\":\"一句\"}",
-        maxTokens: 4000
+        maxTokens: 12000
       });
       const max = Math.min(list.length, 40), picks = [];
       (Array.isArray(d && d.picks) ? d.picks : []).forEach(x => { const i = Math.round(Number(x)); if (i >= 0 && i < max && picks.indexOf(i) < 0 && picks.length < n) picks.push(i); });

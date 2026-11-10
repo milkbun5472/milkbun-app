@@ -6,7 +6,7 @@ const idx = readFileSync(new URL("../index.html", import.meta.url), "utf8");
 const ctx = { console, React: { createElement() {} }, window: {} }; vm.createContext(ctx); vm.runInContext(src, ctx);
 const C = ctx.window.Collage;
 test("三种样式，一人一半格子和字都翻倍", () => {
-  assert.deepEqual([...C.ORDER], ["polaroid", "scrap", "lock"]);
+  assert.deepEqual([...C.ORDER], ["polaroid", "scrap", "lock", "blank"]);
   for (const k of C.ORDER) assert.equal(C.TPL[k].slots.length, C.TPL[k].n);
   assert.equal(C.slotCount({ tpl: "scrap", split: true }), 10);
   assert.equal(C.wordCount({ tpl: "lock", split: true }), 4);
