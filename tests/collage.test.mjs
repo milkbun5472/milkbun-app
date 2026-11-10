@@ -15,7 +15,7 @@ test("接进合照墙；TA 来摆一次调用、存下来挂墙/换锁屏/TA 下
   assert.match(idx, /js\/collage\.js\?v=/);
   assert.match(scr, /"data-part": "collageopen"/);
   assert.match(scr, /onArrange: onCollageArrange \? \(list, tpl, split, hist\) => onCollageArrange\(partner\.id, list, tpl, split, hist\)/);
-  assert.match(app, /const collageArrange = async \(charId, list, tpl, split\)/);
+  assert.match(app, /const collageArrange = async \(charId, list, tpl, split, hist\)/);
   assert.match(app, /await setCharLockscreen\(charId, \{ key: hisKey/);
   assert.match(app, /waitForHer\(charId, \{ collageDone:/);
   assert.match(app, /gardenMineHint \+ collageHint \+ letterHint/);
@@ -57,8 +57,8 @@ test("让TA参与：看现在这张（带图）、挑几样里的一个；runPro
   const eng = readFileSync(new URL("../js/engine.js", import.meta.url), "utf8");
   assert.match(eng, /imageDataUrls: _imgs/);
   assert.match(eng, /if \(_imgs\.length && !tooBig\(e\) && !\(e && e\.name === "AbortError"\)\) \{ _imgs\.length = 0;/);
-  assert.match(app, /const collageLook = async \(charId, img, desc\)/);
-  assert.match(app, /const collageChoose = async \(charId, kind, imgs, labels\)/);
+  assert.match(app, /const collageLook = async \(charId, img, desc, hist\)/);
+  assert.match(app, /const collageChoose = async \(charId, kind, imgs, labels, hist\)/);
   assert.match(src, /const applyHis = res =>/);
   assert.match(src, /function ChoosePage\(/);
   assert.match(scr, /onLook: onCollageLook \?/);
