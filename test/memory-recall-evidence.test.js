@@ -8,7 +8,7 @@ const engine = fs.readFileSync("js/engine.js", "utf8");
 const start = engine.indexOf("const MEM_STOP");
 const end = engine.indexOf("// 群聊记忆分流", start);
 const formatStart = engine.indexOf("function formatMemLib", end);
-const formatEnd = engine.indexOf("// 月度精炼", formatStart);
+const formatEnd = engine.indexOf("// 微信式随机红包拆分", formatStart);
 assert.ok(start >= 0 && end > start && formatStart > end && formatEnd > formatStart);
 
 function runtime(vectorRows) {

@@ -20,7 +20,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v89.427";
+const APP_VERSION = "v89.428";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -4986,54 +4986,11 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     } catch (e) { toast("评估失败：" + ((e && e.message) || "重试")); }
     finally { setEmoBusy(false); }
   };
-  // 月度精炼：把【已了结·非置顶·情绪弱·放了 60+ 天】的旧记忆按【关系分组】浓缩成月度摘要，
-  // 原件归档(archived)【不删除、可一键恢复】。你的未了约定(open)/置顶/动情大事(a≥3)一条不碰。
-  const REFINE_OLD_DAYS = 60, REFINE_MIN = 8;
+  // 以前点「月度精炼」浓缩过的旧记忆：原件归档着，摘要带 source:"monthly"。按钮已经拿掉（她 2026-11-10），恢复照旧能用。
   // refineBatch 是旧本地字段，没有进共享行表；但精炼批次本来就固定为 rf_<摘要ts>。
   // 从云端/新设备回来时用这个稳定规则复原批次关系，恢复原件时才能一并撤掉摘要。
   const refineBatchOf = e => e && e.refineBatch ? String(e.refineBatch)
     : (e && e.source === "monthly" && e.ts ? "rf_" + Number(e.ts) : null);
-  const isRefinable = e => { const now = Date.now(); return e && e.text && (e.surfaceState || "active") === "active" && !e.pinned && !e.open && !e.archived && e.source !== "monthly" && (e.a || 0) <= 2 && now - (e.ts || 0) >= REFINE_OLD_DAYS * 86400000; };
-  const refineOldMemories = async (scopeCharId, opts = {}) => {
-    if (!bgActive) { if (!opts.auto) toast("请先到设置配置 API"); return 0; }
-    const now = Date.now();
-    let pool = memLibRef.current.filter(isRefinable);
-    if (scopeCharId && scopeCharId !== "all") pool = pool.filter(e => memShareChar([scopeCharId], e.charIds));
-    if (!pool.length) { if (!opts.auto) toast("没有可精炼的旧记忆（约定/心事/置顶/动情大事都不动）"); return 0; }
-    // 按 charIds 签名分组，别把不同人的记忆混进一条摘要
-    const groups = {};
-    pool.forEach(e => { const k = (e.charIds && e.charIds.length ? e.charIds.slice().sort() : ["__global"]).join("|"); (groups[k] = groups[k] || []).push(e); });
-    setEmoBusy(true);
-    const batchId = "rf_" + now;
-    let working = memLibRef.current.slice();
-    let foldedTotal = 0, summaryTotal = 0;
-    try {
-      for (const k of Object.keys(groups)) {
-        const g = groups[k].sort((a, b) => (a.ts || 0) - (b.ts || 0));
-        if (g.length < REFINE_MIN) continue;              // 单个关系攒够 8 条才值得精炼
-        const take = g.slice(0, 40);                        // 一次最多喂 40 条
-        const charIds = k === "__global" ? [] : k.split("|");
-        const anchor = characters.find(c => c.id === charIds[0]) || { name: "角色" };
-        let summaries;
-        try { summaries = await refineMemories(bgActive, ctxFor(anchor), take); } catch (e) { continue; }
-        if (!summaries || !summaries.length) continue;
-        const takeIds = new Set(take.map(e => e.id));
-        working = working.map(e => takeIds.has(e.id) ? { ...e, archived: true, archivedBatch: batchId, archivedTs: now } : e);
-        const newOnes = summaries.slice(0, 5).map((s, i) => ({
-          id: "m_" + now + "_" + i + "_" + Math.floor(Math.random() * 1000),
-          text: String(s.text).trim(), tags: (Array.isArray(s.tags) ? s.tags : []).concat(["月度精炼"]),
-          charIds, ts: now, source: "monthly", refineBatch: batchId,
-          v: clampInt(s.v, -5, 5, 0), a: clampInt(s.a, 0, 5, 1), open: false
-        }));
-        working = newOnes.concat(working);
-        foldedTotal += take.length; summaryTotal += newOnes.length;
-      }
-      if (foldedTotal) { saveMemLib(working); toast("已把 " + foldedTotal + " 条旧记忆精炼成 " + summaryTotal + " 条摘要（原件已归档，可在记忆库恢复）"); }
-      else if (!opts.auto) toast("每段关系的旧记忆还不够多（满 8 条才精炼）");
-    } catch (e) { if (!opts.auto) toast("精炼失败：" + ((e && e.message) || "重试")); }
-    finally { setEmoBusy(false); }
-    return foldedTotal;
-  };
   // 恢复归档：把某批（或全部）精炼归档的原件放回，并撤掉对应的月度摘要
   const restoreArchived = (batchId) => {
     const batches = batchId ? new Set([batchId]) : new Set(memLibRef.current.filter(e => e.archived).map(e => e.archivedBatch));
@@ -37215,7 +37172,6 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     onArchiveRoutineGroups: archiveRoutineGroups,
     onListRepairConflicts: listRepairConflicts,
     onDecideRepairConflict: decideRepairConflict,
-    onRefine: refineOldMemories,
     onRestoreArchived: restoreArchived,
     onBulkImport: bulkImportMemories,
     onAudit: exportMemoryAudit,
