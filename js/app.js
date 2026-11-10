@@ -28886,6 +28886,12 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       await setCharLockscreen(charId, { key: hisKey, desc: "和你一起拼的壁纸（一人一半里自己那半张）" }, charId, null);
     }
     try { if (typeof saveFile === "function") await saveFile(new File([o.mine], "我们的壁纸-" + Date.now() + ".jpg", { type: "image/jpeg" })); } catch (e) {}
+    // 记一条进TA的记忆（跟花房、情书同一条路）：之后主动找她、聊到相关的事，TA 想得起这张壁纸是怎么拼出来的
+    const uN = (profileFor(charId) || {}).name || "她";
+    const ws = (o.words || []).map(w => String(w || "").trim()).filter(Boolean);
+    const st = (o.story || []).filter(x => /^你：/.test(String(x))).slice(-2).map(x => String(x).replace(/^你：/, "").slice(0, 80));
+    coupleKeep(charId, uN + " 和 " + (char.remark || char.name) + " 一起拼了一张手机壁纸" + (ws.length ? "，上面手写着「" + ws.slice(0, 3).join("」「") + "」" : "")
+      + (o.his ? "；是一人一半的，" + (char.remark || char.name) + " 那半张换成了自己手机的锁屏" : "；挂在合照墙上了") + (st.length ? "。拼的时候 " + (char.remark || char.name) + " " + st.join("；") : ""), "壁纸");
     toast(o.his ? "存好了，" + (char.remark || char.name) + " 的锁屏也换上了" : "存好了，也挂上合照墙了");
     waitForHer(charId, { collageDone: { split: !!o.his, words: (o.words || []).map(w => String(w || "").trim()).filter(Boolean).slice(0, 4), story: (o.story || []).map(x => String(x).slice(0, 400)).slice(-8) } });
   };

@@ -100,3 +100,7 @@ test("聊天里说拼壁纸：落一张卡，点了进拼壁纸、TA 先拼一�
   assert.match(scr, /setAlbumAuto\(land\.collage \|\| ""\)/);
   assert.match(src, /if \(autoDraft && onDraft && !autoDone\.current\)/);
 });
+test("存下来记一条进TA的记忆（跟花房同一条路），之后主动聊天、聊到相关的事想得起来", () => {
+  const seg = app.slice(app.indexOf("const collageSave = async"), app.indexOf("const gardenPlantMine = "));
+  assert.match(seg, /coupleKeep\(charId, uN \+ " 和 "/);
+});
