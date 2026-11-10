@@ -440,7 +440,7 @@
         url ? h("img", { src: url, alt: "", style: { width: "100%", height: "100%", objectFit: "cover", display: "block" } }) : null),
       on ? h("button", { onClick: onDrop, "aria-label": "删掉这张底", style: { position: "absolute", top: -6, right: -6, width: 22, height: 22, borderRadius: 11, background: t.ink, color: t.bg2, fontSize: 12, lineHeight: "22px" } }, "✕") : null);
   }
-  function CollageMaker({ partner, photos, extra, onBack, onArrange, onSave, onLook, onChoose, onDraft }) {
+  function CollageMaker({ partner, photos, extra, onBack, onArrange, onSave, onLook, onChoose, onDraft, autoDraft }) {
     const t = useTheme();
     const name = partner.remark || partner.name;
     // 合照墙的照片在前，TA 自己的东西（手机里存的照片、抽屉里画的画）接在后面，标着是TA的
@@ -654,6 +654,9 @@
         hisPending.current = { before, say, lead: "先拼了一张：" };
       } finally { setBusy(""); }
     };
+    // 从聊天卡进来：TA 先拼一张（只这一次）
+    const autoDone = useRef(false);
+    useEffect(() => { if (autoDraft && onDraft && !autoDone.current) { autoDone.current = true; setTimeout(() => draft(), 400); } }, []);
     const describe = () => {
       const bgKey = layout.bg || def.bg;
       const bgName = isMyBg(bgKey) ? "我的底" + (myBgs.indexOf(bgKey) + 1) : (BGS[bgKey] || {}).name;

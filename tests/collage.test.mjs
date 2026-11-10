@@ -92,3 +92,11 @@ test("TA 先拼一张；TA 自己的东西（手机里存的、抽屉里画的�
   assert.match(app, /x\.kind === "draw" && x\.svg/);
   assert.match(scr, /extra: collageHisThings \? collageHisThings\(partner\.id\) : \[\]/);
 });
+test("聊天里说拼壁纸：落一张卡，点了进拼壁纸、TA 先拼一张", () => {
+  const comp = readFileSync(new URL("../js/components.js", import.meta.url), "utf8");
+  assert.match(app, /kind: "collageinvite", charId: activeChar\.id/);
+  assert.match(app, /window\.__openCollage = id => \{ setUsLand\(\{ view: id, sub: "album", collage: "draft" \}\)/);
+  assert.match(comp, /m\.kind === "collageinvite"/);
+  assert.match(scr, /setAlbumAuto\(land\.collage \|\| ""\)/);
+  assert.match(src, /if \(autoDraft && onDraft && !autoDone\.current\)/);
+});

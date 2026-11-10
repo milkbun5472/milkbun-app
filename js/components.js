@@ -12234,6 +12234,8 @@ function ChatThread({
     if (m.kind === "bdayletter") return h(BdayLetterCard, { key: i, m: m, character: character });
     if (m.kind === "bdayplan") return h(BdayPlanCard, { key: i, m: m, character: character, onOpen: onBdayPlanOpen });
     // 「TA 在忙还没看手机」：跟撤回那行一样，一行灰字落在屏幕上（她 2026-10-05：不要 toast）
+    if (m.kind === "collageinvite") return h("div", { key: i, className: "text-center my-2" }, h("button", { "data-wk": "note", "data-part": "collageinvite", onClick: () => window.__openCollage && window.__openCollage(m.charId),
+      className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.accent, ...plate(), cursor: "pointer" } }, "📌 " + (m.content || "一起拼一张壁纸") + " · 去拼 →"));
     if (m.kind === "locknote") return h("div", { key: i, className: "text-center my-2" }, h("span", { "data-wk": "note", "data-part": "lock", style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, ...plate() } }, m.content));
     if (m.kind === "busynote") return h("div", { key: i, className: "text-center my-2" }, h("span", { "data-wk": "note", "data-part": "busy", style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, ...plate() } }, m.content));
     // v74.892 之前 TA 存进时刻只落一行灰字；这几行画的时候也认成那张小卡（存档不动），为什么从时刻里那条找回来

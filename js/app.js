@@ -775,6 +775,8 @@ function App() {
   const [coupleDrawer, setCoupleDrawer] = useState([]);
   // 情侣空间的落点：从别处直接送到【某个人的某一扇门】。只消费一次，Us 收到就还回来。
   const [usLand, setUsLand] = useState(null);
+  // 聊天里那张「去拼壁纸」卡：落到情侣空间 → 合照墙 → 拼一张壁纸，TA 先拼一张
+  useEffect(() => { window.__openCollage = id => { setUsLand({ view: id, sub: "album", collage: "draft" }); setScreen("us"); }; return () => { if (window.__openCollage) delete window.__openCollage; }; }, []);
   // 他给她起的那个称呼（抽卡 s_title）。⚠️它【会进提示词】，所以：
   // ① 抽出来只是候选，她点了「收下」才写进这儿；② 收下之后随时能改、能不要；
   // ③ 换掉的留一条旧的（印象卡那张改写之后「旧版进修订史」是同一个形状）。
@@ -34355,6 +34357,9 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
           setTimeout(() => pChat(activeChar.id, p => [...p, { role: "system", kind: "system", sub: "frverify", content: "对方开启了朋友验证，你还不是 TA 的朋友。点消息旁的「!」发送好友申请。", ts: Date.now() }]), 50); }
       gachaEarn(activeChar.id, "chat");
       pushUser(activeChar.id, txt, window.ChatRooms ? window.ChatRooms.chatKey(activeChar.id, activeRoomId) : activeChar.id);
+      // 聊天里说「拼张壁纸吧」（她 2026-11-10）：在一起的，底下落一张小卡，点了进拼壁纸、TA 先拼一张。不叫模型、只认字面
+      if (/(拼|做|弄|整).{0,4}(张|个|一张)?.{0,2}(情侣)?壁纸|壁纸.{0,4}(拼|一起)/.test(String(txt || "")) && ((couples || {})[activeChar.id] || {}).status === "together" && window.Collage)
+        setTimeout(() => pChat(activeChar.id, p => [...p, { role: "assistant", kind: "collageinvite", charId: activeChar.id, ts: Date.now(), content: "一起拼一张壁纸" }]), 300);
       // 书房直通（她 2026-09-25 拍板）：言秋房的话默认投去 CC 老窗口，回复走账本流回来。
       // 投递失败只提示不回滚——消息本来就该留在聊天里，她可以点「让TA回复」走直连兜底。
       if (window.CcLane && window.CcLane.routes(settingsFor(activeChar.id))) {

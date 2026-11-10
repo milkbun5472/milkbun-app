@@ -2030,9 +2030,11 @@ function AlbumPhoto({ photo, full, cover }) {
   if (!src) return h("div", { style: { width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: full ? 40 : 20, opacity: 0.3 } }, "🖼");
   return h("img", { src, loading: "lazy", "data-desc": desc, style: full ? { maxWidth: "90vw", maxHeight: "72vh", borderRadius: 12, objectFit: "contain" } : { width: "100%", height: "100%", objectFit: "cover", display: "block" } });
 }
-function CoupleAlbum({ partner, photos, onBack, onDelete, onUpload, onArrange, onCollageSave, onLook, onChoose, onDraft, extra }) {
+function CoupleAlbum({ partner, photos, onBack, onDelete, onUpload, onArrange, onCollageSave, onLook, onChoose, onDraft, extra, autoCollage, onAutoDone }) {
   const t = useTheme();
-  const [collage, setCollage] = useState(false); // 拼一张壁纸（js/collage.js）
+  const [collage, setCollage] = useState(!!autoCollage); // 拼一张壁纸（js/collage.js）；从聊天卡进来的直接打开
+  const [autoDraft] = useState(autoCollage === "draft");
+  useEffect(() => { if (autoCollage && onAutoDone) onAutoDone(); }, []);
   const [zoom, setZoom] = useState(null);
   // 自己传一张挂上墙（群友 2026-10-14：「许愿一个可以自己传图片的地方」——自己画的、约的图也想挂）。
   //   传上去就是一张墙上的照片，不叫TA点评、不花模型钱；删法跟别的照片一样。
@@ -2049,7 +2051,7 @@ function CoupleAlbum({ partner, photos, onBack, onDelete, onUpload, onArrange, o
     g.items.push(p);
   });
   const isTwelfth = new Date().getDate() === 12;
-  if (collage && window.Collage) return h(window.Collage.CollageMaker, { partner, photos: list, onBack: () => setCollage(false), onArrange, onLook, onChoose, onDraft, extra, onSave: onCollageSave ? async o => { await onCollageSave(o); setCollage(false); } : null });
+  if (collage && window.Collage) return h(window.Collage.CollageMaker, { partner, photos: list, onBack: () => setCollage(false), onArrange, onLook, onChoose, onDraft, extra, autoDraft, onSave: onCollageSave ? async o => { await onCollageSave(o); setCollage(false); } : null });
   return h("div", { "data-wk": "uspage", "data-part": "couplealbum", className: "h-full flex flex-col", style: cpSkin(t, "album") },
     h(Head, { zh: "我们的合照", sub: partner.remark || partner.name, bg: "transparent", onBack: onBack,
       right: onUpload ? h("button", { onClick: () => upRef.current && upRef.current.click(), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.accent, padding: "6px 4px" } }, "传一张") : null }),
@@ -3114,7 +3116,7 @@ function Us({ onPutDrawerMine, onReplyDrawerMine, drawerReplyBusy, characters, c
     // ⚠️开子页一律走 openSub，落点这一路也不例外（couple-space-62-26 那条规矩当场把我
     //   直接 setSub 的那一版揪出来了）：主页还没挂着时 bodyRef 是 null，openSub 自己
     //   会保留上一次记着的位置而不是清成 0，所以从外面落进来也照走它。
-    if (ok) { setView(land.view); if (land.sub) openSub(land.sub); else setSub(null); }
+    if (ok) { setView(land.view); if (land.sub) openSub(land.sub); else setSub(null); setAlbumAuto(land.collage || ""); }
     if (onLanded) onLanded();
   }, [land]);
   // ── 进子页记位置、回来放回去（mobile-ui-layout.md §3；她 2026-09-04：
@@ -3129,6 +3131,7 @@ function Us({ onPutDrawerMine, onReplyDrawerMine, drawerReplyBusy, characters, c
   // 名册也记位置（她 2026-11-10：「下滑到下面的人的空间，退出来又回到最上面」）：
   //   进某一段之前记下名册滚到哪儿，退回名册时放回去——跟上面子页那一套同一个做法
   const openView = id => setView(id);
+  const [albumAuto, setAlbumAuto] = useState("");   // 从聊天那张「去拼壁纸」卡进来：合照墙直接打开拼壁纸，TA 先拼一张
   const [pick, setPick] = useState(false);
   const [pickWho, setPickWho] = useState(null);   // 选好了人，正在挑这个空间是什么关系
   const [annOpen, setAnnOpen] = useState(false);
@@ -3294,7 +3297,7 @@ function Us({ onPutDrawerMine, onReplyDrawerMine, drawerReplyBusy, characters, c
     return h(CoupleAlbum, { partner, photos: duoPhotosFor ? duoPhotosFor(partner.id) : [], onBack: () => setSub(null), onDelete: onDeletePhoto ? p => onDeletePhoto(partner.id, p) : null, onUpload: onUploadPhoto ? (file, desc) => onUploadPhoto(partner.id, file, desc) : null,
       onArrange: onCollageArrange ? (list, tpl, split, hist) => onCollageArrange(partner.id, list, tpl, split, hist) : null, onCollageSave: onCollageSave ? o => onCollageSave(partner.id, o) : null,
       onLook: onCollageLook ? (img, desc, hist) => onCollageLook(partner.id, img, desc, hist) : null, onChoose: onCollageChoose ? (kind, imgs, labels, hist) => onCollageChoose(partner.id, kind, imgs, labels, hist) : null,
-      onDraft: onCollageDraft ? (catalog, hist) => onCollageDraft(partner.id, catalog, hist) : null, extra: collageHisThings ? collageHisThings(partner.id) : [] });
+      onDraft: onCollageDraft ? (catalog, hist) => onCollageDraft(partner.id, catalog, hist) : null, autoCollage: albumAuto, onAutoDone: () => setAlbumAuto(""), extra: collageHisThings ? collageHisThings(partner.id) : [] });
   }
   // 情侣空间子模块：情书
   if (partner && cp[view] && cp[view].status === "together" && sub === "letters") {
