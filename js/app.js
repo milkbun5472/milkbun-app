@@ -6201,7 +6201,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         }
         const d = await runProbe(apiFor(char.id), ctxFor(char), {
           voice: true,
-          instruction: gAsk(card.poolId, undefined, char.id) + characterText(char, "\n扣着他此刻真实的处境和心情写，别写成换个角色也照样成立的话。") + _gSongAsk(card),
+          instruction: gAsk(card.poolId, undefined, char.id) + (window.GachaKit.makeExtraOf ? window.GachaKit.makeExtraOf(card.poolId) : "") + characterText(char, "\n扣着他此刻真实的处境和心情写，别写成换个角色也照样成立的话。") + _gSongAsk(card),
           schemaHint: card.kind === "song"
             ? "{\"title\":\"一行小标题\",\"body\":\"正文\",\"song\":\"歌名 歌手\"}"
             : "{\"title\":\"一行小标题\",\"body\":\"正文\"}",

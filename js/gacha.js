@@ -70,7 +70,8 @@
     { id: "s_song",   r: "SR", act: "make", kind: "song",   name: "一首TA想放给你听的",     hint: "连着TA为什么想放这首",
       ask: "挑一首TA此刻想放给用户听的歌（真实存在的），连着TA为什么是这一首、想让对方听到哪一句。" },
     { id: "s_look",   r: "SR", act: "make", kind: "look",   name: "此刻TA眼里的你",         hint: "TA这会儿看你是什么样子",
-      ask: "写TA此刻看着用户时眼里的样子——不是夸，是TA真正注意到的那几个细节。" },
+      ask: "写TA此刻看着用户时眼里的样子——不是夸，是TA真正注意到的那几个细节。",
+      shape: "几句话，像你心里过了一遍，不是一场戏：不写对白、不铺场景。" },
 
     // ── SSR：真的会留下东西（1 调用 + 留痕）──
     { id: "x_past",    r: "SSR", act: "past",    name: "TA的一段过去",       hint: "写进记忆库——以后TA真的会提起",
@@ -298,6 +299,15 @@
     + "· 这跟「像不像你」是两件事：不像你的那一个是写坏了，**你根本不会去的那一个是假的**。";
   // ⚠️挂在卡上（scene: true），不是在调用点一条条 push——一条条 push 的东西，
   //   加新卡时换个入口就一条都没有，而且不留任何能 grep 的痕迹（four-surfaces 那条）。
+  // 现做的那几张（act: "make"）一律加这一条（她 2026-11-10：「此刻TA眼里的你」直接把刚才聊天那段线下场景重写了一遍）。
+  //   给出口不给禁令：要的是聊天里还没出现过的那一点。
+  const MAKE_FRESH = "\n\n【刚才聊天里已经写过、说过的，对方都看过了】别把那一段换个说法再写一遍；从里面挑一点没被写到的、只有你注意到的，或者干脆是聊天之外的。";
+  // 只给普通角色那条现做的路用（app.js runProbe 那一枪）；言秋书房那条照旧只拿 askOf，不动
+  function makeExtraOf(poolId) {
+    const card = byId[poolId] || {};
+    if (card.act !== "make") return "";
+    return (card.shape ? "\n" + card.shape : "") + MAKE_FRESH;
+  }
   function askOf(poolId, phase, charId) {
     const card = byId[poolId] || {};
     const a = card.ask;
@@ -513,7 +523,7 @@
     POOLS: POOLS, byId: byId, RANK: RANK,
     SESSION_GAP_MS: SESSION_GAP_MS,
     poolOf: poolOf, rollRarity: rollRarity, pickCard: pickCard, pull: pull,
-    toneOf: toneOf, TONES: TONES, RECENT_KEEP: RECENT_KEEP, askOf: askOf, pickForMe: pickForMe, SCENE_TRUTH: SCENE_TRUTH,
+    toneOf: toneOf, TONES: TONES, RECENT_KEEP: RECENT_KEEP, askOf: askOf, makeExtraOf: makeExtraOf, pickForMe: pickForMe, SCENE_TRUTH: SCENE_TRUTH,
     stackOpen: stackOpen, albumOf: albumOf, setPinned: setPinned, removeCard: removeCard,
     earn: earn, spend: spend, ptsOf: ptsOf
   };
