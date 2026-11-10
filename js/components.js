@@ -144,6 +144,8 @@ function chatLayoutCSS(L) {
   if (L.avatar === "first") out.push('[data-wk="msg"][data-first="0"] [data-wk="row"] > [data-wk="avatar"]{visibility:hidden !important;}');
   // 群里每条上面都写着名字：头像只留第一条时，名字也跟着只留第一条，不然一串里重复写同一个名字
   if (L.avatar === "first") out.push('[data-wk="msg"][data-first="0"] [data-wk="name"]{display:none !important;}');
+  // 卡片行（表情包、转账、照片……）跟在同一串里时，那颗行头像也藏：只认行上那颗（按钮／shrink-0 的 span），卡片里面画的头像（名片、红包）不碰
+  if (L.avatar === "first") out.push('[data-run][data-first="0"] button[data-wk="avatar"],[data-run][data-first="0"] span.shrink-0[data-wk="avatar"]{visibility:hidden !important;}');
   if (L.avatar === "none") out.push('[data-wk="msg"] [data-wk="row"] > [data-wk="avatar"],[data-wk="cardrow"] > [data-wk="avatar"]{display:none !important;}');
   // 头像藏了：状态卡没地方点了，在一串最后一条底下那行露出「状态」
   if (L.avatar === "none") out.push('[data-wk="msg"][data-last="1"] [data-wk="stlink"]{display:inline-flex !important;}');
@@ -11863,8 +11865,11 @@ function ChatThread({
   //   后面的气泡跟它比间隔，那条「前天／几月几日」就整条丢了（她 2026-11-04：16 点那几句是前天的，中间没有日期）。
   //   跟群聊同一个补法：不是普通气泡的那一行，前面照公共判据补一条（GStampLine 同一个长相）
   const soloStampWrap = (row, el) => {
-    const out = cardPressRow(el, row.m, row.i, { selMode, startPress, endPress, toggleSel });
+    let out = cardPressRow(el, row.m, row.i, { selMode, startPress, endPress, toggleSel });
     if (!el || row.part !== 0 || (el.props && el.props["data-wk"] === "msg")) return out;
+    // 表情包、转账、照片这些卡片行也报「是不是一串里的第一条／最后一条」（她 2026-11-10：排版选了头像只留第一条，连发的卡片头像还照常显示）——
+    //   跟文字气泡同一份 msgRunAttrs，data-run 标出这是一条消息行，排版开关那几条规则就能一起管到
+    if (out && typeof out.type === "string") out = React.cloneElement(out, Object.assign({ "data-run": "1" }, msgRunAttrs(messages, row.i, 0, true, (a, b) => a.role === b.role)));
     const st = window.ChatStamp.decide(window.ChatStamp.prevTimed(messages, row.i), row.m, { minGap: 180000,
       map: typeof vclockMap === "function" && character ? (ts => vclockMap(ts, character.id)) : undefined });
     return st.show ? h(React.Fragment, { key: "sst" + row.i }, h(GStampLine, { st, t }), out) : out;
