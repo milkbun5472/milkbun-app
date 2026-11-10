@@ -233,17 +233,13 @@
     const chars = props.characters || [];
     const [view, setView] = useState("setup");
     const [videoRevision, setVideoRevision] = useState(0);
-    const setupScroll = useRef(0), setupScroller = useRef(null);
-    useEffect(() => { if (view === "setup" && setupScroller.current) setupScroller.current.scrollTop = setupScroll.current; }, [view]);
+    // 设置页、往期列表点进去再回来停在原处：两个滚动框挂公共的 keepScroll（core.js）
     const [saves, setSaves] = useState(loadSaves);
     const [detail, setDetail] = useState(null);
     const [archWho, setArchWho] = useState("");   // 往期按人分：空＝全部
     // 日历下面「让TA点评」（她 2026-10-07：「做一个可以选择让他点评的按钮」）：点了才调一次模型，按人存最近那一句
     const [calNote, setCalNote] = useState(() => loadJSON("x_pomoCalNote", {}) || {});
     const [calBusy, setCalBusy] = useState(false);
-    const archScroller = useRef(null), archScroll = useRef(0);
-    // 看完一张再回来，停在原来那一行（mobile-ui-layout.md §3）
-    useEffect(() => { if (view === "archive" && !detail && archScroller.current) archScroller.current.scrollTop = archScroll.current; }, [view, detail, archWho]);
     const [charId, setCharId] = useState(chars[0] ? chars[0].id : "");
     const [task, setTask] = useState("一起看书");
     // 这一场算进哪门课（她 2026-09-28：「可以开番茄钟选一门课」）。记在场次和往期记录上，
@@ -556,14 +552,14 @@
             calBusy ? critic.name + " 在翻你的记录…" : (note ? "让 " + critic.name + " 再点评一次" : "让 " + critic.name + " 点评一下")) : null);
       };
       const tent = (id, label, n) => { const on = archWho === id;
-        return h("button", { key: id || "all", onClick: () => { archScroll.current = 0; setArchWho(id); }, "aria-pressed": on, "data-on": on ? "1" : "0", className: "active:opacity-80",
+        return h("button", { key: id || "all", onClick: () => setArchWho(id), "aria-pressed": on, "data-on": on ? "1" : "0", className: "active:opacity-80",
           style: { flexShrink: 0, minWidth: 66, minHeight: on ? 58 : 46, padding: "0 10px", alignSelf: "flex-end", border: "1px solid " + (on ? ink : line), borderBottom: "none",
             borderRadius: "3px 3px 0 0", background: on ? "#fffdf6" : "rgba(255,253,246,.45)", color: on ? ink : fog, position: "relative", transition: "min-height .18s" } },
           on ? h("span", { "aria-hidden": "true", style: { position: "absolute", left: 6, right: 6, top: 9, borderTop: "1px dashed rgba(58,48,36,.28)" } }) : null,
           h("span", { style: { display: "block", fontFamily: F_DISPLAY, fontSize: on ? 15 : 13, marginTop: on ? 14 : 6, whiteSpace: "nowrap" } }, label),
           h("span", { style: { display: "block", fontFamily: F_BODY, fontSize: "calc(9.5px * var(--app-fs, 1))", color: fog, marginTop: 2 } }, n + " 场")); };
       const card = (r, i) => { const m = r.focusedMinutes != null ? r.focusedMinutes : r.minutes, done = r.status === "done";
-        return h("button", { key: r.id, "data-wk": "pomarchrow", "data-done": done ? "1" : "0", onClick: () => { archScroll.current = archScroller.current ? archScroller.current.scrollTop : 0; setDetail(r); }, className: "w-full text-left active:opacity-80",
+        return h("button", { key: r.id, "data-wk": "pomarchrow", "data-done": done ? "1" : "0", onClick: () => { setDetail(r); }, className: "w-full text-left active:opacity-80",
           style: { display: "grid", gridTemplateColumns: "62px 1fr", gap: 12, alignItems: "center", marginTop: 10, padding: "12px 12px 12px 0", background: "#fffdf6", border: "1px solid " + line, borderRadius: 3,
             boxShadow: "0 2px 6px rgba(96,72,40,.08)", transform: "rotate(" + ((i % 3) - 1) * 0.35 + "deg)" } },
           h("span", { style: { textAlign: "center", borderRight: "1px dashed " + line } },
@@ -579,7 +575,7 @@
         h(Head, { zh: "坐过的那些", onBack: () => setView("setup"), right: h("div", { style: { minWidth: 32, textAlign: "right", fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog } }, saves.length), bg: "transparent" }),
         saves.length ? h("div", { "data-wk": "pomarchtabs", className: "shrink-0 flex", style: { gap: 6, overflowX: "auto", padding: "4px 24px 0", borderBottom: "1px solid " + ink } },
           tent("", "全部", saves.length), who.map(w => tent(w.id, w.name, w.n))) : null,
-        h("div", { ref: archScroller, className: "flex-1 min-h-0 overflow-y-auto px-6", style: { paddingBottom: "calc(env(safe-area-inset-bottom) * 0.4 + 28px)" } },
+        h("div", { key: "arch:" + archWho, ref: keepScroll("pomo:archive:" + archWho), className: "flex-1 min-h-0 overflow-y-auto px-6", style: { paddingBottom: "calc(env(safe-area-inset-bottom) * 0.4 + 28px)" } },
           saves.length === 0
             ? h("div", { style: { borderTop: "1px solid " + line, padding: "48px 0", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: fog } }, "桌上还没有留下记录。")
             : [h("div", { key: "sum", "data-wk": "pomarchsum", style: { display: "flex", gap: 18, padding: "14px 2px 4px", fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: fog } },
@@ -720,7 +716,7 @@
       backgroundImage: "repeating-linear-gradient(96deg,rgba(120,96,58,.03) 0 2px,transparent 2px 26px)," + DESK,
       boxShadow: "inset 0 0 60px rgba(96,72,40,.16)" } },
       h(Head, { zh: "番茄钟", onBack: props.onBack, right: archiveRight, bg: "transparent" }),
-      h("div", { ref: setupScroller, className: "flex-1 min-h-0 overflow-y-auto px-5", style: { paddingBottom: "calc(env(safe-area-inset-bottom) * 0.4 + 28px)" } },
+      h("div", { ref: keepScroll("pomo:setup"), className: "flex-1 min-h-0 overflow-y-auto px-5", style: { paddingBottom: "calc(env(safe-area-inset-bottom) * 0.4 + 28px)" } },
         // ① 桌上那张便签：这一轮只做的一件事。写在纸上，不是写在一个输入框里。
         h("div", { style: { position: "relative", background: "#fdf6d8", padding: "16px 16px 18px",
           borderRadius: 2, boxShadow: "0 8px 20px rgba(80,60,25,.18)", transform: "rotate(-.7deg)", marginTop: 4 } },
@@ -793,7 +789,7 @@
           chars.length
             ? h("div", { className: "flex", style: { gap: 10, overflowX: "auto", paddingBottom: 4 } }, chars.map(seat))
             : h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: "#8a7a5e" } }, "先去『人格档案馆』建个角色，再来共桌。")),
-        cur ? h("button", { onClick: () => { setupScroll.current = setupScroller.current ? setupScroller.current.scrollTop : 0; setView("video"); }, "data-pomodoro-video-entry": "", "data-wk": "pomvideoentry", style: { width: "100%", minHeight: 48, marginTop: 14, padding: "12px 14px", textAlign: "left", border: "1px solid rgba(90,72,44,.28)", borderRadius: 3, background: "#fffdf6", color: "#3a3024", fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))" } }, VideoApi.slotFor(cur.id, "focus") ? "动态形象 · 专注时已挂好，换一段或导出" : "动态形象 · 挂一张图或一段视频，坐在对面陪你") : null,
+        cur ? h("button", { onClick: () => setView("video"), "data-pomodoro-video-entry": "", "data-wk": "pomvideoentry", style: { width: "100%", minHeight: 48, marginTop: 14, padding: "12px 14px", textAlign: "left", border: "1px solid rgba(90,72,44,.28)", borderRadius: 3, background: "#fffdf6", color: "#3a3024", fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))" } }, VideoApi.slotFor(cur.id, "focus") ? "动态形象 · 专注时已挂好，换一段或导出" : "动态形象 · 挂一张图或一段视频，坐在对面陪你") : null,
         // ④ 怎么陪：三张摊在桌上的小卡
         h("div", { style: { marginTop: 22 } },
           h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(16px * var(--app-fs, 1))", color: "#3a3024", marginBottom: 10 } }, "怎么陪"),

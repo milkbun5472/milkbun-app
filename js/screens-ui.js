@@ -2415,7 +2415,6 @@ function Forum({
   const [followListOpen, setFollowListOpen] = useState(false);
   const [fanListOpen, setFanListOpen] = useState(false);   // 我的粉丝里哪些是角色（群友 2026-10-22）
   const feedScrollRef = useRef(null);
-  const feedScrollTopRef = useRef(0);
   const [forumNow, setForumNow] = useState(() => Date.now());
   const [forumLastSeen] = useState(() => {
     try { return Number(localStorage.getItem("x_forumLastSeen")) || Date.now(); } catch (e) { return Date.now(); }
@@ -2534,7 +2533,6 @@ function Forum({
   //   点进去一条标记都没有。
   const openCursorRef = useRef(0);
   const openPost = p => { setXhsPage(0);
-    if (feedScrollRef.current) feedScrollTopRef.current = feedScrollRef.current.scrollTop;
     openCursorRef.current = Number(forumReadCursors[p.id] || 0);
     setOpen(p); onLoadComments(p); markNoticesRead(forumNotices.filter(n => n.post.id === p.id).map(n => n.id));
     // 有新回复就直接跳到第一条新的（她 2026-10-12：「点开能不能跳到新的那里，每次还得下滑」）。
@@ -2552,10 +2550,7 @@ function Forum({
   const isFreshReply = r => !!r && r.authorType !== "me" && Number(r.ts || 0) > openCursorRef.current;
   const newTag = () => h("span", { style: { fontFamily: F_BODY, fontSize: "calc(9.5px * var(--app-fs, 1))", color: "#fff", background: FORUM_SKIN.accent, borderRadius: 999, padding: "1px 6px", marginLeft: 6, flexShrink: 0 } }, "新");
   const closePost = () => {
-    setOpen(null); setReplyTo(null);
-    requestAnimationFrame(() => requestAnimationFrame(() => {
-      if (feedScrollRef.current) feedScrollRef.current.scrollTop = feedScrollTopRef.current;
-    }));
+    setOpen(null); setReplyTo(null); // 回到原来滑到的地方：列表挂的是 keepScroll("forum:feed")
   };
   const openNotice = n => {
     markNoticesRead([n.id]); openPost(n.post);
@@ -3326,7 +3321,7 @@ function Forum({
     });
     const shown = arr.slice(0, page * PAGE);
     const arrived = arr.filter(p => Number(p.visibleAt || p.ts || 0) > forumLastSeen).length;
-    return h("div", { ref: feedScrollRef, className: "flex-1 min-h-0 overflow-y-auto", style: { paddingBottom: 14 } },
+    return h("div", { ref: keepScroll("forum:feed", feedScrollRef), className: "flex-1 min-h-0 overflow-y-auto", style: { paddingBottom: 14 } },
       // 角色发的新帖在哪个吧（她 2026-10-02 转群友：「首页论坛提示了数字2，点进去没有引导，得一个个吧去看」）
       forumNewCharPosts.length > 0 && h("div", { "data-wk": "block", className: "mx-4 mt-3", style: { borderRadius: 14, background: FORUM_SKIN.paper, border: "1px solid " + FORUM_SKIN.line, overflow: "hidden" } },
         // 一键已读跟标题挤在同一行（她 2026-10-16：「放上面一帖旁边，现在空白太多不好看」）：
@@ -3666,7 +3661,7 @@ function Forum({
 // 分类横滑；点分类后按右上角刷新生成该类商品；+ 加入购物车；
 // 购物车多选结算：代付 / 购买 / 送礼 / 亲属卡；我的：待发货(倒计时)→待收货(使用/转赠)
 // ============================================================
-// ── 购物页的配色（她 2026-08-29：「界面做好看可以参考淘宝配色」）──────
+// ── 购物页的配色（她 2026-08-29：「界面做好看」）──────
 // 这一页故意不跟主题走：购物 app 本来就该有自己的视觉语言，
 // 和查手机里那个网购 app 是同一套橙（SHOP_ORANGE），两处才像同一件事。
 const MSHOP = {
@@ -4315,15 +4310,11 @@ function Takeout({ goodsImgOf, onDrawGoods, drawingGoods, payAs, wallet, orders,
   const [openLog, setOpenLog] = useState(null); // 「吃过的」点开看全的那一条
   const [now, setNow] = useState(Date.now());
   const listRef = useRef(null);
-  const listTop = useRef(0);
   useEffect(() => {
     const iv = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(iv);
   }, []);
-  // 从店里退回来，列表回到原来滑到的地方（mobile-ui-layout §3）
-  useEffect(() => {
-    if (!shop && listRef.current) listRef.current.scrollTop = listTop.current;
-  }, [shop, nav]);
+  // 从店里退回来，列表回到原来滑到的地方（mobile-ui-layout §3）：列表挂 keepScroll("takeout:list")
   const cards = Array.isArray(kinshipCards) ? kinshipCards : [];
   const shops = (feed && feed[slot]) || [];
   const mine = (orders || []).filter(o => o.kind === "takeout");
@@ -4334,7 +4325,7 @@ function Takeout({ goodsImgOf, onDrawGoods, drawingGoods, payAs, wallet, orders,
   const bagCount = bagItems.reduce((s, x) => s + x.qty, 0);
   const bagTotal = Math.round(bagItems.reduce((s, x) => s + x.price * x.qty, 0) * 100) / 100;
   const bump = (uid, dlt) => setQty(p => ({ ...p, [uid]: Math.max(0, Math.min(20, (p[uid] || 0) + dlt)) }));
-  const openShop = s => { if (listRef.current) listTop.current = listRef.current.scrollTop; setQty({}); setRemark(""); setSay(""); setAt(0); setShop(s); };
+  const openShop = s => { setQty({}); setRemark(""); setSay(""); setAt(0); setShop(s); };
   const leaveShop = () => { setShop(null); setQty({}); setPay(false); setPayMode(null); };
   const submit = (mode, target) => {
     const ok = onOrder({ shop: shop.name, items: bagItems, remark, note: mode === "forchar" ? say : "", at }, mode, target, { mask: payMask });
@@ -4498,7 +4489,7 @@ function Takeout({ goodsImgOf, onDrawGoods, drawingGoods, payAs, wallet, orders,
     accent: MTAKE.yellow, accentInk: MTAKE.ink, iconInk: MTAKE.yellowD, ink: MTAKE.ink, sub: MTAKE.sub, bg: MTAKE.card });
   const nearView = h("div", { "data-wk": "tkonear", className: "flex-1 flex flex-col min-h-0" }, topBar,
     h(TakeoutSlotRuler, { slot, onPick: setSlot, now }),
-    h("div", { "data-wk": "tkoshoplist", ref: listRef, className: "flex-1 min-h-0 overflow-y-auto px-2.5 py-2.5", style: { background: MTAKE.bg } },
+    h("div", { "data-wk": "tkoshoplist", ref: keepScroll("takeout:list", listRef), className: "flex-1 min-h-0 overflow-y-auto px-2.5 py-2.5", style: { background: MTAKE.bg } },
       shops.length === 0
         ? h("div", { "data-wk": "tkoempty", "data-part": "near", className: "text-center", style: { paddingTop: 80 } },
             h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", lineHeight: 1.9, color: MTAKE.dim, whiteSpace: "pre-line" } }, busy ? "正在看附近开着的店…" : "这个钟点还没刷过。\n看看附近有什么开着。"),
@@ -5873,7 +5864,7 @@ function ListenTogether({ profile, active, ctxFor, toast, onToChat, onListenStat
 //   单人线下【但只有数字生命】——普通角色 v52.66 起就不注入了。
 //   线上聊天从来不走这条。界面上的说明必须跟这份名单对得上，
 //   不然她按了开关看不到动静，只会以为是坏了。
-// 内置预设：v62.31 全部重写。原来那一份是从别处参考来的通用 RP 模板
+// 内置预设：v62.31 全部重写。原来那一份是通用 RP 模板
 // （「此刻的情绪与身体状态」那种），换个角色、换个 app 都照样成立——
 // 按 tabs-not-plain-pills 和 prompt-no-content-samples 那两条判据，这就是写坏了。
 // 现在这三套是从这个 app 自己的规矩里长出来的：回声禁令、语域跟场面走、
@@ -6167,7 +6158,7 @@ function TtsApiConfig({ toast, characters, onAssignVoice }) {
     finally { setCloning(false); }
   };
   const runTest = async () => {
-    if (!ttsReady(c)) { toast && toast(c.provider === "minimax" ? "先填 GroupId 和密钥" : "先填密钥"); return; }
+    if (!ttsReady(c)) { toast && toast("先填密钥"); return; }
     if (!ttsDefaultVoice(c)) { toast && toast("先填一个默认音色 ID 才能试听"); return; }
     const epoch = ++testEpoch.current;
     if (testAudRef.current) testAudRef.current.pause();
@@ -6195,7 +6186,7 @@ function TtsApiConfig({ toast, characters, onAssignVoice }) {
     finally { if (epoch === testEpoch.current) setTesting(false); }
   };
   const runMark = async () => {
-    if (!ttsReady(c)) { toast && toast("先填 GroupId 和密钥"); return; }
+    if (!ttsReady(c)) { toast && toast("先填密钥"); return; }
     const raw = String(markTxt || "").trim();
     if (!raw) { toast && toast("先写一句带标记的话"); return; }
     const aud = new Audio();
@@ -6250,7 +6241,7 @@ function TtsApiConfig({ toast, characters, onAssignVoice }) {
             h("button", { key: pair[1], onClick: () => set({ baseUrl: pair[1] }), className: "active:opacity-70",
               style: { flex: 1, fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", padding: "7px 2px", borderRadius: 8, background: t.bg2, border: "1px solid " + ((c.baseUrl || "").trim() === pair[1] ? t.tint : t.line), color: (c.baseUrl || "").trim() === pair[1] ? t.tint : t.sub } }, pair[0]))),
         h("input", { "data-wk": "input", value: c.baseUrl || "", onChange: e => set({ baseUrl: e.target.value }), placeholder: "https://api.minimax.io", style: inSt }))),
-      row("GroupId（MiniMax 控制台·账户信息里）", h("input", { "data-wk": "input", value: c.groupId || "", onChange: e => set({ groupId: e.target.value }), placeholder: "17xxxxxxxxxxxx", style: inSt })),
+      row("GroupId（选填；MiniMax 账户信息里，拼车拿不到就空着）", h("input", { "data-wk": "input", value: c.groupId || "", onChange: e => set({ groupId: e.target.value }), placeholder: "17xxxxxxxxxxxx", style: inSt })),
       row("密钥 API Key", h("input", { "data-wk": "input", value: c.apiKey || "", onChange: e => set({ apiKey: e.target.value }), placeholder: "eyJ…", type: "password", style: inSt })),
       // 模型：列表里放常见的几个，后面再给一格手填——MiniMax 出新模型比这儿改得快（群里 2026-10-02 问「只有 01 和 02 嘛」），
       //   官网文档上写的模型名原样填进来就能用，不用等这边加选项。
@@ -6509,7 +6500,6 @@ function CacheStatCard() {
 // 头像池（她 2026-08-25 定的 B 档）：她从相册一次挑几十张（猫、风景、动漫截图…），
 // 存进本地图库当池子。论坛路人、常驻、小号都按种子哈希（角色不拿，v74.383）
 // 从池子里稳定取一张——同一个人永远同一张。零 API 调用、零外链，图是她自己挑的。
-// 参考的那个小手机是硬编码 190 条别人图床的外链 + Math.random，两点都不抄。
 function AvatarPoolConfig({ toast }) {
   const t = useTheme();
   const fileRef = useRef(null);
@@ -10303,7 +10293,6 @@ function MemoryLib({
   onArchiveRoutineGroups,
   onListRepairConflicts,
   onDecideRepairConflict,
-  onRefine,
   onRestoreArchived,
   onBulkImport,
   onAudit,
@@ -10393,7 +10382,7 @@ function MemoryLib({
     const c = characters.find(x => x.id === id);
     return c ? c.remark || c.name : "未知";
   };
-  // 情绪徽标：显愉悦度带符号 + 强度点数，颜色随愉悦度暖/冷/中（Ombre Brain 借鉴）。未评估(无 a)不显示
+  // 情绪徽标：显愉悦度带符号 + 强度点数，颜色随愉悦度暖/冷/中。未评估(无 a)不显示
   const emoBadge = e => {
     if (typeof e.a !== "number") return null;
     const v = e.v || 0, a = e.a;
@@ -10402,17 +10391,16 @@ function MemoryLib({
       (v > 0 ? "＋" : v < 0 ? "－" : "") + Math.abs(v), h("span", { style: { opacity: 0.7 } }, "·"), "🔥" + a);
   };
   const unrated = (entries || []).filter(e => e && typeof e.a !== "number").length;
-  // 来源徽标（珊瑚岛「记忆诚实性」lite）：一眼分清这条记忆是怎么来的——亲历对话/手写/导入/精炼/本体亲笔
+  // 来源徽标（「记忆诚实性」lite）：一眼分清这条记忆是怎么来的——亲历对话/手写/导入/精炼/本体亲笔
   const SRC_BADGE = { manual: ["✍️ 手写", "#8a7a5c"], chat: ["💬 亲历", "#7d8a6e"], auto: ["💬 亲历", "#7d8a6e"], import: ["📥 导入", "#8a8a8a"], monthly: ["🗂 精炼", "#9a8298"], mcp: ["🖋 本体", "#9e8260"] };
   const srcBadge = e => {
     const b = SRC_BADGE[e.source];
     return b ? h("span", { key: "src", title: "记忆来源", style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", color: "#fff", background: b[1], padding: "1px 7px", borderRadius: 999, opacity: 0.9 } }, b[0]) : null;
   };
-  // 精炼摘要可回溯（玄参#6）：refineBatch ↔ 原件 archivedBatch 同号，数一下有几条原件
+  // 精炼摘要可回溯：refineBatch ↔ 原件 archivedBatch 同号，数一下有几条原件
   const refineBatchOf = e => e && e.refineBatch ? String(e.refineBatch)
     : (e && e.source === "monthly" && e.ts ? "rf_" + Number(e.ts) : null);
   const refineSrcCount = e => { const batch = refineBatchOf(e); return batch ? (entries || []).filter(x => x && x.archived && x.archivedBatch === batch).length : 0; };
-  // 可精炼旧记忆数（和 app.js isRefinable 同判定）：已了结/非置顶/情绪弱(a≤2)/放了 60+ 天/未归档；按当前筛选范围算
   // ⚠️「没绑角色＝所有角色可见」是有意的规则，但它没有【入口】：她没法一眼看出
   //   哪几条正在被所有人看见。她 2026-09-06 查出「陆衍手机里全是沈屿白的信息」，
   //   实测下来漏进去的正是这一类（绑给沈屿白的那条一个字都没漏）。
@@ -10421,7 +10409,6 @@ function MemoryLib({
   const inScope = e => filter === "all" ? true
     : filter === "__open__" ? isOpenToAll(e)
     : (isOpenToAll(e) || e.charIds.includes(filter));
-  const refinableCount = (entries || []).filter(e => { const now = Date.now(); return e && e.text && (e.surfaceState || "active") === "active" && !e.pinned && !e.open && !e.archived && e.source !== "monthly" && (e.a || 0) <= 2 && now - (e.ts || 0) >= 60 * 86400000 && inScope(e); }).length;
   const archived = (entries || []).filter(e => e && e.archived && inScope(e)).slice().sort((a, b) => (b.archivedTs || 0) - (a.archivedTs || 0));
   const superseded = (entries || []).filter(e => e && (e.surfaceState || "active") === "superseded" && inScope(e)).slice().sort((a, b) => (b.ts || 0) - (a.ts || 0));
   const qlc = q.trim().toLowerCase();
@@ -10565,9 +10552,8 @@ function MemoryLib({
       onBulkImport ? h("button", { onClick: () => { setManageOpen(false); setImportOpen(true); }, className: "rounded-xl py-2.5 active:opacity-60", style: { border: "1px solid " + t.line, color: t.ink, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))" } }, "导入长文") : null,
       focusChar && onExtract ? h("button", { onClick: onExtract, disabled: busy, className: "rounded-xl py-2.5 active:opacity-60 disabled:opacity-40", style: { border: "1px solid " + t.line, color: t.sub, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))" } }, busy ? "抽取中…" : "从当前对话提取") : null,
       importable && onImportOld ? h("button", { onClick: () => onImportOld(focusChar.id), disabled: busy, className: "rounded-xl py-2.5 active:opacity-60 disabled:opacity-40", style: { border: "1px solid " + t.line, color: t.sub, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))" } }, "导入旧长期记忆") : null,
-      onBackfillEmotion && unrated > 0 ? h("button", { onClick: onBackfillEmotion, disabled: emoBusy, className: "rounded-xl py-2.5 active:opacity-60 disabled:opacity-40", style: { border: "1px solid " + t.line, color: t.sub, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))" } }, emoBusy ? "评估中…" : "补旧记忆情绪 · " + unrated) : null,
-      onRefine && refinableCount >= 8 ? h("button", { onClick: () => onRefine(filter), disabled: emoBusy, className: "rounded-xl py-2.5 active:opacity-60 disabled:opacity-40", style: { border: "1px solid " + t.line, color: t.sub, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))" } }, emoBusy ? "精炼中…" : "旧版月度精炼 · " + refinableCount) : null),
-    h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.5, marginTop: 8 } }, "自动记忆平时不用照料；这里保留导入、旧库维护与参数调节。月度精炼不会自动运行。")),
+      onBackfillEmotion && unrated > 0 ? h("button", { onClick: onBackfillEmotion, disabled: emoBusy, className: "rounded-xl py-2.5 active:opacity-60 disabled:opacity-40", style: { border: "1px solid " + t.line, color: t.sub, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))" } }, emoBusy ? "评估中…" : "补旧记忆情绪 · " + unrated) : null),
+    h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.5, marginTop: 8 } }, "自动记忆平时不用照料；这里保留导入、旧库维护与参数调节。")),
   // ── 这一片重排（v64.26，她 2026-09-06：「这堆是不是没用了可以不要了」）──────
   // 原来十二颗一模一样的虚线药丸摞在一起，工具和仪表混在同一堆里。于是三样她真会用的
   // （清重复／收拢／清仓）和两样安全工具（结局冲突／核对云端）看着都像工程仪表，
@@ -11038,7 +11024,7 @@ function MemEntrySheet({
       color: t.sub
     }
   }, "置顶（每次都注入对话）"), h(Toggle, { on: pinned, onChange: v => setPinned(v), color: t.tint, wk: "memedswitch", part: "pin" })),
-  // 未了结（Ombre Brain·承诺可标记完成）：勾上会更常被想起，办完/翻篇点掉它就不再惦记
+  // 未了结（承诺可标记完成）：勾上会更常被想起，办完/翻篇点掉它就不再惦记
   h("div", { className: "flex items-center justify-between pt-6" },
     h("div", { style: { flex: 1, paddingRight: 12 } },
       h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.sub } }, "还没了结（约定 / 心结）"),
@@ -11050,7 +11036,7 @@ function MemEntrySheet({
       h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginTop: 2, lineHeight: 1.5 } },
         "抽的时候估计到 " + (new Date(Number(entry.expiresTs)).getMonth() + 1) + "/" + new Date(Number(entry.expiresTs)).getDate() + " 就多半不是这样了，过了以后少想起、想起时当成那时候的事。其实一直都成立就关掉")),
     h(Toggle, { on: shortLived, onChange: v => setShortLived(v), wk: "memedswitch", part: "ttl" })) : null,
-  // 情绪坐标（Ombre Brain·valence/arousal）：愉悦度 + 强度，影响被想起的权重
+  // 情绪坐标（valence/arousal）：愉悦度 + 强度，影响被想起的权重
   (() => {
     const stepper = (label, val, lo, hi, onCh) => h("div", { className: "flex items-center justify-between", style: { padding: "8px 0" } },
       h("span", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.sub } }, label),
@@ -11160,7 +11146,7 @@ function diaryPreview(e) {
 
 // 全文页 —— 这一页就是TA那张纸：日期是TA写下的，天气地点随手记在边上，
 // 正文落在纸上，划掉的有笔触、不肯说的糊成墨。
-// ⚠️不要再往回加英文眉标／条码／带框的元数据表——那套是照着别人的版式来的，
+// ⚠️不要再往回加英文眉标／条码／带框的元数据表——
 //   她 2026-08-30 明说要我们自己的（「我就是不想要现在这版的底子」）。
 function DiaryEntryView({ entry, char, isMe, chars, onBack, onDelete, onSetDate, onComment, commenting, onPhotoDiary, onDelPhoto, photoBusy }) {
   const t = useTheme();
@@ -11268,7 +11254,7 @@ function DiaryArchive({ characters, curId, setCurId, diaries, onOpen, onBack, on
   };
   // 封面就是TA那张纸 + 一张贴上去的书名签。
   // ⚠️别再往回做那套「深色大图 + 编号 + 一排英文小标题」的档案卡版式——
-  //   那是照着别人的来的，她 2026-08-30 明说要我们自己的东西。
+  //   她 2026-08-30 明说要我们自己的东西。
   const paper = diaryPaperOf(char);
   const iRGB = (typeof skinRGB === "function" ? skinRGB(t.ink || "#2b2622") : [43, 38, 34]).join(",");
   const lastStr = last ? (new Date(last.ts).getMonth() + 1) + "月" + new Date(last.ts).getDate() + "日" : "";

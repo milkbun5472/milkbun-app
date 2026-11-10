@@ -12234,6 +12234,8 @@ function ChatThread({
     if (m.kind === "bdayletter") return h(BdayLetterCard, { key: i, m: m, character: character });
     if (m.kind === "bdayplan") return h(BdayPlanCard, { key: i, m: m, character: character, onOpen: onBdayPlanOpen });
     // 「TA 在忙还没看手机」：跟撤回那行一样，一行灰字落在屏幕上（她 2026-10-05：不要 toast）
+    if (m.kind === "collageinvite") return h("div", { key: i, className: "text-center my-2" }, h("button", { "data-wk": "note", "data-part": "collageinvite", onClick: () => window.__openCollage && window.__openCollage(m.charId),
+      className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.accent, ...plate(), cursor: "pointer" } }, "📌 " + (m.content || "一起拼一张壁纸") + " · 去拼 →"));
     if (m.kind === "locknote") return h("div", { key: i, className: "text-center my-2" }, h("span", { "data-wk": "note", "data-part": "lock", style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, ...plate() } }, m.content));
     if (m.kind === "busynote") return h("div", { key: i, className: "text-center my-2" }, h("span", { "data-wk": "note", "data-part": "busy", style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, ...plate() } }, m.content));
     // v74.892 之前 TA 存进时刻只落一行灰字；这几行画的时候也认成那张小卡（存档不动），为什么从时刻里那条找回来
@@ -17602,7 +17604,7 @@ function CGlyph({ k, size = 24, color = "#1b1a17" }) {
 // 位置卡:一枚图钉把一张字条按在聊天里(v60.12)
 //
 // 原来这张卡叫 GEO-STAMP:英文小字标头、一个准星、地名用意大利体、底下一行经纬度。
-// 她 2026-09-02:「当初是完全参考了别人的」。病不只是长相像别人——
+// 她 2026-09-02 要改成我们自己的设计。病不只在长相——
 // **那行经纬度是随机掷出来的**(makeCoords:lat/lng 全随机),79.6472°N 落在北冰洋里。
 // 这个 app 没有地图也没有 GPS,那张卡却在扮演一台定位仪器,于是它必须借仪器的长相。
 // 现在照实说它是什么:一个人告诉你TA在哪儿——**一张递过来的字条**,
@@ -17724,7 +17726,7 @@ function TransferComposeSheet({ cName, myBalance, charId, onClose, onSend, packe
 // 发位置:写一个地名,或者点一个你之前发过的(v60.12)
 //
 // 原来这一页是 Geo-Stamp / SET YOUR LOCATION / CONFIRM & SEND,中间一行随机经纬度,
-// 旁边一个「换一个坐标」的刷新键,底下两颗中英文双语胶囊。她说这是照着别人的做的——
+// 旁边一个「换一个坐标」的刷新键,底下两颗中英文双语胶囊。她 2026-09-02 要改成我们自己的——
 // 除了长相,它整页都在围着一个【假读数】转:那行坐标是 Math.random() 掷出来的,
 // 刷新键刷的是随机数,「当前位置 / Current」按下去发出去的字面就是「当前位置 / Current」。
 // 现在只留真东西:你写的那个地名,和你之前发过的几个。
@@ -21802,7 +21804,7 @@ function LuckyCharsPanel({ lucky, onDrawLucky, onPickLucky, busy, setBusy }) {
           : h("button", { "data-wk": "gluckydraw", disabled: gLuckyBusy, onClick: async () => { if (gLuckyBusy) return; setGLuckyBusy(true); try { await onDrawLucky(); } finally { setGLuckyBusy(false); } }, className: "w-full active:opacity-70 disabled:opacity-60", style: { minHeight: 44, borderRadius: 12, border: "1.5px solid #d9902b", color: "#a8641a", background: "transparent", fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))" } },
               gLuckyBusy ? "洗牌中…要等十几秒" : (book.length ? "抽下一张" : "抽一张") + " · 花一次调用"),
           lk.word && lk.cards && lk.picked >= 0 ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginTop: 8 } }, "没翻的那几张：" + lk.cards.filter((_, i) => i !== lk.picked).join("、")) : null,
-          lk.word ? h("div", { "data-wk": "gluckybadgeset", className: "flex items-center justify-between", style: { marginTop: 10 } },
+          lk.word || book.length ? h("div", { "data-wk": "gluckybadgeset", className: "flex items-center justify-between", style: { marginTop: 10 } },
             h("span", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.sub } }, "挂在名字旁边"),
             h(Toggle, { on: !lk.hideBadge, onChange: () => onPickLucky && onPickLucky("badge") })) : null,
           // 还没点亮第一个字、也还有没翻过的：能换一张（不花调用）
@@ -21811,12 +21813,15 @@ function LuckyCharsPanel({ lucky, onDrawLucky, onPickLucky, busy, setBusy }) {
                 style: { marginTop: 8, minHeight: 40, borderRadius: 10, border: "1px dashed #d9902b", background: "transparent", color: "#a8641a", fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))" } },
                 "不喜欢这张，从剩下的再翻一张（不花调用）") : null,
           book.length ? h("div", { "data-wk": "gluckybook", className: "pt-4" },
-            h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog, marginBottom: 6 } }, "收藏本 · " + book.length + " 个"),
-            h("div", { className: "flex flex-wrap", style: { gap: 6 } }, book.slice().reverse().map((b, i) => h("span", { key: i, title: new Date(b.ts).toLocaleDateString(),
-              style: { padding: "4px 10px", borderRadius: 999, background: "#f6d38a44", color: "#a8641a", fontFamily: F_DISPLAY, fontSize: "calc(13px * var(--app-fs, 1))" } }, b.word)))) : null);
+            h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog, marginBottom: 6 } }, "收藏本 · " + book.length + " 个 · 点一个挂在名字旁边" + (lk.word ? "，再点一下换回正在点的「" + lk.word + "」" : "")),
+            h("div", { className: "flex flex-wrap", style: { gap: 6 } }, book.slice().reverse().map((b, i) => { const on = lk.wear === b.word && !lk.hideBadge;
+              return h("button", { key: i, "data-wk": "gluckywear", "data-on": on ? "1" : "0", title: new Date(b.ts).toLocaleDateString(), onClick: () => onPickLucky && onPickLucky({ wear: b.word }), className: "active:opacity-70",
+              style: { padding: "4px 10px", borderRadius: 999, background: on ? "#d9902b" : "#f6d38a44", color: on ? "#fff" : "#a8641a", border: "1.5px solid " + (on ? "#a8641a" : "transparent"), fontFamily: F_DISPLAY, fontSize: "calc(13px * var(--app-fs, 1))" } }, (on ? "✓ " : "") + b.word); }))) : null);
 }
 // 顶栏名字旁边那枚：点亮的字是实的，没点亮的是虚的；面板里关了「挂在名字旁边」就不挂（进度照算）
 function luckyBadge(t, lucky) {
+  // 挂的是收藏本里点满的那个：整个亮着；没挑就挂正在点的那个
+  if (lucky && lucky.wear && !lucky.hideBadge && (lucky.book || []).some(b => b && b.word === lucky.wear) && typeof luckyUnits === "function") lucky = { word: lucky.wear, lit: luckyUnits(lucky.wear).length };
   if (!lucky || !lucky.word || lucky.hideBadge || typeof luckyUnits !== "function") return null;
   return h("span", { "data-wk": "gluckybadge", title: "幸运字符", style: { flexShrink: 0, marginLeft: 4, padding: "0 6px", borderRadius: 999, border: "1px solid " + t.line, fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", letterSpacing: "0.05em" } },
     luckyUnits(lucky.word).map((ch, i) => h("span", { key: i, "data-on": i < (lucky.lit || 0) ? "1" : "0", style: { color: i < (lucky.lit || 0) ? "#d9902b" : t.fog, opacity: i < (lucky.lit || 0) ? 1 : 0.45, fontWeight: i < (lucky.lit || 0) ? 700 : 400 } }, ch)));

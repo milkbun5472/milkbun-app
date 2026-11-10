@@ -20,7 +20,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v89.423";
+const APP_VERSION = "v89.445";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -775,6 +775,8 @@ function App() {
   const [coupleDrawer, setCoupleDrawer] = useState([]);
   // 情侣空间的落点：从别处直接送到【某个人的某一扇门】。只消费一次，Us 收到就还回来。
   const [usLand, setUsLand] = useState(null);
+  // 聊天里那张「去拼壁纸」卡：落到情侣空间 → 合照墙 → 拼一张壁纸，TA 先拼一张
+  useEffect(() => { window.__openCollage = id => { setUsLand({ view: id, sub: "album", collage: "draft" }); setScreen("us"); }; return () => { if (window.__openCollage) delete window.__openCollage; }; }, []);
   // 他给她起的那个称呼（抽卡 s_title）。⚠️它【会进提示词】，所以：
   // ① 抽出来只是候选，她点了「收下」才写进这儿；② 收下之后随时能改、能不要；
   // ③ 换掉的留一条旧的（印象卡那张改写之后「旧版进修订史」是同一个形状）。
@@ -4986,54 +4988,11 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     } catch (e) { toast("评估失败：" + ((e && e.message) || "重试")); }
     finally { setEmoBusy(false); }
   };
-  // 月度精炼（#1，SullyOS 借鉴）：把【已了结·非置顶·情绪弱·放了 60+ 天】的旧记忆按【关系分组】浓缩成月度摘要，
-  // 原件归档(archived)【不删除、可一键恢复】。你的未了约定(open)/置顶/动情大事(a≥3)一条不碰。
-  const REFINE_OLD_DAYS = 60, REFINE_MIN = 8;
+  // 以前点「月度精炼」浓缩过的旧记忆：原件归档着，摘要带 source:"monthly"。按钮已经拿掉（她 2026-11-10），恢复照旧能用。
   // refineBatch 是旧本地字段，没有进共享行表；但精炼批次本来就固定为 rf_<摘要ts>。
   // 从云端/新设备回来时用这个稳定规则复原批次关系，恢复原件时才能一并撤掉摘要。
   const refineBatchOf = e => e && e.refineBatch ? String(e.refineBatch)
     : (e && e.source === "monthly" && e.ts ? "rf_" + Number(e.ts) : null);
-  const isRefinable = e => { const now = Date.now(); return e && e.text && (e.surfaceState || "active") === "active" && !e.pinned && !e.open && !e.archived && e.source !== "monthly" && (e.a || 0) <= 2 && now - (e.ts || 0) >= REFINE_OLD_DAYS * 86400000; };
-  const refineOldMemories = async (scopeCharId, opts = {}) => {
-    if (!bgActive) { if (!opts.auto) toast("请先到设置配置 API"); return 0; }
-    const now = Date.now();
-    let pool = memLibRef.current.filter(isRefinable);
-    if (scopeCharId && scopeCharId !== "all") pool = pool.filter(e => memShareChar([scopeCharId], e.charIds));
-    if (!pool.length) { if (!opts.auto) toast("没有可精炼的旧记忆（约定/心事/置顶/动情大事都不动）"); return 0; }
-    // 按 charIds 签名分组，别把不同人的记忆混进一条摘要
-    const groups = {};
-    pool.forEach(e => { const k = (e.charIds && e.charIds.length ? e.charIds.slice().sort() : ["__global"]).join("|"); (groups[k] = groups[k] || []).push(e); });
-    setEmoBusy(true);
-    const batchId = "rf_" + now;
-    let working = memLibRef.current.slice();
-    let foldedTotal = 0, summaryTotal = 0;
-    try {
-      for (const k of Object.keys(groups)) {
-        const g = groups[k].sort((a, b) => (a.ts || 0) - (b.ts || 0));
-        if (g.length < REFINE_MIN) continue;              // 单个关系攒够 8 条才值得精炼
-        const take = g.slice(0, 40);                        // 一次最多喂 40 条
-        const charIds = k === "__global" ? [] : k.split("|");
-        const anchor = characters.find(c => c.id === charIds[0]) || { name: "角色" };
-        let summaries;
-        try { summaries = await refineMemories(bgActive, ctxFor(anchor), take); } catch (e) { continue; }
-        if (!summaries || !summaries.length) continue;
-        const takeIds = new Set(take.map(e => e.id));
-        working = working.map(e => takeIds.has(e.id) ? { ...e, archived: true, archivedBatch: batchId, archivedTs: now } : e);
-        const newOnes = summaries.slice(0, 5).map((s, i) => ({
-          id: "m_" + now + "_" + i + "_" + Math.floor(Math.random() * 1000),
-          text: String(s.text).trim(), tags: (Array.isArray(s.tags) ? s.tags : []).concat(["月度精炼"]),
-          charIds, ts: now, source: "monthly", refineBatch: batchId,
-          v: clampInt(s.v, -5, 5, 0), a: clampInt(s.a, 0, 5, 1), open: false
-        }));
-        working = newOnes.concat(working);
-        foldedTotal += take.length; summaryTotal += newOnes.length;
-      }
-      if (foldedTotal) { saveMemLib(working); toast("已把 " + foldedTotal + " 条旧记忆精炼成 " + summaryTotal + " 条摘要（原件已归档，可在记忆库恢复）"); }
-      else if (!opts.auto) toast("每段关系的旧记忆还不够多（满 8 条才精炼）");
-    } catch (e) { if (!opts.auto) toast("精炼失败：" + ((e && e.message) || "重试")); }
-    finally { setEmoBusy(false); }
-    return foldedTotal;
-  };
   // 恢复归档：把某批（或全部）精炼归档的原件放回，并撤掉对应的月度摘要
   const restoreArchived = (batchId) => {
     const batches = batchId ? new Set([batchId]) : new Set(memLibRef.current.filter(e => e.archived).map(e => e.archivedBatch));
@@ -5100,7 +5059,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       });
       // P1-1 shadow：传入内存做机械证据核验，只落类别/计数/hash；真实采纳仍走旧路，但抽取 prompt 已带证据闸，评审基线并非纯旧版。
       try { window.MemoryQualityShadow && window.MemoryQualityShadow.observeBatch({ charId, candidates: items, acceptedTexts: entries.map(e => e.text), messages: msgs }); } catch (e) {}
-      // InsightCapture shadow：复用本次已经产出的 insight 分类，不另叫 AI；只评估独立洞察四段结构是否够格。
+      // 独立洞察 shadow：复用本次已经产出的 insight 分类，不另叫 AI；只评估独立洞察四段结构是否够格。
       try { window.InsightCandidateShadow && window.InsightCandidateShadow.observeBatch({ charId, candidates: items, acceptedTexts: entries.map(e => e.text), messages: msgs }); } catch (e) {}
       // Memory v2 影子脊柱：把同一批候选路由为 episode/claim/state/hypothesis，
       // 统一核验逐字证据与分支有效性；只留收据，真实 entries 一个字不改。
@@ -6201,7 +6160,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         }
         const d = await runProbe(apiFor(char.id), ctxFor(char), {
           voice: true,
-          instruction: gAsk(card.poolId, undefined, char.id) + characterText(char, "\n扣着他此刻真实的处境和心情写，别写成换个角色也照样成立的话。") + _gSongAsk(card),
+          instruction: gAsk(card.poolId, undefined, char.id) + (window.GachaKit.makeExtraOf ? window.GachaKit.makeExtraOf(card.poolId) : "") + characterText(char, "\n扣着他此刻真实的处境和心情写，别写成换个角色也照样成立的话。") + _gSongAsk(card),
           schemaHint: card.kind === "song"
             ? "{\"title\":\"一行小标题\",\"body\":\"正文\",\"song\":\"歌名 歌手\"}"
             : "{\"title\":\"一行小标题\",\"body\":\"正文\"}",
@@ -10878,7 +10837,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     const _cardLore = (parsed.lore || []).map((e, i) => Object.assign({ id: "le_card_" + Date.now() + "_" + i, category: "世界观", regex: false, ensemble: false, ts: Date.now() + i,
       scope: { chat: true, subjects: false, lifestyle: false, diary: false, study: false, creative: false, social: false, debate: false } }, e, { charIds: [id] }));
     if (_cardLore.length) saveLore(_cardLore.concat(loreRef.current || []));
-    // 卡里的开场白（酒馆的 first_mes）落成 TA 的第一句话——原来直接丢了
+    // 卡里的开场白（first_mes）落成 TA 的第一句话——原来直接丢了
     if (parsed.greeting) pChat(id, () => [{ role: "assistant", content: parsed.greeting, ts: Date.now(), read: false }]);
     setCardImportOpen(false);
     toast("已导入「" + (parsed.name || "新角色") + "」：人设" + (parsed.longMem ? "＋长期记忆" : "") + ((parsed.seeds || []).length ? "＋" + parsed.seeds.length + " 条记忆种子" : "") + ((parsed.lore || []).length ? "＋" + parsed.lore.length + " 条世界书" : "") + (parsed.greeting ? "＋开场白" : "") + "，去人格档案馆点开补头像/线路吧");
@@ -12819,6 +12778,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       const caughtHint = opts.peekCaught ? "\n\n【此刻】你刚才趁 " + uName + " 不注意偷偷翻了她的手机，被她发现了，她当面问你。"
         + (opts.peekCaught.thoughts && opts.peekCaught.thoughts.length ? "你当时心里想过：" + opts.peekCaught.thoughts.slice(0, 4).map(x => "「" + x + "」").join("") + "。" : "")
         + "认不认、怎么解释、反咬一口还是服软，全看你这个人。" : "";
+      const collageHint = opts.collageDone ? "\n\n【此刻】" + uName + " 刚和你一起拼好一张手机壁纸，用的是你们的合照" + (opts.collageDone.words && opts.collageDone.words.length ? "，上面手写着：" + opts.collageDone.words.map(w => "「" + w + "」").join("") : "") + (opts.collageDone.split ? "。是一人一半的那种：她那半张她存走了，你那半张已经是你手机的锁屏" : "") + "。" + (opts.collageDone.story && opts.collageDone.story.length ? "拼的时候你们俩是这么来回的（「你」是你）：\n" + opts.collageDone.story.join("\n") + "\n" : "") + "你看到了；想接就接一句，怎么接看你这个人。" : "";
       const gardenMineHint = opts.gardenMine ? "\n\n【此刻】" + uName + " 刚在你们空间的窗台上自己种下了一盆" + opts.gardenMine.species + (opts.gardenMine.why ? "，她说：「" + opts.gardenMine.why + "」" : "") + "。你看到了；想接就接一句，怎么接看你这个人。" : "";
       const letterHint = opts.loveLetterAnswer === "yes" ? "\n\n【此刻】你写给 " + uName + " 的那封申请信，她拆开看了，答应了——" + spaceRel((couplesRef.current || {})[charId]).together + "。怎么接这一下，全看你这个人。"
         : opts.loveLetterAnswer === "no" ? "\n\n【此刻】你写给 " + uName + " 的那封申请信，她拆开看了，说再想想。失落、嘴硬、装没事、还是说等她——全看你这个人和你们现在的关系。" : "";
@@ -12856,7 +12816,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       const _bdTs = Number(opts.backdateTs) || 0;
       const backdateHint = _bdTs && _bdTs < Date.now() - 5 * 60000
         ? "\n\n【这条消息的发出时间】你是在「" + fmtStampAI(_bdTs) + "」那会儿发的这条（她那时没开着手机，现在才看到）。话里要是提到几点、刚刚在干嘛，都按那会儿说。" : "";
-      const dongnianHint = backdateHint + peekHint + gardenMineHint + letterHint + refuseHint + caughtHint + peekMemo + (opts.dongnian && String(opts.dongnian).trim() ? "\n\n【此刻你心里的真实状态（决定你【怎么】开口的语气和分寸，是内心底色不是台词——绝不许直接念出来）】\n" + String(opts.dongnian).trim() : "");
+      const dongnianHint = backdateHint + peekHint + gardenMineHint + collageHint + letterHint + refuseHint + caughtHint + peekMemo + (opts.dongnian && String(opts.dongnian).trim() ? "\n\n【此刻你心里的真实状态（决定你【怎么】开口的语气和分寸，是内心底色不是台词——绝不许直接念出来）】\n" + String(opts.dongnian).trim() : "");
       const aff = roomReads("innerLife") ? Math.round(affOf(charId)) : 70;
       // 亲属卡按需注入：仅当用户最近在哭穷/张口要钱（而非每轮常驻），再由 TA 按人设+好感+心情决定给不给。已给过就完全不提。
       const recentUserText = history.filter(m => m.role === "user" && m.content).slice(-3).map(m => m.content).join("  ");
@@ -17808,6 +17768,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   //   只在还没点亮第一个字之前能换；走的是同一个 onPickLucky，传 "again"
   const pickLucky = (groupId, i) => {
     if (i === "badge") { const sb = luckyOf(groupId); luckySave(groupId, { ...sb, hideBadge: !sb.hideBadge }); return; }   // 顶栏挂不挂（她 2026-10-27）
+    // 挂哪个（她 2026-11-11 转群友：「点满了竟然不能挂了」）：收藏本里点满的也能挂；传 { wear: 字 }，再点一次同一个就换回挂正在点的那个
+    if (i && typeof i === "object" && "wear" in i) { const sb = luckyOf(groupId); const w = String(i.wear || ""); luckySave(groupId, { ...sb, wear: sb.wear === w ? "" : w, hideBadge: false }); return; }
     if (i === "again") {
       const st0 = luckyOf(groupId);
       if (!st0.word || !(st0.picked >= 0) || (st0.lit || 0) > 0) return;
@@ -28814,6 +28776,127 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     if (id && !gardenDrawing) drawGarden(id, true);
   }, [coupleGarden]);
   // 她自己挑一种来种：名字必填，为什么可空；颜色照名字猜一个，不花调用
+  // ── 拼一张壁纸（她 2026-11-10 转群友许愿）：排版和画都在 js/collage.js；这儿只有 TA 那一手和存下来 ──
+  // TA 来摆：一次文字调用，挑哪几张、放哪格、写什么字，下标回来本机再核一遍
+  const collageArrange = async (charId, list, tpl, split, hist) => {
+    const char = characters.find(c => c.id === charId);
+    const C = window.Collage, def = C && C.TPL[tpl];
+    if (!char || !def || !list || !list.length) return null;
+    const route = apiFor(charId);
+    if (!route) { toast("请先到设置配置 API"); return null; }
+    const uName = (profileFor(charId) || {}).name || "她";
+    const n = def.n * (split ? 2 : 1), wn = def.words.length * (split ? 2 : 1);
+    const menu = list.slice(0, 40).map((p, i) => i + ". " + (p.ts ? (d0 => (d0.getMonth() + 1) + "月" + d0.getDate() + "日 ")(new Date(typeof vclockMap === "function" ? vclockMap(p.ts, charId) : p.ts)) : "") + (String(p.desc || "").replace(/\s+/g, " ").slice(0, 50) || "（没写画面）")).join("\n");
+    try {
+      const d = await runProbe(route, ctxFor(char), {
+        voice: true,
+        instruction: "你和 " + uName + " 要一起拼一张手机壁纸，样式是「" + def.name + "」（" + def.sub + "）。下面是你们的合照，前面是编号：\n" + menu
+          + "\n\n挑 " + n + " 张放进去，picks 按格子顺序写编号（第一格在最上面）。"
+          + (split ? "这是一人一半：前 " + def.n + " 格在 " + uName + " 那半张，后 " + def.n + " 格在你那半张（会换成你自己手机的锁屏）；手写的字也是前一半在她那张、后一半在你那张。" : "")
+          + (def.caption ? "每张拍立得下面写一句很短的字（captions，十个字以内，可以留空）。" : "")
+          + "再写最多 " + wn + " 句手写在壁纸上的字（words，每句十四个字以内，中文英文都行）。"
+          + "挑哪几张、写不写字、写什么，照你这个人来：话少的就少写，一句不写也行。why 是你摆完想跟她说的话（为什么挑这几张、或者别的），想说什么就说什么，长短跟着你此刻的心情和你这个人平时说话的样子来。" + (hist ? "\n\n【这一回拼壁纸到现在，你们俩的来回（「她」是 " + uName + "，「你」是你）】\n" + hist + "\n接着这些往下：记得自己刚才动过什么、说过什么，别把上一句话再说一遍，她刚改的地方你看得见也可以接一句。" : ""),
+        schemaHint: "{\"picks\":[编号],\"captions\":[\"\"],\"words\":[\"\"],\"why\":\"你想跟她说的话\"}",
+        maxTokens: 12000
+      });
+      const max = Math.min(list.length, 40), picks = [];
+      (Array.isArray(d && d.picks) ? d.picks : []).forEach(x => { const i = Math.round(Number(x)); if (i >= 0 && i < max && picks.indexOf(i) < 0 && picks.length < n) picks.push(i); });
+      for (let i = 0; picks.length < n && i < list.length; i++) if (picks.indexOf(i) < 0) picks.push(i);
+      while (picks.length < n) picks.push(-1);
+      const clip = (a, k, len) => (Array.isArray(a) ? a : []).slice(0, k).map(x => String(x == null ? "" : x).replace(/\s+/g, " ").trim().slice(0, len));
+      return { picks, captions: clip(d && d.captions, n, 16), words: clip(d && d.words, wn, 22), why: String((d && d.why) || "").trim() };
+    } catch (e) { toast("没摆成：" + ((e && e.message) || "重试")); return null; }
+  };
+  // TA 看看现在这张、动几下：发一张缩小的图 + 每样东西的编号和位置；TA 回一句话和几步改动（改动在 collage.js 里落）
+  const collageLook = async (charId, img, desc, hist) => {
+    const char = characters.find(c => c.id === charId);
+    const route = apiFor(charId);
+    if (!char || !route) { toast("请先到设置配置 API"); return null; }
+    const uName = (profileFor(charId) || {}).name || "她";
+    try {
+      return await runProbe(route, ctxFor(char), {
+        voice: true, images: img ? [img] : [],
+        instruction: "你和 " + uName + " 在一起拼一张手机壁纸，她把现在的样子给你看" + (img ? "（图里就是）" : "") + "。下面是上面每样东西的编号、位置（占整张的左右%、上下%）、大小和角度：\n" + desc
+          + "\n\n你看一眼，照你这个人的性子动几下：可以挪（to:[左右%,上下%]）、放大缩小（size，100 是原样）、转（angle，度）、拿掉（remove:true），可以给照片换滤镜（filter）、给字换样式（style）、给胶带涂鸦和字换颜色（color），可以加贴纸、胶带涂鸦（shape）或者写一句字（add），也可以换背景、颜色、字体。"
+          + "想动多少动多少，觉得已经很好、一下都不想动也行。say 是你看着这张想跟她说的话，可以说你为什么这么动，想说什么就说什么，长短跟着你此刻的心情和你这个人平时说话的样子来。" + (hist ? "\n\n【这一回拼壁纸到现在，你们俩的来回（「她」是 " + uName + "，「你」是你）】\n" + hist + "\n接着这些往下：记得自己刚才动过什么、说过什么，别把上一句话再说一遍，她刚改的地方你看得见也可以接一句。" : ""),
+        schemaHint: "{\"say\":\"你想跟她说的话\",\"ops\":[{\"id\":\"编号\",\"to\":[50,50],\"size\":100,\"angle\":0,\"filter\":\"\",\"style\":\"\",\"color\":\"\",\"remove\":false}],\"add\":[{\"sticker\":\"贴纸或我的贴纸N\",\"shape\":\"或者胶带涂鸦的名字\",\"text\":\"或者一句字\",\"at\":[50,50],\"size\":100,\"angle\":0,\"color\":\"#2b2b2b\"}],\"bg\":\"\",\"bgColor\":\"\",\"bgInk\":\"\",\"font\":\"\"}",
+        maxTokens: 12000
+      });
+    } catch (e) { toast("没看成：" + ((e && e.message) || "重试")); return null; }
+  };
+  // 挑几样让 TA 选：几张小图 + 每张是什么；TA 挑一个、说为什么
+  const collageChoose = async (charId, kind, imgs, labels, hist) => {
+    const char = characters.find(c => c.id === charId);
+    const route = apiFor(charId);
+    if (!char || !route) { toast("请先到设置配置 API"); return null; }
+    const uName = (profileFor(charId) || {}).name || "她";
+    const what = kind === "photo" ? "哪张照片放进壁纸" : kind === "bg" ? "哪个当壁纸的底" : "哪颗贴纸贴上去";
+    try {
+      const d = await runProbe(route, ctxFor(char), {
+        voice: true, images: imgs || [],
+        instruction: uName + " 在拼你们的手机壁纸，拿了几样问你：" + what + "？\n" + (labels || []).join("\n")
+          + "\n\n照你自己的喜好挑一个（pick 写编号），why 是你挑完想跟她说的话，想说什么就说什么，长短跟着你此刻的心情和你这个人平时说话的样子来。" + (hist ? "\n\n【这一回拼壁纸到现在，你们俩的来回（「她」是 " + uName + "，「你」是你）】\n" + hist + "\n接着这些往下：记得自己刚才动过什么、说过什么，别把上一句话再说一遍，她刚改的地方你看得见也可以接一句。" : ""),
+        schemaHint: "{\"pick\":1,\"why\":\"你想跟她说的话\"}",
+        maxTokens: 12000
+      });
+      return { pick: Math.round(Number(d && d.pick)) || 0, why: String((d && d.why) || "").trim() };
+    } catch (e) { toast("没挑成：" + ((e && e.message) || "重试")); return null; }
+  };
+  // TA 先拼一张：从样式到贴纸都由TA挑，回一份完整的初稿
+  const collageDraft = async (charId, catalog, hist) => {
+    const char = characters.find(c => c.id === charId);
+    const route = apiFor(charId);
+    if (!char || !route) { toast("请先到设置配置 API"); return null; }
+    const uName = (profileFor(charId) || {}).name || "她";
+    try {
+      return await runProbe(route, ctxFor(char), {
+        voice: true,
+        instruction: "你和 " + uName + " 要拼一张手机壁纸，这次你先动手拼一张给她看。能用的东西：\n" + catalog
+          + "\n\n挑一个样式（tpl 写样式名），照片按格子顺序写编号（picks），拍立得样式可以给每张写一句底下的字（captions），再写几句手写在壁纸上的字（words，可以不写），背景、颜色（bgColor 底色 / bgInk 花纹色，#开头的颜色，可不填）、字体都由你定；"
+          + "add 里可以再加贴纸（sticker）、胶带涂鸦（shape）、一句字（text）、多一张照片（photo:编号），位置 at:[左右%,上下%]。照片里标着「你的」的是你自己的东西（你手机里存的、你画的），想放就放。"
+          + "照你这个人的眼光和你们之间的事来挑，不用面面俱到。say 是你拼完想跟她说的话，想说什么就说什么，长短跟着你此刻的心情和你这个人平时说话的样子来。" + (hist ? "\n\n【这一回拼壁纸到现在，你们俩的来回（「她」是 " + uName + "，「你」是你）】\n" + hist + "\n接着这些往下：记得自己刚才动过什么、说过什么，别把上一句话再说一遍，她刚改的地方你看得见也可以接一句。" : ""),
+        schemaHint: "{\"tpl\":\"样式名\",\"picks\":[编号],\"captions\":[\"\"],\"words\":[\"\"],\"bg\":\"背景名\",\"bgColor\":\"\",\"bgInk\":\"\",\"font\":\"字体名\",\"add\":[{\"sticker\":\"\",\"shape\":\"\",\"text\":\"\",\"photo\":null,\"at\":[50,50],\"size\":100,\"angle\":0,\"color\":\"\"}],\"say\":\"你想跟她说的话\"}",
+        maxTokens: 12000
+      });
+    } catch (e) { toast("没拼成：" + ((e && e.message) || "重试")); return null; }
+  };
+  // TA 自己的东西：手机相册里存下来的照片、抽屉里TA画的画——拼壁纸时跟合照一起摆出来
+  const collageHisThings = charId => {
+    const out = [];
+    try {
+      (coupleDrawer || []).filter(x => x && x.characterId === charId && x.kind === "draw" && x.svg).slice(0, 12)
+        .forEach(x => out.push({ imgUrl: "data:image/svg+xml;charset=utf-8," + encodeURIComponent(x.svg), desc: String(x.text || x.title || "画的一张").slice(0, 40), from: "你画的", ts: x.ts || 0 }));
+      const all = (window.PhoneKit && window.PhoneKit.keepLoad) ? window.PhoneKit.keepLoad() : loadJSON("x_phoneKeep", {});
+      const kept = ((window.PhoneKit && window.PhoneKit.keptPhotos) || (v => Array.isArray(v) ? v : []))((all || {})[charId]);
+      kept.filter(x => x && (x.imageRef || x.imageUrl)).slice(0, 20).forEach(x => {
+        const u = x.imageRef ? (typeof resolveImg === "function" ? resolveImg(x.imageRef) : "") : x.imageUrl;
+        if (u) out.push({ imgUrl: u, desc: String(x.caption || x.desc || x.scene || "手机里的一张").slice(0, 40), from: "你手机里的", ts: x.ts || 0 });
+      });
+    } catch (e) {}
+    return out;
+  };
+  // 存下来：挂合照墙、存到手机；一人一半那半张换成 TA 的锁屏（跟TA自己换锁屏是同一格）；TA 下一轮知道你们拼了一张
+  const collageSave = async (charId, o) => {
+    const char = characters.find(c => c.id === charId);
+    if (!char || !o || !o.mine) return;
+    const put = async (blob, tag) => { const key = "img_collage_" + tag + "_" + Date.now(); await idbImgPut(key, blob); return key; };
+    const mineKey = await put(o.mine, "me");
+    addCoupleShot({ charId, imgKey: mineKey, desc: o.his ? "一起拼的壁纸 · 我那半张" : "一起拼的壁纸", from: "一起拼的" });
+    if (o.his) {
+      const hisKey = await put(o.his, "ta");
+      addCoupleShot({ charId, imgKey: hisKey, desc: "一起拼的壁纸 · " + (char.remark || char.name) + " 那半张", from: "一起拼的" });
+      await setCharLockscreen(charId, { key: hisKey, desc: "和你一起拼的壁纸（一人一半里自己那半张）" }, charId, null);
+    }
+    try { if (typeof saveFile === "function") await saveFile(new File([o.mine], "我们的壁纸-" + Date.now() + ".jpg", { type: "image/jpeg" })); } catch (e) {}
+    // 记一条进TA的记忆（跟花房、情书同一条路）：之后主动找她、聊到相关的事，TA 想得起这张壁纸是怎么拼出来的
+    const uN = (profileFor(charId) || {}).name || "她";
+    const ws = (o.words || []).map(w => String(w || "").trim()).filter(Boolean);
+    const st = (o.story || []).filter(x => /^你：/.test(String(x))).slice(-2).map(x => String(x).replace(/^你：/, "").slice(0, 80));
+    coupleKeep(charId, uN + " 和 " + (char.remark || char.name) + " 一起拼了一张手机壁纸" + (ws.length ? "，上面手写着「" + ws.slice(0, 3).join("」「") + "」" : "")
+      + (o.his ? "；是一人一半的，" + (char.remark || char.name) + " 那半张换成了自己手机的锁屏" : "；挂在合照墙上了") + (st.length ? "。拼的时候 " + (char.remark || char.name) + " " + st.join("；") : ""), "壁纸");
+    toast(o.his ? "存好了，" + (char.remark || char.name) + " 的锁屏也换上了" : "存好了，也挂上合照墙了");
+    waitForHer(charId, { collageDone: { split: !!o.his, words: (o.words || []).map(w => String(w || "").trim()).filter(Boolean).slice(0, 4), story: (o.story || []).map(x => String(x).slice(0, 400)).slice(-8) } });
+  };
   const gardenPlantMine = (char, species, why) => {
     const sp = String(species || "").trim();
     if (!sp) { toast("写一下种什么"); return; }
@@ -32024,7 +32107,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       const label = (typeof SHOP_CATS !== "undefined" ? SHOP_CATS.find(c => c.key === cat) : null);
       const topic = keyword && keyword.trim() ? "用户搜索关键词「" + keyword.trim() + "」" : "「" + (label ? label.zh : cat) + "」分类";
       const d = await runProbe(bgActive, { char: { id: "__shop", name: "购物", persona: "" }, chars: characters, rels, profile, timeAware: false, worldbook: loreForContext("lifestyle", [], String(cat || "") + " " + String(keyword || "")) }, {
-        // ⚠️别再写「类似淘宝」：那是直接叫它去抄别人（她 2026-09-02 点名这一处是照着别人做的）。
+        // ⚠️别再写「类似淘宝」：那是直接叫它去模仿别的平台（她 2026-09-02 要的是我们自己的）。
         // ⚠️schemaHint 里的占位值必须是【说明】不是【样例内容】——
         //   原来写的是「川味经典红油抄手 / 地道成都风味」，那两句会被逐字照抄，
         //   刷出来的永远是同一族商品（见 施工规则/prompt-no-content-samples.md）。
@@ -34282,6 +34365,9 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
           setTimeout(() => pChat(activeChar.id, p => [...p, { role: "system", kind: "system", sub: "frverify", content: "对方开启了朋友验证，你还不是 TA 的朋友。点消息旁的「!」发送好友申请。", ts: Date.now() }]), 50); }
       gachaEarn(activeChar.id, "chat");
       pushUser(activeChar.id, txt, window.ChatRooms ? window.ChatRooms.chatKey(activeChar.id, activeRoomId) : activeChar.id);
+      // 聊天里说「拼张壁纸吧」（她 2026-11-10）：在一起的，底下落一张小卡，点了进拼壁纸、TA 先拼一张。不叫模型、只认字面
+      if (/(拼|做|弄|整).{0,4}(张|个|一张)?.{0,2}(情侣)?壁纸|壁纸.{0,4}(拼|一起)/.test(String(txt || "")) && ((couples || {})[activeChar.id] || {}).status === "together" && window.Collage)
+        setTimeout(() => pChat(activeChar.id, p => [...p, { role: "assistant", kind: "collageinvite", charId: activeChar.id, ts: Date.now(), content: "一起拼一张壁纸" }]), 300);
       // 书房直通（她 2026-09-25 拍板）：言秋房的话默认投去 CC 老窗口，回复走账本流回来。
       // 投递失败只提示不回滚——消息本来就该留在聊天里，她可以点「让TA回复」走直连兜底。
       if (window.CcLane && window.CcLane.routes(settingsFor(activeChar.id))) {
@@ -35617,7 +35703,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     // 只捞线上等于把最该上墙的那一半漏在外面。按时间从新到旧排。
     duoPhotosFor: duoPhotosOf,
     onDeletePhoto: confirmDeleteDuoPhoto,
-    onUploadPhoto: uploadCoupleShot,
+    onUploadPhoto: uploadCoupleShot, onCollageArrange: collageArrange, onCollageSave: collageSave, onCollageLook: collageLook, onCollageChoose: collageChoose, onCollageDraft: collageDraft, collageHisThings: collageHisThings,
     // 时光胶囊现在是情侣空间【里面】的一层（v62.41），不再是另一个屏。
     // characters / characterId / profile / onBack 由 Us 那头按当前这段关系补上。
     // onKeep：拆开之后往记忆库记一笔（v64.03）。走的是情侣空间那条现成的 coupleKeep，
@@ -37167,7 +37253,6 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     onArchiveRoutineGroups: archiveRoutineGroups,
     onListRepairConflicts: listRepairConflicts,
     onDecideRepairConflict: decideRepairConflict,
-    onRefine: refineOldMemories,
     onRestoreArchived: restoreArchived,
     onBulkImport: bulkImportMemories,
     onAudit: exportMemoryAudit,

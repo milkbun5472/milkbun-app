@@ -4,7 +4,7 @@
 // 角色卡一键导入（v48.30 搬家器；v58.46 大修）：整篇卡粘进来 → 自动拆 名字/一句话/人设/长期记忆/记忆库种子。
 // 她 2026-08-30：「导入角色卡那个格式还是有点不对劲，经常导入了格式还是不对」。原来那版只认两种东西：
 // 「# 名字 · 角色卡」这一种标题，和「##」这一级分节。别的一律走「整篇当人设」的兜底——
-// 于是酒馆导出的 JSON 会被原样当人设塞进去（连大括号一起），{{char}}/{{user}} 占位符原样留着，
+// 于是别处导出的 JSON 卡 会被原样当人设塞进去（连大括号一起），{{char}}/{{user}} 占位符原样留着，
 // 例句脚手架（<START>、mes_example）也一起进去跟 app 自己的手机机制打架。
 
 // {{char}} / {{user}} 这类占位符 app 不认，导入时就换掉，不要留给她手动改
@@ -26,7 +26,7 @@ function cardFillNames(text, charName, userName) {
     .replace(/\n{3,}/g, "\n\n")
     .trim();
 }
-// 酒馆卡里的例句脚手架：<START> 之后那一段是「示范怎么对话」，不是这个人是谁。
+// 常见格式角色卡里的例句脚手架：<START> 之后那一段是「示范怎么对话」，不是这个人是谁。
 // 塞进人设会让角色照着例句的格式说话，跟 app 自己的气泡/手机机制打架。
 function cardStripScaffold(text) {
   let out = String(text || "");
@@ -43,7 +43,7 @@ function cardWarnings(text, hadExample) {
   if (/(手机|微信|状态栏|输出格式|回复格式|输出要求|status\s*bar)/i.test(t)) w.push("卡里像是带了「手机 / 输出格式」那种脚手架，导入后翻一眼人设，跟 app 自带的机制打架就删掉");
   return w;
 }
-// 酒馆卡（v1 扁平 / v2 带 data / 直接一个对象）：认出来就按字段拆，不要整坨当人设
+// 常见格式的 JSON 角色卡（v1 扁平 / v2 带 data / 直接一个对象）：认出来就按字段拆，不要整坨当人设
 function cardFromJSON(text) {
   const raw = String(text || "").trim();
   if (!(raw.startsWith("{") && raw.endsWith("}"))) return null;
@@ -776,7 +776,7 @@ function fmtNum(n) { n = Number(n) || 0; if (n >= 10000) return (n / 10000).toFi
 // 不是我另贴的标签；认不出品类就不显示，别硬安一个。
 // ⚠️别拿商品名的第一个字当大字——那多半是「北」「冷」「小」「高」这种修饰词，没有信息。
 // 分栏（v60.44 重做）
-// 她 2026-09-02：「这几样 category 改一下，我之前是参考了别人的」。
+// 她 2026-09-02：「这几样 category 改一下」，要改成我们自己的分法。
 // 原来是「推荐/外卖/服饰/美妆/数码/家具/情趣」——一份通用电商品类词典，
 // 原样搬进任何一个购物 app 都成立（tabs-not-plain-pills.md 那条判据）。
 // 这个 app 里的购物不是「逛商城」，是【她在逛，而TA看得见、TA会买单】：
@@ -2030,8 +2030,11 @@ function AlbumPhoto({ photo, full, cover }) {
   if (!src) return h("div", { style: { width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: full ? 40 : 20, opacity: 0.3 } }, "🖼");
   return h("img", { src, loading: "lazy", "data-desc": desc, style: full ? { maxWidth: "90vw", maxHeight: "72vh", borderRadius: 12, objectFit: "contain" } : { width: "100%", height: "100%", objectFit: "cover", display: "block" } });
 }
-function CoupleAlbum({ partner, photos, onBack, onDelete, onUpload }) {
+function CoupleAlbum({ partner, photos, onBack, onDelete, onUpload, onArrange, onCollageSave, onLook, onChoose, onDraft, extra, autoCollage, onAutoDone }) {
   const t = useTheme();
+  const [collage, setCollage] = useState(!!autoCollage); // 拼一张壁纸（js/collage.js）；从聊天卡进来的直接打开
+  const [autoDraft] = useState(autoCollage === "draft");
+  useEffect(() => { if (autoCollage && onAutoDone) onAutoDone(); }, []);
   const [zoom, setZoom] = useState(null);
   // 自己传一张挂上墙（群友 2026-10-14：「许愿一个可以自己传图片的地方」——自己画的、约的图也想挂）。
   //   传上去就是一张墙上的照片，不叫TA点评、不花模型钱；删法跟别的照片一样。
@@ -2048,14 +2051,18 @@ function CoupleAlbum({ partner, photos, onBack, onDelete, onUpload }) {
     g.items.push(p);
   });
   const isTwelfth = new Date().getDate() === 12;
+  if (collage && window.Collage) return h(window.Collage.CollageMaker, { partner, photos: list, onBack: () => setCollage(false), onArrange, onLook, onChoose, onDraft, extra, autoDraft, onSave: onCollageSave ? async o => { await onCollageSave(o); setCollage(false); } : null });
   return h("div", { "data-wk": "uspage", "data-part": "couplealbum", className: "h-full flex flex-col", style: cpSkin(t, "album") },
     h(Head, { zh: "我们的合照", sub: partner.remark || partner.name, bg: "transparent", onBack: onBack,
       right: onUpload ? h("button", { onClick: () => upRef.current && upRef.current.click(), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.accent, padding: "6px 4px" } }, "传一张") : null }),
     onUpload ? h("input", { ref: upRef, type: "file", accept: "image/*", style: { display: "none" }, onChange: e => { const f = e.target.files && e.target.files[0]; e.target.value = ""; if (f) { setUp({ file: f, url: URL.createObjectURL(f) }); setUpDesc(""); } } }) : null,
-    h("div", { className: "flex-1 min-h-0 overflow-y-auto px-5 pb-12" },
+    h("div", { ref: keepScroll("album:" + partner.id), className: "flex-1 min-h-0 overflow-y-auto px-5 pb-12" },
       list.length === 0
         ? h(Empty, { text: "还没有你俩的合照", sub: "在和 " + partner.name + " 的聊天里，让 TA 拍张『我俩的合照』——就会挂到这面墙上。（需先在设置配好图像 API、你和 TA 都传了参考照）" + (onUpload ? "\n自己画的、约的图，点右上「传一张」也能挂上来。" : "") })
         : h(Fragment, null,
+            window.Collage && onCollageSave ? h("button", { "data-part": "collageopen", onClick: () => setCollage(true), className: "w-full active:opacity-70",
+              style: { marginTop: 8, padding: "11px 0", borderRadius: 12, border: "1px dashed " + t.accent, color: t.accent, fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))" } },
+              "拼一张壁纸 · 和 " + partner.name + " 一起摆") : null,
             h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: isTwelfth ? t.accent : t.fog, textAlign: "center", padding: "8px 0 16px", lineHeight: 1.7, whiteSpace: "pre-line" } },
               "你和 " + partner.name + " 的合照 · 共 " + list.length + " 张\n" + (isTwelfth ? "今天十二号——来翻翻我们。" : "每月十二号，来这儿翻翻。")),
             groups.map(g => h("div", { key: g.key, style: { marginBottom: 20 } },
@@ -2619,12 +2626,20 @@ function GardenPlant({ g, size }) {
 
 // 花房整页（no-half-sheet）。规矩就三条：花是TA挑的；它吃你们真实的相处（不靠浇水按钮，
 // 没有任何数值进度条——长到哪儿看它自己）；开完一茬收一枚干花，盆空出来等下一种。
+// 花房画的那张存在本机图库（键是 img_garden_…），不是图床链接：得从图库里读出来才显示得了
+//   （群友 2026-11-11：「花房这里的生图似乎显示不出来」——原来直接拿那个键当图片地址用了）
+function GardenImg({ k, part, alt, style }) {
+  const isKey = /^img_/.test(String(k || ""));
+  const fromIdb = typeof useIdbImgUrl === "function" ? useIdbImgUrl(isKey ? k : null) : null;
+  const src = isKey ? fromIdb : (typeof resolveImg === "function" ? resolveImg(k) : k);
+  if (!src) return h("div", { "data-part": part, style: Object.assign({}, style, { aspectRatio: style && style.height ? undefined : "1", background: "rgba(0,0,0,.05)" }) });
+  return h("img", { "data-part": part, src, alt: alt || "", style });
+}
 function CoupleGarden({ partner, data, gen, onPlant, onKeep, onBack, onPlantMine, onDraw, onDrawToggle, drawing }) {
   const t = useTheme();
   // 我也能种（她 2026-11-09）：我种的跟TA种的走同一条路——进TA记忆、TA会接一句、收进同一本干花册
   const [mySp, setMySp] = useState("");
   const [myWhy, setMyWhy] = useState("");
-  const img = src => (typeof resolveImg === "function" ? resolveImg(src) : src);
   // 干花册里点开一枚看全文（她 2026-09-18 转小红书群里读者 ! YOLO：
   //   「干花册里面看不到完整的详情文字，能不能点开能够弹出来，或者就是直接展示区更大一些」）
   // ⚠️不另开一个弹层：册子本来就是一册一册翻的，点开那一枚就地摊开最像它自己。
@@ -2646,7 +2661,7 @@ function CoupleGarden({ partner, data, gen, onPlant, onKeep, onBack, onPlantMine
           h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(22px * var(--app-fs, 1))", color: "#43552f", marginTop: 10 } }, g.species),
           h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: "#7a8a62", marginTop: 4 } },
             st.zh + " · " + fmtD(g.plantedTs) + (g.by === "me" ? " 你种下" : " " + partner.name + " 种下")),
-          g.img ? h("img", { "data-part": "gardenimg", src: img(g.img), alt: g.species, style: { width: "100%", borderRadius: 14, marginTop: 12, display: "block" } }) : null,
+          g.img ? h(GardenImg, { k: g.img, part: "gardenimg", alt: g.species, style: { width: "100%", borderRadius: 14, marginTop: 12, display: "block" } }) : null,
           g.why ? h("div", { style: { fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: "calc(13px * var(--app-fs, 1))", lineHeight: 1.7, color: "#93707c", marginTop: 10 } }, "「", (typeof TransText === "function" ? h(TransText, { text: g.why, inline: true }) : g.why), "」") : null),
         h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.8, textAlign: "center", marginTop: 12 } },
           doze ? "它在打盹——你们回来，它就接着长。" : "它吃你们真实的相处：聊过天、线下待过、打过卡，它就长一点。没有进度条——长到哪儿，看它自己。"),
@@ -2687,7 +2702,7 @@ function CoupleGarden({ partner, data, gen, onPlant, onKeep, onBack, onPlantMine
           const on = openFlower === i;
           // 没有理由那一句的，点开也没有第二层，就别做成按钮（点了没反应比不能点更糟）
           const row = h("div", { className: "flex items-center", style: { gap: 11, padding: "11px 2px", borderBottom: on ? "none" : "1px solid " + t.line } },
-            k.img ? h("img", { src: img(k.img), alt: "", style: { width: 34, height: 34, borderRadius: 8, objectFit: "cover", flexShrink: 0 } })
+            k.img ? h(GardenImg, { k: k.img, alt: "", style: { width: 34, height: 34, borderRadius: 8, objectFit: "cover", flexShrink: 0 } })
               : h("span", { "aria-hidden": "true", style: { width: 11, height: 11, borderRadius: "50% 50% 50% 0", background: k.color || "#c98a9e", opacity: 0.8, flexShrink: 0, transform: "rotate(-45deg)" } }),
             h("div", { className: "flex-1 min-w-0 text-left" },
               h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.ink } }, k.species),
@@ -3092,7 +3107,7 @@ function SpaceDoor({ partner, home, busy, lit, carryNames, tone, eyebrow, put, t
     eyebrow("留灯", "今晚的，早上六点熄"), lights);
 }
 
-function Us({ onPutDrawerMine, onReplyDrawerMine, drawerReplyBusy, characters, couples, onBack, myWallet, onJarMove, onJarGoal, onInvite, onSetRel, spaceBooks, spaceBookBusy, onBookAdd, onBookReply, onBookRemove, onBookTa, spaceHome, spaceHomeBusy, lightLit, carryNamesOf, onSpaceHome, onSpaceHomeTa, onUnlink, onSetSince, profile, profileFor, coupleProfile, coupleHome, onSaveCoupleHome, onSetCoupleImg, coupleQA, onAnswerQA, onEditQA, onRemoveQA, onRerollQA, onReplyQA, onEditQAReply, qaGen, coupleQATitle, onSaveQATitle, coupleQACustom, coupleQABooks, onSaveQABook, onSaveQACustom, coupleQACustomBooks, onSaveQACustomBooks, moodOf, coupleTimeline, onAddTimeline, onRemoveTimeline, onReadTimeline, onGenTimeline, tlGen, coupleAnniv, onAddAnniv, onRemoveAnniv, coupleLetters, coupleLetterCfg, onGenLetter, onAddMyLetter, onReplyLetter, onReadLetter, onRemoveLetter, onSaveLetterCfg, letterGen, coupleSweet, onCheckinSweet, coupleDrawer, onOpenDrawer, onDropDrawer, onEditDrawer, onForwardDrawer, coupleFirstsOf, onSetFirstAt, myCloset, charClosetOf, studioShots, studioBusy, fitBusy, studioCanShoot, onGenDateFit, onStudioShoot, onRollStyles, onRollThemes, onShareShot, ifLines, ifBusy, ifBgBusy, onIfOpen, onIfAdvance, onIfBg, onIfShot, onIfBgPick, onIfEnd, onIfDrop, makeupOf, makeupSignalFor, makeupBusy, onMakeupOpen, onMakeupSay, onMakeupClose, gachaPts, gachaCards, gachaLuck, gachaBusy, onGachaPull, onGachaRedeem, onGachaShow, onGachaPin, onGachaDelete, onGachaTitle, onGachaShoot, onGachaCarve, land, onLanded, coupleExDiary, onAddExDiary, onReadExDiary, duoPhotosFor, onDeletePhoto, onUploadPhoto, couplePactsOf, onClosePact, onSetPactDue, onAddPact, onSealQA, onRevealQA, onPlanWish, wishPlanOf, coupleGarden, onGardenPlant, onGardenKeep, gardenGen, onGardenPlantMine, onGardenDraw, onGardenDrawToggle, gardenDrawing, coupleTrips, onTripStart, onTripPlan, onTripBook, onTripBookPick, onTripBookPay, onTripDate, kinCardFrom, onTripDepart, onTripDone, tripGen, coupleRecall, onGenRecall, onReadRecall, onDelRecall, recallGen, onGenWish, charWishGen, outletLedger, outletKinds, capsuleProps, coupleDisc, onDiscAdd, onDiscRemove, onDiscNote, onDiscAuto, onDiscPlay, onDiscEnter, onDiscLeave, onDiscGen, discGen, discNextIdOf, discNowId, discPlaying, onPartnerView }) {
+function Us({ onPutDrawerMine, onReplyDrawerMine, drawerReplyBusy, characters, couples, onBack, myWallet, onJarMove, onJarGoal, onInvite, onSetRel, spaceBooks, spaceBookBusy, onBookAdd, onBookReply, onBookRemove, onBookTa, spaceHome, spaceHomeBusy, lightLit, carryNamesOf, onSpaceHome, onSpaceHomeTa, onUnlink, onSetSince, profile, profileFor, coupleProfile, coupleHome, onSaveCoupleHome, onSetCoupleImg, coupleQA, onAnswerQA, onEditQA, onRemoveQA, onRerollQA, onReplyQA, onEditQAReply, qaGen, coupleQATitle, onSaveQATitle, coupleQACustom, coupleQABooks, onSaveQABook, onSaveQACustom, coupleQACustomBooks, onSaveQACustomBooks, moodOf, coupleTimeline, onAddTimeline, onRemoveTimeline, onReadTimeline, onGenTimeline, tlGen, coupleAnniv, onAddAnniv, onRemoveAnniv, coupleLetters, coupleLetterCfg, onGenLetter, onAddMyLetter, onReplyLetter, onReadLetter, onRemoveLetter, onSaveLetterCfg, letterGen, coupleSweet, onCheckinSweet, coupleDrawer, onOpenDrawer, onDropDrawer, onEditDrawer, onForwardDrawer, coupleFirstsOf, onSetFirstAt, myCloset, charClosetOf, studioShots, studioBusy, fitBusy, studioCanShoot, onGenDateFit, onStudioShoot, onRollStyles, onRollThemes, onShareShot, ifLines, ifBusy, ifBgBusy, onIfOpen, onIfAdvance, onIfBg, onIfShot, onIfBgPick, onIfEnd, onIfDrop, makeupOf, makeupSignalFor, makeupBusy, onMakeupOpen, onMakeupSay, onMakeupClose, gachaPts, gachaCards, gachaLuck, gachaBusy, onGachaPull, onGachaRedeem, onGachaShow, onGachaPin, onGachaDelete, onGachaTitle, onGachaShoot, onGachaCarve, land, onLanded, coupleExDiary, onAddExDiary, onReadExDiary, duoPhotosFor, onDeletePhoto, onUploadPhoto, onCollageArrange, onCollageSave, onCollageLook, onCollageChoose, onCollageDraft, collageHisThings, couplePactsOf, onClosePact, onSetPactDue, onAddPact, onSealQA, onRevealQA, onPlanWish, wishPlanOf, coupleGarden, onGardenPlant, onGardenKeep, gardenGen, onGardenPlantMine, onGardenDraw, onGardenDrawToggle, gardenDrawing, coupleTrips, onTripStart, onTripPlan, onTripBook, onTripBookPick, onTripBookPay, onTripDate, kinCardFrom, onTripDepart, onTripDone, tripGen, coupleRecall, onGenRecall, onReadRecall, onDelRecall, recallGen, onGenWish, charWishGen, outletLedger, outletKinds, capsuleProps, coupleDisc, onDiscAdd, onDiscRemove, onDiscNote, onDiscAuto, onDiscPlay, onDiscEnter, onDiscLeave, onDiscGen, discGen, discNextIdOf, discNowId, discPlaying, onPartnerView }) {
   const t = useTheme();
   const [view, setView] = useState(null); // null=名册 / charId=某段情侣详情
   const [sub, setSub] = useState(null); // 情侣空间子模块：null / 'qa'（后续加 timeline/mood/notes/letters）
@@ -3109,7 +3124,7 @@ function Us({ onPutDrawerMine, onReplyDrawerMine, drawerReplyBusy, characters, c
     // ⚠️开子页一律走 openSub，落点这一路也不例外（couple-space-62-26 那条规矩当场把我
     //   直接 setSub 的那一版揪出来了）：主页还没挂着时 bodyRef 是 null，openSub 自己
     //   会保留上一次记着的位置而不是清成 0，所以从外面落进来也照走它。
-    if (ok) { setView(land.view); if (land.sub) openSub(land.sub); else setSub(null); }
+    if (ok) { setView(land.view); if (land.sub) openSub(land.sub); else setSub(null); setAlbumAuto(land.collage || ""); }
     if (onLanded) onLanded();
   }, [land]);
   // ── 进子页记位置、回来放回去（mobile-ui-layout.md §3；她 2026-09-04：
@@ -3117,22 +3132,14 @@ function Us({ onPutDrawerMine, onReplyDrawerMine, drawerReplyBusy, characters, c
   // 病：每个子页都是 `return h(XxxPage…)` 的早退，详情页整个卸载，滚动位置跟着没了。
   // 所以【所有开子页的地方一律走 openSub】，别再直接 openSub("…")——
   // 漏一处就是那一扇门回来会跳顶，而且看不出来（一层写在两处那个老形状）。
+  // 位置交给公共的 keepScroll（core.js）记：主页那个滚动框挂 keepScroll("us:" + 谁)，卸载再挂回来自己放回原处。
+  //   openSub 留着当唯一入口（别处还靠它切子页），只是不用再自己记数了。
   const bodyRef = useRef(null);
-  const subScrollRef = useRef(0);
-  // ⚠️子页切子页（愿望板→旅行）时主页没挂着、bodyRef 是 null——这时要【保留】记着的
-  // 位置，不能清成 0，不然从旅行一路退回主页就跳顶。所以只有真拿得到滚动位置才记。
-  const openSub = k => { if (bodyRef.current) subScrollRef.current = bodyRef.current.scrollTop; setSub(k); };
-  React.useLayoutEffect(() => {
-    if (sub === null && bodyRef.current && subScrollRef.current > 0) bodyRef.current.scrollTop = subScrollRef.current;
-  }, [sub]);
+  const openSub = k => setSub(k);
   // 名册也记位置（她 2026-11-10：「下滑到下面的人的空间，退出来又回到最上面」）：
   //   进某一段之前记下名册滚到哪儿，退回名册时放回去——跟上面子页那一套同一个做法
-  const rosterRef = useRef(null);
-  const rosterScrollRef = useRef(0);
-  const openView = id => { if (rosterRef.current) rosterScrollRef.current = rosterRef.current.scrollTop; setView(id); };
-  React.useLayoutEffect(() => {
-    if (view === null && rosterRef.current && rosterScrollRef.current > 0) rosterRef.current.scrollTop = rosterScrollRef.current;
-  }, [view]);
+  const openView = id => setView(id);
+  const [albumAuto, setAlbumAuto] = useState("");   // 从聊天那张「去拼壁纸」卡进来：合照墙直接打开拼壁纸，TA 先拼一张
   const [pick, setPick] = useState(false);
   const [pickWho, setPickWho] = useState(null);   // 选好了人，正在挑这个空间是什么关系
   const [annOpen, setAnnOpen] = useState(false);
@@ -3295,7 +3302,10 @@ function Us({ onPutDrawerMine, onReplyDrawerMine, drawerReplyBusy, characters, c
   }
   // 情侣空间子模块：合照墙
   if (partner && cp[view] && cp[view].status === "together" && sub === "album") {
-    return h(CoupleAlbum, { partner, photos: duoPhotosFor ? duoPhotosFor(partner.id) : [], onBack: () => setSub(null), onDelete: onDeletePhoto ? p => onDeletePhoto(partner.id, p) : null, onUpload: onUploadPhoto ? (file, desc) => onUploadPhoto(partner.id, file, desc) : null });
+    return h(CoupleAlbum, { partner, photos: duoPhotosFor ? duoPhotosFor(partner.id) : [], onBack: () => setSub(null), onDelete: onDeletePhoto ? p => onDeletePhoto(partner.id, p) : null, onUpload: onUploadPhoto ? (file, desc) => onUploadPhoto(partner.id, file, desc) : null,
+      onArrange: onCollageArrange ? (list, tpl, split, hist) => onCollageArrange(partner.id, list, tpl, split, hist) : null, onCollageSave: onCollageSave ? o => onCollageSave(partner.id, o) : null,
+      onLook: onCollageLook ? (img, desc, hist) => onCollageLook(partner.id, img, desc, hist) : null, onChoose: onCollageChoose ? (kind, imgs, labels, hist) => onCollageChoose(partner.id, kind, imgs, labels, hist) : null,
+      onDraft: onCollageDraft ? (catalog, hist) => onCollageDraft(partner.id, catalog, hist) : null, autoCollage: albumAuto, onAutoDone: () => setAlbumAuto(""), extra: collageHisThings ? collageHisThings(partner.id) : [] });
   }
   // 情侣空间子模块：情书
   if (partner && cp[view] && cp[view].status === "together" && sub === "letters") {
@@ -3551,7 +3561,7 @@ function Us({ onPutDrawerMine, onReplyDrawerMine, drawerReplyBusy, characters, c
         right: onSetCoupleImg
           ? h("button", { onClick: () => setCpEdit(true), "aria-label": "自定义封面", className: "active:opacity-60 flex items-center justify-center", style: { width: 40, height: 40 } }, h(IPencil, { size: 18, color: "#fff" }))
           : null }),
-      h("div", { ref: bodyRef, className: "flex-1 min-h-0 overflow-y-auto", style: { position: "relative", zIndex: 1, overscrollBehavior: "contain" } },
+      h("div", { ref: keepScroll("us:" + partner.id, bodyRef), className: "flex-1 min-h-0 overflow-y-auto", style: { position: "relative", zIndex: 1, overscrollBehavior: "contain" } },
         // 这一块只是留出封面的位置（背景在下面那一层，不跟着滚）
         h("div", { style: { position: "relative", height: 150 } },
           h("div", { "data-wk": "uspair", style: { position: "absolute", left: 22, bottom: -30, zIndex: 2, display: "flex", alignItems: "flex-end" } },
@@ -4061,7 +4071,7 @@ function Us({ onPutDrawerMine, onReplyDrawerMine, drawerReplyBusy, characters, c
   }
 
   // —— 名册视图（默认，v60.55 重做）——
-  // 她 2026-09-02：「这个界面也修一修，当时也是参考了别人的。不一定要这种一个框一个框，
+  // 她 2026-09-02：「这个界面也修一修。不一定要这种一个框一个框，
   //                 显示的文字也不一定要这些。」
   // 原来是一框一框的卡：每张里都摆一遍【她自己的】头像、每张都写一遍「恋爱中」、
   // 「有新的情书」是个粉药丸、解除是个 💔 emoji。三样都犯规，而且信息全是重复的。
@@ -4091,7 +4101,7 @@ function Us({ onPutDrawerMine, onReplyDrawerMine, drawerReplyBusy, characters, c
     h(Head, { zh: entries.some(e => window.spaceRelKey && window.spaceRelKey(e.st) !== "lover") ? "我们的空间" : "情侣", sub: entries.length ? entries.length + " 段 · 最久的走了 " + maxDays + " 天" : "",
       bg: "transparent", noLine: true, onBack,
       right: characters.length > 0 ? h("button", { onClick: () => setPick(true), className: "active:opacity-50 flex items-center justify-center", style: { width: 34, height: 38 } }, h(IHeart, { size: 19, color: t.ink })) : null }),
-    h("div", { ref: rosterRef, "data-part": "usroster", className: "flex-1 min-h-0 overflow-y-auto px-6 pb-8" },
+    h("div", { ref: keepScroll("us:roster"), "data-part": "usroster", className: "flex-1 min-h-0 overflow-y-auto px-6 pb-8" },
       entries.length === 0
         ? h("div", { className: "pt-8" },
             h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", lineHeight: 1.8, color: t.fog } }, "还没有情侣关系。点右上角 ♥ 选一位角色发送邀请——邀请会出现在你和 TA 的聊天里，TA 会依据关系与好感决定接不接受。"),

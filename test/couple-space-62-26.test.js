@@ -4,6 +4,7 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 const root = path.join(__dirname, "..");
+const core = fs.readFileSync(path.join(__dirname, "../js/core.js"), "utf8");
 const scr = (fs.readFileSync(path.join(root, "js/screens.js"), "utf8") + "\n" + fs.readFileSync(path.join(root, "js/screens-ui.js"), "utf8"));
 const app = fs.readFileSync(path.join(root, "js/app.js"), "utf8");
 const eng = fs.readFileSync(path.join(root, "js/engine.js"), "utf8");
@@ -55,14 +56,14 @@ test("如果馆没东西时那句改成「同样的我们」", () => {
 test("从子页回来不许跳回最上面——而且每一扇门都得走同一个出口", () => {
   // v62.26 起子页也能切子页（愿望板→旅行）：主页没挂着时 bodyRef 是 null，
   // 这时要【保留】记着的位置而不是清成 0——所以只有真拿得到才记。
-  assert.match(scr, /const openSub = k => \{ if \(bodyRef\.current\) subScrollRef\.current = bodyRef\.current\.scrollTop; setSub\(k\); \};/,
-    "没有「进子页先记位置」这一步（或 null 时又清成 0 了）");
-  assert.match(scr, /if \(sub === null && bodyRef\.current && subScrollRef\.current > 0\) bodyRef\.current\.scrollTop = subScrollRef\.current;/,
-    "回来时没放回去");
-  assert.match(scr, /h\("div", \{ ref: bodyRef, className: "flex-1 min-h-0 overflow-y-auto"/, "滚动容器没挂 ref，记了也放不回去");
+  // 起：位置交给公共 keepScroll（core.js）记——主页滚动框挂 keepScroll("us:" + 谁)，子页卸载再挂回来自己放回原处
+  assert.match(scr, /const openSub = k => setSub\(k\);/, "openSub 这个唯一入口没了");
+  assert.match(scr, /h\("div", \{ ref: keepScroll\("us:" \+ partner\.id, bodyRef\), className: "flex-1 min-h-0 overflow-y-auto"/,
+    "主页滚动容器没挂 keepScroll，回来会跳顶");
+  assert.match(core, /function keepScroll\(key, also\)/, "公共 keepScroll 不在了");
   // ⚠️关键：开子页【只能】走 openSub。漏一处就是那一扇门回来会跳顶，而且看不出来。
   // openSub 自己那一行是唯一允许 setSub(k) 的地方，先把它挖掉再数
-  const rest = scr.replace(/  const openSub = k => \{[^\n]*\n/, "");
+  const rest = scr.replace(/  const openSub = k => [^\n]*\n/, "");
   const opens = rest.match(/setSub\((?!null\))/g) || [];
   assert.equal(opens.length, 0, "还有 " + opens.length + " 处直接 setSub(…) 开子页，那几扇门回来会跳顶");
   assert.ok((scr.match(/openSub\(/g) || []).length >= 10, "开子页的出口数不对，是不是有门没接上");

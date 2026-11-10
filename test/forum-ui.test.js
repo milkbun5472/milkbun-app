@@ -29,9 +29,8 @@ test("主论坛顶栏、底栏和详情返回遵守移动端布局铁律", () =>
   assert.match(forum, /barStyle: \{ backdropFilter: "blur\(14px\)"/, "那条毛玻璃没了");
   assert.match(forum, /noLine: !\(inSub \|\| nav !== "home"\)/, "首页不画分隔线那一档没了");
   assert.match(forum, /paddingBottom: COMPOSER_PAD_BOTTOM/, "底栏没跟主聊天输入栏用同一把尺");
-  assert.match(forum, /ref: feedScrollRef, className: "flex-1 min-h-0 overflow-y-auto"/, "主页没有唯一主滚动容器");
-  assert.match(forum, /feedScrollTopRef\.current = feedScrollRef\.current\.scrollTop/);
-  assert.match(forum, /feedScrollRef\.current\.scrollTop = feedScrollTopRef\.current/, "帖子返回后没恢复列表位置");
+  // 列表位置改交公共 keepScroll（core.js）记：点进帖子卸载、退回来再挂上自己放回原处
+  assert.match(forum, /ref: keepScroll\("forum:feed", feedScrollRef\), className: "flex-1 min-h-0 overflow-y-auto"/, "主页没有唯一主滚动容器（或没挂 keepScroll，帖子返回后不恢复列表位置）");
 });
 
 test("查手机论坛是全屏三身份主题页，并且能真渲染", () => {
@@ -61,6 +60,6 @@ test("查手机论坛帖子详情退回时恢复账号列表位置", () => {
   const tree = P.PhoneForumView({ accounts: LIVE.forumAccounts, char: { id: "c1", name: "沈屿白" }, onBack() {}, onPeek() {}, tab: "main", onTab() {} });
   const text = JSON.stringify(tree);
   assert.match(text, /转发给 TA/);
-  assert.match(phone, /savedScrollRef\.current = scrollRef\.current \? scrollRef\.current\.scrollTop : 0/);
-  assert.match(phone, /scrollRef\.current\.scrollTop = savedScrollRef\.current/);
+  // 列表位置由公共 keepScroll 按账号记，详情退回再挂上时自己放回去
+  assert.match(phone, /ref: keepScroll\("phone:forum:" \+ \(char && char\.id\) \+ ":" \+ acc\.key, scrollRef\), className: "flex-1 min-h-0 overflow-y-auto px-4"/, "账号列表没挂 keepScroll，退回会跳顶");
 });

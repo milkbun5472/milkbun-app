@@ -6,6 +6,10 @@ const app = fs.readFileSync(require("node:path").join(__dirname, "../js/app.js")
 const start = app.indexOf("  const saveExtractedGroupMemories =");
 const code = app.slice(start, app.indexOf("\n  };", start) + 5);
 const gate = require("../js/memory-extraction-gate.js");
+// 短期状态（ttl_days → expiresTs）的 memTtlPatch 住在 engine.js，app.js 直接调它——这里从源码里原样抠出来喂给沙盒
+const engineSrc = fs.readFileSync(require("node:path").join(__dirname, "../js/engine.js"), "utf8");
+const ttlStart = engineSrc.indexOf("function memTtlPatch(");
+const memTtlPatchSrc = engineSrc.slice(ttlStart, engineSrc.indexOf("\n}", ttlStart) + 2);
 function setup(interop = true) {
   const members = [{ id: "a", name: "甲" }, { id: "n", name: "配角", npc: true }];
   const ref = { current: [] };
@@ -19,7 +23,7 @@ function setup(interop = true) {
     window: { OpenLoopGate: require("../js/open-loop-gate.js") }
   };
   vm.createContext(ctx);
-  vm.runInContext(code + "\nthis.save = saveExtractedGroupMemories;", ctx);
+  vm.runInContext(memTtlPatchSrc + "\n" + code + "\nthis.save = saveExtractedGroupMemories;", ctx);
   return { ctx, ref, members, group: { id: "g", memberIds: ["a", "n"] } };
 }
 for (const tags of [["群聊", "测试群"], ["线下", "群聊"]]) {

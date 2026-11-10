@@ -1073,3 +1073,5 @@ function keepScroll(key, also) {
     el.addEventListener("scroll", () => { if (el.__ksKey === key && (!restoring || touched)) _keepScrollMem[key] = el.scrollTop; }, { passive: true });
   };
 }
+// 要它下次从顶上开始（比如换了一批内容）：忘掉这一格记着的位置
+keepScroll.forget = key => { delete _keepScrollMem[key]; };

@@ -5,8 +5,8 @@ const path = require("node:path");
 const R = f => fs.readFileSync(path.join(__dirname, "..", "js", f), "utf8");
 const app = R("app.js"), comp = R("components.js"), eng = R("engine.js");
 
-// 她 2026-08-27 拿 mingruis-miya 的现场页问「线下也有思考链，看看它咋弄的」。
-// 读完（AGPL，只看做法没取代码）：两个来源——先看接口字段，字段没有就从正文里的
+// 她 2026-08-27 问「线下也有思考链」。
+// 两个来源——先看接口字段，字段没有就从正文里的
 // <thinking> 标记捞。我们这边字段那条早就有了，缺的是【线下压根没要过这个字段】。
 const grab = name => {
   const i = eng.indexOf("function " + name);

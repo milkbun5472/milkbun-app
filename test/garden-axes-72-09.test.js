@@ -77,6 +77,11 @@ test("以前那几盆连话一起长期记着", () => {
   assert.deepEqual(fn(null), [], "空存档该给空单子");
   const k = app.indexOf("  const gardenKeep = charId => {");
   assert.ok(/said: gardenPastOf\(g\)/.test(app.slice(k, app.indexOf("\n  };", k))), "收干花时把 avoid 单子丢了");
-  assert.ok(/said: gardenPastOf\(old\)\.concat/.test(seg), "新种下的这一盆没记进 avoid 单子");
-  assert.ok(/\.slice\(-24\)/.test(seg), "avoid 单子没封长度");
+  // 种下那一步收成了公共的 plantPot（他挑的、她挑的走同一条），avoid 单子在那儿记
+  const pi = app.indexOf("  const plantPot = (char, o) => {");
+  assert.ok(pi > 0, "抠不出 plantPot");
+  const pot = app.slice(pi, app.indexOf("\n  };", pi));
+  assert.ok(/plantPot\(/.test(seg), "挑花那一步没走 plantPot");
+  assert.ok(/said: gardenPastOf\(old\)\.concat/.test(pot), "新种下的这一盆没记进 avoid 单子");
+  assert.ok(/\.slice\(-24\)/.test(pot), "avoid 单子没封长度");
 });

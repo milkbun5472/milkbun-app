@@ -481,11 +481,10 @@
     const [imageURL, setImageURL] = useState(""), [motion, setMotion] = useState(() => (job(id) || {}).prompt || MOTION);
     const [scene, setScene] = useState("坐在桌边安静陪我专注，半身构图，保留人物原来的长相与画风。");
     const [record, setRecord] = useState(() => job(id)), [busy, setBusy] = useState(false), [message, setMessage] = useState("");
-    const [configOpen, setConfigOpen] = useState(false), controller = useRef(null), working = useRef(false), live = useRef(true), savedScroll = useRef(0), scroller = useRef(null);
+    const [configOpen, setConfigOpen] = useState(false), controller = useRef(null), working = useRef(false), live = useRef(true), scroller = useRef(null);
     const localVideo = useRef(null), imagePicker = useRef(null), taskVideoPicker = useRef(null);
     useEffect(() => { live.current = true; return () => { live.current = false; if (controller.current) controller.current.abort(); }; }, []);
     useEffect(() => { let active = true; imageData(imageRef).then(url => { if (active) setImageURL(url); }).catch(() => { if (active) setImageURL(""); }); return () => { active = false; }; }, [imageRef]);
-    useEffect(() => { if (!configOpen && scroller.current) scroller.current.scrollTop = savedScroll.current; }, [configOpen]);
     const report = value => { if (live.current) setMessage(value); };
     const run = async action => {
       if (working.current) return; working.current = true; setBusy(true); setMessage(""); const ac = new AbortController(); controller.current = ac;
@@ -530,8 +529,8 @@
     const state = taskState(record, busy);
     const showPoster = record && record.draftRef ? record.imageRef : imageRef;
     return h("div", { className: "h-full flex flex-col", "data-pomodoro-video-editor": "", "data-wk": "pomvideoeditor", style: paper },
-      h(Head, { zh: "动态形象", bg: "transparent", onBack, right: h("button", { onClick: () => { savedScroll.current = scroller.current ? scroller.current.scrollTop : 0; setConfigOpen(true); }, style: Object.assign({}, btn, { border: "none", background: "transparent", padding: "0 4px" }) }, "接口") }),
-      h("div", { ref: scroller, className: "flex-1 min-h-0 overflow-y-auto px-5", style: { paddingBottom: "calc(env(safe-area-inset-bottom) * 0.4 + 24px)" } },
+      h(Head, { zh: "动态形象", bg: "transparent", onBack, right: h("button", { onClick: () => setConfigOpen(true), style: Object.assign({}, btn, { border: "none", background: "transparent", padding: "0 4px" }) }, "接口") }),
+      h("div", { ref: keepScroll("vidimg:" + character.id, scroller), className: "flex-1 min-h-0 overflow-y-auto px-5", style: { paddingBottom: "calc(env(safe-area-inset-bottom) * 0.4 + 24px)" } },
         h(SceneStrip, { cid: character.id, scene: slotScene, onScene: x => { if (!busy) onScene && onScene(x); }, t }),
         h("p", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", lineHeight: 1.8, color: t.sub, marginTop: 10 } }, character.name + "「" + sceneZh + "」的样子：" + ((SCENES.find(x => x.id === slotScene) || {}).sub || "") + "。可以只挂一张图，也可以做成一段会动的；哪格空着就跟「平时」一样。"),
         showRef ? h(LoopVideo, { key: showRef, videoRef: showRef, poster: showPoster, controls: true, style: { width: "100%", aspectRatio: "3 / 4", maxHeight: 420, overflow: "hidden", borderRadius: 3, background: t.bg2 } }) : imageURL ? h("img", { src: imageURL, alt: "待制作的陪伴原图", style: { width: "100%", maxHeight: 420, objectFit: "contain", display: "block", background: t.bg2 } }) : h("div", { style: { padding: "40px 20px", background: t.bg2, textAlign: "center", color: t.sub, fontFamily: F_BODY } }, "先放一张人物图在桌上"),

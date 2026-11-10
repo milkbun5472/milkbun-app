@@ -75,8 +75,11 @@ test("补牌精确挂到牌位且整副最多三张", () => {
 
 test("塔罗详情返回后恢复历史滚动位置", () => {
   assert.match(tarot, /const homeScrollRef = useRef\(null\)/);
-  assert.match(tarot, /homeScrollTop\.current = homeScrollRef\.current\.scrollTop/);
-  assert.match(tarot, /homeScrollRef\.current\.scrollTop = top/);
+  // 改挂公共的 keepScroll（core.js）
+  assert.match(tarot, /ref: keepScroll\("tarot:home", homeScrollRef\)/);
+  const core = fs.readFileSync(path.join(root, "js/core.js"), "utf8");
+  assert.match(core, /_keepScrollMem\[key\] = el\.scrollTop/);
+  assert.match(core, /el\.scrollTop = v;/);
 });
 
 test("角色可自己选问题，给角色算卦前允许接受犹豫或拒绝", () => {

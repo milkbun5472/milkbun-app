@@ -50,7 +50,7 @@ test("挑花是唯一花调用的一步：prompt 只给判据；收干花零调�
   assert.match(plant, /coupleKeep\(char\.id, /, "种下没凝记忆");
   const keep = cut(app, "  const gardenKeep = charId => {", "\n  //");
   assert.ok(keep.indexOf("runProbe") < 0 && keep.indexOf("callAI") < 0, "收干花不许花调用");
-  assert.match(keep, /kept: \[\{ species: g\.species, why: g\.why, color: g\.color, ts: Date\.now\(\) \}/, "干花没进册子");
+  assert.match(keep, /kept: \[\{ species: g\.species, why: g\.why, color: g\.color, by: g\.by \|\| "char", img: g\.img \|\| null, ts: Date\.now\(\) \}/, "干花没进册子");
 });
 
 test("开花他主动来说：照纪念日那条路的闸，一茬只说一次", () => {

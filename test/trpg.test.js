@@ -10,8 +10,8 @@ const components = fs.readFileSync(path.join(root, "js/components.js"), "utf8");
 const { rollStats, personaNudge, gradeCheck, normChoices, applyTurnPayload, foldHist, findMember, shotSafeLines, mulberry32, hashStr, journeyLayout, jitterPts, itemsFix, fmtItem, hasItem, normRegions, mapBuild, mapAdjacent, findNode, decideOpposed, harmZh, growthRolls, normSceneMeta, normSiteActions } = (require("../js/trpg-core.js"), require("../js/trpg.js"));
 
 // ============================================================
-// 跑团(v57.13):参考 ai-virtual-phone 冒险玩法的【思路】自研。
-// 这里钉住的是当初决定「不照抄」的那几件事——参考项目的病:
+// 跑团(v57.13)。
+// 这里钉住的是当初定下要躲开的几件事:
 //   状态靠正则从散文里抠(漂移)、上下文用开局快照用到烂、
 //   章节两个计数器各记各的、模型自己编骰子结果。
 // ============================================================
@@ -47,7 +47,7 @@ test("沙箱纪律:跑团和小剧场一样不接主线记忆/世界书/好感",
 test("玩家主权与骰子主权写死在提示词里", () => {
   assert.match(src, /玩家主权/);
   assert.match(src, /绝不自己编骰子结果/);
-  // 状态只认字段不认散文——参考项目状态漂移的病根
+  // 状态只认字段不认散文——状态漂移的病根
   assert.match(src, /一切状态变化只通过 JSON 字段报告/);
 });
 
@@ -201,7 +201,7 @@ test("章节闸:才开章或没掷过骰就报完成,丢掉并留幕后事实", 
   assert.match(src, /stageIdx: Math\.min\(c\.stages\.length, c\.stageIdx \+ 1\), stageAt: c\.msgs\.length/, "翻章时要记下起点");
 });
 
-test("章节推进只挂待确认,只有一个计数器(参考项目两处计数会漂)", () => {
+test("章节推进只挂待确认,只有一个计数器(两处计数会漂)", () => {
   const { camp } = applyTurnPayload(ripe(), { stageDone: true, stageNote: "拿到了名册" });
   assert.equal(camp.stageIdx, 1, "模型报 stageDone 不直接推进——由玩家点头才 +1");
   assert.equal(camp.pendingStage, "拿到了名册");
@@ -459,7 +459,7 @@ test("威胁钟不锈死:连着两个掷过骰的拍没人碰就自己走一格;
   assert.equal(touched.camp.clocks[0].idle, undefined, "守密人碰过就清零");
 });
 
-// 探索态(v60.20,照 ai-virtual-phone 的两态循环):守密人不给选项=这一幕收了,屏上换成地点长出来的交互
+// 探索态(v60.20):守密人不给选项=这一幕收了,屏上换成地点长出来的交互
 test("探索态菜单:只列在这儿的活人、还能翻几次、开着的支线", () => {
   const { exploreMenu, pickSeed, regionOfNode } = (require("../js/trpg-core.js"), require("../js/trpg.js"));
   const c = Object.assign(camp0(), { pos: "驿站", searched: { 驿站: 2 },

@@ -4739,7 +4739,7 @@ function PhoneForumView({ accounts, char, onBack, onPeek, tab, onTab, drive }) {
   const acc = list.find(x => x.key === tab) || list[0] || { key: "main", label: "大号", name: "", posts: [], comments: [] };
   const skin = PHONE_FORUM_SKINS[acc.key] || PHONE_FORUM_SKINS.main;
   const [open, setOpen] = useState(null);
-  const scrollRef = useRef(null), savedScrollRef = useRef(0);
+  const scrollRef = useRef(null); // 列表位置由 keepScroll("phone:forum:…") 记，点进帖子再出来自己放回去
   const countOf = a => A(a && a.posts).length + A(a && a.comments).length;
   const fmtTs = ts => {
     if (!ts) return "";
@@ -4751,7 +4751,6 @@ function PhoneForumView({ accounts, char, onBack, onPeek, tab, onTab, drive }) {
     if (onTab) onTab(key);
   };
   const openOne = (kind, item) => {
-    savedScrollRef.current = scrollRef.current ? scrollRef.current.scrollTop : 0;
     setOpen({ kind, item });
   };
   // ──「看TA玩」驱动（她 2026-09-10：「论坛和匿名可以点开看但是不改」）──
@@ -4768,9 +4767,6 @@ function PhoneForumView({ accounts, char, onBack, onPeek, tab, onTab, drive }) {
   }, [driveItem]);
   const closeOne = () => {
     setOpen(null);
-    requestAnimationFrame(() => requestAnimationFrame(() => {
-      if (scrollRef.current) scrollRef.current.scrollTop = savedScrollRef.current;
-    }));
   };
   const peek = item => {
     if (!onPeek || !item) return;

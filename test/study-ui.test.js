@@ -6,6 +6,7 @@ const path = require("node:path");
 
 const src = fs.readFileSync(path.join(__dirname, "..", "js", "study.js"), "utf8");
 const ui = src.slice(src.indexOf("// UI"));
+const core = fs.readFileSync(path.join(__dirname, "..", "js", "core.js"), "utf8");
 
 test("一起学整套界面是一册活页学习夹，不再是通用白卡", () => {
   assert.match(ui, /const STUDY_SKIN = \{/);
@@ -48,10 +49,11 @@ test("三种模式是学习夹分隔页，不是换色药丸", () => {
 });
 
 test("首页和课程档案进入内页后都能恢复原滚动位置", () => {
-  assert.match(ui, /homeScrollTopRef\.current = homeScrollRef\.current\.scrollTop/);
-  assert.match(ui, /homeScrollRef\.current\.scrollTop = homeScrollTopRef\.current/);
-  assert.match(ui, /consoleScrollTopRef\.current = consoleScrollRef\.current\.scrollTop/);
-  assert.match(ui, /consoleScrollRef\.current\.scrollTop = consoleScrollTopRef\.current/);
+  // 改挂公共的 keepScroll（core.js）记位置/恢复，不再自己记数
+  assert.match(ui, /scrollRef: keepScroll\("study:home:" \+ tab, homeScrollRef\)/);
+  assert.match(ui, /scrollRef: keepScroll\("study:console:" \+ \(cur && cur\.id\), consoleScrollRef\)/);
+  assert.match(core, /_keepScrollMem\[key\] = el\.scrollTop/);
+  assert.match(core, /el\.scrollTop = v;/);
   assert.match(ui, /ref: props\.scrollRef, className: "flex-1 min-h-0 overflow-y-auto/);
 });
 

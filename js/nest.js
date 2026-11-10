@@ -1340,9 +1340,9 @@
     const [stack, setStack] = useState([]);        // [{ v: "item"|"user"|"notices"|"login"|"upload", id }]
     const [me, setMe] = useState(cachedMe), [unread, setUnread] = useState(0);
     const [, bump] = useState(0);
-    const listRef = useRef(null), scrollAt = useRef(0), taps = useRef(0), after = useRef(null);
+    const listRef = useRef(null), taps = useRef(0), after = useRef(null);
     const top = stack[stack.length - 1] || null;
-    const push = v => { if (!stack.length && listRef.current) scrollAt.current = listRef.current.scrollTop; setStack(s => s.concat([v])); };
+    const push = v => setStack(s => s.concat([v]));
     const pop = () => setStack(s => s.slice(0, -1));
     // 我是谁 + 红点：进页面、回到首页时都核对一次（令牌过期了就退回没登录）
     const refreshMe = () => { if (!sessionTok()) { setMe(null); setUnread(0); return; }
@@ -1371,8 +1371,7 @@
     useEffect(() => { const id = setTimeout(() => setQLive(q.trim()), 400); return () => clearTimeout(id); }, [q]);
     // 搜的时候顺手搜人：名字对得上的放在墙上面那一排
     useEffect(() => { if (!qLive) { setPeople([]); return; } let live = true; api("/users?q=" + encodeURIComponent(qLive)).then(d => { if (live) setPeople(d.users || []); }).catch(() => {}); return () => { live = false; }; }, [qLive]);
-    // 详情返回时回到原来滚到的位置（mobile-ui-layout.md §3）
-    useEffect(() => { if (!top && listRef.current) listRef.current.scrollTop = scrollAt.current; }, [top]);
+    // 详情返回时回到原来滚到的位置（mobile-ui-layout.md §3）：墙挂 keepScroll("nest:wall")
     // 要登录才能做的事：先去登录，登完接着做
     const needLogin = then => { after.current = then || null; push({ v: "login" }); };
     // 从聊天的话题卡点「传到小窝」进来的（她 2026-10-31）：直接打开「传一个上去」，梗与话题、正文都填好；没登录先登录
@@ -1423,7 +1422,7 @@
         h("button", { "data-wk": "nestsort", onClick: () => setSort(s => s === "new" ? "old" : "new"), className: "active:opacity-60",
           style: { flexShrink: 0, minHeight: 40, padding: "0 10px", borderRadius: 12, border: "1px solid " + t.line, background: t.bg2, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.ink } },
           sort === "new" ? "新↓" : "旧↑")),
-      h("div", { ref: listRef, className: "flex-1 min-h-0 overflow-y-auto px-4 pb-8" },
+      h("div", { ref: keepScroll("nest:wall", listRef), className: "flex-1 min-h-0 overflow-y-auto px-4 pb-8" },
         people.length ? h("div", { "data-wk": "nestpeople", className: "flex flex-wrap", style: { gap: 8, padding: "4px 0 10px" } },
           people.map(u => h("button", { key: u.id, onClick: () => openUser(u.id), className: "active:opacity-60",
             style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.ink, background: t.bg2, border: "1px solid " + t.line, borderRadius: 999, padding: "5px 12px" } }, "@" + u.name))) : null,

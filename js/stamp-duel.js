@@ -638,7 +638,7 @@
     柜台: ["「算得清清楚楚，放心了。」", "「零钱也帮我凑好了，谢谢。」", "「你们这儿的人真耐心。」"],
     卡: ["「就是这种！我找了好久。」", "「这张好看，送人正合适。」", "「你们橱窗里的卡挑得真好。」"]
   };
-  // ── 招待那一下要动脑（她 2026-11-09，参考《Good Pizza》《Recettear》）：客人不直说要什么，只说一句；开价看人 ──
+  // ── 招待那一下要动脑（她 2026-11-09）：客人不直说要什么，只说一句；开价看人 ──
   const MOOD_RICH = /西装|教授|合同|加急|赶时间|新婚|摄影师|调音师|纪念邮票/, MOOD_POOR = /小孩|小男孩|学生|高中生|钱不够|零钱|笔友|生日卡/;
   const shopMood = (txt, urgent) => urgent || MOOD_RICH.test(txt) ? "rich" : MOOD_POOR.test(txt) ? "poor" : "normal";
   const MOOD_ZH = { rich: "看着挺急，钱包鼓鼓的", poor: "掏钱包的时候有点犹豫", normal: "" };
@@ -757,7 +757,7 @@
       const need = tough ? null : x[3] === "卡" ? (R() < 0.5 ? { card: { role: ROLES[Math.floor(R() * ROLES.length)] } } : { card: { min: "SR" } }) : x[3] ? { post: x[3] } : null;
       const mood = tough ? "" : shopMood(x[0] + x[1], urgent);
       out.push({ id: period + "c" + k, name: x[0], want: x[1], fee: x[2] * (urgent ? 2 : 1), tough, urgent, need, mood, hint: tough ? "" : (faceAct(x[0]) ? "（" + faceAct(x[0]) + "）" : "") + shopHint(need, mood, R), ...(reg ? { regularId: reg.id, bond: reg.bond || 0 } : tough ? {} : { regularId: "r_" + hashStr(x[0]).toString(36) }) }); }
-    // 稀客（她 2026-11-09，参考《猫咪后院》）：凑上条件才偶尔来，一天最多来一位
+    // 稀客（她 2026-11-09）：凑上条件才偶尔来，一天最多来一位
     const rare = shopRareFor(shop, period, R); if (rare) out.splice(Math.floor(R() * (out.length + 1)), 0, { id: period + "x_" + rare.id, name: rare.name, want: rare.want, fee: rare.fee, need: rare.need, mood: "rich", hint: rare.hint, rareId: rare.id });
     if ((allChars || []).length && R() < 0.6) out.splice(1, 0, { id: period + "p0", wantChar: allChars[Math.floor(R() * allChars.length)], fee: 15, want: "想要一张明信片" });
     const vMax = [0, 1, 2][pi];

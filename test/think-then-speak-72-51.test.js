@@ -7,8 +7,7 @@
 //
 // ⚠️不是拿 thought 当那一步：THOUGHT_MEANING 明说它是【没说出口的】念头，
 //   还禁止「规划回复」，另有 ThoughtVoiceGuard 守着。动它会毁掉心声。
-//   所以只改措辞、不加字段——跟 ai-virtual-phone 那句
-//   「在你的思维链中，必须以{{char}}第一人称思考」是同一个做法。
+//   所以只改措辞、不加字段。
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");

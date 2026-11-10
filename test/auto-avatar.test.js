@@ -12,8 +12,7 @@ const art = new Function(
   + "\nreturn { avatarArt, avatarSeedHash };")();
 
 // 她 2026-08-25：「为啥别的小手机生成头像可以有真的像头像的图，我们只有 emoji 代替」。
-// 参考的 jrsy-web：硬编码 190 条外链图片 + Math.random() 随机取一张。
-// 两点都不抄——外链白嫖别人的图床随时会挂，Math.random 让同一个人每次刷新换张脸。
+// 两件事不做——外链图床随时会挂，Math.random 让同一个人每次刷新换张脸。
 
 test("同一个人永远同一张，不同人不撞", () => {
   assert.equal(art.avatarArt("moyu_office"), art.avatarArt("moyu_office"), "刷一次换张脸就白做了");

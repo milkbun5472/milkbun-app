@@ -7,7 +7,7 @@ const engine = fs.readFileSync(path.join(root, "js/engine.js"), "utf8");
 const comp = fs.readFileSync(path.join(root, "js/components.js"), "utf8");
 
 // 她 2026-08-22：「线下模式的拉条最大 token 和最低字数都放宽一点，
-// 然后如果开了允许他们描述我的行动就可以一直生成很多拍，变成有点像酒馆那样的长叙述风格」。
+// 然后如果开了允许他们描述我的行动就可以一直生成很多拍，变成长叙述风格」。
 
 test("四条拉条都放宽了，单人与群线下各两条", () => {
   const sliders = [...comp.matchAll(/h\(Slider, \{ value: (sMax|sMinW), min: (\d+), max: (\d+)/g)]

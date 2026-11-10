@@ -1,6 +1,6 @@
 // ============================================================
 // ⑤后·记忆质量线 P0-1：召回质量旁路仪表 + P0-2 冷却旁路（v49.15）
-// （施工图 supabase/memory_quality_construction_plan.md §1-§2；Tidal shadow 姿势）
+// （施工图 supabase/memory_quality_construction_plan.md §1-§2；shadow 姿势）
 // 铁律：只观测，永不改变 retrieveMemories 实际返回；诊断关闭=零写入；
 //       诊断损坏不阻塞聊天（全链 try/catch）；只记 ID/分数桶/计数，绝不记正文与 query 原文。
 // 存储：独立 IndexedDB lisa_recall_shadow_v1（diag 环形 ≤500 条/14 天 + ring/turn 状态），

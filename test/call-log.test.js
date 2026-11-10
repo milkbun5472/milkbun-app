@@ -48,7 +48,8 @@ test("认不出用途时按调用栈认：先认函数名，再认文件；Chrom
 
 test("runProbe 进门就把是谁叫的记下来，往下传给 callAI", () => {
   assert.match(eng, /async function runProbe\(p, ctx, probe\) \{\n  let _from = ""; try \{ _from = callerLabelOf\(new Error\(\)\.stack\); \}/);
-  assert.equal((eng.match(/tag: _tag, logFrom: probe\.logFrom/g) || []).length, 3);
+  // 四处：正常一次、输出太长退回 8000 一次、带图被拒退回纯文字一次、解析失败重来一次——每一处都得带上是谁叫的
+  assert.equal((eng.match(/tag: _tag, logFrom: probe\.logFrom/g) || []).length, 4);
 });
 
 test("tag 当用途：中文照用，英文翻成中文，认不出的不摆英文", () => {
