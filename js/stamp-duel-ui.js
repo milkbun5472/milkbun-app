@@ -506,6 +506,7 @@
     // 接力（她 2026-11-08）：你和 TA 轮流下同一块棋盘；单数回合你、双数回合 TA（照 TA 的性子出牌）
     // 剧情闯关（她 2026-11-08）：五章，每章 TA 写一段→打一场→她选一条路；第五章打完写结局，收进故事集
     const STORY_KEY = "x_stampStory", STORIES_KEY = "x_stampStories";
+    const uniqStories = list => (list || []).filter((x, i, all) => x && all.map(y => y && y.id).lastIndexOf(x.id) === i);
     const STORY_HOOKS = ["一封寄错的信", "暴雪封路的邮局", "失踪的邮差", "最后一班夜车", "抽屉里的旧明信片", "让 TA 起一个"];
     const [story, setStory0] = useState(() => { try { const v = typeof loadJSON === "function" ? loadJSON(STORY_KEY, null) : null; return v && !v.done ? v : null; } catch (e) { return null; } });
     const setStory = v => { setStory0(v ? Object.assign({}, v) : null); try { saveJSON(STORY_KEY, v && !v.done ? v : null); } catch (e) {} };
@@ -534,7 +535,7 @@
     const shopAct = async (action, options = {}) => { try { const out=await window.StampShop.run(action,{...shopOptions(),...options});setShop0(window.StampShop.read());return out;}catch(e){toast&&toast(e.message);throw e;} };
     React.useEffect(()=>{const sync=()=>setShop0(window.StampShop.read());window.addEventListener('stamp-shop-change',sync);return()=>window.removeEventListener('stamp-shop-change',sync);},[]);
     React.useEffect(()=>{if(mode!=='shop')return;const sync=()=>window.StampShop.sync(shopOptions()).then(setShop0).catch(e=>toast&&toast(e.message));sync();const id=setInterval(sync,2000);return()=>clearInterval(id);},[mode]);
-    const [diaryRegs, setDiaryRegs] = useState(false), [diaryD, setDiaryD] = useState(""), [diaryFlip, setDiaryFlip] = useState(""), diaryX = useRef(0), [dpWho, setDpWho] = useState({}), [svPrice, setSvPrice] = useState("mid"), [svPick, setSvPick] = useState(""), [shBusy, setShBusy] = useState(""), [shMeet, setShMeet] = useState(null), [winF, setWinF] = useState({ who: "", rar: "", q: "" }), [dpF, setDpF] = useState({ who: "", rar: "", q: "" }), [bgPost, setBgPost] = useState(""), [bgF, setBgF] = useState({ who: "", rar: "", q: "" });
+    const [sbOpen, setSbOpen] = useState(""), [sbWho, setSbWho] = useState(""), [sbPage, setSbPage] = useState(0), [sbFlip, setSbFlip] = useState(""), sbX = useRef(0), [diaryRegs, setDiaryRegs] = useState(false), [diaryD, setDiaryD] = useState(""), [diaryFlip, setDiaryFlip] = useState(""), diaryX = useRef(0), [dpWho, setDpWho] = useState({}), [svPrice, setSvPrice] = useState("mid"), [svPick, setSvPick] = useState(""), [shBusy, setShBusy] = useState(""), [shMeet, setShMeet] = useState(null), [winF, setWinF] = useState({ who: "", rar: "", q: "" }), [dpF, setDpF] = useState({ who: "", rar: "", q: "" }), [bgPost, setBgPost] = useState(""), [bgF, setBgF] = useState({ who: "", rar: "", q: "" });
     // 挑卡的筛选条（橱窗、派遣共用，她 2026-11-08「派遣那页挑卡也加个筛选」）：搜卡名、按人、按稀有度
     const cardFilterHit = (f,k) => window.StampShop.filterCards([k],f).length>0;
     const cardFilterBar = (f,setF,wk,noWho,fit) => h(window.StampShopFilters,{characters,cards,filter:f,onChange:setF,wk,noWho,fit});
@@ -851,6 +852,57 @@
                   limited && !has ? h("span", { style: { position: "absolute", right: 4, top: 3, fontSize: fz(9), color: "#b23a2e" } }, mon + " 月限定") : null,
                   h("div", { style: { fontSize: fz(10.5), color: SUB } }, !has ? d.price + " 枚 · 收入 +" + Math.round(d.bonus * 100) + "%" : up ? "翻新 " + up + " 枚 · 加成多一半" : "翻新到头了")); })); })()], "#5a7a4a"))]);
     }
+    // 故事集：书架（按人筛）→ 点一本翻着读：封面、五章各一页、结局一页
+    if (!st && mode === "storybook") {
+      const C = "#7a3b5a", all = uniqStories((() => { try { return loadJSON(STORIES_KEY, []) || []; } catch (e) { return []; } })()).reverse();
+      const people = Array.from(new Set(all.map(x => x.charId))).filter(Boolean), shown = all.filter(x => !sbWho || x.charId === sbWho);
+      const P = (t, k) => h("p", { key: k, style: { fontFamily: FD, fontSize: fz(14), lineHeight: 1.95, margin: "0 0 10px", whiteSpace: "pre-wrap" } }, BT(t));
+      const book = all.find(x => x.id === sbOpen);
+      if (book) {
+        const pages = [{ kind: "cover" }].concat(book.chapters.map((c, i) => ({ kind: "ch", c, i }))).concat(book.ending ? [{ kind: "end" }] : []);
+        const at = Math.min(sbPage, pages.length - 1), pg = pages[at], go = k => { const n = at + k; if (n >= 0 && n < pages.length) { setSbFlip(k > 0 ? "older" : "newer"); setSbPage(n); } };
+        const swipe = { onTouchStart: e => { sbX.current = e.touches[0].clientX; }, onTouchEnd: e => { const dx = e.changedTouches[0].clientX - (sbX.current || 0); if (Math.abs(dx) > 60) go(dx < 0 ? 1 : -1); } };
+        const who = nameOf(book.charId) || "TA", date = book.ts ? new Date(book.ts).toLocaleDateString() : "";
+        return shell([
+          h(Head, { key: "hd", zh: (book.ending && book.ending.title) || "故事集", bg: "transparent", ink: INK, onBack: () => setSbOpen("") }),
+          h("div", { key: "bd", "data-wk": "duelstorybookread", className: "flex-1 min-h-0 overflow-y-auto px-4", style: { fontFamily: F, color: INK, paddingTop: 6, paddingBottom: 20 } },
+            h("div", Object.assign({ key: book.id + at, "data-wk": "duelstorybookpage" }, swipe, { style: { minHeight: "60vh", position: "relative", padding: "26px 20px 20px 30px", borderRadius: "3px 8px 8px 3px", animation: sbFlip ? (sbFlip === "older" ? "diaryOlder" : "diaryNewer") + " .38s ease-out" : "none", transformOrigin: sbFlip === "older" ? "left center" : "right center",
+                background: "linear-gradient(90deg, rgba(122,59,90,.18) 0 6px, rgba(255,255,255,.4) 6px 10px, transparent 10px), " + PAPER, boxShadow: "0 6px 18px rgba(47,42,34,.18), inset 0 0 0 1px rgba(122,59,90,.12)" } }),
+              pg.kind === "cover" ? h("div", { style: { textAlign: "center", paddingTop: "12vh" } },
+                  h("div", { style: { fontSize: fz(11), letterSpacing: ".3em", color: SUB } }, "和 " + who + " 一起走的"),
+                  h("div", { style: { fontFamily: FD, fontSize: fz(24), color: C, margin: "14px 0", lineHeight: 1.4 } }, (book.ending && book.ending.title) || book.hook),
+                  h("div", { style: { width: 40, height: 2, background: C, opacity: .5, margin: "0 auto 14px" } }),
+                  h("div", { style: { fontSize: fz(12), color: SUB, lineHeight: 1.8 } }, (book.hook.indexOf("由你来起") === 0 ? who + " 起的头" : "从「" + book.hook + "」开始"), h("br"), date))
+              : pg.kind === "ch" ? h(React.Fragment, null,
+                  h("div", { style: { fontSize: fz(11), color: SUB, letterSpacing: ".2em" } }, "第 " + (pg.i + 1) + " 章"),
+                  h("div", { style: { fontFamily: FD, fontSize: fz(18), color: C, margin: "4px 0 14px" } }, pg.c.title || ""),
+                  (pg.c.lines || []).map(P),
+                  pg.c.foe && pg.c.foe.name ? h("div", { style: { margin: "8px 0", padding: "7px 11px", borderLeft: "3px solid " + RED, background: "rgba(178,58,46,.06)", fontFamily: FD, fontSize: fz(13) } }, BT(pg.c.foe.name + (pg.c.foe.say ? "：" + pg.c.foe.say : ""))) : null,
+                  pg.c.won != null || pg.c.pick ? h("div", { style: { marginTop: 12, fontSize: fz(12), color: pg.c.won ? GREEN : RED } }, (pg.c.won ? "闯过去了" : pg.c.won === false ? "没闯过去" : "") + (pg.c.pick ? (pg.c.won != null ? "，" : "") + "选了「" + pg.c.pick + "」" : "")) : null)
+              : h(React.Fragment, null,
+                  h("div", { style: { fontSize: fz(11), color: SUB, letterSpacing: ".2em" } }, "结局"),
+                  h("div", { style: { fontFamily: FD, fontSize: fz(19), color: C, margin: "4px 0 14px" } }, book.ending.title || ""),
+                  (book.ending.lines || []).map(P),
+                  h("div", { style: { textAlign: "center", marginTop: 16, color: C, letterSpacing: ".4em" } }, "— 完 —"))),
+            h("div", { "data-wk": "duelstorybooknav", className: "flex items-center", style: { justifyContent: "space-between", margin: "12px 2px 0", fontFamily: FD } },
+              h("button", { onClick: () => go(-1), disabled: at <= 0, className: "disabled:opacity-30", style: { padding: "6px 12px", color: C, fontSize: fz(13) } }, "‹ 上一页"),
+              h("div", { className: "flex", style: { gap: 5 } }, pages.map((_, k) => h("button", { key: k, onClick: () => { setSbFlip(k > at ? "older" : "newer"); setSbPage(k); }, style: { width: k === at ? 16 : 7, height: 7, borderRadius: 99, background: k === at ? C : "rgba(122,59,90,.25)", transition: "width .2s" } }))),
+              h("button", { onClick: () => go(1), disabled: at >= pages.length - 1, className: "disabled:opacity-30", style: { padding: "6px 12px", color: C, fontSize: fz(13) } }, "下一页 ›")))
+        ]);
+      }
+      // 书架：一本一本立着，按人筛
+      return shell([
+        h(Head, { key: "hd", zh: "故事集", bg: "transparent", ink: INK, onBack: () => setMode("story") }),
+        h("div", { key: "bd", "data-wk": "duelstoryshelf", className: "flex-1 min-h-0 overflow-y-auto px-4", style: { fontFamily: F, color: INK, paddingTop: 6, paddingBottom: 24 } },
+          people.length > 1 ? h("div", { "data-wk": "duelstoryshelfwho", className: "flex overflow-x-auto", style: { gap: 6, marginBottom: 12 } }, [""].concat(people).map(id => { const on = sbWho === id;
+            return h("button", { key: id || "all", "data-on": on ? "1" : "0", onClick: () => setSbWho(id), style: { flexShrink: 0, padding: "4px 12px", borderRadius: 999, border: "1px solid " + (on ? C : "rgba(47,42,34,.2)"), background: on ? "rgba(122,59,90,.12)" : "transparent", color: on ? C : INK, fontSize: fz(12) } }, id ? (nameOf(id) || "TA") + " · " + all.filter(x => x.charId === id).length : "全部 · " + all.length); })) : null,
+          h("div", { style: { display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 10 } }, shown.map((x, k) => h("button", { key: x.id, "data-wk": "duelstoryshelfbook", onClick: () => { setSbFlip(""); setSbPage(0); setSbOpen(x.id); }, className: "text-left active:scale-[.98]",
+              style: { position: "relative", aspectRatio: "3 / 4", padding: "10px 8px 8px 13px", borderRadius: "3px 8px 8px 3px", color: "#fff8ec", background: ["linear-gradient(160deg,#8a4a68,#6a3150)", "linear-gradient(160deg,#4f6a8a,#344d6a)", "linear-gradient(160deg,#6a7a4a,#4d5c32)", "linear-gradient(160deg,#8a6a3a,#6a4d24)"][k % 4], boxShadow: "inset 6px 0 0 rgba(0,0,0,.18), 0 4px 10px rgba(47,42,34,.2)", display: "flex", flexDirection: "column" } },
+            h("div", { style: { fontSize: fz(10), letterSpacing: ".2em", opacity: .8 } }, nameOf(x.charId) || "TA"),
+            h("div", { className: "flex-1", style: { fontFamily: FD, fontSize: fz(13), lineHeight: 1.4, marginTop: 6, overflow: "hidden" } }, (x.ending && x.ending.title) || x.hook),
+            h("div", { style: { fontSize: fz(9.5), opacity: .75, lineHeight: 1.4 } }, (x.ending ? "有结局" : x.chapters.length + " 章") + (x.ts ? " · " + new Date(x.ts).toLocaleDateString() : ""))))))
+      ]);
+    }
     if (!st && mode === "story") {
       const sv0 = story, C = "#7a3b5a", stories = (() => { try { return (typeof loadJSON === "function" ? loadJSON(STORIES_KEY, []) : []) || []; } catch (e) { return []; } })();
       const para = (lines, k0) => lines.map((t, k) => h("p", { key: k0 + k, style: { fontFamily: FD, fontSize: fz(13.5), lineHeight: 1.85, margin: "0 0 9px", whiteSpace: "pre-wrap" } }, BT(t)));
@@ -862,22 +914,19 @@
           h("div", { style: { fontSize: fz(12), color: INK, margin: "0 0 6px" } }, "故事从哪儿开始"),
           h("div", { className: "flex flex-wrap", style: { gap: 6, marginBottom: 14 } }, STORY_HOOKS.map(k => h("button", { key: k, "data-wk": "duelstoryhook", "data-on": sHook === k ? "1" : "0", onClick: () => setSHook(k), style: { padding: "3px 11px", borderRadius: 999, border: "1px solid " + (sHook === k ? C : "rgba(47,42,34,.22)"), color: sHook === k ? C : INK, background: sHook === k ? "rgba(122,59,90,.08)" : "transparent", fontSize: fz(12) } }, k))),
           h("button", { "data-wk": "duelstorygo", disabled: !coachId || sBusy, onClick: () => storyNext({ id: "sy_" + Date.now().toString(36), charId: coachId, hook: sHook === "让 TA 起一个" ? "由你来起：照你们的关系想一个合适的开头" : sHook, chapters: [] }), className: "w-full disabled:opacity-40", style: Object.assign(btn(C, "#fff"), { padding: "12px 0", fontFamily: FD, fontSize: fz(15) }) }, sBusy ? (nameOf(coachId) || "TA") + " 在写第一章…" : coachId ? "跟 " + (nameOf(coachId) || "TA") + " 开始这段故事" : "先挑一个人"),
-          stories.length ? h("div", { "data-wk": "duelstorybook", style: { marginTop: 20 } }, h("div", { style: { fontFamily: FD, fontSize: fz(14), marginBottom: 6 } }, "故事集 · " + stories.length + " 段"),
-            stories.filter((x, i, all) => x && all.map(y => y && y.id).lastIndexOf(x.id) === i).reverse().map(x => { const op = sOpen === x.id;
-              return h("div", { key: x.id, style: { marginBottom: 8, borderRadius: 5, background: PAPER, border: "1px solid rgba(122,59,90,.25)", borderLeft: "3px solid " + C } },
-                h("button", { onClick: () => setSOpen(op ? "" : x.id), className: "w-full text-left", style: { padding: "9px 12px" } }, h("div", { style: { fontFamily: FD, fontSize: fz(14) } }, (x.ending && x.ending.title) || x.hook), h("div", { style: { fontSize: fz(10.5), color: SUB } }, (nameOf(x.charId) || "TA") + " · " + new Date(x.ts).toLocaleDateString())),
-                op ? h("div", { style: { padding: "0 14px 12px" } }, x.chapters.map((c, i) => h("div", { key: i }, h("div", { style: { fontFamily: FD, color: C, margin: "8px 0 4px" } }, "第 " + (i + 1) + " 章 · " + c.title), para(c.lines, "c" + i), c.pick ? h("div", { style: { fontSize: fz(11.5), color: SUB, marginBottom: 6 } }, (c.won ? "闯过去了" : "没闯过去") + " · 选了：" + c.pick) : null)),
-                  x.ending ? h("div", null, h("div", { style: { fontFamily: FD, color: C, margin: "10px 0 4px" } }, "结局 · " + x.ending.title), para(x.ending.lines, "e")) : null) : null); })) : null)]);
+          // 故事集做成一本书（她 2026-11-10「做一个本子好翻、不用疯狂下滑、按人筛选」）：这里只放入口
+          stories.length ? h("button", { "data-wk": "duelstorybook", onClick: () => { setSbOpen(""); setMode("storybook"); }, className: "w-full flex items-center active:opacity-80", style: { gap: 10, marginTop: 20, padding: "12px 14px", borderRadius: 6, background: "rgba(122,59,90,.08)", border: "1px solid rgba(122,59,90,.3)", color: INK } },
+            h("span", { style: { fontFamily: FD, fontSize: fz(20), color: C } }, "册"), h("span", { className: "flex-1 text-left", style: { fontSize: fz(12.5) } }, h("b", { style: { fontFamily: FD, fontWeight: 400, color: C } }, "故事集"), " · " + uniqStories(stories).length + " 段，翻着看"), h("span", { style: { color: SUB } }, "›")) : null)]);
       // 走完了：直接给看结局（她 2026-11-09「看不了结局」：原来写完又回到第 5 章，「看结局」还在，再点又写一遍）
       if (sv0.done && sv0.ending) return shell([
-        h(Head, { key: "hd", zh: "剧情闯关 · 结局", bg: "transparent", ink: INK, onBack: () => { setStory(null); setSOpen(sv0.id); }, right: guideBtn }),
+        h(Head, { key: "hd", zh: "剧情闯关 · 结局", bg: "transparent", ink: INK, onBack: () => { setStory(null); setSbFlip(""); setSbPage(0); setSbOpen(sv0.id); setMode("storybook"); }, right: guideBtn }),
         h("div", { key: "bd", "data-wk": "duelstoryend", className: "flex-1 min-h-0 overflow-y-auto px-4", style: { fontFamily: F, color: INK, paddingTop: 4, paddingBottom: 24 } },
           h("div", { style: { padding: "18px 16px 12px", borderRadius: 4, background: PAPER, boxShadow: "0 3px 10px rgba(47,42,34,.15)", borderTop: "4px solid " + C } },
             h("div", { style: { fontSize: fz(10.5), color: SUB, letterSpacing: ".15em" } }, sv0.hook.indexOf("由你来起") === 0 ? (nameOf(sv0.charId) || "TA") + " 起的头" : "「" + sv0.hook + "」 · " + (nameOf(sv0.charId) || "TA")),
             h("div", { style: { fontFamily: FD, fontSize: fz(18), color: C, margin: "4px 0 10px" } }, "结局 · " + (sv0.ending.title || "")),
             para(sv0.ending.lines, "end")),
           h("div", { style: { fontSize: fz(11.5), color: SUB, margin: "12px 2px", textAlign: "center" } }, "这段故事收进故事集了，五章和结局都在里面。"),
-          h("button", { "data-wk": "duelstoryendback", onClick: () => { setStory(null); setSOpen(sv0.id); }, className: "w-full", style: Object.assign(btn(C, "#fff"), { padding: "12px 0", fontFamily: FD, fontSize: fz(15) }) }, "回故事集"))
+          h("button", { "data-wk": "duelstoryendback", onClick: () => { setStory(null); setSbFlip(""); setSbPage(0); setSbOpen(sv0.id); setMode("storybook"); }, className: "w-full", style: Object.assign(btn(C, "#fff"), { padding: "12px 0", fontFamily: FD, fontSize: fz(15) }) }, "回故事集"))
       ]);
       const cur = sv0.chapters[sv0.chapters.length - 1], n = sv0.chapters.length;
       return shell([
