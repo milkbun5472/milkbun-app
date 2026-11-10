@@ -28803,6 +28803,41 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       return { picks, captions: clip(d && d.captions, n, 16), words: clip(d && d.words, wn, 22), why: String((d && d.why) || "").trim().slice(0, 120) };
     } catch (e) { toast("没摆成：" + ((e && e.message) || "重试")); return null; }
   };
+  // TA 看看现在这张、动几下：发一张缩小的图 + 每样东西的编号和位置；TA 回一句话和几步改动（改动在 collage.js 里落）
+  const collageLook = async (charId, img, desc) => {
+    const char = characters.find(c => c.id === charId);
+    const route = apiFor(charId);
+    if (!char || !route) { toast("请先到设置配置 API"); return null; }
+    const uName = (profileFor(charId) || {}).name || "她";
+    try {
+      return await runProbe(route, ctxFor(char), {
+        voice: true, images: img ? [img] : [],
+        instruction: "你和 " + uName + " 在一起拼一张手机壁纸，她把现在的样子给你看" + (img ? "（图里就是）" : "") + "。下面是上面每样东西的编号、位置（占整张的左右%、上下%）、大小和角度：\n" + desc
+          + "\n\n你看一眼，照你这个人的性子动几下：可以挪（to:[左右%,上下%]）、放大缩小（size，100 是原样）、转（angle，度）、拿掉（remove:true），可以加贴纸或者写一句字（add），也可以换背景、颜色、字体。"
+          + "想动多少动多少，觉得已经很好、一下都不想动也行。say 是你看着这张说的一句话，用你平时说话的口气，可以说你为什么这么动。",
+        schemaHint: "{\"say\":\"一句\",\"ops\":[{\"id\":\"编号\",\"to\":[50,50],\"size\":100,\"angle\":0,\"remove\":false}],\"add\":[{\"sticker\":\"贴纸或我的贴纸N\",\"text\":\"或者一句字\",\"at\":[50,50],\"size\":100,\"angle\":0,\"color\":\"#2b2b2b\"}],\"bg\":\"\",\"bgColor\":\"\",\"bgInk\":\"\",\"font\":\"\"}",
+        maxTokens: 12000
+      });
+    } catch (e) { toast("没看成：" + ((e && e.message) || "重试")); return null; }
+  };
+  // 挑几样让 TA 选：几张小图 + 每张是什么；TA 挑一个、说为什么
+  const collageChoose = async (charId, kind, imgs, labels) => {
+    const char = characters.find(c => c.id === charId);
+    const route = apiFor(charId);
+    if (!char || !route) { toast("请先到设置配置 API"); return null; }
+    const uName = (profileFor(charId) || {}).name || "她";
+    const what = kind === "photo" ? "哪张照片放进壁纸" : kind === "bg" ? "哪个当壁纸的底" : "哪颗贴纸贴上去";
+    try {
+      const d = await runProbe(route, ctxFor(char), {
+        voice: true, images: imgs || [],
+        instruction: uName + " 在拼你们的手机壁纸，拿了几样问你：" + what + "？\n" + (labels || []).join("\n")
+          + "\n\n照你自己的喜好挑一个（pick 写编号），why 用你平时说话的口气说一句为什么。",
+        schemaHint: "{\"pick\":1,\"why\":\"一句\"}",
+        maxTokens: 12000
+      });
+      return { pick: Math.round(Number(d && d.pick)) || 0, why: String((d && d.why) || "").trim().slice(0, 140) };
+    } catch (e) { toast("没挑成：" + ((e && e.message) || "重试")); return null; }
+  };
   // 存下来：挂合照墙、存到手机；一人一半那半张换成 TA 的锁屏（跟TA自己换锁屏是同一格）；TA 下一轮知道你们拼了一张
   const collageSave = async (charId, o) => {
     const char = characters.find(c => c.id === charId);
@@ -35622,7 +35657,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     // 只捞线上等于把最该上墙的那一半漏在外面。按时间从新到旧排。
     duoPhotosFor: duoPhotosOf,
     onDeletePhoto: confirmDeleteDuoPhoto,
-    onUploadPhoto: uploadCoupleShot, onCollageArrange: collageArrange, onCollageSave: collageSave,
+    onUploadPhoto: uploadCoupleShot, onCollageArrange: collageArrange, onCollageSave: collageSave, onCollageLook: collageLook, onCollageChoose: collageChoose,
     // 时光胶囊现在是情侣空间【里面】的一层（v62.41），不再是另一个屏。
     // characters / characterId / profile / onBack 由 Us 那头按当前这段关系补上。
     // onKeep：拆开之后往记忆库记一笔（v64.03）。走的是情侣空间那条现成的 coupleKeep，

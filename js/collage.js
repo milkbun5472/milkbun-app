@@ -243,6 +243,71 @@
     } catch (e) { return null; }
   }
 
+  // 挑几样让TA选：照片／底／贴纸，挑 2~6 样，TA 看着挑一个、说为什么；「用上它」就放进壁纸
+  //   照片：选中了一格就换那一格，没选中就加一张自己放的
+  function ChoosePage({ t, name, list, myBgs, myStks, onBack, onChoose, onUse }) {
+    const [kind, setKind] = useState("photo");
+    const [picked, setPicked] = useState([]);
+    const [busy, setBusy] = useState(false);
+    const [res, setRes] = useState(null);
+    const opts = kind === "photo" ? list.map((p, i) => ({ id: "p" + i, p: i, photo: p }))
+      : kind === "bg" ? BG_ORDER.map(k => ({ id: k, key: k, label: BGS[k].name })).concat(myBgs.map((k, i) => ({ id: k, key: k, mine: k, label: "我的底" + (i + 1) })))
+      : myStks.map((k, i) => ({ id: k, img: k, mine: k, label: "我的贴纸" + (i + 1) })).concat(STICKERS.map(ch => ({ id: ch, ch, label: ch })));
+    const toggle = id => { setRes(null); setPicked(p => p.indexOf(id) >= 0 ? p.filter(x => x !== id) : p.length >= 6 ? p : p.concat([id])); };
+    const chosen = opts.filter(o => picked.indexOf(o.id) >= 0);
+    // 每一样做成一张小图给TA看（照片、自己传的底和贴纸要图；背景花纹现画一小块；表情直接写字）
+    const thumbOf = async o => {
+      const c = document.createElement("canvas");
+      if (o.photo || o.mine) { const im = await loadImg(o.photo || { imgKey: o.mine }); if (!im) return ""; const k = 320 / Math.max(im.width, im.height); c.width = Math.round(im.width * k); c.height = Math.round(im.height * k); c.getContext("2d").drawImage(im, 0, 0, c.width, c.height); return c.toDataURL(o.img ? "image/png" : "image/jpeg", 0.8); }
+      if (o.key) { c.width = 108; c.height = 234; const x = c.getContext("2d"); x.scale(0.1, 0.1); bg(x, o.key, 0, null, null); return c.toDataURL("image/jpeg", 0.8); }
+      return "";
+    };
+    const ask = async () => {
+      if (!onChoose || chosen.length < 2 || busy) return;
+      setBusy(true);
+      try {
+        const imgsOut = [], labels = [];
+        for (let i = 0; i < chosen.length; i++) {
+          const o = chosen[i], u = await thumbOf(o);
+          if (u) imgsOut.push(u);
+          labels.push((i + 1) + ". " + (o.photo ? "照片" + (o.photo.desc ? "：" + String(o.photo.desc).slice(0, 40) : "") : o.ch ? "贴纸 " + o.ch : o.label) + (u ? "（第" + imgsOut.length + "张图）" : ""));
+        }
+        const r = await onChoose(kind, imgsOut, labels);
+        if (r) setRes(r);
+      } finally { setBusy(false); }
+    };
+    const tabs = [["photo", "照片"], ["bg", "底"], ["sticker", "贴纸"]];
+    const best = res && chosen[Math.round(Number(res.pick)) - 1];
+    return h("div", { "data-wk": "uspage", "data-part": "collagechoose", className: "h-full flex flex-col", style: typeof cpSkin === "function" ? cpSkin(t, "page") : { background: t.bg } },
+      h(Head, { zh: "让 " + name + " 选", bg: "transparent", onBack }),
+      h("div", { className: "flex", style: { borderBottom: "1px solid " + t.line, margin: "0 20px" } },
+        tabs.map(([k, n]) => h("button", { key: k, onClick: () => { setKind(k); setPicked([]); setRes(null); }, className: "flex-1 active:opacity-70",
+          style: { padding: "10px 0 9px", fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", color: kind === k ? t.ink : t.fog, borderBottom: "2px solid " + (kind === k ? t.ink : "transparent"), marginBottom: -1 } }, n))),
+      h("div", { className: "flex-1 min-h-0 overflow-y-auto px-5 pb-10" },
+        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, textAlign: "center", margin: "10px 0" } }, "点 2~6 样（已选 " + picked.length + "），" + name + " 看着挑一个"),
+        h("div", { style: { display: "grid", gridTemplateColumns: "repeat(" + (kind === "sticker" ? 6 : 3) + ", 1fr)", gap: 6 } },
+          opts.map(o => { const n = picked.indexOf(o.id); return h("button", { key: o.id, "data-part": "collageopt", onClick: () => toggle(o.id), className: "active:opacity-80",
+            style: { position: "relative", aspectRatio: kind === "bg" ? "0.6" : "1", borderRadius: 10, overflow: "hidden", padding: 0, border: "2px solid " + (n >= 0 ? t.accent : t.line), background: t.bg2, fontSize: 22 } },
+            o.photo && typeof AlbumPhoto === "function" ? h(AlbumPhoto, { photo: o.photo }) : o.mine ? h(MyThumb, { k: o.mine, fit: o.img ? "contain" : "cover" }) : o.key ? h(BgSwatch, { k: o.key }) : o.ch,
+            o.key && !o.mine ? h("span", { style: { position: "absolute", left: 0, right: 0, bottom: 0, background: "rgba(255,255,255,.8)", fontFamily: F_BODY, fontSize: 11, color: "#333", padding: "2px 0" } }, o.label) : null,
+            n >= 0 ? h("span", { style: { position: "absolute", top: 4, left: 4, width: 20, height: 20, borderRadius: 10, background: t.accent, color: "#fff", fontFamily: F_BODY, fontSize: 11, lineHeight: "20px" } }, n + 1) : null); })),
+        res ? h("div", { "data-part": "collagechoice", style: { marginTop: 14, padding: "12px", borderRadius: 14, background: t.bg2, border: "1px solid " + t.line } },
+          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.ink, lineHeight: 1.7 } }, name + " 挑了第 " + (best ? Math.round(Number(res.pick)) : "?") + " 个" + (res.why ? "：「" + res.why + "」" : "")),
+          best ? h("button", { onClick: () => onUse(kind === "sticker" ? "sticker" : kind, best), className: "w-full active:opacity-70", style: { marginTop: 10, padding: "10px 0", borderRadius: 10, background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))" } }, "用上它") : null) : null,
+        h("button", { onClick: ask, disabled: busy || chosen.length < 2, "data-part": "collagechooseask", className: "w-full active:opacity-70 disabled:opacity-40",
+          style: { marginTop: 14, padding: "12px 0", borderRadius: 12, border: "1px solid " + t.ink, color: t.ink, fontFamily: F_DISPLAY, fontSize: "calc(14.5px * var(--app-fs, 1))" } },
+          busy ? name + " 在挑…" : "让 " + name + " 挑")));
+  }
+  function MyThumb({ k, fit }) {
+    const [url, setUrl] = useState("");
+    useEffect(() => { let live = true, u = ""; idbImgGet(k).then(b => { if (live && b) { u = URL.createObjectURL(b); setUrl(u); } }).catch(() => {}); return () => { live = false; if (u) URL.revokeObjectURL(u); }; }, [k]);
+    return url ? h("img", { src: url, alt: "", style: { width: "100%", height: "100%", objectFit: fit || "cover", display: "block" } }) : null;
+  }
+  function BgSwatch({ k }) {
+    const ref = useRef(null);
+    useEffect(() => { const c = ref.current; if (!c) return; c.width = 108; c.height = 234; const x = c.getContext("2d"); x.scale(0.1, 0.1); bg(x, k, 0, null, null); }, [k]);
+    return h("canvas", { ref, style: { width: "100%", height: "100%", display: "block" } });
+  }
   // 「我的贴纸」一格：点了加一颗；整理的时候角上一个 ✕ 能删
   function MyStkThumb({ k, t, edit, onPick, onDrop }) {
     const [url, setUrl] = useState("");
@@ -261,7 +326,7 @@
         url ? h("img", { src: url, alt: "", style: { width: "100%", height: "100%", objectFit: "cover", display: "block" } }) : null),
       on ? h("button", { onClick: onDrop, "aria-label": "删掉这张底", style: { position: "absolute", top: -6, right: -6, width: 22, height: 22, borderRadius: 11, background: t.ink, color: t.bg2, fontSize: 12, lineHeight: "22px" } }, "✕") : null);
   }
-  function CollageMaker({ partner, photos, onBack, onArrange, onSave }) {
+  function CollageMaker({ partner, photos, onBack, onArrange, onSave, onLook, onChoose }) {
     const t = useTheme();
     const name = partner.remark || partner.name;
     const list = React.useMemo(() => (photos || []).slice().sort((a, b) => (b.ts || 0) - (a.ts || 0)), [photos]);
@@ -429,6 +494,82 @@
       setSel("f" + (free.length - 1)); return Object.assign({}, l, { free });
     });
     const addText = () => addFree({ type: "text", text: "写点什么", size: 76, color: layout.bg === "night" ? "#ffffff" : "#2b2b2b" });
+    // ── 让TA参与（她 2026-11-10：「让他看得到壁纸现在什么样、自己动手摆，或者我挑几张让他选」）──
+    // 给TA看的那张：把预览缩小成一张小 JPG；每样东西编个号、写清在哪（占整张的百分比）、多大、转了多少
+    const shot = (c, maxW, type) => { const k = Math.min(1, maxW / c.width), o = document.createElement("canvas"); o.width = Math.round(c.width * k); o.height = Math.round(c.height * k); o.getContext("2d").drawImage(c, 0, 0, o.width, o.height); return o.toDataURL(type || "image/jpeg", 0.82); };
+    const CW = () => W * (layout.split ? 2 : 1);
+    const pct = (v, all) => Math.round(v / all * 100);
+    const whatOf = b => {
+      if (b.kind === "slot") { const p = list[(layout.picks || [])[b.idx]]; return "照片（样式自带的第" + (b.idx + 1) + "格）" + (p && p.desc ? "：" + String(p.desc).slice(0, 30) : ""); }
+      if (b.kind === "word") return "手写字：「" + (layout.words || [])[b.idx] + "」";
+      if (b.kind === "deco") { const d = decoNow(layout)[b.idx] || {}; return d.img ? "贴纸：我的贴纸" + (myStks.indexOf(d.img) + 1) : "贴纸：" + d.ch; }
+      const f = (layout.free || [])[b.idx] || {};
+      if (b.kind === "fphoto") { const p = list[f.p]; return "照片（后加的）" + (p && p.desc ? "：" + String(p.desc).slice(0, 30) : ""); }
+      return "字：「" + (f.text || "") + "」";
+    };
+    const describe = () => {
+      const bgKey = layout.bg || def.bg;
+      const bgName = isMyBg(bgKey) ? "我的底" + (myBgs.indexOf(bgKey) + 1) : (BGS[bgKey] || {}).name;
+      const rows = (boxes.current || []).map(b => { const tr = getT(layout, b); return b.key + "｜" + whatOf(b) + "｜在左右" + pct(b.x, CW()) + "%、上下" + pct(b.y, H) + "%｜大小" + Math.round(tr.s * 100) + "%｜转了" + Math.round(tr.r) + "°"; });
+      return "样式：" + def.name + (layout.split ? "（一人一半：左半张给她，右半张是你的锁屏）" : "") + "\n背景：" + bgName + (layout.bgColor ? "，底色" + layout.bgColor : "") + (layout.bgInk ? "，花纹色" + layout.bgInk : "")
+        + "\n字体：" + (FONTS[layout.font] || FONTS.hand).name + "\n上面的东西（编号｜是什么｜位置｜大小｜角度）：\n" + (rows.join("\n") || "（还什么都没放）")
+        + "\n能用的背景：" + BG_ORDER.map(k => BGS[k].name).join("、") + (myBgs.length ? "、" + myBgs.map((_, i) => "我的底" + (i + 1)).join("、") : "")
+        + "\n能加的贴纸：" + STICKERS.join(" ") + (myStks.length ? " " + myStks.map((_, i) => "我的贴纸" + (i + 1)).join(" ") : "")
+        + "\n能用的字体：" + FONT_ORDER.map(k => FONTS[k].name).join("、");
+    };
+    const [hisSay, setHisSay] = useState("");
+    const beforeHim = useRef(null);
+    // TA 回来的改动落到画上：位置按百分比、大小按百分比、角度按度；删掉的最后按编号从大到小删，免得下标错位
+    const applyHis = res => {
+      const prev = layout; let l = layout;
+      const cw = CW(), bxs = boxes.current || [], drops = [];
+      (Array.isArray(res.ops) ? res.ops : []).slice(0, 16).forEach(op => {
+        const b = op && bxs.find(x => x.key === String(op.id || "").trim()); if (!b) return;
+        if (op.remove) { drops.push(b); return; }
+        const tr = getT(l, b), v = {};
+        if (Array.isArray(op.to) && op.to.length === 2) {
+          const ax = Math.max(0, Math.min(100, Number(op.to[0]))) / 100 * cw, ay = Math.max(0, Math.min(100, Number(op.to[1]))) / 100 * H;
+          if (b.kind === "slot" || b.kind === "word") { v.x = tr.x + (ax - b.x); v.y = tr.y + (ay - b.y); } else { v.x = ax; v.y = ay; }
+        }
+        if (Number.isFinite(Number(op.size))) v.s = clampS(Number(op.size) / 100);
+        if (Number.isFinite(Number(op.angle))) v.r = Math.max(-180, Math.min(180, Number(op.angle)));
+        if (Object.keys(v).length) l = setT(l, b, v);
+      });
+      ["deco", "free"].forEach(group => {
+        const idxs = drops.filter(b => group === "deco" ? b.kind === "deco" : (b.kind === "fphoto" || b.kind === "ftext")).map(b => b.idx).sort((a, b) => b - a);
+        if (!idxs.length) return;
+        if (group === "deco") { const d = decoNow(l).slice(); idxs.forEach(i => d.splice(i, 1)); l = Object.assign({}, l, { deco: d }); }
+        else { const f = (l.free || []).slice(); idxs.forEach(i => f.splice(i, 1)); l = Object.assign({}, l, { free: f }); }
+      });
+      drops.filter(b => b.kind === "slot").forEach(b => { l = Object.assign({}, l, { hidden: Object.assign({}, l.hidden, { [b.key]: true }) }); });
+      drops.filter(b => b.kind === "word").forEach(b => { const w = (l.words || []).slice(); w[b.idx] = ""; l = Object.assign({}, l, { words: w }); });
+      const at = a => Array.isArray(a) && a.length === 2 ? { x: Math.max(0, Math.min(100, Number(a[0]))) / 100 * cw, y: Math.max(0, Math.min(100, Number(a[1]))) / 100 * H } : { x: cw / 2, y: H / 2 };
+      (Array.isArray(res.add) ? res.add : []).slice(0, 8).forEach(a => {
+        if (!a) return;
+        const pos = at(a.at), sz = Number.isFinite(Number(a.size)) ? clampS(Number(a.size) / 100) : 1, ang = Number(a.angle) || 0;
+        if (a.text) { const f = (l.free || []).concat([{ type: "text", text: String(a.text).slice(0, 30), x: pos.x, y: pos.y, size: 76, s: sz, r: ang, color: /^#[0-9a-f]{6}$/i.test(a.color || "") ? a.color : (layout.bg === "night" ? "#ffffff" : "#2b2b2b"), font: FONT_ORDER.find(k => FONTS[k].name === a.font) }]); l = Object.assign({}, l, { free: f }); return; }
+        const st = String(a.sticker || "").trim(); if (!st) return;
+        const m = st.match(/^我的贴纸(\d+)$/), item = m ? (myStks[Number(m[1]) - 1] ? { img: myStks[Number(m[1]) - 1], size: 180 } : null) : { ch: st.slice(0, 4), size: 130, color: /[♥♡]/.test(st) ? "#d0465c" : /[✿☆]/.test(st) ? "#c9a227" : "#000" };
+        if (item) l = Object.assign({}, l, { deco: decoNow(l).concat([Object.assign({ x: pos.x, y: pos.y, s: sz, r: ang }, item)]) });
+      });
+      if (res.bg) { const m = String(res.bg).match(/^我的底(\d+)$/), key = m ? myBgs[Number(m[1]) - 1] : BG_ORDER.find(k => BGS[k].name === String(res.bg).trim()); if (key) l = Object.assign({}, l, { bg: key, bgColor: "", bgInk: "" }); }
+      if (/^#[0-9a-f]{6}$/i.test(res.bgColor || "")) l = Object.assign({}, l, { bgColor: res.bgColor });
+      if (/^#[0-9a-f]{6}$/i.test(res.bgInk || "")) l = Object.assign({}, l, { bgInk: res.bgInk });
+      if (res.font) { const k = FONT_ORDER.find(x => FONTS[x].name === String(res.font).trim()); if (k) l = Object.assign({}, l, { font: k }); }
+      if (l !== prev) { beforeHim.current = prev; setSel(""); setLayout(l); }
+      return l !== prev;
+    };
+    const look = async () => {
+      if (!onLook || busy || !cv.current) return;
+      setBusy("look");
+      try {
+        const clean = document.createElement("canvas"); draw(clean, layout, imgs.current, "");
+        const res = await onLook(shot(clean, layout.split ? 760 : 420), describe());
+        if (res) { const moved = applyHis(res); setHisSay(String(res.say || "").trim() || (moved ? "" : "（看了看，没动）")); }
+      } finally { setBusy(""); }
+    };
+    const undoHim = () => { if (beforeHim.current) { setLayout(beforeHim.current); beforeHim.current = null; setHisSay(""); } };
+    const [choosing, setChoosing] = useState(false);
     const arrange = async () => {
       if (!onArrange || busy) return;
       setBusy("arrange");
@@ -459,6 +600,17 @@
     const row = kids => h("div", { className: "flex", style: { gap: 7, overflowX: "auto", paddingBottom: 2 } }, kids);
     const small = (label, onClick, on) => h("button", { key: label, onClick, disabled: on === false, className: "flex-1 active:opacity-70 disabled:opacity-30",
       style: { padding: "8px 0", borderRadius: 10, border: "1px solid " + t.line, color: t.ink, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))" } }, label);
+    if (choosing) return h(ChoosePage, { t, name, list, myBgs, myStks, onBack: () => setChoosing(false), onChoose,
+      onUse: (kind, opt) => {
+        setChoosing(false);
+        if (kind === "photo") {
+          const b = boxOf(sel);
+          if (b && b.kind === "slot") setLayout(l => { const picks = l.picks.slice(); picks[b.idx] = opt.p; return Object.assign({}, l, { picks }); });
+          else if (b && b.kind === "fphoto") setLayout(l => { const free = (l.free || []).slice(); free[b.idx] = Object.assign({}, free[b.idx], { p: opt.p }); return Object.assign({}, l, { free }); });
+          else addFree({ type: "photo", p: opt.p, w: 480, h: 600, frame: layout.tpl === "blank" ? "scrap" : layout.tpl });
+        } else if (kind === "bg") setLayout(l => Object.assign({}, l, { bg: opt.key, bgColor: "", bgInk: "" }));
+        else if (opt.img) addImgSticker(opt.img); else addSticker(opt.ch);
+      } });
     if (pickFor) {
       const cur = pickFor.kind === "slot" ? layout.picks[pickFor.idx] : pickFor.kind === "free" ? ((layout.free || [])[pickFor.idx] || {}).p : -1;
       const choose = i => {
@@ -533,6 +685,15 @@
           style: { marginTop: 14, padding: "12px 0", borderRadius: 12, border: "1px solid " + t.ink, color: t.ink, fontFamily: F_DISPLAY, fontSize: "calc(14.5px * var(--app-fs, 1))" } },
           busy === "arrange" ? name + " 在挑…" : "让 " + name + " 来摆") : null,
         why ? h("div", { style: { fontFamily: F_BODY, fontStyle: "italic", fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.sub, lineHeight: 1.7, marginTop: 10, textAlign: "center" } }, "「" + why + "」") : null,
+        (onLook || onChoose) ? h("div", { className: "flex", style: { gap: 8, marginTop: 10 } },
+          onLook ? h("button", { onClick: look, disabled: !!busy, "data-part": "collagelook", className: "flex-1 active:opacity-70 disabled:opacity-40",
+            style: { padding: "11px 0", borderRadius: 12, border: "1px solid " + t.ink, color: t.ink, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))" } },
+            busy === "look" ? name + " 在看…" : "让 " + name + " 看看、动几下") : null,
+          onChoose ? h("button", { onClick: () => setChoosing(true), disabled: !!busy, "data-part": "collagechooseopen", className: "flex-1 active:opacity-70 disabled:opacity-40",
+            style: { padding: "11px 0", borderRadius: 12, border: "1px solid " + t.ink, color: t.ink, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))" } }, "挑几样让 " + name + " 选") : null) : null,
+        hisSay || beforeHim.current ? h("div", { "data-part": "collagesay", style: { marginTop: 10, padding: "10px 12px", borderRadius: 12, background: t.bg2, border: "1px solid " + t.line } },
+          hisSay ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.ink, lineHeight: 1.7 } }, name + "：「" + hisSay + "」") : null,
+          beforeHim.current ? h("button", { onClick: undoHim, style: { marginTop: 4, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog } }, "撤回 " + name + " 这次动的") : null) : null,
         h("div", { style: lab }, "背景"),
         row(BG_ORDER.map(k => chip((layout.bg || def.bg) === k, BGS[k].name, () => setLayout(l => Object.assign({}, l, { bg: k, bgColor: "", bgInk: "" })),
           { paddingLeft: 9, display: "flex", alignItems: "center", gap: 6 },

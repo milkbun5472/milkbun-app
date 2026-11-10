@@ -53,3 +53,13 @@ test("贴纸能传自己的图（PNG 留透明）；粉格绿格换成条纹、�
   assert.match(src, /c\.toBlob\(b => ok\(b\), "image\/png"\)/);
   assert.match(src, /"data-part": "collagemystk"/);
 });
+test("让TA参与：看现在这张（带图）、挑几样里的一个；runProbe 能带图，不认图的线路退回纯文字", () => {
+  const eng = readFileSync(new URL("../js/engine.js", import.meta.url), "utf8");
+  assert.match(eng, /imageDataUrls: _imgs/);
+  assert.match(eng, /if \(_imgs\.length && !tooBig\(e\) && !\(e && e\.name === "AbortError"\)\) \{ _imgs\.length = 0;/);
+  assert.match(app, /const collageLook = async \(charId, img, desc\)/);
+  assert.match(app, /const collageChoose = async \(charId, kind, imgs, labels\)/);
+  assert.match(src, /const applyHis = res =>/);
+  assert.match(src, /function ChoosePage\(/);
+  assert.match(scr, /onLook: onCollageLook \?/);
+});
