@@ -1039,7 +1039,14 @@
           modeHero(C, "接", "接力", "你和 TA 轮流下同一块棋盘，一起打审查局：单数回合你下，双数回合 TA 下。TA 照自己的性子出牌——不一定是你想的那样，你得接住 TA 留下的局面。卡组多从 TA 的卡里来，信封是你们俩共用的一个。打的时候能跟 TA 说话。不说话不花调用。"),
           coachPick(),
           coachId ? h("div", { style: { fontSize: fz(11.5), color: SUB, margin: "-6px 2px 12px" } }, (nameOf(coachId) || "TA") + " 的打法：" + (D().STYLE_ZH[sty] || "稳扎稳打")) : null,
-          rec[coachId] ? h("div", { style: { fontSize: fz(12), color: "#b8862a", marginBottom: 10 } }, "跟 " + (nameOf(coachId) || "TA") + " 接力赢过 " + (rec[coachId].win || 0) + " 次、打过 " + (rec[coachId].n || 0) + " 次") : null,
+          rec[coachId] ? (() => { const r = rec[coachId], tapes = r.tapes || [], TAPE = ["#c0504d", "#e0a03a", "#4f7a66", "#3d6fa5", "#8a5aa0", "#d07a9a"];
+            return h("div", { "data-wk": "duelrelayrec", style: { marginBottom: 12 } },
+              h("div", { style: { fontSize: fz(12), color: "#b8862a", marginBottom: 6 } }, "跟 " + (nameOf(coachId) || "TA") + " 接力赢过 " + (r.win || 0) + " 次、打过 " + (r.n || 0) + " 次"),
+              r.fast ? h("div", { className: "flex", style: { gap: 6, marginBottom: 8 } }, [["最快", r.fast + " 回合"], ["最稳", "剩 " + r.env], ["连胜", (r.streak || 0) + " 场"]].map(([a, b]) =>
+                h("div", { key: a, className: "flex-1", style: { textAlign: "center", padding: "6px 0", borderRadius: 6, border: "1px solid rgba(160,82,45,.25)" } }, h("div", { style: { fontSize: fz(10.5), color: SUB } }, a), h("div", { style: { fontFamily: FD, fontSize: fz(14), color: "#a0522d" } }, b)))) : null,
+              // 接力棒：赢一局缠一圈胶带，点一圈看那局
+              tapes.length ? h("div", { "data-wk": "duelrelaybaton", className: "flex items-center", style: { height: 26, borderRadius: 13, background: "#e8dcc4", padding: "0 8px", gap: 0, overflow: "hidden", boxShadow: "inset 0 -3px 0 rgba(0,0,0,.08)" } },
+                tapes.map((x, k) => h("button", { key: k, onClick: () => toast && toast(x.d + " · " + x.t + " 回合赢 · 信封剩 " + x.e), style: { width: Math.max(4, Math.min(14, 280 / tapes.length)), height: 26, flexShrink: 0, background: TAPE[k % TAPE.length], borderRight: "1px solid rgba(255,255,255,.5)" } }))) : null); })() : null,
           (() => { let sv = null; try { sv = typeof loadJSON === "function" ? loadJSON("x_stampRelaySave", null) : null; } catch (e) {} if (!sv || !sv.st || !sv.st.relay) return null;
             const x = sv.st; return h("button", { "data-wk": "duelrelayresume", onClick: () => { x.relayRunning = false; x.relaySending = false; setSt(x); setMode("relay"); setHandSel(-1); setBoardSel(-1); },
               className: "w-full", style: Object.assign(btn("transparent", C, C), { padding: "10px 0", marginBottom: 8, fontFamily: FD, fontSize: fz(14) }) }, "接着跟 " + (nameOf(x.relay.ta) || "TA") + " 打上次那局（第 " + x.turn + " 回合 · 信封 " + Math.max(0, x.me.hp) + "：" + Math.max(0, x.foe.hp) + "）"); })(),
@@ -1504,7 +1511,19 @@
         st.relayPlaced = st.turn; st.relayRunning = false; setHandSel(-1); setBoardSel(-1); redraw(); play(n0); }, 900); }
     if (taTurn && st.relayPlaced === st.turn && !playing.current && !st.relaySending) { st.relaySending = true;
       setTimeout(() => { st.relaySending = false; if (st.over || st.relayPlaced !== st.turn) return; const n0 = st.log.length; D().endTurn(st); redraw(); play(n0); }, 900); }
-    if (over && st.relay && !st.relaySaved) { st.relaySaved = 1; try { const v = relayRec(), r0 = v[st.relay.ta] || { n: 0, win: 0 }; v[st.relay.ta] = { n: r0.n + 1, win: r0.win + (over.winner === "me" ? 1 : 0) }; saveJSON(RELAY_KEY, v); } catch (e) {} }
+    // 接力纪录（她 2026-11-10「13吧」）：每个人分开记最少几回合赢、赢时信封剩最多、最长连胜；赢一局接力棒上多缠一圈胶带
+    if (over && st.relay && !st.relaySaved) { st.relaySaved = 1; try { const v = relayRec(), r0 = v[st.relay.ta] || { n: 0, win: 0 }, won = over.winner === "me", r = Object.assign({ fast: 0, env: 0, streak: 0, cur: 0, tapes: [] }, r0, { n: r0.n + 1, win: r0.win + (won ? 1 : 0) });
+      const news = [];
+      if (won) { r.cur = (r.cur || 0) + 1;
+        if (!r.fast || over.turn < r.fast) { if (r.fast) news.push("最快：" + over.turn + " 回合就赢（原来 " + r.fast + "）"); r.fast = over.turn; }
+        if (over.me > (r.env || 0)) { if (r.env) news.push("赢得最稳：信封还剩 " + over.me + "（原来 " + r.env + "）"); r.env = over.me; }
+        if (r.cur > (r.streak || 0)) { if (r.streak) news.push("连胜 " + r.cur + " 场"); r.streak = r.cur; }
+        r.tapes = (r.tapes || []).concat([{ d: localDay(), t: over.turn, e: over.me }]).slice(-60);
+      } else r.cur = 0;
+      v[st.relay.ta] = r; saveJSON(RELAY_KEY, v);
+      if (news.length) { const pool = (cardsAll || []).filter(c => c && c.charId === st.relay.ta && c.text).map(c => D().stampOf(c).lines).map(x => x.win || x.wake || x.enter).filter(Boolean);
+        st.relayNew = { list: news, line: pool.length ? pool[Math.floor(Math.random() * pool.length)] : "" }; }
+    } catch (e) {} }
     if (over && st.puzzle && over.winner === "me" && !st.pzSaved) { st.pzSaved = 1; try { const v = (typeof loadJSON === "function" ? loadJSON(PZ_KEY, null) : null) || {}; if (st.puzzle.daily) v.daily = Object.assign({}, v.daily, { [st.puzzle.daily]: Date.now() }); else v.solved = Object.assign({}, v.solved, { [st.puzzle.lv]: Date.now() }); saveJSON(PZ_KEY, v); } catch (e) {} }
     if (over && !playing.current && !st.run && !st.tutorial && !st.parcels) st.parcels = Trinkets.drop([st.shopFight ? (st.shopFight.staff || [])[Math.floor(Math.random() * ((st.shopFight.staff || []).length || 1))] : st.story ? st.story.charId : chalNow ? coachId : foeId], over.winner === "me", st.patrol === "boss" && over.winner === "me" ? 1 : 0);
     if (over && !playing.current && !st.run && !st.tutorial && !st.rewards) st.rewards = Rewards.settle({ puzzle: !!st.puzzle, solved: st.puzzle ? Object.keys(pzDone()).length : 0, win: over.winner === "me", siege: !!st.siege, tier: st.siegeTier || 0, edict: !!st.edict, pts: st.edictPts || 0, raid: !!st.raid, endless: !!(st.raid && st.raid.endless), dealt: st.raid ? st.raid.dealt : 0, turn: st.turn });
@@ -1687,6 +1706,10 @@ h("div", { style: { transform: "skewX(12deg)", display: "flex", alignItems: "cen
           st.siege ? h("div", { key: "sgo", "data-wk": "duelsiegeover", style: { textAlign: "center", marginBottom: 10 } }, h("div", { style: { fontFamily: FD, fontSize: fz(18), color: over.winner === "me" ? GREEN : RED } }, over.winner === "me" ? "守住了" : "信丢了"), h("div", { style: { fontSize: fz(11.5), color: SUB } }, "第 " + ((st.siegeTier || 0) + 1) + " 档 · 守住 " + st.siege.cleared + " / " + st.siege.waves + " 波 · 信封剩 " + Math.max(0, over.me) + " · 这档最好 " + Math.max(siegeBest(st.siegeTier || 0).waves || 0, st.siege.cleared) + " 波")) : null,
           st.siege || st.raid || st.edict || st.puzzle ? null : h("div", { style: { fontFamily: FD, fontSize: fz(18), textAlign: "center", marginBottom: 2, color: over.winner === "me" ? GREEN : over.winner === "foe" ? RED : INK } }, over.winner === "me" ? "你赢了" : over.winner === "foe" ? foeName + " 赢了" : "打平了"),
           st.siege || st.raid || st.edict || st.puzzle ? null : h("div", { style: { fontSize: fz(11), textAlign: "center", color: SUB, marginBottom: 10 } }, over.turn + " 回合 · 信封剩 " + over.me + " : " + over.foe + (over.byCap ? " · 打满回合比剩下的" : "")),
+          st.relay && st.relayNew ? h("div", { key: "rln", "data-wk": "duelrelayrecord", style: { textAlign: "center", margin: "0 0 10px", padding: "8px 10px", borderRadius: 6, background: "rgba(160,82,45,.08)", color: "#a0522d" } },
+            h("div", { style: { fontFamily: FD, fontSize: fz(14), letterSpacing: ".1em" } }, "新纪录"),
+            st.relayNew.list.map((x, k) => h("div", { key: k, style: { fontSize: fz(12) } }, x)),
+            st.relayNew.line ? h("div", { style: { fontSize: fz(12), color: INK, marginTop: 4 } }, (nameOf(st.relay.ta) || "TA") + "：「" + st.relayNew.line + "」") : null) : null,
           // 彩头兑现、赛后复盘（她 2026-11-08）：各点一次叫 TA 一次
           // 对面是路人／关卡 NPC（挑战类、剧情闯关、小店难缠客人）时没有人可以复盘、发战报（她 2026-11-08）
           !st.tutorial && !st.run && !chal && !st.shopFight && onChat ? (() => {
