@@ -35,7 +35,7 @@ const bubble = {
 const css = `
 /* ───── 粉色日记 · 底：横线本、顶栏、底栏 ───── */
 [data-wk="chat"]{background:${C.paper} ${svg(PAGE)} repeat !important;background-size:390px 28px !important}
-[data-wk="body"]{background:transparent !important;padding-left:40px !important;padding-top:34px !important}
+[data-wk="body"]{background:transparent !important;padding-left:44px !important;padding-top:28px !important}
 [data-wk="chathead"]{background:${C.paper2} !important;border-bottom:none !important;box-shadow:none !important;position:relative !important;z-index:5 !important;overflow:visible !important}
 [data-wk="chathead"]::after{content:"" !important;position:absolute !important;left:0 !important;right:0 !important;top:100% !important;height:16px !important;background:${svg(`<svg xmlns='http://www.w3.org/2000/svg' width='20' height='16' viewBox='0 0 20 16'><path d='M0 0 H20 V4 A5 5 0 0 1 10 4 A5 5 0 0 1 0 4Z' fill='${C.paper2}'/><path d='M0 4 A5 5 0 0 0 10 4 A5 5 0 0 0 20 4' fill='none' stroke='${C.margin}' stroke-width='1.4'/><circle cx='5' cy='5' r='1.3' fill='${C.margin}'/><circle cx='15' cy='5' r='1.3' fill='${C.margin}'/></svg>`)} repeat-x left top/20px 16px !important;pointer-events:none !important}
 [data-wk="headink"]{color:${C.ink} !important}
@@ -60,19 +60,30 @@ const css = `
 button[data-wk="avatar"]::before,span[data-wk="avatar"]:not([data-halo])::before{content:"" !important;position:absolute !important;width:58px !important;height:70px !important;left:calc(50% - 29px) !important;top:calc(50% - 42px) !important;z-index:2 !important;background:${svg(FRAME)} center/contain no-repeat !important;pointer-events:none !important}
 [data-wk="avatar"] *{border-radius:2px !important}
 
-/* ───── 气泡：他的话直接写在本子上，你的话是一张描图纸＋胶带 ───── */
-[data-wk="bubble"][data-kind="text"]{overflow:visible !important;position:relative !important;line-height:28px !important;padding-top:0 !important;padding-bottom:0 !important}
-[data-wk="bubble"][data-kind="text"][data-me="0"]{border-left:2.5px solid ${C.margin} !important;border-radius:0 !important;padding-left:12px !important;background:transparent !important}
-[data-wk="bubble"][data-kind="text"][data-me="1"]{background:rgba(255,255,255,.55) !important;backdrop-filter:blur(1px) !important;-webkit-backdrop-filter:blur(1px) !important;border-radius:3px !important;transform:rotate(-.6deg) !important;box-shadow:1px 2px 0 rgba(138,90,95,.08) !important}
-[data-wk="bubble"][data-kind="text"]::before{content:none !important}
-[data-wk="bubble"][data-kind="text"][data-me="1"]::before{content:"" !important;position:absolute !important;top:-8px !important;right:14px !important;left:auto !important;width:40px !important;height:14px !important;border:none !important;background:${svg(TAPE(C.margin))} center/100% 100% no-repeat !important;transform:rotate(6deg) !important;pointer-events:none !important}
-[data-wk="bubble"][data-kind="text"]::after{content:none !important}
-[data-wk="name"]{color:${C.rose} !important;font-style:italic !important;letter-spacing:.06em !important}
+/* ───── 话：没有气泡，字落在横线上；你的竖线在右、他的在左；名字是荧光笔标签；已读跟在句尾 ───── */
+[data-wk="row"] > div:has(> [data-wk="bubble"]){flex-direction:row !important;flex-wrap:wrap !important;align-items:baseline !important;column-gap:6px !important}
+[data-wk="row"].justify-end > div:has(> [data-wk="bubble"]){justify-content:flex-end !important}
+[data-wk="row"] > div > [data-wk="name"]{flex:0 0 100% !important;order:-2 !important}
+[data-wk="row"].justify-end > div > [data-wk="name"]{text-align:right !important}
+[data-wk="row"].justify-end > div > [data-wk="meta"]{order:-1 !important}
+[data-wk="name"]{display:block !important;color:${C.rose} !important;font-style:italic !important;letter-spacing:.08em !important;line-height:28px !important;height:28px !important;margin:0 !important;padding:0 !important}
+[data-wk="name"]::first-line{background:linear-gradient(transparent 22%,rgba(188,217,204,.8) 22%,rgba(188,217,204,.8) 85%,transparent 85%) !important}
+[data-wk="row"].justify-end > div > [data-wk="name"]::first-line{background:linear-gradient(transparent 22%,rgba(233,184,191,.85) 22%,rgba(233,184,191,.85) 85%,transparent 85%) !important}
 [data-wk="name"]::after{content:" 说：" !important}
-[data-wk="meta"]{color:${C.rose} !important;opacity:.6 !important}
+[data-wk="bubble"][data-kind="text"]{background:transparent !important;box-shadow:none !important;border:none !important;border-radius:0 !important;transform:none !important;backdrop-filter:none !important;-webkit-backdrop-filter:none !important;line-height:28px !important;padding:0 12px !important;margin:0 !important;color:${C.ink} !important}
+[data-wk="bubble"][data-kind="text"][data-me="0"]{border-left:3px solid ${C.margin} !important}
+[data-wk="bubble"][data-kind="text"][data-me="1"]{border-right:3px solid ${C.margin} !important}
+[data-wk="bubble"][data-kind="text"]::before,[data-wk="bubble"][data-kind="text"]::after{content:none !important}
+[data-wk="meta"]{color:${C.rose} !important;opacity:.65 !important;font-size:10.5px !important;line-height:28px !important;margin:0 !important}
+[data-wk="meta"]::before{content:"" !important;display:inline-block !important;width:9px !important;height:8px !important;margin-right:4px !important;background:${svg(HEART(C.mint))} center/contain no-repeat !important}
 
-/* 时间：日记日期章 */
-[data-wk="time"] > span{background:#fff ${svg(STAR())} 8px center/12px 12px no-repeat !important;color:${C.rose} !important;border:1.5px dashed ${C.margin} !important;border-radius:4px !important;padding:2px 12px 2px 26px !important;transform:rotate(-2deg) !important;display:inline-block !important;letter-spacing:.08em !important}
+/* 时间：写进左边页边那一栏，跟活页孔排在一起 */
+[data-wk="msg"]{position:relative !important}
+[data-wk="time"]{position:absolute !important;left:-40px !important;top:0 !important;width:30px !important;margin:0 !important;text-align:center !important;z-index:1 !important}
+[data-wk="time"] > span{display:block !important;background:${C.butter} !important;color:${C.rose} !important;font-size:9px !important;line-height:12px !important;padding:3px 1px !important;border-radius:2px !important;transform:rotate(-4deg) !important;word-break:break-all !important;box-shadow:0 1px 0 rgba(138,90,95,.15) !important}
+[data-wk="msg"]{padding:0 !important;margin:0 0 28px !important}
+[data-wk="msg"] + [data-wk="msg"]{margin-top:0 !important}
+[data-wk="body"] > *{margin-top:0 !important}
 
 /* 正在输入：三颗小爱心 */
 [data-wk="bubble"][data-kind="typing"]{background:transparent !important;border:none !important;box-shadow:none !important}
