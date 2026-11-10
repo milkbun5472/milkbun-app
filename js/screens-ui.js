@@ -3661,7 +3661,7 @@ function Forum({
 // 分类横滑；点分类后按右上角刷新生成该类商品；+ 加入购物车；
 // 购物车多选结算：代付 / 购买 / 送礼 / 亲属卡；我的：待发货(倒计时)→待收货(使用/转赠)
 // ============================================================
-// ── 购物页的配色（她 2026-08-29：「界面做好看可以参考淘宝配色」）──────
+// ── 购物页的配色（她 2026-08-29：「界面做好看」）──────
 // 这一页故意不跟主题走：购物 app 本来就该有自己的视觉语言，
 // 和查手机里那个网购 app 是同一套橙（SHOP_ORANGE），两处才像同一件事。
 const MSHOP = {
@@ -5864,7 +5864,7 @@ function ListenTogether({ profile, active, ctxFor, toast, onToChat, onListenStat
 //   单人线下【但只有数字生命】——普通角色 v52.66 起就不注入了。
 //   线上聊天从来不走这条。界面上的说明必须跟这份名单对得上，
 //   不然她按了开关看不到动静，只会以为是坏了。
-// 内置预设：v62.31 全部重写。原来那一份是从别处参考来的通用 RP 模板
+// 内置预设：v62.31 全部重写。原来那一份是通用 RP 模板
 // （「此刻的情绪与身体状态」那种），换个角色、换个 app 都照样成立——
 // 按 tabs-not-plain-pills 和 prompt-no-content-samples 那两条判据，这就是写坏了。
 // 现在这三套是从这个 app 自己的规矩里长出来的：回声禁令、语域跟场面走、
@@ -6500,7 +6500,6 @@ function CacheStatCard() {
 // 头像池（她 2026-08-25 定的 B 档）：她从相册一次挑几十张（猫、风景、动漫截图…），
 // 存进本地图库当池子。论坛路人、常驻、小号都按种子哈希（角色不拿，v74.383）
 // 从池子里稳定取一张——同一个人永远同一张。零 API 调用、零外链，图是她自己挑的。
-// 参考的那个小手机是硬编码 190 条别人图床的外链 + Math.random，两点都不抄。
 function AvatarPoolConfig({ toast }) {
   const t = useTheme();
   const fileRef = useRef(null);
@@ -10384,7 +10383,7 @@ function MemoryLib({
     const c = characters.find(x => x.id === id);
     return c ? c.remark || c.name : "未知";
   };
-  // 情绪徽标：显愉悦度带符号 + 强度点数，颜色随愉悦度暖/冷/中（Ombre Brain 借鉴）。未评估(无 a)不显示
+  // 情绪徽标：显愉悦度带符号 + 强度点数，颜色随愉悦度暖/冷/中。未评估(无 a)不显示
   const emoBadge = e => {
     if (typeof e.a !== "number") return null;
     const v = e.v || 0, a = e.a;
@@ -10393,13 +10392,13 @@ function MemoryLib({
       (v > 0 ? "＋" : v < 0 ? "－" : "") + Math.abs(v), h("span", { style: { opacity: 0.7 } }, "·"), "🔥" + a);
   };
   const unrated = (entries || []).filter(e => e && typeof e.a !== "number").length;
-  // 来源徽标（珊瑚岛「记忆诚实性」lite）：一眼分清这条记忆是怎么来的——亲历对话/手写/导入/精炼/本体亲笔
+  // 来源徽标（「记忆诚实性」lite）：一眼分清这条记忆是怎么来的——亲历对话/手写/导入/精炼/本体亲笔
   const SRC_BADGE = { manual: ["✍️ 手写", "#8a7a5c"], chat: ["💬 亲历", "#7d8a6e"], auto: ["💬 亲历", "#7d8a6e"], import: ["📥 导入", "#8a8a8a"], monthly: ["🗂 精炼", "#9a8298"], mcp: ["🖋 本体", "#9e8260"] };
   const srcBadge = e => {
     const b = SRC_BADGE[e.source];
     return b ? h("span", { key: "src", title: "记忆来源", style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", color: "#fff", background: b[1], padding: "1px 7px", borderRadius: 999, opacity: 0.9 } }, b[0]) : null;
   };
-  // 精炼摘要可回溯（玄参#6）：refineBatch ↔ 原件 archivedBatch 同号，数一下有几条原件
+  // 精炼摘要可回溯：refineBatch ↔ 原件 archivedBatch 同号，数一下有几条原件
   const refineBatchOf = e => e && e.refineBatch ? String(e.refineBatch)
     : (e && e.source === "monthly" && e.ts ? "rf_" + Number(e.ts) : null);
   const refineSrcCount = e => { const batch = refineBatchOf(e); return batch ? (entries || []).filter(x => x && x.archived && x.archivedBatch === batch).length : 0; };
@@ -11029,7 +11028,7 @@ function MemEntrySheet({
       color: t.sub
     }
   }, "置顶（每次都注入对话）"), h(Toggle, { on: pinned, onChange: v => setPinned(v), color: t.tint, wk: "memedswitch", part: "pin" })),
-  // 未了结（Ombre Brain·承诺可标记完成）：勾上会更常被想起，办完/翻篇点掉它就不再惦记
+  // 未了结（承诺可标记完成）：勾上会更常被想起，办完/翻篇点掉它就不再惦记
   h("div", { className: "flex items-center justify-between pt-6" },
     h("div", { style: { flex: 1, paddingRight: 12 } },
       h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.sub } }, "还没了结（约定 / 心结）"),
@@ -11041,7 +11040,7 @@ function MemEntrySheet({
       h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginTop: 2, lineHeight: 1.5 } },
         "抽的时候估计到 " + (new Date(Number(entry.expiresTs)).getMonth() + 1) + "/" + new Date(Number(entry.expiresTs)).getDate() + " 就多半不是这样了，过了以后少想起、想起时当成那时候的事。其实一直都成立就关掉")),
     h(Toggle, { on: shortLived, onChange: v => setShortLived(v), wk: "memedswitch", part: "ttl" })) : null,
-  // 情绪坐标（Ombre Brain·valence/arousal）：愉悦度 + 强度，影响被想起的权重
+  // 情绪坐标（valence/arousal）：愉悦度 + 强度，影响被想起的权重
   (() => {
     const stepper = (label, val, lo, hi, onCh) => h("div", { className: "flex items-center justify-between", style: { padding: "8px 0" } },
       h("span", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.sub } }, label),
@@ -11151,7 +11150,7 @@ function diaryPreview(e) {
 
 // 全文页 —— 这一页就是TA那张纸：日期是TA写下的，天气地点随手记在边上，
 // 正文落在纸上，划掉的有笔触、不肯说的糊成墨。
-// ⚠️不要再往回加英文眉标／条码／带框的元数据表——那套是照着别人的版式来的，
+// ⚠️不要再往回加英文眉标／条码／带框的元数据表——
 //   她 2026-08-30 明说要我们自己的（「我就是不想要现在这版的底子」）。
 function DiaryEntryView({ entry, char, isMe, chars, onBack, onDelete, onSetDate, onComment, commenting, onPhotoDiary, onDelPhoto, photoBusy }) {
   const t = useTheme();
@@ -11259,7 +11258,7 @@ function DiaryArchive({ characters, curId, setCurId, diaries, onOpen, onBack, on
   };
   // 封面就是TA那张纸 + 一张贴上去的书名签。
   // ⚠️别再往回做那套「深色大图 + 编号 + 一排英文小标题」的档案卡版式——
-  //   那是照着别人的来的，她 2026-08-30 明说要我们自己的东西。
+  //   她 2026-08-30 明说要我们自己的东西。
   const paper = diaryPaperOf(char);
   const iRGB = (typeof skinRGB === "function" ? skinRGB(t.ink || "#2b2622") : [43, 38, 34]).join(",");
   const lastStr = last ? (new Date(last.ts).getMonth() + 1) + "月" + new Date(last.ts).getDate() + "日" : "";

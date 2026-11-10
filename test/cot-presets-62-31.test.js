@@ -1,5 +1,5 @@
-// v62.31 她 2026-09-04：「设置里的思维链你看看哪儿还在用，然后改一下预设的 prompt
-// 因为我都是参考了别人的」
+// v62.31 她 2026-09-04：「设置里的思维链你看看哪儿还在用，然后改一下预设的 prompt」
+// 要换成我们自己写的
 const test = require("node:test");
 const assert = require("node:assert");
 const fs = require("fs");

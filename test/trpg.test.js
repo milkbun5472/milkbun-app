@@ -47,7 +47,7 @@ test("沙箱纪律:跑团和小剧场一样不接主线记忆/世界书/好感",
 test("玩家主权与骰子主权写死在提示词里", () => {
   assert.match(src, /玩家主权/);
   assert.match(src, /绝不自己编骰子结果/);
-  // 状态只认字段不认散文——参考项目状态漂移的病根
+  // 状态只认字段不认散文——状态漂移的病根
   assert.match(src, /一切状态变化只通过 JSON 字段报告/);
 });
 
@@ -201,7 +201,7 @@ test("章节闸:才开章或没掷过骰就报完成,丢掉并留幕后事实", 
   assert.match(src, /stageIdx: Math\.min\(c\.stages\.length, c\.stageIdx \+ 1\), stageAt: c\.msgs\.length/, "翻章时要记下起点");
 });
 
-test("章节推进只挂待确认,只有一个计数器(参考项目两处计数会漂)", () => {
+test("章节推进只挂待确认,只有一个计数器(两处计数会漂)", () => {
   const { camp } = applyTurnPayload(ripe(), { stageDone: true, stageNote: "拿到了名册" });
   assert.equal(camp.stageIdx, 1, "模型报 stageDone 不直接推进——由玩家点头才 +1");
   assert.equal(camp.pendingStage, "拿到了名册");
