@@ -34,7 +34,7 @@
 | `merge-to-main.md` | 干完就自己合进 main（她 2026-09-16 授权，不用再问）；⚠️收冲突不许 `git checkout --ours` |
 | `anchor-on-code.md` | 测试切代码时，两头只许钉函数名/常量名，**不许钉注释或整行参数表** |
 
-剩下十五条**按今天动哪儿去挑**：
+剩下十六条**按今天动哪儿去挑**：
 
 | 今天动的是 | 读这份 |
 |---|---|
@@ -53,6 +53,7 @@
 | 输入框、打字时会跑的代码（onChange／onInput／跟着输入变的 useEffect） | `typing-hot-path.md`（会长高的框一律 `fitTextarea`；每个字上不读整页排版、不同步写大仓库） |
 | 缓存头、`_headers`、`?v=` 指纹、发布脚本 | `cache-follows-content.md`（指纹不跟着内容走之前，不许给长缓存——2026-10-22 白屏） |
 | 聊天里新加卡片／按钮，点完TA要接一句 | `wait-for-her.md`（不许当场替TA开口，交给 waitForHer 等她按回复） |
+| 新做一处生图、或者任何「存一张图再显示」 | `generated-images-show.md`（存在哪儿就从哪儿读：`img_` 键走 `useIdbImgUrl`/`idbImgGet`，`iv_` 走 `resolveImg`；发版前亲眼看到图——2026-11-11 花房裂图） |
 
 ## 还留在 `.claude/rules/` 的两份，和这儿无关
 
