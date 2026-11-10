@@ -69,9 +69,16 @@
   }
 
   // 她点「选个地方」时才走这儿（要手势）。挑完当场写一份，让她立刻看得到文件。
+  const ABORT_MSG = "没选成。安卓不让网页往「下载」或手机最外层这种系统文件夹里存：进去新建一个文件夹（比如「秋秋备份」），选这个新的就行";
   async function pick() {
     if (!has()) throw new Error("这个浏览器没有这个功能");
-    const dir = await g.showDirectoryPicker({ mode: "readwrite", id: "qiuqiu-backup" });
+    let dir;
+    try { dir = await g.showDirectoryPicker({ mode: "readwrite", id: "qiuqiu-backup" }); }
+    catch (e) {
+      // 安卓 Chrome：选了「下载」或手机根目录这种系统文件夹，系统不给，浏览器报的是「用户取消」。
+      if (e && e.name === "AbortError") throw new Error(ABORT_MSG);
+      throw e;
+    }
     if ((await permission(dir, true)) !== "granted") throw new Error("没拿到写这个文件夹的许可");
     await put(KEY, dir);
     const r = await run(true);
