@@ -137,6 +137,13 @@ button[data-wk="avatar"]::after,span[data-wk="avatar"]:not([data-halo])::after{l
 
 [data-me="1"] button[data-wk="avatar"],[data-me="1"] span[data-wk="avatar"]:not([data-halo]){box-shadow:0 0 0 1.5px #B7A6E8,inset 0 2px 1px #fff,inset 0 -3px 4px rgba(120,90,200,.35),0 6px 12px rgba(30,20,60,.4) !important}
 
+/* 头像框照参考图：不占位置（不动排版）；白色厚边，底下一层淡紫厚度像果冻按钮，最外淡紫细描＋投影；不要彩色内圈 */
+button[data-wk="avatar"],span[data-wk="avatar"]:not([data-halo]),[data-wk="chathead"] [data-wk="avatar"],[data-me="1"] button[data-wk="avatar"],[data-me="1"] span[data-wk="avatar"]:not([data-halo]){padding:0 !important;margin:0 !important;background:transparent !important;box-sizing:border-box !important;border-radius:12px !important;box-shadow:0 0 0 5px #fff,0 2.5px 0 5px #D8CCF4,0 2.5px 0 6.5px #B9A8EA,0 8px 14px 4px rgba(30,20,60,.35) !important}
+button[data-wk="avatar"] > *,span[data-wk="avatar"]:not([data-halo]) > *,[data-wk="chathead"] [data-wk="avatar"] > *,[data-me="1"] button[data-wk="avatar"] > *,[data-me="1"] span[data-wk="avatar"]:not([data-halo]) > *{box-shadow:none !important;border-radius:10px !important}
+[data-wk="msg"] button[data-wk="avatar"],[data-wk="cardrow"] button[data-wk="avatar"]{margin:0 !important}
+button[data-wk="avatar"]::before,span[data-wk="avatar"]:not([data-halo])::before{right:-13px !important;top:-13px !important}
+button[data-wk="avatar"]::after,span[data-wk="avatar"]:not([data-halo])::after{left:-12px !important;bottom:-11px !important}
+
 `;
 
 const pack = { kind: "chat-look", v: 1, name: "Y2K", look: { bubble, layout, customCSS: css.trim() }, assets: {} };
