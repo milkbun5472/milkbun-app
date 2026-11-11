@@ -15,7 +15,7 @@ const YARN = (f = C.pink, k = f === C.pink ? C.pinkD : C.line) => `<svg xmlns='h
 const BELL = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'><circle cx='10' cy='10' r='8' fill='${C.gold}' stroke='#B88A33' stroke-width='1.2'/><path d='M3 9 H17' stroke='#B88A33' stroke-width='1.1'/><circle cx='10' cy='13' r='1.6' fill='#7A5A20'/><path d='M10 14 V17' stroke='#7A5A20' stroke-width='1.2'/></svg>`;
 
 // 猫耳头像框（耳朵＋项圈＋铃铛），flip 给我那颗
-const EARS = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><g stroke='${C.line}' stroke-width='3' stroke-linejoin='round' fill='#F4F7FB'><path d='M16 40 C10 24 12 10 18 4 C26 6 38 14 44 24 C34 26 24 32 16 40Z'/><path d='M84 40 C90 24 88 10 82 4 C74 6 62 14 56 24 C66 26 76 32 84 40Z'/></g><path d='M20 32 C17 22 18 14 21 10 C27 13 34 18 37 23 C30 25 25 28 20 32Z M80 32 C83 22 82 14 79 10 C73 13 66 18 63 23 C70 25 75 28 80 32Z' fill='${C.pink}'/><path d='M24 26 l4 -3 M27 29 l5 -2 M76 26 l-4 -3 M73 29 l-5 -2' stroke='#fff' stroke-width='1.6' stroke-linecap='round'/><circle cx='50' cy='52' r='38' fill='none' stroke='${C.line}' stroke-width='2.6'/><path d='M22 80 Q50 95 78 80' fill='none' stroke='${C.pink}' stroke-width='5.5' stroke-linecap='round'/><g transform='translate(41 82)'><circle cx='9' cy='9' r='8' fill='${C.gold}' stroke='#B88A33' stroke-width='1.2'/><path d='M2 8 H16' stroke='#B88A33' stroke-width='1.1'/><circle cx='9' cy='12' r='1.6' fill='#7A5A20'/></g></svg>`;
+const EARS = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><path fill-rule='evenodd' d='M14.5 40 C12 28 12 14 18 6 C26 8 34 13 39 19 C42.5 18.2 46.2 17.8 50 17.8 C53.8 17.8 57.5 18.2 61 19 C66 13 74 8 82 6 C88 14 88 28 85.5 40 C88.3 45 90 51 90 57.8 C90 79.9 72.1 97.8 50 97.8 C27.9 97.8 10 79.9 10 57.8 C10 51 11.7 45 14.5 40Z M50 24.8 A33 33 0 1 0 50.01 24.8Z' fill='#E6EDF6' stroke='${C.line}' stroke-width='2.4' stroke-linejoin='round'/><path d='M19 30 C18 22 19 15 22 11 C27 13 32 16 35 20 C29 22 23 25 19 30Z M81 30 C82 22 81 15 78 11 C73 13 68 16 65 20 C71 22 77 25 81 30Z' fill='${C.pink}'/><path d='M23 22 l4 -2 M25 26 l5 -1 M77 22 l-4 -2 M75 26 l-5 -1' stroke='#fff' stroke-width='1.5' stroke-linecap='round'/><path d='M17 76 Q50 100 83 76' fill='none' stroke='${C.pink}' stroke-width='6' stroke-linecap='round'/><path d='M17 76 Q50 100 83 76' fill='none' stroke='#fff' stroke-width='1.2' stroke-dasharray='1 5' stroke-linecap='round' opacity='.8'/><g transform='translate(41 85)'><circle cx='9' cy='9' r='8.5' fill='${C.gold}' stroke='#B88A33' stroke-width='1.3'/><path d='M1.5 8 H16.5' stroke='#B88A33' stroke-width='1.2'/><circle cx='9' cy='12' r='1.7' fill='#7A5A20'/><path d='M9 13 V16.5' stroke='#7A5A20' stroke-width='1.2'/><circle cx='6' cy='5' r='1.6' fill='#fff' opacity='.7'/></g></svg>`;
 
 
 // 背景：雾蓝底，散着淡淡的小鱼、鱼骨、爪印
@@ -58,7 +58,7 @@ const css = `
 [data-wk="avatar"]{position:relative !important;overflow:visible !important;border-radius:50% !important}
 [data-wk="avatar"] *{border-radius:50% !important}
 img[data-wk="avatar"],[data-wk="avatar"] img{clip-path:circle(50%) !important}
-button[data-wk="avatar"]::before,span[data-wk="avatar"]:not([data-halo])::before{content:"" !important;position:absolute !important;inset:-26% !important;top:-36% !important;background:${svg(EARS)} center/contain no-repeat !important;pointer-events:none !important;z-index:2 !important}
+button[data-wk="avatar"]::before,span[data-wk="avatar"]:not([data-halo])::before{content:"" !important;position:absolute !important;inset:-26% !important;top:-40% !important;bottom:-24% !important;background:${svg(EARS)} center/contain no-repeat !important;pointer-events:none !important;z-index:2 !important}
 [data-wk="chathead"] button:has(> [data-wk="avatar"]){position:relative !important;overflow:visible !important}
 [data-wk="chathead"] button:has(> [data-wk="avatar"])::before{content:"" !important;position:absolute !important;width:52px !important;height:52px !important;left:-8px !important;top:calc(50% - 30px) !important;background:${svg(EARS)} center/contain no-repeat !important;pointer-events:none !important;z-index:2 !important}
 
@@ -107,4 +107,19 @@ button[data-wk="avatar"]::before,span[data-wk="avatar"]:not([data-halo])::before
 [data-wk="chathead"] button:has(> [data-wk="avatar"]){isolation:isolate !important}
 [data-wk="chathead"] button:has(> [data-wk="avatar"]) > [data-wk="avatar"]{position:relative !important;z-index:1 !important}
 [data-wk="chathead"] button:has(> [data-wk="avatar"])::before{z-index:0 !important}
+
+/* 气泡返工：圆滚滚的软糖，顶角探一对小猫耳，侧边三根胡须，尾巴是一个小肉垫 */
+[data-wk="bubble"][data-kind="text"]{border-radius:26px !important;margin-top:10px !important}
+[data-wk="bubble"][data-kind="text"][data-me="1"]{background:linear-gradient(180deg,#DCE6F3,#C9D6E8) !important;border-bottom-right-radius:26px !important;box-shadow:inset 0 2px 0 rgba(255,255,255,.7),0 4px 0 rgba(140,155,184,.28) !important}
+[data-wk="bubble"][data-kind="text"][data-me="0"]{background:linear-gradient(180deg,#fff,#F6F8FC) !important;border-bottom-left-radius:26px !important;box-shadow:inset 0 2px 0 #fff,0 4px 0 rgba(140,155,184,.22) !important}
+[data-wk="bubble"][data-kind="text"]::before{content:"" !important;position:absolute !important;top:-11px !important;width:34px !important;height:14px !important;border:none !important;pointer-events:none !important;background:${svg(`<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 34 14'><g stroke='${C.line}' stroke-width='2' stroke-linejoin='round'><path d='M2 14 L5 2 L13 11Z' fill='#fff'/><path d='M32 14 L29 2 L21 11Z' fill='#fff'/></g><path d='M5.5 11 L6.5 5 L10 9.5Z M28.5 11 L27.5 5 L24 9.5Z' fill='${C.pink}'/></svg>`)} center/contain no-repeat !important}
+[data-wk="bubble"][data-kind="text"][data-me="1"]::before{right:22px !important;left:auto !important;transform:rotate(4deg) !important}
+[data-wk="bubble"][data-kind="text"][data-me="0"]::before{left:22px !important;right:auto !important;transform:rotate(-4deg) !important}
+[data-wk="bubble"][data-kind="text"]::after{bottom:-7px !important;width:18px !important;height:16px !important;border:none !important;border-radius:0 !important;background:${svg(PAW(C.line))} center/contain no-repeat !important}
+[data-wk="bubble"][data-kind="text"][data-me="1"]::after{right:-4px !important;transform:rotate(25deg) !important;background:${svg(PAW(C.line))} center/contain no-repeat !important;border:none !important;border-radius:0 !important}
+[data-wk="bubble"][data-kind="text"][data-me="0"]::after{left:-4px !important;transform:rotate(-25deg) !important;background:${svg(PAW(C.line))} center/contain no-repeat !important;border:none !important;border-radius:0 !important}
 `;
+
+const pack = { kind: "chat-look", v: 1, name: "猫猫", look: { bubble, layout, customCSS: css.trim() }, assets: {} };
+writeFileSync(join(here, "猫猫-美化.json"), JSON.stringify(pack));
+console.log("ok", css.length);
