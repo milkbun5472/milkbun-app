@@ -398,6 +398,12 @@ button[data-wk="avatar"]::after,span[data-wk="avatar"]:not([data-halo])::after{l
 [data-wk="statehistitem"]{padding-left:16px !important;padding-right:16px !important;padding-bottom:14px !important}
 [data-wk="statehistbtn"][data-part="back"]{display:inline-block !important;width:auto !important;padding:4px 16px !important}
 
+/* 面板水晶球：粉、黄、蓝轮流；镀铬外圈＋白描边＋上半椭圆高光＋下沿暗面＋紫色投影 */
+[data-wk="chattoolicon"]{background:radial-gradient(ellipse 62% 32% at 50% 24%,rgba(255,255,255,.85),rgba(255,255,255,.05) 70%,transparent 72%),linear-gradient(180deg,#E2F6FF,#93D6FF) !important;border:2px solid #fff !important;border-radius:50% !important;box-shadow:0 0 0 3px #D5DDF0,0 0 0 4px #6F7BA6,inset 0 -6px 8px rgba(106,63,200,.3),0 7px 12px rgba(122,69,214,.38) !important}
+[data-wk="chattool"]:nth-child(3n+1) [data-wk="chattoolicon"]{background:radial-gradient(ellipse 62% 32% at 50% 24%,rgba(255,255,255,.85),rgba(255,255,255,.05) 70%,transparent 72%),linear-gradient(180deg,#FFE3F4,#FF9FD6) !important}
+[data-wk="chattool"]:nth-child(3n+2) [data-wk="chattoolicon"]{background:radial-gradient(ellipse 62% 32% at 50% 24%,rgba(255,255,255,.85),rgba(255,255,255,.05) 70%,transparent 72%),linear-gradient(180deg,#FFF6B0,#FFD84D) !important}
+[data-wk="chattool"]:nth-child(3n) [data-wk="chattoolicon"]{background:radial-gradient(ellipse 62% 32% at 50% 24%,rgba(255,255,255,.85),rgba(255,255,255,.05) 70%,transparent 72%),linear-gradient(180deg,#E2F6FF,#93D6FF) !important}
+
 `;
 
 const pack = { kind: "chat-look", v: 1, name: "Y2K", look: { bubble, layout, customCSS: css.trim() }, assets: {} };
