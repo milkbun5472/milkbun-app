@@ -122,7 +122,7 @@ async function fetchModelList(p) {
   // 拉模型列表原来是裸 fetch：连不上时界面上就只有一句英文「Failed to fetch」，
   //   跟上面那段解释走的是两条路（群友 2026-11-03 截到的就是这一句）。改走同一段话。
   try { return await fetchModelListRaw(p); }
-  catch (e) { if (isNetFail(e)) throw new Error(netFailMsg(e)); throw e; }
+  catch (e) { if (isNetFail(e)) throw new Error(netFailMsg(e, "list")); throw e; }
 }
 async function fetchModelListRaw(p) {
   const base = normalizedOpenAIBase(p.baseUrl);
@@ -524,9 +524,12 @@ async function ensureLoreVecs(entries, opts) {
 //   而真正的那位是跨域预检（群友 2026-11-03：时好时坏、换个浏览器就连上了）。
 //   这一处公开出去，拉模型列表那几处也用同一段话（施工规则/one-public-mechanism.md）。
 function isNetFail(e) { return /load failed|failed to fetch|network\s*error|networkerror/i.test(String((e && e.message) || e)); }
-function netFailMsg(e) {
-  return "连接中断了（Load failed）。这一枪没打出去、或者没回来，连状态码都没有，常见的是这三种："
-    + "① 这次要写得太长、久久没有首字节，被网关当成死连接掐断（把线下的「最低字数」调低一些分两次写）；"
+// kind="list"：拉模型列表只是要一张单子，没有「写得太长」这回事，那一条不说（群友 2026-11-11 被它带偏）。
+function netFailMsg(e, kind) {
+  const list = kind === "list";
+  return "连接中断了（Load failed）。这一枪没打出去、或者没回来，连状态码都没有，常见的是这" + (list ? "几种：" : "三种：")
+    + (list ? "① 接口地址填得不对：多了空格、少了 https://、末尾多了一截路径；"
+      : "① 这次要写得太长、久久没有首字节，被网关当成死连接掐断（把线下的「最低字数」调低一些分两次写）；")
     + "② 线路那头偶尔抽风，浏览器把这次跨域预检的失败记了一会儿，于是接下来每一次都立刻失败——"
     + "这种时好时坏，隔十几分钟到两小时自己就好了，也可以换一条线路或换个中转地址；"
     + "③ 网不通、梯子刚断、或者手机浏览器把这个地址拦了。先重试一次：同样的设置常常第二次就过。"
