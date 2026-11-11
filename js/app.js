@@ -20,7 +20,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v89.465";
+const APP_VERSION = "v89.468";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -17911,13 +17911,16 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         + stampOutfit("这个主题") + (lim.themeLook || "");
     }
     const day = STAMP_DAY_KINDS[card.kind];
+    const rel = "写到她的时候，你俩的关系走到哪一步就写到哪一步，还没在一起就不写恋人之间的事，最近在别扭就别写得甜。";
+    // 生日、纪念日不是日常卡（她 2026-11-11：生日卡描述还是常服——开头一句「这是日常卡、写你平常的活儿」把它带回了平常的一天）
+    if (day) return "这是一张【" + day + "卡】：写这一天前后真发生的一刻。" + rel
+      + (card.kind === "mybday" ? "她在场，R 也写你们俩在一起的那一瞬间。shot 画的是你们两个人，两个人都是为她生日特意的打扮。" : "")
+      + (card.kind === "anniv" ? stampAnnivLine(card, char) : "")
+      + (card.kind === "bday" ? "写你怎么过这个生日。这一身是专门为这一天准备的限定造型，比你平时隆重、细节多，同时是配你这个人的样子。shot 的景别拉开到看得见那天的场合和生日的氛围。" : "")
+      + stampOutfit(day);
     return "这是一张【日常卡】：写你自己日子里真发生的一件事——不是你们已经发生过的事，也不是回忆。"
       + "这件事从你自己的生活里来：你的活儿、你在意的东西、你身边的人、你的选择，或者一点意外；它可以跟她一点关系都没有，你不必时时惦记着她。"
-      + "写到她的时候，你俩的关系走到哪一步就写到哪一步，还没在一起就不写恋人之间的事，最近在别扭就别写得甜。" + (day ? "" : "衣服从你自己的衣柜里挑。")
-      + (card.kind === "mybday" ? "这一张是【她的生日】前后，你们俩之间的一刻：她在场，R 也写你们俩在一起的那一瞬间。照你们现在的关系来，还没在一起就不写恋人之间的事。shot 画的是你们两个人，两个人都是为她生日特意的打扮。" : "")
-      + (card.kind === "anniv" ? stampAnnivLine(card, char) : "")
-      + (card.kind === "bday" ? "这一张是你生日前后的一刻。生日卡是专门为这一天设计的限定造型，比你平时隆重、细节多，同时还是你会穿、配你这个人的样子；隆重不等于西装，照那天在做的事配。shot 的景别拉开到看得见那天的场合和生日的氛围。" : "")
-      + (day ? stampOutfit(day) : "");
+      + rel + "衣服从你自己的衣柜里挑。";
   };
   const STAMP_RARITY_SPEC = {
     R: "R 卡＝抓拍：她不在场时你的一个瞬间，重在你那会儿是什么状态，不必是一件完整的事。narration 一行交代是什么时候、你在干嘛；thought 是你心里的一句，你不知道会被她看到，印在卡面上，每张 R 都要有、不能空。"

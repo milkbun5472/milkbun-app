@@ -40,9 +40,11 @@
 
 每一批截图给她看一眼再往下做。预览脚本在 `themes/_preview/`（起 `python3 -m http.server 8765`，
 `NODE_PATH=$(npm root -g) node themes/_preview/preview.cjs <出图目录> <美化.json> [额外消息.json]`；
-状态卡 state.cjs、翻旧 hist.cjs、线下 off.cjs、红包拆开 env.cjs）。
+状态卡 state.cjs、翻旧 hist.cjs、线下 off.cjs、红包拆开 env.cjs；线下小结卡用 preview.cjs 带 offlog.json，**每套都要出这张图**）。
 
 ## 别忘的几处（每套都漏过一次）
+
+- 顶栏高度：跟前几套一样矮（本体约 70px），下沿装饰用负的 top 往上叠进顶栏，别往下拖一大截；聊天区 padding-top 只留够挂件露出来。
 
 - 线下小结卡、系统提示（sysnote）、拍一拍、通话结束胶囊、动描那一框。
 - 排版设置跟着包走：包里不写 `layout` 就会沿用上一套的排版（头像只留第一条之类），每套都写明。
