@@ -309,6 +309,10 @@ button[data-wk="avatar"],span[data-wk="avatar"]:not([data-halo]){box-shadow:0 0 
 [data-wk="sysnotetext"]::before{content:"" !important;display:inline-block !important;width:11px !important;height:11px !important;margin-right:5px !important;vertical-align:-1px !important;background:${svg(STAR)} center/contain no-repeat !important;opacity:.7 !important}
 [data-wk="sysnoteclose"]{color:${C.fog} !important;opacity:.6 !important}
 
+/* 拍一拍：淡青瓷小胶囊，不描边；两边各一颗小星，像拍完冒出来的闪光 */
+[data-wk="note"][data-part="pat"]{background:#DCEDE6 ${svg(STAR)} 9px center/11px 11px no-repeat !important;border:none !important;border-radius:999px !important;color:${C.brown} !important;padding:2px 26px 2px 26px !important;font-size:12px !important;position:relative !important}
+[data-wk="note"][data-part="pat"]::after{content:"" !important;position:absolute !important;right:9px !important;top:50% !important;width:11px !important;height:11px !important;margin-top:-5.5px !important;background:${svg(STAR)} center/contain no-repeat !important}
+
 `;
 
 const pack = { kind: "chat-look", v: 1, name: "青瓷焦茶", look: { bubble, layout, customCSS: css.trim() }, assets: {} };
