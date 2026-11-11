@@ -252,6 +252,13 @@ button[data-wk="avatar"] *,span[data-wk="avatar"] *,img[data-wk="avatar"]{border
 [data-wk="stateheart"]{left:calc(50% - 7px) !important;margin-left:0 !important;height:min(240px, 76vw) !important;bottom:calc(30px - min(240px, 76vw) / 2) !important;transform:rotate(90deg) !important;transform-origin:50% 50% !important}
 [data-wk="stateknob"],[data-wk="stateheartknob"]{transform:none !important}
 
+/* 名字露全：小房子贴着「···」往右挪，名字那块撑满 */
+[data-wk="chathead"]{gap:6px !important;padding-right:16px !important}
+[data-wk="chathead"] [data-wk="headname"]{flex:1 1 auto !important;min-width:0 !important}
+[data-wk="chathead"] button:has(> [data-wk="headname"]){flex:1 1 auto !important;min-width:0 !important}
+[data-wk="sameroom"]{margin-left:auto !important;margin-right:-4px !important;width:28px !important;min-width:28px !important}
+[data-wk="chatmore"]{width:28px !important;min-width:28px !important;margin-left:0 !important}
+
 `;
 
 const pack = { kind: "chat-look", v: 1, name: "黑白", look: { bubble, layout, customCSS: css.trim() }, assets: {} };
