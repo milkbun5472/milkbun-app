@@ -33,6 +33,14 @@ const I_REPLY = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 50 46'><g 
 const I_HOUSE = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'><g stroke='${C.line}' stroke-width='2.2' stroke-linejoin='round' fill='#fff'><path d='M6 18 L20 6 L34 18 V34 H6Z'/><path d='M15 34 V24 a5 5 0 0 1 10 0 V34'/></g><path d='M12 10 L11 3 L17 7Z M28 10 L29 3 L23 7Z' fill='${C.pink}' stroke='${C.line}' stroke-width='1.5'/></svg>`;
 const I_PAWS = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 60 22'><g transform='translate(0 3) scale(.4)'>${X(PAW())}</g><g transform='translate(20 0) scale(.5)'>${X(PAW())}</g><g transform='translate(42 3) scale(.4)'>${X(PAW())}</g></svg>`;
 
+
+// ── 第二批用的图 ──
+// 小鱼罐头（红包）：圆角罐身、拉环、贴纸上一条鱼
+const CAN = (body = "#DCE6F2", label = "#fff") => `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 80 70'><rect x='6' y='14' width='68' height='50' rx='12' fill='${body}' stroke='${C.line}' stroke-width='2.4'/><ellipse cx='40' cy='16' rx='34' ry='8' fill='#fff' stroke='${C.line}' stroke-width='2.4'/><ellipse cx='40' cy='16' rx='26' ry='5' fill='none' stroke='${C.line}' stroke-width='1.4' opacity='.6'/><path d='M52 12 q10 -10 16 -2 q-6 4 -12 4' fill='none' stroke='${C.line}' stroke-width='2.2' stroke-linecap='round'/><rect x='14' y='30' width='52' height='24' rx='8' fill='${label}' stroke='${C.line}' stroke-width='1.6'/><g transform='translate(24 34) scale(.8)'>${X(FISH(C.pinkD))}</g></svg>`;
+// 大肉垫印（已收 / 退回）
+const PADSTAMP = (f) => `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 80 80'><g fill='${f}'><ellipse cx='40' cy='52' rx='22' ry='18'/><ellipse cx='16' cy='30' rx='8' ry='10' transform='rotate(-20 16 30)'/><ellipse cx='31' cy='16' rx='8' ry='10' transform='rotate(-6 31 16)'/><ellipse cx='49' cy='16' rx='8' ry='10' transform='rotate(6 49 16)'/><ellipse cx='64' cy='30' rx='8' ry='10' transform='rotate(20 64 30)'/></g></svg>`;
+// 小鱼图钉（位置）
+const FISHPIN = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'><g transform='rotate(-90 20 20) translate(2 10)'>${X(FISH(C.pinkD))}</g></svg>`;
 const bubble = { myBg: "#CFDAEA", myText: C.ink, myBorder: "2px solid " + C.line, charBg: "#fff", charText: C.ink, charBorder: "2px solid " + C.line, radius: 22, shadow: "none", myAlpha: 100, charAlpha: 100 };
 const layout = { bubble: "bubble", avatar: "all", name: false, gap: "normal", time: "show" };
 
@@ -47,10 +55,10 @@ const css = `
 [data-wk="chat"]{background:${svg(TILE)} 0 0/200px 200px,linear-gradient(180deg,${C.mist2},${C.mist}) !important;position:relative !important}
 [data-wk="chat"]::before{content:"" !important;position:absolute !important;left:24px !important;bottom:96px !important;width:54px !important;height:54px !important;background:${svg(YARN())} center/contain no-repeat !important;pointer-events:none !important;z-index:0 !important;animation:ktRoll 6s ease-in-out infinite !important}
 @keyframes ktRoll{0%,100%{transform:translateX(0) rotate(0)}50%{transform:translateX(14px) rotate(60deg)}}
-[data-wk="body"]{background:${svg(YARNLINE)} center top/100% 760px repeat-y local !important;position:relative !important;z-index:1 !important;padding-top:44px !important}
+[data-wk="body"]{background:${svg(YARNLINE)} center top/100% 760px repeat-y local !important;position:relative !important;z-index:1 !important;padding-top:30px !important}
 /* 顶栏：奶白，下沿波浪布边挂小东西，右边垂一条会摆的尾巴 */
 [data-wk="chathead"]{background:${C.milk} !important;border-bottom:none !important;box-shadow:none !important;position:relative !important;z-index:5 !important;overflow:visible !important}
-[data-wk="chathead"]::after{content:"" !important;position:absolute !important;left:0 !important;right:0 !important;top:calc(100% - 1px) !important;height:52px !important;background:${svg(HEM)} center top/100% auto no-repeat !important;pointer-events:none !important}
+[data-wk="chathead"]::after{content:"" !important;position:absolute !important;left:0 !important;right:0 !important;top:calc(100% - 10px) !important;height:52px !important;background:${svg(HEM)} center top/100% auto no-repeat !important;pointer-events:none !important}
 [data-wk="chathead"]::before{content:"" !important;position:absolute !important;right:14px !important;top:calc(100% + 2px) !important;width:34px !important;height:82px !important;background:${svg(TAIL)} center top/contain no-repeat !important;transform-origin:50% 0 !important;animation:ktTail 3.6s ease-in-out infinite !important;pointer-events:none !important;z-index:6 !important}
 @keyframes ktTail{0%,100%{transform:rotate(-6deg)}50%{transform:rotate(8deg)}}
 [data-wk="headink"]{color:${C.ink} !important}
@@ -136,6 +144,108 @@ button[data-wk="avatar"]::before,span[data-wk="avatar"]:not([data-halo])::before
 [data-wk="chat"]::before{animation:ktAlong linear both,ktSpin linear both !important;animation-timeline:--ktscroll,--ktscroll !important}
 ${ktAlong()}
 @keyframes ktSpin{from{rotate:0deg}to{rotate:-1440deg}}
+
+/* ───── 猫猫 · 第二批：卡片 ───── */
+/* 卡片统一：奶白软糖块、蓝灰描边、底下一层厚边，像气泡一家 */
+[data-wk="transfercard"],[data-wk="photocard"],[data-wk="voice"],[data-wk="wxcard"],[data-wk="geocard"] > [data-wk="card"],[data-wk="namecard"],[data-part="offlog"],[data-wk="callpill"] > [data-wk="block"]{background:#fff !important;border:2px solid ${C.line} !important;border-radius:22px !important;box-shadow:0 4px 0 #C3CEE0 !important;color:${C.ink} !important}
+[data-wk="transfercard"] *,[data-wk="namecard"] *,[data-part="offlog"] *,[data-wk="geocard"] *,[data-wk="callpill"] *{color:${C.ink} !important;border-color:#C3CEE0 !important}
+
+/* 转账：猫爪印收据——顶上一排小鱼齿孔，收了盖一个粉肉垫 */
+[data-wk="transfercard"]{position:relative !important;overflow:visible !important;padding-top:26px !important;background:radial-gradient(circle at 0 64%,${C.mist} 8px,transparent 9px),radial-gradient(circle at 100% 64%,${C.mist} 8px,transparent 9px),#fff !important}
+[data-wk="transfercard"]::before{content:"喵 · 小鱼干收据" !important;position:absolute !important;left:16px !important;top:8px !important;font-size:10px !important;letter-spacing:.16em !important;color:${C.line} !important;padding-left:18px !important;background:${svg(PAW(C.line))} 0 center/12px 12px no-repeat !important}
+[data-wk="transferlabel"]{color:${C.line} !important}
+[data-wk="transferamount"],[data-wk="transfercur"]{color:${C.ink} !important;font-weight:700 !important}
+[data-wk="transferrule"]{border:none !important;height:6px !important;background:${svg(`<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 6'><circle cx='3' cy='3' r='1.6' fill='${C.line}' opacity='.5'/></svg>`)} 0 0/12px 6px repeat-x !important}
+[data-wk="transfernotch"]{display:none !important}
+[data-wk="transferfoot"]{background:${C.mist2} !important;border-radius:0 0 20px 20px !important}
+[data-wk="transfernote"]::before{content:"附言：" !important;color:${C.line} !important}
+[data-wk="transferbtn"]{border-radius:999px !important}
+[data-wk="transferbtn"][data-part="take"]{background:${C.line} !important;color:#fff !important;border:none !important;box-shadow:0 3px 0 #6F7D99 !important}
+[data-wk="transferbtn"][data-part="back"]{background:#fff !important;color:${C.line} !important;border:1.5px solid ${C.line} !important}
+[data-wk="transferseal"]{border:2px solid ${C.line} !important;box-shadow:none !important;color:${C.line} !important;background:${C.mist2} !important;border-radius:50% !important}
+[data-wk="transfercard"][data-status="accepted"] [data-wk="transferseal"],[data-wk="transfercard"][data-status="returned"] [data-wk="transferseal"]{width:68px !important;height:68px !important;flex-shrink:0 !important;border:none !important;box-shadow:none !important;border-radius:0 !important;opacity:1 !important;padding:24px 0 0 !important;transform:rotate(-12deg) !important;background:${svg(PADSTAMP(C.pink))} center/contain no-repeat !important}
+[data-wk="transfercard"][data-status="returned"] [data-wk="transferseal"]{background:${svg(PADSTAMP("#B9C3D6"))} center/contain no-repeat !important;transform:rotate(10deg) !important}
+[data-wk="transfercard"][data-status="accepted"] [data-wk="transferseal"] *,[data-wk="transfercard"][data-status="returned"] [data-wk="transferseal"] *{color:#fff !important;font-size:12px !important;letter-spacing:0 !important;white-space:nowrap !important;font-weight:700 !important}
+[data-wk="transfercard"][data-status="returned"] [data-wk="transferseal"] > div:nth-child(2),[data-wk="transfercard"][data-status="accepted"] [data-wk="transferseal"] > div:nth-child(2){display:none !important}
+[data-wk="transfercard"][data-status="returned"]{opacity:.8 !important}
+
+/* 红包：一罐小鱼罐头 */
+[data-wk="rpcard"]{background:linear-gradient(180deg,#fff,${C.mist2}) !important;border:2px solid ${C.line} !important;border-radius:22px !important;box-shadow:0 4px 0 #C3CEE0 !important;padding-left:96px !important;min-height:92px !important;position:relative !important;overflow:visible !important}
+[data-wk="rpcard"] *{color:${C.ink} !important}
+[data-wk="rpcard"]::before{content:"" !important;position:absolute !important;left:12px !important;top:50% !important;width:74px !important;height:64px !important;margin-top:-34px !important;background:${svg(CAN())} center/contain no-repeat !important;animation:ktWob 2.4s ease-in-out infinite !important;transform-origin:50% 100% !important}
+@keyframes ktWob{0%,100%{transform:rotate(-3deg)}50%{transform:rotate(3deg)}}
+[data-wk="rpcard"]::after{content:"小鱼罐头" !important;position:absolute !important;left:24px !important;bottom:5px !important;font-size:10px !important;letter-spacing:.2em !important;color:${C.line} !important}
+[data-wk="rpflap"],[data-wk="rpseal"]{display:none !important}
+[data-wk="rpcard"][data-status="done"]{background:${C.mist2} !important;box-shadow:none !important;filter:none !important}
+[data-wk="rpcard"][data-status="done"]::before{background:${svg(CAN("#EEF3F9","#F5F7FB"))} center/contain no-repeat !important;opacity:.6 !important;animation:none !important}
+[data-wk="rpcard"][data-status="done"]::after{content:"吃光啦" !important}
+/* 拆开前：一大罐，按钮是拉环 */
+[data-wk="rpenvelope"][data-stage="closed"]{background:${svg(TILE)} 0 0/200px 200px,linear-gradient(180deg,#fff,${C.mist}) !important;border:2.5px solid ${C.line} !important;border-radius:30px !important;box-shadow:0 6px 0 #C3CEE0 !important}
+[data-wk="rpenvelope"][data-stage="closed"] [data-wk="rparc"]{background:${C.milk} !important;border-top:2.5px solid ${C.line} !important}
+[data-wk="rpenvelope"] *{color:${C.ink} !important}
+[data-wk="rpopenbtn"]{background:#fff ${svg(FISH(C.pinkD))} center/62% auto no-repeat !important;border:2.5px solid ${C.line} !important;box-shadow:0 4px 0 #C3CEE0 !important;animation:ktWob 1.6s ease-in-out infinite !important}
+[data-wk="rpopenbtn"],[data-wk="rpopenbtn"] *{color:transparent !important;font-size:0 !important}
+/* 拆开后 */
+[data-wk="rpenvelope"][data-stage="open"]{background:${svg(TILE)} 0 0/200px 200px,${C.mist2} !important;border:2.5px solid ${C.line} !important;border-radius:30px !important}
+[data-wk="rpenvelope"][data-stage="open"] [data-wk="rparc"][data-part="top"]{background:${C.mist} !important;border-bottom:2.5px solid ${C.line} !important;box-shadow:none !important}
+[data-wk="rpenvelope"][data-stage="open"] [data-wk="rparc"][data-part="top"]::after{content:none !important}
+[data-wk="rpavatar"]{box-shadow:0 0 0 3px #fff,0 0 0 5px ${C.line} !important;border-radius:50% !important}
+[data-wk="rpamount"]{color:${C.ink} !important;background:none !important}
+[data-wk="rpstatus"],[data-wk="rpwish"]{color:${C.line} !important}
+[data-wk="rpclose"]{background:#fff !important;border:2px solid ${C.line} !important;color:${C.line} !important}
+
+/* 照片：拍立得，顶上探一对猫耳 */
+[data-wk="photocard"]{position:relative !important;overflow:visible !important;padding:8px 8px 22px !important;margin-top:10px !important}
+[data-wk="photocard"]::before{content:"" !important;position:absolute !important;top:-11px !important;left:20px !important;width:34px !important;height:14px !important;background:${svg(`<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 34 14'><path d='M2 14 L7 1 L14 14Z M20 14 L27 1 L32 14Z' fill='#fff' stroke='${C.line}' stroke-width='2' stroke-linejoin='round'/><path d='M6 12 L7.5 6 L10 12Z M24 12 L26.5 6 L28 12Z' fill='${C.pink}'/></svg>`)} center/contain no-repeat !important}
+[data-wk="photoface"]{background:${svg(TILE)} 0 0/120px 120px,${C.mist} !important;border-radius:14px !important;border:none !important}
+[data-wk="phototext"],[data-wk="photocap"],[data-wk="photohint"]{color:${C.ink} !important}
+
+/* 语音：毛线团在前，声波是一截截毛线 */
+[data-wk="voice"] > *{background:transparent !important;box-shadow:none !important;border:none !important;color:${C.ink} !important}
+[data-wk="voice"]{padding-left:40px !important;position:relative !important}
+[data-wk="voice"]::before{content:"" !important;position:absolute !important;left:12px !important;top:50% !important;width:24px !important;height:24px !important;margin-top:-12px !important;background:${svg(YARN())} center/contain no-repeat !important;z-index:2 !important}
+[data-wk="voicewave"] span{background:${C.line} !important;border-radius:3px !important}
+/* 天气 */
+[data-wk="wxcardsky"]{background:linear-gradient(170deg,${C.mist2},${C.mist}) !important;color:${C.ink} !important}
+[data-wk="wxcardsky"] *{color:${C.ink} !important}
+[data-wk="wxcardsky"] svg{stroke:${C.line} !important}
+[data-wk="wxcardsay"]{background:#fff !important;color:${C.ink} !important;border-top:2px solid ${C.mist} !important}
+/* 位置：钉一条小鱼 */
+[data-wk="geopin"]{background:${svg(FISHPIN)} center/contain no-repeat !important;box-shadow:none !important;border:none !important;width:26px !important;height:26px !important}
+[data-wk="geopin"] *{opacity:0 !important}
+[data-wk="geopinstem"]{background:${C.line} !important}
+/* 名片 */
+[data-wk="namecard"] img{border-radius:50% !important;box-shadow:0 0 0 2px #fff,0 0 0 4px ${C.line} !important}
+
+/* 拍一拍：小肉垫胶囊；通话结束胶囊同款 */
+[data-wk="note"][data-part="pat"],[data-wk="note"][data-part="call"]{display:inline-block !important;background:#fff ${svg(PAW(C.pinkD))} 10px center/13px 13px no-repeat !important;border:1.5px solid ${C.line} !important;border-radius:999px !important;padding:3px 14px 3px 28px !important;color:${C.ink} !important}
+[data-wk="note"][data-part="call"]{background-image:none !important;padding-left:14px !important}
+[data-wk="note"][data-part="call"] svg{stroke:${C.line} !important}
+[data-wk="sysnotetext"]::before{content:"" !important;display:inline-block !important;width:16px !important;height:9px !important;margin-right:6px !important;vertical-align:middle !important;background:${svg(FISH(C.line))} center/contain no-repeat !important}
+[data-wk="sysnoteclose"]{color:${C.line} !important}
+
+/* 线下小结卡：卡头一枚鱼形标签 */
+[data-part="offlog"]{position:relative !important;overflow:visible !important;padding-top:22px !important}
+[data-wk="offlogtitle"]{display:inline-block !important;margin-top:-34px !important;margin-bottom:8px !important;padding:4px 22px 4px 30px !important;color:#fff !important;background:${C.line} ${svg(PAW("#fff"))} 10px center/12px 12px no-repeat !important;border-radius:999px 14px 14px 999px !important;letter-spacing:.08em !important}
+[data-wk="offlogtitle"] *{color:#fff !important}
+[data-wk="offlogtext"]{color:${C.ink} !important}
+[data-wk="offlogopen"],[data-wk="offlogredo"],[data-wk="offlogundo"],[data-wk="offlogrestore"]{color:${C.line} !important}
+[data-wk="offlogtranscript"]{border-top:2px solid ${C.mist} !important;color:${C.line} !important}
+
+/* 加号面板：一颗颗雾蓝毛线团 */
+[data-wk="chatpanel"]{background:${C.milk} !important;border-top:2px solid ${C.mist} !important}
+[data-wk="chattoolicon"]{background:#fff !important;border:2px solid ${C.line} !important;border-radius:50% !important;box-shadow:0 3px 0 #C3CEE0 !important}
+[data-wk="chattoolglyph"],[data-wk="chattoolglyph"] svg{stroke:${C.line} !important;color:${C.line} !important}
+[data-wk="chattoollabel"]{color:${C.ink} !important}
+
+/* 引用三处：待发送那条＝一张挂着的小鱼标签；气泡上方＝蓝灰小纸条；气泡里＝左边一条毛线 */
+[data-wk="quotedraft"]{background:#fff !important;border:2px solid ${C.line} !important;border-radius:18px !important;position:relative !important;padding-left:40px !important;overflow:visible !important}
+[data-wk="quotedraft"]::before{content:"" !important;position:absolute !important;left:10px !important;top:50% !important;width:22px !important;height:12px !important;margin-top:-6px !important;background:${svg(FISH(C.pinkD))} center/contain no-repeat !important}
+[data-wk="quotedraft"] *{background:transparent !important;color:${C.ink} !important;border:none !important}
+[data-wk="quoteicon"]{display:none !important}
+[data-wk="quoteclear"]{color:${C.line} !important}
+[data-wk="quote"]{background:${C.mist2} !important;color:${C.ink} !important;border:1.5px solid ${C.line} !important;border-radius:14px !important;padding:3px 10px 3px 26px !important;opacity:1 !important;background-image:${svg(PAW(C.line))} !important;background-repeat:no-repeat !important;background-position:8px center !important;background-size:11px 11px !important}
+[data-wk="bubble"] [data-wk="quotetext"]{display:block !important;border-left:3px solid ${C.pink} !important;border-radius:2px !important;padding-left:8px !important;color:${C.line} !important}
 `;
 
 const pack = { kind: "chat-look", v: 1, name: "猫猫", look: { bubble, layout, customCSS: css.trim() }, assets: {} };
