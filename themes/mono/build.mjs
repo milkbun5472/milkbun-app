@@ -260,7 +260,10 @@ button[data-wk="avatar"] *,span[data-wk="avatar"] *,img[data-wk="avatar"]{border
 [data-wk="chatmore"]{width:28px !important;min-width:28px !important;margin-left:0 !important}
 
 /* 线下底栏跟线上一样的排法：对话气泡在左、箭头发送挪到最右；箭头缩小 */
-[data-wk="offcomposer"] button:not([title]):not([data-wk]){order:99 !important;width:38px !important;min-width:38px !important;height:38px !important;box-shadow:0 4px 10px rgba(0,0,0,.18) !important}
+/* 位置和功能都不动：左边「发送」换成对话气泡图标，最右「让 Ta 演绎」换成黑色圆箭头（缩小） */
+[data-wk="offcomposer"] button:not([title]):not([data-wk]){background:${svg(I_REPLY)} center/26px no-repeat !important;box-shadow:none !important;border-radius:0 !important;width:36px !important;min-width:36px !important}
+[data-wk="offcomposer"] button[title="让 Ta 演绎"]{width:38px !important;min-width:38px !important;height:38px !important;border:none !important;border-radius:50% !important;background:${svg(I_SEND)} center/contain no-repeat !important;box-shadow:0 4px 10px rgba(0,0,0,.18) !important;font-size:0 !important;color:transparent !important}
+[data-wk="offcomposer"] button[title="让 Ta 演绎"] *{opacity:0 !important}
 
 `;
 
