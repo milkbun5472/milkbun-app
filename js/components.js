@@ -19835,7 +19835,7 @@ function OffPickBar({ t, pick, setPick, onPin }) {
       pick.length >= 2 ? h("button", { onClick: () => { const lo = Math.min.apply(null, pick), hi = Math.max.apply(null, pick); const a = []; for (let k = lo; k <= hi; k++) a.push(k); setPick(a); }, style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.sub } }, "补中间") : null,
       h("button", { onClick: () => { if (pick.length) { onPin(pick.slice().sort((a, b) => a - b)); setPick(null); } }, disabled: !pick.length, className: "disabled:opacity-40", style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.ink } }, "收进时刻")));
 }
-function OffCard({ m, msgIndex, t, char, clockId, meProfile, members, canOpenState, onEdit, onReroll, onDelete, onSaveExample, onPinShike, editable, sending, onOpenState, showReason, hideThought }) {
+function OffCard({ m, msgIndex, t, char, clockId, meProfile, members, canOpenState, onEdit, onReroll, onRerollOne, onDelete, onSaveExample, onPinShike, editable, sending, onOpenState, showReason, hideThought }) {
   const [editing, setEditing] = useState(false);
   const [txt, setTxt] = useState(m.content || "");
   const [photoView, setPhotoView] = useState(null);   // 点开那张照片：大图／描述／存到手机
@@ -19895,6 +19895,8 @@ function OffCard({ m, msgIndex, t, char, clockId, meProfile, members, canOpenSta
     moreKeys && onPinShike ? h("button", { onClick: () => onPinShike(m, spk), className: "active:opacity-50", title: "收进时刻" }, h(CGlyph, { k: "shikeStar", size: 15, color: t.fog })) : null,
     (moreKeys && !isUser && !isNarr && !isNovel && onSaveExample) ? h("button", { onClick: () => onSaveExample(m, spk), className: "active:opacity-50", title: "收作好吃范例", style: { fontFamily: F_DISPLAY, fontSize: "calc(17px * var(--app-fs, 1))", lineHeight: 1, color: t.fog } }, "✦") : null,
     // 删前问一句（群友 2026-10-26：点编辑手一滑点到旁边的删除，整段没了）
+    // 群线下：只重写这一个人这一段，前后别人的不动（群里 2026-11-11）
+    (moreKeys && onRerollOne && m.senderId && !isUser && !isNarr && !isNovel) ? h("button", { "data-wk": "offrerollone", onClick: () => onRerollOne(m.id), disabled: sending, className: "active:opacity-50 disabled:opacity-30", title: "只重写这一段", style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, whiteSpace: "nowrap" } }, "只重写这段") : null,
     moreKeys && onDelete ? iconBtn(ITrash, () => requestAppConfirm("删掉这一段？", "删了找不回来。", () => onDelete(m.id), "删掉"), "删除") : null,
     (isUser || moreKeys) && onEdit ? iconBtn(IPencil, () => setEditing(true), "编辑") : null,
     (!isUser && !isNarr && onReroll) ? h("button", Object.assign({ "data-wk": "rerollpress", disabled: sending, className: "active:opacity-50 disabled:opacity-30", title: "重写（长按给方向）", style: { WebkitUserSelect: "none", userSelect: "none", WebkitTouchCallout: "none" } }, rerollPress(() => onReroll(m.id))), h(IRefresh, { size: 15, color: t.fog })) : null,
@@ -20031,6 +20033,7 @@ function GroupOfflineMode({
   onPinShike,
   onEditMsg,
   onRerollMsg,
+  onRerollOne,
   rerollNav,      // 重 Roll 留版（她 2026-10-10）
   onRerollFlip,
   onDelMsg,
@@ -20325,7 +20328,7 @@ function GroupOfflineMode({
     h("div", { ref: scroller, "data-wk": "offbody", className: "flex-1 overflow-y-auto px-4 py-3", onScroll: e => { if (e.target.scrollTop < 320) offGrow(); } },
       h(ChatJumpArrows, { scroller, t }),
       msgs.length === 0 && !sending && h("div", { className: "text-center mt-10", style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.fog } }, "场景已布置好，说点什么或让他们先开口。"),
-      msgs.map((m, i) => i < offWin ? null : offPickCard(h(OffCard, { key: m.id || i, m: m, msgIndex: i, t: t, clockId: group && group.id ? "g:" + group.id : undefined, hideThought: !!(settings && settings.hideThought), members: members, meProfile: profile, editable: !pick, sending: sending, showReason: showReason, onEdit: onEditMsg, onReroll: onRerollMsg, onDelete: onDelMsg, onSaveExample: onSaveExample, onPinShike: onPinShike ? () => setPick([i]) : null, onOpenState: offOpenState, canOpenState: offCanPeek }), i, pick, setPick, t)),
+      msgs.map((m, i) => i < offWin ? null : offPickCard(h(OffCard, { key: m.id || i, m: m, msgIndex: i, t: t, clockId: group && group.id ? "g:" + group.id : undefined, hideThought: !!(settings && settings.hideThought), members: members, meProfile: profile, editable: !pick, sending: sending, showReason: showReason, onEdit: onEditMsg, onReroll: onRerollMsg, onRerollOne: onRerollOne, onDelete: onDelMsg, onSaveExample: onSaveExample, onPinShike: onPinShike ? () => setPick([i]) : null, onOpenState: offOpenState, canOpenState: offCanPeek }), i, pick, setPick, t)),
       !sending && !pick && rerollNav && onRerollFlip ? h(RerollNav, { nav: rerollNav, onFlip: onRerollFlip, pad: "2px 0 8px" }) : null,
       sending && h("div", { className: "flex mt-3 justify-center items-center gap-2" }, h(TypingDots, { color: t.fog }), onStopGen && h(GenStopX, { onStop: onStopGen }))),
     pick ? h(OffPickBar, { t, pick, setPick, onPin: idx => onPinShike(idx.map(k => msgs[k])) }) : h("div", { "data-wk": "offcomposer", className: "flex items-center gap-2 px-3 py-2.5 shrink-0", style: { background: t.bg2, borderTop: `1px solid ${t.line}`, paddingBottom: COMPOSER_PAD_BOTTOM, marginBottom: kbLift, transition: "margin-bottom .18s ease" } },

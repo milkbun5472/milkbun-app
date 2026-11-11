@@ -20,7 +20,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v89.464";
+const APP_VERSION = "v89.465";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -10308,6 +10308,16 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         photoMembers: _gShooters.map(c => c.name), photoDuoMembers: _gDuo.map(c => c.name), photoMe: _gShooters.length > 0 && canShootMe("g:" + group.id), photoGroupOk: _gGroupOk, priorSummary: effectiveSess.summary || "", narr: osNarr("g_" + group.id), taste: effectiveSess.taste || osTaste("g_" + group.id), lengthMode: osFor("g_" + group.id).lengthMode || "natural", looseOld: osFor("g_" + group.id).looseOld, writeMode: osFor("g_" + group.id).writeMode === "novel" ? "novel" : "beats", maxTokens: osFor("g_" + group.id).maxTokens || 3200, minWords: osFor("g_" + group.id).minWords, rerollAvoid: effectiveSess.rerollAvoid || "" });
       if (beats && !(effectiveSess && effectiveSess.rerollAvoid) && typeof stampGain === "function") stampGain("beat");   // 邮票册：群线下一拍
       if (_abort.signal.aborted) return;             // 她点叉断掉了：回来的这几拍不落地
+      // 只重写一个人那一段：拿他那几段并成一段，原地换掉那一条，前后别人的都不动
+      if (workSess && workSess.onlyOne) {
+        const o = workSess.onlyOne, mine = (beats || []).filter(b => b && b.senderId === o.senderId && b.scene);
+        if (!mine.length) { toast("这次没写出" + o.name + "那一段，再点一次"); return; }
+        const nb = mine[0], scene = mine.map(b => b.scene).join("\n\n"), tid = "got_" + Date.now() + "_one";
+        pGOffline(group.id, list => list.map(s => s.id !== workSess.id ? s : { ...s, msgs: (s.msgs || []).map(m => m.id !== o.msgId ? m : { ...m, content: scene, thought: nb.thought, ...(nb.sayZh ? { sayZh: nb.sayZh } : { sayZh: undefined }), cot: nb.cot || null, turnId: tid, edited: false }) }));
+        const _bNpc1 = !!(characters.find(x => x.id === o.senderId) || {}).npc;
+        if ((!groupClosed(group.id) || _bNpc1) && nb.mood && nb.mood.label) setMoodFor(o.senderId, { ...nb.mood, ts: Date.now() });
+        return;
+      }
       const _offThoughtOnce = new Set();
       const _spoke = new Set(); // 群线下也给开口的成员计动态保底（她 2026-07-13 点名）
       for (let i = 0; i < beats.length; i++) {
@@ -10484,6 +10494,21 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     // reroll 别抄原文：把刚删掉的这版正文当"要避开的"喂进去（她 2026-07-25）
     const rerollAvoid = removed.filter(m => m && (m.role === "char" || m.senderId) && m.content).map(m => (m.senderName ? m.senderName + "：" : "") + String(m.content)).join("\n---\n");
     await genGroupOfflineFrom(group, { ...sess, ...cutPatch, msgs: truncated, rerollAvoid });
+  };
+  // 只重写这一个人的这一段（群里 2026-11-11）：拿这一段之前的当上文，让他一个人重写，原地换掉；后面的都留着
+  const groupOfflineRerollOne = async (groupId, msgId) => {
+    if (laneBusy("g:" + groupId)) return;
+    const group = groups.find(g => g.id === groupId);
+    const sess = (groupOfflinesRef.current[groupId] || []).find(s => !s.endTs);
+    if (!group || !sess) return;
+    const idx = sess.msgs.findIndex(m => m.id === msgId);
+    const m = sess.msgs[idx];
+    if (idx < 0 || !m || !m.senderId || m.kind === "novel") return;
+    const before = sess.msgs.slice(0, idx);
+    if (!before.length) { toast("这一段前面没有内容，用整段重写"); return; }
+    if (m.turnId) rollbackCharTurns(m.senderId, [m.turnId], false);
+    const name = m.senderName || ((characters.find(c => c.id === m.senderId) || {}).name) || "TA";
+    await genGroupOfflineFrom(group, { ...sess, msgs: before, rerollAvoid: name + "：" + String(m.content || ""), onlyName: name, onlyOne: { msgId, senderId: m.senderId, name } });
   };
   const groupOfflineSetStyle = (groupId, patch) => {
     pGOffline(groupId, list => list.map(s => !s.endTs ? { ...s, styleKey: patch.styleKey, stylePrompt: patch.stylePrompt != null ? patch.stylePrompt : "", presetOn: !!patch.presetOn, presetId: patch.presetId || "", taste: patch.taste || s.taste || osTaste("g_" + groupId) } : s));
@@ -38468,6 +38493,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     onPinShike: ms => pinGroupToShike(offlineGroup, ms),
     onEditMsg: (mid, txt) => reshootOffShot({ groupId: offlineGroup.id, mid, desc: txt }) || groupOfflineEditMsg(offlineGroup.id, mid, txt),
     onRerollMsg: mid => reshootOffShot({ groupId: offlineGroup.id, mid }) || groupOfflineRerollMsg(offlineGroup.id, mid),
+    onRerollOne: mid => groupOfflineRerollOne(offlineGroup.id, mid),
     rerollNav: gsFor(offlineGroup.id).keepRerolls === true ? rerollNavOf(offLiveMsgs(groupOfflines[offlineGroup.id])) : null,
     onRerollFlip: dir => rerollFlipGroupOffline(offlineGroup.id, dir),
     onDelMsg: (mid, idx) => groupOfflineDelMsg(offlineGroup.id, mid, idx),
