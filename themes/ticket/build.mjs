@@ -16,6 +16,13 @@ const I_MORE = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><cir
 const STAMP = (t) => `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 60 60'><circle cx='30' cy='30' r='26' fill='rgba(251,246,242,.85)' stroke='${C.red}' stroke-width='2'/><circle cx='30' cy='30' r='21' fill='none' stroke='${C.red}' stroke-width='1'/><text x='30' y='35' text-anchor='middle' font-size='14' fill='${C.red}' font-family='sans-serif' transform='rotate(-14 30 30)'>${t}</text></svg>`;
 
 const I_REPLYW = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 28 24'><path d='M5 3 H23 Q26 3 26 6 V15 Q26 18 23 18 H12 L6 22 L7 18 H5 Q2 18 2 15 V6 Q2 3 5 3Z' fill='none' stroke='#fff' stroke-width='1.8' stroke-linejoin='round'/><path d='M14 14.5 C10.5 12 9 10.6 9 9 C9 7.7 10 6.8 11.2 6.8 C12.3 6.8 13.4 7.5 14 8.4 C14.6 7.5 15.7 6.8 16.8 6.8 C18 6.8 19 7.7 19 9 C19 10.6 17.5 12 14 14.5Z' fill='#fff'/></svg>`;
+
+// 顶栏、底栏小按键：一张张紫边小票，中间放图案（加号／房子／三个点），左右两个半圆缺口
+const TIX = (inner) => `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 30'><path d='M3 2 H37 Q38 2 38 3 V11 A4 4 0 0 0 38 19 V27 Q38 28 37 28 H3 Q2 28 2 27 V19 A4 4 0 0 0 2 11 V3 Q2 2 3 2Z' fill='${C.pink}' stroke='${C.rose}' stroke-width='1.4' stroke-linejoin='round'/>${inner}</svg>`;
+const T_PLUS = TIX(`<path d='M20 9 V21 M14 15 H26' stroke='${C.roseD}' stroke-width='2' stroke-linecap='round'/>`);
+const T_HOUSE = TIX(`<path d='M13 15 L20 9 L27 15 V22 H13Z' fill='none' stroke='${C.roseD}' stroke-width='1.7' stroke-linejoin='round'/><path d='M18.5 22 V18 H21.5 V22' fill='none' stroke='${C.roseD}' stroke-width='1.5'/>`);
+const T_MORE = TIX(`<circle cx='14' cy='15' r='1.9' fill='${C.roseD}'/><circle cx='20' cy='15' r='1.9' fill='${C.roseD}'/><circle cx='26' cy='15' r='1.9' fill='${C.roseD}'/>`);
+const T_PHOTO = TIX(`<rect x='12.5' y='9.5' width='15' height='11' rx='1.5' fill='none' stroke='${C.roseD}' stroke-width='1.6'/><circle cx='17' cy='13.5' r='1.5' fill='${C.roseD}'/><path d='M13 20 L18 16 L21 18.5 L24 16 L27 19' fill='none' stroke='${C.roseD}' stroke-width='1.4' stroke-linejoin='round'/>`);
 const bubble = { myBg: C.pink, myText: C.ink, myBorder: "1.4px solid " + C.line, charBg: C.paper, charText: C.ink, charBorder: "1.4px solid " + C.line, radius: 8, shadow: "none", myAlpha: 100, charAlpha: 100 };
 const layout = { bubble: "bubble", avatar: "first", name: false, gap: "normal", time: "show" };
 const LINE = `1.4px solid ${C.line}`;
@@ -165,6 +172,25 @@ button[data-wk="avatar"],span[data-wk="avatar"]:not([data-halo]){box-shadow:0 0 
 [data-wk="quote"][data-me="1"]{background:radial-gradient(circle at 10px 50%,${C.bg} 3px,transparent 3.5px),${C.pink} !important}
 [data-wk="quoteicon"],[data-wk="quoteclear"]{color:${C.rose} !important}
 [data-wk="bubble"] [data-wk="quotetext"]{display:block !important;border-left:2px solid ${C.rose} !important;padding-left:8px !important;opacity:.75 !important}
+
+
+/* 加号、房子、三个点都换成小票按键（线上线下一样） */
+[data-wk="sameroom"],[data-wk="chatmore"]{width:36px !important;min-width:36px !important;height:28px !important}
+[data-wk="sameroom"]{background:${svg(T_HOUSE)} center/contain no-repeat !important}
+[data-wk="chatmore"]{background:${svg(T_MORE)} center/contain no-repeat !important;margin-left:4px !important}
+[data-wk="chatplus"]{width:36px !important;min-width:36px !important;height:28px !important;background:${svg(T_PLUS)} center/contain no-repeat !important}
+[data-wk="offline"] [data-wk="chathead"] button[title="给 Ta 一个提示"]{width:36px !important;height:28px !important;background:${svg(T_PLUS)} center/contain no-repeat !important;border:none !important;box-shadow:none !important}
+[data-wk="offline"] [data-wk="chathead"] button[title="给 Ta 一个提示"] *{opacity:0 !important}
+[data-wk="offcomposer"] button[title="给 Ta 看真实照片"]{width:36px !important;min-width:36px !important;height:28px !important;border:none !important;box-shadow:none !important;font-size:0 !important;color:transparent !important;background:${svg(T_PHOTO)} center/contain no-repeat !important}
+[data-wk="offcomposer"] button[title="给 Ta 看真实照片"] *{opacity:0 !important}
+/* 转账存根里的印章：没收时也要看得清——白底紫字的小圆章 */
+[data-wk="transfercard"][data-status="pending"] [data-wk="transferseal"]{background:${C.paper} !important;border:1.4px solid ${C.roseD} !important;box-shadow:0 0 0 3px ${C.rose} !important}
+[data-wk="transfercard"][data-status="pending"] [data-wk="transferseal"] *{color:${C.roseD} !important}
+
+[data-wk="offcomposer"] button:not([title]):not([data-wk]){background:${svg(I_SEND)} center/26px no-repeat !important;border:none !important;box-shadow:none !important;border-radius:0 !important}
+[data-wk="offcomposer"] button:not([title]):not([data-wk]) svg{opacity:0 !important}
+[data-wk="offcomposer"] button[title="让 Ta 演绎"]{width:46px !important;min-width:46px !important;height:34px !important;border:none !important;border-radius:4px !important;background:radial-gradient(circle at 0 50%,${C.paper} 4.5px,transparent 5px),radial-gradient(circle at 100% 50%,${C.paper} 4.5px,transparent 5px),${svg(I_REPLYW)} center/22px no-repeat,${C.rose} !important;box-shadow:0 3px 0 ${C.roseD} !important;font-size:0 !important}
+[data-wk="offcomposer"] button[title="让 Ta 演绎"] *{opacity:0 !important}
 
 `;
 
