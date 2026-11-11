@@ -387,7 +387,7 @@ span[data-wk="avatar"]:not([data-halo])::before{transform:scaleX(-1) !important}
 [data-wk="rpenvelope"][data-stage="closed"] [data-wk="rpfrom"]{color:#E3C487 !important}
 [data-wk="rpenvelope"][data-stage="closed"] [data-wk="rpwish"]{color:#FFF4DC !important;font-weight:700 !important;font-size:24px !important}
 [data-wk="rpopenbtn"]{background:#E3C487 ${svg(`<svg xmlns='http://www.w3.org/2000/svg' viewBox='-12 -12 24 24'><path d='M0 -9 Q.9 -.9 9 0 Q.9 .9 0 9 Q-.9 .9 -9 0 Q-.9 -.9 0 -9Z' fill='#3A2E66'/></svg>`)} center/58% no-repeat !important;width:54px !important;height:54px !important;margin-left:-27px !important;margin-top:-27px !important;top:66.5% !important;border-radius:50% !important;filter:none !important;animation:snPulse 2s ease-in-out infinite !important;box-shadow:0 0 18px rgba(227,196,135,.5) !important}
-[data-wk="chatmore"]{font-size:0 !important;color:transparent !important}
+[data-wk="chatmore"]{font-size:0 !important;color:transparent !important;width:44px !important;min-width:44px !important;height:30px !important;min-height:30px !important;display:inline-block !important;flex:none !important}
 `;
 
 const pack = { kind: "chat-look", v: 1, name: "星空", look: { bubble, layout: { bubble: "bubble", avatar: "all", name: false, gap: "normal", time: "show" }, customCSS: css.trim() }, assets: {} };
