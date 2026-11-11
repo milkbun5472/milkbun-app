@@ -72,7 +72,7 @@ button[data-wk="avatar"] *,span[data-wk="avatar"] *,img[data-wk="avatar"]{border
 [data-wk="chatplus"]:active,[data-wk="send"]:active,[data-wk="chatreply"]:active{transform:scale(.9) !important}
 [data-wk="chathead"] img,[data-wk="chathead"] [data-wk="avatar"],[data-wk="chathead"] [data-wk="avatar"] > *{border-radius:50% !important;overflow:hidden !important}
 [data-wk="chathead"] button:has(> [data-wk="avatar"]){position:relative !important}
-[data-wk="chathead"] button:has(> [data-wk="avatar"])::after{content:"" !important;position:absolute !important;left:30px !important;top:calc(50% + 12px) !important;width:10px !important;height:10px !important;border-radius:50% !important;background:#E5533D !important;box-shadow:0 0 0 2px #fff !important;z-index:3 !important}
+[data-wk="chathead"] button:has(> [data-wk="avatar"])::after{content:"" !important;position:absolute !important;left:26px !important;top:calc(50% + 8px) !important;width:10px !important;height:10px !important;border-radius:50% !important;background:#E5533D !important;box-shadow:0 0 0 2px #fff !important;z-index:3 !important}
 
 
 /* 底栏缩小：胶囊上下收窄、发送键 44px */
