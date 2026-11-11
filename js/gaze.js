@@ -521,7 +521,8 @@
   //   专门用来在中文标题上面再压一行英文小字。按 no-english-titles，
   //   那行删掉之后这一页照样说得明白——它就是装饰，所以整张表一起删。
   const PAPER = "#fbf5ea", INKSOFT = "#5c5244", GOLD = "#ac8a5b", BLUSH = "#e8c9bd";
-  const tape = extra => h("div", { style: Object.assign({ position: "absolute", top: -9, left: "50%", width: 52, height: 18, marginLeft: -26, background: "rgba(240,231,214,.8)", boxShadow: "0 1px 3px rgba(0,0,0,.10)", transform: "rotate(-2deg)", borderLeft: "1px dashed rgba(0,0,0,.06)", borderRight: "1px dashed rgba(0,0,0,.06)" }, extra || {}) });
+  // 贴条挂点（她 2026-11-11「这个贴条也记一下每套都要改」）：卡片、展开的信、旧版那三处共用这一条
+  const tape = extra => h("div", { "data-wk": "gazetape", "aria-hidden": "true", style: Object.assign({ position: "absolute", top: -9, left: "50%", width: 52, height: 18, marginLeft: -26, background: "rgba(240,231,214,.8)", boxShadow: "0 1px 3px rgba(0,0,0,.10)", transform: "rotate(-2deg)", borderLeft: "1px dashed rgba(0,0,0,.06)", borderRight: "1px dashed rgba(0,0,0,.06)" }, extra || {}) });
   const gazeDay = (ts, id) => new Date(typeof vclockMap === "function" ? vclockMap(Number(ts) || Date.now(), id) : (Number(ts) || Date.now())).toLocaleDateString("zh-CN");
   function GazePage({ charId, charName, uName, ta, onSeed, seedBusy, onReview, reviewBusy }) {
     const [side, setSide] = useState("me");

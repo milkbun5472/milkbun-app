@@ -45,3 +45,7 @@ test("根节点挂今天的月相 data-lisa-moon", () => {
   assert.equal(ph(Date.UTC(2024, 3, 23, 23)), 4, "2024-04-23 是满月");
   assert.equal(ph(Date.UTC(2024, 3, 8, 18)), 0, "2024-04-08 是新月");
 });
+test("Ta 眼里的贴条挂点", () => {
+  assert.match(gaze, /const tape = extra => h\("div", \{ "data-wk": "gazetape"/);
+  assert.ok(studio.includes('"gazetape"'));
+});
