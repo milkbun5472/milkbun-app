@@ -183,7 +183,9 @@
     const orig = sp ? sp.text : String(text || "");
     const [zhOf, setZhOf] = useState(null), [busy, setBusy] = useState(false);
     const zh = zhOf && zhOf.o === orig ? zhOf.zh : (BI_ZH.get(orig) || ""), cn = sp ? sp.zh : zh;
-    const can = !sp && !zh && typeof translatableLang === "function" && translatableLang(orig);
+    // 中文里夹着一整句外语（比如「名字：Tu perds la tête ou quoi ?! 谁是…」）也给翻译键：挑出最长那段外文认语种（她 2026-11-11「这个翻译没跟上」）
+    const run = (orig.match(/[A-Za-zÀ-ÿ'’][A-Za-zÀ-ÿ'’,.!?;:\s-]{10,}/g) || []).sort((a, b) => b.length - a.length)[0] || "";
+    const can = !sp && !zh && typeof translatableLang === "function" && (translatableLang(orig) || (run.trim().split(/\s+/).length >= 3 ? translatableLang(run) : ""));
     const go = async e => { e && e.stopPropagation(); if (busy) return; setBusy(true); try { const r = await translateToZh(orig, can); if (r && r.zh) { BI_ZH.set(orig, r.zh); setZhOf({ o: orig, zh: r.zh }); } } catch (er) {} setBusy(false); };
     return h(React.Fragment, null, orig,
       can ? h("button", { "data-wk": "stamptrans", onClick: go, style: { marginLeft: 6, padding: "0 6px", borderRadius: 6, border: "1px solid currentColor", fontSize: "0.72em", opacity: .7, fontStyle: "normal", verticalAlign: "middle" } }, busy ? "…" : "译") : null,
