@@ -15,6 +15,7 @@ const I_SEND = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'><cir
 const I_HOUSE = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path d='M4 11 L12 4 L20 11 V20 H4Z' fill='none' stroke='${C.ink}' stroke-width='1.7' stroke-linejoin='round'/></svg>`;
 const I_MORE = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><circle cx='5' cy='12' r='1.7' fill='${C.ink}'/><circle cx='12' cy='12' r='1.7' fill='${C.ink}'/><circle cx='19' cy='12' r='1.7' fill='${C.ink}'/></svg>`;
 
+const I_PLAY = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'><circle cx='24' cy='24' r='23' fill='${C.ink}'/><path d='M19 15 L33 24 L19 33Z' fill='#fff'/></svg>`;
 const bubble = { myBg: C.ink2, myText: "#fff", myBorder: "none", charBg: C.paper, charText: C.ink, charBorder: "none", radius: 24, shadow: "none", myAlpha: 100, charAlpha: 100 };
 const layout = { bubble: "bubble", avatar: "all", name: false, gap: "normal", time: "show" };
 const FLOAT = "0 8px 24px rgba(0,0,0,.12),0 1px 3px rgba(0,0,0,.06)";
@@ -262,7 +263,7 @@ button[data-wk="avatar"] *,span[data-wk="avatar"] *,img[data-wk="avatar"]{border
 /* 线下底栏跟线上一样的排法：对话气泡在左、箭头发送挪到最右；箭头缩小 */
 /* 位置和功能都不动：左边「发送」换成对话气泡图标，最右「让 Ta 演绎」换成黑色圆箭头（缩小） */
 [data-wk="offcomposer"] button:not([title]):not([data-wk]){background:${svg(I_REPLY)} center/26px no-repeat !important;box-shadow:none !important;border-radius:0 !important;width:36px !important;min-width:36px !important}
-[data-wk="offcomposer"] button[title="让 Ta 演绎"]{width:38px !important;min-width:38px !important;height:38px !important;border:none !important;border-radius:50% !important;background:${svg(I_SEND)} center/contain no-repeat !important;box-shadow:0 4px 10px rgba(0,0,0,.18) !important;font-size:0 !important;color:transparent !important}
+[data-wk="offcomposer"] button[title="让 Ta 演绎"]{width:38px !important;min-width:38px !important;height:38px !important;border:none !important;border-radius:50% !important;background:${svg(I_PLAY)} center/contain no-repeat !important;box-shadow:0 4px 10px rgba(0,0,0,.18) !important;font-size:0 !important;color:transparent !important}
 [data-wk="offcomposer"] button[title="让 Ta 演绎"] *{opacity:0 !important}
 
 `;

@@ -13,6 +13,7 @@ const I_SEND = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><pat
 const I_HOUSE = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path d='M4 11 L12 4 L20 11 V20 H4Z' fill='none' stroke='${C.ink}' stroke-width='1.3' stroke-linejoin='round'/></svg>`;
 const I_MENU = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path d='M4 7 H20 M4 12 H20 M4 17 H16' stroke='${C.ink}' stroke-width='1.3'/></svg>`;
 
+const I_PLAY = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path d='M8 5 L19 12 L8 19Z' fill='#fff'/></svg>`;
 const bubble = { myBg: C.ink, myText: "#fff", myBorder: "none", charBg: C.panel, charText: C.ink, charBorder: "1px solid " + C.line, radius: 2, shadow: "none", myAlpha: 100, charAlpha: 100 };
 const layout = { bubble: "bubble", avatar: "first", name: true, gap: "normal", time: "show" };
 const PANEL = `background:${C.panel} !important;border:1px solid ${C.line} !important;border-radius:2px !important;box-shadow:0 3px 10px rgba(0,0,0,.08) !important`;
@@ -225,7 +226,7 @@ const css = `
 [data-wk="offcomposer"] button[title="给 Ta 看真实照片"] *{opacity:0 !important}
 [data-wk="offcomposer"] button:not([title]):not([data-wk]){background:${svg(I_REPLY)} center/24px no-repeat !important;border:none !important;box-shadow:none !important;border-radius:0 !important}
 [data-wk="offcomposer"] button:not([title]):not([data-wk]) svg{opacity:0 !important}
-[data-wk="offcomposer"] button[title="让 Ta 演绎"]{width:38px !important;min-width:38px !important;height:38px !important;border:none !important;border-radius:2px !important;background:${C.ink} ${svg(I_SEND)} center/20px no-repeat !important;font-size:0 !important;color:transparent !important}
+[data-wk="offcomposer"] button[title="让 Ta 演绎"]{width:38px !important;min-width:38px !important;height:38px !important;border:none !important;border-radius:2px !important;background:${C.ink} ${svg(I_PLAY)} center/18px no-repeat !important;font-size:0 !important;color:transparent !important}
 [data-wk="offcomposer"] button[title="让 Ta 演绎"] *{opacity:0 !important}
 [data-wk="offcard"]{background:#fff !important;border:1px solid ${C.line} !important;border-left-width:1px !important;border-radius:2px !important;box-shadow:0 3px 10px rgba(0,0,0,.08) !important}
 [data-wk="offcard"][data-me="1"]{background:${C.ink} !important;border-color:${C.ink} !important}
