@@ -50,14 +50,15 @@ const layout = { bubble: "bubble", avatar: "first", name: false, gap: "normal", 
 
 const css = `
 /* ───── 雨天窗边 · 第一批 ───── */
-[data-wk="chat"]{background:${svg(BOKEH)} 0 0/390px 520px repeat,linear-gradient(180deg,#141C44 0%,${C.night} 25%,${C.dusk} 55%,${C.vio} 80%,${C.rose} 100%) !important;position:relative !important}
+[data-wk="chat"]{background:${svg(BOKEH)} 0 0/390px 520px repeat,linear-gradient(180deg,#2B2A55 0%,#5B4C8C 25%,#B07AA8 55%,#F2A99B 80%,#FFD9B8 100%) !important;position:relative !important}
 /* 雨丝往下落 */
-[data-wk="chat"]{overflow:hidden !important}
-[data-wk="chat"]::before{content:"" !important;position:absolute !important;left:0 !important;right:-120px !important;top:-480px !important;bottom:0 !important;background:${svg(RAIN)} 0 0/120px 160px repeat,${svg(RAIN)} 60px 80px/120px 160px repeat !important;pointer-events:none !important;z-index:0 !important;will-change:transform !important;animation:rwRain 2.4s linear infinite !important}
-@keyframes rwRain{from{transform:translate3d(0,0,0)}to{transform:translate3d(-120px,480px,0)}}
+/* 斜雨：一层贴着屏幕的小层（不跟聊天内容一样高），整层顺着雨丝斜度往左下滑，一圈 2.4 秒接缝对上 */
+[data-wk="body"]::after{content:"" !important;position:fixed !important;left:0 !important;top:-480px !important;width:calc(100vw + 120px) !important;height:calc(100vh + 480px) !important;background:${svg(RAIN)} 0 0/120px 160px repeat,${svg(RAIN)} 60px 80px/120px 160px repeat !important;pointer-events:none !important;z-index:-1 !important;animation:rwRain 2.4s linear infinite !important}
+@keyframes rwRain{0%{transform:translate(0,0)}100%{transform:translate(-120px,480px)}}
 /* 玻璃上：凝珠不动，水珠拖着水痕慢慢往下淌 */
-[data-wk="body"]::before{content:"" !important;position:fixed !important;inset:0 !important;background:${svg(GLASS)} 0 0/390px 760px repeat-x,${svg(BEADS)} 0 0/200px 260px repeat !important;pointer-events:none !important;z-index:-1 !important;animation:rwTrickle 16s linear infinite !important}
-@keyframes rwTrickle{from{background-position:0 -760px,0 0}to{background-position:0 760px,0 0}}
+[data-wk="body"]::before{content:"" !important;position:fixed !important;left:0 !important;right:0 !important;top:-760px !important;height:calc(100vh + 760px) !important;background:${svg(GLASS)} 0 0/390px 760px repeat !important;pointer-events:none !important;z-index:-1 !important;animation:rwTrickle 16s linear infinite !important}
+@keyframes rwTrickle{0%{transform:translate(0,0)}100%{transform:translate(0,760px)}}
+[data-wk="chat"]{background-image:${svg(BEADS)},${svg(BOKEH)},linear-gradient(180deg,#2B2A55 0%,#5B4C8C 25%,#B07AA8 55%,#F2A99B 80%,#FFD9B8 100%) !important;background-size:200px 260px,390px 520px,auto !important;background-repeat:repeat,repeat,no-repeat !important}
 /* 窗外楼群＋窗台（抬到底栏上面露出来） */
 [data-wk="chat"]::after{content:"" !important;position:absolute !important;left:0 !important;right:0 !important;bottom:0 !important;height:calc(env(safe-area-inset-bottom) * .4 + 62px + 150px) !important;background:${svg(SCENE)} center bottom calc(env(safe-area-inset-bottom) * .4 + 30px)/100% auto no-repeat,linear-gradient(#E9D3C2,#E9D3C2) center bottom/100% calc(env(safe-area-inset-bottom) * .4 + 34px) no-repeat !important;pointer-events:none !important;z-index:0 !important}
 [data-wk="body"]{background:transparent !important;position:relative !important;z-index:1 !important;padding-top:40px !important}
