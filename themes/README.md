@@ -29,12 +29,20 @@
 | 气泡 | 文字气泡两色＋角上小装饰、尾巴；时间戳胶囊；已读 meta；正在输入 | bubble[data-kind], time, meta, typingdot |
 | 气泡 | 动描/旁白那一框 | narr, narrink |
 | 卡片 | 转账（待收/已收/已退三种印）、红包（卡、领完、拆开前、拆开后） | transfer*, rpcard, rpenvelope, rp* |
+| 卡片 | 表情包、卡片结尾的已读（cardmeta，默认藏，要显示自己开） | cardmeta |
 | 卡片 | 照片（有图/没图）、语音、天气、位置、名片、拍一拍、系统纸条、通话结束胶囊＋记录 | photo*, voice, wxcard*, geo*, namecard*, note[data-part], sysnote*, callpill |
 | 面板 | 加号面板、引用条 | chatpanel, chattool*, quote* |
 | 状态卡 | 此刻（看得见的、心里想的、好感条）、翻旧的、Ta 眼里（含空的那块） | state*, statehist*, gaze* |
 | 线下 | 顶栏按键、底栏、背景、两人的卡片、心声、台词高亮 | offline, off* |
+| 线下小结 | 聊天里那张「线下经过」卡：卡本身、标题、正文、看原文／重新总结／放回往期、展开的原文 | [data-part="offlog"], offlog* |
 | 通话 | 气泡、动作字、大头像（背景和挂断键不动） | call* |
 
 每一批截图给她看一眼再往下做。预览脚本在 `themes/_preview/`（起 `python3 -m http.server 8765`，
 `NODE_PATH=$(npm root -g) node themes/_preview/preview.cjs <出图目录> <美化.json> [额外消息.json]`；
 状态卡 state.cjs、翻旧 hist.cjs、线下 off.cjs、红包拆开 env.cjs）。
+
+## 别忘的几处（每套都漏过一次）
+
+- 线下小结卡、系统提示（sysnote）、拍一拍、通话结束胶囊、动描那一框。
+- 排版设置跟着包走：包里不写 `layout` 就会沿用上一套的排版（头像只留第一条之类），每套都写明。
+- 今天的月相 `html[data-lisa-moon]`、好日子光圈 `[data-halo]` 会跟头像框叠在一起，换框时一起看。

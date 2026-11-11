@@ -20,7 +20,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v89.459";
+const APP_VERSION = "v89.462";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -528,6 +528,13 @@ function App() {
   // 时光胶囊从某一段情侣空间进入：只把那位对象带进胶囊页，绝不展示全库。
   useEffect(() => {
     document.documentElement.setAttribute("data-lisa-screen", screen || "home");
+  }, [screen]);
+  // 今天真实的月相（她 2026-11-11 星空美化：「顶上那排月亮亮的是今天天上那个」）：0 新月 … 4 满月 … 7 残月，
+  //   挂在根节点上给美化当挂点；进页面算一次、换页再算，跨了半夜也会跟上。只给 CSS 用，不进存档
+  useEffect(() => {
+    const syn = 29.530588853, ref = Date.UTC(2000, 0, 6, 18, 14) / 864e5;
+    const age = (((Date.now() / 864e5 - ref) % syn) + syn) % syn;
+    document.documentElement.setAttribute("data-lisa-moon", String(Math.floor((age / syn) * 8 + 0.5) % 8));
   }, [screen]);
   // 当前正在看哪个聊天（供未读红点判断：在看就不累加）
   const viewRef = useRef({ screen: "home", charId: null });
@@ -12108,6 +12115,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
                 + (d.missed ? "写那天晚上他们自己关店的一小段：" : "现在打烊了。写打烊时店里的一小段：") + "今天上班的这几个人各自怎么样、彼此说了什么、谁累了、谁跟谁拌了两句或者帮了一把、有没有给她留什么话或东西；橱窗里的卡、挂着的工牌是店里的样子，你心里有数就行；不用每张都提，真跟今天的事有关才写一笔，写到卡上的那一刻要照上面写的。每个人照各自的人设说话做事，你写的时候把他们都写进去，不只写你自己；写正在发生的这一段，有动作有对话，别写成总结。"
               : (d.visitor || "一位客人") + "今天来店里寄东西，正好碰上在" + (d.post || "柜台") + "上班的" + (d.staffName || "店员") + "。\n写他们俩在店里碰上的这一小段：只写你们两个之间的事，照两个人各自的人设和你们俩之间的关系，有对话，几段就够。")
             + "\n当场参与者的身份与完整人设：\n"+cast
+            + "\n这是一小段故事，不是对话记录：说话之间要有旁白，写动作、神情、手上在做的事和店里的样子，一般两三句话之间就有一段旁白；别写成一问一答的对话流水账。"   // 她 2026-11-11 同意
             + "\nlines 按正文顺序一段一项：某个人说的一段话是一项，旁白一段是一项；text 是原文，speakerId 是说话人的角色 id（只用上面参与者的 id），旁白留空。" + (close?"\nnotes 是今天上班的每个人下班前在柜台留给" + uN + "的一张便条，一人一张，今天上班的 " + (d.staffIds || []).length + " 个人每人都要有、一个不漏：speakerId 写这个人的角色 id（" + (d.staffIds || []).map(id => { const c = liveChars.find(x => x.id === id); return id + "＝" + (c ? (c.remark || c.name) : id); }).join("、") + "），text 是他自己写的一两句，照他的人设和写字的样子，写今天店里他记得的一件小事或想跟她说的话。":""),
           schemaHint: JSON.stringify({lines:[{speakerId:"角色id或空",text:"正文原文"}],...(close?{notes:[{speakerId:"角色id",text:"便条"}]}:{})}) });
         const notesOf = () => (Array.isArray(r && r.notes) ? r.notes : []).map(x => ({ speakerId: (d.staffIds || []).map(String).includes(String(x && x.speakerId)) ? String(x.speakerId) : null, text: String((x && x.text) || "").trim() })).filter((x, i, all) => x.speakerId && x.text && all.findIndex(y => y.speakerId === x.speakerId) === i).slice(0, 4);

@@ -15,14 +15,15 @@
  function StampShopNotes({notes=[],name=()=> '店员',font=F_BODY,size=12,titleSize=11}){
   return notes.length?h('div',{'data-wk':'duelshopnotes',className:'flex flex-wrap',style:{gap:8,margin:'8px 0 4px'}},notes.map((n,i)=>h('div',{key:i,'data-wk':'duelshopnote',style:{flex:'1 1 140px',padding:'8px 10px',background:'#fffbe8',boxShadow:'0 2px 5px rgba(47,42,34,.12)',transform:'rotate('+(i%2?1.2:-1.2)+'deg)',fontSize:size,lineHeight:1.6}},h('div',{style:{fontFamily:font,fontSize:titleSize,color:'#9a6a4a',marginBottom:2}},(name(n.speakerId)||'店员')+' 留的'),BT(n.text)))):null;
  }
- function StampShopStories({shop,onReplay,reader=true,inlineCurrent=false,name=()=> '店员'}){
-  const [expanded,setExpanded]=React.useState({});const say=r=>Array.isArray(r.turns)&&r.turns.length?r.turns.map(t=>(t.speakerId&&name(t.speakerId)&&name(t.speakerId)!=='店员'?name(t.speakerId)+'：':'')+t.text):r.lines;const records=g.StampShop.history(shop),body={fontSize:13,lineHeight:1.9,whiteSpace:'pre-wrap',margin:'8px 0'};
+ function StampShopStories({shop,onReplay,reader=true,inlineCurrent=false,onDiary,name=()=> '店员'}){
+  const [expanded,setExpanded]=React.useState({});const say=r=>Array.isArray(r.turns)&&r.turns.length?r.turns.map(t=>(t.speakerId&&name(t.speakerId)&&name(t.speakerId)!=='店员'?name(t.speakerId)+'：':'')+t.text):r.lines;const all=g.StampShop.history(shop),records=inlineCurrent?all.filter(r=>r.date===shop.date):all,body={fontSize:13,lineHeight:1.9,whiteSpace:'pre-wrap',margin:'8px 0'};
   if(!records.length)return h('p',{style:body},'写过的打烊会按天留在这里。只关门不会生成故事。');
+  const older=inlineCurrent&&onDiary&&all.length>records.length?h('button',{key:'older','data-wk':'duelshopolder',type:'button',onClick:onDiary,style:{display:'block',width:'100%',margin:'10px 0 4px',padding:'8px 0',borderRadius:4,border:'1px dashed #9a6a4a',color:'#9a6a4a',fontSize:12.5,background:'transparent'}},'往期 '+(all.length-records.length)+' 晚的打烊都收在「店铺日记」里 ›'):null;
   return h(inlineCurrent?React.Fragment:'div',inlineCurrent?null:{'data-shop-stories':true,style:{display:'grid',gap:12}},records.map(record=>{
    const id=record.key||('date:'+record.date),open=Object.hasOwn(expanded,id)?expanded[id]:record.date===shop.date&&shop.phase==='closed',title=(record.date||'第 '+record.day+' 天')+' · 打烊留底',play=onReplay&&h('button',{type:'button',onClick:()=>onReplay(record.key||('date:'+record.date)),style:button},'在店里重演这晚（不再调用）');
    if(inlineCurrent&&record.date===shop.date)return h(React.Fragment,{key:id},say(record).map((line,i)=>h('p',{key:i,style:body},BT(line))));
    return reader?h('details',{key:record.key||title,open,onToggle:e=>{const value=e.currentTarget.open;setExpanded(old=>old[id]===value?old:{...old,[id]:value});},style:{padding:'10px 0',borderBottom:'1px solid #a28a6744'}},h('summary',{style:{minHeight:40,cursor:'pointer',fontSize:13}},title),open&&say(record).map((line,i)=>h('p',{key:i,style:body},BT(line))),open&&h(StampShopNotes,{notes:record.notes||[],name}),open&&play):h('section',{key:record.key||title,style:{display:'grid',gap:8,padding:'10px 0',borderBottom:'1px solid #a28a6744'}},h('strong',{style:{fontSize:13}},title),play);
-  }));
+  }),older);
  }
  function StampShopPanel({target={},shop,characters=[],cards=[],onAction,onClose,onText,onReplay,onReplayClosing,soundEnabled=true,onToggleSound,busy,error}){
   const [page,setPage]=React.useState(target.type||'menu'),[post,setPost]=React.useState(target.post||''),[price,setPrice]=React.useState('mid'),[filter,setFilter]=React.useState({who:'',rar:'',q:''}),scroll=React.useRef(null),positions=React.useRef({}),history=React.useRef([]),windowFilter=React.useRef({who:'',rar:'',q:''});
