@@ -12,6 +12,7 @@ const CAT = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 72 30' fill='n
 const CORNER = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 40' preserveAspectRatio='none'><path d='M4 14 V5 H12' fill='none' stroke='${C.brown}' stroke-width='1.6' vector-effect='non-scaling-stroke'/><path d='M96 26 V35 H88' fill='none' stroke='${C.brown}' stroke-width='1.6' vector-effect='non-scaling-stroke'/></svg>`;
 const CTL = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'><path d='M1 11 V1 H11' fill='none' stroke='${C.brown}' stroke-width='1.6'/></svg>`;
 const CBR = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'><path d='M11 1 V11 H1' fill='none' stroke='${C.brown}' stroke-width='1.6'/></svg>`;
+const I_SENDP = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 28 24'><path d='M3 11 L25 3 L18 21 L13.5 14 Z' fill='${C.cel}' stroke='${C.brown}' stroke-width='1.6' stroke-linejoin='round'/><path d='M13.5 14 L25 3' stroke='${C.brown}' stroke-width='1.4' stroke-linecap='round'/></svg>`;
 const DOTS = `<svg xmlns='http://www.w3.org/2000/svg' width='22' height='22' viewBox='0 0 22 22'><circle cx='3' cy='3' r='1.3' fill='${C.dot}'/><circle cx='14' cy='14' r='1.3' fill='${C.dot}'/></svg>`;
 const I_PLUS = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><circle cx='12' cy='12' r='10' fill='${C.cream}' stroke='${C.brown}' stroke-width='1.6'/><path d='M12 7 V17 M7 12 H17' stroke='${C.brown}' stroke-width='1.6' stroke-linecap='round'/></svg>`;
 const I_REPLY = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 28 24'><path d='M5 3 H23 Q26 3 26 6 V15 Q26 18 23 18 H12 L6 22 L7 18 H5 Q2 18 2 15 V6 Q2 3 5 3Z' fill='${C.cream}' stroke='${C.brown}' stroke-width='1.6' stroke-linejoin='round'/><circle cx='9' cy='10.5' r='1.3' fill='${C.brown}'/><circle cx='14' cy='10.5' r='1.3' fill='${C.brown}'/><circle cx='19' cy='10.5' r='1.3' fill='${C.brown}'/></svg>`;
@@ -139,6 +140,18 @@ button[data-wk="avatar"],span[data-wk="avatar"]:not([data-halo]){box-shadow:0 0 
 [data-wk="quote"][data-me="1"]{background-color:#DCEDE6 !important}
 [data-wk="quoteicon"],[data-wk="quoteclear"]{color:${C.brown} !important}
 [data-wk="bubble"] [data-wk="quotetext"]{display:block !important;border-left:2px solid ${C.brown} !important;padding-left:8px !important;opacity:.7 !important}
+
+
+/* 按键回到 app 原来的顺序：左边是发送（纸飞机），最右是回复（青瓷「回复」字块，角上一颗星） */
+[data-wk="send"]{order:0 !important;width:32px !important;min-width:32px !important;height:32px !important;border:none !important;border-radius:0 !important;background:${svg(I_SENDP)} center/26px no-repeat !important;margin-right:0 !important}
+[data-wk="send"]::before,[data-wk="send"]::after{content:none !important}
+[data-wk="chatreply"]{position:relative !important;overflow:visible !important;width:64px !important;min-width:64px !important;height:36px !important;border:${LINE} !important;border-radius:10px !important;background:${C.cel} !important;margin-right:6px !important}
+[data-wk="chatreply"]::before{content:"回复" !important;position:absolute !important;inset:0 !important;display:flex !important;align-items:center !important;justify-content:center !important;font-size:14px !important;letter-spacing:.2em !important;color:${C.brown} !important}
+[data-wk="chatreply"]::after{content:"" !important;position:absolute !important;right:-9px !important;bottom:-9px !important;width:18px !important;height:18px !important;background:${svg(STAR)} center/contain no-repeat !important}
+/* 顶栏：不再是一条平横栏——点点底延伸上来，下沿是焦茶描边的圆角，名字装进米白小胶囊，右下角趴一只小猫 */
+[data-wk="chathead"]{background:${svg(DOTS)} 0 0/22px 22px,${C.bg} !important;border-bottom:none !important;border-radius:0 0 22px 22px !important;box-shadow:0 1.6px 0 ${C.brown} !important;position:relative !important;overflow:visible !important;z-index:5 !important}
+[data-wk="chathead"]::after{content:none !important}
+[data-wk="chathead"] [data-wk="headname"] > [data-wk="headink"]{display:inline-flex !important;background:${C.cream} !important;border:${LINE} !important;border-radius:999px !important;padding:0 12px !important}
 
 `;
 
