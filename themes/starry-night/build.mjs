@@ -401,6 +401,15 @@ span[data-wk="avatar"]:not([data-halo])::before{transform:scaleX(-1) !important}
 /* 气泡上面那条「回复了哪句」：深色玻璃＋金色细边，字看得清 */
 [data-wk="quote"]{background:rgba(8,9,30,.78) !important;color:#E4E0FF !important;border:1px solid rgba(255,217,138,.5) !important;border-left:2px solid ${C.gold} !important;border-radius:10px !important;padding:3px 10px !important;font-style:italic !important;opacity:1 !important}
 [data-wk="quote"]::before{content:"✦ " !important;color:${C.gold} !important;font-style:normal !important}
+
+/* 线下小结＝一页观星日志：顶上一排月相小标、金色标题，按键是小金胶囊 */
+[data-part="offlog"]{background:${svg(STARS)} 0 0/240px 240px,linear-gradient(180deg,rgba(8,9,30,.92),rgba(26,20,64,.9)) !important;border:1px solid rgba(255,217,138,.6) !important;border-radius:20px !important;padding:16px 18px 14px !important;position:relative !important}
+[data-wk="offlogtitle"]{display:flex !important;align-items:center !important;gap:8px !important;font-size:12px !important;letter-spacing:.3em !important;color:${C.gold} !important;padding-bottom:8px !important;margin-bottom:8px !important;border-bottom:1px solid rgba(255,217,138,.3) !important}
+[data-wk="offlogtitle"]::before{content:"" !important;width:16px !important;height:16px !important;background:${svg(`<svg xmlns='http://www.w3.org/2000/svg' viewBox='-7 -7 14 14'>${MOONDOT(2, 6)}</svg>`)} center/contain no-repeat !important}
+[data-wk="offlogtitle"]::after{content:"观星日志" !important;margin-left:auto !important;font-size:9px !important;letter-spacing:.2em !important;color:${C.dim} !important;opacity:.7 !important}
+[data-wk="offlogtext"],[data-wk="offlogtext"] *{color:#F4F1FF !important;line-height:1.8 !important}
+[data-wk="offlogopen"],[data-wk="offlogredo"],[data-wk="offlogundo"],[data-wk="offlogrestore"]{display:inline-block !important;margin:8px 6px 0 0 !important;padding:3px 12px !important;border:1px solid rgba(255,217,138,.55) !important;border-radius:999px !important;color:${C.gold} !important;font-size:11px !important;background:rgba(11,15,43,.5) !important}
+[data-wk="offlogtranscript"]{border-top:1px solid rgba(255,217,138,.3) !important;color:${C.dim} !important}
 `;
 
 const pack = { kind: "chat-look", v: 1, name: "星空", look: { bubble, layout: { bubble: "bubble", avatar: "all", name: false, gap: "normal", time: "show" }, customCSS: css.trim() }, assets: {} };
