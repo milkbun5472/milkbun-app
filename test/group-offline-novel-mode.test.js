@@ -10,7 +10,7 @@ assert.ok(i > 0 && j > i, "抠不出 generateOfflineGroup");
 const fn = eng.slice(i, j);
 
 test("引擎：整段小说换的只是输出形状，规矩层和人设是同一份", () => {
-  assert.match(fn, /const novel = session\.writeMode === "novel";/);
+  assert.match(fn, /const novel = session\.writeMode === "novel" && !session\.onlyName;/);
   assert.match(fn, /\(novel \? novelOut : "\\n【输出】/, "一人一拍那份输出规格得原样留着");
   assert.match(fn, /\\"scene\\":\\"这一轮的整段小说正文/);
   assert.match(fn, /\\"cast\\":\[\{\\"name\\"/, "每个出场的人得各有一份心声");
