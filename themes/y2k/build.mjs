@@ -112,6 +112,19 @@ button[data-wk="avatar"] > *,span[data-wk="avatar"] > *,img[data-wk="avatar"]{bo
 button[data-wk="avatar"]::before,span[data-wk="avatar"]:not([data-halo])::before{right:-13px !important;top:-13px !important;width:20px !important;height:20px !important}
 button[data-wk="avatar"]::after,span[data-wk="avatar"]:not([data-halo])::after{left:-12px !important;bottom:-10px !important;width:15px !important;height:14px !important}
 
+/* 头像框再加粗：白边 8px＋彩描 3px；顶栏那颗也套上 */
+button[data-wk="avatar"],span[data-wk="avatar"]:not([data-halo]){box-shadow:0 0 0 8px #fff,0 0 0 11px #9CCBF2,0 8px 16px rgba(30,20,60,.4) !important}
+[data-me="1"] button[data-wk="avatar"],[data-me="1"] span[data-wk="avatar"]:not([data-halo]){box-shadow:0 0 0 8px #fff,0 0 0 11px #F2A2CF,0 8px 16px rgba(30,20,60,.4) !important}
+button[data-wk="avatar"]::before,span[data-wk="avatar"]:not([data-halo])::before{right:-18px !important;top:-18px !important}
+button[data-wk="avatar"]::after,span[data-wk="avatar"]:not([data-halo])::after{left:-17px !important;bottom:-15px !important}
+[data-wk="chathead"] [data-wk="avatar"],[data-wk="chathead"] img{border-radius:12px !important;box-shadow:0 0 0 5px #fff,0 0 0 7px #9CCBF2 !important}
+/* 标题栏放得下 */
+[data-wk="msg"][data-first="1"] [data-wk="bubble"][data-kind="text"]{min-width:156px !important}
+/* 背景压暗压灰：灰紫底＋一层淡淡的 Y2K 网格，不走星空那种深蓝夜 */
+[data-wk="chat"]{background:linear-gradient(rgba(255,255,255,.06) 1px,transparent 1px) 0 0/28px 28px,linear-gradient(90deg,rgba(255,255,255,.06) 1px,transparent 1px) 0 0/28px 28px,${svg(TILE)} 0 0/160px 160px,linear-gradient(180deg,#4E4766,#5E4C6C 55%,#6B5068) !important}
+
+[data-wk="msg"] button[data-wk="avatar"],[data-wk="cardrow"] button[data-wk="avatar"]{margin:6px 10px 0 !important}
+
 `;
 
 const pack = { kind: "chat-look", v: 1, name: "Y2K", look: { bubble, layout, customCSS: css.trim() }, assets: {} };
