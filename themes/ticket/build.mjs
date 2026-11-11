@@ -30,6 +30,7 @@ const G_HOUSE = TAG(`<path d='M21 15.5 L28 9.5 L35 15.5 V22 H21Z' fill='${C.pink
 const G_MORE = TAG(`<path d='M28 21 C23.5 18 21.5 16 21.5 13.6 C21.5 11.8 22.9 10.6 24.5 10.6 C26 10.6 27.3 11.5 28 12.6 C28.7 11.5 30 10.6 31.5 10.6 C33.1 10.6 34.5 11.8 34.5 13.6 C34.5 16 32.5 18 28 21Z' fill='${C.pink}' stroke='${C.roseD}' stroke-width='1.4'/>`);
 // 头像框：邮票齿孔一圈＋紫色细环
 const PERF = (() => { let d = ""; for (let i = 0; i < 28; i++) { const a = i / 28 * Math.PI * 2; d += `<circle cx='${(50 + Math.cos(a) * 47).toFixed(2)}' cy='${(50 + Math.sin(a) * 47).toFixed(2)}' r='3.2' fill='${C.bg}'/>`; } return `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='48' fill='${C.paper}'/>${d}<circle cx='50' cy='50' r='40' fill='none' stroke='${C.rose}' stroke-width='2'/></svg>`; })();
+const G_SEND = TAG(`<path d='M21 15 H34 M29.5 10.5 L34 15 L29.5 19.5' fill='none' stroke='${C.roseD}' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/>`);
 const bubble = { myBg: C.pink, myText: C.ink, myBorder: "1.4px solid " + C.line, charBg: C.paper, charText: C.ink, charBorder: "1.4px solid " + C.line, radius: 8, shadow: "none", myAlpha: 100, charAlpha: 100 };
 const layout = { bubble: "bubble", avatar: "first", name: false, gap: "normal", time: "show" };
 const LINE = `1.4px solid ${C.line}`;
@@ -213,6 +214,21 @@ button[data-wk="avatar"]::before,span[data-wk="avatar"]:not([data-halo])::before
 [data-wk="chathead"] button:has(> [data-wk="avatar"]){position:relative !important}
 [data-wk="chathead"] button:has(> [data-wk="avatar"])::before{content:"" !important;position:absolute !important;left:-6px !important;top:calc(50% - 26px) !important;width:52px !important;height:52px !important;background:${svg(PERF)} center/contain no-repeat !important;z-index:0 !important}
 [data-wk="chathead"] button:has(> [data-wk="avatar"]) > [data-wk="avatar"]{position:relative !important;z-index:1 !important}
+
+
+/* 发送：不用纸飞机，换成跟顶栏同款的挂牌，里面一个箭头（线上线下一样） */
+[data-wk="send"]{width:40px !important;min-width:40px !important;height:28px !important;background:${svg(G_SEND)} center/contain no-repeat !important}
+[data-wk="offcomposer"] button:not([title]):not([data-wk]){width:40px !important;min-width:40px !important;height:28px !important;background:${svg(G_SEND)} center/contain no-repeat !important}
+/* 引用待发那条：一张小票——左边紫色存根写 RE.，竖线隔开，上下两个半圆缺口 */
+[data-wk="quotedraft"]{background:${C.paper} !important;border-top:none !important}
+[data-wk="quote"][data-draft="1"]{position:relative !important;background:radial-gradient(circle at 44px 0,${C.paper} 5px,transparent 5.5px),radial-gradient(circle at 44px 100%,${C.paper} 5px,transparent 5.5px),linear-gradient(90deg,${C.rose} 44px,${C.pink} 44px) !important;border:${LINE} !important;border-radius:6px !important;padding-left:54px !important;box-shadow:${SH} !important}
+[data-wk="quote"][data-draft="1"]::before{content:"RE." !important;position:absolute !important;left:0 !important;top:0 !important;bottom:0 !important;width:44px !important;display:flex !important;align-items:center !important;justify-content:center !important;font:700 10px/1 ui-monospace,Menlo,monospace !important;letter-spacing:.1em !important;color:#fff !important}
+[data-wk="quote"][data-draft="1"] [data-wk="quoteicon"]{display:none !important}
+[data-wk="quote"][data-draft="1"] *{color:${C.ink} !important}
+[data-wk="quoteclear"]{color:${C.roseD} !important}
+/* 气泡上方那条引用：一张小挂牌，跟他的气泡同形状 */
+[data-wk="quote"]:not([data-draft]){background:radial-gradient(circle at 12px 50%,${C.bg} 3px,transparent 3.5px),${C.paper} !important;border:${LINE} !important;border-radius:4px 8px 8px 4px !important;clip-path:polygon(8px 0,100% 0,100% 100%,8px 100%,0 50%) !important;padding-left:22px !important}
+[data-wk="quote"]:not([data-draft])[data-me="1"]{background:radial-gradient(circle at 12px 50%,${C.bg} 3px,transparent 3.5px),${C.pink} !important}
 
 `;
 
