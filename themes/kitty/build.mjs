@@ -63,6 +63,9 @@ const LOAFCAT = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 160 82'><g
 <path d='M52 82 C50 70 68 70 68 82 M92 82 C92 70 110 70 108 82' fill='#fff'/>
 <path d='M57 78 v4 M62 78 v4 M97 78 v4 M102 78 v4' stroke-width='1.4'/>
 </g><ellipse cx='56' cy='52' rx='6' ry='3.6' fill='${C.pink}' opacity='.75'/><ellipse cx='104' cy='52' rx='6' ry='3.6' fill='${C.pink}' opacity='.75'/></svg>`;
+
+// 软猫耳：圆弧耳朵，填色跟所在的块一样，底边不描线、盖住那段边框——像块自己长出来的（线下卡、线上气泡共用）
+const SOFTEARS = (fill) => `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 22'><g fill='${fill}' stroke='${C.line}' stroke-width='2' stroke-linejoin='round' stroke-linecap='round'><path d='M2 22 C6 16 8 6 12 3 C15 1 18 3 22 9 C25 14 28 18 30 22'/><path d='M34 22 C36 18 39 14 42 9 C46 3 49 1 52 3 C56 6 58 16 62 22'/></g><rect x='0' y='19.6' width='64' height='3' fill='${fill}'/><g fill='${C.pink}' opacity='.75'><path d='M10 18 C11 12 13 7 15 7 C17 7 19 12 21 18Z'/><path d='M43 18 C45 12 47 7 49 7 C51 7 53 12 54 18Z'/></g></svg>`;
 const bubble = { myBg: "#CFDAEA", myText: C.ink, myBorder: "2px solid " + C.line, charBg: "#fff", charText: C.ink, charBorder: "2px solid " + C.line, radius: 22, shadow: "none", myAlpha: 100, charAlpha: 100 };
 const layout = { bubble: "bubble", avatar: "all", name: false, gap: "normal", time: "show" };
 
@@ -417,6 +420,11 @@ ${ktAlong()}
 [data-wk="offcomposer"] button[title="给 Ta 看真实照片"]{display:none !important}
 [data-wk="offline"] [data-wk="chathead"] button[title="给 Ta 一个提示"]{width:30px !important;height:30px !important;background:${svg(I_PLUS)} center/contain no-repeat !important;border:none !important}
 [data-wk="offline"] [data-wk="chathead"] button[title="给 Ta 一个提示"] *{opacity:0 !important}
+
+/* 线上气泡也换软猫耳 */
+[data-wk="bubble"][data-kind="text"]::before{top:-14px !important;width:46px !important;height:17px !important;transform:none !important}
+[data-wk="bubble"][data-kind="text"][data-me="1"]::before{right:24px !important;background:${svg(SOFTEARS("#DCE6F3"))} center bottom/100% 100% no-repeat !important}
+[data-wk="bubble"][data-kind="text"][data-me="0"]::before{left:24px !important;background:${svg(SOFTEARS("#fff"))} center bottom/100% 100% no-repeat !important}
 `;
 
 const pack = { kind: "chat-look", v: 1, name: "猫猫", look: { bubble, layout, customCSS: css.trim() }, assets: {} };
