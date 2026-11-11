@@ -382,6 +382,12 @@ button[data-wk="avatar"]::before,span[data-wk="avatar"]:not([data-halo])::before
 [data-wk="statehead"] > button{position:absolute !important;left:110px !important;right:auto !important;top:18px !important;width:28px !important;height:28px !important}
 [data-wk="statehead"] button[aria-label="关掉"]{position:absolute !important;left:116px !important;top:30px !important;right:auto !important}
 [data-wk="chathead"]::after{margin-top:-3px !important}
+
+/* 系统提示：不要框，像日记里用铅笔随手记的一行旁注，底下一道波浪线 */
+[data-wk="sysnote"]{background:transparent !important;border:none !important;box-shadow:none !important;transform:none !important;text-align:center !important;padding:4px 30px !important;position:relative !important}
+[data-wk="sysnotelabel"]{display:none !important}
+[data-wk="sysnotetext"]{display:inline !important;color:${C.rose} !important;font-size:12.5px !important;font-style:italic !important;line-height:2 !important;padding-left:20px !important;background:${svg(`<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path d='M4 20 L5 15 L16 4 L20 8 L9 19Z' fill='${C.butter}' stroke='${C.rose}' stroke-width='1.6' stroke-linejoin='round'/><path d='M4 20 L5 15 L9 19Z' fill='${C.rose}'/></svg>`)} left center/14px 14px no-repeat,${svg(`<svg xmlns='http://www.w3.org/2000/svg' width='12' height='6'><path d='M0 3 Q3 0 6 3 T12 3' fill='none' stroke='${C.margin}' stroke-width='1.2'/></svg>`)} left bottom/12px 6px repeat-x !important;-webkit-box-decoration-break:clone !important;box-decoration-break:clone !important}
+[data-wk="sysnoteclose"]{opacity:.5 !important}
 `;
 
 const pack = { kind: "chat-look", v: 1, name: "粉色日记", look: { bubble, layout, customCSS: css.trim() }, assets: {} };
