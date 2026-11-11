@@ -56,6 +56,15 @@ const I_REPLY = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 52 50'><pa
 const I_HOUSE = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'><g stroke='#fff' stroke-width='2.4' stroke-linejoin='round' fill='none'><path d='M5 20 L20 7 L35 20'/><path d='M9 17 V34 H31 V17'/><path d='M17 34 V25 H23 V34'/></g><path d='M4 20 L20 6 L36 20 L33 21 L20 10 L7 21Z' fill='#fff'/></svg>`;
 const I_FLAKES = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 66 22'><g transform='translate(0 2)'>${X(FLAKE(1))}</g><g transform='translate(22 1) scale(1.05)'>${X(FLAKE(1))}</g><g transform='translate(45 2)'>${X(FLAKE(1))}</g></svg>`;
 
+
+// ── 第二批用的图 ──
+// 圣诞袜（红包）：红袜身、白毛边、脚尖脚跟绿格、袜口挂一颗铃铛
+const STOCKING = (body = "#D9474A", full = true) => `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 60 74'><path d='M16 14 H44 V44 C44 50 42 52 40 56 L30 66 C24 72 12 72 8 64 C4 56 10 50 16 46Z' fill='${body}' stroke='${C.redD}' stroke-width='1.8' stroke-linejoin='round'/><path d='M8 64 C12 72 24 72 30 66 L24 60 C20 64 12 62 10 58Z' fill='${C.holly}'/><path d='M44 44 C44 50 42 52 40 56 L34 50 C38 48 40 46 40 42Z' fill='${C.holly}'/><rect x='12' y='6' width='36' height='12' rx='6' fill='#fff' stroke='#D8DEDC' stroke-width='1.2'/>${full ? `<g transform='translate(18 -4) scale(.6)'>${X(GIFT(C.gold, C.red))}</g>` : ""}<g transform='translate(38 14) scale(.55)'><circle cx='9' cy='9' r='8' fill='${C.gold}' stroke='#B88A33' stroke-width='1.4'/><path d='M2 8 H16' stroke='#B88A33' stroke-width='1.2'/><circle cx='9' cy='12' r='1.6' fill='#7A5A1E'/></g></svg>`;
+// 金色火漆封（已收）；灰的（退回）
+const SEAL = (f = C.gold, k = "#B88A33") => `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 60 60'><path d='M30 3 C36 6 40 3 44 8 C50 10 50 16 54 20 C57 26 54 30 57 36 C55 42 50 44 48 50 C42 54 38 52 32 57 C26 55 22 58 16 54 C11 50 8 46 5 40 C4 34 7 30 4 24 C7 18 10 14 14 9 C20 6 24 6 30 3Z' fill='${f}' stroke='${k}' stroke-width='1.6'/><circle cx='30' cy='30' r='17' fill='none' stroke='${k}' stroke-width='1.4' opacity='.7'/><g transform='translate(18 17) scale(1.2)'>${X(STAR("rgba(255,255,255,.55)"))}</g></svg>`;
+const BELL = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 30'><path d='M15 4 C22 4 23 11 23 16 C23 19 25 21 26 22 H4 C5 21 7 19 7 16 C7 11 8 4 15 4Z' fill='${C.gold}' stroke='#B88A33' stroke-width='1.4' stroke-linejoin='round'/><circle cx='15' cy='25' r='3' fill='#B88A33'/><path d='M10 2 Q15 6 20 2' fill='none' stroke='${C.red}' stroke-width='2'/></svg>`;
+// 邮票（线下小结卡角上）
+const STAMP = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 44 52'><path d='M2 2 H42 V50 H2Z' fill='#fff' stroke='#C9A46A' stroke-width='1.4' stroke-dasharray='3 2.4'/><rect x='6' y='6' width='32' height='40' fill='${C.pine}'/>${TREE(22, 12, .55)}<text x='22' y='44' font-size='6' text-anchor='middle' fill='#fff' font-family='sans-serif'>NOEL</text></svg>`;
 const bubble = { myBg: C.red, myText: "#fff", myBorder: "none", charBg: C.cream, charText: C.ink, charBorder: "1.5px solid " + C.gold, radius: 20, shadow: "none", myAlpha: 100, charAlpha: 100 };
 const layout = { bubble: "bubble", avatar: "first", name: false, gap: "normal", time: "show" };
 
@@ -138,6 +147,111 @@ button[data-wk="avatar"]::before,span[data-wk="avatar"]:not([data-halo])::before
 [data-wk="chatreply"]{background-size:88% !important;background-position:center 60% !important;margin-right:4px !important}
 /* 他连发的一挂里，已读只留在最后一张底下，不让丝带穿过字 */
 [data-wk="msg"][data-me="0"][data-last="0"] [data-wk="meta"]{display:none !important}
+
+/* ───── 圣诞 · 第二批：卡片 ───── */
+/* 卡片统一：奶白底、金边、底下一层暖棕影 */
+[data-wk="transfercard"],[data-wk="photocard"],[data-wk="voice"],[data-wk="wxcard"],[data-wk="geocard"] > [data-wk="card"],[data-wk="namecard"],[data-part="offlog"],[data-wk="callpill"] > [data-wk="block"]{background:${C.cream} !important;border:1.8px solid ${C.gold} !important;border-radius:18px !important;box-shadow:0 4px 0 #C9A46A,0 8px 18px rgba(0,0,0,.25) !important;color:${C.ink} !important}
+[data-wk="transfercard"] *,[data-wk="namecard"] *,[data-part="offlog"] *,[data-wk="geocard"] *,[data-wk="callpill"] *{color:${C.ink} !important;border-color:rgba(201,164,106,.5) !important}
+
+/* 转账：一份包好的礼物——十字红丝带，收下盖金色火漆，退回盖灰的 */
+[data-wk="transfercard"]{position:relative !important;overflow:visible !important;padding-top:28px !important;background:linear-gradient(90deg,transparent calc(100% - 46px),${C.red} calc(100% - 46px),${C.red} calc(100% - 36px),transparent calc(100% - 36px)),${C.cream} !important}
+[data-wk="transfercard"]::before{content:"✦ 圣诞礼单" !important;position:absolute !important;left:16px !important;top:9px !important;font-size:10px !important;letter-spacing:.2em !important;color:${C.red} !important}
+[data-wk="transfercard"]::after{content:"" !important;position:absolute !important;right:22px !important;top:-14px !important;width:58px !important;height:30px !important;background:${svg(`<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 58 30'><path d='M29 22 C18 2 4 6 8 16 C10 22 22 22 29 22 C36 22 48 22 50 16 C54 6 40 2 29 22Z' fill='#D9474A' stroke='${C.redD}' stroke-width='1.6'/><path d='M27 22 L20 30 M31 22 L38 30' stroke='${C.red}' stroke-width='4'/><circle cx='29' cy='22' r='4' fill='${C.redD}'/></svg>`)} center/contain no-repeat !important}
+[data-wk="transferlabel"],[data-wk="transfernote"]::before{color:#8C6A3A !important}
+[data-wk="transferamount"],[data-wk="transfercur"]{color:${C.red} !important;font-weight:700 !important}
+[data-wk="transferrule"]{border:none !important;height:2px !important;background:repeating-linear-gradient(90deg,${C.red} 0 10px,#fff 10px 14px,${C.holly} 14px 24px,#fff 24px 28px) !important}
+[data-wk="transfernotch"]{display:none !important}
+[data-wk="transferfoot"]{background:#F6EAD0 !important;border-radius:0 0 16px 16px !important}
+[data-wk="transfernote"]::before{content:"贺词：" !important}
+[data-wk="transferbtn"]{border-radius:999px !important}
+[data-wk="transferbtn"][data-part="take"]{background:${C.red} !important;color:#fff !important;border:none !important;box-shadow:0 3px 0 ${C.redD} !important}
+[data-wk="transferbtn"][data-part="back"]{background:#fff !important;color:${C.holly} !important;border:1.5px solid ${C.holly} !important}
+[data-wk="transferseal"]{border:1.8px solid ${C.gold} !important;box-shadow:none !important;color:#8C6A3A !important;background:#fff !important;border-radius:50% !important}
+[data-wk="transfercard"][data-status="accepted"] [data-wk="transferseal"],[data-wk="transfercard"][data-status="returned"] [data-wk="transferseal"]{width:62px !important;height:62px !important;flex-shrink:0 !important;border:none !important;border-radius:0 !important;opacity:1 !important;transform:rotate(-10deg) !important;background:${svg(SEAL())} center/contain no-repeat !important;filter:drop-shadow(0 2px 2px rgba(0,0,0,.25)) !important}
+[data-wk="transfercard"][data-status="returned"] [data-wk="transferseal"]{background:${svg(SEAL("#C9CFCB", "#8E9893"))} center/contain no-repeat !important}
+[data-wk="transfercard"][data-status="accepted"] [data-wk="transferseal"] *,[data-wk="transfercard"][data-status="returned"] [data-wk="transferseal"] *{display:none !important}
+[data-wk="transfercard"][data-status="returned"]{opacity:.85 !important}
+
+/* 红包：挂一只圣诞袜，袜口露出礼物；领完了袜子空了 */
+[data-wk="rpcard"]{background:${C.cream} !important;border:1.8px solid ${C.gold} !important;border-radius:18px !important;box-shadow:0 4px 0 #C9A46A,0 8px 18px rgba(0,0,0,.25) !important;padding-left:86px !important;min-height:96px !important;position:relative !important;overflow:visible !important}
+[data-wk="rpcard"] *{color:${C.ink} !important}
+[data-wk="rpcard"]::before{content:"" !important;position:absolute !important;left:14px !important;top:-10px !important;width:60px !important;height:74px !important;background:${svg(STOCKING())} center/contain no-repeat !important;transform-origin:50% 0 !important;animation:xmSwing 3s ease-in-out infinite !important}
+[data-wk="rpcard"]::after{content:"圣诞袜" !important;position:absolute !important;left:26px !important;bottom:6px !important;font-size:10px !important;letter-spacing:.2em !important;color:${C.red} !important}
+[data-wk="rpflap"],[data-wk="rpseal"]{display:none !important}
+[data-wk="rpcard"][data-status="done"]{background:#F3EDE0 !important;filter:none !important}
+[data-wk="rpcard"][data-status="done"]::before{background:${svg(STOCKING("#C9A0A0", false))} center/contain no-repeat !important;animation:none !important}
+[data-wk="rpcard"][data-status="done"]::after{content:"掏空啦" !important}
+[data-wk="rpenvelope"][data-stage="closed"]{background:${svg(SNOWTILE)} 0 0/180px 180px,linear-gradient(180deg,#C8423F,${C.redD}) !important;border:2px solid ${C.gold} !important;border-radius:28px !important;box-shadow:0 10px 30px rgba(0,0,0,.35) !important}
+[data-wk="rpenvelope"][data-stage="closed"] [data-wk="rparc"]{background:${C.pine} !important;border-top:2px solid ${C.gold} !important}
+[data-wk="rpenvelope"][data-stage="closed"] *{color:#FFF1D6 !important}
+[data-wk="rpopenbtn"]{background:${C.cream} ${svg(BELL)} center/60% no-repeat !important;border:2.5px solid ${C.gold} !important;box-shadow:0 4px 0 #B88A33 !important;animation:xmSwing 1.6s ease-in-out infinite !important}
+[data-wk="rpopenbtn"],[data-wk="rpopenbtn"] *{color:transparent !important;font-size:0 !important}
+[data-wk="rpenvelope"][data-stage="open"]{background:${svg(SNOWTILE)} 0 0/180px 180px,linear-gradient(180deg,${C.pine},#16302A) !important;border:2px solid ${C.gold} !important;border-radius:28px !important}
+[data-wk="rpenvelope"][data-stage="open"] [data-wk="rparc"][data-part="top"]{background:${C.red} !important;border-bottom:2px solid ${C.gold} !important;box-shadow:none !important}
+[data-wk="rpenvelope"][data-stage="open"] [data-wk="rparc"][data-part="top"]::after{content:none !important}
+[data-wk="rpenvelope"][data-stage="open"] *{color:#FFF1D6 !important}
+[data-wk="rpavatar"]{box-shadow:0 0 0 3px ${C.cream},0 0 0 5px ${C.gold} !important;border-radius:50% !important}
+[data-wk="rpamount"]{color:${C.gold} !important;background:none !important}
+[data-wk="rpclose"]{background:${C.cream} !important;border:2px solid ${C.gold} !important;color:${C.red} !important}
+
+/* 照片：拍立得，右上角别一枝冬青 */
+[data-wk="photocard"]{position:relative !important;overflow:visible !important;padding:8px 8px 22px !important}
+[data-wk="photocard"]::after{content:"" !important;position:absolute !important;right:-10px !important;top:-10px !important;width:40px !important;height:28px !important;background:${svg(HOLLY)} center/contain no-repeat !important;transform:rotate(20deg) !important}
+[data-wk="photoface"]{background:${svg(SNOWTILE)} 0 0/120px 120px,${C.pine} !important;border-radius:10px !important;border:none !important}
+[data-wk="photoface"] *,[data-wk="phototext"]{color:#FFF1D6 !important}
+[data-wk="photocap"],[data-wk="photohint"]{color:${C.ink} !important}
+/* 语音：前面一颗会晃的金铃铛 */
+[data-wk="voice"] > *{background:transparent !important;box-shadow:none !important;border:none !important;color:${C.ink} !important}
+[data-wk="voice"]{padding-left:40px !important;position:relative !important}
+[data-wk="voice"]::before{content:"" !important;position:absolute !important;left:12px !important;top:50% !important;width:22px !important;height:22px !important;margin-top:-12px !important;background:${svg(BELL)} center/contain no-repeat !important;transform-origin:50% 0 !important;animation:xmSwing 1.4s ease-in-out infinite !important;z-index:2 !important}
+[data-wk="voicewave"] span{background:${C.red} !important}
+/* 天气 */
+[data-wk="wxcardsky"]{background:${svg(SNOWTILE)} 0 0/120px 120px,linear-gradient(170deg,${C.pine2},${C.pine}) !important}
+[data-wk="wxcardsky"] *{color:#FFF1D6 !important}
+[data-wk="wxcardsky"] svg{stroke:${C.gold} !important}
+[data-wk="wxcardsay"]{background:${C.cream} !important;color:${C.ink} !important;border-top:1.5px solid ${C.gold} !important}
+/* 位置：一颗金星钉着 */
+[data-wk="geopin"]{background:${svg(STAR())} center/contain no-repeat !important;box-shadow:0 0 8px rgba(232,184,90,.8) !important;border:none !important;width:24px !important;height:24px !important;border-radius:0 !important}
+[data-wk="geopin"] *{opacity:0 !important}
+[data-wk="geopinstem"]{background:${C.gold} !important}
+/* 名片 */
+[data-wk="namecard"] img{border-radius:50% !important;box-shadow:0 0 0 2px ${C.cream},0 0 0 4px ${C.holly} !important}
+
+/* 拍一拍：冬青小胶囊；通话结束胶囊同款 */
+[data-wk="note"][data-part="pat"],[data-wk="note"][data-part="call"]{display:inline-block !important;background:${C.cream} ${svg(HOLLY)} 8px center/20px 14px no-repeat !important;border:1.5px solid ${C.gold} !important;border-radius:999px !important;padding:3px 14px 3px 32px !important;color:${C.ink} !important;box-shadow:0 2px 0 #C9A46A !important}
+[data-wk="note"][data-part="call"] svg{stroke:${C.red} !important}
+[data-wk="note"][data-part="callsum"]{color:rgba(255,255,255,.8) !important}
+/* 系统提示：前面一朵雪花 */
+[data-wk="sysnote"]{background:transparent !important;border:none !important;box-shadow:none !important}
+[data-wk="sysnotelabel"]{display:none !important}
+[data-wk="sysnotetext"]{background:rgba(0,0,0,.25) !important;border-radius:12px !important;padding:2px 10px !important;-webkit-box-decoration-break:clone !important;box-decoration-break:clone !important;line-height:2 !important}
+[data-wk="sysnotetext"]::before{content:"" !important;display:inline-block !important;width:12px !important;height:12px !important;margin-right:6px !important;vertical-align:-1px !important;background:${svg(FLAKE(1))} center/contain no-repeat !important}
+[data-wk="sysnoteclose"]{color:rgba(255,255,255,.7) !important}
+
+/* 线下小结：一张圣诞明信片——右上角贴邮票、盖一圈邮戳，标题是红丝带 */
+[data-part="offlog"]{position:relative !important;overflow:visible !important;padding-top:26px !important;padding-right:64px !important;background:repeating-linear-gradient(180deg,transparent 0 27px,rgba(201,164,106,.25) 27px 28px),${C.cream} !important}
+[data-part="offlog"]::before{content:"" !important;position:absolute !important;right:12px !important;top:12px !important;width:40px !important;height:48px !important;background:${svg(STAMP)} center/contain no-repeat !important;transform:rotate(4deg) !important}
+[data-part="offlog"]::after{content:"" !important;position:absolute !important;right:4px !important;top:40px !important;width:34px !important;height:34px !important;border:1.6px solid rgba(181,56,58,.55) !important;border-radius:50% !important;pointer-events:none !important}
+[data-wk="offlogtitle"]{display:inline-block !important;position:absolute !important;top:-13px !important;left:16px !important;margin:0 !important;padding:4px 18px !important;background:${C.red} !important;color:#fff !important;border-radius:4px !important;letter-spacing:.12em !important;clip-path:polygon(0 0,100% 0,calc(100% - 8px) 50%,100% 100%,0 100%,8px 50%) !important}
+[data-wk="offlogtitle"] *{color:#fff !important}
+[data-wk="offlogopen"],[data-wk="offlogredo"],[data-wk="offlogundo"],[data-wk="offlogrestore"]{color:${C.red} !important}
+[data-wk="offlogtranscript"]{border-top:1.5px solid rgba(201,164,106,.6) !important;color:#8C6A3A !important}
+
+/* 加号面板：一排排挂在树上的彩球 */
+[data-wk="chattoolicon"]{background:radial-gradient(circle at 35% 30%,#fff,${C.cream} 60%) !important;border:2px solid ${C.gold} !important;border-radius:50% !important;box-shadow:0 3px 0 #C9A46A !important;position:relative !important}
+[data-wk="chattoolicon"]::before{content:"" !important;position:absolute !important;left:50% !important;top:-7px !important;width:10px !important;height:8px !important;margin-left:-5px !important;background:${C.gold} !important;border-radius:2px 2px 0 0 !important}
+[data-wk="chattoolglyph"],[data-wk="chattoolglyph"] svg{stroke:${C.red} !important;color:${C.red} !important}
+[data-wk="chattoollabel"]{color:${C.ink} !important}
+
+/* 引用三处：待发送那条＝一张挂签；气泡上方＝小牛皮纸条；气泡里＝左边一条红绿丝带 */
+[data-wk="quotedraft"]{background:${C.cream} !important;border:1.5px solid ${C.gold} !important;border-radius:14px !important;position:relative !important;padding-left:34px !important}
+[data-wk="quotedraft"]::before{content:"" !important;position:absolute !important;left:8px !important;top:50% !important;width:20px !important;height:20px !important;margin-top:-10px !important;background:${svg(BELL)} center/contain no-repeat !important}
+[data-wk="quotedraft"] *{background:transparent !important;color:${C.ink} !important;border:none !important}
+[data-wk="quoteicon"]{display:none !important}
+[data-wk="quoteclear"]{color:${C.red} !important}
+[data-wk="quote"]{background:#F7E7C6 !important;color:#6B4A2E !important;border:1px solid #C9A46A !important;border-radius:8px !important;padding:3px 10px !important;opacity:1 !important}
+[data-wk="bubble"] [data-wk="quotetext"]{display:block !important;border-left:3px solid transparent !important;border-image:linear-gradient(${C.red} 0 50%,${C.holly} 50% 100%) 1 !important;padding-left:8px !important;opacity:.9 !important}
+[data-wk="offlogtext"]{padding-right:50px !important}
 `;
 
 const pack = { kind: "chat-look", v: 1, name: "圣诞", look: { bubble, layout, customCSS: css.trim() }, assets: {} };
