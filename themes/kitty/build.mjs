@@ -432,7 +432,7 @@ ${ktAlong()}
 [data-wk="bubble"][data-kind="text"][data-me="0"]::before{left:clamp(12px,14%,24px) !important}
 
 /* 名字＝项圈上挂的小名牌：蓝灰描边的圆角牌子，左边一颗金铃铛 */
-[data-wk="chathead"] [data-wk="headname"] > [data-wk="headink"]{display:inline-flex !important;max-width:100% !important;background:#fff ${svg(BELL)} 7px center/14px 14px no-repeat !important;border:1.5px solid ${C.line} !important;border-radius:11px !important;padding:0 8px 0 24px !important;line-height:1.35 !important;box-shadow:none !important;font-size:15px !important}
+[data-wk="chathead"] [data-wk="headname"] > [data-wk="headink"]{display:inline-flex !important;max-width:100% !important;background:#fff ${svg(BELL)} 7px center/14px 14px no-repeat !important;border:1.5px solid ${C.line} !important;border-radius:11px !important;padding:0 8px 0 24px !important;line-height:1.35 !important;box-shadow:0 2px 0 #C3CEE0 !important;font-size:15px !important}
 [data-wk="chathead"] [data-wk="headname"] > [data-wk="headink"] > [data-wk="headdim"]{display:none !important}
 [data-wk="chathead"] [data-wk="headname"] > [data-wk="headdim"]{font-size:9px !important;opacity:.75 !important;margin:1px 0 0 6px !important;line-height:1.2 !important}
 
