@@ -32,7 +32,7 @@ const HEM = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 390 64' preser
 const TAIL = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 50 120'><path d='M14 0 C10 40 46 50 38 82 C32 108 6 104 12 86 C16 74 30 84 24 92' fill='none' stroke='${C.line}' stroke-width='16' stroke-linecap='round'/><path d='M14 0 C10 40 46 50 38 82 C32 108 6 104 12 86 C16 74 30 84 24 92' fill='none' stroke='#A9B6CE' stroke-width='11' stroke-linecap='round'/></svg>`;
 
 // 按键
-const I_PLUS = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'>${X(YARN(C.mist))}<path d='M20 12 V28 M12 20 H28' stroke='${C.ink}' stroke-width='2.6' stroke-linecap='round'/></svg>`;
+const I_PLUS = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'>${X(YARN(C.mist))}</svg>`;
 const I_SEND = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 44 44'><circle cx='22' cy='22' r='20' fill='${C.line}'/><g transform='translate(5 12) scale(.85)'><path d='M4 10 C10 2 24 2 30 10 C24 18 10 18 4 10Z' fill='#fff'/><path d='M30 10 L38 3 L36 10 L38 17Z' fill='#fff'/><circle cx='10' cy='9' r='1.5' fill='${C.line}'/></g></svg>`;
 const I_REPLY = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 50 46'><g stroke='${C.line}' stroke-width='2.4' stroke-linejoin='round'><path d='M8 18 L6 2 L20 12Z' fill='#fff'/><path d='M42 18 L44 2 L30 12Z' fill='#fff'/><path d='M10 12 h30 a6 6 0 0 1 6 6 v14 a6 6 0 0 1 -6 6 h-18 l-8 7 l1 -7 h-5 a6 6 0 0 1 -6 -6 v-14 a6 6 0 0 1 6 -6z' fill='#fff'/></g><path d='M9 13 L8 6 L15 11Z M41 13 L42 6 L35 11Z' fill='${C.pink}'/><circle cx='18' cy='25' r='2' fill='${C.line}'/><circle cx='25' cy='25' r='2' fill='${C.line}'/><circle cx='32' cy='25' r='2' fill='${C.line}'/></svg>`;
 const I_HOUSE = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'><g stroke='${C.line}' stroke-width='2.2' stroke-linejoin='round' fill='#fff'><path d='M6 18 L20 6 L34 18 V34 H6Z'/><path d='M15 34 V24 a5 5 0 0 1 10 0 V34'/></g><path d='M12 10 L11 3 L17 7Z M28 10 L29 3 L23 7Z' fill='${C.pink}' stroke='${C.line}' stroke-width='1.5'/></svg>`;
@@ -63,6 +63,9 @@ const LOAFCAT = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 160 82'><g
 <path d='M52 82 C50 70 68 70 68 82 M92 82 C92 70 110 70 108 82' fill='#fff'/>
 <path d='M57 78 v4 M62 78 v4 M97 78 v4 M102 78 v4' stroke-width='1.4'/>
 </g><ellipse cx='56' cy='52' rx='6' ry='3.6' fill='${C.pink}' opacity='.75'/><ellipse cx='104' cy='52' rx='6' ry='3.6' fill='${C.pink}' opacity='.75'/></svg>`;
+
+// 软猫耳：圆弧耳朵，填色跟所在的块一样，底边不描线、盖住那段边框——像块自己长出来的（线下卡、线上气泡共用）
+const SOFTEARS = (fill) => `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 22'><g fill='${fill}' stroke='${C.line}' stroke-width='2' stroke-linejoin='round' stroke-linecap='round'><path d='M2 22 C6 16 8 6 12 3 C15 1 18 3 22 9 C25 14 28 18 30 22'/><path d='M34 22 C36 18 39 14 42 9 C46 3 49 1 52 3 C56 6 58 16 62 22'/></g><rect x='0' y='19.6' width='64' height='3' fill='${fill}'/><g fill='${C.pink}' opacity='.75'><path d='M10 18 C11 12 13 7 15 7 C17 7 19 12 21 18Z'/><path d='M43 18 C45 12 47 7 49 7 C51 7 53 12 54 18Z'/></g></svg>`;
 const bubble = { myBg: "#CFDAEA", myText: C.ink, myBorder: "2px solid " + C.line, charBg: "#fff", charText: C.ink, charBorder: "2px solid " + C.line, radius: 22, shadow: "none", myAlpha: 100, charAlpha: 100 };
 const layout = { bubble: "bubble", avatar: "all", name: false, gap: "normal", time: "show" };
 
@@ -408,6 +411,25 @@ ${ktAlong()}
 [data-part="offlog"]{margin-top:30px !important;padding-top:26px !important}
 [data-part="offlog"]::before{content:"" !important;position:absolute !important;right:18px !important;top:-40px !important;width:84px !important;height:50px !important;background:${svg(`<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 60'><g stroke='${C.line}' stroke-width='2.4' stroke-linejoin='round' stroke-linecap='round'><path d='M14 58 C6 36 22 22 50 22 C80 22 94 36 86 58Z M86 54 C98 50 98 34 88 38' fill='#fff'/><path d='M26 30 L24 16 L36 24Z M50 22 L58 12 L60 26Z' fill='#fff'/><path d='M30 38 q4 3 8 0 M46 38 q4 3 8 0' fill='none'/></g><ellipse cx='30' cy='45' rx='4' ry='2.4' fill='${C.pink}' opacity='.7'/><ellipse cx='56' cy='45' rx='4' ry='2.4' fill='${C.pink}' opacity='.7'/><text x='70' y='16' font-size='12' fill='${C.line}' font-family='sans-serif'>z</text><text x='80' y='8' font-size='9' fill='${C.line}' font-family='sans-serif'>z</text></svg>`)} center bottom/contain no-repeat !important}
 [data-wk="offlogtitle"]{position:absolute !important;top:-14px !important;left:18px !important;margin:0 !important;border-radius:999px !important;padding:4px 16px 4px 30px !important;box-shadow:0 3px 0 #6F7D99 !important}
+
+/* 线下卡的猫耳从卡边长出来：耳朵填卡片同色、底边不描线，盖住那段边框，像卡片自己冒出来的 */
+[data-wk="offcard"]::before{top:-19px !important;left:28px !important;width:64px !important;height:22px !important;background:${svg(`<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 22'><g fill='#fff' stroke='${C.line}' stroke-width='2' stroke-linejoin='round' stroke-linecap='round'><path d='M2 22 C6 16 8 6 12 3 C15 1 18 3 22 9 C25 14 28 18 30 22'/><path d='M34 22 C36 18 39 14 42 9 C46 3 49 1 52 3 C56 6 58 16 62 22'/></g><g fill='#fff'><rect x='0' y='19.6' width='64' height='3'/></g><g fill='${C.pink}' opacity='.75'><path d='M10 18 C11 12 13 7 15 7 C17 7 19 12 21 18Z'/><path d='M43 18 C45 12 47 7 49 7 C51 7 53 12 54 18Z'/></g></svg>`)} center bottom/100% 100% no-repeat !important}
+[data-wk="offcard"][data-me="1"]::before{left:auto !important;right:28px !important;background:${svg(`<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 22'><g fill='#E6EDF6' stroke='${C.line}' stroke-width='2' stroke-linejoin='round' stroke-linecap='round'><path d='M2 22 C6 16 8 6 12 3 C15 1 18 3 22 9 C25 14 28 18 30 22'/><path d='M34 22 C36 18 39 14 42 9 C46 3 49 1 52 3 C56 6 58 16 62 22'/></g><g fill='#E6EDF6'><rect x='0' y='19.6' width='64' height='3'/></g><g fill='${C.pink}' opacity='.75'><path d='M10 18 C11 12 13 7 15 7 C17 7 19 12 21 18Z'/><path d='M43 18 C45 12 47 7 49 7 C51 7 53 12 54 18Z'/></g></svg>`)} center bottom/100% 100% no-repeat !important}
+
+/* 线下：底栏那颗「给 Ta 看真实照片」藏起来；顶栏「给 Ta 一个提示」换成毛线团 */
+[data-wk="offcomposer"] button[title="给 Ta 看真实照片"]{display:none !important}
+[data-wk="offline"] [data-wk="chathead"] button[title="给 Ta 一个提示"]{width:30px !important;height:30px !important;background:${svg(I_PLUS)} center/contain no-repeat !important;border:none !important}
+[data-wk="offline"] [data-wk="chathead"] button[title="给 Ta 一个提示"] *{opacity:0 !important}
+
+/* 线上气泡也换软猫耳 */
+[data-wk="bubble"][data-kind="text"]::before{top:-14px !important;width:46px !important;height:17px !important;transform:none !important}
+[data-wk="bubble"][data-kind="text"][data-me="1"]::before{right:24px !important;background:${svg(SOFTEARS("#DCE6F3"))} center bottom/100% 100% no-repeat !important}
+[data-wk="bubble"][data-kind="text"][data-me="0"]::before{left:24px !important;background:${svg(SOFTEARS("#fff"))} center bottom/100% 100% no-repeat !important}
+
+/* 短气泡耳朵自动缩：宽度跟着气泡走（最多 46px、最少 28px），底边始终压住边框 3px */
+[data-wk="bubble"][data-kind="text"]::before{width:clamp(28px,40%,46px) !important;height:auto !important;aspect-ratio:64/22 !important;top:auto !important;bottom:calc(100% - 3px) !important}
+[data-wk="bubble"][data-kind="text"][data-me="1"]::before{right:clamp(12px,14%,24px) !important}
+[data-wk="bubble"][data-kind="text"][data-me="0"]::before{left:clamp(12px,14%,24px) !important}
 `;
 
 const pack = { kind: "chat-look", v: 1, name: "猫猫", look: { bubble, layout, customCSS: css.trim() }, assets: {} };
