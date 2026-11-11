@@ -430,6 +430,13 @@ ${ktAlong()}
 [data-wk="bubble"][data-kind="text"]::before{width:clamp(28px,40%,46px) !important;height:auto !important;aspect-ratio:64/22 !important;top:auto !important;bottom:calc(100% - 3px) !important}
 [data-wk="bubble"][data-kind="text"][data-me="1"]::before{right:clamp(12px,14%,24px) !important}
 [data-wk="bubble"][data-kind="text"][data-me="0"]::before{left:clamp(12px,14%,24px) !important}
+
+/* 顶栏挂件底下垫一层渐隐的雾蓝：往上滑的字到这里就淡出去，不跟毛线球、铃铛糊在一起 */
+[data-wk="chathead"]::after{height:64px !important;background:${svg(HEM)} center top/100% auto no-repeat,linear-gradient(180deg,${C.mist2} 0,${C.mist2} 62%,rgba(238,243,249,0) 100%) !important}
+/* 名字＝项圈上挂的小名牌：蓝灰描边的圆角牌子，左边一颗金铃铛 */
+[data-wk="chathead"] [data-wk="headname"] > [data-wk="headink"]{display:inline-flex !important;max-width:100% !important;background:#fff ${svg(BELL)} 7px center/14px 14px no-repeat !important;border:1.5px solid ${C.line} !important;border-radius:11px !important;padding:0 8px 0 24px !important;line-height:1.35 !important;box-shadow:0 2px 0 #C3CEE0 !important;font-size:15px !important}
+[data-wk="chathead"] [data-wk="headname"] > [data-wk="headink"] > [data-wk="headdim"]{display:none !important}
+[data-wk="chathead"] [data-wk="headname"] > [data-wk="headdim"]{font-size:9px !important;opacity:.75 !important;margin:1px 0 0 6px !important;line-height:1.2 !important}
 `;
 
 const pack = { kind: "chat-look", v: 1, name: "猫猫", look: { bubble, layout, customCSS: css.trim() }, assets: {} };
