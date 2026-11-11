@@ -298,6 +298,10 @@ button[data-wk="avatar"],span[data-wk="avatar"]:not([data-halo]){box-shadow:0 0 
 [data-wk="msg"][data-first="0"] [data-wk="name"]{display:none !important}
 [data-wk="msg"]{padding-top:2px !important;padding-bottom:2px !important}
 
+/* 动描：跟气泡分开——不带框，左边一道青瓷竖线，斜体小一号焦茶字，前面一只小爪印 */
+[data-wk="narr"]{background:transparent !important;border:none !important;box-shadow:none !important}
+[data-wk="narrink"]{display:block !important;background:transparent !important;border:none !important;border-left:3px solid ${C.cel} !important;border-radius:0 !important;box-shadow:none !important;color:#6E5E52 !important;font-style:italic !important;font-size:13px !important;line-height:1.8 !important;padding:2px 0 2px 12px !important}
+
 `;
 
 const pack = { kind: "chat-look", v: 1, name: "青瓷焦茶", look: { bubble, layout, customCSS: css.trim() }, assets: {} };
