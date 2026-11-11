@@ -529,6 +529,13 @@ function App() {
   useEffect(() => {
     document.documentElement.setAttribute("data-lisa-screen", screen || "home");
   }, [screen]);
+  // 今天真实的月相（她 2026-11-11 星空美化：「顶上那排月亮亮的是今天天上那个」）：0 新月 … 4 满月 … 7 残月，
+  //   挂在根节点上给美化当挂点；进页面算一次、换页再算，跨了半夜也会跟上。只给 CSS 用，不进存档
+  useEffect(() => {
+    const syn = 29.530588853, ref = Date.UTC(2000, 0, 6, 18, 14) / 864e5;
+    const age = (((Date.now() / 864e5 - ref) % syn) + syn) % syn;
+    document.documentElement.setAttribute("data-lisa-moon", String(Math.floor((age / syn) * 8 + 0.5) % 8));
+  }, [screen]);
   // 当前正在看哪个聊天（供未读红点判断：在看就不累加）
   const viewRef = useRef({ screen: "home", charId: null });
   const dayChatRef = useRef(null);

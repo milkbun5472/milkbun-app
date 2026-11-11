@@ -37,3 +37,11 @@ test("线下小结卡挂点；他的动描不断开一串", () => {
   assert.match(comp, /"data-wk": "card", "data-part": "offlog"/);
   assert.match(comp, /list\[k\]\.kind === "narration" && list\[k\]\.who === "char" && m\.role === "assistant"/);
 });
+test("根节点挂今天的月相 data-lisa-moon", () => {
+  const app = readFileSync(new URL("../js/app.js", import.meta.url), "utf8");
+  assert.match(app, /setAttribute\("data-lisa-moon", String\(Math\.floor\(\(age \/ syn\) \* 8 \+ 0\.5\) % 8\)\)/);
+  const syn = 29.530588853, ref = Date.UTC(2000, 0, 6, 18, 14) / 864e5;
+  const ph = d => { const a = (((d / 864e5 - ref) % syn) + syn) % syn; return Math.floor((a / syn) * 8 + 0.5) % 8; };
+  assert.equal(ph(Date.UTC(2024, 3, 23, 23)), 4, "2024-04-23 是满月");
+  assert.equal(ph(Date.UTC(2024, 3, 8, 18)), 0, "2024-04-08 是新月");
+});
