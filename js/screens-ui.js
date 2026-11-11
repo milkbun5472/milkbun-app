@@ -11257,7 +11257,9 @@ function DiaryArchive({ characters, curId, setCurId, diaries, onOpen, onBack, on
   //   她 2026-08-30 明说要我们自己的东西。
   const paper = diaryPaperOf(char);
   const iRGB = (typeof skinRGB === "function" ? skinRGB(t.ink || "#2b2622") : [43, 38, 34]).join(",");
-  const lastStr = last ? (new Date(last.ts).getMonth() + 1) + "月" + new Date(last.ts).getDate() + "日" : "";
+  // 群里 2026-11-11「app 还有哪些地方应该接虚拟时间」：封面上最新一篇的日子照 TA 的钟
+  const lastD = last ? (char && !char.isMe ? vDate(last.ts, char.id) : new Date(last.ts)) : null;
+  const lastStr = lastD ? (lastD.getMonth() + 1) + "月" + lastD.getDate() + "日" : "";
   return h("div", { "data-wk": "dicover", "data-paper": paper, className: "h-full flex flex-col", style: Object.assign({}, pageSkin(paper, t, { corner: false }), { touchAction: "pan-y" }), onTouchStart: onTS, onTouchEnd: onTE },
     h(Head, { zh: "日记", sub: characters.length > 1 ? "第 " + (idx + 1) + " / " + characters.length + " 本" : "",
       bg: "transparent", noLine: true, onBack,
@@ -11655,6 +11657,7 @@ function Diary({ characters, diaries, profile, genBusy, commentingId, onBack, on
         ? h("button", { "data-wk": "diallread", onClick: () => characters.forEach(c => { const ids = entriesOf(c.id).filter(e => e.unread).map(e => e.id); if (ids.length) onMarkRead(c.id, ids); }),
             className: "active:opacity-60", style: { display: "block", marginLeft: "auto", marginTop: 6, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.sub, border: "1px solid " + t.line, borderRadius: 999, padding: "5px 12px", minHeight: 32 } }, "全部标为已读") : null,
       authors.map(c => {
+        // 群里 2026-11-11「app 还有哪些地方应该接虚拟时间」：「最后一篇」的日子，TA 的照 TA 的钟
         const list = entriesOf(c.id); const last = list[0]; const gb = busy[c.id]; const cur = c.id === curId;
         return h("div", {
           key: c.id, "data-wk": "diauthor", "data-on": cur ? "1" : "0", "data-me": c.isMe ? "1" : "0", onClick: () => openArchive(c.id),
@@ -11667,7 +11670,7 @@ function Diary({ characters, diaries, profile, genBusy, commentingId, onBack, on
               h("div", { "data-wk": "diname", style: { fontFamily: F_DISPLAY, fontSize: "calc(20px * var(--app-fs, 1))", color: t.ink } }, c.isMe ? c.name + "（我）" : c.name),
               cur && h("span", { style: { fontFamily: F_BODY, fontSize: "calc(8px * var(--app-fs, 1))", letterSpacing: ".05em", padding: "2px 6px", borderRadius: 999, border: `1px solid ${t.line}`, color: t.fog } }, "当前")),
             h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog, marginTop: 2 } },
-              gb ? "正在记录今天…" : list.length ? (list.filter(e => e.unread).length ? list.filter(e => e.unread).length + " 篇没看 · " : "") + "共 " + list.length + " 篇 · 最后 " + new Date(last.ts).toLocaleDateString("zh-CN", { month: "long", day: "numeric" }) : (c.isMe ? "还没写过，点铅笔写一篇" : "尚未记录"))),
+              gb ? "正在记录今天…" : list.length ? (list.filter(e => e.unread).length ? list.filter(e => e.unread).length + " 篇没看 · " : "") + "共 " + list.length + " 篇 · 最后 " + (c.isMe ? new Date(last.ts) : vDate(last.ts, c.id)).toLocaleDateString("zh-CN", { month: "long", day: "numeric" }) : (c.isMe ? "还没写过，点铅笔写一篇" : "尚未记录"))),
           gb ? h(IPulse, { size: 18, color: t.fog }) : h(IChevR, { size: 16, color: t.fog }));
       })));
 }

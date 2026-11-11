@@ -359,7 +359,7 @@
                 boxShadow: "0 8px 18px -10px rgba(40,25,10,.5)", borderLeft: "2px dashed " + t.line } },
               h("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "baseline" } },
                 h("span", { style: { fontSize: "calc(10.5px * var(--app-fs, 1))", letterSpacing: 3, color: "#9a8f80" } }, "ADMIT TWO · 约会票根"),
-                h("span", { style: { fontSize: "calc(10.5px * var(--app-fs, 1))", color: "#9a8f80" } }, new Date().toLocaleDateString())),
+                h("span", { style: { fontSize: "calc(10.5px * var(--app-fs, 1))", color: "#9a8f80" } }, (typeof vDate === "function" && char ? vDate(Date.now(), char.id) : new Date()).toLocaleDateString())),   // 群里 2026-11-11「app 还有哪些地方应该接虚拟时间」：票根上的日子照TA那只钟
               h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(19px * var(--app-fs, 1))", margin: "6px 0 8px" } }, "《" + name + "》"),
               h("div", { style: { display: "flex", gap: 8, marginBottom: 8, fontSize: "calc(22px * var(--app-fs, 1))" } }, s.visits.map(v => h("span", { key: v }, iconOf(v) || "·"))),
               rows.map((r, i) => h("div", { key: i, style: { fontSize: "calc(12px * var(--app-fs, 1))", lineHeight: 1.7, color: "#5a5045" } }, r)),

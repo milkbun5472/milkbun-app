@@ -5897,7 +5897,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       case "memlib": return one(arr(memLibRef.current).filter(e => (e.charIds || []).includes(char.id)), x => ({ title: characterText(char, "他还记得"), body: x.text || "" }));
       case "forum":  return one(arr(forumPostsRef.current).filter(x => x.authorId === char.id), x => ({ title: x.title || characterText(char, "他发的帖"), body: x.body || "" }));
       case "moment": return one(arr(momentsRef.current).filter(x => x.characterId === char.id), x => ({ title: characterText(char, "他发的动态"), body: x.content || "" }));
-      case "diary":  return one(arr((diariesRef.current || {})[char.id]), x => ({ title: x.titleZh || (x.ts ? new Date(x.ts).toLocaleDateString("zh-CN") : characterText(char, "他日记里的一天")), body: x.body || x.content || "" }));
+      // 群里 2026-11-11「app 还有哪些地方应该接虚拟时间」
+      case "diary":  return one(arr((diariesRef.current || {})[char.id]), x => ({ title: x.titleZh || (x.ts ? vDate(x.ts, char.id).toLocaleDateString("zh-CN") : characterText(char, "他日记里的一天")), body: x.body || x.content || "" }));
       default: return null;
     }
   };
@@ -8853,7 +8854,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       if (!list) list = loadJSON("x_offline:" + char.id, []);
       const done = (list || []).filter(x => x && x.endTs && (x.msgs || []).length && x.id !== skipId).slice(0, n);
       return done.map(x => {
-        const when = new Date(x.startTs || x.endTs).toLocaleDateString("zh-CN", { month: "numeric", day: "numeric" });
+        // 群里 2026-11-11「app 还有哪些地方应该接虚拟时间」
+        const when = vDate(x.startTs || x.endTs, char.id).toLocaleDateString("zh-CN", { month: "numeric", day: "numeric" });
         let raw = offlineTranscriptForOnline(x.msgs, false, char.name) || "";
         if (raw.length > PAST_OFF_CHARS) raw = "〔这一场太长，下面只是后半截〕\n" + raw.slice(raw.length - PAST_OFF_CHARS);
         const sumOf = ((chatsRef.current[char.id] || []).find(m => m && m.kind === "offlinelog" && m.ofs === x.id) || {}).content || x.summary || "";
