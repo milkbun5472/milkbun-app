@@ -15,8 +15,8 @@ const YARN = (f = C.pink, k = f === C.pink ? C.pinkD : C.line) => `<svg xmlns='h
 const BELL = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'><circle cx='10' cy='10' r='8' fill='${C.gold}' stroke='#B88A33' stroke-width='1.2'/><path d='M3 9 H17' stroke='#B88A33' stroke-width='1.1'/><circle cx='10' cy='13' r='1.6' fill='#7A5A20'/><path d='M10 14 V17' stroke='#7A5A20' stroke-width='1.2'/></svg>`;
 
 // 猫耳头像框（耳朵＋项圈＋铃铛），flip 给我那颗
-const EARS = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><g stroke='${C.line}' stroke-width='3' stroke-linejoin='round' fill='#F4F7FB'><path d='M16 40 C10 24 12 10 18 4 C26 6 38 14 44 24 C34 26 24 32 16 40Z'/><path d='M84 40 C90 24 88 10 82 4 C74 6 62 14 56 24 C66 26 76 32 84 40Z'/></g><path d='M20 32 C17 22 18 14 21 10 C27 13 34 18 37 23 C30 25 25 28 20 32Z M80 32 C83 22 82 14 79 10 C73 13 66 18 63 23 C70 25 75 28 80 32Z' fill='${C.pink}'/><path d='M24 26 l4 -3 M27 29 l5 -2 M76 26 l-4 -3 M73 29 l-5 -2' stroke='#fff' stroke-width='1.6' stroke-linecap='round'/></svg>`;
-const COLLAR = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><path d='M22 80 Q50 95 78 80' fill='none' stroke='${C.pink}' stroke-width='5.5' stroke-linecap='round'/><g transform='translate(41 82)'><circle cx='9' cy='9' r='8' fill='${C.gold}' stroke='#B88A33' stroke-width='1.2'/><path d='M2 8 H16' stroke='#B88A33' stroke-width='1.1'/><circle cx='9' cy='12' r='1.6' fill='#7A5A20'/></g></svg>`;
+const EARS = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><g stroke='${C.line}' stroke-width='3' stroke-linejoin='round' fill='#F4F7FB'><path d='M16 40 C10 24 12 10 18 4 C26 6 38 14 44 24 C34 26 24 32 16 40Z'/><path d='M84 40 C90 24 88 10 82 4 C74 6 62 14 56 24 C66 26 76 32 84 40Z'/></g><path d='M20 32 C17 22 18 14 21 10 C27 13 34 18 37 23 C30 25 25 28 20 32Z M80 32 C83 22 82 14 79 10 C73 13 66 18 63 23 C70 25 75 28 80 32Z' fill='${C.pink}'/><path d='M24 26 l4 -3 M27 29 l5 -2 M76 26 l-4 -3 M73 29 l-5 -2' stroke='#fff' stroke-width='1.6' stroke-linecap='round'/><circle cx='50' cy='52' r='38' fill='none' stroke='${C.line}' stroke-width='2.6'/><path d='M22 80 Q50 95 78 80' fill='none' stroke='${C.pink}' stroke-width='5.5' stroke-linecap='round'/><g transform='translate(41 82)'><circle cx='9' cy='9' r='8' fill='${C.gold}' stroke='#B88A33' stroke-width='1.2'/><path d='M2 8 H16' stroke='#B88A33' stroke-width='1.1'/><circle cx='9' cy='12' r='1.6' fill='#7A5A20'/></g></svg>`;
+
 
 // 背景：雾蓝底，散着淡淡的小鱼、鱼骨、爪印
 const TILE = `<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200' viewBox='0 0 200 200'><g opacity='.16'><g transform='translate(18 22) scale(.8)'>${X(FISH())}</g><g transform='translate(120 40) rotate(-12) scale(.7)'>${X(BONE())}</g><g transform='translate(150 120) scale(.55)'>${X(PAW())}</g><g transform='translate(40 140) rotate(15) scale(.7)'>${X(BONE())}</g><g transform='translate(80 90) scale(.45)'>${X(PAW())}</g><g transform='translate(140 175) rotate(-8) scale(.7)'>${X(FISH())}</g></g></svg>`;
@@ -100,17 +100,11 @@ button[data-wk="avatar"]::before,span[data-wk="avatar"]:not([data-halo])::before
 [data-wk="note"][data-part="pat"]{background:#fff !important;border:1.5px solid ${C.line} !important;border-radius:999px !important;color:${C.ink} !important;padding:2px 12px !important}
 [data-wk="narrink"]{background:rgba(255,255,255,.7) !important;border:1.5px solid ${C.line} !important;border-radius:16px !important;color:${C.ink} !important}
 
-/* 猫耳垫在头像底下，项圈和铃铛挂在头像前面 */
+/* 整个猫耳框垫在头像底下，位置不动，只是头像图压在上面 */
 button[data-wk="avatar"],span[data-wk="avatar"]{isolation:isolate !important}
-button[data-wk="avatar"] > *,span[data-wk="avatar"] > *{position:relative !important;z-index:1 !important;box-shadow:0 0 0 2.5px ${C.line} !important}
+button[data-wk="avatar"] > *,span[data-wk="avatar"] > *,img[data-wk="avatar"]{position:relative !important;z-index:1 !important}
 button[data-wk="avatar"]::before,span[data-wk="avatar"]:not([data-halo])::before{z-index:0 !important}
-button[data-wk="avatar"]::after,span[data-wk="avatar"]:not([data-halo])::after{content:"" !important;position:absolute !important;inset:-26% !important;top:-36% !important;background:${svg(COLLAR)} center/contain no-repeat !important;pointer-events:none !important;z-index:2 !important}
 [data-wk="chathead"] button:has(> [data-wk="avatar"]){isolation:isolate !important}
-[data-wk="chathead"] button:has(> [data-wk="avatar"]) > [data-wk="avatar"]{position:relative !important;z-index:1 !important;box-shadow:0 0 0 2px ${C.line} !important}
+[data-wk="chathead"] button:has(> [data-wk="avatar"]) > [data-wk="avatar"]{position:relative !important;z-index:1 !important}
 [data-wk="chathead"] button:has(> [data-wk="avatar"])::before{z-index:0 !important}
-[data-wk="chathead"] button:has(> [data-wk="avatar"])::after{content:"" !important;position:absolute !important;width:52px !important;height:52px !important;left:-8px !important;top:calc(50% - 30px) !important;background:${svg(COLLAR)} center/contain no-repeat !important;pointer-events:none !important;z-index:2 !important}
 `;
-
-const pack = { kind: "chat-look", v: 1, name: "猫猫", look: { bubble, layout, customCSS: css.trim() }, assets: {} };
-writeFileSync(join(here, "猫猫-美化.json"), JSON.stringify(pack));
-console.log("ok", css.length);
