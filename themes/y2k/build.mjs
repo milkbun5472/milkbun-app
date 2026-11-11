@@ -199,6 +199,17 @@ button[data-wk="avatar"]::after,span[data-wk="avatar"]:not([data-halo])::after{l
 [data-wk="chatplus"],[data-wk="chatreply"]{width:38px !important;min-width:38px !important;height:38px !important}
 [data-wk="send"]{width:42px !important;min-width:42px !important;height:40px !important}
 
+/* 顶栏减重：副标题不折行、名字有地方放，按键缩到和底栏一样大，胶囊跟底栏一样薄 */
+[data-wk="chathead"]{padding-left:16px !important;padding-right:16px !important;gap:6px !important}
+[data-wk="chathead"] [data-wk="headname"] > [data-wk="headdim"]{white-space:nowrap !important;overflow:hidden !important;text-overflow:ellipsis !important}
+[data-wk="chathead"] [data-wk="headname"] > [data-wk="headink"],[data-wk="chathead"] [data-wk="headname"] > [data-wk="headink"] *{font-size:17px !important}
+[data-wk="chathead"] [data-wk="avatar"]{width:36px !important;height:36px !important;padding:3px !important}
+[data-wk="chathead"] [data-wk="avatar"] > *,[data-wk="chathead"] [data-wk="avatar"] img{width:30px !important;height:30px !important}
+[data-wk="sameroom"],[data-wk="chatmore"]{width:34px !important;min-width:34px !important;height:34px !important}
+[data-wk="chatmore"]{margin-left:2px !important}
+[data-wk="chathead"]::before{top:calc(var(--app-safe-top, 0px) + 4px) !important;bottom:4px !important}
+[data-wk="chathead"]::after{top:calc(var(--app-safe-top, 0px) + 9px) !important;bottom:9px !important}
+
 `;
 
 const pack = { kind: "chat-look", v: 1, name: "Y2K", look: { bubble, layout, customCSS: css.trim() }, assets: {} };
