@@ -239,20 +239,20 @@ span[data-wk="avatar"]:not([data-halo])::before{transform:scaleX(-1) !important}
 [data-wk="gazeempty"] button{background:linear-gradient(135deg,#6F5BFF,#C56BE0) !important;color:#fff !important;border-radius:999px !important}
 
 /* ───── 线下：同一片夜空，正文是浮在天上的玻璃纸 ───── */
-[data-wk="offline"]:not([style*="url("]){background:${svg(STARS)} 0 0/240px 240px,linear-gradient(180deg,${C.night},${C.deep} 50%,${C.violet}) !important}
+[data-wk="offline"]:not([style*="url("]){background:${svg(STARS)} 0 0/240px 240px,linear-gradient(180deg,#05061A,#0A0B26 55%,#1A1440) !important}
 [data-wk="offline"] [data-wk="offbody"]{background:transparent !important}
 [data-wk="offline"] [data-wk="chathead"] [data-wk="offtitle"]{color:${C.ink} !important}
 [data-wk="offline"] [data-wk="chathead"] *{color:${C.dim} !important}
 [data-wk="offline"] [data-wk="chathead"] svg{stroke:${C.gold} !important}
 [data-wk="offline"] [data-wk="chathead"] button:last-child:not([data-wk]){color:${C.gold} !important;border:1px solid rgba(255,217,138,.6) !important;border-radius:999px !important;padding:2px 12px !important}
-[data-wk="offcard"]{background:rgba(11,15,43,.55) !important;border:1px solid rgba(255,217,138,.45) !important;border-radius:20px !important;box-shadow:0 0 20px rgba(108,123,255,.15) !important;backdrop-filter:blur(4px) !important;-webkit-backdrop-filter:blur(4px) !important}
-[data-wk="offcard"][data-me="1"]{background:linear-gradient(135deg,rgba(111,91,255,.45),rgba(197,107,224,.4)) !important}
+[data-wk="offcard"]{background:rgba(8,9,30,.72) !important;border:1px solid rgba(255,217,138,.45) !important;border-radius:20px !important;box-shadow:0 0 20px rgba(108,123,255,.15) !important;backdrop-filter:blur(4px) !important;-webkit-backdrop-filter:blur(4px) !important}
+[data-wk="offcard"][data-me="1"]{background:linear-gradient(135deg,rgba(70,55,160,.45),rgba(120,60,150,.38)) !important}
 [data-wk="offname"]{color:${C.gold} !important}
 [data-wk="offtext"]{color:${C.ink} !important}
 [data-wk="offsay"]{color:#FFE9B0 !important}
 [data-wk="offthought"]{background:rgba(255,217,138,.08) !important;border-left:2px solid ${C.gold} !important;color:${C.dim} !important}
 [data-wk="offreplyopt"]{background:rgba(11,15,43,.6) !important;border:1px solid rgba(255,217,138,.5) !important;color:${C.ink} !important;border-radius:999px !important}
-[data-wk="offcomposer"]{background:rgba(7,10,34,.8) !important;border-top:1px solid rgba(255,217,138,.4) !important}
+[data-wk="offcomposer"]{background:rgba(5,6,26,.92) !important;border-top:1px solid rgba(255,217,138,.4) !important}
 [data-wk="offcomposer"] textarea{background:rgba(11,15,43,.6) !important;color:${C.ink} !important;border:1px solid rgba(255,217,138,.6) !important;border-radius:20px !important}
 [data-wk="offcomposer"] button:not([title]):not([data-wk]){background:${svg(I_SEND)} center/120% no-repeat !important;border:none !important}
 [data-wk="offcomposer"] button:not([title]):not([data-wk]) *{opacity:0 !important}
@@ -377,6 +377,39 @@ span[data-wk="avatar"]:not([data-halo])::before{transform:scaleX(-1) !important}
 [data-wk="transfernote"]::before{content:"乘客留言：" !important;color:${C.dim} !important;font-size:.85em !important}
 [data-wk="transfercard"][data-status="accepted"] [data-wk="transferseal"]{transform:rotate(-14deg) !important;box-shadow:0 0 0 2px rgba(11,15,43,.8),0 0 0 3.5px ${C.gold} !important}
 [data-wk="transfercard"][data-status="returned"]{clip-path:polygon(0 0,calc(100% - 26px) 0,100% 26px,100% 100%,0 100%) !important;opacity:.75 !important}
+
+/* ───── 红包＝一封星光信封（照她给的图） ───── */
+[data-wk="rpcard"]::before{background:${svg(`<svg xmlns='http://www.w3.org/2000/svg' viewBox='-8 -8 136 100'><defs><linearGradient id='e' x1='0' y1='0' x2='0' y2='1'><stop offset='0' stop-color='#433873'/><stop offset='1' stop-color='#2A2252'/></linearGradient></defs><rect x='3' y='3' width='114' height='78' rx='10' fill='url(#e)' stroke='#E3C487' stroke-width='1.4'/><path d='M5 8 L60 46 L115 8' fill='none' stroke='#E3C487' stroke-width='1.2' stroke-linejoin='round'/></svg>`)} center/contain no-repeat !important;width:62px !important;height:46px !important;margin-top:-23px !important;animation:none !important;filter:drop-shadow(0 0 6px rgba(227,196,135,.35)) !important}
+[data-wk="rpcard"]::after{content:"一份星光" !important}
+/* 拆开前 */
+[data-wk="rpenvelope"][data-stage="closed"]{background:radial-gradient(circle at 50% 60%,rgba(227,196,135,.14),transparent 38%),${svg(`<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 300 470' preserveAspectRatio='none'><rect x='14' y='14' width='272' height='442' rx='22' fill='none' stroke='#E3C487' stroke-width='1.4' opacity='.85'/></svg>`)} center/100% 100% no-repeat,${svg(`<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 300 470'><g transform='translate(150 75) scale(1.1)'><path d='M0 -9 Q.9 -.9 9 0 Q.9 .9 0 9 Q-.9 .9 -9 0 Q-.9 -.9 0 -9Z' fill='none' stroke='#E3C487' stroke-width='1.6'/></g><circle cx='160' cy='66' r='2.5' fill='none' stroke='#E3C487' stroke-width='1.2'/><g transform='translate(60 268) scale(1.4)'><path d='M0 -9 Q.9 -.9 9 0 Q.9 .9 0 9 Q-.9 .9 -9 0 Q-.9 -.9 0 -9Z' fill='#E3C487'/></g><g transform='translate(252 330) scale(1.3)'><path d='M0 -9 Q.9 -.9 9 0 Q.9 .9 0 9 Q-.9 .9 -9 0 Q-.9 -.9 0 -9Z' fill='#E3C487'/></g><g transform='translate(150 300) scale(1.6)'><g transform='translate(-60 -42)'><defs><linearGradient id='e' x1='0' y1='0' x2='0' y2='1'><stop offset='0' stop-color='#433873'/><stop offset='1' stop-color='#2A2252'/></linearGradient></defs><rect x='3' y='3' width='114' height='78' rx='10' fill='url(#e)' stroke='#E3C487' stroke-width='1.4'/><path d='M5 8 L60 46 L115 8' fill='none' stroke='#E3C487' stroke-width='1.2' stroke-linejoin='round'/></g></g><text x='150' y='420' text-anchor='middle' font-size='15' fill='#B9A6E8' font-family='sans-serif' letter-spacing='1'>一份藏在星光里的心意</text></svg>`)} center/100% 100% no-repeat,#12112E !important;border:none !important;box-shadow:0 20px 50px rgba(0,0,0,.5) !important}
+[data-wk="rpenvelope"][data-stage="closed"] [data-wk="rpavatar"]{visibility:hidden !important}
+[data-wk="rpenvelope"][data-stage="closed"] [data-wk="rpfrom"]{color:#E3C487 !important}
+[data-wk="rpenvelope"][data-stage="closed"] [data-wk="rpwish"]{color:#FFF4DC !important;font-weight:700 !important;font-size:24px !important}
+[data-wk="rpopenbtn"]{background:#E3C487 ${svg(`<svg xmlns='http://www.w3.org/2000/svg' viewBox='-12 -12 24 24'><path d='M0 -9 Q.9 -.9 9 0 Q.9 .9 0 9 Q-.9 .9 -9 0 Q-.9 -.9 0 -9Z' fill='#3A2E66'/></svg>`)} center/58% no-repeat !important;width:54px !important;height:54px !important;margin-left:-27px !important;margin-top:-27px !important;top:66.5% !important;border-radius:50% !important;filter:none !important;animation:snPulse 2s ease-in-out infinite !important;box-shadow:0 0 18px rgba(227,196,135,.5) !important}
+[data-wk="chatmore"]{font-size:0 !important;color:transparent !important;width:44px !important;min-width:44px !important;height:30px !important;min-height:30px !important;display:inline-block !important;flex:none !important}
+
+/* 引用：一颗流星拖着尾巴划向那句话 */
+[data-wk="quotedraft"]{background:linear-gradient(90deg,rgba(255,217,138,.16),rgba(11,15,43,.75) 45%) !important;border:1px solid rgba(255,217,138,.45) !important;border-left:none !important;border-radius:0 18px 18px 0 !important;position:relative !important;padding-left:58px !important;overflow:visible !important}
+[data-wk="quotedraft"]::before{content:"" !important;position:absolute !important;left:6px !important;top:50% !important;width:48px !important;height:20px !important;margin-top:-10px !important;background:${svg(`<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 20'><defs><linearGradient id='t' x1='0' x2='1'><stop offset='0' stop-color='#FFD98A' stop-opacity='0'/><stop offset='1' stop-color='#FFD98A'/></linearGradient></defs><rect x='0' y='9' width='38' height='2' rx='1' fill='url(#t)'/><g transform='translate(40 10)'>${SPARK("#FFF1D6", 8).replace(/<\/?svg[^>]*>/g,"")}</g></svg>`)} center/contain no-repeat !important;filter:drop-shadow(0 0 4px ${C.gold}) !important}
+[data-wk="quoteicon"]{display:none !important}
+[data-wk="quotetext"]{color:#E4E0FF !important;font-style:italic !important}
+[data-wk="quoteclear"]{color:${C.gold} !important}
+/* 气泡里被引用的那句：上面一道细金线＋小星 */
+[data-wk="bubble"] [data-wk="quotetext"]{display:block !important;border-left:2px solid rgba(255,217,138,.7) !important;padding-left:8px !important;opacity:.85 !important}
+
+/* 气泡上面那条「回复了哪句」：深色玻璃＋金色细边，字看得清 */
+[data-wk="quote"]{background:rgba(8,9,30,.78) !important;color:#E4E0FF !important;border:1px solid rgba(255,217,138,.5) !important;border-left:2px solid ${C.gold} !important;border-radius:10px !important;padding:3px 10px !important;font-style:italic !important;opacity:1 !important}
+[data-wk="quote"]::before{content:"✦ " !important;color:${C.gold} !important;font-style:normal !important}
+
+/* 线下小结＝一页观星日志：顶上一排月相小标、金色标题，按键是小金胶囊 */
+[data-part="offlog"]{background:${svg(STARS)} 0 0/240px 240px,linear-gradient(180deg,rgba(8,9,30,.92),rgba(26,20,64,.9)) !important;border:1px solid rgba(255,217,138,.6) !important;border-radius:20px !important;padding:16px 18px 14px !important;position:relative !important}
+[data-wk="offlogtitle"]{display:flex !important;align-items:center !important;gap:8px !important;font-size:12px !important;letter-spacing:.3em !important;color:${C.gold} !important;padding-bottom:8px !important;margin-bottom:8px !important;border-bottom:1px solid rgba(255,217,138,.3) !important}
+[data-wk="offlogtitle"]::before{content:"" !important;width:16px !important;height:16px !important;background:${svg(`<svg xmlns='http://www.w3.org/2000/svg' viewBox='-7 -7 14 14'>${MOONDOT(2, 6)}</svg>`)} center/contain no-repeat !important}
+[data-wk="offlogtitle"]::after{content:"观星日志" !important;margin-left:auto !important;font-size:9px !important;letter-spacing:.2em !important;color:${C.dim} !important;opacity:.7 !important}
+[data-wk="offlogtext"],[data-wk="offlogtext"] *{color:#F4F1FF !important;line-height:1.8 !important}
+[data-wk="offlogopen"],[data-wk="offlogredo"],[data-wk="offlogundo"],[data-wk="offlogrestore"]{display:inline-block !important;margin:8px 6px 0 0 !important;padding:3px 12px !important;border:1px solid rgba(255,217,138,.55) !important;border-radius:999px !important;color:${C.gold} !important;font-size:11px !important;background:rgba(11,15,43,.5) !important}
+[data-wk="offlogtranscript"]{border-top:1px solid rgba(255,217,138,.3) !important;color:${C.dim} !important}
 `;
 
 const pack = { kind: "chat-look", v: 1, name: "星空", look: { bubble, layout: { bubble: "bubble", avatar: "all", name: false, gap: "normal", time: "show" }, customCSS: css.trim() }, assets: {} };

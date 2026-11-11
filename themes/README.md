@@ -31,7 +31,8 @@
 | 卡片 | 转账（待收/已收/已退三种印）、红包（卡、领完、拆开前、拆开后） | transfer*, rpcard, rpenvelope, rp* |
 | 卡片 | 表情包、卡片结尾的已读（cardmeta，默认藏，要显示自己开） | cardmeta |
 | 卡片 | 照片（有图/没图）、语音、天气、位置、名片、拍一拍、系统纸条、通话结束胶囊＋记录 | photo*, voice, wxcard*, geo*, namecard*, note[data-part], sysnote*, callpill |
-| 面板 | 加号面板、引用条 | chatpanel, chattool*, quote* |
+| 面板 | 加号面板 | chatpanel, chattool* |
+| 引用 | 三处都要做：输入框上待发送那条（quotedraft）、气泡上方「回复了哪句」（quote，data-me）、气泡里的引用字（quotetext） | quotedraft, quote, quotetext, quoteicon, quoteclear |
 | 状态卡 | 此刻（看得见的、心里想的、好感条）、翻旧的、Ta 眼里（含空的那块） | state*, statehist*, gaze* |
 | 线下 | 顶栏按键、底栏、背景、两人的卡片、心声、台词高亮 | offline, off* |
 | 线下小结 | 聊天里那张「线下经过」卡：卡本身、标题、正文、看原文／重新总结／放回往期、展开的原文 | [data-part="offlog"], offlog* |
