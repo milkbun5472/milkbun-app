@@ -16672,7 +16672,7 @@ function LoveLetterCard({ m, character, onOpen, onAnswer }) {
       background: paper, boxShadow: "0 1px 2px rgba(60,40,20,.10), 0 8px 22px rgba(60,40,20,.10)" } },
       h("div", { style: { height: 3, background: ink, opacity: .75 } }),
       h("div", { style: { padding: "16px 18px 14px" } },
-        h("div", { "data-wk": "letterbody", style: { fontFamily: serif, fontSize: "calc(14.5px * var(--app-fs, 1))", color: "#3a2f27", lineHeight: "28px", whiteSpace: "pre-wrap",
+        h("div", { "data-wk": "letterbody", "data-copyable": "1", style: { fontFamily: serif, fontSize: "calc(14.5px * var(--app-fs, 1))", color: "#3a2f27", lineHeight: "28px", whiteSpace: "pre-wrap",
           userSelect: "text", WebkitUserSelect: "text",
           backgroundImage: "linear-gradient(to bottom, transparent 27px, " + paperLine + " 27px, " + paperLine + " 28px)", backgroundSize: "100% 28px" } }, m.content || ""),
         h("div", { style: { fontFamily: serif, fontSize: "calc(13px * var(--app-fs, 1))", color: "#6b5a4c", textAlign: "right", marginTop: 10 } }, "—— " + nm),
