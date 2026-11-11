@@ -15701,7 +15701,7 @@ function CallReceipt({ m, isU, who, avatar, onCallBack }) {
         // ⚠️「响过你没接」和「来得太晚、压根没响」不是一回事，界面上得分得开
         //（她 2026-09-12：「不知道是打了我没看到还是只是显示未接但是根本没播」）
         (missed
-          ? (m.lateMissed ? "TA当时打过来了 · 补记（手机没响）" : m.busyMissed ? "无法接通 · " + (who || "TA") + "在忙（" + m.busyMissed + "）" : "未接" + (video ? "视频" : "语音") + "通话")
+          ? (m.lateMissed ? "TA当时打过来了 · 补记（手机没响）" : m.lineBusy ? (who || "TA") + "打过来，你在通话中 · 占线" : m.busyMissed ? "无法接通 · " + (who || "TA") + "在忙（" + m.busyMissed + "）" : "未接" + (video ? "视频" : "语音") + "通话")
           : "你拒绝了" + (who ? who + "的" : "") + (video ? "视频" : "语音") + "通话邀请") + " · " + clock),
       onCallBack ? h("span", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.tint, marginLeft: 2 } }, "回拨") : null));
 }
