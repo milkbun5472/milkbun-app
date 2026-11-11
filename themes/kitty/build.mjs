@@ -48,7 +48,21 @@ const PADSTAMP = (f) => `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 44
 const FISHPIN = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'><g transform='rotate(-90 20 20) translate(2 10)'>${X(FISH(C.pinkD))}</g></svg>`;
 
 // 趴在状态卡顶上的一整只猫：圆脑袋、尖耳朵、粉腮红、两只前爪搭在卡边、尾巴卷起来
-const LOAFCAT = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 150 74'><g stroke='${C.line}' stroke-width='2.6' stroke-linejoin='round' stroke-linecap='round'><path d='M118 58 C138 56 146 40 136 30 C130 24 122 30 128 36' fill='none'/><path d='M30 72 C26 50 44 36 76 36 C108 36 124 50 120 72Z' fill='#fff'/><path d='M40 24 L36 4 L54 15Z M86 15 L102 4 L100 24Z' fill='#fff'/><path d='M41 19 L39 9 L49 15Z M91 15 L99 9 L98 19Z' fill='${C.pink}' stroke='none'/><ellipse cx='70' cy='34' rx='34' ry='26' fill='#fff'/><path d='M56 32 q4 -4 8 0 M76 32 q4 -4 8 0' fill='none'/><path d='M66 40 l4 3 l4 -3' fill='none' stroke-width='2'/><path d='M38 40 h-12 M38 45 l-11 3 M102 40 h12 M102 45 l11 3' stroke-width='1.6'/><path d='M50 72 C48 62 62 62 62 72 M80 72 C80 62 94 62 92 72' fill='#fff'/></g><ellipse cx='52' cy='41' rx='5' ry='3' fill='${C.pink}' opacity='.7'/><ellipse cx='88' cy='41' rx='5' ry='3' fill='${C.pink}' opacity='.7'/><path d='M56 26 q-4 2 -2 6' fill='none' stroke='${C.line}' stroke-width='1.5' opacity='.5'/></svg>`;
+const LOAFCAT = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 160 82'><g stroke='${C.line}' stroke-width='2.4' stroke-linejoin='round' stroke-linecap='round'>
+<path d='M124 78 C150 78 156 56 146 46 C140 40 132 44 136 52' fill='none' stroke-width='5' stroke='${C.line}'/><path d='M124 78 C150 78 156 56 146 46 C140 40 132 44 136 52' fill='none' stroke-width='2' stroke='#fff'/>
+<path d='M44 82 C40 58 62 44 92 44 C122 44 134 60 130 82Z' fill='#fff'/>
+<path d='M100 50 q6 -2 10 2 M106 46 q6 0 8 4' fill='none' stroke='${C.mist}' stroke-width='3'/>
+<path d='M42 30 C38 18 40 8 44 4 C50 8 58 14 62 20 M98 20 C102 14 110 8 116 4 C120 8 122 18 118 30' fill='#fff'/>
+<ellipse cx='80' cy='42' rx='40' ry='31' fill='#fff'/>
+<path d='M47 22 C46 15 46 11 48 9 C52 12 56 16 58 19Z M102 19 C104 16 108 12 112 9 C114 11 114 15 113 22Z' fill='${C.pink}' stroke='none'/>
+<path d='M72 16 v6 M80 14 v7 M88 16 v6' stroke='${C.mist}' stroke-width='2.6'/>
+<path d='M58 42 q6 6 12 0 M90 42 q6 6 12 0' fill='none' stroke-width='2.6'/>
+<path d='M77 48 h6 l-3 3Z' fill='${C.pinkD}' stroke='none'/>
+<path d='M80 51 v2 q-3 4 -7 1 M80 53 q3 4 7 1' fill='none' stroke-width='1.8'/>
+<path d='M44 48 l-16 -3 M44 53 l-16 3 M116 48 l16 -3 M116 53 l16 3' stroke-width='1.4' opacity='.7'/>
+<path d='M52 82 C50 70 68 70 68 82 M92 82 C92 70 110 70 108 82' fill='#fff'/>
+<path d='M57 78 v4 M62 78 v4 M97 78 v4 M102 78 v4' stroke-width='1.4'/>
+</g><ellipse cx='56' cy='52' rx='6' ry='3.6' fill='${C.pink}' opacity='.75'/><ellipse cx='104' cy='52' rx='6' ry='3.6' fill='${C.pink}' opacity='.75'/></svg>`;
 const bubble = { myBg: "#CFDAEA", myText: C.ink, myBorder: "2px solid " + C.line, charBg: "#fff", charText: C.ink, charBorder: "2px solid " + C.line, radius: 22, shadow: "none", myAlpha: 100, charAlpha: 100 };
 const layout = { bubble: "bubble", avatar: "all", name: false, gap: "normal", time: "show" };
 
@@ -371,7 +385,7 @@ ${ktAlong()}
 
 /* ── 第三批返工 ── */
 /* 状态卡顶上趴一整只猫，两只前爪搭在卡边 */
-[data-wk="statecard"]::before{top:-52px !important;width:150px !important;height:74px !important;margin-left:-75px !important;background:${svg(LOAFCAT)} center bottom/contain no-repeat !important;z-index:3 !important}
+[data-wk="statecard"]::before{top:-60px !important;width:150px !important;height:78px !important;margin-left:-75px !important;background:${svg(LOAFCAT)} center bottom/contain no-repeat !important;z-index:3 !important}
 [data-wk="statehead"]{padding-top:22px !important}
 /* 小鱼干好感条换蓝色系 */
 [data-wk="statecard"]{--sc-heart-ink:linear-gradient(to top,#B9CBE4,#6F86AD) !important}
