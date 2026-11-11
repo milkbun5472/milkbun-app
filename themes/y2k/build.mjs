@@ -404,6 +404,16 @@ button[data-wk="avatar"]::after,span[data-wk="avatar"]:not([data-halo])::after{l
 [data-wk="chattool"]:nth-child(3n+2) [data-wk="chattoolicon"]{background:radial-gradient(ellipse 62% 32% at 50% 24%,rgba(255,255,255,.85),rgba(255,255,255,.05) 70%,transparent 72%),linear-gradient(180deg,#FFF6B0,#FFD84D) !important}
 [data-wk="chattool"]:nth-child(3n) [data-wk="chattoolicon"]{background:radial-gradient(ellipse 62% 32% at 50% 24%,rgba(255,255,255,.85),rgba(255,255,255,.05) 70%,transparent 72%),linear-gradient(180deg,#E2F6FF,#93D6FF) !important}
 
+
+/* 时间小窗别太窄：最窄 150px，标题栏字和小圆点分得开 */
+[data-wk="time"] > span{min-width:150px !important;text-align:center !important;box-sizing:border-box !important;padding-left:22px !important;padding-right:22px !important}
+/* 线下顶栏：字不竖排；「结束」做成一颗小果冻胶囊，带亮面和厚度 */
+[data-wk="offline"] [data-wk="chathead"] *{white-space:nowrap !important}
+[data-wk="offline"] [data-wk="chathead"] [data-wk="headname"] > *{overflow:hidden !important;text-overflow:ellipsis !important}
+[data-wk="offline"] [data-wk="chathead"] button:last-child:not([data-wk]){font-size:12px !important;font-weight:800 !important;padding:2px 11px !important;min-height:0 !important;height:26px !important;line-height:18px !important;background:linear-gradient(180deg,rgba(255,255,255,.8) 0,rgba(255,255,255,.2) 46%,rgba(255,255,255,0) 48%),linear-gradient(180deg,#FFC2E6,#FF5DB4) !important;border:2px solid #fff !important;box-shadow:0 0 0 1px #E58FC0,inset 0 -3px 4px rgba(200,40,130,.35),0 4px 8px rgba(122,69,214,.38) !important;color:#fff !important;text-shadow:0 1px 1px rgba(200,40,130,.5) !important}
+[data-wk="offcomposer"] textarea{white-space:nowrap !important;overflow:hidden !important}
+[data-wk="offcomposer"] textarea:focus{white-space:pre-wrap !important}
+
 `;
 
 const pack = { kind: "chat-look", v: 1, name: "Y2K", look: { bubble, layout, customCSS: css.trim() }, assets: {} };
