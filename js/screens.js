@@ -1809,7 +1809,7 @@ function CoupleLetters({ partner, letters, cfg, onGen, onAddMy, onReply, onRead,
               h("div", { style: { borderTop: "1.5px solid " + inkA(0.3), marginTop: 12 } }),
               h("div", { style: { borderTop: "1px solid " + inkA(0.14), marginTop: 2.5 } })),
             stamp),
-          h("div", { style: { fontFamily: fc, fontSize: "calc(15px * var(--app-fs, 1))", lineHeight: "31px", color: pp.ink, whiteSpace: "pre-wrap", marginTop: 14, backgroundImage: "repeating-linear-gradient(transparent 0 30px," + pp.line + " 30px 31px)" } }, STX(l.body)),
+          h("div", { "data-copyable": "1", style: { fontFamily: fc, fontSize: "calc(15px * var(--app-fs, 1))", lineHeight: "31px", color: pp.ink, whiteSpace: "pre-wrap", marginTop: 14, backgroundImage: "repeating-linear-gradient(transparent 0 30px," + pp.line + " 30px 31px)" } }, STX(l.body)),
           // 信后那几笔：不是聊天记录，是【又及】——写完信之后补上去的话
           (l.replies || []).length ? h("div", { style: { marginTop: 30 } },
             h("div", { className: "flex items-center", style: { gap: 10, marginBottom: 18 } },
