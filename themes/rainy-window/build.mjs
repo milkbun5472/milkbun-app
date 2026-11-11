@@ -14,8 +14,8 @@ const BOKEH = `<svg xmlns='http://www.w3.org/2000/svg' width='390' height='520'>
 // 窗外：远处一排亮着灯的楼，近处一条窗台，上面一只冒热气的杯子和一盆小草
 const SCENE = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 390 170'><path d='M0 120 V70 H30 V55 H58 V82 H80 V40 H112 V90 H140 V62 H170 V96 H200 V50 H236 V80 H262 V58 H290 V92 H318 V44 H350 V76 H390 V120Z' fill='#2A2F6E' opacity='.85'/><g fill='#FFD86B' opacity='.8'><rect x='88' y='50' width='5' height='6'/><rect x='100' y='64' width='5' height='6'/><rect x='88' y='76' width='5' height='6'/><rect x='210' y='60' width='5' height='6'/><rect x='222' y='72' width='5' height='6'/><rect x='326' y='54' width='5' height='6'/><rect x='338' y='66' width='5' height='6'/><rect x='38' y='66' width='5' height='6'/><rect x='150' y='72' width='5' height='6'/><rect x='270' y='68' width='5' height='6'/></g><g fill='#FF9EC8' opacity='.7'><rect x='100' y='52' width='5' height='6'/><rect x='326' y='78' width='5' height='6'/><rect x='48' y='90' width='5' height='6'/></g><rect x='0' y='132' width='390' height='38' fill='#E9D3C2'/><rect x='0' y='126' width='390' height='10' rx='3' fill='#F6E6D8'/><path d='M44 126 V104 Q44 100 48 100 H72 Q76 100 76 104 V126Z' fill='#FFFBF4' stroke='#B79CFF' stroke-width='2'/><path d='M76 106 Q86 108 84 116 Q82 122 76 120' fill='none' stroke='#B79CFF' stroke-width='2'/><path d='M54 94 Q50 88 55 82 M64 94 Q60 86 66 80' fill='none' stroke='#fff' stroke-width='2' stroke-linecap='round' opacity='.8'/><path d='M318 126 L322 106 H350 L354 126Z' fill='#FF9EC8'/><path d='M336 106 Q328 88 318 84 M336 106 Q338 84 346 76 M336 106 Q346 94 358 92' fill='none' stroke='#6CC59A' stroke-width='3' stroke-linecap='round'/><circle cx='318' cy='84' r='4' fill='#6CC59A'/><circle cx='346' cy='76' r='4' fill='#6CC59A'/><circle cx='358' cy='92' r='4' fill='#6CC59A'/></svg>`;
 // 顶栏下：一排小云，云底吊着雨滴
-const DRIPEDGE = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 390 40' preserveAspectRatio='none'><path d='M0 0 H390 V8 Q382 8 380 14 Q377 27 374 27 Q371 27 369 14 Q367 8 352 8 Q336 9 333 12 Q331 20 328 20 Q325 20 324 12 Q322 8 300 8 Q286 8 284 13 Q282 38 277 38 Q272 38 271 13 Q269 8 240 8 Q226 9 224 12 Q222 18 219 18 Q216 18 215 12 Q213 8 190 8 Q176 8 174 13 Q172 28 168 28 Q164 28 163 13 Q161 8 130 8 Q118 9 116 12 Q114 22 111 22 Q108 22 107 12 Q105 8 80 8 Q66 8 64 13 Q62 34 57 34 Q52 34 51 13 Q49 8 30 8 Q20 8 18 12 Q16 19 13 19 Q10 19 9 12 Q7 8 0 8Z' fill='rgba(236,232,255,.9)'/><ellipse cx='13' cy='18' rx='4.2' ry='3.6' fill='rgba(236,232,255,.95)'/><circle cx='11.7' cy='16.8' r='1.1' fill='#fff'/><ellipse cx='57' cy='33' rx='4.2' ry='3.6' fill='rgba(236,232,255,.95)'/><circle cx='55.7' cy='31.8' r='1.1' fill='#fff'/><ellipse cx='111' cy='21' rx='4.2' ry='3.6' fill='rgba(236,232,255,.95)'/><circle cx='109.7' cy='19.8' r='1.1' fill='#fff'/><ellipse cx='168' cy='27' rx='4.2' ry='3.6' fill='rgba(236,232,255,.95)'/><circle cx='166.7' cy='25.8' r='1.1' fill='#fff'/><ellipse cx='219' cy='17' rx='4.2' ry='3.6' fill='rgba(236,232,255,.95)'/><circle cx='217.7' cy='15.8' r='1.1' fill='#fff'/><ellipse cx='277' cy='37' rx='4.2' ry='3.6' fill='rgba(236,232,255,.95)'/><circle cx='275.7' cy='35.8' r='1.1' fill='#fff'/><ellipse cx='328' cy='19' rx='4.2' ry='3.6' fill='rgba(236,232,255,.95)'/><circle cx='326.7' cy='17.8' r='1.1' fill='#fff'/><ellipse cx='374' cy='29' rx='4.2' ry='3.6' fill='rgba(236,232,255,.95)'/><circle cx='372.7' cy='27.8' r='1.1' fill='#fff'/></svg>`;
-const FALL = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 390 20'>${[[57,'#8FC2FF'],[168,'#FF9EC8'],[277,'#B79CFF'],[374,'#8FC2FF']].map(([x,c])=>`<path d='M${x} 2 q-4 8 0 11 q4 -3 0 -11Z' fill='${c}' stroke='#fff' stroke-width='1'/>`).join('')}</svg>`;
+const DRIPEDGE = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 390 40' preserveAspectRatio='none'><defs><linearGradient id='w' x1='0' y1='0' x2='0' y2='1'><stop offset='0' stop-color='#ECE8FF' stop-opacity='.92'/><stop offset='1' stop-color='#C9DCFF' stop-opacity='.8'/></linearGradient><linearGradient id='d' x1='0' y1='0' x2='0' y2='1'><stop offset='0' stop-color='#DDEBFF'/><stop offset='1' stop-color='#9EC8FF'/></linearGradient></defs><path d='M0 0 H390 V9 Q375 13 360 9 Q345 5 330 9 Q315 13 300 9 Q285 5 270 9 Q255 13 240 9 Q225 5 210 9 Q195 13 180 9 Q165 5 150 9 Q135 13 120 9 Q105 5 90 9 Q75 13 60 9 Q45 5 30 9 Q15 13 0 9Z' fill='url(#w)'/><path d='M0 9 Q15 13 30 9 Q45 5 60 9 Q75 13 90 9 Q105 5 120 9 Q135 13 150 9 Q165 5 180 9 Q195 13 210 9 Q225 5 240 9 Q255 13 270 9 Q285 5 300 9 Q315 13 330 9 Q345 5 360 9 Q375 13 390 9' fill='none' stroke='#fff' stroke-width='1.2' opacity='.8'/><path d='M23 8 Q24 17 30 17 Q36 17 37 8Z' fill='url(#w)'/><circle cx='30' cy='26' r='3.2' fill='url(#d)' stroke='#fff' stroke-width='.9'/><circle cx='29' cy='25' r='.9' fill='#fff'/><path d='M88 8 Q89 21 95 21 Q101 21 102 8Z' fill='url(#w)'/><circle cx='95' cy='30' r='3.2' fill='url(#d)' stroke='#fff' stroke-width='.9'/><circle cx='94' cy='29' r='.9' fill='#fff'/><path d='M153 8 Q154 16 160 16 Q166 16 167 8Z' fill='url(#w)'/><circle cx='160' cy='25' r='3.2' fill='url(#d)' stroke='#fff' stroke-width='.9'/><circle cx='159' cy='24' r='.9' fill='#fff'/><path d='M215 8 Q216 22 222 22 Q228 22 229 8Z' fill='url(#w)'/><circle cx='222' cy='31' r='3.2' fill='url(#d)' stroke='#fff' stroke-width='.9'/><circle cx='221' cy='30' r='.9' fill='#fff'/><path d='M283 8 Q284 17 290 17 Q296 17 297 8Z' fill='url(#w)'/><circle cx='290' cy='26' r='3.2' fill='url(#d)' stroke='#fff' stroke-width='.9'/><circle cx='289' cy='25' r='.9' fill='#fff'/><path d='M345 8 Q346 20 352 20 Q358 20 359 8Z' fill='url(#w)'/><circle cx='352' cy='29' r='3.2' fill='url(#d)' stroke='#fff' stroke-width='.9'/><circle cx='351' cy='28' r='.9' fill='#fff'/></svg>`;
+const FALL = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 390 20'>${[[95,'#8FC2FF'],[222,'#FF9EC8'],[352,'#B79CFF']].map(([x,c])=>`<path d='M${x} 2 q-4 8 0 11 q4 -3 0 -11Z' fill='${c}' stroke='#fff' stroke-width='1'/>`).join('')}</svg>`;
 const UMB = (c1 = C.pink, c2 = "#fff") => `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 34'><path d='M3 16 A17 14 0 0 1 37 16 Q31.5 12.5 26 16 Q20 12.5 14 16 Q8.5 12.5 3 16Z' fill='${c1}' stroke='#fff' stroke-width='1.6' stroke-linejoin='round'/><path d='M20 3 V16 M14 16 Q16 8 20 3 Q24 8 26 16' fill='none' stroke='${c2}' stroke-width='1.1' opacity='.8'/><path d='M20 16 V28 Q20 31 17 31 Q14.5 31 14.5 28.5' fill='none' stroke='#fff' stroke-width='2' stroke-linecap='round'/><circle cx='20' cy='2.5' r='1.6' fill='#fff'/></svg>`;
 const DROP = (f = C.drop) => `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 26'><path d='M10 1.5 C10 1.5 2.5 11 2.5 16.5 A7.5 7.5 0 0 0 17.5 16.5 C17.5 11 10 1.5 10 1.5Z' fill='${f}' stroke='#fff' stroke-width='1.4'/><path d='M6.5 16 A3.5 3.5 0 0 0 9 19.5' fill='none' stroke='#fff' stroke-width='1.6' stroke-linecap='round'/></svg>`;
 const DROPS = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 34 26'><circle cx='10' cy='10' r='6.5' fill='rgba(255,255,255,.55)' stroke='#fff' stroke-width='1.3'/><circle cx='8' cy='8' r='1.8' fill='#fff'/><circle cx='25' cy='17' r='4.2' fill='rgba(255,255,255,.55)' stroke='#fff' stroke-width='1.2'/><circle cx='29' cy='5' r='2.4' fill='rgba(255,255,255,.6)' stroke='#fff' stroke-width='1'/></svg>`;
@@ -34,6 +34,10 @@ const TAPE = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 60 20'><path 
 const RIPPLE = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 30'><path d='M15 3 q-5 8 0 11 q5 -3 0 -11Z' fill='#8FC2FF' stroke='#fff' stroke-width='1'/><ellipse cx='15' cy='22' rx='6' ry='2.4' fill='none' stroke='#8FC2FF' stroke-width='1.6'/><ellipse cx='15' cy='22' rx='12' ry='5' fill='none' stroke='#B79CFF' stroke-width='1.2' opacity='.7'/></svg>`;
 const UPIN = UMB("#FF9EC8");
 
+// ── 第三批用的图 ──
+const CURTAIN = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 300 60' preserveAspectRatio='none'><rect x='0' y='0' width='300' height='8' rx='4' fill='#E9D3C2'/><path d='M0 6 H120 Q90 22 70 58 Q40 40 0 46Z' fill='#FFB8D6' stroke='#fff' stroke-width='2'/><path d='M300 6 H180 Q210 22 230 58 Q260 40 300 46Z' fill='#FFB8D6' stroke='#fff' stroke-width='2'/><path d='M20 10 Q30 30 22 44 M50 8 Q60 28 52 50 M280 10 Q270 30 278 44 M250 8 Q240 28 248 50' fill='none' stroke='#fff' stroke-width='1.4' opacity='.7'/><circle cx='70' cy='56' r='5' fill='#FFD86B' stroke='#fff' stroke-width='1.5'/><circle cx='230' cy='56' r='5' fill='#FFD86B' stroke='#fff' stroke-width='1.5'/></svg>`;
+const DROPMASK = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 36 180'>${[0,1,2,3,4].map(i=>`<path transform='translate(0 ${i*36}) rotate(-90 18 18)' d='M18 3 C18 3 7 16 7 23 A11 11 0 0 0 29 23 C29 16 18 3 18 3Z'/>`).join("")}</svg>`;
+
 const bubble = { myBg: C.glass, myText: C.ink, myBorder: "none", charBg: C.cream, charText: C.ink, charBorder: "none", radius: 18, shadow: "none", myAlpha: 100, charAlpha: 100 };
 const layout = { bubble: "bubble", avatar: "first", name: false, gap: "normal", time: "show" };
 
@@ -50,8 +54,8 @@ const css = `
 
 /* 顶栏：一块起了雾的窗玻璃（淡紫磨砂），下沿是长短不一往下淌的水痕，水痕尖上的雨滴隔一会儿掉下去 */
 [data-wk="chathead"]{background:linear-gradient(180deg,rgba(236,232,255,.82),rgba(236,232,255,.9)) !important;backdrop-filter:blur(10px) !important;-webkit-backdrop-filter:blur(10px) !important;border-bottom:none !important;box-shadow:none !important;position:relative !important;z-index:5 !important;overflow:visible !important}
-[data-wk="chathead"]::after{content:"" !important;position:absolute !important;left:0 !important;right:0 !important;top:calc(100% - 8px) !important;height:40px !important;background:${svg(DRIPEDGE)} center top/100% 100% no-repeat !important;pointer-events:none !important}
-[data-wk="chathead"]::before{content:"" !important;position:absolute !important;left:0 !important;right:0 !important;top:calc(100% + 18px) !important;height:20px !important;background:${svg(FALL)} center top/100% 100% no-repeat !important;pointer-events:none !important;z-index:6 !important;animation:rwFall 3.2s ease-in infinite !important}
+[data-wk="chathead"]::after{content:"" !important;position:absolute !important;left:0 !important;right:0 !important;top:calc(100% - 9px) !important;height:40px !important;background:${svg(DRIPEDGE)} center top/100% 100% no-repeat !important;pointer-events:none !important}
+[data-wk="chathead"]::before{content:"" !important;position:absolute !important;left:0 !important;right:0 !important;top:calc(100% + 22px) !important;height:20px !important;background:${svg(FALL)} center top/100% 100% no-repeat !important;pointer-events:none !important;z-index:6 !important;animation:rwFall 3.2s ease-in infinite !important}
 @keyframes rwFall{0%,30%{transform:translateY(0);opacity:0}40%{opacity:1}100%{transform:translateY(160px);opacity:0}}
 @media (prefers-reduced-motion:reduce){[data-wk="chathead"]::before{animation:none !important;opacity:0 !important}}
 [data-wk="chathead"] + *:not([data-wk="body"]){margin-top:28px !important}
@@ -234,6 +238,67 @@ button[data-wk="avatar"]::after,span[data-wk="avatar"]:not([data-halo])::after{c
 [data-wk="quoteclear"]{color:#7E6CD0 !important}
 [data-wk="quote"]{background:rgba(255,255,255,.85) !important;color:${C.ink} !important;border:1px solid #C8B2FF !important;border-radius:999px !important;padding:3px 12px !important;opacity:1 !important}
 [data-wk="bubble"] [data-wk="quotetext"]{display:block !important;border-left:3px solid transparent !important;border-image:linear-gradient(#8FC2FF,#B79CFF) 1 !important;padding-left:8px !important;opacity:.9 !important}
+/* ───── 雨天窗边 · 第三批：状态卡＝一扇拱顶小窗，顶上拉开两片粉窗帘；好感是五颗雨滴 ───── */
+[data-wk="statecard"]{background:${svg(RAIN)} 0 0/120px 160px,linear-gradient(180deg,${C.night},${C.dusk} 55%,${C.vio}) !important;border:6px solid #fff !important;border-radius:120px 120px 24px 24px / 70px 70px 24px 24px !important;box-shadow:0 0 0 2px #C8B2FF,0 10px 0 #E9D3C2,0 10px 0 2px #C8B2FF,0 18px 34px rgba(20,28,68,.45) !important;overflow:visible !important;position:relative !important;padding-top:44px !important;--sc-heart-ink:${C.drop} !important}
+[data-wk="statecard"]::before{content:"" !important;position:absolute !important;left:20% !important;right:20% !important;top:-2px !important;height:40px !important;background:${svg(CURTAIN)} center top/100% 100% no-repeat !important;z-index:3 !important;pointer-events:none !important}
+[data-wk="statehead"]{background:transparent !important;border-bottom:1.5px dashed rgba(200,178,255,.5) !important;position:relative !important;z-index:4 !important}
+[data-wk="statehead"] *{color:#fff !important}
+[data-wk="statehead"] [data-wk="avatar"]{box-shadow:0 0 0 2.5px #fff,0 0 10px rgba(183,156,255,.8) !important}
+[data-wk="statehead"] [data-wk="avatar"]::after{content:none !important}
+[data-wk="statehead"] button{border:1.5px solid rgba(255,255,255,.7) !important;background:rgba(255,255,255,.15) !important}
+[data-wk="statemood"]{display:inline-block !important;background:linear-gradient(135deg,#7FB0FF,#B79CFF) !important;border:1.5px solid #fff !important;color:#fff !important;border-radius:999px !important;padding:0 10px !important;margin-right:4px !important}
+[data-wk="statecard"] div:has(> button[aria-pressed]){background:rgba(255,255,255,.15) !important;border:1.5px solid rgba(255,255,255,.6) !important;border-radius:999px !important;padding:3px !important;margin:10px 16px !important}
+[data-wk="statecard"] button[aria-pressed]{color:${C.fog} !important;border:none !important;border-radius:999px !important}
+[data-wk="statecard"] button[aria-pressed="true"]{background:#fff !important;color:${C.ink} !important;box-shadow:0 2px 0 #C8B2FF !important}
+/* 看得见的、心里想的：两块起雾的玻璃，写在雾上；角上一颗水珠 */
+[data-wk="stateseen"],[data-wk="statevoice"]{position:relative !important;background:linear-gradient(160deg,rgba(255,255,255,.35),rgba(255,255,255,.12)) !important;backdrop-filter:blur(4px) !important;-webkit-backdrop-filter:blur(4px) !important;border:1.5px solid rgba(255,255,255,.6) !important;border-radius:16px !important;margin:12px 16px !important;color:#fff !important;box-shadow:none !important;overflow:visible !important}
+[data-wk="statevoice"]{background:linear-gradient(160deg,rgba(255,184,214,.4),rgba(183,156,255,.2)) !important;font-style:italic !important}
+[data-wk="stateseen"]::after,[data-wk="statevoice"]::after{content:"" !important;position:absolute !important;right:12px !important;bottom:-7px !important;width:10px !important;height:13px !important;background:${svg(DROP())} center/contain no-repeat !important}
+[data-wk="stateseen"] *,[data-wk="statevoice"] *{color:#fff !important}
+[data-wk="stateseen"] > span[aria-hidden],[data-wk="statevoice"] > span[aria-hidden]{display:none !important}
+[data-wk="statewear"]{background:rgba(255,255,255,.18) !important;border:1.5px solid rgba(255,255,255,.6) !important;border-radius:999px !important}
+[data-wk="statewear"] > span{background:rgba(255,255,255,.2) !important;border-radius:999px !important}
+[data-wk="statevoicedel"],[data-wk="statevoiceclear"]{color:${C.fog} !important}
+[data-wk="statevoice"] + div > button{background:#fff !important;color:${C.ink} !important;border:1.5px solid #C8B2FF !important;border-radius:999px !important}
+/* 好感：窗台上一排五颗雨滴，按好感灌成蓝紫 */
+[data-wk="stateaff"]{background:#F6E6D8 !important;border-top:3px solid #E9D3C2 !important;border-radius:0 0 18px 18px !important;position:relative !important;display:block !important;padding:16px 20px 64px !important;overflow:hidden !important}
+[data-wk="stateaff"] *{color:${C.ink} !important}
+[data-wk="stateheart"]{position:absolute !important;width:36px !important;left:calc(50% - 18px) !important;height:180px !important;bottom:calc(32px - 90px) !important;transform:rotate(90deg) !important;--sc-heart-mask:${svg(DROPMASK)} !important;filter:drop-shadow(1.4px 0 0 #fff) drop-shadow(-1.4px 0 0 #fff) drop-shadow(0 1.4px 0 #fff) drop-shadow(0 -1.4px 0 #fff) drop-shadow(0 2px 3px rgba(126,108,208,.5)) !important}
+[data-wk="stateheart"] > div{-webkit-mask-size:100% 100% !important;mask-size:100% 100% !important}
+[data-wk="stateheartline"]{background:transparent !important;opacity:0 !important}
+[data-wk="stateheartbase"]{background:#E3DDF4 !important;opacity:1 !important}
+[data-wk="stateheartfill"] > div{background:linear-gradient(90deg,#B79CFF,#7FB0FF) !important;opacity:1 !important;border-top:none !important}
+[data-wk="stateheartnum"],[data-wk="stateheartknob"]{display:none !important}
+[data-wk="stateaffval"]{display:block !important;position:absolute !important;right:20px !important;top:12px !important;font-size:26px !important;font-weight:700 !important;color:#7E6CD0 !important}
+/* 翻旧的：一张张用粉胶带贴在玻璃上的小纸条，歪着交错 */
+[data-wk="statehistbtn"]{background:#fff !important;color:${C.ink} !important;border:1.5px solid #C8B2FF !important;border-radius:999px !important}
+[data-wk="statehistbtn"][data-part="back"]{display:inline-block !important;width:auto !important;padding:4px 16px !important}
+[data-wk="statehisthead"] > :first-child{color:#fff !important}
+[data-wk="statehisthead"] [data-wk="statevoiceclear"]{border:1.5px solid #C8B2FF !important;border-radius:999px !important;color:${C.ink} !important;background:#fff !important}
+[data-wk="statehistitem"]{position:relative !important;background:${C.cream} !important;border:none !important;border-radius:6px !important;padding:18px 20px 16px !important;margin:22px 4px 14px !important;box-shadow:0 6px 14px rgba(20,28,68,.35) !important;overflow:visible !important;transform:rotate(-1.2deg) !important}
+[data-wk="statehistitem"]:nth-child(even){transform:rotate(1.2deg) !important;background:#F1ECFF !important}
+[data-wk="statehistitem"]::before{content:"" !important;position:absolute !important;left:50% !important;top:-11px !important;width:60px !important;height:20px !important;margin-left:-30px !important;background:${svg(TAPE)} center/contain no-repeat !important}
+[data-wk="statehistitem"] *{color:${C.ink} !important}
+[data-wk="statehistmood"]{background:linear-gradient(135deg,#7FB0FF,#B79CFF) !important;border:none !important;color:#fff !important;border-radius:999px !important}
+[data-wk="statehisttime"]{color:#9A92C4 !important}
+[data-wk="statehistmeta"]{background:rgba(200,178,255,.2) !important;border-radius:10px !important}
+[data-wk="statehistend"]{color:${C.fog} !important}
+/* Ta 眼里：雨夜底，卡片是奶白便条，贴条换成一颗雨滴 */
+[data-wk="gazepage"]{background:${svg(RAIN)} 0 0/120px 160px,linear-gradient(180deg,${C.night},${C.dusk} 60%,${C.vio}) !important}
+[data-wk="gazetitle"]{color:#fff !important}
+[data-wk="gazetab"]{background:rgba(255,255,255,.15) !important;color:${C.fog} !important;border:1.5px solid rgba(255,255,255,.6) !important;border-radius:999px !important;clip-path:none !important}
+[data-wk="gazetab"][data-on="1"]{background:#fff !important;color:${C.ink} !important}
+[data-wk="gazetab"] *{clip-path:none !important}
+[data-wk="gazestatus"]{color:${C.fog} !important}
+[data-wk="gazecard"]{background:${C.cream} !important;border:2px solid #C8B2FF !important;border-radius:18px !important;box-shadow:0 4px 0 rgba(183,156,255,.55) !important}
+[data-wk="gazetape"]{background:${svg(DROP())} center/14px 18px no-repeat !important;box-shadow:none !important;border:none !important;transform:none !important}
+[data-wk="gazecardname"]{color:${C.ink} !important}
+[data-wk="gazecardtext"],[data-wk="gazecardtime"]{color:#7E78A8 !important}
+[data-wk="gazeletter"],[data-wk="gazehistory"]{background:${C.cream} !important;border:2px solid #C8B2FF !important;border-radius:20px !important}
+[data-wk="gazeletter"] *,[data-wk="gazehistory"] *{color:${C.ink} !important}
+[data-wk="gazeempty"]{background:rgba(255,255,255,.15) !important;border:1.5px dashed rgba(255,255,255,.6) !important;border-radius:18px !important;color:#fff !important}
+[data-wk="gazeempty"] > div:first-child{color:#fff !important}
+[data-wk="gazeempty"] button{background:#fff !important;color:${C.ink} !important;border:1.5px solid #C8B2FF !important;border-radius:999px !important}
 `;
 
 const pack = { kind: "chat-look", v: 1, name: "雨天窗边", look: { bubble, layout, customCSS: css.trim() }, assets: {} };
