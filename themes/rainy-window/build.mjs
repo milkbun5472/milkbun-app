@@ -42,6 +42,9 @@ const DROPMASK = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 36 180'>$
 const GLASS = `<svg xmlns='http://www.w3.org/2000/svg' width='390' height='760'>${[[40,60,70],[120,300,110],[205,140,60],[290,420,90],[350,80,130],[70,520,80],[240,620,70],[170,470,50]].map(([x,y,l])=>`<path d='M${x} ${y-l} Q${x+2} ${y-l/2} ${x} ${y}' fill='none' stroke='rgba(220,235,255,.28)' stroke-width='3.5' stroke-linecap='round'/><ellipse cx='${x}' cy='${y+3}' rx='4.2' ry='5.2' fill='rgba(220,235,255,.5)' stroke='rgba(255,255,255,.75)' stroke-width='1'/><circle cx='${x-1.4}' cy='${y+1.5}' r='1.3' fill='#fff'/>`).join('')}</svg>`;
 const BEADS = `<svg xmlns='http://www.w3.org/2000/svg' width='200' height='260'>${[[20,30,2],[90,12,1.4],[150,60,2.4],[60,110,1.6],[180,150,1.8],[30,200,2.2],[120,230,1.3],[100,170,2]].map(([x,y,r])=>`<circle cx='${x}' cy='${y}' r='${r}' fill='rgba(220,235,255,.45)' stroke='rgba(255,255,255,.6)' stroke-width='.6'/>`).join('')}</svg>`;
 
+// ── 第四批用的图 ──
+const OFFWIN = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 390 230'><defs><linearGradient id='s' x1='0' y1='0' x2='0' y2='1'><stop offset='0' stop-color='#1B2552'/><stop offset='1' stop-color='#7A5FC0'/></linearGradient></defs><path d='M70 226 V90 A125 80 0 0 1 320 90 V226Z' fill='url(#s)' stroke='#fff' stroke-width='10'/><path d='M195 12 V226 M70 128 H320' stroke='#fff' stroke-width='7'/><g stroke='#CFE3FF' stroke-linecap='round' opacity='.7'><path d='M100 60 l-4 18 M150 40 l-4 16 M240 50 l-4 18 M290 90 l-4 16 M110 150 l-4 18 M170 170 l-4 16 M230 150 l-4 18 M280 180 l-4 16 M130 100 l-3 12 M260 120 l-3 12'/></g><circle cx='120' cy='196' r='14' fill='#FFD86B' opacity='.45'/><circle cx='270' cy='176' r='18' fill='#FF9EC8' opacity='.4'/><rect x='54' y='220' width='282' height='12' rx='4' fill='#E9D3C2'/><path d='M60 6 H130 Q112 60 118 226 H60Z' fill='#FFB8D6' stroke='#fff' stroke-width='3' opacity='.95'/><path d='M330 6 H260 Q278 60 272 226 H330Z' fill='#FFB8D6' stroke='#fff' stroke-width='3' opacity='.95'/><rect x='48' y='0' width='294' height='9' rx='4' fill='#E9D3C2'/></svg>`;
+
 const bubble = { myBg: C.glass, myText: C.ink, myBorder: "none", charBg: C.cream, charText: C.ink, charBorder: "none", radius: 18, shadow: "none", myAlpha: 100, charAlpha: 100 };
 const layout = { bubble: "bubble", avatar: "first", name: false, gap: "normal", time: "show" };
 
@@ -56,7 +59,6 @@ const css = `
 @keyframes rwTrickle{from{background-position:0 -760px,0 0}to{background-position:0 760px,0 0}}
 /* 窗外楼群＋窗台（抬到底栏上面露出来） */
 [data-wk="chat"]::after{content:"" !important;position:absolute !important;left:0 !important;right:0 !important;bottom:0 !important;height:calc(env(safe-area-inset-bottom) * .4 + 62px + 150px) !important;background:${svg(SCENE)} center bottom calc(env(safe-area-inset-bottom) * .4 + 30px)/100% auto no-repeat,linear-gradient(#E9D3C2,#E9D3C2) center bottom/100% calc(env(safe-area-inset-bottom) * .4 + 34px) no-repeat !important;pointer-events:none !important;z-index:0 !important}
-@media (prefers-reduced-motion:reduce){[data-wk="chat"]::before,[data-wk="body"]::before{animation:none !important}}
 [data-wk="body"]{background:transparent !important;position:relative !important;z-index:1 !important;padding-top:40px !important}
 
 /* 顶栏：一块起了雾的窗玻璃（淡紫磨砂），下沿是长短不一往下淌的水痕，水痕尖上的雨滴隔一会儿掉下去 */
@@ -64,7 +66,6 @@ const css = `
 [data-wk="chathead"]::after{content:"" !important;position:absolute !important;left:0 !important;right:0 !important;top:calc(100% - 9px) !important;height:40px !important;background:${svg(DRIPEDGE)} center top/100% 100% no-repeat !important;pointer-events:none !important}
 [data-wk="chathead"]::before{content:"" !important;position:absolute !important;left:0 !important;right:0 !important;top:calc(100% + 22px) !important;height:20px !important;background:${svg(FALL)} center top/100% 100% no-repeat !important;pointer-events:none !important;z-index:6 !important;animation:rwFall 3.2s ease-in infinite !important}
 @keyframes rwFall{0%,30%{transform:translateY(0);opacity:0}40%{opacity:1}100%{transform:translateY(160px);opacity:0}}
-@media (prefers-reduced-motion:reduce){[data-wk="chathead"]::before{animation:none !important;opacity:0 !important}}
 [data-wk="chathead"] + *:not([data-wk="body"]){margin-top:28px !important}
 [data-wk="headink"],[data-wk="headink"] *{color:${C.ink} !important}
 [data-wk="headdim"]{color:#7E78A8 !important;white-space:nowrap !important}
@@ -306,6 +307,48 @@ button[data-wk="avatar"]::after,span[data-wk="avatar"]:not([data-halo])::after{c
 [data-wk="gazeempty"]{background:rgba(255,255,255,.15) !important;border:1.5px dashed rgba(255,255,255,.6) !important;border-radius:18px !important;color:#fff !important}
 [data-wk="gazeempty"] > div:first-child{color:#fff !important}
 [data-wk="gazeempty"] button{background:#fff !important;color:${C.ink} !important;border:1.5px solid #C8B2FF !important;border-radius:999px !important}
+/* ───── 雨天窗边 · 第四批：线下＝屋里，墙上一扇拉开粉窗帘的大窗，窗外在下雨；卡片是贴在墙上的便条 ───── */
+[data-wk="offline"]:not([style*="url("]){background:${svg(OFFWIN)} center bottom 80px/100% auto no-repeat,${svg(BEADS)} 0 0/200px 260px,linear-gradient(180deg,#3A3570,#5A4C96 50%,#8A6CB8) !important}
+[data-wk="offline"] [data-wk="offbody"]{background:transparent !important}
+[data-wk="offline"] [data-wk="chathead"]{background:linear-gradient(180deg,rgba(236,232,255,.82),rgba(236,232,255,.9)) !important}
+[data-wk="offline"] [data-wk="chathead"]::before,[data-wk="offline"] [data-wk="chathead"]::after{display:none !important}
+[data-wk="offline"] [data-wk="chathead"] *{white-space:nowrap !important}
+[data-wk="offline"] [data-wk="chathead"] [data-wk="headme"]{display:none !important}
+[data-wk="offline"] [data-wk="offtitle"],[data-wk="offline"] [data-wk="offtitle"] *{color:${C.ink} !important}
+[data-wk="offline"] [data-wk="chathead"] button[title="给 Ta 一个提示"]{width:30px !important;height:30px !important;background:${svg(I_PLUS)} center/28px no-repeat !important;border:none !important}
+[data-wk="offline"] [data-wk="chathead"] button[title="给 Ta 一个提示"] *{opacity:0 !important}
+[data-wk="offline"] [data-wk="chathead"] button:last-child:not([data-wk]){background:#fff !important;color:${C.ink} !important;border:1.5px solid #C8B2FF !important;border-radius:999px !important;font-size:12px !important;padding:3px 12px !important}
+[data-wk="offcomposer"]{background:#F1ECFF !important;border-top:3px solid #E9D3C2 !important}
+[data-wk="offcomposer"] textarea{background:#fff !important;border:1.5px solid #C8B2FF !important;border-radius:16px !important;color:${C.ink} !important}
+[data-wk="offcomposer"] button[title="给 Ta 看真实照片"]{width:32px !important;height:32px !important;min-width:32px !important;border:none !important;box-shadow:none !important;font-size:0 !important;background:${svg(I_PLUS)} center/30px no-repeat !important}
+[data-wk="offcomposer"] button[title="给 Ta 看真实照片"] *{opacity:0 !important}
+[data-wk="offcomposer"] button:not([title]):not([data-wk]){background:${svg(I_SEND)} center/32px no-repeat !important;border:none !important;box-shadow:none !important;border-radius:0 !important}
+[data-wk="offcomposer"] button:not([title]):not([data-wk]) svg{opacity:0 !important}
+[data-wk="offcomposer"] button[title="让 Ta 演绎"]{position:relative !important;overflow:visible !important;width:56px !important;min-width:56px !important;height:32px !important;border:none !important;border-radius:999px !important;background:linear-gradient(135deg,#7FB0FF,#B79CFF) !important;box-shadow:0 3px 0 #7E6CD0 !important;font-size:0 !important;color:transparent !important}
+[data-wk="offcomposer"] button[title="让 Ta 演绎"] *{opacity:0 !important}
+[data-wk="offcomposer"] button[title="让 Ta 演绎"]::before{content:"演绎" !important;position:absolute !important;inset:0 !important;display:flex !important;align-items:center !important;justify-content:center !important;font-size:12.5px !important;letter-spacing:.12em !important;color:#fff !important}
+[data-wk="offcomposer"] button[title="让 Ta 演绎"]::after{content:"" !important;position:absolute !important;right:-6px !important;top:-8px !important;width:14px !important;height:18px !important;background:${svg(DROP())} center/contain no-repeat !important}
+/* 卡片：他的那张从笑脸云底下吊着，你的那张是蓝紫玻璃 */
+[data-wk="offcard"]{position:relative !important;background:${C.cream} !important;border:2px solid #C8B2FF !important;border-radius:20px !important;box-shadow:0 4px 0 rgba(183,156,255,.55),0 8px 18px rgba(20,28,68,.35) !important;overflow:visible !important;margin-top:24px !important}
+[data-wk="offcard"][data-me="1"]{background:linear-gradient(160deg,rgba(255,255,255,.7),rgba(255,255,255,0) 40%),linear-gradient(135deg,${C.glass},${C.glass2}) !important;border-color:#fff !important}
+[data-wk="offcard"][data-me="0"]::before{content:"" !important;position:absolute !important;left:-8px !important;top:-18px !important;width:44px !important;height:29px !important;background:${svg(CLOUDTAG)} center/contain no-repeat !important;z-index:2 !important}
+[data-wk="offcard"][data-me="1"]::after{content:"" !important;position:absolute !important;right:12px !important;top:-10px !important;width:30px !important;height:23px !important;background:${svg(DROPS)} center/contain no-repeat !important}
+[data-wk="offhead"] img,[data-wk="offhead"] [data-wk="avatar"]{border-radius:50% !important;box-shadow:0 0 0 2px #fff,0 0 0 3.5px #C8B2FF !important}
+[data-wk="offhead"] [data-wk="avatar"]::after{content:none !important}
+[data-wk="offname"],[data-wk="offtext"]{color:${C.ink} !important}
+[data-wk="offname"]{font-weight:700 !important}
+[data-wk="offsay"]{background:linear-gradient(transparent 58%,rgba(158,200,255,.65) 58%) !important;color:${C.ink} !important;font-weight:700 !important;box-decoration-break:clone !important;-webkit-box-decoration-break:clone !important}
+[data-wk="offthought"]{background:rgba(200,178,255,.18) !important;border:1.5px dashed #C8B2FF !important;border-left:3px solid ${C.drop} !important;border-radius:6px 14px 14px 6px !important;color:#5A5390 !important;font-style:italic !important;box-shadow:none !important}
+[data-wk="offcardacts"] svg{stroke:#7E6CD0 !important;color:#7E6CD0 !important}
+[data-wk="offreplyopt"]{background:#fff !important;border:1.5px solid #C8B2FF !important;border-radius:999px !important;color:${C.ink} !important}
+
+/* ───── 雨天窗边 · 通话：气泡同线上，大头像外一圈雨滴光环 ───── */
+[data-wk="callbubble"]{background:${C.cream} !important;color:${C.ink} !important;border:2px solid #C8B2FF !important;border-radius:8px 20px 20px 20px !important}
+[data-wk="callmsg"][data-me="1"] [data-wk="callbubble"]{background:linear-gradient(135deg,${C.glass},${C.glass2}) !important;border-color:#fff !important;border-radius:20px 8px 20px 20px !important}
+[data-wk="callbubble"]::before,[data-wk="callbubble"]::after{content:none !important}
+[data-wk="callbubble"][data-kind="typing"] [data-wk="typingdot"]{width:8px !important;height:11px !important;border-radius:0 !important;background:${svg(DROP())} center/contain no-repeat !important}
+[data-wk="callact"]{color:#E6E2FF !important;font-style:italic !important}
+[data-wk="callavatar"]{border-radius:50% !important;box-shadow:0 0 0 4px #fff,0 0 0 8px rgba(158,200,255,.55),0 0 0 13px rgba(183,156,255,.3),0 0 30px rgba(255,158,200,.5) !important}
 `;
 
 const pack = { kind: "chat-look", v: 1, name: "雨天窗边", look: { bubble, layout, customCSS: css.trim() }, assets: {} };
