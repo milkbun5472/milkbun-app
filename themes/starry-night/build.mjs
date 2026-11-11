@@ -106,6 +106,27 @@ button[data-wk="avatar"]::before,span[data-wk="avatar"]:not([data-halo])::before
 [data-wk="chatreply"]{background:${svg(I_REPLY)} center/78% no-repeat !important;margin-right:6px !important}
 [data-wk="chatplus"] *,[data-wk="send"] *,[data-wk="chatreply"] *{opacity:0 !important}
 [data-wk="chatplus"]:active,[data-wk="send"]:active,[data-wk="chatreply"]:active{transform:scale(.86) !important}
+
+/* 底栏四颗键一样大、上下居中 */
+[data-wk="composer"]{align-items:center !important}
+[data-wk="chatplus"],[data-wk="send"],[data-wk="chatreply"]{width:38px !important;height:38px !important;min-width:38px !important;align-self:center !important;margin-top:0 !important;margin-bottom:0 !important;transform:none !important;background-size:contain !important}
+[data-wk="send"]{background-size:120% !important}
+/* 月亮调暗，压在字后面不抢眼 */
+[data-wk="chat"]::before{opacity:.72 !important;filter:brightness(.9) !important}
+/* 流星：每隔几秒从右上划过一颗 */
+@keyframes snMeteor{0%{transform:translate(0,0) rotate(-32deg);opacity:0}3%{opacity:1}14%{transform:translate(-260px,160px) rotate(-32deg);opacity:0}100%{transform:translate(-260px,160px) rotate(-32deg);opacity:0}}
+@keyframes snMeteor2{0%,40%{transform:translate(0,0) rotate(-28deg);opacity:0}43%{opacity:.9}54%{transform:translate(-220px,120px) rotate(-28deg);opacity:0}100%{opacity:0}}
+[data-wk="chat"]::after{content:"" !important;position:absolute !important;top:120px !important;right:-30px !important;width:130px !important;height:3px !important;border-radius:3px !important;background:linear-gradient(90deg,#fff,rgba(255,217,138,.7) 30%,transparent) !important;box-shadow:0 0 8px 1px rgba(255,255,255,.6) !important;pointer-events:none !important;z-index:0 !important;animation:snMeteor 7s ease-in infinite !important}
+[data-wk="body"]::before{content:"" !important;position:fixed !important;top:300px !important;right:10px !important;width:90px !important;height:2px !important;border-radius:2px !important;background:linear-gradient(90deg,#fff,rgba(168,240,255,.6) 30%,transparent) !important;pointer-events:none !important;animation:snMeteor2 11s ease-in infinite !important}
+@media (prefers-reduced-motion:reduce){[data-wk="chat"]::after,[data-wk="body"]::before{animation:none !important;opacity:0 !important}}
+/* 系统提示：一行星座连线小字，不要白框 */
+[data-wk="sysnote"]{background:transparent !important;border:none !important;box-shadow:none !important;text-align:center !important}
+[data-wk="sysnotelabel"]{display:none !important}
+[data-wk="sysnotetext"]{color:${C.dim} !important;font-style:normal !important;font-size:12px !important;letter-spacing:.06em !important}
+[data-wk="sysnotetext"]::before{content:"✦ " !important;color:${C.gold} !important}
+[data-wk="sysnoteclose"]{color:${C.dim} !important;opacity:.6 !important}
+[data-wk="narrink"]{color:${C.dim} !important}
+[data-wk="name"]{color:${C.dim} !important}
 `;
 
 const pack = { kind: "chat-look", v: 1, name: "星空", look: { bubble, customCSS: css.trim() }, assets: {} };
