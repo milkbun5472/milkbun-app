@@ -516,6 +516,10 @@ button[data-wk="avatar"]::before,span[data-wk="avatar"]:not([data-halo])::before
 /* 我那条带引用：纸条和雪帽之间留出空 */
 [data-wk="quote"][data-me="1"]{margin-bottom:8px !important}
 
+/* 选了他那句要引用时，输入框上方那条：压在雪地上面，别被底下的小木屋和雪盖住 */
+[data-wk="quotedraft"]{position:relative !important;z-index:6 !important;margin:0 10px 6px !important;padding:6px 10px 6px 36px !important;box-shadow:0 3px 8px rgba(0,0,0,.25) !important}
+[data-wk="quotedraft"] [data-wk="quote"][data-draft="1"]{margin:0 !important;padding:0 !important;background:transparent !important;border:none !important;box-shadow:none !important}
+
 `;
 
 const pack = { kind: "chat-look", v: 1, name: "圣诞", look: { bubble, layout, customCSS: css.trim() }, assets: {} };
