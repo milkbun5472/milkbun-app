@@ -20,7 +20,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v89.468";
+const APP_VERSION = "v89.472";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -1601,6 +1601,18 @@ function App() {
   const callRef = useRef(null);
   const groupAutoCallEpochRef = useRef({});
   const groupCallActive = gid => !!(callRef.current && callRef.current.groupId === gid);
+  // 她正在打着一通电话（群里 2026-11-11 截图：跟TA语音通着 38 分钟，聊天里又冒出一条TA打来的未接来电）：
+  //   谁都不该这时候再拨过来——TA在电话里就在跟她说话。来电的三处出口（单聊回复、约好的电话、群里有人拨）都先问这一句
+  const onCallNow = () => !!(callRef.current && !callRef.current.endTs);
+  const onCallWith = id => onCallNow() && (callRef.current.participants || []).some(x => x && x.id === id);
+  // 占线（她 2026-11-11：「角色想打但是我跟别人占线的时候，他知道我没打通是占线了」）：不响铃，聊天里落一张「占线」的回执；
+  //   正文写明是占线，下一轮他看历史就知道是打了、她在跟别人通话，不是不接
+  const busyCallCard = (mode, extra) => {
+    const m = mode === "video" ? "video" : "voice";
+    return Object.assign({ role: "assistant", kind: "callinvite", mode: m,
+      content: "[" + (m === "video" ? "视频" : "语音") + "通话邀请——占线没打通：她那会儿正在跟别人打电话]",
+      answered: "missed", lineBusy: true, ts: Date.now(), read: false }, extra || {});
+  };
   const [takeoutNav, setTakeoutNav] = useState("near");     // 外卖 app 落在哪一页（聊天里点外卖卡进来＝订单）
   const [takeoutBack, setTakeoutBack] = useState(null);
   // 随身物里点「我的物品」直接进购物的「我的」那一页（同一页、同一份数据）；返回回随身物（她 2026-10-08）
@@ -8368,6 +8380,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
           //   拦下来不是让别人接手，是一直拖到过了 20 分钟、变成一条未接来电——
           //   她明明就坐在这个聊天里等TA电话。而且来电浮层挂在根上，她在哪一页都看得见。
           if (pm.via === "voice" || pm.via === "video") {
+            // 正打着电话：跟TA打着就算这通约好的电话打了，收掉；跟别人打着就先等，挂了下一轮再拨
+            if (onCallNow()) { drop(); if (!onCallWith(pm.charId)) { dongnianFiredRef.current[pm.charId] = Date.now(); pChat(pm.charId, p => [...p, busyCallCard(pm.via)]); } continue; }
             drop();
             dongnianFiredRef.current[pm.charId] = Date.now();
             // 未接来电那张卡也照这个地板走：不然它也会插到前面几条的下面去
@@ -14886,7 +14900,10 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         }
       }
       // TA 主动发起通话邀请（弹来电卡，用户接听/拒绝）
-      const callMode = parsed.call && ["voice", "video"].includes(String(parsed.call).toLowerCase()) ? String(parsed.call).toLowerCase() : null;
+      const _callWant = parsed.call && ["voice", "video"].includes(String(parsed.call).toLowerCase()) ? String(parsed.call).toLowerCase() : null;
+      // 正打着电话：跟他本人通着就当没这回事；跟别人通着＝打过来占线
+      if (_callWant && onCallNow() && !onCallWith(charId)) pChat(chatKey, p => [...p, busyCallCard(_callWant, { turnId })]);
+      const callMode = !onCallNow() && _callWant;
       if (callMode) {
         await new Promise(r => setTimeout(r, 420));
         {
@@ -17066,7 +17083,9 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
             if (toMe || toC) pGChat(groupId, p => [...p, { role: "assistant", kind: "pat", senderId: spk.id, senderName: spk.name, patToName: toMe ? gUName : toC.name,
               content: (spk.remark || spk.name) + " 拍了拍" + (toMe ? "我" + (spk.myPatSig ? " " + spk.myPatSig : "") : " " + (toC.remark || toC.name) + (toC.patSig ? " " + toC.patSig : "")), ts: Date.now() }]);
           }
-          const gcm = item.call && spk && gDmToHerOk(spk) && ["voice", "video"].includes(String(item.call).toLowerCase()) ? String(item.call).toLowerCase() : null;
+          const _gcWant = item.call && spk && gDmToHerOk(spk) && ["voice", "video"].includes(String(item.call).toLowerCase()) ? String(item.call).toLowerCase() : null;
+          if (_gcWant && onCallNow() && !onCallWith(spk.id)) pGChat(groupId, p => [...p, busyCallCard(_gcWant, { senderId: spk.id, senderName: spk.name })]);
+          const gcm = !onCallNow() && _gcWant;
           if (gcm) {
             await new Promise(r => setTimeout(r, 300));
             checkAutoCall();
@@ -24955,7 +24974,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     const prompt = kind === "part" && char ? buildScenePrompt(char, desc, { body: true })
       : !char && kind !== "view" && typeof buildStrangerPrompt === "function" ? buildStrangerPrompt(desc, { body: kind === "part" })
       : noFace ? buildScenePrompt(who, desc, { forText: false })
-      : buildPhotoPrompt(char, desc, states[char.id] || {}, { kind: "selfie", closet: closetTextFor(char.id) });
+      : buildPhotoPrompt(char, desc, states[char.id] || {}, { kind: "selfie", closet: char._closet != null ? char._closet : closetTextFor(char.id) });   // 画的是她自己（meSubject）时衣柜用她的
     const refs = noFace ? [] : [char.refPhoto].filter(Boolean);
     const out = await generateSelfieImage(prompt, refs.length ? refs : null, noFace ? {} : { minimalPrompt: buildMinimalPhotoPrompt(char, { kind: "selfie" }) });
     let ref = null;
@@ -36242,7 +36261,10 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     maskNameFor: id => { const k = maskKeyOf(id); const m = k ? (masks || []).find(x => x && x.id === k) : null; return m ? (String(m.name || "").trim() || "") : ""; },
     maskNote: chars => forumMaskNote({}, chars),
     // 直播间「画出来」（她 2026-10-08）：照镜头里那一行画一张，铺成全屏直播间的底图；跟片刻「画出来」同一个出图口
-    draw: (charId, desc) => drawFromDesc(charId ? characters.find(c => c.id === charId) : null, desc, charId ? "self" : "none"),
+    //   她自己开播（她 2026-11-11「片刻我直播生图也有锁自己的脸吗」→「接上吧」）：主面具有外貌或参考照，就画她本人、锁她的脸（跟合照、照相馆同一个「出图里的我」）；都没有才只画景
+    //   charId="me"＝她自己在播；null＝路人主播（画那个普通人）
+    draw: (charId, desc) => charId === "me" ? (canShootMe(null) ? drawFromDesc(meSubject(null, userName(profile)), desc, "self") : drawFromDesc(null, desc, "none"))
+      : charId ? drawFromDesc(characters.find(c => c.id === charId), desc, "self") : drawFromDesc(null, desc, "none"),
     // 路人主播（她 2026-10-08）：刷一批走后台线路（便宜那条，没挑过就线上）；他开口走线上——他不是你的角色，没有专线
     askStranger: async (system, schemaHint) => {
       if (!active) throw new Error("请先到设置配置 API");
