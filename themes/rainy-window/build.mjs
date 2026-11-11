@@ -52,8 +52,9 @@ const css = `
 /* ───── 雨天窗边 · 第一批 ───── */
 [data-wk="chat"]{background:${svg(BOKEH)} 0 0/390px 520px repeat,linear-gradient(180deg,#141C44 0%,${C.night} 25%,${C.dusk} 55%,${C.vio} 80%,${C.rose} 100%) !important;position:relative !important}
 /* 雨丝往下落 */
-[data-wk="chat"]::before{content:"" !important;position:absolute !important;inset:0 !important;background:${svg(RAIN)} 0 0/120px 160px repeat,${svg(RAIN)} 50px 30px/200px 270px repeat !important;pointer-events:none !important;z-index:0 !important;animation:rwRain .9s linear infinite !important}
-@keyframes rwRain{from{background-position:0 0,50px 30px}to{background-position:-40px 160px,-17px 300px}}
+[data-wk="chat"]{overflow:hidden !important}
+[data-wk="chat"]::before{content:"" !important;position:absolute !important;left:0 !important;right:-120px !important;top:-480px !important;bottom:0 !important;background:${svg(RAIN)} 0 0/120px 160px repeat,${svg(RAIN)} 60px 80px/120px 160px repeat !important;pointer-events:none !important;z-index:0 !important;will-change:transform !important;animation:rwRain 2.4s linear infinite !important}
+@keyframes rwRain{from{transform:translate3d(0,0,0)}to{transform:translate3d(-120px,480px,0)}}
 /* 玻璃上：凝珠不动，水珠拖着水痕慢慢往下淌 */
 [data-wk="body"]::before{content:"" !important;position:fixed !important;inset:0 !important;background:${svg(GLASS)} 0 0/390px 760px repeat-x,${svg(BEADS)} 0 0/200px 260px repeat !important;pointer-events:none !important;z-index:-1 !important;animation:rwTrickle 16s linear infinite !important}
 @keyframes rwTrickle{from{background-position:0 -760px,0 0}to{background-position:0 760px,0 0}}
