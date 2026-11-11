@@ -397,6 +397,10 @@ span[data-wk="avatar"]:not([data-halo])::before{transform:scaleX(-1) !important}
 [data-wk="quoteclear"]{color:${C.gold} !important}
 /* 气泡里被引用的那句：上面一道细金线＋小星 */
 [data-wk="bubble"] [data-wk="quotetext"]{display:block !important;border-left:2px solid rgba(255,217,138,.7) !important;padding-left:8px !important;opacity:.85 !important}
+
+/* 气泡上面那条「回复了哪句」：深色玻璃＋金色细边，字看得清 */
+[data-wk="quote"]{background:rgba(8,9,30,.78) !important;color:#E4E0FF !important;border:1px solid rgba(255,217,138,.5) !important;border-left:2px solid ${C.gold} !important;border-radius:10px !important;padding:3px 10px !important;font-style:italic !important;opacity:1 !important}
+[data-wk="quote"]::before{content:"✦ " !important;color:${C.gold} !important;font-style:normal !important}
 `;
 
 const pack = { kind: "chat-look", v: 1, name: "星空", look: { bubble, layout: { bubble: "bubble", avatar: "all", name: false, gap: "normal", time: "show" }, customCSS: css.trim() }, assets: {} };
