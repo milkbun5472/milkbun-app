@@ -446,6 +446,8 @@ ${ktAlong()}
 
 /* 顶栏头像的铃铛：框里那颗被头像图压住了，另画一颗一模一样的叠在最上面（好日子光圈那天让给光圈） */
 [data-wk="chathead"] button:has(> [data-wk="avatar"]):not(:has(> [data-halo]))::after{content:"" !important;position:absolute !important;left:12.5px !important;top:calc(50% + 10px) !important;width:11px !important;height:11px !important;background:${svg(BELL)} center/contain no-repeat !important;z-index:3 !important;pointer-events:none !important}
+/* 头像项圈上已经有铃铛了，名牌角上那颗去掉 */
+[data-wk="chathead"] [data-wk="headname"] > [data-wk="headink"]::before{content:none !important}
 `;
 
 const pack = { kind: "chat-look", v: 1, name: "猫猫", look: { bubble, layout, customCSS: css.trim() }, assets: {} };
