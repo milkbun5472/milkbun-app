@@ -486,6 +486,21 @@ button[data-wk="avatar"]::before,span[data-wk="avatar"]:not([data-halo])::before
 [data-wk="statevoice"]{margin-bottom:22px !important}
 [data-wk="stateseen"] *,[data-wk="statevoice"] *{font-size:12px !important;line-height:1.5 !important}
 
+/* 彩球挂起来：球本身不再滚动（字多了收成几行省略），顶上一颗金挂扣、一根细线往上吊到枝上 */
+[data-wk="stateseen"],[data-wk="statevoice"]{overflow:visible !important;margin-top:58px !important}
+[data-wk="stateseen"] > div:last-child,[data-wk="statevoice"] > div:last-child{display:-webkit-box !important;-webkit-box-orient:vertical !important;-webkit-line-clamp:4 !important;overflow:hidden !important}
+[data-wk="stateseen"]::before,[data-wk="statevoice"]::before{content:"" !important;display:block !important;position:absolute !important;left:50% !important;top:-46px !important;width:22px !important;height:50px !important;margin:0 0 0 -11px !important;background:${svg(`<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 22 50'><path d='M11 0 V30' stroke='${C.gold}' stroke-width='1.6'/><path d='M7 30 q4 -8 8 0' fill='none' stroke='${C.gold}' stroke-width='1.8'/><rect x='3' y='34' width='16' height='12' rx='2.5' fill='${C.gold}' stroke='#9C7424' stroke-width='1.2'/><path d='M6 37 V44 M11 37 V44 M16 37 V44' stroke='#9C7424' stroke-width='1'/></svg>`)} center bottom/contain no-repeat !important;box-shadow:none !important;border-radius:0 !important;z-index:2 !important}
+/* 好感：雪地上一块红色木牌，数字前一颗小星，说明字收小 */
+[data-wk="stateaff"] > div:last-child{display:flex !important;flex-wrap:wrap !important;align-items:center !important;gap:2px 10px !important;width:100% !important}
+[data-wk="stateaff"] > div:last-child > :first-child{background:${C.red} !important;color:#fff !important;padding:2px 12px !important;border-radius:4px !important;letter-spacing:.2em !important;font-size:12px !important;clip-path:polygon(0 0,100% 0,calc(100% - 6px) 50%,100% 100%,0 100%,6px 50%) !important}
+[data-wk="stateaffval"]{color:${C.redD} !important;font-size:30px !important;margin-left:0 !important;padding-left:30px !important;background:${svg(STAR())} 0 center/24px 24px no-repeat !important}
+[data-wk="stateaff"] > div:last-child > :last-child{width:100% !important;font-size:11px !important;color:#8C8C8C !important}
+
+[data-wk="stateseen"],[data-wk="statevoice"]{width:176px !important;height:176px !important;aspect-ratio:auto !important;padding:30px 22px !important;justify-content:center !important;flex-shrink:0 !important}
+[data-wk="stateseen"] > div:last-child,[data-wk="statevoice"] > div:last-child{-webkit-line-clamp:3 !important}
+[data-wk="statewear"]{max-width:100% !important;white-space:nowrap !important;overflow:hidden !important;text-overflow:ellipsis !important;display:block !important;border-radius:999px !important}
+[data-wk="statewear"] *{white-space:nowrap !important}
+
 `;
 
 const pack = { kind: "chat-look", v: 1, name: "圣诞", look: { bubble, layout, customCSS: css.trim() }, assets: {} };
