@@ -846,7 +846,7 @@
               c.meet && onShop3D && !c.done ? h("button", { "data-wk": "duelshopmeet3d", onClick: () => { window.__shopReplayMeet = c.id; onShop3D(); }, style: Object.assign(btn("transparent", GREEN, GREEN), { marginTop: 6, fontSize: fz(11.5), width: "100%" }) }, "去小世界看他们演这段（不再调用）") : null)),
             h("button", { key: "cl", "data-wk": "duelshopclose", onClick: close, disabled: shBusy === "close", className: "w-full disabled:opacity-50", style: Object.assign(btn(INK, PAPER), { marginTop: 6, padding: "10px 0" }) }, shBusy === "close" ? "在打烊…" : window.StampShop.hasResult("close")?"保存已写好的打烊（不再调用）":"打烊（花一次调用，写今天店里的一段）"), h("button",{key:"plain",onClick:()=>shopAct('closeLocal').catch(()=>{}),style:{...btn("transparent",INK),minHeight:40}},"只关门（不写故事）")]) : null,
           sh.phase === "closed" ? card("closed", [h("div", { key: "t" }, secTitle(INK, "烊", "打烊了", "第 " + sh.day + " 天 · 收了 " + (sh.earned || 0) + " 枚")),
-            sh.closing ? h("div", { key: "c", "data-wk": "duelshopclosing" }, h(window.StampShopStories,{shop:sh,inlineCurrent:true,name:nameOf})) : null,
+            sh.closing ? h("div", { key: "c", "data-wk": "duelshopclosing" }, h(window.StampShopStories,{shop:sh,inlineCurrent:true,name:nameOf,onDiary:()=>setMode("shopdiary")})) : null,
             // 店员下班留的便条：一人一张，跟打烊那段一起写的
             h(window.StampShopNotes,{key:"nt",notes:sh.notes||[],name:nameOf,font:FD,size:fz(12),titleSize:fz(11)}),
             h("div", { key: "n", "data-wk": "duelshopnext", style: { marginTop: 6, fontSize: fz(12), color: SUB, textAlign: "center" } }, "明天早上 6 点以后再来开门。")]) : null,
