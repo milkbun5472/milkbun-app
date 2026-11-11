@@ -128,7 +128,7 @@ button[data-wk="avatar"]::before,span[data-wk="avatar"]:not([data-halo])::before
 [data-wk="chat"]{timeline-scope:--ktscroll !important}
 [data-wk="body"]{scroll-timeline:--ktscroll y !important}
 [data-wk="chat"]::before{animation:ktAlong linear both,ktSpin linear both !important;animation-timeline:--ktscroll,--ktscroll !important}
-@keyframes ktAlong{from{offset-distance:96%}to{offset-distance:4%}}
+@keyframes ktAlong{from{offset-distance:92%}to{offset-distance:20%}}
 @keyframes ktSpin{from{rotate:0deg}to{rotate:-1440deg}}
 `;
 
