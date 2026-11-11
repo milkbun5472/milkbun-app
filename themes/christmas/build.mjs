@@ -471,6 +471,21 @@ button[data-wk="avatar"]::before,span[data-wk="avatar"]:not([data-halo])::before
 [data-wk="chathead"] button:has(> [data-wk="avatar"])::after{content:"" !important;position:absolute !important;width:26px !important;height:18px !important;left:30px !important;top:calc(50% + 8px) !important;background:${svg(HOLLY)} center/contain no-repeat !important;transform:rotate(-24deg) !important;z-index:3 !important;pointer-events:none !important}
 [data-wk="stateaff"]{background:${C.snow} !important;border-top:none !important;border-radius:60% 60% 20px 20px / 30px 30px 20px 20px !important;display:flex !important;flex-wrap:wrap !important;align-items:baseline !important;gap:4px 8px !important}
 [data-wk="statecard"] div:has(> button[aria-pressed]){background:rgba(0,0,0,.35) !important}
+/* 彩球重画：正圆、亮面高光、一圈金腰带，顶上金挂扣＋细线吊在枝上 */
+[data-wk="stateseen"],[data-wk="statevoice"]{width:56% !important;aspect-ratio:1 !important;max-height:none !important;border-radius:50% !important;padding:15% 13% !important;overflow:auto !important;scrollbar-width:none !important;display:flex !important;flex-direction:column !important;justify-content:center !important;margin-top:46px !important}
+[data-wk="stateseen"]{background:radial-gradient(circle at 30% 26%,rgba(255,255,255,.75) 0,rgba(255,255,255,0) 18%),linear-gradient(180deg,transparent 44%,rgba(232,184,90,.9) 44%,rgba(232,184,90,.9) 47%,transparent 47%,transparent 53%,rgba(232,184,90,.9) 53%,rgba(232,184,90,.9) 56%,transparent 56%),radial-gradient(circle at 40% 36%,#F06A6A,#C8373A 55%,#7E2224) !important}
+[data-wk="statevoice"]{background:radial-gradient(circle at 30% 26%,rgba(255,255,255,.8) 0,rgba(255,255,255,0) 18%),linear-gradient(180deg,transparent 44%,rgba(181,56,58,.75) 44%,rgba(181,56,58,.75) 47%,transparent 47%,transparent 53%,rgba(181,56,58,.75) 53%,rgba(181,56,58,.75) 56%,transparent 56%),radial-gradient(circle at 40% 36%,#FFE6A0,#E2AE48 55%,#9C6E1E) !important}
+[data-wk="stateseen"]::-webkit-scrollbar,[data-wk="statevoice"]::-webkit-scrollbar{display:none !important}
+[data-wk="stateseen"]::before,[data-wk="statevoice"]::before{content:none !important}
+[data-wk="stateseen"] > :first-child,[data-wk="statevoice"] > :first-child{font-size:11px !important;letter-spacing:.2em !important;opacity:.85 !important}
+
+[data-wk="stateseen"],[data-wk="statevoice"]{width:50% !important;padding:16% 12% !important;justify-content:flex-start !important}
+[data-wk="stateseen"]{background:radial-gradient(circle at 30% 24%,rgba(255,255,255,.7) 0,rgba(255,255,255,0) 16%),radial-gradient(circle at 40% 36%,#F06A6A,#C8373A 55%,#7E2224) !important}
+[data-wk="statevoice"]{background:radial-gradient(circle at 30% 24%,rgba(255,255,255,.75) 0,rgba(255,255,255,0) 16%),radial-gradient(circle at 40% 36%,#FFE6A0,#E2AE48 55%,#9C6E1E) !important}
+[data-wk="statewear"]{order:9 !important;font-size:11px !important;padding:2px 8px !important;margin-top:6px !important}
+[data-wk="statevoice"]{margin-bottom:22px !important}
+[data-wk="stateseen"] *,[data-wk="statevoice"] *{font-size:12px !important;line-height:1.5 !important}
+
 `;
 
 const pack = { kind: "chat-look", v: 1, name: "圣诞", look: { bubble, layout, customCSS: css.trim() }, assets: {} };
