@@ -4,7 +4,7 @@ import { writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 const here = dirname(fileURLToPath(import.meta.url));
-const svg = s => "url(\"data:image/svg+xml;utf8," + encodeURIComponent(s).replace(/'/g, "%27").replace(/"/g, "%22") + "\")";
+const svg = s => "url(\"data:image/svg+xml;base64," + Buffer.from(s.replace(/>\s+</g, "><")).toString("base64") + "\")";
 const C = { night: "#070A22", deep: "#1B1A52", violet: "#4A2A78", dusk: "#A2477F", glow: "#F09A78", gold: "#FFD98A", ink: "#F4F1FF", dim: "#B4B0E0", glass: "rgba(11,15,43,.45)" };
 
 // 四角星

@@ -9,7 +9,7 @@ const here = dirname(fileURLToPath(import.meta.url));
 import { I_PLUS, I_SEND, I_REPLY, I_HOME, I_MORE } from "./icons.mjs";
 const C = { cream: "#fffdf8", blue: "#fbe9c4", pink: "#f6e2c8", cocoa: "#6b5448", blueDeep: "#c98f55", pinkDeep: "#dcb185" };
 // 小图（SVG）→ data URI
-const svg = s => "url(\"data:image/svg+xml;utf8," + encodeURIComponent(s).replace(/'/g, "%27").replace(/"/g, "%22") + "\")";
+const svg = s => "url(\"data:image/svg+xml;base64," + Buffer.from(s.replace(/>\s+</g, "><")).toString("base64") + "\")";
 const PAW = (fill, o = 1) => `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'><g fill='${fill}' opacity='${o}'><ellipse cx='20' cy='27' rx='9' ry='7.5'/><ellipse cx='9.5' cy='17' rx='3.6' ry='4.6'/><ellipse cx='16' cy='10.5' rx='3.6' ry='4.8'/><ellipse cx='24' cy='10.5' rx='3.6' ry='4.8'/><ellipse cx='30.5' cy='17' rx='3.6' ry='4.6'/></g></svg>`;
 const BONE = (fill, o = 1) => `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 60 26'><g fill='${fill}' opacity='${o}'><rect x='12' y='8' width='36' height='10' rx='5'/><circle cx='10' cy='8' r='6.5'/><circle cx='10' cy='18' r='6.5'/><circle cx='50' cy='8' r='6.5'/><circle cx='50' cy='18' r='6.5'/></g></svg>`;
 // 一只耷拉下来的耳朵（左耳；右耳用 scaleX(-1) 的那份）：圆圆的、往外往下垂
