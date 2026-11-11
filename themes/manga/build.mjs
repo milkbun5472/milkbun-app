@@ -14,12 +14,14 @@ const SPEED = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 40'><path
 const SPARK = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 32'><path d='M14 6 Q15 17 26 18 Q15 19 14 30 Q13 19 2 18 Q13 17 14 6Z' fill='${C.ink}'/><path d='M32 1 Q32.6 6.4 38 7 Q32.6 7.6 32 13 Q31.4 7.6 26 7 Q31.4 6.4 32 1Z' fill='${C.ink}'/></svg>`;
 const TAIL_R = (f) => `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 20'><path d='M0 2 L22 18 L0 14Z' fill='${f}' stroke='${C.ink}' stroke-width='2' stroke-linejoin='round'/><path d='M-1 4 V12' stroke='${f}' stroke-width='3'/></svg>`;
 const TAIL_L = (f) => `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 20'><path d='M24 6 L2 10 L24 16Z' fill='${f}' stroke='${C.ink}' stroke-width='2' stroke-linejoin='round'/><path d='M25 8 V14' stroke='${f}' stroke-width='3'/></svg>`;
-const I_PLUS = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 30'><rect x='3' y='3' width='22' height='22' fill='${C.paper}' stroke='${C.ink}' stroke-width='2'/><path d='M14 8.5 V19.5 M8.5 14 H19.5' stroke='${C.ink}' stroke-width='2.4' stroke-linecap='square'/><path d='M25 6 H28 V28 H6 V25' fill='none' stroke='${C.ink}' stroke-width='2'/></svg>`;
+const I_PLUS = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 30'><rect x='3' y='3' width='22' height='22' fill='${C.paper}' stroke='${C.ink}' stroke-width='2'/><path d='M14 8.5 V19.5 M8.5 14 H19.5' stroke='${C.ink}' stroke-width='2.4' stroke-linecap='square'/></svg>`;
 const I_SEND = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 30'><path d='M14 24 V6 M7 13 L14 6 L21 13' fill='none' stroke='${C.ink}' stroke-width='2.8' stroke-linecap='square'/><path d='M22 22 L26 18 M24 26 L28 24' stroke='${C.ink}' stroke-width='2' stroke-linecap='round'/></svg>`;
 const I_REPLY = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 60 34'><path d='M9 2 H58 L51 32 H2Z' fill='${C.ink}'/><path d='M20 9 C14 9 13 18 18 19 L16 24 L22 19 C29 20 32 17 32 14 C32 10 27 9 20 9Z' fill='${C.paper}'/><path d='M38 9 L36 20 M42 9 L40 20' stroke='${C.yellow}' stroke-width='2.6' stroke-linecap='round'/><circle cx='35.3' cy='24.5' r='1.5' fill='${C.yellow}'/><circle cx='39.3' cy='24.5' r='1.5' fill='${C.yellow}'/></svg>`;
 const I_HOUSE = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 26 26'><path d='M4 12 L13 4 L22 12 V22 H4Z' fill='${C.yellow}' stroke='${C.ink}' stroke-width='2' stroke-linejoin='round'/><rect x='10.5' y='15' width='5' height='7' fill='${C.paper}' stroke='${C.ink}' stroke-width='1.6'/></svg>`;
 const I_MORE = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 26 26'><path d='M13 2 L15 9 L22 6 L18 12 L24 15 L17 16 L18 23 L13 18 L8 23 L9 16 L2 15 L8 12 L4 6 L11 9Z' fill='${C.paper}' stroke='${C.ink}' stroke-width='1.6' stroke-linejoin='round'/><circle cx='9.5' cy='13' r='1.3' fill='${C.ink}'/><circle cx='13' cy='13' r='1.3' fill='${C.ink}'/><circle cx='16.5' cy='13' r='1.3' fill='${C.ink}'/></svg>`;
 
+const BURST = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 40' preserveAspectRatio='none'><path d='M6 8 L14 2 L22 7 L32 1 L42 6 L52 1 L62 6 L72 1 L82 6 L94 3 L96 14 L99 22 L94 30 L96 38 L84 35 L74 39 L64 34 L54 39 L44 34 L34 39 L24 34 L14 38 L4 34 L6 24 L1 17Z' fill='${C.yellow}' stroke='${C.ink}' stroke-width='1.6' vector-effect='non-scaling-stroke' stroke-linejoin='round'/></svg>`;
+const HATCH = "repeating-linear-gradient(135deg,rgba(26,26,26,.16) 0 1.2px,transparent 1.2px 5px)";
 const bubble = { myBg: C.yellow, myText: C.ink, myBorder: LINE, charBg: C.paper, charText: C.ink, charBorder: LINE, radius: 20, shadow: "none", myAlpha: 100, charAlpha: 100 };
 const layout = { bubble: "bubble", avatar: "first", name: true, gap: "normal", time: "show" };
 
@@ -91,6 +93,29 @@ button[data-wk="avatar"],span[data-wk="avatar"]:not([data-halo]){box-shadow:0 0 
 [data-wk="chatplus"] *,[data-wk="send"] *,[data-wk="chatreply"] *{opacity:0 !important}
 [data-wk="chatplus"]:active,[data-wk="send"]:active,[data-wk="chatreply"]:active{transform:scale(.9) !important}
 [data-wk="msg"][data-me="1"] [data-wk="name"]{display:none !important}
+
+
+/* ── 跟别的黑白粗边款分开：头像改方格子、错位黑影只留给对白框、顶栏做成分镜格、黄色当标志色 ── */
+/* 头像：方形漫画格，细黑线框，不要粗圈和错位影 */
+button[data-wk="avatar"],span[data-wk="avatar"],button[data-wk="avatar"] *,span[data-wk="avatar"] *,[data-wk="chathead"] [data-wk="avatar"],[data-wk="chathead"] img{border-radius:2px !important}
+button[data-wk="avatar"],span[data-wk="avatar"]:not([data-halo]),[data-wk="chathead"] [data-wk="avatar"],[data-wk="chathead"] img{box-shadow:0 0 0 1.4px ${C.ink},0 0 0 4px ${C.paper},0 0 0 5.2px ${C.ink} !important}
+/* 时间、已读：去掉错位影；时间是网点小格，已读是黄色小爆炸框 */
+[data-wk="time"] > span{box-shadow:none !important;border:1.4px solid ${C.ink} !important;background:${HATCH},${C.paper} !important}
+[data-wk="meta"]{border:none !important;background:${svg(BURST)} center/100% 100% no-repeat !important;padding:3px 12px !important;font-weight:800 !important}
+[data-wk="chatinput"]{box-shadow:none !important;border-radius:4px !important}
+/* 顶栏：一条分镜格——左上角斜贴「EP.」，名字下面一道黄色马克笔，底边是网点 */
+[data-wk="chathead"]{background:${C.paper} !important;border-bottom:none !important;box-shadow:none !important;position:relative !important}
+[data-wk="chathead"]::after{content:"" !important;position:absolute !important;left:0 !important;right:0 !important;bottom:-8px !important;height:8px !important;background:${HATCH},${C.paper} !important;border-top:2px solid ${C.ink} !important;border-bottom:1px solid ${C.ink} !important;pointer-events:none !important;z-index:5 !important}
+[data-wk="chathead"] [data-wk="headname"] > [data-wk="headink"]{background:linear-gradient(transparent 55%,${C.yellow} 55%,${C.yellow} 92%,transparent 92%) !important;padding:0 4px !important;position:relative !important;overflow:visible !important}
+[data-wk="chathead"] [data-wk="headname"] > [data-wk="headink"]::before{content:"EP." !important;position:absolute !important;left:-6px !important;top:-14px !important;background:${C.ink} !important;color:${C.yellow} !important;font:800 9px/1 ui-monospace,Menlo,monospace !important;letter-spacing:.1em !important;padding:2px 5px !important;transform:rotate(-8deg) !important}
+[data-wk="body"]{padding-top:10px !important}
+/* 底栏：顶边也是一条网点 */
+[data-wk="composer"]{border-top:none !important;position:relative !important}
+[data-wk="composer"]::before{content:"" !important;position:absolute !important;left:0 !important;right:0 !important;top:-8px !important;height:8px !important;background:${HATCH},${C.paper} !important;border-top:1px solid ${C.ink} !important;border-bottom:2px solid ${C.ink} !important;pointer-events:none !important}
+/* 加号不再带错位格 */
+
+[data-wk="chathead"] [data-wk="headname"]{overflow:visible !important}
+[data-wk="chathead"] [data-wk="headname"] > [data-wk="headink"]::before{top:-12px !important;left:-2px !important;z-index:3 !important}
 
 `;
 
