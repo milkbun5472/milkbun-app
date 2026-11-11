@@ -471,6 +471,36 @@ button[data-wk="avatar"]::before,span[data-wk="avatar"]:not([data-halo])::before
 [data-wk="chathead"] button:has(> [data-wk="avatar"])::after{content:"" !important;position:absolute !important;width:26px !important;height:18px !important;left:30px !important;top:calc(50% + 8px) !important;background:${svg(HOLLY)} center/contain no-repeat !important;transform:rotate(-24deg) !important;z-index:3 !important;pointer-events:none !important}
 [data-wk="stateaff"]{background:${C.snow} !important;border-top:none !important;border-radius:60% 60% 20px 20px / 30px 30px 20px 20px !important;display:flex !important;flex-wrap:wrap !important;align-items:baseline !important;gap:4px 8px !important}
 [data-wk="statecard"] div:has(> button[aria-pressed]){background:rgba(0,0,0,.35) !important}
+/* 彩球重画：正圆、亮面高光、一圈金腰带，顶上金挂扣＋细线吊在枝上 */
+[data-wk="stateseen"],[data-wk="statevoice"]{width:56% !important;aspect-ratio:1 !important;max-height:none !important;border-radius:50% !important;padding:15% 13% !important;overflow:auto !important;scrollbar-width:none !important;display:flex !important;flex-direction:column !important;justify-content:center !important;margin-top:46px !important}
+[data-wk="stateseen"]{background:radial-gradient(circle at 30% 26%,rgba(255,255,255,.75) 0,rgba(255,255,255,0) 18%),linear-gradient(180deg,transparent 44%,rgba(232,184,90,.9) 44%,rgba(232,184,90,.9) 47%,transparent 47%,transparent 53%,rgba(232,184,90,.9) 53%,rgba(232,184,90,.9) 56%,transparent 56%),radial-gradient(circle at 40% 36%,#F06A6A,#C8373A 55%,#7E2224) !important}
+[data-wk="statevoice"]{background:radial-gradient(circle at 30% 26%,rgba(255,255,255,.8) 0,rgba(255,255,255,0) 18%),linear-gradient(180deg,transparent 44%,rgba(181,56,58,.75) 44%,rgba(181,56,58,.75) 47%,transparent 47%,transparent 53%,rgba(181,56,58,.75) 53%,rgba(181,56,58,.75) 56%,transparent 56%),radial-gradient(circle at 40% 36%,#FFE6A0,#E2AE48 55%,#9C6E1E) !important}
+[data-wk="stateseen"]::-webkit-scrollbar,[data-wk="statevoice"]::-webkit-scrollbar{display:none !important}
+[data-wk="stateseen"]::before,[data-wk="statevoice"]::before{content:none !important}
+[data-wk="stateseen"] > :first-child,[data-wk="statevoice"] > :first-child{font-size:11px !important;letter-spacing:.2em !important;opacity:.85 !important}
+
+[data-wk="stateseen"],[data-wk="statevoice"]{width:50% !important;padding:16% 12% !important;justify-content:flex-start !important}
+[data-wk="stateseen"]{background:radial-gradient(circle at 30% 24%,rgba(255,255,255,.7) 0,rgba(255,255,255,0) 16%),radial-gradient(circle at 40% 36%,#F06A6A,#C8373A 55%,#7E2224) !important}
+[data-wk="statevoice"]{background:radial-gradient(circle at 30% 24%,rgba(255,255,255,.75) 0,rgba(255,255,255,0) 16%),radial-gradient(circle at 40% 36%,#FFE6A0,#E2AE48 55%,#9C6E1E) !important}
+[data-wk="statewear"]{order:9 !important;font-size:11px !important;padding:2px 8px !important;margin-top:6px !important}
+[data-wk="statevoice"]{margin-bottom:22px !important}
+[data-wk="stateseen"] *,[data-wk="statevoice"] *{font-size:12px !important;line-height:1.5 !important}
+
+/* 彩球挂起来：球本身不再滚动（字多了收成几行省略），顶上一颗金挂扣、一根细线往上吊到枝上 */
+[data-wk="stateseen"],[data-wk="statevoice"]{overflow:visible !important;margin-top:58px !important}
+[data-wk="stateseen"] > div:last-child,[data-wk="statevoice"] > div:last-child{display:-webkit-box !important;-webkit-box-orient:vertical !important;-webkit-line-clamp:4 !important;overflow:hidden !important}
+[data-wk="stateseen"]::before,[data-wk="statevoice"]::before{content:"" !important;display:block !important;position:absolute !important;left:50% !important;top:-46px !important;width:22px !important;height:50px !important;margin:0 0 0 -11px !important;background:${svg(`<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 22 50'><path d='M11 0 V30' stroke='${C.gold}' stroke-width='1.6'/><path d='M7 30 q4 -8 8 0' fill='none' stroke='${C.gold}' stroke-width='1.8'/><rect x='3' y='34' width='16' height='12' rx='2.5' fill='${C.gold}' stroke='#9C7424' stroke-width='1.2'/><path d='M6 37 V44 M11 37 V44 M16 37 V44' stroke='#9C7424' stroke-width='1'/></svg>`)} center bottom/contain no-repeat !important;box-shadow:none !important;border-radius:0 !important;z-index:2 !important}
+/* 好感：雪地上一块红色木牌，数字前一颗小星，说明字收小 */
+[data-wk="stateaff"] > div:last-child{display:flex !important;flex-wrap:wrap !important;align-items:center !important;gap:2px 10px !important;width:100% !important}
+[data-wk="stateaff"] > div:last-child > :first-child{background:${C.red} !important;color:#fff !important;padding:2px 12px !important;border-radius:4px !important;letter-spacing:.2em !important;font-size:12px !important;clip-path:polygon(0 0,100% 0,calc(100% - 6px) 50%,100% 100%,0 100%,6px 50%) !important}
+[data-wk="stateaffval"]{color:${C.redD} !important;font-size:30px !important;margin-left:0 !important;padding-left:30px !important;background:${svg(STAR())} 0 center/24px 24px no-repeat !important}
+[data-wk="stateaff"] > div:last-child > :last-child{width:100% !important;font-size:11px !important;color:#8C8C8C !important}
+
+[data-wk="stateseen"],[data-wk="statevoice"]{width:176px !important;height:176px !important;aspect-ratio:auto !important;padding:30px 22px !important;justify-content:center !important;flex-shrink:0 !important}
+[data-wk="stateseen"] > div:last-child,[data-wk="statevoice"] > div:last-child{-webkit-line-clamp:3 !important}
+[data-wk="statewear"]{max-width:100% !important;white-space:nowrap !important;overflow:hidden !important;text-overflow:ellipsis !important;display:block !important;border-radius:999px !important}
+[data-wk="statewear"] *{white-space:nowrap !important}
+
 `;
 
 const pack = { kind: "chat-look", v: 1, name: "圣诞", look: { bubble, layout, customCSS: css.trim() }, assets: {} };
