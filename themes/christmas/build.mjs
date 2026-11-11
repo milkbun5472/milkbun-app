@@ -501,6 +501,11 @@ button[data-wk="avatar"]::before,span[data-wk="avatar"]:not([data-halo])::before
 [data-wk="statewear"]{max-width:100% !important;white-space:nowrap !important;overflow:hidden !important;text-overflow:ellipsis !important;display:block !important;border-radius:999px !important}
 [data-wk="statewear"] *{white-space:nowrap !important}
 
+/* 球里的字改成【字那一块自己滑】，球本身不滑——这样挂扣吊线挂得住，全文也看得到 */
+[data-wk="stateseen"] > div:last-child,[data-wk="statevoice"] > div:last-child{display:block !important;-webkit-line-clamp:unset !important;max-height:76px !important;overflow-y:auto !important;scrollbar-width:none !important}
+[data-wk="statewear"]{white-space:normal !important;max-height:44px !important;overflow-y:auto !important;text-overflow:clip !important;scrollbar-width:none !important}
+[data-wk="statewear"] *{white-space:normal !important}
+
 `;
 
 const pack = { kind: "chat-look", v: 1, name: "圣诞", look: { bubble, layout, customCSS: css.trim() }, assets: {} };
