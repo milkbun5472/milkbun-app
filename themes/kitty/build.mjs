@@ -425,6 +425,11 @@ ${ktAlong()}
 [data-wk="bubble"][data-kind="text"]::before{top:-14px !important;width:46px !important;height:17px !important;transform:none !important}
 [data-wk="bubble"][data-kind="text"][data-me="1"]::before{right:24px !important;background:${svg(SOFTEARS("#DCE6F3"))} center bottom/100% 100% no-repeat !important}
 [data-wk="bubble"][data-kind="text"][data-me="0"]::before{left:24px !important;background:${svg(SOFTEARS("#fff"))} center bottom/100% 100% no-repeat !important}
+
+/* 短气泡耳朵自动缩：宽度跟着气泡走（最多 46px、最少 28px），底边始终压住边框 3px */
+[data-wk="bubble"][data-kind="text"]::before{width:clamp(28px,40%,46px) !important;height:auto !important;aspect-ratio:64/22 !important;top:auto !important;bottom:calc(100% - 3px) !important}
+[data-wk="bubble"][data-kind="text"][data-me="1"]::before{right:clamp(12px,14%,24px) !important}
+[data-wk="bubble"][data-kind="text"][data-me="0"]::before{left:clamp(12px,14%,24px) !important}
 `;
 
 const pack = { kind: "chat-look", v: 1, name: "猫猫", look: { bubble, layout, customCSS: css.trim() }, assets: {} };
