@@ -18555,13 +18555,13 @@ function OfflineSessionReader({ session, sessions, t, profile, char, members, on
 }
 
 // 往期列表只接当前会话的记录；筛选排序不修改原数组。
-function OfflinePastSessions({ sessions, t, onSelect }) {
+function OfflinePastSessions({ sessions, t, onSelect, clockId }) {
   const ended = (sessions || []).filter(s => s.endTs);
   return h("div", { className: "space-y-2", style: { maxHeight: "52vh", overflowY: "auto" } },
       ended.length === 0
         ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.fog, textAlign: "center", padding: "24px 0" } }, "还没有已结束的线下记录。")
         : ended.sort((a, b) => (b.startTs || 0) - (a.startTs || 0)).map(s => h("button", { "data-wk": "block", key: s.id, onClick: () => onSelect(s), className: "w-full text-left active:opacity-70", style: { padding: "12px 13px", borderRadius: 12, background: t.bg2, border: "1px solid " + t.line, display: "block" } },
-            h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(13.5px * var(--app-fs, 1))", color: t.ink } }, (s.startTs ? new Date(s.startTs).toLocaleDateString() : "线下记录")),
+            h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(13.5px * var(--app-fs, 1))", color: t.ink } }, (s.startTs ? (typeof vDate === "function" ? vDate(s.startTs, clockId) : new Date(s.startTs)).toLocaleDateString() : "线下记录")),
             h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, marginTop: 3, lineHeight: 1.5 } }, String(s.summary || (s.msgs && s.msgs.length ? s.msgs.length + " 段" : "")).replace(/\s+/g, " ").slice(0, 60) || "点开回看"))));
 }
 
@@ -19270,7 +19270,7 @@ function OfflineMode({
       h("div", { className: "flex-1 min-w-0" },
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(16.5px * var(--app-fs, 1))", color: t.ink } }, "往期线下记录"),
         h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, marginTop: 2, lineHeight: 1.45 } }, "已经结束的那几场，随时回去重看"))))),
-    pastOpen && sheet("往期线下记录", h(OfflinePastSessions, { sessions, t, onSelect: s => { setPastOpen(false); setReadView(s); } })),
+    pastOpen && sheet("往期线下记录", h(OfflinePastSessions, { sessions, t, clockId: char && char.id, onSelect: s => { setPastOpen(false); setReadView(s); } })),
     h("div", { ref: scroller, "data-wk": "offbody", className: "flex-1 overflow-y-auto px-4 py-3", onScroll: e => { if (e.target.scrollTop < 320) offGrow(); }, style: Number(os.fontSize) ? { "--off-fs": Number(os.fontSize) + "px" } : undefined },
       h(ChatJumpArrows, { scroller, t }),
       msgs.length === 0 && !sending && h("div", { className: "text-center mt-10", style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.fog } }, "场景已布置好，说点什么或让 Ta 先开口。"),
@@ -20325,7 +20325,7 @@ function GroupOfflineMode({
       h("div", { className: "flex-1 min-w-0" },
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(16.5px * var(--app-fs, 1))", color: t.ink } }, "往期线下记录"),
         h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, marginTop: 2, lineHeight: 1.45 } }, "已经结束的那几场，随时回去重看"))))),
-    pastOpen && sheet("往期线下记录", h(OfflinePastSessions, { sessions, t, onSelect: s => { setPastOpen(false); setReadView(s); } })),
+    pastOpen && sheet("往期线下记录", h(OfflinePastSessions, { sessions, t, clockId: group && group.id ? "g:" + group.id : undefined, onSelect: s => { setPastOpen(false); setReadView(s); } })),
     directorNotes,
     h("div", { ref: scroller, "data-wk": "offbody", className: "flex-1 overflow-y-auto px-4 py-3", onScroll: e => { if (e.target.scrollTop < 320) offGrow(); } },
       h(ChatJumpArrows, { scroller, t }),
