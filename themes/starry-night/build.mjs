@@ -316,6 +316,11 @@ span[data-wk="avatar"]:not([data-halo])::before{transform:scaleX(-1) !important}
 
 [data-wk="statecard"]:not(:has([data-wk="stateseen"],[data-wk="statevoice"])) [data-wk="stateheart"],[data-wk="statecard"]:not(:has([data-wk="stateseen"],[data-wk="statevoice"])) [data-wk="stateaffval"]{display:none !important}
 [data-wk="statecard"]:not(:has([data-wk="stateseen"],[data-wk="statevoice"])){min-height:0 !important}
+
+/* Ta 眼里：每张卡顶上的米色胶带换成一颗小金星 */
+[data-wk="gazecard"] > :first-child:not([data-wk]){opacity:0 !important}
+[data-wk="gazecard"]{position:relative !important;overflow:visible !important}
+[data-wk="gazecard"]::before{content:"" !important;position:absolute !important;top:-10px !important;left:calc(50% - 10px) !important;width:20px !important;height:20px !important;background:${svg(SPARK(C.gold, 9))} center/contain no-repeat !important;filter:drop-shadow(0 0 5px rgba(255,217,138,.8)) !important;z-index:2 !important}
 `;
 
 const pack = { kind: "chat-look", v: 1, name: "星空", look: { bubble, layout: { bubble: "bubble", avatar: "all", name: false, gap: "normal", time: "show" }, customCSS: css.trim() }, assets: {} };
