@@ -904,7 +904,7 @@
       const s = get(curId); if (!s || drawingId || !props.draw) return;
       const desc = "直播镜头里的画面：" + (S(s.scene) || "主播坐在镜头前") + (S(s.act) ? "；" + S(s.act) : "");
       const id = s.id; setDrawingId(id);
-      try { const ref = await props.draw(s.mode === "watch" && !s.stranger ? s.charId : null, desc); if (ref) patch(id, x => ({ ...x, img: ref })); }
+      try { const ref = await props.draw(s.mode === "host" ? "me" : s.mode === "watch" && !s.stranger ? s.charId : null, desc); if (ref) patch(id, x => ({ ...x, img: ref })); }
       catch (e) { toast("没画出来：" + ((e && e.message) || "")); }
       finally { setDrawingId(""); }
     };

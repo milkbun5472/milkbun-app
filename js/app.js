@@ -24952,7 +24952,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     const prompt = kind === "part" && char ? buildScenePrompt(char, desc, { body: true })
       : !char && kind !== "view" && typeof buildStrangerPrompt === "function" ? buildStrangerPrompt(desc, { body: kind === "part" })
       : noFace ? buildScenePrompt(who, desc, { forText: false })
-      : buildPhotoPrompt(char, desc, states[char.id] || {}, { kind: "selfie", closet: closetTextFor(char.id) });
+      : buildPhotoPrompt(char, desc, states[char.id] || {}, { kind: "selfie", closet: char._closet != null ? char._closet : closetTextFor(char.id) });   // 画的是她自己（meSubject）时衣柜用她的
     const refs = noFace ? [] : [char.refPhoto].filter(Boolean);
     const out = await generateSelfieImage(prompt, refs.length ? refs : null, noFace ? {} : { minimalPrompt: buildMinimalPhotoPrompt(char, { kind: "selfie" }) });
     let ref = null;
@@ -36239,7 +36239,10 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     maskNameFor: id => { const k = maskKeyOf(id); const m = k ? (masks || []).find(x => x && x.id === k) : null; return m ? (String(m.name || "").trim() || "") : ""; },
     maskNote: chars => forumMaskNote({}, chars),
     // 直播间「画出来」（她 2026-10-08）：照镜头里那一行画一张，铺成全屏直播间的底图；跟片刻「画出来」同一个出图口
-    draw: (charId, desc) => drawFromDesc(charId ? characters.find(c => c.id === charId) : null, desc, charId ? "self" : "none"),
+    //   她自己开播（她 2026-11-11「片刻我直播生图也有锁自己的脸吗」→「接上吧」）：主面具有外貌或参考照，就画她本人、锁她的脸（跟合照、照相馆同一个「出图里的我」）；都没有才只画景
+    //   charId="me"＝她自己在播；null＝路人主播（画那个普通人）
+    draw: (charId, desc) => charId === "me" ? (canShootMe(null) ? drawFromDesc(meSubject(null, userName(profile)), desc, "self") : drawFromDesc(null, desc, "none"))
+      : charId ? drawFromDesc(characters.find(c => c.id === charId), desc, "self") : drawFromDesc(null, desc, "none"),
     // 路人主播（她 2026-10-08）：刷一批走后台线路（便宜那条，没挑过就线上）；他开口走线上——他不是你的角色，没有专线
     askStranger: async (system, schemaHint) => {
       if (!active) throw new Error("请先到设置配置 API");
