@@ -307,6 +307,23 @@ button[data-wk="avatar"],span[data-wk="avatar"]:not([data-halo]),[data-wk="chath
 [data-wk="callbubble"]::before,[data-wk="callbubble"]::after{content:none !important}
 [data-wk="callavatar"]{border-radius:4px !important;box-shadow:0 0 0 3px ${C.ink},0 0 0 8px ${C.paper},0 0 0 10px ${C.ink},10px 10px 0 10px ${C.yellow} !important}
 
+
+/* 好感不做进度条：一颗大漫画心，从下往上灌黄色，旁边一个「DOKI!」音效字和速度线 */
+[data-wk="stateaff"]{padding:16px 120px 18px 20px !important;min-height:110px !important}
+[data-wk="stateheart"]{position:absolute !important;left:auto !important;right:22px !important;top:50% !important;bottom:auto !important;width:84px !important;height:76px !important;margin-top:-38px !important;transform:rotate(-6deg) !important;--sc-heart-mask:${svg(`<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 84 76'><path d='M42 74 C14 54 2 40 2 23 C2 10 12 2 24 2 C32 2 38 6 42 13 C46 6 52 2 60 2 C72 2 82 10 82 23 C82 40 70 54 42 74Z'/></svg>`)} !important;filter:drop-shadow(4px 4px 0 ${C.ink}) !important}
+[data-wk="stateheart"] > div:not([data-wk="stateheartline"]){inset:3px !important}
+[data-wk="stateheartbase"]{background:${HATCH},${C.paper} !important}
+[data-wk="stateheartfill"] > div{background:${C.yellow} !important;border-top:2.5px solid ${C.ink} !important}
+[data-wk="stateheartknob"]{display:none !important}
+[data-wk="stateheartnum"]{display:block !important;transform:none !important;font:900 20px/1 ui-monospace,Menlo,monospace !important;color:${C.ink} !important;-webkit-text-stroke:0 !important}
+[data-wk="stateaffval"]{display:none !important}
+[data-wk="stateaff"]::after{content:"DOKI!" !important;position:absolute !important;right:96px !important;top:12px !important;font:900 13px/1 ui-monospace,Menlo,monospace !important;color:${C.ink} !important;background:${C.yellow} !important;padding:3px 6px !important;border:1.6px solid ${C.ink} !important;transform:rotate(-12deg) !important}
+[data-wk="stateaff"]::before{content:"" !important;position:absolute !important;right:104px !important;bottom:14px !important;width:22px !important;height:28px !important;background:${svg(SPEED)} center/contain no-repeat !important}
+
+[data-wk="stateheartnum"]{position:absolute !important;inset:0 !important;display:flex !important;align-items:center !important;justify-content:center !important;padding:0 0 6px !important;z-index:3 !important;transform:rotate(6deg) !important;-webkit-text-stroke:4px ${C.paper} !important;paint-order:stroke !important}
+[data-wk="stateaff"]::after{right:112px !important;top:18px !important}
+[data-wk="stateaff"]::before{right:118px !important}
+
 `;
 
 const pack = { kind: "chat-look", v: 1, name: "漫画对白", look: { bubble, layout, customCSS: css.trim() }, assets: {} };

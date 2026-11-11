@@ -64,6 +64,8 @@
 - 好感条换成多个小图形（星星排一排）时：描边别用 stateheartline 那层缩进叠（会错位），把 line 层设透明，在 stateheart 上用四个方向的 `drop-shadow` 描边。
 - 默认按键顺序是**左发送、右回复（chatreply）**；别给 send 加 `order` 把它挪到最右，除非参考图就是那样，而且图标要跟功能对得上。
 
+- **好感别老做成横进度条**：每套都想一个跟主题有关的图形（一颗会灌满的心、一排星、打孔卡、树顶的星），横条只在实在没东西可用时才用。
+
 ### app 挂点
 - 挂点不够：先给 app 补挂点（只加不改名，进 `theme-studio.js` 名单，写测试，`ship.mjs` 发版），**提醒她先刷新 app**。
 - 已补过的：statemood / stateaffval / stateheartknob / gazeempty / statehist* / geo* / cardmeta / offlog* / gazetape（Ta 眼里贴条）/ meta 的 `data-read`（已送达 0、已读 1）。
