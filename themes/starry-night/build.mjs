@@ -52,7 +52,7 @@ const strip = [0, 1, 2, 3, 4, 5, 6, 7].map(k => `html[data-lisa-moon="${k}"] [da
 
 const css = `
 /* ───── 星空 · 第一批：夜空、月亮、顶栏月相、气泡、头像光环、底栏 ───── */
-[data-wk="chat"]{background:${svg(STARS)} 0 0/240px 240px,radial-gradient(ellipse at 15% 35%,rgba(63,208,201,.18),transparent 55%),radial-gradient(ellipse at 90% 55%,rgba(230,107,208,.18),transparent 55%),linear-gradient(180deg,${C.night} 0%,${C.deep} 45%,${C.violet} 78%,${C.dusk} 93%,${C.glow} 100%) !important;position:relative !important}
+[data-wk="chat"]{background:${svg(STARS)} 0 0/240px 240px,radial-gradient(ellipse at 15% 35%,rgba(63,208,201,.09),transparent 55%),radial-gradient(ellipse at 90% 55%,rgba(230,107,208,.09),transparent 55%),linear-gradient(180deg,#05061A 0%,#0A0B26 40%,#1A1440 65%,#3A2468 85%,#8A4278 95%,#D98670 100%) !important;position:relative !important}
 /* 大月亮和山：钉在底下，不跟着消息滚，消息从它上面滑过 */
 [data-wk="chat"]::before{content:"" !important;position:absolute !important;left:0 !important;right:0 !important;bottom:0 !important;height:56% !important;background:${svg(SCENE)} center bottom/cover no-repeat !important;pointer-events:none !important;z-index:0 !important;opacity:.95 !important}
 [data-wk="body"]{background:transparent !important;position:relative !important;z-index:1 !important}
