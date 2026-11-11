@@ -1,11 +1,11 @@
-// 票签：牛皮纸＋墨绿，红印章。我的话＝一张票根（右边撕开一截写 No.＋时间感的小字），他的话＝尖头挂牌（小孔＋细线连到头像），
+// 票签：薰衣草紫＋樱花粉，玫红印章。我的话＝一张票根（右边撕开一截写 No.＋时间感的小字），他的话＝尖头挂牌（小孔＋细线连到头像），
 // 已读＝一枚圆红印章。用法：node themes/ticket/build.mjs
 import { writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 const here = dirname(fileURLToPath(import.meta.url));
 const svg = s => "url(\"data:image/svg+xml;base64," + Buffer.from(s.replace(/>\s+</g, "><")).toString("base64") + "\")";
-const C = { bg: "#F1EAD8", paper: "#FCF8EE", pink: "#E3CDA8", rose: "#3F5E4B", roseD: "#2B4334", ink: "#4A3F33", line: "#8F7C62", fog: "#A3967F", red: "#B4473C" };
+const C = { bg: "#ECE4F7", paper: "#FBF8FF", pink: "#FBD3E2", rose: "#8B6CC9", roseD: "#6A4FA6", ink: "#4B3B66", line: "#9A86C4", fog: "#A79CC0", red: "#E0558A" };
 
 const I_PLUS = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path d='M12 6 V18 M6 12 H18' stroke='${C.ink}' stroke-width='1.6' stroke-linecap='round'/></svg>`;
 const I_SEND = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 28 24'><path d='M3 12 L24 4 L18 21 L13 14Z' fill='none' stroke='${C.ink}' stroke-width='1.5' stroke-linejoin='round'/><path d='M13 14 L24 4' stroke='${C.ink}' stroke-width='1.3'/></svg>`;
@@ -18,7 +18,7 @@ const STAMP = (t) => `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 60 60
 const bubble = { myBg: C.pink, myText: C.ink, myBorder: "1.4px solid " + C.line, charBg: C.paper, charText: C.ink, charBorder: "1.4px solid " + C.line, radius: 8, shadow: "none", myAlpha: 100, charAlpha: 100 };
 const layout = { bubble: "bubble", avatar: "first", name: false, gap: "normal", time: "show" };
 const LINE = `1.4px solid ${C.line}`;
-const SH = "0 3px 0 rgba(74,63,51,.18)";
+const SH = "0 3px 0 rgba(106,79,166,.18)";
 
 const css = `
 /* ───── 票签 · 第一批 ───── */
