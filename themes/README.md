@@ -44,6 +44,8 @@
 
 ## 别忘的几处（每套都漏过一次）
 
+- 线下两颗加号：底栏「给 Ta 看真实照片」（`[data-wk="offcomposer"] button[title="给 Ta 看真实照片"]`）**藏掉**；顶栏「给 Ta 一个提示」（`[data-wk="offline"] [data-wk="chathead"] button[title="给 Ta 一个提示"]`）换成这套的加号图。
+
 - 顶栏高度：跟前几套一样矮（本体约 70px），下沿装饰用负的 top 往上叠进顶栏，别往下拖一大截；聊天区 padding-top 只留够挂件露出来。
 
 - 线下小结卡、系统提示（sysnote）、拍一拍、通话结束胶囊、动描那一框。
