@@ -317,6 +317,8 @@ button[data-wk="avatar"]::after,span[data-wk="avatar"]:not([data-halo])::after{c
 [data-wk="offline"] [data-wk="offbody"]{background:transparent !important}
 [data-wk="offline"] [data-wk="chathead"]{background:linear-gradient(180deg,rgba(236,232,255,.82),rgba(236,232,255,.9)) !important}
 [data-wk="offline"] [data-wk="chathead"]::before,[data-wk="offline"] [data-wk="chathead"]::after{display:none !important}
+/* 线下顶栏没有淌水的下沿，文风那一行不用往下让 */
+[data-wk="offline"] [data-wk="chathead"] + *{margin-top:0 !important;padding-top:6px !important}
 [data-wk="offline"] [data-wk="chathead"] *{white-space:nowrap !important}
 [data-wk="offline"] [data-wk="chathead"] [data-wk="headme"]{display:none !important}
 [data-wk="offline"] [data-wk="offtitle"],[data-wk="offline"] [data-wk="offtitle"] *{color:${C.ink} !important}
