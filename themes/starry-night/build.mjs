@@ -151,7 +151,7 @@ button[data-wk="avatar"]::before,span[data-wk="avatar"]:not([data-halo])::before
 [data-wk="transferbtn"][data-part="take"]{background:linear-gradient(135deg,#6F5BFF,#C56BE0) !important;color:#fff !important;border:none !important}
 [data-wk="transferbtn"][data-part="back"]{background:transparent !important;color:${C.dim} !important;border:1px solid rgba(180,176,224,.5) !important}
 /* 红包：留红，像一盏小灯笼，扣子是金色满月 */
-[data-wk="rpcard"]{border-radius:18px !important;box-shadow:0 0 22px rgba(255,120,120,.25) !important;border:1.2px solid rgba(255,217,138,.7) !important}
+[data-wk="rpcard"]{border-radius:18px !important;box-shadow:0 0 22px rgba(255,217,138,.2) !important;border:1.2px solid rgba(255,217,138,.7) !important}
 [data-wk="rpseal"]{border:none !important;background:radial-gradient(circle at 38% 35%,#FFFBEA,#FFE3A3 60%,#E9B25A) !important;box-shadow:0 0 10px rgba(255,217,138,.7) !important}
 [data-wk="rpseal"] *{display:none !important}
 [data-wk="rpenvelope"][data-stage="open"]{background:linear-gradient(180deg,${C.deep},${C.violet}) !important;border:1.2px solid rgba(255,217,138,.7) !important}
@@ -328,16 +328,16 @@ span[data-wk="avatar"]:not([data-halo])::before{transform:scaleX(-1) !important}
 [data-wk="stateseen"],[data-wk="statevoice"]{max-height:none !important;overflow:visible !important}
 
 /* ───── 红包全套：红灯笼挂在夜空里 ───── */
-[data-wk="rpcard"]{background:radial-gradient(circle at 30% 20%,rgba(255,255,255,.18),transparent 45%),linear-gradient(170deg,#D8443A,#8E1F2A) !important}
-[data-wk="rpcard"][data-status="done"]{background:linear-gradient(170deg,#7A3A48,#3E1C2E) !important;filter:none !important;box-shadow:none !important;border-color:rgba(255,217,138,.35) !important}
+[data-wk="rpcard"]{background:radial-gradient(circle at 30% 20%,rgba(255,255,255,.18),transparent 45%),linear-gradient(170deg,#3A2A78,#17123F) !important}
+[data-wk="rpcard"][data-status="done"]{background:linear-gradient(170deg,#2A2448,#15122A) !important;filter:none !important;box-shadow:none !important;border-color:rgba(255,217,138,.35) !important}
 [data-wk="rpcard"] *{color:#FFF1D6 !important}
 /* 拆开前 */
-[data-wk="rpenvelope"][data-stage="closed"]{background:radial-gradient(circle at 50% 30%,rgba(255,200,150,.25),transparent 55%),linear-gradient(175deg,#C93A33,#7D1A27) !important;border:1.5px solid rgba(255,217,138,.8) !important;border-radius:26px !important;box-shadow:0 0 40px rgba(255,90,80,.35) !important}
-[data-wk="rpenvelope"][data-stage="closed"] [data-wk="rparc"]{background:linear-gradient(180deg,#9B2230,#6A1220) !important;border-top:1.5px solid rgba(255,217,138,.6) !important}
+[data-wk="rpenvelope"][data-stage="closed"]{background:${svg(STARS)} 0 0/240px 240px,radial-gradient(circle at 50% 30%,rgba(255,217,138,.18),transparent 55%),linear-gradient(175deg,#2B2266,#0E0C2A) !important;border:1.5px solid rgba(255,217,138,.8) !important;border-radius:26px !important;box-shadow:0 0 40px rgba(255,217,138,.2) !important}
+[data-wk="rpenvelope"][data-stage="closed"] [data-wk="rparc"]{background:linear-gradient(180deg,#1E1850,#0E0C2A) !important;border-top:1.5px solid rgba(255,217,138,.6) !important}
 [data-wk="rpenvelope"][data-stage="closed"] *{color:#FFF1D6 !important}
 /* 拆开后：一页深夜色的信纸，顶上一道红灯笼弧，金额金色发光 */
 [data-wk="rpenvelope"][data-stage="open"]{background:${svg(STARS)} 0 0/240px 240px,linear-gradient(180deg,#0A0B26,#120E30) !important;border:1.2px solid rgba(255,217,138,.7) !important;border-radius:26px !important;overflow:hidden !important;box-shadow:0 0 40px rgba(255,217,138,.15) !important}
-[data-wk="rpenvelope"][data-stage="open"] [data-wk="rparc"][data-part="top"]{background:linear-gradient(180deg,#C93A33,#8E1F2A) !important;border-bottom:1.5px solid rgba(255,217,138,.8) !important;box-shadow:0 6px 20px rgba(201,58,51,.35) !important}
+[data-wk="rpenvelope"][data-stage="open"] [data-wk="rparc"][data-part="top"]{background:linear-gradient(180deg,#3A2A78,#1E1850) !important;border-bottom:1.5px solid rgba(255,217,138,.8) !important;box-shadow:0 6px 20px rgba(111,91,255,.3) !important}
 [data-wk="rpenvelope"][data-stage="open"] [data-wk="rparc"][data-part="top"]::after{content:none !important}
 [data-wk="rpavatar"]{box-shadow:0 0 0 3px #0A0B26,0 0 0 4.5px ${C.gold},0 0 18px rgba(255,217,138,.5) !important;border-radius:50% !important}
 [data-wk="rpenvelope"][data-stage="open"] [data-wk="rpfrom"]{color:${C.ink} !important}
@@ -348,7 +348,7 @@ span[data-wk="avatar"]:not([data-halo])::before{transform:scaleX(-1) !important}
 [data-wk="rpclose"]{background:rgba(11,15,43,.7) !important;border:1.2px solid rgba(255,217,138,.8) !important;color:${C.gold} !important}
 
 [data-wk="rpenvelope"][data-stage="open"] [data-wk="rpamount"]{color:${C.gold} !important}
-[data-wk="rpopenbtn"],[data-wk="rpopenbtn"] *{color:#8E1F2A !important;opacity:1 !important}
+[data-wk="rpopenbtn"],[data-wk="rpopenbtn"] *{color:#3A2A78 !important;opacity:1 !important}
 `;
 
 const pack = { kind: "chat-look", v: 1, name: "星空", look: { bubble, layout: { bubble: "bubble", avatar: "all", name: false, gap: "normal", time: "show" }, customCSS: css.trim() }, assets: {} };
