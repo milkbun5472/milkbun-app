@@ -27,3 +27,13 @@ test("卡片行也报连发首末，排版「头像只留第一条」管到卡�
   assert.match(comp, /out = React\.cloneElement\(out, Object\.assign\(\{ "data-run": "1" \}, msgRunAttrs\(messages, row\.i, 0, true/);
   assert.match(comp, /\[data-run\]\[data-first="0"\] button\[data-wk="avatar"\]/);
 });
+test("卡片行的已读挂点默认藏着", () => {
+  assert.match(comp, /"data-wk": "cardmeta", "data-me": row\.m\.role === "user" \? "1" : "0", style: \{ display: "none" \}/);
+  assert.ok(studio.includes('"cardmeta"'));
+  assert.match(comp, /!row\.m\.recalled && !MSG_RUN_BREAK\[row\.m\.kind\] \? subLine\(row\.m\)/);
+});
+test("线下小结卡挂点；他的动描不断开一串", () => {
+  for (const k of ["offlogtitle", "offlogtext", "offlogopen", "offlogredo", "offlogtranscript"]) assert.ok(comp.includes('"data-wk": "' + k + '"'), k);
+  assert.match(comp, /"data-wk": "card", "data-part": "offlog"/);
+  assert.match(comp, /list\[k\]\.kind === "narration" && list\[k\]\.who === "char" && m\.role === "assistant"/);
+});

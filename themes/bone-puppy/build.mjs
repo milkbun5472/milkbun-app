@@ -394,6 +394,14 @@ span[data-wk="avatar"]:not([data-halo])::before{background:${svg(FRAME(35))} cen
 [data-wk="transfercard"][data-status="returned"] [data-wk="transferseal"]{width:72px !important;height:72px !important;flex-shrink:0 !important;border:none !important;box-shadow:none !important;border-radius:0 !important;opacity:1 !important;padding:26px 0 0 !important;white-space:nowrap !important;overflow:visible !important;color:#fff !important;font-weight:700 !important;background:${svg(PAW("#b9a593"))} center/contain no-repeat !important;transform:rotate(10deg) !important}
 [data-wk="transfercard"][data-status="returned"] [data-wk="transferseal"] *{color:#fff !important;font-size:12px !important;letter-spacing:0 !important;white-space:nowrap !important}
 [data-wk="transfercard"][data-status="returned"] [data-wk="transferseal"] > div:nth-child(2){display:none !important}
+
+/* 线下小结：奶白卡，骨头标签写「线下经过」 */
+[data-part="offlog"]{background:#FFF8EC !important;border:2.5px solid #D9A86C !important;border-radius:20px !important;box-shadow:0 4px 0 #ecd0a0 !important;position:relative !important;overflow:visible !important;padding-top:22px !important;color:#6B4A2E !important}
+[data-part="offlog"]::after{content:"" !important;position:absolute !important;right:12px !important;bottom:10px !important;width:18px !important;height:18px !important;background:${svg(PAW("#c98f55"))} center/contain no-repeat !important}
+[data-wk="offlogtitle"]{display:inline-block !important;margin-top:-34px !important;margin-bottom:8px !important;padding:4px 18px !important;color:#8B5E3C !important;letter-spacing:.1em !important;background:${svg(BONE_S("#F8E0B0"))} center/100% 100% no-repeat !important;transform:rotate(-4deg) !important}
+[data-wk="offlogtext"]{color:#6B4A2E !important}
+[data-wk="offlogopen"],[data-wk="offlogredo"],[data-wk="offlogundo"],[data-wk="offlogrestore"]{color:#c98f55 !important}
+[data-wk="offlogtranscript"]{border-top:1.5px dashed #D9A86C !important;color:#a07a5a !important}
 `;
 
 const look = { bubble, customCSS: css.trim() };

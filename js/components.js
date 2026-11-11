@@ -127,8 +127,10 @@ const MSG_RUN_BREAK = { narration: 1, system: 1, callend: 1, watchlog: 1, listen
 function msgRunAttrs(list, i, part, last, same) {
   const m = list[i] || {};
   const talk = x => !!x && !x.recalled && !MSG_RUN_BREAK[x.kind] && (x.role === "user" || x.role === "assistant");
-  const prevSame = part > 0 || (talk(m) && talk(list[i - 1]) && same(list[i - 1], m));
-  const nextSame = !last || (talk(m) && talk(list[i + 1]) && same(m, list[i + 1]));
+  // 他那句括号动描（role narration、who char）夹在他自己的话中间，不算断开一串（她 2026-11-10：收了转账、一句动描、再说话，同一轮却又冒出头像）
+  const hop = (k, d) => { while (list[k] && list[k].kind === "narration" && list[k].who === "char" && m.role === "assistant") k += d; return list[k]; };
+  const prevSame = part > 0 || (talk(m) && talk(hop(i - 1, -1)) && same(hop(i - 1, -1), m));
+  const nextSame = !last || (talk(m) && talk(hop(i + 1, 1)) && same(m, hop(i + 1, 1)));
   const ts = Number(m.ts) || 0;
   return { "data-first": prevSame ? "0" : "1", "data-last": nextSame ? "0" : "1",
     "data-recent": ts && Date.now() - ts < 15000 ? "1" : "0" };
@@ -11032,14 +11034,15 @@ function OfflineLogCard({ m, t, sel, onResummarize, onRestore, onUndo }) {
       Promise.resolve(onResummarize()).then(() => setBusy(false), () => setBusy(false));
     }, "重新总结");
   };
-  return h("div", { "data-wk": "card", style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", lineHeight: 1.7, color: t.sub, background: t.bg2, border: "1px dashed " + t.line, borderRadius: 12, padding: "10px 13px", whiteSpace: "pre-wrap", outline: sel ? `2px solid ${t.tint}` : "none", outlineOffset: 2 } },
-    h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: "calc(9px * var(--app-fs, 1))", letterSpacing: "0.18em", color: t.fog, marginBottom: 5 } }, "线下经过"),
-    h(TransText, { text: m.content, zhReady: m.zh }),
-    m.transcript ? h("button", { onClick: e => { e.stopPropagation(); setOpen(o => !o); }, className: "active:opacity-60", style: { display: "block", marginTop: 8, fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.tint } }, open ? "▾ 收起完整经过" : "▸ 看完整经过（" + Math.round(String(m.transcript).length / 100) / 10 + "k 字）") : null,
-    onResummarize ? h("button", { onClick: redo, disabled: busy, className: "active:opacity-60 disabled:opacity-40", style: { display: "block", marginTop: 6, fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog } }, busy ? "正在重新总结…" : "⟳ 重新总结这一场") : null,
+  // 挂点（她 2026-11-10「线下小结是不是没做美化」）：卡本身只挂着公用的 card，加一个 offlog 认出它；标题、正文、底下那几颗也各给一个
+  return h("div", { "data-wk": "card", "data-part": "offlog", style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", lineHeight: 1.7, color: t.sub, background: t.bg2, border: "1px dashed " + t.line, borderRadius: 12, padding: "10px 13px", whiteSpace: "pre-wrap", outline: sel ? `2px solid ${t.tint}` : "none", outlineOffset: 2 } },
+    h("div", { "data-wk": "offlogtitle", style: { fontFamily: "'Archivo',sans-serif", fontSize: "calc(9px * var(--app-fs, 1))", letterSpacing: "0.18em", color: t.fog, marginBottom: 5 } }, "线下经过"),
+    h("div", { "data-wk": "offlogtext" }, h(TransText, { text: m.content, zhReady: m.zh })),
+    m.transcript ? h("button", { "data-wk": "offlogopen", onClick: e => { e.stopPropagation(); setOpen(o => !o); }, className: "active:opacity-60", style: { display: "block", marginTop: 8, fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.tint } }, open ? "▾ 收起完整经过" : "▸ 看完整经过（" + Math.round(String(m.transcript).length / 100) / 10 + "k 字）") : null,
+    onResummarize ? h("button", { "data-wk": "offlogredo", onClick: redo, disabled: busy, className: "active:opacity-60 disabled:opacity-40", style: { display: "block", marginTop: 6, fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog } }, busy ? "正在重新总结…" : "⟳ 重新总结这一场") : null,
     (onUndo && m.prevSummary && !busy) ? h("button", { "data-wk": "offlogundo", onClick: e => { e.stopPropagation(); requestAppConfirm("换回上一版总结？", "这次重新总结写的卡和它新记下的记忆会撤掉。", onUndo, "换回"); }, className: "active:opacity-60", style: { display: "block", marginTop: 6, fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog } }, "↶ 换回上一版总结") : null,
     (onRestore && m.transcript) ? h("button", { "data-wk": "offlogrestore", onClick: e => { e.stopPropagation(); onRestore(); }, className: "active:opacity-60", style: { display: "block", marginTop: 6, fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog } }, "往期里找不到这一场？放回往期") : null,
-    (open && m.transcript) ? h("div", { style: { marginTop: 8, paddingTop: 8, borderTop: "1px dashed " + t.line, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog, whiteSpace: "pre-wrap", lineHeight: 1.75 } }, m.transcript) : null);
+    (open && m.transcript) ? h("div", { "data-wk": "offlogtranscript", style: { marginTop: 8, paddingTop: 8, borderTop: "1px dashed " + t.line, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog, whiteSpace: "pre-wrap", lineHeight: 1.75 } }, m.transcript) : null);
 }
 // ── 照片：一张卡，四处共用（她 2026-09-07）─────────────────────────────
 // 她原话：「群聊线上线下我发假图片，都改成一样的好看的卡吧，点开可以看到描述，
@@ -11870,6 +11873,10 @@ function ChatThread({
     // 表情包、转账、照片这些卡片行也报「是不是一串里的第一条／最后一条」（她 2026-11-10：排版选了头像只留第一条，连发的卡片头像还照常显示）——
     //   跟文字气泡同一份 msgRunAttrs，data-run 标出这是一条消息行，排版开关那几条规则就能一起管到
     if (out && typeof out.type === "string") out = React.cloneElement(out, Object.assign({ "data-run": "1" }, msgRunAttrs(messages, row.i, 0, true, (a, b) => a.role === b.role)));
+    // 卡片行底下的「已读／时间」（她 2026-11-10：粉色日记里一串最后是表情包就没了已读）：默认藏着，只给美化当挂点；
+    //   别的美化和不开美化时照旧没有这一行
+    const _cmSub = out && typeof out.type === "string" && (row.m.role === "user" || row.m.role === "assistant") && !row.m.recalled && !MSG_RUN_BREAK[row.m.kind] ? subLine(row.m) : "";
+    if (_cmSub) out = h(React.Fragment, { key: "cm" + row.i }, out, h("div", { key: "cmf", "data-wk": "cardmeta", "data-me": row.m.role === "user" ? "1" : "0", style: { display: "none" } }, _cmSub));
     const st = window.ChatStamp.decide(window.ChatStamp.prevTimed(messages, row.i), row.m, { minGap: 180000,
       map: typeof vclockMap === "function" && character ? (ts => vclockMap(ts, character.id)) : undefined });
     return st.show ? h(React.Fragment, { key: "sst" + row.i }, h(GStampLine, { st, t }), out) : out;

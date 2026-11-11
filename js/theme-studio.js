@@ -571,7 +571,7 @@
         ["stateaff", "心声卡底下好感那一整行（心＋好感度那几个字）"],
         // 那颗心拆开（她 2026-10-05：「要可以改图案」）：换形状写在 stateheart 上的 --sc-heart-mask，四层一起变
         ["stateheart", "好感那颗心整颗（换图案：--sc-heart-mask: url(图)；颜色 --sc-heart-ink）"], ["stateheartline", "心的描边那一圈"],
-        ["stateheartbase", "心里没灌满的那块底"], ["stateheartfill", "心里灌进去的那块（水位）"], ["stateheartnum", "心中间那个好感数字"], ["stateheartknob", "水位那一头的小扣（默认藏着；底边跟水位走）"], ["stateaffval", "好感数字的第二份（在「好感度」那几个字旁边，默认藏着）"], ["statemood", "抬头里那个心情词（平静、开心……）"], ["geocard", "聊天里那张位置卡（data-me）"], ["geopin", "位置卡顶上的图钉帽"], ["geopinstem", "图钉的针"], ["geoname", "位置卡上的地名"], ["georule", "地名下面那道线"], ["geofoot", "「我在这儿 · 时间」那行"], ["statehist", "翻旧心声那一整页"], ["statehistbtn", "「翻旧的」「← 回此刻」那颗（data-part＝more/back）"], ["statehisthead", "旧心声页抬头（标题＋清空）"], ["statehistlist", "旧心声那一串"], ["statehistitem", "每一条旧心声"], ["statehistmood", "那条的心情词"], ["statehisttime", "那条的时间"], ["statehisttext", "那条心声正文"], ["statehistmeta", "那条底下的动作·穿着"], ["statehistact", "动作单独一行（默认藏着）"], ["statehistwear", "穿着单独一行（默认藏着）"], ["statehistend", "翻到底那句「没有更早的了」（默认藏着）"],
+        ["stateheartbase", "心里没灌满的那块底"], ["stateheartfill", "心里灌进去的那块（水位）"], ["stateheartnum", "心中间那个好感数字"], ["stateheartknob", "水位那一头的小扣（默认藏着；底边跟水位走）"], ["stateaffval", "好感数字的第二份（在「好感度」那几个字旁边，默认藏着）"], ["statemood", "抬头里那个心情词（平静、开心……）"], ["geocard", "聊天里那张位置卡（data-me）"], ["offlog", "（写成 [data-part=\"offlog\"]）聊天里那张「线下经过」小结卡"], ["offlogtitle", "小结卡上「线下经过」那行"], ["offlogtext", "小结正文"], ["offlogopen", "「看原文」那颗"], ["offlogredo", "「重新总结」那颗"], ["offlogtranscript", "展开的原文"], ["cardmeta", "表情包、转账这些卡片行底下的已读／时间（默认藏着，data-me）"], ["geopin", "位置卡顶上的图钉帽"], ["geopinstem", "图钉的针"], ["geoname", "位置卡上的地名"], ["georule", "地名下面那道线"], ["geofoot", "「我在这儿 · 时间」那行"], ["statehist", "翻旧心声那一整页"], ["statehistbtn", "「翻旧的」「← 回此刻」那颗（data-part＝more/back）"], ["statehisthead", "旧心声页抬头（标题＋清空）"], ["statehistlist", "旧心声那一串"], ["statehistitem", "每一条旧心声"], ["statehistmood", "那条的心情词"], ["statehisttime", "那条的时间"], ["statehisttext", "那条心声正文"], ["statehistmeta", "那条底下的动作·穿着"], ["statehistact", "动作单独一行（默认藏着）"], ["statehistwear", "穿着单独一行（默认藏着）"], ["statehistend", "翻到底那句「没有更早的了」（默认藏着）"],
         // 拉黑时气泡旁那颗红色感叹号（她 2026-10-01：「跟微信一样，然后加一个美化挂点」）
         ["blockdot", "拉黑中气泡旁那颗红色感叹号（data-me=\"1\" 是她那边的）"],
         // 重 Roll 留版那一行「‹ 2/3 ›」（她 2026-10-10）
@@ -1183,7 +1183,7 @@
   //   挂点表是从 WK_COMMON/WK_SCOPED 现拼的，代码里新挂的 data-wk 没进名单，测试 ai-brief-hooks 会红；
   //   可规矩、尺寸、现成写法是手写的——所以跟攻略一样立个戳：v 必须等于 APP_VERSION，
   //   这一版改了哪条写进 changed；这一版的改动碰不到样式，就在 none 写一句为什么。
-                                                                                                                                                                                                                                                                    const BRIEF_STAMP = {v: "v89.456",changed: "【】《》里的一句话不会再被拆成两泡",none: ""};
+                                                                                                                                                                                                                                                                    const BRIEF_STAMP = {v: "v89.459",changed: "",none: "这一版没动美化挂点。"};
   function aiBrief(page, css) {
     const grp = WK_SCOPED.filter(function (x) { return (x.pages || []).indexOf(page) >= 0; })[0];
     const line = function (r) { return '[data-wk="' + r[0] + '"]  ' + r[1]; };
