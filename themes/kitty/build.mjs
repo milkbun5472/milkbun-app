@@ -253,6 +253,118 @@ ${ktAlong()}
 [data-wk="bubble"] [data-wk="quotetext"]{display:block !important;border-left:3px solid ${C.pink} !important;border-radius:2px !important;padding-left:8px !important;color:${C.line} !important}
 /* 猫爪尾巴比狗爪大一圈，已读往下让一点别压着 */
 [data-wk="meta"]{margin-top:8px !important}
+
+/* 转账章：只留猫爪，不要字 */
+[data-wk="transfercard"][data-status="accepted"] [data-wk="transferseal"] *,[data-wk="transfercard"][data-status="returned"] [data-wk="transferseal"] *{display:none !important}
+
+/* ───── 猫猫 · 第三批：状态卡、翻旧、Ta 眼里、线下、通话 ───── */
+/* 状态卡＝一只趴着的猫窝：奶白软垫，顶上一对大猫耳 */
+[data-wk="statecard"]{background:${C.milk} !important;border:2.5px solid ${C.line} !important;border-radius:34px 34px 28px 28px !important;box-shadow:0 6px 0 #C3CEE0,0 18px 40px rgba(75,84,112,.22) !important;overflow:visible !important;position:relative !important;--sc-heart-ink:linear-gradient(to top,${C.pink},${C.pinkD}) !important}
+[data-wk="statecard"]::before{content:"" !important;position:absolute !important;top:-26px !important;left:50% !important;width:150px !important;height:40px !important;margin-left:-75px !important;background:${svg(`<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 34 14'><path d='M2 14 L7 1 L14 14Z M20 14 L27 1 L32 14Z' fill='#fff' stroke='${C.line}' stroke-width='2' stroke-linejoin='round'/><path d='M6 12 L7.5 6 L10 12Z M24 12 L26.5 6 L28 12Z' fill='${C.pink}'/></svg>`)} center/contain no-repeat !important;z-index:-1 !important}
+[data-wk="statehead"]{background:transparent !important;border-bottom:none !important;color:${C.ink} !important}
+[data-wk="statehead"] button{border:2px solid ${C.line} !important;color:${C.line} !important;background:#fff !important}
+[data-wk="statecard"] div:has(> button[aria-pressed]){background:${C.mist2} !important;border:none !important;border-radius:999px !important;margin:2px 16px 8px !important;padding:4px !important}
+[data-wk="statecard"] button[aria-pressed]{color:${C.line} !important;border:2px solid transparent !important;border-radius:999px !important}
+[data-wk="statecard"] button[aria-pressed="true"]{background:#fff !important;color:${C.ink} !important;border-color:${C.line} !important;font-weight:700 !important}
+[data-wk="statemood"]{display:inline-block !important;border:1.5px solid ${C.pinkD} !important;background:#FDEEF1 !important;color:${C.pinkD} !important;border-radius:999px !important;padding:0 10px !important;margin-right:4px !important}
+/* 看得见的：一扇小窗，窗格十字 */
+[data-wk="stateseen"]{background:linear-gradient(${C.line},${C.line}) center/2px 100% no-repeat,linear-gradient(${C.line},${C.line}) center/100% 2px no-repeat,${C.mist2} !important;background-blend-mode:normal !important;margin:14px 16px 12px !important;border-radius:22px 22px 8px 8px !important;border:2.5px solid ${C.line} !important;color:${C.ink} !important;position:relative !important}
+[data-wk="stateseen"]{background:${C.mist2} !important}
+[data-wk="stateseen"]::before{content:"" !important;position:absolute !important;left:-6px !important;right:-6px !important;bottom:-8px !important;height:8px !important;border-radius:4px !important;background:${C.line} !important}
+[data-wk="stateseen"] > span[aria-hidden]{display:none !important}
+[data-wk="stateseen"] *{color:${C.ink} !important}
+[data-wk="statewear"]{background:#fff !important;border:2px solid ${C.line} !important;border-radius:999px !important;color:${C.ink} !important}
+[data-wk="statewear"] > span{background:${C.mist2} !important;border-radius:999px !important;color:${C.line} !important}
+/* 心里想的：一朵思考泡泡，下面拖两颗小泡泡 */
+[data-wk="statevoice"]{background:#fff !important;border:2.5px solid ${C.line} !important;border-radius:40px !important;position:relative !important;overflow:visible !important;color:${C.ink} !important;margin:16px 16px 34px !important;box-shadow:0 4px 0 #C3CEE0 !important}
+[data-wk="statevoice"]::before,[data-wk="statevoice"]::after{content:"" !important;position:absolute !important;border-radius:50% !important;background:#fff !important;border:2.5px solid ${C.line} !important}
+[data-wk="statevoice"]::before{width:18px !important;height:18px !important;left:30px !important;bottom:-22px !important}
+[data-wk="statevoice"]::after{width:10px !important;height:10px !important;left:20px !important;bottom:-34px !important}
+[data-wk="statevoice"] > span[aria-hidden]{display:none !important}
+[data-wk="statevoice"] *{color:${C.ink} !important}
+[data-wk="statevoicedel"],[data-wk="statevoiceclear"]{color:${C.line} !important}
+/* 好感：一条小鱼干，肚子里装粉色，旋钮是一只猫爪 */
+[data-wk="stateaff"]{background:transparent !important;border-top:2px solid ${C.mist} !important;position:relative !important;display:block !important;padding:16px 20px 74px !important}
+[data-wk="stateaff"] *{color:${C.ink} !important}
+[data-wk="stateheart"]{position:absolute !important;width:40px !important;height:230px !important;left:calc(50% - 20px) !important;bottom:-76px !important;transform:rotate(90deg) !important;--sc-heart-mask:${svg(`<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 230' preserveAspectRatio='none'><g fill='#000'><path d='M20 0 C34 10 40 40 40 115 C40 180 32 198 20 204 C8 198 0 180 0 115 C0 40 6 10 20 0Z'/><path d='M20 196 L38 230 L20 220 L2 230Z'/></g></svg>`)} !important}
+[data-wk="stateheart"] > div{-webkit-mask-size:100% 100% !important;mask-size:100% 100% !important}
+[data-wk="stateheartline"]{background:${C.line} !important;opacity:1 !important}
+[data-wk="stateheart"] > div:not([data-wk="stateheartline"]){inset:3px !important}
+[data-wk="stateheartbase"]{background:#fff !important;opacity:1 !important}
+[data-wk="stateheartfill"] > div{opacity:1 !important;border-top:none !important}
+[data-wk="stateaffval"]{display:block !important;position:absolute !important;right:22px !important;top:12px !important;font-size:26px !important;font-weight:700 !important;color:${C.ink} !important}
+[data-wk="stateheartnum"]{display:none !important}
+[data-wk="stateheartknob"]{display:block !important;width:30px !important;height:30px !important;margin:0 0 -15px -15px !important;border-radius:50% !important;background:#fff ${svg(PAW(C.pinkD))} center/18px 18px no-repeat !important;border:2.5px solid ${C.line} !important;transform:rotate(-90deg) !important;z-index:2 !important}
+
+/* 翻旧的：一串猫爪脚印往下走 */
+[data-wk="statehistbtn"]{border:2px solid ${C.line} !important;border-radius:999px !important;color:${C.line} !important;background:#fff !important}
+[data-wk="statehisthead"] > :first-child{color:${C.ink} !important}
+[data-wk="statehisthead"] [data-wk="statevoiceclear"]{border:1.5px solid ${C.pinkD} !important;border-radius:999px !important;color:${C.pinkD} !important;background:#fff !important}
+[data-wk="statehistlist"]{position:relative !important;padding-left:40px !important;margin-top:14px !important}
+[data-wk="statehistlist"]::before{content:"" !important;position:absolute !important;left:8px !important;top:10px !important;bottom:30px !important;width:20px !important;background:${svg(`<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 44'><g transform='translate(0 2) scale(.3)'>${X(PAW(C.line,.45))}</g><g transform='translate(7 24) scale(.3)'>${X(PAW(C.line,.45))}</g></svg>`)} center top/20px 44px repeat-y !important}
+[data-wk="statehistitem"]{position:relative !important;background:#fff !important;border:2px solid ${C.line} !important;border-radius:22px !important;margin-bottom:16px !important;box-shadow:0 4px 0 #C3CEE0 !important;overflow:visible !important;margin-top:12px !important}
+[data-wk="statehistitem"]::before{content:"" !important;position:absolute !important;top:-11px !important;left:20px !important;width:34px !important;height:14px !important;background:${svg(`<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 34 14'><path d='M2 14 L7 1 L14 14Z M20 14 L27 1 L32 14Z' fill='#fff' stroke='${C.line}' stroke-width='2' stroke-linejoin='round'/><path d='M6 12 L7.5 6 L10 12Z M24 12 L26.5 6 L28 12Z' fill='${C.pink}'/></svg>`)} center/contain no-repeat !important}
+[data-wk="statehistmood"]{border:1.5px solid ${C.pinkD} !important;background:#FDEEF1 !important;color:${C.pinkD} !important;border-radius:999px !important}
+[data-wk="statehisttime"]{color:${C.line} !important}
+[data-wk="statehisttext"]{color:${C.ink} !important}
+[data-wk="statehistmeta"]{background:${C.mist2} !important;border-radius:16px !important}
+[data-wk="statehistact"],[data-wk="statehistwear"]{color:${C.ink} !important}
+[data-wk="statehistend"]{color:${C.line} !important}
+[data-wk="statehistend"]::before{content:"" !important;display:inline-block !important;width:26px !important;height:13px !important;margin-right:8px !important;background:${svg(FISH(C.line))} center/contain no-repeat !important}
+
+/* Ta 眼里：每张卡顶一对猫耳 */
+[data-wk="gazepage"]{background:transparent !important}
+[data-wk="gazetab"]{background:${C.mist2} !important;color:${C.line} !important;border-radius:999px !important;border:none !important;clip-path:none !important}
+[data-wk="gazetab"][data-on="1"]{background:${C.line} !important;color:#fff !important}
+[data-wk="gazetab"] *{clip-path:none !important}
+[data-wk="gazestatus"]{color:${C.line} !important}
+[data-wk="gazecard"]{background:#fff !important;border:2px solid ${C.line} !important;border-radius:22px !important;box-shadow:0 4px 0 #C3CEE0 !important;position:relative !important;overflow:visible !important;margin-top:14px !important}
+[data-wk="gazecard"]::before{content:"" !important;position:absolute !important;top:-11px !important;left:20px !important;width:34px !important;height:14px !important;background:${svg(`<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 34 14'><path d='M2 14 L7 1 L14 14Z M20 14 L27 1 L32 14Z' fill='#fff' stroke='${C.line}' stroke-width='2' stroke-linejoin='round'/><path d='M6 12 L7.5 6 L10 12Z M24 12 L26.5 6 L28 12Z' fill='${C.pink}'/></svg>`)} center/contain no-repeat !important}
+[data-wk="gazecardname"]{color:${C.ink} !important;font-weight:700 !important}
+[data-wk="gazecardtext"],[data-wk="gazecardtime"]{color:${C.line} !important}
+[data-wk="gazeletter"],[data-wk="gazehistory"]{background:${C.milk} !important;border:2px solid ${C.line} !important;border-radius:24px !important}
+[data-wk="gazeempty"]{border:2px solid ${C.line} !important;border-radius:22px !important;background:#fff ${svg(YARN())} center 22px/56px 56px no-repeat !important;padding:92px 12px 22px !important}
+[data-wk="gazeempty"] > div:first-child{color:${C.ink} !important}
+[data-wk="gazeempty"] button{background:${C.line} !important;color:#fff !important;border-radius:999px !important;box-shadow:0 3px 0 #6F7D99 !important}
+
+/* ───── 线下（只在 offline 里） ───── */
+[data-wk="offline"]:not([style*="url("]){background:${svg(TILE)} 0 0/200px 200px,linear-gradient(180deg,${C.mist2},${C.mist}) !important}
+[data-wk="offline"] [data-wk="offbody"]{background:transparent !important}
+[data-wk="offline"] [data-wk="chathead"]::after,[data-wk="offline"] [data-wk="chathead"]::before{display:none !important}
+[data-wk="offline"] [data-wk="chathead"]{border-bottom:2px solid ${C.mist} !important}
+[data-wk="offline"] [data-wk="offtitle"]{color:${C.ink} !important}
+[data-wk="offline"] [data-wk="chathead"] button:last-child:not([data-wk]){background:#fff !important;border:1.5px solid ${C.line} !important;color:${C.line} !important;border-radius:999px !important}
+[data-wk="offcomposer"]{background:${C.milk} !important;border-top:2px solid ${C.mist} !important}
+[data-wk="offcomposer"] textarea{background:#fff !important;border:2px solid ${C.line} !important;border-radius:22px !important;color:${C.ink} !important}
+[data-wk="offcomposer"] button[title="给 Ta 看真实照片"]{width:36px !important;height:36px !important;border:none !important;background:${svg(I_PLUS)} center/contain no-repeat !important;font-size:0 !important;color:transparent !important}
+[data-wk="offcomposer"] button[title="给 Ta 看真实照片"] *{opacity:0 !important}
+[data-wk="offcomposer"] button:not([title]):not([data-wk]){background:${svg(I_SEND)} center/contain no-repeat !important;border:none !important;box-shadow:none !important}
+[data-wk="offcomposer"] button:not([title]):not([data-wk]) svg{opacity:0 !important}
+[data-wk="offcard"]{background:#fff !important;border:2px solid ${C.line} !important;border-left-width:2px !important;border-radius:24px !important;box-shadow:0 4px 0 #C3CEE0 !important;position:relative !important;overflow:visible !important;margin-top:14px !important}
+[data-wk="offcard"][data-me="1"]{background:#E6EDF6 !important}
+[data-wk="offcard"]::before{content:"" !important;position:absolute !important;top:-11px !important;left:24px !important;width:34px !important;height:14px !important;background:${svg(`<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 34 14'><path d='M2 14 L7 1 L14 14Z M20 14 L27 1 L32 14Z' fill='#fff' stroke='${C.line}' stroke-width='2' stroke-linejoin='round'/><path d='M6 12 L7.5 6 L10 12Z M24 12 L26.5 6 L28 12Z' fill='${C.pink}'/></svg>`)} center/contain no-repeat !important}
+[data-wk="offcard"][data-me="1"]::before{left:auto !important;right:24px !important}
+[data-wk="offcard"]::after{content:"" !important;position:absolute !important;right:14px !important;bottom:10px !important;width:18px !important;height:17px !important;background:${svg(PAW(C.line,.5))} center/contain no-repeat !important}
+[data-wk="offhead"] img,[data-wk="offhead"] [data-wk="avatar"]{border-radius:50% !important;box-shadow:0 0 0 2px #fff,0 0 0 3.5px ${C.line} !important}
+[data-wk="offname"]{color:${C.ink} !important;font-weight:700 !important}
+[data-wk="offtext"]{color:${C.ink} !important}
+[data-wk="offsay"]{background:linear-gradient(transparent 58%,#F9D9E0 58%) !important;color:${C.ink} !important;font-weight:700 !important;box-decoration-break:clone !important;-webkit-box-decoration-break:clone !important}
+[data-wk="offthought"]{background:${C.mist2} !important;border:none !important;border-radius:22px !important;padding:10px 14px 10px 34px !important;position:relative !important;color:${C.line} !important}
+[data-wk="offthought"]::before{content:"" !important;position:absolute !important;left:10px !important;top:12px !important;width:18px !important;height:16px !important;background:${svg(PAW(C.pinkD))} center/contain no-repeat !important}
+[data-wk="offcardacts"] svg{stroke:${C.line} !important;color:${C.line} !important}
+[data-wk="offreplyopt"]{background:#fff !important;border:1.5px solid ${C.line} !important;border-radius:999px !important;color:${C.ink} !important}
+
+/* ───── 通话 ───── */
+[data-wk="callbubble"]{background:#fff !important;color:${C.ink} !important;border:2px solid ${C.line} !important;border-radius:24px !important;position:relative !important;overflow:visible !important}
+[data-wk="callmsg"][data-me="1"] [data-wk="callbubble"]{background:#DCE6F3 !important}
+[data-wk="callbubble"]::after{content:"" !important;position:absolute !important;bottom:-9px !important;left:-6px !important;width:20px !important;height:18px !important;background:${svg(CATPAW())} center/contain no-repeat !important;transform:rotate(-20deg) !important}
+[data-wk="callmsg"][data-me="1"] [data-wk="callbubble"]::after{left:auto !important;right:-6px !important;transform:rotate(20deg) !important;background:${svg(CATPAW("#DCE6F3"))} center/contain no-repeat !important}
+[data-wk="callact"]{color:#E3EAF5 !important}
+[data-wk="callavatar"]{border-radius:50% !important;box-shadow:0 0 0 5px #fff,0 0 0 8px ${C.line} !important}
+[data-wk="note"][data-part="callsum"]{color:${C.line} !important}
+[data-wk="statehistitem"]{padding:14px 16px !important}
+[data-wk="statehistmeta"]{padding:8px 12px !important}
+[data-wk="gazetitle"]{color:${C.line} !important}
 `;
 
 const pack = { kind: "chat-look", v: 1, name: "猫猫", look: { bubble, layout, customCSS: css.trim() }, assets: {} };
