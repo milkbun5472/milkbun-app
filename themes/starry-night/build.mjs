@@ -26,7 +26,7 @@ const STRIP = today => {
     const on = seq[i] === today && (today !== 0 || i === 0);
     return `<g transform='translate(${240 + x} 9)'>${MOONDOT(seq[i], 6)}${on ? `<path d='M-3 11 L3 11 L0 15.5Z' fill='${C.gold}'/>` : ""}</g>`;
   }).join("");
-  return `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 480 24' preserveAspectRatio='xMidYMid meet'><defs><linearGradient id='a' x1='0' x2='1'><stop offset='0' stop-color='${C.gold}' stop-opacity='0'/><stop offset='1' stop-color='${C.gold}'/></linearGradient><linearGradient id='b' x1='1' x2='0'><stop offset='0' stop-color='${C.gold}' stop-opacity='0'/><stop offset='1' stop-color='${C.gold}'/></linearGradient></defs>${dots}</svg>`;
+  return `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 480 24' preserveAspectRatio='xMidYMid meet'><defs><linearGradient id='a' x1='0' x2='1'><stop offset='0' stop-color='${C.gold}' stop-opacity='0'/><stop offset='1' stop-color='${C.gold}'/></linearGradient><linearGradient id='b' x1='1' x2='0'><stop offset='0' stop-color='${C.gold}' stop-opacity='0'/><stop offset='1' stop-color='${C.gold}'/></linearGradient></defs><rect x='0' y='8.4' width='140' height='1.2' fill='url(#a)'/><rect x='340' y='8.4' width='140' height='1.2' fill='url(#b)'/>${dots}</svg>`;
 };
 // 满天星（平铺）
 const STARS = (() => { let r = 7, out = ""; const rnd = () => (r = (r * 9301 + 49297) % 233280) / 233280;
