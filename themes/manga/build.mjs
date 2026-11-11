@@ -22,6 +22,9 @@ const I_MORE = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 26 26'><pat
 
 const BURST = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 40' preserveAspectRatio='none'><path d='M6 8 L14 2 L22 7 L32 1 L42 6 L52 1 L62 6 L72 1 L82 6 L94 3 L96 14 L99 22 L94 30 L96 38 L84 35 L74 39 L64 34 L54 39 L44 34 L34 39 L24 34 L14 38 L4 34 L6 24 L1 17Z' fill='${C.yellow}' stroke='${C.ink}' stroke-width='1.6' vector-effect='non-scaling-stroke' stroke-linejoin='round'/></svg>`;
 const HATCH = "repeating-linear-gradient(135deg,rgba(26,26,26,.16) 0 1.2px,transparent 1.2px 5px)";
+// 融进气泡的尾巴：填色往回多盖一截压住气泡边框，描边只画外面两条边
+const TAILR = (f) => `<svg xmlns='http://www.w3.org/2000/svg' viewBox='-5 0 29 22'><path d='M-5 2 L1 2 L22 19 L1 13 L-5 13Z' fill='${f}'/><path d='M1 2 L22 19 L1 13' fill='none' stroke='${C.ink}' stroke-width='2' stroke-linejoin='round' stroke-linecap='round'/></svg>`;
+const TAILL = (f) => `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 29 22'><path d='M29 5 L23 5 L2 10 L23 16 L29 16Z' fill='${f}'/><path d='M23 5 L2 10 L23 16' fill='none' stroke='${C.ink}' stroke-width='2' stroke-linejoin='round' stroke-linecap='round'/></svg>`;
 const bubble = { myBg: C.yellow, myText: C.ink, myBorder: LINE, charBg: C.paper, charText: C.ink, charBorder: LINE, radius: 20, shadow: "none", myAlpha: 100, charAlpha: 100 };
 const layout = { bubble: "bubble", avatar: "first", name: true, gap: "normal", time: "show" };
 
@@ -116,6 +119,9 @@ button[data-wk="avatar"],span[data-wk="avatar"]:not([data-halo]),[data-wk="chath
 
 [data-wk="chathead"] [data-wk="headname"]{overflow:visible !important}
 [data-wk="chathead"] [data-wk="headname"] > [data-wk="headink"]::before{top:-12px !important;left:-2px !important;z-index:3 !important}
+
+[data-wk="msg"][data-first="1"] [data-wk="bubble"][data-kind="text"][data-me="1"]::after{right:-23px !important;bottom:6px !important;width:29px !important;height:22px !important;background:${svg(TAILR(C.yellow))} center/contain no-repeat !important;filter:drop-shadow(4px 4px 0 ${C.ink}) !important;z-index:1 !important}
+[data-wk="msg"][data-first="1"] [data-wk="bubble"][data-kind="text"][data-me="0"]::after{left:-23px !important;top:10px !important;width:29px !important;height:22px !important;background:${svg(TAILL(C.paper))} center/contain no-repeat !important;z-index:1 !important}
 
 `;
 
