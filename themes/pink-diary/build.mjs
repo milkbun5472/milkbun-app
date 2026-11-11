@@ -389,6 +389,21 @@ button[data-wk="avatar"]::before,span[data-wk="avatar"]:not([data-halo])::before
 [data-wk="sysnotetext"]{display:block !important;color:${C.rose} !important;font-size:12.5px !important;font-style:italic !important;line-height:2 !important;background:none !important;text-decoration:underline wavy ${C.margin} !important;text-decoration-thickness:1px !important;text-underline-offset:5px !important}
 [data-wk="sysnotetext"]::before{content:"" !important;display:inline-block !important;width:14px !important;height:14px !important;margin-right:6px !important;vertical-align:-2px !important;background:${svg(`<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path d='M4 20 L5 15 L16 4 L20 8 L9 19Z' fill='${C.butter}' stroke='${C.rose}' stroke-width='1.6' stroke-linejoin='round'/><path d='M4 20 L5 15 L9 19Z' fill='${C.rose}'/></svg>`)} center/contain no-repeat !important}
 [data-wk="sysnoteclose"]{opacity:.5 !important}
+
+/* 翻旧心声：一张张贴进本子的便利贴，一歪一正，顶上一截胶带，心情是一枚爱心章 */
+[data-wk="statehistbtn"][data-part="back"]{border:none !important;color:${C.rose} !important;font-style:italic !important}
+[data-wk="statehisthead"]{border:none !important}
+[data-wk="statehistlist"]{padding:6px 4px !important}
+[data-wk="statehistitem"]{background:#fff !important;border:none !important;border-radius:2px !important;padding:22px 16px 14px !important;margin:0 6px 26px !important;box-shadow:2px 4px 0 rgba(138,90,95,.12) !important;position:relative !important;overflow:visible !important}
+[data-wk="statehistitem"]:nth-child(odd){transform:rotate(-1.2deg) !important;background:#fffaf0 !important}
+[data-wk="statehistitem"]:nth-child(even){transform:rotate(1deg) !important;background:#fff5f6 !important}
+[data-wk="statehistitem"]::before{content:"" !important;position:absolute !important;top:-8px !important;left:calc(50% - 32px) !important;width:64px !important;height:16px !important;background:${svg(TAPE())} center/100% 100% no-repeat !important}
+[data-wk="statehistitem"]:nth-child(even)::before{background-image:${svg(TAPE(C.margin))} !important}
+[data-wk="statehistmood"]{background:${svg(HEART("#f2c4c8"))} left center/14px 13px no-repeat !important;padding-left:18px !important;color:${C.rose} !important}
+[data-wk="statehisttime"]{position:absolute !important;right:10px !important;top:8px !important}
+[data-wk="statehisttext"]{line-height:1.8 !important}
+[data-wk="statehistmeta"]{border-top:1px solid ${C.line} !important;margin-top:8px !important;padding-top:6px !important}
+[data-wk="statehistend"]{font-size:12px !important}
 `;
 
 const pack = { kind: "chat-look", v: 1, name: "粉色日记", look: { bubble, layout, customCSS: css.trim() }, assets: {} };

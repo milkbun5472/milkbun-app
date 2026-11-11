@@ -294,6 +294,25 @@ span[data-wk="avatar"]:not([data-halo])::before{transform:scaleX(-1) !important}
 [data-wk="statevoice"]::after{right:-6px !important}
 [data-wk="stateseen"] *,[data-wk="statevoice"] *{font-size:13px !important;line-height:1.6 !important}
 [data-wk="statevoice"] > span[aria-hidden]{display:none !important}
+
+/* 翻旧心声：沿着一条金色星轨往下，每条是轨道上的一颗星 */
+[data-wk="statehist"]{position:relative !important;padding-left:44px !important}
+[data-wk="statehistlist"]{position:relative !important}
+[data-wk="statehistlist"]::before{content:"" !important;position:absolute !important;left:-24px !important;top:6px !important;bottom:6px !important;width:1px !important;background:linear-gradient(180deg,transparent,${C.gold} 10%,${C.gold} 90%,transparent) !important;opacity:.7 !important}
+[data-wk="statehistitem"]{position:relative !important;background:rgba(11,15,43,.55) !important;border:1px solid rgba(255,217,138,.4) !important;border-radius:16px !important;padding:12px 14px !important;margin-bottom:16px !important}
+[data-wk="statehistitem"]::before{content:"" !important;position:absolute !important;left:-33px !important;top:12px !important;width:18px !important;height:18px !important;background:${svg(SPARK("#FFFFFF", 9))} center/contain no-repeat !important;filter:drop-shadow(0 0 4px ${C.gold}) !important}
+[data-wk="statehisttext"]{color:${C.ink} !important;font-style:italic !important}
+[data-wk="statehistmeta"] *{color:${C.dim} !important}
+[data-wk="statehistend"]{display:block !important;text-align:center !important;color:${C.dim} !important}
+[data-wk="statehistend"]::before{content:"✦ " !important;color:${C.gold} !important}
+[data-wk="statehistbtn"][data-part="back"]{border:1px solid rgba(255,217,138,.5) !important;border-radius:999px !important;display:inline-block !important;width:auto !important;padding:4px 16px !important}
+
+/* 翻旧那页不摆星座：头像回到抬头，金线收掉 */
+[data-wk="statecard"]:has([data-wk="statehist"]) [data-wk="statehead"] > [data-wk="avatar"]{position:static !important;width:44px !important;height:44px !important;margin:0 !important}
+[data-wk="statecard"]:has([data-wk="statehist"]) [data-wk="statehead"] > [data-wk="avatar"] *{width:44px !important;height:44px !important}
+[data-wk="statecard"]:has([data-wk="statehist"]) > div.flex-1{padding-top:8px !important}
+[data-wk="statecard"]:has([data-wk="statehist"]) > div.flex-1::before{display:none !important}
+[data-wk="statecard"]:has([data-wk="statehist"]) [data-wk="statehead"]{justify-content:flex-start !important}
 `;
 
 const pack = { kind: "chat-look", v: 1, name: "星空", look: { bubble, layout: { bubble: "bubble", avatar: "all", name: false, gap: "normal", time: "show" }, customCSS: css.trim() }, assets: {} };
