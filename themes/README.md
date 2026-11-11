@@ -50,7 +50,7 @@
 
 - Ta 眼里卡片顶上的米色贴条（`gazetape`，展开的信和旧版也是它）：每套都换成自己的样子。
 
-- 线下两颗加号：底栏「给 Ta 看真实照片」（`[data-wk="offcomposer"] button[title="给 Ta 看真实照片"]`）**藏掉**；顶栏「给 Ta 一个提示」（`[data-wk="offline"] [data-wk="chathead"] button[title="给 Ta 一个提示"]`）换成这套的加号图。
+- 线下两颗加号：底栏「给 Ta 看真实照片」（`[data-wk="offcomposer"] button[title="给 Ta 看真实照片"]`）和顶栏「给 Ta 一个提示」（`[data-wk="offline"] [data-wk="chathead"] button[title="给 Ta 一个提示"]`）——**按钮留着，把加号符号藏掉（里面 `*{opacity:0}`），换成这套自己的图案**，不要整颗 display:none。
 
 - 顶栏高度：跟前几套一样矮（本体约 70px），下沿装饰用负的 top 往上叠进顶栏，别往下拖一大截；聊天区 padding-top 只留够挂件露出来。
 

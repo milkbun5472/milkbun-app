@@ -417,13 +417,14 @@ button[data-wk="avatar"]::before,span[data-wk="avatar"]:not([data-halo])::before
 [data-wk="offline"] [data-wk="chathead"] button:last-child:not([data-wk]){background:${C.cream} !important;border:1.5px solid ${C.gold} !important;color:${C.redD} !important;border-radius:999px !important}
 [data-wk="offcomposer"]{background:${C.cream} !important;border-top:2px solid ${C.gold} !important}
 [data-wk="offcomposer"] textarea{background:#fff !important;border:1.5px solid ${C.gold} !important;border-radius:20px !important;color:${C.ink} !important}
-[data-wk="offcomposer"] button[title="给 Ta 看真实照片"]{display:none !important}
+[data-wk="offcomposer"] button[title="给 Ta 看真实照片"]{width:36px !important;height:36px !important;min-width:36px !important;border:none !important;box-shadow:none !important;font-size:0 !important;color:transparent !important;background:${svg(`<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 44'><path d='M20 0 V6' stroke='${C.gold}' stroke-width='1.6'/><rect x='14' y='5' width='12' height='7' rx='2' fill='${C.gold}' stroke='#9C7424'/><circle cx='20' cy='27' r='16' fill='#D9474A' stroke='${C.redD}' stroke-width='1.6'/><path d='M6 25 Q20 31 34 25' fill='none' stroke='${C.gold}' stroke-width='2.4'/><ellipse cx='14' cy='20' rx='4' ry='2.6' fill='#fff' opacity='.6'/></svg>`)} center/contain no-repeat !important}
+[data-wk="offcomposer"] button[title="给 Ta 看真实照片"] *{opacity:0 !important}
 [data-wk="offcomposer"] button:not([title]):not([data-wk]){background:${svg(I_SEND)} center/contain no-repeat !important;border:none !important;box-shadow:none !important}
 [data-wk="offcomposer"] button:not([title]):not([data-wk]) svg{opacity:0 !important}
 [data-wk="offcard"]{background:${C.cream} !important;border:1.5px solid ${C.gold} !important;border-left-width:1.5px !important;border-radius:20px !important;box-shadow:0 4px 0 #C9A46A,0 8px 18px rgba(0,0,0,.3) !important;position:relative !important;overflow:visible !important}
 [data-wk="offcard"][data-me="1"]{background:#FBE9E4 !important;border-color:${C.red} !important}
 [data-wk="offcard"]::before{content:"" !important;position:absolute !important;top:-14px !important;right:18px !important;width:42px !important;height:30px !important;background:${svg(HOLLY)} center/contain no-repeat !important}
-[data-wk="offcard"][data-me="1"]::before{right:auto !important;left:18px !important;top:-10px !important;width:100px !important;height:22px !important;background:${svg(SNOWCAP)} center/100% 100% no-repeat !important}
+[data-wk="offcard"][data-me="1"]::before{right:-2px !important;left:-2px !important;top:-6px !important;width:auto !important;height:20px !important;background:${svg(SNOWCAP)} center/100% 100% no-repeat !important}
 [data-wk="offhead"] img,[data-wk="offhead"] [data-wk="avatar"]{border-radius:50% !important;box-shadow:0 0 0 2px #fff,0 0 0 3.5px ${C.holly} !important}
 [data-wk="offname"]{color:${C.redD} !important;font-weight:700 !important}
 [data-wk="offtext"]{color:${C.ink} !important}

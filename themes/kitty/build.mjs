@@ -419,7 +419,7 @@ ${ktAlong()}
 [data-wk="offcard"][data-me="1"]::before{left:auto !important;right:28px !important;background:${svg(`<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 22'><g fill='#E6EDF6' stroke='${C.line}' stroke-width='2' stroke-linejoin='round' stroke-linecap='round'><path d='M2 22 C6 16 8 6 12 3 C15 1 18 3 22 9 C25 14 28 18 30 22'/><path d='M34 22 C36 18 39 14 42 9 C46 3 49 1 52 3 C56 6 58 16 62 22'/></g><g fill='#E6EDF6'><rect x='0' y='19.6' width='64' height='3'/></g><g fill='${C.pink}' opacity='.75'><path d='M10 18 C11 12 13 7 15 7 C17 7 19 12 21 18Z'/><path d='M43 18 C45 12 47 7 49 7 C51 7 53 12 54 18Z'/></g></svg>`)} center bottom/100% 100% no-repeat !important}
 
 /* 线下：底栏那颗「给 Ta 看真实照片」藏起来；顶栏「给 Ta 一个提示」换成毛线团 */
-[data-wk="offcomposer"] button[title="给 Ta 看真实照片"]{display:none !important}
+[data-wk="offcomposer"] button[title="给 Ta 看真实照片"]{display:inline-flex !important}
 [data-wk="offline"] [data-wk="chathead"] button[title="给 Ta 一个提示"]{width:30px !important;height:30px !important;background:${svg(I_PLUS)} center/contain no-repeat !important;border:none !important}
 [data-wk="offline"] [data-wk="chathead"] button[title="给 Ta 一个提示"] *{opacity:0 !important}
 
