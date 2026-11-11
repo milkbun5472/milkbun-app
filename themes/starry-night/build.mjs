@@ -308,11 +308,14 @@ span[data-wk="avatar"]:not([data-halo])::before{transform:scaleX(-1) !important}
 [data-wk="statehistbtn"][data-part="back"]{border:1px solid rgba(255,217,138,.5) !important;border-radius:999px !important;display:inline-block !important;width:auto !important;padding:4px 16px !important}
 
 /* 翻旧那页不摆星座：头像回到抬头，金线收掉 */
-[data-wk="statecard"]:has([data-wk="statehist"]) [data-wk="statehead"] > [data-wk="avatar"]{position:static !important;width:44px !important;height:44px !important;margin:0 !important}
-[data-wk="statecard"]:has([data-wk="statehist"]) [data-wk="statehead"] > [data-wk="avatar"] *{width:44px !important;height:44px !important}
-[data-wk="statecard"]:has([data-wk="statehist"]) > div.flex-1{padding-top:8px !important}
-[data-wk="statecard"]:has([data-wk="statehist"]) > div.flex-1::before{display:none !important}
-[data-wk="statecard"]:has([data-wk="statehist"]) [data-wk="statehead"]{justify-content:flex-start !important}
+[data-wk="statecard"]:not(:has([data-wk="stateseen"],[data-wk="statevoice"])) [data-wk="statehead"] > [data-wk="avatar"]{position:static !important;width:44px !important;height:44px !important;margin:0 !important}
+[data-wk="statecard"]:not(:has([data-wk="stateseen"],[data-wk="statevoice"])) [data-wk="statehead"] > [data-wk="avatar"] *{width:44px !important;height:44px !important}
+[data-wk="statecard"]:not(:has([data-wk="stateseen"],[data-wk="statevoice"])) > div.flex-1{padding-top:8px !important}
+[data-wk="statecard"]:not(:has([data-wk="stateseen"],[data-wk="statevoice"])) > div.flex-1::before{display:none !important}
+[data-wk="statecard"]:not(:has([data-wk="stateseen"],[data-wk="statevoice"])) [data-wk="statehead"]{justify-content:flex-start !important}
+
+[data-wk="statecard"]:not(:has([data-wk="stateseen"],[data-wk="statevoice"])) [data-wk="stateheart"],[data-wk="statecard"]:not(:has([data-wk="stateseen"],[data-wk="statevoice"])) [data-wk="stateaffval"]{display:none !important}
+[data-wk="statecard"]:not(:has([data-wk="stateseen"],[data-wk="statevoice"])){min-height:0 !important}
 `;
 
 const pack = { kind: "chat-look", v: 1, name: "星空", look: { bubble, layout: { bubble: "bubble", avatar: "all", name: false, gap: "normal", time: "show" }, customCSS: css.trim() }, assets: {} };
