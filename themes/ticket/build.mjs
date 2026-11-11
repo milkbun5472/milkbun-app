@@ -23,6 +23,13 @@ const T_PLUS = TIX(`<path d='M20 9 V21 M14 15 H26' stroke='${C.roseD}' stroke-wi
 const T_HOUSE = TIX(`<path d='M13 15 L20 9 L27 15 V22 H13Z' fill='none' stroke='${C.roseD}' stroke-width='1.7' stroke-linejoin='round'/><path d='M18.5 22 V18 H21.5 V22' fill='none' stroke='${C.roseD}' stroke-width='1.5'/>`);
 const T_MORE = TIX(`<circle cx='14' cy='15' r='1.9' fill='${C.roseD}'/><circle cx='20' cy='15' r='1.9' fill='${C.roseD}'/><circle cx='26' cy='15' r='1.9' fill='${C.roseD}'/>`);
 const T_PHOTO = TIX(`<rect x='12.5' y='9.5' width='15' height='11' rx='1.5' fill='none' stroke='${C.roseD}' stroke-width='1.6'/><circle cx='17' cy='13.5' r='1.5' fill='${C.roseD}'/><path d='M13 20 L18 16 L21 18.5 L24 16 L27 19' fill='none' stroke='${C.roseD}' stroke-width='1.4' stroke-linejoin='round'/>`);
+
+// 顶栏两颗换成挂牌：尖头朝左、带小孔、一截细绳，跟他的气泡同一个形状
+const TAG = (inner) => `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 44 30'><path d='M2 8 Q6 2 10 6' fill='none' stroke='${C.rose}' stroke-width='1.2' stroke-linecap='round'/><path d='M14 3 H40 Q42 3 42 5 V25 Q42 27 40 27 H14 L5 15Z' fill='${C.paper}' stroke='${C.rose}' stroke-width='1.4' stroke-linejoin='round'/><circle cx='12' cy='15' r='2.2' fill='${C.bg}' stroke='${C.rose}' stroke-width='1.1'/>${inner}</svg>`;
+const G_HOUSE = TAG(`<path d='M21 15.5 L28 9.5 L35 15.5 V22 H21Z' fill='${C.pink}' stroke='${C.roseD}' stroke-width='1.5' stroke-linejoin='round'/><path d='M26.5 22 V18 H29.5 V22' fill='none' stroke='${C.roseD}' stroke-width='1.3'/>`);
+const G_MORE = TAG(`<path d='M28 21 C23.5 18 21.5 16 21.5 13.6 C21.5 11.8 22.9 10.6 24.5 10.6 C26 10.6 27.3 11.5 28 12.6 C28.7 11.5 30 10.6 31.5 10.6 C33.1 10.6 34.5 11.8 34.5 13.6 C34.5 16 32.5 18 28 21Z' fill='${C.pink}' stroke='${C.roseD}' stroke-width='1.4'/>`);
+// 头像框：邮票齿孔一圈＋紫色细环
+const PERF = (() => { let d = ""; for (let i = 0; i < 28; i++) { const a = i / 28 * Math.PI * 2; d += `<circle cx='${(50 + Math.cos(a) * 47).toFixed(2)}' cy='${(50 + Math.sin(a) * 47).toFixed(2)}' r='3.2' fill='${C.bg}'/>`; } return `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='48' fill='${C.paper}'/>${d}<circle cx='50' cy='50' r='40' fill='none' stroke='${C.rose}' stroke-width='2'/></svg>`; })();
 const bubble = { myBg: C.pink, myText: C.ink, myBorder: "1.4px solid " + C.line, charBg: C.paper, charText: C.ink, charBorder: "1.4px solid " + C.line, radius: 8, shadow: "none", myAlpha: 100, charAlpha: 100 };
 const layout = { bubble: "bubble", avatar: "first", name: false, gap: "normal", time: "show" };
 const LINE = `1.4px solid ${C.line}`;
@@ -191,6 +198,21 @@ button[data-wk="avatar"],span[data-wk="avatar"]:not([data-halo]){box-shadow:0 0 
 [data-wk="offcomposer"] button:not([title]):not([data-wk]) svg{opacity:0 !important}
 [data-wk="offcomposer"] button[title="让 Ta 演绎"]{width:46px !important;min-width:46px !important;height:34px !important;border:none !important;border-radius:4px !important;background:radial-gradient(circle at 0 50%,${C.paper} 4.5px,transparent 5px),radial-gradient(circle at 100% 50%,${C.paper} 4.5px,transparent 5px),${svg(I_REPLYW)} center/22px no-repeat,${C.rose} !important;box-shadow:0 3px 0 ${C.roseD} !important;font-size:0 !important}
 [data-wk="offcomposer"] button[title="让 Ta 演绎"] *{opacity:0 !important}
+
+
+/* 房子、三个点：换成挂牌 */
+[data-wk="sameroom"],[data-wk="chatmore"]{width:40px !important;min-width:40px !important;height:28px !important}
+[data-wk="sameroom"]{background:${svg(G_HOUSE)} center/contain no-repeat !important}
+[data-wk="chatmore"]{background:${svg(G_MORE)} center/contain no-repeat !important}
+/* 头像框：一枚邮票——齿孔圆边＋紫色细环，头像压在上面 */
+button[data-wk="avatar"],span[data-wk="avatar"]{position:relative !important;overflow:visible !important;isolation:isolate !important}
+button[data-wk="avatar"] > *,span[data-wk="avatar"] > *,img[data-wk="avatar"]{position:relative !important;z-index:1 !important}
+button[data-wk="avatar"],span[data-wk="avatar"]:not([data-halo]){box-shadow:none !important}
+button[data-wk="avatar"]::before,span[data-wk="avatar"]:not([data-halo])::before{content:"" !important;position:absolute !important;inset:-22% !important;background:${svg(PERF)} center/contain no-repeat !important;z-index:0 !important;pointer-events:none !important;filter:drop-shadow(0 2px 2px rgba(106,79,166,.25)) !important}
+[data-wk="chathead"] [data-wk="avatar"],[data-wk="chathead"] img{box-shadow:none !important}
+[data-wk="chathead"] button:has(> [data-wk="avatar"]){position:relative !important}
+[data-wk="chathead"] button:has(> [data-wk="avatar"])::before{content:"" !important;position:absolute !important;left:-6px !important;top:calc(50% - 26px) !important;width:52px !important;height:52px !important;background:${svg(PERF)} center/contain no-repeat !important;z-index:0 !important}
+[data-wk="chathead"] button:has(> [data-wk="avatar"]) > [data-wk="avatar"]{position:relative !important;z-index:1 !important}
 
 `;
 
