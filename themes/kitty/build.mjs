@@ -437,6 +437,14 @@ ${ktAlong()}
 [data-wk="chathead"] [data-wk="headname"] > [data-wk="headink"]{display:inline-flex !important;max-width:100% !important;background:#fff ${svg(BELL)} 7px center/14px 14px no-repeat !important;border:1.5px solid ${C.line} !important;border-radius:11px !important;padding:0 8px 0 24px !important;line-height:1.35 !important;box-shadow:0 2px 0 #C3CEE0 !important;font-size:15px !important}
 [data-wk="chathead"] [data-wk="headname"] > [data-wk="headink"] > [data-wk="headdim"]{display:none !important}
 [data-wk="chathead"] [data-wk="headname"] > [data-wk="headdim"]{font-size:9px !important;opacity:.75 !important;margin:1px 0 0 6px !important;line-height:1.2 !important}
+
+/* 名牌给名字让地方：铃铛挪到牌子左上角挂着，牌子里只剩名字；名字那一块尽量撑满；右边小房子和三颗爪收小 */
+[data-wk="chathead"] [data-wk="headname"]{flex:1 1 auto !important;min-width:0 !important;overflow:visible !important}
+[data-wk="chathead"] button:has(> [data-wk="headname"]){flex:1 1 auto !important;min-width:0 !important}
+[data-wk="chathead"] [data-wk="headname"] > [data-wk="headink"]{background:#fff !important;padding:0 9px !important;font-size:14px !important;position:relative !important;overflow:visible !important}
+[data-wk="chathead"] [data-wk="headname"] > [data-wk="headink"]::before{content:"" !important;position:absolute !important;left:-6px !important;top:-7px !important;width:13px !important;height:13px !important;background:${svg(BELL)} center/contain no-repeat !important}
+[data-wk="sameroom"]{width:30px !important;min-width:30px !important;height:30px !important;background-size:26px !important}
+[data-wk="chatmore"]{width:34px !important;min-width:34px !important;background-size:32px auto !important}
 `;
 
 const pack = { kind: "chat-look", v: 1, name: "猫猫", look: { bubble, layout, customCSS: css.trim() }, assets: {} };
