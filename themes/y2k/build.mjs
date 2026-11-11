@@ -21,6 +21,16 @@ const I_REPLY = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 44 44'><de
 const I_HOUSE = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'><circle cx='20' cy='20' r='18' fill='#FFE3F2' stroke='#fff' stroke-width='2'/><path d='M11 20 L20 12 L29 20 V29 H11Z' fill='none' stroke='#FF5DB4' stroke-width='2.4' stroke-linejoin='round'/></svg>`;
 const I_MORE = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'><circle cx='20' cy='20' r='18' fill='${C.blueL}' stroke='#fff' stroke-width='2'/><g transform='translate(7 14) scale(.6)'>${SPARK("#4AA8F0").replace(/<\/?svg[^>]*>/g, "")}</g><g transform='translate(15 13) scale(.7)'>${SPARK("#4AA8F0").replace(/<\/?svg[^>]*>/g, "")}</g><g transform='translate(24 14) scale(.6)'>${SPARK("#4AA8F0").replace(/<\/?svg[^>]*>/g, "")}</g></svg>`;
 
+
+// ── 规格版：镀铬外壳、水晶球按键 ──
+const CHROME = "linear-gradient(180deg,#FFFFFF 0%,#D5DDF0 35%,#9AA7C7 50%,#EEF3FF 62%,#B4BFDB 100%)";
+const SHELL_SHADOW = "0 0 0 1px #6F7BA6,inset 0 2px 2px rgba(255,255,255,.9),inset 0 -5px 6px rgba(106,63,200,.35),0 7px 14px rgba(122,69,214,.38)";
+const ORB = (a, b, glyph) => `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'><defs><linearGradient id='c' x1='0' y1='0' x2='0' y2='1'><stop offset='0' stop-color='#FFFFFF'/><stop offset='.35' stop-color='#D5DDF0'/><stop offset='.5' stop-color='#9AA7C7'/><stop offset='.62' stop-color='#EEF3FF'/><stop offset='1' stop-color='#B4BFDB'/></linearGradient><linearGradient id='b' x1='0' y1='0' x2='0' y2='1'><stop offset='0' stop-color='${a}'/><stop offset='1' stop-color='${b}'/></linearGradient><linearGradient id='h' x1='0' y1='0' x2='0' y2='1'><stop offset='0' stop-color='#fff' stop-opacity='.85'/><stop offset='1' stop-color='#fff' stop-opacity='.05'/></linearGradient><filter id='s' x='-30%' y='-30%' width='160%' height='170%'><feDropShadow dx='0' dy='3' stdDeviation='2.2' flood-color='#7A45D6' flood-opacity='.38'/></filter></defs><g filter='url(#s)'><circle cx='24' cy='23' r='20.5' fill='url(#c)' stroke='#6F7BA6' stroke-width='1'/><circle cx='24' cy='23' r='17.5' fill='url(#b)' stroke='#fff' stroke-width='1.2'/><path d='M10 28 A17 17 0 0 0 38 28' fill='none' stroke='#6A3FC8' stroke-opacity='.25' stroke-width='3'/><ellipse cx='24' cy='13.5' rx='10.8' ry='5.6' fill='url(#h)'/>${glyph}</g></svg>`;
+const ORB_PLUS = ORB("#FFF6B0", "#FFD84D", "<path d='M24 16 V30 M17 23 H31' stroke='#3A2A55' stroke-width='2.8' stroke-linecap='round'/>");
+const ORB_REPLY = ORB("#E2F6FF", "#93D6FF", "<path d='M15 17 H33 Q35 17 35 19 V27 Q35 29 33 29 H22 L17 33 L18 29 H15 Q13 29 13 27 V19 Q13 17 15 17Z' fill='#fff' stroke='#3A2A55' stroke-width='1.8' stroke-linejoin='round'/><circle cx='19' cy='23' r='1.4' fill='#3A2A55'/><circle cx='24' cy='23' r='1.4' fill='#3A2A55'/><circle cx='29' cy='23' r='1.4' fill='#3A2A55'/>");
+const ORB_HOME = ORB("#FFE3F4", "#FF9FD6", "<path d='M16 24 L24 17 L32 24 V31 H16Z' fill='none' stroke='#FF3FA4' stroke-width='2.4' stroke-linejoin='round'/>");
+const ORB_MORE = ORB("#E2F6FF", "#93D6FF", `<g transform='translate(13 18) scale(.5)'>${SPARK("#2F7FD0").replace(/<\/?svg[^>]*>/g, "")}</g><g transform='translate(19 16) scale(.6)'>${SPARK("#2F7FD0").replace(/<\/?svg[^>]*>/g, "")}</g><g transform='translate(26 18) scale(.5)'>${SPARK("#2F7FD0").replace(/<\/?svg[^>]*>/g, "")}</g>`);
+const HEART_SEND = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 52 48'><defs><linearGradient id='g' x1='0' y1='0' x2='0' y2='1'><stop offset='0' stop-color='#FFC2E6'/><stop offset='1' stop-color='#FF3FA4'/></linearGradient><linearGradient id='h' x1='0' y1='0' x2='0' y2='1'><stop offset='0' stop-color='#fff' stop-opacity='.85'/><stop offset='1' stop-color='#fff' stop-opacity='.05'/></linearGradient><filter id='s' x='-30%' y='-30%' width='160%' height='170%'><feDropShadow dx='0' dy='3' stdDeviation='2.2' flood-color='#7A45D6' flood-opacity='.38'/></filter></defs><g filter='url(#s)'><path d='M26 43 C11 33 3 25 3 15 C3 8 8.5 3 15 3 C19.5 3 23.5 5.5 26 9 C28.5 5.5 32.5 3 37 3 C43.5 3 49 8 49 15 C49 25 41 33 26 43Z' fill='url(#g)' stroke='#fff' stroke-width='1.6'/><path d='M8 22 C12 30 18 35 26 40 C34 35 40 30 44 22' fill='none' stroke='#6A3FC8' stroke-opacity='.25' stroke-width='3'/><ellipse cx='16' cy='11' rx='7' ry='4' fill='url(#h)' transform='rotate(-20 16 11)'/><path d='M17 22 H34 M28 16 L34 22 L28 28' fill='none' stroke='#fff' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'/></g></svg>`;
 const bubble = { myBg: C.pinkL, myText: C.ink, myBorder: "none", charBg: C.blueL, charText: C.ink, charBorder: "none", radius: 14, shadow: "none", myAlpha: 100, charAlpha: 100 };
 const layout = { bubble: "bubble", avatar: "first", name: false, gap: "normal", time: "show" };
 
@@ -147,6 +157,31 @@ button[data-wk="avatar"]::after,span[data-wk="avatar"]:not([data-halo])::after{l
 /* 顶栏、底栏照参考图的立体胶囊：外面一圈白亮的厚边框，里面一道往下凹的槽，底下一层厚度＋投影 */
 [data-wk="chathead"]::before{background:linear-gradient(180deg,rgba(255,255,255,.55) 0,rgba(255,255,255,0) 40%),linear-gradient(180deg,#E7E1F8,#D3C8F0) !important;border:none !important;box-shadow:inset 0 0 0 2px #fff,inset 0 0 0 8px #EEEAF8,inset 0 -2px 0 8px #CEC5EA,inset 0 3px 6px 8px rgba(110,90,180,.3),0 0 0 1.5px #B4A8DA,0 5px 0 0.5px #A79BD0,0 12px 22px rgba(20,10,50,.45) !important}
 [data-wk="composer"]::before{background:linear-gradient(180deg,rgba(255,255,255,.55) 0,rgba(255,255,255,0) 40%),linear-gradient(180deg,#E7E1F8,#D3C8F0) !important;border:none !important;box-shadow:inset 0 0 0 2px #fff,inset 0 0 0 8px #EEEAF8,inset 0 -2px 0 8px #CEC5EA,inset 0 3px 6px 8px rgba(110,90,180,.3),0 0 0 1.5px #B4A8DA,0 5px 0 0.5px #A79BD0,0 -2px 18px rgba(20,10,50,.45) !important}
+
+
+/* ───── 顶栏、底栏：按规格重做（镀铬悬浮胶囊） ───── */
+[data-wk="chathead"]{min-height:calc(var(--app-safe-top, 0px) + 82px) !important;align-items:center !important;padding-left:26px !important;padding-right:24px !important}
+[data-wk="chathead"]::before{left:12px !important;right:12px !important;top:calc(var(--app-safe-top, 0px) + 8px) !important;bottom:auto !important;height:66px !important;border-radius:33px !important;border:none !important;background:${CHROME} !important;box-shadow:${SHELL_SHADOW} !important}
+/* 嵌进去的面板＋玻璃高光 */
+[data-wk="chathead"]::after{content:"" !important;position:absolute !important;left:18px !important;right:18px !important;top:calc(var(--app-safe-top, 0px) + 14px) !important;height:54px !important;border-radius:27px !important;background:linear-gradient(180deg,rgba(255,255,255,.85),rgba(255,255,255,.05)) 12px 3px/calc(100% - 24px) 14px no-repeat,linear-gradient(180deg,#FFFFFF,#E7DCFF) !important;border:1.4px solid #fff !important;box-shadow:inset 0 3px 5px rgba(90,63,176,.35) !important;pointer-events:none !important;z-index:-1 !important;box-sizing:border-box !important}
+[data-wk="chatback"] svg{stroke:#3A2A55 !important;stroke-width:2.4 !important}
+[data-wk="chathead"] [data-wk="avatar"]{width:44px !important;height:44px !important;padding:5px !important;box-sizing:border-box !important;border-radius:12px !important;background:linear-gradient(180deg,#FF8CCB,#FF3FA4) !important;box-shadow:inset 0 2px 2px rgba(255,255,255,.7),0 3px 6px rgba(122,69,214,.38) !important}
+[data-wk="chathead"] [data-wk="avatar"] > *,[data-wk="chathead"] [data-wk="avatar"] img{width:34px !important;height:34px !important;border-radius:8px !important;box-shadow:none !important}
+[data-wk="chathead"] [data-wk="headink"],[data-wk="chathead"] [data-wk="headink"] *{font-size:21px !important;font-weight:900 !important;color:#FF3FA4 !important;-webkit-text-stroke:0 !important;text-shadow:2.5px 0 #fff,-2.5px 0 #fff,0 2.5px #fff,0 -2.5px #fff,1.8px 1.8px #fff,-1.8px 1.8px #fff,1.8px -1.8px #fff,-1.8px -1.8px #fff !important}
+[data-wk="chathead"] [data-wk="headname"] > [data-wk="headdim"]{font-size:10.5px !important;font-weight:800 !important;color:#6A5A8C !important}
+[data-wk="sameroom"],[data-wk="chatmore"]{width:42px !important;min-width:42px !important;height:42px !important;background-size:contain !important}
+[data-wk="sameroom"]{background-image:${svg(ORB_HOME)} !important}
+[data-wk="chatmore"]{background-image:${svg(ORB_MORE)} !important}
+
+/* 底栏：镀铬外壳直接放按键，离底边留安全区＋8px */
+[data-wk="composer"]{min-height:calc(env(safe-area-inset-bottom) * .4 + var(--composer-lift, 0px) + 82px) !important;padding-left:24px !important;padding-right:22px !important;align-items:flex-start !important;padding-top:20px !important}
+[data-wk="composer"]::before{left:12px !important;right:12px !important;top:auto !important;bottom:calc(env(safe-area-inset-bottom) * .4 + var(--composer-lift, 0px) + 8px) !important;height:66px !important;border-radius:33px !important;border:none !important;background:${CHROME} !important;box-shadow:${SHELL_SHADOW} !important}
+[data-wk="chatinput"]{min-height:42px !important;height:42px !important;background:#fff !important;border:1px solid #6F7BA6 !important;border-radius:21px !important;box-shadow:inset 0 3px 5px rgba(90,63,176,.35) !important;outline:1.4px dashed #FF9FD6 !important;outline-offset:-6px !important;font-size:14px !important;font-weight:800 !important;color:#3A2A55 !important;padding:10px 16px !important}
+[data-wk="chatinput"]::placeholder{color:#9A8FB8 !important;font-weight:800 !important}
+[data-wk="chatplus"],[data-wk="chatreply"]{width:44px !important;min-width:44px !important;height:44px !important;margin:0 !important;background-size:contain !important}
+[data-wk="chatplus"]{background-image:${svg(ORB_PLUS)} !important}
+[data-wk="chatreply"]{background-image:${svg(ORB_REPLY)} !important}
+[data-wk="send"]{width:48px !important;min-width:48px !important;height:44px !important;background:${svg(HEART_SEND)} center/contain no-repeat !important;margin:0 2px !important}
 
 `;
 
