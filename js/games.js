@@ -3631,9 +3631,18 @@
       new RegExp("(?:请你|要求你|必须|要你|让你).{0,18}(?:" + action + ")").test(s) ||
       /(?:用|换成).{0,12}(?:声音|语气|口吻).{0,10}(?:说|念|演)/.test(s);
   }
+  // 判题型只挡【明摆着是另一类】的（群里 2026-11-11 留言板：她出的大冒险怎么写都被挡；抽到的大冒险老是那一条、TA 做的事跟题对不上）：
+  //   原来大冒险要先认得出「现场／请你 + 那几个动词」才算，认不出就判不对——模型出的题一半被打回、再花一次调用，
+  //   还不对就换成固定那一句，而 TA 的回答是照原题写的，题跟做的事就对不上了。
+  //   现在：大冒险只有在【一个动作都没有、只是在问一个问题】时才判不对；真心话只有在明摆着要求当场做动作时才判不对
+  const TD_ACT_RE = /表演|模仿|扮演|唱|跳|朗读|念|发送|发一|发个|发张|打电话|录|做动作|展示|切换|原地|站起|转圈|亲|抱|拍|画|学|叫|喊|喝|吃|做|俯卧撑|深蹲|自拍|照片|截图|改.{0,4}(?:名|头像|签名)|换.{0,4}(?:头像|名|签名)|穿|摸|牵|跪|躺|给.{0,8}(?:发|打|写|说)/;
+  function tdLooksLikeTruth(prompt) {
+    const s = String(prompt || "").replace(/\s+/g, "");
+    return /[？?]$|吗$|呢$/.test(s) && !TD_ACT_RE.test(s);
+  }
   function tdPromptMatchesChoice(choice, prompt) {
-    const isDare = tdLooksLikeDare(prompt);
-    return choice === "大冒险" ? isDare : !isDare;
+    if (!String(prompt || "").trim()) return false;
+    return choice === "大冒险" ? !tdLooksLikeTruth(prompt) : !tdLooksLikeDare(prompt);
   }
   // 瓶子不是纯随机：优先指向本局被指次数最少的人；同分才随机。
   function tdPickFairTarget(players, log, lastTarget, mode, randomFn) {
@@ -3709,7 +3718,7 @@
       raw = await callRetry(api, sys, [{ role: "user", content: "上一版违反了锁定题型：本轮必须是【" + plan.choice + "】，而且题目内容本身也必须属于这一类，不能只改 choice 标签。真心话只能要求诚实回答，不能要求现场表演、模仿、发消息或做动作；大冒险必须要求一个当场可执行的动作。请重新输出完整 JSON。" }], { maxTokens: 14000 });
       out = extractJSON(raw) || out;
     }
-    if (!tdPromptMatchesChoice(plan.choice, out.prompt)) {
+    if (!String(out.prompt || "").trim()) {   // 只在压根没出题时补一句；出了题就留着，TA 的回答是照这道题写的
       out.prompt = plan.choice === "真心话" ? "如果只能诚实回答：你现在最不愿让在场的人误会你什么？" : "当场模仿在场任意一个人的口头禅，并让大家猜是谁。";
     }
     out.choice = plan.choice;
@@ -3983,10 +3992,7 @@
     const submitUserAsk = async function () {
       const prompt = askInput.trim(), pa = pendingAsk;
       if (!prompt || !pa || busy) return;
-      if (!tdPromptMatchesChoice(pa.plan.choice, prompt)) {
-        props.toast && props.toast(pa.plan.choice === "真心话" ? "这道更像大冒险：真心话只让 TA 回答，不要求现场做动作哦" : "这道更像真心话：大冒险要有一个当场能做的动作哦");
-        return;
-      }
+      // 她自己出的题不拦：出什么、算哪一类，她说了算
       setBusy(true);
       try {
         const response = await genTDAnswerToUserPrompt(api, pa.target, pa.plan.choice, prompt, hot, tdMemoryText(logDataRef.current));
