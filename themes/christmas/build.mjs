@@ -521,7 +521,7 @@ button[data-wk="avatar"]::before,span[data-wk="avatar"]:not([data-halo])::before
 [data-wk="quotedraft"] [data-wk="quote"][data-draft="1"]{margin:0 !important;padding:0 !important;background:transparent !important;border:none !important;box-shadow:none !important}
 
 /* 顶栏底下那条日程不被雪帽彩灯盖住：往下让到灯串下面 */
-[data-wk="chathead"] + *:not([data-wk="body"]){margin-top:30px !important;position:relative !important;z-index:1 !important;border-top:none !important}
+[data-wk="chathead"] + *:not([data-wk="body"]){margin-top:18px !important;position:relative !important;z-index:1 !important;border-top:none !important}
 
 `;
 
