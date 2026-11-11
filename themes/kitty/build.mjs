@@ -21,6 +21,8 @@ const BELL = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'><circl
 
 // 猫耳头像框（耳朵＋项圈＋铃铛），flip 给我那颗
 const EARS = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 106'><path fill-rule='evenodd' d='M14.5 40 C12 28 12 14 18 6 C26 8 34 13 39 19 C42.5 18.2 46.2 17.8 50 17.8 C53.8 17.8 57.5 18.2 61 19 C66 13 74 8 82 6 C88 14 88 28 85.5 40 C88.3 45 90 51 90 57.8 C90 79.9 72.1 97.8 50 97.8 C27.9 97.8 10 79.9 10 57.8 C10 51 11.7 45 14.5 40Z M50 24.8 A33 33 0 1 0 50.01 24.8Z' fill='#E6EDF6' stroke='${C.line}' stroke-width='2.4' stroke-linejoin='round'/><path d='M19 30 C18 22 19 15 22 11 C27 13 32 16 35 20 C29 22 23 25 19 30Z M81 30 C82 22 81 15 78 11 C73 13 68 16 65 20 C71 22 77 25 81 30Z' fill='${C.pink}'/><path d='M23 22 l4 -2 M25 26 l5 -1 M77 22 l-4 -2 M75 26 l-5 -1' stroke='#fff' stroke-width='1.5' stroke-linecap='round'/><path d='M17 76 Q50 100 83 76' fill='none' stroke='${C.pink}' stroke-width='6' stroke-linecap='round'/><path d='M17 76 Q50 100 83 76' fill='none' stroke='#fff' stroke-width='1.2' stroke-dasharray='1 5' stroke-linecap='round' opacity='.8'/><g transform='translate(41 86)'><circle cx='9' cy='9' r='8.5' fill='${C.gold}' stroke='#B88A33' stroke-width='1.3'/><path d='M1.5 8 H16.5' stroke='#B88A33' stroke-width='1.2'/><circle cx='9' cy='12' r='1.7' fill='#7A5A20'/><path d='M9 13 V16.5' stroke='#7A5A20' stroke-width='1.2'/><circle cx='6' cy='5' r='1.6' fill='#fff' opacity='.7'/></g></svg>`;
+// 顶栏那颗用不带铃铛的框，铃铛另画一颗叠在头像上（不然框里一颗、上面一颗，看着像两颗）
+const EARS_NB = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 106'><path fill-rule='evenodd' d='M14.5 40 C12 28 12 14 18 6 C26 8 34 13 39 19 C42.5 18.2 46.2 17.8 50 17.8 C53.8 17.8 57.5 18.2 61 19 C66 13 74 8 82 6 C88 14 88 28 85.5 40 C88.3 45 90 51 90 57.8 C90 79.9 72.1 97.8 50 97.8 C27.9 97.8 10 79.9 10 57.8 C10 51 11.7 45 14.5 40Z M50 24.8 A33 33 0 1 0 50.01 24.8Z' fill='#E6EDF6' stroke='${C.line}' stroke-width='2.4' stroke-linejoin='round'/><path d='M19 30 C18 22 19 15 22 11 C27 13 32 16 35 20 C29 22 23 25 19 30Z M81 30 C82 22 81 15 78 11 C73 13 68 16 65 20 C71 22 77 25 81 30Z' fill='${C.pink}'/><path d='M23 22 l4 -2 M25 26 l5 -1 M77 22 l-4 -2 M75 26 l-5 -1' stroke='#fff' stroke-width='1.5' stroke-linecap='round'/><path d='M17 76 Q50 100 83 76' fill='none' stroke='${C.pink}' stroke-width='6' stroke-linecap='round'/><path d='M17 76 Q50 100 83 76' fill='none' stroke='#fff' stroke-width='1.2' stroke-dasharray='1 5' stroke-linecap='round' opacity='.8'/></svg>`;
 
 
 // 背景：雾蓝底，散着淡淡的小鱼、鱼骨、爪印
@@ -99,7 +101,7 @@ const css = `
 img[data-wk="avatar"],[data-wk="avatar"] img{clip-path:circle(50%) !important}
 button[data-wk="avatar"]::before,span[data-wk="avatar"]:not([data-halo])::before{content:"" !important;position:absolute !important;inset:-26% !important;top:-40% !important;bottom:-33% !important;background:${svg(EARS)} center top/contain no-repeat !important;pointer-events:none !important;z-index:2 !important}
 [data-wk="chathead"] button:has(> [data-wk="avatar"]){position:relative !important;overflow:visible !important}
-[data-wk="chathead"] button:has(> [data-wk="avatar"])::before{content:"" !important;position:absolute !important;width:52px !important;height:55px !important;left:-8px !important;top:calc(50% - 30px) !important;background:${svg(EARS)} center top/contain no-repeat !important;pointer-events:none !important;z-index:2 !important}
+[data-wk="chathead"] button:has(> [data-wk="avatar"])::before{content:"" !important;position:absolute !important;width:52px !important;height:55px !important;left:-8px !important;top:calc(50% - 30px) !important;background:${svg(EARS_NB)} center top/contain no-repeat !important;pointer-events:none !important;z-index:2 !important}
 
 /* 气泡：肉垫形，尾巴是一颗小肉球 */
 [data-wk="bubble"][data-kind="text"]{position:relative !important;overflow:visible !important;border-radius:24px 24px 24px 24px !important}
@@ -446,8 +448,6 @@ ${ktAlong()}
 
 /* 顶栏头像的铃铛：框里那颗被头像图压住了，另画一颗一模一样的叠在最上面（好日子光圈那天让给光圈） */
 [data-wk="chathead"] button:has(> [data-wk="avatar"]):not(:has(> [data-halo]))::after{content:"" !important;position:absolute !important;left:12.5px !important;top:calc(50% + 10px) !important;width:11px !important;height:11px !important;background:${svg(BELL)} center/contain no-repeat !important;z-index:3 !important;pointer-events:none !important}
-/* 头像项圈上已经有铃铛了，名牌角上那颗去掉 */
-[data-wk="chathead"] [data-wk="headname"] > [data-wk="headink"]::before{content:none !important}
 /* 毛线团压在那根线上面，不让线从球里透过去 */
 [data-wk="chat"]::after{z-index:0 !important}
 [data-wk="chat"]::before{z-index:1 !important}
