@@ -125,6 +125,18 @@ button[data-wk="avatar"]::after,span[data-wk="avatar"]:not([data-halo])::after{l
 
 [data-wk="msg"] button[data-wk="avatar"],[data-wk="cardrow"] button[data-wk="avatar"]{margin:6px 10px 0 !important}
 
+/* 头像框照参考图的立体果冻边：外面一圈有厚度的淡紫白斜面（上亮下暗），最外细紫描，里面贴着图一道彩边（我粉他蓝） */
+button[data-wk="avatar"],span[data-wk="avatar"]:not([data-halo]),[data-wk="chathead"] [data-wk="avatar"]{padding:6px !important;margin:-6px !important;background:linear-gradient(180deg,#FFFFFF 0,#F3EEFF 45%,#DCD2F6 80%,#C8BBEE) !important;border-radius:18px !important;box-shadow:0 0 0 1.5px #B7A6E8,inset 0 2px 1px #fff,inset 0 -3px 4px rgba(120,90,200,.35),0 6px 12px rgba(30,20,60,.4) !important;box-sizing:content-box !important}
+button[data-wk="avatar"] > *,span[data-wk="avatar"]:not([data-halo]) > *,[data-wk="chathead"] [data-wk="avatar"] > *{border-radius:11px !important;box-shadow:0 0 0 2.5px #7CC4F8 !important}
+[data-me="1"] button[data-wk="avatar"] > *,[data-me="1"] span[data-wk="avatar"]:not([data-halo]) > *{box-shadow:0 0 0 2.5px #F05AAE !important}
+[data-wk="chathead"] [data-wk="avatar"] > *{box-shadow:0 0 0 2.5px #F05AAE !important}
+[data-wk="chathead"] img{box-shadow:none !important}
+[data-wk="msg"] button[data-wk="avatar"],[data-wk="cardrow"] button[data-wk="avatar"]{margin:0 4px !important}
+button[data-wk="avatar"]::before,span[data-wk="avatar"]:not([data-halo])::before{right:-10px !important;top:-10px !important}
+button[data-wk="avatar"]::after,span[data-wk="avatar"]:not([data-halo])::after{left:-9px !important;bottom:-7px !important}
+
+[data-me="1"] button[data-wk="avatar"],[data-me="1"] span[data-wk="avatar"]:not([data-halo]){box-shadow:0 0 0 1.5px #B7A6E8,inset 0 2px 1px #fff,inset 0 -3px 4px rgba(120,90,200,.35),0 6px 12px rgba(30,20,60,.4) !important}
+
 `;
 
 const pack = { kind: "chat-look", v: 1, name: "Y2K", look: { bubble, layout, customCSS: css.trim() }, assets: {} };
