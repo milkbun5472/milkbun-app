@@ -116,8 +116,8 @@ button[data-wk="avatar"]::before,span[data-wk="avatar"]:not([data-halo])::before
 /* 流星：每隔几秒从右上划过一颗 */
 @keyframes snMeteor{0%{transform:translate(0,0) rotate(-32deg);opacity:0}3%{opacity:1}14%{transform:translate(-260px,160px) rotate(-32deg);opacity:0}100%{transform:translate(-260px,160px) rotate(-32deg);opacity:0}}
 @keyframes snMeteor2{0%,40%{transform:translate(0,0) rotate(-28deg);opacity:0}43%{opacity:.9}54%{transform:translate(-220px,120px) rotate(-28deg);opacity:0}100%{opacity:0}}
-[data-wk="chat"]::after{content:"" !important;position:absolute !important;top:120px !important;right:-30px !important;width:130px !important;height:3px !important;border-radius:3px !important;background:linear-gradient(90deg,#fff,rgba(255,217,138,.7) 30%,transparent) !important;box-shadow:0 0 8px 1px rgba(255,255,255,.6) !important;pointer-events:none !important;z-index:0 !important;animation:snMeteor 7s ease-in infinite !important}
-[data-wk="body"]::before{content:"" !important;position:fixed !important;top:300px !important;right:10px !important;width:90px !important;height:2px !important;border-radius:2px !important;background:linear-gradient(90deg,#fff,rgba(168,240,255,.6) 30%,transparent) !important;pointer-events:none !important;animation:snMeteor2 11s ease-in infinite !important}
+[data-wk="chat"]::after{content:"" !important;position:absolute !important;top:120px !important;right:-30px !important;width:130px !important;height:3px !important;border-radius:3px !important;background:linear-gradient(90deg,#fff,rgba(255,217,138,.7) 30%,transparent) !important;box-shadow:0 0 8px 1px rgba(255,255,255,.6) !important;pointer-events:none !important;z-index:0 !important;animation:snMeteor 4s ease-in infinite !important}
+[data-wk="body"]::before{content:"" !important;position:fixed !important;top:300px !important;right:10px !important;width:90px !important;height:2px !important;border-radius:2px !important;background:linear-gradient(90deg,#fff,rgba(168,240,255,.6) 30%,transparent) !important;pointer-events:none !important;animation:snMeteor2 5.5s ease-in infinite !important}
 @media (prefers-reduced-motion:reduce){[data-wk="chat"]::after,[data-wk="body"]::before{animation:none !important;opacity:0 !important}}
 /* 系统提示：一行星座连线小字，不要白框 */
 [data-wk="sysnote"]{background:transparent !important;border:none !important;box-shadow:none !important;text-align:center !important}
@@ -127,6 +127,66 @@ button[data-wk="avatar"]::before,span[data-wk="avatar"]:not([data-halo])::before
 [data-wk="sysnoteclose"]{color:${C.dim} !important;opacity:.6 !important}
 [data-wk="narrink"]{color:${C.dim} !important}
 [data-wk="name"]{color:${C.dim} !important}
+
+/* 第三颗流星 */
+@keyframes snMeteor3{0%,60%{transform:translate(0,0) rotate(-36deg);opacity:0}62%{opacity:1}74%{transform:translate(-300px,210px) rotate(-36deg);opacity:0}100%{opacity:0}}
+[data-wk="body"]::after{content:"" !important;position:fixed !important;top:180px !important;left:62% !important;width:110px !important;height:2.5px !important;border-radius:2px !important;background:linear-gradient(90deg,#fff,rgba(245,184,255,.6) 30%,transparent) !important;box-shadow:0 0 6px rgba(255,255,255,.5) !important;pointer-events:none !important;animation:snMeteor3 8s ease-in infinite !important}
+@media (prefers-reduced-motion:reduce){[data-wk="body"]::after{animation:none !important;opacity:0 !important}}
+
+/* ───── 第二批：卡片都是磨砂玻璃＋金边，像夜空里的一块星图 ───── */
+[data-wk="transfercard"],[data-wk="photocard"],[data-wk="voice"],[data-wk="wxcard"],[data-wk="geocard"] > [data-wk="card"],[data-wk="namecard"],[data-part="offlog"],[data-wk="callpill"] > [data-wk="block"]{background:linear-gradient(180deg,rgba(255,255,255,.18),rgba(255,255,255,.05)),rgba(11,15,43,.55) !important;border:1.2px solid rgba(255,217,138,.75) !important;backdrop-filter:blur(5px) !important;-webkit-backdrop-filter:blur(5px) !important;color:#F4F1FF !important;border-radius:18px !important;box-shadow:0 0 18px rgba(255,217,138,.12) !important}
+[data-wk="transfercard"] *,[data-wk="namecard"] *,[data-part="offlog"] *,[data-wk="geocard"] *{color:#F4F1FF !important;border-color:rgba(255,217,138,.35) !important}
+/* 转账：金额是金色，已收是一颗满月章，待收是新月章 */
+[data-wk="transferamount"],[data-wk="transfercur"]{color:${C.gold} !important}
+[data-wk="transferrule"]{border:none !important;height:1px !important;background:linear-gradient(90deg,transparent,rgba(255,217,138,.7),transparent) !important}
+[data-wk="transfernotch"]{background:${C.deep} !important}
+[data-wk="transferfoot"]{background:rgba(255,255,255,.06) !important}
+[data-wk="transferseal"]{width:52px !important;height:52px !important;border:none !important;box-shadow:none !important;border-radius:50% !important;color:#0B0F2B !important;font-weight:700 !important;background:radial-gradient(circle at 38% 35%,#FFFBEA,#FFE3A3 60%,#E9B25A) !important;opacity:1 !important}
+[data-wk="transferseal"] *{color:#0B0F2B !important}
+[data-wk="transfercard"][data-status="pending"] [data-wk="transferseal"]{background:rgba(11,15,43,.6) !important;border:1.5px solid ${C.gold} !important;color:${C.gold} !important}
+[data-wk="transfercard"][data-status="pending"] [data-wk="transferseal"] *{color:${C.gold} !important}
+[data-wk="transfercard"][data-status="returned"] [data-wk="transferseal"]{background:rgba(180,176,224,.25) !important;color:${C.dim} !important}
+[data-wk="transferbtn"]{border-radius:999px !important}
+[data-wk="transferbtn"][data-part="take"]{background:linear-gradient(135deg,#6F5BFF,#C56BE0) !important;color:#fff !important;border:none !important}
+[data-wk="transferbtn"][data-part="back"]{background:transparent !important;color:${C.dim} !important;border:1px solid rgba(180,176,224,.5) !important}
+/* 红包：留红，像一盏小灯笼，扣子是金色满月 */
+[data-wk="rpcard"]{border-radius:18px !important;box-shadow:0 0 22px rgba(255,120,120,.25) !important;border:1.2px solid rgba(255,217,138,.7) !important}
+[data-wk="rpseal"]{border:none !important;background:radial-gradient(circle at 38% 35%,#FFFBEA,#FFE3A3 60%,#E9B25A) !important;box-shadow:0 0 10px rgba(255,217,138,.7) !important}
+[data-wk="rpseal"] *{display:none !important}
+[data-wk="rpenvelope"][data-stage="open"]{background:linear-gradient(180deg,${C.deep},${C.violet}) !important;border:1.2px solid rgba(255,217,138,.7) !important}
+[data-wk="rpenvelope"][data-stage="open"] *{color:${C.ink} !important}
+[data-wk="rpamount"]{color:${C.gold} !important}
+[data-wk="rpopenbtn"]{background:radial-gradient(circle at 38% 35%,#FFFBEA,#FFE3A3 60%,#E9B25A) !important;box-shadow:0 0 18px rgba(255,217,138,.8) !important}
+/* 照片：没图时是一块望远镜里的圆形星空 */
+[data-wk="photoface"]{background:radial-gradient(circle,rgba(108,123,255,.35),rgba(7,10,34,.9) 70%),${C.night} !important;border:1px solid rgba(255,217,138,.5) !important;border-radius:14px !important}
+[data-wk="phototext"],[data-wk="photocap"],[data-wk="photohint"]{color:${C.ink} !important}
+/* 语音、天气、位置、名片 */
+[data-wk="voice"] > *{background:transparent !important;box-shadow:none !important;border:none !important;color:${C.ink} !important}
+[data-wk="voice"] [data-wk="voicebar"]{background:transparent !important}
+[data-wk="voicewave"] span{background:${C.gold} !important}
+[data-wk="wxcardsky"]{background:linear-gradient(170deg,rgba(108,123,255,.35),rgba(74,42,120,.5)) !important;color:${C.ink} !important}
+[data-wk="wxcardsky"] *{color:${C.ink} !important}
+[data-wk="wxcardsky"] svg{stroke:${C.gold} !important}
+[data-wk="wxcardsay"]{background:transparent !important;color:${C.ink} !important;border-top:1px solid rgba(255,217,138,.35) !important}
+[data-wk="geopin"]{background:${C.gold} !important;box-shadow:0 0 10px ${C.gold} !important}
+[data-wk="geopinstem"]{background:${C.gold} !important}
+[data-wk="namecard"] img{border-radius:50% !important;box-shadow:0 0 0 2px ${C.gold} !important}
+/* 拍一拍、通话结束、线下小结 */
+[data-wk="note"]{color:${C.dim} !important}
+[data-wk="note"][data-part="pat"],[data-wk="note"][data-part="call"]{background:rgba(11,15,43,.5) !important;border:1px solid rgba(255,217,138,.55) !important;border-radius:999px !important;color:${C.gold} !important;padding:2px 14px !important}
+[data-wk="note"][data-part="call"] svg{stroke:${C.gold} !important}
+[data-wk="offlogtitle"]{color:${C.gold} !important;letter-spacing:.2em !important}
+/* 加号面板：一片夜空里的金边圆星球 */
+[data-wk="chatpanel"]{background:linear-gradient(180deg,rgba(7,10,34,.9),rgba(27,26,82,.95)) !important;border-top:1px solid rgba(255,217,138,.5) !important}
+[data-wk="chattoolicon"]{background:radial-gradient(circle at 35% 30%,rgba(255,255,255,.18),rgba(11,15,43,.6)) !important;border:1.2px solid rgba(255,217,138,.75) !important;border-radius:50% !important;box-shadow:0 0 12px rgba(255,217,138,.18) !important}
+[data-wk="chattoolglyph"],[data-wk="chattoolglyph"] svg{stroke:${C.gold} !important;color:${C.gold} !important}
+[data-wk="chattoollabel"]{color:${C.dim} !important}
+/* 引用、正在输入 */
+[data-wk="quotedraft"]{background:rgba(11,15,43,.7) !important;border-left:2px solid ${C.gold} !important}
+[data-wk="quotedraft"] *{background:transparent !important;color:${C.dim} !important;border:none !important}
+[data-wk="bubble"][data-kind="typing"]{background:rgba(11,15,43,.45) !important;border:1.2px solid rgba(255,217,138,.6) !important}
+[data-wk="bubble"][data-kind="typing"]::before{content:none !important}
+[data-wk="typingdot"]{width:10px !important;height:10px !important;border-radius:0 !important;background:${svg(SPARK(C.gold, 9))} center/contain no-repeat !important;animation-duration:1.2s !important}
 `;
 
 const pack = { kind: "chat-look", v: 1, name: "星空", look: { bubble, customCSS: css.trim() }, assets: {} };
