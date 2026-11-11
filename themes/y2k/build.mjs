@@ -174,7 +174,7 @@ button[data-wk="avatar"]::after,span[data-wk="avatar"]:not([data-halo])::after{l
 [data-wk="chatmore"]{background-image:${svg(ORB_MORE)} !important}
 
 /* 底栏：镀铬外壳直接放按键，离底边留安全区＋8px */
-[data-wk="composer"]{min-height:calc(env(safe-area-inset-bottom) * .4 + var(--composer-lift, 0px) + 82px) !important;padding-left:24px !important;padding-right:22px !important;align-items:flex-start !important;padding-top:20px !important}
+[data-wk="composer"]{min-height:calc(env(safe-area-inset-bottom) * .4 + var(--composer-lift, 0px) + 82px) !important;padding-left:24px !important;padding-right:22px !important;align-items:flex-start !important}
 [data-wk="composer"]::before{left:12px !important;right:12px !important;top:auto !important;bottom:calc(env(safe-area-inset-bottom) * .4 + var(--composer-lift, 0px) + 8px) !important;height:66px !important;border-radius:33px !important;border:none !important;background:${CHROME} !important;box-shadow:${SHELL_SHADOW} !important}
 [data-wk="chatinput"]{min-height:42px !important;height:42px !important;background:#fff !important;border:1px solid #6F7BA6 !important;border-radius:21px !important;box-shadow:inset 0 3px 5px rgba(90,63,176,.35) !important;outline:1.4px dashed #FF9FD6 !important;outline-offset:-6px !important;font-size:14px !important;font-weight:800 !important;color:#3A2A55 !important;padding:10px 16px !important}
 [data-wk="chatinput"]::placeholder{color:#9A8FB8 !important;font-weight:800 !important}
@@ -182,6 +182,22 @@ button[data-wk="avatar"]::after,span[data-wk="avatar"]:not([data-halo])::after{l
 [data-wk="chatplus"]{background-image:${svg(ORB_PLUS)} !important}
 [data-wk="chatreply"]{background-image:${svg(ORB_REPLY)} !important}
 [data-wk="send"]{width:48px !important;min-width:48px !important;height:44px !important;background:${svg(HEART_SEND)} center/contain no-repeat !important;margin:0 2px !important}
+
+/* 手机上修正：胶囊跟着顶栏、底栏本身的高度走，不再自己撑高；名字贴纸字只给名字，不给返回键的未读数 */
+[data-wk="chathead"]{min-height:0 !important;padding-left:20px !important;padding-right:20px !important}
+[data-wk="chathead"]::before{top:calc(var(--app-safe-top, 0px) + 2px) !important;bottom:2px !important;height:auto !important}
+[data-wk="chathead"]::after{top:calc(var(--app-safe-top, 0px) + 8px) !important;bottom:8px !important;height:auto !important;left:18px !important;right:18px !important}
+[data-wk="chathead"] [data-wk="headink"],[data-wk="chathead"] [data-wk="headink"] *{font-size:inherit !important;text-shadow:none !important;color:inherit !important}
+[data-wk="chathead"] [data-wk="headname"] > [data-wk="headink"],[data-wk="chathead"] [data-wk="headname"] > [data-wk="headink"] *{font-size:19px !important;color:#FF3FA4 !important;text-shadow:2px 0 #fff,-2px 0 #fff,0 2px #fff,0 -2px #fff,1.4px 1.4px #fff,-1.4px 1.4px #fff,1.4px -1.4px #fff,-1.4px -1.4px #fff !important}
+[data-wk="chathead"] [data-wk="headname"]{min-width:0 !important;flex:1 1 auto !important}
+[data-wk="chathead"] [data-wk="avatar"]{width:40px !important;height:40px !important;padding:4px !important}
+[data-wk="chathead"] [data-wk="avatar"] > *,[data-wk="chathead"] [data-wk="avatar"] img{width:32px !important;height:32px !important}
+[data-wk="sameroom"],[data-wk="chatmore"]{width:38px !important;min-width:38px !important;height:38px !important}
+[data-wk="composer"]{min-height:0 !important;align-items:center !important;padding-left:20px !important;padding-right:20px !important}
+[data-wk="composer"]::before{top:2px !important;height:auto !important;bottom:calc(env(safe-area-inset-bottom) * .4 + var(--composer-lift, 0px) - 8px) !important}
+[data-wk="chatinput"]{height:40px !important;min-height:40px !important;font-size:14px !important;white-space:nowrap !important;overflow:hidden !important;padding:9px 14px !important}
+[data-wk="chatplus"],[data-wk="chatreply"]{width:38px !important;min-width:38px !important;height:38px !important}
+[data-wk="send"]{width:42px !important;min-width:42px !important;height:40px !important}
 
 `;
 
