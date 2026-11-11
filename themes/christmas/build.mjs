@@ -318,6 +318,10 @@ button[data-wk="avatar"]::before,span[data-wk="avatar"]:not([data-halo])::before
 [data-wk="rpcard"] > div:not([data-wk]){padding:0 !important}
 [data-wk="rpcorner"]{display:none !important}
 [data-wk="rpmsg"]{-webkit-line-clamp:3 !important}
+/* 语音条回到正常大小：金色小胶囊，前面一颗小铃铛 */
+[data-wk="voice"][data-me]{border-radius:999px !important;padding:0 10px 0 32px !important;margin-top:4px !important;animation:none !important;box-shadow:0 2px 0 #9C7424 !important}
+[data-wk="voice"]::before{left:10px !important;top:50% !important;width:20px !important;height:20px !important;margin:-10px 0 0 0 !important;background:${svg(BELL)} center/contain no-repeat !important;transform-origin:50% 0 !important;animation:xmSwing 1.4s ease-in-out infinite !important}
+[data-wk="voice"]::after{content:none !important}
 `;
 
 const pack = { kind: "chat-look", v: 1, name: "圣诞", look: { bubble, layout, customCSS: css.trim() }, assets: {} };
