@@ -20,7 +20,7 @@ const I_HOUSE = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><pa
 const I_MORE = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><circle cx='5' cy='12' r='1.6' fill='${C.brown}'/><circle cx='12' cy='12' r='1.6' fill='${C.brown}'/><circle cx='19' cy='12' r='1.6' fill='${C.brown}'/></svg>`;
 
 const bubble = { myBg: C.cel, myText: C.brown, myBorder: "1.6px solid " + C.brown, charBg: C.cream, charText: C.brown, charBorder: "1.6px solid " + C.brown, radius: 12, shadow: "none", myAlpha: 100, charAlpha: 100 };
-const layout = { bubble: "bubble", avatar: "first", name: true, gap: "normal", time: "show" };
+const layout = { bubble: "bubble", avatar: "all", name: true, gap: "tight", time: "show" };
 const LINE = `1.6px solid ${C.brown}`;
 
 const css = `
@@ -293,6 +293,10 @@ button[data-wk="avatar"],span[data-wk="avatar"]:not([data-halo]){box-shadow:0 0 
 [data-wk="stateheartline"]{background:transparent !important}
 [data-wk="stateheart"] > div:not([data-wk="stateheartline"]){inset:0 !important}
 [data-wk="stateheart"]{filter:drop-shadow(1.2px 0 0 ${C.brown}) drop-shadow(-1.2px 0 0 ${C.brown}) drop-shadow(0 1.2px 0 ${C.brown}) drop-shadow(0 -1.2px 0 ${C.brown}) !important}
+
+/* 每条都带头像；小猫只在一串第一条，后面几条不留猫的空 */
+[data-wk="msg"][data-first="0"] [data-wk="name"]{display:none !important}
+[data-wk="msg"]{padding-top:2px !important;padding-bottom:2px !important}
 
 `;
 
