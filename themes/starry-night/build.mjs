@@ -263,6 +263,37 @@ span[data-wk="avatar"]:not([data-halo])::before{transform:scaleX(-1) !important}
 [data-wk="callact"]{color:#FFE9B0 !important}
 [data-wk="callavatar"]{border-radius:50% !important;box-shadow:0 0 0 3px ${C.gold},0 0 40px rgba(255,217,138,.5) !important}
 [data-wk="offline"] [data-wk="chathead"] + *{margin-top:16px !important}
+
+/* ───── 状态卡改版：一张星座图 ───── */
+/* 中间是他的头像当主星，外圈一道金弧＝好感；看得见的、心里想的是两颗卫星，金线连着 */
+[data-wk="statecard"]{min-height:600px !important}
+[data-wk="statehead"]{justify-content:center !important;text-align:center !important;border-bottom:none !important;padding-bottom:4px !important}
+[data-wk="statehead"] > div{flex:0 1 auto !important;text-align:center !important}
+[data-wk="statehead"] > [data-wk="avatar"]{position:absolute !important;left:50% !important;top:168px !important;width:76px !important;height:76px !important;margin-left:-38px !important;z-index:3 !important;box-shadow:0 0 0 3px #0B0F2B,0 0 30px 6px rgba(255,217,138,.55) !important}
+[data-wk="statehead"] > [data-wk="avatar"] *{width:76px !important;height:76px !important}
+[data-wk="statehead"] > button[aria-label="关掉"]{position:absolute !important;right:14px !important;top:14px !important}
+/* 好感：头像外一圈金弧，亮到几分画到几分 */
+[data-wk="stateaff"]{position:static !important;border:none !important;padding:0 !important;min-height:0 !important}
+[data-wk="stateaff"] > div:last-child > *:not([data-wk="stateaffval"]){display:none !important}
+[data-wk="stateheart"]{position:absolute !important;left:50% !important;top:150px !important;width:112px !important;height:112px !important;margin-left:-56px !important;z-index:2 !important;border-radius:50% !important;background:conic-gradient(${C.gold} calc(var(--sc-heart-lvl) * 360deg),rgba(255,217,138,.15) 0) !important;-webkit-mask:radial-gradient(circle,transparent 52px,#000 53px,#000 56px,transparent 57px) !important;mask:radial-gradient(circle,transparent 52px,#000 53px,#000 56px,transparent 57px) !important}
+[data-wk="stateheart"] > *{display:none !important}
+[data-wk="stateaff"]::after{content:"" !important;position:absolute !important;left:50% !important;top:268px !important;transform:translateX(-50%) !important}
+[data-wk="stateheart"] [data-wk="stateheartnum"]{display:none !important}
+[data-wk="stateaffval"]{display:block !important;position:absolute !important;left:50% !important;top:276px !important;transform:translateX(-50%) !important;color:${C.gold} !important;font-size:13px !important;letter-spacing:.15em !important;z-index:6 !important;white-space:nowrap !important;background:rgba(11,15,43,.7) !important;padding:1px 10px !important;border-radius:999px !important}
+[data-wk="stateaffval"]::before{content:"好感 " !important;color:${C.dim} !important}
+/* 星座线：从主星连到两颗卫星，再连几颗小星 */
+[data-wk="statecard"] > div.flex-1{position:relative !important;padding-top:178px !important}
+[data-wk="statecard"] > div.flex-1::before{content:"" !important;position:absolute !important;left:0 !important;right:0 !important;top:0 !important;height:330px !important;pointer-events:none !important;background:${svg(`<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 340 330' preserveAspectRatio='none'><g stroke='${C.gold}' stroke-width='.9' opacity='.75' fill='none'><path d='M170 70 L60 190'/><path d='M170 70 L280 260'/><path d='M60 190 L28 120 L72 40'/><path d='M280 260 L318 170 L262 30'/></g><g fill='${C.gold}'><circle cx='28' cy='120' r='2.2'/><circle cx='72' cy='40' r='1.8'/><circle cx='318' cy='170' r='2.2'/><circle cx='262' cy='30' r='1.8'/></g></svg>`)} center top/100% 330px no-repeat !important}
+/* 两颗卫星：一左一右错开，各自前面一颗亮星 */
+[data-wk="stateseen"],[data-wk="statevoice"]{position:relative !important;width:62% !important;max-height:150px !important;overflow:auto !important;overflow-x:hidden !important;border-radius:16px !important;padding:12px 14px !important;z-index:1 !important}
+[data-wk="stateseen"]{margin:0 0 14px 4% !important}
+[data-wk="statevoice"]{margin:0 4% 14px auto !important}
+[data-wk="stateseen"] > span[aria-hidden]{display:none !important}
+[data-wk="stateseen"]::after,[data-wk="statevoice"]::after{content:"" !important;position:absolute !important;top:-9px !important;width:18px !important;height:18px !important;background:${svg(SPARK("#FFFFFF", 9))} center/contain no-repeat !important;filter:drop-shadow(0 0 4px ${C.gold}) !important}
+[data-wk="stateseen"]::after{left:-6px !important}
+[data-wk="statevoice"]::after{right:-6px !important}
+[data-wk="stateseen"] *,[data-wk="statevoice"] *{font-size:13px !important;line-height:1.6 !important}
+[data-wk="statevoice"] > span[aria-hidden]{display:none !important}
 `;
 
 const pack = { kind: "chat-look", v: 1, name: "星空", look: { bubble, layout: { bubble: "bubble", avatar: "all", name: false, gap: "normal", time: "show" }, customCSS: css.trim() }, assets: {} };
