@@ -44,6 +44,8 @@
 
 ## 别忘的几处（每套都漏过一次）
 
+- 「输入中」：单聊 `[data-wk="bubble"][data-kind="typing"]` 那颗气泡＋里面的 `typingdot`（换成这套的小图标），**还有通话里的**（`callbubble` 带 `data-kind="typing"`）。气泡的伪元素装饰（耳朵、雪帽、尾巴）在输入中那颗上要关掉。
+
 - Ta 眼里卡片顶上的米色贴条（`gazetape`，展开的信和旧版也是它）：每套都换成自己的样子。
 
 - 线下两颗加号：底栏「给 Ta 看真实照片」（`[data-wk="offcomposer"] button[title="给 Ta 看真实照片"]`）**藏掉**；顶栏「给 Ta 一个提示」（`[data-wk="offline"] [data-wk="chathead"] button[title="给 Ta 一个提示"]`）换成这套的加号图。
