@@ -65,6 +65,14 @@ const SEAL = (f = C.gold, k = "#B88A33") => `<svg xmlns='http://www.w3.org/2000/
 const BELL = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 30'><path d='M15 4 C22 4 23 11 23 16 C23 19 25 21 26 22 H4 C5 21 7 19 7 16 C7 11 8 4 15 4Z' fill='${C.gold}' stroke='#B88A33' stroke-width='1.4' stroke-linejoin='round'/><circle cx='15' cy='25' r='3' fill='#B88A33'/><path d='M10 2 Q15 6 20 2' fill='none' stroke='${C.red}' stroke-width='2'/></svg>`;
 // 邮票（线下小结卡角上）
 const STAMP = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 44 52'><path d='M2 2 H42 V50 H2Z' fill='#fff' stroke='#C9A46A' stroke-width='1.4' stroke-dasharray='3 2.4'/><rect x='6' y='6' width='32' height='40' fill='${C.pine}'/>${TREE(22, 12, .55)}<text x='22' y='44' font-size='6' text-anchor='middle' fill='#fff' font-family='sans-serif'>NOEL</text></svg>`;
+
+// ── 卡片返工用的图 ──
+// 小木夹（把照片夹在灯串上）
+const PEG = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 30'><rect x='3' y='0' width='10' height='28' rx='3' fill='#C8955E' stroke='#8A5E33' stroke-width='1.2'/><path d='M8 2 V26' stroke='#8A5E33' stroke-width='1'/><rect x='2' y='11' width='12' height='4' rx='1' fill='#9AA3A0'/></svg>`;
+// 水晶球底座
+const GLOBEBASE = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 40' preserveAspectRatio='none'><path d='M30 0 H170 C176 0 178 4 180 10 L194 32 C196 36 194 40 188 40 H12 C6 40 4 36 6 32 L20 10 C22 4 24 0 30 0Z' fill='#8A5A3B' stroke='#5E3B26' stroke-width='2'/><path d='M24 12 H176' stroke='${C.gold}' stroke-width='2.4'/><path d='M14 30 H186' stroke='#5E3B26' stroke-width='1.2' opacity='.6'/></svg>`;
+// 红信封（明信片插在里面）
+const ENVELOPE = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 300 70' preserveAspectRatio='none'><path d='M0 6 L150 46 L300 6 V70 H0Z' fill='#B5383A' stroke='#8C2A2C' stroke-width='2'/><path d='M0 70 L120 34 M300 70 L180 34' stroke='#8C2A2C' stroke-width='1.6' opacity='.6'/><circle cx='150' cy='46' r='9' fill='${C.gold}' stroke='#B88A33' stroke-width='1.4'/></svg>`;
 const bubble = { myBg: C.red, myText: "#fff", myBorder: "none", charBg: C.cream, charText: C.ink, charBorder: "1.5px solid " + C.gold, radius: 20, shadow: "none", myAlpha: 100, charAlpha: 100 };
 const layout = { bubble: "bubble", avatar: "first", name: false, gap: "normal", time: "show" };
 
@@ -252,6 +260,64 @@ button[data-wk="avatar"]::before,span[data-wk="avatar"]:not([data-halo])::before
 [data-wk="quote"]{background:#F7E7C6 !important;color:#6B4A2E !important;border:1px solid #C9A46A !important;border-radius:8px !important;padding:3px 10px !important;opacity:1 !important}
 [data-wk="bubble"] [data-wk="quotetext"]{display:block !important;border-left:3px solid transparent !important;border-image:linear-gradient(${C.red} 0 50%,${C.holly} 50% 100%) 1 !important;padding-left:8px !important;opacity:.9 !important}
 [data-wk="offlogtext"]{padding-right:50px !important}
+
+/* ───── 圣诞 · 卡片返工：他发来的东西都从灯串上吊下来 ───── */
+/* 转账＝一颗雪景水晶球：金额浮在球里、雪一直飘，底下木底座刻着附言；收下亮金光、雪落定；退回结一层霜 */
+[data-wk="transfercard"]{width:230px !important;background:radial-gradient(circle at 34% 26%,rgba(255,255,255,.55),transparent 22%),${svg(SNOWTILE)} 0 0/140px 140px,radial-gradient(circle at 50% 42%,#3C6E5A,${C.pine} 70%) !important;border:3px solid rgba(255,255,255,.75) !important;border-radius:115px 115px 22px 22px / 110px 110px 22px 22px !important;box-shadow:inset 0 -10px 24px rgba(0,0,0,.25),0 6px 14px rgba(0,0,0,.3) !important;padding-top:34px !important;overflow:visible !important;animation:xmGlobe 10s linear infinite !important;margin-bottom:26px !important}
+@keyframes xmGlobe{from{background-position:0 0,0 0,0 0}to{background-position:0 0,10px 140px,0 0}}
+[data-wk="transfercard"]::before{content:"" !important;position:absolute !important;left:50% !important;top:auto !important;bottom:-24px !important;width:200px !important;height:30px !important;margin-left:-100px !important;background:${svg(GLOBEBASE)} center/100% 100% no-repeat !important;font-size:0 !important;z-index:-1 !important}
+[data-wk="transfercard"]::after{content:none !important}
+[data-wk="transfercard"] *{color:#FFF6E4 !important;border-color:rgba(255,255,255,.3) !important}
+[data-wk="transferamount"],[data-wk="transfercur"]{color:${C.gold} !important;text-shadow:0 0 12px rgba(232,184,90,.6) !important}
+[data-wk="transferlabel"]{color:rgba(255,246,228,.8) !important}
+[data-wk="transferrule"]{display:none !important}
+[data-wk="transferfoot"]{background:transparent !important}
+[data-wk="transfernote"]::before{content:"" !important}
+[data-wk="transferbtn"][data-part="take"]{background:${C.gold} !important;color:${C.pine} !important;box-shadow:0 3px 0 #B88A33 !important}
+[data-wk="transferbtn"][data-part="back"]{background:transparent !important;color:#FFF6E4 !important;border:1.5px solid rgba(255,255,255,.6) !important}
+[data-wk="transferseal"]{background:transparent !important;border:1.5px solid rgba(255,255,255,.5) !important;color:#FFF6E4 !important}
+[data-wk="transfercard"][data-status="accepted"]{background:radial-gradient(circle at 50% 46%,rgba(255,220,140,.55),transparent 55%),radial-gradient(circle at 34% 26%,rgba(255,255,255,.55),transparent 22%),linear-gradient(transparent 82%,rgba(255,255,255,.85) 82%),radial-gradient(circle at 50% 42%,#3C6E5A,${C.pine} 70%) !important;animation:none !important}
+[data-wk="transfercard"][data-status="accepted"] [data-wk="transferseal"]{background:${svg(STAR())} center/70% no-repeat !important;border:none !important;filter:drop-shadow(0 0 8px rgba(255,220,140,.9)) !important;transform:none !important}
+[data-wk="transfercard"][data-status="returned"]{background:radial-gradient(circle at 50% 42%,#C9D3D0,#9AA6A2 70%) !important;animation:none !important;opacity:.85 !important}
+[data-wk="transfercard"][data-status="returned"] *{color:#4A5552 !important}
+[data-wk="transfercard"][data-status="returned"] [data-wk="transferseal"]{background:${svg(FLAKE(1))} center/60% no-repeat,rgba(255,255,255,.4) !important;border:none !important;border-radius:50% !important;transform:none !important}
+/* 你发的转账：球顶压一层雪 */
+[data-wk="transfercard"][data-me="1"]{border-color:#fff !important}
+[data-wk="transfercard"][data-me="1"]::after{content:"" !important;position:absolute !important;left:30px !important;right:30px !important;top:-6px !important;height:18px !important;background:${svg(SNOWCAP)} center/100% 100% no-repeat !important;width:auto !important}
+
+/* 红包＝一只直接挂着的大圣诞袜：丝带吊在灯串上，祝福写在袜身，领完瘪下去 */
+[data-wk="rpcard"]{width:150px !important;min-height:170px !important;padding:58px 40px 44px 44px !important;background:${svg(STOCKING())} center/contain no-repeat !important;border:none !important;box-shadow:none !important;transform-origin:50% -30px !important;animation:xmSwing 3.4s ease-in-out infinite !important;margin-top:30px !important;filter:drop-shadow(0 6px 8px rgba(0,0,0,.35)) !important}
+[data-wk="rpcard"]::before{left:50% !important;top:-30px !important;width:4px !important;height:34px !important;margin-left:-2px !important;background:${C.red} !important;animation:none !important;transform:none !important}
+[data-wk="rpcard"]::after{content:none !important}
+[data-wk="rpcard"] *{color:#fff !important;text-shadow:0 1px 2px rgba(0,0,0,.4) !important;font-size:13px !important;line-height:1.5 !important}
+[data-wk="rpcard"][data-status="done"]{background:${svg(STOCKING("#C9A0A0", false))} center/contain no-repeat !important;animation:none !important;filter:grayscale(.3) !important;transform:scaleX(.9) !important}
+
+/* 照片＝木夹子夹在灯串上的拍立得，斜挂着会晃 */
+[data-wk="photocard"]{background:#fff !important;border:none !important;border-radius:3px !important;padding:10px 10px 26px !important;box-shadow:0 6px 14px rgba(0,0,0,.35) !important;transform-origin:50% -24px !important;animation:xmSwing 4s ease-in-out infinite !important;margin-top:30px !important}
+[data-wk="photocard"]::before{content:"" !important;position:absolute !important;left:50% !important;top:-26px !important;width:14px !important;height:30px !important;margin-left:-7px !important;background:${svg(PEG)} center/contain no-repeat !important;z-index:2 !important}
+[data-wk="photocard"]::after{right:-12px !important;top:auto !important;bottom:-8px !important}
+
+/* 语音＝一颗吊着的大铃铛，铃口往外一圈圈荡声波 */
+[data-wk="voice"][data-me]{background:radial-gradient(circle at 36% 28%,#FFF1C2,${C.gold} 55%,#C9962F) !important;border:2px solid #B88A33 !important;border-radius:60px 60px 18px 18px / 50px 50px 18px 18px !important;padding:22px 20px 12px 20px !important;box-shadow:0 4px 0 #9C7424 !important;transform-origin:50% -20px !important;animation:xmSwing 2.6s ease-in-out infinite !important;margin-top:26px !important;overflow:visible !important}
+[data-wk="voice"]::before{left:50% !important;top:-24px !important;margin:0 0 0 -2px !important;width:4px !important;height:24px !important;background:${C.red} !important;animation:none !important}
+[data-wk="voice"]::after{content:"" !important;position:absolute !important;left:-8px !important;right:-8px !important;bottom:-10px !important;height:16px !important;border-radius:50% !important;border-bottom:2px solid rgba(232,184,90,.6) !important;animation:xmRing 1.6s ease-out infinite !important;pointer-events:none !important}
+@keyframes xmRing{from{opacity:.9;transform:scale(.9)}to{opacity:0;transform:scale(1.25)}}
+[data-wk="voice"] *{color:#5A3E10 !important}
+[data-wk="voicewave"] span{background:#7A5A1E !important}
+
+/* 你发的照片、语音：不挂起来，顶上压一层雪 */
+[data-me="1"] [data-wk="photocard"],[data-wk="voice"][data-me="1"]{animation:none !important;margin-top:12px !important}
+[data-me="1"] [data-wk="photocard"]::before,[data-wk="voice"][data-me="1"]::before{left:-3px !important;right:-3px !important;top:-8px !important;width:auto !important;height:18px !important;margin:0 !important;background:${svg(SNOWCAP)} center/100% 100% no-repeat !important}
+
+/* 线下小结＝从红信封里抽出半截的明信片 */
+[data-part="offlog"]{margin-bottom:40px !important}
+[data-part="offlog"] > [data-wk="offlogtext"]{position:relative !important;z-index:1 !important}
+[data-wk="offlogtranscript"]{position:relative !important;z-index:2 !important;background:${C.cream} !important}
+[data-part="offlog"]::after{right:-10px !important;left:-10px !important;top:auto !important;bottom:-46px !important;width:auto !important;height:56px !important;border:none !important;border-radius:0 0 14px 14px !important;background:${svg(ENVELOPE)} center/100% 100% no-repeat !important;z-index:-1 !important;filter:drop-shadow(0 6px 8px rgba(0,0,0,.35)) !important}
+[data-part="offlog"]{isolation:auto !important;z-index:0 !important}
+[data-wk="rpcard"] > div:not([data-wk]){padding:0 !important}
+[data-wk="rpcorner"]{display:none !important}
+[data-wk="rpmsg"]{-webkit-line-clamp:3 !important}
 `;
 
 const pack = { kind: "chat-look", v: 1, name: "圣诞", look: { bubble, layout, customCSS: css.trim() }, assets: {} };
