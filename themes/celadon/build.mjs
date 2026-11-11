@@ -302,6 +302,13 @@ button[data-wk="avatar"],span[data-wk="avatar"]:not([data-halo]){box-shadow:0 0 
 [data-wk="narr"]{background:transparent !important;border:none !important;box-shadow:none !important}
 [data-wk="narrink"]{display:block !important;background:transparent !important;border:none !important;border-left:3px solid ${C.cel} !important;border-radius:0 !important;box-shadow:none !important;color:#6E5E52 !important;font-style:italic !important;font-size:13px !important;line-height:1.8 !important;padding:2px 0 2px 12px !important}
 
+/* 系统提示：跟气泡分开——不带框，居中一行浅灰小字，前面一颗小星 */
+[data-wk="sysnote"]{background:transparent !important;border:none !important;box-shadow:none !important;text-align:center !important}
+[data-wk="sysnotelabel"]{display:none !important}
+[data-wk="sysnotetext"]{display:inline !important;background:transparent !important;border:none !important;border-radius:0 !important;padding:0 !important;color:${C.fog} !important;font-size:11.5px !important;font-style:normal !important;line-height:1.8 !important}
+[data-wk="sysnotetext"]::before{content:"" !important;display:inline-block !important;width:11px !important;height:11px !important;margin-right:5px !important;vertical-align:-1px !important;background:${svg(STAR)} center/contain no-repeat !important;opacity:.7 !important}
+[data-wk="sysnoteclose"]{color:${C.fog} !important;opacity:.6 !important}
+
 `;
 
 const pack = { kind: "chat-look", v: 1, name: "青瓷焦茶", look: { bubble, layout, customCSS: css.trim() }, assets: {} };
