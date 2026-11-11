@@ -27,17 +27,18 @@ const SCENE = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 390 170' pre
 
 // 花环头像框：一圈冬青叶＋红果＋金点，底下一只红蝴蝶结
 const WREATH = (() => {
+  // 一整圈闭合的绿环：底下一圈深绿粗环，上面顺着环方向叠两层叶片纹理，不往外戳
   let leaves = "";
-  for (let i = 0; i < 18; i++) {
-    const a = i / 18 * Math.PI * 2, x = 50 + Math.cos(a) * 41, y = 50 + Math.sin(a) * 41, d = a * 180 / Math.PI + 90;
-    leaves += `<ellipse cx='${x.toFixed(1)}' cy='${y.toFixed(1)}' rx='5' ry='9' transform='rotate(${(d + (i % 2 ? 30 : -30)).toFixed(0)} ${x.toFixed(1)} ${y.toFixed(1)})' fill='${i % 2 ? "#2F6B4A" : "#3E8A5C"}'/>`;
+  for (let i = 0; i < 24; i++) {
+    const a = i / 24 * Math.PI * 2, r = 42 + (i % 2 ? 2.5 : -2.5), x = 50 + Math.cos(a) * r, y = 50 + Math.sin(a) * r, d = a * 180 / Math.PI;
+    leaves += `<ellipse cx='${x.toFixed(1)}' cy='${y.toFixed(1)}' rx='6.5' ry='3.4' transform='rotate(${(d + 90 + (i % 2 ? 25 : -25)).toFixed(0)} ${x.toFixed(1)} ${y.toFixed(1)})' fill='${i % 3 ? "#3E8A5C" : "#4A9A68"}'/>`;
   }
   let dots = "";
-  for (let i = 0; i < 9; i++) {
-    const a = (i / 9 + .03) * Math.PI * 2, x = 50 + Math.cos(a) * 43, y = 50 + Math.sin(a) * 43;
-    dots += `<circle cx='${x.toFixed(1)}' cy='${y.toFixed(1)}' r='3' fill='${i % 3 === 0 ? C.gold : "#D23B3B"}'/>`;
+  for (let i = 0; i < 10; i++) {
+    const a = (i / 10 + .05) * Math.PI * 2, x = 50 + Math.cos(a) * 42, y = 50 + Math.sin(a) * 42;
+    dots += `<circle cx='${x.toFixed(1)}' cy='${y.toFixed(1)}' r='${i % 3 === 0 ? 2.4 : 3}' fill='${i % 3 === 0 ? C.gold : "#D23B3B"}' stroke='rgba(0,0,0,.15)' stroke-width='.6'/>`;
   }
-  return `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 112'><path fill-rule='evenodd' fill='none' d='M0 0'/>${leaves}${dots}<g transform='translate(50 92)'><path d='M0 0 L-16 -8 C-20 -2 -20 6 -16 10Z M0 0 L16 -8 C20 -2 20 6 16 10Z' fill='#C7373A' stroke='#8C2A2C' stroke-width='1.4'/><path d='M-3 2 L-10 18 L-5 16 L-3 20Z M3 2 L10 18 L5 16 L3 20Z' fill='#C7373A' stroke='#8C2A2C' stroke-width='1.2'/><circle r='4' fill='#E04848' stroke='#8C2A2C' stroke-width='1.2'/></g></svg>`;
+  return `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 112'><circle cx='50' cy='50' r='42' fill='none' stroke='#2A5E40' stroke-width='13'/>${leaves}<circle cx='50' cy='50' r='48.5' fill='none' stroke='#22503A' stroke-width='1'/><circle cx='50' cy='50' r='35.5' fill='none' stroke='#22503A' stroke-width='1'/>${dots}<g transform='translate(50 92)'><path d='M0 0 L-16 -8 C-20 -2 -20 6 -16 10Z M0 0 L16 -8 C20 -2 20 6 16 10Z' fill='#C7373A' stroke='#8C2A2C' stroke-width='1.4'/><path d='M-3 2 L-10 18 L-5 16 L-3 20Z M3 2 L10 18 L5 16 L3 20Z' fill='#C7373A' stroke='#8C2A2C' stroke-width='1.2'/><circle r='4' fill='#E04848' stroke='#8C2A2C' stroke-width='1.2'/></g></svg>`;
 })();
 // 雪帽：气泡顶上一层厚雪，下沿起伏
 const SNOWCAP = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 22' preserveAspectRatio='none'><path d='M10 2 H190 C198 2 200 8 198 12 C196 18 188 14 184 18 C178 22 170 14 164 18 C156 22 148 13 140 17 C132 21 124 14 116 18 C108 22 98 13 90 17 C82 21 74 14 66 18 C58 22 50 13 42 17 C34 21 26 14 18 18 C10 22 2 16 2 10 C2 5 5 2 10 2Z' fill='#fff' stroke='#E2E8E6' stroke-width='1.2'/></svg>`;
