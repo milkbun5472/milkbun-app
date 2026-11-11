@@ -12,6 +12,8 @@ const PAW = (f = C.line, o = 1) => `<svg xmlns='http://www.w3.org/2000/svg' view
 const FISH = (f = C.line, o = 1) => `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 20'><g fill='${f}' opacity='${o}'><path d='M4 10 C10 2 24 2 30 10 C24 18 10 18 4 10Z'/><path d='M30 10 L38 3 L36 10 L38 17Z'/></g><circle cx='10' cy='9' r='1.5' fill='#fff'/></svg>`;
 const BONE = (f = C.line, o = 1) => `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 44 20'><g stroke='${f}' stroke-width='2' stroke-linecap='round' fill='none' opacity='${o}'><path d='M6 10 H34'/><path d='M12 4 V16 M18 3 V17 M24 3 V17 M30 4 V16'/><path d='M34 10 L41 4 M34 10 L41 16'/></g><circle cx='5' cy='10' r='3.5' fill='${f}' opacity='${o}'/></svg>`;
 const YARN = (f = C.pink, k = f === C.pink ? C.pinkD : C.line) => `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'><circle cx='20' cy='20' r='16' fill='${f}' stroke='${k}' stroke-width='1.6'/><g fill='none' stroke='${k}' stroke-width='1.3' opacity='.8'><path d='M6 15 C14 20 26 20 34 15'/><path d='M5 23 C14 28 26 28 35 23'/><path d='M14 5 C18 14 18 26 14 35'/><path d='M24 5 C28 14 28 26 24 35'/></g></svg>`;
+// 猫爪（气泡尾巴）：一只圆滚滚的白爪子，粉色肉球——跟狗爪那种五个黑点分开
+const CATPAW = (fill = "#fff") => `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 44 40'><path d='M8 22 C4 14 9 6 16 7 C18 2 26 2 28 7 C35 6 40 14 36 22 C35 32 28 37 22 37 C16 37 9 32 8 22Z' fill='${fill}' stroke='${C.line}' stroke-width='2.4' stroke-linejoin='round'/><path d='M15.5 8 Q16 14 18 16 M28.5 8 Q28 14 26 16' fill='none' stroke='${C.line}' stroke-width='1.6' stroke-linecap='round'/><g fill='${C.pink}'><ellipse cx='12.5' cy='17' rx='2.6' ry='3'/><ellipse cx='22' cy='12.5' rx='2.8' ry='3.2'/><ellipse cx='31.5' cy='17' rx='2.6' ry='3'/><path d='M22 21 C27 21 30 25 29.5 28.5 C29 31.5 25.5 31 22 30.5 C18.5 31 15 31.5 14.5 28.5 C14 25 17 21 22 21Z'/></g></svg>`;
 const BELL = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'><circle cx='10' cy='10' r='8' fill='${C.gold}' stroke='#B88A33' stroke-width='1.2'/><path d='M3 9 H17' stroke='#B88A33' stroke-width='1.1'/><circle cx='10' cy='13' r='1.6' fill='#7A5A20'/><path d='M10 14 V17' stroke='#7A5A20' stroke-width='1.2'/></svg>`;
 
 // 猫耳头像框（耳朵＋项圈＋铃铛），flip 给我那颗
@@ -129,9 +131,9 @@ button[data-wk="avatar"]::before,span[data-wk="avatar"]:not([data-halo])::before
 [data-wk="bubble"][data-kind="text"]::before{content:"" !important;position:absolute !important;top:-11px !important;width:34px !important;height:14px !important;border:none !important;pointer-events:none !important;background:${svg(`<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 34 14'><g stroke='${C.line}' stroke-width='2' stroke-linejoin='round'><path d='M2 14 L5 2 L13 11Z' fill='#fff'/><path d='M32 14 L29 2 L21 11Z' fill='#fff'/></g><path d='M5.5 11 L6.5 5 L10 9.5Z M28.5 11 L27.5 5 L24 9.5Z' fill='${C.pink}'/></svg>`)} center/contain no-repeat !important}
 [data-wk="bubble"][data-kind="text"][data-me="1"]::before{right:22px !important;left:auto !important;transform:rotate(4deg) !important}
 [data-wk="bubble"][data-kind="text"][data-me="0"]::before{left:22px !important;right:auto !important;transform:rotate(-4deg) !important}
-[data-wk="bubble"][data-kind="text"]::after{bottom:-7px !important;width:18px !important;height:16px !important;border:none !important;border-radius:0 !important;background:${svg(PAW(C.line))} center/contain no-repeat !important}
-[data-wk="bubble"][data-kind="text"][data-me="1"]::after{right:-4px !important;transform:rotate(25deg) !important;background:${svg(PAW(C.line))} center/contain no-repeat !important;border:none !important;border-radius:0 !important}
-[data-wk="bubble"][data-kind="text"][data-me="0"]::after{left:-4px !important;transform:rotate(-25deg) !important;background:${svg(PAW(C.line))} center/contain no-repeat !important;border:none !important;border-radius:0 !important}
+[data-wk="bubble"][data-kind="text"]::after{bottom:-10px !important;width:24px !important;height:22px !important;border:none !important;border-radius:0 !important;background:${svg(PAW(C.line))} center/contain no-repeat !important}
+[data-wk="bubble"][data-kind="text"][data-me="1"]::after{right:-4px !important;transform:rotate(25deg) !important;background:${svg(CATPAW("#DCE6F3"))} center/contain no-repeat !important;border:none !important;border-radius:0 !important}
+[data-wk="bubble"][data-kind="text"][data-me="0"]::after{left:-4px !important;transform:rotate(-25deg) !important;background:${svg(CATPAW())} center/contain no-repeat !important;border:none !important;border-radius:0 !important}
 
 /* 毛线固定在屏幕上，毛线团沿着这根线来回滚（offset-path 用同一条线，按屏幕比例换算） */
 [data-wk="body"]{background:transparent !important}
@@ -246,6 +248,8 @@ ${ktAlong()}
 [data-wk="quoteclear"]{color:${C.line} !important}
 [data-wk="quote"]{background:${C.mist2} !important;color:${C.ink} !important;border:1.5px solid ${C.line} !important;border-radius:14px !important;padding:3px 10px 3px 26px !important;opacity:1 !important;background-image:${svg(PAW(C.line))} !important;background-repeat:no-repeat !important;background-position:8px center !important;background-size:11px 11px !important}
 [data-wk="bubble"] [data-wk="quotetext"]{display:block !important;border-left:3px solid ${C.pink} !important;border-radius:2px !important;padding-left:8px !important;color:${C.line} !important}
+/* 猫爪尾巴比狗爪大一圈，已读往下让一点别压着 */
+[data-wk="meta"]{margin-top:8px !important}
 `;
 
 const pack = { kind: "chat-look", v: 1, name: "猫猫", look: { bubble, layout, customCSS: css.trim() }, assets: {} };
