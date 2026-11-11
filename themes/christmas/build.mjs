@@ -79,6 +79,9 @@ const ENVELOPE = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 300 70' p
 const BIGBOW = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 60'><path d='M60 40 C40 2 8 4 12 26 C14 40 36 42 60 40Z M60 40 C80 2 112 4 108 26 C106 40 84 42 60 40Z' fill='#D9474A' stroke='${C.redD}' stroke-width='2'/><path d='M60 40 C46 18 26 16 24 28 M60 40 C74 18 94 16 96 28' fill='none' stroke='${C.redD}' stroke-width='1.6' opacity='.6'/><path d='M56 42 L42 60 L50 58 L52 60Z M64 42 L78 60 L70 58 L68 60Z' fill='#D9474A' stroke='${C.redD}' stroke-width='1.6'/><ellipse cx='60' cy='40' rx='9' ry='8' fill='${C.redD}'/></svg>`;
 // 冬青挂在角上
 const SLEIGHBELLS = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 60 40'><path d='M4 6 C20 20 40 20 56 6' fill='none' stroke='${C.red}' stroke-width='3'/><g transform='translate(12 14) scale(.55)'>${X(BELL)}</g><g transform='translate(32 14) scale(.55)'>${X(BELL)}</g></svg>`;
+
+// 状态卡圣诞树：三层雪松，挂一串灯，底下树干和雪
+const XTREE = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 300 420' preserveAspectRatio='none'><path d='M150 10 L60 140 H100 L30 260 H80 L8 392 H292 L220 260 H270 L200 140 H240Z' fill='#2F6B4A' stroke='#22503A' stroke-width='3' stroke-linejoin='round'/><path d='M96 140 Q150 160 204 140 M76 260 Q150 286 224 260' fill='none' stroke='#fff' stroke-width='7' stroke-linecap='round' opacity='.9'/><path d='M80 100 Q150 140 220 120 M50 210 Q150 250 250 220 M30 330 Q150 370 270 340' fill='none' stroke='#2B2B2B' stroke-width='1.6'/>${[[110,116,"#E5484D"],[150,128,"#F2C14E"],[190,124,"#5CC8A8"],[80,226,"#F2C14E"],[130,238,"#E5484D"],[180,238,"#5CC8A8"],[225,228,"#FFF3C4"],[60,344,"#5CC8A8"],[110,356,"#FFF3C4"],[170,360,"#E5484D"],[230,350,"#F2C14E"]].map(([x,y,f])=>`<circle cx='${x}' cy='${y}' r='5' fill='${f}'/>`).join("")}<rect x='132' y='392' width='36' height='28' fill='#6B4A33'/></svg>`;
 const bubble = { myBg: C.red, myText: "#fff", myBorder: "none", charBg: C.cream, charText: C.ink, charBorder: "1.5px solid " + C.gold, radius: 20, shadow: "none", myAlpha: 100, charAlpha: 100 };
 const layout = { bubble: "bubble", avatar: "first", name: false, gap: "normal", time: "show" };
 
@@ -439,6 +442,35 @@ button[data-wk="avatar"]::before,span[data-wk="avatar"]:not([data-halo])::before
 [data-wk="gazepage"] [aria-pressed="false"]{color:#8C6A3A !important;background:transparent !important}
 [data-wk="statehistbtn"][data-part="back"]{display:inline-block !important;width:auto !important;padding:4px 16px !important}
 [data-wk="offline"] [data-wk="sysnotetext"],[data-wk="offline"] [data-wk="offtitle"] + *{color:rgba(255,255,255,.8) !important}
+
+/* ───── 状态卡返工：一棵圣诞树。看得见的、心里想的是挂在左右枝上的两颗彩球；好感是树顶那颗星，越满越亮 ───── */
+[data-wk="statecard"]{background:${svg(XTREE)} center 96px/86% calc(100% - 150px) no-repeat,linear-gradient(180deg,#1A3329,${C.pine}) !important;border:2px solid ${C.gold} !important;padding-top:34px !important}
+[data-wk="statecard"]::before{content:none !important}
+[data-wk="statehead"]{background:transparent !important;border-bottom:none !important;border-radius:0 !important;padding-top:0 !important}
+/* 两颗彩球：圆滚滚、顶上一个金挂扣、一根线吊着；一左一右错开 */
+[data-wk="stateseen"],[data-wk="statevoice"]{width:64% !important;max-height:170px !important;overflow:auto !important;overflow-x:hidden !important;border-radius:46% 46% 48% 48% / 40% 40% 56% 56% !important;padding:22px 22px 26px !important;border:none !important;position:relative !important;transform:none !important;box-shadow:inset -10px -14px 24px rgba(0,0,0,.25),inset 8px 8px 16px rgba(255,255,255,.35),0 6px 12px rgba(0,0,0,.35) !important;text-align:center !important}
+[data-wk="stateseen"]{margin:26px auto 8px 4% !important;background:radial-gradient(circle at 32% 26%,#FF8A8A,#D9474A 45%,#8C2A2C) !important}
+[data-wk="statevoice"]{margin:26px 4% 8px auto !important;background:radial-gradient(circle at 32% 26%,#FFE8A8,#E8B85A 45%,#A87A28) !important}
+[data-wk="stateseen"] *,[data-wk="stateseen"] [data-wk="statewear"] *{color:#fff !important;text-shadow:0 1px 2px rgba(0,0,0,.35) !important}
+[data-wk="statevoice"] *{color:#4A3210 !important}
+[data-wk="stateseen"] *,[data-wk="statevoice"] *{font-size:13px !important;line-height:1.55 !important}
+[data-wk="statewear"]{background:rgba(255,255,255,.18) !important;border:1px solid rgba(255,255,255,.5) !important}
+[data-wk="statewear"] > span{background:rgba(255,255,255,.25) !important;color:#fff !important}
+[data-wk="stateseen"]::before,[data-wk="statevoice"]::before{content:"" !important;position:sticky !important;display:block !important;top:-22px !important;width:18px !important;height:10px !important;margin:-22px auto 10px !important;background:${C.gold} !important;border-radius:3px 3px 0 0 !important;box-shadow:0 -10px 0 -7px ${C.gold} !important}
+[data-wk="stateseen"]::after,[data-wk="statevoice"]::after{content:none !important}
+[data-wk="statevoice"] + div > button{background:${C.cream} !important;color:${C.redD} !important}
+/* 好感：心形蒙版换成星，挪到树顶；越满星里装的金光越多，再往外发光 */
+[data-wk="stateaff"]{position:static !important;background:${C.cream} !important;border-top:3px solid ${C.gold} !important;padding:14px 20px 16px !important}
+[data-wk="stateheart"]{position:absolute !important;left:50% !important;top:-34px !important;bottom:auto !important;width:66px !important;height:66px !important;margin-left:-33px !important;transform:none !important;z-index:4 !important;--sc-heart-mask:${svg(`<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'><path d='M10 .6 L12.9 6.8 L19.6 7.5 L14.6 12 L16 18.7 L10 15.3 L4 18.7 L5.4 12 L.4 7.5 L7.1 6.8Z'/></svg>`)} !important;--sc-heart-ink:linear-gradient(to top,#F2C14E,#FFF3C4) !important;filter:drop-shadow(0 0 calc(4px + var(--sc-heart-lvl) * 14px) rgba(255,214,110,calc(.3 + var(--sc-heart-lvl) * .7))) !important;animation:xmTwinkle 2.4s ease-in-out infinite !important}
+[data-wk="stateheartline"]{background:#B88A33 !important}
+[data-wk="stateheartbase"]{background:#4A5A50 !important;opacity:1 !important}
+[data-wk="stateheartknob"]{display:none !important}
+[data-wk="stateaffval"]{position:static !important;display:inline-block !important;font-size:22px !important;margin-left:8px !important}
+/* 顶栏头像：裹一圈蓬蓬的雪团，左上压圣诞帽，右下插一枝冬青 */
+[data-wk="chathead"] button:has(> [data-wk="avatar"]) > [data-wk="avatar"]{box-shadow:0 0 0 3px #fff,0 0 0 5px rgba(255,255,255,.55),0 0 0 7px rgba(255,255,255,.25) !important;position:relative !important;z-index:1 !important}
+[data-wk="chathead"] button:has(> [data-wk="avatar"])::after{content:"" !important;position:absolute !important;width:26px !important;height:18px !important;left:30px !important;top:calc(50% + 8px) !important;background:${svg(HOLLY)} center/contain no-repeat !important;transform:rotate(-24deg) !important;z-index:3 !important;pointer-events:none !important}
+[data-wk="stateaff"]{background:${C.snow} !important;border-top:none !important;border-radius:60% 60% 20px 20px / 30px 30px 20px 20px !important;display:flex !important;flex-wrap:wrap !important;align-items:baseline !important;gap:4px 8px !important}
+[data-wk="statecard"] div:has(> button[aria-pressed]){background:rgba(0,0,0,.35) !important}
 `;
 
 const pack = { kind: "chat-look", v: 1, name: "圣诞", look: { bubble, layout, customCSS: css.trim() }, assets: {} };
