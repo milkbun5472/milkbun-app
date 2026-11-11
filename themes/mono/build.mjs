@@ -148,6 +148,110 @@ button[data-wk="avatar"] *,span[data-wk="avatar"] *,img[data-wk="avatar"]{border
 [data-wk="quoteicon"],[data-wk="quoteclear"]{color:#1C1C1E !important}
 [data-wk="bubble"] [data-wk="quotetext"]{display:block !important;border-left:2px solid currentColor !important;padding-left:8px !important;opacity:.6 !important}
 
+
+/* ───── 黑白 · 第三批：状态卡（形状不动，黑白＋柔影；小巧思：等宽小标签、好感条是一根黑线进度） ───── */
+[data-wk="statecard"]{background:rgba(255,255,255,.96) !important;border:none !important;border-radius:28px !important;box-shadow:0 20px 50px rgba(0,0,0,.18),inset 0 0 0 1px rgba(0,0,0,.05) !important;--sc-heart-ink:#1C1C1E !important}
+[data-wk="statehead"]{background:transparent !important;border-bottom:1px solid rgba(0,0,0,.06) !important;color:#1C1C1E !important}
+[data-wk="statehead"] *{color:#1C1C1E !important}
+[data-wk="statehead"] button{border:1px solid rgba(0,0,0,.12) !important;color:#1C1C1E !important;background:#fff !important}
+[data-wk="statehead"] [data-wk="avatar"]{border-radius:50% !important}
+[data-wk="statemood"]{display:inline-block !important;background:#1C1C1E !important;color:#fff !important;border-radius:999px !important;padding:0 10px !important;margin-right:4px !important}
+[data-wk="statecard"] div:has(> button[aria-pressed]){background:#F2F2F4 !important;border:none !important;border-radius:999px !important;padding:3px !important;margin:10px 16px !important}
+[data-wk="statecard"] button[aria-pressed]{color:#8E8E93 !important;border:none !important;border-radius:999px !important}
+[data-wk="statecard"] button[aria-pressed="true"]{background:#fff !important;color:#1C1C1E !important;font-weight:700 !important;box-shadow:0 2px 6px rgba(0,0,0,.1) !important}
+[data-wk="stateseen"],[data-wk="statevoice"]{position:relative !important;background:#F7F7F8 !important;border:none !important;border-radius:20px !important;margin:10px 16px !important;padding-top:28px !important;color:#1C1C1E !important;box-shadow:none !important}
+[data-wk="stateseen"]::before,[data-wk="statevoice"]::before{position:absolute !important;left:16px !important;top:11px !important;font:600 9px/1 ui-monospace,Menlo,monospace !important;letter-spacing:.18em !important;color:#8E8E93 !important}
+[data-wk="stateseen"]::before{content:"NOW" !important}
+[data-wk="statevoice"]::before{content:"INNER" !important}
+[data-wk="statevoice"]{background:#1C1C1E !important}
+[data-wk="statevoice"] *{color:#fff !important}
+[data-wk="stateseen"] *{color:#1C1C1E !important}
+[data-wk="stateseen"] > span[aria-hidden],[data-wk="statevoice"] > span[aria-hidden]{display:none !important}
+[data-wk="statewear"]{background:#fff !important;border:1px solid rgba(0,0,0,.08) !important;border-radius:999px !important}
+[data-wk="statewear"] > span{background:#F2F2F4 !important;border-radius:999px !important;color:#1C1C1E !important}
+[data-wk="statevoicedel"],[data-wk="statevoiceclear"]{color:#E5533D !important}
+[data-wk="statevoice"] + div > button{background:#fff !important;color:#1C1C1E !important;border:1px solid rgba(0,0,0,.12) !important;border-radius:999px !important}
+/* 好感：一根细长的胶囊进度条，旋钮是一颗红点 */
+[data-wk="stateaff"]{background:transparent !important;border-top:1px solid rgba(0,0,0,.06) !important;position:relative !important;display:block !important;padding:16px 20px 64px !important}
+[data-wk="stateaff"] *{color:#1C1C1E !important}
+[data-wk="stateheart"]{position:absolute !important;width:14px !important;height:calc(100% - 40px) !important;max-height:none !important;left:50% !important;bottom:-4px !important;height:240px !important;margin-left:-7px !important;transform:rotate(90deg) !important;transform-origin:50% 100% !important;--sc-heart-mask:${svg(`<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 14 240' preserveAspectRatio='none'><rect width='14' height='240' rx='7'/></svg>`)} !important}
+[data-wk="stateheart"] > div{-webkit-mask-size:100% 100% !important;mask-size:100% 100% !important}
+[data-wk="stateheartline"]{background:rgba(0,0,0,.12) !important;opacity:1 !important}
+[data-wk="stateheart"] > div:not([data-wk="stateheartline"]){inset:2px !important}
+[data-wk="stateheartbase"]{background:#F2F2F4 !important;opacity:1 !important}
+[data-wk="stateheartfill"] > div{opacity:1 !important;border-top:none !important}
+[data-wk="stateheartnum"]{display:none !important}
+[data-wk="stateaffval"]{display:block !important;position:absolute !important;right:20px !important;top:12px !important;font-size:28px !important;font-weight:700 !important;color:#1C1C1E !important}
+[data-wk="stateheartknob"]{display:block !important;width:16px !important;height:16px !important;margin:0 0 -8px -8px !important;border-radius:50% !important;background:#E5533D !important;box-shadow:0 0 0 3px #fff,0 2px 6px rgba(0,0,0,.25) !important;z-index:2 !important}
+
+/* 翻旧的：一条细竖线串起来的时间线 */
+[data-wk="statehistbtn"]{background:#fff !important;color:#1C1C1E !important;border:1px solid rgba(0,0,0,.12) !important;border-radius:999px !important}
+[data-wk="statehistbtn"][data-part="back"]{display:inline-block !important;width:auto !important;padding:4px 16px !important}
+[data-wk="statehisthead"] > :first-child{color:#1C1C1E !important}
+[data-wk="statehisthead"] [data-wk="statevoiceclear"]{border:1px solid rgba(229,83,61,.4) !important;border-radius:999px !important;color:#E5533D !important;background:#fff !important}
+[data-wk="statehistlist"]{position:relative !important;padding-left:26px !important}
+[data-wk="statehistlist"]::before{content:"" !important;position:absolute !important;left:9px !important;top:14px !important;bottom:14px !important;width:1px !important;background:rgba(0,0,0,.15) !important}
+[data-wk="statehistitem"]{position:relative !important;background:#F7F7F8 !important;border:none !important;border-radius:18px !important;padding:14px 16px !important;margin-bottom:12px !important;box-shadow:none !important}
+[data-wk="statehistitem"]::before{content:"" !important;position:absolute !important;left:-21px !important;top:18px !important;width:9px !important;height:9px !important;border-radius:50% !important;background:#1C1C1E !important;box-shadow:0 0 0 3px #fff !important}
+[data-wk="statehistitem"]:first-child::before{background:#E5533D !important}
+[data-wk="statehistmood"]{background:#1C1C1E !important;color:#fff !important;border:none !important;border-radius:999px !important}
+[data-wk="statehisttime"]{color:#8E8E93 !important;font-family:ui-monospace,Menlo,monospace !important}
+[data-wk="statehisttext"]{color:#1C1C1E !important}
+[data-wk="statehistmeta"]{background:#fff !important;border-radius:12px !important}
+[data-wk="statehistact"],[data-wk="statehistwear"]{color:#6E6E73 !important}
+[data-wk="statehistend"]{color:#8E8E93 !important}
+
+/* Ta 眼里：贴条换成一小截黑胶带 */
+[data-wk="gazepage"]{background:#FAFAFA !important}
+[data-wk="gazetitle"]{color:#1C1C1E !important}
+[data-wk="gazetab"]{background:#F2F2F4 !important;color:#8E8E93 !important;border-radius:999px !important;border:none !important;clip-path:none !important}
+[data-wk="gazetab"][data-on="1"]{background:#1C1C1E !important;color:#fff !important}
+[data-wk="gazetab"] *{clip-path:none !important}
+[data-wk="gazestatus"]{color:#8E8E93 !important}
+[data-wk="gazecard"]{background:#fff !important;border:none !important;border-radius:18px !important;box-shadow:0 6px 16px rgba(0,0,0,.08) !important}
+[data-wk="gazetape"]{background:rgba(28,28,30,.85) !important;box-shadow:none !important;border:none !important;height:10px !important;width:40px !important;margin-left:-20px !important;top:-5px !important}
+[data-wk="gazecardname"]{color:#1C1C1E !important}
+[data-wk="gazecardtext"],[data-wk="gazecardtime"]{color:#8E8E93 !important}
+[data-wk="gazeletter"],[data-wk="gazehistory"]{background:#fff !important;border:none !important;border-radius:24px !important;box-shadow:0 20px 50px rgba(0,0,0,.2) !important}
+[data-wk="gazeempty"]{background:#fff !important;border:1px dashed transparent !important;border-radius:18px !important;box-shadow:inset 0 0 0 1px rgba(0,0,0,.08) !important}
+[data-wk="gazeempty"] button{background:#1C1C1E !important;color:#fff !important;border-radius:999px !important;border:none !important}
+
+/* ───── 线下 ───── */
+[data-wk="offline"]:not([style*="url("]){background:radial-gradient(ellipse at 85% 30%,rgba(240,205,180,.45),transparent 55%),radial-gradient(ellipse at 15% 80%,rgba(210,205,235,.4),transparent 55%),linear-gradient(180deg,#F2F1EE,#ECE9E6) !important}
+[data-wk="offline"] [data-wk="offbody"]{background:transparent !important}
+[data-wk="offline"] [data-wk="chathead"] *{white-space:nowrap !important}
+[data-wk="offline"] [data-wk="offtitle"],[data-wk="offline"] [data-wk="offtitle"] *{color:#1C1C1E !important}
+[data-wk="offline"] [data-wk="chathead"] button[title="给 Ta 一个提示"]{width:28px !important;height:28px !important;background:${svg(I_PLUS)} center/20px no-repeat !important;border:none !important}
+[data-wk="offline"] [data-wk="chathead"] button[title="给 Ta 一个提示"] *{opacity:0 !important}
+[data-wk="offline"] [data-wk="chathead"] button:last-child:not([data-wk]){background:#1C1C1E !important;color:#fff !important;border:none !important;border-radius:999px !important;font-size:12px !important;padding:3px 12px !important}
+[data-wk="offcomposer"]{background:rgba(255,255,255,.92) !important;border-top:none !important;box-shadow:0 -6px 20px rgba(0,0,0,.06) !important}
+[data-wk="offcomposer"] textarea{background:#F2F2F4 !important;border:none !important;border-radius:20px !important;color:#1C1C1E !important}
+[data-wk="offcomposer"] button[title="给 Ta 看真实照片"]{width:32px !important;height:32px !important;min-width:32px !important;border:none !important;box-shadow:none !important;font-size:0 !important;background:${svg(I_PLUS)} center/20px no-repeat !important}
+[data-wk="offcomposer"] button[title="给 Ta 看真实照片"] *{opacity:0 !important}
+[data-wk="offcomposer"] button:not([title]):not([data-wk]){background:${svg(I_SEND)} center/contain no-repeat !important;border:none !important;box-shadow:0 6px 14px rgba(0,0,0,.2) !important;border-radius:50% !important}
+[data-wk="offcomposer"] button:not([title]):not([data-wk]) svg{opacity:0 !important}
+[data-wk="offcard"]{background:#fff !important;border:none !important;border-left-width:0 !important;border-radius:22px !important;box-shadow:0 6px 16px rgba(0,0,0,.08) !important}
+[data-wk="offcard"][data-me="1"]{background:#2C2C30 !important}
+[data-wk="offcard"][data-me="1"] *{color:#fff !important}
+[data-wk="offhead"] img,[data-wk="offhead"] [data-wk="avatar"]{border-radius:50% !important;box-shadow:none !important}
+[data-wk="offname"]{color:#1C1C1E !important;font-weight:700 !important}
+[data-wk="offtext"]{color:#1C1C1E !important}
+[data-wk="offsay"]{background:none !important;color:#1C1C1E !important;font-weight:700 !important;border-bottom:1.5px solid #E5533D !important}
+[data-wk="offcard"][data-me="1"] [data-wk="offsay"]{color:#fff !important}
+[data-wk="offthought"]{background:#F7F7F8 !important;border:none !important;border-left:2px solid #1C1C1E !important;border-radius:4px 14px 14px 4px !important;color:#6E6E73 !important}
+[data-wk="offcardacts"] svg{stroke:#8E8E93 !important;color:#8E8E93 !important}
+[data-wk="offreplyopt"]{background:#fff !important;border:1px solid rgba(0,0,0,.12) !important;border-radius:999px !important;color:#1C1C1E !important}
+
+/* ───── 通话 ───── */
+[data-wk="callbubble"]{background:rgba(255,255,255,.95) !important;color:#1C1C1E !important;border:none !important;border-radius:22px !important;box-shadow:0 6px 16px rgba(0,0,0,.15) !important}
+[data-wk="callmsg"][data-me="1"] [data-wk="callbubble"]{background:#2C2C30 !important;color:#fff !important}
+[data-wk="callbubble"]::before,[data-wk="callbubble"]::after{content:none !important}
+[data-wk="callavatar"]{border-radius:50% !important;box-shadow:0 0 0 6px rgba(255,255,255,.9),0 20px 40px rgba(0,0,0,.3) !important}
+
+[data-wk="stateaff"]{overflow:hidden !important}
+[data-wk="stateheart"]{left:calc(50% - 7px) !important;margin-left:0 !important;height:min(240px, 76vw) !important;bottom:calc(30px - min(240px, 76vw) / 2) !important;transform:rotate(90deg) !important;transform-origin:50% 50% !important}
+[data-wk="stateknob"],[data-wk="stateheartknob"]{transform:none !important}
+
 `;
 
 const pack = { kind: "chat-look", v: 1, name: "黑白", look: { bubble, layout, customCSS: css.trim() }, assets: {} };
