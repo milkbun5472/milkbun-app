@@ -355,9 +355,12 @@ button[data-wk="avatar"]::before,span[data-wk="avatar"]:not([data-halo])::before
 [data-wk="rpenvelope"][data-stage="closed"] [data-wk="rpwish"],[data-wk="rpenvelope"][data-stage="closed"] [data-wk="rpfrom"]{color:#fff !important}
 
 /* 状态卡页头：名字＋「的日记」一行写完 */
-[data-wk="statehead"] > div > div:first-child{white-space:normal !important;font-size:20px !important;overflow:visible !important;word-break:break-all !important}
+[data-wk="statehead"] > div > div:first-child{white-space:nowrap !important;font-size:20px !important;overflow:hidden !important;text-overflow:ellipsis !important}
+[data-wk="statehead"]{position:relative !important}
+[data-wk="statehead"] > [data-wk="avatar"]{width:54px !important;height:54px !important;flex:0 0 54px !important}
+[data-wk="statehead"] > button{position:absolute !important;right:84px !important;top:14px !important;width:26px !important;height:26px !important}
 [data-wk="statehead"] > div > div:first-child::after{display:block !important;font-size:11px !important;line-height:1.2 !important;letter-spacing:.2em !important}
-[data-wk="statehead"]{padding-right:96px !important}
+[data-wk="statehead"]{padding-right:118px !important}
 
 /* 顶栏＝日记本封面：粉色布面，中间缝一块白色布标签写名字 */
 [data-wk="chathead"]{background:repeating-linear-gradient(45deg,rgba(255,255,255,.12) 0 2px,transparent 2px 5px),repeating-linear-gradient(-45deg,rgba(138,90,95,.07) 0 2px,transparent 2px 5px),#e9b8bf !important}
