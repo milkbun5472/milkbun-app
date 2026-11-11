@@ -44,6 +44,8 @@
 
 ## 别忘的几处（每套都漏过一次）
 
+- **不许写 `overscroll-behavior`**：导入时的安全检查把 `behavior:` 当成老 IE 脚本拦掉，整套美化静默不生效。
+
 - 「输入中」：单聊 `[data-wk="bubble"][data-kind="typing"]` 那颗气泡＋里面的 `typingdot`（换成这套的小图标），**还有通话里的**（`callbubble` 带 `data-kind="typing"`）。气泡的伪元素装饰（耳朵、雪帽、尾巴）在输入中那颗上要关掉。
 
 - Ta 眼里卡片顶上的米色贴条（`gazetape`，展开的信和旧版也是它）：每套都换成自己的样子。
