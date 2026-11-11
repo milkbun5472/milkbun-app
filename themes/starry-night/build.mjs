@@ -201,6 +201,6 @@ button[data-wk="avatar"]::before,span[data-wk="avatar"]:not([data-halo])::before
 [data-wk="send"]{background-size:118% !important;opacity:1 !important}
 `;
 
-const pack = { kind: "chat-look", v: 1, name: "星空", look: { bubble, customCSS: css.trim() }, assets: {} };
+const pack = { kind: "chat-look", v: 1, name: "星空", look: { bubble, layout: { bubble: "bubble", avatar: "all", name: false, gap: "normal", time: "show" }, customCSS: css.trim() }, assets: {} };
 writeFileSync(join(here, "星空-美化.json"), JSON.stringify(pack));
 console.log("ok", css.length);
