@@ -325,6 +325,10 @@ button[data-wk="avatar"]::before,span[data-wk="avatar"]:not([data-halo])::before
 [data-wk="callbubble"]::before,[data-wk="callbubble"]::after{content:none !important}
 [data-wk="callavatar"]{border-radius:50% !important;box-shadow:0 0 0 6px ${C.paper},0 0 0 7.4px ${C.rose},0 14px 30px rgba(106,79,166,.3) !important}
 
+/* 挂牌尖头对齐：尖头图的上下边正好压在气泡上下边框上（线宽 2.8 一半裁掉＝1.4，跟边框一样粗）；影子改用 drop-shadow 让尖头也一起有影 */
+[data-wk="bubble"][data-kind="text"][data-me="0"]{box-shadow:none !important;filter:drop-shadow(0 3px 0 rgba(106,79,166,.18)) !important}
+[data-wk="bubble"][data-kind="text"][data-me="0"]::before{left:-20px !important;width:21px !important;top:0 !important;bottom:0 !important;margin-top:-1.4px !important;height:calc(100% + 2.8px) !important;overflow:hidden !important;background:${svg(`<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 21 40' preserveAspectRatio='none'><path d='M21 0 H14 L0.9 20 L14 40 H21Z' fill='${C.paper}'/><path d='M21 0 H14 M14 40 H21' stroke='${C.line}' stroke-width='2.8' vector-effect='non-scaling-stroke'/><path d='M14 0.5 L1.2 20 L14 39.5' fill='none' stroke='${C.line}' stroke-width='1.4' vector-effect='non-scaling-stroke' stroke-linejoin='round' stroke-linecap='round'/></svg>`)} left top/100% 100% no-repeat !important}
+
 `;
 
 const pack = { kind: "chat-look", v: 1, name: "票签", look: { bubble, layout, customCSS: css.trim() }, assets: {} };
