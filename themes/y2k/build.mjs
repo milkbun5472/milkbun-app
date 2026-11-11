@@ -21,7 +21,7 @@ const I_REPLY = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 44 44'><de
 const I_HOUSE = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'><circle cx='20' cy='20' r='18' fill='#FFE3F2' stroke='#fff' stroke-width='2'/><path d='M11 20 L20 12 L29 20 V29 H11Z' fill='none' stroke='#FF5DB4' stroke-width='2.4' stroke-linejoin='round'/></svg>`;
 const I_MORE = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'><circle cx='20' cy='20' r='18' fill='${C.blueL}' stroke='#fff' stroke-width='2'/><g transform='translate(7 14) scale(.6)'>${SPARK("#4AA8F0").replace(/<\/?svg[^>]*>/g, "")}</g><g transform='translate(15 13) scale(.7)'>${SPARK("#4AA8F0").replace(/<\/?svg[^>]*>/g, "")}</g><g transform='translate(24 14) scale(.6)'>${SPARK("#4AA8F0").replace(/<\/?svg[^>]*>/g, "")}</g></svg>`;
 
-const bubble = { myBg: C.blueL, myText: C.ink, myBorder: "none", charBg: C.pinkL, charText: C.ink, charBorder: "none", radius: 14, shadow: "none", myAlpha: 100, charAlpha: 100 };
+const bubble = { myBg: C.pinkL, myText: C.ink, myBorder: "none", charBg: C.blueL, charText: C.ink, charBorder: "none", radius: 14, shadow: "none", myAlpha: 100, charAlpha: 100 };
 const layout = { bubble: "bubble", avatar: "first", name: false, gap: "normal", time: "show" };
 
 // 果冻亮面：上半一道白高光
@@ -52,15 +52,15 @@ button[data-wk="avatar"]::after,span[data-wk="avatar"]:not([data-halo])::after{c
 
 /* 每条消息＝一个小弹窗：顶上一条标题栏（他的是粉色、我的是蓝色），右上三颗小圆点 */
 [data-wk="bubble"][data-kind="text"]{position:relative !important;overflow:visible !important;border-radius:12px !important;padding-top:30px !important;border:2px solid #fff !important;margin-top:4px !important}
-[data-wk="bubble"][data-kind="text"][data-me="0"]{background:linear-gradient(180deg,${C.pink} 0,${C.pink} 20px,transparent 20px),${JELLY("#FFE3F2", C.pinkL)} !important;box-shadow:0 0 0 1.5px ${C.pink},0 6px 16px rgba(255,94,180,.4) !important;color:${C.ink} !important}
-[data-wk="bubble"][data-kind="text"][data-me="1"]{background:linear-gradient(180deg,#4AA8F0 0,#4AA8F0 20px,transparent 20px),${JELLY("#E6F5FF", C.blueL)} !important;box-shadow:0 0 0 1.5px #4AA8F0,0 6px 16px rgba(74,168,240,.4) !important;color:${C.ink} !important}
+[data-wk="bubble"][data-kind="text"][data-me="1"]{background:linear-gradient(180deg,${C.pink} 0,${C.pink} 20px,transparent 20px),${JELLY("#FFE3F2", C.pinkL)} !important;box-shadow:0 0 0 1.5px ${C.pink},0 6px 16px rgba(255,94,180,.4) !important;color:${C.ink} !important}
+[data-wk="bubble"][data-kind="text"][data-me="0"]{background:linear-gradient(180deg,#4AA8F0 0,#4AA8F0 20px,transparent 20px),${JELLY("#E6F5FF", C.blueL)} !important;box-shadow:0 0 0 1.5px #4AA8F0,0 6px 16px rgba(74,168,240,.4) !important;color:${C.ink} !important}
 [data-wk="bubble"][data-kind="text"]::before{content:"" !important;position:absolute !important;right:8px !important;left:auto !important;top:5px !important;width:34px !important;height:10px !important;background:${svg(DOTS)} center/contain no-repeat !important;border:none !important;transform:none !important}
-[data-wk="bubble"][data-kind="text"]::after{content:"message.txt" !important;position:absolute !important;left:10px !important;right:auto !important;top:3px !important;bottom:auto !important;width:auto !important;height:auto !important;background:none !important;border:none !important;font:700 10px/14px monospace !important;letter-spacing:.06em !important;color:#fff !important;transform:none !important}
-[data-wk="bubble"][data-kind="text"][data-me="1"]::after{content:"me.txt" !important}
+[data-wk="bubble"][data-kind="text"]::after{content:"me.txt" !important;position:absolute !important;left:10px !important;right:auto !important;top:3px !important;bottom:auto !important;width:auto !important;height:auto !important;background:none !important;border:none !important;font:700 10px/14px monospace !important;letter-spacing:.06em !important;color:#fff !important;transform:none !important}
+[data-wk="bubble"][data-kind="text"][data-me="0"]::after{content:"message.txt" !important}
 /* 连发：后面几条叠在上一扇窗口后面，往右错一点、只露出窗口本体，不再带标题栏 */
 [data-first="0"] [data-wk="bubble"][data-kind="text"]{padding-top:10px !important;margin-top:-6px !important}
-[data-first="0"] [data-wk="bubble"][data-kind="text"][data-me="0"]{background:${JELLY("#FFE3F2", C.pinkL)} !important;transform:translateX(10px) !important}
-[data-first="0"] [data-wk="bubble"][data-kind="text"][data-me="1"]{background:${JELLY("#E6F5FF", C.blueL)} !important;transform:translateX(-10px) !important}
+[data-first="0"] [data-wk="bubble"][data-kind="text"][data-me="1"]{background:${JELLY("#FFE3F2", C.pinkL)} !important;transform:translateX(-10px) !important}
+[data-first="0"] [data-wk="bubble"][data-kind="text"][data-me="0"]{background:${JELLY("#E6F5FF", C.blueL)} !important;transform:translateX(10px) !important}
 [data-first="0"] [data-wk="bubble"][data-kind="text"]::before,[data-first="0"] [data-wk="bubble"][data-kind="text"]::after{content:none !important}
 
 /* 时间：TODAY.exe 小窗 */
@@ -92,8 +92,8 @@ button[data-wk="avatar"]::after,span[data-wk="avatar"]:not([data-halo])::after{c
 [data-wk="msg"][data-last="0"] [data-wk="meta"]{display:none !important}
 [data-wk="msg"][data-first="0"]{margin-top:-10px !important}
 [data-first="0"] [data-wk="bubble"][data-kind="text"]{box-shadow:0 0 0 1.5px currentColor,0 -6px 10px rgba(0,0,0,.18),0 6px 16px rgba(0,0,0,.25) !important}
-[data-first="0"] [data-wk="bubble"][data-kind="text"][data-me="0"]{color:${C.ink} !important;box-shadow:0 0 0 1.5px ${C.pink},0 -4px 10px rgba(0,0,0,.2) !important}
-[data-first="0"] [data-wk="bubble"][data-kind="text"][data-me="1"]{box-shadow:0 0 0 1.5px #4AA8F0,0 -4px 10px rgba(0,0,0,.2) !important}
+[data-first="0"] [data-wk="bubble"][data-kind="text"][data-me="1"]{color:${C.ink} !important;box-shadow:0 0 0 1.5px ${C.pink},0 -4px 10px rgba(0,0,0,.2) !important}
+[data-first="0"] [data-wk="bubble"][data-kind="text"][data-me="0"]{box-shadow:0 0 0 1.5px #4AA8F0,0 -4px 10px rgba(0,0,0,.2) !important}
 
 `;
 
