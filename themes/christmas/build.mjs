@@ -73,6 +73,12 @@ const PEG = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 30'><rect x
 const GLOBEBASE = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 40' preserveAspectRatio='none'><path d='M30 0 H170 C176 0 178 4 180 10 L194 32 C196 36 194 40 188 40 H12 C6 40 4 36 6 32 L20 10 C22 4 24 0 30 0Z' fill='#8A5A3B' stroke='#5E3B26' stroke-width='2'/><path d='M24 12 H176' stroke='${C.gold}' stroke-width='2.4'/><path d='M14 30 H186' stroke='#5E3B26' stroke-width='1.2' opacity='.6'/></svg>`;
 // 红信封（明信片插在里面）
 const ENVELOPE = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 300 70' preserveAspectRatio='none'><path d='M0 6 L150 46 L300 6 V70 H0Z' fill='#B5383A' stroke='#8C2A2C' stroke-width='2'/><path d='M0 70 L120 34 M300 70 L180 34' stroke='#8C2A2C' stroke-width='1.6' opacity='.6'/><circle cx='150' cy='46' r='9' fill='${C.gold}' stroke='#B88A33' stroke-width='1.4'/></svg>`;
+
+// ── 第三批用的图 ──
+// 礼物盒顶上的大蝴蝶结
+const BIGBOW = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 60'><path d='M60 40 C40 2 8 4 12 26 C14 40 36 42 60 40Z M60 40 C80 2 112 4 108 26 C106 40 84 42 60 40Z' fill='#D9474A' stroke='${C.redD}' stroke-width='2'/><path d='M60 40 C46 18 26 16 24 28 M60 40 C74 18 94 16 96 28' fill='none' stroke='${C.redD}' stroke-width='1.6' opacity='.6'/><path d='M56 42 L42 60 L50 58 L52 60Z M64 42 L78 60 L70 58 L68 60Z' fill='#D9474A' stroke='${C.redD}' stroke-width='1.6'/><ellipse cx='60' cy='40' rx='9' ry='8' fill='${C.redD}'/></svg>`;
+// 冬青挂在角上
+const SLEIGHBELLS = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 60 40'><path d='M4 6 C20 20 40 20 56 6' fill='none' stroke='${C.red}' stroke-width='3'/><g transform='translate(12 14) scale(.55)'>${X(BELL)}</g><g transform='translate(32 14) scale(.55)'>${X(BELL)}</g></svg>`;
 const bubble = { myBg: C.red, myText: "#fff", myBorder: "none", charBg: C.cream, charText: C.ink, charBorder: "1.5px solid " + C.gold, radius: 20, shadow: "none", myAlpha: 100, charAlpha: 100 };
 const layout = { bubble: "bubble", avatar: "first", name: false, gap: "normal", time: "show" };
 
@@ -322,6 +328,117 @@ button[data-wk="avatar"]::before,span[data-wk="avatar"]:not([data-halo])::before
 [data-wk="voice"][data-me]{border-radius:999px !important;padding:0 10px 0 32px !important;margin-top:4px !important;animation:none !important;box-shadow:0 2px 0 #9C7424 !important}
 [data-wk="voice"]::before{left:10px !important;top:50% !important;width:20px !important;height:20px !important;margin:-10px 0 0 0 !important;background:${svg(BELL)} center/contain no-repeat !important;transform-origin:50% 0 !important;animation:xmSwing 1.4s ease-in-out infinite !important}
 [data-wk="voice"]::after{content:none !important}
+
+/* ───── 圣诞 · 第三批：状态卡＝一个礼物盒 ───── */
+/* 盒身红色，金色丝带竖着穿过；顶上一只大蝴蝶结；里面的几块是奶白卡片压在丝带上 */
+[data-wk="statecard"]{background:linear-gradient(90deg,transparent calc(50% - 14px),${C.gold} calc(50% - 14px),${C.gold} calc(50% + 14px),transparent calc(50% + 14px)),linear-gradient(180deg,#C8423F,${C.redD}) !important;border:2px solid ${C.redD} !important;border-radius:22px !important;box-shadow:0 8px 0 #6E1F21,0 20px 40px rgba(0,0,0,.4) !important;overflow:visible !important;position:relative !important;--sc-heart-ink:repeating-linear-gradient(45deg,#E04848 0 8px,#fff 8px 16px) !important}
+[data-wk="statecard"]::before{content:"" !important;position:absolute !important;top:-40px !important;left:50% !important;width:120px !important;height:60px !important;margin-left:-60px !important;background:${svg(BIGBOW)} center/contain no-repeat !important;z-index:3 !important;filter:drop-shadow(0 3px 3px rgba(0,0,0,.3)) !important}
+/* 盒盖：顶上那一截颜色深一档，底下一道金边 */
+[data-wk="statehead"]{background:${C.redD} !important;border-bottom:3px solid ${C.gold} !important;border-radius:20px 20px 0 0 !important;color:#fff !important;padding-top:24px !important}
+[data-wk="statehead"] *{color:#FFF1D6 !important}
+[data-wk="statehead"] button{border:1.5px solid ${C.gold} !important;color:${C.gold} !important;background:transparent !important}
+[data-wk="statehead"] [data-wk="avatar"]{box-shadow:0 0 0 2.5px ${C.gold} !important;border-radius:50% !important}
+[data-wk="statehead"] [data-wk="avatar"]::before{content:none !important}
+[data-wk="statemood"]{display:inline-block !important;background:${C.gold} !important;color:${C.redD} !important;border-radius:999px !important;padding:0 10px !important;margin-right:4px !important}
+[data-wk="statecard"] div:has(> button[aria-pressed]){background:rgba(0,0,0,.18) !important;border:none !important;border-radius:999px !important;margin:10px 16px 8px !important;padding:4px !important}
+[data-wk="statecard"] button[aria-pressed]{color:#FFE3C0 !important;border:none !important;border-radius:999px !important}
+[data-wk="statecard"] button[aria-pressed="true"]{background:${C.cream} !important;color:${C.redD} !important;font-weight:700 !important}
+/* 看得见的：一张挂签 */
+[data-wk="stateseen"]{background:${C.cream} !important;border:1.5px solid ${C.gold} !important;border-radius:6px 18px 18px 18px !important;margin:14px 16px 12px !important;color:${C.ink} !important;position:relative !important;box-shadow:0 3px 0 rgba(0,0,0,.2) !important}
+[data-wk="stateseen"]::after{content:"" !important;position:absolute !important;right:-8px !important;top:-14px !important;width:40px !important;height:28px !important;background:${svg(HOLLY)} center/contain no-repeat !important;transform:rotate(18deg) !important}
+[data-wk="stateseen"] > span[aria-hidden]{display:none !important}
+[data-wk="stateseen"] *{color:${C.ink} !important}
+[data-wk="statewear"]{background:#fff !important;border:1.5px solid ${C.gold} !important;border-radius:999px !important;color:${C.ink} !important}
+[data-wk="statewear"] > span{background:#F6EAD0 !important;border-radius:999px !important;color:${C.red} !important}
+/* 心里想的：一封写给圣诞老人的信，信纸横格，左上角一串铃铛 */
+[data-wk="statevoice"]{background:repeating-linear-gradient(180deg,transparent 0 25px,rgba(181,56,58,.18) 25px 26px),${C.cream} !important;border:1.5px solid ${C.gold} !important;border-radius:6px !important;margin:22px 16px 18px !important;color:${C.ink} !important;position:relative !important;overflow:visible !important;box-shadow:0 3px 0 rgba(0,0,0,.2) !important;transform:rotate(-.8deg) !important}
+[data-wk="statevoice"]::before{content:"" !important;position:absolute !important;left:10px !important;top:-18px !important;width:60px !important;height:40px !important;background:${svg(SLEIGHBELLS)} center/contain no-repeat !important}
+[data-wk="statevoice"] > span[aria-hidden]{display:none !important}
+[data-wk="statevoice"] *{color:${C.ink} !important}
+[data-wk="statevoicedel"],[data-wk="statevoiceclear"]{color:${C.red} !important}
+[data-wk="statevoice"] + div > button{background:${C.cream} !important;color:${C.redD} !important;border:1.5px solid ${C.gold} !important;border-radius:999px !important}
+/* 好感：一根红白拐杖糖，旋钮是一颗金星 */
+[data-wk="stateaff"]{background:${C.cream} !important;border-top:3px solid ${C.gold} !important;border-radius:0 0 20px 20px !important;position:relative !important;display:block !important;padding:16px 20px 74px !important}
+[data-wk="stateaff"] *{color:${C.ink} !important}
+[data-wk="stateheart"]{position:absolute !important;width:34px !important;height:230px !important;left:calc(50% - 17px) !important;bottom:-76px !important;transform:rotate(90deg) !important;--sc-heart-mask:${svg(`<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 34 230' preserveAspectRatio='none'><rect x='3' y='3' width='28' height='224' rx='14' fill='#000'/></svg>`)} !important}
+[data-wk="stateheart"] > div{-webkit-mask-size:100% 100% !important;mask-size:100% 100% !important}
+[data-wk="stateheartline"]{background:${C.redD} !important;opacity:1 !important}
+[data-wk="stateheart"] > div:not([data-wk="stateheartline"]){inset:3px !important}
+[data-wk="stateheartbase"]{background:#fff !important;opacity:1 !important}
+[data-wk="stateheartfill"] > div{opacity:1 !important;border-top:none !important}
+[data-wk="stateaffval"]{display:block !important;position:absolute !important;right:22px !important;top:12px !important;font-size:26px !important;font-weight:700 !important;color:${C.red} !important}
+[data-wk="stateheartnum"]{display:none !important}
+[data-wk="stateheartknob"]{display:block !important;width:30px !important;height:30px !important;margin:0 0 -15px -15px !important;background:${svg(STAR())} center/contain no-repeat !important;filter:drop-shadow(0 0 4px rgba(232,184,90,.9)) !important;transform:rotate(-90deg) !important;z-index:2 !important;border:none !important}
+
+/* 翻旧的：一张张挂签从盒盖底下吊下来，左右交替 */
+[data-wk="statehistbtn"]{background:${C.cream} !important;color:${C.redD} !important;border:1.5px solid ${C.gold} !important;border-radius:999px !important}
+[data-wk="statehisthead"] > :first-child{color:#FFF1D6 !important}
+[data-wk="statehisthead"] [data-wk="statevoiceclear"]{border:1.5px solid ${C.gold} !important;border-radius:999px !important;color:${C.gold} !important;background:transparent !important}
+[data-wk="statehistlist"]{padding:0 6px !important;margin-top:14px !important}
+[data-wk="statehistitem"]{position:relative !important;width:86% !important;background:${C.cream} !important;border:1.5px solid ${C.gold} !important;border-radius:6px 18px 18px 18px !important;margin:30px 0 6px !important;padding:14px 16px !important;box-shadow:0 4px 8px rgba(0,0,0,.25) !important;transform:rotate(-1deg) !important;overflow:visible !important}
+[data-wk="statehistitem"]:nth-child(even){margin-left:auto !important;transform:rotate(1deg) !important;border-radius:18px 6px 18px 18px !important}
+[data-wk="statehistitem"]::before{content:"" !important;position:absolute !important;left:22px !important;top:-31px !important;width:30px !important;height:40px !important;background:${svg(RIBBON)} center top/contain no-repeat !important}
+[data-wk="statehistitem"]:nth-child(even)::before{left:auto !important;right:22px !important}
+[data-wk="statehistmood"]{background:${C.red} !important;color:#fff !important;border-radius:999px !important;border:none !important}
+[data-wk="statehisttime"]{color:#8C6A3A !important}
+[data-wk="statehisttext"]{color:${C.ink} !important}
+[data-wk="statehistmeta"]{background:#F6EAD0 !important;border-radius:12px !important}
+[data-wk="statehistact"],[data-wk="statehistwear"]{color:#6B4A2E !important}
+[data-wk="statehistend"]{color:#FFE3C0 !important}
+
+/* Ta 眼里：卡片顶上的贴条换成一只小蝴蝶结丝带 */
+[data-wk="gazepage"]{background:${C.cream} !important}
+[data-wk="gazetitle"]{color:${C.red} !important}
+[data-wk="gazetab"]{background:#F6EAD0 !important;color:#8C6A3A !important;border-radius:999px !important;border:none !important;clip-path:none !important}
+[data-wk="gazetab"][data-on="1"]{background:${C.red} !important;color:#fff !important}
+[data-wk="gazetab"] *{clip-path:none !important}
+[data-wk="gazestatus"]{color:#8C6A3A !important}
+[data-wk="gazecard"]{background:#fff !important;border:1.5px solid ${C.gold} !important;border-radius:16px !important;box-shadow:0 3px 0 #E6CF9E !important}
+[data-wk="gazetape"]{background:${svg(`<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 52 18'><path d='M0 9 H52' stroke='${C.red}' stroke-width='3'/><path d='M26 9 C18 0 10 2 12 8 C13 12 20 11 26 9 C32 11 39 12 40 8 C42 2 34 0 26 9Z' fill='#D9474A' stroke='${C.redD}' stroke-width='1.2'/><circle cx='26' cy='9' r='2.6' fill='${C.redD}'/></svg>`)} center/contain no-repeat !important;box-shadow:none !important;border:none !important}
+[data-wk="gazecardname"]{color:${C.redD} !important}
+[data-wk="gazecardtext"],[data-wk="gazecardtime"]{color:#8C6A3A !important}
+[data-wk="gazeletter"],[data-wk="gazehistory"]{background:${C.cream} !important;border:1.5px solid ${C.gold} !important;border-radius:20px !important}
+[data-wk="gazeempty"]{border:1.5px solid ${C.gold} !important;border-radius:18px !important;background:#fff ${svg(GIFT())} center 22px/56px 56px no-repeat !important;padding:92px 12px 22px !important}
+[data-wk="gazeempty"] > div:first-child{color:${C.ink} !important}
+[data-wk="gazeempty"] button{background:${C.red} !important;color:#fff !important;border-radius:999px !important;box-shadow:0 3px 0 ${C.redD} !important}
+
+/* ───── 线下（只在 offline 里） ───── */
+[data-wk="offline"]:not([style*="url("]){background:${svg(SNOWTILE)} 0 0/180px 180px,linear-gradient(180deg,#1A3329,${C.pine} 40%,${C.pine2}) !important}
+[data-wk="offline"] [data-wk="offbody"]{background:transparent !important}
+[data-wk="offline"] [data-wk="chathead"]::after{display:none !important}
+[data-wk="offline"] [data-wk="chathead"] button:has(> [data-wk="avatar"])::before{content:none !important}
+[data-wk="offline"] [data-wk="chathead"] [data-wk="headname"]{display:block !important}
+[data-wk="offline"] [data-wk="offtitle"],[data-wk="offline"] [data-wk="offtitle"] *{color:#fff !important}
+[data-wk="offline"] [data-wk="chathead"] button[title="给 Ta 一个提示"]{width:30px !important;height:30px !important;background:${svg(I_PLUS)} center/contain no-repeat !important;border:none !important}
+[data-wk="offline"] [data-wk="chathead"] button[title="给 Ta 一个提示"] *{opacity:0 !important}
+[data-wk="offline"] [data-wk="chathead"] button:last-child:not([data-wk]){background:${C.cream} !important;border:1.5px solid ${C.gold} !important;color:${C.redD} !important;border-radius:999px !important}
+[data-wk="offcomposer"]{background:${C.cream} !important;border-top:2px solid ${C.gold} !important}
+[data-wk="offcomposer"] textarea{background:#fff !important;border:1.5px solid ${C.gold} !important;border-radius:20px !important;color:${C.ink} !important}
+[data-wk="offcomposer"] button[title="给 Ta 看真实照片"]{display:none !important}
+[data-wk="offcomposer"] button:not([title]):not([data-wk]){background:${svg(I_SEND)} center/contain no-repeat !important;border:none !important;box-shadow:none !important}
+[data-wk="offcomposer"] button:not([title]):not([data-wk]) svg{opacity:0 !important}
+[data-wk="offcard"]{background:${C.cream} !important;border:1.5px solid ${C.gold} !important;border-left-width:1.5px !important;border-radius:20px !important;box-shadow:0 4px 0 #C9A46A,0 8px 18px rgba(0,0,0,.3) !important;position:relative !important;overflow:visible !important}
+[data-wk="offcard"][data-me="1"]{background:#FBE9E4 !important;border-color:${C.red} !important}
+[data-wk="offcard"]::before{content:"" !important;position:absolute !important;top:-14px !important;right:18px !important;width:42px !important;height:30px !important;background:${svg(HOLLY)} center/contain no-repeat !important}
+[data-wk="offcard"][data-me="1"]::before{right:auto !important;left:18px !important;top:-10px !important;width:100px !important;height:22px !important;background:${svg(SNOWCAP)} center/100% 100% no-repeat !important}
+[data-wk="offhead"] img,[data-wk="offhead"] [data-wk="avatar"]{border-radius:50% !important;box-shadow:0 0 0 2px #fff,0 0 0 3.5px ${C.holly} !important}
+[data-wk="offname"]{color:${C.redD} !important;font-weight:700 !important}
+[data-wk="offtext"]{color:${C.ink} !important}
+[data-wk="offsay"]{background:linear-gradient(transparent 58%,rgba(232,184,90,.45) 58%) !important;color:${C.redD} !important;font-weight:700 !important;box-decoration-break:clone !important;-webkit-box-decoration-break:clone !important}
+[data-wk="offthought"]{background:#F6EAD0 !important;border:none !important;border-radius:16px !important;padding:10px 14px 10px 36px !important;position:relative !important;color:#6B4A2E !important}
+[data-wk="offthought"]::before{content:"" !important;position:absolute !important;left:10px !important;top:10px !important;width:20px !important;height:20px !important;background:${svg(BELL)} center/contain no-repeat !important}
+[data-wk="offcardacts"] svg{stroke:${C.red} !important;color:${C.red} !important}
+[data-wk="offreplyopt"]{background:${C.cream} !important;border:1.5px solid ${C.gold} !important;border-radius:999px !important;color:${C.ink} !important}
+
+/* ───── 通话 ───── */
+[data-wk="callbubble"]{background:${C.cream} !important;color:${C.ink} !important;border:1.5px solid ${C.gold} !important;border-radius:20px !important;position:relative !important;overflow:visible !important}
+[data-wk="callmsg"][data-me="1"] [data-wk="callbubble"]{background:${C.red} !important;color:#fff !important;border-color:${C.redD} !important}
+[data-wk="callmsg"][data-me="0"] [data-wk="callbubble"]:not([data-kind="typing"])::after{content:"" !important;position:absolute !important;right:-8px !important;bottom:-8px !important;width:16px !important;height:16px !important;background:${svg(STAR())} center/contain no-repeat !important}
+[data-wk="callact"]{color:#FFE3C0 !important}
+[data-wk="callavatar"]{border-radius:50% !important;box-shadow:0 0 0 5px ${C.cream},0 0 0 8px ${C.holly},0 0 26px rgba(232,184,90,.5) !important}
+[data-wk="gazepage"] [aria-pressed="false"]{color:#8C6A3A !important;background:transparent !important}
+[data-wk="statehistbtn"][data-part="back"]{display:inline-block !important;width:auto !important;padding:4px 16px !important}
+[data-wk="offline"] [data-wk="sysnotetext"],[data-wk="offline"] [data-wk="offtitle"] + *{color:rgba(255,255,255,.8) !important}
 `;
 
 const pack = { kind: "chat-look", v: 1, name: "圣诞", look: { bubble, layout, customCSS: css.trim() }, assets: {} };
