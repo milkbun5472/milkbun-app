@@ -170,6 +170,15 @@ button[data-wk="avatar"],span[data-wk="avatar"]:not([data-halo]){box-shadow:0 0 
 [data-wk="chathead"]::after{content:none !important}
 [data-wk="chathead"] [data-wk="headname"] > [data-wk="headink"]{display:inline-flex !important;background:${C.cream} !important;border:${LINE} !important;border-radius:999px !important;padding:0 12px !important}
 
+
+/* 顶栏两个人：他的头像和我的头像叠在一起，中间一颗小星；小猫趴在两颗头像顶上，尾巴垂到我这边 */
+[data-wk="chathead"] [data-wk="headme"]{display:inline-flex !important;position:relative !important;overflow:visible !important;margin-left:-12px !important;z-index:1 !important}
+[data-wk="chathead"] [data-wk="headme"] > *,[data-wk="chathead"] [data-wk="headme"] img{width:40px !important;height:40px !important;border-radius:10px !important;box-shadow:0 0 0 1.6px ${C.brown},0 0 0 3.5px ${C.bg} !important;transform:rotate(6deg) !important}
+[data-wk="chathead"] button:has(> [data-wk="avatar"]) > [data-wk="avatar"],[data-wk="chathead"] button:has(> [data-wk="avatar"]) img{width:40px !important;height:40px !important;transform:rotate(-6deg) !important}
+[data-wk="chathead"] [data-wk="headme"]::before{content:"" !important;position:absolute !important;left:-12px !important;bottom:-6px !important;width:18px !important;height:18px !important;background:${svg(STAR)} center/contain no-repeat !important;z-index:3 !important}
+[data-wk="chathead"] button:has(> [data-wk="avatar"]){position:relative !important;overflow:visible !important}
+[data-wk="chathead"] button:has(> [data-wk="avatar"])::after{content:"" !important;position:absolute !important;left:24px !important;top:-10px !important;width:42px !important;height:17.5px !important;background:${svg(CAT)} center bottom/contain no-repeat !important;z-index:4 !important;pointer-events:none !important}
+
 `;
 
 const pack = { kind: "chat-look", v: 1, name: "青瓷焦茶", look: { bubble, layout, customCSS: css.trim() }, assets: {} };
