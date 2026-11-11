@@ -455,6 +455,8 @@ ${ktAlong()}
 /* Ta 眼里：米色贴条换成一小段蓝毛线绑带；卡片、翻旧、照片的猫耳统一换成气泡那套软猫耳 */
 [data-wk="gazetape"]{background:${svg(`<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 52 18'><path d='M2 9 C12 3 20 15 26 9 C32 3 40 15 50 9' fill='none' stroke='${C.line}' stroke-width='2.4' stroke-linecap='round'/><circle cx='26' cy='9' r='6' fill='${C.mist}' stroke='${C.line}' stroke-width='1.6'/><path d='M21 7 q5 3 10 0 M21 11 q5 3 10 0' fill='none' stroke='${C.line}' stroke-width='1' opacity='.7'/></svg>`)} center/contain no-repeat !important;box-shadow:none !important;border:none !important}
 [data-wk="gazecard"]::before,[data-wk="photocard"]::before{top:-14px !important;width:46px !important;height:17px !important;background:${svg(SOFTEARS("#fff"))} center bottom/100% 100% no-repeat !important;border:none !important;border-radius:0 !important}
+/* Ta 眼里的卡片：猫耳一左一右交替 */
+[data-wk="gazecard"]:nth-of-type(even)::before{left:auto !important;right:20px !important}
 `;
 
 const pack = { kind: "chat-look", v: 1, name: "猫猫", look: { bubble, layout, customCSS: css.trim() }, assets: {} };
